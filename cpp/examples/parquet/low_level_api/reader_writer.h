@@ -17,7 +17,6 @@
 
 #include <arrow/io/file.h>
 #include <arrow/util/logging.h>
-
 #include <parquet/api/reader.h>
 #include <parquet/api/writer.h>
 

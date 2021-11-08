@@ -1130,6 +1130,55 @@ TEST(GroupBy, VarianceAndStddev) {
                           /*verbose=*/true);
 }
 
+TEST(GroupBy, VarianceAndStddevDecimal) {
+  auto batch = RecordBatchFromJSON(
+      schema({field("argument0", decimal128(3, 2)), field("argument1", decimal128(3, 2)),
+              field("key", int64())}),
+      R"([
+    ["1.00",  "1.00",  1],
+    [null,    null,    1],
+    ["0.00",  "0.00",  2],
+    ["4.00",  "4.00",  null],
+    ["3.00",  "3.00",  1],
+    ["0.00",  "0.00",  2],
+    ["-1.00", "-1.00", 2],
+    ["1.00",  "1.00",  null]
+  ])");
+
+  ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
+                       internal::GroupBy(
+                           {
+                               batch->GetColumnByName("argument0"),
+                               batch->GetColumnByName("argument0"),
+                               batch->GetColumnByName("argument1"),
+                               batch->GetColumnByName("argument1"),
+                           },
+                           {
+                               batch->GetColumnByName("key"),
+                           },
+                           {
+                               {"hash_variance", nullptr},
+                               {"hash_stddev", nullptr},
+                               {"hash_variance", nullptr},
+                               {"hash_stddev", nullptr},
+                           }));
+
+  AssertDatumsApproxEqual(ArrayFromJSON(struct_({
+                                            field("hash_variance", float64()),
+                                            field("hash_stddev", float64()),
+                                            field("hash_variance", float64()),
+                                            field("hash_stddev", float64()),
+                                            field("key_0", int64()),
+                                        }),
+                                        R"([
+    [1.0,                 1.0,                1.0,                 1.0,                1],
+    [0.22222222222222224, 0.4714045207910317, 0.22222222222222224, 0.4714045207910317, 2],
+    [2.25,                1.5,                2.25,                1.5,                null]
+  ])"),
+                          aggregated_and_grouped,
+                          /*verbose=*/true);
+}
+
 TEST(GroupBy, TDigest) {
   auto batch = RecordBatchFromJSON(
       schema({field("argument", float64()), field("key", int64())}), R"([
@@ -1196,6 +1245,48 @@ TEST(GroupBy, TDigest) {
     [[null], [null, null, null], [null, null, null], [null], [null], [null], 3],
     [[1.0],  [1.0, 1.0, 1.0],    [1.0, 1.0, 1.0],    [null], [1.0],  [null], 4],
     [[1.0],  [1.0, 4.0, 4.0],    [1.0, 4.0, 4.0],    [1.0],  [null], [null], null]
+  ])"),
+      aggregated_and_grouped,
+      /*verbose=*/true);
+}
+
+TEST(GroupBy, TDigestDecimal) {
+  auto batch = RecordBatchFromJSON(
+      schema({field("argument0", decimal128(3, 2)), field("argument1", decimal256(3, 2)),
+              field("key", int64())}),
+      R"([
+    ["1.01",  "1.01",  1],
+    [null,    null,    1],
+    ["0.00",  "0.00",  2],
+    ["4.42",  "4.42",  null],
+    ["3.86",  "3.86",  1],
+    ["0.00",  "0.00",  2],
+    ["-1.93", "-1.93", 2],
+    ["1.85",  "1.85",  null]
+  ])");
+
+  ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
+                       internal::GroupBy(
+                           {
+                               batch->GetColumnByName("argument0"),
+                               batch->GetColumnByName("argument1"),
+                           },
+                           {batch->GetColumnByName("key")},
+                           {
+                               {"hash_tdigest", nullptr},
+                               {"hash_tdigest", nullptr},
+                           }));
+
+  AssertDatumsApproxEqual(
+      ArrayFromJSON(struct_({
+                        field("hash_tdigest", fixed_size_list(float64(), 1)),
+                        field("hash_tdigest", fixed_size_list(float64(), 1)),
+                        field("key_0", int64()),
+                    }),
+                    R"([
+    [[1.01], [1.01], 1],
+    [[0.0],  [0.0],  2],
+    [[1.85], [1.85], null]
   ])"),
       aggregated_and_grouped,
       /*verbose=*/true);

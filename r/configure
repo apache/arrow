@@ -204,6 +204,7 @@ fi
 # See: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=81358 for similar example
 if grep raspbian /etc/os-release >/dev/null 2>&1; then
   PKG_CFLAGS="$PKG_CFLAGS -DARROW_CXXFLAGS=-latomic"
+  PKG_LIBS="-latomic $PKG_LIBS"
 fi
 
 # If libarrow uses the old GLIBCXX ABI, so we have to use it too

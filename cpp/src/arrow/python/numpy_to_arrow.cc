@@ -156,6 +156,8 @@ class NumPyNullsConverter {
 int64_t MaskToBitmap(PyArrayObject* mask, int64_t length, uint8_t* bitmap) {
   int64_t null_count = 0;
 
+  if (!PyArray_Check(mask)) return -1;
+
   Ndarray1DIndexer<uint8_t> mask_values(mask);
   for (int i = 0; i < length; ++i) {
     if (mask_values[i]) {
@@ -268,6 +270,7 @@ class NumPyConverter {
     if (mask_ != nullptr) {
       RETURN_NOT_OK(InitNullBitmap());
       null_count_ = MaskToBitmap(mask_, length_, null_bitmap_data_);
+      if (null_count_ == -1) return Status::Invalid("Invalid mask type");
     } else {
       RETURN_NOT_OK(NumPyNullsConverter::Convert(pool_, arr_, from_pandas_, &null_bitmap_,
                                                  &null_count_));
@@ -768,6 +771,7 @@ Status NumPyConverter::Visit(const StructType& type) {
     if (mask_ != nullptr) {
       RETURN_NOT_OK(InitNullBitmap());
       null_count = MaskToBitmap(mask_, length_, null_bitmap_data_);
+      if (null_count_ == -1) return Status::Invalid("Invalid mask type");
     }
     groups.push_back({std::make_shared<BooleanArray>(length_, null_bitmap_)});
   }

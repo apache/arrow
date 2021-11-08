@@ -196,6 +196,8 @@ class ARROW_EXPORT BasicDecimal128 {
 
   /// \brief Scale multiplier for given scale value.
   static const BasicDecimal128& GetScaleMultiplier(int32_t scale);
+  /// \brief Half-scale multiplier for given scale value.
+  static const BasicDecimal128& GetHalfScaleMultiplier(int32_t scale);
 
   /// \brief Convert BasicDecimal128 from one scale to another
   DecimalStatus Rescale(int32_t original_scale, int32_t new_scale,
@@ -224,6 +226,9 @@ class ARROW_EXPORT BasicDecimal128 {
 
   /// \brief Get the maximum valid unscaled decimal value.
   static const BasicDecimal128& GetMaxValue();
+
+  /// \brief Get the maximum valid unscaled decimal value for the given precision.
+  static BasicDecimal128 GetMaxValue(int32_t precision);
 
   /// \brief Get the maximum decimal value (is not a valid value).
   static inline constexpr BasicDecimal128 GetMaxSentinel() {
@@ -372,6 +377,8 @@ class ARROW_EXPORT BasicDecimal256 {
 
   /// \brief Scale multiplier for given scale value.
   static const BasicDecimal256& GetScaleMultiplier(int32_t scale);
+  /// \brief Half-scale multiplier for given scale value.
+  static const BasicDecimal256& GetHalfScaleMultiplier(int32_t scale);
 
   /// \brief Convert BasicDecimal256 from one scale to another
   DecimalStatus Rescale(int32_t original_scale, int32_t new_scale,
@@ -422,6 +429,9 @@ class ARROW_EXPORT BasicDecimal256 {
 
   /// \brief In-place division.
   BasicDecimal256& operator/=(const BasicDecimal256& right);
+
+  /// \brief Get the maximum valid unscaled decimal value for the given precision.
+  static BasicDecimal256 GetMaxValue(int32_t precision);
 
   /// \brief Get the maximum decimal value (is not a valid value).
   static inline constexpr BasicDecimal256 GetMaxSentinel() {

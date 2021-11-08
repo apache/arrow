@@ -24,6 +24,15 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/utf8.h"
 
+// Do not benchmark inlined functions directly inside the benchmark loop
+static ARROW_NOINLINE bool ValidateUTF8NoInline(const uint8_t* data, int64_t size) {
+  return ::arrow::util::ValidateUTF8(data, size);
+}
+
+static ARROW_NOINLINE bool ValidateAsciiNoInline(const uint8_t* data, int64_t size) {
+  return ::arrow::util::ValidateAscii(data, size);
+}
+
 namespace arrow {
 namespace util {
 
@@ -57,14 +66,14 @@ static void BenchmarkUTF8Validation(
   auto data_size = static_cast<int64_t>(s.size());
 
   InitializeUTF8();
-  bool b = ValidateUTF8(data, data_size);
+  bool b = ValidateUTF8NoInline(data, data_size);
   if (b != expected) {
     std::cerr << "Unexpected validation result" << std::endl;
     std::abort();
   }
 
   while (state.KeepRunning()) {
-    bool b = ValidateUTF8(data, data_size);
+    bool b = ValidateUTF8NoInline(data, data_size);
     benchmark::DoNotOptimize(b);
   }
   state.SetBytesProcessed(state.iterations() * s.size());
@@ -76,15 +85,14 @@ static void BenchmarkASCIIValidation(
   auto data = reinterpret_cast<const uint8_t*>(s.data());
   auto data_size = static_cast<int64_t>(s.size());
 
-  InitializeUTF8();
-  bool b = ValidateAscii(data, data_size);
+  bool b = ValidateAsciiNoInline(data, data_size);
   if (b != expected) {
     std::cerr << "Unexpected validation result" << std::endl;
     std::abort();
   }
 
   while (state.KeepRunning()) {
-    bool b = ValidateAscii(data, data_size);
+    bool b = ValidateAsciiNoInline(data, data_size);
     benchmark::DoNotOptimize(b);
   }
   state.SetBytesProcessed(state.iterations() * s.size());

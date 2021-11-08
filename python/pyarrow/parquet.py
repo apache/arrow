@@ -687,7 +687,52 @@ writer_engine_version : unused
         # return false since we want to propagate exceptions
         return False
 
+    def write(self, table_or_batch, row_group_size=None):
+        """
+        Write RecordBatch or Table to the Parquet file.
+
+        Parameters
+        ----------
+        table_or_batch : {RecordBatch, Table}
+        row_group_size : int, default None
+            Maximum size of each written row group. If None, the
+            row group size will be the minimum of the input
+            table or batch length and 64 * 1024 * 1024.
+        """
+        if isinstance(table_or_batch, pa.RecordBatch):
+            self.write_batch(table_or_batch, row_group_size)
+        elif isinstance(table_or_batch, pa.Table):
+            self.write_table(table_or_batch, row_group_size)
+        else:
+            raise TypeError(type(table_or_batch))
+
+    def write_batch(self, batch, row_group_size=None):
+        """
+        Write RecordBatch to the Parquet file.
+
+        Parameters
+        ----------
+        batch : RecordBatch
+        row_group_size : int, default None
+            Maximum size of each written row group. If None, the
+            row group size will be the minimum of the RecordBatch
+            size and 64 * 1024 * 1024.
+        """
+        table = pa.Table.from_batches([batch], batch.schema)
+        self.write_table(table, row_group_size)
+
     def write_table(self, table, row_group_size=None):
+        """
+        Write Table to the Parquet file.
+
+        Parameters
+        ----------
+        table : Table
+        row_group_size : int, default None
+            Maximum size of each written row group. If None, the
+            row group size will be the minimum of the Table size
+            and 64 * 1024 * 1024.
+        """
         if self.schema_changed:
             table = _sanitize_table(table, self.schema, self.flavor)
         assert self.is_open
@@ -1529,7 +1574,11 @@ coerce_int96_timestamp_unit : str, default None.
     @property
     def partitions(self):
         warnings.warn(
-            _DEPR_MSG.format("ParquetDataset.partitions", ""),
+            _DEPR_MSG.format(
+                "ParquetDataset.partitions",
+                " Specify 'use_legacy_dataset=False' while constructing the "
+                "ParquetDataset, and then use the '.partitioning' attribute "
+                "instead."),
             DeprecationWarning, stacklevel=2)
         return self._partitions
 
@@ -1811,6 +1860,13 @@ class _ParquetDatasetV2:
     def filesystem(self):
         return self._dataset.filesystem
 
+    @property
+    def partitioning(self):
+        """
+        The partitioning of the Dataset source, if discovered.
+        """
+        return self._dataset.partitioning
+
 
 _read_table_docstring = """
 {0}
@@ -1824,7 +1880,9 @@ source : str, pyarrow.NativeFile, or file-like object
 columns : list
     If not None, only these columns will be read from the file. A column
     name may be a prefix of a nested field, e.g. 'a' will select 'a.b',
-    'a.c', and 'a.d.e'.
+    'a.c', and 'a.d.e'. If empty, no columns will be read. Note
+    that the table will still have the correct num_rows set despite having
+    no columns.
 use_threads : bool, default True
     Perform multi-threaded column reads.
 metadata : FileMetaData

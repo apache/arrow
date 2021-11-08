@@ -63,7 +63,7 @@ Expression::Expression(Parameter parameter)
 Expression literal(Datum lit) { return Expression(std::move(lit)); }
 
 Expression field_ref(FieldRef ref) {
-  return Expression(Expression::Parameter{std::move(ref), ValueDescr{}, -1});
+  return Expression(Expression::Parameter{std::move(ref), ValueDescr{}, {-1}});
 }
 
 Expression call(std::string function, std::vector<Expression> arguments,
@@ -394,14 +394,11 @@ Result<Expression> BindImpl(Expression expr, const TypeOrSchema& in,
   if (expr.literal()) return expr;
 
   if (auto ref = expr.field_ref()) {
-    if (ref->IsNested()) {
-      return Status::NotImplemented("nested field references");
-    }
-
     ARROW_ASSIGN_OR_RAISE(auto path, ref->FindOne(in));
 
     auto bound = *expr.parameter();
-    bound.index = path[0];
+    bound.indices.resize(path.indices().size());
+    std::copy(path.indices().begin(), path.indices().end(), bound.indices.begin());
     ARROW_ASSIGN_OR_RAISE(auto field, path.Get(in));
     bound.descr.type = field->type();
     bound.descr.shape = shape;
@@ -512,7 +509,31 @@ Result<Datum> ExecuteScalarExpression(const Expression& expr, const ExecBatch& i
       return MakeNullScalar(null());
     }
 
-    const Datum& field = input[param->index];
+    Datum field = input[param->indices[0]];
+    for (auto it = param->indices.begin() + 1; it != param->indices.end(); ++it) {
+      if (field.type()->id() != Type::STRUCT) {
+        return Status::Invalid("Nested field reference into a non-struct: ",
+                               *field.type());
+      }
+      const int index = *it;
+      if (index < 0 || index >= field.type()->num_fields()) {
+        return Status::Invalid("Out of bounds field reference: ", index, " but type has ",
+                               field.type()->num_fields(), " fields");
+      }
+      if (field.is_scalar()) {
+        const auto& struct_scalar = field.scalar_as<StructScalar>();
+        if (!struct_scalar.is_valid) {
+          return MakeNullScalar(param->descr.type);
+        }
+        field = struct_scalar.value[index];
+      } else if (field.is_array()) {
+        const auto& struct_array = field.array_as<StructArray>();
+        ARROW_ASSIGN_OR_RAISE(
+            field, struct_array->GetFlattenedField(index, exec_context->memory_pool()));
+      } else {
+        return Status::NotImplemented("Nested field reference into a ", field.ToString());
+      }
+    }
     if (!field.type()->Equals(param->descr.type)) {
       return Status::Invalid("Referenced field ", expr.ToString(), " was ",
                              field.type()->ToString(), " but should have been ",

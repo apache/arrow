@@ -4,6 +4,14 @@ test_SET_STRING_ELT <- function(s) {
   invisible(.Call(`_arrow_test_SET_STRING_ELT`, s))
 }
 
+test_same_Array <- function(x, y) {
+  .Call(`_arrow_test_same_Array`, x, y)
+}
+
+is_arrow_altrep <- function(x) {
+  .Call(`_arrow_is_arrow_altrep`, x)
+}
+
 Array__Slice1 <- function(array, offset) {
   .Call(`_arrow_Array__Slice1`, array, offset)
 }
@@ -280,8 +288,12 @@ ExecPlan_create <- function(use_threads) {
   .Call(`_arrow_ExecPlan_create`, use_threads)
 }
 
-ExecPlan_run <- function(plan, final_node, sort_options) {
-  .Call(`_arrow_ExecPlan_run`, plan, final_node, sort_options)
+ExecPlan_run <- function(plan, final_node, sort_options, head) {
+  .Call(`_arrow_ExecPlan_run`, plan, final_node, sort_options, head)
+}
+
+ExecPlan_StopProducing <- function(plan) {
+  invisible(.Call(`_arrow_ExecPlan_StopProducing`, plan))
 }
 
 ExecNode_output_schema <- function(node) {
@@ -306,6 +318,10 @@ ExecNode_Aggregate <- function(input, options, target_names, out_field_names, ke
 
 ExecNode_Join <- function(input, type, right_data, left_keys, right_keys, left_output, right_output) {
   .Call(`_arrow_ExecNode_Join`, input, type, right_data, left_keys, right_keys, left_output, right_output)
+}
+
+ExecNode_ReadFromRecordBatchReader <- function(plan, reader) {
+  .Call(`_arrow_ExecNode_ReadFromRecordBatchReader`, plan, reader)
 }
 
 RecordBatch__cast <- function(batch, schema, options) {
@@ -560,6 +576,10 @@ dataset___ScannerBuilder__Finish <- function(sb) {
   .Call(`_arrow_dataset___ScannerBuilder__Finish`, sb)
 }
 
+dataset___ScannerBuilder__FromRecordBatchReader <- function(reader) {
+  .Call(`_arrow_dataset___ScannerBuilder__FromRecordBatchReader`, reader)
+}
+
 dataset___Scanner__ToTable <- function(scanner) {
   .Call(`_arrow_dataset___Scanner__ToTable`, scanner)
 }
@@ -584,8 +604,8 @@ dataset___ScanTask__get_batches <- function(scan_task) {
   .Call(`_arrow_dataset___ScanTask__get_batches`, scan_task)
 }
 
-dataset___Dataset__Write <- function(file_write_options, filesystem, base_dir, partitioning, basename_template, scanner) {
-  invisible(.Call(`_arrow_dataset___Dataset__Write`, file_write_options, filesystem, base_dir, partitioning, basename_template, scanner))
+dataset___Dataset__Write <- function(file_write_options, filesystem, base_dir, partitioning, basename_template, scanner, existing_data_behavior) {
+  invisible(.Call(`_arrow_dataset___Dataset__Write`, file_write_options, filesystem, base_dir, partitioning, basename_template, scanner, existing_data_behavior))
 }
 
 dataset___Scanner__TakeRows <- function(scanner, indices) {
@@ -1779,4 +1799,3 @@ SetIOThreadPoolCapacity <- function(threads) {
 Array__infer_type <- function(x) {
   .Call(`_arrow_Array__infer_type`, x)
 }
-

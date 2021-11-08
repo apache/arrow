@@ -419,31 +419,18 @@ test_that("partitioning = NULL to ignore partition information (but why?)", {
 })
 
 test_that("head/tail", {
+  # head/tail with no query are still deterministic order
   ds <- open_dataset(dataset_dir)
   expect_equal(as.data.frame(head(ds)), head(df1))
   expect_equal(
     as.data.frame(head(ds, 12)),
     rbind(df1, df2[1:2, ])
   )
-  expect_equal(
-    ds %>%
-      filter(int > 6) %>%
-      head() %>%
-      as.data.frame(),
-    rbind(df1[7:10, ], df2[1:2, ])
-  )
 
   expect_equal(as.data.frame(tail(ds)), tail(df2))
   expect_equal(
     as.data.frame(tail(ds, 12)),
     rbind(df1[9:10, ], df2)
-  )
-  expect_equal(
-    ds %>%
-      filter(int < 105) %>%
-      tail() %>%
-      as.data.frame(),
-    rbind(df1[9:10, ], df2[1:4, ])
   )
 })
 
@@ -671,4 +658,39 @@ test_that("Collecting zero columns from a dataset doesn't return entire dataset"
     open_dataset(tmp) %>% select() %>% collect() %>% dim(),
     c(32, 0)
   )
+})
+
+
+test_that("dataset RecordBatchReader to C-interface to arrow_dplyr_query", {
+  ds <- open_dataset(ipc_dir, partitioning = "part", format = "feather")
+
+  # export the RecordBatchReader via the C-interface
+  stream_ptr <- allocate_arrow_array_stream()
+  scan <- Scanner$create(ds)
+  reader <- scan$ToRecordBatchReader()
+  reader$export_to_c(stream_ptr)
+
+  # then import it and check that the roundtripped value is the same
+  circle <- RecordBatchStreamReader$import_from_c(stream_ptr)
+
+  # create an arrow_dplyr_query() from the recordbatch reader
+  reader_adq <- arrow_dplyr_query(circle)
+
+  # TODO: ARROW-14321 should be able to arrange then collect
+  tab_from_c_new <- reader_adq %>%
+    filter(int < 8, int > 55) %>%
+    mutate(part_plus = part + 6) %>%
+    collect()
+  expect_equal(
+    tab_from_c_new %>%
+      arrange(dbl),
+    ds %>%
+      filter(int < 8, int > 55) %>%
+      mutate(part_plus = part + 6) %>%
+      collect() %>%
+      arrange(dbl)
+  )
+
+  # must clean up the pointer or we leak
+  delete_arrow_array_stream(stream_ptr)
 })

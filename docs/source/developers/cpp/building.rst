@@ -176,6 +176,7 @@ By default, the C++ build system creates a fairly minimal build. We have
 several optional system components which you can opt into building by passing
 boolean flags to ``cmake``.
 
+* ``-DARROW_BUILD_UTILITIES=ON`` : Build Arrow commandline utilities
 * ``-DARROW_COMPUTE=ON``: Computational kernel functions and other support
 * ``-DARROW_CSV=ON``: CSV reader module
 * ``-DARROW_CUDA=ON``: CUDA integration for GPU development. Depends on NVIDIA
@@ -189,10 +190,13 @@ boolean flags to ``cmake``.
 * ``-DARROW_GANDIVA=ON``: Gandiva expression compiler, depends on LLVM,
   Protocol Buffers, and re2
 * ``-DARROW_GANDIVA_JAVA=ON``: Gandiva JNI bindings for Java
+* ``-DARROW_GCS=ON``: Build Arrow with GCS support (requires the GCloud SDK for C++)
 * ``-DARROW_HDFS=ON``: Arrow integration with libhdfs for accessing the Hadoop
   Filesystem
 * ``-DARROW_HIVESERVER2=ON``: Client library for HiveServer2 database protocol
+* ``-DARROW_JEMALLOC=ON``: Build the Arrow jemalloc-based allocator, on by default 
 * ``-DARROW_JSON=ON``: JSON reader module
+* ``-DARROW_MIMALLOC=ON``: Build the Arrow mimalloc-based allocator
 * ``-DARROW_ORC=ON``: Arrow integration with Apache ORC
 * ``-DARROW_PARQUET=ON``: Apache Parquet libraries and Arrow integration
 * ``-DARROW_PLASMA=ON``: Plasma Shared Memory Object Store
@@ -203,12 +207,21 @@ boolean flags to ``cmake``.
   this option also enables ``ARROW_COMPUTE``, ``ARROW_CSV``, ``ARROW_DATASET``,
   ``ARROW_FILESYSTEM``, ``ARROW_HDFS``, and ``ARROW_JSON``.
 * ``-DARROW_S3=ON``: Support for Amazon S3-compatible filesystems
+* ``-DARROW_WITH_RE2=ON`` Build with support for regular expressions using the re2 
+  library, on by default and used when ``ARROW_COMPUTE`` or ``ARROW_GANDIVA`` is ``ON``
+* ``-DARROW_WITH_UTF8PROC=ON``: Build with support for Unicode properties using
+  the utf8proc library, on by default and used when ``ARROW_COMPUTE`` or ``ARROW_GANDIVA``
+  is ``ON``
+* ``-DARROW_TENSORFLOW=ON``: Build Arrow with TensorFlow support enabled
+
+Compression options available in Arrow are:
+
+* ``-DARROW_WITH_BROTLI=ON``: Build support for Brotli compression
 * ``-DARROW_WITH_BZ2=ON``: Build support for BZ2 compression
-* ``-DARROW_WITH_ZLIB=ON``: Build support for zlib (gzip) compression
 * ``-DARROW_WITH_LZ4=ON``: Build support for lz4 compression
 * ``-DARROW_WITH_SNAPPY=ON``: Build support for Snappy compression
+* ``-DARROW_WITH_ZLIB=ON``: Build support for zlib (gzip) compression
 * ``-DARROW_WITH_ZSTD=ON``: Build support for ZSTD compression
-* ``-DARROW_WITH_BROTLI=ON``: Build support for Brotli compression
 
 Some features of the core Arrow shared library can be switched off for improved
 build times if they are not required for your application:
@@ -274,8 +287,8 @@ Build Dependency Management
 
 The build system supports a number of third-party dependencies
 
-  * ``AWSSDK``: for S3 support, requires system cURL even we use the
-    ``BUNDLE`` method described below
+  * ``AWSSDK``: for S3 support, requires system cURL and can use the
+    ``BUNDLED`` method described below
   * ``benchmark``: Google benchmark, for testing
   * ``Boost``: for cross-platform support
   * ``Brotli``: for data compression
@@ -283,6 +296,8 @@ The build system supports a number of third-party dependencies
   * ``c-ares``: a dependency of gRPC
   * ``gflags``: for command line utilities (formerly Googleflags)
   * ``GLOG``: for logging
+  * ``google_cloud_cpp_storage``: for Google Cloud Storage support, requires 
+    system cURL and can use the ``BUNDLED`` method described below
   * ``gRPC``: for remote procedure calls
   * ``GTest``: Googletest, for testing
   * ``LLVM``: a dependency of Gandiva

@@ -65,14 +65,14 @@ RUN apt-get update -y -q && \
         ninja-build \
         pkg-config \
         protobuf-compiler \
+        python3-pip \
         rapidjson-dev \
         tzdata \
         zlib1g-dev && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-COPY ci/scripts/install_minio.sh \
-     /arrow/ci/scripts/
+COPY ci/scripts/install_minio.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_minio.sh ${arch} linux latest /usr/local
 
 ENV ARROW_BUILD_TESTS=ON \

@@ -37,6 +37,7 @@ release_tag="apache-arrow-${version}"
 # are jobs submitted with the same prefix (the integer at the end is auto
 # incremented)
 archery crossbow submit \
+    --no-fetch \
     --job-prefix ${crossbow_job_prefix} \
     --arrow-version ${version_with_rc} \
     --arrow-remote "https://github.com/${ARROW_REPOSITORY}" \

@@ -526,6 +526,10 @@ test_that("Handling string data with embedded nuls", {
   batch_with_nul <- record_batch(a = 1:5, b = raws)
   batch_with_nul$b <- batch_with_nul$b$cast(utf8())
 
+  # The behavior of the warnings/errors is slightly different with and without
+  # altrep. Without it (i.e. 3.5.0 and below, the error would trigger immediately
+  # on `as.vector()` where as with it, the error only happens on materialization)
+  skip_if_r_version("3.5.0")
   df <- as.data.frame(batch_with_nul)
 
   expect_error(
@@ -553,8 +557,9 @@ test_that("Handling string data with embedded nuls", {
   })
 })
 
-test_that("ARROW-11769 - grouping preserved in record batch creation", {
+test_that("ARROW-11769/ARROW-13860 - grouping preserved in record batch creation", {
   skip_if_not_available("dataset")
+  library(dplyr, warn.conflicts = FALSE)
 
   tbl <- tibble::tibble(
     int = 1:10,
@@ -562,11 +567,33 @@ test_that("ARROW-11769 - grouping preserved in record batch creation", {
     fct2 = factor(rep(c("C", "D"), each = 5)),
   )
 
+  expect_r6_class(
+    tbl %>%
+      group_by(fct, fct2) %>%
+      record_batch(),
+    "RecordBatch"
+  )
   expect_identical(
     tbl %>%
-      dplyr::group_by(fct, fct2) %>%
+      group_by(fct, fct2) %>%
       record_batch() %>%
-      dplyr::group_vars(),
+      group_vars(),
+    c("fct", "fct2")
+  )
+  expect_identical(
+    tbl %>%
+      group_by(fct, fct2) %>%
+      record_batch() %>%
+      ungroup() %>%
+      group_vars(),
+    NULL
+  )
+  expect_identical(
+    tbl %>%
+      group_by(fct, fct2) %>%
+      record_batch() %>%
+      select(-int) %>%
+      group_vars(),
     c("fct", "fct2")
   )
 })
@@ -633,4 +660,31 @@ test_that("RecordBatch to C-interface", {
   # must clean up the pointers or we leak
   delete_arrow_schema(schema_ptr)
   delete_arrow_array(array_ptr)
+})
+
+
+
+test_that("RecordBatchReader to C-interface to arrow_dplyr_query", {
+  skip_if_not_available("dataset")
+
+  tab <- Table$create(example_data)
+
+  # export the RecordBatchReader via the C-interface
+  stream_ptr <- allocate_arrow_array_stream()
+  scan <- Scanner$create(tab)
+  reader <- scan$ToRecordBatchReader()
+  reader$export_to_c(stream_ptr)
+
+  # then import it and check that the roundtripped value is the same
+  circle <- RecordBatchStreamReader$import_from_c(stream_ptr)
+
+  # create an arrow_dplyr_query() from the recordbatch reader
+  reader_adq <- arrow_dplyr_query(circle)
+
+  tab_from_c_new <- reader_adq %>%
+    dplyr::compute()
+  expect_equal(tab_from_c_new, tab)
+
+  # must clean up the pointer or we leak
+  delete_arrow_array_stream(stream_ptr)
 })

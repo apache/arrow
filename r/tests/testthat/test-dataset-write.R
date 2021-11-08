@@ -139,6 +139,46 @@ test_that("Writing a dataset: Parquet->Parquet (default)", {
   )
 })
 
+test_that("Writing a dataset: existing data behavior", {
+  # This test does not work on Windows because unlink does not immediately
+  # delete the data.
+  skip_on_os("windows")
+  ds <- open_dataset(csv_dir, partitioning = "part", format = "csv")
+  dst_dir <- make_temp_dir()
+  write_dataset(ds, dst_dir, format = "feather", partitioning = "int")
+  expect_true(dir.exists(dst_dir))
+
+  check_dataset <- function() {
+    new_ds <- open_dataset(dst_dir, format = "feather")
+
+    expect_equal(
+      new_ds %>%
+        select(string = chr, integer = int) %>%
+        filter(integer > 6 & integer < 11) %>%
+        collect() %>%
+        summarize(mean = mean(integer)),
+      df1 %>%
+        select(string = chr, integer = int) %>%
+        filter(integer > 6) %>%
+        summarize(mean = mean(integer))
+    )
+  }
+
+  check_dataset()
+  # By default we should overwrite
+  write_dataset(ds, dst_dir, format = "feather", partitioning = "int")
+  check_dataset()
+  write_dataset(ds, dst_dir, format = "feather", partitioning = "int", existing_data_behavior = "overwrite")
+  check_dataset()
+  expect_error(
+    write_dataset(ds, dst_dir, format = "feather", partitioning = "int", existing_data_behavior = "error"),
+    "directory is not empty"
+  )
+  unlink(dst_dir, recursive = TRUE)
+  write_dataset(ds, dst_dir, format = "feather", partitioning = "int", existing_data_behavior = "error")
+  check_dataset()
+})
+
 test_that("Writing a dataset: no format specified", {
   dst_dir <- make_temp_dir()
   write_dataset(example_data, dst_dir)

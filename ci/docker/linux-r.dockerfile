@@ -40,6 +40,7 @@ ENV PATH "${RPREFIX}/bin:${PATH}"
 COPY ci/scripts/r_docker_configure.sh /arrow/ci/scripts/
 COPY ci/etc/rprofile /arrow/ci/etc/
 COPY ci/scripts/install_minio.sh /arrow/ci/scripts/
+COPY ci/scripts/install_gcs_testbench.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/r_docker_configure.sh
 
 COPY ci/scripts/r_deps.sh /arrow/ci/scripts/

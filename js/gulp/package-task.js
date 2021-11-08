@@ -60,8 +60,8 @@ const createMainPackageJson = (target, format) => (orig) => ({
     main: `${mainExport}.node.js`,
     module: `${mainExport}.node.mjs`,
     browser: {
-        [`${mainExport}.node.js`]: `${mainExport}.dom.js`,
-        [`${mainExport}.node.mjs`]: `${mainExport}.dom.mjs`
+        [`./${mainExport}.node.js`]: `./${mainExport}.dom.js`,
+        [`./${mainExport}.node.mjs`]: `./${mainExport}.dom.mjs`
     },
     exports: {
         import: `./${mainExport}.node.mjs`,

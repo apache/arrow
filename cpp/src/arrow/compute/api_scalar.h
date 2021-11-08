@@ -93,10 +93,17 @@ class ARROW_EXPORT RoundToMultipleOptions : public FunctionOptions {
  public:
   explicit RoundToMultipleOptions(double multiple = 1.0,
                                   RoundMode round_mode = RoundMode::HALF_TO_EVEN);
+  explicit RoundToMultipleOptions(std::shared_ptr<Scalar> multiple,
+                                  RoundMode round_mode = RoundMode::HALF_TO_EVEN);
   constexpr static char const kTypeName[] = "RoundToMultipleOptions";
   static RoundToMultipleOptions Defaults() { return RoundToMultipleOptions(); }
-  /// Rounding scale (multiple to round to)
-  double multiple;
+  /// Rounding scale (multiple to round to).
+  ///
+  /// Should be a scalar of a type compatible with the argument to be rounded.
+  /// For example, rounding a decimal value means a decimal multiple is
+  /// required. Rounding a floating point or integer value means a floating
+  /// point scalar is required.
+  std::shared_ptr<Scalar> multiple;
   /// Rounding and tie-breaking mode
   RoundMode round_mode;
 };
@@ -869,7 +876,7 @@ Result<Datum> IsIn(const Datum& values, const Datum& value_set,
 /// will be output.
 ///
 /// For example given values = [99, 42, 3, null] and
-/// value_set = [3, 3, 99], the output will be = [1, null, 0, null]
+/// value_set = [3, 3, 99], the output will be = [2, null, 0, null]
 ///
 /// Behaviour of nulls is governed by SetLookupOptions::skip_nulls.
 ///

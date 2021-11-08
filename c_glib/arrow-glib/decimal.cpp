@@ -60,11 +60,18 @@ struct DecimalConverter<arrow::Decimal256> {
 
 template <typename Decimal>
 typename DecimalConverter<Decimal>::GArrowType *
-garrow_decimal_new_string(const gchar *data)
+garrow_decimal_new_string(const gchar *data,
+                          GError **error,
+                          const gchar *tag)
 {
-  auto arrow_decimal = std::make_shared<Decimal>(data);
-  DecimalConverter<Decimal> converter;
-  return converter.new_raw(&arrow_decimal);
+  auto arrow_decimal_result = Decimal::FromString(data);
+  if (garrow::check(error, arrow_decimal_result, tag)) {
+    auto arrow_decimal = std::make_shared<Decimal>(*arrow_decimal_result);
+    DecimalConverter<Decimal> converter;
+    return converter.new_raw(&arrow_decimal);
+  } else {
+    return NULL;
+  }
 }
 
 template <typename Decimal>
@@ -375,15 +382,18 @@ garrow_decimal128_class_init(GArrowDecimal128Class *klass)
 /**
  * garrow_decimal128_new_string:
  * @data: The data of the decimal.
+ * @error: (nullable): Return location for a #GError or %NULL.
  *
- * Returns: A newly created #GArrowDecimal128.
+ * Returns: (nullable):
+ *   A newly created #GArrowDecimal128 on success, %NULL on error.
  *
  * Since: 0.10.0
  */
 GArrowDecimal128 *
-garrow_decimal128_new_string(const gchar *data)
+garrow_decimal128_new_string(const gchar *data, GError **error)
 {
-  return garrow_decimal_new_string<arrow::Decimal128>(data);
+  return garrow_decimal_new_string<arrow::Decimal128>(
+    data, error, "[decimal128][new][string]");
 }
 
 /**
@@ -780,15 +790,18 @@ garrow_decimal256_class_init(GArrowDecimal256Class *klass)
 /**
  * garrow_decimal256_new_string:
  * @data: The data of the decimal.
+ * @error: (nullable): Return location for a #GError or %NULL.
  *
- * Returns: A newly created #GArrowDecimal256.
+ * Returns: (nullable):
+ *   A newly created #GArrowDecimal256 on success, %NULL on error.
  *
  * Since: 3.0.0
  */
 GArrowDecimal256 *
-garrow_decimal256_new_string(const gchar *data)
+garrow_decimal256_new_string(const gchar *data, GError **error)
 {
-  return garrow_decimal_new_string<arrow::Decimal256>(data);
+  return garrow_decimal_new_string<arrow::Decimal256>(
+    data, error, "[decimal256][new][string]");
 }
 
 /**

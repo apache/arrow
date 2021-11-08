@@ -255,10 +255,6 @@ nse_funcs$is_logical <- function(x, n = NULL) {
   assert_that(is.null(n))
   nse_funcs$is.logical(x)
 }
-nse_funcs$is_timestamp <- function(x, n = NULL) {
-  assert_that(is.null(n))
-  inherits(x, "POSIXt") || (inherits(x, "Expression") && x$type_id() %in% Type[c("TIMESTAMP")])
-}
 
 # String functions
 nse_funcs$nchar <- function(x, type = "chars", allowNA = FALSE, keepNA = NA) {
@@ -345,7 +341,7 @@ arrow_string_join_function <- function(null_handling, null_replacement = NULL) {
 # Arrow locale will be supported with ARROW-14126
 stop_if_locale_provided <- function(locale) {
   if (!identical(locale, "en")) {
-    stop("Providing a value for 'locale' other than the default ('en') is not supported by Arrow. ",
+    stop("Providing a value for 'locale' other than the default ('en') is not supported in Arrow. ",
       "To change locale, use 'Sys.setlocale()'",
       call. = FALSE
     )
@@ -601,6 +597,63 @@ nse_funcs$str_pad <- function(string, width, side = c("left", "right", "both"), 
   )
 }
 
+nse_funcs$startsWith <- function(x, prefix) {
+  Expression$create(
+    "starts_with",
+    x,
+    options = list(pattern = prefix)
+  )
+}
+
+nse_funcs$endsWith <- function(x, suffix) {
+  Expression$create(
+    "ends_with",
+    x,
+    options = list(pattern = suffix)
+  )
+}
+
+nse_funcs$str_starts <- function(string, pattern, negate = FALSE) {
+  opts <- get_stringr_pattern_options(enexpr(pattern))
+  if (opts$fixed) {
+    out <- nse_funcs$startsWith(x = string, prefix = opts$pattern)
+  } else {
+    out <- nse_funcs$grepl(pattern = paste0("^", opts$pattern), x = string, fixed = FALSE)
+  }
+
+  if (negate) {
+    out <- !out
+  }
+  out
+}
+
+nse_funcs$str_ends <- function(string, pattern, negate = FALSE) {
+  opts <- get_stringr_pattern_options(enexpr(pattern))
+  if (opts$fixed) {
+    out <- nse_funcs$endsWith(x = string, suffix = opts$pattern)
+  } else {
+    out <- nse_funcs$grepl(pattern = paste0(opts$pattern, "$"), x = string, fixed = FALSE)
+  }
+
+  if (negate) {
+    out <- !out
+  }
+  out
+}
+
+nse_funcs$str_count <- function(string, pattern) {
+  opts <- get_stringr_pattern_options(enexpr(pattern))
+  if (!is.string(pattern)) {
+    arrow_not_supported("`pattern` must be a length 1 character vector; other values")
+  }
+  arrow_fun <- ifelse(opts$fixed, "count_substring", "count_substring_regex")
+  Expression$create(
+    arrow_fun,
+    string,
+    options = list(pattern = opts$pattern, ignore_case = opts$ignore_case)
+  )
+}
+
 # String function helpers
 
 # format `pattern` as needed for case insensitivity and literal matching by RE2
@@ -692,6 +745,19 @@ contains_regex <- function(string) {
   grepl("[.\\|()[{^$*+?]", string)
 }
 
+nse_funcs$trunc <- function(x, ...) {
+  # accepts and ignores ... for consistency with base::trunc()
+  build_expr("trunc", x)
+}
+
+nse_funcs$round <- function(x, digits = 0) {
+  build_expr(
+    "round",
+    x,
+    options = list(ndigits = digits, round_mode = RoundMode$HALF_TO_EVEN)
+  )
+}
+
 nse_funcs$strptime <- function(x, format = "%Y-%m-%d %H:%M:%S", tz = NULL, unit = "ms") {
   # Arrow uses unit for time parsing, strptime() does not.
   # Arrow has no default option for strptime (format, unit),
@@ -718,7 +784,7 @@ nse_funcs$strftime <- function(x, format = "", tz = "", usetz = FALSE) {
   }
   # Arrow's strftime prints in timezone of the timestamp. To match R's strftime behavior we first
   # cast the timestamp to desired timezone. This is a metadata only change.
-  if (nse_funcs$is_timestamp(x)) {
+  if (nse_funcs$is.POSIXct(x)) {
     ts <- Expression$create("cast", x, options = list(to_type = timestamp(x$type()$unit(), tz)))
   } else {
     ts <- x
@@ -761,19 +827,6 @@ nse_funcs$second <- function(x) {
   Expression$create("add", Expression$create("second", x), Expression$create("subsecond", x))
 }
 
-nse_funcs$trunc <- function(x, ...) {
-  # accepts and ignores ... for consistency with base::trunc()
-  build_expr("trunc", x)
-}
-
-nse_funcs$round <- function(x, digits = 0) {
-  build_expr(
-    "round",
-    x,
-    options = list(ndigits = digits, round_mode = RoundMode$HALF_TO_EVEN)
-  )
-}
-
 nse_funcs$wday <- function(x,
                            label = FALSE,
                            abbr = TRUE,
@@ -789,6 +842,21 @@ nse_funcs$wday <- function(x,
   }
 
   Expression$create("day_of_week", x, options = list(count_from_zero = FALSE, week_start = week_start))
+}
+
+nse_funcs$is.Date <- function(x) {
+  inherits(x, "Date") ||
+    (inherits(x, "Expression") && x$type_id() %in% Type[c("DATE32", "DATE64")])
+}
+
+nse_funcs$is.instant <- nse_funcs$is.timepoint <- function(x) {
+  inherits(x, c("POSIXt", "POSIXct", "POSIXlt", "Date")) ||
+    (inherits(x, "Expression") && x$type_id() %in% Type[c("TIMESTAMP", "DATE32", "DATE64")])
+}
+
+nse_funcs$is.POSIXct <- function(x) {
+  inherits(x, "POSIXct") ||
+    (inherits(x, "Expression") && x$type_id() %in% Type[c("TIMESTAMP")])
 }
 
 nse_funcs$log <- nse_funcs$logb <- function(x, base = exp(1)) {
@@ -871,6 +939,9 @@ nse_funcs$case_when <- function(...) {
     if (!nse_funcs$is.logical(query[[i]])) {
       abort("Left side of each formula in case_when() must be a logical expression")
     }
+    if (inherits(value[[i]], "try-error")) {
+      abort(handle_arrow_not_supported(value[[i]], format_expr(f[[3]])))
+    }
   }
   build_expr(
     "case_when",
@@ -894,24 +965,24 @@ nse_funcs$case_when <- function(...) {
 # So to see a list of available hash aggregation functions,
 # you can use list_compute_functions("^hash_")
 agg_funcs <- list()
-agg_funcs$sum <- function(x, na.rm = FALSE) {
+agg_funcs$sum <- function(..., na.rm = FALSE) {
   list(
     fun = "sum",
-    data = x,
+    data = ensure_one_arg(list2(...), "sum"),
     options = list(skip_nulls = na.rm, min_count = 0L)
   )
 }
-agg_funcs$any <- function(x, na.rm = FALSE) {
+agg_funcs$any <- function(..., na.rm = FALSE) {
   list(
     fun = "any",
-    data = x,
+    data = ensure_one_arg(list2(...), "any"),
     options = list(skip_nulls = na.rm, min_count = 0L)
   )
 }
-agg_funcs$all <- function(x, na.rm = FALSE) {
+agg_funcs$all <- function(..., na.rm = FALSE) {
   list(
     fun = "all",
-    data = x,
+    data = ensure_one_arg(list2(...), "all"),
     options = list(skip_nulls = na.rm, min_count = 0L)
   )
 }
@@ -967,10 +1038,10 @@ agg_funcs$median <- function(x, na.rm = FALSE) {
     options = list(skip_nulls = na.rm)
   )
 }
-agg_funcs$n_distinct <- function(x, na.rm = FALSE) {
+agg_funcs$n_distinct <- function(..., na.rm = FALSE) {
   list(
     fun = "count_distinct",
-    data = x,
+    data = ensure_one_arg(list2(...), "n_distinct"),
     options = list(na.rm = na.rm)
   )
 }
@@ -982,26 +1053,27 @@ agg_funcs$n <- function() {
   )
 }
 agg_funcs$min <- function(..., na.rm = FALSE) {
-  args <- list2(...)
-  if (length(args) > 1) {
-    arrow_not_supported("Multiple arguments to min()")
-  }
   list(
     fun = "min",
-    data = args[[1]],
+    data = ensure_one_arg(list2(...), "min"),
     options = list(skip_nulls = na.rm, min_count = 0L)
   )
 }
 agg_funcs$max <- function(..., na.rm = FALSE) {
-  args <- list2(...)
-  if (length(args) > 1) {
-    arrow_not_supported("Multiple arguments to max()")
-  }
   list(
     fun = "max",
-    data = args[[1]],
+    data = ensure_one_arg(list2(...), "max"),
     options = list(skip_nulls = na.rm, min_count = 0L)
   )
+}
+
+ensure_one_arg <- function(args, fun) {
+  if (length(args) == 0) {
+    arrow_not_supported(paste0(fun, "() with 0 arguments"))
+  } else if (length(args) > 1) {
+    arrow_not_supported(paste0("Multiple arguments to ", fun, "()"))
+  }
+  args[[1]]
 }
 
 output_type <- function(fun, input_type, hash) {

@@ -43,8 +43,8 @@ void AsyncDestroyable::Destroy() {
 
 Status AsyncTaskGroup::AddTask(std::function<Result<Future<>>()> task) {
   auto guard = mutex_.Lock();
-  if (all_tasks_done_.is_finished()) {
-    return Status::Invalid("Attempt to add a task after the task group has completed");
+  if (finished_adding_) {
+    return Status::Cancelled("Ignoring task added after the task group has been ended");
   }
   if (!err_.ok()) {
     return err_;
@@ -80,8 +80,8 @@ Status AsyncTaskGroup::AddTaskUnlocked(const Future<>& task_fut,
 
 Status AsyncTaskGroup::AddTask(const Future<>& task_fut) {
   auto guard = mutex_.Lock();
-  if (all_tasks_done_.is_finished()) {
-    return Status::Invalid("Attempt to add a task after the task group has completed");
+  if (finished_adding_) {
+    return Status::Cancelled("Ignoring task added after the task group has been ended");
   }
   if (!err_.ok()) {
     return err_;
@@ -106,8 +106,8 @@ SerializedAsyncTaskGroup::SerializedAsyncTaskGroup() : on_finished_(Future<>::Ma
 Status SerializedAsyncTaskGroup::AddTask(std::function<Result<Future<>>()> task) {
   util::Mutex::Guard guard = mutex_.Lock();
   ARROW_RETURN_NOT_OK(err_);
-  if (on_finished_.is_finished()) {
-    return Status::Invalid("Attempt to add a task after a task group has finished");
+  if (ended_) {
+    return Status::Cancelled("Ignoring task added after the task group has been ended");
   }
   tasks_.push(std::move(task));
   if (!processing_.is_valid()) {
@@ -160,6 +160,46 @@ bool SerializedAsyncTaskGroup::TryDrainUnlocked() {
     ConsumeAsMuchAsPossibleUnlocked(std::move(guard));
   });
   return false;
+}
+
+Future<> AsyncToggle::WhenOpen() {
+  util::Mutex::Guard guard = mutex_.Lock();
+  return when_open_;
+}
+
+void AsyncToggle::Open() {
+  util::Mutex::Guard guard = mutex_.Lock();
+  if (!closed_) {
+    return;
+  }
+  closed_ = false;
+  Future<> to_finish = when_open_;
+  guard.Unlock();
+  to_finish.MarkFinished();
+}
+
+void AsyncToggle::Close() {
+  util::Mutex::Guard guard = mutex_.Lock();
+  if (closed_) {
+    return;
+  }
+  closed_ = true;
+  when_open_ = Future<>::Make();
+}
+
+bool AsyncToggle::IsOpen() {
+  util::Mutex::Guard guard = mutex_.Lock();
+  return !closed_;
+}
+
+BackpressureOptions BackpressureOptions::Make(uint32_t resume_if_below,
+                                              uint32_t pause_if_above) {
+  auto toggle = std::make_shared<util::AsyncToggle>();
+  return BackpressureOptions{std::move(toggle), resume_if_below, pause_if_above};
+}
+
+BackpressureOptions BackpressureOptions::NoBackpressure() {
+  return BackpressureOptions();
 }
 
 }  // namespace util

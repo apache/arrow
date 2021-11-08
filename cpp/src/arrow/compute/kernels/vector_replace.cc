@@ -270,7 +270,7 @@ struct ReplaceWithMask<Type, enable_if_boolean<Type>> {
 };
 
 template <typename Type>
-struct ReplaceWithMask<Type, enable_if_same<Type, FixedSizeBinaryType>> {
+struct ReplaceWithMask<Type, enable_if_fixed_size_binary<Type>> {
   static void CopyData(const DataType& ty, uint8_t* out, const int64_t out_offset,
                        const ArrayData& in, const int64_t in_offset,
                        const int64_t length) {
@@ -283,52 +283,13 @@ struct ReplaceWithMask<Type, enable_if_same<Type, FixedSizeBinaryType>> {
                        const Scalar& in, const int64_t in_offset, const int64_t length) {
     const int32_t width = checked_cast<const FixedSizeBinaryType&>(ty).byte_width();
     uint8_t* begin = out + (out_offset * width);
-    const auto& scalar = checked_cast<const FixedSizeBinaryScalar&>(in);
+    const auto& scalar = checked_cast<const arrow::internal::PrimitiveScalarBase&>(in);
     // Null scalar may have null value buffer
-    if (!scalar.value) return;
-    const Buffer& buffer = *scalar.value;
-    const uint8_t* value = buffer.data();
-    DCHECK_GE(buffer.size(), width);
+    if (!scalar.is_valid) return;
+    const util::string_view buffer = scalar.view();
+    DCHECK_GE(buffer.size(), static_cast<size_t>(width));
     for (int i = 0; i < length; i++) {
-      std::memcpy(begin, value, width);
-      begin += width;
-    }
-  }
-
-  static Status ExecScalarMask(KernelContext* ctx, const ArrayData& array,
-                               const BooleanScalar& mask, const Datum& replacements,
-                               ArrayData* output) {
-    return ReplaceWithScalarMask<ReplaceWithMask<Type>>(ctx, array, mask, replacements,
-                                                        output);
-  }
-
-  static Status ExecArrayMask(KernelContext* ctx, const ArrayData& array,
-                              const ArrayData& mask, const Datum& replacements,
-                              ArrayData* output) {
-    return ReplaceWithArrayMask<ReplaceWithMask<Type>>(ctx, array, mask, replacements,
-                                                       output);
-  }
-};
-
-template <typename Type>
-struct ReplaceWithMask<Type, enable_if_decimal<Type>> {
-  using ScalarType = typename TypeTraits<Type>::ScalarType;
-  static void CopyData(const DataType& ty, uint8_t* out, const int64_t out_offset,
-                       const ArrayData& in, const int64_t in_offset,
-                       const int64_t length) {
-    const int32_t width = checked_cast<const FixedSizeBinaryType&>(ty).byte_width();
-    uint8_t* begin = out + (out_offset * width);
-    const auto in_arr = in.GetValues<uint8_t>(1, (in_offset + in.offset) * width);
-    std::memcpy(begin, in_arr, length * width);
-  }
-  static void CopyData(const DataType& ty, uint8_t* out, const int64_t out_offset,
-                       const Scalar& in, const int64_t in_offset, const int64_t length) {
-    const int32_t width = checked_cast<const FixedSizeBinaryType&>(ty).byte_width();
-    uint8_t* begin = out + (out_offset * width);
-    const auto& scalar = checked_cast<const ScalarType&>(in);
-    const auto value = scalar.value.ToBytes();
-    for (int i = 0; i < length; i++) {
-      std::memcpy(begin, value.data(), width);
+      std::memcpy(begin, buffer.data(), width);
       begin += width;
     }
   }
@@ -526,8 +487,8 @@ void RegisterVectorReplace(FunctionRegistry* registry) {
   add_primitive_kernel(null());
   add_primitive_kernel(boolean());
   add_kernel(Type::FIXED_SIZE_BINARY, ReplaceWithMaskFunctor<FixedSizeBinaryType>::Exec);
-  add_kernel(Type::DECIMAL128, ReplaceWithMaskFunctor<Decimal128Type>::Exec);
-  add_kernel(Type::DECIMAL256, ReplaceWithMaskFunctor<Decimal256Type>::Exec);
+  add_kernel(Type::DECIMAL128, ReplaceWithMaskFunctor<FixedSizeBinaryType>::Exec);
+  add_kernel(Type::DECIMAL256, ReplaceWithMaskFunctor<FixedSizeBinaryType>::Exec);
   for (const auto& ty : BaseBinaryTypes()) {
     add_kernel(ty->id(), GenerateTypeAgnosticVarBinaryBase<ReplaceWithMaskFunctor>(*ty));
   }

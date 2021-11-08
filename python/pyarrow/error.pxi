@@ -175,7 +175,8 @@ def enable_signal_handlers(c_bool enable):
 
 # Whether we need a workaround for https://bugs.python.org/issue42248
 have_signal_refcycle = (sys.version_info < (3, 8, 10) or
-                        (3, 9) <= sys.version_info < (3, 9, 5))
+                        (3, 9) <= sys.version_info < (3, 9, 5) or
+                        sys.version_info[:2] == (3, 10))
 
 cdef class SignalStopHandler:
     cdef:

@@ -113,12 +113,8 @@ Scanner$create <- function(dataset,
       ...
     ))
   }
-  if (inherits(dataset, c("data.frame", "ArrowTabular"))) {
-    dataset <- InMemoryDataset$create(dataset)
-  }
-  assert_is(dataset, "Dataset")
 
-  scanner_builder <- dataset$NewScan()
+  scanner_builder <- ScannerBuilder$create(dataset)
   if (use_threads) {
     scanner_builder$UseThreads()
   }
@@ -142,6 +138,26 @@ Scanner$create <- function(dataset,
 
 #' @export
 names.Scanner <- function(x) names(x$schema)
+
+#' @export
+head.Scanner <- function(x, n = 6L, ...) {
+  assert_that(n > 0) # For now
+  dataset___Scanner__head(x, n)
+}
+
+#' @export
+tail.Scanner <- function(x, n = 6L, ...) {
+  assert_that(n > 0) # For now
+  result <- list()
+  batch_num <- 0
+  for (batch in rev(dataset___Scanner__ScanBatches(x))) {
+    batch_num <- batch_num + 1
+    result[[batch_num]] <- tail(batch, n)
+    n <- n - nrow(batch)
+    if (n <= 0) break
+  }
+  Table$create(!!!rev(result))
+}
 
 ScanTask <- R6Class("ScanTask",
   inherit = ArrowObject,
@@ -229,6 +245,18 @@ ScannerBuilder <- R6Class("ScannerBuilder",
     schema = function() dataset___ScannerBuilder__schema(self)
   )
 )
+ScannerBuilder$create <- function(dataset) {
+  if (inherits(dataset, "RecordBatchReader")) {
+    return(dataset___ScannerBuilder__FromRecordBatchReader(dataset))
+  }
+
+  if (inherits(dataset, c("data.frame", "ArrowTabular"))) {
+    dataset <- InMemoryDataset$create(dataset)
+  }
+  assert_is(dataset, "Dataset")
+
+  dataset$NewScan()
+}
 
 #' @export
 names.ScannerBuilder <- function(x) names(x$schema)

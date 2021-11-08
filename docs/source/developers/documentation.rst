@@ -101,3 +101,39 @@ The final output is located under ``docs/_build/html``.
 .. seealso::
 
    :ref:`docker-builds`.
+
+Building a single directory for dev purposes without all the pre-requisites
+---------------------------------------------------------------------------
+
+You can build documentation in a single directory without needing to install
+all of the pre-requisites by installing sphinx, setting up a temporary
+index in the directory you want to build and then building that directory.
+
+The example below shows how to do this in the ``developers`` directory.
+
+Install ``sphinx``:
+
+.. code-block:: shell
+
+   pip install sphinx
+
+Create an temporary index file ``temp_index.rst`` file in the target directory:
+
+.. code-block:: shell
+
+   echo $'.. toctree::\n\t:glob:\n\n\t*' > ./source/developers/temp_index.rst
+
+Build the docs in the target directory:
+
+.. code-block:: shell
+
+   sphinx-build ./source/developers ./source/developers/_build -c ./source -D master_doc=temp_index
+
+This builds everything in the target directory to a folder inside of it
+called ``_build`` using the config file in the `source` directory.
+
+Once you have verified the HTML documents, you can remove temporary index file:
+
+.. code-block:: shell
+
+   rm ./source/developers/temp_index.rst

@@ -108,6 +108,17 @@ test_that("CSV scan options", {
     chr = c("foo", NA),
     chr2 = c("bar", "baz")
   ))
+  expect_equal(
+    ds %>%
+      group_by(chr2) %>%
+      summarize(na = all(is.na(chr))) %>%
+      arrange(chr2) %>%
+      collect(),
+    tibble(
+      chr2 = c("bar", "baz"),
+      na = c(FALSE, TRUE)
+    )
+  )
 })
 
 test_that("compressed CSV dataset", {
@@ -267,4 +278,13 @@ test_that("Error if no format specified and files are not parquet", {
     open_dataset(csv_dir, partitioning = "part", format = "parquet"),
     "Parquet magic bytes not found"
   )
+})
+
+test_that("Column names inferred from schema for headerless CSVs (ARROW-14063)", {
+  headerless_csv_dir <- make_temp_dir()
+  tbl <- df1[, c("int", "dbl")]
+  write.table(tbl, file.path(headerless_csv_dir, "file1.csv"), sep = ",", row.names = FALSE, col.names = FALSE)
+
+  ds <- open_dataset(headerless_csv_dir, format = "csv", schema = schema(int = int32(), dbl = float64()))
+  expect_equal(ds %>% collect(), tbl)
 })

@@ -31,3 +31,11 @@ add_arrow_compute_test(union_node_test PREFIX "arrow-compute")
 add_arrow_compute_test(util_test PREFIX "arrow-compute")
 
 add_arrow_benchmark(expression_benchmark PREFIX "arrow-compute")
+
+add_arrow_compute_test(ir_test
+                       PREFIX
+                       "arrow-compute"
+                       EXTRA_LINK_LIBS
+                       ${GFLAGS_LIBRARIES}
+                       TEST_ARGUMENTS
+                       "--computeir_dir=${CMAKE_SOURCE_DIR}/../experimental/computeir")

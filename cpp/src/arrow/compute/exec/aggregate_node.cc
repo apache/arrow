@@ -60,34 +60,6 @@ Result<FieldVector> ResolveKernels(
 
 namespace {
 
-class ThreadIndexer {
- public:
-  size_t operator()() {
-    auto id = std::this_thread::get_id();
-
-    std::unique_lock<std::mutex> lock(mutex_);
-    const auto& id_index = *id_to_index_.emplace(id, id_to_index_.size()).first;
-
-    return Check(id_index.second);
-  }
-
-  static size_t Capacity() {
-    static size_t max_size = arrow::internal::ThreadPool::DefaultCapacity();
-    return max_size;
-  }
-
- private:
-  size_t Check(size_t thread_index) {
-    DCHECK_LT(thread_index, Capacity()) << "thread index " << thread_index
-                                        << " is out of range [0, " << Capacity() << ")";
-
-    return thread_index;
-  }
-
-  std::mutex mutex_;
-  std::unordered_map<std::thread::id, size_t> id_to_index_;
-};
-
 void AggregatesToString(
     std::stringstream* ss, const Schema& input_schema,
     const std::vector<internal::Aggregate>& aggs,

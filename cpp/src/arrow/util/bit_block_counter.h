@@ -492,6 +492,54 @@ static void VisitBitBlocksVoid(const std::shared_ptr<Buffer>& bitmap_buf, int64_
 }
 
 template <typename VisitNotNull, typename VisitNull>
+static Status VisitTwoBitBlocks(const std::shared_ptr<Buffer>& left_bitmap_buf,
+                                int64_t left_offset,
+                                const std::shared_ptr<Buffer>& right_bitmap_buf,
+                                int64_t right_offset, int64_t length,
+                                VisitNotNull&& visit_not_null, VisitNull&& visit_null) {
+  if (left_bitmap_buf == NULLPTR || right_bitmap_buf == NULLPTR) {
+    // At most one bitmap is present
+    if (left_bitmap_buf == NULLPTR) {
+      return VisitBitBlocks(right_bitmap_buf, right_offset, length,
+                            std::forward<VisitNotNull>(visit_not_null),
+                            std::forward<VisitNull>(visit_null));
+    } else {
+      return VisitBitBlocks(left_bitmap_buf, left_offset, length,
+                            std::forward<VisitNotNull>(visit_not_null),
+                            std::forward<VisitNull>(visit_null));
+    }
+  }
+  // Both bitmaps are present
+  const uint8_t* left_bitmap = left_bitmap_buf->data();
+  const uint8_t* right_bitmap = right_bitmap_buf->data();
+  BinaryBitBlockCounter bit_counter(left_bitmap, left_offset, right_bitmap, right_offset,
+                                    length);
+  int64_t position = 0;
+  while (position < length) {
+    BitBlockCount block = bit_counter.NextAndWord();
+    if (block.AllSet()) {
+      for (int64_t i = 0; i < block.length; ++i, ++position) {
+        ARROW_RETURN_NOT_OK(visit_not_null(position));
+      }
+    } else if (block.NoneSet()) {
+      for (int64_t i = 0; i < block.length; ++i, ++position) {
+        ARROW_RETURN_NOT_OK(visit_null());
+      }
+    } else {
+      for (int64_t i = 0; i < block.length; ++i, ++position) {
+        if (BitUtil::GetBit(left_bitmap, left_offset + position) &&
+            BitUtil::GetBit(right_bitmap, right_offset + position)) {
+          ARROW_RETURN_NOT_OK(visit_not_null(position));
+        } else {
+          ARROW_RETURN_NOT_OK(visit_null());
+        }
+      }
+    }
+  }
+  return Status::OK();
+}
+
+template <typename VisitNotNull, typename VisitNull>
 static void VisitTwoBitBlocksVoid(const std::shared_ptr<Buffer>& left_bitmap_buf,
                                   int64_t left_offset,
                                   const std::shared_ptr<Buffer>& right_bitmap_buf,

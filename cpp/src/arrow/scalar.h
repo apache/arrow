@@ -298,16 +298,16 @@ struct ARROW_EXPORT FixedSizeBinaryScalar : public BinaryScalar {
 };
 
 template <typename T>
-struct ARROW_EXPORT TemporalScalar : internal::PrimitiveScalar<T> {
+struct TemporalScalar : internal::PrimitiveScalar<T> {
   using internal::PrimitiveScalar<T>::PrimitiveScalar;
   using ValueType = typename TemporalScalar<T>::ValueType;
 
-  explicit TemporalScalar(ValueType value, std::shared_ptr<DataType> type)
+  TemporalScalar(ValueType value, std::shared_ptr<DataType> type)
       : internal::PrimitiveScalar<T>(std::move(value), type) {}
 };
 
 template <typename T>
-struct ARROW_EXPORT DateScalar : public TemporalScalar<T> {
+struct DateScalar : public TemporalScalar<T> {
   using TemporalScalar<T>::TemporalScalar;
   using ValueType = typename TemporalScalar<T>::ValueType;
 
@@ -327,6 +327,9 @@ struct ARROW_EXPORT Date64Scalar : public DateScalar<Date64Type> {
 template <typename T>
 struct ARROW_EXPORT TimeScalar : public TemporalScalar<T> {
   using TemporalScalar<T>::TemporalScalar;
+
+  TimeScalar(typename TemporalScalar<T>::ValueType value, TimeUnit::type unit)
+      : TimeScalar(std::move(value), std::make_shared<T>(unit)) {}
 };
 
 struct ARROW_EXPORT Time32Scalar : public TimeScalar<Time32Type> {
@@ -339,10 +342,14 @@ struct ARROW_EXPORT Time64Scalar : public TimeScalar<Time64Type> {
 
 struct ARROW_EXPORT TimestampScalar : public TemporalScalar<TimestampType> {
   using TemporalScalar<TimestampType>::TemporalScalar;
+
+  TimestampScalar(typename TemporalScalar<TimestampType>::ValueType value,
+                  TimeUnit::type unit)
+      : TimestampScalar(std::move(value), timestamp(unit)) {}
 };
 
 template <typename T>
-struct ARROW_EXPORT IntervalScalar : public TemporalScalar<T> {
+struct IntervalScalar : public TemporalScalar<T> {
   using TemporalScalar<T>::TemporalScalar;
   using ValueType = typename TemporalScalar<T>::ValueType;
 
@@ -366,6 +373,10 @@ struct ARROW_EXPORT MonthDayNanoIntervalScalar
 
 struct ARROW_EXPORT DurationScalar : public TemporalScalar<DurationType> {
   using TemporalScalar<DurationType>::TemporalScalar;
+
+  DurationScalar(typename TemporalScalar<DurationType>::ValueType value,
+                 TimeUnit::type unit)
+      : DurationScalar(std::move(value), duration(unit)) {}
 };
 
 struct ARROW_EXPORT Decimal128Scalar : public internal::PrimitiveScalarBase {

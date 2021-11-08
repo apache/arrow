@@ -94,13 +94,15 @@
   "+" = "add_checked",
   "-" = "subtract_checked",
   "*" = "multiply_checked",
-  "/" = "divide_checked",
+  "/" = "divide",
   "%/%" = "divide_checked",
   # we don't actually use divide_checked with `%%`, rather it is rewritten to
   # use `%/%` above.
   "%%" = "divide_checked",
   "^" = "power_checked",
-  "%in%" = "is_in_meta_binary"
+  "%in%" = "is_in_meta_binary",
+  "strrep" = "binary_repeat",
+  "str_dup" = "binary_repeat"
 )
 
 .array_function_map <- c(.unary_function_map, .binary_function_map)

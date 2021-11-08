@@ -318,19 +318,19 @@ test_that("support for NaN (ARROW-3615)", {
 
 test_that("is.nan() evalutes to FALSE on NA (for consistency with base R)", {
   x <- c(1.0, NA, NaN, -1.0)
-  expect_vector_equal(is.nan(input), x)
+  compare_expression(is.nan(.input), x)
 })
 
 test_that("is.nan() evalutes to FALSE on non-floats (for consistency with base R)", {
   x <- c(1L, 2L, 3L)
   y <- c("foo", "bar")
-  expect_vector_equal(is.nan(input), x)
-  expect_vector_equal(is.nan(input), y)
+  compare_expression(is.nan(.input), x)
+  compare_expression(is.nan(.input), y)
 })
 
 test_that("is.na() evalutes to TRUE on NaN (for consistency with base R)", {
   x <- c(1, NA, NaN, -1)
-  expect_vector_equal(is.na(input), x)
+  compare_expression(is.na(.input), x)
 })
 
 test_that("integer types casts (ARROW-3741)", {
@@ -729,6 +729,11 @@ test_that("Handling string data with embedded nuls", {
   )
   array_with_nul <- Array$create(raws)$cast(utf8())
 
+  # The behavior of the warnings/errors is slightly different with and without
+  # altrep. Without it (i.e. 3.5.0 and below, the error would trigger immediately
+  # on `as.vector()` where as with it, the error only happens on materialization)
+  skip_if_r_version("3.5.0")
+
   # no error on conversion, because altrep laziness
   v <- expect_error(as.vector(array_with_nul), NA)
 
@@ -745,8 +750,8 @@ test_that("Handling string data with embedded nuls", {
   # also error on materializing v[3]
   expect_error(v[3],
     paste0(
-     "embedded nul in string: 'ma\\0n'; to strip nuls when converting from Arrow ",
-     "to R, set options(arrow.skip_nul = TRUE)"
+      "embedded nul in string: 'ma\\0n'; to strip nuls when converting from Arrow ",
+      "to R, set options(arrow.skip_nul = TRUE)"
     ),
     fixed = TRUE
   )
@@ -756,7 +761,8 @@ test_that("Handling string data with embedded nuls", {
     v <- as.vector(array_with_nul)
 
     expect_warning(
-      expect_identical(v[],
+      expect_identical(
+        v[],
         c("person", "woman", "man", "fan", "camera", "tv")
       ),
       "Stripping '\\0' (nul) from character vector",
@@ -776,7 +782,6 @@ test_that("Handling string data with embedded nuls", {
       "Stripping '\\0' (nul) from character vector",
       fixed = TRUE
     )
-
   })
 })
 

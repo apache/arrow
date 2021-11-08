@@ -9,7 +9,8 @@
 schema(...)
 }
 \arguments{
-\item{...}{named list of \link[=data-type]{data types}}
+\item{...}{named list containing \link[=data-type]{data types} or
+a list of \link[=field]{fields} containing the fields for the schema}
 }
 \description{
 A \code{Schema} is a list of \link{Field}s, which map names to
@@ -77,9 +78,9 @@ the metadata is dropped.
 \examples{
 \dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 df <- data.frame(col1 = 2:4, col2 = c(0.1, 0.3, 0.5))
-tab1 <- Table$create(df)
+tab1 <- arrow_table(df)
 tab1$schema
-tab2 <- Table$create(df, schema = schema(col1 = int8(), col2 = float32()))
+tab2 <- arrow_table(df, schema = schema(col1 = int8(), col2 = float32()))
 tab2$schema
 \dontshow{\}) # examplesIf}
 }

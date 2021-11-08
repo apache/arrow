@@ -2668,8 +2668,9 @@ class DecimalTest : public ::testing::TestWithParam<int> {
   }
 
   template <size_t BYTE_WIDTH = 16>
-  void TestCreate(int32_t precision, const DecimalVector& draw,
-                  const std::vector<uint8_t>& valid_bytes, int64_t offset) const {
+  std::shared_ptr<Array> TestCreate(int32_t precision, const DecimalVector& draw,
+                                    const std::vector<uint8_t>& valid_bytes,
+                                    int64_t offset) const {
     auto type = std::make_shared<TYPE>(precision, 4);
     auto builder = std::make_shared<DecimalBuilder>(type);
 
@@ -2677,20 +2678,20 @@ class DecimalTest : public ::testing::TestWithParam<int> {
 
     const size_t size = draw.size();
 
-    ASSERT_OK(builder->Reserve(size));
+    ARROW_EXPECT_OK(builder->Reserve(size));
 
     for (size_t i = 0; i < size; ++i) {
       if (valid_bytes[i]) {
-        ASSERT_OK(builder->Append(draw[i]));
+        ARROW_EXPECT_OK(builder->Append(draw[i]));
       } else {
-        ASSERT_OK(builder->AppendNull());
+        ARROW_EXPECT_OK(builder->AppendNull());
         ++null_count;
       }
     }
 
     std::shared_ptr<Array> out;
     FinishAndCheckPadding(builder.get(), &out);
-    ASSERT_EQ(builder->length(), 0);
+    EXPECT_EQ(builder->length(), 0);
 
     std::vector<uint8_t> raw_bytes;
 
@@ -2699,7 +2700,7 @@ class DecimalTest : public ::testing::TestWithParam<int> {
 
     auto expected_data = std::make_shared<Buffer>(raw_bytes.data(), BYTE_WIDTH);
     std::shared_ptr<Buffer> expected_null_bitmap;
-    ASSERT_OK_AND_ASSIGN(expected_null_bitmap, internal::BytesToBits(valid_bytes));
+    EXPECT_OK_AND_ASSIGN(expected_null_bitmap, internal::BytesToBits(valid_bytes));
 
     int64_t expected_null_count = CountNulls(valid_bytes);
     auto expected = std::make_shared<DecimalArray>(
@@ -2708,6 +2709,8 @@ class DecimalTest : public ::testing::TestWithParam<int> {
     std::shared_ptr<Array> lhs = out->Slice(offset);
     std::shared_ptr<Array> rhs = expected->Slice(offset);
     ASSERT_ARRAYS_EQUAL(*rhs, *lhs);
+
+    return out;
   }
 };
 
@@ -2739,6 +2742,21 @@ TEST_P(Decimal128Test, WithNulls) {
                                       true, true, true,  true};
   this->TestCreate(precision, draw, valid_bytes, 0);
   this->TestCreate(precision, draw, valid_bytes, 2);
+}
+
+TEST_P(Decimal128Test, ValidateFull) {
+  int32_t precision = GetParam();
+  std::vector<Decimal128> draw;
+  Decimal128 val = Decimal128::GetMaxValue(precision) + 1;
+
+  draw = {Decimal128(), val};
+  auto arr = this->TestCreate(precision, draw, {true, false}, 0);
+  ASSERT_OK(arr->ValidateFull());
+
+  draw = {val, Decimal128()};
+  arr = this->TestCreate(precision, draw, {true, false}, 0);
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("does not fit in precision of"), arr->ValidateFull());
 }
 
 INSTANTIATE_TEST_SUITE_P(Decimal128Test, Decimal128Test, ::testing::Range(1, 38));
@@ -2775,6 +2793,21 @@ TEST_P(Decimal256Test, WithNulls) {
                                       true, true, true,  true};
   this->TestCreate(precision, draw, valid_bytes, 0);
   this->TestCreate(precision, draw, valid_bytes, 2);
+}
+
+TEST_P(Decimal256Test, ValidateFull) {
+  int32_t precision = GetParam();
+  std::vector<Decimal256> draw;
+  Decimal256 val = Decimal256::GetMaxValue(precision) + 1;
+
+  draw = {Decimal256(), val};
+  auto arr = this->TestCreate(precision, draw, {true, false}, 0);
+  ASSERT_OK(arr->ValidateFull());
+
+  draw = {val, Decimal256()};
+  arr = this->TestCreate(precision, draw, {true, false}, 0);
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("does not fit in precision of"), arr->ValidateFull());
 }
 
 INSTANTIATE_TEST_SUITE_P(Decimal256Test, Decimal256Test,
@@ -2904,16 +2937,24 @@ TEST(TestSwapEndianArrayData, PrimitiveType) {
   expected_data = ArrayData::Make(uint64(), 1, {null_buffer, data_int64_buffer}, 0);
   AssertArrayDataEqualsWithSwapEndian(data, expected_data);
 
-  auto data_16byte_buffer = Buffer::FromString("0123456789abcdef");
+  auto data_16byte_buffer = Buffer::FromString(
+      "\x01"
+      "123456789abcde\x01");
   data = ArrayData::Make(decimal128(38, 10), 1, {null_buffer, data_16byte_buffer});
-  auto data_decimal128_buffer = Buffer::FromString("fedcba9876543210");
+  auto data_decimal128_buffer = Buffer::FromString(
+      "\x01"
+      "edcba987654321\x01");
   expected_data =
       ArrayData::Make(decimal128(38, 10), 1, {null_buffer, data_decimal128_buffer}, 0);
   AssertArrayDataEqualsWithSwapEndian(data, expected_data);
 
-  auto data_32byte_buffer = Buffer::FromString("0123456789abcdef123456789ABCDEF0");
+  auto data_32byte_buffer = Buffer::FromString(
+      "\x01"
+      "123456789abcdef123456789ABCDEF\x01");
   data = ArrayData::Make(decimal256(76, 20), 1, {null_buffer, data_32byte_buffer});
-  auto data_decimal256_buffer = Buffer::FromString("0FEDCBA987654321fedcba9876543210");
+  auto data_decimal256_buffer = Buffer::FromString(
+      "\x01"
+      "FEDCBA987654321fedcba987654321\x01");
   expected_data =
       ArrayData::Make(decimal256(76, 20), 1, {null_buffer, data_decimal256_buffer}, 0);
   AssertArrayDataEqualsWithSwapEndian(data, expected_data);

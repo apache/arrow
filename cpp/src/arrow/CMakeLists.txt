@@ -199,6 +199,7 @@ set(ARROW_SRCS
     util/bitmap_builders.cc
     util/bitmap_ops.cc
     util/bpacking.cc
+    util/byte_size.cc
     util/cancel.cc
     util/compression.cc
     util/counting_semaphore.cc
@@ -376,6 +377,7 @@ if(ARROW_COMPUTE)
        compute/exec/exec_plan.cc
        compute/exec/expression.cc
        compute/exec/filter_node.cc
+       compute/exec/ir_consumer.cc
        compute/exec/project_node.cc
        compute/exec/source_node.cc
        compute/exec/sink_node.cc
@@ -422,6 +424,7 @@ if(ARROW_COMPUTE)
        compute/exec/key_compare.cc
        compute/exec/key_encode.cc
        compute/exec/util.cc
+       compute/exec/hash_join_dict.cc
        compute/exec/hash_join.cc
        compute/exec/hash_join_node.cc
        compute/exec/task_util.cc)
@@ -451,6 +454,12 @@ if(ARROW_FILESYSTEM)
        filesystem/path_util.cc
        filesystem/util_internal.cc)
 
+  if(ARROW_GCS)
+    list(APPEND ARROW_SRCS filesystem/gcsfs.cc filesystem/gcsfs_internal.cc)
+    set_source_files_properties(filesystem/gcsfs.cc filesystem/gcsfs_internal.cc
+                                PROPERTIES SKIP_PRECOMPILE_HEADERS ON
+                                           SKIP_UNITY_BUILD_INCLUSION ON)
+  endif()
   if(ARROW_HDFS)
     list(APPEND ARROW_SRCS filesystem/hdfs.cc)
   endif()

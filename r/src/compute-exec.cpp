@@ -26,6 +26,7 @@
 #include <arrow/table.h>
 #include <arrow/util/async_generator.h>
 #include <arrow/util/future.h>
+#include <arrow/util/optional.h>
 #include <arrow/util/thread_pool.h>
 
 #include <iostream>
@@ -57,18 +58,31 @@ std::shared_ptr<compute::ExecNode> MakeExecNodeOrStop(
 // [[arrow::export]]
 std::shared_ptr<arrow::RecordBatchReader> ExecPlan_run(
     const std::shared_ptr<compute::ExecPlan>& plan,
-    const std::shared_ptr<compute::ExecNode>& final_node, cpp11::list sort_options) {
+    const std::shared_ptr<compute::ExecNode>& final_node, cpp11::list sort_options,
+    int64_t head = -1) {
   // For now, don't require R to construct SinkNodes.
   // Instead, just pass the node we should collect as an argument.
   arrow::AsyncGenerator<arrow::util::optional<compute::ExecBatch>> sink_gen;
 
   // Sorting uses a different sink node; there is no general sort yet
   if (sort_options.size() > 0) {
-    MakeExecNodeOrStop("order_by_sink", plan.get(), {final_node.get()},
-                       compute::OrderBySinkNodeOptions{
-                           *std::dynamic_pointer_cast<compute::SortOptions>(
-                               make_compute_options("sort_indices", sort_options)),
-                           &sink_gen});
+    if (head >= 0) {
+      // Use the SelectK node to take only what we need
+      MakeExecNodeOrStop(
+          "select_k_sink", plan.get(), {final_node.get()},
+          compute::SelectKSinkNodeOptions{
+              arrow::compute::SelectKOptions(
+                  head, std::dynamic_pointer_cast<compute::SortOptions>(
+                            make_compute_options("sort_indices", sort_options))
+                            ->sort_keys),
+              &sink_gen});
+    } else {
+      MakeExecNodeOrStop("order_by_sink", plan.get(), {final_node.get()},
+                         compute::OrderBySinkNodeOptions{
+                             *std::dynamic_pointer_cast<compute::SortOptions>(
+                                 make_compute_options("sort_indices", sort_options)),
+                             &sink_gen});
+    }
   } else {
     MakeExecNodeOrStop("sink", plan.get(), {final_node.get()},
                        compute::SinkNodeOptions{&sink_gen});
@@ -92,6 +106,11 @@ std::shared_ptr<arrow::RecordBatchReader> ExecPlan_run(
   return compute::MakeGeneratorReader(
       final_node->output_schema(),
       [stop_producing, plan, sink_gen] { return sink_gen(); }, gc_memory_pool());
+}
+
+// [[arrow::export]]
+void ExecPlan_StopProducing(const std::shared_ptr<compute::ExecPlan>& plan) {
+  plan->StopProducing();
 }
 
 #if defined(ARROW_R_WITH_DATASET)
@@ -245,6 +264,18 @@ std::shared_ptr<compute::ExecNode> ExecNode_Join(
       "hashjoin", input->plan(), {input.get(), right_data.get()},
       compute::HashJoinNodeOptions{join_type, std::move(left_refs), std::move(right_refs),
                                    std::move(left_out_refs), std::move(right_out_refs)});
+}
+
+// [[arrow::export]]
+std::shared_ptr<compute::ExecNode> ExecNode_ReadFromRecordBatchReader(
+    const std::shared_ptr<compute::ExecPlan>& plan,
+    const std::shared_ptr<arrow::RecordBatchReader>& reader) {
+  arrow::compute::SourceNodeOptions options{
+      /*output_schema=*/reader->schema(),
+      /*generator=*/ValueOrStop(
+          compute::MakeReaderGenerator(reader, arrow::internal::GetCpuThreadPool()))};
+
+  return MakeExecNodeOrStop("source", plan.get(), {}, options);
 }
 
 #endif

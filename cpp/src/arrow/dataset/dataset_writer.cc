@@ -300,7 +300,8 @@ class DatasetWriterDirectoryQueue : public util::AsyncDestroyable {
     init_future_ =
         DeferNotOk(write_options_.filesystem->io_context().executor()->Submit([this] {
           RETURN_NOT_OK(write_options_.filesystem->CreateDir(directory_));
-          if (write_options_.existing_data_behavior == kDeleteMatchingPartitions) {
+          if (write_options_.existing_data_behavior ==
+              ExistingDataBehavior::kDeleteMatchingPartitions) {
             return write_options_.filesystem->DeleteDirContents(directory_);
           }
           return Status::OK();
@@ -358,7 +359,7 @@ Status ValidateBasenameTemplate(util::string_view basename_template) {
 }
 
 Status EnsureDestinationValid(const FileSystemDatasetWriteOptions& options) {
-  if (options.existing_data_behavior == kError) {
+  if (options.existing_data_behavior == ExistingDataBehavior::kError) {
     fs::FileSelector selector;
     selector.base_dir = options.base_dir;
     selector.recursive = true;

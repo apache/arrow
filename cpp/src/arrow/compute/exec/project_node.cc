@@ -37,13 +37,12 @@ using internal::checked_cast;
 namespace compute {
 namespace {
 
-class ProjectNode : public ExecNode {
+class ProjectNode : public MapNode {
  public:
   ProjectNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
-              std::shared_ptr<Schema> output_schema, std::vector<Expression> exprs)
-      : ExecNode(plan, std::move(inputs), /*input_labels=*/{"target"},
-                 std::move(output_schema),
-                 /*num_outputs=*/1),
+              std::shared_ptr<Schema> output_schema, std::vector<Expression> exprs,
+              bool async_mode)
+      : MapNode(plan, std::move(inputs), std::move(output_schema), async_mode),
         exprs_(std::move(exprs)) {}
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
@@ -70,9 +69,9 @@ class ProjectNode : public ExecNode {
       fields[i] = field(std::move(names[i]), expr.type());
       ++i;
     }
-
     return plan->EmplaceNode<ProjectNode>(plan, std::move(inputs),
-                                          schema(std::move(fields)), std::move(exprs));
+                                          schema(std::move(fields)), std::move(exprs),
+                                          project_options.async_mode);
   }
 
   const char* kind_name() const override { return "ProjectNode"; }
@@ -91,38 +90,9 @@ class ProjectNode : public ExecNode {
 
   void InputReceived(ExecNode* input, ExecBatch batch) override {
     DCHECK_EQ(input, inputs_[0]);
-
-    auto maybe_projected = DoProject(std::move(batch));
-    if (ErrorIfNotOk(maybe_projected.status())) return;
-
-    maybe_projected->guarantee = batch.guarantee;
-    outputs_[0]->InputReceived(this, maybe_projected.MoveValueUnsafe());
+    auto func = [this](ExecBatch batch) { return DoProject(std::move(batch)); };
+    this->SubmitTask(std::move(func), std::move(batch));
   }
-
-  void ErrorReceived(ExecNode* input, Status error) override {
-    DCHECK_EQ(input, inputs_[0]);
-    outputs_[0]->ErrorReceived(this, std::move(error));
-  }
-
-  void InputFinished(ExecNode* input, int total_batches) override {
-    DCHECK_EQ(input, inputs_[0]);
-    outputs_[0]->InputFinished(this, total_batches);
-  }
-
-  Status StartProducing() override { return Status::OK(); }
-
-  void PauseProducing(ExecNode* output) override {}
-
-  void ResumeProducing(ExecNode* output) override {}
-
-  void StopProducing(ExecNode* output) override {
-    DCHECK_EQ(output, outputs_[0]);
-    StopProducing();
-  }
-
-  void StopProducing() override { inputs_[0]->StopProducing(this); }
-
-  Future<> finished() override { return inputs_[0]->finished(); }
 
  protected:
   std::string ToStringExtra() const override {
