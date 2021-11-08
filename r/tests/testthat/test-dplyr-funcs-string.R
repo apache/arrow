@@ -121,7 +121,7 @@ test_that("paste, paste0, and str_c", {
   # sep is literal NA
   # errors in paste() (consistent with base::paste())
   expect_snapshot({
-    err(
+    err_helper(
       nse_funcs$paste(x, y, sep = NA_character_)
     )
   })
@@ -158,22 +158,22 @@ test_that("paste, paste0, and str_c", {
 
   expect_snapshot({
     # collapse argument not supported
-    (expect_error(
+    err_helper(
       nse_funcs$paste(x, y, collapse = "")
-    ))
-    (expect_error(
+    )
+    err_helper(
       nse_funcs$paste0(x, y, collapse = "")
-    ))
-    (expect_error(
+    )
+    err_helper(
       nse_funcs$str_c(x, y, collapse = "")
-    ))
+    )
     # literal vectors of length != 1 not supported
-    (expect_error(
+    err_helper(
       nse_funcs$paste(x, character(0), y)
-    ))
-    (expect_error(
+    )
+    err_helper(
       nse_funcs$paste(x, c(",", ";"), y)
-    ))
+    )
   })
 })
 
@@ -499,9 +499,9 @@ test_that("str_to_lower, str_to_upper, and str_to_title", {
 
   # Error checking a single function because they all use the same code path.
   expect_snapshot({
-    (expect_error(
+    err_helper(
       nse_funcs$str_to_lower("Apache Arrow", locale = "sp")
-    ))
+    )
   })
 })
 
@@ -563,38 +563,38 @@ test_that("errors and warnings in string splitting", {
 
   x <- Expression$field_ref("x")
   expect_snapshot({
-    (expect_error(
+    err_helper(
       nse_funcs$str_split(x, fixed("and", ignore_case = TRUE))
-    ))
-    (expect_error(
+    )
+    err_helper(
       nse_funcs$str_split(x, coll("and.?"))
-    ))
-    (expect_error(
+    )
+    err_helper(
       nse_funcs$str_split(x, boundary(type = "word"))
-    ))
-    (expect_error(
+    )
+    err_helper(
       nse_funcs$str_split(x, "and", n = 0)
-    ))
+    )
     # This condition generates a warning
-    (expect_warning(
+    warn_helper(
       nse_funcs$str_split(x, fixed("and"), simplify = TRUE)
-    ))
+    )
   })
 })
 
 test_that("errors and warnings in string detection and replacement", {
   x <- Expression$field_ref("x")
   expect_snapshot({
-    (expect_error(
+    err_helper(
       nse_funcs$str_detect(x, boundary(type = "character"))
-    ))
-    (expect_error(
+    )
+    err_helper(
       nse_funcs$str_replace_all(x, coll("o", locale = "en"), "ó")
-    ))
+    )
     # This condition generates a warning
-    (expect_warning(
+    warn_helper(
       nse_funcs$str_replace_all(x, regex("o", multiline = TRUE), "u")
-    ))
+    )
   })
 })
 
@@ -753,9 +753,9 @@ test_that("errors in strptime", {
   # Error when tz is passed
   x <- Expression$field_ref("x")
   expect_snapshot({
-    (expect_error(
+    err_helper(
       nse_funcs$strptime(x, tz = "PDT")
-    ))
+    )
   })
 })
 
@@ -1151,12 +1151,12 @@ test_that("substr", {
   )
 
   expect_snapshot({
-    (expect_error(
+    err_helper(
       nse_funcs$substr("Apache Arrow", c(1, 2), 3)
-    ))
-    (expect_error(
+    )
+    err_helper(
       nse_funcs$substr("Apache Arrow", 1, c(2, 3))
-    ))
+    )
   })
 })
 
@@ -1246,12 +1246,12 @@ test_that("str_sub", {
   )
 
   expect_snapshot({
-    (expect_error(
+    err_helper(
       nse_funcs$str_sub("Apache Arrow", c(1, 2), 3)
-    ))
-    (expect_error(
+    )
+    err_helper(
       nse_funcs$str_sub("Apache Arrow", 1, c(2, 3))
-    ))
+    )
   })
 })
 
