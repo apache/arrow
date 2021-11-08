@@ -3481,6 +3481,55 @@ def test_write_dataset_with_dataset(tempdir):
         assert dict(load_back_table.to_pydict()) == table.to_pydict()
 
 
+@pytest.mark.pandas
+def test_write_dataset_existing_data(tempdir):
+    directory = tempdir / 'ds'
+    table = pa.table({'b': ['x', 'y', 'z'], 'c': [1, 2, 3]})
+    partitioning = ds.partitioning(schema=pa.schema(
+        [pa.field('c', pa.int64())]), flavor='hive')
+
+    def compare_tables_ignoring_order(t1, t2):
+        df1 = t1.to_pandas().sort_values('b').reset_index(drop=True)
+        df2 = t2.to_pandas().sort_values('b').reset_index(drop=True)
+        assert df1.equals(df2)
+
+    # First write is ok
+    ds.write_dataset(table, directory, partitioning=partitioning, format='ipc')
+
+    table = pa.table({'b': ['a', 'b', 'c'], 'c': [2, 3, 4]})
+
+    # Second write should fail
+    with pytest.raises(pa.ArrowInvalid):
+        ds.write_dataset(table, directory,
+                         partitioning=partitioning, format='ipc')
+
+    extra_table = pa.table({'b': ['e']})
+    extra_file = directory / 'c=2' / 'foo.arrow'
+    pyarrow.feather.write_feather(extra_table, extra_file)
+
+    # Should be ok and overwrite with overwrite behavior
+    ds.write_dataset(table, directory, partitioning=partitioning,
+                     format='ipc',
+                     existing_data_behavior='overwrite_or_ignore')
+
+    overwritten = pa.table(
+        {'b': ['e', 'x', 'a', 'b', 'c'], 'c': [2, 1, 2, 3, 4]})
+    readback = ds.dataset(tempdir, format='ipc',
+                          partitioning=partitioning).to_table()
+    compare_tables_ignoring_order(readback, overwritten)
+    assert extra_file.exists()
+
+    # Should be ok and delete matching with delete_matching
+    ds.write_dataset(table, directory, partitioning=partitioning,
+                     format='ipc', existing_data_behavior='delete_matching')
+
+    overwritten = pa.table({'b': ['x', 'a', 'b', 'c'], 'c': [1, 2, 3, 4]})
+    readback = ds.dataset(tempdir, format='ipc',
+                          partitioning=partitioning).to_table()
+    compare_tables_ignoring_order(readback, overwritten)
+    assert not extra_file.exists()
+
+
 @pytest.mark.parquet
 @pytest.mark.pandas
 def test_write_dataset_partitioned_dict(tempdir):
