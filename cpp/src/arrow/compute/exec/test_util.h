@@ -50,8 +50,6 @@ struct BatchesWithSchema {
   std::shared_ptr<Schema> schema;
 
   AsyncGenerator<util::optional<ExecBatch>> gen(bool parallel, bool slow) const {
-    DCHECK_GT(batches.size(), 0);
-
     auto opt_batches = ::arrow::internal::MapVector(
         [](ExecBatch batch) { return util::make_optional(std::move(batch)); }, batches);
 

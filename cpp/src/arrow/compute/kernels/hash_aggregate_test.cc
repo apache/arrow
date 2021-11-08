@@ -168,16 +168,23 @@ Result<Datum> GroupByUsingExecPlan(const BatchesWithSchema& input,
                         start_and_collect.MoveResult());
 
   ArrayVector out_arrays(aggregates.size() + key_names.size());
+  const auto& output_schema = plan->sources()[0]->outputs()[0]->output_schema();
   for (size_t i = 0; i < out_arrays.size(); ++i) {
     std::vector<std::shared_ptr<Array>> arrays(output_batches.size());
     for (size_t j = 0; j < output_batches.size(); ++j) {
       arrays[j] = output_batches[j].values[i].make_array();
     }
-    ARROW_ASSIGN_OR_RAISE(out_arrays[i], Concatenate(arrays));
+    if (arrays.empty()) {
+      ARROW_ASSIGN_OR_RAISE(
+          out_arrays[i],
+          MakeArrayOfNull(output_schema->field(static_cast<int>(i))->type(),
+                          /*length=*/0));
+    } else {
+      ARROW_ASSIGN_OR_RAISE(out_arrays[i], Concatenate(arrays));
+    }
   }
 
-  return StructArray::Make(std::move(out_arrays),
-                           plan->sources()[0]->outputs()[0]->output_schema()->fields());
+  return StructArray::Make(std::move(out_arrays), output_schema->fields());
 }
 
 /// Simpler overload where you can give the columns as datums
@@ -692,6 +699,26 @@ TEST(GroupBy, Errors) {
                                         batch->GetColumnByName("group_id")}),
               Raises(StatusCode::NotImplemented,
                      HasSubstr("Direct execution of HASH_AGGREGATE functions")));
+}
+
+TEST(GroupBy, NoBatches) {
+  // Regression test for ARROW-14583: handle when no batches are
+  // passed to the group by node before finalizing
+  auto table =
+      TableFromJSON(schema({field("argument", float64()), field("key", int64())}), {});
+  ASSERT_OK_AND_ASSIGN(
+      Datum aggregated_and_grouped,
+      GroupByTest({table->GetColumnByName("argument")}, {table->GetColumnByName("key")},
+                  {
+                      {"hash_count", nullptr},
+                  },
+                  /*use_threads=*/true, /*use_exec_plan=*/true));
+  AssertDatumsEqual(ArrayFromJSON(struct_({
+                                      field("hash_count", int64()),
+                                      field("key_0", int64()),
+                                  }),
+                                  R"([])"),
+                    aggregated_and_grouped, /*verbose=*/true);
 }
 
 namespace {
