@@ -117,6 +117,40 @@ table DictionaryBatch {
   isDelta: bool = false;
 }
 
+/// A range of field nodes, identified by their offset in the schema.
+/// The offsets are zero-indexed.
+struct FieldNodeRange {
+  /// The starting offset (inclusive)
+  start: long;
+
+  /// The ending offset (exclusive)
+  end: long;
+}
+
+/// A data header describing the shared memory layout of a "bag" of "columns".
+/// It is similar to a RecordBatch but not every top level FieldNode is required
+/// to be included in the wire payload.
+table ColumnBag {
+  /// If not provided, all field nodes are included and this payload is
+  /// identical to a RecordBatch. Otherwise the reader needs to skip
+  /// top level FieldNodes that were not included.
+  includedNodes: [FieldNodeRange];
+
+  /// Nodes correspond to the pre-ordered flattened logical schema
+  nodes: [FieldNode];
+
+  /// Buffers correspond to the pre-ordered flattened buffer tree
+  ///
+  /// The number of buffers appended to this list depends on the schema. For
+  /// example, most primitive arrays will have 2 buffers, 1 for the validity
+  /// bitmap and 1 for the values. For struct arrays, there will only be a
+  /// single buffer for the validity (nulls) bitmap
+  buffers: [Buffer];
+
+  /// Optional compression of the message body
+  compression: BodyCompression;
+}
+
 /// ----------------------------------------------------------------------
 /// The root Message type
 
@@ -127,7 +161,7 @@ table DictionaryBatch {
 /// which may include experimental metadata types. For maximum compatibility,
 /// it is best to send data using RecordBatch
 union MessageHeader {
-  Schema, DictionaryBatch, RecordBatch, Tensor, SparseTensor
+  Schema, DictionaryBatch, RecordBatch, Tensor, SparseTensor, ColumnBag
 }
 
 table Message {
