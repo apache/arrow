@@ -947,7 +947,7 @@ TEST(TestGdvFnStubs, TestInstr) {
   auto s2_len = static_cast<int32_t>(s2.size());
 
   auto result = gdv_fn_instr_utf8(ctx_ptr, s1.c_str(), s1_len, s2.c_str(), s2_len);
-  EXPECT_EQ(result, 6);
+  EXPECT_EQ(result, 7);
 
   s1 = "apple, banana, mango";
   s1_len = static_cast<int32_t>(s1.size());
@@ -955,7 +955,7 @@ TEST(TestGdvFnStubs, TestInstr) {
   s2_len = static_cast<int32_t>(s2.size());
 
   result = gdv_fn_instr_utf8(ctx_ptr, s1.c_str(), s1_len, s2.c_str(), s2_len);
-  EXPECT_EQ(result, 15);
+  EXPECT_EQ(result, 16);
 
   s1 = "";
   s1_len = static_cast<int32_t>(s1.size());

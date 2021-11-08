@@ -2270,7 +2270,7 @@ TEST_F(TestProjector, TestInstr) {
   auto array1 =
       MakeArrowArrayUtf8({"world", "mango", "mango", ""}, {true, true, true, true});
   // expected output
-  auto exp_sum = MakeArrowArrayInt32({6, 15, 0, 1}, {true, true, true, true});
+  auto exp_sum = MakeArrowArrayInt32({7, 16, 0, 1}, {true, true, true, true});
 
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
