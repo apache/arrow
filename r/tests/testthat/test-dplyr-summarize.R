@@ -887,7 +887,7 @@ test_that("summarise() passes through type information for temporary columns", {
   compare_dplyr_binding(
     .input %>%
       group_by(x) %>%
-      summarise(r = ifelse(n() > 1, mean(y), mean(z))) %>%
+      summarise(r = if_else(n() > 1, mean(y), mean(z))) %>%
       collect(),
     tibble(
       x = c(0, 1, 1),
