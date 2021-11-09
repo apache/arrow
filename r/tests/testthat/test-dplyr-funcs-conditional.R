@@ -303,7 +303,7 @@ test_that("coalesce()", {
 
   # factor
   df_fct <- df %>%
-    mutate(across(everything(), ~ factor(.x)))
+    transmute(across(everything(), ~ factor(.x, levels = c("a", "b", "c"))))
   compare_dplyr_binding(
     .input %>%
       mutate(
