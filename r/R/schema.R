@@ -163,13 +163,17 @@ Schema <- R6Class("Schema",
 )
 Schema$create <- function(...) {
   .list <- list2(...)
+
+  if (length(.list) == 1 && is_list(.list[[1]])) {
+    .list <- .list[[1]]
+  }
+
   if (all(map_lgl(.list, ~ inherits(., "Field")))) {
     schema_(.list)
-  } else if (is.null(names(.list))) {
-    # If not supplied as fields, only other alternative is e.g.`a = int16()`
-    abort("Schema definitions must be supplied as field/data type or field name/data type pairs")
-  } else {
+  } else if (all(map_lgl(.list, ~ inherits(., "DataType")))) {
     schema_(.fields(.list))
+  } else {
+    abort("Schema definitions must be supplied as field/data type pairs or field name/data type pairs")
   }
 }
 #' @include arrowExports.R
@@ -338,8 +342,4 @@ print.arrow_r_metadata <- function(x, ...) {
   utils::str(x)
   utils::str(.unserialize_arrow_r_metadata(x))
   invisible(x)
-}
-
-schema_check <- function(items) {
-  all(map_lgl(.list, ~ inherits(.x, "Field"))) || FALSE
 }
