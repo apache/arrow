@@ -136,7 +136,7 @@ You will need to add mingw64 binaries and R to your path. For a user-level insta
 # TODO(wjones127): What about path for mingw32?
 
 ```{bash}
-export PATH=/mingw64/bin:~/Documents/R/R-4.1.2/bin:$PATH
+export PATH=/c/rtools40/mingw64/bin:~/Documents/R/R-4.1.2/bin:$PATH
 ```
 
 You can install additional dependencies like so. Note that you are limited to the packages in [the RTools repo](https://github.com/r-windows/rtools-packages), which does not contain every dependency used by Arrow.
@@ -634,4 +634,3 @@ guide](https://arrow.apache.org/docs/developers/cpp/building.html).
 ## Other installation issues
 
 There are a number of scripts that are triggered when the arrow R package is installed. For package users who are not interacting with the underlying code, these should all just work without configuration and pull in the most complete pieces (e.g. official binaries that we host). However, knowing about these scripts can help package developers troubleshoot if things go wrong in them or things go wrong in an install.  See [the installation vignette](./install.html#how-dependencies-are-resolved) for more information.
->>>>>>> master
