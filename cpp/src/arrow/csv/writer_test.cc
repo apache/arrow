@@ -59,6 +59,7 @@ std::vector<WriterTestParams> GenerateTestCases() {
       {field("c ", int32())},
       {field("d", date32())},
       {field("e", date64())},
+      {field("f", timestamp(TimeUnit::SECOND))},
   });
   auto populated_batch = R"([{"a": 1, "c ": -1},
                              { "a": 1, "b\"": "abc\"efg", "c ": 2324},
@@ -67,16 +68,18 @@ std::vector<WriterTestParams> GenerateTestCases() {
                              { "a": 546, "b\"": "", "c ": 517 },
                              { "a": 124, "b\"": "a\"\"b\"" },
                              { "d": 0 },
-                             { "e": 86400000 }])";
-  std::string expected_without_header = std::string("1,,-1,,") + "\n" +    // line 1
-                                        R"(1,"abc""efg",2324,,)" + "\n" +  // line 2
-                                        R"(,"abcd",5467,,)" + "\n" +       // line 3
-                                        R"(,,,,)" + "\n" +                 // line 4
-                                        R"(546,"",517,,)" + "\n" +         // line 5
-                                        R"(124,"a""""b""",,,)" + "\n" +    // line 6
-                                        R"(,,,1970-01-01,)" + "\n" +       // line 7
-                                        R"(,,,,1970-01-02)" + "\n";        // line 8
-  std::string expected_header = std::string(R"("a","b""","c ","d","e")") + "\n";
+                             { "e": 86400000 },
+                             { "f": 1078016523 }])";
+  std::string expected_without_header = std::string("1,,-1,,,") + "\n" +       // line 1
+                                        R"(1,"abc""efg",2324,,,)" + "\n" +     // line 2
+                                        R"(,"abcd",5467,,,)" + "\n" +          // line 3
+                                        R"(,,,,,)" + "\n" +                    // line 4
+                                        R"(546,"",517,,,)" + "\n" +            // line 5
+                                        R"(124,"a""""b""",,,,)" + "\n" +       // line 6
+                                        R"(,,,1970-01-01,,)" + "\n" +          // line 7
+                                        R"(,,,,1970-01-02,)" + "\n" +          // line 8
+                                        R"(,,,,,2004-02-29 01:02:03)" + "\n";  // line 9
+  std::string expected_header = std::string(R"("a","b""","c ","d","e","f")") + "\n";
 
   return std::vector<WriterTestParams>{
       {abc_schema, "[]", DefaultTestOptions(/*header=*/false), ""},
@@ -154,6 +157,20 @@ INSTANTIATE_TEST_SUITE_P(SingleColumnWriteCSVTest, TestWriteCSV,
                              R"([{ "int64": 9999}, {}, { "int64": -15}])", WriteOptions(),
                              R"("int64")"
                              "\n9999\n\n-15\n"}));
+
+#ifndef _WIN32
+// TODO(ARROW-13168):
+INSTANTIATE_TEST_SUITE_P(
+    TimestampWithTimezoneWriteCSVTest, TestWriteCSV,
+    ::testing::Values(WriterTestParams{
+        schema({
+            field("tz", timestamp(TimeUnit::SECOND, "America/Phoenix")),
+            field("utc", timestamp(TimeUnit::SECOND, "UTC")),
+        }),
+        R"([{ "tz": 1456767743, "utc": 1456767743 }])", WriteOptions(),
+        R"("tz","utc")"
+        "\n2016-02-29 10:42:23-0700,2016-02-29 17:42:23Z\n"}));
+#endif
 
 }  // namespace csv
 }  // namespace arrow
