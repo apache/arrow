@@ -40,12 +40,14 @@
 #include "arrow/compute/kernels/row_encoder.h"
 #include "arrow/compute/kernels/util_internal.h"
 #include "arrow/record_batch.h"
+#include "arrow/stl_allocator.h"
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/bitmap_writer.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/cpu_info.h"
 #include "arrow/util/int128_internal.h"
+#include "arrow/util/int_util_internal.h"
 #include "arrow/util/make_unique.h"
 #include "arrow/util/task_group.h"
 #include "arrow/util/tdigest.h"
@@ -604,8 +606,9 @@ struct GroupedValueTraits<BooleanType> {
 };
 
 template <typename Type, typename ConsumeValue, typename ConsumeNull>
-void VisitGroupedValues(const ExecBatch& batch, ConsumeValue&& valid_func,
-                        ConsumeNull&& null_func) {
+typename arrow::internal::call_traits::enable_if_return<ConsumeValue, void>::type
+VisitGroupedValues(const ExecBatch& batch, ConsumeValue&& valid_func,
+                   ConsumeNull&& null_func) {
   auto g = batch[1].array()->GetValues<uint32_t>(1);
   if (batch[0].is_array()) {
     VisitArrayValuesInline<Type>(
@@ -625,6 +628,31 @@ void VisitGroupedValues(const ExecBatch& batch, ConsumeValue&& valid_func,
       null_func(*g++);
     }
   }
+}
+
+template <typename Type, typename ConsumeValue, typename ConsumeNull>
+typename arrow::internal::call_traits::enable_if_return<ConsumeValue, Status>::type
+VisitGroupedValues(const ExecBatch& batch, ConsumeValue&& valid_func,
+                   ConsumeNull&& null_func) {
+  auto g = batch[1].array()->GetValues<uint32_t>(1);
+  if (batch[0].is_array()) {
+    return VisitArrayValuesInline<Type>(
+        *batch[0].array(),
+        [&](typename GetViewType<Type>::T val) { return valid_func(*g++, val); },
+        [&]() { return null_func(*g++); });
+  }
+  const auto& input = *batch[0].scalar();
+  if (input.is_valid) {
+    const auto val = UnboxScalar<Type>::Unbox(input);
+    for (int64_t i = 0; i < batch.length; i++) {
+      RETURN_NOT_OK(valid_func(*g++, val));
+    }
+  } else {
+    for (int64_t i = 0; i < batch.length; i++) {
+      RETURN_NOT_OK(null_func(*g++));
+    }
+  }
+  return Status::OK();
 }
 
 template <typename Type, typename ConsumeValue>
@@ -1554,7 +1582,7 @@ struct AntiExtrema<Decimal256> {
   static constexpr Decimal256 anti_max() { return BasicDecimal256::GetMinSentinel(); }
 };
 
-template <typename Type>
+template <typename Type, typename Enable = void>
 struct GroupedMinMaxImpl final : public GroupedAggregator {
   using CType = typename TypeTraits<Type>::CType;
   using GetSet = GroupedValueTraits<Type>;
@@ -1658,6 +1686,178 @@ struct GroupedMinMaxImpl final : public GroupedAggregator {
   ScalarAggregateOptions options_;
 };
 
+// For binary-like types
+// In principle, FixedSizeBinary could use base implementation
+template <typename Type>
+struct GroupedMinMaxImpl<Type,
+                         enable_if_t<is_base_binary_type<Type>::value ||
+                                     std::is_same<Type, FixedSizeBinaryType>::value>>
+    final : public GroupedAggregator {
+  using Allocator = arrow::stl::allocator<char>;
+  using StringType = std::basic_string<char, std::char_traits<char>, Allocator>;
+
+  Status Init(ExecContext* ctx, const std::vector<ValueDescr>&,
+              const FunctionOptions* options) override {
+    ctx_ = ctx;
+    allocator_ = Allocator(ctx->memory_pool());
+    options_ = *checked_cast<const ScalarAggregateOptions*>(options);
+    // type_ initialized by MinMaxInit
+    has_values_ = TypedBufferBuilder<bool>(ctx->memory_pool());
+    has_nulls_ = TypedBufferBuilder<bool>(ctx->memory_pool());
+    return Status::OK();
+  }
+
+  Status Resize(int64_t new_num_groups) override {
+    auto added_groups = new_num_groups - num_groups_;
+    DCHECK_GE(added_groups, 0);
+    num_groups_ = new_num_groups;
+    mins_.resize(new_num_groups);
+    maxes_.resize(new_num_groups);
+    RETURN_NOT_OK(has_values_.Append(added_groups, false));
+    RETURN_NOT_OK(has_nulls_.Append(added_groups, false));
+    return Status::OK();
+  }
+
+  Status Consume(const ExecBatch& batch) override {
+    return VisitGroupedValues<Type>(
+        batch,
+        [&](uint32_t g, util::string_view val) {
+          if (!mins_[g] || val < *mins_[g]) {
+            mins_[g].emplace(val.data(), val.size(), allocator_);
+          }
+          if (!maxes_[g] || val > *maxes_[g]) {
+            maxes_[g].emplace(val.data(), val.size(), allocator_);
+          }
+          BitUtil::SetBit(has_values_.mutable_data(), g);
+          return Status::OK();
+        },
+        [&](uint32_t g) {
+          BitUtil::SetBit(has_nulls_.mutable_data(), g);
+          return Status::OK();
+        });
+  }
+
+  Status Merge(GroupedAggregator&& raw_other,
+               const ArrayData& group_id_mapping) override {
+    auto other = checked_cast<GroupedMinMaxImpl*>(&raw_other);
+    auto g = group_id_mapping.GetValues<uint32_t>(1);
+    for (uint32_t other_g = 0; static_cast<int64_t>(other_g) < group_id_mapping.length;
+         ++other_g, ++g) {
+      if (!mins_[*g] ||
+          (mins_[*g] && other->mins_[other_g] && *mins_[*g] > *other->mins_[other_g])) {
+        mins_[*g] = std::move(other->mins_[other_g]);
+      }
+      if (!maxes_[*g] || (maxes_[*g] && other->maxes_[other_g] &&
+                          *maxes_[*g] < *other->maxes_[other_g])) {
+        maxes_[*g] = std::move(other->maxes_[other_g]);
+      }
+
+      if (BitUtil::GetBit(other->has_values_.data(), other_g)) {
+        BitUtil::SetBit(has_values_.mutable_data(), *g);
+      }
+      if (BitUtil::GetBit(other->has_nulls_.data(), other_g)) {
+        BitUtil::SetBit(has_nulls_.mutable_data(), *g);
+      }
+    }
+    return Status::OK();
+  }
+
+  Result<Datum> Finalize() override {
+    // aggregation for group is valid if there was at least one value in that group
+    ARROW_ASSIGN_OR_RAISE(auto null_bitmap, has_values_.Finish());
+
+    if (!options_.skip_nulls) {
+      // ... and there were no nulls in that group
+      ARROW_ASSIGN_OR_RAISE(auto has_nulls, has_nulls_.Finish());
+      arrow::internal::BitmapAndNot(null_bitmap->data(), 0, has_nulls->data(), 0,
+                                    num_groups_, 0, null_bitmap->mutable_data());
+    }
+
+    auto mins = ArrayData::Make(type_, num_groups_, {null_bitmap, nullptr});
+    auto maxes = ArrayData::Make(type_, num_groups_, {std::move(null_bitmap), nullptr});
+    RETURN_NOT_OK(MakeOffsetsValues(mins.get(), mins_));
+    RETURN_NOT_OK(MakeOffsetsValues(maxes.get(), maxes_));
+    return ArrayData::Make(out_type(), num_groups_, {nullptr},
+                           {std::move(mins), std::move(maxes)});
+  }
+
+  template <typename T = Type>
+  enable_if_base_binary<T, Status> MakeOffsetsValues(
+      ArrayData* array, const std::vector<util::optional<StringType>>& values) {
+    using offset_type = typename T::offset_type;
+    ARROW_ASSIGN_OR_RAISE(
+        auto raw_offsets,
+        AllocateBuffer((1 + values.size()) * sizeof(offset_type), ctx_->memory_pool()));
+    offset_type* offsets = reinterpret_cast<offset_type*>(raw_offsets->mutable_data());
+    offsets[0] = 0;
+    offsets++;
+    const uint8_t* null_bitmap = array->buffers[0]->data();
+    offset_type total_length = 0;
+    for (size_t i = 0; i < values.size(); i++) {
+      if (BitUtil::GetBit(null_bitmap, i)) {
+        const util::optional<StringType>& value = values[i];
+        DCHECK(value.has_value());
+        if (value->size() >
+                static_cast<size_t>(std::numeric_limits<offset_type>::max()) ||
+            arrow::internal::AddWithOverflow(
+                total_length, static_cast<offset_type>(value->size()), &total_length)) {
+          return Status::Invalid("Result is too large to fit in ", *array->type,
+                                 " cast to large_ variant of type");
+        }
+      }
+      offsets[i] = total_length;
+    }
+    ARROW_ASSIGN_OR_RAISE(auto data, AllocateBuffer(total_length, ctx_->memory_pool()));
+    int64_t offset = 0;
+    for (size_t i = 0; i < values.size(); i++) {
+      if (BitUtil::GetBit(null_bitmap, i)) {
+        const util::optional<StringType>& value = values[i];
+        DCHECK(value.has_value());
+        std::memcpy(data->mutable_data() + offset, value->data(), value->size());
+        offset += value->size();
+      }
+    }
+    array->buffers[1] = std::move(raw_offsets);
+    array->buffers.push_back(std::move(data));
+    return Status::OK();
+  }
+
+  template <typename T = Type>
+  enable_if_same<T, FixedSizeBinaryType, Status> MakeOffsetsValues(
+      ArrayData* array, const std::vector<util::optional<StringType>>& values) {
+    const uint8_t* null_bitmap = array->buffers[0]->data();
+    const int32_t slot_width =
+        checked_cast<const FixedSizeBinaryType&>(*array->type).byte_width();
+    int64_t total_length = values.size() * slot_width;
+    ARROW_ASSIGN_OR_RAISE(auto data, AllocateBuffer(total_length, ctx_->memory_pool()));
+    int64_t offset = 0;
+    for (size_t i = 0; i < values.size(); i++) {
+      if (BitUtil::GetBit(null_bitmap, i)) {
+        const util::optional<StringType>& value = values[i];
+        DCHECK(value.has_value());
+        std::memcpy(data->mutable_data() + offset, value->data(), slot_width);
+      } else {
+        std::memset(data->mutable_data() + offset, 0x00, slot_width);
+      }
+      offset += slot_width;
+    }
+    array->buffers[1] = std::move(data);
+    return Status::OK();
+  }
+
+  std::shared_ptr<DataType> out_type() const override {
+    return struct_({field("min", type_), field("max", type_)});
+  }
+
+  ExecContext* ctx_;
+  Allocator allocator_;
+  int64_t num_groups_;
+  std::vector<util::optional<StringType>> mins_, maxes_;
+  TypedBufferBuilder<bool> has_values_, has_nulls_;
+  std::shared_ptr<DataType> type_;
+  ScalarAggregateOptions options_;
+};
+
 struct GroupedNullMinMaxImpl final : public GroupedAggregator {
   Status Init(ExecContext* ctx, const std::vector<ValueDescr>&,
               const FunctionOptions*) override {
@@ -1752,6 +1952,17 @@ struct GroupedMinMaxFactory {
   template <typename T>
   enable_if_decimal<T, Status> Visit(const T&) {
     kernel = MakeKernel(std::move(argument_type), MinMaxInit<T>);
+    return Status::OK();
+  }
+
+  template <typename T>
+  enable_if_base_binary<T, Status> Visit(const T&) {
+    kernel = MakeKernel(std::move(argument_type), MinMaxInit<T>);
+    return Status::OK();
+  }
+
+  Status Visit(const FixedSizeBinaryType&) {
+    kernel = MakeKernel(std::move(argument_type), MinMaxInit<FixedSizeBinaryType>);
     return Status::OK();
   }
 
@@ -2591,10 +2802,12 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
         &default_scalar_aggregate_options);
     DCHECK_OK(AddHashAggKernels(NumericTypes(), GroupedMinMaxFactory::Make, func.get()));
     DCHECK_OK(AddHashAggKernels(TemporalTypes(), GroupedMinMaxFactory::Make, func.get()));
+    DCHECK_OK(
+        AddHashAggKernels(BaseBinaryTypes(), GroupedMinMaxFactory::Make, func.get()));
     // Type parameters are ignored
-    DCHECK_OK(AddHashAggKernels(
-        {null(), boolean(), decimal128(1, 1), decimal256(1, 1), month_interval()},
-        GroupedMinMaxFactory::Make, func.get()));
+    DCHECK_OK(AddHashAggKernels({null(), boolean(), decimal128(1, 1), decimal256(1, 1),
+                                 month_interval(), fixed_size_binary(1)},
+                                GroupedMinMaxFactory::Make, func.get()));
     min_max_func = func.get();
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
