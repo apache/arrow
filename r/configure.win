@@ -57,6 +57,11 @@ OPENSSL_LIBS="-lcrypto -lcrypt32"
 MIMALLOC_LIBS="-lbcrypt -lpsapi"
 AWS_LIBS="-laws-cpp-sdk-config -laws-cpp-sdk-transfer -laws-cpp-sdk-identity-management -laws-cpp-sdk-cognito-identity -laws-cpp-sdk-sts -laws-cpp-sdk-s3 -laws-cpp-sdk-core -laws-c-event-stream -laws-checksums -laws-c-common -lUserenv -lversion -lws2_32 -lBcrypt -lWininet -lwinhttp"
 
+# TODO(wjones127): how can we pass this in? Or should we just use MYSYS2?
+# VCPKG_INSTALLED=$(cygpath 'C:\Users\voltron\arrow\cpp\vcpkg_installed\x64-windows')
+# VCPKG_INCLUDE="-I$VCPKG_INSTALLED/include"
+# VCPKG_LIB="-L$VCPKG_INSTALLED/lib"
+
 # NOTE: If you make changes to the libraries below, you should also change
 # ci/scripts/r_windows_build.sh and ci/scripts/PKGBUILD
 PKG_CFLAGS="-I${RWINLIB}/include -DARROW_STATIC -DPARQUET_STATIC -DARROW_DS_STATIC -DARROW_R_WITH_ARROW -DARROW_R_WITH_PARQUET -DARROW_R_WITH_DATASET -DARROW_R_WITH_JSON"

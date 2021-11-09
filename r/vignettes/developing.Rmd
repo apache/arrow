@@ -122,7 +122,32 @@ brew install cmake openssl
 
 #### Windows
 
-Currently, the R package cannot be made to work with a local libarrow build. This will be resolved in a future release.
+Open RTools Bash and install CMake with:
+
+```{bash}
+pacman --sync --refresh --noconfirm \
+  mingw-w64-${MSYSTEM_CARCH}-cmake \
+  mingw-w64-${MSYSTEM_CARCH}-ninja
+```
+
+You will need to add mingw64 binaries and R to your path. For a user-level installation, R will be at something like `~/Documents/R/R-4.1.2/bin`.
+
+```{bash}
+export PATH=/mingw64/bin:~/Documents/R/R-4.1.2/bin:$PATH
+```
+
+You can install additional dependencies like so. Note that you are limited to the packages in [the RTools repo](https://github.com/r-windows/rtools-packages), which does not contain every dependency used by Arrow.
+
+```{bash}
+pacman --sync --refresh --noconfirm \
+  mingw-w64-${MSYSTEM_CARCH}-boost \
+  mingw-w64-${MSYSTEM_CARCH}-lz4 \
+  mingw-w64-${MSYSTEM_CARCH}-protobuf \
+  mingw-w64-${MSYSTEM_CARCH}-snappy \
+  mingw-w64-${MSYSTEM_CARCH}-thrift \
+  mingw-w64-${MSYSTEM_CARCH}-zlib \
+  mingw-w64-${MSYSTEM_CARCH}-zstd
+```
 
 ### Step 2 - Configure the libarrow build
 
@@ -154,6 +179,7 @@ You'll first call `cmake` to configure the build and then `make install`. For th
 
 ```{bash, save=run & !sys_install}
 cmake \
+  -G Ninja \
   -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
   -DCMAKE_INSTALL_LIBDIR=lib \
   -DARROW_COMPUTE=ON \
@@ -162,7 +188,7 @@ cmake \
   -DARROW_EXTRA_ERROR_CONTEXT=ON \
   -DARROW_FILESYSTEM=ON \
   -DARROW_INSTALL_NAME_RPATH=OFF \
-  -DARROW_JEMALLOC=ON \
+  -DARROW_JEMALLOC=OFF \
   -DARROW_JSON=ON \
   -DARROW_PARQUET=ON \
   -DARROW_WITH_SNAPPY=ON \
@@ -199,7 +225,8 @@ _Note_ `cmake` is particularly sensitive to whitespacing, if you see errors, che
 You can add `-j#` between `make` and `install` here too to speed up compilation by running in parallel (where `#` is the number of cores you have available).
 
 ```{bash, save=run & !(sys_install & ubuntu)}
-make -j8 install
+cmake --build . -j8
+cmake --install .
 ```
 
 ### Step 4 - Build the Arrow R package
