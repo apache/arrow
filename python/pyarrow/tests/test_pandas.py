@@ -168,6 +168,17 @@ class TestConvertMetadata:
         df.columns.names = ['a']
         _check_pandas_roundtrip(df, preserve_index=True)
 
+    def test_column_index_names_with_tz(self):
+        # ARROW-13756
+        # Bug if index is timezone aware DataTimeIndex
+
+        df = pd.DataFrame(
+            np.random.randn(5, 3),
+            columns=pd.date_range(
+                "2021-01-01", "2021-01-3", freq="D", tz="CET")
+        )
+        _check_pandas_roundtrip(df, preserve_index=True)
+
     def test_range_index_shortcut(self):
         # ARROW-1639
         index_name = 'foo'
@@ -235,17 +246,6 @@ class TestConvertMetadata:
             names=['level_1', 'level_2'],
         )
         df = pd.DataFrame([(1, 'a'), (2, 'b'), (3, 'c')], columns=columns)
-        _check_pandas_roundtrip(df, preserve_index=True)
-
-    def test_multiindex_columns_with_tz(self):
-        # ARROW-13756
-        # Bug if index is timezone aware DataTimeIndex
-
-        df = pd.DataFrame(
-            np.random.randn(5, 3),
-            columns=pd.date_range(
-                "2021-01-01", "2021-01-3", freq="D", tz="CET")
-        )
         _check_pandas_roundtrip(df, preserve_index=True)
 
     def test_multiindex_with_column_dtype_object(self):
