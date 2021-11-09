@@ -55,15 +55,15 @@ def setup_jvm():
 
 class Bridge:
     def __init__(self):
-        self.allocator = jpype.JPackage(
+        self.java_allocator = jpype.JPackage(
             "org").apache.arrow.memory.RootAllocator(sys.maxsize)
-        self.jc = jpype.JPackage("org").apache.arrow.c
+        self.java_c = jpype.JPackage("org").apache.arrow.c
 
     def java_to_python_field(self, jfield):
         c_schema = ffi.new("struct ArrowSchema*")
         ptr_schema = int(ffi.cast("uintptr_t", c_schema))
-        self.jc.Data.exportField(self.allocator, jfield, None,
-                                 self.jc.ArrowSchema.wrap(ptr_schema))
+        self.java_c.Data.exportField(self.java_allocator, jfield, None,
+                                     self.java_c.ArrowSchema.wrap(ptr_schema))
         return pa.Field._import_from_c(ptr_schema)
 
     def java_to_python_array(self, vector, dictionary_provider=None):
@@ -71,8 +71,8 @@ class Bridge:
         ptr_schema = int(ffi.cast("uintptr_t", c_schema))
         c_array = ffi.new("struct ArrowArray*")
         ptr_array = int(ffi.cast("uintptr_t", c_array))
-        self.jc.Data.exportVector(self.allocator, vector, dictionary_provider, self.jc.ArrowArray.wrap(
-            ptr_array), self.jc.ArrowSchema.wrap(ptr_schema))
+        self.java_c.Data.exportVector(self.java_allocator, vector, dictionary_provider, self.java_c.ArrowArray.wrap(
+            ptr_array), self.java_c.ArrowSchema.wrap(ptr_schema))
         return pa.Array._import_from_c(ptr_array, ptr_schema)
 
     def java_to_python_record_batch(self, root):
@@ -80,30 +80,30 @@ class Bridge:
         ptr_schema = int(ffi.cast("uintptr_t", c_schema))
         c_array = ffi.new("struct ArrowArray*")
         ptr_array = int(ffi.cast("uintptr_t", c_array))
-        self.jc.Data.exportVectorSchemaRoot(self.allocator, root, None, self.jc.ArrowArray.wrap(
-            ptr_array), self.jc.ArrowSchema.wrap(ptr_schema))
+        self.java_c.Data.exportVectorSchemaRoot(self.java_allocator, root, None, self.java_c.ArrowArray.wrap(
+            ptr_array), self.java_c.ArrowSchema.wrap(ptr_schema))
         return pa.RecordBatch._import_from_c(ptr_array, ptr_schema)
 
     def python_to_java_field(self, field):
-        c_schema = self.jc.ArrowSchema.allocateNew(self.allocator)
+        c_schema = self.java_c.ArrowSchema.allocateNew(self.java_allocator)
         field._export_to_c(c_schema.memoryAddress())
-        return self.jc.Data.importField(self.allocator, c_schema, None)
+        return self.java_c.Data.importField(self.java_allocator, c_schema, None)
 
     def python_to_java_array(self, array, dictionary_provider=None):
-        c_schema = self.jc.ArrowSchema.allocateNew(self.allocator)
-        c_array = self.jc.ArrowArray.allocateNew(self.allocator)
+        c_schema = self.java_c.ArrowSchema.allocateNew(self.java_allocator)
+        c_array = self.java_c.ArrowArray.allocateNew(self.java_allocator)
         array._export_to_c(c_array.memoryAddress(), c_schema.memoryAddress())
-        return self.jc.Data.importVector(self.allocator, c_array, c_schema, dictionary_provider)
+        return self.java_c.Data.importVector(self.java_allocator, c_array, c_schema, dictionary_provider)
 
     def python_to_java_record_batch(self, record_batch):
-        c_schema = self.jc.ArrowSchema.allocateNew(self.allocator)
-        c_array = self.jc.ArrowArray.allocateNew(self.allocator)
+        c_schema = self.java_c.ArrowSchema.allocateNew(self.java_allocator)
+        c_array = self.java_c.ArrowArray.allocateNew(self.java_allocator)
         record_batch._export_to_c(
             c_array.memoryAddress(), c_schema.memoryAddress())
-        return self.jc.Data.importVectorSchemaRoot(self.allocator, c_array, c_schema, None)
+        return self.java_c.Data.importVectorSchemaRoot(self.java_allocator, c_array, c_schema, None)
 
     def close(self):
-        self.allocator.close()
+        self.java_allocator.close()
 
 
 class TestPythonIntegration(unittest.TestCase):
@@ -132,7 +132,7 @@ class TestPythonIntegration(unittest.TestCase):
 
     def round_trip_array(self, array_generator, expected_diff=None):
         original_arr = array_generator()
-        with self.bridge.jc.CDataDictionaryProvider() as dictionary_provider, \
+        with self.bridge.java_c.CDataDictionaryProvider() as dictionary_provider, \
                 self.bridge.python_to_java_array(original_arr, dictionary_provider) as vector:
             del original_arr
             new_array = self.bridge.java_to_python_array(vector, dictionary_provider)
