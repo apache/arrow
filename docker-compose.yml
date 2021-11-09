@@ -1015,7 +1015,13 @@ services:
     shm_size: *shm-size
     environment:
       <<: *ccache
+      ARROW_DATASET: "OFF"
+      ARROW_FLIGHT: "OFF"
+      ARROW_GANDIVA: "OFF"
       ARROW_JAVA_CDATA: "ON"
+      ARROW_ORC: "OFF"
+      ARROW_PARQUET: "OFF"
+      ARROW_PLASMA: "OFF"
     volumes:
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}maven-cache:/root/.m2:delegated
