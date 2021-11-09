@@ -303,8 +303,9 @@ inline Result<int32_t> MaxDecimalDigitsForInteger(Type::type type_id) {
     case Type::UINT32:
       return 10;
     case Type::INT64:
-    case Type::UINT64:
       return 19;
+    case Type::UINT64:
+      return 20;
     default:
       break;
   }

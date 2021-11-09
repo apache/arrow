@@ -41,8 +41,50 @@ test_df <- tibble::tibble(
   # That issue is tough because in C++, "" is the "no timezone" value
   # due to static typing, so we can't distinguish a literal "" from NULL
   datetime = c(test_date, NA) + 1,
-  date = c(as.Date("2021-09-09"), NA)
+  date = c(as.Date("2021-09-09"), NA),
+  integer = 1:2
 )
+
+# These tests test detection of dates and times
+
+test_that("is.* functions from lubridate", {
+  # make sure all true and at least one false value is considered
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = is.POSIXct(datetime), y = is.POSIXct(integer)) %>%
+      collect(),
+    test_df
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = is.Date(date), y = is.Date(integer)) %>%
+      collect(),
+    test_df
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        x = is.instant(datetime),
+        y = is.instant(date),
+        z = is.instant(integer)
+      ) %>%
+      collect(),
+    test_df
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        x = is.timepoint(datetime),
+        y = is.instant(date),
+        z = is.timepoint(integer)
+      ) %>%
+      collect(),
+    test_df
+  )
+})
 
 # These tests test component extraction from timestamp objects
 

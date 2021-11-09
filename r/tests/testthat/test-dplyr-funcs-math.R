@@ -178,14 +178,14 @@ test_that("log functions", {
   # test log(, base = (length != 1))
   expect_error(
     nse_funcs$log(10, base = 5:6),
-    "base must be a column or a length-1 numeric; other values not supported by Arrow",
+    "base must be a column or a length-1 numeric; other values not supported in Arrow",
     fixed = TRUE
   )
 
   # test log(x = (length != 1))
   expect_error(
     nse_funcs$log(10:11),
-    "x must be a column or a length-1 numeric; other values not supported by Arrow",
+    "x must be a column or a length-1 numeric; other values not supported in Arrow",
     fixed = TRUE
   )
 

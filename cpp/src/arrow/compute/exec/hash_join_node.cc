@@ -19,6 +19,7 @@
 
 #include "arrow/compute/exec/exec_plan.h"
 #include "arrow/compute/exec/hash_join.h"
+#include "arrow/compute/exec/hash_join_dict.h"
 #include "arrow/compute/exec/options.h"
 #include "arrow/compute/exec/schema_util.h"
 #include "arrow/compute/exec/util.h"
@@ -32,6 +33,15 @@ namespace arrow {
 using internal::checked_cast;
 
 namespace compute {
+
+// Check if a type is supported in a join (as either a key or non-key column)
+bool HashJoinSchema::IsTypeSupported(const DataType& type) {
+  const Type::type id = type.id();
+  if (id == Type::DICTIONARY) {
+    return IsTypeSupported(*checked_cast<const DictionaryType&>(type).value_type());
+  }
+  return is_fixed_width(id) || is_binary_like(id) || is_large_binary_like(id);
+}
 
 Result<std::vector<FieldRef>> HashJoinSchema::VectorDiff(const Schema& schema,
                                                          const std::vector<FieldRef>& a,
@@ -140,8 +150,7 @@ Status HashJoinSchema::ValidateSchemas(JoinType join_type, const Schema& left_sc
   // 2. Same number of key fields on left and right
   // 3. At least one key field
   // 4. Equal data types for corresponding key fields
-  // 5. Dictionary type is not supported in a key field
-  // 6. Some other data types may not be allowed in a key field
+  // 5. Some data types may not be allowed in a key field or non-key field
   //
   if (left_keys.size() != right_keys.size()) {
     return Status::Invalid("Different number of key fields on left (", left_keys.size(),
@@ -163,18 +172,8 @@ Status HashJoinSchema::ValidateSchemas(JoinType join_type, const Schema& left_sc
     const FieldPath& match = result.ValueUnsafe();
     const std::shared_ptr<DataType>& type =
         (left_side ? left_schema.fields() : right_schema.fields())[match[0]]->type();
-    if (type->id() == Type::DICTIONARY) {
-      return Status::Invalid(
-          "Dictionary type support for join key is not yet implemented, key field "
-          "reference: ",
-          field_ref.ToString(), left_side ? " on left " : " on right ",
-          "side of the join");
-    }
-    if ((type->id() != Type::BOOL && !is_fixed_width(type->id()) &&
-         !is_binary_like(type->id())) ||
-        is_large_binary_like(type->id())) {
-      return Status::Invalid("Data type ", type->ToString(),
-                             " is not supported in join key field");
+    if (!IsTypeSupported(*type)) {
+      return Status::Invalid("Data type ", *type, " is not supported in join key field");
     }
   }
   for (size_t i = 0; i < left_keys.size(); ++i) {
@@ -184,11 +183,25 @@ Status HashJoinSchema::ValidateSchemas(JoinType join_type, const Schema& left_sc
     int right_id = right_ref.FindOne(right_schema).ValueUnsafe()[0];
     const std::shared_ptr<DataType>& left_type = left_schema.fields()[left_id]->type();
     const std::shared_ptr<DataType>& right_type = right_schema.fields()[right_id]->type();
-    if (!left_type->Equals(right_type)) {
-      return Status::Invalid("Mismatched data types for corresponding join field keys: ",
-                             left_ref.ToString(), " of type ", left_type->ToString(),
-                             " and ", right_ref.ToString(), " of type ",
-                             right_type->ToString());
+    if (!HashJoinDictUtil::KeyDataTypesValid(left_type, right_type)) {
+      return Status::Invalid(
+          "Incompatible data types for corresponding join field keys: ",
+          left_ref.ToString(), " of type ", left_type->ToString(), " and ",
+          right_ref.ToString(), " of type ", right_type->ToString());
+    }
+  }
+  for (const auto& field : left_schema.fields()) {
+    const auto& type = *field->type();
+    if (!IsTypeSupported(type)) {
+      return Status::Invalid("Data type ", type,
+                             " is not supported in join non-key field");
+    }
+  }
+  for (const auto& field : right_schema.fields()) {
+    const auto& type = *field->type();
+    if (!IsTypeSupported(type)) {
+      return Status::Invalid("Data type ", type,
+                             " is not supported in join non-key field");
     }
   }
 
@@ -227,16 +240,6 @@ Status HashJoinSchema::ValidateSchemas(JoinType join_type, const Schema& left_sc
       return Status::Invalid("No match or multiple matches for output field reference ",
                              field_ref.ToString(), left_side ? " on left " : " on right ",
                              "side of the join");
-    }
-    const FieldPath& match = result.ValueUnsafe();
-    const std::shared_ptr<DataType>& type =
-        (left_side ? left_schema.fields() : right_schema.fields())[match[0]]->type();
-    if (type->id() == Type::DICTIONARY) {
-      return Status::Invalid(
-          "Dictionary type support for join output field is not yet implemented, output "
-          "field reference: ",
-          field_ref.ToString(), left_side ? " on left " : " on right ",
-          "side of the join");
     }
   }
   return Status::OK();

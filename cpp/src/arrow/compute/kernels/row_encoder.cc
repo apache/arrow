@@ -238,7 +238,9 @@ Result<std::shared_ptr<ArrayData>> DictionaryKeyEncoder::Decode(uint8_t** encode
   if (dictionary_) {
     data->dictionary = dictionary_->data();
   } else {
-    ARROW_ASSIGN_OR_RAISE(auto dict, MakeArrayOfNull(type_, 0));
+    ARROW_DCHECK(type_->id() == Type::DICTIONARY);
+    const auto& dict_type = checked_cast<const DictionaryType&>(*type_);
+    ARROW_ASSIGN_OR_RAISE(auto dict, MakeArrayOfNull(dict_type.value_type(), 0));
     data->dictionary = dict->data();
   }
 

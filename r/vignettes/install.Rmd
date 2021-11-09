@@ -214,39 +214,39 @@ This build script is also what is used to generate the prebuilt binaries.
 
 ## How the package is installed - advanced
 
-This subsection contains information which is likely to be most relevant mostly 
+This subsection contains information which is likely to be most relevant mostly
 to Arrow developers and is not necessary for Arrow users to install Arrow.
 
-There are a number of scripts that are triggered when `R CMD INSTALL .` is run. 
-For Arrow users, these should all just work without configuration and pull in 
+There are a number of scripts that are triggered when `R CMD INSTALL .` is run.
+For Arrow users, these should all just work without configuration and pull in
 the most complete pieces (e.g. official binaries that we host).
 
 An overview of these scripts is shown below:
 
-* `configure` and `configure.win` - these scripts are triggered during 
-`R CMD INSTALL .` on non-Windows and Windows platforms, respectively. They 
-handle finding the Arrow library, setting up the build variables necessary, and 
-writing the package Makevars file that is used to compile the C++ code in the R 
+* `configure` and `configure.win` - these scripts are triggered during
+`R CMD INSTALL .` on non-Windows and Windows platforms, respectively. They
+handle finding the Arrow library, setting up the build variables necessary, and
+writing the package Makevars file that is used to compile the C++ code in the R
 package.
 
-* `tools/nixlibs.R` - this script is sometimes called by `configure` on Linux 
-(or on any non-windows OS with the environment variable 
-`FORCE_BUNDLED_BUILD=true`). This sets up the build process for our bundled 
-builds (which is the default on linux). The operative logic is at the end of 
-the script, but it will do the following (and it will stop with the first one 
-that succeeds and some of the steps are only checked if they are enabled via an 
+* `tools/nixlibs.R` - this script is sometimes called by `configure` on Linux
+(or on any non-windows OS with the environment variable
+`FORCE_BUNDLED_BUILD=true`). This sets up the build process for our bundled
+builds (which is the default on linux). The operative logic is at the end of
+the script, but it will do the following (and it will stop with the first one
+that succeeds and some of the steps are only checked if they are enabled via an
 environment variable):
   * Check if there is an already built libarrow in `arrow/r/libarrow-{version}`,
   use that to link against if it exists.
   * Check if a binary is available from our hosted unofficial builds.
   * Download the Arrow source and build the Arrow Library from source.
-  * `*** Proceed without C++` dependencies (this is an error and the package 
-  will not work, but if you see this message you know the previous steps have 
+  * `*** Proceed without C++` dependencies (this is an error and the package
+  will not work, but if you see this message you know the previous steps have
   not succeeded/were not enabled)
-  
-* `inst/build_arrow_static.sh` - called by `tools/nixlibs.R` when the Arrow 
-library is being built.  It builds Arrow for a bundled, static build, and 
-mirrors the steps described in the ["Arrow R Developer Guide" vignette]("./developing.html")
+
+* `inst/build_arrow_static.sh` - called by `tools/nixlibs.R` when the Arrow
+library is being built.  It builds Arrow for a bundled, static build, and
+mirrors the steps described in the ["Arrow R Developer Guide" vignette](./developing.html)
 
 # Troubleshooting
 

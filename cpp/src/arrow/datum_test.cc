@@ -145,6 +145,22 @@ TEST(Datum, ToString) {
   ASSERT_EQ("Collection(Array, Scalar)", v4.ToString());
 }
 
+TEST(Datum, TotalBufferSize) {
+  auto arr = ArrayFromJSON(int8(), "[1, 2, 3, 4]");
+  Datum arr_datum(arr);
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<ChunkedArray> chunked_arr,
+                       ChunkedArray::Make({arr}));
+  Datum chunked_datum(chunked_arr);
+  std::shared_ptr<Schema> schm = schema({field("a", int8())});
+  Datum rb_datum(RecordBatch::Make(schm, 4, {arr}));
+  Datum tab_datum(Table::Make(std::move(schm), {std::move(arr)}, 4));
+
+  ASSERT_EQ(4, arr_datum.TotalBufferSize());
+  ASSERT_EQ(4, chunked_datum.TotalBufferSize());
+  ASSERT_EQ(4, rb_datum.TotalBufferSize());
+  ASSERT_EQ(4, tab_datum.TotalBufferSize());
+}
+
 TEST(ValueDescr, Basics) {
   ValueDescr d1(utf8(), ValueDescr::SCALAR);
   ValueDescr d2 = ValueDescr::Any(utf8());

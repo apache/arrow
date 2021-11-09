@@ -322,6 +322,8 @@ static void BenchmarkGroupBy(benchmark::State& state,
     BenchmarkSetArgsWithSizes(bench, {1 * 1024 * 1024});             \
   })
 
+// Grouped Sum
+
 GROUP_BY_BENCHMARK(SumDoublesGroupedByTinyStringSet, [&] {
   auto summand = rng.Float64(args.size,
                              /*min=*/0.0,
@@ -461,6 +463,39 @@ GROUP_BY_BENCHMARK(SumDoublesGroupedByMediumIntStringPairSet, [&] {
                                        /*max_length=*/32);
 
   BenchmarkGroupBy(state, {{"hash_sum", NULLPTR}}, {summand}, {int_key, str_key});
+});
+
+// Grouped MinMax
+
+GROUP_BY_BENCHMARK(MinMaxDoublesGroupedByMediumInt, [&] {
+  auto input = rng.Float64(args.size,
+                           /*min=*/0.0,
+                           /*max=*/1.0e14,
+                           /*null_probability=*/args.null_proportion,
+                           /*nan_probability=*/args.null_proportion / 10);
+  auto int_key = rng.Int64(args.size, /*min=*/0, /*max=*/63);
+
+  BenchmarkGroupBy(state, {{"hash_min_max", NULLPTR}}, {input}, {int_key});
+});
+
+GROUP_BY_BENCHMARK(MinMaxShortStringsGroupedByMediumInt, [&] {
+  auto input = rng.String(args.size,
+                          /*min_length=*/0,
+                          /*max_length=*/64,
+                          /*null_probability=*/args.null_proportion);
+  auto int_key = rng.Int64(args.size, /*min=*/0, /*max=*/63);
+
+  BenchmarkGroupBy(state, {{"hash_min_max", NULLPTR}}, {input}, {int_key});
+});
+
+GROUP_BY_BENCHMARK(MinMaxLongStringsGroupedByMediumInt, [&] {
+  auto input = rng.String(args.size,
+                          /*min_length=*/0,
+                          /*max_length=*/512,
+                          /*null_probability=*/args.null_proportion);
+  auto int_key = rng.Int64(args.size, /*min=*/0, /*max=*/63);
+
+  BenchmarkGroupBy(state, {{"hash_min_max", NULLPTR}}, {input}, {int_key});
 });
 
 //

@@ -17,6 +17,8 @@
 
 #include <memory>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -26,8 +28,10 @@
 #endif
 
 #include "arrow/compute/api_scalar.h"
+#include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/kernels/test_util.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/type.h"
 
 namespace arrow {
 namespace compute {
@@ -62,14 +66,6 @@ class BaseTestStringKernels : public ::testing::Test {
                   const std::shared_ptr<Array>& expected,
                   const FunctionOptions* options = nullptr) {
     CheckScalar(func_name, {Datum(input)}, Datum(expected), options);
-  }
-
-  void CheckBinaryScalar(std::string func_name, std::string json_left_input,
-                         std::string json_right_scalar, std::shared_ptr<DataType> out_ty,
-                         std::string json_expected,
-                         const FunctionOptions* options = nullptr) {
-    CheckScalarBinaryScalar(func_name, type(), json_left_input, json_right_scalar, out_ty,
-                            json_expected, options);
   }
 
   void CheckVarArgsScalar(std::string func_name, std::string json_input,
@@ -1039,6 +1035,73 @@ TYPED_TEST(TestStringKernels, Utf8Title) {
       R"([null, "", "b", "aAaz;ZæÆ&", "ɑɽⱤoW", "ıI", "ⱥ.ⱥ.ⱥ..Ⱥ", "hEllO, WoRld!", "foo   baR;héHé0zOP", "!%$^.,;"])",
       this->type(),
       R"([null, "", "B", "Aaaz;Zææ&", "Ɑɽɽow", "Ii", "Ⱥ.Ⱥ.Ⱥ..Ⱥ", "Hello, World!", "Foo   Bar;Héhé0Zop", "!%$^.,;"])");
+}
+
+TYPED_TEST(TestStringKernels, BinaryRepeatWithScalarRepeat) {
+  auto values = ArrayFromJSON(this->type(),
+                              R"(["aAazZæÆ&", null, "", "b", "ɑɽⱤoW", "ıI",
+                                  "ⱥⱥⱥȺ", "hEllO, WoRld!", "$. A3", "!ɑⱤⱤow"])");
+  std::vector<std::pair<int, std::string>> nrepeats_and_expected{{
+      {0, R"(["", null, "", "", "", "", "", "", "", ""])"},
+      {1, R"(["aAazZæÆ&", null, "", "b", "ɑɽⱤoW", "ıI", "ⱥⱥⱥȺ", "hEllO, WoRld!",
+              "$. A3", "!ɑⱤⱤow"])"},
+      {4, R"(["aAazZæÆ&aAazZæÆ&aAazZæÆ&aAazZæÆ&", null, "", "bbbb",
+              "ɑɽⱤoWɑɽⱤoWɑɽⱤoWɑɽⱤoW", "ıIıIıIıI", "ⱥⱥⱥȺⱥⱥⱥȺⱥⱥⱥȺⱥⱥⱥȺ",
+              "hEllO, WoRld!hEllO, WoRld!hEllO, WoRld!hEllO, WoRld!",
+              "$. A3$. A3$. A3$. A3", "!ɑⱤⱤow!ɑⱤⱤow!ɑⱤⱤow!ɑⱤⱤow"])"},
+  }};
+
+  for (const auto& pair : nrepeats_and_expected) {
+    auto num_repeat = pair.first;
+    auto expected = pair.second;
+    for (const auto& ty : IntTypes()) {
+      this->CheckVarArgs("binary_repeat",
+                         {values, Datum(*arrow::MakeScalar(ty, num_repeat))},
+                         this->type(), expected);
+    }
+  }
+
+  // Negative repeat count
+  for (auto num_repeat_ : {-1, -2, -5}) {
+    auto num_repeat = *arrow::MakeScalar(int64(), num_repeat_);
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr("Repeat count must be a non-negative integer"),
+        CallFunction("binary_repeat", {values, num_repeat}));
+  }
+
+  // Floating-point repeat count
+  for (auto num_repeat_ : {0.0, 1.2, -1.3}) {
+    auto num_repeat = *arrow::MakeScalar(float64(), num_repeat_);
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        NotImplemented, ::testing::HasSubstr("has no kernel matching input types"),
+        CallFunction("binary_repeat", {values, num_repeat}));
+  }
+}
+
+TYPED_TEST(TestStringKernels, BinaryRepeatWithArrayRepeat) {
+  auto values = ArrayFromJSON(this->type(),
+                              R"([null, "aAazZæÆ&", "", "b", "ɑɽⱤoW", "ıI",
+                                  "ⱥⱥⱥȺ", "hEllO, WoRld!", "$. A3", "!ɑⱤⱤow"])");
+  for (const auto& ty : IntTypes()) {
+    auto num_repeats = ArrayFromJSON(ty, R"([100, 1, 2, 5, 2, 0, 1, 3, null, 3])");
+    std::string expected =
+        R"([null, "aAazZæÆ&", "", "bbbbb", "ɑɽⱤoWɑɽⱤoW", "", "ⱥⱥⱥȺ",
+            "hEllO, WoRld!hEllO, WoRld!hEllO, WoRld!", null,
+            "!ɑⱤⱤow!ɑⱤⱤow!ɑⱤⱤow"])";
+    this->CheckVarArgs("binary_repeat", {values, num_repeats}, this->type(), expected);
+  }
+
+  // Negative repeat count
+  auto num_repeats = ArrayFromJSON(int64(), R"([100, -1, 2, -5, 2, -1, 3, -2, 3, -100])");
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("Repeat count must be a non-negative integer"),
+      CallFunction("binary_repeat", {values, num_repeats}));
+
+  // Floating-point repeat count
+  num_repeats = ArrayFromJSON(float64(), R"([0.0, 1.2, -1.3])");
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      NotImplemented, ::testing::HasSubstr("has no kernel matching input types"),
+      CallFunction("binary_repeat", {values, num_repeats}));
 }
 
 TYPED_TEST(TestStringKernels, IsAlphaNumericUnicode) {

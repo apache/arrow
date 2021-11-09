@@ -437,7 +437,7 @@ test_that("quantile()", {
   expect_warning(
     Table$create(tbl) %>%
       summarize(q = quantile(dbl, probs = c(0.2, 0.8), na.rm = TRUE)),
-    "quantile() with length(probs) != 1 not supported by Arrow",
+    "quantile() with length(probs) != 1 not supported in Arrow",
     fixed = TRUE
   )
 })
@@ -496,7 +496,7 @@ test_that("summarize() with min() and max()", {
       summarize(min_mult = min(dbl, int)) %>%
       collect(),
     tbl,
-    warning = "Multiple arguments to min\\(\\) not supported by Arrow"
+    warning = "Multiple arguments to min\\(\\) not supported in Arrow"
   )
   compare_dplyr_binding(
     .input %>%
@@ -504,7 +504,7 @@ test_that("summarize() with min() and max()", {
       summarize(max_mult = max(int, dbl, dbl2)) %>%
       collect(),
     tbl,
-    warning = "Multiple arguments to max\\(\\) not supported by Arrow"
+    warning = "Multiple arguments to max\\(\\) not supported in Arrow"
   )
 
   # min(logical) or max(logical) yields integer in R
@@ -876,6 +876,23 @@ test_that("summarize() handles group_by .drop", {
     tibble(
       x = 1:10,
       y = rep(c("a", "c"), each = 5)
+    )
+  )
+})
+
+test_that("summarise() passes through type information for temporary columns", {
+  # applies to ifelse and case_when(), in which argument types are checked
+  # within a translated function (previously this failed because the appropriate
+  # schema was not available for n() > 1, mean(y), and mean(z))
+  compare_dplyr_binding(
+    .input %>%
+      group_by(x) %>%
+      summarise(r = if_else(n() > 1, mean(y), mean(z))) %>%
+      collect(),
+    tibble(
+      x = c(0, 1, 1),
+      y = c(2, 3, 5),
+      z = c(8, 13, 21)
     )
   )
 })

@@ -104,6 +104,9 @@ groups:
   example-cpp:
     - example-*cpp*
 
+  fuzz:
+    - test-*fuzz*
+
   verify-rc:
     - verify-rc-*
 
@@ -344,11 +347,11 @@ tasks:
                                                 ("github", "amd64", "x86_64", "2_17", "2014"),
                                                 ("travis", "arm64", "aarch64", "2_17", "2014")] %}
   wheel-manylinux{{ manylinux }}-{{ python_tag }}-{{ arch }}:
-    ci: {{ ci }}
+    ci: "{{ ci }}"
     template: python-wheels/{{ ci }}.linux.{{ arch }}.yml
     params:
       python_version: "{{ python_version }}"
-      manylinux_version: {{ manylinux }}
+      manylinux_version: "{{ manylinux }}"
     artifacts:
       - pyarrow-{no_rc_version}-{{ python_tag }}-{{ abi_tag }}-manylinux_{{ x_y }}_{{ arch_alias }}.manylinux{{ manylinux }}_{{ arch_alias }}.whl
 {% endfor %}
@@ -366,8 +369,8 @@ tasks:
     params:
       vcpkg_version: "2021.04.30"
       python_version: "{{ python_version }}"
-      macos_deployment_target: {{ macos_version }}
-      arrow_s3: {{ arrow_s3 }}
+      macos_deployment_target: "{{ macos_version }}"
+      arrow_s3: "{{ arrow_s3 }}"
     artifacts:
       - pyarrow-{no_rc_version}-{{ python_tag }}-{{ abi_tag }}-{{ platform_tag }}.whl
 
@@ -692,43 +695,65 @@ tasks:
     artifacts:
       - arrow-algorithm-{no_rc_version}-tests.jar
       - arrow-algorithm-{no_rc_version}.jar
+      - arrow-algorithm-{no_rc_version}.pom
       - arrow-avro-{no_rc_version}-tests.jar
       - arrow-avro-{no_rc_version}.jar
+      - arrow-avro-{no_rc_version}.pom
+      - arrow-c-data-{no_rc_version}-tests.jar
+      - arrow-c-data-{no_rc_version}.jar
+      - arrow-c-data-{no_rc_version}.pom
       - arrow-compression-{no_rc_version}-tests.jar
       - arrow-compression-{no_rc_version}.jar
+      - arrow-compression-{no_rc_version}.pom
       - arrow-dataset-{no_rc_version}-tests.jar
       - arrow-dataset-{no_rc_version}.jar
+      - arrow-dataset-{no_rc_version}.pom
       - arrow-format-{no_rc_version}-tests.jar
       - arrow-format-{no_rc_version}.jar
+      - arrow-format-{no_rc_version}.pom
       - arrow-gandiva-{no_rc_version}-tests.jar
       - arrow-gandiva-{no_rc_version}.jar
+      - arrow-gandiva-{no_rc_version}.pom
+      - arrow-java-root-{no_rc_version}.pom
       - arrow-jdbc-{no_rc_version}-tests.jar
       - arrow-jdbc-{no_rc_version}.jar
+      - arrow-jdbc-{no_rc_version}.pom
+      - arrow-memory-{no_rc_version}.pom
       - arrow-memory-core-{no_rc_version}-tests.jar
       - arrow-memory-core-{no_rc_version}.jar
+      - arrow-memory-core-{no_rc_version}.pom
       - arrow-memory-netty-{no_rc_version}-tests.jar
       - arrow-memory-netty-{no_rc_version}.jar
+      - arrow-memory-netty-{no_rc_version}.pom
       - arrow-memory-unsafe-{no_rc_version}-tests.jar
       - arrow-memory-unsafe-{no_rc_version}.jar
+      - arrow-memory-unsafe-{no_rc_version}.pom
       - arrow-orc-{no_rc_version}-tests.jar
       - arrow-orc-{no_rc_version}.jar
+      - arrow-orc-{no_rc_version}.pom
       - arrow-performance-{no_rc_version}-tests.jar
       - arrow-performance-{no_rc_version}.jar
+      - arrow-performance-{no_rc_version}.pom
       - arrow-plasma-{no_rc_version}-tests.jar
       - arrow-plasma-{no_rc_version}.jar
+      - arrow-plasma-{no_rc_version}.pom
       - arrow-tools-{no_rc_version}-jar-with-dependencies.jar
       - arrow-tools-{no_rc_version}-tests.jar
       - arrow-tools-{no_rc_version}.jar
+      - arrow-tools-{no_rc_version}.pom
       - arrow-vector-{no_rc_version}-shade-format-flatbuffers.jar
       - arrow-vector-{no_rc_version}-tests.jar
       - arrow-vector-{no_rc_version}.jar
-      - benchmarks.jar
+      - arrow-vector-{no_rc_version}.pom
       - flight-core-{no_rc_version}-jar-with-dependencies.jar
       - flight-core-{no_rc_version}-shaded-ext.jar
       - flight-core-{no_rc_version}-shaded.jar
       - flight-core-{no_rc_version}-tests.jar
       - flight-core-{no_rc_version}.jar
+      - flight-core-{no_rc_version}.pom
       - flight-grpc-{no_rc_version}-tests.jar
+      - flight-grpc-{no_rc_version}.jar
+      - flight-grpc-{no_rc_version}.pom
 
   ############################## NuGet packages ###############################
 
@@ -778,7 +803,7 @@ tasks:
         TEST_DEFAULT: 0
         TEST_{{ target|upper }}: 1
       artifact: "source"
-      github_runner: {{ runner }}
+      github_runner: "{{ runner }}"
   {% endfor %}
 {% endfor %}
 
@@ -803,7 +828,7 @@ tasks:
         TEST_INTEGRATION_JAVA: 0
         TEST_{{ target|upper }}: 1
       artifact: "source"
-      github_runner: {{ runner }}
+      github_runner: "{{ runner }}"
   {% endfor %}
 {% endfor %}
 
@@ -885,7 +910,7 @@ tasks:
     template: docker-tests/github.linux.yml
     params:
       env:
-        UBUNTU: {{ ubuntu_version }}
+        UBUNTU: "{{ ubuntu_version }}"
       image: ubuntu-cpp
 {% endfor %}
 
@@ -912,7 +937,7 @@ tasks:
     template: docker-tests/github.linux.yml
     params:
       env:
-        DEBIAN: {{ debian_version }}
+        DEBIAN: "{{ debian_version }}"
       image: debian-cpp
 {% endfor %}
 
@@ -1158,6 +1183,12 @@ tasks:
         UBUNTU: 18.04
       run: ubuntu-r-sanitizer
 
+  test-fedora-r-clang-sanitizer:
+    ci: azure
+    template: docker-tests/azure.linux.yml
+    params:
+      run: fedora-r-clang-sanitizer
+
   revdep-r-check:
     ci: github
     template: r/github.linux.revdepcheck.yml
@@ -1185,6 +1216,13 @@ tasks:
     params:
       run: ubuntu-docs
 
+  ############################## Fuzz tests #################################
+
+  test-build-cpp-fuzz:
+    ci: github
+    template: fuzz-tests/github.oss-fuzz.yml
+
+
   ############################## vcpkg tests ##################################
 
   test-build-vcpkg-win:
@@ -1204,9 +1242,9 @@ tasks:
     template: docker-tests/github.linux.yml
     params:
       env:
-        PYTHON: {{ python_version }}
-        PANDAS: {{ pandas_version }}
-        NUMPY: {{ numpy_version }}
+        PYTHON: "{{ python_version }}"
+        PANDAS: "{{ pandas_version }}"
+        NUMPY: "{{ numpy_version }}"
     {% if cache_leaf %}
       # use the latest pandas release, so prevent reusing any cached layers
       flags: --no-leaf-cache
@@ -1221,7 +1259,7 @@ tasks:
     params:
       env:
         PYTHON: 3.9
-        DASK: {{ dask_version }}
+        DASK: "{{ dask_version }}"
       # use the latest dask release, so prevent reusing any cached layers
       flags: --no-leaf-cache
       image: conda-python-dask
@@ -1248,7 +1286,7 @@ tasks:
     params:
       env:
         PYTHON: 3.7
-        KARTOTHEK: {{ kartothek_version }}
+        KARTOTHEK: "{{ kartothek_version }}"
       flags: --no-leaf-cache
       image: conda-python-kartothek
 {% endfor %}
@@ -1260,7 +1298,7 @@ tasks:
     params:
       env:
         PYTHON: 3.7
-        HDFS: {{ hdfs_version }}
+        HDFS: "{{ hdfs_version }}"
       image: conda-python-hdfs
 {% endfor %}
 
@@ -1272,9 +1310,9 @@ tasks:
     template: docker-tests/github.linux.yml
     params:
       env:
-        PYTHON: {{ python_version }}
-        SPARK: {{ spark_version }}
-        TEST_PYARROW_ONLY: {{ test_pyarrow_only }}
+        PYTHON: "{{ python_version }}"
+        SPARK: "{{ spark_version }}"
+        TEST_PYARROW_ONLY: "{{ test_pyarrow_only }}"
       # use the branch-3.0 of spark, so prevent reusing any layers
       flags: --no-leaf-cache
       image: conda-python-spark
