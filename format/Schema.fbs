@@ -37,7 +37,7 @@ enum MetadataVersion:short {
   /// >= 0.8.0 (December 2017). Non-backwards compatible with V3.
   V4,
 
-  /// 1.0.0 -> 6.0.0 (July 2020). Backwards compatible with V4 (V5 readers can read V4
+  /// >= 1.0.0 (July 2020). Backwards compatible with V4 (V5 readers can read V4
   /// metadata and IPC messages). Implementations are recommended to provide a
   /// V4 compatibility mode with V5 format changes disabled.
   ///
@@ -45,12 +45,6 @@ enum MetadataVersion:short {
   /// - Union buffer layout has changed. In V5, Unions don't have a validity
   ///   bitmap buffer.
   V5,
-
-  /// >= 7.0.0 (Jan 2022). Backwards compatible with V4 and V5.
-  ///
-  /// Adds ColumnBag to wire format. It has looser restrictions than RecordBatch but is
-  /// otherwise similar in intent.
-  V6
 }
 
 /// Represents Arrow Features that might not have full support
@@ -505,6 +499,24 @@ struct Buffer {
   /// after a buffer, but such padding bytes do not need to be accounted for in
   /// the size here.
   length: long;
+}
+
+/// ----------------------------------------------------------------------
+/// FieldNode represents metadata about a field at some level of a nested
+/// type tree (but not its children).
+///
+/// For example, a List<Int16> with values `[[1, 2, 3], null, [4], [5, 6], null]`
+/// would have {length: 5, null_count: 2} for its List node, and {length: 6,
+/// null_count: 0} for its Int16 node, as separate FieldNode structs
+struct FieldNode {
+  /// The number of value slots in the Arrow array at this level of a nested
+  /// tree
+  length: long;
+
+  /// The number of observed nulls. Fields with null_count == 0 may choose not
+  /// to write their physical validity bitmap out as a materialized buffer,
+  /// instead setting the length of the bitmap buffer to 0.
+  null_count: long;
 }
 
 /// ----------------------------------------------------------------------
