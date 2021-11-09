@@ -1769,13 +1769,13 @@ const char* replace_utf8_utf8_utf8(gdv_int64 context, const char* text,
 }
 
 FORCE_INLINE
-gdv_int32 evaluate_return_char_length(gdv_int32 text_len, gdv_int32 text_char_count,
+gdv_int32 evaluate_return_char_length(gdv_int32 text_len, gdv_int32 actual_text_len,
                                       gdv_int32 return_length, const char* fill_text,
                                       gdv_int32 fill_text_len) {
-  gdv_int32 fill_text_char_count = utf8_length_ignore_invalid(fill_text, fill_text_len);
-  gdv_int32 repeat_times = (return_length - text_char_count) / fill_text_char_count;
+  gdv_int32 fill_actual_text_len = utf8_length_ignore_invalid(fill_text, fill_text_len);
+  gdv_int32 repeat_times = (return_length - actual_text_len) / fill_actual_text_len;
   gdv_int32 return_char_length = repeat_times * fill_text_len + text_len;
-  gdv_int32 mod = (return_length - text_char_count) % fill_text_char_count;
+  gdv_int32 mod = (return_length - actual_text_len) % fill_actual_text_len;
   gdv_int32 char_len = 0;
   gdv_int32 fill_index = 0;
   for (gdv_int32 i = 0; i < mod; i++) {
@@ -1800,24 +1800,24 @@ const char* lpad_utf8_int32_utf8(gdv_int64 context, const char* text, gdv_int32 
   }
 
   // count the number of utf8 characters on text, ignoring invalid bytes
-  int text_char_count = utf8_length_ignore_invalid(text, text_len);
+  int actual_text_len = utf8_length_ignore_invalid(text, text_len);
 
-  if (return_length == text_char_count ||
-      (return_length > text_char_count && fill_text_len == 0)) {
+  if (return_length == actual_text_len ||
+      (return_length > actual_text_len && fill_text_len == 0)) {
     // case where the return length is same as the text's length, or if it need to
     // fill into text but "fill_text" is empty, then return text directly.
     *out_len = text_len;
     return text;
-  } else if (return_length < text_char_count) {
+  } else if (return_length < actual_text_len) {
     // case where it truncates the result on return length.
     *out_len = utf8_byte_pos(context, text, text_len, return_length);
     return text;
   } else {
-    // case (return_length > text_char_count)
+    // case (return_length > actual_text_len)
     // case where it needs to copy "fill_text" on the string left. The total number
-    // of chars to copy is given by (return_length -  text_char_count)
+    // of chars to copy is given by (return_length -  actual_text_len)
     gdv_int32 return_char_length = evaluate_return_char_length(
-        text_len, text_char_count, return_length, fill_text, fill_text_len);
+        text_len, actual_text_len, return_length, fill_text, fill_text_len);
     char* ret = reinterpret_cast<gdv_binary>(
         gdv_fn_context_arena_malloc(context, return_char_length));
     if (ret == nullptr) {
@@ -1829,12 +1829,12 @@ const char* lpad_utf8_int32_utf8(gdv_int64 context, const char* text, gdv_int32 
     // try to fulfill the return string with the "fill_text" continuously
     int32_t copied_chars_count = 0;
     int32_t copied_chars_position = 0;
-    while (copied_chars_count < return_length - text_char_count) {
+    while (copied_chars_count < return_length - actual_text_len) {
       int32_t char_len;
       int32_t fill_index;
       // for each char, evaluate its length to consider it when mem copying
       for (fill_index = 0; fill_index < fill_text_len; fill_index += char_len) {
-        if (copied_chars_count >= return_length - text_char_count) {
+        if (copied_chars_count >= return_length - actual_text_len) {
           break;
         }
         char_len = utf8_char_length(fill_text[fill_index]);
@@ -1866,23 +1866,23 @@ const char* rpad_utf8_int32_utf8(gdv_int64 context, const char* text, gdv_int32 
   }
 
   // count the number of utf8 characters on text, ignoring invalid bytes
-  int text_char_count = utf8_length_ignore_invalid(text, text_len);
+  int actual_text_len = utf8_length_ignore_invalid(text, text_len);
 
-  if (return_length == text_char_count ||
-      (return_length > text_char_count && fill_text_len == 0)) {
+  if (return_length == actual_text_len ||
+      (return_length > actual_text_len && fill_text_len == 0)) {
     // case where the return length is same as the text's length, or if it need to
     // fill into text but "fill_text" is empty, then return text directly.
     *out_len = text_len;
     return text;
-  } else if (return_length < text_char_count) {
+  } else if (return_length < actual_text_len) {
     // case where it truncates the result on return length.
     *out_len = utf8_byte_pos(context, text, text_len, return_length);
     return text;
   } else {
-    // case (return_length > text_char_count)
+    // case (return_length > actual_text_len)
     // case where it needs to copy "fill_text" on the string right
     gdv_int32 return_char_length = evaluate_return_char_length(
-        text_len, text_char_count, return_length, fill_text, fill_text_len);
+        text_len, actual_text_len, return_length, fill_text, fill_text_len);
     char* ret = reinterpret_cast<gdv_binary>(
         gdv_fn_context_arena_malloc(context, return_char_length));
     if (ret == nullptr) {
@@ -1896,12 +1896,12 @@ const char* rpad_utf8_int32_utf8(gdv_int64 context, const char* text, gdv_int32 
     // try to fulfill the return string with the "fill_text" continuously
     int32_t copied_chars_count = 0;
     int32_t copied_chars_position = 0;
-    while (text_char_count + copied_chars_count < return_length) {
+    while (actual_text_len + copied_chars_count < return_length) {
       int32_t char_len;
       int32_t fill_length;
       // for each char, evaluate its length to consider it when mem copying
       for (fill_length = 0; fill_length < fill_text_len; fill_length += char_len) {
-        if (text_char_count + copied_chars_count >= return_length) {
+        if (actual_text_len + copied_chars_count >= return_length) {
           break;
         }
         char_len = utf8_char_length(fill_text[fill_length]);
