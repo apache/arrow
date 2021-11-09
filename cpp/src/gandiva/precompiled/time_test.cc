@@ -814,21 +814,30 @@ TEST(TestTime, TestCastTimestampToDate) {
 }
 
 TEST(TestTime, TestNextDay) {
+  ExecutionContext context;
+  int64_t context_ptr = reinterpret_cast<int64_t>(&context);
+
   gdv_timestamp ts = StringToTimestamp("2021-11-08 10:20:34");
-  auto out = next_day(ts, "FR", 2);
+  auto out = next_day(context_ptr, ts, "FR", 2);
   EXPECT_EQ(StringToTimestamp("2021-11-12 00:00:00"), out);
 
   ts = StringToTimestamp("2021-11-08 10:20:34");
-  out = next_day(ts, "FRI", 3);
+  out = next_day(context_ptr, ts, "FRI", 3);
   EXPECT_EQ(StringToTimestamp("2021-11-12 00:00:00"), out);
 
   ts = StringToTimestamp("2021-11-08 10:20:34");
-  out = next_day(ts, "FRIDAY", 6);
+  out = next_day(context_ptr, ts, "FRIDAY", 6);
   EXPECT_EQ(StringToTimestamp("2021-11-12 00:00:00"), out);
 
   ts = StringToTimestamp("2015-08-06 11:12:30");
-  out = next_day(ts, "THU", 3);
+  out = next_day(context_ptr, ts, "THU", 3);
   EXPECT_EQ(StringToTimestamp("2015-08-13 00:00:00"), out);
+
+  ts = StringToTimestamp("2015-08-06 11:12:30");
+  out = next_day(context_ptr, ts, "AHSRK", 5);
+  // EXPECT_EQ(StringToTimestamp("2015-08-13 00:00:00"), out);
+  EXPECT_EQ(context.get_error(), "This entry not is one weekday valid");
+  context.Reset();
 }
 
 TEST(TestTime, TestCastTimestampToTime) {

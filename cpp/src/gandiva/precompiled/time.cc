@@ -241,29 +241,40 @@ int getJanWeekOfYear(const EpochTimePoint& tp) {
   return 52;
 }
 
-FORCE_INLINE
-gdv_date64 next_day(gdv_date64 millis, const char* in, int32_t in_len) {
-  const char* week[7] = {"SUNDAY",   "MONDAY", "TUESDAY", "WEDNESDAY",
-                         "THURSDAY", "FRIDAY", "SATURDAY"};
+const char* WEEK[7] = {"SUNDAY",   "MONDAY", "TUESDAY", "WEDNESDAY",
+                       "THURSDAY", "FRIDAY", "SATURDAY"};
 
-  int DateSearch;
+FORCE_INLINE
+gdv_date64 next_day(gdv_int64 context, gdv_date64 millis, const char* in,
+                    int32_t in_len) {
+  // Define date to search next based in entry
+  int dateSearch = 0;
+  // Compare entry with names of weekdays
   for (int n = 0; n < 7; n++) {
-    if (memcmp(week[n], in, in_len) == 0) {
-      DateSearch = n + 1;
+    // If entry exist in weekdays list, return day position
+    if (memcmp(WEEK[n], in, in_len) == 0) {
+      dateSearch = n + 1;
     }
   }
-  int PresentDate = extractDow_timestamp(millis);
-
-  int32_t Next = DateSearch - PresentDate;
-
-  if (Next <= 0) {
-    Next = 7 - Next;
+  // If entry don't exist in weekdays list, set error and return 0
+  if (dateSearch == 0) {
+    gdv_fn_context_set_error_msg(context, "This entry not is one weekday valid");
+    return 0;
   }
 
-  gdv_date64 next_date =
-      timestampaddDay_int32_timestamp(Next, date_trunc_Day_date64(millis));
+  // Define weekday present using extract dow function.
+  int presentDate = extractDow_timestamp(millis);
 
-  return next_date;
+  int32_t distanceDay = dateSearch - presentDate;
+  if (distanceDay <= 0) {
+    distanceDay = 7 - distanceDay;
+  }
+
+  // NextDate is a sum of presentDate + distanceDay
+  gdv_date64 nextDate =
+      timestampaddDay_int32_timestamp(distanceDay, date_trunc_Day_date64(millis));
+
+  return nextDate;
 }
 
 // Dec 29-31
