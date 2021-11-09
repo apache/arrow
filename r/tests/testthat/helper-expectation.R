@@ -318,6 +318,6 @@ split_vector_as_list <- function(vec) {
   list(vec1, vec2)
 }
 
-err_helper <- function(...) (expect_error(...))
+err_snap <- function(...) (expect_error(...))
 
-warn_helper <- function(...) (expect_warning(...))
+warn_snap <- function(...) (expect_warning(...))

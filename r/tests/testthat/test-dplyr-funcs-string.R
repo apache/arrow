@@ -121,7 +121,7 @@ test_that("paste, paste0, and str_c", {
   # sep is literal NA
   # errors in paste() (consistent with base::paste())
   expect_snapshot({
-    err_helper(
+    err_snap(
       nse_funcs$paste(x, y, sep = NA_character_)
     )
   })
@@ -158,20 +158,20 @@ test_that("paste, paste0, and str_c", {
 
   expect_snapshot({
     # collapse argument not supported
-    err_helper(
+    err_snap(
       nse_funcs$paste(x, y, collapse = "")
     )
-    err_helper(
+    err_snap(
       nse_funcs$paste0(x, y, collapse = "")
     )
-    err_helper(
+    err_snap(
       nse_funcs$str_c(x, y, collapse = "")
     )
     # literal vectors of length != 1 not supported
-    err_helper(
+    err_snap(
       nse_funcs$paste(x, character(0), y)
     )
-    err_helper(
+    err_snap(
       nse_funcs$paste(x, c(",", ";"), y)
     )
   })
@@ -499,7 +499,7 @@ test_that("str_to_lower, str_to_upper, and str_to_title", {
 
   # Error checking a single function because they all use the same code path.
   expect_snapshot({
-    err_helper(
+    err_snap(
       nse_funcs$str_to_lower("Apache Arrow", locale = "sp")
     )
   })
@@ -563,20 +563,20 @@ test_that("errors and warnings in string splitting", {
 
   x <- Expression$field_ref("x")
   expect_snapshot({
-    err_helper(
+    err_snap(
       nse_funcs$str_split(x, fixed("and", ignore_case = TRUE))
     )
-    err_helper(
+    err_snap(
       nse_funcs$str_split(x, coll("and.?"))
     )
-    err_helper(
+    err_snap(
       nse_funcs$str_split(x, boundary(type = "word"))
     )
-    err_helper(
+    err_snap(
       nse_funcs$str_split(x, "and", n = 0)
     )
     # This condition generates a warning
-    warn_helper(
+    warn_snap(
       nse_funcs$str_split(x, fixed("and"), simplify = TRUE)
     )
   })
@@ -585,14 +585,14 @@ test_that("errors and warnings in string splitting", {
 test_that("errors and warnings in string detection and replacement", {
   x <- Expression$field_ref("x")
   expect_snapshot({
-    err_helper(
+    err_snap(
       nse_funcs$str_detect(x, boundary(type = "character"))
     )
-    err_helper(
+    err_snap(
       nse_funcs$str_replace_all(x, coll("o", locale = "en"), "ó")
     )
     # This condition generates a warning
-    warn_helper(
+    warn_snap(
       nse_funcs$str_replace_all(x, regex("o", multiline = TRUE), "u")
     )
   })
@@ -753,7 +753,7 @@ test_that("errors in strptime", {
   # Error when tz is passed
   x <- Expression$field_ref("x")
   expect_snapshot({
-    err_helper(
+    err_snap(
       nse_funcs$strptime(x, tz = "PDT")
     )
   })
@@ -824,6 +824,14 @@ test_that("strftime", {
 
   # This check is due to differences in the way %c currently works in Arrow and R's strftime.
   # We can revisit after https://github.com/HowardHinnant/date/issues/704 is resolved.
+  # expect_snapshot({
+  #   err_snap(
+  #     times %>%
+  #       Table$create() %>%
+  #       mutate(x = strftime(datetime, format = "%c")) %>%
+  #       collect()
+  #   )
+  # })
   expect_error(
     times %>%
       Table$create() %>%
@@ -1151,10 +1159,10 @@ test_that("substr", {
   )
 
   expect_snapshot({
-    err_helper(
+    err_snap(
       nse_funcs$substr("Apache Arrow", c(1, 2), 3)
     )
-    err_helper(
+    err_snap(
       nse_funcs$substr("Apache Arrow", 1, c(2, 3))
     )
   })
@@ -1246,10 +1254,10 @@ test_that("str_sub", {
   )
 
   expect_snapshot({
-    err_helper(
+    err_snap(
       nse_funcs$str_sub("Apache Arrow", c(1, 2), 3)
     )
-    err_helper(
+    err_snap(
       nse_funcs$str_sub("Apache Arrow", 1, c(2, 3))
     )
   })
