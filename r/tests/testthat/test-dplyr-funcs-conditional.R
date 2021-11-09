@@ -313,7 +313,10 @@ test_that("coalesce()", {
         cwxy = coalesce(w, x, y),
         cwxyz = coalesce(w, x, y, z)
       ) %>%
-      collect(),
+      collect() %>%
+      # Arrow case_when() kernel does not preserve factor levels
+      # so reset the levels of all the factor columns
+      transmute(across(where(is.factor), ~ factor(.x, levels = c("a", "b", "c")))),
     df_fct
   )
 
