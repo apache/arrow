@@ -580,15 +580,15 @@ if(DEFINED ENV{ARROW_SNAPPY_URL})
   set(SNAPPY_SOURCE_URL "$ENV{ARROW_SNAPPY_URL}")
 else()
   if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS
-  "4.9")
+                                              "4.9")
     set_urls(SNAPPY_SOURCE_URL
-            "https://github.com/google/snappy/archive/${ARROW_SNAPPY_OLD_BUILD_VERSION}.tar.gz"
-            "https://github.com/ursa-labs/thirdparty/releases/download/latest/snappy-${ARROW_SNAPPY_OLD_BUILD_VERSION}.tar.gz"
+             "https://github.com/google/snappy/archive/${ARROW_SNAPPY_OLD_BUILD_VERSION}.tar.gz"
+             "https://github.com/ursa-labs/thirdparty/releases/download/latest/snappy-${ARROW_SNAPPY_OLD_BUILD_VERSION}.tar.gz"
     )
   else()
     set_urls(SNAPPY_SOURCE_URL
-            "https://github.com/google/snappy/archive/${ARROW_SNAPPY_BUILD_VERSION}.tar.gz"
-            "https://github.com/ursa-labs/thirdparty/releases/download/latest/snappy-${ARROW_SNAPPY_BUILD_VERSION}.tar.gz"
+             "https://github.com/google/snappy/archive/${ARROW_SNAPPY_BUILD_VERSION}.tar.gz"
+             "https://github.com/ursa-labs/thirdparty/releases/download/latest/snappy-${ARROW_SNAPPY_BUILD_VERSION}.tar.gz"
     )
   endif()
 endif()
@@ -979,11 +979,14 @@ macro(build_snappy)
   )
 
   set(SNAPPY_CMAKE_ARGS
-      ${EP_COMMON_CMAKE_ARGS} -DCMAKE_INSTALL_LIBDIR=lib -DSNAPPY_BUILD_TESTS=OFF -DSNAPPY_BUILD_BENCHMARKS=OFF
+      ${EP_COMMON_CMAKE_ARGS}
+      -DCMAKE_INSTALL_LIBDIR=lib
+      -DSNAPPY_BUILD_TESTS=OFF
+      -DSNAPPY_BUILD_BENCHMARKS=OFF
       "-DCMAKE_INSTALL_PREFIX=${SNAPPY_PREFIX}")
 
   if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS
-  "4.9")
+                                              "4.9")
     set(ARROW_SNAPPY_BUILD_SHA256_CHECKSUM ${ARROW_SNAPPY_OLD_BUILD_SHA256_CHECKSUM})
   endif()
 
