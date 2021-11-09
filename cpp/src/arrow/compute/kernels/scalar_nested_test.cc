@@ -137,7 +137,7 @@ TEST(TestScalarNested, StructField) {
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
                                     ::testing::HasSubstr("out-of-bounds field reference"),
                                     CallFunction("struct_field", {arr}, &invalid2));
-    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("cannot subscript"),
+    EXPECT_RAISES_WITH_MESSAGE_THAT(TypeError, ::testing::HasSubstr("cannot subscript"),
                                     CallFunction("struct_field", {arr}, &invalid3));
   }
   {
@@ -159,7 +159,7 @@ TEST(TestScalarNested, StructField) {
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
                                     ::testing::HasSubstr("out-of-bounds field reference"),
                                     CallFunction("struct_field", {arr}, &invalid2));
-    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("cannot subscript"),
+    EXPECT_RAISES_WITH_MESSAGE_THAT(TypeError, ::testing::HasSubstr("cannot subscript"),
                                     CallFunction("struct_field", {arr}, &invalid3));
 
     // Test edge cases for union representation
@@ -205,8 +205,13 @@ TEST(TestScalarNested, StructField) {
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
                                     ::testing::HasSubstr("out-of-bounds field reference"),
                                     CallFunction("struct_field", {arr}, &invalid2));
-    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("cannot subscript"),
+    EXPECT_RAISES_WITH_MESSAGE_THAT(TypeError, ::testing::HasSubstr("cannot subscript"),
                                     CallFunction("struct_field", {arr}, &invalid3));
+  }
+  {
+    auto arr = ArrayFromJSON(int32(), "[0, 1, 2, 3]");
+    ASSERT_RAISES(NotImplemented, CallFunction("struct_field", {arr}, &trivial));
+    ASSERT_RAISES(NotImplemented, CallFunction("struct_field", {arr}, &extract0));
   }
 }
 

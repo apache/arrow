@@ -119,6 +119,18 @@ TEST(TestSparseUnionArray, GetFlattenedField) {
     ASSERT_OK_AND_ASSIGN(flattened, sliced->GetFlattenedField(1));
     AssertArraysEqual(*ArrayFromJSON(utf8(), R"(["c"])"), *flattened, /*verbose=*/true);
   }
+  {
+    SparseUnionArray arr(ty, /*length=*/0, {ints->Slice(length), strs->Slice(length)},
+                         ids);
+    ASSERT_OK(arr.ValidateFull());
+
+    ASSERT_OK_AND_ASSIGN(auto flattened, arr.GetFlattenedField(0));
+    AssertArraysEqual(*ArrayFromJSON(int64(), "[]"), *flattened, /*verbose=*/true);
+
+    ASSERT_OK_AND_ASSIGN(flattened, arr.GetFlattenedField(1));
+    AssertArraysEqual(*ArrayFromJSON(utf8(), "[]"), *flattened,
+                      /*verbose=*/true);
+  }
 }
 
 TEST(TestSparseUnionArray, Validate) {

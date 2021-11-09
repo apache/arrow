@@ -683,10 +683,9 @@ Result<std::shared_ptr<Array>> SparseUnionArray::GetFlattenedField(
               flattened_null_bitmap->mutable_data());
   }
 
-  auto flattened_data = child_data->Copy();
-  flattened_data->buffers[0] = std::move(flattened_null_bitmap);
-  flattened_data->null_count = kUnknownNullCount;
-  return MakeArray(flattened_data);
+  child_data->buffers[0] = std::move(flattened_null_bitmap);
+  child_data->null_count = kUnknownNullCount;
+  return MakeArray(child_data);
 }
 
 DenseUnionArray::DenseUnionArray(const std::shared_ptr<ArrayData>& data) {

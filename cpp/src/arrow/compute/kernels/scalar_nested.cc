@@ -238,8 +238,8 @@ struct StructFieldFunctor {
         }
         default:
           // Should have been checked in ResolveStructFieldType
-          return Status::Invalid("struct_field: cannot reference child field of type ",
-                                 *current->type());
+          return Status::TypeError("struct_field: cannot reference child field of type ",
+                                   *current->type());
       }
     }
     *out = current;
@@ -274,8 +274,8 @@ struct StructFieldFunctor {
         }
         default:
           // Should have been checked in ResolveStructFieldType
-          return Status::Invalid("struct_field: cannot reference child field of type ",
-                                 *(*current)->type);
+          return Status::TypeError("struct_field: cannot reference child field of type ",
+                                   *(*current)->type);
       }
     }
     *out = *current;
@@ -284,7 +284,7 @@ struct StructFieldFunctor {
 
   static Status CheckIndex(int index, const DataType& type) {
     if (!ValidParentType(type)) {
-      return Status::Invalid("struct_field: cannot subscript field of type ", type);
+      return Status::TypeError("struct_field: cannot subscript field of type ", type);
     } else if (index < 0 || index > type.num_fields()) {
       return Status::Invalid("struct_field: out-of-bounds field reference to field ",
                              index, " in type ", type, " with ", type.num_fields(),
@@ -326,10 +326,12 @@ void AddStructFieldKernels(ScalarFunction* func) {
 
 const FunctionDoc struct_field_doc(
     "Extract children of a struct or union value by index.",
-    ("Given a series of indices, extract the child array or scalar referenced "
-     "by the index. For union values, mask the child based on the type codes "
-     "of the union array. The indices are always the child index and not the "
-     "type code (for unions) - so the first child is always index 0."),
+    ("Given a series of indices (passed via StructFieldOptions), extract the "
+     "child array or scalar referenced by the index. For union values, mask "
+     "the child based on the type codes of the union array. The indices are "
+     "always the child index and not the type code (for unions) - so the "
+     "first child is always index 0. An empty set of indices returns the "
+     "argument unchanged."),
     {"container"}, "StructFieldOptions");
 
 Result<ValueDescr> MakeStructResolve(KernelContext* ctx,
