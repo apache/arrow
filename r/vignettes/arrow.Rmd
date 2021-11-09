@@ -216,7 +216,7 @@ Note that the `attributes()` stored in `$metadata$r` are only understood by R. I
 
 ## Class structure and package conventions
 
-C++ is an object-oriented language, so the core logic of the Arrow library is encapsulated in classes and methods. In the R package, these classes are implemented as `R6` reference classes, most of which are exported from the namespace.
+C++ is an object-oriented language, so the core logic of the Arrow library is encapsulated in classes and methods. In the R package, these classes are implemented as [`R6`](https://r6.r-lib.org) classes, most of which are exported from the namespace.
 
 In order to match the C++ naming conventions, the `R6` classes are in TitleCase, e.g. `RecordBatch`. This makes it easy to look up the relevant C++ implementations in the [code](https://github.com/apache/arrow/tree/master/cpp) or [documentation](https://arrow.apache.org/docs/cpp/). To simplify things in R, the C++ library namespaces are generally dropped or flattened; that is, where the C++ library has `arrow::io::FileOutputStream`, it is just `FileOutputStream` in the R package. One exception is for the file readers, where the namespace is necessary to disambiguate. So `arrow::csv::TableReader` becomes `CsvTableReader`, and `arrow::json::TableReader` becomes `JsonTableReader`.
 
