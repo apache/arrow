@@ -824,14 +824,6 @@ test_that("strftime", {
 
   # This check is due to differences in the way %c currently works in Arrow and R's strftime.
   # We can revisit after https://github.com/HowardHinnant/date/issues/704 is resolved.
-  expect_snapshot({
-    err_snap(
-      times %>%
-        Table$create() %>%
-        mutate(x = strftime(datetime, format = "%c")) %>%
-        collect()
-    )
-  })
   expect_error(
     times %>%
       Table$create() %>%
