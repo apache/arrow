@@ -170,10 +170,8 @@ Schema$create <- function(...) {
 
   if (all(map_lgl(.list, ~ inherits(., "Field")))) {
     schema_(.list)
-  } else if (all(map_lgl(.list, ~ inherits(., "DataType")))) {
-    schema_(.fields(.list))
   } else {
-    abort("Schema definitions must be supplied as field/data type pairs or field name/data type pairs")
+    schema_(.fields(.list))
   }
 }
 #' @include arrowExports.R
@@ -200,8 +198,7 @@ print_schema_fields <- function(s) {
   paste(map_chr(s$fields, ~ .$ToString()), collapse = "\n")
 }
 
-#' @param ... field/data type or field name/data type pairs containing either
-#'  names or [fields][field], and [data types][data-type] for the schema
+#' @param ... [fields][field] or field name/[data type][data-type] pairs
 #' @export
 #' @rdname Schema
 schema <- Schema$create

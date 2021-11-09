@@ -9,8 +9,7 @@
 schema(...)
 }
 \arguments{
-\item{...}{field/data type or field name/data type pairs containing either
-names or \link[=field]{fields}, and \link[=data-type]{data types} for the schema}
+\item{...}{\link[=field]{fields} or field name/\link[=data-type]{data type} pairs}
 }
 \description{
 A \code{Schema} is an Arrow object containing \link{Field}s, which map names to

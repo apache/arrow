@@ -208,13 +208,6 @@ test_that("unify_schemas", {
   )
 })
 
-test_that("Schema creation errors on list", {
-  expect_error(
-    schema(list(a = int16(), b = string())),
-    regexp = "Schema definitions must be supplied as field/data type or field name/data type pairs"
-  )
-})
-
 test_that("Schema to C-interface", {
   schema <- schema(b = double(), c = bool())
 
@@ -228,4 +221,20 @@ test_that("Schema to C-interface", {
 
   # must clean up the pointer or we leak
   delete_arrow_schema(ptr)
+})
+
+test_that("Schemas from lists", {
+  name_list_schema <- schema(list(b = double(), c = string(), d = int8()))
+
+
+  field_list_schema <- schema(
+    list(
+      field("b", double()),
+      field("c", bool()),
+      field("d", string())
+    )
+  )
+
+  expect_equal(name_list_schema, schema(b = double(), c = string(), d = int8()))
+  expect_equal(field_list_schema, schema(b = double(), c = bool(), d = string()))
 })
