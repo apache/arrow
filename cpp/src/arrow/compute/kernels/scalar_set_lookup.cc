@@ -194,7 +194,7 @@ struct InitStateVisitor {
             "Cannot compare timestamp with timezone to timestamp without timezone, got: ",
             ty1, " and ", ty2);
       }
-    } else if (arg_type->id() == Type::STRING &&
+    } else if ((arg_type->id() == Type::STRING || arg_type->id() == Type::LARGE_STRING) &&
                !is_base_binary_like(options.value_set.type()->id())) {
       // This is a bit of a hack, but don't implicitly cast from a non-binary
       // type to string, since most types support casting to string and that

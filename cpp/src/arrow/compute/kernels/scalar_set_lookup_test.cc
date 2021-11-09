@@ -138,6 +138,9 @@ TEST_F(TestIsInKernel, ImplicitlyCastValueSet) {
   ASSERT_RAISES(Invalid,
                 IsIn(ArrayFromJSON(utf8(), R"(["aaa", "bbb", "ccc", null, "bbb"])"),
                      SetLookupOptions(ArrayFromJSON(float64(), "[1.0, 2.0]"))));
+  ASSERT_RAISES(Invalid,
+                IsIn(ArrayFromJSON(large_utf8(), R"(["aaa", "bbb", "ccc", null, "bbb"])"),
+                     SetLookupOptions(ArrayFromJSON(float64(), "[1.0, 2.0]"))));
 }
 
 template <typename Type>
