@@ -80,6 +80,22 @@
     Output
       <simpleError: Time zone argument not supported in Arrow>
 
+# strftime
+
+    Code
+      err_snap(times %>% Table$create() %>% mutate(x = strftime(datetime, format = "%c")) %>%
+        collect())
+    Output
+      <simpleError: Invalid: %c flag is not supported in non-C locales.
+      /Users/dragos/Documents/arrow/cpp/src/arrow/compute/kernels/scalar_temporal_unary.cc:516  Make(ctx, *in.type)
+      /Users/dragos/Documents/arrow/cpp/src/arrow/compute/exec.cc:695  kernel_->exec(kernel_ctx_, batch, &out)
+      /Users/dragos/Documents/arrow/cpp/src/arrow/compute/exec.cc:633  ExecuteBatch(batch, listener)
+      /Users/dragos/Documents/arrow/cpp/src/arrow/compute/exec/expression.cc:544  executor->Execute(arguments, &listener)
+      /Users/dragos/Documents/arrow/cpp/src/arrow/compute/exec/project_node.cc:86  ExecuteScalarExpression(simplified_expr, target, plan()->exec_context())
+      /Users/dragos/Documents/arrow/cpp/src/arrow/compute/exec/exec_plan.cc:398  iterator_.Next()
+      /Users/dragos/Documents/arrow/cpp/src/arrow/record_batch.cc:318  ReadNext(&batch)
+      /Users/dragos/Documents/arrow/cpp/src/arrow/record_batch.cc:329  ReadAll(&batches)>
+
 # substr
 
     Code
