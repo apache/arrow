@@ -300,6 +300,22 @@ test_that("coalesce()", {
       collect(),
     df
   )
+  
+  # factor
+  df_fct <- df %>%
+    mutate(across(everything(), ~ factor(.x)))
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        cw = coalesce(w),
+        cz = coalesce(z),
+        cwx = coalesce(w, x),
+        cwxy = coalesce(w, x, y),
+        cwxyz = coalesce(w, x, y, z)
+      ) %>%
+      collect(),
+    df_fct
+  )
 
   # integer
   df <- tibble(
