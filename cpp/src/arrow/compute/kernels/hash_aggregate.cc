@@ -1797,7 +1797,8 @@ struct GroupedMinMaxImpl<Type,
       if (BitUtil::GetBit(null_bitmap, i)) {
         const util::optional<StringType>& value = values[i];
         DCHECK(value.has_value());
-        if (value->size() > std::numeric_limits<offset_type>::max() ||
+        if (value->size() >
+                static_cast<size_t>(std::numeric_limits<offset_type>::max()) ||
             arrow::internal::AddWithOverflow(
                 total_length, static_cast<offset_type>(value->size()), &total_length)) {
           return Status::Invalid("Result is too large to fit in ", *array->type,
