@@ -105,22 +105,21 @@ TEST_F(TestLikeHolder, TestDot) {
   EXPECT_FALSE(like("abcd"));
 }
 
-TEST_F(TestLikeHolder, TestMatchSubr) {
+TEST_F(TestLikeHolder, TestMatchSubString) {
   std::shared_ptr<LikeHolder> like_holder;
 
-  auto status = LikeHolder::Make("%abc%", &like_holder, regex_op);
+  auto status = LikeHolder::Make("%abc%", "\\", &like_holder);
   EXPECT_EQ(status.ok(), true) << status.message();
 
   auto& like = *like_holder;
-  EXPECT_TRUE(like("abc"));  // . and * aren't special in sql regex
+  EXPECT_TRUE(like("abc"));
   EXPECT_FALSE(like("xxabdc"));
 
-  status = LikeHolder::Make("%ab-.^$*+?()[]{}|—/c%%", &like_holder, regex_op);
+  status = LikeHolder::Make("%ab-.^$*+?()[]{}|—/c\\%%", "\\", &like_holder);
   EXPECT_EQ(status.ok(), true) << status.message();
 
   auto& like_reserved_char = *like_holder;
-  EXPECT_TRUE(like_reserved_char(
-      "XXab-.^$*+?()[]{}|—/c%d"));  // . and * aren't special in sql regex
+  EXPECT_TRUE(like_reserved_char("XXab-.^$*+?()[]{}|—/c%d"));
   EXPECT_FALSE(like_reserved_char("xxad-.^$*+?()[]{}|—/c"));
 }
 
@@ -141,11 +140,25 @@ TEST_F(TestLikeHolder, TestOptimise) {
   EXPECT_EQ(fnode.ToString(), "bool is_substr((string) in, (const string) 'abc')");
 
   // optimise for 'is_substr with special characters'
-  fnode = LikeHolder::TryOptimize(BuildLike("%ab-.^$*+?()[]{}|—/c%%"));
+  fnode = LikeHolder::TryOptimize(BuildLike("%ab-c%"));
   EXPECT_EQ(fnode.descriptor()->name(), "is_substr");
   EXPECT_EQ(fnode.ToString(),
             "bool is_substr((string) in, (const string) "
-            "ab\\-\\.\\^\\$\\*\\+\\?\\(\\)\\[\\]\\{\\}\\|—/c.*)");
+            "ab\\-c)");
+
+  // optimise for 'ends_with with special characters'
+  fnode = LikeHolder::TryOptimize(BuildLike("%ab-c"));
+  EXPECT_EQ(fnode.descriptor()->name(), "ends_with");
+  EXPECT_EQ(fnode.ToString(),
+            "bool ends_with((string) in, (const string) "
+            "ab\\-c)");
+
+  // optimise for 'starts_with with special characters'
+  fnode = LikeHolder::TryOptimize(BuildLike("ab-c%"));
+  EXPECT_EQ(fnode.descriptor()->name(), "starts_with");
+  EXPECT_EQ(fnode.ToString(),
+            "bool starts_with((string) in, (const string) "
+            "ab\\-c)");
 
   // no optimisation for others.
   fnode = LikeHolder::TryOptimize(BuildLike("xyz_"));
