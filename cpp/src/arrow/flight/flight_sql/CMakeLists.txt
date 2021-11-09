@@ -36,7 +36,7 @@ set_source_files_properties(${FLIGHT_SQL_GENERATED_PROTO_FILES} PROPERTIES GENER
 
 add_custom_target(flight_sql_protobuf_gen ALL DEPENDS ${FLIGHT_SQL_GENERATED_PROTO_FILES})
 
-set(ARROW_FLIGHT_SQL_SRCS server.cc client.cc client_internal.cc)
+set(ARROW_FLIGHT_SQL_SRCS server.cc client.cc)
 
 add_arrow_lib(arrow_flight_sql
               CMAKE_PACKAGE_NAME
@@ -77,20 +77,10 @@ add_executable(flight_sql_test_app test_app_cli.cc
 target_link_libraries(flight_sql_test_app PRIVATE ${ARROW_FLIGHT_SQL_TEST_LINK_LIBS}
                                                   ${GFLAGS_LIBRARIES})
 
-add_arrow_test(flight_sql_client_test
+add_arrow_test(flight_sql_test
                SOURCES
-               "${CMAKE_CURRENT_BINARY_DIR}/FlightSql.pb.cc"
                client_test.cc
-               client.cc
-               STATIC_LINK_LIBS
-               ${ARROW_FLIGHT_TEST_LINK_LIBS}
-               LABELS
-               "arrow_flight_sql")
-
-add_arrow_test(flight_sql_server_test
-               SOURCES
                server_test.cc
-               client_internal.cc
                "${CMAKE_CURRENT_BINARY_DIR}/FlightSql.pb.cc"
                STATIC_LINK_LIBS
                ${ARROW_FLIGHT_SQL_TEST_LINK_LIBS}
@@ -114,6 +104,6 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
                                 ${SQLite3_LIBRARIES})
 
   if(ARROW_BUILD_TESTS)
-    add_dependencies(arrow-flight-sql-server-test flight_sql_test_server)
+    add_dependencies(arrow-flight-sql-test flight_sql_test_server)
   endif()
 endif()

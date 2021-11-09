@@ -29,19 +29,17 @@ namespace arrow {
 namespace flight {
 namespace sql {
 
-namespace internal {
-class FlightClientImpl;
-}
-
 class PreparedStatement;
 
 /// \brief Flight client with Flight SQL semantics.
 class ARROW_EXPORT FlightSqlClient {
+  friend class PreparedStatement;
+
  private:
-  std::shared_ptr<internal::FlightClientImpl> impl_;
+  std::shared_ptr<FlightClient> impl_;
 
  public:
-  explicit FlightSqlClient(std::shared_ptr<internal::FlightClientImpl> client);
+  explicit FlightSqlClient(std::shared_ptr<FlightClient> client);
 
   ~FlightSqlClient();
 
@@ -164,11 +162,34 @@ class ARROW_EXPORT FlightSqlClient {
   arrow::Result<std::shared_ptr<PreparedStatement>> Prepare(
       const FlightCallOptions& options, const std::string& query);
 
-  explicit FlightSqlClient(std::unique_ptr<FlightClient> client);
+  virtual Status GetFlightInfo(const FlightCallOptions& options,
+                               const FlightDescriptor& descriptor,
+                               std::unique_ptr<FlightInfo>* info) {
+    return impl_->GetFlightInfo(options, descriptor, info);
+  }
+
+ protected:
+  virtual Status DoPut(const FlightCallOptions& options,
+                       const FlightDescriptor& descriptor,
+                       const std::shared_ptr<Schema>& schema,
+                       std::unique_ptr<FlightStreamWriter>* stream,
+                       std::unique_ptr<FlightMetadataReader>* reader) {
+    return impl_->DoPut(options, descriptor, schema, stream, reader);
+  }
+
+  virtual Status DoGet(const FlightCallOptions& options, const Ticket& ticket,
+                       std::unique_ptr<FlightStreamReader>* stream) {
+    return impl_->DoGet(options, ticket, stream);
+  }
+
+  virtual Status DoAction(const FlightCallOptions& options, const Action& action,
+                          std::unique_ptr<ResultStream>* results) {
+    return impl_->DoAction(options, action, results);
+  }
 };
 
 class PreparedStatement {
-  std::shared_ptr<internal::FlightClientImpl> client_;
+  FlightSqlClient& client_;
   FlightCallOptions options_;
   std::string handle_;
   std::shared_ptr<Schema> dataset_schema_;
@@ -183,8 +204,8 @@ class PreparedStatement {
   /// \param[in] dataset_schema        Schema of the resulting dataset.
   /// \param[in] parameter_schema      Schema of the parameters (if any).
   /// \param[in] options               RPC-layer hints for this call.
-  PreparedStatement(std::shared_ptr<internal::FlightClientImpl> client,
-                    std::string handle, std::shared_ptr<Schema> dataset_schema,
+  PreparedStatement(FlightSqlClient& client, std::string handle,
+                    std::shared_ptr<Schema> dataset_schema,
                     std::shared_ptr<Schema> parameter_schema, FlightCallOptions options);
 
   /// \brief Default destructor for the PreparedStatement class.

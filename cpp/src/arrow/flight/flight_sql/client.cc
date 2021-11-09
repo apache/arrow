@@ -18,7 +18,6 @@
 #include <arrow/buffer.h>
 #include <arrow/flight/flight_sql/FlightSql.pb.h>
 #include <arrow/flight/flight_sql/client.h>
-#include <arrow/flight/flight_sql/client_internal.h>
 #include <arrow/flight/types.h>
 #include <arrow/io/memory.h>
 #include <arrow/ipc/reader.h>
@@ -33,18 +32,14 @@ namespace arrow {
 namespace flight {
 namespace sql {
 
-FlightSqlClient::FlightSqlClient(std::shared_ptr<internal::FlightClientImpl> client)
+FlightSqlClient::FlightSqlClient(std::shared_ptr<FlightClient> client)
     : impl_(std::move(client)) {}
 
-FlightSqlClient::FlightSqlClient(std::unique_ptr<FlightClient> client)
-    : impl_(internal::FlightClientImpl_Create(std::move(client))) {}
-
-PreparedStatement::PreparedStatement(std::shared_ptr<internal::FlightClientImpl> client,
-                                     std::string handle,
+PreparedStatement::PreparedStatement(FlightSqlClient& client, std::string handle,
                                      std::shared_ptr<Schema> dataset_schema,
                                      std::shared_ptr<Schema> parameter_schema,
                                      FlightCallOptions options)
-    : client_(std::move(client)),
+    : client_(client),
       options_(std::move(options)),
       handle_(std::move(handle)),
       dataset_schema_(std::move(dataset_schema)),
@@ -72,13 +67,12 @@ inline FlightDescriptor GetFlightDescriptorForCommand(
 }
 
 arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoForCommand(
-    internal::FlightClientImpl& client, const FlightCallOptions& options,
+    FlightSqlClient& client, const FlightCallOptions& options,
     const google::protobuf::Message& command) {
   const FlightDescriptor& descriptor = GetFlightDescriptorForCommand(command);
 
   std::unique_ptr<FlightInfo> flight_info;
-  ARROW_RETURN_NOT_OK(internal::FlightClientImpl_GetFlightInfo(client, options,
-                                                               descriptor, &flight_info));
+  ARROW_RETURN_NOT_OK(client.GetFlightInfo(options, descriptor, &flight_info));
 
   return std::move(flight_info);
 }
@@ -88,7 +82,7 @@ arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::Execute(
   pb::sql::CommandStatementQuery command;
   command.set_query(query);
 
-  return GetFlightInfoForCommand(*impl_, options, command);
+  return GetFlightInfoForCommand(*this, options, command);
 }
 
 arrow::Result<int64_t> FlightSqlClient::ExecuteUpdate(const FlightCallOptions& options,
@@ -101,8 +95,7 @@ arrow::Result<int64_t> FlightSqlClient::ExecuteUpdate(const FlightCallOptions& o
   std::unique_ptr<FlightStreamWriter> writer;
   std::unique_ptr<FlightMetadataReader> reader;
 
-  ARROW_RETURN_NOT_OK(internal::FlightClientImpl_DoPut(*impl_, options, descriptor,
-                                                       NULLPTR, &writer, &reader));
+  ARROW_RETURN_NOT_OK(DoPut(options, descriptor, NULLPTR, &writer, &reader));
 
   std::shared_ptr<Buffer> metadata;
 
@@ -122,7 +115,7 @@ arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::GetCatalogs(
     const FlightCallOptions& options) {
   pb::sql::CommandGetCatalogs command;
 
-  return GetFlightInfoForCommand(*impl_, options, command);
+  return GetFlightInfoForCommand(*this, options, command);
 }
 
 arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::GetSchemas(
@@ -136,7 +129,7 @@ arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::GetSchemas(
     command.set_schema_filter_pattern(*schema_filter_pattern);
   }
 
-  return GetFlightInfoForCommand(*impl_, options, command);
+  return GetFlightInfoForCommand(*this, options, command);
 }
 
 arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::GetTables(
@@ -163,7 +156,7 @@ arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::GetTables(
     command.add_table_types(table_type);
   }
 
-  return GetFlightInfoForCommand(*impl_, options, command);
+  return GetFlightInfoForCommand(*this, options, command);
 }
 
 arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::GetPrimaryKeys(
@@ -181,7 +174,7 @@ arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::GetPrimaryKeys(
 
   command.set_table(table);
 
-  return GetFlightInfoForCommand(*impl_, options, command);
+  return GetFlightInfoForCommand(*this, options, command);
 }
 
 arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::GetExportedKeys(
@@ -199,7 +192,7 @@ arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::GetExportedKeys(
 
   command.set_table(table);
 
-  return GetFlightInfoForCommand(*impl_, options, command);
+  return GetFlightInfoForCommand(*this, options, command);
 }
 
 arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::GetImportedKeys(
@@ -217,7 +210,7 @@ arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::GetImportedKeys(
 
   command.set_table(table);
 
-  return GetFlightInfoForCommand(*impl_, options, command);
+  return GetFlightInfoForCommand(*this, options, command);
 }
 
 arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::GetCrossReference(
@@ -243,20 +236,20 @@ arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::GetCrossReference(
   }
   command.set_fk_table(fk_table);
 
-  return GetFlightInfoForCommand(*impl_, options, command);
+  return GetFlightInfoForCommand(*this, options, command);
 }
 
 arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::GetTableTypes(
     const FlightCallOptions& options) {
   pb::sql::CommandGetTableTypes command;
 
-  return GetFlightInfoForCommand(*impl_, options, command);
+  return GetFlightInfoForCommand(*this, options, command);
 }
 
 arrow::Result<std::unique_ptr<FlightStreamReader>> FlightSqlClient::DoGet(
     const FlightCallOptions& options, const Ticket& ticket) {
   std::unique_ptr<FlightStreamReader> stream;
-  ARROW_RETURN_NOT_OK(internal::FlightClientImpl_DoGet(*impl_, options, ticket, &stream));
+  ARROW_RETURN_NOT_OK(DoGet(options, ticket, &stream));
 
   return std::move(stream);
 }
@@ -274,8 +267,7 @@ arrow::Result<std::shared_ptr<PreparedStatement>> FlightSqlClient::Prepare(
 
   std::unique_ptr<ResultStream> results;
 
-  ARROW_RETURN_NOT_OK(
-      internal::FlightClientImpl_DoAction(*impl_, options, action, &results));
+  ARROW_RETURN_NOT_OK(DoAction(options, action, &results));
 
   std::unique_ptr<Result> result;
   ARROW_RETURN_NOT_OK(results->Next(&result));
@@ -314,7 +306,7 @@ arrow::Result<std::shared_ptr<PreparedStatement>> FlightSqlClient::Prepare(
   }
   auto handle = prepared_statement_result.prepared_statement_handle();
 
-  return std::make_shared<PreparedStatement>(impl_, handle, dataset_schema,
+  return std::make_shared<PreparedStatement>(*this, handle, dataset_schema,
                                              parameter_schema, options);
 }
 
@@ -336,8 +328,8 @@ arrow::Result<std::unique_ptr<FlightInfo>> PreparedStatement::Execute() {
   if (parameter_binding_ && parameter_binding_->num_rows() > 0) {
     std::unique_ptr<FlightStreamWriter> writer;
     std::unique_ptr<FlightMetadataReader> reader;
-    ARROW_RETURN_NOT_OK(internal::FlightClientImpl_DoPut(
-        *client_, options_, descriptor, parameter_binding_->schema(), &writer, &reader));
+    ARROW_RETURN_NOT_OK(client_.DoPut(options_, descriptor, parameter_binding_->schema(),
+                                      &writer, &reader));
 
     ARROW_RETURN_NOT_OK(writer->WriteRecordBatch(*parameter_binding_));
     ARROW_RETURN_NOT_OK(writer->DoneWriting());
@@ -347,8 +339,7 @@ arrow::Result<std::unique_ptr<FlightInfo>> PreparedStatement::Execute() {
   }
 
   std::unique_ptr<FlightInfo> info;
-  ARROW_RETURN_NOT_OK(
-      internal::FlightClientImpl_GetFlightInfo(*client_, options_, descriptor, &info));
+  ARROW_RETURN_NOT_OK(client_.GetFlightInfo(options_, descriptor, &info));
 
   return std::move(info);
 }
@@ -365,13 +356,12 @@ arrow::Result<int64_t> PreparedStatement::ExecuteUpdate() {
   std::unique_ptr<FlightMetadataReader> reader;
 
   if (parameter_binding_ && parameter_binding_->num_rows() > 0) {
-    ARROW_RETURN_NOT_OK(internal::FlightClientImpl_DoPut(
-        *client_, options_, descriptor, parameter_binding_->schema(), &writer, &reader));
+    ARROW_RETURN_NOT_OK(client_.DoPut(options_, descriptor, parameter_binding_->schema(),
+                                      &writer, &reader));
     ARROW_RETURN_NOT_OK(writer->WriteRecordBatch(*parameter_binding_));
   } else {
     const std::shared_ptr<Schema> schema = arrow::schema({});
-    ARROW_RETURN_NOT_OK(internal::FlightClientImpl_DoPut(*client_, options_, descriptor,
-                                                         schema, &writer, &reader));
+    ARROW_RETURN_NOT_OK(client_.DoPut(options_, descriptor, schema, &writer, &reader));
     const auto& record_batch =
         arrow::RecordBatch::Make(schema, 0, (std::vector<std::shared_ptr<Array>>){});
     ARROW_RETURN_NOT_OK(writer->WriteRecordBatch(*record_batch));
@@ -422,7 +412,7 @@ Status PreparedStatement::Close() {
 
   std::unique_ptr<ResultStream> results;
 
-  ARROW_RETURN_NOT_OK(FlightClientImpl_DoAction(*client_, options_, action, &results));
+  ARROW_RETURN_NOT_OK(client_.DoAction(options_, action, &results));
 
   is_closed_ = true;
 
@@ -434,7 +424,7 @@ arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::GetSqlInfo(
   pb::sql::CommandGetSqlInfo command;
   for (const int& info : sql_info) command.add_info(info);
 
-  return GetFlightInfoForCommand(*impl_, options, command);
+  return GetFlightInfoForCommand(*this, options, command);
 }
 
 }  // namespace sql
