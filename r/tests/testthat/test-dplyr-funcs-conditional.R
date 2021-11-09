@@ -300,7 +300,7 @@ test_that("coalesce()", {
       collect(),
     df
   )
-  
+
   # factor
   df_fct <- df %>%
     mutate(across(everything(), ~ factor(.x)))
