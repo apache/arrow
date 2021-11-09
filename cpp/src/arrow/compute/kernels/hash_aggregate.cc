@@ -40,6 +40,7 @@
 #include "arrow/compute/kernels/row_encoder.h"
 #include "arrow/compute/kernels/util_internal.h"
 #include "arrow/record_batch.h"
+#include "arrow/stl_allocator.h"
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/bitmap_writer.h"
@@ -1692,9 +1693,13 @@ struct GroupedMinMaxImpl<Type,
                          enable_if_t<is_base_binary_type<Type>::value ||
                                      std::is_same<Type, FixedSizeBinaryType>::value>>
     final : public GroupedAggregator {
+  using Allocator = arrow::stl::allocator<char>;
+  using StringType = std::basic_string<char, std::char_traits<char>, Allocator>;
+
   Status Init(ExecContext* ctx, const std::vector<ValueDescr>&,
               const FunctionOptions* options) override {
     ctx_ = ctx;
+    allocator_ = Allocator(ctx->memory_pool());
     options_ = *checked_cast<const ScalarAggregateOptions*>(options);
     // type_ initialized by MinMaxInit
     has_values_ = TypedBufferBuilder<bool>(ctx->memory_pool());
@@ -1717,21 +1722,11 @@ struct GroupedMinMaxImpl<Type,
     return VisitGroupedValues<Type>(
         batch,
         [&](uint32_t g, util::string_view val) {
-          if (!mins_[g] || val < util::string_view(*mins_[g])) {
-            if (!mins_[g]) {
-              ARROW_ASSIGN_OR_RAISE(
-                  mins_[g], AllocateResizableBuffer(val.size(), ctx_->memory_pool()));
-            }
-            RETURN_NOT_OK(mins_[g]->Resize(val.size(), /*shrink_to_fit=*/false));
-            std::memcpy(mins_[g]->mutable_data(), val.data(), val.size());
+          if (!mins_[g] || val < *mins_[g]) {
+            mins_[g].emplace(val.data(), val.size(), allocator_);
           }
-          if (!maxes_[g] || val > util::string_view(*maxes_[g])) {
-            if (!maxes_[g]) {
-              ARROW_ASSIGN_OR_RAISE(
-                  maxes_[g], AllocateResizableBuffer(val.size(), ctx_->memory_pool()));
-            }
-            RETURN_NOT_OK(maxes_[g]->Resize(val.size(), /*shrink_to_fit=*/false));
-            std::memcpy(maxes_[g]->mutable_data(), val.data(), val.size());
+          if (!maxes_[g] || val > *maxes_[g]) {
+            maxes_[g].emplace(val.data(), val.size(), allocator_);
           }
           BitUtil::SetBit(has_values_.mutable_data(), g);
           return Status::OK();
@@ -1749,13 +1744,11 @@ struct GroupedMinMaxImpl<Type,
     for (uint32_t other_g = 0; static_cast<int64_t>(other_g) < group_id_mapping.length;
          ++other_g, ++g) {
       if (!mins_[*g] ||
-          (mins_[*g] && other->mins_[other_g] &&
-           util::string_view(*mins_[*g]) > util::string_view(*other->mins_[other_g]))) {
+          (mins_[*g] && other->mins_[other_g] && *mins_[*g] > *other->mins_[other_g])) {
         mins_[*g] = std::move(other->mins_[other_g]);
       }
-      if (!maxes_[*g] ||
-          (maxes_[*g] && other->maxes_[other_g] &&
-           util::string_view(*maxes_[*g]) < util::string_view(*other->maxes_[other_g]))) {
+      if (!maxes_[*g] || (maxes_[*g] && other->maxes_[other_g] &&
+                          *maxes_[*g] < *other->maxes_[other_g])) {
         maxes_[*g] = std::move(other->maxes_[other_g]);
       }
 
@@ -1790,7 +1783,7 @@ struct GroupedMinMaxImpl<Type,
 
   template <typename T = Type>
   enable_if_base_binary<T, Status> MakeOffsetsValues(
-      ArrayData* array, const std::vector<std::shared_ptr<ResizableBuffer>>& values) {
+      ArrayData* array, const std::vector<util::optional<StringType>>& values) {
     using offset_type = typename T::offset_type;
     ARROW_ASSIGN_OR_RAISE(
         auto raw_offsets,
@@ -1802,10 +1795,11 @@ struct GroupedMinMaxImpl<Type,
     offset_type total_length = 0;
     for (size_t i = 0; i < values.size(); i++) {
       if (BitUtil::GetBit(null_bitmap, i)) {
-        if (values[i]->size() > std::numeric_limits<offset_type>::max() ||
-            arrow::internal::AddWithOverflow(total_length,
-                                             static_cast<offset_type>(values[i]->size()),
-                                             &total_length)) {
+        const util::optional<StringType>& value = values[i];
+        DCHECK(value.has_value());
+        if (value->size() > std::numeric_limits<offset_type>::max() ||
+            arrow::internal::AddWithOverflow(
+                total_length, static_cast<offset_type>(value->size()), &total_length)) {
           return Status::Invalid("Result is too large to fit in ", *array->type,
                                  " cast to large_ variant of type");
         }
@@ -1816,7 +1810,8 @@ struct GroupedMinMaxImpl<Type,
     int64_t offset = 0;
     for (size_t i = 0; i < values.size(); i++) {
       if (BitUtil::GetBit(null_bitmap, i)) {
-        const auto& value = values[i];
+        const util::optional<StringType>& value = values[i];
+        DCHECK(value.has_value());
         std::memcpy(data->mutable_data() + offset, value->data(), value->size());
         offset += value->size();
       }
@@ -1828,7 +1823,7 @@ struct GroupedMinMaxImpl<Type,
 
   template <typename T = Type>
   enable_if_same<T, FixedSizeBinaryType, Status> MakeOffsetsValues(
-      ArrayData* array, const std::vector<std::shared_ptr<ResizableBuffer>>& values) {
+      ArrayData* array, const std::vector<util::optional<StringType>>& values) {
     const uint8_t* null_bitmap = array->buffers[0]->data();
     const int32_t slot_width =
         checked_cast<const FixedSizeBinaryType&>(*array->type).byte_width();
@@ -1837,7 +1832,8 @@ struct GroupedMinMaxImpl<Type,
     int64_t offset = 0;
     for (size_t i = 0; i < values.size(); i++) {
       if (BitUtil::GetBit(null_bitmap, i)) {
-        const auto& value = values[i];
+        const util::optional<StringType>& value = values[i];
+        DCHECK(value.has_value());
         std::memcpy(data->mutable_data() + offset, value->data(), slot_width);
       } else {
         std::memset(data->mutable_data() + offset, 0x00, slot_width);
@@ -1853,8 +1849,9 @@ struct GroupedMinMaxImpl<Type,
   }
 
   ExecContext* ctx_;
+  Allocator allocator_;
   int64_t num_groups_;
-  std::vector<std::shared_ptr<ResizableBuffer>> mins_, maxes_;
+  std::vector<util::optional<StringType>> mins_, maxes_;
   TypedBufferBuilder<bool> has_values_, has_nulls_;
   std::shared_ptr<DataType> type_;
   ScalarAggregateOptions options_;
