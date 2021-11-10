@@ -15,13 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/flight/client.h"
+
 #include <gmock/gmock.h>
 #include <google/protobuf/any.pb.h>
 #include <gtest/gtest.h>
 
 #include <utility>
 
-#include "arrow/flight/client.h"
 #include "arrow/flight/flight_sql/FlightSql.pb.h"
 #include "arrow/flight/flight_sql/api.h"
 #include "arrow/testing/gtest_util.h"
@@ -473,7 +474,8 @@ TEST_F(TestFlightSqlClient, TestPreparedStatementExecuteUpdateWithParameterBindi
       [](const std::shared_ptr<PreparedStatement>& prepared_statement,
          FlightSqlClient& sql_client, const std::shared_ptr<Schema>* schema,
          const int64_t& row_count) {
-        auto string_array = ArrayFromJSON(utf8(), R"(["Lorem", "Ipsum", "Foo", "Bar", "Baz"])");
+        auto string_array =
+            ArrayFromJSON(utf8(), R"(["Lorem", "Ipsum", "Foo", "Bar", "Baz"])");
         auto uint8_array = ArrayFromJSON(uint8(), R"([0, 10, 15, 20, 25])");
         std::shared_ptr<RecordBatch> recordBatch =
             RecordBatch::Make(*schema, row_count, {string_array, uint8_array});

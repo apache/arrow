@@ -15,10 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/flight/flight_sql/client.h"
+
 #include <google/protobuf/any.pb.h>
 
 #include "arrow/buffer.h"
-#include "arrow/flight/flight_sql/client.h"
 #include "arrow/flight/flight_sql/FlightSql.pb.h"
 #include "arrow/flight/types.h"
 #include "arrow/io/memory.h"
@@ -36,7 +37,7 @@ namespace sql {
 FlightSqlClient::FlightSqlClient(std::shared_ptr<FlightClient> client)
     : impl_(std::move(client)) {}
 
-PreparedStatement::PreparedStatement(FlightSqlClient *client, std::string handle,
+PreparedStatement::PreparedStatement(FlightSqlClient* client, std::string handle,
                                      std::shared_ptr<Schema> dataset_schema,
                                      std::shared_ptr<Schema> parameter_schema,
                                      FlightCallOptions options)
@@ -134,9 +135,9 @@ arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::GetSchemas(
 }
 
 arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::GetTables(
-  const FlightCallOptions& options, const std::string* catalog,
-  const std::string* schema_filter_pattern, const std::string* table_filter_pattern,
-  bool include_schema, const std::vector<std::string> &table_types) {
+    const FlightCallOptions& options, const std::string* catalog,
+    const std::string* schema_filter_pattern, const std::string* table_filter_pattern,
+    bool include_schema, const std::vector<std::string>& table_types) {
   flight_sql_pb::CommandGetTables command;
 
   if (catalog != NULLPTR) {
@@ -330,7 +331,7 @@ arrow::Result<std::unique_ptr<FlightInfo>> PreparedStatement::Execute() {
     std::unique_ptr<FlightStreamWriter> writer;
     std::unique_ptr<FlightMetadataReader> reader;
     ARROW_RETURN_NOT_OK(client_->DoPut(options_, descriptor, parameter_binding_->schema(),
-                                      &writer, &reader));
+                                       &writer, &reader));
 
     ARROW_RETURN_NOT_OK(writer->WriteRecordBatch(*parameter_binding_));
     ARROW_RETURN_NOT_OK(writer->DoneWriting());
@@ -358,7 +359,7 @@ arrow::Result<int64_t> PreparedStatement::ExecuteUpdate() {
 
   if (parameter_binding_ && parameter_binding_->num_rows() > 0) {
     ARROW_RETURN_NOT_OK(client_->DoPut(options_, descriptor, parameter_binding_->schema(),
-                                      &writer, &reader));
+                                       &writer, &reader));
     ARROW_RETURN_NOT_OK(writer->WriteRecordBatch(*parameter_binding_));
   } else {
     const std::shared_ptr<Schema> schema = arrow::schema({});

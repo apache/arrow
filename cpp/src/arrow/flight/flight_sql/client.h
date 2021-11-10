@@ -90,9 +90,9 @@ class ARROW_EXPORT FlightSqlClient {
   /// \param[in] table_types              The table types to include.
   /// \return The FlightInfo describing where to access the dataset.
   arrow::Result<std::unique_ptr<FlightInfo>> GetTables(
-    const FlightCallOptions& options, const std::string* catalog,
-    const std::string* schema_filter_pattern, const std::string* table_filter_pattern,
-    bool include_schema, const std::vector<std::string> &table_types);
+      const FlightCallOptions& options, const std::string* catalog,
+      const std::string* schema_filter_pattern, const std::string* table_filter_pattern,
+      bool include_schema, const std::vector<std::string>& table_types);
 
   /// \brief Request the primary keys for a table.
   /// \param[in] options          RPC-layer hints for this call.
@@ -205,7 +205,7 @@ class ARROW_EXPORT PreparedStatement {
   /// \param[in] dataset_schema        Schema of the resulting dataset.
   /// \param[in] parameter_schema      Schema of the parameters (if any).
   /// \param[in] options               RPC-layer hints for this call.
-  PreparedStatement(FlightSqlClient *client, std::string handle,
+  PreparedStatement(FlightSqlClient* client, std::string handle,
                     std::shared_ptr<Schema> dataset_schema,
                     std::shared_ptr<Schema> parameter_schema, FlightCallOptions options);
 
