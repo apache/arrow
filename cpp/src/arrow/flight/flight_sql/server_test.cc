@@ -15,17 +15,19 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <arrow/api.h>
-#include <arrow/flight/api.h>
-#include <arrow/flight/flight_sql/FlightSql.pb.h>
-#include <arrow/flight/flight_sql/api.h>
-#include <arrow/flight/flight_sql/example/sqlite_server.h>
-#include <arrow/flight/flight_sql/server.h>
-#include <arrow/flight/test_util.h>
-#include <arrow/flight/types.h>
-#include <arrow/testing/gtest_util.h>
+#include "arrow/flight/flight_sql/server.h"
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+
+#include "arrow/api.h"
+#include "arrow/flight/api.h"
+#include "arrow/flight/flight_sql/FlightSql.pb.h"
+#include "arrow/flight/flight_sql/api.h"
+#include "arrow/flight/flight_sql/example/sqlite_server.h"
+#include "arrow/flight/test_util.h"
+#include "arrow/flight/types.h"
+#include "arrow/testing/gtest_util.h"
 
 using ::testing::_;
 using ::testing::Ref;
@@ -86,7 +88,8 @@ TEST(TestFlightSqlServer, TestCommandStatementQuery) {
                      arrow::field("value", int64()), arrow::field("foreignId", int64())});
 
   std::shared_ptr<Array> id_array = ArrayFromJSON(int64(), R"([1, 2, 3])");
-  std::shared_ptr<Array> keyname_array = ArrayFromJSON(utf8(), R"(["one", "zero", "negative one"])");
+  std::shared_ptr<Array> keyname_array =
+      ArrayFromJSON(utf8(), R"(["one", "zero", "negative one"])");
   std::shared_ptr<Array> value_array = ArrayFromJSON(int64(), R"([1, 0, -1])");
   std::shared_ptr<Array> foreignId_array = ArrayFromJSON(int64(), R"([1, 1, 1])");
 
@@ -220,11 +223,9 @@ TEST(TestFlightSqlServer, TestCommandGetTablesWithIncludedSchemas) {
   ArrayFromVector<StringType, std::string>({"intTable"}, &table_name);
   ArrayFromVector<StringType, std::string>({"table"}, &table_type);
 
-  const std::shared_ptr<Schema> schema_table =
-      arrow::schema({arrow::field("id", int64(), true),
-                     arrow::field("keyName", utf8(), true),
-                     arrow::field("value", int64(), true),
-                     arrow::field("foreignId", int64(), true)});
+  const std::shared_ptr<Schema> schema_table = arrow::schema(
+      {arrow::field("id", int64(), true), arrow::field("keyName", utf8(), true),
+       arrow::field("value", int64(), true), arrow::field("foreignId", int64(), true)});
 
   const arrow::Result<std::shared_ptr<Buffer>>& value =
       ipc::SerializeSchema(*schema_table);

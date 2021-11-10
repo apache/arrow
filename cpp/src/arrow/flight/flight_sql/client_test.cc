@@ -15,15 +15,16 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <arrow/flight/client.h>
-#include <arrow/flight/flight_sql/FlightSql.pb.h>
-#include <arrow/flight/flight_sql/api.h>
-#include <arrow/testing/gtest_util.h>
 #include <gmock/gmock.h>
 #include <google/protobuf/any.pb.h>
 #include <gtest/gtest.h>
 
 #include <utility>
+
+#include "arrow/flight/client.h"
+#include "arrow/flight/flight_sql/FlightSql.pb.h"
+#include "arrow/flight/flight_sql/api.h"
+#include "arrow/testing/gtest_util.h"
 
 namespace pb = arrow::flight::protocol;
 using ::testing::_;

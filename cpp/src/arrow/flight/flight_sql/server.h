@@ -20,14 +20,14 @@
 
 #pragma once
 
-#include <arrow/flight/flight_sql/example/sqlite_statement.h>
-#include <arrow/flight/flight_sql/example/sqlite_statement_batch_reader.h>
-#include <arrow/flight/flight_sql/server.h>
-#include <arrow/flight/server.h>
-#include <arrow/util/optional.h>
-
 #include <memory>
 #include <string>
+
+#include "arrow/flight/flight_sql/example/sqlite_statement.h"
+#include "arrow/flight/flight_sql/example/sqlite_statement_batch_reader.h"
+#include "arrow/flight/flight_sql/server.h"
+#include "arrow/flight/server.h"
+#include "arrow/util/optional.h"
 
 namespace arrow {
 namespace flight {

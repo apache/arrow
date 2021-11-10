@@ -15,14 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <arrow/array/builder_binary.h>
-#include <arrow/array/builder_primitive.h>
-#include <arrow/flight/api.h>
-#include <arrow/flight/flight_sql/api.h>
-#include <arrow/io/memory.h>
-#include <arrow/pretty_print.h>
-#include <arrow/status.h>
-#include <arrow/table.h>
+#include "arrow/array/builder_binary.h"
+#include "arrow/array/builder_primitive.h"
+#include "arrow/flight/api.h"
+#include "arrow/flight/flight_sql/api.h"
+#include "arrow/io/memory.h"
+#include "arrow/pretty_print.h"
+#include "arrow/status.h"
+#include "arrow/table.h"
 #include <gflags/gflags.h>
 
 #include <boost/algorithm/string.hpp>

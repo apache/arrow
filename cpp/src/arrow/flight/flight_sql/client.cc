@@ -15,18 +15,19 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <arrow/buffer.h>
-#include <arrow/flight/flight_sql/FlightSql.pb.h>
-#include <arrow/flight/flight_sql/client.h>
-#include <arrow/flight/types.h>
-#include <arrow/io/memory.h>
-#include <arrow/ipc/reader.h>
-#include <arrow/result.h>
-#include <arrow/testing/gtest_util.h>
-#include <arrow/util/logging.h>
 #include <google/protobuf/any.pb.h>
 
-namespace pb = arrow::flight::protocol;
+#include "arrow/buffer.h"
+#include "arrow/flight/flight_sql/client.h"
+#include "arrow/flight/flight_sql/FlightSql.pb.h"
+#include "arrow/flight/types.h"
+#include "arrow/io/memory.h"
+#include "arrow/ipc/reader.h"
+#include "arrow/result.h"
+#include "arrow/testing/gtest_util.h"
+#include "arrow/util/logging.h"
+
+namespace flight_sql_pb = arrow::flight::protocol::sql;
 
 namespace arrow {
 namespace flight {
@@ -35,7 +36,7 @@ namespace sql {
 FlightSqlClient::FlightSqlClient(std::shared_ptr<FlightClient> client)
     : impl_(std::move(client)) {}
 
-PreparedStatement::PreparedStatement(FlightSqlClient& client, std::string handle,
+PreparedStatement::PreparedStatement(FlightSqlClient *client, std::string handle,
                                      std::shared_ptr<Schema> dataset_schema,
                                      std::shared_ptr<Schema> parameter_schema,
                                      FlightCallOptions options)
@@ -79,7 +80,7 @@ arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoForCommand(
 
 arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::Execute(
     const FlightCallOptions& options, const std::string& query) {
-  pb::sql::CommandStatementQuery command;
+  flight_sql_pb::CommandStatementQuery command;
   command.set_query(query);
 
   return GetFlightInfoForCommand(*this, options, command);
@@ -87,7 +88,7 @@ arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::Execute(
 
 arrow::Result<int64_t> FlightSqlClient::ExecuteUpdate(const FlightCallOptions& options,
                                                       const std::string& query) {
-  pb::sql::CommandStatementUpdate command;
+  flight_sql_pb::CommandStatementUpdate command;
   command.set_query(query);
 
   const FlightDescriptor& descriptor = GetFlightDescriptorForCommand(command);
@@ -101,9 +102,9 @@ arrow::Result<int64_t> FlightSqlClient::ExecuteUpdate(const FlightCallOptions& o
 
   ARROW_RETURN_NOT_OK(reader->ReadMetadata(&metadata));
 
-  pb::sql::DoPutUpdateResult doPutUpdateResult;
+  flight_sql_pb::DoPutUpdateResult doPutUpdateResult;
 
-  pb::sql::DoPutUpdateResult result;
+  flight_sql_pb::DoPutUpdateResult result;
   if (!result.ParseFromArray(metadata->data(), static_cast<int>(metadata->size()))) {
     return Status::Invalid("Unable to parse DoPutUpdateResult object.");
   }
@@ -113,7 +114,7 @@ arrow::Result<int64_t> FlightSqlClient::ExecuteUpdate(const FlightCallOptions& o
 
 arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::GetCatalogs(
     const FlightCallOptions& options) {
-  pb::sql::CommandGetCatalogs command;
+  flight_sql_pb::CommandGetCatalogs command;
 
   return GetFlightInfoForCommand(*this, options, command);
 }
@@ -121,7 +122,7 @@ arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::GetCatalogs(
 arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::GetSchemas(
     const FlightCallOptions& options, const std::string* catalog,
     const std::string* schema_filter_pattern) {
-  pb::sql::CommandGetSchemas command;
+  flight_sql_pb::CommandGetSchemas command;
   if (catalog != NULLPTR) {
     command.set_catalog(*catalog);
   }
@@ -133,10 +134,10 @@ arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::GetSchemas(
 }
 
 arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::GetTables(
-    const FlightCallOptions& options, const std::string* catalog,
-    const std::string* schema_filter_pattern, const std::string* table_filter_pattern,
-    bool include_schema, std::vector<std::string>& table_types) {
-  pb::sql::CommandGetTables command;
+  const FlightCallOptions& options, const std::string* catalog,
+  const std::string* schema_filter_pattern, const std::string* table_filter_pattern,
+  bool include_schema, const std::vector<std::string> &table_types) {
+  flight_sql_pb::CommandGetTables command;
 
   if (catalog != NULLPTR) {
     command.set_catalog(*catalog);
@@ -162,7 +163,7 @@ arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::GetTables(
 arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::GetPrimaryKeys(
     const FlightCallOptions& options, const std::string* catalog,
     const std::string* schema, const std::string& table) {
-  pb::sql::CommandGetPrimaryKeys command;
+  flight_sql_pb::CommandGetPrimaryKeys command;
 
   if (catalog != NULLPTR) {
     command.set_catalog(*catalog);
@@ -180,7 +181,7 @@ arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::GetPrimaryKeys(
 arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::GetExportedKeys(
     const FlightCallOptions& options, const std::string* catalog,
     const std::string* schema, const std::string& table) {
-  pb::sql::CommandGetExportedKeys command;
+  flight_sql_pb::CommandGetExportedKeys command;
 
   if (catalog != NULLPTR) {
     command.set_catalog(*catalog);
@@ -198,7 +199,7 @@ arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::GetExportedKeys(
 arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::GetImportedKeys(
     const FlightCallOptions& options, const std::string* catalog,
     const std::string* schema, const std::string& table) {
-  pb::sql::CommandGetImportedKeys command;
+  flight_sql_pb::CommandGetImportedKeys command;
 
   if (catalog != NULLPTR) {
     command.set_catalog(*catalog);
@@ -218,7 +219,7 @@ arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::GetCrossReference(
     const std::string* pk_schema, const std::string& pk_table,
     const std::string* fk_catalog, const std::string* fk_schema,
     const std::string& fk_table) {
-  pb::sql::CommandGetCrossReference command;
+  flight_sql_pb::CommandGetCrossReference command;
 
   if (pk_catalog != NULLPTR) {
     command.set_pk_catalog(*pk_catalog);
@@ -241,7 +242,7 @@ arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::GetCrossReference(
 
 arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::GetTableTypes(
     const FlightCallOptions& options) {
-  pb::sql::CommandGetTableTypes command;
+  flight_sql_pb::CommandGetTableTypes command;
 
   return GetFlightInfoForCommand(*this, options, command);
 }
@@ -257,7 +258,7 @@ arrow::Result<std::unique_ptr<FlightStreamReader>> FlightSqlClient::DoGet(
 arrow::Result<std::shared_ptr<PreparedStatement>> FlightSqlClient::Prepare(
     const FlightCallOptions& options, const std::string& query) {
   google::protobuf::Any command;
-  pb::sql::ActionCreatePreparedStatementRequest request;
+  flight_sql_pb::ActionCreatePreparedStatementRequest request;
   request.set_query(query);
   command.PackFrom(request);
 
@@ -280,7 +281,7 @@ arrow::Result<std::shared_ptr<PreparedStatement>> FlightSqlClient::Prepare(
     return Status::Invalid("Unable to parse packed ActionCreatePreparedStatementResult");
   }
 
-  pb::sql::ActionCreatePreparedStatementResult prepared_statement_result;
+  flight_sql_pb::ActionCreatePreparedStatementResult prepared_statement_result;
 
   if (!prepared_result.UnpackTo(&prepared_statement_result)) {
     return Status::Invalid("Unable to unpack ActionCreatePreparedStatementResult");
@@ -306,7 +307,7 @@ arrow::Result<std::shared_ptr<PreparedStatement>> FlightSqlClient::Prepare(
   }
   auto handle = prepared_statement_result.prepared_statement_handle();
 
-  return std::make_shared<PreparedStatement>(*this, handle, dataset_schema,
+  return std::make_shared<PreparedStatement>(this, handle, dataset_schema,
                                              parameter_schema, options);
 }
 
@@ -315,7 +316,7 @@ arrow::Result<std::unique_ptr<FlightInfo>> PreparedStatement::Execute() {
     return Status::Invalid("Statement already closed.");
   }
 
-  pb::sql::CommandPreparedStatementQuery execute_query_command;
+  flight_sql_pb::CommandPreparedStatementQuery execute_query_command;
 
   execute_query_command.set_prepared_statement_handle(handle_);
 
@@ -328,7 +329,7 @@ arrow::Result<std::unique_ptr<FlightInfo>> PreparedStatement::Execute() {
   if (parameter_binding_ && parameter_binding_->num_rows() > 0) {
     std::unique_ptr<FlightStreamWriter> writer;
     std::unique_ptr<FlightMetadataReader> reader;
-    ARROW_RETURN_NOT_OK(client_.DoPut(options_, descriptor, parameter_binding_->schema(),
+    ARROW_RETURN_NOT_OK(client_->DoPut(options_, descriptor, parameter_binding_->schema(),
                                       &writer, &reader));
 
     ARROW_RETURN_NOT_OK(writer->WriteRecordBatch(*parameter_binding_));
@@ -339,7 +340,7 @@ arrow::Result<std::unique_ptr<FlightInfo>> PreparedStatement::Execute() {
   }
 
   std::unique_ptr<FlightInfo> info;
-  ARROW_RETURN_NOT_OK(client_.GetFlightInfo(options_, descriptor, &info));
+  ARROW_RETURN_NOT_OK(client_->GetFlightInfo(options_, descriptor, &info));
 
   return std::move(info);
 }
@@ -349,19 +350,19 @@ arrow::Result<int64_t> PreparedStatement::ExecuteUpdate() {
     return Status::Invalid("Statement already closed.");
   }
 
-  pb::sql::CommandPreparedStatementUpdate command;
+  flight_sql_pb::CommandPreparedStatementUpdate command;
   command.set_prepared_statement_handle(handle_);
   const FlightDescriptor& descriptor = GetFlightDescriptorForCommand(command);
   std::unique_ptr<FlightStreamWriter> writer;
   std::unique_ptr<FlightMetadataReader> reader;
 
   if (parameter_binding_ && parameter_binding_->num_rows() > 0) {
-    ARROW_RETURN_NOT_OK(client_.DoPut(options_, descriptor, parameter_binding_->schema(),
+    ARROW_RETURN_NOT_OK(client_->DoPut(options_, descriptor, parameter_binding_->schema(),
                                       &writer, &reader));
     ARROW_RETURN_NOT_OK(writer->WriteRecordBatch(*parameter_binding_));
   } else {
     const std::shared_ptr<Schema> schema = arrow::schema({});
-    ARROW_RETURN_NOT_OK(client_.DoPut(options_, descriptor, schema, &writer, &reader));
+    ARROW_RETURN_NOT_OK(client_->DoPut(options_, descriptor, schema, &writer, &reader));
     const auto& record_batch =
         arrow::RecordBatch::Make(schema, 0, (std::vector<std::shared_ptr<Array>>){});
     ARROW_RETURN_NOT_OK(writer->WriteRecordBatch(*record_batch));
@@ -372,7 +373,7 @@ arrow::Result<int64_t> PreparedStatement::ExecuteUpdate() {
   ARROW_RETURN_NOT_OK(reader->ReadMetadata(&metadata));
   ARROW_RETURN_NOT_OK(writer->Close());
 
-  pb::sql::DoPutUpdateResult result;
+  flight_sql_pb::DoPutUpdateResult result;
   if (!result.ParseFromArray(metadata->data(), static_cast<int>(metadata->size()))) {
     return Status::Invalid("Unable to parse DoPutUpdateResult object.");
   }
@@ -401,7 +402,7 @@ Status PreparedStatement::Close() {
     return Status::Invalid("Statement already closed.");
   }
   google::protobuf::Any command;
-  pb::sql::ActionClosePreparedStatementRequest request;
+  flight_sql_pb::ActionClosePreparedStatementRequest request;
   request.set_prepared_statement_handle(handle_);
 
   command.PackFrom(request);
@@ -412,7 +413,7 @@ Status PreparedStatement::Close() {
 
   std::unique_ptr<ResultStream> results;
 
-  ARROW_RETURN_NOT_OK(client_.DoAction(options_, action, &results));
+  ARROW_RETURN_NOT_OK(client_->DoAction(options_, action, &results));
 
   is_closed_ = true;
 
@@ -421,7 +422,7 @@ Status PreparedStatement::Close() {
 
 arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::GetSqlInfo(
     const FlightCallOptions& options, const std::vector<int>& sql_info) {
-  pb::sql::CommandGetSqlInfo command;
+  flight_sql_pb::CommandGetSqlInfo command;
   for (const int& info : sql_info) command.add_info(info);
 
   return GetFlightInfoForCommand(*this, options, command);

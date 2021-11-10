@@ -17,10 +17,6 @@
 
 #pragma once
 
-#include <arrow/api.h>
-#include <arrow/flight/flight_sql/example/sqlite_statement.h>
-#include <arrow/flight/flight_sql/example/sqlite_statement_batch_reader.h>
-#include <arrow/flight/flight_sql/server.h>
 #include <sqlite3.h>
 
 #include <boost/uuid/uuid.hpp>
@@ -28,6 +24,11 @@
 #include <map>
 #include <memory>
 #include <string>
+
+#include "arrow/api.h"
+#include "arrow/flight/flight_sql/example/sqlite_statement.h"
+#include "arrow/flight/flight_sql/example/sqlite_statement_batch_reader.h"
+#include "arrow/flight/flight_sql/server.h"
 
 namespace arrow {
 namespace flight {

@@ -18,15 +18,17 @@
 // Interfaces to use for defining Flight RPC servers. API should be considered
 // experimental for now
 
-#include <arrow/api.h>
-#include <arrow/buffer.h>
-#include <arrow/flight/flight_sql/FlightSql.pb.h>
-#include <arrow/flight/flight_sql/server.h>
+#include "arrow/flight/flight_sql/server.h"
+
 #include <google/protobuf/any.pb.h>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/uuid/uuid.hpp>
 #include <sstream>
+
+#include "arrow/api.h"
+#include "arrow/buffer.h"
+#include "arrow/flight/flight_sql/FlightSql.pb.h"
 
 #define PROPERTY_TO_OPTIONAL(COMMAND, PROPERTY) \
   COMMAND.has_##PROPERTY() ? util::make_optional(COMMAND.PROPERTY()) : util::nullopt;
