@@ -59,7 +59,7 @@ arrow::Result<std::shared_ptr<SqliteStatement>> SqliteStatement::Create(
         err_msg += std::string(sqlite3_errmsg(db));
       }
     }
-    return Status::RError(err_msg);
+    return Status::Invalid(err_msg);
   }
 
   std::shared_ptr<SqliteStatement> result(new SqliteStatement(db, stmt));

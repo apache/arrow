@@ -178,7 +178,7 @@ arrow::Result<std::shared_ptr<SQLiteFlightSqlServer>> SQLiteFlightSqlServer::Cre
       err_msg += "Unable to start SQLite. Insufficient memory";
     }
 
-    return Status::RError(err_msg);
+    return Status::Invalid(err_msg);
   }
 
   std::shared_ptr<SQLiteFlightSqlServer> result(new SQLiteFlightSqlServer(db));
@@ -186,7 +186,7 @@ arrow::Result<std::shared_ptr<SQLiteFlightSqlServer>> SQLiteFlightSqlServer::Cre
     result->RegisterSqlInfo(id_to_result.first, id_to_result.second);
   }
 
-  ARROW_UNUSED(result->ExecuteSql(R"(
+  ARROW_RETURN_NOT_OK(result->ExecuteSql(R"(
     CREATE TABLE foreignTable (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     foreignName varchar(100),
