@@ -1945,7 +1945,37 @@ TEST(Cast, StringToTimestamp) {
       }
     }
 
-    // NOTE: timestamp parsing is tested comprehensively in parsing-util-test.cc
+    auto zoned = ArrayFromJSON(string_type,
+                               R"(["2020-02-29T00:00:00Z", "2020-03-02T10:11:12+0102"])");
+    auto mixed = ArrayFromJSON(string_type,
+                               R"(["2020-03-02T10:11:12+0102", "2020-02-29T00:00:00"])");
+
+    // Timestamp with zone offset should not parse as naive
+    CheckCastFails(zoned, CastOptions::Safe(timestamp(TimeUnit::SECOND)));
+
+    // Mixed zoned/unzoned should not parse as naive
+    CheckCastFails(mixed, CastOptions::Safe(timestamp(TimeUnit::SECOND)));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr("expected no zone offset"),
+        Cast(mixed, CastOptions::Safe(timestamp(TimeUnit::SECOND))));
+
+    // ...or as timestamp with timezone
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr("expected a zone offset"),
+        Cast(mixed, CastOptions::Safe(timestamp(TimeUnit::SECOND, "UTC"))));
+
+    // Unzoned should not parse as timestamp with timezone
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr("expected a zone offset"),
+        Cast(strings, CastOptions::Safe(timestamp(TimeUnit::SECOND, "UTC"))));
+
+    // Timestamp with zone offset can parse as any time zone (since they're unambiguous)
+    CheckCast(zoned, ArrayFromJSON(timestamp(TimeUnit::SECOND, "UTC"),
+                                   "[1582934400, 1583140152]"));
+    CheckCast(zoned, ArrayFromJSON(timestamp(TimeUnit::SECOND, "America/Phoenix"),
+                                   "[1582934400, 1583140152]"));
+
+    // NOTE: timestamp parsing is tested comprehensively in value_parsing_test.cc
   }
 }
 

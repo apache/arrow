@@ -32,6 +32,7 @@
 #include "arrow/compute/kernels/test_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
+#include "arrow/util/value_parsing.h"
 
 namespace arrow {
 namespace compute {
@@ -1757,6 +1758,24 @@ TYPED_TEST(TestStringKernels, Strptime) {
   std::string output1 = R"(["2020-05-01", null, "1900-12-11"])";
   StrptimeOptions options("%m/%d/%Y", TimeUnit::MICRO);
   this->CheckUnary("strptime", input1, timestamp(TimeUnit::MICRO), output1, &options);
+
+  input1 = R"(["5/1/2020 %z", null, "12/11/1900 %z"])";
+  options.format = "%m/%d/%Y %%z";
+  this->CheckUnary("strptime", input1, timestamp(TimeUnit::MICRO), output1, &options);
+}
+
+TYPED_TEST(TestStringKernels, StrptimeZoneOffset) {
+  if (!arrow::internal::kStrptimeSupportsZone) {
+    GTEST_SKIP() << "strptime does not support %z on this platform";
+  }
+  // N.B. BSD strptime only supports (+/-)HHMM and not the wider range
+  // of values GNU strptime supports.
+  std::string input1 = R"(["5/1/2020 +0100", null, "12/11/1900 -0130"])";
+  std::string output1 =
+      R"(["2020-04-30T23:00:00.000000", null, "1900-12-11T01:30:00.000000"])";
+  StrptimeOptions options("%m/%d/%Y %z", TimeUnit::MICRO);
+  this->CheckUnary("strptime", input1, timestamp(TimeUnit::MICRO, "UTC"), output1,
+                   &options);
 }
 
 TYPED_TEST(TestStringKernels, StrptimeDoesNotProvideDefaultOptions) {
