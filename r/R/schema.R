@@ -164,6 +164,7 @@ Schema <- R6Class("Schema",
 Schema$create <- function(...) {
   .list <- list2(...)
 
+  # if we were provided only a list of types or fields, use that
   if (length(.list) == 1 && is_list(.list[[1]])) {
     .list <- .list[[1]]
   }
