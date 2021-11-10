@@ -314,8 +314,9 @@ test_that("coalesce()", {
         cwxyz = coalesce(w, x, y, z)
       ) %>%
       collect() %>%
-      # Arrow case_when() kernel does not preserve factor levels
-      # so reset the levels of all the factor columns
+      # Arrow coalesce() kernel does not preserve unused factor levels,
+      # so reset the levels of all the factor columns to make the test pass
+      # (ARROW-14649)
       transmute(across(where(is.factor), ~ factor(.x, levels = c("a", "b", "c")))),
     df_fct
   )
