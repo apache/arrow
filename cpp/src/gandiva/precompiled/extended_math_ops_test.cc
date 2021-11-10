@@ -130,14 +130,12 @@ TEST(TestExtendedMathOps, TestBRoundDecimal) {
   EXPECT_DOUBLE_EQ(bround_float64(1.50001), 2);
   EXPECT_EQ(std::signbit(bround_float64(0)), 0);
 
-
   VerifyFuzzyEquals(bround_float64(2.5), 2);
   VerifyFuzzyEquals(bround_float64(3.5), 4);
   VerifyFuzzyEquals(bround_float64(-2.5), -2);
   VerifyFuzzyEquals(bround_float64(-3.5), -4);
   VerifyFuzzyEquals(bround_float64(1.4999999), 1);
   VerifyFuzzyEquals(bround_float64(1.50001), 2);
-
 }
 
 TEST(TestExtendedMathOps, TestRound) {
