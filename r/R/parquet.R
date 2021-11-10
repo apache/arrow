@@ -206,7 +206,7 @@ write_parquet <- function(x,
       # If the total number of cells is less than the default 250 million, we want one group
       num_chunks <- 1
     } else {
-      # no more than 2.5 million cells (rows * cols) per group
+      # no more than the default 250 million cells (rows * cols) per group
       num_chunks <- num_cells / target_cells_per_group
     }
 
