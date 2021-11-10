@@ -955,7 +955,9 @@ const char* gdv_fn_mask_first_n(int64_t context, const char* data, int32_t data_
     out[i] = mask_array[(unsigned char)data[i]];
   }
 
-  memcpy(out + end_idx, data + end_idx, data_len - end_idx);
+  if (end_idx < data_len) {
+    memcpy(out + end_idx, data + end_idx, data_len - end_idx);
+  }
 
   return out;
 }
