@@ -301,6 +301,26 @@ test_that("coalesce()", {
     df
   )
 
+  # factor
+  df_fct <- df %>%
+    transmute(across(everything(), ~ factor(.x, levels = c("a", "b", "c"))))
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        cw = coalesce(w),
+        cz = coalesce(z),
+        cwx = coalesce(w, x),
+        cwxy = coalesce(w, x, y),
+        cwxyz = coalesce(w, x, y, z)
+      ) %>%
+      collect() %>%
+      # Arrow coalesce() kernel does not preserve unused factor levels,
+      # so reset the levels of all the factor columns to make the test pass
+      # (ARROW-14649)
+      transmute(across(where(is.factor), ~ factor(.x, levels = c("a", "b", "c")))),
+    df_fct
+  )
+
   # integer
   df <- tibble(
     w = c(NA_integer_, NA_integer_, NA_integer_),
@@ -381,23 +401,6 @@ test_that("coalesce()", {
       ) %>%
       collect(),
     df
-  )
-
-  # factors
-  # TODO: remove the mutate + warning after ARROW-14167 is merged and Arrow
-  # supports factors in coalesce
-  df <- tibble(
-    x = factor("a", levels = c("a", "z")),
-    y = factor("b", levels = c("a", "b", "c"))
-  )
-  compare_dplyr_binding(
-    .input %>%
-      mutate(c = coalesce(x, y)) %>%
-      collect() %>%
-      # This is a no-op on the Arrow side, but necessary to make the results equal
-      mutate(c = as.character(c)),
-    df,
-    warning = "Dictionaries .* are currently converted to strings .* in coalesce"
   )
 
   # no arguments
