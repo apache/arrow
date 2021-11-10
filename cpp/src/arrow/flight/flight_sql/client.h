@@ -162,6 +162,12 @@ class ARROW_EXPORT FlightSqlClient {
   arrow::Result<std::shared_ptr<PreparedStatement>> Prepare(
       const FlightCallOptions& options, const std::string& query);
 
+  /// \brief Retrieve the flightInfo. It is public because it is been used by the
+  /// anonymous function GetFlightInfoForCommand.
+  /// \param[in] options      RPC-layer hints for this call.
+  /// \param[in] descriptor   The flight descriptior.
+  /// \param[out] info        The flight info with the metadata.
+  /// \return Status.
   virtual Status GetFlightInfo(const FlightCallOptions& options,
                                const FlightDescriptor& descriptor,
                                std::unique_ptr<FlightInfo>* info) {
