@@ -2223,13 +2223,13 @@ TEST_F(TestProjector, TestMaskFirstMaskLastN) {
 
   // Create a row-batch with some sample data
   int num_records = 4;
-  auto array0 = MakeArrowArrayUtf8({"aB-6", "ABcd-123456", "", "A#-c$%6"},
+  auto array0 = MakeArrowArrayUtf8({"aB-6", "ABcd-123456", "A#-c$%6", "A#-c$%6"},
                                    {true, true, true, true});
-  auto array1 = MakeArrowArrayInt32({3, 6, 6, -2}, {true, true, true, true});
+  auto array1 = MakeArrowArrayInt32({3, 6, 7, -2}, {true, true, true, true});
   // expected output
-  auto exp_mask_first_n = MakeArrowArrayUtf8({"xX-6", "XXxx-n23456", "", "A#-c$%6"},
+  auto exp_mask_first_n = MakeArrowArrayUtf8({"xX-6", "XXxx-n23456", "X#-x$%n", "A#-c$%6"},
                                              {true, true, true, true});
-  auto exp_mask_last_n = MakeArrowArrayUtf8({"aX-n", "ABcd-nnnnnn", "", "A#-c$%6"},
+  auto exp_mask_last_n = MakeArrowArrayUtf8({"aX-n", "ABcd-nnnnnn", "X#-x$%n", "A#-c$%6"},
                                             {true, true, true, true});
 
   // prepare input record batch
