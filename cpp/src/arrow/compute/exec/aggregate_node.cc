@@ -372,7 +372,7 @@ class GroupByNode : public ExecNode {
     for (size_t i = 0; i < key_field_ids_.size(); ++i) {
       keys[i] = batch.values[key_field_ids_[i]];
     }
-    ARROW_ASSIGN_OR_RAISE(ExecBatch key_batch, ExecBatch::Make(keys));
+    ExecBatch key_batch(std::move(keys), batch.length);
 
     // Create a batch with group ids
     ARROW_ASSIGN_OR_RAISE(Datum id_batch, state->grouper->Consume(key_batch));
@@ -421,6 +421,8 @@ class GroupByNode : public ExecNode {
 
   Result<ExecBatch> Finalize() {
     ThreadLocalState* state = &local_states_[0];
+    // If we never got any batches, then state won't have been initialized
+    RETURN_NOT_OK(InitLocalStateIfNeeded(state));
 
     ExecBatch out_data{{}, state->grouper->num_groups()};
     out_data.values.resize(agg_kernels_.size() + key_field_ids_.size());
@@ -525,9 +527,8 @@ class GroupByNode : public ExecNode {
   void StopProducing(ExecNode* output) override {
     DCHECK_EQ(output, outputs_[0]);
 
-    if (input_counter_.Cancel()) {
-      finished_.MarkFinished();
-    } else if (output_counter_.Cancel()) {
+    ARROW_UNUSED(input_counter_.Cancel());
+    if (output_counter_.Cancel()) {
       finished_.MarkFinished();
     }
     inputs_[0]->StopProducing(this);

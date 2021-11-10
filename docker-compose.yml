@@ -329,8 +329,13 @@ services:
         llvm: ${LLVM}
         gcc_version: ${GCC_VERSION}
     shm_size: *shm-size
+    cap_add:
+      - SYS_ADMIN
+    devices:
+      - "/dev/fuse:/dev/fuse"
+    security_opt:
+      - apparmor:unconfined
     ulimits: *ulimits
-    privileged: true
     environment:
       <<: *ccache
       ARROW_ENABLE_TIMING_TESTS:  # inherit
@@ -903,8 +908,8 @@ services:
       - ${DOCKER_VOLUME_PREFIX}python-wheel-manylinux2014-ccache:/ccache:delegated
     command:
       ["pip install -e /arrow/dev/archery &&
-        /arrow/ci/scripts/java_cdata_build.sh /arrow /java-native-build /arrow/java/dist &&
-        /arrow/ci/scripts/java_jni_manylinux_build.sh /arrow /build /arrow/java/dist"]
+        /arrow/ci/scripts/java_cdata_build.sh /arrow /java-native-build /arrow/java-dist &&
+        /arrow/ci/scripts/java_jni_manylinux_build.sh /arrow /build /arrow/java-dist"]
 
   ##############################  Integration #################################
 

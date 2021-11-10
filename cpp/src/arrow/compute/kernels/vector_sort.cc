@@ -1153,7 +1153,10 @@ class TableSorter {
 // ----------------------------------------------------------------------
 // Top-level sort functions
 
-const auto kDefaultSortOptions = SortOptions::Defaults();
+const SortOptions* GetDefaultSortOptions() {
+  static const auto kDefaultSortOptions = SortOptions::Defaults();
+  return &kDefaultSortOptions;
+}
 
 const FunctionDoc sort_indices_doc(
     "Return the indices that would sort an array, record batch or table",
@@ -1170,7 +1173,7 @@ class SortIndicesMetaFunction : public MetaFunction {
  public:
   SortIndicesMetaFunction()
       : MetaFunction("sort_indices", Arity::Unary(), &sort_indices_doc,
-                     &kDefaultSortOptions) {}
+                     GetDefaultSortOptions()) {}
 
   Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
                             const FunctionOptions* options,
@@ -1308,7 +1311,10 @@ class SortIndicesMetaFunction : public MetaFunction {
 // ----------------------------------------------------------------------
 // TopK/BottomK implementations
 
-const auto kDefaultSelectKOptions = SelectKOptions::Defaults();
+const SelectKOptions* GetDefaultSelectKOptions() {
+  static const auto kDefaultSelectKOptions = SelectKOptions::Defaults();
+  return &kDefaultSelectKOptions;
+}
 
 const FunctionDoc select_k_unstable_doc(
     "Selects the indices of the first `k` ordered elements from the input",
@@ -1842,7 +1848,7 @@ class SelectKUnstableMetaFunction : public MetaFunction {
  public:
   SelectKUnstableMetaFunction()
       : MetaFunction("select_k_unstable", Arity::Unary(), &select_k_unstable_doc,
-                     &kDefaultSelectKOptions) {}
+                     GetDefaultSelectKOptions()) {}
 
   Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
                             const FunctionOptions* options, ExecContext* ctx) const {

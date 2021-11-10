@@ -50,7 +50,7 @@ class JSTester(Tester):
 
         run_cmd(cmd)
 
-    def validate(self, json_path, arrow_path):
+    def validate(self, json_path, arrow_path, quirks=None):
         return self._run(self.VALIDATE, arrow_path, json_path, 'VALIDATE')
 
     def json_to_file(self, json_path, arrow_path):

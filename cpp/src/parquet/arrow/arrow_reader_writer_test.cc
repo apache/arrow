@@ -4158,36 +4158,119 @@ TEST(TestArrowWriteDictionaries, NestedSubfield) {
 }
 
 #ifdef ARROW_CSV
-TEST(TestArrowReadDeltaEncoding, DeltaBinaryPacked) {
-  auto file = test::get_data_file("delta_binary_packed.parquet");
-  auto expect_file = test::get_data_file("delta_binary_packed_expect.csv");
-  auto pool = ::arrow::default_memory_pool();
-  std::unique_ptr<FileReader> parquet_reader;
-  std::shared_ptr<::arrow::Table> table;
-  ASSERT_OK(
-      FileReader::Make(pool, ParquetFileReader::OpenFile(file, false), &parquet_reader));
-  ASSERT_OK(parquet_reader->ReadTable(&table));
 
-  ASSERT_OK_AND_ASSIGN(auto input_file, ::arrow::io::ReadableFile::Open(expect_file));
+class TestArrowReadDeltaEncoding : public ::testing::Test {
+ public:
+  void ReadTableFromParquetFile(const std::string& file_name,
+                                std::shared_ptr<Table>* out) {
+    auto file = test::get_data_file(file_name);
+    auto pool = ::arrow::default_memory_pool();
+    std::unique_ptr<FileReader> parquet_reader;
+    ASSERT_OK(FileReader::Make(pool, ParquetFileReader::OpenFile(file, false),
+                               &parquet_reader));
+    ASSERT_OK(parquet_reader->ReadTable(out));
+    ASSERT_OK((*out)->ValidateFull());
+  }
+
+  void ReadTableFromCSVFile(const std::string& file_name,
+                            const ::arrow::csv::ConvertOptions& convert_options,
+                            std::shared_ptr<Table>* out) {
+    auto file = test::get_data_file(file_name);
+    ASSERT_OK_AND_ASSIGN(auto input_file, ::arrow::io::ReadableFile::Open(file));
+    ASSERT_OK_AND_ASSIGN(auto csv_reader,
+                         ::arrow::csv::TableReader::Make(
+                             ::arrow::io::default_io_context(), input_file,
+                             ::arrow::csv::ReadOptions::Defaults(),
+                             ::arrow::csv::ParseOptions::Defaults(), convert_options));
+    ASSERT_OK_AND_ASSIGN(*out, csv_reader->Read());
+  }
+};
+
+TEST_F(TestArrowReadDeltaEncoding, DeltaBinaryPacked) {
+  std::shared_ptr<::arrow::Table> actual_table, expect_table;
+  ReadTableFromParquetFile("delta_binary_packed.parquet", &actual_table);
+
   auto convert_options = ::arrow::csv::ConvertOptions::Defaults();
   for (int i = 0; i <= 64; ++i) {
     std::string column_name = "bitwidth" + std::to_string(i);
     convert_options.column_types[column_name] = ::arrow::int64();
   }
   convert_options.column_types["int_value"] = ::arrow::int32();
-  ASSERT_OK_AND_ASSIGN(auto csv_reader,
-                       ::arrow::csv::TableReader::Make(
-                           ::arrow::io::default_io_context(), input_file,
-                           ::arrow::csv::ReadOptions::Defaults(),
-                           ::arrow::csv::ParseOptions::Defaults(), convert_options));
-  ASSERT_OK_AND_ASSIGN(auto expect_table, csv_reader->Read());
+  ReadTableFromCSVFile("delta_binary_packed_expect.csv", convert_options, &expect_table);
 
-  ::arrow::AssertTablesEqual(*table, *expect_table);
+  ::arrow::AssertTablesEqual(*actual_table, *expect_table);
 }
+
+TEST_F(TestArrowReadDeltaEncoding, DeltaByteArray) {
+  std::shared_ptr<::arrow::Table> actual_table, expect_table;
+  ReadTableFromParquetFile("delta_byte_array.parquet", &actual_table);
+
+  auto convert_options = ::arrow::csv::ConvertOptions::Defaults();
+  std::vector<std::string> column_names = {
+      "c_customer_id", "c_salutation",          "c_first_name",
+      "c_last_name",   "c_preferred_cust_flag", "c_birth_country",
+      "c_login",       "c_email_address",       "c_last_review_date"};
+  for (auto name : column_names) {
+    convert_options.column_types[name] = ::arrow::utf8();
+  }
+  convert_options.strings_can_be_null = true;
+  ReadTableFromCSVFile("delta_byte_array_expect.csv", convert_options, &expect_table);
+
+  ::arrow::AssertTablesEqual(*actual_table, *expect_table, false);
+}
+
+TEST_F(TestArrowReadDeltaEncoding, IncrementalDecodeDeltaByteArray) {
+  auto file = test::get_data_file("delta_byte_array.parquet");
+  auto pool = ::arrow::default_memory_pool();
+  const int64_t batch_size = 100;
+  ArrowReaderProperties properties = default_arrow_reader_properties();
+  properties.set_batch_size(batch_size);
+  std::unique_ptr<FileReader> parquet_reader;
+  std::shared_ptr<::arrow::RecordBatchReader> rb_reader;
+  ASSERT_OK(FileReader::Make(pool, ParquetFileReader::OpenFile(file, false), properties,
+                             &parquet_reader));
+  ASSERT_OK(parquet_reader->GetRecordBatchReader(Iota(parquet_reader->num_row_groups()),
+                                                 &rb_reader));
+
+  auto convert_options = ::arrow::csv::ConvertOptions::Defaults();
+  std::vector<std::string> column_names = {
+      "c_customer_id", "c_salutation",          "c_first_name",
+      "c_last_name",   "c_preferred_cust_flag", "c_birth_country",
+      "c_login",       "c_email_address",       "c_last_review_date"};
+  for (auto name : column_names) {
+    convert_options.column_types[name] = ::arrow::utf8();
+  }
+  convert_options.strings_can_be_null = true;
+  std::shared_ptr<::arrow::Table> csv_table;
+  ReadTableFromCSVFile("delta_byte_array_expect.csv", convert_options, &csv_table);
+
+  ::arrow::TableBatchReader csv_table_reader(*csv_table);
+  csv_table_reader.set_chunksize(batch_size);
+
+  std::shared_ptr<::arrow::RecordBatch> actual_batch, expected_batch;
+  for (int i = 0; i < csv_table->num_rows() / batch_size; ++i) {
+    ASSERT_OK(rb_reader->ReadNext(&actual_batch));
+    ASSERT_OK(actual_batch->ValidateFull());
+    ASSERT_OK(csv_table_reader.ReadNext(&expected_batch));
+    ASSERT_NO_FATAL_FAILURE(::arrow::AssertBatchesEqual(*expected_batch, *actual_batch));
+  }
+  ASSERT_OK(rb_reader->ReadNext(&actual_batch));
+  ASSERT_EQ(nullptr, actual_batch);
+}
+
 #else
 TEST(TestArrowReadDeltaEncoding, DeltaBinaryPacked) {
   GTEST_SKIP() << "Test needs CSV reader";
 }
+
+TEST(TestArrowReadDeltaEncoding, DeltaByteArray) {
+  GTEST_SKIP() << "Test needs CSV reader";
+}
+
+TEST(TestArrowReadDeltaEncoding, IncrementalDecodeDeltaByteArray) {
+  GTEST_SKIP() << "Test needs CSV reader";
+}
+
 #endif
 
 struct NestedFilterTestCase {

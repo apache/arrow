@@ -4617,7 +4617,10 @@ const FunctionDoc binary_join_element_wise_doc(
      "emit a null (the default), are skipped, or replaced with a given string.\n"),
     {"*strings"}, "JoinOptions");
 
-const auto kDefaultJoinOptions = JoinOptions::Defaults();
+const JoinOptions* GetDefaultJoinOptions() {
+  static const auto kDefaultJoinOptions = JoinOptions::Defaults();
+  return &kDefaultJoinOptions;
+}
 
 template <typename ListType>
 void AddBinaryJoinForListType(ScalarFunction* func) {
@@ -4639,7 +4642,7 @@ void AddBinaryJoin(FunctionRegistry* registry) {
   {
     auto func = std::make_shared<ScalarFunction>(
         "binary_join_element_wise", Arity::VarArgs(/*min_args=*/1),
-        &binary_join_element_wise_doc, &kDefaultJoinOptions);
+        &binary_join_element_wise_doc, GetDefaultJoinOptions());
     for (const auto& ty : BaseBinaryTypes()) {
       ScalarKernel kernel{KernelSignature::Make({InputType(ty)}, ty, /*is_varargs=*/true),
                           GenerateTypeAgnosticVarBinaryBase<BinaryJoinElementWise>(ty),
