@@ -250,6 +250,16 @@ nse_funcs$is_logical <- function(x, n = NULL) {
   nse_funcs$is.logical(x)
 }
 
+# Create a data frame/tibble/struct column
+nse_funcs$data.frame <- nse_funcs$tibble <- function(...) {
+  args <- rlang::list2(...)
+  build_expr(
+    "make_struct",
+    args = unname(args),
+    options = list(field_names = names(args))
+  )
+}
+
 # String functions
 nse_funcs$nchar <- function(x, type = "chars", allowNA = FALSE, keepNA = NA) {
   if (allowNA) {
