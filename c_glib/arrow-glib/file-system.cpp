@@ -1409,6 +1409,7 @@ garrow_s3_global_options_set_property(GObject *object,
                                       const GValue *value,
                                       GParamSpec *pspec)
 {
+#ifdef ARROW_S3
   auto arrow_options =
     garrow_s3_global_options_get_raw(GARROW_S3_GLOBAL_OPTIONS(object));
 
@@ -1421,6 +1422,9 @@ garrow_s3_global_options_set_property(GObject *object,
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
     break;
   }
+#else
+  G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+#endif
 }
 
 static void
@@ -1429,6 +1433,7 @@ garrow_s3_global_options_get_property(GObject *object,
                                       GValue *value,
                                       GParamSpec *pspec)
 {
+#ifdef ARROW_S3
   auto arrow_options =
     garrow_s3_global_options_get_raw(GARROW_S3_GLOBAL_OPTIONS(object));
 
@@ -1441,6 +1446,9 @@ garrow_s3_global_options_get_property(GObject *object,
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
     break;
   }
+#else
+  G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+#endif
 }
 
 static void
