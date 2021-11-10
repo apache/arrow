@@ -37,7 +37,5 @@ find_package_handle_standard_args(SQLite3Alt FAULT_MSG SQLite3_LIBRARY
 
 mark_as_advanced(SQLite3_LIBRARY SQLite3_INCLUDE_DIR)
 
-if(SQLite3_FOUND)
-  set(SQLite3_INCLUDE_DIRS ${SQLite3_INCLUDE_DIR})
-  set(SQLite3_LIBRARIES ${SQLite3_LIBRARY})
-endif()
+set(SQLite3_INCLUDE_DIRS ${SQLite3_INCLUDE_DIR})
+set(SQLite3_LIBRARIES ${SQLite3_LIBRARY})
