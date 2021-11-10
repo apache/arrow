@@ -203,7 +203,7 @@ write_parquet <- function(x,
     target_cells_per_group <- getOption("arrow.parquet_cells_per_group", 2.5e8)
 
     if (num_cells < target_cells_per_group) {
-      # If the total number of cells is less than the 2.5 million, we want one group
+      # If the total number of cells is less than the default 250 million, we want one group
       num_chunks <- 1
     } else {
       # no more than 2.5 million cells (rows * cols) per group
