@@ -13,6 +13,7 @@ knitr::opts_chunk$set(error = TRUE, eval = FALSE)
 run <- tolower(Sys.getenv("RUN_DEVDOCS", "false")) == "true"
 macos <- tolower(Sys.getenv("DEVDOCS_MACOS", "false")) == "true"
 ubuntu <- tolower(Sys.getenv("DEVDOCS_UBUNTU", "false")) == "true"
+windows <- tolower(Sys.getenv("DEVDOCS_WINDOWS", "false")) == "true"
 sys_install <- tolower(Sys.getenv("DEVDOCS_SYSTEM_INSTALL", "false")) == "true"
 # Update the source knit_hook to save the chunk (if it is marked to be saved)
 knit_hooks_source <- knitr::knit_hooks$get("source")
@@ -128,7 +129,7 @@ Open the corresponding RTools Bash, for example "Rtools MinGW 64-bit" for mingw6
 
 Install CMake and Ninja with:
 
-```{bash}
+```{bash, save=run & windows}
 pacman --sync --refresh --noconfirm \
   ${MINGW_PACKAGE_PREFIX}-cmake \
   ${MINGW_PACKAGE_PREFIX}-ninja
@@ -137,13 +138,11 @@ export CMAKE_GENERATOR=Ninja
 
 You will need to add R to your path. For a user-level installation, R will be at something like `~/Documents/R/R-4.1.2/bin`. For a global installation, R will be at something like `/c/Program\ Files/R/R-4.1.2/bin`. The R on your path needs to match the architecture you are compiling for, so if you are compiling on 32-bit specify `.../bin/i386` instead of `.../bin/x64`.
 
-```{bash}
+```{bash, save=run & windows}
 export PATH=~/Documents/R/R-4.1.2/bin/x64:$PATH
 ```
 
 You can install additional dependencies like so. Note that you are limited to the packages in [the RTools repo](https://github.com/r-windows/rtools-packages), which does not contain every dependency used by Arrow.
-
-<!-- TODO(wjones127): what about gtest? Can we not run unit tests? -->
 
 ```{bash}
 pacman --sync --refresh --noconfirm \
@@ -178,7 +177,7 @@ echo "export LD_LIBRARY_PATH=$ARROW_HOME/lib:$LD_LIBRARY_PATH" >> ~/.bash_profil
 
 _Special instructions on Windows:_ You will need to add `$ARROW_HOME/bin` to your `PATH` if you are using dynamic libraries (which is recommended).
 
-```{bash}
+```{bash, save=run & windows}
 export PATH=$ARROW_HOME/bin:$PATH
 ```
 
@@ -196,7 +195,7 @@ You'll first call `cmake` to configure the build and then `make install`. For th
 
 ##### Linux / Mac OS
 
-```{bash, save=run & !sys_install}
+```{bash, save=run & !sys_install & !windows}
 cmake \
   -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
   -DCMAKE_INSTALL_LIBDIR=lib \
@@ -216,7 +215,7 @@ cmake \
 
 ##### Windows
 
-```{bash, save=run & !sys_install}
+```{bash, save=run & !sys_install & windows}
 cmake \
   -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
   -DCMAKE_INSTALL_LIBDIR=lib \
