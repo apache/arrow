@@ -1504,7 +1504,7 @@ garrow_s3_global_options_new(void)
 
 
 /**
- * garrow_s3_enabled:
+ * garrow_s3_is_enabled:
  *
  * Returns: %TRUE if Apache Arrow C++ is built with S3 support, %FALSE
  *   otherwise.
@@ -1512,7 +1512,7 @@ garrow_s3_global_options_new(void)
  * Since: 7.0.0
  */
 gboolean
-garrow_s3_enabled(void)
+garrow_s3_is_enabled(void)
 {
 #ifdef ARROW_S3
   return TRUE;
