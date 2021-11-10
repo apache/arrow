@@ -45,7 +45,7 @@ jobs:
         shell: Rscript {0}
       - name: Remove system gfortran so that brew can install gcc successfully
         run: rm -f /usr/local/bin/gfortran
-        if: ${{ !contains(matrix.os, 'windows') }}
+        if: {{ "${{ !contains(matrix.os, 'windows') }}" }}
       - name: Write the install script
         env:
           RUN_DEVDOCS: TRUE
