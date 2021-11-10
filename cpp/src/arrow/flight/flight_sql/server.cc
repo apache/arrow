@@ -250,18 +250,6 @@ ParseActionClosePreparedStatementRequest(const google::protobuf::Any& any) {
   return result;
 }
 
-std::string FlightSqlServerBase::CreateStatementQueryTicket(
-    const std::string& statement_handle) {
-  protocol::sql::TicketStatementQuery ticket_statement_query;
-  ticket_statement_query.set_statement_handle(statement_handle);
-
-  google::protobuf::Any ticket;
-  ticket.PackFrom(ticket_statement_query);
-
-  const std::string& ticket_string = ticket.SerializeAsString();
-  return ticket_string;
-}
-
 Status FlightSqlServerBase::GetFlightInfo(const ServerCallContext& context,
                                           const FlightDescriptor& request,
                                           std::unique_ptr<FlightInfo>* info) {
