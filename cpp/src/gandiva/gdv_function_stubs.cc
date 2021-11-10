@@ -39,7 +39,6 @@
 #include "gandiva/random_generator_holder.h"
 #include "gandiva/replace_holder.h"
 #include "gandiva/to_date_holder.h"
-#include "gandiva/string_utils.h"
 
 /// Stub functions that can be accessed from LLVM or the pre-compiled library.
 
@@ -1109,14 +1108,14 @@ const char* gdv_mask_last_n_utf8_int32(int64_t context, const char* data,
 }
 
 GANDIVA_EXPORT
-int32_t gdv_fn_instr_utf8(int64_t context, const char* string, int32_t string_len,
-                         const char* substring, int32_t substring_len) {
+int32_t gdv_fn_instr_utf8(const char* string, int32_t string_len,
+                          const char* substring, int32_t substring_len) {
   if (substring_len == 0) {
     return 1;
   }
 
-  for(int i = 0; i < string_len; i++) {
-    if (string[i] == substring[0] && gandiva::string_matches(string + 1, substring + 1, i, substring_len - 1)) {
+  for (int i = 0; i < string_len - substring_len; i++) {
+    if (string[i] == substring[0] && memcmp(string + i, substring, substring_len) == 0) {
       return (i + 1);
     }
   }
@@ -2188,7 +2187,6 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
 
   // gd_fn_instr_utf8
   args = {
-      types->i64_type(),     // context
       types->i8_ptr_type(),  // string
       types->i32_type(),     // string_length
       types->i8_ptr_type(),  // substring

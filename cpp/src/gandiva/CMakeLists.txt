@@ -90,7 +90,6 @@ set(SRC_FILES
     regex_util.cc
     replace_holder.cc
     selection_vector.cc
-    string_utils.cc
     tree_expr_builder.cc
     to_date_holder.cc
     random_generator_holder.cc
@@ -239,7 +238,6 @@ add_gandiva_test(internals-test
                  decimal_type_util_test.cc
                  random_generator_holder_test.cc
                  hash_utils_test.cc
-                 string_utils_test.cc
                  gdv_function_stubs_test.cc
                  EXTRA_DEPENDENCIES
                  LLVM::LLVM_INTERFACE

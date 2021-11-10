@@ -2248,11 +2248,11 @@ TEST_F(TestProjector, TestMaskFirstMaskLastN) {
 TEST_F(TestProjector, TestInstr) {
   // schema for input fields
   auto field0 = field("f0", arrow::utf8());
-  auto field1 = field("f2", arrow::utf8());
+  auto field1 = field("f1", arrow::utf8());
   auto schema = arrow::schema({field0, field1});
 
   // output fields
-  auto output_instr = field("out_instr", int32());
+  auto output_instr = field("instr", int32());
 
   // Build expression
   auto instr_expr =
@@ -2268,9 +2268,9 @@ TEST_F(TestProjector, TestInstr) {
       MakeArrowArrayUtf8({"hello world!", "apple, banana, mango", "", "open the door"},
                          {true, true, true, true});
   auto array1 =
-      MakeArrowArrayUtf8({"world", "mango", "mango", ""}, {true, true, true, true});
+      MakeArrowArrayUtf8({"world", "apple", "mango", ""}, {true, true, true, true});
   // expected output
-  auto exp_sum = MakeArrowArrayInt32({7, 16, 0, 1}, {true, true, true, true});
+  auto exp_sum = MakeArrowArrayInt32({7, 1, 0, 1}, {true, true, true, true});
 
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
