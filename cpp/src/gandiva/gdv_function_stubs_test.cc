@@ -984,6 +984,14 @@ TEST(TestGdvFnStubs, TestInstr) {
 
   result = gdv_fn_instr_utf8(s1.c_str(), s1_len, s2.c_str(), s2_len);
   EXPECT_EQ(result, 0);
+
+  s1 = "cool";
+  s1_len = static_cast<int32_t>(s1.size());
+  s2 = "cooler";
+  s2_len = static_cast<int32_t>(s2.size());
+
+  result = gdv_fn_instr_utf8(s1.c_str(), s1_len, s2.c_str(), s2_len);
+  EXPECT_EQ(result, 0);
 }
 
 
