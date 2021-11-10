@@ -1725,14 +1725,16 @@ TEST_F(TestProjector, TestEltFunction) {
   EXPECT_ARROW_ARRAY_EQUALS(expected_out0, outputs.at(0));
 
   array0 = MakeArrowArrayInt32({1, 1, 1, 1, 1}, {true, true, true, true, true});
-  array1 = MakeArrowArrayUtf8({"inconsequential", "insignificant", "welcome", "dependencies", "anymore"},
-                              {true, true, true, true, true});
+  array1 = MakeArrowArrayUtf8(
+      {"inconsequential", "insignificant", "welcome", "dependencies", "anymore"},
+      {true, true, true, true, true});
   array2 = MakeArrowArrayUtf8({"wrong", "tiny", "hi", "deps", "any"},
                               {true, true, true, true, true});
   in_batch0 = arrow::RecordBatch::Make(schema0, num_records, {array0, array1, array2});
 
-  expected_out0 = MakeArrowArrayUtf8({"inconsequential", "insignificant", "welcome", "dependencies", "anymore"},
-                                     {true, true, true, true, true});
+  expected_out0 = MakeArrowArrayUtf8(
+      {"inconsequential", "insignificant", "welcome", "dependencies", "anymore"},
+      {true, true, true, true, true});
 
   status = projector1->Evaluate(*in_batch0, pool_, &outputs);
   EXPECT_TRUE(status.ok());
@@ -1740,8 +1742,9 @@ TEST_F(TestProjector, TestEltFunction) {
   EXPECT_ARROW_ARRAY_EQUALS(expected_out0, outputs.at(0));
 
   array0 = MakeArrowArrayInt32({2, 2, 2, 2, 2}, {true, true, true, true, true});
-  array1 = MakeArrowArrayUtf8({"inconsequential", "insignificant", "welcome", "dependencies", "anymore"},
-                              {true, true, true, true, true});
+  array1 = MakeArrowArrayUtf8(
+      {"inconsequential", "insignificant", "welcome", "dependencies", "anymore"},
+      {true, true, true, true, true});
   array2 = MakeArrowArrayUtf8({"wrong", "tiny", "hi", "deps", "any"},
                               {true, true, true, true, true});
   in_batch0 = arrow::RecordBatch::Make(schema0, num_records, {array0, array1, array2});
