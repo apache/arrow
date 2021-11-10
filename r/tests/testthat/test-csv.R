@@ -376,3 +376,11 @@ test_that("time mapping work as expected (ARROW-13624)", {
 
   expect_equal(df, tbl, ignore_attr = "tzone")
 })
+
+test_that("Writing a CSV errors when unsupported (yet) readr args are used", {
+  expect_snapshot({
+    (expect_error(
+        write_csv_arrow(tbl, csv_file, append = FALSE)
+    ))
+  })
+})

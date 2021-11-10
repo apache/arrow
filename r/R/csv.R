@@ -623,8 +623,38 @@ readr_to_csv_convert_options <- function(na,
 #' @include arrow-package.R
 write_csv_arrow <- function(x,
                             sink,
+                            na = NULL,
+                            append = NULL,
+                            quote = NULL,
+                            escape = NULL,
+                            eol = NULL,
+                            num_threads = NULL,
+                            progress = NULL,
                             include_header = TRUE,
                             batch_size = 1024L) {
+
+  passed_args <- as.list(match.call()[-1])
+
+  arrow_write_opts <- formalArgs(CsvWriteOptions$create)
+  write_args <- formalArgs(write_csv_arrow)
+
+  unsupported_opts <- setdiff(
+    write_args,
+    union(arrow_write_opts, c("x", "sink"))
+  )
+
+  unsupported_passed_args <- names(unlist(passed_args[unsupported_opts]))
+
+  if (length(unsupported_passed_args)) {
+    stop(
+      "The following ",
+      ngettext(length(unsupported_passed_args), "argument is ", "arguments are "),
+      "not yet supported in Arrow: ",
+      oxford_paste(unsupported_passed_args),
+      call. = FALSE
+    )
+  }
+
   write_options <- CsvWriteOptions$create(include_header, batch_size)
 
   x_out <- x
