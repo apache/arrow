@@ -232,7 +232,7 @@ class PreparedStatement {
   std::shared_ptr<Schema> dataset_schema() const;
 
   /// \brief Set a RecordBatch that contains the parameters that will be bind.
-  /// \param parameter_binding_   The parameters that will be bind.
+  /// \param parameter_binding   The parameters that will be bind.
   /// \return                     Status.
   Status SetParameters(std::shared_ptr<RecordBatch> parameter_binding);
 
