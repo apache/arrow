@@ -2215,15 +2215,20 @@ cdef class Table(_PandasConvertible):
         if isinstance(aggregations, str):
             aggregations = [aggregations]
 
-        column_names = []
         aggrs = []
         for aggr in aggregations:
             if isinstance(aggr, str):
                 aggr = (aggr, None)
             if not aggr[0].startswith("hash_"):
                 aggr = ("hash_" + aggr[0], aggr[1])
-            column_names.append(aggr[0])
             aggrs.append(aggr)
+
+        # Build unique names for aggregation result columns
+        # so that it's obvious what they refer to.
+        column_names = []
+        for value_name, (aggr_name, _) in zip(columns, aggrs):
+            column_names.append(aggr_name.replace("hash", value_name))
+        column_names.append("key")
 
         result = _pc()._group_by(
             [self[c] for c in columns],
@@ -2232,10 +2237,7 @@ cdef class Table(_PandasConvertible):
         )
 
         t = Table.from_batches([RecordBatch.from_struct_array(result)])
-        return t.rename_columns([
-            cname if cname not in column_names else cname.replace("hash_", "")
-            for cname in t.column_names
-        ])
+        return t.rename_columns(column_names)
 
     def sort_by(self, sorting):
         """

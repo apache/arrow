@@ -1752,27 +1752,35 @@ def test_table_group_by():
     table = pa.table([
         pa.array([1, 2, 3, 4, 5]),
         pa.array(["a", "a", "b", "b", "c"]),
-    ], names=["values", "keys"])
+        pa.array([10, 20, 30, 40, 50])
+    ], names=["values", "keys", "bigvalues"])
 
     r = table.group_by("keys", ["values"], "hash_sum")
     assert r.to_pydict() == {
-        "key_0": ["a", "b", "c"],
-        "sum": [3, 7, 5]
+        "key": ["a", "b", "c"],
+        "values_sum": [3, 7, 5]
     }
 
     r = table.group_by("keys", ["values", "values"], [
                        "hash_sum", "hash_count"])
     assert r.to_pydict() == {
-        "key_0": ["a", "b", "c"],
-        "sum": [3, 7, 5],
-        "count": [2, 2, 1]
+        "key": ["a", "b", "c"],
+        "values_sum": [3, 7, 5],
+        "values_count": [2, 2, 1]
     }
 
     # Test without hash_ prefix
     r = table.group_by("keys", ["values"], "sum")
     assert r.to_pydict() == {
-        "key_0": ["a", "b", "c"],
-        "sum": [3, 7, 5]
+        "key": ["a", "b", "c"],
+        "values_sum": [3, 7, 5]
+    }
+
+    r = table.group_by("keys", ["values", "bigvalues"], ["sum", "sum"])
+    assert r.to_pydict() == {
+        "key": ["a", "b", "c"],
+        "values_sum": [3, 7, 5],
+        "bigvalues_sum": [30, 70, 50]
     }
 
 
