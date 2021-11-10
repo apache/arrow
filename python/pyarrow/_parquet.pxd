@@ -505,6 +505,7 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
     data_page_size=*,
     compression_level=*,
     use_byte_stream_split=*,
+    col_encoding=*,
     data_page_version=*) except *
 
 
