@@ -318,6 +318,9 @@ split_vector_as_list <- function(vec) {
   list(vec1, vec2)
 }
 
+# two lightweight wrappers around expect_error() and expect_warning(). To be
+# used when using the expect functions inside expect_snapshot(). This makes it
+# easier on the eyes by removing one set of parantheses
 err_snap <- function(...) (expect_error(...))
 
 warn_snap <- function(...) (expect_warning(...))
