@@ -61,7 +61,7 @@ jobs:
         env:
           LIBARROW_BINARY: FALSE
           ARROW_R_DEV: TRUE
-          MINGW_PACKAGE_PREFIX: mingw-w64-x84_64
+          MINGW_PACKAGE_PREFIX: mingw-w64-x86_64
         run: |
           printenv
           bash arrow/r/vignettes/script.sh
