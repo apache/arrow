@@ -19,7 +19,6 @@
 
 #include <utf8proc.h>
 
-#include <iostream>
 #include <string>
 #include <vector>
 

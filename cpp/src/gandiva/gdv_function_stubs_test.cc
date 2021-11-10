@@ -816,6 +816,9 @@ TEST(TestGdvFnStubs, TestMaskFirstN) {
   result = gdv_fn_mask_first_n(ctx_ptr, "aB-6", 4, 3, &out_len);
   EXPECT_EQ("xX-6", std::string(result, out_len));
 
+  result = gdv_fn_mask_first_n(ctx_ptr, "aB-6", 4, 5, &out_len);
+  EXPECT_EQ("xX-n", std::string(result, out_len));
+
   result = gdv_fn_mask_first_n(ctx_ptr, "aB-6", 4, -3, &out_len);
   EXPECT_EQ("aB-6", std::string(result, out_len));
 
@@ -846,8 +849,11 @@ TEST(TestGdvFnStubs, TestMaskLastN) {
   result = gdv_fn_mask_last_n(ctx_ptr, "aB-6", 4, 3, &out_len);
   EXPECT_EQ("aX-n", std::string(result, out_len));
 
-  gdv_fn_mask_last_n(ctx_ptr, "aB-6", 4, -3, &out_len);
-  EXPECT_EQ("aX-n", std::string(result, out_len));
+  result = gdv_fn_mask_last_n(ctx_ptr, "aB-6", 4, 5, &out_len);
+  EXPECT_EQ("xX-n", std::string(result, out_len));
+
+  result = gdv_fn_mask_last_n(ctx_ptr, "aB-6", 4, -3, &out_len);
+  EXPECT_EQ("aB-6", std::string(result, out_len));
 
   result = gdv_fn_mask_last_n(ctx_ptr, "aB-6", 4, 0, &out_len);
   EXPECT_EQ("aB-6", std::string(result, out_len));
