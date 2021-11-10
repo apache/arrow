@@ -2374,7 +2374,7 @@ void InitStaticData() {
                       timestamp(TimeUnit::NANO)};
 
   // Interval types
-  g_interval_types = {day_time_interval(), month_interval()};
+  g_interval_types = {day_time_interval(), month_interval(), month_day_nano_interval()};
 
   // Base binary types (without FixedSizeBinary)
   g_base_binary_types = {binary(), utf8(), large_binary(), large_utf8()};

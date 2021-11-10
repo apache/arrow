@@ -1225,6 +1225,8 @@ ArrayKernelExec GenerateTypeAgnosticPrimitive(detail::GetTypeId get_id) {
     case Type::DURATION:
     case Type::INTERVAL_DAY_TIME:
       return Generator<UInt64Type, Args...>::Exec;
+    case Type::INTERVAL_MONTH_DAY_NANO:
+      return Generator<MonthDayNanoIntervalType, Args...>::Exec;
     default:
       DCHECK(false);
       return ExecFail;

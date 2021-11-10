@@ -345,6 +345,15 @@ TEST_F(TestIfElseKernel, DayTimeInterval) {
       ArrayFromJSON(ty, "[[1, 2], [3, -4], [-5, 6], [15, 16]]"));
 }
 
+TEST_F(TestIfElseKernel, MonthDayNanoInterval) {
+  auto ty = month_day_nano_interval();
+  CheckWithDifferentShapes(
+      ArrayFromJSON(boolean(), "[true, true, true, false]"),
+      ArrayFromJSON(ty, "[[1, 2, -3], [3, -4, 5], [-5, 6, 7], [-7, -8, -9]]"),
+      ArrayFromJSON(ty, "[[-9, -10, 11], [11, -12, 0], [-13, 14, -1], [15, 16, 2]]"),
+      ArrayFromJSON(ty, "[[1, 2, -3], [3, -4, 5], [-5, 6, 7], [15, 16, 2]]"));
+}
+
 TEST_F(TestIfElseKernel, IfElseDispatchBest) {
   std::string name = "if_else";
   ASSERT_OK_AND_ASSIGN(auto function, GetFunctionRegistry()->GetFunction(name));
@@ -1366,6 +1375,22 @@ TEST(TestCaseWhen, DayTimeInterval) {
               ArrayFromJSON(type, "[[3, 3], null, null, [6, 6]]"));
   CheckScalar("case_when", {MakeStruct({cond1, cond2}), values_null, values2, values1},
               ArrayFromJSON(type, "[null, null, null, [6, 6]]"));
+}
+
+TEST(TestCaseWhen, MonthDayNanoInterval) {
+  auto type = month_day_nano_interval();
+  auto cond1 = ArrayFromJSON(boolean(), "[true, true, null, null]");
+  auto cond2 = ArrayFromJSON(boolean(), "[true, false, true, null]");
+  auto values_null = ArrayFromJSON(type, "[null, null, null, null]");
+  auto values1 = ArrayFromJSON(type, R"([[0, 1, -2], null, [-3, 4, 5], [-6, -7, -8]])");
+  auto values2 = ArrayFromJSON(type, R"([[1, 2, 3], [4, 5, 6], null, [0, 2, 4]])");
+
+  CheckScalar("case_when", {MakeStruct({cond1, cond2}), values1, values2},
+              ArrayFromJSON(type, R"([[0, 1, -2], null, null, null])"));
+  CheckScalar("case_when", {MakeStruct({cond1, cond2}), values1, values2, values1},
+              ArrayFromJSON(type, R"([[0, 1, -2], null, null, [-6, -7, -8]])"));
+  CheckScalar("case_when", {MakeStruct({cond1, cond2}), values_null, values2, values1},
+              ArrayFromJSON(type, R"([null, null, null, [-6, -7, -8]])"));
 }
 
 TEST(TestCaseWhen, Decimal) {
@@ -2425,6 +2450,35 @@ TEST(TestCoalesce, DayTimeInterval) {
               ArrayFromJSON(type, "[[1, 2], [1, 2], [1, 2], [1, 2]]"));
 }
 
+TEST(TestCoalesce, MonthDayNanoInterval) {
+  auto type = month_day_nano_interval();
+  auto scalar_null = ScalarFromJSON(type, "null");
+  auto scalar1 = ScalarFromJSON(type, "[1, 2, 3]");
+  auto values_null = ArrayFromJSON(type, "[null, null, null, null]");
+  auto values1 = ArrayFromJSON(type, "[null, [3, 4, 5], [5, 6, 7], [7, 8, 9]]");
+  auto values2 =
+      ArrayFromJSON(type, "[[9, 10, 0], [11, 12, 1], [13, 14, 2], [15, 16, 3]]");
+  auto values3 = ArrayFromJSON(type, "[[17, 18, 4], [19, 20, 5], [21, 22, 6], null]");
+  CheckScalar("coalesce", {values_null}, values_null);
+  CheckScalar("coalesce", {values_null, scalar1},
+              ArrayFromJSON(type, "[[1, 2, 3], [1, 2, 3], [1, 2, 3], [1, 2, 3]]"));
+  CheckScalar("coalesce", {values_null, values1}, values1);
+  CheckScalar("coalesce", {values_null, values2}, values2);
+  CheckScalar("coalesce", {values1, values_null}, values1);
+  CheckScalar("coalesce", {values2, values_null}, values2);
+  CheckScalar("coalesce", {scalar_null, values1}, values1);
+  CheckScalar("coalesce", {values1, scalar_null}, values1);
+  CheckScalar("coalesce", {values2, values1, values_null}, values2);
+  CheckScalar("coalesce", {values1, scalar1},
+              ArrayFromJSON(type, "[[1, 2, 3], [3, 4, 5], [5, 6, 7], [7, 8, 9]]"));
+  CheckScalar("coalesce", {values1, values2},
+              ArrayFromJSON(type, "[[9, 10, 0], [3, 4, 5], [5, 6, 7], [7, 8, 9]]"));
+  CheckScalar("coalesce", {values1, values2, values3},
+              ArrayFromJSON(type, "[[9, 10, 0], [3, 4, 5], [5, 6, 7], [7, 8, 9]]"));
+  CheckScalar("coalesce", {scalar1, values1},
+              ArrayFromJSON(type, "[[1, 2, 3], [1, 2, 3], [1, 2, 3], [1, 2, 3]]"));
+}
+
 TEST(TestCoalesce, Decimal) {
   for (const auto& type :
        std::vector<std::shared_ptr<DataType>>{decimal128(3, 2), decimal256(3, 2)}) {
@@ -2825,6 +2879,29 @@ TEST(TestChoose, DayTimeInterval) {
   CheckScalar("choose", {ScalarFromJSON(int64(), "1"), values1, values2}, values2);
   CheckScalar("choose", {ScalarFromJSON(int64(), "null"), values1, values2}, nulls);
   auto scalar1 = ScalarFromJSON(type, "[10, 1]");
+  CheckScalar("choose", {ScalarFromJSON(int64(), "0"), scalar1, values2},
+              *MakeArrayFromScalar(*scalar1, 5));
+  CheckScalar("choose", {ScalarFromJSON(int64(), "1"), scalar1, values2}, values2);
+  CheckScalar("choose", {ScalarFromJSON(int64(), "null"), values1, values2}, nulls);
+  auto scalar_null = ScalarFromJSON(type, "null");
+  CheckScalar("choose", {ScalarFromJSON(int64(), "0"), scalar_null, values2},
+              *MakeArrayOfNull(type, 5));
+}
+
+TEST(TestChoose, MonthDayNanoInterval) {
+  auto type = month_day_nano_interval();
+  auto indices1 = ArrayFromJSON(int64(), "[0, 1, 0, 1, null]");
+  auto values1 = ArrayFromJSON(type, "[[10, 1, 0], [10, 1, 0], null, null, [10, 1, 0]]");
+  auto values2 = ArrayFromJSON(type, "[[2, 20, 4], [2, 20, 4], null, null, [2, 20, 4]]");
+  auto nulls = ArrayFromJSON(type, "[null, null, null, null, null]");
+  CheckScalar("choose", {indices1, values1, values2},
+              ArrayFromJSON(type, "[[10, 1, 0], [2, 20, 4], null, null, null]"));
+  CheckScalar("choose", {indices1, ScalarFromJSON(type, "[1, 2, 3]"), values1},
+              ArrayFromJSON(type, "[[1, 2, 3], [10, 1, 0], [1, 2, 3], null, null]"));
+  CheckScalar("choose", {ScalarFromJSON(int64(), "0"), values1, values2}, values1);
+  CheckScalar("choose", {ScalarFromJSON(int64(), "1"), values1, values2}, values2);
+  CheckScalar("choose", {ScalarFromJSON(int64(), "null"), values1, values2}, nulls);
+  auto scalar1 = ScalarFromJSON(type, "[10, 1, 0]");
   CheckScalar("choose", {ScalarFromJSON(int64(), "0"), scalar1, values2},
               *MakeArrayFromScalar(*scalar1, 5));
   CheckScalar("choose", {ScalarFromJSON(int64(), "1"), scalar1, values2}, values2);
