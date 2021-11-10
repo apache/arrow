@@ -2370,6 +2370,25 @@ cdef class StructArray(Array):
         result.validate()
         return result
 
+    def sort_by(self, fieldname, order="ascending"):
+        """
+        Sort the StructArray by one of its fields.
+
+        Parameters
+        ----------
+        fieldname : str
+            The name of the field use to sort the StructArray.
+        order : "ascending" or "descending"
+            The order of the sorting.
+
+        Returns
+        -------
+        result : StructArray
+        """
+        field = self.field(fieldname)
+        indices = _pc().array_sort_indices(field, order=order)
+        return self.take(indices)
+
 
 cdef class ExtensionArray(Array):
     """

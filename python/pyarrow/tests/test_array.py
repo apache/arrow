@@ -724,6 +724,20 @@ def test_struct_array_from_chunked():
         pa.StructArray.from_arrays([chunked_arr], ["foo"])
 
 
+def test_struct_array_sort():
+    arr = pa.StructArray.from_arrays([
+        pa.array([5, 7, 35], type=pa.int64()),
+        pa.array(["foo", "bar", "foobar"])
+    ], names=["a", "b"])
+
+    sorted_arr = arr.sort_by("a", "descending")
+    assert sorted_arr.to_pylist() == [
+        {"a": 35, "b": "foobar"},
+        {"a": 7, "b": "bar"},
+        {"a": 5, "b": "foo"},
+    ]
+
+
 def test_dictionary_from_numpy():
     indices = np.repeat([0, 1, 2], 2)
     dictionary = np.array(['foo', 'bar', 'baz'], dtype=object)
