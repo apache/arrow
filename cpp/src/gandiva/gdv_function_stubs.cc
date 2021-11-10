@@ -865,7 +865,8 @@ const char* gdv_fn_concat_ws_utf8_utf8_utf8_utf8(int64_t context, const char* se
                                                  int32_t word2_len, const char* word3,
                                                  int32_t word3_len, const char* word4,
                                                  int32_t word4_len, int32_t* out_len) {
-  if (word1_len < 0 || word2_len < 0 || word3_len < 0 || word4_len < 0 || separator_len < 0) {
+  if (word1_len < 0 || word2_len < 0 || word3_len < 0 || word4_len < 0 ||
+      separator_len < 0) {
     gdv_fn_context_set_error_msg(context, "All words can not be null.");
     *out_len = 0;
     return "";
@@ -903,8 +904,8 @@ const char* gdv_fn_concat_ws_utf8_utf8_utf8_utf8_utf8(
     int32_t word1_len, const char* word2, int32_t word2_len, const char* word3,
     int32_t word3_len, const char* word4, int32_t word4_len, const char* word5,
     int32_t word5_len, int32_t* out_len) {
-  if (word1_len < 0 || word2_len < 0 || word3_len < 0 || word4_len < 0 ||
-      word5_len < 0 || separator_len < 0) {
+  if (word1_len < 0 || word2_len < 0 || word3_len < 0 || word4_len < 0 || word5_len < 0 ||
+      separator_len < 0) {
     gdv_fn_context_set_error_msg(context, "All words can not be null.");
     *out_len = 0;
     return "";
