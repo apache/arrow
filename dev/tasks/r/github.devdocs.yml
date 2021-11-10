@@ -61,7 +61,10 @@ jobs:
         env:
           LIBARROW_BINARY: FALSE
           ARROW_R_DEV: TRUE
-        run: bash arrow/r/vignettes/script.sh
+          MINGW_PACKAGE_PREFIX: mingw-w64-x84_64
+        run: 
+          - printenv
+          - bash arrow/r/vignettes/script.sh
         shell: bash
       - name: Ensure that the Arrow package is loadable and we have the correct one
         run: |
