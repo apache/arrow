@@ -47,5 +47,7 @@ garrow_slow_file_system_new_raw(
   GArrowFileSystem *base_file_system);
 
 
+#ifdef ARROW_S3
 arrow::fs::S3GlobalOptions *
 garrow_s3_global_options_get_raw(GArrowS3GlobalOptions *options);
+#endif

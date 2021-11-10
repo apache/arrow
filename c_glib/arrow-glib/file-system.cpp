@@ -1637,9 +1637,11 @@ garrow_slow_file_system_new_raw(
                  NULL));
 }
 
+#ifdef ARROW_S3
 arrow::fs::S3GlobalOptions *
 garrow_s3_global_options_get_raw(GArrowS3GlobalOptions *options)
 {
   auto priv = GARROW_S3_GLOBAL_OPTIONS_GET_PRIVATE(options);
   return &(priv->options);
 }
+#endif
