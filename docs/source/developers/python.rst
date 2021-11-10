@@ -61,8 +61,9 @@ Package requirements to run the unit tests are found in
 ``requirements-test.txt`` and can be installed if needed with ``pip install -r
 requirements-test.txt``.
 
-If the test fails to connect to libarrow run ``python -m pytest pyarrow`` and
-check if the editable version of pyarrow was installed correctly.
+If you get import errors for ``pyarrow._lib`` or another PyArrow module when
+trying to run the tests run ``python -m pytest arrow/python/pyarrow`` and check
+if the editable version of pyarrow was installed correctly.
 
 The project has a number of custom command line options for its test
 suite. Some tests are disabled by default, for example. To see all the options,
@@ -109,8 +110,8 @@ Building on Linux and MacOS
 System Requirements
 -------------------
 
-On macOS, any modern XCode (6.4 or higher; the current version is 13) is
-sufficient. All you need is to have XCode installed, no additional configuration is needed.
+On macOS, any modern XCode (6.4 or higher; the current version is 13) or
+Xcode Command Line Tools (``xcode-select --install``) are sufficient.
 
 On Linux, for this guide, we require a minimum of gcc 4.8, or clang 3.7 or
 higher. You can check your version by running
@@ -302,9 +303,10 @@ adding flags with ``ON``:
 Anything set to ``ON`` above can also be turned off. Note that some compression
 libraries are needed for Parquet support.
 
-For more debugging information add flag
-``-DCMAKE_BUILD_TYPE=debug``. Read more about build type in C++ building section
-:ref:`cpp-building-building`.
+To enable C++ debugging information, pass the option ``-DCMAKE_BUILD_TYPE=debug``.
+
+.. seealso::
+   :ref:`cpp-building-building`.
 
 If multiple versions of Python are installed in your environment, you may have
 to pass additional parameters to cmake so that it can find the right
@@ -336,9 +338,9 @@ virtualenv) enables cmake to choose the python executable which you are using.
 For any other C++ build challenges, see :ref:`cpp-development`.
 
 In case you may need to rebuild the C++ part due to errors in the process it is
-advisable to delete the content of the build folder with command ``rm -rf *``
-from the build folder itself. If the build has passed successfully and you need to rebuild
-due to latest pull from master, then this step is not needed.
+advisable to delete the build folder with command ``rm -rf /arrow/cpp/build``.
+If the build has passed successfully and you need to rebuild due to latest pull from master,
+then this step is not needed.
 
 Now, build pyarrow:
 
@@ -353,7 +355,7 @@ If you did build one of the optional components (in C++), you need to set the
 corresponding ``PYARROW_WITH_$COMPONENT`` environment variable to 1.
 
 If you wish to delete pyarrow build before rebuilding navigate to the ``arrow/python``
-folder and run ``python setup.py clean``.
+folder and run ``git clean -Xfd .``.
 
 Now you are ready to install test dependencies and run `Unit Testing`_, as
 described above.
@@ -368,7 +370,7 @@ libraries), one can set ``--bundle-arrow-cpp``:
           --bundle-arrow-cpp bdist_wheel
 
 .. note::
-   To run an editable pyarrow version run ``pip install -e . --no-build-isolation``
+   To install an editable PyArrow build run ``pip install -e . --no-build-isolation``
    in the ``arrow/python`` directory.
 
 Docker examples

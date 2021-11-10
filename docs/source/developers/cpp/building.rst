@@ -124,11 +124,11 @@ argument is omitted then a release build will be produced.
    You need to set more options to build on Windows. See
    :ref:`developers-cpp-windows` for details.
 
-Other options for build type are also possible:
+Several build types are possible:
 
-* ``Debug``: doesn't apply any compiler optimizations and leaves debugging
+* ``Debug``: doesn't apply any compiler optimizations and adds debugging
   information in the binary.
-* ``RelWithDebInfo``: applies compiler optimizations while leaving debug
+* ``RelWithDebInfo``: applies compiler optimizations while adding debug
   information in the binary.
 * ``Release``: applies compiler optimizations and removes debug information
   from the binary.
