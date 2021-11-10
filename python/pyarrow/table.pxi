@@ -2212,8 +2212,6 @@ cdef class Table(_PandasConvertible):
         StructArray
             Results of the aggregation functions.
         """
-        from pyarrow._compute import _group_by
-
         if isinstance(aggregations, str):
             aggregations = [aggregations]
 
@@ -2225,11 +2223,37 @@ cdef class Table(_PandasConvertible):
                 aggr = ("hash_" + aggr[0], aggr[1])
             aggrs.append(aggr)
 
-        return _group_by(
+        return _pc()._group_by(
             [self[c] for c in columns],
             [self[key]],
             aggrs
         )
+
+    def sort_by(self, sorting):
+        """
+        Sort the table by one or multiple columns.
+
+        Parameters
+        ----------
+        sorting : str or list[tuple(name, order)]
+            Name of the column to use to sort, or
+            a list of multiple sorting conditions where
+            each entry is a tuple with column name
+            and sorting order ("ascending" or "descending")
+
+        Returns
+        -------
+        Table
+            A new table sorted according to the sort key.
+        """
+        if isinstance(sorting, str):
+            sorting = [(sorting, "ascending")]
+
+        indices = _pc().sort_indices(
+            self,
+            sort_keys=sorting
+        )
+        return self.take(indices)
 
 
 def _reconstruct_table(arrays, schema):

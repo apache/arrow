@@ -1777,3 +1777,20 @@ def test_table_group_by():
     r = table.group_by("keys", ["values"], "sum")
     r_asdict = {v["key_0"].as_py(): v["hash_sum"].as_py() for v in r}
     assert r_asdict == {'a': 3, 'b': 7, 'c': 5}
+
+
+def test_table_sort_by():
+    table = pa.table([
+        pa.array([3, 1, 4, 2, 5]),
+        pa.array(["b", "a", "b", "a", "c"]),
+    ], names=["values", "keys"])
+
+    table.sort_by("values").to_pydict() == {
+        "keys": ["a", "a", "b", "b", "c"],
+        "values": [1, 2, 3, 4, 5]
+    }
+
+    table.sort_by([("values", "descending")]).to_pydict() == {
+        "keys": ["c", "b", "b", "a", "a"],
+        "values": [5, 4, 3, 2, 1]
+    }
