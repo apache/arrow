@@ -102,8 +102,18 @@ eval_array_expression <- function(FUN,
     args <- map(args, ~ .$cast(float64()))
   } else if (FUN == "%/%") {
     # In R, integer division works like floor(float division)
-    out <- eval_array_expression("/", args = args, options = options)
-    return(out$cast(int32(), allow_float_truncate = TRUE))
+    out <- eval_array_expression("/", args = args)
+
+    # integer output only for all integer input
+    int_type_ids <- Type[toupper(INTEGER_TYPES)]
+    numerator_is_int <- args[[1]]$type_id() %in% int_type_ids
+    denominator_is_int <- args[[2]]$type_id() %in% int_type_ids
+
+    if (numerator_is_int && denominator_is_int) {
+      return(out$cast(args[[1]]$type, allow_float_truncate = TRUE))
+    } else {
+      return(eval_array_expression("floor", out))
+    }
   } else if (FUN == "%%") {
     # We can't simply do {e1 - e2 * ( e1 %/% e2 )} since Ops.Array evaluates
     # eagerly, but we can build that up
