@@ -25,7 +25,6 @@ if [ "$ARROW_R_DEV" == "TRUE" ]; then
 fi
 
 if [ ! -z ${ARROW_HOME} ]; then
-  # Using locally built arrow
   echo "*** Using locally built Arrow at $ARROW_HOME"
   RWINLIB=$(cygpath $ARROW_HOME)
 else
@@ -58,8 +57,8 @@ AWS_LIBS="-laws-cpp-sdk-config -laws-cpp-sdk-transfer -laws-cpp-sdk-identity-man
 # NOTE: If you make changes to the libraries below, you should also change
 # ci/scripts/r_windows_build.sh and ci/scripts/PKGBUILD
 PKG_CFLAGS="-I${RWINLIB}/include -DARROW_STATIC -DPARQUET_STATIC -DARROW_DS_STATIC -DARROW_R_WITH_ARROW -DARROW_R_WITH_PARQUET -DARROW_R_WITH_DATASET -DARROW_R_WITH_JSON"
-if [ ! -z ${ARROW_HOME} ]; then
-  PKG_LIBS=" -L${RWINLIB}/lib -L/c/rtools40/mingw64/lib -lparquet -larrow_dataset -larrow -larrow_bundled_dependencies -lutf8proc -lthrift -lsnappy -lz -lzstd -llz4 -lole32 ${MIMALLOC_LIBS} ${OPENSSL_LIBS}"
+if [ ! -z ${ARROW_HOME} ] && [ ! -z $MSYSTEM_PREFIX ]; then
+  PKG_LIBS=" -L${RWINLIB}/lib -L$MSYSTEM_PREFIX/lib -lparquet -larrow_dataset -larrow -larrow_bundled_dependencies -lutf8proc -lthrift -lsnappy -lz -lzstd -llz4 -lole32 ${MIMALLOC_LIBS} ${OPENSSL_LIBS}"
 else
   PKG_LIBS="-L${RWINLIB}/lib"'$(subst gcc,,$(COMPILED_BY))$(R_ARCH) '"-L${RWINLIB}/lib"'$(R_ARCH)$(CRT) '"-lparquet -larrow_dataset -larrow -larrow_bundled_dependencies -lutf8proc -lthrift -lsnappy -lz -lzstd -llz4 -lole32 ${MIMALLOC_LIBS} ${OPENSSL_LIBS}"
 fi 

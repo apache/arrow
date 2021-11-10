@@ -122,36 +122,40 @@ brew install cmake openssl
 
 #### Windows
 
-Building on Windows requires RTools 4.0 or newer. Open RTools Bash and install CMake with:
+The package can be built on Windows using RTools 4.0.
+
+It can be built for mingw32, mingw64, or ucrt64. mingw64 is the recomended 64-bit installation. Open the corresponding RTools Bash, for example "Rtools MinGW 64-bit" for mingw64.
+
+Install CMake and Ninja with:
 
 ```{bash}
 pacman --sync --refresh --noconfirm \
-  mingw-w64-${MSYSTEM_CARCH}-cmake \
-  mingw-w64-${MSYSTEM_CARCH}-ninja
+  ${MINGW_PACKAGE_PREFIX}-cmake \
+  ${MINGW_PACKAGE_PREFIX}-ninja
+export CMAKE_GENERATOR=Ninja
 ```
 
-You will need to add mingw64 binaries and R to your path. For a user-level installation, R will be at something like `~/Documents/R/R-4.1.2/bin`.
-
-# TODO(wjones127): Add R path of global install
-# TODO(wjones127): What about path for mingw32?
+You will need to add R to your path. For a user-level installation, R will be at something like `~/Documents/R/R-4.1.2/bin`. For a global installation, R will be at something like `/c/Program\ Files/R/R-4.1.2/bin`. The R on your path needs to match the architecture you are compiling for, so if you are compiling on 32-bit specify `.../bin/i386` instead of `.../bin/x64`.
 
 ```{bash}
-export PATH=/c/rtools40/mingw64/bin:~/Documents/R/R-4.1.2/bin:$PATH
+export PATH=~/Documents/R/R-4.1.2/bin/x64:$PATH
 ```
 
 You can install additional dependencies like so. Note that you are limited to the packages in [the RTools repo](https://github.com/r-windows/rtools-packages), which does not contain every dependency used by Arrow.
 
+<!-- TODO(wjones127): what about gtest? Can we not run unit tests? -->
+
 ```{bash}
 pacman --sync --refresh --noconfirm \
-  mingw-w64-${MSYSTEM_CARCH}-boost \
-  mingw-w64-${MSYSTEM_CARCH}-lz4 \
-  mingw-w64-${MSYSTEM_CARCH}-protobuf \
-  mingw-w64-${MSYSTEM_CARCH}-snappy \
-  mingw-w64-${MSYSTEM_CARCH}-thrift \
-  mingw-w64-${MSYSTEM_CARCH}-zlib \
-  mingw-w64-${MSYSTEM_CARCH}-zstd \
-  mingw-w64-${MSYSTEM_CARCH}-aws-sdk-cpp \
-  mingw-w64-${MSYSTEM_CARCH}-libutf8proc
+  ${MINGW_PACKAGE_PREFIX}-boost \
+  ${MINGW_PACKAGE_PREFIX}-lz4 \
+  ${MINGW_PACKAGE_PREFIX}-protobuf \
+  ${MINGW_PACKAGE_PREFIX}-snappy \
+  ${MINGW_PACKAGE_PREFIX}-thrift \
+  ${MINGW_PACKAGE_PREFIX}-zlib \
+  ${MINGW_PACKAGE_PREFIX}-zstd \
+  ${MINGW_PACKAGE_PREFIX}-aws-sdk-cpp \
+  ${MINGW_PACKAGE_PREFIX}-libutf8proc
 ```
 
 ### Step 2 - Configure the libarrow build
@@ -172,6 +176,12 @@ export LD_LIBRARY_PATH=$ARROW_HOME/lib:$LD_LIBRARY_PATH
 echo "export LD_LIBRARY_PATH=$ARROW_HOME/lib:$LD_LIBRARY_PATH" >> ~/.bash_profile
 ```
 
+_Special instructions on Windows:_ You will need to add `$ARROW_HOME/bin` to your `PATH` if you are using dynamic libraries.
+
+```{bash}
+export PATH=$ARROW_HOME/bin:$PATH
+```
+
 Start by navigating in a terminal to the `arrow` repository. You will need to create a directory into which the C++ build will put its contents. We recommend that you make a `build` directory inside of the `cpp` directory of the Arrow git repository (it is git-ignored, so you won't accidentally check it in). Next, change directories to be inside `cpp/build`:
 
 ```{bash, save=run & !sys_install}
@@ -184,11 +194,8 @@ You'll first call `cmake` to configure the build and then `make install`. For th
 
 ```{bash, save=run & !sys_install}
 cmake \
-  -G Ninja \
   -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
   -DCMAKE_INSTALL_LIBDIR=lib \
-  -DARROW_BUILD_SHARED=OFF \
-  -DARROW_BUILD_STATIC=ON \
   -DARROW_COMPUTE=ON \
   -DARROW_CSV=ON \
   -DARROW_DATASET=ON \
@@ -204,6 +211,10 @@ cmake \
 ```
 
 `..` refers to the C++ source directory: you're in `cpp/build` and the source is in `cpp`.
+
+**For Windows**: some options, including `-DARROW_JEMALLOC`, are not supported on Windows. 
+
+To use static libraries instead of dynamic libraries, pass the flags `-DARROW_BUILD_SHARED=OFF  -DARROW_BUILD_STATIC=ON`. Compiling with static libraries means you avoid issues where the R package is finding the wrong dynamic library, but if you change the C++ code you have to recompile both the C++ libraries and the R package. Compilers typically will link to static libraries only if the dynamic ones are not present, which is why we need to switch off building shared. If you are switching after compiling and installing previously, you may need to remove the `.dll` or `.so` files from `$ARROW_HOME/dist/bin`. 
 
 #### Enabling more Arrow features
 
@@ -229,11 +240,10 @@ _Note_ `cmake` is particularly sensitive to whitespacing, if you see errors, che
 
 ### Step 3 - Building libarrow
 
-You can add `-j#` between `make` and `install` here too to speed up compilation by running in parallel (where `#` is the number of cores you have available).
+You can add `-j#` at the end of the command here too to speed up compilation by running in parallel (where `#` is the number of cores you have available).
 
 ```{bash, save=run & !(sys_install & ubuntu)}
-cmake --build . -j8
-cmake --install .
+cmake --build . --target install -j8
 ```
 
 ### Step 4 - Build the Arrow R package
@@ -248,6 +258,8 @@ pushd r
 R -e 'install.packages("remotes"); remotes::install_deps(dependencies = TRUE)'
 R CMD INSTALL --no-multiarch .
 ```
+
+The `--no-multiarch` flag makes it only compile on the "main" architecture. For Windows, this is why it's important to add the R bin corresponding to the desired architecture. If you compile on one architecture and then switch to another, make sure to pass the `--preclean` flag so that the R package code is recompiled for the new architecture. Otherwise, you may see errors like `LoadLibrary failure: %1 is not a valid Win32 application`.
 
 #### Compilation flags
 
