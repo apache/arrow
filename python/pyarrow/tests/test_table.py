@@ -1772,3 +1772,8 @@ def test_table_group_by():
          'hash_sum': 5,
          'key_0': 'c'},
     ]
+
+    # Test without hash_ prefix
+    r = table.group_by("keys", ["values"], "sum")
+    r_asdict = {v["key_0"].as_py(): v["hash_sum"].as_py() for v in r}
+    assert r_asdict == {'a': 3, 'b': 7, 'c': 5}

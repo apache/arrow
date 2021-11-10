@@ -2221,6 +2221,8 @@ cdef class Table(_PandasConvertible):
         for aggr in aggregations:
             if isinstance(aggr, str):
                 aggr = (aggr, None)
+            if not aggr[0].startswith("hash_"):
+                aggr = ("hash_" + aggr[0], aggr[1])
             aggrs.append(aggr)
 
         return _group_by(
