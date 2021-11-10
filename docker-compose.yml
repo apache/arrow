@@ -104,6 +104,7 @@ x-hierarchy:
         - conda-python-dask
         - conda-python-hdfs
         - conda-python-jpype
+        - conda-python-java-integration
         - conda-python-turbodbc
         - conda-python-kartothek
         - conda-python-spark
@@ -1001,6 +1002,45 @@ services:
         /arrow/ci/scripts/python_build.sh /arrow /build &&
         /arrow/ci/scripts/java_build.sh /arrow /build &&
         /arrow/ci/scripts/python_test.sh /arrow"]
+
+  conda-python-java-integration:
+    # Usage:
+    #   docker-compose build conda
+    #   docker-compose build conda-cpp
+    #   docker-compose build conda-python
+    #   docker-compose build conda-python-java-integration
+    #   docker-compose run --rm conda-python-java-integration
+    image: ${REPO}:${ARCH}-conda-python-${PYTHON}-java-integration
+    build:
+      context: .
+      dockerfile: ci/docker/conda-python-jpype.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-conda-python-${PYTHON}-java-integration
+      args:
+        repo: ${REPO}
+        arch: ${ARCH}
+        python: ${PYTHON}
+        llvm: ${LLVM}
+    shm_size: *shm-size
+    environment:
+      <<: *ccache
+      ARROW_DATASET: "OFF"
+      ARROW_FLIGHT: "OFF"
+      ARROW_GANDIVA: "OFF"
+      ARROW_JAVA_CDATA: "ON"
+      ARROW_ORC: "OFF"
+      ARROW_PARQUET: "OFF"
+      ARROW_PLASMA: "OFF"
+    volumes:
+      - .:/arrow:delegated
+      - ${DOCKER_VOLUME_PREFIX}maven-cache:/root/.m2:delegated
+      - ${DOCKER_VOLUME_PREFIX}debian-ccache:/ccache:delegated
+    command:
+      [ "/arrow/ci/scripts/cpp_build.sh /arrow /build &&
+          /arrow/ci/scripts/python_build.sh /arrow /build &&
+          /arrow/ci/scripts/java_cdata_build.sh /arrow /build/java/c/build /build/java/c &&
+          /arrow/ci/scripts/java_build.sh /arrow /build &&
+          /arrow/ci/scripts/java_cdata_integration.sh /arrow" ]
 
   conda-python-turbodbc:
     # Possible $TURBODBC parameters:
