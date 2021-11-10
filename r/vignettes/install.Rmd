@@ -10,17 +10,28 @@ vignette: >
 On macOS and Windows, when you `install.packages("arrow")`,
 you get a binary package that contains Arrow’s C++ dependencies along with it.
 On Linux, `install.packages()` retrieves a source package that has to be compiled locally,
-and C++ dependencies need to be resolved as well.
-Generally for R packages with C++ dependencies,
-this requires either installing system packages, which you may not have privileges to do,
-or building the C++ dependencies separately,
-which introduces all sorts of additional ways for things to go wrong.
+and C++ dependencies need to be resolved as well. 
+
+On linux we recommend one of the following for the quickest and easiest 
+installation: 
+
+* Set the environment variable `NOT_CRAN=true` before installing, which will both
+  check for compatible Apache binaries and use those and if those aren't available
+  set a more fully-featured build than default.
+* Using [RStudio's public package manager](https://packagemanager.rstudio.com/client/#/)
+  which includes pre-built binaries
 
 Our goal is to make `install.packages("arrow")` "just work" for as many Linux distributions,
-versions, and configurations as possible.
-This document describes how it works and the options for fine-tuning Linux installation.
-The intended audience for this document is `arrow` R package users on Linux, not developers.
+versions, and configurations as possible with the above options.
+
+This rest of this document describes how it works and the options for fine-tuning Linux installation.
+The intended audience for this document is `arrow` R package users on Linux, not Arrow developers.
 If you're contributing to the Arrow project, see `vignette("developing", package = "arrow") for guidance on setting up your development environment.
+
+Generally compiling and installing R packages with C++ dependencies, requires 
+either installing system packages, which you may not have privileges to do, or 
+building the C++ dependencies separately, which introduces all sorts of 
+additional ways for things to go wrong. 
 
 Note also that if you use `conda` to manage your R environment, this document does not apply.
 You can `conda install -c conda-forge --strict-channel-priority r-arrow` and you'll get the latest official
@@ -33,6 +44,7 @@ release of the R package along with any C++ dependencies.
 Install the latest release of `arrow` from CRAN with
 
 ```r
+Sys.setenv(NOT_CRAN = TRUE)
 install.packages("arrow")
 ```
 
@@ -40,6 +52,7 @@ Daily development builds, which are not official releases,
 can be installed from the Ursa Labs repository:
 
 ```r
+Sys.setenv(NOT_CRAN = TRUE)
 install.packages("arrow", repos = "https://arrow-r-nightly.s3.amazonaws.com")
 ```
 
