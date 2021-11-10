@@ -1587,15 +1587,17 @@ in the respective option classes.
 Structural transforms
 ~~~~~~~~~~~~~~~~~~~~~
 
-+---------------------+------------+-------------------------------------+------------------+--------+
-| Function name       | Arity      | Input types                         | Output type      | Notes  |
-+=====================+============+=====================================+==================+========+
-| list_element        | Binary     | List-like (Arg 0), Integral (Arg 1) | List value type  | \(1)   |
-+---------------------+------------+-------------------------------------+------------------+--------+
-| list_flatten        | Unary      | List-like                           | List value type  | \(2)   |
-+---------------------+------------+-------------------------------------+------------------+--------+
-| list_parent_indices | Unary      | List-like                           | Int32 or Int64   | \(3)   |
-+---------------------+------------+-------------------------------------+------------------+--------+
++---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
+| Function name       | Arity      | Input types                         | Output type      | Options class                | Notes  |
++=====================+============+=====================================+==================+==============================+========+
+| list_element        | Binary     | List-like (Arg 0), Integral (Arg 1) | List value type  |                              | \(1)   |
++---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
+| list_flatten        | Unary      | List-like                           | List value type  |                              | \(2)   |
++---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
+| list_parent_indices | Unary      | List-like                           | Int32 or Int64   |                              | \(3)   |
++---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
+| struct_field        | Unary      | Struct or Union                     | Computed         | :struct:`StructFieldOptions` | \(4)   |
++---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
 
 * \(1) Output is an array of the same length as the input list array. The
   output values are the values at the specified index of each child list.
@@ -1608,6 +1610,29 @@ Structural transforms
   in the list array is appended to the output.  Nulls in the parent list array
   are discarded.  Output type is Int32 for List and FixedSizeList, Int64 for
   LargeList.
+
+* \(4) Extract a child value based on a sequence of indices passed in
+  the options. The validity bitmap of the result will be the
+  intersection of all intermediate validity bitmaps. For example, for
+  an array with type ``struct<a: int32, b: struct<c: int64, d:
+  float64>>``:
+
+  * An empty sequence of indices yields the original value unchanged.
+  * The index ``0`` yields an array of type ``int32`` whose validity
+    bitmap is the intersection of the bitmap for the outermost struct
+    and the bitmap for the child ``a``.
+  * The index ``1, 1`` yields an array of type ``float64`` whose
+    validity bitmap is the intersection of the bitmaps for the
+    outermost struct, for struct ``b``, and for the child ``d``.
+
+  For unions, a validity bitmap is synthesized based on the type
+  codes. Also, the index is always the child index and not a type code.
+  Hence for array with type ``sparse_union<2: int32, 7: utf8>``:
+
+  * The index ``0`` yields an array of type ``int32``, which is valid
+    at an index *n* if and only if the child array ``a`` is valid at
+    index *n* and the type code at index *n* is 2.
+  * The indices ``2`` and ``7`` are invalid.
 
 These functions create a copy of the first input with some elements
 replaced, based on the remaining inputs.
