@@ -327,11 +327,9 @@ test_that("R checks for bounds", {
   v_dbl <- Array$create(c(1L, 2L, 3L))$as_vector()
   v_str <- Array$create(c("un", "deux", "trois"))$as_vector()
 
-  expect_snapshot({
-    (expect_error(v_int[[5]]))
-    (expect_error(v_dbl[[5]]))
-    (expect_error(v_str[[5]]))
-  })
+  expect_error(v_int[[5]], "subscript out of bounds")
+  expect_error(v_dbl[[5]], "subscript out of bounds")
+  expect_error(v_str[[5]], "subscript out of bounds")
 
   # excluded from the snapshot because something has changed in R at some point
   # not really worth investigating when/where
