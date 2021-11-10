@@ -139,7 +139,7 @@ write_dataset <- function(dataset,
   existing_data_behavior_opts <- c("delete_matching", "overwrite", "error")
   existing_data_behavior <- match(match.arg(existing_data_behavior), existing_data_behavior_opts) - 1L
 
-  if (!is_integerish(max_partitions) || is.na(max_partitions) || max_partitions < 0) {
+  if (!is_integerish(max_partitions, n = 1) || is.na(max_partitions) || max_partitions < 0) {
     abort("max_partitions must be a positive, non-missing integer")
   }
 
