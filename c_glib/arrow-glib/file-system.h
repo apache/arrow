@@ -311,6 +311,9 @@ garrow_s3_global_options_new(void);
 
 GARROW_AVAILABLE_IN_7_0
 gboolean
+garrow_s3_enabled(void);
+GARROW_AVAILABLE_IN_7_0
+gboolean
 garrow_s3_initialize(GArrowS3GlobalOptions *options,
                      GError **error);
 GARROW_AVAILABLE_IN_7_0

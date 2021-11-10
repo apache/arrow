@@ -17,6 +17,7 @@
 
 class TestS3GlobalOptions < Test::Unit::TestCase
   def setup
+    omit("S3 enabled Apache Arrow C++ is needed") unless Arrow.s3_enabled?
     @options = Arrow::S3GlobalOptions.new
   end
 
