@@ -272,8 +272,7 @@ gdv_date64 next_day(gdv_int64 context, gdv_date64 millis, const char* in,
 
   // NextDate is a sum of presentDate + distanceDay
   gdv_date64 nextDate =
-      timestampaddDay_int32_timestamp(distanceDay, date_trunc_Day_date64(millis));
-
+      date_add_int64_timestamp(distanceDay, date_trunc_Day_date64(millis));
   return nextDate;
 }
 
