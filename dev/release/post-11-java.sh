@@ -64,9 +64,9 @@ popd
 
 # go in the java subfolder
 pushd java
-# stage the artifacts using both the apache-release and arrow-jni profiles
+# stage the artifacts using apache-release, arrow-jni and arrow-c-data profiles
 # Note: on ORC checkstyle failure use -Dcheckstyle.skip=true until https://issues.apache.org/jira/browse/ARROW-12552 gets resolved
-mvn -Papache-release,arrow-jni -Darrow.cpp.build.dir=$(realpath ../cpp/java-build/release) deploy
+mvn -Papache-release,arrow-jni,arrow-c-data -Darrow.cpp.build.dir=$(realpath ../cpp/java-build/release) deploy
 popd
 
 popd
