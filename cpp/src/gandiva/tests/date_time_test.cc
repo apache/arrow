@@ -452,7 +452,8 @@ TEST_F(TestProjector, TestTimestampDiffMonth) {
   std::shared_ptr<Projector> projector;
   auto status =
       Projector::Make(schema, {diff_months_expr}, TestConfiguration(), &projector);
-  std::cout << status.message();
+  // std::cout << status.message();
+  SCOPED_TRACE(status.message());
   ASSERT_TRUE(status.ok());
 
   time_t epoch = Epoch();
@@ -510,7 +511,8 @@ TEST_F(TestProjector, TestMonthsBetween) {
   std::shared_ptr<Projector> projector;
   auto status =
       Projector::Make(schema, {months_between_expr}, TestConfiguration(), &projector);
-  std::cout << status.message();
+  // std::cout << status.message();
+  SCOPED_TRACE(status.message());
   ASSERT_TRUE(status.ok());
 
   time_t epoch = Epoch();
@@ -560,7 +562,8 @@ TEST_F(TestProjector, TestLastDay) {
 
   std::shared_ptr<Projector> projector;
   auto status = Projector::Make(schema, {last_day_expr}, TestConfiguration(), &projector);
-  std::cout << status.message();
+  // std::cout << status.message();
+  SCOPED_TRACE(status.message());
   ASSERT_TRUE(status.ok());
 
   time_t epoch = Epoch();

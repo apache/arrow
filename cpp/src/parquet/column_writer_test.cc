@@ -254,7 +254,8 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     for (size_t i = 0; i < this->values_.size(); i++) {
       if (comparator->Compare(this->values_[i], this->values_out_[i]) ||
           comparator->Compare(this->values_out_[i], this->values_[i])) {
-        std::cout << "Failed at " << i << std::endl;
+        // std::cout << "Failed at " << i << std::endl;
+        ARROW_SCOPED_TRACE("Failed at ", i);
       }
       ASSERT_FALSE(comparator->Compare(this->values_[i], this->values_out_[i]));
       ASSERT_FALSE(comparator->Compare(this->values_out_[i], this->values_[i]));
@@ -355,7 +356,8 @@ void TestPrimitiveWriter<Int96Type>::ReadAndCompare(Compression::type compressio
   for (size_t i = 0; i < this->values_.size(); i++) {
     if (comparator->Compare(this->values_[i], this->values_out_[i]) ||
         comparator->Compare(this->values_out_[i], this->values_[i])) {
-      std::cout << "Failed at " << i << std::endl;
+      // std::cout << "Failed at " << i << std::endl;
+      ARROW_SCOPED_TRACE("Failed at ", i);
     }
     ASSERT_FALSE(comparator->Compare(this->values_[i], this->values_out_[i]));
     ASSERT_FALSE(comparator->Compare(this->values_out_[i], this->values_[i]));
