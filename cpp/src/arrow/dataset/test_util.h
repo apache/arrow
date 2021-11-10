@@ -45,6 +45,7 @@
 #include "arrow/testing/future_util.h"
 #include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/matchers.h"
 #include "arrow/testing/random.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/io_util.h"
@@ -410,6 +411,18 @@ class FileFormatFixtureMixin : public ::testing::Test {
     SetProjection(opts_.get(), std::move(projection));
   }
 
+  void ProjectNested(std::vector<std::string> names) {
+    std::vector<compute::Expression> exprs;
+    for (const auto& name : names) {
+      ASSERT_OK_AND_ASSIGN(auto ref, FieldRef::FromDotPath(name));
+      exprs.push_back(field_ref(ref));
+    }
+    ASSERT_OK_AND_ASSIGN(
+        auto descr, ProjectionDescr::FromExpressions(std::move(exprs), std::move(names),
+                                                     *opts_->dataset_schema));
+    SetProjection(opts_.get(), std::move(descr));
+  }
+
   // Shared test cases
   void AssertInspectFailure(const std::string& contents, StatusCode code,
                             const std::string& format_name) {
@@ -630,11 +643,109 @@ class FileFormatScanMixin : public FileFormatFixtureMixin<FormatHelper>,
     for (auto maybe_batch : PhysicalBatches(fragment)) {
       ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
       row_count += batch->num_rows();
-      AssertSchemaEqual(*batch->schema(), *expected_schema,
-                        /*check_metadata=*/false);
+      ASSERT_THAT(
+          batch->schema()->fields(),
+          ::testing::UnorderedPointwise(PointeesEquals(), expected_schema->fields()))
+          << "EXPECTED:\n"
+          << expected_schema->ToString() << "\nACTUAL:\n"
+          << batch->schema()->ToString();
     }
 
     ASSERT_EQ(row_count, expected_rows());
+  }
+  void TestScanProjectedNested(bool fine_grained_selection = false) {
+    auto f32 = field("f32", float32());
+    auto f64 = field("f64", float64());
+    auto i32 = field("i32", int32());
+    auto i64 = field("i64", int64());
+    auto struct1 = field("struct1", struct_({f32, i32}));
+    auto struct2 = field("struct2", struct_({f64, i64, struct1}));
+    this->SetSchema({struct1, struct2, f32, f64, i32, i64});
+    this->ProjectNested({".struct1.f32", ".struct2.struct1", ".struct2.struct1.f32"});
+    this->SetFilter(greater_equal(field_ref(FieldRef("struct2", "i64")), literal(0)));
+
+    std::shared_ptr<Schema> physical_schema;
+    if (fine_grained_selection) {
+      // Some formats, like Parquet, let you pluck only a part of a complex type
+      physical_schema = schema(
+          {field("struct1", struct_({f32})), field("struct2", struct_({i64, struct1}))});
+    } else {
+      // Otherwise, the entire top-level field is returned
+      physical_schema = schema({struct1, struct2});
+    }
+    std::shared_ptr<Schema> projected_schema = schema({
+        field(".struct1.f32", float32()),
+        field(".struct2.struct1", struct1->type()),
+        field(".struct2.struct1.f32", float32()),
+    });
+
+    {
+      auto reader = this->GetRecordBatchReader(opts_->dataset_schema);
+      auto source = this->GetFileSource(reader.get());
+      auto fragment = this->MakeFragment(*source);
+
+      int64_t row_count = 0;
+      for (auto maybe_batch : PhysicalBatches(fragment)) {
+        ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+        row_count += batch->num_rows();
+        ASSERT_THAT(
+            batch->schema()->fields(),
+            ::testing::UnorderedPointwise(PointeesEquals(), physical_schema->fields()))
+            << "EXPECTED:\n"
+            << physical_schema->ToString() << "\nACTUAL:\n"
+            << batch->schema()->ToString();
+      }
+      ASSERT_EQ(row_count, expected_rows());
+    }
+    {
+      auto reader = this->GetRecordBatchReader(opts_->dataset_schema);
+      auto source = this->GetFileSource(reader.get());
+      auto fragment = this->MakeFragment(*source);
+
+      int64_t row_count = 0;
+      for (auto maybe_batch : Batches(fragment)) {
+        ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+        row_count += batch->num_rows();
+        AssertSchemaEqual(*batch->schema(), *projected_schema, /*check_metadata=*/false);
+      }
+      ASSERT_LE(row_count, expected_rows());
+      ASSERT_GT(row_count, 0);
+    }
+    {
+      // File includes a duplicated name in struct2
+      auto struct2_physical = field("struct2", struct_({f64, i64, struct1, i64}));
+      auto reader = this->GetRecordBatchReader(
+          schema({struct1, struct2_physical, f32, f64, i32, i64}));
+      auto source = this->GetFileSource(reader.get());
+      auto fragment = this->MakeFragment(*source);
+
+      auto iterator = PhysicalBatches(fragment);
+      EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("i64"),
+                                      iterator.Next().status());
+    }
+    {
+      // File is missing a child in struct1
+      auto struct1_physical = field("struct1", struct_({i32}));
+      auto reader = this->GetRecordBatchReader(
+          schema({struct1_physical, struct2, f32, f64, i32, i64}));
+      auto source = this->GetFileSource(reader.get());
+      auto fragment = this->MakeFragment(*source);
+
+      physical_schema = schema({physical_schema->field(1)});
+
+      int64_t row_count = 0;
+      for (auto maybe_batch : PhysicalBatches(fragment)) {
+        ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+        row_count += batch->num_rows();
+        ASSERT_THAT(
+            batch->schema()->fields(),
+            ::testing::UnorderedPointwise(PointeesEquals(), physical_schema->fields()))
+            << "EXPECTED:\n"
+            << physical_schema->ToString() << "\nACTUAL:\n"
+            << batch->schema()->ToString();
+      }
+      ASSERT_EQ(row_count, expected_rows());
+    }
   }
   void TestScanProjectedMissingCols() {
     auto f32 = field("f32", float32());
@@ -674,8 +785,12 @@ class FileFormatScanMixin : public FileFormatFixtureMixin<FormatHelper>,
       for (auto maybe_batch : PhysicalBatches(fragment)) {
         ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
         row_count += batch->num_rows();
-        AssertSchemaEqual(*batch->schema(), *expected_schema,
-                          /*check_metadata=*/false);
+        ASSERT_THAT(
+            batch->schema()->fields(),
+            ::testing::UnorderedPointwise(PointeesEquals(), expected_schema->fields()))
+            << "EXPECTED:\n"
+            << expected_schema->ToString() << "\nACTUAL:\n"
+            << batch->schema()->ToString();
       }
       ASSERT_EQ(row_count, expected_rows());
     }
@@ -707,6 +822,36 @@ class FileFormatScanMixin : public FileFormatFixtureMixin<FormatHelper>,
       }
       ASSERT_EQ(row_count, expected_rows());
     }
+  }
+  void TestScanWithDuplicateColumn() {
+    // A duplicate column is ignored if not requested.
+    auto i32 = field("i32", int32());
+    auto i64 = field("i64", int64());
+    this->opts_->dataset_schema = schema({i32, i32, i64});
+    this->Project({"i64"});
+    auto expected_schema = schema({i64});
+    auto reader = this->GetRecordBatchReader(opts_->dataset_schema);
+    auto source = this->GetFileSource(reader.get());
+    auto fragment = this->MakeFragment(*source);
+
+    int64_t row_count = 0;
+
+    for (auto maybe_batch : PhysicalBatches(fragment)) {
+      ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+      row_count += batch->num_rows();
+      AssertSchemaEqual(*batch->schema(), *expected_schema,
+                        /*check_metadata=*/false);
+    }
+
+    ASSERT_EQ(row_count, expected_rows());
+  }
+  void TestScanWithDuplicateColumnError() {
+    // A duplicate column leads to an error if requested.
+    auto i32 = field("i32", int32());
+    auto i64 = field("i64", int64());
+    this->opts_->dataset_schema = schema({i32, i32, i64});
+    ASSERT_RAISES(Invalid,
+                  ProjectionDescr::FromNames({"i32"}, *this->opts_->dataset_schema));
   }
 
  protected:
