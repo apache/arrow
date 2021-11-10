@@ -61,10 +61,14 @@ jobs:
         env:
           LIBARROW_BINARY: FALSE
           ARROW_R_DEV: TRUE
-          MINGW_PACKAGE_PREFIX: mingw-w64-x86_64
+          DEVDOCS_WINDOWS: {{ "${{contains(matrix.os, 'windows')}}" }}
         run: |
-          printenv
-          bash arrow/r/vignettes/script.sh
+          if [ $DEVDOCS_WINDOWS == "true" ]; then
+            # This starts a special mingw64 Git Bash shell
+            $RTOOLS40_HOME/msys2_shell.cmd -here -mingw64 -no-start -defterm arrow/r/vignettes/script.sh
+          else 
+            bash arrow/r/vignettes/script.sh
+          fi
         shell: bash
       - name: Ensure that the Arrow package is loadable and we have the correct one
         run: |
