@@ -532,44 +532,22 @@ Result<Datum> MinElementWise(const std::vector<Datum>& args,
 // ----------------------------------------------------------------------
 // Set-related operations
 
-static Result<Datum> ExecSetLookup(const std::string& func_name, const Datum& data,
-                                   const SetLookupOptions& options, ExecContext* ctx) {
-  if (!options.value_set.is_arraylike()) {
-    return Status::Invalid("Set lookup value set must be Array or ChunkedArray");
-  }
-  std::shared_ptr<DataType> data_type;
-  if (data.type()->id() == Type::DICTIONARY) {
-    data_type =
-        arrow::internal::checked_pointer_cast<DictionaryType>(data.type())->value_type();
-  } else {
-    data_type = data.type();
-  }
-
-  if (options.value_set.length() > 0 && !data_type->Equals(options.value_set.type())) {
-    std::stringstream ss;
-    ss << "Array type didn't match type of values set: " << data_type->ToString()
-       << " vs " << options.value_set.type()->ToString();
-    return Status::Invalid(ss.str());
-  }
-  return CallFunction(func_name, {data}, &options, ctx);
-}
-
 Result<Datum> IsIn(const Datum& values, const SetLookupOptions& options,
                    ExecContext* ctx) {
-  return ExecSetLookup("is_in", values, options, ctx);
+  return CallFunction("is_in", {values}, &options, ctx);
 }
 
 Result<Datum> IsIn(const Datum& values, const Datum& value_set, ExecContext* ctx) {
-  return ExecSetLookup("is_in", values, SetLookupOptions{value_set}, ctx);
+  return IsIn(values, SetLookupOptions{value_set}, ctx);
 }
 
 Result<Datum> IndexIn(const Datum& values, const SetLookupOptions& options,
                       ExecContext* ctx) {
-  return ExecSetLookup("index_in", values, options, ctx);
+  return CallFunction("index_in", {values}, &options, ctx);
 }
 
 Result<Datum> IndexIn(const Datum& values, const Datum& value_set, ExecContext* ctx) {
-  return ExecSetLookup("index_in", values, SetLookupOptions{value_set}, ctx);
+  return IndexIn(values, SetLookupOptions{value_set}, ctx);
 }
 
 // ----------------------------------------------------------------------
