@@ -36,7 +36,7 @@ set_source_files_properties(${FLIGHT_SQL_GENERATED_PROTO_FILES} PROPERTIES GENER
 
 add_custom_target(flight_sql_protobuf_gen ALL DEPENDS ${FLIGHT_SQL_GENERATED_PROTO_FILES})
 
-set(ARROW_FLIGHT_SQL_SRCS server.cc client.cc)
+set(ARROW_FLIGHT_SQL_SRCS server.cc sql_info_util.cc client.cc)
 
 add_arrow_lib(arrow_flight_sql
               CMAKE_PACKAGE_NAME
@@ -88,6 +88,7 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
 
   add_executable(flight_sql_test_server
                  server.cc
+                 sql_info_util.cc
                  test_server_cli.cc
                  example/sqlite_statement.cc
                  example/sqlite_statement_batch_reader.cc

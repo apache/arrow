@@ -38,6 +38,87 @@ namespace arrow {
 namespace flight {
 namespace sql {
 
+/// \brief Auxiliary boost::variant visitor used to assert that GetSqlInfo's values are
+/// correctly placed on its DenseUnionArray
+class SqlInfoDenseUnionValidator : public boost::static_visitor<void> {
+ private:
+  const DenseUnionScalar& data;
+
+ public:
+  /// \brief Asserts that the current DenseUnionScalar equals to given string value
+  void operator()(const std::string& string_value) const {
+    const auto& scalar = dynamic_cast<const StringScalar&>(*data.value);
+    ASSERT_EQ(string_value, scalar.ToString());
+  }
+
+  /// \brief Asserts that the current DenseUnionScalar equals to given bool value
+  void operator()(const bool bool_value) const {
+    const auto& scalar = dynamic_cast<const BooleanScalar&>(*data.value);
+    ASSERT_EQ(bool_value, scalar.value);
+  }
+
+  /// \brief Asserts that the current DenseUnionScalar equals to given int64_t value
+  void operator()(const int64_t bigint_value) const {
+    const auto& scalar = dynamic_cast<const Int64Scalar&>(*data.value);
+    ASSERT_EQ(bigint_value, scalar.value);
+  }
+
+  /// \brief Asserts that the current DenseUnionScalar equals to given int32_t value
+  void operator()(const int32_t int32_bitmask) const {
+    const auto& scalar = dynamic_cast<const Int32Scalar&>(*data.value);
+    ASSERT_EQ(int32_bitmask, scalar.value);
+  }
+
+  /// \brief Asserts that the current DenseUnionScalar equals to given string list
+  void operator()(const string_list_t& string_list) const {
+    const auto& array = dynamic_cast<const StringArray&>(
+        *(dynamic_cast<const ListScalar&>(*data.value).value));
+
+    ASSERT_EQ(string_list.size(), array.length());
+
+    for (size_t index = 0; index < string_list.size(); index++) {
+      ASSERT_EQ(string_list[index], array.GetString(index));
+    }
+  }
+
+  /// \brief Asserts that the current DenseUnionScalar equals to given int32 to int32 list
+  /// map.
+  void operator()(const int32_to_int32_list_t& int32_to_int32_list) const {
+    const auto& struct_array = dynamic_cast<const StructArray&>(
+        *dynamic_cast<const MapScalar&>(*data.value).value);
+    const auto& keys = dynamic_cast<const Int32Array&>(*struct_array.field(0));
+    const auto& values = dynamic_cast<const ListArray&>(*struct_array.field(1));
+
+    // Assert that the given map has the right size
+    ASSERT_EQ(int32_to_int32_list.size(), keys.length());
+
+    // For each element on given MapScalar, assert it matches the argument
+    for (int i = 0; i < keys.length(); i++) {
+      ASSERT_OK_AND_ASSIGN(const auto& key_scalar, keys.GetScalar(i));
+      int32_t sql_info_id = dynamic_cast<const Int32Scalar&>(*key_scalar).value;
+
+      // Assert the key (SqlInfo id) exists
+      ASSERT_TRUE(int32_to_int32_list.count(sql_info_id));
+
+      const std::vector<int32_t>& expected_int32_list =
+          int32_to_int32_list.at(sql_info_id);
+
+      // Assert the value (int32 list) has the correct size
+      ASSERT_EQ(expected_int32_list.size(), values.value_length(i));
+
+      // For each element on current ListScalar, assert it matches with the argument
+      for (size_t j = 0; j < expected_int32_list.size(); j++) {
+        ASSERT_OK_AND_ASSIGN(auto list_item_scalar,
+                             values.values()->GetScalar(values.value_offset(i) + j));
+        const auto& list_item = dynamic_cast<const Int32Scalar&>(*list_item_scalar).value;
+        ASSERT_EQ(expected_int32_list[j], list_item);
+      }
+    }
+  }
+
+  explicit SqlInfoDenseUnionValidator(const DenseUnionScalar& data) : data(data) {}
+};
+
 std::unique_ptr<TestServer> server;
 std::unique_ptr<FlightSqlClient> sql_client;
 
@@ -650,6 +731,40 @@ TEST(TestFlightSqlServer, TestCommandGetCrossReference) {
                    fk_catalog_name, fk_schema_name, fk_table_name, fk_column_name,
                    key_sequence, fk_key_name, pk_key_name, update_rule, delete_rule});
   AssertTablesEqual(*expected_table, *table);
+}
+
+TEST(TestFlightSqlServer, TestCommandGetSqlInfo) {
+  const auto& sql_info_expected_results = sql::example::GetSqlInfoIdToResult();
+  std::vector<int> sql_info_ids;
+  sql_info_ids.reserve(sql_info_expected_results.size());
+  for (const auto& sql_info_expected_result : sql_info_expected_results) {
+    sql_info_ids.push_back(sql_info_expected_result.first);
+  }
+
+  FlightCallOptions call_options;
+  ASSERT_OK_AND_ASSIGN(auto flight_info,
+                       sql_client->GetSqlInfo(call_options, sql_info_ids));
+  ASSERT_OK_AND_ASSIGN(
+      auto reader, sql_client->DoGet(call_options, flight_info->endpoints()[0].ticket));
+  std::shared_ptr<Table> results;
+  ASSERT_OK(reader->ReadAll(&results));
+  ASSERT_EQ(2, results->num_columns());
+  ASSERT_EQ(sql_info_ids.size(), results->num_rows());
+  const auto& col_name = results->column(0);
+  const auto& col_value = results->column(1);
+  for (int32_t i = 0; i < col_name->num_chunks(); i++) {
+    const auto* col_name_chunk_data =
+        col_name->chunk(i)->data()->GetValuesSafe<int32_t>(1);
+    const auto& col_value_chunk = col_value->chunk(i);
+    for (int64_t row = 0; row < col_value->length(); row++) {
+      ASSERT_OK_AND_ASSIGN(const auto& scalar, col_value_chunk->GetScalar(row));
+      const SqlInfoDenseUnionValidator validator(
+          reinterpret_cast<const DenseUnionScalar&>(*scalar));
+      const auto& expected_result =
+          sql_info_expected_results.at(col_name_chunk_data[row]);
+      boost::apply_visitor(validator, expected_result);
+    }
+  }
 }
 
 auto env = ::testing::AddGlobalTestEnvironment(new TestFlightSqlServer);

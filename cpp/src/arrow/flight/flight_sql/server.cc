@@ -22,16 +22,17 @@
 
 #include <google/protobuf/any.pb.h>
 
-#include <boost/algorithm/string.hpp>
-#include <boost/uuid/uuid.hpp>
-#include <sstream>
-
 #include "arrow/api.h"
 #include "arrow/buffer.h"
 #include "arrow/flight/flight_sql/FlightSql.pb.h"
 
 #define PROPERTY_TO_OPTIONAL(COMMAND, PROPERTY) \
   COMMAND.has_##PROPERTY() ? util::make_optional(COMMAND.PROPERTY()) : util::nullopt;
+
+#define REGISTER_FIELD(name, type, nullable) \
+  const auto& name = field(ARROW_STRINGIFY(name), type, nullable);
+
+#define REGISTER_FIELD_NOT_NULL(name, type) REGISTER_FIELD(name, type, false)
 
 namespace arrow {
 namespace flight {
@@ -98,13 +99,24 @@ arrow::Result<GetPrimaryKeys> ParseCommandGetPrimaryKeys(
   return result;
 }
 
-arrow::Result<GetSqlInfo> ParseCommandGetSqlInfo(const google::protobuf::Any& any) {
+arrow::Result<GetSqlInfo> ParseCommandGetSqlInfo(
+    const google::protobuf::Any& any,
+    const sql_info_id_to_result_t& sql_info_id_to_result) {
   pb::sql::CommandGetSqlInfo command;
   if (!any.UnpackTo(&command)) {
     return Status::Invalid("Unable to unpack CommandGetSqlInfo.");
   }
 
   GetSqlInfo result;
+  if (command.info_size() > 0) {
+    result.info.reserve(command.info_size());
+    result.info.assign(command.info().begin(), command.info().end());
+  } else {
+    result.info.reserve(sql_info_id_to_result.size());
+    for (const auto& it : sql_info_id_to_result) {
+      result.info.push_back(it.first);
+    }
+  }
   return result;
 }
 
@@ -263,7 +275,8 @@ Status FlightSqlServerBase::GetFlightInfo(const ServerCallContext& context,
   } else if (any.Is<pb::sql::CommandGetTableTypes>()) {
     return GetFlightInfoTableTypes(context, request, info);
   } else if (any.Is<pb::sql::CommandGetSqlInfo>()) {
-    ARROW_ASSIGN_OR_RAISE(GetSqlInfo internal_command, ParseCommandGetSqlInfo(any));
+    ARROW_ASSIGN_OR_RAISE(GetSqlInfo internal_command,
+                          ParseCommandGetSqlInfo(any, sql_info_id_to_result_));
     return GetFlightInfoSqlInfo(internal_command, context, request, info);
   } else if (any.Is<pb::sql::CommandGetPrimaryKeys>()) {
     ARROW_ASSIGN_OR_RAISE(GetPrimaryKeys internal_command,
@@ -313,7 +326,8 @@ Status FlightSqlServerBase::DoGet(const ServerCallContext& context, const Ticket
   } else if (any.Is<pb::sql::CommandGetTableTypes>()) {
     return DoGetTableTypes(context, stream);
   } else if (any.Is<pb::sql::CommandGetSqlInfo>()) {
-    ARROW_ASSIGN_OR_RAISE(GetSqlInfo internal_command, ParseCommandGetSqlInfo(any));
+    ARROW_ASSIGN_OR_RAISE(GetSqlInfo internal_command,
+                          ParseCommandGetSqlInfo(any, sql_info_id_to_result_));
     return DoGetSqlInfo(internal_command, context, stream);
   } else if (any.Is<pb::sql::CommandGetPrimaryKeys>()) {
     ARROW_ASSIGN_OR_RAISE(GetPrimaryKeys internal_command,
@@ -479,13 +493,88 @@ Status FlightSqlServerBase::GetFlightInfoSqlInfo(const GetSqlInfo& command,
                                                  const ServerCallContext& context,
                                                  const FlightDescriptor& descriptor,
                                                  std::unique_ptr<FlightInfo>* info) {
-  return Status::NotImplemented("GetFlightInfoSqlInfo not implemented");
+  assert(info != nullptr);
+
+  if (sql_info_id_to_result_.empty()) {
+    return Status::NotImplemented("GetFlightInfoSqlInfo not implemented");
+  }
+
+  std::vector<FlightEndpoint> endpoints{FlightEndpoint{{descriptor.cmd}, {}}};
+  ARROW_ASSIGN_OR_RAISE(auto result, FlightInfo::Make(*SqlSchema::GetSqlInfoSchema(),
+                                                      descriptor, endpoints, -1, -1))
+
+  *info = std::unique_ptr<FlightInfo>(new FlightInfo(result));
+
+  return Status::OK();
+}
+
+void FlightSqlServerBase::RegisterSqlInfo(int32_t id, const SqlInfoResult& result) {
+  sql_info_id_to_result_[id] = result;
 }
 
 Status FlightSqlServerBase::DoGetSqlInfo(const GetSqlInfo& command,
                                          const ServerCallContext& context,
                                          std::unique_ptr<FlightDataStream>* result) {
-  return Status::NotImplemented("DoGetSqlInfo not implemented");
+  assert(result != nullptr);
+
+  MemoryPool* memory_pool = default_memory_pool();
+  UInt32Builder name_field_builder(memory_pool);
+  const std::shared_ptr<StringBuilder> string_value_field_builder(
+      new StringBuilder(memory_pool));
+  const std::shared_ptr<BooleanBuilder> bool_value_field_builder(
+      new BooleanBuilder(memory_pool));
+  const std::shared_ptr<Int64Builder> bigint_value_field_builder(
+      new Int64Builder(memory_pool));
+  const std::shared_ptr<Int32Builder> int32_bitmask_field_builder(
+      new Int32Builder(memory_pool));
+  const std::shared_ptr<StringBuilder> string_list_inner_string_field_builder(
+      new StringBuilder(memory_pool));
+  const std::shared_ptr<ListBuilder> string_list_field_builder(
+      new ListBuilder(memory_pool, string_list_inner_string_field_builder));
+  const std::shared_ptr<Int32Builder> int32_to_int32_list_key_builder(
+      new Int32Builder(memory_pool));
+  const std::shared_ptr<Int32Builder> int32_to_int32_list_elements_in_value_list(
+      new Int32Builder(memory_pool));
+  const std::shared_ptr<ListBuilder> int32_to_int32_list_value_builder(
+      new ListBuilder(memory_pool, int32_to_int32_list_elements_in_value_list));
+  const std::shared_ptr<MapBuilder> int32_to_int32_list_map_field_builder(new MapBuilder(
+      memory_pool, int32_to_int32_list_key_builder, int32_to_int32_list_value_builder));
+  std::vector<std::shared_ptr<ArrayBuilder>> value_field_builders{
+      string_value_field_builder, bool_value_field_builder,
+      bigint_value_field_builder, int32_bitmask_field_builder,
+      string_list_field_builder,  int32_to_int32_list_map_field_builder};
+  const std::shared_ptr<Schema>& schema = SqlSchema::GetSqlInfoSchema();
+  const auto& union_type = schema->fields()[1]->type();  // expected union type.
+  DenseUnionBuilder value_field_builder(memory_pool, value_field_builders, union_type);
+  internal::SqlInfoResultAppender sql_info_result_appender(value_field_builder);
+
+  // Populate both name_field_builder and value_field_builder for each element
+  // on command.info.
+  // value_field_builder is populated differently depending on the data type (as it is
+  // a DenseUnionBuilder). The population for each data type is implemented on
+  // internal::SqlInfoResultAppender.
+  for (const auto& info : command.info) {
+    if (!sql_info_id_to_result_.count(info)) {
+      return Status::KeyError(
+          "Attempt to fetch unregistered/unsupported SqlInfo option: " +
+          std::to_string(info));
+    }
+    ARROW_RETURN_NOT_OK(name_field_builder.Append(info));
+    ARROW_RETURN_NOT_OK(
+        boost::apply_visitor(sql_info_result_appender, sql_info_id_to_result_.at(info)));
+  }
+
+  std::shared_ptr<Array> name;
+  ARROW_RETURN_NOT_OK(name_field_builder.Finish(&name));
+  std::shared_ptr<Array> value;
+  ARROW_RETURN_NOT_OK(value_field_builder.Finish(&value));
+
+  auto row_count = static_cast<int64_t>(command.info.size());
+  const std::shared_ptr<RecordBatch>& batch =
+      RecordBatch::Make(schema, row_count, {name, value});
+  ARROW_ASSIGN_OR_RAISE(const auto reader, RecordBatchReader::Make({batch}));
+  *result = std::unique_ptr<FlightDataStream>(new RecordBatchStream(reader));
+  return Status::OK();
 }
 
 Status FlightSqlServerBase::GetFlightInfoSchemas(const GetSchemas& command,
@@ -658,6 +747,20 @@ std::shared_ptr<Schema> SqlSchema::GetExportedKeysSchema() {
 
 std::shared_ptr<Schema> SqlSchema::GetCrossReferenceSchema() {
   return GetImportedExportedKeysAndCrossReferenceSchema();
+}
+
+std::shared_ptr<Schema> SqlSchema::GetSqlInfoSchema() {
+  REGISTER_FIELD_NOT_NULL(name, uint32())
+  REGISTER_FIELD_NOT_NULL(string_value, utf8())
+  REGISTER_FIELD_NOT_NULL(bool_value, boolean())
+  REGISTER_FIELD_NOT_NULL(bigint_value, int64())
+  REGISTER_FIELD_NOT_NULL(int32_bitmask, int32())
+  REGISTER_FIELD_NOT_NULL(string_list, list(utf8()))
+  REGISTER_FIELD_NOT_NULL(int32_to_int32_list_map, map(int32(), list(int32())))
+  const FieldVector value_fields{string_value,  bool_value,  bigint_value,
+                                 int32_bitmask, string_list, int32_to_int32_list_map};
+  REGISTER_FIELD_NOT_NULL(value, dense_union(value_fields))
+  return arrow::schema({name, value});
 }
 
 }  // namespace sql

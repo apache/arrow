@@ -21,9 +21,7 @@
 
 #include <boost/algorithm/string.hpp>
 #include <boost/lexical_cast.hpp>
-#include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_io.hpp>
-#include <sstream>
 
 #include "arrow/api.h"
 #include "arrow/flight/flight_sql/example/sqlite_statement.h"
@@ -36,25 +34,21 @@ namespace flight {
 namespace sql {
 namespace example {
 
-std::shared_ptr<DataType> GetArrowType(const char* sqlite_type) {
-  if (sqlite_type == NULLPTR) {
-    // SQLite may not know the column type yet.
-    return null();
+namespace {
+
+/// \brief Gets a SqliteStatement by given handle
+arrow::Result<std::shared_ptr<SqliteStatement>> GetStatementByHandle(
+    const std::map<boost::uuids::uuid, std::shared_ptr<SqliteStatement>>&
+        prepared_statements,
+    const std::string& handle) {
+  const auto& uuid = boost::lexical_cast<boost::uuids::uuid>(handle);
+
+  auto search = prepared_statements.find(uuid);
+  if (search == prepared_statements.end()) {
+    return Status::Invalid("Prepared statement not found");
   }
 
-  if (boost::iequals(sqlite_type, "int") || boost::iequals(sqlite_type, "integer")) {
-    return int64();
-  } else if (boost::iequals(sqlite_type, "REAL")) {
-    return float64();
-  } else if (boost::iequals(sqlite_type, "BLOB")) {
-    return binary();
-  } else if (boost::iequals(sqlite_type, "TEXT") ||
-             boost::istarts_with(sqlite_type, "char") ||
-             boost::istarts_with(sqlite_type, "varchar")) {
-    return utf8();
-  } else {
-    return null();
-  }
+  return search->second;
 }
 
 std::string PrepareQueryForGetTables(const GetTables& command) {
@@ -145,6 +139,29 @@ Status SetParametersOnSQLiteStatement(sqlite3_stmt* stmt, FlightMessageReader* r
   return Status::OK();
 }
 
+}  // namespace
+
+std::shared_ptr<DataType> GetArrowType(const char* sqlite_type) {
+  if (sqlite_type == NULLPTR) {
+    // SQLite may not know the column type yet.
+    return null();
+  }
+
+  if (boost::iequals(sqlite_type, "int") || boost::iequals(sqlite_type, "integer")) {
+    return int64();
+  } else if (boost::iequals(sqlite_type, "REAL")) {
+    return float64();
+  } else if (boost::iequals(sqlite_type, "BLOB")) {
+    return binary();
+  } else if (boost::iequals(sqlite_type, "TEXT") ||
+             boost::istarts_with(sqlite_type, "char") ||
+             boost::istarts_with(sqlite_type, "varchar")) {
+    return utf8();
+  } else {
+    throw std::invalid_argument("Invalid SQLite type: " + std::string(sqlite_type));
+  }
+}
+
 SQLiteFlightSqlServer::SQLiteFlightSqlServer(sqlite3* db) : db_(db), uuid_generator_({}) {
   assert(db_);
 }
@@ -165,6 +182,9 @@ arrow::Result<std::shared_ptr<SQLiteFlightSqlServer>> SQLiteFlightSqlServer::Cre
   }
 
   std::shared_ptr<SQLiteFlightSqlServer> result(new SQLiteFlightSqlServer(db));
+  for (const auto& id_to_result : GetSqlInfoIdToResult()) {
+    result->RegisterSqlInfo(id_to_result.first, id_to_result.second);
+  }
 
   ARROW_UNUSED(result->ExecuteSql(R"(
     CREATE TABLE foreignTable (
@@ -477,26 +497,12 @@ Status SQLiteFlightSqlServer::DoGetPreparedStatement(
   return Status::OK();
 }
 
-Status SQLiteFlightSqlServer::GetStatementByHandle(
-    const std::string& prepared_statement_handle,
-    std::shared_ptr<SqliteStatement>* result) {
-  const auto& uuid = boost::lexical_cast<boost::uuids::uuid>(prepared_statement_handle);
-
-  auto search = prepared_statements_.find(uuid);
-  if (search == prepared_statements_.end()) {
-    return Status::Invalid("Prepared statement not found");
-  }
-
-  *result = search->second;
-  return Status::OK();
-}
-
 Status SQLiteFlightSqlServer::DoPutPreparedStatementQuery(
     const PreparedStatementQuery& command, const ServerCallContext& context,
     FlightMessageReader* reader, FlightMetadataWriter* writer) {
   const std::string& prepared_statement_handle = command.prepared_statement_handle;
-  std::shared_ptr<SqliteStatement> statement;
-  ARROW_RETURN_NOT_OK(GetStatementByHandle(prepared_statement_handle, &statement));
+  ARROW_ASSIGN_OR_RAISE(auto statement, GetStatementByHandle(prepared_statements_,
+                                                             prepared_statement_handle));
 
   sqlite3_stmt* stmt = statement->GetSqlite3Stmt();
   ARROW_RETURN_NOT_OK(SetParametersOnSQLiteStatement(stmt, reader));
@@ -508,9 +514,8 @@ arrow::Result<int64_t> SQLiteFlightSqlServer::DoPutPreparedStatementUpdate(
     const PreparedStatementUpdate& command, const ServerCallContext& context,
     FlightMessageReader* reader) {
   const std::string& prepared_statement_handle = command.prepared_statement_handle;
-
-  std::shared_ptr<SqliteStatement> statement;
-  ARROW_RETURN_NOT_OK(GetStatementByHandle(prepared_statement_handle, &statement));
+  ARROW_ASSIGN_OR_RAISE(auto statement, GetStatementByHandle(prepared_statements_,
+                                                             prepared_statement_handle));
 
   sqlite3_stmt* stmt = statement->GetSqlite3Stmt();
   ARROW_RETURN_NOT_OK(SetParametersOnSQLiteStatement(stmt, reader));

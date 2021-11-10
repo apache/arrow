@@ -171,6 +171,8 @@ Status RunMain() {
   } else if (FLAGS_command == "GetPrimaryKeys") {
     ARROW_ASSIGN_OR_RAISE(info, sql_client.GetPrimaryKeys(call_options, &FLAGS_catalog,
                                                           &FLAGS_schema, FLAGS_table));
+  } else if (FLAGS_command == "GetSqlInfo") {
+    ARROW_ASSIGN_OR_RAISE(info, sql_client.GetSqlInfo(call_options, {}));
   }
 
   if (info != NULLPTR &&

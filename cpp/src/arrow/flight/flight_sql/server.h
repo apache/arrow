@@ -20,14 +20,23 @@
 
 #pragma once
 
+#include <boost/variant.hpp>
 #include <memory>
 #include <string>
+#include <unordered_map>
 
 #include "arrow/flight/flight_sql/example/sqlite_statement.h"
 #include "arrow/flight/flight_sql/example/sqlite_statement_batch_reader.h"
 #include "arrow/flight/flight_sql/server.h"
+#include "arrow/flight/flight_sql/sql_info_util.h"
 #include "arrow/flight/server.h"
 #include "arrow/util/optional.h"
+
+using string_list_t = std::vector<std::string>;
+using int32_to_int32_list_t = std::unordered_map<int32_t, std::vector<int32_t>>;
+using SqlInfoResult = boost::variant<std::string, bool, int64_t, int32_t, string_list_t,
+                                     int32_to_int32_list_t>;
+using sql_info_id_to_result_t = std::unordered_map<int32_t, SqlInfoResult>;
 
 namespace arrow {
 namespace flight {
@@ -54,7 +63,7 @@ struct PreparedStatementUpdate {
 };
 
 struct GetSqlInfo {
-  // TODO: To be implemented.
+  std::vector<int32_t> info;
 };
 
 struct GetSchemas {
@@ -112,6 +121,9 @@ struct ActionCreatePreparedStatementResult {
 };
 
 class ARROW_EXPORT FlightSqlServerBase : public FlightServerBase {
+ private:
+  sql_info_id_to_result_t sql_info_id_to_result_;
+
  public:
   Status GetFlightInfo(const ServerCallContext& context, const FlightDescriptor& request,
                        std::unique_ptr<FlightInfo>* info) override;
@@ -431,6 +443,11 @@ class ARROW_EXPORT FlightSqlServerBase : public FlightServerBase {
 
  protected:
   static std::string CreateStatementQueryTicket(const std::string& statement_handle);
+
+  /// \brief Registers a new SqlInfo result.
+  /// \param[in] id the SqlInfo identifier.
+  /// \param[in] result the result.
+  void RegisterSqlInfo(int32_t id, const SqlInfoResult& result);
 };
 
 /// \brief Auxiliary class containing all Schemas used on Flight SQL.
@@ -474,6 +491,10 @@ class ARROW_EXPORT SqlSchema {
   /// \brief Gets the Schema used on GetCrossReference response.
   /// \return The default schema template.
   static std::shared_ptr<Schema> GetCrossReferenceSchema();
+
+  /// \brief Gets the Schema used on GetSqlInfo response.
+  /// \return The default schema template.
+  static std::shared_ptr<Schema> GetSqlInfoSchema();
 };
 }  // namespace sql
 }  // namespace flight
