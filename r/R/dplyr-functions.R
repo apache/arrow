@@ -838,6 +838,19 @@ nse_funcs$wday <- function(x,
   Expression$create("day_of_week", x, options = list(count_from_zero = FALSE, week_start = week_start))
 }
 
+nse_funcs$month <- function(x, label = FALSE, abbr = TRUE, locale = Sys.getlocale("LC_TIME")) {
+  if (label) {
+    if (abbr) {
+      format <- "%b"
+    } else {
+      format <- "%B"
+    }
+    return(Expression$create("strftime", x, options = list(format = format, locale = locale)))
+  }
+
+  Expression$create("month", x)
+}
+
 nse_funcs$is.Date <- function(x) {
   inherits(x, "Date") ||
     (inherits(x, "Expression") && x$type_id() %in% Type[c("DATE32", "DATE64")])
