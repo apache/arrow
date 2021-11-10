@@ -40,6 +40,20 @@ namespace sql {
 
 namespace pb = arrow::flight::protocol;
 
+Status CreateStatementQueryTicket(const std::string& statement_handle,
+                                  std::string* ticket_string) {
+  protocol::sql::TicketStatementQuery ticket_statement_query;
+  ticket_statement_query.set_statement_handle(statement_handle);
+
+  google::protobuf::Any ticket;
+  ticket.PackFrom(ticket_statement_query);
+
+  if (!ticket.SerializeToString(ticket_string)) {
+    return Status::IOError("Invalid ticket.");
+  }
+  return Status::OK();
+}
+
 arrow::Result<GetCrossReference> ParseCommandGetCrossReference(
     const google::protobuf::Any& any) {
   pb::sql::CommandGetCrossReference command;

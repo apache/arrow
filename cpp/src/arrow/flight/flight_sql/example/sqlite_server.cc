@@ -264,7 +264,8 @@ Status SQLiteFlightSqlServer::GetFlightInfoStatement(const StatementQuery& comma
   std::shared_ptr<Schema> schema;
   ARROW_RETURN_NOT_OK(statement->GetSchema(&schema));
 
-  std::string ticket_string = CreateStatementQueryTicket(query);
+  std::string ticket_string;
+  ARROW_RETURN_NOT_OK(CreateStatementQueryTicket(query, &ticket_string));
   std::vector<FlightEndpoint> endpoints{FlightEndpoint{{ticket_string}, {}}};
   ARROW_ASSIGN_OR_RAISE(auto result,
                         FlightInfo::Make(*schema, descriptor, endpoints, -1, -1))
