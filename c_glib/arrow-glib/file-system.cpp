@@ -1366,6 +1366,18 @@ garrow_hdfs_file_system_class_init(GArrowHDFSFileSystemClass *klass)
 }
 
 
+#ifndef ARROW_S3
+namespace arrow {
+  namespace fs {
+    enum class S3LogLevel : int8_t { Off, Fatal, Error, Warn, Info, Debug, Trace };
+
+    struct ARROW_EXPORT S3GlobalOptions {
+      S3LogLevel log_level;
+    };
+  }
+}
+#endif
+
 typedef struct GArrowS3GlobalOptionsPrivate_ {
   arrow::fs::S3GlobalOptions options;
 } GArrowS3GlobalOptionsPrivate;
@@ -1449,8 +1461,6 @@ garrow_s3_global_options_class_init(GArrowS3GlobalOptionsClass *klass)
   gobject_class->set_property = garrow_s3_global_options_set_property;
   gobject_class->get_property = garrow_s3_global_options_get_property;
 
-  arrow::fs::S3GlobalOptions options{arrow::fs::S3LogLevel::Fatal};
-
   /**
    * GArrowS3GlobalOptions:log-level:
    *
@@ -1462,7 +1472,7 @@ garrow_s3_global_options_class_init(GArrowS3GlobalOptionsClass *klass)
                            "Log level",
                            "The log level of S3 APIs",
                            GARROW_TYPE_S3_LOG_LEVEL,
-                           static_cast<GArrowS3LogLevel>(options.log_level),
+                           GARROW_S3_LOG_LEVEL_FATAL,
                            static_cast<GParamFlags>(G_PARAM_READWRITE |
                                                     G_PARAM_CONSTRUCT));
   g_object_class_install_property(gobject_class,
@@ -1503,10 +1513,17 @@ gboolean
 garrow_s3_initialize(GArrowS3GlobalOptions *options,
                      GError **error)
 {
+#ifdef ARROW_S3
   auto arrow_options = garrow_s3_global_options_get_raw(options);
   return garrow::check(error,
                        arrow::fs::InitializeS3(*arrow_options),
                        "[s3][initialize]");
+#else
+  return garrow::check(error,
+                       arrow::Status::NotImplemented(
+                         "Apache Arrow C++ isn't built with S3 support"),
+                       "[s3][initialize]");
+#endif
 }
 
 /**
@@ -1522,9 +1539,16 @@ garrow_s3_initialize(GArrowS3GlobalOptions *options,
 gboolean
 garrow_s3_finalize(GError **error)
 {
+#ifdef ARROW_S3
   return garrow::check(error,
                        arrow::fs::FinalizeS3(),
                        "[s3][finalize]");
+#else
+  return garrow::check(error,
+                       arrow::Status::NotImplemented(
+                         "Apache Arrow C++ isn't built with S3 support"),
+                       "[s3][initialize]");
+#endif
 }
 
 
