@@ -2209,25 +2209,33 @@ cdef class Table(_PandasConvertible):
 
         Returns
         -------
-        StructArray
+        Table
             Results of the aggregation functions.
         """
         if isinstance(aggregations, str):
             aggregations = [aggregations]
 
+        column_names = []
         aggrs = []
         for aggr in aggregations:
             if isinstance(aggr, str):
                 aggr = (aggr, None)
             if not aggr[0].startswith("hash_"):
                 aggr = ("hash_" + aggr[0], aggr[1])
+            column_names.append(aggr[0])
             aggrs.append(aggr)
 
-        return _pc()._group_by(
+        result = _pc()._group_by(
             [self[c] for c in columns],
             [self[key]],
             aggrs
         )
+
+        t = Table.from_batches([RecordBatch.from_struct_array(result)])
+        return t.rename_columns([
+            cname if cname not in column_names else cname.replace("hash_", "")
+            for cname in t.column_names
+        ])
 
     def sort_by(self, sorting):
         """

@@ -1755,28 +1755,25 @@ def test_table_group_by():
     ], names=["values", "keys"])
 
     r = table.group_by("keys", ["values"], "hash_sum")
-
-    r_asdict = {v["key_0"].as_py(): v["hash_sum"].as_py() for v in r}
-    assert r_asdict == {'a': 3, 'b': 7, 'c': 5}
+    assert r.to_pydict() == {
+        "key_0": ["a", "b", "c"],
+        "sum": [3, 7, 5]
+    }
 
     r = table.group_by("keys", ["values", "values"], [
                        "hash_sum", "hash_count"])
-    assert sorted(r.to_pylist(), key=lambda x: x["key_0"]) == [
-        {'hash_count': 2,
-         'hash_sum': 3,
-         'key_0': 'a'},
-        {'hash_count': 2,
-         'hash_sum': 7,
-         'key_0': 'b'},
-        {'hash_count': 1,
-         'hash_sum': 5,
-         'key_0': 'c'},
-    ]
+    assert r.to_pydict() == {
+        "key_0": ["a", "b", "c"],
+        "sum": [3, 7, 5],
+        "count": [2, 2, 1]
+    }
 
     # Test without hash_ prefix
     r = table.group_by("keys", ["values"], "sum")
-    r_asdict = {v["key_0"].as_py(): v["hash_sum"].as_py() for v in r}
-    assert r_asdict == {'a': 3, 'b': 7, 'c': 5}
+    assert r.to_pydict() == {
+        "key_0": ["a", "b", "c"],
+        "sum": [3, 7, 5]
+    }
 
 
 def test_table_sort_by():
