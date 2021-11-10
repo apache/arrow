@@ -336,12 +336,7 @@ TEST_F(TestFlightSqlClient, TestPreparedStatementExecuteParameterBinding) {
 
   auto parameter_schema = prepared_statement->parameter_schema();
 
-  arrow::Int64Builder int_builder;
-  ASSERT_OK(int_builder.Append(1));
-  std::shared_ptr<arrow::Array> int_array;
-  ASSERT_OK(int_builder.Finish(&int_array));
-  std::shared_ptr<arrow::RecordBatch> result;
-  result = arrow::RecordBatch::Make(parameter_schema, 1, {int_array});
+  auto result = RecordBatchFromJSON(parameter_schema, "[[1]]");
   ASSERT_OK(prepared_statement->SetParameters(result));
 
   EXPECT_CALL(sql_client, GetFlightInfo(_, _, _));
@@ -459,6 +454,7 @@ inline void AssertTestPreparedStatementExecuteUpdateOk(
   func(prepared_statement, sql_client, schema, expected_rows);
   ASSERT_OK_AND_ASSIGN(auto rows, prepared_statement->ExecuteUpdate());
   ASSERT_EQ(expected_rows, rows);
+  ASSERT_OK(prepared_statement->Close());
 }
 
 TEST_F(TestFlightSqlClient, TestPreparedStatementExecuteUpdateNoParameterBinding) {
@@ -476,12 +472,9 @@ TEST_F(TestFlightSqlClient, TestPreparedStatementExecuteUpdateWithParameterBindi
       [](const std::shared_ptr<PreparedStatement>& prepared_statement,
          FlightSqlClient& sql_client, const std::shared_ptr<Schema>* schema,
          const int64_t& row_count) {
-        std::shared_ptr<Array> string_array;
-        std::shared_ptr<Array> uint8_array;
-        const std::vector<std::string> string_data{"Lorem", "Ipsum", "Foo", "Bar", "Baz"};
-        const std::vector<uint8_t> uint8_data{0, 10, 15, 20, 25};
-        ArrayFromVector<StringType, std::string>(string_data, &string_array);
-        ArrayFromVector<UInt8Type, uint8_t>(uint8_data, &uint8_array);
+
+        auto string_array = ArrayFromJSON(utf8(), R"(["Lorem", "Ipsum", "Foo", "Bar", "Baz"])");
+        auto uint8_array = ArrayFromJSON(uint8(), R"([0, 10, 15, 20, 25])");
         std::shared_ptr<RecordBatch> recordBatch =
             RecordBatch::Make(*schema, row_count, {string_array, uint8_array});
         ASSERT_OK(prepared_statement->SetParameters(recordBatch));

@@ -73,7 +73,7 @@ Status PrintResultsForEndpoint(FlightSqlClient& client,
 
   while (true) {
     ARROW_RETURN_NOT_OK(stream->Next(&chunk));
-    if (!(chunk.data != nullptr)) {
+    if (chunk.data) {
       break;
     }
     std::cout << chunk.data->ToString() << std::endl;

@@ -85,15 +85,10 @@ TEST(TestFlightSqlServer, TestCommandStatementQuery) {
       arrow::schema({arrow::field("id", int64()), arrow::field("keyName", utf8()),
                      arrow::field("value", int64()), arrow::field("foreignId", int64())});
 
-  std::shared_ptr<Array> id_array;
-  std::shared_ptr<Array> keyname_array;
-  std::shared_ptr<Array> value_array;
-  std::shared_ptr<Array> foreignId_array;
-  ArrayFromVector<Int64Type, std::int64_t>({1, 2, 3}, &id_array);
-  ArrayFromVector<StringType, std::string>({"one", "zero", "negative one"},
-                                           &keyname_array);
-  ArrayFromVector<Int64Type, std::int64_t>({1, 0, -1}, &value_array);
-  ArrayFromVector<Int64Type, std::int64_t>({1, 1, 1}, &foreignId_array);
+  std::shared_ptr<Array> id_array = ArrayFromJSON(int64(), R"([1, 2, 3])");
+  std::shared_ptr<Array> keyname_array = ArrayFromJSON(utf8(), R"(["one", "zero", "negative one"])");
+  std::shared_ptr<Array> value_array = ArrayFromJSON(int64(), R"([1, 0, -1])");
+  std::shared_ptr<Array> foreignId_array = ArrayFromJSON(int64(), R"([1, 1, 1])");
 
   const std::shared_ptr<Table>& expected_table = Table::Make(
       expected_schema, {id_array, keyname_array, value_array, foreignId_array});
@@ -226,10 +221,10 @@ TEST(TestFlightSqlServer, TestCommandGetTablesWithIncludedSchemas) {
   ArrayFromVector<StringType, std::string>({"table"}, &table_type);
 
   const std::shared_ptr<Schema> schema_table =
-      arrow::schema({arrow::field("id", int64(), true, NULL),
-                     arrow::field("keyName", utf8(), true, NULL),
-                     arrow::field("value", int64(), true, NULL),
-                     arrow::field("foreignId", int64(), true, NULL)});
+      arrow::schema({arrow::field("id", int64(), true),
+                     arrow::field("keyName", utf8(), true),
+                     arrow::field("value", int64(), true),
+                     arrow::field("foreignId", int64(), true)});
 
   const arrow::Result<std::shared_ptr<Buffer>>& value =
       ipc::SerializeSchema(*schema_table);
