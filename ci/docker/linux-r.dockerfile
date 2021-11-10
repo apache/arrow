@@ -33,6 +33,9 @@ ENV DEVTOOLSET_VERSION=${devtoolset_version}
 ARG r_prune_deps=FALSE
 ENV R_PRUNE_DEPS=${r_prune_deps}
 
+ARG r_build_ccache=false
+ENV R_BUILD_CCACHE=${r_build_ccache}
+
 ARG tz="UTC"
 ENV TZ=${tz}
 

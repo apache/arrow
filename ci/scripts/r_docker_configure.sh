@@ -42,6 +42,37 @@ else
   apt-get update
 fi
 
+# Enable ccache if requested based on http://dirk.eddelbuettel.com/blog/2017/11/27/
+if [ "$R_BUILD_CCACHE" = "true" ]; then
+  # install ccache
+  if [ "`which dnf`" ]; then
+    dnf install -y epel-release
+    dnf install -y ccache
+  elif [ "`which yum`" ]; then
+    yum install -y epel-release
+    yum install -y ccache
+  elif [ "`which zypper`" ]; then
+    zypper install -y ccache
+  else
+    apt-get update
+    apt-get install -y ccache
+  fi
+
+  mkdir -p ~/.R
+  echo "VER=
+CCACHE=ccache
+CC=\$(CCACHE) gcc$(VER)
+CXX=\$(CCACHE) g++$(VER)" >> ~/.R/Makevars
+
+  mkdir -p ~/.ccache/
+  echo "max_size = 5.0G
+# important for R CMD INSTALL *.tar.gz as tarballs are expanded freshly -> fresh ctime
+sloppiness = include_file_ctime
+# also important as the (temp.) directory name will differ
+hash_dir = false" >> ~/.ccache/ccache.conf
+fi
+
+
 # Special hacking to try to reproduce quirks on fedora-clang-devel on CRAN
 # which uses a bespoke clang compiled to use libc++
 # https://www.stats.ox.ac.uk/pub/bdr/Rconfig/r-devel-linux-x86_64-fedora-clang
