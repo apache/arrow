@@ -44,7 +44,7 @@ navbar:
       text: Project docs
       menu:
         - text: Specification
-          href: https://arrow.apache.org/docs/format/README.html
+          href: https://arrow.apache.org/docs/format/Columnar.html
         - text: C GLib
           href: https://arrow.apache.org/docs/c_glib
         - text: C++
