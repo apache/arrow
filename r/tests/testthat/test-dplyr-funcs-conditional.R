@@ -402,23 +402,6 @@ test_that("coalesce()", {
     df
   )
 
-  # factors
-  # TODO: remove the mutate + warning after ARROW-14167 is merged and Arrow
-  # supports factors in coalesce
-  df <- tibble(
-    x = factor("a", levels = c("a", "z")),
-    y = factor("b", levels = c("a", "b", "c"))
-  )
-  compare_dplyr_binding(
-    .input %>%
-      mutate(c = coalesce(x, y)) %>%
-      collect() %>%
-      # This is a no-op on the Arrow side, but necessary to make the results equal
-      mutate(c = as.character(c)),
-    df,
-    warning = "Dictionaries .* are currently converted to strings .* in coalesce"
-  )
-
   # no arguments
   expect_error(
     nse_funcs$coalesce(),
