@@ -122,9 +122,9 @@ brew install cmake openssl
 
 #### Windows
 
-The package can be built on Windows using RTools 4.0.
+The package can be built on Windows using [RTools 4](https://cran.r-project.org/bin/windows/Rtools/). It can be built for mingw32 (i386), mingw64 (x64), or ucrt64 (UCRT x64). mingw64 is the recommended 64-bit installation.
 
-It can be built for mingw32, mingw64, or ucrt64. mingw64 is the recomended 64-bit installation. Open the corresponding RTools Bash, for example "Rtools MinGW 64-bit" for mingw64.
+Open the corresponding RTools Bash, for example "Rtools MinGW 64-bit" for mingw64.
 
 Install CMake and Ninja with:
 
@@ -176,7 +176,7 @@ export LD_LIBRARY_PATH=$ARROW_HOME/lib:$LD_LIBRARY_PATH
 echo "export LD_LIBRARY_PATH=$ARROW_HOME/lib:$LD_LIBRARY_PATH" >> ~/.bash_profile
 ```
 
-_Special instructions on Windows:_ You will need to add `$ARROW_HOME/bin` to your `PATH` if you are using dynamic libraries.
+_Special instructions on Windows:_ You will need to add `$ARROW_HOME/bin` to your `PATH` if you are using dynamic libraries (which is recommended).
 
 ```{bash}
 export PATH=$ARROW_HOME/bin:$PATH
@@ -192,6 +192,10 @@ pushd cpp/build
 
 You'll first call `cmake` to configure the build and then `make install`. For the R package, you'll need to enable several features in libarrow using `-D` flags:
 
+#### {.tabset}
+
+##### Linux / Mac OS
+
 ```{bash, save=run & !sys_install}
 cmake \
   -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
@@ -202,7 +206,7 @@ cmake \
   -DARROW_EXTRA_ERROR_CONTEXT=ON \
   -DARROW_FILESYSTEM=ON \
   -DARROW_INSTALL_NAME_RPATH=OFF \
-  -DARROW_JEMALLOC=OFF \
+  -DARROW_JEMALLOC=ON \
   -DARROW_JSON=ON \
   -DARROW_PARQUET=ON \
   -DARROW_WITH_SNAPPY=ON \
@@ -210,11 +214,30 @@ cmake \
   ..
 ```
 
+##### Windows
+
+```{bash, save=run & !sys_install}
+cmake \
+  -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
+  -DCMAKE_INSTALL_LIBDIR=lib \
+  -DARROW_COMPUTE=ON \
+  -DARROW_CSV=ON \
+  -DARROW_DATASET=ON \
+  -DARROW_EXTRA_ERROR_CONTEXT=ON \
+  -DARROW_FILESYSTEM=ON \
+  -DARROW_INSTALL_NAME_RPATH=OFF \
+  -DARROW_JSON=ON \
+  -DARROW_PARQUET=ON \
+  -DARROW_WITH_SNAPPY=ON \
+  -DARROW_WITH_ZLIB=ON \
+  ..
+```
+
+#### {-}
+
 `..` refers to the C++ source directory: you're in `cpp/build` and the source is in `cpp`.
 
 **For Windows**: some options, including `-DARROW_JEMALLOC`, are not supported on Windows. 
-
-To use static libraries instead of dynamic libraries, pass the flags `-DARROW_BUILD_SHARED=OFF  -DARROW_BUILD_STATIC=ON`. Compiling with static libraries means you avoid issues where the R package is finding the wrong dynamic library, but if you change the C++ code you have to recompile both the C++ libraries and the R package. Compilers typically will link to static libraries only if the dynamic ones are not present, which is why we need to switch off building shared. If you are switching after compiling and installing previously, you may need to remove the `.dll` or `.so` files from `$ARROW_HOME/dist/bin`. 
 
 #### Enabling more Arrow features
 
@@ -235,6 +258,8 @@ Other flags that may be useful:
 * `-DBoost_SOURCE=BUNDLED` and `-DThrift_SOURCE=BUNDLED`, for example, or any other dependency `*_SOURCE`, if you have a system version of a C++ dependency that doesn't work correctly with Arrow. This tells the build to compile its own version of the dependency from source.
 
 * `-DCMAKE_BUILD_TYPE=debug` or `-DCMAKE_BUILD_TYPE=relwithdebinfo` can be useful for debugging. You probably don't want to do this generally because a debug build is much slower at runtime than the default `release` build.
+
+* `-DARROW_BUILD_STATIC=ON` and `-DARROW_BUILD_SHARED=OFF` if you want to use static libraries instead of dynamic libraries. With static libraries there isn't a risk of the R package linking to the wrong library, but it does mean if you change the C++ code you have to recompile both the C++ libraries and the R package. Compilers typically will link to static libraries only if the dynamic ones are not present, which is why we need to set `-DARROW_BUILD_SHARED=OFF`. If you are switching after compiling and installing previously, you may need to remove the `.dll` or `.so` files from `$ARROW_HOME/dist/bin`.
 
 _Note_ `cmake` is particularly sensitive to whitespacing, if you see errors, check that you don't have any errant whitespace.
 
@@ -259,7 +284,7 @@ R -e 'install.packages("remotes"); remotes::install_deps(dependencies = TRUE)'
 R CMD INSTALL --no-multiarch .
 ```
 
-The `--no-multiarch` flag makes it only compile on the "main" architecture. For Windows, this is why it's important to add the R bin corresponding to the desired architecture. If you compile on one architecture and then switch to another, make sure to pass the `--preclean` flag so that the R package code is recompiled for the new architecture. Otherwise, you may see errors like `LoadLibrary failure: %1 is not a valid Win32 application`.
+The `--no-multiarch` flag makes it only compile on the "main" architecture. This will compile for the architecture that the R in your path corresponds to. If you compile on one architecture and then switch to another, make sure to pass the `--preclean` flag so that the R package code is recompiled for the new architecture. Otherwise, you may see errors like `LoadLibrary failure: %1 is not a valid Win32 application`.
 
 #### Compilation flags
 
