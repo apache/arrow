@@ -1,4 +1,44 @@
 
+# Apache Arrow 6.0.1 (2021-11-10)
+
+## Bug Fixes
+
+* [ARROW-14437](https://issues.apache.org/jira/browse/ARROW-14437) - [Python] CSV test\_cancellation unittests fail on Apple M1
+* [ARROW-14492](https://issues.apache.org/jira/browse/ARROW-14492) - [JS] Browser bundles broken
+* [ARROW-14513](https://issues.apache.org/jira/browse/ARROW-14513) - [Release][Go] Update release-6.0.0 with /v6 suffix
+* [ARROW-14519](https://issues.apache.org/jira/browse/ARROW-14519) - [C++] joins segfault when data contains list column
+* [ARROW-14523](https://issues.apache.org/jira/browse/ARROW-14523) - [C++][Python] S3FileSystem write\_table can lose data
+* [ARROW-14538](https://issues.apache.org/jira/browse/ARROW-14538) - [R] Work around empty tr call on Solaris
+* [ARROW-14550](https://issues.apache.org/jira/browse/ARROW-14550) - [C++][Go] the json license is not compatible with FSF standards
+* [ARROW-14583](https://issues.apache.org/jira/browse/ARROW-14583) - [R][C++] Crash when summarizing after filtering to no rows on partitioned data
+* [ARROW-14584](https://issues.apache.org/jira/browse/ARROW-14584) - [Python][CI] Python sdist installation fails with latest setuptools 58.5
+* [ARROW-14620](https://issues.apache.org/jira/browse/ARROW-14620) - [Python] Missing bindings for existing\_data\_behavior makes it impossible to maintain old behavior
+* [ARROW-14630](https://issues.apache.org/jira/browse/ARROW-14630) - [C++] DCHECK in GroupByNode when error encountered
+
+
+## New Features and Improvements
+
+* [ARROW-13156](https://issues.apache.org/jira/browse/ARROW-13156) - [R] bindings for str\_count
+* [ARROW-14181](https://issues.apache.org/jira/browse/ARROW-14181) - [C++][Compute] Hash Join support for dictionary	
+* [ARROW-14189](https://issues.apache.org/jira/browse/ARROW-14189) - [Docs] Add version dropdown to the sphinx docs
+* [ARROW-14310](https://issues.apache.org/jira/browse/ARROW-14310) - [R] Make expect\_dplyr\_equal() more intuitive
+* [ARROW-14365](https://issues.apache.org/jira/browse/ARROW-14365) - [R] Update README example to reflect new capabilities
+* [ARROW-14390](https://issues.apache.org/jira/browse/ARROW-14390) - [Packaging][Ubuntu] Add support for Ubuntu 21.10
+* [ARROW-14433](https://issues.apache.org/jira/browse/ARROW-14433) - [Release][APT] Skip arm64 Ubuntu 21.04 verification
+* [ARROW-14450](https://issues.apache.org/jira/browse/ARROW-14450) - [R] Old macos build error
+* [ARROW-14459](https://issues.apache.org/jira/browse/ARROW-14459) - [Doc] Update the pinned sphinx version
+* [ARROW-14480](https://issues.apache.org/jira/browse/ARROW-14480) - [R] Expose arrow::dataset::ExistingDataBehavior to R
+* [ARROW-14486](https://issues.apache.org/jira/browse/ARROW-14486) - [Packaging][deb] libthrift-dev dependency is missing
+* [ARROW-14490](https://issues.apache.org/jira/browse/ARROW-14490) - [Doc] Regenerate CHANGELOG.md to include all versions
+* [ARROW-14496](https://issues.apache.org/jira/browse/ARROW-14496) - [Docs] Ensure links to non-sphinx parts of the docs are relative instead of absolute
+* [ARROW-14499](https://issues.apache.org/jira/browse/ARROW-14499) - [Docs] Version dropdown side-by-side with search box
+* [ARROW-14514](https://issues.apache.org/jira/browse/ARROW-14514) - [C++][R] UBSAN error on round kernel
+* [ARROW-14580](https://issues.apache.org/jira/browse/ARROW-14580) - [Python] PyPI listing does not include trove classifiers for Python 3.10
+* [ARROW-14623](https://issues.apache.org/jira/browse/ARROW-14623) - [Packaging][Java] Upload not only .jar but also .pom
+* [ARROW-14628](https://issues.apache.org/jira/browse/ARROW-14628) - [Release][Python] Use python -m pytest
+
+
+
 # Apache Arrow 6.0.0 (2021-10-26)
 
 ## Bug Fixes
