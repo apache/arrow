@@ -17,9 +17,9 @@
 
 .. _integration:
 
-*******************
-Integrating PyArrow
-*******************
+********************
+PyArrow Integrations
+********************
 
 Arrow is designed to be both a framework and an interchange format.
 
@@ -32,8 +32,10 @@ natively wihout the need to decode it.
 This allows to easily integrate PyArrow with other languages and technologies.
 
 .. toctree::
-   :maxdepth: 2
+    :maxdepth: 2
 
-   integration/python_r
-   integration/extending
-   integration/cuda
+    integration/numpy
+    integration/pandas
+    integration/python_r
+    integration/extending
+    integration/cuda
