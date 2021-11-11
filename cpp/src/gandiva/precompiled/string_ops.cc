@@ -2854,4 +2854,23 @@ const char* soundex_utf8(gdv_int64 ctx, const char* in, gdv_int32 in_len,
   *out_len = 4;
   return ret;
 }
+
+FORCE_INLINE
+int32_t instr_utf8(const char* string, int32_t string_len, const char* substring,
+                   int32_t substring_len) {
+  if (substring_len == 0) {
+    return 1;
+  }
+
+  if (string_len < substring_len) {
+    return 0;
+  }
+
+  for (int i = 0; i < string_len - substring_len; i++) {
+    if (string[i] == substring[0] && memcmp(string + i, substring, substring_len) == 0) {
+      return (i + 1);
+    }
+  }
+  return 0;
+}
 }  // extern "C"
