@@ -1245,8 +1245,8 @@ extern "C" SEXP _arrow_ExecNode_Aggregate(SEXP input_sexp, SEXP options_sexp, SE
 
 // compute-exec.cpp
 #if defined(ARROW_R_WITH_DATASET)
-std::shared_ptr<compute::ExecNode> ExecNode_Join(const std::shared_ptr<compute::ExecNode>& input, int type, const std::shared_ptr<compute::ExecNode>& right_data, std::vector<std::string> left_keys, std::vector<std::string> right_keys, std::vector<std::string> left_output, std::vector<std::string> right_output);
-extern "C" SEXP _arrow_ExecNode_Join(SEXP input_sexp, SEXP type_sexp, SEXP right_data_sexp, SEXP left_keys_sexp, SEXP right_keys_sexp, SEXP left_output_sexp, SEXP right_output_sexp){
+std::shared_ptr<compute::ExecNode> ExecNode_Join(const std::shared_ptr<compute::ExecNode>& input, int type, const std::shared_ptr<compute::ExecNode>& right_data, std::vector<std::string> left_keys, std::vector<std::string> right_keys, std::vector<std::string> left_output, std::vector<std::string> right_output, std::string output_prefix_for_left, std::string output_prefix_for_right);
+extern "C" SEXP _arrow_ExecNode_Join(SEXP input_sexp, SEXP type_sexp, SEXP right_data_sexp, SEXP left_keys_sexp, SEXP right_keys_sexp, SEXP left_output_sexp, SEXP right_output_sexp, SEXP output_prefix_for_left_sexp, SEXP output_prefix_for_right_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<compute::ExecNode>&>::type input(input_sexp);
 	arrow::r::Input<int>::type type(type_sexp);
@@ -1255,11 +1255,13 @@ BEGIN_CPP11
 	arrow::r::Input<std::vector<std::string>>::type right_keys(right_keys_sexp);
 	arrow::r::Input<std::vector<std::string>>::type left_output(left_output_sexp);
 	arrow::r::Input<std::vector<std::string>>::type right_output(right_output_sexp);
-	return cpp11::as_sexp(ExecNode_Join(input, type, right_data, left_keys, right_keys, left_output, right_output));
+	arrow::r::Input<std::string>::type output_prefix_for_left(output_prefix_for_left_sexp);
+	arrow::r::Input<std::string>::type output_prefix_for_right(output_prefix_for_right_sexp);
+	return cpp11::as_sexp(ExecNode_Join(input, type, right_data, left_keys, right_keys, left_output, right_output, output_prefix_for_left, output_prefix_for_right));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_ExecNode_Join(SEXP input_sexp, SEXP type_sexp, SEXP right_data_sexp, SEXP left_keys_sexp, SEXP right_keys_sexp, SEXP left_output_sexp, SEXP right_output_sexp){
+extern "C" SEXP _arrow_ExecNode_Join(SEXP input_sexp, SEXP type_sexp, SEXP right_data_sexp, SEXP left_keys_sexp, SEXP right_keys_sexp, SEXP left_output_sexp, SEXP right_output_sexp, SEXP output_prefix_for_left_sexp, SEXP output_prefix_for_right_sexp){
 	Rf_error("Cannot call ExecNode_Join(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
@@ -7249,7 +7251,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ExecNode_Filter", (DL_FUNC) &_arrow_ExecNode_Filter, 2}, 
 		{ "_arrow_ExecNode_Project", (DL_FUNC) &_arrow_ExecNode_Project, 3}, 
 		{ "_arrow_ExecNode_Aggregate", (DL_FUNC) &_arrow_ExecNode_Aggregate, 5}, 
-		{ "_arrow_ExecNode_Join", (DL_FUNC) &_arrow_ExecNode_Join, 7}, 
+		{ "_arrow_ExecNode_Join", (DL_FUNC) &_arrow_ExecNode_Join, 9}, 
 		{ "_arrow_ExecNode_ReadFromRecordBatchReader", (DL_FUNC) &_arrow_ExecNode_ReadFromRecordBatchReader, 2}, 
 		{ "_arrow_RecordBatch__cast", (DL_FUNC) &_arrow_RecordBatch__cast, 3}, 
 		{ "_arrow_Table__cast", (DL_FUNC) &_arrow_Table__cast, 3}, 
