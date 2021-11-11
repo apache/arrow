@@ -32,10 +32,12 @@ find_library(SQLite3_LIBRARY NAMES sqlite3)
 # handle the QUIETLY and REQUIRED arguments and set SQLite3_FOUND to TRUE if
 # all listed variables are TRUE
 include(FindPackageHandleStandardArgs)
-find_package_handle_standard_args(SQLite3Alt FAULT_MSG SQLite3_LIBRARY
-                                  SQLite3_INCLUDE_DIR)
+find_package_handle_standard_args(SQLite3Alt REQUIRED_VARS SQLite3_LIBRARY
+                                                           SQLite3_INCLUDE_DIR)
 
 mark_as_advanced(SQLite3_LIBRARY SQLite3_INCLUDE_DIR)
 
-set(SQLite3_INCLUDE_DIRS ${SQLite3_INCLUDE_DIR})
-set(SQLite3_LIBRARIES ${SQLite3_LIBRARY})
+if(SQLite3Alt_FOUND)
+  set(SQLite3_INCLUDE_DIRS ${SQLite3_INCLUDE_DIR})
+  set(SQLite3_LIBRARIES ${SQLite3_LIBRARY})
+endif()
