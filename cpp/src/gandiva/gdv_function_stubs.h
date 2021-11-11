@@ -170,35 +170,4 @@ float gdv_fn_castFLOAT4_varbinary(gdv_int64 context, const char* in, int32_t in_
 
 GANDIVA_EXPORT
 double gdv_fn_castFLOAT8_varbinary(gdv_int64 context, const char* in, int32_t in_len);
-
-GANDIVA_EXPORT
-const char* gdv_fn_elt_int32_utf8_utf8(int64_t context, int32_t pos, bool pos_validity,
-                                       const char* word1, int32_t word1_len,
-                                       bool in1_validity, const char* word2,
-                                       int32_t word2_len, bool in2_validity,
-                                       bool* out_valid, int32_t* out_len);
-
-GANDIVA_EXPORT
-const char* gdv_fn_elt_int32_utf8_utf8_utf8(int64_t context, int32_t pos,
-                                            bool pos_validity, const char* word1,
-                                            int32_t word1_len, bool word1_validity,
-                                            const char* word2, int32_t word2_len,
-                                            bool word2_validity, const char* word3,
-                                            int32_t word3_len, bool word3_validity,
-                                            bool* out_valid, int32_t* out_len);
-
-GANDIVA_EXPORT
-const char* gdv_fn_elt_int32_utf8_utf8_utf8_utf8(
-    int64_t context, int32_t pos, bool pos_validity, const char* word1, int32_t word1_len,
-    bool word1_validity, const char* word2, int32_t word2_len, bool word2_validity,
-    const char* word3, int32_t word3_len, bool word3_validity, const char* word4,
-    int32_t word4_len, bool word4_validity, bool* out_valid, int32_t* out_len);
-
-GANDIVA_EXPORT
-const char* gdv_fn_elt_int32_utf8_utf8_utf8_utf8_utf8(
-    int64_t context, int32_t pos, bool pos_validity, const char* word1, int32_t word1_len,
-    bool word1_validity, const char* word2, int32_t word2_len, bool word2_validity,
-    const char* word3, int32_t word3_len, bool word3_validity, const char* word4,
-    int32_t word4_len, bool word4_validity, const char* word5, int32_t word5_len,
-    bool word5_validity, bool* out_valid, int32_t* out_len);
 }

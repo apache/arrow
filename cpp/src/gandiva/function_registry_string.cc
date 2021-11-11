@@ -112,20 +112,20 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      kResultNullIfNull, "gdv_fn_elt_utf8",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
       NativeFunction("elt", {}, DataTypeVector{int32(), utf8(), utf8()}, utf8(),
-                     kResultNullInternal, "gdv_fn_elt_int32_utf8_utf8",
+                     kResultNullInternal, "elt_int32_utf8_utf8",
                      NativeFunction::kNeedsContext),
 
       NativeFunction("elt", {}, DataTypeVector{int32(), utf8(), utf8(), utf8()}, utf8(),
-                     kResultNullInternal, "gdv_fn_elt_int32_utf8_utf8_utf8",
+                     kResultNullInternal, "elt_int32_utf8_utf8_utf8",
                      NativeFunction::kNeedsContext),
 
       NativeFunction("elt", {}, DataTypeVector{int32(), utf8(), utf8(), utf8(), utf8()},
-                     utf8(), kResultNullInternal, "gdv_fn_elt_int32_utf8_utf8_utf8_utf8",
+                     utf8(), kResultNullInternal, "elt_int32_utf8_utf8_utf8_utf8",
                      NativeFunction::kNeedsContext),
 
       NativeFunction(
           "elt", {}, DataTypeVector{int32(), utf8(), utf8(), utf8(), utf8(), utf8()},
-          utf8(), kResultNullInternal, "gdv_fn_elt_int32_utf8_utf8_utf8_utf8_utf8",
+          utf8(), kResultNullInternal, "elt_int32_utf8_utf8_utf8_utf8_utf8",
           NativeFunction::kNeedsContext),
 
       NativeFunction("castBIT", {"castBOOLEAN"}, DataTypeVector{utf8()}, boolean(),
