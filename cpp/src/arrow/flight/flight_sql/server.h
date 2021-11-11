@@ -125,7 +125,7 @@ struct ActionCreatePreparedStatementResult {
 /// \param[in] statement_handle      The statement handle that will originate the ticket.
 /// \return                          The parsed ticket as an string.
 arrow::Result<std::string> CreateStatementQueryTicket(
-  const std::string &statement_handle);
+    const std::string& statement_handle);
 
 class ARROW_EXPORT FlightSqlServerBase : public FlightServerBase {
  private:
@@ -165,19 +165,19 @@ class ARROW_EXPORT FlightSqlServerBase : public FlightServerBase {
   /// \param[in] descriptor   The descriptor identifying the data stream.
   /// \param[out] info        The FlightInfo describing where to access the dataset.
   /// \return                 Status.
-  virtual Status
-  GetFlightInfoStatement(const ServerCallContext &context, const StatementQuery &command,
-                         const FlightDescriptor &descriptor,
-                         std::unique_ptr<FlightInfo> *info);
+  virtual Status GetFlightInfoStatement(const ServerCallContext& context,
+                                        const StatementQuery& command,
+                                        const FlightDescriptor& descriptor,
+                                        std::unique_ptr<FlightInfo>* info);
 
   /// \brief Gets a FlightDataStream containing the query results.
   /// \param[in] context      Per-call context.
   /// \param[in] command      The StatementQueryTicket containing the statement handle.
   /// \param[out] result      The FlightDataStream containing the results.
   /// \return                 Status.
-  virtual Status
-  DoGetStatement(const ServerCallContext &context, const StatementQueryTicket &command,
-                 std::unique_ptr<FlightDataStream> *result);
+  virtual Status DoGetStatement(const ServerCallContext& context,
+                                const StatementQueryTicket& command,
+                                std::unique_ptr<FlightDataStream>* result);
 
   /// \brief Gets a FlightInfo for executing an already created prepared statement.
   /// \param[in] context      Per-call context.
@@ -187,10 +187,10 @@ class ARROW_EXPORT FlightSqlServerBase : public FlightServerBase {
   /// \param[out] info        The FlightInfo describing where to access the
   ///                         dataset.
   /// \return                 Status.
-  virtual Status GetFlightInfoPreparedStatement(const ServerCallContext &context,
-                                                const PreparedStatementQuery &command,
-                                                const FlightDescriptor &descriptor,
-                                                std::unique_ptr<FlightInfo> *info);
+  virtual Status GetFlightInfoPreparedStatement(const ServerCallContext& context,
+                                                const PreparedStatementQuery& command,
+                                                const FlightDescriptor& descriptor,
+                                                std::unique_ptr<FlightInfo>* info);
 
   /// \brief Gets a FlightDataStream containing the prepared statement query results.
   /// \param[in] context      Per-call context.
@@ -198,9 +198,9 @@ class ARROW_EXPORT FlightSqlServerBase : public FlightServerBase {
   ///                         prepared statement handle.
   /// \param[out] result      The FlightDataStream containing the results.
   /// \return                 Status.
-  virtual Status DoGetPreparedStatement(const ServerCallContext &context,
-                                        const PreparedStatementQuery &command,
-                                        std::unique_ptr<FlightDataStream> *result);
+  virtual Status DoGetPreparedStatement(const ServerCallContext& context,
+                                        const PreparedStatementQuery& command,
+                                        std::unique_ptr<FlightDataStream>* result);
 
   /// \brief Gets a FlightInfo for listing catalogs.
   /// \param[in] context      Per-call context.
@@ -225,10 +225,10 @@ class ARROW_EXPORT FlightSqlServerBase : public FlightServerBase {
   /// \param[in] descriptor   The descriptor identifying the data stream.
   /// \param[out] info        The FlightInfo describing where to access the dataset.
   /// \return                 Status.
-  virtual Status
-  GetFlightInfoSqlInfo(const ServerCallContext &context, const GetSqlInfo &command,
-                       const FlightDescriptor &descriptor,
-                       std::unique_ptr<FlightInfo> *info);
+  virtual Status GetFlightInfoSqlInfo(const ServerCallContext& context,
+                                      const GetSqlInfo& command,
+                                      const FlightDescriptor& descriptor,
+                                      std::unique_ptr<FlightInfo>* info);
 
   /// \brief Gets a FlightDataStream containing the list of SqlInfo results.
   /// \param[in] context    Per-call context.
@@ -236,8 +236,8 @@ class ARROW_EXPORT FlightSqlServerBase : public FlightServerBase {
   ///                       to be returned.
   /// \param[out] result    The FlightDataStream containing the results.
   /// \return               Status.
-  virtual Status DoGetSqlInfo(const ServerCallContext &context, const GetSqlInfo &command,
-                              std::unique_ptr<FlightDataStream> *result);
+  virtual Status DoGetSqlInfo(const ServerCallContext& context, const GetSqlInfo& command,
+                              std::unique_ptr<FlightDataStream>* result);
 
   /// \brief Gets a FlightInfo for listing schemas.
   /// \param[in] context      Per-call context.
@@ -246,10 +246,10 @@ class ARROW_EXPORT FlightSqlServerBase : public FlightServerBase {
   /// \param[in] descriptor   The descriptor identifying the data stream.
   /// \param[out] info        The FlightInfo describing where to access the dataset.
   /// \return                 Status.
-  virtual Status
-  GetFlightInfoSchemas(const ServerCallContext &context, const GetSchemas &command,
-                       const FlightDescriptor &descriptor,
-                       std::unique_ptr<FlightInfo> *info);
+  virtual Status GetFlightInfoSchemas(const ServerCallContext& context,
+                                      const GetSchemas& command,
+                                      const FlightDescriptor& descriptor,
+                                      std::unique_ptr<FlightInfo>* info);
 
   /// \brief Gets a FlightDataStream containing the list of schemas.
   /// \param[in] context   Per-call context.
@@ -257,8 +257,8 @@ class ARROW_EXPORT FlightSqlServerBase : public FlightServerBase {
   ///                      catalog and schema name.
   /// \param[out] result   The FlightDataStream containing the results.
   /// \return              Status.
-  virtual Status DoGetSchemas(const ServerCallContext &context, const GetSchemas &command,
-                              std::unique_ptr<FlightDataStream> *result);
+  virtual Status DoGetSchemas(const ServerCallContext& context, const GetSchemas& command,
+                              std::unique_ptr<FlightDataStream>* result);
 
   ///\brief Gets a FlightInfo for listing tables.
   /// \param[in] context      Per-call context.
@@ -267,10 +267,10 @@ class ARROW_EXPORT FlightSqlServerBase : public FlightServerBase {
   /// \param[in] descriptor   The descriptor identifying the data stream.
   /// \param[out] info        The FlightInfo describing where to access the dataset.
   /// \return                 Status.
-  virtual Status
-  GetFlightInfoTables(const ServerCallContext &context, const GetTables &command,
-                      const FlightDescriptor &descriptor,
-                      std::unique_ptr<FlightInfo> *info);
+  virtual Status GetFlightInfoTables(const ServerCallContext& context,
+                                     const GetTables& command,
+                                     const FlightDescriptor& descriptor,
+                                     std::unique_ptr<FlightInfo>* info);
 
   /// \brief Gets a FlightDataStream containing the list of tables.
   /// \param[in] context   Per-call context.
@@ -278,8 +278,8 @@ class ARROW_EXPORT FlightSqlServerBase : public FlightServerBase {
   ///                      catalog, schema and table names.
   /// \param[out] result   The FlightDataStream containing the results.
   /// \return              Status.
-  virtual Status DoGetTables(const ServerCallContext &context, const GetTables &command,
-                             std::unique_ptr<FlightDataStream> *result);
+  virtual Status DoGetTables(const ServerCallContext& context, const GetTables& command,
+                             std::unique_ptr<FlightDataStream>* result);
 
   /// \brief Gets a FlightInfo to extract information about the table types.
   /// \param[in] context      Per-call context.
@@ -306,10 +306,10 @@ class ARROW_EXPORT FlightSqlServerBase : public FlightServerBase {
   /// \param[out] info        The FlightInfo describing where to access the
   ///                         dataset.
   /// \return                 Status.
-  virtual Status GetFlightInfoPrimaryKeys(const ServerCallContext &context,
-                                          const GetPrimaryKeys &command,
-                                          const FlightDescriptor &descriptor,
-                                          std::unique_ptr<FlightInfo> *info);
+  virtual Status GetFlightInfoPrimaryKeys(const ServerCallContext& context,
+                                          const GetPrimaryKeys& command,
+                                          const FlightDescriptor& descriptor,
+                                          std::unique_ptr<FlightInfo>* info);
 
   /// \brief Gets a FlightDataStream containing the data related to the primary and
   /// foreign
@@ -319,9 +319,9 @@ class ARROW_EXPORT FlightSqlServerBase : public FlightServerBase {
   ///                     to execute the request.
   /// \param[out] result  The FlightDataStream containing the results.
   /// \return             Status.
-  virtual Status
-  DoGetPrimaryKeys(const ServerCallContext &context, const GetPrimaryKeys &command,
-                   std::unique_ptr<FlightDataStream> *result);
+  virtual Status DoGetPrimaryKeys(const ServerCallContext& context,
+                                  const GetPrimaryKeys& command,
+                                  std::unique_ptr<FlightDataStream>* result);
 
   /// \brief Gets a FlightInfo to extract information about foreign and primary keys.
   /// \param[in] context      Per-call context.
@@ -331,10 +331,10 @@ class ARROW_EXPORT FlightSqlServerBase : public FlightServerBase {
   /// \param[out] info        The FlightInfo describing where to access the
   ///                         dataset.
   /// \return                 Status.
-  virtual Status GetFlightInfoExportedKeys(const ServerCallContext &context,
-                                           const GetExportedKeys &command,
-                                           const FlightDescriptor &descriptor,
-                                           std::unique_ptr<FlightInfo> *info);
+  virtual Status GetFlightInfoExportedKeys(const ServerCallContext& context,
+                                           const GetExportedKeys& command,
+                                           const FlightDescriptor& descriptor,
+                                           std::unique_ptr<FlightInfo>* info);
 
   /// \brief Gets a FlightDataStream containing the data related to the foreign and
   /// primary
@@ -344,9 +344,9 @@ class ARROW_EXPORT FlightSqlServerBase : public FlightServerBase {
   ///                     to execute the request.
   /// \param[out] result  The FlightDataStream containing the results.
   /// \return             Status.
-  virtual Status
-  DoGetExportedKeys(const ServerCallContext &context, const GetExportedKeys &command,
-                    std::unique_ptr<FlightDataStream> *result);
+  virtual Status DoGetExportedKeys(const ServerCallContext& context,
+                                   const GetExportedKeys& command,
+                                   std::unique_ptr<FlightDataStream>* result);
 
   /// \brief Gets a FlightInfo to extract information about foreign and primary keys.
   /// \param[in] context      Per-call context.
@@ -356,10 +356,10 @@ class ARROW_EXPORT FlightSqlServerBase : public FlightServerBase {
   /// \param[out] info        The FlightInfo describing where to access the
   ///                         dataset.
   /// \return                 Status.
-  virtual Status GetFlightInfoImportedKeys(const ServerCallContext &context,
-                                           const GetImportedKeys &command,
-                                           const FlightDescriptor &descriptor,
-                                           std::unique_ptr<FlightInfo> *info);
+  virtual Status GetFlightInfoImportedKeys(const ServerCallContext& context,
+                                           const GetImportedKeys& command,
+                                           const FlightDescriptor& descriptor,
+                                           std::unique_ptr<FlightInfo>* info);
 
   /// \brief Gets a FlightDataStream containing the data related to the foreign and
   ///        primary keys.
@@ -368,9 +368,9 @@ class ARROW_EXPORT FlightSqlServerBase : public FlightServerBase {
   ///                     to execute the request.
   /// \param[out] result  The FlightDataStream containing the results.
   /// \return             Status.
-  virtual Status
-  DoGetImportedKeys(const ServerCallContext &context, const GetImportedKeys &command,
-                    std::unique_ptr<FlightDataStream> *result);
+  virtual Status DoGetImportedKeys(const ServerCallContext& context,
+                                   const GetImportedKeys& command,
+                                   std::unique_ptr<FlightDataStream>* result);
 
   /// \brief Gets a FlightInfo to extract information about foreign and primary keys.
   /// \param[in] context      Per-call context.
@@ -381,10 +381,10 @@ class ARROW_EXPORT FlightSqlServerBase : public FlightServerBase {
   /// \param[out] info        The FlightInfo describing where to access the
   ///                         dataset.
   /// \return                 Status.
-  virtual Status GetFlightInfoCrossReference(const ServerCallContext &context,
-                                             const GetCrossReference &command,
-                                             const FlightDescriptor &descriptor,
-                                             std::unique_ptr<FlightInfo> *info);
+  virtual Status GetFlightInfoCrossReference(const ServerCallContext& context,
+                                             const GetCrossReference& command,
+                                             const FlightDescriptor& descriptor,
+                                             std::unique_ptr<FlightInfo>* info);
 
   /// \brief Gets a FlightDataStream containing the data related to the foreign and
   ///        primary keys.
@@ -393,19 +393,18 @@ class ARROW_EXPORT FlightSqlServerBase : public FlightServerBase {
   ///                     to execute the request.
   /// \param[out] result  The FlightDataStream containing the results.
   /// \return             Status.
-  virtual Status
-  DoGetCrossReference(const ServerCallContext &context, const GetCrossReference &command,
-                      std::unique_ptr<FlightDataStream> *result);
+  virtual Status DoGetCrossReference(const ServerCallContext& context,
+                                     const GetCrossReference& command,
+                                     std::unique_ptr<FlightDataStream>* result);
 
   /// \brief Executes an update SQL statement.
   /// \param[in] context  The call context.
   /// \param[in] command  The StatementUpdate object containing the SQL statement.
   /// \param[in] reader   a sequence of uploaded record batches.
   /// \return             The changed record count.
-  virtual arrow::Result<int64_t>
-  DoPutCommandStatementUpdate(const ServerCallContext &context,
-                              const StatementUpdate &command,
-                              std::unique_ptr<FlightMessageReader> &reader);
+  virtual arrow::Result<int64_t> DoPutCommandStatementUpdate(
+      const ServerCallContext& context, const StatementUpdate& command,
+      std::unique_ptr<FlightMessageReader>& reader);
 
   /// \brief Create a prepared statement from given SQL statement.
   /// \param[in] context  The call context.
@@ -413,9 +412,9 @@ class ARROW_EXPORT FlightSqlServerBase : public FlightServerBase {
   ///                     SQL statement.
   /// \return             A ActionCreatePreparedStatementResult containing the dataset
   ///                     and parameter schemas and a handle for created statement.
-  virtual arrow::Result<ActionCreatePreparedStatementResult>
-  CreatePreparedStatement(const ServerCallContext &context,
-                          const ActionCreatePreparedStatementRequest &request);
+  virtual arrow::Result<ActionCreatePreparedStatementResult> CreatePreparedStatement(
+      const ServerCallContext& context,
+      const ActionCreatePreparedStatementRequest& request);
 
   /// \brief Closes a prepared statement.
   /// \param[in] context  The call context.
@@ -423,9 +422,9 @@ class ARROW_EXPORT FlightSqlServerBase : public FlightServerBase {
   ///                     prepared statement handle.
   /// \param[out] result  Empty ResultStream.
   virtual Status ClosePreparedStatement(
-    const ServerCallContext &context,
-    const ActionClosePreparedStatementRequest &request,
-    std::unique_ptr<ResultStream> *result);
+      const ServerCallContext& context,
+      const ActionClosePreparedStatementRequest& request,
+      std::unique_ptr<ResultStream>* result);
 
   /// \brief Binds parameters to given prepared statement.
   /// \param[in] context  The call context.
@@ -433,10 +432,10 @@ class ARROW_EXPORT FlightSqlServerBase : public FlightServerBase {
   ///                     prepared statement handle.
   /// \param[in] reader   A sequence of uploaded record batches.
   /// \param[in] writer   Send metadata back to the client.
-  virtual Status DoPutPreparedStatementQuery(const ServerCallContext &context,
-                                             const PreparedStatementQuery &command,
-                                             FlightMessageReader *reader,
-                                             FlightMetadataWriter *writer);
+  virtual Status DoPutPreparedStatementQuery(const ServerCallContext& context,
+                                             const PreparedStatementQuery& command,
+                                             FlightMessageReader* reader,
+                                             FlightMetadataWriter* writer);
 
   /// \brief Executes an update SQL prepared statement.
   /// \param[in] context  The call context.
@@ -444,10 +443,9 @@ class ARROW_EXPORT FlightSqlServerBase : public FlightServerBase {
   ///                     prepared statement handle.
   /// \param[in] reader   a sequence of uploaded record batches.
   /// \return             The changed record count.
-  virtual arrow::Result<int64_t>
-  DoPutPreparedStatementUpdate(const ServerCallContext &context,
-                               const PreparedStatementUpdate &command,
-                               FlightMessageReader *reader);
+  virtual arrow::Result<int64_t> DoPutPreparedStatementUpdate(
+      const ServerCallContext& context, const PreparedStatementUpdate& command,
+      FlightMessageReader* reader);
 
   /// \brief Registers a new SqlInfo result.
   /// \param[in] id the SqlInfo identifier.

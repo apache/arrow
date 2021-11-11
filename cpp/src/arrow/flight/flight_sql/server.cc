@@ -41,7 +41,7 @@ namespace sql {
 namespace pb = arrow::flight::protocol;
 
 arrow::Result<std::string> CreateStatementQueryTicket(
-  const std::string& statement_handle) {
+    const std::string& statement_handle) {
   protocol::sql::TicketStatementQuery ticket_statement_query;
   ticket_statement_query.set_statement_handle(statement_handle);
 
@@ -433,16 +433,14 @@ Status FlightSqlServerBase::DoAction(const ServerCallContext& context,
     if (result.parameter_schema != nullptr) {
       ARROW_ASSIGN_OR_RAISE(auto serialized_parameter_schema,
                             ipc::SerializeSchema(*result.parameter_schema))
-      action_result.set_parameter_schema(
-        serialized_parameter_schema->ToString());
+      action_result.set_parameter_schema(serialized_parameter_schema->ToString());
     }
 
     google::protobuf::Any any;
     any.PackFrom(action_result);
 
     auto buf = Buffer::FromString(any.SerializeAsString());
-    *result_stream = std::unique_ptr<ResultStream>(
-      new SimpleResultStream({Result{buf}}));
+    *result_stream = std::unique_ptr<ResultStream>(new SimpleResultStream({Result{buf}}));
 
     return Status::OK();
   } else if (action.type == FlightSqlServerBase::kClosePreparedStatementActionType.type) {
@@ -708,8 +706,7 @@ std::shared_ptr<Schema> SqlSchema::GetCatalogsSchema() {
 
 std::shared_ptr<Schema> SqlSchema::GetSchemasSchema() {
   return arrow::schema(
-      {field("catalog_name", utf8()),
-       field("schema_name", utf8(), false)});
+      {field("catalog_name", utf8()), field("schema_name", utf8(), false)});
 }
 
 std::shared_ptr<Schema> SqlSchema::GetTablesSchema() {
