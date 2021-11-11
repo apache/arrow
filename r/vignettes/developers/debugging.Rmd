@@ -32,9 +32,9 @@ Traceback:
 
 This output provides the R traceback; however, it doesn't provide any 
 information about the exact line of C++ code from which the segfault originated.
-For this, you will need to run R with the C++ debugger.
+For this, you will need to run R with the C++ debugger attached.
 
-### Running R code with the C++ debugger
+### Running R code with the C++ debugger attached
 
 As Arrow has C++ code at its core, debugging code can sometimes be tricky when 
 errors originate in the C++ rather than the R layer.  If you are adding new code
@@ -43,6 +43,9 @@ segfault.  If you are working in RStudio, the session is aborted, and you may
 not be able to retrieve the error messaging needed to diagnose and/or report 
 the bug.  One way around this is to find the code that causes the error, and 
 run R with a C++ debugger.
+
+If you are using macOS and have installed R using the Apple installer, you will 
+not be able to run R with a debugger attached; please see [the instructions here for details on causes of this and workarounds.](https://mac.r-project.org/bin/macosx/RMacOSX-FAQ.html#I-cannot-attach-debugger-to-R)
 
 Firstly, load R with your debugger.  The most common debuggers are `gdb` 
 (typically found on Linux, sometimes on macOS, or Windows via MinGW or Cygwin) 
