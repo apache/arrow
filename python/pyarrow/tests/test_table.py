@@ -1790,12 +1790,12 @@ def test_table_sort_by():
         pa.array(["b", "a", "b", "a", "c"]),
     ], names=["values", "keys"])
 
-    table.sort_by("values").to_pydict() == {
+    assert table.sort_by("values").to_pydict() == {
         "keys": ["a", "a", "b", "b", "c"],
         "values": [1, 2, 3, 4, 5]
     }
 
-    table.sort_by([("values", "descending")]).to_pydict() == {
+    assert table.sort_by([("values", "descending")]).to_pydict() == {
         "keys": ["c", "b", "b", "a", "a"],
         "values": [5, 4, 3, 2, 1]
     }
