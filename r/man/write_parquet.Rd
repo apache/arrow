@@ -27,7 +27,7 @@ write_parquet(
 \item{sink}{A string file path, URI, or \link{OutputStream}, or path in a file
 system (\code{SubTreeFileSystem})}
 
-\item{chunk_size}{chunk size in number of rows. If NULL, the total number of rows is used.}
+\item{chunk_size}{how many rows of data to write to disk at once. If NULL, the total number of rows is used.}
 
 \item{version}{parquet version, "1.0" or "2.0". Default "1.0". Numeric values
 are coerced to character.}
