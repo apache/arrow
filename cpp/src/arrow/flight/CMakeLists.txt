@@ -53,7 +53,7 @@ endif()
 # TODO(wesm): Protobuf shared vs static linking
 
 set(FLIGHT_PROTO_PATH "${ARROW_SOURCE_DIR}/../format")
-set(FLIGHT_PROTO ${ARROW_SOURCE_DIR}/../format/Flight.proto)
+set(FLIGHT_PROTO "${ARROW_SOURCE_DIR}/../format/Flight.proto")
 
 set(FLIGHT_GENERATED_PROTO_FILES
     "${CMAKE_CURRENT_BINARY_DIR}/Flight.pb.cc" "${CMAKE_CURRENT_BINARY_DIR}/Flight.pb.h"

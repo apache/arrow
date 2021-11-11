@@ -1,0 +1,106 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+add_custom_target(arrow_engine)
+
+arrow_install_all_headers("arrow/engine")
+
+set(ARROW_ENGINE_LINK_LIBS ${ARROW_PROTOBUF_LIBPROTOBUF})
+
+#if(WIN32)
+#  list(APPEND ARROW_ENGINE_LINK_LIBS ws2_32.lib)
+#endif()
+
+set(ARROW_ENGINE_SRCS
+    substrait_consumer.cc)
+
+set(SUBSTRAIT_DIR "${CMAKE_CURRENT_BINARY_DIR}/substrait")
+set(SUBSTRAIT_GEN_DIR "${ARROW_SOURCE_DIR}/src/generated/substrait")
+set(SUBSTRAIT_PROTOS expression
+                     extensions
+                     function
+                     parameterized_types
+                     plan
+                     relations
+                     selection
+                     type
+                     type_expressions)
+
+externalproject_add(substrait_ep
+                    GIT_REPOSITORY "https://github.com/substrait-io/substrait"
+                    GIT_TAG "9e84da55393a24953ed9f9869fa423f86f4860f7"
+                    SOURCE_DIR "${SUBSTRAIT_DIR}"
+                    CONFIGURE_COMMAND ""
+                    BUILD_COMMAND ""
+                    INSTALL_COMMAND "")
+
+set(SUBSTRAIT_PROTO_GEN_ALL)
+foreach(SUBSTRAIT_PROTO ${SUBSTRAIT_PROTOS})
+  set(SUBSTRAIT_PROTO_GEN "${SUBSTRAIT_GEN_DIR}/${SUBSTRAIT_PROTO}.pb.cc")
+
+  set_source_files_properties(${SUBSTRAIT_PROTO_GEN} PROPERTIES GENERATED TRUE)
+  add_custom_command(OUTPUT ${SUBSTRAIT_PROTO_GEN}
+                     COMMAND ${ARROW_PROTOBUF_PROTOC}
+                             "-I${SUBSTRAIT_DIR}/binary"
+                             "--cpp_out=${SUBSTRAIT_GEN_DIR}"
+                             "${SUBSTRAIT_PROTO}.proto"
+                     DEPENDS ${PROTO_DEPENDS} substrait_ep)
+
+  list(APPEND ARROW_ENGINE_SRCS ${SUBSTRAIT_PROTO_GEN})
+  list(APPEND SUBSTRAIT_PROTO_GEN_ALL ${SUBSTRAIT_PROTO_GEN})
+endforeach()
+
+add_custom_target(substrait_gen ALL DEPENDS ${SUBSTRAIT_PROTO_GEN_ALL})
+
+add_arrow_lib(arrow_engine
+              CMAKE_PACKAGE_NAME
+              ArrowEngine
+              PKG_CONFIG_NAME
+              arrow-engine
+              OUTPUTS
+              ARROW_ENGINE_LIBRARIES
+              SOURCES
+              ${ARROW_ENGINE_SRCS}
+              PRECOMPILED_HEADERS
+              "$<$<COMPILE_LANGUAGE:CXX>:arrow/engine/pch.h>"
+              SHARED_LINK_FLAGS
+              ${ARROW_VERSION_SCRIPT_FLAGS} # Defined in cpp/arrow/CMakeLists.txt
+              SHARED_LINK_LIBS
+              arrow_shared
+              ${ARROW_ENGINE_LINK_LIBS}
+              STATIC_LINK_LIBS
+              arrow_static
+              ${ARROW_ENGINE_LINK_LIBS})
+
+foreach(LIB_TARGET ${ARROW_ENGINE_LIBRARIES})
+  target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_ENGINE_EXPORTING)
+endforeach()
+
+set(ARROW_ENGINE_TEST_LINK_LIBS ${ARROW_ENGINE_LINK_lIBS} ${ARROW_TEST_LINK_LIBS})
+if(ARROW_TEST_LINKAGE STREQUAL "static")
+  list(APPEND ARROW_ENGINE_TEST_LINK_LIBS arrow_engine_static)
+else()
+  list(APPEND ARROW_ENGINE_TEST_LINK_LIBS arrow_engine_shared)
+endif()
+
+add_arrow_test(engine_test
+               EXTRA_LINK_LIBS
+               ${ARROW_ENGINE_TEST_LINK_LIBS}
+               PREFIX
+               "arrow-engine"
+               LABELS
+               "arrow_engine")

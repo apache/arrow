@@ -722,6 +722,10 @@ if(ARROW_COMPUTE)
   add_subdirectory(compute)
 endif()
 
+if(ARROW_ENGINE)
+  add_subdirectory(engine)
+endif()
+
 if(ARROW_CUDA)
   add_subdirectory(gpu)
 endif()

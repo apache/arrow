@@ -42,7 +42,7 @@ class CppConfiguration:
                  cc=None, cxx=None, cxx_flags=None,
                  build_type=None, warn_level=None,
                  cpp_package_prefix=None, install_prefix=None, use_conda=None,
-                 build_static=False, build_shared=True, build_unity=True,
+                 build_static=True, build_shared=True, build_unity=True,
                  # tests & examples
                  with_tests=None, with_benchmarks=None, with_examples=None,
                  with_integration=None,

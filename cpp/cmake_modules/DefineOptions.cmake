@@ -219,6 +219,8 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   define_option(ARROW_COMPUTE "Build the Arrow Compute Modules" OFF)
 
+  define_option(ARROW_ENGINE "Build the Arrow Query Engine Module" OFF)
+
   define_option(ARROW_CSV "Build the Arrow CSV Parser Module" OFF)
 
   define_option(ARROW_CUDA "Build the Arrow CUDA extensions (requires CUDA toolkit)" OFF)
