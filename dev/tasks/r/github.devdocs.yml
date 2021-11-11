@@ -65,7 +65,7 @@ jobs:
         run: |
           if [ $DEVDOCS_WINDOWS == "true" ]; then
             # This starts a special mingw64 Git Bash shell
-            $RTOOLS40_HOME/msys2_shell.cmd -here -mingw64 -no-start -defterm arrow/r/vignettes/script.sh
+            $RTOOLS40_HOME/msys2_shell.cmd -here -mingw64 -no-start -defterm -full-path arrow/r/vignettes/script.sh
           else 
             bash arrow/r/vignettes/script.sh
           fi
