@@ -123,10 +123,9 @@ struct ActionCreatePreparedStatementResult {
 /// \brief A free function responsible to create a ticket for the statement operation.
 ///        It is used by the server implementation.
 /// \param[in] statement_handle      The statement handle that will originate the ticket.
-/// \param[out] ticket_string        The parsed ticket as a string.
-/// \return Status
-Status CreateStatementQueryTicket(const std::string &statement_handle,
-                                         std::string *ticket_string);
+/// \return                          The parsed ticket as an string.
+arrow::Result<std::string> CreateStatementQueryTicket(
+  const std::string &statement_handle);
 
 class ARROW_EXPORT FlightSqlServerBase : public FlightServerBase {
  private:
