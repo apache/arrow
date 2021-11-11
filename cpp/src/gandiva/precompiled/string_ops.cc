@@ -2862,11 +2862,10 @@ int32_t instr_utf8(const char* string, int32_t string_len, const char* substring
     return 1;
   }
 
-  if (string_len < substring_len) {
-    return 0;
-  }
+  int32_t end_idx =
+      (string_len - substring_len) <= 0 ? string_len : string_len - substring_len;
 
-  for (int i = 0; i < string_len - substring_len; i++) {
+  for (int i = 0; i < end_idx; i++) {
     if (string[i] == substring[0] && memcmp(string + i, substring, substring_len) == 0) {
       return (i + 1);
     }

@@ -2383,5 +2383,21 @@ TEST(TestStringOps, TestInstr) {
 
   result = instr_utf8(s1.c_str(), s1_len, s2.c_str(), s2_len);
   EXPECT_EQ(result, 0);
+
+  s1 = "Hello";
+  s1_len = static_cast<int32_t>(s1.size());
+  s2 = "Hello";
+  s2_len = static_cast<int32_t>(s2.size());
+
+  result = instr_utf8(s1.c_str(), s1_len, s2.c_str(), s2_len);
+  EXPECT_EQ(result, 1);
+
+  s1 = "Hello";
+  s1_len = static_cast<int32_t>(s1.size());
+  s2 = "Hell";
+  s2_len = static_cast<int32_t>(s2.size());
+
+  result = instr_utf8(s1.c_str(), s1_len, s2.c_str(), s2_len);
+  EXPECT_EQ(result, 1);
 }
 }  // namespace gandiva
