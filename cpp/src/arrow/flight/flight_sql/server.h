@@ -166,7 +166,6 @@ class ARROW_EXPORT FlightSqlServerBase : public FlightServerBase {
   /// \brief Gets a FlightDataStream containing the query results.
   /// \param[in] command      The StatementQueryTicket containing the statement handle.
   /// \param[in] context      Per-call context.
-  /// \param[in] descriptor   The descriptor identifying the data stream.
   /// \param[out] result      The FlightDataStream containing the results.
   /// \return                 Status.
   virtual Status DoGetStatement(const StatementQueryTicket& command,
@@ -190,7 +189,6 @@ class ARROW_EXPORT FlightSqlServerBase : public FlightServerBase {
   /// \param[in] command      The PreparedStatementQuery object containing the
   ///                         prepared statement handle.
   /// \param[in] context      Per-call context.
-  /// \param[in] descriptor   The descriptor identifying the data stream.
   /// \param[out] result      The FlightDataStream containing the results.
   /// \return                 Status.
   virtual Status DoGetPreparedStatement(const PreparedStatementQuery& command,
