@@ -36,7 +36,8 @@ set_source_files_properties(${FLIGHT_SQL_GENERATED_PROTO_FILES} PROPERTIES GENER
 
 add_custom_target(flight_sql_protobuf_gen ALL DEPENDS ${FLIGHT_SQL_GENERATED_PROTO_FILES})
 
-set(ARROW_FLIGHT_SQL_SRCS server.cc sql_info_util.cc client.cc)
+set(ARROW_FLIGHT_SQL_SRCS server.cc sql_info_util.cc client.cc
+                          "${CMAKE_CURRENT_BINARY_DIR}/FlightSql.pb.cc")
 
 add_arrow_lib(arrow_flight_sql
               CMAKE_PACKAGE_NAME
@@ -58,7 +59,7 @@ add_arrow_lib(arrow_flight_sql
               STATIC_LINK_LIBS
               arrow_flight_static)
 
-if(ARROW_TEST_LINKAGE STREQUAL "static")
+if(ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
   set(ARROW_FLIGHT_SQL_TEST_LINK_LIBS
       arrow_flight_sql_static arrow_flight_testing_static
       ${ARROW_FLIGHT_STATIC_LINK_LIBS} ${ARROW_TEST_LINK_LIBS})
@@ -67,8 +68,7 @@ else()
                                       ${ARROW_TEST_LINK_LIBS})
 endif()
 
-add_executable(flight_sql_test_app test_app_cli.cc
-                                   ${CMAKE_CURRENT_BINARY_DIR}/FlightSql.pb.cc)
+add_executable(flight_sql_test_app test_app_cli.cc)
 target_link_libraries(flight_sql_test_app PRIVATE ${ARROW_FLIGHT_SQL_TEST_LINK_LIBS}
                                                   ${GFLAGS_LIBRARIES})
 
@@ -76,7 +76,6 @@ add_arrow_test(flight_sql_test
                SOURCES
                client_test.cc
                server_test.cc
-               "${CMAKE_CURRENT_BINARY_DIR}/FlightSql.pb.cc"
                STATIC_LINK_LIBS
                ${ARROW_FLIGHT_SQL_TEST_LINK_LIBS}
                LABELS
@@ -93,8 +92,7 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
                  example/sqlite_statement.cc
                  example/sqlite_statement_batch_reader.cc
                  example/sqlite_server.cc
-                 example/sqlite_tables_schema_batch_reader.cc
-                 "${CMAKE_CURRENT_BINARY_DIR}/FlightSql.pb.cc")
+                 example/sqlite_tables_schema_batch_reader.cc)
   target_link_libraries(flight_sql_test_server
                         PRIVATE ${ARROW_FLIGHT_SQL_TEST_LINK_LIBS} ${GFLAGS_LIBRARIES}
                                 ${SQLite3_LIBRARIES})
