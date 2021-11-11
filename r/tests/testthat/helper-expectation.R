@@ -330,5 +330,5 @@ warn_snap <- function(...) (expect_warning(...))
 err_remove_cpp_code <- function(x) {
     x <- gsub("(\\.*|/.*)", "", x)
     x <- x[x != ""]
-    x <- paste0(x, ">")
+    x
 }

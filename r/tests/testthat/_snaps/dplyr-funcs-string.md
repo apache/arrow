@@ -86,7 +86,7 @@
       (expect_error(df_utf8 %>% Table$create() %>% mutate(x = arrow_ascii_reverse(x)) %>%
         collect()))
     Output
-      <simpleError: Invalid: Non-ASCII sequence in input>
+      <simpleError: Invalid: Non-ASCII sequence in input
 
 # substr
 
