@@ -27,15 +27,22 @@ export ARROW_TEST_DATA=${arrow_dir}/testing/data
 pushd ${arrow_dir}/java
 
 # build the entire project
-mvn clean install \
-  -Parrow-c-data \
-  -Parrow-jni \
-  -Darrow.cpp.build.dir=$dist_dir \
-  -Darrow.c.jni.dist.dir=$dist_dir
+mvn clean \
+    install \
+    source:jar \
+    javadoc:jar \
+    -Parrow-c-data \
+    -Parrow-jni \
+    -Darrow.cpp.build.dir=$dist_dir \
+    -Darrow.c.jni.dist.dir=$dist_dir
 
-# copy all jars and pom files to the distribution folder
+# copy all jar, zip and pom files to the distribution folder
+find . \
+     "(" -name "*-javadoc.jar" -o -name "*-sources.jar" ")" \
+     -exec echo {} ";" \
+     -exec cp {} $dist_dir ";"
 find ~/.m2/repository/org/apache/arrow \
-     "(" -name "*.jar" -o -name "*.pom" ")" \
+     "(" -name "*.jar" -o -name "*.zip" -o -name "*.pom" ")" \
      -exec echo {} ";" \
      -exec cp {} $dist_dir ";"
 
