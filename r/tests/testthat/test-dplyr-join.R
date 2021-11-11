@@ -245,6 +245,22 @@ test_that("arrow dplyr query correctly filters then joins", {
       dos = 1:2,
       three = c(NA, FALSE)
     )
+})
+
+
+test_that("self join", {
+  out <- Table$create(left) %>%
+    left_join(Table$create(left[4:8]), by = "some_grouping") %>%
+    collect()
+
+  expect_equal(
+    out,
+    left %>%
+      left_join(left[4:8], by = "some_grouping") %>%
+      rename_with(.fn = function(x) {
+        x <- gsub("(.*)\\.x", "x.\\1", x)
+        x <- gsub("(.*)\\.y", "y.\\1", x)
+      })
   )
 })
 

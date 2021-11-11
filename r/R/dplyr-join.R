@@ -22,7 +22,7 @@ do_join <- function(x,
                     y,
                     by = NULL,
                     copy = FALSE,
-                    suffix = c(".x", ".y"),
+                    suffix = c("x.", "y."),
                     ...,
                     keep = FALSE,
                     na_matches,
@@ -38,7 +38,8 @@ do_join <- function(x,
   x$join <- list(
     type = JoinType[[join_type]],
     right_data = y,
-    by = by
+    by = by,
+    suffix = suffix
   )
   collapse.arrow_dplyr_query(x)
 }
@@ -47,7 +48,7 @@ left_join.arrow_dplyr_query <- function(x,
                                         y,
                                         by = NULL,
                                         copy = FALSE,
-                                        suffix = c(".x", ".y"),
+                                        suffix = c("x.", "y."),
                                         ...,
                                         keep = FALSE) {
   do_join(x, y, by, copy, suffix, ..., keep = keep, join_type = "LEFT_OUTER")
@@ -58,7 +59,7 @@ right_join.arrow_dplyr_query <- function(x,
                                          y,
                                          by = NULL,
                                          copy = FALSE,
-                                         suffix = c(".x", ".y"),
+                                         suffix = c("x.", "y."),
                                          ...,
                                          keep = FALSE) {
   do_join(x, y, by, copy, suffix, ..., keep = keep, join_type = "RIGHT_OUTER")
@@ -69,7 +70,7 @@ inner_join.arrow_dplyr_query <- function(x,
                                          y,
                                          by = NULL,
                                          copy = FALSE,
-                                         suffix = c(".x", ".y"),
+                                         suffix = c("x.", "y."),
                                          ...,
                                          keep = FALSE) {
   do_join(x, y, by, copy, suffix, ..., keep = keep, join_type = "INNER")
@@ -80,7 +81,7 @@ full_join.arrow_dplyr_query <- function(x,
                                         y,
                                         by = NULL,
                                         copy = FALSE,
-                                        suffix = c(".x", ".y"),
+                                        suffix = c("x.", "y."),
                                         ...,
                                         keep = FALSE) {
   do_join(x, y, by, copy, suffix, ..., keep = keep, join_type = "FULL_OUTER")
@@ -91,7 +92,7 @@ semi_join.arrow_dplyr_query <- function(x,
                                         y,
                                         by = NULL,
                                         copy = FALSE,
-                                        suffix = c(".x", ".y"),
+                                        suffix = c("x.", "y."),
                                         ...,
                                         keep = FALSE) {
   do_join(x, y, by, copy, suffix, ..., keep = keep, join_type = "LEFT_SEMI")
@@ -102,7 +103,7 @@ anti_join.arrow_dplyr_query <- function(x,
                                         y,
                                         by = NULL,
                                         copy = FALSE,
-                                        suffix = c(".x", ".y"),
+                                        suffix = c("x.", "y."),
                                         ...,
                                         keep = FALSE) {
   do_join(x, y, by, copy, suffix, ..., keep = keep, join_type = "LEFT_ANTI")
