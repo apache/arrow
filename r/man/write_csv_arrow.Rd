@@ -4,13 +4,41 @@
 \alias{write_csv_arrow}
 \title{Write CSV file to disk}
 \usage{
-write_csv_arrow(x, sink, include_header = TRUE, batch_size = 1024L)
+write_csv_arrow(
+  x,
+  sink,
+  na = NULL,
+  append = NULL,
+  quote = NULL,
+  escape = NULL,
+  eol = NULL,
+  num_threads = NULL,
+  progress = NULL,
+  include_header = TRUE,
+  batch_size = 1024L
+)
 }
 \arguments{
 \item{x}{\code{data.frame}, \link{RecordBatch}, or \link{Table}}
 
 \item{sink}{A string file path, URI, or \link{OutputStream}, or path in a file
 system (\code{SubTreeFileSystem})}
+
+\item{na}{not yet implemented. Will denote string used for missing values.}
+
+\item{append}{not yet implemented. Will be a \code{boolean} determining whether
+whether the CSV data will be appended to an existing CSV or not.}
+
+\item{quote}{not yet implemented. How to handle fields which need quoting.}
+
+\item{escape}{not yet implemented. The type of escape to use when quotes are
+in the data.}
+
+\item{eol}{not yet implemented. The end of line character to use.}
+
+\item{num_threads}{not yet implemented. Number of threads to use.}
+
+\item{progress}{not yet implemented. Show a progress bar.}
 
 \item{include_header}{Whether to write an initial header line with column names}
 
