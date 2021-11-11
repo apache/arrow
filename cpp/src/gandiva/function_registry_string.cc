@@ -123,10 +123,10 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      utf8(), kResultNullInternal, "elt_int32_utf8_utf8_utf8_utf8",
                      NativeFunction::kNeedsContext),
 
-      NativeFunction(
-          "elt", {}, DataTypeVector{int32(), utf8(), utf8(), utf8(), utf8(), utf8()},
-          utf8(), kResultNullInternal, "elt_int32_utf8_utf8_utf8_utf8_utf8",
-          NativeFunction::kNeedsContext),
+      NativeFunction("elt", {},
+                     DataTypeVector{int32(), utf8(), utf8(), utf8(), utf8(), utf8()},
+                     utf8(), kResultNullInternal, "elt_int32_utf8_utf8_utf8_utf8_utf8",
+                     NativeFunction::kNeedsContext),
 
       NativeFunction("castBIT", {"castBOOLEAN"}, DataTypeVector{utf8()}, boolean(),
                      kResultNullIfNull, "castBIT_utf8", NativeFunction::kNeedsContext),
