@@ -772,4 +772,10 @@ const char* elt_int32_utf8_utf8_utf8_utf8_utf8(
     int32_t word4_len, bool word4_validity, const char* word5, int32_t word5_len,
     bool word5_validity, bool* out_valid, int32_t* out_len);
 
+const char* mask_first_n_utf8_int32(int64_t context, const char* data, int32_t data_len,
+                                    int32_t n_to_mask, int32_t* out_len);
+
+const char* mask_last_n_utf8_int32(int64_t context, const char* data, int32_t data_len,
+                                   int32_t n_to_mask, int32_t* out_len);
+
 }  // extern "C"

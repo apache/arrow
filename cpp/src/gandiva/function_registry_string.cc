@@ -484,11 +484,11 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
       NativeFunction("mask_first_n", {}, DataTypeVector{utf8(), int32()}, utf8(),
-                     kResultNullIfNull, "gdv_fn_mask_first_n",
+                     kResultNullIfNull, "mask_first_n_utf8_int32",
                      NativeFunction::kNeedsContext),
 
       NativeFunction("mask_last_n", {}, DataTypeVector{utf8(), int32()}, utf8(),
-                     kResultNullIfNull, "gdv_fn_mask_last_n",
+                     kResultNullIfNull, "mask_last_n_utf8_int32",
                      NativeFunction::kNeedsContext)};
 
   return string_fn_registry_;

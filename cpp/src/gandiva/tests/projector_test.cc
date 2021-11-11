@@ -2227,8 +2227,8 @@ TEST_F(TestProjector, TestMaskFirstMaskLastN) {
                                    {true, true, true, true});
   auto array1 = MakeArrowArrayInt32({3, 6, 7, -2}, {true, true, true, true});
   // expected output
-  auto exp_mask_first_n = MakeArrowArrayUtf8({"xX-6", "XXxx-n23456", "X#-x$%n", "A#-c$%6"},
-                                             {true, true, true, true});
+  auto exp_mask_first_n = MakeArrowArrayUtf8(
+      {"xX-6", "XXxx-n23456", "X#-x$%n", "A#-c$%6"}, {true, true, true, true});
   auto exp_mask_last_n = MakeArrowArrayUtf8({"aX-n", "ABcd-nnnnnn", "X#-x$%n", "A#-c$%6"},
                                             {true, true, true, true});
 
