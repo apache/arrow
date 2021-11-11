@@ -210,7 +210,9 @@ template <typename Type, typename Enable = void>
 struct ReplaceWithMask {};
 
 template <typename Type>
-struct ReplaceWithMask<Type, enable_if_number<Type>> {
+struct ReplaceWithMask<Type,
+                       enable_if_t<is_number_type<Type>::value ||
+                                   std::is_same<Type, MonthDayNanoIntervalType>::value>> {
   using T = typename TypeTraits<Type>::CType;
 
   static void CopyData(const DataType&, uint8_t* out, const int64_t out_offset,

@@ -449,7 +449,7 @@ def test_filters_inclusive_set(tempdir, use_legacy_dataset):
     dataset = pq.ParquetDataset(
         base_path, filesystem=fs,
         filters=[('integer', 'in', [1]), ('string', 'in', ('a', 'b')),
-                 ('boolean', 'not in', {False})],
+                 ('boolean', 'not in', {'False'})],
         use_legacy_dataset=use_legacy_dataset
     )
     table = dataset.read()

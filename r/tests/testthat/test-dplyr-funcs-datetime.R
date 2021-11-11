@@ -122,6 +122,25 @@ test_that("extract month from timestamp", {
       collect(),
     test_df
   )
+
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
+
+  compare_dplyr_binding(
+    .input %>%
+      # R returns ordered factor whereas Arrow returns character
+      mutate(x = as.character(month(datetime, label = TRUE))) %>%
+      collect(),
+    test_df,
+    ignore_attr = TRUE
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = as.character(month(datetime, label = TRUE, abbr = TRUE))) %>%
+      collect(),
+    test_df,
+    ignore_attr = TRUE
+  )
 })
 
 test_that("extract isoweek from timestamp", {
@@ -285,6 +304,35 @@ test_that("extract epiweek from date", {
     test_df
   )
 })
+
+test_that("extract month from date", {
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = month(date)) %>%
+      collect(),
+    test_df
+  )
+
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
+
+  compare_dplyr_binding(
+    .input %>%
+      # R returns ordered factor whereas Arrow returns character
+      mutate(x = as.character(month(date, label = TRUE))) %>%
+      collect(),
+    test_df,
+    ignore_attr = TRUE
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = as.character(month(date, label = TRUE, abbr = TRUE))) %>%
+      collect(),
+    test_df,
+    ignore_attr = TRUE
+  )
+})
+
 
 test_that("extract day from date", {
   compare_dplyr_binding(

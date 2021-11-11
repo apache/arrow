@@ -3625,11 +3625,24 @@ struct StrptimeExec {
 
 Result<ValueDescr> ResolveStrptimeOutput(KernelContext* ctx,
                                          const std::vector<ValueDescr>&) {
-  if (ctx->state()) {
-    return ::arrow::timestamp(StrptimeState::Get(ctx).unit);
+  if (!ctx->state()) {
+    return Status::Invalid("strptime does not provide default StrptimeOptions");
   }
-
-  return Status::Invalid("strptime does not provide default StrptimeOptions");
+  const StrptimeOptions& options = StrptimeState::Get(ctx);
+  // Check for use of %z or %Z
+  size_t cur = 0;
+  std::string zone = "";
+  while (cur < options.format.size() - 1) {
+    if (options.format[cur] == '%') {
+      if (options.format[cur + 1] == 'z') {
+        zone = "UTC";
+        break;
+      }
+      cur++;
+    }
+    cur++;
+  }
+  return ::arrow::timestamp(options.unit, zone);
 }
 
 // ----------------------------------------------------------------------

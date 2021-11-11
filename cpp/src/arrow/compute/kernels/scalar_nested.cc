@@ -22,6 +22,7 @@
 #include "arrow/compute/kernels/common.h"
 #include "arrow/result.h"
 #include "arrow/util/bit_block_counter.h"
+#include "arrow/util/bitmap_generate.h"
 
 namespace arrow {
 namespace compute {
@@ -187,6 +188,152 @@ const FunctionDoc list_element_doc(
      "is emitted. Null values emit a null in the output."),
     {"lists", "index"});
 
+struct StructFieldFunctor {
+  static Status ExecArray(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    const auto& options = OptionsWrapper<StructFieldOptions>::Get(ctx);
+    std::shared_ptr<Array> current = batch[0].make_array();
+    for (const auto& index : options.indices) {
+      RETURN_NOT_OK(CheckIndex(index, *current->type()));
+      switch (current->type()->id()) {
+        case Type::STRUCT: {
+          const auto& struct_array = checked_cast<const StructArray&>(*current);
+          ARROW_ASSIGN_OR_RAISE(
+              current, struct_array.GetFlattenedField(index, ctx->memory_pool()));
+          break;
+        }
+        case Type::DENSE_UNION: {
+          // We implement this here instead of in DenseUnionArray since it's
+          // easiest to do via Take(), but DenseUnionArray can't rely on
+          // arrow::compute. See ARROW-8891.
+          const auto& union_array = checked_cast<const DenseUnionArray&>(*current);
+
+          // Generate a bitmap for the offsets buffer based on the type codes buffer.
+          ARROW_ASSIGN_OR_RAISE(
+              std::shared_ptr<Buffer> take_bitmap,
+              ctx->AllocateBitmap(union_array.length() + union_array.offset()));
+          const int8_t* type_codes = union_array.raw_type_codes();
+          const int8_t type_code = union_array.union_type()->type_codes()[index];
+          int64_t offset = 0;
+          arrow::internal::GenerateBitsUnrolled(
+              take_bitmap->mutable_data(), union_array.offset(), union_array.length(),
+              [&] { return type_codes[offset++] == type_code; });
+
+          // Pass the combined buffer to Take().
+          Datum take_indices(
+              ArrayData(int32(), union_array.length(),
+                        {std::move(take_bitmap), union_array.value_offsets()},
+                        kUnknownNullCount, union_array.offset()));
+          // Do not slice the child since the indices are relative to the unsliced array.
+          ARROW_ASSIGN_OR_RAISE(
+              Datum result,
+              CallFunction("take", {union_array.field(index), std::move(take_indices)}));
+          current = result.make_array();
+          break;
+        }
+        case Type::SPARSE_UNION: {
+          const auto& union_array = checked_cast<const SparseUnionArray&>(*current);
+          ARROW_ASSIGN_OR_RAISE(current,
+                                union_array.GetFlattenedField(index, ctx->memory_pool()));
+          break;
+        }
+        default:
+          // Should have been checked in ResolveStructFieldType
+          return Status::TypeError("struct_field: cannot reference child field of type ",
+                                   *current->type());
+      }
+    }
+    *out = current;
+    return Status::OK();
+  }
+
+  static Status ExecScalar(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    const auto& options = OptionsWrapper<StructFieldOptions>::Get(ctx);
+    const std::shared_ptr<Scalar>* current = &batch[0].scalar();
+    for (const auto& index : options.indices) {
+      RETURN_NOT_OK(CheckIndex(index, *(*current)->type));
+      if (!(*current)->is_valid) {
+        // out should already be a null scalar of the appropriate type
+        return Status::OK();
+      }
+
+      switch ((*current)->type->id()) {
+        case Type::STRUCT: {
+          current = &checked_cast<const StructScalar&>(**current).value[index];
+          break;
+        }
+        case Type::DENSE_UNION:
+        case Type::SPARSE_UNION: {
+          const auto& union_scalar = checked_cast<const UnionScalar&>(**current);
+          const auto& union_ty = checked_cast<const UnionType&>(*(*current)->type);
+          if (union_scalar.type_code != union_ty.type_codes()[index]) {
+            // out should already be a null scalar of the appropriate type
+            return Status::OK();
+          }
+          current = &union_scalar.value;
+          break;
+        }
+        default:
+          // Should have been checked in ResolveStructFieldType
+          return Status::TypeError("struct_field: cannot reference child field of type ",
+                                   *(*current)->type);
+      }
+    }
+    *out = *current;
+    return Status::OK();
+  }
+
+  static Status CheckIndex(int index, const DataType& type) {
+    if (!ValidParentType(type)) {
+      return Status::TypeError("struct_field: cannot subscript field of type ", type);
+    } else if (index < 0 || index > type.num_fields()) {
+      return Status::Invalid("struct_field: out-of-bounds field reference to field ",
+                             index, " in type ", type, " with ", type.num_fields(),
+                             " fields");
+    }
+    return Status::OK();
+  }
+
+  static bool ValidParentType(const DataType& type) {
+    return type.id() == Type::STRUCT || type.id() == Type::DENSE_UNION ||
+           type.id() == Type::SPARSE_UNION;
+  }
+};
+
+Result<ValueDescr> ResolveStructFieldType(KernelContext* ctx,
+                                          const std::vector<ValueDescr>& descrs) {
+  const auto& options = OptionsWrapper<StructFieldOptions>::Get(ctx);
+  const std::shared_ptr<DataType>* type = &descrs.front().type;
+  for (const auto& index : options.indices) {
+    RETURN_NOT_OK(StructFieldFunctor::CheckIndex(index, **type));
+    type = &(*type)->field(index)->type();
+  }
+  return ValueDescr(*type, descrs.front().shape);
+}
+
+void AddStructFieldKernels(ScalarFunction* func) {
+  for (const auto shape : {ValueDescr::ARRAY, ValueDescr::SCALAR}) {
+    for (const auto in_type : {Type::STRUCT, Type::DENSE_UNION, Type::SPARSE_UNION}) {
+      ScalarKernel kernel({InputType(in_type, shape)}, OutputType(ResolveStructFieldType),
+                          shape == ValueDescr::ARRAY ? StructFieldFunctor::ExecArray
+                                                     : StructFieldFunctor::ExecScalar,
+                          OptionsWrapper<StructFieldOptions>::Init);
+      kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
+      kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
+      DCHECK_OK(func->AddKernel(std::move(kernel)));
+    }
+  }
+}
+
+const FunctionDoc struct_field_doc(
+    "Extract children of a struct or union value by index.",
+    ("Given a series of indices (passed via StructFieldOptions), extract the "
+     "child array or scalar referenced by the index. For union values, mask "
+     "the child based on the type codes of the union array. The indices are "
+     "always the child index and not the type code (for unions) - so the "
+     "first child is always index 0. An empty set of indices returns the "
+     "argument unchanged."),
+    {"container"}, "StructFieldOptions");
+
 Result<ValueDescr> MakeStructResolve(KernelContext* ctx,
                                      const std::vector<ValueDescr>& descrs) {
   auto names = OptionsWrapper<MakeStructOptions>::Get(ctx).field_names;
@@ -297,6 +444,11 @@ void RegisterScalarNested(FunctionRegistry* registry) {
   AddListElementArrayKernels(list_element.get());
   AddListElementScalarKernels(list_element.get());
   DCHECK_OK(registry->AddFunction(std::move(list_element)));
+
+  auto struct_field =
+      std::make_shared<ScalarFunction>("struct_field", Arity::Unary(), &struct_field_doc);
+  AddStructFieldKernels(struct_field.get());
+  DCHECK_OK(registry->AddFunction(std::move(struct_field)));
 
   static MakeStructOptions kDefaultMakeStructOptions;
   auto make_struct_function = std::make_shared<ScalarFunction>(

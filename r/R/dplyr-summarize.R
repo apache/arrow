@@ -218,8 +218,16 @@ summarize_eval <- function(name, quosure, ctx, hash, recurse = FALSE) {
   } else if (all(inner_agg_exprs)) {
     # Something like: fun(agg(x), agg(y))
     # So based on the aggregations that have been extracted, mutate after
+    agg_field_refs <- make_field_refs(names(ctx$aggregations))
+    agg_field_types <- lapply(ctx$aggregations, function(x) x$data$type())
+
     mutate_mask <- arrow_mask(
-      list(selected_columns = make_field_refs(names(ctx$aggregations)))
+      list(
+        selected_columns = agg_field_refs,
+        .data = list(
+          schema = schema(!!! agg_field_types)
+        )
+      )
     )
     ctx$post_mutate[[name]] <- arrow_eval_or_stop(
       as_quosure(expr, ctx$quo_env),

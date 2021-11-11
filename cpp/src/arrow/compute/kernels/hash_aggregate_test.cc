@@ -286,7 +286,8 @@ TEST(Grouper, SupportedKeys) {
     ASSERT_OK(internal::Grouper::Make({timestamp(unit), duration(unit)}));
   }
 
-  ASSERT_OK(internal::Grouper::Make({day_time_interval(), month_interval()}));
+  ASSERT_OK(internal::Grouper::Make(
+      {day_time_interval(), month_interval(), month_day_nano_interval()}));
 
   ASSERT_RAISES(NotImplemented, internal::Grouper::Make({struct_({field("", int64())})}));
 
@@ -1721,6 +1722,113 @@ TEST(GroupBy, MinMaxDecimal) {
     [{"min": null, "max": null},       {"min": null, "max": null},       3],
     [{"min": "-5.25", "max": "-3.25"}, {"min": "-5.25", "max": "-3.25"}, 4],
     [{"min": "0.75", "max": "4.01"},   {"min": "0.75", "max": "4.01"},   null]
+  ])"),
+          aggregated_and_grouped,
+          /*verbose=*/true);
+    }
+  }
+}
+
+TEST(GroupBy, MinMaxBinary) {
+  for (bool use_exec_plan : {false, true}) {
+    for (bool use_threads : {true, false}) {
+      for (const auto& ty : BaseBinaryTypes()) {
+        SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
+
+        auto table = TableFromJSON(schema({
+                                       field("argument0", ty),
+                                       field("key", int64()),
+                                   }),
+                                   {R"([
+    ["aaaa", 1],
+    [null,   1]
+])",
+                                    R"([
+    ["bcd",  2],
+    [null,   3],
+    ["2",    null],
+    ["d",    1],
+    ["bc",   2]
+])",
+                                    R"([
+    ["babcd", 2],
+    ["123",   null],
+    [null,    3]
+])"});
+
+        ASSERT_OK_AND_ASSIGN(
+            Datum aggregated_and_grouped,
+            GroupByTest({table->GetColumnByName("argument0")},
+                        {table->GetColumnByName("key")}, {{"hash_min_max", nullptr}},
+                        use_threads, use_exec_plan));
+        ValidateOutput(aggregated_and_grouped);
+        SortBy({"key_0"}, &aggregated_and_grouped);
+
+        AssertDatumsEqual(
+            ArrayFromJSON(
+                struct_({
+                    field("hash_min_max", struct_({field("min", ty), field("max", ty)})),
+                    field("key_0", int64()),
+                }),
+                R"([
+    [{"min": "aaaa", "max": "d"},    1],
+    [{"min": "babcd", "max": "bcd"}, 2],
+    [{"min": null, "max": null},     3],
+    [{"min": "123", "max": "2"},     null]
+  ])"),
+            aggregated_and_grouped,
+            /*verbose=*/true);
+      }
+    }
+  }
+}
+
+TEST(GroupBy, MinMaxFixedSizeBinary) {
+  const auto ty = fixed_size_binary(3);
+  for (bool use_exec_plan : {false, true}) {
+    for (bool use_threads : {true, false}) {
+      SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
+
+      auto table = TableFromJSON(schema({
+                                     field("argument0", ty),
+                                     field("key", int64()),
+                                 }),
+                                 {R"([
+    ["aaa", 1],
+    [null,  1]
+])",
+                                  R"([
+    ["bac", 2],
+    [null,  3],
+    ["234", null],
+    ["ddd", 1],
+    ["bcd", 2]
+])",
+                                  R"([
+    ["bab", 2],
+    ["123", null],
+    [null,  3]
+])"});
+
+      ASSERT_OK_AND_ASSIGN(
+          Datum aggregated_and_grouped,
+          GroupByTest({table->GetColumnByName("argument0")},
+                      {table->GetColumnByName("key")}, {{"hash_min_max", nullptr}},
+                      use_threads, use_exec_plan));
+      ValidateOutput(aggregated_and_grouped);
+      SortBy({"key_0"}, &aggregated_and_grouped);
+
+      AssertDatumsEqual(
+          ArrayFromJSON(
+              struct_({
+                  field("hash_min_max", struct_({field("min", ty), field("max", ty)})),
+                  field("key_0", int64()),
+              }),
+              R"([
+    [{"min": "aaa", "max": "ddd"}, 1],
+    [{"min": "bab", "max": "bcd"}, 2],
+    [{"min": null, "max": null},   3],
+    [{"min": "123", "max": "234"}, null]
   ])"),
           aggregated_and_grouped,
           /*verbose=*/true);
