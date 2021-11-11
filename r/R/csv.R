@@ -635,8 +635,8 @@ write_csv_arrow <- function(x,
 
   passed_args <- as.list(match.call()[-1])
 
-  arrow_write_opts <- formalArgs(CsvWriteOptions$create)
-  write_args <- formalArgs(write_csv_arrow)
+  arrow_write_opts <- names(formals(CsvWriteOptions$create))
+  write_args <- names(formals(write_csv_arrow))
 
   unsupported_opts <- setdiff(
     write_args,
