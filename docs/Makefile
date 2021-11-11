@@ -253,4 +253,4 @@ dummy:
 python:
 	$(SPHINXBUILD) -b html $(SPHINXOPTS) -c $(SOURCEDIR) $(SOURCEDIR)/python $(BUILDDIR)/html/python
 	@echo
-	@echo "Build finished. The HTML files are in $(BUILLDIR)/html"
+	@echo "Build finished. The HTML files are in $(BUILLDIR)/html/python"
