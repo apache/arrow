@@ -251,6 +251,6 @@ dummy:
 
 .PHONY: python
 python:
-	$(SPHINXBUILD) -b html $(SPHINXOPTS) -c $(SOURCEDIR) $(SOURCEDIR)/python $(BUILDDIR)/html
+	$(SPHINXBUILD) -b html $(SPHINXOPTS) -c $(SOURCEDIR) $(SOURCEDIR)/python $(BUILDDIR)/html/python
 	@echo
 	@echo "Build finished. The HTML files are in $(BUILLDIR)/html"
