@@ -80,6 +80,14 @@
     Output
       <simpleError: Time zone argument not supported in Arrow>
 
+# stri_reverse and arrow_ascii_reverse functions
+
+    Code
+      (expect_error(df_utf8 %>% Table$create() %>% mutate(x = arrow_ascii_reverse(x)) %>%
+        collect()))
+    Output
+      <simpleError: Invalid: Non-ASCII sequence in input>
+
 # substr
 
     Code

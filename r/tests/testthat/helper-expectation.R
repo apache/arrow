@@ -324,3 +324,11 @@ split_vector_as_list <- function(vec) {
 err_snap <- function(...) (expect_error(...))
 
 warn_snap <- function(...) (expect_warning(...))
+
+# to use as the transform argument with expect_snapshot() to remove the C++
+# callback
+err_remove_cpp_code <- function(x) {
+    x <- gsub("(\\.*|/.*)", "", x)
+    x <- x[x != ""]
+    x <- paste0(x, ">")
+}

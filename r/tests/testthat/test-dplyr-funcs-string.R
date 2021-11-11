@@ -975,6 +975,15 @@ test_that("stri_reverse and arrow_ascii_reverse functions", {
     tibble(x = c("rab dna\nooF", "xuuq dna xuq dna\tzab"))
   )
 
+  # debugonce(expect_snapshot)
+  expect_snapshot(transform = err_remove_cpp_code, {
+      (expect_error(
+        df_utf8 %>%
+          Table$create() %>%
+          mutate(x = arrow_ascii_reverse(x)) %>%
+          collect()
+      ))
+    })
   expect_error(
     df_utf8 %>%
       Table$create() %>%
