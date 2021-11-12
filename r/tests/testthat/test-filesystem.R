@@ -173,7 +173,7 @@ test_that("S3FileSystem$create() with proxy_options", {
 
   expect_error(
     S3FileSystem$create(proxy_options = "definitely not a valid proxy URI"),
-    "fishing"
+    "Cannot parse URI"
   )
 })
 
