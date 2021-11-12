@@ -244,37 +244,37 @@ int getJanWeekOfYear(const EpochTimePoint& tp) {
 const char* WEEK[7] = {"SUNDAY",   "MONDAY", "TUESDAY", "WEDNESDAY",
                        "THURSDAY", "FRIDAY", "SATURDAY"};
 
-FORCE_INLINE
-gdv_date64 next_day(gdv_int64 context, gdv_date64 millis, const char* in,
-                    int32_t in_len) {
-  // Define date to search next based in entry
-  int dateSearch = 0;
-  // Compare entry with names of weekdays
-  for (int n = 0; n < 7; n++) {
-    // If entry exist in weekdays list, return day position
-    if (memcmp(WEEK[n], in, in_len) == 0) {
-      dateSearch = n + 1;
-    }
-  }
-  // If entry don't exist in weekdays list, set error and return 0
-  if (dateSearch == 0) {
-    gdv_fn_context_set_error_msg(context, "This entry not is one weekday valid");
-    return 0;
+#define NEXT_DAY_FUNC(TYPE)                                                             \
+  FORCE_INLINE                                                                          \
+  gdv_date64 next_day_from_##TYPE(gdv_int64 context, gdv_date64 millis, const char* in, \
+                                  int32_t in_len) {                                     \
+    EpochTimePoint tp(millis);                                                          \
+    const auto& day_without_hours_and_sec = tp.ClearTimeOfDay();                        \
+    const auto& presentDate = extractDow_timestamp(tp.MillisSinceEpoch());              \
+                                                                                        \
+    int dateSearch = 0;                                                                 \
+    for (int n = 0; n < 7; n++) {                                                       \
+      if (memcmp(WEEK[n], in, in_len) == 0) {                                           \
+        dateSearch = n + 1;                                                             \
+      }                                                                                 \
+    }                                                                                   \
+    if (dateSearch == 0) {                                                              \
+      gdv_fn_context_set_error_msg(context, "This entry not is one weekday valid");     \
+      return 0;                                                                         \
+    }                                                                                   \
+                                                                                        \
+    int32_t distanceDay = dateSearch - presentDate;                                     \
+    if (distanceDay <= 0) {                                                             \
+      distanceDay = 7 + distanceDay;                                                    \
+    }                                                                                   \
+                                                                                        \
+    gdv_date64 next_date = date_add_int64_timestamp(                                    \
+        distanceDay, day_without_hours_and_sec.MillisSinceEpoch());                     \
+                                                                                        \
+    return next_date;                                                                   \
   }
 
-  // Define weekday present using extract dow function.
-  int presentDate = extractDow_timestamp(millis);
-
-  int32_t distanceDay = dateSearch - presentDate;
-  if (distanceDay <= 0) {
-    distanceDay = 7 - distanceDay;
-  }
-
-  // NextDate is a sum of presentDate + distanceDay
-  gdv_date64 nextDate =
-      date_add_int64_timestamp(distanceDay, date_trunc_Day_date64(millis));
-  return nextDate;
-}
+DATE_TYPES(NEXT_DAY_FUNC)
 
 // Dec 29-31
 int getDecWeekOfYear(const EpochTimePoint& tp) {
