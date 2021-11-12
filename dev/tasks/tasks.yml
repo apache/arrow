@@ -728,7 +728,7 @@ tasks:
       - arrow-gandiva-{no_rc_version}-tests.jar
       - arrow-gandiva-{no_rc_version}.jar
       - arrow-gandiva-{no_rc_version}.pom
-      # - arrow-java-root-{no_rc_version}-source-release.zip
+      - arrow-java-root-{no_rc_version}-source-release.zip
       - arrow-java-root-{no_rc_version}.pom
       - arrow-jdbc-{no_rc_version}-javadoc.jar
       - arrow-jdbc-{no_rc_version}-sources.jar

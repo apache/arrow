@@ -26,15 +26,28 @@ export ARROW_TEST_DATA=${arrow_dir}/testing/data
 
 pushd ${arrow_dir}/java
 
+# generate dummy GPG key for -Papache-release.
+# -Papache-release generates signs (*.asc) of artifacts.
+# We don't use these signs in our release process.
+(echo "Key-Type: RSA"; \
+ echo "Key-Length: 4096"; \
+ echo "Name-Real: Build"; \
+ echo "Name-Email: build@example.com"; \
+ echo "%no-protection") | \
+  gpg --full-generate-key --batch
+
 # build the entire project
 mvn clean \
     install \
+    assembly:single \
     source:jar \
     javadoc:jar \
+    -Papache-release \
     -Parrow-c-data \
     -Parrow-jni \
     -Darrow.cpp.build.dir=$dist_dir \
-    -Darrow.c.jni.dist.dir=$dist_dir
+    -Darrow.c.jni.dist.dir=$dist_dir \
+    -DdescriptorId=source-release
 
 # copy all jar, zip and pom files to the distribution folder
 find . \
