@@ -652,13 +652,21 @@ test_that("structs/nested data frames/tibbles can be created", {
   )
 
   # check that data.frame is mapped too
+  # stringsAsFactors default is TRUE in R 3.6, which is still tested on CI
   compare_dplyr_binding(
     .input %>%
       transmute(
-        df_col = data.frame(regular_col1, regular_col2)
+        df_col = data.frame(regular_col1, regular_col2, stringsAsFactors = FALSE)
       ) %>%
       collect() %>%
       mutate(df_col = as.data.frame(df_col)),
     df
+  )
+
+  # ...and that stringsAsFactors = TRUE is not supported
+  expect_warning(
+    RecordBatch$create(char_col = "a") %>%
+      mutate(df_col = data.frame(char_col, stringsAsFactors = TRUE)),
+    "stringsAsFactors = TRUE not supported in Arrow"
   )
 })

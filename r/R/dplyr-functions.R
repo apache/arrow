@@ -251,7 +251,7 @@ nse_funcs$is_logical <- function(x, n = NULL) {
 }
 
 # Create a data frame/tibble/struct column
-nse_funcs$data.frame <- nse_funcs$tibble <- function(...) {
+nse_funcs$tibble <- function(...) {
   # use dots_list() because this is what tibble() uses to allow the
   # useful shorthand of tibble(col1, col2) -> tibble(col1 = col1, col2 = col2_)
   args <- rlang::dots_list(..., .named = TRUE)
@@ -261,6 +261,14 @@ nse_funcs$data.frame <- nse_funcs$tibble <- function(...) {
     args = unname(args),
     options = list(field_names = names(args))
   )
+}
+
+nse_funcs$data.frame <- function(..., stringsAsFactors = FALSE) {
+  if (!identical(stringsAsFactors, FALSE)) {
+    arrow_not_supported("stringsAsFactors = TRUE")
+  }
+
+  nse_funcs$tibble(...)
 }
 
 # String functions
