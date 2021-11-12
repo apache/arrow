@@ -36,6 +36,7 @@ namespace gandiva {
 using arrow::boolean;
 using arrow::float32;
 using arrow::int32;
+using arrow::int64;
 
 class TestProjector : public ::testing::Test {
  public:
@@ -889,7 +890,7 @@ TEST_F(TestProjector, TestQuote) {
 
 TEST_F(TestProjector, TestChr) {
   // schema for input fields
-  auto field0 = field("f0", int32());
+  auto field0 = field("f0", int64());
   auto schema = arrow::schema({field0});
 
   // output fields
@@ -903,10 +904,12 @@ TEST_F(TestProjector, TestChr) {
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Create a row-batch with some sample data
-  int num_records = 4;
-  auto array0 = MakeArrowArrayInt32({65, 84, 0, 340}, {true, true, true, true});
+  int num_records = 5;
+  auto array0 =
+      MakeArrowArrayInt64({65, 84, 255, 340, -5}, {true, true, true, true, true});
   // expected output
-  auto exp_chr = MakeArrowArrayUtf8({"A", "T", "", "T"}, {true, true, true, true});
+  auto exp_chr =
+      MakeArrowArrayUtf8({"A", "T", "\xFF", "T", ""}, {true, true, true, true, true});
 
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
