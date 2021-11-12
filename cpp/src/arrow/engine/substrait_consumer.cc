@@ -17,26 +17,38 @@
 
 #include "arrow/engine/substrait_consumer.h"
 
+#include "arrow/engine/protocol_internal.h"
 #include "arrow/util/string_view.h"
-#include "google/protobuf/io/zero_copy_stream_impl_lite.h"
-
-#include "generated/substrait/plan.pb.h"
-
-namespace st = io::substrait;
 
 namespace arrow {
 namespace engine {
 
-Result<std::vector<compute::Declaration>> ConvertPlan(const Buffer& buf) {
-  st::Plan plan;
+Result<compute::Declaration> Convert(const st::Rel& relation) {
+  return Status::NotImplemented("");
+}
 
-  google::protobuf::io::ArrayInputStream istream{buf.data(),
-                                                 static_cast<int>(buf.size())};
-  if (!plan.ParseFromZeroCopyStream(&istream)) {
-    return Status::Invalid("Not a valid plan");
+Result<std::vector<compute::Declaration>> ConvertPlan(const Buffer& buf) {
+  ARROW_ASSIGN_OR_RAISE(auto plan, ParseFromBuffer<st::Plan>(buf));
+
+  std::vector<compute::Declaration> decls;
+  for (const auto& relation : plan.relations()) {
+    ARROW_ASSIGN_OR_RAISE(auto decl, Convert(relation));
+    decls.push_back(std::move(decl));
   }
 
-  return Status::NotImplemented("");
+  return decls;
+}
+
+Result<std::shared_ptr<DataType>> DeserializeType(const Buffer& buf) {
+  ARROW_ASSIGN_OR_RAISE(auto type, ParseFromBuffer<st::Type>(buf));
+  ARROW_ASSIGN_OR_RAISE(auto type_nullable, FromProto(type));
+  return std::move(type_nullable.first);
+}
+
+Result<std::shared_ptr<Buffer>> SerializeType(const DataType& type) {
+  ARROW_ASSIGN_OR_RAISE(auto st_type, ToProto(type));
+  std::string serialized = st_type->SerializeAsString();
+  return Buffer::FromString(std::move(serialized));
 }
 
 }  // namespace engine

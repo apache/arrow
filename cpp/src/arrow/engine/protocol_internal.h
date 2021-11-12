@@ -19,34 +19,47 @@
 
 #pragma once
 
-#include <vector>
+#include <string>
+#include <utility>
 
 #include "arrow/buffer.h"
-#include "arrow/compute/exec/exec_plan.h"
 #include "arrow/engine/visibility.h"
 #include "arrow/result.h"
+#include "arrow/status.h"
+#include "arrow/type_fwd.h"
+
+#include "generated/substrait/plan.pb.h"  // IWYU pragma: export
+
+namespace st = io::substrait;
+
+namespace google {
+namespace protobuf {
+
+class Message;
+
+}  // namespace protobuf
+}  // namespace google
 
 namespace arrow {
 namespace engine {
 
 ARROW_ENGINE_EXPORT
-Result<std::vector<compute::Declaration>> ConvertPlan(const Buffer&);
+Status ParseFromBufferImpl(const Buffer& buf, const std::string& full_name,
+                           google::protobuf::Message* message);
+
+template <typename Message>
+Result<Message> ParseFromBuffer(const Buffer& buf) {
+  Message message;
+  ARROW_RETURN_NOT_OK(
+      ParseFromBufferImpl(buf, Message::descriptor()->full_name(), &message));
+  return message;
+}
 
 ARROW_ENGINE_EXPORT
-Result<std::shared_ptr<DataType>> DeserializeType(const Buffer&);
+Result<std::pair<std::shared_ptr<DataType>, bool>> FromProto(const st::Type&);
 
 ARROW_ENGINE_EXPORT
-Result<std::shared_ptr<Buffer>> SerializeType(const DataType&);
-
-// TODO(bkietz)
-ARROW_ENGINE_EXPORT
-std::shared_ptr<DataType> uuid();
-
-ARROW_ENGINE_EXPORT
-std::shared_ptr<DataType> fixed_char();
-
-ARROW_ENGINE_EXPORT
-std::shared_ptr<DataType> varchar();
+Result<std::unique_ptr<st::Type>> ToProto(const DataType&, bool nullable = true);
 
 }  // namespace engine
 }  // namespace arrow

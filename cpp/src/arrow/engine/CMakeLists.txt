@@ -26,7 +26,8 @@ set(ARROW_ENGINE_LINK_LIBS ${ARROW_PROTOBUF_LIBPROTOBUF})
 #endif()
 
 set(ARROW_ENGINE_SRCS
-    substrait_consumer.cc)
+    substrait_consumer.cc
+    protocol_internal.cc)
 
 set(SUBSTRAIT_DIR "${CMAKE_CURRENT_BINARY_DIR}/substrait")
 set(SUBSTRAIT_GEN_DIR "${ARROW_SOURCE_DIR}/src/generated/substrait")

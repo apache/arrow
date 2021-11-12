@@ -14,3 +14,36 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
+
+#include "arrow/engine/substrait_consumer.h"
+
+#include <gtest/gtest.h>
+
+#include "arrow/testing/gtest_util.h"
+
+namespace arrow {
+namespace engine {
+
+TEST(SubstraitConsumption, BasicTypeRoundTrip) {
+  for (auto type : {
+           boolean(),
+           int8(),
+           int16(),
+           int32(),
+           int64(),
+           float32(),
+           float64(),
+           struct_({
+               field("", int64()),
+               field("", list(utf8())),
+           }),
+       }) {
+    ASSERT_OK_AND_ASSIGN(auto serialized, SerializeType(*type));
+    ASSERT_OK_AND_ASSIGN(auto roundtripped, DeserializeType(*serialized));
+    ASSERT_EQ(*roundtripped, *type);
+  }
+}
+
+}  // namespace engine
+}  // namespace arrow
+
