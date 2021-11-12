@@ -120,20 +120,28 @@ TEST(TestArithmeticOps, TestDiv) {
 TEST(TestArithmeticOps, TestGreatestLeast) {
   // Comparable functions - Greatest and Least
   EXPECT_EQ(greatest_int32_int32(1, 2), 2);
+  EXPECT_EQ(greatest_int32_int32(1, INT32_MAX), INT32_MAX);
   EXPECT_EQ(greatest_int32_int32(2, 1), 2);
   EXPECT_EQ(greatest_int64_int64(1, 2), 2);
+  EXPECT_EQ(greatest_int64_int64(1, INT64_MAX), INT64_MAX);
   EXPECT_EQ(greatest_int64_int64(2, 1), 2);
   EXPECT_EQ(greatest_float32_float32(1.0f, 2.0f), 2.0f);
+  EXPECT_EQ(greatest_float32_float32(1.0f, FLT_MAX), FLT_MAX);
   EXPECT_EQ(greatest_float32_float32(2.0f, 1.0f), 2.0f);
   EXPECT_EQ(greatest_float64_float64(1.0, 2.0), 2.0);
+  EXPECT_EQ(greatest_float64_float64(1.0, DBL_MAX), DBL_MAX);
   EXPECT_EQ(greatest_float64_float64(2.0, 1.0), 2.0);
   EXPECT_EQ(least_int32_int32(1, 2), 1);
+  EXPECT_EQ(least_int32_int32(INT32_MIN, 2), INT32_MIN);
   EXPECT_EQ(least_int32_int32(2, 1), 1);
   EXPECT_EQ(least_int64_int64(1, 2), 1);
+  EXPECT_EQ(least_int64_int64(INT64_MIN, 2), INT64_MIN);
   EXPECT_EQ(least_int64_int64(2, 1), 1);
   EXPECT_EQ(least_float32_float32(1.0f, 2.0f), 1.0f);
+  EXPECT_EQ(least_float32_float32(FLT_MIN, 2.0f), FLT_MIN);
   EXPECT_EQ(least_float32_float32(2.0f, 1.0f), 1.0f);
   EXPECT_EQ(least_float64_float64(1.0, 2.0), 1.0);
+  EXPECT_EQ(least_float64_float64(DBL_MIN, 2.0), DBL_MIN);
   EXPECT_EQ(least_float64_float64(2.0, 1.0), 1.0);
 
   EXPECT_EQ(greatest_int32_int32_int32(1, 2, 3), 3);
