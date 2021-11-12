@@ -207,13 +207,14 @@ write_parquet <- function(x,
       num_chunks <- 1
     } else {
       # no more than the default 250 million cells (rows * cols) per group
-      num_chunks <- num_cells / target_cells_per_group
+      # and we use floor, then ceiling to ensure that these are whole numbers
+      num_chunks <- floor(num_cells / target_cells_per_group)
     }
 
     # but there are no more than 200 chunks
     num_chunks <- min(num_chunks, getOption("arrow.parquet_max_chunks", 200))
 
-    chunk_size <- x$num_rows / num_chunks
+    chunk_size <- ceiling(x$num_rows / num_chunks)
   }
 
   writer$WriteTable(x, chunk_size = chunk_size)
