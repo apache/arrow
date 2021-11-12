@@ -688,6 +688,7 @@ static inline bool ParseTimestampISO8601(const char* s, size_t length,
     if (ARROW_PREDICT_FALSE(!detail::ParseHH(s + length + 1, &zone_offset))) {
       return false;
     }
+    if (s[length] == '+') zone_offset *= -1;
     if (out_zone_offset_present) *out_zone_offset_present = true;
   } else if (s[length - 5] == '+' || s[length - 5] == '-') {
     // [+-]HHMM
@@ -695,6 +696,7 @@ static inline bool ParseTimestampISO8601(const char* s, size_t length,
     if (ARROW_PREDICT_FALSE(!detail::ParseHHMM(s + length + 1, &zone_offset))) {
       return false;
     }
+    if (s[length] == '+') zone_offset *= -1;
     if (out_zone_offset_present) *out_zone_offset_present = true;
   } else if ((s[length - 6] == '+' || s[length - 6] == '-') && (s[length - 3] == ':')) {
     // [+-]HH:MM
@@ -702,10 +704,8 @@ static inline bool ParseTimestampISO8601(const char* s, size_t length,
     if (ARROW_PREDICT_FALSE(!detail::ParseHH_MM(s + length + 1, &zone_offset))) {
       return false;
     }
+    if (s[length] == '+') zone_offset *= -1;
     if (out_zone_offset_present) *out_zone_offset_present = true;
-  }
-  if (s[length] == '+') {
-    zone_offset *= -1;
   }
 
   seconds_type seconds_since_midnight;
