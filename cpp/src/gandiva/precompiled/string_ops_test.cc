@@ -2138,7 +2138,16 @@ TEST(TestStringOps, TestSoundex) {
   out = soundex_utf8(ctx_ptr, "Miller", 6, &out_len);
   EXPECT_EQ(std::string(out, out_len), "M460");
 
+  out = soundex_utf8(ctx_ptr, "3Miller", 7, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "M460");
+
+  out = soundex_utf8(ctx_ptr, "Mill3r", 6, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "M460");
+
   out = soundex_utf8(ctx_ptr, "abc", 3, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "A120");
+
+  out = soundex_utf8(ctx_ptr, "123abc", 6, &out_len);
   EXPECT_EQ(std::string(out, out_len), "A120");
 
   out = soundex_utf8(ctx_ptr, "test", 4, &out_len);
@@ -2146,6 +2155,19 @@ TEST(TestStringOps, TestSoundex) {
 
   out = soundex_utf8(ctx_ptr, "", 0, &out_len);
   EXPECT_EQ(std::string(out, out_len), "");
+
+  out = soundex_utf8(ctx_ptr, "Elvis", 5, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "E412");
+
+  out = soundex_utf8(ctx_ptr, "waterloo", 8, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "W364");
+
+  out = soundex_utf8(ctx_ptr, "eowolf", 6, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "E410");
+
+  out = soundex_utf8(ctx_ptr, "Smith", 5, &out_len);
+  auto out2 = soundex_utf8(ctx_ptr, "Smythe", 6, &out_len);
+  EXPECT_EQ(std::string(out, out_len), std::string(out2, out_len));
 }
 
 }  // namespace gandiva

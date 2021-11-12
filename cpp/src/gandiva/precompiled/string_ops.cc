@@ -2621,6 +2621,11 @@ const char* from_hex_utf8(int64_t context, const char* text, int32_t text_len,
 // Array that maps each letter from the alphabet to its corresponding number for the soundex algorithm.
 // ABCDEFGHIJKLMNOPQRSTUVWXYZ -> 01230120022455012623010202
 static char mappings[] = {'0','1','2','3','0','1','2','0','0','2','2','4','5','5','0','1','2','6','2','3','0','1','0','2','0','2'};
+// Array that maps each letter from the alphabet to its corresponding number for the
+// soundex algorithm. ABCDEFGHIJKLMNOPQRSTUVWXYZ -> 01230120022455012623010202
+static char mappings[] = {'0', '1', '2', '3', '0', '1', '2', '0', '0',
+                          '2', '2', '4', '5', '5', '0', '1', '2', '6',
+                          '2', '3', '0', '1', '0', '2', '0', '2'};
 
 // Returns the soundex code for a given string
 //
@@ -2629,7 +2634,8 @@ static char mappings[] = {'0','1','2','3','0','1','2','0','0','2','2','4','5','5
 // ignored. If expression evaluates to the null value, null is returned.
 //
 // The soundex algorith works with the following steps:
-//    1. Retain the first letter of the string and drop all other occurrences of a, e, i, o, u, y, h, w.
+//    1. Retain the first letter of the string and drop all other occurrences of a, e, i,
+//    o, u, y, h, w.
 //    2. Replace consonants with digits as follows (after the first letter):
 //        b, f, p, v → 1
 //        c, g, j, k, q, s, x, z → 2
@@ -2641,12 +2647,12 @@ static char mappings[] = {'0','1','2','3','0','1','2','0','0','2','2','4','5','5
 //    (before step 1), only retain the first letter; also two letters with the same number
 //    separated by 'h' or 'w' are coded as a single number, whereas such letters separated
 //    by a vowel are coded twice. This rule also applies to the first letter.
-//    4. If the string have too few letters in the word that you can't assign three numbers,
-//    append with zeros until there are three numbers. If you have four or more numbers,
-//    retain only the first three.
+//    4. If the string have too few letters in the word that you can't assign three
+//    numbers, append with zeros until there are three numbers. If you have four or more
+//    numbers, retain only the first three.
 FORCE_INLINE
 const char* soundex_utf8(gdv_int64 ctx, const char* in, gdv_int32 in_len,
-                                int32_t* out_len) {
+                         int32_t* out_len) {
   if (in_len <= 0) {
     *out_len = 0;
     return "";
@@ -2662,24 +2668,32 @@ const char* soundex_utf8(gdv_int64 ctx, const char* in, gdv_int32 in_len,
 
   int si = 1;
   unsigned char c;
-  ret[0] = toupper(in[0]);
-  for(int i = 1, l = in_len; i < l; i++) {
-    c = toupper(in[i]) - 65;
 
-    if(c >= 0 && c <= 25) {
-      if(mappings[c] != '0') {
-        if(mappings[c] != ret[si-1]) {
+  int start_idx = 0;
+  for (int i = 0; i < in_len; ++i) {
+    if (isalpha(in[i]) > 0) {
+      ret[0] = toupper(in[i]);
+      start_idx = i + 1;
+      break;
+    }
+  }
+
+  for (int i = start_idx, l = in_len; i < l; i++) {
+    if (isalpha(in[i]) > 0) {
+      c = toupper(in[i]) - 65;
+      if (mappings[c] != '0') {
+        if (mappings[c] != ret[si - 1]) {
           ret[si] = mappings[c];
           si++;
         }
 
-        if(si > 3) break;
+        if (si > 3) break;
       }
     }
   }
 
-  if(si <= 3) {
-    while(si <= 3) {
+  if (si <= 3) {
+    while (si <= 3) {
       ret[si] = '0';
       si++;
     }
