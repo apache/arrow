@@ -67,6 +67,7 @@ test_that("Division", {
   expect_equal(a %/% 0, Array$create(c(Inf, Inf, Inf, Inf, NA_real_)))
   expect_equal(a %/% 2, Array$create(c(0, 1, 1, 2, NA_real_)))
   expect_equal(a %/% 2L, Array$create(c(0L, 1L, 1L, 2L, NA_integer_)))
+  expect_equal(a %/% 0L, Array$create(rep(NA_integer_, 5)))
   expect_equal(a / 2 / 2, Array$create(c(1:4 / 2 / 2, NA_real_)))
   expect_equal(a %/% 2L %/% 2L, Array$create(c(0L, 0L, 0L, 1L, NA_integer_)))
   expect_equal(a / 0, Array$create(c(Inf, Inf, Inf, Inf, NA_real_)))

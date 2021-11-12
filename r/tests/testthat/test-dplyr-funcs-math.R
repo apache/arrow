@@ -319,10 +319,7 @@ test_that("floor division maintains type consistency with R",  {
       transmute(
         int_div_dbl = integers %/% 2,
         int_div_int = integers %/% 2L,
-
-        # This one would cause a failure because in Arrow, cast(Inf, intXX())
-        # gives the max int value and in R it gives null
-        # int_div_zero_int = integers %/% 0L,
+        int_div_zero_int = integers %/% 0L,
         int_div_zero_dbl = integers %/% 0,
 
         dbl_div_dbl = doubles %/% 2,

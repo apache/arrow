@@ -224,7 +224,13 @@ build_expr <- function(FUN,
       denominator_is_int <- args[[2]]$type_id() %in% int_type_ids
 
       if (numerator_is_int && denominator_is_int) {
-        return(out$cast(args[[1]]$type(), allow_float_truncate = TRUE))
+        out_float <- build_expr(
+          "if_else",
+          build_expr("equal", args[[2]], 0L),
+          Scalar$create(NA_integer_),
+          out
+        )
+        return(out_float$cast(args[[1]]$type(), allow_float_truncate = TRUE))
       } else {
         return(build_expr("floor", out))
       }

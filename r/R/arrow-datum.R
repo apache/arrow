@@ -110,7 +110,13 @@ eval_array_expression <- function(FUN,
     denominator_is_int <- args[[2]]$type_id() %in% int_type_ids
 
     if (numerator_is_int && denominator_is_int) {
-      return(out$cast(args[[1]]$type, allow_float_truncate = TRUE))
+      out_float <- eval_array_expression(
+        "if_else",
+        eval_array_expression("equal", args[[2]], 0L),
+        Scalar$create(NA_integer_),
+        out
+      )
+      return(out_float$cast(args[[1]]$type, allow_float_truncate = TRUE))
     } else {
       return(eval_array_expression("floor", out))
     }
