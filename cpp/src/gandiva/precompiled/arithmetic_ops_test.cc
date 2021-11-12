@@ -126,6 +126,7 @@ TEST(TestArithmeticOps, TestGreatestLeast) {
   EXPECT_EQ(greatest_int64_int64(1, INT64_MAX), INT64_MAX);
   EXPECT_EQ(greatest_int64_int64(2, 1), 2);
   EXPECT_EQ(greatest_float32_float32(1.0f, 2.0f), 2.0f);
+  EXPECT_EQ(greatest_float32_float32(1.0f, INFINITY), INFINITY);
   EXPECT_EQ(greatest_float32_float32(1.0f, FLT_MAX), FLT_MAX);
   EXPECT_EQ(greatest_float32_float32(2.0f, 1.0f), 2.0f);
   EXPECT_EQ(greatest_float64_float64(1.0, 2.0), 2.0);
