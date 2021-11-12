@@ -1776,13 +1776,19 @@ def test_table_group_by():
         "values_sum": [3, 7, 5]
     }
 
-    r = table.group_by("keys", ["values", "bigvalues"], ["sum", "sum"])
+    r = table.group_by("keys", ["values", "bigvalues"], ["max", "sum"])
     assert r.to_pydict() == {
         "key": ["a", "b", "c"],
-        "values_sum": [3, 7, 5],
+        "values_max": [2, 4, 5],
         "bigvalues_sum": [30, 70, 50]
     }
 
+    r = table.group_by("keys", ["bigvalues", "values"], ["max", "sum"])
+    assert r.to_pydict() == {
+        "key": ["a", "b", "c"],
+        "values_sum": [3, 7, 5],
+        "bigvalues_max": [20, 40, 50]
+    }
 
 def test_table_sort_by():
     table = pa.table([
