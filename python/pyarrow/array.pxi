@@ -1181,6 +1181,22 @@ cdef class Array(_PandasConvertible):
         """
         return _pc().index(self, value, start, end, memory_pool=memory_pool)
 
+    def sort(self, order="ascending"):
+        """
+        Sort the Array
+
+        Parameters
+        ----------
+        order : "ascending" or "descending"
+            The order of the sorting.
+
+        Returns
+        -------
+        result : Array
+        """
+        indices = _pc().array_sort_indices(self, order=order)
+        return self.take(indices)
+
     def _to_pandas(self, options, **kwargs):
         return _array_like_to_pandas(self, options)
 
@@ -2370,23 +2386,28 @@ cdef class StructArray(Array):
         result.validate()
         return result
 
-    def sort_by(self, fieldname, order="ascending"):
+    def sort(self, order="ascending", fieldname=None):
         """
-        Sort the StructArray by one of its fields.
+        Sort the StructArray
 
         Parameters
         ----------
-        fieldname : str
-            The name of the field use to sort the StructArray.
         order : "ascending" or "descending"
             The order of the sorting.
+        fieldname : str or None, default None
+            If to sort the array by one of its fields
+            or by the whole array.
 
         Returns
         -------
         result : StructArray
         """
-        field = self.field(fieldname)
-        indices = _pc().array_sort_indices(field, order=order)
+        if fieldname is not None:
+            tosort = self.field(fieldname)
+        else:
+            # Requires a dedicated Kernel
+            raise NotImplementedError
+        indices = _pc().array_sort_indices(tosort, order=order)
         return self.take(indices)
 
 

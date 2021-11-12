@@ -431,6 +431,22 @@ cdef class ChunkedArray(_PandasConvertible):
         """
         return _pc().drop_null(self)
 
+    def sort(self, order="ascending"):
+        """
+        Sort the ChunkedArray
+
+        Parameters
+        ----------
+        order : "ascending" or "descending"
+            The order of the sorting.
+
+        Returns
+        -------
+        result : ChunkedArray
+        """
+        indices = _pc().array_sort_indices(self, order=order)
+        return self.take(indices)
+
     def unify_dictionaries(self, MemoryPool memory_pool=None):
         """
         Unify dictionaries across all chunks.

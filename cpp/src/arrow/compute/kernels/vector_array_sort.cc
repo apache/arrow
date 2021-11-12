@@ -502,6 +502,13 @@ const ArraySortOptions* GetDefaultArraySortOptions() {
   return &kDefaultArraySortOptions;
 }
 
+template <template <typename...> class ExecTemplate>
+void AddArraySortingStructKernels(VectorKernel base, VectorFunction* func) {
+  base.signature = KernelSignature::Make({InputType::Array(Type::STRUCT)}, uint64());
+  base.exec = ExecTemplate<UInt64Type, StructType>::Exec;
+  DCHECK_OK(func->AddKernel(base));
+}
+
 const FunctionDoc array_sort_indices_doc(
     "Return the indices that would sort an array",
     ("This function computes an array of indices that define a stable sort\n"
@@ -549,6 +556,7 @@ void RegisterVectorArraySort(FunctionRegistry* registry) {
       GetDefaultArraySortOptions());
   base.init = ArraySortIndicesState::Init;
   AddArraySortingKernels<ArraySortIndices>(base, array_sort_indices.get());
+  AddArraySortingStructKernels<ArraySortIndices>(base, array_sort_indices.get());
   DCHECK_OK(registry->AddFunction(std::move(array_sort_indices)));
 
   // partition_nth_indices has a parameter so needs its init function
