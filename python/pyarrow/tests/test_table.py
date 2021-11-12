@@ -1790,6 +1790,7 @@ def test_table_group_by():
         "bigvalues_max": [20, 40, 50]
     }
 
+
 def test_table_sort_by():
     table = pa.table([
         pa.array([3, 1, 4, 2, 5]),
