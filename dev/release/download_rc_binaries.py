@@ -121,7 +121,8 @@ class Artifactory(Downloader):
 
 
 class Maven(Downloader):
-    URL_ROOT = "https://repository.apache.org/content/repositories/staging/org/apache/arrow"
+    URL_ROOT = "https://repository.apache.org" + \
+        "/content/repositories/staging/org/apache/arrow"
 
 
 def parallel_map_terminate_early(f, iterable, num_parallel):
@@ -154,12 +155,12 @@ ARROW_PACKAGE_TYPES = \
 def download_rc_binaries(version, rc_number, re_match=None, dest=None,
                          num_parallel=None, target_package_type=None):
     version_string = '{}-rc{}'.format(version, rc_number)
+    version_pattern = re.compile(r'\d+\.\d+\.\d+')
     if target_package_type:
         package_types = [target_package_type]
     else:
         package_types = ARROW_PACKAGE_TYPES
     for package_type in package_types:
-        version_pattern = re.compile(r'\d+\.\d+\.\d+')
         def is_target(path):
             match = version_pattern.search(path)
             if not match:
