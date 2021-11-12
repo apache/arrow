@@ -272,3 +272,42 @@ test_that("Error is created when parquet reads a feather file", {
     "Parquet magic bytes not found in footer"
   )
 })
+
+test_that("ParquetFileWrite chunk_size defaults", {
+  tab <- Table$create(x = 1:100)
+  tf <- tempfile()
+  on.exit(unlink(tf))
+
+  # we can alter our default cells per group
+  withr::with_options(
+    list(
+      arrow.parquet_cells_per_group = 25
+    ), {
+      # this will be 4 chunks
+      write_parquet(tab, tf)
+      reader <- ParquetFileReader$create(tf)
+
+      expect_true(reader$ReadRowGroup(0) == Table$create(x = 1:25))
+      expect_true(reader$ReadRowGroup(3) == Table$create(x = 76:100))
+      expect_error(reader$ReadRowGroup(5), "Some index in row_group_indices")
+    })
+
+  # but we always have no more than max_chunks (even if cells_per_group is low!)
+  # use a new tempfile so that windows doesn't complain about the file being over-written
+  tf <- tempfile()
+  on.exit(unlink(tf))
+
+  withr::with_options(
+    list(
+      arrow.parquet_cells_per_group = 25,
+      arrow.parquet_max_chunks = 2
+    ), {
+      # this will be 4 chunks
+      write_parquet(tab, tf)
+      reader <- ParquetFileReader$create(tf)
+
+      expect_true(reader$ReadRowGroup(0) == Table$create(x = 1:50))
+      expect_true(reader$ReadRowGroup(1) == Table$create(x = 51:100))
+      expect_error(reader$ReadRowGroup(3), "Some index in row_group_indices")
+    })
+})

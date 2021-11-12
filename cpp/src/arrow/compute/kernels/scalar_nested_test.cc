@@ -107,6 +107,114 @@ TEST(TestScalarNested, ListElementInvalid) {
               Raises(StatusCode::Invalid));
 }
 
+TEST(TestScalarNested, StructField) {
+  StructFieldOptions trivial;
+  StructFieldOptions extract0({0});
+  StructFieldOptions extract20({2, 0});
+  StructFieldOptions invalid1({-1});
+  StructFieldOptions invalid2({2, 4});
+  StructFieldOptions invalid3({0, 1});
+  FieldVector fields = {field("a", int32()), field("b", utf8()),
+                        field("c", struct_({
+                                       field("d", int64()),
+                                       field("e", float64()),
+                                   }))};
+  {
+    auto arr = ArrayFromJSON(struct_(fields), R"([
+      [1, "a", [10, 10.0]],
+      [null, "b", [11, 11.0]],
+      [3, null, [12, 12.0]],
+      null
+    ])");
+    CheckScalar("struct_field", {arr}, arr, &trivial);
+    CheckScalar("struct_field", {arr}, ArrayFromJSON(int32(), "[1, null, 3, null]"),
+                &extract0);
+    CheckScalar("struct_field", {arr}, ArrayFromJSON(int64(), "[10, 11, 12, null]"),
+                &extract20);
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                    ::testing::HasSubstr("out-of-bounds field reference"),
+                                    CallFunction("struct_field", {arr}, &invalid1));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                    ::testing::HasSubstr("out-of-bounds field reference"),
+                                    CallFunction("struct_field", {arr}, &invalid2));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(TypeError, ::testing::HasSubstr("cannot subscript"),
+                                    CallFunction("struct_field", {arr}, &invalid3));
+  }
+  {
+    auto ty = dense_union(fields, {2, 5, 8});
+    auto arr = ArrayFromJSON(ty, R"([
+      [2, 1],
+      [5, "foo"],
+      [8, null],
+      [8, [10, 10.0]]
+    ])");
+    CheckScalar("struct_field", {arr}, arr, &trivial);
+    CheckScalar("struct_field", {arr}, ArrayFromJSON(int32(), "[1, null, null, null]"),
+                &extract0);
+    CheckScalar("struct_field", {arr}, ArrayFromJSON(int64(), "[null, null, null, 10]"),
+                &extract20);
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                    ::testing::HasSubstr("out-of-bounds field reference"),
+                                    CallFunction("struct_field", {arr}, &invalid1));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                    ::testing::HasSubstr("out-of-bounds field reference"),
+                                    CallFunction("struct_field", {arr}, &invalid2));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(TypeError, ::testing::HasSubstr("cannot subscript"),
+                                    CallFunction("struct_field", {arr}, &invalid3));
+
+    // Test edge cases for union representation
+    auto ints = ArrayFromJSON(fields[0]->type(), "[null, 2, 3]");
+    auto strs = ArrayFromJSON(fields[1]->type(), R"([null, "bar"])");
+    auto nested = ArrayFromJSON(fields[2]->type(), R"([null, [10, 10.0]])");
+    auto type_ids = ArrayFromJSON(int8(), "[2, 5, 8, 2, 5, 8]")->data()->buffers[1];
+    auto offsets = ArrayFromJSON(int32(), "[0, 0, 0, 1, 1, 1]")->data()->buffers[1];
+
+    arr = std::make_shared<DenseUnionArray>(ty, /*length=*/6,
+                                            ArrayVector{ints, strs, nested}, type_ids,
+                                            offsets, /*offset=*/0);
+    // Sliced parent
+    CheckScalar("struct_field", {arr->Slice(3, 3)},
+                ArrayFromJSON(int32(), "[2, null, null]"), &extract0);
+    // Sliced child
+    arr = std::make_shared<DenseUnionArray>(ty, /*length=*/6,
+                                            ArrayVector{ints->Slice(1, 2), strs, nested},
+                                            type_ids, offsets, /*offset=*/0);
+    CheckScalar("struct_field", {arr},
+                ArrayFromJSON(int32(), "[2, null, null, 3, null, null]"), &extract0);
+    // Sliced parent + sliced child
+    CheckScalar("struct_field", {arr->Slice(3, 3)},
+                ArrayFromJSON(int32(), "[3, null, null]"), &extract0);
+  }
+  {
+    // The underlying implementation is tested directly/more thoroughly in
+    // array_union_test.cc.
+    auto arr = ArrayFromJSON(sparse_union(fields, {2, 5, 8}), R"([
+      [2, 1],
+      [5, "foo"],
+      [8, null],
+      [8, [10, 10.0]]
+    ])");
+    CheckScalar("struct_field", {arr}, arr, &trivial);
+    CheckScalar("struct_field", {arr}, ArrayFromJSON(int32(), "[1, null, null, null]"),
+                &extract0);
+    CheckScalar("struct_field", {arr}, ArrayFromJSON(int64(), "[null, null, null, 10]"),
+                &extract20);
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                    ::testing::HasSubstr("out-of-bounds field reference"),
+                                    CallFunction("struct_field", {arr}, &invalid1));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                    ::testing::HasSubstr("out-of-bounds field reference"),
+                                    CallFunction("struct_field", {arr}, &invalid2));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(TypeError, ::testing::HasSubstr("cannot subscript"),
+                                    CallFunction("struct_field", {arr}, &invalid3));
+  }
+  {
+    auto arr = ArrayFromJSON(int32(), "[0, 1, 2, 3]");
+    ASSERT_RAISES(NotImplemented, CallFunction("struct_field", {arr}, &trivial));
+    ASSERT_RAISES(NotImplemented, CallFunction("struct_field", {arr}, &extract0));
+  }
+}
+
 struct {
   Result<Datum> operator()(std::vector<Datum> args) {
     return CallFunction("make_struct", args);

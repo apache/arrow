@@ -48,6 +48,8 @@
 #' - "delete_matching" then the writer will delete any existing partitions
 #'   if data is going to be written to those partitions and will leave alone
 #'   partitions which data is not written to.
+#' @param max_partitions maximum number of partitions any batch may be
+#' written into. Default is 1024L.
 #' @param ... additional format-specific arguments. For available Parquet
 #' options, see [write_parquet()]. The available Feather options are
 #' - `use_legacy_format` logical: write data formatted so that Arrow libraries
@@ -108,6 +110,7 @@ write_dataset <- function(dataset,
                           basename_template = paste0("part-{i}.", as.character(format)),
                           hive_style = TRUE,
                           existing_data_behavior = c("overwrite", "error", "delete_matching"),
+                          max_partitions = 1024L,
                           ...) {
   format <- match.arg(format)
   if (inherits(dataset, "arrow_dplyr_query")) {
@@ -136,9 +139,13 @@ write_dataset <- function(dataset,
   existing_data_behavior_opts <- c("delete_matching", "overwrite", "error")
   existing_data_behavior <- match(match.arg(existing_data_behavior), existing_data_behavior_opts) - 1L
 
+  if (!is_integerish(max_partitions, n = 1) || is.na(max_partitions) || max_partitions < 0) {
+    abort("max_partitions must be a positive, non-missing integer")
+  }
+
   dataset___Dataset__Write(
     options, path_and_fs$fs, path_and_fs$path,
     partitioning, basename_template, scanner,
-    existing_data_behavior
+    existing_data_behavior, max_partitions
   )
 }

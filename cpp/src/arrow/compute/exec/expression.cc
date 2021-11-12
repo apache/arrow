@@ -510,29 +510,11 @@ Result<Datum> ExecuteScalarExpression(const Expression& expr, const ExecBatch& i
     }
 
     Datum field = input[param->indices[0]];
-    for (auto it = param->indices.begin() + 1; it != param->indices.end(); ++it) {
-      if (field.type()->id() != Type::STRUCT) {
-        return Status::Invalid("Nested field reference into a non-struct: ",
-                               *field.type());
-      }
-      const int index = *it;
-      if (index < 0 || index >= field.type()->num_fields()) {
-        return Status::Invalid("Out of bounds field reference: ", index, " but type has ",
-                               field.type()->num_fields(), " fields");
-      }
-      if (field.is_scalar()) {
-        const auto& struct_scalar = field.scalar_as<StructScalar>();
-        if (!struct_scalar.is_valid) {
-          return MakeNullScalar(param->descr.type);
-        }
-        field = struct_scalar.value[index];
-      } else if (field.is_array()) {
-        const auto& struct_array = field.array_as<StructArray>();
-        ARROW_ASSIGN_OR_RAISE(
-            field, struct_array->GetFlattenedField(index, exec_context->memory_pool()));
-      } else {
-        return Status::NotImplemented("Nested field reference into a ", field.ToString());
-      }
+    if (param->indices.size() > 1) {
+      std::vector<int> indices(param->indices.begin() + 1, param->indices.end());
+      compute::StructFieldOptions options(std::move(indices));
+      ARROW_ASSIGN_OR_RAISE(
+          field, compute::CallFunction("struct_field", {std::move(field)}, &options));
     }
     if (!field.type()->Equals(param->descr.type)) {
       return Status::Invalid("Referenced field ", expr.ToString(), " was ",

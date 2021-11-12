@@ -77,12 +77,6 @@ nse_funcs$coalesce <- function(...) {
       arg <- Expression$scalar(arg)
     }
 
-    # coalesce doesn't yet support factors/dictionaries
-    # TODO: remove this after ARROW-14167 is merged
-    if (nse_funcs$is.factor(arg)) {
-      warning("Dictionaries (in R: factors) are currently converted to strings (characters) in coalesce", call. = FALSE)
-    }
-
     if (last_arg && arg$type_id() %in% TYPES_WITH_NAN) {
       # store the NA_real_ in the same type as arg to avoid avoid casting
       # smaller float types to larger float types
@@ -842,6 +836,19 @@ nse_funcs$wday <- function(x,
   }
 
   Expression$create("day_of_week", x, options = list(count_from_zero = FALSE, week_start = week_start))
+}
+
+nse_funcs$month <- function(x, label = FALSE, abbr = TRUE, locale = Sys.getlocale("LC_TIME")) {
+  if (label) {
+    if (abbr) {
+      format <- "%b"
+    } else {
+      format <- "%B"
+    }
+    return(Expression$create("strftime", x, options = list(format = format, locale = locale)))
+  }
+
+  Expression$create("month", x)
 }
 
 nse_funcs$is.Date <- function(x) {

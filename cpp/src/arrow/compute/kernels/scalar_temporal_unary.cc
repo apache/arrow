@@ -45,7 +45,6 @@ using arrow_vendored::date::local_time;
 using arrow_vendored::date::locate_zone;
 using arrow_vendored::date::sys_days;
 using arrow_vendored::date::sys_time;
-using arrow_vendored::date::time_zone;
 using arrow_vendored::date::trunc;
 using arrow_vendored::date::weekday;
 using arrow_vendored::date::weeks;
@@ -479,7 +478,7 @@ struct Strftime {
     if ((options.format.find("%c") != std::string::npos) && (options.locale != "C")) {
       return Status::Invalid("%c flag is not supported in non-C locales.");
     }
-    auto timezone = GetInputTimezone(type);
+    const auto& timezone = GetInputTimezone(type);
 
     if (timezone.empty()) {
       if ((options.format.find("%z") != std::string::npos) ||
@@ -488,10 +487,10 @@ struct Strftime {
             "Timezone not present, cannot convert to string with timezone: ",
             options.format);
       }
-      timezone = "UTC";
     }
 
-    ARROW_ASSIGN_OR_RAISE(const time_zone* tz, LocateZone(timezone));
+    ARROW_ASSIGN_OR_RAISE(const time_zone* tz,
+                          LocateZone(timezone.empty() ? "UTC" : timezone));
 
     ARROW_ASSIGN_OR_RAISE(std::locale locale, GetLocale(options.locale));
 
@@ -500,7 +499,7 @@ struct Strftime {
 
   static Status Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
     ARROW_ASSIGN_OR_RAISE(auto self, Make(ctx, *in.type));
-    TimestampFormatter formatter{self.options.format, self.tz, self.locale};
+    TimestampFormatter<Duration> formatter{self.options.format, self.tz, self.locale};
 
     if (in.is_valid) {
       const int64_t in_val = internal::UnboxScalar<const InType>::Unbox(in);
@@ -514,7 +513,7 @@ struct Strftime {
 
   static Status Call(KernelContext* ctx, const ArrayData& in, ArrayData* out) {
     ARROW_ASSIGN_OR_RAISE(auto self, Make(ctx, *in.type));
-    TimestampFormatter formatter{self.options.format, self.tz, self.locale};
+    TimestampFormatter<Duration> formatter{self.options.format, self.tz, self.locale};
 
     StringBuilder string_builder;
     // Presize string data using a heuristic
@@ -539,35 +538,9 @@ struct Strftime {
 
     return Status::OK();
   }
-
-  struct TimestampFormatter {
-    const char* format;
-    const time_zone* tz;
-    std::ostringstream bufstream;
-
-    explicit TimestampFormatter(const std::string& format, const time_zone* tz,
-                                const std::locale& locale)
-        : format(format.c_str()), tz(tz) {
-      bufstream.imbue(locale);
-      // Propagate errors as C++ exceptions (to get an actual error message)
-      bufstream.exceptions(std::ios::failbit | std::ios::badbit);
-    }
-
-    Result<std::string> operator()(int64_t arg) {
-      bufstream.str("");
-      const auto zt = zoned_time<Duration>{tz, sys_time<Duration>(Duration{arg})};
-      try {
-        arrow_vendored::date::to_stream(bufstream, format, zt);
-      } catch (const std::runtime_error& ex) {
-        bufstream.clear();
-        return Status::Invalid("Failed formatting timestamp: ", ex.what());
-      }
-      // XXX could return a view with std::ostringstream::view() (C++20)
-      return std::move(bufstream).str();
-    }
-  };
 };
 #else
+// TODO(ARROW-13168)
 template <typename Duration, typename InType>
 struct Strftime {
   static Status Call(KernelContext* ctx, const Scalar& in, Scalar* out) {

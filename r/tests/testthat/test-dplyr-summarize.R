@@ -879,3 +879,20 @@ test_that("summarize() handles group_by .drop", {
     )
   )
 })
+
+test_that("summarise() passes through type information for temporary columns", {
+  # applies to ifelse and case_when(), in which argument types are checked
+  # within a translated function (previously this failed because the appropriate
+  # schema was not available for n() > 1, mean(y), and mean(z))
+  compare_dplyr_binding(
+    .input %>%
+      group_by(x) %>%
+      summarise(r = if_else(n() > 1, mean(y), mean(z))) %>%
+      collect(),
+    tibble(
+      x = c(0, 1, 1),
+      y = c(2, 3, 5),
+      z = c(8, 13, 21)
+    )
+  )
+})

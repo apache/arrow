@@ -65,6 +65,12 @@ func (a *String) ValueOffset(i int) int {
 	return int(a.offsets[i+a.array.data.offset])
 }
 
+func (a *String) ValueOffsets() []int32 {
+	beg := a.array.data.offset
+	end := beg + a.array.data.length + 1
+	return a.offsets[beg:end]
+}
+
 func (a *String) ValueBytes() (ret []byte) {
 	beg := a.array.data.offset
 	end := beg + a.array.data.length

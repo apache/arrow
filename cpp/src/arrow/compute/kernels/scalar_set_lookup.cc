@@ -184,7 +184,27 @@ struct InitStateVisitor {
   }
 
   Result<std::unique_ptr<KernelState>> GetResult() {
-    if (!options.value_set.type()->Equals(arg_type)) {
+    if (arg_type->id() == Type::TIMESTAMP &&
+        options.value_set.type()->id() == Type::TIMESTAMP) {
+      // Other types will fail when casting, so no separate check is needed
+      const auto& ty1 = checked_cast<const TimestampType&>(*arg_type);
+      const auto& ty2 = checked_cast<const TimestampType&>(*options.value_set.type());
+      if (ty1.timezone().empty() ^ ty2.timezone().empty()) {
+        return Status::Invalid(
+            "Cannot compare timestamp with timezone to timestamp without timezone, got: ",
+            ty1, " and ", ty2);
+      }
+    } else if ((arg_type->id() == Type::STRING || arg_type->id() == Type::LARGE_STRING) &&
+               !is_base_binary_like(options.value_set.type()->id())) {
+      // This is a bit of a hack, but don't implicitly cast from a non-binary
+      // type to string, since most types support casting to string and that
+      // may lead to surprises. However, we do want most other implicit casts.
+      return Status::Invalid("Array type didn't match type of values set: ", *arg_type,
+                             " vs ", *options.value_set.type());
+    }
+    if (!options.value_set.is_arraylike()) {
+      return Status::Invalid("Set lookup value set must be Array or ChunkedArray");
+    } else if (!options.value_set.type()->Equals(arg_type)) {
       ARROW_ASSIGN_OR_RAISE(
           options.value_set,
           Cast(options.value_set, CastOptions::Safe(arg_type), ctx->exec_context()));
@@ -406,7 +426,7 @@ void AddBasicSetLookupKernels(ScalarKernel kernel,
                               ScalarFunction* func) {
   auto AddKernels = [&](const std::vector<std::shared_ptr<DataType>>& types) {
     for (const std::shared_ptr<DataType>& ty : types) {
-      kernel.signature = KernelSignature::Make({ty}, out_ty);
+      kernel.signature = KernelSignature::Make({InputType(ty->id())}, out_ty);
       DCHECK_OK(func->AddKernel(kernel));
     }
   };
@@ -416,7 +436,7 @@ void AddBasicSetLookupKernels(ScalarKernel kernel,
   AddKernels(TemporalTypes());
   AddKernels({month_day_nano_interval()});
 
-  std::vector<Type::type> other_types = {Type::BOOL, Type::DECIMAL,
+  std::vector<Type::type> other_types = {Type::BOOL, Type::DECIMAL128, Type::DECIMAL256,
                                          Type::FIXED_SIZE_BINARY};
   for (auto ty : other_types) {
     kernel.signature = KernelSignature::Make({InputType::Array(ty)}, out_ty);
