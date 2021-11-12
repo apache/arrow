@@ -1749,6 +1749,18 @@ def test_table_select():
 
 
 def test_table_group_by():
+    def sorted_by_key(d):
+        # Ensure a guaranteed order of keys for aggregation results.
+        sorted_keys = sorted(d["key"])
+        sorted_d = {"key": sorted_keys}
+        for entry in d:
+            if entry == "key":
+                continue
+            values = dict(zip(d["key"], d[entry]))
+            for k in sorted_keys:
+                sorted_d.setdefault(entry, []).append(values[k])
+        return sorted_d
+
     table = pa.table([
         pa.array([1, 2, 3, 4, 5]),
         pa.array(["a", "a", "b", "b", "c"]),
@@ -1756,14 +1768,14 @@ def test_table_group_by():
     ], names=["values", "keys", "bigvalues"])
 
     r = table.group_by("keys", ["values"], "hash_sum")
-    assert r.to_pydict() == {
+    assert sorted_by_key(r.to_pydict()) == {
         "key": ["a", "b", "c"],
         "values_sum": [3, 7, 5]
     }
 
     r = table.group_by("keys", ["values", "values"], [
                        "hash_sum", "hash_count"])
-    assert r.to_pydict() == {
+    assert sorted_by_key(r.to_pydict()) == {
         "key": ["a", "b", "c"],
         "values_sum": [3, 7, 5],
         "values_count": [2, 2, 1]
@@ -1771,20 +1783,20 @@ def test_table_group_by():
 
     # Test without hash_ prefix
     r = table.group_by("keys", ["values"], "sum")
-    assert r.to_pydict() == {
+    assert sorted_by_key(r.to_pydict()) == {
         "key": ["a", "b", "c"],
         "values_sum": [3, 7, 5]
     }
 
     r = table.group_by("keys", ["values", "bigvalues"], ["max", "sum"])
-    assert r.to_pydict() == {
+    assert sorted_by_key(r.to_pydict()) == {
         "key": ["a", "b", "c"],
         "values_max": [2, 4, 5],
         "bigvalues_sum": [30, 70, 50]
     }
 
     r = table.group_by("keys", ["bigvalues", "values"], ["max", "sum"])
-    assert r.to_pydict() == {
+    assert sorted_by_key(r.to_pydict()) == {
         "key": ["a", "b", "c"],
         "values_sum": [3, 7, 5],
         "bigvalues_max": [20, 40, 50]
