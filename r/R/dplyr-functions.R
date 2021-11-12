@@ -252,7 +252,10 @@ nse_funcs$is_logical <- function(x, n = NULL) {
 
 # Create a data frame/tibble/struct column
 nse_funcs$data.frame <- nse_funcs$tibble <- function(...) {
-  args <- rlang::list2(...)
+  # use dots_list() because this is what tibble() uses to allow the
+  # useful shorthand of tibble(col1, col2) -> tibble(col1 = col1, col2 = col2_)
+  args <- rlang::dots_list(..., .named = TRUE)
+
   build_expr(
     "make_struct",
     args = unname(args),

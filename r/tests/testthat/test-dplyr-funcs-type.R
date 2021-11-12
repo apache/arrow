@@ -625,3 +625,40 @@ test_that("bad explicit type conversions with as.*()", {
     )
   )
 })
+
+test_that("structs/nested data frames/tibbles can be created", {
+  df <- tibble(regular_col1 = 1L, regular_col2 = "a")
+
+  compare_dplyr_binding(
+    .input %>%
+      transmute(
+        df_col = tibble(
+          regular_col1 = regular_col1,
+          regular_col2 = regular_col2
+        )
+      ) %>%
+      collect(),
+    df
+  )
+
+  # check auto column naming
+  compare_dplyr_binding(
+    .input %>%
+      transmute(
+        df_col = tibble(regular_col1, regular_col2)
+      ) %>%
+      collect(),
+    df
+  )
+
+  # check that data.frame is mapped too
+  compare_dplyr_binding(
+    .input %>%
+      transmute(
+        df_col = data.frame(regular_col1, regular_col2)
+      ) %>%
+      collect() %>%
+      mutate(df_col = as.data.frame(df_col)),
+    df
+  )
+})
