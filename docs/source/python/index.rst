@@ -46,6 +46,8 @@ files into Arrow structures.
    filesystems
    filesystems_deprecated
    plasma
+   numpy
+   pandas
    timestamps
    csv
    feather

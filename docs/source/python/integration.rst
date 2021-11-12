@@ -34,8 +34,6 @@ This allows to easily integrate PyArrow with other languages and technologies.
 .. toctree::
     :maxdepth: 2
 
-    integration/numpy
-    integration/pandas
     integration/python_r
     integration/extending
     integration/cuda
