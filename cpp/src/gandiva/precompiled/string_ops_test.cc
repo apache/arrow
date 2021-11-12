@@ -937,6 +937,10 @@ TEST(TestStringOps, TestQuote) {
   out_str = quote_utf8(ctx_ptr, "'", 1, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "'\\''");
   EXPECT_FALSE(ctx.has_error());
+
+  out_str = quote_utf8(ctx_ptr, "'''''''''", 9, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "'\\'\\'\\'\\'\\'\\'\\'\\'\\''");
+  EXPECT_FALSE(ctx.has_error());
 }
 
 TEST(TestStringOps, TestLtrim) {
