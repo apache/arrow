@@ -4328,9 +4328,14 @@ def make_df_with_timestamps():
     })
     # Not part of what we're testing, just ensuring that the inputs are what we
     # expect.
+    if sys.byteorder == "little":
+        datetime_dtype = "<M8[ns]"
+    else:
+        datetime_dtype = ">M8[ns]"
     assert (df.dateTimeMs.dtype, df.dateTimeNs.dtype) == (
-        # O == object, <M8[ns] == timestamp64[ns]
-        np.dtype("O"), np.dtype("<M8[ns]")
+        # O == object, <M8[ns] == timestamp64[ns]  (for little-endian)
+        # O == object, >M8[ns] == timestamp64[ns]  (for big-endian)
+        np.dtype("O"), np.dtype(datetime_dtype)
     )
     return df
 
