@@ -1071,15 +1071,14 @@ struct Utf8NormalizeTransform : public FunctionalCaseMappingTransform {
                                             output_string_ncodeunits, option);
     if (n_chars < 0) return output_string_ncodeunits;
 
-    const auto n_chars_utf32 = utf8proc_normalize_utf32(
+    const auto n_codepoints = utf8proc_normalize_utf32(
         reinterpret_cast<utf8proc_int32_t*>(output), n_chars, option);
-    if (n_chars_utf32 < 0) return output_string_ncodeunits;
+    if (n_codepoints < 0) return output_string_ncodeunits;
 
-    uint32_t uc;
-    utf8proc_int32_t* dest = reinterpret_cast<utf8proc_int32_t*>(output);
-    for (long rpos = 0; rpos < n_chars_utf32; rpos++) {
-      uc = dest[rpos];
-      output = arrow::util::UTF8Encode(output, uc);
+    auto codepoints = reinterpret_cast<utf8proc_int32_t*>(output);
+    for (utf8proc_ssize_t i = 0; i < n_codepoints; ++i) {
+      auto codepoint = codepoints[i];
+      output = arrow::util::UTF8Encode(output, codepoint);
     }
 
     return output - output_start;
