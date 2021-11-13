@@ -48,9 +48,8 @@ arrow::copy_files("s3://ursa-labs-taxi-data", "nyc-taxi")
 ```
 
 If your arrow build doesn't have S3 support, you can download the files
-with the additional code shown below.  Note, that as these are large files, 
-to successfully download them, you may first need to increase your download 
-timeout from the default of 60 seconds, e.g.
+with the additional code shown below.  Since these are large files, 
+you may need to increase R's download timeout from the default of 60 seconds, e.g.
 `options(timeout = 300)`.
 
 ```{r, eval = FALSE}
