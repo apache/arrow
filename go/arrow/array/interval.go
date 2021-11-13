@@ -96,8 +96,8 @@ func (a *MonthInterval) getOneForMarshal(i int) interface{} {
 }
 
 // MarshalJSON will create a json array out of a MonthInterval array,
-// each value will be a string of the form "#months" where # is the actual
-// numeric value of the int32 for that element.
+// each value will be an object of the form {"months": #} where
+// # is the numeric value of that index
 func (a *MonthInterval) MarshalJSON() ([]byte, error) {
 	if a.NullN() == 0 {
 		return json.Marshal(a.values)

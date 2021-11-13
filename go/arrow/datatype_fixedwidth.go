@@ -17,11 +17,9 @@
 package arrow
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"strconv"
-	"strings"
 	"time"
 
 	"golang.org/x/xerrors"
@@ -331,28 +329,21 @@ func (t *Decimal128Type) Fingerprint() string {
 type MonthInterval int32
 
 func (m *MonthInterval) UnmarshalJSON(data []byte) error {
-	var val string
+	var val struct {
+		Months int32 `json:"months"`
+	}
 	if err := json.Unmarshal(data, &val); err != nil {
 		return err
 	}
 
-	if strings.HasSuffix(val, "months") {
-		val = val[:len(val)-6]
-	}
-
-	v, err := strconv.ParseInt(val, 10, 32)
-	if err != nil {
-		return err
-	}
-
-	*m = MonthInterval(v)
+	*m = MonthInterval(val.Months)
 	return nil
 }
 
 func (m MonthInterval) MarshalJSON() ([]byte, error) {
-	var b bytes.Buffer
-	fmt.Fprintf(&b, `"%dmonths"`, m)
-	return b.Bytes(), nil
+	return json.Marshal(struct {
+		Months int32 `json:"months"`
+	}{int32(m)})
 }
 
 // MonthIntervalType is encoded as a 32-bit signed integer,

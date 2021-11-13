@@ -86,7 +86,8 @@ func WithStartOffset(off int64) FromJSONOption {
 // to the same values which are output.
 //
 // Interval types are marshalled / unmarshalled as follows:
-//  MonthInterval is marshalled as a string of the format "#months" with # as the numeric value.
+//  MonthInterval is marshalled as an object with the format:
+//	 { "months": #}
 //  DayTimeInterval is marshalled using Go's regular marshalling of structs:
 //	 { "days": #, "milliseconds": # }
 //  MonthDayNanoInterval values are marshalled the same as DayTime using Go's struct marshalling:
