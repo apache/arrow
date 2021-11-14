@@ -20,8 +20,8 @@ import (
 	"testing"
 	"unsafe"
 
-	"github.com/apache/arrow/go/arrow/memory"
-	"github.com/apache/arrow/go/arrow/endian"
+	"github.com/apache/arrow/go/v7/arrow/memory"
+	"github.com/apache/arrow/go/v7/arrow/endian"
 	"github.com/stretchr/testify/assert"
 )
 

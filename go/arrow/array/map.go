@@ -14,11 +14,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package array // import "github.com/apache/arrow/go/arrow/array"
+package array
 
 import (
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/v7/arrow"
+	"github.com/apache/arrow/go/v7/arrow/memory"
 )
 
 // Map represents an immutable sequence of Key/Value structs. It is a

@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/apache/arrow/go/arrow"
+	"github.com/apache/arrow/go/v7/arrow"
 )
 
 // A type which represents an immutable sequence of fixed-length binary strings.
