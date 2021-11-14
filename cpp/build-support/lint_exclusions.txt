@@ -1,8 +1,6 @@
 *_generated*
 *.grpc.fb.*
-*apidoc/*
 *arrowExports.cpp*
-*build_support/*
 *parquet_constants.*
 *parquet_types.*
 *pyarrow_api.h

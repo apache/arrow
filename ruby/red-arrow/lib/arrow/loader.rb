@@ -93,6 +93,7 @@ module Arrow
       require "arrow/record-batch-reader"
       require "arrow/record-batch-stream-reader"
       require "arrow/rolling-window"
+      require "arrow/s3-global-options"
       require "arrow/scalar"
       require "arrow/schema"
       require "arrow/slicer"

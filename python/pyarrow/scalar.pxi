@@ -395,7 +395,7 @@ def _datetime_from_int(int64_t value, TimeUnit unit, tzinfo=None):
     dt = datetime.datetime(1970, 1, 1) + delta
     # adjust timezone if set to the datatype
     if tzinfo is not None:
-        dt = tzinfo.fromutc(dt)
+        dt = dt.replace(tzinfo=datetime.timezone.utc).astimezone(tzinfo)
 
     return dt
 

@@ -1170,6 +1170,30 @@ Result<FieldRef> FieldRef::FromDotPath(const std::string& dot_path_arg) {
   return out;
 }
 
+std::string FieldRef::ToDotPath() const {
+  struct Visitor {
+    std::string operator()(const FieldPath& path) {
+      std::string out;
+      for (int i : path.indices()) {
+        out += "[" + std::to_string(i) + "]";
+      }
+      return out;
+    }
+
+    std::string operator()(const std::string& name) { return "." + name; }
+
+    std::string operator()(const std::vector<FieldRef>& children) {
+      std::string out;
+      for (const auto& child : children) {
+        out += child.ToDotPath();
+      }
+      return out;
+    }
+  };
+
+  return util::visit(Visitor{}, impl_);
+}
+
 size_t FieldRef::hash() const {
   struct Visitor : std::hash<std::string> {
     using std::hash<std::string>::operator();
@@ -2350,7 +2374,7 @@ void InitStaticData() {
                       timestamp(TimeUnit::NANO)};
 
   // Interval types
-  g_interval_types = {day_time_interval(), month_interval()};
+  g_interval_types = {day_time_interval(), month_interval(), month_day_nano_interval()};
 
   // Base binary types (without FixedSizeBinary)
   g_base_binary_types = {binary(), utf8(), large_binary(), large_utf8()};

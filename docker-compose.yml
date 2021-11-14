@@ -104,6 +104,7 @@ x-hierarchy:
         - conda-python-dask
         - conda-python-hdfs
         - conda-python-jpype
+        - conda-python-java-integration
         - conda-python-turbodbc
         - conda-python-kartothek
         - conda-python-spark
@@ -136,6 +137,8 @@ x-hierarchy:
   - ubuntu-cpp-sanitizer
   - ubuntu-cpp-thread-sanitizer
   - ubuntu-r-sanitizer
+  - r-fedora-clang-devel-san:
+    - fedora-r-clang-sanitizer
   - ubuntu-r-valgrind
   - python-sdist
   - r
@@ -236,7 +239,7 @@ services:
     volumes: &conda-volumes
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}conda-ccache:/ccache:delegated
-    command: &cpp-conda-command
+    command:
       ["/arrow/ci/scripts/cpp_build.sh /arrow /build true &&
         /arrow/ci/scripts/cpp_test.sh /arrow /build"]
 
@@ -271,7 +274,9 @@ services:
       ARROW_USE_LD_GOLD: "ON"
       BUILD_WARNING_LEVEL: "PRODUCTION"
     volumes: *conda-volumes
-    command: *cpp-conda-command
+    command:
+      ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/cpp_test.sh /arrow /build"]
 
   debian-cpp:
     # Usage:
@@ -325,8 +330,13 @@ services:
         llvm: ${LLVM}
         gcc_version: ${GCC_VERSION}
     shm_size: *shm-size
+    cap_add:
+      - SYS_ADMIN
+    devices:
+      - "/dev/fuse:/dev/fuse"
+    security_opt:
+      - apparmor:unconfined
     ulimits: *ulimits
-    privileged: true
     environment:
       <<: *ccache
       ARROW_ENABLE_TIMING_TESTS:  # inherit
@@ -899,8 +909,8 @@ services:
       - ${DOCKER_VOLUME_PREFIX}python-wheel-manylinux2014-ccache:/ccache:delegated
     command:
       ["pip install -e /arrow/dev/archery &&
-        /arrow/ci/scripts/java_cdata_build.sh /arrow /java-native-build /arrow/java/dist &&
-        /arrow/ci/scripts/java_jni_manylinux_build.sh /arrow /build /arrow/java/dist"]
+        /arrow/ci/scripts/java_cdata_build.sh /arrow /java-native-build /arrow/java-dist &&
+        /arrow/ci/scripts/java_jni_manylinux_build.sh /arrow /build /arrow/java-dist"]
 
   ##############################  Integration #################################
 
@@ -992,6 +1002,45 @@ services:
         /arrow/ci/scripts/python_build.sh /arrow /build &&
         /arrow/ci/scripts/java_build.sh /arrow /build &&
         /arrow/ci/scripts/python_test.sh /arrow"]
+
+  conda-python-java-integration:
+    # Usage:
+    #   docker-compose build conda
+    #   docker-compose build conda-cpp
+    #   docker-compose build conda-python
+    #   docker-compose build conda-python-java-integration
+    #   docker-compose run --rm conda-python-java-integration
+    image: ${REPO}:${ARCH}-conda-python-${PYTHON}-java-integration
+    build:
+      context: .
+      dockerfile: ci/docker/conda-python-jpype.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-conda-python-${PYTHON}-java-integration
+      args:
+        repo: ${REPO}
+        arch: ${ARCH}
+        python: ${PYTHON}
+        llvm: ${LLVM}
+    shm_size: *shm-size
+    environment:
+      <<: *ccache
+      ARROW_DATASET: "OFF"
+      ARROW_FLIGHT: "OFF"
+      ARROW_GANDIVA: "OFF"
+      ARROW_JAVA_CDATA: "ON"
+      ARROW_ORC: "OFF"
+      ARROW_PARQUET: "OFF"
+      ARROW_PLASMA: "OFF"
+    volumes:
+      - .:/arrow:delegated
+      - ${DOCKER_VOLUME_PREFIX}maven-cache:/root/.m2:delegated
+      - ${DOCKER_VOLUME_PREFIX}debian-ccache:/ccache:delegated
+    command:
+      [ "/arrow/ci/scripts/cpp_build.sh /arrow /build &&
+          /arrow/ci/scripts/python_build.sh /arrow /build &&
+          /arrow/ci/scripts/java_cdata_build.sh /arrow /build/java/c/build /build/java/c &&
+          /arrow/ci/scripts/java_build.sh /arrow /build &&
+          /arrow/ci/scripts/java_cdata_integration.sh /arrow" ]
 
   conda-python-turbodbc:
     # Possible $TURBODBC parameters:
@@ -1151,6 +1200,40 @@ services:
     command: >
       /bin/bash -c "
         /arrow/ci/scripts/r_sanitize.sh /arrow"
+
+  fedora-r-clang-sanitizer:
+    image: ${REPO}:r-rhub-fedora-clang-devel-latest
+    build:
+      context: .
+      dockerfile: ci/docker/linux-r.dockerfile
+      cache_from:
+        - ${REPO}:r-rhub-fedora-clang-devel-latest
+      args:
+        base: ${REPO}:r-fedora-clang-devel-san
+        r_dev: ${ARROW_R_DEV}
+        devtoolset_version: ${DEVTOOLSET_VERSION}
+        r_bin: RDsan
+        tz: ${TZ}
+    shm_size: *shm-size
+    environment:
+      LIBARROW_DOWNLOAD: "false"
+      ARROW_SOURCE_HOME: "/arrow"
+      ARROW_R_DEV: ${ARROW_R_DEV}
+      # To test for CRAN release, delete ^^ these two env vars so we download the Apache release
+      ARROW_USE_PKG_CONFIG: "false"
+    volumes:
+      - .:/arrow:delegated
+    command: >
+      /bin/bash -c "
+        /arrow/ci/scripts/r_sanitize.sh /arrow"
+
+  r-fedora-clang-devel-san:
+    image: ${REPO}:r-fedora-clang-devel-san
+    build:
+      context: .
+      dockerfile: ci/docker/r-fedora-clang-devel-san.dockerfile
+      cache_from:
+        - ${REPO}:r-fedora-clang-devel-san
 
   ubuntu-r-valgrind:
     # Only 18.04 and amd64 supported

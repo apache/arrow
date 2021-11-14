@@ -287,6 +287,9 @@ std::shared_ptr<fs::S3FileSystem> fs___S3FileSystem__create(
     std::string session_name = "", std::string external_id = "", int load_frequency = 900,
     std::string region = "", std::string endpoint_override = "", std::string scheme = "",
     bool background_writes = true) {
+  // We need to ensure that S3 is initialized before we start messing with the
+  // options
+  StopIfNotOk(fs::EnsureS3Initialized());
   fs::S3Options s3_opts;
   // Handle auth (anonymous, keys, default)
   // (validation/internal coherence handled in R)
@@ -316,7 +319,6 @@ std::shared_ptr<fs::S3FileSystem> fs___S3FileSystem__create(
   /// default true
   s3_opts.background_writes = background_writes;
 
-  StopIfNotOk(fs::EnsureS3Initialized());
   auto io_context = arrow::io::IOContext(gc_memory_pool());
   return ValueOrStop(fs::S3FileSystem::Make(s3_opts, io_context));
 }

@@ -1679,8 +1679,15 @@ class TestTableSortIndicesRandom : public testing::TestWithParam<RandomParam> {
    public:
     Comparator(const Table& table, const SortOptions& options) : options_(options) {
       for (const auto& sort_key : options_.sort_keys) {
-        sort_columns_.emplace_back(table.GetColumnByName(sort_key.name).get(),
-                                   sort_key.order);
+        DCHECK(!sort_key.target.IsNested());
+
+        if (auto name = sort_key.target.name()) {
+          sort_columns_.emplace_back(table.GetColumnByName(*name).get(), sort_key.order);
+          continue;
+        }
+
+        auto index = sort_key.target.field_path()->indices()[0];
+        sort_columns_.emplace_back(table.column(index).get(), sort_key.order);
       }
     }
 
@@ -1844,7 +1851,8 @@ TEST_P(TestTableSortIndicesRandom, Sort) {
 
   std::stringstream ss;
   for (const auto& sort_key : sort_keys) {
-    ss << sort_key.name << (sort_key.order == SortOrder::Ascending ? " ASC" : " DESC");
+    ss << sort_key.target.ToString()
+       << (sort_key.order == SortOrder::Ascending ? " ASC" : " DESC");
     ss << ", ";
   }
   ARROW_SCOPED_TRACE("sort_keys = ", ss.str());

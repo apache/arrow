@@ -52,6 +52,18 @@ class FileSystemDataset;
 class FileSystemDatasetFactory;
 struct FileSystemDatasetWriteOptions;
 
+/// \brief Controls what happens if files exist in an output directory during a dataset
+/// write
+enum class ExistingDataBehavior : int8_t {
+  /// Deletes all files in a directory the first time that directory is encountered
+  kDeleteMatchingPartitions,
+  /// Ignores existing files, overwriting any that happen to have the same name as an
+  /// output file
+  kOverwriteOrIgnore,
+  /// Returns an error if there are any files or subdirectories in the output directory
+  kError,
+};
+
 class InMemoryDataset;
 
 class CsvFileFormat;

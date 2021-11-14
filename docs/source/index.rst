@@ -41,16 +41,16 @@ target environment.**
    :maxdepth: 1
    :caption: Supported Environments
 
-   C/GLib <https://arrow.apache.org/docs/c_glib/>
+   C/GLib <c_glib/index>
    C++ <cpp/index>
    C# <https://github.com/apache/arrow/blob/master/csharp/README.md>
    Go <https://godoc.org/github.com/apache/arrow/go/arrow>
    Java <java/index>
-   JavaScript <https://arrow.apache.org/docs/js/>
+   JavaScript <js/index>
    Julia <https://github.com/apache/arrow/blob/master/julia/Arrow/README.md>
    MATLAB <https://github.com/apache/arrow/blob/master/matlab/README.md>
    Python <python/index>
-   R <https://arrow.apache.org/docs/r/>
+   R <r/index>
    Ruby <https://github.com/apache/arrow/blob/master/ruby/README.md>
    Rust <https://docs.rs/crate/arrow/>
    status

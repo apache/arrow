@@ -199,6 +199,7 @@ set(ARROW_SRCS
     util/bitmap_builders.cc
     util/bitmap_ops.cc
     util/bpacking.cc
+    util/byte_size.cc
     util/cancel.cc
     util/compression.cc
     util/counting_semaphore.cc
@@ -377,11 +378,13 @@ if(ARROW_COMPUTE)
        compute/exec/expression.cc
        compute/exec/filter_node.cc
        compute/exec/hash_join.cc
+       compute/exec/hash_join_dict.cc
        compute/exec/hash_join_node.cc
        compute/exec/key_compare.cc
        compute/exec/key_encode.cc
        compute/exec/key_hash.cc
        compute/exec/key_map.cc
+       compute/exec/ir_consumer.cc
        compute/exec/project_node.cc
        compute/exec/source_node.cc
        compute/exec/sink_node.cc
@@ -400,6 +403,7 @@ if(ARROW_COMPUTE)
        compute/kernels/aggregate_var_std.cc
        compute/kernels/codegen_internal.cc
        compute/kernels/hash_aggregate.cc
+       compute/kernels/row_encoder.cc
        compute/kernels/scalar_arithmetic.cc
        compute/kernels/scalar_boolean.cc
        compute/kernels/scalar_cast_boolean.cc
@@ -423,8 +427,7 @@ if(ARROW_COMPUTE)
        compute/kernels/vector_nested.cc
        compute/kernels/vector_replace.cc
        compute/kernels/vector_selection.cc
-       compute/kernels/vector_sort.cc
-       compute/kernels/row_encoder.cc)
+       compute/kernels/vector_sort.cc)
 
   append_avx2_src(compute/kernels/aggregate_basic_avx2.cc)
   append_avx512_src(compute/kernels/aggregate_basic_avx512.cc)

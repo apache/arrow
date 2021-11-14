@@ -33,7 +33,10 @@
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec/exec_plan.h"
+#include "arrow/compute/exec/ir_consumer.h"
+#include "arrow/compute/exec/options.h"
 #include "arrow/compute/exec/util.h"
+#include "arrow/compute/function_internal.h"
 #include "arrow/datum.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
@@ -44,6 +47,7 @@
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/optional.h"
+#include "arrow/util/unreachable.h"
 #include "arrow/util/vector.h"
 
 namespace arrow {
@@ -233,6 +237,182 @@ void AssertExecBatchesEqual(const std::shared_ptr<Schema>& schema,
   ASSERT_OK_AND_ASSIGN(auto exp_tab, TableFromExecBatches(schema, exp));
   ASSERT_OK_AND_ASSIGN(auto act_tab, TableFromExecBatches(schema, act));
   AssertTablesEqual(exp_tab, act_tab);
+}
+
+template <typename T>
+static const T& OptionsAs(const ExecNodeOptions& opts) {
+  const auto& ptr = checked_cast<const T&>(opts);
+  return ptr;
+}
+
+template <typename T>
+static const T& OptionsAs(const Declaration& decl) {
+  return OptionsAs<T>(*decl.options);
+}
+
+bool operator==(const Declaration& l, const Declaration& r) {
+  if (l.factory_name != r.factory_name) return false;
+  if (l.inputs != r.inputs) return false;
+  if (l.label != r.label) return false;
+
+  if (l.factory_name == "catalog_source") {
+    auto l_opts = &OptionsAs<CatalogSourceNodeOptions>(l);
+    auto r_opts = &OptionsAs<CatalogSourceNodeOptions>(r);
+
+    bool schemas_equal = l_opts->schema == nullptr
+                             ? r_opts->schema == nullptr
+                             : l_opts->schema->Equals(r_opts->schema);
+
+    return l_opts->name == r_opts->name && schemas_equal &&
+           l_opts->filter == r_opts->filter && l_opts->projection == r_opts->projection;
+  }
+
+  if (l.factory_name == "filter") {
+    return OptionsAs<FilterNodeOptions>(l).filter_expression ==
+           OptionsAs<FilterNodeOptions>(r).filter_expression;
+  }
+
+  if (l.factory_name == "project") {
+    auto l_opts = &OptionsAs<ProjectNodeOptions>(l);
+    auto r_opts = &OptionsAs<ProjectNodeOptions>(r);
+    return l_opts->expressions == r_opts->expressions && l_opts->names == r_opts->names;
+  }
+
+  if (l.factory_name == "aggregate") {
+    auto l_opts = &OptionsAs<AggregateNodeOptions>(l);
+    auto r_opts = &OptionsAs<AggregateNodeOptions>(r);
+
+    if (l_opts->aggregates.size() != r_opts->aggregates.size()) return false;
+    for (size_t i = 0; i < l_opts->aggregates.size(); ++i) {
+      auto l_agg = &l_opts->aggregates[i];
+      auto r_agg = &r_opts->aggregates[i];
+
+      if (l_agg->function != r_agg->function) return false;
+
+      if (l_agg->options == r_agg->options) continue;
+      if (l_agg->options == nullptr || r_agg->options == nullptr) return false;
+
+      if (!l_agg->options->Equals(*r_agg->options)) return false;
+    }
+
+    return l_opts->targets == r_opts->targets && l_opts->names == r_opts->names &&
+           l_opts->keys == r_opts->keys;
+  }
+
+  if (l.factory_name == "order_by_sink") {
+    auto l_opts = &OptionsAs<OrderBySinkNodeOptions>(l);
+    auto r_opts = &OptionsAs<OrderBySinkNodeOptions>(r);
+
+    return l_opts->generator == r_opts->generator &&
+           l_opts->sort_options == r_opts->sort_options;
+  }
+
+  Unreachable("equality comparison is not supported for all ExecNodeOptions");
+}
+
+static inline void PrintToImpl(const std::string& factory_name,
+                               const ExecNodeOptions& opts, std::ostream* os) {
+  if (factory_name == "catalog_source") {
+    auto o = &OptionsAs<CatalogSourceNodeOptions>(opts);
+    *os << o->name << ", schema=" << o->schema->ToString();
+    if (o->filter != literal(true)) {
+      *os << ", filter=" << o->filter.ToString();
+    }
+    if (!o->projection.empty()) {
+      *os << ", projection=[";
+      for (const auto& ref : o->projection) {
+        *os << ref.ToString() << ",";
+      }
+      *os << "]";
+    }
+    return;
+  }
+
+  if (factory_name == "filter") {
+    return PrintTo(OptionsAs<FilterNodeOptions>(opts).filter_expression, os);
+  }
+
+  if (factory_name == "project") {
+    auto o = &OptionsAs<ProjectNodeOptions>(opts);
+    *os << "expressions={";
+    for (const auto& expr : o->expressions) {
+      PrintTo(expr, os);
+      *os << ",";
+    }
+    *os << "},";
+
+    if (!o->names.empty()) {
+      *os << "names={";
+      for (const auto& name : o->names) {
+        *os << name << ",";
+      }
+      *os << "}";
+    }
+    return;
+  }
+
+  if (factory_name == "aggregate") {
+    auto o = &OptionsAs<AggregateNodeOptions>(opts);
+
+    *os << "aggregates={";
+    for (const auto& agg : o->aggregates) {
+      *os << agg.function << "<";
+      if (agg.options) PrintTo(*agg.options, os);
+      *os << ">,";
+    }
+    *os << "},";
+
+    *os << "targets={";
+    for (const auto& target : o->targets) {
+      *os << target.ToString() << ",";
+    }
+    *os << "},";
+
+    *os << "names={";
+    for (const auto& name : o->names) {
+      *os << name << ",";
+    }
+    *os << "}";
+
+    if (!o->keys.empty()) {
+      *os << ",keys={";
+      for (const auto& key : o->keys) {
+        *os << key.ToString() << ",";
+      }
+      *os << "}";
+    }
+    return;
+  }
+
+  if (factory_name == "order_by_sink") {
+    auto o = &OptionsAs<OrderBySinkNodeOptions>(opts);
+    if (o->generator) {
+      *os << "NON_NULL_GENERATOR,";
+    }
+    return PrintTo(o->sort_options, os);
+  }
+
+  Unreachable("debug printing is not supported for all ExecNodeOptions");
+}
+
+void PrintTo(const Declaration& decl, std::ostream* os) {
+  *os << decl.factory_name;
+
+  if (decl.label != decl.factory_name) {
+    *os << ":" << decl.label;
+  }
+
+  *os << "<";
+  PrintToImpl(decl.factory_name, *decl.options, os);
+  *os << ">";
+
+  *os << "{";
+  for (const auto& input : decl.inputs) {
+    if (auto decl = util::get_if<Declaration>(&input)) {
+      PrintTo(*decl, os);
+    }
+  }
+  *os << "}";
 }
 
 }  // namespace compute

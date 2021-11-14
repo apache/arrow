@@ -67,6 +67,8 @@ string(REPLACE "-Werror " " " CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 
 # Probe the version of gRPC being used to see if it supports disabling server
 # verification when using TLS.
+# gRPC's pkg-config file neglects to specify pthreads.
+find_package(Threads REQUIRED)
 function(test_grpc_version DST_VAR DETECT_VERSION TEST_FILE)
   if(NOT DEFINED ${DST_VAR})
     message(STATUS "Checking support for TlsCredentialsOptions (gRPC >= ${DETECT_VERSION})..."
@@ -80,7 +82,7 @@ function(test_grpc_version DST_VAR DETECT_VERSION TEST_FILE)
     try_compile(HAS_GRPC_VERSION ${CMAKE_CURRENT_BINARY_DIR}/try_compile
                 SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/try_compile/${TEST_FILE}"
                 CMAKE_FLAGS "-DINCLUDE_DIRECTORIES=${CURRENT_INCLUDE_DIRECTORIES}"
-                LINK_LIBRARIES gRPC::grpc++
+                LINK_LIBRARIES gRPC::grpc++ Threads::Threads
                 OUTPUT_VARIABLE TLS_CREDENTIALS_OPTIONS_CHECK_OUTPUT CXX_STANDARD 11)
     if(HAS_GRPC_VERSION)
       set(${DST_VAR}

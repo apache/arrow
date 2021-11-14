@@ -111,18 +111,18 @@ TEST(TestVectorNested, ListParentIndicesFixedSizeList) {
   for (auto ty : {fixed_size_list(int16(), 2), fixed_size_list(uint32(), 2)}) {
     {
       auto input = ArrayFromJSON(ty, "[[0, null], null, [1, 2], [3, 4], [null, 5]]");
-      auto expected = ArrayFromJSON(int32(), "[0, 0, 2, 2, 3, 3, 4, 4]");
+      auto expected = ArrayFromJSON(int64(), "[0, 0, 2, 2, 3, 3, 4, 4]");
       CheckVectorUnary("list_parent_indices", input, expected);
     }
     {
       // Test a chunked array
       auto input =
           ChunkedArrayFromJSON(ty, {"[[0, null], null, [1, 2]]", "[[3, 4], [null, 5]]"});
-      auto expected = ChunkedArrayFromJSON(int32(), {"[0, 0, 2, 2]", "[3, 3, 4, 4]"});
+      auto expected = ChunkedArrayFromJSON(int64(), {"[0, 0, 2, 2]", "[3, 3, 4, 4]"});
       CheckVectorUnary("list_parent_indices", input, expected);
 
       input = ChunkedArrayFromJSON(ty, {});
-      expected = ChunkedArrayFromJSON(int32(), {});
+      expected = ChunkedArrayFromJSON(int64(), {});
       CheckVectorUnary("list_parent_indices", input, expected);
     }
   }

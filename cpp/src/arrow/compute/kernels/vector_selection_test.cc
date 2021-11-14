@@ -1611,7 +1611,12 @@ class TestTakeKernelWithChunkedArray : public TestTakeKernelTyped<ChunkedArray> 
 
 TEST_F(TestTakeKernelWithChunkedArray, TakeChunkedArray) {
   this->AssertTake(int8(), {"[]"}, "[]", {"[]"});
+  this->AssertChunkedTake(int8(), {}, {}, {});
+  this->AssertChunkedTake(int8(), {}, {"[]"}, {"[]"});
+  this->AssertChunkedTake(int8(), {}, {"[null]"}, {"[null]"});
+  this->AssertChunkedTake(int8(), {"[]"}, {}, {});
   this->AssertChunkedTake(int8(), {"[]"}, {"[]"}, {"[]"});
+  this->AssertChunkedTake(int8(), {"[]"}, {"[null]"}, {"[null]"});
 
   this->AssertTake(int8(), {"[7]", "[8, 9]"}, "[0, 1, 0, 2]", {"[7, 8, 7, 9]"});
   this->AssertChunkedTake(int8(), {"[7]", "[8, 9]"}, {"[0, 1, 0]", "[]", "[2]"},
@@ -1623,6 +1628,8 @@ TEST_F(TestTakeKernelWithChunkedArray, TakeChunkedArray) {
                 this->TakeWithArray(int8(), {"[7]", "[8, 9]"}, "[0, 5]", &arr));
   ASSERT_RAISES(IndexError, this->TakeWithChunkedArray(int8(), {"[7]", "[8, 9]"},
                                                        {"[0, 1, 0]", "[5, 1]"}, &arr));
+  ASSERT_RAISES(IndexError, this->TakeWithChunkedArray(int8(), {}, {"[0]"}, &arr));
+  ASSERT_RAISES(IndexError, this->TakeWithChunkedArray(int8(), {"[]"}, {"[0]"}, &arr));
 }
 
 class TestTakeKernelWithTable : public TestTakeKernelTyped<Table> {

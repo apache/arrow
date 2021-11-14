@@ -20,11 +20,6 @@ skip_if_not_available("dataset")
 library(dplyr, warn.conflicts = FALSE)
 
 left <- example_data
-# Error: Invalid: Dictionary type support for join output field
-# is not yet implemented, output field reference: FieldRef.Name(fct)
-# on left side of the join
-# (select(-fct) also solves this but remove once)
-left$fct <- NULL
 left$some_grouping <- rep(c(1, 2), 5)
 
 left_tab <- Table$create(left)
@@ -37,11 +32,10 @@ to_join <- tibble::tibble(
 to_join_tab <- Table$create(to_join)
 
 
-
 test_that("left_join", {
   expect_message(
-    expect_dplyr_equal(
-      input %>%
+    compare_dplyr_binding(
+      .input %>%
         left_join(to_join) %>%
         collect(),
       left
@@ -51,14 +45,14 @@ test_that("left_join", {
 })
 
 test_that("left_join `by` args", {
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       left_join(to_join, by = "some_grouping") %>%
       collect(),
     left
   )
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       left_join(
         to_join %>%
           rename(the_grouping = some_grouping),
@@ -68,10 +62,8 @@ test_that("left_join `by` args", {
     left
   )
 
-  # TODO: allow renaming columns on the right side as well
-  skip("ARROW-14184")
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       rename(the_grouping = some_grouping) %>%
       left_join(
         to_join,
@@ -81,7 +73,6 @@ test_that("left_join `by` args", {
     left
   )
 })
-
 
 test_that("join two tables", {
   expect_identical(
@@ -108,8 +99,8 @@ test_that("Error handling", {
 # TODO: casting: int and float columns?
 
 test_that("right_join", {
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       right_join(to_join, by = "some_grouping") %>%
       collect(),
     left
@@ -117,8 +108,8 @@ test_that("right_join", {
 })
 
 test_that("inner_join", {
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       inner_join(to_join, by = "some_grouping") %>%
       collect(),
     left
@@ -126,8 +117,8 @@ test_that("inner_join", {
 })
 
 test_that("full_join", {
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       full_join(to_join, by = "some_grouping") %>%
       collect(),
     left
@@ -135,8 +126,8 @@ test_that("full_join", {
 })
 
 test_that("semi_join", {
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       semi_join(to_join, by = "some_grouping") %>%
       collect(),
     left
@@ -144,8 +135,11 @@ test_that("semi_join", {
 })
 
 test_that("anti_join", {
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
+      # Factor levels when there are no rows in the data don't match
+      # TODO: use better anti_join test data
+      select(-fct) %>%
       anti_join(to_join, by = "some_grouping") %>%
       collect(),
     left

@@ -454,6 +454,54 @@ TEST(TestCompareTimestamps, Basics) {
   CheckArrayCase(seconds_utc, CompareOperator::EQUAL, "[false, false, true]");
 }
 
+TEST(TestCompareTimestamps, DifferentParameters) {
+  const std::vector<std::pair<std::string, std::string>> cases = {
+      {"equal", "[0, 0, 1]"},   {"not_equal", "[1, 1, 0]"},
+      {"less", "[1, 0, 0]"},    {"less_equal", "[1, 0, 1]"},
+      {"greater", "[0, 1, 0]"}, {"greater_equal", "[0, 1, 1]"},
+  };
+  const std::string lhs_json = R"(["1970-01-01","2000-02-29","1900-02-28"])";
+  const std::string rhs_json = R"(["1970-01-02","2000-02-01","1900-02-28"])";
+
+  for (const auto& op : cases) {
+    const auto& function = op.first;
+    const auto& expected = op.second;
+
+    SCOPED_TRACE(function);
+    {
+      // Different units should be fine
+      auto lhs = ArrayFromJSON(timestamp(TimeUnit::SECOND), lhs_json);
+      auto rhs = ArrayFromJSON(timestamp(TimeUnit::MILLI), rhs_json);
+      CheckScalarBinary(function, lhs, rhs, ArrayFromJSON(boolean(), expected));
+    }
+    {
+      // So are different time zones
+      auto lhs = ArrayFromJSON(timestamp(TimeUnit::SECOND, "America/New_York"), lhs_json);
+      auto rhs = ArrayFromJSON(timestamp(TimeUnit::SECOND, "America/Phoenix"), rhs_json);
+      CheckScalarBinary(function, lhs, rhs, ArrayFromJSON(boolean(), expected));
+    }
+    {
+      // But comparing naive to zoned is not OK
+      auto lhs = ArrayFromJSON(timestamp(TimeUnit::SECOND), lhs_json);
+      auto rhs = ArrayFromJSON(timestamp(TimeUnit::SECOND, "America/Phoenix"), rhs_json);
+      EXPECT_RAISES_WITH_MESSAGE_THAT(
+          Invalid,
+          ::testing::HasSubstr(
+              "Cannot compare timestamp with timezone to timestamp without timezone"),
+          CallFunction(function, {lhs, rhs}));
+    }
+    {
+      auto lhs = ArrayFromJSON(timestamp(TimeUnit::SECOND, "America/New_York"), lhs_json);
+      auto rhs = ArrayFromJSON(timestamp(TimeUnit::SECOND), rhs_json);
+      EXPECT_RAISES_WITH_MESSAGE_THAT(
+          Invalid,
+          ::testing::HasSubstr(
+              "Cannot compare timestamp with timezone to timestamp without timezone"),
+          CallFunction(function, {lhs, rhs}));
+    }
+  }
+}
+
 template <typename ArrowType>
 class TestCompareDecimal : public ::testing::Test {};
 TYPED_TEST_SUITE(TestCompareDecimal, DecimalArrowTypes);
@@ -462,12 +510,9 @@ TYPED_TEST(TestCompareDecimal, ArrayScalar) {
   auto ty = std::make_shared<TypeParam>(3, 2);
 
   std::vector<std::pair<std::string, std::string>> cases = {
-      std::make_pair("equal", "[1, 0, 0, null]"),
-      std::make_pair("not_equal", "[0, 1, 1, null]"),
-      std::make_pair("less", "[0, 0, 1, null]"),
-      std::make_pair("less_equal", "[1, 0, 1, null]"),
-      std::make_pair("greater", "[0, 1, 0, null]"),
-      std::make_pair("greater_equal", "[1, 1, 0, null]"),
+      {"equal", "[1, 0, 0, null]"},   {"not_equal", "[0, 1, 1, null]"},
+      {"less", "[0, 0, 1, null]"},    {"less_equal", "[1, 0, 1, null]"},
+      {"greater", "[0, 1, 0, null]"}, {"greater_equal", "[1, 1, 0, null]"},
   };
 
   auto lhs = ArrayFromJSON(ty, R"(["1.23", "2.34", "-1.23", null])");
@@ -492,12 +537,9 @@ TYPED_TEST(TestCompareDecimal, ScalarArray) {
   auto ty = std::make_shared<TypeParam>(3, 2);
 
   std::vector<std::pair<std::string, std::string>> cases = {
-      std::make_pair("equal", "[1, 0, 0, null]"),
-      std::make_pair("not_equal", "[0, 1, 1, null]"),
-      std::make_pair("less", "[0, 1, 0, null]"),
-      std::make_pair("less_equal", "[1, 1, 0, null]"),
-      std::make_pair("greater", "[0, 0, 1, null]"),
-      std::make_pair("greater_equal", "[1, 0, 1, null]"),
+      {"equal", "[1, 0, 0, null]"},   {"not_equal", "[0, 1, 1, null]"},
+      {"less", "[0, 1, 0, null]"},    {"less_equal", "[1, 1, 0, null]"},
+      {"greater", "[0, 0, 1, null]"}, {"greater_equal", "[1, 0, 1, null]"},
   };
 
   auto lhs = ScalarFromJSON(ty, R"("1.23")");
@@ -522,12 +564,12 @@ TYPED_TEST(TestCompareDecimal, ArrayArray) {
   auto ty = std::make_shared<TypeParam>(3, 2);
 
   std::vector<std::pair<std::string, std::string>> cases = {
-      std::make_pair("equal", "[1, 0, 0, 1, 0, 0, null, null]"),
-      std::make_pair("not_equal", "[0, 1, 1, 0, 1, 1, null, null]"),
-      std::make_pair("less", "[0, 1, 0, 0, 1, 0, null, null]"),
-      std::make_pair("less_equal", "[1, 1, 0, 1, 1, 0, null, null]"),
-      std::make_pair("greater", "[0, 0, 1, 0, 0, 1, null, null]"),
-      std::make_pair("greater_equal", "[1, 0, 1, 1, 0, 1, null, null]"),
+      {"equal", "[1, 0, 0, 1, 0, 0, null, null]"},
+      {"not_equal", "[0, 1, 1, 0, 1, 1, null, null]"},
+      {"less", "[0, 1, 0, 0, 1, 0, null, null]"},
+      {"less_equal", "[1, 1, 0, 1, 1, 0, null, null]"},
+      {"greater", "[0, 0, 1, 0, 0, 1, null, null]"},
+      {"greater_equal", "[1, 0, 1, 1, 0, 1, null, null]"},
   };
 
   auto lhs = ArrayFromJSON(
@@ -554,6 +596,28 @@ TYPED_TEST(TestCompareDecimal, ArrayArray) {
     CheckScalarBinary(function, lhs_float, rhs, ArrayFromJSON(boolean(), expected));
     CheckScalarBinary(function, lhs, rhs_float, ArrayFromJSON(boolean(), expected));
     CheckScalarBinary(function, lhs_intlike, rhs_int, ArrayFromJSON(boolean(), expected));
+  }
+}
+
+TYPED_TEST(TestCompareDecimal, DifferentParameters) {
+  auto ty1 = std::make_shared<TypeParam>(3, 2);
+  auto ty2 = std::make_shared<TypeParam>(4, 3);
+
+  std::vector<std::pair<std::string, std::string>> cases = {
+      {"equal", "[1, 0, 0, 1, 0, 0]"},   {"not_equal", "[0, 1, 1, 0, 1, 1]"},
+      {"less", "[0, 1, 0, 0, 1, 0]"},    {"less_equal", "[1, 1, 0, 1, 1, 0]"},
+      {"greater", "[0, 0, 1, 0, 0, 1]"}, {"greater_equal", "[1, 0, 1, 1, 0, 1]"},
+  };
+
+  auto lhs = ArrayFromJSON(ty1, R"(["1.23", "1.23", "2.34", "-1.23", "-1.23", "1.23"])");
+  auto rhs =
+      ArrayFromJSON(ty2, R"(["1.230", "2.340", "1.230", "-1.230", "1.230", "-1.230"])");
+  for (const auto& op : cases) {
+    const auto& function = op.first;
+    const auto& expected = op.second;
+
+    SCOPED_TRACE(function);
+    CheckScalarBinary(function, lhs, rhs, ArrayFromJSON(boolean(), expected));
   }
 }
 
