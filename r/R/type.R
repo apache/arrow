@@ -481,12 +481,12 @@ canonical_type_str <- function(type_str) {
 }
 
 # vctrs support -----------------------------------------------------------
-str_dup <- function(x, times) {
+duplicate_string <- function(x, times) {
   paste0(rep(x, times = times), collapse = "")
 }
 
 indent <- function(x, n) {
-  pad <- str_dup(" ", n)
+  pad <- duplicate_string(" ", n)
   sapply(x, gsub, pattern = "(\n+)", replacement = paste0("\\1", pad))
 }
 

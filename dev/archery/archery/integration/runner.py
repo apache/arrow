@@ -147,7 +147,15 @@ class IntegrationRunner(object):
                 skip.add("C#")
                 skip.add("Go")
 
-            yield datagen.File(name, None, None, skip=skip, path=out_path)
+            quirks = set()
+            if prefix in {'0.14.1', '0.17.1',
+                          '1.0.0-bigendian', '1.0.0-littleendian'}:
+                # ARROW-13558: older versions generated decimal values that
+                # were out of range for the given precision.
+                quirks.add("no_decimal_validate")
+
+            yield datagen.File(name, None, None, skip=skip, path=out_path,
+                               quirks=quirks)
 
     def _run_test_cases(self, producer, consumer, case_runner,
                         test_cases):
@@ -254,7 +262,8 @@ class IntegrationRunner(object):
         log('-- Validating file')
         producer_file_path = os.path.join(
             gold_dir, "generated_" + test_case.name + ".arrow_file")
-        consumer.validate(json_path, producer_file_path)
+        consumer.validate(json_path, producer_file_path,
+                          quirks=test_case.quirks)
 
         log('-- Validating stream')
         consumer_stream_path = os.path.join(
@@ -266,7 +275,8 @@ class IntegrationRunner(object):
                                           name + '.consumer_stream_as_file')
 
         consumer.stream_to_file(consumer_stream_path, consumer_file_path)
-        consumer.validate(json_path, consumer_file_path)
+        consumer.validate(json_path, consumer_file_path,
+                          quirks=test_case.quirks)
 
     def _compare_flight_implementations(self, producer, consumer):
         log('##########################################################')

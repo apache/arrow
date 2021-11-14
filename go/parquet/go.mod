@@ -20,9 +20,9 @@ go 1.15
 
 require (
 	github.com/JohnCGriffin/overflow v0.0.0-20170615021017-4d914c927216
-	github.com/andybalholm/brotli v1.0.1
-	github.com/apache/arrow/go/arrow v0.0.0-20210909182554-946bdcf83611
-	github.com/apache/thrift/lib/go/thrift v0.0.0-20210120171102-e27e82c46ba4
+	github.com/andybalholm/brotli v1.0.3
+	github.com/apache/arrow/go/arrow v0.0.0-20211025125312-be665ef948cb
+	github.com/apache/thrift v0.15.0
 	github.com/golang/snappy v0.0.3
 	github.com/klauspost/asmfmt v1.2.3
 	github.com/klauspost/compress v1.13.1
@@ -32,6 +32,7 @@ require (
 	github.com/zeebo/xxh3 v0.10.0
 	golang.org/x/exp v0.0.0-20210220032938-85be41e4509f
 	golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c
+	golang.org/x/tools v0.1.4
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1
-	gonum.org/v1/gonum v0.8.2
+	gonum.org/v1/gonum v0.9.3
 )

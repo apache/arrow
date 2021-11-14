@@ -15,11 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/compute/exec/exec_plan.h"
-
 #include <mutex>
 
 #include "arrow/compute/exec.h"
+#include "arrow/compute/exec/exec_plan.h"
 #include "arrow/compute/exec/expression.h"
 #include "arrow/compute/exec/options.h"
 #include "arrow/compute/exec/util.h"
@@ -67,7 +66,16 @@ struct SourceNode : ExecNode {
   [[noreturn]] void InputFinished(ExecNode*, int) override { NoInputs(); }
 
   Status StartProducing() override {
-    DCHECK(!stop_requested_) << "Restarted SourceNode";
+    {
+      // If another exec node encountered an error during its StartProducing call
+      // it might have already called StopProducing on all of its inputs (including this
+      // node).
+      //
+      std::unique_lock<std::mutex> lock(mutex_);
+      if (stop_requested_) {
+        return Status::OK();
+      }
+    }
 
     CallbackOptions options;
     auto executor = plan()->exec_context()->executor();

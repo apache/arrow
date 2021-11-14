@@ -557,21 +557,18 @@ each value. Its physical layout is as follows:
   union has a corresponding type id whose values are found in this
   buffer. A union with more than 127 possible types can be modeled as
   a union of unions.
-* Offsets buffer: A buffer of signed int32 values indicating the
+* Offsets buffer: A buffer of signed Int32 values indicating the
   relative offset into the respective child array for the type in a
   given slot. The respective offsets for each child value array must
   be in order / increasing.
 
-Critically, the dense union allows for minimal overhead in the ubiquitous
-union-of-structs with non-overlapping-fields use case (``Union<s1: Struct1, s2:
-Struct2, s3: Struct3, ...>``)
+**Example Layout: ``DenseUnion<f: Float32, i: Int32>``**
 
-**Example Layout: Dense union**
+For the union array: ::
 
-An example layout for logical union of: ``Union<f: float, i: int32>``
-having the values: ``[{f=1.2}, null, {f=3.4}, {i=5}]``
+    [{f=1.2}, null, {f=3.4}, {i=5}]
 
-::
+will have the following layout: ::
 
     * Length: 4, Null count: 0
     * Types buffer:
@@ -587,7 +584,7 @@ having the values: ``[{f=1.2}, null, {f=3.4}, {i=5}]``
       | 0        | 1           | 2          | 0           | unspecified |
 
     * Children arrays:
-      * Field-0 array (f: float):
+      * Field-0 array (f: Float32):
         * Length: 2, Null count: 1
         * Validity bitmap buffer: 00000101
 
@@ -598,7 +595,7 @@ having the values: ``[{f=1.2}, null, {f=3.4}, {i=5}]``
           | 1.2, null, 3.4 | unspecified |
 
 
-      * Field-1 array (i: int32):
+      * Field-1 array (i: Int32):
         * Length: 1, Null count: 0
         * Validity bitmap buffer: Not required
 
@@ -622,11 +619,11 @@ use cases:
 * A sparse union is more amenable to vectorized expression evaluation in some use cases.
 * Equal-length arrays can be interpreted as a union by only defining the types array.
 
-**Example layout: ``SparseUnion<u0: Int32, u1: Float, u2: VarBinary>``**
+**Example layout: ``SparseUnion<i: Int32, f: Float32, s: VarBinary>``**
 
 For the union array: ::
 
-    [{u0=5}, {u1=1.2}, {u2='joe'}, {u1=3.4}, {u0=4}, {u2='mark'}]
+    [{i=5}, {f=1.2}, {s='joe'}, {f=3.4}, {i=4}, {s='mark'}]
 
 will have the following layout: ::
 
@@ -639,7 +636,7 @@ will have the following layout: ::
 
     * Children arrays:
 
-      * u0 (Int32):
+      * i (Int32):
         * Length: 6, Null count: 4
         * Validity bitmap buffer:
 
@@ -653,7 +650,7 @@ will have the following layout: ::
           |------------|-------------|-------------|-------------|-------------|--------------|-----------------------|
           | 5          | unspecified | unspecified | unspecified | 4           |  unspecified | unspecified (padding) |
 
-      * u1 (float):
+      * f (Float32):
         * Length: 6, Null count: 4
         * Validity bitmap buffer:
 
@@ -667,7 +664,7 @@ will have the following layout: ::
           |-------------|-------------|-------------|-------------|-------------|--------------|-----------------------|
           | unspecified |  1.2        | unspecified | 3.4         | unspecified |  unspecified | unspecified (padding) |
 
-      * u2 (`VarBinary`)
+      * s (`VarBinary`)
         * Length: 6, Null count: 4
         * Validity bitmap buffer:
 
@@ -675,7 +672,7 @@ will have the following layout: ::
           |--------------------------|-----------------------|
           | 00100100                 | 0 (padding)           |
 
-        * Offsets buffer (int32)
+        * Offsets buffer (Int32)
 
           | Bytes 0-3  | Bytes 4-7   | Bytes 8-11  | Bytes 12-15 | Bytes 16-19 | Bytes 20-23 | Bytes 24-27 | Bytes 28-63 |
           |------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|

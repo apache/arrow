@@ -40,7 +40,7 @@ namespace {
 
 template <typename T>
 DatumVector GetDatums(const std::vector<T>& inputs) {
-  std::vector<Datum> datums;
+  DatumVector datums;
   for (const auto& input : inputs) {
     datums.emplace_back(input);
   }
@@ -250,7 +250,7 @@ void CheckDictionary(const std::string& func_name, const DatumVector& args,
 
 void CheckScalarUnary(std::string func_name, Datum input, Datum expected,
                       const FunctionOptions* options) {
-  std::vector<Datum> input_vector = {std::move(input)};
+  DatumVector input_vector = {std::move(input)};
   CheckScalar(std::move(func_name), input_vector, expected, options);
 }
 

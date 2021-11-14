@@ -151,15 +151,7 @@ ExecPlan <- R6Class("ExecPlan",
             )
           }
         }
-      } else if (!is.null(.data$join)) {
-        node <- node$Join(
-          type = .data$join$type,
-          right_node = self$Build(.data$join$right_data),
-          by = .data$join$by,
-          left_output = names(.data),
-          right_output = setdiff(names(.data$join$right_data), .data$join$by)
-        )
-      } else if (length(node$schema)) {
+      } else {
         # If any columns are derived, reordered, or renamed we need to Project
         # If there are aggregations, the projection was already handled above
         # We have to project at least once to eliminate some junk columns
@@ -169,6 +161,16 @@ ExecPlan <- R6Class("ExecPlan",
         # (as when we've done collapse() and not projected after) is cheap/no-op
         projection <- c(.data$selected_columns, .data$temp_columns)
         node <- node$Project(projection)
+
+        if (!is.null(.data$join)) {
+          node <- node$Join(
+            type = .data$join$type,
+            right_node = self$Build(.data$join$right_data),
+            by = .data$join$by,
+            left_output = names(.data),
+            right_output = setdiff(names(.data$join$right_data), .data$join$by)
+          )
+        }
       }
 
       # Apply sorting: this is currently not an ExecNode itself, it is a

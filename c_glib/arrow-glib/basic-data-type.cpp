@@ -1287,20 +1287,29 @@ garrow_decimal_data_type_class_init(GArrowDecimalDataTypeClass *klass)
  * garrow_decimal_data_type_new:
  * @precision: The precision of decimal data.
  * @scale: The scale of decimal data.
+ * @error: (nullable): Return location for a #GError or %NULL.
  *
- * Returns: The newly created decimal data type.
+ * Returns: (nullable):
+ *   The newly created decimal data type on success, %NULL on error.
+ *
+ *   #GArrowDecimal256DataType is used if @precision is larger than
+ *   garrow_decimal128_data_type_max_precision(),
+ *   #GArrowDecimal128DataType is used otherwise.
  *
  * Since: 0.10.0
- *
- * Deprecated: 0.12.0:
- *   Use garrow_decimal128_data_type_new() instead.
  */
 GArrowDecimalDataType *
 garrow_decimal_data_type_new(gint32 precision,
-                             gint32 scale)
+                             gint32 scale,
+                             GError **error)
 {
-  auto decimal128_data_type = garrow_decimal128_data_type_new(precision, scale);
-  return GARROW_DECIMAL_DATA_TYPE(decimal128_data_type);
+  if (precision <= garrow_decimal128_data_type_max_precision()) {
+    return GARROW_DECIMAL_DATA_TYPE(
+      garrow_decimal128_data_type_new(precision, scale, error));
+  } else {
+    return GARROW_DECIMAL_DATA_TYPE(
+      garrow_decimal256_data_type_new(precision, scale, error));
+  }
 }
 
 /**
@@ -1371,22 +1380,30 @@ garrow_decimal128_data_type_max_precision()
  * garrow_decimal128_data_type_new:
  * @precision: The precision of decimal data.
  * @scale: The scale of decimal data.
+ * @error: (nullable): Return location for a #GError or %NULL.
  *
- * Returns: The newly created 128-bit decimal data type.
+ * Returns: (nullable):
+ *   The newly created 128-bit decimal data type on success, %NULL on error.
  *
  * Since: 0.12.0
  */
 GArrowDecimal128DataType *
 garrow_decimal128_data_type_new(gint32 precision,
-                                gint32 scale)
+                                gint32 scale,
+                                GError **error)
 {
-  auto arrow_data_type = arrow::decimal128(precision, scale);
-
-  auto data_type =
-    GARROW_DECIMAL128_DATA_TYPE(g_object_new(GARROW_TYPE_DECIMAL128_DATA_TYPE,
-                                             "data-type", &arrow_data_type,
-                                             NULL));
-  return data_type;
+  auto arrow_data_type_result = arrow::Decimal128Type::Make(precision, scale);
+  if (garrow::check(error,
+                    arrow_data_type_result,
+                    "[decimal128-data-type][new]")) {
+    auto arrow_data_type = *arrow_data_type_result;
+    return GARROW_DECIMAL128_DATA_TYPE(
+      g_object_new(GARROW_TYPE_DECIMAL128_DATA_TYPE,
+                   "data-type", &arrow_data_type,
+                   NULL));
+  } else {
+    return NULL;
+  }
 }
 
 
@@ -1421,22 +1438,30 @@ garrow_decimal256_data_type_max_precision()
  * garrow_decimal256_data_type_new:
  * @precision: The precision of decimal data.
  * @scale: The scale of decimal data.
+ * @error: (nullable): Return location for a #GError or %NULL.
  *
- * Returns: The newly created 256-bit decimal data type.
+ * Returns: (nullable):
+ *   The newly created 256-bit decimal data type on success, %NULL on error.
  *
  * Since: 3.0.0
  */
 GArrowDecimal256DataType *
 garrow_decimal256_data_type_new(gint32 precision,
-                                gint32 scale)
+                                gint32 scale,
+                                GError **error)
 {
-  auto arrow_data_type = arrow::decimal256(precision, scale);
-
-  auto data_type =
-    GARROW_DECIMAL256_DATA_TYPE(g_object_new(GARROW_TYPE_DECIMAL256_DATA_TYPE,
-                                             "data-type", &arrow_data_type,
-                                             NULL));
-  return data_type;
+  auto arrow_data_type_result = arrow::Decimal256Type::Make(precision, scale);
+  if (garrow::check(error,
+                    arrow_data_type_result,
+                    "[decimal256-data-type][new]")) {
+    auto arrow_data_type = *arrow_data_type_result;
+    return GARROW_DECIMAL256_DATA_TYPE(
+      g_object_new(GARROW_TYPE_DECIMAL256_DATA_TYPE,
+                   "data-type", &arrow_data_type,
+                   NULL));
+  } else {
+    return NULL;
+  }
 }
 
 
