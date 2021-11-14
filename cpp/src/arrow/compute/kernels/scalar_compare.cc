@@ -65,19 +65,6 @@ struct GreaterEqual {
   }
 };
 
-struct Between {
-  template <typename T, typename Arg0, typename Arg1, typename Arg2>
-  static constexpr T Call(KernelContext*, const Arg0& value, const Arg1& left,
-                             const Arg2& right, Status*) {
-    static_assert(std::is_same<T, bool>::value &&
-                  std::is_same<Arg0, Arg1>::value &&
-                  std::is_same<Arg1, Arg2>::value,
-                  "");
-    return (left < value) && (value < right);
-  }
-};
-
-
 template <typename T>
 using is_unsigned_integer = std::integral_constant<bool, std::is_integral<T>::value &&
                                                              std::is_unsigned<T>::value>;
