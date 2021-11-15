@@ -9,6 +9,7 @@ class ApacheArrow < Formula
   depends_on "boost" => :build
   depends_on "cmake" => :build
   depends_on "llvm" => :build
+  depends_on "aws-sdk-cpp"
   depends_on "brotli"
   depends_on "glog"
   depends_on "grpc"
@@ -29,6 +30,7 @@ class ApacheArrow < Formula
     args = %W[
       -DARROW_FLIGHT=ON
       -DARROW_GANDIVA=ON
+      -DARROW_INSTALL_NAME_RPATH=OFF
       -DARROW_JEMALLOC=ON
       -DARROW_MIMALLOC=ON
       -DARROW_ORC=ON
@@ -36,13 +38,13 @@ class ApacheArrow < Formula
       -DARROW_PLASMA=ON
       -DARROW_PROTOBUF_USE_SHARED=ON
       -DARROW_PYTHON=ON
+      -DARROW_S3=ON
+      -DARROW_WITH_BROTLI=ON
       -DARROW_WITH_BZ2=ON
-      -DARROW_WITH_ZLIB=ON
-      -DARROW_WITH_ZSTD=ON
       -DARROW_WITH_LZ4=ON
       -DARROW_WITH_SNAPPY=ON
-      -DARROW_WITH_BROTLI=ON
-      -DARROW_INSTALL_NAME_RPATH=OFF
+      -DARROW_WITH_ZLIB=ON
+      -DARROW_WITH_ZSTD=ON
       -DPython3_EXECUTABLE=#{Formula["python@3.9"].bin/"python3"}
     ]
     # Re-enable -DARROW_S3=ON and add back aws-sdk-cpp to depends_on in ARROW-6437
