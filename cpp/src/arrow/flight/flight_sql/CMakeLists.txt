@@ -82,8 +82,6 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
   find_package(SQLite3Alt REQUIRED)
 
   add_executable(flight_sql_test_server
-                 server.cc
-                 sql_info_internal.cc
                  test_server_cli.cc
                  example/sqlite_statement.cc
                  example/sqlite_statement_batch_reader.cc

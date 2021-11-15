@@ -25,7 +25,7 @@
 #include <unordered_map>
 
 #include "arrow/flight/flight_sql/server.h"
-#include "arrow/flight/flight_sql/sql_info_internal.h"
+#include "arrow/flight/flight_sql/sql_info_types.h"
 #include "arrow/flight/server.h"
 #include "arrow/util/optional.h"
 

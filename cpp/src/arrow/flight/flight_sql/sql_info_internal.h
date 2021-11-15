@@ -15,22 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Interfaces to use for defining Flight RPC servers. API should be considered
-// experimental for now
-
 #pragma once
 
-#include <arrow/util/variant.h>
-
-#include <unordered_map>
-#include <vector>
-
-#include "arrow/type_fwd.h"
-
-using SqlInfoResult =
-    arrow::util::Variant<std::string, bool, int64_t, int32_t, std::vector<std::string>,
-                         std::unordered_map<int32_t, std::vector<int32_t>>>;
-using SqlInfoResultMap = std::unordered_map<int32_t, SqlInfoResult>;
+#include "arrow/flight/flight_sql/sql_info_types.h"
 
 namespace arrow {
 namespace flight {

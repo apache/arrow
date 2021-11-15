@@ -25,6 +25,7 @@
 #include "arrow/api.h"
 #include "arrow/buffer.h"
 #include "arrow/flight/flight_sql/FlightSql.pb.h"
+#include "arrow/flight/flight_sql/sql_info_internal.h"
 #include "arrow/type.h"
 #include "arrow/util/logging.h"
 
