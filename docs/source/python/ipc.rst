@@ -22,6 +22,7 @@
     import os
     import tempfile
 
+    orig_working_dir = os.getcwd()
     temp_working_dir = tempfile.mkdtemp(prefix="pyarrow-")
     os.chdir(temp_working_dir)
 
@@ -393,3 +394,14 @@ An object can be reconstructed from its component-based representation using
 
 ``deserialize_components`` is also available as a method on
 ``SerializationContext`` objects.
+
+
+.. ipython:: python
+    :suppress:
+
+    # clean-up custom working directory
+    import os
+    import shutil
+
+    os.chdir(orig_working_dir)
+    shutil.rmtree(temp_working_dir, ignore_errors=True)
