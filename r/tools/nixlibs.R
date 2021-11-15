@@ -377,7 +377,7 @@ ensure_cmake <- function() {
     } else if (tolower(Sys.info()[["machine"]]) == "arm64") {
       postfix <- "-linux-aarch64.tar.gz"
     } else if (tolower(Sys.info()[["machine"]]) == "x86_64") {
-      postfix <- "-Linux-x86_64.tar.gz"
+      postfix <- "-linux-x86_64.tar.gz"
     } else {
       stop(paste0(
          "*** cmake was not found locally.",
