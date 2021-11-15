@@ -120,6 +120,24 @@ TEST(TestExtendedMathOps, TestRoundDecimal) {
   VerifyFuzzyEquals(round_float64_int32((double)INT_MIN - 1, 0), (double)INT_MIN - 1);
 }
 
+TEST(TestExtendedMathOps, TestBRoundDecimal) {
+  EXPECT_DOUBLE_EQ(bround_float64(0.0), 0);
+  EXPECT_DOUBLE_EQ(bround_float64(2.5), 2);
+  EXPECT_DOUBLE_EQ(bround_float64(3.5), 4);
+  EXPECT_DOUBLE_EQ(bround_float64(-2.5), -2);
+  EXPECT_DOUBLE_EQ(bround_float64(-3.5), -4);
+  EXPECT_DOUBLE_EQ(bround_float64(1.4999999), 1);
+  EXPECT_DOUBLE_EQ(bround_float64(1.50001), 2);
+  EXPECT_EQ(std::signbit(bround_float64(0)), 0);
+
+  VerifyFuzzyEquals(bround_float64(2.5), 2);
+  VerifyFuzzyEquals(bround_float64(3.5), 4);
+  VerifyFuzzyEquals(bround_float64(-2.5), -2);
+  VerifyFuzzyEquals(bround_float64(-3.5), -4);
+  VerifyFuzzyEquals(bround_float64(1.4999999), 1);
+  VerifyFuzzyEquals(bround_float64(1.50001), 2);
+}
+
 TEST(TestExtendedMathOps, TestRound) {
   EXPECT_EQ(round_int32(21134), 21134);
   EXPECT_EQ(round_int32(-132422), -132422);
