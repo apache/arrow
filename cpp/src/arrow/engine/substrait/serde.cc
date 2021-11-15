@@ -17,6 +17,7 @@
 
 #include "arrow/engine/substrait/serde.h"
 
+#include "arrow/engine/substrait/expression_internal.h"
 #include "arrow/engine/substrait/type_internal.h"
 #include "arrow/util/string_view.h"
 #include "google/protobuf/io/zero_copy_stream_impl_lite.h"
@@ -79,6 +80,17 @@ Result<std::shared_ptr<DataType>> DeserializeType(const Buffer& buf) {
 Result<std::shared_ptr<Buffer>> SerializeType(const DataType& type) {
   ARROW_ASSIGN_OR_RAISE(auto st_type, ToProto(type));
   std::string serialized = st_type->SerializeAsString();
+  return Buffer::FromString(std::move(serialized));
+}
+
+Result<compute::Expression> DeserializeExpression(const Buffer& buf) {
+  ARROW_ASSIGN_OR_RAISE(auto expr, ParseFromBuffer<st::Expression>(buf));
+  return FromProto(expr);
+}
+
+Result<std::shared_ptr<Buffer>> SerializeExpression(const compute::Expression& expr) {
+  ARROW_ASSIGN_OR_RAISE(auto st_expr, ToProto(expr));
+  std::string serialized = st_expr->SerializeAsString();
   return Buffer::FromString(std::move(serialized));
 }
 

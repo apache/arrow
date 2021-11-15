@@ -31,7 +31,6 @@
 
 namespace arrow {
 namespace engine {
-
 namespace {
 
 template <typename TypeMessage>
@@ -80,51 +79,59 @@ Result<FieldVector> FieldsFromProto(
   return fields;
 }
 
-static const std::string kTimestampTzTimezoneString = "UTC";
-
 }  // namespace
 
 Result<std::pair<std::shared_ptr<DataType>, bool>> FromProto(const st::Type& type) {
   switch (type.kind_case()) {
-    case st::Type::KindCase::kBool:
+    case st::Type::kBool:
       return FromProtoImpl<BooleanType>(type.bool_());
 
-    case st::Type::KindCase::kI8:
+    case st::Type::kI8:
       return FromProtoImpl<Int8Type>(type.i8());
-    case st::Type::KindCase::kI16:
+    case st::Type::kI16:
       return FromProtoImpl<Int16Type>(type.i16());
-    case st::Type::KindCase::kI32:
+    case st::Type::kI32:
       return FromProtoImpl<Int32Type>(type.i32());
-    case st::Type::KindCase::kI64:
+    case st::Type::kI64:
       return FromProtoImpl<Int64Type>(type.i64());
 
-    case st::Type::KindCase::kFp32:
+    case st::Type::kFp32:
       return FromProtoImpl<FloatType>(type.fp32());
-    case st::Type::KindCase::kFp64:
+    case st::Type::kFp64:
       return FromProtoImpl<DoubleType>(type.fp64());
 
-    case st::Type::KindCase::kString:
+    case st::Type::kString:
       return FromProtoImpl<StringType>(type.string());
-    case st::Type::KindCase::kBinary:
+    case st::Type::kBinary:
       return FromProtoImpl<BinaryType>(type.binary());
 
-    case st::Type::KindCase::kTimestamp:
+    case st::Type::kTimestamp:
       return FromProtoImpl<TimestampType>(type.timestamp(), TimeUnit::MICRO);
-    case st::Type::KindCase::kTimestampTz:
+    case st::Type::kTimestampTz:
       return FromProtoImpl<TimestampType>(type.timestamp_tz(), TimeUnit::MICRO,
-                                          kTimestampTzTimezoneString);
-    case st::Type::KindCase::kDate:
-      return FromProtoImpl<Date64Type>(type.date());
-    case st::Type::KindCase::kTime:
+                                          TimestampTzTimezoneString());
+    case st::Type::kDate:
+      // FIXME
+      // Substrait uses uint32_t to store dates, and further restricts the allowed
+      // range of dates to [1000-01-01..9999-12-31]. Does this mean the value should
+      // be interpreted as an offset from 1000-01-01 instead of the epoch? Or should
+      // the value be signed instead?
+      // Furthermore, simple_logical_types.md states that the equivalent arrow type
+      // is Date64 (which measures milliseconds rather than days). Is that incorrect?
+      return FromProtoImpl<Date32Type>(type.date());
+
+    case st::Type::kTime:
       return FromProtoImpl<Time64Type>(type.time(), TimeUnit::MICRO);
 
-    case st::Type::KindCase::kIntervalYear:
+    case st::Type::kIntervalYear:
+      // FIXME
       // None of MonthIntervalType, DayTimeIntervalType, MonthDayNanoIntervalType
       // corresponds; none has a year field. Lossy conversion to MonthIntervalType
       // would be possible...
       break;
 
-    case st::Type::KindCase::kIntervalDay:
+    case st::Type::kIntervalDay:
+      // FIXME
       // Documentation is inconsistent; the precision of the sub-day interval is
       // described as microsecond in simple_logical_types.md but IntervalDayToSecond has
       // the field `int32 seconds`. At microsecond precision it's minimally necessary to
@@ -139,27 +146,27 @@ Result<std::pair<std::shared_ptr<DataType>, bool>> FromProto(const st::Type& typ
       //                 1000 will always be 0).
       break;
 
-    case st::Type::KindCase::kUuid:
+    case st::Type::kUuid:
       return FromProtoImpl(type.uuid(), uuid);
 
-    case st::Type::KindCase::kFixedChar:
+    case st::Type::kFixedChar:
       // need extension type to mark utf-8 constraint
       return FromProtoImpl(type.fixed_char(), fixed_char, type.fixed_char().length());
 
-    case st::Type::KindCase::kVarchar:
+    case st::Type::kVarchar:
       // need extension type to hold type.varchar().length() constraint
       return FromProtoImpl(type.varchar(), varchar, type.varchar().length());
 
-    case st::Type::KindCase::kFixedBinary:
+    case st::Type::kFixedBinary:
       return FromProtoImpl<FixedSizeBinaryType>(type.fixed_binary(),
                                                 type.fixed_binary().length());
 
-    case st::Type::KindCase::kDecimal: {
+    case st::Type::kDecimal: {
       const auto& decimal = type.decimal();
       return FromProtoImpl<Decimal128Type>(decimal, decimal.precision(), decimal.scale());
     }
 
-    case st::Type::KindCase::kStruct: {
+    case st::Type::kStruct: {
       const auto& struct_ = type.struct_();
 
       ARROW_ASSIGN_OR_RAISE(auto fields,
@@ -170,7 +177,7 @@ Result<std::pair<std::shared_ptr<DataType>, bool>> FromProto(const st::Type& typ
 
       // NamedStruct is not currently enumerated in KindCase. This block of dead code is
       // here just to verify that it can be compiled.
-      // case st::Type::KindCase::kNamedStruct: {
+      // case st::Type::kNamedStruct: {
       if (false) {
         // const st::Type::NamedStruct& named_struct = type.named_struct();
         st::Type::NamedStruct named_struct;
@@ -197,7 +204,7 @@ Result<std::pair<std::shared_ptr<DataType>, bool>> FromProto(const st::Type& typ
         return std::make_pair(arrow::struct_(std::move(fields)), IsNullable(struct_));
       }
 
-    case st::Type::KindCase::kList: {
+    case st::Type::kList: {
       const auto& list = type.list();
 
       if (!list.has_type()) {
@@ -211,7 +218,7 @@ Result<std::pair<std::shared_ptr<DataType>, bool>> FromProto(const st::Type& typ
           list, field("item", std::move(type_nullable.first), type_nullable.second));
     }
 
-    case st::Type::KindCase::kMap: {
+    case st::Type::kMap: {
       const auto& map = type.map();
 
       static const std::array<char const*, 4> kMissing = {"key and value", "value", "key",
@@ -243,6 +250,7 @@ Result<std::pair<std::shared_ptr<DataType>, bool>> FromProto(const st::Type& typ
                                 type.DebugString());
 }
 
+namespace {
 struct ToProtoImpl {
   Status Visit(const NullType& t) { return NotImplemented(t); }
 
@@ -270,8 +278,8 @@ struct ToProtoImpl {
     return Status::OK();
   }
 
-  Status Visit(const Date32Type& t) { return NotImplemented(t); }
-  Status Visit(const Date64Type& t) { return SetWith(&st::Type::set_allocated_date); }
+  Status Visit(const Date32Type& t) { return SetWith(&st::Type::set_allocated_date); }
+  Status Visit(const Date64Type& t) { return NotImplemented(t); }
 
   Status Visit(const TimestampType& t) {
     if (t.unit() != TimeUnit::MICRO) return NotImplemented(t);
@@ -279,7 +287,7 @@ struct ToProtoImpl {
     if (t.timezone() == "") {
       return SetWith(&st::Type::set_allocated_timestamp);
     }
-    if (t.timezone() == kTimestampTzTimezoneString) {
+    if (t.timezone() == TimestampTzTimezoneString()) {
       return SetWith(&st::Type::set_allocated_timestamp_tz);
     }
 
@@ -340,8 +348,6 @@ struct ToProtoImpl {
   }
 
   Status Visit(const ExtensionType& t) {
-    auto ext_name = t.extension_name();
-
     if (UnwrapUuid(t)) {
       return SetWith(&st::Type::set_allocated_uuid);
     }
@@ -391,6 +397,7 @@ struct ToProtoImpl {
   st::Type* type_;
   bool nullable_;
 };
+}  // namespace
 
 Result<std::unique_ptr<st::Type>> ToProto(const DataType& type, bool nullable) {
   auto out = internal::make_unique<st::Type>();

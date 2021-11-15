@@ -19,41 +19,30 @@
 
 #pragma once
 
-#include <vector>
+#include <utility>
 
-#include "arrow/buffer.h"
-#include "arrow/compute/exec/exec_plan.h"
+#include "arrow/compute/type_fwd.h"
 #include "arrow/engine/visibility.h"
-#include "arrow/result.h"
-#include "arrow/util/optional.h"
+#include "arrow/type_fwd.h"
+
+#include "generated/substrait/expression.pb.h"  // IWYU pragma: export
+
+namespace st = io::substrait;
 
 namespace arrow {
 namespace engine {
 
-// uuid, fixed_char, and varchar are provided as first-class types by substrait
-// but do not appear in the arrow type system. The following arrow::ExtensionTypes
-// are provided to wrap them.
+ARROW_ENGINE_EXPORT
+Result<compute::Expression> FromProto(const st::Expression&);
 
 ARROW_ENGINE_EXPORT
-std::shared_ptr<DataType> uuid();
+Result<std::unique_ptr<st::Expression>> ToProto(const compute::Expression&);
 
 ARROW_ENGINE_EXPORT
-std::shared_ptr<DataType> fixed_char(int32_t length);
+Result<Datum> FromProto(const st::Expression::Literal&);
 
 ARROW_ENGINE_EXPORT
-std::shared_ptr<DataType> varchar(int32_t length);
-
-/// Return true if t is Uuid, otherwise false
-ARROW_ENGINE_EXPORT
-bool UnwrapUuid(const DataType&);
-
-/// Return FixedChar length if t is FixedChar, otherwise nullopt
-ARROW_ENGINE_EXPORT
-util::optional<int32_t> UnwrapFixedChar(const DataType&);
-
-/// Return Varchar (max) length if t is VarChar, otherwise nullopt
-ARROW_ENGINE_EXPORT
-util::optional<int32_t> UnwrapVarChar(const DataType& t);
+Result<std::unique_ptr<st::Expression::Literal>> ToProto(const Datum&);
 
 }  // namespace engine
 }  // namespace arrow

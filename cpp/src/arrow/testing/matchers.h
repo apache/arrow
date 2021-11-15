@@ -303,7 +303,7 @@ class DataEqMatcher {
 
         const bool match = boxed == expected_;
         *listener << "whose value ";
-        PrintTo(boxed, listener->stream());
+        if (listener->IsInterested()) PrintTo(boxed, listener->stream());
         *listener << (match ? " matches" : " doesn't match");
         return match;
       }

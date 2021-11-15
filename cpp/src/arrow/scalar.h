@@ -345,8 +345,8 @@ struct ARROW_EXPORT TimestampScalar : public TemporalScalar<TimestampType> {
   using TemporalScalar<TimestampType>::TemporalScalar;
 
   TimestampScalar(typename TemporalScalar<TimestampType>::ValueType value,
-                  TimeUnit::type unit)
-      : TimestampScalar(std::move(value), timestamp(unit)) {}
+                  TimeUnit::type unit, std::string tz = "")
+      : TimestampScalar(std::move(value), timestamp(unit, std::move(tz))) {}
 };
 
 template <typename T>

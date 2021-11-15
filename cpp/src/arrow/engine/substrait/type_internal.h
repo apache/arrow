@@ -37,5 +37,7 @@ Result<std::pair<std::shared_ptr<DataType>, bool>> FromProto(const st::Type&);
 ARROW_ENGINE_EXPORT
 Result<std::unique_ptr<st::Type>> ToProto(const DataType&, bool nullable = true);
 
+inline std::string TimestampTzTimezoneString() { return "UTC"; }
+
 }  // namespace engine
 }  // namespace arrow

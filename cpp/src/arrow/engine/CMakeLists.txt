@@ -26,6 +26,7 @@ set(ARROW_ENGINE_LINK_LIBS ${ARROW_PROTOBUF_LIBPROTOBUF})
 #endif()
 
 set(ARROW_ENGINE_SRCS
+    substrait/expression_internal.cc
     substrait/extension_types.cc
     substrait/serde.cc
     substrait/type_internal.cc)
