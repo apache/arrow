@@ -182,7 +182,7 @@ arrow::Result<std::shared_ptr<SQLiteFlightSqlServer>> SQLiteFlightSqlServer::Cre
   }
 
   std::shared_ptr<SQLiteFlightSqlServer> result(new SQLiteFlightSqlServer(db));
-  for (const auto& id_to_result : GetSqlInfoIdToResult()) {
+  for (const auto& id_to_result : GetSqlInfoResultMap()) {
     result->RegisterSqlInfo(id_to_result.first, id_to_result.second);
   }
 
@@ -220,7 +220,7 @@ Status SQLiteFlightSqlServer::ExecuteSql(const std::string& sql) {
       error_msg = err_msg;
     }
     sqlite3_free(err_msg);
-    return Status::RError(error_msg);
+    return Status::ExecutionError(error_msg);
   }
   return Status::OK();
 }

@@ -20,13 +20,17 @@
 
 #pragma once
 
-#include <boost/variant.hpp>
+#include <arrow/util/variant.h>
 
-using string_list_t = std::vector<std::string>;
-using int32_to_int32_list_t = std::unordered_map<int32_t, std::vector<int32_t>>;
-using SqlInfoResult = boost::variant<std::string, bool, int64_t, int32_t, string_list_t,
-                                     int32_to_int32_list_t>;
-using sql_info_id_to_result_t = std::unordered_map<int32_t, SqlInfoResult>;
+#include <unordered_map>
+#include <vector>
+
+#include "arrow/type_fwd.h"
+
+using SqlInfoResult =
+    arrow::util::Variant<std::string, bool, int64_t, int32_t, std::vector<std::string>,
+                         std::unordered_map<int32_t, std::vector<int32_t>>>;
+using SqlInfoResultMap = std::unordered_map<int32_t, SqlInfoResult>;
 
 namespace arrow {
 namespace flight {
@@ -35,7 +39,7 @@ namespace internal {
 
 /// \brief Auxiliary class used to populate GetSqlInfo's DenseUnionArray with different
 /// data types.
-class SqlInfoResultAppender : public boost::static_visitor<Status> {
+class SqlInfoResultAppender {
  public:
   /// \brief Appends a string to the DenseUnionBuilder.
   /// \param[in] value Value to be appended.
@@ -55,18 +59,30 @@ class SqlInfoResultAppender : public boost::static_visitor<Status> {
 
   /// \brief Appends a string list to the DenseUnionBuilder.
   /// \param[in] value Value to be appended.
-  Status operator()(const string_list_t& value);
+  Status operator()(const std::vector<std::string>& value);
 
   /// \brief Appends a int32 to int32 list map to the DenseUnionBuilder.
   /// \param[in] value Value to be appended.
-  Status operator()(const int32_to_int32_list_t& value);
+  Status operator()(const std::unordered_map<int32_t, std::vector<int32_t>>& value);
 
-  /// \brief Creates a boost::variant visitor that appends data to given
+  /// \brief Creates a Variant visitor that appends data to given
   /// DenseUnionBuilder. \param[in] value_builder  DenseUnionBuilder to append data to.
   explicit SqlInfoResultAppender(DenseUnionBuilder& value_builder);
 
+  SqlInfoResultAppender(const SqlInfoResultAppender&) = delete;
+  SqlInfoResultAppender(SqlInfoResultAppender&&) = delete;
+  SqlInfoResultAppender& operator=(const SqlInfoResultAppender&) = delete;
+
  private:
   DenseUnionBuilder& value_builder_;
+
+  // Builders for each child on dense union
+  StringBuilder* string_value_builder_;
+  BooleanBuilder* bool_value_builder_;
+  Int64Builder* bigint_value_builder_;
+  Int32Builder* int32_bitmask_builder_;
+  ListBuilder* string_list_builder_;
+  MapBuilder* int32_to_int32_list_builder_;
 
   enum : int8_t {
     STRING_VALUE_INDEX = 0,

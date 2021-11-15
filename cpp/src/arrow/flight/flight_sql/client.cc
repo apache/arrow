@@ -48,8 +48,6 @@ PreparedStatement::PreparedStatement(FlightSqlClient* client, std::string handle
       parameter_schema_(std::move(parameter_schema)),
       is_closed_(false) {}
 
-FlightSqlClient::~FlightSqlClient() = default;
-
 PreparedStatement::~PreparedStatement() {
   if (IsClosed()) return;
 

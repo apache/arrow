@@ -108,7 +108,8 @@ SqliteStatement::~SqliteStatement() { sqlite3_finalize(stmt_); }
 Status SqliteStatement::Step(int* rc) {
   *rc = sqlite3_step(stmt_);
   if (*rc == SQLITE_ERROR) {
-    return Status::RError("A SQLite runtime error has occurred: ", sqlite3_errmsg(db_));
+    return Status::ExecutionError("A SQLite runtime error has occurred: ",
+                                  sqlite3_errmsg(db_));
   }
 
   return Status::OK();
@@ -117,7 +118,8 @@ Status SqliteStatement::Step(int* rc) {
 Status SqliteStatement::Reset(int* rc) {
   *rc = sqlite3_reset(stmt_);
   if (*rc == SQLITE_ERROR) {
-    return Status::RError("A SQLite runtime error has occurred: ", sqlite3_errmsg(db_));
+    return Status::ExecutionError("A SQLite runtime error has occurred: ",
+                                  sqlite3_errmsg(db_));
   }
 
   return Status::OK();

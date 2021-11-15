@@ -38,9 +38,9 @@ namespace arrow {
 namespace flight {
 namespace sql {
 
-/// \brief Auxiliary boost::variant visitor used to assert that GetSqlInfo's values are
+/// \brief Auxiliary variant visitor used to assert that GetSqlInfo's values are
 /// correctly placed on its DenseUnionArray
-class SqlInfoDenseUnionValidator : public boost::static_visitor<void> {
+class SqlInfoDenseUnionValidator {
  private:
   const DenseUnionScalar& data;
 
@@ -70,7 +70,7 @@ class SqlInfoDenseUnionValidator : public boost::static_visitor<void> {
   }
 
   /// \brief Asserts that the current DenseUnionScalar equals to given string list
-  void operator()(const string_list_t& string_list) const {
+  void operator()(const std::vector<std::string>& string_list) const {
     const auto& array = dynamic_cast<const StringArray&>(
         *(dynamic_cast<const ListScalar&>(*data.value).value));
 
@@ -83,7 +83,8 @@ class SqlInfoDenseUnionValidator : public boost::static_visitor<void> {
 
   /// \brief Asserts that the current DenseUnionScalar equals to given int32 to int32 list
   /// map.
-  void operator()(const int32_to_int32_list_t& int32_to_int32_list) const {
+  void operator()(const std::unordered_map<int32_t, std::vector<int32_t>>&
+                      int32_to_int32_list) const {
     const auto& struct_array = dynamic_cast<const StructArray&>(
         *dynamic_cast<const MapScalar&>(*data.value).value);
     const auto& keys = dynamic_cast<const Int32Array&>(*struct_array.field(0));
@@ -117,6 +118,10 @@ class SqlInfoDenseUnionValidator : public boost::static_visitor<void> {
   }
 
   explicit SqlInfoDenseUnionValidator(const DenseUnionScalar& data) : data(data) {}
+
+  SqlInfoDenseUnionValidator(const SqlInfoDenseUnionValidator&) = delete;
+  SqlInfoDenseUnionValidator(SqlInfoDenseUnionValidator&&) = delete;
+  SqlInfoDenseUnionValidator& operator=(const SqlInfoDenseUnionValidator&) = delete;
 };
 
 std::unique_ptr<TestServer> server;
@@ -168,11 +173,15 @@ TEST(TestFlightSqlServer, TestCommandStatementQuery) {
       arrow::schema({arrow::field("id", int64()), arrow::field("keyName", utf8()),
                      arrow::field("value", int64()), arrow::field("foreignId", int64())});
 
-  std::shared_ptr<Array> id_array = ArrayFromJSON(int64(), R"([1, 2, 3])");
-  std::shared_ptr<Array> keyname_array =
-      ArrayFromJSON(utf8(), R"(["one", "zero", "negative one"])");
-  std::shared_ptr<Array> value_array = ArrayFromJSON(int64(), R"([1, 0, -1])");
-  std::shared_ptr<Array> foreignId_array = ArrayFromJSON(int64(), R"([1, 1, 1])");
+  std::shared_ptr<Array> id_array;
+  std::shared_ptr<Array> keyname_array;
+  std::shared_ptr<Array> value_array;
+  std::shared_ptr<Array> foreignId_array;
+  ArrayFromVector<Int64Type>({1, 2, 3}, &id_array);
+  ArrayFromVector<StringType, std::string>({"one", "zero", "negative one"},
+                                           &keyname_array);
+  ArrayFromVector<Int64Type>({1, 0, -1}, &value_array);
+  ArrayFromVector<Int64Type>({1, 1, 1}, &foreignId_array);
 
   const std::shared_ptr<Table>& expected_table = Table::Make(
       expected_schema, {id_array, keyname_array, value_array, foreignId_array});
@@ -734,7 +743,7 @@ TEST(TestFlightSqlServer, TestCommandGetCrossReference) {
 }
 
 TEST(TestFlightSqlServer, TestCommandGetSqlInfo) {
-  const auto& sql_info_expected_results = sql::example::GetSqlInfoIdToResult();
+  const auto& sql_info_expected_results = sql::example::GetSqlInfoResultMap();
   std::vector<int> sql_info_ids;
   sql_info_ids.reserve(sql_info_expected_results.size());
   for (const auto& sql_info_expected_result : sql_info_expected_results) {
@@ -762,7 +771,7 @@ TEST(TestFlightSqlServer, TestCommandGetSqlInfo) {
           reinterpret_cast<const DenseUnionScalar&>(*scalar));
       const auto& expected_result =
           sql_info_expected_results.at(col_name_chunk_data[row]);
-      boost::apply_visitor(validator, expected_result);
+      arrow::util::visit(validator, expected_result);
     }
   }
 }

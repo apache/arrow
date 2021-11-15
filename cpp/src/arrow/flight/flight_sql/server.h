@@ -20,23 +20,14 @@
 
 #pragma once
 
-#include <boost/variant.hpp>
 #include <memory>
 #include <string>
 #include <unordered_map>
 
-#include "arrow/flight/flight_sql/example/sqlite_statement.h"
-#include "arrow/flight/flight_sql/example/sqlite_statement_batch_reader.h"
 #include "arrow/flight/flight_sql/server.h"
-#include "arrow/flight/flight_sql/sql_info_util.h"
+#include "arrow/flight/flight_sql/sql_info_internal.h"
 #include "arrow/flight/server.h"
 #include "arrow/util/optional.h"
-
-using string_list_t = std::vector<std::string>;
-using int32_to_int32_list_t = std::unordered_map<int32_t, std::vector<int32_t>>;
-using SqlInfoResult = boost::variant<std::string, bool, int64_t, int32_t, string_list_t,
-                                     int32_to_int32_list_t>;
-using sql_info_id_to_result_t = std::unordered_map<int32_t, SqlInfoResult>;
 
 namespace arrow {
 namespace flight {
@@ -120,8 +111,8 @@ struct ActionCreatePreparedStatementResult {
   std::string prepared_statement_handle;
 };
 
-/// \brief A free function responsible to create a ticket for the statement operation.
-///        It is used by the server implementation.
+/// \brief A utility function to create a ticket for a statement query.
+///        Intended for Flight SQL server implementations.
 /// \param[in] statement_handle      The statement handle that will originate the ticket.
 /// \return                          The parsed ticket as an string.
 arrow::Result<std::string> CreateStatementQueryTicket(
@@ -129,7 +120,7 @@ arrow::Result<std::string> CreateStatementQueryTicket(
 
 class ARROW_EXPORT FlightSqlServerBase : public FlightServerBase {
  private:
-  sql_info_id_to_result_t sql_info_id_to_result_;
+  SqlInfoResultMap sql_info_id_to_result_;
 
  public:
   Status GetFlightInfo(const ServerCallContext& context, const FlightDescriptor& request,
