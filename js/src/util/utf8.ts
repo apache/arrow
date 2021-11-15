@@ -15,7 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-const decoder = new TextDecoder('utf-8');
+// TextDecoder backward compatibility with older NodeJS versions
+if (typeof TextDecoder === "undefined" && typeof require !== "undefined") {
+  (global as any).TextDecoder = require("util").TextDecoder;
+}
+
+const decoder = new TextDecoder("utf-8");
 /** @ignore */
 export const decodeUtf8 = (buffer?: BufferSource) => decoder.decode(buffer);
 
