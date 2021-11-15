@@ -376,14 +376,13 @@ ensure_cmake <- function() {
       postfix <- "-macos-universal.tar.gz"
     } else if (tolower(Sys.info()[["machine"]]) == "arm64") {
       postfix <- "-linux-aarch64.tar.gz"
-    } else if (tolower(Sys.info()[["machine"]]) == "armv7l") { # e.g. Raspberry Pi OS
-      # There are no binary available for this architecture
+    } else if (tolower(Sys.info()[["machine"]]) == "x86_64") {
+      postfix <- "-Linux-x86_64.tar.gz"
+    } else {
       stop(paste0(
          "*** cmake was not found locally.",
          "    Please make sure cmake >= 3.10 is installed and available on your PATH."
       ))
-    } else {
-      postfix <- "-Linux-x86_64.tar.gz"
     }
     cmake_binary_url <- paste0(
       "https://github.com/Kitware/CMake/releases/download/v", CMAKE_VERSION,
