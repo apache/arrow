@@ -130,7 +130,8 @@
     },
     {
       "name": "ninja-debug-skyhook",
-      "description": "Builds Skyhook libraries along with arrow",
+      "description": "Builds Skyhook libraries",
+
       "inherits": "ninja-debug",
       "cacheVariables": {
         "ARROW_SKYHOOK": "ON"
