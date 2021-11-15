@@ -66,7 +66,7 @@ jobs:
           if [ $DEVDOCS_WINDOWS == "true" ]; then
             # Part of Path, including the path to R's bin, needs to be reformatted
             # from Windows paths (C:\R\bin) to Unix paths (/c/r/bin)
-            echo "export PATH=$(cygpath --path $PATH)" >> ~/.bash_profile
+            echo export PATH=\"$(cygpath --path "$PATH")\" >> ~/.bash_profile
             # This starts a special mingw64 Git Bash shell
             $RTOOLS40_HOME/msys2_shell.cmd -here -mingw64 -no-start -defterm -full-path arrow/r/vignettes/script.sh
           else 
