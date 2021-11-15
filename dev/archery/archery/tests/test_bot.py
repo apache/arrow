@@ -16,6 +16,8 @@
 # under the License.
 
 import json
+import os
+from unittest import mock
 from unittest.mock import Mock
 
 import click
@@ -30,6 +32,14 @@ def responses():
     with rsps.RequestsMock() as mock:
         yield mock
 
+@pytest.fixture(autouse=True)
+def set_env_vars():
+    with mock.patch.dict(os.environ, {
+        "GITHUB_SERVER_URL": "https://github.com",
+        "GITHUB_REPOSITORY": "apache/arrow",
+        "GITHUB_RUN_ID": "1463784188"
+        }):
+        yield
 
 def github_url(path):
     return 'https://api.github.com:443/{}'.format(path.strip('/'))
@@ -129,7 +139,9 @@ def test_unathorized_user_comment(load_fixture, responses):
     reaction = responses.calls[-1]
     comment = ("```\nOnly contributors can submit requests to this bot. "
                "Please ask someone from the community for help with getting "
-               "the first commit in.\n```")
+               "the first commit in.\n"
+               "The Archery job run can be found at: "
+               "https://github.com/apache/arrow/actions/runs/1463784188```")
     assert json.loads(post.request.body) == {
         "body": f'{comment}'}
     assert json.loads(reaction.request.body) == {'content': '-1'}
@@ -205,7 +217,9 @@ def test_respond_with_usage(load_fixture, responses):
     bot.handle('issue_comment', payload)
 
     post = responses.calls[3]
-    assert json.loads(post.request.body) == {'body': '```\ntest-usage\n```'}
+    assert json.loads(post.request.body) == {'body': ("```\ntest-usage\n"
+        "The Archery job run can be found at: "
+        "https://github.com/apache/arrow/actions/runs/1463784188```")}
 
 
 @pytest.mark.parametrize(('command', 'reaction'), [
