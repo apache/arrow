@@ -93,8 +93,6 @@ class CommentBot:
         self.github = github.Github(token)
 
     def parse_command(self, payload):
-        # only allow users of apache org to submit commands, for more see
-        # https://developer.github.com/v4/enum/commentauthorassociation/
         mention = '@{}'.format(self.name)
         comment = payload['comment']
 
@@ -141,7 +139,9 @@ class CommentBot:
 
         comment = pull.get_issue_comment(payload['comment']['id'])
         try:
-            # Check privileges here to enable the bot to respond
+            # Only allow users of apache org to submit commands, for more see
+            # https://developer.github.com/v4/enum/commentauthorassociation/
+            # Checking  privileges here enables the bot to respond
             # without relying on the handler.
             allowed_roles = {'OWNER', 'MEMBER', 'CONTRIBUTOR'}
             if payload['comment']['author_association'] not in allowed_roles:
@@ -154,7 +154,13 @@ class CommentBot:
                          comment=comment)
         except Exception as e:
             logger.exception(e)
-            pull.create_issue_comment(f"```\n{e}\n```")
+            url = "{server}/{repo}/actions/runs/{run_id}".format(
+                server=os.environ["GITHUB_SERVER_URL"],
+                repo=os.environ["GITHUB_REPOSITORY"],
+                run_id=os.environ["GITHUB_RUN_ID"],
+            )
+            pull.create_issue_comment(
+                f"```\n{e}\nThe job run can be found at: {url}```")
             comment.create_reaction('-1')
         else:
             comment.create_reaction('+1')
