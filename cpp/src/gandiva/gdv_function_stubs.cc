@@ -29,7 +29,7 @@
 #include "arrow/util/string_view.h"
 #include "arrow/util/utf8.h"
 #include "arrow/util/value_parsing.h"
-#include "encrypt_utils.h"
+#include "gandiva/encrypt_utils.h"
 #include "gandiva/engine.h"
 #include "gandiva/exported_funcs.h"
 #include "gandiva/formatting_utils.h"

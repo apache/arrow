@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "encrypt_utils.h"
+#include "gandiva/encrypt_utils.h"
 
 #include <stdexcept>
 
