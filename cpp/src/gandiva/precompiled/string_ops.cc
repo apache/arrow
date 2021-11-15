@@ -1367,32 +1367,7 @@ gdv_int32 ascii_utf8(const char* data, gdv_int32 data_len) {
 // If A is larger than 256 the result is equivalent to chr(A % 256).
 FORCE_INLINE
 const char* chr_int64(gdv_int64 context, gdv_int64 in, gdv_int32* out_len) {
-  if (in < 0) {
-    *out_len = 0;
-    return "";
-  }
-  in = (in > 256) ? in % 256 : in;
-  *out_len = 1;
-
-  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
-  if (ret == nullptr) {
-    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
-    *out_len = 0;
-    return "";
-  }
-  ret[0] = char(in);
-  return ret;
-}
-
-// Returns the ASCII character having the binary equivalent to A.
-// If A is larger than 256 the result is equivalent to chr(A % 256).
-FORCE_INLINE
-const char* chr_float64(gdv_int64 context, gdv_float64 in, gdv_int32* out_len) {
-  if (in < 0) {
-    *out_len = 0;
-    return "";
-  }
-  in = (in > 256) ? fmod(in, 256.0) : in;
+  in = in % 256;
   *out_len = 1;
 
   char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));

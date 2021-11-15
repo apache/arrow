@@ -68,9 +68,6 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
       NativeFunction("chr", {}, DataTypeVector{int64()}, utf8(), kResultNullIfNull,
                      "chr_int64", NativeFunction::kNeedsContext),
 
-      NativeFunction("chr", {}, DataTypeVector{float64()}, utf8(), kResultNullIfNull,
-                     "chr_float64", NativeFunction::kNeedsContext),
-
       NativeFunction("ascii", {}, DataTypeVector{utf8()}, int32(), kResultNullIfNull,
                      "ascii_utf8"),
 
