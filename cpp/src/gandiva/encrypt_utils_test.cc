@@ -19,8 +19,6 @@
 
 #include <gtest/gtest.h>
 
-#include "gandiva/execution_context.h"
-
 TEST(TestShaEncryptUtils, TestAesEncryptDecrypt) {
   // 8 bytes key
   auto* key = "1234abcd";
