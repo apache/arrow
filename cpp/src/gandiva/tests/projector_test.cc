@@ -1703,18 +1703,18 @@ TEST_F(TestProjector, TestEltFunction) {
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
-  int num_records = 5;
+  int num_records = 4;
 
-  auto array0 = MakeArrowArrayInt32({1, 2, 4, 0, -2}, {true, true, true, true, true});
-  auto array1 = MakeArrowArrayUtf8({"john", "bigger", "goodbye", "hi", "yeah"},
-                                   {true, true, true, true, true});
-  auto array2 = MakeArrowArrayUtf8({"doe", "world", "world", "yeah", "hi"},
-                                   {true, true, true, true, true});
+  auto array0 = MakeArrowArrayInt32({1, 2, 4, -2}, {true, true, true, true});
+  auto array1 =
+      MakeArrowArrayUtf8({"john", "bigger", "goodbye", "hi"}, {true, true, true, true});
+  auto array2 =
+      MakeArrowArrayUtf8({"doe", "world", "world", "yeah"}, {true, true, true, true});
   auto in_batch0 =
       arrow::RecordBatch::Make(schema0, num_records, {array0, array1, array2});
 
-  auto expected_out0 = MakeArrowArrayUtf8({"john", "world", "", "", ""},
-                                          {true, true, false, false, false});
+  auto expected_out0 =
+      MakeArrowArrayUtf8({"john", "world", "", ""}, {true, true, false, false});
 
   arrow::ArrayVector outputs;
 
@@ -1724,38 +1724,41 @@ TEST_F(TestProjector, TestEltFunction) {
 
   EXPECT_ARROW_ARRAY_EQUALS(expected_out0, outputs.at(0));
 
-  array0 = MakeArrowArrayInt32({1, 1, 1, 1, 1}, {true, true, true, true, true});
-  array1 = MakeArrowArrayUtf8(
-      {"inconsequential", "insignificant", "welcome", "dependencies", "anymore"},
-      {true, true, true, true, true});
-  array2 = MakeArrowArrayUtf8({"wrong", "tiny", "hi", "deps", "any"},
-                              {true, true, true, true, true});
-  in_batch0 = arrow::RecordBatch::Make(schema0, num_records, {array0, array1, array2});
+  auto array3 = MakeArrowArrayInt32({1, 1, 1, 1}, {true, true, true, true});
+  auto array4 =
+      MakeArrowArrayUtf8({"inconsequential", "insignificant", "welcome", "dependencies"},
+                         {true, true, true, true});
+  auto array5 =
+      MakeArrowArrayUtf8({"wrong", "tiny", "hi", "deps"}, {true, true, true, true});
+  auto in_batch1 =
+      arrow::RecordBatch::Make(schema0, num_records, {array3, array4, array5});
 
-  expected_out0 = MakeArrowArrayUtf8(
-      {"inconsequential", "insignificant", "welcome", "dependencies", "anymore"},
-      {true, true, true, true, true});
+  auto expected_out1 =
+      MakeArrowArrayUtf8({"inconsequential", "insignificant", "welcome", "dependencies"},
+                         {true, true, true, true});
 
-  status = projector1->Evaluate(*in_batch0, pool_, &outputs);
+  arrow::ArrayVector outputs1;
+
+  status = projector1->Evaluate(*in_batch1, pool_, &outputs1);
   EXPECT_TRUE(status.ok());
 
-  EXPECT_ARROW_ARRAY_EQUALS(expected_out0, outputs.at(0));
+  EXPECT_ARROW_ARRAY_EQUALS(expected_out1, outputs1.at(0));
 
-  array0 = MakeArrowArrayInt32({2, 2, 2, 2, 2}, {true, true, true, true, true});
-  array1 = MakeArrowArrayUtf8(
-      {"inconsequential", "insignificant", "welcome", "dependencies", "anymore"},
-      {true, true, true, true, true});
-  array2 = MakeArrowArrayUtf8({"wrong", "tiny", "hi", "deps", "any"},
-                              {true, true, true, true, true});
-  in_batch0 = arrow::RecordBatch::Make(schema0, num_records, {array0, array1, array2});
+  auto array6 = MakeArrowArrayInt32({2, 2, 2, 2}, {true, true, true, true});
+  auto array7 =
+      MakeArrowArrayUtf8({"inconsequential", "insignificant", "welcome", "dependencies"},
+                         {true, true, true, true});
+  auto array8 =
+      MakeArrowArrayUtf8({"wrong", "tiny", "hi", "deps"}, {true, true, true, true});
+  auto in_batch2 =
+      arrow::RecordBatch::Make(schema0, num_records, {array6, array7, array8});
 
-  expected_out0 = MakeArrowArrayUtf8({"wrong", "tiny", "hi", "deps", "any"},
-                                     {true, true, true, true, true});
+  auto expected_out2 =
+      MakeArrowArrayUtf8({"wrong", "tiny", "hi", "deps"}, {true, true, true, true});
 
-  status = projector1->Evaluate(*in_batch0, pool_, &outputs);
+  arrow::ArrayVector outputs2;
+  status = projector1->Evaluate(*in_batch2, pool_, &outputs2);
   EXPECT_TRUE(status.ok());
-
-  EXPECT_ARROW_ARRAY_EQUALS(expected_out0, outputs.at(0));
 }
 
 }  // namespace gandiva
