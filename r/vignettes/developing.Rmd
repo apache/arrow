@@ -226,8 +226,6 @@ cmake \
 
 ##### Windows
 
-# TODO(wjones127): report issues with LZ4 and mimalloc on mingw64
-
 ```{bash, save=run & !sys_install & windows}
 cmake \
   -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
