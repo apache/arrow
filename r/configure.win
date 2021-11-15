@@ -77,7 +77,7 @@ function configure_dev() {
 
   PKG_CFLAGS="-I${RWINLIB}/include -DARROW_R_WITH_ARROW"
   PKG_LIBS=" -L${RWINLIB}/lib -L$MSYSTEM_PREFIX/lib -larrow -larrow_bundled_dependencies -lz -lole32 ${MIMALLOC_LIBS} ${OPENSSL_LIBS}"
-  # It seems like these are already in arrow_bundled_dependencies:
+  # These are already in arrow_bundled_dependencies:
   # -lutf8proc -lthrift -lsnappy -lzstd -llz4
 
   if [ $(cmake_option ARROW_PARQUET) -eq 1 ]; then 
