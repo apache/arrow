@@ -68,10 +68,6 @@ else()
                                       ${ARROW_TEST_LINK_LIBS})
 endif()
 
-add_executable(flight_sql_test_app test_app_cli.cc)
-target_link_libraries(flight_sql_test_app PRIVATE ${ARROW_FLIGHT_SQL_TEST_LINK_LIBS}
-                                                  ${GFLAGS_LIBRARIES})
-
 add_arrow_test(flight_sql_test
                SOURCES
                client_test.cc
@@ -96,6 +92,10 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
   target_link_libraries(flight_sql_test_server
                         PRIVATE ${ARROW_FLIGHT_SQL_TEST_LINK_LIBS} ${GFLAGS_LIBRARIES}
                                 ${SQLite3_LIBRARIES})
+
+  add_executable(flight_sql_test_app test_app_cli.cc)
+  target_link_libraries(flight_sql_test_app PRIVATE ${ARROW_FLIGHT_SQL_TEST_LINK_LIBS}
+                                                    ${GFLAGS_LIBRARIES})
 
   if(ARROW_BUILD_TESTS)
     add_dependencies(arrow-flight-sql-test flight_sql_test_server)
