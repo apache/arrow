@@ -909,7 +909,7 @@ TEST_F(TestProjector, TestChr) {
       MakeArrowArrayInt64({65, 84, 255, 340, -5}, {true, true, true, true, true});
   // expected output
   auto exp_chr =
-      MakeArrowArrayUtf8({"A", "T", "\xFF", "T", ""}, {true, true, true, true, true});
+      MakeArrowArrayUtf8({"A", "T", "\xFF", "T", "\xFB"}, {true, true, true, true, true});
 
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
