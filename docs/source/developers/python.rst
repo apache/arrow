@@ -62,7 +62,7 @@ Package requirements to run the unit tests are found in
 requirements-test.txt``.
 
 If you get import errors for ``pyarrow._lib`` or another PyArrow module when
-trying to run the tests run ``python -m pytest arrow/python/pyarrow`` and check
+trying to run the tests, run ``python -m pytest arrow/python/pyarrow`` and check
 if the editable version of pyarrow was installed correctly.
 
 The project has a number of custom command line options for its test

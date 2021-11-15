@@ -113,6 +113,8 @@ On MSYS2:
      mingw-w64-${MSYSTEM_CARCH}-zlib \
      mingw-w64-${MSYSTEM_CARCH}-zstd
 
+.. _cpp-building-building:
+
 Building
 ========
 
@@ -134,7 +136,7 @@ Several build types are possible:
   from the binary.
 
 You can also run default build with flag ``-DARROW_EXTRA_ERROR_CONTEXT=ON``, see
-:ref:`label-extra-debugging`.
+:ref:`cpp-extra-debugging`.
 
 Minimal release build:
 
@@ -436,7 +438,7 @@ this can be accomplished with the ``Threads`` built-in package:
    find_package(Threads REQUIRED)
    target_link_libraries(my_target PRIVATE Threads::Threads)
 
-.. _label-extra-debugging:
+.. _cpp-extra-debugging:
 
 Extra debugging help
 ~~~~~~~~~~~~~~~~~~~~
