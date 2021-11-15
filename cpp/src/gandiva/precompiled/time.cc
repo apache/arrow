@@ -242,7 +242,7 @@ int getJanWeekOfYear(const EpochTimePoint& tp) {
 }
 
 static const char* WEEK[7] = {"SUNDAY",   "MONDAY", "TUESDAY", "WEDNESDAY",
-                       "THURSDAY", "FRIDAY", "SATURDAY"};
+                              "THURSDAY", "FRIDAY", "SATURDAY"};
 
 #define NEXT_DAY_FUNC(TYPE)                                                             \
   FORCE_INLINE                                                                          \
