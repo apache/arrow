@@ -481,6 +481,18 @@ std::shared_ptr<ScalarFunction> MakeScalarMinMax(std::string name,
   return func;
 }
 
+struct Between {
+  template <typename T, typename Arg0, typename Arg1, typename Arg2>
+  static constexpr T Call(KernelContext*, const Arg0& middle, const Arg1& left,
+                             const Arg2& right, Status*) {
+    static_assert(std::is_same<T, bool>::value &&
+                  std::is_same<Arg0, Arg1>::value &&
+                  std::is_same<Arg1, Arg2>::value,
+                  "");
+    return (left < middle) && (middle < right);
+  }
+};
+
 template <typename Op>
 void AddIntegerBetween(const std::shared_ptr<DataType>& ty, ScalarFunction* func) {
   auto exec =
@@ -498,11 +510,12 @@ void AddGenericBetween(const std::shared_ptr<DataType>& ty, ScalarFunction* func
 template <typename Op>
 std::shared_ptr<ScalarFunction> MakeBetweenFunction(std::string name,
                 const FunctionDoc* doc) {
-  auto func = std::make_shared<ScalarFunction>(name, Arity::Ternary(), doc);
+  auto func = std::make_shared<CompareFunction>(name, Arity::Ternary(), doc);
 
   for (const std::shared_ptr<DataType>& ty : IntTypes()) {
     AddIntegerBetween<Op>(ty, func.get());
   }
+
   AddIntegerBetween<Op>(date32(), func.get());
   AddIntegerBetween<Op>(date64(), func.get());
 
@@ -634,7 +647,7 @@ void RegisterScalarComparison(FunctionRegistry* registry) {
 
 void RegisterScalarBetween(FunctionRegistry* registry) {
   auto between =
-          MakeBetweenFunction<Between>("between", &between_doc);
+      MakeBetweenFunction<Between>("between", &between_doc);
   DCHECK_OK(registry->AddFunction(std::move(between)));
 }
 
