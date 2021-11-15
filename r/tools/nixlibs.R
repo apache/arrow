@@ -371,7 +371,7 @@ ensure_cmake <- function() {
   if (is.null(cmake)) {
     # If not found, download it
     cat("**** cmake\n")
-    CMAKE_VERSION <- Sys.getenv("CMAKE_VERSION", "3.19.3")
+    CMAKE_VERSION <- Sys.getenv("CMAKE_VERSION", "3.21.4")
     if (tolower(Sys.info()[["sysname"]]) %in% "darwin") {
       postfix <- "-macos-universal.tar.gz"
     } else if (tolower(Sys.info()[["machine"]]) == "arm64") {
