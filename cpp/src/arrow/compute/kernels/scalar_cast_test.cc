@@ -437,7 +437,7 @@ TEST(Cast, Decimal128ToInt) {
       options.allow_int_overflow = allow_int_overflow;
       options.allow_decimal_truncate = allow_decimal_truncate;
 
-      auto no_overflow_no_truncation = ArrayFromJSON(decimal(38, 10), R"([
+      auto no_overflow_no_truncation = ArrayFromJSON(decimal128(38, 10), R"([
           "02.0000000000",
          "-11.0000000000",
           "22.0000000000",
@@ -450,7 +450,7 @@ TEST(Cast, Decimal128ToInt) {
 
   for (bool allow_int_overflow : {false, true}) {
     options.allow_int_overflow = allow_int_overflow;
-    auto truncation_but_no_overflow = ArrayFromJSON(decimal(38, 10), R"([
+    auto truncation_but_no_overflow = ArrayFromJSON(decimal128(38, 10), R"([
           "02.1000000000",
          "-11.0000004500",
           "22.0000004500",
@@ -468,7 +468,7 @@ TEST(Cast, Decimal128ToInt) {
   for (bool allow_decimal_truncate : {false, true}) {
     options.allow_decimal_truncate = allow_decimal_truncate;
 
-    auto overflow_no_truncation = ArrayFromJSON(decimal(38, 10), R"([
+    auto overflow_no_truncation = ArrayFromJSON(decimal128(38, 10), R"([
         "12345678901234567890000.0000000000",
         "99999999999999999999999.0000000000",
         null])");
@@ -490,7 +490,7 @@ TEST(Cast, Decimal128ToInt) {
       options.allow_int_overflow = allow_int_overflow;
       options.allow_decimal_truncate = allow_decimal_truncate;
 
-      auto overflow_and_truncation = ArrayFromJSON(decimal(38, 10), R"([
+      auto overflow_and_truncation = ArrayFromJSON(decimal128(38, 10), R"([
         "12345678901234567890000.0045345000",
         "99999999999999999999999.0000344300",
         null])");
@@ -508,7 +508,7 @@ TEST(Cast, Decimal128ToInt) {
     }
   }
 
-  Decimal128Builder builder(decimal(38, -4));
+  Decimal128Builder builder(decimal128(38, -4));
   for (auto d : {Decimal128("1234567890000."), Decimal128("-120000.")}) {
     ASSERT_OK_AND_ASSIGN(d, d.Rescale(0, -4));
     ASSERT_OK(builder.Append(d));
@@ -611,7 +611,7 @@ TEST(Cast, Decimal256ToInt) {
 }
 
 TEST(Cast, IntegerToDecimal) {
-  for (auto decimal_type : {decimal128(21, 2), decimal256(21, 2)}) {
+  for (auto decimal_type : {decimal128(22, 2), decimal256(22, 2)}) {
     for (auto integer_type : kIntegerTypes) {
       CheckCast(
           ArrayFromJSON(integer_type, "[0, 7, null, 100, 99]"),
@@ -624,6 +624,8 @@ TEST(Cast, IntegerToDecimal) {
     CheckCast(ArrayFromJSON(int64(), "[-9223372036854775808, 9223372036854775807]"),
               ArrayFromJSON(decimal_type,
                             R"(["-9223372036854775808", "9223372036854775807"])"));
+  }
+  for (auto decimal_type : {decimal128(20, 0), decimal256(20, 0)}) {
     CheckCast(ArrayFromJSON(uint64(), "[0, 18446744073709551615]"),
               ArrayFromJSON(decimal_type, R"(["0", "18446744073709551615"])"));
   }
@@ -646,13 +648,13 @@ TEST(Cast, Decimal128ToDecimal128) {
   for (bool allow_decimal_truncate : {false, true}) {
     options.allow_decimal_truncate = allow_decimal_truncate;
 
-    auto no_truncation = ArrayFromJSON(decimal(38, 10), R"([
+    auto no_truncation = ArrayFromJSON(decimal128(38, 10), R"([
           "02.0000000000",
           "30.0000000000",
           "22.0000000000",
         "-121.0000000000",
         null])");
-    auto expected = ArrayFromJSON(decimal(28, 0), R"([
+    auto expected = ArrayFromJSON(decimal128(28, 0), R"([
           "02.",
           "30.",
           "22.",
@@ -667,10 +669,10 @@ TEST(Cast, Decimal128ToDecimal128) {
     options.allow_decimal_truncate = allow_decimal_truncate;
 
     // Same scale, different precision
-    auto d_5_2 = ArrayFromJSON(decimal(5, 2), R"([
+    auto d_5_2 = ArrayFromJSON(decimal128(5, 2), R"([
           "12.34",
            "0.56"])");
-    auto d_4_2 = ArrayFromJSON(decimal(4, 2), R"([
+    auto d_4_2 = ArrayFromJSON(decimal128(4, 2), R"([
           "12.34",
            "0.56"])");
 
@@ -678,17 +680,17 @@ TEST(Cast, Decimal128ToDecimal128) {
     CheckCast(d_4_2, d_5_2, options);
   }
 
-  auto d_38_10 = ArrayFromJSON(decimal(38, 10), R"([
+  auto d_38_10 = ArrayFromJSON(decimal128(38, 10), R"([
       "-02.1234567890",
        "30.1234567890",
       null])");
 
-  auto d_28_0 = ArrayFromJSON(decimal(28, 0), R"([
+  auto d_28_0 = ArrayFromJSON(decimal128(28, 0), R"([
       "-02.",
        "30.",
       null])");
 
-  auto d_38_10_roundtripped = ArrayFromJSON(decimal(38, 10), R"([
+  auto d_38_10_roundtripped = ArrayFromJSON(decimal128(38, 10), R"([
       "-02.0000000000",
        "30.0000000000",
       null])");
@@ -704,14 +706,15 @@ TEST(Cast, Decimal128ToDecimal128) {
   CheckCast(d_28_0, d_38_10_roundtripped, options);
 
   // Precision loss without rescale leads to truncation
-  auto d_4_2 = ArrayFromJSON(decimal(4, 2), R"(["12.34"])");
+  auto d_4_2 = ArrayFromJSON(decimal128(4, 2), R"(["12.34"])");
   for (auto expected : {
-           ArrayFromJSON(decimal(3, 2), R"(["12.34"])"),
-           ArrayFromJSON(decimal(4, 3), R"(["12.340"])"),
-           ArrayFromJSON(decimal(2, 1), R"(["12.3"])"),
+           ArrayFromJSON(decimal128(3, 2), R"(["12.34"])"),
+           ArrayFromJSON(decimal128(4, 3), R"(["12.340"])"),
+           ArrayFromJSON(decimal128(2, 1), R"(["12.3"])"),
        }) {
     options.allow_decimal_truncate = true;
-    CheckCast(d_4_2, expected, options);
+    ASSERT_OK_AND_ASSIGN(auto invalid, Cast(d_4_2, expected->type(), options));
+    ASSERT_RAISES(Invalid, invalid.make_array()->ValidateFull());
 
     options.allow_decimal_truncate = false;
     options.to_type = expected->type();
@@ -790,7 +793,8 @@ TEST(Cast, Decimal256ToDecimal256) {
            ArrayFromJSON(decimal256(2, 1), R"(["12.3"])"),
        }) {
     options.allow_decimal_truncate = true;
-    CheckCast(d_4_2, expected, options);
+    ASSERT_OK_AND_ASSIGN(auto invalid, Cast(d_4_2, expected->type(), options));
+    ASSERT_RAISES(Invalid, invalid.make_array()->ValidateFull());
 
     options.allow_decimal_truncate = false;
     options.to_type = expected->type();
@@ -804,7 +808,7 @@ TEST(Cast, Decimal128ToDecimal256) {
   for (bool allow_decimal_truncate : {false, true}) {
     options.allow_decimal_truncate = allow_decimal_truncate;
 
-    auto no_truncation = ArrayFromJSON(decimal(38, 10), R"([
+    auto no_truncation = ArrayFromJSON(decimal128(38, 10), R"([
           "02.0000000000",
           "30.0000000000",
           "22.0000000000",
@@ -824,7 +828,7 @@ TEST(Cast, Decimal128ToDecimal256) {
     options.allow_decimal_truncate = allow_decimal_truncate;
 
     // Same scale, different precision
-    auto d_5_2 = ArrayFromJSON(decimal(5, 2), R"([
+    auto d_5_2 = ArrayFromJSON(decimal128(5, 2), R"([
           "12.34",
            "0.56"])");
     auto d_4_2 = ArrayFromJSON(decimal256(4, 2), R"([
@@ -838,12 +842,12 @@ TEST(Cast, Decimal128ToDecimal256) {
     CheckCast(d_5_2, d_40_2, options);
   }
 
-  auto d128_38_10 = ArrayFromJSON(decimal(38, 10), R"([
+  auto d128_38_10 = ArrayFromJSON(decimal128(38, 10), R"([
       "-02.1234567890",
        "30.1234567890",
       null])");
 
-  auto d128_28_0 = ArrayFromJSON(decimal(28, 0), R"([
+  auto d128_28_0 = ArrayFromJSON(decimal128(28, 0), R"([
       "-02.",
        "30.",
       null])");
@@ -869,14 +873,15 @@ TEST(Cast, Decimal128ToDecimal256) {
   CheckCast(d128_28_0, d256_38_10_roundtripped, options);
 
   // Precision loss without rescale leads to truncation
-  auto d128_4_2 = ArrayFromJSON(decimal(4, 2), R"(["12.34"])");
+  auto d128_4_2 = ArrayFromJSON(decimal128(4, 2), R"(["12.34"])");
   for (auto expected : {
            ArrayFromJSON(decimal256(3, 2), R"(["12.34"])"),
            ArrayFromJSON(decimal256(4, 3), R"(["12.340"])"),
            ArrayFromJSON(decimal256(2, 1), R"(["12.3"])"),
        }) {
     options.allow_decimal_truncate = true;
-    CheckCast(d128_4_2, expected, options);
+    ASSERT_OK_AND_ASSIGN(auto invalid, Cast(d128_4_2, expected->type(), options));
+    ASSERT_RAISES(Invalid, invalid.make_array()->ValidateFull());
 
     options.allow_decimal_truncate = false;
     options.to_type = expected->type();
@@ -896,7 +901,7 @@ TEST(Cast, Decimal256ToDecimal128) {
           "22.0000000000",
         "-121.0000000000",
         null])");
-    auto expected = ArrayFromJSON(decimal(28, 0), R"([
+    auto expected = ArrayFromJSON(decimal128(28, 0), R"([
           "02.",
           "30.",
           "22.",
@@ -913,7 +918,7 @@ TEST(Cast, Decimal256ToDecimal128) {
     auto d_5_2 = ArrayFromJSON(decimal256(42, 2), R"([
           "12.34",
            "0.56"])");
-    auto d_4_2 = ArrayFromJSON(decimal(4, 2), R"([
+    auto d_4_2 = ArrayFromJSON(decimal128(4, 2), R"([
           "12.34",
            "0.56"])");
 
@@ -930,12 +935,12 @@ TEST(Cast, Decimal256ToDecimal128) {
        "30.",
       null])");
 
-  auto d128_28_0 = ArrayFromJSON(decimal(28, 0), R"([
+  auto d128_28_0 = ArrayFromJSON(decimal128(28, 0), R"([
       "-02.",
        "30.",
       null])");
 
-  auto d128_38_10_roundtripped = ArrayFromJSON(decimal(38, 10), R"([
+  auto d128_38_10_roundtripped = ArrayFromJSON(decimal128(38, 10), R"([
       "-02.0000000000",
        "30.0000000000",
       null])");
@@ -953,12 +958,13 @@ TEST(Cast, Decimal256ToDecimal128) {
   // Precision loss without rescale leads to truncation
   auto d256_4_2 = ArrayFromJSON(decimal256(4, 2), R"(["12.34"])");
   for (auto expected : {
-           ArrayFromJSON(decimal(3, 2), R"(["12.34"])"),
-           ArrayFromJSON(decimal(4, 3), R"(["12.340"])"),
-           ArrayFromJSON(decimal(2, 1), R"(["12.3"])"),
+           ArrayFromJSON(decimal128(3, 2), R"(["12.34"])"),
+           ArrayFromJSON(decimal128(4, 3), R"(["12.340"])"),
+           ArrayFromJSON(decimal128(2, 1), R"(["12.3"])"),
        }) {
     options.allow_decimal_truncate = true;
-    CheckCast(d256_4_2, expected, options);
+    ASSERT_OK_AND_ASSIGN(auto invalid, Cast(d256_4_2, expected->type(), options));
+    ASSERT_RAISES(Invalid, invalid.make_array()->ValidateFull());
 
     options.allow_decimal_truncate = false;
     options.to_type = expected->type();
@@ -968,7 +974,7 @@ TEST(Cast, Decimal256ToDecimal128) {
 
 TEST(Cast, FloatingToDecimal) {
   for (auto float_type : {float32(), float64()}) {
-    for (auto decimal_type : {decimal(5, 2), decimal256(5, 2)}) {
+    for (auto decimal_type : {decimal128(5, 2), decimal256(5, 2)}) {
       CheckCast(
           ArrayFromJSON(float_type, "[0.0, null, 123.45, 123.456, 999.994]"),
           ArrayFromJSON(decimal_type, R"(["0.00", null, "123.45", "123.46", "999.99"])"));
@@ -1012,7 +1018,7 @@ TEST(Cast, FloatingToDecimal) {
 
 TEST(Cast, DecimalToFloating) {
   for (auto float_type : {float32(), float64()}) {
-    for (auto decimal_type : {decimal(5, 2), decimal256(5, 2)}) {
+    for (auto decimal_type : {decimal128(5, 2), decimal256(5, 2)}) {
       CheckCast(ArrayFromJSON(decimal_type, R"(["0.00", null, "123.45", "999.99"])"),
                 ArrayFromJSON(float_type, "[0.0, null, 123.45, 999.99]"));
     }
@@ -1547,8 +1553,77 @@ TEST(Cast, TimestampToString) {
     CheckCast(
         ArrayFromJSON(timestamp(TimeUnit::SECOND), "[-30610224000, -5364662400]"),
         ArrayFromJSON(string_type, R"(["1000-01-01 00:00:00", "1800-01-01 00:00:00"])"));
+
+    CheckCast(
+        ArrayFromJSON(timestamp(TimeUnit::MILLI), "[-30610224000000, -5364662400000]"),
+        ArrayFromJSON(string_type,
+                      R"(["1000-01-01 00:00:00.000", "1800-01-01 00:00:00.000"])"));
+
+    CheckCast(
+        ArrayFromJSON(timestamp(TimeUnit::MICRO),
+                      "[-30610224000000000, -5364662400000000]"),
+        ArrayFromJSON(string_type,
+                      R"(["1000-01-01 00:00:00.000000", "1800-01-01 00:00:00.000000"])"));
+
+    CheckCast(
+        ArrayFromJSON(timestamp(TimeUnit::NANO),
+                      "[-596933876543210988, 349837323456789012]"),
+        ArrayFromJSON(
+            string_type,
+            R"(["1951-02-01 01:02:03.456789012", "1981-02-01 01:02:03.456789012"])"));
   }
 }
+
+#ifndef _WIN32
+TEST(Cast, TimestampWithZoneToString) {
+  for (auto string_type : {utf8(), large_utf8()}) {
+    CheckCast(
+        ArrayFromJSON(timestamp(TimeUnit::SECOND, "UTC"), "[-30610224000, -5364662400]"),
+        ArrayFromJSON(string_type,
+                      R"(["1000-01-01 00:00:00Z", "1800-01-01 00:00:00Z"])"));
+
+    CheckCast(
+        ArrayFromJSON(timestamp(TimeUnit::SECOND, "America/Phoenix"),
+                      "[-34226955, 1456767743]"),
+        ArrayFromJSON(string_type,
+                      R"(["1968-11-30 13:30:45-0700", "2016-02-29 10:42:23-0700"])"));
+
+    CheckCast(ArrayFromJSON(timestamp(TimeUnit::MILLI, "America/Phoenix"),
+                            "[-34226955877, 1456767743456]"),
+              ArrayFromJSON(
+                  string_type,
+                  R"(["1968-11-30 13:30:44.123-0700", "2016-02-29 10:42:23.456-0700"])"));
+
+    CheckCast(
+        ArrayFromJSON(timestamp(TimeUnit::MICRO, "America/Phoenix"),
+                      "[-34226955877000, 1456767743456789]"),
+        ArrayFromJSON(
+            string_type,
+            R"(["1968-11-30 13:30:44.123000-0700", "2016-02-29 10:42:23.456789-0700"])"));
+
+    CheckCast(
+        ArrayFromJSON(timestamp(TimeUnit::NANO, "America/Phoenix"),
+                      "[-34226955876543211, 1456767743456789246]"),
+        ArrayFromJSON(
+            string_type,
+            R"(["1968-11-30 13:30:44.123456789-0700", "2016-02-29 10:42:23.456789246-0700"])"));
+  }
+}
+#else
+// TODO(ARROW-13168): we lack tzdb on Windows
+TEST(Cast, TimestampWithZoneToString) {
+  for (auto string_type : {utf8(), large_utf8()}) {
+    ASSERT_RAISES(NotImplemented, Cast(ArrayFromJSON(timestamp(TimeUnit::SECOND, "UTC"),
+                                                     "[-34226955, 1456767743]"),
+                                       CastOptions::Safe(string_type)));
+
+    ASSERT_RAISES(NotImplemented,
+                  Cast(ArrayFromJSON(timestamp(TimeUnit::SECOND, "America/Phoenix"),
+                                     "[-34226955, 1456767743]"),
+                       CastOptions::Safe(string_type)));
+  }
+}
+#endif
 
 TEST(Cast, DateToDate) {
   auto day_32 = ArrayFromJSON(date32(), "[0, null, 100, 1, 10]");
@@ -1870,7 +1945,37 @@ TEST(Cast, StringToTimestamp) {
       }
     }
 
-    // NOTE: timestamp parsing is tested comprehensively in parsing-util-test.cc
+    auto zoned = ArrayFromJSON(string_type,
+                               R"(["2020-02-29T00:00:00Z", "2020-03-02T10:11:12+0102"])");
+    auto mixed = ArrayFromJSON(string_type,
+                               R"(["2020-03-02T10:11:12+0102", "2020-02-29T00:00:00"])");
+
+    // Timestamp with zone offset should not parse as naive
+    CheckCastFails(zoned, CastOptions::Safe(timestamp(TimeUnit::SECOND)));
+
+    // Mixed zoned/unzoned should not parse as naive
+    CheckCastFails(mixed, CastOptions::Safe(timestamp(TimeUnit::SECOND)));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr("expected no zone offset"),
+        Cast(mixed, CastOptions::Safe(timestamp(TimeUnit::SECOND))));
+
+    // ...or as timestamp with timezone
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr("expected a zone offset"),
+        Cast(mixed, CastOptions::Safe(timestamp(TimeUnit::SECOND, "UTC"))));
+
+    // Unzoned should not parse as timestamp with timezone
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr("expected a zone offset"),
+        Cast(strings, CastOptions::Safe(timestamp(TimeUnit::SECOND, "UTC"))));
+
+    // Timestamp with zone offset can parse as any time zone (since they're unambiguous)
+    CheckCast(zoned, ArrayFromJSON(timestamp(TimeUnit::SECOND, "UTC"),
+                                   "[1582934400, 1583140152]"));
+    CheckCast(zoned, ArrayFromJSON(timestamp(TimeUnit::SECOND, "America/Phoenix"),
+                                   "[1582934400, 1583140152]"));
+
+    // NOTE: timestamp parsing is tested comprehensively in value_parsing_test.cc
   }
 }
 

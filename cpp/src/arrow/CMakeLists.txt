@@ -377,6 +377,7 @@ if(ARROW_COMPUTE)
        compute/exec/exec_plan.cc
        compute/exec/expression.cc
        compute/exec/filter_node.cc
+       compute/exec/ir_consumer.cc
        compute/exec/project_node.cc
        compute/exec/source_node.cc
        compute/exec/sink_node.cc
@@ -423,6 +424,7 @@ if(ARROW_COMPUTE)
        compute/exec/key_compare.cc
        compute/exec/key_encode.cc
        compute/exec/util.cc
+       compute/exec/hash_join_dict.cc
        compute/exec/hash_join.cc
        compute/exec/hash_join_node.cc
        compute/exec/task_util.cc)

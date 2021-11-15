@@ -25,6 +25,9 @@
 #include "arrow/result.h"
 #include "arrow/util/checked_cast.h"
 
+#define ARROW_GCS_RETURN_NOT_OK(expr) \
+  if (!expr.ok()) return internal::ToArrowStatus(expr)
+
 namespace arrow {
 namespace fs {
 namespace {
@@ -32,6 +35,13 @@ namespace {
 namespace gcs = google::cloud::storage;
 
 auto constexpr kSep = '/';
+// Change the default upload buffer size. In general, sending larger buffers is more
+// efficient with GCS, as each buffer requires a roundtrip to the service. With formatted
+// output (when using `operator<<`), keeping a larger buffer in memory before uploading
+// makes sense.  With unformatted output (the only choice given gcs::io::OutputStream's
+// API) it is better to let the caller provide as large a buffer as they want. The GCS C++
+// client library will upload this buffer with zero copies if possible.
+auto constexpr kUploadBufferSize = 256 * 1024;
 
 struct GcsPath {
   std::string full_path;
@@ -83,24 +93,57 @@ class GcsInputStream : public arrow::io::InputStream {
 
   Result<int64_t> Read(int64_t nbytes, void* out) override {
     stream_.read(static_cast<char*>(out), nbytes);
-    if (!stream_.status().ok()) {
-      return internal::ToArrowStatus(stream_.status());
-    }
+    ARROW_GCS_RETURN_NOT_OK(stream_.status());
     return stream_.gcount();
   }
 
   Result<std::shared_ptr<Buffer>> Read(int64_t nbytes) override {
     ARROW_ASSIGN_OR_RAISE(auto buffer, arrow::AllocateResizableBuffer(nbytes));
     stream_.read(reinterpret_cast<char*>(buffer->mutable_data()), nbytes);
-    if (!stream_.status().ok()) {
-      return internal::ToArrowStatus(stream_.status());
-    }
+    ARROW_GCS_RETURN_NOT_OK(stream_.status());
     RETURN_NOT_OK(buffer->Resize(stream_.gcount(), true));
     return buffer;
   }
 
  private:
   mutable gcs::ObjectReadStream stream_;
+};
+
+class GcsOutputStream : public arrow::io::OutputStream {
+ public:
+  explicit GcsOutputStream(gcs::ObjectWriteStream stream) : stream_(std::move(stream)) {}
+  ~GcsOutputStream() override = default;
+
+  Status Close() override {
+    stream_.Close();
+    return internal::ToArrowStatus(stream_.last_status());
+  }
+
+  Result<int64_t> Tell() const override {
+    if (!stream_) {
+      return Status::IOError("invalid stream");
+    }
+    return tell_;
+  }
+
+  bool closed() const override { return !stream_.IsOpen(); }
+
+  Status Write(const void* data, int64_t nbytes) override {
+    if (stream_.write(reinterpret_cast<const char*>(data), nbytes)) {
+      tell_ += nbytes;
+      return Status::OK();
+    }
+    return internal::ToArrowStatus(stream_.last_status());
+  }
+
+  Status Flush() override {
+    stream_.flush();
+    return Status::OK();
+  }
+
+ private:
+  gcs::ObjectWriteStream stream_;
+  int64_t tell_ = 0;
 };
 
 }  // namespace
@@ -116,6 +159,7 @@ google::cloud::Options AsGoogleCloudOptions(const GcsOptions& o) {
     options.set<google::cloud::UnifiedCredentialsOption>(
         google::cloud::MakeInsecureCredentials());
   }
+  options.set<gcs::UploadBufferSizeOption>(kUploadBufferSize);
   if (!o.endpoint_override.empty()) {
     options.set<gcs::RestEndpointOption>(scheme + "://" + o.endpoint_override);
   }
@@ -140,10 +184,25 @@ class GcsFileSystem::Impl {
 
   Result<std::shared_ptr<io::InputStream>> OpenInputStream(const GcsPath& path) {
     auto stream = client_.ReadObject(path.bucket, path.object);
-    if (!stream.status().ok()) {
-      return internal::ToArrowStatus(stream.status());
-    }
+    ARROW_GCS_RETURN_NOT_OK(stream.status());
     return std::make_shared<GcsInputStream>(std::move(stream));
+  }
+
+  Result<std::shared_ptr<io::OutputStream>> OpenOutputStream(
+      const GcsPath& path, const std::shared_ptr<const KeyValueMetadata>& metadata) {
+    gcs::EncryptionKey encryption_key;
+    ARROW_ASSIGN_OR_RAISE(encryption_key, internal::ToEncryptionKey(metadata));
+    gcs::PredefinedAcl predefined_acl;
+    ARROW_ASSIGN_OR_RAISE(predefined_acl, internal::ToPredefinedAcl(metadata));
+    gcs::KmsKeyName kms_key_name;
+    ARROW_ASSIGN_OR_RAISE(kms_key_name, internal::ToKmsKeyName(metadata));
+    gcs::WithObjectMetadata with_object_metadata;
+    ARROW_ASSIGN_OR_RAISE(with_object_metadata, internal::ToObjectMetadata(metadata));
+
+    auto stream = client_.WriteObject(path.bucket, path.object, encryption_key,
+                                      predefined_acl, kms_key_name, with_object_metadata);
+    ARROW_GCS_RETURN_NOT_OK(stream.last_status());
+    return std::make_shared<GcsOutputStream>(std::move(stream));
   }
 
  private:
@@ -245,7 +304,8 @@ Result<std::shared_ptr<io::RandomAccessFile>> GcsFileSystem::OpenInputFile(
 
 Result<std::shared_ptr<io::OutputStream>> GcsFileSystem::OpenOutputStream(
     const std::string& path, const std::shared_ptr<const KeyValueMetadata>& metadata) {
-  return Status::NotImplemented("The GCS FileSystem is not fully implemented");
+  ARROW_ASSIGN_OR_RAISE(auto p, GcsPath::FromString(path));
+  return impl_->OpenOutputStream(p, metadata);
 }
 
 Result<std::shared_ptr<io::OutputStream>> GcsFileSystem::OpenAppendStream(

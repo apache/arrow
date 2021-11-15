@@ -57,6 +57,7 @@
 namespace arrow {
 
 using internal::checked_cast;
+using internal::checked_pointer_cast;
 using internal::GetByteWidth;
 using internal::TemporaryDir;
 
@@ -468,7 +469,7 @@ class IpcTestFixture : public io::MemoryMapFixture, public ExtensionTypesMixin {
     std::vector<std::shared_ptr<Field>> fields = {f0};
     auto schema = std::make_shared<Schema>(fields);
 
-    auto batch = RecordBatch::Make(schema, 0, {array});
+    auto batch = RecordBatch::Make(schema, array->length(), {array});
     CheckRoundtrip(*batch, options, IpcReadOptions::Defaults(), buffer_size);
   }
 
@@ -485,15 +486,15 @@ TEST(MetadataVersion, ForwardsCompatCheck) {
 
 class TestWriteRecordBatch : public ::testing::Test, public IpcTestFixture {
  public:
-  void SetUp() { IpcTestFixture::SetUp(); }
-  void TearDown() { IpcTestFixture::TearDown(); }
+  void SetUp() override { IpcTestFixture::SetUp(); }
+  void TearDown() override { IpcTestFixture::TearDown(); }
 };
 
 class TestIpcRoundTrip : public ::testing::TestWithParam<MakeRecordBatch*>,
                          public IpcTestFixture {
  public:
-  void SetUp() { IpcTestFixture::SetUp(); }
-  void TearDown() { IpcTestFixture::TearDown(); }
+  void SetUp() override { IpcTestFixture::SetUp(); }
+  void TearDown() override { IpcTestFixture::TearDown(); }
 
   void TestMetadataVersion(MetadataVersion expected_version) {
     std::shared_ptr<RecordBatch> batch;
@@ -604,6 +605,81 @@ TEST_P(TestIpcRoundTrip, ZeroLengthArrays) {
 
   CheckRoundtrip(bin_array);
   CheckRoundtrip(bin_array2);
+}
+
+TEST_F(TestIpcRoundTrip, SparseUnionOfStructsWithReusedBuffers) {
+  auto storage_type = struct_({
+      field("i", int32()),
+      field("f", float32()),
+      field("s", utf8()),
+  });
+  auto storage = checked_pointer_cast<StructArray>(ArrayFromJSON(storage_type,
+                                                                 R"([
+    {"i": 0, "f": 0.0, "s": "a"},
+    {"i": 1, "f": 0.5, "s": "b"},
+    {"i": 2, "f": 1.5, "s": "c"},
+    {"i": 3, "f": 3.0, "s": "d"}
+  ])"));
+
+  ASSERT_OK_AND_ASSIGN(
+      auto m01, StructArray::Make({storage->field(0), storage->field(1)},
+                                  {storage_type->field(0), storage_type->field(1)}));
+
+  ASSERT_OK_AND_ASSIGN(
+      auto m12, StructArray::Make({storage->field(1), storage->field(2)},
+                                  {storage_type->field(1), storage_type->field(2)}));
+
+  ASSERT_OK_AND_ASSIGN(
+      auto m20, StructArray::Make({storage->field(2), storage->field(0)},
+                                  {storage_type->field(2), storage_type->field(0)}));
+
+  auto ids = ArrayFromJSON(int8(), "[1, 12, 20, 1]");
+
+  ASSERT_OK_AND_ASSIGN(
+      auto sparse,
+      SparseUnionArray::Make(*ids, {m01, m12, m20}, {"m01", "m12", "m20"}, {01, 12, 20}));
+
+  auto expected = ArrayFromJSON(sparse_union(
+                                    {
+                                        field("m01", m01->type()),
+                                        field("m12", m12->type()),
+                                        field("m20", m20->type()),
+                                    },
+                                    {01, 12, 20}),
+                                R"([
+    [1,  {"i": 0,   "f": 0.0}],
+    [12, {"f": 0.5, "s": "b"}],
+    [20, {"s": "c", "i": 2  }],
+    [1,  {"i": 3,   "f": 3.0}]
+  ])");
+
+  AssertArraysEqual(*expected, *sparse, /*verbose=*/true);
+
+  DictionaryMemo ignored;
+  ASSERT_OK_AND_ASSIGN(
+      auto roundtripped_batch,
+      DoStandardRoundTrip(*RecordBatch::Make(schema({field("", sparse->type())}),
+                                             sparse->length(), {sparse}),
+                          IpcWriteOptions::Defaults(), &ignored));
+
+  auto roundtripped =
+      checked_pointer_cast<SparseUnionArray>(roundtripped_batch->column(0));
+  AssertArraysEqual(*expected, *roundtripped, /*verbose=*/true);
+
+  auto roundtripped_m01 = checked_pointer_cast<StructArray>(roundtripped->field(0));
+  auto roundtripped_m12 = checked_pointer_cast<StructArray>(roundtripped->field(1));
+  auto roundtripped_m20 = checked_pointer_cast<StructArray>(roundtripped->field(2));
+
+  // The IPC writer does not take advantage of reusable buffers
+
+  ASSERT_NE(roundtripped_m01->field(0)->data()->buffers,
+            roundtripped_m20->field(1)->data()->buffers);
+
+  ASSERT_NE(roundtripped_m01->field(1)->data()->buffers,
+            roundtripped_m12->field(0)->data()->buffers);
+
+  ASSERT_NE(roundtripped_m12->field(1)->data()->buffers,
+            roundtripped_m20->field(0)->data()->buffers);
 }
 
 TEST_F(TestWriteRecordBatch, WriteWithCompression) {
@@ -2565,11 +2641,15 @@ void GetReadRecordBatchReadRanges(
   const int32_t magic_size = static_cast<int>(strlen(ipc::internal::kArrowMagicBytes));
   // read magic and footer length IO
   auto file_end_size = magic_size + sizeof(int32_t);
+  auto footer_length_offset = buffer->size() - file_end_size;
+  auto footer_length = BitUtil::FromLittleEndian(
+      util::SafeLoadAs<int32_t>(buffer->data() + footer_length_offset));
   ASSERT_EQ(read_ranges[0].length, file_end_size);
   // read footer IO
-  ASSERT_EQ(read_ranges[1].length, 256);
-  // read record batch metadata
-  ASSERT_EQ(read_ranges[2].length, 240);
+  ASSERT_EQ(read_ranges[1].length, footer_length);
+  // read record batch metadata.  The exact size is tricky to determine but it doesn't
+  // matter for this test and it should be smaller than the footer.
+  ASSERT_LT(read_ranges[2].length, footer_length);
   for (uint32_t i = 0; i < expected_body_read_lengths.size(); i++) {
     ASSERT_EQ(read_ranges[3 + i].length, expected_body_read_lengths[i]);
   }
@@ -2583,7 +2663,7 @@ void GetReadRecordBatchReadRanges(
 
 TEST(TestRecordBatchFileReaderIo, LoadAllFieldsShouldReadTheEntireBody) {
   // read the entire record batch body in single read
-  // the batch has 5 * bool + 5 * int32 + 5 * int32
+  // the batch has 5 * bool + 5 * int32 + 5 * int64
   // ==>
   // + 5 bool:  5 bits      (aligned to  8 bytes)
   // + 5 int32: 5 * 4 bytes (aligned to 24 bytes)

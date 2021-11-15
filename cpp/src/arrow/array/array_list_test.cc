@@ -25,6 +25,8 @@
 
 #include "arrow/array.h"
 #include "arrow/array/builder_nested.h"
+#include "arrow/array/util.h"
+#include "arrow/array/validate.h"
 #include "arrow/buffer.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_common.h"
@@ -621,6 +623,7 @@ TEST_F(TestMapArray, Equality) {
     }
     ASSERT_OK(ib.AppendValues(equal_values.data(), equal_values.size()));
     ASSERT_OK(builder_->Finish(out));
+    ASSERT_OK((*out)->ValidateFull());
   }
 
   // now an unequal one
@@ -630,6 +633,7 @@ TEST_F(TestMapArray, Equality) {
   }
   ASSERT_OK(ib.AppendValues(unequal_values.data(), unequal_values.size()));
   ASSERT_OK(builder_->Finish(&unequal_array));
+  ASSERT_OK(unequal_array->ValidateFull());
 
   // Test array equality
   EXPECT_TRUE(array->Equals(array));
@@ -711,6 +715,57 @@ TEST_F(TestMapArray, BuildingStringToInt) {
   ASSERT_OK(actual->ValidateFull());
 
   ASSERT_ARRAYS_EQUAL(*actual, expected);
+}
+
+TEST_F(TestMapArray, ValidateErrorNullStruct) {
+  ASSERT_OK_AND_ASSIGN(
+      auto values,
+      MakeArrayOfNull(struct_({field("key", utf8()), field("value", int32())}), 1));
+
+  Int32Builder offset_builder;
+  ASSERT_OK(offset_builder.AppendNull());
+  ASSERT_OK(offset_builder.Append(0));
+  ASSERT_OK_AND_ASSIGN(auto offsets, offset_builder.Finish());
+
+  ASSERT_OK_AND_ASSIGN(auto lists, ListArray::FromArrays(*offsets, *values));
+  ASSERT_OK(lists->ValidateFull());
+  ASSERT_EQ(lists->length(), 1);
+  ASSERT_EQ(lists->null_count(), 1);
+
+  // Make a Map ArrayData from the list array
+  // Note we can't construct a MapArray as that would crash with an assertion.
+  auto map_data = lists->data()->Copy();
+  map_data->type = map(utf8(), int32());
+  ASSERT_RAISES(Invalid, internal::ValidateArray(*map_data));
+}
+
+TEST_F(TestMapArray, ValidateErrorNullKey) {
+  StringBuilder key_builder;
+  ASSERT_OK(key_builder.AppendNull());
+  ASSERT_OK_AND_ASSIGN(auto keys, key_builder.Finish());
+
+  Int32Builder item_builder;
+  ASSERT_OK(item_builder.Append(42));
+  ASSERT_OK_AND_ASSIGN(auto items, item_builder.Finish());
+
+  ASSERT_OK_AND_ASSIGN(
+      auto values,
+      StructArray::Make({keys, items}, std::vector<std::string>{"key", "value"}));
+
+  Int32Builder offset_builder;
+  ASSERT_OK(offset_builder.Append(0));
+  ASSERT_OK(offset_builder.Append(1));
+  ASSERT_OK_AND_ASSIGN(auto offsets, offset_builder.Finish());
+
+  // The list array contains: [[null, 42]]
+  ASSERT_OK_AND_ASSIGN(auto lists, ListArray::FromArrays(*offsets, *values));
+  ASSERT_OK(lists->ValidateFull());
+
+  // Make a Map ArrayData from the list array
+  // Note we can't construct a MapArray as that would crash with an assertion.
+  auto map_data = lists->data()->Copy();
+  map_data->type = map(keys->type(), items->type());
+  ASSERT_RAISES(Invalid, internal::ValidateArray(*map_data));
 }
 
 TEST_F(TestMapArray, FromArrays) {

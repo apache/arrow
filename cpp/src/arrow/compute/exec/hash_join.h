@@ -31,10 +31,6 @@
 namespace arrow {
 namespace compute {
 
-// Identifiers for all different row schemas that are used in a join
-//
-enum class HashJoinProjection : int { INPUT = 0, KEY = 1, PAYLOAD = 2, OUTPUT = 3 };
-
 class ARROW_EXPORT HashJoinSchema {
  public:
   Status Init(JoinType join_type, const Schema& left_schema,
@@ -70,6 +66,7 @@ class ARROW_EXPORT HashJoinSchema {
   SchemaProjectionMaps<HashJoinProjection> proj_maps[2];
 
  private:
+  static bool IsTypeSupported(const DataType& type);
   static Result<std::vector<FieldRef>> VectorDiff(const Schema& schema,
                                                   const std::vector<FieldRef>& a,
                                                   const std::vector<FieldRef>& b);

@@ -45,7 +45,8 @@ class ARROW_EXPORT TimestampParser {
   virtual ~TimestampParser() = default;
 
   virtual bool operator()(const char* s, size_t length, TimeUnit::type out_unit,
-                          int64_t* out) const = 0;
+                          int64_t* out,
+                          bool* out_zone_offset_present = NULLPTR) const = 0;
 
   virtual const char* kind() const = 0;
 
@@ -496,6 +497,27 @@ static inline bool ParseHH_MM(const char* s, Duration* out) {
 }
 
 template <typename Duration>
+static inline bool ParseHHMM(const char* s, Duration* out) {
+  uint8_t hours = 0;
+  uint8_t minutes = 0;
+  if (ARROW_PREDICT_FALSE(!ParseUnsigned(s + 0, 2, &hours))) {
+    return false;
+  }
+  if (ARROW_PREDICT_FALSE(!ParseUnsigned(s + 2, 2, &minutes))) {
+    return false;
+  }
+  if (ARROW_PREDICT_FALSE(hours >= 24)) {
+    return false;
+  }
+  if (ARROW_PREDICT_FALSE(minutes >= 60)) {
+    return false;
+  }
+  *out = std::chrono::duration_cast<Duration>(std::chrono::hours(hours) +
+                                              std::chrono::minutes(minutes));
+  return true;
+}
+
+template <typename Duration>
 static inline bool ParseHH_MM_SS(const char* s, Duration* out) {
   uint8_t hours = 0;
   uint8_t minutes = 0;
@@ -609,10 +631,15 @@ static inline bool ParseSubSeconds(const char* s, size_t length, TimeUnit::type 
 }  // namespace detail
 
 static inline bool ParseTimestampISO8601(const char* s, size_t length,
-                                         TimeUnit::type unit,
-                                         TimestampType::c_type* out) {
+                                         TimeUnit::type unit, TimestampType::c_type* out,
+                                         bool* out_zone_offset_present = NULLPTR) {
   using seconds_type = std::chrono::duration<TimestampType::c_type>;
 
+  // We allow the following zone offset formats:
+  // - (none)
+  // - Z
+  // - [+-]HH(:?MM)?
+  //
   // We allow the following formats for all units:
   // - "YYYY-MM-DD"
   // - "YYYY-MM-DD[ T]hhZ?"
@@ -647,8 +674,38 @@ static inline bool ParseTimestampISO8601(const char* s, size_t length,
     return false;
   }
 
+  if (out_zone_offset_present) {
+    *out_zone_offset_present = false;
+  }
+
+  seconds_type zone_offset(0);
   if (s[length - 1] == 'Z') {
     --length;
+    if (out_zone_offset_present) *out_zone_offset_present = true;
+  } else if (s[length - 3] == '+' || s[length - 3] == '-') {
+    // [+-]HH
+    length -= 3;
+    if (ARROW_PREDICT_FALSE(!detail::ParseHH(s + length + 1, &zone_offset))) {
+      return false;
+    }
+    if (out_zone_offset_present) *out_zone_offset_present = true;
+  } else if (s[length - 5] == '+' || s[length - 5] == '-') {
+    // [+-]HHMM
+    length -= 5;
+    if (ARROW_PREDICT_FALSE(!detail::ParseHHMM(s + length + 1, &zone_offset))) {
+      return false;
+    }
+    if (out_zone_offset_present) *out_zone_offset_present = true;
+  } else if ((s[length - 6] == '+' || s[length - 6] == '-') && (s[length - 3] == ':')) {
+    // [+-]HH:MM
+    length -= 6;
+    if (ARROW_PREDICT_FALSE(!detail::ParseHH_MM(s + length + 1, &zone_offset))) {
+      return false;
+    }
+    if (out_zone_offset_present) *out_zone_offset_present = true;
+  }
+  if (s[length] == '+') {
+    zone_offset *= -1;
   }
 
   seconds_type seconds_since_midnight;
@@ -682,6 +739,7 @@ static inline bool ParseTimestampISO8601(const char* s, size_t length,
   }
 
   seconds_since_epoch += seconds_since_midnight;
+  seconds_since_epoch += zone_offset;
 
   if (length <= 19) {
     *out = util::CastSecondsToUnit(unit, seconds_since_epoch.count());
@@ -701,6 +759,12 @@ static inline bool ParseTimestampISO8601(const char* s, size_t length,
   *out = util::CastSecondsToUnit(unit, seconds_since_epoch.count()) + subseconds;
   return true;
 }
+
+#ifdef _WIN32
+static constexpr bool kStrptimeSupportsZone = false;
+#else
+static constexpr bool kStrptimeSupportsZone = true;
+#endif
 
 /// \brief Returns time since the UNIX epoch in the requested unit
 static inline bool ParseTimestampStrptime(const char* buf, size_t length,
@@ -730,6 +794,9 @@ static inline bool ParseTimestampStrptime(const char* buf, size_t length,
   if (!ignore_time_in_day) {
     secs += (std::chrono::hours(result.tm_hour) + std::chrono::minutes(result.tm_min) +
              std::chrono::seconds(result.tm_sec));
+#ifndef _WIN32
+    secs -= std::chrono::seconds(result.tm_gmtoff);
+#endif
   }
   *out = util::CastSecondsToUnit(unit, secs.time_since_epoch().count());
   return true;

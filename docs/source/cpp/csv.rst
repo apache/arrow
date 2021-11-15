@@ -190,6 +190,71 @@ dictionary-encoded string-like array.  It switches to a plain string-like
 array when the threshold in :member:`ConvertOptions::auto_dict_max_cardinality`
 is reached.
 
+Timestamp inference/parsing
+---------------------------
+
+If type inference is enabled, the CSV reader first tries to interpret
+string-like columns as timestamps. If all rows have some zone offset
+(e.g. ``Z`` or ``+0100``), even if the offsets are inconsistent, then the
+inferred type will be UTC timestamp. If no rows have a zone offset, then the
+inferred type will be timestamp without timezone. A mix of rows with/without
+offsets will result in a string column.
+
+If the type is explicitly specified as a timestamp with/without timezone, then
+the reader will error on values without/with zone offsets in that column. Note
+that this means it isn't currently possible to have the reader parse a column
+of timestamps without zone offsets as local times in a particular timezone;
+instead, parse the column as timestamp without timezone, then convert the
+values afterwards using the ``assume_timezone`` compute function.
+
++-------------------+------------------------------+-------------------+
+| Specified Type    | Input CSV                    | Result Type       |
++===================+==============================+===================+
+| (inferred)        | ``2021-01-01T00:00:00``      | timestamp[s]      |
+|                   +------------------------------+-------------------+
+|                   | ``2021-01-01T00:00:00Z``     | timestamp[s, UTC] |
+|                   +------------------------------+                   |
+|                   | ``2021-01-01T00:00:00+0100`` |                   |
+|                   +------------------------------+-------------------+
+|                   | ::                           | string            |
+|                   |                              |                   |
+|                   |     2021-01-01T00:00:00      |                   |
+|                   |     2021-01-01T00:00:00Z     |                   |
++-------------------+------------------------------+-------------------+
+| timestamp[s]      | ``2021-01-01T00:00:00``      | timestamp[s]      |
+|                   +------------------------------+-------------------+
+|                   | ``2021-01-01T00:00:00Z``     | (error)           |
+|                   +------------------------------+                   |
+|                   | ``2021-01-01T00:00:00+0100`` |                   |
+|                   +------------------------------+                   |
+|                   | ::                           |                   |
+|                   |                              |                   |
+|                   |     2021-01-01T00:00:00      |                   |
+|                   |     2021-01-01T00:00:00Z     |                   |
++-------------------+------------------------------+-------------------+
+| timestamp[s, UTC] | ``2021-01-01T00:00:00``      | (error)           |
+|                   +------------------------------+-------------------+
+|                   | ``2021-01-01T00:00:00Z``     | timestamp[s, UTC] |
+|                   +------------------------------+                   |
+|                   | ``2021-01-01T00:00:00+0100`` |                   |
+|                   +------------------------------+-------------------+
+|                   | ::                           | (error)           |
+|                   |                              |                   |
+|                   |     2021-01-01T00:00:00      |                   |
+|                   |     2021-01-01T00:00:00Z     |                   |
++-------------------+------------------------------+-------------------+
+| timestamp[s,      | ``2021-01-01T00:00:00``      | (error)           |
+| America/New_York] +------------------------------+-------------------+
+|                   | ``2021-01-01T00:00:00Z``     | timestamp[s,      |
+|                   +------------------------------+ America/New_York] |
+|                   | ``2021-01-01T00:00:00+0100`` |                   |
+|                   +------------------------------+-------------------+
+|                   | ::                           | (error)           |
+|                   |                              |                   |
+|                   |     2021-01-01T00:00:00      |                   |
+|                   |     2021-01-01T00:00:00Z     |                   |
++-------------------+------------------------------+-------------------+
+
 Nulls
 -----
 

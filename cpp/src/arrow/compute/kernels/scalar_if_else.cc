@@ -375,7 +375,9 @@ struct IfElseFunctor {};
 // internal::GenerateTypeAgnosticPrimitive forwards types to the corresponding unsigned
 // int type
 template <typename Type>
-struct IfElseFunctor<Type, enable_if_number<Type>> {
+struct IfElseFunctor<Type,
+                     enable_if_t<is_number_type<Type>::value ||
+                                 std::is_same<Type, MonthDayNanoIntervalType>::value>> {
   using T = typename TypeTraits<Type>::CType;
   // A - Array, S - Scalar, X = Array/Scalar
 
@@ -1295,7 +1297,8 @@ struct CopyFixedWidth<BooleanType> {
 };
 
 template <typename Type>
-struct CopyFixedWidth<Type, enable_if_number<Type>> {
+struct CopyFixedWidth<
+    Type, enable_if_t<is_number_type<Type>::value || is_interval_type<Type>::value>> {
   using CType = typename TypeTraits<Type>::CType;
   static void CopyScalar(const Scalar& scalar, const int64_t length,
                          uint8_t* raw_out_values, const int64_t out_offset) {
@@ -1439,13 +1442,30 @@ struct CaseWhenFunction : ScalarFunction {
       }
     }
 
-    if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
+    // TODO(ARROW-14105): also apply casts to dictionary indices/values
+    if (is_dictionary((*values)[1].type->id()) &&
+        std::all_of(values->begin() + 2, values->end(), [&](const ValueDescr& descr) {
+          return descr.type->Equals(*(*values)[1].type);
+        })) {
+      auto kernel = DispatchExactImpl(this, *values);
+      DCHECK(kernel);
+      return kernel;
+    }
 
     EnsureDictionaryDecoded(values);
-    if (auto type = CommonNumeric(values->data() + 1, values->size() - 1)) {
-      for (auto it = values->begin() + 1; it != values->end(); it++) {
-        it->type = type;
-      }
+    ValueDescr* first_arg = &(*values)[1];
+    const size_t num_args = values->size() - 1;
+    if (auto type = CommonNumeric(first_arg, num_args)) {
+      ReplaceTypes(type, first_arg, num_args);
+    }
+    if (auto type = CommonBinary(first_arg, num_args)) {
+      ReplaceTypes(type, first_arg, num_args);
+    }
+    if (auto type = CommonTemporal(first_arg, num_args)) {
+      ReplaceTypes(type, first_arg, num_args);
+    }
+    if (HasDecimal(*values)) {
+      RETURN_NOT_OK(CastDecimalArgs(first_arg, num_args));
     }
     if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
     return arrow::compute::detail::NoMatchingKernel(this, *values);
@@ -1934,9 +1954,20 @@ struct CoalesceFunction : ScalarFunction {
   Result<const Kernel*> DispatchBest(std::vector<ValueDescr>* values) const override {
     RETURN_NOT_OK(CheckArity(*values));
     using arrow::compute::detail::DispatchExactImpl;
+
+    // TODO(ARROW-14105): also apply casts to dictionary indices/values
+    if (is_dictionary((*values)[0].type->id()) &&
+        std::all_of(values->begin() + 1, values->end(), [&](const ValueDescr& descr) {
+          return descr.type->Equals(*(*values)[0].type);
+        })) {
+      auto kernel = DispatchExactImpl(this, *values);
+      DCHECK(kernel);
+      return kernel;
+    }
+
     // Do not DispatchExact here since we want to rescale decimals if necessary
     EnsureDictionaryDecoded(values);
-    if (auto type = CommonNumeric(*values)) {
+    if (auto type = CommonNumeric(values->data(), values->size())) {
       ReplaceTypes(type, values);
     }
     if (auto type = CommonBinary(values->data(), values->size())) {
@@ -2244,7 +2275,7 @@ static Status ExecVarWidthCoalesceImpl(KernelContext* ctx, const ExecBatch& batc
   }
   ArrayData* output = out->mutable_array();
   std::unique_ptr<ArrayBuilder> raw_builder;
-  RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), out->type(), &raw_builder));
+  RETURN_NOT_OK(MakeBuilderExactIndex(ctx->memory_pool(), out->type(), &raw_builder));
   RETURN_NOT_OK(raw_builder->Reserve(batch.length));
   RETURN_NOT_OK(reserve_data(raw_builder.get()));
 
@@ -2388,7 +2419,8 @@ struct CoalesceFunctor<Type, enable_if_base_binary<Type>> {
 
 template <typename Type>
 struct CoalesceFunctor<
-    Type, enable_if_t<is_nested_type<Type>::value && !is_union_type<Type>::value>> {
+    Type, enable_if_t<(is_nested_type<Type>::value || is_dictionary_type<Type>::value) &&
+                      !is_union_type<Type>::value>> {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     RETURN_NOT_OK(CheckIdenticalTypes(&batch.values[0], batch.values.size()));
     for (const auto& datum : batch.values) {
@@ -2422,7 +2454,7 @@ struct CoalesceFunctor<Type, enable_if_union<Type>> {
   static Status ExecArray(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     ArrayData* output = out->mutable_array();
     std::unique_ptr<ArrayBuilder> raw_builder;
-    RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), out->type(), &raw_builder));
+    RETURN_NOT_OK(MakeBuilderExactIndex(ctx->memory_pool(), out->type(), &raw_builder));
     RETURN_NOT_OK(raw_builder->Reserve(batch.length));
 
     const UnionType& type = checked_cast<const UnionType&>(*out->type());
@@ -2858,6 +2890,7 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
     AddCoalesceKernel(func, Type::STRUCT, CoalesceFunctor<StructType>::Exec);
     AddCoalesceKernel(func, Type::DENSE_UNION, CoalesceFunctor<DenseUnionType>::Exec);
     AddCoalesceKernel(func, Type::SPARSE_UNION, CoalesceFunctor<SparseUnionType>::Exec);
+    AddCoalesceKernel(func, Type::DICTIONARY, CoalesceFunctor<DictionaryType>::Exec);
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
   {

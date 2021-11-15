@@ -352,6 +352,11 @@ class DatasetWritingSinkNodeConsumer : public compute::SinkNodeConsumer {
     ARROW_ASSIGN_OR_RAISE(auto groups, write_options_.partitioning->Partition(batch));
     batch.reset();  // drop to hopefully conserve memory
 
+    if (write_options_.max_partitions <= 0) {
+      return Status::Invalid("max_partitions must be positive (was ",
+                             write_options_.max_partitions, ")");
+    }
+
     if (groups.batches.size() > static_cast<size_t>(write_options_.max_partitions)) {
       return Status::Invalid("Fragment would be written into ", groups.batches.size(),
                              " partitions. This exceeds the maximum of ",
