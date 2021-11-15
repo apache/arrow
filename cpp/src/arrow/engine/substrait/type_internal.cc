@@ -15,32 +15,22 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/engine/protocol_internal.h"
+#include "arrow/engine/substrait/type_internal.h"
 
+#include <string>
 #include <vector>
 
-#include "arrow/engine/simple_extension_type_internal.h"
+#include "arrow/buffer.h"
+#include "arrow/engine/substrait/extension_types.h"
+#include "arrow/result.h"
+#include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/logging.h"
-#include "arrow/visitor_inline.h"
-
 #include "arrow/util/make_unique.h"
-#include "google/protobuf/io/zero_copy_stream_impl_lite.h"
-#include "google/protobuf/message_lite.h"
+#include "arrow/visitor_inline.h"
 
 namespace arrow {
 namespace engine {
-
-Status ParseFromBufferImpl(const Buffer& buf, const std::string& full_name,
-                           google::protobuf::Message* message) {
-  google::protobuf::io::ArrayInputStream buf_stream{buf.data(),
-                                                    static_cast<int>(buf.size())};
-
-  if (message->ParseFromZeroCopyStream(&buf_stream)) {
-    return Status::OK();
-  }
-  return Status::IOError("ParseFromZeroCopyStream failed for ", full_name);
-}
 
 namespace {
 
@@ -65,6 +55,16 @@ Result<std::pair<std::shared_ptr<DataType>, bool>> FromProtoImpl(const TypeMessa
                         IsNullable(type));
 }
 
+template <typename TypeMessage, typename... A>
+Result<std::pair<std::shared_ptr<DataType>, bool>> FromProtoImpl(
+    const TypeMessage& type, std::shared_ptr<DataType> type_factory(A...), A&&... args) {
+  RETURN_NOT_OK(CheckVariation(type));
+
+  return std::make_pair(
+      std::static_pointer_cast<DataType>(type_factory(std::forward<A>(args)...)),
+      IsNullable(type));
+}
+
 template <typename Types, typename Names = const std::string*>
 Result<FieldVector> FieldsFromProto(
     int size, const Types& types,
@@ -80,56 +80,7 @@ Result<FieldVector> FieldsFromProto(
   return fields;
 }
 
-template <typename ExtType, typename TypeMessage>
-static Result<std::pair<std::shared_ptr<DataType>, bool>>
-SimpleExtensionTypeFromProtoImpl(const TypeMessage& type,
-                                 typename ExtType::ParamsType params) {
-  RETURN_NOT_OK(CheckVariation(type));
-  ARROW_ASSIGN_OR_RAISE(auto ext_type, ExtType::Make(std::move(params)))
-  return std::make_pair(std::move(ext_type), IsNullable(type));
-}
-
-constexpr util::string_view kUuidExtensionName = "uuid";
-struct UuidExtensionParams {};
-Result<std::shared_ptr<DataType>> UuidGetStorage(const UuidExtensionParams&) {
-  return fixed_size_binary(16);
-}
-static auto kUuidExtensionParamsProperties = internal::MakeProperties();
-
-using UuidType = SimpleExtensionType<kUuidExtensionName, UuidExtensionParams,
-                                     decltype(kUuidExtensionParamsProperties),
-                                     kUuidExtensionParamsProperties, UuidGetStorage>;
-
-constexpr util::string_view kFixedCharExtensionName = "fixed_char";
-struct FixedCharExtensionParams {
-  int32_t length;
-};
-Result<std::shared_ptr<DataType>> FixedCharGetStorage(
-    const FixedCharExtensionParams& params) {
-  return fixed_size_binary(params.length);
-}
-static auto kFixedCharExtensionParamsProperties = internal::MakeProperties(
-    internal::DataMember("length", &FixedCharExtensionParams::length));
-
-using FixedCharType =
-    SimpleExtensionType<kFixedCharExtensionName, FixedCharExtensionParams,
-                        decltype(kFixedCharExtensionParamsProperties),
-                        kFixedCharExtensionParamsProperties, FixedCharGetStorage>;
-
-constexpr util::string_view kVarCharExtensionName = "varchar";
-struct VarCharExtensionParams {
-  int32_t length;
-};
-Result<std::shared_ptr<DataType>> VarCharGetStorage(const VarCharExtensionParams&) {
-  return utf8();
-}
-static auto kVarCharExtensionParamsProperties = internal::MakeProperties(
-    internal::DataMember("length", &VarCharExtensionParams::length));
-
-using VarCharType =
-    SimpleExtensionType<kVarCharExtensionName, VarCharExtensionParams,
-                        decltype(kVarCharExtensionParamsProperties),
-                        kVarCharExtensionParamsProperties, VarCharGetStorage>;
+static const std::string kTimestampTzTimezoneString = "UTC";
 
 }  // namespace
 
@@ -160,7 +111,8 @@ Result<std::pair<std::shared_ptr<DataType>, bool>> FromProto(const st::Type& typ
     case st::Type::KindCase::kTimestamp:
       return FromProtoImpl<TimestampType>(type.timestamp(), TimeUnit::MICRO);
     case st::Type::KindCase::kTimestampTz:
-      return FromProtoImpl<TimestampType>(type.timestamp_tz(), TimeUnit::MICRO, "UTC");
+      return FromProtoImpl<TimestampType>(type.timestamp_tz(), TimeUnit::MICRO,
+                                          kTimestampTzTimezoneString);
     case st::Type::KindCase::kDate:
       return FromProtoImpl<Date64Type>(type.date());
     case st::Type::KindCase::kTime:
@@ -173,31 +125,30 @@ Result<std::pair<std::shared_ptr<DataType>, bool>> FromProto(const st::Type& typ
       break;
 
     case st::Type::KindCase::kIntervalDay:
-      // Documentation is inconsistent; the precision of the sub-day interval is described
-      // as microsecond in simple_logical_types.md but IntervalDayToSecond has the field
-      // `int32 seconds`. At microsecond precision it's minimally necessary to store all
-      // values in the range `[0,24*60*60*1000_000)` in order to express all possible
-      // sub-day intervals, but this is not possible for 32 bit integers.
+      // Documentation is inconsistent; the precision of the sub-day interval is
+      // described as microsecond in simple_logical_types.md but IntervalDayToSecond has
+      // the field `int32 seconds`. At microsecond precision it's minimally necessary to
+      // store all values in the range `[0,24*60*60*1000_000)` in order to express all
+      // possible sub-day intervals, but this is not possible for 32 bit integers.
       //
       // Possible fixes: amend that field to `int64 milliseconds`, then this type can be
-      //                 converted to MonthDayNanoIntervalType (months will always be 0).
+      //                 converted to MonthDayNanoIntervalType (months will always be
+      //                 0).
       //               : amend documentation to claim only second precision, then this
-      //                 type can be converted to DayTimeIntervalType (milliseconds % 1000
-      //                 will always be 0).
+      //                 type can be converted to DayTimeIntervalType (milliseconds %
+      //                 1000 will always be 0).
       break;
 
     case st::Type::KindCase::kUuid:
-      return SimpleExtensionTypeFromProtoImpl<UuidType>(type.uuid(), {});
+      return FromProtoImpl(type.uuid(), uuid);
 
     case st::Type::KindCase::kFixedChar:
       // need extension type to mark utf-8 constraint
-      return SimpleExtensionTypeFromProtoImpl<FixedCharType>(
-          type.fixed_char(), {type.fixed_char().length()});
+      return FromProtoImpl(type.fixed_char(), fixed_char, type.fixed_char().length());
 
     case st::Type::KindCase::kVarchar:
       // need extension type to hold type.varchar().length() constraint
-      return SimpleExtensionTypeFromProtoImpl<VarCharType>(type.varchar(),
-                                                           {type.varchar().length()});
+      return FromProtoImpl(type.varchar(), varchar, type.varchar().length());
 
     case st::Type::KindCase::kFixedBinary:
       return FromProtoImpl<FixedSizeBinaryType>(type.fixed_binary(),
@@ -324,8 +275,14 @@ struct ToProtoImpl {
 
   Status Visit(const TimestampType& t) {
     if (t.unit() != TimeUnit::MICRO) return NotImplemented(t);
-    if (t.timezone() == "") return SetWith(&st::Type::set_allocated_timestamp);
-    if (t.timezone() == "UTC") return SetWith(&st::Type::set_allocated_timestamp_tz);
+
+    if (t.timezone() == "") {
+      return SetWith(&st::Type::set_allocated_timestamp);
+    }
+    if (t.timezone() == kTimestampTzTimezoneString) {
+      return SetWith(&st::Type::set_allocated_timestamp_tz);
+    }
+
     return NotImplemented(t);
   }
 
@@ -385,17 +342,17 @@ struct ToProtoImpl {
   Status Visit(const ExtensionType& t) {
     auto ext_name = t.extension_name();
 
-    if (auto params = UuidType::GetIf(t)) {
+    if (UnwrapUuid(t)) {
       return SetWith(&st::Type::set_allocated_uuid);
     }
 
-    if (auto params = FixedCharType::GetIf(t)) {
-      SetWithThen(&st::Type::set_allocated_fixed_char)->set_length(params->length);
+    if (auto length = UnwrapFixedChar(t)) {
+      SetWithThen(&st::Type::set_allocated_fixed_char)->set_length(*length);
       return Status::OK();
     }
 
-    if (auto params = VarCharType::GetIf(t)) {
-      SetWithThen(&st::Type::set_allocated_varchar)->set_length(params->length);
+    if (auto length = UnwrapVarChar(t)) {
+      SetWithThen(&st::Type::set_allocated_varchar)->set_length(*length);
       return Status::OK();
     }
 

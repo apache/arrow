@@ -26,8 +26,9 @@ set(ARROW_ENGINE_LINK_LIBS ${ARROW_PROTOBUF_LIBPROTOBUF})
 #endif()
 
 set(ARROW_ENGINE_SRCS
-    substrait_consumer.cc
-    protocol_internal.cc)
+    substrait/extension_types.cc
+    substrait/serde.cc
+    substrait/type_internal.cc)
 
 set(SUBSTRAIT_DIR "${CMAKE_CURRENT_BINARY_DIR}/substrait")
 set(SUBSTRAIT_GEN_DIR "${ARROW_SOURCE_DIR}/src/generated/substrait")
@@ -98,7 +99,9 @@ else()
   list(APPEND ARROW_ENGINE_TEST_LINK_LIBS arrow_engine_shared)
 endif()
 
-add_arrow_test(engine_test
+add_arrow_test(substrait_test
+               SOURCES
+               substrait/serde_test.cc
                EXTRA_LINK_LIBS
                ${ARROW_ENGINE_TEST_LINK_LIBS}
                PREFIX

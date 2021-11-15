@@ -33,7 +33,7 @@ namespace engine {
 
 template <const util::string_view& kExtensionName, typename Params,
           typename ParamsProperties, const ParamsProperties& kProperties,
-          Result<std::shared_ptr<DataType>> GetStorage(const Params&)>
+          std::shared_ptr<DataType> GetStorage(const Params&)>
 class SimpleExtensionType : public ExtensionType {
  public:
   using ParamsType = Params;
@@ -41,14 +41,17 @@ class SimpleExtensionType : public ExtensionType {
   explicit SimpleExtensionType(std::shared_ptr<DataType> storage_type, Params params = {})
       : ExtensionType(std::move(storage_type)), params_(std::move(params)) {}
 
-  static Result<std::shared_ptr<DataType>> Make(Params params = {}) {
-    ARROW_ASSIGN_OR_RAISE(auto storage_type, GetStorage(params));
+  static std::shared_ptr<DataType> Make(Params params) {
+    auto storage_type = GetStorage(params);
     return std::make_shared<SimpleExtensionType>(std::move(storage_type),
                                                  std::move(params));
   }
 
-  static const Params* GetIf(const ExtensionType& type) {
-    if (type.extension_name() != kExtensionName) return nullptr;
+  static const Params* GetIf(const DataType& type) {
+    if (type.id() != Type::EXTENSION) return nullptr;
+
+    const auto& ext_type = internal::checked_cast<const ExtensionType&>(type);
+    if (ext_type.extension_name() != kExtensionName) return nullptr;
 
     return &internal::checked_cast<const SimpleExtensionType&>(type).params_;
   }
@@ -133,12 +136,10 @@ class SimpleExtensionType : public ExtensionType {
       std::shared_ptr<DataType> storage_type,
       const std::string& serialized) const override {
     if (auto params = DeserializeImpl(serialized).params_) {
-      ARROW_ASSIGN_OR_RAISE(auto expected, GetStorage(*params));
-
-      if (!storage_type->Equals(expected)) {
+      if (!storage_type->Equals(GetStorage(*params))) {
         return Status::Invalid("Invalid storage type for ", kExtensionName, ": ",
                                storage_type->ToString(), " (expected ",
-                               expected->ToString(), ")");
+                               GetStorage(*params)->ToString(), ")");
       }
 
       return std::make_shared<SimpleExtensionType>(std::move(storage_type),

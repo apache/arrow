@@ -15,38 +15,35 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// This API is EXPERIMENTAL.
+#include "arrow/engine/substrait/serde.h"
 
-#pragma once
+#include <gtest/gtest.h>
 
-#include <vector>
-
-#include "arrow/buffer.h"
-#include "arrow/compute/exec/exec_plan.h"
-#include "arrow/engine/visibility.h"
-#include "arrow/result.h"
+#include "arrow/testing/gtest_util.h"
 
 namespace arrow {
 namespace engine {
 
-ARROW_ENGINE_EXPORT
-Result<std::vector<compute::Declaration>> ConvertPlan(const Buffer&);
-
-ARROW_ENGINE_EXPORT
-Result<std::shared_ptr<DataType>> DeserializeType(const Buffer&);
-
-ARROW_ENGINE_EXPORT
-Result<std::shared_ptr<Buffer>> SerializeType(const DataType&);
-
-// TODO(bkietz)
-ARROW_ENGINE_EXPORT
-std::shared_ptr<DataType> uuid();
-
-ARROW_ENGINE_EXPORT
-std::shared_ptr<DataType> fixed_char();
-
-ARROW_ENGINE_EXPORT
-std::shared_ptr<DataType> varchar();
+TEST(SubstraitConsumption, BasicTypeRoundTrip) {
+  for (auto type : {
+           boolean(),
+           int8(),
+           int16(),
+           int32(),
+           int64(),
+           float32(),
+           float64(),
+           struct_({
+               field("", int64()),
+               field("", list(utf8())),
+           }),
+       }) {
+    ASSERT_OK_AND_ASSIGN(auto serialized, SerializeType(*type));
+    ASSERT_OK_AND_ASSIGN(auto roundtripped, DeserializeType(*serialized));
+    ASSERT_EQ(*roundtripped, *type);
+  }
+}
 
 }  // namespace engine
 }  // namespace arrow
+

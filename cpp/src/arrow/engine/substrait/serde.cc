@@ -15,13 +15,44 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/engine/substrait_consumer.h"
+#include "arrow/engine/substrait/serde.h"
 
-#include "arrow/engine/protocol_internal.h"
+#include "arrow/engine/substrait/type_internal.h"
 #include "arrow/util/string_view.h"
+#include "google/protobuf/io/zero_copy_stream_impl_lite.h"
+#include "google/protobuf/message.h"
+
+#include "generated/substrait/plan.pb.h"
+
+namespace google {
+namespace protobuf {
+
+class Message;
+
+}  // namespace protobuf
+}  // namespace google
 
 namespace arrow {
 namespace engine {
+
+Status ParseFromBufferImpl(const Buffer& buf, const std::string& full_name,
+                           google::protobuf::Message* message) {
+  google::protobuf::io::ArrayInputStream buf_stream{buf.data(),
+                                                    static_cast<int>(buf.size())};
+
+  if (message->ParseFromZeroCopyStream(&buf_stream)) {
+    return Status::OK();
+  }
+  return Status::IOError("ParseFromZeroCopyStream failed for ", full_name);
+}
+
+template <typename Message>
+Result<Message> ParseFromBuffer(const Buffer& buf) {
+  Message message;
+  ARROW_RETURN_NOT_OK(
+      ParseFromBufferImpl(buf, Message::descriptor()->full_name(), &message));
+  return message;
+}
 
 Result<compute::Declaration> Convert(const st::Rel& relation) {
   return Status::NotImplemented("");
