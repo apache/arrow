@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.driver.jdbc.test.utils;
+package org.apache.arrow.driver.jdbc.utils;
 
 import java.io.File;
 import java.io.IOException;
@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Random;
 import java.util.function.Function;
 
+import org.apache.arrow.driver.jdbc.FlightServerTestRule;
 import org.apache.arrow.flight.Criteria;
 import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.FlightProducer;
@@ -46,7 +47,7 @@ import com.google.common.collect.ImmutableList;
  * Utility class for running tests against a FlightServer.
  *
  * @deprecated this class doesn't follow best practices
- * @see org.apache.arrow.driver.jdbc.test.FlightServerTestRule#apply
+ * @see FlightServerTestRule#apply
  */
 @Deprecated
 public final class FlightTestUtils {
@@ -99,7 +100,7 @@ public final class FlightTestUtils {
    * Return a a FlightServer (actually anything that is startable)
    * that has been started bound to a random port.
    * @deprecated this approach is unnecessarily verbose and allows for little to no reuse.
-   * @see org.apache.arrow.driver.jdbc.test.FlightServerTestRule
+   * @see FlightServerTestRule
    */
   @Deprecated
   public <T> T getStartedServer(Function<Location, T> newServerFromLocation) throws IOException {

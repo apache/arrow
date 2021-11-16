@@ -22,8 +22,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Map;
 
-import org.apache.arrow.driver.jdbc.test.utils.AccessorTestUtils;
-import org.apache.arrow.driver.jdbc.test.utils.RootAllocatorTestRule;
+import org.apache.arrow.driver.jdbc.utils.AccessorTestUtils;
+import org.apache.arrow.driver.jdbc.utils.RootAllocatorTestRule;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.impl.UnionMapWriter;

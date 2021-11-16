@@ -20,7 +20,6 @@ package org.apache.arrow.driver.jdbc.utils;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import org.apache.arrow.driver.jdbc.test.utils.RootAllocatorTestRule;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VarBinaryVector;

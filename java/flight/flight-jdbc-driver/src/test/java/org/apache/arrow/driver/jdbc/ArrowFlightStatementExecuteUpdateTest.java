@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.driver.jdbc.test;
+package org.apache.arrow.driver.jdbc;
 
 import static java.lang.String.format;
 import static org.hamcrest.CoreMatchers.allOf;
@@ -30,8 +30,7 @@ import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Statement;
 import java.util.Collections;
 
-import org.apache.arrow.driver.jdbc.ArrowFlightStatement;
-import org.apache.arrow.driver.jdbc.test.adhoc.MockFlightSqlProducer;
+import org.apache.arrow.driver.jdbc.adhoc.MockFlightSqlProducer;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;

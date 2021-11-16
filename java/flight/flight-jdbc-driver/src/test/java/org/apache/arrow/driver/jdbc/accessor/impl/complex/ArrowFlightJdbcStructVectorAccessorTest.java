@@ -24,8 +24,8 @@ import java.sql.Struct;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.apache.arrow.driver.jdbc.test.utils.AccessorTestUtils;
-import org.apache.arrow.driver.jdbc.test.utils.RootAllocatorTestRule;
+import org.apache.arrow.driver.jdbc.utils.AccessorTestUtils;
+import org.apache.arrow.driver.jdbc.utils.RootAllocatorTestRule;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.complex.ListVector;

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.driver.jdbc.test;
+package org.apache.arrow.driver.jdbc;
 
 import static java.lang.String.format;
 import static java.util.Collections.synchronizedSet;
@@ -35,9 +35,7 @@ import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 
-import org.apache.arrow.driver.jdbc.ArrowFlightJdbcDriver;
-import org.apache.arrow.driver.jdbc.ArrowFlightJdbcFlightStreamResultSet;
-import org.apache.arrow.driver.jdbc.test.adhoc.CoreMockedSqlProducers;
+import org.apache.arrow.driver.jdbc.adhoc.CoreMockedSqlProducers;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;

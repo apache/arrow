@@ -23,8 +23,8 @@ import static org.hamcrest.CoreMatchers.is;
 import java.math.BigDecimal;
 import java.util.function.Function;
 
-import org.apache.arrow.driver.jdbc.test.utils.AccessorTestUtils;
-import org.apache.arrow.driver.jdbc.test.utils.RootAllocatorTestRule;
+import org.apache.arrow.driver.jdbc.utils.AccessorTestUtils;
+import org.apache.arrow.driver.jdbc.utils.RootAllocatorTestRule;
 import org.apache.arrow.vector.BitVector;
 import org.junit.After;
 import org.junit.Before;

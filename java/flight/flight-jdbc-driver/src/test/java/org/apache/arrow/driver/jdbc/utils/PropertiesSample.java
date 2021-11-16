@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.driver.jdbc.test.utils;
+package org.apache.arrow.driver.jdbc.utils;
 
 import java.util.Arrays;
 import java.util.Iterator;
@@ -23,14 +23,14 @@ import java.util.Properties;
 
 import javax.annotation.Nullable;
 
-import org.apache.arrow.driver.jdbc.test.FlightServerTestRule;
+import org.apache.arrow.driver.jdbc.FlightServerTestRule;
 import org.apache.arrow.util.Preconditions;
 
 
 /**
  * {@link Properties} wrapper used for testing. Uses sample values.
  * @deprecated not updatable to match dinamic server allocation.
- * @see org.apache.arrow.driver.jdbc.test.FlightServerTestRule
+ * @see FlightServerTestRule
  */
 @Deprecated
 public enum PropertiesSample {

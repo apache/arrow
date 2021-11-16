@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.driver.jdbc.test;
+package org.apache.arrow.driver.jdbc;
 
 import java.io.IOException;
 import java.lang.reflect.Method;
@@ -28,8 +28,6 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.function.Function;
 
-import org.apache.arrow.driver.jdbc.ArrowFlightJdbcConnectionPoolDataSource;
-import org.apache.arrow.driver.jdbc.ArrowFlightJdbcDataSource;
 import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl;
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.FlightServer;

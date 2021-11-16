@@ -26,7 +26,7 @@ import static java.sql.Types.JAVA_OBJECT;
 import static java.util.Collections.singletonList;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.IntStream.range;
-import static org.apache.arrow.driver.jdbc.test.adhoc.MockFlightSqlProducer.serializeSchema;
+import static org.apache.arrow.driver.jdbc.adhoc.MockFlightSqlProducer.serializeSchema;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetCrossReference;
 import static org.apache.arrow.flight.sql.impl.FlightSql.SqlSupportsConvert.SQL_CONVERT_BIGINT_VALUE;
 import static org.apache.arrow.flight.sql.impl.FlightSql.SqlSupportsConvert.SQL_CONVERT_BIT_VALUE;
@@ -46,8 +46,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.function.Consumer;
 
-import org.apache.arrow.driver.jdbc.test.FlightServerTestRule;
-import org.apache.arrow.driver.jdbc.test.adhoc.MockFlightSqlProducer;
+import org.apache.arrow.driver.jdbc.adhoc.MockFlightSqlProducer;
 import org.apache.arrow.driver.jdbc.utils.ResultSetTestUtils;
 import org.apache.arrow.flight.FlightProducer.ServerStreamListener;
 import org.apache.arrow.flight.sql.FlightSqlProducer.Schemas;
