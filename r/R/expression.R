@@ -228,9 +228,9 @@ build_expr <- function(FUN,
           "if_else",
           build_expr("equal", args[[2]], 0L),
           Scalar$create(NA_integer_),
-          out
+          build_expr("floor", out)
         )
-        return(out_float$cast(args[[1]]$type(), allow_float_truncate = TRUE))
+        return(out_float$cast(args[[1]]$type()))
       } else {
         return(build_expr("floor", out))
       }
