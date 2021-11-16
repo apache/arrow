@@ -37,43 +37,71 @@
 #include <cstdint>
 #include <memory>
 
-#include <random>
+#include <omp.h>
 
 namespace arrow
 {
 namespace compute
 {
+    struct BenchmarkSettings
+    {
+        int num_threads = 1;
+        JoinType join_type = JoinType::INNER;
+        double build_to_probe_proportion = 0.1;
+        int batch_size = 1024;
+        int num_build_batches = 10;
+        std::vector<std::shared_ptr<DataType>> key_types;
+        std::vector<std::shared_ptr<DataType>> build_payload_types;
+        std::vector<std::shared_ptr<DataType>> probe_payload_types;
+    };
 
-    class JoinImplFixture : public benchmark::Fixture
+    class JoinBenchmark
     {
     public:
-        JoinImplFixture()
+        JoinBenchmark(BenchmarkSettings &settings)
         {
-            printf("Constructor\n");
-        }
+            bool is_parallel = settings.num_threads != 1;
 
-        void SetUp(const benchmark::State &state)
-        {
-            bool parallel = false;
-            JoinType join_type = JoinType::INNER;
-            int num_batches = 10;
-            int batch_size = 1024;
+            SchemaBuilder l_schema_builder, r_schema_builder;
+            std::vector<FieldRef> left_keys, right_keys;
+            for(size_t i = 0; i < settings.key_types.size(); i++)
+            {
+                std::string l_name = "lk" + std::to_string(i);
+                std::string r_name = "rk" + std::to_string(i);
+                DCHECK_OK(l_schema_builder.AddField(field(l_name, settings.key_types[i])));
+                DCHECK_OK(r_schema_builder.AddField(field(r_name, settings.key_types[i])));
 
-            auto l_schema = schema({field("l1", int32())});
-            auto r_schema = schema({field("r1", int32())});
+                left_keys.push_back(FieldRef(l_name));
+                right_keys.push_back(FieldRef(r_name));
+            }
 
-            l_batches_ = MakeRandomBatches(l_schema, num_batches, batch_size);
-            r_batches_ = MakeRandomBatches(r_schema, num_batches, batch_size);
+            for(size_t i = 0; i < settings.build_payload_types.size(); i++)
+            {
+                std::string name = "lp" + std::to_string(i);
+                DCHECK_OK(l_schema_builder.AddField(field(name, settings.probe_payload_types[i])));
+            }
 
-            std::vector<FieldRef> left_keys{"l1"};
-            std::vector<FieldRef> right_keys{"r1"};
+            for(size_t i = 0; i < settings.build_payload_types.size(); i++)
+            {
+                std::string name = "rp" + std::to_string(i);
+                DCHECK_OK(r_schema_builder.AddField(field(name, settings.build_payload_types[i])));
+            }
+
+            auto l_schema = *l_schema_builder.Finish();
+            auto r_schema = *r_schema_builder.Finish();
+
+            int num_probe_batches = static_cast<int>(settings.num_build_batches / settings.build_to_probe_proportion);
+            l_batches_ = MakeRandomBatches(l_schema, num_probe_batches, settings.batch_size);
+            r_batches_ = MakeRandomBatches(r_schema, settings.num_build_batches, settings.batch_size);
+
+            stats_.num_probe_rows = num_probe_batches * settings.batch_size;
 
             ctx_ = arrow::internal::make_unique<ExecContext>(
-                default_memory_pool(), parallel ? arrow::internal::GetCpuThreadPool() : nullptr);
+                default_memory_pool(), is_parallel ? arrow::internal::GetCpuThreadPool() : nullptr);
 
             schema_mgr_ = arrow::internal::make_unique<HashJoinSchema>();
             DCHECK_OK(schema_mgr_->Init(
-                          join_type,
+                          settings.join_type,
                           *l_batches_.schema,
                           left_keys,
                           *r_batches_.schema,
@@ -82,78 +110,128 @@ namespace compute
                           "r_"));
 
             join_ = *HashJoinImpl::MakeBasic();
+
+            omp_set_num_threads(settings.num_threads);
+            auto schedule_callback = [](std::function<Status(size_t)> func) -> Status
+            {
+                #pragma omp task
+                { DCHECK_OK(func(omp_get_thread_num())); }
+                return Status::OK();
+            };
+
+
             DCHECK_OK(join_->Init(
-                          ctx_.get(), join_type, true, 1,
+                          ctx_.get(), settings.join_type, !is_parallel /* use_sync_execution*/, settings.num_threads,
                           schema_mgr_.get(), {JoinKeyCmp::EQ},
                           [](ExecBatch) {},
-                          [](int64_t) {},
-                          [this](std::function<Status(size_t)> func) -> Status
-                          {
-                              auto executor = this->ctx_->executor();
-                              if (executor)
-                              {
-                                  RETURN_NOT_OK(executor->Spawn([this, func]
-                                  {
-                                      size_t thread_index = thread_indexer_();
-                                      Status status = func(thread_index);
-                                      if (!status.ok())
-                                      {
-                                          ARROW_DCHECK(false);
-                                          return;
-                                      }
-                                  }));
-                              }
-                              else
-                              {
-                                  // We should not get here in serial execution mode
-                                  ARROW_DCHECK(false);
-                              }
-                              return Status::OK();
-                          }));
-        }
-
-        void TearDown(const benchmark::State &state)
-        {
+                          [](int64_t x) {},
+                          schedule_callback));
+            
         }
 
         void RunJoin()
         {
-            for(auto batch : r_batches_.batches)
-                DCHECK_OK(join_->InputReceived(0, 1, batch));
-            DCHECK_OK(join_->InputFinished(0, 1));
+            double nanos = 0;
+            #pragma omp parallel reduction(+:nanos)
+            {
+                auto start = std::chrono::high_resolution_clock::now();
+                int tid = omp_get_thread_num();
+                #pragma omp for nowait
+                for(auto batch : r_batches_.batches)
+                    DCHECK_OK(join_->InputReceived(tid, 1 /* side */, batch));
+                #pragma omp for nowait
+                for(auto batch : l_batches_.batches)
+                    DCHECK_OK(join_->InputReceived(tid, 0 /* side */, batch));
 
-            for(auto batch : r_batches_.batches)
-                DCHECK_OK(join_->InputReceived(0, 0, batch));
-            DCHECK_OK(join_->InputFinished(0, 0));
+                #pragma omp barrier
+
+                #pragma omp single nowait
+                { DCHECK_OK(join_->InputFinished(tid, /* side */ 1)); }
+
+                #pragma omp single nowait
+                { DCHECK_OK(join_->InputFinished(tid, /* side */ 0)); }
+                std::chrono::duration<double, std::nano> elapsed = std::chrono::high_resolution_clock::now() - start;
+                nanos += elapsed.count();
+            }
+            stats_.total_nanoseconds = nanos;
         }
 
-        ~JoinImplFixture()
-        {
-            printf("Destructor\n");
-        }
         ThreadIndexer thread_indexer_;
         BatchesWithSchema l_batches_;
         BatchesWithSchema r_batches_;
         std::unique_ptr<HashJoinSchema> schema_mgr_;
         std::unique_ptr<HashJoinImpl> join_;
         std::unique_ptr<ExecContext> ctx_;
+
+        struct
+        {
+            double total_nanoseconds;
+            uint64_t num_probe_rows;
+        } stats_;
     };
 
-    BENCHMARK_F(JoinImplFixture, Basic)(benchmark::State &st)
+    static void HashJoinBasicBenchmarkImpl(benchmark::State &st, BenchmarkSettings &settings)
     {
+        JoinBenchmark bm(settings);
+        double total_nanos = 0;
+        uint64_t total_rows = 0;
         for(auto _ : st)
         {
-            RunJoin();
+            bm.RunJoin();
+            total_nanos += bm.stats_.total_nanoseconds;
+            total_rows += bm.stats_.num_probe_rows;
         }
+        st.counters["ns/row"] = total_nanos / total_rows;
     }
 
-    BENCHMARK_F(JoinImplFixture, Basic2)(benchmark::State &st)
+    static void BM_HashJoinBasic_Threads(benchmark::State &st)
     {
-        for(auto _ : st)
-        {
-            RunJoin();
-        }
+        BenchmarkSettings settings;
+        settings.num_threads = static_cast<int>(st.range(0));
+        settings.join_type = JoinType::INNER;
+        settings.build_to_probe_proportion = 0.1;
+        settings.batch_size = 1024;
+        settings.num_build_batches = 32;
+        settings.key_types = { int32() };
+        settings.build_payload_types = {};
+        settings.probe_payload_types = {};
+
+        HashJoinBasicBenchmarkImpl(st, settings);
     }
 
+    static void BM_HashJoinBasic_RelativeBuildProbe(benchmark::State &st)
+    {
+        BenchmarkSettings settings;
+        settings.num_threads = 1;
+        settings.join_type = JoinType::INNER;
+        settings.build_to_probe_proportion = static_cast<double>(st.range(0)) / 100.0;
+        settings.batch_size = 1024;
+        settings.num_build_batches = 32;
+        settings.key_types = { int32() };
+        settings.build_payload_types = {};
+        settings.probe_payload_types = {};
+
+        HashJoinBasicBenchmarkImpl(st, settings);
+    }
+
+    static void BM_HashJoinBasic_NumKeyColumns(benchmark::State &st)
+    {
+        BenchmarkSettings settings;
+        settings.num_threads = 1;
+        settings.join_type = JoinType::INNER;
+        settings.build_to_probe_proportion = 0.1;
+        settings.batch_size = 1024;
+        settings.num_build_batches = 32;
+        for(int i = 0; i < st.range(0); i++)
+            settings.key_types.push_back(int32());
+        settings.build_payload_types = {};
+        settings.probe_payload_types = {};
+
+        HashJoinBasicBenchmarkImpl(st, settings);
+    }
+    
+    BENCHMARK(BM_HashJoinBasic_Threads)->ArgNames({"Threads"})->DenseRange(1, 16);
+    BENCHMARK(BM_HashJoinBasic_RelativeBuildProbe)->ArgNames({"RelativeBuildProbePercentage"})->DenseRange(1, 200, 20);
+    BENCHMARK(BM_HashJoinBasic_NumKeyColumns)->ArgNames({"NumKeyColumns"})->RangeMultiplier(2)->Range(1, 32);
 } // namespace compute
 } // namespace arrow
