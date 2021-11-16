@@ -184,12 +184,50 @@ Result<KnownFieldValues> ExtractKnownFieldValues(
 /// guarantee on a field value, an Expression must be a call to "equal" with field_ref LHS
 /// and literal RHS. Flipping the arguments, "is_in" with a one-long value_set, ... or
 /// other semantically identical Expressions will not be recognized.
+///
+/// For any simplification, if no changes could be made the identical expression will be
+/// returned (`IsIdentical(old, new)` will be true).
 
 /// Weak canonicalization which establishes guarantees for subsequent passes. Even
 /// equivalent Expressions may result in different canonicalized expressions.
 /// TODO this could be a strong canonicalization
 ARROW_EXPORT
 Result<Expression> Canonicalize(Expression, ExecContext* = NULLPTR);
+
+/// An extensible registry for simplification passes over Expressions.
+class ARROW_EXPORT ExpressionSimplificationPassRegistry {
+ public:
+  /// A pass which can operate on a bound Expression independently.
+  /// Independent passes need not recurse into Call::arguments; all independent
+  /// passes will be applied to each argument before any is applied to the call.
+  /// Expressions will be canonicalized before each pass is run.
+  using IndependentPass = std::function<Result<Expression>(Expression, ExecContext*)>;
+
+  /// A pass which utilizes a guaranteed true predicate.
+  /// Guarantee passes are allowed to invalidate independent passes;
+  /// all independent passes will be applied when any guarantee pass makes a change.
+  /// Guarantee passes need not decompose conjunctions; they will be run for
+  /// each member of a guarantee conjunction.
+  /// Guarantee passes need not recurse into Call::arguments; all guarantee
+  /// passes will be applied to each argument before any is applied to the call.
+  /// Expressions will be canonicalized before each pass is run.
+  using GuaranteePass =
+      std::function<Result<Expression>(Expression, const Expression&, ExecContext*)>;
+
+  virtual ~ExpressionSimplificationPassRegistry() = default;
+
+  virtual void Add(IndependentPass) = 0;
+  virtual void Add(GuaranteePass) = 0;
+
+  virtual Result<Expression> RunIndependentPasses(Expression, ExecContext*) = 0;
+  virtual Result<Expression> RunAllPasses(Expression,
+                                          const Expression& guaranteed_true_predicate,
+                                          ExecContext*) = 0;
+};
+
+/// The default registry, which includes built-in simplification passes.
+ARROW_EXPORT
+ExpressionSimplificationPassRegistry* default_expression_simplification_registry();
 
 /// Simplify Expressions based on literal arguments (for example, add(null, x) will always
 /// be null so replace the call with a null literal). Includes early evaluation of all
