@@ -15,17 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.driver.jdbc.test;
+package org.apache.arrow.driver.jdbc;
 
 import java.lang.reflect.Constructor;
 import java.sql.Connection;
 import java.util.Properties;
 
-import org.apache.arrow.driver.jdbc.ArrowFlightJdbcDriver;
-import org.apache.arrow.driver.jdbc.ArrowFlightJdbcFactory;
-import org.apache.arrow.driver.jdbc.test.utils.FlightTestUtils;
-import org.apache.arrow.driver.jdbc.test.utils.PropertiesSample;
-import org.apache.arrow.driver.jdbc.test.utils.UrlSample;
+import org.apache.arrow.driver.jdbc.utils.FlightTestUtils;
+import org.apache.arrow.driver.jdbc.utils.PropertiesSample;
+import org.apache.arrow.driver.jdbc.utils.UrlSample;
 import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty;
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.FlightProducer;

@@ -23,7 +23,7 @@ import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Types;
 import java.util.HashMap;
 
-import org.apache.arrow.driver.jdbc.test.utils.RootAllocatorTestRule;
+import org.apache.arrow.driver.jdbc.utils.RootAllocatorTestRule;
 import org.apache.arrow.vector.IntVector;
 import org.junit.After;
 import org.junit.Assert;

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.driver.jdbc.test.utils;
+package org.apache.arrow.driver.jdbc.utils;
 
 import java.math.BigDecimal;
 import java.util.Random;

@@ -21,8 +21,7 @@ import java.sql.Connection;
 
 import javax.sql.PooledConnection;
 
-import org.apache.arrow.driver.jdbc.test.FlightServerTestRule;
-import org.apache.arrow.driver.jdbc.test.adhoc.CoreMockedSqlProducers;
+import org.apache.arrow.driver.jdbc.adhoc.CoreMockedSqlProducers;
 import org.apache.arrow.driver.jdbc.utils.ConnectionWrapper;
 import org.junit.After;
 import org.junit.Assert;

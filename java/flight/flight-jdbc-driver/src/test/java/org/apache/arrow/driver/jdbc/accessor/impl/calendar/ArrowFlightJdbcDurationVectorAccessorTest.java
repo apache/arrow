@@ -23,8 +23,8 @@ import static org.hamcrest.CoreMatchers.is;
 import java.time.Duration;
 
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
-import org.apache.arrow.driver.jdbc.test.utils.AccessorTestUtils;
-import org.apache.arrow.driver.jdbc.test.utils.RootAllocatorTestRule;
+import org.apache.arrow.driver.jdbc.utils.AccessorTestUtils;
+import org.apache.arrow.driver.jdbc.utils.RootAllocatorTestRule;
 import org.apache.arrow.vector.DurationVector;
 import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.pojo.ArrowType;
