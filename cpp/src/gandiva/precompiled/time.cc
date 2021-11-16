@@ -241,8 +241,10 @@ int getJanWeekOfYear(const EpochTimePoint& tp) {
   return 52;
 }
 
-static const char* WEEK[7] = {"SUNDAY",   "MONDAY", "TUESDAY", "WEDNESDAY",
-                              "THURSDAY", "FRIDAY", "SATURDAY"};
+static const char* WEEK[] = {"SUNDAY",   "MONDAY", "TUESDAY", "WEDNESDAY",
+                             "THURSDAY", "FRIDAY", "SATURDAY"};
+
+static const int WEEK_LEN[] = {6, 6, 7, 9, 8, 6, 8};
 
 #define NEXT_DAY_FUNC(TYPE)                                                             \
   FORCE_INLINE                                                                          \
@@ -254,8 +256,9 @@ static const char* WEEK[7] = {"SUNDAY",   "MONDAY", "TUESDAY", "WEDNESDAY",
                                                                                         \
     int dateSearch = 0;                                                                 \
     for (int n = 0; n < 7; n++) {                                                       \
-      if (memcmp(WEEK[n], in, in_len) == 0) {                                           \
+      if (is_substr_utf8_utf8(WEEK[n], WEEK_LEN[n], in, in_len)) {                      \
         dateSearch = n + 1;                                                             \
+        break;                                                                          \
       }                                                                                 \
     }                                                                                   \
     if (dateSearch == 0) {                                                              \
