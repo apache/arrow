@@ -1299,8 +1299,14 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
 
     if col_encoding is not None:
         for column, _encoding in col_encoding.items():
-            props.encoding(tobytes(column),
-                           encoding_enum_from_name(_encoding))
+            if not use_dictionary or \
+                (_encoding!='PLAIN_DICTIONARY' and
+                 _encoding!='RLE_DICTIONARY'):
+                props.encoding(tobytes(column),
+                               encoding_enum_from_name(_encoding))
+            else:
+                raise ValueError("Turn use_dictionary to False to use \
+                                 dictionary col_encoding.")
 
     if data_page_size is not None:
         props.data_pagesize(data_page_size)

@@ -356,34 +356,32 @@ def test_byte_stream_split(use_legacy_dataset):
 def test_col_encoding(use_legacy_dataset):
     arr_float = pa.array(list(map(float, range(100))))
     arr_int = pa.array(list(map(int, range(100))))
-    table = pa.Table.from_arrays([arr_float, arr_float], names=['a', 'b'])
     mixed_table = pa.Table.from_arrays([arr_float, arr_int],
                                        names=['a', 'b'])
 
     # Check NONE col_encoding.
-    _check_roundtrip(table, expected=table, use_dictionary=False,
+    _check_roundtrip(mixed_table, expected=mixed_table, use_dictionary=False,
                      col_encoding=None, use_legacy_dataset=use_legacy_dataset)
 
-    # Check "PLAIN" col_encoding for column 'b' and "BYTE_STREAM_SPLIT"
-    # for column 'a'.
-    _check_roundtrip(mixed_table, expected=mixed_table, use_dictionary=['a'],
+    # Check "BYTE_STREAM_SPLIT" for column 'a' and "PLAIN" col_encoding for
+    # column 'b'.
+    _check_roundtrip(mixed_table, expected=mixed_table, use_dictionary=False,
                      col_encoding={'a': "BYTE_STREAM_SPLIT", 'b': "PLAIN"},
                      use_legacy_dataset=use_legacy_dataset)
 
-    # Should raise error (and it did,  but now it doesn't anymore :S)
+    # Check "RLE" for column 'a' and "BYTE_STREAM_SPLIT" col_encoding for
+    # column 'b'.
     _check_roundtrip(mixed_table, expected=mixed_table,
-                     use_byte_stream_split=['a'],
                      col_encoding={'a': "RLE", 'b': "BYTE_STREAM_SPLIT"},
                      use_legacy_dataset=use_legacy_dataset)
 
     # Fatal Python error: Aborted
-    # _check_roundtrip(mixed_table, expected=mixed_table,
-    #                 use_byte_stream_split=['b'],
+
+    # _check_roundtrip(mixed_table, expected=mixed_table, use_dictionary=False,
     #                 col_encoding={'a': "RLE_DICTIONARY"},
     #                 use_legacy_dataset=use_legacy_dataset)
 
-    # Fatal Python error: Aborted
-    # _check_roundtrip(mixed_table, expected=mixed_table,
+    # _check_roundtrip(mixed_table, expected=mixed_table, use_dictionary=False,
     #                 use_byte_stream_split=['b'],
     #                 col_encoding={'a': "PLAIN_DICTIONARY"})
 
