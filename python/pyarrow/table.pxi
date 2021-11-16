@@ -2192,14 +2192,14 @@ cdef class Table(_PandasConvertible):
 
         return table
 
-    def group_by(self, key, columns, aggregations):
+    def group_by(self, keys, columns, aggregations):
         """
         Perform a group by aggregation over the columns of the table.
 
         Parameters
         ----------
-        key : str
-            Name of the column that should be used as the grouping key.
+        keys : str or list[str]
+            Name of the columns that should be used as the grouping key.
         columns : list of str
             Names of the columns that contain values for the aggregations.
         aggregations : str or list[str] or list of tuple(str, FunctionOptions)
@@ -2215,6 +2215,9 @@ cdef class Table(_PandasConvertible):
         if isinstance(aggregations, str):
             aggregations = [aggregations]
 
+        if isinstance(keys, str):
+            keys = [keys]
+
         aggrs = []
         for aggr in aggregations:
             if isinstance(aggr, str):
@@ -2228,11 +2231,12 @@ cdef class Table(_PandasConvertible):
         column_names = []
         for value_name, (aggr_name, _) in zip(columns, aggrs):
             column_names.append(aggr_name.replace("hash", value_name))
-        column_names.append("key")
+        for key_name in keys:
+            column_names.append(key_name)
 
         result = _pc()._group_by(
             [self[c] for c in columns],
-            [self[key]],
+            [self[k] for k in keys],
             aggrs
         )
 
