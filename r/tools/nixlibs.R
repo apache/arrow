@@ -380,8 +380,8 @@ ensure_cmake <- function() {
       postfix <- "-linux-x86_64.tar.gz"
     } else {
       stop(paste0(
-         "*** cmake was not found locally.",
-         "    Please make sure cmake >= 3.10 is installed and available on your PATH."
+         "*** cmake was not found locally.\n",
+         "    Please make sure cmake >= 3.10 is installed and available on your PATH.\n"
       ))
     }
     cmake_binary_url <- paste0(
