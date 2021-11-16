@@ -664,8 +664,10 @@ Status NumPyConverter::Visit(const StringType& type) {
 
   // For Python C API, -1 is little-endian, 1 is big-endian
 #if ARROW_LITTLE_ENDIAN
+  // Yield little-endian from both '|' (native) and '<'
   int byteorder = numpy_byteorder == '>' ? 1 : -1;
 #else
+  // Yield big-endian from both '|' (native) and '>'
   int byteorder = numpy_byteorder == '<' ? -1 : 1;
 #endif
 
