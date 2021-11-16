@@ -2162,6 +2162,16 @@ TEST_F(TestFWBinaryArray, ArrayDataVisitorSliced) {
   ARROW_UNUSED(visitor);  // Workaround weird MSVC warning
 }
 
+TEST_F(TestFWBinaryArray, ArrayIndexOperator) {
+  auto type = fixed_size_binary(3);
+  auto arr = ArrayFromJSON(type, R"(["abc", null, "def"])");
+  auto fsba = std::static_pointer_cast<FixedSizeBinaryArray>(arr);
+
+  ASSERT_EQ("abc", (*fsba)[0].value());
+  ASSERT_EQ(util::nullopt, (*fsba)[1]);
+  ASSERT_EQ("def", (*fsba)[2].value());
+}
+
 // ----------------------------------------------------------------------
 // AdaptiveInt tests
 
@@ -3345,6 +3355,40 @@ TEST(TestSwapEndianArrayData, InvalidLength) {
     ASSERT_OK_AND_ASSIGN(auto swapped_data, ::arrow::internal::SwapEndianArrayData(data));
     auto swapped = MakeArray(swapped_data);
     ASSERT_RAISES(Invalid, swapped->Validate());
+  }
+}
+
+template <typename T>
+class TestPrimitiveArray : public ::testing::Test {
+ public:
+  void SetUp() { pool_ = default_memory_pool(); }
+
+ protected:
+  MemoryPool* pool_;
+};
+
+TYPED_TEST_SUITE(TestPrimitiveArray, Primitives);
+
+TYPED_TEST(TestPrimitiveArray, IndexOperator) {
+  random::RandomArrayGenerator rng(0x76878);
+
+  auto input_array = rng.ArrayOf(TypeParam::type(), 6, 0.2);
+  auto con_array = checked_pointer_cast<typename TypeParam::ArrayType>(input_array);
+  const auto& carr = *con_array;
+
+  std::vector<util::optional<typename TypeParam::T>> values;
+  for (auto v : carr) {
+    values.push_back(v);
+  }
+
+  for (int64_t i = 0; i < carr.length(); ++i) {
+    auto res = carr[i];
+    if (res) {
+      ASSERT_EQ(values[i].value(), res.value());
+    } else {
+      ASSERT_EQ(res, util::nullopt);
+      ASSERT_EQ(values[i], util::nullopt);
+    }
   }
 }
 
