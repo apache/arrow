@@ -295,10 +295,18 @@ class DataEqMatcher {
           return false;
         }
 
-        if (*boxed.type() != *expected_.type()) {
-          *listener << "whose DataType " << boxed.type()->ToString() << " doesn't match "
-                    << expected_.type()->ToString();
-          return false;
+        if (const auto& boxed_type = boxed.type()) {
+          if (*boxed_type != *expected_.type()) {
+            *listener << "whose DataType " << boxed_type->ToString() << " doesn't match "
+                      << expected_.type()->ToString();
+            return false;
+          }
+        } else if (const auto& boxed_schema = boxed.schema()) {
+          if (*boxed_schema != *expected_.schema()) {
+            *listener << "whose Schema " << boxed_schema->ToString() << " doesn't match "
+                      << expected_.schema()->ToString();
+            return false;
+          }
         }
 
         const bool match = boxed == expected_;
