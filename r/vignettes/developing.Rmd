@@ -187,7 +187,7 @@ _Special instructions on Windows:_ You will need to add `$ARROW_HOME/bin` to you
 
 ```{bash, save=run & windows}
 export PATH=$ARROW_HOME/bin:$PATH
-echo "export PATH=$ARROW_HOME/bin:$PATH" >> ~/.bash_profile
+echo "export PATH=\"$ARROW_HOME/bin:$PATH\"" >> ~/.bash_profile
 ```
 
 Start by navigating in a terminal to the `arrow` repository. You will need to create a directory into which the C++ build will put its contents. We recommend that you make a `build` directory inside of the `cpp` directory of the Arrow git repository (it is git-ignored, so you won't accidentally check it in). Next, change directories to be inside `cpp/build`:
