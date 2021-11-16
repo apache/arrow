@@ -22,12 +22,9 @@
 #include "gandiva/regex_util.h"
 
 namespace gandiva {
-RE2 LikeHolder::starts_with_regex_(
-    R"((\w|\s|\\-|\\\\*|\\\\\.|\\\\\+|\\\\\?|\\\\\(|\\\\\)|\\\\\[|\\\\\]|\\\\\{|\\\\\}|\\\\\||\\\\\_|\\\\\/|\\\\\^)*\.\*)");
-RE2 LikeHolder::ends_with_regex_(
-    R"(\.\*(\w|\s|\\-|\\\\*|\\\\\.|\\\\\+|\\\\\?|\\\\\(|\\\\\)|\\\\\[|\\\\\]|\\\\\{|\\\\\}|\\\\\||\\\\\_|\\\\\/|\\\\\^)*)");
-RE2 LikeHolder::is_substr_regex_(
-    R"(\.\*(\w|\s|\\-|\\\\*|\\\\\.|\\\\\+|\\\\\?|\\\\\(|\\\\\)|\\\\\[|\\\\\]|\\\\\{|\\\\\}|\\\\\||\\\\\_|\\\\\/|\\\\\^)*\.\*)");
+RE2 LikeHolder::starts_with_regex_(R"((\w|\s|\\-)*\.\*)");
+RE2 LikeHolder::ends_with_regex_(R"(\.\*(\w|\s|\\-)*)");
+RE2 LikeHolder::is_substr_regex_(R"(\.\*(\w|\s|\\-)*\.\*)");
 
 std::string& RemovePatternEscapeChars(const FunctionNode& node, std::string& pattern) {
   if (node.children().size() != 2) {
