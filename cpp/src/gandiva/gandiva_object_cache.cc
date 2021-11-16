@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "gandiva_object_cache.h"
+#include "gandiva/gandiva_object_cache.h"
 
 namespace gandiva {
 

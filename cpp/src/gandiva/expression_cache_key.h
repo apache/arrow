@@ -89,6 +89,10 @@ class ExpressionCacheKey {
       return false;
     }
 
+    if (mode_ != other.mode_) {
+      return false;
+    }
+
     if (expressions_as_strings_ != other.expressions_as_strings_) {
       return false;
     }

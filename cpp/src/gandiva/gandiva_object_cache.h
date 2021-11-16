@@ -31,8 +31,8 @@
 
 #include <chrono>
 
-#include "expression_cache_key.h"
 #include "gandiva/cache.h"
+#include "gandiva/expression_cache_key.h"
 
 namespace gandiva {
 /// Class that enables the LLVM to use a custom rule to deal with the object code.
