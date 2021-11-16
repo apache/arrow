@@ -21,14 +21,10 @@
 #include <sstream>
 #include <thread>
 
-// Pick up ARROW_WITH_OPENTELEMETRY first
-#include "arrow/util/config.h"
-
 #ifdef _MSC_VER
 #pragma warning(push)
 #pragma warning(disable : 4522)
 #endif
-#ifdef ARROW_WITH_OPENTELEMETRY
 #include <opentelemetry/exporters/otlp/otlp_http_exporter.h>
 #include <opentelemetry/sdk/trace/batch_span_processor.h>
 #include <opentelemetry/sdk/trace/recordable.h>
@@ -36,7 +32,6 @@
 #include <opentelemetry/sdk/trace/tracer_provider.h>
 #include <opentelemetry/trace/noop.h>
 #include <opentelemetry/trace/provider.h>
-#endif
 #ifdef _MSC_VER
 #pragma warning(pop)
 #endif
@@ -56,7 +51,6 @@ constexpr char kTracingBackendEnvVar[] = "ARROW_TRACING_BACKEND";
 
 namespace {
 
-#ifdef ARROW_WITH_OPENTELEMETRY
 namespace sdktrace = opentelemetry::sdk::trace;
 
 class ThreadIdSpanProcessor : public sdktrace::BatchSpanProcessor {
@@ -121,18 +115,6 @@ nostd::shared_ptr<sdktrace::TracerProvider> GetSdkTracerProvider() {
   static FlushLog flush_log = FlushLog(InitializeSdkTracerProvider());
   return flush_log.provider_;
 }
-#else
-nostd::shared_ptr<otel::trace::TracerProvider> GetSdkTracerProvider() {
-  auto maybe_env_var = arrow::internal::GetEnvVar(kTracingBackendEnvVar);
-  if (maybe_env_var.ok()) {
-    auto env_var = maybe_env_var.ValueOrDie();
-    ARROW_LOG(WARNING)
-        << "Requested " << kTracingBackendEnvVar << "=" << env_var
-        << " but Arrow was built without ARROW_WITH_OPENTELEMETRY, using no-op tracer";
-  }
-  return nostd::shared_ptr<otel::trace::TracerProvider>();
-}
-#endif
 
 nostd::shared_ptr<otel::trace::TracerProvider> InitializeTracing() {
   nostd::shared_ptr<otel::trace::TracerProvider> provider = GetSdkTracerProvider();

@@ -4106,8 +4106,7 @@ macro(build_opentelemetry)
   endforeach()
 endmacro()
 
-# We always use OpenTelemetry headers
-if(1)
+if(ARROW_WITH_OPENTELEMETRY)
   set(opentelemetry-cpp_SOURCE "AUTO")
   if(ARROW_WITH_OPENTELEMETRY)
     build_nlohmann_json_once()

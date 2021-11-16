@@ -220,7 +220,6 @@ set(ARROW_SRCS
     util/tdigest.cc
     util/thread_pool.cc
     util/time.cc
-    util/tracing_internal.cc
     util/trie.cc
     util/unreachable.cc
     util/uri.cc
@@ -286,6 +285,10 @@ endif()
 if(ARROW_WITH_LZ4)
   add_definitions(-DARROW_WITH_LZ4)
   list(APPEND ARROW_SRCS util/compression_lz4.cc)
+endif()
+
+if (ARROW_WITH_OPENTELEMETRY)
+  list(APPEND ARROW_SRCS util/tracing_internal.cc)
 endif()
 
 if(ARROW_WITH_SNAPPY)

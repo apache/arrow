@@ -19,6 +19,10 @@
 
 #include <memory>
 
+// Pick up ARROW_WITH_OPENTELEMETRY first
+#include "arrow/util/config.h"
+
+#ifdef ARROW_WITH_OPENTELEMETRY
 #ifdef _MSC_VER
 #pragma warning(push)
 #pragma warning(disable : 4522)
@@ -26,6 +30,7 @@
 #include <opentelemetry/trace/provider.h>
 #ifdef _MSC_VER
 #pragma warning(pop)
+#endif
 #endif
 
 #include "arrow/util/async_generator.h"
@@ -36,6 +41,7 @@ namespace arrow {
 namespace internal {
 namespace tracing {
 
+#ifdef ARROW_WITH_OPENTELEMETRY
 ARROW_EXPORT
 opentelemetry::trace::Tracer* GetTracer();
 
@@ -91,6 +97,7 @@ AsyncGenerator<T> WrapAsyncGenerator(AsyncGenerator<T> wrapped,
     return fut;
   };
 }
+#endif
 
 }  // namespace tracing
 }  // namespace internal
