@@ -15,26 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifdef _WIN32
-
-// Windows defines min and max macros that mess up std::min/max
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-
-#define WIN32_LEAN_AND_MEAN
-
-// Set Windows 7 as a conservative minimum for Apache Arrow
-#if defined(_WIN32_WINNT) && _WIN32_WINNT < 0x601
-#undef _WIN32_WINNT
-#endif
-#ifndef _WIN32_WINNT
-#define _WIN32_WINNT 0x601
-#endif
-
-#include <winsock2.h>
-#include <windows.h>
+// This header needs to be included multiple times.
 
 #include "arrow/util/windows_fixup.h"
+
+#ifdef _WIN32
+
+// parquet.thrift's OPTIONAL RepetitionType conflicts with a Windows #define
+#ifdef OPTIONAL
+#undef OPTIONAL
+#endif
 
 #endif  // _WIN32

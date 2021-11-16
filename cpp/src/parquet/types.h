@@ -28,15 +28,7 @@
 
 #include "parquet/platform.h"
 #include "parquet/type_fwd.h"
-
-#ifdef _WIN32
-
-// Repetition::OPTIONAL conflicts with a #define, so we undefine it
-#ifdef OPTIONAL
-#undef OPTIONAL
-#endif
-
-#endif  // _WIN32
+#include "parquet/windows_fixup.h"  // for OPTIONAL
 
 namespace arrow {
 namespace util {
