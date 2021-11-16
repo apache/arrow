@@ -27,6 +27,7 @@ if (identical(Sys.getenv("APPVEYOR"), "True")) {
   test_that("Compression codecs are included in the Windows build", {
     expect_true(codec_is_available("lz4"))
     expect_true(codec_is_available("zstd"))
+    expect_true(codec_is_available("brotli"))
   })
 }
 
