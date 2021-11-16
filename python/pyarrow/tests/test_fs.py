@@ -292,8 +292,7 @@ def _ensure_minio_component_version(component, minimum_year):
     full_args = [component, '--version']
     proc = subprocess.Popen(full_args, stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE, encoding='utf-8')
-    retval = proc.wait(10)
-    if (retval != 0):
+    if proc.wait(10) != 0:
         return False
     stdout = proc.stdout.read()
     pattern = component + r' version RELEASE\.(\d+)-.*'
