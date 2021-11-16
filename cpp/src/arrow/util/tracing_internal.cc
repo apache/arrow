@@ -21,6 +21,9 @@
 #include <sstream>
 #include <thread>
 
+// Pick up ARROW_WITH_OPENTELEMETRY first
+#include "arrow/util/config.h"
+
 #ifdef _MSC_VER
 #pragma warning(push)
 #pragma warning(disable : 4522)
@@ -38,7 +41,6 @@
 #pragma warning(pop)
 #endif
 
-#include "arrow/util/config.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/make_unique.h"

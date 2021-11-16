@@ -228,7 +228,7 @@ macro(resolve_dependency DEPENDENCY_NAME)
     list(APPEND FIND_PACKAGE_ARGUMENTS CONFIG)
   endif()
   if(${DEPENDENCY_NAME}_SOURCE STREQUAL "AUTO")
-    find_package(${FIND_PACKAGE_ARGUMENTS} QUIET)
+    find_package(${FIND_PACKAGE_ARGUMENTS})
     if(${${PACKAGE_NAME}_FOUND})
       set(${DEPENDENCY_NAME}_SOURCE "SYSTEM")
     else()
@@ -3685,7 +3685,7 @@ macro(build_google_cloud_cpp_storage)
 
   # Curl is required on all platforms, but building it internally might also trip over S3's copy.
   # For now, force its inclusion from the underlying system or fail.
-  find_package(CURL 7.47.0 REQUIRED)
+  find_curl()
   find_package(OpenSSL ${ARROW_OPENSSL_REQUIRED_VERSION} REQUIRED)
 
   # Build google-cloud-cpp, with only storage_client
@@ -3919,11 +3919,13 @@ macro(build_opentelemetry)
   set(_OPENTELEMETRY_LIBS
       common
       http_client_curl
+      ostream_span_exporter
       otlp_http_exporter
       otlp_recordable
       proto
       resources
-      trace)
+      trace
+      version)
   set(OPENTELEMETRY_BUILD_BYPRODUCTS)
   set(OPENTELEMETRY_LIBRARIES)
 
@@ -3937,6 +3939,10 @@ macro(build_opentelemetry)
     if(_OPENTELEMETRY_LIB STREQUAL "http_client_curl")
       set(_OPENTELEMETRY_STATIC_LIBRARY
           "${OPENTELEMETRY_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}${_OPENTELEMETRY_LIB}${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      )
+    elseif(_OPENTELEMETRY_LIB STREQUAL "ostream_span_exporter")
+      set(_OPENTELEMETRY_STATIC_LIBRARY
+          "${OPENTELEMETRY_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}opentelemetry_exporter_ostream_span${CMAKE_STATIC_LIBRARY_SUFFIX}"
       )
     elseif(_OPENTELEMETRY_LIB STREQUAL "otlp_http_exporter")
       set(_OPENTELEMETRY_STATIC_LIBRARY
@@ -3964,9 +3970,13 @@ macro(build_opentelemetry)
       -DWITH_EXAMPLES=OFF)
 
   set(OPENTELEMETRY_PREFIX_PATH_LIST)
+  # Don't specify the DEPENDS unless we actually have dependencies, else
+  # Ninja/other build systems may consider this target to always be dirty
+  set(_OPENTELEMETRY_DEPENDENCIES)
   add_custom_target(opentelemetry_dependencies)
 
   if(ARROW_WITH_OPENTELEMETRY)
+    set(_OPENTELEMETRY_DEPENDENCIES "opentelemetry_dependencies")
     list(APPEND ARROW_BUNDLED_STATIC_LIBS ${OPENTELEMETRY_LIBRARIES})
     list(APPEND OPENTELEMETRY_PREFIX_PATH_LIST ${NLOHMANN_JSON_PREFIX})
     set(OPENTELEMETRY_CMAKE_ARGS ${OPENTELEMETRY_CMAKE_ARGS} -DWITH_OTLP=ON
@@ -4030,7 +4040,7 @@ macro(build_opentelemetry)
                         BUILD_BYPRODUCTS ${OPENTELEMETRY_BUILD_BYPRODUCTS}
                         EXCLUDE_FROM_ALL NOT
                         ${ARROW_WITH_OPENTELEMETRY}
-                        DEPENDS opentelemetry_dependencies)
+                        DEPENDS ${_OPENTELEMETRY_DEPENDENCIES})
   else()
     externalproject_add(opentelemetry_ep
                         ${EP_LOG_OPTIONS}
@@ -4041,7 +4051,7 @@ macro(build_opentelemetry)
                         BUILD_BYPRODUCTS ${OPENTELEMETRY_BUILD_BYPRODUCTS}
                         EXCLUDE_FROM_ALL NOT
                         ${ARROW_WITH_OPENTELEMETRY}
-                        DEPENDS opentelemetry_dependencies)
+                        DEPENDS ${_OPENTELEMETRY_DEPENDENCIES})
   endif()
 
   if(ARROW_WITH_OPENTELEMETRY)
