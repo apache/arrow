@@ -38,8 +38,10 @@
 #include "arrow/util/byte_stream_split.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/hashing.h"
+#include "arrow/util/int_util_internal.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/rle_encoding.h"
+#include "arrow/util/string_view.h"
 #include "arrow/util/ubsan.h"
 #include "arrow/visitor_inline.h"
 #include "parquet/exception.h"
@@ -51,7 +53,9 @@ namespace BitUtil = arrow::BitUtil;
 
 using arrow::Status;
 using arrow::VisitNullBitmapInline;
+using arrow::internal::AddWithOverflow;
 using arrow::internal::checked_cast;
+using arrow::util::string_view;
 
 template <typename T>
 using ArrowPoolVector = std::vector<T, ::arrow::stl::allocator<T>>;
@@ -2265,21 +2269,27 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
   }
 
   int Decode(ByteArray* buffer, int max_values) override {
+    // Decode up to `max_values` strings into an internal buffer
+    // and reference them into `buffer`.
     max_values = std::min(max_values, num_valid_values_);
 
-    int64_t data_size = 0;
+    int32_t data_size = 0;
     const int32_t* length_ptr =
         reinterpret_cast<const int32_t*>(buffered_length_->data()) + length_idx_;
     for (int i = 0; i < max_values; ++i) {
       int32_t len = length_ptr[i];
+      if (ARROW_PREDICT_FALSE(len < 0)) {
+        throw ParquetException("negative string delta length");
+      }
       buffer[i].len = len;
-      data_size += len;
+      if (AddWithOverflow(data_size, len, &data_size)) {
+        throw ParquetException("excess expansion in DELTA_(LENGTH_)BYTE_ARRAY");
+      }
     }
     length_idx_ += max_values;
 
     PARQUET_THROW_NOT_OK(buffered_data_->Resize(data_size));
-    if (decoder_->GetBatch(8, buffered_data_->mutable_data(),
-                           static_cast<int>(data_size)) != static_cast<int>(data_size)) {
+    if (decoder_->GetBatch(8, buffered_data_->mutable_data(), data_size) != data_size) {
       ParquetException::EofException();
     }
     const uint8_t* data_ptr = buffered_data_->data();
@@ -2393,6 +2403,8 @@ class DeltaByteArrayDecoder : public DecoderImpl,
 
  private:
   int GetInternal(ByteArray* buffer, int max_values) {
+    // Decode up to `max_values` strings into an internal buffer
+    // and reference them into `buffer`.
     max_values = std::min(max_values, num_valid_values_);
     suffix_decoder_.Decode(buffer, max_values);
 
@@ -2401,24 +2413,31 @@ class DeltaByteArrayDecoder : public DecoderImpl,
         reinterpret_cast<const int32_t*>(buffered_prefix_length_->data()) +
         prefix_len_offset_;
     for (int i = 0; i < max_values; ++i) {
-      data_size += prefix_len_ptr[i] + buffer[i].len;
+      if (AddWithOverflow(data_size, prefix_len_ptr[i], &data_size) ||
+          AddWithOverflow(data_size, buffer[i].len, &data_size)) {
+        throw ParquetException("excess expansion in DELTA_BYTE_ARRAY");
+      }
     }
     PARQUET_THROW_NOT_OK(buffered_data_->Resize(data_size));
 
+    string_view prefix{last_value_};
     uint8_t* data_ptr = buffered_data_->mutable_data();
     for (int i = 0; i < max_values; ++i) {
-      DCHECK_LE(static_cast<const size_t>(prefix_len_ptr[i]), last_value_.length());
-      memcpy(data_ptr, last_value_.data(), prefix_len_ptr[i]);
+      if (ARROW_PREDICT_FALSE(static_cast<size_t>(prefix_len_ptr[i]) > prefix.length())) {
+        throw ParquetException("prefix length too large");
+      }
+      memcpy(data_ptr, prefix.data(), prefix_len_ptr[i]);
+      // buffer[i] currently points to the string suffix
       memcpy(data_ptr + prefix_len_ptr[i], buffer[i].ptr, buffer[i].len);
       buffer[i].ptr = data_ptr;
       buffer[i].len += prefix_len_ptr[i];
       data_ptr += buffer[i].len;
-      last_value_ =
-          std::string(reinterpret_cast<const char*>(buffer[i].ptr), buffer[i].len);
+      prefix = string_view{reinterpret_cast<const char*>(buffer[i].ptr), buffer[i].len};
     }
     prefix_len_offset_ += max_values;
     this->num_values_ -= max_values;
     num_valid_values_ -= max_values;
+    last_value_ = std::string{prefix};
 
     if (num_valid_values_ == 0) {
       last_value_in_previous_page_ = last_value_;

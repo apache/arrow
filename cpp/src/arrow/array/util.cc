@@ -363,15 +363,24 @@ class NullArrayFactory {
       return Status::OK();
     }
 
-    Status Visit(const UnionType& type) {
+    Status Visit(const SparseUnionType& type) {
       // type codes
       RETURN_NOT_OK(MaxOf(length_));
-      if (type.mode() == UnionMode::DENSE) {
-        // offsets
-        RETURN_NOT_OK(MaxOf(sizeof(int32_t) * length_));
-      }
+      // will create children of the same length as the union
       for (const auto& child : type.fields()) {
         RETURN_NOT_OK(MaxOf(GetBufferLength(child->type(), length_)));
+      }
+      return Status::OK();
+    }
+
+    Status Visit(const DenseUnionType& type) {
+      // type codes
+      RETURN_NOT_OK(MaxOf(length_));
+      // offsets
+      RETURN_NOT_OK(MaxOf(sizeof(int32_t) * length_));
+      // will create children of length 1
+      for (const auto& child : type.fields()) {
+        RETURN_NOT_OK(MaxOf(GetBufferLength(child->type(), 1)));
       }
       return Status::OK();
     }

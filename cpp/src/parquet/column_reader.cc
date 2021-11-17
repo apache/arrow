@@ -50,8 +50,7 @@
 #include "parquet/properties.h"
 #include "parquet/statistics.h"
 #include "parquet/thrift_internal.h"  // IWYU pragma: keep
-// Required after "arrow/util/int_util_internal.h" (for OPTIONAL)
-#include "parquet/windows_compatibility.h"
+#include "parquet/windows_fixup.h"    // for OPTIONAL
 
 using arrow::MemoryPool;
 using arrow::internal::AddWithOverflow;

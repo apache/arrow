@@ -578,8 +578,7 @@ def test_min_max():
         s = pc.min_max(data, options=options)
 
     # Missing argument
-    with pytest.raises(ValueError,
-                       match="Function min_max accepts 1 argument"):
+    with pytest.raises(TypeError, match="min_max takes 1 positional"):
         s = pc.min_max()
 
 
