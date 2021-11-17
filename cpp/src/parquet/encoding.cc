@@ -2437,7 +2437,7 @@ class DeltaByteArrayDecoder : public DecoderImpl,
     prefix_len_offset_ += max_values;
     this->num_values_ -= max_values;
     num_valid_values_ -= max_values;
-    last_value_ = prefix.to_string();
+    last_value_ = std::string{prefix};
 
     if (num_valid_values_ == 0) {
       last_value_in_previous_page_ = last_value_;
