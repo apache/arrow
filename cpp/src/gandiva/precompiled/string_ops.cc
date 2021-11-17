@@ -2878,9 +2878,9 @@ int32_t instr_utf8(const char* string, int32_t string_len, const char* substring
 }
 
 FORCE_INLINE
-const char* parse_url_utf8_utf8(gdv_int64 context, const char* url, gdv_int64 url_len,
-                                const char* part_to_extract, gdv_int64 part_len,
-                                gdv_int64* out_len) {
+const char* parse_url_utf8_utf8(gdv_int64 context, const char* url, gdv_int32 url_len,
+                                const char* part_to_extract, gdv_int32 part_len,
+                                gdv_int32* out_len) {
   if (url_len == 0) {
     return nullptr;
   }
@@ -3070,9 +3070,9 @@ const char* parse_url_utf8_utf8(gdv_int64 context, const char* url, gdv_int64 ur
 
 FORCE_INLINE
 const char* parse_url_query_key_utf8_utf8(gdv_int64 context, const char* url,
-                                          gdv_int64 url_len, const char* part_to_extract,
-                                          gdv_int64 part_len, const char* query_key,
-                                          gdv_int64 query_key_len, gdv_int64* out_len) {
+                                          gdv_int32 url_len, const char* part_to_extract,
+                                          gdv_int32 part_len, const char* query_key,
+                                          gdv_int32 query_key_len, gdv_int32* out_len) {
   if (!(memcmp(part_to_extract, "QUERY", part_len) == 0)) {
     *out_len = 0;
     return "";
