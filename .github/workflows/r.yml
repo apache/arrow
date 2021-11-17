@@ -242,7 +242,7 @@ jobs:
       matrix:
         config:
         - { rtools: 35, rversion: "3.6" }
-        - { rtools: 40, rversion: "4.1" }
+        - { rtools: 40, rversion: "release" }
         - { rtools: 40, rversion: "devel-ucrt" }
     env:
       ARROW_R_CXXFLAGS: "-Werror"
