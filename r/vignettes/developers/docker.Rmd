@@ -54,7 +54,7 @@ docker images
 ## How do I show all running containers?
 
 ```shell
-sudo docker ps
+docker ps
 ```
 
 ## How do I show all containers?
