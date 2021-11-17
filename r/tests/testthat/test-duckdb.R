@@ -113,6 +113,35 @@ test_that("to_duckdb then to_arrow", {
   )
 })
 
+test_that("to_arrow roundtrip, with dataset", {
+  # With a multi-part dataset
+  tf <- tempfile()
+  new_ds <- rbind(
+    cbind(example_data, part = 1),
+    cbind(example_data, part = 2),
+    cbind(example_data, part = 3),
+    cbind(example_data, part = 4)
+  )
+  write_dataset(new_ds, tf, partitioning = "part")
+
+  ds <- open_dataset(tf)
+
+  expect_identical(
+    ds %>%
+      to_duckdb() %>%
+      # factors don't roundtrip https://github.com/duckdb/duckdb/issues/1879
+      select(-fct) %>%
+      to_arrow() %>%
+      filter(int > 5 & part > 1) %>%
+      collect() %>%
+      as.data.frame(),
+    ds %>%
+      select(-fct) %>%
+      filter(int > 5 & part > 1) %>%
+      collect()
+  )
+})
+
 # The next set of tests use an already-extant connection to test features of
 # persistence and querying against the table without using the `tbl` itself, so
 # we need to create a connection separate from the ephemeral one that is made

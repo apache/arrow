@@ -155,6 +155,5 @@ to_arrow <- function(.data) {
   # Run the query
   res <- DBI::dbSendQuery(dbplyr::remote_con(.data), dbplyr::remote_query(.data), arrow = TRUE)
 
-  # TODO: we shouldn't need $read_table(), but we get segfaults when we do.
-  arrow_dplyr_query(duckdb::duckdb_fetch_record_batch(res)$read_table())
+  arrow_dplyr_query(duckdb::duckdb_fetch_record_batch(res))
 }
