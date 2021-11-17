@@ -241,3 +241,10 @@ test_that("Conversion from altrep R vector to Array uses the existing Array", {
   b_str <- Array$create(a_str$as_vector())
   expect_true(test_same_Array(a_str$pointer(), b_str$pointer()))
 })
+
+test_that("Operations on altrep R vectors don't modify original", {
+  a_int <- Array$create(c(1L, 2L, 3L))
+  b_int <- a_int$as_vector()
+  c_int <- -b_int
+  expect_false(isTRUE(all.equal(b_int, c_int)))
+})
