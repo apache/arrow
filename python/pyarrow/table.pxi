@@ -2432,6 +2432,9 @@ def _from_pydict(cls, mapping, schema, metadata):
 
 
 class TableGroupBy:
+    """
+    A grouping of columns in a table on which to perform aggregations.
+    """
     def __init__(self, table, keys):
         if isinstance(keys, str):
             keys = [keys]
@@ -2445,7 +2448,7 @@ class TableGroupBy:
 
         Parameters
         ----------
-        aggregations : list[tuple(str, str)] or
+        aggregations : list[tuple(str, str)] or\
                        list[tuple(str, str, FunctionOptions)]
             List of tuples made of aggregation functions names followed
             by column names and optionally aggregation function options.
