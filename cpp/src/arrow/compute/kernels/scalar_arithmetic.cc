@@ -247,12 +247,14 @@ struct Multiply {
 
   // Multiplication of 16 bit integer types implicitly promotes to signed 32 bit
   // integer. However, some inputs may nevertheless overflow (which triggers undefined
-  // behaviour). Therefore we first cast to 32 bit unsigned integers where overflow is
-  // well defined.
+  // behaviour). One could first cast to 32 bit unsigned integers where overflow is
+  // well defined, but this is only reasonable if both numbers are positive or 
+  // both numbers are negative. It may be better for the user to check for an overflow
+  // or have a slow safe computation in which the program checks for an overflow
   template <typename T, typename Arg0, typename Arg1>
   static constexpr enable_if_same<T, int16_t, T> Call(KernelContext*, int16_t left,
                                                       int16_t right, Status*) {
-    return static_cast<uint32_t>(left) * static_cast<uint32_t>(right);
+    return static_cast<int32_t>(left) * static_cast<int32_t>(right);
   }
   template <typename T, typename Arg0, typename Arg1>
   static constexpr enable_if_same<T, uint16_t, T> Call(KernelContext*, uint16_t left,
