@@ -32,7 +32,8 @@ export ARROW_R_DEV=TRUE
 # Get line numbers in sanitizer tracebacks
 export CMAKE_BUILD_TYPE=RelWithDebInfo
 
-echo "MAKEFLAGS=-j$(nproc)" >> ${rhome}/etc/Renviron.site
+ncores=$(${R_BIN} -s -e 'cat(parallel::detectCores())')
+echo "MAKEFLAGS=-j${ncores}" >> ${rhome}/etc/Renviron.site
 
 ${R_BIN} CMD INSTALL ${INSTALL_ARGS} .
 # But unset the env var so that it doesn't cause us to run extra dev tests
