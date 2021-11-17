@@ -75,13 +75,30 @@ Here is debugger output from the segfault shown in the previous example.  You
 can see here that the exact line which triggers the segfault is included in the 
 output.
 
-```
+```shell
 > S3FileSystem$create()
 
 Thread 1 "R" received signal SIGSEGV, Segmentation fault.
 0x00007ffff0128369 in std::__atomic_base<long>::operator++ (this=0x178) at /usr/include/c++/9/bits/atomic_base.h:318
 318	      operator++() noexcept
 ```
+
+#### Getting debugger output if your session hangs
+
+The instructions above can provide valuable additional context when a segfault 
+occurs.  However, there are occasionally circumstances in which a bug could 
+cause your session to hang indefinitely without segfaulting.  In this case, it 
+may be diagnostically useful to interrupt the debugger and generate backtraces 
+from all running threads.  
+
+To do this, firstly, press Ctrl/Cmd and C to interrupt the debugger, and then run:
+
+```shell
+thread apply all bt
+```
+
+This will generate a large amount of output, but this information is useful when
+identifying the cause of the issue.
 
 ## Resources
 
