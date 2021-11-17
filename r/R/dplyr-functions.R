@@ -251,7 +251,10 @@ nse_funcs$is_logical <- function(x, n = NULL) {
 }
 
 # Create a data frame/tibble/struct column
-nse_funcs$tibble <- function(...) {
+nse_funcs$tibble <- function(..., .rows = NULL, .name_repair = NULL) {
+  if (!is.null(.rows)) arrow_not_supported(".rows")
+  if (!is.null(.name_repair)) arrow_not_supported(".name_repair")
+
   # use dots_list() because this is what tibble() uses to allow the
   # useful shorthand of tibble(col1, col2) -> tibble(col1 = col1, col2 = col2_)
   args <- rlang::dots_list(..., .named = TRUE)
@@ -263,10 +266,19 @@ nse_funcs$tibble <- function(...) {
   )
 }
 
-nse_funcs$data.frame <- function(..., stringsAsFactors = FALSE) {
+nse_funcs$data.frame <- function(..., row.names = NULL,
+                                 check.rows = NULL, check.names = NULL, fix.empty.names = NULL,
+                                 stringsAsFactors = FALSE) {
+  # we need a specific value of stringsAsFactors because the default was
+  # TRUE in R <= 3.6
   if (!identical(stringsAsFactors, FALSE)) {
     arrow_not_supported("stringsAsFactors = TRUE")
   }
+
+  if (!is.null(row.names)) arrow_not_supported("row.names")
+  if (!is.null(check.rows)) arrow_not_supported("check.rows")
+  if (!is.null(check.names)) arrow_not_supported("check.names")
+  if (!is.null(fix.empty.names)) arrow_not_supported("fix.empty.names")
 
   nse_funcs$tibble(...)
 }
