@@ -26,7 +26,6 @@ import java.sql.SQLException;
 import java.util.Properties;
 
 import org.apache.arrow.driver.jdbc.ArrowFlightJdbcDriver;
-import org.apache.arrow.driver.jdbc.client.FlightClientHandler;
 import org.apache.arrow.driver.jdbc.client.impl.ArrowFlightSqlClientHandler;
 import org.apache.arrow.driver.jdbc.test.utils.FlightTestUtils;
 import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty;
@@ -157,7 +156,7 @@ public class ConnectionTest {
   public void testGetBasicClientAuthenticatedShouldOpenConnection()
       throws Exception {
 
-    try (FlightClientHandler client =
+    try (ArrowFlightSqlClientHandler client =
              new ArrowFlightSqlClientHandler.Builder()
                  .withHost(flightTestUtils.getUrl())
                  .withPort(server.getPort())
@@ -196,7 +195,7 @@ public class ConnectionTest {
   @Test
   public void testGetBasicClientNoAuthShouldOpenConnection() throws Exception {
 
-    try (FlightClientHandler client =
+    try (ArrowFlightSqlClientHandler client =
              new ArrowFlightSqlClientHandler.Builder()
                  .withHost(flightTestUtils.getUrl())
                  .withBufferAllocator(allocator)

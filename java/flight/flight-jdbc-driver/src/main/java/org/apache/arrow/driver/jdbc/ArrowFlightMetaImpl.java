@@ -26,7 +26,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import org.apache.arrow.driver.jdbc.client.FlightClientHandler.PreparedStatement;
+import org.apache.arrow.driver.jdbc.client.impl.ArrowFlightSqlClientHandler.PreparedStatement;
 import org.apache.arrow.util.Preconditions;
 import org.apache.calcite.avatica.AvaticaConnection;
 import org.apache.calcite.avatica.AvaticaParameter;
