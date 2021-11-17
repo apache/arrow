@@ -2435,6 +2435,7 @@ class TableGroupBy:
     """
     A grouping of columns in a table on which to perform aggregations.
     """
+
     def __init__(self, table, keys):
         if isinstance(keys, str):
             keys = [keys]
