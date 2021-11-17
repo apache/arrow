@@ -372,18 +372,9 @@ def test_col_encoding(use_legacy_dataset):
     # Check "RLE" for column 'a' and "BYTE_STREAM_SPLIT" col_encoding for
     # column 'b'.
     _check_roundtrip(mixed_table, expected=mixed_table,
+                     use_byte_stream_split=['a'],
                      col_encoding={'a': "RLE", 'b': "BYTE_STREAM_SPLIT"},
                      use_legacy_dataset=use_legacy_dataset)
-
-    # Fatal Python error: Aborted
-
-    # _check_roundtrip(mixed_table, expected=mixed_table, use_dictionary=False,
-    #                 col_encoding={'a': "RLE_DICTIONARY"},
-    #                 use_legacy_dataset=use_legacy_dataset)
-
-    # _check_roundtrip(mixed_table, expected=mixed_table, use_dictionary=False,
-    #                 use_byte_stream_split=['b'],
-    #                 col_encoding={'a': "PLAIN_DICTIONARY"})
 
 
 @parametrize_legacy_dataset

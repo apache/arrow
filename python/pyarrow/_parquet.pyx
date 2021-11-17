@@ -882,10 +882,8 @@ cdef encoding_name_from_enum(ParquetEncoding encoding_):
 cdef encoding_enum_from_name(str encoding_name):
     return {
         'PLAIN': ParquetEncoding_PLAIN,
-        'PLAIN_DICTIONARY': ParquetEncoding_PLAIN_DICTIONARY,
         'BIT_PACKED': ParquetEncoding_BIT_PACKED,
         'RLE': ParquetEncoding_RLE,
-        'RLE_DICTIONARY': ParquetEncoding_RLE_DICTIONARY,
         'BYTE_STREAM_SPLIT': ParquetEncoding_BYTE_STREAM_SPLIT,
     }.get(encoding_name, None)
 
@@ -1299,14 +1297,8 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
 
     if col_encoding is not None:
         for column, _encoding in col_encoding.items():
-            if not use_dictionary or \
-                (_encoding!='PLAIN_DICTIONARY' and
-                 _encoding!='RLE_DICTIONARY'):
-                props.encoding(tobytes(column),
-                               encoding_enum_from_name(_encoding))
-            else:
-                raise ValueError("Turn use_dictionary to False to use \
-                                 dictionary col_encoding.")
+            props.encoding(tobytes(column),
+                           encoding_enum_from_name(_encoding))
 
     if data_page_size is not None:
         props.data_pagesize(data_page_size)
