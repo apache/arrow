@@ -1944,7 +1944,8 @@ TEST_F(TestProjector, TestAesEncryptDecrypt) {
       TreeExprBuilder::MakeExpression("aes_decrypt", {field0, field1}, plain_res);
 
   std::shared_ptr<Projector> projector_en;
-  auto status = Projector::Make(schema, {encrypt_expr}, TestConfiguration(), &projector_en);
+  auto status =
+      Projector::Make(schema, {encrypt_expr}, TestConfiguration(), &projector_en);
   ASSERT_OK(status);
 
   int num_records = 4;
