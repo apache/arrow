@@ -22,7 +22,6 @@ import java.util.Properties;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import org.apache.arrow.driver.jdbc.client.FlightClientHandler;
 import org.apache.arrow.driver.jdbc.client.impl.ArrowFlightSqlClientHandler;
 import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl;
 import org.apache.arrow.flight.FlightClient;
@@ -31,8 +30,6 @@ import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.Preconditions;
 import org.apache.calcite.avatica.AvaticaConnection;
 import org.apache.calcite.avatica.AvaticaFactory;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import io.netty.util.concurrent.DefaultThreadFactory;
 
@@ -41,9 +38,8 @@ import io.netty.util.concurrent.DefaultThreadFactory;
  */
 public final class ArrowFlightConnection extends AvaticaConnection {
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(ArrowFlightConnection.class);
   private final BufferAllocator allocator;
-  private final FlightClientHandler clientHandler;
+  private final ArrowFlightSqlClientHandler clientHandler;
   private final ArrowFlightConnectionConfigImpl config;
   private ExecutorService executorService;
 
@@ -56,13 +52,13 @@ public final class ArrowFlightConnection extends AvaticaConnection {
    * @param properties    the {@link Properties} to use.
    * @param config        the {@link ArrowFlightConnectionConfigImpl} to use.
    * @param allocator     the {@link BufferAllocator} to use.
-   * @param clientHandler the {@link FlightClientHandler} to use.
+   * @param clientHandler the {@link ArrowFlightSqlClientHandler} to use.
    */
   private ArrowFlightConnection(final ArrowFlightJdbcDriver driver, final AvaticaFactory factory,
                                 final String url, final Properties properties,
                                 final ArrowFlightConnectionConfigImpl config,
                                 final BufferAllocator allocator,
-                                final FlightClientHandler clientHandler) {
+                                final ArrowFlightSqlClientHandler clientHandler) {
     super(driver, factory, url, properties);
     this.config = Preconditions.checkNotNull(config, "Config cannot be null.");
     this.allocator = Preconditions.checkNotNull(allocator, "Allocator cannot be null.");
@@ -86,12 +82,12 @@ public final class ArrowFlightConnection extends AvaticaConnection {
                                                    final BufferAllocator allocator)
       throws SQLException {
     final ArrowFlightConnectionConfigImpl config = new ArrowFlightConnectionConfigImpl(properties);
-    final FlightClientHandler clientHandler = createNewClientHandler(config, allocator);
+    final ArrowFlightSqlClientHandler clientHandler = createNewClientHandler(config, allocator);
     return new ArrowFlightConnection(driver, factory, url, properties, config, allocator,
         clientHandler);
   }
 
-  private static FlightClientHandler createNewClientHandler(
+  private static ArrowFlightSqlClientHandler createNewClientHandler(
       final ArrowFlightConnectionConfigImpl config,
       final BufferAllocator allocator) throws SQLException {
     try {
@@ -134,7 +130,7 @@ public final class ArrowFlightConnection extends AvaticaConnection {
    *
    * @return the handler.
    */
-  FlightClientHandler getClientHandler() throws SQLException {
+  ArrowFlightSqlClientHandler getClientHandler() throws SQLException {
     return clientHandler;
   }
 

@@ -27,8 +27,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import org.apache.arrow.driver.jdbc.client.ArrowFlightClientHandler;
-import org.apache.arrow.driver.jdbc.client.FlightClientHandler;
 import org.apache.arrow.driver.jdbc.client.utils.ClientAuthenticationUtils;
 import org.apache.arrow.flight.CallOption;
 import org.apache.arrow.flight.FlightClient;
@@ -48,15 +46,16 @@ import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.calcite.avatica.Meta.StatementType;
 
 /**
- * A {@link FlightClientHandler} for a {@link FlightSqlClient}.
+ * A {@link FlightSqlClient} handler.
  */
-public final class ArrowFlightSqlClientHandler extends ArrowFlightClientHandler {
+public final class ArrowFlightSqlClientHandler implements AutoCloseable {
 
   private final FlightSqlClient sqlClient;
+  private final Set<CallOption> options = new HashSet<>();
 
   ArrowFlightSqlClientHandler(final FlightSqlClient sqlClient,
                               final Collection<CallOption> options) {
-    super(options);
+    this.options.addAll(options);
     this.sqlClient = Preconditions.checkNotNull(sqlClient);
   }
 
@@ -65,14 +64,29 @@ public final class ArrowFlightSqlClientHandler extends ArrowFlightClientHandler 
    *
    * @param client  the {@link FlightClient} to manage under a {@link FlightSqlClient} wrapper.
    * @param options the {@link CallOption}s to persist in between subsequent client calls.
-   * @return a new {@link FlightClientHandler}.
+   * @return a new {@link ArrowFlightSqlClientHandler}.
    */
   public static ArrowFlightSqlClientHandler createNewHandler(final FlightClient client,
                                                              final Collection<CallOption> options) {
     return new ArrowFlightSqlClientHandler(new FlightSqlClient(client), options);
   }
 
-  @Override
+  /**
+   * Gets the {@link #options} for the subsequent calls from this handler.
+   *
+   * @return the {@link CallOption}s.
+   */
+  private CallOption[] getOptions() {
+    return options.toArray(new CallOption[0]);
+  }
+
+  /**
+   * Makes an RPC "getStream" request based on the provided {@link FlightInfo}
+   * object. Retrieves the result of the query previously prepared with "getInfo."
+   *
+   * @param flightInfo The {@link FlightInfo} instance from which to fetch results.
+   * @return a {@code FlightStream} of results.
+   */
   public List<FlightStream> getStreams(final FlightInfo flightInfo) {
     return flightInfo.getEndpoints().stream()
         .map(FlightEndpoint::getTicket)
@@ -80,7 +94,13 @@ public final class ArrowFlightSqlClientHandler extends ArrowFlightClientHandler 
         .collect(Collectors.toList());
   }
 
-  @Override
+  /**
+   * Makes an RPC "getInfo" request based on the provided {@code query}
+   * object.
+   *
+   * @param query The query.
+   * @return a {@code FlightStream} of results.
+   */
   public FlightInfo getInfo(final String query) {
     return sqlClient.execute(query, getOptions());
   }
@@ -94,7 +114,42 @@ public final class ArrowFlightSqlClientHandler extends ArrowFlightClientHandler 
     }
   }
 
-  @Override
+  /**
+   * A prepared statement handler.
+   */
+  public interface PreparedStatement extends AutoCloseable {
+    /**
+     * Executes this {@link PreparedStatement}.
+     *
+     * @return the {@link FlightInfo} representing the outcome of this query execution.
+     * @throws SQLException on error.
+     */
+    FlightInfo executeQuery() throws SQLException;
+
+    /**
+     * Executes a {@link StatementType#UPDATE} query.
+     *
+     * @return the number of rows affected.
+     */
+    long executeUpdate();
+
+    /**
+     * Gets the {@link StatementType} of this {@link PreparedStatement}.
+     *
+     * @return the Statement Type.
+     */
+    StatementType getType();
+
+    @Override
+    void close();
+  }
+
+  /**
+   * Creates a new {@link PreparedStatement} for the given {@code query}.
+   *
+   * @param query the SQL query.
+   * @return a new prepared statement.
+   */
   public PreparedStatement prepare(final String query) {
     final FlightSqlClient.PreparedStatement preparedStatement = sqlClient.prepare(query, getOptions());
     return new PreparedStatement() {
@@ -121,32 +176,85 @@ public final class ArrowFlightSqlClientHandler extends ArrowFlightClientHandler 
     };
   }
 
-  @Override
+  /**
+   * Makes an RPC "getCatalogs" request.
+   *
+   * @return a {@code FlightStream} of results.
+   */
   public FlightInfo getCatalogs() {
     return sqlClient.getCatalogs(getOptions());
   }
 
-  @Override
+  /**
+   * Makes an RPC "getImportedKeys" request based on the provided info.
+   *
+   * @param catalog The catalog name. Must match the catalog name as it is stored in the database.
+   *                Retrieves those without a catalog. Null means that the catalog name should not be used to
+   *                narrow the search.
+   * @param schema  The schema name. Must match the schema name as it is stored in the database.
+   *                "" retrieves those without a schema. Null means that the schema name should not be used to narrow
+   *                the search.
+   * @param table   The table name. Must match the table name as it is stored in the database.
+   * @return a {@code FlightStream} of results.
+   */
   public FlightInfo getImportedKeys(final String catalog, final String schema, final String table) {
     return sqlClient.getImportedKeys(catalog, schema, table, getOptions());
   }
 
-  @Override
+  /**
+   * Makes an RPC "getExportedKeys" request based on the provided info.
+   *
+   * @param catalog The catalog name. Must match the catalog name as it is stored in the database.
+   *                Retrieves those without a catalog. Null means that the catalog name should not be used to
+   *                narrow the search.
+   * @param schema  The schema name. Must match the schema name as it is stored in the database.
+   *                "" retrieves those without a schema. Null means that the schema name should not be used to narrow
+   *                the search.
+   * @param table   The table name. Must match the table name as it is stored in the database.
+   * @return a {@code FlightStream} of results.
+   */
   public FlightInfo getExportedKeys(final String catalog, final String schema, final String table) {
     return sqlClient.getExportedKeys(catalog, schema, table, getOptions());
   }
 
-  @Override
+  /**
+   * Makes an RPC "getSchemas" request based on the provided info.
+   *
+   * @param catalog       The catalog name. Must match the catalog name as it is stored in the database.
+   *                      Retrieves those without a catalog. Null means that the catalog name should not be used to
+   *                      narrow the search.
+   * @param schemaPattern The schema name pattern. Must match the schema name as it is stored in the database.
+   *                      Null means that schema name should not be used to narrow down the search.
+   * @return a {@code FlightStream} of results.
+   */
   public FlightInfo getSchemas(final String catalog, final String schemaPattern) {
     return sqlClient.getSchemas(catalog, schemaPattern, getOptions());
   }
 
-  @Override
+  /**
+   * Makes an RPC "getTableTypes" request.
+   *
+   * @return a {@code FlightStream} of results.
+   */
   public FlightInfo getTableTypes() {
     return sqlClient.getTableTypes(getOptions());
   }
 
-  @Override
+  /**
+   * Makes an RPC "getTables" request based on the provided info.
+   *
+   * @param catalog          The catalog name. Must match the catalog name as it is stored in the database.
+   *                         Retrieves those without a catalog. Null means that the catalog name should not be used to
+   *                         narrow the search.
+   * @param schemaPattern    The schema name pattern. Must match the schema name as it is stored in the database.
+   *                         "" retrieves those without a schema. Null means that the schema name should not be used to
+   *                         narrow the search.
+   * @param tableNamePattern The table name pattern. Must match the table name as it is stored in the database.
+   * @param types            The list of table types, which must be from the list of table types to include.
+   *                         Null returns all types.
+   * @param includeSchema    Whether to include schema.
+   * @return a {@code FlightStream} of results.
+   */
   public FlightInfo getTables(final String catalog, final String schemaPattern,
                               final String tableNamePattern,
                               final List<String> types, final boolean includeSchema) {
@@ -155,17 +263,50 @@ public final class ArrowFlightSqlClientHandler extends ArrowFlightClientHandler 
         getOptions());
   }
 
-  @Override
+  /**
+   * Gets SQL info.
+   *
+   * @return the SQL info.
+   */
   public FlightInfo getSqlInfo(SqlInfo... info) {
     return sqlClient.getSqlInfo(info, getOptions());
   }
 
-  @Override
+  /**
+   * Makes an RPC "getPrimaryKeys" request based on the provided info.
+   *
+   * @param catalog The catalog name; must match the catalog name as it is stored in the database.
+   *                "" retrieves those without a catalog.
+   *                Null means that the catalog name should not be used to narrow the search.
+   * @param schema  The schema name; must match the schema name as it is stored in the database.
+   *                "" retrieves those without a schema. Null means that the schema name should not be used to narrow
+   *                the search.
+   * @param table   The table name. Must match the table name as it is stored in the database.
+   * @return a {@code FlightStream} of results.
+   */
   public FlightInfo getPrimaryKeys(final String catalog, final String schema, final String table) {
     return sqlClient.getPrimaryKeys(catalog, schema, table, getOptions());
   }
 
-  @Override
+  /**
+   * Makes an RPC "getCrossReference" request based on the provided info.
+   *
+   * @param pkCatalog The catalog name. Must match the catalog name as it is stored in the database.
+   *                  Retrieves those without a catalog. Null means that the catalog name should not be used to
+   *                  narrow the search.
+   * @param pkSchema  The schema name. Must match the schema name as it is stored in the database.
+   *                  "" retrieves those without a schema. Null means that the schema name should not be used to narrow
+   *                  the search.
+   * @param pkTable   The table name. Must match the table name as it is stored in the database.
+   * @param fkCatalog The catalog name. Must match the catalog name as it is stored in the database.
+   *                  Retrieves those without a catalog. Null means that the catalog name should not be used to
+   *                  narrow the search.
+   * @param fkSchema  The schema name. Must match the schema name as it is stored in the database.
+   *                  "" retrieves those without a schema. Null means that the schema name should not be used to narrow
+   *                  the search.
+   * @param fkTable   The table name. Must match the table name as it is stored in the database.
+   * @return a {@code FlightStream} of results.
+   */
   public FlightInfo getCrossReference(String pkCatalog, String pkSchema, String pkTable,
                                       String fkCatalog, String fkSchema, String fkTable) {
     return sqlClient.getCrossReference(pkCatalog, pkSchema, pkTable, fkCatalog, fkSchema, fkTable, getOptions());

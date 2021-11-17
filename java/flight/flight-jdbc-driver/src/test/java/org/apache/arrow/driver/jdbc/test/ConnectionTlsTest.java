@@ -25,7 +25,6 @@ import java.sql.SQLException;
 import java.util.Properties;
 
 import org.apache.arrow.driver.jdbc.ArrowFlightJdbcDataSource;
-import org.apache.arrow.driver.jdbc.client.FlightClientHandler;
 import org.apache.arrow.driver.jdbc.client.impl.ArrowFlightSqlClientHandler;
 import org.apache.arrow.driver.jdbc.test.utils.FlightTestUtils;
 import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty;
@@ -130,7 +129,7 @@ public class ConnectionTlsTest {
     final UsernamePasswordCredentials credentials = new UsernamePasswordCredentials(
         flightTestUtils.getUsername1(), flightTestUtils.getPassword1());
 
-    try (FlightClientHandler client =
+    try (ArrowFlightSqlClientHandler client =
              new ArrowFlightSqlClientHandler.Builder()
                  .withHost("localhost")
                  .withPort(tlsServer.getPort())
@@ -155,7 +154,7 @@ public class ConnectionTlsTest {
   public void testGetEncryptedClientWithNoCertificateOnKeyStore() throws Exception {
     final String noCertificateKeyStorePassword = "flight1";
 
-    try (FlightClientHandler client =
+    try (ArrowFlightSqlClientHandler client =
              new ArrowFlightSqlClientHandler.Builder()
                  .withHost(flightTestUtils.getUrl())
                  .withKeyStorePath(noCertificateKeyStorePath)
@@ -174,7 +173,7 @@ public class ConnectionTlsTest {
    */
   @Test
   public void testGetNonAuthenticatedEncryptedClientNoAuth() throws Exception {
-    try (FlightClientHandler client =
+    try (ArrowFlightSqlClientHandler client =
              new ArrowFlightSqlClientHandler.Builder()
                  .withHost(flightTestUtils.getUrl())
                  .withKeyStorePath(keyStorePath)
@@ -196,7 +195,7 @@ public class ConnectionTlsTest {
   public void testGetEncryptedClientWithKeyStoreBadPasswordAndNoAuth() throws Exception {
     String keyStoreBadPassword = "badPassword";
 
-    try (FlightClientHandler client =
+    try (ArrowFlightSqlClientHandler client =
              new ArrowFlightSqlClientHandler.Builder()
                  .withHost(flightTestUtils.getUrl())
                  .withKeyStorePath(keyStorePath)

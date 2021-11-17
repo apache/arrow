@@ -33,7 +33,6 @@ import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.List;
 
-import org.apache.arrow.driver.jdbc.client.FlightClientHandler;
 import org.apache.arrow.flight.CallOption;
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.auth2.BasicAuthCredentialWriter;

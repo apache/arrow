@@ -21,7 +21,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 
-import org.apache.arrow.driver.jdbc.client.FlightClientHandler;
+import org.apache.arrow.driver.jdbc.client.impl.ArrowFlightSqlClientHandler;
 import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.util.Preconditions;
 import org.apache.calcite.avatica.AvaticaPreparedStatement;
@@ -34,10 +34,10 @@ import org.apache.calcite.avatica.Meta.StatementHandle;
  */
 public class ArrowFlightPreparedStatement extends AvaticaPreparedStatement implements ArrowFlightInfoStatement {
 
-  private final FlightClientHandler.PreparedStatement preparedStatement;
+  private final ArrowFlightSqlClientHandler.PreparedStatement preparedStatement;
 
   private ArrowFlightPreparedStatement(final ArrowFlightConnection connection,
-                                       final FlightClientHandler.PreparedStatement preparedStatement,
+                                       final ArrowFlightSqlClientHandler.PreparedStatement preparedStatement,
                                        final StatementHandle handle,
                                        final Signature signature, final int resultSetType,
                                        final int resultSetConcurrency, final int resultSetHoldability)
