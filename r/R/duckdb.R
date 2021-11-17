@@ -110,11 +110,6 @@ duckdb_disconnector <- function(con, tbl_name) {
     if (DBI::dbIsValid(con)) {
       duckdb::duckdb_unregister_arrow(con, tbl_name)
     }
-
-    # # and there are no more tables, so we can safely shutdown
-    # if (length(DBI::dbListTables(con)) == 0) {
-    #   DBI::dbDisconnect(con, shutdown = TRUE)
-    # }
   })
   environment()
 }

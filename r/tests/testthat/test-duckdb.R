@@ -120,9 +120,6 @@ con <- dbConnect(duckdb::duckdb())
 dbExecute(con, "PRAGMA threads=2")
 on.exit(dbDisconnect(con, shutdown = TRUE), add = TRUE)
 
-# write one table to the connection so it is kept open
-# DBI::dbWriteTable(con, "mtcars", mtcars)
-
 test_that("Joining, auto-cleanup enabled", {
   ds <- InMemoryDataset$create(example_data)
 
