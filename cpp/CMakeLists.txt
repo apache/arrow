@@ -47,7 +47,7 @@ if(POLICY CMP0074)
   cmake_policy(SET CMP0074 NEW)
 endif()
 
-set(ARROW_VERSION "6.0.0-SNAPSHOT")
+set(ARROW_VERSION "7.0.0-SNAPSHOT")
 
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" ARROW_BASE_VERSION "${ARROW_VERSION}")
 
@@ -233,15 +233,22 @@ find_program(CPPLINT_BIN
              HINTS ${BUILD_SUPPORT_DIR})
 message(STATUS "Found cpplint executable at ${CPPLINT_BIN}")
 
+set(COMMON_LINT_OPTIONS
+    --exclude_globs
+    ${LINT_EXCLUSIONS_FILE}
+    --source_dir
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    --source_dir
+    ${CMAKE_CURRENT_SOURCE_DIR}/examples
+    --source_dir
+    ${CMAKE_CURRENT_SOURCE_DIR}/tools)
+
 add_custom_target(lint
                   ${PYTHON_EXECUTABLE}
                   ${BUILD_SUPPORT_DIR}/run_cpplint.py
                   --cpplint_binary
                   ${CPPLINT_BIN}
-                  --exclude_globs
-                  ${LINT_EXCLUSIONS_FILE}
-                  --source_dir
-                  ${CMAKE_CURRENT_SOURCE_DIR}
+                  ${COMMON_LINT_OPTIONS}
                   ${ARROW_LINT_QUIET})
 
 #
@@ -254,10 +261,7 @@ if(${CLANG_FORMAT_FOUND})
                     ${BUILD_SUPPORT_DIR}/run_clang_format.py
                     --clang_format_binary
                     ${CLANG_FORMAT_BIN}
-                    --exclude_globs
-                    ${LINT_EXCLUSIONS_FILE}
-                    --source_dir
-                    ${CMAKE_CURRENT_SOURCE_DIR}
+                    ${COMMON_LINT_OPTIONS}
                     --fix
                     ${ARROW_LINT_QUIET})
 
@@ -267,10 +271,7 @@ if(${CLANG_FORMAT_FOUND})
                     ${BUILD_SUPPORT_DIR}/run_clang_format.py
                     --clang_format_binary
                     ${CLANG_FORMAT_BIN}
-                    --exclude_globs
-                    ${LINT_EXCLUSIONS_FILE}
-                    --source_dir
-                    ${CMAKE_CURRENT_SOURCE_DIR}
+                    ${COMMON_LINT_OPTIONS}
                     ${ARROW_LINT_QUIET})
 endif()
 
@@ -294,12 +295,9 @@ if(${CLANG_TIDY_FOUND})
                     ${BUILD_SUPPORT_DIR}/run_clang_tidy.py
                     --clang_tidy_binary
                     ${CLANG_TIDY_BIN}
-                    --exclude_globs
-                    ${LINT_EXCLUSIONS_FILE}
                     --compile_commands
                     ${CMAKE_BINARY_DIR}/compile_commands.json
-                    --source_dir
-                    ${CMAKE_CURRENT_SOURCE_DIR}
+                    ${COMMON_LINT_OPTIONS}
                     --fix
                     ${ARROW_LINT_QUIET})
 
@@ -309,12 +307,9 @@ if(${CLANG_TIDY_FOUND})
                     ${BUILD_SUPPORT_DIR}/run_clang_tidy.py
                     --clang_tidy_binary
                     ${CLANG_TIDY_BIN}
-                    --exclude_globs
-                    ${LINT_EXCLUSIONS_FILE}
                     --compile_commands
                     ${CMAKE_BINARY_DIR}/compile_commands.json
-                    --source_dir
-                    ${CMAKE_CURRENT_SOURCE_DIR}
+                    ${COMMON_LINT_OPTIONS}
                     ${ARROW_LINT_QUIET})
 endif()
 
@@ -349,6 +344,13 @@ endif()
 
 if(ARROW_ENGINE)
   set(ARROW_COMPUTE ON)
+endif()
+
+if(ARROW_SKYHOOK)
+  set(ARROW_DATASET ON)
+  set(ARROW_PARQUET ON)
+  set(ARROW_WITH_LZ4 ON)
+  set(ARROW_WITH_SNAPPY ON)
 endif()
 
 if(ARROW_DATASET)
@@ -936,6 +938,10 @@ endif()
 
 if(ARROW_GANDIVA)
   add_subdirectory(src/gandiva)
+endif()
+
+if(ARROW_SKYHOOK)
+  add_subdirectory(src/skyhook)
 endif()
 
 if(ARROW_BUILD_EXAMPLES)

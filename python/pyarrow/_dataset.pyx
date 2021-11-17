@@ -3364,7 +3364,8 @@ def _filesystemdataset_write(
     Partitioning partitioning not None,
     FileWriteOptions file_options not None,
     int max_partitions,
-    object file_visitor
+    object file_visitor,
+    str existing_data_behavior not None
 ):
     """
     CFileSystemDataset.Write wrapper
@@ -3381,6 +3382,19 @@ def _filesystemdataset_write(
     c_options.partitioning = partitioning.unwrap()
     c_options.max_partitions = max_partitions
     c_options.basename_template = tobytes(basename_template)
+    if existing_data_behavior == 'error':
+        c_options.existing_data_behavior = ExistingDataBehavior_ERROR
+    elif existing_data_behavior == 'overwrite_or_ignore':
+        c_options.existing_data_behavior =\
+            ExistingDataBehavior_OVERWRITE_OR_IGNORE
+    elif existing_data_behavior == 'delete_matching':
+        c_options.existing_data_behavior = ExistingDataBehavior_DELETE_MATCHING
+    else:
+        raise ValueError(
+            ("existing_data_behavior must be one of 'error', ",
+             "'overwrite_or_ignore' or 'delete_matching'")
+        )
+
     if file_visitor is not None:
         visit_args = {'base_dir': c_options.base_dir,
                       'file_visitor': file_visitor}

@@ -23,6 +23,7 @@
 #include <utility>
 #include <vector>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "arrow/buffer.h"
@@ -407,6 +408,11 @@ class TestDecimalScalar : public ::testing::Test {
     ASSERT_FALSE(first->Equals(pi));
     ASSERT_TRUE(second->Equals(pi));
     ASSERT_FALSE(second->Equals(null));
+
+    auto invalid = ScalarType(ValueType::GetMaxValue(6), std::make_shared<T>(5, 2));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                    ::testing::HasSubstr("does not fit in precision of"),
+                                    invalid.ValidateFull());
   }
 };
 

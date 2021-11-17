@@ -34,3 +34,122 @@ There are the official Ruby bindings for Apache Arrow.
 [Red Parquet](https://github.com/apache/arrow/tree/master/ruby/red-parquet) is the Parquet bindings.
 
 
+## Cookbook
+
+### Getting Started
+
+```shell
+gem install red-arrow
+gem install red-parquet # for parquet support
+gem install red-arrow-dataset # reading from s3 / folders
+```
+
+### Create table
+#### From file
+```ruby
+require 'arrow'
+require 'parquet'
+
+table = Arrow::Table.load('data.arrow')
+table = Arrow::Table.load('data.csv', format: :csv)
+table = Arrow::Table.load('data.parquet', format: :parquet)
+```
+#### From Ruby hash
+Types will be detected automatically
+```ruby
+table = Arrow::Table.new('name' => ['Tom', 'Max'], 'age' => [22, 23])
+```
+#### From String
+Suppose you have your data available via HTTP. Let's connect to demo ClickHouse DB. See https://play.clickhouse.com/ for details
+```ruby
+require 'net/http'
+
+params = {
+  query: "SELECT WatchID as watch FROM hits_v1 LIMIT 10 FORMAT Arrow",
+  user: "playground",
+  password: "clickhouse",
+  database: "datasets"
+}
+uri = URI('https://play-api.clickhouse.com:8443')
+uri.query = URI.encode_www_form(params)
+resp = Net::HTTP.get(uri)
+table = Arrow::Table.load(Arrow::Buffer.new(resp))
+```
+#### From S3
+```ruby
+require 'arrow-dataset'
+
+s3_uri = URI('s3://bucket/public.csv')
+Arrow::Table.load(s3_uri)
+```
+For private access you can pass access_key and secret_key in following way:
+```ruby
+require 'cgi/util'
+
+s3_uri = URI("s3://#{CGI.escape(access_key)}:#{CGI.escape(secret_key)}@bucket/private.parquet")
+Arrow::Table.load(s3_uri)
+```
+#### From multiple files in folder
+```ruby
+require 'arrow-dataset'
+
+Arrow::Table.load(URI("file:///your/folder/"), format: :parquet)
+```
+
+### Filtering
+Uses concept of slicers in Arrow
+```ruby
+table = Arrow::Table.new(
+  'name' => ['Tom', 'Max', 'Kate'],
+  'age' => [22, 23, 19]
+)
+table.slice { |slicer| slicer['age'] > 19 }
+# => #<Arrow::Table:0x7fa38838c448 ptr=0x7fa3ad269f40>
+#   name	age
+# 0	Tom 	 22
+# 1	Max 	 23
+
+table.slice { |slicer| slicer['age'].in?(19..22) }
+# => #<Arrow::Table:0x7fa3881cf998 ptr=0x7fa3a4bb5f30>
+#   name	age
+# 0	Tom 	 22
+# 1	Kate	 19
+```
+Multiple slice conditions can be joined using and(`&`) / or (`|`) / xor(`^`) logical operations
+```ruby
+table.slice { |slicer| (slicer['age'] > 19) & (slicer['age'] < 23) }
+# => #<Arrow::Table:0x7fa3882cc300 ptr=0x7fa3ad260b00>
+#   name	age
+# 0	Tom 	 22
+```
+
+### Operations
+Arrow compute functions can be accessed through `Arrow::Function`
+```ruby
+add = Arrow::Function.find('add')
+add.execute([table['age'].data, table['age'].data]).value
+# => #<Arrow::ChunkedArray:0x7fa389b87250 ptr=0x7fa3a4bb5c40 [
+#   [
+#     44,
+#     46,
+#     38
+#   ]
+# ]>
+```
+
+### Grouping
+```ruby
+table = Arrow::Table.new(
+  'name' => ['Tom', 'Max', 'Kate', 'Tom'],
+  'amount' => [10, 2, 3, 5]
+)
+table.group('name').sum('amount')
+# => #<Arrow::Table:0x7fa389894ae8 ptr=0x7fa364141a50>
+#   name	amount
+# 0	Kate	     3
+# 1	Max 	     2
+# 2	Tom 	    15
+```
+
+### Joining
+Work in progress, see https://issues.apache.org/jira/browse/ARROW-14531

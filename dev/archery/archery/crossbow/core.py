@@ -788,12 +788,13 @@ class Task(Serializable):
             self._status = TaskStatus(github_commit)
         return self._status
 
-    def assets(self, force_query=False):
+    def assets(self, force_query=False, validate_patterns=True):
         _assets = getattr(self, '_assets', None)
         if force_query or _assets is None:
             github_release = self._queue.github_release(self.tag)
             self._assets = TaskAssets(github_release,
-                                      artifact_patterns=self.artifacts)
+                                      artifact_patterns=self.artifacts,
+                                      validate_patterns=validate_patterns)
         return self._assets
 
 
@@ -874,7 +875,8 @@ class TaskStatus:
 
 class TaskAssets(dict):
 
-    def __init__(self, github_release, artifact_patterns):
+    def __init__(self, github_release, artifact_patterns,
+                 validate_patterns=True):
         # HACK(kszucs): don't expect uploaded assets of no atifacts were
         # defiened for the tasks in order to spare a bit of github rate limit
         if not artifact_patterns:
@@ -885,9 +887,13 @@ class TaskAssets(dict):
         else:
             github_assets = {a.name: a for a in github_release.assets()}
 
+        if not validate_patterns:
+            # shortcut to avoid pattern validation and just set all artifacts
+            return self.update(github_assets)
+
         for pattern in artifact_patterns:
             # artifact can be a regex pattern
-            compiled = re.compile(pattern)
+            compiled = re.compile(f"^{pattern}$")
             matches = list(
                 filter(None, map(compiled.match, github_assets.keys()))
             )

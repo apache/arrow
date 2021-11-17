@@ -53,6 +53,10 @@ struct KeyEncoder {
   // extract the null bitmap from the leading nullity bytes of encoded keys
   static Status DecodeNulls(MemoryPool* pool, int32_t length, uint8_t** encoded_bytes,
                             std::shared_ptr<Buffer>* null_bitmap, int32_t* null_count);
+
+  static bool IsNull(const uint8_t* encoded_bytes) {
+    return encoded_bytes[0] == kNullByte;
+  }
 };
 
 struct BooleanKeyEncoder : KeyEncoder {
@@ -156,8 +160,8 @@ struct VarLengthKeyEncoder : KeyEncoder {
           });
     } else {
       const auto& scalar = data.scalar_as<BaseBinaryScalar>();
-      const auto& bytes = *scalar.value;
       if (scalar.is_valid) {
+        const auto& bytes = *scalar.value;
         for (int64_t i = 0; i < batch_length; i++) {
           auto& encoded_ptr = *encoded_bytes++;
           *encoded_ptr++ = kValidByte;

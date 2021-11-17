@@ -14,10 +14,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-module cdatatest
+// +build noasm
 
-go 1.15
+package bmi
 
-replace github.com/apache/arrow/go/arrow => ../../
-
-require github.com/apache/arrow/go/arrow v0.0.0-00010101000000-000000000000
+func init() {
+	funclist.extractBits = extractBitsGo
+	funclist.gtbitmap = greaterThanBitmapGo
+}

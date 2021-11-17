@@ -78,6 +78,7 @@ RUN apt-get update -y -q && \
         liblz4-dev \
         libprotobuf-dev \
         libprotoc-dev \
+        libradospp-dev \
         libre2-dev \
         libsnappy-dev \
         libssl-dev \
@@ -89,6 +90,8 @@ RUN apt-get update -y -q && \
         pkg-config \
         protobuf-compiler \
         python3-pip \
+        python3-rados \
+        rados-objclass-dev \
         rapidjson-dev \
         tzdata \
         wget && \
@@ -99,6 +102,8 @@ COPY ci/scripts/install_minio.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_minio.sh ${arch} linux latest /usr/local
 COPY ci/scripts/install_gcs_testbench.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_gcs_testbench.sh ${arch} default
+COPY ci/scripts/install_ceph.sh /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_ceph.sh
 
 # Prioritize system packages and local installation
 # The following dependencies will be downloaded due to missing/invalid packages

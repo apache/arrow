@@ -82,7 +82,11 @@ read_parquet <- function(file,
 #' @param x `data.frame`, [RecordBatch], or [Table]
 #' @param sink A string file path, URI, or [OutputStream], or path in a file
 #' system (`SubTreeFileSystem`)
-#' @param chunk_size chunk size in number of rows. If NULL, the total number of rows is used.
+#' @param chunk_size how many rows of data to write to disk at once. This
+#' directly corresponds to how many rows will be in each row group in parquet.
+#' If `NULL`, a best guess will be made for optimal size (based on the number of
+#'  columns and number of rows), though if the data has fewer than 250 million
+#'  cells (rows x cols), then the total number of rows is used.
 #' @param version parquet version, "1.0" or "2.0". Default "1.0". Numeric values
 #'   are coerced to character.
 #' @param compression compression algorithm. Default "snappy". See details.
@@ -196,7 +200,28 @@ write_parquet <- function(x,
       allow_truncated_timestamps = allow_truncated_timestamps
     )
   )
-  writer$WriteTable(x, chunk_size = chunk_size %||% x$num_rows)
+
+  # determine an approximate chunk size
+  if (is.null(chunk_size)) {
+    num_cells <- x$num_rows * x$num_columns
+    target_cells_per_group <- getOption("arrow.parquet_cells_per_group", 2.5e8)
+
+    if (num_cells < target_cells_per_group) {
+      # If the total number of cells is less than the default 250 million, we want one group
+      num_chunks <- 1
+    } else {
+      # no more than the default 250 million cells (rows * cols) per group
+      # and we use floor, then ceiling to ensure that these are whole numbers
+      num_chunks <- floor(num_cells / target_cells_per_group)
+    }
+
+    # but there are no more than 200 chunks
+    num_chunks <- min(num_chunks, getOption("arrow.parquet_max_chunks", 200))
+
+    chunk_size <- ceiling(x$num_rows / num_chunks)
+  }
+
+  writer$WriteTable(x, chunk_size = chunk_size)
   writer$Close()
 
   invisible(x_out)

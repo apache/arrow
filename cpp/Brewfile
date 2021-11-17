@@ -16,6 +16,7 @@
 # under the License.
 
 brew "automake"
+brew "aws-sdk-cpp"
 brew "boost"
 brew "brotli"
 brew "c-ares"

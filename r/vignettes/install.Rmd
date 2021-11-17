@@ -10,17 +10,28 @@ vignette: >
 On macOS and Windows, when you `install.packages("arrow")`,
 you get a binary package that contains Arrow’s C++ dependencies along with it.
 On Linux, `install.packages()` retrieves a source package that has to be compiled locally,
-and C++ dependencies need to be resolved as well.
-Generally for R packages with C++ dependencies,
-this requires either installing system packages, which you may not have privileges to do,
-or building the C++ dependencies separately,
-which introduces all sorts of additional ways for things to go wrong.
+and C++ dependencies need to be resolved as well. 
+
+On linux we recommend one of the following for the quickest and easiest 
+installation: 
+
+* Set the environment variable `NOT_CRAN=true` before installing, which will both
+  check for compatible Apache binaries and use those and if those aren't available
+  set a more fully-featured build than default.
+* Using [RStudio's public package manager](https://packagemanager.rstudio.com/client/#/)
+  which includes pre-built binaries
 
 Our goal is to make `install.packages("arrow")` "just work" for as many Linux distributions,
-versions, and configurations as possible.
-This document describes how it works and the options for fine-tuning Linux installation.
-The intended audience for this document is `arrow` R package users on Linux, not developers.
+versions, and configurations as possible with the above options.
+
+This rest of this document describes how it works and the options for fine-tuning Linux installation.
+The intended audience for this document is `arrow` R package users on Linux, not Arrow developers.
 If you're contributing to the Arrow project, see `vignette("developing", package = "arrow") for guidance on setting up your development environment.
+
+Generally compiling and installing R packages with C++ dependencies, requires 
+either installing system packages, which you may not have privileges to do, or 
+building the C++ dependencies separately, which introduces all sorts of 
+additional ways for things to go wrong. 
 
 Note also that if you use `conda` to manage your R environment, this document does not apply.
 You can `conda install -c conda-forge --strict-channel-priority r-arrow` and you'll get the latest official
@@ -33,6 +44,7 @@ release of the R package along with any C++ dependencies.
 Install the latest release of `arrow` from CRAN with
 
 ```r
+Sys.setenv(NOT_CRAN = TRUE)
 install.packages("arrow")
 ```
 
@@ -40,6 +52,7 @@ Daily development builds, which are not official releases,
 can be installed from the Ursa Labs repository:
 
 ```r
+Sys.setenv(NOT_CRAN = TRUE)
 install.packages("arrow", repos = "https://arrow-r-nightly.s3.amazonaws.com")
 ```
 
@@ -214,39 +227,39 @@ This build script is also what is used to generate the prebuilt binaries.
 
 ## How the package is installed - advanced
 
-This subsection contains information which is likely to be most relevant mostly 
+This subsection contains information which is likely to be most relevant mostly
 to Arrow developers and is not necessary for Arrow users to install Arrow.
 
-There are a number of scripts that are triggered when `R CMD INSTALL .` is run. 
-For Arrow users, these should all just work without configuration and pull in 
+There are a number of scripts that are triggered when `R CMD INSTALL .` is run.
+For Arrow users, these should all just work without configuration and pull in
 the most complete pieces (e.g. official binaries that we host).
 
 An overview of these scripts is shown below:
 
-* `configure` and `configure.win` - these scripts are triggered during 
-`R CMD INSTALL .` on non-Windows and Windows platforms, respectively. They 
-handle finding the Arrow library, setting up the build variables necessary, and 
-writing the package Makevars file that is used to compile the C++ code in the R 
+* `configure` and `configure.win` - these scripts are triggered during
+`R CMD INSTALL .` on non-Windows and Windows platforms, respectively. They
+handle finding the Arrow library, setting up the build variables necessary, and
+writing the package Makevars file that is used to compile the C++ code in the R
 package.
 
-* `tools/nixlibs.R` - this script is sometimes called by `configure` on Linux 
-(or on any non-windows OS with the environment variable 
-`FORCE_BUNDLED_BUILD=true`). This sets up the build process for our bundled 
-builds (which is the default on linux). The operative logic is at the end of 
-the script, but it will do the following (and it will stop with the first one 
-that succeeds and some of the steps are only checked if they are enabled via an 
+* `tools/nixlibs.R` - this script is sometimes called by `configure` on Linux
+(or on any non-windows OS with the environment variable
+`FORCE_BUNDLED_BUILD=true`). This sets up the build process for our bundled
+builds (which is the default on linux). The operative logic is at the end of
+the script, but it will do the following (and it will stop with the first one
+that succeeds and some of the steps are only checked if they are enabled via an
 environment variable):
   * Check if there is an already built libarrow in `arrow/r/libarrow-{version}`,
   use that to link against if it exists.
   * Check if a binary is available from our hosted unofficial builds.
   * Download the Arrow source and build the Arrow Library from source.
-  * `*** Proceed without C++` dependencies (this is an error and the package 
-  will not work, but if you see this message you know the previous steps have 
+  * `*** Proceed without C++` dependencies (this is an error and the package
+  will not work, but if you see this message you know the previous steps have
   not succeeded/were not enabled)
-  
-* `inst/build_arrow_static.sh` - called by `tools/nixlibs.R` when the Arrow 
-library is being built.  It builds Arrow for a bundled, static build, and 
-mirrors the steps described in the ["Arrow R Developer Guide" vignette]("./developing.html")
+
+* `inst/build_arrow_static.sh` - called by `tools/nixlibs.R` when the Arrow
+library is being built.  It builds Arrow for a bundled, static build, and
+mirrors the steps described in the ["Arrow R Developer Guide" vignette](./developing.html)
 
 # Troubleshooting
 

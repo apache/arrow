@@ -1974,7 +1974,8 @@ def test_select_k_table():
     with pytest.raises(ValueError, match="not a valid sort order"):
         pc.select_k_unstable(table, k=k, sort_keys=[("a", "nonscending")])
 
-    with pytest.raises(ValueError, match="Nonexistent sort key column"):
+    with pytest.raises(ValueError,
+                       match="Invalid sort key column: No match for.*unknown"):
         pc.select_k_unstable(table, k=k, sort_keys=[("unknown", "ascending")])
 
 

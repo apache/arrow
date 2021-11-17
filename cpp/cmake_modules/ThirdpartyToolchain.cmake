@@ -579,10 +579,20 @@ endif()
 if(DEFINED ENV{ARROW_SNAPPY_URL})
   set(SNAPPY_SOURCE_URL "$ENV{ARROW_SNAPPY_URL}")
 else()
-  set_urls(SNAPPY_SOURCE_URL
-           "https://github.com/google/snappy/archive/${ARROW_SNAPPY_BUILD_VERSION}.tar.gz"
-           "https://github.com/ursa-labs/thirdparty/releases/download/latest/snappy-${ARROW_SNAPPY_BUILD_VERSION}.tar.gz"
-  )
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS
+                                              "4.9")
+    # There is a bug in GCC < 4.9 with Snappy 1.1.9, so revert to 1.1.8 "SNAPPY_OLD" for those (ARROW-14661)
+    set_urls(SNAPPY_SOURCE_URL
+             "https://github.com/google/snappy/archive/${ARROW_SNAPPY_OLD_BUILD_VERSION}.tar.gz"
+             "https://github.com/ursa-labs/thirdparty/releases/download/latest/snappy-${ARROW_SNAPPY_OLD_BUILD_VERSION}.tar.gz"
+    )
+    set(ARROW_SNAPPY_BUILD_SHA256_CHECKSUM ${ARROW_SNAPPY_OLD_BUILD_SHA256_CHECKSUM})
+  else()
+    set_urls(SNAPPY_SOURCE_URL
+             "https://github.com/google/snappy/archive/${ARROW_SNAPPY_BUILD_VERSION}.tar.gz"
+             "https://github.com/ursa-labs/thirdparty/releases/download/latest/snappy-${ARROW_SNAPPY_BUILD_VERSION}.tar.gz"
+    )
+  endif()
 endif()
 
 if(DEFINED ENV{ARROW_THRIFT_URL})
@@ -908,7 +918,13 @@ if(ARROW_USE_UBSAN)
   set(ARROW_USE_NATIVE_INT128 FALSE)
 else()
   include(CheckCXXSymbolExists)
-  check_cxx_symbol_exists("__SIZEOF_INT128__" "" ARROW_USE_NATIVE_INT128)
+  check_cxx_symbol_exists("_M_ARM64" "" WIN32_ARM64_TARGET)
+  if(WIN32_ARM64_TARGET AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    # NOTE: For clang/win-arm64, native int128_t produce linker errors
+    set(ARROW_USE_NATIVE_INT128 FALSE)
+  else()
+    check_cxx_symbol_exists("__SIZEOF_INT128__" "" ARROW_USE_NATIVE_INT128)
+  endif()
 endif()
 
 # - Gandiva has a compile-time (header-only) dependency on Boost, not runtime.
@@ -969,7 +985,10 @@ macro(build_snappy)
   )
 
   set(SNAPPY_CMAKE_ARGS
-      ${EP_COMMON_CMAKE_ARGS} -DCMAKE_INSTALL_LIBDIR=lib -DSNAPPY_BUILD_TESTS=OFF
+      ${EP_COMMON_CMAKE_ARGS}
+      -DCMAKE_INSTALL_LIBDIR=lib
+      -DSNAPPY_BUILD_TESTS=OFF
+      -DSNAPPY_BUILD_BENCHMARKS=OFF
       "-DCMAKE_INSTALL_PREFIX=${SNAPPY_PREFIX}")
 
   externalproject_add(snappy_ep
@@ -1468,6 +1487,7 @@ macro(build_protobuf)
 
   add_dependencies(toolchain protobuf_ep)
   add_dependencies(arrow::protobuf::libprotobuf protobuf_ep)
+  add_dependencies(arrow::protobuf::protoc protobuf_ep)
 
   list(APPEND ARROW_BUNDLED_STATIC_LIBS arrow::protobuf::libprotobuf)
 endmacro()
@@ -3307,6 +3327,9 @@ macro(build_grpc)
   set(GRPC_STATIC_LIBRARY_ADDRESS_SORTING
       "${GRPC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}address_sorting${CMAKE_STATIC_LIBRARY_SUFFIX}"
   )
+  set(GRPC_STATIC_LIBRARY_GRPCPP_REFLECTION
+      "${GRPC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}grpc++_reflection${CMAKE_STATIC_LIBRARY_SUFFIX}"
+  )
   set(GRPC_STATIC_LIBRARY_UPB
       "${GRPC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}upb${CMAKE_STATIC_LIBRARY_SUFFIX}"
   )
@@ -3401,6 +3424,7 @@ macro(build_grpc)
                                        ${GRPC_STATIC_LIBRARY_GRPC}
                                        ${GRPC_STATIC_LIBRARY_GRPCPP}
                                        ${GRPC_STATIC_LIBRARY_ADDRESS_SORTING}
+                                       ${GRPC_STATIC_LIBRARY_GRPCPP_REFLECTION}
                                        ${GRPC_STATIC_LIBRARY_UPB}
                                        ${GRPC_CPP_PLUGIN}
                       CMAKE_ARGS ${GRPC_CMAKE_ARGS} ${EP_LOG_OPTIONS}
@@ -3432,6 +3456,12 @@ macro(build_grpc)
   set_target_properties(gRPC::address_sorting
                         PROPERTIES IMPORTED_LOCATION
                                    "${GRPC_STATIC_LIBRARY_ADDRESS_SORTING}"
+                                   INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}")
+
+  add_library(gRPC::grpc++_reflection STATIC IMPORTED)
+  set_target_properties(gRPC::grpc++_reflection
+                        PROPERTIES IMPORTED_LOCATION
+                                   "${GRPC_STATIC_LIBRARY_GRPCPP_REFLECTION}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}")
 
   add_library(gRPC::grpc STATIC IMPORTED)
@@ -3513,6 +3543,8 @@ if(ARROW_WITH_GRPC)
 
   if(GRPC_VENDORED)
     set(GRPCPP_PP_INCLUDE TRUE)
+    # Examples need to link to static Arrow if we're using static gRPC
+    set(ARROW_GRPC_USE_SHARED OFF)
   else()
     # grpc++ headers may reside in ${GRPC_INCLUDE_DIR}/grpc++ or ${GRPC_INCLUDE_DIR}/grpcpp
     # depending on the gRPC version.
@@ -3534,6 +3566,7 @@ macro(build_crc32c_once)
     message(STATUS "Building crc32c from source")
     # Build crc32c
     set(CRC32C_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/crc32c_ep-install")
+    set(CRC32C_INCLUDE_DIR "${CRC32C_PREFIX}/include")
     set(CRC32C_CMAKE_ARGS
         ${EP_COMMON_CMAKE_ARGS}
         -DCMAKE_INSTALL_LIBDIR=lib
@@ -3557,12 +3590,12 @@ macro(build_crc32c_once)
                         CMAKE_ARGS ${CRC32C_CMAKE_ARGS}
                         BUILD_BYPRODUCTS ${CRC32C_BUILD_BYPRODUCTS})
     # Work around https://gitlab.kitware.com/cmake/cmake/issues/15052
-    file(MAKE_DIRECTORY "${CRC32C_INCLUDE}/include")
+    file(MAKE_DIRECTORY "${CRC32C_INCLUDE_DIR}")
     add_library(Crc32c::crc32c STATIC IMPORTED)
     set_target_properties(Crc32c::crc32c
                           PROPERTIES IMPORTED_LOCATION ${_CRC32C_STATIC_LIBRARY}
                                      INTERFACE_INCLUDE_DIRECTORIES
-                                     "${CRC32C_INCLUDE}/include")
+                                     "${CRC32C_INCLUDE_DIR}")
     add_dependencies(Crc32c::crc32c crc32c_ep)
   endif()
 endmacro()
@@ -3943,11 +3976,19 @@ macro(build_awssdk)
                       DEPENDS aws_checksums_ep)
   add_dependencies(AWS::aws-c-event-stream aws_c_event_stream_ep)
 
+  set(AWSSDK_PATCH_COMMAND)
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER
+                                              "10")
+    # Workaround for https://github.com/aws/aws-sdk-cpp/issues/1750
+    set(AWSSDK_PATCH_COMMAND "sed" "-i.bak" "-e" "s/\"-Werror\"//g"
+                             "<SOURCE_DIR>/cmake/compiler_settings.cmake")
+  endif()
   externalproject_add(awssdk_ep
                       ${EP_LOG_OPTIONS}
                       URL ${AWSSDK_SOURCE_URL}
                       URL_HASH "SHA256=${ARROW_AWSSDK_BUILD_SHA256_CHECKSUM}"
                       CMAKE_ARGS ${AWSSDK_CMAKE_ARGS}
+                      PATCH_COMMAND ${AWSSDK_PATCH_COMMAND}
                       BUILD_BYPRODUCTS ${AWS_CPP_SDK_COGNITO_IDENTITY_STATIC_LIBRARY}
                                        ${AWS_CPP_SDK_CORE_STATIC_LIBRARY}
                                        ${AWS_CPP_SDK_IDENTITY_MANAGEMENT_STATIC_LIBRARY}

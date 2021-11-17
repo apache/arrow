@@ -34,7 +34,7 @@ namespace arrow {
 /// \brief A container for key-value pair type metadata. Not thread-safe
 class ARROW_EXPORT KeyValueMetadata {
  public:
-  KeyValueMetadata() = default;
+  KeyValueMetadata();
   KeyValueMetadata(std::vector<std::string> keys, std::vector<std::string> values);
   explicit KeyValueMetadata(const std::unordered_map<std::string, std::string>& map);
 

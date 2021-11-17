@@ -40,9 +40,13 @@ test_that("Schema print method", {
 
 test_that("Schema with non-nullable fields", {
   expect_output(
-    print(schema(field("b", double()),
-                 field("c", bool(), nullable = FALSE),
-                 field("d", string()))),
+    print(
+      schema(
+        field("b", double()),
+        field("c", bool(), nullable = FALSE),
+        field("d", string())
+      )
+    ),
     paste(
       "Schema",
       "b: double",
@@ -217,4 +221,20 @@ test_that("Schema to C-interface", {
 
   # must clean up the pointer or we leak
   delete_arrow_schema(ptr)
+})
+
+test_that("Schemas from lists", {
+  name_list_schema <- schema(list(b = double(), c = string(), d = int8()))
+
+
+  field_list_schema <- schema(
+    list(
+      field("b", double()),
+      field("c", bool()),
+      field("d", string())
+    )
+  )
+
+  expect_equal(name_list_schema, schema(b = double(), c = string(), d = int8()))
+  expect_equal(field_list_schema, schema(b = double(), c = bool(), d = string()))
 })

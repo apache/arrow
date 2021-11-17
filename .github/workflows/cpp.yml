@@ -38,7 +38,7 @@ on:
       - 'format/Flight.proto'
 
 concurrency:
-  group: ${{ github.repository }}-${{ github.ref }}-${{ github.workflow }}
+  group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
   cancel-in-progress: true
 
 env:
@@ -53,7 +53,7 @@ jobs:
     name: ${{ matrix.title }}
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    timeout-minutes: 45
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:

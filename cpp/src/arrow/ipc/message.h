@@ -20,6 +20,7 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <string>
 #include <utility>
@@ -441,6 +442,10 @@ class ARROW_EXPORT MessageReader {
   virtual Result<std::unique_ptr<Message>> ReadNextMessage() = 0;
 };
 
+// the first parameter of the function should be a pointer to metadata (aka.
+// org::apache::arrow::flatbuf::RecordBatch*)
+using FieldsLoaderFunction = std::function<Status(const void*, io::RandomAccessFile*)>;
+
 /// \brief Read encapsulated RPC message from position in file
 ///
 /// Read a length-prefixed message flatbuffer starting at the indicated file
@@ -453,11 +458,13 @@ class ARROW_EXPORT MessageReader {
 /// first 4 bytes after the offset are the message length
 /// \param[in] metadata_length the total number of bytes to read from file
 /// \param[in] file the seekable file interface to read from
+/// \param[in] fields_loader the function for loading subset of fields from the given file
 /// \return the message read
+
 ARROW_EXPORT
-Result<std::unique_ptr<Message>> ReadMessage(const int64_t offset,
-                                             const int32_t metadata_length,
-                                             io::RandomAccessFile* file);
+Result<std::unique_ptr<Message>> ReadMessage(
+    const int64_t offset, const int32_t metadata_length, io::RandomAccessFile* file,
+    const FieldsLoaderFunction& fields_loader = {});
 
 ARROW_EXPORT
 Future<std::shared_ptr<Message>> ReadMessageAsync(

@@ -23,8 +23,8 @@ import (
 	"strings"
 	"unsafe"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/v7/arrow"
+	"github.com/apache/arrow/go/v7/arrow/memory"
 )
 
 const (
@@ -63,6 +63,12 @@ func (a *String) ValueOffset(i int) int {
 		panic("arrow/array: index out of range")
 	}
 	return int(a.offsets[i+a.array.data.offset])
+}
+
+func (a *String) ValueOffsets() []int32 {
+	beg := a.array.data.offset
+	end := beg + a.array.data.length + 1
+	return a.offsets[beg:end]
 }
 
 func (a *String) ValueBytes() (ret []byte) {

@@ -14,18 +14,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package array // import "github.com/apache/arrow/go/arrow/array"
+package array
 
 import (
 	"fmt"
 	"strings"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/bitutil"
-	"github.com/apache/arrow/go/arrow/decimal128"
-	"github.com/apache/arrow/go/arrow/internal/debug"
-	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/v7/arrow"
+	"github.com/apache/arrow/go/v7/arrow/bitutil"
+	"github.com/apache/arrow/go/v7/arrow/decimal128"
+	"github.com/apache/arrow/go/v7/arrow/internal/debug"
+	"github.com/apache/arrow/go/v7/arrow/memory"
 )
 
 // A type which represents an immutable sequence of 128-bit decimal values.

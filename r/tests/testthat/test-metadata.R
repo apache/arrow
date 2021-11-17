@@ -315,26 +315,26 @@ test_that("When we encounter SF cols, we warn", {
 test_that("dplyr with metadata", {
   skip_if_not_available("dataset")
 
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       collect(),
     example_with_metadata
   )
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       select(a) %>%
       collect(),
     example_with_metadata
   )
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       mutate(z = b * 4) %>%
       select(z, a) %>%
       collect(),
     example_with_metadata
   )
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       mutate(z = nchar(a)) %>%
       select(z, a) %>%
       collect(),
@@ -342,8 +342,8 @@ test_that("dplyr with metadata", {
   )
   # dplyr drops top-level attributes if you do summarize, though attributes
   # of grouping columns appear to come through
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       group_by(a) %>%
       summarize(n()) %>%
       collect(),
@@ -351,8 +351,8 @@ test_that("dplyr with metadata", {
   )
   # Same name in output but different data, so the column metadata shouldn't
   # carry through
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       mutate(a = nchar(a)) %>%
       select(a) %>%
       collect(),

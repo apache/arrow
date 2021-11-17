@@ -350,18 +350,37 @@ struct InlineISO8601ValueDecoder : public ValueDecoder {
   explicit InlineISO8601ValueDecoder(const std::shared_ptr<DataType>& type,
                                      const ConvertOptions& options)
       : ValueDecoder(type, options),
-        unit_(checked_cast<const TimestampType&>(*type_).unit()) {}
+        unit_(checked_cast<const TimestampType&>(*type_).unit()),
+        expect_timezone_(!checked_cast<const TimestampType&>(*type_).timezone().empty()) {
+  }
 
   Status Decode(const uint8_t* data, uint32_t size, bool quoted, value_type* out) {
-    if (ARROW_PREDICT_FALSE(!internal::ParseTimestampISO8601(
-            reinterpret_cast<const char*>(data), size, unit_, out))) {
+    bool zone_offset_present = false;
+    if (ARROW_PREDICT_FALSE(
+            !internal::ParseTimestampISO8601(reinterpret_cast<const char*>(data), size,
+                                             unit_, out, &zone_offset_present))) {
       return GenericConversionError(type_, data, size);
+    }
+    if (zone_offset_present != expect_timezone_) {
+      if (expect_timezone_) {
+        return Status::Invalid("CSV conversion error to ", type_->ToString(),
+                               ": expected a zone offset in '",
+                               std::string(reinterpret_cast<const char*>(data), size),
+                               "'. If these timestamps are in local time, parse them as "
+                               "timestamps without timezone, then call assume_timezone.");
+      } else {
+        return Status::Invalid("CSV conversion error to ", type_->ToString(),
+                               ": expected no zone offset in '",
+                               std::string(reinterpret_cast<const char*>(data), size),
+                               "'");
+      }
     }
     return Status::OK();
   }
 
  protected:
   TimeUnit::type unit_;
+  bool expect_timezone_;
 };
 
 struct SingleParserTimestampValueDecoder : public ValueDecoder {
@@ -371,18 +390,36 @@ struct SingleParserTimestampValueDecoder : public ValueDecoder {
                                              const ConvertOptions& options)
       : ValueDecoder(type, options),
         unit_(checked_cast<const TimestampType&>(*type_).unit()),
+        expect_timezone_(!checked_cast<const TimestampType&>(*type_).timezone().empty()),
         parser_(*options_.timestamp_parsers[0]) {}
 
   Status Decode(const uint8_t* data, uint32_t size, bool quoted, value_type* out) {
-    if (ARROW_PREDICT_FALSE(
-            !parser_(reinterpret_cast<const char*>(data), size, unit_, out))) {
+    bool zone_offset_present = false;
+    if (ARROW_PREDICT_FALSE(!parser_(reinterpret_cast<const char*>(data), size, unit_,
+                                     out, &zone_offset_present))) {
       return GenericConversionError(type_, data, size);
+    }
+    if (zone_offset_present != expect_timezone_) {
+      if (expect_timezone_) {
+        return Status::Invalid("CSV conversion error to ", type_->ToString(),
+                               ": expected a zone offset in '",
+                               std::string(reinterpret_cast<const char*>(data), size),
+                               "'. If these timestamps are in local time, parse them as "
+                               "timestamps without timezone, then call assume_timezone. "
+                               "If using strptime, ensure '%z' is in the format string.");
+      } else {
+        return Status::Invalid("CSV conversion error to ", type_->ToString(),
+                               ": expected no zone offset in '",
+                               std::string(reinterpret_cast<const char*>(data), size),
+                               "'");
+      }
     }
     return Status::OK();
   }
 
  protected:
   TimeUnit::type unit_;
+  bool expect_timezone_;
   const TimestampParser& parser_;
 };
 
@@ -393,11 +430,15 @@ struct MultipleParsersTimestampValueDecoder : public ValueDecoder {
                                                 const ConvertOptions& options)
       : ValueDecoder(type, options),
         unit_(checked_cast<const TimestampType&>(*type_).unit()),
+        expect_timezone_(!checked_cast<const TimestampType&>(*type_).timezone().empty()),
         parsers_(GetParsers(options_)) {}
 
   Status Decode(const uint8_t* data, uint32_t size, bool quoted, value_type* out) {
+    bool zone_offset_present = false;
     for (const auto& parser : parsers_) {
-      if (parser->operator()(reinterpret_cast<const char*>(data), size, unit_, out)) {
+      if (parser->operator()(reinterpret_cast<const char*>(data), size, unit_, out,
+                             &zone_offset_present) &&
+          zone_offset_present == expect_timezone_) {
         return Status::OK();
       }
     }
@@ -416,6 +457,7 @@ struct MultipleParsersTimestampValueDecoder : public ValueDecoder {
   }
 
   TimeUnit::type unit_;
+  bool expect_timezone_;
   std::vector<const TimestampParser*> parsers_;
 };
 

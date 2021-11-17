@@ -34,13 +34,21 @@ unset ARROW_R_DEV
 
 export UBSAN_OPTIONS="print_stacktrace=1,suppressions=/arrow/r/tools/ubsan.supp"
 
+# run tests
 pushd tests
 ${R_BIN} < testthat.R > testthat.out 2>&1 || { cat testthat.out; exit 1; }
-popd
-${R_BIN} -e 'library(arrow); testthat::test_examples(".")' >> testthat.out 2>&1 || { cat testthat.out; exit 1; }
 
 cat testthat.out
 if grep -q "runtime error" testthat.out; then
+  exit 1
+fi
+
+# run examples
+popd
+${R_BIN} -e 'library(arrow); testthat::test_examples(".")' >> examples.out 2>&1 || { cat examples.out; exit 1; }
+
+cat examples.out
+if grep -q "runtime error" examples.out; then
   exit 1
 fi
 popd

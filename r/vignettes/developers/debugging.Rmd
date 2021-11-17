@@ -1,0 +1,98 @@
+# Debugging Arrow
+
+If you are a developer working with Arrow code, the package's use of tidy eval 
+and C++ necessitates a solid debugging strategy.  In this article, we recommend
+a few approaches.
+
+## Debugging R code
+
+In general, we have found that using interactive debugging (e.g. calls to 
+`browser()`), where you can inspect objects in a particular environment, is 
+more efficient than simpler techniques such as `print()` statements.
+
+## Getting more descriptive C++ error messages after a segfault
+
+If you are working in the RStudio IDE, your R session will be aborted if there is
+a segfault.  If you re-run your code in a command-line R session, the session 
+isn't automatically aborted and so it will be possible to copy the error 
+message accompanying the segfault.  Here is an example from a bug which
+existed at time of writing.
+
+```shell
+> S3FileSystem$create()
+
+ *** caught segfault ***
+address 0x1a0, cause 'memory not mapped'
+
+Traceback:
+ 1: (function (anonymous, access_key, secret_key, session_token,     role_arn, session_name, external_id, load_frequency, region,     endpoint_override, scheme, background_writes) {    .Call(`_arrow_fs___S3FileSystem__create`, anonymous, access_key,         secret_key, session_token, role_arn, session_name, external_id,         load_frequency, region, endpoint_override, scheme, background_writes)})(access_key = "", secret_key = "", session_token = "", role_arn = "",     session_name = "", external_id = "", load_frequency = 900L,     region = "", endpoint_override = "", scheme = "", background_writes = TRUE,     anonymous = FALSE)
+ 2: exec(fs___S3FileSystem__create, !!!args)
+ 3: S3FileSystem$create()
+```
+
+This output provides the R traceback; however, it doesn't provide any 
+information about the exact line of C++ code from which the segfault originated.
+For this, you will need to run R with the C++ debugger attached.
+
+### Running R code with the C++ debugger attached
+
+As Arrow has C++ code at its core, debugging code can sometimes be tricky when 
+errors originate in the C++ rather than the R layer.  If you are adding new code
+which triggers a C++ bug (or find one in existing code), this can result in a 
+segfault.  If you are working in RStudio, the session is aborted, and you may 
+not be able to retrieve the error messaging needed to diagnose and/or report 
+the bug.  One way around this is to find the code that causes the error, and 
+run R with a C++ debugger.
+
+If you are using macOS and have installed R using the Apple installer, you will 
+not be able to run R with a debugger attached; please see [the instructions here for details on causes of this and workarounds.](https://mac.r-project.org/bin/macosx/RMacOSX-FAQ.html#I-cannot-attach-debugger-to-R)
+
+Firstly, load R with your debugger.  The most common debuggers are `gdb` 
+(typically found on Linux, sometimes on macOS, or Windows via MinGW or Cygwin) 
+and `lldb` (the default macOS debugger).
+
+In my case it's `gdb`, but if you're using the `lldb` debugger (for example, 
+if you're on a Mac), just swap in that command here.
+
+```shell
+R -d gdb
+```
+
+Next, run R.
+
+```shell
+run
+```
+
+You should now be in an R session with the C++ debugger attached.  This will 
+look similar to a normal R session, but with extra output.
+
+Now, run your code - either directly in the session or by sourcing it from a 
+file.  If the code results in a segfault, you will have extra output that you 
+can use to diagnose the problem or attach to an issue as extra information.
+
+Here is debugger output from the segfault shown in the previous example.  You 
+can see here that the exact line which triggers the segfault is included in the 
+output.
+
+```
+> S3FileSystem$create()
+
+Thread 1 "R" received signal SIGSEGV, Segmentation fault.
+0x00007ffff0128369 in std::__atomic_base<long>::operator++ (this=0x178) at /usr/include/c++/9/bits/atomic_base.h:318
+318	      operator++() noexcept
+```
+
+## Resources
+
+The following resources provide detailed guides to debugging R code:
+
+* [The chapter on debugging in 'Advanced R' by Hadley Wickham](https://adv-r.hadley.nz/debugging.html)
+* [The RStudio debugging documentation](https://support.rstudio.com/hc/en-us/articles/205612627-Debugging-with-RStudio)
+
+For an excellent in-depth guide to using the C++ debugger in R, see [this blog 
+post by David Vaughan.](https://blog.davisvaughan.com/2019/04/05/debug-r-package-with-cpp/)
+
+You can find a list of equivalent [gdb and lldb commands on the LLDB website.](https://lldb.llvm.org/use/map.html)
+
+

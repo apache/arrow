@@ -703,7 +703,7 @@ def _set_default(opt, default):
 @click.option('--with-rust', type=bool, default=False,
               help='Include Rust in integration tests',
               envvar="ARCHERY_INTEGRATION_WITH_RUST")
-@click.option('--write_generated_json', default=False,
+@click.option('--write_generated_json', default="",
               help='Generate test JSON to indicated path')
 @click.option('--run-flight', is_flag=True, default=False,
               help='Run Flight integration tests')
@@ -861,7 +861,7 @@ def release_changelog_regenerate(obj):
     jira, repo = obj['jira'], obj['repo']
     changelogs = []
 
-    for version in jira.arrow_versions():
+    for version in jira.project_versions('ARROW'):
         if not version.released:
             continue
         release = Release.from_jira(version, jira=jira, repo=repo)

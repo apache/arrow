@@ -45,7 +45,8 @@ class CPPTester(Tester):
 
     name = 'C++'
 
-    def _run(self, arrow_path=None, json_path=None, command='VALIDATE'):
+    def _run(self, arrow_path=None, json_path=None, command='VALIDATE',
+             quirks=None):
         cmd = [self.CPP_INTEGRATION_EXE, '--integration']
 
         if arrow_path is not None:
@@ -56,13 +57,17 @@ class CPPTester(Tester):
 
         cmd.append('--mode=' + command)
 
+        if quirks:
+            if "no_decimal_validate" in quirks:
+                cmd.append("--validate_decimals=false")
+
         if self.debug:
             log(' '.join(cmd))
 
         run_cmd(cmd)
 
-    def validate(self, json_path, arrow_path):
-        return self._run(arrow_path, json_path, 'VALIDATE')
+    def validate(self, json_path, arrow_path, quirks=None):
+        return self._run(arrow_path, json_path, 'VALIDATE', quirks=quirks)
 
     def json_to_file(self, json_path, arrow_path):
         return self._run(arrow_path, json_path, 'JSON_TO_ARROW')
