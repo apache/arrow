@@ -1,0 +1,71 @@
+# Using docker with Arrow
+
+Arrow is compatible with a huge number of combinations of OSs, OS versions, 
+compilers, R versions, and other variables.  Sometimes these combinations of 
+variables means that behaviours are found in some environments which cannot be 
+replicated in others.  In addition, there are different ways of building Arrow, 
+for example, using environment variables to specify the building of optional 
+components.
+
+What all this means is that you may need to use a different setup to the one in 
+which you are working, when diagnosing a bug or testing out a new feature which 
+you have reason to believe may be affected by these variables.  One way to do 
+this is so spin up a Docker image containing the desired setup.
+
+This article provides a basic guide to using Docker in your R development.
+
+## How do I run a Docker container?
+
+There are a number of images which have been created for the convenience of 
+Arrow devs and you can find them on [the DockerHub repo](https://hub.docker.com/r/apache/arrow-dev/tags).
+
+The code below shows an example command you could use to run a Docker container.
+
+```shell
+docker run -it -e ARROW_DEPENDENCY_SOURCE=AUTO -v $(pwd):/arrow apache/arrow-dev:r-rhub-ubuntu-gcc-release-latest
+```
+
+Components:
+
+* `docker run` - command to run the container
+* `-it` - run with an interactive terminal so you can run commands on the containers
+* `-e ARROW_DEPENDENCY_SOURCE=AUTO` - set the environment variable `ARROW_DEPENDENCY_SOURCE` to the value `AUTO`
+* `-v $(pwd):/arrow` - mount the current directory at `/arrow` in the container
+* `apache/arrow-dev` - the DockerHub repo to get this container from
+* `r-rhub-ubuntu-gcc-release-latest` - the image tag
+
+Once you run this command, if you don't have a copy of that particular image 
+saved locally, it will first be downloaded before a container is spun up.
+
+In the example above, mounting the directory in which the Arrow repo was stored 
+on the local machine, meant that that code could be built and tested on the 
+container.
+
+## How do I exit this image?
+
+On Linux, press Ctrl+D.
+
+## How do I show all images saved?
+
+```shell
+docker images
+```
+
+## How do I show all running containers?
+
+```shell
+sudo docker ps
+```
+
+## How do I show all containers?
+
+```shell
+sudo docker ps -a
+```
+
+## Using Archery
+
+Alternatively, you may prefer to use the [Archery tool to run docker images](https://arrow.apache.org/docs/developers/docker.html).
+This has the advantage of making it simpler to build some of the existing Arrow 
+CI jobs which have hierarchical dependencies, and so for example, you could 
+build the R package on a container which already has the C++ code pre-built.
