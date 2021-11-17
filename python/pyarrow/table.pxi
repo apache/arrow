@@ -2192,56 +2192,21 @@ cdef class Table(_PandasConvertible):
 
         return table
 
-    def group_by(self, keys, columns, aggregations):
-        """
-        Perform a group by aggregation over the columns of the table.
+    def group_by(self, keys):
+        """Declare a grouping over the columns of the table.
+
+        resulting grouping can then be used to perform aggregations.
 
         Parameters
         ----------
         keys : str or list[str]
             Name of the columns that should be used as the grouping key.
-        columns : list of str
-            Names of the columns that contain values for the aggregations.
-        aggregations : str or list[str] or list of tuple(str, FunctionOptions)
-            Name of the hash aggregation function, or list of aggregation
-            function names or list of aggregation function names together
-            with their options.
 
         Returns
         -------
-        Table
-            Results of the aggregation functions.
+        TableGroupBy
         """
-        if isinstance(aggregations, str):
-            aggregations = [aggregations]
-
-        if isinstance(keys, str):
-            keys = [keys]
-
-        aggrs = []
-        for aggr in aggregations:
-            if isinstance(aggr, str):
-                aggr = (aggr, None)
-            if not aggr[0].startswith("hash_"):
-                aggr = ("hash_" + aggr[0], aggr[1])
-            aggrs.append(aggr)
-
-        # Build unique names for aggregation result columns
-        # so that it's obvious what they refer to.
-        column_names = []
-        for value_name, (aggr_name, _) in zip(columns, aggrs):
-            column_names.append(aggr_name.replace("hash", value_name))
-        for key_name in keys:
-            column_names.append(key_name)
-
-        result = _pc()._group_by(
-            [self[c] for c in columns],
-            [self[k] for k in keys],
-            aggrs
-        )
-
-        t = Table.from_batches([RecordBatch.from_struct_array(result)])
-        return t.rename_columns(column_names)
+        return TableGroupBy(self, keys)
 
     def sort_by(self, sorting):
         """
@@ -2464,3 +2429,59 @@ def _from_pydict(cls, mapping, schema, metadata):
         return cls.from_arrays(arrays, schema=schema, metadata=metadata)
     else:
         raise TypeError('Schema must be an instance of pyarrow.Schema')
+
+
+class TableGroupBy:
+    def __init__(self, table, keys):
+        if isinstance(keys, str):
+            keys = [keys]
+
+        self._table = table
+        self.keys = keys
+
+    def aggregate(self, aggregations):
+        """
+        Perform an aggregation over the grouped columns of the table.
+
+        Parameters
+        ----------
+        aggregations : list[tuple(str, str)] or
+                       list[tuple(str, str, FunctionOptions)]
+            List of tuples made of aggregation functions names followed
+            by column names and optionally aggregation function options.
+
+        Returns
+        -------
+        Table
+            Results of the aggregation functions.
+        """
+        columns = [a[1] for a in aggregations]
+        aggrfuncs = [
+            (a[0], a[2]) if len(a) > 2 else (a[0], None)
+            for a in aggregations
+        ]
+
+        group_by_aggrs = []
+        for aggr in aggrfuncs:
+            if isinstance(aggr, str):
+                aggr = (aggr, None)
+            if not aggr[0].startswith("hash_"):
+                aggr = ("hash_" + aggr[0], aggr[1])
+            group_by_aggrs.append(aggr)
+
+        # Build unique names for aggregation result columns
+        # so that it's obvious what they refer to.
+        column_names = []
+        for value_name, (aggr_name, _) in zip(columns, group_by_aggrs):
+            column_names.append(aggr_name.replace("hash", value_name))
+        for key_name in self.keys:
+            column_names.append(key_name)
+
+        result = _pc()._group_by(
+            [self._table[c] for c in columns],
+            [self._table[k] for k in self.keys],
+            group_by_aggrs
+        )
+
+        t = Table.from_batches([RecordBatch.from_struct_array(result)])
+        return t.rename_columns(column_names)

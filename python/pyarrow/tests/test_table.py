@@ -1772,14 +1772,18 @@ def test_table_group_by():
         pa.array([10, 20, 30, 40, 50])
     ], names=["keys", "keys2", "values", "bigvalues"])
 
-    r = table.group_by("keys", ["values"], "hash_sum")
+    r = table.group_by("keys").aggregate([
+        ("hash_sum", "values")
+    ])
     assert sorted_by_keys(r.to_pydict()) == {
         "keys": ["a", "b", "c"],
         "values_sum": [3, 7, 5]
     }
 
-    r = table.group_by("keys", ["values", "values"], [
-                       "hash_sum", "hash_count"])
+    r = table.group_by("keys").aggregate([
+        ("hash_sum", "values"),
+        ("hash_count", "values")
+    ])
     assert sorted_by_keys(r.to_pydict()) == {
         "keys": ["a", "b", "c"],
         "values_sum": [3, 7, 5],
@@ -1787,27 +1791,37 @@ def test_table_group_by():
     }
 
     # Test without hash_ prefix
-    r = table.group_by("keys", ["values"], "sum")
+    r = table.group_by("keys").aggregate([
+        ("sum", "values")
+    ])
     assert sorted_by_keys(r.to_pydict()) == {
         "keys": ["a", "b", "c"],
         "values_sum": [3, 7, 5]
     }
 
-    r = table.group_by("keys", ["values", "bigvalues"], ["max", "sum"])
+    r = table.group_by("keys").aggregate([
+        ("max", "values"),
+        ("sum", "bigvalues")
+    ])
     assert sorted_by_keys(r.to_pydict()) == {
         "keys": ["a", "b", "c"],
         "values_max": [2, 4, 5],
         "bigvalues_sum": [30, 70, 50]
     }
 
-    r = table.group_by("keys", ["bigvalues", "values"], ["max", "sum"])
+    r = table.group_by("keys").aggregate([
+        ("max", "bigvalues"),
+        ("sum", "values")
+    ])
     assert sorted_by_keys(r.to_pydict()) == {
         "keys": ["a", "b", "c"],
         "values_sum": [3, 7, 5],
         "bigvalues_max": [20, 40, 50]
     }
 
-    r = table.group_by(["keys", "keys2"], ["values"], ["sum"])
+    r = table.group_by(["keys", "keys2"]).aggregate([
+        ("sum", "values")
+    ])
     assert sorted_by_keys(r.to_pydict()) == {
         "keys": ["a", "b", "b", "c"],
         "keys2": ["X", "Y", "Z", "Z"],
