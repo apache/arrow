@@ -1144,10 +1144,10 @@ tasks:
 
 {% for r_org, r_image, r_tag in [("rhub", "ubuntu-gcc-release", "latest"),
                                  ("rocker", "r-base", "latest"),
-                                 ("rstudio", "r-base", "3.6-bionic"),
-                                 ("rstudio", "r-base", "3.6-centos8"),
-                                 ("rstudio", "r-base", "3.6-opensuse15"),
-                                 ("rstudio", "r-base", "3.6-opensuse42")] %}
+                                 ("rstudio", "r-base", "4.1-focal"),
+                                 ("rstudio", "r-base", "4.1-centos8"),
+                                 ("rstudio", "r-base", "4.1-opensuse15"),
+                                 ("rstudio", "r-base", "4.1-opensuse42")] %}
   test-r-{{ r_org }}-{{ r_image }}-{{ r_tag }}:
     ci: azure
     template: r/azure.linux.yml
@@ -1193,13 +1193,13 @@ tasks:
       flags: '-e ARROW_SOURCE_HOME="/arrow" -e FORCE_BUNDLED_BUILD=TRUE -e LIBARROW_BUILD=TRUE -e ARROW_S3=OFF'
       image: ubuntu-r-only-r
 
-  test-r-rstudio-r-base-3.6-centos7-devtoolset-8:
+  test-r-rstudio-r-base-4.1-centos7-devtoolset-8:
     ci: azure
     template: r/azure.linux.yml
     params:
       r_org: rstudio
       r_image: r-base
-      r_tag: 3.6-centos7
+      r_tag: 4.1-centos7
       devtoolset_version: 8
 
   test-r-minimal-build:

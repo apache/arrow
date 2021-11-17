@@ -20,7 +20,7 @@ import (
 	"crypto/rand"
 	"unicode/utf8"
 
-	format "github.com/apache/arrow/go/parquet/internal/gen-go/parquet"
+	format "github.com/apache/arrow/go/v7/parquet/internal/gen-go/parquet"
 )
 
 // Constants that will be used as the default values with encryption/decryption

@@ -72,6 +72,10 @@ navbar:
           href: articles/flight.html
         - text: Arrow R Developer Guide
           href: articles/developing.html
+        - text: Developers
+          menu:
+          - text: Debugging
+            href: articles/developers/debugging.html
 reference:
   - title: Multi-file datasets
     contents:

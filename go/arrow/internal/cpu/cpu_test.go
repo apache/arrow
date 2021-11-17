@@ -8,7 +8,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/apache/arrow/go/arrow/internal/cpu"
+	"github.com/apache/arrow/go/v7/arrow/internal/cpu"
 )
 
 func TestAMD64minimalFeatures(t *testing.T) {
