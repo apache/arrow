@@ -2474,11 +2474,10 @@ class TableGroupBy:
 
         # Build unique names for aggregation result columns
         # so that it's obvious what they refer to.
-        column_names = []
-        for value_name, (aggr_name, _) in zip(columns, group_by_aggrs):
-            column_names.append(aggr_name.replace("hash", value_name))
-        for key_name in self.keys:
-            column_names.append(key_name)
+        column_names = [
+            aggr_name.replace("hash", col_name)
+            for col_name, (aggr_name, _) in zip(columns, group_by_aggrs)
+        ] + self.keys
 
         result = _pc()._group_by(
             [self._table[c] for c in columns],
