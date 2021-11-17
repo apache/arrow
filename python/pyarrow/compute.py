@@ -185,16 +185,16 @@ def _make_generic_wrapper(func_name, func, option_class, arity):
         def wrapper(*args, memory_pool=None):
             if arity is not Ellipsis and len(args) != arity:
                 raise TypeError(
-                    "{} takes {} positional argument(s), but {} were "
-                    "given".format(func_name, arity, len(args))
+                    f"{func_name} takes {arity} positional argument(s), "
+                    "but {len(args)} were given"
                 )
             return func.call(args, None, memory_pool)
     else:
         def wrapper(*args, memory_pool=None, options=None, **kwargs):
             if arity is not Ellipsis and len(args) != arity:
                 raise TypeError(
-                    "{} takes {} positional argument(s), but {} were "
-                    "given".format(func_name, arity, len(args))
+                    f"{func_name} takes {arity} positional argument(s), "
+                    "but {len(args)} were given"
                 )
             options = _handle_options(func_name, option_class, options,
                                       kwargs)
