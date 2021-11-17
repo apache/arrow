@@ -85,8 +85,6 @@ def test_exported_functions():
     functions = exported_functions
     assert len(functions) >= 10
     for func in functions:
-        if func in (pc.index_in_meta_binary, pc.is_in_meta_binary):
-            continue
         arity = func.__arrow_compute_function__['arity']
         if arity is Ellipsis:
             args = [object()] * 3

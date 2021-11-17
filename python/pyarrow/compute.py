@@ -183,7 +183,7 @@ def _handle_options(name, option_class, options, kwargs):
 def _make_generic_wrapper(func_name, func, option_class, arity):
     if option_class is None:
         def wrapper(*args, memory_pool=None):
-            if arity is not None and len(args) != arity:
+            if arity is not Ellipsis and len(args) != arity:
                 raise TypeError(
                     "{} takes {} positional argument(s), but {} were "
                     "given".format(func_name, arity, len(args))
@@ -191,7 +191,7 @@ def _make_generic_wrapper(func_name, func, option_class, arity):
             return func.call(args, None, memory_pool)
     else:
         def wrapper(*args, memory_pool=None, options=None, **kwargs):
-            if arity is not None and len(args) != arity:
+            if arity is not Ellipsis and len(args) != arity:
                 raise TypeError(
                     "{} takes {} positional argument(s), but {} were "
                     "given".format(func_name, arity, len(args))
@@ -230,9 +230,8 @@ def _wrap_function(name, func):
         var_arg_names = [arg_names.pop().lstrip('*')]
     else:
         var_arg_names = []
-    arity = None if var_arg_names else len(arg_names)
 
-    wrapper = _make_generic_wrapper(name, func, option_class, arity=arity)
+    wrapper = _make_generic_wrapper(name, func, option_class, arity=func.arity)
     wrapper.__signature__ = _make_signature(arg_names, var_arg_names,
                                             option_class)
     return _decorate_compute_function(wrapper, name, func, option_class)
