@@ -13,6 +13,7 @@ knitr::opts_chunk$set(error = TRUE, eval = FALSE)
 run <- tolower(Sys.getenv("RUN_DEVDOCS", "false")) == "true"
 macos <- tolower(Sys.getenv("DEVDOCS_MACOS", "false")) == "true"
 ubuntu <- tolower(Sys.getenv("DEVDOCS_UBUNTU", "false")) == "true"
+windows <- tolower(Sys.getenv("DEVDOCS_WINDOWS", "false")) == "true"
 sys_install <- tolower(Sys.getenv("DEVDOCS_SYSTEM_INSTALL", "false")) == "true"
 # Update the source knit_hook to save the chunk (if it is marked to be saved)
 knit_hooks_source <- knitr::knit_hooks$get("source")
@@ -36,6 +37,12 @@ knitr::knit_hooks$set(source = function(x, options) {
 # Stop on failure, echo input as we go
 set -e
 set -x
+```
+
+
+```{bash, save=run & windows, hide=TRUE}
+# For some reason CRAN Mirror goes missing in CI
+echo 'options(repos=structure(c(CRAN="https://cloud.r-project.org")))' > $HOME/.Rprofile
 ```
 
 If you're looking to contribute to arrow, this vignette can help you set up a development environment that will enable you to write code and run tests locally. It outlines:
@@ -122,7 +129,41 @@ brew install cmake openssl
 
 #### Windows
 
-Currently, the R package cannot be made to work with a local libarrow build. This will be resolved in a future release.
+The package can be built on Windows using [RTools 4](https://cran.r-project.org/bin/windows/Rtools/). It can be built for mingw32 (i386), mingw64 (x64), or ucrt64 (UCRT x64). mingw64 is the recommended 64-bit installation.
+
+Open the corresponding RTools Bash, for example "Rtools MinGW 64-bit" for mingw64.
+
+Install CMake and Ninja with:
+
+```{bash, save=run & windows}
+pacman --sync --refresh --noconfirm \
+  ${MINGW_PACKAGE_PREFIX}-cmake \
+  ${MINGW_PACKAGE_PREFIX}-ninja \
+  ${MINGW_PACKAGE_PREFIX}-openssl
+export CMAKE_GENERATOR=Ninja
+```
+
+You will need to add R to your path. For a user-level installation, R will be at something like `~/Documents/R/R-4.1.2/bin`. For a global installation, R will be at something like `/c/Program\ Files/R/R-4.1.2/bin`. The R on your path needs to match the architecture you are compiling for, so if you are compiling on 32-bit specify `.../bin/i386` instead of `.../bin/x64`.
+
+```{bash}
+export PATH=~/Documents/R/R-4.1.2/bin/x64:$PATH
+```
+
+You can install additional dependencies like so. Note that you are limited to the packages in [the RTools repo](https://github.com/r-windows/rtools-packages), which does not contain every dependency used by Arrow.
+
+```{bash}
+pacman --sync --refresh --noconfirm \
+  ${MINGW_PACKAGE_PREFIX}-boost \
+  ${MINGW_PACKAGE_PREFIX}-lz4 \
+  ${MINGW_PACKAGE_PREFIX}-protobuf \
+  ${MINGW_PACKAGE_PREFIX}-snappy \
+  ${MINGW_PACKAGE_PREFIX}-thrift \
+  ${MINGW_PACKAGE_PREFIX}-zlib \
+  ${MINGW_PACKAGE_PREFIX}-zstd \
+  ${MINGW_PACKAGE_PREFIX}-aws-sdk-cpp \
+  ${MINGW_PACKAGE_PREFIX}-re2 \
+  ${MINGW_PACKAGE_PREFIX}-libutf8proc
+```
 
 ### Step 2 - Configure the libarrow build
 
@@ -142,6 +183,13 @@ export LD_LIBRARY_PATH=$ARROW_HOME/lib:$LD_LIBRARY_PATH
 echo "export LD_LIBRARY_PATH=$ARROW_HOME/lib:$LD_LIBRARY_PATH" >> ~/.bash_profile
 ```
 
+_Special instructions on Windows:_ You will need to add `$ARROW_HOME/bin` to your `PATH` if you are using dynamic libraries (which is recommended).
+
+```{bash, save=run & windows}
+export PATH=$ARROW_HOME/bin:$PATH
+echo "export PATH=\"$ARROW_HOME/bin:$PATH\"" >> ~/.bash_profile
+```
+
 Start by navigating in a terminal to the `arrow` repository. You will need to create a directory into which the C++ build will put its contents. We recommend that you make a `build` directory inside of the `cpp` directory of the Arrow git repository (it is git-ignored, so you won't accidentally check it in). Next, change directories to be inside `cpp/build`:
 
 ```{bash, save=run & !sys_install}
@@ -152,7 +200,11 @@ pushd cpp/build
 
 You'll first call `cmake` to configure the build and then `make install`. For the R package, you'll need to enable several features in libarrow using `-D` flags:
 
-```{bash, save=run & !sys_install}
+#### {.tabset}
+
+##### Linux / Mac OS
+
+```{bash, save=run & !sys_install & !windows}
 cmake \
   -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
   -DCMAKE_INSTALL_LIBDIR=lib \
@@ -170,7 +222,37 @@ cmake \
   ..
 ```
 
+##### Windows
+
+```{bash, save=run & !sys_install & windows}
+cmake \
+  -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
+  -DCMAKE_INSTALL_LIBDIR=lib \
+  -DARROW_COMPUTE=ON \
+  -DARROW_CSV=ON \
+  -DARROW_DATASET=ON \
+  -DARROW_EXTRA_ERROR_CONTEXT=ON \
+  -DARROW_FILESYSTEM=ON \
+  -DARROW_INSTALL_NAME_RPATH=OFF \
+  -DARROW_JSON=OFF \
+  -DARROW_PARQUET=ON \
+  -DARROW_WITH_LZ4=OFF \
+  -DARROW_WITH_SNAPPY=OFF \
+  -DARROW_WITH_ZLIB=ON \
+  -DARROW_MIMALLOC=OFF \
+  -DARROW_S3=OFF \
+  -DARROW_WITH_BROTLI=ON \
+  -DARROW_WITH_BZ2=ON \
+  -DARROW_WITH_SNAPPY=ON \
+  -DARROW_WITH_ZSTD=ON \
+  ..
+```
+
+#### {-}
+
 `..` refers to the C++ source directory: you're in `cpp/build` and the source is in `cpp`.
+
+**For Windows**: some options, including `-DARROW_JEMALLOC`, are not supported on Windows. 
 
 #### Enabling more Arrow features
 
@@ -192,14 +274,16 @@ Other flags that may be useful:
 
 * `-DCMAKE_BUILD_TYPE=debug` or `-DCMAKE_BUILD_TYPE=relwithdebinfo` can be useful for debugging. You probably don't want to do this generally because a debug build is much slower at runtime than the default `release` build.
 
+* `-DARROW_BUILD_STATIC=ON` and `-DARROW_BUILD_SHARED=OFF` if you want to use static libraries instead of dynamic libraries. With static libraries there isn't a risk of the R package linking to the wrong library, but it does mean if you change the C++ code you have to recompile both the C++ libraries and the R package. Compilers typically will link to static libraries only if the dynamic ones are not present, which is why we need to set `-DARROW_BUILD_SHARED=OFF`. If you are switching after compiling and installing previously, you may need to remove the `.dll` or `.so` files from `$ARROW_HOME/dist/bin`.
+
 _Note_ `cmake` is particularly sensitive to whitespacing, if you see errors, check that you don't have any errant whitespace.
 
 ### Step 3 - Building libarrow
 
-You can add `-j#` between `make` and `install` here too to speed up compilation by running in parallel (where `#` is the number of cores you have available).
+You can add `-j#` at the end of the command here too to speed up compilation by running in parallel (where `#` is the number of cores you have available).
 
 ```{bash, save=run & !(sys_install & ubuntu)}
-make -j8 install
+cmake --build . --target install -j8
 ```
 
 ### Step 4 - Build the Arrow R package
@@ -211,9 +295,11 @@ checkout:
 ```{bash, save=run}
 popd # To go back to the root directory of the project, from cpp/build
 pushd r
-R -e 'install.packages("remotes"); remotes::install_deps(dependencies = TRUE)'
-R CMD INSTALL .
+R -e "install.packages('remotes'); remotes::install_deps(dependencies = TRUE)"
+R CMD INSTALL --no-multiarch .
 ```
+
+The `--no-multiarch` flag makes it only compile on the "main" architecture. This will compile for the architecture that the R in your path corresponds to. If you compile on one architecture and then switch to another, make sure to pass the `--preclean` flag so that the R package code is recompiled for the new architecture. Otherwise, you may see errors like `LoadLibrary failure: %1 is not a valid Win32 application`.
 
 #### Compilation flags
 
