@@ -165,6 +165,17 @@ static void BenchmarkBitmapAnd(benchmark::State& state) {
   });
 }
 
+static void BenchmarkBitmapAndWithPopCount(benchmark::State& state) {
+  BenchmarkAndImpl(state, [](const internal::Bitmap(&bitmaps)[2], internal::Bitmap* out) {
+    int64_t validity_count = 0;
+    internal::BitmapAnd(bitmaps[0].buffer()->data(), bitmaps[0].offset(),
+                        bitmaps[1].buffer()->data(), bitmaps[1].offset(),
+                        bitmaps[0].length(), 0, out->buffer()->mutable_data(),
+                        &validity_count);
+    benchmark::DoNotOptimize(validity_count);
+  });
+}
+
 static void BenchmarkBitmapVisitBitsetAnd(benchmark::State& state) {
   BenchmarkAndImpl(state, [](const internal::Bitmap(&bitmaps)[2], internal::Bitmap* out) {
     int64_t i = 0;
@@ -552,6 +563,7 @@ BENCHMARK(BitmapEqualsWithOffset)->Arg(kBufferSize);
     {kBufferSize * 4, kBufferSize * 16}, { 0, 2 } \
   }
 BENCHMARK(BenchmarkBitmapAnd)->Ranges(AND_BENCHMARK_RANGES);
+BENCHMARK(BenchmarkBitmapAndWithPopCount)->Ranges(AND_BENCHMARK_RANGES);
 BENCHMARK(BenchmarkBitmapVisitBitsetAnd)->Ranges(AND_BENCHMARK_RANGES);
 BENCHMARK(BenchmarkBitmapVisitUInt8And)->Ranges(AND_BENCHMARK_RANGES);
 BENCHMARK(BenchmarkBitmapVisitUInt64And)->Ranges(AND_BENCHMARK_RANGES);

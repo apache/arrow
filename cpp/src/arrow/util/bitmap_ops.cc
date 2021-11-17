@@ -255,19 +255,22 @@ void AlignedBitmapOp(const uint8_t* left, int64_t left_offset, const uint8_t* ri
 }
 
 template <template <typename> class BitOp>
-void UnalignedBitmapOp(const uint8_t* left, int64_t left_offset, const uint8_t* right,
-                       int64_t right_offset, uint8_t* out, int64_t out_offset,
-                       int64_t length) {
+int64_t UnalignedBitmapOp(const uint8_t* left, int64_t left_offset, const uint8_t* right,
+                          int64_t right_offset, uint8_t* out, int64_t out_offset,
+                          int64_t length) {
   BitOp<uint64_t> op_word;
   BitOp<uint8_t> op_byte;
 
+  uint64_t out_pop_count = 0;
   auto left_reader = internal::BitmapWordReader<uint64_t>(left, left_offset, length);
   auto right_reader = internal::BitmapWordReader<uint64_t>(right, right_offset, length);
   auto writer = internal::BitmapWordWriter<uint64_t>(out, out_offset, length);
 
   auto nwords = left_reader.words();
   while (nwords--) {
-    writer.PutNextWord(op_word(left_reader.NextWord(), right_reader.NextWord()));
+    auto outWord = op_word(left_reader.NextWord(), right_reader.NextWord());
+    out_pop_count += BitUtil::PopCount(outWord);
+    writer.PutNextWord(outWord);
   }
   auto nbytes = left_reader.trailing_bytes();
   while (nbytes--) {
@@ -275,21 +278,32 @@ void UnalignedBitmapOp(const uint8_t* left, int64_t left_offset, const uint8_t* 
     uint8_t left_byte = left_reader.NextTrailingByte(left_valid_bits);
     uint8_t right_byte = right_reader.NextTrailingByte(right_valid_bits);
     DCHECK_EQ(left_valid_bits, right_valid_bits);
-    writer.PutNextTrailingByte(op_byte(left_byte, right_byte), left_valid_bits);
+    auto out_byte = op_byte(left_byte, right_byte);
+    out_pop_count += BitUtil::kBytePopcount[out_byte];
+    writer.PutNextTrailingByte(out_byte, left_valid_bits);
   }
+  return out_pop_count;
 }
 
 template <template <typename> class BitOp>
 void BitmapOp(const uint8_t* left, int64_t left_offset, const uint8_t* right,
-              int64_t right_offset, int64_t length, int64_t out_offset, uint8_t* dest) {
+              int64_t right_offset, int64_t length, int64_t out_offset, uint8_t* dest,
+              int64_t* out_validity_count) {
   if ((out_offset % 8 == left_offset % 8) && (out_offset % 8 == right_offset % 8)) {
-    // Fast case: can use bytewise AND
     AlignedBitmapOp<BitOp>(left, left_offset, right, right_offset, dest, out_offset,
                            length);
+    if (out_validity_count) {
+      *out_validity_count = CountSetBits(dest, out_offset, length);
+    }
   } else {
     // Unaligned
-    UnalignedBitmapOp<BitOp>(left, left_offset, right, right_offset, dest, out_offset,
-                             length);
+    if (out_validity_count) {
+      *out_validity_count = UnalignedBitmapOp<BitOp>(
+          left, left_offset, right, right_offset, dest, out_offset, length);
+    } else {
+      UnalignedBitmapOp<BitOp>(left, left_offset, right, right_offset, dest, out_offset,
+                               length);
+    }
   }
 }
 
@@ -297,11 +311,12 @@ template <template <typename> class BitOp>
 Result<std::shared_ptr<Buffer>> BitmapOp(MemoryPool* pool, const uint8_t* left,
                                          int64_t left_offset, const uint8_t* right,
                                          int64_t right_offset, int64_t length,
-                                         int64_t out_offset) {
+                                         int64_t out_offset,
+                                         int64_t* out_validity_count) {
   const int64_t phys_bits = length + out_offset;
   ARROW_ASSIGN_OR_RAISE(auto out_buffer, AllocateEmptyBitmap(phys_bits, pool));
   BitmapOp<BitOp>(left, left_offset, right, right_offset, length, out_offset,
-                  out_buffer->mutable_data());
+                  out_buffer->mutable_data(), out_validity_count);
   return out_buffer;
 }
 
@@ -310,40 +325,49 @@ Result<std::shared_ptr<Buffer>> BitmapOp(MemoryPool* pool, const uint8_t* left,
 Result<std::shared_ptr<Buffer>> BitmapAnd(MemoryPool* pool, const uint8_t* left,
                                           int64_t left_offset, const uint8_t* right,
                                           int64_t right_offset, int64_t length,
-                                          int64_t out_offset) {
+                                          int64_t out_offset,
+                                          int64_t* out_validity_count) {
   return BitmapOp<std::bit_and>(pool, left, left_offset, right, right_offset, length,
-                                out_offset);
+                                out_offset, out_validity_count);
 }
 
 void BitmapAnd(const uint8_t* left, int64_t left_offset, const uint8_t* right,
-               int64_t right_offset, int64_t length, int64_t out_offset, uint8_t* out) {
-  BitmapOp<std::bit_and>(left, left_offset, right, right_offset, length, out_offset, out);
+               int64_t right_offset, int64_t length, int64_t out_offset, uint8_t* out,
+               int64_t* out_validity_count) {
+  BitmapOp<std::bit_and>(left, left_offset, right, right_offset, length, out_offset, out,
+                         out_validity_count);
 }
 
 Result<std::shared_ptr<Buffer>> BitmapOr(MemoryPool* pool, const uint8_t* left,
                                          int64_t left_offset, const uint8_t* right,
                                          int64_t right_offset, int64_t length,
-                                         int64_t out_offset) {
+                                         int64_t out_offset,
+                                         int64_t* out_validity_count) {
   return BitmapOp<std::bit_or>(pool, left, left_offset, right, right_offset, length,
-                               out_offset);
+                               out_offset, out_validity_count);
 }
 
 void BitmapOr(const uint8_t* left, int64_t left_offset, const uint8_t* right,
-              int64_t right_offset, int64_t length, int64_t out_offset, uint8_t* out) {
-  BitmapOp<std::bit_or>(left, left_offset, right, right_offset, length, out_offset, out);
+              int64_t right_offset, int64_t length, int64_t out_offset, uint8_t* out,
+              int64_t* out_validity_count) {
+  BitmapOp<std::bit_or>(left, left_offset, right, right_offset, length, out_offset, out,
+                        out_validity_count);
 }
 
 Result<std::shared_ptr<Buffer>> BitmapXor(MemoryPool* pool, const uint8_t* left,
                                           int64_t left_offset, const uint8_t* right,
                                           int64_t right_offset, int64_t length,
-                                          int64_t out_offset) {
+                                          int64_t out_offset,
+                                          int64_t* out_validity_count) {
   return BitmapOp<std::bit_xor>(pool, left, left_offset, right, right_offset, length,
-                                out_offset);
+                                out_offset, out_validity_count);
 }
 
 void BitmapXor(const uint8_t* left, int64_t left_offset, const uint8_t* right,
-               int64_t right_offset, int64_t length, int64_t out_offset, uint8_t* out) {
-  BitmapOp<std::bit_xor>(left, left_offset, right, right_offset, length, out_offset, out);
+               int64_t right_offset, int64_t length, int64_t out_offset, uint8_t* out,
+               int64_t* out_validity_count) {
+  BitmapOp<std::bit_xor>(left, left_offset, right, right_offset, length, out_offset, out,
+                         out_validity_count);
 }
 
 template <typename T>
@@ -354,15 +378,17 @@ struct AndNotOp {
 Result<std::shared_ptr<Buffer>> BitmapAndNot(MemoryPool* pool, const uint8_t* left,
                                              int64_t left_offset, const uint8_t* right,
                                              int64_t right_offset, int64_t length,
-                                             int64_t out_offset) {
+                                             int64_t out_offset,
+                                             int64_t* out_validity_count) {
   return BitmapOp<AndNotOp>(pool, left, left_offset, right, right_offset, length,
-                            out_offset);
+                            out_offset, out_validity_count);
 }
 
 void BitmapAndNot(const uint8_t* left, int64_t left_offset, const uint8_t* right,
-                  int64_t right_offset, int64_t length, int64_t out_offset,
-                  uint8_t* out) {
-  BitmapOp<AndNotOp>(left, left_offset, right, right_offset, length, out_offset, out);
+                  int64_t right_offset, int64_t length, int64_t out_offset, uint8_t* out,
+                  int64_t* out_validity_count) {
+  BitmapOp<AndNotOp>(left, left_offset, right, right_offset, length, out_offset, out,
+                     out_validity_count);
 }
 
 template <typename T>
@@ -373,14 +399,17 @@ struct OrNotOp {
 Result<std::shared_ptr<Buffer>> BitmapOrNot(MemoryPool* pool, const uint8_t* left,
                                             int64_t left_offset, const uint8_t* right,
                                             int64_t right_offset, int64_t length,
-                                            int64_t out_offset) {
+                                            int64_t out_offset,
+                                            int64_t* out_validity_count) {
   return BitmapOp<OrNotOp>(pool, left, left_offset, right, right_offset, length,
-                           out_offset);
+                           out_offset, out_validity_count);
 }
 
 void BitmapOrNot(const uint8_t* left, int64_t left_offset, const uint8_t* right,
-                 int64_t right_offset, int64_t length, int64_t out_offset, uint8_t* out) {
-  BitmapOp<OrNotOp>(left, left_offset, right, right_offset, length, out_offset, out);
+                 int64_t right_offset, int64_t length, int64_t out_offset, uint8_t* out,
+                 int64_t* out_validity_count) {
+  BitmapOp<OrNotOp>(left, left_offset, right, right_offset, length, out_offset, out,
+                    out_validity_count);
 }
 
 }  // namespace internal

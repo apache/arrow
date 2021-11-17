@@ -1263,11 +1263,12 @@ struct BitmapOperation {
   virtual Result<std::shared_ptr<Buffer>> Call(MemoryPool* pool, const uint8_t* left,
                                                int64_t left_offset, const uint8_t* right,
                                                int64_t right_offset, int64_t length,
-                                               int64_t out_offset) const = 0;
+                                               int64_t out_offset,
+                                               int64_t* validity_count) const = 0;
 
   virtual Status Call(const uint8_t* left, int64_t left_offset, const uint8_t* right,
                       int64_t right_offset, int64_t length, int64_t out_offset,
-                      uint8_t* out_buffer) const = 0;
+                      uint8_t* out_buffer, int64_t* validity_count) const = 0;
 
   virtual ~BitmapOperation() = default;
 };
@@ -1276,14 +1277,17 @@ struct BitmapAndOp : public BitmapOperation {
   Result<std::shared_ptr<Buffer>> Call(MemoryPool* pool, const uint8_t* left,
                                        int64_t left_offset, const uint8_t* right,
                                        int64_t right_offset, int64_t length,
-                                       int64_t out_offset) const override {
-    return BitmapAnd(pool, left, left_offset, right, right_offset, length, out_offset);
+                                       int64_t out_offset,
+                                       int64_t* validity_count) const override {
+    return BitmapAnd(pool, left, left_offset, right, right_offset, length, out_offset,
+                     validity_count);
   }
 
   Status Call(const uint8_t* left, int64_t left_offset, const uint8_t* right,
               int64_t right_offset, int64_t length, int64_t out_offset,
-              uint8_t* out_buffer) const override {
-    BitmapAnd(left, left_offset, right, right_offset, length, out_offset, out_buffer);
+              uint8_t* out_buffer, int64_t* validity_count) const override {
+    BitmapAnd(left, left_offset, right, right_offset, length, out_offset, out_buffer,
+              validity_count);
     return Status::OK();
   }
 };
@@ -1292,14 +1296,17 @@ struct BitmapOrOp : public BitmapOperation {
   Result<std::shared_ptr<Buffer>> Call(MemoryPool* pool, const uint8_t* left,
                                        int64_t left_offset, const uint8_t* right,
                                        int64_t right_offset, int64_t length,
-                                       int64_t out_offset) const override {
-    return BitmapOr(pool, left, left_offset, right, right_offset, length, out_offset);
+                                       int64_t out_offset,
+                                       int64_t* validity_count) const override {
+    return BitmapOr(pool, left, left_offset, right, right_offset, length, out_offset,
+                    validity_count);
   }
 
   Status Call(const uint8_t* left, int64_t left_offset, const uint8_t* right,
               int64_t right_offset, int64_t length, int64_t out_offset,
-              uint8_t* out_buffer) const override {
-    BitmapOr(left, left_offset, right, right_offset, length, out_offset, out_buffer);
+              uint8_t* out_buffer, int64_t* validity_count) const override {
+    BitmapOr(left, left_offset, right, right_offset, length, out_offset, out_buffer,
+             validity_count);
     return Status::OK();
   }
 };
@@ -1308,14 +1315,17 @@ struct BitmapXorOp : public BitmapOperation {
   Result<std::shared_ptr<Buffer>> Call(MemoryPool* pool, const uint8_t* left,
                                        int64_t left_offset, const uint8_t* right,
                                        int64_t right_offset, int64_t length,
-                                       int64_t out_offset) const override {
-    return BitmapXor(pool, left, left_offset, right, right_offset, length, out_offset);
+                                       int64_t out_offset,
+                                       int64_t* validity_count) const override {
+    return BitmapXor(pool, left, left_offset, right, right_offset, length, out_offset,
+                     validity_count);
   }
 
   Status Call(const uint8_t* left, int64_t left_offset, const uint8_t* right,
               int64_t right_offset, int64_t length, int64_t out_offset,
-              uint8_t* out_buffer) const override {
-    BitmapXor(left, left_offset, right, right_offset, length, out_offset, out_buffer);
+              uint8_t* out_buffer, int64_t* validity_count) const override {
+    BitmapXor(left, left_offset, right, right_offset, length, out_offset, out_buffer,
+              validity_count);
     return Status::OK();
   }
 };
@@ -1324,17 +1334,31 @@ struct BitmapAndNotOp : public BitmapOperation {
   Result<std::shared_ptr<Buffer>> Call(MemoryPool* pool, const uint8_t* left,
                                        int64_t left_offset, const uint8_t* right,
                                        int64_t right_offset, int64_t length,
-                                       int64_t out_offset) const override {
-    return BitmapAndNot(pool, left, left_offset, right, right_offset, length, out_offset);
+                                       int64_t out_offset,
+                                       int64_t* validity_count) const override {
+    return BitmapAndNot(pool, left, left_offset, right, right_offset, length, out_offset,
+                        validity_count);
   }
 
   Status Call(const uint8_t* left, int64_t left_offset, const uint8_t* right,
               int64_t right_offset, int64_t length, int64_t out_offset,
-              uint8_t* out_buffer) const override {
-    BitmapAndNot(left, left_offset, right, right_offset, length, out_offset, out_buffer);
+              uint8_t* out_buffer, int64_t* validity_count) const override {
+    BitmapAndNot(left, left_offset, right, right_offset, length, out_offset, out_buffer,
+                 validity_count);
     return Status::OK();
   }
 };
+
+static inline int64_t SlowCountBits(const uint8_t* data, int64_t bit_offset,
+                                    int64_t length) {
+  int64_t count = 0;
+  for (int64_t i = bit_offset; i < bit_offset + length; ++i) {
+    if (BitUtil::GetBit(data, i)) {
+      ++count;
+    }
+  }
+  return count;
+}
 
 class BitmapOp : public TestBase {
  public:
@@ -1349,18 +1373,27 @@ class BitmapOp : public TestBase {
       for (int64_t right_offset : {left_offset, left_offset + 8, left_offset + 40}) {
         BitmapFromVector(right_bits, right_offset, &right, &length);
         for (int64_t out_offset : {left_offset, left_offset + 16, left_offset + 24}) {
+          int64_t validity_count1 = 0;
           ASSERT_OK_AND_ASSIGN(
               out, op.Call(default_memory_pool(), left->mutable_data(), left_offset,
-                           right->mutable_data(), right_offset, length, out_offset));
+                           right->mutable_data(), right_offset, length, out_offset,
+                           &validity_count1));
           auto reader = internal::BitmapReader(out->mutable_data(), out_offset, length);
           ASSERT_READER_VALUES(reader, result_bits);
 
           // Clear out buffer and try non-allocating version
           std::memset(out->mutable_data(), 0, out->size());
+          int64_t validity_count2 = 0;
           ASSERT_OK(op.Call(left->mutable_data(), left_offset, right->mutable_data(),
-                            right_offset, length, out_offset, out->mutable_data()));
+                            right_offset, length, out_offset, out->mutable_data(),
+                            &validity_count2));
           reader = internal::BitmapReader(out->mutable_data(), out_offset, length);
           ASSERT_READER_VALUES(reader, result_bits);
+
+          auto expected_validity_count =
+              SlowCountBits(out->mutable_data(), out_offset, length);
+          ASSERT_EQ(validity_count1, expected_validity_count);
+          ASSERT_EQ(validity_count2, expected_validity_count);
         }
       }
     }
@@ -1380,18 +1413,27 @@ class BitmapOp : public TestBase {
         BitmapFromVector(right_bits, right_offset, &right, &length);
 
         for (int64_t out_offset : offset_values) {
+          int64_t validity_count1 = 0;
           ASSERT_OK_AND_ASSIGN(
               out, op.Call(default_memory_pool(), left->mutable_data(), left_offset,
-                           right->mutable_data(), right_offset, length, out_offset));
+                           right->mutable_data(), right_offset, length, out_offset,
+                           &validity_count1));
           auto reader = internal::BitmapReader(out->mutable_data(), out_offset, length);
           ASSERT_READER_VALUES(reader, result_bits);
 
           // Clear out buffer and try non-allocating version
           std::memset(out->mutable_data(), 0, out->size());
+          int64_t validity_count2 = 0;
           ASSERT_OK(op.Call(left->mutable_data(), left_offset, right->mutable_data(),
-                            right_offset, length, out_offset, out->mutable_data()));
+                            right_offset, length, out_offset, out->mutable_data(),
+                            &validity_count2));
           reader = internal::BitmapReader(out->mutable_data(), out_offset, length);
           ASSERT_READER_VALUES(reader, result_bits);
+
+          auto expected_validity_count =
+              SlowCountBits(out->mutable_data(), out_offset, length);
+          ASSERT_EQ(validity_count1, expected_validity_count);
+          ASSERT_EQ(validity_count2, expected_validity_count);
         }
       }
     }
@@ -1463,17 +1505,6 @@ TEST_F(BitmapOp, RandomXor) {
     right.resize(left.size());
     result.resize(left.size());
   }
-}
-
-static inline int64_t SlowCountBits(const uint8_t* data, int64_t bit_offset,
-                                    int64_t length) {
-  int64_t count = 0;
-  for (int64_t i = bit_offset; i < bit_offset + length; ++i) {
-    if (BitUtil::GetBit(data, i)) {
-      ++count;
-    }
-  }
-  return count;
 }
 
 TEST(BitUtilTests, TestCountSetBits) {
