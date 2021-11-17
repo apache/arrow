@@ -32,7 +32,7 @@ For example, one of the NYC taxi data files used in `vignette("dataset", package
 s3://ursa-labs-taxi-data/2019/06/data.parquet
 ```
 
-Given this URI, we can pass it to `read_parquet()` just as if it were a local file path:
+Given this URI, you can pass it to `read_parquet()` just as if it were a local file path:
 
 ```r
 df <- read_parquet("s3://ursa-labs-taxi-data/2019/06/data.parquet")
@@ -54,7 +54,7 @@ This may be convenient when dealing with
 long URIs, and it's necessary for some options and authentication methods
 that aren't supported in the URI format.
 
-With a `FileSystem` object, we can point to specific files in it with the `$path()` method.
+With a `FileSystem` object, you can point to specific files in it with the `$path()` method.
 In the previous example, this would look like:
 
 ```r
