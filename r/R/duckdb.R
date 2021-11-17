@@ -67,8 +67,8 @@ to_duckdb <- function(.data,
 
   if (auto_disconnect) {
     # this will add the correct connection disconnection when the tbl is gced.
-    # we should probably confirm that this use of src$disco is kosher.
-    tbl$src$disco <- duckdb_disconnector(con, table_name)
+    # this is similar to what dbplyr does, though it calls it tbl$src$disco
+    tbl$src$.arrow_finalizer_environment <- duckdb_disconnector(con, table_name)
   }
 
   tbl
