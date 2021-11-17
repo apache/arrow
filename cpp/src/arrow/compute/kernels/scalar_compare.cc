@@ -31,6 +31,10 @@ using util::string_view;
 namespace compute {
 namespace internal {
 
+using applicator::ScalarBinaryEqualTypes;
+using applicator::ScalarTernaryEqualTypes;
+using applicator::ScalarBinary;
+
 namespace {
 
 struct Equal {
@@ -62,6 +66,18 @@ struct GreaterEqual {
   static constexpr T Call(KernelContext*, const Arg0& left, const Arg1& right, Status*) {
     static_assert(std::is_same<T, bool>::value && std::is_same<Arg0, Arg1>::value, "");
     return left >= right;
+  }
+};
+
+struct Between {
+  template <typename T, typename Arg0, typename Arg1, typename Arg2>
+  static constexpr T Call(KernelContext*, const Arg0& middle, const Arg1& left,
+                             const Arg2& right, Status*) {
+    static_assert(std::is_same<T, bool>::value &&
+                  std::is_same<Arg0, Arg1>::value &&
+                  std::is_same<Arg1, Arg2>::value,
+                  "");
+    return (left < middle) && (middle < right);
   }
 };
 
@@ -142,8 +158,8 @@ struct Maximum {
 
 template <typename OutType, typename ArgType, typename Op>
 struct CompareTimestamps
-    : public applicator::ScalarBinaryEqualTypes<OutType, ArgType, Op> {
-  using Base = applicator::ScalarBinaryEqualTypes<OutType, ArgType, Op>;
+    : public ScalarBinaryEqualTypes<OutType, ArgType, Op> {
+  using Base = ScalarBinaryEqualTypes<OutType, ArgType, Op>;
 
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     const auto& lhs = checked_cast<const TimestampType&>(*batch[0].type());
@@ -160,7 +176,7 @@ struct CompareTimestamps
 template <typename Op>
 void AddIntegerCompare(const std::shared_ptr<DataType>& ty, ScalarFunction* func) {
   auto exec =
-      GeneratePhysicalInteger<applicator::ScalarBinaryEqualTypes, BooleanType, Op>(*ty);
+      GeneratePhysicalInteger<ScalarBinaryEqualTypes, BooleanType, Op>(*ty);
   DCHECK_OK(func->AddKernel({ty, ty}, boolean(), std::move(exec)));
 }
 
@@ -168,8 +184,11 @@ template <typename InType, typename Op>
 void AddGenericCompare(const std::shared_ptr<DataType>& ty, ScalarFunction* func) {
   DCHECK_OK(
       func->AddKernel({ty, ty}, boolean(),
-                      applicator::ScalarBinaryEqualTypes<BooleanType, InType, Op>::Exec));
+                      ScalarBinaryEqualTypes<BooleanType, InType, Op>::Exec));
 }
+
+// Cast to appropriate type if needed and examine
+// for missing values
 
 struct CompareFunction : ScalarFunction {
   using ScalarFunction::ScalarFunction;
@@ -200,6 +219,7 @@ struct CompareFunction : ScalarFunction {
 };
 
 struct VarArgsCompareFunction : ScalarFunction {
+
   using ScalarFunction::ScalarFunction;
 
   Result<const Kernel*> DispatchBest(std::vector<ValueDescr>* values) const override {
@@ -228,7 +248,7 @@ std::shared_ptr<ScalarFunction> MakeCompareFunction(std::string name,
 
   DCHECK_OK(func->AddKernel(
       {boolean(), boolean()}, boolean(),
-      applicator::ScalarBinary<BooleanType, BooleanType, BooleanType, Op>::Exec));
+      ScalarBinary<BooleanType, BooleanType, BooleanType, Op>::Exec));
 
   for (const std::shared_ptr<DataType>& ty : IntTypes()) {
     AddIntegerCompare<Op>(ty, func.get());
@@ -250,7 +270,7 @@ std::shared_ptr<ScalarFunction> MakeCompareFunction(std::string name,
   for (auto unit : TimeUnit::values()) {
     InputType in_type(match::DurationTypeUnit(unit));
     auto exec =
-        GeneratePhysicalInteger<applicator::ScalarBinaryEqualTypes, BooleanType, Op>(
+        GeneratePhysicalInteger<ScalarBinaryEqualTypes, BooleanType, Op>(
             int64());
     DCHECK_OK(func->AddKernel({in_type, in_type}, boolean(), std::move(exec)));
   }
@@ -259,33 +279,33 @@ std::shared_ptr<ScalarFunction> MakeCompareFunction(std::string name,
   for (auto unit : {TimeUnit::SECOND, TimeUnit::MILLI}) {
     InputType in_type(match::Time32TypeUnit(unit));
     auto exec =
-        GeneratePhysicalInteger<applicator::ScalarBinaryEqualTypes, BooleanType, Op>(
+        GeneratePhysicalInteger<ScalarBinaryEqualTypes, BooleanType, Op>(
             int32());
     DCHECK_OK(func->AddKernel({in_type, in_type}, boolean(), std::move(exec)));
   }
   for (auto unit : {TimeUnit::MICRO, TimeUnit::NANO}) {
     InputType in_type(match::Time64TypeUnit(unit));
     auto exec =
-        GeneratePhysicalInteger<applicator::ScalarBinaryEqualTypes, BooleanType, Op>(
+        GeneratePhysicalInteger<ScalarBinaryEqualTypes, BooleanType, Op>(
             int64());
     DCHECK_OK(func->AddKernel({in_type, in_type}, boolean(), std::move(exec)));
   }
 
   for (const std::shared_ptr<DataType>& ty : BaseBinaryTypes()) {
     auto exec =
-        GenerateVarBinaryBase<applicator::ScalarBinaryEqualTypes, BooleanType, Op>(*ty);
+        GenerateVarBinaryBase<ScalarBinaryEqualTypes, BooleanType, Op>(*ty);
     DCHECK_OK(func->AddKernel({ty, ty}, boolean(), std::move(exec)));
   }
 
   for (const auto id : {Type::DECIMAL128, Type::DECIMAL256}) {
-    auto exec = GenerateDecimal<applicator::ScalarBinaryEqualTypes, BooleanType, Op>(id);
+    auto exec = GenerateDecimal<ScalarBinaryEqualTypes, BooleanType, Op>(id);
     DCHECK_OK(
         func->AddKernel({InputType(id), InputType(id)}, boolean(), std::move(exec)));
   }
 
   {
     auto exec =
-        applicator::ScalarBinaryEqualTypes<BooleanType, FixedSizeBinaryType, Op>::Exec;
+        ScalarBinaryEqualTypes<BooleanType, FixedSizeBinaryType, Op>::Exec;
     auto ty = InputType(Type::FIXED_SIZE_BINARY);
     DCHECK_OK(func->AddKernel({ty, ty}, boolean(), std::move(exec)));
   }
@@ -481,31 +501,20 @@ std::shared_ptr<ScalarFunction> MakeScalarMinMax(std::string name,
   return func;
 }
 
-struct Between {
-  template <typename T, typename Arg0, typename Arg1, typename Arg2>
-  static constexpr T Call(KernelContext*, const Arg0& middle, const Arg1& left,
-                             const Arg2& right, Status*) {
-    static_assert(std::is_same<T, bool>::value &&
-                  std::is_same<Arg0, Arg1>::value &&
-                  std::is_same<Arg1, Arg2>::value,
-                  "");
-    return (left < middle) && (middle < right);
-  }
-};
-
 template <typename Op>
 void AddIntegerBetween(const std::shared_ptr<DataType>& ty, ScalarFunction* func) {
   auto exec =
-      GeneratePhysicalInteger<applicator::ScalarTernaryEqualTypes, BooleanType, Op>(*ty);
+      GeneratePhysicalInteger<ScalarTernaryEqualTypes, BooleanType, Op>(*ty);
   DCHECK_OK(func->AddKernel({ty, ty, ty}, boolean(), std::move(exec)));
 }
 
 template <typename InType, typename Op>
 void AddGenericBetween(const std::shared_ptr<DataType>& ty, ScalarFunction* func) {
-   DCHECK_OK(
-      func->AddKernel({ty, ty, ty}, boolean(),
-               applicator::ScalarTernaryEqualTypes<BooleanType, InType, Op>::Exec));
+  DCHECK_OK(
+      func->AddKernel({ty, ty, ty}, boolean(), 
+                      ScalarTernaryEqualTypes<BooleanType, InType, Op>::Exec));
 }
+
 
 template <typename Op>
 std::shared_ptr<ScalarFunction> MakeBetweenFunction(std::string name,
@@ -516,6 +525,7 @@ std::shared_ptr<ScalarFunction> MakeBetweenFunction(std::string name,
     AddIntegerBetween<Op>(ty, func.get());
   }
 
+  
   AddIntegerBetween<Op>(date32(), func.get());
   AddIntegerBetween<Op>(date64(), func.get());
 
@@ -526,7 +536,7 @@ std::shared_ptr<ScalarFunction> MakeBetweenFunction(std::string name,
   for (auto unit : TimeUnit::values()) {
     InputType in_type(match::TimestampTypeUnit(unit));
     auto exec =
-        GeneratePhysicalInteger<applicator::ScalarTernaryEqualTypes, BooleanType, Op>(
+        GeneratePhysicalInteger<ScalarTernaryEqualTypes, BooleanType, Op>(
             int64());
     DCHECK_OK(func->AddKernel({in_type, in_type, in_type}, boolean(), std::move(exec)));
   }
@@ -535,7 +545,7 @@ std::shared_ptr<ScalarFunction> MakeBetweenFunction(std::string name,
   for (auto unit : TimeUnit::values()) {
     InputType in_type(match::DurationTypeUnit(unit));
     auto exec =
-        GeneratePhysicalInteger<applicator::ScalarTernaryEqualTypes, BooleanType, Op>(
+        GeneratePhysicalInteger<ScalarTernaryEqualTypes, BooleanType, Op>(
             int64());
     DCHECK_OK(func->AddKernel({in_type, in_type, in_type}, boolean(), std::move(exec)));
   }
@@ -544,21 +554,21 @@ std::shared_ptr<ScalarFunction> MakeBetweenFunction(std::string name,
   for (auto unit : {TimeUnit::SECOND, TimeUnit::MILLI}) {
     InputType in_type(match::Time32TypeUnit(unit));
     auto exec =
-        GeneratePhysicalInteger<applicator::ScalarTernaryEqualTypes, BooleanType, Op>(
+        GeneratePhysicalInteger<ScalarTernaryEqualTypes, BooleanType, Op>(
             int32());
     DCHECK_OK(func->AddKernel({in_type, in_type, in_type}, boolean(), std::move(exec)));
   }
   for (auto unit : {TimeUnit::MICRO, TimeUnit::NANO}) {
     InputType in_type(match::Time64TypeUnit(unit));
     auto exec =
-        GeneratePhysicalInteger<applicator::ScalarTernaryEqualTypes, BooleanType, Op>(
+        GeneratePhysicalInteger<ScalarTernaryEqualTypes, BooleanType, Op>(
             int64());
     DCHECK_OK(func->AddKernel({in_type, in_type, in_type}, boolean(), std::move(exec)));
   }
 
   for (const std::shared_ptr<DataType>& ty : BaseBinaryTypes()) {
     auto exec =
-        GenerateVarBinaryBase<applicator::ScalarTernaryEqualTypes, BooleanType, Op>(*ty);
+        GenerateVarBinaryBase<ScalarTernaryEqualTypes, BooleanType, Op>(*ty);
     DCHECK_OK(func->AddKernel(
         {InputType::Array(ty), InputType::Scalar(ty), InputType::Scalar(ty)}, boolean(),
         exec));
