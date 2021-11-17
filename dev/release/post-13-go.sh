@@ -28,11 +28,7 @@ fi
 
 version=$1
 version_tag="apache-arrow-${version}"
-go_arrow_tag="go/arrow/v${version}"
-go_parquet_tag="go/parquet/v${version}"
+go_arrow_tag="go/v${version}"
 
 git tag "${go_arrow_tag}" "${version_tag}"
-git tag "${go_parquet_tag}" "${version_tag}"
-
 git push apache "${go_arrow_tag}"
-git push apache "${go_parquet_tag}"

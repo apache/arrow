@@ -18,6 +18,7 @@
 thirdparty/*.tar*
 CMakeFiles/
 CMakeCache.txt
+CMakeUserPresets.json
 CTestTestfile.cmake
 Makefile
 cmake_install.cmake

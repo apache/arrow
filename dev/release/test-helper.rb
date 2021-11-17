@@ -76,9 +76,11 @@ module VersionDetectable
     top_dir = Pathname(__dir__).parent.parent
     cpp_cmake_lists = top_dir + "cpp" + "CMakeLists.txt"
     @snapshot_version = cpp_cmake_lists.read[/ARROW_VERSION "(.+?)"/, 1]
+    @snapshot_major_version = @snapshot_version.split(".")[0]
     @release_version = @snapshot_version.gsub(/-SNAPSHOT\z/, "")
     @so_version = compute_so_version(@release_version)
     @next_version = @release_version.gsub(/\A\d+/) {|major| major.succ}
+    @next_major_version = @next_version.split(".")[0]
     @next_snapshot_version = "#{@next_version}-SNAPSHOT"
     @next_so_version = compute_so_version(@next_version)
     r_description = top_dir + "r" + "DESCRIPTION"
