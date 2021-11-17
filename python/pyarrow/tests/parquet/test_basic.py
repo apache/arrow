@@ -376,6 +376,12 @@ def test_col_encoding(use_legacy_dataset):
                      col_encoding={'a': "RLE", 'b': "BYTE_STREAM_SPLIT"},
                      use_legacy_dataset=use_legacy_dataset)
 
+    # Check "DELTA_BINARY_PACKED" col_encoding for column 'b'.
+    _check_roundtrip(mixed_table, expected=mixed_table,
+                     use_dictionary=['b'],
+                     col_encoding={'b': "DELTA_BINARY_PACKED"},
+                     use_legacy_dataset=use_legacy_dataset)
+
 
 @parametrize_legacy_dataset
 def test_compression_level(use_legacy_dataset):
