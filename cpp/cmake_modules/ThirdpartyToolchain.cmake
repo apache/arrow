@@ -4068,15 +4068,6 @@ macro(build_opentelemetry)
 
   set(OPENTELEMETRY_VENDORED 1)
 
-  if(NOT ${CMAKE_VERSION} VERSION_LESS "3.15.0")
-    # Make sure all installed artifacts get cleaned up. Important for the RPM
-    # builds which fail if anything is left behind. Things in BUILD_BYPRODUCTS
-    # get cleaned automatically, but we can't list every header installed.
-    set_property(TARGET opentelemetry_ep
-                 APPEND
-                 PROPERTY ADDITIONAL_CLEAN_FILES "${OPENTELEMETRY_PREFIX}")
-  endif()
-
   set_target_properties(opentelemetry-cpp::common
                         PROPERTIES INTERFACE_LINK_LIBRARIES
                                    "opentelemetry-cpp::api;opentelemetry-cpp::sdk;Threads::Threads"
