@@ -1134,10 +1134,10 @@ struct ScalarTernary {
     auto arg0_val = UnboxScalar<Arg0Type>::Unbox(arg0);
     ArrayIterator<Arg1Type> arg1_it(arg1);
     auto arg2_val = UnboxScalar<Arg2Type>::Unbox(arg2);
-    OutputAdapter<OutType>::Write(ctx, out, [&]() -> OutValue {
+    RETURN_NOT_OK(OutputAdapter<OutType>::Write(ctx, out, [&]() -> OutValue {
       return Op::template Call<OutValue, Arg0Value, Arg1Value, Arg2Value>
                   (ctx, arg0_val, arg1_it(), arg2_val, &st);
-    });
+    }));
     return st;
   }
 
@@ -1151,7 +1151,7 @@ struct ScalarTernary {
     BoxScalar<OutType>::Box(Op::template Call<OutValue, Arg0Value, Arg1Value, Arg2Value>
 		                          (ctx, arg0_val, arg1_val, arg2_val, &st),
                             out->scalar().get());
-  }
+    }
     return st;
   }
 
