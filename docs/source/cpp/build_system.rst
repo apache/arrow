@@ -153,7 +153,7 @@ the following guidelines:
   linked, and the same goes for dynamic linking.
 * Some platforms (e.g. Ubuntu 20.04 at the time of this writing) may ship a
   version of Protobuf and/or gRPC that is not recent enough for Arrow
-  Flight. In that case, Arrow Flight bundles these dependencies, so case must
+  Flight. In that case, Arrow Flight bundles these dependencies, so care must
   be taken not to mix the Arrow Flight library with the platform Protobuf/gRPC
   libraries (as then you will have two versions of Protobuf and/or gRPC linked
   into your application).
