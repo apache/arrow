@@ -22,7 +22,7 @@ import java.util.Properties;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import org.apache.arrow.driver.jdbc.client.impl.ArrowFlightSqlClientHandler;
+import org.apache.arrow.driver.jdbc.client.ArrowFlightSqlClientHandler;
 import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl;
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.memory.BufferAllocator;

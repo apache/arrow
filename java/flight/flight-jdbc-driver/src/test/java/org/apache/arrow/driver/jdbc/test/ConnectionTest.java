@@ -26,7 +26,7 @@ import java.sql.SQLException;
 import java.util.Properties;
 
 import org.apache.arrow.driver.jdbc.ArrowFlightJdbcDriver;
-import org.apache.arrow.driver.jdbc.client.impl.ArrowFlightSqlClientHandler;
+import org.apache.arrow.driver.jdbc.client.ArrowFlightSqlClientHandler;
 import org.apache.arrow.driver.jdbc.test.utils.FlightTestUtils;
 import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty;
 import org.apache.arrow.flight.CallStatus;

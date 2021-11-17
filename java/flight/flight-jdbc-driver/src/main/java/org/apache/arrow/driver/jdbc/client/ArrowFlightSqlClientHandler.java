@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.driver.jdbc.client.impl;
+package org.apache.arrow.driver.jdbc.client;
 
 import java.io.IOException;
 import java.security.GeneralSecurityException;
