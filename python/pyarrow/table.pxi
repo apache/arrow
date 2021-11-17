@@ -1896,7 +1896,7 @@ cdef class Table(_PandasConvertible):
 
         Returns
         -------
-        list of RecordBatch
+        list[RecordBatch]
         """
         cdef:
             unique_ptr[TableBatchReader] reader

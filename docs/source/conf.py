@@ -93,7 +93,7 @@ autodoc_mock_imports = []
 ipython_mplbackend = ''
 
 # numpydoc configuration
-napoleon_use_rtype = False
+napoleon_use_rtype = True
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
