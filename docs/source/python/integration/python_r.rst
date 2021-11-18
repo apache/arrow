@@ -164,7 +164,7 @@ Our ``addthree.py`` will thus become:
         # Those references are passed as strings as R doesn't have
         # native support for 64bit integers, so the integers are
         # converted to their string representation for R to convert it back.
-        r_result_array = addthree(str(c_array_ptr), str(c_schema_ptr))
+        r_result_array = addthree_cdata(str(c_array_ptr), str(c_schema_ptr))
 
         # r_result will be an Environment variable that contains the
         # arrow Array built from R as the return value of addthree.
