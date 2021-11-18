@@ -612,15 +612,6 @@ readr_to_csv_convert_options <- function(na,
 #' system (`SubTreeFileSystem`)
 #' @param include_header Whether to write an initial header line with column names
 #' @param batch_size Maximum number of rows processed at a time. Default is 1024.
-#' @param na not yet implemented. Will denote string used for missing values.
-#' @param append not yet implemented. Will be a `boolean` determining whether
-#'   whether the CSV data will be appended to an existing CSV or not.
-#' @param quote not yet implemented. How to handle fields which need quoting.
-#' @param escape not yet implemented. The type of escape to use when quotes are
-#'   in the data.
-#' @param eol not yet implemented. The end of line character to use.
-#' @param num_threads not yet implemented. Number of threads to use.
-#' @param progress not yet implemented. Show a progress bar.
 #'
 #' @return The input `x`, invisibly. Note that if `sink` is an [OutputStream],
 #' the stream will be left open.
@@ -632,27 +623,11 @@ readr_to_csv_convert_options <- function(na,
 #' @include arrow-package.R
 write_csv_arrow <- function(x,
                             sink,
-                            na = NULL,
-                            append = NULL,
-                            quote = NULL,
-                            escape = NULL,
-                            eol = NULL,
-                            num_threads = NULL,
-                            progress = NULL,
                             include_header = TRUE,
-                            batch_size = 1024L) {
+                            batch_size = 1024L,
+                            ...) {
 
-  passed_args <- as.list(match.call()[-1])
-
-  arrow_write_opts <- names(formals(CsvWriteOptions$create))
-  write_args <- names(formals(write_csv_arrow))
-
-  unsupported_opts <- setdiff(
-    write_args,
-    union(arrow_write_opts, c("x", "sink"))
-  )
-
-  unsupported_passed_args <- names(unlist(passed_args[unsupported_opts]))
+  unsupported_passed_args <- names(list(...))
 
   if (length(unsupported_passed_args)) {
     stop(
