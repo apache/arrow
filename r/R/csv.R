@@ -622,7 +622,7 @@ readr_to_csv_convert_options <- function(na,
 #' system (`SubTreeFileSystem`)
 #' @param include_header Whether to write an initial header line with column names
 #' @param batch_size Maximum number of rows processed at a time. Default is 1024.
-#' @param write_options read_options see [file reader options][CsvWriteOptions]
+#' @param write_options see [file reader options][CsvWriteOptions]
 #' @param ... additional parameters
 #'
 #' @return The input `x`, invisibly. Note that if `sink` is an [OutputStream],

@@ -23,7 +23,7 @@ system (\code{SubTreeFileSystem})}
 
 \item{batch_size}{Maximum number of rows processed at a time. Default is 1024.}
 
-\item{write_options}{read_options see \link[=CsvWriteOptions]{file reader options}}
+\item{write_options}{see \link[=CsvWriteOptions]{file reader options}}
 
 \item{...}{additional parameters}
 }
