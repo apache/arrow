@@ -92,8 +92,120 @@ to access the ``R`` function and print the expected result:
     6.0
 
 If instead of passing around basic data types we want to pass around
-Arrow Arrays, that can be done exporting the array from Python to the C Data
-interface and importing them back from R.
+Arrow Arrays, we can do so relying on the ``rpy2-arrow`` module which
+implements rpy2 support for Arrow types.
+
+``rpy2`` can be installed through ``pip``:
+
+.. code-block:: bash
+
+    $ pip install rpy2-arrow
+
+``rpy2-arrow`` implements converters from pyarrow objects to r arrow objects,
+this is done without occurring into any data copy cost as it relies on the
+C Data interface.
+
+To pass to ``addthree`` a pyarrow array our ``addthree.py`` needs to be modified
+to enable ``rpy2-arrow`` converters and then pass the pyarrow array:
+
+.. code-block:: python
+
+    import rpy2.robjects as robjects
+    from rpy2_arrow.pyarrow_rarrow import (rarrow_to_py_array,
+                                           converter as arrowconverter)
+    from rpy2.robjects.conversion import localconverter
+
+    r_source = robjects.r["source"]
+    r_source("addthree.R")
+
+    addthree = robjects.r["addthree"]
+
+    import pyarrow
+
+    array = pyarrow.array((1, 2, 3))
+
+    # Enable rpy2-arrow converter so that R can receive the array.
+    with localconverter(arrowconverter):
+        r_result = addthree(array)
+
+    # The result of the R function will be an R Environment
+    # we can convert back the Environment to a pyarrow Array
+    # using the rarrow_to_py_array function
+    py_result = rarrow_to_py_array(r_result)
+    print("RESULT", type(py_result), py_result)
+
+Running the newly modified ``addthree.py`` should now properly execute
+the R function and print the resulting pyarrow Array:
+
+.. code-block:: bash
+
+    $ python addthree.py
+    RESULT <class 'pyarrow.lib.DoubleArray'> [
+      4,
+      5,
+      6
+    ]
+
+.. note::
+
+    Even though we sent an ``Int64Array`` to R, we end up with a
+    result as a ``DoubleArray``. That's due to the lack of native
+    support for 64 bits numbers in R and thus its use of doubles
+    to represent those.
+
+Invoking Python functions from R
+--------------------------------
+
+Exposing Python functions to R can be done through the ``reticulate``
+library. For example if we want to invoke :func:`pyarrow.compute.add` from
+R on an Array created in R we can do so importing ``pyarrow`` in R
+through ``reticulate``.
+
+A basic ``addthree.R`` script that invokes ``add`` to add ``3`` to
+an R array would look like:
+
+.. code-block:: R
+
+    # Load arrow and reticulate libraries
+    library(arrow)
+    library(reticulate)
+
+    # Create a new array in R
+    a <- Array$create(c(1, 2, 3))
+
+    # Make pyarrow.compute available to R
+    pc <- import("pyarrow.compute")
+
+    # Invoke pyarrow.compute.add with the array and 3
+    # This will add 3 to all elements of the array and return a new Array
+    result <- pc$add(a, 3)
+
+    # Print the result to confirm it's what we expect
+    print(result)
+
+Invoking the ``addthree.R`` script will print the outcome of adding
+``3`` to all the elements of the original ``Array$create(c(1, 2, 3))`` array:
+
+.. code-block:: bash
+
+    $ R --slave -f addthree.R 
+    Array
+    <double>
+    [
+      4,
+      5,
+      6
+    ]
+
+R to Python communication using C Data Interface
+------------------------------------------------
+
+Both the solutions described in previous chapters use the Arrow C Data
+interface under the hood.
+
+In case we want to extend the previous ``addthree`` example to switch
+from using ``rpy2-arrow`` to using the plain C Data interface we can
+do so by introducing some modifications to our codebase.
 
 To enable importing the Arrow Array from the C Data interface we have to
 wrap our ``addthree`` function in a function that does the extra work
@@ -138,7 +250,7 @@ Our ``addthree.py`` will thus become:
     import rpy2.robjects as robjects
     r_source = robjects.r["source"]
     r_source("addthree.R")
-    addthree = robjects.r["addthree_cdata"]
+    addthree_cdata = robjects.r["addthree_cdata"]
 
     # Create the pyarrow array we want to pass to R
     import pyarrow
@@ -187,50 +299,6 @@ from adding ``3`` to all the elements of the original
     $ python addthree.py 
     R[write to console]: Attaching package: ‘arrow’
     RESULT [
-      4,
-      5,
-      6
-    ]
-
-Invoking Python functions from R
---------------------------------
-
-Exposing Python functions to R can be done through the ``reticulate``
-library. For example if we want to invoke :func:`pyarrow.compute.add` from
-R on an Array created in R we can do so importing ``pyarrow`` in R
-through ``reticulate``.
-
-A basic ``addthree.R`` script that invokes ``add`` to add ``3`` to
-an R array would look like:
-
-.. code-block:: R
-
-    # Load arrow and reticulate libraries
-    library(arrow)
-    library(reticulate)
-
-    # Create a new array in R
-    a <- Array$create(c(1, 2, 3))
-
-    # Make pyarrow.compute available to R
-    pc <- import("pyarrow.compute")
-
-    # Invoke pyarrow.compute.add with the array and 3
-    # This will add 3 to all elements of the array and return a new Array
-    result <- pc$add(a, 3)
-
-    # Print the result to confirm it's what we expect
-    print(result)
-
-Invoking the ``addthree.R`` script will print the outcome of adding
-``3`` to all the elements of the original ``Array$create(c(1, 2, 3))`` array:
-
-.. code-block:: bash
-
-    $ R --slave -f addthree.R 
-    Array
-    <double>
-    [
       4,
       5,
       6
