@@ -2346,10 +2346,10 @@ const char* concat_ws_utf8_utf8_utf8_utf8_utf8(int64_t context, const char* sepa
 }
 
 FORCE_INLINE
-const char* elt_int32_utf8_utf8(int64_t context, int32_t pos, bool pos_validity,
-                                const char* word1, int32_t word1_len, bool in1_validity,
-                                const char* word2, int32_t word2_len, bool in2_validity,
-                                bool* out_valid, int32_t* out_len) {
+const char* elt_int32_utf8_utf8(int32_t pos, bool pos_validity, const char* word1,
+                                int32_t word1_len, bool in1_validity, const char* word2,
+                                int32_t word2_len, bool in2_validity, bool* out_valid,
+                                int32_t* out_len) {
   *out_valid = true;
 
   switch (pos) {
@@ -2369,13 +2369,12 @@ const char* elt_int32_utf8_utf8(int64_t context, int32_t pos, bool pos_validity,
 }
 
 FORCE_INLINE
-const char* elt_int32_utf8_utf8_utf8(int64_t context, int32_t pos, bool pos_validity,
-                                     const char* word1, int32_t word1_len,
-                                     bool word1_validity, const char* word2,
-                                     int32_t word2_len, bool word2_validity,
-                                     const char* word3, int32_t word3_len,
-                                     bool word3_validity, bool* out_valid,
-                                     int32_t* out_len) {
+const char* elt_int32_utf8_utf8_utf8(int32_t pos, bool pos_validity, const char* word1,
+                                     int32_t word1_len, bool word1_validity,
+                                     const char* word2, int32_t word2_len,
+                                     bool word2_validity, const char* word3,
+                                     int32_t word3_len, bool word3_validity,
+                                     bool* out_valid, int32_t* out_len) {
   *out_valid = true;
 
   switch (pos) {
@@ -2400,7 +2399,7 @@ const char* elt_int32_utf8_utf8_utf8(int64_t context, int32_t pos, bool pos_vali
 
 FORCE_INLINE
 const char* elt_int32_utf8_utf8_utf8_utf8(
-    int64_t context, int32_t pos, bool pos_validity, const char* word1, int32_t word1_len,
+    int32_t pos, bool pos_validity, const char* word1, int32_t word1_len,
     bool word1_validity, const char* word2, int32_t word2_len, bool word2_validity,
     const char* word3, int32_t word3_len, bool word3_validity, const char* word4,
     int32_t word4_len, bool word4_validity, bool* out_valid, int32_t* out_len) {
@@ -2432,7 +2431,7 @@ const char* elt_int32_utf8_utf8_utf8_utf8(
 
 FORCE_INLINE
 const char* elt_int32_utf8_utf8_utf8_utf8_utf8(
-    int64_t context, int32_t pos, bool pos_validity, const char* word1, int32_t word1_len,
+    int32_t pos, bool pos_validity, const char* word1, int32_t word1_len,
     bool word1_validity, const char* word2, int32_t word2_len, bool word2_validity,
     const char* word3, int32_t word3_len, bool word3_validity, const char* word4,
     int32_t word4_len, bool word4_validity, const char* word5, int32_t word5_len,

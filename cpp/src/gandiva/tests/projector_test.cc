@@ -1704,7 +1704,7 @@ TEST_F(TestProjector, TestEltFunction) {
   // Create a row-batch with some sample data
   int num_records = 4;
 
-  auto array0 = MakeArrowArrayInt32({1, 2, 4, -2}, {true, true, true, true});
+  auto array0 = MakeArrowArrayInt32({1, 2, 2, 1}, {true, true, true, true});
   auto array1 =
       MakeArrowArrayUtf8({"john", "bigger", "goodbye", "hi"}, {true, true, true, true});
   auto array2 =
@@ -1713,7 +1713,7 @@ TEST_F(TestProjector, TestEltFunction) {
       arrow::RecordBatch::Make(schema, num_records, {array0, array1, array2});
 
   auto expected_out0 =
-      MakeArrowArrayUtf8({"john", "world", "", ""}, {true, true, false, false});
+      MakeArrowArrayUtf8({"john", "world", "world", "hi"}, {true, true, true, true});
 
   arrow::ArrayVector outputs;
 
