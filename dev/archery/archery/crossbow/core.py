@@ -1091,13 +1091,9 @@ class Config(dict):
             )
             raise CrossbowError(msg)
 
-        # merge the tasks defined in the selected groups
-        task_patterns = [list(config_groups[name]) for name in group_whitelist]
-        task_patterns = set(sum(task_patterns, task_whitelist))
-
         # treat the task names as glob patterns to select tasks more easily
         requested_tasks = set()
-        for pattern in task_patterns:
+        for pattern in task_whitelist:
             matches = fnmatch.filter(valid_tasks, pattern)
             if len(matches):
                 requested_tasks.update(matches)
@@ -1105,6 +1101,29 @@ class Config(dict):
                 raise CrossbowError(
                     "Unable to match any tasks for `{}`".format(pattern)
                 )
+
+        requested_group_tasks = set()
+        for group in group_whitelist:
+            # merge the tasks defined in the selected groups
+            task_patterns = list(config_groups[group])
+
+            # treat the task names as glob patterns to select tasks more easily
+            for pattern in task_patterns:
+                matches = fnmatch.filter(valid_tasks, pattern)
+                if len(matches):
+                    requested_group_tasks.update(matches)
+                else:
+                    raise CrossbowError(
+                        "Unable to match any tasks for `{}`".format(pattern)
+                    )
+
+            # remove any tasks that are on the task blocklist
+            blocklist_groups = set(valid_groups).intersection(group + "-blocklist")
+            if len(blocklist_groups):
+                blocklist_tasks = config_groups[list(blocklist_groups)[0]]
+                requested_group_tasks = requested_group_tasks.difference(blocklist_tasks)
+
+        requested_tasks = requested_tasks.union(requested_group_tasks)
 
         # validate that the passed and matched tasks are defined in the config
         invalid_tasks = requested_tasks - valid_tasks
