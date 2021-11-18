@@ -329,6 +329,26 @@ warn_snap <- function(...) (expect_warning(...))
 # callback
 err_remove_cpp_code <- function(x) {
     x <- gsub("(\\.*|/.*)", "", x)
+    x <- c(x, ">")
     x <- x[x != ""]
+    # x <- c(x, ">")
     x
 }
+
+# err_remove_cpp_code2 <- function(x) {
+#   x <-
+# }
+
+#
+# err_remove_context <- function(cnd) {
+#   msg <- strsplit(cnd$message, "\n")[[1]]
+#   msg <- msg[!grepl("^.*:\\d+  ", msg)]
+#   cnd$message <- paste(msg, collapse = "\n")
+#   rlang::cnd_signal(cnd)
+# }
+#
+# err_snap <- function(expr){
+#   (expect_error(
+#     withCallingHandlers(expr, simpleError = err_remove_context)
+#   ))
+# }
