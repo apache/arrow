@@ -37,6 +37,23 @@
 // For example, with grpcurl (https://github.com/fullstorydev/grpcurl):
 //
 // grpcurl -d '{"name": "Rakka"}' -plaintext localhost:31337 HelloWorldService/SayHello
+//
+// Note that for applications that wish to follow the example here,
+// care must be taken to ensure that Protobuf and gRPC are not
+// multiply linked, else the resulting program may crash or silently
+// corrupt data. In particular:
+//
+// * If dynamically linking Arrow Flight, then your application and
+//   Arrow Flight must also dynamically link Protobuf and gRPC. (The
+//   same goes for static linking.)
+// * The Flight packages on some platforms may make this difficult,
+//   because the Flight dynamic library will itself have statically
+//   linked Protobuf and gRPC since the platform does not ship a
+//   recent enough version of those dependencies.
+// * The versions of Protobuf and gRPC must be the same between Flight
+//   and your application.
+//
+// See "Using Arrow C++ in your own project" in the documentation.
 
 DEFINE_int32(port, -1, "Server port to listen on");
 
