@@ -95,7 +95,7 @@ struct ArrayResolve {
   }
 
   std::shared_ptr<Array> array_;
-  int64_t index_;
+  int64_t index_ = 0;
 };
 
 // base class for all altrep vectors
