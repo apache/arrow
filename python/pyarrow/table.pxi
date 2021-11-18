@@ -2223,7 +2223,7 @@ cdef class Table(_PandasConvertible):
         Returns
         -------
         Table
-            A new table sorted according to the sort key.
+            A new table sorted according to the sort keys.
         """
         if isinstance(sorting, str):
             sorting = [(sorting, "ascending")]
@@ -2467,8 +2467,6 @@ class TableGroupBy:
 
         group_by_aggrs = []
         for aggr in aggrfuncs:
-            if isinstance(aggr, str):
-                aggr = (aggr, None)
             if not aggr[0].startswith("hash_"):
                 aggr = ("hash_" + aggr[0], aggr[1])
             group_by_aggrs.append(aggr)
