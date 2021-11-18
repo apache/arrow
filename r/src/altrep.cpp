@@ -247,24 +247,24 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
 
     c_type* out = buf;
     for (const auto& array : slice->chunks()) {
-      auto n = array->length();
+      auto n_i = array->length();
 
       // first copy the data buffer
-      memcpy(out, array->data()->template GetValues<c_type>(1), n * sizeof(c_type));
+      memcpy(out, array->data()->template GetValues<c_type>(1), n_i * sizeof(c_type));
 
       // then set the R NA sentinels if needed
       if (array->null_count() > 0) {
         internal::BitmapReader bitmap_reader(array->null_bitmap()->data(),
-                                             array->offset(), n);
+                                             array->offset(), n_i);
 
-        for (R_xlen_t j = 0; j < n; j++, bitmap_reader.Next()) {
+        for (R_xlen_t j = 0; j < n_i; j++, bitmap_reader.Next()) {
           if (bitmap_reader.IsNotSet()) {
             out[j] = cpp11::na<c_type>();
           }
         }
       }
 
-      out += n;
+      out += n_i;
     }
 
     return ncopy;
