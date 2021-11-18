@@ -19,10 +19,10 @@
 package file
 
 import (
-	"github.com/apache/arrow/go/parquet"
-	"github.com/apache/arrow/go/parquet/internal/encoding"
-	format "github.com/apache/arrow/go/parquet/internal/gen-go/parquet"
-	"github.com/apache/arrow/go/parquet/metadata"
+	"github.com/apache/arrow/go/v7/parquet"
+	"github.com/apache/arrow/go/v7/parquet/internal/encoding"
+	format "github.com/apache/arrow/go/v7/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v7/parquet/metadata"
 	"golang.org/x/xerrors"
 )
 
