@@ -4,7 +4,14 @@
 \alias{write_csv_arrow}
 \title{Write CSV file to disk}
 \usage{
-write_csv_arrow(x, sink, include_header = TRUE, batch_size = 1024L, ...)
+write_csv_arrow(
+  x,
+  sink,
+  include_header = TRUE,
+  batch_size = 1024L,
+  write_options = NULL,
+  ...
+)
 }
 \arguments{
 \item{x}{\code{data.frame}, \link{RecordBatch}, or \link{Table}}
@@ -15,6 +22,10 @@ system (\code{SubTreeFileSystem})}
 \item{include_header}{Whether to write an initial header line with column names}
 
 \item{batch_size}{Maximum number of rows processed at a time. Default is 1024.}
+
+\item{write_options}{read_options see \link[=CsvWriteOptions]{file reader options}}
+
+\item{...}{additional parameters}
 }
 \value{
 The input \code{x}, invisibly. Note that if \code{sink} is an \link{OutputStream},

@@ -415,6 +415,16 @@ CsvReadOptions$create <- function(use_threads = option_use_threads(),
   )
 }
 
+readr_to_csv_write_options <- function(include_header,
+                                       batch_size = 1024L) {
+  assert_that(is_integerish(batch_size, n = 1, finite = TRUE), batch_size > 0)
+  assert_that(is_logical(include_header))
+  CsvWriteOptions$create(
+    include_header = include_header,
+    batch_size = as.integer(batch_size)
+  )
+}
+
 #' @rdname CsvReadOptions
 #' @export
 CsvWriteOptions <- R6Class("CsvWriteOptions", inherit = ArrowObject)
@@ -612,6 +622,8 @@ readr_to_csv_convert_options <- function(na,
 #' system (`SubTreeFileSystem`)
 #' @param include_header Whether to write an initial header line with column names
 #' @param batch_size Maximum number of rows processed at a time. Default is 1024.
+#' @param write_options read_options see [file reader options][CsvWriteOptions]
+#' @param ... additional parameters
 #'
 #' @return The input `x`, invisibly. Note that if `sink` is an [OutputStream],
 #' the stream will be left open.
@@ -625,6 +637,7 @@ write_csv_arrow <- function(x,
                             sink,
                             include_header = TRUE,
                             batch_size = 1024L,
+                            write_options = NULL,
                             ...) {
 
   unsupported_passed_args <- names(list(...))
@@ -639,7 +652,11 @@ write_csv_arrow <- function(x,
     )
   }
 
-  write_options <- CsvWriteOptions$create(include_header, batch_size)
+  if (is.null(write_options)) {
+    write_options <- readr_to_csv_write_options(
+      include_header = include_header,
+      batch_size = batch_size)
+  }
 
   x_out <- x
   if (is.data.frame(x)) {
