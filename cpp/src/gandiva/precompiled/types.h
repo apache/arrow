@@ -590,4 +590,30 @@ gdv_month_interval castNULLABLEINTERVALYEAR_int32(int64_t context, gdv_int32 in)
 
 gdv_month_interval castNULLABLEINTERVALYEAR_int64(int64_t context, gdv_int64 in);
 
+const char* concat_ws_utf8_utf8(int64_t context, const char* separator,
+                                int32_t separator_len, const char* word1,
+                                int32_t word1_len, const char* word2, int32_t word2_len,
+                                int32_t* out_len);
+
+const char* concat_ws_utf8_utf8_utf8(int64_t context, const char* separator,
+                                     int32_t separator_len, const char* word1,
+                                     int32_t word1_len, const char* word2,
+                                     int32_t word2_len, const char* word3,
+                                     int32_t word3_len, int32_t* out_len);
+
+const char* concat_ws_utf8_utf8_utf8_utf8(int64_t context, const char* separator,
+                                          int32_t separator_len, const char* word1,
+                                          int32_t word1_len, const char* word2,
+                                          int32_t word2_len, const char* word3,
+                                          int32_t word3_len, const char* word4,
+                                          int32_t word4_len, int32_t* out_len);
+
+const char* concat_ws_utf8_utf8_utf8_utf8_utf8(int64_t context, const char* separator,
+                                               int32_t separator_len, const char* word1,
+                                               int32_t word1_len, const char* word2,
+                                               int32_t word2_len, const char* word3,
+                                               int32_t word3_len, const char* word4,
+                                               int32_t word4_len, const char* word5,
+                                               int32_t word5_len, int32_t* out_len);
+
 }  // extern "C"

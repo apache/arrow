@@ -1643,4 +1643,44 @@ TEST_F(TestProjector, TestBround) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_bround, outputs.at(0));
 }
 
+TEST_F(TestProjector, TestConcatWsFunction) {
+  auto field0 = field("f0", arrow::utf8());
+  auto field1 = field("f1", arrow::utf8());
+  auto field2 = field("f2", arrow::utf8());
+
+  auto schema0 = arrow::schema({field0, field1, field2});
+
+  // output fields
+  auto out_field0 = field("out_field0", arrow::utf8());
+
+  // Build expression
+  auto concat_ws_expr0 =
+      TreeExprBuilder::MakeExpression("concat_ws", {field0, field1, field2}, out_field0);
+
+  std::shared_ptr<Projector> projector1;
+
+  auto status =
+      Projector::Make(schema0, {concat_ws_expr0}, TestConfiguration(), &projector1);
+  EXPECT_TRUE(status.ok());
+
+  // Create a row-batch with some sample data
+  int num_records = 2;
+
+  auto array0 = MakeArrowArrayUtf8({"-", "<>"}, {true, true});
+  auto array1 = MakeArrowArrayUtf8({"john", "hello"}, {true, true});
+  auto array2 = MakeArrowArrayUtf8({"doe", "world"}, {true, true});
+  auto in_batch0 =
+      arrow::RecordBatch::Make(schema0, num_records, {array0, array1, array2});
+
+  auto expected_out0 = MakeArrowArrayUtf8({"john-doe", "hello<>world"}, {true, true});
+
+  arrow::ArrayVector outputs;
+
+  // Evaluate expression
+  status = projector1->Evaluate(*in_batch0, pool_, &outputs);
+  EXPECT_TRUE(status.ok());
+
+  EXPECT_ARROW_ARRAY_EQUALS(expected_out0, outputs.at(0));
+}
+
 }  // namespace gandiva
