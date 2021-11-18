@@ -1079,11 +1079,11 @@ class Config(dict):
         config_tasks = dict(self['tasks'])
         valid_groups = set(config_groups.keys())
         valid_tasks = set(config_tasks.keys())
-        group_whitelist = list(groups or [])
-        task_whitelist = list(tasks or [])
+        group_allowlist = list(groups or [])
+        task_allowlist = list(tasks or [])
 
         # validate that the passed groups are defined in the config
-        requested_groups = set(group_whitelist)
+        requested_groups = set(group_allowlist)
         invalid_groups = requested_groups - valid_groups
         if invalid_groups:
             msg = 'Invalid group(s) {!r}. Must be one of {!r}'.format(
@@ -1093,7 +1093,7 @@ class Config(dict):
 
         # treat the task names as glob patterns to select tasks more easily
         requested_tasks = set()
-        for pattern in task_whitelist:
+        for pattern in task_allowlist:
             matches = fnmatch.filter(valid_tasks, pattern)
             if len(matches):
                 requested_tasks.update(matches)
@@ -1103,7 +1103,7 @@ class Config(dict):
                 )
 
         requested_group_tasks = set()
-        for group in group_whitelist:
+        for group in group_allowlist:
             # merge the tasks defined in the selected groups
             task_patterns = list(config_groups[group])
 
@@ -1118,8 +1118,8 @@ class Config(dict):
                     )
 
             # remove any tasks that are on the task blocklist
-            blocklist_groups = set(valid_groups).intersection(group + "-blocklist")
-            if len(blocklist_groups):
+            blocklist_groups = set(valid_groups).intersection([group + "-blocklist"])
+            if blocklist_groups:
                 blocklist_tasks = config_groups[list(blocklist_groups)[0]]
                 requested_group_tasks = requested_group_tasks.difference(blocklist_tasks)
 
