@@ -1106,7 +1106,7 @@ class Config(dict):
         for group in group_allowlist:
             # separate the patterns from the blocklist patterns
             task_patterns = list(config_groups[group])
-            task_blocklist_patterns = [ x.removeprefix("~") for x in task_patterns if x.startswith("~") ]
+            task_blocklist_patterns = [ x.strip("~") for x in task_patterns if x.startswith("~") ]
             task_patterns = [ x for x in task_patterns if not x.startswith("~") ]
 
             # treat the task names as glob patterns to select tasks more easily
@@ -1149,7 +1149,7 @@ class Config(dict):
         for group_name, group in self['groups'].items():
             for pattern in group:
                 # remove the (possible) negation character for blocklist tasks in the group
-                pattern = pattern.removeprefix("~")
+                pattern = pattern.strip("~")
                 tasks = self.select(tasks=[pattern])
                 if not tasks:
                     raise CrossbowError(
