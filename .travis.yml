@@ -139,7 +139,7 @@ jobs:
         <<: *global_env
         ARCH: s390x
         ARROW_CI_MODULES: "PYTHON"
-        DOCKER_IMAGE_ID: python-sdist
+        DOCKER_IMAGE_ID: ubuntu-python
         # Can't enable ARROW_MIMALLOC because of failures in memory pool tests.
         # Can't enable ARROW_S3 because compiler is killed while compiling
         # aws-sdk-cpp.
@@ -160,7 +160,7 @@ jobs:
           -e Protobuf_SOURCE=BUNDLED
           -e gRPC_SOURCE=BUNDLED
           "
-        UBUNTU: "20.04"
+        
 
   allow_failures:
     - name: "Go on ARM"
