@@ -1120,7 +1120,7 @@ class Config(dict):
                         "Unable to match any tasks for `{}`".format(pattern)
                     )
 
-            # remove any tasks that are in the blocklist / negated with ~task-name
+            # remove any tasks that are negated with ~task-name
             for block_pattern in task_blocklist_patterns:
                 matches = fnmatch.filter(valid_tasks, block_pattern)
                 if len(matches):
@@ -1149,7 +1149,7 @@ class Config(dict):
         # validate that the task groups are properly refering to the tasks
         for group_name, group in self['groups'].items():
             for pattern in group:
-                # remove the (possible) negation character for blocklist tasks in the group
+                # remove the negation character for blocklisted tasks
                 pattern = pattern.strip("~")
                 tasks = self.select(tasks=[pattern])
                 if not tasks:
