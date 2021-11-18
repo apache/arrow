@@ -2175,6 +2175,10 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
 
   int GetInternal(T* buffer, int max_values) {
     max_values = std::min(max_values, this->num_values_);
+    if (max_values == 0) {
+      return 0;
+    }
+
     DCHECK_LE(static_cast<uint32_t>(max_values), total_value_count_);
     int i = 0;
     while (i < max_values) {
@@ -2272,6 +2276,9 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
     // Decode up to `max_values` strings into an internal buffer
     // and reference them into `buffer`.
     max_values = std::min(max_values, num_valid_values_);
+    if (max_values == 0) {
+      return 0;
+    }
 
     int32_t data_size = 0;
     const int32_t* length_ptr =
@@ -2406,6 +2413,10 @@ class DeltaByteArrayDecoder : public DecoderImpl,
     // Decode up to `max_values` strings into an internal buffer
     // and reference them into `buffer`.
     max_values = std::min(max_values, num_valid_values_);
+    if (max_values == 0) {
+      return max_values;
+    }
+
     suffix_decoder_.Decode(buffer, max_values);
 
     int64_t data_size = 0;
