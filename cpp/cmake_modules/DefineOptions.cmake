@@ -480,6 +480,12 @@ advised that if this is enabled 'install' will fail silently on components;\
 that have not been built"
                 OFF)
 
+  set(ARROW_SUBSTRAIT_REPO_AND_TAG_DEFAULT
+      "https://github.com/substrait-io/substrait 9e84da55393a24953ed9f9869fa423f86f4860f7")
+  define_option_string(ARROW_SUBSTRAIT_REPO_AND_TAG
+                       "Custom 'repository_url tag' for generating substrait accessors"
+                       "${ARROW_SUBSTRAIT_REPO_AND_TAG_DEFAULT}")
+
   option(ARROW_BUILD_CONFIG_SUMMARY_JSON "Summarize build configuration in a JSON file"
          ON)
 endif()

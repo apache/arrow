@@ -43,9 +43,17 @@ set(SUBSTRAIT_PROTOS expression
                      type
                      type_expressions)
 
+string(FIND "${ARROW_SUBSTRAIT_REPO_AND_TAG}" " " TAG_START)
+if(TAG_START EQUAL -1)
+  message(FATAL_ERROR "Cannot parse ARROW_SUBSTRAIT_REPO_AND_TAG='${ARROW_SUBSTRAIT_REPO_AND_TAG}'")
+endif()
+string(SUBSTRING "${ARROW_SUBSTRAIT_REPO_AND_TAG}" 0 ${TAG_START} ARROW_SUBSTRAIT_REPO)
+string(SUBSTRING "${ARROW_SUBSTRAIT_REPO_AND_TAG}" ${TAG_START} -1 ARROW_SUBSTRAIT_TAG)
+string(STRIP "${ARROW_SUBSTRAIT_TAG}" ARROW_SUBSTRAIT_TAG)
+
 externalproject_add(substrait_ep
-                    GIT_REPOSITORY "https://github.com/substrait-io/substrait"
-                    GIT_TAG "9e84da55393a24953ed9f9869fa423f86f4860f7"
+                    GIT_REPOSITORY "${ARROW_SUBSTRAIT_REPO}"
+                    GIT_TAG "${ARROW_SUBSTRAIT_TAG}"
                     SOURCE_DIR "${SUBSTRAIT_DIR}"
                     CONFIGURE_COMMAND ""
                     BUILD_COMMAND ""
@@ -68,6 +76,11 @@ foreach(SUBSTRAIT_PROTO ${SUBSTRAIT_PROTOS})
 endforeach()
 
 add_custom_target(substrait_gen ALL DEPENDS ${SUBSTRAIT_PROTO_GEN_ALL})
+
+find_package(Git)
+add_custom_target(substrait_gen_verify
+                  COMMAND ${GIT_EXECUTABLE} diff --quiet ${SUBSTRAIT_GEN_DIR}
+                  DEPENDS substrait_gen)
 
 add_arrow_lib(arrow_engine
               CMAKE_PACKAGE_NAME
