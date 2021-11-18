@@ -1688,18 +1688,17 @@ TEST_F(TestProjector, TestEltFunction) {
   auto field1 = field("f1", arrow::utf8());
   auto field2 = field("f2", arrow::utf8());
 
-  auto schema0 = arrow::schema({field0, field1, field2});
+  auto schema = arrow::schema({field0, field1, field2});
 
   // output fields
-  auto out_field0 = field("out_field0", arrow::utf8());
+  auto out_field = field("out", arrow::utf8());
 
   // Build expression
-  auto elt_expr0 =
-      TreeExprBuilder::MakeExpression("elt", {field0, field1, field2}, out_field0);
+  auto elt_expr =
+      TreeExprBuilder::MakeExpression("elt", {field0, field1, field2}, out_field);
 
-  std::shared_ptr<Projector> projector1;
-
-  auto status = Projector::Make(schema0, {elt_expr0}, TestConfiguration(), &projector1);
+  std::shared_ptr<Projector> projector0;
+  auto status = Projector::Make(schema, {elt_expr}, TestConfiguration(), &projector0);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -1711,7 +1710,7 @@ TEST_F(TestProjector, TestEltFunction) {
   auto array2 =
       MakeArrowArrayUtf8({"doe", "world", "world", "yeah"}, {true, true, true, true});
   auto in_batch0 =
-      arrow::RecordBatch::Make(schema0, num_records, {array0, array1, array2});
+      arrow::RecordBatch::Make(schema, num_records, {array0, array1, array2});
 
   auto expected_out0 =
       MakeArrowArrayUtf8({"john", "world", "", ""}, {true, true, false, false});
@@ -1719,10 +1718,12 @@ TEST_F(TestProjector, TestEltFunction) {
   arrow::ArrayVector outputs;
 
   // Evaluate expression
-  status = projector1->Evaluate(*in_batch0, pool_, &outputs);
+  status = projector0->Evaluate(*in_batch0, pool_, &outputs);
   EXPECT_TRUE(status.ok());
-
   EXPECT_ARROW_ARRAY_EQUALS(expected_out0, outputs.at(0));
+
+  std::shared_ptr<Projector> projector1;
+  status = Projector::Make(schema, {elt_expr}, TestConfiguration(), &projector1);
 
   auto array3 = MakeArrowArrayInt32({1, 1, 1, 1}, {true, true, true, true});
   auto array4 =
@@ -1731,7 +1732,7 @@ TEST_F(TestProjector, TestEltFunction) {
   auto array5 =
       MakeArrowArrayUtf8({"wrong", "tiny", "hi", "deps"}, {true, true, true, true});
   auto in_batch1 =
-      arrow::RecordBatch::Make(schema0, num_records, {array3, array4, array5});
+      arrow::RecordBatch::Make(schema, num_records, {array3, array4, array5});
 
   auto expected_out1 =
       MakeArrowArrayUtf8({"inconsequential", "insignificant", "welcome", "dependencies"},
@@ -1741,8 +1742,10 @@ TEST_F(TestProjector, TestEltFunction) {
 
   status = projector1->Evaluate(*in_batch1, pool_, &outputs1);
   EXPECT_TRUE(status.ok());
-
   EXPECT_ARROW_ARRAY_EQUALS(expected_out1, outputs1.at(0));
+
+  std::shared_ptr<Projector> projector2;
+  status = Projector::Make(schema, {elt_expr}, TestConfiguration(), &projector2);
 
   auto array6 = MakeArrowArrayInt32({2, 2, 2, 2}, {true, true, true, true});
   auto array7 =
@@ -1751,14 +1754,15 @@ TEST_F(TestProjector, TestEltFunction) {
   auto array8 =
       MakeArrowArrayUtf8({"wrong", "tiny", "hi", "deps"}, {true, true, true, true});
   auto in_batch2 =
-      arrow::RecordBatch::Make(schema0, num_records, {array6, array7, array8});
+      arrow::RecordBatch::Make(schema, num_records, {array6, array7, array8});
 
   auto expected_out2 =
       MakeArrowArrayUtf8({"wrong", "tiny", "hi", "deps"}, {true, true, true, true});
 
   arrow::ArrayVector outputs2;
-  status = projector1->Evaluate(*in_batch2, pool_, &outputs2);
+  status = projector2->Evaluate(*in_batch2, pool_, &outputs2);
   EXPECT_TRUE(status.ok());
+  EXPECT_ARROW_ARRAY_EQUALS(expected_out2, outputs2.at(0));
 }
 
 }  // namespace gandiva
