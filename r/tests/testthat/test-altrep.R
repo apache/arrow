@@ -98,6 +98,16 @@ test_that("empty vectors are not altrep", {
   expect_false(is_arrow_altrep(as.vector(v_str)))
 })
 
+test_that("ChunkedArray sith 0 chunks are not altrep", {
+  z_int <- ChunkedArray$create(type = int32())
+  z_dbl <- ChunkedArray$create(type = float64())
+  z_str <- ChunkedArray$create(type = utf8())
+
+  expect_false(is_arrow_altrep(as.vector(z_int)))
+  expect_false(is_arrow_altrep(as.vector(z_dbl)))
+  expect_false(is_arrow_altrep(as.vector(z_str)))
+})
+
 test_that("chunked array become altrep", {
   s1 <- c("un", "deux", NA)
   s2 <- c("quatre", "cinq")
