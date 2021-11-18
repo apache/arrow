@@ -65,7 +65,7 @@ Github
      Make sure to add the version of the operating system and the software
      you are using in the ticket description plus the debug information/error.
 
-User and dev mailing list
+Mailing List
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
 You can subscribe to the user or development mailing list and browse for

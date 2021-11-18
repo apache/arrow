@@ -17,9 +17,9 @@
 
 .. _introduction:
 
-**********************
+***********************
 New Contributor's Guide
-**********************
+***********************
 
 This guide is meant to be a resource for contributing to
 `Arrow <https://arrow.apache.org//>`_ for new contributors.
@@ -125,7 +125,7 @@ Full Table of Contents
 ======================
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
 
    about_arrow
    communication
