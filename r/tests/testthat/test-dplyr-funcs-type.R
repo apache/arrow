@@ -653,13 +653,13 @@ test_that("structs/nested data frames/tibbles can be created", {
 
   # ...and that other arguments are not supported
   expect_warning(
-    RecordBatch$create(char_col = "a") %>%
+    record_batch(char_col = "a") %>%
       mutate(df_col = tibble(char_col, .rows = 1L)),
     ".rows not supported in Arrow"
   )
 
   expect_warning(
-    RecordBatch$create(char_col = "a") %>%
+    record_batch(char_col = "a") %>%
       mutate(df_col = tibble(char_col, .name_repair = "universal")),
     ".name_repair not supported in Arrow"
   )
@@ -678,31 +678,31 @@ test_that("structs/nested data frames/tibbles can be created", {
 
   # ...and that other arguments are not supported
   expect_warning(
-    RecordBatch$create(char_col = "a") %>%
+    record_batch(char_col = "a") %>%
       mutate(df_col = data.frame(char_col, stringsAsFactors = TRUE)),
     "stringsAsFactors = TRUE not supported in Arrow"
   )
 
   expect_warning(
-    RecordBatch$create(char_col = "a") %>%
+    record_batch(char_col = "a") %>%
       mutate(df_col = data.frame(char_col, row.names = 1L)),
     "row.names not supported in Arrow"
   )
 
   expect_warning(
-    RecordBatch$create(char_col = "a") %>%
+    record_batch(char_col = "a") %>%
       mutate(df_col = data.frame(char_col, check.rows = TRUE)),
     "check.rows not supported in Arrow"
   )
 
   expect_warning(
-    RecordBatch$create(char_col = "a") %>%
+    record_batch(char_col = "a") %>%
       mutate(df_col = data.frame(char_col, check.names = 1L)),
     "check.names not supported in Arrow"
   )
 
   expect_warning(
-    RecordBatch$create(char_col = "a") %>%
+    record_batch(char_col = "a") %>%
       mutate(df_col = data.frame(char_col, fix.empty.names = 1L)),
     "fix.empty.names not supported in Arrow"
   )
