@@ -446,12 +446,12 @@ struct ReplaceWithMaskFunctor {
 }  // namespace
 
 const FunctionDoc replace_with_mask_doc(
-    "Replace items using a mask and replacement values",
-    ("Given an array and a Boolean mask (either scalar or of equal length), "
-     "along with replacement values (either scalar or array), "
-     "each element of the array for which the corresponding mask element is "
-     "true will be replaced by the next value from the replacements, "
-     "or with null if the mask is null. "
+    "Replace items selected with a mask",
+    ("Given an array and a boolean mask (either scalar or of equal length),\n"
+     "along with replacement values (either scalar or array),\n"
+     "each element of the array for which the corresponding mask element is\n"
+     "true will be replaced by the next value from the replacements,\n"
+     "or with null if the mask is null.\n"
      "Hence, for replacement arrays, len(replacements) == sum(mask == true)."),
     {"values", "mask", "replacements"});
 
