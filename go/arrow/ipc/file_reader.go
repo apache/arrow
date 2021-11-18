@@ -340,12 +340,8 @@ func newRecord(schema *arrow.Schema, meta *memory.Buffer, body ReadAtSeeker, mem
 	cols := make([]array.Interface, len(schema.Fields()))
 	for i, field := range schema.Fields() {
 		cols[i] = ctx.loadArray(field.Type)
+		defer cols[i].Release()
 	}
-	defer func() {
-		for _, c := range cols {
-			c.Release()
-		}
-	}()
 
 	return array.NewRecord(schema, cols, rows)
 }
