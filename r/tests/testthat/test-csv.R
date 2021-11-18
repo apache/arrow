@@ -384,4 +384,39 @@ test_that("Writing a CSV errors when unsupported (yet) readr args are used", {
     write_csv_arrow(tbl, csv_file, append = FALSE),
     "The following argument is not yet supported in Arrow: \"append\""
   )
+  expect_error(
+    write_csv_arrow(tbl, csv_file, quote = "all"),
+    "The following argument is not yet supported in Arrow: \"quote\""
+  )
+  expect_error(
+    write_csv_arrow(tbl, csv_file, escape = "double"),
+    "The following argument is not yet supported in Arrow: \"escape\""
+  )
+  expect_error(
+    write_csv_arrow(tbl, csv_file, eol = "\n"),
+    "The following argument is not yet supported in Arrow: \"eol\""
+  )
+  expect_error(
+    write_csv_arrow(tbl, csv_file, num_threads = 8),
+    "The following argument is not yet supported in Arrow: \"num_threads\""
+  )
+  expect_error(
+    write_csv_arrow(tbl, csv_file, progress = FALSE),
+    "The following argument is not yet supported in Arrow: \"progress\""
+  )
+  expect_error(
+    write_csv_arrow(tbl, csv_file, append = FALSE, eol = "\n"),
+    "The following arguments are not yet supported in Arrow: \"append\" and \"eol\""
+  )
+  expect_error(
+    write_csv_arrow(
+      tbl,
+      csv_file,
+      append = FALSE,
+      quote = "all",
+      escape = "double",
+      eol = "\n", ),
+    paste("The following arguments are not yet supported in Arrow: \"append\",",
+          "\"quote\", \"escape\", and \"eol\"")
+  )
 })
