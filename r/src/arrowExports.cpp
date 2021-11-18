@@ -22,22 +22,6 @@ extern "C" SEXP _arrow_test_SET_STRING_ELT(SEXP s_sexp){
 
 // altrep.cpp
 #if defined(ARROW_R_WITH_ARROW)
-bool test_same_Array(SEXP x, SEXP y);
-extern "C" SEXP _arrow_test_same_Array(SEXP x_sexp, SEXP y_sexp){
-BEGIN_CPP11
-	arrow::r::Input<SEXP>::type x(x_sexp);
-	arrow::r::Input<SEXP>::type y(y_sexp);
-	return cpp11::as_sexp(test_same_Array(x, y));
-END_CPP11
-}
-#else
-extern "C" SEXP _arrow_test_same_Array(SEXP x_sexp, SEXP y_sexp){
-	Rf_error("Cannot call test_same_Array(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-}
-#endif
-
-// altrep.cpp
-#if defined(ARROW_R_WITH_ARROW)
 bool is_arrow_altrep(SEXP x);
 extern "C" SEXP _arrow_is_arrow_altrep(SEXP x_sexp){
 BEGIN_CPP11
@@ -580,6 +564,22 @@ END_CPP11
 #else
 extern "C" SEXP _arrow_LargeListArray__raw_value_offsets(SEXP array_sexp){
 	Rf_error("Cannot call LargeListArray__raw_value_offsets(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// array.cpp
+#if defined(ARROW_R_WITH_ARROW)
+bool Array__Same(const std::shared_ptr<arrow::Array>& x, const std::shared_ptr<arrow::Array>& y);
+extern "C" SEXP _arrow_Array__Same(SEXP x_sexp, SEXP y_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::Array>&>::type x(x_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Array>&>::type y(y_sexp);
+	return cpp11::as_sexp(Array__Same(x, y));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_Array__Same(SEXP x_sexp, SEXP y_sexp){
+	Rf_error("Cannot call Array__Same(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5676,17 +5676,17 @@ extern "C" SEXP _arrow_Table__from_dots(SEXP lst_sexp, SEXP schema_sxp_sexp, SEX
 
 // r_to_arrow.cpp
 #if defined(ARROW_R_WITH_ARROW)
-SEXP vec_to_arrow(SEXP x, SEXP s_type);
-extern "C" SEXP _arrow_vec_to_arrow(SEXP x_sexp, SEXP s_type_sexp){
+SEXP vec_to_Array(SEXP x, SEXP s_type);
+extern "C" SEXP _arrow_vec_to_Array(SEXP x_sexp, SEXP s_type_sexp){
 BEGIN_CPP11
 	arrow::r::Input<SEXP>::type x(x_sexp);
 	arrow::r::Input<SEXP>::type s_type(s_type_sexp);
-	return cpp11::as_sexp(vec_to_arrow(x, s_type));
+	return cpp11::as_sexp(vec_to_Array(x, s_type));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_vec_to_arrow(SEXP x_sexp, SEXP s_type_sexp){
-	Rf_error("Cannot call vec_to_arrow(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+extern "C" SEXP _arrow_vec_to_Array(SEXP x_sexp, SEXP s_type_sexp){
+	Rf_error("Cannot call vec_to_Array(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -7172,7 +7172,6 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_s3_available", (DL_FUNC)& _s3_available, 0 },
 		{ "_json_available", (DL_FUNC)& _json_available, 0 },
 		{ "_arrow_test_SET_STRING_ELT", (DL_FUNC) &_arrow_test_SET_STRING_ELT, 1}, 
-		{ "_arrow_test_same_Array", (DL_FUNC) &_arrow_test_same_Array, 2}, 
 		{ "_arrow_is_arrow_altrep", (DL_FUNC) &_arrow_is_arrow_altrep, 1}, 
 		{ "_arrow_Array__Slice1", (DL_FUNC) &_arrow_Array__Slice1, 2}, 
 		{ "_arrow_Array__Slice2", (DL_FUNC) &_arrow_Array__Slice2, 3}, 
@@ -7208,6 +7207,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_FixedSizeListArray__value_offset", (DL_FUNC) &_arrow_FixedSizeListArray__value_offset, 2}, 
 		{ "_arrow_ListArray__raw_value_offsets", (DL_FUNC) &_arrow_ListArray__raw_value_offsets, 1}, 
 		{ "_arrow_LargeListArray__raw_value_offsets", (DL_FUNC) &_arrow_LargeListArray__raw_value_offsets, 1}, 
+		{ "_arrow_Array__Same", (DL_FUNC) &_arrow_Array__Same, 2}, 
 		{ "_arrow_Array__as_vector", (DL_FUNC) &_arrow_Array__as_vector, 1}, 
 		{ "_arrow_ChunkedArray__as_vector", (DL_FUNC) &_arrow_ChunkedArray__as_vector, 2}, 
 		{ "_arrow_RecordBatch__to_dataframe", (DL_FUNC) &_arrow_RecordBatch__to_dataframe, 2}, 
@@ -7531,7 +7531,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ExportRecordBatch", (DL_FUNC) &_arrow_ExportRecordBatch, 3}, 
 		{ "_arrow_ExportRecordBatchReader", (DL_FUNC) &_arrow_ExportRecordBatchReader, 2}, 
 		{ "_arrow_Table__from_dots", (DL_FUNC) &_arrow_Table__from_dots, 3}, 
-		{ "_arrow_vec_to_arrow", (DL_FUNC) &_arrow_vec_to_arrow, 2}, 
+		{ "_arrow_vec_to_Array", (DL_FUNC) &_arrow_vec_to_Array, 2}, 
 		{ "_arrow_DictionaryArray__FromArrays", (DL_FUNC) &_arrow_DictionaryArray__FromArrays, 3}, 
 		{ "_arrow_RecordBatch__num_columns", (DL_FUNC) &_arrow_RecordBatch__num_columns, 1}, 
 		{ "_arrow_RecordBatch__num_rows", (DL_FUNC) &_arrow_RecordBatch__num_rows, 1}, 
