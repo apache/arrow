@@ -106,11 +106,7 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      utf8(), kResultNullIfNull, "concat_ws_utf8_utf8_utf8_utf8_utf8",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
-      NativeFunction("elt", {}, DataTypeVector{int32(), utf8()}, utf8(), kResultNullIfNull,
-                     "gdv_fn_elt_utf8",
-      NativeFunction("elt", {}, DataTypeVector{int32(), utf8()}, utf8(),
-                     kResultNullIfNull, "gdv_fn_elt_utf8",
-                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
       NativeFunction("elt", {}, DataTypeVector{int32(), utf8(), utf8()}, utf8(),
                      kResultNullInternal, "elt_int32_utf8_utf8",
                      NativeFunction::kNeedsContext),
