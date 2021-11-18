@@ -144,6 +144,7 @@ groups:
     - wheel-*
     - python-sdist
   nightly-blocklist:
+    # ARROW-14256
     - conda-linux-gcc-py310-arm64
     - conda-linux-gcc-py310-cuda
     - conda-linux-gcc-py36-arm64
@@ -157,6 +158,7 @@ groups:
     - conda-linux-gcc-py39-cpu
     - conda-linux-gcc-py39-cuda
     - conda-win-vs2017-py37-r41
+    # ARROW-14215
     - conda-win-vs2017-py38
     - conda-win-vs2017-py39
 
