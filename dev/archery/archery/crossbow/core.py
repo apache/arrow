@@ -1104,8 +1104,10 @@ class Config(dict):
 
         requested_group_tasks = set()
         for group in group_allowlist:
-            # merge the tasks defined in the selected groups
+            # separate the patterns from the blocklist patterns
             task_patterns = list(config_groups[group])
+            task_blocklist_patterns = [ x.removeprefix("~") for x in task_patterns if x.startswith("~") ]
+            task_patterns = [ x for x in task_patterns if not x.startswith("~") ]
 
             # treat the task names as glob patterns to select tasks more easily
             for pattern in task_patterns:
@@ -1117,11 +1119,16 @@ class Config(dict):
                         "Unable to match any tasks for `{}`".format(pattern)
                     )
 
-            # remove any tasks that are on the task blocklist
-            blocklist_groups = set(valid_groups).intersection([group + "-blocklist"])
-            if blocklist_groups:
-                blocklist_tasks = config_groups[list(blocklist_groups)[0]]
-                requested_group_tasks = requested_group_tasks.difference(blocklist_tasks)
+            # remove any tasks that are in the blocklist / negated with ~task-name
+            for block_pattern in task_blocklist_patterns:
+                matches = fnmatch.filter(valid_tasks, block_pattern)
+                if len(matches):
+                    requested_group_tasks = requested_group_tasks.difference(matches)
+                else:
+                    raise CrossbowError(
+                        "Unable to match any tasks for `{}`".format(pattern)
+                    )
+
 
         requested_tasks = requested_tasks.union(requested_group_tasks)
 
@@ -1138,9 +1145,11 @@ class Config(dict):
         }
 
     def validate(self):
-        # validate that the task groups are properly referening the tasks
+        # validate that the task groups are properly refering to the tasks
         for group_name, group in self['groups'].items():
             for pattern in group:
+                # remove the (possible) negation character for blocklist tasks in the group
+                pattern = pattern.removeprefix("~")
                 tasks = self.select(tasks=[pattern])
                 if not tasks:
                     raise CrossbowError(

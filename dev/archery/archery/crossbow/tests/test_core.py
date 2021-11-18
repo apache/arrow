@@ -54,3 +54,7 @@ def test_group_select_blocklist(request):
     # but can then over-ride by requesting the task
     test_nightly_out = conf.select(tasks=["nightly-not-fine", "nightly-fine"], groups=["nightly", "test"])
     assert test_nightly_out.keys() >= {"test-a-test-two", "test-a-test", "nightly-fine", "nightly-not-fine"}
+
+    # and we can glob with the blocklist too!
+    test_nightly_no_test_out = conf.select(groups=["nightly-no-test"])
+    assert test_nightly_no_test_out.keys() >= {"nightly-fine", "nightly-not-fine"}
