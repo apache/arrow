@@ -17,8 +17,8 @@
 package array
 
 import (
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/v7/arrow"
+	"github.com/apache/arrow/go/v7/arrow/memory"
 )
 
 // RecordToStructArray constructs a struct array from the columns of the record batch
