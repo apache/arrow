@@ -196,9 +196,7 @@ func (r *Reader) Read() (array.Record, error) {
 	}
 
 	if !r.next() {
-		if r.err != nil {
-			return nil, r.err
-		} else if r.done {
+		if r.done && r.err == nil {
 			return nil, io.EOF
 		}
 		return nil, r.err
