@@ -78,6 +78,25 @@ const std::shared_ptr<ChunkedArray>& GetChunkedArray(SEXP alt) {
   return *Pointer(R_altrep_data1(alt));
 }
 
+struct ArrayResolve {
+  ArrayResolve(const std::shared_ptr<ChunkedArray>& chunked_array, int64_t i) {
+    for (int idx_chunk = 0; idx_chunk < chunked_array->num_chunks(); idx_chunk++) {
+      std::shared_ptr<Array> chunk = chunked_array->chunk(idx_chunk);
+      auto chunk_size = chunk->length();
+      if (i < chunk_size) {
+        index_ = i;
+        array_ = chunk;
+        break;
+      }
+
+      i -= chunk_size;
+    }
+  }
+
+  std::shared_ptr<Array> array_;
+  int64_t index_;
+};
+
 // base class for all altrep vectors
 //
 // data1: the Array as an external pointer.
@@ -219,10 +238,12 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
 
   // The value at position i
   static c_type Elt(SEXP alt, R_xlen_t i) {
-    auto array = GetChunkedArray(alt)->Slice(i, 1)->chunk(0);
+    ArrayResolve resolve(GetChunkedArray(alt), i);
+    auto array = resolve.array_;
+    auto j = resolve.index_;
 
-    return array->IsNull(0) ? cpp11::na<c_type>()
-                            : array->data()->template GetValues<c_type>(1)[0];
+    return array->IsNull(j) ? cpp11::na<c_type>()
+                            : array->data()->template GetValues<c_type>(1)[j];
   }
 
   // R calls this when it wants data from position `i` to `i + n` copied into `buf`
@@ -449,7 +470,10 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
     }
     BEGIN_CPP11
 
-    auto array = GetChunkedArray(alt)->Slice(i, 1)->chunk(0);
+    ArrayResolve resolve(GetChunkedArray(alt), i);
+    auto array = resolve.array_;
+    auto j = resolve.index_;
+
     RStringViewer r_string_viewer;
     r_string_viewer.SetArray(array);
 
@@ -458,7 +482,7 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
     // can be properly destructed before the unwinding continues
     SEXP s = NA_STRING;
     cpp11::unwind_protect([&]() {
-      s = r_string_viewer.Convert(0);
+      s = r_string_viewer.Convert(j);
       if (r_string_viewer.nul_was_stripped()) {
         cpp11::warning("Stripping '\\0' (nul) from character vector");
       }
