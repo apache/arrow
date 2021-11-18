@@ -254,6 +254,7 @@ cat <<YAML > "${versions_yml}"
 current:
   number: '${version}'
   pinned_number: '${pinned_version}'
+  major_number: '${major_version}'
   date: '${release_date}'
   git-tag: '${git_tag_hash}'
   github-tag-link: 'https://github.com/apache/arrow/releases/tag/${git_tag}'
