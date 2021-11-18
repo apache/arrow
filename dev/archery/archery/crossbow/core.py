@@ -1106,8 +1106,9 @@ class Config(dict):
         for group in group_allowlist:
             # separate the patterns from the blocklist patterns
             task_patterns = list(config_groups[group])
-            task_blocklist_patterns = [ x.strip("~") for x in task_patterns if x.startswith("~") ]
-            task_patterns = [ x for x in task_patterns if not x.startswith("~") ]
+            task_blocklist_patterns = [
+                x.strip("~") for x in task_patterns if x.startswith("~")]
+            task_patterns = [x for x in task_patterns if not x.startswith("~")]
 
             # treat the task names as glob patterns to select tasks more easily
             for pattern in task_patterns:
@@ -1123,12 +1124,12 @@ class Config(dict):
             for block_pattern in task_blocklist_patterns:
                 matches = fnmatch.filter(valid_tasks, block_pattern)
                 if len(matches):
-                    requested_group_tasks = requested_group_tasks.difference(matches)
+                    requested_group_tasks = requested_group_tasks.difference(
+                        matches)
                 else:
                     raise CrossbowError(
                         "Unable to match any tasks for `{}`".format(pattern)
                     )
-
 
         requested_tasks = requested_tasks.union(requested_group_tasks)
 
