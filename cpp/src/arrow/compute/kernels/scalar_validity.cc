@@ -282,11 +282,13 @@ Status IsNullExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
 
 const FunctionDoc is_valid_doc(
     "Return true if non-null",
-    ("For each input value, emit true iff the value is valid (non-null)."), {"values"});
+    ("For each input value, emit true iff the value is valid (i.e. non-null)."),
+    {"values"});
 
 const FunctionDoc is_finite_doc(
     "Return true if value is finite",
-    ("For each input value, emit true iff the value is finite (not NaN, inf, or -inf)."),
+    ("For each input value, emit true iff the value is finite\n"
+     "(i.e. neither NaN, inf, nor -inf)."),
     {"values"});
 
 const FunctionDoc is_inf_doc(

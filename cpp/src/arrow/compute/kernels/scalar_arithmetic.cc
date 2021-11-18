@@ -2197,178 +2197,165 @@ const FunctionDoc bit_wise_xor_doc{
 
 const FunctionDoc shift_left_doc{
     "Left shift `x` by `y`",
-    ("This function will return `x` if `y` (the amount to shift by) is: "
-     "(1) negative or (2) greater than or equal to the precision of `x`.\n"
-     "The shift operates as if on the two's complement representation of the number. "
-     "In other words, this is equivalent to multiplying `x` by 2 to the power `y`, "
+    ("The shift operates as if on the two's complement representation of the number.\n"
+     "In other words, this is equivalent to multiplying `x` by 2 to the power `y`,\n"
      "even if overflow occurs.\n"
-     "Use function \"shift_left_checked\" if you want an invalid shift amount to "
-     "return an error."),
+     "`x` is returned if `y` (the amount to shift by) is (1) negative or\n"
+     "(2) greater than or equal to the precision of `x`.\n"
+     "Use function \"shift_left_checked\" if you want an invalid shift amount\n"
+     "to return an error."),
     {"x", "y"}};
 
 const FunctionDoc shift_left_checked_doc{
-    "Left shift `x` by `y` with invalid shift check",
-    ("This function will raise an error if `y` (the amount to shift by) is: "
-     "(1) negative or (2) greater than or equal to the precision of `x`. "
-     "The shift operates as if on the two's complement representation of the number. "
-     "In other words, this is equivalent to multiplying `x` by 2 to the power `y`, "
+    "Left shift `x` by `y`",
+    ("The shift operates as if on the two's complement representation of the number.\n"
+     "In other words, this is equivalent to multiplying `x` by 2 to the power `y`,\n"
      "even if overflow occurs.\n"
+     "An error is raised if `y` (the amount to shift by) is (1) negative or\n"
+     "(2) greater than or equal to the precision of `x`.\n"
      "See \"shift_left\" for a variant that doesn't fail for an invalid shift amount."),
     {"x", "y"}};
 
 const FunctionDoc shift_right_doc{
     "Right shift `x` by `y`",
-    ("Perform a logical shift for unsigned `x` and an arithmetic shift for signed `x`.\n"
-     "This function will return `x` if `y` (the amount to shift by) is: "
-     "(1) negative or (2) greater than or equal to the precision of `x`.\n"
-     "Use function \"shift_right_checked\" if you want an invalid shift amount to return "
-     "an error."),
+    ("This is equivalent to dividing `x` by 2 to the power `y`.\n"
+     "`x` is returned if `y` (the amount to shift by) is: (1) negative or\n"
+     "(2) greater than or equal to the precision of `x`.\n"
+     "Use function \"shift_right_checked\" if you want an invalid shift amount\n"
+     "to return an error."),
     {"x", "y"}};
 
 const FunctionDoc shift_right_checked_doc{
-    "Right shift `x` by `y` with invalid shift check",
-    ("Perform a logical shift for unsigned `x` and an arithmetic shift for signed `x`.\n"
-     "This function will raise an error if `y` (the amount to shift by) is: "
-     "(1) negative or (2) greater than or equal to the precision of `x`.\n"
+    "Right shift `x` by `y`",
+    ("This is equivalent to dividing `x` by 2 to the power `y`.\n"
+     "An error is raised if `y` (the amount to shift by) is (1) negative or\n"
+     "(2) greater than or equal to the precision of `x`.\n"
      "See \"shift_right\" for a variant that doesn't fail for an invalid shift amount"),
     {"x", "y"}};
 
-const FunctionDoc sin_doc{"Compute the sine of the elements argument-wise",
-                          ("Integer arguments return double values. "
-                           "This function returns NaN on values outside its domain. "
-                           "To raise an error instead, see \"sin_checked\"."),
+const FunctionDoc sin_doc{"Compute the sine",
+                          ("NaN is returned for invalid input values;\n"
+                           "to raise an error instead, see \"sin_checked\"."),
                           {"x"}};
 
-const FunctionDoc sin_checked_doc{
-    "Compute the sine of the elements argument-wise",
-    ("Integer arguments return double values. "
-     "This function raises an error on values outside its domain. "
-     "To return NaN instead, see \"sin\"."),
-    {"x"}};
+const FunctionDoc sin_checked_doc{"Compute the sine",
+                                  ("Invalid input values raise an error;\n"
+                                   "to return NaN instead, see \"sin\"."),
+                                  {"x"}};
 
-const FunctionDoc cos_doc{"Compute the cosine of the elements argument-wise",
-                          ("Integer arguments return double values. "
-                           "This function returns NaN on values outside its domain. "
-                           "To raise an error instead, see \"cos_checked\"."),
+const FunctionDoc cos_doc{"Compute the cosine",
+                          ("NaN is returned for invalid input values;\n"
+                           "to raise an error instead, see \"cos_checked\"."),
                           {"x"}};
 
-const FunctionDoc cos_checked_doc{
-    "Compute the cosine of the elements argument-wise",
-    ("Integer arguments return double values. "
-     "This function raises an error on values outside its domain. "
-     "To return NaN instead, see \"cos\"."),
-    {"x"}};
+const FunctionDoc cos_checked_doc{"Compute the cosine",
+                                  ("Infinite values raise an error;\n"
+                                   "to return NaN instead, see \"cos\"."),
+                                  {"x"}};
 
-const FunctionDoc tan_doc{"Compute the tangent of the elements argument-wise",
-                          ("Integer arguments return double values. "
-                           "This function returns NaN on values outside its domain. "
-                           "To raise an error instead, see \"tan_checked\"."),
+const FunctionDoc tan_doc{"Compute the tangent",
+                          ("NaN is returned for invalid input values;\n"
+                           "to raise an error instead, see \"tan_checked\"."),
                           {"x"}};
 
-const FunctionDoc tan_checked_doc{
-    "Compute the tangent of the elements argument-wise",
-    ("Integer arguments return double values. "
-     "This function raises an error on values outside its domain. "
-     "To return NaN instead, see \"tan\"."),
-    {"x"}};
+const FunctionDoc tan_checked_doc{"Compute the tangent",
+                                  ("Infinite values raise an error;\n"
+                                   "to return NaN instead, see \"tan\"."),
+                                  {"x"}};
 
-const FunctionDoc asin_doc{"Compute the inverse sine of the elements argument-wise",
-                           ("Integer arguments return double values. "
-                            "This function returns NaN on values outside its domain. "
-                            "To raise an error instead, see \"asin_checked\"."),
+const FunctionDoc asin_doc{"Compute the inverse sine",
+                           ("NaN is returned for invalid input values;\n"
+                            "to raise an error instead, see \"asin_checked\"."),
                            {"x"}};
 
-const FunctionDoc asin_checked_doc{
-    "Compute the inverse sine of the elements argument-wise",
-    ("Integer arguments return double values. "
-     "This function raises an error on values outside its domain. "
-     "To return NaN instead, see \"asin\"."),
-    {"x"}};
+const FunctionDoc asin_checked_doc{"Compute the inverse sine",
+                                   ("Invalid input values raise an error;\n"
+                                    "to return NaN instead, see \"asin\"."),
+                                   {"x"}};
 
-const FunctionDoc acos_doc{"Compute the inverse cosine of the elements argument-wise",
-                           ("Integer arguments return double values. "
-                            "This function returns NaN on values outside its domain. "
-                            "To raise an error instead, see \"acos_checked\"."),
+const FunctionDoc acos_doc{"Compute the inverse cosine",
+                           ("NaN is returned for invalid input values;\n"
+                            "to raise an error instead, see \"acos_checked\"."),
                            {"x"}};
 
-const FunctionDoc acos_checked_doc{
-    "Compute the inverse cosine of the elements argument-wise",
-    ("Integer arguments return double values. "
-     "This function raises an error on values outside its domain. "
-     "To return NaN instead, see \"acos\"."),
-    {"x"}};
+const FunctionDoc acos_checked_doc{"Compute the inverse cosine",
+                                   ("Invalid input values raise an error;\n"
+                                    "to return NaN instead, see \"acos\"."),
+                                   {"x"}};
 
-const FunctionDoc atan_doc{"Compute the principal value of the inverse tangent",
-                           "Integer arguments return double values.",
+const FunctionDoc atan_doc{"Compute the inverse tangent of x",
+                           ("The return value is in the range [-pi/2, pi/2];\n"
+                            "for a full return range [-pi, pi], see \"atan2\"."),
                            {"x"}};
 
-const FunctionDoc atan2_doc{
-    "Compute the inverse tangent using argument signs to determine the quadrant",
-    "Integer arguments return double values.",
-    {"y", "x"}};
+const FunctionDoc atan2_doc{"Compute the inverse tangent of y/x",
+                            ("The return value is in the range [-pi, pi]."),
+                            {"y", "x"}};
 
 const FunctionDoc ln_doc{
-    "Compute natural log of arguments element-wise",
+    "Compute natural logarithm",
     ("Non-positive values return -inf or NaN. Null values return null.\n"
      "Use function \"ln_checked\" if you want non-positive values to raise an error."),
     {"x"}};
 
 const FunctionDoc ln_checked_doc{
-    "Compute natural log of arguments element-wise",
-    ("Non-positive values return -inf or NaN. Null values return null.\n"
+    "Compute natural logarithm",
+    ("Non-positive values raise an error. Null values return null.\n"
      "Use function \"ln\" if you want non-positive values to return "
      "-inf or NaN."),
     {"x"}};
 
 const FunctionDoc log10_doc{
-    "Compute log base 10 of arguments element-wise",
+    "Compute base 10 logarithm",
     ("Non-positive values return -inf or NaN. Null values return null.\n"
-     "Use function \"log10_checked\" if you want non-positive values to raise an error."),
+     "Use function \"log10_checked\" if you want non-positive values\n"
+     "to raise an error."),
     {"x"}};
 
 const FunctionDoc log10_checked_doc{
-    "Compute log base 10 of arguments element-wise",
-    ("Non-positive values return -inf or NaN. Null values return null.\n"
-     "Use function \"log10\" if you want non-positive values to return "
-     "-inf or NaN."),
+    "Compute base 10 logarithm",
+    ("Non-positive values raise an error. Null values return null.\n"
+     "Use function \"log10\" if you want non-positive values\n"
+     "to return -inf or NaN."),
     {"x"}};
 
 const FunctionDoc log2_doc{
-    "Compute log base 2 of arguments element-wise",
+    "Compute base 2 logarithm",
     ("Non-positive values return -inf or NaN. Null values return null.\n"
-     "Use function \"log2_checked\" if you want non-positive values to raise an error."),
+     "Use function \"log2_checked\" if you want non-positive values\n"
+     "to raise an error."),
     {"x"}};
 
 const FunctionDoc log2_checked_doc{
-    "Compute log base 2 of arguments element-wise",
-    ("Non-positive values return -inf or NaN. Null values return null.\n"
-     "Use function \"log2\" if you want non-positive values to return "
-     "-inf or NaN."),
+    "Compute base 2 logarithm",
+    ("Non-positive values raise an error. Null values return null.\n"
+     "Use function \"log2\" if you want non-positive values\n"
+     "to return -inf or NaN."),
     {"x"}};
 
 const FunctionDoc log1p_doc{
-    "Compute natural log of (1+x) element-wise",
+    "Compute natural log of (1+x)",
     ("Values <= -1 return -inf or NaN. Null values return null.\n"
-     "This function may be more precise than log(1 + x) for x close to zero."
-     "Use function \"log1p_checked\" if you want non-positive values to raise an error."),
+     "This function may be more precise than log(1 + x) for x close to zero.\n"
+     "Use function \"log1p_checked\" if you want invalid values to raise an error."),
     {"x"}};
 
 const FunctionDoc log1p_checked_doc{
-    "Compute natural log of (1+x) element-wise",
+    "Compute natural log of (1+x)",
     ("Values <= -1 return -inf or NaN. Null values return null.\n"
-     "This function may be more precise than log(1 + x) for x close to zero."
-     "Use function \"log1p\" if you want non-positive values to return "
+     "This function may be more precise than log(1 + x) for x close to zero.\n"
+     "Use function \"log1p\" if you want invalid values to return "
      "-inf or NaN."),
     {"x"}};
 
 const FunctionDoc logb_doc{
-    "Compute log of x to base b of arguments element-wise",
+    "Compute base `b` logarithm",
     ("Values <= 0 return -inf or NaN. Null values return null.\n"
      "Use function \"logb_checked\" if you want non-positive values to raise an error."),
     {"x", "b"}};
 
 const FunctionDoc logb_checked_doc{
-    "Compute log of x to base b of arguments element-wise",
+    "Compute base `b` logarithm",
     ("Values <= 0 return -inf or NaN. Null values return null.\n"
      "Use function \"logb\" if you want non-positive values to return "
      "-inf or NaN."),
@@ -2376,35 +2363,32 @@ const FunctionDoc logb_checked_doc{
 
 const FunctionDoc floor_doc{
     "Round down to the nearest integer",
-    ("Calculate the nearest integer less than or equal in magnitude to the "
-     "argument element-wise"),
+    ("Compute the largest integer value not greater in magnitude than `x`."),
     {"x"}};
 
 const FunctionDoc ceil_doc{
     "Round up to the nearest integer",
-    ("Calculate the nearest integer greater than or equal in magnitude to the "
-     "argument element-wise"),
+    ("Compute the smallest integer value not less in magnitude than `x`."),
     {"x"}};
 
 const FunctionDoc trunc_doc{
-    "Get the integral part without fractional digits",
-    ("Calculate the nearest integer not greater in magnitude than to the "
-     "argument element-wise."),
+    "Compute the integral part",
+    ("Compute the nearest integer not greater in magnitude than `x`."),
     {"x"}};
 
 const FunctionDoc round_doc{
     "Round to a given precision",
     ("Options are used to control the number of digits and rounding mode.\n"
-     "Default behavior is to round to the nearest integer and use half-to-even "
-     "rule to break ties."),
+     "Default behavior is to round to the nearest integer and\n"
+     "use half-to-even rule to break ties."),
     {"x"},
     "RoundOptions"};
 
 const FunctionDoc round_to_multiple_doc{
     "Round to a given multiple",
     ("Options are used to control the rounding multiple and rounding mode.\n"
-     "Default behavior is to round to the nearest integer and use half-to-even "
-     "rule to break ties."),
+     "Default behavior is to round to the nearest integer and\n"
+     "use half-to-even rule to break ties."),
     {"x"},
     "RoundToMultipleOptions"};
 }  // namespace
