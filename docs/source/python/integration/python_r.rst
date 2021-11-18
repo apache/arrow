@@ -153,6 +153,10 @@ the R function and print the resulting pyarrow Array:
     support for 64 bits numbers in R and thus its use of doubles
     to represent those.
 
+For additional information you can refer to
+`rpy2 Documentation <https://rpy2.github.io/doc/latest/html/index.html>`_
+and `rpy2-arrow Documentation <https://rpy2.github.io/rpy2-arrow/version/main/html/index.html>`_
+
 Invoking Python functions from R
 --------------------------------
 
@@ -196,6 +200,9 @@ Invoking the ``addthree.R`` script will print the outcome of adding
       5,
       6
     ]
+
+For additional information you can refer to
+`Reticulate Documentation <https://rstudio.github.io/reticulate/>`_
 
 R to Python communication using C Data Interface
 ------------------------------------------------
