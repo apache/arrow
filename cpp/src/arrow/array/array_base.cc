@@ -305,9 +305,6 @@ Status Array::Accept(ArrayVisitor* visitor) const {
 
 Status Array::Validate() const { return internal::ValidateArray(*this); }
 
-Status Array::ValidateFull() const {
-  RETURN_NOT_OK(internal::ValidateArray(*this));
-  return internal::ValidateArrayFull(*this);
-}
+Status Array::ValidateFull() const { return internal::ValidateArrayFull(*this); }
 
 }  // namespace arrow

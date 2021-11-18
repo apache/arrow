@@ -2426,6 +2426,19 @@ def test_filter_implicit_cast(tempdir, dataset_reader):
     assert len(dataset_reader.to_table(dataset, filter=filter_)) == 3
 
 
+@pytest.mark.parquet
+def test_filter_equal_null(tempdir, dataset_reader):
+    # ARROW-12066 equality with null, although not useful, should not crash
+    table = pa.table({"A": ["a", "b", None]})
+    _, path = _create_single_file(tempdir, table)
+    dataset = ds.dataset(str(path))
+
+    table = dataset_reader.to_table(
+        dataset, filter=ds.field("A") == ds.scalar(None)
+    )
+    assert table.num_rows == 0
+
+
 def test_dataset_union(multisourcefs):
     child = ds.FileSystemDatasetFactory(
         multisourcefs, fs.FileSelector('/plain'),

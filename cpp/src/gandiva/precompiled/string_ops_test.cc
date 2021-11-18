@@ -1755,4 +1755,54 @@ TEST(TestStringOps, TestConvertToBigEndian) {
 #endif
 }
 
+TEST(TestStringOps, TestConcatWs) {
+  gandiva::ExecutionContext ctx;
+
+  auto ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+
+  const char* separator = "-";
+  auto sep_len = static_cast<int32_t>(strlen(separator));
+  int32_t out_len;
+  const char* word1 = "hey";
+  int32_t word1_len = static_cast<int32_t>(strlen(word1));
+  const char* word2 = "hello";
+  int32_t word2_len = static_cast<int32_t>(strlen(word2));
+
+  const char* out = concat_ws_utf8_utf8(ctx_ptr, separator, sep_len, word1, word1_len,
+                                        word2, word2_len, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "hey-hello");
+
+  separator = "#";
+  sep_len = static_cast<int32_t>(strlen(separator));
+  const char* word3 = "wow";
+  int32_t word3_len = static_cast<int32_t>(strlen(word3));
+
+  out = concat_ws_utf8_utf8_utf8(ctx_ptr, separator, sep_len, word1, word1_len, word2,
+                                 word2_len, word3, word3_len, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "hey#hello#wow");
+
+  separator = "=";
+  sep_len = static_cast<int32_t>(strlen(separator));
+  const char* word4 = "awesome";
+  int32_t word4_len = static_cast<int32_t>(strlen(word4));
+
+  out = concat_ws_utf8_utf8_utf8_utf8(ctx_ptr, separator, sep_len, word1, word1_len,
+                                      word2, word2_len, word3, word3_len, word4,
+                                      word4_len, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "hey=hello=wow=awesome");
+
+  separator = "&&";
+  sep_len = static_cast<int32_t>(strlen(separator));
+  const char* word5 = "super";
+  int32_t word5_len = static_cast<int32_t>(strlen(word5));
+
+  out = concat_ws_utf8_utf8_utf8_utf8_utf8(ctx_ptr, separator, sep_len, word1, word1_len,
+                                           word2, word2_len, word3, word3_len, word4,
+                                           word4_len, word5, word5_len, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "hey&&hello&&wow&&awesome&&super");
+
+  out = concat_ws_utf8_utf8(ctx_ptr, "", 0, "", 0, "", 0, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "");
+}
+
 }  // namespace gandiva

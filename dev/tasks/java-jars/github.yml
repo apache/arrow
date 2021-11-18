@@ -112,4 +112,6 @@ jobs:
           arrow/ci/scripts/java_full_build.sh \
             $GITHUB_WORKSPACE/arrow \
             $GITHUB_WORKSPACE/arrow/java-dist
-      {{ macros.github_upload_releases(["arrow/java-dist/*.jar", "arrow/java-dist/*.pom"])|indent }}
+      {{ macros.github_upload_releases(["arrow/java-dist/*.jar",
+                                        "arrow/java-dist/*.pom",
+                                        "arrow/java-dist/*.zip"])|indent }}

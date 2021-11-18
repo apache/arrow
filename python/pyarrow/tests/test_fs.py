@@ -20,6 +20,7 @@ import gzip
 import os
 import pathlib
 import pickle
+import re
 import subprocess
 import sys
 import time
@@ -287,6 +288,22 @@ def _wait_for_minio_startup(mcdir, address, access_key, secret_key):
     raise Exception("mc command could not connect to local minio")
 
 
+def _ensure_minio_component_version(component, minimum_year):
+    full_args = [component, '--version']
+    proc = subprocess.Popen(full_args, stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE, encoding='utf-8')
+    if proc.wait(10) != 0:
+        return False
+    stdout = proc.stdout.read()
+    pattern = component + r' version RELEASE\.(\d+)-.*'
+    version_match = re.search(pattern, stdout)
+    if version_match:
+        version_year = version_match.group(1)
+        return int(version_year) >= minimum_year
+    else:
+        return False
+
+
 def _configure_limited_user(tmpdir, address, access_key, secret_key):
     """
     Attempts to use the mc command to configure the minio server
@@ -298,6 +315,12 @@ def _configure_limited_user(tmpdir, address, access_key, secret_key):
     (e.g. see ARROW-13685)
     """
     try:
+        if not _ensure_minio_component_version('mc', 2021):
+            # mc version is too old for the capabilities we need
+            return False
+        if not _ensure_minio_component_version('minio', 2021):
+            # minio version is too old for the capabilities we need
+            return False
         mcdir = os.path.join(tmpdir, 'mc')
         os.mkdir(mcdir)
         policy_path = os.path.join(tmpdir, 'limited-buckets-policy.json')

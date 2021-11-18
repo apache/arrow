@@ -21,7 +21,7 @@ import (
 	"io"
 	"testing"
 
-	"github.com/apache/arrow/go/arrow/flight"
+	"github.com/apache/arrow/go/v7/arrow/flight"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"

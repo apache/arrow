@@ -209,7 +209,6 @@ struct DictionaryMemo::Impl {
           return Status::NotImplemented(
               "Encountered delta dictionary with an unresolved nested dictionary");
         }
-        RETURN_NOT_OK(::arrow::internal::ValidateArray(*data));
         RETURN_NOT_OK(::arrow::internal::ValidateArrayFull(*data));
         to_combine.push_back(MakeArray(data));
       }

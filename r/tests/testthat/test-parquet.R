@@ -274,7 +274,7 @@ test_that("Error is created when parquet reads a feather file", {
 })
 
 test_that("ParquetFileWrite chunk_size defaults", {
-  tab <- Table$create(x = 1:100)
+  tab <- Table$create(x = 1:101)
   tf <- tempfile()
   on.exit(unlink(tf))
 
@@ -287,9 +287,9 @@ test_that("ParquetFileWrite chunk_size defaults", {
       write_parquet(tab, tf)
       reader <- ParquetFileReader$create(tf)
 
-      expect_true(reader$ReadRowGroup(0) == Table$create(x = 1:25))
-      expect_true(reader$ReadRowGroup(3) == Table$create(x = 76:100))
-      expect_error(reader$ReadRowGroup(5), "Some index in row_group_indices")
+      expect_true(reader$ReadRowGroup(0) == Table$create(x = 1:26))
+      expect_true(reader$ReadRowGroup(3) == Table$create(x = 79:101))
+      expect_error(reader$ReadRowGroup(4), "Some index in row_group_indices")
     })
 
   # but we always have no more than max_chunks (even if cells_per_group is low!)
@@ -306,8 +306,8 @@ test_that("ParquetFileWrite chunk_size defaults", {
       write_parquet(tab, tf)
       reader <- ParquetFileReader$create(tf)
 
-      expect_true(reader$ReadRowGroup(0) == Table$create(x = 1:50))
-      expect_true(reader$ReadRowGroup(1) == Table$create(x = 51:100))
-      expect_error(reader$ReadRowGroup(3), "Some index in row_group_indices")
+      expect_true(reader$ReadRowGroup(0) == Table$create(x = 1:51))
+      expect_true(reader$ReadRowGroup(1) == Table$create(x = 52:101))
+      expect_error(reader$ReadRowGroup(2), "Some index in row_group_indices")
     })
 })
