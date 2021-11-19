@@ -3907,6 +3907,10 @@ endif()
 
 macro(build_opentelemetry)
   message("Building OpenTelemetry from source")
+
+  build_nlohmann_json_once()
+  find_curl()
+
   set(OPENTELEMETRY_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/opentelemetry_ep-install")
   set(OPENTELEMETRY_INCLUDE_DIR "${OPENTELEMETRY_PREFIX}/include")
   set(OPENTELEMETRY_STATIC_LIB
@@ -3972,44 +3976,36 @@ macro(build_opentelemetry)
   set(_OPENTELEMETRY_DEPENDENCIES)
   add_custom_target(opentelemetry_dependencies)
 
-  if(ARROW_WITH_OPENTELEMETRY)
-    set(_OPENTELEMETRY_DEPENDENCIES "opentelemetry_dependencies")
-    list(APPEND ARROW_BUNDLED_STATIC_LIBS ${OPENTELEMETRY_LIBRARIES})
-    list(APPEND OPENTELEMETRY_PREFIX_PATH_LIST ${NLOHMANN_JSON_PREFIX})
-    set(OPENTELEMETRY_CMAKE_ARGS ${OPENTELEMETRY_CMAKE_ARGS} -DWITH_OTLP=ON
-                                 -DWITH_OTLP_HTTP=ON -DWITH_OTLP_GRPC=OFF)
+  set(_OPENTELEMETRY_DEPENDENCIES "opentelemetry_dependencies")
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS ${OPENTELEMETRY_LIBRARIES})
+  list(APPEND OPENTELEMETRY_PREFIX_PATH_LIST ${NLOHMANN_JSON_PREFIX})
+  set(OPENTELEMETRY_CMAKE_ARGS ${OPENTELEMETRY_CMAKE_ARGS} -DWITH_OTLP=ON
+                               -DWITH_OTLP_HTTP=ON -DWITH_OTLP_GRPC=OFF)
 
-    # OpenTelemetry with OTLP enabled requires Protobuf definitions from a
-    # submodule. This submodule path is hardcoded into their CMake definitions,
-    # and submodules are not included in their releases. Add a custom build step
-    # to download and extract the Protobufs.
+  # OpenTelemetry with OTLP enabled requires Protobuf definitions from a
+  # submodule. This submodule path is hardcoded into their CMake definitions,
+  # and submodules are not included in their releases. Add a custom build step
+  # to download and extract the Protobufs.
 
-    # Adding such a step is rather complicated, so instead: create a separate
-    # ExternalProject that just fetches the Protobufs, then add a custom step
-    # to the main build to copy the Protobufs.
-    externalproject_add(opentelemetry_proto_ep
-                        ${EP_LOG_OPTIONS}
-                        URL_HASH "SHA256=${ARROW_OPENTELEMETRY_PROTO_BUILD_SHA256_CHECKSUM}"
-                        URL ${OPENTELEMETRY_PROTO_SOURCE_URL}
-                        BUILD_COMMAND ""
-                        CONFIGURE_COMMAND ""
-                        INSTALL_COMMAND ""
-                        EXCLUDE_FROM_ALL OFF)
+  # Adding such a step is rather complicated, so instead: create a separate
+  # ExternalProject that just fetches the Protobufs, then add a custom step
+  # to the main build to copy the Protobufs.
+  externalproject_add(opentelemetry_proto_ep
+                      ${EP_LOG_OPTIONS}
+                      URL_HASH "SHA256=${ARROW_OPENTELEMETRY_PROTO_BUILD_SHA256_CHECKSUM}"
+                      URL ${OPENTELEMETRY_PROTO_SOURCE_URL}
+                      BUILD_COMMAND ""
+                      CONFIGURE_COMMAND ""
+                      INSTALL_COMMAND ""
+                      EXCLUDE_FROM_ALL OFF)
 
-    add_dependencies(opentelemetry_dependencies nlohmann_json_ep opentelemetry_proto_ep)
-    if(gRPC_SOURCE STREQUAL "BUNDLED")
-      # TODO: opentelemetry-cpp::proto doesn't declare a dependency on gRPC, so
-      # even if we provide the location of gRPC, it'll fail to compile.
-      message(FATAL_ERROR "ARROW_WITH_OPENTELEMETRY cannot be configured with gRPC_SOURCE=BUNDLED. "
-                          "See https://github.com/open-telemetry/opentelemetry-cpp/issues/1045"
-      )
-    endif()
-  else()
-    set(OPENTELEMETRY_CMAKE_ARGS ${OPENTELEMETRY_CMAKE_ARGS} -DWITH_API_ONLY=ON)
-    if(WIN32)
-      # WITH_ETW does not respect WITH_API_ONLY
-      set(OPENTELEMETRY_CMAKE_ARGS ${OPENTELEMETRY_CMAKE_ARGS} -DWITH_ETW=OFF)
-    endif()
+  add_dependencies(opentelemetry_dependencies nlohmann_json_ep opentelemetry_proto_ep)
+  if(gRPC_SOURCE STREQUAL "BUNDLED")
+    # TODO: opentelemetry-cpp::proto doesn't declare a dependency on gRPC, so
+    # even if we provide the location of gRPC, it'll fail to compile.
+    message(FATAL_ERROR "ARROW_WITH_OPENTELEMETRY cannot be configured with gRPC_SOURCE=BUNDLED. "
+                        "See https://github.com/open-telemetry/opentelemetry-cpp/issues/1045"
+    )
   endif()
 
   set(OPENTELEMETRY_PREFIX_PATH_LIST_SEP_CHAR "|")
@@ -4051,14 +4047,12 @@ macro(build_opentelemetry)
                         DEPENDS ${_OPENTELEMETRY_DEPENDENCIES})
   endif()
 
-  if(ARROW_WITH_OPENTELEMETRY)
-    externalproject_add_step(opentelemetry_ep download_proto
-                             COMMAND ${CMAKE_COMMAND} -E copy_directory
-                                     $<TARGET_PROPERTY:opentelemetry_proto_ep,_EP_SOURCE_DIR>/opentelemetry
-                                     $<TARGET_PROPERTY:opentelemetry_ep,_EP_SOURCE_DIR>/third_party/opentelemetry-proto/opentelemetry
-                             DEPENDEES download
-                             DEPENDERS configure)
-  endif()
+  externalproject_add_step(opentelemetry_ep download_proto
+                           COMMAND ${CMAKE_COMMAND} -E copy_directory
+                                   $<TARGET_PROPERTY:opentelemetry_proto_ep,_EP_SOURCE_DIR>/opentelemetry
+                                   $<TARGET_PROPERTY:opentelemetry_ep,_EP_SOURCE_DIR>/third_party/opentelemetry-proto/opentelemetry
+                           DEPENDEES download
+                           DEPENDERS configure)
 
   add_dependencies(toolchain opentelemetry_ep)
   add_dependencies(toolchain-tests opentelemetry_ep)
@@ -4097,10 +4091,6 @@ endmacro()
 
 if(ARROW_WITH_OPENTELEMETRY)
   set(opentelemetry-cpp_SOURCE "AUTO")
-  if(ARROW_WITH_OPENTELEMETRY)
-    build_nlohmann_json_once()
-    find_curl()
-  endif()
   resolve_dependency(opentelemetry-cpp)
   get_target_property(OPENTELEMETRY_INCLUDE_DIR opentelemetry-cpp::api
                       INTERFACE_INCLUDE_DIRECTORIES)
