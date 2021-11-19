@@ -21,6 +21,7 @@ import (
 
 	"github.com/apache/arrow/go/v7/arrow"
 	"github.com/apache/arrow/go/v7/arrow/memory"
+	"github.com/goccy/go-json"
 	"golang.org/x/xerrors"
 )
 
@@ -129,6 +130,14 @@ type ExtensionArrayBase struct {
 	storage Interface
 }
 
+func (e *ExtensionArrayBase) getOneForMarshal(i int) interface{} {
+	return e.storage.getOneForMarshal(i)
+}
+
+func (e *ExtensionArrayBase) MarshalJSON() ([]byte, error) {
+	return json.Marshal(e.storage)
+}
+
 // Retain increases the reference count by 1.
 // Retain may be called simultaneously from multiple goroutines.
 func (e *ExtensionArrayBase) Retain() {
@@ -234,3 +243,8 @@ func (b *ExtensionBuilder) NewExtensionArray() ExtensionArray {
 	defer data.Release()
 	return NewExtensionData(data)
 }
+
+var (
+	_ Interface = (ExtensionArray)(nil)
+	_ Builder   = (*ExtensionBuilder)(nil)
+)

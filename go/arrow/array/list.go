@@ -17,6 +17,7 @@
 package array
 
 import (
+	"bytes"
 	"fmt"
 	"strings"
 	"sync/atomic"
@@ -25,6 +26,7 @@ import (
 	"github.com/apache/arrow/go/v7/arrow/bitutil"
 	"github.com/apache/arrow/go/v7/arrow/internal/debug"
 	"github.com/apache/arrow/go/v7/arrow/memory"
+	"github.com/goccy/go-json"
 )
 
 // List represents an immutable sequence of array values.
@@ -77,6 +79,37 @@ func (a *List) setData(data *Data) {
 		a.offsets = arrow.Int32Traits.CastFromBytes(vals.Bytes())
 	}
 	a.values = MakeFromData(data.childData[0])
+}
+
+func (a *List) getOneForMarshal(i int) interface{} {
+	if a.IsNull(i) {
+		return nil
+	}
+
+	slice := a.newListValue(i)
+	defer slice.Release()
+	v, err := json.Marshal(slice)
+	if err != nil {
+		panic(err)
+	}
+	return json.RawMessage(v)
+}
+
+func (a *List) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+
+	buf.WriteByte('[')
+	for i := 0; i < a.Len(); i++ {
+		if i != 0 {
+			buf.WriteByte(',')
+		}
+		if err := enc.Encode(a.getOneForMarshal(i)); err != nil {
+			return nil, err
+		}
+	}
+	buf.WriteByte(']')
+	return buf.Bytes(), nil
 }
 
 func arrayEqualList(left, right *List) bool {
@@ -261,6 +294,56 @@ func (b *ListBuilder) newData() (data *Data) {
 	b.reset()
 
 	return
+}
+
+func (b *ListBuilder) unmarshalOne(dec *json.Decoder) error {
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	switch t {
+	case json.Delim('['):
+		b.Append(true)
+		if err := b.values.unmarshal(dec); err != nil {
+			return err
+		}
+		// consume ']'
+		_, err := dec.Token()
+		return err
+	case nil:
+		b.AppendNull()
+	default:
+		return &json.UnmarshalTypeError{
+			Value:  fmt.Sprint(t),
+			Struct: arrow.ListOf(b.etype).String(),
+		}
+	}
+
+	return nil
+}
+
+func (b *ListBuilder) unmarshal(dec *json.Decoder) error {
+	for dec.More() {
+		if err := b.unmarshalOne(dec); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (b *ListBuilder) UnmarshalJSON(data []byte) error {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	if delim, ok := t.(json.Delim); !ok || delim != '[' {
+		return fmt.Errorf("list builder must unpack from json array, found %s", delim)
+	}
+
+	return b.unmarshal(dec)
 }
 
 var (
