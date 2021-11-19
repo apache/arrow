@@ -53,9 +53,9 @@ jobs:
           DEVDOCS_UBUNTU: {{ "${{contains(matrix.os, 'ubuntu')}}" }}
           DEVDOCS_WINDOWS: {{ "${{contains(matrix.os, 'windows')}}" }}
         run: |
-          # This isn't actually rendering the docs, but will save arrow/r/vignettes/script.sh
+          # This isn't actually rendering the docs, but will save arrow/r/vignettes/developers/script.sh
           # which can be sourced to install arrow.
-          rmarkdown::render("arrow/r/vignettes/developing.Rmd")
+          rmarkdown::render("arrow/r/vignettes/developers/setup.Rmd")
         shell: Rscript {0}
       - name: Install from the devdocs
         env:
@@ -68,9 +68,9 @@ jobs:
             # from Windows paths (C:\R\bin) to Unix paths (/c/r/bin)
             echo export PATH=\"$(cygpath --path "$PATH")\" >> ~/.bash_profile
             # This starts a special mingw64 Git Bash shell
-            $RTOOLS40_HOME/msys2_shell.cmd -here -mingw64 -no-start -defterm -full-path arrow/r/vignettes/script.sh
-          else 
-            bash arrow/r/vignettes/script.sh
+            $RTOOLS40_HOME/msys2_shell.cmd -here -mingw64 -no-start -defterm -full-path arrow/r/vignettes/developers/script.sh
+          else
+            bash arrow/r/vignettes/developers/script.sh
           fi
         shell: bash
       - name: Ensure that the Arrow package is loadable and we have the correct one
@@ -88,5 +88,5 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: {{ "devdocs-script_os-${{ matrix.os }}_sysinstall-${{ matrix.system-install }}" }}
-          path: arrow/r/vignettes/script.sh
+          path: arrow/r/vignettes/developers/script.sh
         if: always()
