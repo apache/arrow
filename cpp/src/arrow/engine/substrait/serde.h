@@ -39,6 +39,12 @@ ARROW_ENGINE_EXPORT
 Result<std::shared_ptr<Buffer>> SerializeType(const DataType&);
 
 ARROW_ENGINE_EXPORT
+Result<std::shared_ptr<Schema>> DeserializeSchema(const Buffer&);
+
+ARROW_ENGINE_EXPORT
+Result<std::shared_ptr<Buffer>> SerializeSchema(const Schema&);
+
+ARROW_ENGINE_EXPORT
 Result<compute::Expression> DeserializeExpression(const Buffer&);
 
 ARROW_ENGINE_EXPORT

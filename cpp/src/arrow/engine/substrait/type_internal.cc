@@ -175,34 +175,7 @@ Result<std::pair<std::shared_ptr<DataType>, bool>> FromProto(const st::Type& typ
       return FromProtoImpl<StructType>(struct_, std::move(fields));
     }
 
-      // NamedStruct is not currently enumerated in KindCase. This block of dead code is
-      // here just to verify that it can be compiled.
-      // case st::Type::kNamedStruct: {
-      if (false) {
-        // const st::Type::NamedStruct& named_struct = type.named_struct();
-        st::Type::NamedStruct named_struct;
-
-        if (named_struct.has_struct_()) {
-          return Status::Invalid(
-              "While converting ", type.DebugString(),
-              " no anonymous struct type was provided to which to names "
-              "could be attached.");
-        }
-        const auto& struct_ = named_struct.struct_();
-        RETURN_NOT_OK(CheckVariation(struct_));
-
-        if (struct_.types_size() != named_struct.names_size()) {
-          return Status::Invalid("While converting ", type.DebugString(), " received ",
-                                 struct_.types_size(), " types but ",
-                                 named_struct.names_size(), " names.");
-        }
-
-        ARROW_ASSIGN_OR_RAISE(auto fields,
-                              FieldsFromProto(struct_.types_size(), struct_.types(),
-                                              &named_struct.names()));
-
-        return std::make_pair(arrow::struct_(std::move(fields)), IsNullable(struct_));
-      }
+      // NOTE: NamedStruct is not enumerated in KindCase.
 
     case st::Type::kList: {
       const auto& list = type.list();
@@ -248,6 +221,27 @@ Result<std::pair<std::shared_ptr<DataType>, bool>> FromProto(const st::Type& typ
 
   return Status::NotImplemented("conversion to arrow::DataType from ",
                                 type.DebugString());
+}
+
+Result<std::shared_ptr<Schema>> FromProto(const st::Type::NamedStruct& named_struct) {
+  if (named_struct.has_struct_()) {
+    return Status::Invalid("While converting ", named_struct.DebugString(),
+                           " no anonymous struct type was provided to which to names "
+                           "could be attached.");
+  }
+  const auto& struct_ = named_struct.struct_();
+  RETURN_NOT_OK(CheckVariation(struct_));
+
+  if (struct_.types_size() != named_struct.names_size()) {
+    return Status::Invalid("While converting ", named_struct.DebugString(), " received ",
+                           struct_.types_size(), " types but ", named_struct.names_size(),
+                           " names.");
+  }
+
+  ARROW_ASSIGN_OR_RAISE(
+      auto fields,
+      FieldsFromProto(struct_.types_size(), struct_.types(), &named_struct.names()));
+  return schema(std::move(fields));
 }
 
 namespace {
@@ -324,6 +318,12 @@ struct ToProtoImpl {
     types->Reserve(t.num_fields());
 
     for (const auto& field : t.fields()) {
+      if (field->name() != "") {
+        return Status::Invalid("substrait::Type::Struct does not support named fields");
+      }
+      if (field->metadata() != nullptr) {
+        return Status::Invalid("substrait::Type::Struct does not support field metadata");
+      }
       ARROW_ASSIGN_OR_RAISE(auto type, ToProto(*field->type(), field->nullable()));
       types->AddAllocated(type.release());
     }
@@ -403,6 +403,31 @@ Result<std::unique_ptr<st::Type>> ToProto(const DataType& type, bool nullable) {
   auto out = internal::make_unique<st::Type>();
   RETURN_NOT_OK((ToProtoImpl{out.get(), nullable})(type));
   return std::move(out);
+}
+
+Result<std::unique_ptr<st::Type::NamedStruct>> ToProto(const Schema& schema) {
+  auto named_struct = internal::make_unique<st::Type::NamedStruct>();
+  auto names = named_struct->mutable_names();
+  names->Reserve(schema.num_fields());
+
+  auto struct_ = internal::make_unique<st::Type::Struct>();
+  auto types = struct_->mutable_types();
+  types->Reserve(schema.num_fields());
+
+  for (const auto& field : schema.fields()) {
+    *names->Add() = field->name();
+
+    if (field->metadata() != nullptr) {
+      return Status::Invalid(
+          "substrait::Type::NamedStruct does not support field metadata");
+    }
+
+    ARROW_ASSIGN_OR_RAISE(auto type, ToProto(*field->type(), field->nullable()));
+    types->AddAllocated(type.release());
+  }
+
+  named_struct->set_allocated_struct_(struct_.release());
+  return std::move(named_struct);
 }
 
 }  // namespace engine

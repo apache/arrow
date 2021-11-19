@@ -71,6 +71,17 @@ Result<std::vector<compute::Declaration>> ConvertPlan(const Buffer& buf) {
   return decls;
 }
 
+Result<std::shared_ptr<Schema>> DeserializeSchema(const Buffer& buf) {
+  ARROW_ASSIGN_OR_RAISE(auto named_struct, ParseFromBuffer<st::Type::NamedStruct>(buf));
+  return FromProto(named_struct);
+}
+
+Result<std::shared_ptr<Buffer>> SerializeSchema(const Schema& schema) {
+  ARROW_ASSIGN_OR_RAISE(auto named_struct, ToProto(schema));
+  std::string serialized = named_struct->SerializeAsString();
+  return Buffer::FromString(std::move(serialized));
+}
+
 Result<std::shared_ptr<DataType>> DeserializeType(const Buffer& buf) {
   ARROW_ASSIGN_OR_RAISE(auto type, ParseFromBuffer<st::Type>(buf));
   ARROW_ASSIGN_OR_RAISE(auto type_nullable, FromProto(type));
