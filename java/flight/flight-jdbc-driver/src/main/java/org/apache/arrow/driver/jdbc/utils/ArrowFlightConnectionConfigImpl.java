@@ -92,7 +92,8 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
    * @return whether to use TLS encryption.
    */
   public boolean useTls() {
-    return (boolean) ArrowFlightConnectionProperty.USE_TLS.get(properties);
+    String useTlsValue = String.valueOf(ArrowFlightConnectionProperty.USE_TLS.get(properties));
+    return useTlsValue.equals("1") || useTlsValue.equals("true");
   }
 
   /**

@@ -21,8 +21,11 @@ import static org.junit.Assert.assertNotNull;
 
 import java.io.IOException;
 import java.sql.Connection;
+import java.sql.Driver;
 import java.sql.SQLException;
+import java.sql.SQLOutput;
 import java.util.Properties;
+import java.sql.DriverManager;
 
 import org.apache.arrow.driver.jdbc.client.ArrowFlightSqlClientHandler;
 import org.apache.arrow.driver.jdbc.utils.FlightTestUtils;
@@ -276,5 +279,155 @@ public class ConnectionTlsTest {
     try (final Connection connection = dataSource.getConnection()) {
       assert connection.isValid(300);
     }
+  }
+
+  /**
+   * Check if an encrypted connection can be established successfully when connecting through the DriverManager using
+   * just a connection url.
+   *
+   * @throws Exception on error.
+   */
+  @Test
+  public void testTLSConnectionPropertyTrueCorrectCastUrlWithDriverManager() throws Exception {
+    final Driver driver = new ArrowFlightJdbcDriver();
+    DriverManager.registerDriver(driver);
+
+    Assert.assertTrue(DriverManager.getConnection(
+            String.format(
+                    "jdbc:arrow-flight://localhost:%s?user=%s&password=%s&useTls=true&%s=%s&%s=%s",
+                    tlsServer.getPort(),
+                    flightTestUtils.getUsername1(),
+                    flightTestUtils.getPassword1(),
+                    BuiltInConnectionProperty.KEYSTORE.camelName(),
+                    keyStorePath,
+                    BuiltInConnectionProperty.KEYSTORE_PASSWORD.camelName(),
+                    keyStorePass)).isValid(0));
+  }
+
+  /**
+   * Check if an encrypted connection can be established successfully when connecting through the DriverManager using
+   * a connection url and properties with String K-V pairs.
+   *
+   * @throws Exception on error.
+   */
+  @Test
+  public void testTLSConnectionPropertyTrueCorrectCastUrlAndPropertiesUsingSetPropertyWithDriverManager()
+          throws Exception {
+    final Driver driver = new ArrowFlightJdbcDriver();
+    DriverManager.registerDriver(driver);
+
+    Properties properties = new Properties();
+
+    properties.setProperty(ArrowFlightConnectionProperty.USER.camelName(),flightTestUtils.getUsername1());
+    properties.setProperty(ArrowFlightConnectionProperty.PASSWORD.camelName(),flightTestUtils.getPassword1());
+    properties.setProperty(BuiltInConnectionProperty.KEYSTORE.camelName(), keyStorePath);
+    properties.setProperty(BuiltInConnectionProperty.KEYSTORE_PASSWORD.camelName(), keyStorePass);
+    properties.setProperty(ArrowFlightConnectionProperty.USE_TLS.camelName(),"true");
+
+    Assert.assertTrue(DriverManager.getConnection(
+            String.format(
+                    "jdbc:arrow-flight://localhost:%s",
+                    tlsServer.getPort()),
+            properties).isValid(0));
+  }
+
+  /**
+   * Check if an encrypted connection can be established successfully when connecting through the DriverManager using
+   * a connection url and properties with Object K-V pairs.
+   *
+   * @throws Exception on error.
+   */
+  @Test
+  public void testTLSConnectionPropertyTrueCorrectCastUrlAndPropertiesUsingPutWithDriverManager() throws Exception {
+    final Driver driver = new ArrowFlightJdbcDriver();
+    DriverManager.registerDriver(driver);
+
+    Properties properties = new Properties();
+
+    properties.put(ArrowFlightConnectionProperty.USER.camelName(),flightTestUtils.getUsername1());
+    properties.put(ArrowFlightConnectionProperty.PASSWORD.camelName(),flightTestUtils.getPassword1());
+    properties.put(ArrowFlightConnectionProperty.USE_TLS.camelName(),true);
+    properties.put(BuiltInConnectionProperty.KEYSTORE.camelName(), keyStorePath);
+    properties.put(BuiltInConnectionProperty.KEYSTORE_PASSWORD.camelName(), keyStorePass);
+
+    Assert.assertTrue(DriverManager.getConnection(
+            String.format(
+                    "jdbc:arrow-flight://localhost:%s",
+                    tlsServer.getPort()),
+            properties).isValid(0));
+  }
+
+  /**
+   * Check if an encrypted connection can be established successfully when connecting through the DriverManager using
+   * just a connection url and using 0 and 1 as useTls values.
+   *
+   * @throws Exception on error.
+   */
+  @Test
+  public void testTLSConnectionPropertyTrueIntegerCorrectCastUrlWithDriverManager() throws Exception {
+    final Driver driver = new ArrowFlightJdbcDriver();
+    DriverManager.registerDriver(driver);
+
+    Assert.assertTrue(DriverManager.getConnection(
+            String.format(
+                    "jdbc:arrow-flight://localhost:%s?user=%s&password=%s&useTls=1&%s=%s&%s=%s",
+                    tlsServer.getPort(),
+                    flightTestUtils.getUsername1(),
+                    flightTestUtils.getPassword1(),
+                    BuiltInConnectionProperty.KEYSTORE.camelName(),
+                    keyStorePath,
+                    BuiltInConnectionProperty.KEYSTORE_PASSWORD.camelName(),
+                    keyStorePass)).isValid(0));
+  }
+
+  /**
+   * Check if an encrypted connection can be established successfully when connecting through the DriverManager using
+   * a connection url and properties with String K-V pairs and using 0 and 1 as useTls values.
+   *
+   * @throws Exception on error.
+   */
+  @Test
+  public void testTLSConnectionPropertyTrueIntegerCorrectCastUrlAndPropertiesUsingSetPropertyWithDriverManager()
+          throws Exception {
+    final Driver driver = new ArrowFlightJdbcDriver();
+    DriverManager.registerDriver(driver);
+
+    Properties properties = new Properties();
+
+    properties.setProperty(ArrowFlightConnectionProperty.USER.camelName(),flightTestUtils.getUsername1());
+    properties.setProperty(ArrowFlightConnectionProperty.PASSWORD.camelName(),flightTestUtils.getPassword1());
+    properties.setProperty(BuiltInConnectionProperty.KEYSTORE.camelName(), keyStorePath);
+    properties.setProperty(BuiltInConnectionProperty.KEYSTORE_PASSWORD.camelName(), keyStorePass);
+    properties.setProperty(ArrowFlightConnectionProperty.USE_TLS.camelName(),"1");
+
+    Assert.assertTrue(DriverManager.getConnection(
+            String.format("jdbc:arrow-flight://localhost:%s", tlsServer.getPort()),
+            properties).isValid(0));
+  }
+
+  /**
+   * Check if an encrypted connection can be established successfully when connecting through the DriverManager using
+   * a connection url and properties with Object K-V pairs and using 0 and 1 as useTls values.
+   *
+   * @throws Exception on error.
+   */
+  @Test
+  public void testTLSConnectionPropertyTrueIntegerCorrectCastUrlAndPropertiesUsingPutWithDriverManager()
+          throws Exception {
+    final Driver driver = new ArrowFlightJdbcDriver();
+    DriverManager.registerDriver(driver);
+
+    Properties properties = new Properties();
+
+    properties.put(ArrowFlightConnectionProperty.USER.camelName(),flightTestUtils.getUsername1());
+    properties.put(ArrowFlightConnectionProperty.PASSWORD.camelName(),flightTestUtils.getPassword1());
+    properties.put(ArrowFlightConnectionProperty.USE_TLS.camelName(),1);
+    properties.put(BuiltInConnectionProperty.KEYSTORE.camelName(), keyStorePath);
+    properties.put(BuiltInConnectionProperty.KEYSTORE_PASSWORD.camelName(), keyStorePass);
+
+    Assert.assertTrue(DriverManager.getConnection(
+            String.format("jdbc:arrow-flight://localhost:%s",
+            tlsServer.getPort()),
+            properties).isValid(0));
   }
 }
