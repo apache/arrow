@@ -3722,9 +3722,6 @@ macro(build_google_cloud_cpp_storage)
   add_dependencies(google_cloud_cpp_dependencies absl_ep)
   add_dependencies(google_cloud_cpp_dependencies crc32c_ep)
   add_dependencies(google_cloud_cpp_dependencies nlohmann_json_ep)
-  # Typically the steps to build the AWKSSDK provide `CURL::libcurl`, but if that is
-  # disabled we need to provide our own.
-  find_curl()
 
   set(GOOGLE_CLOUD_CPP_STATIC_LIBRARY_STORAGE
       "${GOOGLE_CLOUD_CPP_INSTALL_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}google_cloud_cpp_storage${CMAKE_STATIC_LIBRARY_SUFFIX}"
