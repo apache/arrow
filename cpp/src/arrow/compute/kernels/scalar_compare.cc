@@ -494,17 +494,18 @@ const FunctionDoc less_equal_doc{
 
 const FunctionDoc min_element_wise_doc{
     "Find the element-wise minimum value",
-    ("Nulls will be ignored (default) or propagated. "
-     "NaN will be taken over null, but not over any valid float."),
+    ("Nulls are ignored (by default) or propagated.\n"
+     "NaN is preferred over null, but not over any valid value."),
     {"*args"},
     "ElementWiseAggregateOptions"};
 
 const FunctionDoc max_element_wise_doc{
     "Find the element-wise maximum value",
-    ("Nulls will be ignored (default) or propagated. "
-     "NaN will be taken over null, but not over any valid float."),
+    ("Nulls are ignored (by default) or propagated.\n"
+     "NaN is preferred over null, but not over any valid value."),
     {"*args"},
     "ElementWiseAggregateOptions"};
+
 }  // namespace
 
 void RegisterScalarComparison(FunctionRegistry* registry) {

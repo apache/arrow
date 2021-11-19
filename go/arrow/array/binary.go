@@ -23,6 +23,7 @@ import (
 	"unsafe"
 
 	"github.com/apache/arrow/go/v7/arrow"
+	"github.com/goccy/go-json"
 )
 
 // A type which represents an immutable sequence of variable-length binary strings.
@@ -115,6 +116,23 @@ func (a *Binary) setData(data *Data) {
 	if valueOffsets := data.buffers[1]; valueOffsets != nil {
 		a.valueOffsets = arrow.Int32Traits.CastFromBytes(valueOffsets.Bytes())
 	}
+}
+
+func (a *Binary) getOneForMarshal(i int) interface{} {
+	if a.IsNull(i) {
+		return nil
+	}
+	return a.Value(i)
+}
+
+func (a *Binary) MarshalJSON() ([]byte, error) {
+	vals := make([]interface{}, a.Len())
+	for i := 0; i < a.Len(); i++ {
+		vals[i] = a.getOneForMarshal(i)
+	}
+	// golang marshal standard says that []byte will be marshalled
+	// as a base64-encoded string
+	return json.Marshal(vals)
 }
 
 func arrayEqualBinary(left, right *Binary) bool {

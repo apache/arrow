@@ -75,7 +75,7 @@ func NewReaderFromMessageReader(r MessageReader, opts ...Option) (*Reader, error
 
 // NewReader returns a reader that reads records from an input stream.
 func NewReader(r io.Reader, opts ...Option) (*Reader, error) {
-	return NewReaderFromMessageReader(NewMessageReader(r), opts...)
+	return NewReaderFromMessageReader(NewMessageReader(r, opts...), opts...)
 }
 
 // Err returns the last error encountered during the iteration over the
@@ -176,7 +176,7 @@ func (r *Reader) next() bool {
 		return false
 	}
 
-	r.rec = newRecord(r.schema, msg.meta, bytes.NewReader(msg.body.Bytes()))
+	r.rec = newRecord(r.schema, msg.meta, bytes.NewReader(msg.body.Bytes()), r.mem)
 	return true
 }
 

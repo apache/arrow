@@ -17,6 +17,7 @@
 package array
 
 import (
+	"bytes"
 	"fmt"
 	"strings"
 	"sync/atomic"
@@ -25,6 +26,7 @@ import (
 	"github.com/apache/arrow/go/v7/arrow/bitutil"
 	"github.com/apache/arrow/go/v7/arrow/internal/debug"
 	"github.com/apache/arrow/go/v7/arrow/memory"
+	"github.com/goccy/go-json"
 	"golang.org/x/xerrors"
 )
 
@@ -84,6 +86,32 @@ func (a *MonthInterval) setData(data *Data) {
 		end := beg + a.array.data.length
 		a.values = a.values[beg:end]
 	}
+}
+
+func (a *MonthInterval) getOneForMarshal(i int) interface{} {
+	if a.IsValid(i) {
+		return a.values[i]
+	}
+	return nil
+}
+
+// MarshalJSON will create a json array out of a MonthInterval array,
+// each value will be an object of the form {"months": #} where
+// # is the numeric value of that index
+func (a *MonthInterval) MarshalJSON() ([]byte, error) {
+	if a.NullN() == 0 {
+		return json.Marshal(a.values)
+	}
+	vals := make([]interface{}, a.Len())
+	for i := 0; i < a.Len(); i++ {
+		if a.IsValid(i) {
+			vals[i] = a.values[i]
+		} else {
+			vals[i] = nil
+		}
+	}
+
+	return json.Marshal(vals)
 }
 
 func arrayEqualMonthInterval(left, right *MonthInterval) bool {
@@ -234,6 +262,46 @@ func (b *MonthIntervalBuilder) newData() (data *Data) {
 	return
 }
 
+func (b *MonthIntervalBuilder) unmarshalOne(dec *json.Decoder) error {
+	var v *arrow.MonthInterval
+	if err := dec.Decode(&v); err != nil {
+		return err
+	}
+
+	if v == nil {
+		b.AppendNull()
+	} else {
+		b.Append(*v)
+	}
+	return nil
+}
+
+func (b *MonthIntervalBuilder) unmarshal(dec *json.Decoder) error {
+	for dec.More() {
+		if err := b.unmarshalOne(dec); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// UnmarshalJSON will add the unmarshalled values of an array to the builder,
+// values are expected to be strings of the form "#months" where # is the int32
+// value that will be added to the builder.
+func (b *MonthIntervalBuilder) UnmarshalJSON(data []byte) error {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	if delim, ok := t.(json.Delim); !ok || delim != '[' {
+		return fmt.Errorf("month interval builder must unpack from json array, found %s", delim)
+	}
+
+	return b.unmarshal(dec)
+}
+
 // A type which represents an immutable sequence of arrow.DayTimeInterval values.
 type DayTimeInterval struct {
 	array
@@ -277,6 +345,30 @@ func (a *DayTimeInterval) setData(data *Data) {
 		end := beg + a.array.data.length
 		a.values = a.values[beg:end]
 	}
+}
+
+func (a *DayTimeInterval) getOneForMarshal(i int) interface{} {
+	if a.IsValid(i) {
+		return a.values[i]
+	}
+	return nil
+}
+
+// MarshalJSON will marshal this array to JSON as an array of objects,
+// consisting of the form {"days": #, "milliseconds": #} for each element.
+func (a *DayTimeInterval) MarshalJSON() ([]byte, error) {
+	if a.NullN() == 0 {
+		return json.Marshal(a.values)
+	}
+	vals := make([]interface{}, a.Len())
+	for i, v := range a.values {
+		if a.IsValid(i) {
+			vals[i] = v
+		} else {
+			vals[i] = nil
+		}
+	}
+	return json.Marshal(vals)
 }
 
 func arrayEqualDayTimeInterval(left, right *DayTimeInterval) bool {
@@ -427,6 +519,45 @@ func (b *DayTimeIntervalBuilder) newData() (data *Data) {
 	return
 }
 
+func (b *DayTimeIntervalBuilder) unmarshalOne(dec *json.Decoder) error {
+	var v *arrow.DayTimeInterval
+	if err := dec.Decode(&v); err != nil {
+		return err
+	}
+
+	if v == nil {
+		b.AppendNull()
+	} else {
+		b.Append(*v)
+	}
+	return nil
+}
+
+func (b *DayTimeIntervalBuilder) unmarshal(dec *json.Decoder) error {
+	for dec.More() {
+		if err := b.unmarshalOne(dec); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// UnmarshalJSON will add the values unmarshalled from an array to the builder,
+// with the values expected to be objects of the form {"days": #, "milliseconds": #}
+func (b *DayTimeIntervalBuilder) UnmarshalJSON(data []byte) error {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	if delim, ok := t.(json.Delim); !ok || delim != '[' {
+		return fmt.Errorf("day_time interval builder must unpack from json array, found %s", delim)
+	}
+
+	return b.unmarshal(dec)
+}
+
 // A type which represents an immutable sequence of arrow.DayTimeInterval values.
 type MonthDayNanoInterval struct {
 	array
@@ -472,6 +603,30 @@ func (a *MonthDayNanoInterval) setData(data *Data) {
 		end := beg + a.array.data.length
 		a.values = a.values[beg:end]
 	}
+}
+
+func (a *MonthDayNanoInterval) getOneForMarshal(i int) interface{} {
+	if a.IsValid(i) {
+		return a.values[i]
+	}
+	return nil
+}
+
+// MarshalJSON will marshal this array to a JSON array with elements
+// marshalled to the form {"months": #, "days": #, "nanoseconds": #}
+func (a *MonthDayNanoInterval) MarshalJSON() ([]byte, error) {
+	if a.NullN() == 0 {
+		return json.Marshal(a.values)
+	}
+	vals := make([]interface{}, a.Len())
+	for i, v := range a.values {
+		if a.IsValid(i) {
+			vals[i] = v
+		} else {
+			vals[i] = nil
+		}
+	}
+	return json.Marshal(vals)
 }
 
 func arrayEqualMonthDayNanoInterval(left, right *MonthDayNanoInterval) bool {
@@ -620,6 +775,46 @@ func (b *MonthDayNanoIntervalBuilder) newData() (data *Data) {
 	}
 
 	return
+}
+
+func (b *MonthDayNanoIntervalBuilder) unmarshalOne(dec *json.Decoder) error {
+	var v *arrow.MonthDayNanoInterval
+	if err := dec.Decode(&v); err != nil {
+		return err
+	}
+
+	if v == nil {
+		b.AppendNull()
+	} else {
+		b.Append(*v)
+	}
+	return nil
+}
+
+func (b *MonthDayNanoIntervalBuilder) unmarshal(dec *json.Decoder) error {
+	for dec.More() {
+		if err := b.unmarshalOne(dec); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// UnmarshalJSON unmarshals a JSON array of objects and adds them to this builder,
+// each element of the array is expected to be an object of the form
+// {"months": #, "days": #, "nanoseconds": #}
+func (b *MonthDayNanoIntervalBuilder) UnmarshalJSON(data []byte) error {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	if delim, ok := t.(json.Delim); !ok || delim != '[' {
+		return fmt.Errorf("month_day_nano interval builder must unpack from json array, found %s", delim)
+	}
+
+	return b.unmarshal(dec)
 }
 
 var (

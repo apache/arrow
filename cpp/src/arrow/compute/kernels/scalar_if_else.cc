@@ -2799,31 +2799,34 @@ const FunctionDoc if_else_doc{"Choose values based on a condition",
 
 const FunctionDoc case_when_doc{
     "Choose values based on multiple conditions",
-    ("`cond` must be a struct of Boolean values. `cases` can be a mix "
-     "of scalar and array arguments (of any type, but all must be the "
-     "same type or castable to a common type), with either exactly one "
-     "datum per child of `cond`, or one more `cases` than children of "
+    ("`cond` must be a struct of Boolean values. `cases` can be a mix\n"
+     "of scalar and array arguments (of any type, but all must be the\n"
+     "same type or castable to a common type), with either exactly one\n"
+     "datum per child of `cond`, or one more `cases` than children of\n"
      "`cond` (in which case we have an \"else\" value).\n"
-     "Each row of the output will be the corresponding value of the "
-     "first datum in `cases` for which the corresponding child of `cond` "
-     "is true, or otherwise the \"else\" value (if given), or null. "
+     "\n"
+     "Each row of the output will be the corresponding value of the\n"
+     "first datum in `cases` for which the corresponding child of `cond`\n"
+     "is true, or otherwise the \"else\" value (if given), or null.\n"
+     "\n"
      "Essentially, this implements a switch-case or if-else, if-else... "
      "statement."),
     {"cond", "*cases"}};
 
 const FunctionDoc coalesce_doc{
-    "Select the first non-null value in each slot",
-    ("Each row of the output will be the value from the first corresponding input "
-     "for which the value is not null. If all inputs are null in a row, the output "
+    "Select the first non-null value",
+    ("Each row of the output will be the value from the first corresponding input\n"
+     "for which the value is not null. If all inputs are null in a row, the output\n"
      "will be null."),
     {"*values"}};
 
 const FunctionDoc choose_doc{
-    "Given indices and arrays, choose the value from the corresponding array for each "
-    "index",
-    ("For each row, the value of the first argument is used as a 0-based index into the "
-     "rest of the arguments (i.e. index 0 selects the second argument). The output value "
-     "is the corresponding value of the selected argument.\n"
+    "Choose values from several arrays",
+    ("For each row, the value of the first argument is used as a 0-based index\n"
+     "into the list of `values` arrays (i.e. index 0 selects the first of the\n"
+     "`values` arrays). The output value is the corresponding value of the\n"
+     "selected argument.\n"
+     "\n"
      "If an index is null, the output will be null."),
     {"indices", "*values"}};
 }  // namespace

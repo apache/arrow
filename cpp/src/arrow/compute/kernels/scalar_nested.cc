@@ -325,14 +325,17 @@ void AddStructFieldKernels(ScalarFunction* func) {
 }
 
 const FunctionDoc struct_field_doc(
-    "Extract children of a struct or union value by index.",
-    ("Given a series of indices (passed via StructFieldOptions), extract the "
-     "child array or scalar referenced by the index. For union values, mask "
-     "the child based on the type codes of the union array. The indices are "
-     "always the child index and not the type code (for unions) - so the "
-     "first child is always index 0. An empty set of indices returns the "
-     "argument unchanged."),
-    {"container"}, "StructFieldOptions");
+    "Extract children of a struct or union by index",
+    ("Given a list of indices (passed via StructFieldOptions), extract\n"
+     "the child array or scalar with the given child index, recursively.\n"
+     "\n"
+     "For union inputs, nulls are emitted for union values that reference\n"
+     "a different child than specified. Also, the indices are always\n"
+     "in physical order, not logical type codes - for example, the first\n"
+     "child is always index 0.\n"
+     "\n"
+     "An empty list of indices returns the argument unchanged."),
+    {"values"}, "StructFieldOptions");
 
 Result<ValueDescr> MakeStructResolve(KernelContext* ctx,
                                      const std::vector<ValueDescr>& descrs) {

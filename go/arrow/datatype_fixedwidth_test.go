@@ -18,6 +18,7 @@ package arrow_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/apache/arrow/go/v7/arrow"
 	"github.com/stretchr/testify/assert"
@@ -158,6 +159,32 @@ func TestTime32Type(t *testing.T) {
 			}
 		})
 	}
+
+	for _, tc := range []struct {
+		unit    arrow.TimeUnit
+		str     string
+		want    arrow.Time32
+		wantErr bool
+	}{
+		{arrow.Second, "12:21", arrow.Time32(12*3600 + 21*60), false},
+		{arrow.Second, "02:30:45", arrow.Time32(2*3600 + 30*60 + 45), false},
+		{arrow.Second, "21:21:21.21", arrow.Time32(0), true},
+		{arrow.Millisecond, "21:21:21.21", arrow.Time32(21*3600000 + 21*60000 + 21*1000 + 210), false},
+		{arrow.Millisecond, "15:02:04.123", arrow.Time32(15*3600000 + 2*60000 + 4*1000 + 123), false},
+		{arrow.Millisecond, "12:12:12.1212", arrow.Time32(0), true},
+		{arrow.Microsecond, "10:10:10", arrow.Time32(0), true},
+		{arrow.Nanosecond, "10:10:10", arrow.Time32(0), true},
+	} {
+		t.Run("FromString", func(t *testing.T) {
+			v, e := arrow.Time32FromString(tc.str, tc.unit)
+			assert.Equal(t, tc.want, v)
+			if tc.wantErr {
+				assert.Error(t, e)
+			} else {
+				assert.NoError(t, e)
+			}
+		})
+	}
 }
 
 func TestTime64Type(t *testing.T) {
@@ -184,6 +211,39 @@ func TestTime64Type(t *testing.T) {
 
 			if got, want := dt.String(), tc.want; got != want {
 				t.Fatalf("invalid type stringer: got=%q, want=%q", got, want)
+			}
+		})
+	}
+
+	const (
+		h  = time.Hour
+		m  = time.Minute
+		s  = time.Second
+		us = time.Microsecond
+		ns = time.Nanosecond
+	)
+
+	for _, tc := range []struct {
+		unit    arrow.TimeUnit
+		str     string
+		want    arrow.Time64
+		wantErr bool
+	}{
+		{arrow.Second, "12:21", arrow.Time64(0), true},
+		{arrow.Millisecond, "21:21:21.21", arrow.Time64(0), true},
+		{arrow.Microsecond, "10:10:10", arrow.Time64((10*h + 10*m + 10*s).Microseconds()), false},
+		{arrow.Microsecond, "22:10:15.123456", arrow.Time64((22*h + 10*m + 15*s + 123456*us).Microseconds()), false},
+		{arrow.Microsecond, "12:34:56.78901234", arrow.Time64(0), true},
+		{arrow.Nanosecond, "12:34:56.78901234", arrow.Time64(12*h + 34*m + 56*s + 789012340), false},
+		{arrow.Nanosecond, "12:34:56.1234567890", arrow.Time64(0), true},
+	} {
+		t.Run("FromString", func(t *testing.T) {
+			v, e := arrow.Time64FromString(tc.str, tc.unit)
+			assert.Equal(t, tc.want, v)
+			if tc.wantErr {
+				assert.Error(t, e)
+			} else {
+				assert.NoError(t, e)
 			}
 		})
 	}
