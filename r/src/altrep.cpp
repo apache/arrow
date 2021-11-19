@@ -408,8 +408,8 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
 
   static SEXP Make(const std::shared_ptr<ChunkedArray>& chunked_array) {
     // only dealing with dictionaries of strings
-    if (internal::checked_cast<const DictionaryArray*>(chunked_array->chunk(0))
-            ->dictionary()
+    if (internal::checked_cast<const DictionaryArray&>(*chunked_array->chunk(0))
+            .dictionary()
             ->type_id() != Type::STRING) {
       return R_NilValue;
     }
@@ -426,21 +426,21 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
           ValueOrStop(DictionaryUnifier::Make(arr_type.value_type()));
 
       size_t n_arrays = chunked_array->num_chunks();
-      Pointer<BufferVector> arrays_transpose(
-          new std::shared_ptr<BufferVector>(new BufferVector(n_arrays)));
+      BufferVector arrays_transpose(n_arrays);
 
       for (size_t i = 0; i < n_arrays; i++) {
-        std::shared_ptr<Buffer>& transpose_i = arrays_transpose->get()->operator[](i);
         const auto& dict_i =
             *internal::checked_cast<const DictionaryArray&>(*chunked_array->chunk(i))
                  .dictionary();
-        StopIfNotOk(unifier_->Unify(dict_i, &transpose_i));
+        StopIfNotOk(unifier_->Unify(dict_i, &arrays_transpose[i]));
       }
 
       std::shared_ptr<DataType> out_type;
       StopIfNotOk(unifier_->GetResult(&out_type, &dictionary));
 
-      pointer_arrays_transpose = PROTECT(arrays_transpose);
+      Pointer<BufferVector> ptr(
+          new std::shared_ptr<BufferVector>(new BufferVector(arrays_transpose)));
+      pointer_arrays_transpose = PROTECT(ptr);
     } else {
       // just use the first one
       const auto& dict_array =
