@@ -3979,8 +3979,11 @@ macro(build_opentelemetry)
   set(_OPENTELEMETRY_DEPENDENCIES "opentelemetry_dependencies")
   list(APPEND ARROW_BUNDLED_STATIC_LIBS ${OPENTELEMETRY_LIBRARIES})
   list(APPEND OPENTELEMETRY_PREFIX_PATH_LIST ${NLOHMANN_JSON_PREFIX})
-  set(OPENTELEMETRY_CMAKE_ARGS ${OPENTELEMETRY_CMAKE_ARGS} -DWITH_OTLP=ON
-                               -DWITH_OTLP_HTTP=ON -DWITH_OTLP_GRPC=OFF)
+  list(APPEND
+       OPENTELEMETRY_CMAKE_ARGS
+       -DWITH_OTLP=ON
+       -DWITH_OTLP_HTTP=ON
+       -DWITH_OTLP_GRPC=OFF)
 
   # OpenTelemetry with OTLP enabled requires Protobuf definitions from a
   # submodule. This submodule path is hardcoded into their CMake definitions,
@@ -4012,8 +4015,7 @@ macro(build_opentelemetry)
   # JOIN is CMake >=3.12 only
   string(REPLACE ";" "${OPENTELEMETRY_PREFIX_PATH_LIST_SEP_CHAR}"
                  OPENTELEMETRY_PREFIX_PATH "${OPENTELEMETRY_PREFIX_PATH_LIST}")
-  set(OPENTELEMETRY_CMAKE_ARGS ${OPENTELEMETRY_CMAKE_ARGS}
-                               "-DCMAKE_PREFIX_PATH=${OPENTELEMETRY_PREFIX_PATH}")
+  list(APPEND OPENTELEMETRY_CMAKE_ARGS "-DCMAKE_PREFIX_PATH=${OPENTELEMETRY_PREFIX_PATH}")
 
   if(CMAKE_SYSTEM_PROCESSOR STREQUAL "s390x")
     # OpenTelemetry tries to determine the processor arch for vcpkg, which fails
