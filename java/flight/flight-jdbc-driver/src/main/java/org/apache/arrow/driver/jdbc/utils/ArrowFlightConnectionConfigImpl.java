@@ -20,6 +20,7 @@ package org.apache.arrow.driver.jdbc.utils;
 import static java.lang.String.format;
 
 import java.io.File;
+import java.util.Objects;
 import java.util.Properties;
 
 import org.apache.arrow.driver.jdbc.ArrowFlightConnection;
@@ -46,7 +47,7 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
    * @return the host.
    */
   public String getHost() {
-    return (String) ArrowFlightConnectionProperty.HOST.get(properties);
+    return ArrowFlightConnectionProperty.HOST.getString(properties);
   }
 
   /**
@@ -55,7 +56,7 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
    * @return the port.
    */
   public int getPort() {
-    return (int) ArrowFlightConnectionProperty.PORT.get(properties);
+    return ArrowFlightConnectionProperty.PORT.getInteger(properties);
   }
 
   /**
@@ -64,7 +65,7 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
    * @return the host.
    */
   public String getUser() {
-    return (String) ArrowFlightConnectionProperty.USER.get(properties);
+    return ArrowFlightConnectionProperty.USER.getString(properties);
   }
 
   /**
@@ -73,7 +74,7 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
    * @return the host.
    */
   public String getPassword() {
-    return (String) ArrowFlightConnectionProperty.PASSWORD.get(properties);
+    return ArrowFlightConnectionProperty.PASSWORD.getString(properties);
   }
 
   /**
@@ -92,8 +93,7 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
    * @return whether to use TLS encryption.
    */
   public boolean useTls() {
-    String useTlsValue = String.valueOf(ArrowFlightConnectionProperty.USE_TLS.get(properties));
-    return useTlsValue.equals("1") || useTlsValue.equals("true");
+    return ArrowFlightConnectionProperty.USE_TLS.getBoolean(properties);
   }
 
   /**
@@ -102,7 +102,7 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
    * @return the thread pool size.
    */
   public int threadPoolSize() {
-    return (int) ArrowFlightConnectionProperty.THREAD_POOL_SIZE.get(properties);
+    return ArrowFlightConnectionProperty.THREAD_POOL_SIZE.getInteger(properties);
   }
 
   /**
@@ -152,6 +152,20 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
           properties.containsKey(camelName) || !required,
           format("Required property not provided: <%s>.", this));
       return properties.getOrDefault(camelName, defaultValue);
+    }
+
+    public Boolean getBoolean(final Properties properties) {
+      final String valueFromProperties = String.valueOf(get(properties));
+      return valueFromProperties.equals("1") || valueFromProperties.equals("true");
+    }
+
+    public Integer getInteger(final Properties properties) {
+      final String valueFromProperties = String.valueOf(get(properties));
+      return Integer.parseInt(valueFromProperties);
+    }
+
+    public String getString(final Properties properties) {
+      return Objects.toString(get(properties), null);
     }
 
     @Override
