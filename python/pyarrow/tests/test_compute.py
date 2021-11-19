@@ -100,7 +100,8 @@ def test_hash_aggregate_not_exported():
     # Ensure we are not leaking hash aggregate functions
     # which are not callable by themselves.
     for func in exported_functions:
-        assert func.kind != "hash_aggregate"
+        arrow_f = pc.get_function(func.__arrow_compute_function__["name"])
+        assert arrow_f.kind != "hash_aggregate"
 
 
 def test_exported_option_classes():
@@ -248,7 +249,11 @@ def test_pickle_functions():
 def test_pickle_global_functions():
     # Pickle global wrappers (manual or automatic) of registered functions
     for name in pc.list_functions():
-        func = getattr(pc, name)
+        try:
+            func = getattr(pc, name)
+        except AttributeError:
+            # hash_aggregate functions are not exported as callables.
+            continue
         reconstructed = pickle.loads(pickle.dumps(func))
         assert reconstructed is func
 
