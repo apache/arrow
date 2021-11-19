@@ -407,6 +407,13 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
   }
 
   static SEXP Make(const std::shared_ptr<ChunkedArray>& chunked_array) {
+    // only dealing with dictionaries of strings
+    if (internal::checked_cast<const DictionaryArray*>(chunked_array->chunk(0))
+            ->dictionary()
+            ->type_id() != Type::STRING) {
+      return R_NilValue;
+    }
+
     bool need_unification = DictionaryChunkArrayNeedUnification(chunked_array);
 
     std::shared_ptr<Array> dictionary;
@@ -441,12 +448,6 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
       dictionary = dict_array.dictionary();
 
       pointer_arrays_transpose = PROTECT(R_NilValue);
-    }
-
-    // only dealing with dictionaries of strings
-    if (dictionary->type_id() != arrow::Type::STRING) {
-      UNPROTECT(1);
-      return R_NilValue;
     }
 
     // the chunked array as data1
