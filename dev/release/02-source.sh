@@ -86,11 +86,11 @@ if [ ${SOURCE_RAT} -gt 0 ]; then
 fi
 
 if type shasum >/dev/null 2>&1; then
-  get_sha256="shasum -a 256"
-  get_sha512="shasum -a 512"
+  sha256_generate="shasum -a 256"
+  sha512_generate="shasum -a 512"
 else
-  get_sha256="sha256sum"
-  get_sha512="sha512sum"
+  sha256_generate="sha256sum"
+  sha512_generate="sha512sum"
 fi
 
 
