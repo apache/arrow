@@ -37,7 +37,7 @@ if [ "${with_docs}" == "true" ]; then
   elif [ "$(git config --get remote.apache.url)" == "git@github.com:apache/arrow.git" ]; then
     yarn doc --gitRemote apache
   else
-    echo "Failed to build docs because the remote is not set correctly. Please set the origin or upstream remote to https://github.com/apache/arrow.git."
+    echo "Failed to build docs because the remote is not set correctly. Please set the origin or upstream remote to https://github.com/apache/arrow.git or the apache remote to git@github.com:apache/arrow.git."
     exit 0
   fi
 fi
