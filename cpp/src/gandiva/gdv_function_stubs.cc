@@ -44,6 +44,24 @@
 
 extern "C" {
 
+static char mask_array[256] = {
+    (char)0,  (char)1,  (char)2,  (char)3,   (char)4,   (char)5,   (char)6,   (char)7,
+    (char)8,  (char)9,  (char)10, (char)11,  (char)12,  (char)13,  (char)14,  (char)15,
+    (char)16, (char)17, (char)18, (char)19,  (char)20,  (char)21,  (char)22,  (char)23,
+    (char)24, (char)25, (char)26, (char)27,  (char)28,  (char)29,  (char)30,  (char)31,
+    (char)32, (char)33, (char)34, (char)35,  (char)36,  (char)37,  (char)38,  (char)39,
+    (char)40, (char)41, (char)42, (char)43,  (char)44,  (char)45,  (char)46,  (char)47,
+    'n',      'n',      'n',      'n',       'n',       'n',       'n',       'n',
+    'n',      'n',      (char)58, (char)59,  (char)60,  (char)61,  (char)62,  (char)63,
+    (char)64, 'X',      'X',      'X',       'X',       'X',       'X',       'X',
+    'X',      'X',      'X',      'X',       'X',       'X',       'X',       'X',
+    'X',      'X',      'X',      'X',       'X',       'X',       'X',       'X',
+    'X',      'X',      'X',      (char)91,  (char)92,  (char)93,  (char)94,  (char)95,
+    (char)96, 'x',      'x',      'x',       'x',       'x',       'x',       'x',
+    'x',      'x',      'x',      'x',       'x',       'x',       'x',       'x',
+    'x',      'x',      'x',      'x',       'x',       'x',       'x',       'x',
+    'x',      'x',      'x',      (char)123, (char)124, (char)125, (char)126, (char)127};
+
 bool gdv_fn_like_utf8_utf8(int64_t ptr, const char* data, int data_len,
                            const char* pattern, int pattern_len) {
   gandiva::LikeHolder* holder = reinterpret_cast<gandiva::LikeHolder*>(ptr);
@@ -893,14 +911,13 @@ const char* gdv_fn_aes_decrypt(int64_t context, const char* data, int32_t data_l
 }
 
 GANDIVA_EXPORT
-const char* gdv_fn_mask_first_n(int64_t context, const char* data, int32_t data_len,
-                                int32_t n_to_mask, int32_t* out_len) {
+const char* gdv_mask_first_n_utf8_int32(int64_t context, const char* data,
+                                        int32_t data_len, int32_t n_to_mask,
+                                        int32_t* out_len) {
   if (data_len <= 0) {
     *out_len = 0;
     return nullptr;
   }
-
-  int32_t end_idx = data_len < n_to_mask ? data_len : n_to_mask;
 
   *out_len = data_len;
 
@@ -911,21 +928,61 @@ const char* gdv_fn_mask_first_n(int64_t context, const char* data, int32_t data_
     return nullptr;
   }
 
-  // do the masking
-  for (int i = 0; i < end_idx; ++i) {
-    out[i] = mask_array[(unsigned char)data[i]];
+  int num_masked;
+  for (num_masked = 0; num_masked < n_to_mask; num_masked++) {
+    unsigned char char_single_byte = data[num_masked];
+    if (char_single_byte > 127) {
+      // found a multi-byte utf-8 char
+      break;
+    }
+    out[num_masked] = mask_array[char_single_byte];
   }
 
-  if (end_idx < data_len) {
-    memcpy(out + end_idx, data + end_idx, data_len - end_idx);
+  utf8proc_int32_t utf8_char;
+  utf8proc_ssize_t multi_byte_masked = num_masked;
+  while (num_masked < n_to_mask) {
+    auto char_len = utf8proc_iterate(
+        reinterpret_cast<const utf8proc_uint8_t*>(data + multi_byte_masked), data_len,
+        &utf8_char);
+    multi_byte_masked += char_len;
+
+    if (char_len == 1) {
+      out[num_masked] = mask_array[utf8_char];
+      num_masked++;
+      continue;
+    }
+
+    switch (utf8proc_category(utf8_char)) {
+      case 1:
+        out[num_masked] = 'X';
+        break;
+      case 2:
+        out[num_masked] = 'x';
+        break;
+      case 9:
+        out[num_masked] = 'n';
+        break;
+      case 10:
+        out[num_masked] = 'n';
+        break;
+      default:
+        out[num_masked] = utf8_char;
+        break;
+    }
+    num_masked++;
+  }
+
+  if (num_masked < data_len) {
+    memcpy(out + num_masked, data + multi_byte_masked, data_len);
   }
 
   return out;
 }
 
 GANDIVA_EXPORT
-const char* gdv_fn_mask_last_n(int64_t context, const char* data, int32_t data_len,
-                               int32_t n_to_mask, int32_t* out_len) {
+const char* gdv_mask_last_n_utf8_int32(int64_t context, const char* data,
+                                       int32_t data_len, int32_t n_to_mask,
+                                       int32_t* out_len) {
   if (data_len <= 0) {
     *out_len = 0;
     return nullptr;
@@ -944,9 +1001,48 @@ const char* gdv_fn_mask_last_n(int64_t context, const char* data, int32_t data_l
 
   memcpy(out, data, start_idx);
 
-  // do the masking
-  for (int i = start_idx; i < data_len; ++i) {
-    out[i] = mask_array[(unsigned char)data[i]];
+  int num_masked;
+  for (num_masked = start_idx; num_masked < data_len; num_masked++) {
+    unsigned char char_single_byte = data[num_masked];
+    if (char_single_byte > 127) {
+      // found a multi-byte utf-8 char
+      break;
+    }
+    out[num_masked] = mask_array[char_single_byte];
+  }
+
+  utf8proc_int32_t utf8_char;
+  utf8proc_ssize_t multi_byte_masked = num_masked;
+  while (num_masked < data_len) {
+    auto char_len = utf8proc_iterate(
+        reinterpret_cast<const utf8proc_uint8_t*>(data + multi_byte_masked), data_len,
+        &utf8_char);
+    multi_byte_masked += char_len;
+
+    if (char_len == 1) {
+      out[num_masked] = mask_array[utf8_char];
+      num_masked++;
+      continue;
+    }
+
+    switch (utf8proc_category(utf8_char)) {
+      case 1:
+        out[num_masked] = 'X';
+        break;
+      case 2:
+        out[num_masked] = 'x';
+        break;
+      case 9:
+        out[num_masked] = 'n';
+        break;
+      case 10:
+        out[num_masked] = 'n';
+        break;
+      default:
+        out[num_masked] = utf8_char;
+        break;
+    }
+    num_masked++;
   }
 
   return out;
@@ -1998,21 +2094,21 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
                                   types->i8_ptr_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(gdv_fn_aes_decrypt));
 
-  // gdv_fn_mask_first_n and gdv_fn_mask_last_n
-  std::vector<llvm::Type*> args_to_mask_fns = {
+  // gdv_mask_first_n and gdv_mask_last_n
+  std::vector<llvm::Type*> mask_args = {
       types->i64_type(),     // context
       types->i8_ptr_type(),  // data
-      types->i32_type(),     // data_len
+      types->i32_type(),     // data_length
       types->i32_type(),     // n_to_mask
       types->i32_ptr_type()  // out_length
   };
 
-  engine->AddGlobalMappingForFunc("gdv_fn_mask_first_n",
-                                  types->i8_ptr_type() /*return_type*/, args_to_mask_fns,
-                                  reinterpret_cast<void*>(gdv_fn_mask_first_n));
+  engine->AddGlobalMappingForFunc("gdv_mask_first_n_utf8_int32",
+                                  types->i8_ptr_type() /*return_type*/, mask_args,
+                                  reinterpret_cast<void*>(gdv_mask_first_n_utf8_int32));
 
-  engine->AddGlobalMappingForFunc("gdv_fn_mask_last_n",
-                                  types->i8_ptr_type() /*return_type*/, args_to_mask_fns,
-                                  reinterpret_cast<void*>(gdv_fn_mask_last_n));
+  engine->AddGlobalMappingForFunc("gdv_mask_last_n_utf8_int32",
+                                  types->i8_ptr_type() /*return_type*/, mask_args,
+                                  reinterpret_cast<void*>(gdv_mask_last_n_utf8_int32));
 }
 }  // namespace gandiva
