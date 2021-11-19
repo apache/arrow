@@ -2451,17 +2451,17 @@ class TableGroupBy:
         ----------
         aggregations : list[tuple(str, str)] or \
 list[tuple(str, str, FunctionOptions)]
-            List of tuples made of aggregation functions names followed
-            by column names and optionally aggregation function options.
+            List of tuples made of aggregation column names followed
+            by function names and optionally aggregation function options.
 
         Returns
         -------
         Table
             Results of the aggregation functions.
         """
-        columns = [a[1] for a in aggregations]
+        columns = [a[0] for a in aggregations]
         aggrfuncs = [
-            (a[0], a[2]) if len(a) > 2 else (a[0], None)
+            (a[1], a[2]) if len(a) > 2 else (a[1], None)
             for a in aggregations
         ]
 
