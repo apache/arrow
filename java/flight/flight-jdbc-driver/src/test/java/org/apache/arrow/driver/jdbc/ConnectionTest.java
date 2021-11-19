@@ -349,7 +349,6 @@ public class ConnectionTest {
     properties.setProperty(ArrowFlightConnectionProperty.PASSWORD.camelName(),flightTestUtils.getPassword1());
     properties.setProperty(ArrowFlightConnectionProperty.USE_TLS.camelName(),"0");
 
-
     Assert.assertTrue(DriverManager.getConnection(
             String.format(
                     "jdbc:arrow-flight://localhost:%s",
