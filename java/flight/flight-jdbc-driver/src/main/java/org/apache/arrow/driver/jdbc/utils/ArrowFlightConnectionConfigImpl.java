@@ -154,16 +154,34 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
       return properties.getOrDefault(camelName, defaultValue);
     }
 
+    /**
+     * Gets the property as Boolean.
+     *
+     * @param properties the properties from which to fetch this property.
+     * @return the property.
+     */
     public Boolean getBoolean(final Properties properties) {
       final String valueFromProperties = String.valueOf(get(properties));
       return valueFromProperties.equals("1") || valueFromProperties.equals("true");
     }
 
+    /**
+     * Gets the property as Integer.
+     *
+     * @param properties the properties from which to fetch this property.
+     * @return the property.
+     */
     public Integer getInteger(final Properties properties) {
       final String valueFromProperties = String.valueOf(get(properties));
-      return Integer.parseInt(valueFromProperties);
+      return valueFromProperties.equals("null") ? null : Integer.parseInt(valueFromProperties);
     }
 
+    /**
+     * Gets the property as String.
+     *
+     * @param properties the properties from which to fetch this property.
+     * @return the property.
+     */
     public String getString(final Properties properties) {
       return Objects.toString(get(properties), null);
     }
