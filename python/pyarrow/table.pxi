@@ -2449,8 +2449,8 @@ class TableGroupBy:
 
         Parameters
         ----------
-        aggregations : list[tuple(str, str)] or\
-                       list[tuple(str, str, FunctionOptions)]
+        aggregations : list[tuple(str, str)] or \
+list[tuple(str, str, FunctionOptions)]
             List of tuples made of aggregation functions names followed
             by column names and optionally aggregation function options.
 
