@@ -97,8 +97,8 @@ fi
 if [ ${SOURCE_UPLOAD} -gt 0 ]; then
   # sign the archive
   gpg --armor --output ${tarball}.asc --detach-sig ${tarball}
-  ${get_sha256} $tarball > ${tarball}.sha256
-  ${get_sha512} $tarball > ${tarball}.sha512
+  ${sha256_generate} $tarball > ${tarball}.sha256
+  ${sha512_generate} $tarball > ${tarball}.sha512
 
   # check out the arrow RC folder
   svn co --depth=empty https://dist.apache.org/repos/dist/dev/arrow tmp
