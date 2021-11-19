@@ -2540,66 +2540,6 @@ const char* concat_ws_utf8_utf8_utf8_utf8_utf8(int64_t context, const char* sepa
 }
 
 FORCE_INLINE
-const char* mask_first_n_utf8_int32(int64_t context, const char* data, int32_t data_len,
-                                    int32_t n_to_mask, int32_t* out_len) {
-  if (data_len <= 0) {
-    *out_len = 0;
-    return nullptr;
-  }
-
-  int32_t end_idx = data_len < n_to_mask ? data_len : n_to_mask;
-
-  *out_len = data_len;
-
-  char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
-  if (out == nullptr) {
-    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
-    *out_len = 0;
-    return nullptr;
-  }
-
-  // do the masking
-  for (int i = 0; i < end_idx; ++i) {
-    out[i] = mask_array[(unsigned char)data[i]];
-  }
-
-  if (end_idx < data_len) {
-    memcpy(out + end_idx, data + end_idx, data_len - end_idx);
-  }
-
-  return out;
-}
-
-FORCE_INLINE
-const char* mask_last_n_utf8_int32(int64_t context, const char* data, int32_t data_len,
-                                   int32_t n_to_mask, int32_t* out_len) {
-  if (data_len <= 0) {
-    *out_len = 0;
-    return nullptr;
-  }
-
-  int32_t start_idx = data_len <= n_to_mask ? 0 : (data_len - n_to_mask);
-
-  *out_len = data_len;
-
-  char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
-  if (out == nullptr) {
-    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
-    *out_len = 0;
-    return nullptr;
-  }
-
-  memcpy(out, data, start_idx);
-
-  // do the masking
-  for (int i = start_idx; i < data_len; ++i) {
-    out[i] = mask_array[(unsigned char)data[i]];
-  }
-
-  return out;
-}
-
-FORCE_INLINE
 const char* elt_int32_utf8_utf8(int32_t pos, bool pos_validity, const char* word1,
                                 int32_t word1_len, bool in1_validity, const char* word2,
                                 int32_t word2_len, bool in2_validity, bool* out_valid,
