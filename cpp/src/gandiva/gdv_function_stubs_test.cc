@@ -804,10 +804,13 @@ TEST(TestGdvFnStubs, TestMaskFirstN) {
   int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
   int32_t out_len = 0;
 
-  const char* result = gdv_mask_first_n_utf8_int32(ctx_ptr, "Ççé-4", 5, 4, &out_len);
+  const char* data = "Ççé-4";
+  int32_t data_len = 5;
+  const char* result = gdv_mask_first_n_utf8_int32(ctx_ptr, data, data_len, 4, &out_len);
   EXPECT_EQ("Xxx-4", std::string(result, out_len));
 
-  result = gdv_mask_first_n_utf8_int32(ctx_ptr, "a6Çç&", 5, 4, &out_len);
+  data = "a6Çç&";
+  result = gdv_mask_first_n_utf8_int32(ctx_ptr, data, data_len,4, &out_len);
   EXPECT_EQ("xnXx&", std::string(result, out_len));
 
   result = gdv_mask_first_n_utf8_int32(ctx_ptr, "0123456789", 10, 10, &out_len);
@@ -845,10 +848,13 @@ TEST(TestGdvFnStubs, TestMaskLastN) {
   int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
   int32_t out_len = 0;
 
-  const char* result = gdv_mask_last_n_utf8_int32(ctx_ptr, "4çé-Ç", 5, 4, &out_len);
+  const char* data = "4çé-Ç";
+  int32_t data_len = 5;
+  const char* result = gdv_mask_last_n_utf8_int32(ctx_ptr, data, data_len, 4, &out_len);
   EXPECT_EQ("4xx-X", std::string(result, out_len));
 
-  result = gdv_mask_last_n_utf8_int32(ctx_ptr, "a6Çç&", 5, 4, &out_len);
+  data = "a6Çç&";
+  result = gdv_mask_last_n_utf8_int32(ctx_ptr, data, data_len, 4, &out_len);
   EXPECT_EQ("anXx&", std::string(result, out_len));
 
   result = gdv_mask_last_n_utf8_int32(ctx_ptr, "0123456789", 10, 10, &out_len);
