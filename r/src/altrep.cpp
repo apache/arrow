@@ -650,43 +650,18 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
     return slice->length();
   }
 
+#define CALL_GET_REGION_TRANSPOSE(TYPE_CLASS)                                      \
+  case TYPE_CLASS##Type::type_id:                                                  \
+    GetRegionTranspose<TYPE_CLASS##Type>(array, indices,                           \
+                                         std::forward<Transpose>(transpose), out); \
+    break
+
   template <typename Transpose>
   static void GetRegionDispatch(const std::shared_ptr<Array>& array,
                                 const std::shared_ptr<Array>& indices,
                                 Transpose&& transpose, int* out) {
     switch (indices->type_id()) {
-      case Type::UINT8:
-        GetRegionTranspose<UInt8Type>(array, indices, std::forward<Transpose>(transpose),
-                                      out);
-        break;
-      case Type::INT8:
-        GetRegionTranspose<Int8Type>(array, indices, std::forward<Transpose>(transpose),
-                                     out);
-        break;
-      case Type::UINT16:
-        GetRegionTranspose<UInt16Type>(array, indices, std::forward<Transpose>(transpose),
-                                       out);
-        break;
-      case Type::INT16:
-        GetRegionTranspose<Int16Type>(array, indices, std::forward<Transpose>(transpose),
-                                      out);
-        break;
-      case Type::INT32:
-        GetRegionTranspose<Int32Type>(array, indices, std::forward<Transpose>(transpose),
-                                      out);
-        break;
-      case Type::UINT32:
-        GetRegionTranspose<UInt32Type>(array, indices, std::forward<Transpose>(transpose),
-                                       out);
-        break;
-      case Type::INT64:
-        GetRegionTranspose<Int64Type>(array, indices, std::forward<Transpose>(transpose),
-                                      out);
-        break;
-      case Type::UINT64:
-        GetRegionTranspose<UInt64Type>(array, indices, std::forward<Transpose>(transpose),
-                                       out);
-        break;
+      ARROW_GENERATE_FOR_ALL_INTEGER_TYPES(CALL_GET_REGION_TRANSPOSE);
       default:
         break;
     }
