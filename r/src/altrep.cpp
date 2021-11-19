@@ -595,26 +595,32 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
   template <typename Transpose>
   static void GetRegionDispatch(const std::shared_ptr<Array>& array,
                                 const std::shared_ptr<Array>& indices,
-                                Transpose transpose, int* out) {
+                                Transpose&& transpose, int* out) {
     switch (indices->type_id()) {
       case Type::UINT8:
-        GetRegionTranspose<UInt8Type>(array, indices, transpose, out);
+        GetRegionTranspose<UInt8Type>(array, indices, std::forward<Transpose>(transpose), out);
         break;
       case Type::INT8:
-        GetRegionTranspose<Int8Type>(array, indices, transpose, out);
+        GetRegionTranspose<Int8Type>(array, indices, std::forward<Transpose>(transpose), out);
         break;
       case Type::UINT16:
-        GetRegionTranspose<UInt16Type>(array, indices, transpose, out);
+        GetRegionTranspose<UInt16Type>(array, indices, std::forward<Transpose>(transpose), out);
         break;
       case Type::INT16:
-        GetRegionTranspose<Int16Type>(array, indices, transpose, out);
+        GetRegionTranspose<Int16Type>(array, indices, std::forward<Transpose>(transpose), out);
         break;
       case Type::INT32:
-        GetRegionTranspose<Int32Type>(array, indices, transpose, out);
+        GetRegionTranspose<Int32Type>(array, indices, std::forward<Transpose>(transpose), out);
         break;
       case Type::UINT32:
-        GetRegionTranspose<Int32Type>(array, indices, transpose, out);
+        GetRegionTranspose<UInt32Type>(array, indices, std::forward<Transpose>(transpose), out);
         break;
+      case Type::INT64:
+        GetRegionTranspose<Int64Type>(array, indices, std::forward<Transpose>(transpose), out);
+        break;
+    case Type::UINT64:
+      GetRegionTranspose<UInt64Type>(array, indices, std::forward<Transpose>(transpose), out);
+      break;
       default:
         break;
     }
