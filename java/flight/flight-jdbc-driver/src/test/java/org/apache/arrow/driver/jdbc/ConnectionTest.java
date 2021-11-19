@@ -52,9 +52,13 @@ import com.google.common.base.Strings;
 public class ConnectionTest {
 
   private FlightServer server;
+  private FlightServer server2;
   private String serverUrl;
+  private String serverUrl2;
   private BufferAllocator allocator;
+  private BufferAllocator allocator2;
   private FlightTestUtils flightTestUtils;
+  private FlightTestUtils flightTestUtils2;
 
   /**
    * Setup for all tests.
@@ -64,9 +68,13 @@ public class ConnectionTest {
   @Before
   public void setUp() throws Exception {
     allocator = new RootAllocator(Long.MAX_VALUE);
+    allocator2 = new RootAllocator(Long.MAX_VALUE);
 
     flightTestUtils = new FlightTestUtils("localhost", "flight1", "woho1",
         "invalid", "wrong");
+
+    flightTestUtils2 = new FlightTestUtils("localhost", "flight2", "123132",
+            "invalid", "wrong");
 
     final FlightProducer flightProducer = flightTestUtils
         .getFlightProducer(allocator);
@@ -77,6 +85,16 @@ public class ConnectionTest {
             .build());
     serverUrl = flightTestUtils.getConnectionPrefix() +
         flightTestUtils.getUrl() + ":" + this.server.getPort();
+
+    final FlightProducer flightProducer2 = flightTestUtils2
+            .getFlightProducer(allocator2);
+    this.server2 = flightTestUtils2.getStartedServer(
+            location -> FlightServer.builder(allocator2, location, flightProducer2)
+                    .headerAuthenticator(new GeneratedBearerTokenAuthenticator(
+                            new BasicCallHeaderAuthenticator(this::validate2)))
+                    .build());
+    serverUrl2 = flightTestUtils2.getConnectionPrefix() +
+            flightTestUtils2.getUrl() + ":" + this.server2.getPort();
   }
 
   @After
@@ -105,6 +123,24 @@ public class ConnectionTest {
       throw CallStatus.UNAUTHENTICATED
           .withDescription("Username or password is invalid.")
           .toRuntimeException();
+    }
+    return () -> identity;
+  }
+
+  private CallHeaderAuthenticator.AuthResult validate2(final String username,
+                                                      final String password) {
+    if (Strings.isNullOrEmpty(username)) {
+      throw CallStatus.UNAUTHENTICATED
+              .withDescription("Credentials not supplied.").toRuntimeException();
+    }
+    final String identity;
+    if (flightTestUtils2.getUsername1().equals(username) &&
+            flightTestUtils2.getPassword1().equals(password)) {
+      identity = flightTestUtils2.getUsername1();
+    } else {
+      throw CallStatus.UNAUTHENTICATED
+              .withDescription("Username or password is invalid.")
+              .toRuntimeException();
     }
     return () -> identity;
   }
@@ -377,6 +413,140 @@ public class ConnectionTest {
             String.format(
                     "jdbc:arrow-flight://localhost:%s",
                     server.getPort()),
+            properties).isValid(0));
+  }
+
+  /**
+   * Check if an non-encrypted connection can be established successfully when connecting through the DriverManager using
+   * just a connection url.
+   *
+   * @throws Exception on error.
+   */
+  @Test
+  public void testThreadPoolSizeConnectionPropertyCorrectCastUrlWithDriverManager() throws Exception {
+    final Driver driver = new ArrowFlightJdbcDriver();
+    DriverManager.registerDriver(driver);
+
+    Assert.assertTrue(DriverManager.getConnection(
+            String.format(
+                    "jdbc:arrow-flight://localhost:%s?user=%s&password=%s&threadPoolSize=1",
+                    server.getPort(),
+                    flightTestUtils.getUsername1(),
+                    flightTestUtils.getPassword1()))
+            .isValid(0));
+  }
+
+  /**
+   * Check if an non-encrypted connection can be established successfully when connecting through the DriverManager using
+   * a connection url and properties with String K-V pairs and using 0 and 1 as useTls values.
+   *
+   * @throws Exception on error.
+   */
+  @Test
+  public void testThreadPoolSizeConnectionPropertyCorrectCastUrlAndPropertiesUsingSetPropertyWithDriverManager()
+          throws Exception {
+    final Driver driver = new ArrowFlightJdbcDriver();
+    DriverManager.registerDriver(driver);
+    Properties properties = new Properties();
+
+    properties.setProperty(ArrowFlightConnectionProperty.USER.camelName(),flightTestUtils.getUsername1());
+    properties.setProperty(ArrowFlightConnectionProperty.PASSWORD.camelName(),flightTestUtils.getPassword1());
+    properties.setProperty(ArrowFlightConnectionProperty.THREAD_POOL_SIZE.camelName(),"1");
+
+    Assert.assertTrue(DriverManager.getConnection(
+            String.format(
+                    "jdbc:arrow-flight://localhost:%s",
+                    server.getPort()),
+            properties).isValid(0));
+  }
+
+  /**
+   * Check if an non-encrypted connection can be established successfully when connecting through the DriverManager using
+   * a connection url and properties with Object K-V pairs and using 0 and 1 as useTls values.
+   *
+   * @throws Exception on error.
+   */
+  @Test
+  public void testThreadPoolSizeConnectionPropertyCorrectCastUrlAndPropertiesUsingPutWithDriverManager()
+          throws Exception {
+    final Driver driver = new ArrowFlightJdbcDriver();
+    DriverManager.registerDriver(driver);
+
+    Properties properties = new Properties();
+    properties.put(ArrowFlightConnectionProperty.USER.camelName(),flightTestUtils.getUsername1());
+    properties.put(ArrowFlightConnectionProperty.PASSWORD.camelName(),flightTestUtils.getPassword1());
+    properties.put(ArrowFlightConnectionProperty.THREAD_POOL_SIZE.camelName(),1);
+
+    Assert.assertTrue(DriverManager.getConnection(
+            String.format(
+                    "jdbc:arrow-flight://localhost:%s",
+                    server.getPort()),
+            properties).isValid(0));
+  }
+
+  /**
+   * Check if an non-encrypted connection can be established successfully when connecting through the DriverManager using
+   * just a connection url.
+   *
+   * @throws Exception on error.
+   */
+  @Test
+  public void testPasswordConnectionPropertyIntegerCorrectCastUrlWithDriverManager() throws Exception {
+    final Driver driver = new ArrowFlightJdbcDriver();
+    DriverManager.registerDriver(driver);
+
+    Assert.assertTrue(DriverManager.getConnection(
+            String.format(
+                    "jdbc:arrow-flight://localhost:%s?user=%s&password=%s",
+                    server2.getPort(),
+                    flightTestUtils2.getUsername1(),
+                    flightTestUtils2.getPassword1()))
+            .isValid(0));
+  }
+
+  /**
+   * Check if an non-encrypted connection can be established successfully when connecting through the DriverManager using
+   * a connection url and properties with String K-V pairs and using 0 and 1 as useTls values.
+   *
+   * @throws Exception on error.
+   */
+  @Test
+  public void testPasswordConnectionPropertyIntegerCorrectCastUrlAndPropertiesUsingSetPropertyWithDriverManager()
+          throws Exception {
+    final Driver driver = new ArrowFlightJdbcDriver();
+    DriverManager.registerDriver(driver);
+    Properties properties = new Properties();
+
+    properties.setProperty(ArrowFlightConnectionProperty.USER.camelName(),flightTestUtils2.getUsername1());
+    properties.setProperty(ArrowFlightConnectionProperty.PASSWORD.camelName(),flightTestUtils2.getPassword1());
+
+    Assert.assertTrue(DriverManager.getConnection(
+            String.format(
+                    "jdbc:arrow-flight://localhost:%s",
+                    server2.getPort()),
+            properties).isValid(0));
+  }
+
+  /**
+   * Check if an non-encrypted connection can be established successfully when connecting through the DriverManager using
+   * a connection url and properties with Object K-V pairs and using 0 and 1 as useTls values.
+   *
+   * @throws Exception on error.
+   */
+  @Test
+  public void testPasswordConnectionPropertyIntegerCorrectCastUrlAndPropertiesUsingPutWithDriverManager()
+          throws Exception {
+    final Driver driver = new ArrowFlightJdbcDriver();
+    DriverManager.registerDriver(driver);
+
+    Properties properties = new Properties();
+    properties.put(ArrowFlightConnectionProperty.USER.camelName(),flightTestUtils2.getUsername1());
+    properties.put(ArrowFlightConnectionProperty.PASSWORD.camelName(),123132);
+
+    Assert.assertTrue(DriverManager.getConnection(
+            String.format(
+                    "jdbc:arrow-flight://localhost:%s",
+                    server2.getPort()),
             properties).isValid(0));
   }
 }
