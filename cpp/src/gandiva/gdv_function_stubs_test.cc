@@ -810,7 +810,7 @@ TEST(TestGdvFnStubs, TestMaskFirstN) {
   EXPECT_EQ("Xxx-4", std::string(result, out_len));
 
   data = "a6Çç&";
-  result = gdv_mask_first_n_utf8_int32(ctx_ptr, data, data_len,4, &out_len);
+  result = gdv_mask_first_n_utf8_int32(ctx_ptr, data, data_len, 4, &out_len);
   EXPECT_EQ("xnXx&", std::string(result, out_len));
 
   result = gdv_mask_first_n_utf8_int32(ctx_ptr, "0123456789", 10, 10, &out_len);
