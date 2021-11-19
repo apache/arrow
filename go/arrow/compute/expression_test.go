@@ -250,6 +250,7 @@ func TestExpressionSerializationRoundTrip(t *testing.T) {
 			defer serialized.Release()
 			roundTripped, err := compute.DeserializeExpr(mem, serialized)
 			assert.NoError(t, err)
+			defer roundTripped.Release()
 			assert.Truef(t, tt.expr.Equals(roundTripped), "started with: %s, got: %s", tt.expr, roundTripped)
 		})
 	}

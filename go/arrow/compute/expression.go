@@ -171,6 +171,7 @@ func (l *Literal) Bind(ctx context.Context, mem memory.Allocator, schema *arrow.
 }
 
 func (l *Literal) Release() {
+	l.Literal.Release()
 	if l.bound != 0 {
 		l.bound.release()
 	}
@@ -439,6 +440,12 @@ func (c *Call) Bind(ctx context.Context, mem memory.Allocator, schema *arrow.Sch
 }
 
 func (c *Call) Release() {
+	for _, a := range c.args {
+		a.Release()
+	}
+	if r, ok := c.options.(releasable); ok {
+		r.Release()
+	}
 	if c.bound != 0 {
 		c.bound.release()
 	}
@@ -548,6 +555,8 @@ type SetLookupOptions struct {
 }
 
 func (SetLookupOptions) TypeName() string { return "SetLookupOptions" }
+
+func (s *SetLookupOptions) Release() { s.ValueSet.Release() }
 
 func (s *SetLookupOptions) Equals(other FunctionOptions) bool {
 	rhs, ok := other.(*SetLookupOptions)
