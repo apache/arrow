@@ -2458,6 +2458,20 @@ list[tuple(str, str, FunctionOptions)]
         -------
         Table
             Results of the aggregation functions.
+
+        Example
+        -------
+        >>> t = pa.table([
+        ...       pa.array(["a", "a", "b", "b", "c"]),
+        ...       pa.array([1, 2, 3, 4, 5]),
+        ... ], names=["keys", "values"])
+        >>> t.group_by("keys").aggregate([("values", "sum")])
+        pyarrow.Table
+        values_sum: int64
+        keys: string
+        ----
+        values_sum: [[3,7,5]]
+        keys: [["a","b","c"]]
         """
         columns = [a[0] for a in aggregations]
         aggrfuncs = [
