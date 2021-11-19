@@ -94,6 +94,7 @@ struct ArrayResolve {
       if (i < chunk_size) {
         index_ = i;
         array_ = chunk;
+        position_ = idx_chunk;
         break;
       }
 
@@ -103,6 +104,7 @@ struct ArrayResolve {
 
   std::shared_ptr<Array> array_;
   int64_t index_ = 0;
+  int64_t position_ = 0;
 };
 
 // base class for all altrep vectors
@@ -522,9 +524,64 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
       return INTEGER_ELT(Representation(alt), i);
     }
 
-    int out;
-    Get_region(alt, i, 1, &out);
-    return out;
+    ArrayResolve resolve(GetChunkedArray(alt), i);
+    auto array = resolve.array_;
+    auto j = resolve.index_;
+
+    if (!array->IsNull(j)) {
+      const auto& indices =
+          internal::checked_cast<const DictionaryArray&>(*array).indices();
+
+      if (WasUnified(alt)) {
+        const auto* transpose_data = reinterpret_cast<const int32_t*>(
+            GetArrayTransposed(alt, resolve.position_)->data());
+
+        switch (indices->type_id()) {
+          case Type::UINT8:
+            return transpose_data[indices->data()->GetValues<uint8_t>(1)[j]] + 1;
+          case Type::INT8:
+            return transpose_data[indices->data()->GetValues<int8_t>(1)[j]] + 1;
+          case Type::UINT16:
+            return transpose_data[indices->data()->GetValues<uint16_t>(1)[j]] + 1;
+          case Type::INT16:
+            return transpose_data[indices->data()->GetValues<int16_t>(1)[j]] + 1;
+          case Type::INT32:
+            return transpose_data[indices->data()->GetValues<int32_t>(1)[j]] + 1;
+          case Type::UINT32:
+            return transpose_data[indices->data()->GetValues<uint32_t>(1)[j]] + 1;
+          case Type::INT64:
+            return transpose_data[indices->data()->GetValues<int64_t>(1)[j]] + 1;
+          case Type::UINT64:
+            return transpose_data[indices->data()->GetValues<uint64_t>(1)[j]] + 1;
+          default:
+            break;
+        }
+      } else {
+        switch (indices->type_id()) {
+          case Type::UINT8:
+            return indices->data()->GetValues<uint8_t>(1)[j] + 1;
+          case Type::INT8:
+            return indices->data()->GetValues<int8_t>(1)[j] + 1;
+          case Type::UINT16:
+            return indices->data()->GetValues<uint16_t>(1)[j] + 1;
+          case Type::INT16:
+            return indices->data()->GetValues<int16_t>(1)[j] + 1;
+          case Type::INT32:
+            return indices->data()->GetValues<int32_t>(1)[j] + 1;
+          case Type::UINT32:
+            return indices->data()->GetValues<uint32_t>(1)[j] + 1;
+          case Type::INT64:
+            return indices->data()->GetValues<int64_t>(1)[j] + 1;
+          case Type::UINT64:
+            return indices->data()->GetValues<uint64_t>(1)[j] + 1;
+          default:
+            break;
+        }
+      }
+    }
+
+    // not reached
+    return NA_INTEGER;
   }
 
   static R_xlen_t Get_region(SEXP alt, R_xlen_t start, R_xlen_t n, int* buf) {
@@ -598,29 +655,37 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
                                 Transpose&& transpose, int* out) {
     switch (indices->type_id()) {
       case Type::UINT8:
-        GetRegionTranspose<UInt8Type>(array, indices, std::forward<Transpose>(transpose), out);
+        GetRegionTranspose<UInt8Type>(array, indices, std::forward<Transpose>(transpose),
+                                      out);
         break;
       case Type::INT8:
-        GetRegionTranspose<Int8Type>(array, indices, std::forward<Transpose>(transpose), out);
+        GetRegionTranspose<Int8Type>(array, indices, std::forward<Transpose>(transpose),
+                                     out);
         break;
       case Type::UINT16:
-        GetRegionTranspose<UInt16Type>(array, indices, std::forward<Transpose>(transpose), out);
+        GetRegionTranspose<UInt16Type>(array, indices, std::forward<Transpose>(transpose),
+                                       out);
         break;
       case Type::INT16:
-        GetRegionTranspose<Int16Type>(array, indices, std::forward<Transpose>(transpose), out);
+        GetRegionTranspose<Int16Type>(array, indices, std::forward<Transpose>(transpose),
+                                      out);
         break;
       case Type::INT32:
-        GetRegionTranspose<Int32Type>(array, indices, std::forward<Transpose>(transpose), out);
+        GetRegionTranspose<Int32Type>(array, indices, std::forward<Transpose>(transpose),
+                                      out);
         break;
       case Type::UINT32:
-        GetRegionTranspose<UInt32Type>(array, indices, std::forward<Transpose>(transpose), out);
+        GetRegionTranspose<UInt32Type>(array, indices, std::forward<Transpose>(transpose),
+                                       out);
         break;
       case Type::INT64:
-        GetRegionTranspose<Int64Type>(array, indices, std::forward<Transpose>(transpose), out);
+        GetRegionTranspose<Int64Type>(array, indices, std::forward<Transpose>(transpose),
+                                      out);
         break;
-    case Type::UINT64:
-      GetRegionTranspose<UInt64Type>(array, indices, std::forward<Transpose>(transpose), out);
-      break;
+      case Type::UINT64:
+        GetRegionTranspose<UInt64Type>(array, indices, std::forward<Transpose>(transpose),
+                                       out);
+        break;
       default:
         break;
     }
