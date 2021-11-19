@@ -403,7 +403,7 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
 
   static const std::shared_ptr<Buffer>& GetArrayTransposed(SEXP alt, int i) {
     const auto& arrays = *Pointer<BufferVector>(CADR(R_altrep_data2(alt)));
-    return arrays->operator[](i);
+    return (*arrays)[i];
   }
 
   static SEXP Make(const std::shared_ptr<ChunkedArray>& chunked_array) {
@@ -630,7 +630,7 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
   static void GetRegionTranspose(const std::shared_ptr<Array>& array,
                                  const std::shared_ptr<Array>& indices,
                                  Transpose transpose, int* out) {
-    using index_type = typename arrow::TypeTraits<Type>::ArrayType::value_type;
+    using index_type = typename Type::c_type;
     auto raw_indices = indices->data()->GetValues<index_type>(1);
 
     auto n = array->length();
