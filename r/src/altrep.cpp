@@ -23,6 +23,7 @@
 #include <arrow/chunked_array.h>
 #include <arrow/compute/api.h>
 #include <arrow/util/bitmap_reader.h>
+#include <arrow/visitor_inline.h>
 
 #include <cpp11/altrep.hpp>
 #include <cpp11/declarations.hpp>
@@ -696,27 +697,11 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
                                  const std::shared_ptr<Array>& indices,
                                  Transpose transpose, int* out) {
     using index_type = typename Type::c_type;
-    auto raw_indices = indices->data()->GetValues<index_type>(1);
 
-    auto n = array->length();
-
-    // then set the R NA sentinels if needed
-    if (indices->null_count() > 0) {
-      internal::BitmapReader bitmap_reader(array->null_bitmap()->data(), array->offset(),
-                                           n);
-
-      for (R_xlen_t j = 0; j < n; j++, bitmap_reader.Next()) {
-        if (bitmap_reader.IsNotSet()) {
-          out[j] = cpp11::na<int>();
-        } else {
-          out[j] = transpose(raw_indices[j]) + 1;
-        }
-      }
-    } else {
-      for (R_xlen_t j = 0; j < n; j++) {
-        out[j] = transpose(raw_indices[j]) + 1;
-      }
-    }
+    VisitArrayDataInline<Type>(
+        *array->data(),
+        /*valid_func=*/[&](index_type index) { *out++ = transpose(index) + 1; },
+        /*null_func=*/[&]() { *out++ = cpp11::na<int>(); });
   }
 
   static SEXP Min(SEXP alt, Rboolean narm) { return nullptr; }
