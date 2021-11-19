@@ -96,6 +96,13 @@ def test_exported_functions():
             func(*args)
 
 
+def test_hash_aggregate_not_exported():
+    # Ensure we are not leaking hash aggregate functions
+    # which are not callable by themselves.
+    for func in exported_functions:
+        assert func.kind != "hash_aggregate"
+
+
 def test_exported_option_classes():
     classes = exported_option_classes
     assert len(classes) >= 10
