@@ -180,6 +180,9 @@ std::shared_ptr<ChunkedArray> vec_to_arrow_altrep_bypass(SEXP);
 
 }  // namespace altrep
 
+bool DictionaryChunkArrayNeedUnification(
+    const std::shared_ptr<ChunkedArray>& chunked_array);
+
 }  // namespace r
 }  // namespace arrow
 

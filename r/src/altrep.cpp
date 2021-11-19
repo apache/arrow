@@ -56,11 +56,6 @@ SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array);
 
 namespace arrow {
 namespace r {
-
-// defined in array_to_vector.cpp
-bool DictionaryChunkArrayNeedUnification(
-    const std::shared_ptr<ChunkedArray>& chunked_array);
-
 namespace altrep {
 
 namespace {
