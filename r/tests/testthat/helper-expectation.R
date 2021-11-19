@@ -157,6 +157,10 @@ compare_dplyr_error <- function(expr,
     error = function(e) {
       msg <- conditionMessage(e)
 
+      if (grepl("Problem while computing", msg[1])) {
+        msg <- conditionMessage(e$parent)
+      }
+
       # The error here is of the form:
       #
       # Problem with `filter()` .input `..1`.
