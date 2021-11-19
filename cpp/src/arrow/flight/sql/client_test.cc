@@ -23,8 +23,8 @@
 
 #include <utility>
 
-#include "arrow/flight/flight_sql/FlightSql.pb.h"
-#include "arrow/flight/flight_sql/api.h"
+#include "arrow/flight/sql/FlightSql.pb.h"
+#include "arrow/flight/sql/api.h"
 #include "arrow/testing/gtest_util.h"
 
 namespace pb = arrow::flight::protocol;

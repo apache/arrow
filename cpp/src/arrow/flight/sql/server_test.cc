@@ -15,16 +15,16 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/flight/flight_sql/server.h"
+#include "arrow/flight/sql/server.h"
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "arrow/api.h"
 #include "arrow/flight/api.h"
-#include "arrow/flight/flight_sql/FlightSql.pb.h"
-#include "arrow/flight/flight_sql/api.h"
-#include "arrow/flight/flight_sql/example/sqlite_server.h"
+#include "arrow/flight/sql/FlightSql.pb.h"
+#include "arrow/flight/sql/api.h"
+#include "arrow/flight/sql/example/sqlite_server.h"
 #include "arrow/flight/test_util.h"
 #include "arrow/flight/types.h"
 #include "arrow/testing/gtest_util.h"

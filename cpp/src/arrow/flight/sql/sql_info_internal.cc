@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/flight/flight_sql/sql_info_internal.h"
+#include "arrow/flight/sql/sql_info_internal.h"
 
 #include "arrow/api.h"
 #include "arrow/buffer.h"

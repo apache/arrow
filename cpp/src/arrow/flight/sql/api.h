@@ -17,4 +17,4 @@
 
 #pragma once
 
-#include "arrow/flight/flight_sql/client.h"
+#include "arrow/flight/sql/client.h"

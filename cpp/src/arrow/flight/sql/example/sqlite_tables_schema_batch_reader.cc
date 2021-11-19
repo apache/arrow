@@ -15,15 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/flight/flight_sql/example/sqlite_tables_schema_batch_reader.h"
+#include "arrow/flight/sql/example/sqlite_tables_schema_batch_reader.h"
 
 #include <sqlite3.h>
 
 #include <sstream>
 
-#include "arrow/flight/flight_sql/example/sqlite_server.h"
-#include "arrow/flight/flight_sql/example/sqlite_statement.h"
-#include "arrow/flight/flight_sql/server.h"
+#include "arrow/flight/sql/example/sqlite_server.h"
+#include "arrow/flight/sql/example/sqlite_statement.h"
+#include "arrow/flight/sql/server.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/record_batch.h"
 

@@ -21,7 +21,7 @@
 
 #include <memory>
 
-#include "arrow/flight/flight_sql/example/sqlite_statement.h"
+#include "arrow/flight/sql/example/sqlite_statement.h"
 #include "arrow/record_batch.h"
 
 namespace arrow {

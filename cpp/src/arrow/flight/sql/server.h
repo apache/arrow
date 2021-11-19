@@ -24,9 +24,9 @@
 #include <string>
 #include <unordered_map>
 
-#include "arrow/flight/flight_sql/server.h"
-#include "arrow/flight/flight_sql/sql_info_types.h"
 #include "arrow/flight/server.h"
+#include "arrow/flight/sql/server.h"
+#include "arrow/flight/sql/sql_info_types.h"
 #include "arrow/util/optional.h"
 
 namespace arrow {
