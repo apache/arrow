@@ -444,7 +444,7 @@ cdef class ChunkedArray(_PandasConvertible):
         -------
         result : ChunkedArray
         """
-        indices = _pc().array_sort_indices(self, order=order)
+        indices = _pc().sort_indices(self, sort_keys=[("", order)])
         return self.take(indices)
 
     def unify_dictionaries(self, MemoryPool memory_pool=None):
