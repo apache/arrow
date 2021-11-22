@@ -188,7 +188,7 @@ NestedType <- R6Class("NestedType", inherit = DataType)
 #' @param byte_width byte width for `FixedSizeBinary` type.
 #' @param list_size list size for `FixedSizeList` type.
 #' @param precision For `decimal()`, precision. The number of significant digits
-#'    the the arrow `decimal` type can represent. Currently `decimal()` is mapped
+#'    the arrow `decimal` type can represent. Currently `decimal()` is mapped
 #'    to `DecimalType128`, having a maximum precision of 38 significant digits.
 #' @param scale For `decimal()`, scale. The number of digits after the decimal
 #'    point. It can be negative.
