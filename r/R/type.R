@@ -364,7 +364,7 @@ decimal <- function(precision, scale) {
     stop('"precision" must be an integer', call. = FALSE)
   }
   if (precision > 38) {
-    stop('"precision" must be lower than or equal to 38', call. = FALSE)
+    stop('"precision" must be less than or equal to 38', call. = FALSE)
   }
   if (precision < 1) {
     stop('"precision" must be greater than 0', call. = FALSE)
