@@ -61,24 +61,28 @@ externalproject_add(substrait_ep
 
 set(SUBSTRAIT_PROTO_GEN_ALL)
 foreach(SUBSTRAIT_PROTO ${SUBSTRAIT_PROTOS})
-  set(SUBSTRAIT_PROTO_GEN "${SUBSTRAIT_GEN_DIR}/${SUBSTRAIT_PROTO}.pb.cc")
+  set(SUBSTRAIT_PROTO_GEN "${SUBSTRAIT_GEN_DIR}/${SUBSTRAIT_PROTO}.pb")
 
-  set_source_files_properties(${SUBSTRAIT_PROTO_GEN} PROPERTIES GENERATED TRUE)
-  add_custom_command(OUTPUT ${SUBSTRAIT_PROTO_GEN}
-                     COMMAND ${ARROW_PROTOBUF_PROTOC}
-                             "-I${SUBSTRAIT_DIR}/binary"
-                             "--cpp_out=${SUBSTRAIT_GEN_DIR}"
-                             "${SUBSTRAIT_PROTO}.proto"
-                     DEPENDS ${PROTO_DEPENDS} substrait_ep)
+  foreach(EXT h cc)
+    set_source_files_properties("${SUBSTRAIT_PROTO_GEN}.${EXT}" PROPERTIES GENERATED TRUE)
+    add_custom_command(OUTPUT "${SUBSTRAIT_PROTO_GEN}.${EXT}"
+                       COMMAND ${ARROW_PROTOBUF_PROTOC}
+                               "-I${SUBSTRAIT_DIR}/binary"
+                               "--cpp_out=${SUBSTRAIT_GEN_DIR}"
+                               "${SUBSTRAIT_PROTO}.proto"
+                       DEPENDS ${PROTO_DEPENDS} substrait_ep)
+    list(APPEND SUBSTRAIT_PROTO_GEN_ALL "${SUBSTRAIT_PROTO_GEN}.${EXT}")
+  endforeach()
 
-  list(APPEND ARROW_ENGINE_SRCS ${SUBSTRAIT_PROTO_GEN})
-  list(APPEND SUBSTRAIT_PROTO_GEN_ALL ${SUBSTRAIT_PROTO_GEN})
+  list(APPEND ARROW_ENGINE_SRCS "${SUBSTRAIT_PROTO_GEN}.cc")
 endforeach()
 
 add_custom_target(substrait_gen ALL DEPENDS ${SUBSTRAIT_PROTO_GEN_ALL})
 
 find_package(Git)
 add_custom_target(substrait_gen_verify
+                  COMMENT "Verifying that generated substrait accessors are consistent with \
+                           ARROW_SUBSTRAIT_REPO_AND_TAG='${ARROW_SUBSTRAIT_REPO_AND_TAG}'"
                   COMMAND ${GIT_EXECUTABLE} diff --quiet ${SUBSTRAIT_GEN_DIR}
                   DEPENDS substrait_gen)
 

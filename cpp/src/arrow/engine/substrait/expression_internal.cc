@@ -22,7 +22,9 @@
 #include <utility>
 
 #include "arrow/builder.h"
+#include "arrow/compute/cast.h"
 #include "arrow/compute/exec/expression.h"
+#include "arrow/compute/exec/expression_internal.h"
 #include "arrow/engine/substrait/extension_types.h"
 #include "arrow/engine/substrait/type_internal.h"
 #include "arrow/engine/visibility.h"
@@ -54,12 +56,60 @@ Result<compute::Expression> FromProto(const st::Expression& expr) {
       return compute::literal(std::move(datum));
     }
 
+    case st::Expression::kSelection:
+      if (!expr.selection().has_direct_reference()) break;
+      return FromProto(expr.selection().direct_reference());
+
+    case st::Expression::kIfThen: {
+      const auto& if_then = expr.if_then();
+      if (!if_then.has_else_()) break;
+      if (if_then.ifs_size() != 1) break;
+      ARROW_ASSIGN_OR_RAISE(auto if_, FromProto(if_then.ifs(0).if_()));
+      ARROW_ASSIGN_OR_RAISE(auto then, FromProto(if_then.ifs(0).then()));
+      ARROW_ASSIGN_OR_RAISE(auto else_, FromProto(if_then.else_()));
+      return compute::call("if_else",
+                           {std::move(if_), std::move(then), std::move(else_)});
+    }
+
     default:
       break;
   }
 
   return Status::NotImplemented("conversion to arrow::compute::Expression from ",
                                 expr.DebugString());
+}
+
+Result<compute::Expression> FromProto(const st::ReferenceSegment& ref) {
+  switch (ref.reference_type_case()) {
+    case st::ReferenceSegment::kStructField: {
+      FieldRef out(ref.struct_field().field());
+
+      if (ref.struct_field().has_child()) {
+        ARROW_ASSIGN_OR_RAISE(auto child, FromProto(ref.struct_field().child()));
+        auto child_ref = child.field_ref();
+        if (!child_ref) break;
+        out = FieldRef(std::move(out), *child_ref);
+      }
+
+      return compute::field_ref(std::move(out));
+    }
+
+    case st::ReferenceSegment::kListElement: {
+      if (ref.list_element().has_child()) {
+        ARROW_ASSIGN_OR_RAISE(auto child, FromProto(ref.list_element().child()));
+        return compute::call(
+            "list_element",
+            {std::move(child), compute::literal(ref.list_element().offset())});
+      }
+      break;
+    }
+
+    default:
+      break;
+  }
+
+  return Status::NotImplemented("conversion to arrow::compute::Expression from ",
+                                ref.DebugString());
 }
 
 Result<Datum> FromProto(const st::Expression::Literal& lit) {
@@ -147,8 +197,6 @@ Result<Datum> FromProto(const st::Expression::Literal& lit) {
           auto scalar, StructScalar::Make(std::move(fields), std::move(field_names)));
       return Datum(std::move(scalar));
     }
-
-      // case st::Expression::Literal::kNamedStruct:
 
     case st::Expression::Literal::kList: {
       const auto& list = lit.list();
@@ -412,12 +460,113 @@ Result<std::unique_ptr<st::Expression::Literal>> ToProto(const Datum& datum) {
 }
 
 Result<std::unique_ptr<st::Expression>> ToProto(const compute::Expression& expr) {
+  if (!expr.IsBound()) {
+    return Status::Invalid("ToProto requires a bound Expression");
+  }
+
   if (auto datum = expr.literal()) {
     ARROW_ASSIGN_OR_RAISE(auto literal, ToProto(*datum));
     auto out = internal::make_unique<st::Expression>();
     out->set_allocated_literal(literal.release());
     return std::move(out);
   }
+
+  if (auto param = expr.parameter()) {
+    DCHECK(!param->indices.empty());
+    std::unique_ptr<st::ReferenceSegment> ref_segment;
+
+    for (auto it = param->indices.rbegin(); it != param->indices.rend(); ++it) {
+      auto struct_field = internal::make_unique<st::ReferenceSegment::StructField>();
+
+      if (ref_segment) {
+        struct_field->set_allocated_child(ref_segment.release());
+      }
+      struct_field->set_field(*it);
+
+      ref_segment = internal::make_unique<st::ReferenceSegment>();
+      ref_segment->set_allocated_struct_field(struct_field.release());
+    }
+
+    auto field_ref = internal::make_unique<st::FieldReference>();
+    field_ref->set_allocated_direct_reference(ref_segment.release());
+
+    auto out = internal::make_unique<st::Expression>();
+    out->set_allocated_selection(field_ref.release());
+    return std::move(out);
+  }
+
+  auto call = CallNotNull(expr);
+
+  // convert all arguments first
+  std::vector<std::unique_ptr<st::Expression>> arguments(call->arguments.size());
+  for (size_t i = 0; i < arguments.size(); ++i) {
+    ARROW_ASSIGN_OR_RAISE(arguments[i], ToProto(call->arguments[i]));
+  }
+
+  if (call->function_name == "list_element") {
+    // catch the special case of calls convertible to a ListElement
+    if (arguments[0]->has_selection() &&
+        arguments[0]->selection().has_direct_reference()) {
+      if (arguments[1]->has_literal() && arguments[1]->literal().has_i32()) {
+        auto list_element = internal::make_unique<st::ReferenceSegment::ListElement>();
+
+        list_element->set_allocated_child(
+            arguments[0]->mutable_selection()->release_direct_reference());
+        list_element->set_offset(arguments[1]->literal().i32());
+
+        auto ref_segment = internal::make_unique<st::ReferenceSegment>();
+        ref_segment->set_allocated_list_element(list_element.release());
+
+        auto field_ref = internal::make_unique<st::FieldReference>();
+        field_ref->set_allocated_direct_reference(ref_segment.release());
+
+        auto out = std::move(arguments[0]);  // reuse an emptied st::Expression
+        out->set_allocated_selection(field_ref.release());
+        return std::move(out);
+      }
+    }
+  }
+
+  if (call->function_name == "if_else") {
+    // catch the special case of calls convertible to IfThen
+    auto if_clause = internal::make_unique<st::Expression::IfThen::IfClause>();
+    if_clause->set_allocated_if_(arguments[0].release());
+    if_clause->set_allocated_then(arguments[1].release());
+
+    auto if_then = internal::make_unique<st::Expression::IfThen>();
+    if_then->mutable_ifs()->AddAllocated(if_clause.release());
+    if_then->set_allocated_else_(arguments[2].release());
+
+    auto out = internal::make_unique<st::Expression>();
+    out->set_allocated_if_then(if_then.release());
+    return std::move(out);
+  }
+
+  // other expression types dive into extensions immediately
+  /*
+  if (call->function_name == "case_when") {
+    auto conditions = call->arguments[0].call();
+    if (conditions && conditions->function_name == "make_struct") {
+      // catch the special case of calls convertible to SwitchExpression
+      auto switch_ = internal::make_unique<st::Expression::SwitchExpression>();
+
+      for (auto& cond : conditions->arguments) {
+        auto if_value =
+            internal::make_unique<st::Expression::SwitchExpression::IfValue>();
+        if_value->set_allocated_if_(arguments[0].release());
+        if_value->set_allocated_then(arguments[1].release());
+
+        switch_->mutable_ifs()->AddAllocated(if_value.release());
+      }
+
+      switch_->set_allocated_else_(arguments[2].release());
+
+      auto out = std::move(arguments[0]);  // reuse an emptied st::Expression
+      out->set_allocated_switch_expression(switch_.release());
+      return std::move(out);
+    }
+  }
+  */
 
   return Status::NotImplemented("conversion to substrait::Expression from ",
                                 expr.ToString());
