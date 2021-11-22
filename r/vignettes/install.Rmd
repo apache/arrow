@@ -136,7 +136,7 @@ install_arrow(verbose = TRUE)
 ```
 
 `install_arrow()` does not require environment variables to be set in order to
-satisfy C++ dependencies as it checks existing values.
+satisfy C++ dependencies.
 
 > Note that, unlike packages like `tensorflow`, `blogdown`, and others that require external dependencies, you do not need to run `install_arrow()` after a successful `arrow` installation.
 
