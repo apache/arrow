@@ -814,12 +814,10 @@ struct GroupedReducingAggregator : public GroupedAggregator {
   }
 
   // Generate the values/nulls buffers
-  static Result<std::shared_ptr<Buffer>> Finish(MemoryPool* pool,
-                                                const ScalarAggregateOptions& options,
-                                                const int64_t* counts,
-                                                TypedBufferBuilder<CType>* reduced,
-                                                int64_t num_groups, int64_t* null_count,
-                                                std::shared_ptr<Buffer>* null_bitmap) {
+  static Result<std::shared_ptr<Buffer>> Finish(
+      MemoryPool* pool, const ScalarAggregateOptions& options, const DataType& out_type,
+      const int64_t* counts, TypedBufferBuilder<CType>* reduced, int64_t num_groups,
+      int64_t* null_count, std::shared_ptr<Buffer>* null_bitmap) {
     for (int64_t i = 0; i < num_groups; ++i) {
       if (counts[i] >= options.min_count) continue;
 
@@ -840,8 +838,8 @@ struct GroupedReducingAggregator : public GroupedAggregator {
     int64_t null_count = 0;
 
     ARROW_ASSIGN_OR_RAISE(auto values,
-                          Impl::Finish(pool_, options_, counts, &reduced_, num_groups_,
-                                       &null_count, &null_bitmap));
+                          Impl::Finish(pool_, options_, *out_type_, counts, &reduced_,
+                                       num_groups_, &null_count, &null_bitmap));
 
     if (!options_.skip_nulls) {
       null_count = kUnknownNullCount;
@@ -986,8 +984,6 @@ struct GroupedMeanImpl : public GroupedReducingAggregator<Type, GroupedMeanImpl<
   using Base = GroupedReducingAggregator<Type, GroupedMeanImpl<Type>>;
   using CType = typename Base::CType;
   using InputCType = typename Base::InputCType;
-  using MeanType =
-      typename std::conditional<is_decimal_type<Type>::value, CType, double>::type;
 
   static CType NullValue(const DataType&) { return CType(0); }
 
@@ -1001,22 +997,31 @@ struct GroupedMeanImpl : public GroupedReducingAggregator<Type, GroupedMeanImpl<
     return static_cast<CType>(to_unsigned(u) + to_unsigned(v));
   }
 
-  static Result<std::shared_ptr<Buffer>> Finish(MemoryPool* pool,
-                                                const ScalarAggregateOptions& options,
-                                                const int64_t* counts,
-                                                TypedBufferBuilder<CType>* reduced_,
-                                                int64_t num_groups, int64_t* null_count,
-                                                std::shared_ptr<Buffer>* null_bitmap) {
+  template <typename T>
+  static double ToDouble(T value, const DataType&) {
+    return static_cast<double>(value);
+  }
+  static double ToDouble(const Decimal128& value, const DataType& type) {
+    return value.ToDouble(checked_cast<const DecimalType&>(type).scale());
+  }
+  static double ToDouble(const Decimal256& value, const DataType& type) {
+    return value.ToDouble(checked_cast<const DecimalType&>(type).scale());
+  }
+
+  static Result<std::shared_ptr<Buffer>> Finish(
+      MemoryPool* pool, const ScalarAggregateOptions& options, const DataType& out_type,
+      const int64_t* counts, TypedBufferBuilder<CType>* reduced_, int64_t num_groups,
+      int64_t* null_count, std::shared_ptr<Buffer>* null_bitmap) {
     const CType* reduced = reduced_->data();
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> values,
-                          AllocateBuffer(num_groups * sizeof(MeanType), pool));
-    MeanType* means = reinterpret_cast<MeanType*>(values->mutable_data());
+                          AllocateBuffer(num_groups * sizeof(double), pool));
+    double* means = reinterpret_cast<double*>(values->mutable_data());
     for (int64_t i = 0; i < num_groups; ++i) {
       if (counts[i] >= options.min_count) {
-        means[i] = static_cast<MeanType>(reduced[i]) / counts[i];
+        means[i] = ToDouble(reduced[i], out_type) / counts[i];
         continue;
       }
-      means[i] = MeanType(0);
+      means[i] = 0;
 
       if ((*null_bitmap) == nullptr) {
         ARROW_ASSIGN_OR_RAISE(*null_bitmap, AllocateBitmap(num_groups, pool));
@@ -1029,10 +1034,7 @@ struct GroupedMeanImpl : public GroupedReducingAggregator<Type, GroupedMeanImpl<
     return std::move(values);
   }
 
-  std::shared_ptr<DataType> out_type() const override {
-    if (is_decimal_type<Type>::value) return this->out_type_;
-    return float64();
-  }
+  std::shared_ptr<DataType> out_type() const override { return float64(); }
 };
 
 static constexpr const char kMeanName[] = "mean";

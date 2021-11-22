@@ -127,14 +127,15 @@ struct MeanImpl : public SumImpl<ArrowType, SimdLevel> {
 
   template <typename T = ArrowType>
   enable_if_decimal<T, Status> FinalizeImpl(Datum* out) {
-    using SumCType = typename SumImpl<ArrowType, SimdLevel>::SumCType;
-    using OutputType = typename SumImpl<ArrowType, SimdLevel>::OutputType;
+    // ARROW-14778: mean of decimal should result in double to avoid
+    // questions about output decimal precision
     if ((!options.skip_nulls && this->nulls_observed) ||
         (this->count < options.min_count) || (this->count == 0)) {
-      out->value = std::make_shared<OutputType>(this->out_type);
+      out->value = std::make_shared<DoubleScalar>();
     } else {
-      const SumCType mean = this->sum / this->count;
-      out->value = std::make_shared<OutputType>(mean, this->out_type);
+      const int32_t scale = checked_cast<const DecimalType&>(*this->out_type).scale();
+      const double mean = this->sum.ToDouble(scale) / this->count;
+      out->value = std::make_shared<DoubleScalar>(mean);
     }
     return Status::OK();
   }

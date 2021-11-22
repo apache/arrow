@@ -949,12 +949,9 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
                                                    &default_scalar_aggregate_options);
   AddArrayScalarAggKernels(MeanInit, {boolean()}, float64(), func.get());
   AddArrayScalarAggKernels(MeanInit, NumericTypes(), float64(), func.get());
-  AddAggKernel(
-      KernelSignature::Make({InputType(Type::DECIMAL128)}, OutputType(ScalarFirstType)),
-      MeanInit, func.get(), SimdLevel::NONE);
-  AddAggKernel(
-      KernelSignature::Make({InputType(Type::DECIMAL256)}, OutputType(ScalarFirstType)),
-      MeanInit, func.get(), SimdLevel::NONE);
+  // Type parameters are ignored here
+  AddArrayScalarAggKernels(MeanInit, {decimal128(1, 0), decimal256(1, 0)}, float64(),
+                           func.get());
   // Add the SIMD variants for mean
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
   if (cpu_info->IsSupported(arrow::internal::CpuInfo::AVX2)) {
