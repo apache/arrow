@@ -143,6 +143,7 @@ LargeBinary <- R6Class("LargeBinary", inherit = DataType)
 DateType <- R6Class("DateType",
   inherit = FixedWidthType,
   public = list(
+    code = function() call2(tolower(self$name)),
     unit = function() DateType__unit(self)
   )
 )
@@ -155,8 +156,44 @@ TimeType <- R6Class("TimeType",
     unit = function() TimeType__unit(self)
   )
 )
-Time32 <- R6Class("Time32", inherit = TimeType)
-Time64 <- R6Class("Time64", inherit = TimeType)
+Time32 <- R6Class("Time32",
+  inherit = TimeType,
+  public = list(
+    code = function() {
+      unit <- self$unit()
+      unit <- if (unit == TimeUnit$MILLI) {
+        "ms"
+      } else if (unit == TimeUnit$SECOND) {
+        "s"
+      } else {
+        abort(c(
+          "Invalid unit.",
+          i = 'The `Time32` type only supports "ms" (TimeUnit$MILLI) and "s" (TimeUnit$SECOND).'
+        ))
+      }
+      call2("time32", unit = unit)
+    }
+  )
+)
+Time64 <- R6Class("Time64",
+  inherit = TimeType,
+  public = list(
+    code = function() {
+      unit <- self$unit()
+      unit <- if (unit == TimeUnit$NANO) {
+        "ns"
+      } else if (unit == TimeUnit$MICRO) {
+        "us"
+      } else {
+        abort(c(
+          "Invalid unit.",
+          i = 'The `Time64` type only supports "ns" (TimeUnit$NANO) and "s" (TimeUnit$MICRO).'
+        ))
+      }
+      call2("time64", unit = unit)
+    }
+  )
+)
 
 DurationType <- R6Class("DurationType",
   inherit = FixedWidthType,
@@ -165,11 +202,25 @@ DurationType <- R6Class("DurationType",
   )
 )
 
-Null <- R6Class("Null", inherit = DataType)
+Null <- R6Class("Null",
+  inherit = DataType,
+  public = list(
+    code = function() call("null")
+  )
+)
 
 Timestamp <- R6Class("Timestamp",
   inherit = FixedWidthType,
   public = list(
+    code = function() {
+      unit <- c("s", "ms", "us", "ns")[self$unit() + 1L]
+      tz <- self$timezone()
+      if (identical(tz, "")) {
+        call2("timestamp", unit = unit)
+      } else {
+        call2("timestamp", unit = unit, timezone = tz)
+      }
+    },
     timezone = function() TimestampType__timezone(self),
     unit = function() TimestampType__unit(self)
   )
