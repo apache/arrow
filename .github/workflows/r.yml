@@ -212,11 +212,11 @@ jobs:
       - name: Rename libarrow.zip
         # So that they're unique when multiple are downloaded in the next step
         shell: bash
-        run: mv libarrow.zip libarrow-rtools${{ matrix.config.rtools }}-${{ matrix.config.arch }}.zip
+        run: mv libarrow.zip libarrow-test-rtools${{ matrix.config.rtools }}-${{ matrix.config.arch }}.zip
       - uses: actions/upload-artifact@v2
         with:
-          name: libarrow-rtools${{ matrix.config.rtools }}-${{ matrix.config.arch }}.zip
-          path: libarrow-rtools${{ matrix.config.rtools }}-${{ matrix.config.arch }}.zip
+          name: libarrow-test-rtools${{ matrix.config.rtools }}-${{ matrix.config.arch }}.zip
+          path: libarrow-test-rtools${{ matrix.config.rtools }}-${{ matrix.config.arch }}.zip
           retention-days: 1
       # We can remove this when we drop support for Rtools 3.5.
       - name: Ensure using system tar in actions/cache
@@ -248,31 +248,31 @@ jobs:
         if: ${{ matrix.rtools == 35 }}
         uses: actions/download-artifact@v2
         with:
-          name: libarrow-rtools35-mingw32.zip
+          name: libarrow-test-rtools35-mingw32.zip
           path: r/windows
       - name: Download artifacts
         if: ${{ matrix.rtools == 35 }}
         uses: actions/download-artifact@v2
         with:
-          name: libarrow-rtools35-mingw64.zip
+          name: libarrow-test-rtools35-mingw64.zip
           path: r/windows
       - name: Download artifacts
         if: ${{ matrix.rtools == 40 }}
         uses: actions/download-artifact@v2
         with:
-          name: libarrow-rtools40-mingw32.zip
+          name: libarrow-test-rtools40-mingw32.zip
           path: r/windows
       - name: Download artifacts
         if: ${{ matrix.rtools == 40 }}
         uses: actions/download-artifact@v2
         with:
-          name: libarrow-rtools40-mingw64.zip
+          name: libarrow-test-rtools40-mingw64.zip
           path: r/windows
       - name: Download artifacts
         if: ${{ matrix.rtools == 40 }}
         uses: actions/download-artifact@v2
         with:
-          name: libarrow-rtools40-ucrt64.zip
+          name: libarrow-test-rtools40-ucrt64.zip
           path: r/windows
       - name: Unzip and rezip libarrows
         shell: bash
