@@ -38,6 +38,13 @@ test_that("Schema print method", {
   )
 })
 
+test_that("Schema$code()", {
+  expect_identical(
+    schema(a = int32(), b = struct(c = float(), d = utf8()), e = list_of(binary()))$code(),
+    quote(schema(a = int32(), b = struct(c = float(), d = utf8()), e = list_of(binary())))
+  )
+})
+
 test_that("Schema with non-nullable fields", {
   expect_output(
     print(
