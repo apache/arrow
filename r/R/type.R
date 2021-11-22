@@ -229,6 +229,9 @@ Timestamp <- R6Class("Timestamp",
 DecimalType <- R6Class("DecimalType",
   inherit = FixedWidthType,
   public = list(
+    code = function() {
+      call2("decimal", precision = self$precision(), scale = self$scale())
+    },
     precision = function() DecimalType__precision(self),
     scale = function() DecimalType__scale(self)
   )
