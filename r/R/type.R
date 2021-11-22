@@ -555,6 +555,11 @@ struct <- StructType$create
 
 ListType <- R6Class("ListType",
   inherit = NestedType,
+  public = list(
+    code = function() {
+      call2("list_of", self$value_type$code())
+    }
+  ),
   active = list(
     value_field = function() ListType__value_field(self),
     value_type = function() ListType__value_type(self)
@@ -567,6 +572,11 @@ list_of <- function(type) list__(type)
 
 LargeListType <- R6Class("LargeListType",
   inherit = NestedType,
+  public = list(
+    code = function() {
+      call2("large_list_of", self$value_type$code())
+    }
+  ),
   active = list(
     value_field = function() LargeListType__value_field(self),
     value_type = function() LargeListType__value_type(self)
@@ -581,6 +591,11 @@ large_list_of <- function(type) large_list__(type)
 #' @export
 FixedSizeListType <- R6Class("FixedSizeListType",
   inherit = NestedType,
+  public = list(
+    code = function() {
+      call2("fixed_size_list_of", self$value_type$code(), list_size = self$list_size())
+    }
+  ),
   active = list(
     value_field = function() FixedSizeListType__value_field(self),
     value_type = function() FixedSizeListType__value_type(self),
