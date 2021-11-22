@@ -40,7 +40,8 @@ DataType <- R6Class("DataType",
     fields = function() {
       DataType__fields(self)
     },
-    export_to_c = function(ptr) ExportType(self, ptr)
+    export_to_c = function(ptr) ExportType(self, ptr),
+    code = function() call2("unknown_type", self$ToString())
   ),
   active = list(
     id = function() DataType__id(self),

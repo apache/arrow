@@ -121,7 +121,13 @@ Schema <- R6Class("Schema",
     Equals = function(other, check_metadata = FALSE, ...) {
       inherits(other, "Schema") && Schema__Equals(self, other, isTRUE(check_metadata))
     },
-    export_to_c = function(ptr) ExportSchema(self, ptr)
+    export_to_c = function(ptr) ExportSchema(self, ptr),
+    code = function() {
+      call2("schema", !!!set_names(
+        map(self$fields, ~.$type$code()),
+        self$names
+      ))
+    }
   ),
   active = list(
     names = function() {
