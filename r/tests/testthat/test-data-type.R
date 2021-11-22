@@ -545,6 +545,7 @@ test_that("DataType$code()", {
   expect_identical(large_list_of(int32())$code(), quote(large_list_of(int32())))
   expect_identical(fixed_size_list_of(int32(), list_size = 7L)$code(), quote(fixed_size_list_of(int32(), list_size = 7L)))
 
+  skip_if(packageVersion("rlang") < "0.99")
   expect_snapshot({
     (expect_error(
       DayTimeInterval__initialize()$code()

@@ -44,6 +44,7 @@ test_that("Schema$code()", {
     quote(schema(a = int32(), b = struct(c = double(), d = utf8()), e = list_of(binary())))
   )
 
+  skip_if(packageVersion("rlang") < "0.99")
   expect_snapshot({
     (expect_error(
       schema(x = int32(), y = DayTimeInterval__initialize())$code()
