@@ -41,7 +41,10 @@ DataType <- R6Class("DataType",
       DataType__fields(self)
     },
     export_to_c = function(ptr) ExportType(self, ptr),
-    code = function() abort(glue::glue("Unsupported type: {self$ToString()}"))
+    code = function() abort(c(
+      glue::glue("Unsupported type: <{self$ToString()}>."),
+      i = "The arrow package currently has no function to make these."
+    ), call = call("code"))
   ),
   active = list(
     id = function() DataType__id(self),

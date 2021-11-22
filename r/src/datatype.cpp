@@ -192,6 +192,11 @@ std::shared_ptr<arrow::DataType> Decimal256Type__initialize(int32_t precision,
 }
 
 // [[arrow::export]]
+std::shared_ptr<arrow::DataType> DayTimeInterval__initialize() {
+  return arrow::day_time_interval();
+}
+
+// [[arrow::export]]
 std::shared_ptr<arrow::DataType> FixedSizeBinary__initialize(R_xlen_t byte_width) {
   if (byte_width == NA_INTEGER) {
     cpp11::stop("'byte_width' cannot be NA");

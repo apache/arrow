@@ -43,6 +43,12 @@ test_that("Schema$code()", {
     schema(a = int32(), b = struct(c = double(), d = utf8()), e = list_of(binary()))$code(),
     quote(schema(a = int32(), b = struct(c = double(), d = utf8()), e = list_of(binary())))
   )
+
+  expect_snapshot({
+    (expect_error(
+      schema(x = int32(), y = DayTimeInterval__initialize())$code()
+    ))
+  })
 })
 
 test_that("Schema with non-nullable fields", {

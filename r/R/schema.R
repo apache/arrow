@@ -123,10 +123,22 @@ Schema <- R6Class("Schema",
     },
     export_to_c = function(ptr) ExportSchema(self, ptr),
     code = function() {
-      call2("schema", !!!set_names(
-        map(self$fields, ~.$type$code()),
-        self$names
-      ))
+      names <- self$names
+      codes <- map2(names, self$fields, function(name, field){
+        withCallingHandlers(
+          field$type$code(),
+          error = function(cnd) {
+            abort(
+              glue::glue('Error getting code for field "{name}"'),
+              call = call("code"),
+              parent = cnd
+            )
+          }
+        )
+      })
+      codes <- set_names(codes, names)
+
+      call2("schema", !!!codes)
     }
   ),
   active = list(

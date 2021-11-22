@@ -784,8 +784,13 @@ Decimal128Type__initialize <- function(precision, scale) {
   .Call(`_arrow_Decimal128Type__initialize`, precision, scale)
 }
 
+<<<<<<< HEAD
 Decimal256Type__initialize <- function(precision, scale) {
   .Call(`_arrow_Decimal256Type__initialize`, precision, scale)
+=======
+DayTimeInterval__initialize <- function() {
+  .Call(`_arrow_DayTimeInterval__initialize`)
+>>>>>>> e8c2cc1ca (artificially add day_time_interval() type)
 }
 
 FixedSizeBinary__initialize <- function(byte_width) {
