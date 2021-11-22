@@ -113,6 +113,8 @@ On MSYS2:
      mingw-w64-${MSYSTEM_CARCH}-zlib \
      mingw-w64-${MSYSTEM_CARCH}-zstd
 
+.. _cpp-building-building:
+
 Building
 ========
 
@@ -121,8 +123,20 @@ argument is omitted then a release build will be produced.
 
 .. note::
 
-   You need to more options to build on Windows. See
+   You need to set more options to build on Windows. See
    :ref:`developers-cpp-windows` for details.
+
+Several build types are possible:
+
+* ``Debug``: doesn't apply any compiler optimizations and adds debugging
+  information in the binary.
+* ``RelWithDebInfo``: applies compiler optimizations while adding debug
+  information in the binary.
+* ``Release``: applies compiler optimizations and removes debug information
+  from the binary.
+
+You can also run default build with flag ``-DARROW_EXTRA_ERROR_CONTEXT=ON``, see
+:ref:`cpp-extra-debugging`.
 
 Minimal release build:
 
@@ -423,6 +437,8 @@ this can be accomplished with the ``Threads`` built-in package:
    set(THREADS_PREFER_PTHREAD_FLAG ON)
    find_package(Threads REQUIRED)
    target_link_libraries(my_target PRIVATE Threads::Threads)
+
+.. _cpp-extra-debugging:
 
 Extra debugging help
 ~~~~~~~~~~~~~~~~~~~~
