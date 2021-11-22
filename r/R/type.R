@@ -93,6 +93,9 @@ type.ArrowDatum <- function(x) x$type
 #' @name FixedWidthType
 FixedWidthType <- R6Class("FixedWidthType",
   inherit = DataType,
+  public = list(
+    code = function() call(tolower(self$name))
+  ),
   active = list(
     bit_width = function() FixedWidthType__bit_width(self)
   )
