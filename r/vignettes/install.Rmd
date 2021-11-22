@@ -91,7 +91,8 @@ Alternatively, you can set
 export LIBARROW_MINIMAL=false
 ```
 
-to build the Arrow libraries from source with optional features such as compression libraries enabled. This will increase the build time but provides many useful features.
+to build the Arrow libraries from source with optional features such as S3 
+support enabled. This will increase the build time but provides many useful features.
 Prebuilt binaries are built with this flag enabled, so you get the full
 functionality by using them as well.
 
@@ -440,8 +441,8 @@ By default, these are all unset. All boolean variables are case-insensitive.
   Use this if you want to avoid compiling the C++ library, which may be slow
   and resource-intensive, and ensure that you only use a prebuilt binary.
 * `LIBARROW_MINIMAL`: If set to `false`, the build script
-  will enable some optional features, including compression libraries, S3
-  support, and additional alternative memory allocators. This will increase the
+  will enable some optional features, including S3
+  support and additional alternative memory allocators. This will increase the
   source build time but results in a more fully functional library.
 * `NOT_CRAN`: If this variable is set to `true`, as the `devtools` package does,
   the build script will set `LIBARROW_BINARY=true` and `LIBARROW_MINIMAL=false`
