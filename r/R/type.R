@@ -537,6 +537,12 @@ check_decimal_args <- function(precision, scale) {
 StructType <- R6Class("StructType",
   inherit = NestedType,
   public = list(
+    code = function() {
+      codes <- map(set_names(StructType__field_names(self)), function(name) {
+        self$GetFieldByName(name)$type$code()
+      })
+      call2("struct", !!!codes)
+    },
     GetFieldByName = function(name) StructType__GetFieldByName(self, name),
     GetFieldIndex = function(name) StructType__GetFieldIndex(self, name)
   )
