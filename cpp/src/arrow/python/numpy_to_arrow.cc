@@ -40,6 +40,7 @@
 #include "arrow/util/bitmap_generate.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/endian.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/string.h"
@@ -156,6 +157,8 @@ class NumPyNullsConverter {
 int64_t MaskToBitmap(PyArrayObject* mask, int64_t length, uint8_t* bitmap) {
   int64_t null_count = 0;
 
+  if (!PyArray_Check(mask)) return -1;
+
   Ndarray1DIndexer<uint8_t> mask_values(mask);
   for (int i = 0; i < length; ++i) {
     if (mask_values[i]) {
@@ -268,6 +271,7 @@ class NumPyConverter {
     if (mask_ != nullptr) {
       RETURN_NOT_OK(InitNullBitmap());
       null_count_ = MaskToBitmap(mask_, length_, null_bitmap_data_);
+      if (null_count_ == -1) return Status::Invalid("Invalid mask type");
     } else {
       RETURN_NOT_OK(NumPyNullsConverter::Convert(pool_, arr_, from_pandas_, &null_bitmap_,
                                                  &null_count_));
@@ -659,7 +663,13 @@ Status NumPyConverter::Visit(const StringType& type) {
   char numpy_byteorder = dtype_->byteorder;
 
   // For Python C API, -1 is little-endian, 1 is big-endian
+#if ARROW_LITTLE_ENDIAN
+  // Yield little-endian from both '|' (native) and '<'
   int byteorder = numpy_byteorder == '>' ? 1 : -1;
+#else
+  // Yield big-endian from both '|' (native) and '>'
+  int byteorder = numpy_byteorder == '<' ? -1 : 1;
+#endif
 
   PyAcquireGIL gil_lock;
 
@@ -768,6 +778,7 @@ Status NumPyConverter::Visit(const StructType& type) {
     if (mask_ != nullptr) {
       RETURN_NOT_OK(InitNullBitmap());
       null_count = MaskToBitmap(mask_, length_, null_bitmap_data_);
+      if (null_count_ == -1) return Status::Invalid("Invalid mask type");
     }
     groups.push_back({std::make_shared<BooleanArray>(length_, null_bitmap_)});
   }

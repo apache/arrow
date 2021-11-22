@@ -1942,7 +1942,10 @@ Result<std::shared_ptr<Table>> FilterTable(const Table& table, const Datum& filt
   return Table::Make(table.schema(), std::move(out_chunks), out_num_rows);
 }
 
-static auto kDefaultFilterOptions = FilterOptions::Defaults();
+const FilterOptions* GetDefaultFilterOptions() {
+  static const auto kDefaultFilterOptions = FilterOptions::Defaults();
+  return &kDefaultFilterOptions;
+}
 
 const FunctionDoc filter_doc(
     "Filter with a boolean selection filter",
@@ -1954,7 +1957,7 @@ const FunctionDoc filter_doc(
 class FilterMetaFunction : public MetaFunction {
  public:
   FilterMetaFunction()
-      : MetaFunction("filter", Arity::Binary(), &filter_doc, &kDefaultFilterOptions) {}
+      : MetaFunction("filter", Arity::Binary(), &filter_doc, GetDefaultFilterOptions()) {}
 
   Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
                             const FunctionOptions* options,
@@ -2013,8 +2016,13 @@ Result<std::shared_ptr<ChunkedArray>> TakeCA(const ChunkedArray& values,
     // TODO Case 3: If indices are sorted, can slice them and call Array Take
 
     // Case 4: Else, concatenate chunks and call Array Take
-    ARROW_ASSIGN_OR_RAISE(current_chunk,
-                          Concatenate(values.chunks(), ctx->memory_pool()));
+    if (values.chunks().empty()) {
+      ARROW_ASSIGN_OR_RAISE(current_chunk, MakeArrayOfNull(values.type(), /*length=*/0,
+                                                           ctx->memory_pool()));
+    } else {
+      ARROW_ASSIGN_OR_RAISE(current_chunk,
+                            Concatenate(values.chunks(), ctx->memory_pool()));
+    }
   }
   // Call Array Take on our single chunk
   ARROW_ASSIGN_OR_RAISE(new_chunks[0], TakeAA(*current_chunk, indices, options, ctx));
@@ -2087,7 +2095,10 @@ Result<std::shared_ptr<Table>> TakeTC(const Table& table, const ChunkedArray& in
   return Table::Make(table.schema(), std::move(columns));
 }
 
-static auto kDefaultTakeOptions = TakeOptions::Defaults();
+const TakeOptions* GetDefaultTakeOptions() {
+  static const auto kDefaultTakeOptions = TakeOptions::Defaults();
+  return &kDefaultTakeOptions;
+}
 
 const FunctionDoc take_doc(
     "Select values from an input based on indices from another array",
@@ -2103,7 +2114,7 @@ const FunctionDoc take_doc(
 class TakeMetaFunction : public MetaFunction {
  public:
   TakeMetaFunction()
-      : MetaFunction("take", Arity::Binary(), &take_doc, &kDefaultTakeOptions) {}
+      : MetaFunction("take", Arity::Binary(), &take_doc, GetDefaultTakeOptions()) {}
 
   Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
                             const FunctionOptions* options,
@@ -2392,7 +2403,7 @@ void RegisterVectorSelection(FunctionRegistry* registry) {
   filter_base.init = FilterState::Init;
   RegisterSelectionFunction("array_filter", &array_filter_doc, filter_base,
                             /*selection_type=*/InputType::Array(boolean()),
-                            filter_kernel_descrs, &kDefaultFilterOptions, registry);
+                            filter_kernel_descrs, GetDefaultFilterOptions(), registry);
 
   DCHECK_OK(registry->AddFunction(std::make_shared<FilterMetaFunction>()));
 
@@ -2424,7 +2435,7 @@ void RegisterVectorSelection(FunctionRegistry* registry) {
   RegisterSelectionFunction(
       "array_take", &array_take_doc, take_base,
       /*selection_type=*/InputType(match::Integer(), ValueDescr::ARRAY),
-      take_kernel_descrs, &kDefaultTakeOptions, registry);
+      take_kernel_descrs, GetDefaultTakeOptions(), registry);
 
   DCHECK_OK(registry->AddFunction(std::make_shared<TakeMetaFunction>()));
 

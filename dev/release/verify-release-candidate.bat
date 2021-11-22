@@ -88,16 +88,9 @@ cmake -G "%GENERATOR%" ^
       -DCMAKE_BUILD_TYPE=%CONFIGURATION% ^
       -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
       -DCMAKE_UNITY_BUILD=ON ^
-      -DGTest_SOURCE=BUNDLED ^
       ..  || exit /B
 
 cmake --build . --target INSTALL --config Release || exit /B 1
-
-@rem NOTE(wesm): Building googletest is flaky for me with ninja. Building it
-@rem first fixes the problem
-
-@rem ninja googletest_ep || exit /B 1
-@rem ninja install || exit /B 1
 
 @rem Get testing datasets for Parquet unit tests
 git clone https://github.com/apache/parquet-testing.git %_VERIFICATION_DIR%\parquet-testing

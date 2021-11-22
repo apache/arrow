@@ -22,22 +22,6 @@ extern "C" SEXP _arrow_test_SET_STRING_ELT(SEXP s_sexp){
 
 // altrep.cpp
 #if defined(ARROW_R_WITH_ARROW)
-bool test_same_Array(SEXP x, SEXP y);
-extern "C" SEXP _arrow_test_same_Array(SEXP x_sexp, SEXP y_sexp){
-BEGIN_CPP11
-	arrow::r::Input<SEXP>::type x(x_sexp);
-	arrow::r::Input<SEXP>::type y(y_sexp);
-	return cpp11::as_sexp(test_same_Array(x, y));
-END_CPP11
-}
-#else
-extern "C" SEXP _arrow_test_same_Array(SEXP x_sexp, SEXP y_sexp){
-	Rf_error("Cannot call test_same_Array(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-}
-#endif
-
-// altrep.cpp
-#if defined(ARROW_R_WITH_ARROW)
 bool is_arrow_altrep(SEXP x);
 extern "C" SEXP _arrow_is_arrow_altrep(SEXP x_sexp){
 BEGIN_CPP11
@@ -580,6 +564,22 @@ END_CPP11
 #else
 extern "C" SEXP _arrow_LargeListArray__raw_value_offsets(SEXP array_sexp){
 	Rf_error("Cannot call LargeListArray__raw_value_offsets(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// array.cpp
+#if defined(ARROW_R_WITH_ARROW)
+bool Array__Same(const std::shared_ptr<arrow::Array>& x, const std::shared_ptr<arrow::Array>& y);
+extern "C" SEXP _arrow_Array__Same(SEXP x_sexp, SEXP y_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::Array>&>::type x(x_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Array>&>::type y(y_sexp);
+	return cpp11::as_sexp(Array__Same(x, y));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_Array__Same(SEXP x_sexp, SEXP y_sexp){
+	Rf_error("Cannot call Array__Same(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2396,8 +2396,8 @@ extern "C" SEXP _arrow_dataset___ScanTask__get_batches(SEXP scan_task_sexp){
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_DATASET)
-void dataset___Dataset__Write(const std::shared_ptr<ds::FileWriteOptions>& file_write_options, const std::shared_ptr<fs::FileSystem>& filesystem, std::string base_dir, const std::shared_ptr<ds::Partitioning>& partitioning, std::string basename_template, const std::shared_ptr<ds::Scanner>& scanner);
-extern "C" SEXP _arrow_dataset___Dataset__Write(SEXP file_write_options_sexp, SEXP filesystem_sexp, SEXP base_dir_sexp, SEXP partitioning_sexp, SEXP basename_template_sexp, SEXP scanner_sexp){
+void dataset___Dataset__Write(const std::shared_ptr<ds::FileWriteOptions>& file_write_options, const std::shared_ptr<fs::FileSystem>& filesystem, std::string base_dir, const std::shared_ptr<ds::Partitioning>& partitioning, std::string basename_template, const std::shared_ptr<ds::Scanner>& scanner, arrow::dataset::ExistingDataBehavior existing_data_behavior, int max_partitions);
+extern "C" SEXP _arrow_dataset___Dataset__Write(SEXP file_write_options_sexp, SEXP filesystem_sexp, SEXP base_dir_sexp, SEXP partitioning_sexp, SEXP basename_template_sexp, SEXP scanner_sexp, SEXP existing_data_behavior_sexp, SEXP max_partitions_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<ds::FileWriteOptions>&>::type file_write_options(file_write_options_sexp);
 	arrow::r::Input<const std::shared_ptr<fs::FileSystem>&>::type filesystem(filesystem_sexp);
@@ -2405,12 +2405,14 @@ BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<ds::Partitioning>&>::type partitioning(partitioning_sexp);
 	arrow::r::Input<std::string>::type basename_template(basename_template_sexp);
 	arrow::r::Input<const std::shared_ptr<ds::Scanner>&>::type scanner(scanner_sexp);
-	dataset___Dataset__Write(file_write_options, filesystem, base_dir, partitioning, basename_template, scanner);
+	arrow::r::Input<arrow::dataset::ExistingDataBehavior>::type existing_data_behavior(existing_data_behavior_sexp);
+	arrow::r::Input<int>::type max_partitions(max_partitions_sexp);
+	dataset___Dataset__Write(file_write_options, filesystem, base_dir, partitioning, basename_template, scanner, existing_data_behavior, max_partitions);
 	return R_NilValue;
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_dataset___Dataset__Write(SEXP file_write_options_sexp, SEXP filesystem_sexp, SEXP base_dir_sexp, SEXP partitioning_sexp, SEXP basename_template_sexp, SEXP scanner_sexp){
+extern "C" SEXP _arrow_dataset___Dataset__Write(SEXP file_write_options_sexp, SEXP filesystem_sexp, SEXP base_dir_sexp, SEXP partitioning_sexp, SEXP basename_template_sexp, SEXP scanner_sexp, SEXP existing_data_behavior_sexp, SEXP max_partitions_sexp){
 	Rf_error("Cannot call dataset___Dataset__Write(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
@@ -4156,8 +4158,8 @@ extern "C" SEXP _arrow_fs___CopyFiles(SEXP source_fs_sexp, SEXP source_sel_sexp,
 
 // filesystem.cpp
 #if defined(ARROW_R_WITH_S3)
-std::shared_ptr<fs::S3FileSystem> fs___S3FileSystem__create(bool anonymous, std::string access_key, std::string secret_key, std::string session_token, std::string role_arn, std::string session_name, std::string external_id, int load_frequency, std::string region, std::string endpoint_override, std::string scheme, bool background_writes);
-extern "C" SEXP _arrow_fs___S3FileSystem__create(SEXP anonymous_sexp, SEXP access_key_sexp, SEXP secret_key_sexp, SEXP session_token_sexp, SEXP role_arn_sexp, SEXP session_name_sexp, SEXP external_id_sexp, SEXP load_frequency_sexp, SEXP region_sexp, SEXP endpoint_override_sexp, SEXP scheme_sexp, SEXP background_writes_sexp){
+std::shared_ptr<fs::S3FileSystem> fs___S3FileSystem__create(bool anonymous, std::string access_key, std::string secret_key, std::string session_token, std::string role_arn, std::string session_name, std::string external_id, int load_frequency, std::string region, std::string endpoint_override, std::string scheme, std::string proxy_options, bool background_writes);
+extern "C" SEXP _arrow_fs___S3FileSystem__create(SEXP anonymous_sexp, SEXP access_key_sexp, SEXP secret_key_sexp, SEXP session_token_sexp, SEXP role_arn_sexp, SEXP session_name_sexp, SEXP external_id_sexp, SEXP load_frequency_sexp, SEXP region_sexp, SEXP endpoint_override_sexp, SEXP scheme_sexp, SEXP proxy_options_sexp, SEXP background_writes_sexp){
 BEGIN_CPP11
 	arrow::r::Input<bool>::type anonymous(anonymous_sexp);
 	arrow::r::Input<std::string>::type access_key(access_key_sexp);
@@ -4170,12 +4172,13 @@ BEGIN_CPP11
 	arrow::r::Input<std::string>::type region(region_sexp);
 	arrow::r::Input<std::string>::type endpoint_override(endpoint_override_sexp);
 	arrow::r::Input<std::string>::type scheme(scheme_sexp);
+	arrow::r::Input<std::string>::type proxy_options(proxy_options_sexp);
 	arrow::r::Input<bool>::type background_writes(background_writes_sexp);
-	return cpp11::as_sexp(fs___S3FileSystem__create(anonymous, access_key, secret_key, session_token, role_arn, session_name, external_id, load_frequency, region, endpoint_override, scheme, background_writes));
+	return cpp11::as_sexp(fs___S3FileSystem__create(anonymous, access_key, secret_key, session_token, role_arn, session_name, external_id, load_frequency, region, endpoint_override, scheme, proxy_options, background_writes));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_fs___S3FileSystem__create(SEXP anonymous_sexp, SEXP access_key_sexp, SEXP secret_key_sexp, SEXP session_token_sexp, SEXP role_arn_sexp, SEXP session_name_sexp, SEXP external_id_sexp, SEXP load_frequency_sexp, SEXP region_sexp, SEXP endpoint_override_sexp, SEXP scheme_sexp, SEXP background_writes_sexp){
+extern "C" SEXP _arrow_fs___S3FileSystem__create(SEXP anonymous_sexp, SEXP access_key_sexp, SEXP secret_key_sexp, SEXP session_token_sexp, SEXP role_arn_sexp, SEXP session_name_sexp, SEXP external_id_sexp, SEXP load_frequency_sexp, SEXP region_sexp, SEXP endpoint_override_sexp, SEXP scheme_sexp, SEXP proxy_options_sexp, SEXP background_writes_sexp){
 	Rf_error("Cannot call fs___S3FileSystem__create(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
@@ -5673,17 +5676,17 @@ extern "C" SEXP _arrow_Table__from_dots(SEXP lst_sexp, SEXP schema_sxp_sexp, SEX
 
 // r_to_arrow.cpp
 #if defined(ARROW_R_WITH_ARROW)
-SEXP vec_to_arrow(SEXP x, SEXP s_type);
-extern "C" SEXP _arrow_vec_to_arrow(SEXP x_sexp, SEXP s_type_sexp){
+SEXP vec_to_Array(SEXP x, SEXP s_type);
+extern "C" SEXP _arrow_vec_to_Array(SEXP x_sexp, SEXP s_type_sexp){
 BEGIN_CPP11
 	arrow::r::Input<SEXP>::type x(x_sexp);
 	arrow::r::Input<SEXP>::type s_type(s_type_sexp);
-	return cpp11::as_sexp(vec_to_arrow(x, s_type));
+	return cpp11::as_sexp(vec_to_Array(x, s_type));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_vec_to_arrow(SEXP x_sexp, SEXP s_type_sexp){
-	Rf_error("Cannot call vec_to_arrow(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+extern "C" SEXP _arrow_vec_to_Array(SEXP x_sexp, SEXP s_type_sexp){
+	Rf_error("Cannot call vec_to_Array(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -7169,7 +7172,6 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_s3_available", (DL_FUNC)& _s3_available, 0 },
 		{ "_json_available", (DL_FUNC)& _json_available, 0 },
 		{ "_arrow_test_SET_STRING_ELT", (DL_FUNC) &_arrow_test_SET_STRING_ELT, 1}, 
-		{ "_arrow_test_same_Array", (DL_FUNC) &_arrow_test_same_Array, 2}, 
 		{ "_arrow_is_arrow_altrep", (DL_FUNC) &_arrow_is_arrow_altrep, 1}, 
 		{ "_arrow_Array__Slice1", (DL_FUNC) &_arrow_Array__Slice1, 2}, 
 		{ "_arrow_Array__Slice2", (DL_FUNC) &_arrow_Array__Slice2, 3}, 
@@ -7205,6 +7207,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_FixedSizeListArray__value_offset", (DL_FUNC) &_arrow_FixedSizeListArray__value_offset, 2}, 
 		{ "_arrow_ListArray__raw_value_offsets", (DL_FUNC) &_arrow_ListArray__raw_value_offsets, 1}, 
 		{ "_arrow_LargeListArray__raw_value_offsets", (DL_FUNC) &_arrow_LargeListArray__raw_value_offsets, 1}, 
+		{ "_arrow_Array__Same", (DL_FUNC) &_arrow_Array__Same, 2}, 
 		{ "_arrow_Array__as_vector", (DL_FUNC) &_arrow_Array__as_vector, 1}, 
 		{ "_arrow_ChunkedArray__as_vector", (DL_FUNC) &_arrow_ChunkedArray__as_vector, 2}, 
 		{ "_arrow_RecordBatch__to_dataframe", (DL_FUNC) &_arrow_RecordBatch__to_dataframe, 2}, 
@@ -7319,7 +7322,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_dataset___Scanner__head", (DL_FUNC) &_arrow_dataset___Scanner__head, 2}, 
 		{ "_arrow_dataset___Scanner__schema", (DL_FUNC) &_arrow_dataset___Scanner__schema, 1}, 
 		{ "_arrow_dataset___ScanTask__get_batches", (DL_FUNC) &_arrow_dataset___ScanTask__get_batches, 1}, 
-		{ "_arrow_dataset___Dataset__Write", (DL_FUNC) &_arrow_dataset___Dataset__Write, 6}, 
+		{ "_arrow_dataset___Dataset__Write", (DL_FUNC) &_arrow_dataset___Dataset__Write, 8}, 
 		{ "_arrow_dataset___Scanner__TakeRows", (DL_FUNC) &_arrow_dataset___Scanner__TakeRows, 2}, 
 		{ "_arrow_dataset___Scanner__CountRows", (DL_FUNC) &_arrow_dataset___Scanner__CountRows, 1}, 
 		{ "_arrow_Int8__initialize", (DL_FUNC) &_arrow_Int8__initialize, 0}, 
@@ -7433,7 +7436,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_fs___SubTreeFileSystem__base_path", (DL_FUNC) &_arrow_fs___SubTreeFileSystem__base_path, 1}, 
 		{ "_arrow_fs___FileSystemFromUri", (DL_FUNC) &_arrow_fs___FileSystemFromUri, 1}, 
 		{ "_arrow_fs___CopyFiles", (DL_FUNC) &_arrow_fs___CopyFiles, 6}, 
-		{ "_arrow_fs___S3FileSystem__create", (DL_FUNC) &_arrow_fs___S3FileSystem__create, 12}, 
+		{ "_arrow_fs___S3FileSystem__create", (DL_FUNC) &_arrow_fs___S3FileSystem__create, 13}, 
 		{ "_arrow_fs___S3FileSystem__region", (DL_FUNC) &_arrow_fs___S3FileSystem__region, 1}, 
 		{ "_arrow_io___Readable__Read", (DL_FUNC) &_arrow_io___Readable__Read, 2}, 
 		{ "_arrow_io___InputStream__Close", (DL_FUNC) &_arrow_io___InputStream__Close, 1}, 
@@ -7528,7 +7531,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ExportRecordBatch", (DL_FUNC) &_arrow_ExportRecordBatch, 3}, 
 		{ "_arrow_ExportRecordBatchReader", (DL_FUNC) &_arrow_ExportRecordBatchReader, 2}, 
 		{ "_arrow_Table__from_dots", (DL_FUNC) &_arrow_Table__from_dots, 3}, 
-		{ "_arrow_vec_to_arrow", (DL_FUNC) &_arrow_vec_to_arrow, 2}, 
+		{ "_arrow_vec_to_Array", (DL_FUNC) &_arrow_vec_to_Array, 2}, 
 		{ "_arrow_DictionaryArray__FromArrays", (DL_FUNC) &_arrow_DictionaryArray__FromArrays, 3}, 
 		{ "_arrow_RecordBatch__num_columns", (DL_FUNC) &_arrow_RecordBatch__num_columns, 1}, 
 		{ "_arrow_RecordBatch__num_rows", (DL_FUNC) &_arrow_RecordBatch__num_rows, 1}, 

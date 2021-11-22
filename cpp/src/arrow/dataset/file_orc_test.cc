@@ -44,7 +44,7 @@ class OrcFormatHelper {
     ARROW_ASSIGN_OR_RAISE(auto writer, adapters::orc::ORCFileWriter::Open(sink.get()));
     std::shared_ptr<Table> table;
     RETURN_NOT_OK(reader->ReadAll(&table));
-    writer->Write(*table);
+    RETURN_NOT_OK(writer->Write(*table));
     RETURN_NOT_OK(writer->Close());
     return sink->Finish();
   }

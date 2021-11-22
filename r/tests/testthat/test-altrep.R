@@ -81,8 +81,8 @@ test_that("altrep vectors from int32 and dbl arrays with nulls", {
   expect_equal(c_int$num_chunks, 2L)
   expect_equal(c_dbl$num_chunks, 2L)
 
-  expect_false(is_arrow_altrep(as.vector(c_int)))
-  expect_false(is_arrow_altrep(as.vector(c_dbl)))
+  expect_true(is_arrow_altrep(as.vector(c_int)))
+  expect_true(is_arrow_altrep(as.vector(c_dbl)))
   expect_true(is_arrow_altrep(as.vector(c_int$Slice(3))))
   expect_true(is_arrow_altrep(as.vector(c_dbl$Slice(3))))
 })
@@ -91,10 +91,46 @@ test_that("empty vectors are not altrep", {
   withr::local_options(list(arrow.use_altrep = TRUE))
   v_int <- Array$create(integer())
   v_dbl <- Array$create(numeric())
+  v_str <- Array$create(character())
 
   expect_false(is_arrow_altrep(as.vector(v_int)))
   expect_false(is_arrow_altrep(as.vector(v_dbl)))
+  expect_false(is_arrow_altrep(as.vector(v_str)))
 })
+
+test_that("ChunkedArray sith 0 chunks are not altrep", {
+  z_int <- ChunkedArray$create(type = int32())
+  z_dbl <- ChunkedArray$create(type = float64())
+  z_str <- ChunkedArray$create(type = utf8())
+
+  expect_false(is_arrow_altrep(as.vector(z_int)))
+  expect_false(is_arrow_altrep(as.vector(z_dbl)))
+  expect_false(is_arrow_altrep(as.vector(z_str)))
+})
+
+test_that("chunked array become altrep", {
+  s1 <- c("un", "deux", NA)
+  s2 <- c("quatre", "cinq")
+  a <- Array$create(s1)
+  v <- a$as_vector()
+  expect_equal(v, s1)
+  expect_true(is_arrow_altrep(v))
+
+  ca <- ChunkedArray$create(s1, s2)
+  cv <- ca$as_vector()
+  expect_equal(cv, c(s1, s2))
+  expect_true(is_arrow_altrep(cv))
+
+  # chunked array with 2 chunks
+  c_int <- ChunkedArray$create(0L, c(1L, NA, 3L))
+  c_dbl <- ChunkedArray$create(0, c(1, NA, 3))
+  expect_equal(c_int$num_chunks, 2L)
+  expect_equal(c_dbl$num_chunks, 2L)
+
+  expect_true(is_arrow_altrep(as.vector(c_int)))
+  expect_true(is_arrow_altrep(as.vector(c_dbl)))
+})
+
 
 test_that("as.data.frame(<Table>, <RecordBatch>) can create altrep vectors", {
   withr::local_options(list(arrow.use_altrep = TRUE))
@@ -112,12 +148,21 @@ test_that("as.data.frame(<Table>, <RecordBatch>) can create altrep vectors", {
   expect_true(is_arrow_altrep(df_batch$str))
 })
 
-expect_altrep_rountrip <- function(x, fn, ...) {
+expect_altrep_rountrip <- function(x, fn, ..., .expect_warning = NA) {
   alt <- Array$create(x)$as_vector()
 
   expect_true(is_arrow_altrep(alt))
-  expect_identical(fn(x, ...), fn(alt, ...))
+  expect_warning(
+    expect_identical(fn(x, ...), fn(alt, ...)), .expect_warning
+  )
   expect_true(is_arrow_altrep(alt))
+
+  alt2 <- ChunkedArray$create(x, x)$as_vector()
+  expect_true(is_arrow_altrep(alt2))
+  expect_warning(
+    expect_identical(fn(c(x, x), ...), fn(alt2, ...)), .expect_warning
+  )
+  expect_true(is_arrow_altrep(alt2))
 }
 
 test_that("altrep min/max/sum identical to R versions for double", {
@@ -140,14 +185,8 @@ test_that("altrep min/max/sum identical to R versions for double", {
   expect_altrep_rountrip(x, sum)
 
   x <- rep(NA_real_, 3)
-  expect_warning(
-    expect_altrep_rountrip(x, min, na.rm = TRUE),
-    "no non-missing arguments to min"
-  )
-  expect_warning(
-    expect_altrep_rountrip(x, max, na.rm = TRUE),
-    "no non-missing arguments to max"
-  )
+  expect_altrep_rountrip(x, min, na.rm = TRUE, .expect_warning = "no non-missing arguments to min")
+  expect_altrep_rountrip(x, max, na.rm = TRUE, .expect_warning = "no non-missing arguments to max")
   expect_altrep_rountrip(x, sum, na.rm = TRUE)
 
   expect_altrep_rountrip(x, min)
@@ -175,14 +214,8 @@ test_that("altrep min/max/sum identical to R versions for int", {
   expect_altrep_rountrip(x, sum)
 
   x <- rep(NA_integer_, 3)
-  expect_warning(
-    expect_altrep_rountrip(x, min, na.rm = TRUE),
-    "no non-missing arguments to min"
-  )
-  expect_warning(
-    expect_altrep_rountrip(x, max, na.rm = TRUE),
-    "no non-missing arguments to max"
-  )
+  expect_altrep_rountrip(x, min, na.rm = TRUE, .expect_warning = "no non-missing arguments to min")
+  expect_altrep_rountrip(x, max, na.rm = TRUE, .expect_warning = "no non-missing arguments to max")
   expect_altrep_rountrip(x, sum, na.rm = TRUE)
 
   expect_altrep_rountrip(x, min)
@@ -221,23 +254,97 @@ test_that("altrep vectors handle coercion", {
 })
 
 test_that("columns of struct types may be altrep", {
-  st <- Array$create(data.frame(x = 1:10, y = runif(10)))
+  numbers <- runif(10)
+  st <- Array$create(data.frame(x = 1:10, y = numbers))
   df <- st$as_vector()
 
   expect_true(is_arrow_altrep(df$x))
   expect_true(is_arrow_altrep(df$y))
+
+  expect_equal(df$x, 1:10)
+  expect_equal(df$y, numbers)
+
+  st <- ChunkedArray$create(
+    data.frame(x = 1:10, y = numbers),
+    data.frame(x = 1:10, y = numbers)
+  )
+  df <- st$as_vector()
+  expect_true(is_arrow_altrep(df$x))
+  expect_true(is_arrow_altrep(df$y))
+  expect_equal(df$x, rep(1:10, 2))
+  expect_equal(df$y, rep(numbers, 2))
 })
 
-test_that("Conversion from altrep R vector to Array uses the existing Array", {
+test_that("Conversion from altrep R vector to Array uses the existing Array/ChunkedArray", {
   a_int <- Array$create(c(1L, 2L, 3L))
   b_int <- Array$create(a_int$as_vector())
-  expect_true(test_same_Array(a_int$pointer(), b_int$pointer()))
+  expect_true(a_int$Same(b_int))
 
   a_dbl <- Array$create(c(1, 2, 3))
   b_dbl <- Array$create(a_dbl$as_vector())
-  expect_true(test_same_Array(a_dbl$pointer(), b_dbl$pointer()))
+  expect_true(a_dbl$Same(b_dbl))
 
   a_str <- Array$create(c("un", "deux", "trois"))
   b_str <- Array$create(a_str$as_vector())
-  expect_true(test_same_Array(a_str$pointer(), b_str$pointer()))
+  expect_true(a_str$Same(b_str))
+
+  ca_int <- ChunkedArray$create(c(1L, 2L, 3L), c(4L, 5L, 6L))
+  cb_int <- ChunkedArray$create(ca_int$as_vector())
+  expect_true(ca_int$chunk(0)$Same(cb_int$chunk(0)))
+  expect_true(ca_int$chunk(1)$Same(cb_int$chunk(1)))
+
+  ca_dbl <- ChunkedArray$create(c(1, 2, 3), c(4, 5, 6))
+  cb_dbl <- ChunkedArray$create(ca_dbl$as_vector())
+  expect_true(ca_dbl$chunk(0)$Same(cb_dbl$chunk(0)))
+  expect_true(ca_dbl$chunk(1)$Same(cb_dbl$chunk(1)))
+
+  ca_str <- ChunkedArray$create(c("un", "deux", "trois"), c("quatre", "cinq", "six"))
+  cb_str <- ChunkedArray$create(ca_str$as_vector())
+  expect_true(ca_str$chunk(0)$Same(cb_str$chunk(0)))
+  expect_true(ca_str$chunk(1)$Same(cb_str$chunk(1)))
+})
+
+test_that("ChunkedArray$create(...) keeps Array even when from altrep vectors", {
+  a <- ChunkedArray$create(c(1, 2, 3), c(4, 5, 6))
+  b <- ChunkedArray$create(c(7, 8, 9))
+  c <- Array$create(c(10, 11, 12))
+  d <- Array$create(c(13, 14, 15))
+  e <- ChunkedArray$create(c(16, 17), c(18, 19))
+
+  x <- ChunkedArray$create(
+    # converter to R vectors (with altrep but keeping underlying arrays)
+    a$as_vector(), # 2 chunks
+    b$as_vector(), # 1 chunk
+    c$as_vector(), # 1 array
+
+    # passed in directly
+    d,
+    e
+  )
+
+  expect_true(x$chunk(0)$Same(a$chunk(0)))
+  expect_true(x$chunk(1)$Same(a$chunk(1)))
+  expect_true(x$chunk(2)$Same(b$chunk(0)))
+  expect_true(x$chunk(3)$Same(c))
+  expect_true(x$chunk(4)$Same(d))
+  expect_true(x$chunk(5)$Same(e$chunk(0)))
+  expect_true(x$chunk(6)$Same(e$chunk(1)))
+
+})
+
+test_that("R checks for bounds", {
+  v_int <- Array$create(c(1, 2, 3))$as_vector()
+  v_dbl <- Array$create(c(1L, 2L, 3L))$as_vector()
+  v_str <- Array$create(c("un", "deux", "trois"))$as_vector()
+
+  expect_error(v_int[[5]], "subscript out of bounds")
+  expect_error(v_dbl[[5]], "subscript out of bounds")
+  expect_error(v_str[[5]], "subscript out of bounds")
+
+  # excluded from the snapshot because something has changed in R at some point
+  # not really worth investigating when/where
+  # https://github.com/apache/arrow/runs/3870446814#step:17:38473
+  expect_error(v_int[[-1]])
+  expect_error(v_dbl[[-1]])
+  expect_error(v_str[[-1]])
 })

@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "arrow/util/windows_compatibility.h"
+#include "parquet/windows_compatibility.h"
 
 #include <cstdint>
 #include <limits>

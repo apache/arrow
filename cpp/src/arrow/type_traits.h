@@ -235,6 +235,7 @@ struct TypeTraits<MonthDayNanoIntervalType> {
   using ArrayType = MonthDayNanoIntervalArray;
   using BuilderType = MonthDayNanoIntervalBuilder;
   using ScalarType = MonthDayNanoIntervalScalar;
+  using CType = MonthDayNanoIntervalType::c_type;
 
   static constexpr int64_t bytes_required(int64_t elements) {
     return elements *

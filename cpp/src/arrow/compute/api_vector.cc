@@ -97,11 +97,11 @@ namespace compute {
 // Function options
 
 bool SortKey::Equals(const SortKey& other) const {
-  return name == other.name && order == other.order;
+  return target == other.target && order == other.order;
 }
 std::string SortKey::ToString() const {
   std::stringstream ss;
-  ss << name << ' ';
+  ss << target.ToString() << ' ';
   switch (order) {
     case SortOrder::Ascending:
       ss << "ASC";

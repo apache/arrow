@@ -497,7 +497,10 @@ void AddArraySortingKernels(VectorKernel base, VectorFunction* func) {
   DCHECK_OK(func->AddKernel(base));
 }
 
-const auto kDefaultArraySortOptions = ArraySortOptions::Defaults();
+const ArraySortOptions* GetDefaultArraySortOptions() {
+  static const auto kDefaultArraySortOptions = ArraySortOptions::Defaults();
+  return &kDefaultArraySortOptions;
+}
 
 const FunctionDoc array_sort_indices_doc(
     "Return the indices that would sort an array",
@@ -543,7 +546,7 @@ void RegisterVectorArraySort(FunctionRegistry* registry) {
 
   auto array_sort_indices = std::make_shared<VectorFunction>(
       "array_sort_indices", Arity::Unary(), &array_sort_indices_doc,
-      &kDefaultArraySortOptions);
+      GetDefaultArraySortOptions());
   base.init = ArraySortIndicesState::Init;
   AddArraySortingKernels<ArraySortIndices>(base, array_sort_indices.get());
   DCHECK_OK(registry->AddFunction(std::move(array_sort_indices)));

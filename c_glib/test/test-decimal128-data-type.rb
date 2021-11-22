@@ -40,4 +40,17 @@ class TestDecimal128DataType < Test::Unit::TestCase
     data_type = Arrow::Decimal128DataType.new(8, 2)
     assert_equal(2, data_type.scale)
   end
+
+  def test_deciaml_data_type_new
+    assert_equal(Arrow::Decimal128DataType.new(8, 2),
+                 Arrow::DecimalDataType.new(8, 2))
+  end
+
+  def test_invalid_precision
+    message =
+      "[decimal128-data-type][new]: Invalid: Decimal precision out of range: 39"
+    assert_raise(Arrow::Error::Invalid.new(message)) do
+      Arrow::Decimal128DataType.new(39, 1)
+    end
+  end
 end

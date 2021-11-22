@@ -653,6 +653,12 @@ class TestStatisticsSortOrder : public ::testing::Test {
  public:
   using c_type = typename TestType::c_type;
 
+  void SetUp() override {
+#ifndef ARROW_WITH_SNAPPY
+    GTEST_SKIP() << "Test requires Snappy compression";
+#endif
+  }
+
   void AddNodes(std::string name) {
     fields_.push_back(schema::PrimitiveNode::Make(
         name, Repetition::REQUIRED, TestType::type_num, ConvertedType::NONE));

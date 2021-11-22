@@ -371,11 +371,18 @@ ensure_cmake <- function() {
   if (is.null(cmake)) {
     # If not found, download it
     cat("**** cmake\n")
-    CMAKE_VERSION <- Sys.getenv("CMAKE_VERSION", "3.19.2")
+    CMAKE_VERSION <- Sys.getenv("CMAKE_VERSION", "3.21.4")
     if (tolower(Sys.info()[["sysname"]]) %in% "darwin") {
       postfix <- "-macos-universal.tar.gz"
+    } else if (tolower(Sys.info()[["machine"]]) == "arm64") {
+      postfix <- "-linux-aarch64.tar.gz"
+    } else if (tolower(Sys.info()[["machine"]]) == "x86_64") {
+      postfix <- "-linux-x86_64.tar.gz"
     } else {
-      postfix <- "-Linux-x86_64.tar.gz"
+      stop(paste0(
+         "*** cmake was not found locally.\n",
+         "    Please make sure cmake >= 3.10 is installed and available on your PATH.\n"
+      ))
     }
     cmake_binary_url <- paste0(
       "https://github.com/Kitware/CMake/releases/download/v", CMAKE_VERSION,

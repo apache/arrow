@@ -284,9 +284,9 @@ class ARROW_EXPORT FixedSizeListArray : public Array {
   std::shared_ptr<DataType> value_type() const;
 
   // The following functions will not perform boundschecking
-  int32_t value_offset(int64_t i) const {
+  int64_t value_offset(int64_t i) const {
     i += data_->offset;
-    return static_cast<int32_t>(list_size_ * i);
+    return list_size_ * i;
   }
   int32_t value_length(int64_t i = 0) const {
     ARROW_UNUSED(i);
@@ -369,6 +369,14 @@ class ARROW_EXPORT StructArray : public Array {
   ///
   /// \param[in] pool The pool to allocate null bitmaps from, if necessary
   Result<ArrayVector> Flatten(MemoryPool* pool = default_memory_pool()) const;
+
+  /// \brief Get one of the child arrays, combining its null bitmap
+  /// with the parent struct array's bitmap.
+  ///
+  /// \param[in] index Which child array to get
+  /// \param[in] pool The pool to allocate null bitmaps from, if necessary
+  Result<std::shared_ptr<Array>> GetFlattenedField(
+      int index, MemoryPool* pool = default_memory_pool()) const;
 
  private:
   // For caching boxed child data
@@ -455,6 +463,14 @@ class ARROW_EXPORT SparseUnionArray : public UnionArray {
   const SparseUnionType* union_type() const {
     return internal::checked_cast<const SparseUnionType*>(union_type_);
   }
+
+  /// \brief Get one of the child arrays, adjusting its null bitmap
+  /// where the union array type code does not match.
+  ///
+  /// \param[in] index Which child array to get (i.e. the physical index, not the type
+  /// code) \param[in] pool The pool to allocate null bitmaps from, if necessary
+  Result<std::shared_ptr<Array>> GetFlattenedField(
+      int index, MemoryPool* pool = default_memory_pool()) const;
 
  protected:
   void SetData(std::shared_ptr<ArrayData> data);

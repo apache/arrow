@@ -185,6 +185,11 @@ inline Result<ScanTaskIterator> GetScanTaskIterator(
   auto fn = [options](std::shared_ptr<Fragment> fragment) -> Result<ScanTaskIterator> {
     ARROW_ASSIGN_OR_RAISE(auto scan_task_it, fragment->Scan(options));
 
+    // Skip applying compute on fragments if disabled.
+    if (!fragment->apply_compute) {
+      return std::move(scan_task_it);
+    }
+
     auto partition = fragment->partition_expression();
     // Apply the filter and/or projection to incoming RecordBatches by
     // wrapping the ScanTask with a FilterAndProjectScanTask

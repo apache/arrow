@@ -548,8 +548,9 @@ def test_expression_serialization():
     e = ds.scalar(None)
     f = ds.scalar({'a': 1})
     g = ds.scalar(pa.scalar(1))
+    h = ds.scalar(np.int64(2))
 
-    all_exprs = [a, b, c, d, e, f, g, a == b, a > b, a & b, a | b, ~c,
+    all_exprs = [a, b, c, d, e, f, g, h, a == b, a > b, a & b, a | b, ~c,
                  d.is_valid(), a.cast(pa.int32(), safe=False),
                  a.cast(pa.int32(), safe=False), a.isin([1, 2, 3]),
                  ds.field('i64') > 5, ds.field('i64') == 5,
@@ -2425,6 +2426,19 @@ def test_filter_implicit_cast(tempdir, dataset_reader):
     assert len(dataset_reader.to_table(dataset, filter=filter_)) == 3
 
 
+@pytest.mark.parquet
+def test_filter_equal_null(tempdir, dataset_reader):
+    # ARROW-12066 equality with null, although not useful, should not crash
+    table = pa.table({"A": ["a", "b", None]})
+    _, path = _create_single_file(tempdir, table)
+    dataset = ds.dataset(str(path))
+
+    table = dataset_reader.to_table(
+        dataset, filter=ds.field("A") == ds.scalar(None)
+    )
+    assert table.num_rows == 0
+
+
 def test_dataset_union(multisourcefs):
     child = ds.FileSystemDatasetFactory(
         multisourcefs, fs.FileSelector('/plain'),
@@ -3478,6 +3492,55 @@ def test_write_dataset_with_dataset(tempdir):
         load_back = ds.dataset(tempdir2, partitioning=["b"])
         load_back_table = load_back.to_table()
         assert dict(load_back_table.to_pydict()) == table.to_pydict()
+
+
+@pytest.mark.pandas
+def test_write_dataset_existing_data(tempdir):
+    directory = tempdir / 'ds'
+    table = pa.table({'b': ['x', 'y', 'z'], 'c': [1, 2, 3]})
+    partitioning = ds.partitioning(schema=pa.schema(
+        [pa.field('c', pa.int64())]), flavor='hive')
+
+    def compare_tables_ignoring_order(t1, t2):
+        df1 = t1.to_pandas().sort_values('b').reset_index(drop=True)
+        df2 = t2.to_pandas().sort_values('b').reset_index(drop=True)
+        assert df1.equals(df2)
+
+    # First write is ok
+    ds.write_dataset(table, directory, partitioning=partitioning, format='ipc')
+
+    table = pa.table({'b': ['a', 'b', 'c'], 'c': [2, 3, 4]})
+
+    # Second write should fail
+    with pytest.raises(pa.ArrowInvalid):
+        ds.write_dataset(table, directory,
+                         partitioning=partitioning, format='ipc')
+
+    extra_table = pa.table({'b': ['e']})
+    extra_file = directory / 'c=2' / 'foo.arrow'
+    pyarrow.feather.write_feather(extra_table, extra_file)
+
+    # Should be ok and overwrite with overwrite behavior
+    ds.write_dataset(table, directory, partitioning=partitioning,
+                     format='ipc',
+                     existing_data_behavior='overwrite_or_ignore')
+
+    overwritten = pa.table(
+        {'b': ['e', 'x', 'a', 'b', 'c'], 'c': [2, 1, 2, 3, 4]})
+    readback = ds.dataset(tempdir, format='ipc',
+                          partitioning=partitioning).to_table()
+    compare_tables_ignoring_order(readback, overwritten)
+    assert extra_file.exists()
+
+    # Should be ok and delete matching with delete_matching
+    ds.write_dataset(table, directory, partitioning=partitioning,
+                     format='ipc', existing_data_behavior='delete_matching')
+
+    overwritten = pa.table({'b': ['x', 'a', 'b', 'c'], 'c': [1, 2, 3, 4]})
+    readback = ds.dataset(tempdir, format='ipc',
+                          partitioning=partitioning).to_table()
+    compare_tables_ignoring_order(readback, overwritten)
+    assert not extra_file.exists()
 
 
 @pytest.mark.parquet

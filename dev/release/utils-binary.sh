@@ -41,6 +41,7 @@ docker_gpg_ssh() {
       -i "${docker_ssh_key}" \
       -p ${ssh_port} \
       -R "/home/arrow/.gnupg/S.gpg-agent:${gpg_agent_extra_socket}" \
+      -t \
       arrow@127.0.0.1 \
       "$@"; then
     exit_code=$?;

@@ -66,70 +66,70 @@ test_that("ChunkedArray$SortIndices()", {
 })
 
 test_that("sort(vector), sort(Array), sort(ChunkedArray) give equivalent results on integers", {
-  expect_vector_equal(
-    sort(input),
+  compare_expression(
+    sort(.input),
     tbl$int
   )
-  expect_vector_equal(
-    sort(input, na.last = NA),
+  compare_expression(
+    sort(.input, na.last = NA),
     tbl$int
   )
-  expect_vector_equal(
-    sort(input, na.last = TRUE),
+  compare_expression(
+    sort(.input, na.last = TRUE),
     tbl$int
   )
-  expect_vector_equal(
-    sort(input, na.last = FALSE),
+  compare_expression(
+    sort(.input, na.last = FALSE),
     tbl$int
   )
-  expect_vector_equal(
-    sort(input, decreasing = TRUE),
+  compare_expression(
+    sort(.input, decreasing = TRUE),
     tbl$int,
   )
-  expect_vector_equal(
-    sort(input, decreasing = TRUE, na.last = TRUE),
+  compare_expression(
+    sort(.input, decreasing = TRUE, na.last = TRUE),
     tbl$int,
   )
-  expect_vector_equal(
-    sort(input, decreasing = TRUE, na.last = FALSE),
+  compare_expression(
+    sort(.input, decreasing = TRUE, na.last = FALSE),
     tbl$int,
   )
 })
 
 test_that("sort(vector), sort(Array), sort(ChunkedArray) give equivalent results on strings", {
-  expect_vector_equal(
-    sort(input, decreasing = TRUE, na.last = FALSE),
+  compare_expression(
+    sort(.input, decreasing = TRUE, na.last = FALSE),
     tbl$chr
   )
-  expect_vector_equal(
-    sort(input, decreasing = TRUE, na.last = FALSE),
+  compare_expression(
+    sort(.input, decreasing = TRUE, na.last = FALSE),
     tbl$chr
   )
 })
 
 test_that("sort(vector), sort(Array), sort(ChunkedArray) give equivalent results on floats", {
-  expect_vector_equal(
-    sort(input, decreasing = TRUE, na.last = TRUE),
+  compare_expression(
+    sort(.input, decreasing = TRUE, na.last = TRUE),
     tbl$dbl
   )
-  expect_vector_equal(
-    sort(input, decreasing = FALSE, na.last = TRUE),
+  compare_expression(
+    sort(.input, decreasing = FALSE, na.last = TRUE),
     tbl$dbl
   )
-  expect_vector_equal(
-    sort(input, decreasing = TRUE, na.last = NA),
+  compare_expression(
+    sort(.input, decreasing = TRUE, na.last = NA),
     tbl$dbl
   )
-  expect_vector_equal(
-    sort(input, decreasing = TRUE, na.last = FALSE),
+  compare_expression(
+    sort(.input, decreasing = TRUE, na.last = FALSE),
     tbl$dbl,
   )
-  expect_vector_equal(
-    sort(input, decreasing = FALSE, na.last = NA),
+  compare_expression(
+    sort(.input, decreasing = FALSE, na.last = NA),
     tbl$dbl
   )
-  expect_vector_equal(
-    sort(input, decreasing = FALSE, na.last = FALSE),
+  compare_expression(
+    sort(.input, decreasing = FALSE, na.last = FALSE),
     tbl$dbl,
   )
 })

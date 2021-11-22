@@ -96,6 +96,14 @@ def test_exported_functions():
             func(*args)
 
 
+def test_hash_aggregate_not_exported():
+    # Ensure we are not leaking hash aggregate functions
+    # which are not callable by themselves.
+    for func in exported_functions:
+        arrow_f = pc.get_function(func.__arrow_compute_function__["name"])
+        assert arrow_f.kind != "hash_aggregate"
+
+
 def test_exported_option_classes():
     classes = exported_option_classes
     assert len(classes) >= 10
@@ -241,7 +249,11 @@ def test_pickle_functions():
 def test_pickle_global_functions():
     # Pickle global wrappers (manual or automatic) of registered functions
     for name in pc.list_functions():
-        func = getattr(pc, name)
+        try:
+            func = getattr(pc, name)
+        except AttributeError:
+            # hash_aggregate functions are not exported as callables.
+            continue
         reconstructed = pickle.loads(pickle.dumps(func))
         assert reconstructed is func
 
@@ -578,8 +590,7 @@ def test_min_max():
         s = pc.min_max(data, options=options)
 
     # Missing argument
-    with pytest.raises(ValueError,
-                       match="Function min_max accepts 1 argument"):
+    with pytest.raises(TypeError, match="min_max takes 1 positional"):
         s = pc.min_max()
 
 
@@ -1974,7 +1985,8 @@ def test_select_k_table():
     with pytest.raises(ValueError, match="not a valid sort order"):
         pc.select_k_unstable(table, k=k, sort_keys=[("a", "nonscending")])
 
-    with pytest.raises(ValueError, match="Nonexistent sort key column"):
+    with pytest.raises(ValueError,
+                       match="Invalid sort key column: No match for.*unknown"):
         pc.select_k_unstable(table, k=k, sort_keys=[("unknown", "ascending")])
 
 

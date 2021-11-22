@@ -88,6 +88,24 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      "gdv_fn_initcap_utf8",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
+      NativeFunction("concat_ws", {}, DataTypeVector{utf8(), utf8(), utf8()}, utf8(),
+                     kResultNullIfNull, "concat_ws_utf8_utf8",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
+      NativeFunction("concat_ws", {}, DataTypeVector{utf8(), utf8(), utf8(), utf8()},
+                     utf8(), kResultNullIfNull, "concat_ws_utf8_utf8_utf8",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
+      NativeFunction("concat_ws", {},
+                     DataTypeVector{utf8(), utf8(), utf8(), utf8(), utf8()}, utf8(),
+                     kResultNullIfNull, "concat_ws_utf8_utf8_utf8_utf8",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
+      NativeFunction("concat_ws", {},
+                     DataTypeVector{utf8(), utf8(), utf8(), utf8(), utf8(), utf8()},
+                     utf8(), kResultNullIfNull, "concat_ws_utf8_utf8_utf8_utf8_utf8",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
       NativeFunction("castBIT", {"castBOOLEAN"}, DataTypeVector{utf8()}, boolean(),
                      kResultNullIfNull, "castBIT_utf8", NativeFunction::kNeedsContext),
 

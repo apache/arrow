@@ -32,6 +32,7 @@ update_versions() {
       local r_version=${base_version}.9000
       ;;
   esac
+  local major_version=${version/.*/}
 
   pushd "${ARROW_DIR}/c_glib"
   sed -i.bak -E -e \
@@ -141,5 +142,12 @@ update_versions() {
     */*/*/version.rb
   rm -f */*/*/version.rb.bak
   git add */*/*/version.rb
+  popd
+
+  pushd "${ARROW_DIR}/go"
+  find . "(" -name "*.go*" -o -name "go.mod" ")" -exec sed -i.bak -E -e \
+    "s|(github\\.com/apache/arrow/go)/v[0-9]+|\1/v${major_version}|" {} \;
+  find . -name "*.bak" -exec rm {} \;
+  git add .
   popd
 }

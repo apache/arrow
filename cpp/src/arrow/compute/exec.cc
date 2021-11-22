@@ -102,6 +102,14 @@ void PrintTo(const ExecBatch& batch, std::ostream* os) {
   }
 }
 
+int64_t ExecBatch::TotalBufferSize() const {
+  int64_t sum = 0;
+  for (const auto& value : values) {
+    sum += value.TotalBufferSize();
+  }
+  return sum;
+}
+
 std::string ExecBatch::ToString() const {
   std::stringstream ss;
   PrintTo(*this, &ss);
@@ -676,7 +684,9 @@ class ScalarExecutor : public KernelExecutorImpl<ScalarKernel> {
 
     if (output_descr_.shape == ValueDescr::ARRAY) {
       ArrayData* out_arr = out.mutable_array();
-      if (kernel_->null_handling == NullHandling::INTERSECTION) {
+      if (output_descr_.type->id() == Type::NA) {
+        out_arr->null_count = out_arr->length;
+      } else if (kernel_->null_handling == NullHandling::INTERSECTION) {
         RETURN_NOT_OK(PropagateNulls(kernel_ctx_, batch, out_arr));
       } else if (kernel_->null_handling == NullHandling::OUTPUT_NOT_NULL) {
         out_arr->null_count = 0;

@@ -106,7 +106,7 @@ namespace {
   garrow_sort_key_equal_raw(const arrow::compute::SortKey &sort_key,
                             const arrow::compute::SortKey &other_sort_key) {
     return
-      (sort_key.name == other_sort_key.name) &&
+      (sort_key.target == other_sort_key.target) &&
       (sort_key.order == other_sort_key.order);
 
   }
@@ -2330,7 +2330,7 @@ garrow_sort_key_set_property(GObject *object,
 
   switch (prop_id) {
   case PROP_SORT_KEY_NAME:
-    priv->sort_key.name = g_value_get_string(value);
+    priv->sort_key.target = g_value_get_string(value);
     break;
   case PROP_SORT_KEY_ORDER:
     priv->sort_key.order =
@@ -2352,7 +2352,11 @@ garrow_sort_key_get_property(GObject *object,
 
   switch (prop_id) {
   case PROP_SORT_KEY_NAME:
-    g_value_set_string(value, priv->sort_key.name.c_str());
+    if (auto name = priv->sort_key.target.name()) {
+      g_value_set_string(value, name->c_str());
+    } else {
+      g_value_set_string(value, "");
+    }
     break;
   case PROP_SORT_KEY_ORDER:
     g_value_set_enum(value, static_cast<GArrowSortOrder>(priv->sort_key.order));
@@ -2531,9 +2535,8 @@ garrow_sort_options_get_sort_keys(GArrowSortOptions *options)
   auto arrow_options = garrow_sort_options_get_raw(options);
   GList *sort_keys = NULL;
   for (const auto &arrow_sort_key : arrow_options->sort_keys) {
-    auto sort_key =
-      garrow_sort_key_new(arrow_sort_key.name.c_str(),
-                          static_cast<GArrowSortOrder>(arrow_sort_key.order));
+    auto sort_key = g_object_new(GARROW_TYPE_SORT_KEY, NULL);
+    GARROW_SORT_KEY_GET_PRIVATE(sort_key)->sort_key = arrow_sort_key;
     sort_keys = g_list_prepend(sort_keys, sort_key);
   }
   return g_list_reverse(sort_keys);

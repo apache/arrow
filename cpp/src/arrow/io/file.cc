@@ -299,6 +299,8 @@ class ReadableFile::ReadableFileImpl : public OSFile {
       if (radvisory.ra_count > 0 && fcntl(fd_, F_RDADVISE, &radvisory) == -1) {
         RETURN_NOT_OK(report_error(errno, "fcntl(fd, F_RDADVISE, ...) failed"));
       }
+#else
+      ARROW_UNUSED(report_error);
 #endif
     }
     return Status::OK();

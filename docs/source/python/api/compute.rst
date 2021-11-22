@@ -267,6 +267,7 @@ String Transforms
    ascii_title
    ascii_upper
    binary_length
+   binary_repeat
    binary_replace_slice
    replace_substring
    replace_substring_regex
@@ -496,3 +497,4 @@ Structural Transforms
    list_value_length
    make_struct
    replace_with_mask
+   struct_field

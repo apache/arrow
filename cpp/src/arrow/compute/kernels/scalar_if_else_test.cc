@@ -345,6 +345,15 @@ TEST_F(TestIfElseKernel, DayTimeInterval) {
       ArrayFromJSON(ty, "[[1, 2], [3, -4], [-5, 6], [15, 16]]"));
 }
 
+TEST_F(TestIfElseKernel, MonthDayNanoInterval) {
+  auto ty = month_day_nano_interval();
+  CheckWithDifferentShapes(
+      ArrayFromJSON(boolean(), "[true, true, true, false]"),
+      ArrayFromJSON(ty, "[[1, 2, -3], [3, -4, 5], [-5, 6, 7], [-7, -8, -9]]"),
+      ArrayFromJSON(ty, "[[-9, -10, 11], [11, -12, 0], [-13, 14, -1], [15, 16, 2]]"),
+      ArrayFromJSON(ty, "[[1, 2, -3], [3, -4, 5], [-5, 6, 7], [15, 16, 2]]"));
+}
+
 TEST_F(TestIfElseKernel, IfElseDispatchBest) {
   std::string name = "if_else";
   ASSERT_OK_AND_ASSIGN(auto function, GetFunctionRegistry()->GetFunction(name));
@@ -389,7 +398,7 @@ TEST_F(TestIfElseKernel, IfElseDispatchBest) {
 template <typename Type>
 class TestIfElseBaseBinary : public ::testing::Test {};
 
-TYPED_TEST_SUITE(TestIfElseBaseBinary, BinaryArrowTypes);
+TYPED_TEST_SUITE(TestIfElseBaseBinary, BaseBinaryArrowTypes);
 
 TYPED_TEST(TestIfElseBaseBinary, IfElseBaseBinary) {
   auto type = TypeTraits<TypeParam>::type_singleton();
@@ -1094,7 +1103,8 @@ TYPED_TEST(TestCaseWhenDict, Simple) {
 }
 
 TYPED_TEST(TestCaseWhenDict, Mixed) {
-  auto type = dictionary(default_type_instance<TypeParam>(), utf8());
+  auto index_type = default_type_instance<TypeParam>();
+  auto type = dictionary(index_type, utf8());
   auto cond1 = ArrayFromJSON(boolean(), "[true, true, null, null]");
   auto cond2 = ArrayFromJSON(boolean(), "[true, false, true, null]");
   auto dict = R"(["a", null, "bc", "def"])";
@@ -1119,6 +1129,17 @@ TYPED_TEST(TestCaseWhenDict, Mixed) {
       "case_when",
       {MakeStruct({cond1, cond2}), values_null, values2_dict, values1_decoded},
       /*result_is_encoded=*/false);
+
+  // If we have mismatched dictionary types, we decode (for now)
+  auto values3_dict =
+      DictArrayFromJSON(dictionary(index_type, binary()), "[2, 1, null, 0]", dict);
+  auto values4_dict = DictArrayFromJSON(
+      dictionary(index_type->id() == Type::UINT8 ? int8() : uint8(), utf8()),
+      "[2, 1, null, 0]", dict);
+  CheckDictionary("case_when", {MakeStruct({cond1, cond2}), values1_dict, values3_dict},
+                  /*result_is_encoded=*/false);
+  CheckDictionary("case_when", {MakeStruct({cond1, cond2}), values1_dict, values4_dict},
+                  /*result_is_encoded=*/false);
 }
 
 TYPED_TEST(TestCaseWhenDict, NestedSimple) {
@@ -1368,6 +1389,22 @@ TEST(TestCaseWhen, DayTimeInterval) {
               ArrayFromJSON(type, "[null, null, null, [6, 6]]"));
 }
 
+TEST(TestCaseWhen, MonthDayNanoInterval) {
+  auto type = month_day_nano_interval();
+  auto cond1 = ArrayFromJSON(boolean(), "[true, true, null, null]");
+  auto cond2 = ArrayFromJSON(boolean(), "[true, false, true, null]");
+  auto values_null = ArrayFromJSON(type, "[null, null, null, null]");
+  auto values1 = ArrayFromJSON(type, R"([[0, 1, -2], null, [-3, 4, 5], [-6, -7, -8]])");
+  auto values2 = ArrayFromJSON(type, R"([[1, 2, 3], [4, 5, 6], null, [0, 2, 4]])");
+
+  CheckScalar("case_when", {MakeStruct({cond1, cond2}), values1, values2},
+              ArrayFromJSON(type, R"([[0, 1, -2], null, null, null])"));
+  CheckScalar("case_when", {MakeStruct({cond1, cond2}), values1, values2, values1},
+              ArrayFromJSON(type, R"([[0, 1, -2], null, null, [-6, -7, -8]])"));
+  CheckScalar("case_when", {MakeStruct({cond1, cond2}), values_null, values2, values1},
+              ArrayFromJSON(type, R"([null, null, null, [-6, -7, -8]])"));
+}
+
 TEST(TestCaseWhen, Decimal) {
   for (const auto& type :
        std::vector<std::shared_ptr<DataType>>{decimal128(3, 2), decimal256(3, 2)}) {
@@ -1488,7 +1525,7 @@ TEST(TestCaseWhen, FixedSizeBinary) {
 template <typename Type>
 class TestCaseWhenBinary : public ::testing::Test {};
 
-TYPED_TEST_SUITE(TestCaseWhenBinary, BinaryArrowTypes);
+TYPED_TEST_SUITE(TestCaseWhenBinary, BaseBinaryArrowTypes);
 
 TYPED_TEST(TestCaseWhenBinary, Basics) {
   auto type = default_type_instance<TypeParam>();
@@ -2088,6 +2125,17 @@ TEST(TestCaseWhen, UnionBoolString) {
 TEST(TestCaseWhen, DispatchBest) {
   CheckDispatchBest("case_when", {struct_({field("", boolean())}), int64(), int32()},
                     {struct_({field("", boolean())}), int64(), int64()});
+  CheckDispatchBest("case_when",
+                    {struct_({field("", boolean())}), binary(), large_utf8()},
+                    {struct_({field("", boolean())}), large_binary(), large_binary()});
+  CheckDispatchBest(
+      "case_when",
+      {struct_({field("", boolean())}), timestamp(TimeUnit::SECOND), date32()},
+      {struct_({field("", boolean())}), timestamp(TimeUnit::SECOND),
+       timestamp(TimeUnit::SECOND)});
+  CheckDispatchBest(
+      "case_when", {struct_({field("", boolean())}), decimal128(38, 0), decimal128(1, 1)},
+      {struct_({field("", boolean())}), decimal256(39, 1), decimal256(39, 1)});
 
   ASSERT_RAISES(Invalid, CallFunction("case_when", {}));
   // Too many/too few conditions
@@ -2129,7 +2177,7 @@ template <typename Type>
 class TestCoalesceList : public ::testing::Test {};
 
 TYPED_TEST_SUITE(TestCoalesceNumeric, NumericBasedTypes);
-TYPED_TEST_SUITE(TestCoalesceBinary, BinaryArrowTypes);
+TYPED_TEST_SUITE(TestCoalesceBinary, BaseBinaryArrowTypes);
 TYPED_TEST_SUITE(TestCoalesceList, ListArrowTypes);
 
 TYPED_TEST(TestCoalesceNumeric, Basics) {
@@ -2360,6 +2408,132 @@ TYPED_TEST(TestCoalesceList, Errors) {
                                }));
 }
 
+template <typename Type>
+class TestCoalesceDict : public ::testing::Test {};
+
+TYPED_TEST_SUITE(TestCoalesceDict, IntegralArrowTypes);
+
+TYPED_TEST(TestCoalesceDict, Simple) {
+  for (const auto& dict :
+       {JsonDict{utf8(), R"(["a", null, "bc", "def"])"},
+        JsonDict{int64(), "[1, null, 2, 3]"},
+        JsonDict{decimal256(3, 2), R"(["1.23", null, "3.45", "6.78"])"}}) {
+    auto type = dictionary(default_type_instance<TypeParam>(), dict.type);
+    auto values_null = DictArrayFromJSON(type, "[null, null, null, null]", dict.value);
+    auto values1 = DictArrayFromJSON(type, "[0, null, 3, null]", dict.value);
+    auto values2 = DictArrayFromJSON(type, "[2, 1, null, null]", dict.value);
+    auto scalar = DictScalarFromJSON(type, "2", dict.value);
+
+    // Easy case: all arguments have the same dictionary
+    CheckDictionary("coalesce", {values1, values2});
+    CheckDictionary("coalesce", {values1, values2, values1});
+    CheckDictionary("coalesce", {values_null, values1});
+    CheckDictionary("coalesce", {values1, values_null});
+    CheckDictionary("coalesce", {values1, scalar});
+    CheckDictionary("coalesce", {values_null, scalar});
+    CheckDictionary("coalesce", {scalar, values1});
+  }
+}
+
+TYPED_TEST(TestCoalesceDict, Mixed) {
+  auto index_type = default_type_instance<TypeParam>();
+  auto type = dictionary(index_type, utf8());
+  auto dict = R"(["a", null, "bc", "def"])";
+  auto values_null = DictArrayFromJSON(type, "[null, null, null, null]", dict);
+  auto values1_dict = DictArrayFromJSON(type, "[0, null, 3, 1]", dict);
+  auto values1_decoded = ArrayFromJSON(utf8(), R"(["a", null, "def", null])");
+  auto values2_dict = DictArrayFromJSON(type, "[2, 1, null, 0]", dict);
+  auto values2_decoded = ArrayFromJSON(utf8(), R"(["bc", null, null, "a"])");
+  auto scalar = ScalarFromJSON(utf8(), R"("bc")");
+
+  // If we have mixed dictionary/non-dictionary arguments, we decode dictionaries
+  CheckDictionary("coalesce", {values1_dict, values2_decoded},
+                  /*result_is_encoded=*/false);
+  CheckDictionary("coalesce", {values1_decoded, values2_dict},
+                  /*result_is_encoded=*/false);
+  CheckDictionary("coalesce", {values1_dict, values2_dict, values1_decoded},
+                  /*result_is_encoded=*/false);
+  CheckDictionary("coalesce", {values_null, values2_dict, values1_decoded},
+                  /*result_is_encoded=*/false);
+  CheckDictionary("coalesce", {values_null, scalar}, /*result_is_encoded=*/false);
+  CheckDictionary("coalesce", {scalar, values_null}, /*result_is_encoded=*/false);
+  CheckDictionary("coalesce", {values1_dict, scalar}, /*result_is_encoded=*/false);
+  CheckDictionary("coalesce", {scalar, values2_dict}, /*result_is_encoded=*/false);
+
+  // If we have mismatched dictionary types, we decode (for now)
+  auto values3_dict =
+      DictArrayFromJSON(dictionary(index_type, binary()), "[2, 1, null, 0]", dict);
+  auto values4_dict = DictArrayFromJSON(
+      dictionary(index_type->id() == Type::UINT8 ? int8() : uint8(), utf8()),
+      "[2, 1, null, 0]", dict);
+  CheckDictionary("coalesce", {values1_dict, values3_dict}, /*result_is_encoded=*/false);
+  CheckDictionary("coalesce", {values1_dict, values4_dict}, /*result_is_encoded=*/false);
+}
+
+TYPED_TEST(TestCoalesceDict, NestedSimple) {
+  auto index_type = default_type_instance<TypeParam>();
+  auto inner_type = dictionary(index_type, utf8());
+  auto type = list(inner_type);
+  auto dict = R"(["a", null, "bc", "def"])";
+  auto values_null = MakeListOfDict(ArrayFromJSON(int32(), "[null, null, null, null, 0]"),
+                                    DictArrayFromJSON(inner_type, "[]", dict));
+  auto values1_backing = DictArrayFromJSON(inner_type, "[0, null, 3, 1]", dict);
+  auto values2_backing = DictArrayFromJSON(inner_type, "[2, 1, null, 0]", dict);
+  auto values1 =
+      MakeListOfDict(ArrayFromJSON(int32(), "[0, 2, 2, 3, 4]"), values1_backing);
+  auto values2 =
+      MakeListOfDict(ArrayFromJSON(int32(), "[0, 1, null, 2, 4]"), values2_backing);
+  auto scalar =
+      Datum(std::make_shared<ListScalar>(DictArrayFromJSON(inner_type, "[0, 1]", dict)));
+
+  CheckDictionary("coalesce", {values1, values2}, /*result_is_encoded=*/false);
+  CheckDictionary("coalesce", {values1, scalar}, /*result_is_encoded=*/false);
+  CheckDictionary("coalesce", {scalar, values2}, /*result_is_encoded=*/false);
+  CheckDictionary("coalesce", {values_null, values2}, /*result_is_encoded=*/false);
+  CheckDictionary("coalesce", {values1, values_null}, /*result_is_encoded=*/false);
+}
+
+TYPED_TEST(TestCoalesceDict, DifferentDictionaries) {
+  auto type = dictionary(default_type_instance<TypeParam>(), utf8());
+  auto dict1 = R"(["a", "", "bc", "def"])";
+  auto dict2 = R"(["bc", "foo", "", "a"])";
+  auto values1_null = DictArrayFromJSON(type, "[null, null, null, null]", dict1);
+  auto values2_null = DictArrayFromJSON(type, "[null, null, null, null]", dict2);
+  auto values1 = DictArrayFromJSON(type, "[null, 0, 3, 1]", dict1);
+  auto values2 = DictArrayFromJSON(type, "[2, 1, 0, null]", dict2);
+  auto scalar1 = DictScalarFromJSON(type, "0", dict1);
+  auto scalar2 = DictScalarFromJSON(type, "0", dict2);
+
+  CheckDictionary("coalesce", {values1, values2});
+  CheckDictionary("coalesce", {values1, scalar2});
+  CheckDictionary("coalesce", {scalar1, values2});
+  CheckDictionary("coalesce", {values1, scalar2});
+  CheckDictionary("coalesce", {values1_null, values2});
+  CheckDictionary("coalesce", {values1, values2_null});
+
+  // Test dictionaries with nulls (where decoding before/after calling coalesce changes
+  // the results)
+  dict1 = R"(["a", null, "bc", "def"])";
+  dict2 = R"(["bc", "foo", null, "a"])";
+  values1 = DictArrayFromJSON(type, "[null, 0, 3, 1]", dict1);
+  values2 = DictArrayFromJSON(type, "[2, 1, 0, null]", dict2);
+  scalar1 = DictScalarFromJSON(type, "0", dict1);
+
+  // Note this is sensitive to the implementation. Nulls are emitted here
+  // because a non-null index mapped to a null dictionary value and was emitted
+  // as a null (instead of encoding null in the dictionary)
+  CheckScalarNonRecursive(
+      "coalesce", {values1, values2},
+      DictArrayFromJSON(type, "[null, 0, 1, null]", R"(["a", "def"])"));
+  CheckScalarNonRecursive("coalesce", {values1, scalar1},
+                          DictArrayFromJSON(type, "[0, 0, 1, null]", R"(["a", "def"])"));
+  // The dictionary gets preserved since a leading non-null scalar just gets
+  // broadcasted and returned without going through the rest of the kernel
+  // implementation
+  CheckScalarNonRecursive("coalesce", {scalar1, values1},
+                          DictArrayFromJSON(type, "[0, 0, 0, 0]", dict1));
+}
+
 TEST(TestCoalesce, Null) {
   auto type = null();
   auto scalar_null = ScalarFromJSON(type, "null");
@@ -2423,6 +2597,35 @@ TEST(TestCoalesce, DayTimeInterval) {
               ArrayFromJSON(type, "[[9, 10], [3, 4], [5, 6], [7, 8]]"));
   CheckScalar("coalesce", {scalar1, values1},
               ArrayFromJSON(type, "[[1, 2], [1, 2], [1, 2], [1, 2]]"));
+}
+
+TEST(TestCoalesce, MonthDayNanoInterval) {
+  auto type = month_day_nano_interval();
+  auto scalar_null = ScalarFromJSON(type, "null");
+  auto scalar1 = ScalarFromJSON(type, "[1, 2, 3]");
+  auto values_null = ArrayFromJSON(type, "[null, null, null, null]");
+  auto values1 = ArrayFromJSON(type, "[null, [3, 4, 5], [5, 6, 7], [7, 8, 9]]");
+  auto values2 =
+      ArrayFromJSON(type, "[[9, 10, 0], [11, 12, 1], [13, 14, 2], [15, 16, 3]]");
+  auto values3 = ArrayFromJSON(type, "[[17, 18, 4], [19, 20, 5], [21, 22, 6], null]");
+  CheckScalar("coalesce", {values_null}, values_null);
+  CheckScalar("coalesce", {values_null, scalar1},
+              ArrayFromJSON(type, "[[1, 2, 3], [1, 2, 3], [1, 2, 3], [1, 2, 3]]"));
+  CheckScalar("coalesce", {values_null, values1}, values1);
+  CheckScalar("coalesce", {values_null, values2}, values2);
+  CheckScalar("coalesce", {values1, values_null}, values1);
+  CheckScalar("coalesce", {values2, values_null}, values2);
+  CheckScalar("coalesce", {scalar_null, values1}, values1);
+  CheckScalar("coalesce", {values1, scalar_null}, values1);
+  CheckScalar("coalesce", {values2, values1, values_null}, values2);
+  CheckScalar("coalesce", {values1, scalar1},
+              ArrayFromJSON(type, "[[1, 2, 3], [3, 4, 5], [5, 6, 7], [7, 8, 9]]"));
+  CheckScalar("coalesce", {values1, values2},
+              ArrayFromJSON(type, "[[9, 10, 0], [3, 4, 5], [5, 6, 7], [7, 8, 9]]"));
+  CheckScalar("coalesce", {values1, values2, values3},
+              ArrayFromJSON(type, "[[9, 10, 0], [3, 4, 5], [5, 6, 7], [7, 8, 9]]"));
+  CheckScalar("coalesce", {scalar1, values1},
+              ArrayFromJSON(type, "[[1, 2, 3], [1, 2, 3], [1, 2, 3], [1, 2, 3]]"));
 }
 
 TEST(TestCoalesce, Decimal) {
@@ -2716,6 +2919,9 @@ TEST(TestCoalesce, DispatchBest) {
                                      sparse_union({field("a", boolean())}),
                                      dense_union({field("a", boolean())}),
                                  });
+  CheckDispatchBest("coalesce",
+                    {dictionary(int8(), binary()), dictionary(int16(), large_utf8())},
+                    {large_binary(), large_binary()});
 }
 
 template <typename Type>
@@ -2724,7 +2930,7 @@ template <typename Type>
 class TestChooseBinary : public ::testing::Test {};
 
 TYPED_TEST_SUITE(TestChooseNumeric, NumericBasedTypes);
-TYPED_TEST_SUITE(TestChooseBinary, BinaryArrowTypes);
+TYPED_TEST_SUITE(TestChooseBinary, BaseBinaryArrowTypes);
 
 TYPED_TEST(TestChooseNumeric, FixedSize) {
   auto type = default_type_instance<TypeParam>();
@@ -2825,6 +3031,29 @@ TEST(TestChoose, DayTimeInterval) {
   CheckScalar("choose", {ScalarFromJSON(int64(), "1"), values1, values2}, values2);
   CheckScalar("choose", {ScalarFromJSON(int64(), "null"), values1, values2}, nulls);
   auto scalar1 = ScalarFromJSON(type, "[10, 1]");
+  CheckScalar("choose", {ScalarFromJSON(int64(), "0"), scalar1, values2},
+              *MakeArrayFromScalar(*scalar1, 5));
+  CheckScalar("choose", {ScalarFromJSON(int64(), "1"), scalar1, values2}, values2);
+  CheckScalar("choose", {ScalarFromJSON(int64(), "null"), values1, values2}, nulls);
+  auto scalar_null = ScalarFromJSON(type, "null");
+  CheckScalar("choose", {ScalarFromJSON(int64(), "0"), scalar_null, values2},
+              *MakeArrayOfNull(type, 5));
+}
+
+TEST(TestChoose, MonthDayNanoInterval) {
+  auto type = month_day_nano_interval();
+  auto indices1 = ArrayFromJSON(int64(), "[0, 1, 0, 1, null]");
+  auto values1 = ArrayFromJSON(type, "[[10, 1, 0], [10, 1, 0], null, null, [10, 1, 0]]");
+  auto values2 = ArrayFromJSON(type, "[[2, 20, 4], [2, 20, 4], null, null, [2, 20, 4]]");
+  auto nulls = ArrayFromJSON(type, "[null, null, null, null, null]");
+  CheckScalar("choose", {indices1, values1, values2},
+              ArrayFromJSON(type, "[[10, 1, 0], [2, 20, 4], null, null, null]"));
+  CheckScalar("choose", {indices1, ScalarFromJSON(type, "[1, 2, 3]"), values1},
+              ArrayFromJSON(type, "[[1, 2, 3], [10, 1, 0], [1, 2, 3], null, null]"));
+  CheckScalar("choose", {ScalarFromJSON(int64(), "0"), values1, values2}, values1);
+  CheckScalar("choose", {ScalarFromJSON(int64(), "1"), values1, values2}, values2);
+  CheckScalar("choose", {ScalarFromJSON(int64(), "null"), values1, values2}, nulls);
+  auto scalar1 = ScalarFromJSON(type, "[10, 1, 0]");
   CheckScalar("choose", {ScalarFromJSON(int64(), "0"), scalar1, values2},
               *MakeArrayFromScalar(*scalar1, 5));
   CheckScalar("choose", {ScalarFromJSON(int64(), "1"), scalar1, values2}, values2);

@@ -2195,4 +2195,153 @@ const char* byte_substr_binary_int32_int32(gdv_int64 context, const char* text,
   memcpy(ret, text + startPos, *out_len);
   return ret;
 }
+
+FORCE_INLINE
+const char* concat_ws_utf8_utf8(int64_t context, const char* separator,
+                                int32_t separator_len, const char* word1,
+                                int32_t word1_len, const char* word2, int32_t word2_len,
+                                int32_t* out_len) {
+  if (word1_len < 0 || word2_len < 0 || separator_len < 0) {
+    gdv_fn_context_set_error_msg(context, "All words can not be null.");
+    *out_len = 0;
+    return "";
+  }
+
+  *out_len = word1_len + separator_len + word2_len;
+  char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  if (out == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+
+  char* tmp = out;
+  memcpy(tmp, word1, word1_len);
+  tmp += word1_len;
+  memcpy(tmp, separator, separator_len);
+  tmp += separator_len;
+  memcpy(tmp, word2, word2_len);
+
+  return out;
+}
+
+FORCE_INLINE
+const char* concat_ws_utf8_utf8_utf8(int64_t context, const char* separator,
+                                     int32_t separator_len, const char* word1,
+                                     int32_t word1_len, const char* word2,
+                                     int32_t word2_len, const char* word3,
+                                     int32_t word3_len, int32_t* out_len) {
+  if (word1_len < 0 || word2_len < 0 || word3_len < 0 || separator_len < 0) {
+    gdv_fn_context_set_error_msg(context, "All words can not be null.");
+    *out_len = 0;
+    return "";
+  }
+
+  *out_len = word1_len + word2_len + word3_len + (2 * separator_len);
+  char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  if (out == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+
+  char* tmp = out;
+  memcpy(tmp, word1, word1_len);
+  tmp += word1_len;
+  memcpy(tmp, separator, separator_len);
+  tmp += separator_len;
+  memcpy(tmp, word2, word2_len);
+  tmp += word2_len;
+  memcpy(tmp, separator, separator_len);
+  tmp += separator_len;
+  memcpy(tmp, word3, word3_len);
+
+  return out;
+}
+
+FORCE_INLINE
+const char* concat_ws_utf8_utf8_utf8_utf8(int64_t context, const char* separator,
+                                          int32_t separator_len, const char* word1,
+                                          int32_t word1_len, const char* word2,
+                                          int32_t word2_len, const char* word3,
+                                          int32_t word3_len, const char* word4,
+                                          int32_t word4_len, int32_t* out_len) {
+  if (word1_len < 0 || word2_len < 0 || word3_len < 0 || word4_len < 0 ||
+      separator_len < 0) {
+    gdv_fn_context_set_error_msg(context, "All words can not be null.");
+    *out_len = 0;
+    return "";
+  }
+
+  *out_len = word1_len + word2_len + word3_len + word4_len + (3 * separator_len);
+  char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  if (out == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+
+  char* tmp = out;
+  memcpy(tmp, word1, word1_len);
+  tmp += word1_len;
+  memcpy(tmp, separator, separator_len);
+  tmp += separator_len;
+  memcpy(tmp, word2, word2_len);
+  tmp += word2_len;
+  memcpy(tmp, separator, separator_len);
+  tmp += separator_len;
+  memcpy(tmp, word3, word3_len);
+  tmp += word3_len;
+  memcpy(tmp, separator, separator_len);
+  tmp += separator_len;
+  memcpy(tmp, word4, word4_len);
+
+  return out;
+}
+
+FORCE_INLINE
+const char* concat_ws_utf8_utf8_utf8_utf8_utf8(int64_t context, const char* separator,
+                                               int32_t separator_len, const char* word1,
+                                               int32_t word1_len, const char* word2,
+                                               int32_t word2_len, const char* word3,
+                                               int32_t word3_len, const char* word4,
+                                               int32_t word4_len, const char* word5,
+                                               int32_t word5_len, int32_t* out_len) {
+  if (word1_len < 0 || word2_len < 0 || word3_len < 0 || word4_len < 0 || word5_len < 0 ||
+      separator_len < 0) {
+    gdv_fn_context_set_error_msg(context, "All words can not be null.");
+    *out_len = 0;
+    return "";
+  }
+
+  *out_len =
+      word1_len + word2_len + word3_len + word4_len + word5_len + (4 * separator_len);
+  char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  if (out == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+
+  char* tmp = out;
+  memcpy(tmp, word1, word1_len);
+  tmp += word1_len;
+  memcpy(tmp, separator, separator_len);
+  tmp += separator_len;
+  memcpy(tmp, word2, word2_len);
+  tmp += word2_len;
+  memcpy(tmp, separator, separator_len);
+  tmp += separator_len;
+  memcpy(tmp, word3, word3_len);
+  tmp += word3_len;
+  memcpy(tmp, separator, separator_len);
+  tmp += separator_len;
+  memcpy(tmp, word4, word4_len);
+  tmp += word4_len;
+  memcpy(tmp, separator, separator_len);
+  tmp += separator_len;
+  memcpy(tmp, word5, word5_len);
+
+  return out;
+}
 }  // extern "C"
