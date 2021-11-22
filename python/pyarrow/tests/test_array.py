@@ -736,13 +736,14 @@ def test_array_sort():
 
 def test_struct_array_sort():
     arr = pa.StructArray.from_arrays([
-        pa.array([5, 7, 35], type=pa.int64()),
-        pa.array(["foo", "bar", "foobar"])
+        pa.array([5, 7, 7, 35], type=pa.int64()),
+        pa.array(["foo", "car", "bar", "foobar"])
     ], names=["a", "b"])
 
     sorted_arr = arr.sort("descending", fieldname="a")
     assert sorted_arr.to_pylist() == [
         {"a": 35, "b": "foobar"},
+        {"a": 7, "b": "car"},
         {"a": 7, "b": "bar"},
         {"a": 5, "b": "foo"},
     ]
@@ -750,10 +751,18 @@ def test_struct_array_sort():
     sorted_arr = arr.sort("descending")
     assert sorted_arr.to_pylist() == [
         {"a": 35, "b": "foobar"},
+        {"a": 7, "b": "car"},
         {"a": 7, "b": "bar"},
         {"a": 5, "b": "foo"},
     ]
 
+    sorted_arr = arr.sort("ascending")
+    assert sorted_arr.to_pylist() == [
+        {"a": 5, "b": "foo"},
+        {"a": 7, "b": "bar"},
+        {"a": 7, "b": "car"},
+        {"a": 35, "b": "foobar"},
+    ]
 
 def test_dictionary_from_numpy():
     indices = np.repeat([0, 1, 2], 2)

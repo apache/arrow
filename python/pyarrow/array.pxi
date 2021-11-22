@@ -1194,7 +1194,7 @@ cdef class Array(_PandasConvertible):
         -------
         result : Array
         """
-        indices = _pc().array_sort_indices(self, order=order)
+        indices = _pc().sort_indices(self, sort_keys=[("", order)])
         return self.take(indices)
 
     def _to_pandas(self, options, **kwargs):
@@ -2405,9 +2405,8 @@ cdef class StructArray(Array):
         if fieldname is not None:
             tosort = self.field(fieldname)
         else:
-            # Requires a dedicated Kernel
-            raise NotImplementedError
-        indices = _pc().array_sort_indices(tosort, order=order)
+            tosort = self
+        indices = _pc().sort_indices(tosort, sort_keys=[("", order)])
         return self.take(indices)
 
 

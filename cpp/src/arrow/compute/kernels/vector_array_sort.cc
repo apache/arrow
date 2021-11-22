@@ -173,6 +173,116 @@ class ArrayCompareSorter {
 };
 
 template <typename ArrowType>
+class StructArrayCompareSorter {
+  using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
+
+ public:
+  // `offset` is used when this is called on a chunk of a chunked array
+  NullPartitionResult operator()(uint64_t* indices_begin, uint64_t* indices_end,
+                                 const Array& array, int64_t offset,
+                                 const ArraySortOptions& options) {
+    const auto& values = checked_cast<const ArrayType&>(array);
+    ArrayVector fields = values.fields();
+
+    for(auto field = fields.begin(); field != fields.end(); field++) {
+      std::shared_ptr<DataType> physical_type = GetPhysicalType((*field)->type());
+      if(MakeFieldComparator(*physical_type) != Status::OK())
+        // TODO: Improve error handling
+        return NullPartitionResult();
+      field_comparators_.push_back(current_field_comparator_);
+    }
+
+    const auto p = PartitionNulls<ArrayType, StablePartitioner>(
+        indices_begin, indices_end, values, offset, options.null_placement);
+    if (options.order == SortOrder::Ascending) {
+      std::stable_sort(
+          p.non_nulls_begin, p.non_nulls_end,
+          [&offset, &fields, this](uint64_t left, uint64_t right) {
+            for(ArrayVector::size_type fieldidx = 0; fieldidx < fields.size(); ++fieldidx) {
+              auto field = fields[fieldidx];
+              auto field_comparator = field_comparators_[fieldidx];
+              int result = field_comparator->Compare(*field, offset, left, right);
+              if(result == -1)
+                return true;
+              else if (result == 1)
+                return false;
+            }
+            return false;
+          });
+    }
+    else {
+      std::stable_sort(
+          p.non_nulls_begin, p.non_nulls_end,
+          [&offset, &fields, this](uint64_t left, uint64_t right) {        
+            for(ArrayVector::size_type fieldidx = 0; fieldidx < fields.size(); ++fieldidx) {
+              auto field = fields[fieldidx];
+              auto field_comparator = field_comparators_[fieldidx];
+              int result = field_comparator->Compare(*field, offset, right, left);
+              if(result == -1)
+                return true;
+              else if (result == 1)
+                return false;
+            }
+            return false;
+          });
+    }
+    return p;
+  }
+
+  Status MakeFieldComparator(DataType const &physical_type) {
+    RETURN_NOT_OK(VisitTypeInline(physical_type, this));
+    DCHECK_NE(current_field_comparator_, nullptr);
+    return Status::OK();
+  }
+
+#define VISIT(TYPE) \
+  Status Visit(const TYPE& type) { return VisitGeneric(type); }
+
+    VISIT_SORTABLE_PHYSICAL_TYPES(VISIT)
+
+#undef VISIT
+
+    Status Visit(const DataType& type) {
+      return Status::TypeError("Unsupported type for StructArray sorting: ",
+                               type.ToString());
+    }
+
+    template <typename Type>
+    Status VisitGeneric(const Type&) {
+      current_field_comparator_ = std::shared_ptr<FieldValueComparator>(new ConcreteFieldValueComparator<Type>());
+      return Status::OK();
+    }
+  
+  struct FieldValueComparator {
+    virtual int Compare(Array const &array, uint64_t offset, 
+                        uint64_t leftidx, uint64_t rightidx) = 0;
+    virtual ~FieldValueComparator() = default;
+  };
+
+  template <typename Type>
+  struct ConcreteFieldValueComparator : FieldValueComparator {
+    using FieldArrayType = typename TypeTraits<Type>::ArrayType;
+    using GetView = GetViewType<Type>;
+
+    virtual int Compare(Array const &array, uint64_t offset, 
+                        uint64_t leftidx, uint64_t rightidx) {
+      const FieldArrayType& values = checked_cast<const FieldArrayType&>(array);
+      auto left_value = GetView::LogicalValue(values.GetView(leftidx - offset));
+      auto right_value = GetView::LogicalValue(values.GetView(rightidx - offset));
+      if (left_value == right_value)
+        return 0;
+      else if (left_value < right_value)
+        return -1;
+      else
+        return 1;
+    }
+  };
+
+  std::shared_ptr<FieldValueComparator> current_field_comparator_;
+  std::vector<std::shared_ptr<FieldValueComparator>> field_comparators_;
+};
+
+template <typename ArrowType>
 class ArrayCountSorter {
   using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
   using c_type = typename ArrowType::c_type;
@@ -410,6 +520,11 @@ struct ArraySorter<
   ArrayCompareSorter<Type> impl;
 };
 
+template <typename Type>
+struct ArraySorter<Type, enable_if_t<is_struct_type<Type>::value>> {
+  StructArrayCompareSorter<Type> impl;
+};
+
 struct ArraySorterFactory {
   ArraySortFunc sorter;
 
@@ -503,7 +618,7 @@ const ArraySortOptions* GetDefaultArraySortOptions() {
 }
 
 template <template <typename...> class ExecTemplate>
-void AddArraySortingStructKernels(VectorKernel base, VectorFunction* func) {
+void AddArraySortingNestedKernels(VectorKernel base, VectorFunction* func) {
   base.signature = KernelSignature::Make({InputType::Array(Type::STRUCT)}, uint64());
   base.exec = ExecTemplate<UInt64Type, StructType>::Exec;
   DCHECK_OK(func->AddKernel(base));
@@ -556,7 +671,7 @@ void RegisterVectorArraySort(FunctionRegistry* registry) {
       GetDefaultArraySortOptions());
   base.init = ArraySortIndicesState::Init;
   AddArraySortingKernels<ArraySortIndices>(base, array_sort_indices.get());
-  AddArraySortingStructKernels<ArraySortIndices>(base, array_sort_indices.get());
+  AddArraySortingNestedKernels<ArraySortIndices>(base, array_sort_indices.get());
   DCHECK_OK(registry->AddFunction(std::move(array_sort_indices)));
 
   // partition_nth_indices has a parameter so needs its init function
