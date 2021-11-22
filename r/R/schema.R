@@ -129,7 +129,7 @@ Schema <- R6Class("Schema",
           field$type$code(),
           error = function(cnd) {
             abort(
-              glue::glue('Error getting code for field "{name}"'),
+              paste0('Problem getting code for field "', name, '".'),
               call = call("code"),
               parent = cnd
             )

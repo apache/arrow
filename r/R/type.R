@@ -42,7 +42,7 @@ DataType <- R6Class("DataType",
     },
     export_to_c = function(ptr) ExportType(self, ptr),
     code = function() abort(c(
-      glue::glue("Unsupported type: <{self$ToString()}>."),
+      paste0("Unsupported type: <", self$ToString(), ">."),
       i = "The arrow package currently has no function to make these."
     ), call = call("code"))
   ),
@@ -545,9 +545,20 @@ StructType <- R6Class("StructType",
   inherit = NestedType,
   public = list(
     code = function() {
-      codes <- map(set_names(StructType__field_names(self)), function(name) {
-        self$GetFieldByName(name)$type$code()
+      field_names <- StructType__field_names(self)
+      codes <- map(field_names, function(name) {
+        withCallingHandlers(
+          self$GetFieldByName(name)$type$code(),
+          error = function(cnd) {
+            abort(
+              paste0('Problem getting code for field "', name, '".'),
+              call = call("code"),
+              parent = cnd
+            )
+          }
+        )
       })
+      codes <- set_names(codes, field_names)
       call2("struct", !!!codes)
     },
     GetFieldByName = function(name) StructType__GetFieldByName(self, name),
@@ -564,7 +575,17 @@ ListType <- R6Class("ListType",
   inherit = NestedType,
   public = list(
     code = function() {
-      call2("list_of", self$value_type$code())
+      value_code <- withCallingHandlers(
+        self$value_type$code(),
+        error = function(cnd) {
+          abort(
+            "Problem getting code for list type.",
+            call = call("code"),
+            parent = cnd
+          )
+        }
+      )
+      call2("list_of", value_code)
     }
   ),
   active = list(
@@ -581,7 +602,17 @@ LargeListType <- R6Class("LargeListType",
   inherit = NestedType,
   public = list(
     code = function() {
-      call2("large_list_of", self$value_type$code())
+      value_code <- withCallingHandlers(
+        self$value_type$code(),
+        error = function(cnd) {
+          abort(
+            "Problem getting code for large list type.",
+            call = call("code"),
+            parent = cnd
+          )
+        }
+      )
+      call2("large_list_of", value_code)
     }
   ),
   active = list(
@@ -600,7 +631,17 @@ FixedSizeListType <- R6Class("FixedSizeListType",
   inherit = NestedType,
   public = list(
     code = function() {
-      call2("fixed_size_list_of", self$value_type$code(), list_size = self$list_size)
+      value_code <- withCallingHandlers(
+        self$value_type$code(),
+        error = function(cnd) {
+          abort(
+            "Problem getting code for fixed size list type.",
+            call = call("code"),
+            parent = cnd
+          )
+        }
+      )
+      call2("fixed_size_list_of", value_code, list_size = self$list_size)
     }
   ),
   active = list(
