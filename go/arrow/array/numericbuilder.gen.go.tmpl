@@ -20,7 +20,8 @@ import (
 	"github.com/apache/arrow/go/v7/arrow"
 	"github.com/apache/arrow/go/v7/arrow/bitutil"
 	"github.com/apache/arrow/go/v7/arrow/internal/debug"
-	"github.com/apache/arrow/go/v7/arrow/memory"
+	"github.com/apache/arrow/go/v7/arrow/memory"	
+	"github.com/goccy/go-json"
 )
 
 {{range .In}}
@@ -172,6 +173,144 @@ func (b *{{.Name}}Builder) newData() (data *Data) {
 	}
 
 	return
+}
+
+func (b *{{.Name}}Builder) unmarshalOne(dec *json.Decoder) error {
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	switch v := t.(type) {
+	case nil:
+		b.AppendNull()
+{{if or (eq .Name "Date32") (eq .Name "Date64") -}}
+	case string:
+		tm, err := time.Parse("2006-01-02", v)
+		if err != nil {
+			return &json.UnmarshalTypeError{
+				Value: v,
+				Type: reflect.TypeOf({{.QualifiedType}}(0)),
+				Offset: dec.InputOffset(),
+			}
+		}
+
+		b.Append({{.QualifiedType}}FromTime(tm))
+{{else if or (eq .Name "Time32") (eq .Name "Time64") (eq .Name "Timestamp") -}}
+	case string:
+		tm, err := {{.QualifiedType}}FromString(v, b.dtype.Unit)
+		if err != nil {
+			return &json.UnmarshalTypeError{
+				Value: v,
+				Type: reflect.TypeOf({{.QualifiedType}}(0)),
+				Offset: dec.InputOffset(),
+			}
+		}
+
+		b.Append(tm)
+{{else if eq .Name "Duration" -}}
+	case string:
+		// be flexible for specifying durations by accepting forms like
+		// 3h2m0.5s regardless of the unit and converting it to the proper
+		// precision.
+		val, err := time.ParseDuration(v)
+		if err != nil {
+			// if we got an error, maybe it was because the attempt to create
+			// a time.Duration (int64) in nanoseconds would overflow. check if
+			// the string is just a large number followed by the unit suffix
+			if strings.HasSuffix(v, b.dtype.Unit.String()) {
+				value, err := strconv.ParseInt(v[:len(v)-len(b.dtype.Unit.String())], 10, 64)
+				if err == nil {
+					b.Append(arrow.Duration(value))
+					break
+				}
+			}
+		
+			return &json.UnmarshalTypeError{
+				Value: v,
+				Type: reflect.TypeOf({{.QualifiedType}}(0)),
+				Offset: dec.InputOffset(),
+			}
+		}
+
+		switch b.dtype.Unit {
+		case arrow.Nanosecond:
+			b.Append({{.QualifiedType}}(val.Nanoseconds()))
+		case arrow.Microsecond:
+			b.Append({{.QualifiedType}}(val.Microseconds()))
+		case arrow.Millisecond:
+			b.Append({{.QualifiedType}}(val.Milliseconds()))
+		case arrow.Second:
+			b.Append({{.QualifiedType}}(val.Seconds()))
+		}
+{{else}}
+	case string:
+{{if or (eq .Name "Float32") (eq .Name "Float64") -}}
+		f, err := strconv.ParseFloat(v, {{.Size}}*8)
+{{else if eq (printf "%.1s" .Name) "U" -}}
+		f, err := strconv.ParseUint(v, 10, {{.Size}}*8)
+{{else -}}
+		f, err := strconv.ParseInt(v, 10, {{.Size}}*8)
+{{end -}}
+		if err != nil {
+			return &json.UnmarshalTypeError{
+				Value: v,
+				Type: reflect.TypeOf({{.name}}(0)),
+				Offset: dec.InputOffset(),
+			}
+		}
+		b.Append({{.name}}(f))
+	case float64:
+		b.Append({{.name}}(v))
+	case json.Number:
+{{if or (eq .Name "Float32") (eq .Name "Float64") -}}
+		f, err := strconv.ParseFloat(v.String(), {{.Size}}*8)
+{{else if eq (printf "%.1s" .Name) "U" -}}
+		f, err := strconv.ParseUint(v.String(), 10, {{.Size}}*8)
+{{else -}}
+		f, err := strconv.ParseInt(v.String(), 10, {{.Size}}*8)
+{{end -}}
+		if err != nil {
+			return &json.UnmarshalTypeError{
+				Value: v.String(),
+				Type: reflect.TypeOf({{.name}}(0)),
+				Offset: dec.InputOffset(),
+			}
+		}
+		b.Append({{.name}}(f))
+{{end}}
+	default:
+		return &json.UnmarshalTypeError{
+			Value: fmt.Sprint(t),
+			Type: reflect.TypeOf({{or .QualifiedType .Type}}(0)),
+			Offset: dec.InputOffset(),
+		}
+	}
+
+	return nil
+}
+
+func (b *{{.Name}}Builder) unmarshal(dec *json.Decoder) error {
+	for dec.More() {
+		if err := b.unmarshalOne(dec); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (b *{{.Name}}Builder) UnmarshalJSON(data []byte) error {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	if delim, ok := t.(json.Delim); !ok || delim != '[' {
+		return fmt.Errorf("binary builder must unpack from json array, found %s", delim)
+	}
+
+	return b.unmarshal(dec)
 }
 {{end}}
 

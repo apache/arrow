@@ -874,27 +874,25 @@ const FunctionDoc min_or_max_doc{
     {"array"},
     "ScalarAggregateOptions"};
 
-const FunctionDoc any_doc{"Test whether any element in a boolean array evaluates to true",
-                          ("Null values are ignored by default.\n"
-                           "If null values are taken into account by setting "
-                           "ScalarAggregateOptions parameter skip_nulls = false then "
-                           "Kleene logic is used.\n"
-                           "See KleeneOr for more details on Kleene logic."),
-                          {"array"},
-                          "ScalarAggregateOptions"};
+const FunctionDoc any_doc{
+    "Test whether any element in a boolean array evaluates to true",
+    ("Null values are ignored by default.\n"
+     "If the `skip_nulls` option is set to false, then Kleene logic is used.\n"
+     "See \"kleene_or\" for more details on Kleene logic."),
+    {"array"},
+    "ScalarAggregateOptions"};
 
-const FunctionDoc all_doc{"Test whether all elements in a boolean array evaluate to true",
-                          ("Null values are ignored by default.\n"
-                           "If null values are taken into account by setting "
-                           "ScalarAggregateOptions parameter skip_nulls = false then "
-                           "Kleene logic is used.\n"
-                           "See KleeneAnd for more details on Kleene logic."),
-                          {"array"},
-                          "ScalarAggregateOptions"};
+const FunctionDoc all_doc{
+    "Test whether all elements in a boolean array evaluate to true",
+    ("Null values are ignored by default.\n"
+     "If the `skip_nulls` option is set to false, then Kleene logic is used.\n"
+     "See \"kleene_and\" for more details on Kleene logic."),
+    {"array"},
+    "ScalarAggregateOptions"};
 
 const FunctionDoc index_doc{"Find the index of the first occurrence of a given value",
-                            ("The result is always computed as an int64_t, regardless\n"
-                             "of the offset type of the input array."),
+                            ("-1 is returned if the value is not found in the array.\n"
+                             "The search value is specified in IndexOptions."),
                             {"array"},
                             "IndexOptions"};
 

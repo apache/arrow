@@ -731,20 +731,16 @@ class Converter_Struct : public Converter {
 
   SEXP Allocate(R_xlen_t n) const {
     // allocate a data frame column to host each array
+    // If possible, a column is dealt with directly with altrep
     auto type =
         checked_cast<const arrow::StructType*>(this->chunked_array_->type().get());
-    auto out = arrow::r::to_r_list(
-        converters, [n, this](const std::shared_ptr<Converter>& converter) {
-          // when there is only one chunk, perhaps this field
-          // can be dealt with upfront with altrep
-          if (this->chunked_array_->num_chunks() == 1) {
-            SEXP alt = converter->MaybeAltrep();
-            if (!Rf_isNull(alt)) {
-              return alt;
-            }
+    auto out =
+        arrow::r::to_r_list(converters, [n](const std::shared_ptr<Converter>& converter) {
+          SEXP out = converter->MaybeAltrep();
+          if (Rf_isNull(out)) {
+            out = converter->Allocate(n);
           }
-
-          return converter->Allocate(n);
+          return out;
         });
     auto colnames = arrow::r::to_r_strings(
         type->fields(),
@@ -762,7 +758,7 @@ class Converter_Struct : public Converter {
       SEXP data_i = VECTOR_ELT(data, i);
 
       // only ingest if the column is not altrep
-      if (!is_altrep(data_i)) {
+      if (!altrep::is_arrow_altrep(data_i)) {
         StopIfNotOk(converters[i]->Ingest_all_nulls(data_i, start, n));
       }
     }
@@ -779,7 +775,7 @@ class Converter_Struct : public Converter {
       SEXP data_i = VECTOR_ELT(data, i);
 
       // only ingest if the column is not altrep
-      if (!is_altrep(data_i)) {
+      if (!altrep::is_arrow_altrep(data_i)) {
         StopIfNotOk(converters[i]->Ingest_some_nulls(VECTOR_ELT(data, i), arrays[i],
                                                      start, n, chunk_index));
       }
@@ -799,8 +795,6 @@ class Converter_Struct : public Converter {
 
  private:
   std::vector<std::shared_ptr<Converter>> converters;
-
-  bool is_altrep(SEXP x) const { return ALTREP(x); }
 };
 
 double ms_to_seconds(int64_t ms) { return static_cast<double>(ms) / 1000; }
