@@ -792,6 +792,10 @@ FixedSizeBinary__initialize <- function(byte_width) {
   .Call(`_arrow_FixedSizeBinary__initialize`, byte_width)
 }
 
+FixedSizeBinary__byte_width <- function(type) {
+  .Call(`_arrow_FixedSizeBinary__byte_width`, type)
+}
+
 Timestamp__initialize <- function(unit, timezone) {
   .Call(`_arrow_Timestamp__initialize`, unit, timezone)
 }

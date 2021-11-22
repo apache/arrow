@@ -203,6 +203,11 @@ std::shared_ptr<arrow::DataType> FixedSizeBinary__initialize(R_xlen_t byte_width
 }
 
 // [[arrow::export]]
+int FixedSizeBinary__byte_width(const std::shared_ptr<arrow::FixedSizeBinaryType>& type) {
+  return type->byte_width();
+}
+
+// [[arrow::export]]
 std::shared_ptr<arrow::DataType> Timestamp__initialize(arrow::TimeUnit::type unit,
                                                        const std::string& timezone) {
   return arrow::timestamp(unit, timezone);

@@ -113,10 +113,31 @@ Float16 <- R6Class("Float16", inherit = FixedWidthType)
 Float32 <- R6Class("Float32", inherit = FixedWidthType)
 Float64 <- R6Class("Float64", inherit = FixedWidthType)
 Boolean <- R6Class("Boolean", inherit = FixedWidthType)
-Utf8 <- R6Class("Utf8", inherit = DataType)
-LargeUtf8 <- R6Class("LargeUtf8", inherit = DataType)
-Binary <- R6Class("Binary", inherit = DataType)
-FixedSizeBinary <- R6Class("FixedSizeBinary", inherit = FixedWidthType)
+Utf8 <- R6Class("Utf8",
+  inherit = DataType,
+  public = list(
+    code = function() call("utf8")
+  )
+)
+LargeUtf8 <- R6Class("LargeUtf8",
+  inherit = DataType,
+  public = list(
+    code = function() call("large_utf8")
+  )
+)
+Binary <- R6Class("Binary",
+  inherit = DataType,
+  public = list(
+    code = function() call("binary")
+  )
+)
+FixedSizeBinary <- R6Class("FixedSizeBinary",
+  inherit = FixedWidthType,
+  public = list(
+    byte_width = function() FixedSizeBinary__byte_width(self),
+    code = function() call2("fixed_size_binary", byte_width = self$byte_width())
+  )
+)
 LargeBinary <- R6Class("LargeBinary", inherit = DataType)
 
 DateType <- R6Class("DateType",
