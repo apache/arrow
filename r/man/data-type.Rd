@@ -110,9 +110,12 @@ take any of those four values.}
 
 \item{timezone}{For \code{timestamp()}, an optional time zone string.}
 
-\item{precision}{For \code{decimal()}, precision}
+\item{precision}{For \code{decimal()}, precision. The number of significant digits
+the the arrow \code{decimal} type can represent. Currently \code{decimal()} is mapped
+to \code{DecimalType128}, having a maximum precision of 38 significant digits.}
 
-\item{scale}{For \code{decimal()}, scale}
+\item{scale}{For \code{decimal()}, scale. The number of digits after the decimal
+point. It can be negative.}
 
 \item{...}{For \code{struct()}, a named list of types to define the struct columns}
 

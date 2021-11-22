@@ -187,8 +187,11 @@ NestedType <- R6Class("NestedType", inherit = DataType)
 #' @param timezone For `timestamp()`, an optional time zone string.
 #' @param byte_width byte width for `FixedSizeBinary` type.
 #' @param list_size list size for `FixedSizeList` type.
-#' @param precision For `decimal()`, precision
-#' @param scale For `decimal()`, scale
+#' @param precision For `decimal()`, precision. The number of significant digits
+#'    the the arrow `decimal` type can represent. Currently `decimal()` is mapped
+#'    to `DecimalType128`, having a maximum precision of 38 significant digits.
+#' @param scale For `decimal()`, scale. The number of digits after the decimal
+#'    point. It can be negative.
 #' @param type For `list_of()`, a data type to make a list-of-type
 #' @param ... For `struct()`, a named list of types to define the struct columns
 #'
@@ -359,6 +362,12 @@ decimal <- function(precision, scale) {
     precision <- as.integer(precision)
   } else {
     stop('"precision" must be an integer', call. = FALSE)
+  }
+  if (precision > 38) {
+    stop('"precision" must be lower than or equal to 38', call. = FALSE)
+  }
+  if (precision < 1) {
+    stop('"precision" must be greater than 0', call. = FALSE)
   }
   if (is.numeric(scale)) {
     scale <- as.integer(scale)
