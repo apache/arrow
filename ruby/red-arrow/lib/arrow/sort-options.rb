@@ -78,20 +78,20 @@ module Arrow
     #     options.add_sort_key(Arrow::SortKey.new(:price, :descending))
     #     options.sort_keys.collect(&:to_s) # => ["-price"]
     #
-    # @overload add_sort_key(name)
+    # @overload add_sort_key(target)
     #
-    #   @param name [Symbol, String] The sort key name to be
-    #     added. See also {Arrow::SortKey#initialize} for the leading
-    #     order mark for String name.
+    #   @param target [Symbol, String] The sort key name or dot path
+    #     to be added. See also {Arrow::SortKey#initialize} for the
+    #     leading order mark for `String` target.
     #
     #   @example Add a key to sort by "price" column in descending order
     #     options = Arrow::SortOptions.new
     #     options.add_sort_key("-price")
     #     options.sort_keys.collect(&:to_s) # => ["-price"]
     #
-    # @overload add_sort_key(name, order)
+    # @overload add_sort_key(target, order)
     #
-    #   @param name [Symbol, String] The sort key name.
+    #   @param target [Symbol, String] The sort key name or dot path.
     #
     #   @param order [Symbol, String, Arrow::SortOrder] The sort
     #     order. See {Arrow::SortKey#initialize} for details.
@@ -102,8 +102,8 @@ module Arrow
     #     options.sort_keys.collect(&:to_s) # => ["-price"]
     #
     # @since 4.0.0
-    def add_sort_key(name, order=nil)
-      add_sort_key_raw(SortKey.resolve(name, order))
+    def add_sort_key(target, order=nil)
+      add_sort_key_raw(SortKey.resolve(target, order))
     end
   end
 end
