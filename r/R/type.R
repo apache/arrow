@@ -111,7 +111,12 @@ UInt32 <- R6Class("UInt32", inherit = FixedWidthType)
 UInt64 <- R6Class("UInt64", inherit = FixedWidthType)
 Float16 <- R6Class("Float16", inherit = FixedWidthType)
 Float32 <- R6Class("Float32", inherit = FixedWidthType)
-Float64 <- R6Class("Float64", inherit = FixedWidthType)
+Float64 <- R6Class("Float64",
+  inherit = FixedWidthType,
+  public = list(
+    code = function() call("float64")
+  )
+)
 Boolean <- R6Class("Boolean", inherit = FixedWidthType)
 Utf8 <- R6Class("Utf8",
   inherit = DataType,
@@ -131,6 +136,11 @@ Binary <- R6Class("Binary",
     code = function() call("binary")
   )
 )
+LargeBinary <- R6Class("LargeBinary",
+  inherit = DataType, public = list(
+    code = function() call("large_binary")
+  )
+)
 FixedSizeBinary <- R6Class("FixedSizeBinary",
   inherit = FixedWidthType,
   public = list(
@@ -138,7 +148,6 @@ FixedSizeBinary <- R6Class("FixedSizeBinary",
     code = function() call2("fixed_size_binary", byte_width = self$byte_width())
   )
 )
-LargeBinary <- R6Class("LargeBinary", inherit = DataType)
 
 DateType <- R6Class("DateType",
   inherit = FixedWidthType,
@@ -593,7 +602,7 @@ FixedSizeListType <- R6Class("FixedSizeListType",
   inherit = NestedType,
   public = list(
     code = function() {
-      call2("fixed_size_list_of", self$value_type$code(), list_size = self$list_size())
+      call2("fixed_size_list_of", self$value_type$code(), list_size = self$list_size)
     }
   ),
   active = list(
