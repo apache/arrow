@@ -418,7 +418,6 @@ Some features are optional when you build Arrow from source. With the exception 
 * `ARROW_JSON` for the JSON parsing library
 * `ARROW_WITH_RE2` for the RE2 regular expression library, used in some string compute functions
 * `ARROW_WITH_UTF8PROC` for the UTF8Proc string library, used in many other string compute functions
-* `ARROW_JSON` for JSON parsing
 * `ARROW_WITH_BROTLI`, `ARROW_WITH_BZ2`, `ARROW_WITH_LZ4`, `ARROW_WITH_SNAPPY`, `ARROW_WITH_ZLIB`, and `ARROW_WITH_ZSTD` for various compression algorithms
 
 
