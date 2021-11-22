@@ -25,20 +25,19 @@ This guide is meant to be a resource for contributing to
 `Arrow <https://arrow.apache.org//>`_ for new contributors.
 
 Starting to contribute to a project like Apache Arrow can look
-scary if not completely impossible. But we can reassure you it is
-not. What we have to do is to take small steps.
+scary. Taking small steps will help making this tack easier.
 
 
 Why contribute to Arrow?
 ========================
 There can be various reasons why someone would want to contribute
-to Arrow and all of them are valid!
+to Arrow:
 
-* You find the project interesting and would like to give it a go,
-  learn and grow.
+* You find the project interesting and would like to try making
+  a contribution to learn more about the library and grow your skills.
 
-* You use Arrow in the project you are working on and it would be
-  great to make some quick fixes by yourself
+* You use Arrow in the project you are working on and you would like
+  to make a new feature or fix a bug yourself.
 
 Read more about the project in the :ref:`about_arrow` section.
 
@@ -48,8 +47,8 @@ Quick Reference
 Here are the basic steps needed to get set up and contribute to Arrow.
 This is meant as a checklist and also to have an overall picture.
 
-For complete instructions please follow :ref:`step_by_step` - a
-step-by-step guide or R and Python :ref:`tutorial-index` for an example
+For complete instructions please follow :ref:`step_by_step` (a
+step-by-step guide) or R and Python :ref:`tutorial-index` for an example
 of adding a basic feature.
 
 
@@ -58,7 +57,7 @@ of adding a basic feature.
    See detailed instructions on how to :ref:`set-up` Git and fork the
    Arrow repository.
 
-#. **Building Arrow**
+#. **Build Arrow**
 
    This can be quite easy or a real blocker. Be prepared to dig through the
    additional flags for cmake in the C++ build guide and read the doc carefully
@@ -83,23 +82,22 @@ of adding a basic feature.
 
 #. **Find an issue, create a new branch and work on the problem**
 
-   **FInding an issue**
+   **Finding an issue**
 
    Not so easy, we agree.
    Read through the :ref:`finding-issues` section to get some ideas.
 
    **Finding your way through the project**
 
-   You have an issue, you build Arrow and now you are completely lost. We get you.
-   It is a complicated project and the first step is the hardest. We wrote some
-   help guides that we used when we started. You will see that at the end it will
-   all look much simpler as it did at the start.
+   The first step when starting a new project is the hardest. We wrote some
+   help guides that we used when we were looking for solutions and we hope
+   they will help.
 
    Read through :ref:`solving` section.
 
    **Communication**
 
-   Communication is very important. You may ned some help solving the problem
+   Communication is very important. You may need some help solving the problem
    (happening to developers all the time). Also, when you have an issue you want
    to solve it is advisable to let the team know you are working on it and may
    need some help.

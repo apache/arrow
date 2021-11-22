@@ -21,57 +21,87 @@
 Communication 
 *************
 
-**About the team**
+**About the contributors**
 
-The team is full of experts, software engineers and core developers
-but also full of users, learners and enthusiasts that love doing what we
-do and we want to spread this enthusiasm to you also.
+The group of contributors is full of experts, software engineers and core
+developers but also full of users, learners and enthusiasts that love doing
+what we do and we want to spread this enthusiasm to you also.
 
 We all have silly questions and we all need help lots of times.
 We encourage you to be open to communication and we will help as much as
 we can.
 
+Due to the scale of the project which includes many languages, everybody
+contributing will be faced with new things needed to be learned. Even the most
+seasoned C++ developer will need to ask basic questions about R for example.
+
+When communicating, it's important you mark your communication with appropriate
+tags ([C++], [R], [Ruby] etc.) so it gets noticed by the right people.
+
 Where to get help 👋
 ====================
 
-Jira
-~~~~~~~~
+JIRA
+~~~~
 
-Thhe most used way is to communicate through Jira.
-When to use this option?
+The most used way is to communicate through JIRA.
 
-- **Want to solve a bug** → post an issue on Jira and connect with the team
-  in the comments.
-- **Want to solve an issue that is already in Jira** → connect with the team
-  in the comments.
+When to use JIRA?
 
-Jira is used to discuss the problem before the PR is made (how to start,
-where to search for the solution, etc..).
+- If you want to **report a bug**.
+- If you want to **propose a new feature**.
+- If you want to **propose a bigger change in the documentation**.
+
+In these cases you can create a JIRA issue and connect
+with other contributors in the comments.
 
 .. note::
-   How to make a Jira ticket. See `Tips for using JIRA <https://arrow.apache.org/docs/developers/contributing.html#tips-for-using-jira/>`_.
+   How to make a JIRA issue. See `Tips for using JIRA <https://arrow.apache.org/docs/developers/contributing.html#tips-for-using-jira/>`_.
 
-Github
+- If you want to **solve an issue that is already in JIRA**, you should
+  connect with other contributors in the comments.
+
+JIRA is used to discuss the problem before the pull request is made (how to start,
+where to search for the solution, etc..).
+
+GitHub
 ~~~~~~
 
-- Github is used to discuss the **content of the PR**.
-- **You have a problem with the build** → you can make an issue on GitHub
+Further options of communicating are provided through GitHub.
+
+When to use GitHub?
+
+- **For any question you may have or problems you are facing, you can make an issue on GutHub.**
+- If you have **a problem with the build**, you can make an issue on GitHub
   and discuss the possible solution (or write to the user mailing list).
 
-  It is scary to make an issue for something that you have no clue about.
-  But no problem, we all have to go through that!
+  Making an issue about things you are not sure about may feel intimidating,
+  but it is also useful for others and the project.
 
   .. warning::
-     Make sure to add the version of the operating system and the software
-     you are using in the ticket description plus the debug information/error.
+     Make sure to add which operating system and Arrow version you are using in the
+     ticket description plus the debug information/error.
+
+- If you have **a new feature already written**, you should make a pull request and
+  write in the comment about the feature you are proposing.
+- GitHub is also used to discuss your work after the **pull request** is made.
 
 Mailing List
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-You can subscribe to the user or development mailing list and browse for
-previous topics or ask a question. There is also a biweekly developers sync
-call that anyone is welcome to join. It is held every second Wednesday at
-12:00 noon Eastern time. Link to the meeting is sent to the dev mailing list.
+You can subscribe to the **user** or **development** mailing list and browse for
+previous topics or ask questions. Whereas discussion on GitHub and JIRA
+only notifies people who have subscribed to that particular pull request or ticket,
+the mailing list allows you to broadcast to all users or developers. Use these when
+you want to get feedback or answers from a wider audience.
+
+There is also a **biweekly developers sync call** that anyone is welcome to join.
+It is announced on the development mailing list together with the link to join.
 
 .. note::
-   Link to subscribe and find more info: https://arrow.apache.org/community/.
+  Link to subscribe to the mailing lists and find more info `can be found here <https://arrow.apache.org/community/>`_.
+
+Recommended learning resources
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+To find articles on concepts important to Arrow as well as recommended books for learning languages visit :ref:`other`.
