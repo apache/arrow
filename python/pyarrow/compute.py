@@ -254,6 +254,10 @@ def _make_global_functions():
     for cpp_name in reg.list_functions():
         name = rewrites.get(cpp_name, cpp_name)
         func = reg.get_function(cpp_name)
+        if func.kind == "hash_aggregate":
+            # Hash aggregate functions are not callable,
+            # so let's not expose them at module level.
+            continue
         assert name not in g, name
         g[cpp_name] = g[name] = _wrap_function(name, func)
 
