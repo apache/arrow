@@ -34,7 +34,7 @@ pushd ${vcpkg_destination}
 
 git checkout ${vcpkg_version}
 ./bootstrap-vcpkg.sh -useSystemBinaries -disableMetrics
-git apply --ignore-whitespace ${vcpkg_patch}
+git apply --verbose --ignore-whitespace ${vcpkg_patch}
 echo "Patch successfully applied!"
 
 popd

@@ -40,7 +40,7 @@ RUN git clone https://github.com/Microsoft/vcpkg && \
 COPY ci/vcpkg/*.patch \
      ci/vcpkg/*windows*.cmake \
      arrow/ci/vcpkg/
-RUN cd vcpkg && git apply --ignore-whitespace C:/arrow/ci/vcpkg/ports.patch
+RUN cd vcpkg && git apply --verbose --ignore-whitespace C:/arrow/ci/vcpkg/ports.patch
 
 # Configure vcpkg and install dependencies
 # NOTE: use windows batch environment notation for build arguments in RUN
