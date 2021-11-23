@@ -676,6 +676,38 @@ test_that("structs/nested data frames/tibbles can be created", {
     df
   )
 
+  # check with fix.empty.names = FALSE
+  compare_dplyr_binding(
+    .input %>%
+      transmute(
+        df_col = data.frame(regular_col1, fix.empty.names = FALSE)
+      ) %>%
+      collect() %>%
+      mutate(df_col = as.data.frame(df_col)),
+    df
+  )
+
+  # check with check.names = TRUE and FALSE
+  compare_dplyr_binding(
+    .input %>%
+      transmute(
+        df_col = data.frame(regular_col1, regular_col1, check.names = TRUE)
+      ) %>%
+      collect() %>%
+      mutate(df_col = as.data.frame(df_col)),
+    df
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      transmute(
+        df_col = data.frame(regular_col1, regular_col1, check.names = FALSE)
+      ) %>%
+      collect() %>%
+      mutate(df_col = as.data.frame(df_col)),
+    df
+  )
+
   # ...and that other arguments are not supported
   expect_warning(
     record_batch(char_col = "a") %>%
@@ -686,24 +718,12 @@ test_that("structs/nested data frames/tibbles can be created", {
   expect_warning(
     record_batch(char_col = "a") %>%
       mutate(df_col = data.frame(char_col, row.names = 1L)),
-    "row.names not supported in Arrow"
+    "`row.names` will be ignored"
   )
 
   expect_warning(
     record_batch(char_col = "a") %>%
       mutate(df_col = data.frame(char_col, check.rows = TRUE)),
-    "check.rows not supported in Arrow"
-  )
-
-  expect_warning(
-    record_batch(char_col = "a") %>%
-      mutate(df_col = data.frame(char_col, check.names = 1L)),
-    "check.names not supported in Arrow"
-  )
-
-  expect_warning(
-    record_batch(char_col = "a") %>%
-      mutate(df_col = data.frame(char_col, fix.empty.names = 1L)),
-    "fix.empty.names not supported in Arrow"
+    "`check.rows` will be ignored"
   )
 })

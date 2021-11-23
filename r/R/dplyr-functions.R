@@ -257,7 +257,11 @@ nse_funcs$tibble <- function(..., .rows = NULL, .name_repair = NULL) {
 
   # use dots_list() because this is what tibble() uses to allow the
   # useful shorthand of tibble(col1, col2) -> tibble(col1 = col1, col2 = col2)
-  args <- rlang::dots_list(..., .named = TRUE)
+  # we have a stronger enforcement of unique names for arguments because
+  # it is difficult to replicate the .name_repair semantics and expanding of
+  # unnamed data frame arguments in the same way that the tibble() constructor
+  # does.
+  args <- rlang::dots_list(..., .named = TRUE, .homonyms = "error")
 
   build_expr(
     "make_struct",
@@ -267,7 +271,7 @@ nse_funcs$tibble <- function(..., .rows = NULL, .name_repair = NULL) {
 }
 
 nse_funcs$data.frame <- function(..., row.names = NULL,
-                                 check.rows = NULL, check.names = NULL, fix.empty.names = NULL,
+                                 check.rows = NULL, check.names = NULL, fix.empty.names = TRUE,
                                  stringsAsFactors = FALSE) {
   # we need a specific value of stringsAsFactors because the default was
   # TRUE in R <= 3.6
@@ -275,12 +279,21 @@ nse_funcs$data.frame <- function(..., row.names = NULL,
     arrow_not_supported("stringsAsFactors = TRUE")
   }
 
-  if (!is.null(row.names)) arrow_not_supported("row.names")
-  if (!is.null(check.rows)) arrow_not_supported("check.rows")
-  if (!is.null(check.names)) arrow_not_supported("check.names")
-  if (!is.null(fix.empty.names)) arrow_not_supported("fix.empty.names")
+  # ignore row.names and check.rows with a warning
+  if (!is.null(row.names)) warning("Argument `row.names` will be ignored", call. = FALSE)
+  if (!is.null(check.rows)) warning("Argument `check.rows` will be ignored", call. = FALSE)
 
-  nse_funcs$tibble(...)
+  args <- rlang::dots_list(..., .named = fix.empty.names)
+
+  if (identical(check.names, TRUE)) {
+    names(args) <- make.names(names(args), unique = TRUE)
+  }
+
+  build_expr(
+    "make_struct",
+    args = unname(args),
+    options = list(field_names = names(args))
+  )
 }
 
 # String functions
