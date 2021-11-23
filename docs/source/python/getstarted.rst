@@ -95,12 +95,6 @@ Saving and loading back data in arrow is usually done through
 :ref:`Parquet <parquet>`, :ref:`IPC format <ipc>` (:ref:`feather`), 
 :ref:`CSV <csv>` or :ref:`Line-Delimited JSON <json>` formats.
 
-.. note::
-    The above example uses a *relative* file path. This means that the file
-    `birthdays.parquet` will be created in the current working directory
-    of the Python session. All IO functions also accept *absolute* file
-    paths (fully specified paths).
-
 Performing Computations
 -----------------------
 
