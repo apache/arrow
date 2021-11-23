@@ -805,26 +805,26 @@ TEST(TestGdvFnStubs, TestMaskFirstN) {
   int32_t out_len = 0;
 
   std::string data = "a〜Çç&";
-  int32_t data_len = data.length();
+  auto data_len = static_cast<int32_t>(data.length());
   std::string expected = "x〜Xx&";
   const char* result =
       gdv_mask_first_n_utf8_int32(ctx_ptr, data.c_str(), data_len, 4, &out_len);
   EXPECT_EQ(expected, std::string(result, out_len));
 
   data = "a6Ççé";
-  data_len = data.length();
+  data_len = static_cast<int32_t>(data.length());
   expected = "xnXxé";
   result = gdv_mask_first_n_utf8_int32(ctx_ptr, data.c_str(), data_len, 4, &out_len);
   EXPECT_EQ(expected, std::string(result, out_len));
 
   data = "0123456789";
-  data_len = 10;
+  data_len = static_cast<int32_t>(data.length());
   expected = "nnnnnnnnnn";
   result = gdv_mask_first_n_utf8_int32(ctx_ptr, data.c_str(), data_len, 10, &out_len);
   EXPECT_EQ(expected, std::string(result, out_len));
 
   data = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-  data_len = 26;
+  data_len = static_cast<int32_t>(data.length());
   expected = "XXXXXXXXXXXXXXXXXXXXXXXXXX";
   result = gdv_mask_first_n_utf8_int32(ctx_ptr, data.c_str(), data_len, 26, &out_len);
   EXPECT_EQ(expected, std::string(result, out_len));
@@ -835,7 +835,7 @@ TEST(TestGdvFnStubs, TestMaskFirstN) {
   EXPECT_EQ(expected, std::string(result, out_len));
 
   data = "aB-6";
-  data_len = 4;
+  data_len = static_cast<int32_t>(data.length());
   expected = "xX-6";
   result = gdv_mask_first_n_utf8_int32(ctx_ptr, data.c_str(), data_len, 3, &out_len);
   EXPECT_EQ(expected, std::string(result, out_len));
@@ -852,7 +852,7 @@ TEST(TestGdvFnStubs, TestMaskFirstN) {
   EXPECT_EQ(expected, std::string(result, out_len));
 
   data = "ABcd-123456";
-  data_len = 11;
+  data_len = static_cast<int32_t>(data.length());
   expected = "XXxx-n23456";
   result = gdv_mask_first_n_utf8_int32(ctx_ptr, data.c_str(), data_len, 6, &out_len);
   EXPECT_EQ(expected, std::string(result, out_len));
@@ -870,26 +870,26 @@ TEST(TestGdvFnStubs, TestMaskLastN) {
   int32_t out_len = 0;
 
   std::string data = "a〜Çç&";
-  int32_t data_len = data.length();
+  int32_t data_len = static_cast<int32_t>(data.length());
   std::string expected = "a〜Xx&";
   const char* result =
       gdv_mask_last_n_utf8_int32(ctx_ptr, data.c_str(), data_len, 4, &out_len);
   EXPECT_EQ(expected, std::string(result, out_len));
 
   data = "abÇçé";
-  data_len = data.length();
+  data_len = static_cast<int32_t>(data.length());
   expected = "axXxx";
   result = gdv_mask_last_n_utf8_int32(ctx_ptr, data.c_str(), data_len, 4, &out_len);
   EXPECT_EQ(expected, std::string(result, out_len));
 
   data = "0123456789";
-  data_len = 10;
+  data_len = static_cast<int32_t>(data.length());
   expected = "nnnnnnnnnn";
   result = gdv_mask_last_n_utf8_int32(ctx_ptr, data.c_str(), data_len, 10, &out_len);
   EXPECT_EQ(expected, std::string(result, out_len));
 
   data = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-  data_len = 26;
+  data_len = static_cast<int32_t>(data.length());
   expected = "XXXXXXXXXXXXXXXXXXXXXXXXXX";
   result = gdv_mask_last_n_utf8_int32(ctx_ptr, data.c_str(), data_len, 26, &out_len);
   EXPECT_EQ(expected, std::string(result, out_len));
@@ -900,7 +900,7 @@ TEST(TestGdvFnStubs, TestMaskLastN) {
   EXPECT_EQ(expected, std::string(result, out_len));
 
   data = "aB-6";
-  data_len = 4;
+  data_len = static_cast<int32_t>(data.length());
   expected = "aX-n";
   result = gdv_mask_last_n_utf8_int32(ctx_ptr, data.c_str(), data_len, 3, &out_len);
   EXPECT_EQ(expected, std::string(result, out_len));
@@ -917,7 +917,7 @@ TEST(TestGdvFnStubs, TestMaskLastN) {
   EXPECT_EQ(expected, std::string(result, out_len));
 
   data = "ABcd-123456";
-  data_len = data.length();
+  data_len = static_cast<int32_t>(data.length());
   expected = "ABcd-nnnnnn";
   result = gdv_mask_last_n_utf8_int32(ctx_ptr, data.c_str(), data_len, 6, &out_len);
   EXPECT_EQ(expected, std::string(result, out_len));
