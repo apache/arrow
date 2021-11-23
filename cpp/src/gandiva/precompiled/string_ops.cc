@@ -2344,4 +2344,125 @@ const char* concat_ws_utf8_utf8_utf8_utf8_utf8(int64_t context, const char* sepa
 
   return out;
 }
+
+FORCE_INLINE
+const char* elt_int32_utf8_utf8(int32_t pos, bool pos_validity, const char* word1,
+                                int32_t word1_len, bool in1_validity, const char* word2,
+                                int32_t word2_len, bool in2_validity, bool* out_valid,
+                                int32_t* out_len) {
+  *out_valid = true;
+
+  switch (pos) {
+    case 1:
+      *out_len = word1_len;
+      return word1;
+      break;
+    case 2:
+      *out_len = word2_len;
+      return word2;
+      break;
+    default:
+      *out_len = 0;
+      *out_valid = false;
+      return nullptr;
+  }
+}
+
+FORCE_INLINE
+const char* elt_int32_utf8_utf8_utf8(int32_t pos, bool pos_validity, const char* word1,
+                                     int32_t word1_len, bool word1_validity,
+                                     const char* word2, int32_t word2_len,
+                                     bool word2_validity, const char* word3,
+                                     int32_t word3_len, bool word3_validity,
+                                     bool* out_valid, int32_t* out_len) {
+  *out_valid = true;
+
+  switch (pos) {
+    case 1:
+      *out_len = word1_len;
+      return word1;
+      break;
+    case 2:
+      *out_len = word2_len;
+      return word2;
+      break;
+    case 3:
+      *out_len = word3_len;
+      return word3;
+      break;
+    default:
+      *out_len = 0;
+      *out_valid = false;
+      return nullptr;
+  }
+}
+
+FORCE_INLINE
+const char* elt_int32_utf8_utf8_utf8_utf8(
+    int32_t pos, bool pos_validity, const char* word1, int32_t word1_len,
+    bool word1_validity, const char* word2, int32_t word2_len, bool word2_validity,
+    const char* word3, int32_t word3_len, bool word3_validity, const char* word4,
+    int32_t word4_len, bool word4_validity, bool* out_valid, int32_t* out_len) {
+  *out_valid = true;
+
+  switch (pos) {
+    case 1:
+      *out_len = word1_len;
+      return word1;
+      break;
+    case 2:
+      *out_len = word2_len;
+      return word2;
+      break;
+    case 3:
+      *out_len = word3_len;
+      return word3;
+      break;
+    case 4:
+      *out_len = word4_len;
+      return word4;
+      break;
+    default:
+      *out_len = 0;
+      *out_valid = false;
+      return nullptr;
+  }
+}
+
+FORCE_INLINE
+const char* elt_int32_utf8_utf8_utf8_utf8_utf8(
+    int32_t pos, bool pos_validity, const char* word1, int32_t word1_len,
+    bool word1_validity, const char* word2, int32_t word2_len, bool word2_validity,
+    const char* word3, int32_t word3_len, bool word3_validity, const char* word4,
+    int32_t word4_len, bool word4_validity, const char* word5, int32_t word5_len,
+    bool word5_validity, bool* out_valid, int32_t* out_len) {
+  *out_valid = true;
+
+  switch (pos) {
+    case 1:
+      *out_len = word1_len;
+      return word1;
+      break;
+    case 2:
+      *out_len = word2_len;
+      return word2;
+      break;
+    case 3:
+      *out_len = word3_len;
+      return word3;
+      break;
+    case 4:
+      *out_len = word4_len;
+      return word4;
+      break;
+    case 5:
+      *out_len = word5_len;
+      return word5;
+      break;
+    default:
+      *out_len = 0;
+      *out_valid = false;
+      return nullptr;
+  }
+}
 }  // extern "C"
