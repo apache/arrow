@@ -180,6 +180,18 @@ NestedType <- R6Class("NestedType", inherit = DataType)
 #' types, this conversion can be disabled (so that `int64` always yields a
 #' `bit64::integer64` object) by setting `options(arrow.int64_downcast =
 #' FALSE)`.
+#' `decimal()` creates a `decimal128` type. Arrow decimals are fixed-point
+#' decimal numbers encoded as a scalar integer. The `precision` is the number of
+#' significant digits that the decimal type can represent; the `scale` is the
+#' number of digits after the decimal point. For example, the number 1234.567
+#' has a precision of 7 and a scale of 3. Note that `scale` can be negative.
+#'
+#' As an example, `decimal(7, 3)` can exactly represent the numbers 1234.567 and
+#' -1234.567 (encoded internally as the 128-bit integers 1234567 and -1234567,
+#' respectively), but neither 12345.67 nor 123.4567.
+#'
+#' `decimal(5, -3)` can exactly represent the number 12345000 (encoded
+#' internally as the 128-bit integer 12345), but neither 123450000 nor 1234500.
 #'
 #' @param unit For time/timestamp types, the time unit. `time32()` can take
 #' either "s" or "ms", while `time64()` can be "us" or "ns". `timestamp()` can
