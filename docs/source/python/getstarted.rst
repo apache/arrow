@@ -15,6 +15,17 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
+.. ipython:: python
+    :suppress:
+
+    # set custom tmp working directory for files that create data
+    import os
+    import tempfile
+
+    orig_working_dir = os.getcwd()
+    temp_working_dir = tempfile.mkdtemp(prefix="pyarrow-")
+    os.chdir(temp_working_dir)
+
 .. _getstarted:
 
 Getting Started
@@ -143,3 +154,14 @@ Continuining from here
 For digging further into Arrow, you might want to read the 
 :doc:`PyArrow Documentation <./index>` itself or the 
 `Arrow Python Cookbook <https://arrow.apache.org/cookbook/py/>`_
+
+
+.. ipython:: python
+    :suppress:
+
+    # clean-up custom working directory
+    import os
+    import shutil
+
+    os.chdir(orig_working_dir)
+    shutil.rmtree(temp_working_dir, ignore_errors=True)
