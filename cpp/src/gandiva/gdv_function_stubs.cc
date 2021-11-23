@@ -933,7 +933,7 @@ const char* gdv_mask_first_n_utf8_int32(int64_t context, const char* data,
     return out;
   }
 
-  int bytes_masked;
+  int32_t bytes_masked;
   for (bytes_masked = 0; bytes_masked < n_to_mask; bytes_masked++) {
     unsigned char char_single_byte = data[bytes_masked];
     if (char_single_byte > 127) {
@@ -943,8 +943,8 @@ const char* gdv_mask_first_n_utf8_int32(int64_t context, const char* data,
     out[bytes_masked] = mask_array[char_single_byte];
   }
 
-  int data_idx = bytes_masked;
-  int out_idx = bytes_masked;
+  int32_t data_idx = bytes_masked;
+  int32_t out_idx = bytes_masked;
 
   // Handle multibyte utf8 characters
   utf8proc_int32_t utf8_char;
@@ -972,10 +972,10 @@ const char* gdv_mask_first_n_utf8_int32(int64_t context, const char* data,
         break;
       default:
         memcpy(out + out_idx, data + bytes_masked, char_len);
-        out_idx += char_len;
+        out_idx += static_cast<int32_t>(char_len);
         break;
     }
-    bytes_masked += char_len;
+    bytes_masked += static_cast<int32_t>(char_len);
     data_idx++;
   }
 
@@ -1015,7 +1015,7 @@ const char* gdv_mask_last_n_utf8_int32(int64_t context, const char* data,
     return nullptr;
   }
 
-  int bytes_masked = data_len;
+  int32_t bytes_masked = data_len;
   bool has_multi_byte = false;
   while (bytes_masked >= data_len - n_to_mask) {
     unsigned char char_single_byte = data[bytes_masked];
@@ -1029,8 +1029,8 @@ const char* gdv_mask_last_n_utf8_int32(int64_t context, const char* data,
   }
 
   utf8proc_int32_t utf8_char;
-  int data_idx = bytes_masked;
-  int out_idx = bytes_masked;
+  int32_t data_idx = bytes_masked;
+  int32_t out_idx = bytes_masked;
   while (data_idx >= data_len - n_to_mask) {
     auto char_len =
         utf8proc_iterate(reinterpret_cast<const utf8proc_uint8_t*>(data + bytes_masked),
@@ -1064,10 +1064,10 @@ const char* gdv_mask_last_n_utf8_int32(int64_t context, const char* data,
         break;
       default:
         memcpy(out + char_len, data + bytes_masked, char_len);
-        out_idx -= char_len;
+        out_idx -= static_cast<int32_t>(char_len);
         break;
     }
-    bytes_masked -= char_len;
+    bytes_masked -= static_cast<int32_t>(char_len);
     data_idx--;
   }
 
@@ -1077,7 +1077,7 @@ const char* gdv_mask_last_n_utf8_int32(int64_t context, const char* data,
     // Remove the unused initial bytes as it read the data str backwards
     memcpy(out, out + out_idx, data_len);
     // Correct the out_len after masking multibyte characters with single byte characters
-    *out_len = strlen(out);
+    *out_len = static_cast<int32_t>(strlen(out));
   }
 
   // Handles single byte char memcpy
