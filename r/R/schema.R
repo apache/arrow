@@ -124,7 +124,7 @@ Schema <- R6Class("Schema",
     export_to_c = function(ptr) ExportSchema(self, ptr),
     code = function() {
       names <- self$names
-      codes <- map2(names, self$fields, function(name, field){
+      codes <- map2(names, self$fields, function(name, field) {
         withCallingHandlers(
           field$type$code(),
           error = function(cnd) {

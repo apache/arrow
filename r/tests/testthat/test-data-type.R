@@ -524,12 +524,12 @@ test_that("DataType$code()", {
   expect_identical(time64(unit = "us")$code(), call("time64", unit = "us"))
 
   expect_identical(timestamp()$code(), call("timestamp", unit = "s"))
-  expect_identical(timestamp(unit = "s" )$code(), call("timestamp", unit = "s"))
+  expect_identical(timestamp(unit = "s")$code(), call("timestamp", unit = "s"))
   expect_identical(timestamp(unit = "ms")$code(), call("timestamp", unit = "ms"))
   expect_identical(timestamp(unit = "ns")$code(), call("timestamp", unit = "ns"))
   expect_identical(timestamp(unit = "us")$code(), call("timestamp", unit = "us"))
 
-  expect_identical(timestamp(unit = "s" , timezone = "CET")$code(), call("timestamp", unit = "s" , timezone = "CET"))
+  expect_identical(timestamp(unit = "s", timezone = "CET")$code(), call("timestamp", unit = "s", timezone = "CET"))
   expect_identical(timestamp(unit = "ms", timezone = "CET")$code(), call("timestamp", unit = "ms", timezone = "CET"))
   expect_identical(timestamp(unit = "ns", timezone = "CET")$code(), call("timestamp", unit = "ns", timezone = "CET"))
   expect_identical(timestamp(unit = "us", timezone = "CET")$code(), call("timestamp", unit = "us", timezone = "CET"))
@@ -543,7 +543,10 @@ test_that("DataType$code()", {
 
   expect_identical(list_of(int32())$code(), quote(list_of(int32())))
   expect_identical(large_list_of(int32())$code(), quote(large_list_of(int32())))
-  expect_identical(fixed_size_list_of(int32(), list_size = 7L)$code(), quote(fixed_size_list_of(int32(), list_size = 7L)))
+  expect_identical(
+    fixed_size_list_of(int32(), list_size = 7L)$code(), 
+    quote(fixed_size_list_of(int32(), list_size = 7L))
+  )
 
   skip("until rlang 1.0")
   expect_snapshot({
@@ -556,5 +559,3 @@ test_that("DataType$code()", {
   })
 
 })
-
-
