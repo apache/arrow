@@ -102,12 +102,12 @@ module which implements ``rpy2`` support for Arrow types.
 
     $ pip install rpy2-arrow
 
-``rpy2-arrow`` implements converters from pyarrow objects to R Arrow objects,
+``rpy2-arrow`` implements converters from PyArrow objects to R Arrow objects,
 this is done without occurring into any data copy cost as it relies on the
 C Data interface.
 
-To pass to ``addthree`` a pyarrow array our ``addthree.py`` needs to be modified
-to enable ``rpy2-arrow`` converters and then pass the pyarrow array:
+To pass to ``addthree`` a PyArrow array our ``addthree.py`` needs to be modified
+to enable ``rpy2-arrow`` converters and then pass the PyArrow array:
 
 .. code-block:: python
 
@@ -136,7 +136,7 @@ to enable ``rpy2-arrow`` converters and then pass the pyarrow array:
     print("RESULT", type(py_result), py_result)
 
 Running the newly modified ``addthree.py`` should now properly execute
-the R function and print the resulting pyarrow Array:
+the R function and print the resulting PyArrow Array:
 
 .. code-block:: bash
 
