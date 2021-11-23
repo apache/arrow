@@ -15,6 +15,13 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
+
+.. SCOPE OF THIS SECTION
+.. This section should include all necessary steps to set up
+.. the forked Arrow repository locally in order to be able to
+.. proceed toward building the library.
+
+
 .. _set-up:
 
 ******

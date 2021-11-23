@@ -15,6 +15,15 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
+
+.. SCOPE OF THIS SECTION
+.. Present Arrow developers to the general public to make
+.. the barrier of contributing lower as new contributors will
+.. have a feeling of joint work and possible help. Add ways
+.. of communication and add description of what is expected.
+.. Also add a link to other resources.
+
+
 .. _communication:
 
 *************

@@ -15,6 +15,20 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
+
+.. SCOPE OF THIS SECTION
+.. The aim of this section is to provide extra description to
+.. the process of building Arow library. It could include:
+.. what does building mean, what is CMake, what are flags and why
+.. do we use them, is building Arrow supposed to be straigtforward?
+.. etc.
+
+.. Be sure not to duplicate with existing documentation!
+.. All language-specific instructions about building, testing,
+.. installing dependencies, etc. should go into language-specific
+.. documentation.
+
+
 .. _build-arrow:
 
 *************************

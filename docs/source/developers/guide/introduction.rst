@@ -15,6 +15,15 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
+
+.. SCOPE OF THIS SECTION
+.. Make an introduction to the Guide for New Contributors.
+.. Add an introduction to the project, why to get involved
+.. and a quick checklist of the contributing process.
+.. Add the Table of Contents. All detailed explanations
+.. should be added as a link in the content.
+
+
 .. _introduction:
 
 ***********************

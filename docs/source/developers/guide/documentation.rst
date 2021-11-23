@@ -15,6 +15,14 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
+
+.. SCOPE OF THIS SECTION
+.. To expose that help with existing documentation is a
+.. very good way to start and also a very important part of
+.. the project! If possible add summary of the structure of
+.. the existing documentation, including different Cookbooks.
+
+
 .. _documentation:
 
 **************************

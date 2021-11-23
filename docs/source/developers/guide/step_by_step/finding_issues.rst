@@ -15,6 +15,16 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
+
+.. SCOPE OF THIS SECTION
+.. This section should include additional information
+.. about JIRA, how to find issues or how to create one.
+.. Should not duplicate with Report bugs and propose features
+.. section:
+
+..   https://arrow.apache.org/docs/developers/contributing.html#tips-for-using-jira
+
+
 .. _finding-issues:
 
 ****************************

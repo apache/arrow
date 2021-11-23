@@ -15,6 +15,14 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
+
+.. SCOPE OF THIS SECTION
+.. This section should include basic information
+.. about the Arrow project. If possible the content should be
+.. written in words easy understandable to beginner notß
+.. necessary acquainted with the library and the technical
+.. details.
+
 .. _about_arrow:
 
 ***********

@@ -15,6 +15,13 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
+
+.. SCOPE OF THIS SECTION
+.. Add articles/resources on concepts important to Arrow as
+.. well as recommended books for learning different languages
+.. included in the project.
+
+
 .. _other:
 
 *****************************

@@ -15,6 +15,13 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
+
+.. SCOPE OF THIS SECTION
+.. This section should include all steps in making a pull
+.. request (until it is merged) on Arrow GitHub repository
+.. using git.
+
+
 .. _pr_and_github:
 
 ****************************

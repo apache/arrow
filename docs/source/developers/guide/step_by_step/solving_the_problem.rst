@@ -15,6 +15,14 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
+
+.. SCOPE OF THIS SECTION
+.. This section is intended to give some ideas on how to
+.. work and find way around the Arrow library depending
+.. on the type of the problem (simple binding, adding a
+.. new feature, writing a test, …).
+
+
 .. _solving:
 
 **********************

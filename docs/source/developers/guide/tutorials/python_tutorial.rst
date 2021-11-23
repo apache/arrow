@@ -15,6 +15,11 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
+
+.. SCOPE OF THIS SECTION
+.. Concise tutorial on making a PR for a simple feature.
+
+
 .. _python_tutorial:
 
 ***************

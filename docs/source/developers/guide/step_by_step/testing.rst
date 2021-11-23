@@ -15,6 +15,15 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
+
+.. SCOPE OF THIS SECTION
+.. This section should include extra description to the
+.. language-specific documentation. Possible topics to
+.. add: How to run one test, test file or all the tests
+.. together and why is it good to do that.
+.. What if the unconnected tests start failing? etc.
+
+
 .. _testing:
 
 ***********
