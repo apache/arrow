@@ -24,6 +24,7 @@ import weakref
 import numpy as np
 import pytest
 import pyarrow as pa
+import pyarrow.compute as pc
 
 
 def test_chunked_array_basics():
@@ -1826,6 +1827,35 @@ def test_table_group_by():
         "keys": ["a", "b", "b", "c"],
         "keys2": ["X", "Y", "Z", "Z"],
         "values_sum": [3, 3, 4, 5]
+    }
+
+    table_with_nulls = pa.table([
+        pa.array(["a", "a", "a"]),
+        pa.array([1, None, None])
+    ], names=["keys", "values"])
+
+    r = table_with_nulls.group_by(["keys"]).aggregate([
+        ("values", "count", pc.CountOptions(mode="all"))
+    ])
+    assert r.to_pydict() == {
+        "keys": ["a"],
+        "values_count": [3]
+    }
+
+    r = table_with_nulls.group_by(["keys"]).aggregate([
+        ("values", "count", pc.CountOptions(mode="only_null"))
+    ])
+    assert r.to_pydict() == {
+        "keys": ["a"],
+        "values_count": [2]
+    }
+
+    r = table_with_nulls.group_by(["keys"]).aggregate([
+        ("values", "count", pc.CountOptions(mode="only_valid"))
+    ])
+    assert r.to_pydict() == {
+        "keys": ["a"],
+        "values_count": [1]
     }
 
 
