@@ -92,16 +92,17 @@ to access the ``R`` function and print the expected result:
     6.0
 
 If instead of passing around basic data types we want to pass around
-Arrow Arrays, we can do so relying on the ``rpy2-arrow`` module which
-implements rpy2 support for Arrow types.
+Arrow Arrays, we can do so relying on the
+`rpy2-arrow <https://rpy2.github.io/rpy2-arrow/version/main/html/index.html>`_ 
+module which implements ``rpy2`` support for Arrow types.
 
-``rpy2`` can be installed through ``pip``:
+``rpy2-arrow`` can be installed through ``pip``:
 
 .. code-block:: bash
 
     $ pip install rpy2-arrow
 
-``rpy2-arrow`` implements converters from pyarrow objects to r arrow objects,
+``rpy2-arrow`` implements converters from pyarrow objects to R Arrow objects,
 this is done without occurring into any data copy cost as it relies on the
 C Data interface.
 
@@ -258,6 +259,7 @@ Our ``addthree.py`` will thus become:
     r_source = robjects.r["source"]
     r_source("addthree.R")
     addthree_cdata = robjects.r["addthree_cdata"]
+    as_r_numeric = robjects.r["as.numeric"]
 
     # Create the pyarrow array we want to pass to R
     import pyarrow
@@ -289,7 +291,8 @@ Our ``addthree.py`` will thus become:
         # arrow Array built from R as the return value of addthree.
         # To make it available as a Python pyarrow array we need to export
         # it as a C Data structure invoking the Array$export_to_c R method
-        r_result_array["export_to_c"](float(c_array_ptr), float(c_schema_ptr))
+        r_result_array["export_to_c"](as_r_numeric(str(c_array_ptr)),
+                                      as_r_numeric(str(c_schema_ptr)))
 
         # Once the returned array is exported to a C Data infrastructure
         # we can import it back into pyarrow using Array._import_from_c

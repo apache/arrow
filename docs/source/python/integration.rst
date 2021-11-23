@@ -25,7 +25,7 @@ Arrow is designed to be both a framework and an interchange format.
 
 Developers can use Arrow to exchange data between various
 technologies and languages without incurring in any extra cost of
-marshalling/unmarshalling the data. The arrow bindings and Arrow
+marshalling/unmarshalling the data. The Arrow bindings and Arrow
 native libraries on the various platforms will all understand Arrow data
 natively wihout the need to decode it.
 
