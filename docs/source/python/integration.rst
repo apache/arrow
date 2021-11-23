@@ -32,8 +32,8 @@ natively wihout the need to decode it.
 This allows to easily integrate PyArrow with other languages and technologies.
 
 .. toctree::
-    :maxdepth: 2
+   :maxdepth: 2
 
-    integration/python_r
-    integration/extending
-    integration/cuda
+   integration/python_r
+   integration/extending
+   integration/cuda
