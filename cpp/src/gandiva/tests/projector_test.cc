@@ -1984,7 +1984,7 @@ TEST_F(TestProjector, TestDayOfMonth) {
   auto field_result = field("DAY", arrow::int64());
 
   // Build expression
-  auto myexpr = TreeExprBuilder::MakeExpression("DAYOFMONTH", {field0}, field_result);
+  auto myexpr = TreeExprBuilder::MakeExpression("dayofmonth", {field0}, field_result);
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
