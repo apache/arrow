@@ -916,6 +916,12 @@ TEST(TestGdvFnStubs, TestMaskLastN) {
   result = gdv_mask_last_n_utf8_int32(ctx_ptr, data.c_str(), data_len, 0, &out_len);
   EXPECT_EQ(expected, std::string(result, out_len));
 
+  data = "ABcd-123456";
+  data_len = data.length();
+  expected = "ABcd-nnnnnn";
+  result = gdv_mask_last_n_utf8_int32(ctx_ptr, data.c_str(), data_len, 6, &out_len);
+  EXPECT_EQ(expected, std::string(result, out_len));
+
   data = "";
   data_len = 0;
   expected = "";
