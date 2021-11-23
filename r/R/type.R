@@ -181,7 +181,7 @@ Time32 <- R6Class("Time32",
         abort(c(
           "Invalid unit.",
           i = 'The `Time32` type only supports "ms" (TimeUnit$MILLI) and "s" (TimeUnit$SECOND).'
-        ))
+        ), call = call("code"))
       }
       call2("time32", unit = unit)
     }
@@ -200,7 +200,7 @@ Time64 <- R6Class("Time64",
         abort(c(
           "Invalid unit.",
           i = 'The `Time64` type only supports "ns" (TimeUnit$NANO) and "s" (TimeUnit$MICRO).'
-        ))
+        ), call = call("code"))
       }
       call2("time64", unit = unit)
     }
