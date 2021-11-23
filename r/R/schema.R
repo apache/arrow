@@ -125,15 +125,9 @@ Schema <- R6Class("Schema",
     code = function() {
       names <- self$names
       codes <- map2(names, self$fields, function(name, field) {
-        withCallingHandlers(
-          field$type$code(),
-          error = function(cnd) {
-            abort(
-              paste0('Problem getting code for field "', name, '".'),
-              call = call("code"),
-              parent = cnd
-            )
-          }
+        code_carefully(
+          field$type,
+          msg = paste0('Problem getting code for field "', name, '".')
         )
       })
       codes <- set_names(codes, names)

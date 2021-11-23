@@ -34,6 +34,19 @@ DictionaryType <- R6Class("DictionaryType",
   public = list(
     ToString = function() {
       prettier_dictionary_type(DataType__ToString(self))
+    },
+    code = function() {
+      details <- list()
+      if (self$index_type != int32()) {
+        details$index_type <- code_carefully(self$index_type, "Problem getting code for index type.")
+      }
+      if (self$value_type != utf8()) {
+        details$value_type <- code_carefully(self$value_type, "Problem getting code for value type.")
+      }
+      if (isTRUE(self$ordered)) {
+        details$ordered <- TRUE
+      }
+      call2("dictionary", !!!details)
     }
   ),
   active = list(

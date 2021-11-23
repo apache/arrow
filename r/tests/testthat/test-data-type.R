@@ -544,9 +544,14 @@ test_that("DataType$code()", {
   expect_identical(list_of(int32())$code(), quote(list_of(int32())))
   expect_identical(large_list_of(int32())$code(), quote(large_list_of(int32())))
   expect_identical(
-    fixed_size_list_of(int32(), list_size = 7L)$code(), 
+    fixed_size_list_of(int32(), list_size = 7L)$code(),
     quote(fixed_size_list_of(int32(), list_size = 7L))
   )
+
+  expect_identical(dictionary()$code(), quote(dictionary()))
+  expect_identical(dictionary(index_type = int8())$code(), quote(dictionary(index_type = int8())))
+  expect_identical(dictionary(index_type = int8(), value_type = large_utf8())$code(), quote(dictionary(index_type = int8(), value_type = large_utf8())))
+  expect_identical(dictionary(index_type = int8(), ordered = TRUE)$code(), quote(dictionary(index_type = int8(), ordered = TRUE)))
 
   skip("until rlang 1.0")
   expect_snapshot({
