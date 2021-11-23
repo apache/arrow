@@ -500,7 +500,7 @@ test_that("DataType$code()", {
 
   expect_identical(float16()$code(), call("halffloat"))
   expect_identical(float32()$code(), call("float"))
-  expect_identical(float64()$code(), call("double"))
+  expect_identical(float64()$code(), call("float64"))
 
   expect_identical(null()$code(), call("null"))
 
@@ -538,7 +538,7 @@ test_that("DataType$code()", {
 
   expect_identical(
     struct(a = int32(), b = struct(c = list_of(utf8())), d = float64())$code(),
-    quote(struct(a = int32(), b = struct(c = list_of(utf8())), d = double()))
+    quote(struct(a = int32(), b = struct(c = list_of(utf8())), d = float64()))
   )
 
   expect_identical(list_of(int32())$code(), quote(list_of(int32())))

@@ -114,7 +114,12 @@ UInt32 <- R6Class("UInt32", inherit = FixedWidthType)
 UInt64 <- R6Class("UInt64", inherit = FixedWidthType)
 Float16 <- R6Class("Float16", inherit = FixedWidthType)
 Float32 <- R6Class("Float32", inherit = FixedWidthType)
-Float64 <- R6Class("Float64", inherit = FixedWidthType)
+Float64 <- R6Class("Float64",
+  inherit = FixedWidthType,
+  public = list(
+    code = function() call("float64")
+  )
+)
 Boolean <- R6Class("Boolean", inherit = FixedWidthType)
 Utf8 <- R6Class("Utf8",
   inherit = DataType,
