@@ -256,7 +256,7 @@ nse_funcs$tibble <- function(..., .rows = NULL, .name_repair = NULL) {
   if (!is.null(.name_repair)) arrow_not_supported(".name_repair")
 
   # use dots_list() because this is what tibble() uses to allow the
-  # useful shorthand of tibble(col1, col2) -> tibble(col1 = col1, col2 = col2_)
+  # useful shorthand of tibble(col1, col2) -> tibble(col1 = col1, col2 = col2)
   args <- rlang::dots_list(..., .named = TRUE)
 
   build_expr(
