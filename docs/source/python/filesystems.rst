@@ -213,21 +213,21 @@ some environment variables.
 
   .. code-block:: shell
 
-      export CLASSPATH=`$HADOOP_HOME/bin/hdfs classpath --glob`
+      export CLASSPATH=`$HADOOP_HOME/bin/hadoop classpath --glob`
+      # or on Windows
+      %HADOOP_HOME%/bin/hadoop classpath --glob > %CLASSPATH%
 
-  If ``CLASSPATH`` is not set, then it will be set automatically if the
-  ``hadoop`` executable is in your system path, or if ``HADOOP_HOME`` is set.
+  In contrast to the legacy HDFS filesystem with ``pa.hdfs.connect``, setting
+  ``CLASSPATH`` is not optional (pyarrow will not attempt to infer it).
 
 .. _filesystem-fsspec:
 
-Using fsspec-compatible filesystems
------------------------------------
+Using fsspec-compatible filesystems with Arrow
+----------------------------------------------
 
 The filesystems mentioned above are natively supported by Arrow C++ / PyArrow.
 The Python ecosystem, however, also has several filesystem packages. Those
-packages following the
-`fsspec <https://filesystem-spec.readthedocs.io/en/latest/>`__ interface can be
-used in PyArrow as well.
+packages following the `fsspec`_ interface can be used in PyArrow as well.
 
 Functions accepting a filesystem object will also accept an fsspec subclass.
 For example::
@@ -270,3 +270,36 @@ Then all the functionalities of :class:`FileSystem` are accessible::
 
    # read a partitioned dataset
    ds.dataset("data/", filesystem=pa_fs)
+
+
+Using Arrow filesystems with fsspec
+-----------------------------------
+
+The Arrow FileSystem interface has a limited, developer-oriented API surface.
+This is sufficient for basic interactions and for using this with
+Arrow's IO functionality. On the other hand, the `fsspec`_ interface provides
+a very large API with many helper methods. If you want to use those, or if you
+need to interact with a package that expects fsspec-compatible filesystem
+objects, you can wrap an Arrow FileSystem object with fsspec.
+
+Starting with ``fsspec`` version 2021.09, the ``ArrowFSWrapper`` can be used
+for this::
+
+   >>> from pyarrow import fs
+   >>> local = fs.LocalFileSystem()
+   >>> from fsspec.implementations.arrow import ArrowFSWrapper
+   >>> local_fsspec = ArrowFSWrapper(local)
+
+The resulting object now has an fsspec-compatible interface, while being backed
+by the Arrow FileSystem under the hood.
+Example usage to create a directory and file, and list the content::
+
+   >>> local_fsspec.mkdir("./test")
+   >>> local_fsspec.touch("./test/file.txt")
+   >>> local_fsspec.ls("./test/")
+   ['./test/file.txt']
+
+For more information, see the `fsspec`_ documentation.
+
+
+.. _fsspec: https://filesystem-spec.readthedocs.io/en/latest/

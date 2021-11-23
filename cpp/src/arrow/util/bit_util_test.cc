@@ -2187,7 +2187,7 @@ TEST(Bitmap, VisitWords) {
 
 // This test reads uninitialized memory
 TEST(Bitmap, VisitPartialWords) {
-  uint64_t words[2];
+  uint64_t words[2] = {0};
   constexpr auto nbytes = sizeof(words);
   constexpr auto nbits = nbytes * 8;
 

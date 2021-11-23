@@ -49,7 +49,7 @@ class TestSparseUnionScalar < Test::Unit::TestCase
   end
 
   def test_to_s
-    assert_equal("...", @scalar.to_s)
+    assert_equal("union{number: int8 = -29}", @scalar.to_s)
   end
 
   def test_value

@@ -86,6 +86,14 @@ ctypedef void cb_writer_finish(dict, CFileWriter*)
 
 cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
+    cdef enum ExistingDataBehavior" arrow::dataset::ExistingDataBehavior":
+        ExistingDataBehavior_DELETE_MATCHING" \
+            arrow::dataset::ExistingDataBehavior::kDeleteMatchingPartitions"
+        ExistingDataBehavior_OVERWRITE_OR_IGNORE" \
+            arrow::dataset::ExistingDataBehavior::kOverwriteOrIgnore"
+        ExistingDataBehavior_ERROR" \
+            arrow::dataset::ExistingDataBehavior::kError"
+
     cdef cppclass CScanOptions "arrow::dataset::ScanOptions":
         @staticmethod
         shared_ptr[CScanOptions] Make(shared_ptr[CSchema] schema)
@@ -278,6 +286,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         c_string basename_template
         function[cb_writer_finish_internal] writer_pre_finish
         function[cb_writer_finish_internal] writer_post_finish
+        ExistingDataBehavior existing_data_behavior
 
     cdef cppclass CFileSystemDataset \
             "arrow::dataset::FileSystemDataset"(CDataset):

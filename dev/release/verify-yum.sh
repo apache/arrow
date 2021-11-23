@@ -21,10 +21,14 @@ set -exu
 
 if [ $# -lt 2 ]; then
   echo "Usage: $0 VERSION rc"
+  echo "       $0 VERSION staging-rc"
   echo "       $0 VERSION release"
+  echo "       $0 VERSION staging-release"
   echo "       $0 VERSION local"
-  echo " e.g.: $0 0.13.0 rc           # Verify 0.13.0 RC"
-  echo " e.g.: $0 0.13.0 release      # Verify 0.13.0"
+  echo " e.g.: $0 0.13.0 rc                # Verify 0.13.0 RC"
+  echo " e.g.: $0 0.13.0 staging-rc        # Verify 0.13.0 RC on staging"
+  echo " e.g.: $0 0.13.0 release           # Verify 0.13.0"
+  echo " e.g.: $0 0.13.0 staging-release   # Verify 0.13.0 on staging"
   echo " e.g.: $0 0.13.0-dev20210203 local # Verify 0.13.0-dev20210203 on local"
   exit 1
 fi
@@ -37,7 +41,7 @@ local_prefix="/arrow/dev/tasks/linux-packages"
 artifactory_base_url="https://apache.jfrog.io/artifactory/arrow"
 
 distribution=$(. /etc/os-release && echo "${ID}")
-distribution_version=$(. /etc/os-release && echo "${VERSION_ID}")
+distribution_version=$(. /etc/os-release && echo "${VERSION_ID}" | grep -o "^[0-9]*")
 distribution_prefix="centos"
 
 cmake_package=cmake
@@ -50,6 +54,9 @@ have_python=yes
 install_command="dnf install -y --enablerepo=powertools"
 
 case "${distribution}-${distribution_version}" in
+  almalinux-*)
+    distribution_prefix="almalinux"
+    ;;
   amzn-2)
     cmake_package=cmake3
     cmake_command=cmake3
@@ -87,6 +94,10 @@ if [ "${TYPE}" = "local" ]; then
   esac
   release_path="${local_prefix}/yum/repositories"
   case "${distribution}" in
+    almalinux)
+      package_version+=".el${distribution_version}"
+      release_path+="/almalinux"
+      ;;
     amzn)
       package_version+=".${distribution}${distribution_version}"
       release_path+="/amazon-linux"
@@ -102,9 +113,12 @@ if [ "${TYPE}" = "local" ]; then
   ${install_command} "${release_path}"
 else
   package_version="${VERSION}"
-  if [ "${TYPE}" = "rc" ]; then
-    distribution_prefix+="-rc"
-  fi
+  case "${TYPE}" in
+    rc|staging-rc|staging-release)
+      suffix=${TYPE%-release}
+      distribution_prefix+="-${suffix}"
+      ;;
+  esac
   ${install_command} \
     ${artifactory_base_url}/${distribution_prefix}/${distribution_version}/apache-arrow-release-latest.rpm
 fi
@@ -119,13 +133,17 @@ if [ "${TYPE}" = "local" ]; then
     cp "${keys}" /etc/pki/rpm-gpg/RPM-GPG-KEY-Apache-Arrow
   fi
 else
-  if [ "${TYPE}" = "rc" ]; then
-    sed \
-      -i"" \
-      -e "s,/centos/,/centos-rc/,g" \
-      -e "s,/amazon-linux/,/amazon-linux-rc/,g" \
-      /etc/yum.repos.d/Apache-Arrow.repo
-  fi
+  case "${TYPE}" in
+    rc|staging-rc|staging-release)
+      suffix=${TYPE%-release}
+      sed \
+        -i"" \
+        -e "s,/almalinux/,/almalinux-${suffix}/,g" \
+        -e "s,/centos/,/centos-${suffix}/,g" \
+        -e "s,/amazon-linux/,/amazon-linux-${suffix}/,g" \
+        /etc/yum.repos.d/Apache-Arrow.repo
+      ;;
+  esac
 fi
 
 ${install_command} --enablerepo=epel arrow-devel-${package_version}
@@ -134,12 +152,15 @@ ${install_command} \
   gcc-c++ \
   git \
   libarchive \
-  make
+  make \
+  pkg-config
 mkdir -p build
 cp -a /arrow/cpp/examples/minimal_build build
 pushd build/minimal_build
 ${cmake_command} .
 make -j$(nproc)
+./arrow_example
+c++ -std=c++11 -o arrow_example example.cc $(pkg-config --cflags --libs arrow)
 ./arrow_example
 popd
 

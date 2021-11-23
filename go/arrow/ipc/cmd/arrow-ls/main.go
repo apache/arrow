@@ -50,7 +50,7 @@
 //      - float32s: type=float32, nullable
 //      - float64s: type=float64, nullable
 //  records: 3
-package main // import "github.com/apache/arrow/go/arrow/ipc/cmd/arrow-ls"
+package main
 
 import (
 	"bytes"
@@ -60,8 +60,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/apache/arrow/go/arrow/ipc"
-	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/v7/arrow/ipc"
+	"github.com/apache/arrow/go/v7/arrow/memory"
 	"golang.org/x/xerrors"
 )
 

@@ -464,7 +464,7 @@ class MakeFormatterImpl {
     impl_ = [](const Array& array, int64_t index, std::ostream* os) {
       auto month_day_nanos =
           checked_cast<const MonthDayNanoIntervalArray&>(array).Value(index);
-      *os << month_day_nanos.months << "m" << month_day_nanos.days << "d"
+      *os << month_day_nanos.months << "M" << month_day_nanos.days << "d"
           << month_day_nanos.nanoseconds << "ns";
     };
     return Status::OK();

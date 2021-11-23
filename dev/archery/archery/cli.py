@@ -692,6 +692,8 @@ def _set_default(opt, default):
               help="Seed for PRNG when generating test data")
 @click.option('--with-cpp', type=bool, default=False,
               help='Include C++ in integration tests')
+@click.option('--with-csharp', type=bool, default=False,
+              help='Include C# in integration tests')
 @click.option('--with-java', type=bool, default=False,
               help='Include Java in integration tests')
 @click.option('--with-js', type=bool, default=False,
@@ -701,7 +703,7 @@ def _set_default(opt, default):
 @click.option('--with-rust', type=bool, default=False,
               help='Include Rust in integration tests',
               envvar="ARCHERY_INTEGRATION_WITH_RUST")
-@click.option('--write_generated_json', default=False,
+@click.option('--write_generated_json', default="",
               help='Generate test JSON to indicated path')
 @click.option('--run-flight', is_flag=True, default=False,
               help='Run Flight integration tests')
@@ -732,7 +734,7 @@ def integration(with_all=False, random_seed=12345, **args):
 
     gen_path = args['write_generated_json']
 
-    languages = ['cpp', 'java', 'js', 'go', 'rust']
+    languages = ['cpp', 'csharp', 'java', 'js', 'go', 'rust']
 
     enabled_languages = 0
     for lang in languages:
@@ -859,7 +861,7 @@ def release_changelog_regenerate(obj):
     jira, repo = obj['jira'], obj['repo']
     changelogs = []
 
-    for version in jira.arrow_versions():
+    for version in jira.project_versions('ARROW'):
         if not version.released:
             continue
         release = Release.from_jira(version, jira=jira, repo=repo)

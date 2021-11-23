@@ -314,7 +314,7 @@ public class Types {
         return new TimeNanoWriterImpl((TimeNanoVector) vector);
       }
     },
-    // time in second from the Unix epoch, 00:00:00.000000 on 1 January 1970, UTC.
+    // time in second from the Unix epoch, 00:00:00 on 1 January 1970, UTC.
     TIMESTAMPSEC(new Timestamp(org.apache.arrow.vector.types.TimeUnit.SECOND, null)) {
       @Override
       public FieldVector getNewVector(

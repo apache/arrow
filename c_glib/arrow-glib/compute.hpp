@@ -24,6 +24,10 @@
 #include <arrow-glib/compute.h>
 
 
+arrow::Result<arrow::FieldRef>
+garrow_field_reference_resolve_raw(const gchar *reference);
+
+
 arrow::compute::ExecContext *
 garrow_execute_context_get_raw(GArrowExecuteContext *context);
 
@@ -88,6 +92,8 @@ arrow::compute::ArraySortOptions *
 garrow_array_sort_options_get_raw(GArrowArraySortOptions *options);
 
 
+GArrowSortKey *
+garrow_sort_key_new_raw(const arrow::compute::SortKey &arrow_sort_key);
 arrow::compute::SortKey *
 garrow_sort_key_get_raw(GArrowSortKey *sort_key);
 

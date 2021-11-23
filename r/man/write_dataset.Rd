@@ -11,16 +11,16 @@ write_dataset(
   partitioning = dplyr::group_vars(dataset),
   basename_template = paste0("part-{i}.", as.character(format)),
   hive_style = TRUE,
+  existing_data_behavior = c("overwrite", "error", "delete_matching"),
+  max_partitions = 1024L,
   ...
 )
 }
 \arguments{
 \item{dataset}{\link{Dataset}, \link{RecordBatch}, \link{Table}, \code{arrow_dplyr_query}, or
-\code{data.frame}. If an \code{arrow_dplyr_query} or \code{grouped_df},
-\code{schema} and \code{partitioning} will be taken from the result of any \code{select()}
-and \code{group_by()} operations done on the dataset. \code{filter()} queries will be
-applied to restrict written rows.
-Note that \code{select()}-ed columns may not be renamed.}
+\code{data.frame}. If an \code{arrow_dplyr_query}, the query will be evaluated and
+the result will be written. This means that you can \code{select()}, \code{filter()}, \code{mutate()},
+etc. to transform the data before it is written if you need to.}
 
 \item{path}{string path, URI, or \code{SubTreeFileSystem} referencing a directory
 to write to (directory will be created if it does not exist)}
@@ -39,6 +39,22 @@ will yield \verb{"part-0.feather", ...}.}
 
 \item{hive_style}{logical: write partition segments as Hive-style
 (\code{key1=value1/key2=value2/file.ext}) or as just bare values. Default is \code{TRUE}.}
+
+\item{existing_data_behavior}{The behavior to use when there is already data
+in the destination directory.  Must be one of "overwrite", "error", or
+"delete_matching".
+\itemize{
+\item "overwrite" (the default) then any new files created will overwrite
+existing files
+\item "error" then the operation will fail if the destination directory is not
+empty
+\item "delete_matching" then the writer will delete any existing partitions
+if data is going to be written to those partitions and will leave alone
+partitions which data is not written to.
+}}
+
+\item{max_partitions}{maximum number of partitions any batch may be
+written into. Default is 1024L.}
 
 \item{...}{additional format-specific arguments. For available Parquet
 options, see \code{\link[=write_parquet]{write_parquet()}}. The available Feather options are

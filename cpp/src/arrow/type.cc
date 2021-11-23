@@ -403,6 +403,18 @@ FloatingPointType::Precision DoubleType::precision() const {
   return FloatingPointType::DOUBLE;
 }
 
+std::ostream& operator<<(std::ostream& os,
+                         DayTimeIntervalType::DayMilliseconds interval) {
+  os << interval.days << "d" << interval.milliseconds << "ms";
+  return os;
+}
+
+std::ostream& operator<<(std::ostream& os,
+                         MonthDayNanoIntervalType::MonthDayNanos interval) {
+  os << interval.months << "M" << interval.days << "d" << interval.nanoseconds << "ns";
+  return os;
+}
+
 std::string ListType::ToString() const {
   std::stringstream s;
   s << "list<" << value_field()->ToString() << ">";
@@ -1156,6 +1168,30 @@ Result<FieldRef> FieldRef::FromDotPath(const std::string& dot_path_arg) {
   FieldRef out;
   out.Flatten(std::move(children));
   return out;
+}
+
+std::string FieldRef::ToDotPath() const {
+  struct Visitor {
+    std::string operator()(const FieldPath& path) {
+      std::string out;
+      for (int i : path.indices()) {
+        out += "[" + std::to_string(i) + "]";
+      }
+      return out;
+    }
+
+    std::string operator()(const std::string& name) { return "." + name; }
+
+    std::string operator()(const std::vector<FieldRef>& children) {
+      std::string out;
+      for (const auto& child : children) {
+        out += child.ToDotPath();
+      }
+      return out;
+    }
+  };
+
+  return util::visit(Visitor{}, impl_);
 }
 
 size_t FieldRef::hash() const {
@@ -2338,7 +2374,7 @@ void InitStaticData() {
                       timestamp(TimeUnit::NANO)};
 
   // Interval types
-  g_interval_types = {day_time_interval(), month_interval()};
+  g_interval_types = {day_time_interval(), month_interval(), month_day_nano_interval()};
 
   // Base binary types (without FixedSizeBinary)
   g_base_binary_types = {binary(), utf8(), large_binary(), large_utf8()};

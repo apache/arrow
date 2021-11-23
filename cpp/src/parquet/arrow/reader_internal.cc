@@ -55,8 +55,7 @@
 #include "parquet/schema.h"
 #include "parquet/statistics.h"
 #include "parquet/types.h"
-// Required after "arrow/util/int_util_internal.h" (for OPTIONAL)
-#include "parquet/windows_compatibility.h"
+#include "parquet/windows_fixup.h"  // for OPTIONAL
 
 using arrow::Array;
 using arrow::BooleanArray;

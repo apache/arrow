@@ -572,7 +572,7 @@ into memory:
     # other method that yields record batches.  In addition, you can pass a dataset
     # into write_dataset directly but this method is useful if you want to customize
     # the scanner (e.g. to filter the input dataset or set a maximum batch size)
-    scanner = input_dataset.scanner()
+    scanner = input_dataset.scanner(use_async=True)
 
     ds.write_dataset(scanner, new_root, format="parquet", partitioning=new_part)
 
@@ -583,28 +583,30 @@ which columns are used to partition the dataset.  This is useful when you expect
 query your data in specific ways and you can utilize partitioning to reduce the
 amount of data you need to read.
 
-.. To add when ARROW-12364 is merged
-    Customizing & inspecting written files
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Customizing & inspecting written files
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    By default the dataset API will create files named "part-i.format" where "i" is a integer
-    generated during the write and "format" is the file format specified in the write_dataset
-    call.  For simple datasets it may be possible to know which files will be created but for
-    larger or partitioned datasets it is not so easy.  The ``file_visitor`` keyword can be used 
-    to supply a visitor that will be called as each file is created:
+By default the dataset API will create files named "part-i.format" where "i" is a integer
+generated during the write and "format" is the file format specified in the write_dataset
+call.  For simple datasets it may be possible to know which files will be created but for
+larger or partitioned datasets it is not so easy.  The ``file_visitor`` keyword can be used 
+to supply a visitor that will be called as each file is created:
 
-    .. ipython:: python
+.. ipython:: python
 
-        def file_visitor(written_file):
-            print(f"path={written_file.path}")
-            print(f"metadata={written_file.metadata}")
-        ds.write_dataset(table, dataset_root, format="parquet", partitioning=part,
-                        file_visitor=file_visitor)
+    def file_visitor(written_file):
+        print(f"path={written_file.path}")
+        print(f"metadata={written_file.metadata}")
 
-    This will allow you to collect the filenames that belong to the dataset and store them elsewhere
-    which can be useful when you want to avoid scanning directories the next time you need to read
-    the data.  It can also be used to generate the _metadata index file used by other tools such as
-    dask or spark to create an index of the dataset.
+.. ipython:: python
+
+    ds.write_dataset(table, base / "dataset_visited", format="parquet", partitioning=part,
+                     file_visitor=file_visitor)
+
+This will allow you to collect the filenames that belong to the dataset and store them elsewhere
+which can be useful when you want to avoid scanning directories the next time you need to read
+the data.  It can also be used to generate the _metadata index file used by other tools such as
+dask or spark to create an index of the dataset.
 
 Configuring format-specific parameters during a write
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -614,6 +616,9 @@ that are unique to a particular format.  For example, to allow truncated timesta
 Parquet files:
 
 .. ipython:: python
+
+    dataset_root = base / "sample_dataset2"
+    dataset_root.mkdir(exist_ok=True)
 
     parquet_format = ds.ParquetFileFormat()
     write_options = parquet_format.make_write_options(allow_truncated_timestamps=True)

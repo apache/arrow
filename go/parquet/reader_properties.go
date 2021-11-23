@@ -20,8 +20,7 @@ import (
 	"bytes"
 	"io"
 
-	"github.com/apache/arrow/go/arrow/ipc"
-	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/v7/arrow/memory"
 	"golang.org/x/xerrors"
 )
 
@@ -61,7 +60,7 @@ func (r *ReaderProperties) Allocator() memory.Allocator { return r.alloc }
 //
 // If BufferedStreamEnabled is true, it creates an io.SectionReader, otherwise it will read the entire section
 // into a buffer in memory and return a bytes.NewReader for that buffer.
-func (r *ReaderProperties) GetStream(source io.ReaderAt, start, nbytes int64) (ipc.ReadAtSeeker, error) {
+func (r *ReaderProperties) GetStream(source io.ReaderAt, start, nbytes int64) (ReaderAtSeeker, error) {
 	if r.BufferedStreamEnabled {
 		return io.NewSectionReader(source, start, nbytes), nil
 	}

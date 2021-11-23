@@ -134,6 +134,9 @@ ARROW_EXPORT std::shared_ptr<TypeMatcher> BinaryLike();
 // Match types using 64-bit varbinary representation
 ARROW_EXPORT std::shared_ptr<TypeMatcher> LargeBinaryLike();
 
+// Match any fixed binary type
+ARROW_EXPORT std::shared_ptr<TypeMatcher> FixedSizeBinaryLike();
+
 // \brief Match any primitive type (boolean or any type representable as a C
 // Type)
 ARROW_EXPORT std::shared_ptr<TypeMatcher> Primitive();

@@ -21,10 +21,12 @@ arrow_install_all_headers("arrow/dataset")
 
 set(ARROW_DATASET_SRCS
     dataset.cc
+    dataset_writer.cc
     discovery.cc
     file_base.cc
     file_ipc.cc
     partition.cc
+    plan.cc
     projector.cc
     scanner.cc)
 
@@ -110,6 +112,7 @@ function(ADD_ARROW_DATASET_TEST REL_TEST_NAME)
 endfunction()
 
 add_arrow_dataset_test(dataset_test)
+add_arrow_dataset_test(dataset_writer_test)
 add_arrow_dataset_test(discovery_test)
 add_arrow_dataset_test(file_ipc_test)
 add_arrow_dataset_test(file_test)
@@ -130,10 +133,13 @@ endif()
 
 if(ARROW_BUILD_BENCHMARKS)
   add_arrow_benchmark(file_benchmark PREFIX "arrow-dataset")
+  add_arrow_benchmark(scanner_benchmark PREFIX "arrow-dataset")
 
   if(ARROW_BUILD_STATIC)
     target_link_libraries(arrow-dataset-file-benchmark PUBLIC arrow_dataset_static)
+    target_link_libraries(arrow-dataset-scanner-benchmark PUBLIC arrow_dataset_static)
   else()
     target_link_libraries(arrow-dataset-file-benchmark PUBLIC arrow_dataset_shared)
+    target_link_libraries(arrow-dataset-scanner-benchmark PUBLIC arrow_dataset_shared)
   endif()
 endif()

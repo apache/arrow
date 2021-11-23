@@ -26,10 +26,10 @@ import (
 	"reflect"
 	"unsafe"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/array"
-	"github.com/apache/arrow/go/arrow/memory"
-	"github.com/apache/arrow/go/parquet"
+	"github.com/apache/arrow/go/v7/arrow"
+	"github.com/apache/arrow/go/v7/arrow/array"
+	"github.com/apache/arrow/go/v7/arrow/memory"
+	"github.com/apache/arrow/go/v7/parquet"
 
 	"github.com/zeebo/xxh3"
 )
@@ -337,6 +337,14 @@ func (b *BinaryMemoTable) CopyValuesSubset(start int, out interface{}) {
 
 	outval := out.([]byte)
 	copy(outval, b.builder.Value(start)[0:length])
+}
+
+func (b *BinaryMemoTable) WriteOut(out []byte) {
+	b.CopyValues(out)
+}
+
+func (b *BinaryMemoTable) WriteOutSubset(start int, out []byte) {
+	b.CopyValuesSubset(start, out)
 }
 
 // CopyFixedWidthValues exists to cope with the fact that the table doesn't keep

@@ -20,9 +20,10 @@ import (
 	"fmt"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/bitutil"
-	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/v7/arrow"
+	"github.com/apache/arrow/go/v7/arrow/bitutil"
+	"github.com/apache/arrow/go/v7/arrow/memory"
+	"github.com/goccy/go-json"
 )
 
 const (
@@ -31,6 +32,9 @@ const (
 
 // Builder provides an interface to build arrow arrays.
 type Builder interface {
+	// you can unmarshal a json array to add the values to a builder
+	json.Unmarshaler
+
 	// Retain increases the reference count by 1.
 	// Retain may be called simultaneously from multiple goroutines.
 	Retain()
@@ -66,6 +70,9 @@ type Builder interface {
 
 	init(capacity int)
 	resize(newBits int, init func(int))
+
+	unmarshalOne(*json.Decoder) error
+	unmarshal(*json.Decoder) error
 }
 
 // builder provides common functionality for managing the validity bitmap (nulls) when building arrays.
@@ -266,19 +273,32 @@ func NewBuilder(mem memory.Allocator, dtype arrow.DataType) Builder {
 			return NewDayTimeIntervalBuilder(mem)
 		case *arrow.MonthIntervalType:
 			return NewMonthIntervalBuilder(mem)
+		case *arrow.MonthDayNanoIntervalType:
+			return NewMonthDayNanoIntervalBuilder(mem)
 		}
-	case arrow.DECIMAL:
+	case arrow.INTERVAL_MONTHS:
+		return NewMonthIntervalBuilder(mem)
+	case arrow.INTERVAL_DAY_TIME:
+		return NewDayTimeIntervalBuilder(mem)
+	case arrow.INTERVAL_MONTH_DAY_NANO:
+		return NewMonthDayNanoIntervalBuilder(mem)
+	case arrow.DECIMAL128:
 		if typ, ok := dtype.(*arrow.Decimal128Type); ok {
 			return NewDecimal128Builder(mem, typ)
 		}
+	case arrow.DECIMAL256:
 	case arrow.LIST:
 		typ := dtype.(*arrow.ListType)
 		return NewListBuilder(mem, typ.Elem())
 	case arrow.STRUCT:
 		typ := dtype.(*arrow.StructType)
 		return NewStructBuilder(mem, typ)
-	case arrow.UNION:
+	case arrow.SPARSE_UNION:
+	case arrow.DENSE_UNION:
 	case arrow.DICTIONARY:
+	case arrow.LARGE_STRING:
+	case arrow.LARGE_BINARY:
+	case arrow.LARGE_LIST:
 	case arrow.MAP:
 		typ := dtype.(*arrow.MapType)
 		return NewMapBuilder(mem, typ.KeyType(), typ.ItemType(), typ.KeysSorted)

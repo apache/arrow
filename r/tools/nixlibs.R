@@ -131,9 +131,13 @@ distro <- function() {
   }
 
   out$id <- tolower(out$id)
-  if (grepl("bullseye", out$codename)) {
-    # debian unstable doesn't include a number but we can map from pretty name
-    out$short_version <- "11"
+  # debian unstable & testing lsb_release `version` don't include numbers but we can map from pretty name
+  if (is.null(out$version) || out$version %in% c("testing", "unstable")) {
+    if (grepl("bullseye", out$codename)) {
+      out$short_version <- "11"
+    } else if (grepl("bookworm", out$codename)) {
+      out$short_version <- "12"
+    }
   } else if (out$id == "ubuntu") {
     # Keep major.minor version
     out$short_version <- sub('^"?([0-9]+\\.[0-9]+).*"?.*$', "\\1", out$version)
@@ -201,7 +205,11 @@ system_release <- function() {
   }
 }
 
-read_system_release <- function() utils::head(readLines("/etc/system-release"), 1)
+read_system_release <- function() {
+  if (file.exists("/etc/system-release")) {
+    readLines("/etc/system-release")[1]
+  }
+}
 
 #### end distro ####
 
@@ -363,11 +371,18 @@ ensure_cmake <- function() {
   if (is.null(cmake)) {
     # If not found, download it
     cat("**** cmake\n")
-    CMAKE_VERSION <- Sys.getenv("CMAKE_VERSION", "3.19.2")
+    CMAKE_VERSION <- Sys.getenv("CMAKE_VERSION", "3.21.4")
     if (tolower(Sys.info()[["sysname"]]) %in% "darwin") {
       postfix <- "-macos-universal.tar.gz"
+    } else if (tolower(Sys.info()[["machine"]]) == "arm64") {
+      postfix <- "-linux-aarch64.tar.gz"
+    } else if (tolower(Sys.info()[["machine"]]) == "x86_64") {
+      postfix <- "-linux-x86_64.tar.gz"
     } else {
-      postfix <- "-Linux-x86_64.tar.gz"
+      stop(paste0(
+         "*** cmake was not found locally.\n",
+         "    Please make sure cmake >= 3.10 is installed and available on your PATH.\n"
+      ))
     }
     cmake_binary_url <- paste0(
       "https://github.com/Kitware/CMake/releases/download/v", CMAKE_VERSION,

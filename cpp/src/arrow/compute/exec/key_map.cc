@@ -510,7 +510,7 @@ void SwissTable::find(const int num_keys, const uint32_t* hashes,
     return;
   }
 
-  auto slot_ids_buf = util::TempVectorHolder<uint32_t>(temp_stack_, num_ids);
+  auto slot_ids_buf = util::TempVectorHolder<uint32_t>(temp_stack_, num_keys);
   uint32_t* slot_ids = slot_ids_buf.mutable_data();
   init_slot_ids(num_ids, ids, hashes, local_slots, inout_match_bitvector, slot_ids);
 

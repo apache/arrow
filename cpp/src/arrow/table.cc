@@ -327,7 +327,8 @@ Result<std::shared_ptr<Table>> Table::FromChunkedStructArray(
                    [i](const std::shared_ptr<Array>& struct_chunk) {
                      return static_cast<const StructArray&>(*struct_chunk).field(i);
                    });
-    columns[i] = std::make_shared<ChunkedArray>(std::move(chunks));
+    columns[i] =
+        std::make_shared<ChunkedArray>(std::move(chunks), type->field(i)->type());
   }
 
   return Table::Make(::arrow::schema(type->fields()), std::move(columns),

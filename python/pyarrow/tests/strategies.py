@@ -105,11 +105,15 @@ duration_types = st.builds(
     pa.duration,
     st.sampled_from(['s', 'ms', 'us', 'ns'])
 )
+interval_types = st.sampled_from(
+    pa.month_day_nano_interval()
+)
 temporal_types = st.one_of(
     date_types,
     time_types,
     timestamp_types,
-    duration_types
+    duration_types,
+    interval_types
 )
 
 primitive_types = st.one_of(
@@ -372,6 +376,7 @@ pandas_compatible_primitive_types = st.one_of(
     # discovers ARROW-10210
     # timestamp_types,
     # duration_types
+    interval_types,
     binary_type,
     string_type,
     large_binary_type,

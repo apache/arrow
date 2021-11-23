@@ -1606,4 +1606,81 @@ TEST_F(TestProjector, TestCastNullableIntYearInterval) {
   EXPECT_ARROW_ARRAY_EQUALS(out_int64, outputs.at(1));
 }
 
+TEST_F(TestProjector, TestBround) {
+  // schema for input fields
+  auto field0 = field("f0", arrow::float64());
+
+  auto schema_bround = arrow::schema({field0});
+
+  // output fields
+  auto field_bround = field("bround", arrow::float64());
+
+  // Build expression
+  auto bround_expr = TreeExprBuilder::MakeExpression("bround", {field0}, field_bround);
+
+  std::shared_ptr<Projector> projector;
+  auto status =
+      Projector::Make(schema_bround, {bround_expr}, TestConfiguration(), &projector);
+
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Create a row-batch with some sample data
+  int num_records = 4;
+  auto array0 =
+      MakeArrowArrayFloat64({0.0, 2.5, -3.5, 1.499999}, {true, true, true, true});
+  // expected output
+  auto exp_bround = MakeArrowArrayFloat64({0, 2, -4, 1}, {true, true, true, true});
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema_bround, num_records, {array0});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp_bround, outputs.at(0));
+}
+
+TEST_F(TestProjector, TestConcatWsFunction) {
+  auto field0 = field("f0", arrow::utf8());
+  auto field1 = field("f1", arrow::utf8());
+  auto field2 = field("f2", arrow::utf8());
+
+  auto schema0 = arrow::schema({field0, field1, field2});
+
+  // output fields
+  auto out_field0 = field("out_field0", arrow::utf8());
+
+  // Build expression
+  auto concat_ws_expr0 =
+      TreeExprBuilder::MakeExpression("concat_ws", {field0, field1, field2}, out_field0);
+
+  std::shared_ptr<Projector> projector1;
+
+  auto status =
+      Projector::Make(schema0, {concat_ws_expr0}, TestConfiguration(), &projector1);
+  EXPECT_TRUE(status.ok());
+
+  // Create a row-batch with some sample data
+  int num_records = 2;
+
+  auto array0 = MakeArrowArrayUtf8({"-", "<>"}, {true, true});
+  auto array1 = MakeArrowArrayUtf8({"john", "hello"}, {true, true});
+  auto array2 = MakeArrowArrayUtf8({"doe", "world"}, {true, true});
+  auto in_batch0 =
+      arrow::RecordBatch::Make(schema0, num_records, {array0, array1, array2});
+
+  auto expected_out0 = MakeArrowArrayUtf8({"john-doe", "hello<>world"}, {true, true});
+
+  arrow::ArrayVector outputs;
+
+  // Evaluate expression
+  status = projector1->Evaluate(*in_batch0, pool_, &outputs);
+  EXPECT_TRUE(status.ok());
+
+  EXPECT_ARROW_ARRAY_EQUALS(expected_out0, outputs.at(0));
+}
+
 }  // namespace gandiva

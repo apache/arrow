@@ -130,22 +130,17 @@ template <typename ArrowType>
 }
 
 static void random_decimals(int64_t n, uint32_t seed, int32_t precision, uint8_t* out) {
-  std::default_random_engine gen(seed);
-  std::uniform_int_distribution<uint32_t> d(0, std::numeric_limits<uint8_t>::max());
-  const int32_t required_bytes = ::arrow::DecimalType::DecimalSize(precision);
-  int32_t byte_width = precision <= 38 ? 16 : 32;
-  std::fill(out, out + byte_width * n, '\0');
-
-  for (int64_t i = 0; i < n; ++i, out += byte_width) {
-    std::generate(out, out + required_bytes,
-                  [&d, &gen] { return static_cast<uint8_t>(d(gen)); });
-
-    // sign extend if the sign bit is set for the last byte generated
-    // 0b10000000 == 0x80 == 128
-    if ((out[required_bytes - 1] & '\x80') != 0) {
-      std::fill(out + required_bytes, out + byte_width, '\xFF');
-    }
+  auto gen = ::arrow::random::RandomArrayGenerator(seed);
+  std::shared_ptr<Array> decimals;
+  int32_t byte_width = 0;
+  if (precision <= ::arrow::Decimal128Type::kMaxPrecision) {
+    decimals = gen.Decimal128(::arrow::decimal128(precision, 0), n);
+    byte_width = ::arrow::Decimal128Type::kByteWidth;
+  } else {
+    decimals = gen.Decimal256(::arrow::decimal256(precision, 0), n);
+    byte_width = ::arrow::Decimal256Type::kByteWidth;
   }
+  std::memcpy(out, decimals->data()->GetValues<uint8_t>(1, 0), byte_width * n);
 }
 
 template <typename ArrowType, int32_t precision = ArrowType::precision>

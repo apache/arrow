@@ -1,6 +1,6 @@
 Package: arrow
 Title: Integration to 'Apache' 'Arrow'
-Version: 5.0.0.9000
+Version: 6.0.1.9000
 Authors@R: c(
     person("Neal", "Richardson", email = "neal@ursalabs.org", role = c("aut", "cre")),
     person("Ian", "Cook", email = "ianmcook@gmail.com", role = c("aut")),
@@ -39,6 +39,7 @@ Imports:
     vctrs
 Roxygen: list(markdown = TRUE, r6 = FALSE, load = "source")
 RoxygenNote: 7.1.2
+Config/testthat/edition: 3
 VignetteBuilder: knitr
 Suggests:
     DBI,
@@ -55,7 +56,7 @@ Suggests:
     rmarkdown,
     stringi,
     stringr,
-    testthat,
+    testthat (>= 3.1.0),
     tibble,
     withr
 Collate:
@@ -85,12 +86,14 @@ Collate:
     'dictionary.R'
     'dplyr-arrange.R'
     'dplyr-collect.R'
+    'dplyr-count.R'
     'dplyr-distinct.R'
     'dplyr-eval.R'
     'dplyr-filter.R'
     'expression.R'
     'dplyr-functions.R'
     'dplyr-group-by.R'
+    'dplyr-join.R'
     'dplyr-mutate.R'
     'dplyr-select.R'
     'dplyr-summarize.R'

@@ -24,6 +24,8 @@
 #include <string>
 #include <vector>
 
+#include <gmock/gmock-matchers.h>
+
 #include "arrow/array/array_decimal.h"
 #include "arrow/array/concatenate.h"
 #include "arrow/compute/api_vector.h"
@@ -1182,13 +1184,13 @@ TEST_F(TestRecordBatchSortIndices, NullType) {
       field("f", int32()),
       field("g", int32()),
       field("h", int32()),
-      field("i", int32()),
+      field("i", null()),
   });
   auto batch = RecordBatchFromJSON(schema, R"([
-    {"a": null, "b": 5, "c": 0, "d": 0, "e": 1, "f": 2, "g": 3, "h": 4, "i": 5},
-    {"a": null, "b": 5, "c": 1, "d": 0, "e": 1, "f": 2, "g": 3, "h": 4, "i": 5},
-    {"a": null, "b": 2, "c": 2, "d": 0, "e": 1, "f": 2, "g": 3, "h": 4, "i": 5},
-    {"a": null, "b": 4, "c": 3, "d": 0, "e": 1, "f": 2, "g": 3, "h": 4, "i": 5}
+    {"a": null, "b": 5, "c": 0, "d": 0, "e": 1, "f": 2, "g": 3, "h": 4, "i": null},
+    {"a": null, "b": 5, "c": 1, "d": 0, "e": 1, "f": 2, "g": 3, "h": 4, "i": null},
+    {"a": null, "b": 2, "c": 2, "d": 0, "e": 1, "f": 2, "g": 3, "h": 4, "i": null},
+    {"a": null, "b": 4, "c": 3, "d": 0, "e": 1, "f": 2, "g": 3, "h": 4, "i": null}
 ])");
   for (const auto null_placement : AllNullPlacements()) {
     for (const auto order : AllOrders()) {
@@ -1197,7 +1199,16 @@ TEST_F(TestRecordBatchSortIndices, NullType) {
                         SortOptions(
                             {
                                 SortKey("a", order),
+                                SortKey("i", order),
+                            },
+                            null_placement),
+                        "[0, 1, 2, 3]");
+      AssertSortIndices(batch,
+                        SortOptions(
+                            {
+                                SortKey("a", order),
                                 SortKey("b", SortOrder::Ascending),
+                                SortKey("i", order),
                             },
                             null_placement),
                         "[2, 3, 0, 1]");
@@ -1213,7 +1224,7 @@ TEST_F(TestRecordBatchSortIndices, NullType) {
                                 SortKey("f", SortOrder::Ascending),
                                 SortKey("g", SortOrder::Ascending),
                                 SortKey("h", SortOrder::Ascending),
-                                SortKey("i", SortOrder::Ascending),
+                                SortKey("i", order),
                             },
                             null_placement),
                         "[2, 3, 0, 1]");
@@ -1251,6 +1262,45 @@ TEST_F(TestRecordBatchSortIndices, DuplicateSortKeys) {
 
 // Test basic cases for table.
 class TestTableSortIndices : public ::testing::Test {};
+
+TEST_F(TestTableSortIndices, EmptyTable) {
+  auto schema = ::arrow::schema({
+      {field("a", uint8())},
+      {field("b", uint32())},
+  });
+  const std::vector<SortKey> sort_keys{SortKey("a", SortOrder::Ascending),
+                                       SortKey("b", SortOrder::Descending)};
+
+  auto table = TableFromJSON(schema, {"[]"});
+  auto chunked_table = TableFromJSON(schema, {"[]", "[]"});
+
+  SortOptions options(sort_keys, NullPlacement::AtEnd);
+  AssertSortIndices(table, options, "[]");
+  AssertSortIndices(chunked_table, options, "[]");
+  options.null_placement = NullPlacement::AtStart;
+  AssertSortIndices(table, options, "[]");
+  AssertSortIndices(chunked_table, options, "[]");
+}
+
+TEST_F(TestTableSortIndices, EmptySortKeys) {
+  auto schema = ::arrow::schema({
+      {field("a", uint8())},
+      {field("b", uint32())},
+  });
+  const std::vector<SortKey> sort_keys{};
+  const SortOptions options(sort_keys, NullPlacement::AtEnd);
+
+  auto table = TableFromJSON(schema, {R"([{"a": null, "b": 5}])"});
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, testing::HasSubstr("Must specify one or more sort keys"),
+      CallFunction("sort_indices", {table}, &options));
+
+  // Several chunks
+  table = TableFromJSON(schema, {R"([{"a": null, "b": 5}])", R"([{"a": 0, "b": 6}])"});
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, testing::HasSubstr("Must specify one or more sort keys"),
+      CallFunction("sort_indices", {table}, &options));
+}
 
 TEST_F(TestTableSortIndices, Null) {
   auto schema = ::arrow::schema({
@@ -1444,15 +1494,16 @@ TEST_F(TestTableSortIndices, NullType) {
       field("a", null()),
       field("b", int32()),
       field("c", int32()),
+      field("d", null()),
   });
   auto table = TableFromJSON(schema, {
                                          R"([
-                                             {"a": null, "b": 5, "c": 0},
-                                             {"a": null, "b": 5, "c": 1},
-                                             {"a": null, "b": 2, "c": 2}
+                                             {"a": null, "b": 5, "c": 0, "d": null},
+                                             {"a": null, "b": 5, "c": 1, "d": null},
+                                             {"a": null, "b": 2, "c": 2, "d": null}
                                          ])",
                                          R"([])",
-                                         R"([{"a": null, "b": 4, "c": 3}])",
+                                         R"([{"a": null, "b": 4, "c": 3, "d": null}])",
                                      });
   for (const auto null_placement : AllNullPlacements()) {
     for (const auto order : AllOrders()) {
@@ -1460,7 +1511,16 @@ TEST_F(TestTableSortIndices, NullType) {
                         SortOptions(
                             {
                                 SortKey("a", order),
+                                SortKey("d", order),
+                            },
+                            null_placement),
+                        "[0, 1, 2, 3]");
+      AssertSortIndices(table,
+                        SortOptions(
+                            {
+                                SortKey("a", order),
                                 SortKey("b", SortOrder::Ascending),
+                                SortKey("d", order),
                             },
                             null_placement),
                         "[2, 3, 0, 1]");
@@ -1495,6 +1555,32 @@ TEST_F(TestTableSortIndices, DuplicateSortKeys) {
   AssertSortIndices(table, options, "[7, 1, 2, 6, 5, 4, 0, 3]");
   options.null_placement = NullPlacement::AtStart;
   AssertSortIndices(table, options, "[3, 0, 4, 5, 6, 7, 1, 2]");
+}
+
+TEST_F(TestTableSortIndices, HeterogenousChunking) {
+  auto schema = ::arrow::schema({
+      {field("a", float32())},
+      {field("b", float64())},
+  });
+
+  // Same logical data as in "NaNAndNull" test above
+  auto col_a =
+      ChunkedArrayFromJSON(float32(), {"[null, 1]", "[]", "[3, null, NaN, NaN, NaN, 1]"});
+  auto col_b = ChunkedArrayFromJSON(float64(),
+                                    {"[5]", "[3, null, null]", "[null, NaN, 5]", "[5]"});
+  auto table = Table::Make(schema, {col_a, col_b});
+
+  SortOptions options(
+      {SortKey("a", SortOrder::Ascending), SortKey("b", SortOrder::Descending)});
+  AssertSortIndices(table, options, "[7, 1, 2, 6, 5, 4, 0, 3]");
+  options.null_placement = NullPlacement::AtStart;
+  AssertSortIndices(table, options, "[3, 0, 4, 5, 6, 7, 1, 2]");
+
+  options = SortOptions(
+      {SortKey("b", SortOrder::Ascending), SortKey("a", SortOrder::Descending)});
+  AssertSortIndices(table, options, "[1, 7, 6, 0, 5, 2, 4, 3]");
+  options.null_placement = NullPlacement::AtStart;
+  AssertSortIndices(table, options, "[3, 4, 2, 5, 1, 0, 6, 7]");
 }
 
 // Tests for temporal types
@@ -1593,8 +1679,15 @@ class TestTableSortIndicesRandom : public testing::TestWithParam<RandomParam> {
    public:
     Comparator(const Table& table, const SortOptions& options) : options_(options) {
       for (const auto& sort_key : options_.sort_keys) {
-        sort_columns_.emplace_back(table.GetColumnByName(sort_key.name).get(),
-                                   sort_key.order);
+        DCHECK(!sort_key.target.IsNested());
+
+        if (auto name = sort_key.target.name()) {
+          sort_columns_.emplace_back(table.GetColumnByName(*name).get(), sort_key.order);
+          continue;
+        }
+
+        auto index = sort_key.target.field_path()->indices()[0];
+        sort_columns_.emplace_back(table.column(index).get(), sort_key.order);
       }
     }
 
@@ -1604,7 +1697,7 @@ class TestTableSortIndicesRandom : public testing::TestWithParam<RandomParam> {
       for (const auto& pair : sort_columns_) {
         ColumnComparator comparator(pair.second, options_.null_placement);
         const auto& chunked_array = *pair.first;
-        int64_t lhs_index, rhs_index;
+        int64_t lhs_index = 0, rhs_index = 0;
         const Array* lhs_array = FindTargetArray(chunked_array, lhs, &lhs_index);
         const Array* rhs_array = FindTargetArray(chunked_array, rhs, &rhs_index);
         int compared = comparator(*lhs_array, *rhs_array, lhs_index, rhs_index);
@@ -1693,22 +1786,48 @@ TEST_P(TestTableSortIndicesRandom, Sort) {
       {field("decimal128", decimal128(25, 3))},
       {field("decimal256", decimal256(42, 6))},
   };
-  const auto length = 200;
-  ArrayVector columns = {
-      rng.UInt8(length, 0, 10, null_probability),
-      rng.Int16(length, -1000, 12000, /*null_probability=*/0.0),
-      rng.Int32(length, -123456789, 987654321, null_probability),
-      rng.UInt64(length, 1, 1234567890123456789ULL, /*null_probability=*/0.0),
-      rng.Float32(length, -1.0f, 1.0f, null_probability, nan_probability),
-      rng.Boolean(length, /*true_probability=*/0.3, null_probability),
-      rng.StringWithRepeats(length, /*unique=*/length / 10, /*min_length=*/5,
-                            /*max_length=*/15, null_probability),
-      rng.LargeString(length, /*min_length=*/5, /*max_length=*/15,
-                      /*null_probability=*/0.0),
-      rng.Decimal128(fields[8]->type(), length, null_probability),
-      rng.Decimal256(fields[9]->type(), length, /*null_probability=*/0.0),
+  const auto schema = ::arrow::schema(fields);
+  const int64_t length = 80;
+
+  using ArrayFactory = std::function<std::shared_ptr<Array>(int64_t length)>;
+
+  std::vector<ArrayFactory> column_factories{
+      [&](int64_t length) { return rng.UInt8(length, 0, 10, null_probability); },
+      [&](int64_t length) {
+        return rng.Int16(length, -1000, 12000, /*null_probability=*/0.0);
+      },
+      [&](int64_t length) {
+        return rng.Int32(length, -123456789, 987654321, null_probability);
+      },
+      [&](int64_t length) {
+        return rng.UInt64(length, 1, 1234567890123456789ULL, /*null_probability=*/0.0);
+      },
+      [&](int64_t length) {
+        return rng.Float32(length, -1.0f, 1.0f, null_probability, nan_probability);
+      },
+      [&](int64_t length) {
+        return rng.Boolean(length, /*true_probability=*/0.3, null_probability);
+      },
+      [&](int64_t length) {
+        if (length > 0) {
+          return rng.StringWithRepeats(length, /*unique=*/1 + length / 10,
+                                       /*min_length=*/5,
+                                       /*max_length=*/15, null_probability);
+        } else {
+          return *MakeArrayOfNull(utf8(), 0);
+        }
+      },
+      [&](int64_t length) {
+        return rng.LargeString(length, /*min_length=*/5, /*max_length=*/15,
+                               /*null_probability=*/0.0);
+      },
+      [&](int64_t length) {
+        return rng.Decimal128(fields[8]->type(), length, null_probability);
+      },
+      [&](int64_t length) {
+        return rng.Decimal256(fields[9]->type(), length, /*null_probability=*/0.0);
+      },
   };
-  const auto table = Table::Make(schema(fields), columns, length);
 
   // Generate random sort keys, making sure no column is included twice
   std::default_random_engine engine(seed);
@@ -1732,37 +1851,61 @@ TEST_P(TestTableSortIndicesRandom, Sort) {
 
   std::stringstream ss;
   for (const auto& sort_key : sort_keys) {
-    ss << sort_key.name << (sort_key.order == SortOrder::Ascending ? " ASC" : " DESC");
+    ss << sort_key.target.ToString()
+       << (sort_key.order == SortOrder::Ascending ? " ASC" : " DESC");
     ss << ", ";
   }
   ARROW_SCOPED_TRACE("sort_keys = ", ss.str());
 
   SortOptions options(sort_keys);
 
-  // Test with different table chunkings
-  for (const int64_t num_chunks : {1, 2, 20}) {
-    ARROW_SCOPED_TRACE("Table sorting: num_chunks = ", num_chunks);
-    TableBatchReader reader(*table);
-    reader.set_chunksize((length + num_chunks - 1) / num_chunks);
-    ASSERT_OK_AND_ASSIGN(auto chunked_table, Table::FromRecordBatchReader(&reader));
+  // Test with different, heterogenous table chunkings
+  for (const int64_t max_num_chunks : {1, 3, 15}) {
+    ARROW_SCOPED_TRACE("Table sorting: max chunks per column = ", max_num_chunks);
+    std::uniform_int_distribution<int64_t> num_chunk_dist(1 + max_num_chunks / 2,
+                                                          max_num_chunks);
+    ChunkedArrayVector columns;
+    columns.reserve(fields.size());
+
+    // Chunk each column independently, and make sure they consist of
+    // physically non-contiguous chunks.
+    for (const auto& factory : column_factories) {
+      const int64_t num_chunks = num_chunk_dist(engine);
+      ArrayVector chunks(num_chunks);
+      const auto offsets =
+          checked_pointer_cast<Int32Array>(rng.Offsets(num_chunks + 1, 0, length));
+      for (int64_t i = 0; i < num_chunks; ++i) {
+        const auto chunk_len = offsets->Value(i + 1) - offsets->Value(i);
+        chunks[i] = factory(chunk_len);
+      }
+      columns.push_back(std::make_shared<ChunkedArray>(std::move(chunks)));
+      ASSERT_EQ(columns.back()->length(), length);
+    }
+
+    auto table = Table::Make(schema, std::move(columns));
     for (auto null_placement : AllNullPlacements()) {
       ARROW_SCOPED_TRACE("null_placement = ", null_placement);
       options.null_placement = null_placement;
-      ASSERT_OK_AND_ASSIGN(auto offsets, SortIndices(Datum(*chunked_table), options));
+      ASSERT_OK_AND_ASSIGN(auto offsets, SortIndices(Datum(*table), options));
       Validate(*table, options, *checked_pointer_cast<UInt64Array>(offsets));
     }
   }
 
   // Also validate RecordBatch sorting
-  TableBatchReader reader(*table);
-  RecordBatchVector batches;
-  ASSERT_OK(reader.ReadAll(&batches));
-  ASSERT_EQ(batches.size(), 1);
   ARROW_SCOPED_TRACE("Record batch sorting");
+  ArrayVector columns;
+  columns.reserve(fields.size());
+  for (const auto& factory : column_factories) {
+    columns.push_back(factory(length));
+  }
+  auto batch = RecordBatch::Make(schema, length, std::move(columns));
+  ASSERT_OK(batch->ValidateFull());
+  ASSERT_OK_AND_ASSIGN(auto table, Table::FromRecordBatches(schema, {batch}));
+
   for (auto null_placement : AllNullPlacements()) {
     ARROW_SCOPED_TRACE("null_placement = ", null_placement);
     options.null_placement = null_placement;
-    ASSERT_OK_AND_ASSIGN(auto offsets, SortIndices(Datum(*batches[0]), options));
+    ASSERT_OK_AND_ASSIGN(auto offsets, SortIndices(Datum(batch), options));
     Validate(*table, options, *checked_pointer_cast<UInt64Array>(offsets));
   }
 }

@@ -188,6 +188,13 @@ class ARROW_EXPORT DataType : public detail::Fingerprintable {
 ARROW_EXPORT
 std::ostream& operator<<(std::ostream& os, const DataType& type);
 
+inline bool operator==(const DataType& lhs, const DataType& rhs) {
+  return lhs.Equals(rhs);
+}
+inline bool operator!=(const DataType& lhs, const DataType& rhs) {
+  return !lhs.Equals(rhs);
+}
+
 /// \brief Return the compatible physical data type
 ///
 /// Some types may have distinct logical meanings but the exact same physical
@@ -927,7 +934,9 @@ class ARROW_EXPORT MapType : public ListType {
 class ARROW_EXPORT FixedSizeListType : public BaseListType {
  public:
   static constexpr Type::type type_id = Type::FIXED_SIZE_LIST;
-  using offset_type = int32_t;
+  // While the individual item size is 32-bit, the overall data size
+  // (item size * list length) may not fit in a 32-bit int.
+  using offset_type = int64_t;
 
   static constexpr const char* type_name() { return "fixed_size_list"; }
 
@@ -1361,6 +1370,9 @@ class ARROW_EXPORT DayTimeIntervalType : public IntervalType {
   std::string name() const override { return "day_time_interval"; }
 };
 
+ARROW_EXPORT
+std::ostream& operator<<(std::ostream& os, DayTimeIntervalType::DayMilliseconds interval);
+
 /// \brief Represents a number of months, days and nanoseconds between
 /// two dates.
 ///
@@ -1397,6 +1409,10 @@ class ARROW_EXPORT MonthDayNanoIntervalType : public IntervalType {
   std::string ToString() const override { return name(); }
   std::string name() const override { return "month_day_nano_interval"; }
 };
+
+ARROW_EXPORT
+std::ostream& operator<<(std::ostream& os,
+                         MonthDayNanoIntervalType::MonthDayNanos interval);
 
 /// \brief Represents an elapsed time without any relation to a calendar artifact.
 class ARROW_EXPORT DurationType : public TemporalType, public ParametricType {
@@ -1612,6 +1628,7 @@ class ARROW_EXPORT FieldRef {
   /// the resulting name. Therefore if a name must contain the characters '.', '\', or '['
   /// those must be escaped with a preceding '\'.
   static Result<FieldRef> FromDotPath(const std::string& dot_path);
+  std::string ToDotPath() const;
 
   bool Equals(const FieldRef& other) const { return impl_ == other.impl_; }
   bool operator==(const FieldRef& other) const { return Equals(other); }

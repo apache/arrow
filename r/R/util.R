@@ -66,6 +66,10 @@ r_symbolic_constants <- c(
 )
 
 is_function <- function(expr, name) {
+  # We could have a quosure here if we have an expression like `sum({{ var }})`
+  if (is_quosure(expr)) {
+    expr <- quo_get_expr(expr)
+  }
   if (!is.call(expr)) {
     return(FALSE)
   } else {
@@ -113,14 +117,6 @@ read_compressed_error <- function(e) {
       sprintf("\n * ARROW_WITH_%s=ON (for just '%s')", toupper(compression), compression),
       "\n\nSee https://arrow.apache.org/docs/r/articles/install.html for details"
     )
-  }
-  stop(e)
-}
-
-handle_embedded_nul_error <- function(e) {
-  msg <- conditionMessage(e)
-  if (grepl(" nul ", msg)) {
-    e$message <- paste0(msg, "; to strip nuls when converting from Arrow to R, set options(arrow.skip_nul = TRUE)")
   }
   stop(e)
 }
@@ -196,4 +192,19 @@ repeat_value_as_array <- function(object, n) {
     return(Scalar$create(object$chunks[[1]])$as_array(n))
   }
   return(Scalar$create(object)$as_array(n))
+}
+
+handle_csv_read_error <- function(e, schema) {
+  msg <- conditionMessage(e)
+
+  if (grepl("conversion error", msg) && inherits(schema, "Schema")) {
+    abort(c(
+      msg,
+      i = paste("If you have supplied a schema and your data contains a header",
+                "row, you should supply the argument `skip = 1` to prevent the",
+                "header being read in as data.")
+    ))
+  }
+
+  abort(e)
 }

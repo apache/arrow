@@ -28,6 +28,7 @@
 #include "arrow/record_batch.h"
 #include "arrow/scalar.h"
 #include "arrow/table.h"
+#include "arrow/util/byte_size.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/memory.h"
 
@@ -125,6 +126,25 @@ int64_t Datum::length() const {
       return 1;
     default:
       return kUnknownLength;
+  }
+}
+
+int64_t Datum::TotalBufferSize() const {
+  switch (this->kind()) {
+    case Datum::ARRAY:
+      return util::TotalBufferSize(*util::get<std::shared_ptr<ArrayData>>(this->value));
+    case Datum::CHUNKED_ARRAY:
+      return util::TotalBufferSize(
+          *util::get<std::shared_ptr<ChunkedArray>>(this->value));
+    case Datum::RECORD_BATCH:
+      return util::TotalBufferSize(*util::get<std::shared_ptr<RecordBatch>>(this->value));
+    case Datum::TABLE:
+      return util::TotalBufferSize(*util::get<std::shared_ptr<Table>>(this->value));
+    case Datum::SCALAR:
+      return 0;
+    default:
+      DCHECK(false);
+      return 0;
   }
 }
 

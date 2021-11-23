@@ -58,20 +58,20 @@ function compileBinFiles(target, format) {
 }
 
 function compileTypescript(out, tsconfigPath, tsconfigOverrides) {
-    const tsProject = ts.createProject(tsconfigPath, { typescript: require(`typescript`), ...tsconfigOverrides });
+    const tsProject = ts.createProject(tsconfigPath, { typescript: require(`typescript`), ...tsconfigOverrides});
     const { stream: { js, dts } } = observableFromStreams(
       tsProject.src(), sourcemaps.init(),
       tsProject(ts.reporter.defaultReporter())
     );
-    const writeSources = observableFromStreams(tsProject.src(), gulp.dest(out));
-    const writeDTypes = observableFromStreams(dts, sourcemaps.write('./', { includeContent: false }), gulp.dest(out));
+    const writeSources = observableFromStreams(tsProject.src(), gulp.dest(path.join(out, 'src')));
+    const writeDTypes = observableFromStreams(dts, sourcemaps.write('./', { includeContent: false, sourceRoot: 'src' }), gulp.dest(out));
     const mapFile = tsProject.options.module === 5 ? esmMapFile : cjsMapFile;
-    const writeJS = observableFromStreams(js, sourcemaps.write('./', { mapFile, includeContent: false }), gulp.dest(out));
-    return ObservableForkJoin(writeSources, writeDTypes, writeJS);
+    const writeJS = observableFromStreams(js, sourcemaps.write('./', { mapFile, includeContent: false, sourceRoot: 'src' }), gulp.dest(out));
+    return ObservableForkJoin([writeSources, writeDTypes, writeJS]);
 }
 
-function cjsMapFile(mapFilePath) { return mapFilePath; }
-function esmMapFile(mapFilePath) { return mapFilePath.replace('.js.map', '.mjs.map'); }
+const cjsMapFile = (mapFilePath) => mapFilePath;
+const esmMapFile = (mapFilePath) => mapFilePath.replace('.js.map', '.mjs.map');
 
 module.exports = typescriptTask;
 module.exports.typescriptTask = typescriptTask;

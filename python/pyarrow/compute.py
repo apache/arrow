@@ -133,11 +133,15 @@ def _decorate_compute_function(wrapper, exposed_name, func, option_class):
     if option_class is not None:
         doc_pieces.append("""\
             options : pyarrow.compute.{0}, optional
-                Parameters altering compute function semantics
-            **kwargs : optional
-                Parameters for {0} constructor. Either `options`
-                or `**kwargs` can be passed, but not both at the same time.
+                Parameters altering compute function semantics.
             """.format(option_class.__name__))
+        options_sig = inspect.signature(option_class)
+        for p in options_sig.parameters.values():
+            doc_pieces.append("""\
+            {0} : optional
+                Parameter for {1} constructor. Either `options`
+                or `{0}` can be passed, but not both at the same time.
+            """.format(p.name, option_class.__name__))
 
     wrapper.__doc__ = "".join(dedent(s) for s in doc_pieces)
     return wrapper
@@ -176,12 +180,22 @@ def _handle_options(name, option_class, options, kwargs):
     return options
 
 
-def _make_generic_wrapper(func_name, func, option_class):
+def _make_generic_wrapper(func_name, func, option_class, arity):
     if option_class is None:
         def wrapper(*args, memory_pool=None):
+            if arity is not Ellipsis and len(args) != arity:
+                raise TypeError(
+                    f"{func_name} takes {arity} positional argument(s), "
+                    "but {len(args)} were given"
+                )
             return func.call(args, None, memory_pool)
     else:
         def wrapper(*args, memory_pool=None, options=None, **kwargs):
+            if arity is not Ellipsis and len(args) != arity:
+                raise TypeError(
+                    f"{func_name} takes {arity} positional argument(s), "
+                    "but {len(args)} were given"
+                )
             options = _handle_options(func_name, option_class, options,
                                       kwargs)
             return func.call(args, options, memory_pool)
@@ -217,7 +231,7 @@ def _wrap_function(name, func):
     else:
         var_arg_names = []
 
-    wrapper = _make_generic_wrapper(name, func, option_class)
+    wrapper = _make_generic_wrapper(name, func, option_class, arity=func.arity)
     wrapper.__signature__ = _make_signature(arg_names, var_arg_names,
                                             option_class)
     return _decorate_compute_function(wrapper, name, func, option_class)
@@ -240,6 +254,10 @@ def _make_global_functions():
     for cpp_name in reg.list_functions():
         name = rewrites.get(cpp_name, cpp_name)
         func = reg.get_function(cpp_name)
+        if func.kind == "hash_aggregate":
+            # Hash aggregate functions are not callable,
+            # so let's not expose them at module level.
+            continue
         assert name not in g, name
         g[cpp_name] = g[name] = _wrap_function(name, func)
 
@@ -631,10 +649,10 @@ def fill_null(values, fill_value):
 
     Parameters
     ----------
-    data : Array, ChunkedArray, or Scalar-like object
+    values : Array, ChunkedArray, or Scalar-like object
         Each null element is replaced with the corresponding value
         from fill_value.
-    fill_value: Array, ChunkedArray, or Scalar-like object
+    fill_value : Array, ChunkedArray, or Scalar-like object
         If not same type as data will attempt to cast.
 
     Returns

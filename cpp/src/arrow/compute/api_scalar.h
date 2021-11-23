@@ -23,13 +23,12 @@
 #include <string>
 #include <utility>
 
-#include "arrow/compute/exec.h"  // IWYU pragma: keep
 #include "arrow/compute/function.h"
+#include "arrow/compute/type_fwd.h"
 #include "arrow/datum.h"
 #include "arrow/result.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
-#include "arrow/vendored/datetime.h"
 
 namespace arrow {
 namespace compute {
@@ -94,10 +93,17 @@ class ARROW_EXPORT RoundToMultipleOptions : public FunctionOptions {
  public:
   explicit RoundToMultipleOptions(double multiple = 1.0,
                                   RoundMode round_mode = RoundMode::HALF_TO_EVEN);
+  explicit RoundToMultipleOptions(std::shared_ptr<Scalar> multiple,
+                                  RoundMode round_mode = RoundMode::HALF_TO_EVEN);
   constexpr static char const kTypeName[] = "RoundToMultipleOptions";
   static RoundToMultipleOptions Defaults() { return RoundToMultipleOptions(); }
-  /// Rounding scale (multiple to round to)
-  double multiple;
+  /// Rounding scale (multiple to round to).
+  ///
+  /// Should be a scalar of a type compatible with the argument to be rounded.
+  /// For example, rounding a decimal value means a decimal multiple is
+  /// required. Rounding a floating point or integer value means a floating
+  /// point scalar is required.
+  std::shared_ptr<Scalar> multiple;
   /// Rounding and tie-breaking mode
   RoundMode round_mode;
 };
@@ -217,6 +223,18 @@ class ARROW_EXPORT SetLookupOptions : public FunctionOptions {
   bool skip_nulls;
 };
 
+/// Options for struct_field function
+class ARROW_EXPORT StructFieldOptions : public FunctionOptions {
+ public:
+  explicit StructFieldOptions(std::vector<int> indices);
+  StructFieldOptions();
+  constexpr static char const kTypeName[] = "StructFieldOptions";
+
+  /// The child indices to extract. For instance, to get the 2nd child
+  /// of the 1st child of a struct or union, this would be {0, 1}.
+  std::vector<int> indices;
+};
+
 class ARROW_EXPORT StrptimeOptions : public FunctionOptions {
  public:
   explicit StrptimeOptions(std::string format, TimeUnit::type unit);
@@ -323,7 +341,8 @@ struct ARROW_EXPORT DayOfWeekOptions : public FunctionOptions {
 
   /// Number days from 0 if true and from 1 if false
   bool count_from_zero;
-  /// What day does the week start with (Monday=1, Sunday=7)
+  /// What day does the week start with (Monday=1, Sunday=7).
+  /// The numbering is unaffected by the count_from_zero parameter.
   uint32_t week_start;
 };
 
@@ -869,7 +888,7 @@ Result<Datum> IsIn(const Datum& values, const Datum& value_set,
 /// will be output.
 ///
 /// For example given values = [99, 42, 3, null] and
-/// value_set = [3, 3, 99], the output will be = [1, null, 0, null]
+/// value_set = [3, 3, 99], the output will be = [2, null, 0, null]
 ///
 /// Behaviour of nulls is governed by SetLookupOptions::skip_nulls.
 ///

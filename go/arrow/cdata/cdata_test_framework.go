@@ -44,7 +44,7 @@ package cdata
 // int test1_is_released();
 // void test_primitive(struct ArrowSchema* schema, const char* fmt);
 // void free_malloced_schemas(struct ArrowSchema**);
-// struct ArrowSchema** test_lists(const char** fmts, const char** names, const int n);
+// struct ArrowSchema** test_lists(const char** fmts, const char** names, const int* nullflags, const int n);
 // struct ArrowSchema** test_struct(const char** fmts, const char** names, int64_t* flags, const int n);
 // struct ArrowSchema** test_map(const char** fmts, const char** names, int64_t* flags, const int n);
 // struct ArrowSchema** test_schema(const char** fmts, const char** names, int64_t* flags, const int n);
@@ -52,8 +52,8 @@ import "C"
 import (
 	"unsafe"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/array"
+	"github.com/apache/arrow/go/v7/arrow"
+	"github.com/apache/arrow/go/v7/arrow/array"
 )
 
 const (
@@ -92,9 +92,9 @@ func getMetadataValues() ([]string, []string) {
 	return []string{"", "bar"}, []string{"abcde"}
 }
 
-func exportInt32Array() CArrowArray {
-	var arr CArrowArray
-	C.export_int32_array(C.get_data(), C.int64_t(10), &arr)
+func exportInt32Array() *CArrowArray {
+	arr := C.get_test_arr()
+	C.export_int32_array(C.get_data(), C.int64_t(10), arr)
 	return arr
 }
 
@@ -117,19 +117,28 @@ func freeMallocedSchemas(schemas **CArrowSchema) {
 	C.free_malloced_schemas(schemas)
 }
 
-func testNested(fmts, names []string) **CArrowSchema {
+func testNested(fmts, names []string, isnull []bool) **CArrowSchema {
 	if len(fmts) != len(names) {
 		panic("testing nested lists must have same size fmts and names")
 	}
 	cfmts := make([]*C.char, len(fmts))
 	cnames := make([]*C.char, len(names))
+	nulls := make([]C.int, len(isnull))
 
 	for i := range fmts {
 		cfmts[i] = C.CString(fmts[i])
 		cnames[i] = C.CString(names[i])
 	}
 
-	return C.test_lists((**C.char)(unsafe.Pointer(&cfmts[0])), (**C.char)(unsafe.Pointer(&cnames[0])), C.int(len(fmts)))
+	for i, v := range isnull {
+		if v {
+			nulls[i] = C.ARROW_FLAG_NULLABLE
+		} else {
+			nulls[i] = 0
+		}
+	}
+
+	return C.test_lists((**C.char)(unsafe.Pointer(&cfmts[0])), (**C.char)(unsafe.Pointer(&cnames[0])), (*C.int)(unsafe.Pointer(&nulls[0])), C.int(len(fmts)))
 }
 
 func testStruct(fmts, names []string, flags []int64) **CArrowSchema {

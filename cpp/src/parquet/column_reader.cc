@@ -50,8 +50,7 @@
 #include "parquet/properties.h"
 #include "parquet/statistics.h"
 #include "parquet/thrift_internal.h"  // IWYU pragma: keep
-// Required after "arrow/util/int_util_internal.h" (for OPTIONAL)
-#include "parquet/windows_compatibility.h"
+#include "parquet/windows_fixup.h"    // for OPTIONAL
 
 using arrow::MemoryPool;
 using arrow::internal::AddWithOverflow;
@@ -780,8 +779,13 @@ class ColumnReaderImplBase {
           decoders_[static_cast<int>(encoding)] = std::move(decoder);
           break;
         }
+        case Encoding::DELTA_BYTE_ARRAY: {
+          auto decoder = MakeTypedDecoder<DType>(Encoding::DELTA_BYTE_ARRAY, descr_);
+          current_decoder_ = decoder.get();
+          decoders_[static_cast<int>(encoding)] = std::move(decoder);
+          break;
+        }
         case Encoding::DELTA_LENGTH_BYTE_ARRAY:
-        case Encoding::DELTA_BYTE_ARRAY:
           ParquetException::NYI("Unsupported encoding");
 
         default:

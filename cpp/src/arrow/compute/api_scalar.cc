@@ -25,7 +25,6 @@
 #include "arrow/compute/exec.h"
 #include "arrow/compute/function_internal.h"
 #include "arrow/compute/registry.h"
-#include "arrow/compute/util_internal.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
@@ -224,6 +223,8 @@ static auto kExtractRegexOptionsType = GetFunctionOptionsType<ExtractRegexOption
 static auto kSetLookupOptionsType = GetFunctionOptionsType<SetLookupOptions>(
     DataMember("value_set", &SetLookupOptions::value_set),
     DataMember("skip_nulls", &SetLookupOptions::skip_nulls));
+static auto kStructFieldOptionsType = GetFunctionOptionsType<StructFieldOptions>(
+    DataMember("indices", &StructFieldOptions::indices));
 static auto kStrptimeOptionsType = GetFunctionOptionsType<StrptimeOptions>(
     DataMember("format", &StrptimeOptions::format),
     DataMember("unit", &StrptimeOptions::unit));
@@ -284,8 +285,11 @@ RoundOptions::RoundOptions(int64_t ndigits, RoundMode round_mode)
 constexpr char RoundOptions::kTypeName[];
 
 RoundToMultipleOptions::RoundToMultipleOptions(double multiple, RoundMode round_mode)
+    : RoundToMultipleOptions(std::make_shared<DoubleScalar>(multiple), round_mode) {}
+RoundToMultipleOptions::RoundToMultipleOptions(std::shared_ptr<Scalar> multiple,
+                                               RoundMode round_mode)
     : FunctionOptions(internal::kRoundToMultipleOptionsType),
-      multiple(multiple),
+      multiple(std::move(multiple)),
       round_mode(round_mode) {}
 constexpr char RoundToMultipleOptions::kTypeName[];
 
@@ -348,6 +352,11 @@ SetLookupOptions::SetLookupOptions(Datum value_set, bool skip_nulls)
       skip_nulls(skip_nulls) {}
 SetLookupOptions::SetLookupOptions() : SetLookupOptions({}, false) {}
 constexpr char SetLookupOptions::kTypeName[];
+
+StructFieldOptions::StructFieldOptions(std::vector<int> indices)
+    : FunctionOptions(internal::kStructFieldOptionsType), indices(std::move(indices)) {}
+StructFieldOptions::StructFieldOptions() : StructFieldOptions(std::vector<int>()) {}
+constexpr char StructFieldOptions::kTypeName[];
 
 StrptimeOptions::StrptimeOptions(std::string format, TimeUnit::type unit)
     : FunctionOptions(internal::kStrptimeOptionsType),
@@ -442,6 +451,7 @@ void RegisterScalarOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kReplaceSubstringOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kExtractRegexOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kSetLookupOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kStructFieldOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kStrptimeOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kStrftimeOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kAssumeTimezoneOptionsType));
@@ -530,44 +540,22 @@ Result<Datum> MinElementWise(const std::vector<Datum>& args,
 // ----------------------------------------------------------------------
 // Set-related operations
 
-static Result<Datum> ExecSetLookup(const std::string& func_name, const Datum& data,
-                                   const SetLookupOptions& options, ExecContext* ctx) {
-  if (!options.value_set.is_arraylike()) {
-    return Status::Invalid("Set lookup value set must be Array or ChunkedArray");
-  }
-  std::shared_ptr<DataType> data_type;
-  if (data.type()->id() == Type::DICTIONARY) {
-    data_type =
-        arrow::internal::checked_pointer_cast<DictionaryType>(data.type())->value_type();
-  } else {
-    data_type = data.type();
-  }
-
-  if (options.value_set.length() > 0 && !data_type->Equals(options.value_set.type())) {
-    std::stringstream ss;
-    ss << "Array type didn't match type of values set: " << data_type->ToString()
-       << " vs " << options.value_set.type()->ToString();
-    return Status::Invalid(ss.str());
-  }
-  return CallFunction(func_name, {data}, &options, ctx);
-}
-
 Result<Datum> IsIn(const Datum& values, const SetLookupOptions& options,
                    ExecContext* ctx) {
-  return ExecSetLookup("is_in", values, options, ctx);
+  return CallFunction("is_in", {values}, &options, ctx);
 }
 
 Result<Datum> IsIn(const Datum& values, const Datum& value_set, ExecContext* ctx) {
-  return ExecSetLookup("is_in", values, SetLookupOptions{value_set}, ctx);
+  return IsIn(values, SetLookupOptions{value_set}, ctx);
 }
 
 Result<Datum> IndexIn(const Datum& values, const SetLookupOptions& options,
                       ExecContext* ctx) {
-  return ExecSetLookup("index_in", values, options, ctx);
+  return CallFunction("index_in", {values}, &options, ctx);
 }
 
 Result<Datum> IndexIn(const Datum& values, const Datum& value_set, ExecContext* ctx) {
-  return ExecSetLookup("index_in", values, SetLookupOptions{value_set}, ctx);
+  return IndexIn(values, SetLookupOptions{value_set}, ctx);
 }
 
 // ----------------------------------------------------------------------

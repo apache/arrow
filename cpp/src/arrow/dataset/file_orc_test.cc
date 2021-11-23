@@ -44,7 +44,7 @@ class OrcFormatHelper {
     ARROW_ASSIGN_OR_RAISE(auto writer, adapters::orc::ORCFileWriter::Open(sink.get()));
     std::shared_ptr<Table> table;
     RETURN_NOT_OK(reader->ReadAll(&table));
-    writer->Write(*table);
+    RETURN_NOT_OK(writer->Write(*table));
     RETURN_NOT_OK(writer->Close());
     return sink->Finish();
   }
@@ -73,10 +73,10 @@ TEST_P(TestOrcFileFormatScan, ScanRecordBatchReader) { TestScan(); }
 TEST_P(TestOrcFileFormatScan, ScanRecordBatchReaderWithVirtualColumn) {
   TestScanWithVirtualColumn();
 }
-// TEST_P(TestOrcFileFormatScan, ScanRecordBatchReaderProjected) { TestScanProjected(); }
-// TEST_P(TestOrcFileFormatScan, ScanRecordBatchReaderProjectedMissingCols) {
-//   TestScanProjectedMissingCols();
-// }
+TEST_P(TestOrcFileFormatScan, ScanRecordBatchReaderProjected) { TestScanProjected(); }
+TEST_P(TestOrcFileFormatScan, ScanRecordBatchReaderProjectedMissingCols) {
+  TestScanProjectedMissingCols();
+}
 INSTANTIATE_TEST_SUITE_P(TestScan, TestOrcFileFormatScan,
                          ::testing::ValuesIn(TestFormatParams::Values()),
                          TestFormatParams::ToTestNameString);

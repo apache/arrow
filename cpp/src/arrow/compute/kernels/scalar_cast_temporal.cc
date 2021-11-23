@@ -29,7 +29,7 @@
 
 namespace arrow {
 
-using internal::ParseValue;
+using internal::ParseTimestampISO8601;
 
 namespace compute {
 namespace internal {
@@ -422,17 +422,34 @@ struct CastFunctor<TimestampType, Date64Type> {
 // String to Timestamp
 
 struct ParseTimestamp {
+  explicit ParseTimestamp(const TimestampType& type)
+      : type(type), expect_timezone(!type.timezone().empty()) {}
   template <typename OutValue, typename Arg0Value>
   OutValue Call(KernelContext*, Arg0Value val, Status* st) const {
     OutValue result = 0;
-    if (ARROW_PREDICT_FALSE(!ParseValue(type, val.data(), val.size(), &result))) {
+    bool zone_offset_present = false;
+    if (ARROW_PREDICT_FALSE(!ParseTimestampISO8601(val.data(), val.size(), type.unit(),
+                                                   &result, &zone_offset_present))) {
       *st = Status::Invalid("Failed to parse string: '", val, "' as a scalar of type ",
                             type.ToString());
+    }
+    if (zone_offset_present != expect_timezone) {
+      if (expect_timezone) {
+        *st = Status::Invalid(
+            "Failed to parse string: '", val, "' as a scalar of type ", type.ToString(),
+            "expected a zone offset. If these timestamps "
+            "are in local time, cast to timestamp without timezone, then "
+            "call assume_timezone.");
+      } else {
+        *st = Status::Invalid("Failed to parse string: '", val, "' as a scalar of type ",
+                              type.ToString(), "expected no zone offset");
+      }
     }
     return result;
   }
 
   const TimestampType& type;
+  bool expect_timezone;
 };
 
 template <typename I>
@@ -502,6 +519,13 @@ std::shared_ptr<CastFunction> GetDurationCast() {
   // Between durations
   AddCrossUnitCast<DurationType>(func.get());
 
+  return func;
+}
+
+std::shared_ptr<CastFunction> GetIntervalCast() {
+  auto func = std::make_shared<CastFunction>("cast_month_day_nano_interval",
+                                             Type::INTERVAL_MONTH_DAY_NANO);
+  AddCommonCasts(Type::INTERVAL_MONTH_DAY_NANO, kOutputTargetType, func.get());
   return func;
 }
 
@@ -579,6 +603,7 @@ std::vector<std::shared_ptr<CastFunction>> GetTemporalCasts() {
   functions.push_back(GetDate32Cast());
   functions.push_back(GetDate64Cast());
   functions.push_back(GetDurationCast());
+  functions.push_back(GetIntervalCast());
   functions.push_back(GetTime32Cast());
   functions.push_back(GetTime64Cast());
   functions.push_back(GetTimestampCast());

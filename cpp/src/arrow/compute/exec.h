@@ -200,15 +200,26 @@ struct ARROW_EXPORT ExecBatch {
   Expression guarantee = literal(true);
 
   /// The semantic length of the ExecBatch. When the values are all scalars,
-  /// the length should be set to 1, otherwise the length is taken from the
-  /// array values, except when there is a selection vector. When there is a
-  /// selection vector set, the length of the batch is the length of the
-  /// selection.
+  /// the length should be set to 1 for non-aggregate kernels, otherwise the
+  /// length is taken from the array values, except when there is a selection
+  /// vector. When there is a selection vector set, the length of the batch is
+  /// the length of the selection. Aggregate kernels can have an ExecBatch
+  /// formed by projecting just the partition columns from a batch in which
+  /// case, it would have scalar rows with length greater than 1.
   ///
   /// If the array values are of length 0 then the length is 0 regardless of
   /// whether any values are Scalar. In general ExecBatch objects are produced
   /// by ExecBatchIterator which by design does not yield length-0 batches.
   int64_t length;
+
+  /// \brief The sum of bytes in each buffer referenced by the batch
+  ///
+  /// Note: Scalars are not counted
+  /// Note: Some values may referenced only part of a buffer, for
+  ///       example, an array with an offset.  The actual data
+  ///       visible to this batch will be smaller than the total
+  ///       buffer size in this case.
+  int64_t TotalBufferSize() const;
 
   /// \brief Return the value at the i-th index
   template <typename index_type>

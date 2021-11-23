@@ -53,6 +53,8 @@ namespace dataset {
 constexpr int64_t kDefaultBatchSize = 1 << 20;
 constexpr int32_t kDefaultBatchReadahead = 32;
 constexpr int32_t kDefaultFragmentReadahead = 8;
+constexpr int32_t kDefaultBackpressureHigh = 64;
+constexpr int32_t kDefaultBackpressureLow = 32;
 
 /// Scan-specific options, which can be changed between scans of the same dataset.
 struct ARROW_DS_EXPORT ScanOptions {
@@ -138,7 +140,7 @@ struct ARROW_DS_EXPORT ScanOptions {
   std::vector<std::string> MaterializedFields() const;
 
   // Return a threaded or serial TaskGroup according to use_threads.
-  std::shared_ptr<internal::TaskGroup> TaskGroup() const;
+  std::shared_ptr<::arrow::internal::TaskGroup> TaskGroup() const;
 };
 
 /// \brief Read record batches from a range of a single data fragment. A
@@ -150,8 +152,8 @@ class ARROW_DS_EXPORT ScanTask {
   /// resulting from the Scan. Execution semantics are encapsulated in the
   /// particular ScanTask implementation
   virtual Result<RecordBatchIterator> Execute() = 0;
-  virtual Future<RecordBatchVector> SafeExecute(internal::Executor* executor);
-  virtual Future<> SafeVisit(internal::Executor* executor,
+  virtual Future<RecordBatchVector> SafeExecute(::arrow::internal::Executor* executor);
+  virtual Future<> SafeVisit(::arrow::internal::Executor* executor,
                              std::function<Status(std::shared_ptr<RecordBatch>)> visitor);
 
   virtual ~ScanTask() = default;
@@ -300,6 +302,8 @@ class ARROW_DS_EXPORT Scanner {
 
   /// \brief Get the options for this scan.
   const std::shared_ptr<ScanOptions>& options() const { return scan_options_; }
+  /// \brief Get the dataset that this scanner will scan
+  virtual const std::shared_ptr<Dataset>& dataset() const = 0;
 
  protected:
   explicit Scanner(std::shared_ptr<ScanOptions> scan_options)
@@ -415,12 +419,19 @@ class ARROW_DS_EXPORT ScannerBuilder {
 /// ordering for simple ExecPlans.
 class ARROW_DS_EXPORT ScanNodeOptions : public compute::ExecNodeOptions {
  public:
-  explicit ScanNodeOptions(std::shared_ptr<Dataset> dataset,
-                           std::shared_ptr<ScanOptions> scan_options)
-      : dataset(std::move(dataset)), scan_options(std::move(scan_options)) {}
+  explicit ScanNodeOptions(
+      std::shared_ptr<Dataset> dataset, std::shared_ptr<ScanOptions> scan_options,
+      std::shared_ptr<util::AsyncToggle> backpressure_toggle = NULLPTR,
+      bool require_sequenced_output = false)
+      : dataset(std::move(dataset)),
+        scan_options(std::move(scan_options)),
+        backpressure_toggle(std::move(backpressure_toggle)),
+        require_sequenced_output(require_sequenced_output) {}
 
   std::shared_ptr<Dataset> dataset;
   std::shared_ptr<ScanOptions> scan_options;
+  std::shared_ptr<util::AsyncToggle> backpressure_toggle;
+  bool require_sequenced_output;
 };
 
 /// @}
@@ -441,10 +452,7 @@ class ARROW_DS_EXPORT InMemoryScanTask : public ScanTask {
 };
 
 namespace internal {
-
-/// This function must be called before using dataset ExecNode factories
-ARROW_DS_EXPORT void Initialize();
-
+ARROW_DS_EXPORT void InitializeScanner(arrow::compute::ExecFactoryRegistry* registry);
 }  // namespace internal
 }  // namespace dataset
 }  // namespace arrow

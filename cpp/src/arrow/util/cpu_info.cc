@@ -31,7 +31,9 @@
 #endif
 
 #ifdef _WIN32
+#if defined(_M_AMD64) || defined(_M_X64)
 #include <immintrin.h>
+#endif
 #include <intrin.h>
 #include <array>
 #include <bitset>
@@ -229,6 +231,7 @@ bool RetrieveCacheSize(int64_t* cache_sizes) {
   return true;
 }
 
+#ifndef _M_ARM64
 // Source: https://en.wikipedia.org/wiki/CPUID
 bool RetrieveCPUInfo(int64_t* hardware_flags, std::string* model_name,
                      CpuInfo::Vendor* vendor) {
@@ -308,6 +311,7 @@ bool RetrieveCPUInfo(int64_t* hardware_flags, std::string* model_name,
 
   return true;
 }
+#endif
 #endif
 
 }  // namespace
@@ -431,7 +435,9 @@ void CpuInfo::Init() {
   if (!RetrieveCacheSize(cache_sizes_)) {
     SetDefaultCacheSize();
   }
+#ifndef _M_ARM64
   RetrieveCPUInfo(&hardware_flags_, &model_name_, &vendor_);
+#endif
 #else
   SetDefaultCacheSize();
 #endif
