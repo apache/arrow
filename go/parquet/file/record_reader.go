@@ -21,14 +21,14 @@ import (
 	"unsafe"
 
 	"github.com/JohnCGriffin/overflow"
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/array"
-	"github.com/apache/arrow/go/arrow/bitutil"
-	"github.com/apache/arrow/go/arrow/memory"
-	"github.com/apache/arrow/go/parquet"
-	"github.com/apache/arrow/go/parquet/internal/encoding"
-	"github.com/apache/arrow/go/parquet/internal/utils"
-	"github.com/apache/arrow/go/parquet/schema"
+	"github.com/apache/arrow/go/v7/arrow"
+	"github.com/apache/arrow/go/v7/arrow/array"
+	"github.com/apache/arrow/go/v7/arrow/bitutil"
+	"github.com/apache/arrow/go/v7/arrow/memory"
+	"github.com/apache/arrow/go/v7/parquet"
+	"github.com/apache/arrow/go/v7/parquet/internal/encoding"
+	"github.com/apache/arrow/go/v7/parquet/internal/utils"
+	"github.com/apache/arrow/go/v7/parquet/schema"
 	"golang.org/x/xerrors"
 )
 
@@ -57,7 +57,7 @@ type BinaryRecordReader interface {
 }
 
 type recordReaderImpl interface {
-	ColumnReader
+	ColumnChunkReader
 	ReadValuesDense(int64) error
 	ReadValuesSpaced(int64, int64) error
 	ReserveValues(int64, bool) error
@@ -80,7 +80,7 @@ type binaryRecordReaderImpl interface {
 }
 
 type primitiveRecordReader struct {
-	ColumnReader
+	ColumnChunkReader
 
 	valuesWritten int64
 	valuesCap     int64
@@ -95,12 +95,12 @@ type primitiveRecordReader struct {
 
 func createPrimitiveRecordReader(descr *schema.Column, mem memory.Allocator) primitiveRecordReader {
 	return primitiveRecordReader{
-		ColumnReader: NewColumnReader(descr, nil, mem),
-		values:       memory.NewResizableBuffer(mem),
-		validBits:    memory.NewResizableBuffer(mem),
-		mem:          mem,
-		refCount:     1,
-		useValues:    descr.PhysicalType() != parquet.Types.ByteArray && descr.PhysicalType() != parquet.Types.FixedLenByteArray,
+		ColumnChunkReader: NewColumnReader(descr, nil, mem),
+		values:            memory.NewResizableBuffer(mem),
+		validBits:         memory.NewResizableBuffer(mem),
+		mem:               mem,
+		refCount:          1,
+		useValues:         descr.PhysicalType() != parquet.Types.ByteArray && descr.PhysicalType() != parquet.Types.FixedLenByteArray,
 	}
 }
 
@@ -122,7 +122,7 @@ func (pr *primitiveRecordReader) Release() {
 }
 
 func (pr *primitiveRecordReader) SetPageReader(rdr PageReader) {
-	pr.ColumnReader.setPageReader(rdr)
+	pr.ColumnChunkReader.setPageReader(rdr)
 }
 
 func (pr *primitiveRecordReader) ReleaseValidBits() *memory.Buffer {
@@ -198,30 +198,30 @@ func (pr *primitiveRecordReader) ReserveValues(extra int64, hasNullable bool) er
 }
 
 func (pr *primitiveRecordReader) ReadValuesDense(toRead int64) (err error) {
-	switch cr := pr.ColumnReader.(type) {
-	case *BooleanColumnReader:
+	switch cr := pr.ColumnChunkReader.(type) {
+	case *BooleanColumnChunkReader:
 		data := pr.values.Bytes()[int(pr.valuesWritten):]
 		values := *(*[]bool)(unsafe.Pointer(&data))
 		_, err = cr.curDecoder.(encoding.BooleanDecoder).Decode(values[:toRead])
-	case *Int32ColumnReader:
+	case *Int32ColumnChunkReader:
 		values := arrow.Int32Traits.CastFromBytes(pr.values.Bytes())[int(pr.valuesWritten):]
 		_, err = cr.curDecoder.(encoding.Int32Decoder).Decode(values[:toRead])
-	case *Int64ColumnReader:
+	case *Int64ColumnChunkReader:
 		values := arrow.Int64Traits.CastFromBytes(pr.values.Bytes())[int(pr.valuesWritten):]
 		_, err = cr.curDecoder.(encoding.Int64Decoder).Decode(values[:toRead])
-	case *Int96ColumnReader:
+	case *Int96ColumnChunkReader:
 		values := parquet.Int96Traits.CastFromBytes(pr.values.Bytes())[int(pr.valuesWritten):]
 		_, err = cr.curDecoder.(encoding.Int96Decoder).Decode(values[:toRead])
-	case *ByteArrayColumnReader:
+	case *ByteArrayColumnChunkReader:
 		values := parquet.ByteArrayTraits.CastFromBytes(pr.values.Bytes())[int(pr.valuesWritten):]
 		_, err = cr.curDecoder.(encoding.ByteArrayDecoder).Decode(values[:toRead])
-	case *FixedLenByteArrayColumnReader:
+	case *FixedLenByteArrayColumnChunkReader:
 		values := parquet.FixedLenByteArrayTraits.CastFromBytes(pr.values.Bytes())[int(pr.valuesWritten):]
 		_, err = cr.curDecoder.(encoding.FixedLenByteArrayDecoder).Decode(values[:toRead])
-	case *Float32ColumnReader:
+	case *Float32ColumnChunkReader:
 		values := arrow.Float32Traits.CastFromBytes(pr.values.Bytes())[int(pr.valuesWritten):]
 		_, err = cr.curDecoder.(encoding.Float32Decoder).Decode(values[:toRead])
-	case *Float64ColumnReader:
+	case *Float64ColumnChunkReader:
 		values := arrow.Float64Traits.CastFromBytes(pr.values.Bytes())[int(pr.valuesWritten):]
 		_, err = cr.curDecoder.(encoding.Float64Decoder).Decode(values[:toRead])
 	default:
@@ -234,30 +234,30 @@ func (pr *primitiveRecordReader) ReadValuesSpaced(valuesWithNulls, nullCount int
 	validBits := pr.validBits.Bytes()
 	offset := pr.valuesWritten
 
-	switch cr := pr.ColumnReader.(type) {
-	case *BooleanColumnReader:
+	switch cr := pr.ColumnChunkReader.(type) {
+	case *BooleanColumnChunkReader:
 		data := pr.values.Bytes()[int(pr.valuesWritten):]
 		values := *(*[]bool)(unsafe.Pointer(&data))
 		_, err = cr.curDecoder.(encoding.BooleanDecoder).DecodeSpaced(values[:int(valuesWithNulls)], int(nullCount), validBits, offset)
-	case *Int32ColumnReader:
+	case *Int32ColumnChunkReader:
 		values := arrow.Int32Traits.CastFromBytes(pr.values.Bytes())[int(pr.valuesWritten):]
 		_, err = cr.curDecoder.(encoding.Int32Decoder).DecodeSpaced(values[:int(valuesWithNulls)], int(nullCount), validBits, offset)
-	case *Int64ColumnReader:
+	case *Int64ColumnChunkReader:
 		values := arrow.Int64Traits.CastFromBytes(pr.values.Bytes())[int(pr.valuesWritten):]
 		_, err = cr.curDecoder.(encoding.Int64Decoder).DecodeSpaced(values[:int(valuesWithNulls)], int(nullCount), validBits, offset)
-	case *Int96ColumnReader:
+	case *Int96ColumnChunkReader:
 		values := parquet.Int96Traits.CastFromBytes(pr.values.Bytes())[int(pr.valuesWritten):]
 		_, err = cr.curDecoder.(encoding.Int96Decoder).DecodeSpaced(values[:int(valuesWithNulls)], int(nullCount), validBits, offset)
-	case *ByteArrayColumnReader:
+	case *ByteArrayColumnChunkReader:
 		values := parquet.ByteArrayTraits.CastFromBytes(pr.values.Bytes())[int(pr.valuesWritten):]
 		_, err = cr.curDecoder.(encoding.ByteArrayDecoder).DecodeSpaced(values[:int(valuesWithNulls)], int(nullCount), validBits, offset)
-	case *FixedLenByteArrayColumnReader:
+	case *FixedLenByteArrayColumnChunkReader:
 		values := parquet.FixedLenByteArrayTraits.CastFromBytes(pr.values.Bytes())[int(pr.valuesWritten):]
 		_, err = cr.curDecoder.(encoding.FixedLenByteArrayDecoder).DecodeSpaced(values[:int(valuesWithNulls)], int(nullCount), validBits, offset)
-	case *Float32ColumnReader:
+	case *Float32ColumnChunkReader:
 		values := arrow.Float32Traits.CastFromBytes(pr.values.Bytes())[int(pr.valuesWritten):]
 		_, err = cr.curDecoder.(encoding.Float32Decoder).DecodeSpaced(values[:int(valuesWithNulls)], int(nullCount), validBits, offset)
-	case *Float64ColumnReader:
+	case *Float64ColumnChunkReader:
 		values := arrow.Float64Traits.CastFromBytes(pr.values.Bytes())[int(pr.valuesWritten):]
 		_, err = cr.curDecoder.(encoding.Float64Decoder).DecodeSpaced(values[:int(valuesWithNulls)], int(nullCount), validBits, offset)
 	default:
@@ -543,7 +543,7 @@ func (rr *recordReader) ReadRecords(numRecords int64) (int64, error) {
 
 		// we perform multiple batch reads until we either exhaust the row group
 		// or observe the desired number of records
-		batchSize := utils.Min(levelBatch, rr.numAvail())
+		batchSize := utils.Min(levelBatch, rr.numAvailValues())
 		if batchSize == 0 {
 			// no more data in column
 			break
@@ -628,7 +628,7 @@ func (fr *flbaRecordReader) ReadValuesDense(toRead int64) error {
 	}
 
 	values := fr.valueBuf[:toRead]
-	dec := fr.ColumnReader.(*FixedLenByteArrayColumnReader).curDecoder.(encoding.FixedLenByteArrayDecoder)
+	dec := fr.ColumnChunkReader.(*FixedLenByteArrayColumnChunkReader).curDecoder.(encoding.FixedLenByteArrayDecoder)
 
 	_, err := dec.Decode(values)
 	if err != nil {
@@ -651,7 +651,7 @@ func (fr *flbaRecordReader) ReadValuesSpaced(valuesWithNulls, nullCount int64) e
 	}
 
 	values := fr.valueBuf[:valuesWithNulls]
-	dec := fr.ColumnReader.(*FixedLenByteArrayColumnReader).curDecoder.(encoding.FixedLenByteArrayDecoder)
+	dec := fr.ColumnChunkReader.(*FixedLenByteArrayColumnChunkReader).curDecoder.(encoding.FixedLenByteArrayDecoder)
 	_, err := dec.DecodeSpaced(values, int(nullCount), validBits, offset)
 	if err != nil {
 		return err
@@ -741,7 +741,7 @@ func (br *byteArrayRecordReader) ReadValuesDense(toRead int64) error {
 	}
 
 	values := br.valueBuf[:toRead]
-	dec := br.ColumnReader.(*ByteArrayColumnReader).curDecoder.(encoding.ByteArrayDecoder)
+	dec := br.ColumnChunkReader.(*ByteArrayColumnChunkReader).curDecoder.(encoding.ByteArrayDecoder)
 
 	_, err := dec.Decode(values)
 	if err != nil {
@@ -764,7 +764,7 @@ func (br *byteArrayRecordReader) ReadValuesSpaced(valuesWithNulls, nullCount int
 	}
 
 	values := br.valueBuf[:valuesWithNulls]
-	dec := br.ColumnReader.(*ByteArrayColumnReader).curDecoder.(encoding.ByteArrayDecoder)
+	dec := br.ColumnChunkReader.(*ByteArrayColumnChunkReader).curDecoder.(encoding.ByteArrayDecoder)
 	_, err := dec.DecodeSpaced(values, int(nullCount), validBits, offset)
 	if err != nil {
 		return err

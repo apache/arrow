@@ -20,11 +20,11 @@ import (
 	"sync/atomic"
 	"unsafe"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/array"
-	"github.com/apache/arrow/go/arrow/memory"
-	"github.com/apache/arrow/go/parquet/internal/encoding"
-	"github.com/apache/arrow/go/parquet/internal/utils"
+	"github.com/apache/arrow/go/v7/arrow"
+	"github.com/apache/arrow/go/v7/arrow/array"
+	"github.com/apache/arrow/go/v7/arrow/memory"
+	"github.com/apache/arrow/go/v7/parquet/internal/encoding"
+	"github.com/apache/arrow/go/v7/parquet/internal/utils"
 	"golang.org/x/xerrors"
 )
 
@@ -427,7 +427,7 @@ func (p *pathBuilder) Visit(arr array.Interface) error {
 		return nil
 	case arrow.EXTENSION:
 		return xerrors.New("extension types not implemented yet")
-	case arrow.UNION:
+	case arrow.SPARSE_UNION, arrow.DENSE_UNION:
 		return xerrors.New("union types aren't supported in parquet")
 	default:
 		p.addTerminalInfo(arr)

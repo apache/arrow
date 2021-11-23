@@ -21,14 +21,14 @@ import (
 	"encoding/base64"
 	"io"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/array"
-	"github.com/apache/arrow/go/arrow/flight"
-	"github.com/apache/arrow/go/arrow/memory"
-	"github.com/apache/arrow/go/parquet"
-	"github.com/apache/arrow/go/parquet/file"
-	"github.com/apache/arrow/go/parquet/internal/utils"
-	"github.com/apache/arrow/go/parquet/metadata"
+	"github.com/apache/arrow/go/v7/arrow"
+	"github.com/apache/arrow/go/v7/arrow/array"
+	"github.com/apache/arrow/go/v7/arrow/flight"
+	"github.com/apache/arrow/go/v7/arrow/memory"
+	"github.com/apache/arrow/go/v7/parquet"
+	"github.com/apache/arrow/go/v7/parquet/file"
+	"github.com/apache/arrow/go/v7/parquet/internal/utils"
+	"github.com/apache/arrow/go/v7/parquet/metadata"
 	"golang.org/x/xerrors"
 )
 
@@ -143,7 +143,7 @@ func (fw *FileWriter) WriteBuffered(rec array.Record) error {
 	var (
 		recList []array.Record
 		maxRows = fw.wr.Properties().MaxRowGroupLength()
-		curRows int64
+		curRows int
 		err     error
 	)
 	if fw.rgw != nil {
@@ -154,12 +154,12 @@ func (fw *FileWriter) WriteBuffered(rec array.Record) error {
 		fw.NewBufferedRowGroup()
 	}
 
-	if curRows+rec.NumRows() <= maxRows {
+	if int64(curRows)+rec.NumRows() <= maxRows {
 		recList = []array.Record{rec}
 	} else {
-		recList = []array.Record{rec.NewSlice(0, maxRows-curRows)}
+		recList = []array.Record{rec.NewSlice(0, maxRows-int64(curRows))}
 		defer recList[0].Release()
-		for offset := int64(maxRows - curRows); offset < rec.NumRows(); offset += maxRows {
+		for offset := maxRows - int64(curRows); offset < rec.NumRows(); offset += maxRows {
 			s := rec.NewSlice(offset, offset+utils.Min(maxRows, rec.NumRows()-offset))
 			defer s.Release()
 			recList = append(recList, s)

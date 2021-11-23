@@ -189,6 +189,11 @@ func (d *TestDecryptionSuite) decryptFile(filename string, decryptConfigNum int)
 		boolReader := colReader.(*file.BooleanColumnChunkReader)
 
 		// get column chunk metadata for boolean column
+		boolMd, _ := rgMeta.ColumnChunk(0)
+
+		// Read all rows in column
+		i := 0
+		for boolReader.HasNext() {
 			var val [1]bool
 			// read one value at a time. the number of rows read is returned. values
 			// read contains the number of non-null rows

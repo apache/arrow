@@ -22,20 +22,20 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/array"
-	"github.com/apache/arrow/go/arrow/bitutil"
-	"github.com/apache/arrow/go/arrow/decimal128"
-	"github.com/apache/arrow/go/arrow/memory"
-	"github.com/apache/arrow/go/parquet"
-	"github.com/apache/arrow/go/parquet/file"
-	"github.com/apache/arrow/go/parquet/internal/utils"
+	"github.com/apache/arrow/go/v7/arrow"
+	"github.com/apache/arrow/go/v7/arrow/array"
+	"github.com/apache/arrow/go/v7/arrow/bitutil"
+	"github.com/apache/arrow/go/v7/arrow/decimal128"
+	"github.com/apache/arrow/go/v7/arrow/memory"
+	"github.com/apache/arrow/go/v7/parquet"
+	"github.com/apache/arrow/go/v7/parquet/file"
+	"github.com/apache/arrow/go/v7/parquet/internal/utils"
 	"golang.org/x/xerrors"
 )
 
 func calcLeafCount(dt arrow.DataType) int {
 	switch dt.ID() {
-	case arrow.EXTENSION, arrow.UNION:
+	case arrow.EXTENSION, arrow.SPARSE_UNION, arrow.DENSE_UNION:
 		panic("arrow type not implemented")
 	case arrow.LIST:
 		return calcLeafCount(dt.(*arrow.ListType).Elem())
@@ -158,7 +158,7 @@ func (acw *ArrowColumnWriter) Write(ctx context.Context) error {
 	arrCtx := arrowCtxFromContext(ctx)
 	for leafIdx := 0; leafIdx < acw.leafCount; leafIdx++ {
 		var (
-			cw  file.ColumnWriter
+			cw  file.ColumnChunkWriter
 			err error
 		)
 
@@ -203,7 +203,7 @@ func (acw *ArrowColumnWriter) Write(ctx context.Context) error {
 // leafArr is always a primitive (possibly dictionary encoded type).
 // Leaf_field_nullable indicates whether the leaf array is considered nullable
 // according to its schema in a Table or its parent array.
-func WriteArrowToColumn(ctx context.Context, cw file.ColumnWriter, leafArr array.Interface, defLevels, repLevels []int16, leafFieldNullable bool) error {
+func WriteArrowToColumn(ctx context.Context, cw file.ColumnChunkWriter, leafArr array.Interface, defLevels, repLevels []int16, leafFieldNullable bool) error {
 	// Leaf nulls are canonical when there is only a single null element after a list
 	// and it is at the leaf.
 	colLevelInfo := cw.LevelInfo()
@@ -226,7 +226,7 @@ type binaryarr interface {
 	ValueOffsets() []int32
 }
 
-func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnWriter, leafArr array.Interface, defLevels, repLevels []int16, maybeParentNulls bool) (err error) {
+func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnChunkWriter, leafArr array.Interface, defLevels, repLevels []int16, maybeParentNulls bool) (err error) {
 	noNulls := cw.Descr().SchemaNode().RepetitionType() == parquet.Repetitions.Required || leafArr.NullN() == 0
 
 	if ctx.dataBuffer == nil {
@@ -234,7 +234,7 @@ func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnWriter, leafArr array
 	}
 
 	switch wr := cw.(type) {
-	case *file.BooleanColumnWriter:
+	case *file.BooleanColumnChunkWriter:
 		if leafArr.DataType().ID() != arrow.BOOL {
 			return xerrors.Errorf("type mismatch, column is %s, array is %s", cw.Type(), leafArr.DataType().ID())
 		}
@@ -255,7 +255,7 @@ func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnWriter, leafArr array
 		} else {
 			wr.WriteBatchSpaced(data, defLevels, repLevels, leafArr.NullBitmapBytes(), int64(leafArr.Data().Offset()))
 		}
-	case *file.Int32ColumnWriter:
+	case *file.Int32ColumnChunkWriter:
 		var data []int32
 		switch leafArr.DataType().ID() {
 		case arrow.INT32:
@@ -310,7 +310,7 @@ func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnWriter, leafArr array
 			nulls := leafArr.NullBitmapBytes()
 			wr.WriteBatchSpaced(data, defLevels, repLevels, nulls, int64(leafArr.Data().Offset()))
 		}
-	case *file.Int64ColumnWriter:
+	case *file.Int64ColumnChunkWriter:
 		var data []int64
 		switch leafArr.DataType().ID() {
 		case arrow.TIMESTAMP:
@@ -372,7 +372,7 @@ func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnWriter, leafArr array
 			nulls := leafArr.NullBitmapBytes()
 			wr.WriteBatchSpaced(data, defLevels, repLevels, nulls, int64(leafArr.Data().Offset()))
 		}
-	case *file.Int96ColumnWriter:
+	case *file.Int96ColumnChunkWriter:
 		if leafArr.DataType().ID() != arrow.TIMESTAMP {
 			return xerrors.New("unsupported arrow type to write to Int96 column")
 		}
@@ -390,7 +390,7 @@ func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnWriter, leafArr array
 			nulls := leafArr.NullBitmapBytes()
 			wr.WriteBatchSpaced(data, defLevels, repLevels, nulls, int64(leafArr.Data().Offset()))
 		}
-	case *file.Float32ColumnWriter:
+	case *file.Float32ColumnChunkWriter:
 		if leafArr.DataType().ID() != arrow.FLOAT32 {
 			return xerrors.New("invalid column type to write to Float")
 		}
@@ -399,7 +399,7 @@ func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnWriter, leafArr array
 		} else {
 			wr.WriteBatchSpaced(leafArr.(*array.Float32).Float32Values(), defLevels, repLevels, leafArr.NullBitmapBytes(), int64(leafArr.Data().Offset()))
 		}
-	case *file.Float64ColumnWriter:
+	case *file.Float64ColumnChunkWriter:
 		if leafArr.DataType().ID() != arrow.FLOAT64 {
 			return xerrors.New("invalid column type to write to Float")
 		}
@@ -408,7 +408,7 @@ func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnWriter, leafArr array
 		} else {
 			wr.WriteBatchSpaced(leafArr.(*array.Float64).Float64Values(), defLevels, repLevels, leafArr.NullBitmapBytes(), int64(leafArr.Data().Offset()))
 		}
-	case *file.ByteArrayColumnWriter:
+	case *file.ByteArrayColumnChunkWriter:
 		if leafArr.DataType().ID() != arrow.STRING && leafArr.DataType().ID() != arrow.BINARY {
 			return xerrors.New("invalid column type to write to ByteArray")
 		}
@@ -435,7 +435,7 @@ func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnWriter, leafArr array
 			wr.WriteBatchSpaced(data, defLevels, repLevels, leafArr.NullBitmapBytes(), int64(leafArr.Data().Offset()))
 		}
 
-	case *file.FixedLenByteArrayColumnWriter:
+	case *file.FixedLenByteArrayColumnChunkWriter:
 		switch dt := leafArr.DataType().(type) {
 		case *arrow.FixedSizeBinaryType:
 			data := make([]parquet.FixedLenByteArray, leafArr.Len())

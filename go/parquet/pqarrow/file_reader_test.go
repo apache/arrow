@@ -24,12 +24,12 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/array"
-	"github.com/apache/arrow/go/arrow/decimal128"
-	"github.com/apache/arrow/go/arrow/memory"
-	"github.com/apache/arrow/go/parquet/file"
-	"github.com/apache/arrow/go/parquet/pqarrow"
+	"github.com/apache/arrow/go/v7/arrow"
+	"github.com/apache/arrow/go/v7/arrow/array"
+	"github.com/apache/arrow/go/v7/arrow/decimal128"
+	"github.com/apache/arrow/go/v7/arrow/memory"
+	"github.com/apache/arrow/go/v7/parquet/file"
+	"github.com/apache/arrow/go/v7/parquet/pqarrow"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

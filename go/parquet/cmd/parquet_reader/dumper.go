@@ -21,15 +21,15 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/apache/arrow/go/parquet"
-	"github.com/apache/arrow/go/parquet/file"
-	"github.com/apache/arrow/go/parquet/schema"
+	"github.com/apache/arrow/go/v7/parquet"
+	"github.com/apache/arrow/go/v7/parquet/file"
+	"github.com/apache/arrow/go/v7/parquet/schema"
 )
 
 const defaultBatchSize = 128
 
 type Dumper struct {
-	reader         file.ColumnReader
+	reader         file.ColumnChunkReader
 	batchSize      int64
 	valueOffset    int
 	valuesBuffered int
@@ -42,26 +42,26 @@ type Dumper struct {
 	valueBuffer interface{}
 }
 
-func createDumper(reader file.ColumnReader) *Dumper {
+func createDumper(reader file.ColumnChunkReader) *Dumper {
 	batchSize := defaultBatchSize
 
 	var valueBuffer interface{}
 	switch reader.(type) {
-	case *file.BooleanColumnReader:
+	case *file.BooleanColumnChunkReader:
 		valueBuffer = make([]bool, batchSize)
-	case *file.Int32ColumnReader:
+	case *file.Int32ColumnChunkReader:
 		valueBuffer = make([]int32, batchSize)
-	case *file.Int64ColumnReader:
+	case *file.Int64ColumnChunkReader:
 		valueBuffer = make([]int64, batchSize)
-	case *file.Float32ColumnReader:
+	case *file.Float32ColumnChunkReader:
 		valueBuffer = make([]float32, batchSize)
-	case *file.Float64ColumnReader:
+	case *file.Float64ColumnChunkReader:
 		valueBuffer = make([]float64, batchSize)
-	case *file.Int96ColumnReader:
+	case *file.Int96ColumnChunkReader:
 		valueBuffer = make([]parquet.Int96, batchSize)
-	case *file.ByteArrayColumnReader:
+	case *file.ByteArrayColumnChunkReader:
 		valueBuffer = make([]parquet.ByteArray, batchSize)
-	case *file.FixedLenByteArrayColumnReader:
+	case *file.FixedLenByteArrayColumnChunkReader:
 		valueBuffer = make([]parquet.FixedLenByteArray, batchSize)
 	}
 
@@ -76,28 +76,28 @@ func createDumper(reader file.ColumnReader) *Dumper {
 
 func (dump *Dumper) readNextBatch() {
 	switch reader := dump.reader.(type) {
-	case *file.BooleanColumnReader:
+	case *file.BooleanColumnChunkReader:
 		values := dump.valueBuffer.([]bool)
 		dump.levelsBuffered, dump.valuesBuffered, _ = reader.ReadBatch(dump.batchSize, values, dump.defLevels, dump.repLevels)
-	case *file.Int32ColumnReader:
+	case *file.Int32ColumnChunkReader:
 		values := dump.valueBuffer.([]int32)
 		dump.levelsBuffered, dump.valuesBuffered, _ = reader.ReadBatch(dump.batchSize, values, dump.defLevels, dump.repLevels)
-	case *file.Int64ColumnReader:
+	case *file.Int64ColumnChunkReader:
 		values := dump.valueBuffer.([]int64)
 		dump.levelsBuffered, dump.valuesBuffered, _ = reader.ReadBatch(dump.batchSize, values, dump.defLevels, dump.repLevels)
-	case *file.Float32ColumnReader:
+	case *file.Float32ColumnChunkReader:
 		values := dump.valueBuffer.([]float32)
 		dump.levelsBuffered, dump.valuesBuffered, _ = reader.ReadBatch(dump.batchSize, values, dump.defLevels, dump.repLevels)
-	case *file.Float64ColumnReader:
+	case *file.Float64ColumnChunkReader:
 		values := dump.valueBuffer.([]float64)
 		dump.levelsBuffered, dump.valuesBuffered, _ = reader.ReadBatch(dump.batchSize, values, dump.defLevels, dump.repLevels)
-	case *file.Int96ColumnReader:
+	case *file.Int96ColumnChunkReader:
 		values := dump.valueBuffer.([]parquet.Int96)
 		dump.levelsBuffered, dump.valuesBuffered, _ = reader.ReadBatch(dump.batchSize, values, dump.defLevels, dump.repLevels)
-	case *file.ByteArrayColumnReader:
+	case *file.ByteArrayColumnChunkReader:
 		values := dump.valueBuffer.([]parquet.ByteArray)
 		dump.levelsBuffered, dump.valuesBuffered, _ = reader.ReadBatch(dump.batchSize, values, dump.defLevels, dump.repLevels)
-	case *file.FixedLenByteArrayColumnReader:
+	case *file.FixedLenByteArrayColumnChunkReader:
 		values := dump.valueBuffer.([]parquet.FixedLenByteArray)
 		dump.levelsBuffered, dump.valuesBuffered, _ = reader.ReadBatch(dump.batchSize, values, dump.defLevels, dump.repLevels)
 	}

@@ -25,19 +25,19 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/array"
-	"github.com/apache/arrow/go/arrow/bitutil"
-	"github.com/apache/arrow/go/arrow/decimal128"
-	"github.com/apache/arrow/go/arrow/memory"
-	"github.com/apache/arrow/go/parquet"
-	"github.com/apache/arrow/go/parquet/compress"
-	"github.com/apache/arrow/go/parquet/file"
-	"github.com/apache/arrow/go/parquet/internal/encoding"
-	"github.com/apache/arrow/go/parquet/internal/testutils"
-	"github.com/apache/arrow/go/parquet/internal/utils"
-	"github.com/apache/arrow/go/parquet/pqarrow"
-	"github.com/apache/arrow/go/parquet/schema"
+	"github.com/apache/arrow/go/v7/arrow"
+	"github.com/apache/arrow/go/v7/arrow/array"
+	"github.com/apache/arrow/go/v7/arrow/bitutil"
+	"github.com/apache/arrow/go/v7/arrow/decimal128"
+	"github.com/apache/arrow/go/v7/arrow/memory"
+	"github.com/apache/arrow/go/v7/parquet"
+	"github.com/apache/arrow/go/v7/parquet/compress"
+	"github.com/apache/arrow/go/v7/parquet/file"
+	"github.com/apache/arrow/go/v7/parquet/internal/encoding"
+	"github.com/apache/arrow/go/v7/parquet/internal/testutils"
+	"github.com/apache/arrow/go/v7/parquet/internal/utils"
+	"github.com/apache/arrow/go/v7/parquet/pqarrow"
+	"github.com/apache/arrow/go/v7/parquet/schema"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -162,7 +162,7 @@ func TestWriteArrowCols(t *testing.T) {
 		)
 		switch expected.Schema().Field(i).Type.(arrow.FixedWidthDataType).BitWidth() {
 		case 32:
-			colReader := rgr.Column(i).(*file.Int32ColumnReader)
+			colReader := rgr.Column(i).(*file.Int32ColumnChunkReader)
 			vals := make([]int32, int(expected.NumRows()))
 			total, read, err = colReader.ReadBatch(expected.NumRows(), vals, defLevelsOut, nil)
 			require.NoError(t, err)
@@ -182,7 +182,7 @@ func TestWriteArrowCols(t *testing.T) {
 				}
 			}
 		case 64:
-			colReader := rgr.Column(i).(*file.Int64ColumnReader)
+			colReader := rgr.Column(i).(*file.Int64ColumnChunkReader)
 			vals := make([]int64, int(expected.NumRows()))
 			total, read, err = colReader.ReadBatch(expected.NumRows(), vals, defLevelsOut, nil)
 			require.NoError(t, err)
@@ -249,7 +249,7 @@ func TestWriteArrowInt96(t *testing.T) {
 	tsRdr := rgr.Column(3)
 	assert.Equal(t, parquet.Types.Int96, tsRdr.Type())
 
-	rdr := tsRdr.(*file.Int96ColumnReader)
+	rdr := tsRdr.(*file.Int96ColumnChunkReader)
 	vals := make([]parquet.Int96, expected.NumRows())
 	defLevels := make([]int16, int(expected.NumRows()))
 
@@ -770,7 +770,7 @@ func (ps *ParquetIOTestSuite) TestReadDecimals() {
 
 	rgw := writer.AppendRowGroup()
 	cw, _ := rgw.NextColumn()
-	cw.(*file.ByteArrayColumnWriter).WriteBatch(bigEndian, nil, nil)
+	cw.(*file.ByteArrayColumnChunkWriter).WriteBatch(bigEndian, nil, nil)
 	cw.Close()
 	rgw.Close()
 	writer.Close()

@@ -22,13 +22,13 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/flight"
-	"github.com/apache/arrow/go/arrow/memory"
-	"github.com/apache/arrow/go/parquet"
-	"github.com/apache/arrow/go/parquet/file"
-	"github.com/apache/arrow/go/parquet/metadata"
-	"github.com/apache/arrow/go/parquet/schema"
+	"github.com/apache/arrow/go/v7/arrow"
+	"github.com/apache/arrow/go/v7/arrow/flight"
+	"github.com/apache/arrow/go/v7/arrow/memory"
+	"github.com/apache/arrow/go/v7/parquet"
+	"github.com/apache/arrow/go/v7/parquet/file"
+	"github.com/apache/arrow/go/v7/parquet/metadata"
+	"github.com/apache/arrow/go/v7/parquet/schema"
 	"golang.org/x/xerrors"
 )
 
@@ -913,7 +913,7 @@ func getNestedFactory(origin, inferred arrow.DataType) func(fieldList []arrow.Fi
 func applyOriginalStorageMetadata(origin arrow.Field, inferred *SchemaField) (modified bool, err error) {
 	nchildren := len(inferred.Children)
 	switch origin.Type.ID() {
-	case arrow.EXTENSION, arrow.UNION, arrow.DICTIONARY:
+	case arrow.EXTENSION, arrow.SPARSE_UNION, arrow.DENSE_UNION, arrow.DICTIONARY:
 		err = xerrors.New("unimplemented type")
 	case arrow.STRUCT:
 		typ := origin.Type.(*arrow.StructType)
