@@ -2195,7 +2195,8 @@ cdef class Table(_PandasConvertible):
     def group_by(self, keys):
         """Declare a grouping over the columns of the table.
 
-        resulting grouping can then be used to perform aggregations.
+        Resulting grouping can then be used to perform aggregations
+        with a subsequent ``aggregate()`` method.
 
         Parameters
         ----------
@@ -2205,6 +2206,10 @@ cdef class Table(_PandasConvertible):
         Returns
         -------
         TableGroupBy
+
+        See Also
+        --------
+        TableGroupBy.aggregate
         """
         return TableGroupBy(self, keys)
 
@@ -2215,7 +2220,7 @@ cdef class Table(_PandasConvertible):
         Parameters
         ----------
         sorting : str or list[tuple(name, order)]
-            Name of the column to use to sort, or
+            Name of the column to use to sort (ascending), or
             a list of multiple sorting conditions where
             each entry is a tuple with column name
             and sorting order ("ascending" or "descending")
