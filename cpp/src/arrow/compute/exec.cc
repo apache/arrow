@@ -703,7 +703,15 @@ class ScalarExecutor : public KernelExecutorImpl<ScalarKernel> {
     }
 
     RETURN_NOT_OK(kernel_->exec(kernel_ctx_, batch, &out));
-    if (!preallocate_contiguous_) {
+    if (preallocate_contiguous_) {
+      // Some kernels may like to simply nullify the validity bitmap when
+      // they know the output will have 0 nulls.  However, this is not compatible
+      // with writing into slices.
+      if (output_descr_.shape == ValueDescr::ARRAY) {
+        DCHECK(out.array()->buffers[0])
+            << "Null bitmap deleted by kernel but can_write_into_slices = true";
+      }
+    } else {
       // If we are producing chunked output rather than one big array, then
       // emit each chunk as soon as it's available
       RETURN_NOT_OK(listener->OnResult(std::move(out)));
