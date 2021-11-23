@@ -271,7 +271,7 @@ nse_funcs$tibble <- function(..., .rows = NULL, .name_repair = NULL) {
 }
 
 nse_funcs$data.frame <- function(..., row.names = NULL,
-                                 check.rows = NULL, check.names = NULL, fix.empty.names = TRUE,
+                                 check.rows = NULL, check.names = TRUE, fix.empty.names = TRUE,
                                  stringsAsFactors = FALSE) {
   # we need a specific value of stringsAsFactors because the default was
   # TRUE in R <= 3.6
@@ -284,9 +284,17 @@ nse_funcs$data.frame <- function(..., row.names = NULL,
   if (!is.null(check.rows)) warning("Argument `check.rows` will be ignored", call. = FALSE)
 
   args <- rlang::dots_list(..., .named = fix.empty.names)
+  if (is.null(names(args))) {
+    names(args) <- rep("", length(args))
+  }
 
   if (identical(check.names, TRUE)) {
-    names(args) <- make.names(names(args), unique = TRUE)
+    if (identical(fix.empty.names, TRUE)) {
+      names(args) <- make.names(names(args), unique = TRUE)
+    } else {
+      name_emtpy <- names(args) == ""
+      names(args)[!name_emtpy] <- make.names(names(args)[!name_emtpy], unique = TRUE)
+    }
   }
 
   build_expr(
