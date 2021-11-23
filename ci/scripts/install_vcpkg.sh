@@ -28,10 +28,11 @@ vcpkg_version=$1
 vcpkg_destination=$2
 vcpkg_patch=$(realpath $(dirname "${0}")/../vcpkg/ports.patch)
 
-git clone --depth 1 --branch ${vcpkg_version} https://github.com/microsoft/vcpkg ${vcpkg_destination}
+git clone --shallow-since=2021-04-01 https://github.com/microsoft/vcpkg ${vcpkg_destination}
 
 pushd ${vcpkg_destination}
 
+git checkout ${vcpkg_version}
 ./bootstrap-vcpkg.sh -useSystemBinaries -disableMetrics
 git apply --ignore-whitespace ${vcpkg_patch}
 echo "Patch successfully applied!"
