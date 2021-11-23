@@ -1204,42 +1204,42 @@ TEST(TestDecimalMeanKernel, SimpleMean) {
   for (const auto& ty : {decimal128(3, 2), decimal256(3, 2)}) {
     // Decimal doesn't have NaN
     EXPECT_THAT(Mean(ArrayFromJSON(ty, R"([])"), options),
-                ResultWith(ScalarFromJSON(float64(), "null")));
+                ResultWith(ScalarFromJSON(ty, R"(null)")));
     EXPECT_THAT(Mean(ArrayFromJSON(ty, R"([null])"), options),
-                ResultWith(ScalarFromJSON(float64(), "null")));
+                ResultWith(ScalarFromJSON(ty, R"(null)")));
 
     EXPECT_THAT(Mean(ArrayFromJSON(ty, R"([])")),
-                ResultWith(ScalarFromJSON(float64(), "null")));
+                ResultWith(ScalarFromJSON(ty, R"(null)")));
     EXPECT_THAT(Mean(ArrayFromJSON(ty, R"([null])")),
-                ResultWith(ScalarFromJSON(float64(), "null")));
+                ResultWith(ScalarFromJSON(ty, R"(null)")));
 
     EXPECT_THAT(Mean(ArrayFromJSON(ty, R"(["1.01", null, "1.01"])")),
-                ResultWith(ScalarFromJSON(float64(), "1.01")));
+                ResultWith(ScalarFromJSON(ty, R"("1.01")")));
     EXPECT_THAT(
         Mean(ArrayFromJSON(
             ty, R"(["1.01", "2.02", "3.03", "4.04", "5.05", "6.06", "7.07", "8.08"])")),
-        ResultWith(ScalarFromJSON(float64(), "4.545")));
+        ResultWith(ScalarFromJSON(ty, R"("4.54")")));
     EXPECT_THAT(
         Mean(ArrayFromJSON(
             ty, R"(["0.00", "0.00", "0.00", "0.00", "0.00", "0.00", "0.00", "0.00"])")),
-        ResultWith(ScalarFromJSON(float64(), "0.00")));
+        ResultWith(ScalarFromJSON(ty, R"("0.00")")));
     EXPECT_THAT(
         Mean(ArrayFromJSON(
             ty, R"(["1.01", "1.01", "1.01", "1.01", "1.01", "1.01", "1.01", "1.01"])")),
-        ResultWith(ScalarFromJSON(float64(), "1.01")));
+        ResultWith(ScalarFromJSON(ty, R"("1.01")")));
 
     EXPECT_THAT(Mean(ScalarFromJSON(ty, R"("5.05")")),
-                ResultWith(ScalarFromJSON(float64(), "5.05")));
+                ResultWith(ScalarFromJSON(ty, R"("5.05")")));
     EXPECT_THAT(Mean(ScalarFromJSON(ty, R"(null)")),
-                ResultWith(ScalarFromJSON(float64(), "null")));
+                ResultWith(ScalarFromJSON(ty, R"(null)")));
   }
 }
 
 TEST(TestDecimalMeanKernel, ScalarAggregateOptions) {
   for (const auto& ty : {decimal128(3, 2), decimal256(3, 2)}) {
-    Datum result = ScalarFromJSON(float64(), "3.375");
-    Datum null = ScalarFromJSON(float64(), "null");
-    Datum arr = ArrayFromJSON(ty, R"(["1.25", null, "2.50", "2.50", null, "7.25"])");
+    Datum result = ScalarFromJSON(ty, R"("3.03")");
+    Datum null = ScalarFromJSON(ty, R"(null)");
+    Datum arr = ArrayFromJSON(ty, R"(["1.01", null, "2.02", "2.02", null, "7.07"])");
 
     EXPECT_THAT(Mean(ArrayFromJSON(ty, "[]"),
                      ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0)),
@@ -1284,7 +1284,7 @@ TEST(TestDecimalMeanKernel, ScalarAggregateOptions) {
     EXPECT_THAT(Mean(arr, ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/5)),
                 null);
 
-    arr = ArrayFromJSON(ty, R"(["1.25", "2.50", "2.50", "7.25"])");
+    arr = ArrayFromJSON(ty, R"(["1.01", "2.02", "2.02", "7.07"])");
     EXPECT_THAT(Mean(arr, ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/0)),
                 result);
     EXPECT_THAT(Mean(arr, ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/3)),
@@ -1296,7 +1296,7 @@ TEST(TestDecimalMeanKernel, ScalarAggregateOptions) {
 
     EXPECT_THAT(Mean(ScalarFromJSON(ty, R"("5.05")"),
                      ScalarAggregateOptions(/*skip_nulls=*/false)),
-                ResultWith(ScalarFromJSON(float64(), "5.05")));
+                ResultWith(ScalarFromJSON(ty, R"("5.05")")));
     EXPECT_THAT(Mean(ScalarFromJSON(ty, R"("5.05")"),
                      ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/2)),
                 ResultWith(null));

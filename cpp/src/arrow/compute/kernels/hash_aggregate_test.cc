@@ -905,10 +905,10 @@ TEST(GroupBy, SumMeanProductDecimal) {
     [null,    null,    3],
     ["4.00",  "4.00",  null],
     ["3.25",  "3.25",  1],
-    ["-1.00", "-1.00", 2]
+    ["0.12",  "0.12",  2]
   ])",
                                              R"([
-    ["0.25",  "0.25",  2],
+    ["-0.25", "-0.25", 2],
     ["0.75",  "0.75",  null],
     [null,    null,    3]
   ])"});
@@ -938,17 +938,17 @@ TEST(GroupBy, SumMeanProductDecimal) {
       AssertDatumsEqual(ArrayFromJSON(struct_({
                                           field("hash_sum", decimal128(3, 2)),
                                           field("hash_sum", decimal256(3, 2)),
-                                          field("hash_mean", float64()),
-                                          field("hash_mean", float64()),
+                                          field("hash_mean", decimal128(3, 2)),
+                                          field("hash_mean", decimal256(3, 2)),
                                           field("hash_product", decimal128(3, 2)),
                                           field("hash_product", decimal256(3, 2)),
                                           field("key_0", int64()),
                                       }),
                                       R"([
-    ["4.25",  "4.25",  2.125,  2.125,  "3.25", "3.25", 1],
-    ["-0.75", "-0.75", -0.25,  -0.25,  "0.00", "0.00", 2],
-    [null,    null,    null,   null,   null,   null,   3],
-    ["4.75",  "4.75",  2.375,  2.375,  "3.00", "3.00", null]
+    ["4.25",  "4.25",  "2.12",  "2.12",  "3.25", "3.25", 1],
+    ["-0.13", "-0.13", "-0.04", "-0.04", "0.00", "0.00", 2],
+    [null,    null,    null,    null,    null,   null,   3],
+    ["4.75",  "4.75",  "2.37",  "2.37",  "3.00", "3.00", null]
   ])"),
                         aggregated_and_grouped,
                         /*verbose=*/true);

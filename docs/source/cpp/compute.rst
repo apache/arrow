@@ -207,7 +207,7 @@ the input to a single output value.
 +--------------------+-------+------------------+------------------------+----------------------------------+-------+
 | max                | Unary | Non-nested types | Scalar Input type      | :struct:`ScalarAggregateOptions` |       |
 +--------------------+-------+------------------+------------------------+----------------------------------+-------+
-| mean               | Unary | Numeric          | Scalar Float64         | :struct:`ScalarAggregateOptions` |       |
+| mean               | Unary | Numeric          | Scalar Decimal/Float64 | :struct:`ScalarAggregateOptions` |       |
 +--------------------+-------+------------------+------------------------+----------------------------------+-------+
 | min                | Unary | Non-nested types | Scalar Input type      | :struct:`ScalarAggregateOptions` |       |
 +--------------------+-------+------------------+------------------------+----------------------------------+-------+
@@ -326,7 +326,7 @@ equivalents above and reflects how they are implemented internally.
 +-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
 | hash_max                | Unary | Non-nested, non-binary/string-like | Input type             | :struct:`ScalarAggregateOptions` |       |
 +-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
-| hash_mean               | Unary | Numeric                            | Float64                | :struct:`ScalarAggregateOptions` |       |
+| hash_mean               | Unary | Numeric                            | Decimal/Float64        | :struct:`ScalarAggregateOptions` |       |
 +-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
 | hash_min                | Unary | Non-nested, non-binary/string-like | Input type             | :struct:`ScalarAggregateOptions` |       |
 +-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
