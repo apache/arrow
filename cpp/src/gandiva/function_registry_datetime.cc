@@ -26,7 +26,7 @@ namespace gandiva {
       DATE_TYPES(INNER, name##Decade, {}), DATE_TYPES(INNER, name##Year, {"year"}),    \
       DATE_TYPES(INNER, name##Quarter, {}), DATE_TYPES(INNER, name##Month, {"month"}), \
       DATE_TYPES(INNER, name##Week, ({"weekofyear", "yearweek"})),                     \
-      DATE_TYPES(INNER, name##Day, ({"day", "dayofmonth"})),             \
+      DATE_TYPES(INNER, name##Day, ({"day", "dayofmonth"})),                           \
       DATE_TYPES(INNER, name##Hour, {"hour"}),                                         \
       DATE_TYPES(INNER, name##Minute, {"minute"}),                                     \
       DATE_TYPES(INNER, name##Second, {"second"})
