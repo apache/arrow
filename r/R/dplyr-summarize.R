@@ -171,9 +171,16 @@ summarize_eval <- function(name, quosure, ctx, hash, recurse = FALSE) {
   ctx$quo_env <- quo_get_env(quosure)
 
   funs_in_expr <- all_funs(expr)
+
   if (length(funs_in_expr) == 0) {
-    # If it is a scalar or field ref, no special handling required
-    ctx$aggregations[[name]] <- arrow_eval_or_stop(quosure, ctx$mask)
+    # If it is not an expression, sanitize with Expression$scalar()
+    if (!inherits(expr, "Expression")) {
+      quosure <- quo(Expression$scalar(!! expr))
+    }
+
+    # These need to be added to post_mutate because they don't need
+    # to be sent to the query engine as an aggregation
+    ctx$post_mutate[[name]] <- arrow_eval_or_stop(quosure, ctx$mask)
     return()
   }
 
@@ -229,10 +236,17 @@ summarize_eval <- function(name, quosure, ctx, hash, recurse = FALSE) {
         )
       )
     )
-    ctx$post_mutate[[name]] <- arrow_eval_or_stop(
+
+    value <- arrow_eval_or_stop(
       as_quosure(expr, ctx$quo_env),
       mutate_mask
     )
+
+    if (!inherits(value, "Expression")) {
+      value <- Expression$scalar(value)
+    }
+
+    ctx$post_mutate[[name]] <- value
     return()
   }
 

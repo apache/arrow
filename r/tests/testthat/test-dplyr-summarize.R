@@ -900,3 +900,25 @@ test_that("summarise() passes through type information for temporary columns", {
     )
   )
 })
+
+test_that("summarise() can handle scalars and literal values", {
+  compare_dplyr_binding(
+    .input %>% summarise(y = 1L) %>% collect(),
+    tbl
+  )
+
+  expect_identical(
+    record_batch(tbl) %>% summarise(y = 1L) %>% collect(),
+    tibble(y = 1L)
+  )
+
+  expect_identical(
+    record_batch(tbl) %>% summarise(y = Expression$scalar(1L)) %>% collect(),
+    tibble(y = 1L)
+  )
+
+  expect_identical(
+    record_batch(tbl) %>% summarise(y = Scalar$create(1L)) %>% collect(),
+    tibble(y = 1L)
+  )
+})
