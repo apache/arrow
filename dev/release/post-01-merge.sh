@@ -30,15 +30,7 @@ rc=$2
 
 case ${version} in
   *.*.0) # Major release
-    echo "Open a pull request:"
-    echo "  https://github.com/apache/arrow/compare/master...${USER}:release-${version}-rc${rc}?expand=1"
-    echo
-    echo "Merge the pull request and tag the merged commit:"
-    echo "  git fetch --all --prune --tags --force -j\$(nproc)"
-    echo "  git checkout master"
-    echo "  git rebase apache/master"
-    echo "  git tag -a -m 'Apache Arrow ${version}' apache-arrow-${version}"
-    echo "  git push apache apache-arrow-${version}"
+    echo "Do nothing for major release"
     ;;
   *.0.*) # Patch release
     echo "Fetching all commits"
@@ -51,6 +43,7 @@ case ${version} in
     git checkout -b ${maint_branch} apache/${maint_branch}
     git merge release-${version}-rc${rc}
     git push apache ${maint_branch}
+    git checkout -
     ;;
   *)
     echo "Minor release isn't supported yet"
