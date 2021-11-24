@@ -111,8 +111,8 @@ take any of those four values.}
 \item{timezone}{For \code{timestamp()}, an optional time zone string.}
 
 \item{precision}{For \code{decimal()}, the number of significant digits
-the arrow \code{decimal} type can represent. Currently \code{decimal()} is mapped
-to \code{DecimalType128}, having a maximum precision of 38 significant digits.}
+the arrow \code{decimal} type can represent. The maximum precision for
+\code{decimal()} is 38 significant digits.}
 
 \item{scale}{For \code{decimal()}, the number of digits after the decimal
 point. It can be negative.}
@@ -152,6 +152,7 @@ are translated to R objects, \code{uint32} and \code{uint64} are converted to \c
 ("numeric") and \code{int64} is converted to \code{bit64::integer64}. For \code{int64}
 types, this conversion can be disabled (so that \code{int64} always yields a
 \code{bit64::integer64} object) by setting \code{options(arrow.int64_downcast = FALSE)}.
+
 \code{decimal()} creates a \code{decimal128} type. Arrow decimals are fixed-point
 decimal numbers encoded as a scalar integer. The \code{precision} is the number of
 significant digits that the decimal type can represent; the \code{scale} is the
@@ -164,6 +165,9 @@ respectively), but neither 12345.67 nor 123.4567.
 
 \code{decimal(5, -3)} can exactly represent the number 12345000 (encoded
 internally as the 128-bit integer 12345), but neither 123450000 nor 1234500.
+The \code{scale} can be thought of as an argument that controls rounding. When
+negative, \code{scale} causes the number to be expressed using scientific notation
+and power of 10.
 }
 \examples{
 \dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
