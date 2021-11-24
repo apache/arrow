@@ -193,7 +193,7 @@ Invoking the ``addthree.R`` script will print the outcome of adding
 
 .. code-block:: bash
 
-    $ R --slave -f addthree.R 
+    $ R --silent -f addthree.R 
     Array
     <double>
     [
