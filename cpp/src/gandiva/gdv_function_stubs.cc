@@ -919,18 +919,21 @@ const char* gdv_mask_first_n_utf8_int32(int64_t context, const char* data,
     return nullptr;
   }
 
+  if (n_to_mask > data_len) {
+    n_to_mask = data_len;
+  }
+
   *out_len = data_len;
+
+  if (n_to_mask <= 0) {
+    return data;
+  }
 
   char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
   if (out == nullptr) {
     gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
     *out_len = 0;
     return nullptr;
-  }
-
-  if (n_to_mask < 0) {
-    memcpy(out, data, data_len);
-    return out;
   }
 
   int bytes_masked;
@@ -1075,7 +1078,7 @@ const char* gdv_mask_last_n_utf8_int32(int64_t context, const char* data,
   if (data_idx <= data_len && data_idx >= 0 && has_multi_byte) {
     memcpy(out + out_idx, data, data_len - n_to_mask - out_idx);
     // Remove the unused initial bytes as it read the data str backwards
-    memcpy(out, out + out_idx, data_len);
+    memmove(out, out + out_idx, data_len);
     // Correct the out_len after masking multibyte characters with single byte characters
     *out_len = static_cast<int32_t>(strlen(out));
   }
