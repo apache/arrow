@@ -29,10 +29,14 @@ version=$1
 rc=$2
 
 case ${version} in
-  *.*.0) # Major release
+  *.0.0) # Major release
     echo "Do nothing for major release"
     ;;
-  *.0.*) # Patch release
+  *.*.0) # Minor release
+    echo "Minor release isn't supported yet"
+    exit 1
+    ;;
+  *) # Patch release
     echo "Fetching all commits"
     git fetch --all --prune --tags --force -j$(nproc)
 
@@ -46,6 +50,4 @@ case ${version} in
     git checkout -
     ;;
   *)
-    echo "Minor release isn't supported yet"
-    ;;
 esac
