@@ -620,7 +620,10 @@ readr_to_csv_convert_options <- function(na,
 #' @param x `data.frame`, [RecordBatch], or [Table]
 #' @param sink A string file path, URI, or [OutputStream], or path in a file
 #' system (`SubTreeFileSystem`)
+#' @param file file name. Specify this or `sink`, not both.
 #' @param include_header Whether to write an initial header line with column names
+#' @param col_names identical to `include_header`. Specify this or
+#'     `include_headers`, not both.
 #' @param batch_size Maximum number of rows processed at a time. Default is 1024.
 #' @param write_options see [file reader options][CsvWriteOptions]
 #' @param ... additional parameters
@@ -635,11 +638,12 @@ readr_to_csv_convert_options <- function(na,
 #' @include arrow-package.R
 write_csv_arrow <- function(x,
                             sink,
+                            file = NULL,
                             include_header = TRUE,
+                            col_names = NULL,
                             batch_size = 1024L,
                             write_options = NULL,
                             ...) {
-
   unsupported_passed_args <- names(list(...))
 
   if (length(unsupported_passed_args)) {
@@ -650,6 +654,35 @@ write_csv_arrow <- function(x,
       oxford_paste(unsupported_passed_args),
       call. = FALSE
     )
+  }
+
+  if (!missing(file) && !missing(sink)) {
+    stop(
+      paste("You have supplied both \"file\" and \"sink\" arguments. Please",
+            "supply only one of them."),
+      call. = FALSE
+    )
+  }
+
+  if (missing(sink) && !missing(file)) {
+    sink <- file
+  }
+
+  if (!missing(col_names) && !missing(include_header)) {
+    stop(
+      paste("You have supplied both \"col_names\" and \"include_header\"",
+            "arguments. Please supply only one of them."),
+      call. = FALSE
+    )
+  }
+
+  # default value are considered missing by base R
+  if (missing(include_header) && !missing(col_names)) {
+    message(
+      paste(
+        "You have supplied a value for \"col_names\". This will overwrite",
+        "the value for the \"include_headers\" argument."))
+    include_header <- col_names
   }
 
   if (is.null(write_options)) {

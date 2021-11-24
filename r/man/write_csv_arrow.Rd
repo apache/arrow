@@ -7,7 +7,9 @@
 write_csv_arrow(
   x,
   sink,
+  file = NULL,
   include_header = TRUE,
+  col_names = NULL,
   batch_size = 1024L,
   write_options = NULL,
   ...
@@ -19,7 +21,12 @@ write_csv_arrow(
 \item{sink}{A string file path, URI, or \link{OutputStream}, or path in a file
 system (\code{SubTreeFileSystem})}
 
+\item{file}{file name. Specify this or \code{sink}, not both.}
+
 \item{include_header}{Whether to write an initial header line with column names}
+
+\item{col_names}{identical to \code{include_header}. Specify this or
+\code{include_headers}, not both.}
 
 \item{batch_size}{Maximum number of rows processed at a time. Default is 1024.}
 

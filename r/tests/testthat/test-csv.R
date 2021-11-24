@@ -420,3 +420,37 @@ test_that("Writing a CSV errors when unsupported (yet) readr args are used", {
           "\"quote\", \"escape\", and \"eol\"")
   )
 })
+
+test_that("write_csv_arrow deals with duplication in sink/file", {
+  # errors when both file and sink are supplied
+  expect_error(
+    write_csv_arrow(tbl, file = csv_file, sink = csv_file),
+    paste("You have supplied both \"file\" and \"sink\" arguments. Please",
+          "supply only one of them")
+  )
+})
+
+test_that("write_csv_arrow deals with duplication in include_headers/col_names", {
+  expect_error(
+    write_csv_arrow(
+      tbl,
+      file = csv_file,
+      include_header = TRUE,
+      col_names = TRUE
+    ),
+    paste("You have supplied both \"col_names\" and \"include_header\"",
+          "arguments. Please supply only one of them")
+  )
+
+  # this is tricky since the user only supplied one, but the other one has a
+  # default value
+  expect_message(
+    write_csv_arrow(
+      tbl,
+      file = csv_file,
+      col_names = FALSE
+    ),
+    paste("You have supplied a value for \"col_names\". This will overwrite",
+          "the value for the \"include_headers\" argument.")
+  )
+})
