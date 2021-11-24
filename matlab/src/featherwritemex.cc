@@ -32,6 +32,5 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
       arrow::matlab::FeatherWriter::Open(filename, &feather_writer));
 
   // Write the Feather file table variables and table metadata from MATLAB.
-  feather_writer->WriteMetadata(prhs[2]);
-  arrow::matlab::util::HandleStatus(feather_writer->WriteVariables(prhs[1]));
+  arrow::matlab::util::HandleStatus(feather_writer->WriteVariables(prhs[1], prhs[2]));
 }

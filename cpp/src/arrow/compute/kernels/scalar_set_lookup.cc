@@ -41,32 +41,52 @@ struct SetLookupState : public KernelState {
 
   Status Init(const SetLookupOptions& options) {
     if (options.value_set.kind() == Datum::ARRAY) {
-      RETURN_NOT_OK(AddArrayValueSet(*options.value_set.array()));
+      const ArrayData& value_set = *options.value_set.array();
+      memo_index_to_value_index.reserve(value_set.length);
+      RETURN_NOT_OK(AddArrayValueSet(options, *options.value_set.array()));
     } else if (options.value_set.kind() == Datum::CHUNKED_ARRAY) {
       const ChunkedArray& value_set = *options.value_set.chunked_array();
+      memo_index_to_value_index.reserve(value_set.length());
+      int64_t offset = 0;
       for (const std::shared_ptr<Array>& chunk : value_set.chunks()) {
-        RETURN_NOT_OK(AddArrayValueSet(*chunk->data()));
+        RETURN_NOT_OK(AddArrayValueSet(options, *chunk->data(), offset));
+        offset += chunk->length();
       }
     } else {
       return Status::Invalid("value_set should be an array or chunked array");
     }
-    if (lookup_table.size() != options.value_set.length()) {
-      return Status::NotImplemented("duplicate values in value_set");
-    }
-    if (!options.skip_nulls) {
-      null_index = lookup_table.GetNull();
+    if (!options.skip_nulls && lookup_table.GetNull() >= 0) {
+      null_index = memo_index_to_value_index[lookup_table.GetNull()];
     }
     return Status::OK();
   }
 
-  Status AddArrayValueSet(const ArrayData& data) {
+  Status AddArrayValueSet(const SetLookupOptions& options, const ArrayData& data,
+                          int64_t start_index = 0) {
     using T = typename GetViewType<Type>::T;
+    int32_t index = static_cast<int32_t>(start_index);
     auto visit_valid = [&](T v) {
+      const auto memo_size = static_cast<int32_t>(memo_index_to_value_index.size());
       int32_t unused_memo_index;
-      return lookup_table.GetOrInsert(v, &unused_memo_index);
+      auto on_found = [&](int32_t memo_index) { DCHECK_LT(memo_index, memo_size); };
+      auto on_not_found = [&](int32_t memo_index) {
+        DCHECK_EQ(memo_index, memo_size);
+        memo_index_to_value_index.push_back(index);
+      };
+      RETURN_NOT_OK(lookup_table.GetOrInsert(
+          v, std::move(on_found), std::move(on_not_found), &unused_memo_index));
+      ++index;
+      return Status::OK();
     };
     auto visit_null = [&]() {
-      lookup_table.GetOrInsertNull();
+      const auto memo_size = static_cast<int32_t>(memo_index_to_value_index.size());
+      auto on_found = [&](int32_t memo_index) { DCHECK_LT(memo_index, memo_size); };
+      auto on_not_found = [&](int32_t memo_index) {
+        DCHECK_EQ(memo_index, memo_size);
+        memo_index_to_value_index.push_back(index);
+      };
+      lookup_table.GetOrInsertNull(std::move(on_found), std::move(on_not_found));
+      ++index;
       return Status::OK();
     };
 
@@ -75,6 +95,9 @@ struct SetLookupState : public KernelState {
 
   using MemoTable = typename HashTraits<Type>::MemoTableType;
   MemoTable lookup_table;
+  // When there are duplicates in value_set, the MemoTable indices must
+  // be mapped back to indices in the value_set.
+  std::vector<int32_t> memo_index_to_value_index;
   int32_t null_index = -1;
 };
 
@@ -141,8 +164,10 @@ struct InitStateVisitor {
   }
 
   template <typename Type>
-  enable_if_t<has_c_type<Type>::value && !is_boolean_type<Type>::value, Status> Visit(
-      const Type&) {
+  enable_if_t<has_c_type<Type>::value && !is_boolean_type<Type>::value &&
+                  !std::is_same<Type, MonthDayNanoIntervalType>::value,
+              Status>
+  Visit(const Type&) {
     return Init<typename UnsignedIntType<sizeof(typename Type::c_type)>::Type>();
   }
 
@@ -154,30 +179,50 @@ struct InitStateVisitor {
   // Handle Decimal128Type, FixedSizeBinaryType
   Status Visit(const FixedSizeBinaryType& type) { return Init<FixedSizeBinaryType>(); }
 
-  Status GetResult(std::unique_ptr<KernelState>* out) {
-    if (!options.value_set.type()->Equals(arg_type)) {
+  Status Visit(const MonthDayNanoIntervalType& type) {
+    return Init<MonthDayNanoIntervalType>();
+  }
+
+  Result<std::unique_ptr<KernelState>> GetResult() {
+    if (arg_type->id() == Type::TIMESTAMP &&
+        options.value_set.type()->id() == Type::TIMESTAMP) {
+      // Other types will fail when casting, so no separate check is needed
+      const auto& ty1 = checked_cast<const TimestampType&>(*arg_type);
+      const auto& ty2 = checked_cast<const TimestampType&>(*options.value_set.type());
+      if (ty1.timezone().empty() ^ ty2.timezone().empty()) {
+        return Status::Invalid(
+            "Cannot compare timestamp with timezone to timestamp without timezone, got: ",
+            ty1, " and ", ty2);
+      }
+    } else if ((arg_type->id() == Type::STRING || arg_type->id() == Type::LARGE_STRING) &&
+               !is_base_binary_like(options.value_set.type()->id())) {
+      // This is a bit of a hack, but don't implicitly cast from a non-binary
+      // type to string, since most types support casting to string and that
+      // may lead to surprises. However, we do want most other implicit casts.
+      return Status::Invalid("Array type didn't match type of values set: ", *arg_type,
+                             " vs ", *options.value_set.type());
+    }
+    if (!options.value_set.is_arraylike()) {
+      return Status::Invalid("Set lookup value set must be Array or ChunkedArray");
+    } else if (!options.value_set.type()->Equals(arg_type)) {
       ARROW_ASSIGN_OR_RAISE(
           options.value_set,
           Cast(options.value_set, CastOptions::Safe(arg_type), ctx->exec_context()));
     }
 
     RETURN_NOT_OK(VisitTypeInline(*arg_type, this));
-    *out = std::move(result);
-    return Status::OK();
+    return std::move(result);
   }
 };
 
-std::unique_ptr<KernelState> InitSetLookup(KernelContext* ctx,
-                                           const KernelInitArgs& args) {
+Result<std::unique_ptr<KernelState>> InitSetLookup(KernelContext* ctx,
+                                                   const KernelInitArgs& args) {
   if (args.options == nullptr) {
-    ctx->SetStatus(Status::Invalid(
-        "Attempted to call a set lookup function without SetLookupOptions"));
-    return nullptr;
+    return Status::Invalid(
+        "Attempted to call a set lookup function without SetLookupOptions");
   }
 
-  std::unique_ptr<KernelState> result;
-  ctx->SetStatus(InitStateVisitor{ctx, args}.GetResult(&result));
-  return result;
+  return InitStateVisitor{ctx, args}.GetResult();
 }
 
 struct IndexInVisitor {
@@ -219,7 +264,7 @@ struct IndexInVisitor {
           int32_t index = state.lookup_table.Get(v);
           if (index != -1) {
             // matching needle; output index from value_set
-            this->builder.UnsafeAppend(index);
+            this->builder.UnsafeAppend(state.memo_index_to_value_index[index]);
           } else {
             // no matching needle; output null
             this->builder.UnsafeAppendNull();
@@ -243,8 +288,10 @@ struct IndexInVisitor {
   }
 
   template <typename Type>
-  enable_if_t<has_c_type<Type>::value && !is_boolean_type<Type>::value, Status> Visit(
-      const Type&) {
+  enable_if_t<has_c_type<Type>::value && !is_boolean_type<Type>::value &&
+                  !std::is_same<Type, MonthDayNanoIntervalType>::value,
+              Status>
+  Visit(const Type&) {
     return ProcessIndexIn<
         typename UnsignedIntType<sizeof(typename Type::c_type)>::Type>();
   }
@@ -259,6 +306,10 @@ struct IndexInVisitor {
     return ProcessIndexIn<FixedSizeBinaryType>();
   }
 
+  Status Visit(const MonthDayNanoIntervalType& type) {
+    return ProcessIndexIn<MonthDayNanoIntervalType>();
+  }
+
   Status Execute() {
     Status s = VisitTypeInline(*data.type, this);
     if (!s.ok()) {
@@ -271,8 +322,8 @@ struct IndexInVisitor {
   }
 };
 
-void ExecIndexIn(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  KERNEL_RETURN_IF_ERROR(ctx, IndexInVisitor(ctx, *batch[0].array(), out).Execute());
+Status ExecIndexIn(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  return IndexInVisitor(ctx, *batch[0].array(), out).Execute();
 }
 
 // ----------------------------------------------------------------------
@@ -333,8 +384,10 @@ struct IsInVisitor {
   }
 
   template <typename Type>
-  enable_if_t<has_c_type<Type>::value && !is_boolean_type<Type>::value, Status> Visit(
-      const Type&) {
+  enable_if_t<has_c_type<Type>::value && !is_boolean_type<Type>::value &&
+                  !std::is_same<Type, MonthDayNanoIntervalType>::value,
+              Status>
+  Visit(const Type&) {
     return ProcessIsIn<typename UnsignedIntType<sizeof(typename Type::c_type)>::Type>();
   }
 
@@ -348,11 +401,15 @@ struct IsInVisitor {
     return ProcessIsIn<FixedSizeBinaryType>();
   }
 
+  Status Visit(const MonthDayNanoIntervalType& type) {
+    return ProcessIsIn<MonthDayNanoIntervalType>();
+  }
+
   Status Execute() { return VisitTypeInline(*data.type, this); }
 };
 
-void ExecIsIn(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  KERNEL_RETURN_IF_ERROR(ctx, IsInVisitor(ctx, *batch[0].array(), out).Execute());
+Status ExecIsIn(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  return IsInVisitor(ctx, *batch[0].array(), out).Execute();
 }
 
 // Unary set lookup kernels available for the following input types
@@ -369,7 +426,7 @@ void AddBasicSetLookupKernels(ScalarKernel kernel,
                               ScalarFunction* func) {
   auto AddKernels = [&](const std::vector<std::shared_ptr<DataType>>& types) {
     for (const std::shared_ptr<DataType>& ty : types) {
-      kernel.signature = KernelSignature::Make({ty}, out_ty);
+      kernel.signature = KernelSignature::Make({InputType(ty->id())}, out_ty);
       DCHECK_OK(func->AddKernel(kernel));
     }
   };
@@ -377,8 +434,9 @@ void AddBasicSetLookupKernels(ScalarKernel kernel,
   AddKernels(BaseBinaryTypes());
   AddKernels(NumericTypes());
   AddKernels(TemporalTypes());
+  AddKernels({month_day_nano_interval()});
 
-  std::vector<Type::type> other_types = {Type::BOOL, Type::DECIMAL,
+  std::vector<Type::type> other_types = {Type::BOOL, Type::DECIMAL128, Type::DECIMAL256,
                                          Type::FIXED_SIZE_BINARY};
   for (auto ty : other_types) {
     kernel.signature = KernelSignature::Make({InputType::Array(ty)}, out_ty);
@@ -386,11 +444,43 @@ void AddBasicSetLookupKernels(ScalarKernel kernel,
   }
 }
 
+const FunctionDoc is_in_doc{
+    "Find each element in a set of values",
+    ("For each element in `values`, return true if it is found in a given\n"
+     "set of values, false otherwise.\n"
+     "The set of values to look for must be given in SetLookupOptions.\n"
+     "By default, nulls are matched against the value set, this can be\n"
+     "changed in SetLookupOptions."),
+    {"values"},
+    "SetLookupOptions"};
+
+const FunctionDoc is_in_meta_doc{
+    "Find each element in a set of values",
+    ("For each element in `values`, return true if it is found in `value_set`,\n"
+     "false otherwise."),
+    {"values", "value_set"}};
+
+const FunctionDoc index_in_doc{
+    "Return index of each element in a set of values",
+    ("For each element in `values`, return its index in a given set of\n"
+     "values, or null if it is not found there.\n"
+     "The set of values to look for must be given in SetLookupOptions.\n"
+     "By default, nulls are matched against the value set, this can be\n"
+     "changed in SetLookupOptions."),
+    {"values"},
+    "SetLookupOptions"};
+
+const FunctionDoc index_in_meta_doc{
+    "Return index of each element in a set of values",
+    ("For each element in `values`, return its index in the `value_set`,\n"
+     "or null if it is not found there."),
+    {"values", "value_set"}};
+
 // Enables calling is_in with CallFunction as though it were binary.
 class IsInMetaBinary : public MetaFunction {
  public:
   IsInMetaBinary()
-      : MetaFunction("is_in_meta_binary", Arity::Binary(), /*doc=*/nullptr) {}
+      : MetaFunction("is_in_meta_binary", Arity::Binary(), &is_in_meta_doc) {}
 
   Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
                             const FunctionOptions* options,
@@ -406,7 +496,7 @@ class IsInMetaBinary : public MetaFunction {
 class IndexInMetaBinary : public MetaFunction {
  public:
   IndexInMetaBinary()
-      : MetaFunction("index_in_meta_binary", Arity::Binary(), /*doc=*/nullptr) {}
+      : MetaFunction("index_in_meta_binary", Arity::Binary(), &index_in_meta_doc) {}
 
   Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
                             const FunctionOptions* options,
@@ -426,26 +516,6 @@ struct SetLookupFunction : ScalarFunction {
     return DispatchExact(*values);
   }
 };
-
-const FunctionDoc is_in_doc{
-    "Find each element in a set of values",
-    ("For each element in `values`, return true if it is found in a given\n"
-     "set of values, false otherwise.\n"
-     "The set of values to look for must be given in SetLookupOptions.\n"
-     "By default, nulls are matched against the value set, this can be\n"
-     "changed in SetLookupOptions."),
-    {"values"},
-    "SetLookupOptions"};
-
-const FunctionDoc index_in_doc{
-    "Return index of each element in a set of values",
-    ("For each element in `values`, return its index in a given set of\n"
-     "values, or null if it is not found there.\n"
-     "The set of values to look for must be given in SetLookupOptions.\n"
-     "By default, nulls are matched against the value set, this can be\n"
-     "changed in SetLookupOptions."),
-    {"values"},
-    "SetLookupOptions"};
 
 }  // namespace
 

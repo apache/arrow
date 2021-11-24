@@ -16,6 +16,7 @@
 # under the License.
 
 import pathlib
+import sys
 
 
 def _is_path_like(path):
@@ -49,3 +50,10 @@ def _stringify_path(path):
             return str(path)
 
     raise TypeError("not a path-like object")
+
+
+def _import_pandas():
+    # ARROW-13425: avoid importing PyArrow from Pandas
+    sys.modules['pyarrow'] = None
+    import pandas as pd
+    return pd

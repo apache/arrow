@@ -24,7 +24,9 @@ public enum IntervalUnit {
   /** Values are stored as number of months (which can be converted into years and months via division). */
   YEAR_MONTH(org.apache.arrow.flatbuf.IntervalUnit.YEAR_MONTH),
   /** Values are stored as some number of days and some number of milliseconds within that day. */
-  DAY_TIME(org.apache.arrow.flatbuf.IntervalUnit.DAY_TIME);
+  DAY_TIME(org.apache.arrow.flatbuf.IntervalUnit.DAY_TIME),
+  /** Values are stored as number of months, days and nanoseconds. */
+  MONTH_DAY_NANO(org.apache.arrow.flatbuf.IntervalUnit.MONTH_DAY_NANO);
 
   private static final IntervalUnit[] valuesByFlatbufId = new IntervalUnit[IntervalUnit.values().length];
 

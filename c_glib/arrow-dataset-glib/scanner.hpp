@@ -24,12 +24,14 @@
 #include <arrow-dataset-glib/fragment.h>
 #include <arrow-dataset-glib/scanner.h>
 
-GADScanOptions *
-gad_scan_options_new_raw(std::shared_ptr<arrow::dataset::ScanOptions> *arrow_scan_options);
-std::shared_ptr<arrow::dataset::ScanOptions>
-gad_scan_options_get_raw(GADScanOptions *scan_options);
+GADatasetScanner *
+gadataset_scanner_new_raw(
+  std::shared_ptr<arrow::dataset::Scanner> *arrow_scanner);
+std::shared_ptr<arrow::dataset::Scanner>
+gadataset_scanner_get_raw(GADatasetScanner *scanner);
 
-GADInMemoryScanTask *
-gad_in_memory_scan_task_new_raw(std::shared_ptr<arrow::dataset::InMemoryScanTask> *arrow_in_memory_scan_task,
-                                GADScanOptions *scan_options,
-                                GADInMemoryFragment *fragment);
+GADatasetScannerBuilder *
+gadataset_scanner_builder_new_raw(
+  std::shared_ptr<arrow::dataset::ScannerBuilder> *arrow_scanner_builder);
+std::shared_ptr<arrow::dataset::ScannerBuilder>
+gadataset_scanner_builder_get_raw(GADatasetScannerBuilder *scanner_builder);

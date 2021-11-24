@@ -262,17 +262,16 @@ class Variant : detail::VariantImpl<Variant<T...>, T...>,
 
   Variant(const Variant& other) = default;
   Variant& operator=(const Variant& other) = default;
-
-  using Impl::Impl;
-  using Impl::operator=;
-
-  Variant(Variant&& other) noexcept { other.move_to(this); }
-
   Variant& operator=(Variant&& other) noexcept {
     this->destroy();
     other.move_to(this);
     return *this;
   }
+
+  using Impl::Impl;
+  using Impl::operator=;
+
+  Variant(Variant&& other) noexcept { other.move_to(this); }
 
   ~Variant() {
     static_assert(offsetof(Variant, data_) == 0, "(void*)&Variant::data_ == (void*)this");
@@ -303,23 +302,27 @@ class Variant : detail::VariantImpl<Variant<T...>, T...>,
   /// The intended type must be given as a template argument.
   /// The value is constructed in-place using the given function arguments.
   template <typename U, typename... A, uint8_t I = index_of<U>()>
-  void emplace(A&&... args) try {
-    this->destroy();
-    new (this) U(std::forward<A>(args)...);
-    this->index_ = I;
-  } catch (...) {
-    construct_default();
-    throw;
+  void emplace(A&&... args) {
+    try {
+      this->destroy();
+      new (this) U(std::forward<A>(args)...);
+      this->index_ = I;
+    } catch (...) {
+      construct_default();
+      throw;
+    }
   }
 
   template <typename U, typename E, typename... A, uint8_t I = index_of<U>()>
-  void emplace(std::initializer_list<E> il, A&&... args) try {
-    this->destroy();
-    new (this) U(il, std::forward<A>(args)...);
-    this->index_ = I;
-  } catch (...) {
-    construct_default();
-    throw;
+  void emplace(std::initializer_list<E> il, A&&... args) {
+    try {
+      this->destroy();
+      new (this) U(il, std::forward<A>(args)...);
+      this->index_ = I;
+    } catch (...) {
+      construct_default();
+      throw;
+    }
   }
 
   /// \brief Swap with another variant's contents

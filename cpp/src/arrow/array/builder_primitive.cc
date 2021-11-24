@@ -65,9 +65,8 @@ Status BooleanBuilder::Resize(int64_t capacity) {
 }
 
 Status BooleanBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
-  std::shared_ptr<Buffer> null_bitmap, data;
-  RETURN_NOT_OK(null_bitmap_builder_.Finish(&null_bitmap));
-  RETURN_NOT_OK(data_builder_.Finish(&data));
+  ARROW_ASSIGN_OR_RAISE(auto null_bitmap, null_bitmap_builder_.FinishWithLength(length_));
+  ARROW_ASSIGN_OR_RAISE(auto data, data_builder_.FinishWithLength(length_));
 
   *out = ArrayData::Make(boolean(), length_, {null_bitmap, data}, null_count_);
 
@@ -83,6 +82,14 @@ Status BooleanBuilder::AppendValues(const uint8_t* values, int64_t length,
   data_builder_.UnsafeAppend<false>(length,
                                     [values, &i]() -> bool { return values[i++] != 0; });
   ArrayBuilder::UnsafeAppendToBitmap(valid_bytes, length);
+  return Status::OK();
+}
+
+Status BooleanBuilder::AppendValues(const uint8_t* values, int64_t length,
+                                    const uint8_t* validity, int64_t offset) {
+  RETURN_NOT_OK(Reserve(length));
+  data_builder_.UnsafeAppend(values, offset, length);
+  ArrayBuilder::UnsafeAppendToBitmap(validity, offset, length);
   return Status::OK();
 }
 

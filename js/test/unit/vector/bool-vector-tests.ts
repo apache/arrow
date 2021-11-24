@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Data, Bool, Vector, BoolVector } from '../../Arrow';
+import { Data, Bool, Vector, BoolVector } from 'apache-arrow';
 
 const newBoolVector = (length: number, data: Uint8Array) => Vector.new(Data.Bool(new Bool(), 0, length, 0, null, data));
 

@@ -19,9 +19,15 @@
 
 # Base class for RecordBatch and Table for S3 method dispatch only.
 # Does not exist in C++ class hierarchy
-ArrowTabular <- R6Class("ArrowTabular", inherit = ArrowObject,
+ArrowTabular <- R6Class("ArrowTabular",
+  inherit = ArrowObject,
   public = list(
-    ToString = function() ToString_tabular(self),
+    ToString = function() {
+      sch <- unlist(strsplit(self$schema$ToString(), "\n"))
+      sch <- sub("(.*): (.*)", "$\\1 <\\2>", sch)
+      dims <- sprintf("%s rows x %s columns", self$num_rows, self$num_columns)
+      paste(c(dims, sch), collapse = "\n")
+    },
     Take = function(i) {
       if (is.numeric(i)) {
         i <- as.integer(i)
@@ -56,15 +62,46 @@ ArrowTabular <- R6Class("ArrowTabular", inherit = ArrowObject,
         options = list(names = names, orders = as.integer(descending))
       )
     }
+  ),
+  active = list(
+    metadata = function(new) {
+      if (missing(new)) {
+        # Get the metadata (from the schema)
+        self$schema$metadata
+      } else {
+        # Set the metadata
+        new <- prepare_key_value_metadata(new)
+        out <- self$ReplaceSchemaMetadata(new)
+        # ReplaceSchemaMetadata returns a new object but we're modifying in place,
+        # so swap in that new C++ object pointer into our R6 object
+        self$set_pointer(out$pointer())
+        self
+      }
+    },
+    r_metadata = function(new) {
+      # Helper for the R metadata that handles the serialization
+      # See also method on Schema
+      if (missing(new)) {
+        out <- self$metadata$r
+        if (!is.null(out)) {
+          # Can't unserialize NULL
+          out <- .unserialize_arrow_r_metadata(out)
+        }
+        # Returns either NULL or a named list
+        out
+      } else {
+        # Set the R metadata
+        self$metadata$r <- .serialize_arrow_r_metadata(new)
+        self
+      }
+    }
   )
 )
 
 #' @export
 as.data.frame.ArrowTabular <- function(x, row.names = NULL, optional = FALSE, ...) {
-  tryCatch(
-    df <- x$to_data_frame(),
-    error = handle_embedded_nul_error
-  )
+  df <- x$to_data_frame()
+
   if (!is.null(r_metadata <- x$metadata$r)) {
     df <- apply_arrow_r_metadata(df, .unserialize_arrow_r_metadata(r_metadata))
   }
@@ -197,6 +234,9 @@ as.data.frame.ArrowTabular <- function(x, row.names = NULL, optional = FALSE, ..
 dim.ArrowTabular <- function(x) c(x$num_rows, x$num_columns)
 
 #' @export
+length.ArrowTabular <- function(x) x$num_columns
+
+#' @export
 as.list.ArrowTabular <- function(x, ...) as.list(as.data.frame(x, ...))
 
 #' @export
@@ -212,7 +252,7 @@ head.ArrowTabular <- head.ArrowDatum
 tail.ArrowTabular <- tail.ArrowDatum
 
 #' @export
-na.fail.ArrowTabular <- function(object, ...){
+na.fail.ArrowTabular <- function(object, ...) {
   for (col in seq_len(object$num_columns)) {
     if (object$column(col - 1L)$null_count > 0) {
       stop("missing values in object", call. = FALSE)
@@ -222,19 +262,11 @@ na.fail.ArrowTabular <- function(object, ...){
 }
 
 #' @export
-na.omit.ArrowTabular <- function(object, ...){
-  not_na <- map(object$columns, ~build_array_expression("is_valid", .x))
+na.omit.ArrowTabular <- function(object, ...) {
+  not_na <- map(object$columns, ~ call_function("is_valid", .x))
   not_na_agg <- Reduce("&", not_na)
-  object$Filter(eval_array_expression(not_na_agg))
+  object$Filter(not_na_agg)
 }
 
 #' @export
-na.exclude.ArrowTabular <- na.omit.ArrowTabular 
-
-ToString_tabular <- function(x, ...) {
-  # Generic to work with both RecordBatch and Table
-  sch <- unlist(strsplit(x$schema$ToString(), "\n"))
-  sch <- sub("(.*): (.*)", "$\\1 <\\2>", sch)
-  dims <- sprintf("%s rows x %s columns", nrow(x), ncol(x))
-  paste(c(dims, sch), collapse = "\n")
-}
+na.exclude.ArrowTabular <- na.omit.ArrowTabular

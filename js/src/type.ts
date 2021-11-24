@@ -65,24 +65,24 @@ export abstract class DataType<TType extends Type = Type, TChildren extends { [k
 
     public [Symbol.toStringTag]: string;
 
-    /** @nocollapse */ static            isNull (x: any): x is Null            { return x && x.typeId === Type.Null;            }
-    /** @nocollapse */ static             isInt (x: any): x is Int_            { return x && x.typeId === Type.Int;             }
-    /** @nocollapse */ static           isFloat (x: any): x is Float           { return x && x.typeId === Type.Float;           }
-    /** @nocollapse */ static          isBinary (x: any): x is Binary          { return x && x.typeId === Type.Binary;          }
-    /** @nocollapse */ static            isUtf8 (x: any): x is Utf8            { return x && x.typeId === Type.Utf8;            }
-    /** @nocollapse */ static            isBool (x: any): x is Bool            { return x && x.typeId === Type.Bool;            }
-    /** @nocollapse */ static         isDecimal (x: any): x is Decimal         { return x && x.typeId === Type.Decimal;         }
-    /** @nocollapse */ static            isDate (x: any): x is Date_           { return x && x.typeId === Type.Date;            }
-    /** @nocollapse */ static            isTime (x: any): x is Time_           { return x && x.typeId === Type.Time;            }
-    /** @nocollapse */ static       isTimestamp (x: any): x is Timestamp_      { return x && x.typeId === Type.Timestamp;       }
-    /** @nocollapse */ static        isInterval (x: any): x is Interval_       { return x && x.typeId === Type.Interval;        }
-    /** @nocollapse */ static            isList (x: any): x is List            { return x && x.typeId === Type.List;            }
-    /** @nocollapse */ static          isStruct (x: any): x is Struct          { return x && x.typeId === Type.Struct;          }
-    /** @nocollapse */ static           isUnion (x: any): x is Union_          { return x && x.typeId === Type.Union;           }
-    /** @nocollapse */ static isFixedSizeBinary (x: any): x is FixedSizeBinary { return x && x.typeId === Type.FixedSizeBinary; }
-    /** @nocollapse */ static   isFixedSizeList (x: any): x is FixedSizeList   { return x && x.typeId === Type.FixedSizeList;   }
-    /** @nocollapse */ static             isMap (x: any): x is Map_            { return x && x.typeId === Type.Map;             }
-    /** @nocollapse */ static      isDictionary (x: any): x is Dictionary      { return x && x.typeId === Type.Dictionary;      }
+    /** @nocollapse */ static            isNull (x: any): x is Null            { return x?.typeId === Type.Null;            }
+    /** @nocollapse */ static             isInt (x: any): x is Int_            { return x?.typeId === Type.Int;             }
+    /** @nocollapse */ static           isFloat (x: any): x is Float           { return x?.typeId === Type.Float;           }
+    /** @nocollapse */ static          isBinary (x: any): x is Binary          { return x?.typeId === Type.Binary;          }
+    /** @nocollapse */ static            isUtf8 (x: any): x is Utf8            { return x?.typeId === Type.Utf8;            }
+    /** @nocollapse */ static            isBool (x: any): x is Bool            { return x?.typeId === Type.Bool;            }
+    /** @nocollapse */ static         isDecimal (x: any): x is Decimal         { return x?.typeId === Type.Decimal;         }
+    /** @nocollapse */ static            isDate (x: any): x is Date_           { return x?.typeId === Type.Date;            }
+    /** @nocollapse */ static            isTime (x: any): x is Time_           { return x?.typeId === Type.Time;            }
+    /** @nocollapse */ static       isTimestamp (x: any): x is Timestamp_      { return x?.typeId === Type.Timestamp;       }
+    /** @nocollapse */ static        isInterval (x: any): x is Interval_       { return x?.typeId === Type.Interval;        }
+    /** @nocollapse */ static            isList (x: any): x is List            { return x?.typeId === Type.List;            }
+    /** @nocollapse */ static          isStruct (x: any): x is Struct          { return x?.typeId === Type.Struct;          }
+    /** @nocollapse */ static           isUnion (x: any): x is Union_          { return x?.typeId === Type.Union;           }
+    /** @nocollapse */ static isFixedSizeBinary (x: any): x is FixedSizeBinary { return x?.typeId === Type.FixedSizeBinary; }
+    /** @nocollapse */ static   isFixedSizeList (x: any): x is FixedSizeList   { return x?.typeId === Type.FixedSizeList;   }
+    /** @nocollapse */ static             isMap (x: any): x is Map_            { return x?.typeId === Type.Map;             }
+    /** @nocollapse */ static      isDictionary (x: any): x is Dictionary      { return x?.typeId === Type.Dictionary;      }
 
     public get typeId(): TType { return <any> Type.NONE; }
 

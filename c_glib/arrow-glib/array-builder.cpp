@@ -160,6 +160,7 @@ garrow_array_builder_append_values(GArrowArrayBuilder *builder,
     if (is_valids_length > 0) {
       valid_bytes = valid_bytes_buffer;
     }
+    gboolean is_valids_buffer[chunk_size];
     const gint64 offset = chunk_size * i;
     gint64 n_values;
     if (i == n_chunks) {
@@ -169,12 +170,25 @@ garrow_array_builder_append_values(GArrowArrayBuilder *builder,
     }
     for (gint64 j = 0; j < n_values; ++j) {
       auto value = values[offset + j];
-      size_t data_size;
-      auto raw_data = g_bytes_get_data(value, &data_size);
-      strings.push_back(std::string(static_cast<const char *>(raw_data),
-                                    data_size));
-      if (valid_bytes) {
-        valid_bytes_buffer[j] = is_valids[offset + j];
+      if (value) {
+        size_t data_size;
+        auto raw_data = g_bytes_get_data(value, &data_size);
+        strings.push_back(std::string(static_cast<const char *>(raw_data),
+                                      data_size));
+        if (valid_bytes) {
+          valid_bytes_buffer[j] = is_valids[offset + j];
+        }
+      } else {
+        strings.push_back("");
+        valid_bytes_buffer[j] = 0;
+        if (!valid_bytes) {
+          if (j > 0) {
+            memset(valid_bytes_buffer, 1, sizeof(uint8_t) * j - 1);
+          }
+          valid_bytes = valid_bytes_buffer;
+          memset(is_valids_buffer, TRUE, sizeof(gboolean) * chunk_size);
+          is_valids = is_valids_buffer;
+        }
       }
     }
     status = arrow_builder->AppendValues(strings, valid_bytes);
@@ -6142,9 +6156,9 @@ garrow_array_builder_new_raw(arrow::ArrayBuilder *arrow_builder,
       break;
     case arrow::Type::type::DICTIONARY:
       {
-        const auto& dict_type =
-          arrow::internal::checked_cast<arrow::DictionaryType&>(*arrow_builder->type());
-        switch (dict_type.value_type()->id()) {
+        auto dict_type =
+          std::static_pointer_cast<arrow::DictionaryType>(arrow_builder->type());
+        switch (dict_type->value_type()->id()) {
           case arrow::Type::type::BINARY:
             type = GARROW_TYPE_BINARY_DICTIONARY_ARRAY_BUILDER;
             break;

@@ -18,12 +18,6 @@
 # Wrap testthat::test_that with a check for the C++ library
 options(..skip.tests = !arrow:::arrow_available())
 
-if (tolower(Sys.info()[["sysname"]]) == "windows") {
-  # For now, disable multithreading by default on Windows
-  # See https://issues.apache.org/jira/browse/ARROW-8379
-  options(arrow.use_threads = FALSE)
-}
-
 set.seed(1)
 
 MAX_INT <- 2147483647L
@@ -47,7 +41,7 @@ with_language <- function(lang, expr) {
   Sys.setenv(LANGUAGE = lang)
   on.exit({
     Sys.setenv(LANGUAGE = old)
-    dplyr_functions$i18ized_error_pattern <<- NULL
+    .cache$i18ized_error_pattern <<- NULL
   })
   if (!identical(before, i18ize_error_messages())) {
     skip(paste("This OS either does not support changing languages to", lang, "or it caches translations"))
@@ -66,4 +60,10 @@ test_that <- function(what, code) {
 # available (so that at least some tests are run on those platforms)
 r_only <- function(code) {
   withr::with_options(list(..skip.tests = FALSE), code)
+}
+
+make_temp_dir <- function() {
+  path <- tempfile()
+  dir.create(path)
+  normalizePath(path, winslash = "/")
 }

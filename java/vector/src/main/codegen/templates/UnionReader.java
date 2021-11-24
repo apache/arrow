@@ -34,7 +34,7 @@ package org.apache.arrow.vector.complex.impl;
 @SuppressWarnings("unused")
 public class UnionReader extends AbstractFieldReader {
 
-  private BaseReader[] readers = new BaseReader[44];
+  private BaseReader[] readers = new BaseReader[45];
   public UnionVector data;
   
   public UnionReader(UnionVector data) {
@@ -45,7 +45,7 @@ public class UnionReader extends AbstractFieldReader {
     return TYPES[data.getTypeValue(idx())];
   }
 
-  private static MinorType[] TYPES = new MinorType[44];
+  private static MinorType[] TYPES = new MinorType[45];
 
   static {
     for (MinorType minorType : MinorType.values()) {
@@ -84,6 +84,8 @@ public class UnionReader extends AbstractFieldReader {
       return (FieldReader) getStruct();
     case LIST:
       return (FieldReader) getList();
+    case MAP:
+      return (FieldReader) getMap();
     <#list vv.types as type>
       <#list type.minor as minor>
         <#assign name = minor.class?cap_first />
@@ -121,6 +123,17 @@ public class UnionReader extends AbstractFieldReader {
     return listReader;
   }
 
+  private UnionMapReader mapReader;
+
+  private FieldReader getMap() {
+    if (mapReader == null) {
+      mapReader = new UnionMapReader(data.getMap());
+      mapReader.setPosition(idx());
+      readers[MinorType.MAP.ordinal()] = mapReader;
+    }
+    return mapReader;
+  }
+
   @Override
   public java.util.Iterator<String> iterator() {
     return getStruct().iterator();
@@ -133,7 +146,7 @@ public class UnionReader extends AbstractFieldReader {
 
   <#list ["Object", "BigDecimal", "Short", "Integer", "Long", "Boolean",
           "LocalDateTime", "Duration", "Period", "Double", "Float",
-          "Character", "Text", "Byte", "byte[]"] as friendlyType>
+          "Character", "Text", "Byte", "byte[]", "PeriodDuration"] as friendlyType>
   <#assign safeType=friendlyType />
   <#if safeType=="byte[]"><#assign safeType="ByteArray" /></#if>
 

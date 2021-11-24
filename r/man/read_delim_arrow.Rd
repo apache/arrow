@@ -187,8 +187,8 @@ types analogously to the \code{readr} type mapping:
 \item "l": \code{bool()}
 \item "f": \code{dictionary()}
 \item "D": \code{date32()}
-\item "T": \code{time32()}
-\item "t": \code{timestamp()}
+\item "T": \code{timestamp()}
+\item "t": \code{time32()}
 \item "_": \code{null()}
 \item "-": \code{null()}
 \item "?": infer the type from the data
@@ -206,13 +206,13 @@ to idenfity column names, you'll need to add \code{skip = 1} to skip that row.
 }
 
 \examples{
-\donttest{
-  tf <- tempfile()
-  on.exit(unlink(tf))
-  write.csv(mtcars, file = tf)
-  df <- read_csv_arrow(tf)
-  dim(df)
-  # Can select columns
-  df <- read_csv_arrow(tf, col_select = starts_with("d"))
-}
+\dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+tf <- tempfile()
+on.exit(unlink(tf))
+write.csv(mtcars, file = tf)
+df <- read_csv_arrow(tf)
+dim(df)
+# Can select columns
+df <- read_csv_arrow(tf, col_select = starts_with("d"))
+\dontshow{\}) # examplesIf}
 }

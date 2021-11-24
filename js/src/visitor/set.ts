@@ -239,10 +239,10 @@ const setMap = <T extends Map_>(vector: VectorType<T>, index: number, value: T['
     }
 };
 
-/** @ignore */ const _setStructArrayValue = (o: number, v: any[]) => (c: Vector | null, _: Field, i: number) => c && c.set(o, v[i]);
-/** @ignore */ const _setStructVectorValue = (o: number, v: Vector) => (c: Vector | null, _: Field, i: number) => c && c.set(o, v.get(i));
-/** @ignore */ const _setStructMapValue = (o: number, v: Map<string, any>) => (c: Vector | null, f: Field, _: number) => c && c.set(o, v.get(f.name));
-/** @ignore */ const _setStructObjectValue = (o: number, v: { [key: string]: any }) => (c: Vector | null, f: Field, _: number) => c && c.set(o, v[f.name]);
+/** @ignore */ const _setStructArrayValue = (o: number, v: any[]) => (c: Vector | null, _: Field, i: number) => c?.set(o, v[i]);
+/** @ignore */ const _setStructVectorValue = (o: number, v: Vector) => (c: Vector | null, _: Field, i: number) => c?.set(o, v.get(i));
+/** @ignore */ const _setStructMapValue = (o: number, v: Map<string, any>) => (c: Vector | null, f: Field, _: number) => c?.set(o, v.get(f.name));
+/** @ignore */ const _setStructObjectValue = (o: number, v: { [key: string]: any }) => (c: Vector | null, f: Field, _: number) => c?.set(o, v[f.name]);
 /** @ignore */
 const setStruct = <T extends Struct>(vector: VectorType<T>, index: number, value: T['TValue']) => {
 

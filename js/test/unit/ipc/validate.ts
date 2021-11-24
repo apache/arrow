@@ -23,7 +23,7 @@ import {
     RecordBatchReader,
     RecordBatchFileReader,
     RecordBatchStreamReader,
-} from '../../Arrow';
+} from 'apache-arrow';
 
 export function validateRecordBatchReader<T extends RecordBatchFileReader | RecordBatchStreamReader>(type: 'json' | 'file' | 'stream', numBatches: number, r: T) {
     const reader = r.open();

@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { util, Vector, DataType, Int64 } from '../../Arrow';
+import { util, Vector, DataType, Int64 } from 'apache-arrow';
 import {
     validateVector,
     encodeAll, encodeEach, encodeEachDOM, encodeEachNode,

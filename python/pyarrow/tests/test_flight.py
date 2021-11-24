@@ -17,12 +17,15 @@
 
 import ast
 import base64
+import itertools
 import os
+import signal
 import struct
 import tempfile
 import threading
 import time
 import traceback
+import json
 
 import numpy as np
 import pytest
@@ -30,6 +33,7 @@ import pyarrow as pa
 
 from pyarrow.lib import tobytes
 from pyarrow.util import pathlib, find_free_port
+from pyarrow.tests import util
 
 try:
     from pyarrow import flight
@@ -206,6 +210,10 @@ class EchoFlightServer(FlightServerBase):
             assert self.expected_schema == reader.schema
         self.last_message = reader.read_all()
 
+    def do_exchange(self, context, descriptor, reader, writer):
+        for chunk in reader:
+            pass
+
 
 class EchoStreamFlightServer(EchoFlightServer):
     """An echo server that streams individual record batches."""
@@ -303,6 +311,25 @@ class InvalidStreamFlightServer(FlightServerBase):
         return flight.GeneratorStream(self.schema, [table1, table2])
 
 
+class NeverSendsDataFlightServer(FlightServerBase):
+    """A Flight server that never actually yields data."""
+
+    schema = pa.schema([('a', pa.int32())])
+
+    def do_get(self, context, ticket):
+        if ticket.ticket == b'yield_data':
+            # Check that the server handler will ignore empty tables
+            # up to a certain extent
+            data = [
+                self.schema.empty_table(),
+                self.schema.empty_table(),
+                pa.RecordBatch.from_arrays([range(5)], schema=self.schema),
+            ]
+            return flight.GeneratorStream(self.schema, data)
+        return flight.GeneratorStream(
+            self.schema, itertools.repeat(self.schema.empty_table()))
+
+
 class SlowFlightServer(FlightServerBase):
     """A Flight server that delays its responses to test timeouts."""
 
@@ -351,6 +378,21 @@ class ErrorFlightServer(FlightServerBase):
             -1, -1
         )
         raise flight.FlightInternalError("foo")
+
+    def do_put(self, context, descriptor, reader, writer):
+        if descriptor.command == b"internal":
+            raise flight.FlightInternalError("foo")
+        elif descriptor.command == b"timedout":
+            raise flight.FlightTimedOutError("foo")
+        elif descriptor.command == b"cancel":
+            raise flight.FlightCancelledError("foo")
+        elif descriptor.command == b"unauthenticated":
+            raise flight.FlightUnauthenticatedError("foo")
+        elif descriptor.command == b"unauthorized":
+            raise flight.FlightUnauthorizedError("foo")
+        elif descriptor.command == b"protobuf":
+            err_msg = b'this is an error message'
+            raise flight.FlightUnauthorizedError("foo", err_msg)
 
 
 class ExchangeFlightServer(FlightServerBase):
@@ -794,6 +836,23 @@ class MultiHeaderServerMiddleware(ServerMiddleware):
         return MultiHeaderClientMiddleware.EXPECTED
 
 
+class LargeMetadataFlightServer(FlightServerBase):
+    """Regression test for ARROW-13253."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._metadata = b' ' * (2 ** 31 + 1)
+
+    def do_get(self, context, ticket):
+        schema = pa.schema([('a', pa.int64())])
+        return flight.GeneratorStream(schema, [
+            (pa.record_batch([[1]], schema=schema), self._metadata),
+        ])
+
+    def do_exchange(self, context, descriptor, reader, writer):
+        writer.write_metadata(self._metadata)
+
+
 def test_flight_server_location_argument():
     locations = [
         None,
@@ -855,6 +914,10 @@ def test_flight_do_get_ints():
     with ConstantFlightServer(options=options) as server:
         client = flight.connect(('localhost', server.port))
         data = client.do_get(flight.Ticket(b'ints')).read_all()
+        assert data.equals(table)
+
+        # Also test via RecordBatchReader interface
+        data = client.do_get(flight.Ticket(b'ints')).to_reader().read_all()
         assert data.equals(table)
 
     with pytest.raises(flight.FlightServerError,
@@ -1485,6 +1548,7 @@ def test_roundtrip_errors():
     """Ensure that Flight errors propagate from server to client."""
     with ErrorFlightServer() as server:
         client = FlightClient(('localhost', server.port))
+
         with pytest.raises(flight.FlightInternalError, match=".*foo.*"):
             list(client.do_action(flight.Action("internal", b"")))
         with pytest.raises(flight.FlightTimedOutError, match=".*foo.*"):
@@ -1497,6 +1561,32 @@ def test_roundtrip_errors():
             list(client.do_action(flight.Action("unauthorized", b"")))
         with pytest.raises(flight.FlightInternalError, match=".*foo.*"):
             list(client.list_flights())
+
+        data = [pa.array([-10, -5, 0, 5, 10])]
+        table = pa.Table.from_arrays(data, names=['a'])
+
+        exceptions = {
+            'internal': flight.FlightInternalError,
+            'timedout': flight.FlightTimedOutError,
+            'cancel': flight.FlightCancelledError,
+            'unauthenticated': flight.FlightUnauthenticatedError,
+            'unauthorized': flight.FlightUnauthorizedError,
+        }
+
+        for command, exception in exceptions.items():
+
+            with pytest.raises(exception, match=".*foo.*"):
+                writer, reader = client.do_put(
+                    flight.FlightDescriptor.for_command(command),
+                    table.schema)
+                writer.write_table(table)
+                writer.close()
+
+            with pytest.raises(exception, match=".*foo.*"):
+                writer, reader = client.do_put(
+                    flight.FlightDescriptor.for_command(command),
+                    table.schema)
+                writer.close()
 
 
 def test_do_put_independent_read_write():
@@ -1806,3 +1896,152 @@ def test_generic_options():
                                 generic_options=options)
         with pytest.raises(pa.ArrowInvalid):
             client.do_get(flight.Ticket(b'ints'))
+
+
+class CancelFlightServer(FlightServerBase):
+    """A server for testing StopToken."""
+
+    def do_get(self, context, ticket):
+        schema = pa.schema([])
+        rb = pa.RecordBatch.from_arrays([], schema=schema)
+        return flight.GeneratorStream(schema, itertools.repeat(rb))
+
+    def do_exchange(self, context, descriptor, reader, writer):
+        schema = pa.schema([])
+        rb = pa.RecordBatch.from_arrays([], schema=schema)
+        writer.begin(schema)
+        while not context.is_cancelled():
+            writer.write_batch(rb)
+            time.sleep(0.5)
+
+
+def test_interrupt():
+    if threading.current_thread().ident != threading.main_thread().ident:
+        pytest.skip("test only works from main Python thread")
+    # Skips test if not available
+    raise_signal = util.get_raise_signal()
+
+    def signal_from_thread():
+        time.sleep(0.5)
+        raise_signal(signal.SIGINT)
+
+    exc_types = (KeyboardInterrupt, pa.ArrowCancelled)
+
+    def test(read_all):
+        try:
+            try:
+                t = threading.Thread(target=signal_from_thread)
+                with pytest.raises(exc_types) as exc_info:
+                    t.start()
+                    read_all()
+            finally:
+                t.join()
+        except KeyboardInterrupt:
+            # In case KeyboardInterrupt didn't interrupt read_all
+            # above, at least prevent it from stopping the test suite
+            pytest.fail("KeyboardInterrupt didn't interrupt Flight read_all")
+        e = exc_info.value.__context__
+        assert isinstance(e, pa.ArrowCancelled) or \
+            isinstance(e, KeyboardInterrupt)
+
+    with CancelFlightServer() as server:
+        client = FlightClient(("localhost", server.port))
+
+        reader = client.do_get(flight.Ticket(b""))
+        test(reader.read_all)
+
+        descriptor = flight.FlightDescriptor.for_command(b"echo")
+        writer, reader = client.do_exchange(descriptor)
+        test(reader.read_all)
+
+
+def test_never_sends_data():
+    # Regression test for ARROW-12779
+    match = "application server implementation error"
+    with NeverSendsDataFlightServer() as server:
+        client = flight.connect(('localhost', server.port))
+        with pytest.raises(flight.FlightServerError, match=match):
+            client.do_get(flight.Ticket(b'')).read_all()
+
+        # Check that the server handler will ignore empty tables
+        # up to a certain extent
+        table = client.do_get(flight.Ticket(b'yield_data')).read_all()
+        assert table.num_rows == 5
+
+
+@pytest.mark.large_memory
+@pytest.mark.slow
+def test_large_descriptor():
+    # Regression test for ARROW-13253. Placed here with appropriate marks
+    # since some CI pipelines can't run the C++ equivalent
+    large_descriptor = flight.FlightDescriptor.for_command(
+        b' ' * (2 ** 31 + 1))
+    with FlightServerBase() as server:
+        client = flight.connect(('localhost', server.port))
+        with pytest.raises(OSError,
+                           match="Failed to serialize Flight descriptor"):
+            writer, _ = client.do_put(large_descriptor, pa.schema([]))
+            writer.close()
+        with pytest.raises(pa.ArrowException,
+                           match="Failed to serialize Flight descriptor"):
+            client.do_exchange(large_descriptor)
+
+
+@pytest.mark.large_memory
+@pytest.mark.slow
+def test_large_metadata_client():
+    # Regression test for ARROW-13253
+    descriptor = flight.FlightDescriptor.for_command(b'')
+    metadata = b' ' * (2 ** 31 + 1)
+    with EchoFlightServer() as server:
+        client = flight.connect(('localhost', server.port))
+        with pytest.raises(pa.ArrowCapacityError,
+                           match="app_metadata size overflow"):
+            writer, _ = client.do_put(descriptor, pa.schema([]))
+            with writer:
+                writer.write_metadata(metadata)
+                writer.close()
+        with pytest.raises(pa.ArrowCapacityError,
+                           match="app_metadata size overflow"):
+            writer, reader = client.do_exchange(descriptor)
+            with writer:
+                writer.write_metadata(metadata)
+
+    del metadata
+    with LargeMetadataFlightServer() as server:
+        client = flight.connect(('localhost', server.port))
+        with pytest.raises(flight.FlightServerError,
+                           match="app_metadata size overflow"):
+            reader = client.do_get(flight.Ticket(b''))
+            reader.read_all()
+        with pytest.raises(pa.ArrowException,
+                           match="app_metadata size overflow"):
+            writer, reader = client.do_exchange(descriptor)
+            with writer:
+                reader.read_all()
+
+
+class ActionNoneFlightServer(EchoFlightServer):
+    """A server that implements a side effect to a non iterable action."""
+    VALUES = []
+
+    def do_action(self, context, action):
+        if action.type == "get_value":
+            return [json.dumps(self.VALUES).encode('utf-8')]
+        elif action.type == "append":
+            self.VALUES.append(True)
+            return None
+        raise NotImplementedError
+
+
+def test_none_action_side_effect():
+    """Ensure that actions are executed even when we don't consume iterator.
+
+    See https://issues.apache.org/jira/browse/ARROW-14255
+    """
+
+    with ActionNoneFlightServer() as server:
+        client = FlightClient(('localhost', server.port))
+        client.do_action(flight.Action("append", b""))
+        r = client.do_action(flight.Action("get_value", b""))
+        assert json.loads(next(r).body.to_pybytes()) == [True]

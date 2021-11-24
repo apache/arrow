@@ -166,6 +166,14 @@ def test_ext_array_lifetime():
         assert ref() is None
 
 
+def test_ext_array_to_pylist():
+    ty = ParamExtType(3)
+    storage = pa.array([b"foo", b"bar", None], type=pa.binary(3))
+    arr = pa.ExtensionArray.from_storage(ty, storage)
+
+    assert arr.to_pylist() == [b"foo", b"bar", None]
+
+
 def test_ext_array_errors():
     ty = ParamExtType(4)
     storage = pa.array([b"foo", b"bar"], type=pa.binary(3))
@@ -191,6 +199,95 @@ def test_ext_array_equality():
     assert d.equals(e)
     f = pa.ExtensionArray.from_storage(ty2, storage3)
     assert not d.equals(f)
+
+
+def test_ext_array_wrap_array():
+    ty = ParamExtType(3)
+    storage = pa.array([b"foo", b"bar", None], type=pa.binary(3))
+    arr = ty.wrap_array(storage)
+    arr.validate(full=True)
+    assert isinstance(arr, pa.ExtensionArray)
+    assert arr.type == ty
+    assert arr.storage == storage
+
+    storage = pa.chunked_array([[b"abc", b"def"], [b"ghi"]],
+                               type=pa.binary(3))
+    arr = ty.wrap_array(storage)
+    arr.validate(full=True)
+    assert isinstance(arr, pa.ChunkedArray)
+    assert arr.type == ty
+    assert arr.chunk(0).storage == storage.chunk(0)
+    assert arr.chunk(1).storage == storage.chunk(1)
+
+    # Wrong storage type
+    storage = pa.array([b"foo", b"bar", None])
+    with pytest.raises(TypeError, match="Incompatible storage type"):
+        ty.wrap_array(storage)
+
+    # Not an array or chunked array
+    with pytest.raises(TypeError, match="Expected array or chunked array"):
+        ty.wrap_array(None)
+
+
+def test_ext_scalar_from_array():
+    data = [b"0123456789abcdef", b"0123456789abcdef",
+            b"zyxwvutsrqponmlk", None]
+    storage = pa.array(data, type=pa.binary(16))
+    ty1 = UuidType()
+    ty2 = ParamExtType(16)
+
+    a = pa.ExtensionArray.from_storage(ty1, storage)
+    b = pa.ExtensionArray.from_storage(ty2, storage)
+
+    scalars_a = list(a)
+    assert len(scalars_a) == 4
+
+    for s, val in zip(scalars_a, data):
+        assert isinstance(s, pa.ExtensionScalar)
+        assert s.is_valid == (val is not None)
+        assert s.type == ty1
+        if val is not None:
+            assert s.value == pa.scalar(val, storage.type)
+        else:
+            assert s.value is None
+        assert s.as_py() == val
+
+    scalars_b = list(b)
+    assert len(scalars_b) == 4
+
+    for sa, sb in zip(scalars_a, scalars_b):
+        assert sa.is_valid == sb.is_valid
+        assert sa.as_py() == sb.as_py()
+        assert sa != sb
+
+
+def test_ext_scalar_from_storage():
+    ty = UuidType()
+
+    s = pa.ExtensionScalar.from_storage(ty, None)
+    assert isinstance(s, pa.ExtensionScalar)
+    assert s.type == ty
+    assert s.is_valid is False
+    assert s.value is None
+
+    s = pa.ExtensionScalar.from_storage(ty, b"0123456789abcdef")
+    assert isinstance(s, pa.ExtensionScalar)
+    assert s.type == ty
+    assert s.is_valid is True
+    assert s.value == pa.scalar(b"0123456789abcdef", ty.storage_type)
+
+    s = pa.ExtensionScalar.from_storage(ty, pa.scalar(None, ty.storage_type))
+    assert isinstance(s, pa.ExtensionScalar)
+    assert s.type == ty
+    assert s.is_valid is False
+    assert s.value is None
+
+    s = pa.ExtensionScalar.from_storage(
+        ty, pa.scalar(b"0123456789abcdef", ty.storage_type))
+    assert isinstance(s, pa.ExtensionScalar)
+    assert s.type == ty
+    assert s.is_valid is True
+    assert s.value == pa.scalar(b"0123456789abcdef", ty.storage_type)
 
 
 def test_ext_array_pickling():
@@ -525,7 +622,7 @@ def test_parquet_period(tmpdir, registered_period_type):
     # When reading in, properly create extension type if it is registered
     result = pq.read_table(filename)
     assert result.schema.field("ext").type == period_type
-    assert result.schema.field("ext").metadata == {b'PARQUET:field_id': b'1'}
+    assert result.schema.field("ext").metadata == {}
     # Get the exact array class defined by the registered type.
     result_array = result.column("ext").chunk(0)
     assert type(result_array) is period_class
@@ -537,8 +634,7 @@ def test_parquet_period(tmpdir, registered_period_type):
     # The extension metadata is present for roundtripping.
     assert result.schema.field("ext").metadata == {
         b'ARROW:extension:metadata': b'freq=D',
-        b'ARROW:extension:name': b'test.period',
-        b'PARQUET:field_id': b'1',
+        b'ARROW:extension:name': b'test.period'
     }
 
 
@@ -666,3 +762,18 @@ def test_to_numpy():
     for result in [np.asarray(charr), charr.to_numpy()]:
         assert result.dtype == np.int64
         np.testing.assert_array_equal(result, np.array([], dtype='int64'))
+
+
+def test_empty_take():
+    # https://issues.apache.org/jira/browse/ARROW-13474
+    ext_type = IntegerType()
+    storage = pa.array([], type=pa.int64())
+    empty_arr = pa.ExtensionArray.from_storage(ext_type, storage)
+
+    result = empty_arr.filter(pa.array([], pa.bool_()))
+    assert len(result) == 0
+    assert result.equals(empty_arr)
+
+    result = empty_arr.take(pa.array([], pa.int32()))
+    assert len(result) == 0
+    assert result.equals(empty_arr)

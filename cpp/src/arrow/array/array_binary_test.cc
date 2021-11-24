@@ -43,11 +43,6 @@ namespace arrow {
 
 using internal::checked_cast;
 
-using StringTypes =
-    ::testing::Types<StringType, LargeStringType, BinaryType, LargeBinaryType>;
-
-using UTF8Types = ::testing::Types<StringType, LargeStringType>;
-
 // ----------------------------------------------------------------------
 // String / Binary tests
 
@@ -329,7 +324,7 @@ class TestStringArray : public ::testing::Test {
   std::shared_ptr<ArrayType> strings_;
 };
 
-TYPED_TEST_SUITE(TestStringArray, StringTypes);
+TYPED_TEST_SUITE(TestStringArray, BaseBinaryArrowTypes);
 
 TYPED_TEST(TestStringArray, TestArrayBasics) { this->TestArrayBasics(); }
 
@@ -386,7 +381,7 @@ class TestUTF8Array : public ::testing::Test {
   }
 };
 
-TYPED_TEST_SUITE(TestUTF8Array, UTF8Types);
+TYPED_TEST_SUITE(TestUTF8Array, StringArrowTypes);
 
 TYPED_TEST(TestUTF8Array, TestValidateUTF8) { this->TestValidateUTF8(); }
 
@@ -469,6 +464,70 @@ class TestStringBuilder : public TestBuilder {
     ASSERT_EQ(reps * N, result_->length());
     ASSERT_EQ(reps, result_->null_count());
     ASSERT_EQ(reps * total_length, result_->value_data()->size());
+
+    CheckStringArray(*result_, strings, is_valid, reps);
+  }
+
+  void TestExtendCurrent() {
+    std::vector<std::string> strings = {"", "bbbb", "aaaaa", "", "ccc"};
+    std::vector<uint8_t> is_valid = {1, 1, 1, 0, 1};
+
+    int N = static_cast<int>(strings.size());
+    int reps = 10;
+
+    for (int j = 0; j < reps; ++j) {
+      for (int i = 0; i < N; ++i) {
+        if (!is_valid[i]) {
+          ASSERT_OK(builder_->AppendNull());
+        } else if (strings[i].length() > 3) {
+          ASSERT_OK(builder_->Append(strings[i].substr(0, 3)));
+          ASSERT_OK(builder_->ExtendCurrent(strings[i].substr(3)));
+        } else {
+          ASSERT_OK(builder_->Append(strings[i]));
+        }
+      }
+    }
+    Done();
+
+    ASSERT_EQ(reps * N, result_->length());
+    ASSERT_EQ(reps, result_->null_count());
+    ASSERT_EQ(reps * 12, result_->value_data()->size());
+
+    CheckStringArray(*result_, strings, is_valid, reps);
+  }
+
+  void TestExtendCurrentUnsafe() {
+    std::vector<std::string> strings = {"", "bbbb", "aaaaa", "", "ccc"};
+    std::vector<uint8_t> is_valid = {1, 1, 1, 0, 1};
+
+    int N = static_cast<int>(strings.size());
+    int reps = 13;
+    int64_t total_length = 0;
+    for (const auto& s : strings) {
+      total_length += static_cast<int64_t>(s.size());
+    }
+
+    ASSERT_OK(builder_->Reserve(N * reps));
+    ASSERT_OK(builder_->ReserveData(total_length * reps));
+
+    for (int j = 0; j < reps; ++j) {
+      for (int i = 0; i < N; ++i) {
+        if (!is_valid[i]) {
+          builder_->UnsafeAppendNull();
+        } else if (strings[i].length() > 3) {
+          builder_->UnsafeAppend(strings[i].substr(0, 3));
+          builder_->UnsafeExtendCurrent(strings[i].substr(3));
+        } else {
+          builder_->UnsafeAppend(strings[i]);
+        }
+      }
+    }
+    ASSERT_EQ(builder_->value_data_length(), total_length * reps);
+    Done();
+
+    ASSERT_EQ(reps * N, result_->length());
+    ASSERT_EQ(reps, result_->null_count());
+    ASSERT_EQ(reps * 12, result_->value_data()->size());
 
     CheckStringArray(*result_, strings, is_valid, reps);
   }
@@ -602,11 +661,17 @@ class TestStringBuilder : public TestBuilder {
   std::shared_ptr<ArrayType> result_;
 };
 
-TYPED_TEST_SUITE(TestStringBuilder, StringTypes);
+TYPED_TEST_SUITE(TestStringBuilder, BaseBinaryArrowTypes);
 
 TYPED_TEST(TestStringBuilder, TestScalarAppend) { this->TestScalarAppend(); }
 
 TYPED_TEST(TestStringBuilder, TestScalarAppendUnsafe) { this->TestScalarAppendUnsafe(); }
+
+TYPED_TEST(TestStringBuilder, TestExtendCurrent) { this->TestExtendCurrent(); }
+
+TYPED_TEST(TestStringBuilder, TestExtendCurrentUnsafe) {
+  this->TestExtendCurrentUnsafe();
+}
 
 TYPED_TEST(TestStringBuilder, TestVectorAppend) { this->TestVectorAppend(); }
 
@@ -798,7 +863,7 @@ struct BinaryAppender {
 };
 
 template <typename T>
-class TestBinaryDataVisitor : public ::testing::Test {
+class TestBaseBinaryDataVisitor : public ::testing::Test {
  public:
   using TypeClass = T;
 
@@ -826,10 +891,10 @@ class TestBinaryDataVisitor : public ::testing::Test {
   std::shared_ptr<DataType> type_;
 };
 
-TYPED_TEST_SUITE(TestBinaryDataVisitor, StringTypes);
+TYPED_TEST_SUITE(TestBaseBinaryDataVisitor, BaseBinaryArrowTypes);
 
-TYPED_TEST(TestBinaryDataVisitor, Basics) { this->TestBasics(); }
+TYPED_TEST(TestBaseBinaryDataVisitor, Basics) { this->TestBasics(); }
 
-TYPED_TEST(TestBinaryDataVisitor, Sliced) { this->TestSliced(); }
+TYPED_TEST(TestBaseBinaryDataVisitor, Sliced) { this->TestSliced(); }
 
 }  // namespace arrow

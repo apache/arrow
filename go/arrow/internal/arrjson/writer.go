@@ -14,15 +14,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package arrjson // import "github.com/apache/arrow/go/arrow/internal/arrjson"
+package arrjson
 
 import (
 	"encoding/json"
 	"io"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/array"
-	"github.com/apache/arrow/go/arrow/arrio"
+	"github.com/apache/arrow/go/v7/arrow"
+	"github.com/apache/arrow/go/v7/arrow/array"
+	"github.com/apache/arrow/go/v7/arrow/arrio"
 )
 
 const (
@@ -31,72 +31,30 @@ const (
 	jsonRecPrefix = "    "
 )
 
+type rawJSON struct {
+	Schema  Schema   `json:"schema"`
+	Records []Record `json:"batches"`
+}
+
 type Writer struct {
 	w io.Writer
 
-	schema *arrow.Schema
-	nrecs  int64
+	nrecs int64
+	raw   rawJSON
 }
 
 func NewWriter(w io.Writer, schema *arrow.Schema) (*Writer, error) {
 	ww := &Writer{
-		w:      w,
-		schema: schema,
+		w: w,
 	}
-	_, err := ww.w.Write([]byte("{\n"))
-	if err != nil {
-		return nil, err
-	}
-
-	err = ww.writeSchema()
-	if err != nil {
-		return nil, err
-	}
+	ww.raw.Schema = schemaToJSON(schema)
+	ww.raw.Records = make([]Record, 0)
 	return ww, nil
 }
 
 func (w *Writer) Write(rec array.Record) error {
-	switch {
-	case w.nrecs == 0:
-		_, err := w.w.Write([]byte(",\n" + jsonPrefix + `"batches": [` + "\n" + jsonRecPrefix))
-		if err != nil {
-			return err
-		}
-	case w.nrecs > 0:
-		_, err := w.w.Write([]byte(",\n" + jsonRecPrefix))
-		if err != nil {
-			return err
-		}
-	}
-
-	raw, err := json.MarshalIndent(recordToJSON(rec), jsonRecPrefix, jsonIndent)
-	if err != nil {
-		return err
-	}
-
-	_, err = w.w.Write(raw)
-	if err != nil {
-		return err
-	}
-
+	w.raw.Records = append(w.raw.Records, recordToJSON(rec))
 	w.nrecs++
-	return nil
-}
-
-func (w *Writer) writeSchema() error {
-	_, err := w.w.Write([]byte(`  "schema": `))
-	if err != nil {
-		return err
-	}
-	raw, err := json.MarshalIndent(schemaToJSON(w.schema), jsonPrefix, jsonIndent)
-	if err != nil {
-		return err
-	}
-	_, err = w.w.Write(raw)
-	if err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -104,11 +62,14 @@ func (w *Writer) Close() error {
 	if w.w == nil {
 		return nil
 	}
-	_, err := w.w.Write([]byte("\n  ]\n}"))
-	if err == nil {
-		w.w = nil
-	}
-	return err
+
+	enc := json.NewEncoder(w.w)
+	enc.SetIndent("", jsonIndent)
+	// ensure that we don't convert <, >, !, etc. to their unicode equivalents
+	// in the output json since we're not using this in an HTML context so that
+	// we can make sure that the json files match.
+	enc.SetEscapeHTML(false)
+	return enc.Encode(w.raw)
 }
 
 var (

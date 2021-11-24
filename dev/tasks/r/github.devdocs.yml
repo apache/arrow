@@ -15,36 +15,22 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# NOTE: must set "Crossbow" as name to have the badge links working in the
-# github comment reports!
-name: Crossbow
+{% import 'macros.jinja' as macros with context %}
 
-on:
-  push:
-    branches:
-      - "*-github-*"
+{{ macros.github_header() }}
 
 jobs:
   devdocs:
-    name: 'R devdocs {{ "${{ matrix.os }}" }} system install: {{ "${{ matrix.system-install }}" }}'
+    name: 'R devdocs {{ "${{ matrix.os }}" }}'
     runs-on: {{ "${{ matrix.os }}" }}
     strategy:
       fail-fast: false
       matrix:
-        os: [macOS-latest, ubuntu-20.04]
-        # should the install method install libarrow into a system directory
-        # or a temporary directory. old is the same as a temporary
-        # directory, but an old version of libarrow will be installed
-        # into a system directory first (to make sure we can link correctly when building)
-        system-install: [true, false]
+        os: [macOS-latest, ubuntu-20.04, windows-latest]
 
     steps:
-      - name: Checkout Arrow
-        run: |
-          git clone --no-checkout {{ arrow.remote }} arrow
-          git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
-          git -C arrow checkout FETCH_HEAD
-          git -C arrow submodule update --init --recursive
+      {{ macros.github_checkout_arrow()|indent }}
+
       - uses: r-lib/actions/setup-r@v1
       - uses: r-lib/actions/setup-pandoc@v1
       - name: Install knitr, rmarkdown
@@ -57,25 +43,39 @@ jobs:
           pkgs <- installed.packages()[, "Package"]
           sessioninfo::session_info(pkgs, include_base = TRUE)
         shell: Rscript {0}
+      - name: Remove system gfortran so that brew can install gcc successfully
+        run: rm -f /usr/local/bin/gfortran
+        if: {{ "${{ !contains(matrix.os, 'windows') }}" }}
       - name: Write the install script
         env:
           RUN_DEVDOCS: TRUE
           DEVDOCS_MACOS: {{ "${{contains(matrix.os, 'macOS')}}" }}
           DEVDOCS_UBUNTU: {{ "${{contains(matrix.os, 'ubuntu')}}" }}
-          DEVDOCS_SYSTEM_INSTALL: {{ "${{contains(matrix.system-install, 'true')}}" }}
-          DEVDOCS_PRIOR_SYSTEM_INSTALL: {{ "${{contains(matrix.system-install, 'old')}}" }}
+          DEVDOCS_WINDOWS: {{ "${{contains(matrix.os, 'windows')}}" }}
         run: |
-          # This isn't actually rendering the docs, but will save arrow/r/vignettes/script.sh 
+          # This isn't actually rendering the docs, but will save arrow/r/vignettes/developers/script.sh
           # which can be sourced to install arrow.
-          rmarkdown::render("arrow/r/vignettes/developing.Rmd")
+          rmarkdown::render("arrow/r/vignettes/developers/setup.Rmd")
         shell: Rscript {0}
       - name: Install from the devdocs
         env:
           LIBARROW_BINARY: FALSE
           ARROW_R_DEV: TRUE
-        run: bash arrow/r/vignettes/script.sh
+          DEVDOCS_WINDOWS: {{ "${{contains(matrix.os, 'windows')}}" }}
+        run: |
+          if [ $DEVDOCS_WINDOWS == "true" ]; then
+            # Part of Path, including the path to R's bin, needs to be reformatted
+            # from Windows paths (C:\R\bin) to Unix paths (/c/r/bin)
+            echo export PATH=\"$(cygpath --path "$PATH")\" >> ~/.bash_profile
+            # This starts a special mingw64 Git Bash shell
+            $RTOOLS40_HOME/msys2_shell.cmd -here -mingw64 -no-start -defterm -full-path arrow/r/vignettes/developers/script.sh
+          else
+            bash arrow/r/vignettes/developers/script.sh
+          fi
         shell: bash
       - name: Ensure that the Arrow package is loadable and we have the correct one
+        env:
+          DEVDOCS_WINDOWS: {{ "${{contains(matrix.os, 'windows')}}" }}
         run: |
           echo $LD_LIBRARY_PATH
           R --no-save <<EOF
@@ -88,5 +88,5 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: {{ "devdocs-script_os-${{ matrix.os }}_sysinstall-${{ matrix.system-install }}" }}
-          path: arrow/r/vignettes/script.sh
+          path: arrow/r/vignettes/developers/script.sh
         if: always()

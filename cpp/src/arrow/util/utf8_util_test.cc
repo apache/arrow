@@ -438,8 +438,8 @@ TEST(UTF8FindIf, Basics) {
     const uint8_t* end = begin + s.length();
     std::reverse_iterator<const uint8_t*> rbegin(end);
     std::reverse_iterator<const uint8_t*> rend(begin);
-    const uint8_t* left;
-    const uint8_t* right;
+    const uint8_t* left = nullptr;
+    const uint8_t* right = nullptr;
     auto predicate = [&](uint32_t c) { return c == test; };
     EXPECT_TRUE(UTF8FindIf(begin, end, predicate, &left));
     EXPECT_TRUE(UTF8FindIfReverse(begin, end, predicate, &right));
@@ -454,8 +454,8 @@ TEST(UTF8FindIf, Basics) {
     const uint8_t* end = begin + s.length();
     std::reverse_iterator<const uint8_t*> rbegin(end);
     std::reverse_iterator<const uint8_t*> rend(begin);
-    const uint8_t* left;
-    const uint8_t* right;
+    const uint8_t* left = nullptr;
+    const uint8_t* right = nullptr;
     auto predicate = [&](uint32_t c) { return c == test; };
     EXPECT_TRUE(UTF8FindIf(begin, end, predicate, &left));
     EXPECT_TRUE(UTF8FindIfReverse(begin, end, predicate, &right));
@@ -487,6 +487,26 @@ TEST(UTF8FindIf, Basics) {
 
   CheckOk("", 'b', 0, 0);
   CheckOkUTF8("", U'β', 0, 0);
+}
+
+TEST(UTF8Length, Basics) {
+  auto length = [](const std::string& s) {
+    const auto* p = reinterpret_cast<const uint8_t*>(s.data());
+    return UTF8Length(p, p + s.length());
+  };
+  ASSERT_EQ(length("abcde"), 5);
+  // accented a encoded as a single codepoint
+  ASSERT_EQ(length("\xc3\x81"
+                   "bcde"),
+            5);
+  // accented a encoded as two codepoints via combining character
+  ASSERT_EQ(length("a\xcc\x81"
+                   "bcde"),
+            6);
+  // hiragana a (3 bytes)
+  ASSERT_EQ(length("\xe3\x81\x81"), 1);
+  // raised hands emoji (4 bytes)
+  ASSERT_EQ(length("\xf0\x9f\x99\x8c"), 1);
 }
 
 }  // namespace util

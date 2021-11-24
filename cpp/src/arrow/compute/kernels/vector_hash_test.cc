@@ -59,7 +59,7 @@ template <typename T>
 void CheckUnique(const std::shared_ptr<T>& input,
                  const std::shared_ptr<Array>& expected) {
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> result, Unique(input));
-  ASSERT_OK(result->ValidateFull());
+  ValidateOutput(*result);
   // TODO: We probably shouldn't rely on array ordering.
   ASSERT_ARRAYS_EQUAL(*expected, *result);
 }
@@ -84,7 +84,7 @@ void CheckValueCountsNull(const std::shared_ptr<DataType>& type) {
   std::shared_ptr<Array> ex_counts = ArrayFromJSON(int64(), "[]");
 
   ASSERT_OK_AND_ASSIGN(auto result_struct, ValueCounts(input));
-  ASSERT_OK(result_struct->ValidateFull());
+  ValidateOutput(*result_struct);
   ASSERT_NE(result_struct->GetFieldByName(kValuesFieldName), nullptr);
   // TODO: We probably shouldn't rely on value ordering.
   ASSERT_ARRAYS_EQUAL(*ex_values, *result_struct->GetFieldByName(kValuesFieldName));
@@ -96,7 +96,7 @@ void CheckValueCounts(const std::shared_ptr<T>& input,
                       const std::shared_ptr<Array>& expected_values,
                       const std::shared_ptr<Array>& expected_counts) {
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> result, ValueCounts(input));
-  ASSERT_OK(result->ValidateFull());
+  ValidateOutput(*result);
   auto result_struct = std::dynamic_pointer_cast<StructArray>(result);
   ASSERT_EQ(result_struct->num_fields(), 2);
   // TODO: We probably shouldn't rely on value ordering.
@@ -128,7 +128,7 @@ void CheckDictEncode(const std::shared_ptr<Array>& input,
 
   ASSERT_OK_AND_ASSIGN(Datum datum_out, DictionaryEncode(input));
   std::shared_ptr<Array> result = MakeArray(datum_out.array());
-  ASSERT_OK(result->ValidateFull());
+  ValidateOutput(*result);
 
   ASSERT_ARRAYS_EQUAL(expected, *result);
 }
@@ -364,7 +364,7 @@ class TestHashKernelBinaryTypes : public TestHashKernel {
   }
 };
 
-TYPED_TEST_SUITE(TestHashKernelBinaryTypes, BinaryTypes);
+TYPED_TEST_SUITE(TestHashKernelBinaryTypes, BaseBinaryArrowTypes);
 
 TYPED_TEST(TestHashKernelBinaryTypes, ZeroChunks) {
   auto type = this->type();
@@ -571,9 +571,10 @@ TEST_F(TestHashKernel, DictEncodeDecimal) {
 }
 
 TEST_F(TestHashKernel, DictionaryUniqueAndValueCounts) {
-  for (auto index_ty : {int8(), int16(), int32(), int64()}) {
+  auto dict_json = "[10, 20, 30, 40]";
+  auto dict = ArrayFromJSON(int64(), dict_json);
+  for (auto index_ty : IntTypes()) {
     auto indices = ArrayFromJSON(index_ty, "[3, 0, 0, 0, 1, 1, 3, 0, 1, 3, 0, 1]");
-    auto dict = ArrayFromJSON(int64(), "[10, 20, 30, 40]");
 
     auto dict_ty = dictionary(index_ty, int64());
 
@@ -585,6 +586,14 @@ TEST_F(TestHashKernel, DictionaryUniqueAndValueCounts) {
 
     auto ex_counts = ArrayFromJSON(int64(), "[3, 5, 4]");
     CheckValueCounts(input, ex_uniques, ex_counts);
+
+    // Empty array - executor never gives the kernel any batches,
+    // so result dictionary is empty
+    CheckUnique(DictArrayFromJSON(dict_ty, "[]", dict_json),
+                DictArrayFromJSON(dict_ty, "[]", "[]"));
+    CheckValueCounts(DictArrayFromJSON(dict_ty, "[]", dict_json),
+                     DictArrayFromJSON(dict_ty, "[]", "[]"),
+                     ArrayFromJSON(int64(), "[]"));
 
     // Check chunked array
     auto chunked = *ChunkedArray::Make({input->Slice(0, 2), input->Slice(2)});
@@ -691,10 +700,7 @@ TEST_F(TestHashKernel, ZeroLengthDictionaryEncode) {
   // ARROW-7008
   auto values = ArrayFromJSON(utf8(), "[]");
   ASSERT_OK_AND_ASSIGN(Datum datum_result, DictionaryEncode(values));
-
-  std::shared_ptr<Array> result = datum_result.make_array();
-  const auto& dict_result = checked_cast<const DictionaryArray&>(*result);
-  ASSERT_OK(dict_result.ValidateFull());
+  ValidateOutput(datum_result);
 }
 
 TEST_F(TestHashKernel, NullEncodingSchemes) {

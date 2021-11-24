@@ -17,8 +17,9 @@
 
 # cython: language_level = 3
 
-from pyarrow.lib cimport check_status
-from pyarrow.lib import frombytes, tobytes
+from pyarrow.lib cimport (check_status, pyarrow_wrap_metadata,
+                          pyarrow_unwrap_metadata)
+from pyarrow.lib import frombytes, tobytes, KeyValueMetadata
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_fs cimport *
@@ -36,6 +37,14 @@ cpdef enum S3LogLevel:
 
 
 def initialize_s3(S3LogLevel log_level=S3LogLevel.Fatal):
+    """
+    Initialize S3 support
+
+    Parameters
+    ----------
+    log_level : S3LogLevel
+        level of logging
+    """
     cdef CS3GlobalOptions options
     options.log_level = <CS3LogLevel> log_level
     check_status(CInitializeS3(options))
@@ -46,7 +55,8 @@ def finalize_s3():
 
 
 cdef class S3FileSystem(FileSystem):
-    """S3-backed FileSystem implementation
+    """
+    S3-backed FileSystem implementation
 
     If neither access_key nor secret_key are provided, and role_arn is also not
     provided, then attempts to initialize from AWS environment variables,
@@ -61,40 +71,43 @@ cdef class S3FileSystem(FileSystem):
 
     Parameters
     ----------
-    access_key: str, default None
+    access_key : str, default None
         AWS Access Key ID. Pass None to use the standard AWS environment
         variables and/or configuration file.
-    secret_key: str, default None
+    secret_key : str, default None
         AWS Secret Access key. Pass None to use the standard AWS environment
         variables and/or configuration file.
-    session_token: str, default None
+    session_token : str, default None
         AWS Session Token.  An optional session token, required if access_key
         and secret_key are temporary credentials from STS.
-    anonymous: boolean, default False
+    anonymous : boolean, default False
         Whether to connect anonymously if access_key and secret_key are None.
         If true, will not attempt to look up credentials using standard AWS
         configuration methods.
-    role_arn: str, default None
+    role_arn : str, default None
         AWS Role ARN.  If provided instead of access_key and secret_key,
         temporary credentials will be fetched by assuming this role.
-    session_name: str, default None
+    session_name : str, default None
         An optional identifier for the assumed role session.
-    external_id: str, default None
+    external_id : str, default None
         An optional unique identifier that might be required when you assume
         a role in another account.
-    load_frequency: int, default 900
+    load_frequency : int, default 900
         The frequency (in seconds) with which temporary credentials from an
         assumed role session will be refreshed.
-    region: str, default 'us-east-1'
+    region : str, default 'us-east-1'
         AWS region to connect to.
-    scheme: str, default 'https'
+    scheme : str, default 'https'
         S3 connection transport scheme.
-    endpoint_override: str, default None
+    endpoint_override : str, default None
         Override region with a connect string such as "localhost:9000"
-    background_writes: boolean, default True
-        Whether OutputStream writes will be issued in the background, without
+    background_writes : boolean, default True
+        Whether file writes will be issued in the background, without
         blocking.
-    proxy_options: dict or str, default None
+    default_metadata : mapping or KeyValueMetadata, default None
+        Default metadata for open_output_stream.  This will be ignored if
+        non-empty metadata is passed to open_output_stream.
+    proxy_options : dict or str, default None
         If a proxy is used, provide the options here. Supported options are:
         'scheme' (str: 'http' or 'https'; required), 'host' (str; required),
         'port' (int; required), 'username' (str; optional),
@@ -113,10 +126,10 @@ cdef class S3FileSystem(FileSystem):
         CS3FileSystem* s3fs
 
     def __init__(self, *, access_key=None, secret_key=None, session_token=None,
-                 anonymous=False, region=None, scheme=None,
+                 bint anonymous=False, region=None, scheme=None,
                  endpoint_override=None, bint background_writes=True,
-                 role_arn=None, session_name=None, external_id=None,
-                 load_frequency=900, proxy_options=None):
+                 default_metadata=None, role_arn=None, session_name=None,
+                 external_id=None, load_frequency=900, proxy_options=None):
         cdef:
             CS3Options options
             shared_ptr[CS3FileSystem] wrapped
@@ -161,8 +174,13 @@ cdef class S3FileSystem(FileSystem):
                 tobytes(session_token)
             )
         elif anonymous:
+            if role_arn:
+                raise ValueError(
+                    'Cannot provide role_arn with anonymous=True')
+
             options = CS3Options.Anonymous()
-        elif role_arn is not None:
+        elif role_arn:
+
             options = CS3Options.FromAssumeRole(
                 tobytes(role_arn),
                 tobytes(session_name),
@@ -180,6 +198,11 @@ cdef class S3FileSystem(FileSystem):
             options.endpoint_override = tobytes(endpoint_override)
         if background_writes is not None:
             options.background_writes = background_writes
+        if default_metadata is not None:
+            if not isinstance(default_metadata, KeyValueMetadata):
+                default_metadata = KeyValueMetadata(default_metadata)
+            options.default_metadata = pyarrow_unwrap_metadata(
+                default_metadata)
 
         if proxy_options is not None:
             if isinstance(proxy_options, dict):
@@ -216,32 +239,33 @@ cdef class S3FileSystem(FileSystem):
     def __reduce__(self):
         cdef CS3Options opts = self.s3fs.options()
 
-        role_arn = frombytes(opts.role_arn)
-
-        # if role_arn is set, we should not re-use temporary credentials
-        # but instead recreate a new assume role session
-        if role_arn:
-            access_key = None
-            secret_key = None
-            session_token = None
-        else:
+        # if creds were explicitly provided, then use them
+        # else obtain them as they were last time.
+        if opts.credentials_kind == CS3CredentialsKind_Explicit:
             access_key = frombytes(opts.GetAccessKey())
             secret_key = frombytes(opts.GetSecretKey())
             session_token = frombytes(opts.GetSessionToken())
+        else:
+            access_key = None
+            secret_key = None
+            session_token = None
 
         return (
             S3FileSystem._reconstruct, (dict(
                 access_key=access_key,
                 secret_key=secret_key,
                 session_token=session_token,
+                anonymous=(opts.credentials_kind ==
+                           CS3CredentialsKind_Anonymous),
                 region=frombytes(opts.region),
                 scheme=frombytes(opts.scheme),
                 endpoint_override=frombytes(opts.endpoint_override),
-                role_arn=role_arn,
+                role_arn=frombytes(opts.role_arn),
                 session_name=frombytes(opts.session_name),
                 external_id=frombytes(opts.external_id),
                 load_frequency=opts.load_frequency,
                 background_writes=opts.background_writes,
+                default_metadata=pyarrow_wrap_metadata(opts.default_metadata),
                 proxy_options={'scheme': frombytes(opts.proxy_options.scheme),
                                'host': frombytes(opts.proxy_options.host),
                                'port': opts.proxy_options.port,

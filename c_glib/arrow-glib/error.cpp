@@ -135,8 +135,8 @@ garrow_error_to_status(GError *error,
   message << context << ": " << g_quark_to_string(error->domain);
   message << "(" << error->code << "): ";
   message << error->message;
-  g_error_free(error);
   auto code = garrow_error_to_status_code(error, default_code);
+  g_error_free(error);
   return arrow::Status(code, message.str());
 }
 

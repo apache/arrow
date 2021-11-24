@@ -36,6 +36,8 @@ try:
 except ImportError:
     pd = tm = None
 
+pytestmark = pytest.mark.parquet
+
 
 @pytest.mark.pandas
 def test_pass_separate_metadata():
@@ -45,7 +47,7 @@ def test_pass_separate_metadata():
     a_table = pa.Table.from_pandas(df)
 
     buf = io.BytesIO()
-    _write_table(a_table, buf, compression='snappy', version='2.0')
+    _write_table(a_table, buf, compression='snappy', version='2.6')
 
     buf.seek(0)
     metadata = pq.read_metadata(buf)
@@ -67,7 +69,7 @@ def test_read_single_row_group():
 
     buf = io.BytesIO()
     _write_table(a_table, buf, row_group_size=N / K,
-                 compression='snappy', version='2.0')
+                 compression='snappy', version='2.6')
 
     buf.seek(0)
 
@@ -88,7 +90,7 @@ def test_read_single_row_group_with_column_subset():
 
     buf = io.BytesIO()
     _write_table(a_table, buf, row_group_size=N / K,
-                 compression='snappy', version='2.0')
+                 compression='snappy', version='2.6')
 
     buf.seek(0)
     pf = pq.ParquetFile(buf)
@@ -114,7 +116,7 @@ def test_read_multiple_row_groups():
 
     buf = io.BytesIO()
     _write_table(a_table, buf, row_group_size=N / K,
-                 compression='snappy', version='2.0')
+                 compression='snappy', version='2.6')
 
     buf.seek(0)
 
@@ -134,7 +136,7 @@ def test_read_multiple_row_groups_with_column_subset():
 
     buf = io.BytesIO()
     _write_table(a_table, buf, row_group_size=N / K,
-                 compression='snappy', version='2.0')
+                 compression='snappy', version='2.6')
 
     buf.seek(0)
     pf = pq.ParquetFile(buf)
@@ -157,7 +159,7 @@ def test_scan_contents():
 
     buf = io.BytesIO()
     _write_table(a_table, buf, row_group_size=N / K,
-                 compression='snappy', version='2.0')
+                 compression='snappy', version='2.6')
 
     buf.seek(0)
     pf = pq.ParquetFile(buf)
@@ -198,7 +200,7 @@ def test_iter_batches_columns_reader(tempdir, batch_size):
 
     filename = tempdir / 'pandas_roundtrip.parquet'
     arrow_table = pa.Table.from_pandas(df)
-    _write_table(arrow_table, filename, version="2.0",
+    _write_table(arrow_table, filename, version='2.6',
                  coerce_timestamps='ms', chunk_size=chunk_size)
 
     file_ = pq.ParquetFile(filename)
@@ -222,7 +224,7 @@ def test_iter_batches_reader(tempdir, chunk_size):
     arrow_table = pa.Table.from_pandas(df)
     assert arrow_table.schema.pandas_metadata is not None
 
-    _write_table(arrow_table, filename, version="2.0",
+    _write_table(arrow_table, filename, version='2.6',
                  coerce_timestamps='ms', chunk_size=chunk_size)
 
     file_ = pq.ParquetFile(filename)
@@ -256,3 +258,19 @@ def test_iter_batches_reader(tempdir, chunk_size):
         )
 
         batch_no += 1
+
+
+@pytest.mark.pandas
+@pytest.mark.parametrize('pre_buffer', [False, True])
+def test_pre_buffer(pre_buffer):
+    N, K = 10000, 4
+    df = alltypes_sample(size=N)
+    a_table = pa.Table.from_pandas(df)
+
+    buf = io.BytesIO()
+    _write_table(a_table, buf, row_group_size=N / K,
+                 compression='snappy', version='2.6')
+
+    buf.seek(0)
+    pf = pq.ParquetFile(buf, pre_buffer=pre_buffer)
+    assert pf.read().num_rows == N

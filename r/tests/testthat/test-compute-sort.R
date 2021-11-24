@@ -15,9 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("compute: sorting")
-
-library(dplyr)
+library(dplyr, warn.conflicts = FALSE)
 
 # randomize order of rows in test data
 tbl <- slice_sample(example_data_for_sorting, prop = 1L)
@@ -68,98 +66,90 @@ test_that("ChunkedArray$SortIndices()", {
 })
 
 test_that("sort(vector), sort(Array), sort(ChunkedArray) give equivalent results on integers", {
-  expect_vector_equal(
-    sort(input),
+  compare_expression(
+    sort(.input),
     tbl$int
   )
-  expect_vector_equal(
-    sort(input, na.last = NA),
+  compare_expression(
+    sort(.input, na.last = NA),
     tbl$int
   )
-  expect_vector_equal(
-    sort(input, na.last = TRUE),
+  compare_expression(
+    sort(.input, na.last = TRUE),
     tbl$int
   )
-  expect_vector_equal(
-    sort(input, na.last = FALSE),
+  compare_expression(
+    sort(.input, na.last = FALSE),
     tbl$int
   )
-  expect_vector_equal(
-    sort(input, decreasing = TRUE),
+  compare_expression(
+    sort(.input, decreasing = TRUE),
     tbl$int,
   )
-  expect_vector_equal(
-    sort(input, decreasing = TRUE, na.last = TRUE),
+  compare_expression(
+    sort(.input, decreasing = TRUE, na.last = TRUE),
     tbl$int,
   )
-  expect_vector_equal(
-    sort(input, decreasing = TRUE, na.last = FALSE),
+  compare_expression(
+    sort(.input, decreasing = TRUE, na.last = FALSE),
     tbl$int,
   )
 })
 
 test_that("sort(vector), sort(Array), sort(ChunkedArray) give equivalent results on strings", {
-  expect_vector_equal(
-    sort(input, decreasing = TRUE, na.last = FALSE),
+  compare_expression(
+    sort(.input, decreasing = TRUE, na.last = FALSE),
     tbl$chr
   )
-  expect_vector_equal(
-    sort(input, decreasing = TRUE, na.last = FALSE),
+  compare_expression(
+    sort(.input, decreasing = TRUE, na.last = FALSE),
     tbl$chr
   )
 })
 
 test_that("sort(vector), sort(Array), sort(ChunkedArray) give equivalent results on floats", {
-  expect_vector_equal(
-    sort(input, decreasing = TRUE, na.last = TRUE),
+  compare_expression(
+    sort(.input, decreasing = TRUE, na.last = TRUE),
     tbl$dbl
   )
-  expect_vector_equal(
-    sort(input, decreasing = FALSE, na.last = TRUE),
+  compare_expression(
+    sort(.input, decreasing = FALSE, na.last = TRUE),
     tbl$dbl
   )
-  skip("is.na() evaluates to FALSE on Arrow NaN values (ARROW-12055)")
-  expect_vector_equal(
-    sort(input, decreasing = TRUE, na.last = NA),
+  compare_expression(
+    sort(.input, decreasing = TRUE, na.last = NA),
     tbl$dbl
   )
-  expect_vector_equal(
-    sort(input, decreasing = TRUE, na.last = FALSE),
+  compare_expression(
+    sort(.input, decreasing = TRUE, na.last = FALSE),
     tbl$dbl,
   )
-  expect_vector_equal(
-    sort(input, decreasing = FALSE, na.last = NA),
+  compare_expression(
+    sort(.input, decreasing = FALSE, na.last = NA),
     tbl$dbl
   )
-  expect_vector_equal(
-    sort(input, decreasing = FALSE, na.last = FALSE),
+  compare_expression(
+    sort(.input, decreasing = FALSE, na.last = FALSE),
     tbl$dbl,
   )
 })
 
 test_that("Table$SortIndices()", {
+  x <- Table$create(tbl)
   expect_identical(
-    {
-      x <- tbl %>% Table$create()
-      x$Take(x$SortIndices("chr")) %>% pull(chr)
-    },
+    as.vector(x$Take(x$SortIndices("chr"))$chr),
     sort(tbl$chr, na.last = TRUE)
   )
   expect_identical(
-    {
-      x <- tbl %>% Table$create()
-      x$Take(x$SortIndices(c("int", "dbl"), c(FALSE, FALSE))) %>% collect()
-    },
+    as.data.frame(x$Take(x$SortIndices(c("int", "dbl"), c(FALSE, FALSE)))),
     tbl %>% arrange(int, dbl)
   )
 })
 
 test_that("RecordBatch$SortIndices()", {
+  x <- record_batch(tbl)
   expect_identical(
-    {
-      x <- tbl %>% record_batch()
-      x$Take(x$SortIndices(c("chr", "int", "dbl"), TRUE)) %>% collect()
-    },
+    as.data.frame(x$Take(x$SortIndices(c("chr", "int", "dbl"), TRUE))),
     tbl %>% arrange(desc(chr), desc(int), desc(dbl))
   )
 })

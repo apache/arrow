@@ -27,13 +27,16 @@
 #include <random>
 #include <string>
 #include <thread>
+#include <unordered_set>
 #include <vector>
 
 #include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
+#include "arrow/testing/executor_util.h"
 #include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/matchers.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/thread_pool.h"
 
@@ -261,21 +264,17 @@ TEST(FutureSyncTest, Empty) {
     // MakeFinished()
     auto fut = Future<>::MakeFinished();
     AssertSuccessful(fut);
-    auto res = fut.result();
-    ASSERT_OK(res);
-    res = std::move(fut.result());
-    ASSERT_OK(res);
   }
   {
     // MarkFinished(Status)
     auto fut = Future<>::Make();
     AssertNotFinished(fut);
-    fut.MarkFinished(Status::OK());
+    fut.MarkFinished();
     AssertSuccessful(fut);
   }
   {
     // MakeFinished(Status)
-    auto fut = Future<>::MakeFinished(Status::OK());
+    auto fut = Future<>::MakeFinished();
     AssertSuccessful(fut);
     fut = Future<>::MakeFinished(Status::IOError("xxx"));
     AssertFailed(fut);
@@ -352,8 +351,7 @@ TEST(FutureRefTest, ChainRemoved) {
   std::weak_ptr<FutureImpl> ref2;
   {
     auto fut = Future<>::Make();
-    auto fut2 =
-        fut.Then([](const Result<detail::Empty>& status) { return Status::OK(); });
+    auto fut2 = fut.Then([]() { return Status::OK(); });
     ref = fut.impl_;
     ref2 = fut2.impl_;
   }
@@ -362,7 +360,7 @@ TEST(FutureRefTest, ChainRemoved) {
 
   {
     auto fut = Future<>::Make();
-    auto fut2 = fut.Then([](const Result<detail::Empty>&) { return Future<>::Make(); });
+    auto fut2 = fut.Then([]() { return Future<>::Make(); });
     ref = fut.impl_;
     ref2 = fut2.impl_;
   }
@@ -377,7 +375,7 @@ TEST(FutureRefTest, TailRemoved) {
   bool side_effect_run = false;
   {
     ref = std::make_shared<Future<>>(Future<>::Make());
-    auto fut2 = ref->Then([&side_effect_run](const Result<detail::Empty>& status) {
+    auto fut2 = ref->Then([&side_effect_run]() {
       side_effect_run = true;
       return Status::OK();
     });
@@ -392,22 +390,20 @@ TEST(FutureRefTest, TailRemoved) {
 
 TEST(FutureRefTest, HeadRemoved) {
   // Keeping the tail of the future chain should not keep the entire chain alive.  If no
-  // one has a reference to the head then there is no need to keep it, nothing will finish
-  // it.  In theory the intermediate futures could be finished by some external process
-  // but that would be highly unusual and bad practice so in reality this would just be a
-  // reference to a future that will never complete which is ok.
+  // one has a reference to the head then the future is abandoned.  TODO (ARROW-12207):
+  // detect abandonment.
   std::weak_ptr<FutureImpl> ref;
   std::shared_ptr<Future<>> ref2;
   {
     auto fut = std::make_shared<Future<>>(Future<>::Make());
     ref = fut->impl_;
-    ref2 = std::make_shared<Future<>>(fut->Then([](...) {}));
+    ref2 = std::make_shared<Future<>>(fut->Then([]() {}));
   }
   ASSERT_TRUE(ref.expired());
 
   {
     auto fut = Future<>::Make();
-    ref2 = std::make_shared<Future<>>(fut.Then([&](...) {
+    ref2 = std::make_shared<Future<>>(fut.Then([&]() {
       auto intermediate = Future<>::Make();
       ref = intermediate.impl_;
       return intermediate;
@@ -434,7 +430,8 @@ TEST(FutureStressTest, Callback) {
       auto test_thread = std::this_thread::get_id();
       while (!finished.load()) {
         fut.AddCallback([&test_thread, &count_finished_immediately,
-                         &count_finished_deferred](const Result<detail::Empty>& result) {
+                         &count_finished_deferred](const Status& status) {
+          ARROW_EXPECT_OK(status);
           if (std::this_thread::get_id() == test_thread) {
             count_finished_immediately++;
           } else {
@@ -483,14 +480,15 @@ TEST(FutureStressTest, TryAddCallback) {
 
     std::thread callback_adder([&] {
       callback_adder_thread_id = std::this_thread::get_id();
-      std::function<void(const Result<detail::Empty>&)> callback =
-          [&callback_adder_thread_id](const Result<detail::Empty>&) {
+      std::function<void(const Status&)> callback =
+          [&callback_adder_thread_id](const Status& st) {
+            ARROW_EXPECT_OK(st);
             if (std::this_thread::get_id() == callback_adder_thread_id) {
               FAIL() << "TryAddCallback allowed a callback to be run synchronously";
             }
           };
-      std::function<std::function<void(const Result<detail::Empty>&)>()>
-          callback_factory = [&callback]() { return callback; };
+      std::function<std::function<void(const Status&)>()> callback_factory =
+          [&callback]() { return callback; };
       while (true) {
         auto callback_added = fut.TryAddCallback(callback_factory);
         if (callback_added) {
@@ -541,7 +539,7 @@ TEST(FutureCompletionTest, Void) {
   {
     // Propagate failure by returning it from on_failure
     auto fut = Future<int>::Make();
-    auto fut2 = fut.Then([](...) {}, [](const Status& s) { return s; });
+    auto fut2 = fut.Then([](const int&) {}, [](const Status& s) { return s; });
     fut.MarkFinished(Status::IOError("xxx"));
     AssertFailed(fut2);
     ASSERT_TRUE(fut2.status().IsIOError());
@@ -549,7 +547,7 @@ TEST(FutureCompletionTest, Void) {
   {
     // From void
     auto fut = Future<>::Make();
-    auto fut2 = fut.Then([](const Result<detail::Empty>&) {});
+    auto fut2 = fut.Then([]() {});
     fut.MarkFinished();
     AssertSuccessful(fut2);
   }
@@ -557,9 +555,9 @@ TEST(FutureCompletionTest, Void) {
     // Propagate failure by not having on_failure
     auto fut = Future<>::Make();
     auto cb_was_run = false;
-    auto fut2 = fut.Then([&cb_was_run](const Result<detail::Empty>& res) {
+    auto fut2 = fut.Then([&cb_was_run]() {
       cb_was_run = true;
-      return res;
+      return Status::OK();
     });
     fut.MarkFinished(Status::IOError("xxx"));
     AssertFailed(fut2);
@@ -569,7 +567,7 @@ TEST(FutureCompletionTest, Void) {
     // Swallow failure by catching in on_failure
     auto fut = Future<>::Make();
     Status status_seen = Status::OK();
-    auto fut2 = fut.Then([](...) {},
+    auto fut2 = fut.Then([]() {},
                          [&status_seen](const Status& s) {
                            status_seen = s;
                            return Status::OK();
@@ -626,7 +624,7 @@ TEST(FutureCompletionTest, NonVoid) {
   {
     // From void
     auto fut = Future<>::Make();
-    auto fut2 = fut.Then([](...) { return 42; });
+    auto fut2 = fut.Then([]() { return 42; });
     fut.MarkFinished();
     AssertSuccessful(fut2);
     auto result = *fut2.result();
@@ -702,7 +700,7 @@ TEST(FutureCompletionTest, FutureNonVoid) {
     // From void
     auto fut = Future<>::Make();
     auto innerFut = Future<std::string>::Make();
-    auto fut2 = fut.Then([&innerFut](...) { return innerFut; });
+    auto fut2 = fut.Then([&innerFut]() { return innerFut; });
     fut.MarkFinished();
     AssertNotFinished(fut2);
     innerFut.MarkFinished("hello");
@@ -716,7 +714,7 @@ TEST(FutureCompletionTest, FutureNonVoid) {
     auto innerFut = Future<std::string>::Make();
     auto was_cb_run = false;
     auto fut2 = fut.Then(
-        [&innerFut, &was_cb_run](...) {
+        [&innerFut, &was_cb_run]() {
           was_cb_run = true;
           return Result<Future<std::string>>(innerFut);
         },
@@ -775,7 +773,7 @@ TEST(FutureCompletionTest, Status) {
   {
     // From void
     auto fut = Future<>::Make();
-    auto fut2 = fut.Then([](const Result<detail::Empty>& res) { return Status::OK(); });
+    auto fut2 = fut.Then([]() { return Status::OK(); });
     fut.MarkFinished();
     AssertSuccessful(fut2);
   }
@@ -784,7 +782,7 @@ TEST(FutureCompletionTest, Status) {
     auto fut = Future<>::Make();
     auto was_cb_run = false;
     auto fut2 = fut.Then(
-        [&was_cb_run](const Result<detail::Empty>& res) {
+        [&was_cb_run]() {
           was_cb_run = true;
           return Status::OK();
         },
@@ -846,7 +844,7 @@ TEST(FutureCompletionTest, Result) {
   {
     // From void
     auto fut = Future<>::Make();
-    auto fut2 = fut.Then([](...) { return Result<int>(42); });
+    auto fut2 = fut.Then([]() { return Result<int>(42); });
     fut.MarkFinished();
     AssertSuccessful(fut2);
     auto result = *fut2.result();
@@ -857,7 +855,7 @@ TEST(FutureCompletionTest, Result) {
     auto fut = Future<>::Make();
     auto was_cb_run = false;
     auto fut2 = fut.Then(
-        [&was_cb_run](...) {
+        [&was_cb_run]() {
           was_cb_run = true;
           return Result<int>(42);
         },
@@ -938,7 +936,7 @@ TEST(FutureCompletionTest, FutureVoid) {
     // From void
     auto fut = Future<>::Make();
     auto innerFut = Future<>::Make();
-    auto fut2 = fut.Then([&innerFut](...) { return innerFut; });
+    auto fut2 = fut.Then([&innerFut]() { return innerFut; });
     fut.MarkFinished();
     AssertNotFinished(fut2);
     innerFut.MarkFinished();
@@ -948,11 +946,175 @@ TEST(FutureCompletionTest, FutureVoid) {
     // Propagate failure by returning failure
     auto fut = Future<>::Make();
     auto innerFut = Future<>::Make();
-    auto fut2 = fut.Then([&innerFut](...) { return innerFut; },
+    auto fut2 = fut.Then([&innerFut]() { return innerFut; },
                          [](const Status& s) { return Future<>::MakeFinished(s); });
     fut.MarkFinished(Status::IOError("xxx"));
     AssertFailed(fut2);
   }
+}
+
+class FutureSchedulingTest : public testing::Test {
+ public:
+  internal::Executor* executor() { return mock_executor.get(); }
+
+  int spawn_count() { return static_cast<int>(mock_executor->captured_tasks.size()); }
+
+  void AssertRunSynchronously(const std::vector<int>& ids) { AssertIds(ids, true); }
+
+  void AssertScheduled(const std::vector<int>& ids) { AssertIds(ids, false); }
+
+  void AssertIds(const std::vector<int>& ids, bool should_be_synchronous) {
+    for (auto id : ids) {
+      ASSERT_EQ(should_be_synchronous, callbacks_run_synchronously.find(id) !=
+                                           callbacks_run_synchronously.end());
+    }
+  }
+
+  std::function<void(const Status&)> callback(int id) {
+    return [this, id](const Status&) { callbacks_run_synchronously.insert(id); };
+  }
+
+  std::shared_ptr<DelayedExecutor> mock_executor = std::make_shared<DelayedExecutor>();
+  std::unordered_set<int> callbacks_run_synchronously;
+};
+
+TEST_F(FutureSchedulingTest, ScheduleNever) {
+  CallbackOptions options;
+  options.should_schedule = ShouldSchedule::Never;
+  options.executor = executor();
+  // Successful future
+  {
+    auto fut = Future<>::Make();
+    fut.AddCallback(callback(1), options);
+    fut.MarkFinished();
+    fut.AddCallback(callback(2), options);
+    ASSERT_EQ(0, spawn_count());
+    AssertRunSynchronously({1, 2});
+  }
+  // Failing future
+  {
+    auto fut = Future<>::Make();
+    fut.AddCallback(callback(3), options);
+    fut.MarkFinished(Status::Invalid("XYZ"));
+    fut.AddCallback(callback(4), options);
+    ASSERT_EQ(0, spawn_count());
+    AssertRunSynchronously({3, 4});
+  }
+}
+
+TEST_F(FutureSchedulingTest, ScheduleAlways) {
+  CallbackOptions options;
+  options.should_schedule = ShouldSchedule::Always;
+  options.executor = executor();
+  // Successful future
+  {
+    auto fut = Future<>::Make();
+    fut.AddCallback(callback(1), options);
+    fut.MarkFinished();
+    fut.AddCallback(callback(2), options);
+    ASSERT_EQ(2, spawn_count());
+    AssertScheduled({1, 2});
+  }
+  // Failing future
+  {
+    auto fut = Future<>::Make();
+    fut.AddCallback(callback(3), options);
+    fut.MarkFinished(Status::Invalid("XYZ"));
+    fut.AddCallback(callback(4), options);
+    ASSERT_EQ(4, spawn_count());
+    AssertScheduled({3, 4});
+  }
+}
+
+TEST_F(FutureSchedulingTest, ScheduleIfUnfinished) {
+  CallbackOptions options;
+  options.should_schedule = ShouldSchedule::IfUnfinished;
+  options.executor = executor();
+  // Successful future
+  {
+    auto fut = Future<>::Make();
+    fut.AddCallback(callback(1), options);
+    fut.MarkFinished();
+    fut.AddCallback(callback(2), options);
+    ASSERT_EQ(1, spawn_count());
+    AssertRunSynchronously({2});
+    AssertScheduled({1});
+  }
+  // Failing future
+  {
+    auto fut = Future<>::Make();
+    fut.AddCallback(callback(3), options);
+    fut.MarkFinished(Status::Invalid("XYZ"));
+    fut.AddCallback(callback(4), options);
+    ASSERT_EQ(2, spawn_count());
+    AssertRunSynchronously({4});
+    AssertScheduled({3});
+  }
+}
+
+TEST_F(FutureSchedulingTest, ScheduleIfDifferentExecutor) {
+  struct : internal::Executor {
+    int GetCapacity() override { return pool_->GetCapacity(); }
+
+    bool OwnsThisThread() override { return pool_->OwnsThisThread(); }
+
+    Status SpawnReal(internal::TaskHints hints, internal::FnOnce<void()> task,
+                     StopToken stop_token, StopCallback&& stop_callback) override {
+      ++spawn_count;
+      return pool_->Spawn(hints, std::move(task), std::move(stop_token),
+                          std::move(stop_callback));
+    }
+
+    std::atomic<int> spawn_count{0};
+    internal::Executor* pool_ = internal::GetCpuThreadPool();
+  } executor;
+
+  CallbackOptions options;
+  options.executor = &executor;
+  options.should_schedule = ShouldSchedule::IfDifferentExecutor;
+  auto pass_err = [](const Status& s) { return s; };
+
+  std::atomic<bool> fut0_on_executor{false};
+  std::atomic<bool> fut1_on_executor{false};
+
+  auto fut0 = Future<>::Make();
+  auto fut1 = Future<>::Make();
+
+  auto fut0_done = fut0.Then(
+      [&] {
+        // marked finished on main thread -> must be scheduled to executor
+        fut0_on_executor.store(executor.OwnsThisThread());
+
+        fut1.MarkFinished();
+      },
+      pass_err, options);
+
+  auto fut1_done = fut1.Then(
+      [&] {
+        // marked finished on executor -> no need to schedule
+        fut1_on_executor.store(executor.OwnsThisThread());
+      },
+      pass_err, options);
+
+  fut0.MarkFinished();
+
+  AllComplete({fut0_done, fut1_done}).Wait();
+
+  ASSERT_EQ(executor.spawn_count, 1);
+  ASSERT_TRUE(fut0_on_executor);
+  ASSERT_TRUE(fut1_on_executor);
+}
+
+TEST_F(FutureSchedulingTest, ScheduleAlwaysKeepsFutureAliveUntilCallback) {
+  CallbackOptions options;
+  options.should_schedule = ShouldSchedule::Always;
+  options.executor = executor();
+  {
+    auto fut = Future<int>::Make();
+    fut.AddCallback([](const Result<int> val) { ASSERT_EQ(7, *val); }, options);
+    fut.MarkFinished(7);
+  }
+  std::move(mock_executor->captured_tasks[0])();
 }
 
 TEST(FutureAllTest, Empty) {
@@ -1080,7 +1242,7 @@ TEST(FutureLoopTest, Sync) {
 
 TEST(FutureLoopTest, EmptyBreakValue) {
   Future<> none_fut =
-      Loop([&] { return Future<>::MakeFinished().Then([&](...) { return Break(); }); });
+      Loop([&] { return Future<>::MakeFinished().Then([&]() { return Break(); }); });
   AssertSuccessful(none_fut);
 }
 
@@ -1145,38 +1307,28 @@ TEST(FutureLoopTest, AllowsBreakFutToBeDiscarded) {
     }
     return Future<ControlFlow<int>>::MakeFinished(Break(-1));
   };
-  auto loop_fut = Loop(loop_body).Then([](...) { return Status::OK(); });
+  auto loop_fut = Loop(loop_body).Then([](const int&) { return Status::OK(); });
   ASSERT_TRUE(loop_fut.Wait(0.1));
 }
 
 class MoveTrackingCallable {
  public:
-  MoveTrackingCallable() {
-    // std::cout << "CONSTRUCT" << std::endl;
-  }
-  ~MoveTrackingCallable() {
-    valid_ = false;
-    // std::cout << "DESTRUCT" << std::endl;
-  }
-  MoveTrackingCallable(const MoveTrackingCallable& other) {
-    // std::cout << "COPY CONSTRUCT" << std::endl;
-  }
-  MoveTrackingCallable(MoveTrackingCallable&& other) {
-    other.valid_ = false;
-    // std::cout << "MOVE CONSTRUCT" << std::endl;
-  }
-  MoveTrackingCallable& operator=(const MoveTrackingCallable& other) {
-    // std::cout << "COPY ASSIGN" << std::endl;
-    return *this;
-  }
+  MoveTrackingCallable() {}
+
+  ~MoveTrackingCallable() { valid_ = false; }
+
+  MoveTrackingCallable(const MoveTrackingCallable& other) {}
+
+  MoveTrackingCallable(MoveTrackingCallable&& other) { other.valid_ = false; }
+
+  MoveTrackingCallable& operator=(const MoveTrackingCallable& other) { return *this; }
+
   MoveTrackingCallable& operator=(MoveTrackingCallable&& other) {
     other.valid_ = false;
-    // std::cout << "MOVE ASSIGN" << std::endl;
     return *this;
   }
 
-  Status operator()(...) {
-    // std::cout << "TRIGGER" << std::endl;
+  Status operator()() {
     if (valid_) {
       return Status::OK();
     } else {
@@ -1197,7 +1349,7 @@ TEST(FutureCompletionTest, ReuseCallback) {
     continuation = fut.Then(callback);
   }
 
-  fut.MarkFinished(Status::OK());
+  fut.MarkFinished();
 
   ASSERT_TRUE(continuation.is_finished());
   if (continuation.is_finished()) {
@@ -1597,6 +1749,45 @@ TEST(FnOnceTest, MoveOnlyDataType) {
   ASSERT_EQ(i1.moves, 0);
 }
 
-}  // namespace internal
+TEST(FutureTest, MatcherExamples) {
+  EXPECT_THAT(Future<int>::MakeFinished(Status::Invalid("arbitrary error")),
+              Finishes(Raises(StatusCode::Invalid)));
 
+  EXPECT_THAT(Future<int>::MakeFinished(Status::Invalid("arbitrary error")),
+              Finishes(Raises(StatusCode::Invalid, testing::HasSubstr("arbitrary"))));
+
+  // message doesn't match, so no match
+  EXPECT_THAT(Future<int>::MakeFinished(Status::Invalid("arbitrary error")),
+              Finishes(testing::Not(
+                  Raises(StatusCode::Invalid, testing::HasSubstr("reasonable")))));
+
+  // different error code, so no match
+  EXPECT_THAT(Future<int>::MakeFinished(Status::TypeError("arbitrary error")),
+              Finishes(testing::Not(Raises(StatusCode::Invalid))));
+
+  // not an error, so no match
+  EXPECT_THAT(Future<int>::MakeFinished(333),
+              Finishes(testing::Not(Raises(StatusCode::Invalid))));
+
+  EXPECT_THAT(Future<std::string>::MakeFinished("hello world"),
+              Finishes(ResultWith(testing::HasSubstr("hello"))));
+
+  // Matcher waits on Futures
+  auto string_fut = Future<std::string>::Make();
+  auto finisher = std::thread([&] {
+    SleepABit();
+    string_fut.MarkFinished("hello world");
+  });
+  EXPECT_THAT(string_fut, Finishes(ResultWith(testing::HasSubstr("hello"))));
+  finisher.join();
+
+  EXPECT_THAT(Future<std::string>::MakeFinished(Status::Invalid("XXX")),
+              Finishes(testing::Not(ResultWith(testing::HasSubstr("hello")))));
+
+  // holds a value, but that value doesn't match the given pattern
+  EXPECT_THAT(Future<std::string>::MakeFinished("foo bar"),
+              Finishes(testing::Not(ResultWith(testing::HasSubstr("hello")))));
+}
+
+}  // namespace internal
 }  // namespace arrow

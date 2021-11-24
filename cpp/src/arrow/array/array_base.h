@@ -56,15 +56,17 @@ class ARROW_EXPORT Array {
 
   /// \brief Return true if value at index is null. Does not boundscheck
   bool IsNull(int64_t i) const {
-    return null_bitmap_data_ != NULLPTR &&
-           !BitUtil::GetBit(null_bitmap_data_, i + data_->offset);
+    return null_bitmap_data_ != NULLPTR
+               ? !BitUtil::GetBit(null_bitmap_data_, i + data_->offset)
+               : data_->null_count == data_->length;
   }
 
   /// \brief Return true if value at index is valid (not null). Does not
   /// boundscheck
   bool IsValid(int64_t i) const {
-    return null_bitmap_data_ == NULLPTR ||
-           BitUtil::GetBit(null_bitmap_data_, i + data_->offset);
+    return null_bitmap_data_ != NULLPTR
+               ? BitUtil::GetBit(null_bitmap_data_, i + data_->offset)
+               : data_->null_count != data_->length;
   }
 
   /// \brief Return a Scalar containing the value of this array at i

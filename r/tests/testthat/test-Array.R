@@ -15,8 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("Array")
-
 test_that("Integer Array", {
   ints <- c(1:10, 1:10, 1:5)
   x <- expect_array_roundtrip(ints, int32())
@@ -53,6 +51,7 @@ test_that("binary Array", {
   expect_array_roundtrip(bin, fixed_size_binary(byte_width = 10))
 
   # degenerate cases
+  skip_on_valgrind() # valgrind errors on these tests ARROW-12638
   bin <- vctrs::new_vctr(
     list(1:10),
     class = "arrow_binary"
@@ -131,10 +130,11 @@ test_that("Slice() and RangeEquals()", {
   expect_error(x$RangeEquals(y, 10, NA), "'end_idx' cannot be NA")
   expect_error(x$RangeEquals(y, 10, 24, NA), "'other_start_idx' cannot be NA")
   expect_error(x$RangeEquals(y, "ten", 24))
-  # TODO (if anyone uses RangeEquals)
-  # expect_error(x$RangeEquals(y, 10, 2400, 0)) # does not error
-  # expect_error(x$RangeEquals(y, 1000, 24, 0)) # does not error
-  # expect_error(x$RangeEquals(y, 10, 24, 1000)) # does not error
+
+  skip("TODO: (if anyone uses RangeEquals)")
+  expect_error(x$RangeEquals(y, 10, 2400, 0)) # does not error
+  expect_error(x$RangeEquals(y, 1000, 24, 0)) # does not error
+  expect_error(x$RangeEquals(y, 10, 24, 1000)) # does not error
 })
 
 test_that("Double Array", {
@@ -155,8 +155,8 @@ test_that("Array supports NA", {
   expect_true(x_int$IsNull(10L))
   expect_true(x_dbl$IsNull(10))
 
-  expect_equal(as.vector(is.na(x_int)), c(rep(FALSE, 10), TRUE))
-  expect_equal(as.vector(is.na(x_dbl)), c(rep(FALSE, 10), TRUE))
+  expect_as_vector(is.na(x_int), c(rep(FALSE, 10), TRUE))
+  expect_as_vector(is.na(x_dbl), c(rep(FALSE, 10), TRUE))
 
   # Input validation
   expect_error(x_int$IsValid("ten"))
@@ -263,7 +263,7 @@ test_that("array supports POSIXct (ARROW-3340)", {
 test_that("array supports POSIXct without timezone", {
   # Make sure timezone is not set
   withr::with_envvar(c(TZ = ""), {
-    times <- strptime("2019-02-03 12:34:56", format="%Y-%m-%d %H:%M:%S") + 1:10
+    times <- strptime("2019-02-03 12:34:56", format = "%Y-%m-%d %H:%M:%S") + 1:10
     expect_array_roundtrip(times, timestamp("us", ""))
 
     # Also test the INTSXP code path
@@ -278,9 +278,9 @@ test_that("Timezone handling in Arrow roundtrip (ARROW-3543)", {
   # Write a feather file as that's what the initial bug report used
   df <- tibble::tibble(
     no_tz = lubridate::ymd_hms("2018-10-07 19:04:05") + 1:10,
-    yes_tz = lubridate::ymd_hms("2018-10-07 19:04:05", tz = "Asia/Pyongyang") + 1:10
+    yes_tz = lubridate::ymd_hms("2018-10-07 19:04:05", tz = "Pacific/Marquesas") + 1:10
   )
-  if (!identical(Sys.timezone(), "Asia/Pyongyang")) {
+  if (!identical(Sys.timezone(), "Pacific/Marquesas")) {
     # Confirming that the columns are in fact different
     expect_false(any(df$no_tz == df$yes_tz))
   }
@@ -314,6 +314,23 @@ test_that("support for NaN (ARROW-3615)", {
   y <- Array$create(x)
   expect_true(y$IsValid(2))
   expect_equal(y$null_count, 1L)
+})
+
+test_that("is.nan() evalutes to FALSE on NA (for consistency with base R)", {
+  x <- c(1.0, NA, NaN, -1.0)
+  compare_expression(is.nan(.input), x)
+})
+
+test_that("is.nan() evalutes to FALSE on non-floats (for consistency with base R)", {
+  x <- c(1L, 2L, 3L)
+  y <- c("foo", "bar")
+  compare_expression(is.nan(.input), x)
+  compare_expression(is.nan(.input), y)
+})
+
+test_that("is.na() evalutes to TRUE on NaN (for consistency with base R)", {
+  x <- c(1, NA, NaN, -1)
+  compare_expression(is.na(.input), x)
 })
 
 test_that("integer types casts (ARROW-3741)", {
@@ -419,12 +436,12 @@ test_that("Array<int8>$as_vector() converts to integer (ARROW-3794)", {
   i8 <- (-128):127
   a <- Array$create(i8)$cast(int8())
   expect_type_equal(a, int8())
-  expect_equal(as.vector(a), i8)
+  expect_as_vector(a, i8)
 
   u8 <- 0:255
   a <- Array$create(u8)$cast(uint8())
   expect_type_equal(a, uint8())
-  expect_equal(as.vector(a), u8)
+  expect_as_vector(a, u8)
 })
 
 test_that("Arrays of {,u}int{32,64} convert to integer if they can fit", {
@@ -455,12 +472,15 @@ test_that("Array$create() handles data frame -> struct arrays (ARROW-3811)", {
   df <- tibble::tibble(x = 1:10, y = x / 2, z = letters[1:10])
   a <- Array$create(df)
   expect_type_equal(a$type, struct(x = int32(), y = float64(), z = utf8()))
-  expect_equivalent(as.vector(a), df)
+  expect_as_vector(a, df)
 
-  df <- structure(list(col = structure(list(structure(list(list(structure(1))), class = "inner")), class = "outer")), class = "data.frame", row.names = c(NA, -1L))
+  df <- structure(
+    list(col = structure(list(structure(list(list(structure(1))), class = "inner")), class = "outer")),
+    class = "data.frame", row.names = c(NA, -1L)
+  )
   a <- Array$create(df)
   expect_type_equal(a$type, struct(col = list_of(list_of(list_of(float64())))))
-  expect_equivalent(as.vector(a), df)
+  expect_as_vector(a, df, ignore_attr = TRUE)
 })
 
 test_that("StructArray methods", {
@@ -480,10 +500,16 @@ test_that("Array$create() can handle data frame with custom struct type (not inf
   expect_type_equal(a$type, type)
 
   type <- struct(x = float64(), y = int16(), z = int32())
-  expect_error(Array$create(df, type = type), regexp = "Number of fields in struct.* incompatible with number of columns in the data frame")
+  expect_error(
+    Array$create(df, type = type),
+    regexp = "Number of fields in struct.* incompatible with number of columns in the data frame"
+  )
 
   type <- struct(y = int16(), x = float64())
-  expect_error(Array$create(df, type = type), regexp = "Field name in position.*does not match the name of the column of the data frame")
+  expect_error(
+    Array$create(df, type = type),
+    regexp = "Field name in position.*does not match the name of the column of the data frame"
+  )
 
   type <- struct(x = float64(), y = utf8())
   expect_error(Array$create(df, type = type), regexp = "Invalid")
@@ -548,29 +574,57 @@ test_that("Array$create() handles vector -> large list arrays", {
   expect_array_roundtrip(list(NA), large_list_of(bool()), as = large_list_of(bool()))
   expect_array_roundtrip(list(logical(0)), large_list_of(bool()), as = large_list_of(bool()))
   expect_array_roundtrip(list(c(TRUE), c(FALSE), c(FALSE, TRUE)), large_list_of(bool()), as = large_list_of(bool()))
-  expect_array_roundtrip(list(c(TRUE), c(FALSE), NA, logical(0), c(FALSE, NA, TRUE)), large_list_of(bool()), as = large_list_of(bool()))
+  expect_array_roundtrip(
+    list(c(TRUE), c(FALSE), NA, logical(0), c(FALSE, NA, TRUE)),
+    large_list_of(bool()),
+    as = large_list_of(bool())
+  )
 
   # integer
   expect_array_roundtrip(list(NA_integer_), large_list_of(int32()), as = large_list_of(int32()))
   expect_array_roundtrip(list(integer(0)), large_list_of(int32()), as = large_list_of(int32()))
   expect_array_roundtrip(list(1:2, 3:4, 12:18), large_list_of(int32()), as = large_list_of(int32()))
-  expect_array_roundtrip(list(c(1:2), NA_integer_, integer(0), c(12:18, NA_integer_)), large_list_of(int32()), as = large_list_of(int32()))
+  expect_array_roundtrip(
+    list(c(1:2), NA_integer_, integer(0), c(12:18, NA_integer_)),
+    large_list_of(int32()),
+    as = large_list_of(int32())
+  )
 
   # numeric
   expect_array_roundtrip(list(NA_real_), large_list_of(float64()), as = large_list_of(float64()))
   expect_array_roundtrip(list(numeric(0)), large_list_of(float64()), as = large_list_of(float64()))
   expect_array_roundtrip(list(1, c(2, 3), 4), large_list_of(float64()), as = large_list_of(float64()))
-  expect_array_roundtrip(list(1, numeric(0), c(2, 3, NA_real_), 4), large_list_of(float64()), as = large_list_of(float64()))
+  expect_array_roundtrip(
+    list(1, numeric(0), c(2, 3, NA_real_), 4),
+    large_list_of(float64()),
+    as = large_list_of(float64())
+  )
 
   # character
   expect_array_roundtrip(list(NA_character_), large_list_of(utf8()), as = large_list_of(utf8()))
   expect_array_roundtrip(list(character(0)), large_list_of(utf8()), as = large_list_of(utf8()))
-  expect_array_roundtrip(list("itsy", c("bitsy", "spider"), c("is")), large_list_of(utf8()), as = large_list_of(utf8()))
-  expect_array_roundtrip(list("itsy", character(0), c("bitsy", "spider", NA_character_), c("is")), large_list_of(utf8()), as = large_list_of(utf8()))
+  expect_array_roundtrip(
+    list("itsy", c("bitsy", "spider"), c("is")),
+    large_list_of(utf8()),
+    as = large_list_of(utf8())
+  )
+  expect_array_roundtrip(
+    list("itsy", character(0), c("bitsy", "spider", NA_character_), c("is")),
+    large_list_of(utf8()),
+    as = large_list_of(utf8())
+  )
 
   # factor
-  expect_array_roundtrip(list(factor(c("b", "a"), levels = c("a", "b"))), large_list_of(dictionary(int8(), utf8())), as = large_list_of(dictionary(int8(), utf8())))
-  expect_array_roundtrip(list(factor(NA, levels = c("a", "b"))), large_list_of(dictionary(int8(), utf8())), as = large_list_of(dictionary(int8(), utf8())))
+  expect_array_roundtrip(
+    list(factor(c("b", "a"), levels = c("a", "b"))),
+    large_list_of(dictionary(int8(), utf8())),
+    as = large_list_of(dictionary(int8(), utf8()))
+  )
+  expect_array_roundtrip(
+    list(factor(NA, levels = c("a", "b"))),
+    large_list_of(dictionary(int8(), utf8())),
+    as = large_list_of(dictionary(int8(), utf8()))
+  )
 
   # struct
   expect_array_roundtrip(
@@ -591,25 +645,53 @@ test_that("Array$create() handles vector -> fixed size list arrays", {
 
   # logical
   expect_array_roundtrip(list(NA), fixed_size_list_of(bool(), 1L), as = fixed_size_list_of(bool(), 1L))
-  expect_array_roundtrip(list(c(TRUE, FALSE), c(FALSE, TRUE)), fixed_size_list_of(bool(), 2L), as = fixed_size_list_of(bool(), 2L))
-  expect_array_roundtrip(list(c(TRUE), c(FALSE), NA), fixed_size_list_of(bool(), 1L), as = fixed_size_list_of(bool(), 1L))
+  expect_array_roundtrip(
+    list(c(TRUE, FALSE), c(FALSE, TRUE)),
+    fixed_size_list_of(bool(), 2L),
+    as = fixed_size_list_of(bool(), 2L)
+  )
+  expect_array_roundtrip(
+    list(c(TRUE), c(FALSE), NA),
+    fixed_size_list_of(bool(), 1L),
+    as = fixed_size_list_of(bool(), 1L)
+  )
 
   # integer
   expect_array_roundtrip(list(NA_integer_), fixed_size_list_of(int32(), 1L), as = fixed_size_list_of(int32(), 1L))
   expect_array_roundtrip(list(1:2, 3:4, 11:12), fixed_size_list_of(int32(), 2L), as = fixed_size_list_of(int32(), 2L))
-  expect_array_roundtrip(list(c(1:2), c(NA_integer_, 3L)), fixed_size_list_of(int32(), 2L), as = fixed_size_list_of(int32(), 2L))
+  expect_array_roundtrip(
+    list(c(1:2), c(NA_integer_, 3L)),
+    fixed_size_list_of(int32(), 2L),
+    as = fixed_size_list_of(int32(), 2L)
+  )
 
   # numeric
   expect_array_roundtrip(list(NA_real_), fixed_size_list_of(float64(), 1L), as = fixed_size_list_of(float64(), 1L))
-  expect_array_roundtrip(list(c(1,2), c(2, 3)), fixed_size_list_of(float64(), 2L), as = fixed_size_list_of(float64(), 2L))
-  expect_array_roundtrip(list(c(1,2), c(NA_real_, 4)), fixed_size_list_of(float64(), 2L), as = fixed_size_list_of(float64(), 2L))
+  expect_array_roundtrip(
+    list(c(1, 2), c(2, 3)),
+    fixed_size_list_of(float64(), 2L),
+    as = fixed_size_list_of(float64(), 2L)
+  )
+  expect_array_roundtrip(
+    list(c(1, 2), c(NA_real_, 4)),
+    fixed_size_list_of(float64(), 2L),
+    as = fixed_size_list_of(float64(), 2L)
+  )
 
   # character
   expect_array_roundtrip(list(NA_character_), fixed_size_list_of(utf8(), 1L), as = fixed_size_list_of(utf8(), 1L))
-  expect_array_roundtrip(list(c("itsy", "bitsy"), c("spider", "is"), c(NA_character_, NA_character_), c("", "")), fixed_size_list_of(utf8(), 2L), as = fixed_size_list_of(utf8(), 2L))
+  expect_array_roundtrip(
+    list(c("itsy", "bitsy"), c("spider", "is"), c(NA_character_, NA_character_), c("", "")),
+    fixed_size_list_of(utf8(), 2L),
+    as = fixed_size_list_of(utf8(), 2L)
+  )
 
   # factor
-  expect_array_roundtrip(list(factor(c("b", "a"), levels = c("a", "b"))), fixed_size_list_of(dictionary(int8(), utf8()), 2L), as = fixed_size_list_of(dictionary(int8(), utf8()), 2L))
+  expect_array_roundtrip(
+    list(factor(c("b", "a"), levels = c("a", "b"))),
+    fixed_size_list_of(dictionary(int8(), utf8()), 2L),
+    as = fixed_size_list_of(dictionary(int8(), utf8()), 2L)
+  )
 
   # struct
   expect_array_roundtrip(
@@ -636,26 +718,67 @@ test_that("Handling string data with embedded nuls", {
     as.raw(c(0x6d, 0x61, 0x00, 0x6e)), # <-- there's your nul, 0x00
     as.raw(c(0x66, 0x00, 0x00, 0x61, 0x00, 0x6e)), # multiple nuls
     as.raw(c(0x63, 0x61, 0x6d, 0x65, 0x72, 0x61)),
-    as.raw(c(0x74, 0x76))),
-    class = c("arrow_binary", "vctrs_vctr", "list"))
+    as.raw(c(0x74, 0x76))
+  ),
+  class = c("arrow_binary", "vctrs_vctr", "list")
+  )
   expect_error(
     rawToChar(raws[[3]]),
     "embedded nul in string: 'ma\\0n'", # See?
     fixed = TRUE
   )
   array_with_nul <- Array$create(raws)$cast(utf8())
-  expect_error(
-    as.vector(array_with_nul),
-    "embedded nul in string: 'ma\\0n'; to strip nuls when converting from Arrow to R, set options(arrow.skip_nul = TRUE)",
+
+  # The behavior of the warnings/errors is slightly different with and without
+  # altrep. Without it (i.e. 3.5.0 and below, the error would trigger immediately
+  # on `as.vector()` where as with it, the error only happens on materialization)
+  skip_if_r_version("3.5.0")
+
+  # no error on conversion, because altrep laziness
+  v <- expect_error(as.vector(array_with_nul), NA)
+
+  # attempting materialization -> error
+
+  expect_error(v[],
+    paste0(
+      "embedded nul in string: 'ma\\0n'; to strip nuls when converting from Arrow ",
+      "to R, set options(arrow.skip_nul = TRUE)"
+    ),
+    fixed = TRUE
+  )
+
+  # also error on materializing v[3]
+  expect_error(v[3],
+    paste0(
+      "embedded nul in string: 'ma\\0n'; to strip nuls when converting from Arrow ",
+      "to R, set options(arrow.skip_nul = TRUE)"
+    ),
     fixed = TRUE
   )
 
   withr::with_options(list(arrow.skip_nul = TRUE), {
+    # no warning yet because altrep laziness
+    v <- as.vector(array_with_nul)
+
     expect_warning(
       expect_identical(
-        as.vector(array_with_nul),
+        v[],
         c("person", "woman", "man", "fan", "camera", "tv")
       ),
+      "Stripping '\\0' (nul) from character vector",
+      fixed = TRUE
+    )
+
+    v <- as.vector(array_with_nul)
+    expect_warning(
+      expect_identical(v[3], "man"),
+      "Stripping '\\0' (nul) from character vector",
+      fixed = TRUE
+    )
+
+    v <- as.vector(array_with_nul)
+    expect_warning(
+      expect_identical(v[4], "fan"),
       "Stripping '\\0' (nul) from character vector",
       fixed = TRUE
     )
@@ -702,7 +825,7 @@ test_that("is.Array", {
 
 test_that("Array$Take()", {
   a <- Array$create(10:20)
-  expect_equal(as.vector(a$Take(c(4, 2))), c(14, 12))
+  expect_as_vector(a$Take(c(4, 2)), c(14, 12))
 })
 
 test_that("[ method on Array", {
@@ -817,4 +940,24 @@ test_that("auto int64 conversion to int can be disabled (ARROW-10093)", {
     tab <- Table$create(x = a)
     expect_true(inherits(as.data.frame(batch)$x, "integer64"))
   })
+})
+
+
+test_that("Array to C-interface", {
+  # create a struct array since that's one of the more complicated array types
+  df <- tibble::tibble(x = 1:10, y = x / 2, z = letters[1:10])
+  arr <- Array$create(df)
+
+  # export the array via the C-interface
+  schema_ptr <- allocate_arrow_schema()
+  array_ptr <- allocate_arrow_array()
+  arr$export_to_c(array_ptr, schema_ptr)
+
+  # then import it and check that the roundtripped value is the same
+  circle <- Array$import_from_c(array_ptr, schema_ptr)
+  expect_equal(arr, circle)
+
+  # must clean up the pointers or we leak
+  delete_arrow_schema(schema_ptr)
+  delete_arrow_array(array_ptr)
 })

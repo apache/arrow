@@ -15,7 +15,7 @@
 
 namespace Apache.Arrow.Types
 {
-    public sealed class Int64Type : NumberType
+    public sealed class Int64Type : IntegerType
     {
         public static readonly Int64Type Default = new Int64Type();
 

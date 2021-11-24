@@ -69,7 +69,7 @@ on:
       python-version: 3.8
   - name: Setup Crossbow
     shell: bash
-    run: pip install -e arrow/dev/archery[crossbow]
+    run: pip install -e arrow/dev/archery[crossbow-upload]
   - name: Upload artifacts
     shell: bash
     run: |
@@ -80,14 +80,14 @@ on:
       --sha {{ task.branch }} \
       --tag {{ task.tag }} \
     {% if pattern is string %}
-      --pattern "{{ pattern }}"
+      "{{ pattern }}"
     {% elif pattern is iterable %}
       {% for p in pattern %}
-      --pattern "{{ p }}" {{ "\\" if not loop.last else "" }}
+      "{{ p }}" {{ "\\" if not loop.last else "" }}
       {% endfor %}
     {% endif %}
     env:
-      CROSSBOW_GITHUB_TOKEN: {{ '${{ secrets.CROSSBOW_GITHUB_TOKEN }}' }}
+      CROSSBOW_GITHUB_TOKEN: {{ '${{ secrets.CROSSBOW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}' }}
 {% endmacro %}
 
 {%- macro github_upload_gemfury(pattern) -%}
@@ -116,7 +116,7 @@ on:
   - task: UsePythonVersion@0
     inputs:
       versionSpec: '3.8'
-  - script: pip install -e arrow/dev/archery[crossbow]
+  - script: pip install -e arrow/dev/archery[crossbow-upload]
     displayName: Install Crossbow
   - bash: |
       archery crossbow \
@@ -126,10 +126,10 @@ on:
         --sha {{ task.branch }} \
         --tag {{ task.tag }} \
       {% if pattern is string %}
-        --pattern "{{ pattern }}"
+        "{{ pattern }}"
       {% elif pattern is iterable %}
         {% for p in pattern %}
-        --pattern "{{ p }}" {{ "" if not loop.last else "" }}
+        "{{ p }}" {{ "\\" if not loop.last else "" }}
         {% endfor %}
       {% endif %}
     env:
@@ -170,7 +170,7 @@ on:
 
 {%- macro travis_upload_releases(pattern) -%}
   - sudo -H pip3 install pygit2==1.0
-  - sudo -H pip3 install -e arrow/dev/archery[crossbow]
+  - sudo -H pip3 install -e arrow/dev/archery[crossbow-upload]
   - |
     archery crossbow \
       --queue-path $(pwd) \
@@ -179,10 +179,10 @@ on:
       --sha {{ task.branch }} \
       --tag {{ task.tag }} \
     {% if pattern is string %}
-      --pattern "{{ pattern }}"
+      "{{ pattern }}"
     {% elif pattern is iterable %}
       {% for p in pattern %}
-      --pattern "{{ p }}" {{ "\\" if not loop.last else "" }}
+      "{{ p }}" {{ "\\" if not loop.last else "" }}
       {% endfor %}
     {% endif %}
 {% endmacro %}

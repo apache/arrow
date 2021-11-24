@@ -15,20 +15,19 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("Scalar")
 
 expect_scalar_roundtrip <- function(x, type) {
   s <- Scalar$create(x)
   expect_r6_class(s, "Scalar")
-  expect_type_equal(s$type, type)
+  expect_equal(s$type, type)
   expect_identical(length(s), 1L)
   if (inherits(type, "NestedType")) {
     # Should this be? Missing if all elements are missing?
-    # expect_identical(is.na(s), all(is.na(x)))
+    # expect_identical(is.na(s), all(is.na(x))) # nolint
   } else {
-    expect_identical(is.na(s), is.na(x))
+    expect_identical(as.vector(is.na(s)), is.na(x))
     # MakeArrayFromScalar not implemented for list types
-    expect_equal(as.vector(s), x)
+    expect_as_vector(s, x)
   }
 }
 
@@ -37,7 +36,7 @@ test_that("Scalar object roundtrip", {
   expect_scalar_roundtrip(2L, int32())
   expect_scalar_roundtrip(c(2, 4), list_of(float64()))
   expect_scalar_roundtrip(c(NA, NA), list_of(bool()))
-  expect_scalar_roundtrip(data.frame(a=2, b=4L), struct(a = double(), b = int32()))
+  expect_scalar_roundtrip(data.frame(a = 2, b = 4L), struct(a = double(), b = int32()))
 })
 
 test_that("Scalar print", {
@@ -45,8 +44,8 @@ test_that("Scalar print", {
 })
 
 test_that("Creating Scalars of a different type and casting them", {
-  expect_type_equal(Scalar$create(4L, int8())$type, int8())
-  expect_type_equal(Scalar$create(4L)$cast(float32())$type, float32())
+  expect_equal(Scalar$create(4L, int8())$type, int8())
+  expect_equal(Scalar$create(4L)$cast(float32())$type, float32())
 })
 
 test_that("Scalar to Array", {
@@ -85,16 +84,25 @@ test_that("Handling string data with embedded nuls", {
     fixed = TRUE
   )
   scalar_with_nul <- Scalar$create(raws, binary())$cast(utf8())
+
+  # The behavior of the warnings/errors is slightly different with and without
+  # altrep. Without it (i.e. 3.5.0 and below, the error would trigger immediately
+  # on `as.vector()` where as with it, the error only happens on materialization)
+  skip_if_r_version("3.5.0")
+  v <- expect_error(as.vector(scalar_with_nul), NA)
   expect_error(
-    as.vector(scalar_with_nul),
-    "embedded nul in string: 'ma\\0n'; to strip nuls when converting from Arrow to R, set options(arrow.skip_nul = TRUE)",
+    v[1],
+    paste0(
+      "embedded nul in string: 'ma\\0n'; to strip nuls when converting from Arrow to R, ",
+      "set options(arrow.skip_nul = TRUE)"
+    ),
     fixed = TRUE
   )
 
   withr::with_options(list(arrow.skip_nul = TRUE), {
     expect_warning(
       expect_identical(
-        as.vector(scalar_with_nul),
+        as.vector(scalar_with_nul)[],
         "man"
       ),
       "Stripping '\\0' (nul) from character vector",

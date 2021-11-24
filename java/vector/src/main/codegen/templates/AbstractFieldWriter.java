@@ -56,12 +56,42 @@ abstract class AbstractFieldWriter extends AbstractBaseWriter implements FieldWr
 
   @Override
   public void startList() {
-    throw new IllegalStateException(String.format("You tried to start when you are using a ValueWriter of type %s.", this.getClass().getSimpleName()));
+    throw new IllegalStateException(String.format("You tried to start a list when you are using a ValueWriter of type %s.", this.getClass().getSimpleName()));
   }
 
   @Override
   public void endList() {
-    throw new IllegalStateException(String.format("You tried to end when you are using a ValueWriter of type %s.", this.getClass().getSimpleName()));
+    throw new IllegalStateException(String.format("You tried to end a list when you are using a ValueWriter of type %s.", this.getClass().getSimpleName()));
+  }
+
+  @Override
+  public void startMap() {
+    throw new IllegalStateException(String.format("You tried to start a map when you are using a ValueWriter of type %s.", this.getClass().getSimpleName()));
+  }
+
+  @Override
+  public void endMap() {
+    throw new IllegalStateException(String.format("You tried to end a map when you are using a ValueWriter of type %s.", this.getClass().getSimpleName()));
+  }
+
+  @Override
+  public void startEntry() {
+    throw new IllegalStateException(String.format("You tried to start a map entry when you are using a ValueWriter of type %s.", this.getClass().getSimpleName()));
+  }
+
+  @Override
+  public MapWriter key() {
+    throw new IllegalStateException(String.format("You tried to start a map key when you are using a ValueWriter of type %s.", this.getClass().getSimpleName()));
+  }
+
+  @Override
+  public MapWriter value() {
+    throw new IllegalStateException(String.format("You tried to start a map value when you are using a ValueWriter of type %s.", this.getClass().getSimpleName()));
+  }
+
+  @Override
+  public void endEntry() {
+    throw new IllegalStateException(String.format("You tried to end a map entry when you are using a ValueWriter of type %s.", this.getClass().getSimpleName()));
   }
 
   <#list vv.types as type><#list type.minor as minor><#assign name = minor.class?cap_first />
@@ -124,6 +154,12 @@ abstract class AbstractFieldWriter extends AbstractBaseWriter implements FieldWr
   }
 
   @Override
+  public MapWriter map() {
+    fail("Map");
+    return null;
+  }
+
+  @Override
   public StructWriter struct(String name) {
     fail("Struct");
     return null;
@@ -135,6 +171,23 @@ abstract class AbstractFieldWriter extends AbstractBaseWriter implements FieldWr
     return null;
   }
 
+  @Override
+  public MapWriter map(String name) {
+    fail("Map");
+    return null;
+  }
+
+  @Override
+  public MapWriter map(boolean keysSorted) {
+    fail("Map");
+    return null;
+  }
+
+  @Override
+  public MapWriter map(String name, boolean keysSorted) {
+    fail("Map");
+    return null;
+  }
   <#list vv.types as type><#list type.minor as minor>
   <#assign lowerName = minor.class?uncap_first />
   <#if lowerName == "int" ><#assign lowerName = "integer" /></#if>

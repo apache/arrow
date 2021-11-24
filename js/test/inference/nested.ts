@@ -15,11 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Data } from '../../src/data';
-import { Field } from '../../src/schema';
-import { DataType } from '../../src/type';
-import { Vector, BoolVector } from '../../src/vector/index';
-import { Bool, Int8, Utf8, List, Dictionary, Struct } from '../../src/type';
+import { Data } from 'apache-arrow/data';
+import { Field } from 'apache-arrow/schema';
+import { DataType } from 'apache-arrow/type';
+import { Vector, BoolVector } from 'apache-arrow/vector/index';
+import { Bool, Int8, Utf8, List, Dictionary, Struct } from 'apache-arrow/type';
 
 type NamedSchema = { a: Int8; b: Utf8; c: Dictionary<List<Bool>>; [idx: string]: DataType };
 type IndexSchema = { 0: Int8; 1: Utf8; 2: Dictionary<List<Bool>>; [idx: number]: DataType };

@@ -30,9 +30,12 @@
 #include "arrow/io/interfaces.h"
 #include "arrow/ipc/metadata_internal.h"
 #include "arrow/ipc/options.h"
+#include "arrow/ipc/reader.h"
+#include "arrow/ipc/reader_internal.h"
 #include "arrow/ipc/util.h"
 #include "arrow/status.h"
 #include "arrow/util/endian.h"
+#include "arrow/util/future.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/ubsan.h"
 
@@ -278,8 +281,39 @@ std::string FormatMessageType(MessageType type) {
   return "unknown";
 }
 
+Status ReadFieldsSubset(int64_t offset, int32_t metadata_length,
+                        io::RandomAccessFile* file,
+                        const FieldsLoaderFunction& fields_loader,
+                        const std::shared_ptr<Buffer>& metadata, int64_t required_size,
+                        std::shared_ptr<Buffer>& body) {
+  const flatbuf::Message* message = nullptr;
+  uint8_t continuation_metadata_size = sizeof(int32_t) + sizeof(int32_t);
+  // skip 8 bytes (32-bit continuation indicator + 32-bit little-endian length prefix)
+  RETURN_NOT_OK(internal::VerifyMessage(metadata->data() + continuation_metadata_size,
+                                        metadata->size() - continuation_metadata_size,
+                                        &message));
+  auto batch = message->header_as_RecordBatch();
+  if (batch == nullptr) {
+    return Status::IOError(
+        "Header-type of flatbuffer-encoded Message is not RecordBatch.");
+  }
+  internal::IoRecordedRandomAccessFile io_recorded_random_access_file(required_size);
+  RETURN_NOT_OK(fields_loader(batch, &io_recorded_random_access_file));
+  auto const& read_ranges = io_recorded_random_access_file.GetReadRanges();
+  for (auto const& range : read_ranges) {
+    auto read_result = file->ReadAt(offset + metadata_length + range.offset, range.length,
+                                    body->mutable_data() + range.offset);
+    if (!read_result.ok()) {
+      return Status::IOError("Failed to read message body, error ",
+                             read_result.status().ToString());
+    }
+  }
+  return Status::OK();
+}
+
 Result<std::unique_ptr<Message>> ReadMessage(int64_t offset, int32_t metadata_length,
-                                             io::RandomAccessFile* file) {
+                                             io::RandomAccessFile* file,
+                                             const FieldsLoaderFunction& fields_loader) {
   std::unique_ptr<Message> result;
   auto listener = std::make_shared<AssignMessageDecoderListener>(&result);
   MessageDecoder decoder(listener);
@@ -307,8 +341,16 @@ Result<std::unique_ptr<Message>> ReadMessage(int64_t offset, int32_t metadata_le
                              " invalid. File offset: ", offset,
                              ", metadata length: ", metadata_length);
     case MessageDecoder::State::BODY: {
-      ARROW_ASSIGN_OR_RAISE(auto body, file->ReadAt(offset + metadata_length,
-                                                    decoder.next_required_size()));
+      std::shared_ptr<Buffer> body;
+      if (fields_loader) {
+        ARROW_ASSIGN_OR_RAISE(
+            body, AllocateBuffer(decoder.next_required_size(), default_memory_pool()));
+        RETURN_NOT_OK(ReadFieldsSubset(offset, metadata_length, file, fields_loader,
+                                       metadata, decoder.next_required_size(), body));
+      } else {
+        ARROW_ASSIGN_OR_RAISE(
+            body, file->ReadAt(offset + metadata_length, decoder.next_required_size()));
+      }
       if (body->size() < decoder.next_required_size()) {
         return Status::IOError("Expected to be able to read ",
                                decoder.next_required_size(),
@@ -322,6 +364,60 @@ Result<std::unique_ptr<Message>> ReadMessage(int64_t offset, int32_t metadata_le
     default:
       return Status::Invalid("Unexpected state: ", decoder.state());
   }
+}
+
+Future<std::shared_ptr<Message>> ReadMessageAsync(int64_t offset, int32_t metadata_length,
+                                                  int64_t body_length,
+                                                  io::RandomAccessFile* file,
+                                                  const io::IOContext& context) {
+  struct State {
+    std::unique_ptr<Message> result;
+    std::shared_ptr<MessageDecoderListener> listener;
+    std::shared_ptr<MessageDecoder> decoder;
+  };
+  auto state = std::make_shared<State>();
+  state->listener = std::make_shared<AssignMessageDecoderListener>(&state->result);
+  state->decoder = std::make_shared<MessageDecoder>(state->listener);
+
+  if (metadata_length < state->decoder->next_required_size()) {
+    return Status::Invalid("metadata_length should be at least ",
+                           state->decoder->next_required_size());
+  }
+  return file->ReadAsync(context, offset, metadata_length + body_length)
+      .Then([=](std::shared_ptr<Buffer> metadata) -> Result<std::shared_ptr<Message>> {
+        if (metadata->size() < metadata_length) {
+          return Status::Invalid("Expected to read ", metadata_length,
+                                 " metadata bytes but got ", metadata->size());
+        }
+        ARROW_RETURN_NOT_OK(
+            state->decoder->Consume(SliceBuffer(metadata, 0, metadata_length)));
+        switch (state->decoder->state()) {
+          case MessageDecoder::State::INITIAL:
+            return std::move(state->result);
+          case MessageDecoder::State::METADATA_LENGTH:
+            return Status::Invalid("metadata length is missing. File offset: ", offset,
+                                   ", metadata length: ", metadata_length);
+          case MessageDecoder::State::METADATA:
+            return Status::Invalid("flatbuffer size ",
+                                   state->decoder->next_required_size(),
+                                   " invalid. File offset: ", offset,
+                                   ", metadata length: ", metadata_length);
+          case MessageDecoder::State::BODY: {
+            auto body = SliceBuffer(metadata, metadata_length, body_length);
+            if (body->size() < state->decoder->next_required_size()) {
+              return Status::IOError("Expected to be able to read ",
+                                     state->decoder->next_required_size(),
+                                     " bytes for message body, got ", body->size());
+            }
+            RETURN_NOT_OK(state->decoder->Consume(body));
+            return std::move(state->result);
+          }
+          case MessageDecoder::State::EOS:
+            return Status::Invalid("Unexpected empty message in IPC file format");
+          default:
+            return Status::Invalid("Unexpected state: ", state->decoder->state());
+        }
+      });
 }
 
 Status AlignStream(io::InputStream* stream, int32_t alignment) {

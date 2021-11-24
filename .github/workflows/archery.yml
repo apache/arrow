@@ -31,6 +31,10 @@ on:
       - 'dev/tasks/**'
       - 'docker-compose.yml'
 
+concurrency:
+  group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
+  cancel-in-progress: true
+
 jobs:
 
   test:
@@ -44,22 +48,23 @@ jobs:
         with:
           fetch-depth: 0
       - name: Git Fixup
-        if: ${{ github.ref != 'master' }}
         shell: bash
-        run: git branch master origin/master
+        run: git branch master origin/master || true
       - name: Free Up Disk Space
         run: ci/scripts/util_cleanup.sh
       - name: Setup Python
         uses: actions/setup-python@v1
         with:
           python-version: '3.6'
+      - name: Install pygit2 binary wheel
+        run: pip install pygit2 --only-binary pygit2
       - name: Install Archery, Crossbow- and Test Dependencies
         run: pip install pytest responses -e dev/archery[all]
       - name: Archery Unittests
         working-directory: dev/archery
         run: pytest -v archery
       - name: Archery Docker Validation
-        run: archery docker
+        run: archery docker check-config
       - name: Crossbow Check Config
         working-directory: dev/tasks
         run: archery crossbow check-config

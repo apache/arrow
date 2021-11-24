@@ -260,8 +260,10 @@ static void CoalescedRead(benchmark::State& st, S3FileSystem* fs,
     ASSERT_OK_AND_ASSIGN(size, file->GetSize());
     total_items += 1;
 
-    io::internal::ReadRangeCache cache(file, {},
-                                       io::CacheOptions{8192, 64 * 1024 * 1024});
+    io::internal::ReadRangeCache cache(
+        file, {},
+        io::CacheOptions{/*hole_size_limit=*/8192, /*range_size_limit=*/64 * 1024 * 1024,
+                         /*lazy=*/false});
     std::vector<io::ReadRange> ranges;
 
     int64_t offset = 0;

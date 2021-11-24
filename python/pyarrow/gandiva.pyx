@@ -18,7 +18,6 @@
 # cython: profile=False
 # distutils: language = c++
 # cython: language_level = 3
-# cython: embedsignature = True
 
 from libcpp cimport bool as c_bool, nullptr
 from libcpp.memory cimport shared_ptr, unique_ptr, make_shared
@@ -30,7 +29,8 @@ from libc.stdint cimport int64_t, int32_t, uint8_t, uintptr_t
 from pyarrow.includes.libarrow cimport *
 from pyarrow.lib cimport (Array, DataType, Field, MemoryPool, RecordBatch,
                           Schema, check_status, pyarrow_wrap_array,
-                          pyarrow_wrap_data_type, ensure_type, _Weakrefable)
+                          pyarrow_wrap_data_type, ensure_type, _Weakrefable,
+                          pyarrow_wrap_field)
 from pyarrow.lib import frombytes
 
 from pyarrow.includes.libgandiva cimport (
@@ -93,12 +93,35 @@ cdef class Node(_Weakrefable):
         self.node = node
         return self
 
+    def __str__(self):
+        return self.node.get().ToString().decode()
+
+    def __repr__(self):
+        type_format = object.__repr__(self)
+        return '{0}\n{1}'.format(type_format, str(self))
+
+    def return_type(self):
+        return pyarrow_wrap_data_type(self.node.get().return_type())
+
 cdef class Expression(_Weakrefable):
     cdef:
         shared_ptr[CExpression] expression
 
     cdef void init(self, shared_ptr[CExpression] expression):
         self.expression = expression
+
+    def __str__(self):
+        return self.expression.get().ToString().decode()
+
+    def __repr__(self):
+        type_format = object.__repr__(self)
+        return '{0}\n{1}'.format(type_format, str(self))
+
+    def root(self):
+        return Node.create(self.expression.get().root())
+
+    def result(self):
+        return pyarrow_wrap_field(self.expression.get().result())
 
 cdef class Condition(_Weakrefable):
     cdef:
@@ -114,6 +137,19 @@ cdef class Condition(_Weakrefable):
         cdef Condition self = Condition.__new__(Condition)
         self.condition = condition
         return self
+
+    def __str__(self):
+        return self.condition.get().ToString().decode()
+
+    def __repr__(self):
+        type_format = object.__repr__(self)
+        return '{0}\n{1}'.format(type_format, str(self))
+
+    def root(self):
+        return Node.create(self.condition.get().root())
+
+    def result(self):
+        return pyarrow_wrap_field(self.condition.get().result())
 
 cdef class SelectionVector(_Weakrefable):
     cdef:

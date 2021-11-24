@@ -63,6 +63,27 @@ OPS_WITH_OVERFLOW(DivideWithOverflow, div)
 #undef OP_WITH_OVERFLOW
 #undef OPS_WITH_OVERFLOW
 
+// Define function NegateWithOverflow with the signature `bool(T u, T* out)`
+// where T is a signed integer type.  On overflow, these functions return true.
+// Otherwise, false is returned and `out` is updated with the result of the
+// operation.
+
+#define UNARY_OP_WITH_OVERFLOW(_func_name, _psnip_op, _type, _psnip_type) \
+  static inline bool _func_name(_type u, _type* out) {                    \
+    return !psnip_safe_##_psnip_type##_##_psnip_op(out, u);               \
+  }
+
+#define SIGNED_UNARY_OPS_WITH_OVERFLOW(_func_name, _psnip_op)   \
+  UNARY_OP_WITH_OVERFLOW(_func_name, _psnip_op, int8_t, int8)   \
+  UNARY_OP_WITH_OVERFLOW(_func_name, _psnip_op, int16_t, int16) \
+  UNARY_OP_WITH_OVERFLOW(_func_name, _psnip_op, int32_t, int32) \
+  UNARY_OP_WITH_OVERFLOW(_func_name, _psnip_op, int64_t, int64)
+
+SIGNED_UNARY_OPS_WITH_OVERFLOW(NegateWithOverflow, neg)
+
+#undef UNARY_OP_WITH_OVERFLOW
+#undef SIGNED_UNARY_OPS_WITH_OVERFLOW
+
 /// Signed addition with well-defined behaviour on overflow (as unsigned)
 template <typename SignedInt>
 SignedInt SafeSignedAdd(SignedInt u, SignedInt v) {
@@ -77,6 +98,13 @@ SignedInt SafeSignedSubtract(SignedInt u, SignedInt v) {
   using UnsignedInt = typename std::make_unsigned<SignedInt>::type;
   return static_cast<SignedInt>(static_cast<UnsignedInt>(u) -
                                 static_cast<UnsignedInt>(v));
+}
+
+/// Signed negation with well-defined behaviour on overflow (as unsigned)
+template <typename SignedInt>
+SignedInt SafeSignedNegate(SignedInt u) {
+  using UnsignedInt = typename std::make_unsigned<SignedInt>::type;
+  return static_cast<SignedInt>(~static_cast<UnsignedInt>(u) + 1);
 }
 
 /// Signed left shift with well-defined behaviour on negative numbers or overflow

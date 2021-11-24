@@ -74,14 +74,14 @@ void StopSource::Reset() {
 
 StopToken StopSource::token() { return StopToken(impl_); }
 
-bool StopToken::IsStopRequested() {
+bool StopToken::IsStopRequested() const {
   if (!impl_) {
     return false;
   }
   return impl_->requested_.load() != 0;
 }
 
-Status StopToken::Poll() {
+Status StopToken::Poll() const {
   if (!impl_) {
     return Status::OK();
   }

@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env sh
 #
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
@@ -20,7 +20,7 @@
 test_dir="$(cd $(dirname $0); pwd)"
 build_dir="$(cd .; pwd)"
 
-modules="arrow-glib arrow-cuda-glib arrow-dataset-glib gandiva-glib parquet-glib plasma-glib"
+modules="arrow-glib arrow-cuda-glib arrow-dataset-glib arrow-flight-glib gandiva-glib parquet-glib plasma-glib"
 
 for module in ${modules}; do
   module_build_dir="${build_dir}/${module}"

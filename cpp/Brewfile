@@ -16,6 +16,7 @@
 # under the License.
 
 brew "automake"
+brew "aws-sdk-cpp"
 brew "boost"
 brew "brotli"
 brew "c-ares"
@@ -35,9 +36,6 @@ brew "openssl@1.1"
 brew "protobuf"
 brew "python"
 brew "rapidjson"
-# grpc bundles re2 and causes a conflict when Homebrew tries to install it,
-# so temporarily skip installing re2. See ARROW-9972.
-# brew "re2"
 brew "snappy"
 brew "thrift"
 brew "wget"

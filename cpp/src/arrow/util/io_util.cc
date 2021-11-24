@@ -34,13 +34,17 @@
 #include "arrow/util/windows_compatibility.h"  // IWYU pragma: keep
 
 #include <algorithm>
+#include <array>
 #include <cerrno>
+#include <climits>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <iostream>
 #include <random>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -54,6 +58,7 @@
 // file compatibility stuff
 
 #ifdef _WIN32
+#include <direct.h>
 #include <io.h>
 #include <share.h>
 #else  // POSIX-like platforms
@@ -98,76 +103,6 @@
 namespace arrow {
 
 using internal::checked_cast;
-
-namespace io {
-
-//
-// StdoutStream implementation
-//
-
-StdoutStream::StdoutStream() : pos_(0) { set_mode(FileMode::WRITE); }
-
-Status StdoutStream::Close() { return Status::OK(); }
-
-bool StdoutStream::closed() const { return false; }
-
-Result<int64_t> StdoutStream::Tell() const { return pos_; }
-
-Status StdoutStream::Write(const void* data, int64_t nbytes) {
-  pos_ += nbytes;
-  std::cout.write(reinterpret_cast<const char*>(data), nbytes);
-  return Status::OK();
-}
-
-//
-// StderrStream implementation
-//
-
-StderrStream::StderrStream() : pos_(0) { set_mode(FileMode::WRITE); }
-
-Status StderrStream::Close() { return Status::OK(); }
-
-bool StderrStream::closed() const { return false; }
-
-Result<int64_t> StderrStream::Tell() const { return pos_; }
-
-Status StderrStream::Write(const void* data, int64_t nbytes) {
-  pos_ += nbytes;
-  std::cerr.write(reinterpret_cast<const char*>(data), nbytes);
-  return Status::OK();
-}
-
-//
-// StdinStream implementation
-//
-
-StdinStream::StdinStream() : pos_(0) { set_mode(FileMode::READ); }
-
-Status StdinStream::Close() { return Status::OK(); }
-
-bool StdinStream::closed() const { return false; }
-
-Result<int64_t> StdinStream::Tell() const { return pos_; }
-
-Result<int64_t> StdinStream::Read(int64_t nbytes, void* out) {
-  std::cin.read(reinterpret_cast<char*>(out), nbytes);
-  if (std::cin) {
-    pos_ += nbytes;
-    return nbytes;
-  } else {
-    return 0;
-  }
-}
-
-Result<std::shared_ptr<Buffer>> StdinStream::Read(int64_t nbytes) {
-  ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateResizableBuffer(nbytes));
-  ARROW_ASSIGN_OR_RAISE(int64_t bytes_read, Read(nbytes, buffer->mutable_data()));
-  ARROW_RETURN_NOT_OK(buffer->Resize(bytes_read, false));
-  buffer->ZeroPadding();
-  return std::move(buffer);
-}
-
-}  // namespace io
 
 namespace internal {
 
@@ -375,6 +310,26 @@ int SignalFromStatus(const Status& status) {
   return 0;
 }
 
+namespace {
+
+Result<NativePathString> NativeReal(const NativePathString& path) {
+#if _WIN32
+  std::array<wchar_t, _MAX_PATH> resolved;
+  if (_wfullpath(const_cast<wchar_t*>(path.c_str()), resolved.data(), resolved.size()) ==
+      nullptr) {
+    return IOErrorFromWinError(errno, "Failed to resolve real path");
+  }
+#else
+  std::array<char, PATH_MAX + 1> resolved;
+  if (realpath(path.c_str(), resolved.data()) == nullptr) {
+    return IOErrorFromErrno(errno, "Failed to resolve real path");
+  }
+#endif
+  return NativePathString{resolved.data()};
+}
+
+}  // namespace
+
 //
 // PlatformFilename implementation
 //
@@ -411,8 +366,8 @@ PlatformFilename& PlatformFilename::operator=(PlatformFilename&& other) {
   return *this;
 }
 
-PlatformFilename::PlatformFilename(const NativePathString& path)
-    : PlatformFilename(Impl{path}) {}
+PlatformFilename::PlatformFilename(NativePathString path)
+    : PlatformFilename(Impl{std::move(path)}) {}
 
 PlatformFilename::PlatformFilename(const NativePathString::value_type* path)
     : PlatformFilename(NativePathString(path)) {}
@@ -445,6 +400,11 @@ PlatformFilename PlatformFilename::Parent() const {
   return PlatformFilename(NativeParent(ToNative()));
 }
 
+Result<PlatformFilename> PlatformFilename::Real() const {
+  ARROW_ASSIGN_OR_RAISE(auto real, NativeReal(ToNative()));
+  return PlatformFilename(std::move(real));
+}
+
 Result<PlatformFilename> PlatformFilename::FromString(const std::string& file_name) {
   RETURN_NOT_OK(ValidatePath(file_name));
   ARROW_ASSIGN_OR_RAISE(auto ns, StringToNative(file_name));
@@ -472,11 +432,18 @@ namespace {
 
 Result<bool> DoCreateDir(const PlatformFilename& dir_path, bool create_parents) {
 #ifdef _WIN32
-  if (CreateDirectoryW(dir_path.ToNative().c_str(), nullptr)) {
+  const auto s = dir_path.ToNative().c_str();
+  if (CreateDirectoryW(s, nullptr)) {
     return true;
   }
   int errnum = GetLastError();
   if (errnum == ERROR_ALREADY_EXISTS) {
+    const auto attrs = GetFileAttributesW(s);
+    if (attrs == INVALID_FILE_ATTRIBUTES || !(attrs & FILE_ATTRIBUTE_DIRECTORY)) {
+      // Note we propagate the original error, not the GetFileAttributesW() error
+      return IOErrorFromWinError(ERROR_ALREADY_EXISTS, "Cannot create directory '",
+                                 dir_path.ToString(), "': non-directory entry exists");
+    }
     return false;
   }
   if (create_parents && errnum == ERROR_PATH_NOT_FOUND) {
@@ -489,10 +456,17 @@ Result<bool> DoCreateDir(const PlatformFilename& dir_path, bool create_parents) 
   return IOErrorFromWinError(GetLastError(), "Cannot create directory '",
                              dir_path.ToString(), "'");
 #else
-  if (mkdir(dir_path.ToNative().c_str(), S_IRWXU | S_IRWXG | S_IRWXO) == 0) {
+  const auto s = dir_path.ToNative().c_str();
+  if (mkdir(s, S_IRWXU | S_IRWXG | S_IRWXO) == 0) {
     return true;
   }
   if (errno == EEXIST) {
+    struct stat st;
+    if (stat(s, &st) || !S_ISDIR(st.st_mode)) {
+      // Note we propagate the original errno, not the stat() errno
+      return IOErrorFromErrno(EEXIST, "Cannot create directory '", dir_path.ToString(),
+                              "': non-directory entry exists");
+    }
     return false;
   }
   if (create_parents && errno == ENOENT) {
@@ -1718,6 +1692,22 @@ int64_t GetRandomSeed() {
   // unless truly necessary (it can block on some systems, see ARROW-10287).
   static auto seed_gen = GetSeedGenerator();
   return static_cast<int64_t>(seed_gen());
+}
+
+uint64_t GetThreadId() {
+  uint64_t equiv{0};
+  // std::thread::id is trivially copyable as per C++ spec,
+  // so type punning as a uint64_t should work
+  static_assert(sizeof(std::thread::id) <= sizeof(uint64_t),
+                "std::thread::id can't fit into uint64_t");
+  const auto tid = std::this_thread::get_id();
+  memcpy(&equiv, reinterpret_cast<const void*>(&tid), sizeof(tid));
+  return equiv;
+}
+
+uint64_t GetOptionalThreadId() {
+  auto tid = GetThreadId();
+  return (tid == 0) ? tid - 1 : tid;
 }
 
 }  // namespace internal

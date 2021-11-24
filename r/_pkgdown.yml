@@ -44,7 +44,7 @@ navbar:
       text: Project docs
       menu:
         - text: Specification
-          href: https://arrow.apache.org/docs/format/README.html
+          href: https://arrow.apache.org/docs/format/Columnar.html
         - text: C GLib
           href: https://arrow.apache.org/docs/c_glib
         - text: C++
@@ -72,6 +72,14 @@ navbar:
           href: articles/flight.html
         - text: Arrow R Developer Guide
           href: articles/developing.html
+        - text: Developers
+          menu:
+          - text: Developer Environment Setup
+            href: articles/developers/setup.html
+          - text: Common Workflow Tasks
+            href: articles/developers/workflow.html
+          - text: Debugging
+            href: articles/developers/debugging.html
 reference:
   - title: Multi-file datasets
     contents:
@@ -98,6 +106,7 @@ reference:
       - write_ipc_stream
       - write_to_raw
       - write_parquet
+      - write_csv_arrow
   - title: C++ reader/writer interface
     contents:
       - ParquetFileReader
@@ -109,6 +118,7 @@ reference:
       - RecordBatchReader
       - RecordBatchWriter
       - CsvReadOptions
+      - CsvWriteOptions
   - title: Arrow data containers
     contents:
       - array
@@ -162,13 +172,19 @@ reference:
       - match_arrow
       - value_counts
       - list_compute_functions
+  - title: Connections to other systems
+    contents:
+      - to_arrow
+      - to_duckdb
   - title: Configuration
     contents:
       - arrow_info
       - cpu_count
+      - io_thread_count
       - arrow_available
       - install_arrow
       - install_pyarrow
+      - create_package_with_all_dependencies
 
 repo:
   jira_projects: [ARROW]

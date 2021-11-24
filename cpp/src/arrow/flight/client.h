@@ -31,6 +31,7 @@
 #include "arrow/ipc/writer.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/util/cancel.h"
 #include "arrow/util/variant.h"
 
 #include "arrow/flight/types.h"  // IWYU pragma: keep
@@ -69,6 +70,9 @@ class ARROW_FLIGHT_EXPORT FlightCallOptions {
 
   /// \brief Headers for client to add to context.
   std::vector<std::pair<std::string, std::string>> headers;
+
+  /// \brief A token to enable interactive user cancellation of long-running requests.
+  StopToken stop_token;
 };
 
 /// \brief Indicate that the client attempted to write a message
@@ -129,6 +133,12 @@ class ARROW_FLIGHT_EXPORT FlightStreamReader : public MetadataRecordBatchReader 
  public:
   /// \brief Try to cancel the call.
   virtual void Cancel() = 0;
+  using MetadataRecordBatchReader::ReadAll;
+  /// \brief Consume entire stream as a vector of record batches
+  virtual Status ReadAll(std::vector<std::shared_ptr<RecordBatch>>* batches,
+                         const StopToken& stop_token) = 0;
+  /// \brief Consume entire stream as a Table
+  Status ReadAll(std::shared_ptr<Table>* table, const StopToken& stop_token);
 };
 
 // Silence warning

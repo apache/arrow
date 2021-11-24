@@ -163,6 +163,11 @@ class ParsingBoundaryFinder : public BoundaryFinder {
     }
     return Status::OK();
   }
+
+  Status FindNth(util::string_view partial, util::string_view block, int64_t count,
+                 int64_t* out_pos, int64_t* num_found) override {
+    return Status::NotImplemented("ParsingBoundaryFinder::FindNth");
+  }
 };
 
 }  // namespace

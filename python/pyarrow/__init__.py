@@ -64,10 +64,11 @@ import pyarrow.lib as _lib
 if _gc_enabled:
     _gc.enable()
 
-from pyarrow.lib import (BuildInfo, RuntimeInfo, VersionInfo,
-                         cpp_build_info, cpp_version, cpp_version_info,
-                         runtime_info, cpu_count, set_cpu_count,
-                         enable_signal_handlers)
+from pyarrow.lib import (BuildInfo, RuntimeInfo, MonthDayNano,
+                         VersionInfo, cpp_build_info, cpp_version,
+                         cpp_version_info, runtime_info, cpu_count,
+                         set_cpu_count, enable_signal_handlers,
+                         io_thread_count, set_io_thread_count)
 
 
 def show_versions():
@@ -93,6 +94,7 @@ from pyarrow.lib import (null, bool_,
                          int8, int16, int32, int64,
                          uint8, uint16, uint32, uint64,
                          time32, time64, timestamp, date32, date64, duration,
+                         month_day_nano_interval,
                          float16, float32, float64,
                          binary, string, utf8,
                          large_binary, large_string, large_utf8,
@@ -136,6 +138,7 @@ from pyarrow.lib import (null, bool_,
                          DictionaryArray,
                          Date32Array, Date64Array, TimestampArray,
                          Time32Array, Time64Array, DurationArray,
+                         MonthDayNanoIntervalArray,
                          Decimal128Array, Decimal256Array, StructArray, ExtensionArray,
                          scalar, NA, _NULL as NULL, Scalar,
                          NullScalar, BooleanScalar,
@@ -146,11 +149,13 @@ from pyarrow.lib import (null, bool_,
                          ListScalar, LargeListScalar, FixedSizeListScalar,
                          Date32Scalar, Date64Scalar,
                          Time32Scalar, Time64Scalar,
+                         TimestampScalar, DurationScalar,
+                         MonthDayNanoIntervalScalar,
                          BinaryScalar, LargeBinaryScalar,
                          StringScalar, LargeStringScalar,
                          FixedSizeBinaryScalar, DictionaryScalar,
-                         MapScalar, UnionScalar, StructScalar,
-                         TimestampScalar, DurationScalar)
+                         MapScalar, StructScalar, UnionScalar,
+                         ExtensionScalar)
 
 # Buffers, allocation
 from pyarrow.lib import (Buffer, ResizableBuffer, foreign_buffer, py_buffer,
@@ -164,15 +169,17 @@ from pyarrow.lib import (MemoryPool, LoggingMemoryPool, ProxyMemoryPool,
                          log_memory_allocations, jemalloc_set_decay_ms)
 
 # I/O
-from pyarrow.lib import (HdfsFile, NativeFile, PythonFile,
+from pyarrow.lib import (NativeFile, PythonFile,
                          BufferedInputStream, BufferedOutputStream,
                          CompressedInputStream, CompressedOutputStream,
                          TransformInputStream, transcoding_input_stream,
                          FixedSizeBufferWriter,
                          BufferReader, BufferOutputStream,
                          OSFile, MemoryMappedFile, memory_map,
-                         create_memory_map, have_libhdfs,
-                         MockOutputStream, input_stream, output_stream)
+                         create_memory_map, MockOutputStream,
+                         input_stream, output_stream)
+
+from pyarrow._hdfsio import HdfsFile, have_libhdfs
 
 from pyarrow.lib import (ChunkedArray, RecordBatch, Table, table,
                          concat_arrays, concat_tables)

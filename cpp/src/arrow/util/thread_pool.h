@@ -82,16 +82,30 @@ class ARROW_EXPORT Executor {
 
   // Spawn a fire-and-forget task.
   template <typename Function>
-  Status Spawn(Function&& func, StopToken stop_token = StopToken::Unstoppable()) {
+  Status Spawn(Function&& func) {
+    return SpawnReal(TaskHints{}, std::forward<Function>(func), StopToken::Unstoppable(),
+                     StopCallback{});
+  }
+  template <typename Function>
+  Status Spawn(Function&& func, StopToken stop_token) {
     return SpawnReal(TaskHints{}, std::forward<Function>(func), std::move(stop_token),
                      StopCallback{});
   }
-
   template <typename Function>
-  Status Spawn(TaskHints hints, Function&& func,
-               StopToken stop_token = StopToken::Unstoppable()) {
+  Status Spawn(TaskHints hints, Function&& func) {
+    return SpawnReal(hints, std::forward<Function>(func), StopToken::Unstoppable(),
+                     StopCallback{});
+  }
+  template <typename Function>
+  Status Spawn(TaskHints hints, Function&& func, StopToken stop_token) {
     return SpawnReal(hints, std::forward<Function>(func), std::move(stop_token),
                      StopCallback{});
+  }
+  template <typename Function>
+  Status Spawn(TaskHints hints, Function&& func, StopToken stop_token,
+               StopCallback stop_callback) {
+    return SpawnReal(hints, std::forward<Function>(func), std::move(stop_token),
+                     std::move(stop_callback));
   }
 
   // Transfers a future to this executor.  Any continuations added to the
@@ -102,24 +116,24 @@ class ARROW_EXPORT Executor {
   // The continuations of that future should run on the CPU thread pool keeping
   // CPU heavy work off the I/O thread pool.  So the I/O task should transfer
   // the future to the CPU executor before returning.
+  //
+  // By default this method will only transfer if the future is not already completed.  If
+  // the future is already completed then any callback would be run synchronously and so
+  // no transfer is typically necessary.  However, in cases where you want to force a
+  // transfer (e.g. to help the scheduler break up units of work across multiple cores)
+  // then you can override this behavior with `always_transfer`.
   template <typename T>
   Future<T> Transfer(Future<T> future) {
-    auto transferred = Future<T>::Make();
-    auto callback = [this, transferred](const Result<T>& result) mutable {
-      auto spawn_status =
-          Spawn([transferred, result]() mutable { transferred.MarkFinished(result); });
-      if (!spawn_status.ok()) {
-        transferred.MarkFinished(spawn_status);
-      }
-    };
-    auto callback_factory = [&callback]() { return callback; };
-    if (future.TryAddCallback(callback_factory)) {
-      return transferred;
-    }
-    // If the future is already finished and we aren't going to force spawn a thread
-    // then we don't need to add another layer of callback and can return the original
-    // future
-    return future;
+    return DoTransfer(std::move(future), false);
+  }
+
+  // Overload of Transfer which will always schedule callbacks on new threads even if the
+  // future is finished when the callback is added.
+  //
+  // This can be useful in cases where you want to ensure parallelism
+  template <typename T>
+  Future<T> TransferAlways(Future<T> future) {
+    return DoTransfer(std::move(future), true);
   }
 
   // Submit a callable and arguments for execution.  Return a future that
@@ -179,10 +193,47 @@ class ARROW_EXPORT Executor {
   // concurrently).  This may be an approximate number.
   virtual int GetCapacity() = 0;
 
+  // Return true if the thread from which this function is called is owned by this
+  // Executor. Returns false if this Executor does not support this property.
+  virtual bool OwnsThisThread() { return false; }
+
  protected:
   ARROW_DISALLOW_COPY_AND_ASSIGN(Executor);
 
   Executor() = default;
+
+  template <typename T, typename FT = Future<T>, typename FTSync = typename FT::SyncType>
+  Future<T> DoTransfer(Future<T> future, bool always_transfer = false) {
+    auto transferred = Future<T>::Make();
+    if (always_transfer) {
+      CallbackOptions callback_options = CallbackOptions::Defaults();
+      callback_options.should_schedule = ShouldSchedule::Always;
+      callback_options.executor = this;
+      auto sync_callback = [transferred](const FTSync& result) mutable {
+        transferred.MarkFinished(result);
+      };
+      future.AddCallback(sync_callback, callback_options);
+      return transferred;
+    }
+
+    // We could use AddCallback's ShouldSchedule::IfUnfinished but we can save a bit of
+    // work by doing the test here.
+    auto callback = [this, transferred](const FTSync& result) mutable {
+      auto spawn_status =
+          Spawn([transferred, result]() mutable { transferred.MarkFinished(result); });
+      if (!spawn_status.ok()) {
+        transferred.MarkFinished(spawn_status);
+      }
+    };
+    auto callback_factory = [&callback]() { return callback; };
+    if (future.TryAddCallback(callback_factory)) {
+      return transferred;
+    }
+    // If the future is already finished and we aren't going to force spawn a thread
+    // then we don't need to add another layer of callback and can return the original
+    // future
+    return future;
+  }
 
   // Subclassing API
   virtual Status SpawnReal(TaskHints hints, FnOnce<void()> task, StopToken,
@@ -197,10 +248,10 @@ class ARROW_EXPORT Executor {
 /// asynchronous continuation.
 class ARROW_EXPORT SerialExecutor : public Executor {
  public:
-  template <typename T = ::arrow::detail::Empty>
+  template <typename T = ::arrow::internal::Empty>
   using TopLevelTask = internal::FnOnce<Future<T>(Executor*)>;
 
-  ~SerialExecutor();
+  ~SerialExecutor() override;
 
   int GetCapacity() override { return 1; };
   Status SpawnReal(TaskHints hints, FnOnce<void()> task, StopToken,
@@ -214,9 +265,11 @@ class ARROW_EXPORT SerialExecutor : public Executor {
   /// RunSynchronously/RunSerially which delegates the responsiblity onto a Future
   /// producer's existing responsibility to always mark a future finished (which can
   /// someday be aided by ARROW-12207).
-  template <typename T>
-  static Result<T> RunInSerialExecutor(TopLevelTask<T> initial_task) {
-    return SerialExecutor().Run<T>(std::move(initial_task));
+  template <typename T = internal::Empty, typename FT = Future<T>,
+            typename FTSync = typename FT::SyncType>
+  static FTSync RunInSerialExecutor(TopLevelTask<T> initial_task) {
+    Future<T> fut = SerialExecutor().Run<T>(std::move(initial_task));
+    return FutureToSync(fut);
   }
 
  private:
@@ -226,15 +279,15 @@ class ARROW_EXPORT SerialExecutor : public Executor {
   struct State;
   std::shared_ptr<State> state_;
 
-  template <typename T>
-  Result<T> Run(TopLevelTask<T> initial_task) {
+  template <typename T, typename FTSync = typename Future<T>::SyncType>
+  Future<T> Run(TopLevelTask<T> initial_task) {
     auto final_fut = std::move(initial_task)(this);
     if (final_fut.is_finished()) {
-      return final_fut.result();
+      return final_fut;
     }
-    final_fut.AddCallback([this](const Result<T>&) { MarkFinished(); });
+    final_fut.AddCallback([this](const FTSync&) { MarkFinished(); });
     RunLoop();
-    return final_fut.result();
+    return final_fut;
   }
   void RunLoop();
   void MarkFinished();
@@ -263,6 +316,8 @@ class ARROW_EXPORT ThreadPool : public Executor {
   // match this value.
   int GetCapacity() override;
 
+  bool OwnsThisThread() override;
+
   // Return the number of tasks either running or in the queue.
   int GetNumTasks();
 
@@ -285,6 +340,11 @@ class ARROW_EXPORT ThreadPool : public Executor {
   // If "wait" is false, workers are stopped as soon as currently executing
   // tasks are finished.
   Status Shutdown(bool wait = true);
+
+  // Wait for the thread pool to become idle
+  //
+  // This is useful for sequencing tests
+  void WaitForIdle();
 
   struct State;
 
@@ -328,16 +388,16 @@ ARROW_EXPORT ThreadPool* GetCpuThreadPool();
 /// `get_future` is called (from this thread) with the chosen executor and must
 /// return a future that will eventually finish. This function returns once the
 /// future has finished.
-template <typename T>
-Result<T> RunSynchronously(FnOnce<Future<T>(Executor*)> get_future, bool use_threads) {
+template <typename Fut, typename ValueType = typename Fut::ValueType>
+typename Fut::SyncType RunSynchronously(FnOnce<Fut(Executor*)> get_future,
+                                        bool use_threads) {
   if (use_threads) {
-    return std::move(get_future)(GetCpuThreadPool()).result();
+    auto fut = std::move(get_future)(GetCpuThreadPool());
+    return FutureToSync(fut);
   } else {
-    return SerialExecutor::RunInSerialExecutor<T>(std::move(get_future));
+    return SerialExecutor::RunInSerialExecutor<ValueType>(std::move(get_future));
   }
 }
 
-ARROW_EXPORT Status RunSynchronouslyVoid(
-    FnOnce<Future<arrow::detail::Empty>(Executor*)> get_future, bool use_threads);
 }  // namespace internal
 }  // namespace arrow

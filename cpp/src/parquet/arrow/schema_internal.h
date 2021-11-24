@@ -40,9 +40,12 @@ Result<std::shared_ptr<::arrow::DataType>> GetArrowType(Type::type physical_type
                                                         int type_length);
 
 Result<std::shared_ptr<::arrow::DataType>> GetArrowType(
-    const schema::PrimitiveNode& primitive);
+    Type::type physical_type, const LogicalType& logical_type, int type_length,
+    ::arrow::TimeUnit::type int96_arrow_time_unit = ::arrow::TimeUnit::NANO);
+
 Result<std::shared_ptr<::arrow::DataType>> GetArrowType(
-    const ColumnDescriptor& descriptor);
+    const schema::PrimitiveNode& primitive,
+    ::arrow::TimeUnit::type int96_arrow_time_unit = ::arrow::TimeUnit::NANO);
 
 }  // namespace arrow
 }  // namespace parquet

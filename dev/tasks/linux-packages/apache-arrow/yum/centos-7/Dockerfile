@@ -18,15 +18,12 @@
 ARG FROM=centos:7
 FROM ${FROM}
 
-COPY qemu-* /usr/bin/
-
 ARG DEBUG
 
 RUN \
   quiet=$([ "${DEBUG}" = "yes" ] || echo "--quiet") && \
   yum update -y ${quiet} && \
   yum install -y ${quiet} epel-release && \
-  yum groupinstall -y ${quiet} "Development Tools" && \
   yum install -y ${quiet} \
     bison \
     boost169-devel \
@@ -35,6 +32,7 @@ RUN \
     ccache \
     cmake3 \
     flex \
+    gcc-c++ \
     gflags-devel \
     git \
     glog-devel \
@@ -42,6 +40,7 @@ RUN \
     gtk-doc \
     libzstd-devel \
     lz4-devel \
+    make \
     ninja-build \
     openssl-devel \
     pkg-config \
@@ -49,11 +48,9 @@ RUN \
     python36-devel \
     python36-numpy \
     rapidjson-devel \
-    rpm-build \
     rpmdevtools \
     snappy-devel \
     tar \
-    utf8proc-devel \
     zlib-devel && \
   yum clean ${quiet} all
 

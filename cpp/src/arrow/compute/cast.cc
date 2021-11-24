@@ -18,6 +18,7 @@
 #include "arrow/compute/cast.h"
 
 #include <mutex>
+#include <sstream>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -26,10 +27,12 @@
 
 #include "arrow/compute/cast_internal.h"
 #include "arrow/compute/exec.h"
+#include "arrow/compute/function_internal.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/registry.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/reflection_internal.h"
 
 namespace arrow {
 
@@ -37,6 +40,9 @@ using internal::ToTypeName;
 
 namespace compute {
 namespace internal {
+
+// ----------------------------------------------------------------------
+// Function options
 
 namespace {
 
@@ -55,6 +61,7 @@ void InitCastTable() {
   AddCastFunctions(GetNestedCasts());
   AddCastFunctions(GetNumericCasts());
   AddCastFunctions(GetTemporalCasts());
+  AddCastFunctions(GetDictionaryCasts());
 }
 
 void EnsureInitCastTable() { std::call_once(cast_table_initialized, InitCastTable); }
@@ -116,13 +123,34 @@ class CastMetaFunction : public MetaFunction {
   }
 };
 
+static auto kCastOptionsType = GetFunctionOptionsType<CastOptions>(
+    arrow::internal::DataMember("to_type", &CastOptions::to_type),
+    arrow::internal::DataMember("allow_int_overflow", &CastOptions::allow_int_overflow),
+    arrow::internal::DataMember("allow_time_truncate", &CastOptions::allow_time_truncate),
+    arrow::internal::DataMember("allow_time_overflow", &CastOptions::allow_time_overflow),
+    arrow::internal::DataMember("allow_decimal_truncate",
+                                &CastOptions::allow_decimal_truncate),
+    arrow::internal::DataMember("allow_float_truncate",
+                                &CastOptions::allow_float_truncate),
+    arrow::internal::DataMember("allow_invalid_utf8", &CastOptions::allow_invalid_utf8));
 }  // namespace
 
 void RegisterScalarCast(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::make_shared<CastMetaFunction>()));
+  DCHECK_OK(registry->AddFunctionOptionsType(kCastOptionsType));
 }
-
 }  // namespace internal
+
+CastOptions::CastOptions(bool safe)
+    : FunctionOptions(internal::kCastOptionsType),
+      allow_int_overflow(!safe),
+      allow_time_truncate(!safe),
+      allow_time_overflow(!safe),
+      allow_decimal_truncate(!safe),
+      allow_float_truncate(!safe),
+      allow_invalid_utf8(!safe) {}
+
+constexpr char CastOptions::kTypeName[];
 
 CastFunction::CastFunction(std::string name, Type::type out_type_id)
     : ScalarFunction(std::move(name), Arity::Unary(), /*doc=*/nullptr),

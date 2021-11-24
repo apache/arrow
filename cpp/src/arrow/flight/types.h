@@ -341,6 +341,9 @@ struct ARROW_FLIGHT_EXPORT FlightPayload {
   std::shared_ptr<Buffer> descriptor;
   std::shared_ptr<Buffer> app_metadata;
   ipc::IpcPayload ipc_message;
+
+  /// \brief Check that the payload can be written to the wire.
+  Status Validate() const;
 };
 
 /// \brief Schema result returned after a schema request RPC
@@ -473,6 +476,11 @@ class ARROW_FLIGHT_EXPORT MetadataRecordBatchReader {
   /// \brief Consume entire stream as a Table
   virtual Status ReadAll(std::shared_ptr<Table>* table);
 };
+
+/// \brief Convert a MetadataRecordBatchReader to a regular RecordBatchReader.
+ARROW_FLIGHT_EXPORT
+arrow::Result<std::shared_ptr<RecordBatchReader>> MakeRecordBatchReader(
+    std::shared_ptr<MetadataRecordBatchReader> reader);
 
 /// \brief An interface to write IPC payloads with metadata.
 class ARROW_FLIGHT_EXPORT MetadataRecordBatchWriter : public ipc::RecordBatchWriter {

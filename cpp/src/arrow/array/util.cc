@@ -34,6 +34,7 @@
 #include "arrow/buffer.h"
 #include "arrow/buffer_builder.h"
 #include "arrow/extension_type.h"
+#include "arrow/result.h"
 #include "arrow/scalar.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
@@ -77,11 +78,16 @@ class ArrayDataWrapper {
 
 class ArrayDataEndianSwapper {
  public:
-  ArrayDataEndianSwapper(const std::shared_ptr<ArrayData>& data, int64_t length)
-      : data_(data), length_(length) {
+  explicit ArrayDataEndianSwapper(const std::shared_ptr<ArrayData>& data) : data_(data) {
     out_ = data->Copy();
   }
 
+  // WARNING: this facility can be called on invalid Array data by the IPC reader.
+  // Do not rely on the advertised ArrayData length, instead use the physical
+  // buffer sizes to avoid accessing memory out of bounds.
+  //
+  // (If this guarantee turns out to be difficult to maintain, we should call
+  //  Validate() instead)
   Status SwapType(const DataType& type) {
     RETURN_NOT_OK(VisitTypeInline(type, this));
     RETURN_NOT_OK(SwapChildren(type.fields()));
@@ -110,6 +116,7 @@ class ArrayDataEndianSwapper {
     auto in_data = reinterpret_cast<const T*>(in_buffer->data());
     ARROW_ASSIGN_OR_RAISE(auto out_buffer, AllocateBuffer(in_buffer->size()));
     auto out_data = reinterpret_cast<T*>(out_buffer->mutable_data());
+    // NOTE: data_->length not trusted (see warning above)
     int64_t length = in_buffer->size() / sizeof(T);
     for (int64_t i = 0; i < length; i++) {
       out_data[i] = BitUtil::ByteSwap(in_data[i]);
@@ -145,8 +152,8 @@ class ArrayDataEndianSwapper {
     auto data = reinterpret_cast<const uint64_t*>(data_->buffers[1]->data());
     ARROW_ASSIGN_OR_RAISE(auto new_buffer, AllocateBuffer(data_->buffers[1]->size()));
     auto new_data = reinterpret_cast<uint64_t*>(new_buffer->mutable_data());
-    int64_t length = length_;
-    length = data_->buffers[1]->size() / (sizeof(uint64_t) * 2);
+    // NOTE: data_->length not trusted (see warning above)
+    const int64_t length = data_->buffers[1]->size() / Decimal128Type::kByteWidth;
     for (int64_t i = 0; i < length; i++) {
       uint64_t tmp;
       auto idx = i * 2;
@@ -168,8 +175,8 @@ class ArrayDataEndianSwapper {
     auto data = reinterpret_cast<const uint64_t*>(data_->buffers[1]->data());
     ARROW_ASSIGN_OR_RAISE(auto new_buffer, AllocateBuffer(data_->buffers[1]->size()));
     auto new_data = reinterpret_cast<uint64_t*>(new_buffer->mutable_data());
-    int64_t length = length_;
-    length = data_->buffers[1]->size() / (sizeof(uint64_t) * 4);
+    // NOTE: data_->length not trusted (see warning above)
+    const int64_t length = data_->buffers[1]->size() / Decimal256Type::kByteWidth;
     for (int64_t i = 0; i < length; i++) {
       uint64_t tmp0, tmp1, tmp2;
       auto idx = i * 4;
@@ -197,6 +204,30 @@ class ArrayDataEndianSwapper {
 
   Status Visit(const DayTimeIntervalType& type) {
     ARROW_ASSIGN_OR_RAISE(out_->buffers[1], ByteSwapBuffer<uint32_t>(data_->buffers[1]));
+    return Status::OK();
+  }
+
+  Status Visit(const MonthDayNanoIntervalType& type) {
+    using MonthDayNanos = MonthDayNanoIntervalType::MonthDayNanos;
+    auto data = reinterpret_cast<const MonthDayNanos*>(data_->buffers[1]->data());
+    ARROW_ASSIGN_OR_RAISE(auto new_buffer, AllocateBuffer(data_->buffers[1]->size()));
+    auto new_data = reinterpret_cast<MonthDayNanos*>(new_buffer->mutable_data());
+    // NOTE: data_->length not trusted (see warning above)
+    const int64_t length = data_->buffers[1]->size() / sizeof(MonthDayNanos);
+    for (int64_t i = 0; i < length; i++) {
+      MonthDayNanos tmp = data[i];
+#if ARROW_LITTLE_ENDIAN
+      tmp.months = BitUtil::FromBigEndian(tmp.months);
+      tmp.days = BitUtil::FromBigEndian(tmp.days);
+      tmp.nanoseconds = BitUtil::FromBigEndian(tmp.nanoseconds);
+#else
+      tmp.months = BitUtil::FromLittleEndian(tmp.months);
+      tmp.days = BitUtil::FromLittleEndian(tmp.days);
+      tmp.nanoseconds = BitUtil::FromLittleEndian(tmp.nanoseconds);
+#endif
+      new_data[i] = tmp;
+    }
+    out_->buffers[1] = std::move(new_buffer);
     return Status::OK();
   }
 
@@ -255,7 +286,6 @@ class ArrayDataEndianSwapper {
   }
 
   const std::shared_ptr<ArrayData>& data_;
-  int64_t length_;
   std::shared_ptr<ArrayData> out_;
 };
 
@@ -268,7 +298,7 @@ Result<std::shared_ptr<ArrayData>> SwapEndianArrayData(
   if (data->offset != 0) {
     return Status::Invalid("Unsupported data format: data.offset != 0");
   }
-  ArrayDataEndianSwapper swapper(data, data->length);
+  ArrayDataEndianSwapper swapper(data);
   RETURN_NOT_OK(swapper.SwapType(*data->type));
   return std::move(swapper.out_);
 }
@@ -286,7 +316,7 @@ std::shared_ptr<Array> MakeArray(const std::shared_ptr<ArrayData>& data) {
 // ----------------------------------------------------------------------
 // Misc APIs
 
-namespace internal {
+namespace {
 
 // get the maximum buffer length required, then allocate a single zeroed buffer
 // to use anywhere a buffer is required
@@ -333,15 +363,24 @@ class NullArrayFactory {
       return Status::OK();
     }
 
-    Status Visit(const UnionType& type) {
+    Status Visit(const SparseUnionType& type) {
       // type codes
       RETURN_NOT_OK(MaxOf(length_));
-      if (type.mode() == UnionMode::DENSE) {
-        // offsets
-        RETURN_NOT_OK(MaxOf(sizeof(int32_t) * length_));
-      }
+      // will create children of the same length as the union
       for (const auto& child : type.fields()) {
         RETURN_NOT_OK(MaxOf(GetBufferLength(child->type(), length_)));
+      }
+      return Status::OK();
+    }
+
+    Status Visit(const DenseUnionType& type) {
+      // type codes
+      RETURN_NOT_OK(MaxOf(length_));
+      // offsets
+      RETURN_NOT_OK(MaxOf(sizeof(int32_t) * length_));
+      // will create children of length 1
+      for (const auto& child : type.fields()) {
+        RETURN_NOT_OK(MaxOf(GetBufferLength(child->type(), 1)));
       }
       return Status::OK();
     }
@@ -441,9 +480,12 @@ class NullArrayFactory {
     // First buffer is always null
     out_->buffers[0] = nullptr;
 
-    // Type codes are all zero, so we can use buffer_ which has had it's memory
-    // zeroed
     out_->buffers[1] = buffer_;
+    // buffer_ is zeroed, but 0 may not be a valid type code
+    if (type.type_codes()[0] != 0) {
+      ARROW_ASSIGN_OR_RAISE(out_->buffers[1], AllocateBuffer(length_, pool_));
+      std::memset(out_->buffers[1]->mutable_data(), type.type_codes()[0], length_);
+    }
 
     // For sparse unions, we now create children with the same length as the
     // parent
@@ -466,6 +508,11 @@ class NullArrayFactory {
     out_->buffers.resize(2, buffer_);
     ARROW_ASSIGN_OR_RAISE(auto typed_null_dict, MakeArrayOfNull(type.value_type(), 0));
     out_->dictionary = typed_null_dict->data();
+    return Status::OK();
+  }
+
+  Status Visit(const ExtensionType& type) {
+    RETURN_NOT_OK(VisitTypeInline(*type.storage_type(), this));
     return Status::OK();
   }
 
@@ -510,16 +557,26 @@ class RepeatedArrayFactory {
   }
 
   template <typename T>
-  enable_if_t<is_number_type<T>::value || is_fixed_size_binary_type<T>::value ||
-                  is_temporal_type<T>::value,
-              Status>
-  Visit(const T&) {
+  enable_if_t<is_number_type<T>::value || is_temporal_type<T>::value, Status> Visit(
+      const T&) {
     auto value = checked_cast<const typename TypeTraits<T>::ScalarType&>(scalar_).value;
     return FinishFixedWidth(&value, sizeof(value));
   }
 
-  Status Visit(const Decimal128Type&) {
-    auto value = checked_cast<const Decimal128Scalar&>(scalar_).value.ToBytes();
+  Status Visit(const FixedSizeBinaryType& type) {
+    auto value = checked_cast<const FixedSizeBinaryScalar&>(scalar_).value;
+    return FinishFixedWidth(value->data(), type.byte_width());
+  }
+
+  template <typename T>
+  enable_if_decimal<T, Status> Visit(const T&) {
+    using ScalarType = typename TypeTraits<T>::ScalarType;
+    auto value = checked_cast<const ScalarType&>(scalar_).value.ToBytes();
+    return FinishFixedWidth(value.data(), value.size());
+  }
+
+  Status Visit(const Decimal256Type&) {
+    auto value = checked_cast<const Decimal256Scalar&>(scalar_).value.ToBytes();
     return FinishFixedWidth(value.data(), value.size());
   }
 
@@ -603,16 +660,83 @@ class RepeatedArrayFactory {
     return Status::OK();
   }
 
+  Status Visit(const SparseUnionType& type) {
+    const auto& union_scalar = checked_cast<const UnionScalar&>(scalar_);
+    const auto& union_type = checked_cast<const UnionType&>(*scalar_.type);
+    const auto scalar_type_code = union_scalar.type_code;
+    const auto scalar_child_id = union_type.child_ids()[scalar_type_code];
+
+    // Create child arrays: most of them are all-null, except for the child array
+    // for the given type code (if the scalar is valid).
+    ArrayVector fields;
+    for (int i = 0; i < type.num_fields(); ++i) {
+      fields.emplace_back();
+      if (i == scalar_child_id && scalar_.is_valid) {
+        ARROW_ASSIGN_OR_RAISE(fields.back(),
+                              MakeArrayFromScalar(*union_scalar.value, length_, pool_));
+      } else {
+        ARROW_ASSIGN_OR_RAISE(
+            fields.back(), MakeArrayOfNull(union_type.field(i)->type(), length_, pool_));
+      }
+    }
+
+    ARROW_ASSIGN_OR_RAISE(auto type_codes_buffer, CreateUnionTypeCodes(scalar_type_code));
+
+    out_ = std::make_shared<SparseUnionArray>(scalar_.type, length_, std::move(fields),
+                                              std::move(type_codes_buffer));
+    return Status::OK();
+  }
+
+  Status Visit(const DenseUnionType& type) {
+    const auto& union_scalar = checked_cast<const UnionScalar&>(scalar_);
+    const auto& union_type = checked_cast<const UnionType&>(*scalar_.type);
+    const auto scalar_type_code = union_scalar.type_code;
+    const auto scalar_child_id = union_type.child_ids()[scalar_type_code];
+
+    // Create child arrays: all of them are empty, except for the child array
+    // for the given type code (if length > 0).
+    ArrayVector fields;
+    for (int i = 0; i < type.num_fields(); ++i) {
+      fields.emplace_back();
+      if (i == scalar_child_id && length_ > 0) {
+        if (scalar_.is_valid) {
+          // One valid element (will be referenced by multiple offsets)
+          ARROW_ASSIGN_OR_RAISE(fields.back(),
+                                MakeArrayFromScalar(*union_scalar.value, 1, pool_));
+        } else {
+          // One null element (will be referenced by multiple offsets)
+          ARROW_ASSIGN_OR_RAISE(fields.back(),
+                                MakeArrayOfNull(union_type.field(i)->type(), 1, pool_));
+        }
+      } else {
+        // Zero element (will not be referenced by any offset)
+        ARROW_ASSIGN_OR_RAISE(fields.back(),
+                              MakeArrayOfNull(union_type.field(i)->type(), 0, pool_));
+      }
+    }
+
+    // Create an offsets buffer with all offsets equal to 0
+    ARROW_ASSIGN_OR_RAISE(auto offsets_buffer,
+                          AllocateBuffer(length_ * sizeof(int32_t), pool_));
+    memset(offsets_buffer->mutable_data(), 0, offsets_buffer->size());
+
+    ARROW_ASSIGN_OR_RAISE(auto type_codes_buffer, CreateUnionTypeCodes(scalar_type_code));
+
+    out_ = std::make_shared<DenseUnionArray>(scalar_.type, length_, std::move(fields),
+                                             std::move(type_codes_buffer),
+                                             std::move(offsets_buffer));
+    return Status::OK();
+  }
+
   Status Visit(const ExtensionType& type) {
     return Status::NotImplemented("construction from scalar of type ", *scalar_.type);
   }
 
-  Status Visit(const DenseUnionType& type) {
-    return Status::NotImplemented("construction from scalar of type ", *scalar_.type);
-  }
-
-  Status Visit(const SparseUnionType& type) {
-    return Status::NotImplemented("construction from scalar of type ", *scalar_.type);
+  Result<std::shared_ptr<Buffer>> CreateUnionTypeCodes(int8_t type_code) {
+    TypedBufferBuilder<int8_t> builder(pool_);
+    RETURN_NOT_OK(builder.Resize(length_));
+    builder.UnsafeAppend(length_, type_code);
+    return builder.Finish();
   }
 
   template <typename OffsetType>
@@ -650,21 +774,21 @@ class RepeatedArrayFactory {
   std::shared_ptr<Array> out_;
 };
 
-}  // namespace internal
+}  // namespace
 
 Result<std::shared_ptr<Array>> MakeArrayOfNull(const std::shared_ptr<DataType>& type,
                                                int64_t length, MemoryPool* pool) {
-  ARROW_ASSIGN_OR_RAISE(auto data,
-                        internal::NullArrayFactory(pool, type, length).Create());
+  ARROW_ASSIGN_OR_RAISE(auto data, NullArrayFactory(pool, type, length).Create());
   return MakeArray(data);
 }
 
 Result<std::shared_ptr<Array>> MakeArrayFromScalar(const Scalar& scalar, int64_t length,
                                                    MemoryPool* pool) {
-  if (!scalar.is_valid) {
+  // Null union scalars still have a type code associated
+  if (!scalar.is_valid && !is_union(scalar.type->id())) {
     return MakeArrayOfNull(scalar.type, length, pool);
   }
-  return internal::RepeatedArrayFactory(pool, scalar, length).Create();
+  return RepeatedArrayFactory(pool, scalar, length).Create();
 }
 
 namespace internal {

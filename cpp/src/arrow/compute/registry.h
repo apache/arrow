@@ -32,6 +32,7 @@ namespace arrow {
 namespace compute {
 
 class Function;
+class FunctionOptionsType;
 
 /// \brief A mutable central function registry for built-in functions as well
 /// as user-defined functions. Functions are implementations of
@@ -58,12 +59,21 @@ class ARROW_EXPORT FunctionRegistry {
   /// function with the given name is not registered
   Status AddAlias(const std::string& target_name, const std::string& source_name);
 
+  /// \brief Add a new function options type to the registry. Returns Status::KeyError if
+  /// a function options type with the same name is already registered
+  Status AddFunctionOptionsType(const FunctionOptionsType* options_type,
+                                bool allow_overwrite = false);
+
   /// \brief Retrieve a function by name from the registry
   Result<std::shared_ptr<Function>> GetFunction(const std::string& name) const;
 
   /// \brief Return vector of all entry names in the registry. Helpful for
   /// displaying a manifest of available functions
   std::vector<std::string> GetFunctionNames() const;
+
+  /// \brief Retrieve a function options type by name from the registry
+  Result<const FunctionOptionsType*> GetFunctionOptionsType(
+      const std::string& name) const;
 
   /// \brief The number of currently registered functions
   int num_functions() const;

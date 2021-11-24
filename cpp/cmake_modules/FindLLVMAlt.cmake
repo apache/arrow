@@ -58,22 +58,17 @@ if(LLVM_FOUND)
   add_library(LLVM::LLVM_INTERFACE INTERFACE IMPORTED)
 
   set_target_properties(LLVM::LLVM_INTERFACE
-                        PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                                   "${LLVM_INCLUDE_DIRS}"
-                                   INTERFACE_COMPILE_FLAGS
-                                   "${LLVM_DEFINITIONS}"
-                                   INTERFACE_LINK_LIBRARIES
-                                   "${LLVM_LIBS}")
+                        PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${LLVM_INCLUDE_DIRS}"
+                                   INTERFACE_COMPILE_FLAGS "${LLVM_DEFINITIONS}"
+                                   INTERFACE_LINK_LIBRARIES "${LLVM_LIBS}")
 endif()
 
 mark_as_advanced(CLANG_EXECUTABLE LLVM_LINK_EXECUTABLE)
 
-find_package_handle_standard_args(LLVMAlt
-                                  REQUIRED_VARS # The first variable is used for display.
-                                  LLVM_PACKAGE_VERSION
-                                  CLANG_EXECUTABLE
-                                  LLVM_FOUND
-                                  LLVM_LINK_EXECUTABLE)
+find_package_handle_standard_args(
+  LLVMAlt
+  REQUIRED_VARS # The first variable is used for display.
+                LLVM_PACKAGE_VERSION CLANG_EXECUTABLE LLVM_FOUND LLVM_LINK_EXECUTABLE)
 if(LLVMAlt_FOUND)
   message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
   message(STATUS "Found llvm-link ${LLVM_LINK_EXECUTABLE}")

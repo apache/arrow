@@ -61,7 +61,7 @@ def test_parquet_2_0_roundtrip(tempdir, chunk_size, use_legacy_dataset):
     arrow_table = pa.Table.from_pandas(df)
     assert arrow_table.schema.pandas_metadata is not None
 
-    _write_table(arrow_table, filename, version="2.0",
+    _write_table(arrow_table, filename, version='2.6',
                  coerce_timestamps='ms', chunk_size=chunk_size)
     table_read = pq.read_pandas(
         filename, use_legacy_dataset=use_legacy_dataset)
@@ -240,7 +240,7 @@ def test_decimal_roundtrip(tempdir, use_legacy_dataset):
 
 @pytest.mark.pandas
 @pytest.mark.xfail(
-    raises=pa.ArrowException, reason='Parquet does not support negative scale'
+    raises=OSError, reason='Parquet does not support negative scale'
 )
 def test_decimal_roundtrip_negative_scale(tempdir):
     expected = pd.DataFrame({'decimal_num': [decimal.Decimal('1.23E4')]})
@@ -328,7 +328,7 @@ def test_column_of_arrays(tempdir):
 
     filename = tempdir / 'pandas_roundtrip.parquet'
     arrow_table = pa.Table.from_pandas(df, schema=schema)
-    _write_table(arrow_table, filename, version="2.0", coerce_timestamps='ms')
+    _write_table(arrow_table, filename, version='2.6', coerce_timestamps='ms')
     table_read = _read_table(filename)
     df_read = table_read.to_pandas()
     tm.assert_frame_equal(df, df_read)
@@ -340,7 +340,7 @@ def test_column_of_lists(tempdir):
 
     filename = tempdir / 'pandas_roundtrip.parquet'
     arrow_table = pa.Table.from_pandas(df, schema=schema)
-    _write_table(arrow_table, filename, version='2.0')
+    _write_table(arrow_table, filename, version='2.6')
     table_read = _read_table(filename)
     df_read = table_read.to_pandas()
 
@@ -404,6 +404,7 @@ def test_fixed_size_binary():
 # -----------------------------------------------------------------------------
 
 
+@pytest.mark.slow
 @pytest.mark.large_memory
 def test_large_table_int32_overflow():
     size = np.iinfo('int32').max + 1
@@ -424,6 +425,7 @@ def _simple_table_roundtrip(table, use_legacy_dataset=False, **write_kwargs):
     return _read_table(buf, use_legacy_dataset=use_legacy_dataset)
 
 
+@pytest.mark.slow
 @pytest.mark.large_memory
 @parametrize_legacy_dataset
 def test_byte_array_exactly_2gb(use_legacy_dataset):
@@ -444,6 +446,7 @@ def test_byte_array_exactly_2gb(use_legacy_dataset):
         assert t.equals(result)
 
 
+@pytest.mark.slow
 @pytest.mark.pandas
 @pytest.mark.large_memory
 @parametrize_legacy_dataset
@@ -469,6 +472,7 @@ def test_binary_array_overflow_to_chunked(use_legacy_dataset):
     assert tbl.equals(read_tbl)
 
 
+@pytest.mark.slow
 @pytest.mark.pandas
 @pytest.mark.large_memory
 @parametrize_legacy_dataset
@@ -499,6 +503,7 @@ def test_large_binary():
             _check_roundtrip(table, use_dictionary=use_dictionary)
 
 
+@pytest.mark.slow
 @pytest.mark.large_memory
 def test_large_binary_huge():
     s = b'xy' * 997

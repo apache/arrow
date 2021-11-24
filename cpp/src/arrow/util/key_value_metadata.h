@@ -37,10 +37,12 @@ class ARROW_EXPORT KeyValueMetadata {
   KeyValueMetadata();
   KeyValueMetadata(std::vector<std::string> keys, std::vector<std::string> values);
   explicit KeyValueMetadata(const std::unordered_map<std::string, std::string>& map);
-  virtual ~KeyValueMetadata() = default;
+
+  static std::shared_ptr<KeyValueMetadata> Make(std::vector<std::string> keys,
+                                                std::vector<std::string> values);
 
   void ToUnorderedMap(std::unordered_map<std::string, std::string>* out) const;
-  void Append(const std::string& key, const std::string& value);
+  void Append(std::string key, std::string value);
 
   Result<std::string> Get(const std::string& key) const;
   bool Contains(const std::string& key) const;

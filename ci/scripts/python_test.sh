@@ -29,4 +29,4 @@ export LD_LIBRARY_PATH=${ARROW_HOME}/lib:${LD_LIBRARY_PATH}
 # Enable some checks inside Python itself
 export PYTHONDEVMODE=1
 
-pytest -r s ${PYTEST_ARGS} --pyargs pyarrow
+pytest -r s -v ${PYTEST_ARGS} --pyargs pyarrow

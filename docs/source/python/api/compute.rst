@@ -27,34 +27,143 @@ Aggregations
 .. autosummary::
    :toctree: ../generated/
 
+   all
+   any
+   approximate_median
    count
+   count_distinct
+   index
+   max
    mean
+   min
    min_max
    mode
+   product
+   quantile
    stddev
    sum
+   tdigest
    variance
+
+Grouped Aggregations
+--------------------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   hash_all
+   hash_any
+   hash_approximate_median
+   hash_count
+   hash_count_distinct
+   hash_distinct
+   hash_max
+   hash_mean
+   hash_min
+   hash_min_max
+   hash_product
+   hash_stddev
+   hash_sum
+   hash_tdigest
+   hash_variance
 
 Arithmetic Functions
 --------------------
 
-By default these functions do not detect overflow. Each function is also
-available in an overflow-checking variant, suffixed ``_checked``, which 
+By default these functions do not detect overflow. Most functions are also
+available in an overflow-checking variant, suffixed ``_checked``, which
 throws an ``ArrowInvalid`` exception when overflow is detected.
 
 .. autosummary::
    :toctree: ../generated/
 
+   abs
+   abs_checked
    add
    add_checked
    divide
    divide_checked
    multiply
    multiply_checked
-   subtract
-   subtract_checked
+   negate
+   negate_checked
    power
    power_checked
+   sign
+   subtract
+   subtract_checked
+
+Bit-wise Functions
+------------------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   bit_wise_and
+   bit_wise_not
+   bit_wise_or
+   bit_wise_xor
+   shift_left
+   shift_left_checked
+   shift_right
+   shift_right_checked
+
+Rounding Functions
+------------------
+
+Rounding functions displace numeric inputs to an approximate value with a simpler
+representation based on the rounding criterion.
+
+.. autosummary::
+   :toctree: ../generated/
+
+   ceil
+   floor
+   round
+   round_to_multiple
+   trunc
+
+Logarithmic Functions
+---------------------
+
+Logarithmic functions are also supported, and also offer ``_checked``
+variants which detect domain errors.
+
+.. autosummary::
+   :toctree: ../generated/
+
+   ln
+   ln_checked
+   log10
+   log10_checked
+   log1p
+   log1p_checked
+   log2
+   log2_checked
+   logb
+   logb_checked
+
+Trigonometric Functions
+-----------------------
+
+Trigonometric functions are also supported, and also offer ``_checked``
+variants which detect domain errors where appropriate.
+
+.. autosummary::
+   :toctree: ../generated/
+
+   acos
+   acos_checked
+   asin
+   asin_checked
+   atan
+   atan2
+   cos
+   cos_checked
+   sin
+   sin_checked
+   tan
+   tan_checked
 
 Comparisons
 -----------
@@ -72,6 +181,14 @@ they return ``null``.
    less_equal
    not_equal
 
+These functions take any number of arguments of a numeric or temporal type.
+
+.. autosummary::
+   :toctree: ../generated/
+
+   max_element_wise
+   min_element_wise
+
 Logical Functions
 -----------------
 
@@ -83,8 +200,8 @@ logic variants are provided (suffixed ``_kleene``). See User Guide for details.
 
    and_
    and_kleene
-   all
-   any
+   and_not
+   and_not_kleene
    invert
    or_
    or_kleene
@@ -93,11 +210,11 @@ logic variants are provided (suffixed ``_kleene``). See User Guide for details.
 String Predicates
 -----------------
 
-In these functions an empty string emits false in the output. For ASCII 
+In these functions an empty string emits false in the output. For ASCII
 variants (prefixed ``ascii_``) a string element with non-ASCII characters
 emits false in the output.
 
-The first set of functions emit true if the input contains only 
+The first set of functions emit true if the input contains only
 characters of a given class.
 
 .. autosummary::
@@ -129,7 +246,7 @@ in the string element.
    ascii_is_title
    utf8_is_title
 
-The third set of functions examines string elements on 
+The third set of functions examines string elements on
 a byte-by-byte basis.
 
 .. autosummary::
@@ -143,21 +260,134 @@ String Transforms
 .. autosummary::
    :toctree: ../generated/
 
+   ascii_capitalize
    ascii_lower
+   ascii_reverse
+   ascii_swapcase
+   ascii_title
    ascii_upper
+   binary_length
+   binary_repeat
+   binary_replace_slice
+   replace_substring
+   replace_substring_regex
+   utf8_capitalize
+   utf8_length
    utf8_lower
+   utf8_replace_slice
+   utf8_reverse
+   utf8_swapcase
+   utf8_title
    utf8_upper
 
-Containment tests
+String Padding
+--------------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   ascii_center
+   ascii_lpad
+   ascii_rpad
+   utf8_center
+   utf8_lpad
+   utf8_rpad
+
+String Trimming
+---------------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   ascii_ltrim
+   ascii_ltrim_whitespace
+   ascii_rtrim
+   ascii_rtrim_whitespace
+   ascii_trim
+   ascii_trim_whitespace
+   utf8_ltrim
+   utf8_ltrim_whitespace
+   utf8_rtrim
+   utf8_rtrim_whitespace
+   utf8_trim
+   utf8_trim_whitespace
+
+String Splitting
+----------------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   ascii_split_whitespace
+   split_pattern
+   split_pattern_regex
+   utf8_split_whitespace
+
+String Component Extraction
+---------------------------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   extract_regex
+
+String Joining
+--------------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   binary_join
+   binary_join_element_wise
+
+String Slicing
+--------------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   utf8_slice_codeunits
+
+Containment Tests
 -----------------
 
 .. autosummary::
    :toctree: ../generated/
 
+   count_substring
+   count_substring_regex
+   ends_with
+   find_substring
+   find_substring_regex
    index_in
    is_in
+   match_like
    match_substring
    match_substring_regex
+   starts_with
+
+Categorizations
+---------------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   is_finite
+   is_inf
+   is_nan
+   is_null
+   is_valid
+
+Selecting / Multiplexing
+------------------------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   case_when
+   choose
+   coalesce
+   if_else
 
 Conversions
 -----------
@@ -166,18 +396,63 @@ Conversions
    :toctree: ../generated/
 
    cast
+   strftime
    strptime
 
-Selections
-----------
+Temporal Component Extraction
+-----------------------------
 
 .. autosummary::
    :toctree: ../generated/
 
-   filter
-   take
+   day
+   day_of_week
+   day_of_year
+   hour
+   iso_week
+   iso_year
+   iso_calendar
+   microsecond
+   millisecond
+   minute
+   month
+   nanosecond
+   quarter
+   second
+   subsecond
+   us_week
+   week
+   year
 
-Associative transforms
+Temporal Difference
+-------------------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   day_time_interval_between
+   days_between
+   hours_between
+   microseconds_between
+   milliseconds_between
+   minutes_between
+   month_day_nano_interval_between
+   month_interval_between
+   nanoseconds_between
+   quarters_between
+   seconds_between
+   weeks_between
+   years_between
+
+Timezone Handling
+-----------------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   assume_timezone
+
+Associative Transforms
 ----------------------
 
 .. autosummary::
@@ -187,13 +462,27 @@ Associative transforms
    unique
    value_counts
 
-Sorts and partitions
+Selections
+----------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   array_filter
+   array_take
+   drop_null
+   filter
+   take
+
+Sorts and Partitions
 --------------------
 
 .. autosummary::
    :toctree: ../generated/
 
+   array_sort_indices
    partition_nth_indices
+   select_k_unstable
    sort_indices
 
 Structural Transforms
@@ -202,10 +491,10 @@ Structural Transforms
 .. autosummary::
    :toctree: ../generated/
 
-   binary_length
-   fill_null
-   is_null
-   is_valid
-   list_value_length
+   list_element
    list_flatten
    list_parent_indices
+   list_value_length
+   make_struct
+   replace_with_mask
+   struct_field

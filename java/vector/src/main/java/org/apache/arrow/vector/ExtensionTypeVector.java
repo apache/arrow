@@ -36,7 +36,7 @@ import org.apache.arrow.vector.util.TransferPair;
  * A vector that wraps an underlying vector, used to help implement extension types.
  * @param <T> The wrapped vector type.
  */
-public abstract class ExtensionTypeVector<T extends BaseValueVector & FieldVector> extends BaseValueVector implements
+public abstract class ExtensionTypeVector<T extends ValueVector & FieldVector> extends BaseValueVector implements
     FieldVector {
 
   private final T underlyingVector;
@@ -214,6 +214,14 @@ public abstract class ExtensionTypeVector<T extends BaseValueVector & FieldVecto
     return underlyingVector.getFieldBuffers();
   }
 
+  /**
+   * Get the inner vectors.
+   *
+   * @deprecated This API will be removed as the current implementations no longer support inner vectors.
+   *
+   * @return the inner vectors for this field as defined by the TypeLayout
+   */
+  @Deprecated
   @Override
   public List<BufferBacked> getFieldInnerVectors() {
     return underlyingVector.getFieldInnerVectors();
@@ -261,6 +269,6 @@ public abstract class ExtensionTypeVector<T extends BaseValueVector & FieldVecto
 
   @Override
   public <OUT, IN> OUT accept(VectorVisitor<OUT, IN> visitor, IN value) {
-    return getUnderlyingVector().accept(visitor, value);
+    return visitor.visit(this, value);
   }
 }

@@ -222,7 +222,7 @@ TEST(PyBuffer, NumpyArray) {
 }
 
 TEST(NumPyBuffer, NumpyArray) {
-  const npy_intp dims[1] = {10};
+  npy_intp dims[1] = {10};
 
   OwnedRef arr_ref(PyArray_SimpleNew(1, dims, NPY_FLOAT));
   PyObject* arr = arr_ref.obj();
@@ -307,8 +307,8 @@ TEST_F(DecimalTest, TestInferPrecisionAndNegativeScale) {
   internal::DecimalMetadata metadata;
   ASSERT_OK(metadata.Update(python_decimal.obj()));
 
-  const auto expected_precision = 9;
-  const int32_t expected_scale = -2;
+  const auto expected_precision = 11;
+  const int32_t expected_scale = 0;
 
   ASSERT_EQ(expected_precision, metadata.precision());
   ASSERT_EQ(expected_scale, metadata.scale());

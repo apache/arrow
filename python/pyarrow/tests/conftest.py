@@ -24,6 +24,7 @@ import pytest
 import hypothesis as h
 
 from pyarrow.util import find_free_port
+from pyarrow import Codec
 
 
 # setup hypothesis profiles
@@ -44,13 +45,17 @@ os.environ['AWS_CONFIG_FILE'] = "/dev/null"
 
 
 groups = [
+    'brotli',
+    'bz2',
     'cython',
     'dataset',
     'hypothesis',
     'fastparquet',
     'gandiva',
+    'gzip',
     'hdfs',
     'large_memory',
+    'lz4',
     'memory_leak',
     'nopandas',
     'orc',
@@ -58,20 +63,26 @@ groups = [
     'parquet',
     'plasma',
     's3',
+    'snappy',
     'tensorflow',
     'flight',
     'slow',
     'requires_testing_data',
+    'zstd',
 ]
 
 defaults = {
+    'brotli': Codec.is_available('brotli'),
+    'bz2': Codec.is_available('bz2'),
     'cython': False,
     'dataset': False,
     'fastparquet': False,
     'hypothesis': False,
     'gandiva': False,
+    'gzip': Codec.is_available('gzip'),
     'hdfs': False,
     'large_memory': False,
+    'lz4': Codec.is_available('lz4'),
     'memory_leak': False,
     'orc': False,
     'nopandas': False,
@@ -79,10 +90,12 @@ defaults = {
     'parquet': False,
     'plasma': False,
     's3': False,
+    'snappy': Codec.is_available('snappy'),
     'tensorflow': False,
     'flight': False,
     'slow': False,
     'requires_testing_data': True,
+    'zstd': Codec.is_available('zstd'),
 }
 
 try:
@@ -231,10 +244,19 @@ def base_datadir():
     return pathlib.Path(__file__).parent / 'data'
 
 
+@pytest.fixture(autouse=True)
+def disable_aws_metadata(monkeypatch):
+    """Stop the AWS SDK from trying to contact the EC2 metadata server.
+
+    Otherwise, this causes a 5 second delay in tests that exercise the
+    S3 filesystem.
+    """
+    monkeypatch.setenv("AWS_EC2_METADATA_DISABLED", "true")
+
+
 # TODO(kszucs): move the following fixtures to test_fs.py once the previous
 # parquet dataset implementation and hdfs implementation are removed.
 
-@pytest.mark.hdfs
 @pytest.fixture(scope='session')
 def hdfs_connection():
     host = os.environ.get('ARROW_HDFS_TEST_HOST', 'default')
@@ -243,7 +265,6 @@ def hdfs_connection():
     return host, port, user
 
 
-@pytest.mark.s3
 @pytest.fixture(scope='session')
 def s3_connection():
     host, port = 'localhost', find_free_port()
@@ -271,7 +292,11 @@ def s3_server(s3_connection):
         except OSError:
             pytest.skip('`minio` command cannot be located')
         else:
-            yield proc
+            yield {
+                'connection': s3_connection,
+                'process': proc,
+                'tempdir': tempdir
+            }
         finally:
             if proc is not None:
                 proc.kill()

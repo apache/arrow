@@ -67,6 +67,8 @@ import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Collection;
 import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.apache.arrow.adapter.jdbc.AbstractJdbcToArrowTest;
 import org.apache.arrow.adapter.jdbc.ArrowVectorIterator;
@@ -97,7 +99,6 @@ import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
-import org.junit.runners.Parameterized.Parameters;
 
 /**
  * JUnit Test Class which contains methods to test JDBC to Arrow data conversion functionality with various data types
@@ -109,12 +110,14 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
   private static final String[] testFiles = {"h2/test1_all_datatypes_h2.yml"};
 
   /**
-   * Constructor which populate table object for each test iteration.
+   * Constructor which populates the table object for each test iteration.
    *
    * @param table Table object
+   * @param reuseVectorSchemaRoot A flag indicating if we should reuse vector schema roots.
    */
-  public JdbcToArrowTest(Table table) {
+  public JdbcToArrowTest(Table table, boolean reuseVectorSchemaRoot) {
     this.table = table;
+    this.reuseVectorSchemaRoot = reuseVectorSchemaRoot;
   }
 
   /**
@@ -125,9 +128,10 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
    * @throws ClassNotFoundException on error
    * @throws IOException on error
    */
-  @Parameters
+  @Parameterized.Parameters(name = "table = {0}, reuse batch = {1}")
   public static Collection<Object[]> getTestData() throws SQLException, ClassNotFoundException, IOException {
-    return Arrays.asList(prepareTestData(testFiles, JdbcToArrowTest.class));
+    return Arrays.stream(prepareTestData(testFiles, JdbcToArrowTest.class)).flatMap(row ->
+      Stream.of(new Object[] {row[0], true}, new Object[] {row[0], false})).collect(Collectors.toList());
   }
 
   /**
@@ -135,20 +139,20 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
    */
   @Test
   public void testJdbcToArrowValues() throws SQLException, IOException {
-    testDataSets(JdbcToArrow.sqlToArrow(conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE),
+    testDataSets(sqlToArrow(conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE),
         Calendar.getInstance()));
-    testDataSets(JdbcToArrow.sqlToArrow(conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE)));
-    testDataSets(JdbcToArrow.sqlToArrow(conn.createStatement().executeQuery(table.getQuery()),
+    testDataSets(sqlToArrow(conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE)));
+    testDataSets(sqlToArrow(conn.createStatement().executeQuery(table.getQuery()),
         new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance()));
-    testDataSets(JdbcToArrow.sqlToArrow(conn.createStatement().executeQuery(table.getQuery())));
-    testDataSets(JdbcToArrow.sqlToArrow(conn.createStatement().executeQuery(table.getQuery()),
+    testDataSets(sqlToArrow(conn.createStatement().executeQuery(table.getQuery())));
+    testDataSets(sqlToArrow(conn.createStatement().executeQuery(table.getQuery()),
         new RootAllocator(Integer.MAX_VALUE)));
-    testDataSets(JdbcToArrow.sqlToArrow(conn.createStatement().executeQuery(table.getQuery()),
+    testDataSets(sqlToArrow(conn.createStatement().executeQuery(table.getQuery()),
         Calendar.getInstance()));
-    testDataSets(JdbcToArrow.sqlToArrow(
+    testDataSets(sqlToArrow(
         conn.createStatement().executeQuery(table.getQuery()),
         new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance()).build()));
-    testDataSets(JdbcToArrow.sqlToArrow(
+    testDataSets(sqlToArrow(
         conn,
         table.getQuery(),
         new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance()).build()));
@@ -156,7 +160,8 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
 
   @Test
   public void testJdbcSchemaMetadata() throws SQLException {
-    JdbcToArrowConfig config = new JdbcToArrowConfigBuilder(new RootAllocator(0), Calendar.getInstance(), true).build();
+    JdbcToArrowConfig config = new JdbcToArrowConfigBuilder(new RootAllocator(0), Calendar.getInstance(), true)
+        .setReuseVectorSchemaRoot(reuseVectorSchemaRoot).build();
     ResultSetMetaData rsmd = conn.createStatement().executeQuery(table.getQuery()).getMetaData();
     Schema schema = JdbcToArrowUtils.jdbcToArrowSchema(rsmd, config);
     JdbcToArrowTestHelper.assertFieldMetadataMatchesResultSetMetadata(rsmd, schema);
@@ -230,11 +235,17 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
     int x = 0;
     final int targetRows = 600000;
     ResultSet rs = new FakeResultSet(targetRows);
-    try (ArrowVectorIterator iter = JdbcToArrow.sqlToArrowVectorIterator(rs, allocator)) {
+    JdbcToArrowConfig config = new JdbcToArrowConfigBuilder(
+        allocator, JdbcToArrowUtils.getUtcCalendar(), /* include metadata */ false)
+        .setReuseVectorSchemaRoot(reuseVectorSchemaRoot).build();
+
+    try (ArrowVectorIterator iter = JdbcToArrow.sqlToArrowVectorIterator(rs, config)) {
       while (iter.hasNext()) {
         VectorSchemaRoot root = iter.next();
         x += root.getRowCount();
-        root.close();
+        if (!reuseVectorSchemaRoot) {
+          root.close();
+        }
       }
     } finally {
       allocator.close();
@@ -487,7 +498,7 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
 
         @Override
         public String getColumnLabel(int column) throws SQLException {
-          return null;
+          return getColumnName(column);
         }
 
         @Override
@@ -618,7 +629,7 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
 
     @Override
     public boolean isAfterLast() throws SQLException {
-      return false;
+      return numRows < 0;
     }
 
     @Override

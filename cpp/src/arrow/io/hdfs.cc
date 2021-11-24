@@ -84,12 +84,14 @@ class HdfsAnyFileImpl {
   }
 
   Status Seek(int64_t position) {
+    RETURN_NOT_OK(CheckClosed());
     int ret = driver_->Seek(fs_, file_, position);
     CHECK_FAILURE(ret, "seek");
     return Status::OK();
   }
 
   Result<int64_t> Tell() {
+    RETURN_NOT_OK(CheckClosed());
     int64_t ret = driver_->Tell(fs_, file_);
     CHECK_FAILURE(ret, "tell");
     return ret;
@@ -98,6 +100,13 @@ class HdfsAnyFileImpl {
   bool is_open() const { return is_open_; }
 
  protected:
+  Status CheckClosed() {
+    if (!is_open_) {
+      return Status::Invalid("Operation on closed HDFS file");
+    }
+    return Status::OK();
+  }
+
   std::string path_;
 
   internal::LibHdfsShim* driver_;
@@ -143,6 +152,7 @@ class HdfsReadableFile::HdfsReadableFileImpl : public HdfsAnyFileImpl {
   bool closed() const { return !is_open_; }
 
   Result<int64_t> ReadAt(int64_t position, int64_t nbytes, uint8_t* buffer) {
+    RETURN_NOT_OK(CheckClosed());
     if (!driver_->HasPread()) {
       std::lock_guard<std::mutex> guard(lock_);
       RETURN_NOT_OK(Seek(position));
@@ -169,11 +179,11 @@ class HdfsReadableFile::HdfsReadableFileImpl : public HdfsAnyFileImpl {
   }
 
   Result<std::shared_ptr<Buffer>> ReadAt(int64_t position, int64_t nbytes) {
-    ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateResizableBuffer(nbytes, pool_));
+    RETURN_NOT_OK(CheckClosed());
 
+    ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateResizableBuffer(nbytes, pool_));
     ARROW_ASSIGN_OR_RAISE(int64_t bytes_read,
                           ReadAt(position, nbytes, buffer->mutable_data()));
-
     if (bytes_read < nbytes) {
       RETURN_NOT_OK(buffer->Resize(bytes_read));
       buffer->ZeroPadding();
@@ -182,6 +192,8 @@ class HdfsReadableFile::HdfsReadableFileImpl : public HdfsAnyFileImpl {
   }
 
   Result<int64_t> Read(int64_t nbytes, void* buffer) {
+    RETURN_NOT_OK(CheckClosed());
+
     int64_t total_bytes = 0;
     while (total_bytes < nbytes) {
       tSize ret = driver_->Read(
@@ -197,8 +209,9 @@ class HdfsReadableFile::HdfsReadableFileImpl : public HdfsAnyFileImpl {
   }
 
   Result<std::shared_ptr<Buffer>> Read(int64_t nbytes) {
-    ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateResizableBuffer(nbytes, pool_));
+    RETURN_NOT_OK(CheckClosed());
 
+    ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateResizableBuffer(nbytes, pool_));
     ARROW_ASSIGN_OR_RAISE(int64_t bytes_read, Read(nbytes, buffer->mutable_data()));
     if (bytes_read < nbytes) {
       RETURN_NOT_OK(buffer->Resize(bytes_read));
@@ -207,11 +220,12 @@ class HdfsReadableFile::HdfsReadableFileImpl : public HdfsAnyFileImpl {
   }
 
   Result<int64_t> GetSize() {
+    RETURN_NOT_OK(CheckClosed());
+
     hdfsFileInfo* entry = driver_->GetPathInfo(fs_, path_.c_str());
     if (entry == nullptr) {
       return GetPathInfoFailed(path_);
     }
-
     int64_t size = entry->mSize;
     driver_->FreeFileInfo(entry, 1);
     return size;
@@ -274,7 +288,7 @@ class HdfsOutputStream::HdfsOutputStreamImpl : public HdfsAnyFileImpl {
       // the error doesn't get propagated properly and the second close
       // initiated by the destructor raises a segfault
       is_open_ = false;
-      RETURN_NOT_OK(Flush());
+      RETURN_NOT_OK(FlushInternal());
       int ret = driver_->CloseFile(fs_, file_);
       CHECK_FAILURE(ret, "CloseFile");
     }
@@ -284,12 +298,14 @@ class HdfsOutputStream::HdfsOutputStreamImpl : public HdfsAnyFileImpl {
   bool closed() const { return !is_open_; }
 
   Status Flush() {
-    int ret = driver_->Flush(fs_, file_);
-    CHECK_FAILURE(ret, "Flush");
-    return Status::OK();
+    RETURN_NOT_OK(CheckClosed());
+
+    return FlushInternal();
   }
 
   Status Write(const uint8_t* buffer, int64_t nbytes) {
+    RETURN_NOT_OK(CheckClosed());
+
     constexpr int64_t kMaxBlockSize = std::numeric_limits<int32_t>::max();
 
     std::lock_guard<std::mutex> guard(lock_);
@@ -301,6 +317,13 @@ class HdfsOutputStream::HdfsOutputStreamImpl : public HdfsAnyFileImpl {
       buffer += ret;
       nbytes -= ret;
     }
+    return Status::OK();
+  }
+
+ protected:
+  Status FlushInternal() {
+    int ret = driver_->Flush(fs_, file_);
+    CHECK_FAILURE(ret, "Flush");
     return Status::OK();
   }
 };
@@ -552,6 +575,18 @@ class HadoopFileSystem::HadoopFileSystemImpl {
     return Status::OK();
   }
 
+  Status Copy(const std::string& src, const std::string& dst) {
+    int ret = driver_->Copy(fs_, src.c_str(), fs_, dst.c_str());
+    CHECK_FAILURE(ret, "Rename");
+    return Status::OK();
+  }
+
+  Status Move(const std::string& src, const std::string& dst) {
+    int ret = driver_->Move(fs_, src.c_str(), fs_, dst.c_str());
+    CHECK_FAILURE(ret, "Rename");
+    return Status::OK();
+  }
+
   Status Chmod(const std::string& path, int mode) {
     int ret = driver_->Chmod(fs_, path.c_str(), static_cast<short>(mode));  // NOLINT
     CHECK_FAILURE(ret, "Chmod");
@@ -681,6 +716,14 @@ Status HadoopFileSystem::Chown(const std::string& path, const char* owner,
 
 Status HadoopFileSystem::Rename(const std::string& src, const std::string& dst) {
   return impl_->Rename(src, dst);
+}
+
+Status HadoopFileSystem::Copy(const std::string& src, const std::string& dst) {
+  return impl_->Copy(src, dst);
+}
+
+Status HadoopFileSystem::Move(const std::string& src, const std::string& dst) {
+  return impl_->Move(src, dst);
 }
 
 // ----------------------------------------------------------------------

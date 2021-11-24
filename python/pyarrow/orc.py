@@ -16,46 +16,11 @@
 # under the License.
 
 
-from itertools import count
 from numbers import Integral
+import warnings
 
-from pyarrow import types
-from pyarrow.lib import Schema
+from pyarrow.lib import Table
 import pyarrow._orc as _orc
-
-
-def _is_map(typ):
-    return (types.is_list(typ) and
-            types.is_struct(typ.value_type) and
-            typ.value_type.num_fields == 2 and
-            typ.value_type[0].name == 'key' and
-            typ.value_type[1].name == 'value')
-
-
-def _traverse(typ, counter):
-    if isinstance(typ, Schema) or types.is_struct(typ):
-        for field in typ:
-            path = (field.name,)
-            yield path, next(counter)
-            for sub, c in _traverse(field.type, counter):
-                yield path + sub, c
-    elif _is_map(typ):
-        yield from _traverse(typ.value_type, counter)
-    elif types.is_list(typ):
-        # Skip one index for list type, since this can never be selected
-        # directly
-        next(counter)
-        yield from _traverse(typ.value_type, counter)
-    elif types.is_union(typ):
-        # Union types not supported, just skip the indexes
-        for dtype in typ:
-            next(counter)
-            for sub_c in _traverse(dtype, counter):
-                pass
-
-
-def _schema_to_indices(schema):
-    return {'.'.join(i): c for i, c in _traverse(schema, count(1))}
 
 
 class ORCFile:
@@ -72,7 +37,11 @@ class ORCFile:
     def __init__(self, source):
         self.reader = _orc.ORCReader()
         self.reader.open(source)
-        self._column_index_lookup = _schema_to_indices(self.schema)
+
+    @property
+    def metadata(self):
+        """The file metadata, as an arrow KeyValueMetadata"""
+        return self.reader.metadata()
 
     @property
     def schema(self):
@@ -89,26 +58,25 @@ class ORCFile:
         """The number of stripes in the file"""
         return self.reader.nstripes()
 
-    def _select_indices(self, columns=None):
+    def _select_names(self, columns=None):
         if columns is None:
             return None
 
         schema = self.schema
-        indices = []
+        names = []
         for col in columns:
             if isinstance(col, Integral):
                 col = int(col)
                 if 0 <= col < len(schema):
                     col = schema[col].name
+                    names.append(col)
                 else:
                     raise ValueError("Column indices must be in 0 <= ind < %d,"
                                      " got %d" % (len(schema), col))
-            if col in self._column_index_lookup:
-                indices.append(self._column_index_lookup[col])
             else:
-                raise ValueError("Unknown column name %r" % col)
+                return columns
 
-        return indices
+        return names
 
     def read_stripe(self, n, columns=None):
         """Read a single stripe from the file.
@@ -127,8 +95,8 @@ class ORCFile:
         pyarrow.lib.RecordBatch
             Content of the stripe as a RecordBatch.
         """
-        include_indices = self._select_indices(columns)
-        return self.reader.read_stripe(n, include_indices=include_indices)
+        columns = self._select_names(columns)
+        return self.reader.read_stripe(n, columns=columns)
 
     def read(self, columns=None):
         """Read the whole file.
@@ -145,8 +113,8 @@ class ORCFile:
         pyarrow.lib.Table
             Content of the file as a Table.
         """
-        include_indices = self._select_indices(columns)
-        return self.reader.read(include_indices=include_indices)
+        columns = self._select_names(columns)
+        return self.reader.read(columns=columns)
 
 
 class ORCWriter:
@@ -184,19 +152,26 @@ class ORCWriter:
         self.writer.close()
 
 
-def write_table(where, table):
+def write_table(table, where):
     """
     Write a table into an ORC file
 
     Parameters
     ----------
+    table : pyarrow.lib.Table
+        The table to be written into the ORC file
     where : str or pyarrow.io.NativeFile
         Writable target. For passing Python file objects or byte buffers,
         see pyarrow.io.PythonFileInterface, pyarrow.io.BufferOutputStream
         or pyarrow.io.FixedSizeBufferWriter.
-    table : pyarrow.lib.Table
-        The table to be written into the ORC file
     """
+    if isinstance(where, Table):
+        warnings.warn(
+            "The order of the arguments has changed. Pass as "
+            "'write_table(table, where)' instead. The old order will raise "
+            "an error in the future.", FutureWarning, stacklevel=2
+        )
+        table, where = where, table
     writer = ORCWriter(where)
     writer.write(table)
     writer.close()

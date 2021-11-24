@@ -16,7 +16,7 @@
 // under the License.
 
 import { validateVector } from './utils';
-import { Vector, Utf8 } from '../../Arrow';
+import { Vector, Utf8 } from 'apache-arrow';
 import {
     encodeAll,
     encodeEach,

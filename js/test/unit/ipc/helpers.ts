@@ -23,13 +23,12 @@ import {
     RecordBatchFileWriter,
     RecordBatchJSONWriter,
     RecordBatchStreamWriter,
-} from '../../Arrow';
+} from 'apache-arrow';
 
 import * as fs from 'fs';
 import { fs as memfs } from 'memfs';
 import { Readable, PassThrough } from 'stream';
-
-const randomatic = require('randomatic');
+import randomatic from 'randomatic';
 
 export abstract class ArrowIOTestHelper {
 

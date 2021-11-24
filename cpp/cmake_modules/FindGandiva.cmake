@@ -79,14 +79,11 @@ mark_as_advanced(GANDIVA_ABI_VERSION
                  GANDIVA_VERSION
                  GANDIVA_VERSION_MATCH)
 
-find_package_handle_standard_args(Gandiva
-                                  REQUIRED_VARS
-                                  GANDIVA_INCLUDE_DIR
-                                  GANDIVA_LIB_DIR
-                                  GANDIVA_SO_VERSION
-                                  GANDIVA_VERSION_MATCH
-                                  VERSION_VAR
-                                  GANDIVA_VERSION)
+find_package_handle_standard_args(
+  Gandiva
+  REQUIRED_VARS GANDIVA_INCLUDE_DIR GANDIVA_LIB_DIR GANDIVA_SO_VERSION
+                GANDIVA_VERSION_MATCH
+  VERSION_VAR GANDIVA_VERSION)
 set(GANDIVA_FOUND ${Gandiva_FOUND})
 
 if(Gandiva_FOUND AND NOT Gandiva_FIND_QUIETLY)

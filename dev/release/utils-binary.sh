@@ -41,6 +41,7 @@ docker_gpg_ssh() {
       -i "${docker_ssh_key}" \
       -p ${ssh_port} \
       -R "/home/arrow/.gnupg/S.gpg-agent:${gpg_agent_extra_socket}" \
+      -t \
       arrow@127.0.0.1 \
       "$@"; then
     exit_code=$?;
@@ -70,7 +71,7 @@ fi
 /usr/sbin/sshd -D
 "
   local container_id=$(cat ${container_id_file})
-  local ssh_port=$(docker port ${container_id} | grep -E -o '[0-9]+$')
+  local ssh_port=$(docker port ${container_id} | grep -E -o '[0-9]+$' | head -n 1)
   # Wait for sshd available
   while ! docker_gpg_ssh ${ssh_port} : > /dev/null 2>&1; do
     sleep 0.1

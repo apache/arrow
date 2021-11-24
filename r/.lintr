@@ -1,0 +1,32 @@
+license:  #  Licensed to the Apache Software Foundation (ASF) under one
+  #  or more contributor license agreements.  See the NOTICE file
+  #  distributed with this work for additional information
+  #  regarding copyright ownership.  The ASF licenses this file
+  #  to you under the Apache License, Version 2.0 (the
+  #  "License"); you may not use this file except in compliance
+  #  with the License.  You may obtain a copy of the License at
+  #
+  #   http://www.apache.org/licenses/LICENSE-2.0
+  #
+  #  Unless required by applicable law or agreed to in writing,
+  #  software distributed under the License is distributed on an
+  #  "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+  #  KIND, either express or implied.  See the License for the
+  #  specific language governing permissions and limitations
+  #  under the License.
+linters: with_defaults(
+  line_length_linter = line_length_linter(120),
+  object_name_linter = NULL,
+  # Even with a liberal definition of name styles, some of our names cause issues due to `.`s for s3 classes or NA in the name
+  # TODO: figure out if we con contribute to lintr to make these work
+  # object_name_linter = object_name_linter(styles = c("snake_case", "camelCase", "CamelCase", "symbols", "dotted.case", "UPPERCASE", "SNAKE_CASE")),
+  object_length_linter = object_length_linter(40),
+  object_usage_linter = NULL, # R6 methods are flagged,
+  cyclocomp_linter = cyclocomp_linter(26), # TODO: reduce to default of 15
+  open_curly_linter = NULL # styler and lintr conflict on this (https://github.com/r-lib/styler/issues/549#issuecomment-537191536)
+  )
+exclusions: list(
+  "tests/testthat/latin1.R",
+  "R/arrowExports.R",
+  "data-raw/codegen.R"
+  )

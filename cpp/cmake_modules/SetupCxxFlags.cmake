@@ -28,7 +28,7 @@ if(NOT DEFINED ARROW_CPU_FLAG)
     set(ARROW_CPU_FLAG "armv8")
   elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "armv7")
     set(ARROW_CPU_FLAG "armv7")
-  elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "ppc")
+  elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "powerpc|ppc")
     set(ARROW_CPU_FLAG "ppc")
   elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "s390x")
     set(ARROW_CPU_FLAG "s390x")
@@ -76,12 +76,13 @@ if(ARROW_CPU_FLAG STREQUAL "x86")
         char out[32];
         _mm512_storeu_si512(out, mask);
         return 0;
-      }" CXX_SUPPORTS_AVX512)
+      }"
+                              CXX_SUPPORTS_AVX512)
     set(CMAKE_REQUIRED_FLAGS ${OLD_CMAKE_REQURED_FLAGS})
   endif()
   # Runtime SIMD level it can get from compiler and ARROW_RUNTIME_SIMD_LEVEL
-  if(CXX_SUPPORTS_SSE4_2
-     AND ARROW_RUNTIME_SIMD_LEVEL MATCHES "^(SSE4_2|AVX2|AVX512|MAX)$")
+  if(CXX_SUPPORTS_SSE4_2 AND ARROW_RUNTIME_SIMD_LEVEL MATCHES
+                             "^(SSE4_2|AVX2|AVX512|MAX)$")
     set(ARROW_HAVE_RUNTIME_SSE4_2 ON)
     add_definitions(-DARROW_HAVE_RUNTIME_SSE4_2)
   endif()
@@ -93,14 +94,23 @@ if(ARROW_CPU_FLAG STREQUAL "x86")
     set(ARROW_HAVE_RUNTIME_AVX512 ON)
     add_definitions(-DARROW_HAVE_RUNTIME_AVX512 -DARROW_HAVE_RUNTIME_BMI2)
   endif()
+  if(ARROW_SIMD_LEVEL STREQUAL "DEFAULT")
+    set(ARROW_SIMD_LEVEL "SSE4_2")
+  endif()
 elseif(ARROW_CPU_FLAG STREQUAL "ppc")
   # power compiler flags, gcc/clang only
   set(ARROW_ALTIVEC_FLAG "-maltivec")
   check_cxx_compiler_flag(${ARROW_ALTIVEC_FLAG} CXX_SUPPORTS_ALTIVEC)
+  if(ARROW_SIMD_LEVEL STREQUAL "DEFAULT")
+    set(ARROW_SIMD_LEVEL "NONE")
+  endif()
 elseif(ARROW_CPU_FLAG STREQUAL "armv8")
   # Arm64 compiler flags, gcc/clang only
   set(ARROW_ARMV8_ARCH_FLAG "-march=${ARROW_ARMV8_ARCH}")
   check_cxx_compiler_flag(${ARROW_ARMV8_ARCH_FLAG} CXX_SUPPORTS_ARMV8_ARCH)
+  if(ARROW_SIMD_LEVEL STREQUAL "DEFAULT")
+    set(ARROW_SIMD_LEVEL "NEON")
+  endif()
 endif()
 
 # Support C11
@@ -252,30 +262,27 @@ if("${BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /wd4365")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /wd4267")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /wd4838")
-  elseif(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang"
-         OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+  elseif(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL
+                                                        "Clang")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wall")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wextra")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wdocumentation")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-missing-braces")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-unused-parameter")
-    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-unknown-warning-option")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-constant-logical-operand")
   elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wall")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-conversion")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-deprecated-declarations")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-sign-conversion")
-    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-unused-variable")
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wunused-result")
   elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
     if(WIN32)
       set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /Wall")
       set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /Wno-deprecated")
-      set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /Wno-unused-variable")
     else()
       set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wall")
       set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-deprecated")
-      set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-unused-variable")
     endif()
   else()
     message(FATAL_ERROR "${UNKNOWN_COMPILER_MESSAGE}")
@@ -289,8 +296,8 @@ elseif("${BUILD_WARNING_LEVEL}" STREQUAL "EVERYTHING")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /Wall")
     # https://docs.microsoft.com/en-us/cpp/build/reference/compiler-option-warning-level
     # /wdnnnn disables a warning where "nnnn" is a warning number
-  elseif(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang"
-         OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+  elseif(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL
+                                                        "Clang")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Weverything")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-c++98-compat")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-c++98-compat-pedantic")
@@ -299,6 +306,7 @@ elseif("${BUILD_WARNING_LEVEL}" STREQUAL "EVERYTHING")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wpedantic")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wextra")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-unused-parameter")
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wunused-result")
   elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
     if(WIN32)
       set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /Wall")
@@ -344,9 +352,10 @@ if(MSVC)
   # Disable "switch statement contains 'default' but no 'case' labels" warning
   # (required for protobuf, see https://github.com/protocolbuffers/protobuf/issues/6885)
   set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /wd4065")
+
 elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-  if(CMAKE_CXX_COMPILER_VERSION VERSION_EQUAL "7.0"
-     OR CMAKE_CXX_COMPILER_VERSION VERSION_GREATER "7.0")
+  if(CMAKE_CXX_COMPILER_VERSION VERSION_EQUAL "7.0" OR CMAKE_CXX_COMPILER_VERSION
+                                                       VERSION_GREATER "7.0")
     # Without this, gcc >= 7 warns related to changes in C++17
     set(CXX_ONLY_FLAGS "${CXX_ONLY_FLAGS} -Wno-noexcept-type")
   endif()
@@ -373,8 +382,8 @@ elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     set(CXX_ONLY_FLAGS "${CXX_ONLY_FLAGS} -Wno-subobject-linkage")
   endif()
 
-elseif(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang"
-       OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+elseif(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL
+                                                      "Clang")
   # Clang options for all builds
 
   # Using Clang with ccache causes a bunch of spurious warnings that are
@@ -385,7 +394,7 @@ elseif(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang"
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Qunused-arguments")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Qunused-arguments")
 
-  # Avoid clang error when an unknown warning flag is passed
+  # Avoid error when an unknown warning flag is passed
   set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-unknown-warning-option")
   # Add colors when paired with ninja
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fcolor-diagnostics")
@@ -433,6 +442,8 @@ if(ARROW_CPU_FLAG STREQUAL "x86")
     endif()
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} ${ARROW_SSE4_2_FLAG}")
     add_definitions(-DARROW_HAVE_SSE4_2)
+  elseif(NOT ARROW_SIMD_LEVEL STREQUAL "NONE")
+    message(WARNING "ARROW_SIMD_LEVEL=${ARROW_SIMD_LEVEL} not supported by x86.")
   endif()
 endif()
 
@@ -443,30 +454,34 @@ if(ARROW_CPU_FLAG STREQUAL "ppc")
 endif()
 
 if(ARROW_CPU_FLAG STREQUAL "armv8")
-  if(NOT CXX_SUPPORTS_ARMV8_ARCH)
-    message(FATAL_ERROR "Unsupported arch flag: ${ARROW_ARMV8_ARCH_FLAG}.")
-  endif()
-  if(ARROW_ARMV8_ARCH_FLAG MATCHES "native")
-    message(FATAL_ERROR "native arch not allowed, please specify arch explicitly.")
-  endif()
-  set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} ${ARROW_ARMV8_ARCH_FLAG}")
-
-  if(NOT ARROW_SIMD_LEVEL STREQUAL "NONE")
+  if(ARROW_SIMD_LEVEL STREQUAL "NEON")
     set(ARROW_HAVE_NEON ON)
-    add_definitions(-DARROW_HAVE_NEON)
-  endif()
 
-  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU"
-     AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "5.4")
-    message(WARNING "Disable Armv8 CRC and Crypto as compiler doesn't support them well.")
-  else()
-    if(ARROW_ARMV8_ARCH_FLAG MATCHES "\\+crypto")
-      add_definitions(-DARROW_HAVE_ARMV8_CRYPTO)
+    if(NOT CXX_SUPPORTS_ARMV8_ARCH)
+      message(FATAL_ERROR "Unsupported arch flag: ${ARROW_ARMV8_ARCH_FLAG}.")
     endif()
-    # armv8.1+ implies crc support
-    if(ARROW_ARMV8_ARCH_FLAG MATCHES "armv8\\.[1-9]|\\+crc")
-      add_definitions(-DARROW_HAVE_ARMV8_CRC)
+    if(ARROW_ARMV8_ARCH_FLAG MATCHES "native")
+      message(FATAL_ERROR "native arch not allowed, please specify arch explicitly.")
     endif()
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} ${ARROW_ARMV8_ARCH_FLAG}")
+
+    add_definitions(-DARROW_HAVE_NEON)
+
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS
+                                                "5.4")
+      message(WARNING "Disable Armv8 CRC and Crypto as compiler doesn't support them well."
+      )
+    else()
+      if(ARROW_ARMV8_ARCH_FLAG MATCHES "\\+crypto")
+        add_definitions(-DARROW_HAVE_ARMV8_CRYPTO)
+      endif()
+      # armv8.1+ implies crc support
+      if(ARROW_ARMV8_ARCH_FLAG MATCHES "armv8\\.[1-9]|\\+crc")
+        add_definitions(-DARROW_HAVE_ARMV8_CRC)
+      endif()
+    endif()
+  elseif(NOT ARROW_SIMD_LEVEL STREQUAL "NONE")
+    message(WARNING "ARROW_SIMD_LEVEL=${ARROW_SIMD_LEVEL} not supported by Arm.")
   endif()
 endif()
 
@@ -494,7 +509,9 @@ function(GET_GOLD_VERSION)
       message(SEND_ERROR "Could not extract GNU gold version. "
                          "Linker version output: ${LINKER_OUTPUT}")
     endif()
-    set(GOLD_VERSION "${CMAKE_MATCH_1}" PARENT_SCOPE)
+    set(GOLD_VERSION
+        "${CMAKE_MATCH_1}"
+        PARENT_SCOPE)
   endif()
 endfunction()
 
@@ -591,9 +608,8 @@ set(CXX_FLAGS_PROFILE_GEN "${CXX_FLAGS_RELEASE} -fprofile-generate")
 set(CXX_FLAGS_PROFILE_BUILD "${CXX_FLAGS_RELEASE} -fprofile-use")
 
 # Set compile flags based on the build type.
-message(
-  "Configured for ${CMAKE_BUILD_TYPE} build (set with cmake -DCMAKE_BUILD_TYPE={release,debug,...})"
-  )
+message("Configured for ${CMAKE_BUILD_TYPE} build (set with cmake -DCMAKE_BUILD_TYPE={release,debug,...})"
+)
 if("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${C_FLAGS_DEBUG}")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_FLAGS_DEBUG}")

@@ -6,11 +6,7 @@
 \alias{arrow-package}
 \title{arrow: Integration to 'Apache' 'Arrow'}
 \description{
-'Apache' 'Arrow' <https://arrow.apache.org/> is a cross-language
-    development platform for in-memory data. It specifies a standardized
-    language-independent columnar memory format for flat and hierarchical data,
-    organized for efficient analytic operations on modern hardware. This
-    package provides an interface to the 'Arrow C++' library.
+'Apache' 'Arrow' <https://arrow.apache.org/> is a cross-language development platform for in-memory data. It specifies a standardized language-independent columnar memory format for flat and hierarchical data, organized for efficient analytic operations on modern hardware. This package provides an interface to the 'Arrow C++' library.
 }
 \seealso{
 Useful links:
@@ -26,6 +22,9 @@ Useful links:
 
 Authors:
 \itemize{
+  \item Ian Cook \email{ianmcook@gmail.com}
+  \item Nic Crane \email{thisisnic@gmail.com}
+  \item Jonathan Keane \email{jkeane@gmail.com}
   \item Romain François \email{romain@rstudio.com} (\href{https://orcid.org/0000-0002-2444-4226}{ORCID})
   \item Jeroen Ooms \email{jeroen@berkeley.edu}
   \item Apache Arrow \email{dev@arrow.apache.org} [copyright holder]
@@ -34,6 +33,7 @@ Authors:
 Other contributors:
 \itemize{
   \item Javier Luraschi \email{javier@rstudio.com} [contributor]
+  \item Karl Dunkle Werner \email{karldw@users.noreply.github.com} (\href{https://orcid.org/0000-0003-0523-7309}{ORCID}) [contributor]
   \item Jeffrey Wong \email{jeffreyw@netflix.com} [contributor]
 }
 

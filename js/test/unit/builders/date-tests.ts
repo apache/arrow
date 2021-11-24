@@ -16,7 +16,7 @@
 // under the License.
 
 import { validateVector } from './utils';
-import { Vector, DateDay, DateMillisecond } from '../../Arrow';
+import { Vector, DateDay, DateMillisecond } from 'apache-arrow';
 import {
     encodeAll,
     encodeEach,

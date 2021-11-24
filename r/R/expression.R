@@ -17,121 +17,71 @@
 
 #' @include arrowExports.R
 
-array_expression <- function(FUN,
-                             ...,
-                             args = list(...),
-                             options = empty_named_list()) {
-  structure(
-    list(
-      fun = FUN,
-      args = args,
-      options = options
-    ),
-    class = "array_expression"
-  )
-}
-
-#' @export
-Ops.ArrowDatum <- function(e1, e2) {
-  if (.Generic == "!") {
-    eval_array_expression(build_array_expression(.Generic, e1))
-  } else if (.Generic %in% names(.array_function_map)) {
-    eval_array_expression(build_array_expression(.Generic, e1, e2))
-  } else {
-    stop(paste0("Unsupported operation on `", class(e1)[1L], "` : "), .Generic, call. = FALSE)
-  }
-}
-
-#' @export
-Ops.array_expression <- function(e1, e2) {
-  if (.Generic == "!") {
-    build_array_expression(.Generic, e1)
-  } else {
-    build_array_expression(.Generic, e1, e2)
-  }
-}
-
-build_array_expression <- function(FUN,
-                                   ...,
-                                   args = list(...),
-                                   options = empty_named_list()) {
-  if (FUN == "-" && length(args) == 1L) {
-    # Unary -, i.e. just make it negative, and somehow this works
-    if (inherits(args[[1]], c("ArrowObject", "array_expression"))) {
-      # Make it be 0 - arg
-      # TODO(ARROW-11950): do this in C++ compute
-      args <- list(0L, args[[1]])
-    } else {
-      # Somehow this works
-      return(-args[[1]])
-    }
-  }
-  args <- lapply(args, .wrap_arrow, FUN)
-
-  # In Arrow, "divide" is one function, which does integer division on
-  # integer inputs and floating-point division on floats
-  if (FUN == "/") {
-    # TODO: omg so many ways it's wrong to assume these types
-    args <- lapply(args, cast_array_expression, float64())
-  } else if (FUN == "%/%") {
-    # In R, integer division works like floor(float division)
-    out <- build_array_expression("/", args = args, options = options)
-    return(cast_array_expression(out, int32(), allow_float_truncate = TRUE))
-  } else if (FUN == "%%") {
-    # {e1 - e2 * ( e1 %/% e2 )}
-    # ^^^ form doesn't work because Ops.Array evaluates eagerly,
-    # but we can build that up
-    quotient <- build_array_expression("%/%", args = args)
-    base <- build_array_expression("*", quotient, args[[2]])
-    # this cast is to ensure that the result of this and e1 are the same
-    # (autocasting only applies to scalars)
-    base <- cast_array_expression(base, args[[1]]$type)
-    return(build_array_expression("-", args[[1]], base))
-  }
-
-  array_expression(.array_function_map[[FUN]] %||% FUN, args = args, options = options)
-}
-
-cast_array_expression <- function(x, to_type, safe = TRUE, ...) {
-  opts <- list(
-    to_type = to_type,
-    allow_int_overflow = !safe,
-    allow_time_truncate = !safe,
-    allow_float_truncate = !safe
-  )
-  array_expression("cast", x, options = modifyList(opts, list(...)))
-}
-
-.wrap_arrow <- function(arg, fun) {
-  if (!inherits(arg, c("ArrowObject", "array_expression"))) {
-    # TODO: Array$create if lengths are equal?
-    # TODO: these kernels should autocast like the dataset ones do (e.g. int vs. float)
-    if (fun == "%in%") {
-      arg <- Array$create(arg)
-    } else {
-      arg <- Scalar$create(arg)
-    }
-  }
-  arg
-}
-
 .unary_function_map <- list(
+  # NOTE: Each of the R functions mapped here takes exactly *one* argument, maps
+  # *directly* to an Arrow C++ compute kernel, and does not require any
+  # non-default options to be specified. More complex R function mappings are
+  # defined in dplyr-functions.R.
+
+  # functions are arranged alphabetically by name within categories
+
+  # arithmetic functions
+  "abs" = "abs_checked",
+  "ceiling" = "ceil",
+  "floor" = "floor",
+  "log10" = "log10_checked",
+  "log1p" = "log1p_checked",
+  "log2" = "log2_checked",
+  "sign" = "sign",
+  # trunc is defined in dplyr-functions.R
+
+  # trigonometric functions
+  "acos" = "acos_checked",
+  "asin" = "asin_checked",
+  "cos" = "cos_checked",
+  "sin" = "sin_checked",
+  "tan" = "tan_checked",
+
+  # logical functions
   "!" = "invert",
-  "as.factor" = "dictionary_encode",
-  "is.na" = "is_null",
-  "is.nan" = "is_nan",
-  # nchar is defined in dplyr.R because it is more complex
-  # "nchar" = "utf8_length",
+
+  # string functions
+  # nchar is defined in dplyr-functions.R
+  "str_length" = "utf8_length",
+  # str_pad is defined in dplyr-functions.R
+  # str_sub is defined in dplyr-functions.R
+  # str_to_lower is defined in dplyr-functions.R
+  # str_to_title is defined in dplyr-functions.R
+  # str_to_upper is defined in dplyr-functions.R
+  # str_trim is defined in dplyr-functions.R
+  "stri_reverse" = "utf8_reverse",
+  # substr is defined in dplyr-functions.R
+  # substring is defined in dplyr-functions.R
   "tolower" = "utf8_lower",
   "toupper" = "utf8_upper",
-  # stringr spellings of those
-  "str_length" = "utf8_length",
-  "str_to_lower" = "utf8_lower",
-  "str_to_upper" = "utf8_upper"
-  # str_trim is defined in dplyr.R
+
+  # date and time functions
+  "day" = "day",
+  "hour" = "hour",
+  "isoweek" = "iso_week",
+  "epiweek" = "us_week",
+  "isoyear" = "iso_year",
+  "minute" = "minute",
+  "quarter" = "quarter",
+  # second is defined in dplyr-functions.R
+  # wday is defined in dplyr-functions.R
+  "yday" = "day_of_year",
+  "year" = "year",
+
+  # type conversion functions
+  "as.factor" = "dictionary_encode"
 )
 
 .binary_function_map <- list(
+  # NOTE: Each of the R functions/operators mapped here takes exactly *two*
+  # arguments. Most map *directly* to an Arrow C++ compute kernel and require no
+  # non-default options, but some are modified by build_expr(). More complex R
+  # function/operator mappings are defined in dplyr-functions.R.
   "==" = "equal",
   "!=" = "not_equal",
   ">" = "greater",
@@ -143,96 +93,18 @@ cast_array_expression <- function(x, to_type, safe = TRUE, ...) {
   "+" = "add_checked",
   "-" = "subtract_checked",
   "*" = "multiply_checked",
-  "/" = "divide_checked",
+  "/" = "divide",
   "%/%" = "divide_checked",
   # we don't actually use divide_checked with `%%`, rather it is rewritten to
-  # use %/% above.
+  # use `%/%` above.
   "%%" = "divide_checked",
   "^" = "power_checked",
-  "%in%" = "is_in_meta_binary"
+  "%in%" = "is_in_meta_binary",
+  "strrep" = "binary_repeat",
+  "str_dup" = "binary_repeat"
 )
 
 .array_function_map <- c(.unary_function_map, .binary_function_map)
-
-eval_array_expression <- function(x, data = NULL) {
-  if (!is.null(data)) {
-    x <- bind_array_refs(x, data)
-  }
-  if (!inherits(x, "array_expression")) {
-    # Nothing to evaluate
-    return(x)
-  }
-  x$args <- lapply(x$args, function (a) {
-    if (inherits(a, "array_expression")) {
-      eval_array_expression(a)
-    } else {
-      a
-    }
-  })
-  if (x$fun == "is_in_meta_binary" && inherits(x$args[[2]], "Scalar")) {
-    x$args[[2]] <- Array$create(x$args[[2]])
-  }
-  call_function(x$fun, args = x$args, options = x$options %||% empty_named_list())
-}
-
-find_array_refs <- function(x) {
-  if (identical(x$fun, "array_ref")) {
-    out <- x$args$field_name
-  } else {
-    out <- lapply(x$args, find_array_refs)
-  }
-  unlist(out)
-}
-
-# Take an array_expression and replace array_refs with arrays/chunkedarrays from data
-bind_array_refs <- function(x, data) {
-  if (inherits(x, "array_expression")) {
-    if (identical(x$fun, "array_ref")) {
-      x <- data[[x$args$field_name]]
-    } else {
-      x$args <- lapply(x$args, bind_array_refs, data)
-    }
-  }
-  x
-}
-
-#' @export
-is.na.array_expression <- function(x) array_expression("is.na", x)
-
-#' @export
-as.vector.array_expression <- function(x, ...) {
-  as.vector(eval_array_expression(x))
-}
-
-#' @export
-print.array_expression <- function(x, ...) {
-  cat(.format_array_expression(x), "\n", sep = "")
-  invisible(x)
-}
-
-.format_array_expression <- function(x) {
-  printed_args <- map_chr(x$args, function(arg) {
-    if (inherits(arg, "Scalar")) {
-      deparse(as.vector(arg))
-    } else if (inherits(arg, "ArrowObject")) {
-      paste0("<", class(arg)[1], ">")
-    } else if (inherits(arg, "array_expression")) {
-      .format_array_expression(arg)
-    } else {
-      # Should not happen
-      deparse(arg)
-    }
-  })
-  if (identical(x$fun, "array_ref")) {
-    x$args$field_name
-  } else {
-    # Prune this for readability
-    function_name <- sub("_kleene", "", x$fun)
-    paste0(function_name, "(", paste(printed_args, collapse = ", "), ")")
-  }
-}
-
-###########
 
 #' Arrow expressions
 #'
@@ -251,9 +123,24 @@ print.array_expression <- function(x, ...) {
 #' @name Expression
 #' @rdname Expression
 #' @export
-Expression <- R6Class("Expression", inherit = ArrowObject,
+Expression <- R6Class("Expression",
+  inherit = ArrowObject,
   public = list(
-    ToString = function() dataset___expr__ToString(self),
+    ToString = function() compute___expr__ToString(self),
+    Equals = function(other, ...) {
+      inherits(other, "Expression") && compute___expr__equals(self, other)
+    },
+    # TODO: Implement type determination without storing
+    # schemas in Expression objects (ARROW-13186)
+    schema = NULL,
+    type = function(schema = self$schema) {
+      assert_that(!is.null(schema))
+      compute___expr__type(self, schema)
+    },
+    type_id = function(schema = self$schema) {
+      assert_that(!is.null(schema))
+      compute___expr__type_id(self, schema)
+    },
     cast = function(to_type, safe = TRUE, ...) {
       opts <- list(
         to_type = to_type,
@@ -265,7 +152,7 @@ Expression <- R6Class("Expression", inherit = ArrowObject,
     }
   ),
   active = list(
-    field_name = function() dataset___expr__get_field_ref_name(self)
+    field_name = function() compute___expr__get_field_ref_name(self)
   )
 )
 Expression$create <- function(function_name,
@@ -273,27 +160,33 @@ Expression$create <- function(function_name,
                               args = list(...),
                               options = empty_named_list()) {
   assert_that(is.string(function_name))
-  dataset___expr__call(function_name, args, options)
-}
-Expression$field_ref <- function(name) {
-  assert_that(is.string(name))
-  dataset___expr__field_ref(name)
-}
-Expression$scalar <- function(x) {
-  dataset___expr__scalar(Scalar$create(x))
+  assert_that(is_list_of(args, "Expression"), msg = "Expression arguments must be Expression objects")
+  expr <- compute___expr__call(function_name, args, options)
+  expr$schema <- unify_schemas(schemas = lapply(args, function(x) x$schema))
+  expr
 }
 
-build_dataset_expression <- function(FUN,
-                                     ...,
-                                     args = list(...),
-                                     options = empty_named_list()) {
+Expression$field_ref <- function(name) {
+  assert_that(is.string(name))
+  compute___expr__field_ref(name)
+}
+Expression$scalar <- function(x) {
+  expr <- compute___expr__scalar(Scalar$create(x))
+  expr$schema <- schema()
+  expr
+}
+
+# Wrapper around Expression$create that:
+# (1) maps R function names to Arrow C++ compute ("/" --> "divide_checked")
+# (2) wraps R input args as Array or Scalar
+build_expr <- function(FUN,
+                       ...,
+                       args = list(...),
+                       options = empty_named_list()) {
   if (FUN == "-" && length(args) == 1L) {
-    # Unary -, i.e. make it negative
     if (inherits(args[[1]], c("ArrowObject", "Expression"))) {
-      # TODO(ARROW-11950): do this in C++ compute
-      args <- list(0L, args[[1]])
+      return(build_expr("negate_checked", args[[1]]))
     } else {
-      # Somehow this just works
       return(-args[[1]])
     }
   }
@@ -322,10 +215,26 @@ build_dataset_expression <- function(FUN,
       args <- lapply(args, function(x) x$cast(float64()))
     } else if (FUN == "%/%") {
       # In R, integer division works like floor(float division)
-      out <- build_dataset_expression("/", args = args)
-      return(out$cast(int32(), allow_float_truncate = TRUE))
+      out <- build_expr("/", args = args)
+
+      # integer output only for all integer input
+      int_type_ids <- Type[toupper(INTEGER_TYPES)]
+      numerator_is_int <- args[[1]]$type_id() %in% int_type_ids
+      denominator_is_int <- args[[2]]$type_id() %in% int_type_ids
+
+      if (numerator_is_int && denominator_is_int) {
+        out_float <- build_expr(
+          "if_else",
+          build_expr("equal", args[[2]], 0L),
+          Scalar$create(NA_integer_),
+          build_expr("floor", out)
+        )
+        return(out_float$cast(args[[1]]$type()))
+      } else {
+        return(build_expr("floor", out))
+      }
     } else if (FUN == "%%") {
-      return(args[[1]] - args[[2]] * ( args[[1]] %/% args[[2]] ))
+      return(args[[1]] - args[[2]] * (args[[1]] %/% args[[2]]))
     }
 
     expr <- Expression$create(.array_function_map[[FUN]] %||% FUN, args = args, options = options)
@@ -336,11 +245,13 @@ build_dataset_expression <- function(FUN,
 #' @export
 Ops.Expression <- function(e1, e2) {
   if (.Generic == "!") {
-    build_dataset_expression(.Generic, e1)
+    build_expr(.Generic, e1)
   } else {
-    build_dataset_expression(.Generic, e1, e2)
+    build_expr(.Generic, e1, e2)
   }
 }
 
 #' @export
-is.na.Expression <- function(x) Expression$create("is_null", x)
+is.na.Expression <- function(x) {
+  Expression$create("is_null", x, options = list(nan_is_null = TRUE))
+}

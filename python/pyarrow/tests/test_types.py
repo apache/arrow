@@ -64,6 +64,8 @@ def get_many_types():
         pa.list_(pa.int32(), 2),
         pa.large_list(pa.uint16()),
         pa.map_(pa.string(), pa.int32()),
+        pa.map_(pa.field('key', pa.int32(), nullable=False),
+                pa.field('value', pa.int32())),
         pa.struct([pa.field('a', pa.int32()),
                    pa.field('b', pa.int8()),
                    pa.field('c', pa.string())]),
@@ -167,6 +169,10 @@ def test_is_map():
     assert types.is_map(m)
     assert not types.is_map(pa.int32())
 
+    fields = pa.map_(pa.field('key_name', pa.utf8(), nullable=False),
+                     pa.field('value_name', pa.int32()))
+    assert types.is_map(fields)
+
     entries_type = pa.struct([pa.field('key', pa.int8()),
                               pa.field('value', pa.int8())])
     list_type = pa.list_(entries_type)
@@ -235,8 +241,10 @@ def test_is_temporal_date_time_timestamp():
     time_types = [pa.time32('s'), pa.time64('ns')]
     timestamp_types = [pa.timestamp('ms')]
     duration_types = [pa.duration('ms')]
+    interval_types = [pa.month_day_nano_interval()]
 
-    for case in date_types + time_types + timestamp_types + duration_types:
+    for case in (date_types + time_types + timestamp_types + duration_types +
+                 interval_types):
         assert types.is_temporal(case)
 
     for case in date_types:
@@ -244,21 +252,31 @@ def test_is_temporal_date_time_timestamp():
         assert not types.is_time(case)
         assert not types.is_timestamp(case)
         assert not types.is_duration(case)
+        assert not types.is_interval(case)
 
     for case in time_types:
         assert types.is_time(case)
         assert not types.is_date(case)
         assert not types.is_timestamp(case)
         assert not types.is_duration(case)
+        assert not types.is_interval(case)
 
     for case in timestamp_types:
         assert types.is_timestamp(case)
         assert not types.is_date(case)
         assert not types.is_time(case)
         assert not types.is_duration(case)
+        assert not types.is_interval(case)
 
     for case in duration_types:
         assert types.is_duration(case)
+        assert not types.is_date(case)
+        assert not types.is_time(case)
+        assert not types.is_timestamp(case)
+        assert not types.is_interval(case)
+
+    for case in interval_types:
+        assert types.is_interval(case)
         assert not types.is_date(case)
         assert not types.is_time(case)
         assert not types.is_timestamp(case)
@@ -403,7 +421,7 @@ def test_timestamp():
             assert ty.tz == tz
 
     for invalid_unit in ('m', 'arbit', 'rary'):
-        with pytest.raises(ValueError, match='Invalid TimeUnit string'):
+        with pytest.raises(ValueError, match='Invalid time unit'):
             pa.timestamp(invalid_unit)
 
 
@@ -413,7 +431,7 @@ def test_time32_units():
         assert ty.unit == valid_unit
 
     for invalid_unit in ('m', 'us', 'ns'):
-        error_msg = 'Invalid TimeUnit for time32: {}'.format(invalid_unit)
+        error_msg = 'Invalid time unit for time32: {!r}'.format(invalid_unit)
         with pytest.raises(ValueError, match=error_msg):
             pa.time32(invalid_unit)
 
@@ -424,7 +442,7 @@ def test_time64_units():
         assert ty.unit == valid_unit
 
     for invalid_unit in ('m', 's', 'ms'):
-        error_msg = 'Invalid TimeUnit for time64: {}'.format(invalid_unit)
+        error_msg = 'Invalid time unit for time64: {!r}'.format(invalid_unit)
         with pytest.raises(ValueError, match=error_msg):
             pa.time64(invalid_unit)
 
@@ -435,7 +453,7 @@ def test_duration():
         assert ty.unit == unit
 
     for invalid_unit in ('m', 'arbit', 'rary'):
-        with pytest.raises(ValueError, match='Invalid TimeUnit string'):
+        with pytest.raises(ValueError, match='Invalid time unit'):
             pa.duration(invalid_unit)
 
 
@@ -463,12 +481,16 @@ def test_map_type():
     ty = pa.map_(pa.utf8(), pa.int32())
     assert isinstance(ty, pa.MapType)
     assert ty.key_type == pa.utf8()
+    assert ty.key_field == pa.field("key", pa.utf8(), nullable=False)
     assert ty.item_type == pa.int32()
+    assert ty.item_field == pa.field("value", pa.int32(), nullable=True)
 
     with pytest.raises(TypeError):
         pa.map_(None)
     with pytest.raises(TypeError):
         pa.map_(pa.int32(), None)
+    with pytest.raises(TypeError):
+        pa.map_(pa.field("name", pa.string(), nullable=True), pa.int64())
 
 
 def test_fixed_size_list_type():
@@ -624,11 +646,15 @@ def test_dictionary_type():
     assert ty2.value_type == pa.string()
     assert ty2.ordered is False
 
+    # allow unsigned integers for index type
+    ty3 = pa.dictionary(pa.uint32(), pa.string())
+    assert ty3.index_type == pa.uint32()
+    assert ty3.value_type == pa.string()
+    assert ty3.ordered is False
+
     # invalid index type raises
     with pytest.raises(TypeError):
         pa.dictionary(pa.string(), pa.int64())
-    with pytest.raises(TypeError):
-        pa.dictionary(pa.uint32(), pa.string())
 
 
 def test_dictionary_ordered_equals():

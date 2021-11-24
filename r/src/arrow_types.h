@@ -43,9 +43,22 @@
 #include <arrow/filesystem/type_fwd.h>
 #include <arrow/io/type_fwd.h>
 #include <arrow/ipc/type_fwd.h>
+
+#if defined(ARROW_R_WITH_JSON)
 #include <arrow/json/type_fwd.h>
+#endif
+
 #include <arrow/type_fwd.h>
 #include <arrow/util/type_fwd.h>
+
+namespace arrow {
+namespace compute {
+
+class ExecPlan;
+class ExecNode;
+
+}  // namespace compute
+}  // namespace arrow
 
 #if defined(ARROW_R_WITH_PARQUET)
 #include <parquet/type_fwd.h>
@@ -55,12 +68,12 @@
 namespace ds = ::arrow::dataset;
 #endif
 
+namespace compute = ::arrow::compute;
 namespace fs = ::arrow::fs;
 
-SEXP ChunkedArray__as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
-SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array);
 std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays(SEXP, SEXP);
 arrow::MemoryPool* gc_memory_pool();
+arrow::compute::ExecContext* gc_context();
 
 #if (R_VERSION < R_Version(3, 5, 0))
 #define LOGICAL_RO(x) ((const int*)LOGICAL(x))
@@ -78,8 +91,10 @@ arrow::MemoryPool* gc_memory_pool();
 namespace arrow {
 
 static inline void StopIfNotOk(const Status& status) {
-  if (!(status.ok())) {
-    cpp11::stop(status.ToString());
+  if (!status.ok()) {
+    // ARROW-13039: be careful not to interpret our error message as a %-format string
+    std::string s = status.ToString();
+    cpp11::stop("%s", s.c_str());
   }
 }
 
@@ -90,6 +105,7 @@ auto ValueOrStop(R&& result) -> decltype(std::forward<R>(result).ValueOrDie()) {
 }
 
 namespace r {
+class RTasks;
 
 std::shared_ptr<arrow::DataType> InferArrowType(SEXP x);
 std::shared_ptr<arrow::Array> vec_to_arrow__reuse_memory(SEXP x);
@@ -98,9 +114,10 @@ bool can_reuse_memory(SEXP x, const std::shared_ptr<arrow::DataType>& type);
 Status count_fields(SEXP lst, int* out);
 
 void inspect(SEXP obj);
-std::shared_ptr<arrow::Array> vec_to_arrow(SEXP x,
-                                           const std::shared_ptr<arrow::DataType>& type,
-                                           bool type_inferred);
+std::shared_ptr<arrow::Array> vec_to_arrow_Array(
+    SEXP x, const std::shared_ptr<arrow::DataType>& type, bool type_inferred);
+std::shared_ptr<arrow::ChunkedArray> vec_to_arrow_ChunkedArray(
+    SEXP x, const std::shared_ptr<arrow::DataType>& type, bool type_inferred);
 
 // the integer64 sentinel
 constexpr int64_t NA_INT64 = std::numeric_limits<int64_t>::min();
@@ -148,11 +165,31 @@ void TraverseDots(cpp11::list dots, int num_fields, Lambda lambda) {
   }
 }
 
+inline cpp11::writable::list FlattenDots(cpp11::list dots, int num_fields) {
+  std::vector<SEXP> out(num_fields);
+  auto set = [&](int j, SEXP x, cpp11::r_string) { out[j] = x; };
+  TraverseDots(dots, num_fields, set);
+
+  return cpp11::writable::list(out.begin(), out.end());
+}
+
 arrow::Status InferSchemaFromDots(SEXP lst, SEXP schema_sxp, int num_fields,
                                   std::shared_ptr<arrow::Schema>& schema);
 
 arrow::Status AddMetadataFromDots(SEXP lst, int num_fields,
                                   std::shared_ptr<arrow::Schema>& schema);
+
+namespace altrep {
+
+#if defined(HAS_ALTREP)
+void Init_Altrep_classes(DllInfo* dll);
+#endif
+
+SEXP MakeAltrepVector(const std::shared_ptr<ChunkedArray>& chunked_array);
+bool is_arrow_altrep(SEXP x);
+std::shared_ptr<ChunkedArray> vec_to_arrow_altrep_bypass(SEXP);
+
+}  // namespace altrep
 
 }  // namespace r
 }  // namespace arrow
@@ -178,6 +215,7 @@ R6_CLASS_NAME(arrow::csv::ReadOptions, "CsvReadOptions");
 R6_CLASS_NAME(arrow::csv::ParseOptions, "CsvParseOptions");
 R6_CLASS_NAME(arrow::csv::ConvertOptions, "CsvConvertOptions");
 R6_CLASS_NAME(arrow::csv::TableReader, "CsvTableReader");
+R6_CLASS_NAME(arrow::csv::WriteOptions, "CsvWriteOptions");
 
 #if defined(ARROW_R_WITH_PARQUET)
 R6_CLASS_NAME(parquet::ArrowReaderProperties, "ParquetArrowReaderProperties");
@@ -190,9 +228,11 @@ R6_CLASS_NAME(parquet::arrow::FileWriter, "ParquetFileWriter");
 
 R6_CLASS_NAME(arrow::ipc::feather::Reader, "FeatherReader");
 
+#if defined(ARROW_R_WITH_JSON)
 R6_CLASS_NAME(arrow::json::ReadOptions, "JsonReadOptions");
 R6_CLASS_NAME(arrow::json::ParseOptions, "JsonParseOptions");
 R6_CLASS_NAME(arrow::json::TableReader, "JsonTableReader");
+#endif
 
 #undef R6_CLASS_NAME
 

@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import fnmatch
 import gzip
 import os
 from pathlib import Path
@@ -26,10 +27,14 @@ from .cmake import CMake
 from .git import git
 from .logger import logger
 from ..lang.cpp import CppCMakeDefinition, CppConfiguration
-from ..lang.rust import Cargo
 from ..lang.python import Autopep8, Flake8, NumpyDoc
 from .rat import Rat, exclusion_from_globs
 from .tmpdir import tmpdir
+
+
+_archery_install_msg = (
+    "Please install archery using: `pip install -e dev/archery[lint]`. "
+)
 
 
 class LintValidationException(Exception):
@@ -91,20 +96,76 @@ def cpp_linter(src, build_dir, clang_format=True, cpplint=True,
 
 
 class CMakeFormat(Command):
-    def __init__(self, cmake_format_bin):
-        self.bin = cmake_format_bin
+
+    def __init__(self, paths, cmake_format_bin=None):
+        self.check_version()
+        self.bin = default_bin(cmake_format_bin, "cmake-format")
+        self.paths = paths
+
+    @classmethod
+    def from_patterns(cls, base_path, include_patterns, exclude_patterns):
+        paths = {
+            str(path.as_posix())
+            for pattern in include_patterns
+            for path in base_path.glob(pattern)
+        }
+        for pattern in exclude_patterns:
+            pattern = (base_path / pattern).as_posix()
+            paths -= set(fnmatch.filter(paths, str(pattern)))
+        return cls(paths)
+
+    @staticmethod
+    def check_version():
+        try:
+            # cmake_format is part of the cmakelang package
+            import cmakelang
+        except ImportError:
+            raise ImportError(
+
+            )
+        # pin a specific version of cmake_format, must be updated in setup.py
+        if cmakelang.__version__ != "0.6.13":
+            raise LintValidationException(
+                f"Wrong version of cmake_format is detected. "
+                f"{_archery_install_msg}"
+            )
+
+    def check(self):
+        return self.run("-l", "error", "--check", *self.paths, check=False)
+
+    def fix(self):
+        return self.run("--in-place", *self.paths, check=False)
 
 
 def cmake_linter(src, fix=False):
-    """ Run cmake-format.py on all CMakeFiles.txt """
+    """
+    Run cmake-format on all CMakeFiles.txt
+    """
     logger.info("Running cmake-format linters")
 
-    if not fix:
-        logger.warn("run-cmake-format modifies files, regardless of --fix")
+    cmake_format = CMakeFormat.from_patterns(
+        src.path,
+        include_patterns=[
+            'ci/**/*.cmake',
+            'cpp/CMakeLists.txt',
+            'cpp/src/**/CMakeLists.txt',
+            'cpp/examples/**/CMakeLists.txt',
+            'cpp/cmake_modules/*.cmake',
+            'go/**/CMakeLists.txt',
+            'java/**/CMakeLists.txt',
+            'matlab/**/CMakeLists.txt',
+            'python/CMakeLists.txt',
+        ],
+        exclude_patterns=[
+            'cpp/cmake_modules/FindNumPy.cmake',
+            'cpp/cmake_modules/FindPythonLibsNew.cmake',
+            'cpp/cmake_modules/UseCython.cmake',
+            'cpp/src/arrow/util/config.h.cmake',
+        ]
+    )
+    method = cmake_format.fix if fix else cmake_format.check
 
-    arrow_cmake_format = os.path.join(src.path, "run-cmake-format.py")
-    cmake_format = CMakeFormat(cmake_format_bin=arrow_cmake_format)
-    yield LintResult.from_cmd(cmake_format("--check"))
+    yield LintResult.from_cmd(method())
 
 
 def python_linter(src, fix=False):
@@ -119,7 +180,7 @@ def python_linter(src, fix=False):
     if not autopep8.available:
         logger.error(
             "Python formatter requested but autopep8 binary not found. "
-            "Please run `pip install -r dev/archery/requirements-lint.txt`")
+            f"{_archery_install_msg}")
         return
 
     # Gather files for autopep8
@@ -128,8 +189,7 @@ def python_linter(src, fix=False):
                 "python/pyarrow/**/*.pxd",
                 "python/pyarrow/**/*.pxi",
                 "python/examples/**/*.py",
-                "dev/archery/**/*.py",
-                ]
+                "dev/archery/**/*.py"]
     files = [setup_py]
     for pattern in patterns:
         files += list(map(str, Path(src.path).glob(pattern)))
@@ -159,7 +219,7 @@ def python_linter(src, fix=False):
     if not flake8.available:
         logger.error(
             "Python linter requested but flake8 binary not found. "
-            "Please run `pip install -r dev/archery/requirements-lint.txt`")
+            f"{_archery_install_msg}")
         return
 
     flake8_exclude = ['.venv*']
@@ -292,20 +352,6 @@ def r_linter(src):
     yield LintResult.from_cmd(Bash().run(r_lint_sh, check=False))
 
 
-def rust_linter(src):
-    """Run Rust linter."""
-    logger.info("Running Rust linter")
-    cargo = Cargo()
-
-    if not cargo.available:
-        logger.error("Rust linter requested but cargo executable not found.")
-        return
-
-    yield LintResult.from_cmd(cargo.run("+stable", "fmt", "--all", "--",
-                                        "--check", cwd=src.rust,
-                                        check=False))
-
-
 class Hadolint(Command):
     def __init__(self, hadolint_bin=None):
         self.bin = default_bin(hadolint_bin, "hadolint")
@@ -341,7 +387,7 @@ def docker_linter(src):
 def linter(src, fix=False, *, clang_format=False, cpplint=False,
            clang_tidy=False, iwyu=False, iwyu_all=False,
            python=False, numpydoc=False, cmake_format=False, rat=False,
-           r=False, rust=False, docker=False):
+           r=False, docker=False):
     """Run all linters."""
     with tmpdir(prefix="arrow-lint-") as root:
         build_dir = os.path.join(root, "cpp-build")
@@ -374,9 +420,6 @@ def linter(src, fix=False, *, clang_format=False, cpplint=False,
 
         if r:
             results.extend(r_linter(src))
-
-        if rust:
-            results.extend(rust_linter(src))
 
         if docker:
             results.extend(docker_linter(src))

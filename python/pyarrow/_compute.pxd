@@ -23,5 +23,8 @@ from pyarrow.includes.libarrow cimport *
 
 
 cdef class FunctionOptions(_Weakrefable):
+    cdef:
+        unique_ptr[CFunctionOptions] wrapped
 
     cdef const CFunctionOptions* get_options(self) except NULL
+    cdef void init(self, unique_ptr[CFunctionOptions] options)

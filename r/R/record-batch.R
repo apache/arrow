@@ -77,7 +77,8 @@
 #' @rdname RecordBatch
 #' @name RecordBatch
 #' @export
-RecordBatch <- R6Class("RecordBatch", inherit = ArrowTabular,
+RecordBatch <- R6Class("RecordBatch",
+  inherit = ArrowTabular,
   public = list(
     column = function(i) RecordBatch__column(self, i),
     column_name = function(i) RecordBatch__column_name(self, i),
@@ -98,6 +99,9 @@ RecordBatch <- R6Class("RecordBatch", inherit = ArrowTabular,
       RecordBatch__SetColumn(self, i, new_field, value)
     },
     RemoveColumn = function(i) RecordBatch__RemoveColumn(self, i),
+    ReplaceSchemaMetadata = function(new) {
+      RecordBatch__ReplaceSchemaMetadata(self, new)
+    },
     Slice = function(offset, length = NULL) {
       if (is.null(length)) {
         RecordBatch__Slice1(self, offset)
@@ -118,27 +122,15 @@ RecordBatch <- R6Class("RecordBatch", inherit = ArrowTabular,
     invalidate = function() {
       .Call(`_arrow_RecordBatch__Reset`, self)
       super$invalidate()
+    },
+    export_to_c = function(array_ptr, schema_ptr) {
+      ExportRecordBatch(self, array_ptr, schema_ptr)
     }
   ),
-
   active = list(
     num_columns = function() RecordBatch__num_columns(self),
     num_rows = function() RecordBatch__num_rows(self),
     schema = function() RecordBatch__schema(self),
-    metadata = function(new) {
-      if (missing(new)) {
-        # Get the metadata (from the schema)
-        self$schema$metadata
-      } else {
-        # Set the metadata
-        new <- prepare_key_value_metadata(new)
-        out <- RecordBatch__ReplaceSchemaMetadata(self, new)
-        # ReplaceSchemaMetadata returns a new object but we're modifying in place,
-        # so swap in that new C++ object pointer into our R6 object
-        self$set_pointer(out$pointer())
-        self
-      }
-    },
     columns = function() RecordBatch__columns(self)
   )
 )
@@ -148,12 +140,16 @@ RecordBatch$create <- function(..., schema = NULL) {
   if (length(arrays) == 1 && inherits(arrays[[1]], c("raw", "Buffer", "InputStream", "Message"))) {
     return(RecordBatch$from_message(arrays[[1]], schema))
   }
-  # Else, list of arrays
+
+  # Else, a list of arrays or data.frames
   # making sure there are always names
   if (is.null(names(arrays))) {
     names(arrays) <- rep_len("", length(arrays))
   }
   stopifnot(length(arrays) > 0)
+
+  # If any arrays are length 1, recycle them
+  arrays <- recycle_scalars(arrays)
 
   # TODO: should this also assert that they're all Arrays?
   RecordBatch__from_arrays(schema, arrays)
@@ -172,6 +168,8 @@ RecordBatch$from_message <- function(obj, schema) {
     ipc___ReadRecordBatch__Message__Schema(obj, schema)
   }
 }
+#' @include arrowExports.R
+RecordBatch$import_from_c <- ImportRecordBatch
 
 #' @param ... A `data.frame` or a named set of Arrays or vectors. If given a
 #' mixture of data.frames and vectors, the inputs will be autospliced together
@@ -180,8 +178,7 @@ RecordBatch$from_message <- function(obj, schema) {
 #' @param schema a [Schema], or `NULL` (the default) to infer the schema from
 #' the data in `...`. When providing an Arrow IPC buffer, `schema` is required.
 #' @rdname RecordBatch
-#' @examples
-#' \donttest{
+#' @examplesIf arrow_available()
 #' batch <- record_batch(name = rownames(mtcars), mtcars)
 #' dim(batch)
 #' dim(head(batch))
@@ -189,7 +186,6 @@ RecordBatch$from_message <- function(obj, schema) {
 #' batch$mpg
 #' batch[["cyl"]]
 #' as.data.frame(batch[4:8, c("gear", "hp", "wt")])
-#' }
 #' @export
 record_batch <- RecordBatch$create
 

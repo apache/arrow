@@ -31,16 +31,17 @@
 #' @rdname Field
 #' @name Field
 #' @export
-Field <- R6Class("Field", inherit = ArrowObject,
+Field <- R6Class("Field",
+  inherit = ArrowObject,
   public = list(
     ToString = function() {
       prettier_dictionary_type(Field__ToString(self))
     },
     Equals = function(other, ...) {
       inherits(other, "Field") && Field__Equals(self, other)
-    }
+    },
+    export_to_c = function(ptr) ExportField(self, ptr)
   ),
-
   active = list(
     name = function() {
       Field__name(self)
@@ -53,26 +54,27 @@ Field <- R6Class("Field", inherit = ArrowObject,
     }
   )
 )
-Field$create <- function(name, type, metadata) {
+Field$create <- function(name, type, metadata, nullable = TRUE) {
   assert_that(inherits(name, "character"), length(name) == 1L)
   type <- as_type(type, name)
   assert_that(missing(metadata), msg = "metadata= is currently ignored")
-  Field__initialize(enc2utf8(name), type, TRUE)
+  Field__initialize(enc2utf8(name), type, nullable)
 }
+#' @include arrowExports.R
+Field$import_from_c <- ImportField
 
 #' @param name field name
 #' @param type logical type, instance of [DataType]
 #' @param metadata currently ignored
+#' @param nullable TRUE if field is nullable
 #'
-#' @examples
-#' \donttest{
+#' @examplesIf arrow_available()
 #' field("x", int32())
-#' }
 #' @rdname Field
 #' @export
 field <- Field$create
 
-.fields <- function(.list) {
+.fields <- function(.list, nullable = TRUE) {
   if (length(.list)) {
     assert_that(!is.null(nms <- names(.list)))
     map2(nms, .list, field)

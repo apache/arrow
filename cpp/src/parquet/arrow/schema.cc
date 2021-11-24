@@ -30,9 +30,11 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/value_parsing.h"
 
 #include "parquet/arrow/schema_internal.h"
 #include "parquet/exception.h"
+#include "parquet/metadata.h"
 #include "parquet/properties.h"
 #include "parquet/types.h"
 
@@ -168,6 +170,7 @@ static Status GetTimestampMetadata(const ::arrow::TimestampType& type,
   const bool coerce = arrow_properties.coerce_timestamps_enabled();
   const auto target_unit =
       coerce ? arrow_properties.coerce_timestamps_unit() : type.unit();
+  const auto version = properties.version();
 
   // The user is explicitly asking for Impala int96 encoding, there is no
   // logical type.
@@ -182,16 +185,18 @@ static Status GetTimestampMetadata(const ::arrow::TimestampType& type,
   // The user is explicitly asking for timestamp data to be converted to the
   // specified units (target_unit).
   if (coerce) {
-    if (properties.version() == ::parquet::ParquetVersion::PARQUET_1_0) {
+    if (version == ::parquet::ParquetVersion::PARQUET_1_0 ||
+        version == ::parquet::ParquetVersion::PARQUET_2_4) {
       switch (target_unit) {
         case ::arrow::TimeUnit::MILLI:
         case ::arrow::TimeUnit::MICRO:
           break;
         case ::arrow::TimeUnit::NANO:
         case ::arrow::TimeUnit::SECOND:
-          return Status::NotImplemented(
-              "For Parquet version 1.0 files, can only coerce Arrow timestamps to "
-              "milliseconds or microseconds");
+          return Status::NotImplemented("For Parquet version ",
+                                        ::parquet::ParquetVersionToString(version),
+                                        ", can only coerce Arrow timestamps to "
+                                        "milliseconds or microseconds");
       }
     } else {
       switch (target_unit) {
@@ -200,9 +205,10 @@ static Status GetTimestampMetadata(const ::arrow::TimestampType& type,
         case ::arrow::TimeUnit::NANO:
           break;
         case ::arrow::TimeUnit::SECOND:
-          return Status::NotImplemented(
-              "For Parquet files, can only coerce Arrow timestamps to milliseconds, "
-              "microseconds, or nanoseconds");
+          return Status::NotImplemented("For Parquet version ",
+                                        ::parquet::ParquetVersionToString(version),
+                                        ", can only coerce Arrow timestamps to "
+                                        "milliseconds, microseconds, or nanoseconds");
       }
     }
     return Status::OK();
@@ -210,9 +216,10 @@ static Status GetTimestampMetadata(const ::arrow::TimestampType& type,
 
   // The user implicitly wants timestamp data to retain its original time units,
   // however the ConvertedType field used to indicate logical types for Parquet
-  // version 1.0 fields does not allow for nanosecond time units and so nanoseconds
+  // version <= 2.4 fields does not allow for nanosecond time units and so nanoseconds
   // must be coerced to microseconds.
-  if (properties.version() == ::parquet::ParquetVersion::PARQUET_1_0 &&
+  if ((version == ::parquet::ParquetVersion::PARQUET_1_0 ||
+       version == ::parquet::ParquetVersion::PARQUET_2_4) &&
       type.unit() == ::arrow::TimeUnit::NANO) {
     *logical_type =
         TimestampLogicalTypeFromArrowTimestamp(type, ::arrow::TimeUnit::MICRO);
@@ -229,6 +236,40 @@ static Status GetTimestampMetadata(const ::arrow::TimestampType& type,
   }
 
   return Status::OK();
+}
+
+static constexpr char FIELD_ID_KEY[] = "PARQUET:field_id";
+
+std::shared_ptr<::arrow::KeyValueMetadata> FieldIdMetadata(int field_id) {
+  if (field_id >= 0) {
+    return ::arrow::key_value_metadata({FIELD_ID_KEY}, {std::to_string(field_id)});
+  } else {
+    return nullptr;
+  }
+}
+
+int FieldIdFromMetadata(
+    const std::shared_ptr<const ::arrow::KeyValueMetadata>& metadata) {
+  if (!metadata) {
+    return -1;
+  }
+  int key = metadata->FindKey(FIELD_ID_KEY);
+  if (key < 0) {
+    return -1;
+  }
+  std::string field_id_str = metadata->value(key);
+  int field_id;
+  if (::arrow::internal::ParseValue<::arrow::Int32Type>(
+          field_id_str.c_str(), field_id_str.length(), &field_id)) {
+    if (field_id < 0) {
+      // Thrift should convert any negative value to null but normalize to -1 here in case
+      // we later check this in logic.
+      return -1;
+    }
+    return field_id;
+  } else {
+    return -1;
+  }
 }
 
 Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
@@ -387,8 +428,9 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
     }
   }
 
+  int field_id = FieldIdFromMetadata(field->metadata());
   PARQUET_CATCH_NOT_OK(*out = PrimitiveNode::Make(name, repetition, logical_type, type,
-                                                  length));
+                                                  length, field_id));
 
   return Status::OK();
 }
@@ -418,7 +460,9 @@ bool IsDictionaryReadSupported(const ArrowType& type) {
 ::arrow::Result<std::shared_ptr<ArrowType>> GetTypeForNode(
     int column_index, const schema::PrimitiveNode& primitive_node,
     SchemaTreeContext* ctx) {
-  ASSIGN_OR_RAISE(std::shared_ptr<ArrowType> storage_type, GetArrowType(primitive_node));
+  ASSIGN_OR_RAISE(
+      std::shared_ptr<ArrowType> storage_type,
+      GetArrowType(primitive_node, ctx->properties.coerce_int96_timestamp_unit()));
   if (ctx->properties.read_dictionary(column_index) &&
       IsDictionaryReadSupported(*storage_type)) {
     return ::arrow::dictionary(::arrow::int32(), storage_type);
@@ -451,10 +495,6 @@ Status PopulateLeaf(int column_index, const std::shared_ptr<Field>& field,
 bool HasStructListName(const GroupNode& node) {
   ::arrow::util::string_view name{node.name()};
   return name == "array" || name.ends_with("_tuple");
-}
-
-std::shared_ptr<::arrow::KeyValueMetadata> FieldIdMetadata(int field_id) {
-  return ::arrow::key_value_metadata({"PARQUET:field_id"}, {std::to_string(field_id)});
 }
 
 Status GroupToStruct(const GroupNode& node, LevelInfo current_levels,

@@ -57,7 +57,7 @@ def test_pandas_parquet_custom_metadata(tempdir):
     arrow_table = pa.Table.from_pandas(df)
     assert b'pandas' in arrow_table.schema.metadata
 
-    _write_table(arrow_table, filename, version='2.0', coerce_timestamps='ms')
+    _write_table(arrow_table, filename, version='2.6', coerce_timestamps='ms')
 
     metadata = pq.read_metadata(filename).metadata
     assert b'pandas' in metadata
@@ -111,7 +111,7 @@ def test_pandas_parquet_column_multiindex(tempdir, use_legacy_dataset):
     arrow_table = pa.Table.from_pandas(df)
     assert arrow_table.schema.pandas_metadata is not None
 
-    _write_table(arrow_table, filename, version='2.0', coerce_timestamps='ms')
+    _write_table(arrow_table, filename, version='2.6', coerce_timestamps='ms')
 
     table_read = pq.read_pandas(
         filename, use_legacy_dataset=use_legacy_dataset)
@@ -134,7 +134,7 @@ def test_pandas_parquet_2_0_roundtrip_read_pandas_no_index_written(
     # While index_columns should be empty, columns needs to be filled still.
     assert js['columns']
 
-    _write_table(arrow_table, filename, version='2.0', coerce_timestamps='ms')
+    _write_table(arrow_table, filename, version='2.6', coerce_timestamps='ms')
     table_read = pq.read_pandas(
         filename, use_legacy_dataset=use_legacy_dataset)
 
@@ -183,7 +183,7 @@ def test_pandas_parquet_native_file_roundtrip(tempdir, use_legacy_dataset):
     df = _test_dataframe(10000)
     arrow_table = pa.Table.from_pandas(df)
     imos = pa.BufferOutputStream()
-    _write_table(arrow_table, imos, version="2.0")
+    _write_table(arrow_table, imos, version='2.6')
     buf = imos.getvalue()
     reader = pa.BufferReader(buf)
     df_read = _read_table(
@@ -197,7 +197,7 @@ def test_read_pandas_column_subset(tempdir, use_legacy_dataset):
     df = _test_dataframe(10000)
     arrow_table = pa.Table.from_pandas(df)
     imos = pa.BufferOutputStream()
-    _write_table(arrow_table, imos, version="2.0")
+    _write_table(arrow_table, imos, version='2.6')
     buf = imos.getvalue()
     reader = pa.BufferReader(buf)
     df_read = pq.read_pandas(
@@ -213,7 +213,7 @@ def test_pandas_parquet_empty_roundtrip(tempdir, use_legacy_dataset):
     df = _test_dataframe(0)
     arrow_table = pa.Table.from_pandas(df)
     imos = pa.BufferOutputStream()
-    _write_table(arrow_table, imos, version="2.0")
+    _write_table(arrow_table, imos, version='2.6')
     buf = imos.getvalue()
     reader = pa.BufferReader(buf)
     df_read = _read_table(
@@ -285,7 +285,7 @@ def test_pandas_parquet_configuration_options(tempdir, use_legacy_dataset):
     arrow_table = pa.Table.from_pandas(df)
 
     for use_dictionary in [True, False]:
-        _write_table(arrow_table, filename, version='2.0',
+        _write_table(arrow_table, filename, version='2.6',
                      use_dictionary=use_dictionary)
         table_read = _read_table(
             filename, use_legacy_dataset=use_legacy_dataset)
@@ -293,7 +293,7 @@ def test_pandas_parquet_configuration_options(tempdir, use_legacy_dataset):
         tm.assert_frame_equal(df, df_read)
 
     for write_statistics in [True, False]:
-        _write_table(arrow_table, filename, version='2.0',
+        _write_table(arrow_table, filename, version='2.6',
                      write_statistics=write_statistics)
         table_read = _read_table(filename,
                                  use_legacy_dataset=use_legacy_dataset)
@@ -304,7 +304,7 @@ def test_pandas_parquet_configuration_options(tempdir, use_legacy_dataset):
         if (compression != 'NONE' and
                 not pa.lib.Codec.is_available(compression)):
             continue
-        _write_table(arrow_table, filename, version='2.0',
+        _write_table(arrow_table, filename, version='2.6',
                      compression=compression)
         table_read = _read_table(
             filename, use_legacy_dataset=use_legacy_dataset)
@@ -524,7 +524,7 @@ def test_pandas_categorical_na_type_row_groups(use_legacy_dataset):
     buf = pa.BufferOutputStream()
 
     # it works
-    pq.write_table(table_cat, buf, version="2.0", chunk_size=10)
+    pq.write_table(table_cat, buf, version='2.6', chunk_size=10)
     result = pq.read_table(
         buf.getvalue(), use_legacy_dataset=use_legacy_dataset)
 

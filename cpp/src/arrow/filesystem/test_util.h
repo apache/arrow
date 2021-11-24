@@ -23,7 +23,9 @@
 #include <vector>
 
 #include "arrow/filesystem/filesystem.h"
+#include "arrow/filesystem/mockfs.h"
 #include "arrow/testing/visibility.h"
+#include "arrow/util/counting_semaphore.h"
 
 namespace arrow {
 namespace fs {
@@ -37,6 +39,33 @@ static inline FileInfo File(std::string path) {
 static inline FileInfo Dir(std::string path) {
   return FileInfo(std::move(path), FileType::Directory);
 }
+
+// A subclass of MockFileSystem that blocks operations until an unlock method is
+// called.
+//
+// This is intended for testing fine-grained ordering of filesystem operations.
+//
+// N.B. Only OpenOutputStream supports gating at the moment but this is simply because
+//      it is all that has been needed so far.  Feel free to add support for more methods
+//      as required.
+class ARROW_TESTING_EXPORT GatedMockFilesystem : public internal::MockFileSystem {
+ public:
+  GatedMockFilesystem(TimePoint current_time,
+                      const io::IOContext& = io::default_io_context());
+  ~GatedMockFilesystem() override;
+
+  Result<std::shared_ptr<io::OutputStream>> OpenOutputStream(
+      const std::string& path,
+      const std::shared_ptr<const KeyValueMetadata>& metadata = {}) override;
+
+  // Wait until at least num_waiters are waiting on OpenOutputStream
+  Status WaitForOpenOutputStream(uint32_t num_waiters);
+  // Unlock `num_waiters` individual calls to OpenOutputStream
+  Status UnlockOpenOutputStream(uint32_t num_waiters);
+
+ private:
+  util::CountingSemaphore open_output_sem_;
+};
 
 ARROW_TESTING_EXPORT
 void CreateFile(FileSystem* fs, const std::string& path, const std::string& data);
@@ -121,6 +150,7 @@ class ARROW_TESTING_EXPORT GenericFileSystemTest {
   void TestOpenInputFile();
   void TestOpenInputFileWithFileInfo();
   void TestOpenInputFileAsync();
+  void TestSpecialChars();
 
  protected:
   // This function should return the filesystem under test.
@@ -134,12 +164,18 @@ class ARROW_TESTING_EXPORT GenericFileSystemTest {
   virtual bool allow_write_file_over_dir() const { return false; }
   // - Whether the filesystem allows moving a directory
   virtual bool allow_move_dir() const { return true; }
+  // - Whether the filesystem allows moving a directory "over" a non-empty destination
+  virtual bool allow_move_dir_over_non_empty_dir() const { return false; }
   // - Whether the filesystem allows appending to a file
   virtual bool allow_append_to_file() const { return true; }
+  // - Whether the filesystem allows appending to a new (not existent yet) file
+  virtual bool allow_append_to_new_file() const { return true; }
   // - Whether the filesystem supports directory modification times
   virtual bool have_directory_mtimes() const { return true; }
   // - Whether some directory tree deletion tests may fail randomly
   virtual bool have_flaky_directory_tree_deletion() const { return false; }
+  // - Whether the filesystem stores some metadata alongside files
+  virtual bool have_file_metadata() const { return false; }
 
   void TestEmpty(FileSystem* fs);
   void TestNormalizePath(FileSystem* fs);
@@ -166,6 +202,7 @@ class ARROW_TESTING_EXPORT GenericFileSystemTest {
   void TestOpenInputFile(FileSystem* fs);
   void TestOpenInputFileWithFileInfo(FileSystem* fs);
   void TestOpenInputFileAsync(FileSystem* fs);
+  void TestSpecialChars(FileSystem* fs);
 };
 
 #define GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, NAME) \
@@ -196,7 +233,8 @@ class ARROW_TESTING_EXPORT GenericFileSystemTest {
   GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, OpenInputStreamAsync)             \
   GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, OpenInputFile)                    \
   GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, OpenInputFileWithFileInfo)        \
-  GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, OpenInputFileAsync)
+  GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, OpenInputFileAsync)               \
+  GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, SpecialChars)
 
 #define GENERIC_FS_TEST_FUNCTIONS(TEST_CLASS) \
   GENERIC_FS_TEST_FUNCTIONS_MACROS(TEST_F, TEST_CLASS)

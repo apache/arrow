@@ -85,12 +85,11 @@ class ARROW_EXPORT RecordBatch {
   /// \brief Determine if two record batches are approximately equal
   bool ApproxEquals(const RecordBatch& other) const;
 
-  // \return the table's schema
-  /// \return true if batches are equal
+  /// \return the record batch's schema
   const std::shared_ptr<Schema>& schema() const { return schema_; }
 
   /// \brief Retrieve all columns at once
-  std::vector<std::shared_ptr<Array>> columns() const;
+  virtual const std::vector<std::shared_ptr<Array>>& columns() const = 0;
 
   /// \brief Retrieve an array from the record batch
   /// \param[in] i field index, does not boundscheck
@@ -108,7 +107,7 @@ class ARROW_EXPORT RecordBatch {
   virtual std::shared_ptr<ArrayData> column_data(int i) const = 0;
 
   /// \brief Retrieve all arrays' internal data from the record batch.
-  virtual ArrayDataVector column_data() const = 0;
+  virtual const ArrayDataVector& column_data() const = 0;
 
   /// \brief Add column to the record batch, producing a new RecordBatch
   ///
@@ -130,7 +129,11 @@ class ARROW_EXPORT RecordBatch {
   virtual Result<std::shared_ptr<RecordBatch>> AddColumn(
       int i, std::string field_name, const std::shared_ptr<Array>& column) const;
 
-  /// \brief Replace a column in the table, producing a new Table
+  /// \brief Replace a column in the record batch, producing a new RecordBatch
+  ///
+  /// \param[in] i field index, does boundscheck
+  /// \param[in] field field to be replaced
+  /// \param[in] column column to be replaced
   virtual Result<std::shared_ptr<RecordBatch>> SetColumn(
       int i, const std::shared_ptr<Field>& field,
       const std::shared_ptr<Array>& column) const = 0;
@@ -199,6 +202,8 @@ class ARROW_EXPORT RecordBatch {
 /// \brief Abstract interface for reading stream of record batches
 class ARROW_EXPORT RecordBatchReader {
  public:
+  using ValueType = std::shared_ptr<RecordBatch>;
+
   virtual ~RecordBatchReader() = default;
 
   /// \return the shared schema of the record batches in the stream

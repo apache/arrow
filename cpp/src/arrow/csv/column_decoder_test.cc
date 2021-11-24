@@ -27,11 +27,11 @@
 #include "arrow/csv/test_common.h"
 #include "arrow/memory_pool.h"
 #include "arrow/table.h"
+#include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/task_group.h"
 #include "arrow/util/thread_pool.h"
 
 namespace arrow {
@@ -41,7 +41,6 @@ class BlockParser;
 
 using internal::checked_cast;
 using internal::GetCpuThreadPool;
-using internal::TaskGroup;
 
 using ChunkData = std::vector<std::vector<std::string>>;
 
@@ -65,58 +64,70 @@ ThreadJoiner RunThread(Func&& func) {
   return ThreadJoiner(std::make_shared<std::thread>(std::forward<Func>(func)));
 }
 
-struct SerialExecutor {
-  static std::shared_ptr<TaskGroup> task_group() { return TaskGroup::MakeSerial(); }
-};
-
-struct ParallelExecutor {
-  static std::shared_ptr<TaskGroup> task_group() {
-    return TaskGroup::MakeThreaded(GetCpuThreadPool());
+template <typename Func>
+void RunThreadsAndJoin(Func&& func, int iters) {
+  std::vector<ThreadJoiner> threads;
+  for (int i = 0; i < iters; i++) {
+    threads.emplace_back(std::make_shared<std::thread>([i, func] { func(i); }));
   }
-};
-
-using ExecutorTypes = ::testing::Types<SerialExecutor, ParallelExecutor>;
+}
 
 class ColumnDecoderTest : public ::testing::Test {
  public:
-  ColumnDecoderTest() : tg_(TaskGroup::MakeSerial()), num_chunks_(0) {}
+  ColumnDecoderTest() : num_chunks_(0), read_ptr_(0) {}
 
   void SetDecoder(std::shared_ptr<ColumnDecoder> decoder) {
     decoder_ = std::move(decoder);
+    decoded_chunks_.clear();
     num_chunks_ = 0;
+    read_ptr_ = 0;
   }
 
-  void InsertChunk(int64_t num_chunk, std::vector<std::string> chunk) {
+  void InsertChunk(std::vector<std::string> chunk) {
     std::shared_ptr<BlockParser> parser;
     MakeColumnParser(chunk, &parser);
-    decoder_->Insert(num_chunk, parser);
+    auto decoded = decoder_->Decode(parser);
+    decoded_chunks_.push_back(decoded);
+    ++num_chunks_;
   }
 
   void AppendChunks(const ChunkData& chunks) {
     for (const auto& chunk : chunks) {
-      std::shared_ptr<BlockParser> parser;
-      MakeColumnParser(chunk, &parser);
-      decoder_->Append(parser);
-      ++num_chunks_;
+      InsertChunk(chunk);
     }
   }
 
-  void SetEOF() { decoder_->SetEOF(num_chunks_); }
+  Result<std::shared_ptr<Array>> NextChunk() {
+    EXPECT_LT(read_ptr_, static_cast<int64_t>(decoded_chunks_.size()));
+    return decoded_chunks_[read_ptr_++].result();
+  }
+
+  void AssertChunk(std::vector<std::string> chunk, std::shared_ptr<Array> expected) {
+    std::shared_ptr<BlockParser> parser;
+    MakeColumnParser(chunk, &parser);
+    ASSERT_FINISHES_OK_AND_ASSIGN(auto decoded, decoder_->Decode(parser));
+    AssertArraysEqual(*expected, *decoded);
+  }
+
+  void AssertChunkInvalid(std::vector<std::string> chunk) {
+    std::shared_ptr<BlockParser> parser;
+    MakeColumnParser(chunk, &parser);
+    ASSERT_FINISHES_AND_RAISES(Invalid, decoder_->Decode(parser));
+  }
 
   void AssertFetch(std::shared_ptr<Array> expected_chunk) {
-    ASSERT_OK_AND_ASSIGN(auto chunk, decoder_->NextChunk());
+    ASSERT_OK_AND_ASSIGN(auto chunk, NextChunk());
     ASSERT_NE(chunk, nullptr);
     AssertArraysEqual(*expected_chunk, *chunk);
   }
 
-  void AssertFetchInvalid() { ASSERT_RAISES(Invalid, decoder_->NextChunk()); }
-
-  void AssertFetchEOF() { ASSERT_OK_AND_EQ(nullptr, decoder_->NextChunk()); }
+  void AssertFetchInvalid() { ASSERT_RAISES(Invalid, NextChunk()); }
 
  protected:
-  std::shared_ptr<TaskGroup> tg_;
   std::shared_ptr<ColumnDecoder> decoder_;
-  int64_t num_chunks_;
+  std::vector<Future<std::shared_ptr<Array>>> decoded_chunks_;
+  int64_t num_chunks_ = 0;
+  int64_t read_ptr_ = 0;
 
   ConvertOptions default_options = ConvertOptions::Defaults();
 };
@@ -124,14 +135,13 @@ class ColumnDecoderTest : public ::testing::Test {
 //////////////////////////////////////////////////////////////////////////
 // Tests for null column decoder
 
-template <typename ExecutorType>
 class NullColumnDecoderTest : public ColumnDecoderTest {
  public:
-  NullColumnDecoderTest() { tg_ = ExecutorType::task_group(); }
+  NullColumnDecoderTest() {}
 
   void MakeDecoder(std::shared_ptr<DataType> type) {
     ASSERT_OK_AND_ASSIGN(auto decoder,
-                         ColumnDecoder::MakeNull(default_memory_pool(), type, tg_));
+                         ColumnDecoder::MakeNull(default_memory_pool(), type));
     SetDecoder(decoder);
   }
 
@@ -141,10 +151,8 @@ class NullColumnDecoderTest : public ColumnDecoderTest {
     MakeDecoder(type);
 
     AppendChunks({{"1", "2", "3"}, {"4", "5"}});
-    SetEOF();
     AssertFetch(ArrayFromJSON(type, "[null, null, null]"));
     AssertFetch(ArrayFromJSON(type, "[null, null]"));
-    AssertFetchEOF();
 
     MakeDecoder(type);
 
@@ -153,8 +161,6 @@ class NullColumnDecoderTest : public ColumnDecoderTest {
     AppendChunks({{"7", "8"}});
     AssertFetch(ArrayFromJSON(type, "[null]"));
     AssertFetch(ArrayFromJSON(type, "[null, null]"));
-    SetEOF();
-    AssertFetchEOF();
   }
 
   void TestOtherType() {
@@ -163,57 +169,40 @@ class NullColumnDecoderTest : public ColumnDecoderTest {
     MakeDecoder(type);
 
     AppendChunks({{"1", "2", "3"}, {"4", "5"}});
-    SetEOF();
     AssertFetch(ArrayFromJSON(type, "[null, null, null]"));
     AssertFetch(ArrayFromJSON(type, "[null, null]"));
-    AssertFetchEOF();
-    AssertFetchEOF();
   }
 
   void TestThreaded() {
+    constexpr int NITERS = 10;
     auto type = int32();
-
     MakeDecoder(type);
 
-    auto joiner = RunThread([&]() {
-      InsertChunk(1, {"4", "5"});
-      InsertChunk(0, {"1", "2", "3"});
-      InsertChunk(3, {"6"});
-      InsertChunk(2, {});
-      decoder_->SetEOF(4);
-    });
-
-    AssertFetch(ArrayFromJSON(type, "[null, null, null]"));
-    AssertFetch(ArrayFromJSON(type, "[null, null]"));
-    AssertFetch(ArrayFromJSON(type, "[]"));
-    AssertFetch(ArrayFromJSON(type, "[null]"));
-    AssertFetchEOF();
-    AssertFetchEOF();
+    RunThreadsAndJoin(
+        [&](int thread_id) {
+          AssertChunk({"4", "5", std::to_string(thread_id)},
+                      ArrayFromJSON(type, "[null, null, null]"));
+        },
+        NITERS);
   }
-
- protected:
-  ExecutorType executor_;
 };
 
-TYPED_TEST_SUITE(NullColumnDecoderTest, ExecutorTypes);
+TEST_F(NullColumnDecoderTest, NullType) { this->TestNullType(); }
 
-TYPED_TEST(NullColumnDecoderTest, NullType) { this->TestNullType(); }
+TEST_F(NullColumnDecoderTest, OtherType) { this->TestOtherType(); }
 
-TYPED_TEST(NullColumnDecoderTest, OtherType) { this->TestOtherType(); }
-
-TYPED_TEST(NullColumnDecoderTest, Threaded) { this->TestThreaded(); }
+TEST_F(NullColumnDecoderTest, Threaded) { this->TestThreaded(); }
 
 //////////////////////////////////////////////////////////////////////////
 // Tests for fixed-type column decoder
 
-template <typename ExecutorType>
 class TypedColumnDecoderTest : public ColumnDecoderTest {
  public:
-  TypedColumnDecoderTest() { tg_ = ExecutorType::task_group(); }
+  TypedColumnDecoderTest() {}
 
   void MakeDecoder(const std::shared_ptr<DataType>& type, const ConvertOptions& options) {
-    ASSERT_OK_AND_ASSIGN(
-        auto decoder, ColumnDecoder::Make(default_memory_pool(), type, 0, options, tg_));
+    ASSERT_OK_AND_ASSIGN(auto decoder,
+                         ColumnDecoder::Make(default_memory_pool(), type, 0, options));
     SetDecoder(decoder);
   }
 
@@ -223,11 +212,8 @@ class TypedColumnDecoderTest : public ColumnDecoderTest {
     MakeDecoder(type, default_options);
 
     AppendChunks({{"123", "456", "-78"}, {"901", "N/A"}});
-    SetEOF();
     AssertFetch(ArrayFromJSON(type, "[123, 456, -78]"));
     AssertFetch(ArrayFromJSON(type, "[901, null]"));
-    AssertFetchEOF();
-    AssertFetchEOF();
 
     MakeDecoder(type, default_options);
 
@@ -236,9 +222,6 @@ class TypedColumnDecoderTest : public ColumnDecoderTest {
     AppendChunks({{"N/A", "N/A"}});
     AssertFetch(ArrayFromJSON(type, "[-987]"));
     AssertFetch(ArrayFromJSON(type, "[null, null]"));
-    SetEOF();
-    AssertFetchEOF();
-    AssertFetchEOF();
   }
 
   void TestOptions() {
@@ -247,10 +230,7 @@ class TypedColumnDecoderTest : public ColumnDecoderTest {
     MakeDecoder(type, default_options);
 
     AppendChunks({{"true", "false", "N/A"}});
-    SetEOF();
     AssertFetch(ArrayFromJSON(type, "[true, false, null]"));
-    AssertFetchEOF();
-    AssertFetchEOF();
 
     // With non-default options
     auto options = default_options;
@@ -260,10 +240,7 @@ class TypedColumnDecoderTest : public ColumnDecoderTest {
     MakeDecoder(type, options);
 
     AppendChunks({{"true", "false", "N/A"}});
-    SetEOF();
     AssertFetch(ArrayFromJSON(type, "[null, true, false]"));
-    AssertFetchEOF();
-    AssertFetchEOF();
   }
 
   void TestErrors() {
@@ -273,56 +250,46 @@ class TypedColumnDecoderTest : public ColumnDecoderTest {
 
     AppendChunks({{"123", "456", "N/A"}, {"-901"}});
     AppendChunks({{"N/A", "1000"}});
-    SetEOF();
     AssertFetch(ArrayFromJSON(type, "[123, 456, null]"));
     AssertFetchInvalid();
     AssertFetch(ArrayFromJSON(type, "[null, 1000]"));
-    AssertFetchEOF();
   }
 
   void TestThreaded() {
+    constexpr int NITERS = 10;
     auto type = uint32();
-
     MakeDecoder(type, default_options);
 
-    auto joiner = RunThread([&]() {
-      InsertChunk(1, {"4", "-5"});
-      InsertChunk(0, {"1", "2", "3"});
-      InsertChunk(3, {"6"});
-      InsertChunk(2, {});
-      decoder_->SetEOF(4);
-    });
-
-    AssertFetch(ArrayFromJSON(type, "[1, 2, 3]"));
-    AssertFetchInvalid();
-    AssertFetch(ArrayFromJSON(type, "[]"));
-    AssertFetch(ArrayFromJSON(type, "[6]"));
-    AssertFetchEOF();
-    AssertFetchEOF();
+    RunThreadsAndJoin(
+        [&](int thread_id) {
+          if (thread_id % 2 == 0) {
+            AssertChunkInvalid({"4", "-5"});
+          } else {
+            AssertChunk({"1", "2", "3"}, ArrayFromJSON(type, "[1, 2, 3]"));
+          }
+        },
+        NITERS);
   }
 };
 
-TYPED_TEST_SUITE(TypedColumnDecoderTest, ExecutorTypes);
+TEST_F(TypedColumnDecoderTest, Integers) { this->TestIntegers(); }
 
-TYPED_TEST(TypedColumnDecoderTest, Integers) { this->TestIntegers(); }
+TEST_F(TypedColumnDecoderTest, Options) { this->TestOptions(); }
 
-TYPED_TEST(TypedColumnDecoderTest, Options) { this->TestOptions(); }
+TEST_F(TypedColumnDecoderTest, Errors) { this->TestErrors(); }
 
-TYPED_TEST(TypedColumnDecoderTest, Errors) { this->TestErrors(); }
-
-TYPED_TEST(TypedColumnDecoderTest, Threaded) { this->TestThreaded(); }
+TEST_F(TypedColumnDecoderTest, Threaded) { this->TestThreaded(); }
 
 //////////////////////////////////////////////////////////////////////////
 // Tests for type-inferring column decoder
 
-template <typename ExecutorType>
 class InferringColumnDecoderTest : public ColumnDecoderTest {
  public:
-  InferringColumnDecoderTest() { tg_ = ExecutorType::task_group(); }
+  InferringColumnDecoderTest() {}
 
   void MakeDecoder(const ConvertOptions& options) {
     ASSERT_OK_AND_ASSIGN(auto decoder,
-                         ColumnDecoder::Make(default_memory_pool(), 0, options, tg_));
+                         ColumnDecoder::Make(default_memory_pool(), 0, options));
     SetDecoder(decoder);
   }
 
@@ -332,35 +299,37 @@ class InferringColumnDecoderTest : public ColumnDecoderTest {
     MakeDecoder(default_options);
 
     AppendChunks({{"123", "456", "-78"}, {"901", "N/A"}});
-    SetEOF();
     AssertFetch(ArrayFromJSON(type, "[123, 456, -78]"));
     AssertFetch(ArrayFromJSON(type, "[901, null]"));
-    AssertFetchEOF();
-    AssertFetchEOF();
   }
 
   void TestThreaded() {
+    constexpr int NITERS = 10;
     auto type = float64();
-
     MakeDecoder(default_options);
 
-    auto joiner = RunThread([&]() {
-      SleepFor(1e-3);
-      InsertChunk(0, {"1.5", "2", "3"});
-      InsertChunk(3, {"6"});
-      decoder_->SetEOF(4);
-    });
+    // One of these will do the inference so we need to make sure they all have floating
+    // point
+    RunThreadsAndJoin(
+        [&](int thread_id) {
+          if (thread_id % 2 == 0) {
+            AssertChunk({"6.3", "7.2"}, ArrayFromJSON(type, "[6.3, 7.2]"));
+          } else {
+            AssertChunk({"1.1", "2", "3"}, ArrayFromJSON(type, "[1.1, 2, 3]"));
+          }
+        },
+        NITERS);
 
-    // These chunks will wait for inference to run on chunk 0
-    InsertChunk(1, {"4", "-5", "N/A"});
-    InsertChunk(2, {});
-
-    AssertFetch(ArrayFromJSON(type, "[1.5, 2, 3]"));
-    AssertFetch(ArrayFromJSON(type, "[4, -5, null]"));
-    AssertFetch(ArrayFromJSON(type, "[]"));
-    AssertFetch(ArrayFromJSON(type, "[6]"));
-    AssertFetchEOF();
-    AssertFetchEOF();
+    // These will run after the inference
+    RunThreadsAndJoin(
+        [&](int thread_id) {
+          if (thread_id % 2 == 0) {
+            AssertChunk({"1", "2"}, ArrayFromJSON(type, "[1, 2]"));
+          } else {
+            AssertChunkInvalid({"xyz"});
+          }
+        },
+        NITERS);
   }
 
   void TestOptions() {
@@ -373,11 +342,8 @@ class InferringColumnDecoderTest : public ColumnDecoderTest {
     MakeDecoder(options);
 
     AppendChunks({{"true", "false", "N/A"}, {"true"}});
-    SetEOF();
     AssertFetch(ArrayFromJSON(type, "[null, true, false]"));
     AssertFetch(ArrayFromJSON(type, "[null]"));
-    AssertFetchEOF();
-    AssertFetchEOF();
   }
 
   void TestErrors() {
@@ -387,12 +353,9 @@ class InferringColumnDecoderTest : public ColumnDecoderTest {
 
     AppendChunks({{"123", "456", "-78"}, {"9.5", "N/A"}});
     AppendChunks({{"1000", "N/A"}});
-    SetEOF();
     AssertFetch(ArrayFromJSON(type, "[123, 456, -78]"));
     AssertFetchInvalid();
     AssertFetch(ArrayFromJSON(type, "[1000, null]"));
-    AssertFetchEOF();
-    AssertFetchEOF();
   }
 
   void TestEmpty() {
@@ -401,25 +364,20 @@ class InferringColumnDecoderTest : public ColumnDecoderTest {
     MakeDecoder(default_options);
 
     AppendChunks({{}, {}});
-    SetEOF();
     AssertFetch(ArrayFromJSON(type, "[]"));
     AssertFetch(ArrayFromJSON(type, "[]"));
-    AssertFetchEOF();
-    AssertFetchEOF();
   }
 };
 
-TYPED_TEST_SUITE(InferringColumnDecoderTest, ExecutorTypes);
+TEST_F(InferringColumnDecoderTest, Integers) { this->TestIntegers(); }
 
-TYPED_TEST(InferringColumnDecoderTest, Integers) { this->TestIntegers(); }
+TEST_F(InferringColumnDecoderTest, Threaded) { this->TestThreaded(); }
 
-TYPED_TEST(InferringColumnDecoderTest, Threaded) { this->TestThreaded(); }
+TEST_F(InferringColumnDecoderTest, Options) { this->TestOptions(); }
 
-TYPED_TEST(InferringColumnDecoderTest, Options) { this->TestOptions(); }
+TEST_F(InferringColumnDecoderTest, Errors) { this->TestErrors(); }
 
-TYPED_TEST(InferringColumnDecoderTest, Errors) { this->TestErrors(); }
-
-TYPED_TEST(InferringColumnDecoderTest, Empty) { this->TestEmpty(); }
+TEST_F(InferringColumnDecoderTest, Empty) { this->TestEmpty(); }
 
 // More inference tests are in InferringColumnBuilderTest
 

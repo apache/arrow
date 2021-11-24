@@ -28,11 +28,8 @@ delimiter for text files
 
 `format = "parquet"``:
 \itemize{
-\item \code{use_buffered_stream}: Read files through buffered input streams rather than
-loading entire row groups at once. This may be enabled
-to reduce memory overhead. Disabled by default.
-\item \code{buffer_size}: Size of buffered stream, if enabled. Default is 8KB.
 \item \code{dict_columns}: Names of columns which should be read as dictionaries.
+\item Any Parquet options from \link{FragmentScanOptions}.
 }
 
 \code{format = "text"}: see \link{CsvParseOptions}. Note that you can specify them either
@@ -54,3 +51,18 @@ From \link{CsvFragmentScanOptions} (these values can be overridden at scan time)
 It returns the appropriate subclass of \code{FileFormat} (e.g. \code{ParquetFileFormat})
 }
 
+\examples{
+\dontshow{if (arrow_with_dataset() && tolower(Sys.info()[["sysname"]]) != "windows") (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+## Semi-colon delimited files
+# Set up directory for examples
+tf <- tempfile()
+dir.create(tf)
+on.exit(unlink(tf))
+write.table(mtcars, file.path(tf, "file1.txt"), sep = ";", row.names = FALSE)
+
+# Create FileFormat object
+format <- FileFormat$create(format = "text", delimiter = ";")
+
+open_dataset(tf, format = format)
+\dontshow{\}) # examplesIf}
+}

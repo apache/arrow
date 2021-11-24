@@ -40,6 +40,19 @@ extern "C" {
   INNER(date64)           \
   INNER(timestamp)
 
+// Expand inner macro for all base numeric types.
+#define NUMERIC_TYPES(INNER) \
+  INNER(int8)                \
+  INNER(int16)               \
+  INNER(int32)               \
+  INNER(int64)               \
+  INNER(uint8)               \
+  INNER(uint16)              \
+  INNER(uint32)              \
+  INNER(uint64)              \
+  INNER(float32)             \
+  INNER(float64)
+
 // Extract millennium
 #define EXTRACT_MILLENNIUM(TYPE)                            \
   FORCE_INLINE                                              \
@@ -827,5 +840,55 @@ gdv_int64 castBIGINT_daytimeinterval(gdv_day_time_interval in) {
   return extractMillis_daytimeinterval(in) +
          extractDay_daytimeinterval(in) * MILLIS_IN_DAY;
 }
+
+// Convert the seconds since epoch argument to timestamp
+#define TO_TIMESTAMP(TYPE)                                      \
+  FORCE_INLINE                                                  \
+  gdv_timestamp to_timestamp##_##TYPE(gdv_##TYPE seconds) {     \
+    return static_cast<gdv_timestamp>(seconds * MILLIS_IN_SEC); \
+  }
+
+NUMERIC_TYPES(TO_TIMESTAMP)
+
+// Convert the seconds since epoch argument to time
+#define TO_TIME(TYPE)                                                     \
+  FORCE_INLINE                                                            \
+  gdv_time32 to_time##_##TYPE(gdv_##TYPE seconds) {                       \
+    EpochTimePoint tp(static_cast<int64_t>(seconds * MILLIS_IN_SEC));     \
+    return static_cast<gdv_time32>(tp.TimeOfDay().to_duration().count()); \
+  }
+
+NUMERIC_TYPES(TO_TIME)
+
+#define CAST_INT_YEAR_INTERVAL(TYPE, OUT_TYPE)                 \
+  FORCE_INLINE                                                 \
+  gdv_##OUT_TYPE TYPE##_year_interval(gdv_month_interval in) { \
+    return static_cast<gdv_##OUT_TYPE>(in / 12.0);             \
+  }
+
+CAST_INT_YEAR_INTERVAL(castBIGINT, int64)
+CAST_INT_YEAR_INTERVAL(castINT, int32)
+
+#define CAST_NULLABLE_INTERVAL_DAY(TYPE)                                \
+  FORCE_INLINE                                                          \
+  gdv_day_time_interval castNULLABLEINTERVALDAY_##TYPE(gdv_##TYPE in) { \
+    return static_cast<gdv_day_time_interval>(in);                      \
+  }
+
+CAST_NULLABLE_INTERVAL_DAY(int32)
+CAST_NULLABLE_INTERVAL_DAY(int64)
+
+#define CAST_NULLABLE_INTERVAL_YEAR(TYPE)                                              \
+  FORCE_INLINE                                                                         \
+  gdv_month_interval castNULLABLEINTERVALYEAR_##TYPE(int64_t context, gdv_##TYPE in) { \
+    gdv_month_interval value = static_cast<gdv_month_interval>(in);                    \
+    if (value != in) {                                                                 \
+      gdv_fn_context_set_error_msg(context, "Integer overflow");                       \
+    }                                                                                  \
+    return value;                                                                      \
+  }
+
+CAST_NULLABLE_INTERVAL_YEAR(int32)
+CAST_NULLABLE_INTERVAL_YEAR(int64)
 
 }  // extern "C"

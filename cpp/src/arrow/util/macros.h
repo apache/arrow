@@ -78,6 +78,12 @@
 #define ARROW_MUST_USE_TYPE
 #endif
 
+#if defined(__GNUC__) || defined(__clang__) || defined(_MSC_VER)
+#define ARROW_RESTRICT __restrict
+#else
+#define ARROW_RESTRICT
+#endif
+
 // ----------------------------------------------------------------------
 // C++/CLI support macros (see ARROW-1134)
 
@@ -114,7 +120,41 @@
 #  define ARROW_DEPRECATED_USING(...)
 # endif
 #endif
+
+#ifdef __COVERITY__
+#  define ARROW_DEPRECATED_ENUM_VALUE(...)
+#elif __cplusplus > 201103L
+#  define ARROW_DEPRECATED_ENUM_VALUE(...) [[deprecated(__VA_ARGS__)]]
+#else
+# if defined(__GNUC__) && __GNUC__ >= 6
+#  define ARROW_DEPRECATED_ENUM_VALUE(...) __attribute__((deprecated(__VA_ARGS__)))
+# else
+#  define ARROW_DEPRECATED_ENUM_VALUE(...)
+# endif
+#endif
+
 // clang-format on
+
+// Macros to disable deprecation warnings
+
+#ifdef __clang__
+#define ARROW_SUPPRESS_DEPRECATION_WARNING \
+  _Pragma("clang diagnostic push");        \
+  _Pragma("clang diagnostic ignored \"-Wdeprecated-declarations\"")
+#define ARROW_UNSUPPRESS_DEPRECATION_WARNING _Pragma("clang diagnostic pop")
+#elif defined(__GNUC__)
+#define ARROW_SUPPRESS_DEPRECATION_WARNING \
+  _Pragma("GCC diagnostic push");          \
+  _Pragma("GCC diagnostic ignored \"-Wdeprecated-declarations\"")
+#define ARROW_UNSUPPRESS_DEPRECATION_WARNING _Pragma("GCC diagnostic pop")
+#elif defined(_MSC_VER)
+#define ARROW_SUPPRESS_DEPRECATION_WARNING \
+  __pragma(warning(push)) __pragma(warning(disable : 4996))
+#define ARROW_UNSUPPRESS_DEPRECATION_WARNING __pragma(warning(pop))
+#else
+#define ARROW_SUPPRESS_DEPRECATION_WARNING
+#define ARROW_UNSUPPRESS_DEPRECATION_WARNING
+#endif
 
 // ----------------------------------------------------------------------
 

@@ -35,3 +35,9 @@ elif [ "${turbodbc}" = "latest" ]; then
 else
   git -C "${target}" checkout ${turbodbc};
 fi
+
+pushd ${target}
+wget -q https://github.com/pybind/pybind11/archive/v2.6.2.tar.gz
+tar xvf v2.6.2.tar.gz
+mv pybind11-2.6.2 pybind11
+popd

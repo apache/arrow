@@ -23,6 +23,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/compare.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
@@ -127,7 +128,10 @@ class ARROW_EXPORT ChunkedArray {
   /// there are zero chunks
   Result<std::shared_ptr<ChunkedArray>> View(const std::shared_ptr<DataType>& type) const;
 
-  std::shared_ptr<DataType> type() const { return type_; }
+  const std::shared_ptr<DataType>& type() const { return type_; }
+
+  /// \brief Return a Scalar containing the value of this array at index
+  Result<std::shared_ptr<Scalar>> GetScalar(int64_t index) const;
 
   /// \brief Determine if two chunked arrays are equal.
   ///
@@ -136,6 +140,9 @@ class ARROW_EXPORT ChunkedArray {
   bool Equals(const ChunkedArray& other) const;
   /// \brief Determine if two chunked arrays are equal.
   bool Equals(const std::shared_ptr<ChunkedArray>& other) const;
+  /// \brief Determine if two chunked arrays approximately equal
+  bool ApproxEquals(const ChunkedArray& other,
+                    const EqualOptions& = EqualOptions::Defaults()) const;
 
   /// \return PrettyPrint representation suitable for debugging
   std::string ToString() const;

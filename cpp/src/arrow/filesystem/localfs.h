@@ -91,9 +91,11 @@ class ARROW_EXPORT LocalFileSystem : public FileSystem {
   Result<std::shared_ptr<io::RandomAccessFile>> OpenInputFile(
       const std::string& path) override;
   Result<std::shared_ptr<io::OutputStream>> OpenOutputStream(
-      const std::string& path) override;
+      const std::string& path,
+      const std::shared_ptr<const KeyValueMetadata>& metadata = {}) override;
   Result<std::shared_ptr<io::OutputStream>> OpenAppendStream(
-      const std::string& path) override;
+      const std::string& path,
+      const std::shared_ptr<const KeyValueMetadata>& metadata = {}) override;
 
  protected:
   LocalFileSystemOptions options_;

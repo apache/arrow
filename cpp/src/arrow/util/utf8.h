@@ -65,6 +65,8 @@ static constexpr uint8_t kUTF8DecodeReject = 12;
 // In this table states are multiples of 256.
 ARROW_EXPORT extern uint16_t utf8_large_table[9 * 256];
 
+ARROW_EXPORT extern const uint8_t utf8_byte_size_table[16];
+
 // Success / reject states when looked up in the large table
 static constexpr uint16_t kUTF8ValidateAccept = 0;
 static constexpr uint16_t kUTF8ValidateReject = 256;
@@ -90,7 +92,7 @@ ARROW_EXPORT void CheckUTF8Initialized();
 // This function needs to be called before doing UTF8 validation.
 ARROW_EXPORT void InitializeUTF8();
 
-inline bool ValidateUTF8(const uint8_t* data, int64_t size) {
+static inline bool ValidateUTF8(const uint8_t* data, int64_t size) {
   static constexpr uint64_t high_bits_64 = 0x8080808080808080ULL;
   static constexpr uint32_t high_bits_32 = 0x80808080UL;
   static constexpr uint16_t high_bits_16 = 0x8080U;
@@ -208,45 +210,42 @@ inline bool ValidateUTF8(const uint8_t* data, int64_t size) {
   return ARROW_PREDICT_TRUE(state == internal::kUTF8ValidateAccept);
 }
 
-inline bool ValidateUTF8(const util::string_view& str) {
+static inline bool ValidateUTF8(const util::string_view& str) {
   const uint8_t* data = reinterpret_cast<const uint8_t*>(str.data());
   const size_t length = str.size();
 
   return ValidateUTF8(data, length);
 }
 
-inline bool ValidateAsciiSw(const uint8_t* data, int64_t len) {
+static inline bool ValidateAsciiSw(const uint8_t* data, int64_t len) {
   uint8_t orall = 0;
 
-  if (len >= 16) {
-    uint64_t or1 = 0, or2 = 0;
-    const uint8_t* data2 = data + 8;
+  if (len >= 8) {
+    uint64_t or8 = 0;
 
     do {
-      or1 |= *(const uint64_t*)data;
-      or2 |= *(const uint64_t*)data2;
-      data += 16;
-      data2 += 16;
-      len -= 16;
-    } while (len >= 16);
+      or8 |= SafeLoadAs<uint64_t>(data);
+      data += 8;
+      len -= 8;
+    } while (len >= 8);
 
-    orall = !((or1 | or2) & 0x8080808080808080ULL) - 1;
+    orall = !(or8 & 0x8080808080808080ULL) - 1;
   }
 
   while (len--) {
     orall |= *data++;
   }
 
-  if (orall < 0x80) {
-    return true;
-  } else {
-    return false;
-  }
+  return orall < 0x80U;
 }
 
 #if defined(ARROW_HAVE_NEON) || defined(ARROW_HAVE_SSE4_2)
-inline bool ValidateAsciiSimd(const uint8_t* data, int64_t len) {
-  using simd_batch = xsimd::batch<int8_t, 16>;
+static inline bool ValidateAsciiSimd(const uint8_t* data, int64_t len) {
+#ifdef ARROW_HAVE_NEON
+  using simd_batch = xsimd::batch<int8_t, xsimd::neon64>;
+#else
+  using simd_batch = xsimd::batch<int8_t, xsimd::sse4_2>;
+#endif
 
   if (len >= 32) {
     const simd_batch zero(static_cast<int8_t>(0));
@@ -254,8 +253,8 @@ inline bool ValidateAsciiSimd(const uint8_t* data, int64_t len) {
     simd_batch or1 = zero, or2 = zero;
 
     while (len >= 32) {
-      or1 |= simd_batch(reinterpret_cast<const int8_t*>(data), xsimd::unaligned_mode{});
-      or2 |= simd_batch(reinterpret_cast<const int8_t*>(data2), xsimd::unaligned_mode{});
+      or1 |= simd_batch::load_unaligned(reinterpret_cast<const int8_t*>(data));
+      or2 |= simd_batch::load_unaligned(reinterpret_cast<const int8_t*>(data2));
       data += 32;
       data2 += 32;
       len -= 32;
@@ -272,7 +271,7 @@ inline bool ValidateAsciiSimd(const uint8_t* data, int64_t len) {
 }
 #endif  // ARROW_HAVE_SSE4_2
 
-inline bool ValidateAscii(const uint8_t* data, int64_t len) {
+static inline bool ValidateAscii(const uint8_t* data, int64_t len) {
 #if defined(ARROW_HAVE_NEON) || defined(ARROW_HAVE_SSE4_2)
   return ValidateAsciiSimd(data, len);
 #else
@@ -280,7 +279,7 @@ inline bool ValidateAscii(const uint8_t* data, int64_t len) {
 #endif
 }
 
-inline bool ValidateAscii(const util::string_view& str) {
+static inline bool ValidateAscii(const util::string_view& str) {
   const uint8_t* data = reinterpret_cast<const uint8_t*>(str.data());
   const size_t length = str.size();
 
@@ -292,6 +291,18 @@ ARROW_EXPORT
 Result<const uint8_t*> SkipUTF8BOM(const uint8_t* data, int64_t size);
 
 static constexpr uint32_t kMaxUnicodeCodepoint = 0x110000;
+
+// size of a valid UTF8 can be determined by looking at leading 4 bits of BYTE1
+// utf8_byte_size_table[0..7] --> pure ascii chars --> 1B length
+// utf8_byte_size_table[8..11] --> internal bytes --> 1B length
+// utf8_byte_size_table[12,13] --> 2B long UTF8 chars
+// utf8_byte_size_table[14] --> 3B long UTF8 chars
+// utf8_byte_size_table[15] --> 4B long UTF8 chars
+// NOTE: Results for invalid/ malformed utf-8 sequences are undefined.
+// ex: \xFF... returns 4B
+static inline uint8_t ValidUtf8CodepointByteSize(const uint8_t* codeunit) {
+  return internal::utf8_byte_size_table[*codeunit >> 4];
+}
 
 static inline bool Utf8IsContinuation(const uint8_t codeunit) {
   return (codeunit & 0xC0) == 0x80;  // upper two bits should be 10
@@ -478,6 +489,30 @@ static inline bool UTF8FindIfReverse(const uint8_t* first, const uint8_t* last,
   return true;
 }
 
+static inline bool UTF8AdvanceCodepoints(const uint8_t* first, const uint8_t* last,
+                                         const uint8_t** destination, int64_t n) {
+  return UTF8FindIf(
+      first, last,
+      [&](uint32_t codepoint) {
+        bool done = n == 0;
+        n--;
+        return done;
+      },
+      destination);
+}
+
+static inline bool UTF8AdvanceCodepointsReverse(const uint8_t* first, const uint8_t* last,
+                                                const uint8_t** destination, int64_t n) {
+  return UTF8FindIfReverse(
+      first, last,
+      [&](uint32_t codepoint) {
+        bool done = n == 0;
+        n--;
+        return done;
+      },
+      destination);
+}
+
 template <class UnaryFunction>
 static inline bool UTF8ForEach(const uint8_t* first, const uint8_t* last,
                                UnaryFunction&& f) {
@@ -516,6 +551,15 @@ static inline bool UTF8AllOf(const uint8_t* first, const uint8_t* last, bool* re
   }
   *result = true;
   return true;
+}
+
+/// Count the number of codepoints in the given string (assuming it is valid UTF8).
+static inline int64_t UTF8Length(const uint8_t* first, const uint8_t* last) {
+  int64_t length = 0;
+  while (first != last) {
+    length += ((*first++ & 0xc0) != 0x80);
+  }
+  return length;
 }
 
 }  // namespace util

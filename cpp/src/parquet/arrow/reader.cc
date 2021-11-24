@@ -30,7 +30,9 @@
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
+#include "arrow/util/async_generator.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/future.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/make_unique.h"
@@ -291,6 +293,13 @@ class FileReaderImpl : public FileReader {
                        const std::vector<int>& indices,
                        std::shared_ptr<Table>* table) override;
 
+  // Helper method used by ReadRowGroups - read the given row groups/columns, skipping
+  // bounds checks and pre-buffering. Takes a shared_ptr to self to keep the reader
+  // alive in async contexts.
+  Future<std::shared_ptr<Table>> DecodeRowGroups(
+      std::shared_ptr<FileReaderImpl> self, const std::vector<int>& row_groups,
+      const std::vector<int>& column_indices, ::arrow::internal::Executor* cpu_executor);
+
   Status ReadRowGroups(const std::vector<int>& row_groups,
                        std::shared_ptr<Table>* table) override {
     return ReadRowGroups(row_groups, Iota(reader_->metadata()->num_columns()), table);
@@ -314,6 +323,13 @@ class FileReaderImpl : public FileReader {
     return GetRecordBatchReader(row_group_indices,
                                 Iota(reader_->metadata()->num_columns()), out);
   }
+
+  ::arrow::Result<::arrow::AsyncGenerator<std::shared_ptr<::arrow::RecordBatch>>>
+  GetRecordBatchGenerator(std::shared_ptr<FileReader> reader,
+                          const std::vector<int> row_group_indices,
+                          const std::vector<int> column_indices,
+                          ::arrow::internal::Executor* cpu_executor,
+                          int row_group_readahead) override;
 
   int num_columns() const { return reader_->metadata()->num_columns(); }
 
@@ -826,20 +842,59 @@ Status GetReader(const SchemaField& field, const std::shared_ptr<Field>& arrow_f
       *out = nullptr;
       return Status::OK();
     }
-    if (type_id == ::arrow::Type::LIST ||
-        type_id == ::arrow::Type::MAP) {  // Map can be reconstructed as list of structs.
-      if (type_id == ::arrow::Type::MAP &&
-          child_reader->field()->type()->num_fields() != 2) {
-        // This case applies if either key or value is filtered.
+
+    // These two types might not be equal if there column pruning occurred.
+    // further down the stack.
+    const std::shared_ptr<DataType> reader_child_type = child_reader->field()->type();
+    // This should really never happen but was raised as a question on the code
+    // review, this should  be pretty cheap check so leave it in.
+    if (ARROW_PREDICT_FALSE(list_field->type()->num_fields() != 1)) {
+      return Status::Invalid("expected exactly one child field for: ",
+                             list_field->ToString());
+    }
+    const DataType& schema_child_type = *(list_field->type()->field(0)->type());
+    if (type_id == ::arrow::Type::MAP) {
+      if (reader_child_type->num_fields() != 2 ||
+          !reader_child_type->field(0)->type()->Equals(
+              *schema_child_type.field(0)->type())) {
+        // This case applies if either key or value are completed filtered
+        // out so we can take the type as is or the key was partially
+        // so keeping it as a map no longer makes sence.
         list_field = list_field->WithType(::arrow::list(child_reader->field()));
+      } else if (!reader_child_type->field(1)->type()->Equals(
+                     *schema_child_type.field(1)->type())) {
+        list_field = list_field->WithType(std::make_shared<::arrow::MapType>(
+            reader_child_type->field(
+                0),  // field 0 is unchanged baed on previous if statement
+            reader_child_type->field(1)));
       }
+      // Map types are list<struct<key, value>> so use ListReader
+      // for reconstruction.
+      out->reset(new ListReader<int32_t>(ctx, list_field, field.level_info,
+                                         std::move(child_reader)));
+    } else if (type_id == ::arrow::Type::LIST) {
+      if (!reader_child_type->Equals(schema_child_type)) {
+        list_field = list_field->WithType(::arrow::list(reader_child_type));
+      }
+
       out->reset(new ListReader<int32_t>(ctx, list_field, field.level_info,
                                          std::move(child_reader)));
     } else if (type_id == ::arrow::Type::LARGE_LIST) {
+      if (!reader_child_type->Equals(schema_child_type)) {
+        list_field = list_field->WithType(::arrow::large_list(reader_child_type));
+      }
+
       out->reset(new ListReader<int64_t>(ctx, list_field, field.level_info,
                                          std::move(child_reader)));
-
     } else if (type_id == ::arrow::Type::FIXED_SIZE_LIST) {
+      if (!reader_child_type->Equals(schema_child_type)) {
+        auto& fixed_list_type =
+            checked_cast<const ::arrow::FixedSizeListType&>(*list_field->type());
+        int32_t list_size = fixed_list_type.list_size();
+        list_field =
+            list_field->WithType(::arrow::fixed_size_list(reader_child_type, list_size));
+      }
+
       out->reset(new FixedSizeListReader(ctx, list_field, field.level_info,
                                          std::move(child_reader)));
     } else {
@@ -847,15 +902,25 @@ Status GetReader(const SchemaField& field, const std::shared_ptr<Field>& arrow_f
     }
   } else if (type_id == ::arrow::Type::STRUCT) {
     std::vector<std::shared_ptr<Field>> child_fields;
+    int arrow_field_idx = 0;
     std::vector<std::unique_ptr<ColumnReaderImpl>> child_readers;
     for (const auto& child : field.children) {
       std::unique_ptr<ColumnReaderImpl> child_reader;
       RETURN_NOT_OK(GetReader(child, ctx, &child_reader));
       if (!child_reader) {
+        arrow_field_idx++;
         // If all children were pruned, then we do not try to read this field
         continue;
       }
-      child_fields.push_back(child.field);
+      std::shared_ptr<::arrow::Field> child_field = child.field;
+      const DataType& reader_child_type = *child_reader->field()->type();
+      const DataType& schema_child_type =
+          *arrow_field->type()->field(arrow_field_idx++)->type();
+      // These might not be equal if column pruning occurred.
+      if (!schema_child_type.Equals(reader_child_type)) {
+        child_field = child_field->WithType(child_reader->field()->type());
+      }
+      child_fields.push_back(child_field);
       child_readers.emplace_back(std::move(child_reader));
     }
     if (child_fields.size() == 0) {
@@ -890,9 +955,8 @@ Status FileReaderImpl::GetRecordBatchReader(const std::vector<int>& row_groups,
   if (reader_properties_.pre_buffer()) {
     // PARQUET-1698/PARQUET-1820: pre-buffer row groups/column chunks if enabled
     BEGIN_PARQUET_CATCH_EXCEPTIONS
-    ARROW_UNUSED(reader_->PreBuffer(row_groups, column_indices,
-                                    reader_properties_.io_context(),
-                                    reader_properties_.cache_options()));
+    reader_->PreBuffer(row_groups, column_indices, reader_properties_.io_context(),
+                       reader_properties_.cache_options());
     END_PARQUET_CATCH_EXCEPTIONS
   }
 
@@ -968,6 +1032,102 @@ Status FileReaderImpl::GetRecordBatchReader(const std::vector<int>& row_groups,
   return Status::OK();
 }
 
+/// Given a file reader and a list of row groups, this is a generator of record
+/// batch generators (where each sub-generator is the contents of a single row group).
+class RowGroupGenerator {
+ public:
+  using RecordBatchGenerator =
+      ::arrow::AsyncGenerator<std::shared_ptr<::arrow::RecordBatch>>;
+
+  explicit RowGroupGenerator(std::shared_ptr<FileReaderImpl> arrow_reader,
+                             ::arrow::internal::Executor* cpu_executor,
+                             std::vector<int> row_groups, std::vector<int> column_indices)
+      : arrow_reader_(std::move(arrow_reader)),
+        cpu_executor_(cpu_executor),
+        row_groups_(std::move(row_groups)),
+        column_indices_(std::move(column_indices)),
+        index_(0) {}
+
+  ::arrow::Future<RecordBatchGenerator> operator()() {
+    if (index_ >= row_groups_.size()) {
+      return ::arrow::AsyncGeneratorEnd<RecordBatchGenerator>();
+    }
+    int row_group = row_groups_[index_++];
+    std::vector<int> column_indices = column_indices_;
+    auto reader = arrow_reader_;
+    if (!reader->properties().pre_buffer()) {
+      return SubmitRead(cpu_executor_, reader, row_group, column_indices);
+    }
+    auto ready = reader->parquet_reader()->WhenBuffered({row_group}, column_indices);
+    if (cpu_executor_) ready = cpu_executor_->TransferAlways(ready);
+    return ready.Then([=]() -> ::arrow::Future<RecordBatchGenerator> {
+      return ReadOneRowGroup(cpu_executor_, reader, row_group, column_indices);
+    });
+  }
+
+ private:
+  // Synchronous fallback for when pre-buffer isn't enabled.
+  //
+  // Making the Parquet reader truly asynchronous requires heavy refactoring, so the
+  // generator piggybacks on ReadRangeCache. The lazy ReadRangeCache can be used for
+  // async I/O without forcing readahead.
+  static ::arrow::Future<RecordBatchGenerator> SubmitRead(
+      ::arrow::internal::Executor* cpu_executor, std::shared_ptr<FileReaderImpl> self,
+      const int row_group, const std::vector<int>& column_indices) {
+    if (!cpu_executor) {
+      return ReadOneRowGroup(cpu_executor, self, row_group, column_indices);
+    }
+    // If we have an executor, then force transfer (even if I/O was complete)
+    return ::arrow::DeferNotOk(cpu_executor->Submit(ReadOneRowGroup, cpu_executor, self,
+                                                    row_group, column_indices));
+  }
+
+  static ::arrow::Future<RecordBatchGenerator> ReadOneRowGroup(
+      ::arrow::internal::Executor* cpu_executor, std::shared_ptr<FileReaderImpl> self,
+      const int row_group, const std::vector<int>& column_indices) {
+    // Skips bound checks/pre-buffering, since we've done that already
+    const int64_t batch_size = self->properties().batch_size();
+    return self->DecodeRowGroups(self, {row_group}, column_indices, cpu_executor)
+        .Then([batch_size](const std::shared_ptr<Table>& table)
+                  -> ::arrow::Result<RecordBatchGenerator> {
+          ::arrow::TableBatchReader table_reader(*table);
+          table_reader.set_chunksize(batch_size);
+          ::arrow::RecordBatchVector batches;
+          RETURN_NOT_OK(table_reader.ReadAll(&batches));
+          return ::arrow::MakeVectorGenerator(std::move(batches));
+        });
+  }
+
+  std::shared_ptr<FileReaderImpl> arrow_reader_;
+  ::arrow::internal::Executor* cpu_executor_;
+  std::vector<int> row_groups_;
+  std::vector<int> column_indices_;
+  size_t index_;
+};
+
+::arrow::Result<::arrow::AsyncGenerator<std::shared_ptr<::arrow::RecordBatch>>>
+FileReaderImpl::GetRecordBatchGenerator(std::shared_ptr<FileReader> reader,
+                                        const std::vector<int> row_group_indices,
+                                        const std::vector<int> column_indices,
+                                        ::arrow::internal::Executor* cpu_executor,
+                                        int row_group_readahead) {
+  RETURN_NOT_OK(BoundsCheck(row_group_indices, column_indices));
+  if (reader_properties_.pre_buffer()) {
+    BEGIN_PARQUET_CATCH_EXCEPTIONS
+    reader_->PreBuffer(row_group_indices, column_indices, reader_properties_.io_context(),
+                       reader_properties_.cache_options());
+    END_PARQUET_CATCH_EXCEPTIONS
+  }
+  ::arrow::AsyncGenerator<RowGroupGenerator::RecordBatchGenerator> row_group_generator =
+      RowGroupGenerator(::arrow::internal::checked_pointer_cast<FileReaderImpl>(reader),
+                        cpu_executor, row_group_indices, column_indices);
+  if (row_group_readahead > 0) {
+    row_group_generator = ::arrow::MakeReadaheadGenerator(std::move(row_group_generator),
+                                                          row_group_readahead);
+  }
+  return ::arrow::MakeConcatenatedGenerator(std::move(row_group_generator));
+}
+
 Status FileReaderImpl::GetColumn(int i, FileColumnIteratorFactory iterator_factory,
                                  std::unique_ptr<ColumnReader>* out) {
   RETURN_NOT_OK(BoundsCheckColumn(i));
@@ -990,33 +1150,55 @@ Status FileReaderImpl::ReadRowGroups(const std::vector<int>& row_groups,
   // PARQUET-1698/PARQUET-1820: pre-buffer row groups/column chunks if enabled
   if (reader_properties_.pre_buffer()) {
     BEGIN_PARQUET_CATCH_EXCEPTIONS
-    ARROW_UNUSED(parquet_reader()->PreBuffer(row_groups, column_indices,
-                                             reader_properties_.io_context(),
-                                             reader_properties_.cache_options()));
+    parquet_reader()->PreBuffer(row_groups, column_indices,
+                                reader_properties_.io_context(),
+                                reader_properties_.cache_options());
     END_PARQUET_CATCH_EXCEPTIONS
   }
 
+  auto fut = DecodeRowGroups(/*self=*/nullptr, row_groups, column_indices,
+                             /*cpu_executor=*/nullptr);
+  ARROW_ASSIGN_OR_RAISE(*out, fut.MoveResult());
+  return Status::OK();
+}
+
+Future<std::shared_ptr<Table>> FileReaderImpl::DecodeRowGroups(
+    std::shared_ptr<FileReaderImpl> self, const std::vector<int>& row_groups,
+    const std::vector<int>& column_indices, ::arrow::internal::Executor* cpu_executor) {
+  // `self` is used solely to keep `this` alive in an async context - but we use this
+  // in a sync context too so use `this` over `self`
   std::vector<std::shared_ptr<ColumnReaderImpl>> readers;
   std::shared_ptr<::arrow::Schema> result_schema;
   RETURN_NOT_OK(GetFieldReaders(column_indices, row_groups, &readers, &result_schema));
+  // OptionalParallelForAsync requires an executor
+  if (!cpu_executor) cpu_executor = ::arrow::internal::GetCpuThreadPool();
 
-  ::arrow::ChunkedArrayVector columns(readers.size());
-  RETURN_NOT_OK(::arrow::internal::OptionalParallelFor(
-      reader_properties_.use_threads(), static_cast<int>(readers.size()), [&](int i) {
-        return ReadColumn(static_cast<int>(i), row_groups, readers[i].get(), &columns[i]);
-      }));
-
-  int64_t num_rows = 0;
-  if (!columns.empty()) {
-    num_rows = columns[0]->length();
-  } else {
-    for (int i : row_groups) {
-      num_rows += parquet_reader()->metadata()->RowGroup(i)->num_rows();
+  auto read_column = [row_groups, self, this](size_t i,
+                                              std::shared_ptr<ColumnReaderImpl> reader)
+      -> ::arrow::Result<std::shared_ptr<::arrow::ChunkedArray>> {
+    std::shared_ptr<::arrow::ChunkedArray> column;
+    RETURN_NOT_OK(ReadColumn(static_cast<int>(i), row_groups, reader.get(), &column));
+    return column;
+  };
+  auto make_table = [result_schema, row_groups, self,
+                     this](const ::arrow::ChunkedArrayVector& columns)
+      -> ::arrow::Result<std::shared_ptr<Table>> {
+    int64_t num_rows = 0;
+    if (!columns.empty()) {
+      num_rows = columns[0]->length();
+    } else {
+      for (int i : row_groups) {
+        num_rows += parquet_reader()->metadata()->RowGroup(i)->num_rows();
+      }
     }
-  }
-
-  *out = Table::Make(std::move(result_schema), std::move(columns), num_rows);
-  return (*out)->Validate();
+    auto table = Table::Make(std::move(result_schema), columns, num_rows);
+    RETURN_NOT_OK(table->Validate());
+    return table;
+  };
+  return ::arrow::internal::OptionalParallelForAsync(reader_properties_.use_threads(),
+                                                     std::move(readers), read_column,
+                                                     cpu_executor)
+      .Then(std::move(make_table));
 }
 
 std::shared_ptr<RowGroupReader> FileReaderImpl::RowGroup(int row_group_index) {

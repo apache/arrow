@@ -32,6 +32,7 @@
 
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_primitive.h"
+#include "arrow/array/builder_time.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_compat.h"
@@ -41,6 +42,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/string_builder.h"
 #include "arrow/util/type_fwd.h"
 
 // NOTE: failing must be inline in the macros below, to get correct file / line number
@@ -98,6 +100,10 @@
                           << _st.ToString();                            \
   } while (false)
 
+#define ASSERT_NOT_OK(expr)                                                         \
+  for (::arrow::Status _st = ::arrow::internal::GenericToStatus((expr)); _st.ok();) \
+  FAIL() << "'" ARROW_STRINGIFY(expr) "' did not failed" << _st.ToString()
+
 #define ABORT_NOT_OK(expr)                                          \
   do {                                                              \
     auto _res = (expr);                                             \
@@ -132,6 +138,11 @@
     ASSERT_EQ(expected, _actual);               \
   } while (0)
 
+// A generalized version of GTest's SCOPED_TRACE that takes arbitrary arguments.
+//   ARROW_SCOPED_TRACE("some variable = ", some_variable, ...)
+
+#define ARROW_SCOPED_TRACE(...) SCOPED_TRACE(::arrow::util::StringBuilder(__VA_ARGS__))
+
 namespace arrow {
 
 // ----------------------------------------------------------------------
@@ -149,10 +160,31 @@ using RealArrowTypes = ::testing::Types<FloatType, DoubleType>;
 
 using IntegralArrowTypes = ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type,
                                             Int8Type, Int16Type, Int32Type, Int64Type>;
+
+using PhysicalIntegralArrowTypes =
+    ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type, Int8Type, Int16Type,
+                     Int32Type, Int64Type, Date32Type, Date64Type, Time32Type, Time64Type,
+                     TimestampType, MonthIntervalType>;
+
+using PrimitiveArrowTypes =
+    ::testing::Types<BooleanType, Int8Type, UInt8Type, Int16Type, UInt16Type, Int32Type,
+                     UInt32Type, Int64Type, UInt64Type, FloatType, DoubleType>;
+
 using TemporalArrowTypes =
     ::testing::Types<Date32Type, Date64Type, TimestampType, Time32Type, Time64Type>;
 
 using DecimalArrowTypes = ::testing::Types<Decimal128Type, Decimal256Type>;
+
+using BaseBinaryArrowTypes =
+    ::testing::Types<BinaryType, LargeBinaryType, StringType, LargeStringType>;
+
+using BinaryArrowTypes = ::testing::Types<BinaryType, LargeBinaryType>;
+
+using StringArrowTypes = ::testing::Types<StringType, LargeStringType>;
+
+using ListArrowTypes = ::testing::Types<ListType, LargeListType>;
+
+using UnionArrowTypes = ::testing::Types<SparseUnionType, DenseUnionType>;
 
 class Array;
 class ChunkedArray;
@@ -195,6 +227,9 @@ ARROW_TESTING_EXPORT void AssertChunkedEqual(const ChunkedArray& actual,
 // Like ChunkedEqual, but permits different chunk layout
 ARROW_TESTING_EXPORT void AssertChunkedEquivalent(const ChunkedArray& expected,
                                                   const ChunkedArray& actual);
+ARROW_TESTING_EXPORT void AssertChunkedApproxEquivalent(
+    const ChunkedArray& expected, const ChunkedArray& actual,
+    const EqualOptions& equal_options = EqualOptions::Defaults());
 ARROW_TESTING_EXPORT void AssertBufferEqual(const Buffer& buffer,
                                             const std::vector<uint8_t>& expected);
 ARROW_TESTING_EXPORT void AssertBufferEqual(const Buffer& buffer,
@@ -242,6 +277,9 @@ ARROW_TESTING_EXPORT void AssertTablesEqual(const Table& expected, const Table& 
 
 ARROW_TESTING_EXPORT void AssertDatumsEqual(const Datum& expected, const Datum& actual,
                                             bool verbose = false);
+ARROW_TESTING_EXPORT void AssertDatumsApproxEqual(
+    const Datum& expected, const Datum& actual, bool verbose = false,
+    const EqualOptions& options = EqualOptions::Defaults());
 
 template <typename C_TYPE>
 void AssertNumericDataEqual(const C_TYPE* raw_data,
@@ -265,6 +303,7 @@ ARROW_TESTING_EXPORT void AssertZeroPadded(const Array& array);
 
 // Check if the valid buffer bytes are initialized
 // and cause valgrind warnings otherwise.
+ARROW_TESTING_EXPORT void TestInitialized(const ArrayData& array);
 ARROW_TESTING_EXPORT void TestInitialized(const Array& array);
 
 template <typename BuilderType>
@@ -296,6 +335,15 @@ std::shared_ptr<RecordBatch> RecordBatchFromJSON(const std::shared_ptr<Schema>&,
 ARROW_TESTING_EXPORT
 std::shared_ptr<ChunkedArray> ChunkedArrayFromJSON(const std::shared_ptr<DataType>&,
                                                    const std::vector<std::string>& json);
+
+ARROW_TESTING_EXPORT
+std::shared_ptr<Scalar> ScalarFromJSON(const std::shared_ptr<DataType>&,
+                                       util::string_view json);
+
+ARROW_TESTING_EXPORT
+std::shared_ptr<Scalar> DictScalarFromJSON(const std::shared_ptr<DataType>&,
+                                           util::string_view index_json,
+                                           util::string_view dictionary_json);
 
 ARROW_TESTING_EXPORT
 std::shared_ptr<Table> TableFromJSON(const std::shared_ptr<Schema>&,
@@ -430,6 +478,14 @@ inline void BitmapFromVector(const std::vector<T>& is_valid,
   ASSERT_OK(GetBitmapFromVector(is_valid, out));
 }
 
+// Given an array, return a new identical array except for one validity bit
+// set to a new value.
+// This is useful to force the underlying "value" of null entries to otherwise
+// invalid data and check that errors don't get reported.
+ARROW_TESTING_EXPORT
+std::shared_ptr<Array> TweakValidityBit(const std::shared_ptr<Array>& array,
+                                        int64_t index, bool validity);
+
 ARROW_TESTING_EXPORT
 void SleepFor(double seconds);
 
@@ -456,6 +512,9 @@ std::vector<T> IteratorToVector(Iterator<T> iterator) {
   EXPECT_OK_AND_ASSIGN(auto out, iterator.ToVector());
   return out;
 }
+
+ARROW_TESTING_EXPORT
+bool LocaleExists(const char* locale);
 
 // A RAII-style object that switches to a new locale, and switches back
 // to the old locale when going out of scope.  Doesn't do anything if the
@@ -517,7 +576,7 @@ void PrintTo(const Result<T>& result, std::ostream* os) {
   }
 }
 
-// A data type with only move constructors.
+// A data type with only move constructors (no copy, no default).
 struct MoveOnlyDataType {
   explicit MoveOnlyDataType(int x) : data(new int(x)) {}
 
@@ -527,6 +586,14 @@ struct MoveOnlyDataType {
   MoveOnlyDataType(MoveOnlyDataType&& other) { MoveFrom(&other); }
   MoveOnlyDataType& operator=(MoveOnlyDataType&& other) {
     MoveFrom(&other);
+    return *this;
+  }
+
+  MoveOnlyDataType& operator=(int x) {
+    if (data != nullptr) {
+      delete data;
+    }
+    data = new int(x);
     return *this;
   }
 
@@ -549,10 +616,14 @@ struct MoveOnlyDataType {
 
   int ToInt() const { return data == nullptr ? -42 : *data; }
 
-  bool operator==(int other) const { return data != nullptr && *data == other; }
   bool operator==(const MoveOnlyDataType& other) const {
     return data != nullptr && other.data != nullptr && *data == *other.data;
   }
+  bool operator<(const MoveOnlyDataType& other) const {
+    return data == nullptr || (other.data != nullptr && *data < *other.data);
+  }
+
+  bool operator==(int other) const { return data != nullptr && *data == other; }
   friend bool operator==(int left, const MoveOnlyDataType& right) {
     return right == left;
   }
@@ -574,6 +645,9 @@ class ARROW_TESTING_EXPORT GatingTask {
   ///
   /// Note: The GatingTask must outlive any Task instances
   std::function<void()> Task();
+  /// \brief Creates a new waiting task as a future.  The future will not complete
+  /// until unlocked.
+  Future<> AsyncTask();
   /// \brief Waits until at least count tasks are running.
   Status WaitForRunning(int count);
   /// \brief Unlocks all waiting tasks.  Returns an invalid status if any waiting task has

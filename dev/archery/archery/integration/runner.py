@@ -32,6 +32,7 @@ from .tester_go import GoTester
 from .tester_rust import RustTester
 from .tester_java import JavaTester
 from .tester_js import JSTester
+from .tester_csharp import CSharpTester
 from .util import (ARROW_ROOT_DEFAULT, guid, SKIP_ARROW, SKIP_FLIGHT,
                    printer)
 from . import datagen
@@ -129,11 +130,13 @@ class IntegrationRunner(object):
             if name == 'union' and prefix == '0.17.1':
                 skip.add("Java")
             if prefix == '1.0.0-bigendian' or prefix == '1.0.0-littleendian':
+                skip.add("C#")
                 skip.add("Go")
                 skip.add("Java")
                 skip.add("JS")
                 skip.add("Rust")
             if prefix == '2.0.0-compression':
+                skip.add("C#")
                 skip.add("JS")
                 skip.add("Rust")
 
@@ -141,9 +144,18 @@ class IntegrationRunner(object):
             # disable specific compression type tests.
 
             if prefix == '4.0.0-shareddict':
+                skip.add("C#")
                 skip.add("Go")
 
-            yield datagen.File(name, None, None, skip=skip, path=out_path)
+            quirks = set()
+            if prefix in {'0.14.1', '0.17.1',
+                          '1.0.0-bigendian', '1.0.0-littleendian'}:
+                # ARROW-13558: older versions generated decimal values that
+                # were out of range for the given precision.
+                quirks.add("no_decimal_validate")
+
+            yield datagen.File(name, None, None, skip=skip, path=out_path,
+                               quirks=quirks)
 
     def _run_test_cases(self, producer, consumer, case_runner,
                         test_cases):
@@ -250,7 +262,8 @@ class IntegrationRunner(object):
         log('-- Validating file')
         producer_file_path = os.path.join(
             gold_dir, "generated_" + test_case.name + ".arrow_file")
-        consumer.validate(json_path, producer_file_path)
+        consumer.validate(json_path, producer_file_path,
+                          quirks=test_case.quirks)
 
         log('-- Validating stream')
         consumer_stream_path = os.path.join(
@@ -262,7 +275,8 @@ class IntegrationRunner(object):
                                           name + '.consumer_stream_as_file')
 
         consumer.stream_to_file(consumer_stream_path, consumer_file_path)
-        consumer.validate(json_path, consumer_file_path)
+        consumer.validate(json_path, consumer_file_path,
+                          quirks=test_case.quirks)
 
     def _compare_flight_implementations(self, producer, consumer):
         log('##########################################################')
@@ -330,8 +344,8 @@ def get_static_json_files():
 
 
 def run_all_tests(with_cpp=True, with_java=True, with_js=True,
-                  with_go=True, with_rust=False, run_flight=False,
-                  tempdir=None, **kwargs):
+                  with_csharp=True, with_go=True, with_rust=False,
+                  run_flight=False, tempdir=None, **kwargs):
     tempdir = tempdir or tempfile.mkdtemp(prefix='arrow-integration-')
 
     testers = []
@@ -344,6 +358,9 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
 
     if with_js:
         testers.append(JSTester(**kwargs))
+
+    if with_csharp:
+        testers.append(CSharpTester(**kwargs))
 
     if with_go:
         testers.append(GoTester(**kwargs))
@@ -396,8 +413,11 @@ def write_js_test_json(directory):
     datagen.generate_nested_case().write(
         os.path.join(directory, 'nested.json')
     )
-    datagen.generate_decimal_case().write(
+    datagen.generate_decimal128_case().write(
         os.path.join(directory, 'decimal.json')
+    )
+    datagen.generate_decimal256_case().write(
+        os.path.join(directory, 'decimal256.json')
     )
     datagen.generate_datetime_case().write(
         os.path.join(directory, 'datetime.json')

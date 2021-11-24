@@ -325,10 +325,12 @@ TEST_F(TestExtensionType, ValidateExtensionArray) {
   auto p1_type = std::make_shared<Parametric1Type>(6);
   auto ext_arr2 = ExampleParametric(p1_type, "[null, 1, 2, 3]");
   auto ext_arr3 = ExampleStruct();
+  auto ext_arr4 = ExampleComplex128();
 
   ASSERT_OK(ext_arr1->ValidateFull());
   ASSERT_OK(ext_arr2->ValidateFull());
   ASSERT_OK(ext_arr3->ValidateFull());
+  ASSERT_OK(ext_arr4->ValidateFull());
 }
 
 }  // namespace arrow

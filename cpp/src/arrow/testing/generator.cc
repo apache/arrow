@@ -95,88 +95,16 @@ std::shared_ptr<arrow::Array> ConstantArrayGenerator::String(int64_t size,
   return ConstantArray<StringType>(size, value);
 }
 
-struct ScalarVectorToArrayImpl {
-  template <typename T, typename AppendScalar,
-            typename BuilderType = typename TypeTraits<T>::BuilderType,
-            typename ScalarType = typename TypeTraits<T>::ScalarType>
-  Status UseBuilder(const AppendScalar& append) {
-    BuilderType builder(type_, default_memory_pool());
-    for (const auto& s : scalars_) {
-      if (s->is_valid) {
-        RETURN_NOT_OK(append(internal::checked_cast<const ScalarType&>(*s), &builder));
-      } else {
-        RETURN_NOT_OK(builder.AppendNull());
-      }
-    }
-    return builder.FinishInternal(&data_);
-  }
-
-  struct AppendValue {
-    template <typename BuilderType, typename ScalarType>
-    Status operator()(const ScalarType& s, BuilderType* builder) const {
-      return builder->Append(s.value);
-    }
-  };
-
-  struct AppendBuffer {
-    template <typename BuilderType, typename ScalarType>
-    Status operator()(const ScalarType& s, BuilderType* builder) const {
-      const Buffer& buffer = *s.value;
-      return builder->Append(util::string_view{buffer});
-    }
-  };
-
-  template <typename T>
-  enable_if_primitive_ctype<T, Status> Visit(const T&) {
-    return UseBuilder<T>(AppendValue{});
-  }
-
-  template <typename T>
-  enable_if_has_string_view<T, Status> Visit(const T&) {
-    return UseBuilder<T>(AppendBuffer{});
-  }
-
-  Status Visit(const StructType& type) {
-    data_ = ArrayData::Make(type_, static_cast<int64_t>(scalars_.size()),
-                            {/*null_bitmap=*/nullptr});
-    data_->child_data.resize(type_->num_fields());
-
-    ScalarVector field_scalars(scalars_.size());
-
-    for (int field_index = 0; field_index < type.num_fields(); ++field_index) {
-      for (size_t i = 0; i < scalars_.size(); ++i) {
-        field_scalars[i] =
-            internal::checked_cast<StructScalar*>(scalars_[i].get())->value[field_index];
-      }
-
-      ARROW_ASSIGN_OR_RAISE(data_->child_data[field_index],
-                            ScalarVectorToArrayImpl{}.Convert(field_scalars));
-    }
-    return Status::OK();
-  }
-
-  Status Visit(const DataType& type) {
-    return Status::NotImplemented("ScalarVectorToArray for type ", type);
-  }
-
-  Result<std::shared_ptr<ArrayData>> Convert(const ScalarVector& scalars) && {
-    if (scalars.size() == 0) {
-      return Status::NotImplemented("ScalarVectorToArray with no scalars");
-    }
-    scalars_ = std::move(scalars);
-    type_ = scalars_[0]->type;
-    RETURN_NOT_OK(VisitTypeInline(*type_, this));
-    return std::move(data_);
-  }
-
-  std::shared_ptr<DataType> type_;
-  ScalarVector scalars_;
-  std::shared_ptr<ArrayData> data_;
-};
-
 Result<std::shared_ptr<Array>> ScalarVectorToArray(const ScalarVector& scalars) {
-  ARROW_ASSIGN_OR_RAISE(auto data, ScalarVectorToArrayImpl{}.Convert(scalars));
-  return MakeArray(std::move(data));
+  if (scalars.empty()) {
+    return Status::NotImplemented("ScalarVectorToArray with no scalars");
+  }
+  std::unique_ptr<arrow::ArrayBuilder> builder;
+  RETURN_NOT_OK(MakeBuilder(default_memory_pool(), scalars[0]->type, &builder));
+  RETURN_NOT_OK(builder->AppendScalars(scalars));
+  std::shared_ptr<Array> out;
+  RETURN_NOT_OK(builder->Finish(&out));
+  return out;
 }
 
 }  // namespace arrow

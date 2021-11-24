@@ -29,21 +29,6 @@ repos:
         entry: bash -c "git archive HEAD --prefix=apache-arrow/ --output=arrow-src.tar && ./dev/release/run-rat.sh arrow-src.tar"
         always_run: true
         pass_filenames: false
-      - id: rustfmt
-        name: Rust Format
-        language: system
-        entry: bash -c "cd rust && cargo +stable fmt --all -- --check"
-        files: ^rust/.*\.rs$
-        types:
-          - file
-          - rust
-      - id: cmake-format
-        name: CMake Format
-        language: python
-        entry: python run-cmake-format.py
-        types: [cmake]
-        additional_dependencies:
-          - cmake_format==0.5.2
       - id: hadolint
         name: Docker Format
         language: docker_image

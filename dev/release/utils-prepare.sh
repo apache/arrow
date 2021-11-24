@@ -32,6 +32,7 @@ update_versions() {
       local r_version=${base_version}.9000
       ;;
   esac
+  local major_version=${version/.*/}
 
   pushd "${ARROW_DIR}/c_glib"
   sed -i.bak -E -e \
@@ -121,17 +122,14 @@ update_versions() {
     DESCRIPTION
   rm -f DESCRIPTION.bak
   git add DESCRIPTION
+  # Replace dev version with release version
+  sed -i.bak -E -e \
+    "0,/^# arrow /s/^# arrow .+/# arrow ${base_version}/" \
+    NEWS.md
   if [ ${type} = "snapshot" ]; then
     # Add a news entry for the new dev version
-    echo "dev"
     sed -i.bak -E -e \
       "0,/^# arrow /s/^(# arrow .+)/# arrow ${r_version}\n\n\1/" \
-      NEWS.md
-  else
-    # Replace dev version with release version
-    echo "release"
-    sed -i.bak -E -e \
-      "0,/^# arrow /s/^# arrow .+/# arrow ${r_version}/" \
       NEWS.md
   fi
   rm -f NEWS.md.bak
@@ -146,22 +144,10 @@ update_versions() {
   git add */*/*/version.rb
   popd
 
-  pushd "${ARROW_DIR}/rust"
-  sed -i.bak -E \
-    -e "s/^version = \".+\"/version = \"${version}\"/g" \
-    -e "s/^(arrow = .* version = )\".*\"(( .*)|(, features = .*)|(, optional = .*))$/\\1\"${version}\"\\2/g" \
-    -e "s/^(arrow-flight = .* version = )\".+\"( .*)/\\1\"${version}\"\\2/g" \
-    -e "s/^(parquet = .* version = )\".*\"(( .*)|(, features = .*))$/\\1\"${version}\"\\2/g" \
-    -e "s/^(parquet_derive = .* version = )\".*\"(( .*)|(, features = .*))$/\\1\"${version}\"\\2/g" \
-    */Cargo.toml
-  rm -f */Cargo.toml.bak
-  git add */Cargo.toml
-
-  sed -i.bak -E \
-    -e "s/^([^ ]+) = \".+\"/\\1 = \"${version}\"/g" \
-    -e "s,docs\.rs/crate/([^/]+)/[^)]+,docs.rs/crate/\\1/${version},g" \
-    */README.md
-  rm -f */README.md.bak
-  git add */README.md
+  pushd "${ARROW_DIR}/go"
+  find . "(" -name "*.go*" -o -name "go.mod" ")" -exec sed -i.bak -E -e \
+    "s|(github\\.com/apache/arrow/go)/v[0-9]+|\1/v${major_version}|" {} \;
+  find . -name "*.bak" -exec rm {} \;
+  git add .
   popd
 }

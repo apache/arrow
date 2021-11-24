@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+require "cgi/util"
 require "digest/sha2"
 require "io/console"
 require "json"
@@ -23,6 +24,12 @@ require "pathname"
 require "tempfile"
 require "thread"
 require "time"
+
+begin
+  require "apt-dists-merge"
+rescue LoadError
+  warn("apt-dists-merge is needed for apt:* tasks")
+end
 
 class BinaryTask
   include Rake::DSL
@@ -57,8 +64,8 @@ class BinaryTask
     private
     def choose_n_workers(use_case)
       case use_case
-      when :bintray
-        # Too many workers cause Bintray error.
+      when :artifactory
+        # Too many workers cause Artifactory error.
         6
       when :gpg
         # Too many workers cause gpg-agent error.
@@ -100,6 +107,7 @@ class BinaryTask
     def increment_max
       @mutex.synchronize do
         @count_max += 1
+        show_progress(Time.now) if @count_max == 1
       end
     end
 
@@ -242,7 +250,7 @@ class BinaryTask
     end
   end
 
-  class BintrayClient
+  class ArtifactoryClient
     class Error < StandardError
       attr_reader :request
       attr_reader :response
@@ -253,229 +261,253 @@ class BinaryTask
       end
     end
 
-    def initialize(options={})
-      @options = options
-      repository = @options[:repository]
-      @subject, @repository = repository.split("/", 2) if repository
-      @package = @options[:package]
-      @version = @options[:version]
-      @user = @options[:user]
-      @api_key = @options[:api_key]
+    def initialize(prefix, api_key)
+      @prefix = prefix
+      @api_key = api_key
+      @http = nil
+      restart
     end
 
-    def request(method, headers, *components, &block)
-      url = build_request_url(*components)
+    def restart
+      close
+      @http = start_http(build_url(""))
+    end
+
+    private def start_http(url, &block)
       http = Net::HTTP.new(url.host, url.port)
       http.set_debug_output($stderr) if ENV["DEBUG"]
       http.use_ssl = true
-      http.start do |http|
-        request = build_request(method, url, headers, &block)
-        http.request(request) do |response|
-          case response
-          when Net::HTTPSuccess
-            return JSON.parse(response.body)
+      if block_given?
+        http.start(&block)
+      else
+        http
+      end
+    end
+
+    def close
+      return if @http.nil?
+      @http.finish if @http.started?
+      @http = nil
+    end
+
+    def request(method, headers, url, body: nil, &block)
+      request = build_request(method, url, headers, body: body)
+      if ENV["DRY_RUN"]
+        case request
+        when Net::HTTP::Get, Net::HTTP::Head
+        else
+          p [method, url]
+          return
+        end
+      end
+      request_internal(@http, request, &block)
+    end
+
+    private def request_internal(http, request, &block)
+      http.request(request) do |response|
+        case response
+        when Net::HTTPSuccess,
+             Net::HTTPNotModified
+          if block_given?
+            return yield(response)
           else
-            message = "failed to request: "
-            message << "#{url}: #{request.method}: "
-            message << "#{response.message} #{response.code}:\n"
+            response.read_body
+            return response
+          end
+        when Net::HTTPRedirection
+          redirected_url = URI(response["Location"])
+          redirected_request = Net::HTTP::Get.new(redirected_url, {})
+          start_http(redirected_url) do |redirected_http|
+            request_internal(redirected_http, redirected_request, &block)
+          end
+        else
+          message = "failed to request: "
+          message << "#{request.uri}: #{request.method}: "
+          message << "#{response.message} #{response.code}"
+          if response.body
+            message << "\n"
             message << response.body
-            raise Error.new(request, response, message)
+          end
+          raise Error.new(request, response, message)
+        end
+      end
+    end
+
+    def files
+      _files = []
+      directories = [""]
+      until directories.empty?
+        directory = directories.shift
+        list(directory).each do |path|
+          resolved_path = "#{directory}#{path}"
+          case path
+          when "../"
+          when /\/\z/
+            directories << resolved_path
+          else
+            _files << resolved_path
+          end
+        end
+      end
+      _files
+    end
+
+    def list(path)
+      url = build_url(path)
+      with_retry(3, url) do
+        begin
+          request(:get, {}, url) do |response|
+            response.body.scan(/<a href="(.+?)"/).flatten
+          end
+        rescue Error => error
+          case error.response
+          when Net::HTTPNotFound
+            return []
+          else
+            raise
           end
         end
       end
     end
 
-    def repository
-      request(:get,
-              {},
-              "repos",
-              @subject,
-              @repository)
-    end
-
-    def create_repository
-      request(:post,
-              {},
-              "repos",
-              @subject,
-              @repository) do
-        request = {
-          "name" => @repository,
-          "desc" => "Apache Arrow",
-        }
-        JSON.generate(request)
+    def head(path)
+      url = build_url(path)
+      with_retry(3, url) do
+        request(:head, {}, url)
       end
     end
 
-    def ensure_repository
+    def exist?(path)
       begin
-        repository
+        head(path)
+        true
       rescue Error => error
         case error.response
         when Net::HTTPNotFound
-          create_repository
+          false
         else
           raise
         end
       end
-    end
-
-    def package
-      request(:get,
-              {},
-              "packages",
-              @subject,
-              @repository,
-              @package)
-    end
-
-    def package_versions
-      begin
-        package["versions"]
-      rescue Error => error
-        case error.response
-        when Net::HTTPNotFound
-          []
-        else
-          raise
-        end
-      end
-    end
-
-    def create_package(description)
-      request(:post,
-              {},
-              "packages",
-              @subject,
-              @repository) do
-        request = {
-          "name" => @package,
-          "desc" => description,
-          "licenses" => ["Apache-2.0"],
-          "vcs_url" => "https://github.com/apache/arrow.git",
-          "website_url" => "https://arrow.apache.org/",
-          "issue_tracker_url" => "https://issues.apache.org/jira/browse/ARROW",
-          "github_repo" => "apache/arrow",
-          "public_download_numbers" => true,
-          "public_stats" => true,
-        }
-        JSON.generate(request)
-      end
-    end
-
-    def ensure_package(description)
-      begin
-        package
-      rescue Error => error
-        case error.response
-        when Net::HTTPNotFound
-          create_package(description)
-        else
-          raise
-        end
-      end
-    end
-
-    def create_version(description)
-      request(:post,
-              {},
-              "packages",
-              @subject,
-              @repository,
-              @package,
-              "versions") do
-        request = {
-          "name" => @version,
-          "desc" => description,
-        }
-        JSON.generate(request)
-      end
-    end
-
-    def ensure_version(version, description)
-      return if package["versions"].include?(version)
-      create_version(description)
-    end
-
-    def files
-      request(:get,
-              {},
-              "packages",
-              @subject,
-              @repository,
-              @package,
-              "versions",
-              @version,
-              "files")
     end
 
     def upload(path, destination_path)
-      sha256 = Digest::SHA256.file(path).hexdigest
-      headers = {
-        "X-Bintray-Override" => "1",
-        "X-Bintray-Package" => @package,
-        "X-Bintray-Publish" => "1",
-        "X-Bintray-Version" => @version,
-        "X-Checksum-Sha2" => sha256,
-        "Content-Length" => File.size(path).to_s,
-      }
-      File.open(path, "rb") do |input|
-        request(:put,
-                headers,
-                "content",
-                @subject,
-                @repository,
-                destination_path) do
-          input
+      destination_url = build_url(destination_path)
+      with_retry(3, destination_url) do
+        sha1 = Digest::SHA1.file(path).hexdigest
+        sha256 = Digest::SHA256.file(path).hexdigest
+        headers = {
+          "X-Artifactory-Last-Modified" => File.mtime(path).rfc2822,
+          "X-Checksum-Deploy" => "false",
+          "X-Checksum-Sha1" => sha1,
+          "X-Checksum-Sha256" => sha256,
+          "Content-Length" => File.size(path).to_s,
+          "Content-Type" => "application/octet-stream",
+        }
+        File.open(path, "rb") do |input|
+          request(:put, headers, destination_url, body: input)
         end
+      end
+    end
+
+    def download(path, output_path)
+      url = build_url(path)
+      with_retry(5, url) do
+        begin
+          begin
+            headers = {}
+            if File.exist?(output_path)
+              headers["If-Modified-Since"] = File.mtime(output_path).rfc2822
+            end
+            request(:get, headers, url) do |response|
+              case response
+              when Net::HTTPNotModified
+              else
+                File.open(output_path, "wb") do |output|
+                  response.read_body do |chunk|
+                    output.write(chunk)
+                  end
+                end
+                last_modified = response["Last-Modified"]
+                if last_modified
+                  FileUtils.touch(output_path,
+                                  mtime: Time.rfc2822(last_modified))
+                end
+              end
+            end
+          rescue Error => error
+            case error.response
+            when Net::HTTPNotFound
+              $stderr.puts(error.message)
+              return
+            else
+              raise
+            end
+          end
+        end
+      rescue
+        FileUtils.rm_f(output_path)
+        raise
       end
     end
 
     def delete(path)
-      request(:delete,
-              {},
-              "content",
-              @subject,
-              @repository,
-              path)
+      url = build_url(path)
+      with_retry(3, url) do
+        request(:delete, {}, url)
+      end
+    end
+
+    def copy(source, destination)
+      uri = build_api_url("copy/arrow/#{source}",
+                          "to" => "/arrow/#{destination}")
+      with_read_timeout(300) do
+        request(:post, {}, uri)
+      end
     end
 
     private
-    def build_request_url(*components)
-      if components.last.is_a?(Hash)
-        parameters = components.pop
-      else
-        parameters = nil
-      end
-      path = components.join("/")
-      url = "https://bintray.com/api/v1/#{path}"
-      if parameters
-        separator = "?"
-        parameters.each do |key, value|
-          url << "#{separator}#{CGI.escape(key)}=#{CGI.escape(value)}"
-          separator = "&"
-        end
-      end
-      URI(url)
+    def build_url(path)
+      uri_string = "https://apache.jfrog.io/artifactory/arrow"
+      uri_string << "/#{@prefix}" unless @prefix.nil?
+      uri_string << "/#{path}"
+      URI(uri_string)
     end
 
-    def build_request(method, url, headers, &block)
+    def build_api_url(path, parameters)
+      uri_string = "https://apache.jfrog.io/artifactory/api/#{path}"
+      unless parameters.empty?
+        uri_string << "?"
+        escaped_parameters = parameters.collect do |key, value|
+          "#{CGI.escape(key)}=#{CGI.escape(value)}"
+        end
+        uri_string << escaped_parameters.join("&")
+      end
+      URI(uri_string)
+    end
+
+    def build_request(method, url, headers, body: nil)
+      need_auth = false
       case method
+      when :head
+        request = Net::HTTP::Head.new(url, headers)
       when :get
         request = Net::HTTP::Get.new(url, headers)
       when :post
+        need_auth = true
         request = Net::HTTP::Post.new(url, headers)
       when :put
+        need_auth = true
         request = Net::HTTP::Put.new(url, headers)
       when :delete
+        need_auth = true
         request = Net::HTTP::Delete.new(url, headers)
       else
         raise "unsupported HTTP method: #{method.inspect}"
       end
-      request.basic_auth(@user, @api_key) if @user and @api_key
-      if block_given?
-        request["Content-Type"] = "application/json"
-        body = yield
+      request["Connection"] = "Keep-Alive"
+      request["X-JFrog-Art-Api"] = @api_key if need_auth
+      if body
         if body.is_a?(String)
           request.body = body
         else
@@ -484,311 +516,232 @@ class BinaryTask
       end
       request
     end
-  end
 
-  module HashChekable
-    def same_hash?(path, sha256)
-      return false unless File.exist?(path)
-      Digest::SHA256.file(path).hexdigest == sha256
+    def with_retry(max_n_retries, target)
+      n_retries = 0
+      begin
+        yield
+      rescue Net::OpenTimeout,
+             OpenSSL::OpenSSLError,
+             SocketError,
+             SystemCallError,
+             Timeout::Error => error
+        n_retries += 1
+        if n_retries <= max_n_retries
+          $stderr.puts
+          $stderr.puts("Retry #{n_retries}: #{target}: " +
+                       "#{error.class}: #{error.message}")
+          restart
+          retry
+        else
+          raise
+        end
+      end
+    end
+
+    def with_read_timeout(timeout)
+      current_timeout = @http.read_timeout
+      begin
+        @http.read_timeout = timeout
+        yield
+      ensure
+        @http.read_timeout = current_timeout
+      end
     end
   end
 
-  class BintrayDownloader
-    include HashChekable
+  class ArtifactoryClientPool
+    class << self
+      def open(prefix, api_key)
+        pool = new(prefix, api_key)
+        begin
+          yield(pool)
+        ensure
+          pool.close
+        end
+      end
+    end
 
-    def initialize(repository:,
-                   distribution:,
-                   version:,
-                   rc: nil,
-                   destination:,
-                   user:,
-                   api_key:)
-      @repository = repository
-      @distribution = distribution
-      @version = version
-      @rc = rc
-      @destination = destination
-      @user = user
+    def initialize(prefix, api_key)
+      @prefix = prefix
       @api_key = api_key
+      @mutex = Thread::Mutex.new
+      @clients = []
+    end
+
+    def pull
+      client = @mutex.synchronize do
+        if @clients.empty?
+          ArtifactoryClient.new(@prefix, @api_key)
+        else
+          @clients.pop
+        end
+      end
+      begin
+        yield(client)
+      ensure
+        release(client)
+      end
+    end
+
+    def release(client)
+      @mutex.synchronize do
+        @clients << client
+      end
+    end
+
+    def close
+      @clients.each(&:close)
+    end
+  end
+
+  module ArtifactoryPath
+    private
+    def base_path
+      path = @distribution
+      path += "-staging" if @staging
+      path += "-rc" if @rc
+      path
+    end
+  end
+
+  class ArtifactoryDownloader
+    include ArtifactoryPath
+
+    def initialize(api_key:,
+                   destination:,
+                   distribution:,
+                   list: nil,
+                   pattern: nil,
+                   prefix: nil,
+                   rc: nil,
+                   staging: false)
+      @api_key = api_key
+      @destination = destination
+      @distribution = distribution
+      @list = list
+      @pattern = pattern
+      @prefix = prefix
+      @rc = rc
+      @staging = staging
     end
 
     def download
-      client.ensure_repository
-
-      progress_label = "Downloading: #{package} #{full_version}"
+      progress_label = "Downloading: #{base_path}"
       progress_reporter = ProgressReporter.new(progress_label)
-      pool = ThreadPool.new(:bintray) do |path, output_path|
-        download_file(path, output_path)
-        progress_reporter.advance
-      end
-      target_files.each do |file|
-        path = file["path"]
-        path_without_package = path.split("/", 2)[1..-1].join("/")
-        output_path = "#{@destination}/#{path_without_package}"
-        yield(output_path)
-        sha256 = file["sha256"]
-        next if same_hash?(output_path, sha256)
-        output_dir = File.dirname(output_path)
-        FileUtils.mkdir_p(output_dir)
-        progress_reporter.increment_max
-        pool << [path, output_path]
-      end
-      pool.join
-      progress_reporter.finish
-    end
-
-    private
-    def package
-      if @rc
-        "#{@distribution}-rc"
-      else
-        @distribution
-      end
-    end
-
-    def full_version
-      if @rc
-        "#{@version}-rc#{@rc}"
-      else
-        @version
-      end
-    end
-
-    def client(options={})
-      default_options = {
-        repository: @repository,
-        package: package,
-        version: full_version,
-        user: @user,
-        api_key: @api_key,
-      }
-      BintrayClient.new(default_options.merge(options))
-    end
-
-    def target_files
-      begin
-        client.files
-      rescue BintrayClient::Error
-        []
-      end
-    end
-
-    def download_file(path, output_path)
-      max_n_retries = 5
-      n_retries = 0
-      url = URI("https://dl.bintray.com/#{@repository}/#{path}")
-      begin
-        download_url(url, output_path)
-      rescue OpenSSL::OpenSSLError,
-             SocketError,
-             SystemCallError,
-             Timeout::Error => error
-        n_retries += 1
-        if n_retries <= max_n_retries
-          $stderr.puts
-          $stderr.puts("Retry #{n_retries}: #{url}: " +
-                       "#{error.class}: #{error.message}")
-          retry
-        else
-          raise
+      prefix = [base_path, @prefix].compact.join("/")
+      ArtifactoryClientPool.open(prefix, @api_key) do |client_pool|
+        thread_pool = ThreadPool.new(:artifactory) do |path, output_path|
+          client_pool.pull do |client|
+            client.download(path, output_path)
+          end
+          progress_reporter.advance
         end
-      end
-    end
-
-    def download_url(url, output_path)
-      loop do
-        http = Net::HTTP.new(url.host, url.port)
-        http.set_debug_output($stderr) if ENV["DEBUG"]
-        http.use_ssl = true
-        http.start do |http|
-          request = Net::HTTP::Get.new(url)
-          http.request(request) do |response|
-            case response
-            when Net::HTTPSuccess
-              save_response(response, output_path)
-              return
-            when Net::HTTPRedirection
-              url = URI(response["Location"])
-            when Net::HTTPNotFound
-              $stderr.puts(build_download_error_message(url, response))
-              return
-            else
-              raise build_download_error_message(url, response)
-            end
+        files = client_pool.pull do |client|
+          if @list
+            list_output_path = "#{@destination}/#{@list}"
+            client.download(@list, list_output_path)
+            File.readlines(list_output_path, chomp: true)
+          else
+            client.files
           end
         end
-      end
-    end
-
-    def save_response(response, output_path)
-      File.open(output_path, "wb") do |output|
-        response.read_body do |chunk|
-          output.print(chunk)
+        files.each do |path|
+          output_path = "#{@destination}/#{path}"
+          if @pattern
+            next unless @pattern.match?(path)
+          end
+          yield(output_path)
+          output_dir = File.dirname(output_path)
+          FileUtils.mkdir_p(output_dir)
+          progress_reporter.increment_max
+          thread_pool << [path, output_path]
         end
+        thread_pool.join
       end
-      last_modified = response["Last-Modified"]
-      if last_modified
-        FileUtils.touch(output_path, mtime: Time.rfc2822(last_modified))
-      end
-    end
-
-    def build_download_error_message(url, response)
-      message = "failed to download: "
-      message << "#{url}: #{response.message} #{response.code}:\n"
-      message << response.body
-      message
+      progress_reporter.finish
     end
   end
 
-  class BintrayUploader
-    include HashChekable
+  class ArtifactoryUploader
+    include ArtifactoryPath
 
-    def initialize(repository:,
+    def initialize(api_key:,
+                   destination_prefix: nil,
                    distribution:,
-                   distribution_label:,
-                   version:,
                    rc: nil,
                    source:,
-                   destination_prefix: "",
-                   user:,
-                   api_key:)
-      @repository = repository
+                   staging: false,
+                   sync: false,
+                   sync_pattern: nil)
+      @api_key = api_key
+      @destination_prefix = destination_prefix
       @distribution = distribution
-      @distribution_label = distribution_label
-      @version = version
       @rc = rc
       @source = source
-      @destination_prefix = destination_prefix
-      @user = user
-      @api_key = api_key
+      @staging = staging
+      @sync = sync
+      @sync_pattern = sync_pattern
     end
 
     def upload
-      client.ensure_repository
-      client.ensure_package(package_description)
-      client.ensure_version(full_version, version_description)
-
-      progress_label = "Uploading: #{package} #{full_version}"
+      progress_label = "Uploading: #{base_path}"
       progress_reporter = ProgressReporter.new(progress_label)
-      pool = ThreadPool.new(:bintray) do |path, relative_path|
-        upload_file(path, relative_path)
-        progress_reporter.advance
-      end
-
-      files = existing_files
-      source = Pathname(@source)
-      source.glob("**/*") do |path|
-        next if path.directory?
-        destination_path =
-          "#{package}/#{@destination_prefix}#{path.relative_path_from(source)}"
-        file = files[destination_path]
-        next if file and same_hash?(path.to_s, file["sha256"])
-        progress_reporter.increment_max
-        pool << [path, destination_path]
-      end
-      pool.join
-      progress_reporter.finish
-    end
-
-    private
-    def package
-      if @rc
-        "#{@distribution}-rc"
-      else
-        @distribution
-      end
-    end
-
-    def full_version
-      if @rc
-        "#{@version}-rc#{@rc}"
-      else
-        @version
-      end
-    end
-
-    def package_description
-      if @rc
-        release_type = "RC"
-      else
-        release_type = "Release"
-      end
-      case @distribution
-      when "debian", "ubuntu"
-        "#{release_type} deb packages for #{@distribution_label}"
-      when "centos"
-        "#{release_type} RPM packages for #{@distribution_label}"
-      else
-        "#{release_type} binaries for #{@distribution_label}"
-      end
-    end
-
-    def version_description
-      if @rc
-        "Apache Arrow #{@version} RC#{@rc} for #{@distribution_label}"
-      else
-        "Apache Arrow #{@version} for #{@distribution_label}"
-      end
-    end
-
-    def client
-      BintrayClient.new(repository: @repository,
-                        package: package,
-                        version: full_version,
-                        user: @user,
-                        api_key: @api_key)
-    end
-
-    def existing_files
-      files = {}
-      client.files.each do |file|
-        files[file["path"]] = file
-      end
-      files
-    end
-
-    def upload_file(path, destination_path)
-      max_n_retries = 3
-      n_retries = 0
-      begin
-        begin
-          client.upload(path, destination_path)
-        rescue BintrayClient::Error => error
-          case error.response
-          when Net::HTTPConflict
-            n_retries += 1
-            if n_retries <= max_n_retries
-              client.delete(destination_path)
-              retry
-            else
-              $stderr.puts(error)
-            end
-          else
-            $stderr.puts(error)
+      prefix = base_path
+      prefix += "/#{@destination_prefix}" if @destination_prefix
+      ArtifactoryClientPool.open(prefix, @api_key) do |client_pool|
+        if @sync
+          existing_files = client_pool.pull do |client|
+            client.files
           end
-        end
-      rescue OpenSSL::OpenSSLError,
-             SocketError,
-             SystemCallError,
-             Timeout::Error => error
-        n_retries += 1
-        if n_retries <= max_n_retries
-          $stderr.puts
-          $stderr.puts("Retry #{n_retries}: #{path}: " +
-                       "#{error.class}: #{error.message}")
-          retry
         else
-          raise
+          existing_files = []
+        end
+
+        thread_pool = ThreadPool.new(:artifactory) do |path, relative_path|
+          client_pool.pull do |client|
+            client.upload(path, relative_path)
+          end
+          progress_reporter.advance
+        end
+
+        source = Pathname(@source)
+        source.glob("**/*") do |path|
+          next if path.directory?
+          destination_path = path.relative_path_from(source)
+          progress_reporter.increment_max
+          existing_files.delete(destination_path.to_s)
+          thread_pool << [path, destination_path]
+        end
+        thread_pool.join
+
+        if @sync
+          thread_pool = ThreadPool.new(:artifactory) do |path|
+            client_pool.pull do |client|
+              client.delete(path)
+            end
+            progress_reporter.advance
+          end
+          existing_files.each do |path|
+            if @sync_pattern
+              next unless @sync_pattern.match?(path)
+            end
+            progress_reporter.increment_max
+            thread_pool << path
+          end
+          thread_pool.join
         end
       end
+      progress_reporter.finish
     end
   end
 
   def define
     define_apt_tasks
     define_yum_tasks
-    define_python_tasks
+    define_java_tasks
     define_nuget_tasks
+    define_python_tasks
     define_summary_tasks
   end
 
@@ -806,7 +759,7 @@ class BinaryTask
 
   def default_output
     if verbose?
-      nil
+      $stdout
     else
       IO::NULL
     end
@@ -824,22 +777,8 @@ class BinaryTask
     "gpg-pubkey-#{shorten_gpg_key_id(id).downcase}"
   end
 
-  def bintray_user
-    env_value("BINTRAY_USER")
-  end
-
-  def bintray_api_key
-    env_value("BINTRAY_API_KEY")
-  end
-
-  def bintray_repository
-    env_value("BINTRAY_REPOSITORY")
-  end
-
-  def source_bintray_repository
-    env_value("SOURCE_BINTRAY_REPOSITORY") do
-      bintray_repository
-    end
+  def artifactory_api_key
+    env_value("ARTIFACTORY_API_KEY")
   end
 
   def artifacts_dir
@@ -852,6 +791,10 @@ class BinaryTask
 
   def rc
     env_value("RC")
+  end
+
+  def staging?
+    ENV["STAGING"] == "yes"
   end
 
   def full_version
@@ -930,36 +873,27 @@ class BinaryTask
 
   def download_distribution(distribution,
                             destination,
-                            with_source_repository: false)
+                            target,
+                            list: nil,
+                            pattern: nil,
+                            prefix: nil)
+    mkdir_p(destination, verbose: verbose?) unless File.exist?(destination)
     existing_paths = {}
     Pathname(destination).glob("**/*") do |path|
       next if path.directory?
       existing_paths[path.to_s] = true
     end
-    if with_source_repository
-      source_client = BintrayClient.new(repository: source_bintray_repository,
-                                        package: distribution,
-                                        user: bintray_user,
-                                        api_key: bintray_api_key)
-      source_client.package_versions[0, 10].each do |source_version|
-        downloader = BintrayDownloader.new(repository: source_bintray_repository,
-                                           distribution: distribution,
-                                           version: source_version,
-                                           destination: destination,
-                                           user: bintray_user,
-                                           api_key: bintray_api_key)
-        downloader.download do |output_path|
-          existing_paths.delete(output_path)
-        end
-      end
-    end
-    downloader = BintrayDownloader.new(repository: bintray_repository,
-                                       distribution: distribution,
-                                       version: version,
-                                       rc: rc,
-                                       destination: destination,
-                                       user: bintray_user,
-                                       api_key: bintray_api_key)
+    options = {
+      api_key: artifactory_api_key,
+      destination: destination,
+      distribution: distribution,
+      list: list,
+      pattern: pattern,
+      prefix: prefix,
+      staging: staging?,
+    }
+    options[:rc] = rc if target == :rc
+    downloader = ArtifactoryDownloader.new(**options)
     downloader.download do |output_path|
       existing_paths.delete(output_path)
     end
@@ -987,6 +921,61 @@ class BinaryTask
     progress_reporter.advance
   end
 
+  def prepare_staging(base_path)
+    client = ArtifactoryClient.new(nil, artifactory_api_key)
+    ["", "-rc"].each do |suffix|
+      path = "#{base_path}#{suffix}"
+      progress_reporter = ProgressReporter.new("Preparing staging for #{path}")
+      progress_reporter.increment_max
+      begin
+        staging_path = "#{base_path}-staging#{suffix}"
+        if client.exist?(staging_path)
+          client.delete(staging_path)
+        end
+        if client.exist?(path)
+          client.copy(path, staging_path)
+        end
+      ensure
+        progress_reporter.advance
+        progress_reporter.finish
+      end
+    end
+  end
+
+  def delete_staging(base_path)
+    client = ArtifactoryClient.new(nil, artifactory_api_key)
+    ["", "-rc"].each do |suffix|
+      path = "#{base_path}#{suffix}"
+      progress_reporter = ProgressReporter.new("Deleting staging for #{path}")
+      progress_reporter.increment_max
+      begin
+        staging_path = "#{base_path}-staging#{suffix}"
+        if client.exist?(staging_path)
+          client.delete(staging_path)
+        end
+      ensure
+        progress_reporter.advance
+        progress_reporter.finish
+      end
+    end
+  end
+
+  def uploaded_files_name
+    "uploaded-files.txt"
+  end
+
+  def write_uploaded_files(dir)
+    dir = Pathname(dir)
+    uploaded_files = []
+    dir.glob("**/*") do |path|
+      next if path.directory?
+      uploaded_files << path.relative_path_from(dir).to_s
+    end
+    File.open("#{dir}/#{uploaded_files_name}", "w") do |output|
+      output.puts(uploaded_files.sort)
+    end
+  end
+
   def tmp_dir
     "binary/tmp"
   end
@@ -997,10 +986,6 @@ class BinaryTask
 
   def release_dir
     "#{tmp_dir}/release"
-  end
-
-  def deb_dir
-    "#{rc_dir}/deb/#{full_version}"
   end
 
   def apt_repository_label
@@ -1023,21 +1008,12 @@ class BinaryTask
     [
       ["debian", "buster", "main"],
       ["debian", "bullseye", "main"],
+      ["debian", "bookworm", "main"],
       ["ubuntu", "bionic", "main"],
       ["ubuntu", "focal", "main"],
-      ["ubuntu", "groovy", "main"],
+      ["ubuntu", "hirsute", "main"],
+      ["ubuntu", "impish", "main"],
     ]
-  end
-
-  def apt_distribution_label(distribution)
-    case distribution
-    when "debian"
-      "Debian"
-    when "ubuntu"
-      "Ubuntu"
-    else
-      distribution
-    end
   end
 
   def apt_targets
@@ -1066,109 +1042,6 @@ class BinaryTask
       "amd64",
       "arm64",
     ]
-  end
-
-  def define_deb_tasks
-    directory deb_dir
-
-    namespace :deb do
-      desc "Copy deb packages"
-      task :copy => deb_dir do
-        apt_targets.each do |distribution, code_name, component|
-          progress_label = "Copying: #{distribution} #{code_name}"
-          progress_reporter = ProgressReporter.new(progress_label)
-
-          source_dir_prefix = "#{artifacts_dir}/#{distribution}-#{code_name}"
-          Dir.glob("#{source_dir_prefix}*/**/*") do |path|
-            next if File.directory?(path)
-            base_name = File.basename(path)
-            if base_name.start_with?("apache-arrow-apt-source")
-              package_name = "apache-arrow-apt-source"
-            else
-              package_name = "apache-arrow"
-            end
-            distribution_dir = [
-              deb_dir,
-              distribution,
-            ].join("/")
-            destination_path = [
-              distribution_dir,
-              "pool",
-              code_name,
-              component,
-              package_name[0],
-              package_name,
-              base_name,
-            ].join("/")
-            copy_artifact(path,
-                          destination_path,
-                          progress_reporter)
-            case base_name
-            when /\A[^_]+-apt-source_.*\.deb\z/
-              latest_apt_source_package_path = [
-                distribution_dir,
-                "#{package_name}-latest-#{code_name}.deb"
-              ].join("/")
-              copy_artifact(path,
-                            latest_apt_source_package_path,
-                            progress_reporter)
-            end
-          end
-          progress_reporter.finish
-        end
-      end
-
-      desc "Sign deb packages"
-      task :sign => deb_dir do
-        apt_distributions.each do |distribution|
-          distribution_dir = "#{deb_dir}/#{distribution}"
-          Dir.glob("#{distribution_dir}/**/*.dsc") do |path|
-            begin
-              sh({"LANG" => "C"},
-                 "gpg",
-                 "--verify",
-                 path,
-                 out: IO::NULL,
-                 err: IO::NULL,
-                 verbose: false)
-            rescue
-              sh("debsign",
-                 "--no-re-sign",
-                 "-k#{gpg_key_id}",
-                 path,
-                 out: default_output,
-                 verbose: verbose?)
-            end
-          end
-          sign_dir(distribution, distribution_dir)
-        end
-      end
-
-      desc "Upload deb packages"
-      task :upload do
-        apt_distributions.each do |distribution|
-          distribution_dir = "#{deb_dir}/#{distribution}"
-          distribution_label = apt_distribution_label(distribution)
-          uploader = BintrayUploader.new(repository: bintray_repository,
-                                         distribution: distribution,
-                                         distribution_label: distribution_label,
-                                         version: version,
-                                         rc: rc,
-                                         source: distribution_dir,
-                                         user: bintray_user,
-                                         api_key: bintray_api_key)
-          uploader.upload
-        end
-      end
-    end
-
-    desc "Release deb packages"
-    deb_tasks = [
-      "deb:copy",
-      "deb:sign",
-      "deb:upload",
-    ]
-    task :deb => deb_tasks
   end
 
   def generate_apt_release(dists_dir, code_name, component, architecture)
@@ -1237,12 +1110,12 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
     CONF
   end
 
-  def apt_update(repositories_dir)
+  def apt_update(base_dir, incoming_dir, merged_dir)
     apt_targets.each do |distribution, code_name, component|
-      base_dir = "#{repositories_dir}/#{distribution}"
-      pool_dir = "#{base_dir}/pool/#{code_name}"
+      distribution_dir = "#{incoming_dir}/#{distribution}"
+      pool_dir = "#{distribution_dir}/pool/#{code_name}"
       next unless File.exist?(pool_dir)
-      dists_dir = "#{base_dir}/dists/#{code_name}"
+      dists_dir = "#{distribution_dir}/dists/#{code_name}"
       rm_rf(dists_dir, verbose: verbose?)
       generate_apt_release(dists_dir, code_name, component, "source")
       apt_architectures.each do |architecture|
@@ -1254,7 +1127,7 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
         conf.puts(generate_apt_ftp_archive_generate_conf(code_name,
                                                          component))
       end
-      cd(base_dir, verbose: verbose?) do
+      cd(distribution_dir, verbose: verbose?) do
         sh("apt-ftparchive",
            "generate",
            generate_conf_file.path,
@@ -1265,7 +1138,7 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
       Dir.glob("#{dists_dir}/Release*") do |release|
         rm_f(release, verbose: verbose?)
       end
-      Dir.glob("#{base_dir}/*.db") do |db|
+      Dir.glob("#{distribution_dir}/*.db") do |db|
         rm_f(db, verbose: verbose?)
       end
       release_conf_file = Tempfile.new("apt-ftparchive-release.conf")
@@ -1280,11 +1153,19 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
          dists_dir,
          out: release_file.path,
          verbose: verbose?)
-      release_path = "#{dists_dir}/Release"
+      mv(release_file.path, "#{dists_dir}/Release", verbose: verbose?)
+
+      base_dists_dir = "#{base_dir}/#{distribution}/dists/#{code_name}"
+      merged_dists_dir = "#{merged_dir}/#{distribution}/dists/#{code_name}"
+      rm_rf(merged_dists_dir)
+      merger = APTDistsMerge::Merger.new(base_dists_dir,
+                                         dists_dir,
+                                         merged_dists_dir)
+      merger.merge
+
+      in_release_path = "#{merged_dists_dir}/InRelease"
+      release_path = "#{merged_dists_dir}/Release"
       signed_release_path = "#{release_path}.gpg"
-      in_release_path = "#{dists_dir}/InRelease"
-      mv(release_file.path, release_path, verbose: verbose?)
-      chmod(0644, release_path, verbose: verbose?)
       sh("gpg",
          "--sign",
          "--detach-sign",
@@ -1304,46 +1185,154 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
     end
   end
 
-  def define_apt_rc_tasks
-    directory apt_rc_repositories_dir
+  def define_apt_staging_tasks
+    namespace :apt do
+      namespace :staging do
+        desc "Prepare staging environment for APT repositories"
+        task :prepare do
+          apt_distributions.each do |distribution|
+            prepare_staging(distribution)
+          end
+        end
 
+        desc "Delete staging environment for APT repositories"
+        task :delete do
+          apt_distributions.each do |distribution|
+            delete_staging(distribution)
+          end
+        end
+      end
+    end
+  end
+
+  def define_apt_rc_tasks
     namespace :apt do
       namespace :rc do
-        desc "Download deb files for RC APT repositories"
-        task :download => apt_rc_repositories_dir do
+        base_dir = "#{apt_rc_repositories_dir}/base"
+        incoming_dir = "#{apt_rc_repositories_dir}/incoming"
+        merged_dir = "#{apt_rc_repositories_dir}/merged"
+        upload_dir = "#{apt_rc_repositories_dir}/upload"
+
+        desc "Copy .deb packages"
+        task :copy do
+          apt_targets.each do |distribution, code_name, component|
+            progress_label = "Copying: #{distribution} #{code_name}"
+            progress_reporter = ProgressReporter.new(progress_label)
+
+            distribution_dir = "#{incoming_dir}/#{distribution}"
+            pool_dir = "#{distribution_dir}/pool/#{code_name}"
+            rm_rf(pool_dir, verbose: verbose?)
+            mkdir_p(pool_dir, verbose: verbose?)
+            source_dir_prefix = "#{artifacts_dir}/#{distribution}-#{code_name}"
+            Dir.glob("#{source_dir_prefix}*/**/*") do |path|
+              next if File.directory?(path)
+              base_name = File.basename(path)
+              if base_name.start_with?("apache-arrow-apt-source")
+                package_name = "apache-arrow-apt-source"
+              else
+                package_name = "apache-arrow"
+              end
+              destination_path = [
+                pool_dir,
+                component,
+                package_name[0],
+                package_name,
+                base_name,
+              ].join("/")
+              copy_artifact(path,
+                            destination_path,
+                            progress_reporter)
+              case base_name
+              when /\A[^_]+-apt-source_.*\.deb\z/
+                latest_apt_source_package_path = [
+                  distribution_dir,
+                  "#{package_name}-latest-#{code_name}.deb"
+                ].join("/")
+                copy_artifact(path,
+                              latest_apt_source_package_path,
+                              progress_reporter)
+              end
+            end
+            progress_reporter.finish
+          end
+        end
+
+        desc "Download dists/ for RC APT repositories"
+        task :download do
           apt_distributions.each do |distribution|
+            not_checksum_pattern = /.+(?<!\.asc|\.sha512)\z/
+            base_distribution_dir = "#{base_dir}/#{distribution}"
+            pattern = /\Adists\/#{not_checksum_pattern}/
             download_distribution(distribution,
-                                  "#{apt_rc_repositories_dir}/#{distribution}",
-                                  with_source_repository: true)
+                                  base_distribution_dir,
+                                  :base,
+                                  pattern: pattern)
+          end
+        end
+
+        desc "Sign .deb packages"
+        task :sign do
+          apt_distributions.each do |distribution|
+            distribution_dir = "#{incoming_dir}/#{distribution}"
+            Dir.glob("#{distribution_dir}/**/*.dsc") do |path|
+              begin
+                sh({"LANG" => "C"},
+                   "gpg",
+                   "--verify",
+                   path,
+                   out: IO::NULL,
+                   err: IO::NULL,
+                   verbose: false)
+              rescue
+                sh("debsign",
+                   "--no-re-sign",
+                   "-k#{gpg_key_id}",
+                   path,
+                   out: default_output,
+                   verbose: verbose?)
+              end
+            end
+            sign_dir(distribution, distribution_dir)
           end
         end
 
         desc "Update RC APT repositories"
         task :update do
-          apt_update(apt_rc_repositories_dir)
+          apt_update(base_dir, incoming_dir, merged_dir)
           apt_targets.each do |distribution, code_name, component|
-            base_dir = "#{apt_rc_repositories_dir}/#{distribution}"
-            dists_dir = "#{base_dir}/dists/#{code_name}"
+            dists_dir = "#{merged_dir}/#{distribution}/dists/#{code_name}"
             next unless File.exist?(dists_dir)
             sign_dir("#{distribution} #{code_name}",
                      dists_dir)
           end
         end
 
-        desc "Upload RC APT repositories"
-        task :upload => apt_rc_repositories_dir do
+        desc "Upload .deb packages and RC APT repositories"
+        task :upload do
           apt_distributions.each do |distribution|
-            dists_dir = "#{apt_rc_repositories_dir}/#{distribution}/dists"
-            distribution_label = apt_distribution_label(distribution)
-            uploader = BintrayUploader.new(repository: bintray_repository,
-                                           distribution: distribution,
-                                           distribution_label: distribution_label,
-                                           version: version,
-                                           rc: rc,
-                                           source: dists_dir,
-                                           destination_prefix: "dists/",
-                                           user: bintray_user,
-                                           api_key: bintray_api_key)
+            upload_distribution_dir = "#{upload_dir}/#{distribution}"
+            incoming_distribution_dir = "#{incoming_dir}/#{distribution}"
+            merged_dists_dir = "#{merged_dir}/#{distribution}/dists"
+
+            rm_rf(upload_distribution_dir, verbose: verbose?)
+            mkdir_p(upload_distribution_dir, verbose: verbose?)
+            Dir.glob("#{incoming_distribution_dir}/*") do |path|
+              next if File.basename(path) == "dists"
+              cp_r(path,
+                   upload_distribution_dir,
+                   preserve: true,
+                   verbose: verbose?)
+            end
+            cp_r(merged_dists_dir,
+                 upload_distribution_dir,
+                 preserve: true,
+                 verbose: verbose?)
+            write_uploaded_files(upload_distribution_dir)
+            uploader = ArtifactoryUploader.new(api_key: artifactory_api_key,
+                                               distribution: distribution,
+                                               rc: rc,
+                                               source: upload_distribution_dir,
+                                               staging: staging?)
             uploader.upload
           end
         end
@@ -1351,10 +1340,13 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
 
       desc "Release RC APT repositories"
       apt_rc_tasks = [
+        "apt:rc:copy",
         "apt:rc:download",
+        "apt:rc:sign",
         "apt:rc:update",
         "apt:rc:upload",
       ]
+      apt_rc_tasks.unshift("apt:staging:prepare") if staging?
       task :rc => apt_rc_tasks
     end
   end
@@ -1368,7 +1360,10 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
         task :download => apt_release_repositories_dir do
           apt_distributions.each do |distribution|
             distribution_dir = "#{apt_release_repositories_dir}/#{distribution}"
-            download_distribution(distribution, distribution_dir)
+            download_distribution(distribution,
+                                  distribution_dir,
+                                  :rc,
+                                  list: uploaded_files_name)
           end
         end
 
@@ -1376,14 +1371,10 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
         task :upload => apt_release_repositories_dir do
           apt_distributions.each do |distribution|
             distribution_dir = "#{apt_release_repositories_dir}/#{distribution}"
-            distribution_label = apt_distribution_label(distribution)
-            uploader = BintrayUploader.new(repository: bintray_repository,
-                                           distribution: distribution,
-                                           distribution_label: distribution_label,
-                                           version: version,
-                                           source: distribution_dir,
-                                           user: bintray_user,
-                                           api_key: bintray_api_key)
+            uploader = ArtifactoryUploader.new(api_key: artifactory_api_key,
+                                               distribution: distribution,
+                                               source: distribution_dir,
+                                               staging: staging?)
             uploader.upload
           end
         end
@@ -1399,13 +1390,9 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
   end
 
   def define_apt_tasks
-    define_deb_tasks
+    define_apt_staging_tasks
     define_apt_rc_tasks
     define_apt_release_tasks
-  end
-
-  def rpm_dir
-    "#{rc_dir}/rpm/#{full_version}"
   end
 
   def yum_rc_repositories_dir
@@ -1418,18 +1405,11 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
 
   def available_yum_targets
     [
+      ["almalinux", "8"],
+      ["amazon-linux", "2"],
       ["centos", "7"],
       ["centos", "8"],
     ]
-  end
-
-  def yum_distribution_label(distribution)
-    case distribution
-    when "centos"
-      "CentOS"
-    else
-      distribution
-    end
   end
 
   def yum_targets
@@ -1439,7 +1419,7 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
     else
       available_yum_targets.select do |distribution, distribution_version|
         env_yum_targets.any? do |env_yum_target|
-          if env_yum_target.include?("-")
+          if /\d/.match?(env_yum_target)
             env_yum_target.start_with?("#{distribution}-#{distribution_version}")
           else
             env_yum_target == distribution
@@ -1474,6 +1454,7 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
       unless signed_rpm?(rpm)
         sh("rpm",
            "-D", "_gpg_name #{gpg_key_id}",
+           "-D", "__gpg /usr/bin/gpg",
            "-D", "__gpg_check_password_cmd /bin/true true",
            "--resign",
            rpm,
@@ -1514,135 +1495,40 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
     end
   end
 
-  def define_rpm_tasks
-    directory rpm_dir
-
-    namespace :rpm do
-      desc "Copy RPM packages"
-      task :copy => rpm_dir do
-        yum_targets.each do |distribution, distribution_version|
-          progress_label = "Copying: #{distribution} #{distribution_version}"
-          progress_reporter = ProgressReporter.new(progress_label)
-
-          destination_prefix = [
-            rpm_dir,
-            distribution,
-            distribution_version,
-          ].join("/")
-          source_dir_prefix =
-            "#{artifacts_dir}/#{distribution}-#{distribution_version}"
-          Dir.glob("#{source_dir_prefix}*/**/*") do |path|
-            next if File.directory?(path)
-            base_name = File.basename(path)
-            type = base_name.split(".")[-2]
-            destination_paths = []
-            case type
-            when "src"
-              destination_paths << [
-                destination_prefix,
-                "Source",
-                "SPackages",
-                base_name,
-              ].join("/")
-            when "noarch"
-              yum_architectures.each do |architecture|
-                destination_paths << [
-                  destination_prefix,
-                  architecture,
-                  "Packages",
-                  base_name,
-                ].join("/")
-              end
-            else
-              destination_paths << [
-                destination_prefix,
-                type,
-                "Packages",
-                base_name,
-              ].join("/")
-            end
-            destination_paths.each do |destination_path|
-              copy_artifact(path,
-                            destination_path,
-                            progress_reporter)
-            end
-            case base_name
-            when /\A(apache-arrow-release)-.*\.noarch\.rpm\z/
-              package_name = $1
-              latest_release_package_path = [
-                destination_prefix,
-                "#{package_name}-latest.rpm"
-              ].join("/")
-              copy_artifact(path,
-                            latest_release_package_path,
-                            progress_reporter)
-            end
-          end
-
-          progress_reporter.finish
-        end
-      end
-
-      desc "Sign RPM packages"
-      task :sign do
-        rpm_sign(rpm_dir)
-        yum_targets.each do |distribution, distribution_version|
-          source_dir = [
-            rpm_dir,
-            distribution,
-            distribution_version,
-          ].join("/")
-          sign_dir("#{distribution}-#{distribution_version}",
-                   source_dir)
-        end
-      end
-
-      desc "Upload RPM packages"
-      task :upload do
-        yum_distributions.each do |distribution|
-          distribution_dir = "#{rpm_dir}/#{distribution}"
-          distribution_label = yum_distribution_label(distribution)
-          uploader = BintrayUploader.new(repository: bintray_repository,
-                                         distribution: distribution,
-                                         distribution_label: distribution_label,
-                                         version: version,
-                                         rc: rc,
-                                         source: distribution_dir,
-                                         user: bintray_user,
-                                         api_key: bintray_api_key)
-          uploader.upload
-        end
-      end
-    end
-
-    desc "Release RPM packages"
-    rpm_tasks = [
-      "rpm:copy",
-      "rpm:sign",
-      "rpm:upload",
-    ]
-    task :rpm => rpm_tasks
-  end
-
-  def yum_update(repositories_dir)
-    yum_distributions.each do |distribution|
-      distribution_dir = "#{repositories_dir}/#{distribution}"
-      Dir.glob("#{distribution_dir}/**/repodata") do |repodata|
+  def yum_update(base_dir, incoming_dir)
+    yum_targets.each do |distribution, distribution_version|
+      target_dir = "#{incoming_dir}/#{distribution}/#{distribution_version}"
+      target_dir = Pathname(target_dir)
+      next unless target_dir.directory?
+      Dir.glob("#{target_dir}/**/repodata") do |repodata|
         rm_rf(repodata, verbose: verbose?)
       end
-    end
-
-    yum_targets.each do |distribution, distribution_version|
-      base_dir = [
-        repositories_dir,
-        distribution,
-        distribution_version,
-      ].join("/")
-      base_dir = Pathname(base_dir)
-      next unless base_dir.directory?
-      base_dir.glob("*") do |arch_dir|
+      target_dir.glob("*") do |arch_dir|
         next unless arch_dir.directory?
-        sh(ENV["CREATEREPO"] || "createrepo",
+        base_repodata_dir = [
+          base_dir,
+          distribution,
+          distribution_version,
+          File.basename(arch_dir),
+          "repodata",
+        ].join("/")
+        if File.exist?(base_repodata_dir)
+          cp_r(base_repodata_dir,
+               arch_dir.to_s,
+               preserve: true,
+               verbose: verbose?)
+        end
+        packages = Tempfile.new("createrepo-c-packages")
+        Pathname.glob("#{arch_dir}/*/*.rpm") do |rpm|
+          relative_rpm = rpm.relative_path_from(arch_dir)
+          packages.puts(relative_rpm.to_s)
+        end
+        packages.close
+        sh("createrepo_c",
+           "--pkglist", packages.path,
+           "--recycle-pkglist",
+           "--retain-old-md-by-age=0",
+           "--skip-stat",
            "--update",
            arch_dir.to_s,
            out: default_output,
@@ -1651,33 +1537,136 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
     end
   end
 
-  def define_yum_rc_tasks
-    directory yum_rc_repositories_dir
+  def define_yum_staging_tasks
+    namespace :yum do
+      namespace :staging do
+        desc "Prepare staging environment for Yum repositories"
+        task :prepare do
+          yum_distributions.each do |distribution|
+            prepare_staging(distribution)
+          end
+        end
 
+        desc "Delete staging environment for Yum repositories"
+        task :delete do
+          yum_distributions.each do |distribution|
+            delete_staging(distribution)
+          end
+        end
+      end
+    end
+  end
+
+  def define_yum_rc_tasks
     namespace :yum do
       namespace :rc do
-        desc "Download RPM files for RC Yum repositories"
-        task :download => yum_rc_repositories_dir do
+        base_dir = "#{yum_rc_repositories_dir}/base"
+        incoming_dir = "#{yum_rc_repositories_dir}/incoming"
+        upload_dir = "#{yum_rc_repositories_dir}/upload"
+
+        desc "Copy RPM packages"
+        task :copy do
+          yum_targets.each do |distribution, distribution_version|
+            progress_label = "Copying: #{distribution} #{distribution_version}"
+            progress_reporter = ProgressReporter.new(progress_label)
+
+            destination_prefix = [
+              incoming_dir,
+              distribution,
+              distribution_version,
+            ].join("/")
+            rm_rf(destination_prefix, verbose: verbose?)
+            source_dir_prefix =
+              "#{artifacts_dir}/#{distribution}-#{distribution_version}"
+            Dir.glob("#{source_dir_prefix}*/**/*") do |path|
+              next if File.directory?(path)
+              base_name = File.basename(path)
+              type = base_name.split(".")[-2]
+              destination_paths = []
+              case type
+              when "src"
+                destination_paths << [
+                  destination_prefix,
+                  "Source",
+                  "SPackages",
+                  base_name,
+                ].join("/")
+              when "noarch"
+                yum_architectures.each do |architecture|
+                  destination_paths << [
+                    destination_prefix,
+                    architecture,
+                    "Packages",
+                    base_name,
+                  ].join("/")
+                end
+              else
+                destination_paths << [
+                  destination_prefix,
+                  type,
+                  "Packages",
+                  base_name,
+                ].join("/")
+              end
+              destination_paths.each do |destination_path|
+                copy_artifact(path,
+                              destination_path,
+                              progress_reporter)
+              end
+              case base_name
+              when /\A(apache-arrow-release)-.*\.noarch\.rpm\z/
+                package_name = $1
+                latest_release_package_path = [
+                  destination_prefix,
+                  "#{package_name}-latest.rpm"
+                ].join("/")
+                copy_artifact(path,
+                              latest_release_package_path,
+                              progress_reporter)
+              end
+            end
+
+            progress_reporter.finish
+          end
+        end
+
+        desc "Download repodata for RC Yum repositories"
+        task :download do
           yum_distributions.each do |distribution|
-            distribution_dir = "#{yum_rc_repositories_dir}/#{distribution}"
+            distribution_dir = "#{base_dir}/#{distribution}"
             download_distribution(distribution,
                                   distribution_dir,
-                                  with_source_repository: true)
+                                  :base,
+                                  pattern: /\/repodata\//)
+          end
+        end
+
+        desc "Sign RPM packages"
+        task :sign do
+          rpm_sign(incoming_dir)
+          yum_targets.each do |distribution, distribution_version|
+            source_dir = [
+              incoming_dir,
+              distribution,
+              distribution_version,
+            ].join("/")
+            sign_dir("#{distribution}-#{distribution_version}",
+                     source_dir)
           end
         end
 
         desc "Update RC Yum repositories"
-        task :update => yum_rc_repositories_dir do
-          yum_update(yum_rc_repositories_dir)
+        task :update do
+          yum_update(base_dir, incoming_dir)
           yum_targets.each do |distribution, distribution_version|
-            base_dir = [
-              yum_rc_repositories_dir,
+            target_dir = [
+              incoming_dir,
               distribution,
               distribution_version,
             ].join("/")
-            base_dir = Pathname(base_dir)
-            next unless base_dir.directory?
-            base_dir.glob("*") do |arch_dir|
+            target_dir = Pathname(target_dir)
+            next unless target_dir.directory?
+            target_dir.glob("*") do |arch_dir|
               next unless arch_dir.directory?
               sign_label =
                 "#{distribution}-#{distribution_version} #{arch_dir.basename}"
@@ -1689,41 +1678,39 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
 
         desc "Upload RC Yum repositories"
         task :upload => yum_rc_repositories_dir do
-          yum_targets.each do |distribution, distribution_version|
-            distribution_label = yum_distribution_label(distribution)
-            base_dir = [
-              yum_rc_repositories_dir,
-              distribution,
-              distribution_version,
-            ].join("/")
-            base_dir = Pathname(base_dir)
-            base_dir.glob("**/repodata") do |repodata_dir|
-              relative_dir = [
-                distribution_version,
-                repodata_dir.relative_path_from(base_dir).to_s
-              ].join("/")
-              uploader =
-                BintrayUploader.new(repository: bintray_repository,
-                                    distribution: distribution,
-                                    distribution_label: distribution_label,
-                                    version: version,
-                                    rc: rc,
-                                    source: repodata_dir.to_s,
-                                    destination_prefix: "#{relative_dir}/",
-                                    user: bintray_user,
-                                    api_key: bintray_api_key)
-              uploader.upload
-            end
+          yum_distributions.each do |distribution|
+            incoming_target_dir = "#{incoming_dir}/#{distribution}"
+            upload_target_dir = "#{upload_dir}/#{distribution}"
+
+            rm_rf(upload_target_dir, verbose: verbose?)
+            mkdir_p(upload_target_dir, verbose: verbose?)
+            cp_r(Dir.glob("#{incoming_target_dir}/*"),
+                 upload_target_dir.to_s,
+                 preserve: true,
+                 verbose: verbose?)
+            write_uploaded_files(upload_target_dir)
+
+            uploader = ArtifactoryUploader.new(api_key: artifactory_api_key,
+                                               distribution: distribution,
+                                               rc: rc,
+                                               source: upload_target_dir,
+                                               staging: staging?,
+                                               sync: true,
+                                               sync_pattern: /\/repodata\//)
+            uploader.upload
           end
         end
       end
 
       desc "Release RC Yum packages"
       yum_rc_tasks = [
+        "yum:rc:copy",
         "yum:rc:download",
+        "yum:rc:sign",
         "yum:rc:update",
         "yum:rc:upload",
       ]
+      yum_rc_tasks.unshift("yum:staging:prepare") if staging?
       task :rc => yum_rc_tasks
     end
   end
@@ -1737,7 +1724,10 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
         task :download => yum_release_repositories_dir do
           yum_distributions.each do |distribution|
             distribution_dir = "#{yum_release_repositories_dir}/#{distribution}"
-            download_distribution(distribution, distribution_dir)
+            download_distribution(distribution,
+                                  distribution_dir,
+                                  :rc,
+                                  list: uploaded_files_name)
           end
         end
 
@@ -1745,14 +1735,13 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
         task :upload => yum_release_repositories_dir do
           yum_distributions.each do |distribution|
             distribution_dir = "#{yum_release_repositories_dir}/#{distribution}"
-            distribution_label = yum_distribution_label(distribution)
-            uploader = BintrayUploader.new(repository: bintray_repository,
-                                           distribution: distribution,
-                                           distribution_label: distribution_label,
-                                           version: version,
-                                           source: distribution_dir,
-                                           user: bintray_user,
-                                           api_key: bintray_api_key)
+            uploader =
+              ArtifactoryUploader.new(api_key: artifactory_api_key,
+                                      distribution: distribution,
+                                      source: distribution_dir,
+                                      staging: staging?,
+                                      sync: true,
+                                      sync_pattern: /\/repodata\//)
             uploader.upload
           end
         end
@@ -1768,7 +1757,7 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
   end
 
   def define_yum_tasks
-    define_rpm_tasks
+    define_yum_staging_tasks
     define_yum_rc_tasks
     define_yum_release_tasks
   end
@@ -1805,15 +1794,13 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
 
         desc "Upload #{label} packages"
         task :upload do
-          uploader = BintrayUploader.new(repository: bintray_repository,
-                                         distribution: id.to_s,
-                                         distribution_label: label,
-                                         version: version,
-                                         rc: rc,
-                                         source: rc_dir,
-                                         destination_prefix: "#{full_version}/",
-                                         user: bintray_user,
-                                         api_key: bintray_api_key)
+          uploader =
+            ArtifactoryUploader.new(api_key: artifactory_api_key,
+                                    destination_prefix: full_version,
+                                    distribution: id.to_s,
+                                    rc: rc,
+                                    source: rc_dir,
+                                    staging: staging?)
           uploader.upload
         end
       end
@@ -1835,20 +1822,19 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
       namespace :release do
         desc "Download RC #{label} packages"
         task :download => release_dir do
-          download_distribution(id.to_s, release_dir)
+          download_distribution(id.to_s,
+                                release_dir,
+                                :rc,
+                                prefix: "#{full_version}")
         end
 
         desc "Upload release #{label} packages"
         task :upload => release_dir do
-          packages_dir = "#{release_dir}/#{full_version}"
-          uploader = BintrayUploader.new(repository: bintray_repository,
-                                         distribution: id.to_s,
-                                         distribution_label: label,
-                                         version: version,
-                                         source: packages_dir,
-                                         destination_prefix: "#{version}/",
-                                         user: bintray_user,
-                                         api_key: bintray_api_key)
+          uploader = ArtifactoryUploader.new(api_key: artifactory_api_key,
+                                             destination_prefix: version,
+                                             distribution: id.to_s,
+                                             source: release_dir,
+                                             staging: staging?)
           uploader.upload
         end
       end
@@ -1871,12 +1857,12 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
     define_generic_data_release_tasks(label, id, release_dir)
   end
 
-  def define_python_tasks
-    define_generic_data_tasks("Python",
-                              :python,
-                              "#{rc_dir}/python/#{full_version}",
-                              "#{release_dir}/python/#{full_version}",
-                              "{conda-*,wheel-*,python-sdist}/**/*")
+  def define_java_tasks
+    define_generic_data_tasks("Java",
+                              :java,
+                              "#{rc_dir}/java/#{full_version}",
+                              "#{release_dir}/java/#{full_version}",
+                              "java-jars/**/*")
   end
 
   def define_nuget_tasks
@@ -1887,29 +1873,47 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
                               "nuget/**/*")
   end
 
+  def define_python_tasks
+    define_generic_data_tasks("Python",
+                              :python,
+                              "#{rc_dir}/python/#{full_version}",
+                              "#{release_dir}/python/#{full_version}",
+                              "{python-sdist,wheel-*}/**/*")
+  end
+
   def define_summary_tasks
     namespace :summary do
       desc "Show RC summary"
       task :rc do
+        suffix = ""
+        suffix << "-staging" if staging?
         puts(<<-SUMMARY)
 Success! The release candidate binaries are available here:
-  https://bintray.com/#{bintray_repository}/debian-rc/#{full_version}
-  https://bintray.com/#{bintray_repository}/ubuntu-rc/#{full_version}
-  https://bintray.com/#{bintray_repository}/centos-rc/#{full_version}
-  https://bintray.com/#{bintray_repository}/python-rc/#{full_version}
-  https://bintray.com/#{bintray_repository}/nuget-rc/#{full_version}
+  https://apache.jfrog.io/artifactory/arrow/almalinux#{suffix}-rc/
+  https://apache.jfrog.io/artifactory/arrow/amazon-linux#{suffix}-rc/
+  https://apache.jfrog.io/artifactory/arrow/centos#{suffix}-rc/
+  https://apache.jfrog.io/artifactory/arrow/debian#{suffix}-rc/
+  https://apache.jfrog.io/artifactory/arrow/java#{suffix}-rc/#{version}
+  https://apache.jfrog.io/artifactory/arrow/nuget#{suffix}-rc/#{full_version}
+  https://apache.jfrog.io/artifactory/arrow/python#{suffix}-rc/#{full_version}
+  https://apache.jfrog.io/artifactory/arrow/ubuntu#{suffix}-rc/
         SUMMARY
       end
 
       desc "Show release summary"
       task :release do
+        suffix = ""
+        suffix << "-staging" if staging?
         puts(<<-SUMMARY)
 Success! The release binaries are available here:
-  https://bintray.com/#{bintray_repository}/debian/#{version}
-  https://bintray.com/#{bintray_repository}/ubuntu/#{version}
-  https://bintray.com/#{bintray_repository}/centos/#{version}
-  https://bintray.com/#{bintray_repository}/python/#{version}
-  https://bintray.com/#{bintray_repository}/nuget/#{version}
+  https://apache.jfrog.io/artifactory/arrow/almalinux#{suffix}/
+  https://apache.jfrog.io/artifactory/arrow/amazon-linux#{suffix}/
+  https://apache.jfrog.io/artifactory/arrow/centos#{suffix}/
+  https://apache.jfrog.io/artifactory/arrow/debian#{suffix}/
+  https://apache.jfrog.io/artifactory/arrow/java#{suffix}/#{version}
+  https://apache.jfrog.io/artifactory/arrow/nuget#{suffix}/#{version}
+  https://apache.jfrog.io/artifactory/arrow/python#{suffix}/#{version}
+  https://apache.jfrog.io/artifactory/arrow/ubuntu#{suffix}/
         SUMMARY
       end
     end

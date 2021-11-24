@@ -37,6 +37,7 @@
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_decimal.h"
 #include "arrow/array/builder_dict.h"
+#include "arrow/array/builder_time.h"
 #include "arrow/array/data.h"
 #include "arrow/array/util.h"
 #include "arrow/buffer.h"
@@ -109,6 +110,15 @@ TEST_F(TestArray, TestLength) {
 
   std::unique_ptr<Int32Array> arr(new Int32Array(100, data));
   ASSERT_EQ(arr->length(), 100);
+}
+
+TEST_F(TestArray, TestNullToString) {
+  // Invalid NULL buffer
+  auto data = std::make_shared<Buffer>(nullptr, 400);
+
+  std::unique_ptr<Int32Array> arr(new Int32Array(100, data));
+  ASSERT_EQ(arr->ToString(),
+            "<Invalid array: Missing values buffer in non-empty fixed-width array>");
 }
 
 TEST_F(TestArray, TestSliceSafe) {
@@ -322,9 +332,11 @@ TEST_F(TestArray, BuildLargeInMemoryArray) {
   ASSERT_EQ(length, result->length());
 }
 
-TEST_F(TestArray, TestCopy) {}
-
 TEST_F(TestArray, TestMakeArrayOfNull) {
+  FieldVector union_fields1({field("a", utf8()), field("b", int32())});
+  FieldVector union_fields2({field("a", null()), field("b", list(large_utf8()))});
+  std::vector<int8_t> union_type_codes{7, 42};
+
   std::shared_ptr<DataType> types[] = {
       // clang-format off
       null(),
@@ -347,15 +359,34 @@ TEST_F(TestArray, TestMakeArrayOfNull) {
       fixed_size_list(int64(), 4),
       dictionary(int32(), utf8()),
       struct_({field("a", utf8()), field("b", int32())}),
+      sparse_union(union_fields1, union_type_codes),
+      sparse_union(union_fields2, union_type_codes),
+      dense_union(union_fields1, union_type_codes),
+      dense_union(union_fields2, union_type_codes),
+      smallint(),  // extension type
       // clang-format on
   };
 
   for (int64_t length : {0, 1, 16, 133}) {
     for (auto type : types) {
+      ARROW_SCOPED_TRACE("type = ", type->ToString());
       ASSERT_OK_AND_ASSIGN(auto array, MakeArrayOfNull(type, length));
       ASSERT_OK(array->ValidateFull());
       ASSERT_EQ(array->length(), length);
-      ASSERT_EQ(array->null_count(), length);
+      if (is_union(type->id())) {
+        // For unions, MakeArrayOfNull places the nulls in the children
+        ASSERT_EQ(array->null_count(), 0);
+        const auto& union_array = checked_cast<const UnionArray&>(*array);
+        for (int i = 0; i < union_array.num_fields(); ++i) {
+          ASSERT_EQ(union_array.field(i)->null_count(), union_array.field(i)->length());
+        }
+      } else {
+        ASSERT_EQ(array->null_count(), length);
+        for (int64_t i = 0; i < length; ++i) {
+          ASSERT_TRUE(array->IsNull(i));
+          ASSERT_FALSE(array->IsValid(i));
+        }
+      }
     }
   }
 }
@@ -367,6 +398,7 @@ TEST_F(TestArray, TestMakeArrayOfNullUnion) {
   const int64_t union_length = 10;
   auto s_union_ty = sparse_union({field("a", utf8()), field("b", int32())}, {0, 1});
   ASSERT_OK_AND_ASSIGN(auto s_union_nulls, MakeArrayOfNull(s_union_ty, union_length));
+  ASSERT_OK(s_union_nulls->ValidateFull());
   ASSERT_EQ(s_union_nulls->null_count(), 0);
   {
     const auto& typed_union = checked_cast<const SparseUnionArray&>(*s_union_nulls);
@@ -378,8 +410,23 @@ TEST_F(TestArray, TestMakeArrayOfNullUnion) {
     }
   }
 
+  s_union_ty = sparse_union({field("a", utf8()), field("b", int32())}, {2, 7});
+  ASSERT_OK_AND_ASSIGN(s_union_nulls, MakeArrayOfNull(s_union_ty, union_length));
+  ASSERT_OK(s_union_nulls->ValidateFull());
+  ASSERT_EQ(s_union_nulls->null_count(), 0);
+  {
+    const auto& typed_union = checked_cast<const SparseUnionArray&>(*s_union_nulls);
+    ASSERT_EQ(typed_union.field(0)->null_count(), union_length);
+
+    // Check type codes are all 2
+    for (int i = 0; i < union_length; ++i) {
+      ASSERT_EQ(typed_union.raw_type_codes()[i], 2);
+    }
+  }
+
   auto d_union_ty = dense_union({field("a", utf8()), field("b", int32())}, {0, 1});
   ASSERT_OK_AND_ASSIGN(auto d_union_nulls, MakeArrayOfNull(d_union_ty, union_length));
+  ASSERT_OK(d_union_nulls->ValidateFull());
   ASSERT_EQ(d_union_nulls->null_count(), 0);
   {
     const auto& typed_union = checked_cast<const DenseUnionArray&>(*d_union_nulls);
@@ -397,16 +444,87 @@ TEST_F(TestArray, TestMakeArrayOfNullUnion) {
   }
 }
 
-TEST_F(TestArray, TestMakeArrayFromScalar) {
-  ASSERT_OK_AND_ASSIGN(auto null_array, MakeArrayFromScalar(NullScalar(), 5));
-  ASSERT_OK(null_array->ValidateFull());
-  ASSERT_EQ(null_array->length(), 5);
-  ASSERT_EQ(null_array->null_count(), 5);
+TEST_F(TestArray, TestValidateNullCount) {
+  Int32Builder builder(pool_);
+  ASSERT_OK(builder.Append(5));
+  ASSERT_OK(builder.Append(42));
+  ASSERT_OK(builder.AppendNull());
+  ASSERT_OK_AND_ASSIGN(auto array, builder.Finish());
 
+  ArrayData* data = array->data().get();
+  data->null_count = kUnknownNullCount;
+  ASSERT_OK(array->ValidateFull());
+  data->null_count = 1;
+  ASSERT_OK(array->ValidateFull());
+
+  // null_count out of bounds
+  data->null_count = -2;
+  ASSERT_RAISES(Invalid, array->Validate());
+  ASSERT_RAISES(Invalid, array->ValidateFull());
+  data->null_count = 4;
+  ASSERT_RAISES(Invalid, array->Validate());
+  ASSERT_RAISES(Invalid, array->ValidateFull());
+
+  // null_count inconsistent with data
+  for (const int64_t null_count : {0, 2, 3}) {
+    data->null_count = null_count;
+    ASSERT_OK(array->Validate());
+    ASSERT_RAISES(Invalid, array->ValidateFull());
+  }
+}
+
+void AssertAppendScalar(MemoryPool* pool, const std::shared_ptr<Scalar>& scalar) {
+  std::unique_ptr<arrow::ArrayBuilder> builder;
+  auto null_scalar = MakeNullScalar(scalar->type);
+  ASSERT_OK(MakeBuilderExactIndex(pool, scalar->type, &builder));
+  ASSERT_OK(builder->AppendScalar(*scalar));
+  ASSERT_OK(builder->AppendScalar(*scalar));
+  ASSERT_OK(builder->AppendScalar(*null_scalar));
+  ASSERT_OK(builder->AppendScalars({scalar, null_scalar}));
+  ASSERT_OK(builder->AppendScalar(*scalar, /*n_repeats=*/2));
+  ASSERT_OK(builder->AppendScalar(*null_scalar, /*n_repeats=*/2));
+
+  std::shared_ptr<Array> out;
+  FinishAndCheckPadding(builder.get(), &out);
+  ASSERT_OK(out->ValidateFull());
+  AssertTypeEqual(scalar->type, out->type());
+  ASSERT_EQ(out->length(), 9);
+
+  const bool can_check_nulls = internal::HasValidityBitmap(out->type()->id());
+  // For a dictionary builder, the output dictionary won't necessarily be the same
+  const bool can_check_values = !is_dictionary(out->type()->id());
+
+  if (can_check_nulls) {
+    ASSERT_EQ(out->null_count(), 4);
+  }
+
+  for (const auto index : {0, 1, 3, 5, 6}) {
+    ASSERT_FALSE(out->IsNull(index));
+    ASSERT_OK_AND_ASSIGN(auto scalar_i, out->GetScalar(index));
+    ASSERT_OK(scalar_i->ValidateFull());
+    if (can_check_values) AssertScalarsEqual(*scalar, *scalar_i, /*verbose=*/true);
+  }
+  for (const auto index : {2, 4, 7, 8}) {
+    ASSERT_EQ(out->IsNull(index), can_check_nulls);
+    ASSERT_OK_AND_ASSIGN(auto scalar_i, out->GetScalar(index));
+    ASSERT_OK(scalar_i->ValidateFull());
+    AssertScalarsEqual(*null_scalar, *scalar_i, /*verbose=*/true);
+  }
+}
+
+static ScalarVector GetScalars() {
   auto hello = Buffer::FromString("hello");
   DayTimeIntervalType::DayMilliseconds daytime{1, 100};
+  MonthDayNanoIntervalType::MonthDayNanos month_day_nanos{5, 4, 100};
 
-  ScalarVector scalars{
+  FieldVector union_fields{field("string", utf8()), field("number", int32()),
+                           field("other_number", int32())};
+  std::vector<int8_t> union_type_codes{5, 6, 42};
+
+  const auto sparse_union_ty = ::arrow::sparse_union(union_fields, union_type_codes);
+  const auto dense_union_ty = ::arrow::dense_union(union_fields, union_type_codes);
+
+  return {
       std::make_shared<BooleanScalar>(false),
       std::make_shared<Int8Scalar>(3),
       std::make_shared<UInt16Scalar>(3),
@@ -420,6 +538,7 @@ TEST_F(TestArray, TestMakeArrayFromScalar) {
       std::make_shared<TimestampScalar>(1111, timestamp(TimeUnit::MILLI)),
       std::make_shared<MonthIntervalScalar>(1),
       std::make_shared<DayTimeIntervalScalar>(daytime),
+      std::make_shared<MonthDayNanoIntervalScalar>(month_day_nanos),
       std::make_shared<DurationScalar>(60, duration(TimeUnit::SECOND)),
       std::make_shared<BinaryScalar>(hello),
       std::make_shared<LargeBinaryScalar>(hello),
@@ -430,6 +549,7 @@ TEST_F(TestArray, TestMakeArrayFromScalar) {
       std::make_shared<StringScalar>(hello),
       std::make_shared<LargeStringScalar>(hello),
       std::make_shared<ListScalar>(ArrayFromJSON(int8(), "[1, 2, 3]")),
+      ScalarFromJSON(map(int8(), utf8()), R"([[1, "foo"], [2, "bar"]])"),
       std::make_shared<LargeListScalar>(ArrayFromJSON(int8(), "[1, 1, 2, 2, 3, 3]")),
       std::make_shared<FixedSizeListScalar>(ArrayFromJSON(int8(), "[1, 2, 3, 4]")),
       std::make_shared<StructScalar>(
@@ -437,7 +557,32 @@ TEST_F(TestArray, TestMakeArrayFromScalar) {
               std::make_shared<Int32Scalar>(2),
               std::make_shared<Int32Scalar>(6),
           },
-          struct_({field("min", int32()), field("max", int32())}))};
+          struct_({field("min", int32()), field("max", int32())})),
+      // Same values, different union type codes
+      std::make_shared<SparseUnionScalar>(std::make_shared<Int32Scalar>(100), 6,
+                                          sparse_union_ty),
+      std::make_shared<SparseUnionScalar>(std::make_shared<Int32Scalar>(100), 42,
+                                          sparse_union_ty),
+      std::make_shared<SparseUnionScalar>(42, sparse_union_ty),
+      std::make_shared<DenseUnionScalar>(std::make_shared<Int32Scalar>(101), 6,
+                                         dense_union_ty),
+      std::make_shared<DenseUnionScalar>(std::make_shared<Int32Scalar>(101), 42,
+                                         dense_union_ty),
+      std::make_shared<DenseUnionScalar>(42, dense_union_ty),
+      DictionaryScalar::Make(ScalarFromJSON(int8(), "1"),
+                             ArrayFromJSON(utf8(), R"(["foo", "bar"])")),
+      DictionaryScalar::Make(ScalarFromJSON(uint8(), "1"),
+                             ArrayFromJSON(utf8(), R"(["foo", "bar"])")),
+  };
+}
+
+TEST_F(TestArray, TestMakeArrayFromScalar) {
+  ASSERT_OK_AND_ASSIGN(auto null_array, MakeArrayFromScalar(NullScalar(), 5));
+  ASSERT_OK(null_array->ValidateFull());
+  ASSERT_EQ(null_array->length(), 5);
+  ASSERT_EQ(null_array->null_count(), 5);
+
+  auto scalars = GetScalars();
 
   for (int64_t length : {16}) {
     for (auto scalar : scalars) {
@@ -445,7 +590,31 @@ TEST_F(TestArray, TestMakeArrayFromScalar) {
       ASSERT_OK(array->ValidateFull());
       ASSERT_EQ(array->length(), length);
       ASSERT_EQ(array->null_count(), 0);
+
+      // test case for ARROW-13321
+      for (int64_t i : std::vector<int64_t>{0, length / 2, length - 1}) {
+        ASSERT_OK_AND_ASSIGN(auto s, array->GetScalar(i));
+        AssertScalarsEqual(*s, *scalar, /*verbose=*/true);
+      }
     }
+  }
+
+  for (auto scalar : scalars) {
+    AssertAppendScalar(pool_, scalar);
+  }
+}
+
+TEST_F(TestArray, TestMakeArrayFromScalarSliced) {
+  // Regression test for ARROW-13437
+  auto scalars = GetScalars();
+
+  for (auto scalar : scalars) {
+    SCOPED_TRACE(scalar->type->ToString());
+    ASSERT_OK_AND_ASSIGN(auto array, MakeArrayFromScalar(*scalar, 32));
+    auto sliced = array->Slice(1, 4);
+    ASSERT_EQ(sliced->length(), 4);
+    ASSERT_EQ(sliced->null_count(), 0);
+    ARROW_EXPECT_OK(sliced->ValidateFull());
   }
 }
 
@@ -480,6 +649,76 @@ TEST_F(TestArray, TestMakeArrayFromMapScalar) {
   for (int i = 0; i < 11; i++) {
     ASSERT_OK_AND_ASSIGN(auto item, array->GetScalar(i));
     ASSERT_TRUE(item->Equals(scalar));
+  }
+
+  AssertAppendScalar(pool_, std::make_shared<MapScalar>(scalar));
+}
+
+TEST_F(TestArray, TestAppendArraySlice) {
+  auto scalars = GetScalars();
+  for (const auto& scalar : scalars) {
+    ARROW_SCOPED_TRACE(*scalar->type);
+    ASSERT_OK_AND_ASSIGN(auto array, MakeArrayFromScalar(*scalar, 16));
+    ASSERT_OK_AND_ASSIGN(auto nulls, MakeArrayOfNull(scalar->type, 16));
+
+    std::unique_ptr<arrow::ArrayBuilder> builder;
+    ASSERT_OK(MakeBuilder(pool_, scalar->type, &builder));
+
+    ASSERT_OK(builder->AppendArraySlice(*array->data(), 0, 4));
+    ASSERT_EQ(4, builder->length());
+    ASSERT_OK(builder->AppendArraySlice(*array->data(), 0, 0));
+    ASSERT_EQ(4, builder->length());
+    ASSERT_OK(builder->AppendArraySlice(*array->data(), 1, 0));
+    ASSERT_EQ(4, builder->length());
+    ASSERT_OK(builder->AppendArraySlice(*array->data(), 1, 4));
+    ASSERT_EQ(8, builder->length());
+
+    ASSERT_OK(builder->AppendArraySlice(*nulls->data(), 0, 4));
+    ASSERT_EQ(12, builder->length());
+    if (!is_union(scalar->type->id())) {
+      ASSERT_EQ(4, builder->null_count());
+    }
+    ASSERT_OK(builder->AppendArraySlice(*nulls->data(), 0, 0));
+    ASSERT_EQ(12, builder->length());
+    if (!is_union(scalar->type->id())) {
+      ASSERT_EQ(4, builder->null_count());
+    }
+    ASSERT_OK(builder->AppendArraySlice(*nulls->data(), 1, 0));
+    ASSERT_EQ(12, builder->length());
+    if (!is_union(scalar->type->id())) {
+      ASSERT_EQ(4, builder->null_count());
+    }
+    ASSERT_OK(builder->AppendArraySlice(*nulls->data(), 1, 4));
+    ASSERT_EQ(16, builder->length());
+    if (!is_union(scalar->type->id())) {
+      ASSERT_EQ(8, builder->null_count());
+    }
+
+    std::shared_ptr<Array> result;
+    ASSERT_OK(builder->Finish(&result));
+    ASSERT_OK(result->ValidateFull());
+    ASSERT_EQ(16, result->length());
+    if (!is_union(scalar->type->id())) {
+      ASSERT_EQ(8, result->null_count());
+    }
+  }
+
+  {
+    ASSERT_OK_AND_ASSIGN(auto array, MakeArrayOfNull(null(), 16));
+    NullBuilder builder(pool_);
+    ASSERT_OK(builder.AppendArraySlice(*array->data(), 0, 4));
+    ASSERT_EQ(4, builder.length());
+    ASSERT_OK(builder.AppendArraySlice(*array->data(), 0, 0));
+    ASSERT_EQ(4, builder.length());
+    ASSERT_OK(builder.AppendArraySlice(*array->data(), 1, 0));
+    ASSERT_EQ(4, builder.length());
+    ASSERT_OK(builder.AppendArraySlice(*array->data(), 1, 4));
+    ASSERT_EQ(8, builder.length());
+    std::shared_ptr<Array> result;
+    ASSERT_OK(builder.Finish(&result));
+    ASSERT_OK(result->ValidateFull());
+    ASSERT_EQ(8, result->length());
+    ASSERT_EQ(8, result->null_count());
   }
 }
 
@@ -595,9 +834,10 @@ TEST_F(TestBuilder, TestResizeDownsize) {
 template <typename Attrs>
 class TestPrimitiveBuilder : public TestBuilder {
  public:
+  typedef Attrs TestAttrs;
   typedef typename Attrs::ArrayType ArrayType;
   typedef typename Attrs::BuilderType BuilderType;
-  typedef typename Attrs::T T;
+  typedef typename Attrs::T CType;
   typedef typename Attrs::Type Type;
 
   virtual void SetUp() {
@@ -651,7 +891,7 @@ class TestPrimitiveBuilder : public TestBuilder {
     ASSERT_TRUE(result->Equals(*expected));
   }
 
-  void FlipValue(T* ptr) {
+  void FlipValue(CType* ptr) {
     auto byteptr = reinterpret_cast<uint8_t*>(ptr);
     *byteptr = static_cast<uint8_t>(~*byteptr);
   }
@@ -660,7 +900,7 @@ class TestPrimitiveBuilder : public TestBuilder {
   std::unique_ptr<BuilderType> builder_;
   std::unique_ptr<BuilderType> builder_nn_;
 
-  std::vector<T> draws_;
+  std::vector<CType> draws_;
   std::vector<uint8_t> valid_bytes_;
 };
 
@@ -689,16 +929,20 @@ struct UniformIntSampleType<int8_t> {
                                         \
   static std::shared_ptr<DataType> type() { return std::make_shared<Type>(); }
 
-#define PINT_DECL(CapType, c_type)                                                 \
-  struct P##CapType {                                                              \
-    PTYPE_DECL(CapType, c_type)                                                    \
-    static void draw(int64_t N, std::vector<T>* draws) {                           \
-      using sample_type = typename UniformIntSampleType<c_type>::type;             \
-      const T lower = std::numeric_limits<T>::min();                               \
-      const T upper = std::numeric_limits<T>::max();                               \
-      randint(N, static_cast<sample_type>(lower), static_cast<sample_type>(upper), \
-              draws);                                                              \
-    }                                                                              \
+#define PINT_DECL(CapType, c_type)                                                     \
+  struct P##CapType {                                                                  \
+    PTYPE_DECL(CapType, c_type)                                                        \
+    static void draw(int64_t N, std::vector<T>* draws) {                               \
+      using sample_type = typename UniformIntSampleType<c_type>::type;                 \
+      const T lower = std::numeric_limits<T>::min();                                   \
+      const T upper = std::numeric_limits<T>::max();                                   \
+      randint(N, static_cast<sample_type>(lower), static_cast<sample_type>(upper),     \
+              draws);                                                                  \
+    }                                                                                  \
+    static T Modify(T inp) { return inp / 2; }                                         \
+    typedef                                                                            \
+        typename std::conditional<std::is_unsigned<T>::value, uint64_t, int64_t>::type \
+            ConversionType;                                                            \
   }
 
 #define PFLOAT_DECL(CapType, c_type, LOWER, UPPER)       \
@@ -707,6 +951,8 @@ struct UniformIntSampleType<int8_t> {
     static void draw(int64_t N, std::vector<T>* draws) { \
       random_real(N, 0, LOWER, UPPER, draws);            \
     }                                                    \
+    static T Modify(T inp) { return inp / 2; }           \
+    typedef double ConversionType;                       \
   }
 
 PINT_DECL(UInt8, uint8_t);
@@ -724,6 +970,33 @@ PFLOAT_DECL(Double, double, -1000.0, 1000.0);
 
 struct PBoolean {
   PTYPE_DECL(Boolean, uint8_t)
+  static T Modify(T inp) { return !inp; }
+  typedef int64_t ConversionType;
+};
+
+struct PDayTimeInterval {
+  using DayMilliseconds = DayTimeIntervalType::DayMilliseconds;
+  PTYPE_DECL(DayTimeInterval, DayMilliseconds);
+  static void draw(int64_t N, std::vector<T>* draws) { return rand_day_millis(N, draws); }
+
+  static DayMilliseconds Modify(DayMilliseconds inp) {
+    inp.days /= 2;
+    return inp;
+  }
+  typedef DayMilliseconds ConversionType;
+};
+
+struct PMonthDayNanoInterval {
+  using MonthDayNanos = MonthDayNanoIntervalType::MonthDayNanos;
+  PTYPE_DECL(MonthDayNanoInterval, MonthDayNanos);
+  static void draw(int64_t N, std::vector<T>* draws) {
+    return rand_month_day_nanos(N, draws);
+  }
+  static MonthDayNanos Modify(MonthDayNanos inp) {
+    inp.days /= 2;
+    return inp;
+  }
+  typedef MonthDayNanos ConversionType;
 };
 
 template <>
@@ -736,7 +1009,7 @@ void TestPrimitiveBuilder<PBoolean>::RandomData(int64_t N, double pct_null) {
 }
 
 template <>
-void TestPrimitiveBuilder<PBoolean>::FlipValue(T* ptr) {
+void TestPrimitiveBuilder<PBoolean>::FlipValue(CType* ptr) {
   *ptr = !*ptr;
 }
 
@@ -852,7 +1125,8 @@ TEST(NumericBuilderAccessors, TestSettersGetters) {
 }
 
 typedef ::testing::Types<PBoolean, PUInt8, PUInt16, PUInt32, PUInt64, PInt8, PInt16,
-                         PInt32, PInt64, PFloat, PDouble>
+                         PInt32, PInt64, PFloat, PDouble, PDayTimeInterval,
+                         PMonthDayNanoInterval>
     Primitives;
 
 TYPED_TEST_SUITE(TestPrimitiveBuilder, Primitives);
@@ -939,12 +1213,13 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendEmptyValue) {
 
   // implementation detail: the value slots are 0-initialized
   for (int64_t i = 0; i < result->length(); ++i) {
-    ASSERT_EQ(result->Value(i), 0);
+    typename TestFixture::CType t{};
+    ASSERT_EQ(result->Value(i), t);
   }
 }
 
 TYPED_TEST(TestPrimitiveBuilder, TestArrayDtorDealloc) {
-  DECL_T();
+  typedef typename TestFixture::CType T;
 
   int64_t size = 1000;
 
@@ -974,7 +1249,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestArrayDtorDealloc) {
 }
 
 TYPED_TEST(TestPrimitiveBuilder, Equality) {
-  DECL_T();
+  typedef typename TestFixture::CType T;
 
   const int64_t size = 1000;
   this->RandomData(size);
@@ -1010,7 +1285,7 @@ TYPED_TEST(TestPrimitiveBuilder, Equality) {
 }
 
 TYPED_TEST(TestPrimitiveBuilder, SliceEquality) {
-  DECL_T();
+  typedef typename TestFixture::CType T;
 
   const int64_t size = 1000;
   this->RandomData(size);
@@ -1043,7 +1318,7 @@ TYPED_TEST(TestPrimitiveBuilder, SliceEquality) {
 }
 
 TYPED_TEST(TestPrimitiveBuilder, TestAppendScalar) {
-  DECL_T();
+  typedef typename TestFixture::CType T;
 
   const int64_t size = 10000;
 
@@ -1099,7 +1374,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendScalar) {
 }
 
 TYPED_TEST(TestPrimitiveBuilder, TestAppendValues) {
-  DECL_T();
+  typedef typename TestFixture::CType T;
 
   int64_t size = 10000;
   this->RandomData(size);
@@ -1135,7 +1410,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendValues) {
 }
 
 TYPED_TEST(TestPrimitiveBuilder, TestTypedFinish) {
-  DECL_T();
+  typedef typename TestFixture::CType T;
 
   int64_t size = 1000;
   this->RandomData(size);
@@ -1187,7 +1462,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesIterNullValid) {
 }
 
 TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesLazyIter) {
-  DECL_T();
+  typedef typename TestFixture::CType T;
 
   int64_t size = 10000;
   this->RandomData(size);
@@ -1195,7 +1470,9 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesLazyIter) {
   auto& draws = this->draws_;
   auto& valid_bytes = this->valid_bytes_;
 
-  auto halve = [&draws](int64_t index) { return draws[index] / 2; };
+  auto halve = [&draws](int64_t index) {
+    return TestFixture::TestAttrs::Modify(draws[index]);
+  };
   auto lazy_iter = internal::MakeLazyRange(halve, size);
 
   ASSERT_OK(this->builder_->AppendValues(lazy_iter.begin(), lazy_iter.end(),
@@ -1203,7 +1480,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesLazyIter) {
 
   std::vector<T> halved;
   transform(draws.begin(), draws.end(), back_inserter(halved),
-            [](T in) { return in / 2; });
+            [](T in) { return TestFixture::TestAttrs::Modify(in); });
 
   std::shared_ptr<Array> result;
   FinishAndCheckPadding(this->builder_.get(), &result);
@@ -1217,12 +1494,9 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesLazyIter) {
 }
 
 TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesIterConverted) {
-  DECL_T();
+  typedef typename TestFixture::CType T;
   // find type we can safely convert the tested values to and from
-  using conversion_type =
-      typename std::conditional<std::is_floating_point<T>::value, double,
-                                typename std::conditional<std::is_unsigned<T>::value,
-                                                          uint64_t, int64_t>::type>::type;
+  using conversion_type = typename TestFixture::TestAttrs::ConversionType;
 
   int64_t size = 10000;
   this->RandomData(size);
@@ -1258,7 +1532,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesIterConverted) {
 }
 
 TYPED_TEST(TestPrimitiveBuilder, TestZeroPadded) {
-  DECL_T();
+  typedef typename TestFixture::CType T;
 
   int64_t size = 10000;
   this->RandomData(size);
@@ -1277,7 +1551,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestZeroPadded) {
 
 TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesStdBool) {
   // ARROW-1383
-  DECL_T();
+  typedef typename TestFixture::CType T;
 
   int64_t size = 10000;
   this->RandomData(size);
@@ -1322,6 +1596,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesStdBool) {
 }
 
 TYPED_TEST(TestPrimitiveBuilder, TestAdvance) {
+  ARROW_SUPPRESS_DEPRECATION_WARNING
   int64_t n = 1000;
   ASSERT_OK(this->builder_->Reserve(n));
 
@@ -1332,6 +1607,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestAdvance) {
 
   int64_t too_many = this->builder_->capacity() - 1000 + 1;
   ASSERT_RAISES(Invalid, this->builder_->Advance(too_many));
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
 }
 
 TYPED_TEST(TestPrimitiveBuilder, TestResize) {
@@ -1349,7 +1625,9 @@ TYPED_TEST(TestPrimitiveBuilder, TestReserve) {
   ASSERT_OK(this->builder_->Reserve(100));
   ASSERT_EQ(0, this->builder_->length());
   ASSERT_GE(100, this->builder_->capacity());
+  ARROW_SUPPRESS_DEPRECATION_WARNING
   ASSERT_OK(this->builder_->Advance(100));
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
   ASSERT_EQ(100, this->builder_->length());
   ASSERT_GE(100, this->builder_->capacity());
 
@@ -2409,8 +2687,9 @@ class DecimalTest : public ::testing::TestWithParam<int> {
   }
 
   template <size_t BYTE_WIDTH = 16>
-  void TestCreate(int32_t precision, const DecimalVector& draw,
-                  const std::vector<uint8_t>& valid_bytes, int64_t offset) const {
+  std::shared_ptr<Array> TestCreate(int32_t precision, const DecimalVector& draw,
+                                    const std::vector<uint8_t>& valid_bytes,
+                                    int64_t offset) const {
     auto type = std::make_shared<TYPE>(precision, 4);
     auto builder = std::make_shared<DecimalBuilder>(type);
 
@@ -2418,20 +2697,20 @@ class DecimalTest : public ::testing::TestWithParam<int> {
 
     const size_t size = draw.size();
 
-    ASSERT_OK(builder->Reserve(size));
+    ARROW_EXPECT_OK(builder->Reserve(size));
 
     for (size_t i = 0; i < size; ++i) {
       if (valid_bytes[i]) {
-        ASSERT_OK(builder->Append(draw[i]));
+        ARROW_EXPECT_OK(builder->Append(draw[i]));
       } else {
-        ASSERT_OK(builder->AppendNull());
+        ARROW_EXPECT_OK(builder->AppendNull());
         ++null_count;
       }
     }
 
     std::shared_ptr<Array> out;
     FinishAndCheckPadding(builder.get(), &out);
-    ASSERT_EQ(builder->length(), 0);
+    EXPECT_EQ(builder->length(), 0);
 
     std::vector<uint8_t> raw_bytes;
 
@@ -2440,7 +2719,7 @@ class DecimalTest : public ::testing::TestWithParam<int> {
 
     auto expected_data = std::make_shared<Buffer>(raw_bytes.data(), BYTE_WIDTH);
     std::shared_ptr<Buffer> expected_null_bitmap;
-    ASSERT_OK_AND_ASSIGN(expected_null_bitmap, internal::BytesToBits(valid_bytes));
+    EXPECT_OK_AND_ASSIGN(expected_null_bitmap, internal::BytesToBits(valid_bytes));
 
     int64_t expected_null_count = CountNulls(valid_bytes);
     auto expected = std::make_shared<DecimalArray>(
@@ -2449,6 +2728,8 @@ class DecimalTest : public ::testing::TestWithParam<int> {
     std::shared_ptr<Array> lhs = out->Slice(offset);
     std::shared_ptr<Array> rhs = expected->Slice(offset);
     ASSERT_ARRAYS_EQUAL(*rhs, *lhs);
+
+    return out;
   }
 };
 
@@ -2480,6 +2761,21 @@ TEST_P(Decimal128Test, WithNulls) {
                                       true, true, true,  true};
   this->TestCreate(precision, draw, valid_bytes, 0);
   this->TestCreate(precision, draw, valid_bytes, 2);
+}
+
+TEST_P(Decimal128Test, ValidateFull) {
+  int32_t precision = GetParam();
+  std::vector<Decimal128> draw;
+  Decimal128 val = Decimal128::GetMaxValue(precision) + 1;
+
+  draw = {Decimal128(), val};
+  auto arr = this->TestCreate(precision, draw, {true, false}, 0);
+  ASSERT_OK(arr->ValidateFull());
+
+  draw = {val, Decimal128()};
+  arr = this->TestCreate(precision, draw, {true, false}, 0);
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("does not fit in precision of"), arr->ValidateFull());
 }
 
 INSTANTIATE_TEST_SUITE_P(Decimal128Test, Decimal128Test, ::testing::Range(1, 38));
@@ -2516,6 +2812,21 @@ TEST_P(Decimal256Test, WithNulls) {
                                       true, true, true,  true};
   this->TestCreate(precision, draw, valid_bytes, 0);
   this->TestCreate(precision, draw, valid_bytes, 2);
+}
+
+TEST_P(Decimal256Test, ValidateFull) {
+  int32_t precision = GetParam();
+  std::vector<Decimal256> draw;
+  Decimal256 val = Decimal256::GetMaxValue(precision) + 1;
+
+  draw = {Decimal256(), val};
+  auto arr = this->TestCreate(precision, draw, {true, false}, 0);
+  ASSERT_OK(arr->ValidateFull());
+
+  draw = {val, Decimal256()};
+  arr = this->TestCreate(precision, draw, {true, false}, 0);
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("does not fit in precision of"), arr->ValidateFull());
 }
 
 INSTANTIATE_TEST_SUITE_P(Decimal256Test, Decimal256Test,
@@ -2645,16 +2956,24 @@ TEST(TestSwapEndianArrayData, PrimitiveType) {
   expected_data = ArrayData::Make(uint64(), 1, {null_buffer, data_int64_buffer}, 0);
   AssertArrayDataEqualsWithSwapEndian(data, expected_data);
 
-  auto data_16byte_buffer = Buffer::FromString("0123456789abcdef");
+  auto data_16byte_buffer = Buffer::FromString(
+      "\x01"
+      "123456789abcde\x01");
   data = ArrayData::Make(decimal128(38, 10), 1, {null_buffer, data_16byte_buffer});
-  auto data_decimal128_buffer = Buffer::FromString("fedcba9876543210");
+  auto data_decimal128_buffer = Buffer::FromString(
+      "\x01"
+      "edcba987654321\x01");
   expected_data =
       ArrayData::Make(decimal128(38, 10), 1, {null_buffer, data_decimal128_buffer}, 0);
   AssertArrayDataEqualsWithSwapEndian(data, expected_data);
 
-  auto data_32byte_buffer = Buffer::FromString("0123456789abcdef123456789ABCDEF0");
+  auto data_32byte_buffer = Buffer::FromString(
+      "\x01"
+      "123456789abcdef123456789ABCDEF\x01");
   data = ArrayData::Make(decimal256(76, 20), 1, {null_buffer, data_32byte_buffer});
-  auto data_decimal256_buffer = Buffer::FromString("0FEDCBA987654321fedcba9876543210");
+  auto data_decimal256_buffer = Buffer::FromString(
+      "\x01"
+      "FEDCBA987654321fedcba987654321\x01");
   expected_data =
       ArrayData::Make(decimal256(76, 20), 1, {null_buffer, data_decimal256_buffer}, 0);
   AssertArrayDataEqualsWithSwapEndian(data, expected_data);
@@ -2943,6 +3262,90 @@ TEST(TestSwapEndianArrayData, ExtensionType) {
 #endif
   auto test_data = ReplaceBuffers(expected_data, 1, data);
   AssertArrayDataEqualsWithSwapEndian(test_data, expected_data);
+}
+
+TEST(TestSwapEndianArrayData, MonthDayNanoInterval) {
+  auto array = ArrayFromJSON(month_day_nano_interval(), R"([[0, 1, 2],
+                                                          [5000, 200, 3000000000]])");
+  auto expected_array =
+      ArrayFromJSON(month_day_nano_interval(), R"([[0, 16777216, 144115188075855872],
+                                                          [-2012020736, -939524096, 26688110733557760]])");
+
+  auto swap_array = MakeArray(*::arrow::internal::SwapEndianArrayData(array->data()));
+  EXPECT_TRUE(!swap_array->Equals(array));
+  ASSERT_ARRAYS_EQUAL(*swap_array, *expected_array);
+  ASSERT_ARRAYS_EQUAL(
+      *MakeArray(*::arrow::internal::SwapEndianArrayData(swap_array->data())), *array);
+  ASSERT_OK(swap_array->ValidateFull());
+}
+
+DataTypeVector SwappableTypes() {
+  return DataTypeVector{int8(),
+                        int16(),
+                        int32(),
+                        int64(),
+                        uint8(),
+                        uint16(),
+                        uint32(),
+                        uint64(),
+                        decimal128(19, 4),
+                        decimal256(37, 8),
+                        timestamp(TimeUnit::MICRO, ""),
+                        time32(TimeUnit::SECOND),
+                        time64(TimeUnit::NANO),
+                        date32(),
+                        date64(),
+                        day_time_interval(),
+                        month_interval(),
+                        month_day_nano_interval(),
+                        binary(),
+                        utf8(),
+                        large_binary(),
+                        large_utf8(),
+                        list(int16()),
+                        large_list(int16()),
+                        dictionary(int16(), utf8())};
+}
+
+TEST(TestSwapEndianArrayData, RandomData) {
+  random::RandomArrayGenerator rng(42);
+
+  for (const auto& type : SwappableTypes()) {
+    ARROW_SCOPED_TRACE("type = ", type->ToString());
+    auto arr = rng.ArrayOf(*field("", type), /*size=*/31);
+    ASSERT_OK_AND_ASSIGN(auto swapped_data,
+                         ::arrow::internal::SwapEndianArrayData(arr->data()));
+    auto swapped = MakeArray(swapped_data);
+    ASSERT_OK_AND_ASSIGN(auto roundtripped_data,
+                         ::arrow::internal::SwapEndianArrayData(swapped_data));
+    auto roundtripped = MakeArray(roundtripped_data);
+    ASSERT_OK(roundtripped->ValidateFull());
+
+    AssertArraysEqual(*arr, *roundtripped, /*verbose=*/true);
+    if (type->id() == Type::INT8 || type->id() == Type::UINT8) {
+      AssertArraysEqual(*arr, *swapped, /*verbose=*/true);
+    } else {
+      // Random generated data is unlikely to be made of byte-palindromes
+      ASSERT_FALSE(arr->Equals(*swapped));
+    }
+  }
+}
+
+TEST(TestSwapEndianArrayData, InvalidLength) {
+  // IPC-incoming data may be invalid, SwapEndianArrayData shouldn't crash
+  // by accessing memory out of bounds.
+  random::RandomArrayGenerator rng(42);
+
+  for (const auto& type : SwappableTypes()) {
+    ARROW_SCOPED_TRACE("type = ", type->ToString());
+    ASSERT_OK_AND_ASSIGN(auto arr, MakeArrayOfNull(type, 0));
+    auto data = arr->data();
+    // Fake length
+    data->length = 123456789;
+    ASSERT_OK_AND_ASSIGN(auto swapped_data, ::arrow::internal::SwapEndianArrayData(data));
+    auto swapped = MakeArray(swapped_data);
+    ASSERT_RAISES(Invalid, swapped->Validate());
+  }
 }
 
 }  // namespace arrow

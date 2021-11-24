@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import * as Arrow from '../Arrow';
+import * as Arrow from 'apache-arrow';
 const { float64ToUint16, uint16ToFloat64 } = Arrow.util;
 
 describe('Float16', () => {

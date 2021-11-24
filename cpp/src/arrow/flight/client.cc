@@ -45,6 +45,7 @@
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/uri.h"
@@ -91,6 +92,14 @@ std::shared_ptr<FlightWriteSizeStatusDetail> FlightWriteSizeStatusDetail::Unwrap
 }
 
 FlightClientOptions FlightClientOptions::Defaults() { return FlightClientOptions(); }
+
+Status FlightStreamReader::ReadAll(std::shared_ptr<Table>* table,
+                                   const StopToken& stop_token) {
+  std::vector<std::shared_ptr<RecordBatch>> batches;
+  RETURN_NOT_OK(ReadAll(&batches, stop_token));
+  ARROW_ASSIGN_OR_RAISE(auto schema, GetSchema());
+  return Table::FromRecordBatches(schema, std::move(batches)).Value(table);
+}
 
 struct ClientRpc {
   grpc::ClientContext context;
@@ -484,11 +493,12 @@ template <typename Reader>
 class GrpcStreamReader : public FlightStreamReader {
  public:
   GrpcStreamReader(std::shared_ptr<ClientRpc> rpc, std::shared_ptr<std::mutex> read_mutex,
-                   const ipc::IpcReadOptions& options,
+                   const ipc::IpcReadOptions& options, StopToken stop_token,
                    std::shared_ptr<FinishableStream<Reader, internal::FlightData>> stream)
       : rpc_(rpc),
         read_mutex_(read_mutex),
         options_(options),
+        stop_token_(std::move(stop_token)),
         stream_(stream),
         peekable_reader_(new internal::PeekableFlightDataReader<std::shared_ptr<Reader>>(
             stream->stream())),
@@ -552,6 +562,28 @@ class GrpcStreamReader : public FlightStreamReader {
     out->app_metadata = std::move(app_metadata_);
     return Status::OK();
   }
+  Status ReadAll(std::vector<std::shared_ptr<RecordBatch>>* batches) override {
+    return ReadAll(batches, stop_token_);
+  }
+  Status ReadAll(std::vector<std::shared_ptr<RecordBatch>>* batches,
+                 const StopToken& stop_token) override {
+    FlightStreamChunk chunk;
+
+    while (true) {
+      if (stop_token.IsStopRequested()) {
+        Cancel();
+        return stop_token.Poll();
+      }
+      RETURN_NOT_OK(Next(&chunk));
+      if (!chunk.data) break;
+      batches->emplace_back(std::move(chunk.data));
+    }
+    return Status::OK();
+  }
+  Status ReadAll(std::shared_ptr<Table>* table) override {
+    return ReadAll(table, stop_token_);
+  }
+  using FlightStreamReader::ReadAll;
   void Cancel() override { rpc_->context.TryCancel(); }
 
  private:
@@ -574,6 +606,7 @@ class GrpcStreamReader : public FlightStreamReader {
   // read. Nullable, as DoGet() doesn't need this.
   std::shared_ptr<std::mutex> read_mutex_;
   ipc::IpcReadOptions options_;
+  StopToken stop_token_;
   std::shared_ptr<FinishableStream<Reader, internal::FlightData>> stream_;
   std::shared_ptr<internal::PeekableFlightDataReader<std::shared_ptr<Reader>>>
       peekable_reader_;
@@ -655,11 +688,12 @@ class GrpcStreamWriter : public FlightStreamWriter {
   Status WriteMetadata(std::shared_ptr<Buffer> app_metadata) override {
     FlightPayload payload{};
     payload.app_metadata = app_metadata;
-    if (!internal::WritePayload(payload, writer_->stream().get())) {
+    auto status = internal::WritePayload(payload, writer_->stream().get());
+    if (status.IsIOError()) {
       return writer_->Finish(MakeFlightError(FlightStatusCode::Internal,
                                              "Could not write metadata to stream"));
     }
-    return Status::OK();
+    return status;
   }
 
   Status WriteWithMetadata(const RecordBatch& batch,
@@ -775,11 +809,12 @@ class DoPutPayloadWriter : public ipc::internal::IpcPayloadWriter {
       }
     }
 
-    if (!internal::WritePayload(payload, writer_->stream().get())) {
+    auto status = internal::WritePayload(payload, writer_->stream().get());
+    if (status.IsIOError()) {
       return writer_->Finish(MakeFlightError(FlightStatusCode::Internal,
                                              "Could not write record batch to stream"));
     }
-    return Status::OK();
+    return status;
   }
 
   Status Close() override {
@@ -817,10 +852,12 @@ Status GrpcStreamWriter<ProtoReadT, FlightReadT>::Open(
     // calls Begin() to send data, we'll send a redundant descriptor.
     FlightPayload payload{};
     RETURN_NOT_OK(internal::ToPayload(descriptor, &payload.descriptor));
-    if (!internal::WritePayload(payload, instance->writer_->stream().get())) {
+    auto status = internal::WritePayload(payload, instance->writer_->stream().get());
+    if (status.IsIOError()) {
       return writer->Finish(MakeFlightError(FlightStatusCode::Internal,
                                             "Could not write descriptor to stream"));
     }
+    RETURN_NOT_OK(status);
   }
   *out = std::move(instance);
   return Status::OK();
@@ -1060,12 +1097,13 @@ class FlightClient::FlightClientImpl {
     std::vector<FlightInfo> flights;
 
     pb::FlightInfo pb_info;
-    while (stream->Read(&pb_info)) {
+    while (!options.stop_token.IsStopRequested() && stream->Read(&pb_info)) {
       FlightInfo::Data info_data;
       RETURN_NOT_OK(internal::FromProto(pb_info, &info_data));
       flights.emplace_back(std::move(info_data));
     }
-
+    if (options.stop_token.IsStopRequested()) rpc.context.TryCancel();
+    RETURN_NOT_OK(options.stop_token.Poll());
     listing->reset(new SimpleFlightListing(std::move(flights)));
     return internal::FromGrpcStatus(stream->Finish(), &rpc.context);
   }
@@ -1083,11 +1121,13 @@ class FlightClient::FlightClientImpl {
     pb::Result pb_result;
 
     std::vector<Result> materialized_results;
-    while (stream->Read(&pb_result)) {
+    while (!options.stop_token.IsStopRequested() && stream->Read(&pb_result)) {
       Result result;
       RETURN_NOT_OK(internal::FromProto(pb_result, &result));
       materialized_results.emplace_back(std::move(result));
     }
+    if (options.stop_token.IsStopRequested()) rpc.context.TryCancel();
+    RETURN_NOT_OK(options.stop_token.Poll());
 
     *results = std::unique_ptr<ResultStream>(
         new SimpleResultStream(std::move(materialized_results)));
@@ -1104,10 +1144,12 @@ class FlightClient::FlightClientImpl {
 
     pb::ActionType pb_type;
     ActionType type;
-    while (stream->Read(&pb_type)) {
+    while (!options.stop_token.IsStopRequested() && stream->Read(&pb_type)) {
       RETURN_NOT_OK(internal::FromProto(pb_type, &type));
       types->emplace_back(std::move(type));
     }
+    if (options.stop_token.IsStopRequested()) rpc.context.TryCancel();
+    RETURN_NOT_OK(options.stop_token.Poll());
     return internal::FromGrpcStatus(stream->Finish(), &rpc.context);
   }
 
@@ -1163,8 +1205,8 @@ class FlightClient::FlightClientImpl {
     auto finishable_stream = std::make_shared<
         FinishableStream<grpc::ClientReader<pb::FlightData>, internal::FlightData>>(
         rpc, stream);
-    *out = std::unique_ptr<StreamReader>(
-        new StreamReader(rpc, nullptr, options.read_options, finishable_stream));
+    *out = std::unique_ptr<StreamReader>(new StreamReader(
+        rpc, nullptr, options.read_options, options.stop_token, finishable_stream));
     // Eagerly read the schema
     return static_cast<StreamReader*>(out->get())->EnsureDataStarted();
   }
@@ -1208,8 +1250,8 @@ class FlightClient::FlightClientImpl {
     auto finishable_stream =
         std::make_shared<FinishableWritableStream<GrpcStream, internal::FlightData>>(
             rpc, read_mutex, stream);
-    *reader = std::unique_ptr<StreamReader>(
-        new StreamReader(rpc, read_mutex, options.read_options, finishable_stream));
+    *reader = std::unique_ptr<StreamReader>(new StreamReader(
+        rpc, read_mutex, options.read_options, options.stop_token, finishable_stream));
     // Do not eagerly read the schema. There may be metadata messages
     // before any data is sent, or data may not be sent at all.
     return StreamWriter::Open(descriptor, nullptr, options.write_options, rpc,

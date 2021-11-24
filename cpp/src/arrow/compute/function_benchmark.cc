@@ -19,6 +19,7 @@
 
 #include "arrow/array/array_base.h"
 #include "arrow/compute/api.h"
+#include "arrow/compute/exec_internal.h"
 #include "arrow/memory_pool.h"
 #include "arrow/scalar.h"
 #include "arrow/testing/gtest_util.h"
@@ -78,16 +79,17 @@ void BM_CastDispatchBaseline(benchmark::State& state) {
 
   ExecContext exec_context;
   KernelContext kernel_context(&exec_context);
-  auto cast_state =
-      cast_kernel->init(&kernel_context, {cast_kernel, {double_type}, &cast_options});
-  ABORT_NOT_OK(kernel_context.status());
+  auto cast_state = cast_kernel
+                        ->init(&kernel_context,
+                               KernelInitArgs{cast_kernel, {double_type}, &cast_options})
+                        .ValueOrDie();
   kernel_context.SetState(cast_state.get());
 
   for (auto _ : state) {
     Datum timestamp_scalar = MakeNullScalar(double_type);
     for (Datum int_scalar : int_scalars) {
-      exec(&kernel_context, {{std::move(int_scalar)}, 1}, &timestamp_scalar);
-      ABORT_NOT_OK(kernel_context.status());
+      ABORT_NOT_OK(
+          exec(&kernel_context, {{std::move(int_scalar)}, 1}, &timestamp_scalar));
     }
     benchmark::DoNotOptimize(timestamp_scalar);
   }
@@ -164,8 +166,7 @@ void BM_ExecuteScalarKernelOnScalar(benchmark::State& state) {
     int64_t total = 0;
     for (const auto& scalar : scalars) {
       Datum result{MakeNullScalar(int64())};
-      exec(&kernel_context, ExecBatch{{scalar}, /*length=*/1}, &result);
-      ABORT_NOT_OK(kernel_context.status());
+      ABORT_NOT_OK(exec(&kernel_context, ExecBatch{{scalar}, /*length=*/1}, &result));
       total += result.scalar()->is_valid;
     }
     benchmark::DoNotOptimize(total);
@@ -174,11 +175,44 @@ void BM_ExecuteScalarKernelOnScalar(benchmark::State& state) {
   state.SetItemsProcessed(state.iterations() * N);
 }
 
+void BM_ExecBatchIterator(benchmark::State& state) {
+  // Measure overhead related to splitting ExecBatch into smaller ExecBatches
+  // for parallelism or more optimal CPU cache affinity
+  random::RandomArrayGenerator rag(kSeed);
+
+  const int64_t length = 1 << 20;
+  const int num_fields = 32;
+
+  std::vector<Datum> args(num_fields);
+  for (int i = 0; i < num_fields; ++i) {
+    args[i] = rag.Int64(length, 0, 100)->data();
+  }
+
+  const int64_t blocksize = state.range(0);
+  for (auto _ : state) {
+    std::unique_ptr<detail::ExecBatchIterator> it =
+        *detail::ExecBatchIterator::Make(args, blocksize);
+    ExecBatch batch;
+    while (it->Next(&batch)) {
+      for (int i = 0; i < num_fields; ++i) {
+        auto data = batch.values[i].array()->buffers[1]->data();
+        benchmark::DoNotOptimize(data);
+      }
+    }
+    benchmark::DoNotOptimize(batch);
+  }
+  // Provides comparability across blocksizes by looking at the iterations per
+  // second. So 1000 iterations/second means that input splitting associated
+  // with ExecBatchIterator takes up 1ms every time.
+  state.SetItemsProcessed(state.iterations());
+}
+
 BENCHMARK(BM_CastDispatch);
 BENCHMARK(BM_CastDispatchBaseline);
 BENCHMARK(BM_AddDispatch);
 BENCHMARK(BM_ExecuteScalarFunctionOnScalar);
 BENCHMARK(BM_ExecuteScalarKernelOnScalar);
+BENCHMARK(BM_ExecBatchIterator)->RangeMultiplier(4)->Range(1024, 64 * 1024);
 
 }  // namespace compute
 }  // namespace arrow

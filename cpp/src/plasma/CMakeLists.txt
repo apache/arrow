@@ -61,10 +61,7 @@ if(ARROW_CUDA)
   add_definitions(-DPLASMA_CUDA)
 endif()
 
-if(NOT APPLE AND NOT MSVC_TOOLCHAIN)
-  # Localize thirdparty symbols using a linker version script. This hides them
-  # from the client application. The OS X linker does not support the
-  # version-script option.
+if(CXX_LINKER_SUPPORTS_VERSION_SCRIPT)
   set(PLASMA_SHARED_LINK_FLAGS
       "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/symbols.map")
 endif()
@@ -98,14 +95,17 @@ set_source_files_properties(dlmalloc.cc PROPERTIES COMPILE_FLAGS "-O3")
 if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
   set_property(SOURCE dlmalloc.cc
                APPEND_STRING
-               PROPERTY COMPILE_FLAGS " -Wno-parentheses-equality \
+               PROPERTY COMPILE_FLAGS
+                        " -Wno-parentheses-equality \
 -Wno-null-pointer-arithmetic \
 -Wno-shorten-64-to-32 \
 -Wno-unused-macros")
 endif()
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-  set_property(SOURCE dlmalloc.cc APPEND_STRING PROPERTY COMPILE_FLAGS " -Wno-conversion")
+  set_property(SOURCE dlmalloc.cc
+               APPEND_STRING
+               PROPERTY COMPILE_FLAGS " -Wno-conversion")
 endif()
 
 list(APPEND PLASMA_EXTERNAL_STORE_SOURCES "external_store.cc" "hash_table_store.cc")
@@ -128,8 +128,8 @@ if(ARROW_RPATH_ORIGIN)
   else()
     set(_lib_install_rpath "\$ORIGIN")
   endif()
-  set_target_properties(plasma-store-server
-                        PROPERTIES INSTALL_RPATH ${_lib_install_rpath})
+  set_target_properties(plasma-store-server PROPERTIES INSTALL_RPATH
+                                                       ${_lib_install_rpath})
 elseif(APPLE)
   # With OSX and conda, we need to set the correct RPATH so that dependencies
   # are found. The installed libraries with conda have an RPATH that matches
@@ -138,12 +138,9 @@ elseif(APPLE)
   # installed there.
   if(NOT "$ENV{CONDA_PREFIX}" STREQUAL "" AND APPLE)
     set_target_properties(plasma-store-server
-                          PROPERTIES BUILD_WITH_INSTALL_RPATH
-                                     TRUE
-                                     INSTALL_RPATH_USE_LINK_PATH
-                                     TRUE
-                                     INSTALL_RPATH
-                                     "$ENV{CONDA_PREFIX}/lib")
+                          PROPERTIES BUILD_WITH_INSTALL_RPATH TRUE
+                                     INSTALL_RPATH_USE_LINK_PATH TRUE
+                                     INSTALL_RPATH "$ENV{CONDA_PREFIX}/lib")
   endif()
 endif()
 
@@ -156,8 +153,8 @@ install(FILES common.h
 
 # Plasma store
 set_target_properties(plasma-store-server PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
-install(TARGETS plasma-store-server ${INSTALL_IS_OPTIONAL} DESTINATION
-                ${CMAKE_INSTALL_BINDIR})
+install(TARGETS plasma-store-server ${INSTALL_IS_OPTIONAL}
+        DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 if(ARROW_PLASMA_JAVA_CLIENT)
   # Plasma java client support

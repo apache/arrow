@@ -23,7 +23,10 @@
 #include <unordered_map>
 #include <vector>
 
+#include "arrow/csv/invalid_row.h"
 #include "arrow/csv/type_fwd.h"
+#include "arrow/io/interfaces.h"
+#include "arrow/status.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -56,9 +59,14 @@ struct ARROW_EXPORT ParseOptions {
   /// Whether empty lines are ignored.  If false, an empty line represents
   /// a single empty value (assuming a one-column CSV file).
   bool ignore_empty_lines = true;
+  /// A handler function for rows which do not have the correct number of columns
+  InvalidRowHandler invalid_row_handler;
 
   /// Create parsing options with default values
   static ParseOptions Defaults();
+
+  /// \brief Test that all set options are valid
+  Status Validate() const;
 };
 
 struct ARROW_EXPORT ConvertOptions {
@@ -74,11 +82,18 @@ struct ARROW_EXPORT ConvertOptions {
   std::vector<std::string> true_values;
   /// Recognized spellings for boolean false values
   std::vector<std::string> false_values;
+
   /// Whether string / binary columns can have null values.
   ///
   /// If true, then strings in "null_values" are considered null for string columns.
   /// If false, then all strings are valid string values.
   bool strings_can_be_null = false;
+
+  /// Whether quoted values can be null.
+  ///
+  /// If true, then strings in "null_values" are also considered null when they
+  /// appear quoted in the CSV file. Otherwise, quoted values are never considered null.
+  bool quoted_strings_can_be_null = true;
 
   /// Whether to try to automatically dict-encode string / binary data.
   /// If true, then when type inference detects a string or binary column,
@@ -88,6 +103,9 @@ struct ARROW_EXPORT ConvertOptions {
   /// This setting is ignored for non-inferred columns (those in `column_types`).
   bool auto_dict_encode = false;
   int32_t auto_dict_max_cardinality = 50;
+
+  /// Decimal point character for floating-point and decimal data
+  char decimal_point = '.';
 
   // XXX Should we have a separate FilterOptions?
 
@@ -112,6 +130,9 @@ struct ARROW_EXPORT ConvertOptions {
   /// Create conversion options with default values, including conventional
   /// values for `null_values`, `true_values` and `false_values`
   static ConvertOptions Defaults();
+
+  /// \brief Test that all set options are valid
+  Status Validate() const;
 };
 
 struct ARROW_EXPORT ReadOptions {
@@ -119,15 +140,24 @@ struct ARROW_EXPORT ReadOptions {
 
   /// Whether to use the global CPU thread pool
   bool use_threads = true;
-  /// Block size we request from the IO layer; also determines the size of
-  /// chunks when use_threads is true
+
+  /// \brief Block size we request from the IO layer.
+  ///
+  /// This will determine multi-threading granularity as well as
+  /// the size of individual record batches.
+  /// Minimum valid value for block size is 1
   int32_t block_size = 1 << 20;  // 1 MB
 
   /// Number of header rows to skip (not including the row of column names, if any)
   int32_t skip_rows = 0;
+
+  /// Number of rows to skip after the column names are read, if any
+  int32_t skip_rows_after_names = 0;
+
   /// Column names for the target table.
   /// If empty, fall back on autogenerate_column_names.
   std::vector<std::string> column_names;
+
   /// Whether to autogenerate column names if `column_names` is empty.
   /// If true, column names will be of the form "f0", "f1"...
   /// If false, column names will be read from the first CSV row after `skip_rows`.
@@ -135,9 +165,11 @@ struct ARROW_EXPORT ReadOptions {
 
   /// Create read options with default values
   static ReadOptions Defaults();
+
+  /// \brief Test that all set options are valid
+  Status Validate() const;
 };
 
-/// Experimental
 struct ARROW_EXPORT WriteOptions {
   /// Whether to write an initial header line with column names
   bool include_header = true;
@@ -148,8 +180,14 @@ struct ARROW_EXPORT WriteOptions {
   /// This number can impact performance.
   int32_t batch_size = 1024;
 
+  /// \brief IO context for writing.
+  io::IOContext io_context;
+
   /// Create write options with default values
   static WriteOptions Defaults();
+
+  /// \brief Test that all set options are valid
+  Status Validate() const;
 };
 
 }  // namespace csv

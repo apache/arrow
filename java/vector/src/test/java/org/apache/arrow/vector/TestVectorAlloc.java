@@ -18,12 +18,16 @@
 package org.apache.arrow.vector;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import java.util.Arrays;
 import java.util.Collections;
 
+import org.apache.arrow.memory.AllocationListener;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.memory.rounding.DefaultRoundingPolicy;
+import org.apache.arrow.memory.rounding.RoundingPolicy;
 import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.Types.MinorType;
@@ -42,14 +46,19 @@ import org.junit.Test;
 public class TestVectorAlloc {
   private BufferAllocator rootAllocator;
 
+  private BufferAllocator policyAllocator;
+
   @Before
   public void init() {
     rootAllocator = new RootAllocator(Long.MAX_VALUE);
+    policyAllocator =
+        new RootAllocator(AllocationListener.NOOP, Integer.MAX_VALUE, new CustomPolicy());
   }
 
   @After
   public void terminate() throws Exception {
     rootAllocator.close();
+    policyAllocator.close();
   }
 
   private static Field field(String name, ArrowType type) {
@@ -101,6 +110,60 @@ public class TestVectorAlloc {
           vector.allocateNew();
         }
       }
+    }
+  }
+
+  private static final int CUSTOM_SEGMENT_SIZE = 200;
+
+  /**
+   * A custom rounding policy that rounds the size to
+   * the next multiple of 200.
+   */
+  private static class CustomPolicy implements RoundingPolicy {
+
+    @Override
+    public long getRoundedSize(long requestSize) {
+      return (requestSize + CUSTOM_SEGMENT_SIZE - 1) / CUSTOM_SEGMENT_SIZE * CUSTOM_SEGMENT_SIZE;
+    }
+  }
+
+  @Test
+  public void testFixedWidthVectorAllocation() {
+    try (IntVector vec1 = new IntVector("vec", policyAllocator);
+        IntVector vec2 = new IntVector("vec", rootAllocator)) {
+      assertTrue(vec1.getAllocator().getRoundingPolicy() instanceof CustomPolicy);
+      vec1.allocateNew(50);
+      long totalCapacity = vec1.getValidityBuffer().capacity() + vec1.getDataBuffer().capacity();
+
+      // the total capacity must be a multiple of the segment size
+      assertTrue(totalCapacity % CUSTOM_SEGMENT_SIZE == 0);
+
+      assertTrue(vec2.getAllocator().getRoundingPolicy() instanceof DefaultRoundingPolicy);
+      vec2.allocateNew(50);
+      totalCapacity = vec2.getValidityBuffer().capacity() + vec2.getDataBuffer().capacity();
+
+      // the total capacity must be a power of two
+      assertEquals(totalCapacity & (totalCapacity - 1), 0);
+    }
+  }
+
+  @Test
+  public void testVariableWidthVectorAllocation() {
+    try (VarCharVector vec1 = new VarCharVector("vec", policyAllocator);
+         VarCharVector vec2 = new VarCharVector("vec", rootAllocator)) {
+      assertTrue(vec1.getAllocator().getRoundingPolicy() instanceof CustomPolicy);
+      vec1.allocateNew(50);
+      long totalCapacity = vec1.getValidityBuffer().capacity() + vec1.getOffsetBuffer().capacity();
+
+      // the total capacity must be a multiple of the segment size
+      assertTrue(totalCapacity % CUSTOM_SEGMENT_SIZE == 0);
+
+      assertTrue(vec2.getAllocator().getRoundingPolicy() instanceof DefaultRoundingPolicy);
+      vec2.allocateNew(50);
+      totalCapacity = vec2.getValidityBuffer().capacity() + vec2.getOffsetBuffer().capacity();
+
+      // the total capacity must be a power of two
+      assertEquals(totalCapacity & (totalCapacity - 1), 0);
     }
   }
 }

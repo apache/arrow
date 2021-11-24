@@ -32,9 +32,12 @@
 #include <gtest/gtest.h>
 
 #include "arrow/status.h"
+#include "arrow/testing/executor_util.h"
+#include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/test_common.h"
 #include "arrow/util/thread_pool.h"
 
 namespace arrow {
@@ -133,7 +136,7 @@ class TestRunSynchronously : public testing::TestWithParam<bool> {
   }
 
   Status RunVoid(FnOnce<Future<>(Executor*)> top_level_task) {
-    return RunSynchronouslyVoid(std::move(top_level_task), UseThreads());
+    return RunSynchronously(std::move(top_level_task), UseThreads());
   }
 
   void TestContinueAfterExternal(bool transfer_to_main_thread) {
@@ -141,7 +144,7 @@ class TestRunSynchronously : public testing::TestWithParam<bool> {
     EXPECT_OK_AND_ASSIGN(auto external_pool, ThreadPool::Make(1));
     auto top_level_task = [&](Executor* executor) {
       struct Callback {
-        Status operator()(...) {
+        Status operator()() {
           *continuation_ran = true;
           return Status::OK();
         }
@@ -166,7 +169,7 @@ TEST_P(TestRunSynchronously, SimpleRun) {
   auto task = [&](Executor* executor) {
     EXPECT_NE(executor, nullptr);
     task_ran = true;
-    return Future<>::MakeFinished(Status::OK());
+    return Future<>::MakeFinished();
   };
   ASSERT_OK(RunVoid(std::move(task)));
   EXPECT_TRUE(task_ran);
@@ -189,11 +192,7 @@ TEST_P(TestRunSynchronously, SpawnMoreNested) {
   auto top_level_task = [&](Executor* executor) -> Future<> {
     auto fut_a = DeferNotOk(executor->Submit([&] { nested_ran++; }));
     auto fut_b = DeferNotOk(executor->Submit([&] { nested_ran++; }));
-    return AllComplete({fut_a, fut_b})
-        .Then([&](const Result<arrow::detail::Empty>& result) {
-          nested_ran++;
-          return result;
-        });
+    return AllComplete({fut_a, fut_b}).Then([&]() { nested_ran++; });
   };
   ASSERT_OK(RunVoid(std::move(top_level_task)));
   EXPECT_EQ(nested_ran, 3);
@@ -259,6 +258,42 @@ TEST_P(TestRunSynchronously, PropagatedError) {
 
 INSTANTIATE_TEST_SUITE_P(TestRunSynchronously, TestRunSynchronously,
                          ::testing::Values(false, true));
+
+class TransferTest : public testing::Test {
+ public:
+  internal::Executor* executor() { return mock_executor.get(); }
+  int spawn_count() { return mock_executor->spawn_count; }
+
+  std::function<void(const Status&)> callback = [](const Status&) {};
+  std::shared_ptr<MockExecutor> mock_executor = std::make_shared<MockExecutor>();
+};
+
+TEST_F(TransferTest, DefaultTransferIfNotFinished) {
+  {
+    Future<> fut = Future<>::Make();
+    auto transferred = executor()->Transfer(fut);
+    fut.MarkFinished();
+    ASSERT_FINISHES_OK(transferred);
+    ASSERT_EQ(1, spawn_count());
+  }
+  {
+    Future<> fut = Future<>::Make();
+    fut.MarkFinished();
+    auto transferred = executor()->Transfer(fut);
+    ASSERT_FINISHES_OK(transferred);
+    ASSERT_EQ(1, spawn_count());
+  }
+}
+
+TEST_F(TransferTest, TransferAlways) {
+  {
+    Future<> fut = Future<>::Make();
+    fut.MarkFinished();
+    auto transferred = executor()->TransferAlways(fut);
+    ASSERT_FINISHES_OK(transferred);
+    ASSERT_EQ(1, spawn_count());
+  }
+}
 
 class TestThreadPool : public ::testing::Test {
  public:
@@ -358,6 +393,23 @@ TEST_F(TestThreadPool, Spawn) {
 TEST_F(TestThreadPool, StressSpawn) {
   auto pool = this->MakeThreadPool(30);
   SpawnAdds(pool.get(), 1000, task_add<int>);
+}
+
+TEST_F(TestThreadPool, OwnsCurrentThread) {
+  auto pool = this->MakeThreadPool(30);
+  std::atomic<bool> one_failed{false};
+
+  for (int i = 0; i < 1000; ++i) {
+    ASSERT_OK(pool->Spawn([&] {
+      if (pool->OwnsThisThread()) return;
+
+      one_failed = true;
+    }));
+  }
+
+  ASSERT_OK(pool->Shutdown());
+  ASSERT_FALSE(pool->OwnsThisThread());
+  ASSERT_FALSE(one_failed);
 }
 
 TEST_F(TestThreadPool, StressSpawnThreaded) {

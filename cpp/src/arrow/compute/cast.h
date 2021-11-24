@@ -41,15 +41,11 @@ class ExecContext;
 /// \addtogroup compute-concrete-options
 /// @{
 
-struct ARROW_EXPORT CastOptions : public FunctionOptions {
-  explicit CastOptions(bool safe = true)
-      : allow_int_overflow(!safe),
-        allow_time_truncate(!safe),
-        allow_time_overflow(!safe),
-        allow_decimal_truncate(!safe),
-        allow_float_truncate(!safe),
-        allow_invalid_utf8(!safe) {}
+class ARROW_EXPORT CastOptions : public FunctionOptions {
+ public:
+  explicit CastOptions(bool safe = true);
 
+  constexpr static char const kTypeName[] = "CastOptions";
   static CastOptions Safe(std::shared_ptr<DataType> to_type = NULLPTR) {
     CastOptions safe(true);
     safe.to_type = std::move(to_type);

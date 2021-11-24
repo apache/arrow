@@ -17,9 +17,6 @@
 
 // Object model for scalar (non-Array) values. Not intended for use with large
 // amounts of data
-//
-// NOTE: This API is experimental as of the 0.13 version and subject to change
-// without deprecation warnings
 
 #pragma once
 
@@ -29,6 +26,7 @@
 #include <vector>
 
 #include "arrow/compare.h"
+#include "arrow/extension_type.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
@@ -80,6 +78,21 @@ struct ARROW_EXPORT Scalar : public util::EqualityComparable<Scalar> {
 
   std::string ToString() const;
 
+  /// \brief Perform cheap validation checks
+  ///
+  /// This is O(k) where k is the number of descendents.
+  ///
+  /// \return Status
+  Status Validate() const;
+
+  /// \brief Perform extensive data validation checks
+  ///
+  /// This is potentially O(k*n) where k is the number of descendents and n
+  /// is the length of descendents (if list scalars are involved).
+  ///
+  /// \return Status
+  Status ValidateFull() const;
+
   static Result<std::shared_ptr<Scalar>> Parse(const std::shared_ptr<DataType>& type,
                                                util::string_view repr);
 
@@ -109,8 +122,10 @@ namespace internal {
 
 struct ARROW_EXPORT PrimitiveScalarBase : public Scalar {
   using Scalar::Scalar;
+  /// \brief Get a mutable pointer to the value of this scalar. May be null.
   virtual void* mutable_data() = 0;
-  virtual const void* data() const = 0;
+  /// \brief Get an immutable view of the value of this scalar as bytes.
+  virtual util::string_view view() const = 0;
 };
 
 template <typename T, typename CType = typename T::c_type>
@@ -129,7 +144,9 @@ struct ARROW_EXPORT PrimitiveScalar : public PrimitiveScalarBase {
   ValueType value{};
 
   void* mutable_data() override { return &value; }
-  const void* data() const override { return &value; }
+  util::string_view view() const override {
+    return util::string_view(reinterpret_cast<const char*>(&value), sizeof(ValueType));
+  };
 };
 
 }  // namespace internal
@@ -204,15 +221,22 @@ struct ARROW_EXPORT DoubleScalar : public NumericScalar<DoubleType> {
   using NumericScalar<DoubleType>::NumericScalar;
 };
 
-struct ARROW_EXPORT BaseBinaryScalar : public Scalar {
-  using Scalar::Scalar;
+struct ARROW_EXPORT BaseBinaryScalar : public internal::PrimitiveScalarBase {
+  using internal::PrimitiveScalarBase::PrimitiveScalarBase;
   using ValueType = std::shared_ptr<Buffer>;
 
   std::shared_ptr<Buffer> value;
 
+  void* mutable_data() override {
+    return value ? reinterpret_cast<void*>(value->mutable_data()) : NULLPTR;
+  }
+  util::string_view view() const override {
+    return value ? util::string_view(*value) : util::string_view();
+  }
+
  protected:
   BaseBinaryScalar(std::shared_ptr<Buffer> value, std::shared_ptr<DataType> type)
-      : Scalar{std::move(type), true}, value(std::move(value)) {}
+      : internal::PrimitiveScalarBase{std::move(type), true}, value(std::move(value)) {}
 };
 
 struct ARROW_EXPORT BinaryScalar : public BaseBinaryScalar {
@@ -274,16 +298,16 @@ struct ARROW_EXPORT FixedSizeBinaryScalar : public BinaryScalar {
 };
 
 template <typename T>
-struct ARROW_EXPORT TemporalScalar : internal::PrimitiveScalar<T> {
+struct TemporalScalar : internal::PrimitiveScalar<T> {
   using internal::PrimitiveScalar<T>::PrimitiveScalar;
   using ValueType = typename TemporalScalar<T>::ValueType;
 
-  explicit TemporalScalar(ValueType value, std::shared_ptr<DataType> type)
+  TemporalScalar(ValueType value, std::shared_ptr<DataType> type)
       : internal::PrimitiveScalar<T>(std::move(value), type) {}
 };
 
 template <typename T>
-struct ARROW_EXPORT DateScalar : public TemporalScalar<T> {
+struct DateScalar : public TemporalScalar<T> {
   using TemporalScalar<T>::TemporalScalar;
   using ValueType = typename TemporalScalar<T>::ValueType;
 
@@ -303,6 +327,9 @@ struct ARROW_EXPORT Date64Scalar : public DateScalar<Date64Type> {
 template <typename T>
 struct ARROW_EXPORT TimeScalar : public TemporalScalar<T> {
   using TemporalScalar<T>::TemporalScalar;
+
+  TimeScalar(typename TemporalScalar<T>::ValueType value, TimeUnit::type unit)
+      : TimeScalar(std::move(value), std::make_shared<T>(unit)) {}
 };
 
 struct ARROW_EXPORT Time32Scalar : public TimeScalar<Time32Type> {
@@ -315,10 +342,14 @@ struct ARROW_EXPORT Time64Scalar : public TimeScalar<Time64Type> {
 
 struct ARROW_EXPORT TimestampScalar : public TemporalScalar<TimestampType> {
   using TemporalScalar<TimestampType>::TemporalScalar;
+
+  TimestampScalar(typename TemporalScalar<TimestampType>::ValueType value,
+                  TimeUnit::type unit)
+      : TimestampScalar(std::move(value), timestamp(unit)) {}
 };
 
 template <typename T>
-struct ARROW_EXPORT IntervalScalar : public TemporalScalar<T> {
+struct IntervalScalar : public TemporalScalar<T> {
   using TemporalScalar<T>::TemporalScalar;
   using ValueType = typename TemporalScalar<T>::ValueType;
 
@@ -335,28 +366,54 @@ struct ARROW_EXPORT DayTimeIntervalScalar : public IntervalScalar<DayTimeInterva
   using IntervalScalar<DayTimeIntervalType>::IntervalScalar;
 };
 
-struct ARROW_EXPORT DurationScalar : public TemporalScalar<DurationType> {
-  using TemporalScalar<DurationType>::TemporalScalar;
+struct ARROW_EXPORT MonthDayNanoIntervalScalar
+    : public IntervalScalar<MonthDayNanoIntervalType> {
+  using IntervalScalar<MonthDayNanoIntervalType>::IntervalScalar;
 };
 
-struct ARROW_EXPORT Decimal128Scalar : public Scalar {
-  using Scalar::Scalar;
+struct ARROW_EXPORT DurationScalar : public TemporalScalar<DurationType> {
+  using TemporalScalar<DurationType>::TemporalScalar;
+
+  DurationScalar(typename TemporalScalar<DurationType>::ValueType value,
+                 TimeUnit::type unit)
+      : DurationScalar(std::move(value), duration(unit)) {}
+};
+
+struct ARROW_EXPORT Decimal128Scalar : public internal::PrimitiveScalarBase {
+  using internal::PrimitiveScalarBase::PrimitiveScalarBase;
   using TypeClass = Decimal128Type;
   using ValueType = Decimal128;
 
   Decimal128Scalar(Decimal128 value, std::shared_ptr<DataType> type)
-      : Scalar(std::move(type), true), value(value) {}
+      : internal::PrimitiveScalarBase(std::move(type), true), value(value) {}
+
+  void* mutable_data() override {
+    return reinterpret_cast<void*>(value.mutable_native_endian_bytes());
+  }
+  util::string_view view() const override {
+    return util::string_view(reinterpret_cast<const char*>(value.native_endian_bytes()),
+                             16);
+  }
 
   Decimal128 value;
 };
 
-struct ARROW_EXPORT Decimal256Scalar : public Scalar {
-  using Scalar::Scalar;
+struct ARROW_EXPORT Decimal256Scalar : public internal::PrimitiveScalarBase {
+  using internal::PrimitiveScalarBase::PrimitiveScalarBase;
   using TypeClass = Decimal256Type;
   using ValueType = Decimal256;
 
   Decimal256Scalar(Decimal256 value, std::shared_ptr<DataType> type)
-      : Scalar(std::move(type), true), value(value) {}
+      : internal::PrimitiveScalarBase(std::move(type), true), value(value) {}
+
+  void* mutable_data() override {
+    return reinterpret_cast<void*>(value.mutable_native_endian_bytes());
+  }
+  util::string_view view() const override {
+    const std::array<uint64_t, 4>& bytes = value.native_endian_array();
+    return util::string_view(reinterpret_cast<const char*>(bytes.data()),
+                             bytes.size() * sizeof(uint64_t));
+  }
 
   Decimal256 value;
 };
@@ -420,10 +477,15 @@ struct ARROW_EXPORT StructScalar : public Scalar {
 struct ARROW_EXPORT UnionScalar : public Scalar {
   using Scalar::Scalar;
   using ValueType = std::shared_ptr<Scalar>;
-  ValueType value;
 
-  UnionScalar(ValueType value, std::shared_ptr<DataType> type)
-      : Scalar(std::move(type), true), value(std::move(value)) {}
+  ValueType value;
+  int8_t type_code;
+
+  UnionScalar(int8_t type_code, std::shared_ptr<DataType> type)
+      : Scalar(std::move(type), false), type_code(type_code) {}
+
+  UnionScalar(ValueType value, int8_t type_code, std::shared_ptr<DataType> type)
+      : Scalar(std::move(type), true), value(std::move(value)), type_code(type_code) {}
 };
 
 struct ARROW_EXPORT SparseUnionScalar : public UnionScalar {
@@ -436,7 +498,11 @@ struct ARROW_EXPORT DenseUnionScalar : public UnionScalar {
   using TypeClass = DenseUnionType;
 };
 
-struct ARROW_EXPORT DictionaryScalar : public Scalar {
+/// \brief A Scalar value for DictionaryType
+///
+/// `is_valid` denotes the validity of the `index`, regardless of
+/// the corresponding value in the `dictionary`.
+struct ARROW_EXPORT DictionaryScalar : public internal::PrimitiveScalarBase {
   using TypeClass = DictionaryType;
   struct ValueType {
     std::shared_ptr<Scalar> index;
@@ -446,17 +512,37 @@ struct ARROW_EXPORT DictionaryScalar : public Scalar {
   explicit DictionaryScalar(std::shared_ptr<DataType> type);
 
   DictionaryScalar(ValueType value, std::shared_ptr<DataType> type, bool is_valid = true)
-      : Scalar(std::move(type), is_valid), value(std::move(value)) {}
+      : internal::PrimitiveScalarBase(std::move(type), is_valid),
+        value(std::move(value)) {}
 
   static std::shared_ptr<DictionaryScalar> Make(std::shared_ptr<Scalar> index,
                                                 std::shared_ptr<Array> dict);
 
   Result<std::shared_ptr<Scalar>> GetEncodedValue() const;
+
+  void* mutable_data() override {
+    return internal::checked_cast<internal::PrimitiveScalarBase&>(*value.index)
+        .mutable_data();
+  }
+  util::string_view view() const override {
+    return internal::checked_cast<const internal::PrimitiveScalarBase&>(*value.index)
+        .view();
+  }
 };
 
+/// \brief A Scalar value for ExtensionType
+///
+/// The value is the underlying storage scalar.
+/// `is_valid` must only be true if `value` is non-null and `value->is_valid` is true
 struct ARROW_EXPORT ExtensionScalar : public Scalar {
   using Scalar::Scalar;
   using TypeClass = ExtensionType;
+  using ValueType = std::shared_ptr<Scalar>;
+
+  ExtensionScalar(std::shared_ptr<Scalar> storage, std::shared_ptr<DataType> type)
+      : Scalar(std::move(type), true), value(std::move(storage)) {}
+
+  std::shared_ptr<Scalar> value;
 };
 
 /// @}
@@ -471,34 +557,7 @@ ARROW_EXPORT Status CheckBufferLength(const FixedSizeBinaryType* t,
 }  // namespace internal
 
 template <typename ValueRef>
-struct MakeScalarImpl {
-  template <typename T, typename ScalarType = typename TypeTraits<T>::ScalarType,
-            typename ValueType = typename ScalarType::ValueType,
-            typename Enable = typename std::enable_if<
-                std::is_constructible<ScalarType, ValueType,
-                                      std::shared_ptr<DataType>>::value &&
-                std::is_convertible<ValueRef, ValueType>::value>::type>
-  Status Visit(const T& t) {
-    ARROW_RETURN_NOT_OK(internal::CheckBufferLength(&t, &value_));
-    out_ = std::make_shared<ScalarType>(
-        static_cast<ValueType>(static_cast<ValueRef>(value_)), std::move(type_));
-    return Status::OK();
-  }
-
-  Status Visit(const DataType& t) {
-    return Status::NotImplemented("constructing scalars of type ", t,
-                                  " from unboxed values");
-  }
-
-  Result<std::shared_ptr<Scalar>> Finish() && {
-    ARROW_RETURN_NOT_OK(VisitTypeInline(*type_, this));
-    return std::move(out_);
-  }
-
-  std::shared_ptr<DataType> type_;
-  ValueRef value_;
-  std::shared_ptr<Scalar> out_;
-};
+struct MakeScalarImpl;
 
 /// \defgroup scalar-factories Scalar factory functions
 ///
@@ -533,5 +592,56 @@ inline std::shared_ptr<Scalar> MakeScalar(std::string value) {
 }
 
 /// @}
+
+template <typename ValueRef>
+struct MakeScalarImpl {
+  template <typename T, typename ScalarType = typename TypeTraits<T>::ScalarType,
+            typename ValueType = typename ScalarType::ValueType,
+            typename Enable = typename std::enable_if<
+                std::is_constructible<ScalarType, ValueType,
+                                      std::shared_ptr<DataType>>::value &&
+                std::is_convertible<ValueRef, ValueType>::value>::type>
+  Status Visit(const T& t) {
+    ARROW_RETURN_NOT_OK(internal::CheckBufferLength(&t, &value_));
+    // `static_cast<ValueRef>` makes a rvalue if ValueRef is `ValueType&&`
+    out_ = std::make_shared<ScalarType>(
+        static_cast<ValueType>(static_cast<ValueRef>(value_)), std::move(type_));
+    return Status::OK();
+  }
+
+  Status Visit(const ExtensionType& t) {
+    ARROW_ASSIGN_OR_RAISE(auto storage,
+                          MakeScalar(t.storage_type(), static_cast<ValueRef>(value_)));
+    out_ = std::make_shared<ExtensionScalar>(std::move(storage), type_);
+    return Status::OK();
+  }
+
+  // Enable constructing string/binary scalars (but not decimal, etc) from std::string
+  template <typename T>
+  enable_if_t<
+      std::is_same<typename std::remove_reference<ValueRef>::type, std::string>::value &&
+          (is_base_binary_type<T>::value || std::is_same<T, FixedSizeBinaryType>::value),
+      Status>
+  Visit(const T& t) {
+    using ScalarType = typename TypeTraits<T>::ScalarType;
+    out_ = std::make_shared<ScalarType>(Buffer::FromString(std::move(value_)),
+                                        std::move(type_));
+    return Status::OK();
+  }
+
+  Status Visit(const DataType& t) {
+    return Status::NotImplemented("constructing scalars of type ", t,
+                                  " from unboxed values");
+  }
+
+  Result<std::shared_ptr<Scalar>> Finish() && {
+    ARROW_RETURN_NOT_OK(VisitTypeInline(*type_, this));
+    return std::move(out_);
+  }
+
+  std::shared_ptr<DataType> type_;
+  ValueRef value_;
+  std::shared_ptr<Scalar> out_;
+};
 
 }  // namespace arrow

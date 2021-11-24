@@ -35,6 +35,11 @@
 #define IS_ASCII(x) (LEVELS(x) & ASCII_MASK)
 #define IS_UTF8(x) (LEVELS(x) & UTF8_MASK)
 
+// For context, see:
+// https://github.com/r-devel/r-svn/blob/6418faeb6f5d87d3d9b92b8978773bc3856b4b6f/src/main/altrep.c#L37
+#define ALTREP_CLASS_SERIALIZED_CLASS(x) ATTRIB(x)
+#define ALTREP_SERIALIZED_CLASS_PKGSYM(x) CADR(x)
+
 namespace arrow {
 namespace r {
 
@@ -96,8 +101,14 @@ inline R_xlen_t r_string_size(SEXP s) {
 inline SEXP utf8_strings(SEXP x) {
   return cpp11::unwind_protect([x] {
     R_xlen_t n = XLENGTH(x);
-    for (R_xlen_t i = 0; i < n; i++) {
-      SEXP s = STRING_ELT(x, i);
+
+    // if `x` is an altrep of some sort, this will
+    // materialize upfront. That's usually better because
+    // the loop touches all strings
+    const SEXP* p_x = STRING_PTR_RO(x);
+
+    for (R_xlen_t i = 0; i < n; i++, ++p_x) {
+      SEXP s = *p_x;
       if (s != NA_STRING && !IS_UTF8(s) && !IS_ASCII(s)) {
         SET_STRING_ELT(x, i, Rf_mkCharCE(Rf_translateCharUTF8(s), CE_UTF8));
       }
@@ -121,6 +132,7 @@ struct symbols {
   static SEXP arrow_attributes;
   static SEXP new_;
   static SEXP create;
+  static SEXP arrow;
 };
 
 struct data {
@@ -141,7 +153,6 @@ struct data {
   static SEXP classes_ordered;
 
   static SEXP names_metadata;
-  static SEXP empty_raw;
 };
 
 struct ns {

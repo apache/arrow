@@ -18,7 +18,7 @@
 import {
     Vector, DataType,
     Bool, Int8, Int16, Int32, Uint8, Uint16, Uint32, Float16, Float32, Float64
-} from '../../Arrow';
+} from 'apache-arrow';
 
 import {
     validateVector,

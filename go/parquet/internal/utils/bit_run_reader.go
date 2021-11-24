@@ -22,8 +22,8 @@ import (
 	"math/bits"
 	"unsafe"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/bitutil"
+	"github.com/apache/arrow/go/v7/arrow"
+	"github.com/apache/arrow/go/v7/arrow/bitutil"
 )
 
 // BitRun represents a run of bits with the same value of length Len
@@ -136,6 +136,8 @@ func (b *bitRunReader) loadWord(bitsRemaining int64) {
 		copy(wordptr, b.bitmap[:nbytes])
 
 		bitutil.SetBitTo(wordptr, int(bitsRemaining), bitutil.BitIsNotSet(wordptr, int(bitsRemaining-1)))
+		// reset the value to little endian for big endian architectures
+		b.word = ToLEUint64(b.word)
 	}
 
 	// Two cases:

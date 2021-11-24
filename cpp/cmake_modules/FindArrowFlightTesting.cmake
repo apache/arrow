@@ -79,25 +79,20 @@ mark_as_advanced(ARROW_FLIGHT_TESTING_IMPORT_LIB
                  ARROW_FLIGHT_TESTING_VERSION
                  ARROW_FLIGHT_TESTING_VERSION_MATCH)
 
-find_package_handle_standard_args(ArrowFlightTesting
-                                  REQUIRED_VARS
-                                  ARROW_FLIGHT_TESTING_INCLUDE_DIR
-                                  ARROW_FLIGHT_TESTING_LIB_DIR
-                                  ARROW_FLIGHT_TESTING_VERSION_MATCH
-                                  VERSION_VAR
-                                  ARROW_FLIGHT_TESTING_VERSION)
+find_package_handle_standard_args(
+  ArrowFlightTesting
+  REQUIRED_VARS ARROW_FLIGHT_TESTING_INCLUDE_DIR ARROW_FLIGHT_TESTING_LIB_DIR
+                ARROW_FLIGHT_TESTING_VERSION_MATCH
+  VERSION_VAR ARROW_FLIGHT_TESTING_VERSION)
 set(ARROW_FLIGHT_TESTING_FOUND ${ArrowFlightTesting_FOUND})
 
 if(ArrowFlightTesting_FOUND AND NOT ArrowFlightTesting_FIND_QUIETLY)
-  message(
-    STATUS "Found the Arrow Flight testing by ${ARROW_FLIGHT_TESTING_FIND_APPROACH}")
-  message(
-    STATUS
-      "Found the Arrow Flight testing shared library: ${ARROW_FLIGHT_TESTING_SHARED_LIB}")
-  message(
-    STATUS
-      "Found the Arrow Flight testing import library: ${ARROW_FLIGHT_TESTING_IMPORT_LIB}")
-  message(
-    STATUS
-      "Found the Arrow Flight testing static library: ${ARROW_FLIGHT_TESTING_STATIC_LIB}")
+  message(STATUS "Found the Arrow Flight testing by ${ARROW_FLIGHT_TESTING_FIND_APPROACH}"
+  )
+  message(STATUS "Found the Arrow Flight testing shared library: ${ARROW_FLIGHT_TESTING_SHARED_LIB}"
+  )
+  message(STATUS "Found the Arrow Flight testing import library: ${ARROW_FLIGHT_TESTING_IMPORT_LIB}"
+  )
+  message(STATUS "Found the Arrow Flight testing static library: ${ARROW_FLIGHT_TESTING_STATIC_LIB}"
+  )
 endif()

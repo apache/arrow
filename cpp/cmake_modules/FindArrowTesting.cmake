@@ -74,13 +74,11 @@ mark_as_advanced(ARROW_TESTING_IMPORT_LIB
                  ARROW_TESTING_VERSION
                  ARROW_TESTING_VERSION_MATCH)
 
-find_package_handle_standard_args(ArrowTesting
-                                  REQUIRED_VARS
-                                  ARROW_TESTING_INCLUDE_DIR
-                                  ARROW_TESTING_LIB_DIR
-                                  ARROW_TESTING_VERSION_MATCH
-                                  VERSION_VAR
-                                  ARROW_TESTING_VERSION)
+find_package_handle_standard_args(
+  ArrowTesting
+  REQUIRED_VARS ARROW_TESTING_INCLUDE_DIR ARROW_TESTING_LIB_DIR
+                ARROW_TESTING_VERSION_MATCH
+  VERSION_VAR ARROW_TESTING_VERSION)
 set(ARROW_TESTING_FOUND ${ArrowTesting_FOUND})
 
 if(ArrowTesting_FOUND AND NOT ArrowTesting_FIND_QUIETLY)

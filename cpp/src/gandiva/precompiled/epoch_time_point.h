@@ -20,6 +20,10 @@
 // TODO(wesm): IR compilation does not have any include directories set
 #include "../../arrow/vendored/datetime/date.h"
 
+bool is_leap_year(int yy);
+bool did_days_overflow(arrow_vendored::date::year_month_day ymd);
+int last_possible_day_in_month(int month, int year);
+
 // A point of time measured in millis since epoch.
 class EpochTimePoint {
  public:
@@ -67,9 +71,19 @@ class EpochTimePoint {
 
   EpochTimePoint AddMonths(int num_months) const {
     auto ymd = YearMonthDay() + arrow_vendored::date::months(num_months);
-    return EpochTimePoint((arrow_vendored::date::sys_days{ymd} +  // NOLINT
-                           TimeOfDay().to_duration())
-                              .time_since_epoch());
+
+    EpochTimePoint tp = EpochTimePoint((arrow_vendored::date::sys_days{ymd} +  // NOLINT
+                                        TimeOfDay().to_duration())
+                                           .time_since_epoch());
+
+    if (did_days_overflow(ymd)) {
+      int days_to_offset =
+          last_possible_day_in_month(static_cast<int>(ymd.year()),
+                                     static_cast<unsigned int>(ymd.month())) -
+          static_cast<unsigned int>(ymd.day());
+      tp = tp.AddDays(days_to_offset);
+    }
+    return tp;
   }
 
   EpochTimePoint AddDays(int num_days) const {
@@ -87,17 +101,17 @@ class EpochTimePoint {
 
   int64_t MillisSinceEpoch() const { return tp_.time_since_epoch().count(); }
 
- private:
-  arrow_vendored::date::year_month_day YearMonthDay() const {
-    return arrow_vendored::date::year_month_day{
-        arrow_vendored::date::floor<arrow_vendored::date::days>(tp_)};  // NOLINT
-  }
-
   arrow_vendored::date::time_of_day<std::chrono::milliseconds> TimeOfDay() const {
     auto millis_since_midnight =
         tp_ - arrow_vendored::date::floor<arrow_vendored::date::days>(tp_);
     return arrow_vendored::date::time_of_day<std::chrono::milliseconds>(
         millis_since_midnight);
+  }
+
+ private:
+  arrow_vendored::date::year_month_day YearMonthDay() const {
+    return arrow_vendored::date::year_month_day{
+        arrow_vendored::date::floor<arrow_vendored::date::days>(tp_)};  // NOLINT
   }
 
   std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds> tp_;

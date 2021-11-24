@@ -36,18 +36,6 @@
 
 namespace parquet {
 
-/// Determines use of Parquet Format version >= 2.0.0 logical types. For
-/// example, when writing from Arrow data structures, PARQUET_2_0 will enable
-/// use of INT_* and UINT_* converted types as well as nanosecond timestamps
-/// stored physically as INT64. Since some Parquet implementations do not
-/// support the logical types added in the 2.0.0 format version, if you want to
-/// maximize compatibility of your files you may want to use PARQUET_1_0.
-///
-/// Note that the 2.x format version series also introduced new serialized
-/// data page metadata and on disk data page layout. To enable this, use
-/// ParquetDataPageVersion.
-struct ParquetVersion;
-
 /// Controls serialization format of data pages.  parquet-format v2.0.0
 /// introduced a new data page metadata type DataPageV2 and serialized page
 /// structure (for example, encoded levels are no longer compressed). Prior to
@@ -575,7 +563,8 @@ class PARQUET_EXPORT ArrowReaderProperties {
         read_dict_indices_(),
         batch_size_(kArrowDefaultBatchSize),
         pre_buffer_(false),
-        cache_options_(::arrow::io::CacheOptions::Defaults()) {}
+        cache_options_(::arrow::io::CacheOptions::Defaults()),
+        coerce_int96_timestamp_unit_(::arrow::TimeUnit::NANO) {}
 
   void set_use_threads(bool use_threads) { use_threads_ = use_threads; }
 
@@ -613,12 +602,22 @@ class PARQUET_EXPORT ArrowReaderProperties {
   /// implementation for characteristics of different filesystems.
   void set_cache_options(::arrow::io::CacheOptions options) { cache_options_ = options; }
 
-  ::arrow::io::CacheOptions cache_options() const { return cache_options_; }
+  const ::arrow::io::CacheOptions& cache_options() const { return cache_options_; }
 
   /// Set execution context for read coalescing.
   void set_io_context(const ::arrow::io::IOContext& ctx) { io_context_ = ctx; }
 
   const ::arrow::io::IOContext& io_context() const { return io_context_; }
+
+  /// Set timestamp unit to use for deprecated INT96-encoded timestamps
+  /// (default is NANO).
+  void set_coerce_int96_timestamp_unit(::arrow::TimeUnit::type unit) {
+    coerce_int96_timestamp_unit_ = unit;
+  }
+
+  ::arrow::TimeUnit::type coerce_int96_timestamp_unit() const {
+    return coerce_int96_timestamp_unit_;
+  }
 
  private:
   bool use_threads_;
@@ -627,6 +626,7 @@ class PARQUET_EXPORT ArrowReaderProperties {
   bool pre_buffer_;
   ::arrow::io::IOContext io_context_;
   ::arrow::io::CacheOptions cache_options_;
+  ::arrow::TimeUnit::type coerce_int96_timestamp_unit_;
 };
 
 /// EXPERIMENTAL: Constructs the default ArrowReaderProperties

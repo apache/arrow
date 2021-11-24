@@ -16,7 +16,6 @@
 # under the License.
 
 # cython: language_level = 3
-# cython: embedsignature = True
 
 import collections
 import contextlib
@@ -32,7 +31,7 @@ from cython.operator cimport postincrement
 from libcpp cimport bool as c_bool
 
 from pyarrow.lib cimport *
-from pyarrow.lib import ArrowException, ArrowInvalid
+from pyarrow.lib import ArrowException, ArrowInvalid, SignalStopHandler
 from pyarrow.lib import as_buffer, frombytes, tobytes
 from pyarrow.includes.libarrow_flight cimport *
 from pyarrow.ipc import _get_legacy_format_default, _ReadPandasMixin
@@ -874,6 +873,16 @@ cdef class _MetadataRecordBatchReader(_Weakrefable, _ReadPandasMixin):
 
         return chunk
 
+    def to_reader(self):
+        """Convert this reader into a regular RecordBatchReader.
+
+        This may fail if the schema cannot be read from the remote end.
+        """
+        cdef RecordBatchReader reader
+        reader = RecordBatchReader.__new__(RecordBatchReader)
+        reader.reader = GetResultValue(MakeRecordBatchReader(self.reader))
+        return reader
+
 
 cdef class MetadataRecordBatchReader(_MetadataRecordBatchReader):
     """The virtual base class for readers for Flight streams."""
@@ -886,6 +895,19 @@ cdef class FlightStreamReader(MetadataRecordBatchReader):
         """Cancel the read operation."""
         with nogil:
             (<CFlightStreamReader*> self.reader.get()).Cancel()
+
+    def read_all(self):
+        """Read the entire contents of the stream as a Table."""
+        cdef:
+            shared_ptr[CTable] c_table
+            CStopToken stop_token
+        with SignalStopHandler() as stop_handler:
+            stop_token = (<StopToken> stop_handler.stop_token).stop_token
+            with nogil:
+                check_flight_status(
+                    (<CFlightStreamReader*> self.reader.get())
+                    .ReadAllWithStopToken(&c_table, stop_token))
+        return pyarrow_wrap_table(c_table)
 
 
 cdef class MetadataRecordBatchWriter(_CRecordBatchWriter):
@@ -927,7 +949,43 @@ cdef class MetadataRecordBatchWriter(_CRecordBatchWriter):
         # individual batches to have control.
         with nogil:
             check_flight_status(
-                self.writer.get().WriteRecordBatch(deref(batch.batch)))
+                self._writer().WriteRecordBatch(deref(batch.batch)))
+
+    def write_table(self, Table table, max_chunksize=None, **kwargs):
+        """
+        Write Table to stream in (contiguous) RecordBatch objects.
+
+        Parameters
+        ----------
+        table : Table
+        max_chunksize : int, default None
+            Maximum size for RecordBatch chunks. Individual chunks may be
+            smaller depending on the chunk layout of individual columns.
+        """
+        cdef:
+            # max_chunksize must be > 0 to have any impact
+            int64_t c_max_chunksize = -1
+
+        if 'chunksize' in kwargs:
+            max_chunksize = kwargs['chunksize']
+            msg = ('The parameter chunksize is deprecated for the write_table '
+                   'methods as of 0.15, please use parameter '
+                   'max_chunksize instead')
+            warnings.warn(msg, FutureWarning)
+
+        if max_chunksize is not None:
+            c_max_chunksize = max_chunksize
+
+        with nogil:
+            check_flight_status(
+                self._writer().WriteTable(table.table[0], c_max_chunksize))
+
+    def close(self):
+        """
+        Close stream and write end-of-stream 0 marker.
+        """
+        with nogil:
+            check_flight_status(self._writer().Close())
 
     def write_with_metadata(self, RecordBatch batch, buf):
         """Write a RecordBatch along with Flight metadata.
@@ -1194,17 +1252,20 @@ cdef class FlightClient(_Weakrefable):
             vector[CActionType] results
             CFlightCallOptions* c_options = FlightCallOptions.unwrap(options)
 
-        with nogil:
-            check_flight_status(
-                self.client.get().ListActions(deref(c_options), &results))
+        with SignalStopHandler() as stop_handler:
+            c_options.stop_token = \
+                (<StopToken> stop_handler.stop_token).stop_token
+            with nogil:
+                check_flight_status(
+                    self.client.get().ListActions(deref(c_options), &results))
 
-        result = []
-        for action_type in results:
-            py_action = ActionType(frombytes(action_type.type),
-                                   frombytes(action_type.description))
-            result.append(py_action)
+            result = []
+            for action_type in results:
+                py_action = ActionType(frombytes(action_type.type),
+                                       frombytes(action_type.description))
+                result.append(py_action)
 
-        return result
+            return result
 
     def do_action(self, action, options: FlightCallOptions = None):
         """
@@ -1224,7 +1285,6 @@ cdef class FlightClient(_Weakrefable):
         """
         cdef:
             unique_ptr[CResultStream] results
-            Result result
             CFlightCallOptions* c_options = FlightCallOptions.unwrap(options)
 
         if isinstance(action, (str, bytes)):
@@ -1237,16 +1297,20 @@ cdef class FlightClient(_Weakrefable):
         cdef CAction c_action = Action.unwrap(<Action> action)
         with nogil:
             check_flight_status(
-                self.client.get().DoAction(deref(c_options), c_action,
-                                           &results))
+                self.client.get().DoAction(
+                    deref(c_options), c_action, &results))
 
-        while True:
-            result = Result.__new__(Result)
-            with nogil:
-                check_flight_status(results.get().Next(&result.result))
-                if result.result == NULL:
-                    break
-            yield result
+        def _do_action_response():
+            cdef:
+                Result result
+            while True:
+                result = Result.__new__(Result)
+                with nogil:
+                    check_flight_status(results.get().Next(&result.result))
+                    if result.result == NULL:
+                        break
+                yield result
+        return _do_action_response()
 
     def list_flights(self, criteria: bytes = None,
                      options: FlightCallOptions = None):
@@ -1260,18 +1324,21 @@ cdef class FlightClient(_Weakrefable):
         if criteria:
             c_criteria.expression = tobytes(criteria)
 
-        with nogil:
-            check_flight_status(
-                self.client.get().ListFlights(deref(c_options),
-                                              c_criteria, &listing))
-
-        while True:
-            result = FlightInfo.__new__(FlightInfo)
+        with SignalStopHandler() as stop_handler:
+            c_options.stop_token = \
+                (<StopToken> stop_handler.stop_token).stop_token
             with nogil:
-                check_flight_status(listing.get().Next(&result.info))
-                if result.info == NULL:
-                    break
-            yield result
+                check_flight_status(
+                    self.client.get().ListFlights(deref(c_options),
+                                                  c_criteria, &listing))
+
+            while True:
+                result = FlightInfo.__new__(FlightInfo)
+                with nogil:
+                    check_flight_status(listing.get().Next(&result.info))
+                    if result.info == NULL:
+                        break
+                yield result
 
     def get_flight_info(self, descriptor: FlightDescriptor,
                         options: FlightCallOptions = None):
@@ -1487,6 +1554,9 @@ cdef class ServerCallContext(_Weakrefable):
         # Set safe=True as gRPC on Windows sometimes gives garbage bytes
         return frombytes(self.context.peer(), safe=True)
 
+    def is_cancelled(self):
+        return self.context.is_cancelled()
+
     def get_middleware(self, key):
         """
         Get a middleware instance by key.
@@ -1645,70 +1715,83 @@ cdef CStatus _data_stream_next(void* self, CFlightPayload* payload) except *:
         raise RuntimeError("self object in callback is not GeneratorStream")
     stream = <GeneratorStream> py_stream
 
-    if stream.current_stream != nullptr:
-        check_flight_status(stream.current_stream.get().Next(payload))
-        # If the stream ended, see if there's another stream from the
-        # generator
-        if payload.ipc_message.metadata != nullptr:
+    # The generator is allowed to yield a reader or table which we
+    # yield from; if that sub-generator is empty, we need to reset and
+    # try again. However, limit the number of attempts so that we
+    # don't just spin forever.
+    max_attempts = 128
+    for _ in range(max_attempts):
+        if stream.current_stream != nullptr:
+            check_flight_status(stream.current_stream.get().Next(payload))
+            # If the stream ended, see if there's another stream from the
+            # generator
+            if payload.ipc_message.metadata != nullptr:
+                return CStatus_OK()
+            stream.current_stream.reset(nullptr)
+
+        try:
+            result = next(stream.generator)
+        except StopIteration:
+            payload.ipc_message.metadata.reset(<CBuffer*> nullptr)
             return CStatus_OK()
-        stream.current_stream.reset(nullptr)
+        except FlightError as flight_error:
+            return (<FlightError> flight_error).to_status()
 
-    try:
-        result = next(stream.generator)
-    except StopIteration:
-        payload.ipc_message.metadata.reset(<CBuffer*> nullptr)
+        if isinstance(result, (list, tuple)):
+            result, metadata = result
+        else:
+            result, metadata = result, None
+
+        if isinstance(result, (Table, RecordBatchReader)):
+            if metadata:
+                raise ValueError("Can only return metadata alongside a "
+                                 "RecordBatch.")
+            result = RecordBatchStream(result)
+
+        stream_schema = pyarrow_wrap_schema(stream.schema)
+        if isinstance(result, FlightDataStream):
+            if metadata:
+                raise ValueError("Can only return metadata alongside a "
+                                 "RecordBatch.")
+            data_stream = unique_ptr[CFlightDataStream](
+                (<FlightDataStream> result).to_stream())
+            substream_schema = pyarrow_wrap_schema(data_stream.get().schema())
+            if substream_schema != stream_schema:
+                raise ValueError("Got a FlightDataStream whose schema "
+                                 "does not match the declared schema of this "
+                                 "GeneratorStream. "
+                                 "Got: {}\nExpected: {}".format(
+                                     substream_schema, stream_schema))
+            stream.current_stream.reset(
+                new CPyFlightDataStream(result, move(data_stream)))
+            # Loop around and try again
+            continue
+        elif isinstance(result, RecordBatch):
+            batch = <RecordBatch> result
+            if batch.schema != stream_schema:
+                raise ValueError("Got a RecordBatch whose schema does not "
+                                 "match the declared schema of this "
+                                 "GeneratorStream. "
+                                 "Got: {}\nExpected: {}".format(batch.schema,
+                                                                stream_schema))
+            check_flight_status(GetRecordBatchPayload(
+                deref(batch.batch),
+                stream.c_options,
+                &payload.ipc_message))
+            if metadata:
+                payload.app_metadata = pyarrow_unwrap_buffer(
+                    as_buffer(metadata))
+        else:
+            raise TypeError("GeneratorStream must be initialized with "
+                            "an iterator of FlightDataStream, Table, "
+                            "RecordBatch, or RecordBatchStreamReader objects, "
+                            "not {}.".format(type(result)))
+        # Don't loop around
         return CStatus_OK()
-    except FlightError as flight_error:
-        return (<FlightError> flight_error).to_status()
-
-    if isinstance(result, (list, tuple)):
-        result, metadata = result
-    else:
-        result, metadata = result, None
-
-    if isinstance(result, (Table, RecordBatchReader)):
-        if metadata:
-            raise ValueError("Can only return metadata alongside a "
-                             "RecordBatch.")
-        result = RecordBatchStream(result)
-
-    stream_schema = pyarrow_wrap_schema(stream.schema)
-    if isinstance(result, FlightDataStream):
-        if metadata:
-            raise ValueError("Can only return metadata alongside a "
-                             "RecordBatch.")
-        data_stream = unique_ptr[CFlightDataStream](
-            (<FlightDataStream> result).to_stream())
-        substream_schema = pyarrow_wrap_schema(data_stream.get().schema())
-        if substream_schema != stream_schema:
-            raise ValueError("Got a FlightDataStream whose schema does not "
-                             "match the declared schema of this "
-                             "GeneratorStream. "
-                             "Got: {}\nExpected: {}".format(substream_schema,
-                                                            stream_schema))
-        stream.current_stream.reset(
-            new CPyFlightDataStream(result, move(data_stream)))
-        return _data_stream_next(self, payload)
-    elif isinstance(result, RecordBatch):
-        batch = <RecordBatch> result
-        if batch.schema != stream_schema:
-            raise ValueError("Got a RecordBatch whose schema does not "
-                             "match the declared schema of this "
-                             "GeneratorStream. "
-                             "Got: {}\nExpected: {}".format(batch.schema,
-                                                            stream_schema))
-        check_flight_status(GetRecordBatchPayload(
-            deref(batch.batch),
-            stream.c_options,
-            &payload.ipc_message))
-        if metadata:
-            payload.app_metadata = pyarrow_unwrap_buffer(as_buffer(metadata))
-    else:
-        raise TypeError("GeneratorStream must be initialized with "
-                        "an iterator of FlightDataStream, Table, "
-                        "RecordBatch, or RecordBatchStreamReader objects, "
-                        "not {}.".format(type(result)))
-    return CStatus_OK()
+    # Ran out of attempts (the RPC handler kept yielding empty tables/readers)
+    raise RuntimeError("While getting next payload, ran out of attempts to "
+                       "get something to send "
+                       "(application server implementation error)")
 
 
 cdef CStatus _list_flights(void* self, const CServerCallContext& context,
@@ -1871,6 +1954,9 @@ cdef CStatus _do_action(void* self, const CServerCallContext& context,
         return (<FlightError> flight_error).to_status()
     # Let the application return an iterator or anything convertible
     # into one
+    if responses is None:
+        # Server didn't return anything
+        responses = []
     result.reset(new CPyFlightResultStream(iter(responses), ptr))
     return CStatus_OK()
 

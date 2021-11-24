@@ -18,6 +18,17 @@
 class TestSchema < Test::Unit::TestCase
   include Helper::Omittable
 
+  def test_export
+    require_gi_bindings(3, 4, 8)
+    fields = [
+      Arrow::Field.new("enabled", Arrow::BooleanDataType.new),
+    ]
+    schema = Arrow::Schema.new(fields)
+    c_abi_schema = schema.export
+    assert_equal(schema,
+                 Arrow::Schema.import(c_abi_schema))
+  end
+
   def test_equal
     fields1 = [
       Arrow::Field.new("enabled", Arrow::BooleanDataType.new),

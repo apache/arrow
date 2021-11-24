@@ -30,7 +30,7 @@ namespace util {
 
 namespace internal {
 
-static uint8_t non_null_filler;
+constexpr uint8_t kNonNullFiller = 0;
 
 }  // namespace internal
 
@@ -44,12 +44,12 @@ static uint8_t non_null_filler;
 /// https://github.com/google/flatbuffers/pull/5355 is trying to resolve
 /// them.
 template <typename T>
-inline T* MakeNonNull(T* maybe_null) {
+inline T* MakeNonNull(T* maybe_null = NULLPTR) {
   if (ARROW_PREDICT_TRUE(maybe_null != NULLPTR)) {
     return maybe_null;
   }
 
-  return reinterpret_cast<T*>(&internal::non_null_filler);
+  return const_cast<T*>(reinterpret_cast<const T*>(&internal::kNonNullFiller));
 }
 
 template <typename T>

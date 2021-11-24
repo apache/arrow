@@ -56,6 +56,20 @@ class PARQUET_EXPORT RowGroupReader {
   // column. Ownership is shared with the RowGroupReader.
   std::shared_ptr<ColumnReader> Column(int i);
 
+  // Construct a ColumnReader, trying to enable exposed encoding.
+  //
+  // For dictionary encoding, currently we only support column chunks that are fully
+  // dictionary encoded, i.e., all data pages in the column chunk are dictionary encoded.
+  // If a column chunk uses dictionary encoding but then falls back to plain encoding, the
+  // encoding will not be exposed.
+  //
+  // The returned column reader provides an API GetExposedEncoding() for the
+  // users to check the exposed encoding and determine how to read the batches.
+  //
+  // \note API EXPERIMENTAL
+  std::shared_ptr<ColumnReader> ColumnWithExposeEncoding(
+      int i, ExposedEncoding encoding_to_expose);
+
   std::unique_ptr<PageReader> GetColumnPageReader(int i);
 
  private:
@@ -70,6 +84,11 @@ class PARQUET_EXPORT ParquetFileReader {
   // An implementation of the Contents class is defined in the .cc file
   struct PARQUET_EXPORT Contents {
     static std::unique_ptr<Contents> Open(
+        std::shared_ptr<::arrow::io::RandomAccessFile> source,
+        const ReaderProperties& props = default_reader_properties(),
+        std::shared_ptr<FileMetaData> metadata = NULLPTR);
+
+    static ::arrow::Future<std::unique_ptr<Contents>> OpenAsync(
         std::shared_ptr<::arrow::io::RandomAccessFile> source,
         const ReaderProperties& props = default_reader_properties(),
         std::shared_ptr<FileMetaData> metadata = NULLPTR);
@@ -95,6 +114,13 @@ class PARQUET_EXPORT ParquetFileReader {
   // interfaces.
   static std::unique_ptr<ParquetFileReader> OpenFile(
       const std::string& path, bool memory_map = true,
+      const ReaderProperties& props = default_reader_properties(),
+      std::shared_ptr<FileMetaData> metadata = NULLPTR);
+
+  // Asynchronously open a file reader from an Arrow file object.
+  // Does not throw - all errors are reported through the Future.
+  static ::arrow::Future<std::unique_ptr<ParquetFileReader>> OpenAsync(
+      std::shared_ptr<::arrow::io::RandomAccessFile> source,
       const ReaderProperties& props = default_reader_properties(),
       std::shared_ptr<FileMetaData> metadata = NULLPTR);
 
@@ -125,10 +151,21 @@ class PARQUET_EXPORT ParquetFileReader {
   /// buffered in memory until either \a PreBuffer() is called again,
   /// or the reader itself is destructed. Reading - and buffering -
   /// only one row group at a time may be useful.
-  ::arrow::Future<> PreBuffer(const std::vector<int>& row_groups,
-                              const std::vector<int>& column_indices,
-                              const ::arrow::io::IOContext& ctx,
-                              const ::arrow::io::CacheOptions& options);
+  ///
+  /// This method may throw.
+  void PreBuffer(const std::vector<int>& row_groups,
+                 const std::vector<int>& column_indices,
+                 const ::arrow::io::IOContext& ctx,
+                 const ::arrow::io::CacheOptions& options);
+
+  /// Wait for the specified row groups and column indices to be pre-buffered.
+  ///
+  /// After the returned Future completes, reading the specified row
+  /// groups/columns will not block.
+  ///
+  /// PreBuffer must be called first. This method does not throw.
+  ::arrow::Future<> WhenBuffered(const std::vector<int>& row_groups,
+                                 const std::vector<int>& column_indices) const;
 
  private:
   // Holds a pointer to an instance of Contents implementation

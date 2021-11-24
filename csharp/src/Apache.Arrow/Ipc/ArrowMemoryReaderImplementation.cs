@@ -28,7 +28,7 @@ namespace Apache.Arrow.Ipc
         private readonly ReadOnlyMemory<byte> _buffer;
         private int _bufferPosition;
 
-        public ArrowMemoryReaderImplementation(ReadOnlyMemory<byte> buffer)
+        public ArrowMemoryReaderImplementation(ReadOnlyMemory<byte> buffer) : base()
         {
             _buffer = buffer;
         }
@@ -111,7 +111,7 @@ namespace Apache.Arrow.Ipc
             }
 
             ByteBuffer schemaBuffer = CreateByteBuffer(_buffer.Slice(_bufferPosition));
-            Schema = MessageSerializer.GetSchema(ReadMessage<Flatbuf.Schema>(schemaBuffer));
+            Schema = MessageSerializer.GetSchema(ReadMessage<Flatbuf.Schema>(schemaBuffer), ref _dictionaryMemo);
             _bufferPosition += schemaMessageLength;
         }
     }

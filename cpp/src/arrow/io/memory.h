@@ -88,7 +88,7 @@ class ARROW_EXPORT BufferOutputStream : public OutputStream {
   uint8_t* mutable_data_;
 };
 
-/// \brief A helper class to tracks the size of allocations
+/// \brief A helper class to track the size of allocations
 ///
 /// Writes to this stream do not copy or retain any data, they just bump
 /// a size counter that can be later used to know exactly which data size

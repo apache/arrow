@@ -24,13 +24,13 @@ if_version_less_than <- function(version) {
 }
 
 skip_if_version_less_than <- function(version, msg) {
-  if(if_version(version, `<`)) {
+  if (if_version(version, `<`)) {
     skip(msg)
   }
 }
 
 skip_if_version_equals <- function(version, msg) {
-  if(if_version(version, `==`)) {
+  if (if_version(version, `==`)) {
     skip(msg)
   }
 }

@@ -17,8 +17,8 @@
 
 #include "benchmark/benchmark.h"
 
+#include "arrow/compute/exec/expression.h"
 #include "arrow/dataset/discovery.h"
-#include "arrow/dataset/expression.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/file_ipc.h"
 #include "arrow/dataset/partition.h"
@@ -62,7 +62,7 @@ static void GetAllFragments(benchmark::State& state) {
   }
 }
 
-static void GetFilteredFragments(benchmark::State& state, Expression filter) {
+static void GetFilteredFragments(benchmark::State& state, compute::Expression filter) {
   auto dataset = GetDataset();
   ASSERT_OK_AND_ASSIGN(filter, filter.Bind(*dataset->schema()));
   for (auto _ : state) {
@@ -70,6 +70,9 @@ static void GetFilteredFragments(benchmark::State& state, Expression filter) {
     ABORT_NOT_OK(fragments.Visit([](std::shared_ptr<Fragment>) { return Status::OK(); }));
   }
 }
+
+using compute::field_ref;
+using compute::literal;
 
 BENCHMARK(GetAllFragments);
 // Drill down to a subtree.

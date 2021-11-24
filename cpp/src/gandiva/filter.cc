@@ -118,11 +118,19 @@ Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
   // Return if the expression is invalid since we will not be able to process further.
   ExprValidator expr_validator(llvm_gen->types(), schema);
   ARROW_RETURN_NOT_OK(expr_validator.Validate(condition));
+
+  // Start measuring build time
+  auto begin = std::chrono::high_resolution_clock::now();
   ARROW_RETURN_NOT_OK(llvm_gen->Build({condition}, SelectionVector::Mode::MODE_NONE));
+  // Stop measuring time and calculate the elapsed time
+  auto end = std::chrono::high_resolution_clock::now();
+  auto elapsed =
+      std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();
 
   // Instantiate the filter with the completely built llvm generator
   *filter = std::make_shared<Filter>(std::move(llvm_gen), schema, configuration);
-  cache.PutModule(cache_key, *filter);
+  ValueCacheObject<std::shared_ptr<Filter>> value_cache(*filter, elapsed);
+  cache.PutModule(cache_key, value_cache);
 
   return Status::OK();
 }

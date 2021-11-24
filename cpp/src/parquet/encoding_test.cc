@@ -669,7 +669,7 @@ class EncodingAdHocTyped : public ::testing::Test {
     std::shared_ptr<::arrow::Array> result;
     ASSERT_OK(acc.Finish(&result));
     ASSERT_EQ(50, result->length());
-    ::arrow::AssertArraysEqual(*values, *result);
+    ::arrow::AssertArraysEqual(*values, *result, /*verbose=*/true);
   }
 
   void ByteStreamSplit(int seed) {

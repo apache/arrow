@@ -33,6 +33,7 @@
 #include "arrow/array/builder_dict.h"
 #include "arrow/array/builder_nested.h"
 #include "arrow/array/builder_primitive.h"
+#include "arrow/array/builder_time.h"
 #include "arrow/chunked_array.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
@@ -67,6 +68,95 @@ using internal::MakeChunker;
 using internal::MakeConverter;
 
 namespace py {
+
+namespace {
+enum class MonthDayNanoField { kMonths, kWeeksAndDays, kDaysOnly, kNanoseconds };
+
+template <MonthDayNanoField field>
+struct MonthDayNanoTraits;
+
+struct MonthDayNanoAttrData {
+  const char* name;
+  const int64_t multiplier;
+};
+
+template <>
+struct MonthDayNanoTraits<MonthDayNanoField::kMonths> {
+  using c_type = int32_t;
+  static const MonthDayNanoAttrData attrs[];
+};
+
+const MonthDayNanoAttrData MonthDayNanoTraits<MonthDayNanoField::kMonths>::attrs[] = {
+    {"years", 1}, {"months", /*months_in_year=*/12}, {nullptr, 0}};
+
+template <>
+struct MonthDayNanoTraits<MonthDayNanoField::kWeeksAndDays> {
+  using c_type = int32_t;
+  static const MonthDayNanoAttrData attrs[];
+};
+
+const MonthDayNanoAttrData MonthDayNanoTraits<MonthDayNanoField::kWeeksAndDays>::attrs[] =
+    {{"weeks", 1}, {"days", /*days_in_week=*/7}, {nullptr, 0}};
+
+template <>
+struct MonthDayNanoTraits<MonthDayNanoField::kDaysOnly> {
+  using c_type = int32_t;
+  static const MonthDayNanoAttrData attrs[];
+};
+
+const MonthDayNanoAttrData MonthDayNanoTraits<MonthDayNanoField::kDaysOnly>::attrs[] = {
+    {"days", 1}, {nullptr, 0}};
+
+template <>
+struct MonthDayNanoTraits<MonthDayNanoField::kNanoseconds> {
+  using c_type = int64_t;
+  static const MonthDayNanoAttrData attrs[];
+};
+
+const MonthDayNanoAttrData MonthDayNanoTraits<MonthDayNanoField::kNanoseconds>::attrs[] =
+    {{"hours", 1},
+     {"minutes", /*minutes_in_hours=*/60},
+     {"seconds", /*seconds_in_minute=*/60},
+     {"milliseconds", /*milliseconds_in_seconds*/ 1000},
+     {"microseconds", /*microseconds_in_millseconds=*/1000},
+     {"nanoseconds", /*nanoseconds_in_microseconds=*/1000},
+     {nullptr, 0}};
+
+template <MonthDayNanoField field>
+struct PopulateMonthDayNano {
+  using Traits = MonthDayNanoTraits<field>;
+  using field_c_type = typename Traits::c_type;
+
+  static Status Field(PyObject* obj, field_c_type* out, bool* found_attrs) {
+    *out = 0;
+    for (const MonthDayNanoAttrData* attr = &Traits::attrs[0]; attr->multiplier != 0;
+         ++attr) {
+      if (attr->multiplier != 1 &&
+          ::arrow::internal::MultiplyWithOverflow(
+              static_cast<field_c_type>(attr->multiplier), *out, out)) {
+        return Status::Invalid("Overflow on: ", (attr - 1)->name,
+                               " for: ", internal::PyObject_StdStringRepr(obj));
+      }
+
+      OwnedRef field_value(PyObject_GetAttrString(obj, attr->name));
+      if (field_value.obj() == nullptr) {
+        // No attribute present, skip  to the next one.
+        PyErr_Clear();
+        continue;
+      }
+      RETURN_IF_PYERROR();
+      *found_attrs = true;
+      field_c_type value;
+      RETURN_NOT_OK(internal::CIntFromPython(field_value.obj(), &value, attr->name));
+      if (::arrow::internal::AddWithOverflow(*out, value, out)) {
+        return Status::Invalid("Overflow on: ", attr->name,
+                               " for: ", internal::PyObject_StdStringRepr(obj));
+      }
+    }
+
+    return Status::OK();
+  }
+};
 
 // Utility for converting single python objects to their intermediate C representations
 // which can be fed to the typed builders
@@ -116,14 +206,16 @@ class PyValue {
   }
 
   template <typename T>
-  static enable_if_integer<T, Result<typename T::c_type>> Convert(const T*, const O&,
+  static enable_if_integer<T, Result<typename T::c_type>> Convert(const T* type, const O&,
                                                                   I obj) {
     typename T::c_type value;
     auto status = internal::CIntFromPython(obj, &value);
     if (ARROW_PREDICT_TRUE(status.ok())) {
       return value;
     } else if (!internal::PyIntScalar_Check(obj)) {
-      return internal::InvalidValue(obj, "tried to convert to int");
+      std::stringstream ss;
+      ss << "tried to convert to " << type->ToString();
+      return internal::InvalidValue(obj, ss.str());
     } else {
       return status;
     }
@@ -304,6 +396,34 @@ class PyValue {
     return value;
   }
 
+  static Result<MonthDayNanoIntervalType::MonthDayNanos> Convert(
+      const MonthDayNanoIntervalType* /*type*/, const O& /*options*/, I obj) {
+    MonthDayNanoIntervalType::MonthDayNanos output;
+    bool found_attrs = false;
+    RETURN_NOT_OK(PopulateMonthDayNano<MonthDayNanoField::kMonths>::Field(
+        obj, &output.months, &found_attrs));
+    // on relativeoffset weeks is a property calculated from days.  On
+    // DateOffset is is a field on its own. timedelta doesn't have a weeks
+    // attribute.
+    PyObject* pandas_date_offset_type = internal::BorrowPandasDataOffsetType();
+    bool is_date_offset = pandas_date_offset_type == (PyObject*)Py_TYPE(obj);
+    if (!is_date_offset) {
+      RETURN_NOT_OK(PopulateMonthDayNano<MonthDayNanoField::kDaysOnly>::Field(
+          obj, &output.days, &found_attrs));
+    } else {
+      RETURN_NOT_OK(PopulateMonthDayNano<MonthDayNanoField::kWeeksAndDays>::Field(
+          obj, &output.days, &found_attrs));
+    }
+    RETURN_NOT_OK(PopulateMonthDayNano<MonthDayNanoField::kNanoseconds>::Field(
+        obj, &output.nanoseconds, &found_attrs));
+
+    if (ARROW_PREDICT_FALSE(!found_attrs) && !is_date_offset) {
+      // date_offset can have zero fields.
+      return Status::TypeError("No temporal attributes found on object.");
+    }
+    return output;
+  }
+
   static Result<int64_t> Convert(const DurationType* type, const O&, I obj) {
     int64_t value;
     if (PyDelta_Check(obj)) {
@@ -392,22 +512,25 @@ class PyValue {
 class PyConverter : public Converter<PyObject*, PyConversionOptions> {
  public:
   // Iterate over the input values and defer the conversion to the Append method
-  Status Extend(PyObject* values, int64_t size) override {
+  Status Extend(PyObject* values, int64_t size, int64_t offset = 0) override {
+    DCHECK_GE(size, offset);
     /// Ensure we've allocated enough space
-    RETURN_NOT_OK(this->Reserve(size));
+    RETURN_NOT_OK(this->Reserve(size - offset));
     // Iterate over the items adding each one
-    return internal::VisitSequence(values, [this](PyObject* item, bool* /* unused */) {
-      return this->Append(item);
-    });
+    return internal::VisitSequence(
+        values, offset,
+        [this](PyObject* item, bool* /* unused */) { return this->Append(item); });
   }
 
   // Convert and append a sequence of values masked with a numpy array
-  Status ExtendMasked(PyObject* values, PyObject* mask, int64_t size) override {
+  Status ExtendMasked(PyObject* values, PyObject* mask, int64_t size,
+                      int64_t offset = 0) override {
+    DCHECK_GE(size, offset);
     /// Ensure we've allocated enough space
-    RETURN_NOT_OK(this->Reserve(size));
+    RETURN_NOT_OK(this->Reserve(size - offset));
     // Iterate over the items adding each one
     return internal::VisitSequenceMasked(
-        values, mask, [this](PyObject* item, bool is_masked, bool* /* unused */) {
+        values, mask, offset, [this](PyObject* item, bool is_masked, bool* /* unused */) {
           if (is_masked) {
             return this->AppendNull();
           } else {
@@ -435,8 +558,9 @@ struct PyConverterTrait;
 
 template <typename T>
 struct PyConverterTrait<
-    T, enable_if_t<!is_nested_type<T>::value && !is_interval_type<T>::value &&
-                   !is_extension_type<T>::value>> {
+    T, enable_if_t<(!is_nested_type<T>::value && !is_interval_type<T>::value &&
+                    !is_extension_type<T>::value) ||
+                   std::is_same<T, MonthDayNanoIntervalType>::value>> {
   using type = PyPrimitiveConverter<T>;
 };
 
@@ -475,7 +599,9 @@ template <typename T>
 class PyPrimitiveConverter<
     T, enable_if_t<is_boolean_type<T>::value || is_number_type<T>::value ||
                    is_decimal_type<T>::value || is_date_type<T>::value ||
-                   is_time_type<T>::value>> : public PrimitiveConverter<T, PyConverter> {
+                   is_time_type<T>::value ||
+                   std::is_same<MonthDayNanoIntervalType, T>::value>>
+    : public PrimitiveConverter<T, PyConverter> {
  public:
   Status Append(PyObject* value) override {
     // Since the required space has been already allocated in the Extend functions we can
@@ -515,34 +641,6 @@ class PyPrimitiveConverter<
 };
 
 template <typename T>
-class PyPrimitiveConverter<T, enable_if_binary<T>>
-    : public PrimitiveConverter<T, PyConverter> {
- public:
-  using OffsetType = typename T::offset_type;
-
-  Status Append(PyObject* value) override {
-    if (PyValue::IsNull(this->options_, value)) {
-      this->primitive_builder_->UnsafeAppendNull();
-    } else {
-      ARROW_RETURN_NOT_OK(
-          PyValue::Convert(this->primitive_type_, this->options_, value, view_));
-      // Since we don't know the varying length input size in advance, we need to
-      // reserve space in the value builder one by one. ReserveData raises CapacityError
-      // if the value would not fit into the array.
-      ARROW_RETURN_NOT_OK(this->primitive_builder_->ReserveData(view_.size));
-      this->primitive_builder_->UnsafeAppend(view_.bytes,
-                                             static_cast<OffsetType>(view_.size));
-    }
-    return Status::OK();
-  }
-
- protected:
-  // Create a single instance of PyBytesView here to prevent unnecessary object
-  // creation/destruction. This significantly improves the conversion performance.
-  PyBytesView view_;
-};
-
-template <typename T>
 class PyPrimitiveConverter<T, enable_if_t<std::is_same<T, FixedSizeBinaryType>::value>>
     : public PrimitiveConverter<T, PyConverter> {
  public:
@@ -563,7 +661,7 @@ class PyPrimitiveConverter<T, enable_if_t<std::is_same<T, FixedSizeBinaryType>::
 };
 
 template <typename T>
-class PyPrimitiveConverter<T, enable_if_string_like<T>>
+class PyPrimitiveConverter<T, enable_if_base_binary<T>>
     : public PrimitiveConverter<T, PyConverter> {
  public:
   using OffsetType = typename T::offset_type;
@@ -578,6 +676,9 @@ class PyPrimitiveConverter<T, enable_if_string_like<T>>
         // observed binary value
         observed_binary_ = true;
       }
+      // Since we don't know the varying length input size in advance, we need to
+      // reserve space in the value builder one by one. ReserveData raises CapacityError
+      // if the value would not fit into the array.
       ARROW_RETURN_NOT_OK(this->primitive_builder_->ReserveData(view_.size));
       this->primitive_builder_->UnsafeAppend(view_.bytes,
                                              static_cast<OffsetType>(view_.size));
@@ -647,6 +748,8 @@ class PyListConverter : public ListConverter<T, PyConverter, PyConverterTrait> {
       RETURN_NOT_OK(AppendNdarray(value));
     } else if (PySequence_Check(value)) {
       RETURN_NOT_OK(AppendSequence(value));
+    } else if (PySet_Check(value) || (Py_TYPE(value) == &PyDictValues_Type)) {
+      RETURN_NOT_OK(AppendIterable(value));
     } else {
       return internal::InvalidType(
           value, "was not a sequence or recognized null for conversion to list type");
@@ -670,6 +773,17 @@ class PyListConverter : public ListConverter<T, PyConverter, PyConverterTrait> {
     int64_t size = static_cast<int64_t>(PySequence_Size(value));
     RETURN_NOT_OK(this->list_builder_->ValidateOverflow(size));
     return this->value_converter_->Extend(value, size);
+  }
+
+  Status AppendIterable(PyObject* value) {
+    PyObject* iterator = PyObject_GetIter(value);
+    OwnedRef iter_ref(iterator);
+    while (PyObject* item = PyIter_Next(iterator)) {
+      OwnedRef item_ref(item);
+      RETURN_NOT_OK(this->value_converter_->Reserve(1));
+      RETURN_NOT_OK(this->value_converter_->Append(item));
+    }
+    return Status::OK();
   }
 
   Status AppendNdarray(PyObject* value) {
@@ -728,7 +842,6 @@ class PyListConverter : public ListConverter<T, PyConverter, PyConverterTrait> {
     auto value_builder =
         checked_cast<ValueBuilderType*>(this->value_converter_->builder().get());
 
-    // TODO(wesm): Vector append when not strided
     Ndarray1DIndexer<NumpyType> values(ndarray);
     if (null_sentinels_possible) {
       for (int64_t i = 0; i < values.size(); ++i) {
@@ -738,6 +851,8 @@ class PyListConverter : public ListConverter<T, PyConverter, PyConverterTrait> {
           RETURN_NOT_OK(value_builder->Append(values[i]));
         }
       }
+    } else if (!values.is_strided()) {
+      RETURN_NOT_OK(value_builder->AppendValues(values.data(), values.size()));
     } else {
       for (int64_t i = 0; i < values.size(); ++i) {
         RETURN_NOT_OK(value_builder->Append(values[i]));
@@ -1002,6 +1117,8 @@ Status ConvertToSequenceAndInferSize(PyObject* obj, PyObject** seq, int64_t* siz
   }
   return Status::OK();
 }
+
+}  // namespace
 
 Result<std::shared_ptr<ChunkedArray>> ConvertPySequence(PyObject* obj, PyObject* mask,
                                                         PyConversionOptions options,

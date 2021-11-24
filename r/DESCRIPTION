@@ -1,13 +1,15 @@
 Package: arrow
 Title: Integration to 'Apache' 'Arrow'
-Version: 3.0.0.9000
+Version: 6.0.1.9000
 Authors@R: c(
     person("Neal", "Richardson", email = "neal@ursalabs.org", role = c("aut", "cre")),
     person("Ian", "Cook", email = "ianmcook@gmail.com", role = c("aut")),
+    person("Nic", "Crane", email = "thisisnic@gmail.com", role = c("aut")),
     person("Jonathan", "Keane", email = "jkeane@gmail.com", role = c("aut")),
     person("Romain", "Fran\u00e7ois", email = "romain@rstudio.com", role = c("aut"), comment = c(ORCID = "0000-0002-2444-4226")),
     person("Jeroen", "Ooms", email = "jeroen@berkeley.edu", role = c("aut")),
     person("Javier", "Luraschi", email = "javier@rstudio.com", role = c("ctb")),
+    person("Karl", "Dunkle Werner", email = "karldw@users.noreply.github.com", role = c("ctb"), comment = c(ORCID = "0000-0003-0523-7309")),
     person("Jeffrey", "Wong", email = "jeffreyw@netflix.com", role = c("ctb")),
     person("Apache Arrow", email = "dev@arrow.apache.org", role = c("aut", "cph"))
   )
@@ -36,24 +38,29 @@ Imports:
     utils,
     vctrs
 Roxygen: list(markdown = TRUE, r6 = FALSE, load = "source")
-RoxygenNote: 7.1.1
+RoxygenNote: 7.1.2
+Config/testthat/edition: 3
 VignetteBuilder: knitr
 Suggests:
+    DBI,
+    dbplyr,
     decor,
     distro,
     dplyr,
+    duckdb (>= 0.2.8),
     hms,
     knitr,
     lubridate,
     pkgload,
     reticulate,
     rmarkdown,
+    stringi,
     stringr,
-    testthat,
+    testthat (>= 3.1.0),
     tibble,
     withr
-LinkingTo: cpp11 (>= 0.2.0)
 Collate:
+    'arrowExports.R'
     'enums.R'
     'arrow-package.R'
     'type.R'
@@ -61,7 +68,6 @@ Collate:
     'arrow-datum.R'
     'array.R'
     'arrow-tabular.R'
-    'arrowExports.R'
     'buffer.R'
     'chunked-array.R'
     'io.R'
@@ -78,10 +84,23 @@ Collate:
     'dataset-write.R'
     'deprecated.R'
     'dictionary.R'
+    'dplyr-arrange.R'
+    'dplyr-collect.R'
+    'dplyr-count.R'
+    'dplyr-distinct.R'
+    'dplyr-eval.R'
+    'dplyr-filter.R'
+    'expression.R'
+    'dplyr-functions.R'
+    'dplyr-group-by.R'
+    'dplyr-join.R'
+    'dplyr-mutate.R'
+    'dplyr-select.R'
+    'dplyr-summarize.R'
     'record-batch.R'
     'table.R'
-    'expression.R'
     'dplyr.R'
+    'duckdb.R'
     'feather.R'
     'field.R'
     'filesystem.R'
@@ -94,6 +113,7 @@ Collate:
     'metadata.R'
     'parquet.R'
     'python.R'
+    'query-engine.R'
     'record-batch-reader.R'
     'record-batch-writer.R'
     'reexports-bit64.R'

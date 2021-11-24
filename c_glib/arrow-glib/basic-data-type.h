@@ -36,6 +36,16 @@ struct _GArrowDataTypeClass
   GObjectClass parent_class;
 };
 
+GARROW_AVAILABLE_IN_6_0
+GArrowDataType *
+garrow_data_type_import(gpointer c_abi_schema,
+                        GError **error);
+
+GARROW_AVAILABLE_IN_6_0
+gpointer
+garrow_data_type_export(GArrowDataType *data_type,
+                        GError **error);
+
 gboolean   garrow_data_type_equal     (GArrowDataType *data_type,
                                        GArrowDataType *other_data_type);
 gchar     *garrow_data_type_to_string (GArrowDataType *data_type);
@@ -446,11 +456,8 @@ struct _GArrowDecimalDataTypeClass
   GArrowFixedSizeBinaryDataTypeClass parent_class;
 };
 
-#ifndef GARROW_DISABLE_DEPRECATED
-GARROW_DEPRECATED_IN_0_12_FOR(garrow_decimal128_data_type_new)
 GArrowDecimalDataType *
-garrow_decimal_data_type_new(gint32 precision, gint32 scale);
-#endif
+garrow_decimal_data_type_new(gint32 precision, gint32 scale, GError **error);
 gint32 garrow_decimal_data_type_get_precision(GArrowDecimalDataType *decimal_data_type);
 gint32 garrow_decimal_data_type_get_scale(GArrowDecimalDataType *decimal_data_type);
 
@@ -472,7 +479,7 @@ garrow_decimal128_data_type_max_precision();
 
 GARROW_AVAILABLE_IN_0_12
 GArrowDecimal128DataType *
-garrow_decimal128_data_type_new(gint32 precision, gint32 scale);
+garrow_decimal128_data_type_new(gint32 precision, gint32 scale, GError **error);
 
 
 #define GARROW_TYPE_DECIMAL256_DATA_TYPE (garrow_decimal256_data_type_get_type())
@@ -492,7 +499,7 @@ garrow_decimal256_data_type_max_precision();
 
 GARROW_AVAILABLE_IN_3_0
 GArrowDecimal256DataType *
-garrow_decimal256_data_type_new(gint32 precision, gint32 scale);
+garrow_decimal256_data_type_new(gint32 precision, gint32 scale, GError **error);
 
 #define GARROW_TYPE_EXTENSION_DATA_TYPE (garrow_extension_data_type_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowExtensionDataType,

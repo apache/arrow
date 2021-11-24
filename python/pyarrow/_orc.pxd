@@ -110,18 +110,20 @@ cdef extern from "arrow/adapters/orc/adapter.h" \
 
     cdef cppclass ORCFileReader:
         @staticmethod
-        CStatus Open(const shared_ptr[CRandomAccessFile]& file,
-                     CMemoryPool* pool,
-                     unique_ptr[ORCFileReader]* reader)
+        CResult[unique_ptr[ORCFileReader]] Open(
+            const shared_ptr[CRandomAccessFile]& file,
+            CMemoryPool* pool)
 
-        CStatus ReadSchema(shared_ptr[CSchema]* out)
+        CResult[shared_ptr[const CKeyValueMetadata]] ReadMetadata()
 
-        CStatus ReadStripe(int64_t stripe, shared_ptr[CRecordBatch]* out)
-        CStatus ReadStripe(int64_t stripe, std_vector[int],
-                           shared_ptr[CRecordBatch]* out)
+        CResult[shared_ptr[CSchema]] ReadSchema()
 
-        CStatus Read(shared_ptr[CTable]* out)
-        CStatus Read(std_vector[int], shared_ptr[CTable]* out)
+        CResult[shared_ptr[CRecordBatch]] ReadStripe(int64_t stripe)
+        CResult[shared_ptr[CRecordBatch]] ReadStripe(
+            int64_t stripe, std_vector[c_string])
+
+        CResult[shared_ptr[CTable]] Read()
+        CResult[shared_ptr[CTable]] Read(std_vector[c_string])
 
         int64_t NumberOfStripes()
 

@@ -21,11 +21,12 @@ arrow_install_all_headers("arrow/dataset")
 
 set(ARROW_DATASET_SRCS
     dataset.cc
+    dataset_writer.cc
     discovery.cc
-    expression.cc
     file_base.cc
     file_ipc.cc
     partition.cc
+    plan.cc
     projector.cc
     scanner.cc)
 
@@ -34,6 +35,10 @@ set(ARROW_DATASET_LINK_SHARED arrow_shared)
 
 if(ARROW_CSV)
   set(ARROW_DATASET_SRCS ${ARROW_DATASET_SRCS} file_csv.cc)
+endif()
+
+if(ARROW_ORC)
+  set(ARROW_DATASET_SRCS ${ARROW_DATASET_SRCS} file_orc.cc)
 endif()
 
 if(ARROW_PARQUET)
@@ -54,6 +59,8 @@ add_arrow_lib(arrow_dataset
               ${ARROW_DATASET_SRCS}
               PRECOMPILED_HEADERS
               "$<$<COMPILE_LANGUAGE:CXX>:arrow/dataset/pch.h>"
+              DEPENDENCIES
+              toolchain
               PRIVATE_INCLUDES
               ${ARROW_DATASET_PRIVATE_INCLUDES}
               SHARED_LINK_LIBS
@@ -105,8 +112,8 @@ function(ADD_ARROW_DATASET_TEST REL_TEST_NAME)
 endfunction()
 
 add_arrow_dataset_test(dataset_test)
+add_arrow_dataset_test(dataset_writer_test)
 add_arrow_dataset_test(discovery_test)
-add_arrow_dataset_test(expression_test)
 add_arrow_dataset_test(file_ipc_test)
 add_arrow_dataset_test(file_test)
 add_arrow_dataset_test(partition_test)
@@ -116,19 +123,23 @@ if(ARROW_CSV)
   add_arrow_dataset_test(file_csv_test)
 endif()
 
+if(ARROW_ORC)
+  add_arrow_dataset_test(file_orc_test)
+endif()
+
 if(ARROW_PARQUET)
   add_arrow_dataset_test(file_parquet_test)
 endif()
 
 if(ARROW_BUILD_BENCHMARKS)
-  add_arrow_benchmark(expression_benchmark PREFIX "arrow-dataset")
   add_arrow_benchmark(file_benchmark PREFIX "arrow-dataset")
+  add_arrow_benchmark(scanner_benchmark PREFIX "arrow-dataset")
 
   if(ARROW_BUILD_STATIC)
-    target_link_libraries(arrow-dataset-expression-benchmark PUBLIC arrow_dataset_static)
     target_link_libraries(arrow-dataset-file-benchmark PUBLIC arrow_dataset_static)
+    target_link_libraries(arrow-dataset-scanner-benchmark PUBLIC arrow_dataset_static)
   else()
-    target_link_libraries(arrow-dataset-expression-benchmark PUBLIC arrow_dataset_shared)
     target_link_libraries(arrow-dataset-file-benchmark PUBLIC arrow_dataset_shared)
+    target_link_libraries(arrow-dataset-scanner-benchmark PUBLIC arrow_dataset_shared)
   endif()
 endif()

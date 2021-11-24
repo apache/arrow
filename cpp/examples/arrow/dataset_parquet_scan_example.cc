@@ -16,9 +16,9 @@
 // under the License.
 
 #include <arrow/api.h>
+#include <arrow/compute/exec/expression.h>
 #include <arrow/dataset/dataset.h>
 #include <arrow/dataset/discovery.h>
-#include <arrow/dataset/expression.h>
 #include <arrow/dataset/file_base.h>
 #include <arrow/dataset/file_parquet.h>
 #include <arrow/dataset/scanner.h>
@@ -36,6 +36,8 @@ using arrow::Table;
 namespace fs = arrow::fs;
 
 namespace ds = arrow::dataset;
+
+namespace cp = arrow::compute;
 
 #define ABORT_ON_FAILURE(expr)                     \
   do {                                             \
@@ -60,8 +62,8 @@ struct Configuration {
 
   // Indicates the filter by which rows will be filtered. This optimization can
   // make use of partition information and/or file metadata if possible.
-  ds::Expression filter =
-      ds::greater(ds::field_ref("total_amount"), ds::literal(1000.0f));
+  cp::Expression filter =
+      cp::greater(cp::field_ref("total_amount"), cp::literal(1000.0f));
 
   ds::InspectOptions inspect_options{};
   ds::FinishOptions finish_options{};
@@ -146,7 +148,7 @@ std::shared_ptr<ds::Dataset> GetDatasetFromPath(
 
 std::shared_ptr<ds::Scanner> GetScannerFromDataset(std::shared_ptr<ds::Dataset> dataset,
                                                    std::vector<std::string> columns,
-                                                   ds::Expression filter,
+                                                   cp::Expression filter,
                                                    bool use_threads) {
   auto scanner_builder = dataset->NewScan().ValueOrDie();
 

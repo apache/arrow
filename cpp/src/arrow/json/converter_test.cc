@@ -17,9 +17,9 @@
 
 #include "arrow/json/converter.h"
 
-#include <string>
-
 #include <gtest/gtest.h>
+
+#include <string>
 
 #include "arrow/json/options.h"
 #include "arrow/json/test_common.h"
@@ -27,73 +27,187 @@
 namespace arrow {
 namespace json {
 
-using util::string_view;
-
-void AssertConvert(const std::shared_ptr<DataType>& expected_type,
-                   const std::string& expected_json,
-                   const std::string& unconverted_json) {
-  // make an unconverted array
-  auto scalar_values = ArrayFromJSON(utf8(), unconverted_json);
-  Int32Builder indices_builder;
-  ASSERT_OK(indices_builder.Resize(scalar_values->length()));
-  for (int i = 0; i < scalar_values->length(); ++i) {
-    if (scalar_values->IsNull(i)) {
-      indices_builder.UnsafeAppendNull();
-    } else {
-      indices_builder.UnsafeAppend(i);
-    }
-  }
-  std::shared_ptr<Array> indices, unconverted, converted;
-  ASSERT_OK(indices_builder.Finish(&indices));
-
-  auto unconverted_type = dictionary(int32(), scalar_values->type());
-  unconverted =
-      std::make_shared<DictionaryArray>(unconverted_type, indices, scalar_values);
-
+Result<std::shared_ptr<Array>> Convert(std::shared_ptr<DataType> type,
+                                       std::shared_ptr<Array> unconverted) {
+  std::shared_ptr<Array> converted;
   // convert the array
   std::shared_ptr<Converter> converter;
-  ASSERT_OK(MakeConverter(expected_type, default_memory_pool(), &converter));
-  ASSERT_OK(converter->Convert(unconverted, &converted));
-  ASSERT_OK(converted->ValidateFull());
-
-  // assert equality
-  auto expected = ArrayFromJSON(expected_type, expected_json);
-  AssertArraysEqual(*expected, *converted);
+  RETURN_NOT_OK(MakeConverter(type, default_memory_pool(), &converter));
+  RETURN_NOT_OK(converter->Convert(unconverted, &converted));
+  RETURN_NOT_OK(converted->ValidateFull());
+  return converted;
 }
 
 // bool, null are trivial pass throughs
 
 TEST(ConverterTest, Integers) {
-  for (auto expected_type : {uint8(), uint16(), uint32(), uint64()}) {
-    AssertConvert(expected_type, "[0, null, 1, 32, 45, 12, 64, 124]",
-                  R"(["0", null, "1", "32", "45", "12", "64", "124"])");
+  for (auto int_type : {int8(), int16(), int32(), int64()}) {
+    ParseOptions options;
+    options.explicit_schema = schema({field("", int_type)});
+
+    std::string json_source = R"(
+    {"" : -0}
+    {"" : null}
+    {"" : -1}
+    {"" : 32}
+    {"" : -45}
+    {"" : 12}
+    {"" : -64}
+    {"" : 124}
+  )";
+
+    std::shared_ptr<StructArray> parse_array;
+    ASSERT_OK(ParseFromString(options, json_source, &parse_array));
+
+    // call to convert
+    ASSERT_OK_AND_ASSIGN(auto converted,
+                         Convert(int_type, parse_array->GetFieldByName("")));
+
+    // assert equality
+    auto expected = ArrayFromJSON(int_type, R"([
+          -0, null, -1, 32, -45, 12, -64, 124])");
+
+    AssertArraysEqual(*expected, *converted);
   }
-  for (auto expected_type : {int8(), int16(), int32(), int64()}) {
-    AssertConvert(expected_type, "[0, null, -1, 32, -45, 12, -64, 124]",
-                  R"(["-0", null, "-1", "32", "-45", "12", "-64", "124"])");
+}
+
+TEST(ConverterTest, UnsignedIntegers) {
+  for (auto uint_type : {uint8(), uint16(), uint32(), uint64()}) {
+    ParseOptions options;
+    options.explicit_schema = schema({field("", uint_type)});
+
+    std::string json_source = R"(
+    {"" : 0}
+    {"" : null}
+    {"" : 1}
+    {"" : 32}
+    {"" : 45}
+    {"" : 12}
+    {"" : 64}
+    {"" : 124}
+  )";
+
+    std::shared_ptr<StructArray> parse_array;
+    ASSERT_OK(ParseFromString(options, json_source, &parse_array));
+
+    // call to convert
+    ASSERT_OK_AND_ASSIGN(auto converted,
+                         Convert(uint_type, parse_array->GetFieldByName("")));
+
+    // assert equality
+    auto expected = ArrayFromJSON(uint_type, R"([
+          0, null, 1, 32, 45, 12, 64, 124])");
+
+    AssertArraysEqual(*expected, *converted);
   }
 }
 
 TEST(ConverterTest, Floats) {
-  for (auto expected_type : {float32(), float64()}) {
-    AssertConvert(expected_type, "[0, -0.0, null, 32.0, 1e5]",
-                  R"(["0", "-0.0", null, "32.0", "1e5"])");
+  for (auto float_type : {float32(), float64()}) {
+    ParseOptions options;
+    options.explicit_schema = schema({field("", float_type)});
+
+    std::string json_source = R"(
+    {"" : 0}
+    {"" : -0.0}
+    {"" : null}
+    {"" : 32.0}
+    {"" : 1e5}
+  )";
+
+    std::shared_ptr<StructArray> parse_array;
+    ASSERT_OK(ParseFromString(options, json_source, &parse_array));
+
+    // call to convert
+    ASSERT_OK_AND_ASSIGN(auto converted,
+                         Convert(float_type, parse_array->GetFieldByName("")));
+
+    // assert equality
+    auto expected = ArrayFromJSON(float_type, R"([
+          0, -0.0, null, 32.0, 1e5])");
+
+    AssertArraysEqual(*expected, *converted);
   }
 }
 
-TEST(ConverterTest, String) {
-  std::string src = R"(["a", "b c", null, "d e f", "g"])";
-  AssertConvert(utf8(), src, src);
-}
+TEST(ConverterTest, StringAndLargeString) {
+  for (auto string_type : {utf8(), large_utf8()}) {
+    ParseOptions options;
+    options.explicit_schema = schema({field("", string_type)});
 
-TEST(ConverterTest, LargeString) {
-  std::string src = R"(["a", "b c", null, "d e f", "g"])";
-  AssertConvert(large_utf8(), src, src);
+    std::string json_source = R"(
+    {"" : "a"}
+    {"" : "b c"}
+    {"" : null}
+    {"" : "d e f"}
+    {"" : "g"}
+  )";
+
+    std::shared_ptr<StructArray> parse_array;
+    ASSERT_OK(ParseFromString(options, json_source, &parse_array));
+
+    // call to convert
+    ASSERT_OK_AND_ASSIGN(auto converted,
+                         Convert(string_type, parse_array->GetFieldByName("")));
+
+    // assert equality
+    auto expected = ArrayFromJSON(string_type, R"([
+          "a", "b c", null, "d e f", "g"])");
+
+    AssertArraysEqual(*expected, *converted);
+  }
 }
 
 TEST(ConverterTest, Timestamp) {
-  std::string src = R"([null, "1970-01-01", "2018-11-13 17:11:10"])";
-  AssertConvert(timestamp(TimeUnit::SECOND), src, src);
+  auto timestamp_type = timestamp(TimeUnit::SECOND);
+
+  ParseOptions options;
+  options.explicit_schema = schema({field("", timestamp_type)});
+
+  std::string json_source = R"(
+    {"" : null}
+    {"" : "1970-01-01"}
+    {"" : "2018-11-13 17:11:10"}
+  )";
+
+  std::shared_ptr<StructArray> parse_array;
+  ASSERT_OK(ParseFromString(options, json_source, &parse_array));
+
+  // call to convert
+  ASSERT_OK_AND_ASSIGN(auto converted,
+                       Convert(timestamp_type, parse_array->GetFieldByName("")));
+
+  // assert equality
+  auto expected = ArrayFromJSON(timestamp_type, R"([
+          null, "1970-01-01", "2018-11-13 17:11:10"])");
+
+  AssertArraysEqual(*expected, *converted);
+}
+
+TEST(ConverterTest, Decimal128And256) {
+  for (auto decimal_type : {decimal128(38, 10), decimal256(38, 10)}) {
+    ParseOptions options;
+    options.explicit_schema = schema({field("", decimal_type)});
+
+    std::string json_source = R"(
+    {"" : "02.0000000000"}
+    {"" : "30.0000000000"}
+  )";
+
+    std::shared_ptr<StructArray> parse_array;
+    ASSERT_OK(ParseFromString(options, json_source, &parse_array));
+
+    // call to convert
+    ASSERT_OK_AND_ASSIGN(auto converted,
+                         Convert(decimal_type, parse_array->GetFieldByName("")));
+
+    // assert equality
+    auto expected = ArrayFromJSON(decimal_type, R"([
+          "02.0000000000",
+          "30.0000000000"])");
+
+    AssertArraysEqual(*expected, *converted);
+  }
 }
 
 }  // namespace json

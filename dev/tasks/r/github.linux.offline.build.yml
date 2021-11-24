@@ -1,0 +1,117 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+# NOTE: must set "Crossbow" as name to have the badge links working in the
+# github comment reports!
+name: Crossbow
+
+on:
+  push:
+    branches:
+      - "*-github-*"
+
+jobs:
+  grab-dependencies:
+    name: "Download thirdparty dependencies"
+    runs-on: ubuntu-20.04
+    strategy:
+      fail-fast: false
+    env:
+      ARROW_R_DEV: "TRUE"
+      RSPM: "https://packagemanager.rstudio.com/cran/__linux__/focal/latest"
+    steps:
+      - name: Checkout Arrow
+        run: |
+          git clone --no-checkout {{ arrow.remote }} arrow
+          git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
+          git -C arrow checkout FETCH_HEAD
+          git -C arrow submodule update --init --recursive
+      - name: Free Up Disk Space
+        shell: bash
+        run: arrow/ci/scripts/util_cleanup.sh
+      - name: Fetch Submodules and Tags
+        shell: bash
+        run: cd arrow && ci/scripts/util_checkout.sh
+      - uses: r-lib/actions/setup-r@v1
+      - name: Pull Arrow dependencies
+        run: |
+          cd arrow/r
+          # This is `make build`, but with no vignettes and not running `make doc`
+          cp ../NOTICE.txt inst/NOTICE.txt
+          rsync --archive --delete ../cpp tools/
+          cp -p ../.env tools/
+          cp -p ../NOTICE.txt tools/
+          cp -p ../LICENSE.txt tools/
+          R CMD build --no-build-vignettes --no-manual .
+          built_tar=$(ls -1 arrow*.tar.gz | head -n 1)
+          R -e "source('R/install-arrow.R'); create_package_with_all_dependencies(dest_file = 'arrow_with_deps.tar.gz', source_file = \"${built_tar}\")"
+        shell: bash
+      - name: Upload the third party dependency artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: thirdparty_deps
+          path: arrow/r/arrow_with_deps.tar.gz
+
+  intall-offline:
+    name: "Install offline"
+    needs: [grab-dependencies]
+    runs-on: ubuntu-20.04
+    strategy:
+      fail-fast: false
+    env:
+      ARROW_R_DEV: TRUE
+      RSPM: "https://packagemanager.rstudio.com/cran/__linux__/focal/latest"
+    steps:
+      - name: Checkout Arrow
+        run: |
+          git clone --no-checkout {{ arrow.remote }} arrow
+          git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
+          git -C arrow checkout FETCH_HEAD
+          git -C arrow submodule update --init --recursive
+      - uses: r-lib/actions/setup-r@v1
+      - name: Download artifacts
+        uses: actions/download-artifact@v2
+        with:
+          name: thirdparty_deps
+          path: arrow/r/
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt install libcurl4-openssl-dev libssl-dev
+      - name: Install dependencies
+        run: |
+          install.packages(c("remotes", "glue", "sys"))
+          remotes::install_deps("arrow/r", dependencies = TRUE)
+        shell: Rscript {0}
+      - name: Install
+        env:
+          TEST_OFFLINE_BUILD: true
+          LIBARROW_MINIMAL: false
+        run: |
+          cd arrow/r
+          R CMD INSTALL --install-tests --no-test-load --no-docs --no-help --no-byte-compile arrow_with_deps.tar.gz
+      - name: Run the tests
+        run: R -e 'if(tools::testInstalledPackage("arrow") != 0L) stop("There was a test failure.")'
+      - name: Dump test logs
+        run: cat arrow-tests/testthat.Rout*
+        if: always()
+      - name: Save the test output
+        uses: actions/upload-artifact@v2
+        with:
+          name: test-output
+          path: arrow-tests/testthat.Rout*
+        if: always()

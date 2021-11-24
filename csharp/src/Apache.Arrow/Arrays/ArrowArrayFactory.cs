@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using Apache.Arrow.Arrays;
 using Apache.Arrow.Types;
 using System;
 
@@ -48,6 +49,8 @@ namespace Apache.Arrow
                     return new DoubleArray(data);
                 case ArrowTypeId.String:
                     return new StringArray(data);
+                case ArrowTypeId.FixedSizedBinary:
+                    return new FixedSizeBinaryArray(data);
                 case ArrowTypeId.Binary:
                     return new BinaryArray(data);
                 case ArrowTypeId.Timestamp:
@@ -67,7 +70,7 @@ namespace Apache.Arrow
                 case ArrowTypeId.Decimal256:
                     return new Decimal256Array(data);
                 case ArrowTypeId.Dictionary:
-                case ArrowTypeId.FixedSizedBinary:
+                    return new DictionaryArray(data);
                 case ArrowTypeId.HalfFloat:
                 case ArrowTypeId.Interval:
                 case ArrowTypeId.Map:

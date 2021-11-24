@@ -19,6 +19,13 @@
 
 #ifdef _WIN32
 
+#ifdef max
+#undef max
+#endif
+#ifdef min
+#undef min
+#endif
+
 // The Windows API defines macros from *File resolving to either
 // *FileA or *FileW.  Need to undo them.
 #ifdef CopyFile

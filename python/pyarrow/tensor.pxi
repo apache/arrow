@@ -38,6 +38,16 @@ strides: {0.strides}""".format(self)
 
     @staticmethod
     def from_numpy(obj, dim_names=None):
+        """
+        Create a Tensor from a numpy array.
+
+        Parameters
+        ----------
+        obj : numpy.ndarray
+            The source numpy array
+        dim_names : list, optional
+            Names of each dimension of the Tensor.
+        """
         cdef:
             vector[c_string] c_dim_names
             shared_ptr[CTensor] ctensor
@@ -160,6 +170,17 @@ shape: {0.shape}""".format(self)
     def from_numpy(data, coords, shape, dim_names=None):
         """
         Create arrow::SparseCOOTensor from numpy.ndarrays
+
+        Parameters
+        ----------
+        data : numpy.ndarray
+            Data used to populate the rows.
+        coords : numpy.ndarray
+            Coordinates of the data.
+        shape : tuple
+            Shape of the tensor.
+        dim_names : list, optional
+            Names of the dimensions.
         """
         cdef shared_ptr[CSparseCOOTensor] csparse_tensor
         cdef vector[int64_t] c_shape
@@ -186,6 +207,13 @@ shape: {0.shape}""".format(self)
     def from_scipy(obj, dim_names=None):
         """
         Convert scipy.sparse.coo_matrix to arrow::SparseCOOTensor
+
+        Parameters
+        ----------
+        obj : scipy.sparse.csr_matrix
+            The scipy matrix that should be converted.
+        dim_names : list, optional
+            Names of the dimensions.
         """
         import scipy.sparse
         if not isinstance(obj, scipy.sparse.coo_matrix):
@@ -225,6 +253,13 @@ shape: {0.shape}""".format(self)
     def from_pydata_sparse(obj, dim_names=None):
         """
         Convert pydata/sparse.COO to arrow::SparseCOOTensor.
+
+        Parameters
+        ----------
+        obj : pydata.sparse.COO
+            The sparse multidimensional array that should be converted.
+        dim_names : list, optional
+            Names of the dimensions.
         """
         import sparse
         if not isinstance(obj, sparse.COO):
@@ -252,6 +287,11 @@ shape: {0.shape}""".format(self)
     def from_tensor(obj):
         """
         Convert arrow::Tensor to arrow::SparseCOOTensor.
+
+        Parameters
+        ----------
+        obj : Tensor
+            The tensor that should be converted.
         """
         cdef shared_ptr[CSparseCOOTensor] csparse_tensor
         cdef shared_ptr[CTensor] ctensor = pyarrow_unwrap_tensor(obj)
@@ -395,13 +435,34 @@ shape: {0.shape}""".format(self)
     def from_dense_numpy(cls, obj, dim_names=None):
         """
         Convert numpy.ndarray to arrow::SparseCSRMatrix
+
+        Parameters
+        ----------
+        obj : numpy.ndarray
+            The dense numpy array that should be converted.
+        dim_names : list, optional
+            The names of the dimensions.
         """
         return cls.from_tensor(Tensor.from_numpy(obj, dim_names=dim_names))
 
     @staticmethod
     def from_numpy(data, indptr, indices, shape, dim_names=None):
         """
-        Create arrow::SparseCSRMatrix from numpy.ndarrays
+        Create arrow::SparseCSRMatrix from numpy.ndarrays.
+
+        Parameters
+        ----------
+        data : numpy.ndarray
+            Data used to populate the sparse matrix.
+        indptr : numpy.ndarray
+            Range of the rows,
+            The i-th row spans from `indptr[i]` to `indptr[i+1]` in the data.
+        indices : numpy.ndarray
+            Column indices of the corresponding non-zero values.
+        shape : tuple
+            Shape of the matrix.
+        dim_names : list, optional
+            Names of the dimensions.
         """
         cdef shared_ptr[CSparseCSRMatrix] csparse_tensor
         cdef vector[int64_t] c_shape
@@ -432,6 +493,13 @@ shape: {0.shape}""".format(self)
     def from_scipy(obj, dim_names=None):
         """
         Convert scipy.sparse.csr_matrix to arrow::SparseCSRMatrix.
+
+        Parameters
+        ----------
+        obj : scipy.sparse.csr_matrix
+            The scipy matrix that should be converted.
+        dim_names : list, optional
+            Names of the dimensions.
         """
         import scipy.sparse
         if not isinstance(obj, scipy.sparse.csr_matrix):
@@ -462,6 +530,11 @@ shape: {0.shape}""".format(self)
     def from_tensor(obj):
         """
         Convert arrow::Tensor to arrow::SparseCSRMatrix.
+
+        Parameters
+        ----------
+        obj : Tensor
+            The dense tensor that should be converted.
         """
         cdef shared_ptr[CSparseCSRMatrix] csparse_tensor
         cdef shared_ptr[CTensor] ctensor = pyarrow_unwrap_tensor(obj)
@@ -585,6 +658,20 @@ shape: {0.shape}""".format(self)
     def from_numpy(data, indptr, indices, shape, dim_names=None):
         """
         Create arrow::SparseCSCMatrix from numpy.ndarrays
+
+        Parameters
+        ----------
+        data : numpy.ndarray
+            Data used to populate the sparse matrix.
+        indptr : numpy.ndarray
+            Range of the rows,
+            The i-th row spans from `indptr[i]` to `indptr[i+1]` in the data.
+        indices : numpy.ndarray
+            Column indices of the corresponding non-zero values.
+        shape : tuple
+            Shape of the matrix.
+        dim_names : list, optional
+            Names of the dimensions.
         """
         cdef shared_ptr[CSparseCSCMatrix] csparse_tensor
         cdef vector[int64_t] c_shape
@@ -615,6 +702,13 @@ shape: {0.shape}""".format(self)
     def from_scipy(obj, dim_names=None):
         """
         Convert scipy.sparse.csc_matrix to arrow::SparseCSCMatrix
+
+        Parameters
+        ----------
+        obj : scipy.sparse.csc_matrix
+            The scipy matrix that should be converted.
+        dim_names : list, optional
+            Names of the dimensions.
         """
         import scipy.sparse
         if not isinstance(obj, scipy.sparse.csc_matrix):
@@ -645,6 +739,11 @@ shape: {0.shape}""".format(self)
     def from_tensor(obj):
         """
         Convert arrow::Tensor to arrow::SparseCSCMatrix
+
+        Parameters
+        ----------
+        obj : Tensor
+            The dense tensor that should be converted.
         """
         cdef shared_ptr[CSparseCSCMatrix] csparse_tensor
         cdef shared_ptr[CTensor] ctensor = pyarrow_unwrap_tensor(obj)
@@ -742,6 +841,13 @@ shape: {0.shape}""".format(self)
 cdef class SparseCSFTensor(_Weakrefable):
     """
     A sparse CSF tensor.
+
+    CSF is a generalization of compressed sparse row (CSR) index.
+
+    CSF index recursively compresses each dimension of a tensor into a set
+    of prefix trees. Each path from a root to leaf forms one tensor
+    non-zero index. CSF is implemented with two arrays of buffers and one
+    arrays of integers.
     """
 
     def __init__(self):
@@ -771,6 +877,28 @@ shape: {0.shape}""".format(self)
                    dim_names=None):
         """
         Create arrow::SparseCSFTensor from numpy.ndarrays
+
+        Parameters
+        ----------
+        data : numpy.ndarray
+            Data used to populate the sparse tensor.
+        indptr : numpy.ndarray
+            The sparsity structure.
+            Each two consecutive dimensions in a tensor correspond to
+            a buffer in indices.
+            A pair of consecutive values at `indptr[dim][i]`
+            `indptr[dim][i + 1]` signify a range of nodes in
+            `indices[dim + 1]` who are children of `indices[dim][i]` node.
+        indices : numpy.ndarray
+            Stores values of nodes.
+            Each tensor dimension corresponds to a buffer in indptr.
+        shape : tuple
+            Shape of the matrix.
+        axis_order : list, optional
+            the sequence in which dimensions were traversed to
+            produce the prefix tree.
+        dim_names : list, optional
+            Names of the dimensions.
         """
         cdef shared_ptr[CSparseCSFTensor] csparse_tensor
         cdef vector[int64_t] c_axis_order
@@ -817,6 +945,11 @@ shape: {0.shape}""".format(self)
     def from_tensor(obj):
         """
         Convert arrow::Tensor to arrow::SparseCSFTensor
+
+        Parameters
+        ----------
+        obj : Tensor
+            The dense tensor that should be converted.
         """
         cdef shared_ptr[CSparseCSFTensor] csparse_tensor
         cdef shared_ptr[CTensor] ctensor = pyarrow_unwrap_tensor(obj)

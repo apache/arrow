@@ -19,14 +19,15 @@ package flight_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"testing"
 
-	"github.com/apache/arrow/go/arrow/array"
-	"github.com/apache/arrow/go/arrow/flight"
-	"github.com/apache/arrow/go/arrow/internal/arrdata"
-	"github.com/apache/arrow/go/arrow/ipc"
-	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/v7/arrow/array"
+	"github.com/apache/arrow/go/v7/arrow/flight"
+	"github.com/apache/arrow/go/v7/arrow/internal/arrdata"
+	"github.com/apache/arrow/go/v7/arrow/ipc"
+	"github.com/apache/arrow/go/v7/arrow/memory"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -309,5 +310,99 @@ func TestServer(t *testing.T) {
 
 	if numRows != fi.TotalRecords {
 		t.Fatalf("got %d, want %d", numRows, fi.TotalRecords)
+	}
+}
+
+type flightMetadataWriterServer struct{}
+
+func (f *flightMetadataWriterServer) DoGet(tkt *flight.Ticket, fs flight.FlightService_DoGetServer) error {
+	recs := arrdata.Records[string(tkt.GetTicket())]
+
+	w := flight.NewRecordWriter(fs, ipc.WithSchema(recs[0].Schema()))
+	defer w.Close()
+	for idx, r := range recs {
+		w.WriteWithAppMetadata(r, []byte(fmt.Sprintf("%d_%s", idx, string(tkt.GetTicket()))) /*metadata*/)
+	}
+	return nil
+}
+
+func TestFlightWithAppMetadata(t *testing.T) {
+	f := &flightMetadataWriterServer{}
+	s := flight.NewFlightServer(nil)
+	s.RegisterFlightService(&flight.FlightServiceService{DoGet: f.DoGet})
+	s.Init("localhost:0")
+
+	go s.Serve()
+	defer s.Shutdown()
+
+	client, err := flight.NewFlightClient(s.Addr().String(), nil, grpc.WithInsecure())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer client.Close()
+
+	fdata, err := client.DoGet(context.Background(), &flight.Ticket{Ticket: []byte("primitives")})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	r, err := flight.NewRecordReader(fdata)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := arrdata.Records["primitives"]
+	idx := 0
+	for {
+		rec, err := r.Read()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			t.Fatal(err)
+		}
+
+		appMeta := r.LatestAppMetadata()
+		if !array.RecordEqual(expected[idx], rec) {
+			t.Errorf("flight data stream records for idx: %d don't match: \ngot = %#v\nwant = %#v", idx, rec, expected[idx])
+		}
+
+		exMeta := fmt.Sprintf("%d_primitives", idx)
+		if string(appMeta) != exMeta {
+			t.Errorf("flight data stream application metadata mismatch: got: %v, want: %v\n", string(appMeta), exMeta)
+		}
+		idx++
+	}
+}
+
+type flightErrorReturn struct{}
+
+func (f *flightErrorReturn) DoGet(_ *flight.Ticket, _ flight.FlightService_DoGetServer) error {
+	return status.Error(codes.NotFound, "nofound")
+}
+
+func TestReaderError(t *testing.T) {
+	f := &flightErrorReturn{}
+	s := flight.NewFlightServer(nil)
+	s.RegisterFlightService(&flight.FlightServiceService{DoGet: f.DoGet})
+	s.Init("localhost:0")
+
+	go s.Serve()
+	defer s.Shutdown()
+
+	client, err := flight.NewFlightClient(s.Addr().String(), nil, grpc.WithInsecure())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer client.Close()
+
+	fdata, err := client.DoGet(context.Background(), &flight.Ticket{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = flight.NewRecordReader(fdata)
+	if err == nil {
+		t.Fatal("should have errored")
 	}
 }

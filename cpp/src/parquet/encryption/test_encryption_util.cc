@@ -23,6 +23,7 @@
 
 #include <arrow/io/file.h>
 
+#include "arrow/testing/future_util.h"
 #include "parquet/encryption/test_encryption_util.h"
 #include "parquet/file_reader.h"
 #include "parquet/file_writer.h"
@@ -205,7 +206,7 @@ void FileEncryptor::EncryptFile(
     std::string file,
     std::shared_ptr<parquet::FileEncryptionProperties> encryption_configurations) {
   WriterProperties::Builder prop_builder;
-  prop_builder.compression(parquet::Compression::SNAPPY);
+  prop_builder.compression(parquet::Compression::UNCOMPRESSED);
   prop_builder.encryption(encryption_configurations);
   std::shared_ptr<WriterProperties> writer_properties = prop_builder.build();
 
@@ -284,6 +285,7 @@ void FileEncryptor::EncryptFile(
 
   // Close the ParquetFileWriter
   file_writer->Close();
+  PARQUET_THROW_NOT_OK(out_file->Close());
 
   return;
 }  // namespace test
@@ -334,8 +336,27 @@ void FileDecryptor::DecryptFile(
     reader_properties.file_decryption_properties(file_decryption_properties->DeepClone());
   }
 
-  auto file_reader = parquet::ParquetFileReader::OpenFile(file, false, reader_properties);
+  std::shared_ptr<::arrow::io::RandomAccessFile> source;
+  PARQUET_ASSIGN_OR_THROW(
+      source, ::arrow::io::ReadableFile::Open(file, reader_properties.memory_pool()));
 
+  auto file_reader = parquet::ParquetFileReader::Open(source, reader_properties);
+  CheckFile(file_reader.get(), file_decryption_properties.get());
+
+  if (file_decryption_properties) {
+    reader_properties.file_decryption_properties(file_decryption_properties->DeepClone());
+  }
+  auto fut = parquet::ParquetFileReader::OpenAsync(source, reader_properties);
+  ASSERT_FINISHES_OK(fut);
+  ASSERT_OK_AND_ASSIGN(file_reader, fut.MoveResult());
+  CheckFile(file_reader.get(), file_decryption_properties.get());
+
+  file_reader->Close();
+  PARQUET_THROW_NOT_OK(source->Close());
+}
+
+void FileDecryptor::CheckFile(parquet::ParquetFileReader* file_reader,
+                              FileDecryptionProperties* file_decryption_properties) {
   // Get the File MetaData
   std::shared_ptr<parquet::FileMetaData> file_metadata = file_reader->metadata();
 
@@ -474,7 +495,6 @@ void FileDecryptor::DecryptFile(
     // make sure we got the same number of values the metadata says
     ASSERT_EQ(flba_md->num_values(), i);
   }
-  file_reader->Close();
 }
 
 }  // namespace test

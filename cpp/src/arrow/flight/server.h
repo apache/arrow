@@ -119,6 +119,9 @@ class ARROW_FLIGHT_EXPORT ServerCallContext {
   /// to the object beyond the request body.
   /// \return The middleware, or nullptr if not found.
   virtual ServerMiddleware* GetMiddleware(const std::string& key) const = 0;
+  /// \brief Check if the current RPC has been cancelled (by the client, by
+  /// a network error, etc.).
+  virtual bool is_cancelled() const = 0;
 };
 
 class ARROW_FLIGHT_EXPORT FlightServerOptions {
@@ -152,7 +155,8 @@ class ARROW_FLIGHT_EXPORT FlightServerOptions {
   /// Not guaranteed to be called. The type of the parameter is
   /// specific to the Flight implementation. Users should take care to
   /// link to the same transport implementation as Flight to avoid
-  /// runtime problems.
+  /// runtime problems. See "Using Arrow C++ in your own project" in
+  /// the documentation for more details.
   std::function<void(void*)> builder_hook;
 };
 

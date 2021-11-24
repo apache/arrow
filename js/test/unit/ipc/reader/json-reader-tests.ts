@@ -21,10 +21,8 @@ import {
 } from '../../../data/tables';
 
 import { ArrowIOTestHelper } from '../helpers';
-import { RecordBatchReader } from '../../../Arrow';
+import { RecordBatchReader } from 'apache-arrow';
 import { validateRecordBatchReader } from '../validate';
-
-const { parse: bignumJSONParse } = require('json-bignum');
 
 for (const table of generateRandomTables([10, 20, 30])) {
 
@@ -34,7 +32,7 @@ for (const table of generateRandomTables([10, 20, 30])) {
     describe(`RecordBatchJSONReader (${name})`, () => {
         describe(`should read all RecordBatches`, () => {
             test(`Uint8Array`, io.buffer((buffer) => {
-                const json = bignumJSONParse(Buffer.from(buffer).toString());
+                const json = JSON.parse(Buffer.from(buffer).toString());
                 validateRecordBatchReader('json', 3, RecordBatchReader.from(json));
             }));
         });

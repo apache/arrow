@@ -3,7 +3,7 @@
 jobs:
 - job: linux
   pool:
-    vmImage: ubuntu-16.04
+    vmImage: ubuntu-latest
   timeoutInMinutes: 360
 
   variables:
@@ -34,5 +34,5 @@ jobs:
       CI=azure arrow/dev/tasks/conda-recipes/run_docker_build.sh $(pwd)/build_artifacts
     displayName: Run docker build
 
-  {{ macros.azure_upload_releases("build_artifacts/linux-64/*.tar.bz2") }}
-  {{ macros.azure_upload_anaconda("build_artifacts/linux-64/*.tar.bz2") }}
+  {{ macros.azure_upload_releases("build_artifacts/*/*.tar.bz2") }}
+  {{ macros.azure_upload_anaconda("build_artifacts/*/*.tar.bz2") }}

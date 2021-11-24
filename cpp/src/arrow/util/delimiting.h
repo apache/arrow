@@ -53,6 +53,19 @@ class ARROW_EXPORT BoundaryFinder {
   /// `out_pos` will be -1 if no delimiter is found.
   virtual Status FindLast(util::string_view block, int64_t* out_pos) = 0;
 
+  /// \brief Find the position of the Nth delimiter inside the block
+  ///
+  /// `partial` is taken to be the beginning of the block, and `block`
+  /// its continuation.  Also, `partial` doesn't contain a delimiter.
+  ///
+  /// The returned `out_pos` is relative to `block`'s start and should point
+  /// to the first character after the first delimiter.
+  /// `out_pos` will be -1 if no delimiter is found.
+  ///
+  /// The returned `num_found` is the number of delimiters actually found
+  virtual Status FindNth(util::string_view partial, util::string_view block,
+                         int64_t count, int64_t* out_pos, int64_t* num_found) = 0;
+
   static constexpr int64_t kNoDelimiterFound = -1;
 
  protected:
@@ -137,6 +150,27 @@ class ARROW_EXPORT Chunker {
   ///
   Status ProcessFinal(std::shared_ptr<Buffer> partial, std::shared_ptr<Buffer> block,
                       std::shared_ptr<Buffer>* completion, std::shared_ptr<Buffer>* rest);
+
+  /// \brief Skip count number of rows
+  /// Pre-conditions:
+  /// - `partial` is the start of a valid block of delimited data
+  ///   (i.e. starts just after a delimiter)
+  /// - `block` follows `partial` in file order
+  ///
+  /// Post-conditions:
+  /// - `count` is updated to indicate the number of rows that still need to be skipped
+  /// - If `count` is > 0 then `rest` is an incomplete block that should be a future
+  /// `partial`
+  /// - Else `rest` could be one or more valid blocks of delimited data which need to be
+  /// parsed
+  ///
+  /// \param[in] partial incomplete delimited data
+  /// \param[in] block delimited data following partial
+  /// \param[in] final whether this is the final chunk
+  /// \param[in,out] count number of rows that need to be skipped
+  /// \param[out] rest subrange of block containing what was not skipped
+  Status ProcessSkip(std::shared_ptr<Buffer> partial, std::shared_ptr<Buffer> block,
+                     bool final, int64_t* count, std::shared_ptr<Buffer>* rest);
 
  protected:
   ARROW_DISALLOW_COPY_AND_ASSIGN(Chunker);

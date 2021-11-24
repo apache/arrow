@@ -118,6 +118,43 @@ bool ChunkedArray::Equals(const std::shared_ptr<ChunkedArray>& other) const {
   return Equals(*other.get());
 }
 
+bool ChunkedArray::ApproxEquals(const ChunkedArray& other,
+                                const EqualOptions& equal_options) const {
+  if (length_ != other.length()) {
+    return false;
+  }
+  if (null_count_ != other.null_count()) {
+    return false;
+  }
+  // We cannot toggle check_metadata here yet, so we don't check it
+  if (!type_->Equals(*other.type_, /*check_metadata=*/false)) {
+    return false;
+  }
+
+  // Check contents of the underlying arrays. This checks for equality of
+  // the underlying data independently of the chunk size.
+  return internal::ApplyBinaryChunked(
+             *this, other,
+             [&](const Array& left_piece, const Array& right_piece,
+                 int64_t ARROW_ARG_UNUSED(position)) {
+               if (!left_piece.ApproxEquals(right_piece, equal_options)) {
+                 return Status::Invalid("Unequal piece");
+               }
+               return Status::OK();
+             })
+      .ok();
+}
+
+Result<std::shared_ptr<Scalar>> ChunkedArray::GetScalar(int64_t index) const {
+  for (const auto& chunk : chunks_) {
+    if (index < chunk->length()) {
+      return chunk->GetScalar(index);
+    }
+    index -= chunk->length();
+  }
+  return Status::Invalid("index out of bounds");
+}
+
 std::shared_ptr<ChunkedArray> ChunkedArray::Slice(int64_t offset, int64_t length) const {
   ARROW_CHECK_LE(offset, length_) << "Slice offset greater than array length";
   bool offset_equals_length = offset == length_;
@@ -190,24 +227,27 @@ std::string ChunkedArray::ToString() const {
   return ss.str();
 }
 
-Status ChunkedArray::Validate() const {
-  if (chunks_.size() == 0) {
+namespace {
+
+Status ValidateChunks(const ArrayVector& chunks, bool full_validation) {
+  if (chunks.size() == 0) {
     return Status::OK();
   }
 
-  const auto& type = *chunks_[0]->type();
+  const auto& type = *chunks[0]->type();
   // Make sure chunks all have the same type
-  for (size_t i = 1; i < chunks_.size(); ++i) {
-    const Array& chunk = *chunks_[i];
+  for (size_t i = 1; i < chunks.size(); ++i) {
+    const Array& chunk = *chunks[i];
     if (!chunk.type()->Equals(type)) {
       return Status::Invalid("In chunk ", i, " expected type ", type.ToString(),
                              " but saw ", chunk.type()->ToString());
     }
   }
   // Validate the chunks themselves
-  for (size_t i = 0; i < chunks_.size(); ++i) {
-    const Array& chunk = *chunks_[i];
-    const Status st = internal::ValidateArray(chunk);
+  for (size_t i = 0; i < chunks.size(); ++i) {
+    const Array& chunk = *chunks[i];
+    const Status st = full_validation ? internal::ValidateArrayFull(chunk)
+                                      : internal::ValidateArray(chunk);
     if (!st.ok()) {
       return Status::Invalid("In chunk ", i, ": ", st.ToString());
     }
@@ -215,16 +255,14 @@ Status ChunkedArray::Validate() const {
   return Status::OK();
 }
 
+}  // namespace
+
+Status ChunkedArray::Validate() const {
+  return ValidateChunks(chunks_, /*full_validation=*/false);
+}
+
 Status ChunkedArray::ValidateFull() const {
-  RETURN_NOT_OK(Validate());
-  for (size_t i = 0; i < chunks_.size(); ++i) {
-    const Array& chunk = *chunks_[i];
-    const Status st = internal::ValidateArrayFull(chunk);
-    if (!st.ok()) {
-      return Status::Invalid("In chunk ", i, ": ", st.ToString());
-    }
-  }
-  return Status::OK();
+  return ValidateChunks(chunks_, /*full_validation=*/true);
 }
 
 namespace internal {

@@ -31,7 +31,7 @@ message(STATUS "Arrow SO version: ${ARROW_FULL_SO_VERSION}")
 
 add_executable(arrow_example example.cc)
 
-if (ARROW_LINK_SHARED)
+if(ARROW_LINK_SHARED)
   target_link_libraries(arrow_example PRIVATE arrow_shared)
 else()
   set(THREADS_PREFER_PTHREAD_FLAG ON)

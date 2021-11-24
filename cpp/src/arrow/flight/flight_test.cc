@@ -427,12 +427,20 @@ class TestFlightClient : public ::testing::Test {
     std::unique_ptr<FlightStreamReader> stream;
     ASSERT_OK(client_->DoGet(ticket, &stream));
 
+    std::unique_ptr<FlightStreamReader> stream2;
+    ASSERT_OK(client_->DoGet(ticket, &stream2));
+    ASSERT_OK_AND_ASSIGN(auto reader, MakeRecordBatchReader(std::move(stream2)));
+
     FlightStreamChunk chunk;
+    std::shared_ptr<RecordBatch> batch;
     for (int i = 0; i < num_batches; ++i) {
       ASSERT_OK(stream->Next(&chunk));
+      ASSERT_OK(reader->ReadNext(&batch));
       ASSERT_NE(nullptr, chunk.data);
+      ASSERT_NE(nullptr, batch);
 #if !defined(__MINGW32__)
       ASSERT_BATCHES_EQUAL(*expected_batches[i], *chunk.data);
+      ASSERT_BATCHES_EQUAL(*expected_batches[i], *batch);
 #else
       // In MINGW32, the following code does not have the reproducibility at the LSB
       // even when this is called twice with the same seed.
@@ -444,12 +452,15 @@ class TestFlightClient : public ::testing::Test {
       //                 [&dist, &rng] { return static_cast<ValueType>(dist(rng)); });
       //   /* data[1] = 0x40852cdfe23d3976 or 0x40852cdfe23d3975 */
       ASSERT_BATCHES_APPROX_EQUAL(*expected_batches[i], *chunk.data);
+      ASSERT_BATCHES_APPROX_EQUAL(*expected_batches[i], *batch);
 #endif
     }
 
     // Stream exhausted
     ASSERT_OK(stream->Next(&chunk));
+    ASSERT_OK(reader->ReadNext(&batch));
     ASSERT_EQ(nullptr, chunk.data);
+    ASSERT_EQ(nullptr, batch);
   }
 
  protected:
@@ -1465,6 +1476,59 @@ TEST_F(TestFlightClient, DoGetLargeBatch) {
   ASSERT_OK(ExampleLargeBatches(&expected_batches));
   Ticket ticket{"ticket-large-batch-1"};
   CheckDoGet(ticket, expected_batches);
+}
+
+TEST_F(TestFlightClient, FlightDataOverflowServerBatch) {
+  // Regression test for ARROW-13253
+  // N.B. this is rather a slow and memory-hungry test
+  {
+    // DoGet: check for overflow on large batch
+    Ticket ticket{"ARROW-13253-DoGet-Batch"};
+    std::unique_ptr<FlightStreamReader> stream;
+    ASSERT_OK(client_->DoGet(ticket, &stream));
+    FlightStreamChunk chunk;
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr("Cannot send record batches exceeding 2GiB yet"),
+        stream->Next(&chunk));
+  }
+  {
+    // DoExchange: check for overflow on large batch from server
+    auto descr = FlightDescriptor::Command("large_batch");
+    std::unique_ptr<FlightStreamReader> reader;
+    std::unique_ptr<FlightStreamWriter> writer;
+    ASSERT_OK(client_->DoExchange(descr, &writer, &reader));
+    BatchVector batches;
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr("Cannot send record batches exceeding 2GiB yet"),
+        reader->ReadAll(&batches));
+  }
+}
+
+TEST_F(TestFlightClient, FlightDataOverflowClientBatch) {
+  ASSERT_OK_AND_ASSIGN(auto batch, VeryLargeBatch());
+  {
+    // DoPut: check for overflow on large batch
+    std::unique_ptr<FlightStreamWriter> stream;
+    std::unique_ptr<FlightMetadataReader> reader;
+    auto descr = FlightDescriptor::Path({""});
+    ASSERT_OK(client_->DoPut(descr, batch->schema(), &stream, &reader));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr("Cannot send record batches exceeding 2GiB yet"),
+        stream->WriteRecordBatch(*batch));
+    ASSERT_OK(stream->Close());
+  }
+  {
+    // DoExchange: check for overflow on large batch from client
+    auto descr = FlightDescriptor::Command("counter");
+    std::unique_ptr<FlightStreamReader> reader;
+    std::unique_ptr<FlightStreamWriter> writer;
+    ASSERT_OK(client_->DoExchange(descr, &writer, &reader));
+    ASSERT_OK(writer->Begin(batch->schema()));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr("Cannot send record batches exceeding 2GiB yet"),
+        writer->WriteRecordBatch(*batch));
+    ASSERT_OK(writer->Close());
+  }
 }
 
 TEST_F(TestFlightClient, DoExchange) {
@@ -2660,6 +2724,148 @@ TEST_F(TestCookieParsing, CookieCache) {
   AddCookieVerifyCache({"id0=0;", "id0=1;"}, "id0=\"1\"");
   AddCookieVerifyCache({"id0=0;", "id1=1;"}, "id0=\"0\"; id1=\"1\"");
   AddCookieVerifyCache({"id0=0;", "id1=1;", "id2=2"}, "id0=\"0\"; id1=\"1\"; id2=\"2\"");
+}
+
+class ForeverFlightListing : public FlightListing {
+  Status Next(std::unique_ptr<FlightInfo>* info) override {
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    *info = arrow::internal::make_unique<FlightInfo>(ExampleFlightInfo()[0]);
+    return Status::OK();
+  }
+};
+
+class ForeverResultStream : public ResultStream {
+  Status Next(std::unique_ptr<Result>* result) override {
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    *result = arrow::internal::make_unique<Result>();
+    (*result)->body = Buffer::FromString("foo");
+    return Status::OK();
+  }
+};
+
+class ForeverDataStream : public FlightDataStream {
+ public:
+  ForeverDataStream() : schema_(arrow::schema({})), mapper_(*schema_) {}
+  std::shared_ptr<Schema> schema() override { return schema_; }
+
+  Status GetSchemaPayload(FlightPayload* payload) override {
+    return ipc::GetSchemaPayload(*schema_, ipc::IpcWriteOptions::Defaults(), mapper_,
+                                 &payload->ipc_message);
+  }
+
+  Status Next(FlightPayload* payload) override {
+    auto batch = RecordBatch::Make(schema_, 0, ArrayVector{});
+    return ipc::GetRecordBatchPayload(*batch, ipc::IpcWriteOptions::Defaults(),
+                                      &payload->ipc_message);
+  }
+
+ private:
+  std::shared_ptr<Schema> schema_;
+  ipc::DictionaryFieldMapper mapper_;
+};
+
+class CancelTestServer : public FlightServerBase {
+ public:
+  Status ListFlights(const ServerCallContext&, const Criteria*,
+                     std::unique_ptr<FlightListing>* listings) override {
+    *listings = arrow::internal::make_unique<ForeverFlightListing>();
+    return Status::OK();
+  }
+  Status DoAction(const ServerCallContext&, const Action&,
+                  std::unique_ptr<ResultStream>* result) override {
+    *result = arrow::internal::make_unique<ForeverResultStream>();
+    return Status::OK();
+  }
+  Status ListActions(const ServerCallContext&,
+                     std::vector<ActionType>* actions) override {
+    *actions = {};
+    return Status::OK();
+  }
+  Status DoGet(const ServerCallContext&, const Ticket&,
+               std::unique_ptr<FlightDataStream>* data_stream) override {
+    *data_stream = arrow::internal::make_unique<ForeverDataStream>();
+    return Status::OK();
+  }
+};
+
+class TestCancel : public ::testing::Test {
+ public:
+  void SetUp() {
+    ASSERT_OK(MakeServer<CancelTestServer>(
+        &server_, &client_, [](FlightServerOptions* options) { return Status::OK(); },
+        [](FlightClientOptions* options) { return Status::OK(); }));
+  }
+  void TearDown() { ASSERT_OK(server_->Shutdown()); }
+
+ protected:
+  std::unique_ptr<FlightClient> client_;
+  std::unique_ptr<FlightServerBase> server_;
+};
+
+TEST_F(TestCancel, ListFlights) {
+  StopSource stop_source;
+  FlightCallOptions options;
+  options.stop_token = stop_source.token();
+  std::unique_ptr<FlightListing> listing;
+  stop_source.RequestStop(Status::Cancelled("StopSource"));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Cancelled, ::testing::HasSubstr("StopSource"),
+                                  client_->ListFlights(options, {}, &listing));
+}
+
+TEST_F(TestCancel, DoAction) {
+  StopSource stop_source;
+  FlightCallOptions options;
+  options.stop_token = stop_source.token();
+  std::unique_ptr<ResultStream> results;
+  stop_source.RequestStop(Status::Cancelled("StopSource"));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Cancelled, ::testing::HasSubstr("StopSource"),
+                                  client_->DoAction(options, {}, &results));
+}
+
+TEST_F(TestCancel, ListActions) {
+  StopSource stop_source;
+  FlightCallOptions options;
+  options.stop_token = stop_source.token();
+  std::vector<ActionType> results;
+  stop_source.RequestStop(Status::Cancelled("StopSource"));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Cancelled, ::testing::HasSubstr("StopSource"),
+                                  client_->ListActions(options, &results));
+}
+
+TEST_F(TestCancel, DoGet) {
+  StopSource stop_source;
+  FlightCallOptions options;
+  options.stop_token = stop_source.token();
+  std::unique_ptr<ResultStream> results;
+  stop_source.RequestStop(Status::Cancelled("StopSource"));
+  std::unique_ptr<FlightStreamReader> stream;
+  ASSERT_OK(client_->DoGet(options, {}, &stream));
+  std::shared_ptr<Table> table;
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Cancelled, ::testing::HasSubstr("StopSource"),
+                                  stream->ReadAll(&table));
+
+  ASSERT_OK(client_->DoGet({}, &stream));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Cancelled, ::testing::HasSubstr("StopSource"),
+                                  stream->ReadAll(&table, options.stop_token));
+}
+
+TEST_F(TestCancel, DoExchange) {
+  StopSource stop_source;
+  FlightCallOptions options;
+  options.stop_token = stop_source.token();
+  std::unique_ptr<ResultStream> results;
+  stop_source.RequestStop(Status::Cancelled("StopSource"));
+  std::unique_ptr<FlightStreamWriter> writer;
+  std::unique_ptr<FlightStreamReader> stream;
+  ASSERT_OK(
+      client_->DoExchange(options, FlightDescriptor::Command(""), &writer, &stream));
+  std::shared_ptr<Table> table;
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Cancelled, ::testing::HasSubstr("StopSource"),
+                                  stream->ReadAll(&table));
+
+  ASSERT_OK(client_->DoExchange(FlightDescriptor::Command(""), &writer, &stream));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Cancelled, ::testing::HasSubstr("StopSource"),
+                                  stream->ReadAll(&table, options.stop_token));
 }
 
 }  // namespace flight

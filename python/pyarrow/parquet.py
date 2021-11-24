@@ -27,6 +27,7 @@ import os
 import re
 import operator
 import urllib.parse
+import warnings
 
 import pyarrow as pa
 import pyarrow.lib as lib
@@ -209,14 +210,29 @@ class ParquetFile:
     buffer_size : int, default 0
         If positive, perform read buffering when deserializing individual
         column chunks. Otherwise IO calls are unbuffered.
+    pre_buffer : bool, default False
+        Coalesce and issue file reads in parallel to improve performance on
+        high-latency filesystems (e.g. S3). If True, Arrow will use a
+        background I/O thread pool.
+    read_dictionary : list
+        List of column names to read directly as DictionaryArray.
+    coerce_int96_timestamp_unit : str, default None.
+        Cast timestamps that are stored in INT96 format to a particular
+        resolution (e.g. 'ms'). Setting to None is equivalent to 'ns'
+        and therefore INT96 timestamps will be infered as timestamps
+        in nanoseconds.
     """
 
     def __init__(self, source, metadata=None, common_metadata=None,
-                 read_dictionary=None, memory_map=False, buffer_size=0):
+                 read_dictionary=None, memory_map=False, buffer_size=0,
+                 pre_buffer=False, coerce_int96_timestamp_unit=None):
         self.reader = ParquetReader()
-        self.reader.open(source, use_memory_map=memory_map,
-                         buffer_size=buffer_size,
-                         read_dictionary=read_dictionary, metadata=metadata)
+        self.reader.open(
+            source, use_memory_map=memory_map,
+            buffer_size=buffer_size, pre_buffer=pre_buffer,
+            read_dictionary=read_dictionary, metadata=metadata,
+            coerce_int96_timestamp_unit=coerce_int96_timestamp_unit
+        )
         self.common_metadata = common_metadata
         self._nested_paths_by_prefix = self._build_nested_paths()
 
@@ -269,7 +285,9 @@ class ParquetFile:
 
         Parameters
         ----------
-        columns: list
+        i : int
+            Index of the individual row group that we want to read.
+        columns : list
             If not None, only these columns will be read from the row group. A
             column name may be a prefix of a nested field, e.g. 'a' will select
             'a.b', 'a.c', and 'a.d.e'.
@@ -296,9 +314,9 @@ class ParquetFile:
 
         Parameters
         ----------
-        row_groups: list
+        row_groups : list
             Only these row groups will be read from the file.
-        columns: list
+        columns : list
             If not None, only these columns will be read from the row group. A
             column name may be a prefix of a nested field, e.g. 'a' will select
             'a.b', 'a.c', and 'a.d.e'.
@@ -326,12 +344,12 @@ class ParquetFile:
 
         Parameters
         ----------
-        batch_size: int, default 64K
+        batch_size : int, default 64K
             Maximum number of records to yield per batch. Batches may be
             smaller if there aren't enough rows in the file.
-        row_groups: list
+        row_groups : list
             Only these row groups will be read from the file.
-        columns: list
+        columns : list
             If not None, only these columns will be read from the file. A
             column name may be a prefix of a nested field, e.g. 'a' will select
             'a.b', 'a.c', and 'a.d.e'.
@@ -363,7 +381,7 @@ class ParquetFile:
 
         Parameters
         ----------
-        columns: list
+        columns : list
             If not None, only these columns will be read from the file. A
             column name may be a prefix of a nested field, e.g. 'a' will select
             'a.b', 'a.c', and 'a.d.e'.
@@ -478,16 +496,18 @@ def _sanitize_table(table, new_schema, flavor):
         return table
 
 
-_parquet_writer_arg_docs = """version : {"1.0", "2.0"}, default "1.0"
+_parquet_writer_arg_docs = """version : {"1.0", "2.4", "2.6"}, default "1.0"
     Determine which Parquet logical types are available for use, whether the
     reduced set from the Parquet 1.x.x format or the expanded logical types
-    added in format version 2.0.0 and after. Note that files written with
-    version='2.0' may not be readable in all Parquet implementations, so
-    version='1.0' is likely the choice that maximizes file compatibility. Some
-    features, such as lossless storage of nanosecond timestamps as INT64
-    physical storage, are only available with version='2.0'. The Parquet 2.0.0
-    format version also introduced a new serialized data page format; this can
-    be enabled separately using the data_page_version option.
+    added in later format versions.
+    Files written with version='2.4' or '2.6' may not be readable in all
+    Parquet implementations, so version='1.0' is likely the choice that
+    maximizes file compatibility.
+    UINT32 and some logical types are only available with version '2.4'.
+    Nanosecond timestamps are only available with version '2.6'.
+    Other features such as compression algorithms or the new serialized
+    data page format must be enabled separately (see 'compression' and
+    'data_page_version').
 use_dictionary : bool or list
     Specify if we should use dictionary encoding in general or only for
     some columns.
@@ -495,13 +515,14 @@ use_deprecated_int96_timestamps : bool, default None
     Write timestamps to INT96 Parquet format. Defaults to False unless enabled
     by flavor argument. This take priority over the coerce_timestamps option.
 coerce_timestamps : str, default None
-    Cast timestamps a particular resolution. The defaults depends on `version`.
-    For ``version='1.0'`` (the default), nanoseconds will be cast to
-    microseconds ('us'), and seconds to milliseconds ('ms') by default. For
-    ``version='2.0'``, the original resolution is preserved and no casting
-    is done by default. The casting might result in loss of data, in which
-    case ``allow_truncated_timestamps=True`` can be used to suppress the
-    raised exception.
+    Cast timestamps to a particular resolution. If omitted, defaults are chosen
+    depending on `version`. By default, for ``version='1.0'`` (the default)
+    and ``version='2.4'``, nanoseconds are cast to microseconds ('us'), while
+    for other `version` values, they are written natively without loss
+    of resolution.  Seconds are always cast to milliseconds ('ms') by default,
+    as Parquet does not have any temporal type with seconds resolution.
+    If the casting results in loss of data, it will raise an exception
+    unless ``allow_truncated_timestamps=True`` is given.
     Valid values: {None, 'ms', 'us'}
 data_page_size : int, default None
     Set a target threshold for the approximate encoded size of data
@@ -510,7 +531,9 @@ data_page_size : int, default None
 allow_truncated_timestamps : bool, default False
     Allow loss of data when coercing timestamps to a particular
     resolution. E.g. if microsecond or nanosecond data is lost when coercing to
-    'ms', do not raise an exception.
+    'ms', do not raise an exception. Passing ``allow_truncated_timestamp=True``
+    will NOT result in the truncation exception being ignored unless
+    ``coerce_timestamps`` is not None.
 compression : str or dict
     Specify the compression codec, either on a general basis or per-column.
     Valid values: {'NONE', 'SNAPPY', 'GZIP', 'BROTLI', 'LZ4', 'ZSTD'}.
@@ -523,7 +546,7 @@ flavor : {'spark'}, default None
 filesystem : FileSystem, default None
     If nothing passed, will be inferred from `where` if path-like, else
     `where` is already a file-like object so no filesystem is needed.
-compression_level: int or dict, default None
+compression_level : int or dict, default None
     Specify the compression level for a codec, either on a general basis or
     per-column. If None is passed, arrow selects the compression level for
     the compression codec in use. The compression level has a different
@@ -531,7 +554,7 @@ compression_level: int or dict, default None
     codec you are using.
     An exception is thrown if the compression codec does not allow specifying
     a compression level.
-use_byte_stream_split: bool or list, default False
+use_byte_stream_split : bool or list, default False
     Specify if the byte_stream_split encoding should be used in general or
     only for some columns. If both dictionary and byte_stream_stream are
     enabled, then dictionary is preferred.
@@ -541,7 +564,7 @@ data_page_version : {"1.0", "2.0"}, default "1.0"
     The serialized Parquet data page format version to write, defaults to
     1.0. This does not impact the file schema logical types and Arrow to
     Parquet type casting behavior; for that use the "version" option.
-use_compliant_nested_type: bool, default False
+use_compliant_nested_type : bool, default False
     Whether to write compliant Parquet nested type (lists) as defined
     `here <https://github.com/apache/parquet-format/blob/master/
     LogicalTypes.md#nested-types>`_, defaults to ``False``.
@@ -578,6 +601,7 @@ Parameters
 where : path or file-like object
 schema : arrow Schema
 {}
+writer_engine_version : unused
 **options : dict
     If options contains a key `metadata_collector` then the
     corresponding value is assumed to be a list (or any object with
@@ -663,7 +687,52 @@ schema : arrow Schema
         # return false since we want to propagate exceptions
         return False
 
+    def write(self, table_or_batch, row_group_size=None):
+        """
+        Write RecordBatch or Table to the Parquet file.
+
+        Parameters
+        ----------
+        table_or_batch : {RecordBatch, Table}
+        row_group_size : int, default None
+            Maximum size of each written row group. If None, the
+            row group size will be the minimum of the input
+            table or batch length and 64 * 1024 * 1024.
+        """
+        if isinstance(table_or_batch, pa.RecordBatch):
+            self.write_batch(table_or_batch, row_group_size)
+        elif isinstance(table_or_batch, pa.Table):
+            self.write_table(table_or_batch, row_group_size)
+        else:
+            raise TypeError(type(table_or_batch))
+
+    def write_batch(self, batch, row_group_size=None):
+        """
+        Write RecordBatch to the Parquet file.
+
+        Parameters
+        ----------
+        batch : RecordBatch
+        row_group_size : int, default None
+            Maximum size of each written row group. If None, the
+            row group size will be the minimum of the RecordBatch
+            size and 64 * 1024 * 1024.
+        """
+        table = pa.Table.from_batches([batch], batch.schema)
+        self.write_table(table, row_group_size)
+
     def write_table(self, table, row_group_size=None):
+        """
+        Write Table to the Parquet file.
+
+        Parameters
+        ----------
+        table : Table
+        row_group_size : int, default None
+            Maximum size of each written row group. If None, the
+            row group size will be the minimum of the Table size
+            and 64 * 1024 * 1024.
+        """
         if self.schema_changed:
             table = _sanitize_table(table, self.schema, self.flavor)
         assert self.is_open
@@ -698,10 +767,16 @@ def _get_pandas_index_columns(keyvalues):
 
 class ParquetDatasetPiece:
     """
-    A single chunk of a potentially larger Parquet dataset to read.
+    DEPRECATED: A single chunk of a potentially larger Parquet dataset to read.
 
     The arguments will indicate to read either a single row group or all row
     groups, and whether to add partition keys to the resulting pyarrow.Table.
+
+    .. deprecated:: 5.0
+        Directly constructing a ``ParquetDatasetPiece`` is deprecated, as well
+        as accessing the pieces of a ``ParquetDataset`` object. Specify
+        ``use_legacy_dataset=False`` when constructing the ``ParquetDataset``
+        and use the ``ParquetDataset.fragments`` attribute instead.
 
     Parameters
     ----------
@@ -713,10 +788,29 @@ class ParquetDatasetPiece:
         Two-element tuples of ``(column name, ordinal index)``.
     row_group : int, default None
         Row group to load. By default, reads all row groups.
+    file_options : dict
+        Options
     """
 
     def __init__(self, path, open_file_func=partial(open, mode='rb'),
                  file_options=None, row_group=None, partition_keys=None):
+        warnings.warn(
+            "ParquetDatasetPiece is deprecated as of pyarrow 5.0.0 and will "
+            "be removed in a future version.",
+            DeprecationWarning, stacklevel=2)
+        self._init(
+            path, open_file_func, file_options, row_group, partition_keys)
+
+    @staticmethod
+    def _create(path, open_file_func=partial(open, mode='rb'),
+                file_options=None, row_group=None, partition_keys=None):
+        self = ParquetDatasetPiece.__new__(ParquetDatasetPiece)
+        self._init(
+            path, open_file_func, file_options, row_group, partition_keys)
+        return self
+
+    def _init(self, path, open_file_func, file_options, row_group,
+              partition_keys):
         self.path = _stringify_path(path)
         self.open_file_func = open_file_func
         self.row_group = row_group
@@ -784,6 +878,8 @@ class ParquetDatasetPiece:
         partitions : ParquetPartitions, default None
         file : file-like object
             Passed to ParquetFile.
+        use_pandas_metadata : bool
+            If pandas metadata should be used or not.
 
         Returns
         -------
@@ -850,6 +946,13 @@ class PartitionSet:
     Then we have two partition sets, one for foo, another for bar. As we visit
     levels of the partition hierarchy, a PartitionSet tracks the distinct
     values and assigns categorical codes to use when reading the pieces
+
+    Parameters
+    ----------
+    name : str
+        Name of the partition set. Under which key to collect all values.
+    keys : list
+        All possible values that have been collected for that partition set.
     """
 
     def __init__(self, name, keys=None):
@@ -862,6 +965,10 @@ class PartitionSet:
         """
         Get the index of the partition value if it is known, otherwise assign
         one
+
+        Parameters
+        ----------
+        key : The value for which we want to known the index.
         """
         if key in self.key_indices:
             return self.key_indices[key]
@@ -1099,8 +1206,8 @@ class ParquetManifest:
 
     def _push_pieces(self, files, part_keys):
         self.pieces.extend([
-            ParquetDatasetPiece(path, partition_keys=part_keys,
-                                open_file_func=self.open_file_func)
+            ParquetDatasetPiece._create(path, partition_keys=part_keys,
+                                        open_file_func=self.open_file_func)
             for path in files
         ])
 
@@ -1144,6 +1251,12 @@ def _open_dataset_file(dataset, path, meta=None):
         common_metadata=dataset.common_metadata,
         buffer_size=dataset.buffer_size
     )
+
+
+_DEPR_MSG = (
+    "'{}' attribute is deprecated as of pyarrow 5.0.0 and will be removed "
+    "in a future version.{}"
+)
 
 
 _read_docstring_common = """\
@@ -1200,7 +1313,7 @@ filters : List[Tuple] or List[List[Tuple]] or None (default)
     and different partitioning schemes are supported.
 
     {1}
-metadata_nthreads: int, default 1
+metadata_nthreads : int, default 1
     How many threads to allow the thread pool which is used to read the
     dataset metadata. Increasing this is helpful to read partitioned
     datasets.
@@ -1210,13 +1323,25 @@ use_legacy_dataset : bool, default True
     new Arrow Dataset API). Among other things, this allows to pass
     `filters` for all columns and not only the partition keys, enables
     different partitioning schemes, etc.
+pre_buffer : bool, default True
+    Coalesce and issue file reads in parallel to improve performance on
+    high-latency filesystems (e.g. S3). If True, Arrow will use a
+    background I/O thread pool. This option is only supported for
+    use_legacy_dataset=False. If using a filesystem layer that itself
+    performs readahead (e.g. fsspec's S3FS), disable readahead for best
+    results.
+coerce_int96_timestamp_unit : str, default None.
+    Cast timestamps that are stored in INT96 format to a particular resolution
+    (e.g. 'ms'). Setting to None is equivalent to 'ns' and therefore INT96
+    timestamps will be infered as timestamps in nanoseconds.
 """.format(_read_docstring_common, _DNF_filter_doc)
 
     def __new__(cls, path_or_paths=None, filesystem=None, schema=None,
                 metadata=None, split_row_groups=False, validate_schema=True,
                 filters=None, metadata_nthreads=1, read_dictionary=None,
                 memory_map=False, buffer_size=0, partitioning="hive",
-                use_legacy_dataset=None):
+                use_legacy_dataset=None, pre_buffer=True,
+                coerce_int96_timestamp_unit=None):
         if use_legacy_dataset is None:
             # if a new filesystem is passed -> default to new implementation
             if isinstance(filesystem, FileSystem):
@@ -1226,17 +1351,21 @@ use_legacy_dataset : bool, default True
                 use_legacy_dataset = True
 
         if not use_legacy_dataset:
-            return _ParquetDatasetV2(path_or_paths, filesystem=filesystem,
-                                     filters=filters,
-                                     partitioning=partitioning,
-                                     read_dictionary=read_dictionary,
-                                     memory_map=memory_map,
-                                     buffer_size=buffer_size,
-                                     # unsupported keywords
-                                     schema=schema, metadata=metadata,
-                                     split_row_groups=split_row_groups,
-                                     validate_schema=validate_schema,
-                                     metadata_nthreads=metadata_nthreads)
+            return _ParquetDatasetV2(
+                path_or_paths, filesystem=filesystem,
+                filters=filters,
+                partitioning=partitioning,
+                read_dictionary=read_dictionary,
+                memory_map=memory_map,
+                buffer_size=buffer_size,
+                pre_buffer=pre_buffer,
+                coerce_int96_timestamp_unit=coerce_int96_timestamp_unit,
+                # unsupported keywords
+                schema=schema, metadata=metadata,
+                split_row_groups=split_row_groups,
+                validate_schema=validate_schema,
+                metadata_nthreads=metadata_nthreads
+            )
         self = object.__new__(cls)
         return self
 
@@ -1244,7 +1373,8 @@ use_legacy_dataset : bool, default True
                  metadata=None, split_row_groups=False, validate_schema=True,
                  filters=None, metadata_nthreads=1, read_dictionary=None,
                  memory_map=False, buffer_size=0, partitioning="hive",
-                 use_legacy_dataset=True):
+                 use_legacy_dataset=True, pre_buffer=True,
+                 coerce_int96_timestamp_unit=None):
         if partitioning != "hive":
             raise ValueError(
                 'Only "hive" for hive-like partitioning is supported when '
@@ -1264,16 +1394,16 @@ use_legacy_dataset : bool, default True
         self._metadata.memory_map = memory_map
         self._metadata.buffer_size = buffer_size
 
-        (self.pieces,
-         self.partitions,
+        (self._pieces,
+         self._partitions,
          self.common_metadata_path,
          self.metadata_path) = _make_manifest(
-             path_or_paths, self.fs, metadata_nthreads=metadata_nthreads,
+             path_or_paths, self._fs, metadata_nthreads=metadata_nthreads,
              open_file_func=partial(_open_dataset_file, self._metadata)
         )
 
         if self.common_metadata_path is not None:
-            with self.fs.open(self.common_metadata_path) as f:
+            with self._fs.open(self.common_metadata_path) as f:
                 self._metadata.common_metadata = read_metadata(
                     f,
                     memory_map=memory_map
@@ -1282,7 +1412,7 @@ use_legacy_dataset : bool, default True
             self._metadata.common_metadata = None
 
         if metadata is None and self.metadata_path is not None:
-            with self.fs.open(self.metadata_path) as f:
+            with self._fs.open(self.metadata_path) as f:
                 self.metadata = read_metadata(f, memory_map=memory_map)
         else:
             self.metadata = metadata
@@ -1305,13 +1435,16 @@ use_legacy_dataset : bool, default True
         if not isinstance(other, ParquetDataset):
             raise TypeError('`other` must be an instance of ParquetDataset')
 
-        if self.fs.__class__ != other.fs.__class__:
+        if self._fs.__class__ != other._fs.__class__:
             return False
-        for prop in ('paths', 'memory_map', 'pieces', 'partitions',
+        for prop in ('paths', '_pieces', '_partitions',
                      'common_metadata_path', 'metadata_path',
                      'common_metadata', 'metadata', 'schema',
-                     'buffer_size', 'split_row_groups'):
+                     'split_row_groups'):
             if getattr(self, prop) != getattr(other, prop):
+                return False
+        for prop in ('memory_map', 'buffer_size'):
+            if getattr(self._metadata, prop) != getattr(other._metadata, prop):
                 return False
 
         return True
@@ -1327,7 +1460,7 @@ use_legacy_dataset : bool, default True
             if self.common_metadata is not None:
                 self.schema = self.common_metadata.schema
             else:
-                self.schema = self.pieces[0].get_metadata().schema
+                self.schema = self._pieces[0].get_metadata().schema
         elif self.schema is None:
             self.schema = self.metadata.schema
 
@@ -1335,13 +1468,13 @@ use_legacy_dataset : bool, default True
         dataset_schema = self.schema.to_arrow_schema()
         # Exclude the partition columns from the schema, they are provided
         # by the path, not the DatasetPiece
-        if self.partitions is not None:
-            for partition_name in self.partitions.partition_names:
+        if self._partitions is not None:
+            for partition_name in self._partitions.partition_names:
                 if dataset_schema.get_field_index(partition_name) != -1:
                     field_idx = dataset_schema.get_field_index(partition_name)
                     dataset_schema = dataset_schema.remove(field_idx)
 
-        for piece in self.pieces:
+        for piece in self._pieces:
             file_metadata = piece.get_metadata()
             file_schema = file_metadata.schema.to_arrow_schema()
             if not dataset_schema.equals(file_schema, check_metadata=False):
@@ -1369,9 +1502,9 @@ use_legacy_dataset : bool, default True
             Content of the file as a table (of columns).
         """
         tables = []
-        for piece in self.pieces:
+        for piece in self._pieces:
             table = piece.read(columns=columns, use_threads=use_threads,
-                               partitions=self.partitions,
+                               partitions=self._partitions,
                                use_pandas_metadata=use_pandas_metadata)
             tables.append(table)
 
@@ -1395,6 +1528,11 @@ use_legacy_dataset : bool, default True
         Read dataset including pandas metadata, if any. Other arguments passed
         through to ParquetDataset.read, see docstring for further details.
 
+        Parameters
+        ----------
+        **kwargs : optional
+            All additional options to pass to the reader.
+
         Returns
         -------
         pyarrow.Table
@@ -1410,7 +1548,7 @@ use_legacy_dataset : bool, default True
         return keyvalues.get(b'pandas', None)
 
     def _filter(self, filters):
-        accepts_filter = self.partitions.filter_accepts_partition
+        accepts_filter = self._partitions.filter_accepts_partition
 
         def one_filter_accepts(piece, filter):
             return all(accepts_filter(part_key, filter, level)
@@ -1420,17 +1558,69 @@ use_legacy_dataset : bool, default True
             return any(all(one_filter_accepts(piece, f) for f in conjunction)
                        for conjunction in filters)
 
-        self.pieces = [p for p in self.pieces if all_filters_accept(p)]
+        self._pieces = [p for p in self._pieces if all_filters_accept(p)]
 
-    fs = property(operator.attrgetter('_metadata.fs'))
-    memory_map = property(operator.attrgetter('_metadata.memory_map'))
-    read_dictionary = property(
-        operator.attrgetter('_metadata.read_dictionary')
+    @property
+    def pieces(self):
+        warnings.warn(
+            _DEPR_MSG.format(
+                "ParquetDataset.pieces",
+                " Specify 'use_legacy_dataset=False' while constructing the "
+                "ParquetDataset, and then use the '.fragments' attribute "
+                "instead."),
+            DeprecationWarning, stacklevel=2)
+        return self._pieces
+
+    @property
+    def partitions(self):
+        warnings.warn(
+            _DEPR_MSG.format(
+                "ParquetDataset.partitions",
+                " Specify 'use_legacy_dataset=False' while constructing the "
+                "ParquetDataset, and then use the '.partitioning' attribute "
+                "instead."),
+            DeprecationWarning, stacklevel=2)
+        return self._partitions
+
+    @property
+    def memory_map(self):
+        warnings.warn(
+            _DEPR_MSG.format("ParquetDataset.memory_map", ""),
+            DeprecationWarning, stacklevel=2)
+        return self._metadata.memory_map
+
+    @property
+    def read_dictionary(self):
+        warnings.warn(
+            _DEPR_MSG.format("ParquetDataset.read_dictionary", ""),
+            DeprecationWarning, stacklevel=2)
+        return self._metadata.read_dictionary
+
+    @property
+    def buffer_size(self):
+        warnings.warn(
+            _DEPR_MSG.format("ParquetDataset.buffer_size", ""),
+            DeprecationWarning, stacklevel=2)
+        return self._metadata.buffer_size
+
+    _fs = property(
+        operator.attrgetter('_metadata.fs')
     )
+
+    @property
+    def fs(self):
+        warnings.warn(
+            _DEPR_MSG.format(
+                "ParquetDataset.fs",
+                " Specify 'use_legacy_dataset=False' while constructing the "
+                "ParquetDataset, and then use the '.filesystem' attribute "
+                "instead."),
+            DeprecationWarning, stacklevel=2)
+        return self._metadata.fs
+
     common_metadata = property(
         operator.attrgetter('_metadata.common_metadata')
     )
-    buffer_size = property(operator.attrgetter('_metadata.buffer_size'))
 
 
 def _make_manifest(path_or_paths, fs, pathsep='/', metadata_nthreads=1,
@@ -1465,10 +1655,17 @@ def _make_manifest(path_or_paths, fs, pathsep='/', metadata_nthreads=1,
             if not fs.isfile(path):
                 raise OSError('Passed non-file path: {}'
                               .format(path))
-            piece = ParquetDatasetPiece(path, open_file_func=open_file_func)
+            piece = ParquetDatasetPiece._create(
+                path, open_file_func=open_file_func)
             pieces.append(piece)
 
     return pieces, partitions, common_metadata_path, metadata_path
+
+
+def _is_local_file_system(fs):
+    return isinstance(fs, LocalFileSystem) or isinstance(
+        fs, legacyfs.LocalFileSystem
+    )
 
 
 class _ParquetDatasetV2:
@@ -1478,7 +1675,8 @@ class _ParquetDatasetV2:
 
     def __init__(self, path_or_paths, filesystem=None, filters=None,
                  partitioning="hive", read_dictionary=None, buffer_size=None,
-                 memory_map=False, ignore_prefixes=None, **kwargs):
+                 memory_map=False, ignore_prefixes=None, pre_buffer=True,
+                 coerce_int96_timestamp_unit=None, **kwargs):
         import pyarrow.dataset as ds
 
         # Raise error for not supported keywords
@@ -1492,7 +1690,10 @@ class _ParquetDatasetV2:
                     "Dataset API".format(keyword))
 
         # map format arguments
-        read_options = {}
+        read_options = {
+            "pre_buffer": pre_buffer,
+            "coerce_int96_timestamp_unit": coerce_int96_timestamp_unit
+        }
         if buffer_size:
             read_options.update(use_buffered_stream=True,
                                 buffer_size=buffer_size)
@@ -1512,6 +1713,18 @@ class _ParquetDatasetV2:
             # path can in principle be URI for any filesystem)
             filesystem = LocalFileSystem(use_mmap=memory_map)
 
+        # This needs to be checked after _ensure_filesystem, because that
+        # handles the case of an fsspec LocalFileSystem
+        if (
+            hasattr(path_or_paths, "__fspath__") and
+            filesystem is not None and
+            not _is_local_file_system(filesystem)
+        ):
+            raise TypeError(
+                "Path-like objects with __fspath__ must only be used with "
+                f"local file systems, not {type(filesystem)}"
+            )
+
         # check for single fragment dataset
         single_file = None
         if isinstance(path_or_paths, list):
@@ -1519,7 +1732,7 @@ class _ParquetDatasetV2:
                 single_file = path_or_paths[0]
         else:
             if _is_path_like(path_or_paths):
-                path_or_paths = str(path_or_paths)
+                path_or_paths = _stringify_path(path_or_paths)
                 if filesystem is None:
                     # path might be a URI describing the FileSystem as well
                     try:
@@ -1629,8 +1842,30 @@ class _ParquetDatasetV2:
 
     @property
     def pieces(self):
-        # TODO raise deprecation warning
+        warnings.warn(
+            _DEPR_MSG.format("ParquetDataset.pieces",
+                             " Use the '.fragments' attribute instead"),
+            DeprecationWarning, stacklevel=2)
         return list(self._dataset.get_fragments())
+
+    @property
+    def fragments(self):
+        return list(self._dataset.get_fragments())
+
+    @property
+    def files(self):
+        return self._dataset.files
+
+    @property
+    def filesystem(self):
+        return self._dataset.filesystem
+
+    @property
+    def partitioning(self):
+        """
+        The partitioning of the Dataset source, if discovered.
+        """
+        return self._dataset.partitioning
 
 
 _read_table_docstring = """
@@ -1638,14 +1873,16 @@ _read_table_docstring = """
 
 Parameters
 ----------
-source: str, pyarrow.NativeFile, or file-like object
+source : str, pyarrow.NativeFile, or file-like object
     If a string passed, can be a single file name or directory name. For
     file-like objects, only read a single file. Use pyarrow.BufferReader to
     read a file contained in a bytes or buffer-like object.
-columns: list
+columns : list
     If not None, only these columns will be read from the file. A column
     name may be a prefix of a nested field, e.g. 'a' will select 'a.b',
-    'a.c', and 'a.d.e'.
+    'a.c', and 'a.d.e'. If empty, no columns will be read. Note
+    that the table will still have the correct num_rows set despite having
+    no columns.
 use_threads : bool, default True
     Perform multi-threaded column reads.
 metadata : FileMetaData
@@ -1676,6 +1913,18 @@ filters : List[Tuple] or List[List[Tuple]] or None (default)
     and different partitioning schemes are supported.
 
     {3}
+pre_buffer : bool, default True
+    Coalesce and issue file reads in parallel to improve performance on
+    high-latency filesystems (e.g. S3). If True, Arrow will use a
+    background I/O thread pool. This option is only supported for
+    use_legacy_dataset=False. If using a filesystem layer that itself
+    performs readahead (e.g. fsspec's S3FS), disable readahead for best
+    results.
+coerce_int96_timestamp_unit : str, default None.
+    Cast timestamps that are stored in INT96 format to a particular
+    resolution (e.g. 'ms'). Setting to None is equivalent to 'ns'
+    and therefore INT96 timestamps will be infered as timestamps
+    in nanoseconds.
 
 Returns
 -------
@@ -1687,7 +1936,8 @@ def read_table(source, columns=None, use_threads=True, metadata=None,
                use_pandas_metadata=False, memory_map=False,
                read_dictionary=None, filesystem=None, filters=None,
                buffer_size=0, partitioning="hive", use_legacy_dataset=False,
-               ignore_prefixes=None):
+               ignore_prefixes=None, pre_buffer=True,
+               coerce_int96_timestamp_unit=None):
     if not use_legacy_dataset:
         if metadata is not None:
             raise ValueError(
@@ -1706,6 +1956,8 @@ def read_table(source, columns=None, use_threads=True, metadata=None,
                 buffer_size=buffer_size,
                 filters=filters,
                 ignore_prefixes=ignore_prefixes,
+                pre_buffer=pre_buffer,
+                coerce_int96_timestamp_unit=coerce_int96_timestamp_unit
             )
         except ImportError:
             # fall back on ParquetFile for simple cases when pyarrow.dataset
@@ -1726,7 +1978,10 @@ def read_table(source, columns=None, use_threads=True, metadata=None,
             # TODO test that source is not a directory or a list
             dataset = ParquetFile(
                 source, metadata=metadata, read_dictionary=read_dictionary,
-                memory_map=memory_map, buffer_size=buffer_size)
+                memory_map=memory_map, buffer_size=buffer_size,
+                pre_buffer=pre_buffer,
+                coerce_int96_timestamp_unit=coerce_int96_timestamp_unit
+            )
 
         return dataset.read(columns=columns, use_threads=use_threads,
                             use_pandas_metadata=use_pandas_metadata)
@@ -1737,16 +1992,22 @@ def read_table(source, columns=None, use_threads=True, metadata=None,
             "use_legacy_dataset=False")
 
     if _is_path_like(source):
-        pf = ParquetDataset(source, metadata=metadata, memory_map=memory_map,
-                            read_dictionary=read_dictionary,
-                            buffer_size=buffer_size,
-                            filesystem=filesystem, filters=filters,
-                            partitioning=partitioning)
+        pf = ParquetDataset(
+            source, metadata=metadata, memory_map=memory_map,
+            read_dictionary=read_dictionary,
+            buffer_size=buffer_size,
+            filesystem=filesystem, filters=filters,
+            partitioning=partitioning,
+            coerce_int96_timestamp_unit=coerce_int96_timestamp_unit
+        )
     else:
-        pf = ParquetFile(source, metadata=metadata,
-                         read_dictionary=read_dictionary,
-                         memory_map=memory_map,
-                         buffer_size=buffer_size)
+        pf = ParquetFile(
+            source, metadata=metadata,
+            read_dictionary=read_dictionary,
+            memory_map=memory_map,
+            buffer_size=buffer_size,
+            coerce_int96_timestamp_unit=coerce_int96_timestamp_unit
+        )
     return pf.read(columns=columns, use_threads=use_threads,
                    use_pandas_metadata=use_pandas_metadata)
 
@@ -1774,7 +2035,8 @@ def read_pandas(source, columns=None, **kwargs):
 read_pandas.__doc__ = _read_table_docstring.format(
     'Read a Table from Parquet format, also reading DataFrame\n'
     'index values if known in the file metadata',
-    _read_docstring_common,
+    "\n".join((_read_docstring_common,
+               """**kwargs : additional options for :func:`read_table`""")),
     """pyarrow.Table
     Content of the file as a Table of Columns, including DataFrame
     indexes as columns""",
@@ -1830,10 +2092,12 @@ Write a Table to Parquet format.
 Parameters
 ----------
 table : pyarrow.Table
-where: string or pyarrow.NativeFile
-row_group_size: int
+where : string or pyarrow.NativeFile
+row_group_size : int
     The number of rows per rowgroup
 {}
+**kwargs : optional
+    Additional options for ParquetWriter
 """.format(_parquet_writer_arg_docs)
 
 
@@ -1915,8 +2179,10 @@ def write_to_dataset(table, root_path, partition_cols=None,
             "implementation."
         )
         metadata_collector = kwargs.pop('metadata_collector', None)
+        file_visitor = None
         if metadata_collector is not None:
-            raise ValueError(msg.format("metadata_collector"))
+            def file_visitor(written_file):
+                metadata_collector.append(written_file.metadata)
         if partition_filename_cb is not None:
             raise ValueError(msg.format("partition_filename_cb"))
 
@@ -1936,7 +2202,8 @@ def write_to_dataset(table, root_path, partition_cols=None,
         ds.write_dataset(
             table, root_path, filesystem=filesystem,
             format=parquet_format, file_options=write_options, schema=schema,
-            partitioning=partitioning, use_threads=use_threads)
+            partitioning=partitioning, use_threads=use_threads,
+            file_visitor=file_visitor)
         return
 
     fs, root_path = legacyfs.resolve_filesystem_and_path(root_path, filesystem)
@@ -2003,8 +2270,9 @@ def write_metadata(schema, where, metadata_collector=None, **kwargs):
     Parameters
     ----------
     schema : pyarrow.Schema
-    where: string or pyarrow.NativeFile
-    metadata_collector:
+    where : string or pyarrow.NativeFile
+    metadata_collector : list
+        where to collect metadata information.
     **kwargs : dict,
         Additional kwargs for ParquetWriter class. See docstring for
         `ParquetWriter` for more information.

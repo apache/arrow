@@ -22,6 +22,7 @@
 #include <gtest/gtest.h>
 
 #include "arrow/chunked_array.h"
+#include "arrow/scalar.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_common.h"
 #include "arrow/testing/gtest_util.h"
@@ -239,6 +240,27 @@ TEST_F(TestChunkedArray, View) {
   expected = std::make_shared<ChunkedArray>(empty, out_ty);
   ASSERT_OK_AND_ASSIGN(result, carr->View(out_ty));
   AssertChunkedEqual(*expected, *result);
+}
+
+TEST_F(TestChunkedArray, GetScalar) {
+  auto ty = int32();
+  ArrayVector chunks{ArrayFromJSON(ty, "[6, 7, null]"), ArrayFromJSON(ty, "[]"),
+                     ArrayFromJSON(ty, "[null]"), ArrayFromJSON(ty, "[3, 4, 5]")};
+  ChunkedArray carr(chunks);
+
+  auto check_scalar = [](const ChunkedArray& array, int64_t index,
+                         const Scalar& expected) {
+    ASSERT_OK_AND_ASSIGN(auto actual, array.GetScalar(index));
+    AssertScalarsEqual(expected, *actual, /*verbose=*/true);
+  };
+
+  check_scalar(carr, 0, **MakeScalar(ty, 6));
+  check_scalar(carr, 2, *MakeNullScalar(ty));
+  check_scalar(carr, 3, *MakeNullScalar(ty));
+  check_scalar(carr, 4, **MakeScalar(ty, 3));
+  check_scalar(carr, 6, **MakeScalar(ty, 5));
+
+  ASSERT_RAISES(Invalid, carr.GetScalar(7));
 }
 
 }  // namespace arrow

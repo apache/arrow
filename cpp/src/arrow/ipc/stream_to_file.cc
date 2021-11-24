@@ -19,12 +19,11 @@
 #include <memory>
 #include <string>
 
+#include "arrow/io/stdio.h"
 #include "arrow/ipc/reader.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
-
-#include "arrow/util/io_util.h"
 
 namespace arrow {
 namespace ipc {

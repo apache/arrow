@@ -26,11 +26,14 @@
 #include <arrow-glib/buffer.hpp>
 #include <arrow-glib/chunked-array.hpp>
 #include <arrow-glib/codec.hpp>
+#include <arrow-glib/compute.hpp>
 #include <arrow-glib/data-type.hpp>
 #include <arrow-glib/datum.hpp>
 #include <arrow-glib/error.hpp>
+#include <arrow-glib/expression.hpp>
 #include <arrow-glib/field.hpp>
 #include <arrow-glib/record-batch.hpp>
+#include <arrow-glib/scalar.hpp>
 #include <arrow-glib/schema.hpp>
 #include <arrow-glib/table.hpp>
 #include <arrow-glib/table-builder.hpp>

@@ -21,7 +21,6 @@
 #include <cstdint>
 #include <utility>
 
-#include "arrow/memory_pool.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/bit_util.h"
@@ -169,111 +168,6 @@ MutableBuffer::MutableBuffer(const std::shared_ptr<Buffer>& parent, const int64_
                     size) {
   DCHECK(parent->is_mutable()) << "Must pass mutable buffer";
   parent_ = parent;
-}
-
-// -----------------------------------------------------------------------
-// Pool buffer and allocation
-
-/// A Buffer whose lifetime is tied to a particular MemoryPool
-class PoolBuffer : public ResizableBuffer {
- public:
-  explicit PoolBuffer(std::shared_ptr<MemoryManager> mm, MemoryPool* pool)
-      : ResizableBuffer(nullptr, 0, std::move(mm)), pool_(pool) {}
-
-  ~PoolBuffer() override {
-    if (mutable_data_ != nullptr) {
-      pool_->Free(mutable_data_, capacity_);
-    }
-  }
-
-  Status Reserve(const int64_t capacity) override {
-    if (capacity < 0) {
-      return Status::Invalid("Negative buffer capacity: ", capacity);
-    }
-    if (!mutable_data_ || capacity > capacity_) {
-      uint8_t* new_data;
-      int64_t new_capacity = BitUtil::RoundUpToMultipleOf64(capacity);
-      if (mutable_data_) {
-        RETURN_NOT_OK(pool_->Reallocate(capacity_, new_capacity, &mutable_data_));
-      } else {
-        RETURN_NOT_OK(pool_->Allocate(new_capacity, &new_data));
-        mutable_data_ = new_data;
-      }
-      data_ = mutable_data_;
-      capacity_ = new_capacity;
-    }
-    return Status::OK();
-  }
-
-  Status Resize(const int64_t new_size, bool shrink_to_fit = true) override {
-    if (ARROW_PREDICT_FALSE(new_size < 0)) {
-      return Status::Invalid("Negative buffer resize: ", new_size);
-    }
-    if (mutable_data_ && shrink_to_fit && new_size <= size_) {
-      // Buffer is non-null and is not growing, so shrink to the requested size without
-      // excess space.
-      int64_t new_capacity = BitUtil::RoundUpToMultipleOf64(new_size);
-      if (capacity_ != new_capacity) {
-        // Buffer hasn't got yet the requested size.
-        RETURN_NOT_OK(pool_->Reallocate(capacity_, new_capacity, &mutable_data_));
-        data_ = mutable_data_;
-        capacity_ = new_capacity;
-      }
-    } else {
-      RETURN_NOT_OK(Reserve(new_size));
-    }
-    size_ = new_size;
-
-    return Status::OK();
-  }
-
-  static std::shared_ptr<PoolBuffer> MakeShared(MemoryPool* pool) {
-    std::shared_ptr<MemoryManager> mm;
-    if (pool == nullptr) {
-      pool = default_memory_pool();
-      mm = default_cpu_memory_manager();
-    } else {
-      mm = CPUDevice::memory_manager(pool);
-    }
-    return std::make_shared<PoolBuffer>(std::move(mm), pool);
-  }
-
-  static std::unique_ptr<PoolBuffer> MakeUnique(MemoryPool* pool) {
-    std::shared_ptr<MemoryManager> mm;
-    if (pool == nullptr) {
-      pool = default_memory_pool();
-      mm = default_cpu_memory_manager();
-    } else {
-      mm = CPUDevice::memory_manager(pool);
-    }
-    return std::unique_ptr<PoolBuffer>(new PoolBuffer(std::move(mm), pool));
-  }
-
- private:
-  MemoryPool* pool_;
-};
-
-namespace {
-// A utility that does most of the work of the `AllocateBuffer` and
-// `AllocateResizableBuffer` methods. The argument `buffer` should be a smart pointer to
-// a PoolBuffer.
-template <typename BufferPtr, typename PoolBufferPtr>
-inline Result<BufferPtr> ResizePoolBuffer(PoolBufferPtr&& buffer, const int64_t size) {
-  RETURN_NOT_OK(buffer->Resize(size));
-  buffer->ZeroPadding();
-  return std::move(buffer);
-}
-
-}  // namespace
-
-Result<std::unique_ptr<Buffer>> AllocateBuffer(const int64_t size, MemoryPool* pool) {
-  return ResizePoolBuffer<std::unique_ptr<Buffer>>(PoolBuffer::MakeUnique(pool), size);
-}
-
-Result<std::unique_ptr<ResizableBuffer>> AllocateResizableBuffer(const int64_t size,
-                                                                 MemoryPool* pool) {
-  return ResizePoolBuffer<std::unique_ptr<ResizableBuffer>>(PoolBuffer::MakeUnique(pool),
-                                                            size);
 }
 
 Result<std::shared_ptr<Buffer>> AllocateBitmap(int64_t length, MemoryPool* pool) {

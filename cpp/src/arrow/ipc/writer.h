@@ -167,13 +167,13 @@ Result<std::shared_ptr<RecordBatchWriter>> MakeFileWriter(
 
 /// @}
 
-ARROW_DEPRECATED("Use MakeStreamWriter")
+ARROW_DEPRECATED("Deprecated in 3.0.0. Use MakeStreamWriter")
 ARROW_EXPORT
 Result<std::shared_ptr<RecordBatchWriter>> NewStreamWriter(
     io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
     const IpcWriteOptions& options = IpcWriteOptions::Defaults());
 
-ARROW_DEPRECATED("Use MakeFileWriter")
+ARROW_DEPRECATED("Deprecated in 2.0.0. Use MakeFileWriter")
 ARROW_EXPORT
 Result<std::shared_ptr<RecordBatchWriter>> NewFileWriter(
     io::OutputStream* sink, const std::shared_ptr<Schema>& schema,

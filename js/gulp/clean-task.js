@@ -16,14 +16,18 @@
 // under the License.
 
 const del = require('del');
-const { Observable } = require('rxjs');
 const { targetDir } = require('./util');
 const memoizeTask = require('./memoize-task');
+const { catchError } = require('rxjs/operators');
+const {
+    from: ObservableFrom,
+    EMPTY: ObservableEmpty,
+} = require('rxjs');
 
 const cleanTask = ((cache) => memoizeTask(cache, function clean(target, format) {
     const dir = targetDir(target, format);
-    return Observable.from(del(dir))
-        .catch((e) => Observable.empty());
+    return ObservableFrom(del(dir))
+        .pipe(catchError((e) => ObservableEmpty()));
 }))({});
 
 module.exports = cleanTask;

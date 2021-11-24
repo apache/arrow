@@ -15,8 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("BufferReader")
-
 test_that("BufferReader can be created from R objects", {
   num <- BufferReader$create(numeric(13))
   int <- BufferReader$create(integer(13))
@@ -26,8 +24,8 @@ test_that("BufferReader can be created from R objects", {
   expect_r6_class(int, "BufferReader")
   expect_r6_class(raw, "BufferReader")
 
-  expect_equal(num$GetSize(), 13*8)
-  expect_equal(int$GetSize(), 13*4)
+  expect_equal(num$GetSize(), 13 * 8)
+  expect_equal(int$GetSize(), 13 * 4)
   expect_equal(raw$GetSize(), 16)
 })
 

@@ -107,8 +107,9 @@ function(compile_pyx
   endif()
 
   if(NOT WIN32)
-    if("${CMAKE_BUILD_TYPE}" STREQUAL "Debug"
-       OR "${CMAKE_BUILD_TYPE}" STREQUAL "RelWithDebInfo")
+    string( TOLOWER "${CMAKE_BUILD_TYPE}" build_type )
+    if("${build_type}" STREQUAL "debug"
+       OR "${build_type}" STREQUAL "relwithdebinfo")
       set(cython_debug_arg "--gdb")
     endif()
   endif()
@@ -144,6 +145,8 @@ function(compile_pyx
             ${no_docstrings_arg}
             ${cython_debug_arg}
             ${CYTHON_FLAGS}
+            # Necessary for autodoc of function arguments
+            --directive embedsignature=True
             # Necessary for Cython code coverage
             --working
             ${CMAKE_CURRENT_SOURCE_DIR}

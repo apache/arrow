@@ -27,7 +27,7 @@
 # include explicitly
 !ci/**
 !c_glib/Gemfile
-!dev/archery/requirements*.txt
+!dev/archery/setup.py
 !python/requirements*.txt
 !python/manylinux1/**
 !python/manylinux2010/**

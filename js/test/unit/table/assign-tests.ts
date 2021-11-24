@@ -23,7 +23,7 @@ import * as generate from '../../generate-test-data';
 import { validateTable } from '../generated-data-validators';
 import {
     Schema, Field, DataType, Int32, Float32, Utf8
-} from '../../Arrow';
+} from 'apache-arrow';
 
 const toSchema = (...xs: [string, DataType][]) => new Schema(xs.map((x) => new Field(...x)));
 const schema1             = toSchema(['a', new Int32()], ['b', new Float32()], ['c', new Utf8()]);

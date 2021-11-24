@@ -533,8 +533,8 @@ public class BaseFileTest {
   }
 
   protected VectorSchemaRoot writeNullData(int valueCount) {
-    NullVector nullVector1 = new NullVector();
-    NullVector nullVector2 = new NullVector();
+    NullVector nullVector1 = new NullVector("vector1");
+    NullVector nullVector2 = new NullVector("vector2");
     nullVector1.setValueCount(valueCount);
     nullVector2.setValueCount(valueCount);
 
@@ -648,8 +648,7 @@ public class BaseFileTest {
     int numVarBinaryValues = 0;
     for (int i = 0; i < count; i++) {
       expectedArray[i] = (byte) i;
-      Object obj = listVector.getObject(i);
-      List<?> objList = (List) obj;
+      List<?> objList = listVector.getObject(i);
       if (i % 3 == 0) {
         Assert.assertTrue(objList.isEmpty());
       } else {

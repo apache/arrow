@@ -21,6 +21,8 @@
 #' @param path file system path where the Python module is found. Default is
 #' to look in the `inst/` directory for included modules.
 #' @export
+#' @examplesIf FALSE
+#' load_flight_server("demo_flight_server")
 load_flight_server <- function(name, path = system.file(package = "arrow")) {
   reticulate::import_from_path(name, path)
 }
@@ -49,12 +51,15 @@ flight_connect <- function(host = "localhost", port, scheme = "grpc+tcp") {
 #' @return `client`, invisibly.
 #' @export
 flight_put <- function(client, data, path, overwrite = TRUE) {
+  assert_is(data, c("data.frame", "Table", "RecordBatch"))
+
   if (!overwrite && flight_path_exists(client, path)) {
     stop(path, " exists.", call. = FALSE)
   }
   if (is.data.frame(data)) {
     data <- Table$create(data)
   }
+
   py_data <- reticulate::r_to_py(data)
   writer <- client$do_put(descriptor_for_path(path), py_data$schema)[[1]]
   if (inherits(data, "RecordBatch")) {
@@ -105,7 +110,8 @@ list_flights <- function(client) {
 #' @rdname list_flights
 #' @export
 flight_path_exists <- function(client, path) {
-  it_exists <- tryCatch({
+  it_exists <- tryCatch(
+    expr = {
       client$get_flight_info(descriptor_for_path(path))
       TRUE
     },

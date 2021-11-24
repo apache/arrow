@@ -63,7 +63,9 @@ namespace Apache.Arrow.Ipc
             IArrowTypeVisitor<UnionType>,
             IArrowTypeVisitor<StructType>,
             IArrowTypeVisitor<Decimal128Type>,
-            IArrowTypeVisitor<Decimal256Type>
+            IArrowTypeVisitor<Decimal256Type>,
+            IArrowTypeVisitor<DictionaryType>,
+            IArrowTypeVisitor<FixedSizeBinaryType>
         {
             private FlatBufferBuilder Builder { get; }
 
@@ -199,6 +201,21 @@ namespace Apache.Arrow.Ipc
                 Result = FieldType.Build(
                     Flatbuf.Type.Int,
                     Flatbuf.Int.CreateInt(Builder, type.BitWidth, type.IsSigned));
+            }
+
+            public void Visit(DictionaryType type)
+            {
+                // In this library, the dictionary "type" is a logical construct. Here we
+                // pass through to the value type, as we've already captured the index
+                // type in the DictionaryEncoding metadata in the parent field
+                type.ValueType.Accept(this);
+            }
+            
+            public void Visit(FixedSizeBinaryType type)
+            {
+                Result = FieldType.Build(
+                    Flatbuf.Type.FixedSizeBinary,
+                    Flatbuf.FixedSizeBinary.CreateFixedSizeBinary(Builder, type.ByteWidth));
             }
 
             public void Visit(IArrowType type)

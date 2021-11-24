@@ -176,6 +176,29 @@ public class Union${listName}Writer extends AbstractFieldWriter {
     return structWriter;
   }
 
+  @Override
+  public MapWriter map() {
+    return writer;
+  }
+
+  @Override
+  public MapWriter map(String name) {
+    MapWriter mapWriter = writer.map(name);
+    return mapWriter;
+  }
+
+  @Override
+  public MapWriter map(boolean keysSorted) {
+    writer.map(keysSorted);
+    return writer;
+  }
+
+  @Override
+  public MapWriter map(String name, boolean keysSorted) {
+    MapWriter mapWriter = writer.map(name, keysSorted);
+    return mapWriter;
+  }
+
   <#if listName == "LargeList">
   @Override
   public void startList() {

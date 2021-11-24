@@ -72,23 +72,19 @@ static Status InferDecimalPrecisionAndScale(PyObject* python_decimal, int32_t* p
   const auto exponent = static_cast<int32_t>(PyLong_AsLong(py_exponent.obj()));
   RETURN_IF_PYERROR();
 
-  const int32_t abs_exponent = std::abs(exponent);
-
-  int32_t num_additional_zeros;
-
-  if (num_digits <= abs_exponent) {
-    DCHECK_NE(exponent, 0) << "exponent should never be zero here";
-
-    // we have leading/trailing zeros, leading if exponent is negative
-    num_additional_zeros = exponent < 0 ? abs_exponent - num_digits : exponent;
-    *scale = static_cast<int32_t>(exponent < 0) * -exponent;
-  } else {
-    // we can use the number of digits as the precision
-    num_additional_zeros = 0;
+  if (exponent < 0) {
+    // If exponent > num_digits, we have a number with leading zeros
+    // such as 0.01234.  Ensure we have enough precision for leading zeros
+    // (which are not included in num_digits).
+    *precision = std::max(num_digits, -exponent);
     *scale = -exponent;
+  } else {
+    // Trailing zeros are not included in num_digits, need to add to precision.
+    // Note we don't generate negative scales as they are poorly supported
+    // in non-Arrow systems.
+    *precision = num_digits + exponent;
+    *scale = 0;
   }
-
-  *precision = num_digits + num_additional_zeros;
   return Status::OK();
 }
 
@@ -120,16 +116,18 @@ Status DecimalFromStdString(const std::string& decimal_string,
   const int32_t precision = arrow_type.precision();
   const int32_t scale = arrow_type.scale();
 
-  if (ARROW_PREDICT_FALSE(inferred_precision > precision)) {
+  if (scale != inferred_scale) {
+    DCHECK_NE(out, NULLPTR);
+    ARROW_ASSIGN_OR_RAISE(*out, out->Rescale(inferred_scale, scale));
+  }
+
+  auto inferred_scale_delta = inferred_scale - scale;
+  if (ARROW_PREDICT_FALSE((inferred_precision - inferred_scale_delta) > precision)) {
     return Status::Invalid(
         "Decimal type with precision ", inferred_precision,
         " does not fit into precision inferred from first array element: ", precision);
   }
 
-  if (scale != inferred_scale) {
-    DCHECK_NE(out, NULLPTR);
-    ARROW_ASSIGN_OR_RAISE(*out, out->Rescale(inferred_scale, scale));
-  }
   return Status::OK();
 }
 
@@ -214,16 +212,17 @@ DecimalMetadata::DecimalMetadata(int32_t precision, int32_t scale)
     : precision_(precision), scale_(scale) {}
 
 Status DecimalMetadata::Update(int32_t suggested_precision, int32_t suggested_scale) {
-  const int32_t current_precision = precision_;
-  precision_ = std::max(current_precision, suggested_precision);
-
   const int32_t current_scale = scale_;
   scale_ = std::max(current_scale, suggested_scale);
 
-  // if our suggested scale is zero and we don't yet have enough precision then we need to
-  // add whatever the current scale is to the precision
-  if (suggested_scale == 0 && suggested_precision > current_precision) {
-    precision_ += scale_;
+  const int32_t current_precision = precision_;
+
+  if (current_precision == std::numeric_limits<int32_t>::min()) {
+    precision_ = suggested_precision;
+  } else {
+    auto num_digits = std::max(current_precision - current_scale,
+                               suggested_precision - suggested_scale);
+    precision_ = std::max(num_digits + scale_, current_precision);
   }
 
   return Status::OK();

@@ -103,6 +103,14 @@ test_that("write_feather option error handling", {
   expect_false(file.exists(tf))
 })
 
+test_that("write_feather with invalid input type", {
+  bad_input <- Array$create(1:5)
+  expect_error(
+    write_feather(bad_input, feather_file),
+    regexp = "x must be an object of class 'data.frame', 'RecordBatch', or 'Table', not 'Array'."
+  )
+})
+
 test_that("read_feather supports col_select = <names>", {
   tab1 <- read_feather(feather_file, col_select = c("x", "y"))
   expect_s3_class(tab1, "data.frame")
@@ -214,7 +222,7 @@ test_that("FeatherReader methods", {
   # print method
   expect_identical(
     capture.output(print(reader)),
-    # TODO: can we get  rows/columns?
+    # TODO: can we get rows/columns?
     c("FeatherReader:", "Schema", "x: int32", "y: double", "z: string")
   )
 })
@@ -224,13 +232,19 @@ unlink(feather_file)
 ft_file <- test_path("golden-files/data-arrow_2.0.0_lz4.feather")
 
 test_that("Error messages are shown when the compression algorithm lz4 is not found", {
-  msg <- "NotImplemented: Support for codec 'lz4' not built\nIn order to read this file, you will need to reinstall arrow with additional features enabled.\nSet one of these environment variables before installing:\n\n * LIBARROW_MINIMAL=false (for all optional features, including 'lz4')\n * ARROW_WITH_LZ4=ON (for just 'lz4')\n\nSee https://arrow.apache.org/docs/r/articles/install.html for details"
+  msg <- paste0(
+    ".*",
+    "you will need to reinstall arrow with additional features enabled.\nSet one of ",
+    "these environment variables before installing:\n\n \\* LIBARROW_MINIMAL=false ",
+    "\\(for all optional features, including 'lz4'\\)\n \\* ARROW_WITH_LZ4=ON \\(for just 'lz4'\\)",
+    "\n\nSee https://arrow.apache.org/docs/r/articles/install.html for details"
+  )
 
   if (codec_is_available("lz4")) {
     d <- read_feather(ft_file)
-    expect_is(d, "data.frame")
+    expect_s3_class(d, "data.frame")
   } else {
-    expect_error(read_feather(ft_file), msg, fixed = TRUE)
+    expect_error(read_feather(ft_file), msg)
   }
 })
 

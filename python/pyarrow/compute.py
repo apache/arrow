@@ -30,34 +30,49 @@ from pyarrow._compute import (  # noqa
     VectorKernel,
     # Option classes
     ArraySortOptions,
+    AssumeTimezoneOptions,
     CastOptions,
     CountOptions,
+    DayOfWeekOptions,
     DictionaryEncodeOptions,
+    ElementWiseAggregateOptions,
     ExtractRegexOptions,
     FilterOptions,
+    IndexOptions,
+    JoinOptions,
+    MakeStructOptions,
     MatchSubstringOptions,
-    MinMaxOptions,
     ModeOptions,
+    NullOptions,
+    PadOptions,
+    PartitionNthOptions,
+    QuantileOptions,
+    ReplaceSliceOptions,
+    ReplaceSubstringOptions,
+    RoundOptions,
+    RoundToMultipleOptions,
+    ScalarAggregateOptions,
+    SelectKOptions,
+    SetLookupOptions,
+    SliceOptions,
+    SortOptions,
     SplitOptions,
     SplitPatternOptions,
-    PartitionNthOptions,
-    ProjectOptions,
-    QuantileOptions,
-    ReplaceSubstringOptions,
-    SetLookupOptions,
-    SortOptions,
+    StrftimeOptions,
     StrptimeOptions,
     TakeOptions,
     TDigestOptions,
     TrimOptions,
     VarianceOptions,
+    WeekOptions,
     # Functions
-    function_registry,
     call_function,
+    function_registry,
     get_function,
     list_functions,
 )
 
+import inspect
 from textwrap import dedent
 import warnings
 
@@ -65,20 +80,12 @@ import pyarrow as pa
 
 
 def _get_arg_names(func):
-    arg_names = func._doc.arg_names
-    if not arg_names:
-        if func.arity == 1:
-            arg_names = ["arg"]
-        elif func.arity == 2:
-            arg_names = ["left", "right"]
-        else:
-            raise NotImplementedError(
-                f"unsupported arity: {func.arity} (function: {func.name})")
-
-    return arg_names
+    return func._doc.arg_names
 
 
 def _decorate_compute_function(wrapper, exposed_name, func, option_class):
+    # Decorate the given compute function wrapper with useful metadata
+    # and documentation.
     wrapper.__arrow_compute_function__ = dict(name=func.name,
                                               arity=func.arity)
     wrapper.__name__ = exposed_name
@@ -126,11 +133,15 @@ def _decorate_compute_function(wrapper, exposed_name, func, option_class):
     if option_class is not None:
         doc_pieces.append("""\
             options : pyarrow.compute.{0}, optional
-                Parameters altering compute function semantics
-            **kwargs : optional
-                Parameters for {0} constructor.  Either `options`
-                or `**kwargs` can be passed, but not both at the same time.
+                Parameters altering compute function semantics.
             """.format(option_class.__name__))
+        options_sig = inspect.signature(option_class)
+        for p in options_sig.parameters.values():
+            doc_pieces.append("""\
+            {0} : optional
+                Parameter for {1} constructor. Either `options`
+                or `{0}` can be passed, but not both at the same time.
+            """.format(p.name, option_class.__name__))
 
     wrapper.__doc__ = "".join(dedent(s) for s in doc_pieces)
     return wrapper
@@ -169,41 +180,60 @@ def _handle_options(name, option_class, options, kwargs):
     return options
 
 
-_wrapper_template = dedent("""\
-    def make_wrapper(func, option_class):
-        def {func_name}({args_sig}{kwonly}, memory_pool=None):
-            return func.call([{args_sig}], None, memory_pool)
-        return {func_name}
-    """)
-
-_wrapper_options_template = dedent("""\
-    def make_wrapper(func, option_class):
-        def {func_name}({args_sig}{kwonly}, options=None, memory_pool=None,
-                        **kwargs):
-            options = _handle_options({func_name!r}, option_class, options,
+def _make_generic_wrapper(func_name, func, option_class, arity):
+    if option_class is None:
+        def wrapper(*args, memory_pool=None):
+            if arity is not Ellipsis and len(args) != arity:
+                raise TypeError(
+                    f"{func_name} takes {arity} positional argument(s), "
+                    "but {len(args)} were given"
+                )
+            return func.call(args, None, memory_pool)
+    else:
+        def wrapper(*args, memory_pool=None, options=None, **kwargs):
+            if arity is not Ellipsis and len(args) != arity:
+                raise TypeError(
+                    f"{func_name} takes {arity} positional argument(s), "
+                    "but {len(args)} were given"
+                )
+            options = _handle_options(func_name, option_class, options,
                                       kwargs)
-            return func.call([{args_sig}], options, memory_pool)
-        return {func_name}
-    """)
+            return func.call(args, options, memory_pool)
+    return wrapper
+
+
+def _make_signature(arg_names, var_arg_names, option_class):
+    from inspect import Parameter
+    params = []
+    for name in arg_names:
+        params.append(Parameter(name, Parameter.POSITIONAL_OR_KEYWORD))
+    for name in var_arg_names:
+        params.append(Parameter(name, Parameter.VAR_POSITIONAL))
+    params.append(Parameter("memory_pool", Parameter.KEYWORD_ONLY,
+                            default=None))
+    if option_class is not None:
+        params.append(Parameter("options", Parameter.KEYWORD_ONLY,
+                                default=None))
+        options_sig = inspect.signature(option_class)
+        for p in options_sig.parameters.values():
+            # XXX for now, our generic wrappers don't allow positional
+            # option arguments
+            params.append(p.replace(kind=Parameter.KEYWORD_ONLY))
+    return inspect.Signature(params)
 
 
 def _wrap_function(name, func):
     option_class = _get_options_class(func)
     arg_names = _get_arg_names(func)
-    args_sig = ', '.join(arg_names)
-    kwonly = '' if arg_names[-1].startswith('*') else ', *'
-
-    # Generate templated wrapper, so that the signature matches
-    # the documented argument names.
-    ns = {}
-    if option_class is not None:
-        template = _wrapper_options_template
+    has_vararg = arg_names and arg_names[-1].startswith('*')
+    if has_vararg:
+        var_arg_names = [arg_names.pop().lstrip('*')]
     else:
-        template = _wrapper_template
-    exec(template.format(func_name=name, args_sig=args_sig, kwonly=kwonly),
-         globals(), ns)
-    wrapper = ns['make_wrapper'](func, option_class)
+        var_arg_names = []
 
+    wrapper = _make_generic_wrapper(name, func, option_class, arity=func.arity)
+    wrapper.__signature__ = _make_signature(arg_names, var_arg_names,
+                                            option_class)
     return _decorate_compute_function(wrapper, name, func, option_class)
 
 
@@ -224,6 +254,10 @@ def _make_global_functions():
     for cpp_name in reg.list_functions():
         name = rewrites.get(cpp_name, cpp_name)
         func = reg.get_function(cpp_name)
+        if func.kind == "hash_aggregate":
+            # Hash aggregate functions are not callable,
+            # so let's not expose them at module level.
+            continue
         assert name not in g, name
         g[cpp_name] = g[name] = _wrap_function(name, func)
 
@@ -289,7 +323,121 @@ def cast(arr, target_type, safe=True):
     return call_function("cast", [arr], options)
 
 
-def match_substring(array, pattern):
+def count_substring(array, pattern, *, ignore_case=False):
+    """
+    Count the occurrences of substring *pattern* in each value of a
+    string array.
+
+    Parameters
+    ----------
+    array : pyarrow.Array or pyarrow.ChunkedArray
+    pattern : str
+        pattern to search for exact matches
+    ignore_case : bool, default False
+        Ignore case while searching.
+
+    Returns
+    -------
+    result : pyarrow.Array or pyarrow.ChunkedArray
+    """
+    return call_function("count_substring", [array],
+                         MatchSubstringOptions(pattern,
+                                               ignore_case=ignore_case))
+
+
+def count_substring_regex(array, pattern, *, ignore_case=False):
+    """
+    Count the non-overlapping matches of regex *pattern* in each value
+    of a string array.
+
+    Parameters
+    ----------
+    array : pyarrow.Array or pyarrow.ChunkedArray
+    pattern : str
+        pattern to search for exact matches
+    ignore_case : bool, default False
+        Ignore case while searching.
+
+    Returns
+    -------
+    result : pyarrow.Array or pyarrow.ChunkedArray
+    """
+    return call_function("count_substring_regex", [array],
+                         MatchSubstringOptions(pattern,
+                                               ignore_case=ignore_case))
+
+
+def find_substring(array, pattern, *, ignore_case=False):
+    """
+    Find the index of the first occurrence of substring *pattern* in each
+    value of a string array.
+
+    Parameters
+    ----------
+    array : pyarrow.Array or pyarrow.ChunkedArray
+    pattern : str
+        pattern to search for exact matches
+    ignore_case : bool, default False
+        Ignore case while searching.
+
+    Returns
+    -------
+    result : pyarrow.Array or pyarrow.ChunkedArray
+    """
+    return call_function("find_substring", [array],
+                         MatchSubstringOptions(pattern,
+                                               ignore_case=ignore_case))
+
+
+def find_substring_regex(array, pattern, *, ignore_case=False):
+    """
+    Find the index of the first match of regex *pattern* in each
+    value of a string array.
+
+    Parameters
+    ----------
+    array : pyarrow.Array or pyarrow.ChunkedArray
+    pattern : str
+        regex pattern to search for
+    ignore_case : bool, default False
+        Ignore case while searching.
+
+    Returns
+    -------
+    result : pyarrow.Array or pyarrow.ChunkedArray
+    """
+    return call_function("find_substring_regex", [array],
+                         MatchSubstringOptions(pattern,
+                                               ignore_case=ignore_case))
+
+
+def match_like(array, pattern, *, ignore_case=False):
+    """
+    Test if the SQL-style LIKE pattern *pattern* matches a value of a
+    string array.
+
+    Parameters
+    ----------
+    array : pyarrow.Array or pyarrow.ChunkedArray
+    pattern : str
+        SQL-style LIKE pattern. '%' will match any number of
+        characters, '_' will match exactly one character, and all
+        other characters match themselves. To match a literal percent
+        sign or underscore, precede the character with a backslash.
+    ignore_case : bool, default False
+        Ignore case while searching.
+
+    Returns
+    -------
+    result : pyarrow.Array or pyarrow.ChunkedArray
+
+    """
+    return call_function("match_like", [array],
+                         MatchSubstringOptions(pattern,
+                                               ignore_case=ignore_case))
+
+
+def match_substring(array, pattern, *, ignore_case=False):
     """
     Test if substring *pattern* is contained within a value of a string array.
 
@@ -298,16 +446,19 @@ def match_substring(array, pattern):
     array : pyarrow.Array or pyarrow.ChunkedArray
     pattern : str
         pattern to search for exact matches
+    ignore_case : bool, default False
+        Ignore case while searching.
 
     Returns
     -------
     result : pyarrow.Array or pyarrow.ChunkedArray
     """
     return call_function("match_substring", [array],
-                         MatchSubstringOptions(pattern))
+                         MatchSubstringOptions(pattern,
+                                               ignore_case=ignore_case))
 
 
-def match_substring_regex(array, pattern):
+def match_substring_regex(array, pattern, *, ignore_case=False):
     """
     Test if regex *pattern* matches at any position a value of a string array.
 
@@ -316,39 +467,35 @@ def match_substring_regex(array, pattern):
     array : pyarrow.Array or pyarrow.ChunkedArray
     pattern : str
         regex pattern to search
+    ignore_case : bool, default False
+        Ignore case while searching.
 
     Returns
     -------
     result : pyarrow.Array or pyarrow.ChunkedArray
     """
     return call_function("match_substring_regex", [array],
-                         MatchSubstringOptions(pattern))
+                         MatchSubstringOptions(pattern,
+                                               ignore_case=ignore_case))
 
 
-def sum(array):
-    """
-    Sum the values in a numerical (chunked) array.
-
-    Parameters
-    ----------
-    array : pyarrow.Array or pyarrow.ChunkedArray
-
-    Returns
-    -------
-    sum : pyarrow.Scalar
-    """
-    return call_function('sum', [array])
-
-
-def mode(array, n=1):
+def mode(array, n=1, *, skip_nulls=True, min_count=0):
     """
     Return top-n most common values and number of times they occur in a passed
-    numerical (chunked) array, in descending order of occurance. If there are
-    more than one values with same count, smaller one is returned first.
+    numerical (chunked) array, in descending order of occurrence. If there are
+    multiple values with same count, the smaller one is returned first.
 
     Parameters
     ----------
     array : pyarrow.Array or pyarrow.ChunkedArray
+    n : int, default 1
+        Specify the top-n values.
+    skip_nulls : bool, default True
+        If True, ignore nulls in the input. Else return an empty array
+        if any input is null.
+    min_count : int, default 0
+        If there are fewer than this many values in the input, return
+        an empty array.
 
     Returns
     -------
@@ -365,7 +512,7 @@ def mode(array, n=1):
     >>> modes[1]
     <pyarrow.StructScalar: {'mode': 1, 'count': 2}>
     """
-    options = ModeOptions(n=n)
+    options = ModeOptions(n, skip_nulls=skip_nulls, min_count=min_count)
     return call_function("mode", [array], options)
 
 
@@ -413,6 +560,42 @@ def filter(data, mask, null_selection_behavior='drop'):
     return call_function('filter', [data, mask], options)
 
 
+def index(data, value, start=None, end=None, *, memory_pool=None):
+    """
+    Find the index of the first occurrence of a given value.
+
+    Parameters
+    ----------
+    data : Array or ChunkedArray
+    value : Scalar-like object
+    start : int, optional
+    end : int, optional
+    memory_pool : MemoryPool, optional
+        If not passed, will allocate memory from the default memory pool.
+
+    Returns
+    -------
+    index : the index, or -1 if not found
+    """
+    if start is not None:
+        if end is not None:
+            data = data.slice(start, end - start)
+        else:
+            data = data.slice(start)
+    elif end is not None:
+        data = data.slice(0, end)
+
+    if not isinstance(value, pa.Scalar):
+        value = pa.scalar(value, type=data.type)
+    elif data.type != value.type:
+        value = pa.scalar(value.as_py(), type=data.type)
+    options = IndexOptions(value=value)
+    result = call_function('index', [data], options, memory_pool)
+    if start is not None and result.as_py() >= 0:
+        result = pa.scalar(result.as_py() + start, type=pa.int64())
+    return result
+
+
 def take(data, indices, *, boundscheck=True, memory_pool=None):
     """
     Select values (or records) from array- or table-like data given integer
@@ -431,6 +614,8 @@ def take(data, indices, *, boundscheck=True, memory_pool=None):
     boundscheck : boolean, default True
         Whether to boundscheck the indices. If False and there is an out of
         bounds index, will likely cause the process to crash.
+    memory_pool : MemoryPool, optional
+        If not passed, will allocate memory from the default memory pool.
 
     Returns
     -------
@@ -460,13 +645,15 @@ def fill_null(values, fill_value):
     the same type as values or able to be implicitly casted to the array's
     type.
 
+    This is an alias for :func:`coalesce`.
+
     Parameters
     ----------
-    data : Array, ChunkedArray
-        replace each null element with fill_value
-    fill_value: Scalar-like object
-        Either a pyarrow.Scalar or any python object coercible to a
-        Scalar. If not same type as data will attempt to cast.
+    values : Array, ChunkedArray, or Scalar-like object
+        Each null element is replaced with the corresponding value
+        from fill_value.
+    fill_value : Array, ChunkedArray, or Scalar-like object
+        If not same type as data will attempt to cast.
 
     Returns
     -------
@@ -486,9 +673,101 @@ def fill_null(values, fill_value):
       3
     ]
     """
-    if not isinstance(fill_value, pa.Scalar):
+    if not isinstance(fill_value, (pa.Array, pa.ChunkedArray, pa.Scalar)):
         fill_value = pa.scalar(fill_value, type=values.type)
     elif values.type != fill_value.type:
         fill_value = pa.scalar(fill_value.as_py(), type=values.type)
 
-    return call_function("fill_null", [values, fill_value])
+    return call_function("coalesce", [values, fill_value])
+
+
+def top_k_unstable(values, k, sort_keys=None, *, memory_pool=None):
+    """
+    Select the indices of the top-k ordered elements from array- or table-like
+    data.
+
+    This is a specialization for :func:`select_k_unstable`. Output is not
+    guaranteed to be stable.
+
+    Parameters
+    ----------
+    values : Array, ChunkedArray, RecordBatch, or Table
+        Data to sort and get top indices from.
+    k : int
+        The number of `k` elements to keep.
+    sort_keys : List-like
+        Column key names to order by when input is table-like data.
+    memory_pool : MemoryPool, optional
+        If not passed, will allocate memory from the default memory pool.
+
+    Returns
+    -------
+    result : Array of indices
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> import pyarrow.compute as pc
+    >>> arr = pa.array(["a", "b", "c", None, "e", "f"])
+    >>> pc.top_k_unstable(arr, k=3)
+    <pyarrow.lib.UInt64Array object at 0x7fdcb19d7f30>
+    [
+      5,
+      4,
+      2
+    ]
+    """
+    if sort_keys is None:
+        sort_keys = []
+    if isinstance(values, (pa.Array, pa.ChunkedArray)):
+        sort_keys.append(("dummy", "descending"))
+    else:
+        sort_keys = map(lambda key_name: (key_name, "descending"), sort_keys)
+    options = SelectKOptions(k, sort_keys)
+    return call_function("select_k_unstable", [values], options, memory_pool)
+
+
+def bottom_k_unstable(values, k, sort_keys=None, *, memory_pool=None):
+    """
+    Select the indices of the bottom-k ordered elements from
+    array- or table-like data.
+
+    This is a specialization for :func:`select_k_unstable`. Output is not
+    guaranteed to be stable.
+
+    Parameters
+    ----------
+    values : Array, ChunkedArray, RecordBatch, or Table
+        Data to sort and get bottom indices from.
+    k : int
+        The number of `k` elements to keep.
+    sort_keys : List-like
+        Column key names to order by when input is table-like data.
+    memory_pool : MemoryPool, optional
+        If not passed, will allocate memory from the default memory pool.
+
+    Returns
+    -------
+    result : Array of indices
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> import pyarrow.compute as pc
+    >>> arr = pa.array(["a", "b", "c", None, "e", "f"])
+    >>> pc.bottom_k_unstable(arr, k=3)
+    <pyarrow.lib.UInt64Array object at 0x7fdcb19d7fa0>
+    [
+      0,
+      1,
+      2
+    ]
+    """
+    if sort_keys is None:
+        sort_keys = []
+    if isinstance(values, (pa.Array, pa.ChunkedArray)):
+        sort_keys.append(("dummy", "ascending"))
+    else:
+        sort_keys = map(lambda key_name: (key_name, "ascending"), sort_keys)
+    options = SelectKOptions(k, sort_keys)
+    return call_function("select_k_unstable", [values], options, memory_pool)

@@ -25,6 +25,7 @@
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
+#include "arrow/io/type_fwd.h"
 #include "arrow/ipc/type_fwd.h"
 #include "arrow/result.h"
 
@@ -56,9 +57,18 @@ class ARROW_DS_EXPORT IpcFileFormat : public FileFormat {
       const std::shared_ptr<ScanOptions>& options,
       const std::shared_ptr<FileFragment>& fragment) const override;
 
+  Result<RecordBatchGenerator> ScanBatchesAsync(
+      const std::shared_ptr<ScanOptions>& options,
+      const std::shared_ptr<FileFragment>& file) const override;
+
+  Future<util::optional<int64_t>> CountRows(
+      const std::shared_ptr<FileFragment>& file, compute::Expression predicate,
+      const std::shared_ptr<ScanOptions>& options) override;
+
   Result<std::shared_ptr<FileWriter>> MakeWriter(
       std::shared_ptr<io::OutputStream> destination, std::shared_ptr<Schema> schema,
-      std::shared_ptr<FileWriteOptions> options) const override;
+      std::shared_ptr<FileWriteOptions> options,
+      fs::FileLocator destination_locator) const override;
 
   std::shared_ptr<FileWriteOptions> DefaultWriteOptions() override;
 };
@@ -71,6 +81,9 @@ class ARROW_DS_EXPORT IpcFragmentScanOptions : public FragmentScanOptions {
   /// Options passed to the IPC file reader.
   /// included_fields, memory_pool, and use_threads are ignored.
   std::shared_ptr<ipc::IpcReadOptions> options;
+  /// If present, the async scanner will enable I/O coalescing.
+  /// This is ignored by the sync scanner.
+  std::shared_ptr<io::CacheOptions> cache_options;
 };
 
 class ARROW_DS_EXPORT IpcFileWriteOptions : public FileWriteOptions {
@@ -95,7 +108,8 @@ class ARROW_DS_EXPORT IpcFileWriter : public FileWriter {
   IpcFileWriter(std::shared_ptr<io::OutputStream> destination,
                 std::shared_ptr<ipc::RecordBatchWriter> writer,
                 std::shared_ptr<Schema> schema,
-                std::shared_ptr<IpcFileWriteOptions> options);
+                std::shared_ptr<IpcFileWriteOptions> options,
+                fs::FileLocator destination_locator);
 
   Status FinishInternal() override;
 

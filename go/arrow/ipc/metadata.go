@@ -14,16 +14,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ipc // import "github.com/apache/arrow/go/arrow/ipc"
+package ipc
 
 import (
 	"encoding/binary"
 	"io"
 	"sort"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/internal/flatbuf"
-	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/v7/arrow"
+	"github.com/apache/arrow/go/v7/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v7/arrow/memory"
 	flatbuffers "github.com/google/flatbuffers/go"
 	"golang.org/x/xerrors"
 )
@@ -35,8 +35,10 @@ const (
 	currentMetadataVersion = MetadataV5
 	minMetadataVersion     = MetadataV4
 
-	kExtensionTypeKeyName = "arrow_extension_name"
-	kExtensionDataKeyName = "arrow_extension_data"
+	// constants for the extension type metadata keys for the type name and
+	// any extension metadata to be passed to deserialize.
+	ExtensionTypeKeyName     = "ARROW:extension:name"
+	ExtensionMetadataKeyName = "ARROW:extension:metadata"
 
 	// ARROW-109: We set this number arbitrarily to help catch user mistakes. For
 	// deeply nested schemas, it is expected the user will indicate explicitly the
@@ -187,7 +189,7 @@ func fieldFromFB(field *flatbuf.Field, memo *dictMemo) (arrow.Field, error) {
 			children[i] = child
 		}
 
-		o.Type, err = typeFromFB(field, children, o.Metadata)
+		o.Type, err = typeFromFB(field, children, &o.Metadata)
 		if err != nil {
 			return o, xerrors.Errorf("arrow/ipc: could not convert field type: %w", err)
 		}
@@ -345,13 +347,13 @@ func (fv *fieldVisitor) visit(field arrow.Field) {
 
 	case *arrow.ListType:
 		fv.dtype = flatbuf.TypeList
-		fv.kids = append(fv.kids, fieldToFB(fv.b, arrow.Field{Name: "item", Type: dt.Elem(), Nullable: field.Nullable}, fv.memo))
+		fv.kids = append(fv.kids, fieldToFB(fv.b, dt.ElemField(), fv.memo))
 		flatbuf.ListStart(fv.b)
 		fv.offset = flatbuf.ListEnd(fv.b)
 
 	case *arrow.FixedSizeListType:
 		fv.dtype = flatbuf.TypeFixedSizeList
-		fv.kids = append(fv.kids, fieldToFB(fv.b, arrow.Field{Name: "item", Type: dt.Elem(), Nullable: field.Nullable}, fv.memo))
+		fv.kids = append(fv.kids, fieldToFB(fv.b, dt.ElemField(), fv.memo))
 		flatbuf.FixedSizeListStart(fv.b)
 		flatbuf.FixedSizeListAddListSize(fv.b, dt.Len())
 		fv.offset = flatbuf.FixedSizeListEnd(fv.b)
@@ -368,12 +370,31 @@ func (fv *fieldVisitor) visit(field arrow.Field) {
 		flatbuf.IntervalAddUnit(fv.b, flatbuf.IntervalUnitDAY_TIME)
 		fv.offset = flatbuf.IntervalEnd(fv.b)
 
+	case *arrow.MonthDayNanoIntervalType:
+		fv.dtype = flatbuf.TypeInterval
+		flatbuf.IntervalStart(fv.b)
+		flatbuf.IntervalAddUnit(fv.b, flatbuf.IntervalUnitMONTH_DAY_NANO)
+		fv.offset = flatbuf.IntervalEnd(fv.b)
+
 	case *arrow.DurationType:
 		fv.dtype = flatbuf.TypeDuration
 		unit := unitToFB(dt.Unit)
 		flatbuf.DurationStart(fv.b)
 		flatbuf.DurationAddUnit(fv.b, unit)
 		fv.offset = flatbuf.DurationEnd(fv.b)
+
+	case *arrow.MapType:
+		fv.dtype = flatbuf.TypeMap
+		fv.kids = append(fv.kids, fieldToFB(fv.b, dt.ValueField(), fv.memo))
+		flatbuf.MapStart(fv.b)
+		flatbuf.MapAddKeysSorted(fv.b, dt.KeysSorted)
+		fv.offset = flatbuf.MapEnd(fv.b)
+
+	case arrow.ExtensionType:
+		field.Type = dt.StorageType()
+		fv.visit(field)
+		fv.meta[ExtensionTypeKeyName] = dt.ExtensionName()
+		fv.meta[ExtensionMetadataKeyName] = string(dt.Serialize())
 
 	default:
 		err := xerrors.Errorf("arrow/ipc: invalid data type %v", dt)
@@ -477,7 +498,7 @@ func fieldFromFBDict(field *flatbuf.Field) (arrow.Field, error) {
 		return o, xerrors.Errorf("arrow/ipc: metadata for field from dict: %w", err)
 	}
 
-	o.Type, err = typeFromFB(field, kids, meta)
+	o.Type, err = typeFromFB(field, kids, &meta)
 	if err != nil {
 		return o, xerrors.Errorf("arrow/ipc: type for field from dict: %w", err)
 	}
@@ -485,7 +506,7 @@ func fieldFromFBDict(field *flatbuf.Field) (arrow.Field, error) {
 	return o, nil
 }
 
-func typeFromFB(field *flatbuf.Field, children []arrow.Field, md arrow.Metadata) (arrow.DataType, error) {
+func typeFromFB(field *flatbuf.Field, children []arrow.Field, md *arrow.Metadata) (arrow.DataType, error) {
 	var data flatbuffers.Table
 	if !field.Type(&data) {
 		return nil, xerrors.Errorf("arrow/ipc: could not load field type data")
@@ -498,23 +519,58 @@ func typeFromFB(field *flatbuf.Field, children []arrow.Field, md arrow.Metadata)
 
 	// look for extension metadata in custom metadata field.
 	if md.Len() > 0 {
-		i := md.FindKey(kExtensionTypeKeyName)
+		i := md.FindKey(ExtensionTypeKeyName)
 		if i < 0 {
 			return dt, err
 		}
 
-		panic("not implemented") // FIXME(sbinet)
+		extType := arrow.GetExtensionType(md.Values()[i])
+		if extType == nil {
+			// if the extension type is unknown, we do not error here.
+			// simply return the storage type.
+			return dt, err
+		}
+
+		var (
+			data    string
+			dataIdx int
+		)
+
+		if dataIdx = md.FindKey(ExtensionMetadataKeyName); dataIdx >= 0 {
+			data = md.Values()[dataIdx]
+		}
+
+		dt, err = extType.Deserialize(dt, data)
+		if err != nil {
+			return dt, err
+		}
+
+		mdkeys := md.Keys()
+		mdvals := md.Values()
+		if dataIdx < 0 {
+			// if there was no extension metadata, just the name, we only have to
+			// remove the extension name metadata key/value to ensure roundtrip
+			// metadata consistency
+			*md = arrow.NewMetadata(append(mdkeys[:i], mdkeys[i+1:]...), append(mdvals[:i], mdvals[i+1:]...))
+		} else {
+			// if there was extension metadata, we need to remove both the type name
+			// and the extension metadata keys and values.
+			newkeys := make([]string, 0, md.Len()-2)
+			newvals := make([]string, 0, md.Len()-2)
+			for j := range mdkeys {
+				if j != i && j != dataIdx { // copy everything except the extension metadata keys/values
+					newkeys = append(newkeys, mdkeys[j])
+					newvals = append(newvals, mdvals[j])
+				}
+			}
+			*md = arrow.NewMetadata(newkeys, newvals)
+		}
 	}
 
 	return dt, err
 }
 
 func concreteTypeFromFB(typ flatbuf.Type, data flatbuffers.Table, children []arrow.Field) (arrow.DataType, error) {
-	var (
-		dt  arrow.DataType
-		err error
-	)
-
 	switch typ {
 	case flatbuf.TypeNONE:
 		return nil, xerrors.Errorf("arrow/ipc: Type metadata cannot be none")
@@ -555,7 +611,8 @@ func concreteTypeFromFB(typ flatbuf.Type, data flatbuffers.Table, children []arr
 		if len(children) != 1 {
 			return nil, xerrors.Errorf("arrow/ipc: List must have exactly 1 child field (got=%d)", len(children))
 		}
-		return arrow.ListOf(children[0].Type), nil
+		dt := arrow.ListOfField(children[0])
+		return dt, nil
 
 	case flatbuf.TypeFixedSizeList:
 		var dt flatbuf.FixedSizeList
@@ -563,7 +620,8 @@ func concreteTypeFromFB(typ flatbuf.Type, data flatbuffers.Table, children []arr
 		if len(children) != 1 {
 			return nil, xerrors.Errorf("arrow/ipc: FixedSizeList must have exactly 1 child field (got=%d)", len(children))
 		}
-		return arrow.FixedSizeListOf(dt.ListSize(), children[0].Type), nil
+		ret := arrow.FixedSizeListOfField(dt.ListSize(), children[0])
+		return ret, nil
 
 	case flatbuf.TypeStruct_:
 		return arrow.StructOf(children...), nil
@@ -593,12 +651,30 @@ func concreteTypeFromFB(typ flatbuf.Type, data flatbuffers.Table, children []arr
 		dt.Init(data.Bytes, data.Pos)
 		return durationFromFB(dt)
 
+	case flatbuf.TypeMap:
+		if len(children) != 1 {
+			return nil, xerrors.Errorf("arrow/ipc: Map must have exactly 1 child field")
+		}
+
+		if children[0].Nullable || children[0].Type.ID() != arrow.STRUCT || len(children[0].Type.(*arrow.StructType).Fields()) != 2 {
+			return nil, xerrors.Errorf("arrow/ipc: Map's key-item pairs must be non-nullable structs")
+		}
+
+		pairType := children[0].Type.(*arrow.StructType)
+		if pairType.Field(0).Nullable {
+			return nil, xerrors.Errorf("arrow/ipc: Map's keys must be non-nullable")
+		}
+
+		var dt flatbuf.Map
+		dt.Init(data.Bytes, data.Pos)
+		ret := arrow.MapOf(pairType.Field(0).Type, pairType.Field(1).Type)
+		ret.KeysSorted = dt.KeysSorted()
+		return ret, nil
+
 	default:
 		// FIXME(sbinet): implement all the other types.
 		panic(xerrors.Errorf("arrow/ipc: type %v not implemented", flatbuf.EnumNamesType[typ]))
 	}
-
-	return dt, err
 }
 
 func intFromFB(data flatbuf.Int) (arrow.DataType, error) {
@@ -732,6 +808,8 @@ func intervalFromFB(data flatbuf.Interval) (arrow.DataType, error) {
 		return arrow.FixedWidthTypes.MonthInterval, nil
 	case flatbuf.IntervalUnitDAY_TIME:
 		return arrow.FixedWidthTypes.DayTimeInterval, nil
+	case flatbuf.IntervalUnitMONTH_DAY_NANO:
+		return arrow.FixedWidthTypes.MonthDayNanoInterval, nil
 	}
 	return nil, xerrors.Errorf("arrow/ipc: Interval type with %d unit not implemented", data.Unit())
 }

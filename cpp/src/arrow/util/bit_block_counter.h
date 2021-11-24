@@ -58,6 +58,16 @@ struct BitBlockAnd<bool> {
 };
 
 template <typename T>
+struct BitBlockAndNot {
+  static T Call(T left, T right) { return left & ~right; }
+};
+
+template <>
+struct BitBlockAndNot<bool> {
+  static bool Call(bool left, bool right) { return left && !right; }
+};
+
+template <typename T>
 struct BitBlockOr {
   static T Call(T left, T right) { return left | right; }
 };
@@ -95,7 +105,7 @@ struct BitBlockCount {
 class ARROW_EXPORT BitBlockCounter {
  public:
   BitBlockCounter(const uint8_t* bitmap, int64_t start_offset, int64_t length)
-      : bitmap_(bitmap + start_offset / 8),
+      : bitmap_(util::MakeNonNull(bitmap) + start_offset / 8),
         bits_remaining_(length),
         offset_(start_offset % 8) {}
 
@@ -253,9 +263,9 @@ class ARROW_EXPORT BinaryBitBlockCounter {
  public:
   BinaryBitBlockCounter(const uint8_t* left_bitmap, int64_t left_offset,
                         const uint8_t* right_bitmap, int64_t right_offset, int64_t length)
-      : left_bitmap_(left_bitmap + left_offset / 8),
+      : left_bitmap_(util::MakeNonNull(left_bitmap) + left_offset / 8),
         left_offset_(left_offset % 8),
-        right_bitmap_(right_bitmap + right_offset / 8),
+        right_bitmap_(util::MakeNonNull(right_bitmap) + right_offset / 8),
         right_offset_(right_offset % 8),
         bits_remaining_(length) {}
 
@@ -265,6 +275,9 @@ class ARROW_EXPORT BinaryBitBlockCounter {
   /// if the bitmap length is not a multiple of 64, and will return 0-length
   /// blocks in subsequent invocations.
   BitBlockCount NextAndWord() { return NextWord<detail::BitBlockAnd>(); }
+
+  /// \brief Computes "x & ~y" block for each available run of bits.
+  BitBlockCount NextAndNotWord() { return NextWord<detail::BitBlockAndNot>(); }
 
   /// \brief Computes "x | y" block for each available run of bits.
   BitBlockCount NextOrWord() { return NextWord<detail::BitBlockOr>(); }
@@ -476,6 +489,54 @@ static void VisitBitBlocksVoid(const std::shared_ptr<Buffer>& bitmap_buf, int64_
       }
     }
   }
+}
+
+template <typename VisitNotNull, typename VisitNull>
+static Status VisitTwoBitBlocks(const std::shared_ptr<Buffer>& left_bitmap_buf,
+                                int64_t left_offset,
+                                const std::shared_ptr<Buffer>& right_bitmap_buf,
+                                int64_t right_offset, int64_t length,
+                                VisitNotNull&& visit_not_null, VisitNull&& visit_null) {
+  if (left_bitmap_buf == NULLPTR || right_bitmap_buf == NULLPTR) {
+    // At most one bitmap is present
+    if (left_bitmap_buf == NULLPTR) {
+      return VisitBitBlocks(right_bitmap_buf, right_offset, length,
+                            std::forward<VisitNotNull>(visit_not_null),
+                            std::forward<VisitNull>(visit_null));
+    } else {
+      return VisitBitBlocks(left_bitmap_buf, left_offset, length,
+                            std::forward<VisitNotNull>(visit_not_null),
+                            std::forward<VisitNull>(visit_null));
+    }
+  }
+  // Both bitmaps are present
+  const uint8_t* left_bitmap = left_bitmap_buf->data();
+  const uint8_t* right_bitmap = right_bitmap_buf->data();
+  BinaryBitBlockCounter bit_counter(left_bitmap, left_offset, right_bitmap, right_offset,
+                                    length);
+  int64_t position = 0;
+  while (position < length) {
+    BitBlockCount block = bit_counter.NextAndWord();
+    if (block.AllSet()) {
+      for (int64_t i = 0; i < block.length; ++i, ++position) {
+        ARROW_RETURN_NOT_OK(visit_not_null(position));
+      }
+    } else if (block.NoneSet()) {
+      for (int64_t i = 0; i < block.length; ++i, ++position) {
+        ARROW_RETURN_NOT_OK(visit_null());
+      }
+    } else {
+      for (int64_t i = 0; i < block.length; ++i, ++position) {
+        if (BitUtil::GetBit(left_bitmap, left_offset + position) &&
+            BitUtil::GetBit(right_bitmap, right_offset + position)) {
+          ARROW_RETURN_NOT_OK(visit_not_null(position));
+        } else {
+          ARROW_RETURN_NOT_OK(visit_null());
+        }
+      }
+    }
+  }
+  return Status::OK();
 }
 
 template <typename VisitNotNull, typename VisitNull>

@@ -17,6 +17,7 @@
 
 require "arrow"
 
+require "fiddle"
 require "pathname"
 require "tempfile"
 require "zlib"

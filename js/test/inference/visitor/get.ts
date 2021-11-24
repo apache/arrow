@@ -20,7 +20,7 @@ import {
     Bool, List, Dictionary
 } from '../../Arrow';
 
-import { instance as getVisitor } from '../../../src/visitor/get';
+import { instance as getVisitor } from 'apache-arrow/visitor/get';
 
 const data_Bool = new Data(new Bool(), 0, 0);
 const data_List_Bool = new Data(new List<Bool>(null as any), 0, 0);

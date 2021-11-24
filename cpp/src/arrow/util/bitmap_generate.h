@@ -62,7 +62,7 @@ void GenerateBits(uint8_t* bitmap, int64_t start_offset, int64_t length, Generat
 template <class Generator>
 void GenerateBitsUnrolled(uint8_t* bitmap, int64_t start_offset, int64_t length,
                           Generator&& g) {
-  static_assert(std::is_same<typename std::result_of<Generator && ()>::type, bool>::value,
+  static_assert(std::is_same<decltype(std::declval<Generator>()()), bool>::value,
                 "Functor passed to GenerateBitsUnrolled must return bool");
 
   if (length == 0) {

@@ -81,6 +81,16 @@ static void ArraySortIndicesInt64Wide(benchmark::State& state) {
   ArraySortIndicesInt64Benchmark(state, min, max);
 }
 
+static void ArraySortIndicesBool(benchmark::State& state) {
+  RegressionArgs args(state);
+
+  const int64_t array_size = args.size * 8;
+  auto rand = random::RandomArrayGenerator(kSeed);
+  auto values = rand.Boolean(array_size, 0.5, args.null_proportion);
+
+  ArraySortIndicesBenchmark(state, values);
+}
+
 static void ChunkedArraySortIndicesInt64Narrow(benchmark::State& state) {
   ChunkedArraySortIndicesInt64Benchmark(state, -100, 100);
 }
@@ -117,6 +127,8 @@ struct RecordBatchSortIndicesArgs {
         state_(state) {}
 
   ~RecordBatchSortIndicesArgs() {
+    state_.counters["columns"] = static_cast<double>(num_columns);
+    state_.counters["null_percent"] = null_proportion * 100;
     state_.SetItemsProcessed(state_.iterations() * num_records);
   }
 
@@ -139,6 +151,8 @@ struct TableSortIndicesArgs : public RecordBatchSortIndicesArgs {
   // Extract args
   explicit TableSortIndicesArgs(benchmark::State& state)
       : RecordBatchSortIndicesArgs(state), num_chunks(state.range(3)) {}
+
+  ~TableSortIndicesArgs() { state_.counters["chunks"] = static_cast<double>(num_chunks); }
 };
 
 struct BatchOrTableBenchmarkData {
@@ -235,6 +249,12 @@ BENCHMARK(ArraySortIndicesInt64Wide)
     ->Args({1 << 23, 100})
     ->Unit(benchmark::TimeUnit::kNanosecond);
 
+BENCHMARK(ArraySortIndicesBool)
+    ->Apply(RegressionSetArgs)
+    ->Args({1 << 20, 100})
+    ->Args({1 << 23, 100})
+    ->Unit(benchmark::TimeUnit::kNanosecond);
+
 BENCHMARK(ChunkedArraySortIndicesInt64Narrow)
     ->Apply(RegressionSetArgs)
     ->Args({1 << 20, 100})
@@ -250,7 +270,7 @@ BENCHMARK(ChunkedArraySortIndicesInt64Wide)
 BENCHMARK(RecordBatchSortIndicesInt64Narrow)
     ->ArgsProduct({
         {1 << 20},      // the number of records
-        {100, 0},       // inverse null proportion
+        {100, 4, 0},    // inverse null proportion
         {16, 8, 2, 1},  // the number of columns
     })
     ->Unit(benchmark::TimeUnit::kNanosecond);
@@ -258,7 +278,7 @@ BENCHMARK(RecordBatchSortIndicesInt64Narrow)
 BENCHMARK(RecordBatchSortIndicesInt64Wide)
     ->ArgsProduct({
         {1 << 20},      // the number of records
-        {100, 0},       // inverse null proportion
+        {100, 4, 0},    // inverse null proportion
         {16, 8, 2, 1},  // the number of columns
     })
     ->Unit(benchmark::TimeUnit::kNanosecond);
@@ -266,7 +286,7 @@ BENCHMARK(RecordBatchSortIndicesInt64Wide)
 BENCHMARK(TableSortIndicesInt64Narrow)
     ->ArgsProduct({
         {1 << 20},      // the number of records
-        {100, 0},       // inverse null proportion
+        {100, 4, 0},    // inverse null proportion
         {16, 8, 2, 1},  // the number of columns
         {32, 4, 1},     // the number of chunks
     })
@@ -275,7 +295,7 @@ BENCHMARK(TableSortIndicesInt64Narrow)
 BENCHMARK(TableSortIndicesInt64Wide)
     ->ArgsProduct({
         {1 << 20},      // the number of records
-        {100, 0},       // inverse null proportion
+        {100, 4, 0},    // inverse null proportion
         {16, 8, 2, 1},  // the number of columns
         {32, 4, 1},     // the number of chunks
     })

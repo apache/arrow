@@ -15,6 +15,9 @@
 \alias{MetadataVersion}
 \alias{QuantileInterpolation}
 \alias{NullEncodingBehavior}
+\alias{NullHandlingBehavior}
+\alias{RoundMode}
+\alias{JoinType}
 \title{Arrow enums}
 \format{
 An object of class \code{TimeUnit::type} (inherits from \code{arrow-enum}) of length 4.
@@ -40,6 +43,12 @@ An object of class \code{MetadataVersion} (inherits from \code{arrow-enum}) of l
 An object of class \code{QuantileInterpolation} (inherits from \code{arrow-enum}) of length 5.
 
 An object of class \code{NullEncodingBehavior} (inherits from \code{arrow-enum}) of length 2.
+
+An object of class \code{NullHandlingBehavior} (inherits from \code{arrow-enum}) of length 3.
+
+An object of class \code{RoundMode} (inherits from \code{arrow-enum}) of length 10.
+
+An object of class \code{JoinType} (inherits from \code{arrow-enum}) of length 8.
 }
 \usage{
 TimeUnit
@@ -65,6 +74,12 @@ MetadataVersion
 QuantileInterpolation
 
 NullEncodingBehavior
+
+NullHandlingBehavior
+
+RoundMode
+
+JoinType
 }
 \description{
 Arrow enums

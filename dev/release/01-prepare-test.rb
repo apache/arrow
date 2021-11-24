@@ -31,7 +31,6 @@ class PrepareTest < Test::Unit::TestCase
       Dir.chdir(@test_git_repository) do
         @tag_name = "apache-arrow-#{@release_version}"
         @release_branch = "testing-release-#{@release_version}-rc0"
-        @script = "dev/release/01-prepare.sh"
         git("checkout", "-b", @release_branch, @current_commit)
         yield
       end
@@ -43,7 +42,7 @@ class PrepareTest < Test::Unit::TestCase
     omit("Not for release branch") if on_release_branch?
   end
 
-  def prepare(script, *targets)
+  def prepare(*targets)
     if targets.last.is_a?(Hash)
       additional_env = targets.pop
     else
@@ -54,7 +53,16 @@ class PrepareTest < Test::Unit::TestCase
       env["PREPARE_#{target}"] = "1"
     end
     env = env.merge(additional_env)
-    sh(env, script, @release_version, @next_version, "0")
+    sh(env, "dev/release/01-prepare.sh", @release_version, @next_version, "0")
+  end
+
+  def bump_versions(*targets)
+    env = { "BUMP_DEFAULT" => "0" }
+    targets.each do |target|
+      env["BUMP_#{target}"] = "1"
+    end
+    sh(env, "dev/release/post-12-bump-versions.sh", @release_version,
+       @next_version)
   end
 
   def parse_patch(patch)
@@ -82,10 +90,7 @@ class PrepareTest < Test::Unit::TestCase
   def test_linux_packages
     user = "Arrow Developers"
     email = "dev@arrow.apache.org"
-    prepare("dev/release/01-prepare.sh",
-            "LINUX_PACKAGES",
-            "DEBFULLNAME" => user,
-            "DEBEMAIL" => email)
+    prepare("LINUX_PACKAGES", "DEBFULLNAME" => user, "DEBEMAIL" => email)
     changes = parse_patch(git("log", "-n", "1", "-p"))
     sampled_changes = changes.collect do |change|
       {
@@ -127,631 +132,278 @@ class PrepareTest < Test::Unit::TestCase
 
   def test_version_pre_tag
     omit_on_release_branch
-    prepare("dev/release/01-prepare.sh", "VERSION_PRE_TAG")
-    assert_equal([
-                   {
-                     path: "c_glib/meson.build",
-                     hunks: [
-                       ["-version = '#{@snapshot_version}'",
-                        "+version = '#{@release_version}'"],
-                     ],
-                   },
-                   {
-                     path: "ci/scripts/PKGBUILD",
-                     hunks: [
-                       ["-pkgver=#{@previous_version}.9000",
-                        "+pkgver=#{@release_version}"],
-                     ],
-                   },
-                   {
-                     path: "cpp/CMakeLists.txt",
-                     hunks: [
-                       ["-set(ARROW_VERSION \"#{@snapshot_version}\")",
-                        "+set(ARROW_VERSION \"#{@release_version}\")"],
-                     ],
-                   },
-                   {
-                     path: "cpp/vcpkg.json",
-                     hunks: [
-                       ["-  \"version-string\": \"#{@snapshot_version}\",",
-                        "+  \"version-string\": \"#{@release_version}\","],
-                     ],
-                   },
-                   {
-                     path: "csharp/Directory.Build.props",
-                     hunks: [
-                       ["-    <Version>#{@snapshot_version}</Version>",
-                        "+    <Version>#{@release_version}</Version>"],
-                     ],
-                   },
-                   {
-                     path: "dev/tasks/homebrew-formulae/apache-arrow.rb",
-                     hunks: [
-                       ["-  url \"https://www.apache.org/dyn/closer.lua?path=arrow/arrow-#{@snapshot_version}/apache-arrow-#{@snapshot_version}.tar.gz\"",
-                        "+  url \"https://www.apache.org/dyn/closer.lua?path=arrow/arrow-#{@release_version}/apache-arrow-#{@release_version}.tar.gz\""],
-                     ],
-                   },
-                   {
-                     path: "dev/tasks/homebrew-formulae/autobrew/apache-arrow.rb",
-                     hunks: [
-                       ["-  url \"https://www.apache.org/dyn/closer.lua?path=arrow/arrow-#{@previous_version}.9000/apache-arrow-#{@previous_version}.9000.tar.gz\"",
-                        "+  url \"https://www.apache.org/dyn/closer.lua?path=arrow/arrow-#{@release_version}/apache-arrow-#{@release_version}.tar.gz\""],
-                     ],
-                   },
-                   {
-                     path: "java/adapter/avro/pom.xml",
-                     hunks: [
-                       ["-    <version>#{@snapshot_version}</version>",
-                        "+    <version>#{@release_version}</version>"],
-                     ],
-                   },
-                   {
-                     hunks: [
-                       ["-        <version>#{@snapshot_version}</version>",
-                        "+        <version>#{@release_version}</version>"],
-                     ],
-                     path: "java/adapter/jdbc/pom.xml",
-                   },
-                   {
-                     hunks: [
-                       ["-        <version>#{@snapshot_version}</version>",
-                        "+        <version>#{@release_version}</version>"],
-                     ],
-                     path: "java/adapter/orc/pom.xml",
-                   },
-                   { hunks: [["-    <version>#{@snapshot_version}</version>",
-                              "+    <version>#{@release_version}</version>"]],
-                     path: "java/algorithm/pom.xml" },
-                   { hunks: [["-    <version>#{@snapshot_version}</version>",
-                              "+    <version>#{@release_version}</version>"]],
-                     path: "java/compression/pom.xml" },
-                   { hunks: [["-        <version>#{@snapshot_version}</version>",
-                              "+        <version>#{@release_version}</version>"]],
-                     path: "java/dataset/pom.xml" },
-                   { hunks: [["-    <version>#{@snapshot_version}</version>",
-                              "+    <version>#{@release_version}</version>"]],
-                     path: "java/flight/flight-core/pom.xml" },
-                   { hunks: [["-    <version>#{@snapshot_version}</version>",
-                              "+    <version>#{@release_version}</version>"]],
-                     path: "java/flight/flight-grpc/pom.xml" },
-                   { hunks: [["-  <version>#{@snapshot_version}</version>", "+  <version>#{@release_version}</version>"]],
-                     path: "java/format/pom.xml" },
-                   { hunks: [["-      <version>#{@snapshot_version}</version>",
-                              "+      <version>#{@release_version}</version>"]],
-                     path: "java/gandiva/pom.xml" },
-                   { hunks: [["-    <version>#{@snapshot_version}</version>",
-                              "+    <version>#{@release_version}</version>"]],
-                     path: "java/memory/memory-core/pom.xml" },
-                   { hunks: [["-    <version>#{@snapshot_version}</version>",
-                              "+    <version>#{@release_version}</version>"]],
-                     path: "java/memory/memory-netty/pom.xml" },
-                   { hunks: [["-    <version>#{@snapshot_version}</version>",
-                              "+    <version>#{@release_version}</version>"]],
-                     path: "java/memory/memory-unsafe/pom.xml" },
-                   { hunks: [["-    <version>#{@snapshot_version}</version>",
-                              "+    <version>#{@release_version}</version>"]],
-                     path: "java/memory/pom.xml" },
-                   { hunks: [["-        <version>#{@snapshot_version}</version>",
-                              "+        <version>#{@release_version}</version>"],
-                             ["-            <version>#{@snapshot_version}</version>",
-                              "+            <version>#{@release_version}</version>"]],
-                     path: "java/performance/pom.xml" },
-                   { hunks: [["-        <version>#{@snapshot_version}</version>",
-                              "+        <version>#{@release_version}</version>"]],
-                     path: "java/plasma/pom.xml" },
-                   { hunks: [["-  <version>#{@snapshot_version}</version>", "+  <version>#{@release_version}</version>"]],
-                     path: "java/pom.xml" },
-                   { hunks: [["-        <version>#{@snapshot_version}</version>",
-                              "+        <version>#{@release_version}</version>"]],
-                     path: "java/tools/pom.xml" },
-                   { hunks: [["-    <version>#{@snapshot_version}</version>",
-                              "+    <version>#{@release_version}</version>"]],
-                     path: "java/vector/pom.xml" },
-                   {
-                     path: "js/package.json",
-                     hunks: [
-                       ["-  \"version\": \"#{@snapshot_version}\"",
-                        "+  \"version\": \"#{@release_version}\""],
-                     ],
-                   },
-                   {
-                     path: "matlab/CMakeLists.txt",
-                     hunks: [
-                       ["-set(MLARROW_VERSION \"#{@snapshot_version}\")",
-                        "+set(MLARROW_VERSION \"#{@release_version}\")"],
-                     ],
-                   },
-                   {
-                     path: "python/setup.py",
-                     hunks: [
-                       ["-default_version = '#{@snapshot_version}'",
-                        "+default_version = '#{@release_version}'"],
-                     ],
-                   },
-                   {
-                     path: "r/DESCRIPTION",
-                     hunks: [
-                       ["-Version: #{@previous_version}.9000",
-                        "+Version: #{@release_version}"],
-                     ],
-                   },
-                   {
-                     path: "r/NEWS.md",
-                     hunks: [
-                       ["-\# arrow #{@previous_version}.9000",
-                        "+\# arrow #{@release_version}"],
-                     ],
-                   },
-                   {
-                     path: "ruby/red-arrow-cuda/lib/arrow-cuda/version.rb",
-                     hunks: [
-                       ["-  VERSION = \"#{@snapshot_version}\"",
-                        "+  VERSION = \"#{@release_version}\""],
-                     ],
-                   },
-                   {
-                     path: "ruby/red-arrow-dataset/lib/arrow-dataset/version.rb",
-                     hunks: [
-                       ["-  VERSION = \"#{@snapshot_version}\"",
-                        "+  VERSION = \"#{@release_version}\""],
-                     ],
-                   },
-                   {
-                     path: "ruby/red-arrow/lib/arrow/version.rb",
-                     hunks: [
-                       ["-  VERSION = \"#{@snapshot_version}\"",
-                        "+  VERSION = \"#{@release_version}\""],
-                     ],
-                   },
-                   {
-                     path: "ruby/red-gandiva/lib/gandiva/version.rb",
-                     hunks: [
-                       ["-  VERSION = \"#{@snapshot_version}\"",
-                        "+  VERSION = \"#{@release_version}\""],
-                     ],
-                   },
-                   {
-                     path: "ruby/red-parquet/lib/parquet/version.rb",
-                     hunks: [
-                       ["-  VERSION = \"#{@snapshot_version}\"",
-                        "+  VERSION = \"#{@release_version}\""],
-                     ],
-                   },
-                   {
-                     path: "ruby/red-plasma/lib/plasma/version.rb",
-                     hunks: [
-                       ["-  VERSION = \"#{@snapshot_version}\"",
-                        "+  VERSION = \"#{@release_version}\""],
-                     ],
-                   },
-                   {
-                     path: "rust/arrow-flight/Cargo.toml",
-                     hunks: [
-                       ["-version = \"#{@snapshot_version}\"",
-                        "+version = \"#{@release_version}\""],
-                       ["-arrow = { path = \"../arrow\", version = \"#{@snapshot_version}\" }",
-                        "+arrow = { path = \"../arrow\", version = \"#{@release_version}\" }"],
-                     ],
-                   },
-                   {
-                     path: "rust/arrow-pyarrow-integration-testing/Cargo.toml",
-                     hunks: [
-                       ["-version = \"#{@snapshot_version}\"",
-                        "+version = \"#{@release_version}\""],
-                       ["-arrow = { path = \"../arrow\", version = \"#{@snapshot_version}\" }",
-                        "+arrow = { path = \"../arrow\", version = \"#{@release_version}\" }"],
-                     ],
-                   },
-                   {
-                     path: "rust/arrow/Cargo.toml",
-                     hunks: [
-                       ["-version = \"#{@snapshot_version}\"",
-                        "+version = \"#{@release_version}\""],
-                     ],
-                   },
-                   {
-                     path: "rust/benchmarks/Cargo.toml",
-                     hunks: [
-                       ["-version = \"#{@snapshot_version}\"",
-                        "+version = \"#{@release_version}\""],
-                     ],
-                   },
-                   {
-                     path: "rust/datafusion-examples/Cargo.toml",
-                     hunks: [
-                       ["-version = \"#{@snapshot_version}\"",
-                        "+version = \"#{@release_version}\""],
-                     ],
-                   },
-                   {
-                     path: "rust/datafusion/Cargo.toml",
-                     hunks: [
-                       ["-version = \"#{@snapshot_version}\"",
-                        "+version = \"#{@release_version}\""],
-                       ["-arrow = { path = \"../arrow\", version = \"#{@snapshot_version}\", features = [\"prettyprint\"] }",
-                        "-parquet = { path = \"../parquet\", version = \"#{@snapshot_version}\", features = [\"arrow\"] }",
-                        "+arrow = { path = \"../arrow\", version = \"#{@release_version}\", features = [\"prettyprint\"] }",
-                        "+parquet = { path = \"../parquet\", version = \"#{@release_version}\", features = [\"arrow\"] }"],
-                     ],
-                   },
-                   {
-                     path: "rust/datafusion/README.md",
-                     hunks: [
-                       ["-datafusion = \"#{@snapshot_version}\"",
-                        "+datafusion = \"#{@release_version}\""],
-                     ],
-                   },
-                   {
-                     path: "rust/integration-testing/Cargo.toml",
-                     hunks: [
-                       ["-version = \"#{@snapshot_version}\"",
-                        "+version = \"#{@release_version}\""],
-                     ],
-                   },
-                   {
-                     path: "rust/parquet/Cargo.toml",
-                     hunks: [
-                       ["-version = \"#{@snapshot_version}\"",
-                        "+version = \"#{@release_version}\""],
-                       ["-arrow = { path = \"../arrow\", version = \"#{@snapshot_version}\", optional = true }",
-                        "+arrow = { path = \"../arrow\", version = \"#{@release_version}\", optional = true }"],
-                       ["-arrow = { path = \"../arrow\", version = \"#{@snapshot_version}\" }",
-                        "+arrow = { path = \"../arrow\", version = \"#{@release_version}\" }"],
-                     ],
-                   },
-                   {
-                     path: "rust/parquet/README.md",
-                     hunks: [
-                       ["-parquet = \"#{@snapshot_version}\"",
-                        "+parquet = \"#{@release_version}\""],
-                       ["-See [crate documentation](https://docs.rs/crate/parquet/#{@snapshot_version}) on available API.",
-                        "+See [crate documentation](https://docs.rs/crate/parquet/#{@release_version}) on available API."],
-                     ],
-                   },
-                   {
-                     path: "rust/parquet_derive/Cargo.toml",
-                     hunks: [
-                       ["-version = \"#{@snapshot_version}\"",
-                        "+version = \"#{@release_version}\""],
-                       ["-parquet = { path = \"../parquet\", version = \"#{@snapshot_version}\" }",
-                        "+parquet = { path = \"../parquet\", version = \"#{@release_version}\" }"],
-                     ],
-                   },
-                   {
-                     path: "rust/parquet_derive/README.md",
-                     hunks: [
-                       ["-parquet = \"#{@snapshot_version}\"",
-                        "-parquet_derive = \"#{@snapshot_version}\"",
-                        "+parquet = \"#{@release_version}\"",
-                        "+parquet_derive = \"#{@release_version}\""],
-                     ],
-                   },
-                   {
-                     path: "rust/parquet_derive_test/Cargo.toml",
-                     hunks: [
-                       ["-version = \"#{@snapshot_version}\"",
-                        "+version = \"#{@release_version}\""],
-                       ["-parquet = { path = \"../parquet\", version = \"#{@snapshot_version}\" }",
-                        "-parquet_derive = { path = \"../parquet_derive\", version = \"#{@snapshot_version}\" }",
-                        "+parquet = { path = \"../parquet\", version = \"#{@release_version}\" }",
-                        "+parquet_derive = { path = \"../parquet_derive\", version = \"#{@release_version}\" }"],
-                     ],
-                   },
-                 ],
+
+    expected_changes = [
+      {
+        path: "c_glib/meson.build",
+        hunks: [
+          ["-version = '#{@snapshot_version}'",
+           "+version = '#{@release_version}'"],
+        ],
+      },
+      {
+        path: "ci/scripts/PKGBUILD",
+        hunks: [
+          ["-pkgver=#{@previous_version}.9000",
+           "+pkgver=#{@release_version}"],
+        ],
+      },
+      {
+        path: "cpp/CMakeLists.txt",
+        hunks: [
+          ["-set(ARROW_VERSION \"#{@snapshot_version}\")",
+           "+set(ARROW_VERSION \"#{@release_version}\")"],
+        ],
+      },
+      {
+        path: "cpp/vcpkg.json",
+        hunks: [
+          ["-  \"version-string\": \"#{@snapshot_version}\",",
+           "+  \"version-string\": \"#{@release_version}\","],
+        ],
+      },
+      {
+        path: "csharp/Directory.Build.props",
+        hunks: [
+          ["-    <Version>#{@snapshot_version}</Version>",
+           "+    <Version>#{@release_version}</Version>"],
+        ],
+      },
+      {
+        path: "dev/tasks/homebrew-formulae/apache-arrow.rb",
+        hunks: [
+          ["-  url \"https://www.apache.org/dyn/closer.lua?path=arrow/arrow-#{@snapshot_version}/apache-arrow-#{@snapshot_version}.tar.gz\"",
+           "+  url \"https://www.apache.org/dyn/closer.lua?path=arrow/arrow-#{@release_version}/apache-arrow-#{@release_version}.tar.gz\""],
+        ],
+      },
+      {
+        path: "dev/tasks/homebrew-formulae/autobrew/apache-arrow.rb",
+        hunks: [
+          ["-  url \"https://www.apache.org/dyn/closer.lua?path=arrow/arrow-#{@previous_version}.9000/apache-arrow-#{@previous_version}.9000.tar.gz\"",
+           "+  url \"https://www.apache.org/dyn/closer.lua?path=arrow/arrow-#{@release_version}/apache-arrow-#{@release_version}.tar.gz\""],
+        ],
+      },
+      {
+        path: "js/package.json",
+        hunks: [
+          ["-  \"version\": \"#{@snapshot_version}\"",
+           "+  \"version\": \"#{@release_version}\""],
+        ],
+      },
+      {
+        path: "matlab/CMakeLists.txt",
+        hunks: [
+          ["-set(MLARROW_VERSION \"#{@snapshot_version}\")",
+           "+set(MLARROW_VERSION \"#{@release_version}\")"],
+        ],
+      },
+      {
+        path: "python/setup.py",
+        hunks: [
+          ["-default_version = '#{@snapshot_version}'",
+           "+default_version = '#{@release_version}'"],
+        ],
+      },
+      {
+        path: "r/DESCRIPTION",
+        hunks: [
+          ["-Version: #{@previous_version}.9000",
+           "+Version: #{@release_version}"],
+        ],
+      },
+      {
+        path: "r/NEWS.md",
+        hunks: [
+          ["-\# arrow #{@previous_version}.9000",
+           "+\# arrow #{@release_version}"],
+        ],
+      },
+    ]
+
+    Dir.glob("java/**/pom.xml") do |path|
+      version = "<version>#{@snapshot_version}</version>"
+      lines = File.readlines(path, chomp: true)
+      target_lines = lines.grep(/#{Regexp.escape(version)}/)
+      hunks = []
+      target_lines.each do |line|
+        new_line = line.gsub(@snapshot_version) do
+          @release_version
+        end
+        hunks << [
+          "-#{line}",
+          "+#{new_line}",
+        ]
+      end
+      expected_changes << {hunks: hunks, path: path}
+    end
+
+    Dir.glob("ruby/**/version.rb") do |path|
+      version = "  VERSION = \"#{@snapshot_version}\""
+      new_version = "  VERSION = \"#{@release_version}\""
+      expected_changes << {
+        hunks: [
+          [
+            "-#{version}",
+            "+#{new_version}",
+          ]
+        ],
+        path: path,
+      }
+    end
+
+    prepare("VERSION_PRE_TAG")
+    assert_equal(expected_changes.sort_by {|diff| diff[:path]},
                  parse_patch(git("log", "-n", "1", "-p")))
   end
 
   def test_version_post_tag
-    if on_release_branch?
-      prepare("dev/release/post-12-version.sh", "VERSION_POST_TAG")
-    else
-      prepare("dev/release/01-prepare.sh", "VERSION_PRE_TAG")
-      prepare("dev/release/post-12-version.sh", "VERSION_POST_TAG")
+    omit_on_release_branch
+
+    expected_changes = [
+      {
+        path: "c_glib/meson.build",
+        hunks: [
+          ["-version = '#{@snapshot_version}'",
+           "+version = '#{@next_snapshot_version}'"],
+        ],
+      },
+      {
+        path: "ci/scripts/PKGBUILD",
+        hunks: [
+          ["-pkgver=#{@previous_version}.9000",
+           "+pkgver=#{@release_version}.9000"],
+        ],
+      },
+      {
+        path: "cpp/CMakeLists.txt",
+        hunks: [
+          ["-set(ARROW_VERSION \"#{@snapshot_version}\")",
+           "+set(ARROW_VERSION \"#{@next_snapshot_version}\")"],
+        ],
+      },
+      {
+        path: "cpp/vcpkg.json",
+        hunks: [
+          ["-  \"version-string\": \"#{@snapshot_version}\",",
+           "+  \"version-string\": \"#{@next_snapshot_version}\","],
+        ],
+      },
+      {
+        path: "csharp/Directory.Build.props",
+        hunks: [
+          ["-    <Version>#{@snapshot_version}</Version>",
+           "+    <Version>#{@next_snapshot_version}</Version>"],
+        ],
+      },
+      {
+        path: "dev/tasks/homebrew-formulae/apache-arrow.rb",
+        hunks: [
+          ["-  url \"https://www.apache.org/dyn/closer.lua?path=arrow/arrow-#{@snapshot_version}/apache-arrow-#{@snapshot_version}.tar.gz\"",
+           "+  url \"https://www.apache.org/dyn/closer.lua?path=arrow/arrow-#{@next_snapshot_version}/apache-arrow-#{@next_snapshot_version}.tar.gz\""],
+        ],
+      },
+      {
+        path: "dev/tasks/homebrew-formulae/autobrew/apache-arrow.rb",
+        hunks: [
+          ["-  url \"https://www.apache.org/dyn/closer.lua?path=arrow/arrow-#{@previous_version}.9000/apache-arrow-#{@previous_version}.9000.tar.gz\"",
+           "+  url \"https://www.apache.org/dyn/closer.lua?path=arrow/arrow-#{@release_version}.9000/apache-arrow-#{@release_version}.9000.tar.gz\""],
+        ],
+      },
+      {
+        path: "js/package.json",
+        hunks: [
+          ["-  \"version\": \"#{@snapshot_version}\"",
+           "+  \"version\": \"#{@next_snapshot_version}\""],
+        ],
+      },
+      {
+        path: "matlab/CMakeLists.txt",
+        hunks: [
+          ["-set(MLARROW_VERSION \"#{@snapshot_version}\")",
+           "+set(MLARROW_VERSION \"#{@next_snapshot_version}\")"],
+        ],
+      },
+      {
+        path: "python/setup.py",
+        hunks: [
+          ["-default_version = '#{@snapshot_version}'",
+           "+default_version = '#{@next_snapshot_version}'"],
+        ],
+      },
+      {
+        path: "r/DESCRIPTION",
+        hunks: [
+          ["-Version: #{@previous_version}.9000",
+           "+Version: #{@release_version}.9000"],
+        ],
+      },
+      {
+        path: "r/NEWS.md",
+        hunks: [
+          ["-# arrow #{@previous_version}.9000",
+           "+# arrow #{@release_version}.9000",
+           "+",
+           "+# arrow #{@release_version}",],
+        ],
+      },
+    ]
+
+    Dir.glob("go/**/{go.mod,*.go,*.go.*}") do |path|
+      import_path = "github.com/apache/arrow/go/v#{@snapshot_major_version}"
+      lines = File.readlines(path, chomp: true)
+      target_lines = lines.grep(/#{Regexp.escape(import_path)}/)
+      next if target_lines.empty?
+      hunk = []
+      target_lines.each do |line|
+        hunk << "-#{line}"
+      end
+      target_lines.each do |line|
+        new_line = line.gsub("v#{@snapshot_major_version}") do
+          "v#{@next_major_version}"
+        end
+        hunk << "+#{new_line}"
+      end
+      expected_changes << {hunks: [hunk], path: path}
     end
-    assert_equal([
-                   {
-                     path: "c_glib/meson.build",
-                     hunks: [
-                       ["-version = '#{@release_version}'",
-                        "+version = '#{@next_snapshot_version}'"],
-                     ],
-                   },
-                   {
-                     path: "ci/scripts/PKGBUILD",
-                     hunks: [
-                       ["-pkgver=#{@release_version}",
-                        "+pkgver=#{@release_version}.9000"],
-                     ],
-                   },
-                   {
-                     path: "cpp/CMakeLists.txt",
-                     hunks: [
-                       ["-set(ARROW_VERSION \"#{@release_version}\")",
-                        "+set(ARROW_VERSION \"#{@next_snapshot_version}\")"],
-                     ],
-                   },
-                   {
-                     path: "cpp/vcpkg.json",
-                     hunks: [
-                       ["-  \"version-string\": \"#{@release_version}\",",
-                        "+  \"version-string\": \"#{@next_snapshot_version}\","],
-                     ],
-                   },
-                   {
-                     path: "csharp/Directory.Build.props",
-                     hunks: [
-                       ["-    <Version>#{@release_version}</Version>",
-                        "+    <Version>#{@next_snapshot_version}</Version>"],
-                     ],
-                   },
-                   {
-                     path: "dev/tasks/homebrew-formulae/apache-arrow.rb",
-                     hunks: [
-                       ["-  url \"https://www.apache.org/dyn/closer.lua?path=arrow/arrow-#{@release_version}/apache-arrow-#{@release_version}.tar.gz\"",
-                        "+  url \"https://www.apache.org/dyn/closer.lua?path=arrow/arrow-#{@next_snapshot_version}/apache-arrow-#{@next_snapshot_version}.tar.gz\""],
-                     ],
-                   },
-                   {
-                     path: "dev/tasks/homebrew-formulae/autobrew/apache-arrow.rb",
-                     hunks: [
-                       ["-  url \"https://www.apache.org/dyn/closer.lua?path=arrow/arrow-#{@release_version}/apache-arrow-#{@release_version}.tar.gz\"",
-                        "+  url \"https://www.apache.org/dyn/closer.lua?path=arrow/arrow-#{@release_version}.9000/apache-arrow-#{@release_version}.9000.tar.gz\""],
-                     ],
-                   },
-                   { path: "java/adapter/avro/pom.xml",
-                     hunks: [["-    <version>#{@release_version}</version>",
-                             "+    <version>#{@next_snapshot_version}</version>"]] },
-                   { hunks: [["-        <version>#{@release_version}</version>",
-                              "+        <version>#{@next_snapshot_version}</version>"]],
-                     path: "java/adapter/jdbc/pom.xml" },
-                   { hunks: [["-        <version>#{@release_version}</version>",
-                              "+        <version>#{@next_snapshot_version}</version>"]],
-                     path: "java/adapter/orc/pom.xml" },
-                   { hunks: [["-    <version>#{@release_version}</version>",
-                              "+    <version>#{@next_snapshot_version}</version>"]],
-                     path: "java/algorithm/pom.xml" },
-                   { hunks: [["-    <version>#{@release_version}</version>",
-                              "+    <version>#{@next_snapshot_version}</version>"]],
-                     path: "java/compression/pom.xml" },
-                   { hunks: [["-        <version>#{@release_version}</version>",
-                              "+        <version>#{@next_snapshot_version}</version>"]],
-                     path: "java/dataset/pom.xml" },
-                   { hunks: [["-    <version>#{@release_version}</version>",
-                              "+    <version>#{@next_snapshot_version}</version>"]],
-                     path: "java/flight/flight-core/pom.xml" },
-                   { hunks: [["-    <version>#{@release_version}</version>",
-                              "+    <version>#{@next_snapshot_version}</version>"]],
-                     path: "java/flight/flight-grpc/pom.xml" },
-                   { hunks: [["-  <version>#{@release_version}</version>", "+  <version>#{@next_snapshot_version}</version>"]],
-                     path: "java/format/pom.xml" },
-                   { hunks: [["-      <version>#{@release_version}</version>",
-                              "+      <version>#{@next_snapshot_version}</version>"]],
-                     path: "java/gandiva/pom.xml" },
-                   { hunks: [["-    <version>#{@release_version}</version>",
-                              "+    <version>#{@next_snapshot_version}</version>"]],
-                     path: "java/memory/memory-core/pom.xml" },
-                   { hunks: [["-    <version>#{@release_version}</version>",
-                              "+    <version>#{@next_snapshot_version}</version>"]],
-                     path: "java/memory/memory-netty/pom.xml" },
-                   { hunks: [["-    <version>#{@release_version}</version>",
-                              "+    <version>#{@next_snapshot_version}</version>"]],
-                     path: "java/memory/memory-unsafe/pom.xml" },
-                   { hunks: [["-    <version>#{@release_version}</version>",
-                              "+    <version>#{@next_snapshot_version}</version>"]],
-                     path: "java/memory/pom.xml" },
-                   { hunks: [["-        <version>#{@release_version}</version>",
-                              "+        <version>#{@next_snapshot_version}</version>"],
-                             ["-            <version>#{@release_version}</version>",
-                              "+            <version>#{@next_snapshot_version}</version>"]],
-                     path: "java/performance/pom.xml" },
-                   { hunks: [["-        <version>#{@release_version}</version>",
-                              "+        <version>#{@next_snapshot_version}</version>"]],
-                     path: "java/plasma/pom.xml" },
-                   { hunks: [["-  <version>#{@release_version}</version>", "+  <version>#{@next_snapshot_version}</version>"]],
-                     path: "java/pom.xml" },
-                   { hunks: [["-        <version>#{@release_version}</version>",
-                              "+        <version>#{@next_snapshot_version}</version>"]],
-                     path: "java/tools/pom.xml" },
-                   { hunks: [["-    <version>#{@release_version}</version>",
-                              "+    <version>#{@next_snapshot_version}</version>"]],
-                     path: "java/vector/pom.xml" },
-                   {
-                     path: "js/package.json",
-                     hunks: [
-                       ["-  \"version\": \"#{@release_version}\"",
-                        "+  \"version\": \"#{@next_snapshot_version}\""],
-                     ],
-                   },
-                   {
-                     path: "matlab/CMakeLists.txt",
-                     hunks: [
-                       ["-set(MLARROW_VERSION \"#{@release_version}\")",
-                        "+set(MLARROW_VERSION \"#{@next_snapshot_version}\")"],
-                     ],
-                   },
-                   {
-                     path: "python/setup.py",
-                     hunks: [
-                       ["-default_version = '#{@release_version}'",
-                        "+default_version = '#{@next_snapshot_version}'"],
-                     ],
-                   },
-                   {
-                     path: "r/DESCRIPTION",
-                     hunks: [
-                       ["-Version: #{@release_version}",
-                        "+Version: #{@release_version}.9000"],
-                     ],
-                   },
-                   {
-                     path: "r/NEWS.md",
-                     # Note that these are additions only, no replacement
-                     hunks: [
-                       ["+# arrow #{@release_version}.9000",
-                        "+"],
-                     ],
-                   },
-                   {
-                     path: "ruby/red-arrow-cuda/lib/arrow-cuda/version.rb",
-                     hunks: [
-                       ["-  VERSION = \"#{@release_version}\"",
-                        "+  VERSION = \"#{@next_snapshot_version}\""],
-                     ],
-                   },
-                   {
-                     path: "ruby/red-arrow-dataset/lib/arrow-dataset/version.rb",
-                     hunks: [
-                       ["-  VERSION = \"#{@release_version}\"",
-                        "+  VERSION = \"#{@next_snapshot_version}\""],
-                     ],
-                   },
-                   {
-                     path: "ruby/red-arrow/lib/arrow/version.rb",
-                     hunks: [
-                       ["-  VERSION = \"#{@release_version}\"",
-                        "+  VERSION = \"#{@next_snapshot_version}\""],
-                     ],
-                   },
-                   {
-                     path: "ruby/red-gandiva/lib/gandiva/version.rb",
-                     hunks: [
-                       ["-  VERSION = \"#{@release_version}\"",
-                        "+  VERSION = \"#{@next_snapshot_version}\""],
-                     ],
-                   },
-                   {
-                     path: "ruby/red-parquet/lib/parquet/version.rb",
-                     hunks: [
-                       ["-  VERSION = \"#{@release_version}\"",
-                        "+  VERSION = \"#{@next_snapshot_version}\""],
-                     ],
-                   },
-                   {
-                     path: "ruby/red-plasma/lib/plasma/version.rb",
-                     hunks: [
-                       ["-  VERSION = \"#{@release_version}\"",
-                        "+  VERSION = \"#{@next_snapshot_version}\""],
-                     ],
-                   },
-                   {
-                     path: "rust/arrow-flight/Cargo.toml",
-                     hunks: [
-                       ["-version = \"#{@release_version}\"",
-                        "+version = \"#{@next_snapshot_version}\""],
-                       ["-arrow = { path = \"../arrow\", version = \"#{@release_version}\" }",
-                        "+arrow = { path = \"../arrow\", version = \"#{@next_snapshot_version}\" }"],
-                     ],
-                   },
-                   {
-                     path: "rust/arrow-pyarrow-integration-testing/Cargo.toml",
-                     hunks: [
-                       ["-version = \"#{@release_version}\"",
-                        "+version = \"#{@next_snapshot_version}\""],
-                       ["-arrow = { path = \"../arrow\", version = \"#{@release_version}\" }",
-                        "+arrow = { path = \"../arrow\", version = \"#{@next_snapshot_version}\" }"],
-                     ],
-                   },
-                   {
-                     path: "rust/arrow/Cargo.toml",
-                     hunks: [
-                       ["-version = \"#{@release_version}\"",
-                        "+version = \"#{@next_snapshot_version}\""],
-                     ],
-                   },
-                   {
-                     path: "rust/benchmarks/Cargo.toml",
-                     hunks: [
-                       ["-version = \"#{@release_version}\"",
-                        "+version = \"#{@next_snapshot_version}\""],
-                     ],
-                   },
-                   {
-                     path: "rust/datafusion-examples/Cargo.toml",
-                     hunks: [
-                       ["-version = \"#{@release_version}\"",
-                        "+version = \"#{@next_snapshot_version}\""],
-                     ],
-                   },
-                   {
-                     path: "rust/datafusion/Cargo.toml",
-                     hunks: [
-                       ["-version = \"#{@release_version}\"",
-                        "+version = \"#{@next_snapshot_version}\""],
-                       ["-arrow = { path = \"../arrow\", version = \"#{@release_version}\", features = [\"prettyprint\"] }",
-                        "-parquet = { path = \"../parquet\", version = \"#{@release_version}\", features = [\"arrow\"] }",
-                        "+arrow = { path = \"../arrow\", version = \"#{@next_snapshot_version}\", features = [\"prettyprint\"] }",
-                        "+parquet = { path = \"../parquet\", version = \"#{@next_snapshot_version}\", features = [\"arrow\"] }"],
-                     ],
-                   },
-                   {
-                     path: "rust/datafusion/README.md",
-                     hunks: [
-                       ["-datafusion = \"#{@release_version}\"",
-                        "+datafusion = \"#{@next_snapshot_version}\""],
-                     ],
-                   },
-                   {
-                     path: "rust/integration-testing/Cargo.toml",
-                     hunks: [
-                       ["-version = \"#{@release_version}\"",
-                        "+version = \"#{@next_snapshot_version}\""],
-                     ],
-                   },
-                   {
-                     path: "rust/parquet/Cargo.toml",
-                     hunks: [
-                       ["-version = \"#{@release_version}\"",
-                        "+version = \"#{@next_snapshot_version}\""],
-                       ["-arrow = { path = \"../arrow\", version = \"#{@release_version}\", optional = true }",
-                        "+arrow = { path = \"../arrow\", version = \"#{@next_snapshot_version}\", optional = true }"],
-                       ["-arrow = { path = \"../arrow\", version = \"#{@release_version}\" }",
-                        "+arrow = { path = \"../arrow\", version = \"#{@next_snapshot_version}\" }"],
-                     ],
-                   },
-                   {
-                     path: "rust/parquet/README.md",
-                     hunks: [
-                       ["-parquet = \"#{@release_version}\"",
-                        "+parquet = \"#{@next_snapshot_version}\""],
-                       ["-See [crate documentation](https://docs.rs/crate/parquet/#{@release_version}) on available API.",
-                        "+See [crate documentation](https://docs.rs/crate/parquet/#{@next_snapshot_version}) on available API."],
-                     ],
-                   },
-                   {
-                     path: "rust/parquet_derive/Cargo.toml",
-                     hunks: [
-                       ["-version = \"#{@release_version}\"",
-                        "+version = \"#{@next_snapshot_version}\""],
-                       ["-parquet = { path = \"../parquet\", version = \"#{@release_version}\" }",
-                        "+parquet = { path = \"../parquet\", version = \"#{@next_snapshot_version}\" }"],
-                     ],
-                   },
-                   {
-                     path: "rust/parquet_derive/README.md",
-                     hunks: [
-                       ["-parquet = \"#{@release_version}\"",
-                        "-parquet_derive = \"#{@release_version}\"",
-                        "+parquet = \"#{@next_snapshot_version}\"",
-                        "+parquet_derive = \"#{@next_snapshot_version}\""],
-                     ],
-                   },
-                   {
-                     path: "rust/parquet_derive_test/Cargo.toml",
-                     hunks: [
-                       ["-version = \"#{@release_version}\"",
-                        "+version = \"#{@next_snapshot_version}\""],
-                       ["-parquet = { path = \"../parquet\", version = \"#{@release_version}\" }",
-                        "-parquet_derive = { path = \"../parquet_derive\", version = \"#{@release_version}\" }",
-                        "+parquet = { path = \"../parquet\", version = \"#{@next_snapshot_version}\" }",
-                        "+parquet_derive = { path = \"../parquet_derive\", version = \"#{@next_snapshot_version}\" }"],
-                     ],
-                   },
-                 ],
+
+    Dir.glob("java/**/pom.xml") do |path|
+      version = "<version>#{@snapshot_version}</version>"
+      lines = File.readlines(path, chomp: true)
+      target_lines = lines.grep(/#{Regexp.escape(version)}/)
+      hunks = []
+      target_lines.each do |line|
+        new_line = line.gsub(@snapshot_version) do
+          @next_snapshot_version
+        end
+        hunks << [
+          "-#{line}",
+          "+#{new_line}",
+        ]
+      end
+      expected_changes << {hunks: hunks, path: path}
+    end
+
+    Dir.glob("ruby/**/version.rb") do |path|
+      version = "  VERSION = \"#{@snapshot_version}\""
+      new_version = "  VERSION = \"#{@next_snapshot_version}\""
+      expected_changes << {
+        hunks: [
+          [
+            "-#{version}",
+            "+#{new_version}",
+          ]
+        ],
+        path: path,
+      }
+    end
+
+    bump_versions("VERSION_POST_TAG")
+    assert_equal(expected_changes.sort_by {|diff| diff[:path]},
                  parse_patch(git("log", "-n", "1", "-p")))
   end
 
   def test_deb_package_names
-    prepare("dev/release/post-12-version.sh", "DEB_PACKAGE_NAMES")
+    bump_versions("DEB_PACKAGE_NAMES")
     changes = parse_patch(git("log", "-n", "1", "-p"))
     sampled_changes = changes.collect do |change|
       first_hunk = change[:hunks][0]
@@ -779,8 +431,8 @@ class PrepareTest < Test::Unit::TestCase
       },
       {
         sampled_diff: [
-          "-      - libarrow-glib#{@so_version}-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb",
-          "+      - libarrow-glib#{@next_so_version}-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb",
+          "-      - libarrow-dataset-glib#{@so_version}-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb",
+          "+      - libarrow-dataset-glib#{@next_so_version}-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb",
         ],
         path: "dev/tasks/tasks.yml",
       },

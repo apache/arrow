@@ -15,10 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("General checks")
-
-if (identical(tolower(Sys.getenv("TEST_R_WITH_ARROW")), "true")) {
+if (!identical(tolower(Sys.getenv("TEST_R_WITHOUT_LIBARROW")), "true")) {
   testthat::test_that("Arrow C++ is available", {
+    skip_on_cran()
     expect_true(arrow_available())
   })
 }
@@ -50,7 +49,8 @@ r_only({
 
 test_that("arrow gracefully fails to load objects from other sessions (ARROW-10071)", {
   a <- Array$create(1:10)
-  tf <- tempfile(); on.exit(unlink(tf))
+  tf <- tempfile()
+  on.exit(unlink(tf))
   saveRDS(a, tf)
 
   b <- readRDS(tf)
@@ -62,13 +62,17 @@ test_that("check for an ArrowObject in functions use std::shared_ptr", {
 })
 
 test_that("MemoryPool calls gc() to free memory when allocation fails (ARROW-10080)", {
+  # There is a valgrind error on this test because there cannot be memory allocated
+  # which is exactly what this test is checking, but we quiet this
+  skip_on_valgrind()
+
   env <- new.env()
-  trace(gc, print = FALSE, tracer = function() {
-          env$gc_was_called <- TRUE
-        })
-  on.exit(untrace(gc))
+  suppressMessages(trace(gc, print = FALSE, tracer = function() {
+    env$gc_was_called <- TRUE
+  }))
+  on.exit(suppressMessages(untrace(gc)))
   # We expect this should fail because we don't have this much memory,
   # but it should gc() and retry (and fail again)
-  expect_error(BufferOutputStream$create(2 ** 60))
+  expect_error(BufferOutputStream$create(2**60))
   expect_true(env$gc_was_called)
 })

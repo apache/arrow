@@ -16,7 +16,6 @@
 # under the License.
 
 # cython: profile = False
-# cython: embedsignature = True
 # cython: nonecheck = True
 # distutils: language = c++
 
@@ -39,6 +38,9 @@ arrow_init_numpy()
 import_pyarrow()
 
 
+MonthDayNano = NewMonthDayNanoTupleType()
+
+
 def cpu_count():
     """
     Return the number of threads to use in parallel operations.
@@ -48,6 +50,11 @@ def cpu_count():
     If neither is present, it will default to the number of hardware threads
     on the system. It can be modified at runtime by calling
     :func:`set_cpu_count()`.
+
+    See Also
+    --------
+    set_cpu_count : Modify the size of this pool.
+    io_thread_count : The analogous function for the I/O thread pool.
     """
     return GetCpuThreadPoolCapacity()
 
@@ -55,6 +62,16 @@ def cpu_count():
 def set_cpu_count(int count):
     """
     Set the number of threads to use in parallel operations.
+
+    Parameters
+    ----------
+    count : int
+        The number of concurrent threads that should be used.
+
+    See Also
+    --------
+    cpu_count : Get the size of this pool.
+    set_io_thread_count : The analogous function for the I/O thread pool.
     """
     if count < 1:
         raise ValueError("CPU count must be strictly positive")
@@ -82,6 +99,7 @@ Type_TIMESTAMP = _Type_TIMESTAMP
 Type_TIME32 = _Type_TIME32
 Type_TIME64 = _Type_TIME64
 Type_DURATION = _Type_DURATION
+Type_INTERVAL_MONTH_DAY_NANO = _Type_INTERVAL_MONTH_DAY_NANO
 Type_BINARY = _Type_BINARY
 Type_STRING = _Type_STRING
 Type_LARGE_BINARY = _Type_LARGE_BINARY
@@ -140,13 +158,9 @@ include "tensor.pxi"
 
 # File IO
 include "io.pxi"
-include "io-hdfs.pxi"
 
 # IPC / Messaging
 include "ipc.pxi"
-
-# Feather format
-include "feather.pxi"
 
 # Python serialization
 include "serialization.pxi"

@@ -1,0 +1,69 @@
+BUILD:
+- aarch64-conda_cos7-linux-gnu
+aws_sdk_cpp:
+- 1.8.186
+bzip2:
+- '1'
+c_compiler:
+- gcc
+c_compiler_version:
+- '9'
+cdt_arch:
+- aarch64
+cdt_name:
+- cos7
+channel_sources:
+- conda-forge
+channel_targets:
+- conda-forge main
+cuda_compiler_version:
+- None
+cxx_compiler:
+- gxx
+cxx_compiler_version:
+- '9'
+docker_image:
+- quay.io/condaforge/linux-anvil-comp7
+gflags:
+- '2.2'
+glog:
+- '0.5'
+grpc_cpp:
+- '1.38'
+libprotobuf:
+- '3.16'
+lz4_c:
+- 1.9.3
+numpy:
+- '1.19'
+orc:
+- 1.6.8
+pin_run_as_build:
+  bzip2:
+    max_pin: x
+  lz4-c:
+    max_pin: x.x.x
+  python:
+    min_pin: x.x
+    max_pin: x.x
+  zlib:
+    max_pin: x.x
+python:
+- 3.9.* *_cpython
+re2:
+- 2021.06.01
+snappy:
+- '1'
+target_platform:
+- linux-aarch64
+thrift_cpp:
+- 0.14.2
+zip_keys:
+- - c_compiler_version
+  - cxx_compiler_version
+- - python
+  - numpy
+zlib:
+- '1.2'
+zstd:
+- '1.5'

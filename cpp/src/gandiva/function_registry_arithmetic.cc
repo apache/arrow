@@ -29,9 +29,13 @@ namespace gandiva {
 #define BINARY_RELATIONAL_BOOL_DATE_FN(name, ALIASES) \
   NUMERIC_DATE_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, name, ALIASES)
 
-#define UNARY_CAST_TO_FLOAT64(name) UNARY_SAFE_NULL_IF_NULL(castFLOAT8, {}, name, float64)
+#define UNARY_CAST_TO_FLOAT64(type) UNARY_SAFE_NULL_IF_NULL(castFLOAT8, {}, type, float64)
 
-#define UNARY_CAST_TO_FLOAT32(name) UNARY_SAFE_NULL_IF_NULL(castFLOAT4, {}, name, float32)
+#define UNARY_CAST_TO_FLOAT32(type) UNARY_SAFE_NULL_IF_NULL(castFLOAT4, {}, type, float32)
+
+#define UNARY_CAST_TO_INT32(type) UNARY_SAFE_NULL_IF_NULL(castINT, {}, type, int32)
+
+#define UNARY_CAST_TO_INT64(type) UNARY_SAFE_NULL_IF_NULL(castBIGINT, {}, type, int64)
 
 std::vector<NativeFunction> GetArithmeticFunctionRegistry() {
   static std::vector<NativeFunction> arithmetic_fn_registry_ = {
@@ -43,6 +47,12 @@ std::vector<NativeFunction> GetArithmeticFunctionRegistry() {
       // cast to float32
       UNARY_CAST_TO_FLOAT32(int32), UNARY_CAST_TO_FLOAT32(int64),
       UNARY_CAST_TO_FLOAT32(float64),
+
+      // cast to int32
+      UNARY_CAST_TO_INT32(float32), UNARY_CAST_TO_INT32(float64),
+
+      // cast to int64
+      UNARY_CAST_TO_INT64(float32), UNARY_CAST_TO_INT64(float64),
 
       // cast to float64
       UNARY_CAST_TO_FLOAT64(int32), UNARY_CAST_TO_FLOAT64(int64),
@@ -97,13 +107,21 @@ std::vector<NativeFunction> GetArithmeticFunctionRegistry() {
       BINARY_GENERIC_SAFE_NULL_IF_NULL(round, {}, int32, int32, int32),
       BINARY_GENERIC_SAFE_NULL_IF_NULL(round, {}, int64, int32, int64),
 
+      // bround functions
+      NativeFunction("bround", {}, DataTypeVector{float64()}, float64(),
+                     kResultNullIfNull, "bround_float64"),
+
       // compare functions
       BINARY_RELATIONAL_BOOL_FN(equal, ({"eq", "same"})),
       BINARY_RELATIONAL_BOOL_FN(not_equal, {}),
       BINARY_RELATIONAL_BOOL_DATE_FN(less_than, {}),
       BINARY_RELATIONAL_BOOL_DATE_FN(less_than_or_equal_to, {}),
       BINARY_RELATIONAL_BOOL_DATE_FN(greater_than, {}),
-      BINARY_RELATIONAL_BOOL_DATE_FN(greater_than_or_equal_to, {})};
+      BINARY_RELATIONAL_BOOL_DATE_FN(greater_than_or_equal_to, {}),
+
+      // binary representation of integer values
+      UNARY_UNSAFE_NULL_IF_NULL(bin, {}, int32, utf8),
+      UNARY_UNSAFE_NULL_IF_NULL(bin, {}, int64, utf8)};
 
   return arithmetic_fn_registry_;
 }

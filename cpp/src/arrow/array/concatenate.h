@@ -34,9 +34,4 @@ ARROW_EXPORT
 Result<std::shared_ptr<Array>> Concatenate(const ArrayVector& arrays,
                                            MemoryPool* pool = default_memory_pool());
 
-ARROW_DEPRECATED("Use Result-returning version")
-ARROW_EXPORT
-Status Concatenate(const ArrayVector& arrays, MemoryPool* pool,
-                   std::shared_ptr<Array>* out);
-
 }  // namespace arrow

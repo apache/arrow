@@ -33,7 +33,9 @@ if(ORC_ROOT)
             NO_DEFAULT_PATH
             PATH_SUFFIXES ${ARROW_INCLUDE_PATH_SUFFIXES})
 else()
-  find_library(ORC_STATIC_LIB NAMES orc PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES})
+  find_library(ORC_STATIC_LIB
+               NAMES orc
+               PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES})
   find_path(ORC_INCLUDE_DIR
             NAMES orc/orc-config.hh
             PATH_SUFFIXES ${ARROW_INCLUDE_PATH_SUFFIXES})

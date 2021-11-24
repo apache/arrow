@@ -23,7 +23,7 @@ from pyarrow.lib cimport _Weakrefable
 
 cdef class ConvertOptions(_Weakrefable):
     cdef:
-        CCSVConvertOptions options
+        unique_ptr[CCSVConvertOptions] options
 
     @staticmethod
     cdef ConvertOptions wrap(CCSVConvertOptions options)
@@ -31,7 +31,7 @@ cdef class ConvertOptions(_Weakrefable):
 
 cdef class ParseOptions(_Weakrefable):
     cdef:
-        CCSVParseOptions options
+        unique_ptr[CCSVParseOptions] options
 
     @staticmethod
     cdef ParseOptions wrap(CCSVParseOptions options)
@@ -39,8 +39,16 @@ cdef class ParseOptions(_Weakrefable):
 
 cdef class ReadOptions(_Weakrefable):
     cdef:
-        CCSVReadOptions options
+        unique_ptr[CCSVReadOptions] options
         public object encoding
 
     @staticmethod
     cdef ReadOptions wrap(CCSVReadOptions options)
+
+
+cdef class WriteOptions(_Weakrefable):
+    cdef:
+        unique_ptr[CCSVWriteOptions] options
+
+    @staticmethod
+    cdef WriteOptions wrap(CCSVWriteOptions options)

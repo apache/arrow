@@ -28,7 +28,7 @@ using a 64-bit system.
 Python Compatibility
 --------------------
 
-PyArrow is currently compatible with Python 3.6, 3.7 and 3.8.
+PyArrow is currently compatible with Python 3.6, 3.7, 3.8, and 3.9.
 
 Using Conda
 -----------

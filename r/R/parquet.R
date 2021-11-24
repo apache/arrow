@@ -26,14 +26,12 @@
 #'
 #' @return A [arrow::Table][Table], or a `data.frame` if `as_data_frame` is
 #' `TRUE` (the default).
-#' @examples
-#' \dontrun{
+#' @examplesIf arrow_with_parquet()
 #' tf <- tempfile()
 #' on.exit(unlink(tf))
 #' write_parquet(mtcars, tf)
 #' df <- read_parquet(tf, col_select = starts_with("d"))
 #' head(df)
-#' }
 #' @export
 read_parquet <- function(file,
                          col_select = NULL,
@@ -84,7 +82,11 @@ read_parquet <- function(file,
 #' @param x `data.frame`, [RecordBatch], or [Table]
 #' @param sink A string file path, URI, or [OutputStream], or path in a file
 #' system (`SubTreeFileSystem`)
-#' @param chunk_size chunk size in number of rows. If NULL, the total number of rows is used.
+#' @param chunk_size how many rows of data to write to disk at once. This
+#' directly corresponds to how many rows will be in each row group in parquet.
+#' If `NULL`, a best guess will be made for optimal size (based on the number of
+#'  columns and number of rows), though if the data has fewer than 250 million
+#'  cells (rows x cols), then the total number of rows is used.
 #' @param version parquet version, "1.0" or "2.0". Default "1.0". Numeric values
 #'   are coerced to character.
 #' @param compression compression algorithm. Default "snappy". See details.
@@ -127,8 +129,7 @@ read_parquet <- function(file,
 #'
 #' @return the input `x` invisibly.
 #'
-#' @examples
-#' \dontrun{
+#' @examplesIf arrow_with_parquet()
 #' tf1 <- tempfile(fileext = ".parquet")
 #' write_parquet(data.frame(x = 1:5), tf1)
 #'
@@ -136,7 +137,6 @@ read_parquet <- function(file,
 #' if (codec_is_available("gzip")) {
 #'   tf2 <- tempfile(fileext = ".gz.parquet")
 #'   write_parquet(data.frame(x = 1:5), tf2, compression = "gzip", compression_level = 5)
-#' }
 #' }
 #' @export
 write_parquet <- function(x,
@@ -156,9 +156,12 @@ write_parquet <- function(x,
                           properties = NULL,
                           arrow_properties = NULL) {
   x_out <- x
-  if (!inherits(x, "Table")) {
+
+  if (is.data.frame(x) || inherits(x, "RecordBatch")) {
     x <- Table$create(x)
   }
+
+  assert_that(is_writable_table(x))
 
   if (!inherits(sink, "OutputStream")) {
     sink <- make_output_stream(sink)
@@ -167,10 +170,16 @@ write_parquet <- function(x,
 
   # Deprecation warnings
   if (!is.null(properties)) {
-    warning("Providing 'properties' is deprecated. If you need to assemble properties outside this function, use ParquetFileWriter instead.")
+    warning(
+      "Providing 'properties' is deprecated. If you need to assemble properties outside ",
+      "this function, use ParquetFileWriter instead."
+    )
   }
   if (!is.null(arrow_properties)) {
-    warning("Providing 'arrow_properties' is deprecated. If you need to assemble arrow_properties outside this function, use ParquetFileWriter instead.")
+    warning(
+      "Providing 'arrow_properties' is deprecated. If you need to assemble arrow_properties ",
+      "outside this function, use ParquetFileWriter instead."
+    )
   }
 
   writer <- ParquetFileWriter$create(
@@ -191,7 +200,28 @@ write_parquet <- function(x,
       allow_truncated_timestamps = allow_truncated_timestamps
     )
   )
-  writer$WriteTable(x, chunk_size = chunk_size %||% x$num_rows)
+
+  # determine an approximate chunk size
+  if (is.null(chunk_size)) {
+    num_cells <- x$num_rows * x$num_columns
+    target_cells_per_group <- getOption("arrow.parquet_cells_per_group", 2.5e8)
+
+    if (num_cells < target_cells_per_group) {
+      # If the total number of cells is less than the default 250 million, we want one group
+      num_chunks <- 1
+    } else {
+      # no more than the default 250 million cells (rows * cols) per group
+      # and we use floor, then ceiling to ensure that these are whole numbers
+      num_chunks <- floor(num_cells / target_cells_per_group)
+    }
+
+    # but there are no more than 200 chunks
+    num_chunks <- min(num_chunks, getOption("arrow.parquet_max_chunks", 200))
+
+    chunk_size <- ceiling(x$num_rows / num_chunks)
+  }
+
+  writer$WriteTable(x, chunk_size = chunk_size)
   writer$Close()
 
   invisible(x_out)
@@ -214,7 +244,8 @@ ParquetArrowWriterProperties$create <- function(use_deprecated_int96_timestamps 
   if (is.null(coerce_timestamps)) {
     timestamp_unit <- -1L # null sentinel value
   } else {
-    timestamp_unit <- make_valid_time_unit(coerce_timestamps,
+    timestamp_unit <- make_valid_time_unit(
+      coerce_timestamps,
       c("ms" = TimeUnit$MILLI, "us" = TimeUnit$MICRO)
     )
   }
@@ -237,7 +268,7 @@ make_valid_version <- function(version, valid_versions = valid_parquet_version) 
   tryCatch(
     valid_versions[[match.arg(version, choices = names(valid_versions))]],
     error = function(cond) {
-      stop('"version" should be one of ', oxford_paste(names(valid_versions), "or"), call.=FALSE)
+      stop('"version" should be one of ', oxford_paste(names(valid_versions), "or"), call. = FALSE)
     }
   )
 }
@@ -285,7 +316,8 @@ make_valid_version <- function(version, valid_versions = valid_parquet_version) 
 #'
 #' @export
 ParquetWriterProperties <- R6Class("ParquetWriterProperties", inherit = ArrowObject)
-ParquetWriterPropertiesBuilder <- R6Class("ParquetWriterPropertiesBuilder", inherit = ArrowObject,
+ParquetWriterPropertiesBuilder <- R6Class("ParquetWriterPropertiesBuilder",
+  inherit = ArrowObject,
   public = list(
     set_version = function(version) {
       parquet___WriterProperties___Builder__version(self, make_valid_version(version))
@@ -293,26 +325,30 @@ ParquetWriterPropertiesBuilder <- R6Class("ParquetWriterPropertiesBuilder", inhe
     set_compression = function(table, compression) {
       compression <- compression_from_name(compression)
       assert_that(is.integer(compression))
-      private$.set(table, compression,
+      private$.set(
+        table, compression,
         parquet___ArrowWriterProperties___Builder__set_compressions
       )
     },
-    set_compression_level = function(table, compression_level){
+    set_compression_level = function(table, compression_level) {
       # cast to integer but keep names
       compression_level <- set_names(as.integer(compression_level), names(compression_level))
-      private$.set(table, compression_level,
+      private$.set(
+        table, compression_level,
         parquet___ArrowWriterProperties___Builder__set_compression_levels
       )
     },
     set_dictionary = function(table, use_dictionary) {
       assert_that(is.logical(use_dictionary))
-      private$.set(table, use_dictionary,
+      private$.set(
+        table, use_dictionary,
         parquet___ArrowWriterProperties___Builder__set_use_dictionary
       )
     },
     set_write_statistics = function(table, write_statistics) {
       assert_that(is.logical(write_statistics))
-      private$.set(table, write_statistics,
+      private$.set(
+        table, write_statistics,
         parquet___ArrowWriterProperties___Builder__set_write_statistics
       )
     },
@@ -320,7 +356,6 @@ ParquetWriterPropertiesBuilder <- R6Class("ParquetWriterPropertiesBuilder", inhe
       parquet___ArrowWriterProperties___Builder__data_page_size(self, data_page_size)
     }
   ),
-
   private = list(
     .set = function(table, value, FUN) {
       msg <- paste0("unsupported ", substitute(value), "= specification")
@@ -400,7 +435,8 @@ ParquetWriterProperties$create <- function(table,
 #'
 #' @export
 #' @include arrow-package.R
-ParquetFileWriter <- R6Class("ParquetFileWriter", inherit = ArrowObject,
+ParquetFileWriter <- R6Class("ParquetFileWriter",
+  inherit = ArrowObject,
   public = list(
     WriteTable = function(table, chunk_size) {
       parquet___arrow___FileWriter__WriteTable(self, table, chunk_size)
@@ -442,7 +478,8 @@ ParquetFileWriter$create <- function(schema,
 #'    `column_indices=` argument is a 0-based integer vector indicating which columns to retain.
 #' - `$ReadRowGroup(i, column_indices)`: get an `arrow::Table` by reading the `i`th row group (0-based).
 #'    The optional `column_indices=` argument is a 0-based integer vector indicating which columns to retain.
-#' - `$ReadRowGroups(row_groups, column_indices)`: get an `arrow::Table` by reading several row groups (0-based integers).
+#' - `$ReadRowGroups(row_groups, column_indices)`: get an `arrow::Table` by reading several row
+#'    groups (0-based integers).
 #'    The optional `column_indices=` argument is a 0-based integer vector indicating which columns to retain.
 #' - `$GetSchema()`: get the `arrow::Schema` of the data in the file
 #' - `$ReadColumn(i)`: read the `i`th column (0-based) as a [ChunkedArray].
@@ -454,16 +491,14 @@ ParquetFileWriter$create <- function(schema,
 #' - `$num_row_groups`: number of row groups.
 #'
 #' @export
-#' @examples
-#' \dontrun{
-#' f <- system.file("v0.7.1.parquet", package="arrow")
+#' @examplesIf arrow_with_parquet()
+#' f <- system.file("v0.7.1.parquet", package = "arrow")
 #' pq <- ParquetFileReader$create(f)
 #' pq$GetSchema()
 #' if (codec_is_available("snappy")) {
 #'   # This file has compressed data columns
 #'   tab <- pq$ReadTable()
 #'   tab$schema
-#' }
 #' }
 #' @include arrow-package.R
 ParquetFileReader <- R6Class("ParquetFileReader",
@@ -561,7 +596,7 @@ ParquetArrowReaderProperties <- R6Class("ParquetArrowReaderProperties",
   ),
   active = list(
     use_threads = function(use_threads) {
-      if(missing(use_threads)) {
+      if (missing(use_threads)) {
         parquet___arrow___ArrowReaderProperties__get_use_threads(self)
       } else {
         parquet___arrow___ArrowReaderProperties__set_use_threads(self, use_threads)

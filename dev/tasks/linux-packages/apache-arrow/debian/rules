@@ -32,6 +32,7 @@ override_dh_auto_configure:
 	  -DARROW_GANDIVA_JAVA=OFF				\
 	  -DARROW_MIMALLOC=ON					\
 	  -DARROW_ORC=ON					\
+	  -DARROW_PACKAGE_KIND=deb				\
 	  -DARROW_PARQUET=ON					\
 	  -DARROW_PLASMA=$${ARROW_PLASMA}			\
 	  -DARROW_PYTHON=ON					\

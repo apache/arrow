@@ -21,8 +21,6 @@ ARG DEBUG
 
 RUN \
   quiet=$([ "${DEBUG}" = "yes" ] || echo "--quiet") && \
-  yum install -y ${quiet} epel-release && \
   yum install -y ${quiet} \
-    rpm-build \
     rpmdevtools && \
   yum clean ${quiet} all

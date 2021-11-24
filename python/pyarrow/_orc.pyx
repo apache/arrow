@@ -17,7 +17,6 @@
 
 # cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
 
 from cython.operator cimport dereference as deref
 from libcpp.vector cimport vector as std_vector
@@ -27,13 +26,17 @@ from pyarrow.includes.libarrow cimport *
 from pyarrow.lib cimport (check_status, _Weakrefable,
                           MemoryPool, maybe_unbox_memory_pool,
                           Schema, pyarrow_wrap_schema,
+                          KeyValueMetadata,
                           pyarrow_wrap_batch,
                           RecordBatch,
+                          Table,
                           pyarrow_wrap_table,
                           pyarrow_unwrap_schema,
+                          pyarrow_wrap_metadata,
                           pyarrow_unwrap_table,
                           get_reader,
                           get_writer)
+from pyarrow.lib import tobytes
 
 cdef compression_kind_from_enum(CompressionKind compression_kind_):
     return {
@@ -133,8 +136,27 @@ cdef class ORCReader(_Weakrefable):
 
         get_reader(source, use_memory_map, &rd_handle)
         with nogil:
-            check_status(ORCFileReader.Open(rd_handle, self.allocator,
-                                            &self.reader))
+            self.reader = move(GetResultValue(
+                ORCFileReader.Open(rd_handle, self.allocator)
+            ))
+
+    def metadata(self):
+        """
+        The arrow metadata for this file.
+
+        Returns
+        -------
+        metadata : pyarrow.KeyValueMetadata
+        """
+        cdef:
+            shared_ptr[const CKeyValueMetadata] sp_arrow_metadata
+
+        with nogil:
+            sp_arrow_metadata = GetResultValue(
+                deref(self.reader).ReadMetadata()
+            )
+
+        return pyarrow_wrap_metadata(sp_arrow_metadata)
 
     def schema(self):
         """
@@ -148,7 +170,7 @@ cdef class ORCReader(_Weakrefable):
             shared_ptr[CSchema] sp_arrow_schema
 
         with nogil:
-            check_status(deref(self.reader).ReadSchema(&sp_arrow_schema))
+            sp_arrow_schema = GetResultValue(deref(self.reader).ReadSchema())
 
         return pyarrow_wrap_schema(sp_arrow_schema)
 
@@ -158,39 +180,41 @@ cdef class ORCReader(_Weakrefable):
     def nstripes(self):
         return deref(self.reader).NumberOfStripes()
 
-    def read_stripe(self, n, include_indices=None):
+    def read_stripe(self, n, columns=None):
         cdef:
             shared_ptr[CRecordBatch] sp_record_batch
             RecordBatch batch
             int64_t stripe
-            std_vector[int] indices
+            std_vector[c_string] c_names
 
         stripe = n
 
-        if include_indices is None:
+        if columns is None:
             with nogil:
-                (check_status(deref(self.reader)
-                              .ReadStripe(stripe, &sp_record_batch)))
+                sp_record_batch = GetResultValue(
+                    deref(self.reader).ReadStripe(stripe)
+                )
         else:
-            indices = include_indices
+            c_names = [tobytes(name) for name in columns]
             with nogil:
-                (check_status(deref(self.reader)
-                              .ReadStripe(stripe, indices, &sp_record_batch)))
+                sp_record_batch = GetResultValue(
+                    deref(self.reader).ReadStripe(stripe, c_names)
+                )
 
         return pyarrow_wrap_batch(sp_record_batch)
 
-    def read(self, include_indices=None):
+    def read(self, columns=None):
         cdef:
             shared_ptr[CTable] sp_table
-            std_vector[int] indices
+            std_vector[c_string] c_names
 
-        if include_indices is None:
+        if columns is None:
             with nogil:
-                check_status(deref(self.reader).Read(&sp_table))
+                sp_table = GetResultValue(deref(self.reader).Read())
         else:
-            indices = include_indices
+            c_names = [tobytes(name) for name in columns]
             with nogil:
-                check_status(deref(self.reader).Read(indices, &sp_table))
+                sp_table = GetResultValue(deref(self.reader).Read(c_names))
 
         return pyarrow_wrap_table(sp_table)
 
@@ -207,7 +231,7 @@ cdef class ORCWriter(_Weakrefable):
             self.writer = move(GetResultValue[unique_ptr[ORCFileWriter]](
                 ORCFileWriter.Open(self.rd_handle.get())))
 
-    def write(self, object table):
+    def write(self, Table table):
         cdef:
             shared_ptr[CTable] sp_table
         sp_table = pyarrow_unwrap_table(table)

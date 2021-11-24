@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
@@ -24,7 +24,7 @@
 # - JDK >=7
 # - gcc >= 4.8
 # - Node.js >= 11.12 (best way is to use nvm)
-# - Go >= 1.11
+# - Go >= 1.15
 #
 # If using a non-system Boost, set BOOST_ROOT and add Boost libraries to
 # LD_LIBRARY_PATH.
@@ -95,6 +95,14 @@ import_gpg_keys() {
   gpg --import KEYS
 }
 
+if type shasum >/dev/null 2>&1; then
+  sha256_verify="shasum -a 256 -c"
+  sha512_verify="shasum -a 512 -c"
+else
+  sha256_verify="sha256sum -c"
+  sha512_verify="sha512sum -c"
+fi
+
 fetch_archive() {
   local dist_name=$1
   download_rc_file ${dist_name}.tar.gz
@@ -102,8 +110,8 @@ fetch_archive() {
   download_rc_file ${dist_name}.tar.gz.sha256
   download_rc_file ${dist_name}.tar.gz.sha512
   gpg --verify ${dist_name}.tar.gz.asc ${dist_name}.tar.gz
-  shasum -a 256 -c ${dist_name}.tar.gz.sha256
-  shasum -a 512 -c ${dist_name}.tar.gz.sha512
+  ${sha256_verify} ${dist_name}.tar.gz.sha256
+  ${sha512_verify} ${dist_name}.tar.gz.sha512
 }
 
 verify_dir_artifact_signatures() {
@@ -117,9 +125,9 @@ verify_dir_artifact_signatures() {
     pushd $(dirname $artifact)
     base_artifact=$(basename $artifact)
     if [ -f $base_artifact.sha256 ]; then
-      shasum -a 256 -c $base_artifact.sha256 || exit 1
+      ${sha256_verify} $base_artifact.sha256 || exit 1
     fi
-    shasum -a 512 -c $base_artifact.sha512 || exit 1
+    ${sha512_verify} $base_artifact.sha512 || exit 1
     popd
   done
 }
@@ -128,32 +136,39 @@ test_binary() {
   local download_dir=binaries
   mkdir -p ${download_dir}
 
-  python $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER \
+  ${PYTHON:-python} $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER \
          --dest=${download_dir}
 
   verify_dir_artifact_signatures ${download_dir}
 }
 
 test_apt() {
-  for target in "debian:bullseye" \
-                "arm64v8/debian:bullseye" \
-                "debian:buster" \
+  for target in "debian:buster" \
                 "arm64v8/debian:buster" \
+                "debian:bullseye" \
+                "arm64v8/debian:bullseye" \
+                "debian:bookworm" \
+                "arm64v8/debian:bookworm" \
                 "ubuntu:bionic" \
                 "arm64v8/ubuntu:bionic" \
                 "ubuntu:focal" \
                 "arm64v8/ubuntu:focal" \
-                "ubuntu:groovy" \
-                "arm64v8/ubuntu:groovy"; do \
+                "ubuntu:hirsute" \
+                "arm64v8/ubuntu:hirsute" \
+                "ubuntu:impish" \
+                "arm64v8/ubuntu:impish"; do \
     case "${target}" in
-      arm64v8/debian:bullseye)
-        # qemu-user-static in Ubuntu 20.04 has a crash bug:
-        #   https://bugs.launchpad.net/qemu/+bug/1749393
-        continue
-        ;;
       arm64v8/*)
         if [ "$(arch)" = "aarch64" -o -e /usr/bin/qemu-aarch64-static ]; then
-          : # OK
+          case "${target}" in
+          arm64v8/debian:buster|arm64v8/ubuntu:bionic|arm64v8/ubuntu:focal)
+            ;; # OK
+          *)
+            # qemu-user-static in Ubuntu 20.04 has a crash bug:
+            #   https://bugs.launchpad.net/qemu/+bug/1749393
+            continue
+            ;;
+          esac
         else
           continue
         fi
@@ -163,8 +178,7 @@ test_apt() {
            "${target}" \
            /arrow/dev/release/verify-apt.sh \
            "${VERSION}" \
-           "rc" \
-           "${BINTRAY_REPOSITORY}"; then
+           "rc"; then
       echo "Failed to verify the APT repository for ${target}"
       exit 1
     fi
@@ -172,7 +186,10 @@ test_apt() {
 }
 
 test_yum() {
-  for target in "centos:7" \
+  for target in "almalinux:8" \
+                "arm64v8/almalinux:8" \
+                "amazonlinux:2" \
+                "centos:7" \
                 "centos:8" \
                 "arm64v8/centos:8"; do
     case "${target}" in
@@ -188,8 +205,7 @@ test_yum() {
            "${target}" \
            /arrow/dev/release/verify-yum.sh \
            "${VERSION}" \
-           "rc" \
-           "${BINTRAY_REPOSITORY}"; then
+           "rc"; then
       echo "Failed to verify the Yum repository for ${target}"
       exit 1
     fi
@@ -218,17 +234,12 @@ setup_tempdir() {
 
 setup_miniconda() {
   # Setup short-lived miniconda for Python and integration tests
-  if [ "$(uname)" == "Darwin" ]; then
-    if [ "$(uname -m)" == "arm64" ]; then
-	MINICONDA_URL=https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-MacOSX-arm64.sh
-    else
-        MINICONDA_URL=https://repo.continuum.io/miniconda/Miniconda3-latest-MacOSX-x86_64.sh
-    fi
-  elif [ "$(uname)" == "Linux" ] && [ "$(uname -m)" == "aarch64" ]; then
-    MINICONDA_URL=https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-aarch64.sh
-  else
-    MINICONDA_URL=https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
+  OS="$(uname)"
+  if [ "${OS}" == "Darwin" ]; then
+    OS=MacOSX
   fi
+  ARCH="$(uname -m)"
+  MINICONDA_URL="https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-${OS}-${ARCH}.sh"
 
   MINICONDA=$PWD/test-miniconda
 
@@ -416,7 +427,7 @@ test_js() {
   if [ "${INSTALL_NODE}" -gt 0 ]; then
     export NVM_DIR="`pwd`/.nvm"
     mkdir -p $NVM_DIR
-    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.35.3/install.sh | \
+    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | \
       PROFILE=/dev/null bash
     [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 
@@ -425,7 +436,9 @@ test_js() {
   fi
 
   yarn --frozen-lockfile
-  yarn run-s clean:all lint build
+  yarn clean:all
+  yarn lint
+  yarn build
   yarn test
   popd
 }
@@ -433,9 +446,12 @@ test_js() {
 test_ruby() {
   pushd ruby
 
-  local modules="red-arrow red-plasma red-parquet"
+  local modules="red-arrow red-arrow-dataset red-plasma red-parquet"
   if [ "${ARROW_CUDA}" = "ON" ]; then
     modules="${modules} red-arrow-cuda"
+  fi
+  if [ "${ARROW_FLIGHT}" = "ON" ]; then
+    modules="${modules} red-arrow-flight"
   fi
   if [ "${ARROW_GANDIVA}" = "ON" ]; then
     modules="${modules} red-gandiva"
@@ -443,7 +459,8 @@ test_ruby() {
 
   for module in ${modules}; do
     pushd ${module}
-    bundle install --path vendor/bundle
+    bundle config set --local path 'vendor/bundle'
+    bundle install
     bundle exec ruby test/run-test.rb
     popd
   done
@@ -452,8 +469,14 @@ test_ruby() {
 }
 
 test_go() {
-  local VERSION=1.14.1
-  local ARCH=amd64
+  local VERSION=1.15.14
+
+  local ARCH="$(uname -m)"
+  if [ "$ARCH" == "x86_64" ]; then
+    ARCH=amd64
+  elif [ "$ARCH" == "aarch64" ]; then
+    ARCH=arm64
+  fi
 
   if [ "$(uname)" == "Darwin" ]; then
     local OS=darwin
@@ -477,39 +500,6 @@ test_go() {
   go get -v ./...
   go test ./...
   go clean -modcache
-
-  popd
-}
-
-test_rust() {
-  # install rust toolchain in a similar fashion like test-miniconda
-  export RUSTUP_HOME=$PWD/test-rustup
-  export CARGO_HOME=$PWD/test-rustup
-
-  curl https://sh.rustup.rs -sSf | sh -s -- -y --no-modify-path
-
-  export PATH=$RUSTUP_HOME/bin:$PATH
-  source $RUSTUP_HOME/env
-
-  # build and test rust
-  pushd rust
-
-  # raises on any formatting errors
-  rustup component add rustfmt --toolchain stable
-  cargo +stable fmt --all -- --check
-  rustup default stable
-
-  # use local modules because we don't publish modules to crates.io yet
-  sed \
-    -i.bak \
-    -E \
-    -e 's/^arrow = "([^"]*)"/arrow = { version = "\1", path = "..\/arrow" }/g' \
-    -e 's/^parquet = "([^"]*)"/parquet = { version = "\1", path = "..\/parquet" }/g' \
-    */Cargo.toml
-
-  # raises on any warnings
-  RUSTFLAGS="-D warnings" cargo build
-  cargo test
 
   popd
 }
@@ -591,17 +581,12 @@ test_source_distribution() {
   if [ ${TEST_GO} -gt 0 ]; then
     test_go
   fi
-  if [ ${TEST_RUST} -gt 0 ]; then
-    test_rust
-  fi
   if [ ${TEST_INTEGRATION} -gt 0 ]; then
     test_integration
   fi
 }
 
 test_binary_distribution() {
-  : ${BINTRAY_REPOSITORY:=apache/arrow}
-
   if [ ${TEST_BINARY} -gt 0 ]; then
     test_binary
   fi
@@ -613,48 +598,31 @@ test_binary_distribution() {
   fi
 }
 
-check_python_imports() {
-   python << IMPORT_TESTS
-import platform
-
-import pyarrow
-import pyarrow.parquet
-import pyarrow.plasma
-import pyarrow.fs
-import pyarrow._hdfs
-import pyarrow.dataset
-import pyarrow.flight
-
-if platform.system() == "Darwin":
-    macos_version = tuple(map(int, platform.mac_ver()[0].split('.')))
-    check_s3fs = macos_version >= (10, 13)
-else:
-    check_s3fs = True
-
-if check_s3fs:
-    import pyarrow._s3fs
-IMPORT_TESTS
-}
-
 test_linux_wheels() {
-  local py_arches="3.6m 3.7m 3.8 3.9"
-  local manylinuxes="2010 2014"
+  if [ "$(uname -m)" = "aarch64" ]; then
+    local arch="aarch64"
+  else
+    local arch="x86_64"
+  fi
+
+  local py_arches="3.6m 3.7m 3.8 3.9 3.10"
+  local platform_tags="manylinux_2_12_${arch}.manylinux2010_${arch} manylinux_2_17_${arch}.manylinux2014_${arch}"
 
   for py_arch in ${py_arches}; do
     local env=_verify_wheel-${py_arch}
-    conda create -yq -n ${env} python=${py_arch//[mu]/}
+    if [ $py_arch = "3.10" ]; then
+      local channels="-c conda-forge -c defaults"
+    else
+      local channels="-c conda-forge"
+    fi
+    conda create -yq -n ${env} ${channels} python=${py_arch//[mu]/}
     conda activate ${env}
     pip install -U pip
 
-    for ml_spec in ${manylinuxes}; do
+    for tag in ${platform_tags}; do
       # check the mandatory and optional imports
-      pip install python-rc/${VERSION}-rc${RC_NUMBER}/pyarrow-${VERSION}-cp${py_arch//[mu.]/}-cp${py_arch//./}-manylinux${ml_spec}_x86_64.whl
-      check_python_imports
-
-      # install test requirements and execute the tests
-      pip install -r ${ARROW_DIR}/python/requirements-test.txt
-      python -c 'import pyarrow; pyarrow.create_library_symlinks()'
-      pytest --pyargs pyarrow
+      pip install --force-reinstall python-rc/${VERSION}-rc${RC_NUMBER}/pyarrow-${VERSION}-cp${py_arch//[mu.]/}-cp${py_arch//./}-${tag}.whl
+      INSTALL_PYARROW=OFF ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_DIR}
     done
 
     conda deactivate
@@ -662,25 +630,73 @@ test_linux_wheels() {
 }
 
 test_macos_wheels() {
-  local py_arches="3.6m 3.7m 3.8 3.9"
+  local py_arches="3.6m 3.7m 3.8 3.9 3.10"
+  local macos_version=$(sw_vers -productVersion)
+  local macos_short_version=${macos_version:0:5}
 
+  local check_s3=ON
+  local check_flight=ON
+
+  # macOS version <= 10.13
+  if [ $(echo "${macos_short_version}\n10.14" | sort -V | head -n1) == "${macos_short_version}" ]; then
+    local check_s3=OFF
+  fi
+  # apple silicon processor
+  if [ "$(uname -m)" = "arm64" ]; then
+    local py_arches="3.8 3.9 3.10"
+    local check_flight=OFF
+  fi
+
+  # verify arch-native wheels inside an arch-native conda environment
   for py_arch in ${py_arches}; do
     local env=_verify_wheel-${py_arch}
-    conda create -yq -n ${env} python=${py_arch//m/}
+    if [ $py_arch = "3.10" ]; then
+      local channels="-c conda-forge -c defaults"
+    else
+      local channels="-c conda-forge"
+    fi
+    conda create -yq -n ${env} ${channels} python=${py_arch//m/}
     conda activate ${env}
     pip install -U pip
 
     # check the mandatory and optional imports
     pip install --find-links python-rc/${VERSION}-rc${RC_NUMBER} pyarrow==${VERSION}
-    check_python_imports
-
-    # install test requirements and execute the tests
-    pip install -r ${ARROW_DIR}/python/requirements-test.txt
-    python -c 'import pyarrow; pyarrow.create_library_symlinks()'
-    pytest --pyargs pyarrow
+    INSTALL_PYARROW=OFF ARROW_FLIGHT=${check_flight} ARROW_S3=${check_s3} \
+      ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_DIR}
 
     conda deactivate
   done
+
+  # verify arm64 and universal2 wheels using an universal2 python binary
+  # the interpreter should be installed from python.org:
+  #   https://www.python.org/ftp/python/3.9.6/python-3.9.6-macosx10.9.pkg
+  if [ "$(uname -m)" = "arm64" ]; then
+    for py_arch in "3.9"; do
+      local pyver=${py_arch//m/}
+      local python="/Library/Frameworks/Python.framework/Versions/${pyver}/bin/python${pyver}"
+
+      # create and activate a virtualenv for testing as arm64
+      for arch in "arm64" "x86_64"; do
+        local venv="${ARROW_TMPDIR}/test-${arch}-virtualenv"
+        $python -m virtualenv $venv
+        source $venv/bin/activate
+        pip install -U pip
+
+        # install pyarrow's universal2 wheel
+        pip install \
+            --find-links python-rc/${VERSION}-rc${RC_NUMBER} \
+            --target $(python -c 'import site; print(site.getsitepackages()[0])') \
+            --platform macosx_11_0_universal2 \
+            --only-binary=:all: \
+            pyarrow==${VERSION}
+        # check the imports and execute the unittests
+        INSTALL_PYARROW=OFF ARROW_FLIGHT=${check_flight} ARROW_S3=${check_s3} \
+          arch -${arch} ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_DIR}
+
+        deactivate
+      done
+    done
+  fi
 }
 
 test_wheels() {
@@ -741,7 +757,6 @@ fi
 : ${TEST_PYTHON:=${TEST_DEFAULT}}
 : ${TEST_JS:=${TEST_DEFAULT}}
 : ${TEST_GO:=${TEST_DEFAULT}}
-: ${TEST_RUST:=${TEST_DEFAULT}}
 : ${TEST_INTEGRATION:=${TEST_DEFAULT}}
 if [ ${TEST_BINARY_DISTRIBUTIONS} -gt 0 ]; then
   TEST_BINARY_DISTRIBUTIONS_DEFAULT=${TEST_DEFAULT}
@@ -766,7 +781,17 @@ TEST_JS=$((${TEST_JS} + ${TEST_INTEGRATION_JS}))
 TEST_GO=$((${TEST_GO} + ${TEST_INTEGRATION_GO}))
 TEST_INTEGRATION=$((${TEST_INTEGRATION} + ${TEST_INTEGRATION_CPP} + ${TEST_INTEGRATION_JAVA} + ${TEST_INTEGRATION_JS} + ${TEST_INTEGRATION_GO}))
 
-NEED_MINICONDA=$((${TEST_CPP} + ${TEST_WHEELS} + ${TEST_BINARY} + ${TEST_INTEGRATION}))
+if [ "${ARTIFACT}" == "source" ]; then
+  NEED_MINICONDA=$((${TEST_CPP} + ${TEST_INTEGRATION}))
+elif [ "${ARTIFACT}" == "wheels" ]; then
+  NEED_MINICONDA=$((${TEST_WHEELS}))
+else
+  if [ -z "${PYTHON:-}" ]; then
+    NEED_MINICONDA=$((${TEST_BINARY}))
+  else
+    NEED_MINICONDA=0
+  fi
+fi
 
 : ${TEST_ARCHIVE:=apache-arrow-${VERSION}.tar.gz}
 case "${TEST_ARCHIVE}" in

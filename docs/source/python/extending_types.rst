@@ -111,15 +111,14 @@ IPC protocol::
 
     >>> batch = pa.RecordBatch.from_arrays([arr], ["ext"])
     >>> sink = pa.BufferOutputStream()
-    >>> writer = pa.RecordBatchStreamWriter(sink, batch.schema)
-    >>> writer.write_batch(batch)
-    >>> writer.close()
+    >>> with pa.RecordBatchStreamWriter(sink, batch.schema) as writer:
+    ...    writer.write_batch(batch)
     >>> buf = sink.getvalue()
 
 and then reading it back yields the proper type::
 
-    >>> reader = pa.ipc.open_stream(buf)
-    >>> result = reader.read_all()
+    >>> with pa.ipc.open_stream(buf) as reader:
+    ...    result = reader.read_all()
     >>> result.column('ext').type
     UuidType(extension<arrow.py_extension_type>)
 

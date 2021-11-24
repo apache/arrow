@@ -30,6 +30,7 @@
 #include "arrow/array/builder_time.h"
 #include "arrow/array/builder_union.h"
 #include "arrow/ipc/json_simple.h"
+#include "arrow/scalar.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
@@ -409,6 +410,40 @@ class DayTimeIntervalConverter final
   std::shared_ptr<DayTimeIntervalBuilder> builder_;
 };
 
+class MonthDayNanoIntervalConverter final
+    : public ConcreteConverter<MonthDayNanoIntervalConverter> {
+ public:
+  explicit MonthDayNanoIntervalConverter(const std::shared_ptr<DataType>& type) {
+    this->type_ = type;
+    builder_ = std::make_shared<MonthDayNanoIntervalBuilder>(default_memory_pool());
+  }
+
+  Status AppendValue(const rj::Value& json_obj) override {
+    if (json_obj.IsNull()) {
+      return this->AppendNull();
+    }
+    MonthDayNanoIntervalType::MonthDayNanos value;
+    if (!json_obj.IsArray()) {
+      return JSONTypeError("array", json_obj.GetType());
+    }
+    if (json_obj.Size() != 3) {
+      return Status::Invalid(
+          "month_day_nano_interval  must have exactly 3 elements, had ", json_obj.Size());
+    }
+    RETURN_NOT_OK(ConvertNumber<Int32Type>(json_obj[0], *this->type_, &value.months));
+    RETURN_NOT_OK(ConvertNumber<Int32Type>(json_obj[1], *this->type_, &value.days));
+    RETURN_NOT_OK(
+        ConvertNumber<Int64Type>(json_obj[2], *this->type_, &value.nanoseconds));
+
+    return builder_->Append(value);
+  }
+
+  std::shared_ptr<ArrayBuilder> builder() override { return builder_; }
+
+ private:
+  std::shared_ptr<MonthDayNanoIntervalBuilder> builder_;
+};
+
 // ------------------------------------------------------------------------
 // Converter for binary and string arrays
 
@@ -784,6 +819,8 @@ Status GetDictConverter(const std::shared_ptr<DataType>& type,
     PARAM_CONVERTER_CASE(Type::UINT16, IntegerConverter, UInt16Type)
     PARAM_CONVERTER_CASE(Type::UINT32, IntegerConverter, UInt32Type)
     PARAM_CONVERTER_CASE(Type::UINT64, IntegerConverter, UInt64Type)
+    PARAM_CONVERTER_CASE(Type::FLOAT, FloatConverter, FloatType)
+    PARAM_CONVERTER_CASE(Type::DOUBLE, FloatConverter, DoubleType)
     PARAM_CONVERTER_CASE(Type::STRING, StringConverter, StringType)
     PARAM_CONVERTER_CASE(Type::BINARY, StringConverter, BinaryType)
     PARAM_CONVERTER_CASE(Type::LARGE_STRING, StringConverter, LargeStringType)
@@ -853,6 +890,7 @@ Status GetConverter(const std::shared_ptr<DataType>& type,
     SIMPLE_CONVERTER_CASE(Type::DENSE_UNION, UnionConverter)
     SIMPLE_CONVERTER_CASE(Type::INTERVAL_MONTHS, IntegerConverter<MonthIntervalType>)
     SIMPLE_CONVERTER_CASE(Type::INTERVAL_DAY_TIME, DayTimeIntervalConverter)
+    SIMPLE_CONVERTER_CASE(Type::INTERVAL_MONTH_DAY_NANO, MonthDayNanoIntervalConverter)
     default:
       return ConversionNotImplemented(type);
   }
@@ -909,6 +947,45 @@ Status DictArrayFromJSON(const std::shared_ptr<DataType>& type,
 
   return DictionaryArray::FromArrays(type, std::move(indices), std::move(dictionary))
       .Value(out);
+}
+
+Status ScalarFromJSON(const std::shared_ptr<DataType>& type,
+                      util::string_view json_string, std::shared_ptr<Scalar>* out) {
+  std::shared_ptr<Converter> converter;
+  RETURN_NOT_OK(GetConverter(type, &converter));
+
+  rj::Document json_doc;
+  json_doc.Parse<kParseFlags>(json_string.data(), json_string.length());
+  if (json_doc.HasParseError()) {
+    return Status::Invalid("JSON parse error at offset ", json_doc.GetErrorOffset(), ": ",
+                           GetParseError_En(json_doc.GetParseError()));
+  }
+
+  std::shared_ptr<Array> array;
+  RETURN_NOT_OK(converter->AppendValue(json_doc));
+  RETURN_NOT_OK(converter->Finish(&array));
+  DCHECK_EQ(array->length(), 1);
+  ARROW_ASSIGN_OR_RAISE(*out, array->GetScalar(0));
+  return Status::OK();
+}
+
+Status DictScalarFromJSON(const std::shared_ptr<DataType>& type,
+                          util::string_view index_json, util::string_view dictionary_json,
+                          std::shared_ptr<Scalar>* out) {
+  if (type->id() != Type::DICTIONARY) {
+    return Status::TypeError("DictScalarFromJSON requires dictionary type, got ", *type);
+  }
+
+  const auto& dictionary_type = checked_cast<const DictionaryType&>(*type);
+
+  std::shared_ptr<Scalar> index;
+  std::shared_ptr<Array> dictionary;
+  RETURN_NOT_OK(ScalarFromJSON(dictionary_type.index_type(), index_json, &index));
+  RETURN_NOT_OK(
+      ArrayFromJSON(dictionary_type.value_type(), dictionary_json, &dictionary));
+
+  *out = DictionaryScalar::Make(std::move(index), std::move(dictionary));
+  return Status::OK();
 }
 
 }  // namespace json

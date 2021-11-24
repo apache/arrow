@@ -52,6 +52,22 @@ module Helper
       Arrow::Int64DataType.new
     end
 
+    def uint8_data_type
+      Arrow::UInt8DataType.new
+    end
+
+    def uint16_data_type
+      Arrow::UInt16DataType.new
+    end
+
+    def uint32_data_type
+      Arrow::UInt32DataType.new
+    end
+
+    def uint64_data_type
+      Arrow::UInt64DataType.new
+    end
+
     def string_data_type
       Arrow::StringDataType.new
     end

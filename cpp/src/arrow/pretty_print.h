@@ -19,6 +19,7 @@
 
 #include <iosfwd>
 #include <string>
+#include <utility>
 
 #include "arrow/util/visibility.h"
 
@@ -34,13 +35,14 @@ class Table;
 struct PrettyPrintOptions {
   PrettyPrintOptions() = default;
 
-  PrettyPrintOptions(int indent_arg, int window_arg = 10, int indent_size_arg = 2,
+  PrettyPrintOptions(int indent_arg,  // NOLINT runtime/explicit
+                     int window_arg = 10, int indent_size_arg = 2,
                      std::string null_rep_arg = "null", bool skip_new_lines_arg = false,
                      bool truncate_metadata_arg = true)
       : indent(indent_arg),
         indent_size(indent_size_arg),
         window(window_arg),
-        null_rep(null_rep_arg),
+        null_rep(std::move(null_rep_arg)),
         skip_new_lines(skip_new_lines_arg),
         truncate_metadata(truncate_metadata_arg) {}
 

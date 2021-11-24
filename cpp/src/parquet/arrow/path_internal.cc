@@ -333,25 +333,25 @@ class ListPathNode {
     if (range->Empty()) {
       return kDone;
     }
-
     // Find the first non-empty list (skipping a run of empties).
-    int64_t start = range->start;
-    // Retrieves the range of elements that this list contains.
-    // Uses the strategy pattern to distinguish between the different
-    // lists that are supported in Arrow (fixed size, normal and "large").
-    *child_range = selector_.GetRange(range->start);
-    while (child_range->Empty() && !range->Empty()) {
-      ++range->start;
+    int64_t empty_elements = 0;
+    do {
+      // Retrieve the range of elements that this list contains.
       *child_range = selector_.GetRange(range->start);
-    }
-    // Loops post-condition:
+      if (!child_range->Empty()) {
+        break;
+      }
+      ++empty_elements;
+      ++range->start;
+    } while (!range->Empty());
+
+    // Post condition:
     //   * range is either empty (we are done processing at this node)
     //     or start corresponds a non-empty list.
     //   * If range is non-empty child_range contains
     //     the bounds of non-empty list.
 
     // Handle any skipped over empty lists.
-    int64_t empty_elements = range->start - start;
     if (empty_elements > 0) {
       RETURN_IF_ERROR(FillRepLevels(empty_elements, prev_rep_level_, context));
       RETURN_IF_ERROR(context->AppendDefLevels(empty_elements, def_level_if_empty_));
@@ -413,7 +413,8 @@ class ListPathNode {
       // of the function).
       RETURN_IF_ERROR(context->AppendRepLevel(prev_rep_level_));
       RETURN_IF_ERROR(context->AppendRepLevels(size_check.Size() - 1, rep_level_));
-      DCHECK_EQ(size_check.start, child_range->end);
+      DCHECK_EQ(size_check.start, child_range->end)
+          << size_check.start << " != " << child_range->end;
       child_range->end = size_check.end;
       ++range->start;
     }

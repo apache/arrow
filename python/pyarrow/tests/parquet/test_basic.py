@@ -23,7 +23,7 @@ import pytest
 
 import pyarrow as pa
 from pyarrow import fs
-from pyarrow.filesystem import LocalFileSystem
+from pyarrow.filesystem import LocalFileSystem, FileSystem
 from pyarrow.tests import util
 from pyarrow.tests.parquet.common import (_check_roundtrip, _roundtrip_table,
                                           parametrize_legacy_dataset)
@@ -85,7 +85,7 @@ def test_chunked_table_write(use_legacy_dataset):
         for use_dictionary in [True, False]:
             for table in tables:
                 _check_roundtrip(
-                    table, version='2.0',
+                    table, version='2.6',
                     use_legacy_dataset=use_legacy_dataset,
                     data_page_version=data_page_version,
                     use_dictionary=use_dictionary)
@@ -98,11 +98,11 @@ def test_memory_map(tempdir, use_legacy_dataset):
 
     table = pa.Table.from_pandas(df)
     _check_roundtrip(table, read_table_kwargs={'memory_map': True},
-                     version='2.0', use_legacy_dataset=use_legacy_dataset)
+                     version='2.6', use_legacy_dataset=use_legacy_dataset)
 
     filename = str(tempdir / 'tmp_file')
     with open(filename, 'wb') as f:
-        _write_table(table, f, version='2.0')
+        _write_table(table, f, version='2.6')
     table_read = pq.read_pandas(filename, memory_map=True,
                                 use_legacy_dataset=use_legacy_dataset)
     assert table_read.equals(table)
@@ -115,11 +115,11 @@ def test_enable_buffered_stream(tempdir, use_legacy_dataset):
 
     table = pa.Table.from_pandas(df)
     _check_roundtrip(table, read_table_kwargs={'buffer_size': 1025},
-                     version='2.0', use_legacy_dataset=use_legacy_dataset)
+                     version='2.6', use_legacy_dataset=use_legacy_dataset)
 
     filename = str(tempdir / 'tmp_file')
     with open(filename, 'wb') as f:
-        _write_table(table, f, version='2.0')
+        _write_table(table, f, version='2.6')
     table_read = pq.read_pandas(filename, buffer_size=4096,
                                 use_legacy_dataset=use_legacy_dataset)
     assert table_read.equals(table)
@@ -135,6 +135,20 @@ def test_special_chars_filename(tempdir, use_legacy_dataset):
     assert path.exists()
     table_read = _read_table(str(path), use_legacy_dataset=use_legacy_dataset)
     assert table_read.equals(table)
+
+
+@parametrize_legacy_dataset
+def test_invalid_source(use_legacy_dataset):
+    # Test that we provide an helpful error message pointing out
+    # that None wasn't expected when trying to open a Parquet None file.
+    #
+    # Depending on use_legacy_dataset the message changes slightly
+    # but in both cases it should point out that None wasn't expected.
+    with pytest.raises(TypeError, match="None"):
+        pq.read_table(None, use_legacy_dataset=use_legacy_dataset)
+
+    with pytest.raises(TypeError, match="None"):
+        pq.ParquetFile(None)
 
 
 @pytest.mark.slow
@@ -162,7 +176,7 @@ def test_empty_table_roundtrip(use_legacy_dataset):
     assert table.schema.field('null').type == pa.null()
     assert table.schema.field('null_list').type == pa.list_(pa.null())
     _check_roundtrip(
-        table, version='2.0', use_legacy_dataset=use_legacy_dataset)
+        table, version='2.6', use_legacy_dataset=use_legacy_dataset)
 
 
 @pytest.mark.pandas
@@ -222,6 +236,25 @@ def test_multiple_path_types(tempdir, use_legacy_dataset):
     tm.assert_frame_equal(df, df_read)
 
 
+@parametrize_legacy_dataset
+def test_fspath(tempdir, use_legacy_dataset):
+    # ARROW-12472 support __fspath__ objects without using str()
+    path = tempdir / "test.parquet"
+    table = pa.table({"a": [1, 2, 3]})
+    _write_table(table, path)
+
+    fs_protocol_obj = util.FSProtocolClass(path)
+
+    result = _read_table(
+        fs_protocol_obj, use_legacy_dataset=use_legacy_dataset
+    )
+    assert result.equals(table)
+
+    # combined with non-local filesystem raises
+    with pytest.raises(TypeError):
+        _read_table(fs_protocol_obj, filesystem=FileSystem())
+
+
 @pytest.mark.dataset
 @parametrize_legacy_dataset
 @pytest.mark.parametrize("filesystem", [
@@ -245,11 +278,23 @@ def test_relative_paths(tempdir, use_legacy_dataset, filesystem):
     assert result.equals(table)
 
 
-@parametrize_legacy_dataset
-def test_read_non_existing_file(use_legacy_dataset):
+def test_read_non_existing_file():
     # ensure we have a proper error message
     with pytest.raises(FileNotFoundError):
         pq.read_table('i-am-not-existing.parquet')
+
+
+def test_file_error_python_exception():
+    class BogusFile(io.BytesIO):
+        def read(self, *args):
+            raise ZeroDivisionError("zorglub")
+
+        def seek(self, *args):
+            raise ZeroDivisionError("zorglub")
+
+    # ensure the Python exception is restored
+    with pytest.raises(ZeroDivisionError, match="zorglub"):
+        pq.read_table(BogusFile(b""))
 
 
 @parametrize_legacy_dataset
@@ -368,7 +413,7 @@ def test_multithreaded_read(use_legacy_dataset):
     table = pa.Table.from_pandas(df)
 
     buf = io.BytesIO()
-    _write_table(table, buf, compression='SNAPPY', version='2.0')
+    _write_table(table, buf, compression='SNAPPY', version='2.6')
 
     buf.seek(0)
     table1 = _read_table(
@@ -583,4 +628,24 @@ def test_reads_over_batch(tempdir):
     path = tempdir / 'arrow-11607.parquet'
     pq.write_table(table, path)
     table2 = pq.read_table(path)
+    assert table == table2
+
+
+@pytest.mark.dataset
+def test_permutation_of_column_order(tempdir):
+    # ARROW-2366
+    case = tempdir / "dataset_column_order_permutation"
+    case.mkdir(exist_ok=True)
+
+    data1 = pa.table([[1, 2, 3], [.1, .2, .3]], names=['a', 'b'])
+    pq.write_table(data1, case / "data1.parquet")
+
+    data2 = pa.table([[.4, .5, .6], [4, 5, 6]], names=['b', 'a'])
+    pq.write_table(data2, case / "data2.parquet")
+
+    table = pq.read_table(str(case))
+    table2 = pa.table([[1, 2, 3, 4, 5, 6],
+                      [0.1, 0.2, 0.3, 0.4, 0.5, 0.6]],
+                      names=['a', 'b'])
+
     assert table == table2

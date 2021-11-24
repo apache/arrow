@@ -19,13 +19,15 @@
 
 // IWYU pragma: begin_exports
 
+#include <gmock/gmock.h>
+
 #include <memory>
 #include <string>
 #include <vector>
 
-#include <gmock/gmock.h>
-
 #include "arrow/array.h"
+#include "arrow/compute/api_scalar.h"
+#include "arrow/compute/kernel.h"
 #include "arrow/datum.h"
 #include "arrow/memory_pool.h"
 #include "arrow/pretty_print.h"
@@ -33,8 +35,7 @@
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
-
-#include "arrow/compute/kernel.h"
+#include "arrow/util/checked_cast.h"
 
 // IWYU pragma: end_exports
 
@@ -43,6 +44,8 @@ namespace arrow {
 using internal::checked_cast;
 
 namespace compute {
+
+using DatumVector = std::vector<Datum>;
 
 template <typename Type, typename T>
 std::shared_ptr<Array> _MakeArray(const std::shared_ptr<DataType>& type,
@@ -57,68 +60,50 @@ std::shared_ptr<Array> _MakeArray(const std::shared_ptr<DataType>& type,
   return result;
 }
 
-template <typename Type, typename Enable = void>
-struct DatumEqual {};
+inline std::string CompareOperatorToFunctionName(CompareOperator op) {
+  static std::string function_names[] = {
+      "equal", "not_equal", "greater", "greater_equal", "less", "less_equal",
+  };
+  return function_names[op];
+}
 
-template <typename Type>
-struct DatumEqual<Type, enable_if_floating_point<Type>> {
-  static constexpr double kArbitraryDoubleErrorBound = 1.0;
-  using ScalarType = typename TypeTraits<Type>::ScalarType;
+// Call the function with the given arguments, as well as slices of
+// the arguments and scalars extracted from the arguments.
+void CheckScalar(std::string func_name, const ScalarVector& inputs,
+                 std::shared_ptr<Scalar> expected,
+                 const FunctionOptions* options = nullptr);
 
-  static void EnsureEqual(const Datum& lhs, const Datum& rhs) {
-    ASSERT_EQ(lhs.kind(), rhs.kind());
-    if (lhs.kind() == Datum::SCALAR) {
-      auto left = checked_cast<const ScalarType*>(lhs.scalar().get());
-      auto right = checked_cast<const ScalarType*>(rhs.scalar().get());
-      ASSERT_EQ(left->is_valid, right->is_valid);
-      ASSERT_EQ(left->type->id(), right->type->id());
-      ASSERT_NEAR(left->value, right->value, kArbitraryDoubleErrorBound);
-    }
-  }
-};
+void CheckScalar(std::string func_name, const DatumVector& inputs, Datum expected,
+                 const FunctionOptions* options = nullptr);
 
-template <typename Type>
-struct DatumEqual<Type, enable_if_integer<Type>> {
-  using ScalarType = typename TypeTraits<Type>::ScalarType;
-  static void EnsureEqual(const Datum& lhs, const Datum& rhs) {
-    ASSERT_EQ(lhs.kind(), rhs.kind());
-    if (lhs.kind() == Datum::SCALAR) {
-      auto left = checked_cast<const ScalarType*>(lhs.scalar().get());
-      auto right = checked_cast<const ScalarType*>(rhs.scalar().get());
-      ASSERT_EQ(*left, *right);
-    }
-  }
-};
+// Like CheckScalar, but gets the expected result by
+// dictionary-decoding arguments and calling the function again.
+//
+// result_is_encoded controls whether the result is expected to be a
+// dictionary or not.
+void CheckDictionary(const std::string& func_name, const DatumVector& args,
+                     bool result_is_encoded = true);
+
+// Just call the function with the given arguments.
+void CheckScalarNonRecursive(const std::string& func_name, const DatumVector& inputs,
+                             const Datum& expected,
+                             const FunctionOptions* options = nullptr);
 
 void CheckScalarUnary(std::string func_name, std::shared_ptr<DataType> in_ty,
                       std::string json_input, std::shared_ptr<DataType> out_ty,
                       std::string json_expected,
                       const FunctionOptions* options = nullptr);
 
-void CheckScalarUnary(std::string func_name, std::shared_ptr<Array> input,
-                      std::shared_ptr<Array> expected,
+void CheckScalarUnary(std::string func_name, Datum input, Datum expected,
                       const FunctionOptions* options = nullptr);
 
-void CheckScalarUnary(std::string func_name, std::shared_ptr<Scalar> input,
-                      std::shared_ptr<Scalar> expected,
+void CheckScalarBinary(std::string func_name, Datum left_input, Datum right_input,
+                       Datum expected, const FunctionOptions* options = nullptr);
+
+void CheckVectorUnary(std::string func_name, Datum input, Datum expected,
                       const FunctionOptions* options = nullptr);
 
-void CheckScalarBinary(std::string func_name, std::shared_ptr<Scalar> left_input,
-                       std::shared_ptr<Scalar> right_input,
-                       std::shared_ptr<Scalar> expected,
-                       const FunctionOptions* options = nullptr);
-
-void CheckScalarBinary(std::string func_name, std::shared_ptr<Array> left_input,
-                       std::shared_ptr<Array> right_input,
-                       std::shared_ptr<Array> expected,
-                       const FunctionOptions* options = nullptr);
-
-void CheckVectorUnary(std::string func_name, Datum input, std::shared_ptr<Array> expected,
-                      const FunctionOptions* options = nullptr);
-
-using BinaryTypes =
-    ::testing::Types<BinaryType, LargeBinaryType, StringType, LargeStringType>;
-using StringTypes = ::testing::Types<StringType, LargeStringType>;
+void ValidateOutput(const Datum& output);
 
 static constexpr random::SeedType kRandomSeed = 0x0ff1ce;
 
@@ -147,6 +132,110 @@ void TestRandomPrimitiveCTypes() {
 // produced by DispatchExact on another set of ValueDescrs.
 void CheckDispatchBest(std::string func_name, std::vector<ValueDescr> descrs,
                        std::vector<ValueDescr> exact_descrs);
+
+// Check that function fails to produce a Kernel for the set of ValueDescrs.
+void CheckDispatchFails(std::string func_name, std::vector<ValueDescr> descrs);
+
+// Helper to get a default instance of a type, including parameterized types
+template <typename T>
+enable_if_parameter_free<T, std::shared_ptr<DataType>> default_type_instance() {
+  return TypeTraits<T>::type_singleton();
+}
+template <typename T>
+enable_if_time<T, std::shared_ptr<DataType>> default_type_instance() {
+  // Time32 requires second/milli, Time64 requires nano/micro
+  if (bit_width(T::type_id) == 32) {
+    return std::make_shared<T>(TimeUnit::type::SECOND);
+  }
+  return std::make_shared<T>(TimeUnit::type::NANO);
+}
+template <typename T>
+enable_if_timestamp<T, std::shared_ptr<DataType>> default_type_instance() {
+  return std::make_shared<T>(TimeUnit::type::SECOND);
+}
+template <typename T>
+enable_if_decimal<T, std::shared_ptr<DataType>> default_type_instance() {
+  return std::make_shared<T>(5, 2);
+}
+
+// Random Generator Helpers
+class RandomImpl {
+ protected:
+  random::RandomArrayGenerator generator_;
+  std::shared_ptr<DataType> type_;
+
+  explicit RandomImpl(random::SeedType seed, std::shared_ptr<DataType> type)
+      : generator_(seed), type_(std::move(type)) {}
+
+ public:
+  std::shared_ptr<Array> Generate(uint64_t count, double null_prob) {
+    return generator_.ArrayOf(type_, count, null_prob);
+  }
+
+  std::shared_ptr<Int32Array> Offsets(int32_t length, int32_t slice_count) {
+    return arrow::internal::checked_pointer_cast<Int32Array>(
+        generator_.Offsets(slice_count, 0, length));
+  }
+};
+
+template <typename ArrowType>
+class Random : public RandomImpl {
+ public:
+  explicit Random(random::SeedType seed)
+      : RandomImpl(seed, TypeTraits<ArrowType>::type_singleton()) {}
+};
+
+template <>
+class Random<FloatType> : public RandomImpl {
+  using CType = float;
+
+ public:
+  explicit Random(random::SeedType seed) : RandomImpl(seed, float32()) {}
+
+  std::shared_ptr<Array> Generate(uint64_t count, double null_prob, double nan_prob = 0) {
+    return generator_.Float32(count, std::numeric_limits<CType>::min(),
+                              std::numeric_limits<CType>::max(), null_prob, nan_prob);
+  }
+};
+
+template <>
+class Random<DoubleType> : public RandomImpl {
+  using CType = double;
+
+ public:
+  explicit Random(random::SeedType seed) : RandomImpl(seed, float64()) {}
+
+  std::shared_ptr<Array> Generate(uint64_t count, double null_prob, double nan_prob = 0) {
+    return generator_.Float64(count, std::numeric_limits<CType>::min(),
+                              std::numeric_limits<CType>::max(), null_prob, nan_prob);
+  }
+};
+
+template <>
+class Random<Decimal128Type> : public RandomImpl {
+ public:
+  explicit Random(random::SeedType seed,
+                  std::shared_ptr<DataType> type = decimal128(18, 5))
+      : RandomImpl(seed, std::move(type)) {}
+};
+
+template <typename ArrowType>
+class RandomRange : public RandomImpl {
+  using CType = typename TypeTraits<ArrowType>::CType;
+
+ public:
+  explicit RandomRange(random::SeedType seed)
+      : RandomImpl(seed, TypeTraits<ArrowType>::type_singleton()) {}
+
+  std::shared_ptr<Array> Generate(uint64_t count, int range, double null_prob) {
+    CType min = std::numeric_limits<CType>::min();
+    CType max = min + range;
+    if (sizeof(CType) < 4 && (range + min) > std::numeric_limits<CType>::max()) {
+      max = std::numeric_limits<CType>::max();
+    }
+    return generator_.Numeric<ArrowType>(count, min, max, null_prob);
+  }
+};
 
 }  // namespace compute
 }  // namespace arrow

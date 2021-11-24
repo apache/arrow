@@ -56,7 +56,7 @@ static std::vector<std::string> UnorderedMapValues(
   return values;
 }
 
-KeyValueMetadata::KeyValueMetadata() : keys_(), values_() {}
+KeyValueMetadata::KeyValueMetadata() {}
 
 KeyValueMetadata::KeyValueMetadata(
     const std::unordered_map<std::string, std::string>& map)
@@ -70,6 +70,11 @@ KeyValueMetadata::KeyValueMetadata(std::vector<std::string> keys,
   ARROW_CHECK_EQ(keys.size(), values.size());
 }
 
+std::shared_ptr<KeyValueMetadata> KeyValueMetadata::Make(
+    std::vector<std::string> keys, std::vector<std::string> values) {
+  return std::make_shared<KeyValueMetadata>(std::move(keys), std::move(values));
+}
+
 void KeyValueMetadata::ToUnorderedMap(
     std::unordered_map<std::string, std::string>* out) const {
   DCHECK_NE(out, nullptr);
@@ -80,9 +85,9 @@ void KeyValueMetadata::ToUnorderedMap(
   }
 }
 
-void KeyValueMetadata::Append(const std::string& key, const std::string& value) {
-  keys_.push_back(key);
-  values_.push_back(value);
+void KeyValueMetadata::Append(std::string key, std::string value) {
+  keys_.push_back(std::move(key));
+  values_.push_back(std::move(value));
 }
 
 Result<std::string> KeyValueMetadata::Get(const std::string& key) const {

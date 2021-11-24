@@ -35,13 +35,23 @@ underlying storage, are automatically dereferenced.  Only basic
 and modification time, is made available.
 
 The core interface is represented by the base class :class:`FileSystem`.
-Concrete subclasses are available for various kinds of storage, such as local
-filesystem access (:class:`LocalFileSystem`), HDFS (:class:`HadoopFileSystem`)
-and Amazon S3-compatible storage (:class:`S3FileSystem`).
 
+Pyarrow implements natively the following filesystem subclasses:
+
+* :ref:`filesystem-localfs` (:class:`LocalFileSystem`)
+* :ref:`filesystem-s3` (:class:`S3FileSystem`)
+* :ref:`filesystem-hdfs` (:class:`HadoopFileSystem`)
+
+It is also possible to use your own fsspec-compliant filesystem with pyarrow functionalities as described in the section :ref:`filesystem-fsspec`.
+
+
+.. _filesystem-usage:
 
 Usage
 -----
+
+Instantiating a filesystem
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 A FileSystem object can be created with one of the constructors (and check the
 respective constructor for its options)::
@@ -66,6 +76,8 @@ the filesystem) or an explicit ``filesystem`` argument to specify the filesystem
 to read or write from. For example, the :meth:`pyarrow.parquet.read_table`
 function can be used in the following ways::
 
+   import pyarrow.parquet as pq
+
    # using a URI -> filesystem is inferred
    pq.read_table("s3://my-bucket/data.parquet")
    # using a path and filesystem
@@ -75,6 +87,8 @@ function can be used in the following ways::
 The filesystem interface further allows to open files for reading (input) or
 writing (output) directly, which can be combined with functions that work with
 file-like objects. For example::
+
+   import pyarrow as pa
 
    local = fs.LocalFileSystem()
 
@@ -108,8 +122,32 @@ paths)::
    >>> local.get_file_info('non_existent')
    <FileInfo for 'non_existent': type=FileType.NotFound>
 
+
+.. _filesystem-localfs:
+
+Local FS
+--------
+
+The :class:`LocalFileSystem` allows you to access files on the local machine.
+
+Example how to write to disk and read it back::
+
+   >>> from pyarrow import fs
+   >>> local = fs.LocalFileSystem()
+   >>> with local.open_output_stream('/tmp/pyarrowtest.dat') as stream:
+           stream.write(b'data')
+   4
+   >>> with local.open_input_stream('/tmp/pyarrowtest.dat') as stream:
+           print(stream.readall())
+   b'data'
+
+
+.. _filesystem-s3:
+
 S3
 --
+
+PyArrow implements natively a S3 filesystem for S3 compatible storage.
 
 The :class:`S3FileSystem` constructor has several options to configure the S3
 connection (e.g. credentials, the region, an endpoint override, etc). In
@@ -145,8 +183,10 @@ Example how you can read contents from a S3 bucket::
    for the different ways to configure the AWS credentials.
 
 
-Hadoop File System (HDFS)
--------------------------
+.. _filesystem-hdfs:
+
+Hadoop Distributed File System (HDFS)
+-------------------------------------
 
 PyArrow comes with bindings to the Hadoop File System (based on C++ bindings
 using ``libhdfs``, a JNI-based interface to the Java Hadoop client). You connect
@@ -173,20 +213,21 @@ some environment variables.
 
   .. code-block:: shell
 
-      export CLASSPATH=`$HADOOP_HOME/bin/hdfs classpath --glob`
+      export CLASSPATH=`$HADOOP_HOME/bin/hadoop classpath --glob`
+      # or on Windows
+      %HADOOP_HOME%/bin/hadoop classpath --glob > %CLASSPATH%
 
-  If ``CLASSPATH`` is not set, then it will be set automatically if the
-  ``hadoop`` executable is in your system path, or if ``HADOOP_HOME`` is set.
+  In contrast to the legacy HDFS filesystem with ``pa.hdfs.connect``, setting
+  ``CLASSPATH`` is not optional (pyarrow will not attempt to infer it).
 
+.. _filesystem-fsspec:
 
-Using fsspec-compatible filesystems
------------------------------------
+Using fsspec-compatible filesystems with Arrow
+----------------------------------------------
 
 The filesystems mentioned above are natively supported by Arrow C++ / PyArrow.
 The Python ecosystem, however, also has several filesystem packages. Those
-packages following the
-`fsspec <https://filesystem-spec.readthedocs.io/en/latest/>`__ interface can be
-used in PyArrow as well.
+packages following the `fsspec`_ interface can be used in PyArrow as well.
 
 Functions accepting a filesystem object will also accept an fsspec subclass.
 For example::
@@ -198,6 +239,15 @@ For example::
    # using this to read a partitioned dataset
    import pyarrow.dataset as ds
    ds.dataset("data/", filesystem=fs)
+   
+Similarly for Azure Blob Storage::
+
+   import adlfs
+   # ... load your credentials and configure the filesystem
+   fs = adlfs.AzureBlobFileSystem(account_name=account_name, account_key=account_key)
+
+   import pyarrow.dataset as ds
+   ds.dataset("mycontainer/data/", filesystem=fs)
 
 Under the hood, the fsspec filesystem object is wrapped into a python-based
 PyArrow filesystem (:class:`PyFileSystem`) using :class:`FSSpecHandler`.
@@ -206,3 +256,50 @@ interface::
 
    from pyarrow.fs import PyFileSystem, FSSpecHandler
    pa_fs = PyFileSystem(FSSpecHandler(fs))
+
+Then all the functionalities of :class:`FileSystem` are accessible::
+
+   # write data
+   with pa_fs.open_output_stream('mycontainer/pyarrowtest.dat') as stream:
+      stream.write(b'data')
+
+   # read data
+   with pa_fs.open_input_stream('mycontainer/pyarrowtest.dat') as stream:
+      print(stream.readall())
+   #b'data'
+
+   # read a partitioned dataset
+   ds.dataset("data/", filesystem=pa_fs)
+
+
+Using Arrow filesystems with fsspec
+-----------------------------------
+
+The Arrow FileSystem interface has a limited, developer-oriented API surface.
+This is sufficient for basic interactions and for using this with
+Arrow's IO functionality. On the other hand, the `fsspec`_ interface provides
+a very large API with many helper methods. If you want to use those, or if you
+need to interact with a package that expects fsspec-compatible filesystem
+objects, you can wrap an Arrow FileSystem object with fsspec.
+
+Starting with ``fsspec`` version 2021.09, the ``ArrowFSWrapper`` can be used
+for this::
+
+   >>> from pyarrow import fs
+   >>> local = fs.LocalFileSystem()
+   >>> from fsspec.implementations.arrow import ArrowFSWrapper
+   >>> local_fsspec = ArrowFSWrapper(local)
+
+The resulting object now has an fsspec-compatible interface, while being backed
+by the Arrow FileSystem under the hood.
+Example usage to create a directory and file, and list the content::
+
+   >>> local_fsspec.mkdir("./test")
+   >>> local_fsspec.touch("./test/file.txt")
+   >>> local_fsspec.ls("./test/")
+   ['./test/file.txt']
+
+For more information, see the `fsspec`_ documentation.
+
+
+.. _fsspec: https://filesystem-spec.readthedocs.io/en/latest/

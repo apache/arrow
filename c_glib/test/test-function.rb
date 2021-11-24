@@ -50,6 +50,25 @@ class TestFunction < Test::Unit::TestCase
                    or_function.execute(args).value)
     end
 
+    def test_input_scalar
+      add_function = Arrow::Function.find("add")
+      args = [
+        Arrow::ArrayDatum.new(build_int8_array([1, 2, 3])),
+        Arrow::ScalarDatum.new(Arrow::Int8Scalar.new(5)),
+      ]
+      assert_equal(build_int8_array([6, 7, 8]),
+                   add_function.execute(args).value)
+    end
+
+    def test_output_scalar
+      sum_function = Arrow::Function.find("sum")
+      args = [
+        Arrow::ArrayDatum.new(build_int8_array([1, 2, 3])),
+      ]
+      assert_equal(Arrow::Int64Scalar.new(6),
+                   sum_function.execute(args).value)
+    end
+
     def test_options
       cast_function = Arrow::Function.find("cast")
       args = [

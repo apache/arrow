@@ -25,7 +25,7 @@
 namespace arrow {
 namespace dataset {
 
-// FIXME this is superceded by Expression::Bind
+// FIXME this is superceded by compute::Expression::Bind
 ARROW_DS_EXPORT Status CheckProjectable(const Schema& from, const Schema& to);
 
 }  // namespace dataset

@@ -424,7 +424,7 @@ Status TableFromTupleRange(MemoryPool* pool, Range&& rows,
     arrays.emplace_back(array);
   }
 
-  *table = Table::Make(schema, arrays);
+  *table = Table::Make(std::move(schema), std::move(arrays));
 
   return Status::OK();
 }

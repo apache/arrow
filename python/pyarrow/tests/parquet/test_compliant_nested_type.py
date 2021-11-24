@@ -35,6 +35,8 @@ try:
 except ImportError:
     pd = tm = None
 
+pytestmark = pytest.mark.parquet
+
 # Tests for ARROW-11497
 _test_data_simple = [
     {'items': [1, 2]},
@@ -69,7 +71,7 @@ def test_write_compliant_nested_type_enable(tempdir,
     path = str(tempdir / 'data.parquet')
     with pq.ParquetWriter(path, table.schema,
                           use_compliant_nested_type=True,
-                          version='2.0') as writer:
+                          version='2.6') as writer:
         writer.write_table(table)
     # Read back as a table
     new_table = _read_table(path)
@@ -98,7 +100,7 @@ def test_write_compliant_nested_type_disable(tempdir,
     # Write to a parquet file while disabling compliant nested type
     table = pa.Table.from_pandas(df, preserve_index=False)
     path = str(tempdir / 'data.parquet')
-    with pq.ParquetWriter(path, table.schema, version='2.0') as writer:
+    with pq.ParquetWriter(path, table.schema, version='2.6') as writer:
         writer.write_table(table)
     new_table = _read_table(path)
 

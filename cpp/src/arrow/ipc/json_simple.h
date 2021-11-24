@@ -51,6 +51,15 @@ ARROW_EXPORT
 Status DictArrayFromJSON(const std::shared_ptr<DataType>&, util::string_view indices_json,
                          util::string_view dictionary_json, std::shared_ptr<Array>* out);
 
+ARROW_EXPORT
+Status ScalarFromJSON(const std::shared_ptr<DataType>&, util::string_view json,
+                      std::shared_ptr<Scalar>* out);
+
+ARROW_EXPORT
+Status DictScalarFromJSON(const std::shared_ptr<DataType>&, util::string_view index_json,
+                          util::string_view dictionary_json,
+                          std::shared_ptr<Scalar>* out);
+
 }  // namespace json
 }  // namespace internal
 }  // namespace ipc

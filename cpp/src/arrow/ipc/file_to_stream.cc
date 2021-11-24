@@ -20,12 +20,11 @@
 #include <string>
 
 #include "arrow/io/file.h"
+#include "arrow/io/stdio.h"
 #include "arrow/ipc/reader.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
-
-#include "arrow/util/io_util.h"
 
 namespace arrow {
 

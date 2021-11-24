@@ -74,6 +74,7 @@ class ARROW_EXPORT BasicUnionBuilder : public ArrayBuilder {
   UnionMode::type mode_;
 
   std::vector<ArrayBuilder*> type_id_to_children_;
+  std::vector<int> type_id_to_child_id_;
   // for all type_id < dense_type_id_, type_id_to_children_[type_id] != nullptr
   int8_t dense_type_id_ = 0;
   TypedBufferBuilder<int8_t> types_builder_;
@@ -155,6 +156,9 @@ class ARROW_EXPORT DenseUnionBuilder : public BasicUnionBuilder {
     return offsets_builder_.Append(offset);
   }
 
+  Status AppendArraySlice(const ArrayData& array, int64_t offset,
+                          int64_t length) override;
+
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
 
  private:
@@ -230,6 +234,9 @@ class ARROW_EXPORT SparseUnionBuilder : public BasicUnionBuilder {
   /// The corresponding child builder must be appended to independently after this method
   /// is called, and all other child builders must have null or empty value appended.
   Status Append(int8_t next_type) { return types_builder_.Append(next_type); }
+
+  Status AppendArraySlice(const ArrayData& array, int64_t offset,
+                          int64_t length) override;
 };
 
 }  // namespace arrow

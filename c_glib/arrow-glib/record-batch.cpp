@@ -26,6 +26,7 @@
 #include <arrow-glib/record-batch.hpp>
 #include <arrow-glib/schema.hpp>
 
+#include <arrow/c/bridge.h>
 #include <arrow/util/iterator.h>
 
 #include <sstream>
@@ -135,6 +136,38 @@ garrow_record_batch_class_init(GArrowRecordBatchClass *klass)
 }
 
 /**
+ * garrow_record_batch_import:
+ * @c_abi_array: (not nullable): A `struct ArrowArray *`.
+ * @schema: A #GArrowSchema of the C ABI array.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (transfer full) (nullable): An imported #GArrowRecordBatch
+ *   on success, %NULL on error.
+ *
+ *   You don't need to release the passed `struct ArrowArray *`,
+ *   even if this function reports an error.
+ *
+ * Since: 6.0.0
+ */
+GArrowRecordBatch *
+garrow_record_batch_import(gpointer c_abi_array,
+                           GArrowSchema *schema,
+                           GError **error)
+{
+  auto arrow_schema = garrow_schema_get_raw(schema);
+  auto arrow_record_batch_result =
+    arrow::ImportRecordBatch(static_cast<ArrowArray *>(c_abi_array),
+                             arrow_schema);
+  if (garrow::check(error,
+                    arrow_record_batch_result,
+                    "[record-batch][import]")) {
+    return garrow_record_batch_new_raw(&(*arrow_record_batch_result));
+  } else {
+    return NULL;
+  }
+}
+
+/**
  * garrow_record_batch_new:
  * @schema: The schema of the record batch.
  * @n_rows: The number of the rows in the record batch.
@@ -172,6 +205,53 @@ garrow_record_batch_new(GArrowSchema *schema,
     return garrow_record_batch_new_raw(&arrow_record_batch);
   } else {
     return NULL;
+  }
+}
+
+/**
+ * garrow_record_batch_export:
+ * @record_batch: A #GArrowRecordBatch.
+ * @c_abi_array: (out): Return location for a `struct ArrowArray *`.
+ *   It should be freed with the `ArrowArray::release` callback then
+ *   g_free() when no longer needed.
+ * @c_abi_schema: (out) (nullable): Return location for a
+ *   `struct ArrowSchema *` or %NULL.
+ *   It should be freed with the `ArrowSchema::release` callback then
+ *   g_free() when no longer needed.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE on error.
+ *
+ * Since: 6.0.0
+ */
+gboolean
+garrow_record_batch_export(GArrowRecordBatch *record_batch,
+                           gpointer *c_abi_array,
+                           gpointer *c_abi_schema,
+                           GError **error)
+{
+  const auto arrow_record_batch = garrow_record_batch_get_raw(record_batch);
+  *c_abi_array = g_new(ArrowArray, 1);
+  arrow::Status status;
+  if (c_abi_schema) {
+    *c_abi_schema = g_new(ArrowSchema, 1);
+    status = arrow::ExportRecordBatch(*arrow_record_batch,
+                                      static_cast<ArrowArray *>(*c_abi_array),
+                                      static_cast<ArrowSchema *>(*c_abi_schema));
+  } else {
+    status = arrow::ExportRecordBatch(*arrow_record_batch,
+                                      static_cast<ArrowArray *>(*c_abi_array));
+  }
+  if (garrow::check(error, status, "[record-batch][export]")) {
+    return true;
+  } else {
+    g_free(*c_abi_array);
+    *c_abi_array = nullptr;
+    if (c_abi_schema) {
+      g_free(*c_abi_schema);
+      *c_abi_schema = nullptr;
+    }
+    return false;
   }
 }
 

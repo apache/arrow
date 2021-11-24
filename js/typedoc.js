@@ -19,10 +19,11 @@ module.exports = {
     entryPoints: ['src/Arrow.dom.ts', 'src/Arrow.node.ts'],
     out: 'doc',
     name: 'Apache Arrow',
-    tsconfig: 'tsconfig.json',
+    tsconfig: 'tsconfig/tsconfig.docs.json',
     excludePrivate: true,
     excludeProtected: true,
     excludeExternals: true,
+    includeVersion: true,
     exclude: [
         'src/fb/*.ts',
         'src/bin/*.ts'

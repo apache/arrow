@@ -133,7 +133,9 @@ cdef extern from "parquet/api/schema.h" namespace "parquet" nogil:
 
     enum ParquetVersion" parquet::ParquetVersion::type":
         ParquetVersion_V1" parquet::ParquetVersion::PARQUET_1_0"
-        ParquetVersion_V2" parquet::ParquetVersion::PARQUET_2_0"
+        ParquetVersion_V2_0" parquet::ParquetVersion::PARQUET_2_0"
+        ParquetVersion_V2_4" parquet::ParquetVersion::PARQUET_2_4"
+        ParquetVersion_V2_6" parquet::ParquetVersion::PARQUET_2_6"
 
     enum ParquetSortOrder" parquet::SortOrder::type":
         ParquetSortOrder_SIGNED" parquet::SortOrder::SIGNED"
@@ -241,6 +243,8 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         int64_t distinct_count() const
         int64_t num_values() const
         bint HasMinMax()
+        bint HasNullCount()
+        bint HasDistinctCount()
         c_bool Equals(const CStatistics&) const
         void Reset()
         c_string EncodeMin()
@@ -345,6 +349,8 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         int64_t batch_size()
         void set_pre_buffer(c_bool pre_buffer)
         c_bool pre_buffer() const
+        void set_coerce_int96_timestamp_unit(TimeUnit unit)
+        TimeUnit coerce_int96_timestamp_unit() const
 
     ArrowReaderProperties default_arrow_reader_properties()
 

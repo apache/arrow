@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # -*- sh-indentation: 2; sh-basic-offset: 2 -*-
 #
 # Licensed to the Apache Software Foundation (ASF) under one
@@ -33,11 +33,12 @@ rpmbuild_options=
 
 . /host/env.sh
 
-distribution=$(cut -d " " -f 1 /etc/redhat-release | tr "A-Z" "a-z")
-if grep -q Linux /etc/redhat-release; then
-  distribution_version=$(cut -d " " -f 4 /etc/redhat-release)
+if grep -q amazon /etc/system-release-cpe; then
+  distribution=$(cut -d ":" -f 5 /etc/system-release-cpe | tr '_' '-')
+  distribution_version=$(cut -d ":" -f 6 /etc/system-release-cpe)
 else
-  distribution_version=$(cut -d " " -f 3 /etc/redhat-release)
+  distribution=$(cut -d ":" -f 4 /etc/system-release-cpe)
+  distribution_version=$(cut -d ":" -f 5 /etc/system-release-cpe)
 fi
 distribution_version=$(echo ${distribution_version} | sed -e 's/\..*$//g')
 
@@ -119,25 +120,25 @@ run cp \
     rpmbuild/SPECS/
 
 run cat <<BUILD > build.sh
-#!/bin/bash
+#!/usr/bin/env bash
 
 rpmbuild -ba ${rpmbuild_options} rpmbuild/SPECS/${PACKAGE}.spec
 BUILD
 run chmod +x build.sh
-if [ -n "${DEVTOOLSET_VERSION:-}" ]; then
+if [ -n "${SCL:-}" ]; then
   run cat <<WHICH_STRIP > which-strip.sh
-#!/bin/bash
+#!/usr/bin/env bash
 
 which strip
 WHICH_STRIP
   run chmod +x which-strip.sh
-  run cat <<USE_DEVTOOLSET_STRIP >> ~/.rpmmacros
-%__strip $(run scl enable devtoolset-${DEVTOOLSET_VERSION} ./which-strip.sh)
-USE_DEVTOOLSET_STRIP
+  run cat <<USE_SCL_STRIP >> ~/.rpmmacros
+%__strip $(run scl enable ${SCL} ./which-strip.sh)
+USE_SCL_STRIP
   if [ "${DEBUG:-no}" = "yes" ]; then
-    run scl enable devtoolset-${DEVTOOLSET_VERSION} ./build.sh
+    run scl enable ${SCL} ./build.sh
   else
-    run scl enable devtoolset-${DEVTOOLSET_VERSION} ./build.sh > /dev/null
+    run scl enable ${SCL} ./build.sh > /dev/null
   fi
 else
   if [ "${DEBUG:-no}" = "yes" ]; then

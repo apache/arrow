@@ -15,6 +15,17 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
+.. ipython:: python
+    :suppress:
+
+    # set custom tmp working directory for files that create data
+    import os
+    import tempfile
+
+    orig_working_dir = os.getcwd()
+    temp_working_dir = tempfile.mkdtemp(prefix="pyarrow-")
+    os.chdir(temp_working_dir)
+
 .. currentmodule:: pyarrow.dataset
 
 .. _dataset:
@@ -31,16 +42,16 @@ The ``pyarrow.dataset`` module provides functionality to efficiently work with
 tabular, potentially larger than memory, and multi-file datasets. This includes:
 
 * A unified interface that supports different sources and file formats
-  (Parquet, Feather / Arrow IPC, and CSV files) and different file systems
+  (Parquet, ORC, Feather / Arrow IPC, and CSV files) and different file systems
   (local, cloud).
 * Discovery of sources (crawling directories, handle directory-based partitioned
   datasets, basic schema normalization, ..)
 * Optimized reading with predicate pushdown (filtering rows), projection
   (selecting and deriving columns), and optionally parallel reading.
 
-Currently, only Parquet, Feather / Arrow IPC, and CSV files are supported. The
-goal is to expand this in the future to other file formats and data sources
-(e.g. database connections).
+Currently, only Parquet, ORC, Feather / Arrow IPC, and CSV files are
+supported. The goal is to expand this in the future to other file formats and
+data sources (e.g. database connections).
 
 For those familiar with the existing :class:`pyarrow.parquet.ParquetDataset` for
 reading Parquet datasets: ``pyarrow.dataset``'s goal is similar but not specific
@@ -64,8 +75,9 @@ of a directory with two parquet files:
     import pathlib
     import pyarrow as pa
     import pyarrow.parquet as pq
+    import numpy as np
 
-    base = pathlib.Path(tempfile.gettempdir())
+    base = pathlib.Path(tempfile.mkdtemp(prefix="pyarrow-"))
     (base / "parquet_dataset").mkdir(exist_ok=True)
 
     # creating an Arrow Table
@@ -116,10 +128,10 @@ this can require a lot of memory, see below on filtering / iterative loading):
 Reading different file formats
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The above examples use Parquet files as dataset source but the Dataset API
+The above examples use Parquet files as dataset sources but the Dataset API
 provides a consistent interface across multiple file formats and filesystems.
-Currently, Parquet, Feather / Arrow IPC, and CSV file formats are supported;
-more formats are planned in the future.
+Currently, Parquet, ORC, Feather / Arrow IPC, and CSV file formats are
+supported; more formats are planned in the future.
 
 If we save the table as Feather files instead of Parquet files:
 
@@ -146,7 +158,7 @@ The format name as a string, like::
 
 is short hand for a default constructed :class:`ParquetFileFormat`::
 
-    ds.dataset(..., format=ds.ParquetFileForma())
+    ds.dataset(..., format=ds.ParquetFileFormat())
 
 The :class:`FileFormat` objects can be customized using keywords. For example::
 
@@ -264,7 +276,7 @@ function can write such hive-like partitioned datasets.
 
     table = pa.table({'a': range(10), 'b': np.random.randn(10), 'c': [1, 2] * 5,
                       'part': ['a'] * 5 + ['b'] * 5})
-    pq.write_to_dataset(table, str(base / "parquet_dataset_partitioned"),
+    pq.write_to_dataset(table, "parquet_dataset_partitioned",
                         partition_cols=['part'])
 
 The above created a directory with two subdirectories ("part=a" and "part=b"),
@@ -272,11 +284,11 @@ and the Parquet files written in those directories no longer include the "part"
 column.
 
 Reading this dataset with :func:`dataset`, we now specify that the dataset
-should use a hive-like partitioning scheme with the `partitioning` keyword:
+should use a hive-like partitioning scheme with the ``partitioning`` keyword:
 
 .. ipython:: python
 
-    dataset = ds.dataset(str(base / "parquet_dataset_partitioned"), format="parquet",
+    dataset = ds.dataset("parquet_dataset_partitioned", format="parquet",
                          partitioning="hive")
     dataset.files
 
@@ -385,11 +397,11 @@ some specific methods exist for Parquet Datasets.
 
 Some processing frameworks such as Dask (optionally) use a ``_metadata`` file
 with partitioned datasets which includes information about the schema and the
-row group metadata of the full dataset. Using such file can give a more
+row group metadata of the full dataset. Using such a file can give a more
 efficient creation of a parquet Dataset, since it does not need to infer the
 schema and crawl the directories for all Parquet files (this is especially the
 case for filesystems where accessing files is expensive). The
-:func:`parquet_dataset` function allows to create a Dataset from a partitioned
+:func:`parquet_dataset` function allows us to create a Dataset from a partitioned
 dataset with a ``_metadata`` file:
 
 .. code-block:: python
@@ -455,20 +467,177 @@ is materialized as columns when reading the data and can be used for filtering:
     dataset.to_table().to_pandas()
     dataset.to_table(filter=ds.field('year') == 2019).to_pandas()
 
+Another benefit of manually listing the files is that the order of the files
+controls the order of the data.  When performing an ordered read (or a read to
+a table) then the rows returned will match the order of the files given.  This
+only applies when the dataset is constructed with a list of files.  There
+are no order guarantees given when the files are instead discovered by scanning
+a directory.
 
-Manual scheduling
------------------
+Iterative (out of core or streaming) reads
+------------------------------------------
 
-..
-    Possible content:
-    - fragments (get_fragments)
-    - scan / scan tasks / iterators of record batches
+The previous examples have demonstrated how to read the data into a table using :func:`~Dataset.to_table`.  This is
+useful if the dataset is small or there is only a small amount of data that needs to
+be read.  The dataset API contains additional methods to read and process large amounts
+of data in a streaming fashion.
 
-The :func:`~Dataset.to_table` method loads all selected data into memory
-at once resulting in a pyarrow Table. Alternatively, a dataset can also be
-scanned one RecordBatch at a time in an iterative manner using the
-:func:`~Dataset.scan` method::
+The easiest way to do this is to use the method :meth:`Dataset.to_batches`.  This
+method returns an iterator of record batches.  For example, we can use this method to
+calculate the average of a column without loading the entire column into memory:
 
-    for scan_task in dataset.scan(columns=[...], filter=...):
-        for record_batch in scan_task.execute():
-            # process the record batch
+.. ipython:: python
+
+    import pyarrow.compute as pc
+
+    col2_sum = 0
+    count = 0
+    for batch in dataset.to_batches(columns=["col2"], filter=~ds.field("col2").is_null()):
+        col2_sum += pc.sum(batch.column("col2")).as_py()
+        count += batch.num_rows
+    mean_a = col2_sum/count
+
+Customizing the batch size
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+An iterative read of a dataset is often called a "scan" of the dataset and pyarrow
+uses an object called a :class:`Scanner` to do this.  A Scanner is created for you
+automatically by the :func:`~Dataset.to_table` and :func:`~Dataset.to_batches` method of the dataset.
+Any arguments you pass to these methods will be passed on to the Scanner constructor.
+
+One of those parameters is the ``batch_size``.  This controls the maximum size of the
+batches returned by the scanner.  Batches can still be smaller than the ``batch_size``
+if the dataset consists of small files or those files themselves consist of small
+row groups.  For example, a parquet file with 10,000 rows per row group will yield
+batches with, at most, 10,000 rows unless the ``batch_size`` is set to a smaller value.
+
+The default batch size is one million rows and this is typically a good default but
+you may want to customize it if you are reading a large number of columns.
+
+Writing Datasets
+----------------
+
+The dataset API also simplifies writing data to a dataset using :func:`write_dataset` .  This can be useful when
+you want to partition your data or you need to write a large amount of data.  A
+basic dataset write is similar to writing a table except that you specify a directory
+instead of a filename.
+
+.. ipython:: python
+
+    table = pa.table({"a": range(10), "b": np.random.randn(10), "c": [1, 2] * 5})
+    ds.write_dataset(table, "sample_dataset", format="parquet")
+
+The above example will create a single file named part-0.parquet in our sample_dataset
+directory.
+
+.. warning::
+
+    If you run the example again it will replace the existing part-0.parquet file.
+    Appending files to an existing dataset requires specifying a new
+    ``basename_template`` for each call to ``ds.write_dataset``
+    to avoid overwrite.
+
+Writing partitioned data
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+A partitioning object can be used to specify how your output data should be partitioned.
+This uses the same kind of partitioning objects we used for reading datasets.  To write
+our above data out to a partitioned directory we only need to specify how we want the
+dataset to be partitioned.  For example:
+
+.. ipython:: python
+
+    part = ds.partitioning(
+        pa.schema([("c", pa.int16())]), flavor="hive"
+    )
+    ds.write_dataset(table, "sample_dataset", format="parquet", partitioning=part)
+
+This will create two files.  Half our data will be in the dataset_root/c=1 directory and
+the other half will be in the dataset_root/c=2 directory.
+
+Writing large amounts of data
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The above examples wrote data from a table.  If you are writing a large amount of data
+you may not be able to load everything into a single in-memory table.  Fortunately, the
+:func:`~Dataset.write_dataset` method also accepts an iterable of record batches.  This makes it really
+simple, for example, to repartition a large dataset without loading the entire dataset
+into memory:
+
+.. ipython:: python
+
+    old_part = ds.partitioning(
+        pa.schema([("c", pa.int16())]), flavor="hive"
+    )
+    new_part = ds.partitioning(
+        pa.schema([("c", pa.int16())]), flavor=None
+    )
+    input_dataset = ds.dataset("sample_dataset", partitioning=old_part)
+    # A scanner can act as an iterator of record batches but you could also receive
+    # data from the network (e.g. via flight), from your own scanning, or from any
+    # other method that yields record batches.  In addition, you can pass a dataset
+    # into write_dataset directly but this method is useful if you want to customize
+    # the scanner (e.g. to filter the input dataset or set a maximum batch size)
+    scanner = input_dataset.scanner(use_async=True)
+
+    ds.write_dataset(scanner, "repartitioned_dataset", format="parquet", partitioning=new_part)
+
+After the above example runs our data will be in dataset_root/1 and dataset_root/2
+directories.  In this simple example we are not changing the structure of the data
+(only the directory naming schema) but you could also use this mechnaism to change
+which columns are used to partition the dataset.  This is useful when you expect to
+query your data in specific ways and you can utilize partitioning to reduce the
+amount of data you need to read.
+
+Customizing & inspecting written files
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+By default the dataset API will create files named "part-i.format" where "i" is a integer
+generated during the write and "format" is the file format specified in the write_dataset
+call.  For simple datasets it may be possible to know which files will be created but for
+larger or partitioned datasets it is not so easy.  The ``file_visitor`` keyword can be used 
+to supply a visitor that will be called as each file is created:
+
+.. ipython:: python
+
+    def file_visitor(written_file):
+        print(f"path={written_file.path}")
+        print(f"metadata={written_file.metadata}")
+
+.. ipython:: python
+
+    ds.write_dataset(table, "dataset_visited", format="parquet", partitioning=part,
+                     file_visitor=file_visitor)
+
+This will allow you to collect the filenames that belong to the dataset and store them elsewhere
+which can be useful when you want to avoid scanning directories the next time you need to read
+the data.  It can also be used to generate the _metadata index file used by other tools such as
+dask or spark to create an index of the dataset.
+
+Configuring format-specific parameters during a write
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+In addition to the common options shared by all formats there are also format specific options
+that are unique to a particular format.  For example, to allow truncated timestamps while writing
+Parquet files:
+
+.. ipython:: python
+
+    parquet_format = ds.ParquetFileFormat()
+    write_options = parquet_format.make_write_options(allow_truncated_timestamps=True)
+    ds.write_dataset(table, "sample_dataset2", format="parquet", partitioning=part,
+                     file_options=write_options)
+
+
+.. ipython:: python
+    :suppress:
+
+    # clean-up custom working directory
+    import os
+    import shutil
+
+    os.chdir(orig_working_dir)
+    shutil.rmtree(temp_working_dir, ignore_errors=True)
+
+    # also clean-up custom base directory used in some examples
+    shutil.rmtree(str(base), ignore_errors=True)

@@ -168,8 +168,6 @@ class TableReaderImpl : public TableReader,
   std::shared_ptr<ChunkedArrayBuilder> builder_;
 };
 
-Status TableReader::Read(std::shared_ptr<Table>* out) { return Read().Value(out); }
-
 Result<std::shared_ptr<TableReader>> TableReader::Make(
     MemoryPool* pool, std::shared_ptr<io::InputStream> input,
     const ReadOptions& read_options, const ParseOptions& parse_options) {
@@ -183,13 +181,6 @@ Result<std::shared_ptr<TableReader>> TableReader::Make(
   }
   RETURN_NOT_OK(ptr->Init(input));
   return ptr;
-}
-
-Status TableReader::Make(MemoryPool* pool, std::shared_ptr<io::InputStream> input,
-                         const ReadOptions& read_options,
-                         const ParseOptions& parse_options,
-                         std::shared_ptr<TableReader>* out) {
-  return TableReader::Make(pool, input, read_options, parse_options).Value(out);
 }
 
 Result<std::shared_ptr<RecordBatch>> ParseOne(ParseOptions options,

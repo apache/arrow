@@ -35,8 +35,11 @@ case "${target}" in
     packages+=(${MINGW_PACKAGE_PREFIX}-grpc)
     packages+=(${MINGW_PACKAGE_PREFIX}-gtest)
     packages+=(${MINGW_PACKAGE_PREFIX}-libutf8proc)
+    packages+=(${MINGW_PACKAGE_PREFIX}-libxml2)
     packages+=(${MINGW_PACKAGE_PREFIX}-llvm)
     packages+=(${MINGW_PACKAGE_PREFIX}-lz4)
+    packages+=(${MINGW_PACKAGE_PREFIX}-make)
+    packages+=(${MINGW_PACKAGE_PREFIX}-mlir)
     packages+=(${MINGW_PACKAGE_PREFIX}-ninja)
     packages+=(${MINGW_PACKAGE_PREFIX}-polly)
     packages+=(${MINGW_PACKAGE_PREFIX}-protobuf)
@@ -55,6 +58,16 @@ case "${target}" in
     packages+=(${MINGW_PACKAGE_PREFIX}-gobject-introspection)
     packages+=(${MINGW_PACKAGE_PREFIX}-gtk-doc)
     packages+=(${MINGW_PACKAGE_PREFIX}-meson)
+    ;;
+esac
+
+case "${target}" in
+  cgo)
+    packages+=(${MINGW_PACKAGE_PREFIX}-arrow)
+    packages+=(${MINGW_PACKAGE_PREFIX}-gcc)
+    packages+=(${MINGW_PACKAGE_PREFIX}-go)
+    packages+=(${MINGW_PACKAGE_PREFIX}-toolchain)
+    packages+=(base-devel)    
     ;;
 esac
 

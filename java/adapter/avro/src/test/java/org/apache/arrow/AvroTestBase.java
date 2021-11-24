@@ -36,7 +36,6 @@ import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.StructVector;
-import org.apache.arrow.vector.util.JsonStringArrayList;
 import org.apache.arrow.vector.util.Text;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericDatumWriter;
@@ -88,7 +87,7 @@ public class AvroTestBase {
   protected void checkArrayResult(List<List<?>> expected, ListVector vector) {
     assertEquals(expected.size(), vector.getValueCount());
     for (int i = 0; i < expected.size(); i++) {
-      checkArrayElement(expected.get(i), (JsonStringArrayList) vector.getObject(i));
+      checkArrayElement(expected.get(i), vector.getObject(i));
     }
   }
 
@@ -177,7 +176,7 @@ public class AvroTestBase {
     int index = 0;
     for (ListVector vector : vectors) {
       for (int i = 0; i < vector.getValueCount(); i++) {
-        checkArrayElement(expected.get(index++), (JsonStringArrayList) vector.getObject(i));
+        checkArrayElement(expected.get(index++), vector.getObject(i));
       }
     }
   }

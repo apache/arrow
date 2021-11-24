@@ -25,10 +25,11 @@ struct ValueDescr;
 namespace compute {
 
 class Function;
-struct FunctionOptions;
+class FunctionOptions;
 
-struct CastOptions;
+class CastOptions;
 
+struct ExecBatch;
 class ExecContext;
 class KernelContext;
 
@@ -38,6 +39,12 @@ struct ScalarAggregateKernel;
 struct VectorKernel;
 
 struct KernelState;
+
+class Expression;
+class ExecNode;
+class ExecPlan;
+class ExecNodeOptions;
+class ExecFactoryRegistry;
 
 }  // namespace compute
 }  // namespace arrow

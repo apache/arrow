@@ -24,16 +24,6 @@
 #' @format NULL
 #' @docType class
 #'
-#' @section Factory:
-#'
-#' The `Table$create()` function takes the following arguments:
-#'
-#' * `...` arrays, chunked arrays, or R vectors, with names; alternatively,
-#'    an unnamed series of [record batches][RecordBatch] may also be provided,
-#'    which will be stacked as rows in the table.
-#' * `schema` a [Schema], or `NULL` (the default) to infer the schema from
-#'    the data in `...`
-#'
 #' @section S3 Methods and Usage:
 #' Tables are data-frame-like, and many methods you expect to work on
 #' a `data.frame` are implemented for `Table`. This includes `[`, `[[`,
@@ -85,18 +75,9 @@
 #' - `$columns`: Returns a list of `ChunkedArray`s
 #' @rdname Table
 #' @name Table
-#' @examples
-#' \donttest{
-#' tab <- Table$create(name = rownames(mtcars), mtcars)
-#' dim(tab)
-#' dim(head(tab))
-#' names(tab)
-#' tab$mpg
-#' tab[["cyl"]]
-#' as.data.frame(tab[4:8, c("gear", "hp", "wt")])
-#' }
 #' @export
-Table <- R6Class("Table", inherit = ArrowTabular,
+Table <- R6Class("Table",
+  inherit = ArrowTabular,
   public = list(
     column = function(i) Table__column(self, i),
     ColumnNames = function() Table__ColumnNames(self),
@@ -109,6 +90,9 @@ Table <- R6Class("Table", inherit = ArrowTabular,
     RemoveColumn = function(i) Table__RemoveColumn(self, i),
     AddColumn = function(i, new_field, value) Table__AddColumn(self, i, new_field, value),
     SetColumn = function(i, new_field, value) Table__SetColumn(self, i, new_field, value),
+    ReplaceSchemaMetadata = function(new) {
+      Table__ReplaceSchemaMetadata(self, new)
+    },
     field = function(i) Table__field(self, i),
     serialize = function(output_stream, ...) write_table(self, output_stream, ...),
     to_data_frame = function() {
@@ -138,25 +122,10 @@ Table <- R6Class("Table", inherit = ArrowTabular,
       super$invalidate()
     }
   ),
-
   active = list(
     num_columns = function() Table__num_columns(self),
     num_rows = function() Table__num_rows(self),
     schema = function() Table__schema(self),
-    metadata = function(new) {
-      if (missing(new)) {
-        # Get the metadata (from the schema)
-        self$schema$metadata
-      } else {
-        # Set the metadata
-        new <- prepare_key_value_metadata(new)
-        out <- Table__ReplaceSchemaMetadata(self, new)
-        # ReplaceSchemaMetadata returns a new object but we're modifying in place,
-        # so swap in that new C++ object pointer into our R6 object
-        self$set_pointer(out$pointer())
-        self
-      }
-    },
     columns = function() Table__columns(self)
   )
 )
@@ -168,12 +137,34 @@ Table$create <- function(..., schema = NULL) {
     names(dots) <- rep_len("", length(dots))
   }
   stopifnot(length(dots) > 0)
+
   if (all_record_batches(dots)) {
-    Table__from_record_batches(dots, schema)
-  } else {
-    Table__from_dots(dots, schema)
+    return(Table__from_record_batches(dots, schema))
   }
+
+  # If any arrays are length 1, recycle them
+  dots <- recycle_scalars(dots)
+
+  Table__from_dots(dots, schema, option_use_threads())
 }
 
 #' @export
 names.Table <- function(x) x$ColumnNames()
+
+#' @param ... A `data.frame` or a named set of Arrays or vectors. If given a
+#' mixture of data.frames and named vectors, the inputs will be autospliced together
+#' (see examples). Alternatively, you can provide a single Arrow IPC
+#' `InputStream`, `Message`, `Buffer`, or R `raw` object containing a `Buffer`.
+#' @param schema a [Schema], or `NULL` (the default) to infer the schema from
+#' the data in `...`. When providing an Arrow IPC buffer, `schema` is required.
+#' @rdname Table
+#' @examplesIf arrow_available()
+#' tbl <- arrow_table(name = rownames(mtcars), mtcars)
+#' dim(tbl)
+#' dim(head(tbl))
+#' names(tbl)
+#' tbl$mpg
+#' tbl[["cyl"]]
+#' as.data.frame(tbl[4:8, c("gear", "hp", "wt")])
+#' @export
+arrow_table <- Table$create

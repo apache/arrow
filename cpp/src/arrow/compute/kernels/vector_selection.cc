@@ -38,6 +38,7 @@
 #include "arrow/util/bit_block_counter.h"
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/bitmap.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/bitmap_reader.h"
 #include "arrow/util/int_util.h"
@@ -490,9 +491,9 @@ void TakeIndexDispatch(const PrimitiveArg& values, const PrimitiveArg& indices,
   }
 }
 
-void PrimitiveTake(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+Status PrimitiveTake(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   if (TakeState::Get(ctx).boundscheck) {
-    KERNEL_RETURN_IF_ERROR(ctx, CheckIndexBounds(*batch[1].array(), batch[0].length()));
+    RETURN_NOT_OK(CheckIndexBounds(*batch[1].array(), batch[0].length()));
   }
 
   PrimitiveArg values = GetPrimitiveArg(*batch[0].array());
@@ -504,23 +505,29 @@ void PrimitiveTake(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   // allocating the validity bitmap altogether and save time and space. A
   // streamlined PrimitiveTakeImpl would need to be written that skips all
   // interactions with the output validity bitmap, though.
-  KERNEL_RETURN_IF_ERROR(ctx, PreallocateData(ctx, indices.length, values.bit_width,
-                                              /*allocate_validity=*/true, out_arr));
+  RETURN_NOT_OK(PreallocateData(ctx, indices.length, values.bit_width,
+                                /*allocate_validity=*/true, out_arr));
   switch (values.bit_width) {
     case 1:
-      return TakeIndexDispatch<BooleanTakeImpl>(values, indices, out_arr);
+      TakeIndexDispatch<BooleanTakeImpl>(values, indices, out_arr);
+      break;
     case 8:
-      return TakeIndexDispatch<PrimitiveTakeImpl, int8_t>(values, indices, out_arr);
+      TakeIndexDispatch<PrimitiveTakeImpl, int8_t>(values, indices, out_arr);
+      break;
     case 16:
-      return TakeIndexDispatch<PrimitiveTakeImpl, int16_t>(values, indices, out_arr);
+      TakeIndexDispatch<PrimitiveTakeImpl, int16_t>(values, indices, out_arr);
+      break;
     case 32:
-      return TakeIndexDispatch<PrimitiveTakeImpl, int32_t>(values, indices, out_arr);
+      TakeIndexDispatch<PrimitiveTakeImpl, int32_t>(values, indices, out_arr);
+      break;
     case 64:
-      return TakeIndexDispatch<PrimitiveTakeImpl, int64_t>(values, indices, out_arr);
+      TakeIndexDispatch<PrimitiveTakeImpl, int64_t>(values, indices, out_arr);
+      break;
     default:
       DCHECK(false) << "Invalid values byte width";
       break;
   }
+  return Status::OK();
 }
 
 // ----------------------------------------------------------------------
@@ -777,7 +784,7 @@ inline void PrimitiveFilterImpl<BooleanType>::WriteNull() {
   BitUtil::ClearBit(out_data_, out_offset_ + out_position_++);
 }
 
-void PrimitiveFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+Status PrimitiveFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   PrimitiveArg values = GetPrimitiveArg(*batch[0].array());
   PrimitiveArg filter = GetPrimitiveArg(*batch[1].array());
   FilterOptions::NullSelectionBehavior null_selection =
@@ -802,29 +809,30 @@ void PrimitiveFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   // validity bitmap.
   bool allocate_validity = values.null_count != 0 || filter.null_count != 0;
 
-  KERNEL_RETURN_IF_ERROR(ctx, PreallocateData(ctx, output_length, values.bit_width,
-                                              allocate_validity, out_arr));
+  RETURN_NOT_OK(
+      PreallocateData(ctx, output_length, values.bit_width, allocate_validity, out_arr));
 
   switch (values.bit_width) {
     case 1:
-      return PrimitiveFilterImpl<BooleanType>(values, filter, null_selection, out_arr)
-          .Exec();
+      PrimitiveFilterImpl<BooleanType>(values, filter, null_selection, out_arr).Exec();
+      break;
     case 8:
-      return PrimitiveFilterImpl<UInt8Type>(values, filter, null_selection, out_arr)
-          .Exec();
+      PrimitiveFilterImpl<UInt8Type>(values, filter, null_selection, out_arr).Exec();
+      break;
     case 16:
-      return PrimitiveFilterImpl<UInt16Type>(values, filter, null_selection, out_arr)
-          .Exec();
+      PrimitiveFilterImpl<UInt16Type>(values, filter, null_selection, out_arr).Exec();
+      break;
     case 32:
-      return PrimitiveFilterImpl<UInt32Type>(values, filter, null_selection, out_arr)
-          .Exec();
+      PrimitiveFilterImpl<UInt32Type>(values, filter, null_selection, out_arr).Exec();
+      break;
     case 64:
-      return PrimitiveFilterImpl<UInt64Type>(values, filter, null_selection, out_arr)
-          .Exec();
+      PrimitiveFilterImpl<UInt64Type>(values, filter, null_selection, out_arr).Exec();
+      break;
     default:
       DCHECK(false) << "Invalid values bit width";
       break;
   }
+  return Status::OK();
 }
 
 // ----------------------------------------------------------------------
@@ -1072,7 +1080,7 @@ Status BinaryFilterImpl(KernelContext* ctx, const ArrayData& values,
 #undef APPEND_RAW_DATA
 #undef APPEND_SINGLE_VALUE
 
-void BinaryFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+Status BinaryFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   FilterOptions::NullSelectionBehavior null_selection =
       FilterState::Get(ctx).null_selection_behavior;
 
@@ -1094,97 +1102,100 @@ void BinaryFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   if (values.null_count == 0 && filter.null_count == 0) {
     // Faster no-nulls case
     if (is_binary_like(type_id)) {
-      KERNEL_RETURN_IF_ERROR(
-          ctx, BinaryFilterNonNullImpl<BinaryType>(ctx, values, filter, output_length,
-                                                   null_selection, out_arr));
+      RETURN_NOT_OK(BinaryFilterNonNullImpl<BinaryType>(
+          ctx, values, filter, output_length, null_selection, out_arr));
     } else if (is_large_binary_like(type_id)) {
-      KERNEL_RETURN_IF_ERROR(
-          ctx, BinaryFilterNonNullImpl<LargeBinaryType>(
-                   ctx, values, filter, output_length, null_selection, out_arr));
+      RETURN_NOT_OK(BinaryFilterNonNullImpl<LargeBinaryType>(
+          ctx, values, filter, output_length, null_selection, out_arr));
     } else {
       DCHECK(false);
     }
   } else {
     // Output may have nulls
-    KERNEL_RETURN_IF_ERROR(
-        ctx, ctx->AllocateBitmap(output_length).Value(&out_arr->buffers[0]));
+    RETURN_NOT_OK(ctx->AllocateBitmap(output_length).Value(&out_arr->buffers[0]));
     if (is_binary_like(type_id)) {
-      KERNEL_RETURN_IF_ERROR(
-          ctx, BinaryFilterImpl<BinaryType>(ctx, values, filter, output_length,
-                                            null_selection, out_arr));
-    } else if (is_large_binary_like(type_id)) {
-      KERNEL_RETURN_IF_ERROR(
-          ctx, BinaryFilterImpl<LargeBinaryType>(ctx, values, filter, output_length,
+      RETURN_NOT_OK(BinaryFilterImpl<BinaryType>(ctx, values, filter, output_length,
                                                  null_selection, out_arr));
+    } else if (is_large_binary_like(type_id)) {
+      RETURN_NOT_OK(BinaryFilterImpl<LargeBinaryType>(ctx, values, filter, output_length,
+                                                      null_selection, out_arr));
     } else {
       DCHECK(false);
     }
   }
+
+  return Status::OK();
 }
 
 // ----------------------------------------------------------------------
 // Null take and filter
 
-void NullTake(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+Status NullTake(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   if (TakeState::Get(ctx).boundscheck) {
-    KERNEL_RETURN_IF_ERROR(ctx, CheckIndexBounds(*batch[1].array(), batch[0].length()));
+    RETURN_NOT_OK(CheckIndexBounds(*batch[1].array(), batch[0].length()));
   }
   // batch.length doesn't take into account the take indices
   auto new_length = batch[1].array()->length;
   out->value = std::make_shared<NullArray>(new_length)->data();
+  return Status::OK();
 }
 
-void NullFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+Status NullFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   int64_t output_length = GetFilterOutputSize(
       *batch[1].array(), FilterState::Get(ctx).null_selection_behavior);
   out->value = std::make_shared<NullArray>(output_length)->data();
+  return Status::OK();
 }
 
 // ----------------------------------------------------------------------
 // Dictionary take and filter
 
-void DictionaryTake(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+Status DictionaryTake(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   DictionaryArray values(batch[0].array());
   Datum result;
-  KERNEL_RETURN_IF_ERROR(ctx, Take(Datum(values.indices()), batch[1], TakeState::Get(ctx),
-                                   ctx->exec_context())
-                                  .Value(&result));
+  RETURN_NOT_OK(
+      Take(Datum(values.indices()), batch[1], TakeState::Get(ctx), ctx->exec_context())
+          .Value(&result));
   DictionaryArray taken_values(values.type(), result.make_array(), values.dictionary());
   out->value = taken_values.data();
+  return Status::OK();
 }
 
-void DictionaryFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+Status DictionaryFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   DictionaryArray dict_values(batch[0].array());
   Datum result;
-  KERNEL_RETURN_IF_ERROR(ctx, Filter(Datum(dict_values.indices()), batch[1].array(),
-                                     FilterState::Get(ctx), ctx->exec_context())
-                                  .Value(&result));
+  RETURN_NOT_OK(Filter(Datum(dict_values.indices()), batch[1].array(),
+                       FilterState::Get(ctx), ctx->exec_context())
+                    .Value(&result));
   DictionaryArray filtered_values(dict_values.type(), result.make_array(),
                                   dict_values.dictionary());
   out->value = filtered_values.data();
+  return Status::OK();
 }
 
 // ----------------------------------------------------------------------
 // Extension take and filter
 
-void ExtensionTake(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+Status ExtensionTake(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   ExtensionArray values(batch[0].array());
   Datum result;
-  KERNEL_RETURN_IF_ERROR(ctx, Take(Datum(values.storage()), batch[1], TakeState::Get(ctx),
-                                   ctx->exec_context())
-                                  .Value(&result));
+  RETURN_NOT_OK(
+      Take(Datum(values.storage()), batch[1], TakeState::Get(ctx), ctx->exec_context())
+          .Value(&result));
   ExtensionArray taken_values(values.type(), result.make_array());
   out->value = taken_values.data();
+  return Status::OK();
 }
 
-void ExtensionFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+Status ExtensionFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   ExtensionArray ext_values(batch[0].array());
   Datum result;
-  KERNEL_RETURN_IF_ERROR(ctx, Filter(Datum(ext_values.storage()), batch[1].array(),
-                                     FilterState::Get(ctx), ctx->exec_context())
-                                  .Value(&result));
+  RETURN_NOT_OK(Filter(Datum(ext_values.storage()), batch[1].array(),
+                       FilterState::Get(ctx), ctx->exec_context())
+                    .Value(&result));
   ExtensionArray filtered_values(ext_values.type(), result.make_array());
   out->value = filtered_values.data();
+  return Status::OK();
 }
 
 // ----------------------------------------------------------------------
@@ -1658,6 +1669,81 @@ struct ListImpl : public Selection<ListImpl<Type>, Type> {
   }
 };
 
+struct DenseUnionImpl : public Selection<DenseUnionImpl, DenseUnionType> {
+  using Base = Selection<DenseUnionImpl, DenseUnionType>;
+  LIFT_BASE_MEMBERS();
+
+  TypedBufferBuilder<int32_t> value_offset_buffer_builder_;
+  TypedBufferBuilder<int8_t> child_id_buffer_builder_;
+  std::vector<int8_t> type_codes_;
+  std::vector<Int32Builder> child_indices_builders_;
+
+  DenseUnionImpl(KernelContext* ctx, const ExecBatch& batch, int64_t output_length,
+                 Datum* out)
+      : Base(ctx, batch, output_length, out),
+        value_offset_buffer_builder_(ctx->memory_pool()),
+        child_id_buffer_builder_(ctx->memory_pool()),
+        type_codes_(checked_cast<const UnionType&>(*this->values->type).type_codes()),
+        child_indices_builders_(type_codes_.size()) {
+    for (auto& child_indices_builder : child_indices_builders_) {
+      child_indices_builder = Int32Builder(ctx->memory_pool());
+    }
+  }
+
+  template <typename Adapter>
+  Status GenerateOutput() {
+    DenseUnionArray typed_values(this->values);
+    Adapter adapter(this);
+    RETURN_NOT_OK(adapter.Generate(
+        [&](int64_t index) {
+          int8_t child_id = typed_values.child_id(index);
+          child_id_buffer_builder_.UnsafeAppend(type_codes_[child_id]);
+          int32_t value_offset = typed_values.value_offset(index);
+          value_offset_buffer_builder_.UnsafeAppend(
+              static_cast<int32_t>(child_indices_builders_[child_id].length()));
+          RETURN_NOT_OK(child_indices_builders_[child_id].Reserve(1));
+          child_indices_builders_[child_id].UnsafeAppend(value_offset);
+          return Status::OK();
+        },
+        [&]() {
+          int8_t child_id = 0;
+          child_id_buffer_builder_.UnsafeAppend(type_codes_[child_id]);
+          value_offset_buffer_builder_.UnsafeAppend(
+              static_cast<int32_t>(child_indices_builders_[child_id].length()));
+          RETURN_NOT_OK(child_indices_builders_[child_id].Reserve(1));
+          child_indices_builders_[child_id].UnsafeAppendNull();
+          return Status::OK();
+        }));
+    return Status::OK();
+  }
+
+  Status Init() override {
+    RETURN_NOT_OK(child_id_buffer_builder_.Reserve(output_length));
+    RETURN_NOT_OK(value_offset_buffer_builder_.Reserve(output_length));
+    return Status::OK();
+  }
+
+  Status Finish() override {
+    ARROW_ASSIGN_OR_RAISE(auto child_ids_buffer, child_id_buffer_builder_.Finish());
+    ARROW_ASSIGN_OR_RAISE(auto value_offsets_buffer,
+                          value_offset_buffer_builder_.Finish());
+    DenseUnionArray typed_values(this->values);
+    auto num_fields = typed_values.num_fields();
+    auto num_rows = child_ids_buffer->size();
+    BufferVector buffers{nullptr, std::move(child_ids_buffer),
+                         std::move(value_offsets_buffer)};
+    *out = ArrayData(typed_values.type(), num_rows, std::move(buffers), 0);
+    for (auto i = 0; i < num_fields; i++) {
+      ARROW_ASSIGN_OR_RAISE(auto child_indices_array,
+                            child_indices_builders_[i].Finish());
+      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> child_array,
+                            Take(*typed_values.field(i), *child_indices_array));
+      out->child_data.push_back(child_array->data());
+    }
+    return Status::OK();
+  }
+};
+
 struct FSLImpl : public Selection<FSLImpl, FixedSizeListType> {
   Int64Builder child_index_builder;
 
@@ -1670,16 +1756,17 @@ struct FSLImpl : public Selection<FSLImpl, FixedSizeListType> {
   template <typename Adapter>
   Status GenerateOutput() {
     ValuesArrayType typed_values(this->values);
-    int32_t list_size = typed_values.list_type()->list_size();
+    const int32_t list_size = typed_values.list_type()->list_size();
+    const int64_t base_offset = typed_values.offset();
 
-    /// We must take list_size elements even for null elements of
-    /// indices.
+    // We must take list_size elements even for null elements of
+    // indices.
     RETURN_NOT_OK(child_index_builder.Reserve(output_length * list_size));
 
     Adapter adapter(this);
     return adapter.Generate(
         [&](int64_t index) {
-          int64_t offset = index * list_size;
+          int64_t offset = (base_offset + index) * list_size;
           for (int64_t j = offset; j < offset + list_size; ++j) {
             child_index_builder.UnsafeAppend(j);
           }
@@ -1742,20 +1829,20 @@ struct StructImpl : public Selection<StructImpl, StructType> {
   }
 };
 
-void StructFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+Status StructFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   // Transform filter to selection indices and then use Take.
   std::shared_ptr<ArrayData> indices;
-  KERNEL_RETURN_IF_ERROR(
-      ctx,
-      GetTakeIndices(*batch[1].array(), FilterState::Get(ctx).null_selection_behavior,
-                     ctx->memory_pool())
-          .Value(&indices));
+  RETURN_NOT_OK(GetTakeIndices(*batch[1].array(),
+                               FilterState::Get(ctx).null_selection_behavior,
+                               ctx->memory_pool())
+                    .Value(&indices));
 
   Datum result;
-  KERNEL_RETURN_IF_ERROR(ctx, Take(batch[0], Datum(indices), TakeOptions::NoBoundsCheck(),
-                                   ctx->exec_context())
-                                  .Value(&result));
+  RETURN_NOT_OK(
+      Take(batch[0], Datum(indices), TakeOptions::NoBoundsCheck(), ctx->exec_context())
+          .Value(&result));
   out->value = result.array();
+  return Status::OK();
 }
 
 #undef LIFT_BASE_MEMBERS
@@ -1783,7 +1870,7 @@ Result<std::shared_ptr<RecordBatch>> FilterRecordBatch(const RecordBatch& batch,
                                           TakeOptions::NoBoundsCheck(), ctx));
     columns[i] = out.make_array();
   }
-  return RecordBatch::Make(batch.schema(), indices->length, columns);
+  return RecordBatch::Make(batch.schema(), indices->length, std::move(columns));
 }
 
 Result<std::shared_ptr<Table>> FilterTable(const Table& table, const Datum& filter,
@@ -1855,7 +1942,10 @@ Result<std::shared_ptr<Table>> FilterTable(const Table& table, const Datum& filt
   return Table::Make(table.schema(), std::move(out_chunks), out_num_rows);
 }
 
-static auto kDefaultFilterOptions = FilterOptions::Defaults();
+const FilterOptions* GetDefaultFilterOptions() {
+  static const auto kDefaultFilterOptions = FilterOptions::Defaults();
+  return &kDefaultFilterOptions;
+}
 
 const FunctionDoc filter_doc(
     "Filter with a boolean selection filter",
@@ -1867,7 +1957,7 @@ const FunctionDoc filter_doc(
 class FilterMetaFunction : public MetaFunction {
  public:
   FilterMetaFunction()
-      : MetaFunction("filter", Arity::Binary(), &filter_doc, &kDefaultFilterOptions) {}
+      : MetaFunction("filter", Arity::Binary(), &filter_doc, GetDefaultFilterOptions()) {}
 
   Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
                             const FunctionOptions* options,
@@ -1926,8 +2016,13 @@ Result<std::shared_ptr<ChunkedArray>> TakeCA(const ChunkedArray& values,
     // TODO Case 3: If indices are sorted, can slice them and call Array Take
 
     // Case 4: Else, concatenate chunks and call Array Take
-    ARROW_ASSIGN_OR_RAISE(current_chunk,
-                          Concatenate(values.chunks(), ctx->memory_pool()));
+    if (values.chunks().empty()) {
+      ARROW_ASSIGN_OR_RAISE(current_chunk, MakeArrayOfNull(values.type(), /*length=*/0,
+                                                           ctx->memory_pool()));
+    } else {
+      ARROW_ASSIGN_OR_RAISE(current_chunk,
+                            Concatenate(values.chunks(), ctx->memory_pool()));
+    }
   }
   // Call Array Take on our single chunk
   ARROW_ASSIGN_OR_RAISE(new_chunks[0], TakeAA(*current_chunk, indices, options, ctx));
@@ -1950,7 +2045,7 @@ Result<std::shared_ptr<ChunkedArray>> TakeCC(const ChunkedArray& values,
     ARROW_ASSIGN_OR_RAISE(new_chunks[i],
                           Concatenate(current_chunk->chunks(), ctx->memory_pool()));
   }
-  return std::make_shared<ChunkedArray>(std::move(new_chunks));
+  return std::make_shared<ChunkedArray>(std::move(new_chunks), values.type());
 }
 
 Result<std::shared_ptr<ChunkedArray>> TakeAC(const Array& values,
@@ -1963,7 +2058,7 @@ Result<std::shared_ptr<ChunkedArray>> TakeAC(const Array& values,
     // Take with that indices chunk
     ARROW_ASSIGN_OR_RAISE(new_chunks[i], TakeAA(values, *indices.chunk(i), options, ctx));
   }
-  return std::make_shared<ChunkedArray>(std::move(new_chunks));
+  return std::make_shared<ChunkedArray>(std::move(new_chunks), values.type());
 }
 
 Result<std::shared_ptr<RecordBatch>> TakeRA(const RecordBatch& batch,
@@ -1976,7 +2071,7 @@ Result<std::shared_ptr<RecordBatch>> TakeRA(const RecordBatch& batch,
   for (int j = 0; j < ncols; j++) {
     ARROW_ASSIGN_OR_RAISE(columns[j], TakeAA(*batch.column(j), indices, options, ctx));
   }
-  return RecordBatch::Make(batch.schema(), nrows, columns);
+  return RecordBatch::Make(batch.schema(), nrows, std::move(columns));
 }
 
 Result<std::shared_ptr<Table>> TakeTA(const Table& table, const Array& indices,
@@ -1987,7 +2082,7 @@ Result<std::shared_ptr<Table>> TakeTA(const Table& table, const Array& indices,
   for (int j = 0; j < ncols; j++) {
     ARROW_ASSIGN_OR_RAISE(columns[j], TakeCA(*table.column(j), indices, options, ctx));
   }
-  return Table::Make(table.schema(), columns);
+  return Table::Make(table.schema(), std::move(columns));
 }
 
 Result<std::shared_ptr<Table>> TakeTC(const Table& table, const ChunkedArray& indices,
@@ -1997,10 +2092,13 @@ Result<std::shared_ptr<Table>> TakeTC(const Table& table, const ChunkedArray& in
   for (int j = 0; j < ncols; j++) {
     ARROW_ASSIGN_OR_RAISE(columns[j], TakeCC(*table.column(j), indices, options, ctx));
   }
-  return Table::Make(table.schema(), columns);
+  return Table::Make(table.schema(), std::move(columns));
 }
 
-static auto kDefaultTakeOptions = TakeOptions::Defaults();
+const TakeOptions* GetDefaultTakeOptions() {
+  static const auto kDefaultTakeOptions = TakeOptions::Defaults();
+  return &kDefaultTakeOptions;
+}
 
 const FunctionDoc take_doc(
     "Select values from an input based on indices from another array",
@@ -2016,7 +2114,7 @@ const FunctionDoc take_doc(
 class TakeMetaFunction : public MetaFunction {
  public:
   TakeMetaFunction()
-      : MetaFunction("take", Arity::Binary(), &take_doc, &kDefaultTakeOptions) {}
+      : MetaFunction("take", Arity::Binary(), &take_doc, GetDefaultTakeOptions()) {}
 
   Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
                             const FunctionOptions* options,
@@ -2062,23 +2160,187 @@ class TakeMetaFunction : public MetaFunction {
 };
 
 // ----------------------------------------------------------------------
+// DropNull Implementation
+
+Result<std::shared_ptr<arrow::BooleanArray>> GetDropNullFilter(const Array& values,
+                                                               MemoryPool* memory_pool) {
+  auto bitmap_buffer = values.null_bitmap();
+  std::shared_ptr<arrow::BooleanArray> out_array = std::make_shared<BooleanArray>(
+      values.length(), bitmap_buffer, nullptr, 0, values.offset());
+  return out_array;
+}
+
+Result<std::shared_ptr<Array>> CreateEmptyArray(std::shared_ptr<DataType> type,
+                                                MemoryPool* memory_pool) {
+  std::unique_ptr<ArrayBuilder> builder;
+  RETURN_NOT_OK(MakeBuilder(memory_pool, type, &builder));
+  RETURN_NOT_OK(builder->Resize(0));
+  return builder->Finish();
+}
+
+Result<std::shared_ptr<ChunkedArray>> CreateEmptyChunkedArray(
+    std::shared_ptr<DataType> type, MemoryPool* memory_pool) {
+  std::vector<std::shared_ptr<Array>> new_chunks(1);  // Hard-coded 1 for now
+  ARROW_ASSIGN_OR_RAISE(new_chunks[0], CreateEmptyArray(type, memory_pool));
+  return std::make_shared<ChunkedArray>(std::move(new_chunks));
+}
+
+Result<Datum> DropNullArray(const std::shared_ptr<Array>& values, ExecContext* ctx) {
+  if (values->null_count() == 0) {
+    return values;
+  }
+  if (values->null_count() == values->length()) {
+    return CreateEmptyArray(values->type(), ctx->memory_pool());
+  }
+  if (values->type()->id() == Type::type::NA) {
+    return std::make_shared<NullArray>(0);
+  }
+  ARROW_ASSIGN_OR_RAISE(auto drop_null_filter,
+                        GetDropNullFilter(*values, ctx->memory_pool()));
+  return Filter(values, drop_null_filter, FilterOptions::Defaults(), ctx);
+}
+
+Result<Datum> DropNullChunkedArray(const std::shared_ptr<ChunkedArray>& values,
+                                   ExecContext* ctx) {
+  if (values->null_count() == 0) {
+    return values;
+  }
+  if (values->null_count() == values->length()) {
+    return CreateEmptyChunkedArray(values->type(), ctx->memory_pool());
+  }
+  std::vector<std::shared_ptr<Array>> new_chunks;
+  for (const auto& chunk : values->chunks()) {
+    ARROW_ASSIGN_OR_RAISE(auto new_chunk, DropNullArray(chunk, ctx));
+    if (new_chunk.length() > 0) {
+      new_chunks.push_back(new_chunk.make_array());
+    }
+  }
+  return std::make_shared<ChunkedArray>(std::move(new_chunks));
+}
+
+Result<Datum> DropNullRecordBatch(const std::shared_ptr<RecordBatch>& batch,
+                                  ExecContext* ctx) {
+  // Compute an upper bound of the final null count
+  int64_t null_count = 0;
+  for (const auto& column : batch->columns()) {
+    null_count += column->null_count();
+  }
+  if (null_count == 0) {
+    return batch;
+  }
+  ARROW_ASSIGN_OR_RAISE(auto dst,
+                        AllocateEmptyBitmap(batch->num_rows(), ctx->memory_pool()));
+  BitUtil::SetBitsTo(dst->mutable_data(), 0, batch->num_rows(), true);
+  for (const auto& column : batch->columns()) {
+    if (column->type()->id() == Type::type::NA) {
+      BitUtil::SetBitsTo(dst->mutable_data(), 0, batch->num_rows(), false);
+      break;
+    }
+    if (column->null_bitmap_data()) {
+      ::arrow::internal::BitmapAnd(column->null_bitmap_data(), column->offset(),
+                                   dst->data(), 0, column->length(), 0,
+                                   dst->mutable_data());
+    }
+  }
+  auto drop_null_filter = std::make_shared<BooleanArray>(batch->num_rows(), dst);
+  if (drop_null_filter->true_count() == 0) {
+    // Shortcut: construct empty result
+    ArrayVector empty_batch(batch->num_columns());
+    for (int i = 0; i < batch->num_columns(); i++) {
+      ARROW_ASSIGN_OR_RAISE(
+          empty_batch[i], CreateEmptyArray(batch->column(i)->type(), ctx->memory_pool()));
+    }
+    return RecordBatch::Make(batch->schema(), 0, std::move(empty_batch));
+  }
+  return Filter(Datum(batch), Datum(drop_null_filter), FilterOptions::Defaults(), ctx);
+}
+
+Result<Datum> DropNullTable(const std::shared_ptr<Table>& table, ExecContext* ctx) {
+  if (table->num_rows() == 0) {
+    return table;
+  }
+  // Compute an upper bound of the final null count
+  int64_t null_count = 0;
+  for (const auto& col : table->columns()) {
+    for (const auto& column_chunk : col->chunks()) {
+      null_count += column_chunk->null_count();
+    }
+  }
+  if (null_count == 0) {
+    return table;
+  }
+
+  arrow::RecordBatchVector filtered_batches;
+  TableBatchReader batch_iter(*table);
+  while (true) {
+    ARROW_ASSIGN_OR_RAISE(auto batch, batch_iter.Next());
+    if (batch == nullptr) {
+      break;
+    }
+    ARROW_ASSIGN_OR_RAISE(auto filtered_datum, DropNullRecordBatch(batch, ctx))
+    if (filtered_datum.length() > 0) {
+      filtered_batches.push_back(filtered_datum.record_batch());
+    }
+  }
+  return Table::FromRecordBatches(table->schema(), filtered_batches);
+}
+
+const FunctionDoc drop_null_doc(
+    "Drop nulls from the input",
+    ("The output is populated with values from the input (Array, ChunkedArray,\n"
+     "RecordBatch, or Table) without the null values.\n"
+     "For the RecordBatch and Table cases, `drop_null` drops the full row if\n"
+     "there is any null."),
+    {"input"});
+
+class DropNullMetaFunction : public MetaFunction {
+ public:
+  DropNullMetaFunction() : MetaFunction("drop_null", Arity::Unary(), &drop_null_doc) {}
+
+  Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
+                            const FunctionOptions* options,
+                            ExecContext* ctx) const override {
+    switch (args[0].kind()) {
+      case Datum::ARRAY: {
+        return DropNullArray(args[0].make_array(), ctx);
+      } break;
+      case Datum::CHUNKED_ARRAY: {
+        return DropNullChunkedArray(args[0].chunked_array(), ctx);
+      } break;
+      case Datum::RECORD_BATCH: {
+        return DropNullRecordBatch(args[0].record_batch(), ctx);
+      } break;
+      case Datum::TABLE: {
+        return DropNullTable(args[0].table(), ctx);
+      } break;
+      default:
+        break;
+    }
+    return Status::NotImplemented(
+        "Unsupported types for drop_null operation: "
+        "values=",
+        args[0].ToString());
+  }
+};
+
+// ----------------------------------------------------------------------
 
 template <typename Impl>
-void FilterExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+Status FilterExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   // TODO: where are the values and filter length equality checked?
   int64_t output_length = GetFilterOutputSize(
       *batch[1].array(), FilterState::Get(ctx).null_selection_behavior);
   Impl kernel(ctx, batch, output_length, out);
-  KERNEL_RETURN_IF_ERROR(ctx, kernel.ExecFilter());
+  return kernel.ExecFilter();
 }
 
 template <typename Impl>
-void TakeExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+Status TakeExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   if (TakeState::Get(ctx).boundscheck) {
-    KERNEL_RETURN_IF_ERROR(ctx, CheckIndexBounds(*batch[1].array(), batch[0].length()));
+    RETURN_NOT_OK(CheckIndexBounds(*batch[1].array(), batch[0].length()));
   }
   Impl kernel(ctx, batch, /*output_length=*/batch[1].length(), out);
-  KERNEL_RETURN_IF_ERROR(ctx, kernel.ExecTake());
+  return kernel.ExecTake();
 }
 
 struct SelectionKernelDescr {
@@ -2131,6 +2393,7 @@ void RegisterVectorSelection(FunctionRegistry* registry) {
       {InputType::Array(Type::LIST), FilterExec<ListImpl<ListType>>},
       {InputType::Array(Type::LARGE_LIST), FilterExec<ListImpl<LargeListType>>},
       {InputType::Array(Type::FIXED_SIZE_LIST), FilterExec<FSLImpl>},
+      {InputType::Array(Type::DENSE_UNION), FilterExec<DenseUnionImpl>},
       {InputType::Array(Type::STRUCT), StructFilter},
       // TODO: Reuse ListType kernel for MAP
       {InputType::Array(Type::MAP), FilterExec<ListImpl<MapType>>},
@@ -2140,7 +2403,7 @@ void RegisterVectorSelection(FunctionRegistry* registry) {
   filter_base.init = FilterState::Init;
   RegisterSelectionFunction("array_filter", &array_filter_doc, filter_base,
                             /*selection_type=*/InputType::Array(boolean()),
-                            filter_kernel_descrs, &kDefaultFilterOptions, registry);
+                            filter_kernel_descrs, GetDefaultFilterOptions(), registry);
 
   DCHECK_OK(registry->AddFunction(std::make_shared<FilterMetaFunction>()));
 
@@ -2160,6 +2423,7 @@ void RegisterVectorSelection(FunctionRegistry* registry) {
       {InputType::Array(Type::LIST), TakeExec<ListImpl<ListType>>},
       {InputType::Array(Type::LARGE_LIST), TakeExec<ListImpl<LargeListType>>},
       {InputType::Array(Type::FIXED_SIZE_LIST), TakeExec<FSLImpl>},
+      {InputType::Array(Type::DENSE_UNION), TakeExec<DenseUnionImpl>},
       {InputType::Array(Type::STRUCT), TakeExec<StructImpl>},
       // TODO: Reuse ListType kernel for MAP
       {InputType::Array(Type::MAP), TakeExec<ListImpl<MapType>>},
@@ -2171,9 +2435,12 @@ void RegisterVectorSelection(FunctionRegistry* registry) {
   RegisterSelectionFunction(
       "array_take", &array_take_doc, take_base,
       /*selection_type=*/InputType(match::Integer(), ValueDescr::ARRAY),
-      take_kernel_descrs, &kDefaultTakeOptions, registry);
+      take_kernel_descrs, GetDefaultTakeOptions(), registry);
 
   DCHECK_OK(registry->AddFunction(std::make_shared<TakeMetaFunction>()));
+
+  // DropNull kernel
+  DCHECK_OK(registry->AddFunction(std::make_shared<DropNullMetaFunction>()));
 }
 
 }  // namespace internal

@@ -63,8 +63,6 @@ ARROW_TESTING_EXPORT void random_is_valid(int64_t n, double pct_null,
 ARROW_TESTING_EXPORT void random_bytes(int64_t n, uint32_t seed, uint8_t* out);
 ARROW_TESTING_EXPORT std::string random_string(int64_t n, uint32_t seed);
 ARROW_TESTING_EXPORT int32_t DecimalSize(int32_t precision);
-ARROW_TESTING_EXPORT void random_decimals(int64_t n, uint32_t seed, int32_t precision,
-                                          uint8_t* out);
 ARROW_TESTING_EXPORT void random_ascii(int64_t n, uint32_t seed, uint8_t* out);
 ARROW_TESTING_EXPORT int64_t CountNulls(const std::vector<uint8_t>& valid_bytes);
 
@@ -123,7 +121,7 @@ struct VisitBuilderImpl {
   template <typename T, typename BuilderType = typename TypeTraits<T>::BuilderType,
             // need to let SFINAE drop this Visit when it would result in
             // [](NullBuilder*){}(double_builder)
-            typename E = typename std::result_of<Fn(BuilderType*)>::type>
+            typename = decltype(std::declval<Fn>()(std::declval<BuilderType*>()))>
   Status Visit(const T&) {
     fn_(internal::checked_cast<BuilderType*>(builder_));
     return Status::OK();

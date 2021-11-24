@@ -74,13 +74,10 @@ mark_as_advanced(ARROW_CUDA_IMPORT_LIB
                  ARROW_CUDA_VERSION
                  ARROW_CUDA_VERSION_MATCH)
 
-find_package_handle_standard_args(ArrowCUDA
-                                  REQUIRED_VARS
-                                  ARROW_CUDA_INCLUDE_DIR
-                                  ARROW_CUDA_LIB_DIR
-                                  ARROW_CUDA_VERSION_MATCH
-                                  VERSION_VAR
-                                  ARROW_CUDA_VERSION)
+find_package_handle_standard_args(
+  ArrowCUDA
+  REQUIRED_VARS ARROW_CUDA_INCLUDE_DIR ARROW_CUDA_LIB_DIR ARROW_CUDA_VERSION_MATCH
+  VERSION_VAR ARROW_CUDA_VERSION)
 set(ARROW_CUDA_FOUND ${ArrowCUDA_FOUND})
 
 if(ArrowCUDA_FOUND AND NOT ArrowCUDA_FIND_QUIETLY)

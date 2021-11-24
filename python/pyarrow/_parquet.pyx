@@ -17,7 +17,6 @@
 
 # cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
 
 import io
 from textwrap import indent
@@ -37,7 +36,8 @@ from pyarrow.lib cimport (_Weakrefable, Buffer, Array, Schema,
                           pyarrow_wrap_table,
                           pyarrow_wrap_buffer,
                           pyarrow_wrap_batch,
-                          NativeFile, get_reader, get_writer)
+                          NativeFile, get_reader, get_writer,
+                          string_to_timeunit)
 
 from pyarrow.lib import (ArrowException, NativeFile, BufferOutputStream,
                          _stringify_path, _datetime_from_int,
@@ -95,6 +95,14 @@ cdef class Statistics(_Weakrefable):
     @property
     def has_min_max(self):
         return self.statistics.get().HasMinMax()
+
+    @property
+    def has_null_count(self):
+        return self.statistics.get().HasNullCount()
+
+    @property
+    def has_distinct_count(self):
+        return self.statistics.get().HasDistinctCount()
 
     @property
     def min_raw(self):
@@ -571,8 +579,12 @@ cdef class FileMetaData(_Weakrefable):
         cdef ParquetVersion version = self._metadata.version()
         if version == ParquetVersion_V1:
             return '1.0'
-        if version == ParquetVersion_V2:
-            return '2.0'
+        elif version == ParquetVersion_V2_0:
+            return 'pseudo-2.0'
+        elif version == ParquetVersion_V2_4:
+            return '2.4'
+        elif version == ParquetVersion_V2_6:
+            return '2.6'
         else:
             warnings.warn('Unrecognized file version, assuming 1.0: {}'
                           .format(version))
@@ -919,9 +931,10 @@ cdef class ParquetReader(_Weakrefable):
         self.pool = maybe_unbox_memory_pool(memory_pool)
         self._metadata = None
 
-    def open(self, object source, bint use_memory_map=True,
+    def open(self, object source not None, bint use_memory_map=True,
              read_dictionary=None, FileMetaData metadata=None,
-             int buffer_size=0):
+             int buffer_size=0, bint pre_buffer=False,
+             coerce_int96_timestamp_unit=None):
         cdef:
             shared_ptr[CRandomAccessFile] rd_handle
             shared_ptr[CFileMetaData] c_metadata
@@ -930,6 +943,7 @@ cdef class ParquetReader(_Weakrefable):
                 default_arrow_reader_properties())
             c_string path
             FileReaderBuilder builder
+            TimeUnit int96_timestamp_unit_code
 
         if metadata is not None:
             c_metadata = metadata.sp_metadata
@@ -941,6 +955,15 @@ cdef class ParquetReader(_Weakrefable):
             properties.disable_buffered_stream()
         else:
             raise ValueError('Buffer size must be larger than zero')
+
+        arrow_props.set_pre_buffer(pre_buffer)
+
+        if coerce_int96_timestamp_unit is None:
+            # use the default defined in default_arrow_reader_properties()
+            pass
+        else:
+            arrow_props.set_coerce_int96_timestamp_unit(
+                string_to_timeunit(coerce_int96_timestamp_unit))
 
         self.source = source
 
@@ -1195,8 +1218,16 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
     if version is not None:
         if version == "1.0":
             props.version(ParquetVersion_V1)
-        elif version == "2.0":
-            props.version(ParquetVersion_V2)
+        elif version in ("2.0", "pseudo-2.0"):
+            warnings.warn(
+                "Parquet format '2.0' pseudo version is deprecated, use "
+                "'2.4' or '2.6' for fine-grained feature selection",
+                FutureWarning, stacklevel=2)
+            props.version(ParquetVersion_V2_0)
+        elif version == "2.4":
+            props.version(ParquetVersion_V2_4)
+        elif version == "2.6":
+            props.version(ParquetVersion_V2_6)
         else:
             raise ValueError("Unsupported Parquet format version: {0}"
                              .format(version))

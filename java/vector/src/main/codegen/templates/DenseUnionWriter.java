@@ -111,6 +111,20 @@ public class DenseUnionWriter extends AbstractFieldWriter implements FieldWriter
     return getListWriter(typeId);
   }
 
+  private MapWriter getMapWriter(byte typeId) {
+    MapWriter mapWriter = (MapWriter) writers[typeId];
+    if (mapWriter == null) {
+      mapWriter = new UnionMapWriter((MapVector) data.getVectorByType(typeId));
+      writers[typeId] = mapWriter;
+    }
+    return mapWriter;
+  }
+
+  public MapWriter asMap(byte typeId) {
+    data.setTypeId(idx(), typeId);
+    return getMapWriter(typeId);
+  }
+
   BaseWriter getWriter(byte typeId) {
     MinorType minorType = data.getVectorByType(typeId).getMinorType();
     switch (minorType) {
@@ -118,6 +132,8 @@ public class DenseUnionWriter extends AbstractFieldWriter implements FieldWriter
         return getStructWriter(typeId);
       case LIST:
         return getListWriter(typeId);
+      case MAP:
+        return getMapWriter(typeId);
     <#list vv.types as type>
       <#list type.minor as minor>
         <#assign name = minor.class?cap_first />
@@ -193,6 +209,30 @@ public class DenseUnionWriter extends AbstractFieldWriter implements FieldWriter
     data.setTypeId(idx(), typeId);
     getStructWriter(typeId).setPosition(data.getOffset(idx()));
     return getStructWriter(typeId).list(name);
+  }
+
+  @Override
+  public MapWriter map() {
+    byte typeId = data.getTypeId(idx());
+    data.setTypeId(idx(), typeId);
+    getListWriter(typeId).setPosition(data.getOffset(idx()));
+    return getMapWriter(typeId).map();
+  }
+
+  @Override
+  public MapWriter map(String name) {
+    byte typeId = data.getTypeId(idx());
+    data.setTypeId(idx(), typeId);
+    getStructWriter(typeId).setPosition(data.getOffset(idx()));
+    return getStructWriter(typeId).map(name);
+  }
+
+  @Override
+  public MapWriter map(String name, boolean keysSorted) {
+    byte typeId = data.getTypeId(idx());
+    data.setTypeId(idx(), typeId);
+    getStructWriter(typeId).setPosition(data.getOffset(idx()));
+    return getStructWriter(typeId).map(name, keysSorted);
   }
 
   @Override

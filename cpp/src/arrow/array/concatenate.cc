@@ -33,6 +33,7 @@
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
+#include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
@@ -286,12 +287,36 @@ class ConcatenateImpl {
       const auto& data = in_[i];
       auto transpose_map =
           reinterpret_cast<const int32_t*>(index_transpositions[i]->data());
-      RETURN_NOT_OK(internal::TransposeInts(index_type, index_type,
-                                            /*src=*/data->GetValues<uint8_t>(1, 0),
-                                            /*dest=*/out_data,
-                                            /*src_offset=*/data->offset,
-                                            /*dest_offset=*/0, /*length=*/data->length,
-                                            transpose_map));
+      const uint8_t* src = data->GetValues<uint8_t>(1, 0);
+      if (!data->buffers[0]) {
+        RETURN_NOT_OK(internal::TransposeInts(index_type, index_type,
+                                              /*src=*/data->GetValues<uint8_t>(1, 0),
+                                              /*dest=*/out_data,
+                                              /*src_offset=*/data->offset,
+                                              /*dest_offset=*/0, /*length=*/data->length,
+                                              transpose_map));
+      } else {
+        internal::BitRunReader reader(data->buffers[0]->data(), data->offset,
+                                      data->length);
+        int64_t position = 0;
+        while (true) {
+          internal::BitRun run = reader.NextRun();
+          if (run.length == 0) break;
+
+          if (run.set) {
+            RETURN_NOT_OK(internal::TransposeInts(index_type, index_type, src,
+                                                  /*dest=*/out_data,
+                                                  /*src_offset=*/data->offset + position,
+                                                  /*dest_offset=*/position, run.length,
+                                                  transpose_map));
+          } else {
+            std::fill(out_data + position,
+                      out_data + position + (run.length * index_width), 0x00);
+          }
+
+          position += run.length;
+        }
+      }
       out_data += data->length * index_width;
     }
     return std::move(out);
@@ -480,11 +505,6 @@ Result<std::shared_ptr<Array>> Concatenate(const ArrayVector& arrays, MemoryPool
   std::shared_ptr<ArrayData> out_data;
   RETURN_NOT_OK(ConcatenateImpl(data, pool).Concatenate(&out_data));
   return MakeArray(std::move(out_data));
-}
-
-Status Concatenate(const ArrayVector& arrays, MemoryPool* pool,
-                   std::shared_ptr<Array>* out) {
-  return Concatenate(arrays, pool).Value(out);
 }
 
 }  // namespace arrow

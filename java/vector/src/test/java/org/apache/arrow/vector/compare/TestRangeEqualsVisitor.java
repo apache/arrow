@@ -270,8 +270,9 @@ public class TestRangeEqualsVisitor {
 
   @Test
   public void testUnionVectorRangeEquals() {
-    try (final UnionVector vector1 = new UnionVector("union", allocator, null);
-         final UnionVector vector2 = new UnionVector("union", allocator, null);) {
+    try (final UnionVector vector1 = new UnionVector("union", allocator, /* field type */ null, /* call-back */ null);
+         final UnionVector vector2 =
+             new UnionVector("union", allocator, /* field type */ null, /* call-back */ null);) {
 
       final NullableUInt4Holder uInt4Holder = new NullableUInt4Holder();
       uInt4Holder.value = 10;
@@ -456,7 +457,7 @@ public class TestRangeEqualsVisitor {
   @Test
   public void testEqualsWithOutTypeCheck() {
     try (final IntVector intVector = new IntVector("int", allocator);
-         final ZeroVector zeroVector = new ZeroVector()) {
+         final ZeroVector zeroVector = new ZeroVector("zero")) {
 
       assertTrue(VectorEqualsVisitor.vectorEquals(intVector, zeroVector, null));
       assertTrue(VectorEqualsVisitor.vectorEquals(zeroVector, intVector, null));
@@ -547,9 +548,9 @@ public class TestRangeEqualsVisitor {
 
   @Test
   public void testUnionVectorApproxEquals() {
-    try (final UnionVector right = new UnionVector("union", allocator, null);
-         final UnionVector left1 = new UnionVector("union", allocator, null);
-         final UnionVector left2 = new UnionVector("union", allocator, null);) {
+    try (final UnionVector right = new UnionVector("union", allocator, /* field type */ null, /* call-back */ null);
+         final UnionVector left1 = new UnionVector("union", allocator, /* field type */ null, /* call-back */ null);
+         final UnionVector left2 = new UnionVector("union", allocator, /* field type */ null, /* call-back */ null);) {
 
       final NullableFloat4Holder float4Holder = new NullableFloat4Holder();
       float4Holder.value = 1.01f;

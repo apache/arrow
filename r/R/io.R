@@ -21,7 +21,8 @@
 
 # OutputStream ------------------------------------------------------------
 
-Writable <- R6Class("Writable", inherit = ArrowObject,
+Writable <- R6Class("Writable",
+  inherit = ArrowObject,
   public = list(
     write = function(x) io___Writable__write(self, buffer(x))
   )
@@ -55,7 +56,8 @@ Writable <- R6Class("Writable", inherit = ArrowObject,
 #'
 #' @rdname OutputStream
 #' @name OutputStream
-OutputStream <- R6Class("OutputStream", inherit = Writable,
+OutputStream <- R6Class("OutputStream",
+  inherit = Writable,
   public = list(
     close = function() io___OutputStream__Close(self),
     tell = function() io___OutputStream__Tell(self)
@@ -75,7 +77,8 @@ FileOutputStream$create <- function(path) {
 #' @format NULL
 #' @rdname OutputStream
 #' @export
-BufferOutputStream <- R6Class("BufferOutputStream", inherit = OutputStream,
+BufferOutputStream <- R6Class("BufferOutputStream",
+  inherit = OutputStream,
   public = list(
     capacity = function() io___BufferOutputStream__capacity(self),
     finish = function() io___BufferOutputStream__Finish(self),
@@ -90,7 +93,8 @@ BufferOutputStream$create <- function(initial_capacity = 0L) {
 # InputStream -------------------------------------------------------------
 
 
-Readable <- R6Class("Readable", inherit = ArrowObject,
+Readable <- R6Class("Readable",
+  inherit = ArrowObject,
   public = list(
     Read = function(nbytes) io___Readable__Read(self, nbytes)
   )
@@ -129,7 +133,8 @@ Readable <- R6Class("Readable", inherit = ArrowObject,
 #'
 #' @rdname InputStream
 #' @name InputStream
-InputStream <- R6Class("InputStream", inherit = Readable,
+InputStream <- R6Class("InputStream",
+  inherit = Readable,
   public = list(
     close = function() io___InputStream__Close(self)
   )
@@ -139,13 +144,13 @@ InputStream <- R6Class("InputStream", inherit = Readable,
 #' @format NULL
 #' @rdname InputStream
 #' @export
-RandomAccessFile <- R6Class("RandomAccessFile", inherit = InputStream,
+RandomAccessFile <- R6Class("RandomAccessFile",
+  inherit = InputStream,
   public = list(
     GetSize = function() io___RandomAccessFile__GetSize(self),
     supports_zero_copy = function() io___RandomAccessFile__supports_zero_copy(self),
     seek = function(position) io___RandomAccessFile__Seek(self, position),
     tell = function() io___RandomAccessFile__Tell(self),
-
     Read = function(nbytes = NULL) {
       if (is.null(nbytes)) {
         io___RandomAccessFile__Read0(self)
@@ -153,7 +158,6 @@ RandomAccessFile <- R6Class("RandomAccessFile", inherit = InputStream,
         io___Readable__Read(self, nbytes)
       }
     },
-
     ReadAt = function(position, nbytes = NULL) {
       if (is.null(nbytes)) {
         nbytes <- self$GetSize() - position
@@ -167,7 +171,8 @@ RandomAccessFile <- R6Class("RandomAccessFile", inherit = InputStream,
 #' @format NULL
 #' @rdname InputStream
 #' @export
-MemoryMappedFile <- R6Class("MemoryMappedFile", inherit = RandomAccessFile,
+MemoryMappedFile <- R6Class("MemoryMappedFile",
+  inherit = RandomAccessFile,
   public = list(
     Resize = function(size) io___MemoryMappedFile__Resize(self, size)
   )
@@ -267,7 +272,7 @@ make_output_stream <- function(x, filesystem = NULL) {
     x <- x$base_path
   } else if (is_url(x)) {
     fs_and_path <- FileSystem$from_uri(x)
-    filesystem = fs_and_path$fs
+    filesystem <- fs_and_path$fs
     x <- fs_and_path$path
   }
   assert_that(is.string(x))

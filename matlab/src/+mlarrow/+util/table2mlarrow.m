@@ -23,7 +23,6 @@ function [variables, metadata] = table2mlarrow(t)
 %
 %   Field Name    Class         Description
 %   ------------  -------       ----------------------------------------------
-%   Description   char          Table description (T.Properties.Description)
 %   NumRows       double        Number of table rows (height(T))
 %   NumVariables  double        Number of table variables (width(T))
 %
@@ -51,7 +50,7 @@ import mlarrow.util.*;
 variables = repmat(createVariableStruct('', [], [], ''), 1, width(t));
 
 % Struct representing table-level metadata.
-metadata = createMetadataStruct(t.Properties.Description, height(t), width(t));
+metadata = createMetadataStruct(height(t), width(t));
 
 % Iterate over each variable in the given table,
 % extracting the underlying array data.

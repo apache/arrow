@@ -15,35 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("Expressions")
-
-test_that("Can create an expression", {
-  expect_s3_class(build_array_expression(">", Array$create(1:5), 4), "array_expression")
-})
-
-test_that("as.vector(array_expression)", {
-  expect_equal(as.vector(build_array_expression(">", Array$create(1:5), 4)), c(FALSE, FALSE, FALSE, FALSE, TRUE))
-})
-
-test_that("array_expression print method", {
-  expect_output(
-    print(build_array_expression(">", Array$create(1:5), 4)),
-    # Not ideal but it is informative
-    "greater(<Array>, 4)",
-    fixed = TRUE
-  )
-})
-
-test_that("array_refs", {
-  tab <- Table$create(a = 1:5)
-  ex <- build_array_expression(">", array_expression("array_ref", field_name = "a"), 4)
-  expect_s3_class(ex, "array_expression")
-  expect_identical(ex$args[[1]]$args$field_name, "a")
-  expect_identical(find_array_refs(ex), "a")
-  out <- eval_array_expression(ex, tab)
-  expect_r6_class(out, "ChunkedArray")
-  expect_equal(as.vector(out), c(FALSE, FALSE, FALSE, FALSE, TRUE))
-})
 
 test_that("C++ expressions", {
   skip_if_not_available("dataset")
@@ -63,7 +34,7 @@ test_that("C++ expressions", {
   expect_r6_class(f == i64, "Expression")
   expect_r6_class(f == time, "Expression")
   # can't seem to make this work right now because of R Ops.method dispatch
-  # expect_r6_class(f == as.Date("2020-01-15"), "Expression")
+  # expect_r6_class(f == as.Date("2020-01-15"), "Expression") # nolint
   expect_r6_class(f == ts, "Expression")
   expect_r6_class(f <= 2L, "Expression")
   expect_r6_class(f != FALSE, "Expression")
@@ -73,27 +44,85 @@ test_that("C++ expressions", {
   expect_r6_class(!(f < 4), "Expression")
   expect_output(
     print(f > 4),
-    'Expression\n(f > 4)',
+    "Expression\n(f > 4)",
     fixed = TRUE
+  )
+  expect_equal(
+    f$type(schema(f = float64())),
+    float64()
+  )
+  expect_equal(
+    (f > 4)$type(schema(f = float64())),
+    bool()
   )
   # Interprets that as a list type
   expect_r6_class(f == c(1L, 2L), "Expression")
+
+  expect_error(
+    Expression$create("add", 1, 2),
+    "Expression arguments must be Expression objects"
+  )
 })
 
-test_that("Can create an expression", {
-  a <- Array$create(as.numeric(1:5))
-  expr <- array_expression("cast", a, options = list(to_type = int32()))
-  expect_s3_class(expr, "array_expression")
-  expect_equal(eval_array_expression(expr), Array$create(1:5))
+test_that("Field reference expression schemas and types", {
+  x <- Expression$field_ref("x")
 
-  b <- Array$create(0.5:4.5)
-  bad_expr <- array_expression("cast", b, options = list(to_type = int32()))
-  expect_s3_class(bad_expr, "array_expression")
-  expect_error(
-    eval_array_expression(bad_expr),
-    "Invalid: Float value .* was truncated converting"
+  # type() throws error when schema is NULL
+  expect_error(x$type(), "schema")
+
+  # type() returns type when schema is set
+  x$schema <- Schema$create(x = int32())
+  expect_equal(x$type(), int32())
+})
+
+test_that("Scalar expression schemas and types", {
+  # type() works on scalars without setting the schema
+  expect_equal(
+    Expression$scalar("foo")$type(),
+    arrow::string()
   )
-  expr <- array_expression("cast", b, options = list(to_type = int32(), allow_float_truncate = TRUE))
-  expect_s3_class(expr, "array_expression")
-  expect_equal(eval_array_expression(expr), Array$create(0:4))
+  expect_equal(
+    Expression$scalar(42L)$type(),
+    int32()
+  )
+})
+
+test_that("Expression schemas and types", {
+  x <- Expression$field_ref("x")
+  y <- Expression$field_ref("y")
+  z <- Expression$scalar(42L)
+
+  # type() throws error when both schemas are unset
+  expect_error(
+    Expression$create("add_checked", x, y)$type(),
+    "schema"
+  )
+
+  # type() throws error when left schema is unset
+  y$schema <- Schema$create(y = float64())
+  expect_error(
+    Expression$create("add_checked", x, y)$type(),
+    "schema"
+  )
+
+  # type() throws error when right schema is unset
+  x$schema <- Schema$create(x = int32())
+  y$schema <- NULL
+  expect_error(
+    Expression$create("add_checked", x, y)$type(),
+    "schema"
+  )
+
+  # type() returns type when both schemas are set
+  y$schema <- Schema$create(y = float64())
+  expect_equal(
+    Expression$create("add_checked", x, y)$type(),
+    float64()
+  )
+
+  # type() returns type when one arg has schema set and one is scalar
+  expect_equal(
+    Expression$create("add_checked", x, z)$type(),
+    int32()
+  )
 })

@@ -20,10 +20,10 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/array"
-	"github.com/apache/arrow/go/arrow/memory"
-	"github.com/apache/arrow/go/arrow/tensor"
+	"github.com/apache/arrow/go/v7/arrow"
+	"github.com/apache/arrow/go/v7/arrow/array"
+	"github.com/apache/arrow/go/v7/arrow/memory"
+	"github.com/apache/arrow/go/v7/arrow/tensor"
 )
 
 // This example demonstrates how to build an array of int64 values using a builder and Append.
@@ -133,8 +133,6 @@ func Example_listArray() {
 	defer lb.Release()
 
 	vb := lb.ValueBuilder().(*array.Int64Builder)
-	defer vb.Release()
-
 	vb.Reserve(10)
 
 	lb.Append(true)
@@ -164,9 +162,11 @@ func Example_listArray() {
 	arr := lb.NewArray().(*array.List)
 	defer arr.Release()
 
+	arr.DataType().(*arrow.ListType).SetElemNullable(false)
 	fmt.Printf("NullN()   = %d\n", arr.NullN())
 	fmt.Printf("Len()     = %d\n", arr.Len())
 	fmt.Printf("Offsets() = %v\n", arr.Offsets())
+	fmt.Printf("Type()    = %v\n", arr.DataType())
 
 	offsets := arr.Offsets()[1:]
 
@@ -194,6 +194,7 @@ func Example_listArray() {
 	// NullN()   = 2
 	// Len()     = 7
 	// Offsets() = [0 3 3 4 6 9 9 10]
+	// Type()    = list<item: int64>
 	// List[0]   = [0, 1, 2]
 	// List[1]   = (null)
 	// List[2]   = [3]
@@ -214,8 +215,6 @@ func Example_fixedSizeListArray() {
 	defer lb.Release()
 
 	vb := lb.ValueBuilder().(*array.Int64Builder)
-	defer vb.Release()
-
 	vb.Reserve(10)
 
 	lb.Append(true)
@@ -249,7 +248,7 @@ func Example_fixedSizeListArray() {
 	// Output:
 	// NullN()   = 2
 	// Len()     = 5
-	// Type()    = fixed_size_list<item: int64>[3]
+	// Type()    = fixed_size_list<item: int64, nullable>[3]
 	// List      = [[0 1 2] (null) [3 4 5] [6 7 8] (null)]
 }
 
@@ -268,12 +267,8 @@ func Example_structArray() {
 	defer sb.Release()
 
 	f1b := sb.FieldBuilder(0).(*array.ListBuilder)
-	defer f1b.Release()
 	f1vb := f1b.ValueBuilder().(*array.Uint8Builder)
-	defer f1vb.Release()
-
 	f2b := sb.FieldBuilder(1).(*array.Int32Builder)
-	defer f2b.Release()
 
 	sb.Reserve(4)
 	f1vb.Reserve(7)
@@ -302,15 +297,10 @@ func Example_structArray() {
 	fmt.Printf("Len()   = %d\n", arr.Len())
 
 	list := arr.Field(0).(*array.List)
-	defer list.Release()
-
 	offsets := list.Offsets()
 
 	varr := list.ListValues().(*array.Uint8)
-	defer varr.Release()
-
 	ints := arr.Field(1).(*array.Int32)
-	defer ints.Release()
 
 	for i := 0; i < arr.Len(); i++ {
 		if !arr.IsValid(i) {
@@ -392,16 +382,16 @@ func Example_float64Tensor2x5() {
 	defer f64.Release()
 
 	for _, i := range [][]int64{
-		[]int64{0, 0},
-		[]int64{0, 1},
-		[]int64{0, 2},
-		[]int64{0, 3},
-		[]int64{0, 4},
-		[]int64{1, 0},
-		[]int64{1, 1},
-		[]int64{1, 2},
-		[]int64{1, 3},
-		[]int64{1, 4},
+		{0, 0},
+		{0, 1},
+		{0, 2},
+		{0, 3},
+		{0, 4},
+		{1, 0},
+		{1, 1},
+		{1, 2},
+		{1, 3},
+		{1, 4},
 	} {
 		fmt.Printf("arr%v = %v\n", i, f64.Value(i))
 	}
@@ -435,16 +425,16 @@ func Example_float64Tensor2x5ColMajor() {
 	defer f64.Release()
 
 	for _, i := range [][]int64{
-		[]int64{0, 0},
-		[]int64{0, 1},
-		[]int64{0, 2},
-		[]int64{0, 3},
-		[]int64{0, 4},
-		[]int64{1, 0},
-		[]int64{1, 1},
-		[]int64{1, 2},
-		[]int64{1, 3},
-		[]int64{1, 4},
+		{0, 0},
+		{0, 1},
+		{0, 2},
+		{0, 3},
+		{0, 4},
+		{1, 0},
+		{1, 1},
+		{1, 2},
+		{1, 3},
+		{1, 4},
 	} {
 		fmt.Printf("arr%v = %v\n", i, f64.Value(i))
 	}
@@ -467,8 +457,8 @@ func Example_record() {
 
 	schema := arrow.NewSchema(
 		[]arrow.Field{
-			arrow.Field{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
-			arrow.Field{Name: "f2-f64", Type: arrow.PrimitiveTypes.Float64},
+			{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
+			{Name: "f2-f64", Type: arrow.PrimitiveTypes.Float64},
 		},
 		nil,
 	)
@@ -497,8 +487,8 @@ func Example_recordReader() {
 
 	schema := arrow.NewSchema(
 		[]arrow.Field{
-			arrow.Field{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
-			arrow.Field{Name: "f2-f64", Type: arrow.PrimitiveTypes.Float64},
+			{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
+			{Name: "f2-f64", Type: arrow.PrimitiveTypes.Float64},
 		},
 		nil,
 	)
@@ -546,8 +536,8 @@ func Example_table() {
 
 	schema := arrow.NewSchema(
 		[]arrow.Field{
-			arrow.Field{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
-			arrow.Field{Name: "f2-f64", Type: arrow.PrimitiveTypes.Float64},
+			{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
+			{Name: "f2-f64", Type: arrow.PrimitiveTypes.Float64},
 		},
 		nil,
 	)
@@ -592,4 +582,68 @@ func Example_table() {
 	// rec[2]["f2-f64"]: [11 12 13 14 15]
 	// rec[3]["f1-i32"]: [16 17 18 19 20]
 	// rec[3]["f2-f64"]: [16 17 18 19 20]
+}
+
+// This example demonstrates how to create a Map Array.
+// The resulting array should be:
+//   [{["ab" "cd" "ef" "gh"] [1 2 3 4]} (null) {["ab" "cd" "ef" "gh"] [(null) 2 5 1]}]
+func Example_mapArray() {
+	pool := memory.NewGoAllocator()
+	mb := array.NewMapBuilder(pool, arrow.BinaryTypes.String, arrow.PrimitiveTypes.Int16, false)
+	defer mb.Release()
+
+	kb := mb.KeyBuilder().(*array.StringBuilder)
+	ib := mb.ItemBuilder().(*array.Int16Builder)
+
+	keys := []string{"ab", "cd", "ef", "gh"}
+
+	mb.Append(true)
+	kb.AppendValues(keys, nil)
+	ib.AppendValues([]int16{1, 2, 3, 4}, nil)
+
+	mb.AppendNull()
+
+	mb.Append(true)
+	kb.AppendValues(keys, nil)
+	ib.AppendValues([]int16{-1, 2, 5, 1}, []bool{false, true, true, true})
+
+	arr := mb.NewMapArray()
+	defer arr.Release()
+
+	fmt.Printf("NullN() = %d\n", arr.NullN())
+	fmt.Printf("Len()   = %d\n", arr.Len())
+
+	offsets := arr.Offsets()
+	keyArr := arr.Keys().(*array.String)
+	itemArr := arr.Items().(*array.Int16)
+
+	for i := 0; i < arr.Len(); i++ {
+		if arr.IsNull(i) {
+			fmt.Printf("Map[%d] = (null)\n", i)
+			continue
+		}
+
+		fmt.Printf("Map[%d] = {", i)
+		for j := offsets[i]; j < offsets[i+1]; j++ {
+			if j != offsets[i] {
+				fmt.Printf(", ")
+			}
+			fmt.Printf("%v => ", keyArr.Value(int(j)))
+			if itemArr.IsValid(int(j)) {
+				fmt.Printf("%v", itemArr.Value(int(j)))
+			} else {
+				fmt.Printf("(null)")
+			}
+		}
+		fmt.Printf("}\n")
+	}
+	fmt.Printf("Map    = %v\n", arr)
+
+	// Output:
+	// NullN() = 1
+	// Len()   = 3
+	// Map[0] = {ab => 1, cd => 2, ef => 3, gh => 4}
+	// Map[1] = (null)
+	// Map[2] = {ab => (null), cd => 2, ef => 5, gh => 1}
+	// Map    = [{["ab" "cd" "ef" "gh"] [1 2 3 4]} (null) {["ab" "cd" "ef" "gh"] [(null) 2 5 1]}]
 }

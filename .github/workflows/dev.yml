@@ -22,6 +22,10 @@ on:
   push:
   pull_request:
 
+concurrency:
+  group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
+  cancel-in-progress: true
+
 env:
   ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
   ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -29,7 +33,7 @@ env:
 jobs:
 
   lint:
-    name: Lint C++, Python, R, Rust, Docker, RAT
+    name: Lint C++, Python, R, Docker, RAT
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     steps:
@@ -51,7 +55,7 @@ jobs:
         run: |
           sudo sysctl -w kernel.core_pattern="core.%e.%p"
           ulimit -c unlimited
-          archery docker run ubuntu-lint
+          archery docker run -e GITHUB_ACTIONS=true ubuntu-lint
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         continue-on-error: true
@@ -85,7 +89,7 @@ jobs:
       - name: Install Dependencies
         shell: bash
         run: |
-          pip install cython setuptools pytest jira
+          pip install cython setuptools six pytest jira
       - name: Run Release Test
         shell: bash
         run: |

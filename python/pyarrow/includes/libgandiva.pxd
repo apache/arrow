@@ -24,13 +24,16 @@ from libc.stdint cimport int64_t, int32_t, uint8_t, uintptr_t
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 
-cdef extern from "gandiva/gandiva_aliases.h" namespace "gandiva" nogil:
+cdef extern from "gandiva/node.h" namespace "gandiva" nogil:
 
     cdef cppclass CNode" gandiva::Node":
-        pass
+        c_string ToString()
+        shared_ptr[CDataType] return_type()
 
     cdef cppclass CExpression" gandiva::Expression":
-        pass
+        c_string ToString()
+        shared_ptr[CNode] root()
+        shared_ptr[CField] result()
 
     ctypedef vector[shared_ptr[CNode]] CNodeVector" gandiva::NodeVector"
 
@@ -95,7 +98,9 @@ cdef inline str _selection_mode_name(CSelectionVector_Mode ctype):
 cdef extern from "gandiva/condition.h" namespace "gandiva" nogil:
 
     cdef cppclass CCondition" gandiva::Condition":
-        pass
+        c_string ToString()
+        shared_ptr[CNode] root()
+        shared_ptr[CField] result()
 
 cdef extern from "gandiva/arrow.h" namespace "gandiva" nogil:
 

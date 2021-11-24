@@ -83,6 +83,8 @@ concepts, here is a small glossary to help disambiguate.
   layout. Similarly, strings can be stored as ``List<1-byte>``. A
   timestamp may be stored as 64-bit fixed-size layout.
 
+.. _format_layout:
+
 Physical Memory Layout
 ======================
 
@@ -555,21 +557,18 @@ each value. Its physical layout is as follows:
   union has a corresponding type id whose values are found in this
   buffer. A union with more than 127 possible types can be modeled as
   a union of unions.
-* Offsets buffer: A buffer of signed int32 values indicating the
+* Offsets buffer: A buffer of signed Int32 values indicating the
   relative offset into the respective child array for the type in a
   given slot. The respective offsets for each child value array must
   be in order / increasing.
 
-Critically, the dense union allows for minimal overhead in the ubiquitous
-union-of-structs with non-overlapping-fields use case (``Union<s1: Struct1, s2:
-Struct2, s3: Struct3, ...>``)
+**Example Layout: ``DenseUnion<f: Float32, i: Int32>``**
 
-**Example Layout: Dense union**
+For the union array: ::
 
-An example layout for logical union of: ``Union<f: float, i: int32>``
-having the values: ``[{f=1.2}, null, {f=3.4}, {i=5}]``
+    [{f=1.2}, null, {f=3.4}, {i=5}]
 
-::
+will have the following layout: ::
 
     * Length: 4, Null count: 0
     * Types buffer:
@@ -585,7 +584,7 @@ having the values: ``[{f=1.2}, null, {f=3.4}, {i=5}]``
       | 0        | 1           | 2          | 0           | unspecified |
 
     * Children arrays:
-      * Field-0 array (f: float):
+      * Field-0 array (f: Float32):
         * Length: 2, Null count: 1
         * Validity bitmap buffer: 00000101
 
@@ -596,7 +595,7 @@ having the values: ``[{f=1.2}, null, {f=3.4}, {i=5}]``
           | 1.2, null, 3.4 | unspecified |
 
 
-      * Field-1 array (i: int32):
+      * Field-1 array (i: Int32):
         * Length: 1, Null count: 0
         * Validity bitmap buffer: Not required
 
@@ -620,11 +619,11 @@ use cases:
 * A sparse union is more amenable to vectorized expression evaluation in some use cases.
 * Equal-length arrays can be interpreted as a union by only defining the types array.
 
-**Example layout: ``SparseUnion<u0: Int32, u1: Float, u2: VarBinary>``**
+**Example layout: ``SparseUnion<i: Int32, f: Float32, s: VarBinary>``**
 
 For the union array: ::
 
-    [{u0=5}, {u1=1.2}, {u2='joe'}, {u1=3.4}, {u0=4}, {u2='mark'}]
+    [{i=5}, {f=1.2}, {s='joe'}, {f=3.4}, {i=4}, {s='mark'}]
 
 will have the following layout: ::
 
@@ -637,7 +636,7 @@ will have the following layout: ::
 
     * Children arrays:
 
-      * u0 (Int32):
+      * i (Int32):
         * Length: 6, Null count: 4
         * Validity bitmap buffer:
 
@@ -651,7 +650,7 @@ will have the following layout: ::
           |------------|-------------|-------------|-------------|-------------|--------------|-----------------------|
           | 5          | unspecified | unspecified | unspecified | 4           |  unspecified | unspecified (padding) |
 
-      * u1 (float):
+      * f (Float32):
         * Length: 6, Null count: 4
         * Validity bitmap buffer:
 
@@ -665,7 +664,7 @@ will have the following layout: ::
           |-------------|-------------|-------------|-------------|-------------|--------------|-----------------------|
           | unspecified |  1.2        | unspecified | 3.4         | unspecified |  unspecified | unspecified (padding) |
 
-      * u2 (`VarBinary`)
+      * s (`VarBinary`)
         * Length: 6, Null count: 4
         * Validity bitmap buffer:
 
@@ -673,7 +672,7 @@ will have the following layout: ::
           |--------------------------|-----------------------|
           | 00100100                 | 0 (padding)           |
 
-        * Offsets buffer (int32)
+        * Offsets buffer (Int32)
 
           | Bytes 0-3  | Bytes 4-7   | Bytes 8-11  | Bytes 12-15 | Bytes 16-19 | Bytes 20-23 | Bytes 24-27 | Bytes 28-63 |
           |------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|
@@ -1006,19 +1005,21 @@ message flatbuffer is read, you can then read the message body.
 
 The stream writer can signal end-of-stream (EOS) either by writing 8 bytes
 containing the 4-byte continuation indicator (``0xFFFFFFFF``) followed by 0
-metadata length (``0x00000000``) or closing the stream interface.
+metadata length (``0x00000000``) or closing the stream interface. We
+recommend the ".arrows" file extension for the streaming format although
+in many cases these streams will not ever be stored as files.
 
 IPC File Format
 ---------------
 
-We define a "file format" supporting random access that is build with
-the stream format. The file starts and ends with a magic string
-``ARROW1`` (plus padding). What follows in the file is identical to
-the stream format. At the end of the file, we write a *footer*
-containing a redundant copy of the schema (which is a part of the
-streaming format) plus memory offsets and sizes for each of the data
-blocks in the file. This enables random access any record batch in the
-file. See ``File.fbs`` for the precise details of the file footer.
+We define a "file format" supporting random access that is an extension of
+the stream format. The file starts and ends with a magic string ``ARROW1``
+(plus padding). What follows in the file is identical to the stream format.
+At the end of the file, we write a *footer* containing a redundant copy of
+the schema (which is a part of the streaming format) plus memory offsets and
+sizes for each of the data blocks in the file. This enables random access to
+any record batch in the file. See `File.fbs`_ for the precise details of the
+file footer.
 
 Schematically we have: ::
 
@@ -1034,8 +1035,9 @@ should be defined in a ``DictionaryBatch`` before they are used in a
 ``RecordBatch``, as long as the keys are defined somewhere in the
 file. Further more, it is invalid to have more than one **non-delta**
 dictionary batch per dictionary ID (i.e. dictionary replacement is not
-supported).  Delta dictionaries are applied in the order they appear in
-the file footer.
+supported). Delta dictionaries are applied in the order they appear in
+the file footer. We recommend the ".arrow" extension for files created with
+this format.
 
 Dictionary Messages
 -------------------
@@ -1208,6 +1210,7 @@ the Arrow spec.
 .. _Flatbuffers protocol definition files: https://github.com/apache/arrow/tree/master/format
 .. _Schema.fbs: https://github.com/apache/arrow/blob/master/format/Schema.fbs
 .. _Message.fbs: https://github.com/apache/arrow/blob/master/format/Message.fbs
+.. _File.fbs: https://github.com/apache/arrow/blob/master/format/File.fbs
 .. _least-significant bit (LSB) numbering: https://en.wikipedia.org/wiki/Bit_numbering
 .. _Intel performance guide: https://software.intel.com/en-us/articles/practical-intel-avx-optimization-on-2nd-generation-intel-core-processors
 .. _Endianness: https://en.wikipedia.org/wiki/Endianness

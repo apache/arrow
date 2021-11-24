@@ -723,8 +723,13 @@ public class MessageSerializer {
   public static ArrowBuf readMessageBody(ReadChannel in, long bodyLength,
       BufferAllocator allocator) throws IOException {
     ArrowBuf bodyBuffer = allocator.buffer(bodyLength);
-    if (in.readFully(bodyBuffer, bodyLength) != bodyLength) {
-      throw new IOException("Unexpected end of input trying to read batch.");
+    try {
+      if (in.readFully(bodyBuffer, bodyLength) != bodyLength) {
+        throw new IOException("Unexpected end of input trying to read batch.");
+      }
+    } catch (RuntimeException | IOException e) {
+      bodyBuffer.close();
+      throw e;
     }
     return bodyBuffer;
   }

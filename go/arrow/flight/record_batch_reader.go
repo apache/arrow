@@ -20,10 +20,11 @@ import (
 	"bytes"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/internal/debug"
-	"github.com/apache/arrow/go/arrow/ipc"
-	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/v7/arrow"
+	"github.com/apache/arrow/go/v7/arrow/internal/debug"
+	"github.com/apache/arrow/go/v7/arrow/ipc"
+	"github.com/apache/arrow/go/v7/arrow/memory"
+	"golang.org/x/xerrors"
 )
 
 // DataStreamReader is an interface for receiving flight data messages on a stream
@@ -37,16 +38,28 @@ type dataMessageReader struct {
 
 	refCount int64
 	msg      *ipc.Message
-	err      error
+
+	lastAppMetadata []byte
+	descr           *FlightDescriptor
 }
 
 func (d *dataMessageReader) Message() (*ipc.Message, error) {
 	fd, err := d.rdr.Recv()
 	if err != nil {
+		if d.msg != nil {
+			// clear the previous message in the error case
+			d.msg.Release()
+			d.msg = nil
+		}
+		d.lastAppMetadata = nil
+		d.descr = nil
 		return nil, err
 	}
 
-	return ipc.NewMessage(memory.NewBufferBytes(fd.DataHeader), memory.NewBufferBytes(fd.DataBody)), nil
+	d.lastAppMetadata = fd.AppMetadata
+	d.descr = fd.FlightDescriptor
+	d.msg = ipc.NewMessage(memory.NewBufferBytes(fd.DataHeader), memory.NewBufferBytes(fd.DataBody))
+	return d.msg, nil
 }
 
 func (d *dataMessageReader) Retain() {
@@ -61,14 +74,60 @@ func (d *dataMessageReader) Release() {
 			d.msg.Release()
 			d.msg = nil
 		}
+		d.lastAppMetadata = nil
 	}
+}
+
+// Reader is an ipc.Reader which also keeps track of the metadata from
+// the FlightData messages as they come in, calling LatestAppMetadata
+// will return the metadata bytes from the most recently read message.
+type Reader struct {
+	*ipc.Reader
+	dmr *dataMessageReader
+}
+
+// Retain increases the reference count for the underlying message reader
+// and ipc.Reader which are utilized by this Reader.
+func (r *Reader) Retain() {
+	r.Reader.Retain()
+	r.dmr.Retain()
+}
+
+// Release reduces the reference count for the underlying message reader
+// and ipc.Reader, when the reference counts become zero, the allocated
+// memory is released for the stored record and metadata.
+func (r *Reader) Release() {
+	r.Reader.Release()
+	r.dmr.Release()
+}
+
+// LatestAppMetadata returns the bytes from the AppMetadata field of the
+// most recently read FlightData message that was processed by calling
+// the Next function. The metadata returned would correspond to the record
+// retrieved by calling Record().
+func (r *Reader) LatestAppMetadata() []byte {
+	return r.dmr.lastAppMetadata
+}
+
+// LatestFlightDescriptor returns a pointer to the last FlightDescriptor object
+// that was received in the most recently read FlightData message that was
+// processed by calling the Next function. The descriptor returned would correspond
+// to the record retrieved by calling Record().
+func (r *Reader) LatestFlightDescriptor() *FlightDescriptor {
+	return r.dmr.descr
 }
 
 // NewRecordReader constructs an ipc reader using the flight data stream reader
 // as the source of the ipc messages, opts passed will be passed to the underlying
 // ipc.Reader such as ipc.WithSchema and ipc.WithAllocator
-func NewRecordReader(r DataStreamReader, opts ...ipc.Option) (*ipc.Reader, error) {
-	return ipc.NewReaderFromMessageReader(&dataMessageReader{rdr: r}, opts...)
+func NewRecordReader(r DataStreamReader, opts ...ipc.Option) (*Reader, error) {
+	rdr := &Reader{dmr: &dataMessageReader{rdr: r}}
+	var err error
+	if rdr.Reader, err = ipc.NewReaderFromMessageReader(rdr.dmr, opts...); err != nil {
+		return nil, xerrors.Errorf("arrow/flight: could not create flight reader: %w", err)
+	}
+
+	return rdr, nil
 }
 
 // DeserializeSchema takes the schema bytes from FlightInfo or SchemaResult

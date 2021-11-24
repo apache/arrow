@@ -20,7 +20,9 @@ import {
     // generateDictionaryTables
 } from '../../../data/tables';
 
-import { AsyncIterable } from 'ix';
+import { from, as } from 'ix/asynciterable';
+import { tap, flatMap } from 'ix/asynciterable/operators';
+import 'ix/Ix.node';
 
 import {
     Table,
@@ -29,7 +31,7 @@ import {
     RecordBatchFileWriter,
     RecordBatchJSONWriter,
     RecordBatchStreamWriter,
-} from '../../../Arrow';
+} from 'apache-arrow';
 
 import {
     ArrowIOTestHelper,
@@ -47,8 +49,6 @@ import {
     if (process.env.TEST_NODE_STREAMS !== 'true') {
         return test('not testing node streams because process.env.TEST_NODE_STREAMS !== "true"', () => {});
     }
-
-    const { parse: bignumJSONParse } = require('json-bignum');
 
     for (const table of generateRandomTables([10, 20, 30])) {
 
@@ -104,7 +104,7 @@ import {
 
             describe(`RecordBatchJSONWriter`, () => {
 
-                const toJSON = (x: any): { schema: any } => bignumJSONParse(`${Buffer.from(x)}`);
+                const toJSON = (x: any): { schema: any } => JSON.parse(`${Buffer.from(x)}`);
 
                 test('Uint8Array', json.buffer((source) => validate(toJSON(source))));
                 test('Promise<Uint8Array>', json.buffer((source) => validate(Promise.resolve(toJSON(source)))));
@@ -233,10 +233,9 @@ import {
 
             const tables = [] as Table[];
             const writer = RecordBatchStreamWriter.throughNode({ autoDestroy: false });
-            const stream = AsyncIterable
-                .from(generateRandomTables([10, 20, 30]))
+            const stream = from(generateRandomTables([10, 20, 30]))
                 // insert some asynchrony
-                .tap({ async next(table: Table) { tables.push(table); await sleep(1); } })
+                .pipe(tap({ async next(table: Table) { tables.push(table); await sleep(1); } }))
                 .pipe(writer);
 
             for await (const reader of RecordBatchReader.readAll(stream)) {
@@ -254,11 +253,10 @@ import {
 
             const tables = [] as Table[];
             const writer = RecordBatchStreamWriter.throughNode({ autoDestroy: false });
-            const stream = AsyncIterable
-                .from(generateRandomTables([10, 20, 30]))
+            const stream = from(generateRandomTables([10, 20, 30]))
                 // insert some asynchrony
-                .tap({ async next(table: Table) { tables.push(table); await sleep(1); } })
-                .flatMap((table) => AsyncIterable.as(table.chunks))
+                .pipe(tap({ async next(table: Table) { tables.push(table); await sleep(1); } }))
+                .pipe(flatMap((table) => as(table.chunks)))
                 .pipe(writer);
 
             for await (const reader of RecordBatchReader.readAll(stream)) {

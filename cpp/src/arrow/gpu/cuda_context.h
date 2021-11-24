@@ -279,7 +279,8 @@ class ARROW_EXPORT CudaContext : public std::enable_shared_from_this<CudaContext
  private:
   CudaContext();
 
-  Result<std::shared_ptr<CudaIpcMemHandle>> ExportIpcBuffer(void* data, int64_t size);
+  Result<std::shared_ptr<CudaIpcMemHandle>> ExportIpcBuffer(const void* data,
+                                                            int64_t size);
   Status CopyHostToDevice(void* dst, const void* src, int64_t nbytes);
   Status CopyHostToDevice(uintptr_t dst, const void* src, int64_t nbytes);
   Status CopyDeviceToHost(void* dst, const void* src, int64_t nbytes);

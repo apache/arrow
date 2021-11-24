@@ -18,8 +18,9 @@ package arrow_test
 
 import (
 	"testing"
+	"time"
 
-	"github.com/apache/arrow/go/arrow"
+	"github.com/apache/arrow/go/v7/arrow"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -53,11 +54,11 @@ func TestDecimal128Type(t *testing.T) {
 	} {
 		t.Run(tc.want, func(t *testing.T) {
 			dt := arrow.Decimal128Type{Precision: tc.precision, Scale: tc.scale}
-			if got, want := dt.BitWidth(), 16; got != want {
+			if got, want := dt.BitWidth(), 128; got != want {
 				t.Fatalf("invalid bitwidth: got=%d, want=%d", got, want)
 			}
 
-			if got, want := dt.ID(), arrow.DECIMAL; got != want {
+			if got, want := dt.ID(), arrow.DECIMAL128; got != want {
 				t.Fatalf("invalid type ID: got=%v, want=%v", got, want)
 			}
 
@@ -80,7 +81,7 @@ func TestFixedSizeBinaryType(t *testing.T) {
 	} {
 		t.Run(tc.want, func(t *testing.T) {
 			dt := arrow.FixedSizeBinaryType{tc.byteWidth}
-			if got, want := dt.BitWidth(), 8 * tc.byteWidth; got != want {
+			if got, want := dt.BitWidth(), 8*tc.byteWidth; got != want {
 				t.Fatalf("invalid bitwidth: got=%d, want=%d", got, want)
 			}
 
@@ -101,9 +102,9 @@ func TestFixedSizeBinaryType(t *testing.T) {
 
 func TestTimestampType(t *testing.T) {
 	for _, tc := range []struct {
-		unit      arrow.TimeUnit
-		timeZone  string
-		want      string
+		unit     arrow.TimeUnit
+		timeZone string
+		want     string
 	}{
 		{arrow.Nanosecond, "CST", "timestamp[ns, tz=CST]"},
 		{arrow.Microsecond, "EST", "timestamp[us, tz=EST]"},
@@ -158,6 +159,32 @@ func TestTime32Type(t *testing.T) {
 			}
 		})
 	}
+
+	for _, tc := range []struct {
+		unit    arrow.TimeUnit
+		str     string
+		want    arrow.Time32
+		wantErr bool
+	}{
+		{arrow.Second, "12:21", arrow.Time32(12*3600 + 21*60), false},
+		{arrow.Second, "02:30:45", arrow.Time32(2*3600 + 30*60 + 45), false},
+		{arrow.Second, "21:21:21.21", arrow.Time32(0), true},
+		{arrow.Millisecond, "21:21:21.21", arrow.Time32(21*3600000 + 21*60000 + 21*1000 + 210), false},
+		{arrow.Millisecond, "15:02:04.123", arrow.Time32(15*3600000 + 2*60000 + 4*1000 + 123), false},
+		{arrow.Millisecond, "12:12:12.1212", arrow.Time32(0), true},
+		{arrow.Microsecond, "10:10:10", arrow.Time32(0), true},
+		{arrow.Nanosecond, "10:10:10", arrow.Time32(0), true},
+	} {
+		t.Run("FromString", func(t *testing.T) {
+			v, e := arrow.Time32FromString(tc.str, tc.unit)
+			assert.Equal(t, tc.want, v)
+			if tc.wantErr {
+				assert.Error(t, e)
+			} else {
+				assert.NoError(t, e)
+			}
+		})
+	}
 }
 
 func TestTime64Type(t *testing.T) {
@@ -184,6 +211,39 @@ func TestTime64Type(t *testing.T) {
 
 			if got, want := dt.String(), tc.want; got != want {
 				t.Fatalf("invalid type stringer: got=%q, want=%q", got, want)
+			}
+		})
+	}
+
+	const (
+		h  = time.Hour
+		m  = time.Minute
+		s  = time.Second
+		us = time.Microsecond
+		ns = time.Nanosecond
+	)
+
+	for _, tc := range []struct {
+		unit    arrow.TimeUnit
+		str     string
+		want    arrow.Time64
+		wantErr bool
+	}{
+		{arrow.Second, "12:21", arrow.Time64(0), true},
+		{arrow.Millisecond, "21:21:21.21", arrow.Time64(0), true},
+		{arrow.Microsecond, "10:10:10", arrow.Time64((10*h + 10*m + 10*s).Microseconds()), false},
+		{arrow.Microsecond, "22:10:15.123456", arrow.Time64((22*h + 10*m + 15*s + 123456*us).Microseconds()), false},
+		{arrow.Microsecond, "12:34:56.78901234", arrow.Time64(0), true},
+		{arrow.Nanosecond, "12:34:56.78901234", arrow.Time64(12*h + 34*m + 56*s + 789012340), false},
+		{arrow.Nanosecond, "12:34:56.1234567890", arrow.Time64(0), true},
+	} {
+		t.Run("FromString", func(t *testing.T) {
+			v, e := arrow.Time64FromString(tc.str, tc.unit)
+			assert.Equal(t, tc.want, v)
+			if tc.wantErr {
+				assert.Error(t, e)
+			} else {
+				assert.NoError(t, e)
 			}
 		})
 	}
@@ -268,7 +328,7 @@ func TestDayTimeIntervalType(t *testing.T) {
 		t.Fatalf("invalid type name: got=%q, want=%q", got, want)
 	}
 
-	if got, want := dt.ID(), arrow.INTERVAL; got != want {
+	if got, want := dt.ID(), arrow.INTERVAL_DAY_TIME; got != want {
 		t.Fatalf("invalid type ID: got=%v, want=%v", got, want)
 	}
 
@@ -287,7 +347,7 @@ func TestMonthIntervalType(t *testing.T) {
 		t.Fatalf("invalid type name: got=%q, want=%q", got, want)
 	}
 
-	if got, want := dt.ID(), arrow.INTERVAL; got != want {
+	if got, want := dt.ID(), arrow.INTERVAL_MONTHS; got != want {
 		t.Fatalf("invalid type ID: got=%v, want=%v", got, want)
 	}
 

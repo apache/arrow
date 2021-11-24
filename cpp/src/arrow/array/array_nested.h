@@ -38,6 +38,10 @@
 
 namespace arrow {
 
+/// \addtogroup nested-arrays
+///
+/// @{
+
 // ----------------------------------------------------------------------
 // ListArray
 
@@ -280,9 +284,9 @@ class ARROW_EXPORT FixedSizeListArray : public Array {
   std::shared_ptr<DataType> value_type() const;
 
   // The following functions will not perform boundschecking
-  int32_t value_offset(int64_t i) const {
+  int64_t value_offset(int64_t i) const {
     i += data_->offset;
-    return static_cast<int32_t>(list_size_ * i);
+    return list_size_ * i;
   }
   int32_t value_length(int64_t i = 0) const {
     ARROW_UNUSED(i);
@@ -291,6 +295,13 @@ class ARROW_EXPORT FixedSizeListArray : public Array {
   std::shared_ptr<Array> value_slice(int64_t i) const {
     return values_->Slice(value_offset(i), value_length(i));
   }
+
+  /// \brief Return an Array that is a concatenation of the lists in this array.
+  ///
+  /// Note that it's different from `values()` in that it takes into
+  /// consideration null elements (they are skipped, thus copying may be needed).
+  Result<std::shared_ptr<Array>> Flatten(
+      MemoryPool* memory_pool = default_memory_pool()) const;
 
   /// \brief Construct FixedSizeListArray from child value array and value_length
   ///
@@ -359,6 +370,14 @@ class ARROW_EXPORT StructArray : public Array {
   /// \param[in] pool The pool to allocate null bitmaps from, if necessary
   Result<ArrayVector> Flatten(MemoryPool* pool = default_memory_pool()) const;
 
+  /// \brief Get one of the child arrays, combining its null bitmap
+  /// with the parent struct array's bitmap.
+  ///
+  /// \param[in] index Which child array to get
+  /// \param[in] pool The pool to allocate null bitmaps from, if necessary
+  Result<std::shared_ptr<Array>> GetFlattenedField(
+      int index, MemoryPool* pool = default_memory_pool()) const;
+
  private:
   // For caching boxed child data
   // XXX This is not handled in a thread-safe manner.
@@ -378,6 +397,9 @@ class ARROW_EXPORT UnionArray : public Array {
 
   const type_code_t* raw_type_codes() const { return raw_type_codes_ + data_->offset; }
 
+  /// The logical type code of the value at index.
+  type_code_t type_code(int64_t i) const { return raw_type_codes_[i + data_->offset]; }
+
   /// The physical child id containing value at index.
   int child_id(int64_t i) const {
     return union_type_->child_ids()[raw_type_codes_[i + data_->offset]];
@@ -386,12 +408,6 @@ class ARROW_EXPORT UnionArray : public Array {
   const UnionType* union_type() const { return union_type_; }
 
   UnionMode::type mode() const { return union_type_->mode(); }
-
-  // Return the given field as an individual array.
-  // For sparse unions, the returned array has its offset, length and null
-  // count adjusted.
-  ARROW_DEPRECATED("Deprecated in 1.0.0. Use field(pos)")
-  std::shared_ptr<Array> child(int pos) const;
 
   /// \brief Return the given field as an individual array.
   ///
@@ -447,6 +463,14 @@ class ARROW_EXPORT SparseUnionArray : public UnionArray {
   const SparseUnionType* union_type() const {
     return internal::checked_cast<const SparseUnionType*>(union_type_);
   }
+
+  /// \brief Get one of the child arrays, adjusting its null bitmap
+  /// where the union array type code does not match.
+  ///
+  /// \param[in] index Which child array to get (i.e. the physical index, not the type
+  /// code) \param[in] pool The pool to allocate null bitmaps from, if necessary
+  Result<std::shared_ptr<Array>> GetFlattenedField(
+      int index, MemoryPool* pool = default_memory_pool()) const;
 
  protected:
   void SetData(std::shared_ptr<ArrayData> data);
@@ -519,5 +543,7 @@ class ARROW_EXPORT DenseUnionArray : public UnionArray {
 
   void SetData(const std::shared_ptr<ArrayData>& data);
 };
+
+/// @}
 
 }  // namespace arrow

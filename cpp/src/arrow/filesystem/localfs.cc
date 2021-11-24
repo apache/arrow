@@ -431,14 +431,14 @@ Result<std::shared_ptr<io::OutputStream>> OpenOutputStreamGeneric(const std::str
 }  // namespace
 
 Result<std::shared_ptr<io::OutputStream>> LocalFileSystem::OpenOutputStream(
-    const std::string& path) {
+    const std::string& path, const std::shared_ptr<const KeyValueMetadata>& metadata) {
   bool truncate = true;
   bool append = false;
   return OpenOutputStreamGeneric(path, truncate, append);
 }
 
 Result<std::shared_ptr<io::OutputStream>> LocalFileSystem::OpenAppendStream(
-    const std::string& path) {
+    const std::string& path, const std::shared_ptr<const KeyValueMetadata>& metadata) {
   bool truncate = false;
   bool append = true;
   return OpenOutputStreamGeneric(path, truncate, append);

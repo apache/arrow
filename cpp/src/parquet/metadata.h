@@ -84,7 +84,7 @@ class PARQUET_EXPORT ApplicationVersion {
   // Returns true if version is strictly less than other_version
   bool VersionLt(const ApplicationVersion& other_version) const;
 
-  // Returns true if version is strictly less than other_version
+  // Returns true if version is strictly equal with other_version
   bool VersionEq(const ApplicationVersion& other_version) const;
 
   // Checks if the Version has the correct statistics for a given column
@@ -276,7 +276,12 @@ class PARQUET_EXPORT FileMetaData {
   /// \throws ParquetException if the index is out of bound.
   std::unique_ptr<RowGroupMetaData> RowGroup(int index) const;
 
-  /// \brief Return the version of the file.
+  /// \brief Return the "version" of the file
+  ///
+  /// WARNING: The value returned by this method is unreliable as 1) the Parquet
+  /// file metadata stores the version as a single integer and 2) some producers
+  /// are known to always write a hardcoded value.  Therefore, you cannot use
+  /// this value to know which features are used in the file.
   ParquetVersion::type version() const;
 
   /// \brief Return the application's user-agent string of the writer.

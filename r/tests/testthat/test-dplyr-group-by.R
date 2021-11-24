@@ -15,52 +15,75 @@
 # specific language governing permissions and limitations
 # under the License.
 
-library(dplyr)
+skip_if_not_available("dataset")
+
+library(dplyr, warn.conflicts = FALSE)
 library(stringr)
 
 tbl <- example_data
 
 test_that("group_by groupings are recorded", {
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       group_by(chr) %>%
       select(int, chr) %>%
       filter(int > 5) %>%
-      summarize(min_int = min(int)),
+      collect(),
     tbl
   )
 })
 
-test_that("group_by doesn't yet support creating/renaming", {
-  expect_dplyr_equal(
-    input %>%
+test_that("group_by supports creating/renaming", {
+  compare_dplyr_binding(
+    .input %>%
       group_by(chr, numbers = int) %>%
       collect(),
     tbl
   )
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       group_by(chr, numbers = int * 4) %>%
+      collect(),
+    tbl
+  )
+  compare_dplyr_binding(
+    .input %>%
+      group_by(int > 4, lgl, foo = int > 5) %>%
       collect(),
     tbl
   )
 })
 
 test_that("ungroup", {
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       group_by(chr) %>%
       select(int, chr) %>%
       ungroup() %>%
       filter(int > 5) %>%
-      summarize(min_int = min(int)),
+      collect(),
     tbl
+  )
+
+  # to confirm that the above expectation is actually testing what we think it's
+  # testing, verify that compare_dplyr_binding() distinguishes between grouped and
+  # ungrouped tibbles
+  expect_error(
+    compare_dplyr_binding(
+      .input %>%
+        group_by(chr) %>%
+        select(int, chr) %>%
+        (function(x) if (inherits(x, "tbl_df")) ungroup(x) else x) %>%
+        filter(int > 5) %>%
+        collect(),
+      tbl
+    )
   )
 })
 
 test_that("group_by then rename", {
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       group_by(chr) %>%
       select(string = chr, int) %>%
       collect(),
@@ -70,14 +93,14 @@ test_that("group_by then rename", {
 
 test_that("group_by with .drop", {
   test_groups <- c("starting_a_fight", "consoling_a_child", "petting_a_dog")
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       group_by(!!!syms(test_groups), .drop = TRUE) %>%
       collect(),
     example_with_logical_factors
   )
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       group_by(!!!syms(test_groups), .drop = FALSE) %>%
       collect(),
     example_with_logical_factors
@@ -108,25 +131,25 @@ test_that("group_by with .drop", {
       group_by_drop_default(),
     TRUE
   )
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       group_by(.drop = FALSE) %>% # no group by vars
       group_by_drop_default(),
     example_with_logical_factors
   )
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       group_by_drop_default(),
     example_with_logical_factors
   )
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       group_by(!!!syms(test_groups)) %>%
       group_by_drop_default(),
     example_with_logical_factors
   )
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       group_by(!!!syms(test_groups), .drop = FALSE) %>%
       ungroup() %>%
       group_by_drop_default(),

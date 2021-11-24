@@ -15,8 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("install_arrow()")
-
 r_only({
   test_that("arrow_repos", {
     cran <- "https://cloud.r-project.org/"
@@ -24,7 +22,7 @@ r_only({
     other <- "https://cran.fiocruz.br/"
 
     opts <- list(
-      repos=c(CRAN = "@CRAN@"),  # Restore defaul
+      repos = c(CRAN = "@CRAN@"), # Restore defaul
       arrow.dev_repo = ours
     )
     withr::with_options(opts, {

@@ -30,6 +30,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
+#include "arrow/util/ubsan.h"
 
 #include "parquet/column_reader.h"
 #include "parquet/column_writer.h"
@@ -44,6 +45,7 @@
 
 using arrow::default_memory_pool;
 using arrow::MemoryPool;
+using arrow::util::SafeCopy;
 
 namespace BitUtil = arrow::BitUtil;
 
@@ -318,7 +320,7 @@ class TestStatistics : public PrimitiveTypedTest<TestType> {
     std::vector<uint8_t> valid_bits(
         BitUtil::BytesForBits(static_cast<uint32_t>(this->values_.size())) + 1, 255);
     statistics3->UpdateSpaced(this->values_ptr_, valid_bits.data(), 0,
-                              this->values_.size(), 0);
+                              this->values_.size(), this->values_.size(), 0);
     std::string encoded_min_spaced = statistics3->EncodeMin();
     std::string encoded_max_spaced = statistics3->EncodeMax();
 
@@ -651,6 +653,12 @@ class TestStatisticsSortOrder : public ::testing::Test {
  public:
   using c_type = typename TestType::c_type;
 
+  void SetUp() override {
+#ifndef ARROW_WITH_SNAPPY
+    GTEST_SKIP() << "Test requires Snappy compression";
+#endif
+  }
+
   void AddNodes(std::string name) {
     fields_.push_back(schema::PrimitiveNode::Make(
         name, Repetition::REQUIRED, TestType::type_num, ConvertedType::NONE));
@@ -702,10 +710,11 @@ class TestStatisticsSortOrder : public ::testing::Test {
     std::shared_ptr<parquet::FileMetaData> file_metadata = parquet_reader->metadata();
     std::shared_ptr<parquet::RowGroupMetaData> rg_metadata = file_metadata->RowGroup(0);
     for (int i = 0; i < static_cast<int>(fields_.size()); i++) {
+      ARROW_SCOPED_TRACE("Statistics for field #", i);
       std::shared_ptr<parquet::ColumnChunkMetaData> cc_metadata =
           rg_metadata->ColumnChunk(i);
-      ASSERT_EQ(stats_[i].min(), cc_metadata->statistics()->EncodeMin());
-      ASSERT_EQ(stats_[i].max(), cc_metadata->statistics()->EncodeMax());
+      EXPECT_EQ(stats_[i].min(), cc_metadata->statistics()->EncodeMin());
+      EXPECT_EQ(stats_[i].max(), cc_metadata->statistics()->EncodeMax());
     }
   }
 
@@ -894,6 +903,7 @@ void TestByteArrayStatisticsFromArrow() {
 
   ASSERT_EQ(ByteArray(typed_values.GetView(2)), stats->min());
   ASSERT_EQ(ByteArray(typed_values.GetView(9)), stats->max());
+  ASSERT_EQ(2, stats->null_count());
 }
 
 TEST(TestByteArrayStatisticsFromArrow, StringType) {
@@ -934,20 +944,21 @@ template <typename Stats, typename Array, typename T = typename Array::value_typ
 void AssertMinMaxAre(Stats stats, const Array& values, T expected_min, T expected_max) {
   stats->Update(values.data(), values.size(), 0);
   ASSERT_TRUE(stats->HasMinMax());
-  ASSERT_EQ(stats->min(), expected_min);
-  ASSERT_EQ(stats->max(), expected_max);
+  EXPECT_EQ(stats->min(), expected_min);
+  EXPECT_EQ(stats->max(), expected_max);
 }
 
-template <typename Stats, typename Array, typename T = typename Array::value_type>
+template <typename Stats, typename Array, typename T = typename Stats::T>
 void AssertMinMaxAre(Stats stats, const Array& values, const uint8_t* valid_bitmap,
                      T expected_min, T expected_max) {
   auto n_values = values.size();
   auto null_count = ::arrow::internal::CountSetBits(valid_bitmap, n_values, 0);
   auto non_null_count = n_values - null_count;
-  stats->UpdateSpaced(values.data(), valid_bitmap, 0, non_null_count, null_count);
+  stats->UpdateSpaced(values.data(), valid_bitmap, 0, non_null_count + null_count,
+                      non_null_count, null_count);
   ASSERT_TRUE(stats->HasMinMax());
-  ASSERT_EQ(stats->min(), expected_min);
-  ASSERT_EQ(stats->max(), expected_max);
+  EXPECT_EQ(stats->min(), expected_min);
+  EXPECT_EQ(stats->max(), expected_max);
 }
 
 template <typename Stats, typename Array>
@@ -961,22 +972,23 @@ void AssertUnsetMinMax(Stats stats, const Array& values, const uint8_t* valid_bi
   auto n_values = values.size();
   auto null_count = ::arrow::internal::CountSetBits(valid_bitmap, n_values, 0);
   auto non_null_count = n_values - null_count;
-  stats->UpdateSpaced(values.data(), valid_bitmap, 0, non_null_count, null_count);
+  stats->UpdateSpaced(values.data(), valid_bitmap, 0, non_null_count + null_count,
+                      non_null_count, null_count);
   ASSERT_FALSE(stats->HasMinMax());
 }
 
 template <typename ParquetType, typename T = typename ParquetType::c_type>
-void CheckExtremums() {
+void CheckExtrema() {
   using UT = typename std::make_unsigned<T>::type;
 
-  T smin = std::numeric_limits<T>::min();
-  T smax = std::numeric_limits<T>::max();
-  T umin = std::numeric_limits<UT>::min();
-  T umax = std::numeric_limits<UT>::max();
+  const T smin = std::numeric_limits<T>::min();
+  const T smax = std::numeric_limits<T>::max();
+  const T umin = SafeCopy<T>(std::numeric_limits<UT>::min());
+  const T umax = SafeCopy<T>(std::numeric_limits<UT>::max());
 
   constexpr int kNumValues = 8;
   std::array<T, kNumValues> values{0,    smin,     smax,     umin,
-                                   umax, smin + 1, smax - 1, umin - 1};
+                                   umax, smin + 1, smax - 1, umax - 1};
 
   NodePtr unsigned_node = PrimitiveNode::Make(
       "uint", Repetition::OPTIONAL,
@@ -987,15 +999,47 @@ void CheckExtremums() {
       LogicalType::Int(sizeof(T) * CHAR_BIT, true /*signed*/), ParquetType::type_num);
   ColumnDescriptor signed_descr(signed_node, 1, 1);
 
-  auto unsigned_stats = MakeStatistics<ParquetType>(&unsigned_descr);
-  AssertMinMaxAre(unsigned_stats, values, umin, umax);
+  {
+    ARROW_SCOPED_TRACE("unsigned statistics: umin = ", umin, ", umax = ", umax,
+                       ", node type = ", unsigned_node->logical_type()->ToString(),
+                       ", physical type = ", unsigned_descr.physical_type(),
+                       ", sort order = ", unsigned_descr.sort_order());
+    auto unsigned_stats = MakeStatistics<ParquetType>(&unsigned_descr);
+    AssertMinMaxAre(unsigned_stats, values, umin, umax);
+  }
+  {
+    ARROW_SCOPED_TRACE("signed statistics: smin = ", smin, ", smax = ", smax,
+                       ", node type = ", signed_node->logical_type()->ToString(),
+                       ", physical type = ", signed_descr.physical_type(),
+                       ", sort order = ", signed_descr.sort_order());
+    auto signed_stats = MakeStatistics<ParquetType>(&signed_descr);
+    AssertMinMaxAre(signed_stats, values, smin, smax);
+  }
 
-  auto signed_stats = MakeStatistics<ParquetType>(&signed_descr);
-  AssertMinMaxAre(signed_stats, values, smin, smax);
+  // With validity bitmap
+  std::vector<bool> is_valid = {true, false, false, false, false, true, true, true};
+  std::shared_ptr<Buffer> valid_bitmap;
+  ::arrow::BitmapFromVector(is_valid, &valid_bitmap);
+  {
+    ARROW_SCOPED_TRACE("spaced unsigned statistics: umin = ", umin, ", umax = ", umax,
+                       ", node type = ", unsigned_node->logical_type()->ToString(),
+                       ", physical type = ", unsigned_descr.physical_type(),
+                       ", sort order = ", unsigned_descr.sort_order());
+    auto unsigned_stats = MakeStatistics<ParquetType>(&unsigned_descr);
+    AssertMinMaxAre(unsigned_stats, values, valid_bitmap->data(), T{0}, umax - 1);
+  }
+  {
+    ARROW_SCOPED_TRACE("spaced signed statistics: smin = ", smin, ", smax = ", smax,
+                       ", node type = ", signed_node->logical_type()->ToString(),
+                       ", physical type = ", signed_descr.physical_type(),
+                       ", sort order = ", signed_descr.sort_order());
+    auto signed_stats = MakeStatistics<ParquetType>(&signed_descr);
+    AssertMinMaxAre(signed_stats, values, valid_bitmap->data(), smin + 1, smax - 1);
+  }
 }
 
-TEST(TestStatistic, Int32Extremums) { CheckExtremums<Int32Type>(); }
-TEST(TestStatistic, Int64Extremums) { CheckExtremums<Int64Type>(); }
+TEST(TestStatistic, Int32Extrema) { CheckExtrema<Int32Type>(); }
+TEST(TestStatistic, Int64Extrema) { CheckExtrema<Int64Type>(); }
 
 // PARQUET-1225: Float NaN values may lead to incorrect min-max
 template <typename ParquetType>

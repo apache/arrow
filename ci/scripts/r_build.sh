@@ -24,7 +24,7 @@ with_docs=${2:-false}
 
 pushd ${source_dir}
 
-${R_BIN} CMD INSTALL .
+${R_BIN} CMD INSTALL ${INSTALL_ARGS} .
 
 if [ "${with_docs}" == "true" ]; then
   ${R_BIN} -e "pkgdown::build_site(install = FALSE)"

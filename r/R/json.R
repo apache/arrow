@@ -25,17 +25,15 @@
 #'
 #' @return A `data.frame`, or a Table if `as_data_frame = FALSE`.
 #' @export
-#' @examples
-#' \donttest{
-#'   tf <- tempfile()
-#'   on.exit(unlink(tf))
-#'   writeLines('
+#' @examplesIf arrow_with_json()
+#' tf <- tempfile()
+#' on.exit(unlink(tf))
+#' writeLines('
 #'     { "hello": 3.5, "world": false, "yo": "thing" }
 #'     { "hello": 3.25, "world": null }
 #'     { "hello": 0.0, "world": true, "yo": null }
-#'   ', tf, useBytes=TRUE)
-#'   df <- read_json_arrow(tf)
-#' }
+#'   ', tf, useBytes = TRUE)
+#' df <- read_json_arrow(tf)
 read_json_arrow <- function(file,
                             col_select = NULL,
                             as_data_frame = TRUE,
@@ -64,7 +62,8 @@ read_json_arrow <- function(file,
 #' @format NULL
 #' @docType class
 #' @export
-JsonTableReader <- R6Class("JsonTableReader", inherit = ArrowObject,
+JsonTableReader <- R6Class("JsonTableReader",
+  inherit = ArrowObject,
   public = list(
     Read = function() json___TableReader__Read(self)
   )
@@ -100,5 +99,4 @@ JsonParseOptions$create <- function(newlines_in_values = FALSE, schema = NULL) {
   } else {
     json___ParseOptions__initialize2(newlines_in_values, schema)
   }
-  
 }

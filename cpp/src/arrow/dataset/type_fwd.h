@@ -22,17 +22,12 @@
 #include <memory>
 #include <vector>
 
+#include "arrow/compute/type_fwd.h"  // IWYU pragma: export
 #include "arrow/dataset/visibility.h"
 #include "arrow/filesystem/type_fwd.h"  // IWYU pragma: export
 #include "arrow/type_fwd.h"             // IWYU pragma: export
 
 namespace arrow {
-namespace compute {
-
-class ExecContext;
-
-}  // namespace compute
-
 namespace dataset {
 
 class Dataset;
@@ -57,9 +52,23 @@ class FileSystemDataset;
 class FileSystemDatasetFactory;
 struct FileSystemDatasetWriteOptions;
 
+/// \brief Controls what happens if files exist in an output directory during a dataset
+/// write
+enum class ExistingDataBehavior : int8_t {
+  /// Deletes all files in a directory the first time that directory is encountered
+  kDeleteMatchingPartitions,
+  /// Ignores existing files, overwriting any that happen to have the same name as an
+  /// output file
+  kOverwriteOrIgnore,
+  /// Returns an error if there are any files or subdirectories in the output directory
+  kError,
+};
+
 class InMemoryDataset;
 
 class CsvFileFormat;
+class CsvFileWriter;
+class CsvFileWriteOptions;
 struct CsvFragmentScanOptions;
 
 class IpcFileFormat;
@@ -73,13 +82,13 @@ class ParquetFragmentScanOptions;
 class ParquetFileWriter;
 class ParquetFileWriteOptions;
 
-class Expression;
-
 class Partitioning;
 class PartitioningFactory;
 class PartitioningOrFactory;
+struct KeyValuePartitioningOptions;
 class DirectoryPartitioning;
 class HivePartitioning;
+struct HivePartitioningOptions;
 
 struct ScanOptions;
 

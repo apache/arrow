@@ -30,6 +30,9 @@ ENV ARROW_R_DEV=${r_dev}
 ARG devtoolset_version=-1
 ENV DEVTOOLSET_VERSION=${devtoolset_version}
 
+ARG tz="UTC"
+ENV TZ=${tz}
+
 # Make sure R is on the path for the R-hub devel versions (where RPREFIX is set in its dockerfile)
 ENV PATH "${RPREFIX}/bin:${PATH}"
 
@@ -37,6 +40,7 @@ ENV PATH "${RPREFIX}/bin:${PATH}"
 COPY ci/scripts/r_docker_configure.sh /arrow/ci/scripts/
 COPY ci/etc/rprofile /arrow/ci/etc/
 COPY ci/scripts/install_minio.sh /arrow/ci/scripts/
+COPY ci/scripts/install_gcs_testbench.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/r_docker_configure.sh
 
 COPY ci/scripts/r_deps.sh /arrow/ci/scripts/

@@ -23,7 +23,6 @@
 #include <arrow/ipc/feather.h>
 #include <arrow/status.h>
 #include <arrow/type.h>
-
 #include <matrix.h>
 
 namespace arrow {
@@ -56,7 +55,7 @@ class FeatherReader {
   ///        Clients are responsible for freeing the returned mxArray memory
   ///        when it is no longer needed, or passing it to MATLAB to be managed.
   /// \return variables mxArray* struct array containing table variable data
-  mxArray* ReadVariables() const;
+  mxArray* ReadVariables();
 
   /// \brief Initialize a FeatherReader object from a given Feather file.
   /// \param[in] filename path to a Feather file
@@ -66,7 +65,7 @@ class FeatherReader {
 
  private:
   FeatherReader() = default;
-  std::unique_ptr<ipc::feather::TableReader> table_reader_;
+  std::shared_ptr<ipc::feather::Reader> reader_;
   int64_t num_rows_;
   int64_t num_variables_;
   std::string description_;
@@ -74,4 +73,3 @@ class FeatherReader {
 
 }  // namespace matlab
 }  // namespace arrow
-

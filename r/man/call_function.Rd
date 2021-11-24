@@ -31,16 +31,21 @@ Many Arrow compute functions are mapped to R methods,
 and in a \code{dplyr} evaluation context, \link[=list_compute_functions]{all Arrow functions}
 are callable with an \code{arrow_} prefix.
 }
+\details{
+When passing indices in \code{...}, \code{args}, or \code{options}, express them as
+0-based integers (consistent with C++).
+}
 \examples{
-\donttest{
+\dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 a <- Array$create(c(1L, 2L, 3L, NA, 5L))
 s <- Scalar$create(4L)
-call_function("fill_null", a, s)
+call_function("coalesce", a, s)
 
 a <- Array$create(rnorm(10000))
 call_function("quantile", a, options = list(q = seq(0, 1, 0.25)))
-}
+\dontshow{\}) # examplesIf}
 }
 \seealso{
-\href{https://arrow.apache.org/docs/cpp/compute.html}{Arrow C++ documentation} for the functions and their respective options.
+\href{https://arrow.apache.org/docs/cpp/compute.html}{Arrow C++ documentation} for
+the functions and their respective options.
 }

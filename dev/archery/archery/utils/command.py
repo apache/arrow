@@ -50,7 +50,8 @@ class capture_stdout:
 
 
 class Command:
-    """ A runnable command.
+    """
+    A runnable command.
 
     Class inheriting from the Command class must provide the bin
     property/attribute.
@@ -78,7 +79,9 @@ class Command:
 
     @property
     def available(self):
-        """ Indicate if the command binary is found in PATH. """
+        """
+        Indicate if the command binary is found in PATH.
+        """
         binary = shlex.split(self.bin)[0]
         return shutil.which(binary) is not None
 

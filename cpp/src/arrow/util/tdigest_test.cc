@@ -170,7 +170,7 @@ void TestMerge(const std::vector<std::vector<double>>& values_vector, uint32_t d
   // merge into an empty tdigest
   {
     TDigest td(delta);
-    td.Merge(&tds);
+    td.Merge(tds);
     ASSERT_OK(td.Validate());
     for (size_t i = 0; i < quantiles.size(); ++i) {
       const double tolerance = std::max(std::fabs(expected[i]) * error_ratio, 0.1);
@@ -182,7 +182,7 @@ void TestMerge(const std::vector<std::vector<double>>& values_vector, uint32_t d
   {
     TDigest td = std::move(tds[0]);
     tds.erase(tds.begin(), tds.begin() + 1);
-    td.Merge(&tds);
+    td.Merge(tds);
     ASSERT_OK(td.Validate());
     for (size_t i = 0; i < quantiles.size(); ++i) {
       const double tolerance = std::max(std::fabs(expected[i]) * error_ratio, 0.1);

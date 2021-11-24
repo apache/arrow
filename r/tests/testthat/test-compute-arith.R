@@ -45,36 +45,54 @@ test_that("Subtraction", {
   a <- Array$create(c(1:4, NA_integer_))
   expect_equal(a - 3L, Array$create(c(-2:1, NA_integer_)))
 
-  expect_equal(Array$create(c(5.1, 6.1, 7.1, 8.1, NA_real_)) - a,
-               Array$create(c(4.1, 4.1, 4.1, 4.1, NA_real_)))
+  expect_equal(
+    Array$create(c(5.1, 6.1, 7.1, 8.1, NA_real_)) - a,
+    Array$create(c(4.1, 4.1, 4.1, 4.1, NA_real_))
+  )
 })
 
 test_that("Multiplication", {
   a <- Array$create(c(1:4, NA_integer_))
   expect_equal(a * 2L, Array$create(c(1:4 * 2L, NA_integer_)))
 
-  expect_equal((a * 0.5) * 3L,
-               Array$create(c(1.5, 3, 4.5, 6, NA_real_)))
+  expect_equal(
+    (a * 0.5) * 3L,
+    Array$create(c(1.5, 3, 4.5, 6, NA_real_))
+  )
 })
 
 test_that("Division", {
   a <- Array$create(c(1:4, NA_integer_))
   expect_equal(a / 2, Array$create(c(1:4 / 2, NA_real_)))
-  expect_equal(a %/% 2, Array$create(c(0L, 1L, 1L, 2L, NA_integer_)))
+  expect_equal(a %/% 0, Array$create(c(Inf, Inf, Inf, Inf, NA_real_)))
+  expect_equal(a %/% 2, Array$create(c(0, 1, 1, 2, NA_real_)))
+  expect_equal(a %/% 2L, Array$create(c(0L, 1L, 1L, 2L, NA_integer_)))
+  expect_equal(a %/% 0L, Array$create(rep(NA_integer_, 5)))
   expect_equal(a / 2 / 2, Array$create(c(1:4 / 2 / 2, NA_real_)))
-  expect_equal(a %/% 2 %/% 2, Array$create(c(0L, 0L, 0L, 1L, NA_integer_)))
+  expect_equal(a %/% 2L %/% 2L, Array$create(c(0L, 0L, 0L, 1L, NA_integer_)))
+  expect_equal(a / 0, Array$create(c(Inf, Inf, Inf, Inf, NA_real_)))
+  # TODO add tests for integer division %/% by 0
+  # see https://issues.apache.org/jira/browse/ARROW-14297
 
   b <- a$cast(float64())
   expect_equal(b / 2, Array$create(c(1:4 / 2, NA_real_)))
-  expect_equal(b %/% 2, Array$create(c(0L, 1L, 1L, 2L, NA_integer_)))
+  expect_equal(b %/% 0, Array$create(c(Inf, Inf, Inf, Inf, NA_real_)))
+  expect_equal(b %/% 0L, Array$create(c(Inf, Inf, Inf, Inf, NA_real_)))
+  expect_equal(b %/% 2, Array$create(c(0, 1, 1, 2, NA_real_)))
+  expect_equal(b %/% 2L, Array$create(c(0, 1, 1, 2, NA_real_)))
+  expect_equal(b / 0, Array$create(c(Inf, Inf, Inf, Inf, NA_real_)))
+  # TODO add tests for integer division %/% by 0
+  # see https://issues.apache.org/jira/browse/ARROW-14297
 
   # the behavior of %/% matches R's (i.e. the integer of the quotient, not
   # simply dividing two integers)
   expect_equal(b / 2.2, Array$create(c(1:4 / 2.2, NA_real_)))
+  # nolint start
   # c(1:4) %/% 2.2 != c(1:4) %/% as.integer(2.2)
   # c(1:4) %/% 2.2             == c(0L, 0L, 1L, 1L)
   # c(1:4) %/% as.integer(2.2) == c(0L, 1L, 1L, 2L)
-  expect_equal(b %/% 2.2, Array$create(c(0L, 0L, 1L, 1L, NA_integer_)))
+  # nolint end
+  expect_equal(b %/% 2.2, Array$create(c(0, 0, 1, 1, NA_integer_)))
 
   expect_equal(a %% 2, Array$create(c(1L, 0L, 1L, 0L, NA_integer_)))
 
@@ -89,28 +107,29 @@ test_that("Power", {
 
   expect_equal(a^0, Array$create(c(1, 1, 1, 1, NA_real_)))
   expect_equal(a^2, Array$create(c(1, 4, 9, 16, NA_real_)))
-  expect_equal(a^(-1), Array$create(c(1, 1/2, 1/3, 1/4, NA_real_)))
+  expect_equal(a^(-1), Array$create(c(1, 1 / 2, 1 / 3, 1 / 4, NA_real_)))
   expect_equal(a^(.5), Array$create(c(1, sqrt(2), sqrt(3), sqrt(4), NA_real_)))
 
   expect_equal(b^0, Array$create(c(1, 1, 1, 1, NA_real_)))
   expect_equal(b^2, Array$create(c(1, 4, 9, 16, NA_real_)))
-  expect_equal(b^(-1), Array$create(c(1, 1/2, 1/3, 1/4, NA_real_)))
+  expect_equal(b^(-1), Array$create(c(1, 1 / 2, 1 / 3, 1 / 4, NA_real_)))
   expect_equal(b^(.5), Array$create(c(1, sqrt(2), sqrt(3), sqrt(4), NA_real_)))
 
   expect_equal(c^0, Array$create(c(1, 1, 1, 1, NA_real_)))
   expect_equal(c^2, Array$create(c(1, 4, 9, 16, NA_real_)))
-  expect_equal(c^(-1), Array$create(c(1, 1/2, 1/3, 1/4, NA_real_)))
+  expect_equal(c^(-1), Array$create(c(1, 1 / 2, 1 / 3, 1 / 4, NA_real_)))
   expect_equal(c^(.5), Array$create(c(1, sqrt(2), sqrt(3), sqrt(4), NA_real_)))
 
   expect_equal(d^0, Array$create(c(1, 1, 1, 1, NA_real_)))
   expect_equal(d^2, Array$create(c(1, 4, 9, 16, NA_real_)))
-  expect_equal(d^(-1), Array$create(c(1, 1/2, 1/3, 1/4, NA_real_)))
+  expect_equal(d^(-1), Array$create(c(1, 1 / 2, 1 / 3, 1 / 4, NA_real_)))
   expect_equal(d^(.5), Array$create(c(1, sqrt(2), sqrt(3), sqrt(4), NA_real_)))
 })
 
 test_that("Dates casting", {
   a <- Array$create(c(Sys.Date() + 1:4, NA_integer_))
 
-  skip("autocasting should happen in compute kernels; R workaround fails on this ARROW-8919")
-  expect_equal(a + 2, Array$create(c((Sys.Date() + 1:4 ) + 2), NA_integer_))
+  skip("ARROW-11090 (date/datetime arithmetic)")
+  # Error: NotImplemented: Function add_checked has no kernel matching input types (array[date32[day]], scalar[double])
+  expect_equal(a + 2, Array$create(c((Sys.Date() + 1:4) + 2), NA_integer_))
 })

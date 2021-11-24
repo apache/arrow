@@ -24,6 +24,7 @@ import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.BaseLargeVariableWidthVector;
 import org.apache.arrow.vector.BaseVariableWidthVector;
 import org.apache.arrow.vector.BitVector;
+import org.apache.arrow.vector.ExtensionTypeVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.NullVector;
 import org.apache.arrow.vector.TypeLayout;
@@ -234,6 +235,12 @@ public class ValidateVectorBufferVisitor implements VectorVisitor<Void, Void> {
 
   @Override
   public Void visit(NullVector vector, Void value) {
+    return null;
+  }
+
+  @Override
+  public Void visit(ExtensionTypeVector<?> vector, Void value) {
+    vector.getUnderlyingVector().accept(this, value);
     return null;
   }
 }

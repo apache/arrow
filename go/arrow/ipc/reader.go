@@ -14,18 +14,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ipc // import "github.com/apache/arrow/go/arrow/ipc"
+package ipc
 
 import (
 	"bytes"
 	"io"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/array"
-	"github.com/apache/arrow/go/arrow/internal/debug"
-	"github.com/apache/arrow/go/arrow/internal/flatbuf"
-	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/v7/arrow"
+	"github.com/apache/arrow/go/v7/arrow/array"
+	"github.com/apache/arrow/go/v7/arrow/internal/debug"
+	"github.com/apache/arrow/go/v7/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v7/arrow/memory"
 	"golang.org/x/xerrors"
 )
 
@@ -58,10 +58,11 @@ func NewReaderFromMessageReader(r MessageReader, opts ...Option) (*Reader, error
 	}
 
 	rr := &Reader{
-		r:     r,
-		types: make(dictTypeMap),
-		memo:  newMemo(),
-		mem:   cfg.alloc,
+		r:        r,
+		refCount: 1,
+		types:    make(dictTypeMap),
+		memo:     newMemo(),
+		mem:      cfg.alloc,
 	}
 
 	err := rr.readSchema(cfg.schema)
@@ -74,7 +75,7 @@ func NewReaderFromMessageReader(r MessageReader, opts ...Option) (*Reader, error
 
 // NewReader returns a reader that reads records from an input stream.
 func NewReader(r io.Reader, opts ...Option) (*Reader, error) {
-	return NewReaderFromMessageReader(NewMessageReader(r), opts...)
+	return NewReaderFromMessageReader(NewMessageReader(r, opts...), opts...)
 }
 
 // Err returns the last error encountered during the iteration over the
@@ -175,7 +176,7 @@ func (r *Reader) next() bool {
 		return false
 	}
 
-	r.rec = newRecord(r.schema, msg.meta, bytes.NewReader(msg.body.Bytes()))
+	r.rec = newRecord(r.schema, msg.meta, bytes.NewReader(msg.body.Bytes()), r.mem)
 	return true
 }
 

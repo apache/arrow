@@ -38,7 +38,8 @@ static void CompareArrayScalar(benchmark::State& state) {
   auto array = rand.ArrayOf(ty, args.size, args.null_proportion);
   auto scalar = *rand.ArrayOf(ty, 1, 0)->GetScalar(0);
   for (auto _ : state) {
-    ABORT_NOT_OK(Compare(array, Datum(scalar), CompareOptions(op)).status());
+    ABORT_NOT_OK(
+        CallFunction(CompareOperatorToFunctionName(op), {array, Datum(scalar)}).status());
   }
 }
 
@@ -50,7 +51,7 @@ static void CompareArrayArray(benchmark::State& state) {
   auto lhs = rand.ArrayOf(ty, args.size, args.null_proportion);
   auto rhs = rand.ArrayOf(ty, args.size, args.null_proportion);
   for (auto _ : state) {
-    ABORT_NOT_OK(Compare(lhs, rhs, CompareOptions(op)).status());
+    ABORT_NOT_OK(CallFunction(CompareOperatorToFunctionName(op), {lhs, rhs}).status());
   }
 }
 

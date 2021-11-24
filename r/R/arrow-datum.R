@@ -19,7 +19,8 @@
 
 # Base class for Array, ChunkedArray, and Scalar, for S3 method dispatch only.
 # Does not exist in C++ class hierarchy
-ArrowDatum <- R6Class("ArrowDatum", inherit = ArrowObject,
+ArrowDatum <- R6Class("ArrowDatum",
+  inherit = ArrowObject,
   public = list(
     cast = function(target_type, safe = TRUE, ...) {
       opts <- cast_options(safe, ...)
@@ -33,21 +34,124 @@ ArrowDatum <- R6Class("ArrowDatum", inherit = ArrowObject,
 length.ArrowDatum <- function(x) x$length()
 
 #' @export
-is.na.ArrowDatum <- function(x) call_function("is_null", x)
-
-#' @export
-is.nan.ArrowDatum <- function(x) call_function("is_nan", x)
-
-#' @export
-as.vector.ArrowDatum <- function(x, mode) {
-  tryCatch(
-    x$as_vector(),
-    error = handle_embedded_nul_error
-  )
+is.finite.ArrowDatum <- function(x) {
+  is_fin <- call_function("is_finite", x)
+  # for compatibility with base::is.finite(), return FALSE for NA_real_
+  is_fin & !is.na(is_fin)
 }
 
 #' @export
-na.omit.ArrowDatum <- function(object, ...){
+is.infinite.ArrowDatum <- function(x) {
+  is_inf <- call_function("is_inf", x)
+  # for compatibility with base::is.infinite(), return FALSE for NA_real_
+  is_inf & !is.na(is_inf)
+}
+
+#' @export
+is.na.ArrowDatum <- function(x) {
+  call_function("is_null", x, options = list(nan_is_null = TRUE))
+}
+
+#' @export
+is.nan.ArrowDatum <- function(x) {
+  if (x$type_id() %in% TYPES_WITH_NAN) {
+    # TODO: if an option is added to the is_nan kernel to treat NA as NaN,
+    # use that to simplify the code here (ARROW-13366)
+    call_function("is_nan", x) & call_function("is_valid", x)
+  } else {
+    Scalar$create(FALSE)$as_array(length(x))
+  }
+}
+
+#' @export
+as.vector.ArrowDatum <- function(x, mode) {
+  x$as_vector()
+}
+
+#' @export
+Ops.ArrowDatum <- function(e1, e2) {
+  if (.Generic == "!") {
+    eval_array_expression(.Generic, e1)
+  } else if (.Generic %in% names(.array_function_map)) {
+    eval_array_expression(.Generic, e1, e2)
+  } else {
+    stop(paste0("Unsupported operation on `", class(e1)[1L], "` : "), .Generic, call. = FALSE)
+  }
+}
+
+# Wrapper around call_function that:
+# (1) maps R function names to Arrow C++ compute ("/" --> "divide_checked")
+# (2) wraps R input args as Array or Scalar
+eval_array_expression <- function(FUN,
+                                  ...,
+                                  args = list(...),
+                                  options = empty_named_list()) {
+  if (FUN == "-" && length(args) == 1L) {
+    if (inherits(args[[1]], "ArrowObject")) {
+      return(eval_array_expression("negate_checked", args[[1]]))
+    } else {
+      return(-args[[1]])
+    }
+  }
+  args <- lapply(args, .wrap_arrow, FUN)
+
+  # In Arrow, "divide" is one function, which does integer division on
+  # integer inputs and floating-point division on floats
+  if (FUN == "/") {
+    # TODO: omg so many ways it's wrong to assume these types
+    args <- map(args, ~ .$cast(float64()))
+  } else if (FUN == "%/%") {
+    # In R, integer division works like floor(float division)
+    out <- eval_array_expression("/", args = args)
+
+    # integer output only for all integer input
+    int_type_ids <- Type[toupper(INTEGER_TYPES)]
+    numerator_is_int <- args[[1]]$type_id() %in% int_type_ids
+    denominator_is_int <- args[[2]]$type_id() %in% int_type_ids
+
+    if (numerator_is_int && denominator_is_int) {
+      out_float <- eval_array_expression(
+        "if_else",
+        eval_array_expression("equal", args[[2]], 0L),
+        Scalar$create(NA_integer_),
+        eval_array_expression("floor", out)
+      )
+      return(out_float$cast(args[[1]]$type))
+    } else {
+      return(eval_array_expression("floor", out))
+    }
+  } else if (FUN == "%%") {
+    # We can't simply do {e1 - e2 * ( e1 %/% e2 )} since Ops.Array evaluates
+    # eagerly, but we can build that up
+    quotient <- eval_array_expression("%/%", args = args)
+    base <- eval_array_expression("*", quotient, args[[2]])
+    # this cast is to ensure that the result of this and e1 are the same
+    # (autocasting only applies to scalars)
+    base <- base$cast(args[[1]]$type)
+    return(eval_array_expression("-", args[[1]], base))
+  }
+
+  call_function(
+    .array_function_map[[FUN]] %||% FUN,
+    args = args,
+    options = options
+  )
+}
+
+.wrap_arrow <- function(arg, fun) {
+  if (!inherits(arg, "ArrowObject")) {
+    # TODO: Array$create if lengths are equal?
+    if (fun == "%in%") {
+      arg <- Array$create(arg)
+    } else {
+      arg <- Scalar$create(arg)
+    }
+  }
+  arg
+}
+
+#' @export
+na.omit.ArrowDatum <- function(object, ...) {
   object$Filter(!is.na(object))
 }
 
@@ -55,7 +159,7 @@ na.omit.ArrowDatum <- function(object, ...){
 na.exclude.ArrowDatum <- na.omit.ArrowDatum
 
 #' @export
-na.fail.ArrowDatum <- function(object, ...){
+na.fail.ArrowDatum <- function(object, ...) {
   if (object$null_count > 0) {
     stop("missing values in object", call. = FALSE)
   }
@@ -66,10 +170,6 @@ filter_rows <- function(x, i, keep_na = TRUE, ...) {
   # General purpose function for [ row subsetting with R semantics
   # Based on the input for `i`, calls x$Filter, x$Slice, or x$Take
   nrows <- x$num_rows %||% x$length() # Depends on whether Array or Table-like
-  if (inherits(i, "array_expression")) {
-    # Evaluate it
-    i <- eval_array_expression(i)
-  }
   if (is.logical(i)) {
     if (isTRUE(i)) {
       # Shortcut without doing any work
@@ -100,7 +200,7 @@ filter_rows <- function(x, i, keep_na = TRUE, ...) {
     if (is.Array(i)) {
       stop("Cannot extract rows with an Array of type ", i$type$ToString(), call. = FALSE)
     }
-    stop("Cannot extract rows with an object of class ", class(i), call.=FALSE)
+    stop("Cannot extract rows with an object of class ", class(i), call. = FALSE)
   }
 }
 
@@ -148,6 +248,7 @@ is.sliceable <- function(i) {
   is.numeric(i) &&
     length(i) > 0 &&
     all(i > 0) &&
+    i[1] <= i[length(i)] &&
     identical(as.integer(i), i[1]:i[length(i)])
 }
 

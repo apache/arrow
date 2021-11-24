@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
@@ -43,10 +43,9 @@ popd
 pushd "${ARROW_DIR}"
 git checkout "${release_tag}"
 
-archery docker run \
+UBUNTU=20.10 archery docker run \
   -v "${ARROW_SITE_DIR}/docs:/build/docs" \
   -e ARROW_DOCS_VERSION="${version}" \
-  -e UBUNTU=20.10 \
   ubuntu-docs
 
 : ${PUSH:=1}

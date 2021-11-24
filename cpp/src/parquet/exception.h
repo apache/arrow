@@ -33,23 +33,29 @@
 
 // Parquet exception to Arrow Status
 
-#define PARQUET_CATCH_NOT_OK(s)                          \
-  try {                                                  \
-    (s);                                                 \
-  } catch (const ::parquet::ParquetStatusException& e) { \
-    return e.status();                                   \
-  } catch (const ::parquet::ParquetException& e) {       \
-    return ::arrow::Status::IOError(e.what());           \
+#define BEGIN_PARQUET_CATCH_EXCEPTIONS try {
+#define END_PARQUET_CATCH_EXCEPTIONS                   \
+  }                                                    \
+  catch (const ::parquet::ParquetStatusException& e) { \
+    return e.status();                                 \
+  }                                                    \
+  catch (const ::parquet::ParquetException& e) {       \
+    return ::arrow::Status::IOError(e.what());         \
   }
 
-#define PARQUET_CATCH_AND_RETURN(s)                      \
-  try {                                                  \
-    return (s);                                          \
-  } catch (const ::parquet::ParquetStatusException& e) { \
-    return e.status();                                   \
-  } catch (const ::parquet::ParquetException& e) {       \
-    return ::arrow::Status::IOError(e.what());           \
-  }
+// clang-format off
+
+#define PARQUET_CATCH_NOT_OK(s)    \
+  BEGIN_PARQUET_CATCH_EXCEPTIONS   \
+  (s);                             \
+  END_PARQUET_CATCH_EXCEPTIONS
+
+// clang-format on
+
+#define PARQUET_CATCH_AND_RETURN(s) \
+  BEGIN_PARQUET_CATCH_EXCEPTIONS    \
+  return (s);                       \
+  END_PARQUET_CATCH_EXCEPTIONS
 
 // Arrow Status to Parquet exception
 
@@ -148,12 +154,5 @@ template <typename StatusReturnBlock>
 void ThrowNotOk(StatusReturnBlock&& b) {
   PARQUET_THROW_NOT_OK(b());
 }
-
-#define BEGIN_PARQUET_CATCH_EXCEPTIONS try {
-#define END_PARQUET_CATCH_EXCEPTIONS             \
-  }                                              \
-  catch (const ::parquet::ParquetException& e) { \
-    return ::arrow::Status::IOError(e.what());   \
-  }
 
 }  // namespace parquet

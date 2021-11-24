@@ -18,8 +18,11 @@
  */
 
 #include <arrow-glib/data-type.hpp>
+#include <arrow-glib/error.hpp>
 #include <arrow-glib/field.hpp>
 #include <arrow-glib/internal-hash-table.hpp>
+
+#include <arrow/c/bridge.h>
 
 G_BEGIN_DECLS
 
@@ -130,6 +133,31 @@ garrow_field_class_init(GArrowFieldClass *klass)
 }
 
 /**
+ * garrow_field_import:
+ * @c_abi_schema: (not nullable): A `struct ArrowSchema *`.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (transfer full) (nullable): An imported #GArrowField on success,
+ *   %NULL on error.
+ *
+ *   You don't need to release the passed `struct ArrowSchema *`,
+ *   even if this function reports an error.
+ *
+ * Since: 6.0.0
+ */
+GArrowField *
+garrow_field_import(gpointer c_abi_schema, GError **error)
+{
+  auto arrow_field_result =
+    arrow::ImportField(static_cast<ArrowSchema *>(c_abi_schema));
+  if (garrow::check(error, arrow_field_result, "[field][import]")) {
+    return garrow_field_new_raw(&(*arrow_field_result), nullptr);
+  } else {
+    return NULL;
+  }
+}
+
+/**
  * garrow_field_new:
  * @name: The name of the field.
  * @data_type: The data type of the field.
@@ -163,6 +191,33 @@ garrow_field_new_full(const gchar *name,
                                    garrow_data_type_get_raw(data_type),
                                    nullable);
   return garrow_field_new_raw(&arrow_field, data_type);
+}
+
+/**
+ * garrow_field_export:
+ * @field: A #GArrowField.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (transfer full) (nullable): An exported #GArrowField as
+ *   `struct ArrowStruct *` on success, %NULL on error.
+ *
+ *   It should be freed with the `ArrowSchema::release` callback then
+ *   g_free() when no longer needed.
+ *
+ * Since: 6.0.0
+ */
+gpointer
+garrow_field_export(GArrowField *field, GError **error)
+{
+  const auto arrow_field = garrow_field_get_raw(field);
+  auto c_abi_schema = g_new(ArrowSchema, 1);
+  auto status = arrow::ExportField(*arrow_field, c_abi_schema);
+  if (garrow::check(error, status, "[field][export]")) {
+    return c_abi_schema;
+  } else {
+    g_free(c_abi_schema);
+    return NULL;
+  }
 }
 
 /**

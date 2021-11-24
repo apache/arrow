@@ -163,7 +163,7 @@ export class RecordBatchWriter<T extends { [key: string]: DataType } = any> exte
 
         if (!this._sink) {
             throw new Error(`RecordBatchWriter is closed`);
-        } else if (payload === null || payload === undefined) {
+        } else if (payload == null) {
             return this.finish() && undefined;
         } else if (payload instanceof Table && !(schema = payload.schema)) {
             return this.finish() && undefined;

@@ -64,6 +64,7 @@ TYPE_ID_TRAIT(TIME32, Time32Type)
 TYPE_ID_TRAIT(TIME64, Time64Type)
 TYPE_ID_TRAIT(TIMESTAMP, TimestampType)
 TYPE_ID_TRAIT(INTERVAL_DAY_TIME, DayTimeIntervalType)
+TYPE_ID_TRAIT(INTERVAL_MONTH_DAY_NANO, MonthDayNanoIntervalType)
 TYPE_ID_TRAIT(INTERVAL_MONTHS, MonthIntervalType)
 TYPE_ID_TRAIT(DURATION, DurationType)
 TYPE_ID_TRAIT(DECIMAL128, Decimal128Type)
@@ -220,6 +221,7 @@ struct TypeTraits<DayTimeIntervalType> {
   using ArrayType = DayTimeIntervalArray;
   using BuilderType = DayTimeIntervalBuilder;
   using ScalarType = DayTimeIntervalScalar;
+  using CType = DayTimeIntervalType::c_type;
 
   static constexpr int64_t bytes_required(int64_t elements) {
     return elements * static_cast<int64_t>(sizeof(DayTimeIntervalType::DayMilliseconds));
@@ -229,10 +231,26 @@ struct TypeTraits<DayTimeIntervalType> {
 };
 
 template <>
+struct TypeTraits<MonthDayNanoIntervalType> {
+  using ArrayType = MonthDayNanoIntervalArray;
+  using BuilderType = MonthDayNanoIntervalBuilder;
+  using ScalarType = MonthDayNanoIntervalScalar;
+  using CType = MonthDayNanoIntervalType::c_type;
+
+  static constexpr int64_t bytes_required(int64_t elements) {
+    return elements *
+           static_cast<int64_t>(sizeof(MonthDayNanoIntervalType::MonthDayNanos));
+  }
+  constexpr static bool is_parameter_free = true;
+  static std::shared_ptr<DataType> type_singleton() { return month_day_nano_interval(); }
+};
+
+template <>
 struct TypeTraits<MonthIntervalType> {
   using ArrayType = MonthIntervalArray;
   using BuilderType = MonthIntervalBuilder;
   using ScalarType = MonthIntervalScalar;
+  using CType = MonthIntervalType::c_type;
 
   static constexpr int64_t bytes_required(int64_t elements) {
     return elements * static_cast<int64_t>(sizeof(int32_t));
@@ -286,6 +304,7 @@ struct TypeTraits<Decimal128Type> {
   using ArrayType = Decimal128Array;
   using BuilderType = Decimal128Builder;
   using ScalarType = Decimal128Scalar;
+  using CType = Decimal128;
   constexpr static bool is_parameter_free = false;
 };
 
@@ -294,6 +313,7 @@ struct TypeTraits<Decimal256Type> {
   using ArrayType = Decimal256Array;
   using BuilderType = Decimal256Builder;
   using ScalarType = Decimal256Scalar;
+  using CType = Decimal256;
   constexpr static bool is_parameter_free = false;
 };
 
@@ -322,6 +342,8 @@ struct TypeTraits<FixedSizeBinaryType> {
   using ArrayType = FixedSizeBinaryArray;
   using BuilderType = FixedSizeBinaryBuilder;
   using ScalarType = FixedSizeBinaryScalar;
+  // FixedSizeBinary doesn't have offsets per se, but string length is int32 sized
+  using OffsetType = Int32Type;
   constexpr static bool is_parameter_free = false;
 };
 
@@ -756,7 +778,8 @@ template <typename T>
 using is_physical_signed_integer_type =
     std::integral_constant<bool,
                            is_signed_integer_type<T>::value ||
-                               (is_temporal_type<T>::value && has_c_type<T>::value)>;
+                               (is_temporal_type<T>::value && has_c_type<T>::value &&
+                                std::is_integral<typename T::c_type>::value)>;
 
 template <typename T, typename R = void>
 using enable_if_physical_signed_integer =
@@ -845,6 +868,17 @@ static inline bool is_floating(Type::type type_id) {
   return false;
 }
 
+static inline bool is_decimal(Type::type type_id) {
+  switch (type_id) {
+    case Type::DECIMAL128:
+    case Type::DECIMAL256:
+      return true;
+    default:
+      break;
+  }
+  return false;
+}
+
 static inline bool is_primitive(Type::type type_id) {
   switch (type_id) {
     case Type::BOOL:
@@ -866,6 +900,7 @@ static inline bool is_primitive(Type::type type_id) {
     case Type::TIMESTAMP:
     case Type::DURATION:
     case Type::INTERVAL_MONTHS:
+    case Type::INTERVAL_MONTH_DAY_NANO:
     case Type::INTERVAL_DAY_TIME:
       return true;
     default:
@@ -963,6 +998,8 @@ static inline int bit_width(Type::type type_id) {
       return 32;
     case Type::INTERVAL_DAY_TIME:
       return 64;
+    case Type::INTERVAL_MONTH_DAY_NANO:
+      return 128;
 
     case Type::DECIMAL128:
       return 128;
@@ -982,6 +1019,17 @@ static inline bool is_nested(Type::type type_id) {
     case Type::FIXED_SIZE_LIST:
     case Type::MAP:
     case Type::STRUCT:
+    case Type::SPARSE_UNION:
+    case Type::DENSE_UNION:
+      return true;
+    default:
+      break;
+  }
+  return false;
+}
+
+static inline bool is_union(Type::type type_id) {
+  switch (type_id) {
     case Type::SPARSE_UNION:
     case Type::DENSE_UNION:
       return true;

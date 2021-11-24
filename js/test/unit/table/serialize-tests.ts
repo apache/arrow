@@ -19,7 +19,7 @@ import '../../jest-extensions';
 import * as generate from '../../generate-test-data';
 import {
     Table, Schema, Field, DataType, Dictionary, Int32, Float32, Utf8, Null, Int32Vector
-} from '../../Arrow';
+} from 'apache-arrow';
 
 const toSchema = (...xs: [string, DataType][]) => new Schema(xs.map((x) => new Field(...x)));
 const schema1 = toSchema(['a', new Int32()], ['b', new Float32()], ['c', new Dictionary(new Utf8(), new Int32())]);

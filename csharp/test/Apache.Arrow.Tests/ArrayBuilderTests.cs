@@ -114,6 +114,13 @@ namespace Apache.Arrow.Tests
         }
 
         [Fact]
+        public void ListArrayBuilderValidityBuffer()
+        {
+            ListArray listArray = new ListArray.Builder(Int64Type.Default).Append().AppendNull().Build();   
+            Assert.False(listArray.IsValid(2));
+        }
+
+        [Fact]
         public void NestedListArrayBuilder()
         {
             var childListType = new ListType(Int64Type.Default);
@@ -170,8 +177,29 @@ namespace Apache.Arrow.Tests
                     .Build();
 
                 Assert.Equal(1, array.Length);
-                Assert.NotNull(array.GetTimestamp(0));
-                Assert.Equal(now.Truncate(TimeSpan.FromTicks(100)), array.GetTimestamp(0).Value);
+                var value = array.GetTimestamp(0);
+                Assert.NotNull(value);
+                Assert.Equal(now, value.Value);
+
+                timestampType = new TimestampType(TimeUnit.Microsecond, TimeZoneInfo.Local);
+                array = new TimestampArray.Builder(timestampType)
+                    .Append(now)
+                    .Build();
+
+                Assert.Equal(1, array.Length);
+                value = array.GetTimestamp(0);
+                Assert.NotNull(value);
+                Assert.Equal(now.Truncate(TimeSpan.FromTicks(10)), value.Value);
+
+                timestampType = new TimestampType(TimeUnit.Millisecond, TimeZoneInfo.Local);
+                array = new TimestampArray.Builder(timestampType)
+                    .Append(now)
+                    .Build();
+
+                Assert.Equal(1, array.Length);
+                value = array.GetTimestamp(0);
+                Assert.NotNull(value);
+                Assert.Equal(now.Truncate(TimeSpan.FromTicks(TimeSpan.TicksPerMillisecond)), value.Value);
             }
         }
 

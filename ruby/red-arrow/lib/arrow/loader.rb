@@ -29,6 +29,7 @@ module Arrow
     def post_load(repository, namespace)
       require_libraries
       require_extension_library
+      gc_guard
     end
 
     def require_libraries
@@ -37,10 +38,14 @@ module Arrow
       require "arrow/generic-filterable"
       require "arrow/generic-takeable"
       require "arrow/record-containable"
+      require "arrow/symbol-values-appendable"
 
+      require "arrow/aggregate-node-options"
+      require "arrow/aggregation"
       require "arrow/array"
       require "arrow/array-builder"
       require "arrow/bigdecimal-extension"
+      require "arrow/binary-dictionary-array-builder"
       require "arrow/buffer"
       require "arrow/chunked-array"
       require "arrow/column"
@@ -52,6 +57,7 @@ module Arrow
       require "arrow/date32-array-builder"
       require "arrow/date64-array"
       require "arrow/date64-array-builder"
+      require "arrow/datum"
       require "arrow/decimal128"
       require "arrow/decimal128-array"
       require "arrow/decimal128-array-builder"
@@ -63,13 +69,19 @@ module Arrow
       require "arrow/dense-union-data-type"
       require "arrow/dictionary-array"
       require "arrow/dictionary-data-type"
+      require "arrow/equal-options"
+      require "arrow/expression"
       require "arrow/field"
       require "arrow/file-output-stream"
+      require "arrow/file-system"
       require "arrow/fixed-size-binary-array"
       require "arrow/fixed-size-binary-array-builder"
       require "arrow/group"
       require "arrow/list-array-builder"
       require "arrow/list-data-type"
+      require "arrow/map-array"
+      require "arrow/map-array-builder"
+      require "arrow/map-data-type"
       require "arrow/null-array"
       require "arrow/null-array-builder"
       require "arrow/path-extension"
@@ -78,17 +90,23 @@ module Arrow
       require "arrow/record-batch-builder"
       require "arrow/record-batch-file-reader"
       require "arrow/record-batch-iterator"
+      require "arrow/record-batch-reader"
       require "arrow/record-batch-stream-reader"
       require "arrow/rolling-window"
+      require "arrow/s3-global-options"
+      require "arrow/scalar"
       require "arrow/schema"
       require "arrow/slicer"
       require "arrow/sort-key"
       require "arrow/sort-options"
+      require "arrow/source-node-options"
       require "arrow/sparse-union-data-type"
+      require "arrow/string-dictionary-array-builder"
       require "arrow/struct-array"
       require "arrow/struct-array-builder"
       require "arrow/struct-data-type"
       require "arrow/table"
+      require "arrow/table-concatenate-options"
       require "arrow/table-formatter"
       require "arrow/table-list-formatter"
       require "arrow/table-table-formatter"
@@ -110,6 +128,27 @@ module Arrow
 
     def require_extension_library
       require "arrow.so"
+    end
+
+    def gc_guard
+      require "arrow/constructor-arguments-gc-guardable"
+
+      [
+        @base_module::BinaryScalar,
+        @base_module::Buffer,
+        @base_module::DenseUnionScalar,
+        @base_module::FixedSizeBinaryScalar,
+        @base_module::LargeBinaryScalar,
+        @base_module::LargeListScalar,
+        @base_module::LargeStringScalar,
+        @base_module::ListScalar,
+        @base_module::MapScalar,
+        @base_module::SparseUnionScalar,
+        @base_module::StringScalar,
+        @base_module::StructScalar,
+      ].each do |klass|
+        klass.prepend(ConstructorArgumentsGCGuardable)
+      end
     end
 
     def load_object_info(info)
@@ -162,6 +201,12 @@ module Arrow
         case method_name
         when "copy"
           method_name = "dup"
+        end
+        super(info, klass, method_name)
+      when "Arrow::BooleanScalar"
+        case method_name
+        when "value?"
+          method_name = "value"
         end
         super(info, klass, method_name)
       else

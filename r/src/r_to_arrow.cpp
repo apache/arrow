@@ -25,10 +25,15 @@
 #include <arrow/array/builder_dict.h>
 #include <arrow/array/builder_nested.h>
 #include <arrow/array/builder_primitive.h>
+#include <arrow/array/concatenate.h>
+#include <arrow/table.h>
 #include <arrow/type_traits.h>
 #include <arrow/util/bitmap_writer.h>
 #include <arrow/util/checked_cast.h>
 #include <arrow/util/converter.h>
+#include <arrow/util/logging.h>
+
+#include "./r_task_group.h"
 
 namespace arrow {
 
@@ -168,50 +173,94 @@ bool is_NA<int64_t>(int64_t value) {
 }
 
 template <typename T>
-struct RVectorVisitor {
+class RVectorIterator {
+ public:
+  using value_type = T;
+  RVectorIterator(SEXP x, int64_t start)
+      : ptr_x_(reinterpret_cast<const T*>(DATAPTR_RO(x)) + start) {}
+
+  RVectorIterator& operator++() {
+    ++ptr_x_;
+    return *this;
+  }
+
+  const T operator*() const { return *ptr_x_; }
+
+ private:
+  const T* ptr_x_;
+};
+
+template <typename T>
+class RVectorIterator_ALTREP {
+ public:
+  using value_type = T;
   using data_type =
       typename std::conditional<std::is_same<T, int64_t>::value, double, T>::type;
   using r_vector_type = cpp11::r_vector<data_type>;
+  using r_vector_iterator = typename r_vector_type::const_iterator;
 
-  template <typename AppendNull, typename AppendValue>
-  static Status Visit(SEXP x, int64_t size, AppendNull&& append_null,
-                      AppendValue&& append_value) {
-    r_vector_type values(x);
-    auto it = values.begin();
+  RVectorIterator_ALTREP(SEXP x, int64_t start)
+      : vector_(x), it_(vector_.begin() + start) {}
 
-    for (R_xlen_t i = 0; i < size; i++, ++it) {
-      auto value = GetValue(*it);
-
-      if (is_NA<T>(value)) {
-        RETURN_NOT_OK(append_null());
-      } else {
-        RETURN_NOT_OK(append_value(value));
-      }
-    }
-
-    return Status::OK();
+  RVectorIterator_ALTREP& operator++() {
+    ++it_;
+    return *this;
   }
 
+  const T operator*() const { return GetValue(*it_); }
+
   static T GetValue(data_type x) { return x; }
+
+ private:
+  r_vector_type vector_;
+  r_vector_iterator it_;
 };
 
 template <>
-int64_t RVectorVisitor<int64_t>::GetValue(double x) {
+int64_t RVectorIterator_ALTREP<int64_t>::GetValue(double x) {
   int64_t value;
   memcpy(&value, &x, sizeof(int64_t));
   return value;
+}
+
+template <typename Iterator, typename AppendNull, typename AppendValue>
+Status VisitVector(Iterator it, int64_t n, AppendNull&& append_null,
+                   AppendValue&& append_value) {
+  for (R_xlen_t i = 0; i < n; i++, ++it) {
+    auto value = *it;
+
+    if (is_NA<typename Iterator::value_type>(value)) {
+      RETURN_NOT_OK(append_null());
+    } else {
+      RETURN_NOT_OK(append_value(value));
+    }
+  }
+
+  return Status::OK();
 }
 
 class RConverter : public Converter<SEXP, RConversionOptions> {
  public:
   virtual Status Append(SEXP) { return Status::NotImplemented("Append"); }
 
-  virtual Status Extend(SEXP values, int64_t size) {
+  virtual Status Extend(SEXP values, int64_t size, int64_t offset = 0) {
+    return Status::NotImplemented("Extend");
+  }
+
+  // by default, just delay the ->Extend(), i.e. not run in parallel
+  // implementations might redefine so that ->Extend() is run in parallel
+  virtual void DelayedExtend(SEXP values, int64_t size, RTasks& tasks) {
+    auto task = [this, values, size]() { return this->Extend(values, size); };
+    tasks.Append(false, task);
+  }
+
+  virtual Status ExtendMasked(SEXP values, SEXP mask, int64_t size, int64_t offset = 0) {
     return Status::NotImplemented("ExtendMasked");
   }
 
-  virtual Status ExtendMasked(SEXP values, SEXP mask, int64_t size) {
-    return Status::NotImplemented("ExtendMasked");
+  virtual Result<std::shared_ptr<ChunkedArray>> ToChunkedArray() {
+    ARROW_ASSIGN_OR_RAISE(auto array, this->ToArray())
+    return std::make_shared<ChunkedArray>(array);
   }
 };
 
@@ -307,27 +356,28 @@ template <typename T>
 class RPrimitiveConverter<T, enable_if_null<T>>
     : public PrimitiveConverter<T, RConverter> {
  public:
-  Status Extend(SEXP, int64_t size) override {
-    return this->primitive_builder_->AppendNulls(size);
+  Status Extend(SEXP, int64_t size, int64_t offset = 0) override {
+    return this->primitive_builder_->AppendNulls(size - offset);
   }
 };
 
+// TODO: extend this to BooleanType, but this needs some work in RConvert
 template <typename T>
 class RPrimitiveConverter<
     T, enable_if_t<is_integer_type<T>::value || is_floating_type<T>::value>>
     : public PrimitiveConverter<T, RConverter> {
  public:
-  Status Extend(SEXP x, int64_t size) override {
+  Status Extend(SEXP x, int64_t size, int64_t offset = 0) override {
     auto rtype = GetVectorType(x);
     switch (rtype) {
       case UINT8:
-        return AppendRangeDispatch<unsigned char>(x, size);
+        return ExtendDispatch<unsigned char>(x, size, offset);
       case INT32:
-        return AppendRangeDispatch<int>(x, size);
+        return ExtendDispatch<int>(x, size, offset);
       case FLOAT64:
-        return AppendRangeDispatch<double>(x, size);
+        return ExtendDispatch<double>(x, size, offset);
       case INT64:
-        return AppendRangeDispatch<int64_t>(x, size);
+        return ExtendDispatch<int64_t>(x, size, offset);
 
       default:
         break;
@@ -336,83 +386,49 @@ class RPrimitiveConverter<
     return Status::Invalid("cannot convert");
   }
 
+  void DelayedExtend(SEXP values, int64_t size, RTasks& tasks) override {
+    auto task = [this, values, size]() { return this->Extend(values, size); };
+    tasks.Append(!ALTREP(values), std::move(task));
+  }
+
  private:
   template <typename r_value_type>
-  Status AppendRangeLoopDifferentType(SEXP x, int64_t size) {
-    RETURN_NOT_OK(this->Reserve(size));
+  Status ExtendDispatch(SEXP x, int64_t size, int64_t offset) {
+    if (ALTREP(x)) {
+      // `x` is an ALTREP R vector storing `r_value_type`
+      // and that type matches exactly the type of the array this is building
+      return Extend_impl(RVectorIterator_ALTREP<r_value_type>(x, offset), size);
+    } else {
+      // `x` is not an ALTREP vector so we have direct access to a range of values
+      return Extend_impl(RVectorIterator<r_value_type>(x, offset), size);
+    }
+  }
 
-    auto append_value = [this](r_value_type value) {
-      ARROW_ASSIGN_OR_RAISE(auto converted,
-                            RConvert::Convert(this->primitive_type_, value));
-      this->primitive_builder_->UnsafeAppend(converted);
-      return Status::OK();
-    };
+  template <typename Iterator>
+  Status Extend_impl(Iterator it, int64_t size) {
+    using r_value_type = typename Iterator::value_type;
+    RETURN_NOT_OK(this->primitive_builder_->Reserve(size));
+
     auto append_null = [this]() {
       this->primitive_builder_->UnsafeAppendNull();
       return Status::OK();
     };
-    return RVectorVisitor<r_value_type>::Visit(x, size, append_null, append_value);
-  }
 
-  template <typename r_value_type>
-  Status AppendRangeSameTypeNotALTREP(SEXP x, int64_t size) {
-    auto p = reinterpret_cast<const r_value_type*>(DATAPTR_RO(x));
-    auto p_end = p + size;
-
-    auto first_na = std::find_if(p, p_end, is_NA<r_value_type>);
-
-    if (first_na == p_end) {
-      // no nulls, so we can use AppendValues() directly
-      return this->primitive_builder_->AppendValues(p, p_end);
-    }
-
-    // Append all values up until the first NULL
-    RETURN_NOT_OK(this->primitive_builder_->AppendValues(p, first_na));
-
-    // loop for the remaining
-    RETURN_NOT_OK(this->primitive_builder_->Reserve(p_end - first_na));
-    p = first_na;
-    for (; p < p_end; ++p) {
-      r_value_type value = *p;
-      if (is_NA<r_value_type>(value)) {
-        this->primitive_builder_->UnsafeAppendNull();
-      } else {
-        this->primitive_builder_->UnsafeAppend(value);
-      }
-    }
-    return Status::OK();
-  }
-
-  template <typename r_value_type>
-  Status AppendRangeSameTypeALTREP(SEXP x, int64_t size) {
-    // if it is altrep, then we use cpp11 looping
-    // without needing to convert
-    RETURN_NOT_OK(this->primitive_builder_->Reserve(size));
-    typename RVectorVisitor<r_value_type>::r_vector_type vec(x);
-    auto it = vec.begin();
-    for (R_xlen_t i = 0; i < size; i++, ++it) {
-      r_value_type value = RVectorVisitor<r_value_type>::GetValue(*it);
-      if (is_NA<r_value_type>(value)) {
-        this->primitive_builder_->UnsafeAppendNull();
-      } else {
-        this->primitive_builder_->UnsafeAppend(value);
-      }
-    }
-    return Status::OK();
-  }
-
-  template <typename r_value_type>
-  Status AppendRangeDispatch(SEXP x, int64_t size) {
     if (std::is_same<typename T::c_type, r_value_type>::value) {
-      if (!ALTREP(x)) {
-        return AppendRangeSameTypeNotALTREP<r_value_type>(x, size);
-      } else {
-        return AppendRangeSameTypeALTREP<r_value_type>(x, size);
-      }
+      auto append_value = [this](r_value_type value) {
+        this->primitive_builder_->UnsafeAppend(value);
+        return Status::OK();
+      };
+      return VisitVector(it, size, append_null, append_value);
+    } else {
+      auto append_value = [this](r_value_type value) {
+        ARROW_ASSIGN_OR_RAISE(auto converted,
+                              RConvert::Convert(this->primitive_type_, value));
+        this->primitive_builder_->UnsafeAppend(converted);
+        return Status::OK();
+      };
+      return VisitVector(it, size, append_null, append_value);
     }
-
-    // here if underlying types differ so going
-    return AppendRangeLoopDifferentType<r_value_type>(x, size);
   }
 };
 
@@ -420,22 +436,38 @@ template <typename T>
 class RPrimitiveConverter<T, enable_if_t<is_boolean_type<T>::value>>
     : public PrimitiveConverter<T, RConverter> {
  public:
-  Status Extend(SEXP x, int64_t size) override {
+  Status Extend(SEXP x, int64_t size, int64_t offset = 0) override {
     auto rtype = GetVectorType(x);
     if (rtype != BOOLEAN) {
       return Status::Invalid("Expecting a logical vector");
     }
+
+    if (ALTREP(x)) {
+      return Extend_impl(RVectorIterator_ALTREP<cpp11::r_bool>(x, offset), size);
+    } else {
+      return Extend_impl(RVectorIterator<cpp11::r_bool>(x, offset), size);
+    }
+  }
+
+  void DelayedExtend(SEXP values, int64_t size, RTasks& tasks) override {
+    auto task = [this, values, size]() { return this->Extend(values, size); };
+    tasks.Append(!ALTREP(values), std::move(task));
+  }
+
+ private:
+  template <typename Iterator>
+  Status Extend_impl(Iterator it, int64_t size) {
     RETURN_NOT_OK(this->Reserve(size));
 
-    auto append_value = [this](cpp11::r_bool value) {
-      this->primitive_builder_->UnsafeAppend(value == 1);
-      return Status::OK();
-    };
     auto append_null = [this]() {
       this->primitive_builder_->UnsafeAppendNull();
       return Status::OK();
     };
-    return RVectorVisitor<cpp11::r_bool>::Visit(x, size, append_null, append_value);
+    auto append_value = [this](cpp11::r_bool value) {
+      this->primitive_builder_->UnsafeAppend(value == 1);
+      return Status::OK();
+    };
+    return VisitVector(it, size, append_null, append_value);
   }
 };
 
@@ -443,18 +475,16 @@ template <typename T>
 class RPrimitiveConverter<T, enable_if_t<is_date_type<T>::value>>
     : public PrimitiveConverter<T, RConverter> {
  public:
-  Status Extend(SEXP x, int64_t size) override {
-    RETURN_NOT_OK(this->Reserve(size));
-
+  Status Extend(SEXP x, int64_t size, int64_t offset = 0) override {
     switch (GetVectorType(x)) {
       case DATE_INT:
-        return AppendRange_Date<int>(x, size);
+        return AppendRange_Date_dispatch<int>(x, size, offset);
 
       case DATE_DBL:
-        return AppendRange_Date<double>(x, size);
+        return AppendRange_Date_dispatch<double>(x, size, offset);
 
       case POSIXCT:
-        return AppendRange_Posixct(x, size);
+        return AppendRange_Posixct_dispatch(x, size, offset);
 
       default:
         break;
@@ -463,9 +493,27 @@ class RPrimitiveConverter<T, enable_if_t<is_date_type<T>::value>>
     return Status::Invalid("cannot convert to date type ");
   }
 
+  void DelayedExtend(SEXP values, int64_t size, RTasks& tasks) override {
+    auto task = [this, values, size]() { return this->Extend(values, size); };
+    tasks.Append(!ALTREP(values), std::move(task));
+  }
+
  private:
   template <typename r_value_type>
-  Status AppendRange_Date(SEXP x, int64_t size) {
+  Status AppendRange_Date_dispatch(SEXP x, int64_t size, int64_t offset) {
+    if (ALTREP(x)) {
+      return AppendRange_Date(RVectorIterator_ALTREP<r_value_type>(x, offset),
+                              size - offset);
+    } else {
+      return AppendRange_Date(RVectorIterator<r_value_type>(x, offset), size - offset);
+    }
+  }
+
+  template <typename Iterator>
+  Status AppendRange_Date(Iterator it, int64_t size) {
+    using r_value_type = typename Iterator::value_type;
+    RETURN_NOT_OK(this->Reserve(size));
+
     auto append_null = [this]() {
       this->primitive_builder_->UnsafeAppendNull();
       return Status::OK();
@@ -474,21 +522,32 @@ class RPrimitiveConverter<T, enable_if_t<is_date_type<T>::value>>
       this->primitive_builder_->UnsafeAppend(FromRDate(this->primitive_type_, value));
       return Status::OK();
     };
-
-    return RVectorVisitor<r_value_type>::Visit(x, size, append_null, append_value);
+    return VisitVector(it, size, append_null, append_value);
   }
 
-  Status AppendRange_Posixct(SEXP x, int64_t size) {
+  Status AppendRange_Posixct_dispatch(SEXP x, int64_t size, int64_t offset) {
+    if (ALTREP(x)) {
+      return AppendRange_Posixct(RVectorIterator_ALTREP<double>(x, offset),
+                                 size - offset);
+    } else {
+      return AppendRange_Posixct(RVectorIterator<double>(x, offset), size - offset);
+    }
+  }
+
+  template <typename Iterator>
+  Status AppendRange_Posixct(Iterator it, int64_t size) {
+    using r_value_type = typename Iterator::value_type;
+    RETURN_NOT_OK(this->Reserve(size));
+
     auto append_null = [this]() {
       this->primitive_builder_->UnsafeAppendNull();
       return Status::OK();
     };
-    auto append_value = [this](double value) {
+    auto append_value = [this](r_value_type value) {
       this->primitive_builder_->UnsafeAppend(FromPosixct(this->primitive_type_, value));
       return Status::OK();
     };
-
-    return RVectorVisitor<double>::Visit(x, size, append_null, append_value);
+    return VisitVector(it, size, append_null, append_value);
   }
 
   static int FromRDate(const Date32Type*, int from) { return from; }
@@ -525,8 +584,8 @@ template <typename T>
 class RPrimitiveConverter<T, enable_if_t<is_time_type<T>::value>>
     : public PrimitiveConverter<T, RConverter> {
  public:
-  Status Extend(SEXP x, int64_t size) override {
-    RETURN_NOT_OK(this->Reserve(size));
+  Status Extend(SEXP x, int64_t size, int64_t offset = 0) override {
+    RETURN_NOT_OK(this->Reserve(size - offset));
     auto rtype = GetVectorType(x);
     if (rtype != TIME) {
       return Status::Invalid("Invalid conversion to time");
@@ -553,16 +612,28 @@ class RPrimitiveConverter<T, enable_if_t<is_time_type<T>::value>>
     auto multiplier =
         get_TimeUnit_multiplier(this->primitive_type_->unit()) * difftime_multiplier;
 
+    auto append_null = [this]() {
+      this->primitive_builder_->UnsafeAppendNull();
+      return Status::OK();
+    };
     auto append_value = [this, multiplier](double value) {
       auto converted = static_cast<typename T::c_type>(value * multiplier);
       this->primitive_builder_->UnsafeAppend(converted);
       return Status::OK();
     };
-    auto append_null = [this]() {
-      this->primitive_builder_->UnsafeAppendNull();
-      return Status::OK();
-    };
-    return RVectorVisitor<double>::Visit(x, size, append_null, append_value);
+
+    if (ALTREP(x)) {
+      return VisitVector(RVectorIterator_ALTREP<double>(x, offset), size, append_null,
+                         append_value);
+    } else {
+      return VisitVector(RVectorIterator<double>(x, offset), size, append_null,
+                         append_value);
+    }
+  }
+
+  void DelayedExtend(SEXP values, int64_t size, RTasks& tasks) override {
+    auto task = [this, values, size]() { return this->Extend(values, size); };
+    tasks.Append(!ALTREP(values), std::move(task));
   }
 };
 
@@ -570,8 +641,8 @@ template <typename T>
 class RPrimitiveConverter<T, enable_if_t<is_timestamp_type<T>::value>>
     : public PrimitiveConverter<T, RConverter> {
  public:
-  Status Extend(SEXP x, int64_t size) override {
-    RETURN_NOT_OK(this->Reserve(size));
+  Status Extend(SEXP x, int64_t size, int64_t offset = 0) override {
+    RETURN_NOT_OK(this->Reserve(size - offset));
 
     RVectorType rtype = GetVectorType(x);
     if (rtype != POSIXCT) {
@@ -589,7 +660,19 @@ class RPrimitiveConverter<T, enable_if_t<is_timestamp_type<T>::value>>
       this->primitive_builder_->UnsafeAppendNull();
       return Status::OK();
     };
-    return RVectorVisitor<double>::Visit(x, size, append_null, append_value);
+
+    if (ALTREP(x)) {
+      return VisitVector(RVectorIterator_ALTREP<double>(x, offset), size, append_null,
+                         append_value);
+    } else {
+      return VisitVector(RVectorIterator<double>(x, offset), size, append_null,
+                         append_value);
+    }
+  }
+
+  void DelayedExtend(SEXP values, int64_t size, RTasks& tasks) override {
+    auto task = [this, values, size]() { return this->Extend(values, size); };
+    tasks.Append(!ALTREP(values), std::move(task));
   }
 };
 
@@ -597,7 +680,7 @@ template <typename T>
 class RPrimitiveConverter<T, enable_if_t<is_decimal_type<T>::value>>
     : public PrimitiveConverter<T, RConverter> {
  public:
-  Status Extend(SEXP x, int64_t size) override {
+  Status Extend(SEXP x, int64_t size, int64_t offset = 0) override {
     return Status::NotImplemented("Extend");
   }
 };
@@ -629,9 +712,14 @@ class RPrimitiveConverter<T, enable_if_binary<T>>
  public:
   using OffsetType = typename T::offset_type;
 
-  Status Extend(SEXP x, int64_t size) override {
-    RETURN_NOT_OK(this->Reserve(size));
+  Status Extend(SEXP x, int64_t size, int64_t offset = 0) override {
+    RETURN_NOT_OK(this->Reserve(size - offset));
     RETURN_NOT_OK(check_binary(x, size));
+
+    auto append_null = [this]() {
+      this->primitive_builder_->UnsafeAppendNull();
+      return Status::OK();
+    };
 
     auto append_value = [this](SEXP raw) {
       R_xlen_t n = XLENGTH(raw);
@@ -639,11 +727,12 @@ class RPrimitiveConverter<T, enable_if_binary<T>>
       this->primitive_builder_->UnsafeAppend(RAW_RO(raw), static_cast<OffsetType>(n));
       return Status::OK();
     };
-    auto append_null = [this]() {
-      this->primitive_builder_->UnsafeAppendNull();
-      return Status::OK();
-    };
-    return RVectorVisitor<SEXP>::Visit(x, size, append_null, append_value);
+    return VisitVector(RVectorIterator<SEXP>(x, offset), size, append_null, append_value);
+  }
+
+  void DelayedExtend(SEXP values, int64_t size, RTasks& tasks) override {
+    auto task = [this, values, size]() { return this->Extend(values, size); };
+    tasks.Append(!ALTREP(values), std::move(task));
   }
 };
 
@@ -651,9 +740,14 @@ template <typename T>
 class RPrimitiveConverter<T, enable_if_t<std::is_same<T, FixedSizeBinaryType>::value>>
     : public PrimitiveConverter<T, RConverter> {
  public:
-  Status Extend(SEXP x, int64_t size) override {
-    RETURN_NOT_OK(this->Reserve(size));
+  Status Extend(SEXP x, int64_t size, int64_t offset = 0) override {
+    RETURN_NOT_OK(this->Reserve(size - offset));
     RETURN_NOT_OK(check_binary(x, size));
+
+    auto append_null = [this]() {
+      this->primitive_builder_->UnsafeAppendNull();
+      return Status::OK();
+    };
 
     auto append_value = [this](SEXP raw) {
       R_xlen_t n = XLENGTH(raw);
@@ -665,11 +759,12 @@ class RPrimitiveConverter<T, enable_if_t<std::is_same<T, FixedSizeBinaryType>::v
       this->primitive_builder_->UnsafeAppend(RAW_RO(raw));
       return Status::OK();
     };
-    auto append_null = [this]() {
-      this->primitive_builder_->UnsafeAppendNull();
-      return Status::OK();
-    };
-    return RVectorVisitor<SEXP>::Visit(x, size, append_null, append_value);
+    return VisitVector(RVectorIterator<SEXP>(x, offset), size, append_null, append_value);
+  }
+
+  void DelayedExtend(SEXP values, int64_t size, RTasks& tasks) override {
+    auto task = [this, values, size]() { return this->Extend(values, size); };
+    tasks.Append(!ALTREP(values), std::move(task));
   }
 };
 
@@ -679,34 +774,42 @@ class RPrimitiveConverter<T, enable_if_string_like<T>>
  public:
   using OffsetType = typename T::offset_type;
 
-  Status Extend(SEXP x, int64_t size) override {
-    int64_t start = 0;
+  Status Extend(SEXP x, int64_t size, int64_t offset = 0) override {
     RVectorType rtype = GetVectorType(x);
     if (rtype != STRING) {
       return Status::Invalid("Expecting a character vector");
     }
+    return UnsafeAppendUtf8Strings(arrow::r::utf8_strings(x), size, offset);
+  }
 
-    cpp11::strings s(arrow::r::utf8_strings(x));
+  void DelayedExtend(SEXP values, int64_t size, RTasks& tasks) override {
+    auto task = [this, values, size]() { return this->Extend(values, size); };
+    // TODO: refine this., e.g. extract setup from Extend()
+    tasks.Append(false, std::move(task));
+  }
+
+ private:
+  Status UnsafeAppendUtf8Strings(const cpp11::strings& s, int64_t size, int64_t offset) {
     RETURN_NOT_OK(this->primitive_builder_->Reserve(s.size()));
-    auto it = s.begin() + start;
+    const SEXP* p_strings = reinterpret_cast<const SEXP*>(DATAPTR_RO(s));
 
     // we know all the R strings are utf8 already, so we can get
     // a definite size and then use UnsafeAppend*()
     int64_t total_length = 0;
-    for (R_xlen_t i = 0; i < size; i++, ++it) {
-      cpp11::r_string si = *it;
-      total_length += cpp11::is_na(si) ? 0 : si.size();
+    for (R_xlen_t i = offset; i < size; i++, ++p_strings) {
+      SEXP si = *p_strings;
+      total_length += si == NA_STRING ? 0 : LENGTH(si);
     }
     RETURN_NOT_OK(this->primitive_builder_->ReserveData(total_length));
 
     // append
-    it = s.begin() + start;
-    for (R_xlen_t i = 0; i < size; i++, ++it) {
-      cpp11::r_string si = *it;
+    p_strings = reinterpret_cast<const SEXP*>(DATAPTR_RO(s));
+    for (R_xlen_t i = offset; i < size; i++, ++p_strings) {
+      SEXP si = *p_strings;
       if (si == NA_STRING) {
         this->primitive_builder_->UnsafeAppendNull();
       } else {
-        this->primitive_builder_->UnsafeAppend(CHAR(si), si.size());
+        this->primitive_builder_->UnsafeAppend(CHAR(si), LENGTH(si));
       }
     }
 
@@ -718,7 +821,7 @@ template <typename T>
 class RPrimitiveConverter<T, enable_if_t<is_duration_type<T>::value>>
     : public PrimitiveConverter<T, RConverter> {
  public:
-  Status Extend(SEXP x, int64_t size) override {
+  Status Extend(SEXP x, int64_t size, int64_t offset = 0) override {
     // TODO: look in lubridate
     return Status::NotImplemented("Extend");
   }
@@ -734,7 +837,7 @@ template <typename U>
 class RDictionaryConverter<U, enable_if_has_c_type<U>>
     : public DictionaryConverter<U, RConverter> {
  public:
-  Status Extend(SEXP x, int64_t size) override {
+  Status Extend(SEXP x, int64_t size, int64_t offset = 0) override {
     return Status::NotImplemented("Extend");
   }
 };
@@ -745,29 +848,28 @@ class RDictionaryConverter<ValueType, enable_if_has_string_view<ValueType>>
  public:
   using BuilderType = DictionaryBuilder<ValueType>;
 
-  Status Extend(SEXP x, int64_t size) override {
-    // first we need to handle the levels
-    cpp11::strings levels(Rf_getAttrib(x, R_LevelsSymbol));
-    auto memo_array = arrow::r::vec_to_arrow(levels, utf8(), false);
-    RETURN_NOT_OK(this->value_builder_->InsertMemoValues(*memo_array));
-
-    // then we can proceed
-    RETURN_NOT_OK(this->Reserve(size));
-
-    RVectorType rtype = GetVectorType(x);
-    if (rtype != FACTOR) {
-      return Status::Invalid("invalid R type to convert to dictionary");
-    }
-
-    auto append_value = [this, levels](int value) {
-      SEXP s = STRING_ELT(levels, value - 1);
-      return this->value_builder_->Append(CHAR(s));
-    };
-    auto append_null = [this]() { return this->value_builder_->AppendNull(); };
-    return RVectorVisitor<int>::Visit(x, size, append_null, append_value);
+  Status Extend(SEXP x, int64_t size, int64_t offset = 0) override {
+    RETURN_NOT_OK(ExtendSetup(x, size, offset));
+    return ExtendImpl(x, size, offset, GetCharLevels(x));
   }
 
-  Result<std::shared_ptr<Array>> ToArray() override {
+  void DelayedExtend(SEXP values, int64_t size, RTasks& tasks) override {
+    // the setup runs synchronously first
+    Status setup = ExtendSetup(values, size, /*offset=*/0);
+
+    if (!setup.ok()) {
+      // if that fails, propagate the error
+      tasks.Append(false, [setup]() { return setup; });
+    } else {
+      auto char_levels = GetCharLevels(values);
+
+      tasks.Append(true, [this, values, size, char_levels]() {
+        return this->ExtendImpl(values, size, /*offset=*/0, char_levels);
+      });
+    }
+  }
+
+  Result<std::shared_ptr<ChunkedArray>> ToChunkedArray() override {
     ARROW_ASSIGN_OR_RAISE(auto result, this->builder_->Finish());
 
     auto result_type = checked_cast<DictionaryType*>(result->type().get());
@@ -778,7 +880,50 @@ class RDictionaryConverter<ValueType, enable_if_has_string_view<ValueType>>
           arrow::dictionary(result_type->index_type(), result_type->value_type(), true);
     }
 
-    return std::make_shared<DictionaryArray>(result->data());
+    return std::make_shared<ChunkedArray>(
+        std::make_shared<DictionaryArray>(result->data()));
+  }
+
+ private:
+  std::vector<const char*> GetCharLevels(SEXP x) {
+    SEXP levels = Rf_getAttrib(x, R_LevelsSymbol);
+    R_xlen_t n_levels = XLENGTH(levels);
+    std::vector<const char*> char_levels(XLENGTH(levels));
+    const SEXP* p_levels = reinterpret_cast<const SEXP*>(DATAPTR_RO(levels));
+    for (R_xlen_t i = 0; i < n_levels; i++, ++p_levels) {
+      char_levels[i] = CHAR(*p_levels);
+    }
+
+    return char_levels;
+  }
+
+  Status ExtendSetup(SEXP x, int64_t size, int64_t offset) {
+    RVectorType rtype = GetVectorType(x);
+    if (rtype != FACTOR) {
+      return Status::Invalid("invalid R type to convert to dictionary");
+    }
+
+    // first we need to handle the levels
+    SEXP levels = Rf_getAttrib(x, R_LevelsSymbol);
+    auto memo_chunked_chunked_array =
+        arrow::r::vec_to_arrow_ChunkedArray(levels, utf8(), false);
+    for (const auto& chunk : memo_chunked_chunked_array->chunks()) {
+      RETURN_NOT_OK(this->value_builder_->InsertMemoValues(*chunk));
+    }
+
+    // then we can proceed
+    return this->Reserve(size - offset);
+  }
+
+  Status ExtendImpl(SEXP values, int64_t size, int64_t offset,
+                    const std::vector<const char*>& char_levels) {
+    auto append_null = [this]() { return this->value_builder_->AppendNull(); };
+    auto append_value = [this, &char_levels](int value) {
+      return this->value_builder_->Append(char_levels[value - 1]);
+    };
+
+    return VisitVector(RVectorIterator<int>(values, offset), size, append_null,
+                       append_value);
   }
 };
 
@@ -800,7 +945,7 @@ struct RConverterTrait<T, enable_if_list_like<T>> {
 template <typename T>
 class RListConverter : public ListConverter<T, RConverter, RConverterTrait> {
  public:
-  Status Extend(SEXP x, int64_t size) override {
+  Status Extend(SEXP x, int64_t size, int64_t offset = 0) override {
     RETURN_NOT_OK(this->Reserve(size));
 
     RVectorType rtype = GetVectorType(x);
@@ -808,15 +953,28 @@ class RListConverter : public ListConverter<T, RConverter, RConverterTrait> {
       return Status::Invalid("Cannot convert to list type");
     }
 
+    auto append_null = [this]() { return this->list_builder_->AppendNull(); };
+
     auto append_value = [this](SEXP value) {
+      // TODO: if we decide that this can be run concurrently
+      //       we'll have to do vec_size() upfront
       int n = vctrs::vec_size(value);
 
       RETURN_NOT_OK(this->list_builder_->ValidateOverflow(n));
       RETURN_NOT_OK(this->list_builder_->Append());
       return this->value_converter_.get()->Extend(value, n);
     };
-    auto append_null = [this]() { return this->list_builder_->AppendNull(); };
-    return RVectorVisitor<SEXP>::Visit(x, size, append_null, append_value);
+
+    return VisitVector(RVectorIterator<SEXP>(x, offset), size, append_null, append_value);
+  }
+
+  void DelayedExtend(SEXP values, int64_t size, RTasks& tasks) override {
+    // NOTE: because Extend::[]append_value() calls Extend() on the
+    // value converter, which might require a setup step, it feels
+    // complicated to run this task concurrently.
+    //
+    // TODO: perhaps allow running concurrently in some cases, e.g. list(int32(!altrep))
+    tasks.Append(false, [this, values, size]() { return this->Extend(values, size); });
   }
 };
 
@@ -829,7 +987,46 @@ struct RConverterTrait<StructType> {
 
 class RStructConverter : public StructConverter<RConverter, RConverterTrait> {
  public:
-  Status Extend(SEXP x, int64_t size) override {
+  Status Extend(SEXP x, int64_t size, int64_t offset = 0) override {
+    RETURN_NOT_OK(ExtendSetup(x, size, offset));
+
+    auto fields = this->struct_type_->fields();
+    R_xlen_t n_columns = XLENGTH(x);
+    for (R_xlen_t i = offset; i < n_columns; i++) {
+      auto status = children_[i]->Extend(VECTOR_ELT(x, i), size);
+      if (!status.ok()) {
+        return Status::Invalid("Problem with column ", (i + 1), " (", fields[i]->name(),
+                               "): ", status.ToString());
+      }
+    }
+
+    return Status::OK();
+  }
+
+  void DelayedExtend(SEXP values, int64_t size, RTasks& tasks) override {
+    // the setup runs synchronously first
+    Status setup = ExtendSetup(values, size, /*offset=*/0);
+
+    if (!setup.ok()) {
+      // if that fails, propagate the error
+      tasks.Append(false, [setup]() { return setup; });
+    } else {
+      // otherwise deal with each column, maybe concurrently
+      auto fields = this->struct_type_->fields();
+      R_xlen_t n_columns = XLENGTH(values);
+
+      for (R_xlen_t i = 0; i < n_columns; i++) {
+        children_[i]->DelayedExtend(VECTOR_ELT(values, i), size, tasks);
+      }
+    }
+  }
+
+ protected:
+  Status Init(MemoryPool* pool) override {
+    return StructConverter<RConverter, RConverterTrait>::Init(pool);
+  }
+
+  Status ExtendSetup(SEXP x, int64_t size, int64_t offset) {
     // check that x is compatible
     R_xlen_t n_columns = XLENGTH(x);
 
@@ -861,41 +1058,19 @@ class RStructConverter : public StructConverter<RConverter, RConverterTrait> {
     }));
 
     for (R_xlen_t i = 0; i < n_columns; i++) {
-      std::string name(x_names[i]);
-      if (name != fields[i]->name()) {
-        return Status::RError(
-            "Field name in position ", i, " (", fields[i]->name(),
-            ") does not match the name of the column of the data frame (", name, ")");
-      }
-    }
-
-    for (R_xlen_t i = 0; i < n_columns; i++) {
       SEXP x_i = VECTOR_ELT(x, i);
       if (vctrs::vec_size(x_i) < size) {
         return Status::RError("Degenerated data frame");
       }
     }
 
-    RETURN_NOT_OK(this->Reserve(size));
+    RETURN_NOT_OK(this->Reserve(size - offset));
 
     for (R_xlen_t i = 0; i < size; i++) {
       RETURN_NOT_OK(struct_builder_->Append());
     }
 
-    for (R_xlen_t i = 0; i < n_columns; i++) {
-      auto status = children_[i]->Extend(VECTOR_ELT(x, i), size);
-      if (!status.ok()) {
-        return Status::Invalid("Problem with column ", (i + 1), " (", fields[i]->name(),
-                               "): ", status.ToString());
-      }
-    }
-
     return Status::OK();
-  }
-
- protected:
-  Status Init(MemoryPool* pool) override {
-    return StructConverter<RConverter, RConverterTrait>::Init(pool);
   }
 };
 
@@ -992,12 +1167,23 @@ std::shared_ptr<arrow::Array> vec_to_arrow__reuse_memory(SEXP x) {
   cpp11::stop("Unreachable: you might need to fix can_reuse_memory()");
 }
 
-std::shared_ptr<arrow::Array> vec_to_arrow(SEXP x,
-                                           const std::shared_ptr<arrow::DataType>& type,
-                                           bool type_inferred) {
-  // short circuit if `x` is already an Array
+std::shared_ptr<arrow::ChunkedArray> vec_to_arrow_ChunkedArray(
+    SEXP x, const std::shared_ptr<arrow::DataType>& type, bool type_inferred) {
+  // short circuit if `x` is already a chunked array
+  if (Rf_inherits(x, "ChunkedArray")) {
+    return cpp11::as_cpp<std::shared_ptr<arrow::ChunkedArray>>(x);
+  }
+
+  // short circuit if `x` is an Array
   if (Rf_inherits(x, "Array")) {
-    return cpp11::as_cpp<std::shared_ptr<arrow::Array>>(x);
+    return std::make_shared<arrow::ChunkedArray>(
+        cpp11::as_cpp<std::shared_ptr<arrow::Array>>(x));
+  }
+
+  // short circuit if `x` is an altrep vector that shells a chunked Array
+  auto maybe = altrep::vec_to_arrow_altrep_bypass(x);
+  if (maybe.get()) {
+    return maybe;
   }
 
   RConversionOptions options;
@@ -1007,7 +1193,7 @@ std::shared_ptr<arrow::Array> vec_to_arrow(SEXP x,
 
   // maybe short circuit when zero-copy is possible
   if (can_reuse_memory(x, options.type)) {
-    return vec_to_arrow__reuse_memory(x);
+    return std::make_shared<arrow::ChunkedArray>(vec_to_arrow__reuse_memory(x));
   }
 
   // otherwise go through the converter api
@@ -1015,15 +1201,245 @@ std::shared_ptr<arrow::Array> vec_to_arrow(SEXP x,
       options.type, options, gc_memory_pool()));
 
   StopIfNotOk(converter->Extend(x, options.size));
-  return ValueOrStop(converter->ToArray());
+
+  return ValueOrStop(converter->ToChunkedArray());
+}
+
+std::shared_ptr<arrow::Array> vec_to_arrow_Array(
+    SEXP x, const std::shared_ptr<arrow::DataType>& type, bool type_inferred) {
+  auto chunked_array = vec_to_arrow_ChunkedArray(x, type, type_inferred);
+  if (chunked_array->num_chunks() == 1) {
+    return chunked_array->chunk(0);
+  }
+
+  return ValueOrStop(arrow::Concatenate(chunked_array->chunks()));
+}
+
+// TODO: most of this is very similar to MakeSimpleArray, just adapted to
+//       leverage concurrency. Maybe some refactoring needed.
+template <typename RVector, typename Type>
+bool vector_from_r_memory_impl(SEXP x, const std::shared_ptr<DataType>& type,
+                               std::vector<std::shared_ptr<arrow::ChunkedArray>>& columns,
+                               int j, RTasks& tasks) {
+  RVector vec(x);
+  using value_type = typename arrow::TypeTraits<Type>::ArrayType::value_type;
+  auto buffer = std::make_shared<RBuffer<RVector>>(vec);
+
+  tasks.Append(true, [buffer, x, &columns, j]() {
+    std::vector<std::shared_ptr<Buffer>> buffers{nullptr, buffer};
+
+    auto n = XLENGTH(x);
+    auto p_x_start = reinterpret_cast<const value_type*>(DATAPTR_RO(x));
+    auto p_x_end = p_x_start + n;
+
+    int null_count = 0;
+    auto first_na = std::find_if(p_x_start, p_x_end, is_NA<value_type>);
+
+    if (first_na < p_x_end) {
+      auto null_bitmap =
+          ValueOrStop(AllocateBuffer(BitUtil::BytesForBits(n), gc_memory_pool()));
+      internal::FirstTimeBitmapWriter bitmap_writer(null_bitmap->mutable_data(), 0, n);
+
+      // first loop to clear all the bits before the first NA
+      auto k = std::distance(p_x_start, first_na);
+      int i = 0;
+      for (; i < k; i++, bitmap_writer.Next()) {
+        bitmap_writer.Set();
+      }
+
+      auto p_vec = first_na;
+      // then finish
+      for (; i < n; i++, bitmap_writer.Next(), ++p_vec) {
+        if (is_NA<value_type>(*p_vec)) {
+          bitmap_writer.Clear();
+          null_count++;
+        } else {
+          bitmap_writer.Set();
+        }
+      }
+
+      bitmap_writer.Finish();
+      buffers[0] = std::move(null_bitmap);
+    }
+
+    auto data = ArrayData::Make(std::make_shared<Type>(), n, std::move(buffers),
+                                null_count, 0 /*offset*/);
+    auto array = std::make_shared<typename TypeTraits<Type>::ArrayType>(data);
+    columns[j] = std::make_shared<arrow::ChunkedArray>(array);
+
+    return Status::OK();
+  });
+
+  return true;
+}
+
+bool vector_from_r_memory(SEXP x, const std::shared_ptr<DataType>& type,
+                          std::vector<std::shared_ptr<arrow::ChunkedArray>>& columns,
+                          int j, RTasks& tasks) {
+  if (ALTREP(x)) return false;
+
+  switch (type->id()) {
+    case Type::INT32:
+      return TYPEOF(x) == INTSXP && !OBJECT(x) &&
+             vector_from_r_memory_impl<cpp11::integers, Int32Type>(x, type, columns, j,
+                                                                   tasks);
+
+    case Type::DOUBLE:
+      return TYPEOF(x) == REALSXP && !OBJECT(x) &&
+             vector_from_r_memory_impl<cpp11::doubles, DoubleType>(x, type, columns, j,
+                                                                   tasks);
+
+    case Type::UINT8:
+      return TYPEOF(x) == RAWSXP && !OBJECT(x) &&
+             vector_from_r_memory_impl<cpp11::raws, UInt8Type>(x, type, columns, j,
+                                                               tasks);
+
+    case Type::INT64:
+      return TYPEOF(x) == REALSXP && Rf_inherits(x, "integer64") &&
+             vector_from_r_memory_impl<cpp11::doubles, Int64Type>(x, type, columns, j,
+                                                                  tasks);
+    default:
+      break;
+  }
+
+  return false;
 }
 
 }  // namespace r
 }  // namespace arrow
 
+arrow::Status check_consistent_column_length(
+    const std::vector<std::shared_ptr<arrow::ChunkedArray>>& columns) {
+  if (columns.size()) {
+    int64_t num_rows = columns[0]->length();
+
+    for (const auto& column : columns) {
+      if (column->length() != num_rows) {
+        return arrow::Status::Invalid("All columns must have the same length");
+      }
+    }
+  }
+
+  return arrow::Status::OK();
+}
+
 // [[arrow::export]]
-SEXP vec_to_arrow(SEXP x, SEXP s_type) {
+std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp,
+                                               bool use_threads) {
+  bool infer_schema = !Rf_inherits(schema_sxp, "Schema");
+
+  int num_fields;
+  StopIfNotOk(arrow::r::count_fields(lst, &num_fields));
+
+  // schema + metadata
+  std::shared_ptr<arrow::Schema> schema;
+  StopIfNotOk(arrow::r::InferSchemaFromDots(lst, schema_sxp, num_fields, schema));
+  StopIfNotOk(arrow::r::AddMetadataFromDots(lst, num_fields, schema));
+
+  if (!infer_schema && schema->num_fields() != num_fields) {
+    cpp11::stop("incompatible. schema has %d fields, and %d columns are supplied",
+                schema->num_fields(), num_fields);
+  }
+
+  // table
+  std::vector<std::shared_ptr<arrow::ChunkedArray>> columns(num_fields);
+
+  if (!infer_schema) {
+    auto check_name = [&](int j, SEXP, cpp11::r_string name) {
+      std::string cpp_name(name);
+      if (schema->field(j)->name() != cpp_name) {
+        cpp11::stop("field at index %d has name '%s' != '%s'", j + 1,
+                    schema->field(j)->name().c_str(), cpp_name.c_str());
+      }
+    };
+    arrow::r::TraverseDots(lst, num_fields, check_name);
+  }
+
+  // must be careful to avoid R stop() until the tasks
+  // are finished, i.e. after tasks.Finish()
+  arrow::r::RTasks tasks(use_threads);
+
+  arrow::Status status = arrow::Status::OK();
+
+  auto flatten_lst = arrow::r::FlattenDots(lst, num_fields);
+  std::vector<std::unique_ptr<arrow::r::RConverter>> converters(num_fields);
+
+  // init converters
+  for (int j = 0; j < num_fields && status.ok(); j++) {
+    SEXP x = flatten_lst[j];
+
+    if (Rf_inherits(x, "ChunkedArray")) {
+      columns[j] = cpp11::as_cpp<std::shared_ptr<arrow::ChunkedArray>>(x);
+    } else if (Rf_inherits(x, "Array")) {
+      columns[j] = std::make_shared<arrow::ChunkedArray>(
+          cpp11::as_cpp<std::shared_ptr<arrow::Array>>(x));
+    } else if (arrow::r::altrep::is_arrow_altrep(x)) {
+      columns[j] = arrow::r::altrep::vec_to_arrow_altrep_bypass(x);
+    } else {
+      arrow::r::RConversionOptions options;
+      options.strict = !infer_schema;
+      options.type = schema->field(j)->type();
+      options.size = vctrs::vec_size(x);
+
+      // first try to add a task to do a zero copy in parallel
+      if (arrow::r::vector_from_r_memory(x, options.type, columns, j, tasks)) {
+        continue;
+      }
+
+      // if unsuccessful: use RConverter api
+      auto converter_result =
+          arrow::MakeConverter<arrow::r::RConverter, arrow::r::RConverterTrait>(
+              options.type, options, gc_memory_pool());
+      if (!converter_result.ok()) {
+        status = converter_result.status();
+        break;
+      }
+      converters[j] = std::move(converter_result.ValueUnsafe());
+    }
+  }
+
+  // if the previous loop didn't break early, spawn
+  // tasks to Extend, maybe in parallel
+  if (status.ok()) {
+    for (int j = 0; j < num_fields; j++) {
+      auto& converter = converters[j];
+      if (converter != nullptr) {
+        converter->DelayedExtend(flatten_lst[j], converter->options().size, tasks);
+      }
+    }
+  }
+
+  // in any case, this needs to wait until all tasks are finished
+  status &= tasks.Finish();
+
+  // nothing is running in parallel here, so we have an opportunity to stop
+  StopIfNotOk(status);
+
+  // then finally convert to chunked arrays in parallel
+  tasks.Reset();
+
+  for (int j = 0; j < num_fields; j++) {
+    tasks.Append(true, [&columns, j, &converters]() {
+      auto& converter = converters[j];
+      if (converter != nullptr) {
+        ARROW_ASSIGN_OR_RAISE(columns[j], converter->ToChunkedArray());
+      }
+      return arrow::Status::OK();
+    });
+  }
+  status &= tasks.Finish();
+  StopIfNotOk(status);
+
+  status &= check_consistent_column_length(columns);
+  StopIfNotOk(status);
+
+  return arrow::Table::Make(schema, columns);
+}
+
+// [[arrow::export]]
+SEXP vec_to_Array(SEXP x, SEXP s_type) {
   if (Rf_inherits(x, "Array")) return x;
+
   bool type_inferred = Rf_isNull(s_type);
   std::shared_ptr<arrow::DataType> type;
 
@@ -1032,7 +1448,8 @@ SEXP vec_to_arrow(SEXP x, SEXP s_type) {
   } else {
     type = cpp11::as_cpp<std::shared_ptr<arrow::DataType>>(s_type);
   }
-  return cpp11::to_r6(arrow::r::vec_to_arrow(x, type, type_inferred));
+
+  return cpp11::to_r6(arrow::r::vec_to_arrow_Array(x, type, type_inferred));
 }
 
 // [[arrow::export]]

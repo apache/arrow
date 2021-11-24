@@ -54,11 +54,12 @@ class Converter {
 
   virtual Status Append(InputType value) { return Status::NotImplemented("Append"); }
 
-  virtual Status Extend(InputType values, int64_t size) {
+  virtual Status Extend(InputType values, int64_t size, int64_t offset = 0) {
     return Status::NotImplemented("Extend");
   }
 
-  virtual Status ExtendMasked(InputType values, InputType mask, int64_t size) {
+  virtual Status ExtendMasked(InputType values, InputType mask, int64_t size,
+                              int64_t offset = 0) {
     return Status::NotImplemented("ExtendMasked");
   }
 
@@ -69,6 +70,8 @@ class Converter {
   OptionsType options() const { return options_; }
 
   bool may_overflow() const { return may_overflow_; }
+
+  bool rewind_on_overflow() const { return rewind_on_overflow_; }
 
   virtual Status Reserve(int64_t additional_capacity) {
     return builder_->Reserve(additional_capacity);
@@ -96,6 +99,7 @@ class Converter {
   std::shared_ptr<ArrayBuilder> builder_;
   OptionsType options_;
   bool may_overflow_ = false;
+  bool rewind_on_overflow_ = false;
 };
 
 template <typename ArrowType, typename BaseConverter>
@@ -134,7 +138,8 @@ class ListConverter : public BaseConverter {
         std::make_shared<BuilderType>(pool, value_converter_->builder(), this->type_);
     list_builder_ = checked_cast<BuilderType*>(this->builder_.get());
     // Narrow list types may overflow
-    this->may_overflow_ = sizeof(typename ArrowType::offset_type) < sizeof(int64_t);
+    this->may_overflow_ = this->rewind_on_overflow_ =
+        sizeof(typename ArrowType::offset_type) < sizeof(int64_t);
     return Status::OK();
   }
 
@@ -167,6 +172,7 @@ class StructConverter : public BaseConverter {
                             (MakeConverter<BaseConverter, ConverterTrait>(
                                 field->type(), this->options_, pool)));
       this->may_overflow_ |= child_converter->may_overflow();
+      this->rewind_on_overflow_ = this->may_overflow_;
       child_builders.push_back(child_converter->builder());
       children_.push_back(std::move(child_converter));
     }
@@ -302,32 +308,69 @@ class Chunker {
     return status;
   }
 
-  // we could get bit smarter here since the whole batch of appendable values
-  // will be rejected if a capacity error is raised
-  Status Extend(InputType values, int64_t size) {
-    auto status = converter_->Extend(values, size);
-    if (ARROW_PREDICT_FALSE(status.IsCapacityError())) {
-      if (converter_->builder()->length() == 0) {
+  Status Extend(InputType values, int64_t size, int64_t offset = 0) {
+    while (offset < size) {
+      auto length_before = converter_->builder()->length();
+      auto status = converter_->Extend(values, size, offset);
+      auto length_after = converter_->builder()->length();
+      auto num_converted = length_after - length_before;
+
+      offset += num_converted;
+      length_ += num_converted;
+
+      if (status.IsCapacityError()) {
+        if (converter_->builder()->length() == 0) {
+          // Builder length == 0 means the individual element is too large to append.
+          // In this case, no need to try again.
+          return status;
+        } else if (converter_->rewind_on_overflow()) {
+          // The list-like and binary-like conversion paths may raise  a capacity error,
+          // we need to handle them differently. While the binary-like converters check
+          // the capacity before append/extend the list-like converters just check after
+          // append/extend. Thus depending on the implementation semantics we may need
+          // to rewind (slice) the output chunk by one.
+          length_ -= 1;
+          offset -= 1;
+        }
+        ARROW_RETURN_NOT_OK(FinishChunk());
+      } else if (!status.ok()) {
         return status;
       }
-      ARROW_RETURN_NOT_OK(FinishChunk());
-      return Extend(values, size);
     }
-    length_ += size;
-    return status;
+    return Status::OK();
   }
 
-  Status ExtendMasked(InputType values, InputType mask, int64_t size) {
-    auto status = converter_->ExtendMasked(values, mask, size);
-    if (ARROW_PREDICT_FALSE(status.IsCapacityError())) {
-      if (converter_->builder()->length() == 0) {
+  Status ExtendMasked(InputType values, InputType mask, int64_t size,
+                      int64_t offset = 0) {
+    while (offset < size) {
+      auto length_before = converter_->builder()->length();
+      auto status = converter_->ExtendMasked(values, mask, size, offset);
+      auto length_after = converter_->builder()->length();
+      auto num_converted = length_after - length_before;
+
+      offset += num_converted;
+      length_ += num_converted;
+
+      if (status.IsCapacityError()) {
+        if (converter_->builder()->length() == 0) {
+          // Builder length == 0 means the individual element is too large to append.
+          // In this case, no need to try again.
+          return status;
+        } else if (converter_->rewind_on_overflow()) {
+          // The list-like and binary-like conversion paths may raise  a capacity error,
+          // we need to handle them differently. While the binary-like converters check
+          // the capacity before append/extend the list-like converters just check after
+          // append/extend. Thus depending on the implementation semantics we may need
+          // to rewind (slice) the output chunk by one.
+          length_ -= 1;
+          offset -= 1;
+        }
+        ARROW_RETURN_NOT_OK(FinishChunk());
+      } else if (!status.ok()) {
         return status;
       }
-      ARROW_RETURN_NOT_OK(FinishChunk());
-      return ExtendMasked(values, mask, size);
     }
-    length_ += size;
-    return status;
+    return Status::OK();
   }
 
   Status FinishChunk() {

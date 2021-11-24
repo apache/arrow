@@ -28,6 +28,7 @@
 #include "arrow/status.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_generate.h"
+#include "arrow/util/bitmap_ops.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/ubsan.h"
 #include "arrow/util/visibility.h"
@@ -45,8 +46,7 @@ class ARROW_EXPORT BufferBuilder {
   explicit BufferBuilder(MemoryPool* pool = default_memory_pool())
       : pool_(pool),
         data_(/*ensure never null to make ubsan happy and avoid check penalties below*/
-              &util::internal::non_null_filler),
-
+              util::MakeNonNull<uint8_t>()),
         capacity_(0),
         size_(0) {}
 
@@ -64,15 +64,12 @@ class ARROW_EXPORT BufferBuilder {
   /// \brief Resize the buffer to the nearest multiple of 64 bytes
   ///
   /// \param new_capacity the new capacity of the of the builder. Will be
-  /// rounded up to a multiple of 64 bytes for padding \param shrink_to_fit if
-  /// new capacity is smaller than the existing size, reallocate internal
-  /// buffer. Set to false to avoid reallocations when shrinking the builder.
+  /// rounded up to a multiple of 64 bytes for padding
+  /// \param shrink_to_fit if new capacity is smaller than the existing,
+  /// reallocate internal buffer. Set to false to avoid reallocations when
+  /// shrinking the builder.
   /// \return Status
   Status Resize(const int64_t new_capacity, bool shrink_to_fit = true) {
-    // Resize(0) is a no-op
-    if (new_capacity == 0) {
-      return Status::OK();
-    }
     if (buffer_ == NULLPTR) {
       ARROW_ASSIGN_OR_RAISE(buffer_, AllocateResizableBuffer(new_capacity, pool_));
     } else {
@@ -166,6 +163,17 @@ class ARROW_EXPORT BufferBuilder {
     std::shared_ptr<Buffer> out;
     ARROW_RETURN_NOT_OK(Finish(&out, shrink_to_fit));
     return out;
+  }
+
+  /// \brief Like Finish, but override the final buffer size
+  ///
+  /// This is useful after writing data directly into the builder memory
+  /// without calling the Append methods (basically, when using BufferBuilder
+  /// mostly for memory allocation).
+  Result<std::shared_ptr<Buffer>> FinishWithLength(int64_t final_length,
+                                                   bool shrink_to_fit = true) {
+    size_ = final_length;
+    return Finish(shrink_to_fit);
   }
 
   void Reset() {
@@ -273,6 +281,16 @@ class TypedBufferBuilder<
     return out;
   }
 
+  /// \brief Like Finish, but override the final buffer size
+  ///
+  /// This is useful after writing data directly into the builder memory
+  /// without calling the Append methods (basically, when using TypedBufferBuilder
+  /// only for memory allocation).
+  Result<std::shared_ptr<Buffer>> FinishWithLength(int64_t final_length,
+                                                   bool shrink_to_fit = true) {
+    return bytes_builder_.FinishWithLength(final_length * sizeof(T), shrink_to_fit);
+  }
+
   void Reset() { bytes_builder_.Reset(); }
 
   int64_t length() const { return bytes_builder_.length() / sizeof(T); }
@@ -322,6 +340,7 @@ class TypedBufferBuilder<bool> {
     ++bit_length_;
   }
 
+  /// \brief Append bits from an array of bytes (one value per byte)
   void UnsafeAppend(const uint8_t* bytes, int64_t num_elements) {
     if (num_elements == 0) return;
     int64_t i = 0;
@@ -330,6 +349,14 @@ class TypedBufferBuilder<bool> {
       false_count_ += !value;
       return value;
     });
+    bit_length_ += num_elements;
+  }
+
+  /// \brief Append bits from a packed bitmap
+  void UnsafeAppend(const uint8_t* bitmap, int64_t offset, int64_t num_elements) {
+    if (num_elements == 0) return;
+    internal::CopyBitmap(bitmap, offset, num_elements, mutable_data(), bit_length_);
+    false_count_ += num_elements - internal::CountSetBits(bitmap, offset, num_elements);
     bit_length_ += num_elements;
   }
 
@@ -397,6 +424,19 @@ class TypedBufferBuilder<bool> {
     std::shared_ptr<Buffer> out;
     ARROW_RETURN_NOT_OK(Finish(&out, shrink_to_fit));
     return out;
+  }
+
+  /// \brief Like Finish, but override the final buffer size
+  ///
+  /// This is useful after writing data directly into the builder memory
+  /// without calling the Append methods (basically, when using TypedBufferBuilder
+  /// only for memory allocation).
+  Result<std::shared_ptr<Buffer>> FinishWithLength(int64_t final_length,
+                                                   bool shrink_to_fit = true) {
+    const auto final_byte_length = BitUtil::BytesForBits(final_length);
+    bytes_builder_.UnsafeAdvance(final_byte_length - bytes_builder_.length());
+    bit_length_ = false_count_ = 0;
+    return bytes_builder_.FinishWithLength(final_byte_length, shrink_to_fit);
   }
 
   void Reset() {

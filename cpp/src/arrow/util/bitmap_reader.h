@@ -76,7 +76,7 @@ class BitmapReader {
 class BitmapUInt64Reader {
  public:
   BitmapUInt64Reader(const uint8_t* bitmap, int64_t start_offset, int64_t length)
-      : bitmap_(bitmap + start_offset / 8),
+      : bitmap_(util::MakeNonNull(bitmap) + start_offset / 8),
         num_carry_bits_(8 - start_offset % 8),
         length_(length),
         remaining_length_(length_) {
@@ -142,6 +142,118 @@ class BitmapUInt64Reader {
   uint64_t carry_bits_;
 };
 
+// BitmapWordReader here is faster than BitmapUInt64Reader (in bitmap_reader.h)
+// on sufficiently large inputs.  However, it has a larger prolog / epilog overhead
+// and should probably not be used for small bitmaps.
+
+template <typename Word, bool may_have_byte_offset = true>
+class BitmapWordReader {
+ public:
+  BitmapWordReader() = default;
+  BitmapWordReader(const uint8_t* bitmap, int64_t offset, int64_t length)
+      : offset_(static_cast<int64_t>(may_have_byte_offset) * (offset % 8)),
+        bitmap_(bitmap + offset / 8),
+        bitmap_end_(bitmap_ + BitUtil::BytesForBits(offset_ + length)) {
+    // decrement word count by one as we may touch two adjacent words in one iteration
+    nwords_ = length / (sizeof(Word) * 8) - 1;
+    if (nwords_ < 0) {
+      nwords_ = 0;
+    }
+    trailing_bits_ = static_cast<int>(length - nwords_ * sizeof(Word) * 8);
+    trailing_bytes_ = static_cast<int>(BitUtil::BytesForBits(trailing_bits_));
+
+    if (nwords_ > 0) {
+      current_data.word_ = load<Word>(bitmap_);
+    } else if (length > 0) {
+      current_data.epi.byte_ = load<uint8_t>(bitmap_);
+    }
+  }
+
+  Word NextWord() {
+    bitmap_ += sizeof(Word);
+    const Word next_word = load<Word>(bitmap_);
+    Word word = current_data.word_;
+    if (may_have_byte_offset && offset_) {
+      // combine two adjacent words into one word
+      // |<------ next ----->|<---- current ---->|
+      // +-------------+-----+-------------+-----+
+      // |     ---     |  A  |      B      | --- |
+      // +-------------+-----+-------------+-----+
+      //                  |         |       offset
+      //                  v         v
+      //               +-----+-------------+
+      //               |  A  |      B      |
+      //               +-----+-------------+
+      //               |<------ word ----->|
+      word >>= offset_;
+      word |= next_word << (sizeof(Word) * 8 - offset_);
+    }
+    current_data.word_ = next_word;
+    return word;
+  }
+
+  uint8_t NextTrailingByte(int& valid_bits) {
+    uint8_t byte;
+    assert(trailing_bits_ > 0);
+
+    if (trailing_bits_ <= 8) {
+      // last byte
+      valid_bits = trailing_bits_;
+      trailing_bits_ = 0;
+      byte = 0;
+      internal::BitmapReader reader(bitmap_, offset_, valid_bits);
+      for (int i = 0; i < valid_bits; ++i) {
+        byte >>= 1;
+        if (reader.IsSet()) {
+          byte |= 0x80;
+        }
+        reader.Next();
+      }
+      byte >>= (8 - valid_bits);
+    } else {
+      ++bitmap_;
+      const uint8_t next_byte = load<uint8_t>(bitmap_);
+      byte = current_data.epi.byte_;
+      if (may_have_byte_offset && offset_) {
+        byte >>= offset_;
+        byte |= next_byte << (8 - offset_);
+      }
+      current_data.epi.byte_ = next_byte;
+      trailing_bits_ -= 8;
+      trailing_bytes_--;
+      valid_bits = 8;
+    }
+    return byte;
+  }
+
+  int64_t words() const { return nwords_; }
+  int trailing_bytes() const { return trailing_bytes_; }
+
+ private:
+  int64_t offset_;
+  const uint8_t* bitmap_;
+
+  const uint8_t* bitmap_end_;
+  int64_t nwords_;
+  int trailing_bits_;
+  int trailing_bytes_;
+  union {
+    Word word_;
+    struct {
+#if ARROW_LITTLE_ENDIAN == 0
+      uint8_t padding_bytes_[sizeof(Word) - 1];
+#endif
+      uint8_t byte_;
+    } epi;
+  } current_data;
+
+  template <typename DType>
+  DType load(const uint8_t* bitmap) {
+    assert(bitmap + sizeof(DType) <= bitmap_end_);
+    return BitUtil::ToLittleEndian(util::SafeLoadAs<DType>(bitmap));
+  }
+};
+
 /// \brief Index into a possibly non-existent bitmap
 struct OptionalBitIndexer {
   const uint8_t* bitmap;
@@ -151,7 +263,7 @@ struct OptionalBitIndexer {
       : bitmap(buffer == NULLPTR ? NULLPTR : buffer->data()), offset(offset) {}
 
   bool operator[](int64_t i) const {
-    return bitmap == NULLPTR ? true : BitUtil::GetBit(bitmap, offset + i);
+    return bitmap == NULLPTR || BitUtil::GetBit(bitmap, offset + i);
   }
 };
 

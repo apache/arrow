@@ -126,8 +126,7 @@ struct ARROW_EXPORT IpcReadOptions {
   /// memory in some cases (for example if compression is enabled).
   MemoryPool* memory_pool = default_memory_pool();
 
-  /// \brief EXPERIMENTAL: Top-level schema fields to include when
-  /// deserializing RecordBatch.
+  /// \brief Top-level schema fields to include when deserializing RecordBatch.
   ///
   /// If empty (the default), return all deserialized fields.
   /// If non-empty, the values are the indices of fields in the top-level schema.
@@ -137,7 +136,7 @@ struct ARROW_EXPORT IpcReadOptions {
   /// like decompression
   bool use_threads = true;
 
-  /// \brief EXPERIMENTAL: Convert incoming data to platform-native endianness
+  /// \brief Whether to convert incoming data to platform-native endianness
   ///
   /// If the endianness of the received schema is not equal to platform-native
   /// endianness, then all buffers with endian-sensitive data will be byte-swapped.

@@ -25,6 +25,8 @@
 
 #include "arrow/array.h"
 #include "arrow/array/builder_nested.h"
+#include "arrow/array/util.h"
+#include "arrow/array/validate.h"
 #include "arrow/buffer.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_common.h"
@@ -426,6 +428,7 @@ class TestListArray : public TestBuilder {
     BitUtil::ClearBit(null_bitmap_buffer->mutable_data(), 1);
     BitUtil::ClearBit(null_bitmap_buffer->mutable_data(), 3);
     BitUtil::ClearBit(null_bitmap_buffer->mutable_data(), 4);
+    array_data->null_count += 3;
     auto list_array = std::dynamic_pointer_cast<ArrayType>(MakeArray(array_data));
     ASSERT_OK(list_array->ValidateFull());
     ASSERT_OK_AND_ASSIGN(auto flattened, list_array->Flatten());
@@ -620,6 +623,7 @@ TEST_F(TestMapArray, Equality) {
     }
     ASSERT_OK(ib.AppendValues(equal_values.data(), equal_values.size()));
     ASSERT_OK(builder_->Finish(out));
+    ASSERT_OK((*out)->ValidateFull());
   }
 
   // now an unequal one
@@ -629,6 +633,7 @@ TEST_F(TestMapArray, Equality) {
   }
   ASSERT_OK(ib.AppendValues(unequal_values.data(), unequal_values.size()));
   ASSERT_OK(builder_->Finish(&unequal_array));
+  ASSERT_OK(unequal_array->ValidateFull());
 
   // Test array equality
   EXPECT_TRUE(array->Equals(array));
@@ -710,6 +715,57 @@ TEST_F(TestMapArray, BuildingStringToInt) {
   ASSERT_OK(actual->ValidateFull());
 
   ASSERT_ARRAYS_EQUAL(*actual, expected);
+}
+
+TEST_F(TestMapArray, ValidateErrorNullStruct) {
+  ASSERT_OK_AND_ASSIGN(
+      auto values,
+      MakeArrayOfNull(struct_({field("key", utf8()), field("value", int32())}), 1));
+
+  Int32Builder offset_builder;
+  ASSERT_OK(offset_builder.AppendNull());
+  ASSERT_OK(offset_builder.Append(0));
+  ASSERT_OK_AND_ASSIGN(auto offsets, offset_builder.Finish());
+
+  ASSERT_OK_AND_ASSIGN(auto lists, ListArray::FromArrays(*offsets, *values));
+  ASSERT_OK(lists->ValidateFull());
+  ASSERT_EQ(lists->length(), 1);
+  ASSERT_EQ(lists->null_count(), 1);
+
+  // Make a Map ArrayData from the list array
+  // Note we can't construct a MapArray as that would crash with an assertion.
+  auto map_data = lists->data()->Copy();
+  map_data->type = map(utf8(), int32());
+  ASSERT_RAISES(Invalid, internal::ValidateArray(*map_data));
+}
+
+TEST_F(TestMapArray, ValidateErrorNullKey) {
+  StringBuilder key_builder;
+  ASSERT_OK(key_builder.AppendNull());
+  ASSERT_OK_AND_ASSIGN(auto keys, key_builder.Finish());
+
+  Int32Builder item_builder;
+  ASSERT_OK(item_builder.Append(42));
+  ASSERT_OK_AND_ASSIGN(auto items, item_builder.Finish());
+
+  ASSERT_OK_AND_ASSIGN(
+      auto values,
+      StructArray::Make({keys, items}, std::vector<std::string>{"key", "value"}));
+
+  Int32Builder offset_builder;
+  ASSERT_OK(offset_builder.Append(0));
+  ASSERT_OK(offset_builder.Append(1));
+  ASSERT_OK_AND_ASSIGN(auto offsets, offset_builder.Finish());
+
+  // The list array contains: [[null, 42]]
+  ASSERT_OK_AND_ASSIGN(auto lists, ListArray::FromArrays(*offsets, *values));
+  ASSERT_OK(lists->ValidateFull());
+
+  // Make a Map ArrayData from the list array
+  // Note we can't construct a MapArray as that would crash with an assertion.
+  auto map_data = lists->data()->Copy();
+  map_data->type = map(keys->type(), items->type());
+  ASSERT_RAISES(Invalid, internal::ValidateArray(*map_data));
 }
 
 TEST_F(TestMapArray, FromArrays) {
@@ -1036,7 +1092,7 @@ void ValidateBasicFixedSizeListArray(const FixedSizeListArray* result,
     ASSERT_EQ(is_valid[i] == 0, result->IsNull(i));
   }
 
-  ASSERT_EQ(result->length() * result->value_length(), result->values()->length());
+  ASSERT_LE(result->length() * result->value_length(), result->values()->length());
   auto varr = std::dynamic_pointer_cast<Int32Array>(result->values());
 
   for (size_t i = 0; i < values.size(); ++i) {
@@ -1084,7 +1140,7 @@ TEST_F(TestFixedSizeListArray, BulkAppend) {
   ValidateBasicFixedSizeListArray(result_.get(), values, is_valid);
 }
 
-TEST_F(TestFixedSizeListArray, BulkAppendInvalid) {
+TEST_F(TestFixedSizeListArray, BulkAppendExcess) {
   std::vector<int32_t> values = {0, 1, 2, 3, 4, 5};
   std::vector<uint8_t> is_valid = {1, 0, 1};
 
@@ -1099,7 +1155,8 @@ TEST_F(TestFixedSizeListArray, BulkAppendInvalid) {
   }
 
   Done();
-  ASSERT_RAISES(Invalid, result_->ValidateFull());
+  // We appended too many values to the child array, but that's OK
+  ValidateBasicFixedSizeListArray(result_.get(), values, is_valid);
 }
 
 TEST_F(TestFixedSizeListArray, TestZeroLength) {
@@ -1129,6 +1186,52 @@ TEST_F(TestFixedSizeListArray, NegativeLength) {
   auto values = ArrayFromJSON(value_type_, "[]");
   result_ = std::make_shared<FixedSizeListArray>(type_, 0, values);
   ASSERT_RAISES(Invalid, result_->ValidateFull());
+}
+
+TEST_F(TestFixedSizeListArray, NotEnoughValues) {
+  type_ = fixed_size_list(value_type_, 2);
+  auto values = ArrayFromJSON(value_type_, "[]");
+  result_ = std::make_shared<FixedSizeListArray>(type_, 1, values);
+  ASSERT_RAISES(Invalid, result_->ValidateFull());
+
+  // ARROW-13437: too many values is OK though
+  values = ArrayFromJSON(value_type_, "[1, 2, 3, 4]");
+  result_ = std::make_shared<FixedSizeListArray>(type_, 1, values);
+  ASSERT_OK(result_->ValidateFull());
+}
+
+TEST_F(TestFixedSizeListArray, FlattenZeroLength) {
+  Done();
+  ASSERT_OK_AND_ASSIGN(auto flattened, result_->Flatten());
+  ASSERT_OK(flattened->ValidateFull());
+  ASSERT_EQ(0, flattened->length());
+  AssertTypeEqual(*flattened->type(), *value_type_);
+}
+
+TEST_F(TestFixedSizeListArray, Flatten) {
+  std::vector<int32_t> values = {0, 1, 2, 3, 4, 5, 6, 7};
+  std::vector<uint8_t> is_valid = {1, 0, 1, 1};
+  ASSERT_OK(builder_->AppendValues(4, is_valid.data()));
+  auto* vb = checked_cast<Int32Builder*>(builder_->value_builder());
+  ASSERT_OK(vb->AppendValues(values.data(), static_cast<int64_t>(values.size())));
+  Done();
+
+  {
+    ASSERT_OK_AND_ASSIGN(auto flattened, result_->Flatten());
+    ASSERT_OK(flattened->ValidateFull());
+    ASSERT_EQ(6, flattened->length());
+    AssertArraysEqual(*flattened, *ArrayFromJSON(value_type_, "[0, 1, 4, 5, 6, 7]"),
+                      /*verbose=*/true);
+  }
+
+  {
+    auto sliced = std::dynamic_pointer_cast<FixedSizeListArray>(result_->Slice(1, 2));
+    ASSERT_OK_AND_ASSIGN(auto flattened, sliced->Flatten());
+    ASSERT_OK(flattened->ValidateFull());
+    ASSERT_EQ(2, flattened->length());
+    AssertArraysEqual(*flattened, *ArrayFromJSON(value_type_, "[4, 5]"),
+                      /*verbose=*/true);
+  }
 }
 
 }  // namespace arrow

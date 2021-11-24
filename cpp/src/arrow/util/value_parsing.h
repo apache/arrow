@@ -45,7 +45,8 @@ class ARROW_EXPORT TimestampParser {
   virtual ~TimestampParser() = default;
 
   virtual bool operator()(const char* s, size_t length, TimeUnit::type out_unit,
-                          int64_t* out) const = 0;
+                          int64_t* out,
+                          bool* out_zone_offset_present = NULLPTR) const = 0;
 
   virtual const char* kind() const = 0;
 
@@ -273,6 +274,30 @@ inline bool ParseUnsigned(const char* s, size_t length, uint64_t* out) {
 #undef PARSE_UNSIGNED_ITERATION
 #undef PARSE_UNSIGNED_ITERATION_LAST
 
+template <typename T>
+bool ParseHex(const char* s, size_t length, T* out) {
+  // lets make sure that the length of the string is not too big
+  if (!ARROW_PREDICT_TRUE(sizeof(T) * 2 >= length && length > 0)) {
+    return false;
+  }
+  T result = 0;
+  for (size_t i = 0; i < length; i++) {
+    result = static_cast<T>(result << 4);
+    if (s[i] >= '0' && s[i] <= '9') {
+      result = static_cast<T>(result | (s[i] - '0'));
+    } else if (s[i] >= 'A' && s[i] <= 'F') {
+      result = static_cast<T>(result | (s[i] - 'A' + 10));
+    } else if (s[i] >= 'a' && s[i] <= 'f') {
+      result = static_cast<T>(result | (s[i] - 'a' + 10));
+    } else {
+      /* Non-digit */
+      return false;
+    }
+  }
+  *out = result;
+  return true;
+}
+
 template <class ARROW_TYPE>
 struct StringToUnsignedIntConverterMixin {
   using value_type = typename ARROW_TYPE::c_type;
@@ -280,6 +305,13 @@ struct StringToUnsignedIntConverterMixin {
   static bool Convert(const ARROW_TYPE&, const char* s, size_t length, value_type* out) {
     if (ARROW_PREDICT_FALSE(length == 0)) {
       return false;
+    }
+    // If it starts with 0x then its hex
+    if (length > 2 && s[0] == '0' && ((s[1] == 'x') || (s[1] == 'X'))) {
+      length -= 2;
+      s += 2;
+
+      return ARROW_PREDICT_TRUE(ParseHex(s, length, out));
     }
     // Skip leading zeros
     while (length > 0 && *s == '0') {
@@ -329,6 +361,18 @@ struct StringToSignedIntConverterMixin {
     if (ARROW_PREDICT_FALSE(length == 0)) {
       return false;
     }
+    // If it starts with 0x then its hex
+    if (length > 2 && s[0] == '0' && ((s[1] == 'x') || (s[1] == 'X'))) {
+      length -= 2;
+      s += 2;
+
+      if (!ARROW_PREDICT_TRUE(ParseHex(s, length, &unsigned_value))) {
+        return false;
+      }
+      *out = static_cast<value_type>(unsigned_value);
+      return true;
+    }
+
     if (*s == '-') {
       negative = true;
       s++;
@@ -453,6 +497,27 @@ static inline bool ParseHH_MM(const char* s, Duration* out) {
 }
 
 template <typename Duration>
+static inline bool ParseHHMM(const char* s, Duration* out) {
+  uint8_t hours = 0;
+  uint8_t minutes = 0;
+  if (ARROW_PREDICT_FALSE(!ParseUnsigned(s + 0, 2, &hours))) {
+    return false;
+  }
+  if (ARROW_PREDICT_FALSE(!ParseUnsigned(s + 2, 2, &minutes))) {
+    return false;
+  }
+  if (ARROW_PREDICT_FALSE(hours >= 24)) {
+    return false;
+  }
+  if (ARROW_PREDICT_FALSE(minutes >= 60)) {
+    return false;
+  }
+  *out = std::chrono::duration_cast<Duration>(std::chrono::hours(hours) +
+                                              std::chrono::minutes(minutes));
+  return true;
+}
+
+template <typename Duration>
 static inline bool ParseHH_MM_SS(const char* s, Duration* out) {
   uint8_t hours = 0;
   uint8_t minutes = 0;
@@ -524,7 +589,7 @@ static inline bool ParseSubSeconds(const char* s, size_t length, TimeUnit::type 
   if (ARROW_PREDICT_TRUE(omitted == 0)) {
     return ParseUnsigned(s, length, out);
   } else {
-    uint32_t subseconds;
+    uint32_t subseconds = 0;
     bool success = ParseUnsigned(s, length, &subseconds);
     if (ARROW_PREDICT_TRUE(success)) {
       switch (omitted) {
@@ -566,10 +631,15 @@ static inline bool ParseSubSeconds(const char* s, size_t length, TimeUnit::type 
 }  // namespace detail
 
 static inline bool ParseTimestampISO8601(const char* s, size_t length,
-                                         TimeUnit::type unit,
-                                         TimestampType::c_type* out) {
+                                         TimeUnit::type unit, TimestampType::c_type* out,
+                                         bool* out_zone_offset_present = NULLPTR) {
   using seconds_type = std::chrono::duration<TimestampType::c_type>;
 
+  // We allow the following zone offset formats:
+  // - (none)
+  // - Z
+  // - [+-]HH(:?MM)?
+  //
   // We allow the following formats for all units:
   // - "YYYY-MM-DD"
   // - "YYYY-MM-DD[ T]hhZ?"
@@ -604,8 +674,38 @@ static inline bool ParseTimestampISO8601(const char* s, size_t length,
     return false;
   }
 
+  if (out_zone_offset_present) {
+    *out_zone_offset_present = false;
+  }
+
+  seconds_type zone_offset(0);
   if (s[length - 1] == 'Z') {
     --length;
+    if (out_zone_offset_present) *out_zone_offset_present = true;
+  } else if (s[length - 3] == '+' || s[length - 3] == '-') {
+    // [+-]HH
+    length -= 3;
+    if (ARROW_PREDICT_FALSE(!detail::ParseHH(s + length + 1, &zone_offset))) {
+      return false;
+    }
+    if (s[length] == '+') zone_offset *= -1;
+    if (out_zone_offset_present) *out_zone_offset_present = true;
+  } else if (s[length - 5] == '+' || s[length - 5] == '-') {
+    // [+-]HHMM
+    length -= 5;
+    if (ARROW_PREDICT_FALSE(!detail::ParseHHMM(s + length + 1, &zone_offset))) {
+      return false;
+    }
+    if (s[length] == '+') zone_offset *= -1;
+    if (out_zone_offset_present) *out_zone_offset_present = true;
+  } else if ((s[length - 6] == '+' || s[length - 6] == '-') && (s[length - 3] == ':')) {
+    // [+-]HH:MM
+    length -= 6;
+    if (ARROW_PREDICT_FALSE(!detail::ParseHH_MM(s + length + 1, &zone_offset))) {
+      return false;
+    }
+    if (s[length] == '+') zone_offset *= -1;
+    if (out_zone_offset_present) *out_zone_offset_present = true;
   }
 
   seconds_type seconds_since_midnight;
@@ -639,6 +739,7 @@ static inline bool ParseTimestampISO8601(const char* s, size_t length,
   }
 
   seconds_since_epoch += seconds_since_midnight;
+  seconds_since_epoch += zone_offset;
 
   if (length <= 19) {
     *out = util::CastSecondsToUnit(unit, seconds_since_epoch.count());
@@ -658,6 +759,12 @@ static inline bool ParseTimestampISO8601(const char* s, size_t length,
   *out = util::CastSecondsToUnit(unit, seconds_since_epoch.count()) + subseconds;
   return true;
 }
+
+#ifdef _WIN32
+static constexpr bool kStrptimeSupportsZone = false;
+#else
+static constexpr bool kStrptimeSupportsZone = true;
+#endif
 
 /// \brief Returns time since the UNIX epoch in the requested unit
 static inline bool ParseTimestampStrptime(const char* buf, size_t length,
@@ -687,6 +794,9 @@ static inline bool ParseTimestampStrptime(const char* buf, size_t length,
   if (!ignore_time_in_day) {
     secs += (std::chrono::hours(result.tm_hour) + std::chrono::minutes(result.tm_min) +
              std::chrono::seconds(result.tm_sec));
+#ifndef _WIN32
+    secs -= std::chrono::seconds(result.tm_gmtoff);
+#endif
   }
   *out = util::CastSecondsToUnit(unit, secs.time_since_epoch().count());
   return true;
@@ -719,7 +829,9 @@ struct StringConverter<DATE_TYPE, enable_if_date<DATE_TYPE>> {
 
   static bool Convert(const DATE_TYPE& type, const char* s, size_t length,
                       value_type* out) {
-    if (length != 10) return false;
+    if (ARROW_PREDICT_FALSE(length != 10)) {
+      return false;
+    }
 
     duration_type since_epoch;
     if (ARROW_PREDICT_FALSE(!detail::ParseYYYY_MM_DD(s, &since_epoch))) {
@@ -735,12 +847,36 @@ template <typename TIME_TYPE>
 struct StringConverter<TIME_TYPE, enable_if_time<TIME_TYPE>> {
   using value_type = typename TIME_TYPE::c_type;
 
+  // We allow the following formats for all units:
+  // - "hh:mm"
+  // - "hh:mm:ss"
+  //
+  // We allow the following formats for unit == MILLI, MICRO, or NANO:
+  // - "hh:mm:ss.s{1,3}"
+  //
+  // We allow the following formats for unit == MICRO, or NANO:
+  // - "hh:mm:ss.s{4,6}"
+  //
+  // We allow the following formats for unit == NANO:
+  // - "hh:mm:ss.s{7,9}"
+
   static bool Convert(const TIME_TYPE& type, const char* s, size_t length,
                       value_type* out) {
-    if (length < 8) return false;
-    auto unit = type.unit();
-
+    const auto unit = type.unit();
     std::chrono::seconds since_midnight;
+
+    if (length == 5) {
+      if (ARROW_PREDICT_FALSE(!detail::ParseHH_MM(s, &since_midnight))) {
+        return false;
+      }
+      *out =
+          static_cast<value_type>(util::CastSecondsToUnit(unit, since_midnight.count()));
+      return true;
+    }
+
+    if (ARROW_PREDICT_FALSE(length < 8)) {
+      return false;
+    }
     if (ARROW_PREDICT_FALSE(!detail::ParseHH_MM_SS(s, &since_midnight))) {
       return false;
     }
@@ -749,6 +885,10 @@ struct StringConverter<TIME_TYPE, enable_if_time<TIME_TYPE>> {
 
     if (length == 8) {
       return true;
+    }
+
+    if (ARROW_PREDICT_FALSE(s[8] != '.')) {
+      return false;
     }
 
     uint32_t subseconds_count = 0;

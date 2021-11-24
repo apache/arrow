@@ -413,6 +413,9 @@ def test_array_slice():
     with pytest.raises(IndexError):
         arr.slice(-1)
 
+    with pytest.raises(ValueError):
+        arr.slice(2, -1)
+
     # Test slice notation
     assert arr[2:].equals(arr.slice(2))
     assert arr[2:5].equals(arr.slice(2, 3))
@@ -421,7 +424,11 @@ def test_array_slice():
     n = len(arr)
     for start in range(-n * 2, n * 2):
         for stop in range(-n * 2, n * 2):
-            assert arr[start:stop].to_pylist() == arr.to_pylist()[start:stop]
+            res = arr[start:stop]
+            res.validate()
+            expected = arr.to_pylist()[start:stop]
+            assert res.to_pylist() == expected
+            assert res.to_numpy().tolist() == expected
 
 
 def test_array_slice_negative_step():
@@ -668,6 +675,38 @@ def test_struct_from_arrays():
     with pytest.raises(ValueError, match="int64 vs int32"):
         pa.StructArray.from_arrays([a, b, c], fields=[fa2, fb, fc])
 
+    arrays = [a, b, c]
+    fields = [fa, fb, fc]
+    # With mask
+    mask = pa.array([True, False, False])
+    arr = pa.StructArray.from_arrays(arrays, fields=fields, mask=mask)
+    assert arr.to_pylist() == [None] + expected_list[1:]
+
+    arr = pa.StructArray.from_arrays(arrays, names=['a', 'b', 'c'], mask=mask)
+    assert arr.to_pylist() == [None] + expected_list[1:]
+
+    # Bad masks
+    with pytest.raises(ValueError, match='Mask must be'):
+        pa.StructArray.from_arrays(arrays, fields, mask=[True, False, False])
+
+    with pytest.raises(ValueError, match='not contain nulls'):
+        pa.StructArray.from_arrays(
+            arrays, fields, mask=pa.array([True, False, None]))
+
+    with pytest.raises(ValueError, match='Mask must be'):
+        pa.StructArray.from_arrays(
+            arrays, fields, mask=pa.chunked_array([mask]))
+
+
+def test_struct_array_from_chunked():
+    # ARROW-11780
+    # Check that we don't segfault when trying to build
+    # a StructArray from a chunked array.
+    chunked_arr = pa.chunked_array([[1, 2, 3], [4, 5, 6]])
+
+    with pytest.raises(TypeError, match="Expected Array"):
+        pa.StructArray.from_arrays([chunked_arr], ["foo"])
+
 
 def test_dictionary_from_numpy():
     indices = np.repeat([0, 1, 2], 2)
@@ -689,6 +728,76 @@ def test_dictionary_from_numpy():
             assert d2[i].as_py() is None
         else:
             assert d2[i].as_py() == dictionary[indices[i]]
+
+
+def test_dictionary_to_numpy():
+    expected = pa.array(
+        ["foo", "bar", None, "foo"]
+    ).to_numpy(zero_copy_only=False)
+    a = pa.DictionaryArray.from_arrays(
+        pa.array([0, 1, None, 0]),
+        pa.array(['foo', 'bar'])
+    )
+    np.testing.assert_array_equal(a.to_numpy(zero_copy_only=False),
+                                  expected)
+
+    with pytest.raises(pa.ArrowInvalid):
+        # If this would be changed to no longer raise in the future,
+        # ensure to test the actual result because, currently, to_numpy takes
+        # for granted that when zero_copy_only=True there will be no nulls
+        # (it's the decoding of the DictionaryArray that handles the nulls and
+        # this is only activated with zero_copy_only=False)
+        a.to_numpy(zero_copy_only=True)
+
+    anonulls = pa.DictionaryArray.from_arrays(
+        pa.array([0, 1, 1, 0]),
+        pa.array(['foo', 'bar'])
+    )
+    expected = pa.array(
+        ["foo", "bar", "bar", "foo"]
+    ).to_numpy(zero_copy_only=False)
+    np.testing.assert_array_equal(anonulls.to_numpy(zero_copy_only=False),
+                                  expected)
+
+    with pytest.raises(pa.ArrowInvalid):
+        anonulls.to_numpy(zero_copy_only=True)
+
+    afloat = pa.DictionaryArray.from_arrays(
+        pa.array([0, 1, 1, 0]),
+        pa.array([13.7, 11.0])
+    )
+    expected = pa.array([13.7, 11.0, 11.0, 13.7]).to_numpy()
+    np.testing.assert_array_equal(afloat.to_numpy(zero_copy_only=True),
+                                  expected)
+    np.testing.assert_array_equal(afloat.to_numpy(zero_copy_only=False),
+                                  expected)
+
+    afloat2 = pa.DictionaryArray.from_arrays(
+        pa.array([0, 1, None, 0]),
+        pa.array([13.7, 11.0])
+    )
+    expected = pa.array(
+        [13.7, 11.0, None, 13.7]
+    ).to_numpy(zero_copy_only=False)
+    np.testing.assert_allclose(
+        afloat2.to_numpy(zero_copy_only=False),
+        expected,
+        equal_nan=True
+    )
+
+    # Testing for integers can reveal problems related to dealing
+    # with None values, as a numpy array of int dtype
+    # can't contain NaN nor None.
+    aints = pa.DictionaryArray.from_arrays(
+        pa.array([0, 1, None, 0]),
+        pa.array([7, 11])
+    )
+    expected = pa.array([7, 11, None, 7]).to_numpy(zero_copy_only=False)
+    np.testing.assert_allclose(
+        aints.to_numpy(zero_copy_only=False),
+        expected,
+        equal_nan=True
+    )
 
 
 def test_dictionary_from_boxed_arrays():
@@ -850,6 +959,25 @@ def test_fixed_size_list_from_arrays():
     with pytest.raises(ValueError):
         # length of values not multiple of 5
         pa.FixedSizeListArray.from_arrays(values, 5)
+
+
+def test_variable_list_from_arrays():
+    values = pa.array([1, 2, 3, 4], pa.int64())
+    offsets = pa.array([0, 2, 4])
+    result = pa.ListArray.from_arrays(offsets, values)
+    assert result.to_pylist() == [[1, 2], [3, 4]]
+    assert result.type.equals(pa.list_(pa.int64()))
+
+    offsets = pa.array([0, None, 2, 4])
+    result = pa.ListArray.from_arrays(offsets, values)
+    assert result.to_pylist() == [[1, 2], None, [3, 4]]
+
+    # raise if offset out of bounds
+    with pytest.raises(ValueError):
+        pa.ListArray.from_arrays(pa.array([-1, 2, 4]), values)
+
+    with pytest.raises(ValueError):
+        pa.ListArray.from_arrays(pa.array([0, 2, 5]), values)
 
 
 def test_union_from_dense():
@@ -1358,6 +1486,7 @@ def test_cast_from_null():
         pa.timestamp('us', tz='UTC'),
         pa.timestamp('us', tz='Europe/Paris'),
         pa.duration('us'),
+        pa.month_day_nano_interval(),
         pa.struct([pa.field('a', pa.int32()),
                    pa.field('b', pa.list_(pa.int8())),
                    pa.field('c', pa.string())]),
@@ -1396,12 +1525,26 @@ def test_cast_string_to_number_roundtrip():
 
 
 def test_cast_dictionary():
-    arr = pa.DictionaryArray.from_arrays(
-        pa.array([0, 1, None], type=pa.int32()),
-        pa.array(["foo", "bar"]))
-    assert arr.cast(pa.string()).equals(pa.array(["foo", "bar", None]))
+    # cast to the value type
+    arr = pa.array(
+        ["foo", "bar", None],
+        type=pa.dictionary(pa.int64(), pa.string())
+    )
+    expected = pa.array(["foo", "bar", None])
+    assert arr.type == pa.dictionary(pa.int64(), pa.string())
+    assert arr.cast(pa.string()) == expected
+
+    # cast to a different key type
+    for key_type in [pa.int8(), pa.int16(), pa.int32()]:
+        typ = pa.dictionary(key_type, pa.string())
+        expected = pa.array(
+            ["foo", "bar", None],
+            type=pa.dictionary(key_type, pa.string())
+        )
+        assert arr.cast(typ) == expected
+
+    # shouldn't crash (ARROW-7077)
     with pytest.raises(pa.ArrowInvalid):
-        # Shouldn't crash (ARROW-7077)
         arr.cast(pa.int32())
 
 
@@ -1462,8 +1605,19 @@ def test_unique_value_counts_dictionary_type():
     assert unique_result.equals(expected)
 
     result = arr.value_counts()
-    result.field('values').equals(unique_result)
-    result.field('counts').equals(pa.array([3, 5, 4], type='int64'))
+    assert result.field('values').equals(unique_result)
+    assert result.field('counts').equals(pa.array([3, 5, 4], type='int64'))
+
+    arr = pa.DictionaryArray.from_arrays(
+        pa.array([], type='int64'), dictionary)
+    unique_result = arr.unique()
+    expected = pa.DictionaryArray.from_arrays(pa.array([], type='int64'),
+                                              pa.array([], type='utf8'))
+    assert unique_result.equals(expected)
+
+    result = arr.value_counts()
+    assert result.field('values').equals(unique_result)
+    assert result.field('counts').equals(pa.array([], type='int64'))
 
 
 def test_dictionary_encode_simple():
@@ -1530,6 +1684,26 @@ def test_dictionary_encode_zero_length():
     encoded = arr.dictionary_encode()
     assert len(encoded.dictionary) == 0
     encoded.validate(full=True)
+
+
+def test_dictionary_decode():
+    cases = [
+        (pa.array([1, 2, 3, None, 1, 2, 3]),
+         pa.DictionaryArray.from_arrays(
+             pa.array([0, 1, 2, None, 0, 1, 2], type='int32'),
+             [1, 2, 3])),
+        (pa.array(['foo', None, 'bar', 'foo']),
+         pa.DictionaryArray.from_arrays(
+             pa.array([0, None, 1, 0], type='int32'),
+             ['foo', 'bar'])),
+        (pa.array(['foo', None, 'bar', 'foo'], type=pa.large_binary()),
+         pa.DictionaryArray.from_arrays(
+             pa.array([0, None, 1, 0], type='int32'),
+             pa.array(['foo', 'bar'], type=pa.large_binary()))),
+    ]
+    for expected, arr in cases:
+        result = arr.dictionary_decode()
+        assert result.equals(expected)
 
 
 def test_cast_time32_to_int():
@@ -1989,6 +2163,99 @@ def test_array_from_numpy_ascii():
     assert arrow_arr.equals(expected)
 
 
+def test_interval_array_from_timedelta():
+    data = [
+        None,
+        datetime.timedelta(days=1, seconds=1, microseconds=1,
+                           milliseconds=1, minutes=1, hours=1, weeks=1)]
+
+    # From timedelta (explicit type required)
+    arr = pa.array(data, pa.month_day_nano_interval())
+    assert isinstance(arr, pa.MonthDayNanoIntervalArray)
+    assert arr.type == pa.month_day_nano_interval()
+    expected_list = [
+        None,
+        pa.MonthDayNano([0, 8,
+                         (datetime.timedelta(seconds=1, microseconds=1,
+                                             milliseconds=1, minutes=1,
+                                             hours=1) //
+                          datetime.timedelta(microseconds=1)) * 1000])]
+    expected = pa.array(expected_list)
+    assert arr.equals(expected)
+    assert arr.to_pylist() == expected_list
+
+
+@pytest.mark.pandas
+def test_interval_array_from_relativedelta():
+    # dateutil is dependency of pandas
+    from dateutil.relativedelta import relativedelta
+    from pandas import DateOffset
+    data = [
+        None,
+        relativedelta(years=1, months=1,
+                      days=1, seconds=1, microseconds=1,
+                      minutes=1, hours=1, weeks=1, leapdays=1)]
+    # Note leapdays are ignored.
+
+    # From relativedelta
+    arr = pa.array(data)
+    assert isinstance(arr, pa.MonthDayNanoIntervalArray)
+    assert arr.type == pa.month_day_nano_interval()
+    expected_list = [
+        None,
+        pa.MonthDayNano([13, 8,
+                         (datetime.timedelta(seconds=1, microseconds=1,
+                                             minutes=1, hours=1) //
+                          datetime.timedelta(microseconds=1)) * 1000])]
+    expected = pa.array(expected_list)
+    assert arr.equals(expected)
+    assert arr.to_pandas().tolist() == [
+        None, DateOffset(months=13, days=8,
+                         microseconds=(
+                             datetime.timedelta(seconds=1, microseconds=1,
+                                                minutes=1, hours=1) //
+                             datetime.timedelta(microseconds=1)),
+                         nanoseconds=0)]
+    with pytest.raises(ValueError):
+        pa.array([DateOffset(years=((1 << 32) // 12), months=100)])
+    with pytest.raises(ValueError):
+        pa.array([DateOffset(weeks=((1 << 32) // 7), days=100)])
+    with pytest.raises(ValueError):
+        pa.array([DateOffset(seconds=((1 << 64) // 1000000000),
+                             nanoseconds=1)])
+    with pytest.raises(ValueError):
+        pa.array([DateOffset(microseconds=((1 << 64) // 100))])
+
+
+@pytest.mark.pandas
+def test_interval_array_from_dateoffset():
+    from pandas.tseries.offsets import DateOffset
+    data = [
+        None,
+        DateOffset(years=1, months=1,
+                   days=1, seconds=1, microseconds=1,
+                   minutes=1, hours=1, weeks=1, nanoseconds=1),
+        DateOffset()]
+
+    arr = pa.array(data)
+    assert isinstance(arr, pa.MonthDayNanoIntervalArray)
+    assert arr.type == pa.month_day_nano_interval()
+    expected_list = [
+        None,
+        pa.MonthDayNano([13, 8, 3661000001001]),
+        pa.MonthDayNano([0, 0, 0])]
+    expected = pa.array(expected_list)
+    assert arr.equals(expected)
+    assert arr.to_pandas().tolist() == [
+        None, DateOffset(months=13, days=8,
+                         microseconds=(
+                             datetime.timedelta(seconds=1, microseconds=1,
+                                                minutes=1, hours=1) //
+                             datetime.timedelta(microseconds=1)),
+                         nanoseconds=1),
+        DateOffset(months=0, days=0, microseconds=0, nanoseconds=0)]
+
+
 def test_array_from_numpy_unicode():
     dtypes = ['<U5', '>U5']
 
@@ -2079,6 +2346,23 @@ def test_array_from_strided_bool():
     result = pa.array(arr[0, :])
     expected = pa.array([True, True])
     assert result.equals(expected)
+
+
+def test_array_from_strided():
+    pydata = [
+        ([b"ab", b"cd", b"ef"], (pa.binary(), pa.binary(2))),
+        ([1, 2, 3], (pa.int8(), pa.int16(), pa.int32(), pa.int64())),
+        ([1.0, 2.0, 3.0], (pa.float32(), pa.float64())),
+        (["ab", "cd", "ef"], (pa.utf8(), ))
+    ]
+
+    for values, dtypes in pydata:
+        nparray = np.array(values)
+        for patype in dtypes:
+            for mask in (None, np.array([False, False])):
+                arrow_array = pa.array(nparray[::2], patype,
+                                       mask=mask)
+                assert values[::2] == arrow_array.to_pylist()
 
 
 def test_boolean_true_count_false_count():
@@ -2482,6 +2766,7 @@ def test_array_from_numpy_str_utf8():
         pa.array(vec, pa.string(), mask=np.array([False]))
 
 
+@pytest.mark.slow
 @pytest.mark.large_memory
 def test_numpy_binary_overflow_to_chunked():
     # ARROW-3762, ARROW-5966
@@ -2566,11 +2851,114 @@ def test_array_masked():
     assert arr.type == pa.int64()
 
 
+def test_array_supported_masks():
+    # ARROW-13883
+    arr = pa.array([4, None, 4, 3.],
+                   mask=np.array([False, True, False, True]))
+    assert arr.to_pylist() == [4, None, 4, None]
+
+    arr = pa.array([4, None, 4, 3],
+                   mask=pa.array([False, True, False, True]))
+    assert arr.to_pylist() == [4, None, 4, None]
+
+    arr = pa.array([4, None, 4, 3],
+                   mask=[False, True, False, True])
+    assert arr.to_pylist() == [4, None, 4, None]
+
+    arr = pa.array([4, 3, None, 3],
+                   mask=[False, True, False, True])
+    assert arr.to_pylist() == [4, None, None, None]
+
+    # Non boolean values
+    with pytest.raises(pa.ArrowTypeError):
+        arr = pa.array([4, None, 4, 3],
+                       mask=pa.array([1.0, 2.0, 3.0, 4.0]))
+
+    with pytest.raises(pa.ArrowTypeError):
+        arr = pa.array([4, None, 4, 3],
+                       mask=[1.0, 2.0, 3.0, 4.0])
+
+    with pytest.raises(pa.ArrowTypeError):
+        arr = pa.array([4, None, 4, 3],
+                       mask=np.array([1.0, 2.0, 3.0, 4.0]))
+
+    with pytest.raises(pa.ArrowTypeError):
+        arr = pa.array([4, None, 4, 3],
+                       mask=pa.array([False, True, False, True],
+                                     mask=pa.array([True, True, True, True])))
+
+    with pytest.raises(pa.ArrowTypeError):
+        arr = pa.array([4, None, 4, 3],
+                       mask=pa.array([False, None, False, True]))
+
+    # Numpy arrays only accepts numpy masks
+    with pytest.raises(TypeError):
+        arr = pa.array(np.array([4, None, 4, 3.]),
+                       mask=[True, False, True, False])
+
+    with pytest.raises(TypeError):
+        arr = pa.array(np.array([4, None, 4, 3.]),
+                       mask=pa.array([True, False, True, False]))
+
+
+@pytest.mark.pandas
+def test_array_supported_pandas_masks():
+    import pandas
+    arr = pa.array(pandas.Series([0, 1], name="a", dtype="int64"),
+                   mask=pandas.Series([True, False], dtype='bool'))
+    assert arr.to_pylist() == [None, 1]
+
+
+def test_binary_array_masked():
+    # ARROW-12431
+    masked_basic = pa.array([b'\x05'], type=pa.binary(1),
+                            mask=np.array([False]))
+    assert [b'\x05'] == masked_basic.to_pylist()
+
+    # Fixed Length Binary
+    masked = pa.array(np.array([b'\x05']), type=pa.binary(1),
+                      mask=np.array([False]))
+    assert [b'\x05'] == masked.to_pylist()
+
+    masked_nulls = pa.array(np.array([b'\x05']), type=pa.binary(1),
+                            mask=np.array([True]))
+    assert [None] == masked_nulls.to_pylist()
+
+    # Variable Length Binary
+    masked = pa.array(np.array([b'\x05']), type=pa.binary(),
+                      mask=np.array([False]))
+    assert [b'\x05'] == masked.to_pylist()
+
+    masked_nulls = pa.array(np.array([b'\x05']), type=pa.binary(),
+                            mask=np.array([True]))
+    assert [None] == masked_nulls.to_pylist()
+
+    # Fixed Length Binary, copy
+    npa = np.array([b'aaa', b'bbb', b'ccc']*10)
+    arrow_array = pa.array(npa, type=pa.binary(3),
+                           mask=np.array([False, False, False]*10))
+    npa[npa == b"bbb"] = b"XXX"
+    assert ([b'aaa', b'bbb', b'ccc']*10) == arrow_array.to_pylist()
+
+
+def test_binary_array_strided():
+    # Masked
+    nparray = np.array([b"ab", b"cd", b"ef"])
+    arrow_array = pa.array(nparray[::2], pa.binary(2),
+                           mask=np.array([False, False]))
+    assert [b"ab", b"ef"] == arrow_array.to_pylist()
+
+    # Unmasked
+    nparray = np.array([b"ab", b"cd", b"ef"])
+    arrow_array = pa.array(nparray[::2], pa.binary(2))
+    assert [b"ab", b"ef"] == arrow_array.to_pylist()
+
+
 def test_array_invalid_mask_raises():
     # ARROW-10742
     cases = [
         ([1, 2], np.array([False, False], dtype="O"),
-         pa.ArrowInvalid, "must be boolean dtype"),
+         TypeError, "must be boolean dtype"),
 
         ([1, 2], np.array([[False], [False]]),
          pa.ArrowInvalid, "must be 1D array"),

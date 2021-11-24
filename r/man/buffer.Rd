@@ -26,10 +26,19 @@ contiguous memory with a particular size.
 \section{Methods}{
 
 \itemize{
-\item \verb{$is_mutable()} :
-\item \verb{$ZeroPadding()} :
-\item \verb{$size()} :
-\item \verb{$capacity()}:
+\item \verb{$is_mutable} : is this buffer mutable?
+\item \verb{$ZeroPadding()} : zero bytes in padding, i.e. bytes between size and capacity
+\item \verb{$size} : size in memory, in bytes
+\item \verb{$capacity}: possible capacity, in bytes
 }
 }
 
+\examples{
+\dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+my_buffer <- buffer(c(1, 2, 3, 4))
+my_buffer$is_mutable
+my_buffer$ZeroPadding()
+my_buffer$size
+my_buffer$capacity
+\dontshow{\}) # examplesIf}
+}

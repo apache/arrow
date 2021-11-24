@@ -263,7 +263,7 @@ public class JdbcToArrowTestHelper {
 
       assertEquals(rsmd.getCatalogName(i), metadata.get(Constants.SQL_CATALOG_NAME_KEY));
       assertEquals(rsmd.getTableName(i), metadata.get(Constants.SQL_TABLE_NAME_KEY));
-      assertEquals(rsmd.getColumnName(i), metadata.get(Constants.SQL_COLUMN_NAME_KEY));
+      assertEquals(rsmd.getColumnLabel(i), metadata.get(Constants.SQL_COLUMN_NAME_KEY));
       assertEquals(rsmd.getColumnTypeName(i), metadata.get(Constants.SQL_TYPE_KEY));
     }
   }

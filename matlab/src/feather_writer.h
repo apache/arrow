@@ -23,7 +23,6 @@
 #include <arrow/ipc/feather.h>
 #include <arrow/status.h>
 #include <arrow/type.h>
-
 #include <matrix.h>
 
 namespace arrow {
@@ -33,24 +32,21 @@ class FeatherWriter {
  public:
   ~FeatherWriter() = default;
 
-  /// \brief Write Feather file metadata using information from an mxArray* struct.
-  ///        The input mxArray must be a scalar struct array with the following fields:
-  ///         - "Description" :: Nx1 mxChar array, table-level description
-  ///         - "NumRows" :: scalar mxDouble array, number of rows in table
-  ///         - "NumVariables" :: scalar mxDouble array, total number of variables
-  /// \param[in] metadata mxArray* scalar struct containing table-level metadata
-  void WriteMetadata(const mxArray* metadata);
-
-  /// \brief Write mxArrays to a Feather file. The input must be a N-by-1 mxStruct
-  //         array with the following fields:
+  /// \brief Write mxArrays to a Feather file. The first input must be a N-by-1 mxStruct
+  ///         array with the following fields:
   ///         - "Name" :: Nx1 mxChar array, name of the column
   ///         - "Type" :: Nx1 mxChar array, the variable's MATLAB datatype
   ///         - "Data" :: Nx1 mxArray, data for this variable
   ///         - "Valid" :: Nx1 mxLogical array, 0 represents invalid (null) values and
   ///                                           1 represents valid (non-null) values
+  ///        The second input must be a scalar mxStruct  with the following
+  ///        fields:
+  ///         - "NumRows" :: scalar mxDouble array, number of rows in table
+  ///         - "NumVariables" :: scalar mxDouble array, total number of variables
   /// \param[in] variables mxArray* struct array containing table variable data
+  /// \param[in] metadata mxArray* scalar struct containing table-level metadata
   /// \return status
-  Status WriteVariables(const mxArray* variables);
+  Status WriteVariables(const mxArray* variables, const mxArray* metadata);
 
   /// \brief Initialize a FeatherWriter object that writes to a Feather file
   /// \param[in] filename path to the new Feather file
@@ -62,12 +58,11 @@ class FeatherWriter {
  private:
   FeatherWriter() = default;
 
-  std::unique_ptr<ipc::feather::TableWriter> table_writer_;
   int64_t num_rows_;
   int64_t num_variables_;
   std::string description_;
+  std::shared_ptr<arrow::io::OutputStream> file_output_stream_;
 };
 
 }  // namespace matlab
 }  // namespace arrow
-

@@ -16,11 +16,20 @@
 # under the License.
 
 class TestField < Test::Unit::TestCase
+  include Helper::Omittable
+
   def setup
     @data_type = Arrow::BooleanDataType.new
     @field = Arrow::Field.new("enabled", @data_type)
     @field_with_metadata = @field.with_metadata("key1" => "value1",
                                                 "key2" => "value2")
+  end
+
+  def test_export
+    require_gi_bindings(3, 4, 8)
+    c_abi_schema = @field.export
+    assert_equal(@field,
+                 Arrow::Field.import(c_abi_schema))
   end
 
   def test_equal

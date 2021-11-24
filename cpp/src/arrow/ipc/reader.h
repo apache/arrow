@@ -25,12 +25,14 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/io/caching.h"
 #include "arrow/io/type_fwd.h"
 #include "arrow/ipc/message.h"
 #include "arrow/ipc/options.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
 #include "arrow/type_fwd.h"
+#include "arrow/util/async_generator.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
@@ -99,7 +101,8 @@ class ARROW_EXPORT RecordBatchStreamReader : public RecordBatchReader {
 };
 
 /// \brief Reads the record batch file format
-class ARROW_EXPORT RecordBatchFileReader {
+class ARROW_EXPORT RecordBatchFileReader
+    : public std::enable_shared_from_this<RecordBatchFileReader> {
  public:
   virtual ~RecordBatchFileReader() = default;
 
@@ -147,6 +150,26 @@ class ARROW_EXPORT RecordBatchFileReader {
       const std::shared_ptr<io::RandomAccessFile>& file, int64_t footer_offset,
       const IpcReadOptions& options = IpcReadOptions::Defaults());
 
+  /// \brief Open a file asynchronously (owns the file).
+  static Future<std::shared_ptr<RecordBatchFileReader>> OpenAsync(
+      const std::shared_ptr<io::RandomAccessFile>& file,
+      const IpcReadOptions& options = IpcReadOptions::Defaults());
+
+  /// \brief Open a file asynchronously (borrows the file).
+  static Future<std::shared_ptr<RecordBatchFileReader>> OpenAsync(
+      io::RandomAccessFile* file,
+      const IpcReadOptions& options = IpcReadOptions::Defaults());
+
+  /// \brief Open a file asynchronously (owns the file).
+  static Future<std::shared_ptr<RecordBatchFileReader>> OpenAsync(
+      const std::shared_ptr<io::RandomAccessFile>& file, int64_t footer_offset,
+      const IpcReadOptions& options = IpcReadOptions::Defaults());
+
+  /// \brief Open a file asynchronously (borrows the file).
+  static Future<std::shared_ptr<RecordBatchFileReader>> OpenAsync(
+      io::RandomAccessFile* file, int64_t footer_offset,
+      const IpcReadOptions& options = IpcReadOptions::Defaults());
+
   /// \brief The schema read from the file
   virtual std::shared_ptr<Schema> schema() const = 0;
 
@@ -169,6 +192,24 @@ class ARROW_EXPORT RecordBatchFileReader {
 
   /// \brief Return current read statistics
   virtual ReadStats stats() const = 0;
+
+  /// \brief Computes the total number of rows in the file.
+  virtual Result<int64_t> CountRows() = 0;
+
+  /// \brief Get a reentrant generator of record batches.
+  ///
+  /// \param[in] coalesce If true, enable I/O coalescing.
+  /// \param[in] io_context The IOContext to use (controls which thread pool
+  ///     is used for I/O).
+  /// \param[in] cache_options Options for coalescing (if enabled).
+  /// \param[in] executor Optionally, an executor to use for decoding record
+  ///     batches. This is generally only a benefit for very wide and/or
+  ///     compressed batches.
+  virtual Result<AsyncGenerator<std::shared_ptr<RecordBatch>>> GetRecordBatchGenerator(
+      const bool coalesce = false,
+      const io::IOContext& io_context = io::default_io_context(),
+      const io::CacheOptions cache_options = io::CacheOptions::LazyDefaults(),
+      arrow::internal::Executor* executor = NULLPTR) = 0;
 };
 
 /// \brief A general listener class to receive events.

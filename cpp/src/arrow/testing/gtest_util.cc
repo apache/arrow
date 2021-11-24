@@ -16,6 +16,7 @@
 // under the License.
 
 #include "arrow/testing/gtest_util.h"
+
 #include "arrow/testing/extension_type.h"
 
 #ifndef _WIN32
@@ -96,7 +97,8 @@ std::vector<Type::type> AllTypeIds() {
           Type::DENSE_UNION,
           Type::SPARSE_UNION,
           Type::DICTIONARY,
-          Type::EXTENSION};
+          Type::EXTENSION,
+          Type::INTERVAL_MONTH_DAY_NANO};
 }
 
 template <typename T, typename CompareFunctor>
@@ -213,6 +215,20 @@ void AssertChunkedEquivalent(const ChunkedArray& expected, const ChunkedArray& a
   // XXX: AssertChunkedEqual in gtest_util.h does not permit the chunk layouts
   // to be different
   if (!actual.Equals(expected)) {
+    std::stringstream pp_expected;
+    std::stringstream pp_actual;
+    ::arrow::PrettyPrintOptions options(/*indent=*/2);
+    options.window = 50;
+    ARROW_EXPECT_OK(PrettyPrint(expected, options, &pp_expected));
+    ARROW_EXPECT_OK(PrettyPrint(actual, options, &pp_actual));
+    FAIL() << "Got: \n" << pp_actual.str() << "\nExpected: \n" << pp_expected.str();
+  }
+}
+
+void AssertChunkedApproxEquivalent(const ChunkedArray& expected,
+                                   const ChunkedArray& actual,
+                                   const EqualOptions& equal_options) {
+  if (!actual.ApproxEquals(expected, equal_options)) {
     std::stringstream pp_expected;
     std::stringstream pp_actual;
     ::arrow::PrettyPrintOptions options(/*indent=*/2);
@@ -362,6 +378,34 @@ void AssertDatumsEqual(const Datum& expected, const Datum& actual, bool verbose)
   }
 }
 
+void AssertDatumsApproxEqual(const Datum& expected, const Datum& actual, bool verbose,
+                             const EqualOptions& options) {
+  ASSERT_EQ(expected.kind(), actual.kind())
+      << "expected:" << expected.ToString() << " got:" << actual.ToString();
+
+  switch (expected.kind()) {
+    case Datum::SCALAR:
+      AssertScalarsApproxEqual(*expected.scalar(), *actual.scalar(), verbose, options);
+      break;
+    case Datum::ARRAY: {
+      auto expected_array = expected.make_array();
+      auto actual_array = actual.make_array();
+      AssertArraysApproxEqual(*expected_array, *actual_array, verbose, options);
+      break;
+    }
+    case Datum::CHUNKED_ARRAY: {
+      auto expected_array = expected.chunked_array();
+      auto actual_array = actual.chunked_array();
+      AssertChunkedApproxEquivalent(*expected_array, *actual_array, options);
+      break;
+    }
+    default:
+      // TODO: Implement better print
+      ASSERT_TRUE(actual.Equals(expected));
+      break;
+  }
+}
+
 std::shared_ptr<Array> ArrayFromJSON(const std::shared_ptr<DataType>& type,
                                      util::string_view json) {
   std::shared_ptr<Array> out;
@@ -395,6 +439,22 @@ std::shared_ptr<RecordBatch> RecordBatchFromJSON(const std::shared_ptr<Schema>& 
 
   // Convert StructArray to RecordBatch
   return *RecordBatch::FromStructArray(struct_array);
+}
+
+std::shared_ptr<Scalar> ScalarFromJSON(const std::shared_ptr<DataType>& type,
+                                       util::string_view json) {
+  std::shared_ptr<Scalar> out;
+  ABORT_NOT_OK(ipc::internal::json::ScalarFromJSON(type, json, &out));
+  return out;
+}
+
+std::shared_ptr<Scalar> DictScalarFromJSON(const std::shared_ptr<DataType>& type,
+                                           util::string_view index_json,
+                                           util::string_view dictionary_json) {
+  std::shared_ptr<Scalar> out;
+  ABORT_NOT_OK(
+      ipc::internal::json::DictScalarFromJSON(type, index_json, dictionary_json, &out));
+  return out;
 }
 
 std::shared_ptr<Table> TableFromJSON(const std::shared_ptr<Schema>& schema,
@@ -505,6 +565,28 @@ void ApproxCompareBatch(const RecordBatch& left, const RecordBatch& right,
       [](const Array& left, const Array& right) { return left.ApproxEquals(right); });
 }
 
+std::shared_ptr<Array> TweakValidityBit(const std::shared_ptr<Array>& array,
+                                        int64_t index, bool validity) {
+  auto data = array->data()->Copy();
+  if (data->buffers[0] == nullptr) {
+    data->buffers[0] = *AllocateBitmap(data->length);
+    BitUtil::SetBitsTo(data->buffers[0]->mutable_data(), 0, data->length, true);
+  }
+  BitUtil::SetBitTo(data->buffers[0]->mutable_data(), index, validity);
+  data->null_count = kUnknownNullCount;
+  // Need to return a new array, because Array caches the null bitmap pointer
+  return MakeArray(data);
+}
+
+bool LocaleExists(const char* locale) {
+  try {
+    std::locale loc(locale);
+    return true;
+  } catch (std::runtime_error&) {
+    return false;
+  }
+}
+
 class LocaleGuard::Impl {
  public:
   explicit Impl(const char* new_locale) : global_locale_(std::locale()) {
@@ -582,16 +664,33 @@ void AssertZeroPadded(const Array& array) {
   }
 }
 
-void TestInitialized(const Array& array) {
-  for (const auto& buffer : array.data()->buffers) {
+void TestInitialized(const Array& array) { TestInitialized(*array.data()); }
+
+void TestInitialized(const ArrayData& array) {
+  uint8_t total = 0;
+  for (const auto& buffer : array.buffers) {
     if (buffer && buffer->capacity() > 0) {
-      int total = 0;
       auto data = buffer->data();
       for (int64_t i = 0; i < buffer->size(); ++i) {
         total ^= data[i];
       }
-      throw_away = total;
     }
+  }
+  uint8_t total_bit = 0;
+  for (uint32_t mask = 1; mask < 256; mask <<= 1) {
+    total_bit ^= (total & mask) != 0;
+  }
+  // This is a dummy condition on all the bits of `total` (which depend on the
+  // entire buffer data).  If not all bits are well-defined, Valgrind will
+  // error with "Conditional jump or move depends on uninitialised value(s)".
+  if (total_bit == 0) {
+    ++throw_away;
+  }
+  for (const auto& child : array.child_data) {
+    TestInitialized(*child);
+  }
+  if (array.dictionary) {
+    TestInitialized(*array.dictionary);
   }
 }
 
@@ -638,7 +737,7 @@ Future<> SleepAsync(double seconds) {
   auto out = Future<>::Make();
   std::thread([out, seconds]() mutable {
     SleepFor(seconds);
-    out.MarkFinished(Status::OK());
+    out.MarkFinished();
   }).detach();
   return out;
 }
@@ -647,7 +746,7 @@ Future<> SleepABitAsync() {
   auto out = Future<>::Make();
   std::thread([out]() mutable {
     SleepABit();
-    out.MarkFinished(Status::OK());
+    out.MarkFinished();
   }).detach();
   return out;
 }
@@ -723,6 +822,28 @@ Result<std::shared_ptr<DataType>> DictExtensionType::Deserialize(
   return std::make_shared<DictExtensionType>();
 }
 
+bool Complex128Type::ExtensionEquals(const ExtensionType& other) const {
+  return (other.extension_name() == this->extension_name());
+}
+
+std::shared_ptr<Array> Complex128Type::MakeArray(std::shared_ptr<ArrayData> data) const {
+  DCHECK_EQ(data->type->id(), Type::EXTENSION);
+  DCHECK(ExtensionEquals(checked_cast<const ExtensionType&>(*data->type)));
+  return std::make_shared<Complex128Array>(data);
+}
+
+Result<std::shared_ptr<DataType>> Complex128Type::Deserialize(
+    std::shared_ptr<DataType> storage_type, const std::string& serialized) const {
+  if (serialized != "complex128-serialized") {
+    return Status::Invalid("Type identifier did not match: '", serialized, "'");
+  }
+  if (!storage_type->Equals(*storage_type_)) {
+    return Status::Invalid("Invalid storage type for Complex128Type: ",
+                           storage_type->ToString());
+  }
+  return std::make_shared<Complex128Type>();
+}
+
 std::shared_ptr<DataType> uuid() { return std::make_shared<UuidType>(); }
 
 std::shared_ptr<DataType> smallint() { return std::make_shared<SmallintType>(); }
@@ -731,47 +852,67 @@ std::shared_ptr<DataType> dict_extension_type() {
   return std::make_shared<DictExtensionType>();
 }
 
+std::shared_ptr<DataType> complex128() { return std::make_shared<Complex128Type>(); }
+
+std::shared_ptr<Array> MakeComplex128(const std::shared_ptr<Array>& real,
+                                      const std::shared_ptr<Array>& imag) {
+  auto type = complex128();
+  std::shared_ptr<Array> storage(
+      new StructArray(checked_cast<const ExtensionType&>(*type).storage_type(),
+                      real->length(), {real, imag}));
+  return ExtensionType::WrapArray(type, storage);
+}
+
 std::shared_ptr<Array> ExampleUuid() {
-  auto storage_type = fixed_size_binary(16);
-  auto ext_type = uuid();
-
   auto arr = ArrayFromJSON(
-      storage_type,
+      fixed_size_binary(16),
       "[null, \"abcdefghijklmno0\", \"abcdefghijklmno1\", \"abcdefghijklmno2\"]");
-
-  auto ext_data = arr->data()->Copy();
-  ext_data->type = ext_type;
-  return MakeArray(ext_data);
+  return ExtensionType::WrapArray(uuid(), arr);
 }
 
 std::shared_ptr<Array> ExampleSmallint() {
-  auto storage_type = int16();
-  auto ext_type = smallint();
-  auto arr = ArrayFromJSON(storage_type, "[-32768, null, 1, 2, 3, 4, 32767]");
-  auto ext_data = arr->data()->Copy();
-  ext_data->type = ext_type;
-  return MakeArray(ext_data);
+  auto arr = ArrayFromJSON(int16(), "[-32768, null, 1, 2, 3, 4, 32767]");
+  return ExtensionType::WrapArray(smallint(), arr);
 }
 
-ExtensionTypeGuard::ExtensionTypeGuard(const std::shared_ptr<DataType>& type) {
-  ARROW_CHECK_EQ(type->id(), Type::EXTENSION);
-  auto ext_type = checked_pointer_cast<ExtensionType>(type);
+std::shared_ptr<Array> ExampleDictExtension() {
+  auto arr = DictArrayFromJSON(dictionary(int8(), utf8()), "[0, 1, null, 1]",
+                               R"(["foo", "bar"])");
+  return ExtensionType::WrapArray(dict_extension_type(), arr);
+}
 
-  ARROW_CHECK_OK(RegisterExtensionType(ext_type));
-  extension_name_ = ext_type->extension_name();
-  DCHECK(!extension_name_.empty());
+std::shared_ptr<Array> ExampleComplex128() {
+  auto arr = ArrayFromJSON(struct_({field("", float64()), field("", float64())}),
+                           "[[1.0, -2.5], null, [3.0, -4.5]]");
+  return ExtensionType::WrapArray(complex128(), arr);
+}
+
+ExtensionTypeGuard::ExtensionTypeGuard(const std::shared_ptr<DataType>& type)
+    : ExtensionTypeGuard(DataTypeVector{type}) {}
+
+ExtensionTypeGuard::ExtensionTypeGuard(const DataTypeVector& types) {
+  for (const auto& type : types) {
+    ARROW_CHECK_EQ(type->id(), Type::EXTENSION);
+    auto ext_type = checked_pointer_cast<ExtensionType>(type);
+
+    ARROW_CHECK_OK(RegisterExtensionType(ext_type));
+    extension_names_.push_back(ext_type->extension_name());
+    DCHECK(!extension_names_.back().empty());
+  }
 }
 
 ExtensionTypeGuard::~ExtensionTypeGuard() {
-  if (!extension_name_.empty()) {
-    ARROW_CHECK_OK(UnregisterExtensionType(extension_name_));
+  for (const auto& name : extension_names_) {
+    ARROW_CHECK_OK(UnregisterExtensionType(name));
   }
 }
 
 class GatingTask::Impl : public std::enable_shared_from_this<GatingTask::Impl> {
  public:
   explicit Impl(double timeout_seconds)
-      : timeout_seconds_(timeout_seconds), status_(), unlocked_(false) {}
+      : timeout_seconds_(timeout_seconds), status_(), unlocked_(false) {
+    unlocked_future_ = Future<>::Make();
+  }
 
   ~Impl() {
     if (num_running_ != num_launched_) {
@@ -793,6 +934,15 @@ class GatingTask::Impl : public std::enable_shared_from_this<GatingTask::Impl> {
     return [self] { self->RunTask(); };
   }
 
+  Future<> AsyncTask() {
+    num_launched_++;
+    num_running_++;
+    /// TODO(ARROW-13004) Could maybe implement this check with future chains
+    /// if we check to see if the future has been "consumed" or not
+    num_finished_++;
+    return unlocked_future_;
+  }
+
   void RunTask() {
     std::unique_lock<std::mutex> lk(mx_);
     num_running_++;
@@ -805,7 +955,6 @@ class GatingTask::Impl : public std::enable_shared_from_this<GatingTask::Impl> {
                                  " seconds) waiting for the gating task to be unlocked");
     }
     num_finished_++;
-    finished_cv_.notify_all();
   }
 
   Status WaitForRunning(int count) {
@@ -822,6 +971,7 @@ class GatingTask::Impl : public std::enable_shared_from_this<GatingTask::Impl> {
     std::lock_guard<std::mutex> lk(mx_);
     unlocked_ = true;
     unlocked_cv_.notify_all();
+    unlocked_future_.MarkFinished();
     return status_;
   }
 
@@ -829,13 +979,13 @@ class GatingTask::Impl : public std::enable_shared_from_this<GatingTask::Impl> {
   double timeout_seconds_;
   Status status_;
   bool unlocked_;
-  int num_launched_ = 0;
+  std::atomic<int> num_launched_{0};
   int num_running_ = 0;
   int num_finished_ = 0;
   std::mutex mx_;
   std::condition_variable running_cv_;
   std::condition_variable unlocked_cv_;
-  std::condition_variable finished_cv_;
+  Future<> unlocked_future_;
 };
 
 GatingTask::GatingTask(double timeout_seconds) : impl_(new Impl(timeout_seconds)) {}
@@ -843,6 +993,8 @@ GatingTask::GatingTask(double timeout_seconds) : impl_(new Impl(timeout_seconds)
 GatingTask::~GatingTask() {}
 
 std::function<void()> GatingTask::Task() { return impl_->Task(); }
+
+Future<> GatingTask::AsyncTask() { return impl_->AsyncTask(); }
 
 Status GatingTask::Unlock() { return impl_->Unlock(); }
 

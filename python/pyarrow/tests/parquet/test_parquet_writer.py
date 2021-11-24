@@ -36,6 +36,8 @@ try:
 except ImportError:
     pd = tm = None
 
+pytestmark = pytest.mark.parquet
+
 
 @pytest.mark.pandas
 @parametrize_legacy_dataset
@@ -46,7 +48,7 @@ def test_parquet_incremental_file_build(tempdir, use_legacy_dataset):
     arrow_table = pa.Table.from_pandas(df, preserve_index=False)
     out = pa.BufferOutputStream()
 
-    writer = pq.ParquetWriter(out, arrow_table.schema, version='2.0')
+    writer = pq.ParquetWriter(out, arrow_table.schema, version='2.6')
 
     frames = []
     for i in range(10):
@@ -82,7 +84,7 @@ def test_validate_schema_write_table(tempdir):
     path = tempdir / 'simple_validate_schema.parquet'
 
     with pq.ParquetWriter(path, simple_schema,
-                          version='2.0',
+                          version='2.6',
                           compression='snappy', flavor='spark') as w:
         with pytest.raises(ValueError):
             w.write_table(simple_table)
@@ -97,7 +99,7 @@ def test_parquet_writer_context_obj(tempdir, use_legacy_dataset):
     arrow_table = pa.Table.from_pandas(df, preserve_index=False)
     out = pa.BufferOutputStream()
 
-    with pq.ParquetWriter(out, arrow_table.schema, version='2.0') as writer:
+    with pq.ParquetWriter(out, arrow_table.schema, version='2.6') as writer:
 
         frames = []
         for i in range(10):
@@ -130,7 +132,7 @@ def test_parquet_writer_context_obj_with_exception(
     try:
         with pq.ParquetWriter(out,
                               arrow_table.schema,
-                              version='2.0') as writer:
+                              version='2.6') as writer:
 
             frames = []
             for i in range(10):
@@ -157,13 +159,59 @@ def test_parquet_writer_context_obj_with_exception(
     LocalFileSystem._get_instance(),
     fs.LocalFileSystem(),
 ])
+def test_parquet_writer_write_wrappers(tempdir, filesystem):
+    df = _test_dataframe(100)
+    table = pa.Table.from_pandas(df, preserve_index=False)
+    batch = pa.RecordBatch.from_pandas(df, preserve_index=False)
+    path_table = str(tempdir / 'data_table.parquet')
+    path_batch = str(tempdir / 'data_batch.parquet')
+
+    with pq.ParquetWriter(
+        path_table, table.schema, filesystem=filesystem, version='2.6'
+    ) as writer:
+        writer.write_table(table)
+
+    result = _read_table(path_table).to_pandas()
+    tm.assert_frame_equal(result, df)
+
+    with pq.ParquetWriter(
+        path_batch, table.schema, filesystem=filesystem, version='2.6'
+    ) as writer:
+        writer.write_batch(batch)
+
+    result = _read_table(path_batch).to_pandas()
+    tm.assert_frame_equal(result, df)
+
+    with pq.ParquetWriter(
+        path_table, table.schema, filesystem=filesystem, version='2.6'
+    ) as writer:
+        writer.write(table)
+
+    result = _read_table(path_table).to_pandas()
+    tm.assert_frame_equal(result, df)
+
+    with pq.ParquetWriter(
+        path_batch, table.schema, filesystem=filesystem, version='2.6'
+    ) as writer:
+        writer.write(batch)
+
+    result = _read_table(path_batch).to_pandas()
+    tm.assert_frame_equal(result, df)
+
+
+@pytest.mark.pandas
+@pytest.mark.parametrize("filesystem", [
+    None,
+    LocalFileSystem._get_instance(),
+    fs.LocalFileSystem(),
+])
 def test_parquet_writer_filesystem_local(tempdir, filesystem):
     df = _test_dataframe(100)
     table = pa.Table.from_pandas(df, preserve_index=False)
     path = str(tempdir / 'data.parquet')
 
     with pq.ParquetWriter(
-        path, table.schema, filesystem=filesystem, version='2.0'
+        path, table.schema, filesystem=filesystem, version='2.6'
     ) as writer:
         writer.write_table(table)
 
@@ -180,7 +228,7 @@ def test_parquet_writer_filesystem_s3(s3_example_fs):
     fs, uri, path = s3_example_fs
 
     with pq.ParquetWriter(
-        path, table.schema, filesystem=fs, version='2.0'
+        path, table.schema, filesystem=fs, version='2.6'
     ) as writer:
         writer.write_table(table)
 
@@ -196,7 +244,7 @@ def test_parquet_writer_filesystem_s3_uri(s3_example_fs):
 
     fs, uri, path = s3_example_fs
 
-    with pq.ParquetWriter(uri, table.schema, version='2.0') as writer:
+    with pq.ParquetWriter(uri, table.schema, version='2.6') as writer:
         writer.write_table(table)
 
     result = _read_table(path, filesystem=fs).to_pandas()
@@ -204,6 +252,7 @@ def test_parquet_writer_filesystem_s3_uri(s3_example_fs):
 
 
 @pytest.mark.pandas
+@pytest.mark.s3
 def test_parquet_writer_filesystem_s3fs(s3_example_s3fs):
     df = _test_dataframe(100)
     table = pa.Table.from_pandas(df, preserve_index=False)
@@ -212,7 +261,7 @@ def test_parquet_writer_filesystem_s3fs(s3_example_s3fs):
     path = directory + "/test.parquet"
 
     with pq.ParquetWriter(
-        path, table.schema, filesystem=fs, version='2.0'
+        path, table.schema, filesystem=fs, version='2.6'
     ) as writer:
         writer.write_table(table)
 
@@ -253,7 +302,7 @@ def test_parquet_writer_with_caller_provided_filesystem(use_legacy_dataset):
     df = _test_dataframe(100)
     table = pa.Table.from_pandas(df, preserve_index=False)
 
-    with pq.ParquetWriter(fname, table.schema, filesystem=fs, version='2.0') \
+    with pq.ParquetWriter(fname, table.schema, filesystem=fs, version='2.6') \
             as writer:
         writer.write_table(table)
 

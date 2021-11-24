@@ -37,11 +37,15 @@ def test_tree_exp_builder():
     node_a = builder.make_field(field_a)
     node_b = builder.make_field(field_b)
 
+    assert node_a.return_type() == field_a.type
+
     condition = builder.make_function("greater_than", [node_a, node_b],
                                       pa.bool_())
     if_node = builder.make_if(condition, node_a, node_b, pa.int32())
 
     expr = builder.make_expression(if_node, field_result)
+
+    assert expr.result().type == pa.int32()
 
     projector = gandiva.make_projector(
         schema, [expr], pa.default_memory_pool())
@@ -97,6 +101,8 @@ def test_filter():
     thousand = builder.make_literal(1000.0, pa.float64())
     cond = builder.make_function("less_than", [node_a, thousand], pa.bool_())
     condition = builder.make_condition(cond)
+
+    assert condition.result().type == pa.bool_()
 
     filter = gandiva.make_filter(table.schema, condition)
     # Gandiva generates compute kernel function named `@expr_X`
@@ -363,3 +369,23 @@ def test_filter_project():
 
     exp = pa.array([1, -21, None], pa.int32())
     assert r.equals(exp)
+
+
+@pytest.mark.gandiva
+def test_to_string():
+    import pyarrow.gandiva as gandiva
+    builder = gandiva.TreeExprBuilder()
+
+    assert str(builder.make_literal(2.0, pa.float64())
+               ).startswith('(const double) 2 raw(')
+    assert str(builder.make_literal(2, pa.int64())) == '(const int64) 2'
+    assert str(builder.make_field(pa.field('x', pa.float64()))) == '(double) x'
+    assert str(builder.make_field(pa.field('y', pa.string()))) == '(string) y'
+
+    field_z = builder.make_field(pa.field('z', pa.bool_()))
+    func_node = builder.make_function('not', [field_z], pa.bool_())
+    assert str(func_node) == 'bool not((bool) z)'
+
+    field_y = builder.make_field(pa.field('y', pa.bool_()))
+    and_node = builder.make_and([func_node, field_y])
+    assert str(and_node) == 'bool not((bool) z) && (bool) y'

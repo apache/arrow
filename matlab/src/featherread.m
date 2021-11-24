@@ -83,8 +83,4 @@ if ~isempty(variableDescriptions)
     t.Properties.VariableDescriptions = cellstr(variableDescriptions);
 end
 
-% Set the Description property of the table based on the Feather file
-% description.
-t.Properties.Description = metadata.Description;
-
 end

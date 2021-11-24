@@ -4,6 +4,37 @@
 
 #include "./arrow_types.h"
 
+// altrep.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void test_SET_STRING_ELT(SEXP s);
+extern "C" SEXP _arrow_test_SET_STRING_ELT(SEXP s_sexp){
+BEGIN_CPP11
+	arrow::r::Input<SEXP>::type s(s_sexp);
+	test_SET_STRING_ELT(s);
+	return R_NilValue;
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_test_SET_STRING_ELT(SEXP s_sexp){
+	Rf_error("Cannot call test_SET_STRING_ELT(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// altrep.cpp
+#if defined(ARROW_R_WITH_ARROW)
+bool is_arrow_altrep(SEXP x);
+extern "C" SEXP _arrow_is_arrow_altrep(SEXP x_sexp){
+BEGIN_CPP11
+	arrow::r::Input<SEXP>::type x(x_sexp);
+	return cpp11::as_sexp(is_arrow_altrep(x));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_is_arrow_altrep(SEXP x_sexp){
+	Rf_error("Cannot call is_arrow_altrep(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
 // array.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Array> Array__Slice1(const std::shared_ptr<arrow::Array>& array, R_xlen_t offset);
@@ -536,6 +567,22 @@ extern "C" SEXP _arrow_LargeListArray__raw_value_offsets(SEXP array_sexp){
 }
 #endif
 
+// array.cpp
+#if defined(ARROW_R_WITH_ARROW)
+bool Array__Same(const std::shared_ptr<arrow::Array>& x, const std::shared_ptr<arrow::Array>& y);
+extern "C" SEXP _arrow_Array__Same(SEXP x_sexp, SEXP y_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::Array>&>::type x(x_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Array>&>::type y(y_sexp);
+	return cpp11::as_sexp(Array__Same(x, y));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_Array__Same(SEXP x_sexp, SEXP y_sexp){
+	Rf_error("Cannot call Array__Same(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
 // array_to_vector.cpp
 #if defined(ARROW_R_WITH_ARROW)
 SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array);
@@ -553,15 +600,16 @@ extern "C" SEXP _arrow_Array__as_vector(SEXP array_sexp){
 
 // array_to_vector.cpp
 #if defined(ARROW_R_WITH_ARROW)
-SEXP ChunkedArray__as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
-extern "C" SEXP _arrow_ChunkedArray__as_vector(SEXP chunked_array_sexp){
+SEXP ChunkedArray__as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array, bool use_threads);
+extern "C" SEXP _arrow_ChunkedArray__as_vector(SEXP chunked_array_sexp, SEXP use_threads_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::ChunkedArray>&>::type chunked_array(chunked_array_sexp);
-	return cpp11::as_sexp(ChunkedArray__as_vector(chunked_array));
+	arrow::r::Input<bool>::type use_threads(use_threads_sexp);
+	return cpp11::as_sexp(ChunkedArray__as_vector(chunked_array, use_threads));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_ChunkedArray__as_vector(SEXP chunked_array_sexp){
+extern "C" SEXP _arrow_ChunkedArray__as_vector(SEXP chunked_array_sexp, SEXP use_threads_sexp){
 	Rf_error("Cannot call ChunkedArray__as_vector(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
@@ -1061,6 +1109,177 @@ extern "C" SEXP _arrow_io___CompressedInputStream__Make(SEXP codec_sexp, SEXP ra
 }
 #endif
 
+// compute-exec.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<compute::ExecPlan> ExecPlan_create(bool use_threads);
+extern "C" SEXP _arrow_ExecPlan_create(SEXP use_threads_sexp){
+BEGIN_CPP11
+	arrow::r::Input<bool>::type use_threads(use_threads_sexp);
+	return cpp11::as_sexp(ExecPlan_create(use_threads));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_ExecPlan_create(SEXP use_threads_sexp){
+	Rf_error("Cannot call ExecPlan_create(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// compute-exec.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::RecordBatchReader> ExecPlan_run(const std::shared_ptr<compute::ExecPlan>& plan, const std::shared_ptr<compute::ExecNode>& final_node, cpp11::list sort_options, int64_t head);
+extern "C" SEXP _arrow_ExecPlan_run(SEXP plan_sexp, SEXP final_node_sexp, SEXP sort_options_sexp, SEXP head_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<compute::ExecPlan>&>::type plan(plan_sexp);
+	arrow::r::Input<const std::shared_ptr<compute::ExecNode>&>::type final_node(final_node_sexp);
+	arrow::r::Input<cpp11::list>::type sort_options(sort_options_sexp);
+	arrow::r::Input<int64_t>::type head(head_sexp);
+	return cpp11::as_sexp(ExecPlan_run(plan, final_node, sort_options, head));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_ExecPlan_run(SEXP plan_sexp, SEXP final_node_sexp, SEXP sort_options_sexp, SEXP head_sexp){
+	Rf_error("Cannot call ExecPlan_run(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// compute-exec.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void ExecPlan_StopProducing(const std::shared_ptr<compute::ExecPlan>& plan);
+extern "C" SEXP _arrow_ExecPlan_StopProducing(SEXP plan_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<compute::ExecPlan>&>::type plan(plan_sexp);
+	ExecPlan_StopProducing(plan);
+	return R_NilValue;
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_ExecPlan_StopProducing(SEXP plan_sexp){
+	Rf_error("Cannot call ExecPlan_StopProducing(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// compute-exec.cpp
+#if defined(ARROW_R_WITH_DATASET)
+std::shared_ptr<arrow::Schema> ExecNode_output_schema(const std::shared_ptr<compute::ExecNode>& node);
+extern "C" SEXP _arrow_ExecNode_output_schema(SEXP node_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<compute::ExecNode>&>::type node(node_sexp);
+	return cpp11::as_sexp(ExecNode_output_schema(node));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_ExecNode_output_schema(SEXP node_sexp){
+	Rf_error("Cannot call ExecNode_output_schema(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// compute-exec.cpp
+#if defined(ARROW_R_WITH_DATASET)
+std::shared_ptr<compute::ExecNode> ExecNode_Scan(const std::shared_ptr<compute::ExecPlan>& plan, const std::shared_ptr<arrow::dataset::Dataset>& dataset, const std::shared_ptr<compute::Expression>& filter, std::vector<std::string> materialized_field_names);
+extern "C" SEXP _arrow_ExecNode_Scan(SEXP plan_sexp, SEXP dataset_sexp, SEXP filter_sexp, SEXP materialized_field_names_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<compute::ExecPlan>&>::type plan(plan_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::dataset::Dataset>&>::type dataset(dataset_sexp);
+	arrow::r::Input<const std::shared_ptr<compute::Expression>&>::type filter(filter_sexp);
+	arrow::r::Input<std::vector<std::string>>::type materialized_field_names(materialized_field_names_sexp);
+	return cpp11::as_sexp(ExecNode_Scan(plan, dataset, filter, materialized_field_names));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_ExecNode_Scan(SEXP plan_sexp, SEXP dataset_sexp, SEXP filter_sexp, SEXP materialized_field_names_sexp){
+	Rf_error("Cannot call ExecNode_Scan(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// compute-exec.cpp
+#if defined(ARROW_R_WITH_DATASET)
+std::shared_ptr<compute::ExecNode> ExecNode_Filter(const std::shared_ptr<compute::ExecNode>& input, const std::shared_ptr<compute::Expression>& filter);
+extern "C" SEXP _arrow_ExecNode_Filter(SEXP input_sexp, SEXP filter_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<compute::ExecNode>&>::type input(input_sexp);
+	arrow::r::Input<const std::shared_ptr<compute::Expression>&>::type filter(filter_sexp);
+	return cpp11::as_sexp(ExecNode_Filter(input, filter));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_ExecNode_Filter(SEXP input_sexp, SEXP filter_sexp){
+	Rf_error("Cannot call ExecNode_Filter(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// compute-exec.cpp
+#if defined(ARROW_R_WITH_DATASET)
+std::shared_ptr<compute::ExecNode> ExecNode_Project(const std::shared_ptr<compute::ExecNode>& input, const std::vector<std::shared_ptr<compute::Expression>>& exprs, std::vector<std::string> names);
+extern "C" SEXP _arrow_ExecNode_Project(SEXP input_sexp, SEXP exprs_sexp, SEXP names_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<compute::ExecNode>&>::type input(input_sexp);
+	arrow::r::Input<const std::vector<std::shared_ptr<compute::Expression>>&>::type exprs(exprs_sexp);
+	arrow::r::Input<std::vector<std::string>>::type names(names_sexp);
+	return cpp11::as_sexp(ExecNode_Project(input, exprs, names));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_ExecNode_Project(SEXP input_sexp, SEXP exprs_sexp, SEXP names_sexp){
+	Rf_error("Cannot call ExecNode_Project(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// compute-exec.cpp
+#if defined(ARROW_R_WITH_DATASET)
+std::shared_ptr<compute::ExecNode> ExecNode_Aggregate(const std::shared_ptr<compute::ExecNode>& input, cpp11::list options, std::vector<std::string> target_names, std::vector<std::string> out_field_names, std::vector<std::string> key_names);
+extern "C" SEXP _arrow_ExecNode_Aggregate(SEXP input_sexp, SEXP options_sexp, SEXP target_names_sexp, SEXP out_field_names_sexp, SEXP key_names_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<compute::ExecNode>&>::type input(input_sexp);
+	arrow::r::Input<cpp11::list>::type options(options_sexp);
+	arrow::r::Input<std::vector<std::string>>::type target_names(target_names_sexp);
+	arrow::r::Input<std::vector<std::string>>::type out_field_names(out_field_names_sexp);
+	arrow::r::Input<std::vector<std::string>>::type key_names(key_names_sexp);
+	return cpp11::as_sexp(ExecNode_Aggregate(input, options, target_names, out_field_names, key_names));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_ExecNode_Aggregate(SEXP input_sexp, SEXP options_sexp, SEXP target_names_sexp, SEXP out_field_names_sexp, SEXP key_names_sexp){
+	Rf_error("Cannot call ExecNode_Aggregate(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// compute-exec.cpp
+#if defined(ARROW_R_WITH_DATASET)
+std::shared_ptr<compute::ExecNode> ExecNode_Join(const std::shared_ptr<compute::ExecNode>& input, int type, const std::shared_ptr<compute::ExecNode>& right_data, std::vector<std::string> left_keys, std::vector<std::string> right_keys, std::vector<std::string> left_output, std::vector<std::string> right_output);
+extern "C" SEXP _arrow_ExecNode_Join(SEXP input_sexp, SEXP type_sexp, SEXP right_data_sexp, SEXP left_keys_sexp, SEXP right_keys_sexp, SEXP left_output_sexp, SEXP right_output_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<compute::ExecNode>&>::type input(input_sexp);
+	arrow::r::Input<int>::type type(type_sexp);
+	arrow::r::Input<const std::shared_ptr<compute::ExecNode>&>::type right_data(right_data_sexp);
+	arrow::r::Input<std::vector<std::string>>::type left_keys(left_keys_sexp);
+	arrow::r::Input<std::vector<std::string>>::type right_keys(right_keys_sexp);
+	arrow::r::Input<std::vector<std::string>>::type left_output(left_output_sexp);
+	arrow::r::Input<std::vector<std::string>>::type right_output(right_output_sexp);
+	return cpp11::as_sexp(ExecNode_Join(input, type, right_data, left_keys, right_keys, left_output, right_output));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_ExecNode_Join(SEXP input_sexp, SEXP type_sexp, SEXP right_data_sexp, SEXP left_keys_sexp, SEXP right_keys_sexp, SEXP left_output_sexp, SEXP right_output_sexp){
+	Rf_error("Cannot call ExecNode_Join(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// compute-exec.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<compute::ExecNode> ExecNode_ReadFromRecordBatchReader(const std::shared_ptr<compute::ExecPlan>& plan, const std::shared_ptr<arrow::RecordBatchReader>& reader);
+extern "C" SEXP _arrow_ExecNode_ReadFromRecordBatchReader(SEXP plan_sexp, SEXP reader_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<compute::ExecPlan>&>::type plan(plan_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::RecordBatchReader>&>::type reader(reader_sexp);
+	return cpp11::as_sexp(ExecNode_ReadFromRecordBatchReader(plan, reader));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_ExecNode_ReadFromRecordBatchReader(SEXP plan_sexp, SEXP reader_sexp){
+	Rf_error("Cannot call ExecNode_ReadFromRecordBatchReader(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
 // compute.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::RecordBatch> RecordBatch__cast(const std::shared_ptr<arrow::RecordBatch>& batch, const std::shared_ptr<arrow::Schema>& schema, cpp11::list options);
@@ -1114,23 +1333,6 @@ extern "C" SEXP _arrow_compute__CallFunction(SEXP func_name_sexp, SEXP args_sexp
 
 // compute.cpp
 #if defined(ARROW_R_WITH_ARROW)
-SEXP compute__GroupBy(cpp11::list arguments, cpp11::list keys, cpp11::list options);
-extern "C" SEXP _arrow_compute__GroupBy(SEXP arguments_sexp, SEXP keys_sexp, SEXP options_sexp){
-BEGIN_CPP11
-	arrow::r::Input<cpp11::list>::type arguments(arguments_sexp);
-	arrow::r::Input<cpp11::list>::type keys(keys_sexp);
-	arrow::r::Input<cpp11::list>::type options(options_sexp);
-	return cpp11::as_sexp(compute__GroupBy(arguments, keys, options));
-END_CPP11
-}
-#else
-extern "C" SEXP _arrow_compute__GroupBy(SEXP arguments_sexp, SEXP keys_sexp, SEXP options_sexp){
-	Rf_error("Cannot call compute__GroupBy(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-}
-#endif
-
-// compute.cpp
-#if defined(ARROW_R_WITH_ARROW)
 std::vector<std::string> compute__GetFunctionNames();
 extern "C" SEXP _arrow_compute__GetFunctionNames(){
 BEGIN_CPP11
@@ -1140,6 +1342,49 @@ END_CPP11
 #else
 extern "C" SEXP _arrow_compute__GetFunctionNames(){
 	Rf_error("Cannot call compute__GetFunctionNames(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// config.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::vector<std::string> build_info();
+extern "C" SEXP _arrow_build_info(){
+BEGIN_CPP11
+	return cpp11::as_sexp(build_info());
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_build_info(){
+	Rf_error("Cannot call build_info(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// config.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::vector<std::string> runtime_info();
+extern "C" SEXP _arrow_runtime_info(){
+BEGIN_CPP11
+	return cpp11::as_sexp(runtime_info());
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_runtime_info(){
+	Rf_error("Cannot call runtime_info(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// csv.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::csv::WriteOptions> csv___WriteOptions__initialize(cpp11::list options);
+extern "C" SEXP _arrow_csv___WriteOptions__initialize(SEXP options_sexp){
+BEGIN_CPP11
+	arrow::r::Input<cpp11::list>::type options(options_sexp);
+	return cpp11::as_sexp(csv___WriteOptions__initialize(options));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_csv___WriteOptions__initialize(SEXP options_sexp){
+	Rf_error("Cannot call csv___WriteOptions__initialize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1292,6 +1537,42 @@ END_CPP11
 #else
 extern "C" SEXP _arrow_TimestampParser__MakeISO8601(){
 	Rf_error("Cannot call TimestampParser__MakeISO8601(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// csv.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void csv___WriteCSV__Table(const std::shared_ptr<arrow::Table>& table, const std::shared_ptr<arrow::csv::WriteOptions>& write_options, const std::shared_ptr<arrow::io::OutputStream>& stream);
+extern "C" SEXP _arrow_csv___WriteCSV__Table(SEXP table_sexp, SEXP write_options_sexp, SEXP stream_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::csv::WriteOptions>&>::type write_options(write_options_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::io::OutputStream>&>::type stream(stream_sexp);
+	csv___WriteCSV__Table(table, write_options, stream);
+	return R_NilValue;
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_csv___WriteCSV__Table(SEXP table_sexp, SEXP write_options_sexp, SEXP stream_sexp){
+	Rf_error("Cannot call csv___WriteCSV__Table(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// csv.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void csv___WriteCSV__RecordBatch(const std::shared_ptr<arrow::RecordBatch>& record_batch, const std::shared_ptr<arrow::csv::WriteOptions>& write_options, const std::shared_ptr<arrow::io::OutputStream>& stream);
+extern "C" SEXP _arrow_csv___WriteCSV__RecordBatch(SEXP record_batch_sexp, SEXP write_options_sexp, SEXP stream_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::RecordBatch>&>::type record_batch(record_batch_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::csv::WriteOptions>&>::type write_options(write_options_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::io::OutputStream>&>::type stream(stream_sexp);
+	csv___WriteCSV__RecordBatch(record_batch, write_options, stream);
+	return R_NilValue;
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_csv___WriteCSV__RecordBatch(SEXP record_batch_sexp, SEXP write_options_sexp, SEXP stream_sexp){
+	Rf_error("Cannot call csv___WriteCSV__RecordBatch(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1698,6 +1979,23 @@ extern "C" SEXP _arrow_dataset___IpcFileWriteOptions__update1(SEXP ipc_options_s
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_DATASET)
+void dataset___CsvFileWriteOptions__update(const std::shared_ptr<ds::CsvFileWriteOptions>& csv_options, const std::shared_ptr<arrow::csv::WriteOptions>& write_options);
+extern "C" SEXP _arrow_dataset___CsvFileWriteOptions__update(SEXP csv_options_sexp, SEXP write_options_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<ds::CsvFileWriteOptions>&>::type csv_options(csv_options_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::csv::WriteOptions>&>::type write_options(write_options_sexp);
+	dataset___CsvFileWriteOptions__update(csv_options, write_options);
+	return R_NilValue;
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_dataset___CsvFileWriteOptions__update(SEXP csv_options_sexp, SEXP write_options_sexp){
+	Rf_error("Cannot call dataset___CsvFileWriteOptions__update(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_DATASET)
 std::shared_ptr<ds::IpcFileFormat> dataset___IpcFileFormat__Make();
 extern "C" SEXP _arrow_dataset___IpcFileFormat__Make(){
 BEGIN_CPP11
@@ -1777,61 +2075,65 @@ extern "C" SEXP _arrow_dataset___ParquetFragmentScanOptions__Make(SEXP use_buffe
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_DATASET)
-std::shared_ptr<ds::DirectoryPartitioning> dataset___DirectoryPartitioning(const std::shared_ptr<arrow::Schema>& schm);
-extern "C" SEXP _arrow_dataset___DirectoryPartitioning(SEXP schm_sexp){
+std::shared_ptr<ds::DirectoryPartitioning> dataset___DirectoryPartitioning(const std::shared_ptr<arrow::Schema>& schm, const std::string& segment_encoding);
+extern "C" SEXP _arrow_dataset___DirectoryPartitioning(SEXP schm_sexp, SEXP segment_encoding_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::Schema>&>::type schm(schm_sexp);
-	return cpp11::as_sexp(dataset___DirectoryPartitioning(schm));
+	arrow::r::Input<const std::string&>::type segment_encoding(segment_encoding_sexp);
+	return cpp11::as_sexp(dataset___DirectoryPartitioning(schm, segment_encoding));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_dataset___DirectoryPartitioning(SEXP schm_sexp){
+extern "C" SEXP _arrow_dataset___DirectoryPartitioning(SEXP schm_sexp, SEXP segment_encoding_sexp){
 	Rf_error("Cannot call dataset___DirectoryPartitioning(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_DATASET)
-std::shared_ptr<ds::PartitioningFactory> dataset___DirectoryPartitioning__MakeFactory(const std::vector<std::string>& field_names);
-extern "C" SEXP _arrow_dataset___DirectoryPartitioning__MakeFactory(SEXP field_names_sexp){
+std::shared_ptr<ds::PartitioningFactory> dataset___DirectoryPartitioning__MakeFactory(const std::vector<std::string>& field_names, const std::string& segment_encoding);
+extern "C" SEXP _arrow_dataset___DirectoryPartitioning__MakeFactory(SEXP field_names_sexp, SEXP segment_encoding_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::vector<std::string>&>::type field_names(field_names_sexp);
-	return cpp11::as_sexp(dataset___DirectoryPartitioning__MakeFactory(field_names));
+	arrow::r::Input<const std::string&>::type segment_encoding(segment_encoding_sexp);
+	return cpp11::as_sexp(dataset___DirectoryPartitioning__MakeFactory(field_names, segment_encoding));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_dataset___DirectoryPartitioning__MakeFactory(SEXP field_names_sexp){
+extern "C" SEXP _arrow_dataset___DirectoryPartitioning__MakeFactory(SEXP field_names_sexp, SEXP segment_encoding_sexp){
 	Rf_error("Cannot call dataset___DirectoryPartitioning__MakeFactory(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_DATASET)
-std::shared_ptr<ds::HivePartitioning> dataset___HivePartitioning(const std::shared_ptr<arrow::Schema>& schm, const std::string& null_fallback);
-extern "C" SEXP _arrow_dataset___HivePartitioning(SEXP schm_sexp, SEXP null_fallback_sexp){
+std::shared_ptr<ds::HivePartitioning> dataset___HivePartitioning(const std::shared_ptr<arrow::Schema>& schm, const std::string& null_fallback, const std::string& segment_encoding);
+extern "C" SEXP _arrow_dataset___HivePartitioning(SEXP schm_sexp, SEXP null_fallback_sexp, SEXP segment_encoding_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::Schema>&>::type schm(schm_sexp);
 	arrow::r::Input<const std::string&>::type null_fallback(null_fallback_sexp);
-	return cpp11::as_sexp(dataset___HivePartitioning(schm, null_fallback));
+	arrow::r::Input<const std::string&>::type segment_encoding(segment_encoding_sexp);
+	return cpp11::as_sexp(dataset___HivePartitioning(schm, null_fallback, segment_encoding));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_dataset___HivePartitioning(SEXP schm_sexp, SEXP null_fallback_sexp){
+extern "C" SEXP _arrow_dataset___HivePartitioning(SEXP schm_sexp, SEXP null_fallback_sexp, SEXP segment_encoding_sexp){
 	Rf_error("Cannot call dataset___HivePartitioning(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_DATASET)
-std::shared_ptr<ds::PartitioningFactory> dataset___HivePartitioning__MakeFactory(const std::string& null_fallback);
-extern "C" SEXP _arrow_dataset___HivePartitioning__MakeFactory(SEXP null_fallback_sexp){
+std::shared_ptr<ds::PartitioningFactory> dataset___HivePartitioning__MakeFactory(const std::string& null_fallback, const std::string& segment_encoding);
+extern "C" SEXP _arrow_dataset___HivePartitioning__MakeFactory(SEXP null_fallback_sexp, SEXP segment_encoding_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::string&>::type null_fallback(null_fallback_sexp);
-	return cpp11::as_sexp(dataset___HivePartitioning__MakeFactory(null_fallback));
+	arrow::r::Input<const std::string&>::type segment_encoding(segment_encoding_sexp);
+	return cpp11::as_sexp(dataset___HivePartitioning__MakeFactory(null_fallback, segment_encoding));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_dataset___HivePartitioning__MakeFactory(SEXP null_fallback_sexp){
+extern "C" SEXP _arrow_dataset___HivePartitioning__MakeFactory(SEXP null_fallback_sexp, SEXP segment_encoding_sexp){
 	Rf_error("Cannot call dataset___HivePartitioning__MakeFactory(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
@@ -1855,11 +2157,11 @@ extern "C" SEXP _arrow_dataset___ScannerBuilder__ProjectNames(SEXP sb_sexp, SEXP
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_DATASET)
-void dataset___ScannerBuilder__ProjectExprs(const std::shared_ptr<ds::ScannerBuilder>& sb, const std::vector<std::shared_ptr<ds::Expression>>& exprs, const std::vector<std::string>& names);
+void dataset___ScannerBuilder__ProjectExprs(const std::shared_ptr<ds::ScannerBuilder>& sb, const std::vector<std::shared_ptr<compute::Expression>>& exprs, const std::vector<std::string>& names);
 extern "C" SEXP _arrow_dataset___ScannerBuilder__ProjectExprs(SEXP sb_sexp, SEXP exprs_sexp, SEXP names_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<ds::ScannerBuilder>&>::type sb(sb_sexp);
-	arrow::r::Input<const std::vector<std::shared_ptr<ds::Expression>>&>::type exprs(exprs_sexp);
+	arrow::r::Input<const std::vector<std::shared_ptr<compute::Expression>>&>::type exprs(exprs_sexp);
 	arrow::r::Input<const std::vector<std::string>&>::type names(names_sexp);
 	dataset___ScannerBuilder__ProjectExprs(sb, exprs, names);
 	return R_NilValue;
@@ -1873,11 +2175,11 @@ extern "C" SEXP _arrow_dataset___ScannerBuilder__ProjectExprs(SEXP sb_sexp, SEXP
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_DATASET)
-void dataset___ScannerBuilder__Filter(const std::shared_ptr<ds::ScannerBuilder>& sb, const std::shared_ptr<ds::Expression>& expr);
+void dataset___ScannerBuilder__Filter(const std::shared_ptr<ds::ScannerBuilder>& sb, const std::shared_ptr<compute::Expression>& expr);
 extern "C" SEXP _arrow_dataset___ScannerBuilder__Filter(SEXP sb_sexp, SEXP expr_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<ds::ScannerBuilder>&>::type sb(sb_sexp);
-	arrow::r::Input<const std::shared_ptr<ds::Expression>&>::type expr(expr_sexp);
+	arrow::r::Input<const std::shared_ptr<compute::Expression>&>::type expr(expr_sexp);
 	dataset___ScannerBuilder__Filter(sb, expr);
 	return R_NilValue;
 END_CPP11
@@ -1902,6 +2204,23 @@ END_CPP11
 #else
 extern "C" SEXP _arrow_dataset___ScannerBuilder__UseThreads(SEXP sb_sexp, SEXP threads_sexp){
 	Rf_error("Cannot call dataset___ScannerBuilder__UseThreads(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_DATASET)
+void dataset___ScannerBuilder__UseAsync(const std::shared_ptr<ds::ScannerBuilder>& sb, bool use_async);
+extern "C" SEXP _arrow_dataset___ScannerBuilder__UseAsync(SEXP sb_sexp, SEXP use_async_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<ds::ScannerBuilder>&>::type sb(sb_sexp);
+	arrow::r::Input<bool>::type use_async(use_async_sexp);
+	dataset___ScannerBuilder__UseAsync(sb, use_async);
+	return R_NilValue;
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_dataset___ScannerBuilder__UseAsync(SEXP sb_sexp, SEXP use_async_sexp){
+	Rf_error("Cannot call dataset___ScannerBuilder__UseAsync(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1971,6 +2290,21 @@ extern "C" SEXP _arrow_dataset___ScannerBuilder__Finish(SEXP sb_sexp){
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_DATASET)
+std::shared_ptr<ds::ScannerBuilder> dataset___ScannerBuilder__FromRecordBatchReader(const std::shared_ptr<arrow::RecordBatchReader>& reader);
+extern "C" SEXP _arrow_dataset___ScannerBuilder__FromRecordBatchReader(SEXP reader_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::RecordBatchReader>&>::type reader(reader_sexp);
+	return cpp11::as_sexp(dataset___ScannerBuilder__FromRecordBatchReader(reader));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_dataset___ScannerBuilder__FromRecordBatchReader(SEXP reader_sexp){
+	Rf_error("Cannot call dataset___ScannerBuilder__FromRecordBatchReader(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_DATASET)
 std::shared_ptr<arrow::Table> dataset___Scanner__ToTable(const std::shared_ptr<ds::Scanner>& scanner);
 extern "C" SEXP _arrow_dataset___Scanner__ToTable(SEXP scanner_sexp){
 BEGIN_CPP11
@@ -1996,6 +2330,21 @@ END_CPP11
 #else
 extern "C" SEXP _arrow_dataset___Scanner__ScanBatches(SEXP scanner_sexp){
 	Rf_error("Cannot call dataset___Scanner__ScanBatches(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_DATASET)
+std::shared_ptr<arrow::RecordBatchReader> dataset___Scanner__ToRecordBatchReader(const std::shared_ptr<ds::Scanner>& scanner);
+extern "C" SEXP _arrow_dataset___Scanner__ToRecordBatchReader(SEXP scanner_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<ds::Scanner>&>::type scanner(scanner_sexp);
+	return cpp11::as_sexp(dataset___Scanner__ToRecordBatchReader(scanner));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_dataset___Scanner__ToRecordBatchReader(SEXP scanner_sexp){
+	Rf_error("Cannot call dataset___Scanner__ToRecordBatchReader(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2047,8 +2396,8 @@ extern "C" SEXP _arrow_dataset___ScanTask__get_batches(SEXP scan_task_sexp){
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_DATASET)
-void dataset___Dataset__Write(const std::shared_ptr<ds::FileWriteOptions>& file_write_options, const std::shared_ptr<fs::FileSystem>& filesystem, std::string base_dir, const std::shared_ptr<ds::Partitioning>& partitioning, std::string basename_template, const std::shared_ptr<ds::Scanner>& scanner);
-extern "C" SEXP _arrow_dataset___Dataset__Write(SEXP file_write_options_sexp, SEXP filesystem_sexp, SEXP base_dir_sexp, SEXP partitioning_sexp, SEXP basename_template_sexp, SEXP scanner_sexp){
+void dataset___Dataset__Write(const std::shared_ptr<ds::FileWriteOptions>& file_write_options, const std::shared_ptr<fs::FileSystem>& filesystem, std::string base_dir, const std::shared_ptr<ds::Partitioning>& partitioning, std::string basename_template, const std::shared_ptr<ds::Scanner>& scanner, arrow::dataset::ExistingDataBehavior existing_data_behavior, int max_partitions);
+extern "C" SEXP _arrow_dataset___Dataset__Write(SEXP file_write_options_sexp, SEXP filesystem_sexp, SEXP base_dir_sexp, SEXP partitioning_sexp, SEXP basename_template_sexp, SEXP scanner_sexp, SEXP existing_data_behavior_sexp, SEXP max_partitions_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<ds::FileWriteOptions>&>::type file_write_options(file_write_options_sexp);
 	arrow::r::Input<const std::shared_ptr<fs::FileSystem>&>::type filesystem(filesystem_sexp);
@@ -2056,12 +2405,14 @@ BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<ds::Partitioning>&>::type partitioning(partitioning_sexp);
 	arrow::r::Input<std::string>::type basename_template(basename_template_sexp);
 	arrow::r::Input<const std::shared_ptr<ds::Scanner>&>::type scanner(scanner_sexp);
-	dataset___Dataset__Write(file_write_options, filesystem, base_dir, partitioning, basename_template, scanner);
+	arrow::r::Input<arrow::dataset::ExistingDataBehavior>::type existing_data_behavior(existing_data_behavior_sexp);
+	arrow::r::Input<int>::type max_partitions(max_partitions_sexp);
+	dataset___Dataset__Write(file_write_options, filesystem, base_dir, partitioning, basename_template, scanner, existing_data_behavior, max_partitions);
 	return R_NilValue;
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_dataset___Dataset__Write(SEXP file_write_options_sexp, SEXP filesystem_sexp, SEXP base_dir_sexp, SEXP partitioning_sexp, SEXP basename_template_sexp, SEXP scanner_sexp){
+extern "C" SEXP _arrow_dataset___Dataset__Write(SEXP file_write_options_sexp, SEXP filesystem_sexp, SEXP base_dir_sexp, SEXP partitioning_sexp, SEXP basename_template_sexp, SEXP scanner_sexp, SEXP existing_data_behavior_sexp, SEXP max_partitions_sexp){
 	Rf_error("Cannot call dataset___Dataset__Write(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
@@ -2079,6 +2430,21 @@ END_CPP11
 #else
 extern "C" SEXP _arrow_dataset___Scanner__TakeRows(SEXP scanner_sexp, SEXP indices_sexp){
 	Rf_error("Cannot call dataset___Scanner__TakeRows(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_DATASET)
+int64_t dataset___Scanner__CountRows(const std::shared_ptr<ds::Scanner>& scanner);
+extern "C" SEXP _arrow_dataset___Scanner__CountRows(SEXP scanner_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<ds::Scanner>&>::type scanner(scanner_sexp);
+	return cpp11::as_sexp(dataset___Scanner__CountRows(scanner));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_dataset___Scanner__CountRows(SEXP scanner_sexp){
+	Rf_error("Cannot call dataset___Scanner__CountRows(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2927,79 +3293,142 @@ extern "C" SEXP _arrow_FixedSizeListType__list_size(SEXP type_sexp){
 #endif
 
 // expression.cpp
-#if defined(ARROW_R_WITH_DATASET)
-std::shared_ptr<ds::Expression> dataset___expr__call(std::string func_name, cpp11::list argument_list, cpp11::list options);
-extern "C" SEXP _arrow_dataset___expr__call(SEXP func_name_sexp, SEXP argument_list_sexp, SEXP options_sexp){
+#if defined(ARROW_R_WITH_ARROW)
+bool compute___expr__equals(const std::shared_ptr<compute::Expression>& lhs, const std::shared_ptr<compute::Expression>& rhs);
+extern "C" SEXP _arrow_compute___expr__equals(SEXP lhs_sexp, SEXP rhs_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<compute::Expression>&>::type lhs(lhs_sexp);
+	arrow::r::Input<const std::shared_ptr<compute::Expression>&>::type rhs(rhs_sexp);
+	return cpp11::as_sexp(compute___expr__equals(lhs, rhs));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_compute___expr__equals(SEXP lhs_sexp, SEXP rhs_sexp){
+	Rf_error("Cannot call compute___expr__equals(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// expression.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<compute::Expression> compute___expr__call(std::string func_name, cpp11::list argument_list, cpp11::list options);
+extern "C" SEXP _arrow_compute___expr__call(SEXP func_name_sexp, SEXP argument_list_sexp, SEXP options_sexp){
 BEGIN_CPP11
 	arrow::r::Input<std::string>::type func_name(func_name_sexp);
 	arrow::r::Input<cpp11::list>::type argument_list(argument_list_sexp);
 	arrow::r::Input<cpp11::list>::type options(options_sexp);
-	return cpp11::as_sexp(dataset___expr__call(func_name, argument_list, options));
+	return cpp11::as_sexp(compute___expr__call(func_name, argument_list, options));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_dataset___expr__call(SEXP func_name_sexp, SEXP argument_list_sexp, SEXP options_sexp){
-	Rf_error("Cannot call dataset___expr__call(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+extern "C" SEXP _arrow_compute___expr__call(SEXP func_name_sexp, SEXP argument_list_sexp, SEXP options_sexp){
+	Rf_error("Cannot call compute___expr__call(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
 // expression.cpp
-#if defined(ARROW_R_WITH_DATASET)
-std::shared_ptr<ds::Expression> dataset___expr__field_ref(std::string name);
-extern "C" SEXP _arrow_dataset___expr__field_ref(SEXP name_sexp){
+#if defined(ARROW_R_WITH_ARROW)
+std::vector<std::string> field_names_in_expression(const std::shared_ptr<compute::Expression>& x);
+extern "C" SEXP _arrow_field_names_in_expression(SEXP x_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<compute::Expression>&>::type x(x_sexp);
+	return cpp11::as_sexp(field_names_in_expression(x));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_field_names_in_expression(SEXP x_sexp){
+	Rf_error("Cannot call field_names_in_expression(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// expression.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::string compute___expr__get_field_ref_name(const std::shared_ptr<compute::Expression>& x);
+extern "C" SEXP _arrow_compute___expr__get_field_ref_name(SEXP x_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<compute::Expression>&>::type x(x_sexp);
+	return cpp11::as_sexp(compute___expr__get_field_ref_name(x));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_compute___expr__get_field_ref_name(SEXP x_sexp){
+	Rf_error("Cannot call compute___expr__get_field_ref_name(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// expression.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<compute::Expression> compute___expr__field_ref(std::string name);
+extern "C" SEXP _arrow_compute___expr__field_ref(SEXP name_sexp){
 BEGIN_CPP11
 	arrow::r::Input<std::string>::type name(name_sexp);
-	return cpp11::as_sexp(dataset___expr__field_ref(name));
+	return cpp11::as_sexp(compute___expr__field_ref(name));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_dataset___expr__field_ref(SEXP name_sexp){
-	Rf_error("Cannot call dataset___expr__field_ref(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+extern "C" SEXP _arrow_compute___expr__field_ref(SEXP name_sexp){
+	Rf_error("Cannot call compute___expr__field_ref(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
 // expression.cpp
-#if defined(ARROW_R_WITH_DATASET)
-std::string dataset___expr__get_field_ref_name(const std::shared_ptr<ds::Expression>& ref);
-extern "C" SEXP _arrow_dataset___expr__get_field_ref_name(SEXP ref_sexp){
-BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<ds::Expression>&>::type ref(ref_sexp);
-	return cpp11::as_sexp(dataset___expr__get_field_ref_name(ref));
-END_CPP11
-}
-#else
-extern "C" SEXP _arrow_dataset___expr__get_field_ref_name(SEXP ref_sexp){
-	Rf_error("Cannot call dataset___expr__get_field_ref_name(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-}
-#endif
-
-// expression.cpp
-#if defined(ARROW_R_WITH_DATASET)
-std::shared_ptr<ds::Expression> dataset___expr__scalar(const std::shared_ptr<arrow::Scalar>& x);
-extern "C" SEXP _arrow_dataset___expr__scalar(SEXP x_sexp){
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<compute::Expression> compute___expr__scalar(const std::shared_ptr<arrow::Scalar>& x);
+extern "C" SEXP _arrow_compute___expr__scalar(SEXP x_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::Scalar>&>::type x(x_sexp);
-	return cpp11::as_sexp(dataset___expr__scalar(x));
+	return cpp11::as_sexp(compute___expr__scalar(x));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_dataset___expr__scalar(SEXP x_sexp){
-	Rf_error("Cannot call dataset___expr__scalar(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+extern "C" SEXP _arrow_compute___expr__scalar(SEXP x_sexp){
+	Rf_error("Cannot call compute___expr__scalar(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
 // expression.cpp
-#if defined(ARROW_R_WITH_DATASET)
-std::string dataset___expr__ToString(const std::shared_ptr<ds::Expression>& x);
-extern "C" SEXP _arrow_dataset___expr__ToString(SEXP x_sexp){
+#if defined(ARROW_R_WITH_ARROW)
+std::string compute___expr__ToString(const std::shared_ptr<compute::Expression>& x);
+extern "C" SEXP _arrow_compute___expr__ToString(SEXP x_sexp){
 BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<ds::Expression>&>::type x(x_sexp);
-	return cpp11::as_sexp(dataset___expr__ToString(x));
+	arrow::r::Input<const std::shared_ptr<compute::Expression>&>::type x(x_sexp);
+	return cpp11::as_sexp(compute___expr__ToString(x));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_dataset___expr__ToString(SEXP x_sexp){
-	Rf_error("Cannot call dataset___expr__ToString(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+extern "C" SEXP _arrow_compute___expr__ToString(SEXP x_sexp){
+	Rf_error("Cannot call compute___expr__ToString(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// expression.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::DataType> compute___expr__type(const std::shared_ptr<compute::Expression>& x, const std::shared_ptr<arrow::Schema>& schema);
+extern "C" SEXP _arrow_compute___expr__type(SEXP x_sexp, SEXP schema_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<compute::Expression>&>::type x(x_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
+	return cpp11::as_sexp(compute___expr__type(x, schema));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_compute___expr__type(SEXP x_sexp, SEXP schema_sexp){
+	Rf_error("Cannot call compute___expr__type(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// expression.cpp
+#if defined(ARROW_R_WITH_ARROW)
+arrow::Type::type compute___expr__type_id(const std::shared_ptr<compute::Expression>& x, const std::shared_ptr<arrow::Schema>& schema);
+extern "C" SEXP _arrow_compute___expr__type_id(SEXP x_sexp, SEXP schema_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<compute::Expression>&>::type x(x_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
+	return cpp11::as_sexp(compute___expr__type_id(x, schema));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_compute___expr__type_id(SEXP x_sexp, SEXP schema_sexp){
+	Rf_error("Cannot call compute___expr__type_id(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3729,8 +4158,8 @@ extern "C" SEXP _arrow_fs___CopyFiles(SEXP source_fs_sexp, SEXP source_sel_sexp,
 
 // filesystem.cpp
 #if defined(ARROW_R_WITH_S3)
-std::shared_ptr<fs::S3FileSystem> fs___S3FileSystem__create(bool anonymous, std::string access_key, std::string secret_key, std::string session_token, std::string role_arn, std::string session_name, std::string external_id, int load_frequency, std::string region, std::string endpoint_override, std::string scheme, bool background_writes);
-extern "C" SEXP _arrow_fs___S3FileSystem__create(SEXP anonymous_sexp, SEXP access_key_sexp, SEXP secret_key_sexp, SEXP session_token_sexp, SEXP role_arn_sexp, SEXP session_name_sexp, SEXP external_id_sexp, SEXP load_frequency_sexp, SEXP region_sexp, SEXP endpoint_override_sexp, SEXP scheme_sexp, SEXP background_writes_sexp){
+std::shared_ptr<fs::S3FileSystem> fs___S3FileSystem__create(bool anonymous, std::string access_key, std::string secret_key, std::string session_token, std::string role_arn, std::string session_name, std::string external_id, int load_frequency, std::string region, std::string endpoint_override, std::string scheme, std::string proxy_options, bool background_writes);
+extern "C" SEXP _arrow_fs___S3FileSystem__create(SEXP anonymous_sexp, SEXP access_key_sexp, SEXP secret_key_sexp, SEXP session_token_sexp, SEXP role_arn_sexp, SEXP session_name_sexp, SEXP external_id_sexp, SEXP load_frequency_sexp, SEXP region_sexp, SEXP endpoint_override_sexp, SEXP scheme_sexp, SEXP proxy_options_sexp, SEXP background_writes_sexp){
 BEGIN_CPP11
 	arrow::r::Input<bool>::type anonymous(anonymous_sexp);
 	arrow::r::Input<std::string>::type access_key(access_key_sexp);
@@ -3743,12 +4172,13 @@ BEGIN_CPP11
 	arrow::r::Input<std::string>::type region(region_sexp);
 	arrow::r::Input<std::string>::type endpoint_override(endpoint_override_sexp);
 	arrow::r::Input<std::string>::type scheme(scheme_sexp);
+	arrow::r::Input<std::string>::type proxy_options(proxy_options_sexp);
 	arrow::r::Input<bool>::type background_writes(background_writes_sexp);
-	return cpp11::as_sexp(fs___S3FileSystem__create(anonymous, access_key, secret_key, session_token, role_arn, session_name, external_id, load_frequency, region, endpoint_override, scheme, background_writes));
+	return cpp11::as_sexp(fs___S3FileSystem__create(anonymous, access_key, secret_key, session_token, role_arn, session_name, external_id, load_frequency, region, endpoint_override, scheme, proxy_options, background_writes));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_fs___S3FileSystem__create(SEXP anonymous_sexp, SEXP access_key_sexp, SEXP secret_key_sexp, SEXP session_token_sexp, SEXP role_arn_sexp, SEXP session_name_sexp, SEXP external_id_sexp, SEXP load_frequency_sexp, SEXP region_sexp, SEXP endpoint_override_sexp, SEXP scheme_sexp, SEXP background_writes_sexp){
+extern "C" SEXP _arrow_fs___S3FileSystem__create(SEXP anonymous_sexp, SEXP access_key_sexp, SEXP secret_key_sexp, SEXP session_token_sexp, SEXP role_arn_sexp, SEXP session_name_sexp, SEXP external_id_sexp, SEXP load_frequency_sexp, SEXP region_sexp, SEXP endpoint_override_sexp, SEXP scheme_sexp, SEXP proxy_options_sexp, SEXP background_writes_sexp){
 	Rf_error("Cannot call fs___S3FileSystem__create(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
@@ -4114,7 +4544,7 @@ extern "C" SEXP _arrow_io___BufferOutputStream__Write(SEXP stream_sexp, SEXP byt
 #endif
 
 // json.cpp
-#if defined(ARROW_R_WITH_ARROW)
+#if defined(ARROW_R_WITH_JSON)
 std::shared_ptr<arrow::json::ReadOptions> json___ReadOptions__initialize(bool use_threads, int block_size);
 extern "C" SEXP _arrow_json___ReadOptions__initialize(SEXP use_threads_sexp, SEXP block_size_sexp){
 BEGIN_CPP11
@@ -4130,7 +4560,7 @@ extern "C" SEXP _arrow_json___ReadOptions__initialize(SEXP use_threads_sexp, SEX
 #endif
 
 // json.cpp
-#if defined(ARROW_R_WITH_ARROW)
+#if defined(ARROW_R_WITH_JSON)
 std::shared_ptr<arrow::json::ParseOptions> json___ParseOptions__initialize1(bool newlines_in_values);
 extern "C" SEXP _arrow_json___ParseOptions__initialize1(SEXP newlines_in_values_sexp){
 BEGIN_CPP11
@@ -4145,7 +4575,7 @@ extern "C" SEXP _arrow_json___ParseOptions__initialize1(SEXP newlines_in_values_
 #endif
 
 // json.cpp
-#if defined(ARROW_R_WITH_ARROW)
+#if defined(ARROW_R_WITH_JSON)
 std::shared_ptr<arrow::json::ParseOptions> json___ParseOptions__initialize2(bool newlines_in_values, const std::shared_ptr<arrow::Schema>& explicit_schema);
 extern "C" SEXP _arrow_json___ParseOptions__initialize2(SEXP newlines_in_values_sexp, SEXP explicit_schema_sexp){
 BEGIN_CPP11
@@ -4161,7 +4591,7 @@ extern "C" SEXP _arrow_json___ParseOptions__initialize2(SEXP newlines_in_values_
 #endif
 
 // json.cpp
-#if defined(ARROW_R_WITH_ARROW)
+#if defined(ARROW_R_WITH_JSON)
 std::shared_ptr<arrow::json::TableReader> json___TableReader__Make(const std::shared_ptr<arrow::io::InputStream>& input, const std::shared_ptr<arrow::json::ReadOptions>& read_options, const std::shared_ptr<arrow::json::ParseOptions>& parse_options);
 extern "C" SEXP _arrow_json___TableReader__Make(SEXP input_sexp, SEXP read_options_sexp, SEXP parse_options_sexp){
 BEGIN_CPP11
@@ -4178,7 +4608,7 @@ extern "C" SEXP _arrow_json___TableReader__Make(SEXP input_sexp, SEXP read_optio
 #endif
 
 // json.cpp
-#if defined(ARROW_R_WITH_ARROW)
+#if defined(ARROW_R_WITH_JSON)
 std::shared_ptr<arrow::Table> json___TableReader__Read(const std::shared_ptr<arrow::json::TableReader>& table_reader);
 extern "C" SEXP _arrow_json___TableReader__Read(SEXP table_reader_sexp){
 BEGIN_CPP11
@@ -4943,53 +5373,6 @@ extern "C" SEXP _arrow_parquet___arrow___FileReader__GetSchema(SEXP reader_sexp)
 
 // py-to-r.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::Array> ImportArray(arrow::r::Pointer<struct ArrowArray> array, arrow::r::Pointer<struct ArrowSchema> schema);
-extern "C" SEXP _arrow_ImportArray(SEXP array_sexp, SEXP schema_sexp){
-BEGIN_CPP11
-	arrow::r::Input<arrow::r::Pointer<struct ArrowArray>>::type array(array_sexp);
-	arrow::r::Input<arrow::r::Pointer<struct ArrowSchema>>::type schema(schema_sexp);
-	return cpp11::as_sexp(ImportArray(array, schema));
-END_CPP11
-}
-#else
-extern "C" SEXP _arrow_ImportArray(SEXP array_sexp, SEXP schema_sexp){
-	Rf_error("Cannot call ImportArray(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-}
-#endif
-
-// py-to-r.cpp
-#if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::RecordBatch> ImportRecordBatch(arrow::r::Pointer<struct ArrowArray> array, arrow::r::Pointer<struct ArrowSchema> schema);
-extern "C" SEXP _arrow_ImportRecordBatch(SEXP array_sexp, SEXP schema_sexp){
-BEGIN_CPP11
-	arrow::r::Input<arrow::r::Pointer<struct ArrowArray>>::type array(array_sexp);
-	arrow::r::Input<arrow::r::Pointer<struct ArrowSchema>>::type schema(schema_sexp);
-	return cpp11::as_sexp(ImportRecordBatch(array, schema));
-END_CPP11
-}
-#else
-extern "C" SEXP _arrow_ImportRecordBatch(SEXP array_sexp, SEXP schema_sexp){
-	Rf_error("Cannot call ImportRecordBatch(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-}
-#endif
-
-// py-to-r.cpp
-#if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::Schema> ImportSchema(arrow::r::Pointer<struct ArrowSchema> schema);
-extern "C" SEXP _arrow_ImportSchema(SEXP schema_sexp){
-BEGIN_CPP11
-	arrow::r::Input<arrow::r::Pointer<struct ArrowSchema>>::type schema(schema_sexp);
-	return cpp11::as_sexp(ImportSchema(schema));
-END_CPP11
-}
-#else
-extern "C" SEXP _arrow_ImportSchema(SEXP schema_sexp){
-	Rf_error("Cannot call ImportSchema(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-}
-#endif
-
-// py-to-r.cpp
-#if defined(ARROW_R_WITH_ARROW)
 arrow::r::Pointer<struct ArrowSchema> allocate_arrow_schema();
 extern "C" SEXP _arrow_allocate_arrow_schema(){
 BEGIN_CPP11
@@ -5050,6 +5433,128 @@ extern "C" SEXP _arrow_delete_arrow_array(SEXP ptr_sexp){
 
 // py-to-r.cpp
 #if defined(ARROW_R_WITH_ARROW)
+arrow::r::Pointer<struct ArrowArrayStream> allocate_arrow_array_stream();
+extern "C" SEXP _arrow_allocate_arrow_array_stream(){
+BEGIN_CPP11
+	return cpp11::as_sexp(allocate_arrow_array_stream());
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_allocate_arrow_array_stream(){
+	Rf_error("Cannot call allocate_arrow_array_stream(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// py-to-r.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void delete_arrow_array_stream(arrow::r::Pointer<struct ArrowArrayStream> ptr);
+extern "C" SEXP _arrow_delete_arrow_array_stream(SEXP ptr_sexp){
+BEGIN_CPP11
+	arrow::r::Input<arrow::r::Pointer<struct ArrowArrayStream>>::type ptr(ptr_sexp);
+	delete_arrow_array_stream(ptr);
+	return R_NilValue;
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_delete_arrow_array_stream(SEXP ptr_sexp){
+	Rf_error("Cannot call delete_arrow_array_stream(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// py-to-r.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Array> ImportArray(arrow::r::Pointer<struct ArrowArray> array, arrow::r::Pointer<struct ArrowSchema> schema);
+extern "C" SEXP _arrow_ImportArray(SEXP array_sexp, SEXP schema_sexp){
+BEGIN_CPP11
+	arrow::r::Input<arrow::r::Pointer<struct ArrowArray>>::type array(array_sexp);
+	arrow::r::Input<arrow::r::Pointer<struct ArrowSchema>>::type schema(schema_sexp);
+	return cpp11::as_sexp(ImportArray(array, schema));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_ImportArray(SEXP array_sexp, SEXP schema_sexp){
+	Rf_error("Cannot call ImportArray(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// py-to-r.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::RecordBatch> ImportRecordBatch(arrow::r::Pointer<struct ArrowArray> array, arrow::r::Pointer<struct ArrowSchema> schema);
+extern "C" SEXP _arrow_ImportRecordBatch(SEXP array_sexp, SEXP schema_sexp){
+BEGIN_CPP11
+	arrow::r::Input<arrow::r::Pointer<struct ArrowArray>>::type array(array_sexp);
+	arrow::r::Input<arrow::r::Pointer<struct ArrowSchema>>::type schema(schema_sexp);
+	return cpp11::as_sexp(ImportRecordBatch(array, schema));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_ImportRecordBatch(SEXP array_sexp, SEXP schema_sexp){
+	Rf_error("Cannot call ImportRecordBatch(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// py-to-r.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Schema> ImportSchema(arrow::r::Pointer<struct ArrowSchema> schema);
+extern "C" SEXP _arrow_ImportSchema(SEXP schema_sexp){
+BEGIN_CPP11
+	arrow::r::Input<arrow::r::Pointer<struct ArrowSchema>>::type schema(schema_sexp);
+	return cpp11::as_sexp(ImportSchema(schema));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_ImportSchema(SEXP schema_sexp){
+	Rf_error("Cannot call ImportSchema(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// py-to-r.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Field> ImportField(arrow::r::Pointer<struct ArrowSchema> field);
+extern "C" SEXP _arrow_ImportField(SEXP field_sexp){
+BEGIN_CPP11
+	arrow::r::Input<arrow::r::Pointer<struct ArrowSchema>>::type field(field_sexp);
+	return cpp11::as_sexp(ImportField(field));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_ImportField(SEXP field_sexp){
+	Rf_error("Cannot call ImportField(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// py-to-r.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::DataType> ImportType(arrow::r::Pointer<struct ArrowSchema> type);
+extern "C" SEXP _arrow_ImportType(SEXP type_sexp){
+BEGIN_CPP11
+	arrow::r::Input<arrow::r::Pointer<struct ArrowSchema>>::type type(type_sexp);
+	return cpp11::as_sexp(ImportType(type));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_ImportType(SEXP type_sexp){
+	Rf_error("Cannot call ImportType(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// py-to-r.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::RecordBatchReader> ImportRecordBatchReader(arrow::r::Pointer<struct ArrowArrayStream> stream);
+extern "C" SEXP _arrow_ImportRecordBatchReader(SEXP stream_sexp){
+BEGIN_CPP11
+	arrow::r::Input<arrow::r::Pointer<struct ArrowArrayStream>>::type stream(stream_sexp);
+	return cpp11::as_sexp(ImportRecordBatchReader(stream));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_ImportRecordBatchReader(SEXP stream_sexp){
+	Rf_error("Cannot call ImportRecordBatchReader(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// py-to-r.cpp
+#if defined(ARROW_R_WITH_ARROW)
 void ExportType(const std::shared_ptr<arrow::DataType>& type, arrow::r::Pointer<struct ArrowSchema> ptr);
 extern "C" SEXP _arrow_ExportType(SEXP type_sexp, SEXP ptr_sexp){
 BEGIN_CPP11
@@ -5062,6 +5567,23 @@ END_CPP11
 #else
 extern "C" SEXP _arrow_ExportType(SEXP type_sexp, SEXP ptr_sexp){
 	Rf_error("Cannot call ExportType(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// py-to-r.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void ExportField(const std::shared_ptr<arrow::Field>& field, arrow::r::Pointer<struct ArrowSchema> ptr);
+extern "C" SEXP _arrow_ExportField(SEXP field_sexp, SEXP ptr_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::Field>&>::type field(field_sexp);
+	arrow::r::Input<arrow::r::Pointer<struct ArrowSchema>>::type ptr(ptr_sexp);
+	ExportField(field, ptr);
+	return R_NilValue;
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_ExportField(SEXP field_sexp, SEXP ptr_sexp){
+	Rf_error("Cannot call ExportField(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5118,19 +5640,53 @@ extern "C" SEXP _arrow_ExportRecordBatch(SEXP batch_sexp, SEXP array_ptr_sexp, S
 }
 #endif
 
-// r_to_arrow.cpp
+// py-to-r.cpp
 #if defined(ARROW_R_WITH_ARROW)
-SEXP vec_to_arrow(SEXP x, SEXP s_type);
-extern "C" SEXP _arrow_vec_to_arrow(SEXP x_sexp, SEXP s_type_sexp){
+void ExportRecordBatchReader(const std::shared_ptr<arrow::RecordBatchReader>& reader, arrow::r::Pointer<struct ArrowArrayStream> stream_ptr);
+extern "C" SEXP _arrow_ExportRecordBatchReader(SEXP reader_sexp, SEXP stream_ptr_sexp){
 BEGIN_CPP11
-	arrow::r::Input<SEXP>::type x(x_sexp);
-	arrow::r::Input<SEXP>::type s_type(s_type_sexp);
-	return cpp11::as_sexp(vec_to_arrow(x, s_type));
+	arrow::r::Input<const std::shared_ptr<arrow::RecordBatchReader>&>::type reader(reader_sexp);
+	arrow::r::Input<arrow::r::Pointer<struct ArrowArrayStream>>::type stream_ptr(stream_ptr_sexp);
+	ExportRecordBatchReader(reader, stream_ptr);
+	return R_NilValue;
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_vec_to_arrow(SEXP x_sexp, SEXP s_type_sexp){
-	Rf_error("Cannot call vec_to_arrow(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+extern "C" SEXP _arrow_ExportRecordBatchReader(SEXP reader_sexp, SEXP stream_ptr_sexp){
+	Rf_error("Cannot call ExportRecordBatchReader(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// r_to_arrow.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp, bool use_threads);
+extern "C" SEXP _arrow_Table__from_dots(SEXP lst_sexp, SEXP schema_sxp_sexp, SEXP use_threads_sexp){
+BEGIN_CPP11
+	arrow::r::Input<SEXP>::type lst(lst_sexp);
+	arrow::r::Input<SEXP>::type schema_sxp(schema_sxp_sexp);
+	arrow::r::Input<bool>::type use_threads(use_threads_sexp);
+	return cpp11::as_sexp(Table__from_dots(lst, schema_sxp, use_threads));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_Table__from_dots(SEXP lst_sexp, SEXP schema_sxp_sexp, SEXP use_threads_sexp){
+	Rf_error("Cannot call Table__from_dots(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// r_to_arrow.cpp
+#if defined(ARROW_R_WITH_ARROW)
+SEXP vec_to_Array(SEXP x, SEXP s_type);
+extern "C" SEXP _arrow_vec_to_Array(SEXP x_sexp, SEXP s_type_sexp){
+BEGIN_CPP11
+	arrow::r::Input<SEXP>::type x(x_sexp);
+	arrow::r::Input<SEXP>::type s_type(s_type_sexp);
+	return cpp11::as_sexp(vec_to_Array(x, s_type));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_vec_to_Array(SEXP x_sexp, SEXP s_type_sexp){
+	Rf_error("Cannot call vec_to_Array(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5503,6 +6059,36 @@ extern "C" SEXP _arrow_RecordBatchReader__ReadNext(SEXP reader_sexp){
 
 // recordbatchreader.cpp
 #if defined(ARROW_R_WITH_ARROW)
+cpp11::list RecordBatchReader__batches(const std::shared_ptr<arrow::RecordBatchReader>& reader);
+extern "C" SEXP _arrow_RecordBatchReader__batches(SEXP reader_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::RecordBatchReader>&>::type reader(reader_sexp);
+	return cpp11::as_sexp(RecordBatchReader__batches(reader));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_RecordBatchReader__batches(SEXP reader_sexp){
+	Rf_error("Cannot call RecordBatchReader__batches(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// recordbatchreader.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Table> Table__from_RecordBatchReader(const std::shared_ptr<arrow::RecordBatchReader>& reader);
+extern "C" SEXP _arrow_Table__from_RecordBatchReader(SEXP reader_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::RecordBatchReader>&>::type reader(reader_sexp);
+	return cpp11::as_sexp(Table__from_RecordBatchReader(reader));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_Table__from_RecordBatchReader(SEXP reader_sexp){
+	Rf_error("Cannot call Table__from_RecordBatchReader(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// recordbatchreader.cpp
+#if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::ipc::RecordBatchStreamReader> ipc___RecordBatchStreamReader__Open(const std::shared_ptr<arrow::io::InputStream>& stream);
 extern "C" SEXP _arrow_ipc___RecordBatchStreamReader__Open(SEXP stream_sexp){
 BEGIN_CPP11
@@ -5513,21 +6099,6 @@ END_CPP11
 #else
 extern "C" SEXP _arrow_ipc___RecordBatchStreamReader__Open(SEXP stream_sexp){
 	Rf_error("Cannot call ipc___RecordBatchStreamReader__Open(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-}
-#endif
-
-// recordbatchreader.cpp
-#if defined(ARROW_R_WITH_ARROW)
-cpp11::list ipc___RecordBatchStreamReader__batches(const std::shared_ptr<arrow::ipc::RecordBatchStreamReader>& reader);
-extern "C" SEXP _arrow_ipc___RecordBatchStreamReader__batches(SEXP reader_sexp){
-BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<arrow::ipc::RecordBatchStreamReader>&>::type reader(reader_sexp);
-	return cpp11::as_sexp(ipc___RecordBatchStreamReader__batches(reader));
-END_CPP11
-}
-#else
-extern "C" SEXP _arrow_ipc___RecordBatchStreamReader__batches(SEXP reader_sexp){
-	Rf_error("Cannot call ipc___RecordBatchStreamReader__batches(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5589,21 +6160,6 @@ END_CPP11
 #else
 extern "C" SEXP _arrow_ipc___RecordBatchFileReader__Open(SEXP file_sexp){
 	Rf_error("Cannot call ipc___RecordBatchFileReader__Open(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-}
-#endif
-
-// recordbatchreader.cpp
-#if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::Table> Table__from_RecordBatchReader(const std::shared_ptr<arrow::RecordBatchReader>& reader);
-extern "C" SEXP _arrow_Table__from_RecordBatchReader(SEXP reader_sexp){
-BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<arrow::RecordBatchReader>&>::type reader(reader_sexp);
-	return cpp11::as_sexp(Table__from_RecordBatchReader(reader));
-END_CPP11
-}
-#else
-extern "C" SEXP _arrow_Table__from_RecordBatchReader(SEXP reader_sexp){
-	Rf_error("Cannot call Table__from_RecordBatchReader(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5723,20 +6279,6 @@ extern "C" SEXP _arrow_ipc___RecordBatchStreamWriter__Open(SEXP stream_sexp, SEX
 }
 #endif
 
-// runtimeinfo.cpp
-#if defined(ARROW_R_WITH_ARROW)
-std::vector<std::string> runtime_info();
-extern "C" SEXP _arrow_runtime_info(){
-BEGIN_CPP11
-	return cpp11::as_sexp(runtime_info());
-END_CPP11
-}
-#else
-extern "C" SEXP _arrow_runtime_info(){
-	Rf_error("Cannot call runtime_info(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-}
-#endif
-
 // scalar.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Scalar> Array__GetScalar(const std::shared_ptr<arrow::Array>& x, int64_t i);
@@ -5817,15 +6359,16 @@ extern "C" SEXP _arrow_Scalar__as_vector(SEXP scalar_sexp){
 
 // scalar.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::Array> MakeArrayFromScalar(const std::shared_ptr<arrow::Scalar>& scalar);
-extern "C" SEXP _arrow_MakeArrayFromScalar(SEXP scalar_sexp){
+std::shared_ptr<arrow::Array> MakeArrayFromScalar(const std::shared_ptr<arrow::Scalar>& scalar, int n);
+extern "C" SEXP _arrow_MakeArrayFromScalar(SEXP scalar_sexp, SEXP n_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::Scalar>&>::type scalar(scalar_sexp);
-	return cpp11::as_sexp(MakeArrayFromScalar(scalar));
+	arrow::r::Input<int>::type n(n_sexp);
+	return cpp11::as_sexp(MakeArrayFromScalar(scalar, n));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_MakeArrayFromScalar(SEXP scalar_sexp){
+extern "C" SEXP _arrow_MakeArrayFromScalar(SEXP scalar_sexp, SEXP n_sexp){
 	Rf_error("Cannot call MakeArrayFromScalar(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
@@ -6476,22 +7019,6 @@ extern "C" SEXP _arrow_Table__from_record_batches(SEXP batches_sexp, SEXP schema
 }
 #endif
 
-// table.cpp
-#if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp);
-extern "C" SEXP _arrow_Table__from_dots(SEXP lst_sexp, SEXP schema_sxp_sexp){
-BEGIN_CPP11
-	arrow::r::Input<SEXP>::type lst(lst_sexp);
-	arrow::r::Input<SEXP>::type schema_sxp(schema_sxp_sexp);
-	return cpp11::as_sexp(Table__from_dots(lst, schema_sxp));
-END_CPP11
-}
-#else
-extern "C" SEXP _arrow_Table__from_dots(SEXP lst_sexp, SEXP schema_sxp_sexp){
-	Rf_error("Cannot call Table__from_dots(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-}
-#endif
-
 // threadpool.cpp
 #if defined(ARROW_R_WITH_ARROW)
 int GetCpuThreadPoolCapacity();
@@ -6519,6 +7046,36 @@ END_CPP11
 #else
 extern "C" SEXP _arrow_SetCpuThreadPoolCapacity(SEXP threads_sexp){
 	Rf_error("Cannot call SetCpuThreadPoolCapacity(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// threadpool.cpp
+#if defined(ARROW_R_WITH_ARROW)
+int GetIOThreadPoolCapacity();
+extern "C" SEXP _arrow_GetIOThreadPoolCapacity(){
+BEGIN_CPP11
+	return cpp11::as_sexp(GetIOThreadPoolCapacity());
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_GetIOThreadPoolCapacity(){
+	Rf_error("Cannot call GetIOThreadPoolCapacity(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// threadpool.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void SetIOThreadPoolCapacity(int threads);
+extern "C" SEXP _arrow_SetIOThreadPoolCapacity(SEXP threads_sexp){
+BEGIN_CPP11
+	arrow::r::Input<int>::type threads(threads_sexp);
+	SetIOThreadPoolCapacity(threads);
+	return R_NilValue;
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_SetIOThreadPoolCapacity(SEXP threads_sexp){
+	Rf_error("Cannot call SetIOThreadPoolCapacity(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -6599,11 +7156,23 @@ return Rf_ScalarLogical(
 #endif
 );
 }
+extern "C" SEXP _json_available() {
+return Rf_ScalarLogical(
+#if defined(ARROW_R_WITH_JSON)
+  TRUE
+#else
+  FALSE
+#endif
+);
+}
 static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_available", (DL_FUNC)& _arrow_available, 0 },
 		{ "_dataset_available", (DL_FUNC)& _dataset_available, 0 },
 		{ "_parquet_available", (DL_FUNC)& _parquet_available, 0 },
 		{ "_s3_available", (DL_FUNC)& _s3_available, 0 },
+		{ "_json_available", (DL_FUNC)& _json_available, 0 },
+		{ "_arrow_test_SET_STRING_ELT", (DL_FUNC) &_arrow_test_SET_STRING_ELT, 1}, 
+		{ "_arrow_is_arrow_altrep", (DL_FUNC) &_arrow_is_arrow_altrep, 1}, 
 		{ "_arrow_Array__Slice1", (DL_FUNC) &_arrow_Array__Slice1, 2}, 
 		{ "_arrow_Array__Slice2", (DL_FUNC) &_arrow_Array__Slice2, 3}, 
 		{ "_arrow_Array__IsNull", (DL_FUNC) &_arrow_Array__IsNull, 2}, 
@@ -6638,8 +7207,9 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_FixedSizeListArray__value_offset", (DL_FUNC) &_arrow_FixedSizeListArray__value_offset, 2}, 
 		{ "_arrow_ListArray__raw_value_offsets", (DL_FUNC) &_arrow_ListArray__raw_value_offsets, 1}, 
 		{ "_arrow_LargeListArray__raw_value_offsets", (DL_FUNC) &_arrow_LargeListArray__raw_value_offsets, 1}, 
+		{ "_arrow_Array__Same", (DL_FUNC) &_arrow_Array__Same, 2}, 
 		{ "_arrow_Array__as_vector", (DL_FUNC) &_arrow_Array__as_vector, 1}, 
-		{ "_arrow_ChunkedArray__as_vector", (DL_FUNC) &_arrow_ChunkedArray__as_vector, 1}, 
+		{ "_arrow_ChunkedArray__as_vector", (DL_FUNC) &_arrow_ChunkedArray__as_vector, 2}, 
 		{ "_arrow_RecordBatch__to_dataframe", (DL_FUNC) &_arrow_RecordBatch__to_dataframe, 2}, 
 		{ "_arrow_Table__to_dataframe", (DL_FUNC) &_arrow_Table__to_dataframe, 2}, 
 		{ "_arrow_ArrayData__get_type", (DL_FUNC) &_arrow_ArrayData__get_type, 1}, 
@@ -6672,11 +7242,23 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_util___Codec__IsAvailable", (DL_FUNC) &_arrow_util___Codec__IsAvailable, 1}, 
 		{ "_arrow_io___CompressedOutputStream__Make", (DL_FUNC) &_arrow_io___CompressedOutputStream__Make, 2}, 
 		{ "_arrow_io___CompressedInputStream__Make", (DL_FUNC) &_arrow_io___CompressedInputStream__Make, 2}, 
+		{ "_arrow_ExecPlan_create", (DL_FUNC) &_arrow_ExecPlan_create, 1}, 
+		{ "_arrow_ExecPlan_run", (DL_FUNC) &_arrow_ExecPlan_run, 4}, 
+		{ "_arrow_ExecPlan_StopProducing", (DL_FUNC) &_arrow_ExecPlan_StopProducing, 1}, 
+		{ "_arrow_ExecNode_output_schema", (DL_FUNC) &_arrow_ExecNode_output_schema, 1}, 
+		{ "_arrow_ExecNode_Scan", (DL_FUNC) &_arrow_ExecNode_Scan, 4}, 
+		{ "_arrow_ExecNode_Filter", (DL_FUNC) &_arrow_ExecNode_Filter, 2}, 
+		{ "_arrow_ExecNode_Project", (DL_FUNC) &_arrow_ExecNode_Project, 3}, 
+		{ "_arrow_ExecNode_Aggregate", (DL_FUNC) &_arrow_ExecNode_Aggregate, 5}, 
+		{ "_arrow_ExecNode_Join", (DL_FUNC) &_arrow_ExecNode_Join, 7}, 
+		{ "_arrow_ExecNode_ReadFromRecordBatchReader", (DL_FUNC) &_arrow_ExecNode_ReadFromRecordBatchReader, 2}, 
 		{ "_arrow_RecordBatch__cast", (DL_FUNC) &_arrow_RecordBatch__cast, 3}, 
 		{ "_arrow_Table__cast", (DL_FUNC) &_arrow_Table__cast, 3}, 
 		{ "_arrow_compute__CallFunction", (DL_FUNC) &_arrow_compute__CallFunction, 3}, 
-		{ "_arrow_compute__GroupBy", (DL_FUNC) &_arrow_compute__GroupBy, 3}, 
 		{ "_arrow_compute__GetFunctionNames", (DL_FUNC) &_arrow_compute__GetFunctionNames, 0}, 
+		{ "_arrow_build_info", (DL_FUNC) &_arrow_build_info, 0}, 
+		{ "_arrow_runtime_info", (DL_FUNC) &_arrow_runtime_info, 0}, 
+		{ "_arrow_csv___WriteOptions__initialize", (DL_FUNC) &_arrow_csv___WriteOptions__initialize, 1}, 
 		{ "_arrow_csv___ReadOptions__initialize", (DL_FUNC) &_arrow_csv___ReadOptions__initialize, 1}, 
 		{ "_arrow_csv___ParseOptions__initialize", (DL_FUNC) &_arrow_csv___ParseOptions__initialize, 1}, 
 		{ "_arrow_csv___ReadOptions__column_names", (DL_FUNC) &_arrow_csv___ReadOptions__column_names, 1}, 
@@ -6687,6 +7269,8 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_TimestampParser__format", (DL_FUNC) &_arrow_TimestampParser__format, 1}, 
 		{ "_arrow_TimestampParser__MakeStrptime", (DL_FUNC) &_arrow_TimestampParser__MakeStrptime, 1}, 
 		{ "_arrow_TimestampParser__MakeISO8601", (DL_FUNC) &_arrow_TimestampParser__MakeISO8601, 0}, 
+		{ "_arrow_csv___WriteCSV__Table", (DL_FUNC) &_arrow_csv___WriteCSV__Table, 3}, 
+		{ "_arrow_csv___WriteCSV__RecordBatch", (DL_FUNC) &_arrow_csv___WriteCSV__RecordBatch, 3}, 
 		{ "_arrow_dataset___Dataset__NewScan", (DL_FUNC) &_arrow_dataset___Dataset__NewScan, 1}, 
 		{ "_arrow_dataset___Dataset__schema", (DL_FUNC) &_arrow_dataset___Dataset__schema, 1}, 
 		{ "_arrow_dataset___Dataset__type_name", (DL_FUNC) &_arrow_dataset___Dataset__type_name, 1}, 
@@ -6712,30 +7296,35 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_dataset___ParquetFileWriteOptions__update", (DL_FUNC) &_arrow_dataset___ParquetFileWriteOptions__update, 3}, 
 		{ "_arrow_dataset___IpcFileWriteOptions__update2", (DL_FUNC) &_arrow_dataset___IpcFileWriteOptions__update2, 4}, 
 		{ "_arrow_dataset___IpcFileWriteOptions__update1", (DL_FUNC) &_arrow_dataset___IpcFileWriteOptions__update1, 3}, 
+		{ "_arrow_dataset___CsvFileWriteOptions__update", (DL_FUNC) &_arrow_dataset___CsvFileWriteOptions__update, 2}, 
 		{ "_arrow_dataset___IpcFileFormat__Make", (DL_FUNC) &_arrow_dataset___IpcFileFormat__Make, 0}, 
 		{ "_arrow_dataset___CsvFileFormat__Make", (DL_FUNC) &_arrow_dataset___CsvFileFormat__Make, 3}, 
 		{ "_arrow_dataset___FragmentScanOptions__type_name", (DL_FUNC) &_arrow_dataset___FragmentScanOptions__type_name, 1}, 
 		{ "_arrow_dataset___CsvFragmentScanOptions__Make", (DL_FUNC) &_arrow_dataset___CsvFragmentScanOptions__Make, 2}, 
 		{ "_arrow_dataset___ParquetFragmentScanOptions__Make", (DL_FUNC) &_arrow_dataset___ParquetFragmentScanOptions__Make, 3}, 
-		{ "_arrow_dataset___DirectoryPartitioning", (DL_FUNC) &_arrow_dataset___DirectoryPartitioning, 1}, 
-		{ "_arrow_dataset___DirectoryPartitioning__MakeFactory", (DL_FUNC) &_arrow_dataset___DirectoryPartitioning__MakeFactory, 1}, 
-		{ "_arrow_dataset___HivePartitioning", (DL_FUNC) &_arrow_dataset___HivePartitioning, 2}, 
-		{ "_arrow_dataset___HivePartitioning__MakeFactory", (DL_FUNC) &_arrow_dataset___HivePartitioning__MakeFactory, 1}, 
+		{ "_arrow_dataset___DirectoryPartitioning", (DL_FUNC) &_arrow_dataset___DirectoryPartitioning, 2}, 
+		{ "_arrow_dataset___DirectoryPartitioning__MakeFactory", (DL_FUNC) &_arrow_dataset___DirectoryPartitioning__MakeFactory, 2}, 
+		{ "_arrow_dataset___HivePartitioning", (DL_FUNC) &_arrow_dataset___HivePartitioning, 3}, 
+		{ "_arrow_dataset___HivePartitioning__MakeFactory", (DL_FUNC) &_arrow_dataset___HivePartitioning__MakeFactory, 2}, 
 		{ "_arrow_dataset___ScannerBuilder__ProjectNames", (DL_FUNC) &_arrow_dataset___ScannerBuilder__ProjectNames, 2}, 
 		{ "_arrow_dataset___ScannerBuilder__ProjectExprs", (DL_FUNC) &_arrow_dataset___ScannerBuilder__ProjectExprs, 3}, 
 		{ "_arrow_dataset___ScannerBuilder__Filter", (DL_FUNC) &_arrow_dataset___ScannerBuilder__Filter, 2}, 
 		{ "_arrow_dataset___ScannerBuilder__UseThreads", (DL_FUNC) &_arrow_dataset___ScannerBuilder__UseThreads, 2}, 
+		{ "_arrow_dataset___ScannerBuilder__UseAsync", (DL_FUNC) &_arrow_dataset___ScannerBuilder__UseAsync, 2}, 
 		{ "_arrow_dataset___ScannerBuilder__BatchSize", (DL_FUNC) &_arrow_dataset___ScannerBuilder__BatchSize, 2}, 
 		{ "_arrow_dataset___ScannerBuilder__FragmentScanOptions", (DL_FUNC) &_arrow_dataset___ScannerBuilder__FragmentScanOptions, 2}, 
 		{ "_arrow_dataset___ScannerBuilder__schema", (DL_FUNC) &_arrow_dataset___ScannerBuilder__schema, 1}, 
 		{ "_arrow_dataset___ScannerBuilder__Finish", (DL_FUNC) &_arrow_dataset___ScannerBuilder__Finish, 1}, 
+		{ "_arrow_dataset___ScannerBuilder__FromRecordBatchReader", (DL_FUNC) &_arrow_dataset___ScannerBuilder__FromRecordBatchReader, 1}, 
 		{ "_arrow_dataset___Scanner__ToTable", (DL_FUNC) &_arrow_dataset___Scanner__ToTable, 1}, 
 		{ "_arrow_dataset___Scanner__ScanBatches", (DL_FUNC) &_arrow_dataset___Scanner__ScanBatches, 1}, 
+		{ "_arrow_dataset___Scanner__ToRecordBatchReader", (DL_FUNC) &_arrow_dataset___Scanner__ToRecordBatchReader, 1}, 
 		{ "_arrow_dataset___Scanner__head", (DL_FUNC) &_arrow_dataset___Scanner__head, 2}, 
 		{ "_arrow_dataset___Scanner__schema", (DL_FUNC) &_arrow_dataset___Scanner__schema, 1}, 
 		{ "_arrow_dataset___ScanTask__get_batches", (DL_FUNC) &_arrow_dataset___ScanTask__get_batches, 1}, 
-		{ "_arrow_dataset___Dataset__Write", (DL_FUNC) &_arrow_dataset___Dataset__Write, 6}, 
+		{ "_arrow_dataset___Dataset__Write", (DL_FUNC) &_arrow_dataset___Dataset__Write, 8}, 
 		{ "_arrow_dataset___Scanner__TakeRows", (DL_FUNC) &_arrow_dataset___Scanner__TakeRows, 2}, 
+		{ "_arrow_dataset___Scanner__CountRows", (DL_FUNC) &_arrow_dataset___Scanner__CountRows, 1}, 
 		{ "_arrow_Int8__initialize", (DL_FUNC) &_arrow_Int8__initialize, 0}, 
 		{ "_arrow_Int16__initialize", (DL_FUNC) &_arrow_Int16__initialize, 0}, 
 		{ "_arrow_Int32__initialize", (DL_FUNC) &_arrow_Int32__initialize, 0}, 
@@ -6793,11 +7382,15 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_FixedSizeListType__value_field", (DL_FUNC) &_arrow_FixedSizeListType__value_field, 1}, 
 		{ "_arrow_FixedSizeListType__value_type", (DL_FUNC) &_arrow_FixedSizeListType__value_type, 1}, 
 		{ "_arrow_FixedSizeListType__list_size", (DL_FUNC) &_arrow_FixedSizeListType__list_size, 1}, 
-		{ "_arrow_dataset___expr__call", (DL_FUNC) &_arrow_dataset___expr__call, 3}, 
-		{ "_arrow_dataset___expr__field_ref", (DL_FUNC) &_arrow_dataset___expr__field_ref, 1}, 
-		{ "_arrow_dataset___expr__get_field_ref_name", (DL_FUNC) &_arrow_dataset___expr__get_field_ref_name, 1}, 
-		{ "_arrow_dataset___expr__scalar", (DL_FUNC) &_arrow_dataset___expr__scalar, 1}, 
-		{ "_arrow_dataset___expr__ToString", (DL_FUNC) &_arrow_dataset___expr__ToString, 1}, 
+		{ "_arrow_compute___expr__equals", (DL_FUNC) &_arrow_compute___expr__equals, 2}, 
+		{ "_arrow_compute___expr__call", (DL_FUNC) &_arrow_compute___expr__call, 3}, 
+		{ "_arrow_field_names_in_expression", (DL_FUNC) &_arrow_field_names_in_expression, 1}, 
+		{ "_arrow_compute___expr__get_field_ref_name", (DL_FUNC) &_arrow_compute___expr__get_field_ref_name, 1}, 
+		{ "_arrow_compute___expr__field_ref", (DL_FUNC) &_arrow_compute___expr__field_ref, 1}, 
+		{ "_arrow_compute___expr__scalar", (DL_FUNC) &_arrow_compute___expr__scalar, 1}, 
+		{ "_arrow_compute___expr__ToString", (DL_FUNC) &_arrow_compute___expr__ToString, 1}, 
+		{ "_arrow_compute___expr__type", (DL_FUNC) &_arrow_compute___expr__type, 2}, 
+		{ "_arrow_compute___expr__type_id", (DL_FUNC) &_arrow_compute___expr__type_id, 2}, 
 		{ "_arrow_ipc___WriteFeather__Table", (DL_FUNC) &_arrow_ipc___WriteFeather__Table, 6}, 
 		{ "_arrow_ipc___feather___Reader__version", (DL_FUNC) &_arrow_ipc___feather___Reader__version, 1}, 
 		{ "_arrow_ipc___feather___Reader__Read", (DL_FUNC) &_arrow_ipc___feather___Reader__Read, 2}, 
@@ -6843,7 +7436,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_fs___SubTreeFileSystem__base_path", (DL_FUNC) &_arrow_fs___SubTreeFileSystem__base_path, 1}, 
 		{ "_arrow_fs___FileSystemFromUri", (DL_FUNC) &_arrow_fs___FileSystemFromUri, 1}, 
 		{ "_arrow_fs___CopyFiles", (DL_FUNC) &_arrow_fs___CopyFiles, 6}, 
-		{ "_arrow_fs___S3FileSystem__create", (DL_FUNC) &_arrow_fs___S3FileSystem__create, 12}, 
+		{ "_arrow_fs___S3FileSystem__create", (DL_FUNC) &_arrow_fs___S3FileSystem__create, 13}, 
 		{ "_arrow_fs___S3FileSystem__region", (DL_FUNC) &_arrow_fs___S3FileSystem__region, 1}, 
 		{ "_arrow_io___Readable__Read", (DL_FUNC) &_arrow_io___Readable__Read, 2}, 
 		{ "_arrow_io___InputStream__Close", (DL_FUNC) &_arrow_io___InputStream__Close, 1}, 
@@ -6919,18 +7512,26 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_parquet___arrow___FileWriter__Close", (DL_FUNC) &_arrow_parquet___arrow___FileWriter__Close, 1}, 
 		{ "_arrow_parquet___arrow___WriteTable", (DL_FUNC) &_arrow_parquet___arrow___WriteTable, 4}, 
 		{ "_arrow_parquet___arrow___FileReader__GetSchema", (DL_FUNC) &_arrow_parquet___arrow___FileReader__GetSchema, 1}, 
-		{ "_arrow_ImportArray", (DL_FUNC) &_arrow_ImportArray, 2}, 
-		{ "_arrow_ImportRecordBatch", (DL_FUNC) &_arrow_ImportRecordBatch, 2}, 
-		{ "_arrow_ImportSchema", (DL_FUNC) &_arrow_ImportSchema, 1}, 
 		{ "_arrow_allocate_arrow_schema", (DL_FUNC) &_arrow_allocate_arrow_schema, 0}, 
 		{ "_arrow_delete_arrow_schema", (DL_FUNC) &_arrow_delete_arrow_schema, 1}, 
 		{ "_arrow_allocate_arrow_array", (DL_FUNC) &_arrow_allocate_arrow_array, 0}, 
 		{ "_arrow_delete_arrow_array", (DL_FUNC) &_arrow_delete_arrow_array, 1}, 
+		{ "_arrow_allocate_arrow_array_stream", (DL_FUNC) &_arrow_allocate_arrow_array_stream, 0}, 
+		{ "_arrow_delete_arrow_array_stream", (DL_FUNC) &_arrow_delete_arrow_array_stream, 1}, 
+		{ "_arrow_ImportArray", (DL_FUNC) &_arrow_ImportArray, 2}, 
+		{ "_arrow_ImportRecordBatch", (DL_FUNC) &_arrow_ImportRecordBatch, 2}, 
+		{ "_arrow_ImportSchema", (DL_FUNC) &_arrow_ImportSchema, 1}, 
+		{ "_arrow_ImportField", (DL_FUNC) &_arrow_ImportField, 1}, 
+		{ "_arrow_ImportType", (DL_FUNC) &_arrow_ImportType, 1}, 
+		{ "_arrow_ImportRecordBatchReader", (DL_FUNC) &_arrow_ImportRecordBatchReader, 1}, 
 		{ "_arrow_ExportType", (DL_FUNC) &_arrow_ExportType, 2}, 
+		{ "_arrow_ExportField", (DL_FUNC) &_arrow_ExportField, 2}, 
 		{ "_arrow_ExportSchema", (DL_FUNC) &_arrow_ExportSchema, 2}, 
 		{ "_arrow_ExportArray", (DL_FUNC) &_arrow_ExportArray, 3}, 
 		{ "_arrow_ExportRecordBatch", (DL_FUNC) &_arrow_ExportRecordBatch, 3}, 
-		{ "_arrow_vec_to_arrow", (DL_FUNC) &_arrow_vec_to_arrow, 2}, 
+		{ "_arrow_ExportRecordBatchReader", (DL_FUNC) &_arrow_ExportRecordBatchReader, 2}, 
+		{ "_arrow_Table__from_dots", (DL_FUNC) &_arrow_Table__from_dots, 3}, 
+		{ "_arrow_vec_to_Array", (DL_FUNC) &_arrow_vec_to_Array, 2}, 
 		{ "_arrow_DictionaryArray__FromArrays", (DL_FUNC) &_arrow_DictionaryArray__FromArrays, 3}, 
 		{ "_arrow_RecordBatch__num_columns", (DL_FUNC) &_arrow_RecordBatch__num_columns, 1}, 
 		{ "_arrow_RecordBatch__num_rows", (DL_FUNC) &_arrow_RecordBatch__num_rows, 1}, 
@@ -6954,13 +7555,13 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_RecordBatch__from_arrays", (DL_FUNC) &_arrow_RecordBatch__from_arrays, 2}, 
 		{ "_arrow_RecordBatchReader__schema", (DL_FUNC) &_arrow_RecordBatchReader__schema, 1}, 
 		{ "_arrow_RecordBatchReader__ReadNext", (DL_FUNC) &_arrow_RecordBatchReader__ReadNext, 1}, 
+		{ "_arrow_RecordBatchReader__batches", (DL_FUNC) &_arrow_RecordBatchReader__batches, 1}, 
+		{ "_arrow_Table__from_RecordBatchReader", (DL_FUNC) &_arrow_Table__from_RecordBatchReader, 1}, 
 		{ "_arrow_ipc___RecordBatchStreamReader__Open", (DL_FUNC) &_arrow_ipc___RecordBatchStreamReader__Open, 1}, 
-		{ "_arrow_ipc___RecordBatchStreamReader__batches", (DL_FUNC) &_arrow_ipc___RecordBatchStreamReader__batches, 1}, 
 		{ "_arrow_ipc___RecordBatchFileReader__schema", (DL_FUNC) &_arrow_ipc___RecordBatchFileReader__schema, 1}, 
 		{ "_arrow_ipc___RecordBatchFileReader__num_record_batches", (DL_FUNC) &_arrow_ipc___RecordBatchFileReader__num_record_batches, 1}, 
 		{ "_arrow_ipc___RecordBatchFileReader__ReadRecordBatch", (DL_FUNC) &_arrow_ipc___RecordBatchFileReader__ReadRecordBatch, 2}, 
 		{ "_arrow_ipc___RecordBatchFileReader__Open", (DL_FUNC) &_arrow_ipc___RecordBatchFileReader__Open, 1}, 
-		{ "_arrow_Table__from_RecordBatchReader", (DL_FUNC) &_arrow_Table__from_RecordBatchReader, 1}, 
 		{ "_arrow_Table__from_RecordBatchFileReader", (DL_FUNC) &_arrow_Table__from_RecordBatchFileReader, 1}, 
 		{ "_arrow_ipc___RecordBatchFileReader__batches", (DL_FUNC) &_arrow_ipc___RecordBatchFileReader__batches, 1}, 
 		{ "_arrow_ipc___RecordBatchWriter__WriteRecordBatch", (DL_FUNC) &_arrow_ipc___RecordBatchWriter__WriteRecordBatch, 2}, 
@@ -6968,13 +7569,12 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ipc___RecordBatchWriter__Close", (DL_FUNC) &_arrow_ipc___RecordBatchWriter__Close, 1}, 
 		{ "_arrow_ipc___RecordBatchFileWriter__Open", (DL_FUNC) &_arrow_ipc___RecordBatchFileWriter__Open, 4}, 
 		{ "_arrow_ipc___RecordBatchStreamWriter__Open", (DL_FUNC) &_arrow_ipc___RecordBatchStreamWriter__Open, 4}, 
-		{ "_arrow_runtime_info", (DL_FUNC) &_arrow_runtime_info, 0}, 
 		{ "_arrow_Array__GetScalar", (DL_FUNC) &_arrow_Array__GetScalar, 2}, 
 		{ "_arrow_Scalar__ToString", (DL_FUNC) &_arrow_Scalar__ToString, 1}, 
 		{ "_arrow_StructScalar__field", (DL_FUNC) &_arrow_StructScalar__field, 2}, 
 		{ "_arrow_StructScalar__GetFieldByName", (DL_FUNC) &_arrow_StructScalar__GetFieldByName, 2}, 
 		{ "_arrow_Scalar__as_vector", (DL_FUNC) &_arrow_Scalar__as_vector, 1}, 
-		{ "_arrow_MakeArrayFromScalar", (DL_FUNC) &_arrow_MakeArrayFromScalar, 1}, 
+		{ "_arrow_MakeArrayFromScalar", (DL_FUNC) &_arrow_MakeArrayFromScalar, 2}, 
 		{ "_arrow_Scalar__is_valid", (DL_FUNC) &_arrow_Scalar__is_valid, 1}, 
 		{ "_arrow_Scalar__type", (DL_FUNC) &_arrow_Scalar__type, 1}, 
 		{ "_arrow_Scalar__Equals", (DL_FUNC) &_arrow_Scalar__Equals, 2}, 
@@ -7016,9 +7616,10 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_Table__SelectColumns", (DL_FUNC) &_arrow_Table__SelectColumns, 2}, 
 		{ "_arrow_all_record_batches", (DL_FUNC) &_arrow_all_record_batches, 1}, 
 		{ "_arrow_Table__from_record_batches", (DL_FUNC) &_arrow_Table__from_record_batches, 2}, 
-		{ "_arrow_Table__from_dots", (DL_FUNC) &_arrow_Table__from_dots, 2}, 
 		{ "_arrow_GetCpuThreadPoolCapacity", (DL_FUNC) &_arrow_GetCpuThreadPoolCapacity, 0}, 
 		{ "_arrow_SetCpuThreadPoolCapacity", (DL_FUNC) &_arrow_SetCpuThreadPoolCapacity, 1}, 
+		{ "_arrow_GetIOThreadPoolCapacity", (DL_FUNC) &_arrow_GetIOThreadPoolCapacity, 0}, 
+		{ "_arrow_SetIOThreadPoolCapacity", (DL_FUNC) &_arrow_SetIOThreadPoolCapacity, 1}, 
 		{ "_arrow_Array__infer_type", (DL_FUNC) &_arrow_Array__infer_type, 1}, 
 		{ "_arrow_Table__Reset", (DL_FUNC) &_arrow_Table__Reset, 1}, 
 		{ "_arrow_RecordBatch__Reset", (DL_FUNC) &_arrow_RecordBatch__Reset, 1}, 
@@ -7027,6 +7628,11 @@ static const R_CallMethodDef CallEntries[] = {
 extern "C" void R_init_arrow(DllInfo* dll){
   R_registerRoutines(dll, NULL, CallEntries, NULL, NULL);
   R_useDynamicSymbols(dll, FALSE);
+
+  #if defined(ARROW_R_WITH_ARROW) && defined(HAS_ALTREP)
+  arrow::r::altrep::Init_Altrep_classes(dll);
+  #endif
+
 }
 
 

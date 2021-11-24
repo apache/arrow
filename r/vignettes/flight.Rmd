@@ -11,15 +11,23 @@ vignette: >
 is a general-purpose client-server framework for high performance
 transport of large datasets over network interfaces, built as part of the
 [Apache Arrow](https://arrow.apache.org) project.
-The `arrow` package provides methods for connecting to Flight RPC servers
+
+Flight allows for highly efficient data transfer as it:
+
+* removes the need for deserialization during data transfer
+* allows for parallel data streaming
+* is highly optimized to take advantage of Arrow's columnar format.
+
+The arrow package provides methods for connecting to Flight RPC servers
 to send and receive data.
 
 ## Getting Started
 
-The `flight` functions in the package use `reticulate` to call methods in the
-`pyarrow` Python package. Before using them for the first time,
-you'll need to be sure you have `reticulate`, and you'll also need to
-install `pyarrow`:
+The `flight` functions in the package use [reticulate](https://rstudio.github.io/reticulate/) to call methods in the
+[pyarrow](https://arrow.apache.org/docs/python/api/flight.html) Python package.
+
+Before using them for the first time,
+you'll need to be sure you have reticulate and pyarrow installed:
 
 ```r
 install.packages("reticulate")
@@ -74,5 +82,6 @@ client %>%
 ## 3 virginica        6.9
 ```
 
-Because `flight_get()` returns an Arrow data structure, we can directly pipe
-its result into a `dplyr` workflow.
+Because `flight_get()` returns an Arrow data structure, you can directly pipe
+its result into a [dplyr](https://dplyr.tidyverse.org/) workflow.
+See `vignette("dataset", package = "arrow")` for more information on working with Arrow objects via a dplyr interface.

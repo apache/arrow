@@ -37,7 +37,7 @@ import org.apache.arrow.vector.util.TransferPair;
  * vector are null.
  */
 public final class TimeMicroVector extends BaseFixedWidthVector {
-  private static final byte TYPE_WIDTH = 8;
+  public static final byte TYPE_WIDTH = 8;
   private final FieldReader reader;
 
   /**

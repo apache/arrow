@@ -1,18 +1,24 @@
 {
   "extends": "../tsconfig.json",
-  "include": ["./**/*.ts"],
+  "include": ["../src/**/*.ts", "../test/**/*.ts"],
   "compilerOptions": {
     "target": "esnext",
-    "module": "commonjs",
+    "module": "es2020",
     "allowJs": true,
     "declaration": false,
+    "declarationMap": false,
     "importHelpers": false,
+    "noEmit": true,
     "noEmitHelpers": false,
     "noEmitOnError": false,
-
-    "sourceMap": false,
+    "sourceMap": true,
     "inlineSources": false,
     "inlineSourceMap": false,
-    "downlevelIteration": false
+    "downlevelIteration": false,
+    "baseUrl": "../",
+    "paths": {
+      "apache-arrow": ["src/Arrow.node"],
+      "apache-arrow/*": ["src/*"]
+    }
   }
 }

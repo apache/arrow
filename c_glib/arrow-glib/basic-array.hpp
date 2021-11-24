@@ -23,6 +23,9 @@
 
 #include <arrow-glib/basic-array.h>
 
+arrow::EqualOptions *
+garrow_equal_options_get_raw(GArrowEqualOptions *equal_options);
+
 GArrowArray *
 garrow_array_new_raw(std::shared_ptr<arrow::Array> *arrow_array);
 GArrowArray *

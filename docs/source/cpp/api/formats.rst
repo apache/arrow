@@ -24,17 +24,28 @@ File Formats
 CSV
 ===
 
-.. doxygenstruct:: arrow::csv::ReadOptions
+.. doxygenstruct:: arrow::csv::ConvertOptions
    :members:
 
 .. doxygenstruct:: arrow::csv::ParseOptions
    :members:
 
-.. doxygenstruct:: arrow::csv::ConvertOptions
+.. doxygenstruct:: arrow::csv::ReadOptions
+   :members:
+
+.. doxygenstruct:: arrow::csv::WriteOptions
    :members:
 
 .. doxygenclass:: arrow::csv::TableReader
    :members:
+
+.. doxygenfunction:: arrow::csv::MakeCSVWriter(io::OutputStream *, const std::shared_ptr<Schema>&, const WriteOptions&)
+
+.. doxygenfunction:: arrow::csv::MakeCSVWriter(std::shared_ptr<io::OutputStream>, const std::shared_ptr<Schema>&, const WriteOptions&)
+
+.. doxygenfunction:: arrow::csv::WriteCSV(const RecordBatch&, const WriteOptions&, arrow::io::OutputStream *)
+
+.. doxygenfunction:: arrow::csv::WriteCSV(const Table&, const WriteOptions&, arrow::io::OutputStream *)
 
 .. _cpp-api-json:
 

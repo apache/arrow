@@ -23,6 +23,7 @@
 
 #include "arrow/array/builder_base.h"
 #include "arrow/array/data.h"
+#include "arrow/result.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 
@@ -51,6 +52,10 @@ class ARROW_EXPORT NullBuilder : public ArrayBuilder {
   Status AppendEmptyValue() final { return AppendEmptyValues(1); }
 
   Status Append(std::nullptr_t) { return AppendNull(); }
+
+  Status AppendArraySlice(const ArrayData&, int64_t, int64_t length) override {
+    return AppendNulls(length);
+  }
 
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
 
@@ -155,6 +160,21 @@ class NumericBuilder : public ArrayBuilder {
   /// \brief Append a sequence of elements in one shot
   /// \param[in] values a contiguous C array of values
   /// \param[in] length the number of values to append
+  /// \param[in] bitmap a validity bitmap to copy (may be null)
+  /// \param[in] bitmap_offset an offset into the validity bitmap
+  /// \return Status
+  Status AppendValues(const value_type* values, int64_t length, const uint8_t* bitmap,
+                      int64_t bitmap_offset) {
+    ARROW_RETURN_NOT_OK(Reserve(length));
+    data_builder_.UnsafeAppend(values, length);
+    // length_ is update by these
+    ArrayBuilder::UnsafeAppendToBitmap(bitmap, bitmap_offset, length);
+    return Status::OK();
+  }
+
+  /// \brief Append a sequence of elements in one shot
+  /// \param[in] values a contiguous C array of values
+  /// \param[in] length the number of values to append
   /// \param[in] is_valid an std::vector<bool> indicating valid (1) or null
   /// (0). Equal in length to values
   /// \return Status
@@ -185,9 +205,9 @@ class NumericBuilder : public ArrayBuilder {
   }
 
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override {
-    std::shared_ptr<Buffer> data, null_bitmap;
-    ARROW_RETURN_NOT_OK(null_bitmap_builder_.Finish(&null_bitmap));
-    ARROW_RETURN_NOT_OK(data_builder_.Finish(&data));
+    ARROW_ASSIGN_OR_RAISE(auto null_bitmap,
+                          null_bitmap_builder_.FinishWithLength(length_));
+    ARROW_ASSIGN_OR_RAISE(auto data, data_builder_.FinishWithLength(length_));
     *out = ArrayData::Make(type(), length_, {null_bitmap, data}, null_count_);
     capacity_ = length_ = null_count_ = 0;
     return Status::OK();
@@ -253,6 +273,12 @@ class NumericBuilder : public ArrayBuilder {
     }
 
     return Status::OK();
+  }
+
+  Status AppendArraySlice(const ArrayData& array, int64_t offset,
+                          int64_t length) override {
+    return AppendValues(array.GetValues<value_type>(1) + offset, length,
+                        array.GetValues<uint8_t>(0, 0), array.offset + offset);
   }
 
   /// Append a single scalar under the assumption that the underlying Buffer is
@@ -363,6 +389,15 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
                       const uint8_t* valid_bytes = NULLPTR);
 
   /// \brief Append a sequence of elements in one shot
+  /// \param[in] values a bitmap of values
+  /// \param[in] length the number of values to append
+  /// \param[in] validity a validity bitmap to copy (may be null)
+  /// \param[in] offset an offset into the values and validity bitmaps
+  /// \return Status
+  Status AppendValues(const uint8_t* values, int64_t length, const uint8_t* validity,
+                      int64_t offset);
+
+  /// \brief Append a sequence of elements in one shot
   /// \param[in] values a contiguous C array of values
   /// \param[in] length the number of values to append
   /// \param[in] is_valid an std::vector<bool> indicating valid (1) or null
@@ -457,6 +492,12 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
   }
 
   Status AppendValues(int64_t length, bool value);
+
+  Status AppendArraySlice(const ArrayData& array, int64_t offset,
+                          int64_t length) override {
+    return AppendValues(array.GetValues<uint8_t>(1, 0), length,
+                        array.GetValues<uint8_t>(0, 0), array.offset + offset);
+  }
 
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
 

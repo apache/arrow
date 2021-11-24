@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
@@ -21,12 +21,14 @@ set -exu
 
 if [ $# -lt 2 ]; then
   echo "Usage: $0 VERSION rc"
-  echo "       $0 VERSION rc BINTRAY_REPOSITORY"
+  echo "       $0 VERSION staging-rc"
   echo "       $0 VERSION release"
+  echo "       $0 VERSION staging-release"
   echo "       $0 VERSION local"
-  echo " e.g.: $0 0.13.0 rc           # Verify 0.13.0 RC"
-  echo " e.g.: $0 0.13.0 release      # Verify 0.13.0"
-  echo " e.g.: $0 0.13.0 rc kszucs/arrow # Verify 0.13.0 RC at https://bintray.com/kszucs/arrow"
+  echo " e.g.: $0 0.13.0 rc                # Verify 0.13.0 RC"
+  echo " e.g.: $0 0.13.0 staging-rc        # Verify 0.13.0 RC on staging"
+  echo " e.g.: $0 0.13.0 release           # Verify 0.13.0"
+  echo " e.g.: $0 0.13.0 staging-release   # Verify 0.13.0 on staging"
   echo " e.g.: $0 0.13.0-dev20210203 local # Verify 0.13.0-dev20210203 on local"
   exit 1
 fi
@@ -36,13 +38,11 @@ TYPE="$2"
 
 local_prefix="/arrow/dev/tasks/linux-packages"
 
-artifactory_base_url="https://apache.jfrog.io/artifactory/arrow/centos"
-if [ "${TYPE}" = "rc" ]; then
-  artifactory_base_url+="-rc"
-fi
+artifactory_base_url="https://apache.jfrog.io/artifactory/arrow"
 
 distribution=$(. /etc/os-release && echo "${ID}")
-distribution_version=$(. /etc/os-release && echo "${VERSION_ID}")
+distribution_version=$(. /etc/os-release && echo "${VERSION_ID}" | grep -o "^[0-9]*")
+distribution_prefix="centos"
 
 cmake_package=cmake
 cmake_command=cmake
@@ -50,8 +50,23 @@ have_flight=yes
 have_gandiva=yes
 have_glib=yes
 have_parquet=yes
+have_python=yes
 install_command="dnf install -y --enablerepo=powertools"
+
 case "${distribution}-${distribution_version}" in
+  almalinux-*)
+    distribution_prefix="almalinux"
+    ;;
+  amzn-2)
+    cmake_package=cmake3
+    cmake_command=cmake3
+    have_flight=no
+    have_gandiva=no
+    have_python=no
+    install_command="yum install -y"
+    distribution_prefix="amazon-linux"
+    amazon-linux-extras install epel -y
+    ;;
   centos-7)
     cmake_package=cmake3
     cmake_command=cmake3
@@ -77,20 +92,35 @@ if [ "${TYPE}" = "local" ]; then
       package_version="${VERSION}-1"
       ;;
   esac
-  package_version+=".el${distribution_version}"
   release_path="${local_prefix}/yum/repositories"
-  release_path+="/centos/${distribution_version}/$(arch)/Packages"
+  case "${distribution}" in
+    almalinux)
+      package_version+=".el${distribution_version}"
+      release_path+="/almalinux"
+      ;;
+    amzn)
+      package_version+=".${distribution}${distribution_version}"
+      release_path+="/amazon-linux"
+      amazon-linux-extras install -y epel
+      ;;
+    *)
+      package_version+=".el${distribution_version}"
+      release_path+="/centos"
+      ;;
+  esac
+  release_path+="/${distribution_version}/$(arch)/Packages"
   release_path+="/apache-arrow-release-${package_version}.noarch.rpm"
   ${install_command} "${release_path}"
 else
   package_version="${VERSION}"
-  if [ $# -eq 3 ]; then
-    ${install_command} \
-      https://dl.bintray.com/$3/centos-rc/${distribution_version}/apache-arrow-release-latest.rpm
-  else
-    ${install_command} \
-      ${artifactory_base_url}/${distribution_version}/apache-arrow-release-latest.rpm
-  fi
+  case "${TYPE}" in
+    rc|staging-rc|staging-release)
+      suffix=${TYPE%-release}
+      distribution_prefix+="-${suffix}"
+      ;;
+  esac
+  ${install_command} \
+    ${artifactory_base_url}/${distribution_prefix}/${distribution_version}/apache-arrow-release-latest.rpm
 fi
 
 if [ "${TYPE}" = "local" ]; then
@@ -103,19 +133,17 @@ if [ "${TYPE}" = "local" ]; then
     cp "${keys}" /etc/pki/rpm-gpg/RPM-GPG-KEY-Apache-Arrow
   fi
 else
-  if [ "${TYPE}" = "rc" ]; then
-    if [ $# -eq 3 ]; then
+  case "${TYPE}" in
+    rc|staging-rc|staging-release)
+      suffix=${TYPE%-release}
       sed \
         -i"" \
-        -e "s,baseurl=https://apache\.jfrog\.io/artifactory/arrow/centos/,baseurl=https://dl.bintray.com/$3/centos-rc/,g" \
+        -e "s,/almalinux/,/almalinux-${suffix}/,g" \
+        -e "s,/centos/,/centos-${suffix}/,g" \
+        -e "s,/amazon-linux/,/amazon-linux-${suffix}/,g" \
         /etc/yum.repos.d/Apache-Arrow.repo
-    else
-      sed \
-        -i"" \
-        -e "s,/centos/,/centos-rc/,g" \
-        /etc/yum.repos.d/Apache-Arrow.repo
-    fi
-  fi
+      ;;
+  esac
 fi
 
 ${install_command} --enablerepo=epel arrow-devel-${package_version}
@@ -123,12 +151,16 @@ ${install_command} \
   ${cmake_package} \
   gcc-c++ \
   git \
-  make
+  libarchive \
+  make \
+  pkg-config
 mkdir -p build
 cp -a /arrow/cpp/examples/minimal_build build
 pushd build/minimal_build
 ${cmake_command} .
 make -j$(nproc)
+./arrow_example
+c++ -std=c++11 -o arrow_example example.cc $(pkg-config --cflags --libs arrow)
 ./arrow_example
 popd
 
@@ -136,7 +168,10 @@ if [ "${have_glib}" = "yes" ]; then
   ${install_command} --enablerepo=epel arrow-glib-devel-${package_version}
   ${install_command} --enablerepo=epel arrow-glib-doc-${package_version}
 fi
-${install_command} --enablerepo=epel arrow-python-devel-${package_version}
+
+if [ "${have_python}" = "yes" ]; then
+  ${install_command} --enablerepo=epel arrow-python-devel-${package_version}
+fi
 
 if [ "${have_glib}" = "yes" ]; then
   ${install_command} --enablerepo=epel plasma-glib-devel-${package_version}
@@ -146,7 +181,8 @@ else
 fi
 
 if [ "${have_flight}" = "yes" ]; then
-  ${install_command} --enablerepo=epel arrow-flight-devel-${package_version}
+  ${install_command} --enablerepo=epel arrow-flight-glib-devel-${package_version}
+  ${install_command} --enablerepo=epel arrow-flight-glib-doc-${package_version}
 fi
 
 if [ "${have_gandiva}" = "yes" ]; then

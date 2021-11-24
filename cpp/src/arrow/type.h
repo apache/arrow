@@ -39,6 +39,22 @@
 namespace arrow {
 namespace detail {
 
+/// \defgroup numeric-datatypes Datatypes for numeric data
+/// @{
+/// @}
+
+/// \defgroup binary-datatypes Datatypes for binary/string data
+/// @{
+/// @}
+
+/// \defgroup temporal-datatypes Datatypes for temporal data
+/// @{
+/// @}
+
+/// \defgroup nested-datatypes Datatypes for nested data
+/// @{
+/// @}
+
 class ARROW_EXPORT Fingerprintable {
  public:
   virtual ~Fingerprintable();
@@ -124,22 +140,13 @@ class ARROW_EXPORT DataType : public detail::Fingerprintable {
   /// \brief Return whether the types are equal
   bool Equals(const std::shared_ptr<DataType>& other) const;
 
-  ARROW_DEPRECATED("Use field(i)")
-  const std::shared_ptr<Field>& child(int i) const { return field(i); }
-
-  /// Returns the child-field at index i.
+  /// \brief Return the child field at index i.
   const std::shared_ptr<Field>& field(int i) const { return children_[i]; }
 
-  ARROW_DEPRECATED("Use fields()")
-  const std::vector<std::shared_ptr<Field>>& children() const { return fields(); }
-
-  /// \brief Returns the children fields associated with this type.
+  /// \brief Return the children fields associated with this type.
   const std::vector<std::shared_ptr<Field>>& fields() const { return children_; }
 
-  ARROW_DEPRECATED("Use num_fields()")
-  int num_children() const { return num_fields(); }
-
-  /// \brief Returns the number of children fields associated with this type.
+  /// \brief Return the number of children fields associated with this type.
   int num_fields() const { return static_cast<int>(children_.size()); }
 
   Status Accept(TypeVisitor* visitor) const;
@@ -152,7 +159,6 @@ class ARROW_EXPORT DataType : public detail::Fingerprintable {
 
   /// \brief A string name of the type, omitting any child fields
   ///
-  /// \note Experimental API
   /// \since 0.7.0
   virtual std::string name() const = 0;
 
@@ -181,6 +187,13 @@ class ARROW_EXPORT DataType : public detail::Fingerprintable {
 
 ARROW_EXPORT
 std::ostream& operator<<(std::ostream& os, const DataType& type);
+
+inline bool operator==(const DataType& lhs, const DataType& rhs) {
+  return lhs.Equals(rhs);
+}
+inline bool operator!=(const DataType& lhs, const DataType& rhs) {
+  return !lhs.Equals(rhs);
+}
 
 /// \brief Return the compatible physical data type
 ///
@@ -435,6 +448,10 @@ class ARROW_EXPORT BooleanType
   std::string ComputeFingerprint() const override;
 };
 
+/// \addtogroup numeric-datatypes
+///
+/// @{
+
 /// Concrete type class for unsigned 8-bit integer data
 class ARROW_EXPORT UInt8Type
     : public detail::IntegerTypeImpl<UInt8Type, Type::UINT8, uint8_t> {
@@ -549,158 +566,7 @@ class ARROW_EXPORT DoubleType
   std::string ComputeFingerprint() const override;
 };
 
-/// \brief Base class for all variable-size list data types
-class ARROW_EXPORT BaseListType : public NestedType {
- public:
-  using NestedType::NestedType;
-  std::shared_ptr<Field> value_field() const { return children_[0]; }
-
-  std::shared_ptr<DataType> value_type() const { return children_[0]->type(); }
-};
-
-/// \brief Concrete type class for list data
-///
-/// List data is nested data where each value is a variable number of
-/// child items.  Lists can be recursively nested, for example
-/// list(list(int32)).
-class ARROW_EXPORT ListType : public BaseListType {
- public:
-  static constexpr Type::type type_id = Type::LIST;
-  using offset_type = int32_t;
-
-  static constexpr const char* type_name() { return "list"; }
-
-  // List can contain any other logical value type
-  explicit ListType(const std::shared_ptr<DataType>& value_type)
-      : ListType(std::make_shared<Field>("item", value_type)) {}
-
-  explicit ListType(const std::shared_ptr<Field>& value_field) : BaseListType(type_id) {
-    children_ = {value_field};
-  }
-
-  DataTypeLayout layout() const override {
-    return DataTypeLayout(
-        {DataTypeLayout::Bitmap(), DataTypeLayout::FixedWidth(sizeof(offset_type))});
-  }
-
-  std::string ToString() const override;
-
-  std::string name() const override { return "list"; }
-
- protected:
-  std::string ComputeFingerprint() const override;
-};
-
-/// \brief Concrete type class for large list data
-///
-/// LargeListType is like ListType but with 64-bit rather than 32-bit offsets.
-class ARROW_EXPORT LargeListType : public BaseListType {
- public:
-  static constexpr Type::type type_id = Type::LARGE_LIST;
-  using offset_type = int64_t;
-
-  static constexpr const char* type_name() { return "large_list"; }
-
-  // List can contain any other logical value type
-  explicit LargeListType(const std::shared_ptr<DataType>& value_type)
-      : LargeListType(std::make_shared<Field>("item", value_type)) {}
-
-  explicit LargeListType(const std::shared_ptr<Field>& value_field)
-      : BaseListType(type_id) {
-    children_ = {value_field};
-  }
-
-  DataTypeLayout layout() const override {
-    return DataTypeLayout(
-        {DataTypeLayout::Bitmap(), DataTypeLayout::FixedWidth(sizeof(offset_type))});
-  }
-
-  std::string ToString() const override;
-
-  std::string name() const override { return "large_list"; }
-
- protected:
-  std::string ComputeFingerprint() const override;
-};
-
-/// \brief Concrete type class for map data
-///
-/// Map data is nested data where each value is a variable number of
-/// key-item pairs.  Its physical representation is the same as
-/// a list of `{key, item}` structs.
-///
-/// Maps can be recursively nested, for example map(utf8, map(utf8, int32)).
-class ARROW_EXPORT MapType : public ListType {
- public:
-  static constexpr Type::type type_id = Type::MAP;
-
-  static constexpr const char* type_name() { return "map"; }
-
-  MapType(std::shared_ptr<DataType> key_type, std::shared_ptr<DataType> item_type,
-          bool keys_sorted = false);
-
-  MapType(std::shared_ptr<DataType> key_type, std::shared_ptr<Field> item_field,
-          bool keys_sorted = false);
-
-  MapType(std::shared_ptr<Field> key_field, std::shared_ptr<Field> item_field,
-          bool keys_sorted = false);
-
-  explicit MapType(std::shared_ptr<Field> value_field, bool keys_sorted = false);
-
-  // Validating constructor
-  static Result<std::shared_ptr<DataType>> Make(std::shared_ptr<Field> value_field,
-                                                bool keys_sorted = false);
-
-  std::shared_ptr<Field> key_field() const { return value_type()->field(0); }
-  std::shared_ptr<DataType> key_type() const { return key_field()->type(); }
-
-  std::shared_ptr<Field> item_field() const { return value_type()->field(1); }
-  std::shared_ptr<DataType> item_type() const { return item_field()->type(); }
-
-  std::string ToString() const override;
-
-  std::string name() const override { return "map"; }
-
-  bool keys_sorted() const { return keys_sorted_; }
-
- private:
-  std::string ComputeFingerprint() const override;
-
-  bool keys_sorted_;
-};
-
-/// \brief Concrete type class for fixed size list data
-class ARROW_EXPORT FixedSizeListType : public BaseListType {
- public:
-  static constexpr Type::type type_id = Type::FIXED_SIZE_LIST;
-  using offset_type = int32_t;
-
-  static constexpr const char* type_name() { return "fixed_size_list"; }
-
-  // List can contain any other logical value type
-  FixedSizeListType(const std::shared_ptr<DataType>& value_type, int32_t list_size)
-      : FixedSizeListType(std::make_shared<Field>("item", value_type), list_size) {}
-
-  FixedSizeListType(const std::shared_ptr<Field>& value_field, int32_t list_size)
-      : BaseListType(type_id), list_size_(list_size) {
-    children_ = {value_field};
-  }
-
-  DataTypeLayout layout() const override {
-    return DataTypeLayout({DataTypeLayout::Bitmap()});
-  }
-
-  std::string ToString() const override;
-
-  std::string name() const override { return "fixed_size_list"; }
-
-  int32_t list_size() const { return list_size_; }
-
- protected:
-  std::string ComputeFingerprint() const override;
-
-  int32_t list_size_;
-};
+/// @}
 
 /// \brief Base class for all variable-size binary data types
 class ARROW_EXPORT BaseBinaryType : public DataType {
@@ -709,6 +575,10 @@ class ARROW_EXPORT BaseBinaryType : public DataType {
 };
 
 constexpr int64_t kBinaryMemoryLimit = std::numeric_limits<int32_t>::max() - 1;
+
+/// \addtogroup binary-datatypes
+///
+/// @{
 
 /// \brief Concrete type class for variable-size binary data
 class ARROW_EXPORT BinaryType : public BaseBinaryType {
@@ -835,43 +705,11 @@ class ARROW_EXPORT FixedSizeBinaryType : public FixedWidthType, public Parametri
   int32_t byte_width_;
 };
 
-/// \brief Concrete type class for struct data
-class ARROW_EXPORT StructType : public NestedType {
- public:
-  static constexpr Type::type type_id = Type::STRUCT;
+/// @}
 
-  static constexpr const char* type_name() { return "struct"; }
-
-  explicit StructType(const std::vector<std::shared_ptr<Field>>& fields);
-
-  ~StructType() override;
-
-  DataTypeLayout layout() const override {
-    return DataTypeLayout({DataTypeLayout::Bitmap()});
-  }
-
-  std::string ToString() const override;
-  std::string name() const override { return "struct"; }
-
-  /// Returns null if name not found
-  std::shared_ptr<Field> GetFieldByName(const std::string& name) const;
-
-  /// Return all fields having this name
-  std::vector<std::shared_ptr<Field>> GetAllFieldsByName(const std::string& name) const;
-
-  /// Returns -1 if name not found or if there are multiple fields having the
-  /// same name
-  int GetFieldIndex(const std::string& name) const;
-
-  /// \brief Return the indices of all fields having this name in sorted order
-  std::vector<int> GetAllFieldIndices(const std::string& name) const;
-
- private:
-  std::string ComputeFingerprint() const override;
-
-  class Impl;
-  std::unique_ptr<Impl> impl_;
-};
+/// \addtogroup numeric-datatypes
+///
+/// @{
 
 /// \brief Base type class for (fixed-size) decimal data
 class ARROW_EXPORT DecimalType : public FixedSizeBinaryType {
@@ -879,6 +717,10 @@ class ARROW_EXPORT DecimalType : public FixedSizeBinaryType {
   explicit DecimalType(Type::type type_id, int32_t byte_width, int32_t precision,
                        int32_t scale)
       : FixedSizeBinaryType(byte_width, type_id), precision_(precision), scale_(scale) {}
+
+  /// Constructs concrete decimal types
+  static Result<std::shared_ptr<DataType>> Make(Type::type type_id, int32_t precision,
+                                                int32_t scale);
 
   int32_t precision() const { return precision_; }
   int32_t scale() const { return scale_; }
@@ -960,6 +802,205 @@ class ARROW_EXPORT Decimal256Type : public DecimalType {
   static constexpr int32_t kMinPrecision = 1;
   static constexpr int32_t kMaxPrecision = 76;
   static constexpr int32_t kByteWidth = 32;
+};
+
+/// @}
+
+/// \addtogroup nested-datatypes
+///
+/// @{
+
+/// \brief Base class for all variable-size list data types
+class ARROW_EXPORT BaseListType : public NestedType {
+ public:
+  using NestedType::NestedType;
+  std::shared_ptr<Field> value_field() const { return children_[0]; }
+
+  std::shared_ptr<DataType> value_type() const { return children_[0]->type(); }
+};
+
+/// \brief Concrete type class for list data
+///
+/// List data is nested data where each value is a variable number of
+/// child items.  Lists can be recursively nested, for example
+/// list(list(int32)).
+class ARROW_EXPORT ListType : public BaseListType {
+ public:
+  static constexpr Type::type type_id = Type::LIST;
+  using offset_type = int32_t;
+
+  static constexpr const char* type_name() { return "list"; }
+
+  // List can contain any other logical value type
+  explicit ListType(const std::shared_ptr<DataType>& value_type)
+      : ListType(std::make_shared<Field>("item", value_type)) {}
+
+  explicit ListType(const std::shared_ptr<Field>& value_field) : BaseListType(type_id) {
+    children_ = {value_field};
+  }
+
+  DataTypeLayout layout() const override {
+    return DataTypeLayout(
+        {DataTypeLayout::Bitmap(), DataTypeLayout::FixedWidth(sizeof(offset_type))});
+  }
+
+  std::string ToString() const override;
+
+  std::string name() const override { return "list"; }
+
+ protected:
+  std::string ComputeFingerprint() const override;
+};
+
+/// \brief Concrete type class for large list data
+///
+/// LargeListType is like ListType but with 64-bit rather than 32-bit offsets.
+class ARROW_EXPORT LargeListType : public BaseListType {
+ public:
+  static constexpr Type::type type_id = Type::LARGE_LIST;
+  using offset_type = int64_t;
+
+  static constexpr const char* type_name() { return "large_list"; }
+
+  // List can contain any other logical value type
+  explicit LargeListType(const std::shared_ptr<DataType>& value_type)
+      : LargeListType(std::make_shared<Field>("item", value_type)) {}
+
+  explicit LargeListType(const std::shared_ptr<Field>& value_field)
+      : BaseListType(type_id) {
+    children_ = {value_field};
+  }
+
+  DataTypeLayout layout() const override {
+    return DataTypeLayout(
+        {DataTypeLayout::Bitmap(), DataTypeLayout::FixedWidth(sizeof(offset_type))});
+  }
+
+  std::string ToString() const override;
+
+  std::string name() const override { return "large_list"; }
+
+ protected:
+  std::string ComputeFingerprint() const override;
+};
+
+/// \brief Concrete type class for map data
+///
+/// Map data is nested data where each value is a variable number of
+/// key-item pairs.  Its physical representation is the same as
+/// a list of `{key, item}` structs.
+///
+/// Maps can be recursively nested, for example map(utf8, map(utf8, int32)).
+class ARROW_EXPORT MapType : public ListType {
+ public:
+  static constexpr Type::type type_id = Type::MAP;
+
+  static constexpr const char* type_name() { return "map"; }
+
+  MapType(std::shared_ptr<DataType> key_type, std::shared_ptr<DataType> item_type,
+          bool keys_sorted = false);
+
+  MapType(std::shared_ptr<DataType> key_type, std::shared_ptr<Field> item_field,
+          bool keys_sorted = false);
+
+  MapType(std::shared_ptr<Field> key_field, std::shared_ptr<Field> item_field,
+          bool keys_sorted = false);
+
+  explicit MapType(std::shared_ptr<Field> value_field, bool keys_sorted = false);
+
+  // Validating constructor
+  static Result<std::shared_ptr<DataType>> Make(std::shared_ptr<Field> value_field,
+                                                bool keys_sorted = false);
+
+  std::shared_ptr<Field> key_field() const { return value_type()->field(0); }
+  std::shared_ptr<DataType> key_type() const { return key_field()->type(); }
+
+  std::shared_ptr<Field> item_field() const { return value_type()->field(1); }
+  std::shared_ptr<DataType> item_type() const { return item_field()->type(); }
+
+  std::string ToString() const override;
+
+  std::string name() const override { return "map"; }
+
+  bool keys_sorted() const { return keys_sorted_; }
+
+ private:
+  std::string ComputeFingerprint() const override;
+
+  bool keys_sorted_;
+};
+
+/// \brief Concrete type class for fixed size list data
+class ARROW_EXPORT FixedSizeListType : public BaseListType {
+ public:
+  static constexpr Type::type type_id = Type::FIXED_SIZE_LIST;
+  // While the individual item size is 32-bit, the overall data size
+  // (item size * list length) may not fit in a 32-bit int.
+  using offset_type = int64_t;
+
+  static constexpr const char* type_name() { return "fixed_size_list"; }
+
+  // List can contain any other logical value type
+  FixedSizeListType(const std::shared_ptr<DataType>& value_type, int32_t list_size)
+      : FixedSizeListType(std::make_shared<Field>("item", value_type), list_size) {}
+
+  FixedSizeListType(const std::shared_ptr<Field>& value_field, int32_t list_size)
+      : BaseListType(type_id), list_size_(list_size) {
+    children_ = {value_field};
+  }
+
+  DataTypeLayout layout() const override {
+    return DataTypeLayout({DataTypeLayout::Bitmap()});
+  }
+
+  std::string ToString() const override;
+
+  std::string name() const override { return "fixed_size_list"; }
+
+  int32_t list_size() const { return list_size_; }
+
+ protected:
+  std::string ComputeFingerprint() const override;
+
+  int32_t list_size_;
+};
+
+/// \brief Concrete type class for struct data
+class ARROW_EXPORT StructType : public NestedType {
+ public:
+  static constexpr Type::type type_id = Type::STRUCT;
+
+  static constexpr const char* type_name() { return "struct"; }
+
+  explicit StructType(const std::vector<std::shared_ptr<Field>>& fields);
+
+  ~StructType() override;
+
+  DataTypeLayout layout() const override {
+    return DataTypeLayout({DataTypeLayout::Bitmap()});
+  }
+
+  std::string ToString() const override;
+  std::string name() const override { return "struct"; }
+
+  /// Returns null if name not found
+  std::shared_ptr<Field> GetFieldByName(const std::string& name) const;
+
+  /// Return all fields having this name
+  std::vector<std::shared_ptr<Field>> GetAllFieldsByName(const std::string& name) const;
+
+  /// Returns -1 if name not found or if there are multiple fields having the
+  /// same name
+  int GetFieldIndex(const std::string& name) const;
+
+  /// \brief Return the indices of all fields having this name in sorted order
+  std::vector<int> GetAllFieldIndices(const std::string& name) const;
+
+ private:
+  std::string ComputeFingerprint() const override;
+
+  class Impl;
+  std::unique_ptr<Impl> impl_;
 };
 
 /// \brief Base type class for union data
@@ -1067,8 +1108,14 @@ class ARROW_EXPORT DenseUnionType : public UnionType {
   std::string name() const override { return "dense_union"; }
 };
 
+/// @}
+
 // ----------------------------------------------------------------------
 // Date and time types
+
+/// \addtogroup temporal-datatypes
+///
+/// @{
 
 /// \brief Base type for all date and time types
 class ARROW_EXPORT TemporalType : public FixedWidthType {
@@ -1256,7 +1303,7 @@ class ARROW_EXPORT TimestampType : public TemporalType, public ParametricType {
 // Base class for the different kinds of calendar intervals.
 class ARROW_EXPORT IntervalType : public TemporalType, public ParametricType {
  public:
-  enum type { MONTHS, DAY_TIME };
+  enum type { MONTHS, DAY_TIME, MONTH_DAY_NANO };
 
   virtual type interval_type() const = 0;
 
@@ -1291,8 +1338,11 @@ class ARROW_EXPORT MonthIntervalType : public IntervalType {
 class ARROW_EXPORT DayTimeIntervalType : public IntervalType {
  public:
   struct DayMilliseconds {
-    int32_t days;
-    int32_t milliseconds;
+    int32_t days = 0;
+    int32_t milliseconds = 0;
+    constexpr DayMilliseconds() = default;
+    constexpr DayMilliseconds(int32_t days, int32_t milliseconds)
+        : days(days), milliseconds(milliseconds) {}
     bool operator==(DayMilliseconds other) const {
       return this->days == other.days && this->milliseconds == other.milliseconds;
     }
@@ -1319,6 +1369,50 @@ class ARROW_EXPORT DayTimeIntervalType : public IntervalType {
   std::string ToString() const override { return name(); }
   std::string name() const override { return "day_time_interval"; }
 };
+
+ARROW_EXPORT
+std::ostream& operator<<(std::ostream& os, DayTimeIntervalType::DayMilliseconds interval);
+
+/// \brief Represents a number of months, days and nanoseconds between
+/// two dates.
+///
+/// All fields are independent from one another.
+class ARROW_EXPORT MonthDayNanoIntervalType : public IntervalType {
+ public:
+  struct MonthDayNanos {
+    int32_t months;
+    int32_t days;
+    int64_t nanoseconds;
+    bool operator==(MonthDayNanos other) const {
+      return this->months == other.months && this->days == other.days &&
+             this->nanoseconds == other.nanoseconds;
+    }
+    bool operator!=(MonthDayNanos other) const { return !(*this == other); }
+  };
+  using c_type = MonthDayNanos;
+  using PhysicalType = MonthDayNanoIntervalType;
+
+  static_assert(sizeof(MonthDayNanos) == 16,
+                "MonthDayNanos struct assumed to be of size 16 bytes");
+  static constexpr Type::type type_id = Type::INTERVAL_MONTH_DAY_NANO;
+
+  static constexpr const char* type_name() { return "month_day_nano_interval"; }
+
+  IntervalType::type interval_type() const override {
+    return IntervalType::MONTH_DAY_NANO;
+  }
+
+  MonthDayNanoIntervalType() : IntervalType(type_id) {}
+
+  int bit_width() const override { return static_cast<int>(sizeof(c_type) * CHAR_BIT); }
+
+  std::string ToString() const override { return name(); }
+  std::string name() const override { return "month_day_nano_interval"; }
+};
+
+ARROW_EXPORT
+std::ostream& operator<<(std::ostream& os,
+                         MonthDayNanoIntervalType::MonthDayNanos interval);
 
 /// \brief Represents an elapsed time without any relation to a calendar artifact.
 class ARROW_EXPORT DurationType : public TemporalType, public ParametricType {
@@ -1347,6 +1441,8 @@ class ARROW_EXPORT DurationType : public TemporalType, public ParametricType {
  private:
   TimeUnit::type unit_;
 };
+
+/// @}
 
 // ----------------------------------------------------------------------
 // Dictionary type (for representing categorical or dictionary-encoded
@@ -1532,6 +1628,7 @@ class ARROW_EXPORT FieldRef {
   /// the resulting name. Therefore if a name must contain the characters '.', '\', or '['
   /// those must be escaped with a preceding '\'.
   static Result<FieldRef> FromDotPath(const std::string& dot_path);
+  std::string ToDotPath() const;
 
   bool Equals(const FieldRef& other) const { return impl_ == other.impl_; }
   bool operator==(const FieldRef& other) const { return Equals(other); }
@@ -1922,5 +2019,33 @@ ARROW_EXPORT
 int GetByteWidth(const DataType& type);
 
 }  // namespace internal
+
+// Helpers to get instances of data types based on general categories
+
+ARROW_EXPORT
+const std::vector<std::shared_ptr<DataType>>& SignedIntTypes();
+ARROW_EXPORT
+const std::vector<std::shared_ptr<DataType>>& UnsignedIntTypes();
+ARROW_EXPORT
+const std::vector<std::shared_ptr<DataType>>& IntTypes();
+ARROW_EXPORT
+const std::vector<std::shared_ptr<DataType>>& FloatingPointTypes();
+// Number types without boolean
+ARROW_EXPORT
+const std::vector<std::shared_ptr<DataType>>& NumericTypes();
+// Binary and string-like types (except fixed-size binary)
+ARROW_EXPORT
+const std::vector<std::shared_ptr<DataType>>& BaseBinaryTypes();
+ARROW_EXPORT
+const std::vector<std::shared_ptr<DataType>>& StringTypes();
+// Temporal types including time and timestamps for each unit
+ARROW_EXPORT
+const std::vector<std::shared_ptr<DataType>>& TemporalTypes();
+// Interval types
+ARROW_EXPORT
+const std::vector<std::shared_ptr<DataType>>& IntervalTypes();
+// Integer, floating point, base binary, and temporal
+ARROW_EXPORT
+const std::vector<std::shared_ptr<DataType>>& PrimitiveTypes();
 
 }  // namespace arrow

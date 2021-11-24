@@ -37,6 +37,10 @@ addons:
       - rake
       - rpm
 
+      # https://bugs.launchpad.net/ubuntu/+source/glibc/+bug/1916485
+      # We need to use runc 1.0.0~rc93 or later from focal-updated.
+      - runc
+
       # To build createrepo_c from source.
       # We can remove them when we can install createrepo_c package
       - cmake
@@ -52,6 +56,7 @@ addons:
       - libzstd-dev
       - pkg-config
       - zlib1g-dev
+    update: true
 
 services:
   - docker
@@ -104,7 +109,7 @@ script:
   - popd
   - pushd apache-arrow-release/yum
   - |
-      for target in centos-*; do
+      for target in almalinux-* centos-*; do
         cp -a ${target} ${target}-aarch64
       done
   - popd
@@ -126,6 +131,7 @@ script:
       rake docker:push || :
   - popd
   # Test built packages
+  - sudo gem install apt-dists-merge
   - |
       (echo "Key-Type: RSA"; \
        echo "Key-Length: 4096"; \

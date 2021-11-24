@@ -18,10 +18,10 @@
 PERL_FIXUP_ROTATE=perl -i -pe 's/(ro[rl]\s+\w{2,3})$$/\1, 1/'
 
 C2GOASM=c2goasm
-CC=clang
+CC=clang-11
 C_FLAGS=-target x86_64-unknown-none -masm=intel -mno-red-zone -mstackrealign -mllvm -inline-threshold=1000 \
 				-fno-asynchronous-unwind-tables -fno-exceptions -fno-rtti -O3 -fno-builtin -ffast-math -fno-jump-tables -I_lib
-ASM_FLAGS_AVX2=-mavx2 -mfma -mllvm -force-vector-width=32
+ASM_FLAGS_AVX2=-mavx2 -mfma
 ASM_FLAGS_SSE4=-msse4
 ASM_FLAGS_BMI2=-mbmi2
 ASM_FLAGS_POPCNT=-mpopcnt

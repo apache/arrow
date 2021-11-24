@@ -10,7 +10,7 @@
 Apache Arrow defines two formats for \href{https://arrow.apache.org/docs/format/Columnar.html#serialization-and-interprocess-communication-ipc}{serializing data for interprocess communication (IPC)}:
 a "stream" format and a "file" format, known as Feather.
 \code{RecordBatchStreamReader} and \code{RecordBatchFileReader} are
-interfaces for accessing record batches from input sources those formats,
+interfaces for accessing record batches from input sources in those formats,
 respectively.
 
 For guidance on how to use these classes, see the examples section.
@@ -44,7 +44,7 @@ are in the file.
 }
 
 \examples{
-\donttest{
+\dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 tf <- tempfile()
 on.exit(unlink(tf))
 
@@ -78,7 +78,7 @@ all.equal(df, chickwts, check.attributes = FALSE)
 # Unlike the Writers, we don't have to close RecordBatchReaders,
 # but we do still need to close the file connection
 read_file_obj$close()
-}
+\dontshow{\}) # examplesIf}
 }
 \seealso{
 \code{\link[=read_ipc_stream]{read_ipc_stream()}} and \code{\link[=read_feather]{read_feather()}} provide a much simpler interface

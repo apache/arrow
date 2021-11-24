@@ -38,6 +38,7 @@ _default_config_path = _default_arrow_path / "dev" / "tasks" / "tasks.yml"
               help='Arrow\'s repository path. Defaults to the repository of '
                    'this script')
 @click.option('--queue-path', '-q',
+              envvar="CROSSBOW_QUEUE_PATH",
               type=click.Path(), default=_default_queue_path,
               help='The repository path used for scheduling the tasks. '
                    'Defaults to crossbow directory placed next to arrow')
@@ -210,14 +211,18 @@ def render(obj, task, config_path, arrow_version, arrow_remote, arrow_branch,
 @click.argument('job-name', required=True)
 @click.option('--fetch/--no-fetch', default=True,
               help='Fetch references (branches and tags) from the remote')
+@click.option('--task-filter', '-f', 'task_filters', multiple=True,
+              help='Glob pattern for filtering relevant tasks')
 @click.pass_obj
-def status(obj, job_name, fetch):
+def status(obj, job_name, fetch, task_filters):
     output = obj['output']
     queue = obj['queue']
     if fetch:
         queue.fetch()
     job = queue.get(job_name)
-    ConsoleReport(job).show(output)
+
+    report = ConsoleReport(job, task_filters=task_filters)
+    report.show(output)
 
 
 @crossbow.command()
@@ -306,8 +311,13 @@ def report(obj, job_name, sender_name, sender_email, recipient_email,
               help='Just display process, don\'t download anything')
 @click.option('--fetch/--no-fetch', default=True,
               help='Fetch references (branches and tags) from the remote')
+@click.option('--task-filter', '-f', 'task_filters', multiple=True,
+              help='Glob pattern for filtering relevant tasks')
+@click.option('--validate-patterns/--skip-pattern-validation', default=True,
+              help='Whether to validate artifact name patterns or not')
 @click.pass_obj
-def download_artifacts(obj, job_name, target_dir, dry_run, fetch):
+def download_artifacts(obj, job_name, target_dir, dry_run, fetch,
+                       validate_patterns, task_filters):
     """Download build artifacts from GitHub releases"""
     output = obj['output']
 
@@ -335,16 +345,19 @@ def download_artifacts(obj, job_name, target_dir, dry_run, fetch):
     click.echo('Destination directory is {}'.format(target_dir))
     click.echo()
 
-    report = ConsoleReport(job)
-    report.show(output, asset_callback=asset_callback)
+    report = ConsoleReport(job, task_filters=task_filters)
+    report.show(
+        output,
+        asset_callback=asset_callback,
+        validate_patterns=validate_patterns
+    )
 
 
 @crossbow.command()
+@click.argument('patterns', nargs=-1, required=True)
 @click.option('--sha', required=True, help='Target committish')
 @click.option('--tag', required=True, help='Target tag')
 @click.option('--method', default='curl', help='Use cURL to upload')
-@click.option('--pattern', '-p', 'patterns', required=True, multiple=True,
-              help='File pattern to upload as assets')
 @click.pass_obj
 def upload_artifacts(obj, tag, sha, patterns, method):
     queue = obj['queue']

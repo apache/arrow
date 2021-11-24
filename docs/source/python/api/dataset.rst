@@ -38,6 +38,7 @@ Factory functions
    partitioning
    field
    scalar
+   write_dataset
 
 Classes
 -------
@@ -46,7 +47,12 @@ Classes
    :toctree: ../generated/
 
    FileFormat
+   CsvFileFormat
+   CsvFragmentScanOptions
+   IpcFileFormat
    ParquetFileFormat
+   ParquetFragmentScanOptions
+   ORCFileFormat
    Partitioning
    PartitioningFactory
    DirectoryPartitioning

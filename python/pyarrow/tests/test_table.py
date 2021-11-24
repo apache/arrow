@@ -1022,6 +1022,23 @@ def test_table_remove_column_empty():
     assert t3.equals(table)
 
 
+def test_empty_table_with_names():
+    # ARROW-13784
+    data = []
+    names = ["a", "b"]
+    message = (
+        'Length of names [(]2[)] does not match length of arrays [(]0[)]')
+    with pytest.raises(ValueError, match=message):
+        pa.Table.from_arrays(data, names=names)
+
+
+def test_empty_table():
+    table = pa.table([])
+
+    assert table.column_names == []
+    assert table.equals(pa.Table.from_arrays([], []))
+
+
 def test_table_rename_columns():
     data = [
         pa.array(range(5)),
@@ -1339,8 +1356,15 @@ def test_from_arrays_schema(data, klass):
         pa.Table.from_arrays(data, schema=schema, metadata={b'foo': b'bar'})
 
 
-def test_table_from_pydict():
-    table = pa.Table.from_pydict({})
+@pytest.mark.parametrize(
+    ('cls'),
+    [
+        (pa.Table),
+        (pa.RecordBatch)
+    ]
+)
+def test_table_from_pydict(cls):
+    table = cls.from_pydict({})
     assert table.num_columns == 0
     assert table.num_rows == 0
     assert table.schema == pa.schema([])
@@ -1351,7 +1375,7 @@ def test_table_from_pydict():
     # With lists as values
     data = OrderedDict([('strs', ['', 'foo', 'bar']),
                         ('floats', [4.5, 5, None])])
-    table = pa.Table.from_pydict(data)
+    table = cls.from_pydict(data)
     assert table.num_columns == 2
     assert table.num_rows == 3
     assert table.schema == schema
@@ -1360,29 +1384,29 @@ def test_table_from_pydict():
     # With metadata and inferred schema
     metadata = {b'foo': b'bar'}
     schema = schema.with_metadata(metadata)
-    table = pa.Table.from_pydict(data, metadata=metadata)
+    table = cls.from_pydict(data, metadata=metadata)
     assert table.schema == schema
     assert table.schema.metadata == metadata
     assert table.to_pydict() == data
 
     # With explicit schema
-    table = pa.Table.from_pydict(data, schema=schema)
+    table = cls.from_pydict(data, schema=schema)
     assert table.schema == schema
     assert table.schema.metadata == metadata
     assert table.to_pydict() == data
 
     # Cannot pass both schema and metadata
     with pytest.raises(ValueError):
-        pa.Table.from_pydict(data, schema=schema, metadata=metadata)
+        cls.from_pydict(data, schema=schema, metadata=metadata)
 
     # Non-convertible values given schema
     with pytest.raises(TypeError):
-        pa.Table.from_pydict({'c0': [0, 1, 2]},
-                             schema=pa.schema([("c0", pa.string())]))
+        cls.from_pydict({'c0': [0, 1, 2]},
+                        schema=pa.schema([("c0", pa.string())]))
 
     # Missing schema fields from the passed mapping
     with pytest.raises(KeyError, match="doesn\'t contain.* c, d"):
-        pa.Table.from_pydict(
+        cls.from_pydict(
             {'a': [1, 2, 3], 'b': [3, 4, 5]},
             schema=pa.schema([
                 ('a', pa.int64()),
@@ -1393,7 +1417,7 @@ def test_table_from_pydict():
 
     # Passed wrong schema type
     with pytest.raises(TypeError):
-        pa.Table.from_pydict({'a': [1, 2, 3]}, schema={})
+        cls.from_pydict({'a': [1, 2, 3]}, schema={})
 
 
 @pytest.mark.parametrize('data, klass', [
@@ -1570,10 +1594,13 @@ def test_table_repr_to_string():
                        metadata={b'foo': b'bar'})
 
     tab = pa.table([pa.array([1, 2, 3, 4], type='int16'),
-                    pa.array([1, 2, 3, 4], type='int32')], schema=schema)
+                    pa.array([10, 20, 30, 40], type='int32')], schema=schema)
     assert str(tab) == """pyarrow.Table
 c0: int16
-c1: int32"""
+c1: int32
+----
+c0: [[1,2,3,4]]
+c1: [[10,20,30,40]]"""
 
     assert tab.to_string(show_metadata=True) == """\
 pyarrow.Table
@@ -1583,6 +1610,40 @@ c0: int16
 c1: int32
 -- schema metadata --
 foo: 'bar'"""
+
+    assert tab.to_string(preview_cols=5) == """\
+pyarrow.Table
+c0: int16
+c1: int32
+----
+c0: [[1,2,3,4]]
+c1: [[10,20,30,40]]"""
+
+    assert tab.to_string(preview_cols=1) == """\
+pyarrow.Table
+c0: int16
+c1: int32
+----
+c0: [[1,2,3,4]]
+..."""
+
+
+def test_table_repr_to_string_ellipsis():
+    # Schema passed explicitly
+    schema = pa.schema([pa.field('c0', pa.int16(),
+                                 metadata={'key': 'value'}),
+                        pa.field('c1', pa.int32())],
+                       metadata={b'foo': b'bar'})
+
+    tab = pa.table([pa.array([1, 2, 3, 4]*10, type='int16'),
+                    pa.array([10, 20, 30, 40]*10, type='int32')],
+                   schema=schema)
+    assert str(tab) == """pyarrow.Table
+c0: int16
+c1: int32
+----
+c0: [[1,2,3,4,1,2,3,4,1,2,...,3,4,1,2,3,4,1,2,3,4]]
+c1: [[10,20,30,40,10,20,30,40,10,20,...,30,40,10,20,30,40,10,20,30,40]]"""
 
 
 def test_table_function_unicode_schema():

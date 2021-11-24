@@ -31,6 +31,7 @@
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec_internal.h"
 #include "arrow/compute/function.h"
+#include "arrow/compute/function_internal.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/compute/registry.h"
 #include "arrow/memory_pool.h"
@@ -42,6 +43,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/cpu_info.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/make_unique.h"
 
 namespace arrow {
 
@@ -49,6 +51,10 @@ using internal::checked_cast;
 
 namespace compute {
 namespace detail {
+
+using ::arrow::internal::BitmapEquals;
+using ::arrow::internal::CopyBitmap;
+using ::arrow::internal::CountSetBits;
 
 TEST(ExecContext, BasicWorkings) {
   {
@@ -58,13 +64,13 @@ TEST(ExecContext, BasicWorkings) {
     ASSERT_EQ(std::numeric_limits<int64_t>::max(), ctx.exec_chunksize());
 
     ASSERT_TRUE(ctx.use_threads());
-    ASSERT_EQ(internal::CpuInfo::GetInstance(), ctx.cpu_info());
+    ASSERT_EQ(arrow::internal::CpuInfo::GetInstance(), ctx.cpu_info());
   }
 
   // Now, let's customize all the things
   LoggingMemoryPool my_pool(default_memory_pool());
   std::unique_ptr<FunctionRegistry> custom_reg = FunctionRegistry::Make();
-  ExecContext ctx(&my_pool, custom_reg.get());
+  ExecContext ctx(&my_pool, /*executor=*/nullptr, custom_reg.get());
 
   ASSERT_EQ(custom_reg.get(), ctx.func_registry());
   ASSERT_EQ(&my_pool, ctx.memory_pool());
@@ -277,9 +283,9 @@ TEST_F(TestPropagateNulls, SingleValueWithNulls) {
 
     ASSERT_EQ(arr->Slice(offset)->null_count(), output.GetNullCount());
 
-    ASSERT_TRUE(internal::BitmapEquals(output.buffers[0]->data(), output.offset,
-                                       sliced->null_bitmap_data(), sliced->offset(),
-                                       output.length));
+    ASSERT_TRUE(BitmapEquals(output.buffers[0]->data(), output.offset,
+                             sliced->null_bitmap_data(), sliced->offset(),
+                             output.length));
     AssertValidityZeroExtraBits(output);
   };
 
@@ -372,8 +378,8 @@ TEST_F(TestPropagateNulls, IntersectsNulls) {
 
     const auto& out_buffer = *output.buffers[0];
 
-    ASSERT_TRUE(internal::BitmapEquals(out_buffer.data(), output_offset, ex_bitmap,
-                                       /*ex_offset=*/0, length));
+    ASSERT_TRUE(BitmapEquals(out_buffer.data(), output_offset, ex_bitmap,
+                             /*ex_offset=*/0, length));
 
     // Now check that the rest of the bits in out_buffer are still 0
     AssertValidityZeroExtraBits(output);
@@ -537,7 +543,7 @@ TEST_F(TestExecBatchIterator, ZeroLengthInputs) {
 // ----------------------------------------------------------------------
 // Scalar function execution
 
-void ExecCopy(KernelContext*, const ExecBatch& batch, Datum* out) {
+Status ExecCopy(KernelContext*, const ExecBatch& batch, Datum* out) {
   DCHECK_EQ(1, batch.num_values());
   const auto& type = checked_cast<const FixedWidthType&>(*batch[0].type());
   int value_size = type.bit_width() / 8;
@@ -547,27 +553,27 @@ void ExecCopy(KernelContext*, const ExecBatch& batch, Datum* out) {
   uint8_t* dst = out_arr->buffers[1]->mutable_data() + out_arr->offset * value_size;
   const uint8_t* src = arg0.buffers[1]->data() + arg0.offset * value_size;
   std::memcpy(dst, src, batch.length * value_size);
+  return Status::OK();
 }
 
-void ExecComputedBitmap(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+Status ExecComputedBitmap(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   // Propagate nulls not used. Check that the out bitmap isn't the same already
   // as the input bitmap
   const ArrayData& arg0 = *batch[0].array();
   ArrayData* out_arr = out->mutable_array();
 
-  if (internal::CountSetBits(arg0.buffers[0]->data(), arg0.offset, batch.length) > 0) {
+  if (CountSetBits(arg0.buffers[0]->data(), arg0.offset, batch.length) > 0) {
     // Check that the bitmap has not been already copied over
-    DCHECK(!internal::BitmapEquals(arg0.buffers[0]->data(), arg0.offset,
-                                   out_arr->buffers[0]->data(), out_arr->offset,
-                                   batch.length));
+    DCHECK(!BitmapEquals(arg0.buffers[0]->data(), arg0.offset,
+                         out_arr->buffers[0]->data(), out_arr->offset, batch.length));
   }
 
-  internal::CopyBitmap(arg0.buffers[0]->data(), arg0.offset, batch.length,
-                       out_arr->buffers[0]->mutable_data(), out_arr->offset);
-  ExecCopy(ctx, batch, out);
+  CopyBitmap(arg0.buffers[0]->data(), arg0.offset, batch.length,
+             out_arr->buffers[0]->mutable_data(), out_arr->offset);
+  return ExecCopy(ctx, batch, out);
 }
 
-void ExecNoPreallocatedData(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+Status ExecNoPreallocatedData(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   // Validity preallocated, but not the data
   ArrayData* out_arr = out->mutable_array();
   DCHECK_EQ(0, out_arr->offset);
@@ -575,39 +581,64 @@ void ExecNoPreallocatedData(KernelContext* ctx, const ExecBatch& batch, Datum* o
   int value_size = type.bit_width() / 8;
   Status s = (ctx->Allocate(out_arr->length * value_size).Value(&out_arr->buffers[1]));
   DCHECK_OK(s);
-  ExecCopy(ctx, batch, out);
+  return ExecCopy(ctx, batch, out);
 }
 
-void ExecNoPreallocatedAnything(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+Status ExecNoPreallocatedAnything(KernelContext* ctx, const ExecBatch& batch,
+                                  Datum* out) {
   // Neither validity nor data preallocated
   ArrayData* out_arr = out->mutable_array();
   DCHECK_EQ(0, out_arr->offset);
   Status s = (ctx->AllocateBitmap(out_arr->length).Value(&out_arr->buffers[0]));
   DCHECK_OK(s);
   const ArrayData& arg0 = *batch[0].array();
-  internal::CopyBitmap(arg0.buffers[0]->data(), arg0.offset, batch.length,
-                       out_arr->buffers[0]->mutable_data(), /*offset=*/0);
+  CopyBitmap(arg0.buffers[0]->data(), arg0.offset, batch.length,
+             out_arr->buffers[0]->mutable_data(), /*offset=*/0);
 
   // Reuse the kernel that allocates the data
-  ExecNoPreallocatedData(ctx, batch, out);
+  return ExecNoPreallocatedData(ctx, batch, out);
 }
 
-struct ExampleOptions : public FunctionOptions {
+class ExampleOptions : public FunctionOptions {
+ public:
+  explicit ExampleOptions(std::shared_ptr<Scalar> value);
   std::shared_ptr<Scalar> value;
-  explicit ExampleOptions(std::shared_ptr<Scalar> value) : value(std::move(value)) {}
 };
+
+class ExampleOptionsType : public FunctionOptionsType {
+ public:
+  static const FunctionOptionsType* GetInstance() {
+    static std::unique_ptr<FunctionOptionsType> instance(new ExampleOptionsType());
+    return instance.get();
+  }
+  const char* type_name() const override { return "example"; }
+  std::string Stringify(const FunctionOptions& options) const override {
+    return type_name();
+  }
+  bool Compare(const FunctionOptions& options,
+               const FunctionOptions& other) const override {
+    return true;
+  }
+  std::unique_ptr<FunctionOptions> Copy(const FunctionOptions& options) const override {
+    const auto& opts = static_cast<const ExampleOptions&>(options);
+    return arrow::internal::make_unique<ExampleOptions>(opts.value);
+  }
+};
+ExampleOptions::ExampleOptions(std::shared_ptr<Scalar> value)
+    : FunctionOptions(ExampleOptionsType::GetInstance()), value(std::move(value)) {}
 
 struct ExampleState : public KernelState {
   std::shared_ptr<Scalar> value;
   explicit ExampleState(std::shared_ptr<Scalar> value) : value(std::move(value)) {}
 };
 
-std::unique_ptr<KernelState> InitStateful(KernelContext*, const KernelInitArgs& args) {
+Result<std::unique_ptr<KernelState>> InitStateful(KernelContext*,
+                                                  const KernelInitArgs& args) {
   auto func_options = static_cast<const ExampleOptions*>(args.options);
   return std::unique_ptr<KernelState>(new ExampleState{func_options->value});
 }
 
-void ExecStateful(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+Status ExecStateful(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   // We take the value from the state and multiply the data in batch[0] with it
   ExampleState* state = static_cast<ExampleState*>(ctx->state());
   int32_t multiplier = checked_cast<const Int32Scalar&>(*state->value).value;
@@ -619,12 +650,14 @@ void ExecStateful(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   for (int64_t i = 0; i < arg0.length; ++i) {
     dst[i] = arg0_data[i] * multiplier;
   }
+  return Status::OK();
 }
 
-void ExecAddInt32(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+Status ExecAddInt32(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   const Int32Scalar& arg0 = batch[0].scalar_as<Int32Scalar>();
   const Int32Scalar& arg1 = batch[1].scalar_as<Int32Scalar>();
   out->value = std::make_shared<Int32Scalar>(arg0.value + arg1.value);
+  return Status::OK();
 }
 
 class TestCallScalarFunction : public TestComputeInternals {

@@ -33,6 +33,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/task_group.h"
 #include "arrow/util/thread_pool.h"
+#include "arrow/util/value_parsing.h"
 
 namespace arrow {
 namespace csv {
@@ -400,6 +401,24 @@ TEST_F(InferringColumnBuilderTest, MultipleChunkDate) {
                  ArrayFromJSON(date32(), "[null]")});
 }
 
+TEST_F(InferringColumnBuilderTest, SingleChunkTime) {
+  auto options = ConvertOptions::Defaults();
+  auto tg = TaskGroup::MakeSerial();
+
+  CheckInferred(tg, {{"", "01:23:45", "NA"}}, options,
+                {ArrayFromJSON(time32(TimeUnit::SECOND), "[null, 5025, null]")});
+}
+
+TEST_F(InferringColumnBuilderTest, MultipleChunkTime) {
+  auto options = ConvertOptions::Defaults();
+  auto tg = TaskGroup::MakeSerial();
+  auto type = time32(TimeUnit::SECOND);
+
+  CheckInferred(tg, {{""}, {"01:23:45"}, {"NA"}}, options,
+                {ArrayFromJSON(type, "[null]"), ArrayFromJSON(type, "[5025]"),
+                 ArrayFromJSON(type, "[null]")});
+}
+
 TEST_F(InferringColumnBuilderTest, SingleChunkTimestamp) {
   auto options = ConvertOptions::Defaults();
   auto tg = TaskGroup::MakeSerial();
@@ -409,6 +428,13 @@ TEST_F(InferringColumnBuilderTest, SingleChunkTimestamp) {
                                         {{false, true, true}}, {{0, 0, 1542129070}},
                                         &expected);
   CheckInferred(tg, {{"", "1970-01-01", "2018-11-13 17:11:10"}}, options, expected);
+
+  options.timestamp_parsers.push_back(TimestampParser::MakeStrptime("%Y/%m/%d"));
+  tg = TaskGroup::MakeSerial();
+  ChunkedArrayFromVector<TimestampType>(timestamp(TimeUnit::SECOND),
+                                        {{false, true, true}}, {{0, 0, 1542067200}},
+                                        &expected);
+  CheckInferred(tg, {{"", "1970/01/01", "2018/11/13"}}, options, expected);
 }
 
 TEST_F(InferringColumnBuilderTest, MultipleChunkTimestamp) {
@@ -420,6 +446,13 @@ TEST_F(InferringColumnBuilderTest, MultipleChunkTimestamp) {
                                         {{false}, {true}, {true}},
                                         {{0}, {0}, {1542129070}}, &expected);
   CheckInferred(tg, {{""}, {"1970-01-01"}, {"2018-11-13 17:11:10"}}, options, expected);
+
+  options.timestamp_parsers.push_back(TimestampParser::MakeStrptime("%Y/%m/%d"));
+  tg = TaskGroup::MakeSerial();
+  ChunkedArrayFromVector<TimestampType>(timestamp(TimeUnit::SECOND),
+                                        {{false}, {true}, {true}},
+                                        {{0}, {0}, {1542067200}}, &expected);
+  CheckInferred(tg, {{""}, {"1970/01/01"}, {"2018/11/13"}}, options, expected);
 }
 
 TEST_F(InferringColumnBuilderTest, SingleChunkTimestampNS) {
@@ -451,6 +484,116 @@ TEST_F(InferringColumnBuilderTest, MultipleChunkTimestampNS) {
                  {"2018-11-13 17:11:10.123", "2018-11-13 17:11:10.123456",
                   "2018-11-13 17:11:10.123456789"}},
                 options, expected);
+}
+
+TEST_F(InferringColumnBuilderTest, SingleChunkTimestampWithZone) {
+  auto options = ConvertOptions::Defaults();
+  auto tg = TaskGroup::MakeSerial();
+
+  std::shared_ptr<ChunkedArray> expected;
+  ChunkedArrayFromVector<TimestampType>(timestamp(TimeUnit::SECOND, "UTC"),
+                                        {{false, true, true}}, {{0, 0, 1542129010}},
+                                        &expected);
+  CheckInferred(tg, {{"", "1970-01-01T00:00:00Z", "2018-11-13 17:11:10+0001"}}, options,
+                expected);
+
+  tg = TaskGroup::MakeSerial();
+  expected = ChunkedArrayFromJSON(
+      utf8(), {R"(["", "1970-01-01T00:00:00Z", "2018-11-13 17:11:10"])"});
+  CheckInferred(tg, {{"", "1970-01-01T00:00:00Z", "2018-11-13 17:11:10"}}, options,
+                expected);
+}
+
+TEST_F(InferringColumnBuilderTest, MultipleChunkTimestampWithZone) {
+  auto options = ConvertOptions::Defaults();
+  auto tg = TaskGroup::MakeSerial();
+
+  std::shared_ptr<ChunkedArray> expected;
+  ChunkedArrayFromVector<TimestampType>(timestamp(TimeUnit::SECOND, "UTC"),
+                                        {{false}, {true}, {true}},
+                                        {{0}, {0}, {1542129010}}, &expected);
+  CheckInferred(tg, {{""}, {"1970-01-01T00:00:00Z"}, {"2018-11-13 17:11:10+0001"}},
+                options, expected);
+
+  tg = TaskGroup::MakeSerial();
+  expected = ChunkedArrayFromJSON(
+      utf8(), {R"([""])", R"(["1970-01-01T00:00:00Z"])", R"(["2018-11-13 17:11:10"])"});
+  CheckInferred(tg, {{""}, {"1970-01-01T00:00:00Z"}, {"2018-11-13 17:11:10"}}, options,
+                expected);
+}
+
+TEST_F(InferringColumnBuilderTest, SingleChunkTimestampWithZoneNS) {
+  auto options = ConvertOptions::Defaults();
+  auto tg = TaskGroup::MakeSerial();
+
+  std::shared_ptr<ChunkedArray> expected;
+  ChunkedArrayFromVector<TimestampType>(
+      timestamp(TimeUnit::NANO, "UTC"), {{false, true, true, true, true}},
+      {{0, 3660000000000, 1542129070123000000, 1542129070123456000, 1542129070123456789}},
+      &expected);
+  CheckInferred(tg,
+                {{"", "1970-01-01T00:00:00-0101", "2018-11-13 17:11:10.123Z",
+                  "2018-11-13 17:11:10.123456Z", "2018-11-13 17:11:10.123456789Z"}},
+                options, expected);
+}
+
+TEST_F(InferringColumnBuilderTest, MultipleChunkTimestampWithZoneNS) {
+  auto options = ConvertOptions::Defaults();
+  auto tg = TaskGroup::MakeSerial();
+
+  std::shared_ptr<ChunkedArray> expected;
+  ChunkedArrayFromVector<TimestampType>(
+      timestamp(TimeUnit::NANO, "UTC"), {{false}, {true}, {true, true, true}},
+      {{0},
+       {3660000000000},
+       {1542129070123000000, 1542129070123456000, 1542129070123456789}},
+      &expected);
+  CheckInferred(tg,
+                {{""},
+                 {"1970-01-01T00:00:00-0101"},
+                 {"2018-11-13 17:11:10.123Z", "2018-11-13 17:11:10.123456Z",
+                  "2018-11-13 17:11:10.123456789Z"}},
+                options, expected);
+}
+
+TEST_F(InferringColumnBuilderTest, SingleChunkIntegerAndTime) {
+  // Fallback to utf-8
+  auto options = ConvertOptions::Defaults();
+  auto tg = TaskGroup::MakeSerial();
+
+  CheckInferred(tg, {{"", "99", "01:23:45", "NA"}}, options,
+                {ArrayFromJSON(utf8(), R"(["", "99", "01:23:45", "NA"])")});
+}
+
+TEST_F(InferringColumnBuilderTest, MultipleChunkIntegerAndTime) {
+  // Fallback to utf-8
+  auto options = ConvertOptions::Defaults();
+  auto tg = TaskGroup::MakeSerial();
+  auto type = utf8();
+
+  CheckInferred(tg, {{""}, {"99"}, {"01:23:45", "NA"}}, options,
+                {ArrayFromJSON(type, R"([""])"), ArrayFromJSON(type, R"(["99"])"),
+                 ArrayFromJSON(type, R"(["01:23:45", "NA"])")});
+}
+
+TEST_F(InferringColumnBuilderTest, SingleChunkDateAndTime) {
+  // Fallback to utf-8
+  auto options = ConvertOptions::Defaults();
+  auto tg = TaskGroup::MakeSerial();
+
+  CheckInferred(tg, {{"", "01:23:45", "1998-04-05"}}, options,
+                {ArrayFromJSON(utf8(), R"(["", "01:23:45", "1998-04-05"])")});
+}
+
+TEST_F(InferringColumnBuilderTest, MultipleChunkDateAndTime) {
+  // Fallback to utf-8
+  auto options = ConvertOptions::Defaults();
+  auto tg = TaskGroup::MakeSerial();
+  auto type = utf8();
+
+  CheckInferred(tg, {{""}, {"01:23:45"}, {"1998-04-05"}}, options,
+                {ArrayFromJSON(type, R"([""])"), ArrayFromJSON(type, R"(["01:23:45"])"),
+                 ArrayFromJSON(type, R"(["1998-04-05"])")});
 }
 
 TEST_F(InferringColumnBuilderTest, SingleChunkString) {

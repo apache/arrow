@@ -18,8 +18,6 @@
 ARG FROM=debian:buster
 FROM ${FROM}
 
-COPY qemu-* /usr/bin/
-
 RUN \
   echo "debconf debconf/frontend select Noninteractive" | \
     debconf-set-selections
@@ -63,7 +61,6 @@ RUN \
     libssl-dev \
     libthrift-dev \
     libutf8proc-dev \
-    libzstd-dev \
     lsb-release \
     ninja-build \
     pkg-config \

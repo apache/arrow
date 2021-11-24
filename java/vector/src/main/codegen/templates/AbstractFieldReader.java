@@ -51,7 +51,7 @@ abstract class AbstractFieldReader extends AbstractBaseReader implements FieldRe
 
   <#list ["Object", "BigDecimal", "Short", "Integer", "Long", "Boolean",
           "LocalDateTime", "Duration", "Period", "Double", "Float",
-          "Character", "Text", "String", "Byte", "byte[]"] as friendlyType>
+          "Character", "Text", "String", "Byte", "byte[]", "PeriodDuration"] as friendlyType>
   <#assign safeType=friendlyType />
   <#if safeType=="byte[]"><#assign safeType="ByteArray" /></#if>
   public ${friendlyType} read${safeType}(int arrayIndex) {
@@ -75,6 +75,10 @@ abstract class AbstractFieldReader extends AbstractBaseReader implements FieldRe
 
   public void copyAsField(String name, ListWriter writer) {
     fail("CopyAsFieldList");
+  }
+
+  public void copyAsField(String name, MapWriter writer) {
+    fail("CopyAsFieldMap");
   }
 
   <#list vv.types as type><#list type.minor as minor><#assign name = minor.class?cap_first />

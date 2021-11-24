@@ -60,6 +60,18 @@
 #' be slow) but `TRUE` when `sources` is a list of `Dataset`s (because there
 #' should be few `Dataset`s in the list and their `Schema`s are already in
 #' memory).
+#' @param format A [FileFormat] object, or a string identifier of the format of
+#' the files in `x`. This argument is ignored when `sources` is a list of `Dataset` objects.
+#' Currently supported values:
+#' * "parquet"
+#' * "ipc"/"arrow"/"feather", all aliases for each other; for Feather, note that
+#'   only version 2 files are supported
+#' * "csv"/"text", aliases for the same thing (because comma is the default
+#'   delimiter for text files
+#' * "tsv", equivalent to passing `format = "text", delimiter = "\t"`
+#'
+#' Default is "parquet", unless a `delimiter` is also specified, in which case
+#' it is assumed to be "text".
 #' @param ... additional arguments passed to `dataset_factory()` when `sources`
 #' is a directory path/URI or vector of file paths/URIs, otherwise ignored.
 #' These may include `format` to indicate the file format, or other
@@ -69,16 +81,68 @@
 #' @export
 #' @seealso `vignette("dataset", package = "arrow")`
 #' @include arrow-package.R
+#' @examplesIf arrow_with_dataset() & arrow_with_parquet()
+#' # Set up directory for examples
+#' tf <- tempfile()
+#' dir.create(tf)
+#' on.exit(unlink(tf))
+#'
+#' data <- dplyr::group_by(mtcars, cyl)
+#' write_dataset(data, tf)
+#'
+#' # You can specify a directory containing the files for your dataset and
+#' # open_dataset will scan all files in your directory.
+#' open_dataset(tf)
+#'
+#' # You can also supply a vector of paths
+#' open_dataset(c(file.path(tf, "cyl=4/part-0.parquet"), file.path(tf, "cyl=8/part-0.parquet")))
+#'
+#' ## You must specify the file format if using a format other than parquet.
+#' tf2 <- tempfile()
+#' dir.create(tf2)
+#' on.exit(unlink(tf2))
+#' write_dataset(data, tf2, format = "ipc")
+#' # This line will results in errors when you try to work with the data
+#' \dontrun{
+#' open_dataset(tf2)
+#' }
+#' # This line will work
+#' open_dataset(tf2, format = "ipc")
+#'
+#' ## You can specify file partitioning to include it as a field in your dataset
+#' # Create a temporary directory and write example dataset
+#' tf3 <- tempfile()
+#' dir.create(tf3)
+#' on.exit(unlink(tf3))
+#' write_dataset(airquality, tf3, partitioning = c("Month", "Day"), hive_style = FALSE)
+#'
+#' # View files - you can see the partitioning means that files have been written
+#' # to folders based on Month/Day values
+#' tf3_files <- list.files(tf3, recursive = TRUE)
+#'
+#' # With no partitioning specified, dataset contains all files but doesn't include
+#' # directory names as field names
+#' open_dataset(tf3)
+#'
+#' # Now that partitioning has been specified, your dataset contains columns for Month and Day
+#' open_dataset(tf3, partitioning = c("Month", "Day"))
+#'
+#' # If you want to specify the data types for your fields, you can pass in a Schema
+#' open_dataset(tf3, partitioning = schema(Month = int8(), Day = int8()))
 open_dataset <- function(sources,
                          schema = NULL,
                          partitioning = hive_partition(),
                          unify_schemas = NULL,
+                         format = c("parquet", "arrow", "ipc", "feather", "csv", "tsv", "text"),
                          ...) {
+  if (!arrow_with_dataset()) {
+    stop("This build of the arrow package does not support Datasets", call. = FALSE)
+  }
   if (is_list_of(sources, "Dataset")) {
     if (is.null(schema)) {
       if (is.null(unify_schemas) || isTRUE(unify_schemas)) {
         # Default is to unify schemas here
-        schema <- unify_schemas(schemas = map(sources, ~.$schema))
+        schema <- unify_schemas(schemas = map(sources, ~ .$schema))
       } else {
         # Take the first one.
         schema <- sources[[1]]$schema
@@ -92,9 +156,15 @@ open_dataset <- function(sources,
     })
     return(dataset___UnionDataset__create(sources, schema))
   }
-  factory <- DatasetFactory$create(sources, partitioning = partitioning, ...)
-  # Default is _not_ to inspect/unify schemas
-  factory$Finish(schema, isTRUE(unify_schemas))
+
+  factory <- DatasetFactory$create(sources, partitioning = partitioning, format = format, schema = schema, ...)
+  tryCatch(
+    # Default is _not_ to inspect/unify schemas
+    factory$Finish(schema, isTRUE(unify_schemas)),
+    error = function(e) {
+      handle_parquet_io_error(e, format)
+    }
+  )
 }
 
 #' Multi-file datasets
@@ -155,7 +225,8 @@ open_dataset <- function(sources,
 #'
 #' @export
 #' @seealso [open_dataset()] for a simple interface to creating a `Dataset`
-Dataset <- R6Class("Dataset", inherit = ArrowObject,
+Dataset <- R6Class("Dataset",
+  inherit = ArrowObject,
   public = list(
     # @description
     # Start a new scan of the data
@@ -173,10 +244,7 @@ Dataset <- R6Class("Dataset", inherit = ArrowObject,
       }
     },
     metadata = function() self$schema$metadata,
-    num_rows = function() {
-      warning("Number of rows unknown; returning NA", call. = FALSE)
-      NA_integer_
-    },
+    num_rows = function() self$NewScan()$Finish()$CountRows(),
     num_cols = function() length(self$schema),
     # @description
     # Return the Dataset's type.
@@ -188,7 +256,8 @@ Dataset$create <- open_dataset
 #' @name FileSystemDataset
 #' @rdname Dataset
 #' @export
-FileSystemDataset <- R6Class("FileSystemDataset", inherit = Dataset,
+FileSystemDataset <- R6Class("FileSystemDataset",
+  inherit = Dataset,
   public = list(
     .class_title = function() {
       nfiles <- length(self$files)
@@ -220,20 +289,6 @@ FileSystemDataset <- R6Class("FileSystemDataset", inherit = Dataset,
     # Return the filesystem of files in this `Dataset`
     filesystem = function() {
       dataset___FileSystemDataset__filesystem(self)
-    },
-    num_rows = function() {
-      if (inherits(self$format, "ParquetFileFormat")) {
-        # It's generally fast enough to skim the files directly
-        sum(map_int(self$files, ~ParquetFileReader$create(.x)$num_rows))
-      } else {
-        # TODO: implement for other file formats
-        warning("Number of rows unknown; returning NA", call. = FALSE)
-        NA_integer_
-        # Could do a scan, picking only the last column, which hopefully is virtual
-        # But this is can be slow
-        # Scanner$create(self, projection = tail(names(self), 1))$ToTable()$num_rows
-        # See also https://issues.apache.org/jira/browse/ARROW-9697
-      }
     }
   )
 )
@@ -241,7 +296,8 @@ FileSystemDataset <- R6Class("FileSystemDataset", inherit = Dataset,
 #' @name UnionDataset
 #' @rdname Dataset
 #' @export
-UnionDataset <- R6Class("UnionDataset", inherit = Dataset,
+UnionDataset <- R6Class("UnionDataset",
+  inherit = Dataset,
   active = list(
     # @description
     # Return the UnionDataset's child `Dataset`s
@@ -256,6 +312,9 @@ UnionDataset <- R6Class("UnionDataset", inherit = Dataset,
 #' @export
 InMemoryDataset <- R6Class("InMemoryDataset", inherit = Dataset)
 InMemoryDataset$create <- function(x) {
+  if (!arrow_with_dataset()) {
+    stop("This build of the arrow package does not support Datasets", call. = FALSE)
+  }
   if (!inherits(x, "Table")) {
     x <- Table$create(x)
   }
@@ -274,24 +333,12 @@ c.Dataset <- function(...) Dataset$create(list(...))
 
 #' @export
 head.Dataset <- function(x, n = 6L, ...) {
-  assert_that(n > 0) # For now
-  scanner <- Scanner$create(ensure_group_vars(x))
-  dataset___Scanner__head(scanner, n)
+  head(Scanner$create(x), n)
 }
 
 #' @export
 tail.Dataset <- function(x, n = 6L, ...) {
-  assert_that(n > 0) # For now
-  result <- list()
-  batch_num <- 0
-  scanner <- Scanner$create(ensure_group_vars(x))
-  for (batch in rev(dataset___Scanner__ScanBatches(scanner))) {
-    batch_num <- batch_num + 1
-    result[[batch_num]] <- tail(batch, n)
-    n <- n - nrow(batch)
-    if (n <= 0) break
-  }
-  Table$create(!!!rev(result))
+  tail(Scanner$create(x), n)
 }
 
 #' @export
@@ -301,7 +348,7 @@ tail.Dataset <- function(x, n = 6L, ...) {
     return(x[, i])
   }
   if (!missing(j)) {
-    x <- select.Dataset(x, j)
+    x <- select.Dataset(x, all_of(j))
   }
 
   if (!missing(i)) {
@@ -314,7 +361,7 @@ take_dataset_rows <- function(x, i) {
   if (!is.numeric(i) || any(i < 0)) {
     stop("Only slicing with positive indices is supported", call. = FALSE)
   }
-  scanner <- Scanner$create(ensure_group_vars(x))
+  scanner <- Scanner$create(x)
   i <- Array$create(i - 1)
   dataset___Scanner__TakeRows(scanner, i)
 }

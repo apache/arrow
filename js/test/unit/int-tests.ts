@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import * as Arrow from '../Arrow';
+import * as Arrow from 'apache-arrow';
 const { Int64, Uint64, Int128 } = Arrow.util;
 
 describe(`Uint64`, () => {

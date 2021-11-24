@@ -267,12 +267,29 @@ class ReadableFile::ReadableFileImpl : public OSFile {
   }
 
   Status WillNeed(const std::vector<ReadRange>& ranges) {
+    auto report_error = [](int errnum, const char* msg) -> Status {
+      if (errnum == EBADF || errnum == EINVAL) {
+        // These are logic errors, so raise them
+        return IOErrorFromErrno(errnum, msg);
+      }
+#ifndef NDEBUG
+      // Other errors may be encountered if the target device or filesystem
+      // does not support fadvise advisory (for example, macOS can return
+      // ENOTTY on macOS: ARROW-13983).  Log the error for diagnosis
+      // on debug builds, but avoid bothering the user otherwise.
+      ARROW_LOG(WARNING) << IOErrorFromErrno(errnum, msg).ToString();
+#else
+      ARROW_UNUSED(msg);
+#endif
+      return Status::OK();
+    };
     RETURN_NOT_OK(CheckClosed());
     for (const auto& range : ranges) {
       RETURN_NOT_OK(internal::ValidateRange(range.offset, range.length));
 #if defined(POSIX_FADV_WILLNEED)
-      if (posix_fadvise(fd_, range.offset, range.length, POSIX_FADV_WILLNEED)) {
-        return IOErrorFromErrno(errno, "posix_fadvise failed");
+      int ret = posix_fadvise(fd_, range.offset, range.length, POSIX_FADV_WILLNEED);
+      if (ret) {
+        RETURN_NOT_OK(report_error(ret, "posix_fadvise failed"));
       }
 #elif defined(F_RDADVISE)  // macOS, BSD?
       struct {
@@ -280,8 +297,10 @@ class ReadableFile::ReadableFileImpl : public OSFile {
         int ra_count;
       } radvisory{range.offset, static_cast<int>(range.length)};
       if (radvisory.ra_count > 0 && fcntl(fd_, F_RDADVISE, &radvisory) == -1) {
-        return IOErrorFromErrno(errno, "fcntl(fd, F_RDADVISE, ...) failed");
+        RETURN_NOT_OK(report_error(errno, "fcntl(fd, F_RDADVISE, ...) failed"));
       }
+#else
+      ARROW_UNUSED(report_error);
 #endif
     }
     return Status::OK();
@@ -390,15 +409,12 @@ class MemoryMappedFile::MemoryMap
   // An object representing the entire memory-mapped region.
   // It can be sliced in order to return individual subregions, which
   // will then keep the original region alive as long as necessary.
-  class Region : public MutableBuffer {
+  class Region : public Buffer {
    public:
     Region(std::shared_ptr<MemoryMappedFile::MemoryMap> memory_map, uint8_t* data,
            int64_t size)
-        : MutableBuffer(data, size) {
+        : Buffer(data, size) {
       is_mutable_ = memory_map->writable();
-      if (!is_mutable_) {
-        mutable_data_ = nullptr;
-      }
     }
 
     ~Region() {
@@ -542,9 +558,9 @@ class MemoryMappedFile::MemoryMap
 
   void advance(int64_t nbytes) { position_ = position_ + nbytes; }
 
-  uint8_t* head() { return data() + position_; }
-
   uint8_t* data() { return region_ ? region_->data() : nullptr; }
+
+  uint8_t* head() { return data() + position_; }
 
   bool writable() { return file_->mode() != FileMode::READ; }
 

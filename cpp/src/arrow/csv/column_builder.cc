@@ -109,7 +109,7 @@ class ConcreteColumnBuilder : public ColumnBuilder {
   }
 
   Status WrapConversionError(const Status& st) {
-    if (st.ok()) {
+    if (ARROW_PREDICT_TRUE(st.ok())) {
       return st;
     } else {
       std::stringstream ss;

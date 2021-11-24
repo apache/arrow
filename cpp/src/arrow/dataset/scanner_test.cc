@@ -18,7 +18,7 @@
 #include "arrow/dataset/scanner.h"
 
 #include <memory>
-#include <ostream>
+#include <utility>
 
 #include <gmock/gmock.h>
 
@@ -26,19 +26,31 @@
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/cast.h"
+#include "arrow/compute/exec/exec_plan.h"
+#include "arrow/dataset/plan.h"
 #include "arrow/dataset/scanner_internal.h"
 #include "arrow/dataset/test_util.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
+#include "arrow/testing/async_test_util.h"
+#include "arrow/testing/future_util.h"
 #include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/matchers.h"
 #include "arrow/testing/util.h"
 #include "arrow/util/range.h"
+#include "arrow/util/thread_pool.h"
+#include "arrow/util/vector.h"
 
 using testing::ElementsAre;
 using testing::IsEmpty;
+using testing::UnorderedElementsAreArray;
 
 namespace arrow {
+
+using internal::GetCpuThreadPool;
+using internal::Iota;
+
 namespace dataset {
 
 struct TestScannerParams {
@@ -47,6 +59,19 @@ struct TestScannerParams {
   int num_child_datasets;
   int num_batches;
   int items_per_batch;
+
+  std::string ToString() const {
+    // GTest requires this to be alphanumeric
+    std::stringstream ss;
+    ss << (use_async ? "Async" : "Sync") << (use_threads ? "Threaded" : "Serial")
+       << num_child_datasets << "d" << num_batches << "b" << items_per_batch << "r";
+    return ss.str();
+  }
+
+  static std::string ToTestNameString(
+      const ::testing::TestParamInfo<TestScannerParams>& info) {
+    return std::to_string(info.index) + info.param.ToString();
+  }
 
   static std::vector<TestScannerParams> Values() {
     std::vector<TestScannerParams> values;
@@ -227,7 +252,7 @@ TEST_P(TestScanner, ToTable) {
   // There is no guarantee on the ordering when using multiple threads, but
   // since the RecordBatch is always the same it will pass.
   ASSERT_OK_AND_ASSIGN(actual, scanner->ToTable());
-  AssertTablesEqual(*expected, *actual);
+  AssertTablesEqual(*expected, *actual, /*same_chunk_layout=*/false);
 }
 
 TEST_P(TestScanner, ScanWithVisitor) {
@@ -235,7 +260,7 @@ TEST_P(TestScanner, ScanWithVisitor) {
   auto batch = ConstantArrayGenerator::Zeroes(GetParam().items_per_batch, schema_);
   auto scanner = MakeScanner(batch);
   ASSERT_OK(scanner->Scan([batch](TaggedRecordBatch scanned_batch) {
-    AssertBatchesEqual(*batch, *scanned_batch.record_batch);
+    AssertBatchesEqual(*batch, *scanned_batch.record_batch, /*same_chunk_layout=*/false);
     return Status::OK();
   }));
 }
@@ -246,20 +271,19 @@ TEST_P(TestScanner, TakeIndices) {
   auto num_datasets = GetParam().num_child_datasets;
   SetSchema({field("i32", int32()), field("f64", float64())});
   ArrayVector arrays(2);
-  ArrayFromVector<Int32Type>(internal::Iota<int32_t>(batch_size), &arrays[0]);
-  ArrayFromVector<DoubleType>(internal::Iota<double>(static_cast<double>(batch_size)),
-                              &arrays[1]);
+  ArrayFromVector<Int32Type>(Iota<int32_t>(batch_size), &arrays[0]);
+  ArrayFromVector<DoubleType>(Iota<double>(static_cast<double>(batch_size)), &arrays[1]);
   auto batch = RecordBatch::Make(schema_, batch_size, arrays);
 
   auto scanner = MakeScanner(batch);
 
   std::shared_ptr<Array> indices;
   {
-    ArrayFromVector<Int64Type>(internal::Iota(batch_size), &indices);
+    ArrayFromVector<Int64Type>(Iota(batch_size), &indices);
     ASSERT_OK_AND_ASSIGN(auto taken, scanner->TakeRows(*indices));
     ASSERT_OK_AND_ASSIGN(auto expected, Table::FromRecordBatches({batch}));
     ASSERT_EQ(expected->num_rows(), batch_size);
-    AssertTablesEqual(*expected, *taken);
+    AssertTablesEqual(*expected, *taken, /*same_chunk_layout=*/false);
   }
   {
     ArrayFromVector<Int64Type>({7, 5, 3, 1}, &indices);
@@ -267,7 +291,7 @@ TEST_P(TestScanner, TakeIndices) {
     ASSERT_OK_AND_ASSIGN(auto table, scanner->ToTable());
     ASSERT_OK_AND_ASSIGN(auto expected, compute::Take(table, *indices));
     ASSERT_EQ(expected.table()->num_rows(), 4);
-    AssertTablesEqual(*expected.table(), *taken);
+    AssertTablesEqual(*expected.table(), *taken, /*same_chunk_layout=*/false);
   }
   if (num_batches > 1) {
     ArrayFromVector<Int64Type>({batch_size + 2, batch_size + 1}, &indices);
@@ -275,7 +299,7 @@ TEST_P(TestScanner, TakeIndices) {
     ASSERT_OK_AND_ASSIGN(auto taken, scanner->TakeRows(*indices));
     ASSERT_OK_AND_ASSIGN(auto expected, compute::Take(table, *indices));
     ASSERT_EQ(expected.table()->num_rows(), 2);
-    AssertTablesEqual(*expected.table(), *taken);
+    AssertTablesEqual(*expected.table(), *taken, /*same_chunk_layout=*/false);
   }
   if (num_batches > 1) {
     ArrayFromVector<Int64Type>({1, 3, 5, 7, batch_size + 1, 2 * batch_size + 2},
@@ -284,7 +308,7 @@ TEST_P(TestScanner, TakeIndices) {
     ASSERT_OK_AND_ASSIGN(auto table, scanner->ToTable());
     ASSERT_OK_AND_ASSIGN(auto expected, compute::Take(table, *indices));
     ASSERT_EQ(expected.table()->num_rows(), 6);
-    AssertTablesEqual(*expected.table(), *taken);
+    AssertTablesEqual(*expected.table(), *taken, /*same_chunk_layout=*/false);
   }
   {
     auto base = num_datasets * num_batches * batch_size;
@@ -306,6 +330,190 @@ TEST_P(TestScanner, TakeIndices) {
             std::to_string(base + 2) + ", " + std::to_string(base + 3) + ", ..."),
         scanner->TakeRows(*indices));
   }
+}
+
+TEST_P(TestScanner, CountRows) {
+  const auto items_per_batch = GetParam().items_per_batch;
+  const auto num_batches = GetParam().num_batches;
+  const auto num_datasets = GetParam().num_child_datasets;
+  SetSchema({field("i32", int32()), field("f64", float64())});
+  ArrayVector arrays(2);
+  ArrayFromVector<Int32Type>(Iota<int32_t>(static_cast<int32_t>(items_per_batch)),
+                             &arrays[0]);
+  ArrayFromVector<DoubleType>(Iota<double>(static_cast<double>(items_per_batch)),
+                              &arrays[1]);
+  auto batch = RecordBatch::Make(schema_, items_per_batch, arrays);
+  auto scanner = MakeScanner(batch);
+
+  ASSERT_OK_AND_ASSIGN(auto rows, scanner->CountRows());
+  ASSERT_EQ(rows, num_datasets * num_batches * items_per_batch);
+
+  ASSERT_OK_AND_ASSIGN(options_->filter,
+                       greater_equal(field_ref("i32"), literal(64)).Bind(*schema_));
+  ASSERT_OK_AND_ASSIGN(rows, scanner->CountRows());
+  ASSERT_EQ(rows, num_datasets * num_batches * (items_per_batch - 64));
+}
+
+TEST_P(TestScanner, EmptyFragment) {
+  // Regression test for ARROW-13982
+  if (!GetParam().use_async) GTEST_SKIP() << "Test only applies to async scanner";
+
+  SetSchema({field("i32", int32()), field("f64", float64())});
+  auto batch = ConstantArrayGenerator::Zeroes(GetParam().items_per_batch, schema_);
+  auto empty_batch = ConstantArrayGenerator::Zeroes(0, schema_);
+  std::vector<std::shared_ptr<RecordBatch>> batches{
+      static_cast<std::size_t>(GetParam().num_batches * GetParam().num_child_datasets),
+      batch};
+
+  FragmentVector fragments{
+      std::make_shared<InMemoryFragment>(RecordBatchVector{empty_batch}),
+      std::make_shared<InMemoryFragment>(batches)};
+  auto dataset = std::make_shared<FragmentDataset>(schema_, fragments);
+  auto scanner = MakeScanner(dataset);
+
+  // There is no guarantee on the ordering when using multiple threads, but
+  // since the RecordBatch is always the same (or empty) it will pass.
+  ASSERT_OK_AND_ASSIGN(auto gen, scanner->ScanBatchesAsync());
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto tagged, CollectAsyncGenerator(gen));
+  RecordBatchVector actual_batches;
+  for (const auto& batch : tagged) {
+    actual_batches.push_back(batch.record_batch);
+  }
+
+  ASSERT_OK_AND_ASSIGN(auto expected, Table::FromRecordBatches(batches));
+  ASSERT_OK_AND_ASSIGN(auto actual, Table::FromRecordBatches(std::move(actual_batches)));
+  AssertTablesEqual(*expected, *actual, /*same_chunk_layout=*/false);
+}
+
+class CountRowsOnlyFragment : public InMemoryFragment {
+ public:
+  using InMemoryFragment::InMemoryFragment;
+
+  Future<util::optional<int64_t>> CountRows(
+      compute::Expression predicate, const std::shared_ptr<ScanOptions>&) override {
+    if (compute::FieldsInExpression(predicate).size() > 0) {
+      return Future<util::optional<int64_t>>::MakeFinished(util::nullopt);
+    }
+    int64_t sum = 0;
+    for (const auto& batch : record_batches_) {
+      sum += batch->num_rows();
+    }
+    return Future<util::optional<int64_t>>::MakeFinished(sum);
+  }
+  Result<ScanTaskIterator> Scan(std::shared_ptr<ScanOptions>) override {
+    return Status::Invalid("Don't scan me!");
+  }
+  Result<RecordBatchGenerator> ScanBatchesAsync(
+      const std::shared_ptr<ScanOptions>&) override {
+    return Status::Invalid("Don't scan me!");
+  }
+};
+
+class ScanOnlyFragment : public InMemoryFragment {
+ public:
+  using InMemoryFragment::InMemoryFragment;
+
+  Future<util::optional<int64_t>> CountRows(
+      compute::Expression predicate, const std::shared_ptr<ScanOptions>&) override {
+    return Future<util::optional<int64_t>>::MakeFinished(util::nullopt);
+  }
+  Result<ScanTaskIterator> Scan(std::shared_ptr<ScanOptions> options) override {
+    auto self = shared_from_this();
+    ScanTaskVector tasks{
+        std::make_shared<InMemoryScanTask>(record_batches_, options, self)};
+    return MakeVectorIterator(std::move(tasks));
+  }
+  Result<RecordBatchGenerator> ScanBatchesAsync(
+      const std::shared_ptr<ScanOptions>&) override {
+    return MakeVectorGenerator(record_batches_);
+  }
+};
+
+// Ensure the pipeline does not break on an empty batch
+TEST_P(TestScanner, CountRowsEmpty) {
+  SetSchema({field("i32", int32()), field("f64", float64())});
+  auto empty_batch = ConstantArrayGenerator::Zeroes(0, schema_);
+  auto batch = ConstantArrayGenerator::Zeroes(GetParam().items_per_batch, schema_);
+  RecordBatchVector batches = {empty_batch, batch};
+  ScannerBuilder builder(
+      std::make_shared<FragmentDataset>(
+          schema_, FragmentVector{std::make_shared<ScanOnlyFragment>(batches)}),
+      options_);
+  ASSERT_OK(builder.UseAsync(GetParam().use_async));
+  ASSERT_OK(builder.UseThreads(GetParam().use_threads));
+  ASSERT_OK_AND_ASSIGN(auto scanner, builder.Finish());
+  ASSERT_OK_AND_EQ(batch->num_rows(), scanner->CountRows());
+}
+
+// Regression test for ARROW-12668: ensure failures are properly handled
+class CountFailFragment : public InMemoryFragment {
+ public:
+  explicit CountFailFragment(RecordBatchVector record_batches)
+      : InMemoryFragment(std::move(record_batches)),
+        count(Future<util::optional<int64_t>>::Make()) {}
+
+  Future<util::optional<int64_t>> CountRows(
+      compute::Expression, const std::shared_ptr<ScanOptions>&) override {
+    return count;
+  }
+
+  Future<util::optional<int64_t>> count;
+};
+TEST_P(TestScanner, CountRowsFailure) {
+  SetSchema({field("i32", int32()), field("f64", float64())});
+  auto batch = ConstantArrayGenerator::Zeroes(GetParam().items_per_batch, schema_);
+  RecordBatchVector batches = {batch};
+  auto fragment1 = std::make_shared<CountFailFragment>(batches);
+  auto fragment2 = std::make_shared<CountFailFragment>(batches);
+  ScannerBuilder builder(
+      std::make_shared<FragmentDataset>(schema_, FragmentVector{fragment1, fragment2}),
+      options_);
+  ASSERT_OK(builder.UseAsync(GetParam().use_async));
+  ASSERT_OK(builder.UseThreads(GetParam().use_threads));
+  ASSERT_OK_AND_ASSIGN(auto scanner, builder.Finish());
+  fragment1->count.MarkFinished(Status::Invalid(""));
+  // Should immediately stop the count
+  ASSERT_RAISES(Invalid, scanner->CountRows());
+  // Fragment 2 doesn't complete until after the count stops - should not break anything
+  // under ASan, etc.
+  fragment2->count.MarkFinished(util::nullopt);
+}
+
+TEST_P(TestScanner, CountRowsWithMetadata) {
+  SetSchema({field("i32", int32()), field("f64", float64())});
+  auto batch = ConstantArrayGenerator::Zeroes(GetParam().items_per_batch, schema_);
+  RecordBatchVector batches = {batch, batch, batch, batch};
+  ScannerBuilder builder(
+      std::make_shared<FragmentDataset>(
+          schema_, FragmentVector{std::make_shared<CountRowsOnlyFragment>(batches)}),
+      options_);
+  ASSERT_OK(builder.UseAsync(GetParam().use_async));
+  ASSERT_OK(builder.UseThreads(GetParam().use_threads));
+  ASSERT_OK_AND_ASSIGN(auto scanner, builder.Finish());
+  ASSERT_OK_AND_EQ(4 * batch->num_rows(), scanner->CountRows());
+
+  ASSERT_OK(builder.Filter(equal(field_ref("i32"), literal(5))));
+  ASSERT_OK_AND_ASSIGN(scanner, builder.Finish());
+  // Scanner should fall back on reading data and hit the error
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("Don't scan me!"),
+                                  scanner->CountRows());
+}
+
+TEST_P(TestScanner, ToRecordBatchReader) {
+  SetSchema({field("i32", int32()), field("f64", float64())});
+  auto batch = ConstantArrayGenerator::Zeroes(GetParam().items_per_batch, schema_);
+  std::vector<std::shared_ptr<RecordBatch>> batches{
+      static_cast<std::size_t>(GetParam().num_batches * GetParam().num_child_datasets),
+      batch};
+
+  ASSERT_OK_AND_ASSIGN(auto expected, Table::FromRecordBatches(batches));
+
+  std::shared_ptr<Table> actual;
+  auto scanner = MakeScanner(batch);
+  ASSERT_OK_AND_ASSIGN(auto reader, scanner->ToRecordBatchReader());
+  scanner.reset();
+  ASSERT_OK(reader->ReadAll(&actual));
+  AssertTablesEqual(*expected, *actual, /*same_chunk_layout=*/false);
 }
 
 class FailingFragment : public InMemoryFragment {
@@ -373,7 +581,10 @@ class FailingScanTaskFragment : public InMemoryFragment {
   using InMemoryFragment::InMemoryFragment;
   Result<ScanTaskIterator> Scan(std::shared_ptr<ScanOptions> options) override {
     auto self = shared_from_this();
-    ScanTaskVector scan_tasks{std::make_shared<T>(record_batches_, options, self)};
+    ScanTaskVector scan_tasks;
+    for (int i = 0; i < 4; i++) {
+      scan_tasks.push_back(std::make_shared<T>(record_batches_, options, self));
+    }
     return MakeVectorIterator(std::move(scan_tasks));
   }
 
@@ -467,35 +678,460 @@ TEST_P(TestScanner, Head) {
 
   ASSERT_OK_AND_ASSIGN(expected, Table::FromRecordBatches(schema_, {}));
   ASSERT_OK_AND_ASSIGN(actual, scanner->Head(0));
-  AssertTablesEqual(*expected, *actual);
+  AssertTablesEqual(*expected, *actual, /*same_chunk_layout=*/false);
 
   ASSERT_OK_AND_ASSIGN(expected, Table::FromRecordBatches(schema_, {batch}));
   ASSERT_OK_AND_ASSIGN(actual, scanner->Head(batch_size));
-  AssertTablesEqual(*expected, *actual);
+  AssertTablesEqual(*expected, *actual, /*same_chunk_layout=*/false);
 
   ASSERT_OK_AND_ASSIGN(expected, Table::FromRecordBatches(schema_, {batch->Slice(0, 1)}));
   ASSERT_OK_AND_ASSIGN(actual, scanner->Head(1));
-  AssertTablesEqual(*expected, *actual);
+  AssertTablesEqual(*expected, *actual, /*same_chunk_layout=*/false);
 
   if (num_batches > 1) {
     ASSERT_OK_AND_ASSIGN(expected,
                          Table::FromRecordBatches(schema_, {batch, batch->Slice(0, 1)}));
     ASSERT_OK_AND_ASSIGN(actual, scanner->Head(batch_size + 1));
-    AssertTablesEqual(*expected, *actual);
+    AssertTablesEqual(*expected, *actual, /*same_chunk_layout=*/false);
   }
 
   ASSERT_OK_AND_ASSIGN(expected, scanner->ToTable());
   ASSERT_OK_AND_ASSIGN(actual, scanner->Head(batch_size * num_batches * num_datasets));
-  AssertTablesEqual(*expected, *actual);
+  AssertTablesEqual(*expected, *actual, /*same_chunk_layout=*/false);
 
   ASSERT_OK_AND_ASSIGN(expected, scanner->ToTable());
   ASSERT_OK_AND_ASSIGN(actual,
                        scanner->Head(batch_size * num_batches * num_datasets + 100));
-  AssertTablesEqual(*expected, *actual);
+  AssertTablesEqual(*expected, *actual, /*same_chunk_layout=*/false);
+}
+
+TEST_P(TestScanner, FromReader) {
+  if (GetParam().use_async) {
+    GTEST_SKIP() << "Async scanner does not support construction from reader";
+  }
+  auto batch_size = GetParam().items_per_batch;
+  auto num_batches = GetParam().num_batches;
+
+  SetSchema({field("i32", int32()), field("f64", float64())});
+  auto batch = ConstantArrayGenerator::Zeroes(batch_size, schema_);
+  auto source_reader = ConstantArrayGenerator::Repeat(num_batches, batch);
+  auto target_reader = ConstantArrayGenerator::Repeat(num_batches, batch);
+
+  auto builder = ScannerBuilder::FromRecordBatchReader(source_reader);
+  ARROW_EXPECT_OK(builder->UseThreads(GetParam().use_threads));
+  ASSERT_OK_AND_ASSIGN(auto scanner, builder->Finish());
+  AssertScannerEquals(target_reader.get(), scanner.get());
+
+  // Such datasets can only be scanned once (but you can get fragments multiple times)
+  ASSERT_OK_AND_ASSIGN(auto batch_it, scanner->ScanBatches());
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("OneShotFragment was already scanned"),
+      batch_it.Next());
 }
 
 INSTANTIATE_TEST_SUITE_P(TestScannerThreading, TestScanner,
-                         ::testing::ValuesIn(TestScannerParams::Values()));
+                         ::testing::ValuesIn(TestScannerParams::Values()),
+                         [](const ::testing::TestParamInfo<TestScannerParams>& info) {
+                           return std::to_string(info.index) + info.param.ToString();
+                         });
+
+/// These ControlledXyz classes allow for controlling the order in which things are
+/// delivered so that we can test out of order resequencing.  The dataset allows
+/// batches to be delivered on any fragment.  When delivering batches a num_rows
+/// parameter is taken which can be used to differentiate batches.
+class ControlledFragment : public Fragment {
+ public:
+  explicit ControlledFragment(std::shared_ptr<Schema> schema)
+      : Fragment(literal(true), std::move(schema)),
+        record_batch_generator_(),
+        tracking_generator_(record_batch_generator_) {}
+
+  Result<ScanTaskIterator> Scan(std::shared_ptr<ScanOptions> options) override {
+    return Status::NotImplemented(
+        "Not needed for testing.  Sync can only return things in-order.");
+  }
+  Result<std::shared_ptr<Schema>> ReadPhysicalSchemaImpl() override {
+    return physical_schema_;
+  }
+  std::string type_name() const override { return "scanner_test.cc::ControlledFragment"; }
+
+  Result<RecordBatchGenerator> ScanBatchesAsync(
+      const std::shared_ptr<ScanOptions>& options) override {
+    return tracking_generator_;
+  };
+
+  int NumBatchesRead() { return tracking_generator_.num_read(); }
+
+  void Finish() { ARROW_UNUSED(record_batch_generator_.producer().Close()); }
+  void DeliverBatch(uint32_t num_rows) {
+    auto batch = ConstantArrayGenerator::Zeroes(num_rows, physical_schema_);
+    record_batch_generator_.producer().Push(std::move(batch));
+  }
+
+ private:
+  PushGenerator<std::shared_ptr<RecordBatch>> record_batch_generator_;
+  util::TrackingGenerator<std::shared_ptr<RecordBatch>> tracking_generator_;
+};
+
+// TODO(ARROW-8163) Add testing for fragments arriving out of order
+class ControlledDataset : public Dataset {
+ public:
+  explicit ControlledDataset(int num_fragments)
+      : Dataset(arrow::schema({field("i32", int32())})), fragments_() {
+    for (int i = 0; i < num_fragments; i++) {
+      fragments_.push_back(std::make_shared<ControlledFragment>(schema_));
+    }
+  }
+
+  std::string type_name() const override { return "scanner_test.cc::ControlledDataset"; }
+  Result<std::shared_ptr<Dataset>> ReplaceSchema(
+      std::shared_ptr<Schema> schema) const override {
+    return Status::NotImplemented("Should not be called by unit test");
+  }
+
+  void DeliverBatch(int fragment_index, int num_rows) {
+    fragments_[fragment_index]->DeliverBatch(num_rows);
+  }
+
+  void FinishFragment(int fragment_index) { fragments_[fragment_index]->Finish(); }
+
+ protected:
+  Result<FragmentIterator> GetFragmentsImpl(compute::Expression predicate) override {
+    std::vector<std::shared_ptr<Fragment>> casted_fragments(fragments_.begin(),
+                                                            fragments_.end());
+    return MakeVectorIterator(std::move(casted_fragments));
+  }
+
+ private:
+  std::vector<std::shared_ptr<ControlledFragment>> fragments_;
+};
+
+constexpr int kNumFragments = 2;
+
+class TestReordering : public ::testing::Test {
+ public:
+  void SetUp() override { dataset_ = std::make_shared<ControlledDataset>(kNumFragments); }
+
+  // Given a vector of fragment indices (one per batch) return a vector
+  // (one per fragment) mapping fragment index to the last occurrence of that
+  // index in order
+  //
+  // This allows us to know when to mark a fragment as finished
+  std::vector<int> GetLastIndices(const std::vector<int>& order) {
+    std::vector<int> last_indices(kNumFragments);
+    for (std::size_t i = 0; i < kNumFragments; i++) {
+      auto last_p = std::find(order.rbegin(), order.rend(), static_cast<int>(i));
+      EXPECT_NE(last_p, order.rend());
+      last_indices[i] = static_cast<int>(std::distance(last_p, order.rend())) - 1;
+    }
+    return last_indices;
+  }
+
+  /// We buffer one item in order to enumerate it (technically this could be avoided if
+  /// delivering in order but easier to have a single code path).  We also can't deliver
+  /// items that don't come next.  These two facts make for some pretty complex logic
+  /// to determine when items are ready to be collected.
+  std::vector<TaggedRecordBatch> DeliverAndCollect(std::vector<int> order,
+                                                   TaggedRecordBatchGenerator gen) {
+    std::vector<TaggedRecordBatch> collected;
+    auto last_indices = GetLastIndices(order);
+    int num_fragments = static_cast<int>(last_indices.size());
+    std::vector<int> batches_seen_for_fragment(num_fragments);
+    auto current_fragment_index = 0;
+    auto seen_fragment = false;
+    for (std::size_t i = 0; i < order.size(); i++) {
+      auto fragment_index = order[i];
+      dataset_->DeliverBatch(fragment_index, static_cast<int>(i));
+      batches_seen_for_fragment[fragment_index]++;
+      if (static_cast<int>(i) == last_indices[fragment_index]) {
+        dataset_->FinishFragment(fragment_index);
+      }
+      if (current_fragment_index == fragment_index) {
+        if (seen_fragment) {
+          EXPECT_FINISHES_OK_AND_ASSIGN(auto next, gen());
+          collected.push_back(std::move(next));
+        } else {
+          seen_fragment = true;
+        }
+        if (static_cast<int>(i) == last_indices[fragment_index]) {
+          // Immediately collect your bonus fragment
+          EXPECT_FINISHES_OK_AND_ASSIGN(auto next, gen());
+          collected.push_back(std::move(next));
+          // Now collect any batches freed up that couldn't be delivered because they came
+          // from the wrong fragment
+          auto last_fragment_index = fragment_index;
+          fragment_index++;
+          seen_fragment = batches_seen_for_fragment[fragment_index] > 0;
+          while (fragment_index < num_fragments &&
+                 fragment_index != last_fragment_index) {
+            last_fragment_index = fragment_index;
+            for (int j = 0; j < batches_seen_for_fragment[fragment_index] - 1; j++) {
+              EXPECT_FINISHES_OK_AND_ASSIGN(auto next, gen());
+              collected.push_back(std::move(next));
+            }
+            if (static_cast<int>(i) >= last_indices[fragment_index]) {
+              EXPECT_FINISHES_OK_AND_ASSIGN(auto next, gen());
+              collected.push_back(std::move(next));
+              fragment_index++;
+              if (fragment_index < num_fragments) {
+                seen_fragment = batches_seen_for_fragment[fragment_index] > 0;
+              }
+            }
+          }
+        }
+      }
+    }
+    return collected;
+  }
+
+  struct FragmentStats {
+    int last_index;
+    bool seen;
+  };
+
+  std::vector<FragmentStats> GetFragmentStats(const std::vector<int>& order) {
+    auto last_indices = GetLastIndices(order);
+    std::vector<FragmentStats> fragment_stats;
+    for (std::size_t i = 0; i < last_indices.size(); i++) {
+      fragment_stats.push_back({last_indices[i], false});
+    }
+    return fragment_stats;
+  }
+
+  /// When data arrives out of order then we first have to buffer up 1 item in order to
+  /// know when the last item has arrived (so we can mark it as the last).  This means
+  /// sometimes we deliver an item and don't get one (first in a fragment) and sometimes
+  /// we deliver an item and we end up getting two (last in a fragment)
+  std::vector<EnumeratedRecordBatch> DeliverAndCollect(
+      std::vector<int> order, EnumeratedRecordBatchGenerator gen) {
+    std::vector<EnumeratedRecordBatch> collected;
+    auto fragment_stats = GetFragmentStats(order);
+    for (std::size_t i = 0; i < order.size(); i++) {
+      auto fragment_index = order[i];
+      dataset_->DeliverBatch(fragment_index, static_cast<int>(i));
+      if (static_cast<int>(i) == fragment_stats[fragment_index].last_index) {
+        dataset_->FinishFragment(fragment_index);
+        EXPECT_FINISHES_OK_AND_ASSIGN(auto next, gen());
+        collected.push_back(std::move(next));
+      }
+      if (!fragment_stats[fragment_index].seen) {
+        fragment_stats[fragment_index].seen = true;
+      } else {
+        EXPECT_FINISHES_OK_AND_ASSIGN(auto next, gen());
+        collected.push_back(std::move(next));
+      }
+    }
+    return collected;
+  }
+
+  std::shared_ptr<Scanner> MakeScanner(int fragment_readahead = 0) {
+    ScannerBuilder builder(dataset_);
+    // Reordering tests only make sense for async
+    ARROW_EXPECT_OK(builder.UseAsync(true));
+    if (fragment_readahead != 0) {
+      ARROW_EXPECT_OK(builder.FragmentReadahead(fragment_readahead));
+    }
+    EXPECT_OK_AND_ASSIGN(auto scanner, builder.Finish());
+    return scanner;
+  }
+
+  void AssertBatchesInOrder(const std::vector<TaggedRecordBatch>& batches,
+                            std::vector<int> expected_order) {
+    ASSERT_EQ(expected_order.size(), batches.size());
+    for (std::size_t i = 0; i < batches.size(); i++) {
+      ASSERT_EQ(expected_order[i], batches[i].record_batch->num_rows());
+    }
+  }
+
+  void AssertBatchesInOrder(const std::vector<EnumeratedRecordBatch>& batches,
+                            std::vector<int> expected_batch_indices,
+                            std::vector<int> expected_row_sizes) {
+    ASSERT_EQ(expected_batch_indices.size(), batches.size());
+    for (std::size_t i = 0; i < batches.size(); i++) {
+      ASSERT_EQ(expected_row_sizes[i], batches[i].record_batch.value->num_rows());
+      ASSERT_EQ(expected_batch_indices[i], batches[i].record_batch.index);
+    }
+  }
+
+  std::shared_ptr<ControlledDataset> dataset_;
+};
+
+TEST_F(TestReordering, ScanBatches) {
+  auto scanner = MakeScanner();
+  ASSERT_OK_AND_ASSIGN(auto batch_gen, scanner->ScanBatchesAsync());
+  auto collected = DeliverAndCollect({0, 0, 1, 1, 0}, std::move(batch_gen));
+  AssertBatchesInOrder(collected, {0, 1, 4, 2, 3});
+}
+
+TEST_F(TestReordering, ScanBatchesUnordered) {
+  auto scanner = MakeScanner();
+  ASSERT_OK_AND_ASSIGN(auto batch_gen, scanner->ScanBatchesUnorderedAsync());
+  auto collected = DeliverAndCollect({0, 0, 1, 1, 0}, std::move(batch_gen));
+  AssertBatchesInOrder(collected, {0, 0, 1, 1, 2}, {0, 2, 3, 1, 4});
+}
+
+class TestBackpressure : public ::testing::Test {
+ protected:
+  static constexpr int NFRAGMENTS = 10;
+  static constexpr int NBATCHES = 50;
+  static constexpr int NROWS = 10;
+
+  FragmentVector MakeFragmentsAndDeliverInitialBatches() {
+    FragmentVector fragments;
+    for (int i = 0; i < NFRAGMENTS; i++) {
+      controlled_fragments_.emplace_back(std::make_shared<ControlledFragment>(schema_));
+      fragments.push_back(controlled_fragments_[i]);
+      // We only emit one batch on the first fragment.  This triggers the sequencing
+      // generator to dig really deep to try and find the second batch
+      int num_to_emit = NBATCHES;
+      if (i == 0) {
+        num_to_emit = 1;
+      }
+      for (int j = 0; j < num_to_emit; j++) {
+        controlled_fragments_[i]->DeliverBatch(NROWS);
+      }
+    }
+    return fragments;
+  }
+
+  void DeliverAdditionalBatches() {
+    // Deliver a bunch of batches that should not be read in
+    for (int i = 1; i < NFRAGMENTS; i++) {
+      for (int j = 0; j < NBATCHES; j++) {
+        controlled_fragments_[i]->DeliverBatch(NROWS);
+      }
+    }
+  }
+
+  std::shared_ptr<Dataset> MakeDataset() {
+    FragmentVector fragments = MakeFragmentsAndDeliverInitialBatches();
+    return std::make_shared<FragmentDataset>(schema_, std::move(fragments));
+  }
+
+  std::shared_ptr<Scanner> MakeScanner() {
+    std::shared_ptr<Dataset> dataset = MakeDataset();
+    std::shared_ptr<ScanOptions> options = std::make_shared<ScanOptions>();
+    ScannerBuilder builder(std::move(dataset), options);
+    ARROW_EXPECT_OK(builder.UseThreads(true));
+    ARROW_EXPECT_OK(builder.UseAsync(true));
+    ARROW_EXPECT_OK(builder.FragmentReadahead(4));
+    EXPECT_OK_AND_ASSIGN(auto scanner, builder.Finish());
+    return scanner;
+  }
+
+  int TotalBatchesRead() {
+    int sum = 0;
+    for (const auto& controlled_fragment : controlled_fragments_) {
+      sum += controlled_fragment->NumBatchesRead();
+    }
+    return sum;
+  }
+
+  template <typename T>
+  void Finish(AsyncGenerator<T> gen) {
+    for (const auto& controlled_fragment : controlled_fragments_) {
+      controlled_fragment->Finish();
+    }
+    ASSERT_FINISHES_OK(VisitAsyncGenerator(gen, [](T batch) { return Status::OK(); }));
+  }
+
+  std::shared_ptr<Schema> schema_ = schema({field("values", int32())});
+  std::vector<std::shared_ptr<ControlledFragment>> controlled_fragments_;
+};
+
+TEST_F(TestBackpressure, ScanBatchesUnordered) {
+  std::shared_ptr<Scanner> scanner = MakeScanner();
+  EXPECT_OK_AND_ASSIGN(AsyncGenerator<EnumeratedRecordBatch> gen,
+                       scanner->ScanBatchesUnorderedAsync());
+  ASSERT_FINISHES_OK(gen());
+  // The exact numbers may be imprecise due to threading but we should pretty quickly read
+  // up to our backpressure limit and a little above.  We should not be able to go too far
+  // above.
+  BusyWait(30, [&] { return TotalBatchesRead() >= kDefaultBackpressureHigh; });
+  ASSERT_GE(TotalBatchesRead(), kDefaultBackpressureHigh);
+  // Wait for the thread pool to idle.  By this point the scanner should have paused
+  // itself This helps with timing on slower CI systems where there is only one core and
+  // the scanner might keep that core until it has scanned all the batches which never
+  // gives the sink a chance to report it is falling behind.
+  GetCpuThreadPool()->WaitForIdle();
+  DeliverAdditionalBatches();
+
+  SleepABit();
+  // Worst case we read in the entire set of initial batches
+  ASSERT_LE(TotalBatchesRead(), NBATCHES * (NFRAGMENTS - 1) + 1);
+
+  Finish(std::move(gen));
+}
+
+TEST_F(TestBackpressure, ScanBatchesOrdered) {
+  std::shared_ptr<Scanner> scanner = MakeScanner();
+  EXPECT_OK_AND_ASSIGN(AsyncGenerator<TaggedRecordBatch> gen,
+                       scanner->ScanBatchesAsync());
+  // This future never actually finishes because we only emit the first batch so far and
+  // the scanner delays by one batch.  It is enough to start the system pumping though so
+  // we don't need it to finish.
+  Future<TaggedRecordBatch> fut = gen();
+
+  // See note on other test
+  GetCpuThreadPool()->WaitForIdle();
+  // Worst case we read in the entire set of initial batches
+  ASSERT_LE(TotalBatchesRead(), NBATCHES * (NFRAGMENTS - 1) + 1);
+
+  DeliverAdditionalBatches();
+  Finish(std::move(gen));
+}
+
+struct BatchConsumer {
+  explicit BatchConsumer(EnumeratedRecordBatchGenerator generator)
+      : generator(std::move(generator)), next() {}
+
+  void AssertCanConsume() {
+    if (!next.is_valid()) {
+      next = generator();
+    }
+    ASSERT_FINISHES_OK(next);
+    next = Future<EnumeratedRecordBatch>();
+  }
+
+  void AssertCannotConsume() {
+    if (!next.is_valid()) {
+      next = generator();
+    }
+    SleepABit();
+    ASSERT_FALSE(next.is_finished());
+  }
+
+  void AssertFinished() {
+    if (!next.is_valid()) {
+      next = generator();
+    }
+    ASSERT_FINISHES_OK_AND_ASSIGN(auto last, next);
+    ASSERT_TRUE(IsIterationEnd(last));
+  }
+
+  EnumeratedRecordBatchGenerator generator;
+  Future<EnumeratedRecordBatch> next;
+};
+
+TEST_F(TestReordering, FileReadahead) {
+  auto scanner = MakeScanner(/*fragment_readahead=*/1);
+  ASSERT_OK_AND_ASSIGN(auto batch_gen, scanner->ScanBatchesUnorderedAsync());
+  BatchConsumer consumer(std::move(batch_gen));
+  dataset_->DeliverBatch(0, 0);
+  dataset_->DeliverBatch(0, 1);
+  consumer.AssertCanConsume();
+  consumer.AssertCannotConsume();
+  dataset_->DeliverBatch(1, 0);
+  consumer.AssertCannotConsume();
+  dataset_->FinishFragment(1);
+  // Even though fragment 1 is finished we cannot read it because fragment_readahead
+  // is 1 so we should only be reading fragment 0
+  consumer.AssertCannotConsume();
+  dataset_->FinishFragment(0);
+  consumer.AssertCanConsume();
+  consumer.AssertCanConsume();
+  consumer.AssertFinished();
+}
 
 class TestScannerBuilder : public ::testing::Test {
   void SetUp() override {
@@ -610,6 +1246,568 @@ TEST(ScanOptions, TestMaterializedFields) {
   // project i32, filter on i64 = materialize i32 & i64
   opts->filter = equal(field_ref("i64"), literal(10));
   EXPECT_THAT(opts->MaterializedFields(), ElementsAre("i64", "i32"));
+}
+
+namespace {
+
+struct TestPlan {
+  explicit TestPlan(compute::ExecContext* ctx = compute::default_exec_context())
+      : plan(compute::ExecPlan::Make(ctx).ValueOrDie()) {
+    internal::Initialize();
+  }
+
+  Future<std::vector<compute::ExecBatch>> Run() {
+    RETURN_NOT_OK(plan->Validate());
+    RETURN_NOT_OK(plan->StartProducing());
+
+    auto collected_fut = CollectAsyncGenerator(sink_gen);
+
+    return AllComplete({plan->finished(), Future<>(collected_fut)})
+        .Then([collected_fut]() -> Result<std::vector<compute::ExecBatch>> {
+          ARROW_ASSIGN_OR_RAISE(auto collected, collected_fut.result());
+          return ::arrow::internal::MapVector(
+              [](util::optional<compute::ExecBatch> batch) { return std::move(*batch); },
+              std::move(collected));
+        });
+  }
+
+  compute::ExecPlan* get() { return plan.get(); }
+
+  std::shared_ptr<compute::ExecPlan> plan;
+  AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
+};
+
+struct DatasetAndBatches {
+  std::shared_ptr<Dataset> dataset;
+  std::vector<compute::ExecBatch> batches;
+};
+
+DatasetAndBatches MakeBasicDataset() {
+  const auto dataset_schema = ::arrow::schema({
+      field("a", int32()),
+      field("b", boolean()),
+      field("c", int32()),
+  });
+
+  const auto physical_schema = SchemaFromColumnNames(dataset_schema, {"a", "b"});
+
+  RecordBatchVector record_batches{
+      RecordBatchFromJSON(physical_schema, R"([{"a": 1,    "b": null},
+                                               {"a": 2,    "b": true}])"),
+      RecordBatchFromJSON(physical_schema, R"([{"a": null, "b": true},
+                                               {"a": 3,    "b": false}])"),
+      RecordBatchFromJSON(physical_schema, R"([{"a": null, "b": true},
+                                               {"a": 4,    "b": false}])"),
+      RecordBatchFromJSON(physical_schema, R"([{"a": 5,    "b": null},
+                                               {"a": 6,    "b": false},
+                                               {"a": 7,    "b": false}])"),
+  };
+
+  auto dataset = std::make_shared<FragmentDataset>(
+      dataset_schema,
+      FragmentVector{
+          std::make_shared<InMemoryFragment>(
+              physical_schema, RecordBatchVector{record_batches[0], record_batches[1]},
+              equal(field_ref("c"), literal(23))),
+          std::make_shared<InMemoryFragment>(
+              physical_schema, RecordBatchVector{record_batches[2], record_batches[3]},
+              equal(field_ref("c"), literal(47))),
+      });
+
+  std::vector<compute::ExecBatch> batches;
+
+  auto batch_it = record_batches.begin();
+  for (int fragment_index = 0; fragment_index < 2; ++fragment_index) {
+    for (int batch_index = 0; batch_index < 2; ++batch_index) {
+      const auto& batch = *batch_it++;
+
+      // the scanned ExecBatches will begin with physical columns
+      batches.emplace_back(*batch);
+
+      // a placeholder will be inserted for partition field "c"
+      batches.back().values.emplace_back(std::make_shared<Int32Scalar>());
+
+      // scanned batches will be augmented with fragment and batch indices
+      batches.back().values.emplace_back(fragment_index);
+      batches.back().values.emplace_back(batch_index);
+
+      // ... and with the last-in-fragment flag
+      batches.back().values.emplace_back(batch_index == 1);
+
+      // each batch carries a guarantee inherited from its Fragment's partition expression
+      batches.back().guarantee =
+          equal(field_ref("c"), literal(fragment_index == 0 ? 23 : 47));
+    }
+  }
+
+  return {dataset, batches};
+}
+
+compute::Expression Materialize(std::vector<std::string> names,
+                                bool include_aug_fields = false) {
+  if (include_aug_fields) {
+    for (auto aug_name : {"__fragment_index", "__batch_index", "__last_in_fragment"}) {
+      names.emplace_back(aug_name);
+    }
+  }
+
+  std::vector<compute::Expression> exprs;
+  for (const auto& name : names) {
+    exprs.push_back(field_ref(name));
+  }
+
+  return project(exprs, names);
+}
+}  // namespace
+
+TEST(ScanNode, Schema) {
+  TestPlan plan;
+
+  auto basic = MakeBasicDataset();
+
+  auto options = std::make_shared<ScanOptions>();
+  options->use_async = true;
+  options->projection = Materialize({});  // set an empty projection
+
+  ASSERT_OK_AND_ASSIGN(auto scan,
+                       compute::MakeExecNode("scan", plan.get(), {},
+                                             ScanNodeOptions{basic.dataset, options}));
+
+  auto fields = basic.dataset->schema()->fields();
+  fields.push_back(field("__fragment_index", int32()));
+  fields.push_back(field("__batch_index", int32()));
+  fields.push_back(field("__last_in_fragment", boolean()));
+  // output_schema is *always* the full augmented dataset schema, regardless of projection
+  // (but some columns *may* be placeholder null Scalars if not projected)
+  AssertSchemaEqual(Schema(fields), *scan->output_schema());
+}
+
+TEST(ScanNode, Trivial) {
+  TestPlan plan;
+
+  auto basic = MakeBasicDataset();
+
+  auto options = std::make_shared<ScanOptions>();
+  options->use_async = true;
+  // ensure all fields are materialized
+  options->projection = Materialize({"a", "b", "c"}, /*include_aug_fields=*/true);
+
+  ASSERT_OK(compute::Declaration::Sequence(
+                {
+                    {"scan", ScanNodeOptions{basic.dataset, options}},
+                    {"sink", compute::SinkNodeOptions{&plan.sink_gen}},
+                })
+                .AddToPlan(plan.get()));
+
+  // trivial scan: the batches are returned unmodified
+  auto expected = basic.batches;
+  ASSERT_THAT(plan.Run(), Finishes(ResultWith(UnorderedElementsAreArray(expected))));
+}
+
+TEST(ScanNode, FilteredOnVirtualColumn) {
+  TestPlan plan;
+
+  auto basic = MakeBasicDataset();
+
+  auto options = std::make_shared<ScanOptions>();
+  options->use_async = true;
+  options->filter = less(field_ref("c"), literal(30));
+  // ensure all fields are materialized
+  options->projection = Materialize({"a", "b", "c"}, /*include_aug_fields=*/true);
+
+  ASSERT_OK(compute::Declaration::Sequence(
+                {
+                    {"scan", ScanNodeOptions{basic.dataset, options}},
+                    {"sink", compute::SinkNodeOptions{&plan.sink_gen}},
+                })
+                .AddToPlan(plan.get()));
+
+  auto expected = basic.batches;
+
+  // only the first fragment will make it past the filter
+  expected.pop_back();
+  expected.pop_back();
+
+  ASSERT_THAT(plan.Run(), Finishes(ResultWith(UnorderedElementsAreArray(expected))));
+}
+
+TEST(ScanNode, DeferredFilterOnPhysicalColumn) {
+  TestPlan plan;
+
+  auto basic = MakeBasicDataset();
+
+  auto options = std::make_shared<ScanOptions>();
+  options->use_async = true;
+  options->filter = greater(field_ref("a"), literal(4));
+  // ensure all fields are materialized
+  options->projection = Materialize({"a", "b", "c"}, /*include_aug_fields=*/true);
+
+  ASSERT_OK(compute::Declaration::Sequence(
+                {
+                    {"scan", ScanNodeOptions{basic.dataset, options}},
+                    {"sink", compute::SinkNodeOptions{&plan.sink_gen}},
+                })
+                .AddToPlan(plan.get()));
+
+  // No post filtering is performed by ScanNode: all batches will be yielded whole.
+  // To filter out rows from individual batches, construct a FilterNode.
+  auto expected = basic.batches;
+
+  ASSERT_THAT(plan.Run(), Finishes(ResultWith(UnorderedElementsAreArray(expected))));
+}
+
+TEST(ScanNode, DISABLED_ProjectionPushdown) {
+  // ARROW-13263
+  TestPlan plan;
+
+  auto basic = MakeBasicDataset();
+
+  auto options = std::make_shared<ScanOptions>();
+  options->use_async = true;
+  options->projection = Materialize({"b"}, /*include_aug_fields=*/true);
+
+  ASSERT_OK(compute::Declaration::Sequence(
+                {
+                    {"scan", ScanNodeOptions{basic.dataset, options}},
+                    {"sink", compute::SinkNodeOptions{&plan.sink_gen}},
+                })
+                .AddToPlan(plan.get()));
+
+  auto expected = basic.batches;
+
+  int a_index = basic.dataset->schema()->GetFieldIndex("a");
+  int c_index = basic.dataset->schema()->GetFieldIndex("c");
+  for (auto& batch : expected) {
+    // "a", "c" were not projected or filtered so they are dropped eagerly
+    batch.values[a_index] = MakeNullScalar(batch.values[a_index].type());
+    batch.values[c_index] = MakeNullScalar(batch.values[c_index].type());
+  }
+
+  ASSERT_THAT(plan.Run(), Finishes(ResultWith(UnorderedElementsAreArray(expected))));
+}
+
+TEST(ScanNode, MaterializationOfVirtualColumn) {
+  TestPlan plan;
+
+  auto basic = MakeBasicDataset();
+
+  auto options = std::make_shared<ScanOptions>();
+  options->use_async = true;
+  options->projection = Materialize({"a", "b", "c"}, /*include_aug_fields=*/true);
+
+  ASSERT_OK(compute::Declaration::Sequence(
+                {
+                    {"scan", ScanNodeOptions{basic.dataset, options}},
+                    {"augmented_project",
+                     compute::ProjectNodeOptions{
+                         {field_ref("a"), field_ref("b"), field_ref("c")}}},
+                    {"sink", compute::SinkNodeOptions{&plan.sink_gen}},
+                })
+                .AddToPlan(plan.get()));
+
+  auto expected = basic.batches;
+
+  for (auto& batch : expected) {
+    // ProjectNode overwrites "c" placeholder with non-null drawn from guarantee
+    const auto& value = *batch.guarantee.call()->arguments[1].literal();
+    batch.values[2] = value;
+  }
+
+  ASSERT_THAT(plan.Run(), Finishes(ResultWith(UnorderedElementsAreArray(expected))));
+}
+
+TEST(ScanNode, MinimalEndToEnd) {
+  // NB: This test is here for didactic purposes
+
+  // Specify a MemoryPool and ThreadPool for the ExecPlan
+  compute::ExecContext exec_context(default_memory_pool(),
+                                    ::arrow::internal::GetCpuThreadPool());
+
+  // ensure arrow::dataset node factories are in the registry
+  arrow::dataset::internal::Initialize();
+
+  // A ScanNode is constructed from an ExecPlan (into which it is inserted),
+  // a Dataset (whose batches will be scanned), and ScanOptions (to specify a filter for
+  // predicate pushdown, a projection to skip materialization of unnecessary columns, ...)
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<compute::ExecPlan> plan,
+                       compute::ExecPlan::Make(&exec_context));
+
+  std::shared_ptr<Dataset> dataset = std::make_shared<InMemoryDataset>(
+      TableFromJSON(schema({field("a", int32()), field("b", boolean())}),
+                    {
+                        R"([{"a": 1,    "b": null},
+                            {"a": 2,    "b": true}])",
+                        R"([{"a": null, "b": true},
+                            {"a": 3,    "b": false}])",
+                        R"([{"a": null, "b": true},
+                            {"a": 4,    "b": false}])",
+                        R"([{"a": 5,    "b": null},
+                            {"a": 6,    "b": false},
+                            {"a": 7,    "b": false}])",
+                    }));
+
+  auto options = std::make_shared<ScanOptions>();
+  // sync scanning is not supported by ScanNode
+  options->use_async = true;
+  // specify the filter
+  compute::Expression b_is_true = field_ref("b");
+  options->filter = b_is_true;
+  // for now, specify the projection as the full project expression (eventually this can
+  // just be a list of materialized field names)
+  compute::Expression a_times_2 = call("multiply", {field_ref("a"), literal(2)});
+  options->projection =
+      call("make_struct", {a_times_2}, compute::MakeStructOptions{{"a * 2"}});
+
+  // construct the scan node
+  ASSERT_OK_AND_ASSIGN(
+      compute::ExecNode * scan,
+      compute::MakeExecNode("scan", plan.get(), {}, ScanNodeOptions{dataset, options}));
+
+  // pipe the scan node into a filter node
+  ASSERT_OK_AND_ASSIGN(compute::ExecNode * filter,
+                       compute::MakeExecNode("filter", plan.get(), {scan},
+                                             compute::FilterNodeOptions{b_is_true}));
+
+  // pipe the filter node into a project node
+  // NB: we're using the project node factory which preserves fragment/batch index
+  // tagging, so we *can* reorder later if we choose. The tags will not appear in
+  // our output.
+  ASSERT_OK_AND_ASSIGN(compute::ExecNode * project,
+                       compute::MakeExecNode("augmented_project", plan.get(), {filter},
+                                             compute::ProjectNodeOptions{{a_times_2}}));
+
+  // finally, pipe the project node into a sink node
+  AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
+  ASSERT_OK_AND_ASSIGN(compute::ExecNode * sink,
+                       compute::MakeExecNode("ordered_sink", plan.get(), {project},
+                                             compute::SinkNodeOptions{&sink_gen}));
+
+  ASSERT_THAT(plan->sinks(), ElementsAre(sink));
+
+  // translate sink_gen (async) to sink_reader (sync)
+  std::shared_ptr<RecordBatchReader> sink_reader = compute::MakeGeneratorReader(
+      schema({field("a * 2", int32())}), std::move(sink_gen), exec_context.memory_pool());
+
+  // start the ExecPlan
+  ASSERT_OK(plan->StartProducing());
+
+  // collect sink_reader into a Table
+  ASSERT_OK_AND_ASSIGN(auto collected, Table::FromRecordBatchReader(sink_reader.get()));
+
+  // Sort table
+  ASSERT_OK_AND_ASSIGN(
+      auto indices,
+      compute::SortIndices(collected, compute::SortOptions({compute::SortKey(
+                                          "a * 2", compute::SortOrder::Ascending)})));
+  ASSERT_OK_AND_ASSIGN(auto sorted, compute::Take(collected, indices));
+
+  // wait 1s for completion
+  ASSERT_TRUE(plan->finished().Wait(/*seconds=*/1)) << "ExecPlan didn't finish within 1s";
+
+  auto expected = TableFromJSON(schema({field("a * 2", int32())}), {
+                                                                       R"([
+                                               {"a * 2": 4},
+                                               {"a * 2": null},
+                                               {"a * 2": null}
+                                          ])"});
+  AssertTablesEqual(*expected, *sorted.table(), /*same_chunk_layout=*/false);
+}
+
+TEST(ScanNode, MinimalScalarAggEndToEnd) {
+  // NB: This test is here for didactic purposes
+
+  // Specify a MemoryPool and ThreadPool for the ExecPlan
+  compute::ExecContext exec_context(default_memory_pool(), GetCpuThreadPool());
+
+  // ensure arrow::dataset node factories are in the registry
+  arrow::dataset::internal::Initialize();
+
+  // A ScanNode is constructed from an ExecPlan (into which it is inserted),
+  // a Dataset (whose batches will be scanned), and ScanOptions (to specify a filter for
+  // predicate pushdown, a projection to skip materialization of unnecessary columns, ...)
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<compute::ExecPlan> plan,
+                       compute::ExecPlan::Make(&exec_context));
+
+  std::shared_ptr<Dataset> dataset = std::make_shared<InMemoryDataset>(
+      TableFromJSON(schema({field("a", int32()), field("b", boolean())}),
+                    {
+                        R"([{"a": 1,    "b": null},
+                            {"a": 2,    "b": true}])",
+                        R"([{"a": null, "b": true},
+                            {"a": 3,    "b": false}])",
+                        R"([{"a": null, "b": true},
+                            {"a": 4,    "b": false}])",
+                        R"([{"a": 5,    "b": null},
+                            {"a": 6,    "b": false},
+                            {"a": 7,    "b": false}])",
+                    }));
+
+  auto options = std::make_shared<ScanOptions>();
+  // sync scanning is not supported by ScanNode
+  options->use_async = true;
+  // specify the filter
+  compute::Expression b_is_true = field_ref("b");
+  options->filter = b_is_true;
+  // for now, specify the projection as the full project expression (eventually this can
+  // just be a list of materialized field names)
+  compute::Expression a_times_2 = call("multiply", {field_ref("a"), literal(2)});
+  options->projection =
+      call("make_struct", {a_times_2}, compute::MakeStructOptions{{"a * 2"}});
+
+  // construct the scan node
+  ASSERT_OK_AND_ASSIGN(
+      compute::ExecNode * scan,
+      compute::MakeExecNode("scan", plan.get(), {}, ScanNodeOptions{dataset, options}));
+
+  // pipe the scan node into a filter node
+  ASSERT_OK_AND_ASSIGN(compute::ExecNode * filter,
+                       compute::MakeExecNode("filter", plan.get(), {scan},
+                                             compute::FilterNodeOptions{b_is_true}));
+
+  // pipe the filter node into a project node
+  ASSERT_OK_AND_ASSIGN(
+      compute::ExecNode * project,
+      compute::MakeExecNode("project", plan.get(), {filter},
+                            compute::ProjectNodeOptions{{a_times_2}, {"a * 2"}}));
+
+  // pipe the projection into a scalar aggregate node
+  ASSERT_OK_AND_ASSIGN(
+      compute::ExecNode * aggregate,
+      compute::MakeExecNode(
+          "aggregate", plan.get(), {project},
+          compute::AggregateNodeOptions{{compute::internal::Aggregate{"sum", nullptr}},
+                                        /*targets=*/{"a * 2"},
+                                        /*names=*/{"sum(a * 2)"}}));
+
+  // finally, pipe the aggregate node into a sink node
+  AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
+  ASSERT_OK_AND_ASSIGN(compute::ExecNode * sink,
+                       compute::MakeExecNode("sink", plan.get(), {aggregate},
+                                             compute::SinkNodeOptions{&sink_gen}));
+
+  ASSERT_THAT(plan->sinks(), ElementsAre(sink));
+
+  // translate sink_gen (async) to sink_reader (sync)
+  std::shared_ptr<RecordBatchReader> sink_reader =
+      compute::MakeGeneratorReader(schema({field("a*2 sum", int64())}),
+                                   std::move(sink_gen), exec_context.memory_pool());
+
+  // start the ExecPlan
+  ASSERT_OK(plan->StartProducing());
+
+  // collect sink_reader into a Table
+  ASSERT_OK_AND_ASSIGN(auto collected, Table::FromRecordBatchReader(sink_reader.get()));
+
+  // wait 1s for completion
+  ASSERT_TRUE(plan->finished().Wait(/*seconds=*/1)) << "ExecPlan didn't finish within 1s";
+
+  auto expected = TableFromJSON(schema({field("a*2 sum", int64())}), {
+                                                                         R"([
+                                               {"a*2 sum": 4}
+                                          ])"});
+  AssertTablesEqual(*expected, *collected, /*same_chunk_layout=*/false);
+}
+
+TEST(ScanNode, MinimalGroupedAggEndToEnd) {
+  // NB: This test is here for didactic purposes
+
+  // Specify a MemoryPool and ThreadPool for the ExecPlan
+  compute::ExecContext exec_context(default_memory_pool(), GetCpuThreadPool());
+
+  // ensure arrow::dataset node factories are in the registry
+  arrow::dataset::internal::Initialize();
+
+  // A ScanNode is constructed from an ExecPlan (into which it is inserted),
+  // a Dataset (whose batches will be scanned), and ScanOptions (to specify a filter for
+  // predicate pushdown, a projection to skip materialization of unnecessary columns, ...)
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<compute::ExecPlan> plan,
+                       compute::ExecPlan::Make(&exec_context));
+
+  std::shared_ptr<Dataset> dataset = std::make_shared<InMemoryDataset>(
+      TableFromJSON(schema({field("a", int32()), field("b", boolean())}),
+                    {
+                        R"([{"a": 1,    "b": null},
+                            {"a": 2,    "b": true}])",
+                        R"([{"a": null, "b": true},
+                            {"a": 3,    "b": false}])",
+                        R"([{"a": null, "b": true},
+                            {"a": 4,    "b": false}])",
+                        R"([{"a": 5,    "b": null},
+                            {"a": 6,    "b": false},
+                            {"a": 7,    "b": false}])",
+                    }));
+
+  auto options = std::make_shared<ScanOptions>();
+  // sync scanning is not supported by ScanNode
+  options->use_async = true;
+  // specify the filter
+  compute::Expression b_is_true = field_ref("b");
+  options->filter = b_is_true;
+  // for now, specify the projection as the full project expression (eventually this can
+  // just be a list of materialized field names)
+  compute::Expression a_times_2 = call("multiply", {field_ref("a"), literal(2)});
+  compute::Expression b = field_ref("b");
+  options->projection =
+      call("make_struct", {a_times_2, b}, compute::MakeStructOptions{{"a * 2", "b"}});
+
+  // construct the scan node
+  ASSERT_OK_AND_ASSIGN(
+      compute::ExecNode * scan,
+      compute::MakeExecNode("scan", plan.get(), {}, ScanNodeOptions{dataset, options}));
+
+  // pipe the scan node into a project node
+  ASSERT_OK_AND_ASSIGN(
+      compute::ExecNode * project,
+      compute::MakeExecNode("project", plan.get(), {scan},
+                            compute::ProjectNodeOptions{{a_times_2, b}, {"a * 2", "b"}}));
+
+  // pipe the projection into a grouped aggregate node
+  ASSERT_OK_AND_ASSIGN(
+      compute::ExecNode * aggregate,
+      compute::MakeExecNode("aggregate", plan.get(), {project},
+                            compute::AggregateNodeOptions{
+                                {compute::internal::Aggregate{"hash_sum", nullptr}},
+                                /*targets=*/{"a * 2"},
+                                /*names=*/{"sum(a * 2)"},
+                                /*keys=*/{"b"}}));
+
+  // finally, pipe the aggregate node into a sink node
+  AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
+  ASSERT_OK_AND_ASSIGN(compute::ExecNode * sink,
+                       compute::MakeExecNode("sink", plan.get(), {aggregate},
+                                             compute::SinkNodeOptions{&sink_gen}));
+
+  ASSERT_THAT(plan->sinks(), ElementsAre(sink));
+
+  // translate sink_gen (async) to sink_reader (sync)
+  std::shared_ptr<RecordBatchReader> sink_reader = compute::MakeGeneratorReader(
+      schema({field("sum(a * 2)", int64()), field("b", boolean())}), std::move(sink_gen),
+      exec_context.memory_pool());
+
+  // start the ExecPlan
+  ASSERT_OK(plan->StartProducing());
+
+  // collect sink_reader into a Table
+  ASSERT_OK_AND_ASSIGN(auto collected, Table::FromRecordBatchReader(sink_reader.get()));
+
+  // Sort table
+  ASSERT_OK_AND_ASSIGN(
+      auto indices, compute::SortIndices(
+                        collected, compute::SortOptions({compute::SortKey(
+                                       "sum(a * 2)", compute::SortOrder::Ascending)})));
+  ASSERT_OK_AND_ASSIGN(auto sorted, compute::Take(collected, indices));
+
+  // wait 1s for completion
+  ASSERT_TRUE(plan->finished().Wait(/*seconds=*/1)) << "ExecPlan didn't finish within 1s";
+
+  auto expected = TableFromJSON(
+      schema({field("sum(a * 2)", int64()), field("b", boolean())}), {
+                                                                         R"JSON([
+                                               {"sum(a * 2)": 4,  "b": true},
+                                               {"sum(a * 2)": 12, "b": null},
+                                               {"sum(a * 2)": 40, "b": false}
+                                          ])JSON"});
+  AssertTablesEqual(*expected, *sorted.table(), /*same_chunk_layout=*/false);
 }
 
 }  // namespace dataset

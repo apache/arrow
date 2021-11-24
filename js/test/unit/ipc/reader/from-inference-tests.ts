@@ -27,9 +27,7 @@ import {
     RecordBatchStreamReader,
     AsyncRecordBatchFileReader,
     AsyncRecordBatchStreamReader
-} from '../../../Arrow';
-
-const { parse: bignumJSONParse } = require('json-bignum');
+} from 'apache-arrow';
 
 for (const table of generateRandomTables([10, 20, 30])) {
     const name = `[\n ${table.schema.fields.join(',\n ')}\n]`;
@@ -44,7 +42,7 @@ for (const table of generateRandomTables([10, 20, 30])) {
 function testFromJSON(io: ArrowIOTestHelper, name: string) {
     describe(`should return a RecordBatchJSONReader (${name})`, () => {
         test(`Uint8Array`, io.buffer((buffer) => {
-            const json = bignumJSONParse(`${Buffer.from(buffer)}`);
+            const json = JSON.parse(`${Buffer.from(buffer)}`);
             const reader = RecordBatchReader.from(json);
             expect(reader.isSync()).toEqual(true);
             expect(reader.isAsync()).toEqual(false);

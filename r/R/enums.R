@@ -16,11 +16,11 @@
 # under the License.
 
 #' @export
-`print.arrow-enum` <- function(x, ...){
+`print.arrow-enum` <- function(x, ...) {
   NextMethod()
 }
 
-enum <- function(class, ..., .list = list(...)){
+enum <- function(class, ..., .list = list(...)) {
   structure(
     .list,
     class = c(class, "arrow-enum")
@@ -81,6 +81,8 @@ Type <- enum("Type::type",
   LARGE_LIST = 36L
 )
 
+TYPES_WITH_NAN <- Type[c("HALF_FLOAT", "FLOAT", "DOUBLE")]
+
 #' @rdname enums
 #' @export
 StatusCode <- enum("StatusCode",
@@ -139,4 +141,38 @@ QuantileInterpolation <- enum("QuantileInterpolation",
 #' @rdname enums
 NullEncodingBehavior <- enum("NullEncodingBehavior",
   ENCODE = 0L, MASK = 1L
+)
+
+#' @export
+#' @rdname enums
+NullHandlingBehavior <- enum("NullHandlingBehavior",
+  EMIT_NULL = 0L, SKIP = 1L, REPLACE = 2L
+)
+
+#' @export
+#' @rdname enums
+RoundMode <- enum("RoundMode",
+  DOWN = 0L,
+  UP = 1L,
+  TOWARDS_ZERO = 2L,
+  TOWARDS_INFINITY = 3L,
+  HALF_DOWN = 4L,
+  HALF_UP = 5L,
+  HALF_TOWARDS_ZERO = 6L,
+  HALF_TOWARDS_INFINITY = 7L,
+  HALF_TO_EVEN = 8L,
+  HALF_TO_ODD = 9L
+)
+
+#' @export
+#' @rdname enums
+JoinType <- enum("JoinType",
+  LEFT_SEMI = 0L,
+  RIGHT_SEMI = 1L,
+  LEFT_ANTI = 2L,
+  RIGHT_ANTI = 3L,
+  INNER = 4L,
+  LEFT_OUTER = 5L,
+  RIGHT_OUTER = 6L,
+  FULL_OUTER = 7L
 )

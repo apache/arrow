@@ -51,7 +51,8 @@ add_arrow_lib(arrow_cuda
               arrow_shared
               ${ARROW_CUDA_SHARED_LINK_LIBS}
               # Static arrow_cuda must also link against CUDA shared libs
-              STATIC_LINK_LIBS ${ARROW_CUDA_SHARED_LINK_LIBS})
+              STATIC_LINK_LIBS
+              ${ARROW_CUDA_SHARED_LINK_LIBS})
 
 add_dependencies(arrow_cuda ${ARROW_CUDA_LIBRARIES})
 

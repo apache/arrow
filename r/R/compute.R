@@ -27,17 +27,18 @@
 #' `RecordBatch`, or `Table`.
 #' @param args list arguments as an alternative to specifying in `...`
 #' @param options named list of C++ function options.
+#' @details When passing indices in `...`, `args`, or `options`, express them as
+#' 0-based integers (consistent with C++).
 #' @return An `Array`, `ChunkedArray`, `Scalar`, `RecordBatch`, or `Table`, whatever the compute function results in.
-#' @seealso [Arrow C++ documentation](https://arrow.apache.org/docs/cpp/compute.html) for the functions and their respective options.
-#' @examples
-#' \donttest{
+#' @seealso [Arrow C++ documentation](https://arrow.apache.org/docs/cpp/compute.html) for
+#'   the functions and their respective options.
+#' @examplesIf arrow_available()
 #' a <- Array$create(c(1L, 2L, 3L, NA, 5L))
 #' s <- Scalar$create(4L)
-#' call_function("fill_null", a, s)
+#' call_function("coalesce", a, s)
 #'
 #' a <- Array$create(rnorm(10000))
 #' call_function("quantile", a, options = list(q = seq(0, 1, 0.25)))
-#' }
 #' @export
 #' @include array.R
 #' @include chunked-array.R
@@ -47,11 +48,15 @@ call_function <- function(function_name, ..., args = list(...), options = empty_
   assert_that(is.list(options), !is.null(names(options)))
 
   datum_classes <- c("Array", "ChunkedArray", "RecordBatch", "Table", "Scalar")
-  valid_args <- map_lgl(args, ~inherits(., datum_classes))
+  valid_args <- map_lgl(args, ~ inherits(., datum_classes))
   if (!all(valid_args)) {
     # Lame, just pick one to report
     first_bad <- min(which(!valid_args))
-    stop("Argument ", first_bad, " is of class ", head(class(args[[first_bad]]), 1), " but it must be one of ", oxford_paste(datum_classes, "or"), call. = FALSE)
+    stop(
+      "Argument ", first_bad, " is of class ", head(class(args[[first_bad]]), 1),
+      " but it must be one of ", oxford_paste(datum_classes, "or"),
+      call. = FALSE
+    )
   }
 
   compute__CallFunction(function_name, args, options)
@@ -83,20 +88,34 @@ call_function <- function(function_name, ..., args = list(...), options = empty_
 #' @param pattern Optional regular expression to filter the function list
 #' @param ... Additional parameters passed to `grep()`
 #' @return A character vector of available Arrow C++ function names
+#' @examplesIf arrow_available()
+#' available_funcs <- list_compute_functions()
+#' utf8_funcs <- list_compute_functions(pattern = "^UTF8", ignore.case = TRUE)
 #' @export
 list_compute_functions <- function(pattern = NULL, ...) {
   funcs <- compute__GetFunctionNames()
   if (!is.null(pattern)) {
     funcs <- grep(pattern, funcs, value = TRUE, ...)
   }
+  # TODO: Filtering of hash funcs will already happen in C++ with ARROW-13943
+  funcs <- grep(
+    "^hash_",
+    funcs,
+    value = TRUE,
+    invert = TRUE
+  )
   funcs
 }
 
 #' @export
-sum.ArrowDatum <- function(..., na.rm = FALSE) scalar_aggregate("sum", ..., na.rm = na.rm)
+sum.ArrowDatum <- function(..., na.rm = FALSE) {
+  scalar_aggregate("sum", ..., na.rm = na.rm)
+}
 
 #' @export
-mean.ArrowDatum <- function(..., na.rm = FALSE) scalar_aggregate("mean", ..., na.rm = na.rm)
+mean.ArrowDatum <- function(..., na.rm = FALSE) {
+  scalar_aggregate("mean", ..., na.rm = na.rm)
+}
 
 #' @export
 min.ArrowDatum <- function(..., na.rm = FALSE) {
@@ -108,26 +127,28 @@ max.ArrowDatum <- function(..., na.rm = FALSE) {
   scalar_aggregate("min_max", ..., na.rm = na.rm)$GetFieldByName("max")
 }
 
-scalar_aggregate <- function(FUN, ..., na.rm = FALSE) {
+scalar_aggregate <- function(FUN, ..., na.rm = FALSE, min_count = 0L) {
   a <- collect_arrays_from_dots(list(...))
-  if (!na.rm && a$null_count > 0 && (FUN %in% c("mean", "sum"))) {
-    # Arrow sum/mean function always drops NAs so handle that here
-    # https://issues.apache.org/jira/browse/ARROW-9054
-    return(Scalar$create(NA_real_))
+  if (FUN == "min_max" && na.rm && a$null_count == length(a)) {
+    Array$create(data.frame(min = Inf, max = -Inf))
+    # If na.rm == TRUE and all values in array are NA, R returns
+    # Inf/-Inf, which are type double. Since Arrow is type-stable
+    # and does not do that, we handle this special case here.
+  } else {
+    call_function(FUN, a, options = list(skip_nulls = na.rm, min_count = min_count))
   }
-
-  call_function(FUN, a, options = list(na.rm = na.rm))
 }
 
 collect_arrays_from_dots <- function(dots) {
   # Given a list that may contain both Arrays and ChunkedArrays,
   # return a single ChunkedArray containing all of those chunks
   # (may return a regular Array if there is only one element in dots)
-  assert_that(all(map_lgl(dots, is.Array)))
+  # If there is only one element and it is a scalar, it returns the scalar
   if (length(dots) == 1) {
     return(dots[[1]])
   }
 
+  assert_that(all(map_lgl(dots, is.Array)))
   arrays <- unlist(lapply(dots, function(x) {
     if (inherits(x, "ChunkedArray")) {
       x$chunks
@@ -187,32 +208,13 @@ unique.ArrowDatum <- function(x, incomparables = FALSE, ...) {
 }
 
 #' @export
-any.ArrowDatum <- function(..., na.rm = FALSE){
-  
-  a <- collect_arrays_from_dots(list(...))
-  result <- call_function("any", a)
-
-  if (!na.rm && a$null_count > 0 && !as.vector(result)) {
-    # Three-valued logic: with na.rm = FALSE, any(c(TRUE, NA)) returns TRUE but any(c(FALSE, NA)) returns NA
-    # TODO: C++ library should take na.rm for any/all (like ARROW-9054)
-    Scalar$create(NA)
-  } else {
-    result
-  }
+any.ArrowDatum <- function(..., na.rm = FALSE) {
+  scalar_aggregate("any", ..., na.rm = na.rm)
 }
 
 #' @export
-all.ArrowDatum <- function(..., na.rm = FALSE){
-  
-  a <- collect_arrays_from_dots(list(...))
-  result <- call_function("all", a)
-  
-  if (!na.rm && a$null_count > 0 && as.vector(result)) {
-    # See comment above in any() about three-valued logic
-    Scalar$create(NA)
-  } else {
-    result
-  }
+all.ArrowDatum <- function(..., na.rm = FALSE) {
+  scalar_aggregate("all", ..., na.rm = na.rm)
 }
 
 #' `match` and `%in%` for Arrow objects
@@ -220,21 +222,41 @@ all.ArrowDatum <- function(..., na.rm = FALSE){
 #' `base::match()` is not a generic, so we can't just define Arrow methods for
 #' it. This function exposes the analogous functions in the Arrow C++ library.
 #'
-#' @param x `Array` or `ChunkedArray`
-#' @param table `Array`, `ChunkedArray`, or R vector lookup table.
+#' @param x `Scalar`, `Array` or `ChunkedArray`
+#' @param table `Scalar`, Array`, `ChunkedArray`, or R vector lookup table.
 #' @param ... additional arguments, ignored
-#' @return `match_arrow()` returns an `int32`-type `Array` of the same length
-#' as `x` with the (0-based) indexes into `table`. `is_in()` returns a
-#' `boolean`-type `Array` of the same length as `x` with values indicating
+#' @return `match_arrow()` returns an `int32`-type Arrow object of the same length
+#' and type as `x` with the (0-based) indexes into `table`. `is_in()` returns a
+#' `boolean`-type Arrow object of the same length and type as `x` with values indicating
 #' per element of `x` it it is present in `table`.
+#' @examplesIf arrow_available()
+#' # note that the returned value is 0-indexed
+#' cars_tbl <- arrow_table(name = rownames(mtcars), mtcars)
+#' match_arrow(Scalar$create("Mazda RX4 Wag"), cars_tbl$name)
+#'
+#' is_in(Array$create("Mazda RX4 Wag"), cars_tbl$name)
+#'
+#' # Although there are multiple matches, you are returned the index of the first
+#' # match, as with the base R equivalent
+#' match(4, mtcars$cyl) # 1-indexed
+#' match_arrow(Scalar$create(4), cars_tbl$cyl) # 0-indexed
+#'
+#' # If `x` contains multiple values, you are returned the indices of the first
+#' # match for each value.
+#' match(c(4, 6, 8), mtcars$cyl)
+#' match_arrow(Array$create(c(4, 6, 8)), cars_tbl$cyl)
+#'
+#' # Return type matches type of `x`
+#' is_in(c(4, 6, 8), mtcars$cyl) # returns vector
+#' is_in(Scalar$create(4), mtcars$cyl) # returns Scalar
+#' is_in(Array$create(c(4, 6, 8)), cars_tbl$cyl) # returns Array
+#' is_in(ChunkedArray$create(c(4, 6), 8), cars_tbl$cyl) # returns ChunkedArray
 #' @export
-match_arrow <- function(x, table, ...) UseMethod("match_arrow")
+match_arrow <- function(x, table, ...) {
+  if (!inherits(x, "ArrowDatum")) {
+    x <- Array$create(x)
+  }
 
-#' @export
-match_arrow.default <- function(x, table, ...) match(x, table, ...)
-
-#' @export
-match_arrow.ArrowDatum <- function(x, table, ...) {
   if (!inherits(table, c("Array", "ChunkedArray"))) {
     table <- Array$create(table)
   }
@@ -243,13 +265,11 @@ match_arrow.ArrowDatum <- function(x, table, ...) {
 
 #' @rdname match_arrow
 #' @export
-is_in <- function(x, table, ...) UseMethod("is_in")
+is_in <- function(x, table, ...) {
+  if (!inherits(x, "ArrowDatum")) {
+    x <- Array$create(x)
+  }
 
-#' @export
-is_in.default <- function(x, table, ...) x %in% table
-
-#' @export
-is_in.ArrowDatum <- function(x, table, ...) {
   if (!inherits(table, c("Array", "DictionaryArray", "ChunkedArray"))) {
     table <- Array$create(table)
   }
@@ -262,6 +282,9 @@ is_in.ArrowDatum <- function(x, table, ...) {
 #' @param x `Array` or `ChunkedArray`
 #' @return A `StructArray` containing "values" (same type as `x`) and "counts"
 #' `Int64`.
+#' @examplesIf arrow_available()
+#' cyl_vals <- Array$create(mtcars$cyl)
+#' counts <- value_counts(cyl_vals)
 #' @export
 value_counts <- function(x) {
   call_function("value_counts", x)

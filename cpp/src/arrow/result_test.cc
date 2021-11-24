@@ -26,6 +26,8 @@
 #include <gtest/gtest.h>
 
 #include "arrow/testing/gtest_compat.h"
+#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/matchers.h"
 
 namespace arrow {
 
@@ -722,6 +724,75 @@ TEST(ResultTest, ViewAsStatus) {
 
   EXPECT_EQ(ViewAsStatus(&ok), &ok.status());
   EXPECT_EQ(ViewAsStatus(&err), &err.status());
+}
+
+TEST(ResultTest, MatcherExamples) {
+  EXPECT_THAT(Result<int>(Status::Invalid("arbitrary error")),
+              Raises(StatusCode::Invalid));
+
+  EXPECT_THAT(Result<int>(Status::Invalid("arbitrary error")),
+              Raises(StatusCode::Invalid, testing::HasSubstr("arbitrary")));
+
+  // message doesn't match, so no match
+  EXPECT_THAT(
+      Result<int>(Status::Invalid("arbitrary error")),
+      testing::Not(Raises(StatusCode::Invalid, testing::HasSubstr("reasonable"))));
+
+  // different error code, so no match
+  EXPECT_THAT(Result<int>(Status::TypeError("arbitrary error")),
+              testing::Not(Raises(StatusCode::Invalid)));
+
+  // not an error, so no match
+  EXPECT_THAT(Result<int>(333), testing::Not(Raises(StatusCode::Invalid)));
+
+  EXPECT_THAT(Result<std::string>("hello world"),
+              ResultWith(testing::HasSubstr("hello")));
+
+  EXPECT_THAT(Result<std::string>(Status::Invalid("XXX")),
+              testing::Not(ResultWith(testing::HasSubstr("hello"))));
+
+  // holds a value, but that value doesn't match the given pattern
+  EXPECT_THAT(Result<std::string>("foo bar"),
+              testing::Not(ResultWith(testing::HasSubstr("hello"))));
+}
+
+TEST(ResultTest, MatcherDescriptions) {
+  testing::Matcher<Result<std::string>> matcher = ResultWith(testing::HasSubstr("hello"));
+
+  {
+    std::stringstream ss;
+    matcher.DescribeTo(&ss);
+    EXPECT_THAT(ss.str(), testing::StrEq("value has substring \"hello\""));
+  }
+
+  {
+    std::stringstream ss;
+    matcher.DescribeNegationTo(&ss);
+    EXPECT_THAT(ss.str(), testing::StrEq("value has no substring \"hello\""));
+  }
+}
+
+TEST(ResultTest, MatcherExplanations) {
+  testing::Matcher<Result<std::string>> matcher = ResultWith(testing::HasSubstr("hello"));
+
+  {
+    testing::StringMatchResultListener listener;
+    EXPECT_TRUE(matcher.MatchAndExplain(Result<std::string>("hello world"), &listener));
+    EXPECT_THAT(listener.str(), testing::StrEq("whose value \"hello world\" matches"));
+  }
+
+  {
+    testing::StringMatchResultListener listener;
+    EXPECT_FALSE(matcher.MatchAndExplain(Result<std::string>("foo bar"), &listener));
+    EXPECT_THAT(listener.str(), testing::StrEq("whose value \"foo bar\" doesn't match"));
+  }
+
+  {
+    testing::StringMatchResultListener listener;
+    EXPECT_FALSE(matcher.MatchAndExplain(Status::TypeError("XXX"), &listener));
+    EXPECT_THAT(listener.str(),
+                testing::StrEq("whose error \"Type error: XXX\" doesn't match"));
+  }
 }
 
 }  // namespace

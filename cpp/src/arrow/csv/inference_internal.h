@@ -32,8 +32,11 @@ enum class InferKind {
   Boolean,
   Real,
   Date,
+  Time,
   Timestamp,
   TimestampNS,
+  TimestampWithZone,
+  TimestampWithZoneNS,
   TextDict,
   BinaryDict,
   Text,
@@ -60,10 +63,16 @@ class InferStatus {
       case InferKind::Boolean:
         return SetKind(InferKind::Date);
       case InferKind::Date:
+        return SetKind(InferKind::Time);
+      case InferKind::Time:
         return SetKind(InferKind::Timestamp);
       case InferKind::Timestamp:
         return SetKind(InferKind::TimestampNS);
       case InferKind::TimestampNS:
+        return SetKind(InferKind::TimestampWithZone);
+      case InferKind::TimestampWithZone:
+        return SetKind(InferKind::TimestampWithZoneNS);
+      case InferKind::TimestampWithZoneNS:
         return SetKind(InferKind::Real);
       case InferKind::Real:
         if (options_.auto_dict_encode) {
@@ -114,10 +123,16 @@ class InferStatus {
         return make_converter(boolean());
       case InferKind::Date:
         return make_converter(date32());
+      case InferKind::Time:
+        return make_converter(time32(TimeUnit::SECOND));
       case InferKind::Timestamp:
         return make_converter(timestamp(TimeUnit::SECOND));
       case InferKind::TimestampNS:
         return make_converter(timestamp(TimeUnit::NANO));
+      case InferKind::TimestampWithZone:
+        return make_converter(timestamp(TimeUnit::SECOND, "UTC"));
+      case InferKind::TimestampWithZoneNS:
+        return make_converter(timestamp(TimeUnit::NANO, "UTC"));
       case InferKind::Real:
         return make_converter(float64());
       case InferKind::Text:

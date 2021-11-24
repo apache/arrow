@@ -194,7 +194,8 @@ class GitRemoteCallbacks(PygitRemoteCallbacks):
             print(msg)
             raise CrossbowError(msg)
 
-        if allowed_types & pygit2.credentials.GIT_CREDTYPE_USERPASS_PLAINTEXT:
+        if (allowed_types &
+                pygit2.credentials.GIT_CREDENTIAL_USERPASS_PLAINTEXT):
             return pygit2.UserPass(self.token, 'x-oauth-basic')
         else:
             return None
@@ -639,17 +640,20 @@ def get_version(root, **kwargs):
         'git describe --dirty --tags --long --match "apache-arrow-[0-9].*"'
     )
     version = parse_git_version(root, **kwargs)
+    tag = str(version.tag)
 
-    # increment the minor version, because there can be patch releases created
-    # from maintenance branches where the tags are unreachable from the
-    # master's HEAD, so the git command above generates 0.17.0.dev300 even if
-    # arrow has a never 0.17.1 patch release
-    pattern = r"^(\d+)\.(\d+)\.(\d+)$"
-    match = re.match(pattern, str(version.tag))
+    # We may get a development tag for the next version, such as "5.0.0.dev0",
+    # or the tag of an already released version, such as "4.0.0".
+    # In the latter case, we need to increment the version so that the computed
+    # version comes after any patch release (the next feature version after
+    # 4.0.0 is 5.0.0).
+    pattern = r"^(\d+)\.(\d+)\.(\d+)"
+    match = re.match(pattern, tag)
     major, minor, patch = map(int, match.groups())
+    if 'dev' not in tag:
+        major += 1
 
-    # the bumped version number after 0.17.x will be 0.18.0.dev300
-    return "{}.{}.{}.dev{}".format(major, minor + 1, patch, version.distance)
+    return "{}.{}.{}.dev{}".format(major, minor, patch, version.distance)
 
 
 class Serializable:
@@ -784,12 +788,13 @@ class Task(Serializable):
             self._status = TaskStatus(github_commit)
         return self._status
 
-    def assets(self, force_query=False):
+    def assets(self, force_query=False, validate_patterns=True):
         _assets = getattr(self, '_assets', None)
         if force_query or _assets is None:
             github_release = self._queue.github_release(self.tag)
             self._assets = TaskAssets(github_release,
-                                      artifact_patterns=self.artifacts)
+                                      artifact_patterns=self.artifacts,
+                                      validate_patterns=validate_patterns)
         return self._assets
 
 
@@ -870,7 +875,8 @@ class TaskStatus:
 
 class TaskAssets(dict):
 
-    def __init__(self, github_release, artifact_patterns):
+    def __init__(self, github_release, artifact_patterns,
+                 validate_patterns=True):
         # HACK(kszucs): don't expect uploaded assets of no atifacts were
         # defiened for the tasks in order to spare a bit of github rate limit
         if not artifact_patterns:
@@ -881,9 +887,13 @@ class TaskAssets(dict):
         else:
             github_assets = {a.name: a for a in github_release.assets()}
 
+        if not validate_patterns:
+            # shortcut to avoid pattern validation and just set all artifacts
+            return self.update(github_assets)
+
         for pattern in artifact_patterns:
             # artifact can be a regex pattern
-            compiled = re.compile(pattern)
+            compiled = re.compile(f"^{pattern}$")
             matches = list(
                 filter(None, map(compiled.match, github_assets.keys()))
             )
@@ -1069,11 +1079,11 @@ class Config(dict):
         config_tasks = dict(self['tasks'])
         valid_groups = set(config_groups.keys())
         valid_tasks = set(config_tasks.keys())
-        group_whitelist = list(groups or [])
-        task_whitelist = list(tasks or [])
+        group_allowlist = list(groups or [])
+        task_allowlist = list(tasks or [])
 
         # validate that the passed groups are defined in the config
-        requested_groups = set(group_whitelist)
+        requested_groups = set(group_allowlist)
         invalid_groups = requested_groups - valid_groups
         if invalid_groups:
             msg = 'Invalid group(s) {!r}. Must be one of {!r}'.format(
@@ -1081,13 +1091,9 @@ class Config(dict):
             )
             raise CrossbowError(msg)
 
-        # merge the tasks defined in the selected groups
-        task_patterns = [list(config_groups[name]) for name in group_whitelist]
-        task_patterns = set(sum(task_patterns, task_whitelist))
-
         # treat the task names as glob patterns to select tasks more easily
         requested_tasks = set()
-        for pattern in task_patterns:
+        for pattern in task_allowlist:
             matches = fnmatch.filter(valid_tasks, pattern)
             if len(matches):
                 requested_tasks.update(matches)
@@ -1095,6 +1101,37 @@ class Config(dict):
                 raise CrossbowError(
                     "Unable to match any tasks for `{}`".format(pattern)
                 )
+
+        requested_group_tasks = set()
+        for group in group_allowlist:
+            # separate the patterns from the blocklist patterns
+            task_patterns = list(config_groups[group])
+            task_blocklist_patterns = [
+                x.strip("~") for x in task_patterns if x.startswith("~")]
+            task_patterns = [x for x in task_patterns if not x.startswith("~")]
+
+            # treat the task names as glob patterns to select tasks more easily
+            for pattern in task_patterns:
+                matches = fnmatch.filter(valid_tasks, pattern)
+                if len(matches):
+                    requested_group_tasks.update(matches)
+                else:
+                    raise CrossbowError(
+                        "Unable to match any tasks for `{}`".format(pattern)
+                    )
+
+            # remove any tasks that are negated with ~task-name
+            for block_pattern in task_blocklist_patterns:
+                matches = fnmatch.filter(valid_tasks, block_pattern)
+                if len(matches):
+                    requested_group_tasks = requested_group_tasks.difference(
+                        matches)
+                else:
+                    raise CrossbowError(
+                        "Unable to match any tasks for `{}`".format(pattern)
+                    )
+
+        requested_tasks = requested_tasks.union(requested_group_tasks)
 
         # validate that the passed and matched tasks are defined in the config
         invalid_tasks = requested_tasks - valid_tasks
@@ -1109,9 +1146,11 @@ class Config(dict):
         }
 
     def validate(self):
-        # validate that the task groups are properly referening the tasks
+        # validate that the task groups are properly refering to the tasks
         for group_name, group in self['groups'].items():
             for pattern in group:
+                # remove the negation character for blocklisted tasks
+                pattern = pattern.strip("~")
                 tasks = self.select(tasks=[pattern])
                 if not tasks:
                     raise CrossbowError(

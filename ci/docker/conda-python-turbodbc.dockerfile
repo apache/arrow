@@ -30,7 +30,7 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     rm -rf /var/lib/apt/lists/*
 
 # install turbodbc dependencies from conda-forge
-RUN conda install -c conda-forge -q\
+RUN conda install -c conda-forge -q \
         pybind11 \
         pytest-cov \
         mock \

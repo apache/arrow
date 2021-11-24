@@ -21,7 +21,7 @@ import {
 } from '../../../data/tables';
 
 import { validateRecordBatchIterator } from '../validate';
-import { Table, RecordBatchFileWriter } from '../../../Arrow';
+import { Table, RecordBatchFileWriter } from 'apache-arrow';
 
 describe('RecordBatchFileWriter', () => {
     for (const table of generateRandomTables([10, 20, 30])) {

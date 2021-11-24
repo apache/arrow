@@ -71,6 +71,13 @@ echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
 : ${VCPKG_FEATURE_FLAGS:=-manifests}
 : ${VCPKG_TARGET_TRIPLET:=${VCPKG_DEFAULT_TRIPLET:-x64-linux-static-${CMAKE_BUILD_TYPE}}}
 
+if [[ "$(uname -m)" == arm* ]] || [[ "$(uname -m)" == aarch* ]]; then
+    # Build jemalloc --with-lg-page=16 in order to make the wheel work on both
+    # 4k and 64k page arm64 systems. For more context see
+    # https://github.com/apache/arrow/issues/10929
+    export ARROW_EXTRA_CMAKE_FLAGS="-DARROW_JEMALLOC_LG_PAGE=16"
+fi
+
 mkdir /tmp/arrow-build
 pushd /tmp/arrow-build
 cmake \
@@ -109,6 +116,7 @@ cmake \
     -DOPENSSL_USE_STATIC_LIBS=ON \
     -DVCPKG_MANIFEST_MODE=OFF \
     -DVCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET} \
+    ${ARROW_EXTRA_CMAKE_FLAGS} \
     -G ${CMAKE_GENERATOR} \
     /arrow/cpp
 cmake --build . --target install

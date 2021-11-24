@@ -30,6 +30,11 @@ namespace red_arrow {
     return struct_array_value_converter_->convert(array, i);
   }
 
+  VALUE ArrayValueConverter::convert(const arrow::MapArray& array,
+                                     const int64_t i) {
+    return map_array_value_converter_->convert(array, i);
+  }
+
   VALUE ArrayValueConverter::convert(const arrow::UnionArray& array,
                                      const int64_t i) {
     return union_array_value_converter_->convert(array, i);

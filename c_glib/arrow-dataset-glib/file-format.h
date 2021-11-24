@@ -23,70 +23,124 @@
 
 G_BEGIN_DECLS
 
-#define GAD_TYPE_FILE_FORMAT (gad_file_format_get_type())
-G_DECLARE_DERIVABLE_TYPE(GADFileFormat,
-                         gad_file_format,
-                         GAD,
+#define GADATASET_TYPE_FILE_WRITE_OPTIONS       \
+  (gadataset_file_write_options_get_type())
+G_DECLARE_DERIVABLE_TYPE(GADatasetFileWriteOptions,
+                         gadataset_file_write_options,
+                         GADATASET,
+                         FILE_WRITE_OPTIONS,
+                         GObject)
+struct _GADatasetFileWriteOptionsClass
+{
+  GObjectClass parent_class;
+};
+
+
+#define GADATASET_TYPE_FILE_WRITER              \
+  (gadataset_file_writer_get_type())
+G_DECLARE_DERIVABLE_TYPE(GADatasetFileWriter,
+                         gadataset_file_writer,
+                         GADATASET,
+                         FILE_WRITER,
+                         GObject)
+struct _GADatasetFileWriterClass
+{
+  GObjectClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_6_0
+gboolean
+gadataset_file_writer_write_record_batch(GADatasetFileWriter *writer,
+                                         GArrowRecordBatch *record_batch,
+                                         GError **error);
+GARROW_AVAILABLE_IN_6_0
+gboolean
+gadataset_file_writer_write_record_batch_reader(GADatasetFileWriter *writer,
+                                                GArrowRecordBatchReader *reader,
+                                                GError **error);
+GARROW_AVAILABLE_IN_6_0
+gboolean
+gadataset_file_writer_finish(GADatasetFileWriter *writer,
+                             GError **error);
+
+
+#define GADATASET_TYPE_FILE_FORMAT (gadataset_file_format_get_type())
+G_DECLARE_DERIVABLE_TYPE(GADatasetFileFormat,
+                         gadataset_file_format,
+                         GADATASET,
                          FILE_FORMAT,
                          GObject)
-struct _GADFileFormatClass
+struct _GADatasetFileFormatClass
 {
   GObjectClass parent_class;
 };
 
 GARROW_AVAILABLE_IN_3_0
 gchar *
-gad_file_format_get_type_name(GADFileFormat *file_format);
+gadataset_file_format_get_type_name(GADatasetFileFormat *format);
+GARROW_AVAILABLE_IN_6_0
+GADatasetFileWriteOptions *
+gadataset_file_format_get_default_write_options(GADatasetFileFormat *format);
+GARROW_AVAILABLE_IN_6_0
+GADatasetFileWriter *
+gadataset_file_format_open_writer(GADatasetFileFormat *format,
+                                  GArrowOutputStream *destination,
+                                  GArrowFileSystem *file_system,
+                                  const gchar *path,
+                                  GArrowSchema *schema,
+                                  GADatasetFileWriteOptions *options,
+                                  GError **error);
 
 GARROW_AVAILABLE_IN_3_0
 gboolean
-gad_file_format_equal(GADFileFormat *file_format,
-                      GADFileFormat *other_file_format);
+gadataset_file_format_equal(GADatasetFileFormat *format,
+                            GADatasetFileFormat *other_format);
 
 
-#define GAD_TYPE_CSV_FILE_FORMAT (gad_csv_file_format_get_type())
-G_DECLARE_DERIVABLE_TYPE(GADCSVFileFormat,
-                         gad_csv_file_format,
-                         GAD,
+#define GADATASET_TYPE_CSV_FILE_FORMAT (gadataset_csv_file_format_get_type())
+G_DECLARE_DERIVABLE_TYPE(GADatasetCSVFileFormat,
+                         gadataset_csv_file_format,
+                         GADATASET,
                          CSV_FILE_FORMAT,
-                         GADFileFormat)
-struct _GADCSVFileFormatClass
+                         GADatasetFileFormat)
+struct _GADatasetCSVFileFormatClass
 {
-  GADFileFormatClass parent_class;
+  GADatasetFileFormatClass parent_class;
 };
 
 GARROW_AVAILABLE_IN_3_0
-GADCSVFileFormat *gad_csv_file_format_new(void);
+GADatasetCSVFileFormat *gadataset_csv_file_format_new(void);
 
 
-#define GAD_TYPE_IPC_FILE_FORMAT (gad_ipc_file_format_get_type())
-G_DECLARE_DERIVABLE_TYPE(GADIPCFileFormat,
-                         gad_ipc_file_format,
-                         GAD,
+#define GADATASET_TYPE_IPC_FILE_FORMAT (gadataset_ipc_file_format_get_type())
+G_DECLARE_DERIVABLE_TYPE(GADatasetIPCFileFormat,
+                         gadataset_ipc_file_format,
+                         GADATASET,
                          IPC_FILE_FORMAT,
-                         GADFileFormat)
-struct _GADIPCFileFormatClass
+                         GADatasetFileFormat)
+struct _GADatasetIPCFileFormatClass
 {
-  GADFileFormatClass parent_class;
+  GADatasetFileFormatClass parent_class;
 };
 
 GARROW_AVAILABLE_IN_3_0
-GADIPCFileFormat *gad_ipc_file_format_new(void);
+GADatasetIPCFileFormat *gadataset_ipc_file_format_new(void);
 
 
-#define GAD_TYPE_PARQUET_FILE_FORMAT (gad_parquet_file_format_get_type())
-G_DECLARE_DERIVABLE_TYPE(GADParquetFileFormat,
-                         gad_parquet_file_format,
-                         GAD,
+#define GADATASET_TYPE_PARQUET_FILE_FORMAT      \
+  (gadataset_parquet_file_format_get_type())
+G_DECLARE_DERIVABLE_TYPE(GADatasetParquetFileFormat,
+                         gadataset_parquet_file_format,
+                         GADATASET,
                          PARQUET_FILE_FORMAT,
-                         GADFileFormat)
-struct _GADParquetFileFormatClass
+                         GADatasetFileFormat)
+struct _GADatasetParquetFileFormatClass
 {
-  GADFileFormatClass parent_class;
+  GADatasetFileFormatClass parent_class;
 };
 
 GARROW_AVAILABLE_IN_3_0
-GADParquetFileFormat *gad_parquet_file_format_new(void);
+GADatasetParquetFileFormat *gadataset_parquet_file_format_new(void);
 
 
 G_END_DECLS

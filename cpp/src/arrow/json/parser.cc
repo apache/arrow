@@ -102,6 +102,8 @@ Status Kind::ForType(const DataType& type, Kind::type* kind) {
     Status Visit(const TimeType&) { return SetKind(Kind::kNumber); }
     Status Visit(const DateType&) { return SetKind(Kind::kNumber); }
     Status Visit(const BinaryType&) { return SetKind(Kind::kString); }
+    Status Visit(const LargeBinaryType&) { return SetKind(Kind::kString); }
+    Status Visit(const TimestampType&) { return SetKind(Kind::kString); }
     Status Visit(const FixedSizeBinaryType&) { return SetKind(Kind::kString); }
     Status Visit(const DictionaryType& dict_type) {
       return Kind::ForType(*dict_type.value_type(), kind_);
@@ -751,7 +753,13 @@ class HandlerBase : public BlockParser,
     if (ARROW_PREDICT_FALSE(field_index_ == -1)) {
       return false;
     }
-    *duplicate_keys = !absent_fields_stack_[field_index_];
+    if (field_index_ < absent_fields_stack_.TopSize()) {
+      *duplicate_keys = !absent_fields_stack_[field_index_];
+    } else {
+      // When field_index is beyond the range of absent_fields_stack_ we have a duplicated
+      // field that wasn't declared in schema or previous records.
+      *duplicate_keys = true;
+    }
     if (*duplicate_keys) {
       status_ = ParseError("Column(", Path(), ") was specified twice in row ", num_rows_);
       return false;

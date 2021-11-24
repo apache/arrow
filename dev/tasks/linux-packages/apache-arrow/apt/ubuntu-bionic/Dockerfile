@@ -18,8 +18,6 @@
 ARG FROM=ubuntu:bionic
 FROM ${FROM}
 
-COPY qemu-* /usr/bin/
-
 RUN \
   echo "debconf debconf/frontend select Noninteractive" | \
     debconf-set-selections
@@ -54,8 +52,6 @@ RUN \
     libre2-dev \
     libsnappy-dev \
     libssl-dev \
-    libutf8proc-dev \
-    libzstd-dev \
     llvm-10-dev \
     lsb-release \
     ninja-build \

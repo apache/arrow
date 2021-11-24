@@ -50,7 +50,7 @@ We use [yarn](https://yarnpkg.com/) to install dependencies and run scrips.
 
 These scripts accept argument lists of targets × modules:
 
-* Available `targets` are `es5`, `es2015`, `esnext`, and `all` (default: `all`)
+* Available `targets` are `es5`, `es2015`, `esnext`, `ts`, and `all` (default: `all`)
 * Available `modules` are `cjs`, `esm`, `umd`, and `all` (default: `all`)
 
 Examples:
@@ -69,6 +69,16 @@ To run tests directly on the sources without bundling, use the `src` target (e.g
 * `yarn deploy`
 
 Uses [lerna](https://github.com/lerna/lerna) to publish each build target to npm with [conventional](https://conventionalcommits.org/) [changelogs](https://github.com/conventional-changelog/conventional-changelog/tree/master/packages/conventional-changelog-cli).
+
+* `yarn doc`
+
+Compiles the documentation with [Typedoc](https://typedoc.org/). Use `yarn doc --watch` to automatically rebuild when the docs change.
+
+# Running the Performance Benchmarks
+
+You can run the benchmarks with `yarn perf`. To print the results to stderr as JSON, add the `--json` flag (e.g. `yarn perf --json 2> perf.json`).
+
+You can change the target you want to test by changing the imports in `perf/index.ts`. Note that you need to compile the bundles with `yarn build` before you can import them.
 
 # Updating the Arrow format flatbuffers generated code
 

@@ -64,6 +64,8 @@ const uint8_t utf8_small_table[] = { // NOLINT
 
 uint16_t utf8_large_table[9 * 256] = {0xffff};
 
+const uint8_t utf8_byte_size_table[16] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 3, 4};
+
 static void InitializeLargeTable() {
   for (uint32_t state = 0; state < 9; ++state) {
     for (uint32_t byte = 0; byte < 256; ++byte) {

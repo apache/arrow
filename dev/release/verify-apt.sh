@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
@@ -21,12 +21,14 @@ set -exu
 
 if [ $# -lt 2 ]; then
   echo "Usage: $0 VERSION rc"
-  echo "       $0 VERSION rc BINTRAY_REPOSITORY"
+  echo "       $0 VERSION staging-rc"
   echo "       $0 VERSION release"
+  echo "       $0 VERSION staging-release"
   echo "       $0 VERSION local"
-  echo " e.g.: $0 0.13.0 rc           # Verify 0.13.0 RC"
-  echo " e.g.: $0 0.13.0 release      # Verify 0.13.0"
-  echo " e.g.: $0 0.13.0 rc kszucs/arrow # Verify 0.13.0 RC at https://bintray.com/kszucs/arrow"
+  echo " e.g.: $0 0.13.0 rc                # Verify 0.13.0 RC"
+  echo " e.g.: $0 0.13.0 staging-rc        # Verify 0.13.0 RC on staging"
+  echo " e.g.: $0 0.13.0 release           # Verify 0.13.0"
+  echo " e.g.: $0 0.13.0 staging-release   # Verify 0.13.0 on staging"
   echo " e.g.: $0 0.13.0-dev20210203 local # Verify 0.13.0-dev20210203 on local"
   exit 1
 fi
@@ -36,19 +38,28 @@ TYPE="$2"
 
 local_prefix="/arrow/dev/tasks/linux-packages"
 
+
+echo "::group::Prepare repository"
+
 export DEBIAN_FRONTEND=noninteractive
 
+APT_INSTALL="apt install -y -V --no-install-recommends"
+
 apt update
-apt install -y -V \
+${APT_INSTALL} \
+  ca-certificates \
   curl \
   lsb-release
 
 code_name="$(lsb_release --codename --short)"
 distribution="$(lsb_release --id --short | tr 'A-Z' 'a-z')"
 artifactory_base_url="https://apache.jfrog.io/artifactory/arrow/${distribution}"
-if [ "${TYPE}" = "rc" ]; then
-  artifactory_base_url+="-rc"
-fi
+case "${TYPE}" in
+  rc|staging-rc|staging-release)
+    suffix=${TYPE%-release}
+    artifactory_base_url+="-${suffix}"
+    ;;
+esac
 
 have_flight=yes
 have_plasma=yes
@@ -82,20 +93,14 @@ if [ "${TYPE}" = "local" ]; then
   apt_source_path+="/${distribution}/pool/${code_name}/main"
   apt_source_path+="/a/apache-arrow-apt-source"
   apt_source_path+="/apache-arrow-apt-source_${package_version}_all.deb"
-  apt install -y -V "${apt_source_path}"
+  ${APT_INSTALL} "${apt_source_path}"
 else
   package_version="${VERSION}-1"
   apt_source_base_name="apache-arrow-apt-source-latest-${code_name}.deb"
-  if [ $# -eq 3 ]; then
-    curl \
-      --output "${apt_source_base_name}" \
-      "https://dl.bintray.com/$3/${distribution}-rc/${apt_source_base_name}"
-  else
-    curl \
-      --output "${apt_source_base_name}" \
-      "${artifactory_base_url}/${apt_source_base_name}"
-  fi
-  apt install -y -V "./${apt_source_base_name}"
+  curl \
+    --output "${apt_source_base_name}" \
+    "${artifactory_base_url}/${apt_source_base_name}"
+  ${APT_INSTALL} "./${apt_source_base_name}"
 fi
 
 if [ "${TYPE}" = "local" ]; then
@@ -111,55 +116,79 @@ if [ "${TYPE}" = "local" ]; then
       --import "${keys}"
   fi
 else
-  if [ "${TYPE}" = "rc" ]; then
-    if [ $# -eq 3 ]; then
+  case "${TYPE}" in
+    rc|staging-rc|staging-release)
+      suffix=${TYPE%-release}
       sed \
         -i"" \
-        -e "s,^URIs: .*/,URIs: https://dl.bintray.com/$3/${distribution}-rc/,g" \
+        -e "s,^URIs: \\(.*\\)/,URIs: \\1-${suffix}/,g" \
         /etc/apt/sources.list.d/apache-arrow.sources
-    else
-      sed \
-        -i"" \
-        -e "s,^URIs: \\(.*\\)/,URIs: \\1-rc/,g" \
-        /etc/apt/sources.list.d/apache-arrow.sources
-    fi
-  fi
+      ;;
+  esac
 fi
 
 apt update
 
-apt install -y -V libarrow-glib-dev=${package_version}
+echo "::endgroup::"
+
+
+echo "::group::Test Apache Arrow C++"
+${APT_INSTALL} libarrow-dev=${package_version}
 required_packages=()
 required_packages+=(cmake)
 required_packages+=(g++)
 required_packages+=(git)
+required_packages+=(make)
+required_packages+=(pkg-config)
 required_packages+=(${workaround_missing_packages[@]})
-apt install -y -V ${required_packages[@]}
+${APT_INSTALL} ${required_packages[@]}
 mkdir -p build
 cp -a /arrow/cpp/examples/minimal_build build
 pushd build/minimal_build
 cmake .
 make -j$(nproc)
 ./arrow_example
+c++ -std=c++11 -o arrow_example example.cc $(pkg-config --cflags --libs arrow)
+./arrow_example
 popd
+echo "::endgroup::"
 
-apt install -y -V libarrow-glib-dev=${package_version}
-apt install -y -V libarrow-glib-doc=${package_version}
+
+echo "::group::Test Apache Arrow GLib"
+${APT_INSTALL} libarrow-glib-dev=${package_version}
+${APT_INSTALL} libarrow-glib-doc=${package_version}
+echo "::endgroup::"
+
 
 if [ "${have_flight}" = "yes" ]; then
-  apt install -y -V libarrow-flight-dev=${package_version}
+  echo "::group::Test Apache Arrow Flight"
+  ${APT_INSTALL} libarrow-flight-glib-dev=${package_version}
+  ${APT_INSTALL} libarrow-flight-glib-doc=${package_version}
+  echo "::endgroup::"
 fi
 
-apt install -y -V libarrow-python-dev=${package_version}
+
+echo "::group::Test libarrow-python"
+${APT_INSTALL} libarrow-python-dev=${package_version}
+echo "::endgroup::"
+
 
 if [ "${have_plasma}" = "yes" ]; then
-  apt install -y -V libplasma-glib-dev=${package_version}
-  apt install -y -V libplasma-glib-doc=${package_version}
-  apt install -y -V plasma-store-server=${package_version}
+  echo "::group::Test Plasma"
+  ${APT_INSTALL} libplasma-glib-dev=${package_version}
+  ${APT_INSTALL} libplasma-glib-doc=${package_version}
+  ${APT_INSTALL} plasma-store-server=${package_version}
+  echo "::endgroup::"
 fi
 
-apt install -y -V libgandiva-glib-dev=${package_version}
-apt install -y -V libgandiva-glib-doc=${package_version}
 
-apt install -y -V libparquet-glib-dev=${package_version}
-apt install -y -V libparquet-glib-doc=${package_version}
+echo "::group::Test Gandiva"
+${APT_INSTALL} libgandiva-glib-dev=${package_version}
+${APT_INSTALL} libgandiva-glib-doc=${package_version}
+echo "::endgroup::"
+
+
+echo "::group::Test Parquet"
+${APT_INSTALL} libparquet-glib-dev=${package_version}
+${APT_INSTALL} libparquet-glib-doc=${package_version}
+echo "::endgroup::"

@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Table, DateDay, DateMillisecond } from '../../Arrow';
+import { Table, DateDay, DateMillisecond } from 'apache-arrow';
 
 describe(`DateVector`, () => {
     it('returns days since the epoch as correct JS Dates', () => {

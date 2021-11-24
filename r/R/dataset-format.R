@@ -53,20 +53,33 @@
 #' It returns the appropriate subclass of `FileFormat` (e.g. `ParquetFileFormat`)
 #' @rdname FileFormat
 #' @name FileFormat
+#' @examplesIf arrow_with_dataset() && tolower(Sys.info()[["sysname"]]) != "windows"
+#' ## Semi-colon delimited files
+#' # Set up directory for examples
+#' tf <- tempfile()
+#' dir.create(tf)
+#' on.exit(unlink(tf))
+#' write.table(mtcars, file.path(tf, "file1.txt"), sep = ";", row.names = FALSE)
+#'
+#' # Create FileFormat object
+#' format <- FileFormat$create(format = "text", delimiter = ";")
+#'
+#' open_dataset(tf, format = format)
 #' @export
-FileFormat <- R6Class("FileFormat", inherit = ArrowObject,
+FileFormat <- R6Class("FileFormat",
+  inherit = ArrowObject,
   active = list(
     # @description
     # Return the `FileFormat`'s type
     type = function() dataset___FileFormat__type_name(self)
   )
 )
-FileFormat$create <- function(format, ...) {
+FileFormat$create <- function(format, schema = NULL, ...) {
   opt_names <- names(list(...))
   if (format %in% c("csv", "text") || any(opt_names %in% c("delim", "delimiter"))) {
-    CsvFileFormat$create(...)
+    CsvFileFormat$create(schema = schema, ...)
   } else if (format == c("tsv")) {
-    CsvFileFormat$create(delimiter = "\t", ...)
+    CsvFileFormat$create(delimiter = "\t", schema = schema, ...)
   } else if (format == "parquet") {
     ParquetFileFormat$create(...)
   } else if (format %in% c("ipc", "arrow", "feather")) { # These are aliases for the same thing
@@ -90,8 +103,8 @@ as.character.FileFormat <- function(x, ...) {
 ParquetFileFormat <- R6Class("ParquetFileFormat", inherit = FileFormat)
 ParquetFileFormat$create <- function(...,
                                      dict_columns = character(0)) {
- options <- ParquetFragmentScanOptions$create(...)
- dataset___ParquetFileFormat__Make(options, dict_columns)
+  options <- ParquetFragmentScanOptions$create(...)
+  dataset___ParquetFileFormat__Make(options, dict_columns)
 }
 
 #' @usage NULL
@@ -105,9 +118,10 @@ IpcFileFormat <- R6Class("IpcFileFormat", inherit = FileFormat)
 #' @rdname FileFormat
 #' @export
 CsvFileFormat <- R6Class("CsvFileFormat", inherit = FileFormat)
-CsvFileFormat$create <- function(..., opts = csv_file_format_parse_options(...),
-                                 convert_options = csv_file_format_convert_options(...),
-                                 read_options = csv_file_format_read_options(...)) {
+CsvFileFormat$create <- function(...,
+                                 opts = csv_file_format_parse_options(...),
+                                 convert_options = csv_file_format_convert_opts(...),
+                                 read_options = csv_file_format_read_opts(...)) {
   dataset___CsvFileFormat__Make(opts, convert_options, read_options)
 }
 
@@ -119,6 +133,7 @@ csv_file_format_parse_options <- function(...) {
   read_opts <- names(formals(CsvReadOptions$create))
   opts[convert_opts] <- NULL
   opts[read_opts] <- NULL
+  opts[["schema"]] <- NULL
   opt_names <- names(opts)
   # Catch any readr-style options specified with full option names that are
   # supported by read_delim_arrow() (and its wrappers) but are not yet
@@ -162,18 +177,20 @@ csv_file_format_parse_options <- function(...) {
   ambig_opts <- opt_names[is_ambig_opt]
   if (length(ambig_opts)) {
     stop("Ambiguous ",
-         ngettext(length(ambig_opts), "option", "options"),
-         ": ",
-         oxford_paste(ambig_opts),
-         ". Use full argument names",
-         call. = FALSE)
+      ngettext(length(ambig_opts), "option", "options"),
+      ": ",
+      oxford_paste(ambig_opts),
+      ". Use full argument names",
+      call. = FALSE
+    )
   }
   if (any(is_readr_opt)) {
     # Catch cases when the user specifies a mix of Arrow C++ options and
     # readr-style options
     if (!all(is_readr_opt)) {
       stop("Use either Arrow parse options or readr parse options, not both",
-           call. = FALSE)
+        call. = FALSE
+      )
     }
     do.call(readr_to_csv_parse_options, opts) # all options have readr-style names
   } else {
@@ -181,7 +198,7 @@ csv_file_format_parse_options <- function(...) {
   }
 }
 
-csv_file_format_convert_options <- function(...) {
+csv_file_format_convert_opts <- function(...) {
   opts <- list(...)
   # Filter out arguments meant for CsvParseOptions/CsvReadOptions
   arrow_opts <- names(formals(CsvParseOptions$create))
@@ -190,10 +207,11 @@ csv_file_format_convert_options <- function(...) {
   opts[arrow_opts] <- NULL
   opts[readr_opts] <- NULL
   opts[read_opts] <- NULL
+  opts[["schema"]] <- NULL
   do.call(CsvConvertOptions$create, opts)
 }
 
-csv_file_format_read_options <- function(...) {
+csv_file_format_read_opts <- function(schema = NULL, ...) {
   opts <- list(...)
   # Filter out arguments meant for CsvParseOptions/CsvConvertOptions
   arrow_opts <- names(formals(CsvParseOptions$create))
@@ -202,6 +220,9 @@ csv_file_format_read_options <- function(...) {
   opts[arrow_opts] <- NULL
   opts[readr_opts] <- NULL
   opts[convert_opts] <- NULL
+  if (!is.null(schema)) {
+    opts[["column_names"]] <- names(schema)
+  }
   do.call(CsvReadOptions$create, opts)
 }
 
@@ -235,7 +256,8 @@ csv_file_format_read_options <- function(...) {
 #' @rdname FragmentScanOptions
 #' @name FragmentScanOptions
 #' @export
-FragmentScanOptions <- R6Class("FragmentScanOptions", inherit = ArrowObject,
+FragmentScanOptions <- R6Class("FragmentScanOptions",
+  inherit = ArrowObject,
   active = list(
     # @description
     # Return the `FragmentScanOptions`'s type
@@ -243,7 +265,6 @@ FragmentScanOptions <- R6Class("FragmentScanOptions", inherit = ArrowObject,
   )
 )
 FragmentScanOptions$create <- function(format, ...) {
-  opt_names <- names(list(...))
   if (format %in% c("csv", "text", "tsv")) {
     CsvFragmentScanOptions$create(...)
   } else if (format == "parquet") {
@@ -264,8 +285,8 @@ as.character.FragmentScanOptions <- function(x, ...) {
 #' @export
 CsvFragmentScanOptions <- R6Class("CsvFragmentScanOptions", inherit = FragmentScanOptions)
 CsvFragmentScanOptions$create <- function(...,
-                                          convert_opts = csv_file_format_convert_options(...),
-                                          read_opts = csv_file_format_read_options(...)) {
+                                          convert_opts = csv_file_format_convert_opts(...),
+                                          read_opts = csv_file_format_read_opts(...)) {
   dataset___CsvFragmentScanOptions__Make(convert_opts, read_opts)
 }
 
@@ -276,7 +297,7 @@ CsvFragmentScanOptions$create <- function(...,
 ParquetFragmentScanOptions <- R6Class("ParquetFragmentScanOptions", inherit = FragmentScanOptions)
 ParquetFragmentScanOptions$create <- function(use_buffered_stream = FALSE,
                                               buffer_size = 8196,
-                                              pre_buffer = FALSE) {
+                                              pre_buffer = TRUE) {
   dataset___ParquetFragmentScanOptions__Make(use_buffered_stream, buffer_size, pre_buffer)
 }
 
@@ -284,25 +305,37 @@ ParquetFragmentScanOptions$create <- function(use_buffered_stream = FALSE,
 #'
 #' @description
 #' A `FileWriteOptions` holds write options specific to a `FileFormat`.
-FileWriteOptions <- R6Class("FileWriteOptions", inherit = ArrowObject,
+FileWriteOptions <- R6Class("FileWriteOptions",
+  inherit = ArrowObject,
   public = list(
-    update = function(...) {
+    update = function(table, ...) {
       if (self$type == "parquet") {
-        dataset___ParquetFileWriteOptions__update(self,
-            ParquetWriterProperties$create(...),
-            ParquetArrowWriterProperties$create(...))
+        dataset___ParquetFileWriteOptions__update(
+          self,
+          ParquetWriterProperties$create(table, ...),
+          ParquetArrowWriterProperties$create(...)
+        )
       } else if (self$type == "ipc") {
         args <- list(...)
         if (is.null(args$codec)) {
-          dataset___IpcFileWriteOptions__update1(self,
-              get_ipc_use_legacy_format(args$use_legacy_format),
-              get_ipc_metadata_version(args$metadata_version))
+          dataset___IpcFileWriteOptions__update1(
+            self,
+            get_ipc_use_legacy_format(args$use_legacy_format),
+            get_ipc_metadata_version(args$metadata_version)
+          )
         } else {
-          dataset___IpcFileWriteOptions__update2(self,
-              get_ipc_use_legacy_format(args$use_legacy_format),
-              args$codec,
-              get_ipc_metadata_version(args$metadata_version))
+          dataset___IpcFileWriteOptions__update2(
+            self,
+            get_ipc_use_legacy_format(args$use_legacy_format),
+            args$codec,
+            get_ipc_metadata_version(args$metadata_version)
+          )
         }
+      } else if (self$type == "csv") {
+        dataset___CsvFileWriteOptions__update(
+          self,
+          CsvWriteOptions$create(...)
+        )
       }
       invisible(self)
     }

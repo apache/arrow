@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
@@ -26,14 +26,12 @@ export ARROW_HOME="$(cd "${ARROW_HOME}" && pwd)"
 if [ "$RTOOLS_VERSION" = "35" ]; then
   # Use rtools-backports if building with rtools35
   curl https://raw.githubusercontent.com/r-windows/rtools-backports/master/pacman.conf > /etc/pacman.conf
-  # Update keys: https://www.msys2.org/news/#2020-06-29-new-packagers
-  msys2_repo_base_url=https://repo.msys2.org/msys
-  curl -OSsL "${msys2_repo_base_url}/x86_64/msys2-keyring-r21.b39fb11-1-any.pkg.tar.xz"
-  pacman -U --noconfirm msys2-keyring-r21.b39fb11-1-any.pkg.tar.xz && rm msys2-keyring-r21.b39fb11-1-any.pkg.tar.xz
-  pacman --noconfirm -Scc
   pacman --noconfirm -Syy
   # lib-4.9.3 is for libraries compiled with gcc 4.9 (Rtools 3.5)
   RWINLIB_LIB_DIR="lib-4.9.3"
+  # This is the default (will build for each arch) but we can set up CI to
+  # do these in parallel
+  : ${MINGW_ARCH:="mingw32 mingw64"}
 else
   # Uncomment L38-41 if you're testing a new rtools dependency that hasn't yet sync'd to CRAN
   # curl https://raw.githubusercontent.com/r-windows/rtools-packages/master/pacman.conf > /etc/pacman.conf
@@ -43,7 +41,10 @@ else
 
   pacman --noconfirm -Syy
   RWINLIB_LIB_DIR="lib"
+  : ${MINGW_ARCH:="mingw32 mingw64 ucrt64"}
 fi
+
+export MINGW_ARCH
 
 cp $ARROW_HOME/ci/scripts/PKGBUILD .
 printenv
@@ -61,38 +62,51 @@ cd build
 # This may vary by system/CI provider
 MSYS_LIB_DIR="/c/rtools40"
 
-ls $MSYS_LIB_DIR/mingw64/lib/
-ls $MSYS_LIB_DIR/mingw32/lib/
-
-# Untar the two builds we made
+# Untar the builds we made
 ls *.xz | xargs -n 1 tar -xJf
 mkdir -p $DST_DIR
 # Grab the headers from one, either one is fine
 # (if we're building twice to combine old and new toolchains, this may already exist)
 if [ ! -d $DST_DIR/include ]; then
-  mv mingw64/include $DST_DIR
+  mv $(echo $MINGW_ARCH | cut -d ' ' -f 1)/include $DST_DIR
 fi
 
-# Make the rest of the directory structure
-# lib-4.9.3 is for libraries compiled with gcc 4.9 (Rtools 3.5)
-mkdir -p $DST_DIR/${RWINLIB_LIB_DIR}/x64
-mkdir -p $DST_DIR/${RWINLIB_LIB_DIR}/i386
-# lib is for the new gcc 8 toolchain (Rtools 4.0)
-mkdir -p $DST_DIR/lib/x64
-mkdir -p $DST_DIR/lib/i386
+# mingw64 -> x64
+# mingw32 -> i386
+# ucrt64 -> x64-ucrt
 
-# Move the 64-bit versions of libarrow into the expected location
-mv mingw64/lib/*.a $DST_DIR/${RWINLIB_LIB_DIR}/x64
+if [ -d mingw64/lib/ ]; then
+  ls $MSYS_LIB_DIR/mingw64/lib/
+  # Make the rest of the directory structure
+  # lib-4.9.3 is for libraries compiled with gcc 4.9 (Rtools 3.5)
+  mkdir -p $DST_DIR/${RWINLIB_LIB_DIR}/x64
+  # lib is for the new gcc 8 toolchain (Rtools 4.0)
+  mkdir -p $DST_DIR/lib/x64
+  # Move the 64-bit versions of libarrow into the expected location
+  mv mingw64/lib/*.a $DST_DIR/${RWINLIB_LIB_DIR}/x64
+  # These may be from https://dl.bintray.com/rtools/backports/
+  cp $MSYS_LIB_DIR/mingw64/lib/lib{thrift,snappy}.a $DST_DIR/${RWINLIB_LIB_DIR}/x64
+  # These are from https://dl.bintray.com/rtools/mingw{32,64}/
+  cp $MSYS_LIB_DIR/mingw64/lib/lib{zstd,lz4,crypto,utf8proc,re2,aws*}.a $DST_DIR/lib/x64
+fi
+
 # Same for the 32-bit versions
-mv mingw32/lib/*.a $DST_DIR/${RWINLIB_LIB_DIR}/i386
+if [ -d mingw32/lib/ ]; then
+  ls $MSYS_LIB_DIR/mingw32/lib/
+  mkdir -p $DST_DIR/${RWINLIB_LIB_DIR}/i386
+  mkdir -p $DST_DIR/lib/i386
+  mv mingw32/lib/*.a $DST_DIR/${RWINLIB_LIB_DIR}/i386
+  cp $MSYS_LIB_DIR/mingw32/lib/lib{thrift,snappy}.a $DST_DIR/${RWINLIB_LIB_DIR}/i386
+  cp $MSYS_LIB_DIR/mingw32/lib/lib{zstd,lz4,crypto,utf8proc,re2,aws*}.a $DST_DIR/lib/i386
+fi
 
-# These may be from https://dl.bintray.com/rtools/backports/
-cp $MSYS_LIB_DIR/mingw64/lib/lib{thrift,snappy}.a $DST_DIR/${RWINLIB_LIB_DIR}/x64
-cp $MSYS_LIB_DIR/mingw32/lib/lib{thrift,snappy}.a $DST_DIR/${RWINLIB_LIB_DIR}/i386
-
-# These are from https://dl.bintray.com/rtools/mingw{32,64}/
-cp $MSYS_LIB_DIR/mingw64/lib/lib{zstd,lz4,crypto,utf8proc,re2,aws*}.a $DST_DIR/lib/x64
-cp $MSYS_LIB_DIR/mingw32/lib/lib{zstd,lz4,crypto,utf8proc,re2,aws*}.a $DST_DIR/lib/i386
+# Do the same also for ucrt64
+if [ -d ucrt64/lib/ ]; then
+  ls $MSYS_LIB_DIR/ucrt64/lib/
+  mkdir -p $DST_DIR/lib/x64-ucrt
+  mv ucrt64/lib/*.a $DST_DIR/lib/x64-ucrt
+  cp $MSYS_LIB_DIR/ucrt64/lib/lib{thrift,snappy,zstd,lz4,crypto,utf8proc,re2,aws*}.a $DST_DIR/lib/x64-ucrt
+fi
 
 # Create build artifact
 zip -r ${DST_DIR}.zip $DST_DIR

@@ -151,6 +151,10 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         CStatus Next(CFlightStreamChunk* out)
         CStatus ReadAll(shared_ptr[CTable]* table)
 
+    CResult[shared_ptr[CRecordBatchReader]] MakeRecordBatchReader\
+        " arrow::flight::MakeRecordBatchReader"(
+            shared_ptr[CMetadataRecordBatchReader])
+
     cdef cppclass CMetadataRecordBatchWriter \
             " arrow::flight::MetadataRecordBatchWriter"(CRecordBatchWriter):
         CStatus Begin(shared_ptr[CSchema] schema,
@@ -162,6 +166,8 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
     cdef cppclass CFlightStreamReader \
             " arrow::flight::FlightStreamReader"(CMetadataRecordBatchReader):
         void Cancel()
+        CStatus ReadAllWithStopToken" ReadAll"\
+            (shared_ptr[CTable]* table, const CStopToken& stop_token)
 
     cdef cppclass CFlightMessageReader \
             " arrow::flight::FlightMessageReader"(CMetadataRecordBatchReader):
@@ -207,6 +213,7 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
     cdef cppclass CServerCallContext" arrow::flight::ServerCallContext":
         c_string& peer_identity()
         c_string& peer()
+        c_bool is_cancelled()
         CServerMiddleware* GetMiddleware(const c_string& key)
 
     cdef cppclass CTimeoutDuration" arrow::flight::TimeoutDuration":
@@ -217,6 +224,7 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         CTimeoutDuration timeout
         CIpcWriteOptions write_options
         vector[pair[c_string, c_string]] headers
+        CStopToken stop_token
 
     cdef cppclass CCertKeyPair" arrow::flight::CertKeyPair":
         CCertKeyPair()

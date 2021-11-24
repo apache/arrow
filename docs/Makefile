@@ -69,6 +69,7 @@ help:
 .PHONY: clean
 clean:
 	rm -rf $(BUILDDIR)/*
+	rm -rf source/python/generated/*
 
 .PHONY: html
 html:

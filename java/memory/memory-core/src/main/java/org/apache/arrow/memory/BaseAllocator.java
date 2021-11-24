@@ -715,6 +715,11 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
     return ImmutableConfig.builder();
   }
 
+  @Override
+  public RoundingPolicy getRoundingPolicy() {
+    return roundingPolicy;
+  }
+
   /**
    * Config class of {@link BaseAllocator}.
    */

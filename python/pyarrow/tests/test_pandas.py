@@ -1109,39 +1109,30 @@ class TestConvertDateTimeLikeTypes:
 
     @pytest.mark.parametrize('mask', [
         None,
-        np.array([True, False, False]),
+        np.array([True, False, False, True, False, False]),
     ])
     def test_pandas_datetime_to_date64(self, mask):
         s = pd.to_datetime([
             '2018-05-10T00:00:00',
             '2018-05-11T00:00:00',
             '2018-05-12T00:00:00',
+            '2018-05-10T10:24:01',
+            '2018-05-11T10:24:01',
+            '2018-05-12T10:24:01',
         ])
         arr = pa.Array.from_pandas(s, type=pa.date64(), mask=mask)
 
         data = np.array([
             date(2018, 5, 10),
             date(2018, 5, 11),
-            date(2018, 5, 12)
+            date(2018, 5, 12),
+            date(2018, 5, 10),
+            date(2018, 5, 11),
+            date(2018, 5, 12),
         ])
         expected = pa.array(data, mask=mask, type=pa.date64())
 
         assert arr.equals(expected)
-
-    @pytest.mark.parametrize('mask', [
-        None,
-        np.array([True, False, False])
-    ])
-    def test_pandas_datetime_to_date64_failures(self, mask):
-        s = pd.to_datetime([
-            '2018-05-10T10:24:01',
-            '2018-05-11T10:24:01',
-            '2018-05-12T10:24:01',
-        ])
-
-        expected_msg = 'Timestamp value had non-zero intraday milliseconds'
-        with pytest.raises(pa.ArrowInvalid, match=expected_msg):
-            pa.Array.from_pandas(s, type=pa.date64(), mask=mask)
 
     def test_array_types_date_as_object(self):
         data = [date(2000, 1, 1),
@@ -1504,6 +1495,18 @@ class TestConvertDateTimeLikeTypes:
             expected_schema=schema,
         )
 
+    def test_month_day_nano_interval(self):
+        from pandas.tseries.offsets import DateOffset
+        df = pd.DataFrame({
+            'date_offset': [None,
+                            DateOffset(days=3600, months=3600, microseconds=3,
+                                       nanoseconds=600)]
+        })
+        schema = pa.schema([('date_offset', pa.month_day_nano_interval())])
+        _check_pandas_roundtrip(
+            df,
+            expected_schema=schema)
+
 
 # ----------------------------------------------------------------------
 # Conversion tests for string and binary types.
@@ -1705,7 +1708,7 @@ class TestConvertStringLikeTypes:
         expected = pa.array(list(arr), type=pa.binary(3))
         assert converted.equals(expected)
 
-        mask = np.array([True, False, True])
+        mask = np.array([False, True, False])
         converted = pa.array(arr, type=pa.binary(3), mask=mask)
         expected = pa.array([b'foo', None, b'baz'], type=pa.binary(3))
         assert converted.equals(expected)
@@ -2167,20 +2170,19 @@ class TestConvertListTypes:
         expected[2] = None
         tm.assert_series_equal(arr.to_pandas(), expected)
 
-    @pytest.mark.slow
     @pytest.mark.large_memory
     def test_auto_chunking_on_list_overflow(self):
         # ARROW-9976
-        n = 2**24
+        n = 2**21
         df = pd.DataFrame.from_dict({
-            "a": list(np.zeros((n, 2**7), dtype='uint8')),
+            "a": list(np.zeros((n, 2**10), dtype='uint8')),
             "b": range(n)
         })
         table = pa.Table.from_pandas(df)
 
         column_a = table[0]
         assert column_a.num_chunks == 2
-        assert len(column_a.chunk(0)) == 2**24 - 1
+        assert len(column_a.chunk(0)) == 2**21 - 1
         assert len(column_a.chunk(1)) == 1
 
     def test_map_array_roundtrip(self):
@@ -2356,6 +2358,7 @@ class TestConvertStructTypes:
             {'x': {'xx': 1, 'yy': True}, 'y': 2, 'z': 'foo'},
             {'x': {'xx': 3, 'yy': False}, 'y': 4, 'z': 'bar'}]
 
+    @pytest.mark.slow
     @pytest.mark.large_memory
     def test_from_numpy_large(self):
         # Exercise rechunking + nulls
@@ -4326,8 +4329,8 @@ def make_df_with_timestamps():
     # Not part of what we're testing, just ensuring that the inputs are what we
     # expect.
     assert (df.dateTimeMs.dtype, df.dateTimeNs.dtype) == (
-        # O == object, <M8[ns] == timestamp64[ns]
-        np.dtype("O"), np.dtype("<M8[ns]")
+        # O == object, M8[ns] == timestamp64[ns]
+        np.dtype("O"), np.dtype("M8[ns]")
     )
     return df
 

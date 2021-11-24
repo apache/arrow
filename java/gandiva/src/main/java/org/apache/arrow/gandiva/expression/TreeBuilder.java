@@ -208,6 +208,16 @@ public class TreeBuilder {
     return InNode.makeDecimalInExpr(resultNode, decimalValues, precision, scale);
   }
 
+  public static TreeNode makeInExpressionFloat(TreeNode resultNode,
+                                                Set<Float> floatValues) {
+    return InNode.makeFloatInExpr(resultNode, floatValues);
+  }
+
+  public static TreeNode makeInExpressionDouble(TreeNode resultNode,
+                                                Set<Double> doubleValues) {
+    return InNode.makeDoubleInExpr(resultNode, doubleValues);
+  }
+
   public static TreeNode makeInExpressionString(TreeNode resultNode,
                                                 Set<String> stringValues) {
     return InNode.makeStringInExpr(resultNode, stringValues);

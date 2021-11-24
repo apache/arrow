@@ -28,10 +28,13 @@
 #'
 #' * `dataset`: A `Dataset` or `arrow_dplyr_query` object, as returned by the
 #'    `dplyr` methods on `Dataset`.
-#' * `projection`: A character vector of column names to select
+#' * `projection`: A character vector of column names to select columns or a
+#'    named list of expressions
 #' * `filter`: A `Expression` to filter the scanned rows by, or `TRUE` (default)
 #'    to keep all rows.
 #' * `use_threads`: logical: should scanning use multithreading? Default `TRUE`
+#' * `use_async`: logical: should the async scanner (performs better on
+#'    high-latency/highly parallel filesystems like S3) be used? Default `FALSE`
 #' * `...`: Additional arguments, currently ignored
 #' @section Methods:
 #' `ScannerBuilder` has the following methods:
@@ -42,6 +45,7 @@
 #' - `$UseThreads(threads)`: logical: should the scan use multithreading?
 #' The method's default input is `TRUE`, but you must call the method to enable
 #' multithreading because the scanner default is `FALSE`.
+#' - `$UseAsync(use_async)`: logical: should the async scanner be used?
 #' - `$BatchSize(batch_size)`: integer: Maximum row count of scanned record
 #' batches, default is 32K. If scanned record batches are overflowing memory
 #' then this method can be called to reduce their size.
@@ -53,10 +57,13 @@
 #' @rdname Scanner
 #' @name Scanner
 #' @export
-Scanner <- R6Class("Scanner", inherit = ArrowObject,
+Scanner <- R6Class("Scanner",
+  inherit = ArrowObject,
   public = list(
     ToTable = function() dataset___Scanner__ToTable(self),
-    ScanBatches = function() dataset___Scanner__ScanBatches(self)
+    ScanBatches = function() dataset___Scanner__ScanBatches(self),
+    ToRecordBatchReader = function() dataset___Scanner__ToRecordBatchReader(self),
+    CountRows = function() dataset___Scanner__CountRows(self)
   ),
   active = list(
     schema = function() dataset___Scanner__schema(self)
@@ -66,32 +73,53 @@ Scanner$create <- function(dataset,
                            projection = NULL,
                            filter = TRUE,
                            use_threads = option_use_threads(),
+                           use_async = getOption("arrow.use_async", FALSE),
                            batch_size = NULL,
                            fragment_scan_options = NULL,
                            ...) {
   if (inherits(dataset, "arrow_dplyr_query")) {
-    if (inherits(dataset$.data, "ArrowTabular")) {
-      # To handle mutate() on Table/RecordBatch, we need to collect(as_data_frame=FALSE) now
-      dataset <- dplyr::collect(dataset, as_data_frame = FALSE)
+    if (is_collapsed(dataset)) {
+      # TODO: Is there a way to get a RecordBatchReader rather than evaluating?
+      dataset$.data <- as_adq(dplyr::compute(dataset$.data))$.data
     }
+
+    proj <- c(dataset$selected_columns, dataset$temp_columns)
+
+    if (!is.null(projection)) {
+      if (is.character(projection)) {
+        stopifnot("attempting to project with unknown columns" = all(projection %in% names(proj)))
+        proj <- proj[projection]
+      } else {
+        # TODO: ARROW-13802 accepting lists of Expressions as a projection
+        warning(
+          "Scanner$create(projection = ...) must be a character vector, ",
+          "ignoring the projection argument."
+        )
+      }
+    }
+
+    if (!isTRUE(filter)) {
+      dataset <- set_filters(dataset, filter)
+    }
+
     return(Scanner$create(
       dataset$.data,
-      c(dataset$selected_columns, dataset$temp_columns),
+      proj,
       dataset$filtered_rows,
       use_threads,
+      use_async,
       batch_size,
       fragment_scan_options,
       ...
     ))
   }
-  if (inherits(dataset, c("data.frame", "RecordBatch", "Table"))) {
-    dataset <- InMemoryDataset$create(dataset)
-  }
-  assert_is(dataset, "Dataset")
 
-  scanner_builder <- dataset$NewScan()
+  scanner_builder <- ScannerBuilder$create(dataset)
   if (use_threads) {
     scanner_builder$UseThreads()
+  }
+  if (use_async) {
+    scanner_builder$UseAsync()
   }
   if (!is.null(projection)) {
     scanner_builder$Project(projection)
@@ -111,7 +139,28 @@ Scanner$create <- function(dataset,
 #' @export
 names.Scanner <- function(x) names(x$schema)
 
-ScanTask <- R6Class("ScanTask", inherit = ArrowObject,
+#' @export
+head.Scanner <- function(x, n = 6L, ...) {
+  assert_that(n > 0) # For now
+  dataset___Scanner__head(x, n)
+}
+
+#' @export
+tail.Scanner <- function(x, n = 6L, ...) {
+  assert_that(n > 0) # For now
+  result <- list()
+  batch_num <- 0
+  for (batch in rev(dataset___Scanner__ScanBatches(x))) {
+    batch_num <- batch_num + 1
+    result[[batch_num]] <- tail(batch, n)
+    n <- n - nrow(batch)
+    if (n <= 0) break
+  }
+  Table$create(!!!rev(result))
+}
+
+ScanTask <- R6Class("ScanTask",
+  inherit = ArrowObject,
   public = list(
     Execute = function() dataset___ScanTask__get_batches(self)
   )
@@ -141,9 +190,7 @@ map_batches <- function(X, FUN, ..., .data.frame = TRUE) {
   }
   scanner <- Scanner$create(ensure_group_vars(X))
   FUN <- as_mapper(FUN)
-  # message("Making ScanTasks")
   lapply(scanner$ScanBatches(), function(batch) {
-    # message("Processing Batch")
     # TODO: wrap batch in arrow_dplyr_query with X$selected_columns,
     # X$temp_columns, and X$group_by_vars
     # if X is arrow_dplyr_query, if some other arg (.dplyr?) == TRUE
@@ -155,22 +202,19 @@ map_batches <- function(X, FUN, ..., .data.frame = TRUE) {
 #' @format NULL
 #' @rdname Scanner
 #' @export
-ScannerBuilder <- R6Class("ScannerBuilder", inherit = ArrowObject,
+ScannerBuilder <- R6Class("ScannerBuilder",
+  inherit = ArrowObject,
   public = list(
     Project = function(cols) {
       # cols is either a character vector or a named list of Expressions
       if (is.character(cols)) {
         dataset___ScannerBuilder__ProjectNames(self, cols)
+      } else if (length(cols) == 0) {
+        # Empty projection
+        dataset___ScannerBuilder__ProjectNames(self, character(0))
       } else {
-        # If we have expressions, but they all turn out to be field_refs,
-        # we can still call the simple method
-        field_names <- get_field_names(cols)
-        if (all(nzchar(field_names))) {
-          dataset___ScannerBuilder__ProjectNames(self, field_names)
-        } else {
-          # Else, we are projecting/mutating
-          dataset___ScannerBuilder__ProjectExprs(self, cols, names(cols))
-        }
+        # List of Expressions
+        dataset___ScannerBuilder__ProjectExprs(self, cols, names(cols))
       }
       self
     },
@@ -181,6 +225,10 @@ ScannerBuilder <- R6Class("ScannerBuilder", inherit = ArrowObject,
     },
     UseThreads = function(threads = option_use_threads()) {
       dataset___ScannerBuilder__UseThreads(self, threads)
+      self
+    },
+    UseAsync = function(use_async = TRUE) {
+      dataset___ScannerBuilder__UseAsync(self, use_async)
       self
     },
     BatchSize = function(batch_size) {
@@ -197,6 +245,18 @@ ScannerBuilder <- R6Class("ScannerBuilder", inherit = ArrowObject,
     schema = function() dataset___ScannerBuilder__schema(self)
   )
 )
+ScannerBuilder$create <- function(dataset) {
+  if (inherits(dataset, "RecordBatchReader")) {
+    return(dataset___ScannerBuilder__FromRecordBatchReader(dataset))
+  }
+
+  if (inherits(dataset, c("data.frame", "ArrowTabular"))) {
+    dataset <- InMemoryDataset$create(dataset)
+  }
+  assert_is(dataset, "Dataset")
+
+  dataset$NewScan()
+}
 
 #' @export
 names.ScannerBuilder <- function(x) names(x$schema)

@@ -128,6 +128,19 @@ class PARQUET_EXPORT ColumnReader {
   virtual Type::type type() const = 0;
 
   virtual const ColumnDescriptor* descr() const = 0;
+
+  // Get the encoding that can be exposed by this reader. If it returns
+  // dictionary encoding, then ReadBatchWithDictionary can be used to read data.
+  //
+  // \note API EXPERIMENTAL
+  virtual ExposedEncoding GetExposedEncoding() = 0;
+
+ protected:
+  friend class RowGroupReader;
+  // Set the encoding that can be exposed by this reader.
+  //
+  // \note API EXPERIMENTAL
+  virtual void SetExposedEncoding(ExposedEncoding encoding) = 0;
 };
 
 // API to read values from a single column. This is a main client facing API.
@@ -201,6 +214,36 @@ class TypedColumnReader : public ColumnReader {
   // Skip reading levels
   // Returns the number of levels skipped
   virtual int64_t Skip(int64_t num_rows_to_skip) = 0;
+
+  // Read a batch of repetition levels, definition levels, and indices from the
+  // column. And read the dictionary if a dictionary page is encountered during
+  // reading pages. This API is similar to ReadBatch(), with ability to read
+  // dictionary and indices. It is only valid to call this method  when the reader can
+  // expose dictionary encoding. (i.e., the reader's GetExposedEncoding() returns
+  // DICTIONARY).
+  //
+  // The dictionary is read along with the data page. When there's no data page,
+  // the dictionary won't be returned.
+  //
+  // @param batch_size The batch size to read
+  // @param[out] def_levels The Parquet definition levels.
+  // @param[out] rep_levels The Parquet repetition levels.
+  // @param[out] indices The dictionary indices.
+  // @param[out] indices_read The number of indices read.
+  // @param[out] dict The pointer to dictionary values. It will return nullptr if
+  // there's no data page. Each column chunk only has one dictionary page. The dictionary
+  // is owned by the reader, so the caller is responsible for copying the dictionary
+  // values before the reader gets destroyed.
+  // @param[out] dict_len The dictionary length. It will return 0 if there's no data
+  // page.
+  // @returns: actual number of levels read (see indices_read for number of
+  // indices read
+  //
+  // \note API EXPERIMENTAL
+  virtual int64_t ReadBatchWithDictionary(int64_t batch_size, int16_t* def_levels,
+                                          int16_t* rep_levels, int32_t* indices,
+                                          int64_t* indices_read, const T** dict,
+                                          int32_t* dict_len) = 0;
 };
 
 namespace internal {

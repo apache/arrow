@@ -84,10 +84,7 @@ import static org.apache.arrow.memory.util.LargeMemoryUtil.capAtMaxInt;
  * each time the vector is accessed.
  * Source code generated using FreeMarker template ${.template_name}
  */
-public class UnionVector implements FieldVector {
-
-  private String name;
-  private BufferAllocator allocator;
+public class UnionVector extends AbstractContainerVector implements FieldVector {
   int valueCount;
 
   NonNullableStructVector internalStruct;
@@ -95,13 +92,13 @@ public class UnionVector implements FieldVector {
 
   private StructVector structVector;
   private ListVector listVector;
+  private MapVector mapVector;
 
   private FieldReader reader;
 
   private int singleType = 0;
   private ValueVector singleVector;
 
-  private final CallBack callBack;
   private int typeBufferAllocationSizeInBytes;
 
   private final FieldType fieldType;
@@ -117,14 +114,8 @@ public class UnionVector implements FieldVector {
     return new UnionVector(name, allocator, fieldType, null);
   }
 
-  @Deprecated
-  public UnionVector(String name, BufferAllocator allocator, CallBack callBack) {
-    this(name, allocator, null, callBack);
-  }
-
   public UnionVector(String name, BufferAllocator allocator, FieldType fieldType, CallBack callBack) {
-    this.name = name;
-    this.allocator = allocator;
+    super(name, allocator, callBack);
     this.fieldType = fieldType;
     this.internalStruct = new NonNullableStructVector(
         "internal",
@@ -134,7 +125,6 @@ public class UnionVector implements FieldVector {
         AbstractStructVector.ConflictPolicy.CONFLICT_REPLACE,
         false);
     this.typeBuffer = allocator.getEmpty();
-    this.callBack = callBack;
     this.typeBufferAllocationSizeInBytes = BaseValueVector.INITIAL_VALUE_ALLOCATION * TYPE_WIDTH;
   }
 
@@ -194,8 +184,15 @@ public class UnionVector implements FieldVector {
     typeBuffer.writerIndex(valueCount * TYPE_WIDTH);
   }
 
-  @Override
+  /**
+   * Get the inner vectors.
+   *
+   * @deprecated This API will be removed as the current implementations no longer support inner vectors.
+   *
+   * @return the inner vectors for this field as defined by the TypeLayout
+   */
   @Deprecated
+  @Override
   public List<BufferBacked> getFieldInnerVectors() {
      throw new UnsupportedOperationException("There are no inner vectors. Use geFieldBuffers");
   }
@@ -317,6 +314,31 @@ public class UnionVector implements FieldVector {
       }
     }
     return listVector;
+  }
+
+  public MapVector getMap() {
+    if (mapVector == null) {
+      throw new IllegalArgumentException("No map present. Provide ArrowType argument to create a new vector");
+    }
+    return mapVector;
+  }
+
+  public MapVector getMap(ArrowType arrowType) {
+    return getMap(null, arrowType);
+  }
+
+  public MapVector getMap(String name, ArrowType arrowType) {
+    if (mapVector == null) {
+      int vectorCount = internalStruct.size();
+      mapVector = addOrGet(name, MinorType.MAP, arrowType, MapVector.class);
+      if (internalStruct.size() > vectorCount) {
+        mapVector.allocateNew();
+        if (callBack != null) {
+          callBack.doWork();
+        }
+      }
+    }
+    return mapVector;
   }
 
   public int getTypeValue(int index) {
@@ -474,7 +496,7 @@ public class UnionVector implements FieldVector {
   }
 
   public FieldVector addVector(FieldVector v) {
-    String name = v.getMinorType().name().toLowerCase();
+    final String name = v.getName().isEmpty() ? fieldName(v.getMinorType()) : v.getName();
     Preconditions.checkState(internalStruct.getChild(name) == null, String.format("%s vector already exists", name));
     final FieldVector newVector = internalStruct.addOrGet(name, v.getField().getFieldType(), v.getClass());
     v.makeTransferPair(newVector).transfer();
@@ -489,7 +511,7 @@ public class UnionVector implements FieldVector {
    * Directly put a vector to internalStruct without creating a new one with same type.
    */
   public void directAddVector(FieldVector v) {
-    String name = v.getMinorType().name().toLowerCase();
+    String name = fieldName(v.getMinorType());
     Preconditions.checkState(internalStruct.getChild(name) == null, String.format("%s vector already exists", name));
     internalStruct.putChild(name, v);
     if (callBack != null) {
@@ -502,7 +524,7 @@ public class UnionVector implements FieldVector {
     private final UnionVector to;
 
     public TransferImpl(String name, BufferAllocator allocator, CallBack callBack) {
-      to = new UnionVector(name, allocator, callBack);
+      to = new UnionVector(name, allocator, /* field type */ null, callBack);
       internalStructVectorTransferPair = internalStruct.makeTransferPair(to.internalStruct);
     }
 
@@ -602,8 +624,7 @@ public class UnionVector implements FieldVector {
 
   @Override
   public Iterator<ValueVector> iterator() {
-    List<ValueVector> vectors = org.apache.arrow.util.Collections2.toList(internalStruct.iterator());
-    return vectors.iterator();
+    return internalStruct.iterator();
   }
 
   public ValueVector getVector(int index) {
@@ -647,6 +668,8 @@ public class UnionVector implements FieldVector {
           return getStruct();
         case LIST:
           return getList();
+        case MAP:
+          return getMap(name, arrowType);
         default:
           throw new UnsupportedOperationException("Cannot support type: " + MinorType.values()[typeId]);
       }
@@ -796,5 +819,36 @@ public class UnionVector implements FieldVector {
     @Override
     public String toString() {
       return ValueVectorUtility.getToString(this, 0, getValueCount());
+    }
+
+    @Override
+    public <T extends FieldVector> T addOrGet(String name, FieldType fieldType, Class<T> clazz) {
+      return internalStruct.addOrGet(name, fieldType, clazz);
+    }
+
+    @Override
+    public <T extends FieldVector> T getChild(String name, Class<T> clazz) {
+      return internalStruct.getChild(name, clazz);
+    }
+
+    @Override
+    public VectorWithOrdinal getChildVectorWithOrdinal(String name) {
+      return internalStruct.getChildVectorWithOrdinal(name);
+    }
+
+    @Override
+    public int size() {
+      return internalStruct.size();
+    }
+
+    @Override
+    public void setInitialCapacity(int valueCount, double density) {
+      for (final ValueVector vector : internalStruct) {
+        if (vector instanceof DensityAwareVector) {
+          ((DensityAwareVector) vector).setInitialCapacity(valueCount, density);
+        } else {
+          vector.setInitialCapacity(valueCount);
+        }
+      }
     }
 }

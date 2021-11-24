@@ -29,7 +29,7 @@ The central type in Arrow is the class :class:`arrow::Array`.   An array
 represents a known-length sequence of values all having the same type.
 Internally, those values are represented by one or several buffers, the
 number and meaning of which depend on the array's data type, as documented
-in :doc:`the Arrow data layout specification <../format/Layout>`.
+in :ref:`the Arrow data layout specification <format_layout>`.
 
 Those buffers consist of the value data itself and an optional bitmap buffer
 that indicates which array entries are null values.  The bitmap buffer
@@ -41,14 +41,28 @@ that help you access individual values of the array.
 Building an array
 =================
 
-As Arrow objects are immutable, there are classes provided that help you
-build these objects incrementally from third-party data.  These classes
-are organized in a hierarchy around the :class:`arrow::ArrayBuilder` base class,
-with concrete subclasses tailored for each particular data type.
+Available strategies
+--------------------
 
-For example, to build an array of ``int64_t`` elements, we can use the
-:class:`arrow::Int64Builder` class. In the following example, we build an array
-of the range 1 to 8 where the element that should hold the value 4 is nulled::
+As Arrow objects are immutable, they cannot be populated directly like for
+example a ``std::vector``.  Instead, several strategies can be used:
+
+* if the data already exists in memory with the right layout, you can wrap
+  said memory inside :class:`arrow::Buffer` instances and then construct
+  a :class:`arrow::ArrowData` describing the array;
+
+  .. seealso:: :ref:`cpp_memory_management`
+
+* otherwise, the :class:`arrow::ArrayBuilder` base class and its concrete
+  subclasses help building up array data incrementally, without having to
+  deal with details of the Arrow format yourself.
+
+Using ArrayBuilder and its subclasses
+-------------------------------------
+
+To build an ``Int64`` Arrow array, we can use the :class:`arrow::Int64Builder`
+class. In the following example, we build an array of the range 1 to 8 where
+the element that should hold the value 4 is nulled::
 
    arrow::Int64Builder builder;
    builder.Append(1);
@@ -60,11 +74,11 @@ of the range 1 to 8 where the element that should hold the value 4 is nulled::
    builder.Append(7);
    builder.Append(8);
 
-   std::shared_ptr<arrow::Array> array;
-   arrow::Status st = builder.Finish(&array);
-   if (!st.ok()) {
+   auto maybe_array = builder.Finish();
+   if (!maybe_array.ok()) {
       // ... do something on array building failure
    }
+   std::shared_ptr<arrow::Array> array = *maybe_array;
 
 The resulting Array (which can be casted to the concrete :class:`arrow::Int64Array`
 subclass if you want to access its values) then consists of two
@@ -117,15 +131,14 @@ APIs::
 
    arrow::Int64Builder builder;
    // Make place for 8 values in total
-   builder.Resize(8);
+   builder.Reserve(8);
    // Bulk append the given values (with a null in 4th place as indicated by the
    // validity vector)
    std::vector<bool> validity = {true, true, true, false, true, true, true, true};
    std::vector<int64_t> values = {1, 2, 3, 0, 5, 6, 7, 8};
    builder.AppendValues(values, validity);
 
-   std::shared_ptr<arrow::Array> array;
-   arrow::Status st = builder.Finish(&array);
+   auto maybe_array = builder.Finish();
 
 If you still must append values one by one, some concrete builder subclasses
 have methods marked "Unsafe" that assume the working area has been correctly
@@ -133,7 +146,7 @@ presized, and offer higher performance in exchange::
 
    arrow::Int64Builder builder;
    // Make place for 8 values in total
-   builder.Resize(8);
+   builder.Reserve(8);
    builder.UnsafeAppend(1);
    builder.UnsafeAppend(2);
    builder.UnsafeAppend(3);
@@ -143,9 +156,7 @@ presized, and offer higher performance in exchange::
    builder.UnsafeAppend(7);
    builder.UnsafeAppend(8);
 
-   std::shared_ptr<arrow::Array> array;
-   arrow::Status st = builder.Finish(&array);
-
+   auto maybe_array = builder.Finish();
 
 Size Limitations and Recommendations
 ====================================

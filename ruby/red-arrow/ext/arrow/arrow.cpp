@@ -18,6 +18,7 @@
  */
 
 #include "red-arrow.hpp"
+#include "memory-view.hpp"
 
 #include <ruby.hpp>
 
@@ -78,4 +79,6 @@ extern "C" void Init_arrow() {
   red_arrow::id_jd = rb_intern("jd");
   red_arrow::id_new = rb_intern("new");
   red_arrow::id_to_datetime = rb_intern("to_datetime");
+
+  red_arrow::memory_view::init(mArrow);
 }

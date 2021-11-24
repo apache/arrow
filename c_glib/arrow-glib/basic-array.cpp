@@ -24,6 +24,8 @@
 #include <arrow-glib/error.hpp>
 #include <arrow-glib/type.hpp>
 
+#include <arrow/c/bridge.h>
+
 #include <sstream>
 
 G_BEGIN_DECLS
@@ -166,6 +168,178 @@ G_BEGIN_DECLS
  * #GArrowExtensionArray is a base class for array of user-defined
  * extension types.
  */
+
+typedef struct GArrowEqualOptionsPrivate_ {
+  gboolean approx;
+  arrow::EqualOptions options;
+} GArrowEqualOptionsPrivate;
+
+enum {
+  PROP_APPROX = 1,
+  PROP_NANS_EQUAL,
+  PROP_ABSOLUTE_TOLERANCE,
+};
+
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowEqualOptions,
+                           garrow_equal_options,
+                           G_TYPE_OBJECT)
+
+#define GARROW_EQUAL_OPTIONS_GET_PRIVATE(object) \
+  static_cast<GArrowEqualOptionsPrivate *>(      \
+    garrow_equal_options_get_instance_private(   \
+      GARROW_EQUAL_OPTIONS(object)))
+
+static void
+garrow_equal_options_finalize(GObject *object)
+{
+  auto priv = GARROW_EQUAL_OPTIONS_GET_PRIVATE(object);
+  priv->options.~EqualOptions();
+  G_OBJECT_CLASS(garrow_equal_options_parent_class)->finalize(object);
+}
+
+static void
+garrow_equal_options_set_property(GObject *object,
+                                  guint prop_id,
+                                  const GValue *value,
+                                  GParamSpec *pspec)
+{
+  auto priv = GARROW_EQUAL_OPTIONS_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_APPROX:
+    priv->approx = g_value_get_boolean(value);
+    break;
+  case PROP_NANS_EQUAL:
+    priv->options = priv->options.nans_equal(g_value_get_boolean(value));
+    break;
+  case PROP_ABSOLUTE_TOLERANCE:
+    priv->options = priv->options.atol(g_value_get_double(value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_equal_options_get_property(GObject *object,
+                                  guint prop_id,
+                                  GValue *value,
+                                  GParamSpec *pspec)
+{
+  auto priv = GARROW_EQUAL_OPTIONS_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_APPROX:
+    g_value_set_boolean(value, priv->approx);
+    break;
+  case PROP_NANS_EQUAL:
+    g_value_set_boolean(value, priv->options.nans_equal());
+    break;
+  case PROP_ABSOLUTE_TOLERANCE:
+    g_value_set_double(value, priv->options.atol());
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_equal_options_init(GArrowEqualOptions *object)
+{
+  auto priv = GARROW_EQUAL_OPTIONS_GET_PRIVATE(object);
+  priv->approx = FALSE;
+  new(&priv->options) arrow::EqualOptions;
+  priv->options = arrow::EqualOptions::Defaults();
+}
+
+static void
+garrow_equal_options_class_init(GArrowEqualOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+  gobject_class->finalize     = garrow_equal_options_finalize;
+  gobject_class->set_property = garrow_equal_options_set_property;
+  gobject_class->get_property = garrow_equal_options_get_property;
+
+  auto options = arrow::EqualOptions::Defaults();
+  GParamSpec *spec;
+  /**
+   * GArrowEqualOptions:approx:
+   *
+   * Whether or not approximate comparison is used.
+   *
+   * Since: 5.0.0
+   */
+  spec = g_param_spec_boolean("approx",
+                              "Approx",
+                              "Whether or not approximate comparison is used",
+                              FALSE,
+                              static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_APPROX, spec);
+
+  /**
+   * GArrowEqualOptions:nans-equal:
+   *
+   * Whether or not NaNs are considered equal.
+   *
+   * Since: 5.0.0
+   */
+  spec = g_param_spec_boolean("nans-equal",
+                              "NaNs equal",
+                              "Whether or not NaNs are considered equal",
+                              options.nans_equal(),
+                              static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_NANS_EQUAL, spec);
+
+  /**
+   * GArrowEqualOptions:absolute-tolerance:
+   *
+   * The absolute tolerance for approximate comparison of
+   * floating-point values.
+   *
+   * Since: 5.0.0
+   */
+  spec = g_param_spec_double("absolute-tolerance",
+                             "Absolute tolerance",
+                             "The absolute tolerance for approximate comparison "
+                             "of floating-point values",
+                             -G_MAXDOUBLE,
+                             G_MAXDOUBLE,
+                             options.atol(),
+                             static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_ABSOLUTE_TOLERANCE, spec);
+}
+
+/**
+ * garrow_equal_options_new:
+ *
+ * Returns: A newly created #GArrowEqualOptions.
+ *
+ * Since: 5.0.0
+ */
+GArrowEqualOptions *
+garrow_equal_options_new(void)
+{
+  auto equal_options = g_object_new(GARROW_TYPE_EQUAL_OPTIONS, NULL);
+  return GARROW_EQUAL_OPTIONS(equal_options);
+}
+
+/**
+ * garrow_equal_options_is_approx:
+ * @options: A #GArrowEqualOptions.
+ *
+ * Returns: %TRUE if approximate comparison is used, %FALSE otherwise.
+ *
+ * Since: 5.0.0
+ */
+gboolean
+garrow_equal_options_is_approx(GArrowEqualOptions *options)
+{
+  auto priv = GARROW_EQUAL_OPTIONS_GET_PRIVATE(options);
+  return priv->approx;
+}
+
 
 typedef struct GArrowArrayPrivate_ {
   std::shared_ptr<arrow::Array> array;
@@ -385,6 +559,83 @@ garrow_array_class_init(GArrowArrayClass *klass)
 }
 
 /**
+ * garrow_array_import:
+ * @c_abi_array: (not nullable): A `struct ArrowArray *`.
+ * @data_type: A #GArrowDataType of the C ABI array.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (transfer full) (nullable): An imported #GArrowArray
+ *   on success, %NULL on error.
+ *
+ *   You don't need to release the passed `struct ArrowArray *`,
+ *   even if this function reports an error.
+ *
+ * Since: 6.0.0
+ */
+GArrowArray *
+garrow_array_import(gpointer c_abi_array,
+                    GArrowDataType *data_type,
+                    GError **error)
+{
+  auto arrow_data_type = garrow_data_type_get_raw(data_type);
+  auto arrow_array_result =
+    arrow::ImportArray(static_cast<ArrowArray *>(c_abi_array),
+                       arrow_data_type);
+  if (garrow::check(error, arrow_array_result, "[array][import]")) {
+    return garrow_array_new_raw(&(*arrow_array_result));
+  } else {
+    return NULL;
+  }
+}
+
+/**
+ * garrow_array_export:
+ * @array: A #GArrowArray.
+ * @c_abi_array: (out): Return location for a `struct ArrowArray *`.
+ *   It should be freed with the `ArrowArray::release` callback then
+ *   g_free() when no longer needed.
+ * @c_abi_schema: (out) (nullable): Return location for a
+ *   `struct ArrowSchema *` or %NULL.
+ *   It should be freed with the `ArrowSchema::release` callback then
+ *   g_free() when no longer needed.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE on error.
+ *
+ * Since: 6.0.0
+ */
+gboolean
+garrow_array_export(GArrowArray *array,
+                    gpointer *c_abi_array,
+                    gpointer *c_abi_schema,
+                    GError **error)
+{
+  const auto arrow_array = garrow_array_get_raw(array);
+  *c_abi_array = g_new(ArrowArray, 1);
+  arrow::Status status;
+  if (c_abi_schema) {
+    *c_abi_schema = g_new(ArrowSchema, 1);
+    status = arrow::ExportArray(*arrow_array,
+                                static_cast<ArrowArray *>(*c_abi_array),
+                                static_cast<ArrowSchema *>(*c_abi_schema));
+  } else {
+    status = arrow::ExportArray(*arrow_array,
+                                static_cast<ArrowArray *>(*c_abi_array));
+  }
+  if (garrow::check(error, status, "[array][export]")) {
+    return true;
+  } else {
+    g_free(*c_abi_array);
+    *c_abi_array = nullptr;
+    if (c_abi_schema) {
+      g_free(*c_abi_schema);
+      *c_abi_schema = nullptr;
+    }
+    return false;
+  }
+}
+
+/**
  * garrow_array_equal:
  * @array: A #GArrowArray.
  * @other_array: A #GArrowArray to be compared.
@@ -397,9 +648,38 @@ garrow_array_class_init(GArrowArrayClass *klass)
 gboolean
 garrow_array_equal(GArrowArray *array, GArrowArray *other_array)
 {
+  return garrow_array_equal_options(array, other_array, NULL);
+}
+
+/**
+ * garrow_array_equal_options:
+ * @array: A #GArrowArray.
+ * @other_array: A #GArrowArray to be compared.
+ * @options: (nullable): A #GArrowEqualOptions to custom how to compare.
+ *
+ * Returns: %TRUE if both of them have the same data, %FALSE
+ *   otherwise.
+ *
+ * Since: 5.0.0
+ */
+gboolean
+garrow_array_equal_options(GArrowArray *array,
+                           GArrowArray *other_array,
+                           GArrowEqualOptions *options)
+{
   const auto arrow_array = garrow_array_get_raw(array);
   const auto arrow_other_array = garrow_array_get_raw(other_array);
-  return arrow_array->Equals(arrow_other_array);
+  if (options) {
+    auto is_approx = garrow_equal_options_is_approx(options);
+    const auto arrow_options = garrow_equal_options_get_raw(options);
+    if (is_approx) {
+      return arrow_array->ApproxEquals(arrow_other_array, *arrow_options);
+    } else {
+      return arrow_array->Equals(arrow_other_array, *arrow_options);
+    }
+  } else {
+    return arrow_array->Equals(arrow_other_array);
+  }
 }
 
 /**
@@ -429,6 +709,7 @@ garrow_array_equal_approx(GArrowArray *array, GArrowArray *other_array)
  * @end_index: The end index of @array to be used. The end index of
  *   @other_array is "@other_start_index + (@end_index -
  *   @start_index)".
+ * @options: (nullable): A #GArrowEqualOptions to custom how to compare.
  *
  * Returns: %TRUE if both of them have the same data in the range,
  *   %FALSE otherwise.
@@ -440,14 +721,24 @@ garrow_array_equal_range(GArrowArray *array,
                          gint64 start_index,
                          GArrowArray *other_array,
                          gint64 other_start_index,
-                         gint64 end_index)
+                         gint64 end_index,
+                         GArrowEqualOptions *options)
 {
   const auto arrow_array = garrow_array_get_raw(array);
   const auto arrow_other_array = garrow_array_get_raw(other_array);
-  return arrow_array->RangeEquals(*arrow_other_array,
-                                  start_index,
-                                  end_index,
-                                  other_start_index);
+  if (options) {
+    const auto arrow_options = garrow_equal_options_get_raw(options);
+    return arrow_array->RangeEquals(arrow_other_array,
+                                    start_index,
+                                    end_index,
+                                    other_start_index,
+                                    *arrow_options);
+  } else {
+    return arrow_array->RangeEquals(arrow_other_array,
+                                    start_index,
+                                    end_index,
+                                    other_start_index);
+  }
 }
 
 /**
@@ -2847,6 +3138,13 @@ garrow_extension_array_get_storage(GArrowExtensionArray *array)
 
 
 G_END_DECLS
+
+arrow::EqualOptions *
+garrow_equal_options_get_raw(GArrowEqualOptions *equal_options)
+{
+  auto priv = GARROW_EQUAL_OPTIONS_GET_PRIVATE(equal_options);
+  return &(priv->options);
+}
 
 GArrowArray *
 garrow_array_new_raw(std::shared_ptr<arrow::Array> *arrow_array)

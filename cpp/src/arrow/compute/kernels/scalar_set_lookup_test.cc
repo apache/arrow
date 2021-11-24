@@ -47,18 +47,24 @@ namespace compute {
 // ----------------------------------------------------------------------
 // IsIn tests
 
-void CheckIsIn(const std::shared_ptr<DataType>& type, const std::string& input_json,
-               const std::string& value_set_json, const std::string& expected_json,
+void CheckIsIn(const std::shared_ptr<Array> input,
+               const std::shared_ptr<Array>& value_set, const std::string& expected_json,
                bool skip_nulls = false) {
-  auto input = ArrayFromJSON(type, input_json);
-  auto value_set = ArrayFromJSON(type, value_set_json);
   auto expected = ArrayFromJSON(boolean(), expected_json);
 
   ASSERT_OK_AND_ASSIGN(Datum actual_datum,
                        IsIn(input, SetLookupOptions(value_set, skip_nulls)));
   std::shared_ptr<Array> actual = actual_datum.make_array();
-  ASSERT_OK(actual->ValidateFull());
+  ValidateOutput(actual_datum);
   AssertArraysEqual(*expected, *actual, /*verbose=*/true);
+}
+
+void CheckIsIn(const std::shared_ptr<DataType>& type, const std::string& input_json,
+               const std::string& value_set_json, const std::string& expected_json,
+               bool skip_nulls = false) {
+  auto input = ArrayFromJSON(type, input_json);
+  auto value_set = ArrayFromJSON(type, value_set_json);
+  CheckIsIn(input, value_set, expected_json, skip_nulls);
 }
 
 void CheckIsInChunked(const std::shared_ptr<ChunkedArray>& input,
@@ -68,7 +74,7 @@ void CheckIsInChunked(const std::shared_ptr<ChunkedArray>& input,
   ASSERT_OK_AND_ASSIGN(Datum actual_datum,
                        IsIn(input, SetLookupOptions(value_set, skip_nulls)));
   auto actual = actual_datum.chunked_array();
-  ASSERT_OK(actual->ValidateFull());
+  ValidateOutput(actual_datum);
   AssertChunkedEqual(*expected, *actual);
 }
 
@@ -89,7 +95,7 @@ void CheckIsInDictionary(const std::shared_ptr<DataType>& type,
   ASSERT_OK_AND_ASSIGN(Datum actual_datum,
                        IsIn(input, SetLookupOptions(value_set, skip_nulls)));
   std::shared_ptr<Array> actual = actual_datum.make_array();
-  ASSERT_OK(actual->ValidateFull());
+  ValidateOutput(actual_datum);
   AssertArraysEqual(*expected, *actual, /*verbose=*/true);
 }
 
@@ -119,6 +125,22 @@ TEST_F(TestIsInKernel, ImplicitlyCastValueSet) {
   // fails; value_set cannot be cast to int8
   opts = SetLookupOptions{ArrayFromJSON(float32(), "[2.5, 3.1, 5.0]")};
   ASSERT_RAISES(Invalid, CallFunction("is_in", {input}, &opts));
+
+  // Allow implicit casts between binary types...
+  CheckIsIn(ArrayFromJSON(binary(), R"(["aaa", "bbb", "ccc", null, "bbb"])"),
+            ArrayFromJSON(fixed_size_binary(3), R"(["aaa", "bbb"])"),
+            "[true, true, false, false, true]");
+  CheckIsIn(ArrayFromJSON(utf8(), R"(["aaa", "bbb", "ccc", null, "bbb"])"),
+            ArrayFromJSON(large_utf8(), R"(["aaa", "bbb"])"),
+            "[true, true, false, false, true]");
+  // But explicitly deny implicit casts from non-binary to utf8 to
+  // avoid surprises
+  ASSERT_RAISES(Invalid,
+                IsIn(ArrayFromJSON(utf8(), R"(["aaa", "bbb", "ccc", null, "bbb"])"),
+                     SetLookupOptions(ArrayFromJSON(float64(), "[1.0, 2.0]"))));
+  ASSERT_RAISES(Invalid,
+                IsIn(ArrayFromJSON(large_utf8(), R"(["aaa", "bbb", "ccc", null, "bbb"])"),
+                     SetLookupOptions(ArrayFromJSON(float64(), "[1.0, 2.0]"))));
 }
 
 template <typename Type>
@@ -157,6 +179,13 @@ TYPED_TEST(TestIsInKernelPrimitive, IsIn) {
   CheckIsIn(type, "[null, 1, 2, 3, 2]", "[2, null, 1]",
             "[false, true, true, false, true]", /*skip_nulls=*/true);
 
+  // Duplicates in right array
+  CheckIsIn(type, "[null, 1, 2, 3, 2]", "[null, 2, 2, null, 1, 1]",
+            "[true, true, true, false, true]",
+            /*skip_nulls=*/false);
+  CheckIsIn(type, "[null, 1, 2, 3, 2]", "[null, 2, 2, null, 1, 1]",
+            "[false, true, true, false, true]", /*skip_nulls=*/true);
+
   // Empty Arrays
   CheckIsIn(type, "[]", "[]", "[]");
 }
@@ -170,16 +199,40 @@ TEST_F(TestIsInKernel, NullType) {
 
   CheckIsIn(type, "[null, null]", "[null]", "[false, false]", /*skip_nulls=*/true);
   CheckIsIn(type, "[null, null]", "[]", "[false, false]", /*skip_nulls=*/true);
+
+  // Duplicates in right array
+  CheckIsIn(type, "[null, null, null]", "[null, null]", "[true, true, true]");
+  CheckIsIn(type, "[null, null]", "[null, null]", "[false, false]", /*skip_nulls=*/true);
 }
 
 TEST_F(TestIsInKernel, TimeTimestamp) {
   for (const auto& type :
-       {time32(TimeUnit::SECOND), time64(TimeUnit::NANO), timestamp(TimeUnit::MICRO)}) {
+       {time32(TimeUnit::SECOND), time64(TimeUnit::NANO), timestamp(TimeUnit::MICRO),
+        timestamp(TimeUnit::NANO, "UTC")}) {
     CheckIsIn(type, "[1, null, 5, 1, 2]", "[2, 1, null]",
               "[true, true, false, true, true]", /*skip_nulls=*/false);
     CheckIsIn(type, "[1, null, 5, 1, 2]", "[2, 1, null]",
               "[true, false, false, true, true]", /*skip_nulls=*/true);
+
+    // Duplicates in right array
+    CheckIsIn(type, "[1, null, 5, 1, 2]", "[2, 1, 1, null, 2]",
+              "[true, true, false, true, true]", /*skip_nulls=*/false);
+    CheckIsIn(type, "[1, null, 5, 1, 2]", "[2, 1, 1, null, 2]",
+              "[true, false, false, true, true]", /*skip_nulls=*/true);
   }
+
+  // Disallow mixing timezone-aware and timezone-naive values
+  ASSERT_RAISES(Invalid, IsIn(ArrayFromJSON(timestamp(TimeUnit::SECOND), "[0, 1, 2]"),
+                              SetLookupOptions(ArrayFromJSON(
+                                  timestamp(TimeUnit::SECOND, "UTC"), "[0, 2]"))));
+  ASSERT_RAISES(
+      Invalid,
+      IsIn(ArrayFromJSON(timestamp(TimeUnit::SECOND, "UTC"), "[0, 1, 2]"),
+           SetLookupOptions(ArrayFromJSON(timestamp(TimeUnit::SECOND), "[0, 2]"))));
+  // However, mixed timezones are allowed (underlying value is UTC)
+  CheckIsIn(ArrayFromJSON(timestamp(TimeUnit::SECOND, "UTC"), "[0, 1, 2]"),
+            ArrayFromJSON(timestamp(TimeUnit::SECOND, "America/New_York"), "[0, 2]"),
+            "[true, false, true]");
 }
 
 TEST_F(TestIsInKernel, Boolean) {
@@ -194,9 +247,15 @@ TEST_F(TestIsInKernel, Boolean) {
             "[false, true, true, false, true]", /*skip_nulls=*/false);
   CheckIsIn(type, "[true, false, null, true, false]", "[false, null]",
             "[false, true, false, false, true]", /*skip_nulls=*/true);
+
+  // Duplicates in right array
+  CheckIsIn(type, "[true, false, null, true, false]", "[null, false, false, null]",
+            "[false, true, true, false, true]", /*skip_nulls=*/false);
+  CheckIsIn(type, "[true, false, null, true, false]", "[null, false, false, null]",
+            "[false, true, false, false, true]", /*skip_nulls=*/true);
 }
 
-TYPED_TEST_SUITE(TestIsInKernelBinary, BinaryTypes);
+TYPED_TEST_SUITE(TestIsInKernelBinary, BaseBinaryArrowTypes);
 
 TYPED_TEST(TestIsInKernelBinary, Binary) {
   auto type = TypeTraits<TypeParam>::type_singleton();
@@ -213,6 +272,14 @@ TYPED_TEST(TestIsInKernelBinary, Binary) {
             /*skip_nulls=*/false);
   CheckIsIn(type, R"(["aaa", "", "cc", null, ""])", R"(["aaa", "", null])",
             "[true, true, false, false, true]",
+            /*skip_nulls=*/true);
+
+  // Duplicates in right array
+  CheckIsIn(type, R"(["aaa", "", "cc", null, ""])",
+            R"([null, "aaa", "aaa", "", "", null])", "[true, true, false, true, true]",
+            /*skip_nulls=*/false);
+  CheckIsIn(type, R"(["aaa", "", "cc", null, ""])",
+            R"([null, "aaa", "aaa", "", "", null])", "[true, true, false, false, true]",
             /*skip_nulls=*/true);
 }
 
@@ -232,24 +299,51 @@ TEST_F(TestIsInKernel, FixedSizeBinary) {
   CheckIsIn(type, R"(["aaa", "bbb", "ccc", null, "bbb"])", R"(["aaa", "bbb", null])",
             "[true, true, false, false, true]",
             /*skip_nulls=*/true);
+
+  // Duplicates in right array
+  CheckIsIn(type, R"(["aaa", "bbb", "ccc", null, "bbb"])",
+            R"(["aaa", null, "aaa", "bbb", "bbb", null])",
+            "[true, true, false, true, true]",
+            /*skip_nulls=*/false);
+  CheckIsIn(type, R"(["aaa", "bbb", "ccc", null, "bbb"])",
+            R"(["aaa", null, "aaa", "bbb", "bbb", null])",
+            "[true, true, false, false, true]",
+            /*skip_nulls=*/true);
+
+  ASSERT_RAISES(Invalid,
+                IsIn(ArrayFromJSON(fixed_size_binary(3), R"(["abc"])"),
+                     SetLookupOptions(ArrayFromJSON(fixed_size_binary(2), R"(["ab"])"))));
 }
 
 TEST_F(TestIsInKernel, Decimal) {
-  auto type = decimal(3, 1);
+  for (auto type : {decimal128(3, 1), decimal256(3, 1)}) {
+    CheckIsIn(type, R"(["12.3", "45.6", "78.9", null, "12.3"])", R"(["12.3", "78.9"])",
+              "[true, false, true, false, true]",
+              /*skip_nulls=*/false);
+    CheckIsIn(type, R"(["12.3", "45.6", "78.9", null, "12.3"])", R"(["12.3", "78.9"])",
+              "[true, false, true, false, true]",
+              /*skip_nulls=*/true);
 
-  CheckIsIn(type, R"(["12.3", "45.6", "78.9", null, "12.3"])", R"(["12.3", "78.9"])",
-            "[true, false, true, false, true]",
-            /*skip_nulls=*/false);
-  CheckIsIn(type, R"(["12.3", "45.6", "78.9", null, "12.3"])", R"(["12.3", "78.9"])",
-            "[true, false, true, false, true]",
-            /*skip_nulls=*/true);
+    CheckIsIn(type, R"(["12.3", "45.6", "78.9", null, "12.3"])",
+              R"(["12.3", "78.9", null])", "[true, false, true, true, true]",
+              /*skip_nulls=*/false);
+    CheckIsIn(type, R"(["12.3", "45.6", "78.9", null, "12.3"])",
+              R"(["12.3", "78.9", null])", "[true, false, true, false, true]",
+              /*skip_nulls=*/true);
 
-  CheckIsIn(type, R"(["12.3", "45.6", "78.9", null, "12.3"])",
-            R"(["12.3", "78.9", null])", "[true, false, true, true, true]",
-            /*skip_nulls=*/false);
-  CheckIsIn(type, R"(["12.3", "45.6", "78.9", null, "12.3"])",
-            R"(["12.3", "78.9", null])", "[true, false, true, false, true]",
-            /*skip_nulls=*/true);
+    // Duplicates in right array
+    CheckIsIn(type, R"(["12.3", "45.6", "78.9", null, "12.3"])",
+              R"([null, "12.3", "12.3", "78.9", "78.9", null])",
+              "[true, false, true, true, true]",
+              /*skip_nulls=*/false);
+    CheckIsIn(type, R"(["12.3", "45.6", "78.9", null, "12.3"])",
+              R"([null, "12.3", "12.3", "78.9", "78.9", null])",
+              "[true, false, true, false, true]",
+              /*skip_nulls=*/true);
+
+    CheckIsIn(ArrayFromJSON(decimal128(4, 2), R"(["12.30", "45.60", "78.90"])"),
+              ArrayFromJSON(type, R"(["12.3", "78.9"])"), "[true, false, true]");
+  }
 }
 
 TEST_F(TestIsInKernel, DictionaryArray) {
@@ -314,6 +408,29 @@ TEST_F(TestIsInKernel, DictionaryArray) {
                         /*value_set_json=*/R"(["C", "B", "A"])",
                         /*expected_json=*/"[false, false, false, true, false]",
                         /*skip_nulls=*/true);
+
+    // With duplicates in value_set
+    CheckIsInDictionary(/*type=*/utf8(),
+                        /*index_type=*/index_ty,
+                        /*input_dictionary_json=*/R"(["A", "B", "C", "D"])",
+                        /*input_index_json=*/"[1, 2, null, 0]",
+                        /*value_set_json=*/R"(["A", "A", "B", "A", "B", "C"])",
+                        /*expected_json=*/"[true, true, false, true]",
+                        /*skip_nulls=*/false);
+    CheckIsInDictionary(/*type=*/utf8(),
+                        /*index_type=*/index_ty,
+                        /*input_dictionary_json=*/R"(["A", "B", "C", "D"])",
+                        /*input_index_json=*/"[1, 3, null, 0, 1]",
+                        /*value_set_json=*/R"(["C", "C", "B", "A", null, null, "B"])",
+                        /*expected_json=*/"[true, false, true, true, true]",
+                        /*skip_nulls=*/false);
+    CheckIsInDictionary(/*type=*/utf8(),
+                        /*index_type=*/index_ty,
+                        /*input_dictionary_json=*/R"(["A", "B", "C", "D"])",
+                        /*input_index_json=*/"[1, 3, null, 0, 1]",
+                        /*value_set_json=*/R"(["C", "C", "B", "A", null, null, "B"])",
+                        /*expected_json=*/"[true, false, false, true, true]",
+                        /*skip_nulls=*/true);
   }
 }
 
@@ -335,6 +452,16 @@ TEST_F(TestIsInKernel, ChunkedArrayInvoke) {
   expected = ChunkedArrayFromJSON(
       boolean(), {"[false, true, true, false, false]", "[true, false, false, false]"});
   CheckIsInChunked(input, value_set, expected, /*skip_nulls=*/true);
+
+  // Duplicates in value_set
+  value_set =
+      ChunkedArrayFromJSON(utf8(), {R"(["", null, "", "def"])", R"(["def", null])"});
+  expected = ChunkedArrayFromJSON(
+      boolean(), {"[false, true, true, false, false]", "[true, true, false, false]"});
+  CheckIsInChunked(input, value_set, expected, /*skip_nulls=*/false);
+  expected = ChunkedArrayFromJSON(
+      boolean(), {"[false, true, true, false, false]", "[true, false, false, false]"});
+  CheckIsInChunked(input, value_set, expected, /*skip_nulls=*/true);
 }
 
 // ----------------------------------------------------------------------
@@ -342,18 +469,24 @@ TEST_F(TestIsInKernel, ChunkedArrayInvoke) {
 
 class TestIndexInKernel : public ::testing::Test {
  public:
-  void CheckIndexIn(const std::shared_ptr<DataType>& type, const std::string& input_json,
-                    const std::string& value_set_json, const std::string& expected_json,
-                    bool skip_nulls = false) {
-    std::shared_ptr<Array> input = ArrayFromJSON(type, input_json);
-    std::shared_ptr<Array> value_set = ArrayFromJSON(type, value_set_json);
+  void CheckIndexIn(const std::shared_ptr<Array>& input,
+                    const std::shared_ptr<Array>& value_set,
+                    const std::string& expected_json, bool skip_nulls = false) {
     std::shared_ptr<Array> expected = ArrayFromJSON(int32(), expected_json);
 
     SetLookupOptions options(value_set, skip_nulls);
     ASSERT_OK_AND_ASSIGN(Datum actual_datum, IndexIn(input, options));
     std::shared_ptr<Array> actual = actual_datum.make_array();
-    ASSERT_OK(actual->ValidateFull());
+    ValidateOutput(actual_datum);
     AssertArraysEqual(*expected, *actual, /*verbose=*/true);
+  }
+
+  void CheckIndexIn(const std::shared_ptr<DataType>& type, const std::string& input_json,
+                    const std::string& value_set_json, const std::string& expected_json,
+                    bool skip_nulls = false) {
+    std::shared_ptr<Array> input = ArrayFromJSON(type, input_json);
+    std::shared_ptr<Array> value_set = ArrayFromJSON(type, value_set_json);
+    return CheckIndexIn(input, value_set, expected_json, skip_nulls);
   }
 
   void CheckIndexInChunked(const std::shared_ptr<ChunkedArray>& input,
@@ -363,7 +496,7 @@ class TestIndexInKernel : public ::testing::Test {
     ASSERT_OK_AND_ASSIGN(Datum actual,
                          IndexIn(input, SetLookupOptions(value_set, skip_nulls)));
     ASSERT_EQ(Datum::CHUNKED_ARRAY, actual.kind());
-    ASSERT_OK(actual.chunked_array()->ValidateFull());
+    ValidateOutput(actual);
     AssertChunkedEqual(*expected, *actual.chunked_array());
   }
 
@@ -385,7 +518,7 @@ class TestIndexInKernel : public ::testing::Test {
     SetLookupOptions options(value_set, skip_nulls);
     ASSERT_OK_AND_ASSIGN(Datum actual_datum, IndexIn(input, options));
     std::shared_ptr<Array> actual = actual_datum.make_array();
-    ASSERT_OK(actual->ValidateFull());
+    ValidateOutput(actual_datum);
     AssertArraysEqual(*expected, *actual, /*verbose=*/true);
   }
 };
@@ -439,6 +572,18 @@ TYPED_TEST(TestIndexInKernelPrimitive, IndexIn) {
                      /* value_set= */ "[null]",
                      /* expected= */ "[0, 0, 0, 0]");
 
+  // Duplicates in value_set
+  this->CheckIndexIn(type,
+                     /* input= */ "[2, 1, 2, 1, 2, 3]",
+                     /* value_set= */ "[2, 2, 1, 1, 1, 3, 3]",
+                     /* expected= */ "[0, 2, 0, 2, 0, 5]");
+
+  // Duplicates and nulls in value_set
+  this->CheckIndexIn(type,
+                     /* input= */ "[2, 1, 2, 1, 2, 3]",
+                     /* value_set= */ "[2, 2, null, null, 1, 1, 1, 3, 3]",
+                     /* expected= */ "[0, 4, 0, 4, 0, 7]");
+
   // No Match
   this->CheckIndexIn(type,
                      /* input= */ "[2, null, 7, 3, 8]",
@@ -463,6 +608,17 @@ TYPED_TEST(TestIndexInKernelPrimitive, SkipNulls) {
                      /*value_set=*/"[1, 3]",
                      /*expected=*/"[null, 0, null, 1, null]",
                      /*skip_nulls=*/true);
+  // Same with duplicates in value_set
+  this->CheckIndexIn(type,
+                     /*input=*/"[0, 1, 2, 3, null]",
+                     /*value_set=*/"[1, 1, 3, 3]",
+                     /*expected=*/"[null, 0, null, 2, null]",
+                     /*skip_nulls=*/false);
+  this->CheckIndexIn(type,
+                     /*input=*/"[0, 1, 2, 3, null]",
+                     /*value_set=*/"[1, 1, 3, 3]",
+                     /*expected=*/"[null, 0, null, 2, null]",
+                     /*skip_nulls=*/true);
 
   // Nulls in value_set
   this->CheckIndexIn(type,
@@ -472,9 +628,15 @@ TYPED_TEST(TestIndexInKernelPrimitive, SkipNulls) {
                      /*skip_nulls=*/false);
   this->CheckIndexIn(type,
                      /*input=*/"[0, 1, 2, 3, null]",
-                     /*value_set=*/"[1, null, 3]",
-                     /*expected=*/"[null, 0, null, 2, null]",
+                     /*value_set=*/"[1, 1, null, null, 3, 3]",
+                     /*expected=*/"[null, 0, null, 4, null]",
                      /*skip_nulls=*/true);
+  // Same with duplicates in value_set
+  this->CheckIndexIn(type,
+                     /*input=*/"[0, 1, 2, 3, null]",
+                     /*value_set=*/"[1, 1, null, null, 3, 3]",
+                     /*expected=*/"[null, 0, null, 4, 2]",
+                     /*skip_nulls=*/false);
 }
 
 TEST_F(TestIndexInKernel, NullType) {
@@ -492,6 +654,12 @@ TEST_F(TestIndexInKernel, TimeTimestamp) {
                /* input= */ "[1, null, 5, 1, 2]",
                /* value_set= */ "[2, 1, null]",
                /* expected= */ "[1, 2, null, 1, 0]");
+
+  // Duplicates in value_set
+  CheckIndexIn(time32(TimeUnit::SECOND),
+               /* input= */ "[1, null, 5, 1, 2]",
+               /* value_set= */ "[2, 2, 1, 1, null, null]",
+               /* expected= */ "[2, 4, null, 2, 0]");
 
   // Needles array has no nulls
   CheckIndexIn(time32(TimeUnit::SECOND),
@@ -511,6 +679,9 @@ TEST_F(TestIndexInKernel, TimeTimestamp) {
   CheckIndexIn(timestamp(TimeUnit::NANO), "[2, null, 2, 1]", "[2, null, 1]",
                "[0, 1, 0, 2]");
 
+  CheckIndexIn(timestamp(TimeUnit::SECOND, "UTC"), "[2, null, 2, 1]", "[2, null, 1]",
+               "[0, 1, 0, 2]");
+
   // Empty input array
   CheckIndexIn(timestamp(TimeUnit::NANO), "[]", "[2, null, 1]", "[]");
 
@@ -520,6 +691,19 @@ TEST_F(TestIndexInKernel, TimeTimestamp) {
   // Both array are all null
   CheckIndexIn(time32(TimeUnit::SECOND), "[null, null, null, null]", "[null]",
                "[0, 0, 0, 0]");
+
+  // Disallow mixing timezone-aware and timezone-naive values
+  ASSERT_RAISES(Invalid, IndexIn(ArrayFromJSON(timestamp(TimeUnit::SECOND), "[0, 1, 2]"),
+                                 SetLookupOptions(ArrayFromJSON(
+                                     timestamp(TimeUnit::SECOND, "UTC"), "[0, 2]"))));
+  ASSERT_RAISES(
+      Invalid,
+      IndexIn(ArrayFromJSON(timestamp(TimeUnit::SECOND, "UTC"), "[0, 1, 2]"),
+              SetLookupOptions(ArrayFromJSON(timestamp(TimeUnit::SECOND), "[0, 2]"))));
+  // However, mixed timezones are allowed (underlying value is UTC)
+  CheckIndexIn(ArrayFromJSON(timestamp(TimeUnit::SECOND, "UTC"), "[0, 1, 2]"),
+               ArrayFromJSON(timestamp(TimeUnit::SECOND, "America/New_York"), "[0, 2]"),
+               "[0, null, 1]");
 }
 
 TEST_F(TestIndexInKernel, Boolean) {
@@ -530,6 +714,10 @@ TEST_F(TestIndexInKernel, Boolean) {
 
   CheckIndexIn(boolean(), "[false, null, false, true]", "[false, true, null]",
                "[0, 2, 0, 1]");
+
+  // Duplicates in value_set
+  CheckIndexIn(boolean(), "[false, null, false, true]",
+               "[false, false, true, true, null, null]", "[0, 4, 0, 2]");
 
   // No Nulls
   CheckIndexIn(boolean(), "[true, true, false, true]", "[false, true]", "[1, 1, 0, 1]");
@@ -555,12 +743,16 @@ TEST_F(TestIndexInKernel, Boolean) {
 template <typename Type>
 class TestIndexInKernelBinary : public TestIndexInKernel {};
 
-TYPED_TEST_SUITE(TestIndexInKernelBinary, BinaryTypes);
+TYPED_TEST_SUITE(TestIndexInKernelBinary, BaseBinaryArrowTypes);
 
 TYPED_TEST(TestIndexInKernelBinary, Binary) {
   auto type = TypeTraits<TypeParam>::type_singleton();
   this->CheckIndexIn(type, R"(["foo", null, "bar", "foo"])", R"(["foo", null, "bar"])",
                      R"([0, 1, 2, 0])");
+
+  // Duplicates in value_set
+  this->CheckIndexIn(type, R"(["foo", null, "bar", "foo"])",
+                     R"(["foo", "foo", null, null, "bar", "bar"])", R"([0, 2, 4, 0])");
 
   // No match
   this->CheckIndexIn(type,
@@ -653,6 +845,17 @@ TEST_F(TestIndexInKernel, FixedSizeBinary) {
                /*expected=*/R"([1, null, null, 0, 2, 0])",
                /*skip_nulls=*/true);
 
+  // Duplicates in value_set
+  CheckIndexIn(fixed_size_binary(3),
+               /*input=*/R"(["bbb", null, "ddd", "aaa", "ccc", "aaa"])",
+               /*value_set=*/R"(["aaa", "aaa", null, null, "bbb", "bbb", "ccc"])",
+               /*expected=*/R"([4, 2, null, 0, 6, 0])");
+  CheckIndexIn(fixed_size_binary(3),
+               /*input=*/R"(["bbb", null, "ddd", "aaa", "ccc", "aaa"])",
+               /*value_set=*/R"(["aaa", "aaa", null, null, "bbb", "bbb", "ccc"])",
+               /*expected=*/R"([4, null, null, 0, 6, 0])",
+               /*skip_nulls=*/true);
+
   // Empty input array
   CheckIndexIn(fixed_size_binary(5), R"([])", R"(["bbbbb", null, "aaaaa", "ccccc"])",
                R"([])");
@@ -663,32 +866,76 @@ TEST_F(TestIndexInKernel, FixedSizeBinary) {
 
   // Empty arrays
   CheckIndexIn(fixed_size_binary(0), R"([])", R"([])", R"([])");
+
+  ASSERT_RAISES(
+      Invalid,
+      IndexIn(ArrayFromJSON(fixed_size_binary(3), R"(["abc"])"),
+              SetLookupOptions(ArrayFromJSON(fixed_size_binary(2), R"(["ab"])"))));
+}
+
+TEST_F(TestIndexInKernel, MonthDayNanoInterval) {
+  auto type = month_day_nano_interval();
+
+  CheckIndexIn(type,
+               /*input=*/R"([[5, -1, 5], null, [4, 5, 6], [5, -1, 5], [1, 2, 3]])",
+               /*value_set=*/R"([null, [4, 5, 6], [5, -1, 5]])",
+               /*expected=*/R"([2, 0, 1, 2, null])",
+               /*skip_nulls=*/false);
+
+  // Duplicates in value_set
+  CheckIndexIn(
+      type,
+      /*input=*/R"([[7, 8, 0], null, [0, 0, 0], [7, 8, 0], [0, 0, 1]])",
+      /*value_set=*/R"([null, null, [0, 0, 0], [0, 0, 0], [7, 8, 0], [7, 8, 0]])",
+      /*expected=*/R"([4, 0, 2, 4, null])",
+      /*skip_nulls=*/false);
 }
 
 TEST_F(TestIndexInKernel, Decimal) {
-  auto type = decimal(2, 0);
+  for (const auto& type : {decimal128(2, 0), decimal256(2, 0)}) {
+    CheckIndexIn(type,
+                 /*input=*/R"(["12", null, "11", "12", "13"])",
+                 /*value_set=*/R"([null, "11", "12"])",
+                 /*expected=*/R"([2, 0, 1, 2, null])",
+                 /*skip_nulls=*/false);
+    CheckIndexIn(type,
+                 /*input=*/R"(["12", null, "11", "12", "13"])",
+                 /*value_set=*/R"([null, "11", "12"])",
+                 /*expected=*/R"([2, null, 1, 2, null])",
+                 /*skip_nulls=*/true);
 
-  CheckIndexIn(type,
-               /*input=*/R"(["12", null, "11", "12", "13"])",
-               /*value_set=*/R"([null, "11", "12"])",
-               /*expected=*/R"([2, 0, 1, 2, null])",
-               /*skip_nulls=*/false);
-  CheckIndexIn(type,
-               /*input=*/R"(["12", null, "11", "12", "13"])",
-               /*value_set=*/R"([null, "11", "12"])",
-               /*expected=*/R"([2, null, 1, 2, null])",
-               /*skip_nulls=*/true);
+    CheckIndexIn(type,
+                 /*input=*/R"(["12", null, "11", "12", "13"])",
+                 /*value_set=*/R"(["11", "12"])",
+                 /*expected=*/R"([1, null, 0, 1, null])",
+                 /*skip_nulls=*/false);
+    CheckIndexIn(type,
+                 /*input=*/R"(["12", null, "11", "12", "13"])",
+                 /*value_set=*/R"(["11", "12"])",
+                 /*expected=*/R"([1, null, 0, 1, null])",
+                 /*skip_nulls=*/true);
 
-  CheckIndexIn(type,
-               /*input=*/R"(["12", null, "11", "12", "13"])",
-               /*value_set=*/R"(["11", "12"])",
-               /*expected=*/R"([1, null, 0, 1, null])",
-               /*skip_nulls=*/false);
-  CheckIndexIn(type,
-               /*input=*/R"(["12", null, "11", "12", "13"])",
-               /*value_set=*/R"(["11", "12"])",
-               /*expected=*/R"([1, null, 0, 1, null])",
-               /*skip_nulls=*/true);
+    // Duplicates in value_set
+    CheckIndexIn(type,
+                 /*input=*/R"(["12", null, "11", "12", "13"])",
+                 /*value_set=*/R"([null, null, "11", "11", "12", "12"])",
+                 /*expected=*/R"([4, 0, 2, 4, null])",
+                 /*skip_nulls=*/false);
+    CheckIndexIn(type,
+                 /*input=*/R"(["12", null, "11", "12", "13"])",
+                 /*value_set=*/R"([null, null, "11", "11", "12", "12"])",
+                 /*expected=*/R"([4, null, 2, 4, null])",
+                 /*skip_nulls=*/true);
+    CheckIndexIn(type,
+                 /*input=*/R"(["12", null, "11", "12", "13"])",
+                 /*value_set=*/R"([null, "11", "12"])",
+                 /*expected=*/R"([2, 0, 1, 2, null])",
+                 /*skip_nulls=*/false);
+
+    CheckIndexIn(
+        ArrayFromJSON(decimal256(3, 1), R"(["12.0", null, "11.0", "12.0", "13.0"])"),
+        ArrayFromJSON(type, R"([null, "11", "12"])"), R"([2, 0, 1, 2, null])");
+  }
 }
 
 TEST_F(TestIndexInKernel, DictionaryArray) {
@@ -753,6 +1000,29 @@ TEST_F(TestIndexInKernel, DictionaryArray) {
                            /*value_set_json=*/R"(["C", "B", "A"])",
                            /*expected_json=*/"[null, null, null, 2, null]",
                            /*skip_nulls=*/true);
+
+    // With duplicates in value_set
+    CheckIndexInDictionary(/*type=*/utf8(),
+                           /*index_type=*/index_ty,
+                           /*input_dictionary_json=*/R"(["A", "B", "C", "D"])",
+                           /*input_index_json=*/"[1, 2, null, 0]",
+                           /*value_set_json=*/R"(["A", "A", "B", "B", "C", "C"])",
+                           /*expected_json=*/"[2, 4, null, 0]",
+                           /*skip_nulls=*/false);
+    CheckIndexInDictionary(/*type=*/utf8(),
+                           /*index_type=*/index_ty,
+                           /*input_dictionary_json=*/R"(["A", null, "C", "D"])",
+                           /*input_index_json=*/"[1, 3, null, 0, 1]",
+                           /*value_set_json=*/R"(["C", "C", "B", "B", "A", "A", null])",
+                           /*expected_json=*/"[6, null, 6, 4, 6]",
+                           /*skip_nulls=*/false);
+    CheckIndexInDictionary(/*type=*/utf8(),
+                           /*index_type=*/index_ty,
+                           /*input_dictionary_json=*/R"(["A", null, "C", "D"])",
+                           /*input_index_json=*/"[1, 3, null, 0, 1]",
+                           /*value_set_json=*/R"(["C", "C", "B", "B", "A", "A", null])",
+                           /*expected_json=*/"[null, null, null, 4, null]",
+                           /*skip_nulls=*/true);
   }
 }
 
@@ -772,6 +1042,14 @@ TEST_F(TestIndexInKernel, ChunkedArrayInvoke) {
   expected = ChunkedArrayFromJSON(int32(), {"[3, 1, 0, 3, null]", "[1, 2, 3, null]"});
   CheckIndexInChunked(input, value_set, expected, /*skip_nulls=*/false);
   expected = ChunkedArrayFromJSON(int32(), {"[3, 1, 0, 3, null]", "[1, null, 3, null]"});
+  CheckIndexInChunked(input, value_set, expected, /*skip_nulls=*/true);
+
+  // Duplicates in value_set
+  value_set = ChunkedArrayFromJSON(
+      utf8(), {R"(["ghi", "ghi", "def"])", R"(["def", null, null, "abc"])"});
+  expected = ChunkedArrayFromJSON(int32(), {"[6, 2, 0, 6, null]", "[2, 4, 6, null]"});
+  CheckIndexInChunked(input, value_set, expected, /*skip_nulls=*/false);
+  expected = ChunkedArrayFromJSON(int32(), {"[6, 2, 0, 6, null]", "[2, null, 6, null]"});
   CheckIndexInChunked(input, value_set, expected, /*skip_nulls=*/true);
 }
 

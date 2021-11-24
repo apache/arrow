@@ -23,7 +23,6 @@ import java.util.Iterator;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.ReferenceManager;
-import org.apache.arrow.memory.util.CommonUtil;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.util.DataSizeRoundingUtil;
 import org.apache.arrow.vector.util.TransferPair;
@@ -141,7 +140,7 @@ public abstract class BaseValueVector implements ValueVector {
     } else {
       bufferSize += DataSizeRoundingUtil.roundUpTo8Multiple((long) valueCount * typeWidth);
     }
-    return CommonUtil.nextPowerOfTwo(bufferSize);
+    return allocator.getRoundingPolicy().getRoundedSize(bufferSize);
   }
 
   /**
@@ -174,7 +173,7 @@ public abstract class BaseValueVector implements ValueVector {
     if (typeWidth == 0) {
       validityBufferSize = dataBufferSize = bufferSize / 2;
     } else {
-      // Due to roundup to power-of-2 allocation, the bufferSize could be greater than the
+      // Due to the rounding policy, the bufferSize could be greater than the
       // requested size. Utilize the allocated buffer fully.;
       long actualCount = (long) ((bufferSize * 8.0) / (8 * typeWidth + 1));
       do {

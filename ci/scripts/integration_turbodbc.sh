@@ -17,7 +17,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -e
+set -ex
 
 source_dir=${1}
 build_dir=${2}/turbodbc
@@ -31,7 +31,7 @@ mkdir -p ${build_dir}
 pushd ${build_dir}
 
 cmake -DCMAKE_INSTALL_PREFIX=${ARROW_HOME} \
-      -DCMAKE_CXX_FLAGS=${CXXFLAGS} \
+      -DCMAKE_CXX_FLAGS="${CXXFLAGS}" \
       -DPYTHON_EXECUTABLE=$(which python) \
       -GNinja \
       ${source_dir}
@@ -39,7 +39,7 @@ ninja install
 
 # TODO(ARROW-5074)
 export LD_LIBRARY_PATH="${ARROW_HOME}/lib:${LD_LIBRARY_PATH}"
-export ODBCSYSINI="${source_dir}/travis/odbc/"
+export ODBCSYSINI="${source_dir}/earthly/odbc/"
 
 service postgresql start
 ctest --output-on-failure

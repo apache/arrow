@@ -151,12 +151,12 @@ types, this conversion can be disabled (so that \code{int64} always yields a
 \code{bit64::integer64} object) by setting \code{options(arrow.int64_downcast = FALSE)}.
 }
 \examples{
-\donttest{
+\dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 bool()
 struct(a = int32(), b = double())
 timestamp("ms", timezone = "CEST")
 time64("ns")
-}
+\dontshow{\}) # examplesIf}
 }
 \seealso{
 \code{\link[=dictionary]{dictionary()}} for creating a dictionary (factor-like) type.

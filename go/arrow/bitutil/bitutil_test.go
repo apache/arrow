@@ -21,8 +21,8 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/apache/arrow/go/arrow/bitutil"
-	"github.com/apache/arrow/go/arrow/internal/testing/tools"
+	"github.com/apache/arrow/go/v7/arrow/bitutil"
+	"github.com/apache/arrow/go/v7/arrow/internal/testing/tools"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -193,6 +193,39 @@ func TestCountSetBitsOffset(t *testing.T) {
 		got := bitutil.CountSetBits(buf, offset, nbits-offset)
 		if got != want {
 			t.Errorf("offset[%2d/%2d]=%5d. got=%5d, want=%5d", i+1, len(offsets), offset, got, want)
+		}
+	}
+}
+
+func TestSetBitsTo(t *testing.T) {
+	for _, fillByte := range []byte{0x00, 0xFF} {
+		{
+			// set within a byte
+			bm := []byte{fillByte, fillByte, fillByte, fillByte}
+			bitutil.SetBitsTo(bm, 2, 2, true)
+			bitutil.SetBitsTo(bm, 4, 2, false)
+			assert.Equal(t, []byte{(fillByte &^ 0x3C) | 0xC}, bm[:1])
+		}
+		{
+			// test straddling a single byte boundary
+			bm := []byte{fillByte, fillByte, fillByte, fillByte}
+			bitutil.SetBitsTo(bm, 4, 7, true)
+			bitutil.SetBitsTo(bm, 11, 7, false)
+			assert.Equal(t, []byte{(fillByte & 0xF) | 0xF0, 0x7, fillByte &^ 0x3}, bm[:3])
+		}
+		{
+			// test byte aligned end
+			bm := []byte{fillByte, fillByte, fillByte, fillByte}
+			bitutil.SetBitsTo(bm, 4, 4, true)
+			bitutil.SetBitsTo(bm, 8, 8, false)
+			assert.Equal(t, []byte{(fillByte & 0xF) | 0xF0, 0x00, fillByte}, bm[:3])
+		}
+		{
+			// test byte aligned end, multiple bytes
+			bm := []byte{fillByte, fillByte, fillByte, fillByte}
+			bitutil.SetBitsTo(bm, 0, 24, false)
+			falseByte := byte(0)
+			assert.Equal(t, []byte{falseByte, falseByte, falseByte, fillByte}, bm)
 		}
 	}
 }

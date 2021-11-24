@@ -22,12 +22,14 @@ module Arrow
     def format_header(text, columns)
     end
 
-    def format_rows(text, columns, rows, n_digits, start_offset)
+    def format_rows(text, column_formatters, rows, n_digits, start_offset)
       rows.each_with_index do |row, nth_row|
         text << ("=" * 20 + " #{start_offset + nth_row} " + "=" * 20 + "\n")
         row.each_with_index do |column_value, nth_column|
-          column = columns[nth_column]
-          text << "#{column.name}: #{column_value}\n"
+          column_formatter = column_formatters[nth_column]
+          formatted_name = column_formatter.name
+          formatted_value = column_formatter.format_value(column_value)
+          text << "#{formatted_name}: #{formatted_value}\n"
         end
       end
     end

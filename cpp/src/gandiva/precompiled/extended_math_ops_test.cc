@@ -120,6 +120,24 @@ TEST(TestExtendedMathOps, TestRoundDecimal) {
   VerifyFuzzyEquals(round_float64_int32((double)INT_MIN - 1, 0), (double)INT_MIN - 1);
 }
 
+TEST(TestExtendedMathOps, TestBRoundDecimal) {
+  EXPECT_DOUBLE_EQ(bround_float64(0.0), 0);
+  EXPECT_DOUBLE_EQ(bround_float64(2.5), 2);
+  EXPECT_DOUBLE_EQ(bround_float64(3.5), 4);
+  EXPECT_DOUBLE_EQ(bround_float64(-2.5), -2);
+  EXPECT_DOUBLE_EQ(bround_float64(-3.5), -4);
+  EXPECT_DOUBLE_EQ(bround_float64(1.4999999), 1);
+  EXPECT_DOUBLE_EQ(bround_float64(1.50001), 2);
+  EXPECT_EQ(std::signbit(bround_float64(0)), 0);
+
+  VerifyFuzzyEquals(bround_float64(2.5), 2);
+  VerifyFuzzyEquals(bround_float64(3.5), 4);
+  VerifyFuzzyEquals(bround_float64(-2.5), -2);
+  VerifyFuzzyEquals(bround_float64(-3.5), -4);
+  VerifyFuzzyEquals(bround_float64(1.4999999), 1);
+  VerifyFuzzyEquals(bround_float64(1.50001), 2);
+}
+
 TEST(TestExtendedMathOps, TestRound) {
   EXPECT_EQ(round_int32(21134), 21134);
   EXPECT_EQ(round_int32(-132422), -132422);
@@ -273,4 +291,77 @@ TEST(TestExtendedMathOps, TestTrigonometricFunctions) {
   VerifyFuzzyEquals(cot_float64(M_PI / 2), tan(M_PI / 2 - M_PI / 2));
 }
 
+TEST(TestExtendedMathOps, TestBinRepresentation) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+  gdv_int32 out_len = 0;
+
+  const char* out_str = bin_int32(ctx_ptr, 7, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "111");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = bin_int32(ctx_ptr, 0, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "0");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = bin_int32(ctx_ptr, 28550, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "110111110000110");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = bin_int32(ctx_ptr, -28550, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "11111111111111111001000001111010");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = bin_int32(ctx_ptr, 58117, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "1110001100000101");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = bin_int32(ctx_ptr, -58117, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "11111111111111110001110011111011");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = bin_int32(ctx_ptr, INT32_MAX, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "1111111111111111111111111111111");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = bin_int32(ctx_ptr, INT32_MIN, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "10000000000000000000000000000000");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = bin_int64(ctx_ptr, 7, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "111");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = bin_int64(ctx_ptr, 0, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "0");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = bin_int64(ctx_ptr, 28550, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "110111110000110");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = bin_int64(ctx_ptr, -28550, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len),
+            "1111111111111111111111111111111111111111111111111001000001111010");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = bin_int64(ctx_ptr, 58117, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "1110001100000101");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = bin_int64(ctx_ptr, -58117, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len),
+            "1111111111111111111111111111111111111111111111110001110011111011");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = bin_int64(ctx_ptr, INT64_MAX, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len),
+            "111111111111111111111111111111111111111111111111111111111111111");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = bin_int64(ctx_ptr, INT64_MIN, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len),
+            "1000000000000000000000000000000000000000000000000000000000000000");
+  EXPECT_FALSE(ctx.has_error());
+}
 }  // namespace gandiva

@@ -185,6 +185,66 @@ class ARROW_PYTHON_EXPORT OwnedRefNoGIL : public OwnedRef {
   }
 };
 
+template <typename Fn>
+struct BoundFunction;
+
+template <typename... Args>
+struct BoundFunction<void(PyObject*, Args...)> {
+  // We bind `cdef void fn(object, ...)` to get a `Status(...)`
+  // where the Status contains any Python error raised by `fn`
+  using Unbound = void(PyObject*, Args...);
+  using Bound = Status(Args...);
+
+  BoundFunction(Unbound* unbound, PyObject* bound_arg)
+      : bound_arg_(bound_arg), unbound_(unbound) {}
+
+  Status Invoke(Args... args) const {
+    PyAcquireGIL lock;
+    unbound_(bound_arg_.obj(), std::forward<Args>(args)...);
+    RETURN_IF_PYERROR();
+    return Status::OK();
+  }
+
+  Unbound* unbound_;
+  OwnedRefNoGIL bound_arg_;
+};
+
+template <typename Return, typename... Args>
+struct BoundFunction<Return(PyObject*, Args...)> {
+  // We bind `cdef Return fn(object, ...)` to get a `Result<Return>(...)`
+  // where the Result contains any Python error raised by `fn` or the
+  // return value from `fn`.
+  using Unbound = Return(PyObject*, Args...);
+  using Bound = Result<Return>(Args...);
+
+  BoundFunction(Unbound* unbound, PyObject* bound_arg)
+      : bound_arg_(bound_arg), unbound_(unbound) {}
+
+  Result<Return> Invoke(Args... args) const {
+    PyAcquireGIL lock;
+    Return ret = unbound_(bound_arg_.obj(), std::forward<Args>(args)...);
+    RETURN_IF_PYERROR();
+    return ret;
+  }
+
+  Unbound* unbound_;
+  OwnedRefNoGIL bound_arg_;
+};
+
+template <typename OutFn, typename Return, typename... Args>
+std::function<OutFn> BindFunction(Return (*unbound)(PyObject*, Args...),
+                                  PyObject* bound_arg) {
+  using Fn = BoundFunction<Return(PyObject*, Args...)>;
+
+  static_assert(std::is_same<typename Fn::Bound, OutFn>::value,
+                "requested bound function of unsupported type");
+
+  Py_XINCREF(bound_arg);
+  auto bound_fn = std::make_shared<Fn>(unbound, bound_arg);
+  return
+      [bound_fn](Args... args) { return bound_fn->Invoke(std::forward<Args>(args)...); };
+}
+
 // A temporary conversion of a Python object to a bytes area.
 struct PyBytesView {
   const char* bytes;

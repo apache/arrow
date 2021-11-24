@@ -18,6 +18,7 @@
 #pragma once
 
 #include <cstdint>
+
 #include "gandiva/gdv_function_stubs.h"
 
 // Use the same names as in arrow data types. Makes it easy to write pre-processor macros.
@@ -75,6 +76,8 @@ gdv_int32 hash32_buf(const gdv_uint8* buf, int len, gdv_int32 seed);
 gdv_int64 hash64(double val, gdv_int64 seed);
 gdv_int64 hash64_buf(const gdv_uint8* buf, int len, gdv_int64 seed);
 
+gdv_int32 timestampdiffMonth_timestamp_timestamp(gdv_timestamp, gdv_timestamp);
+
 gdv_int64 timestampaddSecond_int32_timestamp(gdv_int32, gdv_timestamp);
 gdv_int64 timestampaddMinute_int32_timestamp(gdv_int32, gdv_timestamp);
 gdv_int64 timestampaddHour_int32_timestamp(gdv_int32, gdv_timestamp);
@@ -83,6 +86,15 @@ gdv_int64 timestampaddWeek_int32_timestamp(gdv_int32, gdv_timestamp);
 gdv_int64 timestampaddMonth_int32_timestamp(gdv_int32, gdv_timestamp);
 gdv_int64 timestampaddQuarter_int32_timestamp(gdv_int32, gdv_timestamp);
 gdv_int64 timestampaddYear_int32_timestamp(gdv_int32, gdv_timestamp);
+
+gdv_int64 timestampaddSecond_timestamp_int32(gdv_timestamp, gdv_int32);
+gdv_int64 timestampaddMinute_timestamp_int32(gdv_timestamp, gdv_int32);
+gdv_int64 timestampaddHour_timestamp_int32(gdv_timestamp, gdv_int32);
+gdv_int64 timestampaddDay_timestamp_int32(gdv_timestamp, gdv_int32);
+gdv_int64 timestampaddWeek_timestamp_int32(gdv_timestamp, gdv_int32);
+gdv_int64 timestampaddMonth_timestamp_int32(gdv_timestamp, gdv_int32);
+gdv_int64 timestampaddQuarter_timestamp_int32(gdv_timestamp, gdv_int32);
+gdv_int64 timestampaddYear_timestamp_int32(gdv_timestamp, gdv_int32);
 
 gdv_int64 timestampaddSecond_int64_timestamp(gdv_int64, gdv_timestamp);
 gdv_int64 timestampaddMinute_int64_timestamp(gdv_int64, gdv_timestamp);
@@ -93,15 +105,36 @@ gdv_int64 timestampaddMonth_int64_timestamp(gdv_int64, gdv_timestamp);
 gdv_int64 timestampaddQuarter_int64_timestamp(gdv_int64, gdv_timestamp);
 gdv_int64 timestampaddYear_int64_timestamp(gdv_int64, gdv_timestamp);
 
+gdv_int64 timestampaddSecond_timestamp_int64(gdv_timestamp, gdv_int64);
+gdv_int64 timestampaddMinute_timestamp_int64(gdv_timestamp, gdv_int64);
+gdv_int64 timestampaddHour_timestamp_int64(gdv_timestamp, gdv_int64);
+gdv_int64 timestampaddDay_timestamp_int64(gdv_timestamp, gdv_int64);
+gdv_int64 timestampaddWeek_timestamp_int64(gdv_timestamp, gdv_int64);
+gdv_int64 timestampaddMonth_timestamp_int64(gdv_timestamp, gdv_int64);
+gdv_int64 timestampaddQuarter_timestamp_int64(gdv_timestamp, gdv_int64);
+gdv_int64 timestampaddYear_timestamp_int64(gdv_timestamp, gdv_int64);
+
 gdv_int64 date_add_int32_timestamp(gdv_int32, gdv_timestamp);
 gdv_int64 add_int64_timestamp(gdv_int64, gdv_timestamp);
 gdv_int64 add_int32_timestamp(gdv_int32, gdv_timestamp);
 gdv_int64 date_add_int64_timestamp(gdv_int64, gdv_timestamp);
 gdv_timestamp add_date64_int64(gdv_date64, gdv_int64);
 
+gdv_timestamp to_timestamp_int32(gdv_int32);
+gdv_timestamp to_timestamp_int64(gdv_int64);
+gdv_timestamp to_timestamp_float32(gdv_float32);
+gdv_timestamp to_timestamp_float64(gdv_float64);
+
+gdv_time32 to_time_int32(gdv_int32);
+gdv_time32 to_time_int64(gdv_int64);
+gdv_time32 to_time_float32(gdv_float32);
+gdv_time32 to_time_float64(gdv_float64);
+
 gdv_int64 date_sub_timestamp_int32(gdv_timestamp, gdv_int32);
 gdv_int64 subtract_timestamp_int32(gdv_timestamp, gdv_int32);
 gdv_int64 date_diff_timestamp_int64(gdv_timestamp, gdv_int64);
+
+gdv_boolean castBIT_utf8(gdv_int64 context, const char* data, gdv_int32 data_len);
 
 bool is_distinct_from_timestamp_timestamp(gdv_int64, bool, gdv_int64, bool);
 bool is_not_distinct_from_int32_int32(gdv_int32, bool, gdv_int32, bool);
@@ -134,6 +167,7 @@ gdv_float64 div_float64_float64(gdv_int64 context, gdv_float64 in1, gdv_float64 
 
 gdv_float32 round_float32(gdv_float32);
 gdv_float64 round_float64(gdv_float64);
+gdv_float64 bround_float64(gdv_float64);
 gdv_float32 round_float32_int32(gdv_float32 number, gdv_int32 out_scale);
 gdv_float64 round_float64_int32(gdv_float64 number, gdv_int32 out_scale);
 gdv_float64 get_scale_multiplier(gdv_int32);
@@ -142,6 +176,9 @@ gdv_int64 round_int64_int32(gdv_int64 number, gdv_int32 precision);
 gdv_int32 round_int32(gdv_int32);
 gdv_int64 round_int64(gdv_int64);
 gdv_int64 get_power_of_10(gdv_int32);
+
+const char* bin_int32(int64_t context, gdv_int32 value, int32_t* out_len);
+const char* bin_int64(int64_t context, gdv_int64 value, int32_t* out_len);
 
 gdv_float64 cbrt_int32(gdv_int32);
 gdv_float64 cbrt_int64(gdv_int64);
@@ -257,6 +294,9 @@ gdv_date64 last_day_from_timestamp(gdv_date64 millis);
 
 gdv_int64 truncate_int64_int32(gdv_int64 in, gdv_int32 out_scale);
 
+const char* repeat_utf8_int32(gdv_int64 context, const char* in, gdv_int32 in_len,
+                              gdv_int32 repeat_times, gdv_int32* out_len);
+
 const char* substr_utf8_int64_int64(gdv_int64 context, const char* input,
                                     gdv_int32 in_len, gdv_int64 offset64,
                                     gdv_int64 length, gdv_int32* out_len);
@@ -277,6 +317,8 @@ const char* concat_utf8_utf8_utf8_utf8(gdv_int64 context, const char* in1,
                                        gdv_int32 in3_len, bool in3_validity,
                                        const char* in4, gdv_int32 in4_len,
                                        bool in4_validity, gdv_int32* out_len);
+const char* space_int32(gdv_int64 ctx, gdv_int32 n, int32_t* out_len);
+const char* space_int64(gdv_int64 ctx, gdv_int64 n, int32_t* out_len);
 const char* concat_utf8_utf8_utf8_utf8_utf8(
     gdv_int64 context, const char* in1, gdv_int32 in1_len, bool in1_validity,
     const char* in2, gdv_int32 in2_len, bool in2_validity, const char* in3,
@@ -369,12 +411,21 @@ const char* concatOperator_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8(
     gdv_int32 in8_len, const char* in9, gdv_int32 in9_len, const char* in10,
     gdv_int32 in10_len, gdv_int32* out_len);
 
+const char* castVARCHAR_binary_int64(gdv_int64 context, const char* data,
+                                     gdv_int32 data_len, int64_t out_len,
+                                     int32_t* out_length);
+
 const char* castVARCHAR_utf8_int64(gdv_int64 context, const char* data,
                                    gdv_int32 data_len, int64_t out_len,
                                    int32_t* out_length);
 
-const char* lower_utf8(gdv_int64 context, const char* data, gdv_int32 data_len,
-                       int32_t* out_length);
+const char* castVARBINARY_utf8_int64(gdv_int64 context, const char* data,
+                                     gdv_int32 data_len, int64_t out_len,
+                                     int32_t* out_length);
+
+const char* castVARBINARY_binary_int64(gdv_int64 context, const char* data,
+                                       gdv_int32 data_len, int64_t out_len,
+                                       int32_t* out_length);
 
 const char* reverse_utf8(gdv_int64 context, const char* data, gdv_int32 data_len,
                          int32_t* out_len);
@@ -400,12 +451,31 @@ const char* btrim_utf8_utf8(gdv_int64 context, const char* basetext,
                             gdv_int32 basetext_len, const char* trimtext,
                             gdv_int32 trimtext_len, int32_t* out_len);
 
+gdv_int32 ascii_utf8(const char* data, gdv_int32 data_len);
+
 gdv_int32 locate_utf8_utf8(gdv_int64 context, const char* sub_str, gdv_int32 sub_str_len,
                            const char* str, gdv_int32 str_len);
+
+gdv_int32 strpos_utf8_utf8(gdv_int64 context, const char* str, gdv_int32 str_len,
+                           const char* sub_str, gdv_int32 sub_str_len);
 
 gdv_int32 locate_utf8_utf8_int32(gdv_int64 context, const char* sub_str,
                                  gdv_int32 sub_str_len, const char* str,
                                  gdv_int32 str_len, gdv_int32 start_pos);
+
+const char* lpad_utf8_int32_utf8(gdv_int64 context, const char* text, gdv_int32 text_len,
+                                 gdv_int32 return_length, const char* fill_text,
+                                 gdv_int32 fill_text_len, gdv_int32* out_len);
+
+const char* rpad_utf8_int32_utf8(gdv_int64 context, const char* text, gdv_int32 text_len,
+                                 gdv_int32 return_length, const char* fill_text,
+                                 gdv_int32 fill_text_len, gdv_int32* out_len);
+
+const char* lpad_utf8_int32(gdv_int64 context, const char* text, gdv_int32 text_len,
+                            gdv_int32 return_length, gdv_int32* out_len);
+
+const char* rpad_utf8_int32(gdv_int64 context, const char* text, gdv_int32 text_len,
+                            gdv_int32 return_length, gdv_int32* out_len);
 
 const char* replace_with_max_len_utf8_utf8_utf8(gdv_int64 context, const char* text,
                                                 gdv_int32 text_len, const char* from_str,
@@ -424,9 +494,47 @@ const char* convert_replace_invalid_fromUTF8_binary(int64_t context, const char*
                                                     int32_t char_to_replace_len,
                                                     int32_t* out_len);
 
+const char* convert_toDOUBLE(int64_t context, double value, int32_t* out_len);
+
+const char* convert_toDOUBLE_be(int64_t context, double value, int32_t* out_len);
+
+const char* convert_toFLOAT(int64_t context, float value, int32_t* out_len);
+
+const char* convert_toFLOAT_be(int64_t context, float value, int32_t* out_len);
+
+const char* convert_toBIGINT(int64_t context, int64_t value, int32_t* out_len);
+
+const char* convert_toBIGINT_be(int64_t context, int64_t value, int32_t* out_len);
+
+const char* convert_toINT(int64_t context, int32_t value, int32_t* out_len);
+
+const char* convert_toINT_be(int64_t context, int32_t value, int32_t* out_len);
+
+const char* convert_toBOOLEAN(int64_t context, bool value, int32_t* out_len);
+
+const char* convert_toTIME_EPOCH(int64_t context, int32_t value, int32_t* out_len);
+
+const char* convert_toTIME_EPOCH_be(int64_t context, int32_t value, int32_t* out_len);
+
+const char* convert_toTIMESTAMP_EPOCH(int64_t context, int64_t timestamp,
+                                      int32_t* out_len);
+const char* convert_toTIMESTAMP_EPOCH_be(int64_t context, int64_t timestamp,
+                                         int32_t* out_len);
+
+const char* convert_toDATE_EPOCH(int64_t context, int64_t date, int32_t* out_len);
+
+const char* convert_toDATE_EPOCH_be(int64_t context, int64_t date, int32_t* out_len);
+
+const char* convert_toUTF8(int64_t context, const char* value, int32_t value_len,
+                           int32_t* out_len);
+
 const char* split_part(gdv_int64 context, const char* text, gdv_int32 text_len,
                        const char* splitter, gdv_int32 split_len, gdv_int32 index,
                        gdv_int32* out_len);
+
+const char* byte_substr_binary_int32_int32(gdv_int64 context, const char* text,
+                                           gdv_int32 text_len, gdv_int32 offset,
+                                           gdv_int32 length, gdv_int32* out_len);
 
 const char* castVARCHAR_bool_int64(gdv_int64 context, gdv_boolean value,
                                    gdv_int64 out_len, gdv_int32* out_length);
@@ -443,6 +551,12 @@ const char* castVARCHAR_float32_int64(int64_t context, float value, int64_t len,
 const char* castVARCHAR_float64_int64(int64_t context, double value, int64_t len,
                                       int32_t* out_len);
 
+const char* left_utf8_int32(gdv_int64 context, const char* text, gdv_int32 text_len,
+                            gdv_int32 number, gdv_int32* out_len);
+
+const char* right_utf8_int32(gdv_int64 context, const char* text, gdv_int32 text_len,
+                             gdv_int32 number, gdv_int32* out_len);
+
 const char* binary_string(gdv_int64 context, const char* text, gdv_int32 text_len,
                           gdv_int32* out_len);
 
@@ -453,5 +567,78 @@ int64_t castBIGINT_utf8(int64_t context, const char* data, int32_t len);
 float castFLOAT4_utf8(int64_t context, const char* data, int32_t len);
 
 double castFLOAT8_utf8(int64_t context, const char* data, int32_t len);
+
+int32_t castINT_float32(gdv_float32 value);
+
+int32_t castINT_float64(gdv_float64 value);
+
+int64_t castBIGINT_float32(gdv_float32 value);
+
+int64_t castBIGINT_float64(gdv_float64 value);
+
+int64_t castBIGINT_daytimeinterval(gdv_day_time_interval in);
+
+int32_t castINT_year_interval(gdv_month_interval in);
+
+int64_t castBIGINT_year_interval(gdv_month_interval in);
+
+gdv_day_time_interval castNULLABLEINTERVALDAY_int32(gdv_int32 in);
+
+gdv_day_time_interval castNULLABLEINTERVALDAY_int64(gdv_int64 in);
+
+gdv_month_interval castNULLABLEINTERVALYEAR_int32(int64_t context, gdv_int32 in);
+
+gdv_month_interval castNULLABLEINTERVALYEAR_int64(int64_t context, gdv_int64 in);
+
+const char* concat_ws_utf8_utf8(int64_t context, const char* separator,
+                                int32_t separator_len, const char* word1,
+                                int32_t word1_len, const char* word2, int32_t word2_len,
+                                int32_t* out_len);
+
+const char* concat_ws_utf8_utf8_utf8(int64_t context, const char* separator,
+                                     int32_t separator_len, const char* word1,
+                                     int32_t word1_len, const char* word2,
+                                     int32_t word2_len, const char* word3,
+                                     int32_t word3_len, int32_t* out_len);
+
+const char* concat_ws_utf8_utf8_utf8_utf8(int64_t context, const char* separator,
+                                          int32_t separator_len, const char* word1,
+                                          int32_t word1_len, const char* word2,
+                                          int32_t word2_len, const char* word3,
+                                          int32_t word3_len, const char* word4,
+                                          int32_t word4_len, int32_t* out_len);
+
+const char* concat_ws_utf8_utf8_utf8_utf8_utf8(int64_t context, const char* separator,
+                                               int32_t separator_len, const char* word1,
+                                               int32_t word1_len, const char* word2,
+                                               int32_t word2_len, const char* word3,
+                                               int32_t word3_len, const char* word4,
+                                               int32_t word4_len, const char* word5,
+                                               int32_t word5_len, int32_t* out_len);
+
+const char* elt_int32_utf8_utf8(int32_t pos, bool pos_validity, const char* word1,
+                                int32_t word1_len, bool in1_validity, const char* word2,
+                                int32_t word2_len, bool in2_validity, bool* out_valid,
+                                int32_t* out_len);
+
+const char* elt_int32_utf8_utf8_utf8(int32_t pos, bool pos_validity, const char* word1,
+                                     int32_t word1_len, bool word1_validity,
+                                     const char* word2, int32_t word2_len,
+                                     bool word2_validity, const char* word3,
+                                     int32_t word3_len, bool word3_validity,
+                                     bool* out_valid, int32_t* out_len);
+
+const char* elt_int32_utf8_utf8_utf8_utf8(
+    int32_t pos, bool pos_validity, const char* word1, int32_t word1_len,
+    bool word1_validity, const char* word2, int32_t word2_len, bool word2_validity,
+    const char* word3, int32_t word3_len, bool word3_validity, const char* word4,
+    int32_t word4_len, bool word4_validity, bool* out_valid, int32_t* out_len);
+
+const char* elt_int32_utf8_utf8_utf8_utf8_utf8(
+    int32_t pos, bool pos_validity, const char* word1, int32_t word1_len,
+    bool word1_validity, const char* word2, int32_t word2_len, bool word2_validity,
+    const char* word3, int32_t word3_len, bool word3_validity, const char* word4,
+    int32_t word4_len, bool word4_validity, const char* word5, int32_t word5_len,
+    bool word5_validity, bool* out_valid, int32_t* out_len);
 
 }  // extern "C"

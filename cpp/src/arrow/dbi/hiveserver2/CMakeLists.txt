@@ -56,11 +56,9 @@ set(HIVESERVER2_THRIFT_SRC
     Types_types.cpp)
 
 set_source_files_properties(${HIVESERVER2_THRIFT_SRC}
-                            PROPERTIES
-                            COMPILE_FLAGS
-                            "-Wno-unused-variable -Wno-shadow-field"
-                            GENERATED
-                            TRUE)
+                            PROPERTIES COMPILE_FLAGS
+                                       "-Wno-unused-variable -Wno-shadow-field" GENERATED
+                                                                                TRUE)
 
 # keep everything in one library, the object files reference
 # each other
@@ -75,9 +73,9 @@ add_library(arrow_hiveserver2_thrift STATIC ${HIVESERVER2_THRIFT_SRC})
 
 add_dependencies(arrow_hiveserver2_thrift hs2-thrift-cpp)
 
-set_target_properties(
-  arrow_hiveserver2_thrift
-  PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}")
+set_target_properties(arrow_hiveserver2_thrift
+                      PROPERTIES LIBRARY_OUTPUT_DIRECTORY
+                                 "${BUILD_OUTPUT_ROOT_DIRECTORY}")
 
 add_arrow_lib(arrow_hiveserver2
               SOURCES

@@ -21,7 +21,7 @@ import (
 	"io"
 	"testing"
 
-	"github.com/apache/arrow/go/arrow/flight"
+	"github.com/apache/arrow/go/v7/arrow/flight"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -147,8 +147,7 @@ func TestErrorAuths(t *testing.T) {
 }
 
 func TestBasicAuthHelpers(t *testing.T) {
-	unary, stream := flight.CreateServerBearerTokenAuthInterceptors(&validator{})
-	s := flight.NewFlightServer(nil, grpc.UnaryInterceptor(unary), grpc.StreamInterceptor(stream))
+	s := flight.NewServerWithMiddleware(nil, []flight.ServerMiddleware{flight.CreateServerBasicAuthMiddleware(&validator{})})
 	s.Init("localhost:0")
 	f := &HeaderAuthTestFlight{}
 	s.RegisterFlightService(&flight.FlightServiceService{

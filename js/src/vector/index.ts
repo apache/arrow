@@ -191,7 +191,7 @@ function wrapNullableGet<T extends DataType, V extends Vector<T>, F extends (i: 
 /** @ignore */
 function wrapNullableSet<T extends DataType, V extends BaseVector<T>, F extends (i: number, a: any) => void>(fn: F): (...args: Parameters<F>) => void {
     return function(this: V, i: number, a: any) {
-        if (setBool(this.nullBitmap, this.offset + i, !(a === null || a === undefined))) {
+        if (setBool(this.nullBitmap, this.offset + i, !((a == null)))) {
             fn.call(this, i, a);
         }
     };

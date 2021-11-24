@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class TestArrowTableReader < Test::Unit::TestCase
+class TestArrowTable < Test::Unit::TestCase
   def setup
     @count_field = Arrow::Field.new("count", :uint8)
     @visible_field = Arrow::Field.new("visible", :boolean)

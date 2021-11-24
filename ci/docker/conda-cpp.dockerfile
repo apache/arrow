@@ -20,15 +20,14 @@ ARG arch
 FROM ${repo}:${arch}-conda
 
 # install the required conda packages into the test environment
-COPY ci/conda_env_cpp.yml \
-     ci/conda_env_gandiva.yml \
+COPY ci/conda_env_cpp.txt \
+     ci/conda_env_gandiva.txt \
      /arrow/ci/
 RUN conda install \
-        --file arrow/ci/conda_env_cpp.yml \
-        --file arrow/ci/conda_env_gandiva.yml \
+        --file arrow/ci/conda_env_cpp.txt \
+        --file arrow/ci/conda_env_gandiva.txt \
         compilers \
         doxygen \
-        gdb \
         valgrind && \
     conda clean --all
 
@@ -49,6 +48,7 @@ ENV ARROW_BUILD_TESTS=ON \
     ARROW_WITH_SNAPPY=ON \
     ARROW_WITH_ZLIB=ON \
     ARROW_WITH_ZSTD=ON \
+    GTest_SOURCE=BUNDLED \
     PARQUET_BUILD_EXAMPLES=ON \
     PARQUET_BUILD_EXECUTABLES=ON \
     PARQUET_HOME=$CONDA_PREFIX

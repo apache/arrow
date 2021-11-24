@@ -58,7 +58,7 @@ def test_parquet_metadata_api():
     assert meta.num_rows == len(df)
     assert meta.num_columns == ncols + 1  # +1 for index
     assert meta.num_row_groups == 1
-    assert meta.format_version == '2.0'
+    assert meta.format_version == '2.6'
     assert 'parquet-cpp' in meta.created_by
     assert isinstance(meta.serialized_size, int)
     assert isinstance(meta.metadata, dict)
@@ -138,8 +138,8 @@ def test_parquet_metadata_lifetime(tempdir):
     # ARROW-6642 - ensure that chained access keeps parent objects alive
     table = pa.table({'a': [1, 2, 3]})
     pq.write_table(table, tempdir / 'test_metadata_segfault.parquet')
-    dataset = pq.ParquetDataset(tempdir / 'test_metadata_segfault.parquet')
-    dataset.pieces[0].get_metadata().row_group(0).column(0).statistics
+    parquet_file = pq.ParquetFile(tempdir / 'test_metadata_segfault.parquet')
+    parquet_file.metadata.row_group(0).column(0).statistics
 
 
 @pytest.mark.pandas
@@ -251,7 +251,7 @@ def test_statistics_convert_logical_types(tempdir):
         t = pa.Table.from_arrays([pa.array([min_val, max_val], type=typ)],
                                  ['col'])
         path = str(tempdir / ('example{}.parquet'.format(i)))
-        pq.write_table(t, path, version='2.0')
+        pq.write_table(t, path, version='2.6')
         pf = pq.ParquetFile(path)
         stats = pf.metadata.row_group(0).column(0).statistics
         assert stats.min == min_val
@@ -291,10 +291,27 @@ def test_parquet_write_disable_statistics(tempdir):
 
 def test_field_id_metadata():
     # ARROW-7080
-    table = pa.table([pa.array([1], type='int32'),
-                      pa.array([[]], type=pa.list_(pa.int32())),
-                      pa.array([b'boo'], type='binary')],
-                     ['f0', 'f1', 'f2'])
+    field_id = b'PARQUET:field_id'
+    inner = pa.field('inner', pa.int32(), metadata={field_id: b'100'})
+    middle = pa.field('middle', pa.struct(
+        [inner]), metadata={field_id: b'101'})
+    fields = [
+        pa.field('basic', pa.int32(), metadata={
+                 b'other': b'abc', field_id: b'1'}),
+        pa.field(
+            'list',
+            pa.list_(pa.field('list-inner', pa.int32(),
+                              metadata={field_id: b'10'})),
+            metadata={field_id: b'11'}),
+        pa.field('struct', pa.struct([middle]), metadata={field_id: b'102'}),
+        pa.field('no-metadata', pa.int32()),
+        pa.field('non-integral-field-id', pa.int32(),
+                 metadata={field_id: b'xyz'}),
+        pa.field('negative-field-id', pa.int32(),
+                 metadata={field_id: b'-1000'})
+    ]
+    arrs = [[] for _ in fields]
+    table = pa.table(arrs, schema=pa.schema(fields))
 
     bio = pa.BufferOutputStream()
     pq.write_table(table, bio)
@@ -303,28 +320,29 @@ def test_field_id_metadata():
     pf = pq.ParquetFile(pa.BufferReader(contents))
     schema = pf.schema_arrow
 
-    # Expected Parquet schema for reference
-    #
-    # required group field_id=0 schema {
-    #   optional int32 field_id=1 f0;
-    #   optional group field_id=2 f1 (List) {
-    #     repeated group field_id=3 list {
-    #       optional int32 field_id=4 item;
-    #     }
-    #   }
-    #   optional binary field_id=5 f2;
-    # }
-
-    field_name = b'PARQUET:field_id'
-    assert schema[0].metadata[field_name] == b'1'
+    assert schema[0].metadata[field_id] == b'1'
+    assert schema[0].metadata[b'other'] == b'abc'
 
     list_field = schema[1]
-    assert list_field.metadata[field_name] == b'2'
+    assert list_field.metadata[field_id] == b'11'
 
     list_item_field = list_field.type.value_field
-    assert list_item_field.metadata[field_name] == b'4'
+    assert list_item_field.metadata[field_id] == b'10'
 
-    assert schema[2].metadata[field_name] == b'5'
+    struct_field = schema[2]
+    assert struct_field.metadata[field_id] == b'102'
+
+    struct_middle_field = struct_field.type[0]
+    assert struct_middle_field.metadata[field_id] == b'101'
+
+    struct_inner_field = struct_middle_field.type[0]
+    assert struct_inner_field.metadata[field_id] == b'100'
+
+    assert schema[3].metadata is None
+    # Invalid input is passed through (ok) but does not
+    # have field_id in parquet (not tested)
+    assert schema[4].metadata[field_id] == b'xyz'
+    assert schema[5].metadata[field_id] == b'-1000'
 
 
 @pytest.mark.pandas
@@ -385,10 +403,13 @@ def test_write_metadata(tempdir):
         assert b'ARROW:schema' not in schema_as_arrow.metadata
 
     # pass through writer keyword arguments
-    for version in ["1.0", "2.0"]:
+    for version in ["1.0", "2.0", "2.4", "2.6"]:
         pq.write_metadata(schema, path, version=version)
         parquet_meta = pq.read_metadata(path)
-        assert parquet_meta.format_version == version
+        # The version is stored as a single integer in the Parquet metadata,
+        # so it cannot correctly express dotted format versions
+        expected_version = "1.0" if version == "1.0" else "2.6"
+        assert parquet_meta.format_version == expected_version
 
     # metadata_collector: list of FileMetaData objects
     table = pa.table({'a': [1, 2], 'b': [.1, .2]}, schema=schema)
@@ -475,3 +496,29 @@ def test_parquet_metadata_empty_to_dict(tempdir):
     assert len(metadata_dict["row_groups"]) == 1
     assert len(metadata_dict["row_groups"][0]["columns"]) == 1
     assert metadata_dict["row_groups"][0]["columns"][0]["statistics"] is None
+
+
+@pytest.mark.slow
+@pytest.mark.large_memory
+def test_metadata_exceeds_message_size():
+    # ARROW-13655: Thrift may enable a defaut message size that limits
+    # the size of Parquet metadata that can be written.
+    NCOLS = 1000
+    NREPEATS = 4000
+
+    table = pa.table({str(i): np.random.randn(10) for i in range(NCOLS)})
+
+    with pa.BufferOutputStream() as out:
+        pq.write_table(table, out)
+        buf = out.getvalue()
+
+    original_metadata = pq.read_metadata(pa.BufferReader(buf))
+    metadata = pq.read_metadata(pa.BufferReader(buf))
+    for i in range(NREPEATS):
+        metadata.append_row_groups(original_metadata)
+
+    with pa.BufferOutputStream() as out:
+        metadata.write_metadata_file(out)
+        buf = out.getvalue()
+
+    metadata = pq.read_metadata(pa.BufferReader(buf))
