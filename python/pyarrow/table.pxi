@@ -1253,7 +1253,7 @@ cdef class Table(_PandasConvertible):
 
         Parameters
         ----------
-        show_metadata : bool, default True
+        show_metadata : bool, default False
             Display Field-level and Schema-level KeyValueMetadata.
         preview_cols : int, default 0
             Display values of the columns for the first N columns.
