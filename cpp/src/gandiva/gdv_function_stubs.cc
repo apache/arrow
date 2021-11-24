@@ -1806,18 +1806,6 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
                                   types->i8_ptr_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(gdv_fn_md5_decimal128));
 
-  // gdv_fn_soundex_utf8
-  args = {
-      types->i64_type(),      // context
-      types->i8_ptr_type(),   // data
-      types->i32_type(),      // data_len
-      types->i32_ptr_type(),  // out_len
-  };
-
-  engine->AddGlobalMappingForFunc("gdv_fn_soundex_utf8",
-                                  types->i8_ptr_type() /*return_type*/, args,
-                                  reinterpret_cast<void*>(gdv_fn_soundex_utf8));
-
   // gdv_fn_upper_utf8
   args = {
       types->i64_type(),      // context

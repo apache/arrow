@@ -2618,9 +2618,6 @@ const char* from_hex_utf8(int64_t context, const char* text, int32_t text_len,
   return ret;
 }
 
-// Array that maps each letter from the alphabet to its corresponding number for the soundex algorithm.
-// ABCDEFGHIJKLMNOPQRSTUVWXYZ -> 01230120022455012623010202
-static char mappings[] = {'0','1','2','3','0','1','2','0','0','2','2','4','5','5','0','1','2','6','2','3','0','1','0','2','0','2'};
 // Array that maps each letter from the alphabet to its corresponding number for the
 // soundex algorithm. ABCDEFGHIJKLMNOPQRSTUVWXYZ -> 01230120022455012623010202
 static char mappings[] = {'0', '1', '2', '3', '0', '1', '2', '0', '0',
