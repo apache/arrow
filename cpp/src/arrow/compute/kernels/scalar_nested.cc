@@ -285,7 +285,7 @@ struct StructFieldFunctor {
   static Status CheckIndex(int index, const DataType& type) {
     if (!ValidParentType(type)) {
       return Status::TypeError("struct_field: cannot subscript field of type ", type);
-    } else if (index < 0 || index > type.num_fields()) {
+    } else if (index < 0 || index >= type.num_fields()) {
       return Status::Invalid("struct_field: out-of-bounds field reference to field ",
                              index, " in type ", type, " with ", type.num_fields(),
                              " fields");
