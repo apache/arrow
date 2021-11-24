@@ -60,7 +60,7 @@ jobs:
             # Make sure there's only one
             sed -i '' -E -e 's@.git.git@.git@' ${formula}
             cp ${formula} $(brew --repository homebrew/core)/Formula/
-          fi
+          done
       - name: Test formula
         run: |
           brew install -v --HEAD apache-arrow
