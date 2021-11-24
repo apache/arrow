@@ -2424,8 +2424,11 @@ class DeltaByteArrayDecoder : public DecoderImpl,
         reinterpret_cast<const int32_t*>(buffered_prefix_length_->data()) +
         prefix_len_offset_;
     for (int i = 0; i < max_values; ++i) {
-      if (AddWithOverflow(data_size, prefix_len_ptr[i], &data_size) ||
-          AddWithOverflow(data_size, buffer[i].len, &data_size)) {
+      if (ARROW_PREDICT_FALSE(prefix_len_ptr[i] < 0)) {
+        throw ParquetException("negative prefix length in DELTA_BYTE_ARRAY");
+      }
+      if (ARROW_PREDICT_FALSE(AddWithOverflow(data_size, prefix_len_ptr[i], &data_size) ||
+                              AddWithOverflow(data_size, buffer[i].len, &data_size))) {
         throw ParquetException("excess expansion in DELTA_BYTE_ARRAY");
       }
     }
@@ -2435,7 +2438,7 @@ class DeltaByteArrayDecoder : public DecoderImpl,
     uint8_t* data_ptr = buffered_data_->mutable_data();
     for (int i = 0; i < max_values; ++i) {
       if (ARROW_PREDICT_FALSE(static_cast<size_t>(prefix_len_ptr[i]) > prefix.length())) {
-        throw ParquetException("prefix length too large");
+        throw ParquetException("prefix length too large in DELTA_BYTE_ARRAY");
       }
       memcpy(data_ptr, prefix.data(), prefix_len_ptr[i]);
       // buffer[i] currently points to the string suffix
@@ -2461,31 +2464,31 @@ class DeltaByteArrayDecoder : public DecoderImpl,
                           typename EncodingTraits<ByteArrayType>::Accumulator* out,
                           int* out_num_values) {
     ArrowBinaryHelper helper(out);
-    ::arrow::internal::BitmapReader bit_reader(valid_bits, valid_bits_offset, num_values);
 
     std::vector<ByteArray> values(num_values);
-    int num_valid_values = GetInternal(values.data(), num_values - null_count);
+    const int num_valid_values = GetInternal(values.data(), num_values - null_count);
     DCHECK_EQ(num_values - null_count, num_valid_values);
 
     auto values_ptr = reinterpret_cast<const ByteArray*>(values.data());
     int value_idx = 0;
 
-    for (int i = 0; i < num_values; ++i) {
-      bool is_valid = bit_reader.IsSet();
-      bit_reader.Next();
+    RETURN_NOT_OK(VisitNullBitmapInline(
+        valid_bits, valid_bits_offset, num_values, null_count,
+        [&]() {
+          const auto& val = values_ptr[value_idx];
+          if (ARROW_PREDICT_FALSE(!helper.CanFit(val.len))) {
+            RETURN_NOT_OK(helper.PushChunk());
+          }
+          RETURN_NOT_OK(helper.Append(val.ptr, static_cast<int32_t>(val.len)));
+          ++value_idx;
+          return Status::OK();
+        },
+        [&]() {
+          RETURN_NOT_OK(helper.AppendNull());
+          --null_count;
+          return Status::OK();
+        }));
 
-      if (is_valid) {
-        const auto& val = values_ptr[value_idx];
-        if (ARROW_PREDICT_FALSE(!helper.CanFit(val.len))) {
-          RETURN_NOT_OK(helper.PushChunk());
-        }
-        RETURN_NOT_OK(helper.Append(val.ptr, static_cast<int32_t>(val.len)));
-        ++value_idx;
-      } else {
-        RETURN_NOT_OK(helper.AppendNull());
-        --null_count;
-      }
-    }
     DCHECK_EQ(null_count, 0);
     *out_num_values = num_valid_values;
     return Status::OK();
