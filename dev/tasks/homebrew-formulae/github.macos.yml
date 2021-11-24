@@ -46,7 +46,7 @@ jobs:
           brew doctor || true
 
           ARROW_GLIB_FORMULA=$(echo ${ARROW_FORMULA} | sed -e 's/\.rb/-glib.rb/')
-          echo ${ARROW_GLIB_FORMULA} >> ${GITHUB_ENV}
+          echo "ARROW_GLIB_FORMULA=${ARROW_GLIB_FORMULA}" >> ${GITHUB_ENV}
           for formula in ${ARROW_FORMULA} ${ARROW_GLIB_FORMULA}; do
             if [ ! -f ${formula} ]; then
               continue
