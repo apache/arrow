@@ -27,6 +27,7 @@
 
 #include "arrow/array.h"
 #include "arrow/compute/api_scalar.h"
+#include "arrow/compute/cast.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/datum.h"
 #include "arrow/memory_pool.h"
@@ -65,6 +66,28 @@ inline std::string CompareOperatorToFunctionName(CompareOperator op) {
       "equal", "not_equal", "greater", "greater_equal", "less", "less_equal",
   };
   return function_names[op];
+}
+
+// Construct an array of decimals, where negative scale is allowed.
+//
+// Works around DecimalXXX::FromString intentionally not inferring
+// negative scales.
+inline std::shared_ptr<Array> DecimalArrayFromJSON(const std::shared_ptr<DataType>& type,
+                                                   const std::string& json) {
+  const auto& ty = checked_cast<const DecimalType&>(*type);
+  if (ty.scale() >= 0) return ArrayFromJSON(type, json);
+  auto p = ty.precision() - ty.scale();
+  auto adjusted_ty = ty.id() == Type::DECIMAL128 ? decimal128(p, 0) : decimal256(p, 0);
+  return Cast(ArrayFromJSON(adjusted_ty, json), type).ValueOrDie().make_array();
+}
+
+inline std::shared_ptr<Scalar> DecimalScalarFromJSON(
+    const std::shared_ptr<DataType>& type, const std::string& json) {
+  const auto& ty = checked_cast<const DecimalType&>(*type);
+  if (ty.scale() >= 0) return ScalarFromJSON(type, json);
+  auto p = ty.precision() - ty.scale();
+  auto adjusted_ty = ty.id() == Type::DECIMAL128 ? decimal128(p, 0) : decimal256(p, 0);
+  return Cast(ScalarFromJSON(adjusted_ty, json), type).ValueOrDie().scalar();
 }
 
 // Call the function with the given arguments, as well as slices of
