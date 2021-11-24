@@ -727,3 +727,26 @@ test_that("structs/nested data frames/tibbles can be created", {
     "check.rows not supported in Arrow"
   )
 })
+
+test_that("nested structs can be created from scalars and existing data frames", {
+  compare_dplyr_binding(
+    .input %>%
+      transmute(
+        df_col = tibble(b = 3)
+      ) %>%
+      collect(),
+    tibble(a = 1:2)
+  )
+
+  # technically this is handled by Scalar$create() since there is no
+  # call to data.frame or tibble() within a dplyr verb
+  existing_data_frame <- tibble(b = 3)
+  compare_dplyr_binding(
+    .input %>%
+      transmute(
+        df_col = existing_data_frame
+      ) %>%
+      collect(),
+    tibble(a = 1:2)
+  )
+})
