@@ -912,6 +912,37 @@ TEST(TestStringOps, TestReverse) {
   ctx.Reset();
 }
 
+TEST(TestStringOps, TestQuote) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+  gdv_int32 out_len = 0;
+  const char* out_str;
+
+  out_str = quote_utf8(ctx_ptr, "dont", 4, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "\'dont\'");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = quote_utf8(ctx_ptr, "abc", 3, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "\'abc\'");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = quote_utf8(ctx_ptr, "don't", 5, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "\'don\\'t\'");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = quote_utf8(ctx_ptr, "", 0, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = quote_utf8(ctx_ptr, "'", 1, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "'\\''");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = quote_utf8(ctx_ptr, "'''''''''", 9, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "'\\'\\'\\'\\'\\'\\'\\'\\'\\''");
+  EXPECT_FALSE(ctx.has_error());
+}
+
 TEST(TestStringOps, TestLtrim) {
   gandiva::ExecutionContext ctx;
   uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);

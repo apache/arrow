@@ -1764,6 +1764,42 @@ const char* replace_utf8_utf8_utf8(gdv_int64 context, const char* text,
                                              out_len);
 }
 
+// Returns the quoted string (Includes escape character for any single quotes)
+// E.g. DONT  -> 'DONT'
+//      DON'T -> 'DON\'T'
+FORCE_INLINE
+const char* quote_utf8(gdv_int64 context, const char* in, gdv_int32 in_len,
+                       gdv_int32* out_len) {
+  if (in_len <= 0) {
+    *out_len = 0;
+    return "";
+  }
+  // try to allocate double size output string (worst case)
+  auto out =
+      reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, (in_len * 2) + 2));
+  if (out == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+  // The output string should start with a single quote
+  out[0] = '\'';
+  gdv_int32 counter = 1;
+  for (int i = 0; i < in_len; i++) {
+    if (memcmp(in + i, "'", 1) == 0) {
+      out[counter] = '\\';
+      counter++;
+      out[counter] = '\'';
+    } else {
+      out[counter] = in[i];
+    }
+    counter++;
+  }
+  out[counter] = '\'';
+  *out_len = counter + 1;
+  return out;
+}
+
 FORCE_INLINE
 const char* lpad_utf8_int32_utf8(gdv_int64 context, const char* text, gdv_int32 text_len,
                                  gdv_int32 return_length, const char* fill_text,
