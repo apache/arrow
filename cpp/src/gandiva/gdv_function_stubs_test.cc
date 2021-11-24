@@ -19,6 +19,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "arrow/util/logging.h"
 
 #include "gandiva/execution_context.h"
 
@@ -765,5 +766,4 @@ TEST(TestGdvFnStubs, TestCastVarbinaryFloat8) {
               ::testing::HasSubstr("Failed to cast the string e to double"));
   ctx.Reset();
 }
-
 }  // namespace gandiva

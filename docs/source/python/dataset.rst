@@ -15,6 +15,17 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
+.. ipython:: python
+    :suppress:
+
+    # set custom tmp working directory for files that create data
+    import os
+    import tempfile
+
+    orig_working_dir = os.getcwd()
+    temp_working_dir = tempfile.mkdtemp(prefix="pyarrow-")
+    os.chdir(temp_working_dir)
+
 .. currentmodule:: pyarrow.dataset
 
 .. _dataset:
@@ -66,7 +77,7 @@ of a directory with two parquet files:
     import pyarrow.parquet as pq
     import numpy as np
 
-    base = pathlib.Path(tempfile.gettempdir())
+    base = pathlib.Path(tempfile.mkdtemp(prefix="pyarrow-"))
     (base / "parquet_dataset").mkdir(exist_ok=True)
 
     # creating an Arrow Table
@@ -265,7 +276,7 @@ function can write such hive-like partitioned datasets.
 
     table = pa.table({'a': range(10), 'b': np.random.randn(10), 'c': [1, 2] * 5,
                       'part': ['a'] * 5 + ['b'] * 5})
-    pq.write_to_dataset(table, str(base / "parquet_dataset_partitioned"),
+    pq.write_to_dataset(table, "parquet_dataset_partitioned",
                         partition_cols=['part'])
 
 The above created a directory with two subdirectories ("part=a" and "part=b"),
@@ -277,7 +288,7 @@ should use a hive-like partitioning scheme with the ``partitioning`` keyword:
 
 .. ipython:: python
 
-    dataset = ds.dataset(str(base / "parquet_dataset_partitioned"), format="parquet",
+    dataset = ds.dataset("parquet_dataset_partitioned", format="parquet",
                          partitioning="hive")
     dataset.files
 
@@ -513,12 +524,8 @@ instead of a filename.
 
 .. ipython:: python
 
-    base = pathlib.Path(tempfile.gettempdir())
-    dataset_root = base / "sample_dataset"
-    dataset_root.mkdir(exist_ok=True)
-
     table = pa.table({"a": range(10), "b": np.random.randn(10), "c": [1, 2] * 5})
-    ds.write_dataset(table, dataset_root, format="parquet")
+    ds.write_dataset(table, "sample_dataset", format="parquet")
 
 The above example will create a single file named part-0.parquet in our sample_dataset
 directory.
@@ -543,7 +550,7 @@ dataset to be partitioned.  For example:
     part = ds.partitioning(
         pa.schema([("c", pa.int16())]), flavor="hive"
     )
-    ds.write_dataset(table, dataset_root, format="parquet", partitioning=part)
+    ds.write_dataset(table, "sample_dataset", format="parquet", partitioning=part)
 
 This will create two files.  Half our data will be in the dataset_root/c=1 directory and
 the other half will be in the dataset_root/c=2 directory.
@@ -565,8 +572,7 @@ into memory:
     new_part = ds.partitioning(
         pa.schema([("c", pa.int16())]), flavor=None
     )
-    input_dataset = ds.dataset(dataset_root, partitioning=old_part)
-    new_root = base / "repartitioned_dataset"
+    input_dataset = ds.dataset("sample_dataset", partitioning=old_part)
     # A scanner can act as an iterator of record batches but you could also receive
     # data from the network (e.g. via flight), from your own scanning, or from any
     # other method that yields record batches.  In addition, you can pass a dataset
@@ -574,7 +580,7 @@ into memory:
     # the scanner (e.g. to filter the input dataset or set a maximum batch size)
     scanner = input_dataset.scanner(use_async=True)
 
-    ds.write_dataset(scanner, new_root, format="parquet", partitioning=new_part)
+    ds.write_dataset(scanner, "repartitioned_dataset", format="parquet", partitioning=new_part)
 
 After the above example runs our data will be in dataset_root/1 and dataset_root/2
 directories.  In this simple example we are not changing the structure of the data
@@ -600,7 +606,7 @@ to supply a visitor that will be called as each file is created:
 
 .. ipython:: python
 
-    ds.write_dataset(table, base / "dataset_visited", format="parquet", partitioning=part,
+    ds.write_dataset(table, "dataset_visited", format="parquet", partitioning=part,
                      file_visitor=file_visitor)
 
 This will allow you to collect the filenames that belong to the dataset and store them elsewhere
@@ -617,10 +623,21 @@ Parquet files:
 
 .. ipython:: python
 
-    dataset_root = base / "sample_dataset2"
-    dataset_root.mkdir(exist_ok=True)
-
     parquet_format = ds.ParquetFileFormat()
     write_options = parquet_format.make_write_options(allow_truncated_timestamps=True)
-    ds.write_dataset(table, dataset_root, format="parquet", partitioning=part,
+    ds.write_dataset(table, "sample_dataset2", format="parquet", partitioning=part,
                      file_options=write_options)
+
+
+.. ipython:: python
+    :suppress:
+
+    # clean-up custom working directory
+    import os
+    import shutil
+
+    os.chdir(orig_working_dir)
+    shutil.rmtree(temp_working_dir, ignore_errors=True)
+
+    # also clean-up custom base directory used in some examples
+    shutil.rmtree(str(base), ignore_errors=True)
