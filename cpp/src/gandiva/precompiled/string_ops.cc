@@ -16,11 +16,13 @@
 // under the License.
 
 // String functions
+#include "arrow/util/logging.h"
 #include "arrow/util/value_parsing.h"
 
 extern "C" {
 
 #include <algorithm>
+#include <cinttypes>
 #include <climits>
 #include <cstdio>
 #include <cstdlib>
@@ -1762,6 +1764,42 @@ const char* replace_utf8_utf8_utf8(gdv_int64 context, const char* text,
                                              out_len);
 }
 
+// Returns the quoted string (Includes escape character for any single quotes)
+// E.g. DONT  -> 'DONT'
+//      DON'T -> 'DON\'T'
+FORCE_INLINE
+const char* quote_utf8(gdv_int64 context, const char* in, gdv_int32 in_len,
+                       gdv_int32* out_len) {
+  if (in_len <= 0) {
+    *out_len = 0;
+    return "";
+  }
+  // try to allocate double size output string (worst case)
+  auto out =
+      reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, (in_len * 2) + 2));
+  if (out == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+  // The output string should start with a single quote
+  out[0] = '\'';
+  gdv_int32 counter = 1;
+  for (int i = 0; i < in_len; i++) {
+    if (memcmp(in + i, "'", 1) == 0) {
+      out[counter] = '\\';
+      counter++;
+      out[counter] = '\'';
+    } else {
+      out[counter] = in[i];
+    }
+    counter++;
+  }
+  out[counter] = '\'';
+  *out_len = counter + 1;
+  return out;
+}
+
 FORCE_INLINE
 const char* lpad_utf8_int32_utf8(gdv_int64 context, const char* text, gdv_int32 text_len,
                                  gdv_int32 return_length, const char* fill_text,
@@ -2464,5 +2502,119 @@ const char* elt_int32_utf8_utf8_utf8_utf8_utf8(
       *out_valid = false;
       return nullptr;
   }
+}
+
+// Gets a binary object and returns its hexadecimal representation. That representation
+// maps each byte in the input to a 2-length string containing a hexadecimal number.
+// - Examples:
+//     - foo -> 666F6F = 66[f] 6F[o] 6F[o]
+//     - bar -> 626172 = 62[b] 61[a] 72[r]
+FORCE_INLINE
+const char* to_hex_binary(int64_t context, const char* text, int32_t text_len,
+                          int32_t* out_len) {
+  if (text_len == 0) {
+    *out_len = 0;
+    return "";
+  }
+
+  auto ret =
+      reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, text_len * 2 + 1));
+
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+
+  uint32_t ret_index = 0;
+  uint32_t max_len = static_cast<uint32_t>(text_len) * 2;
+  uint32_t max_char_to_write = 4;
+
+  for (gdv_int32 i = 0; i < text_len; i++) {
+    DCHECK(ret_index >= 0 && ret_index < max_len);
+
+    int32_t ch = static_cast<int32_t>(text[i]) & 0xFF;
+
+    ret_index += snprintf(ret + ret_index, max_char_to_write, "%02X", ch);
+  }
+
+  *out_len = static_cast<int32_t>(ret_index);
+  return ret;
+}
+
+FORCE_INLINE
+const char* to_hex_int64(int64_t context, int64_t data, int32_t* out_len) {
+  const int64_t hex_long_max_size = 2 * sizeof(int64_t);
+  auto ret =
+      reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, hex_long_max_size));
+
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+  snprintf(ret, hex_long_max_size + 1, "%" PRIX64, data);
+
+  *out_len = static_cast<int32_t>(strlen(ret));
+  return ret;
+}
+
+FORCE_INLINE
+const char* to_hex_int32(int64_t context, int32_t data, int32_t* out_len) {
+  const int32_t max_size = 2 * sizeof(int32_t);
+  auto ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, max_size));
+
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+  snprintf(ret, max_size + 1, "%" PRIX32, data);
+
+  *out_len = static_cast<int32_t>(strlen(ret));
+  return ret;
+}
+
+FORCE_INLINE
+const char* from_hex_utf8(int64_t context, const char* text, int32_t text_len,
+                          int32_t* out_len) {
+  if (text_len == 0) {
+    *out_len = 0;
+    return "";
+  }
+
+  // the input string should have a length multiple of two
+  if (text_len % 2 != 0) {
+    gdv_fn_context_set_error_msg(
+        context, "Error parsing hex string, length was not a multiple of two.");
+    *out_len = 0;
+    return "";
+  }
+
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, text_len / 2));
+
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+
+  // converting hex encoded string to normal string
+  int32_t j = 0;
+  for (int32_t i = 0; i < text_len; i += 2) {
+    char b1 = text[i];
+    char b2 = text[i + 1];
+    if (isxdigit(b1) && isxdigit(b2)) {
+      // [a-fA-F0-9]
+      ret[j++] = to_binary_from_hex(b1) * 16 + to_binary_from_hex(b2);
+    } else {
+      gdv_fn_context_set_error_msg(
+          context, "Error parsing hex string, one or more bytes are not valid.");
+      *out_len = 0;
+      return "";
+    }
+  }
+  *out_len = j;
+  return ret;
 }
 }  // extern "C"

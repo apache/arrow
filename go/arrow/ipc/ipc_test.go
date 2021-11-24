@@ -18,6 +18,8 @@ package ipc_test
 
 import (
 	"bytes"
+	"errors"
+	"io"
 	"math/rand"
 	"strconv"
 	"testing"
@@ -96,5 +98,45 @@ func TestArrow12072(t *testing.T) {
 			}
 			assert.NoError(t, rdr.Err())
 		})
+	}
+}
+
+type testMessageReader struct {
+	counter int
+}
+
+func (r *testMessageReader) Message() (*ipc.Message, error) {
+	if r.counter == 0 {
+		r.counter++
+		// return schema message
+		schema := arrow.NewSchema([]arrow.Field{
+			{Name: "f1", Type: arrow.PrimitiveTypes.Int32},
+		}, nil)
+		var buf bytes.Buffer
+		writer := ipc.NewWriter(&buf, ipc.WithSchema(schema))
+		if err := writer.Close(); err != nil {
+			return nil, err
+		}
+		reader := ipc.NewMessageReader(&buf)
+		return reader.Message()
+	}
+	// return error
+	return nil, errors.New("Error!")
+}
+func (r *testMessageReader) Release() {}
+func (r *testMessageReader) Retain() {}
+
+// Ensure that if the MessageReader errors, we get the error from Read
+func TestArrow14769(t *testing.T) {
+	reader, err := ipc.NewReaderFromMessageReader(&testMessageReader{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = reader.Read()
+	if err == nil || err == io.EOF {
+		t.Fatalf("Expected an error, got %s", err)
+	}
+	if err.Error() != "Error!" {
+		t.Fatalf("Expected an error, not %s", err)
 	}
 }

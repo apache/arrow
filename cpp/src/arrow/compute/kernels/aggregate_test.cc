@@ -1215,10 +1215,31 @@ TEST(TestDecimalMeanKernel, SimpleMean) {
 
     EXPECT_THAT(Mean(ArrayFromJSON(ty, R"(["1.01", null, "1.01"])")),
                 ResultWith(ScalarFromJSON(ty, R"("1.01")")));
+
+    // Check rounding
     EXPECT_THAT(
         Mean(ArrayFromJSON(
             ty, R"(["1.01", "2.02", "3.03", "4.04", "5.05", "6.06", "7.07", "8.08"])")),
+        // 4.545 unrounded
+        ResultWith(ScalarFromJSON(ty, R"("4.55")")));
+    EXPECT_THAT(
+        Mean(ArrayFromJSON(
+            ty,
+            R"(["-1.01", "-2.02", "-3.03", "-4.04", "-5.05", "-6.06", "-7.07", "-8.08"])")),
+        // -4.545 unrounded
+        ResultWith(ScalarFromJSON(ty, R"("-4.55")")));
+    EXPECT_THAT(
+        Mean(ArrayFromJSON(
+            ty, R"(["1.01", "2.02", "3.00", "4.04", "5.05", "6.06", "7.07", "8.08"])")),
+        // 4.54125 unrounded
         ResultWith(ScalarFromJSON(ty, R"("4.54")")));
+    EXPECT_THAT(
+        Mean(ArrayFromJSON(
+            ty,
+            R"(["-1.01", "-2.02", "-3.00", "-4.04", "-5.05", "-6.06", "-7.07", "-8.08"])")),
+        // -4.54125 unrounded
+        ResultWith(ScalarFromJSON(ty, R"("-4.54")")));
+
     EXPECT_THAT(
         Mean(ArrayFromJSON(
             ty, R"(["0.00", "0.00", "0.00", "0.00", "0.00", "0.00", "0.00", "0.00"])")),
@@ -1232,6 +1253,34 @@ TEST(TestDecimalMeanKernel, SimpleMean) {
                 ResultWith(ScalarFromJSON(ty, R"("5.05")")));
     EXPECT_THAT(Mean(ScalarFromJSON(ty, R"(null)")),
                 ResultWith(ScalarFromJSON(ty, R"(null)")));
+  }
+
+  for (const auto& ty : {decimal128(3, -2), decimal256(3, -2)}) {
+    // Check rounding
+    EXPECT_THAT(
+        Mean(DecimalArrayFromJSON(
+            ty,
+            R"(["101E2", "202E2", "303E2", "404E2", "505E2", "606E2", "707E2", "808E2"])")),
+        // 45450 unrounded
+        ResultWith(DecimalScalarFromJSON(ty, R"("455E2")")));
+    EXPECT_THAT(
+        Mean(DecimalArrayFromJSON(
+            ty,
+            R"(["-101E2", "-202E2", "-303E2", "-404E2", "-505E2", "-606E2", "-707E2", "-808E2"])")),
+        // -45450 unrounded
+        ResultWith(DecimalScalarFromJSON(ty, R"("-455E2")")));
+    EXPECT_THAT(
+        Mean(DecimalArrayFromJSON(
+            ty,
+            R"(["101E2", "202E2", "300E2", "404E2", "505E2", "606E2", "707E2", "808E2"])")),
+        // 45412.5 unrounded
+        ResultWith(DecimalScalarFromJSON(ty, R"("454E2")")));
+    EXPECT_THAT(
+        Mean(DecimalArrayFromJSON(
+            ty,
+            R"(["-101E2", "-202E2", "-300E2", "-404E2", "-505E2", "-606E2", "-707E2", "-808E2"])")),
+        // -45412.5 unrounded
+        ResultWith(DecimalScalarFromJSON(ty, R"("-454E2")")));
   }
 }
 
