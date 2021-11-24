@@ -45,7 +45,7 @@ add ``3`` to all its elements:
     library(arrow)
 
     addthree <- function(arr) {
-        return(arr + 3)
+        return(arr + 3L)
     }
 
 We could save such function in a ``addthree.R`` file so that we can
@@ -92,7 +92,7 @@ to access the ``R`` function and print the expected result:
 .. code-block:: bash
 
     $ python addthree.py 
-    6.0
+    6
 
 If instead of passing around basic data types we want to pass around
 Arrow Arrays, we can do so relying on the
@@ -144,18 +144,11 @@ the R function and print the resulting PyArrow Array:
 .. code-block:: bash
 
     $ python addthree.py
-    RESULT <class 'pyarrow.lib.DoubleArray'> [
+    RESULT <class 'pyarrow.lib.Int64Array'> [
       4,
       5,
       6
     ]
-
-.. note::
-
-    Even though we sent an ``Int64Array`` to R, we end up with a
-    result as a ``DoubleArray``. That's due to the lack of native
-    support for 64 bits numbers in R and thus its use of doubles
-    to represent those.
 
 For additional information you can refer to
 `rpy2 Documentation <https://rpy2.github.io/doc/latest/html/index.html>`_
