@@ -1188,6 +1188,7 @@ tasks:
     ci: github
     template: docker-tests/github.linux.yml
     params:
+      r_prune_deps: TRUE
       env:
         UBUNTU: 21.04
         CLANG_TOOLS: 9 # can remove this when >=9 is the default
