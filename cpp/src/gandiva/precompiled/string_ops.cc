@@ -1686,8 +1686,8 @@ const char* convert_toUTF8(int64_t context, const char* value, int32_t value_len
 
 // Calculate the levenshtein distance between two string values
 FORCE_INLINE
-gdv_int32 levenshtein_utf8_utf8(int64_t context, const char* in1, int32_t in1_len,
-                                const char* in2, int32_t in2_len) {
+gdv_int32 levenshtein(int64_t context, const char* in1, int32_t in1_len, const char* in2,
+                      int32_t in2_len) {
   if (in1_len < 0 || in2_len < 0) {
     gdv_fn_context_set_error_msg(context, "String length must be greater than 0");
     return 0;

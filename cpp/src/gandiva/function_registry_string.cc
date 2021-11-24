@@ -452,7 +452,7 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
       NativeFunction("levenshtein", {}, DataTypeVector{utf8(), utf8()}, int32(),
-                     kResultNullIfNull, "levenshtein_utf8_utf8",
+                     kResultNullIfNull, "levenshtein",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
       NativeFunction("to_hex", {"hex"}, DataTypeVector{binary()}, utf8(),
