@@ -45,11 +45,4 @@ class TestDatasetScanner < Test::Unit::TestCase
   def test_to_table
     assert_equal(@table, @scanner.to_table)
   end
-
-  def test_new_record_batch_reader
-    reader = Arrow::TableBatchReader.new(@table)
-    builder = ArrowDataset::ScannerBuilder.new(reader)
-    scanner = builder.finish
-    assert_equal(@table, scanner.to_table)
-  end
 end

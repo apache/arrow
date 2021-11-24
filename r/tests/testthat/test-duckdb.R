@@ -15,14 +15,13 @@
 # specific language governing permissions and limitations
 # under the License.
 
-skip_if_not_installed("duckdb", minimum_version = "0.2.8")
+skip_if_not_installed("duckdb", minimum_version = "0.3.1")
 skip_if_not_installed("dbplyr")
 skip_if_not_available("dataset")
+skip_on_cran()
 
-# when we remove this, we should also remove the FALSE in run_duckdb_examples
-skip("These tests are flaking: https://github.com/duckdb/duckdb/issues/2100")
-library(duckdb)
-library(dplyr)
+library(duckdb, quietly = TRUE)
+library(dplyr, warn.conflicts = FALSE)
 
 test_that("to_duckdb", {
   ds <- InMemoryDataset$create(example_data)
@@ -31,7 +30,7 @@ test_that("to_duckdb", {
     ds %>%
       to_duckdb() %>%
       collect() %>%
-      # factors don't roundtrip
+      # factors don't roundtrip https://github.com/duckdb/duckdb/issues/1879
       select(!fct),
     select(example_data, !fct)
   )
@@ -66,23 +65,50 @@ test_that("to_duckdb", {
   )
 })
 
-test_that("summarise(..., .engine)", {
+test_that("to_duckdb then to_arrow", {
   ds <- InMemoryDataset$create(example_data)
+
+  ds_rt <- ds %>%
+    to_duckdb() %>%
+    # factors don't roundtrip https://github.com/duckdb/duckdb/issues/1879
+    select(-fct) %>%
+    to_arrow()
+
   expect_identical(
+    collect(ds_rt),
     ds %>%
-      select(int, lgl, dbl) %>%
-      group_by(lgl) %>%
-      summarise(
-        mean_int = mean(int, na.rm = TRUE),
-        mean_dbl = mean(dbl, na.rm = TRUE),
-        .engine = "duckdb"
-      ) %>%
-      collect(),
-    tibble::tibble(
-      lgl = c(TRUE, NA, FALSE),
-      mean_int = c(3, 6.25, 8.5),
-      mean_dbl = c(3.1, 6.35, 6.1)
-    )
+      select(-fct) %>%
+      collect()
+  )
+
+  # And we can continue the pipeline
+  ds_rt <- ds %>%
+    to_duckdb() %>%
+    # factors don't roundtrip https://github.com/duckdb/duckdb/issues/1879
+    select(-fct) %>%
+    to_arrow() %>%
+    filter(int > 5)
+
+  expect_identical(
+    collect(ds_rt),
+    ds %>%
+      select(-fct) %>%
+      filter(int > 5) %>%
+      collect()
+  )
+
+  # Now check errors
+  ds_rt <- ds %>%
+    to_duckdb() %>%
+    # factors don't roundtrip https://github.com/duckdb/duckdb/issues/1879
+    select(-fct)
+
+  # alter the class of ds_rt's connection to simulate some other database
+  class(ds_rt$src$con) <- "some_other_connection"
+
+  expect_error(
+    to_arrow(ds_rt),
+    "to_arrow\\(\\) currently only supports Arrow tables, Arrow datasets,"
   )
 })
 
@@ -94,10 +120,7 @@ con <- dbConnect(duckdb::duckdb())
 dbExecute(con, "PRAGMA threads=2")
 on.exit(dbDisconnect(con, shutdown = TRUE), add = TRUE)
 
-# write one table to the connection so it is kept open
-DBI::dbWriteTable(con, "mtcars", mtcars)
-
-test_that("Joining, auto-cleanup", {
+test_that("Joining, auto-cleanup enabled", {
   ds <- InMemoryDataset$create(example_data)
 
   table_one_name <- "my_arrow_table_1"
@@ -116,24 +139,24 @@ test_that("Joining, auto-cleanup", {
   expect_identical(dim(res), c(9L, 14L))
 
   # clean up cleans up the tables
-  expect_true(all(c(table_one_name, table_two_name) %in% DBI::dbListTables(con)))
+  expect_true(all(c(table_one_name, table_two_name) %in% duckdb::duckdb_list_arrow(con)))
   rm(table_one, table_two)
   gc()
-  expect_false(any(c(table_one_name, table_two_name) %in% DBI::dbListTables(con)))
+  expect_false(any(c(table_one_name, table_two_name) %in% duckdb::duckdb_list_arrow(con)))
 })
 
-test_that("Joining, auto-cleanup disabling", {
+test_that("Joining, auto-cleanup disabled", {
   ds <- InMemoryDataset$create(example_data)
 
   table_three_name <- "my_arrow_table_3"
   table_three <- to_duckdb(ds, con = con, table_name = table_three_name, auto_disconnect = FALSE)
 
   # clean up does *not* clean these tables
-  expect_true(table_three_name %in% DBI::dbListTables(con))
+  expect_true(table_three_name %in% duckdb::duckdb_list_arrow(con))
   rm(table_three)
   gc()
   # but because we aren't auto_disconnecting then we still have this table.
-  expect_true(table_three_name %in% DBI::dbListTables(con))
+  expect_true(table_three_name %in% duckdb::duckdb_list_arrow(con))
 })
 
 test_that("to_duckdb with a table", {
@@ -167,7 +190,8 @@ test_that("to_duckdb passing a connection", {
   # create a table to join to that we know is in our con_separate
   new_df <- data.frame(
     int = 1:10,
-    char = letters[26:17]
+    char = letters[26:17],
+    stringsAsFactors = FALSE
   )
   DBI::dbWriteTable(con_separate, "separate_join_table", new_df)
 

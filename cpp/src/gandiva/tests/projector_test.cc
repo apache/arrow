@@ -1606,4 +1606,163 @@ TEST_F(TestProjector, TestCastNullableIntYearInterval) {
   EXPECT_ARROW_ARRAY_EQUALS(out_int64, outputs.at(1));
 }
 
+TEST_F(TestProjector, TestBround) {
+  // schema for input fields
+  auto field0 = field("f0", arrow::float64());
+
+  auto schema_bround = arrow::schema({field0});
+
+  // output fields
+  auto field_bround = field("bround", arrow::float64());
+
+  // Build expression
+  auto bround_expr = TreeExprBuilder::MakeExpression("bround", {field0}, field_bround);
+
+  std::shared_ptr<Projector> projector;
+  auto status =
+      Projector::Make(schema_bround, {bround_expr}, TestConfiguration(), &projector);
+
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Create a row-batch with some sample data
+  int num_records = 4;
+  auto array0 =
+      MakeArrowArrayFloat64({0.0, 2.5, -3.5, 1.499999}, {true, true, true, true});
+  // expected output
+  auto exp_bround = MakeArrowArrayFloat64({0, 2, -4, 1}, {true, true, true, true});
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema_bround, num_records, {array0});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp_bround, outputs.at(0));
+}
+
+TEST_F(TestProjector, TestConcatWsFunction) {
+  auto field0 = field("f0", arrow::utf8());
+  auto field1 = field("f1", arrow::utf8());
+  auto field2 = field("f2", arrow::utf8());
+
+  auto schema0 = arrow::schema({field0, field1, field2});
+
+  // output fields
+  auto out_field0 = field("out_field0", arrow::utf8());
+
+  // Build expression
+  auto concat_ws_expr0 =
+      TreeExprBuilder::MakeExpression("concat_ws", {field0, field1, field2}, out_field0);
+
+  std::shared_ptr<Projector> projector1;
+
+  auto status =
+      Projector::Make(schema0, {concat_ws_expr0}, TestConfiguration(), &projector1);
+  EXPECT_TRUE(status.ok());
+
+  // Create a row-batch with some sample data
+  int num_records = 2;
+
+  auto array0 = MakeArrowArrayUtf8({"-", "<>"}, {true, true});
+  auto array1 = MakeArrowArrayUtf8({"john", "hello"}, {true, true});
+  auto array2 = MakeArrowArrayUtf8({"doe", "world"}, {true, true});
+  auto in_batch0 =
+      arrow::RecordBatch::Make(schema0, num_records, {array0, array1, array2});
+
+  auto expected_out0 = MakeArrowArrayUtf8({"john-doe", "hello<>world"}, {true, true});
+
+  arrow::ArrayVector outputs;
+
+  // Evaluate expression
+  status = projector1->Evaluate(*in_batch0, pool_, &outputs);
+  EXPECT_TRUE(status.ok());
+
+  EXPECT_ARROW_ARRAY_EQUALS(expected_out0, outputs.at(0));
+}
+
+TEST_F(TestProjector, TestEltFunction) {
+  auto field0 = field("f0", arrow::int32());
+  auto field1 = field("f1", arrow::utf8());
+  auto field2 = field("f2", arrow::utf8());
+
+  auto schema = arrow::schema({field0, field1, field2});
+
+  // output fields
+  auto out_field = field("out", arrow::utf8());
+
+  // Build expression
+  auto elt_expr =
+      TreeExprBuilder::MakeExpression("elt", {field0, field1, field2}, out_field);
+
+  std::shared_ptr<Projector> projector0;
+  auto status = Projector::Make(schema, {elt_expr}, TestConfiguration(), &projector0);
+  EXPECT_TRUE(status.ok());
+
+  // Create a row-batch with some sample data
+  int num_records = 4;
+
+  auto array0 = MakeArrowArrayInt32({1, 2, 2, 1}, {true, true, true, true});
+  auto array1 =
+      MakeArrowArrayUtf8({"john", "bigger", "goodbye", "hi"}, {true, true, true, true});
+  auto array2 =
+      MakeArrowArrayUtf8({"doe", "world", "world", "yeah"}, {true, true, true, true});
+  auto in_batch0 =
+      arrow::RecordBatch::Make(schema, num_records, {array0, array1, array2});
+
+  auto expected_out0 =
+      MakeArrowArrayUtf8({"john", "world", "world", "hi"}, {true, true, true, true});
+
+  arrow::ArrayVector outputs;
+
+  // Evaluate expression
+  status = projector0->Evaluate(*in_batch0, pool_, &outputs);
+  EXPECT_TRUE(status.ok());
+  EXPECT_ARROW_ARRAY_EQUALS(expected_out0, outputs.at(0));
+
+  std::shared_ptr<Projector> projector1;
+  status = Projector::Make(schema, {elt_expr}, TestConfiguration(), &projector1);
+
+  auto array3 = MakeArrowArrayInt32({1, 1, 1, 1}, {true, true, true, true});
+  auto array4 =
+      MakeArrowArrayUtf8({"inconsequential", "insignificant", "welcome", "dependencies"},
+                         {true, true, true, true});
+  auto array5 =
+      MakeArrowArrayUtf8({"wrong", "tiny", "hi", "deps"}, {true, true, true, true});
+  auto in_batch1 =
+      arrow::RecordBatch::Make(schema, num_records, {array3, array4, array5});
+
+  auto expected_out1 =
+      MakeArrowArrayUtf8({"inconsequential", "insignificant", "welcome", "dependencies"},
+                         {true, true, true, true});
+
+  arrow::ArrayVector outputs1;
+
+  status = projector1->Evaluate(*in_batch1, pool_, &outputs1);
+  EXPECT_TRUE(status.ok());
+  EXPECT_ARROW_ARRAY_EQUALS(expected_out1, outputs1.at(0));
+
+  std::shared_ptr<Projector> projector2;
+  status = Projector::Make(schema, {elt_expr}, TestConfiguration(), &projector2);
+
+  auto array6 = MakeArrowArrayInt32({2, 2, 2, 2}, {true, true, true, true});
+  auto array7 =
+      MakeArrowArrayUtf8({"inconsequential", "insignificant", "welcome", "dependencies"},
+                         {true, true, true, true});
+  auto array8 =
+      MakeArrowArrayUtf8({"wrong", "tiny", "hi", "deps"}, {true, true, true, true});
+  auto in_batch2 =
+      arrow::RecordBatch::Make(schema, num_records, {array6, array7, array8});
+
+  auto expected_out2 =
+      MakeArrowArrayUtf8({"wrong", "tiny", "hi", "deps"}, {true, true, true, true});
+
+  arrow::ArrayVector outputs2;
+  status = projector2->Evaluate(*in_batch2, pool_, &outputs2);
+  EXPECT_TRUE(status.ok());
+  EXPECT_ARROW_ARRAY_EQUALS(expected_out2, outputs2.at(0));
+}
+
 }  // namespace gandiva

@@ -17,11 +17,14 @@
 package array
 
 import (
+	"hash/maphash"
+	"math/bits"
 	"sync/atomic"
+	"unsafe"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/internal/debug"
-	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/v7/arrow"
+	"github.com/apache/arrow/go/v7/arrow/internal/debug"
+	"github.com/apache/arrow/go/v7/arrow/memory"
 )
 
 // Data represents the memory and metadata of an Arrow array.
@@ -176,4 +179,15 @@ func NewSliceData(data *Data, i, j int64) *Data {
 	}
 
 	return o
+}
+
+func Hash(h *maphash.Hash, a *Data) {
+	h.Write((*[bits.UintSize / 8]byte)(unsafe.Pointer(&a.length))[:])
+	h.Write((*[bits.UintSize / 8]byte)(unsafe.Pointer(&a.length))[:])
+	if len(a.buffers) > 0 && a.buffers[0] != nil {
+		h.Write(a.buffers[0].Bytes())
+	}
+	for _, c := range a.childData {
+		Hash(h, c)
+	}
 }

@@ -163,3 +163,16 @@ RoundMode <- enum("RoundMode",
   HALF_TO_EVEN = 8L,
   HALF_TO_ODD = 9L
 )
+
+#' @export
+#' @rdname enums
+JoinType <- enum("JoinType",
+  LEFT_SEMI = 0L,
+  RIGHT_SEMI = 1L,
+  LEFT_ANTI = 2L,
+  RIGHT_ANTI = 3L,
+  INNER = 4L,
+  LEFT_OUTER = 5L,
+  RIGHT_OUTER = 6L,
+  FULL_OUTER = 7L
+)

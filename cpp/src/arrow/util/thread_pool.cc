@@ -121,6 +121,7 @@ struct ThreadPool::State {
   std::mutex mutex_;
   std::condition_variable cv_;
   std::condition_variable cv_shutdown_;
+  std::condition_variable cv_idle_;
 
   std::list<std::thread> workers_;
   // Trashcan for finished threads
@@ -182,7 +183,9 @@ static void WorkerLoop(std::shared_ptr<ThreadPool::State> state,
         ARROW_UNUSED(std::move(task));  // release resources before waiting for lock
         lock.lock();
       }
-      state->tasks_queued_or_running_--;
+      if (ARROW_PREDICT_FALSE(--state->tasks_queued_or_running_ == 0)) {
+        state->cv_idle_.notify_all();
+      }
     }
     // Now either the queue is empty *or* a quick shutdown was requested
     if (state->please_shutdown_ || should_secede()) {
@@ -207,6 +210,11 @@ static void WorkerLoop(std::shared_ptr<ThreadPool::State> state,
     // Notify the function waiting in Shutdown().
     state->cv_shutdown_.notify_one();
   }
+}
+
+void ThreadPool::WaitForIdle() {
+  std::unique_lock<std::mutex> lk(state_->mutex_);
+  state_->cv_idle_.wait(lk, [this] { return state_->tasks_queued_or_running_ == 0; });
 }
 
 ThreadPool::ThreadPool()

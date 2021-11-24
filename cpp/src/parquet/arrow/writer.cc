@@ -422,9 +422,7 @@ Status GetSchemaMetadata(const ::arrow::Schema& schema, ::arrow::MemoryPool* poo
 
   // The serialized schema is not UTF-8, which is required for Thrift
   std::string schema_as_string = serialized->ToString();
-  std::string schema_base64 = ::arrow::util::base64_encode(
-      reinterpret_cast<const unsigned char*>(schema_as_string.data()),
-      static_cast<unsigned int>(schema_as_string.size()));
+  std::string schema_base64 = ::arrow::util::base64_encode(schema_as_string);
   result->Append(kArrowSchemaKey, schema_base64);
   *out = result;
   return Status::OK();

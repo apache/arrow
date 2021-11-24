@@ -83,12 +83,11 @@ if "%JOB%" NEQ "Build_Debug" (
 @rem
 if "%GENERATOR%"=="Ninja" set need_vcvarsall=1
 if defined need_vcvarsall (
-    @rem Select desired compiler version
-    if "%APPVEYOR_BUILD_WORKER_IMAGE%" == "Visual Studio 2017" (
-        call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build\vcvarsall.bat" amd64
-    ) else (
-        call "C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" amd64
+    if "%APPVEYOR_BUILD_WORKER_IMAGE%" NEQ "Visual Studio 2017" (
+        @rem ARROW-14070 Visual Studio 2015 no longer supported
+        exit /B
     )
+    call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build\vcvarsall.bat" amd64
 )
 
 @rem

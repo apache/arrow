@@ -3674,6 +3674,9 @@ TEST(TestArrowReaderAdHoc, LARGE_MEMORY_TEST(LargeStringColumn)) {
 }
 
 TEST(TestArrowReaderAdHoc, HandleDictPageOffsetZero) {
+#ifndef ARROW_WITH_SNAPPY
+  GTEST_SKIP() << "Test requires Snappy compression";
+#endif
   // PARQUET-1402: parquet-mr writes files this way which tripped up
   // some business logic
   TryReadDataFile(test::get_data_file("dict-page-offset-zero.parquet"));
@@ -3895,7 +3898,6 @@ TEST_P(TestArrowWriteDictionary, Statistics) {
 INSTANTIATE_TEST_SUITE_P(WriteDictionary, TestArrowWriteDictionary,
                          ::testing::Values(ParquetDataPageVersion::V1,
                                            ParquetDataPageVersion::V2));
-
 // ----------------------------------------------------------------------
 // Tests for directly reading DictionaryArray
 
@@ -4159,37 +4161,269 @@ TEST(TestArrowWriteDictionaries, NestedSubfield) {
 }
 
 #ifdef ARROW_CSV
-TEST(TestArrowReadDeltaEncoding, DeltaBinaryPacked) {
-  auto file = test::get_data_file("delta_binary_packed.parquet");
-  auto expect_file = test::get_data_file("delta_binary_packed_expect.csv");
-  auto pool = ::arrow::default_memory_pool();
-  std::unique_ptr<FileReader> parquet_reader;
-  std::shared_ptr<::arrow::Table> table;
-  ASSERT_OK(
-      FileReader::Make(pool, ParquetFileReader::OpenFile(file, false), &parquet_reader));
-  ASSERT_OK(parquet_reader->ReadTable(&table));
 
-  ASSERT_OK_AND_ASSIGN(auto input_file, ::arrow::io::ReadableFile::Open(expect_file));
+class TestArrowReadDeltaEncoding : public ::testing::Test {
+ public:
+  void ReadTableFromParquetFile(const std::string& file_name,
+                                std::shared_ptr<Table>* out) {
+    auto file = test::get_data_file(file_name);
+    auto pool = ::arrow::default_memory_pool();
+    std::unique_ptr<FileReader> parquet_reader;
+    ASSERT_OK(FileReader::Make(pool, ParquetFileReader::OpenFile(file, false),
+                               &parquet_reader));
+    ASSERT_OK(parquet_reader->ReadTable(out));
+    ASSERT_OK((*out)->ValidateFull());
+  }
+
+  void ReadTableFromCSVFile(const std::string& file_name,
+                            const ::arrow::csv::ConvertOptions& convert_options,
+                            std::shared_ptr<Table>* out) {
+    auto file = test::get_data_file(file_name);
+    ASSERT_OK_AND_ASSIGN(auto input_file, ::arrow::io::ReadableFile::Open(file));
+    ASSERT_OK_AND_ASSIGN(auto csv_reader,
+                         ::arrow::csv::TableReader::Make(
+                             ::arrow::io::default_io_context(), input_file,
+                             ::arrow::csv::ReadOptions::Defaults(),
+                             ::arrow::csv::ParseOptions::Defaults(), convert_options));
+    ASSERT_OK_AND_ASSIGN(*out, csv_reader->Read());
+  }
+};
+
+TEST_F(TestArrowReadDeltaEncoding, DeltaBinaryPacked) {
+  std::shared_ptr<::arrow::Table> actual_table, expect_table;
+  ReadTableFromParquetFile("delta_binary_packed.parquet", &actual_table);
+
   auto convert_options = ::arrow::csv::ConvertOptions::Defaults();
   for (int i = 0; i <= 64; ++i) {
     std::string column_name = "bitwidth" + std::to_string(i);
     convert_options.column_types[column_name] = ::arrow::int64();
   }
   convert_options.column_types["int_value"] = ::arrow::int32();
-  ASSERT_OK_AND_ASSIGN(auto csv_reader,
-                       ::arrow::csv::TableReader::Make(
-                           ::arrow::io::default_io_context(), input_file,
-                           ::arrow::csv::ReadOptions::Defaults(),
-                           ::arrow::csv::ParseOptions::Defaults(), convert_options));
-  ASSERT_OK_AND_ASSIGN(auto expect_table, csv_reader->Read());
+  ReadTableFromCSVFile("delta_binary_packed_expect.csv", convert_options, &expect_table);
 
-  ::arrow::AssertTablesEqual(*table, *expect_table);
+  ::arrow::AssertTablesEqual(*actual_table, *expect_table);
 }
+
+TEST_F(TestArrowReadDeltaEncoding, DeltaByteArray) {
+  std::shared_ptr<::arrow::Table> actual_table, expect_table;
+  ReadTableFromParquetFile("delta_byte_array.parquet", &actual_table);
+
+  auto convert_options = ::arrow::csv::ConvertOptions::Defaults();
+  std::vector<std::string> column_names = {
+      "c_customer_id", "c_salutation",          "c_first_name",
+      "c_last_name",   "c_preferred_cust_flag", "c_birth_country",
+      "c_login",       "c_email_address",       "c_last_review_date"};
+  for (auto name : column_names) {
+    convert_options.column_types[name] = ::arrow::utf8();
+  }
+  convert_options.strings_can_be_null = true;
+  ReadTableFromCSVFile("delta_byte_array_expect.csv", convert_options, &expect_table);
+
+  ::arrow::AssertTablesEqual(*actual_table, *expect_table, false);
+}
+
+TEST_F(TestArrowReadDeltaEncoding, IncrementalDecodeDeltaByteArray) {
+  auto file = test::get_data_file("delta_byte_array.parquet");
+  auto pool = ::arrow::default_memory_pool();
+  const int64_t batch_size = 100;
+  ArrowReaderProperties properties = default_arrow_reader_properties();
+  properties.set_batch_size(batch_size);
+  std::unique_ptr<FileReader> parquet_reader;
+  std::shared_ptr<::arrow::RecordBatchReader> rb_reader;
+  ASSERT_OK(FileReader::Make(pool, ParquetFileReader::OpenFile(file, false), properties,
+                             &parquet_reader));
+  ASSERT_OK(parquet_reader->GetRecordBatchReader(Iota(parquet_reader->num_row_groups()),
+                                                 &rb_reader));
+
+  auto convert_options = ::arrow::csv::ConvertOptions::Defaults();
+  std::vector<std::string> column_names = {
+      "c_customer_id", "c_salutation",          "c_first_name",
+      "c_last_name",   "c_preferred_cust_flag", "c_birth_country",
+      "c_login",       "c_email_address",       "c_last_review_date"};
+  for (auto name : column_names) {
+    convert_options.column_types[name] = ::arrow::utf8();
+  }
+  convert_options.strings_can_be_null = true;
+  std::shared_ptr<::arrow::Table> csv_table;
+  ReadTableFromCSVFile("delta_byte_array_expect.csv", convert_options, &csv_table);
+
+  ::arrow::TableBatchReader csv_table_reader(*csv_table);
+  csv_table_reader.set_chunksize(batch_size);
+
+  std::shared_ptr<::arrow::RecordBatch> actual_batch, expected_batch;
+  for (int i = 0; i < csv_table->num_rows() / batch_size; ++i) {
+    ASSERT_OK(rb_reader->ReadNext(&actual_batch));
+    ASSERT_OK(actual_batch->ValidateFull());
+    ASSERT_OK(csv_table_reader.ReadNext(&expected_batch));
+    ASSERT_NO_FATAL_FAILURE(::arrow::AssertBatchesEqual(*expected_batch, *actual_batch));
+  }
+  ASSERT_OK(rb_reader->ReadNext(&actual_batch));
+  ASSERT_EQ(nullptr, actual_batch);
+}
+
 #else
 TEST(TestArrowReadDeltaEncoding, DeltaBinaryPacked) {
   GTEST_SKIP() << "Test needs CSV reader";
 }
+
+TEST(TestArrowReadDeltaEncoding, DeltaByteArray) {
+  GTEST_SKIP() << "Test needs CSV reader";
+}
+
+TEST(TestArrowReadDeltaEncoding, IncrementalDecodeDeltaByteArray) {
+  GTEST_SKIP() << "Test needs CSV reader";
+}
+
 #endif
+
+struct NestedFilterTestCase {
+  std::shared_ptr<::arrow::DataType> write_schema;
+  std::vector<int> indices_to_read;
+  std::shared_ptr<::arrow::DataType> expected_schema;
+  std::string write_data;
+  std::string read_data;
+
+  // For Valgrind
+  friend std::ostream& operator<<(std::ostream& os, const NestedFilterTestCase& param) {
+    os << "NestedFilterTestCase{write_schema = " << param.write_schema->ToString() << "}";
+    return os;
+  }
+};
+class TestNestedSchemaFilteredReader
+    : public ::testing::TestWithParam<NestedFilterTestCase> {};
+
+TEST_P(TestNestedSchemaFilteredReader, ReadWrite) {
+  std::shared_ptr<::arrow::io::BufferOutputStream> sink = CreateOutputStream();
+  auto write_props = WriterProperties::Builder().build();
+  std::shared_ptr<::arrow::Array> array =
+      ArrayFromJSON(GetParam().write_schema, GetParam().write_data);
+
+  ASSERT_OK_NO_THROW(
+      WriteTable(**Table::FromRecordBatches({::arrow::RecordBatch::Make(
+                     ::arrow::schema({::arrow::field("col", array->type())}),
+                     array->length(), {array})}),
+                 ::arrow::default_memory_pool(), sink, /*chunk_size=*/100, write_props,
+                 ArrowWriterProperties::Builder().store_schema()->build()));
+  std::shared_ptr<::arrow::Buffer> buffer;
+  ASSERT_OK_AND_ASSIGN(buffer, sink->Finish());
+
+  std::unique_ptr<FileReader> reader;
+  FileReaderBuilder builder;
+  ASSERT_OK_NO_THROW(builder.Open(std::make_shared<BufferReader>(buffer)));
+  ASSERT_OK(builder.properties(default_arrow_reader_properties())->Build(&reader));
+  std::shared_ptr<::arrow::Table> read_table;
+  ASSERT_OK_NO_THROW(reader->ReadTable(GetParam().indices_to_read, &read_table));
+
+  std::shared_ptr<::arrow::Array> expected =
+      ArrayFromJSON(GetParam().expected_schema, GetParam().read_data);
+  AssertArraysEqual(*read_table->column(0)->chunk(0), *expected, /*verbose=*/true);
+}
+
+std::vector<NestedFilterTestCase> GenerateListFilterTestCases() {
+  auto struct_type = ::arrow::struct_(
+      {::arrow::field("a", ::arrow::int64()), ::arrow::field("b", ::arrow::int64())});
+
+  constexpr auto kWriteData = R"([[{"a": 1, "b": 2}]])";
+  constexpr auto kReadData = R"([[{"a": 1}]])";
+
+  std::vector<NestedFilterTestCase> cases;
+  auto first_selected_type = ::arrow::struct_({struct_type->field(0)});
+  cases.push_back({::arrow::list(struct_type),
+                   /*indices=*/{0}, ::arrow::list(first_selected_type), kWriteData,
+                   kReadData});
+  cases.push_back({::arrow::large_list(struct_type),
+                   /*indices=*/{0}, ::arrow::large_list(first_selected_type), kWriteData,
+                   kReadData});
+  cases.push_back({::arrow::fixed_size_list(struct_type, /*list_size=*/1),
+                   /*indices=*/{0},
+                   ::arrow::fixed_size_list(first_selected_type, /*list_size=*/1),
+                   kWriteData, kReadData});
+  return cases;
+}
+
+INSTANTIATE_TEST_SUITE_P(ListFilteredReads, TestNestedSchemaFilteredReader,
+                         ::testing::ValuesIn(GenerateListFilterTestCases()));
+
+std::vector<NestedFilterTestCase> GenerateNestedStructFilteredTestCases() {
+  using ::arrow::field;
+  using ::arrow::struct_;
+  auto struct_type = struct_(
+      {field("t1", struct_({field("a", ::arrow::int64()), field("b", ::arrow::int64())})),
+       field("t2", ::arrow::int64())});
+
+  constexpr auto kWriteData = R"([{"t1": {"a": 1, "b":2}, "t2": 3}])";
+
+  std::vector<NestedFilterTestCase> cases;
+  auto selected_type = ::arrow::struct_(
+      {field("t1", struct_({field("a", ::arrow::int64())})), struct_type->field(1)});
+  cases.push_back({struct_type,
+                   /*indices=*/{0, 2}, selected_type, kWriteData,
+                   /*expected=*/R"([{"t1": {"a": 1}, "t2": 3}])"});
+  selected_type = ::arrow::struct_(
+      {field("t1", struct_({field("b", ::arrow::int64())})), struct_type->field(1)});
+
+  cases.push_back({struct_type,
+                   /*indices=*/{1, 2}, selected_type, kWriteData,
+                   /*expected=*/R"([{"t1": {"b": 2}, "t2": 3}])"});
+
+  return cases;
+}
+
+INSTANTIATE_TEST_SUITE_P(StructFilteredReads, TestNestedSchemaFilteredReader,
+                         ::testing::ValuesIn(GenerateNestedStructFilteredTestCases()));
+
+std::vector<NestedFilterTestCase> GenerateMapFilteredTestCases() {
+  using ::arrow::field;
+  using ::arrow::struct_;
+  auto map_type = std::static_pointer_cast<::arrow::MapType>(::arrow::map(
+      struct_({field("a", ::arrow::int64()), field("b", ::arrow::int64())}),
+      struct_({field("c", ::arrow::int64()), field("d", ::arrow::int64())})));
+
+  constexpr auto kWriteData = R"([[[{"a": 0, "b": 1}, {"c": 2, "d": 3}]]])";
+  std::vector<NestedFilterTestCase> cases;
+  // Remove the value element completely converts to a list of struct.
+  cases.push_back(
+      {map_type,
+       /*indices=*/{0, 1},
+       /*selected_type=*/
+       ::arrow::list(field("col", struct_({map_type->key_field()}), /*nullable=*/false)),
+       kWriteData, /*expected_data=*/R"([[{"key": {"a": 0, "b":1}}]])"});
+  // The "col" field name below comes from how naming is done when writing out the
+  // array (it is assigned the column name col.
+
+  // Removing the full key converts to a list of struct.
+  cases.push_back(
+      {map_type,
+       /*indices=*/{3},
+       /*selected_type=*/
+       ::arrow::list(field(
+           "col", struct_({field("value", struct_({field("d", ::arrow::int64())}))}),
+           /*nullable=*/false)),
+       kWriteData, /*expected_data=*/R"([[{"value": {"d": 3}}]])"});
+  // Selecting the full key and a value maintains the map
+  cases.push_back(
+      {map_type, /*indices=*/{0, 1, 2},
+       /*selected_type=*/
+       ::arrow::map(map_type->key_type(), struct_({field("c", ::arrow::int64())})),
+       kWriteData, /*expected=*/R"([[[{"a": 0, "b": 1}, {"c": 2}]]])"});
+
+  // Selecting the partial key (with some part of the value converts to
+  // list of structs (because the key might no longer be unique).
+  cases.push_back(
+      {map_type, /*indices=*/{1, 2, 3},
+       /*selected_type=*/
+       ::arrow::list(field("col",
+                           struct_({field("key", struct_({field("b", ::arrow::int64())}),
+                                          /*nullable=*/false),
+                                    map_type->item_field()}),
+                           /*nullable=*/false)),
+       kWriteData, /*expected=*/R"([[{"key":{"b": 1}, "value": {"c": 2, "d": 3}}]])"});
+
+  return cases;
+}
+
+INSTANTIATE_TEST_SUITE_P(MapFilteredReads, TestNestedSchemaFilteredReader,
+                         ::testing::ValuesIn(GenerateMapFilteredTestCases()));
 
 }  // namespace arrow
 }  // namespace parquet

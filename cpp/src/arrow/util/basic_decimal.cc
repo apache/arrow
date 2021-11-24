@@ -377,6 +377,10 @@ BasicDecimal128::BasicDecimal128(const uint8_t* bytes)
                       reinterpret_cast<const uint64_t*>(bytes)[1]) {}
 #endif
 
+constexpr int BasicDecimal128::kBitWidth;
+constexpr int BasicDecimal128::kMaxPrecision;
+constexpr int BasicDecimal128::kMaxScale;
+
 std::array<uint8_t, 16> BasicDecimal128::ToBytes() const {
   std::array<uint8_t, 16> out{{0}};
   ToBytes(out.data());
@@ -1102,7 +1106,20 @@ const BasicDecimal128& BasicDecimal128::GetScaleMultiplier(int32_t scale) {
   return ScaleMultipliers[scale];
 }
 
+const BasicDecimal128& BasicDecimal128::GetHalfScaleMultiplier(int32_t scale) {
+  DCHECK_GE(scale, 0);
+  DCHECK_LE(scale, 38);
+
+  return ScaleMultipliersHalf[scale];
+}
+
 const BasicDecimal128& BasicDecimal128::GetMaxValue() { return kMaxValue; }
+
+BasicDecimal128 BasicDecimal128::GetMaxValue(int32_t precision) {
+  DCHECK_GE(precision, 0);
+  DCHECK_LE(precision, 38);
+  return ScaleMultipliers[precision] - 1;
+}
 
 BasicDecimal128 BasicDecimal128::IncreaseScaleBy(int32_t increase_by) const {
   DCHECK_GE(increase_by, 0);
@@ -1152,6 +1169,10 @@ BasicDecimal256::BasicDecimal256(const uint8_t* bytes)
               reinterpret_cast<const uint64_t*>(bytes)[1],
               reinterpret_cast<const uint64_t*>(bytes)[2],
               reinterpret_cast<const uint64_t*>(bytes)[3]}) {}
+
+constexpr int BasicDecimal256::kBitWidth;
+constexpr int BasicDecimal256::kMaxPrecision;
+constexpr int BasicDecimal256::kMaxScale;
 
 BasicDecimal256& BasicDecimal256::Negate() {
   auto array_le = BitUtil::LittleEndianArray::Make(&array_);
@@ -1242,8 +1263,6 @@ BasicDecimal256& BasicDecimal256::operator*=(const BasicDecimal256& right) {
   BasicDecimal256 x = BasicDecimal256::Abs(*this);
   BasicDecimal256 y = BasicDecimal256::Abs(right);
 
-  uint128_t r_hi;
-  uint128_t r_lo;
   std::array<uint64_t, 4> res{0, 0, 0, 0};
   MultiplyUnsignedArray<4>(x.array_, y.array_, &res);
   array_ = res;
@@ -1308,6 +1327,19 @@ const BasicDecimal256& BasicDecimal256::GetScaleMultiplier(int32_t scale) {
   DCHECK_LE(scale, 76);
 
   return ScaleMultipliersDecimal256[scale];
+}
+
+const BasicDecimal256& BasicDecimal256::GetHalfScaleMultiplier(int32_t scale) {
+  DCHECK_GE(scale, 0);
+  DCHECK_LE(scale, 76);
+
+  return ScaleMultipliersHalfDecimal256[scale];
+}
+
+BasicDecimal256 BasicDecimal256::GetMaxValue(int32_t precision) {
+  DCHECK_GE(precision, 0);
+  DCHECK_LE(precision, 76);
+  return ScaleMultipliersDecimal256[precision] + (-1);
 }
 
 BasicDecimal256 operator*(const BasicDecimal256& left, const BasicDecimal256& right) {

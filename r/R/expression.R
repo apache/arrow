@@ -50,9 +50,9 @@
   "str_length" = "utf8_length",
   # str_pad is defined in dplyr-functions.R
   # str_sub is defined in dplyr-functions.R
-  "str_to_lower" = "utf8_lower",
-  "str_to_title" = "utf8_title",
-  "str_to_upper" = "utf8_upper",
+  # str_to_lower is defined in dplyr-functions.R
+  # str_to_title is defined in dplyr-functions.R
+  # str_to_upper is defined in dplyr-functions.R
   # str_trim is defined in dplyr-functions.R
   "stri_reverse" = "utf8_reverse",
   # substr is defined in dplyr-functions.R
@@ -67,7 +67,6 @@
   "epiweek" = "us_week",
   "isoyear" = "iso_year",
   "minute" = "minute",
-  "month" = "month",
   "quarter" = "quarter",
   # second is defined in dplyr-functions.R
   # wday is defined in dplyr-functions.R
@@ -94,13 +93,15 @@
   "+" = "add_checked",
   "-" = "subtract_checked",
   "*" = "multiply_checked",
-  "/" = "divide_checked",
+  "/" = "divide",
   "%/%" = "divide_checked",
   # we don't actually use divide_checked with `%%`, rather it is rewritten to
   # use `%/%` above.
   "%%" = "divide_checked",
   "^" = "power_checked",
-  "%in%" = "is_in_meta_binary"
+  "%in%" = "is_in_meta_binary",
+  "strrep" = "binary_repeat",
+  "str_dup" = "binary_repeat"
 )
 
 .array_function_map <- c(.unary_function_map, .binary_function_map)
@@ -215,7 +216,23 @@ build_expr <- function(FUN,
     } else if (FUN == "%/%") {
       # In R, integer division works like floor(float division)
       out <- build_expr("/", args = args)
-      return(out$cast(int32(), allow_float_truncate = TRUE))
+
+      # integer output only for all integer input
+      int_type_ids <- Type[toupper(INTEGER_TYPES)]
+      numerator_is_int <- args[[1]]$type_id() %in% int_type_ids
+      denominator_is_int <- args[[2]]$type_id() %in% int_type_ids
+
+      if (numerator_is_int && denominator_is_int) {
+        out_float <- build_expr(
+          "if_else",
+          build_expr("equal", args[[2]], 0L),
+          Scalar$create(NA_integer_),
+          build_expr("floor", out)
+        )
+        return(out_float$cast(args[[1]]$type()))
+      } else {
+        return(build_expr("floor", out))
+      }
     } else if (FUN == "%%") {
       return(args[[1]] - args[[2]] * (args[[1]] %/% args[[2]]))
     }

@@ -28,7 +28,7 @@ end
 checking_for(checking_message("Homebrew")) do
   platform = NativePackageInstaller::Platform.detect
   if platform.is_a?(NativePackageInstaller::Platform::Homebrew)
-    openssl_prefix = `brew --prefix openssl@1.1`.chomp
+    openssl_prefix = `brew --prefix openssl`.chomp
     unless openssl_prefix.empty?
       PKGConfig.add_path("#{openssl_prefix}/lib/pkgconfig")
     end

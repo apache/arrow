@@ -44,7 +44,7 @@ navbar:
       text: Project docs
       menu:
         - text: Specification
-          href: https://arrow.apache.org/docs/format/README.html
+          href: https://arrow.apache.org/docs/format/Columnar.html
         - text: C GLib
           href: https://arrow.apache.org/docs/c_glib
         - text: C++
@@ -72,6 +72,14 @@ navbar:
           href: articles/flight.html
         - text: Arrow R Developer Guide
           href: articles/developing.html
+        - text: Developers
+          menu:
+          - text: Developer Environment Setup
+            href: articles/developers/setup.html
+          - text: Common Workflow Tasks
+            href: articles/developers/workflow.html
+          - text: Debugging
+            href: articles/developers/debugging.html
 reference:
   - title: Multi-file datasets
     contents:
@@ -166,6 +174,7 @@ reference:
       - list_compute_functions
   - title: Connections to other systems
     contents:
+      - to_arrow
       - to_duckdb
   - title: Configuration
     contents:

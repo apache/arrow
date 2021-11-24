@@ -60,6 +60,7 @@ jobs:
         DOCKER_RUN_ARGS: >-
           "
           -e ARROW_BUILD_STATIC=OFF
+          -e ARROW_GCS=OFF
           -e ARROW_ORC=OFF
           -e ARROW_USE_GLOG=OFF
           -e CMAKE_UNITY_BUILD=ON
@@ -95,6 +96,7 @@ jobs:
           "
           -e ARROW_BUILD_STATIC=OFF
           -e ARROW_FLIGHT=ON
+          -e ARROW_GCS=OFF
           -e ARROW_MIMALLOC=OFF
           -e ARROW_ORC=OFF
           -e ARROW_PARQUET=OFF

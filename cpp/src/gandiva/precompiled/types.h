@@ -88,6 +88,15 @@ gdv_int64 timestampaddMonth_int32_timestamp(gdv_int32, gdv_timestamp);
 gdv_int64 timestampaddQuarter_int32_timestamp(gdv_int32, gdv_timestamp);
 gdv_int64 timestampaddYear_int32_timestamp(gdv_int32, gdv_timestamp);
 
+gdv_int64 timestampaddSecond_timestamp_int32(gdv_timestamp, gdv_int32);
+gdv_int64 timestampaddMinute_timestamp_int32(gdv_timestamp, gdv_int32);
+gdv_int64 timestampaddHour_timestamp_int32(gdv_timestamp, gdv_int32);
+gdv_int64 timestampaddDay_timestamp_int32(gdv_timestamp, gdv_int32);
+gdv_int64 timestampaddWeek_timestamp_int32(gdv_timestamp, gdv_int32);
+gdv_int64 timestampaddMonth_timestamp_int32(gdv_timestamp, gdv_int32);
+gdv_int64 timestampaddQuarter_timestamp_int32(gdv_timestamp, gdv_int32);
+gdv_int64 timestampaddYear_timestamp_int32(gdv_timestamp, gdv_int32);
+
 gdv_int64 timestampaddSecond_int64_timestamp(gdv_int64, gdv_timestamp);
 gdv_int64 timestampaddMinute_int64_timestamp(gdv_int64, gdv_timestamp);
 gdv_int64 timestampaddHour_int64_timestamp(gdv_int64, gdv_timestamp);
@@ -96,6 +105,15 @@ gdv_int64 timestampaddWeek_int64_timestamp(gdv_int64, gdv_timestamp);
 gdv_int64 timestampaddMonth_int64_timestamp(gdv_int64, gdv_timestamp);
 gdv_int64 timestampaddQuarter_int64_timestamp(gdv_int64, gdv_timestamp);
 gdv_int64 timestampaddYear_int64_timestamp(gdv_int64, gdv_timestamp);
+
+gdv_int64 timestampaddSecond_timestamp_int64(gdv_timestamp, gdv_int64);
+gdv_int64 timestampaddMinute_timestamp_int64(gdv_timestamp, gdv_int64);
+gdv_int64 timestampaddHour_timestamp_int64(gdv_timestamp, gdv_int64);
+gdv_int64 timestampaddDay_timestamp_int64(gdv_timestamp, gdv_int64);
+gdv_int64 timestampaddWeek_timestamp_int64(gdv_timestamp, gdv_int64);
+gdv_int64 timestampaddMonth_timestamp_int64(gdv_timestamp, gdv_int64);
+gdv_int64 timestampaddQuarter_timestamp_int64(gdv_timestamp, gdv_int64);
+gdv_int64 timestampaddYear_timestamp_int64(gdv_timestamp, gdv_int64);
 
 gdv_int64 date_add_int32_timestamp(gdv_int32, gdv_timestamp);
 gdv_int64 add_int64_timestamp(gdv_int64, gdv_timestamp);
@@ -150,6 +168,7 @@ gdv_float64 div_float64_float64(gdv_int64 context, gdv_float64 in1, gdv_float64 
 
 gdv_float32 round_float32(gdv_float32);
 gdv_float64 round_float64(gdv_float64);
+gdv_float64 bround_float64(gdv_float64);
 gdv_float32 round_float32_int32(gdv_float32 number, gdv_int32 out_scale);
 gdv_float64 round_float64_int32(gdv_float64 number, gdv_int32 out_scale);
 gdv_float64 get_scale_multiplier(gdv_int32);
@@ -571,5 +590,56 @@ gdv_day_time_interval castNULLABLEINTERVALDAY_int64(gdv_int64 in);
 gdv_month_interval castNULLABLEINTERVALYEAR_int32(int64_t context, gdv_int32 in);
 
 gdv_month_interval castNULLABLEINTERVALYEAR_int64(int64_t context, gdv_int64 in);
+
+const char* concat_ws_utf8_utf8(int64_t context, const char* separator,
+                                int32_t separator_len, const char* word1,
+                                int32_t word1_len, const char* word2, int32_t word2_len,
+                                int32_t* out_len);
+
+const char* concat_ws_utf8_utf8_utf8(int64_t context, const char* separator,
+                                     int32_t separator_len, const char* word1,
+                                     int32_t word1_len, const char* word2,
+                                     int32_t word2_len, const char* word3,
+                                     int32_t word3_len, int32_t* out_len);
+
+const char* concat_ws_utf8_utf8_utf8_utf8(int64_t context, const char* separator,
+                                          int32_t separator_len, const char* word1,
+                                          int32_t word1_len, const char* word2,
+                                          int32_t word2_len, const char* word3,
+                                          int32_t word3_len, const char* word4,
+                                          int32_t word4_len, int32_t* out_len);
+
+const char* concat_ws_utf8_utf8_utf8_utf8_utf8(int64_t context, const char* separator,
+                                               int32_t separator_len, const char* word1,
+                                               int32_t word1_len, const char* word2,
+                                               int32_t word2_len, const char* word3,
+                                               int32_t word3_len, const char* word4,
+                                               int32_t word4_len, const char* word5,
+                                               int32_t word5_len, int32_t* out_len);
+
+const char* elt_int32_utf8_utf8(int32_t pos, bool pos_validity, const char* word1,
+                                int32_t word1_len, bool in1_validity, const char* word2,
+                                int32_t word2_len, bool in2_validity, bool* out_valid,
+                                int32_t* out_len);
+
+const char* elt_int32_utf8_utf8_utf8(int32_t pos, bool pos_validity, const char* word1,
+                                     int32_t word1_len, bool word1_validity,
+                                     const char* word2, int32_t word2_len,
+                                     bool word2_validity, const char* word3,
+                                     int32_t word3_len, bool word3_validity,
+                                     bool* out_valid, int32_t* out_len);
+
+const char* elt_int32_utf8_utf8_utf8_utf8(
+    int32_t pos, bool pos_validity, const char* word1, int32_t word1_len,
+    bool word1_validity, const char* word2, int32_t word2_len, bool word2_validity,
+    const char* word3, int32_t word3_len, bool word3_validity, const char* word4,
+    int32_t word4_len, bool word4_validity, bool* out_valid, int32_t* out_len);
+
+const char* elt_int32_utf8_utf8_utf8_utf8_utf8(
+    int32_t pos, bool pos_validity, const char* word1, int32_t word1_len,
+    bool word1_validity, const char* word2, int32_t word2_len, bool word2_validity,
+    const char* word3, int32_t word3_len, bool word3_validity, const char* word4,
+    int32_t word4_len, bool word4_validity, const char* word5, int32_t word5_len,
+    bool word5_validity, bool* out_valid, int32_t* out_len);
 
 }  // extern "C"

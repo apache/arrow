@@ -56,6 +56,8 @@ static std::vector<std::string> UnorderedMapValues(
   return values;
 }
 
+KeyValueMetadata::KeyValueMetadata() {}
+
 KeyValueMetadata::KeyValueMetadata(
     const std::unordered_map<std::string, std::string>& map)
     : keys_(UnorderedMapKeys(map)), values_(UnorderedMapValues(map)) {

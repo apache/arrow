@@ -21,10 +21,12 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_run_reader.h"
+#include "arrow/util/int128_internal.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
 namespace compute {
+namespace internal {
 
 // Find the largest compatible primitive type for a primitive type.
 template <typename I, typename Enable = void>
@@ -110,9 +112,25 @@ void AddAggKernel(std::shared_ptr<KernelSignature> sig, KernelInit init,
                   ScalarAggregateFinalize finalize, ScalarAggregateFunction* func,
                   SimdLevel::type simd_level = SimdLevel::NONE);
 
-namespace detail {
-
 using arrow::internal::VisitSetBitRunsVoid;
+
+template <typename T, typename Enable = void>
+struct GetSumType;
+
+template <typename T>
+struct GetSumType<T, enable_if_floating_point<T>> {
+  using SumType = double;
+};
+
+template <typename T>
+struct GetSumType<T, enable_if_integer<T>> {
+  using SumType = arrow::internal::int128_t;
+};
+
+template <typename T>
+struct GetSumType<T, enable_if_decimal<T>> {
+  using SumType = typename TypeTraits<T>::CType;
+};
 
 // SumArray must be parameterized with the SIMD level since it's called both from
 // translation units with and without vectorization. Normally it gets inlined but
@@ -125,6 +143,8 @@ template <typename ValueType, typename SumType, SimdLevel::type SimdLevel,
           typename ValueFunc>
 enable_if_t<std::is_floating_point<SumType>::value, SumType> SumArray(
     const ArrayData& data, ValueFunc&& func) {
+  using arrow::internal::VisitSetBitRunsVoid;
+
   const int64_t data_size = data.length - data.GetNullCount();
   if (data_size == 0) {
     return 0;
@@ -200,6 +220,8 @@ template <typename ValueType, typename SumType, SimdLevel::type SimdLevel,
           typename ValueFunc>
 enable_if_t<!std::is_floating_point<SumType>::value, SumType> SumArray(
     const ArrayData& data, ValueFunc&& func) {
+  using arrow::internal::VisitSetBitRunsVoid;
+
   SumType sum = 0;
   const ValueType* values = data.GetValues<ValueType>(1);
   VisitSetBitRunsVoid(data.buffers[0], data.offset, data.length,
@@ -217,7 +239,6 @@ SumType SumArray(const ArrayData& data) {
       data, [](ValueType v) { return static_cast<SumType>(v); });
 }
 
-}  // namespace detail
-
+}  // namespace internal
 }  // namespace compute
 }  // namespace arrow

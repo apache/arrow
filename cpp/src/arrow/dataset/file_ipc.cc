@@ -282,9 +282,6 @@ Result<std::shared_ptr<FileWriter>> IpcFileFormat::MakeWriter(
 
   auto ipc_options = checked_pointer_cast<IpcFileWriteOptions>(options);
 
-  // override use_threads to avoid nested parallelism
-  ipc_options->options->use_threads = false;
-
   ARROW_ASSIGN_OR_RAISE(auto writer,
                         ipc::MakeFileWriter(destination, schema, *ipc_options->options,
                                             ipc_options->metadata));

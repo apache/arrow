@@ -47,3 +47,5 @@ to use the functionality of it:
 Additionally, if you would prefer to install everything at once,
 `pip install -e "arrow/dev/archery[all]"` is an alias for all of
 the above subpackages.
+
+For some prior art on benchmarking in Arrow, see [this prototype](https://github.com/apache/arrow/tree/0409498819332fc479f8df38babe3426d707fb9e/dev/benchmarking).

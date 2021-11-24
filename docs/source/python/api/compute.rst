@@ -31,6 +31,7 @@ Aggregations
    any
    approximate_median
    count
+   count_distinct
    index
    max
    mean
@@ -60,9 +61,11 @@ Grouped Aggregations
    hash_mean
    hash_min
    hash_min_max
-   hash_min_sum
-   hash_min_tdigest
-   hash_min_variance
+   hash_product
+   hash_stddev
+   hash_sum
+   hash_tdigest
+   hash_variance
 
 Arithmetic Functions
 --------------------
@@ -264,6 +267,7 @@ String Transforms
    ascii_title
    ascii_upper
    binary_length
+   binary_repeat
    binary_replace_slice
    replace_substring
    replace_substring_regex
@@ -342,7 +346,7 @@ String Slicing
 .. autosummary::
    :toctree: ../generated/
 
-   utf8_slice_codepoints
+   utf8_slice_codeunits
 
 Containment Tests
 -----------------
@@ -420,6 +424,26 @@ Temporal Component Extraction
    week
    year
 
+Temporal Difference
+-------------------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   day_time_interval_between
+   days_between
+   hours_between
+   microseconds_between
+   milliseconds_between
+   minutes_between
+   month_day_nano_interval_between
+   month_interval_between
+   nanoseconds_between
+   quarters_between
+   seconds_between
+   weeks_between
+   years_between
+
 Timezone Handling
 -----------------
 
@@ -473,3 +497,4 @@ Structural Transforms
    list_value_length
    make_struct
    replace_with_mask
+   struct_field

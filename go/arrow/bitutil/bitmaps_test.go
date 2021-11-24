@@ -22,7 +22,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/apache/arrow/go/arrow/bitutil"
+	"github.com/apache/arrow/go/v7/arrow/bitutil"
 	"github.com/stretchr/testify/assert"
 )
 

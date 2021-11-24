@@ -35,6 +35,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/atomic_shared_ptr.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/bitmap_generate.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
@@ -541,53 +542,63 @@ std::shared_ptr<Array> StructArray::GetFieldByName(const std::string& name) cons
 
 Result<ArrayVector> StructArray::Flatten(MemoryPool* pool) const {
   ArrayVector flattened;
-  flattened.reserve(data_->child_data.size());
+  flattened.resize(data_->child_data.size());
   std::shared_ptr<Buffer> null_bitmap = data_->buffers[0];
 
-  for (const auto& child_data_ptr : data_->child_data) {
-    auto child_data = child_data_ptr->Copy();
-
-    std::shared_ptr<Buffer> flattened_null_bitmap;
-    int64_t flattened_null_count = kUnknownNullCount;
-
-    // Need to adjust for parent offset
-    if (data_->offset != 0 || data_->length != child_data->length) {
-      child_data = child_data->Slice(data_->offset, data_->length);
-    }
-    std::shared_ptr<Buffer> child_null_bitmap = child_data->buffers[0];
-    const int64_t child_offset = child_data->offset;
-
-    // The validity of a flattened datum is the logical AND of the struct
-    // element's validity and the individual field element's validity.
-    if (null_bitmap && child_null_bitmap) {
-      ARROW_ASSIGN_OR_RAISE(
-          flattened_null_bitmap,
-          BitmapAnd(pool, child_null_bitmap->data(), child_offset, null_bitmap_data_,
-                    data_->offset, data_->length, child_offset));
-    } else if (child_null_bitmap) {
-      flattened_null_bitmap = child_null_bitmap;
-      flattened_null_count = child_data->null_count;
-    } else if (null_bitmap) {
-      if (child_offset == data_->offset) {
-        flattened_null_bitmap = null_bitmap;
-      } else {
-        ARROW_ASSIGN_OR_RAISE(
-            flattened_null_bitmap,
-            CopyBitmap(pool, null_bitmap_data_, data_->offset, data_->length));
-      }
-      flattened_null_count = data_->null_count;
-    } else {
-      flattened_null_count = 0;
-    }
-
-    auto flattened_data = child_data->Copy();
-    flattened_data->buffers[0] = flattened_null_bitmap;
-    flattened_data->null_count = flattened_null_count;
-
-    flattened.push_back(MakeArray(flattened_data));
+  for (int i = 0; static_cast<size_t>(i) < data_->child_data.size(); i++) {
+    ARROW_ASSIGN_OR_RAISE(flattened[i], GetFlattenedField(i, pool));
   }
 
   return flattened;
+}
+
+Result<std::shared_ptr<Array>> StructArray::GetFlattenedField(int index,
+                                                              MemoryPool* pool) const {
+  std::shared_ptr<Buffer> null_bitmap = data_->buffers[0];
+
+  auto child_data = data_->child_data[index]->Copy();
+
+  std::shared_ptr<Buffer> flattened_null_bitmap;
+  int64_t flattened_null_count = kUnknownNullCount;
+
+  // Need to adjust for parent offset
+  if (data_->offset != 0 || data_->length != child_data->length) {
+    child_data = child_data->Slice(data_->offset, data_->length);
+  }
+  std::shared_ptr<Buffer> child_null_bitmap = child_data->buffers[0];
+  const int64_t child_offset = child_data->offset;
+
+  // The validity of a flattened datum is the logical AND of the struct
+  // element's validity and the individual field element's validity.
+  if (null_bitmap && child_null_bitmap) {
+    ARROW_ASSIGN_OR_RAISE(
+        flattened_null_bitmap,
+        BitmapAnd(pool, child_null_bitmap->data(), child_offset, null_bitmap_data_,
+                  data_->offset, data_->length, child_offset));
+  } else if (child_null_bitmap) {
+    flattened_null_bitmap = child_null_bitmap;
+    flattened_null_count = child_data->null_count;
+  } else if (null_bitmap) {
+    if (child_offset == data_->offset) {
+      flattened_null_bitmap = null_bitmap;
+    } else {
+      // If the child has an offset, need to synthesize a validity
+      // buffer with an offset too
+      ARROW_ASSIGN_OR_RAISE(flattened_null_bitmap,
+                            AllocateEmptyBitmap(child_offset + data_->length, pool));
+      CopyBitmap(null_bitmap_data_, data_->offset, data_->length,
+                 flattened_null_bitmap->mutable_data(), child_offset);
+    }
+    flattened_null_count = data_->null_count;
+  } else {
+    flattened_null_count = 0;
+  }
+
+  auto flattened_data = child_data->Copy();
+  flattened_data->buffers[0] = flattened_null_bitmap;
+  flattened_data->null_count = flattened_null_count;
+
+  return MakeArray(flattened_data);
 }
 
 // ----------------------------------------------------------------------
@@ -638,6 +649,43 @@ SparseUnionArray::SparseUnionArray(std::shared_ptr<DataType> type, int64_t lengt
     internal_data->child_data.push_back(child->data());
   }
   SetData(std::move(internal_data));
+}
+
+Result<std::shared_ptr<Array>> SparseUnionArray::GetFlattenedField(
+    int index, MemoryPool* pool) const {
+  if (index < 0 || index >= num_fields()) {
+    return Status::Invalid("Index out of range: ", index);
+  }
+  auto child_data = data_->child_data[index]->Copy();
+  // Adjust the result offset/length to be absolute.
+  if (data_->offset != 0 || data_->length != child_data->length) {
+    child_data = child_data->Slice(data_->offset, data_->length);
+  }
+  std::shared_ptr<Buffer> child_null_bitmap = child_data->buffers[0];
+  const int64_t child_offset = child_data->offset;
+
+  // Synthesize a null bitmap based on the union discriminant.
+  // Make sure the bitmap has extra bits corresponding to the child offset.
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> flattened_null_bitmap,
+                        AllocateEmptyBitmap(child_data->length + child_offset, pool));
+  const int8_t type_code = union_type()->type_codes()[index];
+  const int8_t* type_codes = raw_type_codes();
+  int64_t offset = 0;
+  internal::GenerateBitsUnrolled(flattened_null_bitmap->mutable_data(), child_offset,
+                                 data_->length,
+                                 [&] { return type_codes[offset++] == type_code; });
+
+  // The validity of a flattened datum is the logical AND of the synthesized
+  // null bitmap buffer and the individual field element's validity.
+  if (child_null_bitmap) {
+    BitmapAnd(flattened_null_bitmap->data(), child_offset, child_null_bitmap->data(),
+              child_offset, child_data->length, child_offset,
+              flattened_null_bitmap->mutable_data());
+  }
+
+  child_data->buffers[0] = std::move(flattened_null_bitmap);
+  child_data->null_count = kUnknownNullCount;
+  return MakeArray(child_data);
 }
 
 DenseUnionArray::DenseUnionArray(const std::shared_ptr<ArrayData>& data) {

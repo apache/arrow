@@ -210,6 +210,7 @@ responsible for. Like:
 - ``integration_pandas.sh``: execute the pandas integration tests.
 - ``install_minio.sh``: install minio server for multiple platforms.
 - ``install_conda.sh``: install miniconda for multiple platforms.
+- ``install_gcs_testbench.sh``: install the GCS testbench for multiple platforms.
 
 The parametrization (like the C++ CMake options) is achieved via environment
 variables with useful defaults to keep the build configurations declarative.

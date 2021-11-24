@@ -476,15 +476,16 @@ TEST(Expression, BindLiteral) {
 }
 
 void ExpectBindsTo(Expression expr, util::optional<Expression> expected,
-                   Expression* bound_out = nullptr) {
+                   Expression* bound_out = nullptr,
+                   const Schema& schema = *kBoringSchema) {
   if (!expected) {
     expected = expr;
   }
 
-  ASSERT_OK_AND_ASSIGN(auto bound, expr.Bind(*kBoringSchema));
+  ASSERT_OK_AND_ASSIGN(auto bound, expr.Bind(schema));
   EXPECT_TRUE(bound.IsBound());
 
-  ASSERT_OK_AND_ASSIGN(expected, expected->Bind(*kBoringSchema));
+  ASSERT_OK_AND_ASSIGN(expected, expected->Bind(schema));
   EXPECT_EQ(bound, *expected) << " unbound: " << expr.ToString();
 
   if (bound_out) {
@@ -508,11 +509,24 @@ TEST(Expression, BindFieldRef) {
   // in the input schema
   ASSERT_RAISES(Invalid, field_ref("alpha").Bind(Schema(
                              {field("alpha", int32()), field("alpha", float32())})));
+}
 
-  // referencing nested fields is not supported
-  ASSERT_RAISES(NotImplemented,
-                field_ref(FieldRef("a", "b"))
-                    .Bind(Schema({field("a", struct_({field("b", int32())}))})));
+TEST(Expression, BindNestedFieldRef) {
+  Expression expr;
+  auto schema = Schema({field("a", struct_({field("b", int32())}))});
+
+  ExpectBindsTo(field_ref(FieldRef("a", "b")), no_change, &expr, schema);
+  EXPECT_TRUE(expr.IsBound());
+  EXPECT_EQ(expr.descr(), ValueDescr::Array(int32()));
+
+  ExpectBindsTo(field_ref(FieldRef(FieldPath({0, 0}))), no_change, &expr, schema);
+  EXPECT_TRUE(expr.IsBound());
+  EXPECT_EQ(expr.descr(), ValueDescr::Array(int32()));
+
+  ASSERT_RAISES(Invalid, field_ref(FieldPath({0, 1})).Bind(schema));
+  ASSERT_RAISES(Invalid, field_ref(FieldRef("a", "b"))
+                             .Bind(Schema({field("a", struct_({field("b", int32()),
+                                                               field("b", int64())}))})));
 }
 
 TEST(Expression, BindCall) {
@@ -614,6 +628,45 @@ TEST(Expression, ExecuteFieldRef) {
     {"a": -1,    "b": 4.0}
   ])"),
               ArrayFromJSON(float64(), R"([7.5, 2.125, 4.0])"));
+
+  ExpectRefIs(FieldRef(FieldPath({0, 0})),
+              ArrayFromJSON(struct_({field("a", struct_({field("b", float64())}))}), R"([
+    {"a": {"b": 6.125}},
+    {"a": {"b": 0.0}},
+    {"a": {"b": -1}}
+  ])"),
+              ArrayFromJSON(float64(), R"([6.125, 0.0, -1])"));
+
+  ExpectRefIs(FieldRef("a", "b"),
+              ArrayFromJSON(struct_({field("a", struct_({field("b", float64())}))}), R"([
+    {"a": {"b": 6.125}},
+    {"a": {"b": 0.0}},
+    {"a": {"b": -1}}
+  ])"),
+              ArrayFromJSON(float64(), R"([6.125, 0.0, -1])"));
+
+  ExpectRefIs(FieldRef("a", "b"),
+              ArrayFromJSON(struct_({field("a", struct_({field("b", float64())}))}), R"([
+    {"a": {"b": 6.125}},
+    {"a": null},
+    {"a": {"b": null}}
+  ])"),
+              ArrayFromJSON(float64(), R"([6.125, null, null])"));
+
+  ExpectRefIs(
+      FieldRef("a", "b"),
+      ScalarFromJSON(struct_({field("a", struct_({field("b", float64())}))}), "[[64.0]]"),
+      ScalarFromJSON(float64(), "64.0"));
+
+  ExpectRefIs(
+      FieldRef("a", "b"),
+      ScalarFromJSON(struct_({field("a", struct_({field("b", float64())}))}), "[[null]]"),
+      ScalarFromJSON(float64(), "null"));
+
+  ExpectRefIs(
+      FieldRef("a", "b"),
+      ScalarFromJSON(struct_({field("a", struct_({field("b", float64())}))}), "[null]"),
+      ScalarFromJSON(float64(), "null"));
 }
 
 Result<Datum> NaiveExecuteScalarExpression(const Expression& expr, const Datum& input) {
@@ -696,6 +749,18 @@ TEST(Expression, ExecuteCall) {
     {"a": 6.125},
     {"a": 0.0},
     {"a": -1}
+  ])"));
+
+  ExpectExecute(
+      call("add", {field_ref(FieldRef("a", "a")), field_ref(FieldRef("a", "b"))}),
+      ArrayFromJSON(struct_({field("a", struct_({
+                                            field("a", float64()),
+                                            field("b", float64()),
+                                        }))}),
+                    R"([
+    {"a": {"a": 6.125, "b": 3.375}},
+    {"a": {"a": 0.0,   "b": 1}},
+    {"a": {"a": -1,    "b": 4.75}}
   ])"));
 }
 

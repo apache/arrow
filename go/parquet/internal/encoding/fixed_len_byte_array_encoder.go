@@ -17,8 +17,8 @@
 package encoding
 
 import (
-	"github.com/apache/arrow/go/parquet"
-	"github.com/apache/arrow/go/parquet/internal/utils"
+	"github.com/apache/arrow/go/v7/parquet"
+	"github.com/apache/arrow/go/v7/parquet/internal/utils"
 )
 
 // PlainFixedLenByteArrayEncoder writes the raw bytes of the byte array

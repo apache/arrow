@@ -18,6 +18,7 @@
 thirdparty/*.tar*
 CMakeFiles/
 CMakeCache.txt
+CMakeUserPresets.json
 CTestTestfile.cmake
 Makefile
 cmake_install.cmake
@@ -25,6 +26,7 @@ build/
 *-build/
 Testing/
 build-support/boost_*
+vcpkg_installed/
 
 # Build directories created by Clion
 cmake-build-*/

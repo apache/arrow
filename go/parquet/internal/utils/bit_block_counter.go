@@ -21,22 +21,11 @@ import (
 	"math/bits"
 	"unsafe"
 
-	"github.com/apache/arrow/go/arrow/bitutil"
-	"github.com/apache/arrow/go/arrow/endian"
+	"github.com/apache/arrow/go/v7/arrow/bitutil"
 )
 
-var toLEFunc func(uint64) uint64
-
-func init() {
-	if endian.IsBigEndian {
-		toLEFunc = bits.ReverseBytes64
-	} else {
-		toLEFunc = func(in uint64) uint64 { return in }
-	}
-}
-
 func loadWord(byt []byte) uint64 {
-	return toLEFunc(*(*uint64)(unsafe.Pointer(&byt[0])))
+	return ToLEUint64(*(*uint64)(unsafe.Pointer(&byt[0])))
 }
 
 func shiftWord(current, next uint64, shift int64) uint64 {

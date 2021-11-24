@@ -363,15 +363,24 @@ class NullArrayFactory {
       return Status::OK();
     }
 
-    Status Visit(const UnionType& type) {
+    Status Visit(const SparseUnionType& type) {
       // type codes
       RETURN_NOT_OK(MaxOf(length_));
-      if (type.mode() == UnionMode::DENSE) {
-        // offsets
-        RETURN_NOT_OK(MaxOf(sizeof(int32_t) * length_));
-      }
+      // will create children of the same length as the union
       for (const auto& child : type.fields()) {
         RETURN_NOT_OK(MaxOf(GetBufferLength(child->type(), length_)));
+      }
+      return Status::OK();
+    }
+
+    Status Visit(const DenseUnionType& type) {
+      // type codes
+      RETURN_NOT_OK(MaxOf(length_));
+      // offsets
+      RETURN_NOT_OK(MaxOf(sizeof(int32_t) * length_));
+      // will create children of length 1
+      for (const auto& child : type.fields()) {
+        RETURN_NOT_OK(MaxOf(GetBufferLength(child->type(), 1)));
       }
       return Status::OK();
     }
@@ -775,7 +784,8 @@ Result<std::shared_ptr<Array>> MakeArrayOfNull(const std::shared_ptr<DataType>& 
 
 Result<std::shared_ptr<Array>> MakeArrayFromScalar(const Scalar& scalar, int64_t length,
                                                    MemoryPool* pool) {
-  if (!scalar.is_valid) {
+  // Null union scalars still have a type code associated
+  if (!scalar.is_valid && !is_union(scalar.type->id())) {
     return MakeArrayOfNull(scalar.type, length, pool);
   }
   return RepeatedArrayFactory(pool, scalar, length).Create();

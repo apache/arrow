@@ -175,8 +175,10 @@ using TemporalArrowTypes =
 
 using DecimalArrowTypes = ::testing::Types<Decimal128Type, Decimal256Type>;
 
-using BinaryArrowTypes =
+using BaseBinaryArrowTypes =
     ::testing::Types<BinaryType, LargeBinaryType, StringType, LargeStringType>;
+
+using BinaryArrowTypes = ::testing::Types<BinaryType, LargeBinaryType>;
 
 using StringArrowTypes = ::testing::Types<StringType, LargeStringType>;
 
@@ -643,6 +645,9 @@ class ARROW_TESTING_EXPORT GatingTask {
   ///
   /// Note: The GatingTask must outlive any Task instances
   std::function<void()> Task();
+  /// \brief Creates a new waiting task as a future.  The future will not complete
+  /// until unlocked.
+  Future<> AsyncTask();
   /// \brief Waits until at least count tasks are running.
   Status WaitForRunning(int count);
   /// \brief Unlocks all waiting tasks.  Returns an invalid status if any waiting task has

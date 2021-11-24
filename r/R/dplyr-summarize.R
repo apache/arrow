@@ -18,7 +18,7 @@
 
 # The following S3 methods are registered on load if dplyr is present
 
-summarise.arrow_dplyr_query <- function(.data, ..., .engine = c("arrow", "duckdb")) {
+summarise.arrow_dplyr_query <- function(.data, ...) {
   call <- match.call()
   .data <- as_adq(.data)
   exprs <- quos(...)
@@ -33,18 +33,15 @@ summarise.arrow_dplyr_query <- function(.data, ..., .engine = c("arrow", "duckdb
   # so don't try to select() them (use intersect() to exclude them)
   # Note that this select() isn't useful for the Arrow summarize implementation
   # because it will effectively project to keep what it needs anyway,
-  # but the duckdb and data.frame fallback versions do benefit from select here
+  # but the data.frame fallback version does benefit from select here
   .data <- dplyr::select(.data, intersect(vars_to_keep, names(.data)))
-  if (match.arg(.engine) == "duckdb") {
-    dplyr::summarise(to_duckdb(.data), ...)
+
+  # Try stuff, if successful return()
+  out <- try(do_arrow_summarize(.data, ...), silent = TRUE)
+  if (inherits(out, "try-error")) {
+    return(abandon_ship(call, .data, format(out)))
   } else {
-    # Try stuff, if successful return()
-    out <- try(do_arrow_summarize(.data, ...), silent = TRUE)
-    if (inherits(out, "try-error")) {
-      return(abandon_ship(call, .data, format(out)))
-    } else {
-      return(out)
-    }
+    return(out)
   }
 }
 summarise.Dataset <- summarise.ArrowTabular <- summarise.arrow_dplyr_query
@@ -99,6 +96,19 @@ do_arrow_summarize <- function(.data, ..., .groups = NULL) {
     )[c(.data$group_by_vars, names(exprs))]
   }
 
+  # If the object has .drop = FALSE and any group vars are dictionaries,
+  # we can't (currently) preserve the empty rows that dplyr does,
+  # so give a warning about that.
+  if (!dplyr::group_by_drop_default(.data)) {
+    group_by_exprs <- .data$selected_columns[.data$group_by_vars]
+    if (any(map_lgl(group_by_exprs, ~ inherits(.$type(), "DictionaryType")))) {
+      warning(
+        ".drop = FALSE currently not supported in Arrow aggregation",
+        call. = FALSE
+      )
+    }
+  }
+
   # Handle .groups argument
   if (length(.data$group_by_vars)) {
     if (is.null(.groups)) {
@@ -119,9 +129,10 @@ do_arrow_summarize <- function(.data, ..., .groups = NULL) {
       out$group_by_vars <- .data$group_by_vars
     } else if (.groups == "rowwise") {
       stop(arrow_not_supported('.groups = "rowwise"'))
-    } else if (.groups != "drop") {
-      # Drop means don't group by anything so there's nothing to do.
-      # Anything else is invalid
+    } else if (.groups == "drop") {
+      # collapse() preserves groups so remove them
+      out <- dplyr::ungroup(out)
+    } else {
       stop(paste("Invalid .groups argument:", .groups))
     }
     # TODO: shouldn't we be doing something with `drop_empty_groups` in summarize? (ARROW-14044)
@@ -134,7 +145,7 @@ arrow_eval_or_stop <- function(expr, mask) {
   # TODO: change arrow_eval error handling behavior?
   out <- arrow_eval(expr, mask)
   if (inherits(out, "try-error")) {
-    msg <- handle_arrow_not_supported(out, as_label(expr))
+    msg <- handle_arrow_not_supported(out, format_expr(expr))
     stop(msg, call. = FALSE)
   }
   out
@@ -207,8 +218,16 @@ summarize_eval <- function(name, quosure, ctx, hash, recurse = FALSE) {
   } else if (all(inner_agg_exprs)) {
     # Something like: fun(agg(x), agg(y))
     # So based on the aggregations that have been extracted, mutate after
+    agg_field_refs <- make_field_refs(names(ctx$aggregations))
+    agg_field_types <- lapply(ctx$aggregations, function(x) x$data$type())
+
     mutate_mask <- arrow_mask(
-      list(selected_columns = make_field_refs(names(ctx$aggregations)))
+      list(
+        selected_columns = agg_field_refs,
+        .data = list(
+          schema = schema(!!! agg_field_types)
+        )
+      )
     )
     ctx$post_mutate[[name]] <- arrow_eval_or_stop(
       as_quosure(expr, ctx$quo_env),
@@ -220,10 +239,7 @@ summarize_eval <- function(name, quosure, ctx, hash, recurse = FALSE) {
   # Backstop for any other odd cases, like fun(x, y) (i.e. no aggregation),
   # or aggregation functions that aren't supported in Arrow (not in agg_funcs)
   stop(
-    handle_arrow_not_supported(
-      quo_get_expr(quosure),
-      as_label(quo_get_expr(quosure))
-    ),
+    handle_arrow_not_supported(quo_get_expr(quosure), format_expr(quosure)),
     call. = FALSE
   )
 }
@@ -250,7 +266,7 @@ extract_aggregations <- function(expr, ctx) {
       # TODO: this message could also say "not supported in summarize()"
       #       since some of these expressions may be legal elsewhere
       stop(
-        handle_arrow_not_supported(original_expr, as_label(original_expr)),
+        handle_arrow_not_supported(original_expr, format_expr(original_expr)),
         call. = FALSE
       )
     }

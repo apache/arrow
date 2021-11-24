@@ -96,6 +96,14 @@ def test_exported_functions():
             func(*args)
 
 
+def test_hash_aggregate_not_exported():
+    # Ensure we are not leaking hash aggregate functions
+    # which are not callable by themselves.
+    for func in exported_functions:
+        arrow_f = pc.get_function(func.__arrow_compute_function__["name"])
+        assert arrow_f.kind != "hash_aggregate"
+
+
 def test_exported_option_classes():
     classes = exported_option_classes
     assert len(classes) >= 10
@@ -241,7 +249,11 @@ def test_pickle_functions():
 def test_pickle_global_functions():
     # Pickle global wrappers (manual or automatic) of registered functions
     for name in pc.list_functions():
-        func = getattr(pc, name)
+        try:
+            func = getattr(pc, name)
+        except AttributeError:
+            # hash_aggregate functions are not exported as callables.
+            continue
         reconstructed = pickle.loads(pickle.dumps(func))
         assert reconstructed is func
 
@@ -578,8 +590,7 @@ def test_min_max():
         s = pc.min_max(data, options=options)
 
     # Missing argument
-    with pytest.raises(ValueError,
-                       match="Function min_max accepts 1 argument"):
+    with pytest.raises(TypeError, match="min_max takes 1 positional"):
         s = pc.min_max()
 
 
@@ -652,10 +663,13 @@ def test_generated_docstrings():
         memory_pool : pyarrow.MemoryPool, optional
             If not passed, will allocate memory from the default memory pool.
         options : pyarrow.compute.ScalarAggregateOptions, optional
-            Parameters altering compute function semantics
-        **kwargs : optional
-            Parameters for ScalarAggregateOptions constructor. Either `options`
-            or `**kwargs` can be passed, but not both at the same time.
+            Parameters altering compute function semantics.
+        skip_nulls : optional
+            Parameter for ScalarAggregateOptions constructor. Either `options`
+            or `skip_nulls` can be passed, but not both at the same time.
+        min_count : optional
+            Parameter for ScalarAggregateOptions constructor. Either `options`
+            or `min_count` can be passed, but not both at the same time.
         """)
     assert pc.add.__doc__ == textwrap.dedent("""\
         Add the arguments element-wise.
@@ -1406,8 +1420,7 @@ def test_round_to_multiple():
         result = pc.round_to_multiple(values, options=options)
         np.testing.assert_allclose(result, pa.array(expected), equal_nan=True)
 
-    with pytest.raises(pa.ArrowInvalid,
-                       match="multiple has to be a positive value"):
+    with pytest.raises(pa.ArrowInvalid, match="multiple must be positive"):
         pc.round_to_multiple(values, multiple=-2)
 
 
@@ -1972,7 +1985,8 @@ def test_select_k_table():
     with pytest.raises(ValueError, match="not a valid sort order"):
         pc.select_k_unstable(table, k=k, sort_keys=[("a", "nonscending")])
 
-    with pytest.raises(ValueError, match="Nonexistent sort key column"):
+    with pytest.raises(ValueError,
+                       match="Invalid sort key column: No match for.*unknown"):
         pc.select_k_unstable(table, k=k, sort_keys=[("unknown", "ascending")])
 
 
@@ -2217,3 +2231,20 @@ def test_list_element():
     result = pa.compute.list_element(lists, index)
     expected = pa.array([{'a': 5.6, 'b': 6}, {'a': .6, 'b': 8}], element_type)
     assert result.equals(expected)
+
+
+def test_count_distinct():
+    seed = datetime.now()
+    samples = [seed.replace(year=y) for y in range(1992, 2092)]
+    arr = pa.array(samples, pa.timestamp("ns"))
+    result = pa.compute.count_distinct(arr)
+    expected = pa.scalar(len(samples), type=pa.int64())
+    assert result.equals(expected)
+
+
+def test_count_distinct_options():
+    arr = pa.array([1, 2, 3, None, None])
+    assert pc.count_distinct(arr).as_py() == 3
+    assert pc.count_distinct(arr, mode='only_valid').as_py() == 3
+    assert pc.count_distinct(arr, mode='only_null').as_py() == 1
+    assert pc.count_distinct(arr, mode='all').as_py() == 4

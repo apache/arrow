@@ -1495,6 +1495,18 @@ class TestConvertDateTimeLikeTypes:
             expected_schema=schema,
         )
 
+    def test_month_day_nano_interval(self):
+        from pandas.tseries.offsets import DateOffset
+        df = pd.DataFrame({
+            'date_offset': [None,
+                            DateOffset(days=3600, months=3600, microseconds=3,
+                                       nanoseconds=600)]
+        })
+        schema = pa.schema([('date_offset', pa.month_day_nano_interval())])
+        _check_pandas_roundtrip(
+            df,
+            expected_schema=schema)
+
 
 # ----------------------------------------------------------------------
 # Conversion tests for string and binary types.
@@ -4317,8 +4329,8 @@ def make_df_with_timestamps():
     # Not part of what we're testing, just ensuring that the inputs are what we
     # expect.
     assert (df.dateTimeMs.dtype, df.dateTimeNs.dtype) == (
-        # O == object, <M8[ns] == timestamp64[ns]
-        np.dtype("O"), np.dtype("<M8[ns]")
+        # O == object, M8[ns] == timestamp64[ns]
+        np.dtype("O"), np.dtype("M8[ns]")
     )
     return df
 

@@ -45,6 +45,10 @@ Status MakeRandomInt32Array(int64_t length, bool include_nulls, MemoryPool* pool
                             std::shared_ptr<Array>* out, uint32_t seed = 0);
 
 ARROW_TESTING_EXPORT
+Status MakeRandomInt64Array(int64_t length, bool include_nulls, MemoryPool* pool,
+                            std::shared_ptr<Array>* out, uint32_t seed = 0);
+
+ARROW_TESTING_EXPORT
 Status MakeRandomListArray(const std::shared_ptr<Array>& child_array, int num_lists,
                            bool include_nulls, MemoryPool* pool,
                            std::shared_ptr<Array>* out);

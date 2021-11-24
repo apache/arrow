@@ -230,12 +230,20 @@ struct ScalarValidateImpl {
   }
 
   Status Visit(const Decimal128Scalar& s) {
-    // XXX validate precision?
+    const auto& ty = checked_cast<const DecimalType&>(*s.type);
+    if (!s.value.FitsInPrecision(ty.precision())) {
+      return Status::Invalid("Decimal value ", s.value.ToIntegerString(),
+                             " does not fit in precision of ", ty);
+    }
     return Status::OK();
   }
 
   Status Visit(const Decimal256Scalar& s) {
-    // XXX validate precision?
+    const auto& ty = checked_cast<const DecimalType&>(*s.type);
+    if (!s.value.FitsInPrecision(ty.precision())) {
+      return Status::Invalid("Decimal value ", s.value.ToIntegerString(),
+                             " does not fit in precision of ", ty);
+    }
     return Status::OK();
   }
 
@@ -542,7 +550,7 @@ Result<std::shared_ptr<Scalar>> StructScalar::field(FieldRef ref) const {
 }
 
 DictionaryScalar::DictionaryScalar(std::shared_ptr<DataType> type)
-    : Scalar(std::move(type)),
+    : internal::PrimitiveScalarBase(std::move(type)),
       value{MakeNullScalar(checked_cast<const DictionaryType&>(*this->type).index_type()),
             MakeArrayOfNull(checked_cast<const DictionaryType&>(*this->type).value_type(),
                             0)
@@ -920,6 +928,15 @@ Status CastImpl(const StructScalar& from, StringScalar* to) {
   return Status::OK();
 }
 
+Status CastImpl(const UnionScalar& from, StringScalar* to) {
+  const auto& union_ty = checked_cast<const UnionType&>(*from.type);
+  std::stringstream ss;
+  ss << "union{" << union_ty.field(union_ty.child_ids()[from.type_code])->ToString()
+     << " = " << from.value->ToString() << '}';
+  to->value = Buffer::FromString(ss.str());
+  return Status::OK();
+}
+
 struct CastImplVisitor {
   Status NotImplemented() {
     return Status::NotImplemented("cast to ", *to_type_, " from ", *from_.type);
@@ -953,8 +970,6 @@ struct FromTypeVisitor : CastImplVisitor {
   }
 
   Status Visit(const NullType&) { return NotImplemented(); }
-  Status Visit(const SparseUnionType&) { return NotImplemented(); }
-  Status Visit(const DenseUnionType&) { return NotImplemented(); }
   Status Visit(const DictionaryType&) { return NotImplemented(); }
   Status Visit(const ExtensionType&) { return NotImplemented(); }
 };
@@ -983,8 +998,6 @@ struct ToTypeVisitor : CastImplVisitor {
     return Int32Scalar(0).CastTo(dict_type.index_type()).Value(&out.index);
   }
 
-  Status Visit(const SparseUnionType&) { return NotImplemented(); }
-  Status Visit(const DenseUnionType&) { return NotImplemented(); }
   Status Visit(const ExtensionType&) { return NotImplemented(); }
 };
 

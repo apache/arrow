@@ -38,11 +38,22 @@ announce_file="${release_dir}/${version}.md"
 versions_yml="${ARROW_SITE_DIR}/_data/versions.yml"
 
 pushd "${ARROW_SITE_DIR}"
+git fetch --all --prune --tags --force -j$(nproc)
 git checkout master
+git rebase apache/master
+git branch -D ${branch_name} || :
 git checkout -b ${branch_name}
 popd
 
 pushd "${ARROW_DIR}"
+
+previous_major_version="$(echo ${previous_version} | grep -o '^[0-9]*')"
+major_version="$(echo ${version} | grep -o '^[0-9]*')"
+if [ ${previous_major_version} -eq ${major_version} ]; then
+  release_type=patch
+else
+  release_type=major
+fi
 
 release_date=$(LANG=C date "+%-d %B %Y")
 previous_tag_date=$(git log -n 1 --pretty=%aI apache-arrow-${previous_version})
@@ -98,17 +109,20 @@ limitations under the License.
 
 # Apache Arrow ${version} (${release_date})
 
-This is a major release covering more than ${rough_n_development_months} months of development.
+This is a ${release_type} release covering more than ${rough_n_development_months} months of development.
 
 ## Download
 
 * [**Source Artifacts**][1]
 * **Binary Artifacts**
-  * [For CentOS][2]
-  * [For Debian][3]
-  * [For Python][4]
-  * [For Ubuntu][5]
-* [Git tag][6]
+  * [For AlmaLinux][2]
+  * [For Amazon Linux][3]
+  * [For CentOS][4]
+  * [For C#][5]
+  * [For Debian][6]
+  * [For Python][7]
+  * [For Ubuntu][8]
+* [Git tag][9]
 
 ## Contributors
 
@@ -145,11 +159,14 @@ archery release changelog generate ${version} | \
 
 cat <<ANNOUNCE >> "${announce_file}"
 [1]: https://www.apache.org/dyn/closer.lua/arrow/arrow-${version}/
-[2]: https://apache.jfrog.io/artifactory/arrow/centos/
-[3]: https://apache.jfrog.io/artifactory/arrow/debian/
-[4]: https://apache.jfrog.io/artifactory/arrow/python/${version}/
-[5]: https://apache.jfrog.io/artifactory/arrow/ubuntu/
-[6]: https://github.com/apache/arrow/releases/tag/apache-arrow-${version}
+[2]: https://apache.jfrog.io/artifactory/arrow/almalinux/
+[3]: https://apache.jfrog.io/artifactory/arrow/amazon-linux/
+[4]: https://apache.jfrog.io/artifactory/arrow/centos/
+[5]: https://apache.jfrog.io/artifactory/arrow/nuget/
+[6]: https://apache.jfrog.io/artifactory/arrow/debian/
+[7]: https://apache.jfrog.io/artifactory/arrow/python/${version}/
+[8]: https://apache.jfrog.io/artifactory/arrow/ubuntu/
+[9]: https://github.com/apache/arrow/releases/tag/apache-arrow-${version}
 ANNOUNCE
 git add "${announce_file}"
 
@@ -237,6 +254,7 @@ cat <<YAML > "${versions_yml}"
 current:
   number: '${version}'
   pinned_number: '${pinned_version}'
+  major_number: '${major_version}'
   date: '${release_date}'
   git-tag: '${git_tag_hash}'
   github-tag-link: 'https://github.com/apache/arrow/releases/tag/${git_tag}'
