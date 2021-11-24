@@ -19,21 +19,30 @@
 
 set -e
 
-if [ "$#" -ne 2 ]; then
-  echo "Usage: $0 <vcpkg version> <target directory>"
+if [ "$#" -lt 1 ]; then
+  echo "Usage: $0 ``<target-directory> [<vcpkg-version> [<vcpkg-ports-patch>]]"
   exit 1
 fi
 
-vcpkg_version=$1
-vcpkg_destination=$2
-vcpkg_patch=$(realpath $(dirname "${0}")/../vcpkg/ports.patch)
+arrow_dir=$(realpath $(dirname "${0}")/../..)
+default_vcpkg_patch="${arrow_dir}/ci/vcpkg/ports.patch"
+default_vcpkg_version=$(cat "${arrow_dir}/.env" | grep "VCPKG" | cut -d "=" -f2 | tr -d '"')
 
+vcpkg_destination=$1
+vcpkg_version=${2:-$default_vcpkg_version}
+vcpkg_patch=${3:-$default_vcpkg_patch}
+
+# reduce the fetched data using a shallow clone
 git clone --shallow-since=2021-04-01 https://github.com/microsoft/vcpkg ${vcpkg_destination}
 
 pushd ${vcpkg_destination}
 
-git checkout ${vcpkg_version}
-./bootstrap-vcpkg.sh -useSystemBinaries -disableMetrics
+git checkout "${vcpkg_version}"
+if [[ "$OSTYPE" == "msys" ]]; then
+  ./bootstrap-vcpkg.bat -disableMetrics
+else
+  ./bootstrap-vcpkg.sh -disableMetrics
+fi
 git apply --verbose --ignore-whitespace ${vcpkg_patch}
 echo "Patch successfully applied!"
 

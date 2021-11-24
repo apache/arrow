@@ -24,7 +24,7 @@ ARG arch_short_alias
 RUN yum install -y git flex curl autoconf zip wget
 
 # Install CMake
-ARG cmake=3.19.3
+ARG cmake=3.22.0
 RUN wget -q https://github.com/Kitware/CMake/releases/download/v${cmake}/cmake-${cmake}-Linux-${arch_alias}.tar.gz -O - | \
     tar -xzf - --directory /usr/local --strip-components=1
 
@@ -52,16 +52,12 @@ RUN mkdir /tmp/ccache && \
 
 # Install vcpkg
 ARG vcpkg
-RUN git clone https://github.com/microsoft/vcpkg /opt/vcpkg && \
-    git -C /opt/vcpkg checkout ${vcpkg} && \
-    /opt/vcpkg/bootstrap-vcpkg.sh -useSystemBinaries -disableMetrics && \
-    ln -s /opt/vcpkg/vcpkg /usr/bin/vcpkg
-
-# Patch ports files as needed
 COPY ci/vcpkg/*.patch \
      ci/vcpkg/*linux*.cmake \
      arrow/ci/vcpkg/
-RUN cd /opt/vcpkg && git apply --ignore-whitespace /arrow/ci/vcpkg/ports.patch
+COPY ci/scripts/install_vcpkg.sh arrow/ci/scripts/
+RUN arrow/ci/scripts/install_vcpkg.sh /opt/vcpkg ${vcpkg}
+ENV PATH="/opt/vcpkg:${PATH}"
 
 ARG build_type=release
 ENV CMAKE_BUILD_TYPE=${build_type} \

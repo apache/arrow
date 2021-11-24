@@ -31,16 +31,12 @@ RUN setx path "%path%;C:\Program Files\Git\usr\bin"
 # Compiling vcpkg itself from a git tag doesn't work anymore since vcpkg has
 # started to ship precompiled binaries for the vcpkg-tool.
 ARG vcpkg
-RUN git clone https://github.com/Microsoft/vcpkg && \
-    vcpkg\bootstrap-vcpkg.bat -disableMetrics && \
-    setx PATH "%PATH%;C:\vcpkg" && \
-    git -C vcpkg checkout %vcpkg%
-
-# Patch ports files as needed
 COPY ci/vcpkg/*.patch \
      ci/vcpkg/*windows*.cmake \
      arrow/ci/vcpkg/
-RUN cd vcpkg && git apply --verbose --ignore-whitespace C:/arrow/ci/vcpkg/ports.patch
+COPY ci/scripts/install_vcpkg.sh arrow/ci/scripts/
+RUN bash arrow/ci/scripts/install_vcpkg.sh /c/vcpkg %vcpkg% && \
+    setx PATH "%PATH%;C:\vcpkg"
 
 # Configure vcpkg and install dependencies
 # NOTE: use windows batch environment notation for build arguments in RUN

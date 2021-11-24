@@ -39,7 +39,6 @@ env:
   VCPKG_FEATURE_FLAGS: "-manifests"
   VCPKG_OVERLAY_TRIPLETS: {{ "${{ github.workspace }}/arrow/ci/vcpkg" }}
   VCPKG_ROOT: {{ "${{ github.workspace }}/vcpkg" }}
-  VCPKG_VERSION: "{{ vcpkg_version }}"
 
 jobs:
   build:
@@ -60,7 +59,7 @@ jobs:
         shell: bash
         env:
           MACOSX_DEPLOYMENT_TARGET: "11.0"
-        run: arch -arm64 arrow/ci/scripts/install_vcpkg.sh $VCPKG_VERSION $VCPKG_ROOT
+        run: arch -arm64 arrow/ci/scripts/install_vcpkg.sh $VCPKG_ROOT
 
       - name: Install OpenSSL
         shell: bash
