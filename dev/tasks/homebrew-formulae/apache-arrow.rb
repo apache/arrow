@@ -19,12 +19,22 @@ class ApacheArrow < Formula
   depends_on "protobuf"
   depends_on "python@3.9"
   depends_on "rapidjson"
+  depends_on "re2"
   depends_on "snappy"
   depends_on "thrift"
+  depends_on "utf8proc"
   depends_on "zstd"
 
+  on_linux do
+    depends_on "gcc"
+  end
+
+  fails_with gcc: "5"
+
   def install
-    ENV.cxx11
+    # https://github.com/Homebrew/homebrew-core/issues/76537
+    ENV.runtime_cpu_detection if Hardware::CPU.intel?
+
     # link against system libc++ instead of llvm provided libc++
     ENV.remove "HOMEBREW_LIBRARY_PATHS", Formula["llvm"].opt_lib
     args = %W[
@@ -43,14 +53,15 @@ class ApacheArrow < Formula
       -DARROW_WITH_BZ2=ON
       -DARROW_WITH_LZ4=ON
       -DARROW_WITH_SNAPPY=ON
+      -DARROW_WITH_UTF8PROC=ON
       -DARROW_WITH_ZLIB=ON
       -DARROW_WITH_ZSTD=ON
+      -DCMAKE_FIND_PACKAGE_PREFER_CONFIG=TRUE
       -DPython3_EXECUTABLE=#{Formula["python@3.9"].bin/"python3"}
     ]
     # Re-enable -DARROW_S3=ON and add back aws-sdk-cpp to depends_on in ARROW-6437
 
-    mkdir "build"
-    cd "build" do
+    mkdir "build" do
       system "cmake", "../cpp", *std_cmake_args, *args
       system "make"
       system "make", "install"
