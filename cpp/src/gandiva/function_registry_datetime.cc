@@ -24,7 +24,7 @@ namespace gandiva {
 #define DATE_EXTRACTION_TRUNCATION_FNS(INNER, name)                                 \
   DATE_TYPES(INNER, name##Millennium, {}), DATE_TYPES(INNER, name##Century, {}),    \
       DATE_TYPES(INNER, name##Decade, {}), DATE_TYPES(INNER, name##Year, {"year"}), \
-      DATE_TYPES(INNER, name##Quarter, ({"quarter", "QUARTER"})),                   \
+      DATE_TYPES(INNER, name##Quarter, ({"quarter"})),                              \
       DATE_TYPES(INNER, name##Month, {"month"}),                                    \
       DATE_TYPES(INNER, name##Week, ({"weekofyear", "yearweek"})),                  \
       DATE_TYPES(INNER, name##Day, ({"day", "dayofmonth"})),                        \
