@@ -628,20 +628,23 @@ class ArrowOutputStream : public liborc::OutputStream {
   int64_t length_;
 };
 
+}  // namespace
+
 class ORCFileWriter::Impl {
  public:
-  Status Open(arrow::io::OutputStream* output_stream) {
+  Status Open(arrow::io::OutputStream* output_stream,
+              const WriterOptions& writer_options) {
     out_stream_ = std::unique_ptr<liborc::OutputStream>(
         checked_cast<liborc::OutputStream*>(new ArrowOutputStream(*output_stream)));
+    orc_options_ =
+        std::unique_ptr<liborc::WriterOptions>(AdaptWriterOptions(writer_options));
     return Status::OK();
   }
 
-  Status Write(const Table& table, const WriterOptions& writer_options) {
-    std::unique_ptr<liborc::WriterOptions> orc_options =
-        std::unique_ptr<liborc::WriterOptions>(AdaptWriterOptions(writer_options));
+  Status Write(const Table& table) {
     ARROW_ASSIGN_OR_RAISE(auto orc_schema, GetOrcType(*(table.schema())));
     ORC_CATCH_NOT_OK(
-        writer_ = liborc::createWriter(*orc_schema, out_stream_.get(), *orc_options))
+        writer_ = liborc::createWriter(*orc_schema, out_stream_.get(), *orc_options_))
 
     int64_t num_rows = table.num_rows();
     const int num_cols_ = table.num_columns();
@@ -673,6 +676,7 @@ class ORCFileWriter::Impl {
  private:
   std::unique_ptr<liborc::Writer> writer_;
   std::unique_ptr<liborc::OutputStream> out_stream_;
+  std::unique_ptr<liborc::WriterOptions> orc_options_;
 };
 
 ORCFileWriter::~ORCFileWriter() {}
@@ -680,17 +684,15 @@ ORCFileWriter::~ORCFileWriter() {}
 ORCFileWriter::ORCFileWriter() { impl_.reset(new ORCFileWriter::Impl()); }
 
 Result<std::unique_ptr<ORCFileWriter>> ORCFileWriter::Open(
-    io::OutputStream* output_stream) {
+    io::OutputStream* output_stream, const WriterOptions& writer_options) {
   std::unique_ptr<ORCFileWriter> result =
       std::unique_ptr<ORCFileWriter>(new ORCFileWriter());
-  Status status = result->impl_->Open(output_stream);
+  Status status = result->impl_->Open(output_stream, writer_options);
   RETURN_NOT_OK(status);
   return std::move(result);
 }
 
-Status ORCFileWriter::Write(const Table& table, const WriterOptions& writer_options) {
-  return impl_->Write(table, writer_options);
-}
+Status ORCFileWriter::Write(const Table& table) { return impl_->Write(table); }
 
 Status ORCFileWriter::Close() { return impl_->Close(); }
 

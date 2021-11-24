@@ -131,8 +131,9 @@ cdef extern from "arrow/adapters/orc/adapter.h" \
 
     cdef cppclass ORCFileWriter:
         @staticmethod
-        CResult[unique_ptr[ORCFileWriter]] Open(COutputStream* output_stream)
+        CResult[unique_ptr[ORCFileWriter]] Open(
+            COutputStream* output_stream, const WriterOptions& writer_options)
 
-        CStatus Write(const CTable& table, const WriterOptions& writer_options)
+        CStatus Write(const CTable& table)
 
         CStatus Close()
