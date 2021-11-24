@@ -453,4 +453,11 @@ test_that("write_csv_arrow deals with duplication in include_headers/col_names",
     paste("You have supplied a value for \"col_names\". This will overwrite",
           "the value for the \"include_headers\" argument.")
   )
+
+  written_tbl <- suppressMessages(
+    write_csv_arrow(tbl_no_dates, file = csv_file, col_names = FALSE)
+  )
+  expect_true(file.exists(csv_file))
+  expect_identical(tbl_no_dates, written_tbl)
+
 })
