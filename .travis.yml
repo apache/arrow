@@ -132,7 +132,7 @@ jobs:
         DOCKER_IMAGE_ID: debian-java
         JDK: 11
 
-    - name: "python on s390x"
+    - name: "Python on s390x"
       os: linux
       arch: s390x
       env:
@@ -150,7 +150,7 @@ jobs:
           -e ARROW_GCS=OFF
           -e ARROW_MIMALLOC=OFF
           -e ARROW_ORC=OFF
-          -e ARROW_PARQUET=OFF
+          -e ARROW_PARQUET=ON
           -e ARROW_PYTHON=ON
           -e ARROW_S3=OFF
           -e CMAKE_UNITY_BUILD=ON
