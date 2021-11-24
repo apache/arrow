@@ -1,0 +1,24 @@
+diff --git a/scripts/bootstrap.sh b/scripts/bootstrap.sh
+index d36f7ef1..01dfcc49 100644
+--- a/scripts/bootstrap.sh
++++ b/scripts/bootstrap.sh
+@@ -123,8 +123,9 @@ fi
+ #   Download and build from source
+ 
+ # Choose the vcpkg binary to download
+-vcpkgDownloadTool="ON"
++vcpkgDownloadTool=${VCPKG_DOWNLOAD_TOOL:-"ON"}
+ vcpkgToolReleaseTag="2021-11-15"
++vcpkgToolSourceReleaseSha="d94b00fd8d0b3abb0379390fc12c9103f209621e899df11c1ccfd9d15558908dbe0cd3e61cf7fe89a28a6a2b42eeb311d74cf1ebcb0f8e8debc671e9be123ec7"
+ if [ "$UNAME" = "Darwin" ]; then
+     echo "Downloading vcpkg-macos..."
+     vcpkgToolReleaseSha="2dc3b9fc8dde1eebdc76e1d40c4e9078d7a892487552349ac75df8e9c33d601830ab06b2283a7ba163de0d70f441574501de6cc1198930a346a3a642e677f93f"
+@@ -223,7 +224,7 @@ else
+         vcpkgCheckEqualFileHash "$vcpkgToolUrl" "$tarballPath" "$vcpkgToolReleaseSha"
+     else
+         echo "Downloading vcpkg tool sources"
+-        vcpkgDownloadFile "$vcpkgToolUrl" "$tarballPath" "$vcpkgToolReleaseSha"
++        vcpkgDownloadFile "$vcpkgToolUrl" "$tarballPath" "$vcpkgToolSourceReleaseSha"
+     fi
+ 
+     echo "Building vcpkg-tool..."

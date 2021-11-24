@@ -52,12 +52,13 @@ RUN mkdir /tmp/ccache && \
     rm -rf /tmp/ccache
 
 # Install vcpkg
-ARG vcpkg
+ARG vcpkg \
+    vcpkg_download_tool="ON"
 COPY ci/vcpkg/*.patch \
      ci/vcpkg/*linux*.cmake \
      arrow/ci/vcpkg/
 COPY ci/scripts/install_vcpkg.sh arrow/ci/scripts/
-RUN arrow/ci/scripts/install_vcpkg.sh /opt/vcpkg ${vcpkg}
+RUN VCPKG_DOWNLOAD_TOOL=${vcpkg_download_tool} arrow/ci/scripts/install_vcpkg.sh /opt/vcpkg ${vcpkg}
 ENV PATH="/opt/vcpkg:${PATH}"
 
 ARG build_type=release
