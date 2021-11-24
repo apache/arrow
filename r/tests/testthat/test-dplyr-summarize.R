@@ -708,17 +708,17 @@ test_that("Expressions on aggregations", {
   # Aggregates on aggregates are not supported
   expect_warning(
     record_batch(tbl) %>% summarise(any(any(lgl))),
-    "Aggregate within aggregate `any\\(any\\(lgl\\)\\)` not supported in Arrow"
+    "Aggregate within aggregate expression any\\(any\\(lgl\\)\\) not supported in Arrow"
   )
 
   # Check aggregates on aggeregates with more complex calls
   expect_warning(
     record_batch(tbl) %>% summarise(any(any(!lgl))),
-    "Aggregate within aggregate `any\\(any\\(!lgl\\)\\)` not supported in Arrow"
+    "Aggregate within aggregate expression any\\(any\\(!lgl\\)\\) not supported in Arrow"
   )
   expect_warning(
     record_batch(tbl) %>% summarise(!any(any(lgl))),
-    "Aggregate within aggregate `any\\(any\\(lgl\\)\\)` not supported in Arrow"
+    "Aggregate within aggregate expression any\\(any\\(lgl\\)\\) not supported in Arrow"
   )
 })
 
