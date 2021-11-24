@@ -235,7 +235,7 @@ Our ``addthree.R`` will thus have both the ``addthree_cdata`` and the
     }
 
     addthree <- function(arr) {
-        return(arr + 3)
+        return(arr + 3L)
     }
 
 We can now provide to R the array and its schema from Python through the
