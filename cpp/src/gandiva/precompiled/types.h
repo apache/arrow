@@ -560,6 +560,16 @@ const char* right_utf8_int32(gdv_int64 context, const char* text, gdv_int32 text
 const char* binary_string(gdv_int64 context, const char* text, gdv_int32 text_len,
                           gdv_int32* out_len);
 
+const char* to_hex_binary(int64_t context, const char* text, int32_t text_len,
+                          int32_t* out_len);
+
+const char* to_hex_int64(int64_t context, int64_t data, int32_t* out_len);
+
+const char* to_hex_int32(int64_t context, int32_t data, int32_t* out_len);
+
+const char* from_hex_utf8(int64_t context, const char* text, int32_t text_len,
+                          int32_t* out_len);
+
 int32_t castINT_utf8(int64_t context, const char* data, int32_t len);
 
 int64_t castBIGINT_utf8(int64_t context, const char* data, int32_t len);

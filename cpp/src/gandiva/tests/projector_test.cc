@@ -1765,4 +1765,100 @@ TEST_F(TestProjector, TestEltFunction) {
   EXPECT_ARROW_ARRAY_EQUALS(expected_out2, outputs2.at(0));
 }
 
+TEST_F(TestProjector, TestConcatFromHex) {
+  // schema for input fields
+  auto field0 = field("f0", arrow::utf8());
+  auto schema = arrow::schema({field0});
+
+  // output fields
+  auto field_from_hex = field("fromhex", arrow::binary());
+
+  // Build expression
+  auto from_hex_exp =
+      TreeExprBuilder::MakeExpression("from_hex", {field0}, field_from_hex);
+
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, {from_hex_exp}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Create a row-batch with some sample data
+  int num_records = 6;
+  auto array0 = MakeArrowArrayUtf8({"414243", "", "41", "4f4D", "6f6d", "4f"},
+                                   {true, true, true, true, true, true});
+  // expected output
+  auto exp_from_hex = MakeArrowArrayBinary({"ABC", "", "A", "OM", "om", "O"},
+                                           {true, true, true, true, true, true});
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp_from_hex, outputs.at(0));
+}
+
+TEST_F(TestProjector, TestToHex) {
+  // schema for input fields
+  auto field_a = field("a", arrow::binary());
+  auto field_b = field("b", arrow::int64());
+  auto schema = arrow::schema({field_a, field_b});
+
+  // output fields
+  auto res_1 = field("res1", arrow::utf8());
+  auto res_2 = field("res2", arrow::utf8());
+
+  auto node_a = TreeExprBuilder::MakeField(field_a);
+  auto to_hex = TreeExprBuilder::MakeFunction("to_hex", {node_a}, arrow::utf8());
+  auto expr_1 = TreeExprBuilder::MakeExpression(to_hex, res_1);
+
+  auto node_b = TreeExprBuilder::MakeField(field_b);
+  auto to_hex_numerical =
+      TreeExprBuilder::MakeFunction("to_hex", {node_b}, arrow::utf8());
+  auto expr_2 = TreeExprBuilder::MakeExpression(to_hex_numerical, res_2);
+
+  // Build a projector for the expressions.
+  std::shared_ptr<Projector> projector;
+  auto status =
+      Projector::Make(schema, {expr_1, expr_2}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Create a row-batch with some sample data
+  int num_records = 5;
+  auto array_a =
+      MakeArrowArrayBinary({{0x66, 0x6F, 0x6F},
+                            {0x74, 0x65, 0x73, 0x74, 0x20, 0x73, 0x70, 0x61, 0x63, 0x65},
+                            {0x74, 0x65, 0x73, 0x74, 0x20, 0x4E, 0x55, 0x4D, 0x4A, 0x6F},
+                            {0x5B, 0x5D, 0x5B, 0x5B, 0x73, 0x64},
+                            {}},
+                           {true, true, true, true, false});
+
+  auto array_b = MakeArrowArrayInt64({6713199, 499918271520, -1, 1, 52323},
+                                     {true, true, true, true, false});
+
+  // expected output
+  auto exp = MakeArrowArrayUtf8(
+      {"666F6F", "74657374207370616365", "74657374204E554D4A6F", "5B5D5B5B7364", ""},
+      {true, true, true, true, false});
+
+  auto exp_numerical =
+      MakeArrowArrayUtf8({"666F6F", "7465737420", "FFFFFFFFFFFFFFFF", "1", ""},
+                         {true, true, true, true, false});
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_a, array_b});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok());
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
+  EXPECT_ARROW_ARRAY_EQUALS(exp_numerical, outputs.at(1));
+}
 }  // namespace gandiva
