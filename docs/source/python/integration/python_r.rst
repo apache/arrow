@@ -29,7 +29,10 @@ marshaling and unmarshaling data.
 
     The article takes for granted that you have a ``Python`` environment
     with ``pyarrow`` correctly installed and an ``R`` environment with
-    ``arrow`` library correctly installed.
+    ``arrow`` library correctly installed. 
+    See `Python Install Instructions <https://arrow.apache.org/docs/python/install.html>`_
+    and `R Install instructions <https://arrow.apache.org/docs/r/#installation>`_
+    for further details.
 
 Invoking R functions from Python
 --------------------------------
