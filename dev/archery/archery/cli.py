@@ -353,7 +353,7 @@ def benchmark_common_options(cmd):
                      is_flag=True,
                      help="Preserve workspace for investigation."),
         click.option("--output", metavar="<output>",
-                     type=click.File("w", encoding="utf8"), default="-",
+                     type=click.File("w", encoding="utf8"), default=None,
                      help="Capture output result into file."),
         click.option("--language", metavar="<lang>", type=str, default="cpp",
                      show_default=True, callback=check_language,
@@ -418,7 +418,7 @@ def benchmark_list(ctx, rev_or_path, src, preserve, output, cmake_extras,
                 src, root, rev_or_path, conf)
 
         for b in runner_base.list_benchmarks:
-            click.echo(b, file=output)
+            click.echo(b, file=output or sys.stdout)
 
 
 @benchmark.command(name="run", short_help="Run benchmark suite")
@@ -494,7 +494,12 @@ def benchmark_run(ctx, rev_or_path, src, preserve, output, cmake_extras,
                 repetitions=repetitions,
                 benchmark_filter=benchmark_filter)
 
-        json.dump(runner_base, output, cls=JsonEncoder)
+        # XXX for some weird reason, running the benchmarks is coupled
+        # with JSON-encoding their results, so need to run `json` on
+        # the benchmark runner even when no JSON output is requested.
+        json_out = json.dumps(runner_base, cls=JsonEncoder)
+        if output is not None:
+            output.write(json_out)
 
 
 @benchmark.command(name="diff", short_help="Compare benchmark suites")
@@ -633,8 +638,7 @@ def benchmark_diff(ctx, src, preserve, output, language, cmake_extras,
         ren_counters = language == "java"
         formatted = _format_comparisons_with_pandas(comparisons_json,
                                                     no_counters, ren_counters)
-        output.write(formatted)
-        output.write('\n')
+        print(formatted, file=output or sys.stdout)
 
 
 def _get_comparisons_as_json(comparisons):
