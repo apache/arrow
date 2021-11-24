@@ -41,6 +41,9 @@ Building requires:
   sufficient. For Windows, at least Visual Studio 2017 is required.
 * CMake 3.5 or higher
 * On Linux and macOS, either ``make`` or ``ninja`` build utilities
+* At least 1GB of RAM for a minimal build, 4GB for a minimal  
+  debug build with tests and 8GB for a full build using
+  :ref:`docker <docker>`.
 
 On Ubuntu/Debian you can install the requirements with:
 
@@ -138,7 +141,7 @@ Several build types are possible:
 You can also run default build with flag ``-DARROW_EXTRA_ERROR_CONTEXT=ON``, see
 :ref:`cpp-extra-debugging`.
 
-Minimal release build:
+Minimal release build (1GB of RAM for building or more recommended):
 
 .. code-block:: shell
 
@@ -149,7 +152,7 @@ Minimal release build:
    cmake ..
    make
 
-Minimal debug build with unit tests:
+Minimal debug build with unit tests (4GB of RAM for building or more recommended):
 
 .. code-block:: shell
 
@@ -166,6 +169,13 @@ Minimal debug build with unit tests:
 The unit tests are not built by default. After building, one can also invoke
 the unit tests using the ``ctest`` tool provided by CMake (note that ``test``
 depends on ``python`` being available).
+
+CMake 
+`UNITY_BUILD <https://cmake.org/cmake/help/latest/prop_tgt/UNITY_BUILD.html/>`_
+can increase memory requirements to complete a build, so in memory constrained
+environments it should be turned off.
+
+* ``-DCMAKE_UNITY_BUILD=OFF``: Combine source files during building
 
 On some Linux distributions, running the test suite might require setting an
 explicit locale. If you see any locale-related errors, try setting the

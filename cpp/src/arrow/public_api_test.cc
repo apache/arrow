@@ -70,6 +70,15 @@
 #error "arrow::vendored::date should not be visible from Arrow public headers."
 #endif
 
+#ifdef PROTOBUF_EXPORT
+#error "Protocol Buffers should not be visible from Arrow public headers."
+#endif
+
+#if defined(SendMessage) || defined(GetObject) || defined(ERROR_INVALID_HANDLE) || \
+    defined(FILE_SHARE_READ) || defined(WAIT_TIMEOUT)
+#error "Windows.h should not be included by Arrow public headers"
+#endif
+
 #include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
