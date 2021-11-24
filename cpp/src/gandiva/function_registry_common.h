@@ -229,6 +229,16 @@ typedef std::unordered_map<const FunctionSignature*, const NativeFunction*, KeyH
                  ARROW_STRINGIFY(gdv_fn_sha256_##TYPE),                               \
                  NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors)
 
+// HashMD5 functions that :
+// - NULL handling is of type NULL_NEVER
+// - can return errors
+//
+// The function name includes the base name & input type name. gdv_fn_md5_float64
+#define HASH_MD5_NULL_NEVER(NAME, ALIASES, TYPE)                                   \
+  NativeFunction(#NAME, {"md5"}, DataTypeVector{TYPE()}, utf8(), kResultNullNever, \
+                 ARROW_STRINGIFY(gdv_fn_md5_##TYPE),                               \
+                 NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors)
+
 // Iterate the inner macro over all numeric types
 #define BASE_NUMERIC_TYPES(INNER, NAME, ALIASES)                                        \
   INNER(NAME, ALIASES, int8), INNER(NAME, ALIASES, int16), INNER(NAME, ALIASES, int32), \
