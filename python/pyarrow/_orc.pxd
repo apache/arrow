@@ -133,6 +133,6 @@ cdef extern from "arrow/adapters/orc/adapter.h" \
         @staticmethod
         CResult[unique_ptr[ORCFileWriter]] Open(COutputStream* output_stream)
 
-        CStatus Write(const CTable& table)
+        CStatus Write(const CTable& table, const WriterOptions& writer_options)
 
         CStatus Close()

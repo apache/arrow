@@ -48,11 +48,34 @@ cdef compression_kind_from_enum(CompressionKind compression_kind_):
         _CompressionKind_ZSTD: 'ZSTD',
     }.get(type_, 'UNKNOWN')
 
+cdef CompressionKind compression_kind_from_name(name):
+    name = name.upper()
+    if name == 'ZLIB':
+        return _CompressionKind_ZLIB
+    elif name == 'SNAPPY':
+        return _CompressionKind_SNAPPY
+    elif name == 'LZO':
+        return _CompressionKind_LZO
+    elif name == 'LZ4':
+        return _CompressionKind_LZ4
+    elif name == 'ZSTD':
+        return _CompressionKind_ZSTD
+    else:
+        return _CompressionKind_None
+
 cdef compression_strategy_from_enum(CompressionStrategy compression_strategy_):
     return {
         _CompressionStrategy_SPEED: 'SPEED',
         _CompressionStrategy_COMPRESSION: 'COMPRESSION',
     }.get(type_, 'UNKNOWN')
+
+cdef CompressionStrategy compression_strategy_from_name(name):
+    name = name.upper()
+    # SPEED is the default value in the ORC C++ implementaton
+    if name == 'COMPRESSION':
+        return _CompressionStrategy_COMPRESSION
+    else:
+        return _CompressionStrategy_SPEED
 
 cdef rle_version_from_enum(RleVersion rle_version_):
     return {
@@ -116,7 +139,56 @@ cdef class ORCWriterOptions(_Weakrefable):
         return file_version_from_class(deref(self.options).file_version())
     
     def set_compression(self, comp):
+        return deref(self.options).set_compression(
+            compression_kind_from_name(comp))
 
+    def get_compression(self):
+        return compression_kind_from_enum(deref(self.options).compression())
+
+    def set_compression_strategy(self, strategy):
+        return deref(self.options).set_compression_strategy(
+            compression_strategy_from_name(strategy))
+
+    def get_compression_strategy(self):
+        return compression_strategy_from_enum(
+            deref(self.options).compression_strategy())
+
+    def get_aligned_bitpacking(self):
+        return deref(self.options).aligned_bitpacking()
+
+    def set_padding_tolerance(self, tolerance):
+        deref(self.options).set_padding_tolerance(tolerance)
+
+    def get_padding_tolerance(self):
+        return deref(self.options).padding_tolerance(tolerance)
+
+    def get_rle_version(self):
+        return rle_version_from_enum(deref(self.options).rle_version())
+
+    def get_enable_index(self):
+        return deref(self.options).enable_index()
+    
+    def get_enable_dictionary(self):
+        return deref(self.options).enable_dictionary()
+
+    def set_columns_use_bloom_filter(self, columns):
+        deref(self.options).set_columns_use_bloom_filter(columns)
+
+    def is_column_use_bloom_filter(self, column):
+        return deref(self.options).is_column_use_bloom_filter(column)
+
+    def get_columns_use_bloom_filter(self):
+        return deref(self.options).columns_use_bloom_filter()
+
+    def set_bloom_filter_fpp(self, fpp):
+        deref(self.options).set_bloom_filter_fpp(fpp)
+
+    def get_bloom_filter_fpp(self):
+        return deref(self.options).bloom_filter_fpp()
+
+    def get_bloom_filter_version(self):
+        return bloom_filter_version_from_enum(
+            deref(self.options).bloom_filter_version())
 
 
 cdef class ORCReader(_Weakrefable):
