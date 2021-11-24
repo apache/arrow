@@ -718,12 +718,12 @@ test_that("structs/nested data frames/tibbles can be created", {
   expect_warning(
     record_batch(char_col = "a") %>%
       mutate(df_col = data.frame(char_col, row.names = 1L)),
-    "`row.names` will be ignored"
+    "row.names not supported in Arrow"
   )
 
   expect_warning(
     record_batch(char_col = "a") %>%
       mutate(df_col = data.frame(char_col, check.rows = TRUE)),
-    "`check.rows` will be ignored"
+    "check.rows not supported in Arrow"
   )
 })

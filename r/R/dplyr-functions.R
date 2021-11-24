@@ -280,8 +280,8 @@ nse_funcs$data.frame <- function(..., row.names = NULL,
   }
 
   # ignore row.names and check.rows with a warning
-  if (!is.null(row.names)) warning("Argument `row.names` will be ignored", call. = FALSE)
-  if (!is.null(check.rows)) warning("Argument `check.rows` will be ignored", call. = FALSE)
+  if (!is.null(row.names)) arrow_not_supported("row.names")
+  if (!is.null(check.rows)) arrow_not_supported("check.rows")
 
   args <- rlang::dots_list(..., .named = fix.empty.names)
   if (is.null(names(args))) {
