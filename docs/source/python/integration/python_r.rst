@@ -130,7 +130,7 @@ to enable ``rpy2-arrow`` converters and then pass the PyArrow array:
         r_result = addthree(array)
 
     # The result of the R function will be an R Environment
-    # we can convert back the Environment to a pyarrow Array
+    # we can convert the Environment back to a pyarrow Array
     # using the rarrow_to_py_array function
     py_result = rarrow_to_py_array(r_result)
     print("RESULT", type(py_result), py_result)
