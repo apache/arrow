@@ -811,6 +811,12 @@ TEST(TestGdvFnStubs, TestMaskFirstN) {
       gdv_mask_first_n_utf8_int32(ctx_ptr, data.c_str(), data_len, 4, &out_len);
   EXPECT_EQ(expected, std::string(result, out_len));
 
+  data = "世界您";
+  data_len = static_cast<int32_t>(data.length());
+  expected = "世界您";
+  result = gdv_mask_first_n_utf8_int32(ctx_ptr, data.c_str(), data_len, 4, &out_len);
+  EXPECT_EQ(expected, std::string(result, out_len));
+
   data = "a6Ççé";
   data_len = static_cast<int32_t>(data.length());
   expected = "xnXxé";
