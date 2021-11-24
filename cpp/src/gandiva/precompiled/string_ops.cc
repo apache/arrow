@@ -1723,7 +1723,7 @@ gdv_int32 levenshtein_utf8_utf8(int64_t context, const char* in1, int32_t in1_le
   }
 
   int* ptr = new int[(len_smaller + 1) * 2];
-  if (ptr == 0) {
+  if (ptr == nullptr) {
     gdv_fn_context_set_error_msg(context, "String length must be greater than 0");
     return 0;
   }
@@ -1777,7 +1777,10 @@ gdv_int32 levenshtein_utf8_utf8(int64_t context, const char* in1, int32_t in1_le
   }
   // The results of v1 are now in v0, Levenshtein value is in v0[n]
   int result = v0[len_smaller];
-  free(ptr);
+
+  // Free used memory
+  delete[] ptr;
+  ptr = nullptr;
 
   return result;
 }
