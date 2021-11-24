@@ -375,12 +375,6 @@ decimal <- function(precision, scale) {
   } else {
     stop('"precision" must be an integer', call. = FALSE)
   }
-  if (precision > 38) {
-    stop('"precision" must be less than or equal to 38', call. = FALSE)
-  }
-  if (precision < 1) {
-    stop('"precision" must be greater than 0', call. = FALSE)
-  }
   if (is.numeric(scale)) {
     scale <- as.integer(scale)
   } else {
