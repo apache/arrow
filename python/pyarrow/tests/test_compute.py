@@ -2208,6 +2208,21 @@ def test_make_struct():
         pc.make_struct(field_names=['one', 'two'])
 
 
+def test_struct_fields_options():
+    a = pa.array([4, 5, 6], type=pa.int64())
+    b = pa.array(["bar", None, ""])
+    c = pa.StructArray.from_arrays([a, b], ["a", "b"])
+    arr = pa.StructArray.from_arrays([a, c], ["a", "c"])
+
+    assert pc.struct_field(arr,
+                           indices=[1, 1]) == pa.array(["bar", None, ""])
+    assert pc.struct_field(arr,
+                           indices=[0]) == pa.array([4, 5, 6], type=pa.int64())
+    assert pc.struct_field(arr, indices=[]) == arr
+
+    # errors pc.struct_field(arr)
+
+
 def test_case_when():
     assert pc.case_when(pc.make_struct([True, False, None],
                                        [False, True, None]),
