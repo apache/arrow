@@ -24,7 +24,8 @@ ARG arch_short_alias
 RUN yum install -y git flex curl autoconf zip wget
 
 # Install CMake
-ARG cmake=3.22.0
+# AWS SDK doesn't work with CMake=3.22 due to https://gitlab.kitware.com/cmake/cmake/-/issues/22524
+ARG cmake=3.21.4
 RUN wget -q https://github.com/Kitware/CMake/releases/download/v${cmake}/cmake-${cmake}-Linux-${arch_alias}.tar.gz -O - | \
     tar -xzf - --directory /usr/local --strip-components=1
 
