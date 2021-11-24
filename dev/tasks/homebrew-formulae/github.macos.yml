@@ -46,6 +46,8 @@ jobs:
           brew update
           brew --version
           brew unlink python@2 || true
+          brew uninstall apache-arrow-glib || true
+          brew uninstall apache-arrow || true
           brew config
           brew doctor || true
           cp $ARROW_FORMULA $(brew --repository homebrew/core)/Formula/apache-arrow.rb
