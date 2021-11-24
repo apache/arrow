@@ -446,7 +446,7 @@ test_that("write_csv_arrow deals with duplication in include_headers/col_names",
   # default value
   expect_message(
     write_csv_arrow(
-      tbl,
+      tbl_no_dates,
       file = csv_file,
       col_names = FALSE
     ),
