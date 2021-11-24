@@ -239,6 +239,19 @@ class ARROW_EXPORT ORCFileReader {
   /// \param[in] batch_size Get a stripe level record batch iterator with specified row
   /// count in each record batch.
   ///
+  /// \param[in] include_indices the selected field names to read
+  /// \param[out] out the returned stripe reader
+  Status NextStripeReader(int64_t batch_size, const std::vector<std::string>& include_names,
+                          std::shared_ptr<RecordBatchReader>* out);
+
+  /// \brief Get a stripe level record batch iterator with specified row count
+  ///         in each record batch. NextStripeReader serves as a fine grain
+  ///         alternative to ReadStripe which may cause OOM issue by loading
+  ///         the whole stripes into memory.
+  ///
+  /// \param[in] batch_size Get a stripe level record batch iterator with specified row
+  /// count in each record batch.
+  ///
   /// \param[in] include_indices the selected field indices to read
   /// \return the returned stripe reader
   Result<std::shared_ptr<RecordBatchReader>> NextStripeReader(

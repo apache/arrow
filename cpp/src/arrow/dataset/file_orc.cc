@@ -85,24 +85,20 @@ class OrcScanTask : public ScanTask {
           included_fields.push_back(name);
         }
 
+        std::shared_ptr<RecordBatchReader> recordBatchReader;
+        reader->NextStripeReader(scan_options.batch_size, included_fields, &recordBatchReader);
+
         return RecordBatchIterator(
-            Impl{std::move(reader), 0, num_stripes, included_fields});
+            Impl{std::move(recordBatchReader)});
       }
 
       Result<std::shared_ptr<RecordBatch>> Next() {
-        if (i_ == num_stripes_) {
-          return nullptr;
-        }
         std::shared_ptr<RecordBatch> batch;
-        // TODO (https://issues.apache.org/jira/browse/ARROW-14153)
-        // pass scan_options_->batch_size
-        return reader_->ReadStripe(i_++, included_fields_);
+        RETURN_NOT_OK(recordBatchReader_->ReadNext(&batch));
+        return batch;
       }
 
-      std::unique_ptr<arrow::adapters::orc::ORCFileReader> reader_;
-      int i_;
-      int num_stripes_;
-      std::vector<std::string> included_fields_;
+      std::shared_ptr<RecordBatchReader> recordBatchReader_;
     };
 
     return Impl::Make(source_, *checked_pointer_cast<FileFragment>(fragment_)->format(),
