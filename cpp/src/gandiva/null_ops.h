@@ -22,9 +22,12 @@
 /// Stub functions that can be accessed from LLVM.
 extern "C" {
 
+GANDIVA_EXPORT
 void compare_null_null(bool in1_valid, bool in2_valid);
 
+GANDIVA_EXPORT
 bool isnull_null(bool in_valid);
 
+GANDIVA_EXPORT
 bool isnotnull_null(bool in_valid);
 }

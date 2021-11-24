@@ -22,11 +22,8 @@ class TestGandivaNullLiteralNode < Test::Unit::TestCase
 
   def test_invalid_type
     return_type = Arrow::NullDataType.new
-    message =
-      "[gandiva][null-literal-node][new] " +
-      "failed to create: <#{return_type}>"
-    assert_raise(Arrow::Error::Invalid.new(message)) do
-      Gandiva::NullLiteralNode.new(return_type)
+    literal_node = Gandiva::NullLiteralNode.new(return_type)
+    assert_equal(return_type, literal_node.return_type)
     end
   end
 
