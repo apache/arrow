@@ -560,7 +560,7 @@ use_byte_stream_split : bool or list, default False
     enabled, then dictionary is preferred.
     The byte_stream_split encoding is valid only for floating-point data types
     and should be combined with a compression codec.
-column_encoding : dict, default None
+column_encoding : string or dict, default None
     Specify the encoding scheme on a per column basis.
     Valid values: {'PLAIN', 'BIT_PACKED', 'RLE', 'BYTE_STREAM_SPLIT',
     'DELTA_BINARY_PACKED', 'DELTA_BYTE_ARRAY'}

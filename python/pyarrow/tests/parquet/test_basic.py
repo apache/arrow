@@ -359,18 +359,28 @@ def test_column_encoding(use_legacy_dataset):
     mixed_table = pa.Table.from_arrays([arr_float, arr_int],
                                        names=['a', 'b'])
 
-    # Check non-passing column_encoding.
-    _check_roundtrip(mixed_table, expected=mixed_table, use_dictionary=False,
-                     use_legacy_dataset=use_legacy_dataset)
-
     # Check "BYTE_STREAM_SPLIT" for column 'a' and "PLAIN" column_encoding for
     # column 'b'.
     _check_roundtrip(mixed_table, expected=mixed_table, use_dictionary=False,
                      column_encoding={'a': "BYTE_STREAM_SPLIT", 'b': "PLAIN"},
                      use_legacy_dataset=use_legacy_dataset)
 
-    # Try to pass "DELTA_BINARY_PACKED" column encoding for int column 'a'.
-    # This should throw and error as it is only supported for reading.
+    # Check "PLAIN" for all columns
+    _check_roundtrip(mixed_table, expected=mixed_table,
+                     use_dictionary=False,
+                     column_encoding="PLAIN",
+                     use_legacy_dataset=use_legacy_dataset)
+
+    # Try to pass "BYTE_STREAM_SPLIT" column encoding for integer column 'b'.
+    # This should throw an error as it is only supports FLOAT and DOUBLE.
+    with pytest.raises(IOError):
+        _check_roundtrip(mixed_table, expected=mixed_table,
+                         use_dictionary=False,
+                         column_encoding={'b': "BYTE_STREAM_SPLIT"},
+                         use_legacy_dataset=use_legacy_dataset)
+
+    # Try to pass "DELTA_BINARY_PACKED".
+    # This should throw an error as it is only supported for reading.
     with pytest.raises(IOError):
         _check_roundtrip(mixed_table, expected=mixed_table,
                          use_dictionary=False,
@@ -391,7 +401,9 @@ def test_column_encoding(use_legacy_dataset):
                          use_dictionary=['b'],
                          column_encoding={'b': "DELTA_BINARY_PACKED"},
                          use_legacy_dataset=use_legacy_dataset)
-    # Default value for use_dictionary is True
+
+    # Try to pass column_encoding and use_dictionary=True (default value)
+    # This should throw an error.
     with pytest.raises(ValueError):
         _check_roundtrip(mixed_table, expected=mixed_table,
                          column_encoding={'b': "DELTA_BINARY_PACKED"},
@@ -415,14 +427,6 @@ def test_column_encoding(use_legacy_dataset):
                          use_byte_stream_split=True,
                          column_encoding={'a': "RLE",
                                           'b': "BYTE_STREAM_SPLIT"},
-                         use_legacy_dataset=use_legacy_dataset)
-
-    # Try to pass column_encoding as string, not as dict
-    # This should throw an error.
-    with pytest.raises(AttributeError):
-        _check_roundtrip(mixed_table, expected=mixed_table,
-                         use_dictionary=False,
-                         column_encoding="DELTA_BINARY_PACKED",
                          use_legacy_dataset=use_legacy_dataset)
 
 

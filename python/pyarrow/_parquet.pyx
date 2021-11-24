@@ -1317,9 +1317,7 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
     # encoding map - encode individual columns
 
     if column_encoding is not None:
-        if not isinstance(column_encoding, dict):
-            raise AttributeError("'column_encoding' should be a dictionary")
-        else:
+        if isinstance(column_encoding, dict):
             for column, _encoding in column_encoding.items():
                 if encoding_enum_from_name(_encoding) is None:
                     raise ValueError("Unsupported column encoding: {0}"
@@ -1327,6 +1325,15 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
                 else:
                     props.encoding(tobytes(column),
                                    encoding_enum_from_name(_encoding))
+        elif isinstance(column_encoding, str):
+            if encoding_enum_from_name(column_encoding) is None:
+                raise ValueError("Unsupported column encoding: {0}"
+                                 .format(column_encoding))
+            else:
+                props.encoding(encoding_enum_from_name(column_encoding))
+        else:
+            raise AttributeError(
+                "'column_encoding' should be a dictionary or a string")
 
     if data_page_size is not None:
         props.data_pagesize(data_page_size)
