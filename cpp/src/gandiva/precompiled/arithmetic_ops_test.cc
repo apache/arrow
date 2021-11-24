@@ -34,6 +34,22 @@ TEST(TestArithmeticOps, TestIsDistinctFrom) {
   EXPECT_EQ(is_not_distinct_from_int32_int32(1000, true, 1000, true), true);
 }
 
+TEST(TestArithmeticOps, TestPmod) {
+  gandiva::ExecutionContext context;
+  auto ctx = reinterpret_cast<gdv_int64>(&context);
+  EXPECT_EQ(pmod_int64_int64(ctx, 3, 4), 3);
+  EXPECT_EQ(pmod_int64_int64(ctx, 4, 3), 1);
+  EXPECT_EQ(pmod_int64_int64(ctx, -3, 4), 1);
+  EXPECT_EQ(pmod_int64_int64(ctx, -4, 3), 2);
+  EXPECT_EQ(pmod_int64_int64(ctx, 3, -4), -1);
+  EXPECT_EQ(pmod_int64_int64(ctx, 4, -3), -2);
+
+  EXPECT_EQ(pmod_int64_int64(ctx, 3, 0), 0);
+  EXPECT_TRUE(context.has_error());
+  EXPECT_EQ(context.get_error(), "divide by zero error");
+  context.Reset();
+}
+
 TEST(TestArithmeticOps, TestMod) {
   gandiva::ExecutionContext context;
   EXPECT_EQ(mod_int64_int32(10, 0), 10);
