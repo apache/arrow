@@ -27,7 +27,7 @@ source_dir=${1}/r
 
 pushd ${source_dir}
 
-if [ ${R_BIN} = "RDsan" || ${R_PRUNE_DEPS} = "true" ]; then
+if [ ${R_PRUNE_DEPS} = "true" ]; then
   # To prevent the build from timing out, let's prune some optional deps (and their possible version requirements)
   ${R_BIN} -e 'd <- read.dcf("DESCRIPTION")
   to_prune <- c("duckdb", "DBI", "dbplyr", "decor", "knitr", "rmarkdown", "pkgload", "reticulate")

@@ -1232,12 +1232,15 @@ tasks:
     params:
       env:
         UBUNTU: 18.04
+        R_PRUNE_DEPS: TRUE
       run: ubuntu-r-sanitizer
 
   test-fedora-r-clang-sanitizer:
     ci: azure
     template: docker-tests/azure.linux.yml
     params:
+      env:
+        R_PRUNE_DEPS: TRUE
       run: fedora-r-clang-sanitizer
 
   revdep-r-check:
