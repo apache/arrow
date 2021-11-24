@@ -204,7 +204,6 @@ struct KleeneAndOp : Commutative<KleeneAndOp> {
                      ArrayData* out) {
     if (left.GetNullCount() == 0 && right.GetNullCount() == 0) {
       out->null_count = 0;
-      // Kleene kernels have validity bitmap pre-allocated. Therefore, set it to 1
       return AndOp::Call(ctx, left, right, out);
     }
 
@@ -309,7 +308,6 @@ struct KleeneOrOp : Commutative<KleeneOrOp> {
                      ArrayData* out) {
     if (left.GetNullCount() == 0 && right.GetNullCount() == 0) {
       out->null_count = 0;
-      // Kleene kernels have validity bitmap pre-allocated. Therefore, set it to 1
       return OrOp::Call(ctx, left, right, out);
     }
 
