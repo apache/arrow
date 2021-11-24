@@ -258,16 +258,16 @@ extract_aggregations <- function(expr, ctx) {
   }
   if (funs[1] %in% names(agg_funcs)) {
     inner_agg_exprs <- all_vars(expr) %in% names(ctx$aggregations)
-    if (any(inner_agg_exprs) & !all(inner_agg_exprs)) {
+    if (any(inner_agg_exprs)) {
       # We can't aggregate over a combination of dataset columns and other
       # aggregations (e.g. sum(x - mean(x)))
       # TODO: support in ARROW-13926
-      # TODO: Add "because" arg to explain _why_ it's not supported?
-      # TODO: this message could also say "not supported in summarize()"
-      #       since some of these expressions may be legal elsewhere
-      stop(
-        handle_arrow_not_supported(original_expr, format_expr(original_expr)),
-        call. = FALSE
+      abort(
+        paste0(
+          "Aggregate within aggregate `",
+          format_expr(original_expr),
+          "` not supported in Arrow"
+        )
       )
     }
 

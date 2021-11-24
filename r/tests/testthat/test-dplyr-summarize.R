@@ -705,16 +705,20 @@ test_that("Expressions on aggregations", {
     tbl
   )
 
-  # Aggregate on an aggregate (trivial but dplyr allows)
-  skip("Aggregate on an aggregate not supported")
-  compare_dplyr_binding(
-    .input %>%
-      group_by(some_grouping) %>%
-      summarize(
-        any_lgl = any(any(lgl))
-      ) %>%
-      collect(),
-    tbl
+  # Aggregates on aggregates are not supported
+  expect_warning(
+    record_batch(tbl) %>% summarise(any(any(lgl))),
+    "Aggregate within aggregate `any\\(any\\(lgl\\)\\)` not supported in Arrow"
+  )
+
+  # Check aggregates on aggeregates with more complex calls
+  expect_warning(
+    record_batch(tbl) %>% summarise(any(any(!lgl))),
+    "Aggregate within aggregate `any\\(any\\(!lgl\\)\\)` not supported in Arrow"
+  )
+  expect_warning(
+    record_batch(tbl) %>% summarise(!any(any(lgl))),
+    "Aggregate within aggregate `any\\(any\\(lgl\\)\\)` not supported in Arrow"
   )
 })
 
