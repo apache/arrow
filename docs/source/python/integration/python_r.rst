@@ -200,6 +200,7 @@ Invoking the ``addthree.R`` script will print the outcome of adding
 
 For additional information you can refer to
 `Reticulate Documentation <https://rstudio.github.io/reticulate/>`_
+and to the `R Arrow documentation <https://arrow.apache.org/docs/r/articles/python.html#using>`_
 
 R to Python communication using C Data Interface
 ------------------------------------------------
