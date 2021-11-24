@@ -238,9 +238,11 @@ summarize_eval <- function(name, quosure, ctx, hash, recurse = FALSE) {
 
   # Backstop for any other odd cases, like fun(x, y) (i.e. no aggregation),
   # or aggregation functions that aren't supported in Arrow (not in agg_funcs)
-  stop(
-    handle_arrow_not_supported(quo_get_expr(quosure), format_expr(quosure)),
-    call. = FALSE
+  abort(
+    paste(
+      "Expression", format_expr(quosure),
+      "is not an aggregate expression or is not supported in Arrow"
+    )
   )
 }
 
@@ -263,10 +265,10 @@ extract_aggregations <- function(expr, ctx) {
       # aggregations (e.g. sum(x - mean(x)))
       # TODO: support in ARROW-13926
       abort(
-        paste0(
-          "Aggregate within aggregate `",
+        paste(
+          "Aggregate within aggregate expression",
           format_expr(original_expr),
-          "` not supported in Arrow"
+          "not supported in Arrow"
         )
       )
     }
