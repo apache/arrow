@@ -2053,7 +2053,7 @@ TEST_F(TestProjector, TestQuarter) {
   auto schema = arrow::schema({field0});
 
   // output fields
-  auto field_result = field("QUARTER", arrow::int64());
+  auto field_result = field("quarter", arrow::int64());
 
   // Build expression
   auto myexpr = TreeExprBuilder::MakeExpression("quarter", {field0}, field_result);
