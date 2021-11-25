@@ -185,7 +185,7 @@ class ORCWriter:
             bloom_filter_columns=bloom_filter_columns,
             bloom_filter_fpp=bloom_filter_fpp
         )
-        self.is_open=True
+        self.is_open = True
 
     def __del__(self):
         if getattr(self, 'is_open', False):

@@ -33,7 +33,7 @@ from pyarrow.includes.libarrow cimport (CArray, CSchema, CStatus,
 
 cdef extern from "arrow/adapters/orc/adapter_options.h" \
         namespace "arrow::adapters::orc" nogil:
-    enum CompressionKind" arrow::adapters::orc::CompressionKind":
+    enum CompressionKind" arrow::adapters::orc::CompressionKind::type":
         _CompressionKind_NONE \
             " arrow::adapters::orc::CompressionKind::CompressionKind_NONE"
         _CompressionKind_ZLIB \
@@ -49,7 +49,7 @@ cdef extern from "arrow/adapters/orc/adapter_options.h" \
         _CompressionKind_MAX \
             " arrow::adapters::orc::CompressionKind::CompressionKind_MAX"
 
-    enum CompressionStrategy" arrow::adapters::orc::CompressionStrategy":
+    enum CompressionStrategy" arrow::adapters::orc::CompressionStrategy::type":
         _CompressionStrategy_SPEED \
             " arrow::adapters::orc::CompressionStrategy"\
             "::CompressionStrategy_SPEED"
@@ -57,11 +57,11 @@ cdef extern from "arrow/adapters/orc/adapter_options.h" \
             " arrow::adapters::orc::CompressionStrategy"\
             "::CompressionStrategy_COMPRESSION"
 
-    enum RleVersion" arrow::adapters::orc::RleVersion":
+    enum RleVersion" arrow::adapters::orc::RleVersion::type":
         _RleVersion_1" arrow::adapters::orc::RleVersion::RleVersion_1"
         _RleVersion_2" arrow::adapters::orc::RleVersion::RleVersion_2"
 
-    enum BloomFilterVersion" arrow::adapters::orc::BloomFilterVersion":
+    enum BloomFilterVersion" arrow::adapters::orc::BloomFilterVersion::type":
         _BloomFilterVersion_ORIGINAL \
             " arrow::adapters::orc::BloomFilterVersion::ORIGINAL"
         _BloomFilterVersion_UTF8 \
