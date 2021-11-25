@@ -20,19 +20,17 @@
 set -e
 
 if [ "$#" -lt 1 ]; then
-  echo "Usage: $0 ``<target-directory> [<vcpkg-version> [[<vcpkg-ports-patch> [<vcpkg-tool-patch>]]]"
+  echo "Usage: $0 ``<target-directory> [<vcpkg-version> [<vcpkg-ports-patch>]]"
   exit 1
 fi
 
 arrow_dir=$(readlink -f $(dirname "${0}")/../..)
 default_vcpkg_version=$(cat "${arrow_dir}/.env" | grep "VCPKG" | cut -d "=" -f2 | tr -d '"')
-default_vcpkg_tool_patch="${arrow_dir}/ci/vcpkg/tool.patch"
 default_vcpkg_ports_patch="${arrow_dir}/ci/vcpkg/ports.patch"
 
 vcpkg_destination=$1
 vcpkg_version=${2:-$default_vcpkg_version}
 vcpkg_ports_patch=${3:-$default_vcpkg_ports_patch}
-vcpkg_tool_patch=${4:-$default_vcpkg_tool_patch}
 
 # reduce the fetched data using a shallow clone
 git clone --shallow-since=2021-04-01 https://github.com/microsoft/vcpkg ${vcpkg_destination}
@@ -40,11 +38,6 @@ git clone --shallow-since=2021-04-01 https://github.com/microsoft/vcpkg ${vcpkg_
 pushd ${vcpkg_destination}
 
 git checkout "${vcpkg_version}"
-
-if [ -f "${vcpkg_tool_patch}" ]; then
-  git apply --verbose --ignore-whitespace ${vcpkg_tool_patch}
-  echo "Patch successfully applied to the VCPKG tool!"
-fi
 
 if [[ "$OSTYPE" == "msys" ]]; then
   ./bootstrap-vcpkg.bat -disableMetrics

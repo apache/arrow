@@ -85,13 +85,13 @@ RUN vcpkg install --clean-after-build \
         zlib \
         zstd
 
-# ARG python=3.6
-# ENV PYTHON_VERSION=${python}
-# RUN PYTHON_ROOT=$(find /opt/python -name cp${PYTHON_VERSION/./}-*) && \
-#     echo "export PATH=$PYTHON_ROOT/bin:\$PATH" >> /etc/profile.d/python.sh
+ARG python=3.6
+ENV PYTHON_VERSION=${python}
+RUN PYTHON_ROOT=$(find /opt/python -name cp${PYTHON_VERSION/./}-*) && \
+    echo "export PATH=$PYTHON_ROOT/bin:\$PATH" >> /etc/profile.d/python.sh
 
-# SHELL ["/bin/bash", "-i", "-c"]
-# ENTRYPOINT ["/bin/bash", "-i", "-c"]
+SHELL ["/bin/bash", "-i", "-c"]
+ENTRYPOINT ["/bin/bash", "-i", "-c"]
 
-# COPY python/requirements-wheel-build.txt /arrow/python/
-# RUN pip install -r /arrow/python/requirements-wheel-build.txt
+COPY python/requirements-wheel-build.txt /arrow/python/
+RUN pip install -r /arrow/python/requirements-wheel-build.txt
