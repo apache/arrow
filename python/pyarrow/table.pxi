@@ -2192,6 +2192,53 @@ cdef class Table(_PandasConvertible):
 
         return table
 
+    def group_by(self, keys):
+        """Declare a grouping over the columns of the table.
+
+        Resulting grouping can then be used to perform aggregations
+        with a subsequent ``aggregate()`` method.
+
+        Parameters
+        ----------
+        keys : str or list[str]
+            Name of the columns that should be used as the grouping key.
+
+        Returns
+        -------
+        TableGroupBy
+
+        See Also
+        --------
+        TableGroupBy.aggregate
+        """
+        return TableGroupBy(self, keys)
+
+    def sort_by(self, sorting):
+        """
+        Sort the table by one or multiple columns.
+
+        Parameters
+        ----------
+        sorting : str or list[tuple(name, order)]
+            Name of the column to use to sort (ascending), or
+            a list of multiple sorting conditions where
+            each entry is a tuple with column name
+            and sorting order ("ascending" or "descending")
+
+        Returns
+        -------
+        Table
+            A new table sorted according to the sort keys.
+        """
+        if isinstance(sorting, str):
+            sorting = [(sorting, "ascending")]
+
+        indices = _pc().sort_indices(
+            self,
+            sort_keys=sorting
+        )
+        return self.take(indices)
+
 
 def _reconstruct_table(arrays, schema):
     """
@@ -2387,3 +2434,74 @@ def _from_pydict(cls, mapping, schema, metadata):
         return cls.from_arrays(arrays, schema=schema, metadata=metadata)
     else:
         raise TypeError('Schema must be an instance of pyarrow.Schema')
+
+
+class TableGroupBy:
+    """
+    A grouping of columns in a table on which to perform aggregations.
+    """
+
+    def __init__(self, table, keys):
+        if isinstance(keys, str):
+            keys = [keys]
+
+        self._table = table
+        self.keys = keys
+
+    def aggregate(self, aggregations):
+        """
+        Perform an aggregation over the grouped columns of the table.
+
+        Parameters
+        ----------
+        aggregations : list[tuple(str, str)] or \
+list[tuple(str, str, FunctionOptions)]
+            List of tuples made of aggregation column names followed
+            by function names and optionally aggregation function options.
+
+        Returns
+        -------
+        Table
+            Results of the aggregation functions.
+
+        Example
+        -------
+        >>> t = pa.table([
+        ...       pa.array(["a", "a", "b", "b", "c"]),
+        ...       pa.array([1, 2, 3, 4, 5]),
+        ... ], names=["keys", "values"])
+        >>> t.group_by("keys").aggregate([("values", "sum")])
+        pyarrow.Table
+        values_sum: int64
+        keys: string
+        ----
+        values_sum: [[3,7,5]]
+        keys: [["a","b","c"]]
+        """
+        columns = [a[0] for a in aggregations]
+        aggrfuncs = [
+            (a[1], a[2]) if len(a) > 2 else (a[1], None)
+            for a in aggregations
+        ]
+
+        group_by_aggrs = []
+        for aggr in aggrfuncs:
+            if not aggr[0].startswith("hash_"):
+                aggr = ("hash_" + aggr[0], aggr[1])
+            group_by_aggrs.append(aggr)
+
+        # Build unique names for aggregation result columns
+        # so that it's obvious what they refer to.
+        column_names = [
+            aggr_name.replace("hash", col_name)
+            for col_name, (aggr_name, _) in zip(columns, group_by_aggrs)
+        ] + self.keys
+
+        result = _pc()._group_by(
+            [self._table[c] for c in columns],
+            [self._table[k] for k in self.keys],
+            group_by_aggrs
+        )
+
+        t = Table.from_batches([RecordBatch.from_struct_array(result)])
+        return t.rename_columns(column_names)
