@@ -2165,7 +2165,7 @@ TEST_F(TestFWBinaryArray, ArrayDataVisitorSliced) {
 TEST_F(TestFWBinaryArray, ArrayIndexOperator) {
   auto type = fixed_size_binary(3);
   auto arr = ArrayFromJSON(type, R"(["abc", null, "def"])");
-  auto fsba = std::static_pointer_cast<FixedSizeBinaryArray>(arr);
+  auto fsba = checked_pointer_cast<FixedSizeBinaryArray>(arr);
 
   ASSERT_EQ("abc", (*fsba)[0].value());
   ASSERT_EQ(util::nullopt, (*fsba)[1]);
@@ -3367,29 +3367,61 @@ class TestPrimitiveArray : public ::testing::Test {
   MemoryPool* pool_;
 };
 
-TYPED_TEST_SUITE(TestPrimitiveArray, Primitives);
+typedef ::testing::Types<PBoolean, PUInt8, PUInt16, PUInt32, PUInt64, PInt8, PInt16,
+                         PInt32, PInt64, PFloat, PDouble>
+    NumericPrimitives;
+
+TYPED_TEST_SUITE(TestPrimitiveArray, NumericPrimitives);
 
 TYPED_TEST(TestPrimitiveArray, IndexOperator) {
-  random::RandomArrayGenerator rng(0x76878);
+  using BuilderType = typename TypeParam::BuilderType;
+  using ArrayType = typename TypeParam::ArrayType;
+  using T = typename TypeParam::T;
 
-  auto input_array = rng.ArrayOf(TypeParam::type(), 6, 0.2);
-  auto con_array = checked_pointer_cast<typename TypeParam::ArrayType>(input_array);
-  const auto& carr = *con_array;
+  const int64_t length = 6;
+  std::vector<bool> null_tags = {true, false, true, true, false, true};
+  std::vector<T> expected_values = {0, 1, 0, 0, 1, 0};
 
-  std::vector<util::optional<typename TypeParam::T>> values;
-  for (auto v : carr) {
-    values.push_back(v);
-  }
+  BuilderType builder;
+  builder.Reserve(length);
+  builder.AppendValues(expected_values, null_tags);
+  ASSERT_OK_AND_ASSIGN(auto array, builder.Finish());
 
-  for (int64_t i = 0; i < carr.length(); ++i) {
-    auto res = carr[i];
+  const auto& carray = checked_cast<ArrayType&>(*array);
+
+  ASSERT_EQ(length, carray.length());
+  for (int64_t i = 0; i < length; ++i) {
+    auto res = carray[i];
     if (res) {
-      ASSERT_EQ(values[i].value(), res.value());
+      ASSERT_TRUE(res.has_value());
+      ASSERT_EQ(expected_values[i], res.value());
     } else {
+      ASSERT_FALSE(res.has_value());
       ASSERT_EQ(res, util::nullopt);
-      ASSERT_EQ(values[i], util::nullopt);
     }
   }
+}
+
+TEST(TestPrimitiveArray, DayTimeIntervalArrayIndexOperator) {
+  auto array = ArrayFromJSON(day_time_interval(), "[[0, 10], null]");
+  const auto& carray = checked_cast<DayTimeIntervalArray&>(*array);
+
+  ASSERT_EQ(2, carray.length());
+  ASSERT_TRUE(carray[0].has_value());
+  ASSERT_EQ(carray[0].value(), DayTimeIntervalType::DayMilliseconds({0, 10}));
+  ASSERT_FALSE(carray[1].has_value());
+  ASSERT_EQ(carray[1], util::nullopt);
+}
+
+TEST(TestPrimitiveArray, MonthDayNanoIntervalArrayIndexOperator) {
+  auto array = ArrayFromJSON(month_day_nano_interval(), "[null, [2, 10, 100]]");
+  const auto& carray = checked_cast<MonthDayNanoIntervalArray&>(*array);
+
+  ASSERT_EQ(2, carray.length());
+  ASSERT_FALSE(carray[0].has_value());
+  ASSERT_EQ(carray[0], util::nullopt);
+  ASSERT_TRUE(carray[1].has_value());
+  ASSERT_EQ(carray[1].value(), MonthDayNanoIntervalType::MonthDayNanos({2, 10, 100}));
 }
 
 }  // namespace arrow
