@@ -2220,7 +2220,8 @@ def test_struct_fields_options():
                            indices=[0]) == pa.array([4, 5, 6], type=pa.int64())
     assert pc.struct_field(arr, indices=[]) == arr
 
-    # errors pc.struct_field(arr)
+    # TODO: https://issues.apache.org/jira/browse/ARROW-14853
+    # assert pc.struct_field(arr) == arr
 
 
 def test_case_when():

@@ -973,9 +973,7 @@ cdef class _StructFieldOptions(FunctionOptions):
 
 
 class StructFieldOptions(_StructFieldOptions):
-    def __init__(self, indices=None):
-        if indices is None:
-            indices = []
+    def __init__(self, indices):
         self._set_options(indices)
 
 
