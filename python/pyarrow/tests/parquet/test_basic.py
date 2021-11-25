@@ -365,7 +365,7 @@ def test_column_encoding(use_legacy_dataset):
                      column_encoding={'a': "BYTE_STREAM_SPLIT", 'b': "PLAIN"},
                      use_legacy_dataset=use_legacy_dataset)
 
-    # Check "PLAIN" for all columns
+    # Check "PLAIN" for all columns.
     _check_roundtrip(mixed_table, expected=mixed_table,
                      use_dictionary=False,
                      column_encoding="PLAIN",
@@ -387,14 +387,14 @@ def test_column_encoding(use_legacy_dataset):
                          column_encoding={'b': "DELTA_BINARY_PACKED"},
                          use_legacy_dataset=use_legacy_dataset)
 
-    # Try to pass unsupported encoding
+    # Try to pass unsupported encoding.
     with pytest.raises(ValueError):
         _check_roundtrip(mixed_table, expected=mixed_table,
                          use_dictionary=False,
                          column_encoding={'a': "MADE_UP_ENCODING"},
                          use_legacy_dataset=use_legacy_dataset)
 
-    # Try to pass column_encoding and use_dictionary
+    # Try to pass column_encoding and use_dictionary.
     # This should throw an error.
     with pytest.raises(ValueError):
         _check_roundtrip(mixed_table, expected=mixed_table,
@@ -402,14 +402,14 @@ def test_column_encoding(use_legacy_dataset):
                          column_encoding={'b': "DELTA_BINARY_PACKED"},
                          use_legacy_dataset=use_legacy_dataset)
 
-    # Try to pass column_encoding and use_dictionary=True (default value)
+    # Try to pass column_encoding and use_dictionary=True (default value).
     # This should throw an error.
     with pytest.raises(ValueError):
         _check_roundtrip(mixed_table, expected=mixed_table,
                          column_encoding={'b': "DELTA_BINARY_PACKED"},
                          use_legacy_dataset=use_legacy_dataset)
 
-    # Try to pass column_encoding and use_byte_stream_split on same column
+    # Try to pass column_encoding and use_byte_stream_split on same column.
     # This should throw an error.
     with pytest.raises(ValueError):
         _check_roundtrip(mixed_table, expected=mixed_table,
@@ -419,7 +419,7 @@ def test_column_encoding(use_legacy_dataset):
                                           'b': "BYTE_STREAM_SPLIT"},
                          use_legacy_dataset=use_legacy_dataset)
 
-    # Try to pass column_encoding and use_byte_stream_split=True
+    # Try to pass column_encoding and use_byte_stream_split=True.
     # This should throw an error.
     with pytest.raises(ValueError):
         _check_roundtrip(mixed_table, expected=mixed_table,
@@ -427,6 +427,14 @@ def test_column_encoding(use_legacy_dataset):
                          use_byte_stream_split=True,
                          column_encoding={'a': "RLE",
                                           'b': "BYTE_STREAM_SPLIT"},
+                         use_legacy_dataset=use_legacy_dataset)
+
+    # Try to pass column_encoding=True.
+    # This should throw an error.
+    with pytest.raises(TypeError):
+        _check_roundtrip(mixed_table, expected=mixed_table,
+                         use_dictionary=False,
+                         column_encoding=True,
                          use_legacy_dataset=use_legacy_dataset)
 
 

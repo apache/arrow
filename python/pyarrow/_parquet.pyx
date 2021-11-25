@@ -881,7 +881,7 @@ cdef encoding_name_from_enum(ParquetEncoding encoding_):
 
 
 cdef encoding_enum_from_name(str encoding_name):
-    return {
+    enc = {
         'PLAIN': ParquetEncoding_PLAIN,
         'BIT_PACKED': ParquetEncoding_BIT_PACKED,
         'RLE': ParquetEncoding_RLE,
@@ -889,6 +889,10 @@ cdef encoding_enum_from_name(str encoding_name):
         'DELTA_BINARY_PACKED': ParquetEncoding_DELTA_BINARY_PACKED,
         'DELTA_BYTE_ARRAY': ParquetEncoding_DELTA_BYTE_ARRAY,
     }.get(encoding_name, None)
+    if enc is None:
+        raise ValueError(f"Unsupported column encoding: {encoding_name!r}")
+    else:
+        return enc
 
 
 cdef compression_name_from_enum(ParquetCompression compression_):
@@ -1299,7 +1303,8 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
         if use_byte_stream_split:
             if column_encoding is not None:
                 raise ValueError(
-                    "'column_encoding' is not None")
+                    "'use_byte_stream_split' can not be passed"
+                    "together with 'column_encoding'")
             else:
                 props.encoding(ParquetEncoding_BYTE_STREAM_SPLIT)
     elif use_byte_stream_split is not None:
@@ -1307,11 +1312,11 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
             if column_encoding is None:
                 column_encoding = {column: 'BYTE_STREAM_SPLIT'}
             elif column_encoding.get(column, None) is None:
-                column_encoding[column]='BYTE_STREAM_SPLIT'
+                column_encoding[column] = 'BYTE_STREAM_SPLIT'
             else:
                 raise ValueError(
-                    "Column {0} is already specified in 'column_encoding'"
-                    .format(column))
+                    "'use_byte_stream_split' can not be passed"
+                    "together with 'column_encoding'")
 
     # column_encoding
     # encoding map - encode individual columns
@@ -1319,20 +1324,12 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
     if column_encoding is not None:
         if isinstance(column_encoding, dict):
             for column, _encoding in column_encoding.items():
-                if encoding_enum_from_name(_encoding) is None:
-                    raise ValueError("Unsupported column encoding: {0}"
-                                     .format(_encoding))
-                else:
-                    props.encoding(tobytes(column),
-                                   encoding_enum_from_name(_encoding))
+                props.encoding(tobytes(column),
+                               encoding_enum_from_name(_encoding))
         elif isinstance(column_encoding, str):
-            if encoding_enum_from_name(column_encoding) is None:
-                raise ValueError("Unsupported column encoding: {0}"
-                                 .format(column_encoding))
-            else:
-                props.encoding(encoding_enum_from_name(column_encoding))
+            props.encoding(encoding_enum_from_name(column_encoding))
         else:
-            raise AttributeError(
+            raise TypeError(
                 "'column_encoding' should be a dictionary or a string")
 
     if data_page_size is not None:

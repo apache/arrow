@@ -563,9 +563,7 @@ use_byte_stream_split : bool or list, default False
 column_encoding : string or dict, default None
     Specify the encoding scheme on a per column basis.
     Valid values: {'PLAIN', 'BIT_PACKED', 'RLE', 'BYTE_STREAM_SPLIT',
-    'DELTA_BINARY_PACKED', 'DELTA_BYTE_ARRAY'}
-    Unsupported encodings: DELTA_LENGTH_BYTE_ARRAY, PLAIN_DICTIONARY and
-    RLE_DICTIONARY. Last two options are already used by default.
+    'DELTA_BINARY_PACKED', 'DELTA_BYTE_ARRAY'}.
     Certain encodings are only compatible with certain data types.
     Please refer to the encodings section of `Reading and writing Parquet
     files <https://arrow.apache.org/docs/cpp/parquet.html#encodings>`_.
