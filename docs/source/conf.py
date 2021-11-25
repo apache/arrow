@@ -67,7 +67,7 @@ extensions = [
     'sphinx.ext.ifconfig',
     'sphinx.ext.mathjax',
     'sphinx.ext.viewcode',
-    'sphinx.ext.napoleon',
+    'numpydoc',
     'IPython.sphinxext.ipython_directive',
     'IPython.sphinxext.ipython_console_highlighting',
     'breathe',
@@ -93,7 +93,7 @@ autodoc_mock_imports = []
 ipython_mplbackend = ''
 
 # numpydoc configuration
-napoleon_use_rtype = True
+numpydoc_xref_param_type = True
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
