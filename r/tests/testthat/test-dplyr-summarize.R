@@ -776,6 +776,17 @@ test_that("Not (yet) supported: implicit join", {
     warning = "Expression dbl - mean\\(dbl\\) is not an aggregate expression or is not supported in Arrow; pulling data into R"
   )
 
+  compare_dplyr_binding(
+    .input %>%
+      group_by(some_grouping) %>%
+      summarize(
+        dbl
+      ) %>%
+      collect(),
+    tbl,
+    warning = "Expression dbl is not an aggregate expression or is not supported in Arrow; pulling data into R"
+  )
+
   # This one could possibly be supported--in mutate()
   compare_dplyr_binding(
     .input %>%
@@ -902,8 +913,20 @@ test_that("summarise() passes through type information for temporary columns", {
 })
 
 test_that("summarise() can handle scalars and literal values", {
+  some_scalar_value = 2L
+
   compare_dplyr_binding(
     .input %>% summarise(y = 1L) %>% collect(),
+    tbl
+  )
+
+  compare_dplyr_binding(
+    .input %>% summarise(y = some_scalar_value) %>% collect(),
+    tbl
+  )
+
+  compare_dplyr_binding(
+    .input %>% summarise(y = !! some_scalar_value) %>% collect(),
     tbl
   )
 
@@ -920,5 +943,15 @@ test_that("summarise() can handle scalars and literal values", {
   expect_identical(
     record_batch(tbl) %>% summarise(y = Scalar$create(1L)) %>% collect(),
     tibble(y = 1L)
+  )
+
+  expect_identical(
+    record_batch(tbl) %>% summarise(y = some_scalar_value) %>% collect(),
+    tibble(y = 2L)
+  )
+
+  expect_identical(
+    record_batch(tbl) %>% summarise(y = !! some_scalar_value) %>% collect(),
+    tibble(y = 2L)
   )
 })

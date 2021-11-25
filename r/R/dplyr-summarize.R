@@ -166,21 +166,37 @@ format_aggregation <- function(x) {
 # appropriate combination of (1) aggregations (possibly temporary) and
 # (2) post-aggregation transformations (mutate)
 # The function returns nothing: it assigns into the `ctx` environment
-summarize_eval <- function(name, quosure, ctx, hash, recurse = FALSE) {
+summarize_eval <- function(name, quosure, ctx, hash) {
   expr <- quo_get_expr(quosure)
   ctx$quo_env <- quo_get_env(quosure)
 
   funs_in_expr <- all_funs(expr)
 
   if (length(funs_in_expr) == 0) {
-    # If it is not an expression, sanitize with Expression$scalar()
-    if (!inherits(expr, "Expression")) {
-      quosure <- quo(Expression$scalar(!! expr))
+    # This branch only gets called at the top level, where expr is something
+    # that is not a function call (could be a quosure, a symbol, or atomic
+    # value). This needs to evaluate to a scalar or something that can be
+    # converted to one.
+    value <- arrow_eval_or_stop(quosure, ctx$mask)
+
+    if (!inherits(value, "Expression")) {
+      value <- Expression$scalar(value)
     }
 
-    # These need to be added to post_mutate because they don't need
+    # We can't support a bare field reference because this is not
+    # an aggregate expression
+    if (!identical(value$field_name, "")) {
+      abort(
+        paste(
+          "Expression", format_expr(quosure),
+          "is not an aggregate expression or is not supported in Arrow"
+        )
+      )
+    }
+
+    # Scalars need to be added to post_mutate because they don't need
     # to be sent to the query engine as an aggregation
-    ctx$post_mutate[[name]] <- arrow_eval_or_stop(quosure, ctx$mask)
+    ctx$post_mutate[[name]] <- value
     return()
   }
 
