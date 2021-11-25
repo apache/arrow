@@ -164,7 +164,7 @@ TEST_F(TestFlightSqlClient, TestGetTables) {
 
   ASSERT_OK(sql_client.GetTables(call_options, &catalog, &schema_filter_pattern,
                                  &table_name_filter_pattern, include_schema,
-                                 table_types));
+                                 &table_types));
 }
 
 TEST_F(TestFlightSqlClient, TestGetTableTypes) {

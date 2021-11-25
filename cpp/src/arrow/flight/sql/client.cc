@@ -135,7 +135,7 @@ arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::GetSchemas(
 arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::GetTables(
     const FlightCallOptions& options, const std::string* catalog,
     const std::string* schema_filter_pattern, const std::string* table_filter_pattern,
-    bool include_schema, const std::vector<std::string>& table_types) {
+    bool include_schema, const std::vector<std::string>* table_types) {
   flight_sql_pb::CommandGetTables command;
 
   if (catalog != NULLPTR) {
@@ -152,8 +152,10 @@ arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::GetTables(
 
   command.set_include_schema(include_schema);
 
-  for (const std::string& table_type : table_types) {
-    command.add_table_types(table_type);
+  if (table_types != NULLPTR) {
+    for (const std::string& table_type : *table_types) {
+      command.add_table_types(table_type);
+    }
   }
 
   return GetFlightInfoForCommand(*this, options, command);

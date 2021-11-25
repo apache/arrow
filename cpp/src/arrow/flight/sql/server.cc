@@ -22,11 +22,12 @@
 
 #include <google/protobuf/any.pb.h>
 
-#include "arrow/api.h"
 #include "arrow/buffer.h"
+#include "arrow/builder.h"
 #include "arrow/flight/sql/FlightSql.pb.h"
 #include "arrow/flight/sql/sql_info_internal.h"
 #include "arrow/type.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 
 #define PROPERTY_TO_OPTIONAL(COMMAND, PROPERTY) \
@@ -37,6 +38,9 @@ namespace flight {
 namespace sql {
 
 namespace pb = arrow::flight::protocol;
+
+using arrow::internal::checked_cast;
+using arrow::internal::checked_pointer_cast;
 
 arrow::Result<std::string> CreateStatementQueryTicket(
     const std::string& statement_handle) {
@@ -370,8 +374,7 @@ Status FlightSqlServerBase::DoPut(const ServerCallContext& context,
     pb::sql::DoPutUpdateResult result;
     result.set_record_count(record_count);
 
-    const std::shared_ptr<Buffer>& buffer =
-        Buffer::FromString(result.SerializeAsString());
+    const auto buffer = Buffer::FromString(result.SerializeAsString());
     ARROW_RETURN_NOT_OK(writer->WriteMetadata(*buffer));
 
     return Status::OK();
@@ -389,8 +392,7 @@ Status FlightSqlServerBase::DoPut(const ServerCallContext& context,
     pb::sql::DoPutUpdateResult result;
     result.set_record_count(record_count);
 
-    const std::shared_ptr<Buffer>& buffer =
-        Buffer::FromString(result.SerializeAsString());
+    const auto buffer = Buffer::FromString(result.SerializeAsString());
     ARROW_RETURN_NOT_OK(writer->WriteMetadata(*buffer));
 
     return Status::OK();
@@ -494,7 +496,7 @@ Status FlightSqlServerBase::GetFlightInfoSqlInfo(const ServerCallContext& contex
                                                  const GetSqlInfo& command,
                                                  const FlightDescriptor& descriptor,
                                                  std::unique_ptr<FlightInfo>* info) {
-  assert(info != nullptr);
+  DCHECK(info);
 
   if (sql_info_id_to_result_.empty()) {
     return Status::NotImplemented("GetFlightInfoSqlInfo not implemented");
@@ -521,12 +523,12 @@ Status FlightSqlServerBase::DoGetSqlInfo(const ServerCallContext& context,
   MemoryPool* memory_pool = default_memory_pool();
   UInt32Builder name_field_builder(memory_pool);
   std::unique_ptr<ArrayBuilder> value_field_builder;
-  const auto& value_field_type = std::static_pointer_cast<DenseUnionType>(
+  const auto& value_field_type = checked_pointer_cast<DenseUnionType>(
       SqlSchema::GetSqlInfoSchema()->fields()[1]->type());
   ARROW_RETURN_NOT_OK(MakeBuilder(memory_pool, value_field_type, &value_field_builder));
 
   internal::SqlInfoResultAppender sql_info_result_appender(
-      reinterpret_cast<DenseUnionBuilder&>(*value_field_builder));
+      checked_cast<DenseUnionBuilder*>(value_field_builder.get()));
 
   // Populate both name_field_builder and value_field_builder for each element
   // on command.info.
@@ -534,14 +536,12 @@ Status FlightSqlServerBase::DoGetSqlInfo(const ServerCallContext& context,
   // a DenseUnionBuilder). The population for each data type is implemented on
   // internal::SqlInfoResultAppender.
   for (const auto& info : command.info) {
-    if (!sql_info_id_to_result_.count(info)) {
-      return Status::KeyError(
-          "Attempt to fetch unregistered/unsupported SqlInfo option: " +
-          std::to_string(info));
+    const auto it = sql_info_id_to_result_.find(info);
+    if (it == sql_info_id_to_result_.end()) {
+      return Status::KeyError("No information for SQL info number ", info);
     }
     ARROW_RETURN_NOT_OK(name_field_builder.Append(info));
-    ARROW_RETURN_NOT_OK(
-        arrow::util::visit(sql_info_result_appender, sql_info_id_to_result_.at(info)));
+    ARROW_RETURN_NOT_OK(arrow::util::visit(sql_info_result_appender, it->second));
   }
 
   std::shared_ptr<Array> name;

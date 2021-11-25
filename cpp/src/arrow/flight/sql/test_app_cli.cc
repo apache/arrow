@@ -156,12 +156,9 @@ Status RunMain() {
   } else if (FLAGS_command == "GetTableTypes") {
     ARROW_ASSIGN_OR_RAISE(info, sql_client.GetTableTypes(call_options));
   } else if (FLAGS_command == "GetTables") {
-    std::vector<std::string> table_types = {};
-    bool include_schema = false;
-
     ARROW_ASSIGN_OR_RAISE(
         info, sql_client.GetTables(call_options, &FLAGS_catalog, &FLAGS_schema,
-                                   &FLAGS_table, include_schema, table_types));
+                                   &FLAGS_table, false, nullptr));
   } else if (FLAGS_command == "GetExportedKeys") {
     ARROW_ASSIGN_OR_RAISE(info, sql_client.GetExportedKeys(call_options, &FLAGS_catalog,
                                                            &FLAGS_schema, FLAGS_table));

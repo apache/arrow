@@ -20,9 +20,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "arrow/api.h"
 #include "arrow/flight/api.h"
-#include "arrow/flight/sql/FlightSql.pb.h"
 #include "arrow/flight/sql/api.h"
 #include "arrow/flight/sql/example/sqlite_server.h"
 #include "arrow/flight/test_util.h"
@@ -33,6 +31,8 @@ using ::testing::_;
 using ::testing::Ref;
 
 namespace pb = arrow::flight::protocol;
+
+using arrow::internal::checked_cast;
 
 namespace arrow {
 namespace flight {
@@ -47,32 +47,32 @@ class SqlInfoDenseUnionValidator {
  public:
   /// \brief Asserts that the current DenseUnionScalar equals to given string value
   void operator()(const std::string& string_value) const {
-    const auto& scalar = dynamic_cast<const StringScalar&>(*data.value);
+    const auto& scalar = checked_cast<const StringScalar&>(*data.value);
     ASSERT_EQ(string_value, scalar.ToString());
   }
 
   /// \brief Asserts that the current DenseUnionScalar equals to given bool value
   void operator()(const bool bool_value) const {
-    const auto& scalar = dynamic_cast<const BooleanScalar&>(*data.value);
+    const auto& scalar = checked_cast<const BooleanScalar&>(*data.value);
     ASSERT_EQ(bool_value, scalar.value);
   }
 
   /// \brief Asserts that the current DenseUnionScalar equals to given int64_t value
   void operator()(const int64_t bigint_value) const {
-    const auto& scalar = dynamic_cast<const Int64Scalar&>(*data.value);
+    const auto& scalar = checked_cast<const Int64Scalar&>(*data.value);
     ASSERT_EQ(bigint_value, scalar.value);
   }
 
   /// \brief Asserts that the current DenseUnionScalar equals to given int32_t value
   void operator()(const int32_t int32_bitmask) const {
-    const auto& scalar = dynamic_cast<const Int32Scalar&>(*data.value);
+    const auto& scalar = checked_cast<const Int32Scalar&>(*data.value);
     ASSERT_EQ(int32_bitmask, scalar.value);
   }
 
   /// \brief Asserts that the current DenseUnionScalar equals to given string list
   void operator()(const std::vector<std::string>& string_list) const {
-    const auto& array = dynamic_cast<const StringArray&>(
-        *(dynamic_cast<const ListScalar&>(*data.value).value));
+    const auto& array = checked_cast<const StringArray&>(
+        *(checked_cast<const ListScalar&>(*data.value).value));
 
     ASSERT_EQ(string_list.size(), array.length());
 
@@ -85,10 +85,10 @@ class SqlInfoDenseUnionValidator {
   /// map.
   void operator()(const std::unordered_map<int32_t, std::vector<int32_t>>&
                       int32_to_int32_list) const {
-    const auto& struct_array = dynamic_cast<const StructArray&>(
-        *dynamic_cast<const MapScalar&>(*data.value).value);
-    const auto& keys = dynamic_cast<const Int32Array&>(*struct_array.field(0));
-    const auto& values = dynamic_cast<const ListArray&>(*struct_array.field(1));
+    const auto& struct_array = checked_cast<const StructArray&>(
+        *checked_cast<const MapScalar&>(*data.value).value);
+    const auto& keys = checked_cast<const Int32Array&>(*struct_array.field(0));
+    const auto& values = checked_cast<const ListArray&>(*struct_array.field(1));
 
     // Assert that the given map has the right size
     ASSERT_EQ(int32_to_int32_list.size(), keys.length());
@@ -96,7 +96,7 @@ class SqlInfoDenseUnionValidator {
     // For each element on given MapScalar, assert it matches the argument
     for (int i = 0; i < keys.length(); i++) {
       ASSERT_OK_AND_ASSIGN(const auto& key_scalar, keys.GetScalar(i));
-      int32_t sql_info_id = dynamic_cast<const Int32Scalar&>(*key_scalar).value;
+      int32_t sql_info_id = checked_cast<const Int32Scalar&>(*key_scalar).value;
 
       // Assert the key (SqlInfo id) exists
       ASSERT_TRUE(int32_to_int32_list.count(sql_info_id));
@@ -111,7 +111,7 @@ class SqlInfoDenseUnionValidator {
       for (size_t j = 0; j < expected_int32_list.size(); j++) {
         ASSERT_OK_AND_ASSIGN(auto list_item_scalar,
                              values.values()->GetScalar(values.value_offset(i) + j));
-        const auto& list_item = dynamic_cast<const Int32Scalar&>(*list_item_scalar).value;
+        const auto& list_item = checked_cast<const Int32Scalar&>(*list_item_scalar).value;
         ASSERT_EQ(expected_int32_list[j], list_item);
       }
     }
@@ -173,15 +173,10 @@ TEST(TestFlightSqlServer, TestCommandStatementQuery) {
       arrow::schema({arrow::field("id", int64()), arrow::field("keyName", utf8()),
                      arrow::field("value", int64()), arrow::field("foreignId", int64())});
 
-  std::shared_ptr<Array> id_array;
-  std::shared_ptr<Array> keyname_array;
-  std::shared_ptr<Array> value_array;
-  std::shared_ptr<Array> foreignId_array;
-  ArrayFromVector<Int64Type>({1, 2, 3}, &id_array);
-  ArrayFromVector<StringType, std::string>({"one", "zero", "negative one"},
-                                           &keyname_array);
-  ArrayFromVector<Int64Type>({1, 0, -1}, &value_array);
-  ArrayFromVector<Int64Type>({1, 1, 1}, &foreignId_array);
+  const auto id_array = ArrayFromJSON(int64(), R"([1, 2, 3])");
+  const auto keyname_array = ArrayFromJSON(utf8(), R"(["one", "zero", "negative one"])");
+  const auto value_array = ArrayFromJSON(int64(), R"([1, 0, -1])");
+  const auto foreignId_array = ArrayFromJSON(int64(), R"([1, 1, 1])");
 
   const std::shared_ptr<Table>& expected_table = Table::Make(
       expected_schema, {id_array, keyname_array, value_array, foreignId_array});
@@ -190,10 +185,8 @@ TEST(TestFlightSqlServer, TestCommandStatementQuery) {
 }
 
 TEST(TestFlightSqlServer, TestCommandGetTables) {
-  std::vector<std::string> table_types;
-  ASSERT_OK_AND_ASSIGN(
-      auto flight_info,
-      sql_client->GetTables({}, nullptr, nullptr, nullptr, false, table_types));
+  ASSERT_OK_AND_ASSIGN(auto flight_info, sql_client->GetTables({}, nullptr, nullptr,
+                                                               nullptr, false, nullptr));
 
   ASSERT_OK_AND_ASSIGN(auto stream,
                        sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
@@ -203,11 +196,10 @@ TEST(TestFlightSqlServer, TestCommandGetTables) {
 
   ASSERT_OK_AND_ASSIGN(auto catalog_name, MakeArrayOfNull(utf8(), 3))
   ASSERT_OK_AND_ASSIGN(auto schema_name, MakeArrayOfNull(utf8(), 3))
-  std::shared_ptr<Array> table_name;
-  ArrayFromVector<StringType, std::string>(
-      {"foreignTable", "intTable", "sqlite_sequence"}, &table_name);
-  std::shared_ptr<Array> table_type;
-  ArrayFromVector<StringType, std::string>({"table", "table", "table"}, &table_type);
+
+  const auto table_name =
+      ArrayFromJSON(utf8(), R"(["foreignTable", "intTable", "sqlite_sequence"])");
+  const auto table_type = ArrayFromJSON(utf8(), R"(["table", "table", "table"])");
 
   const std::shared_ptr<Table>& expected_table = Table::Make(
       SqlSchema::GetTablesSchema(), {catalog_name, schema_name, table_name, table_type});
@@ -216,12 +208,10 @@ TEST(TestFlightSqlServer, TestCommandGetTables) {
 }
 
 TEST(TestFlightSqlServer, TestCommandGetTablesWithTableFilter) {
-  std::vector<std::string> table_types;
-
   std::string table_filter_pattern = "int%";
-  ASSERT_OK_AND_ASSIGN(auto flight_info,
-                       sql_client->GetTables({}, nullptr, nullptr, &table_filter_pattern,
-                                             false, table_types));
+  ASSERT_OK_AND_ASSIGN(
+      auto flight_info,
+      sql_client->GetTables({}, nullptr, nullptr, &table_filter_pattern, false, nullptr));
 
   ASSERT_OK_AND_ASSIGN(auto stream,
                        sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
@@ -229,12 +219,10 @@ TEST(TestFlightSqlServer, TestCommandGetTablesWithTableFilter) {
   std::shared_ptr<Table> table;
   ASSERT_OK(stream->ReadAll(&table));
 
-  ASSERT_OK_AND_ASSIGN(auto catalog_name, MakeArrayOfNull(utf8(), 1))
-  ASSERT_OK_AND_ASSIGN(auto schema_name, MakeArrayOfNull(utf8(), 1))
-  std::shared_ptr<Array> table_name;
-  std::shared_ptr<Array> table_type;
-  ArrayFromVector<StringType, std::string>({"intTable"}, &table_name);
-  ArrayFromVector<StringType, std::string>({"table"}, &table_type);
+  const auto catalog_name = ArrayFromJSON(utf8(), R"([null])");
+  const auto schema_name = ArrayFromJSON(utf8(), R"([null])");
+  const auto table_name = ArrayFromJSON(utf8(), R"(["intTable"])");
+  const auto table_type = ArrayFromJSON(utf8(), R"(["table"])");
 
   const std::shared_ptr<Table>& expected_table = Table::Make(
       SqlSchema::GetTablesSchema(), {catalog_name, schema_name, table_name, table_type});
@@ -247,7 +235,7 @@ TEST(TestFlightSqlServer, TestCommandGetTablesWithTableTypesFilter) {
 
   ASSERT_OK_AND_ASSIGN(
       auto flight_info,
-      sql_client->GetTables({}, nullptr, nullptr, nullptr, false, table_types));
+      sql_client->GetTables({}, nullptr, nullptr, nullptr, false, &table_types));
 
   ASSERT_OK_AND_ASSIGN(auto stream,
                        sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
@@ -255,7 +243,7 @@ TEST(TestFlightSqlServer, TestCommandGetTablesWithTableTypesFilter) {
   std::shared_ptr<Table> table;
   ASSERT_OK(stream->ReadAll(&table));
 
-  ASSERT_TRUE(table->schema()->Equals(SqlSchema::GetTablesSchema()));
+  AssertSchemaEqual(SqlSchema::GetTablesSchema(), table->schema());
 
   ASSERT_EQ(table->num_rows(), 0);
 }
@@ -265,7 +253,7 @@ TEST(TestFlightSqlServer, TestCommandGetTablesWithUnexistenceTableTypeFilter) {
 
   ASSERT_OK_AND_ASSIGN(
       auto flight_info,
-      sql_client->GetTables({}, nullptr, nullptr, nullptr, false, table_types));
+      sql_client->GetTables({}, nullptr, nullptr, nullptr, false, &table_types));
 
   ASSERT_OK_AND_ASSIGN(auto stream,
                        sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
@@ -273,18 +261,11 @@ TEST(TestFlightSqlServer, TestCommandGetTablesWithUnexistenceTableTypeFilter) {
   std::shared_ptr<Table> table;
   ASSERT_OK(stream->ReadAll(&table));
 
-  ASSERT_OK_AND_ASSIGN(auto catalog_name, MakeArrayOfNull(utf8(), 3))
-  ASSERT_OK_AND_ASSIGN(auto schema_name, MakeArrayOfNull(utf8(), 3))
-  std::shared_ptr<Array> table_name;
-  ArrayFromVector<StringType, std::string>(
-      {
-          "foreignTable",
-          "intTable",
-          "sqlite_sequence",
-      },
-      &table_name);
-  std::shared_ptr<Array> table_type;
-  ArrayFromVector<StringType, std::string>({"table", "table", "table"}, &table_type);
+  const auto catalog_name = ArrayFromJSON(utf8(), R"([null, null, null])");
+  const auto schema_name = ArrayFromJSON(utf8(), R"([null, null, null])");
+  const auto table_name =
+      ArrayFromJSON(utf8(), R"(["foreignTable", "intTable", "sqlite_sequence"])");
+  const auto table_type = ArrayFromJSON(utf8(), R"(["table", "table", "table"])");
 
   const std::shared_ptr<Table>& expected_table = Table::Make(
       SqlSchema::GetTablesSchema(), {catalog_name, schema_name, table_name, table_type});
@@ -293,12 +274,10 @@ TEST(TestFlightSqlServer, TestCommandGetTablesWithUnexistenceTableTypeFilter) {
 }
 
 TEST(TestFlightSqlServer, TestCommandGetTablesWithIncludedSchemas) {
-  std::vector<std::string> table_types;
-
   std::string table_filter_pattern = "int%";
-  ASSERT_OK_AND_ASSIGN(auto flight_info,
-                       sql_client->GetTables({}, nullptr, nullptr, &table_filter_pattern,
-                                             true, table_types));
+  ASSERT_OK_AND_ASSIGN(
+      auto flight_info,
+      sql_client->GetTables({}, nullptr, nullptr, &table_filter_pattern, true, nullptr));
 
   ASSERT_OK_AND_ASSIGN(auto stream,
                        sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
@@ -306,24 +285,18 @@ TEST(TestFlightSqlServer, TestCommandGetTablesWithIncludedSchemas) {
   std::shared_ptr<Table> table;
   ASSERT_OK(stream->ReadAll(&table));
 
-  ASSERT_OK_AND_ASSIGN(auto catalog_name, MakeArrayOfNull(utf8(), 1))
-  ASSERT_OK_AND_ASSIGN(auto schema_name, MakeArrayOfNull(utf8(), 1))
-  std::shared_ptr<Array> table_name;
-  std::shared_ptr<Array> table_type;
-  ArrayFromVector<StringType, std::string>({"intTable"}, &table_name);
-  ArrayFromVector<StringType, std::string>({"table"}, &table_type);
+  const auto catalog_name = ArrayFromJSON(utf8(), R"([null])");
+  const auto schema_name = ArrayFromJSON(utf8(), R"([null])");
+  const auto table_name = ArrayFromJSON(utf8(), R"(["intTable"])");
+  const auto table_type = ArrayFromJSON(utf8(), R"(["table"])");
 
   const std::shared_ptr<Schema> schema_table = arrow::schema(
       {arrow::field("id", int64(), true), arrow::field("keyName", utf8(), true),
        arrow::field("value", int64(), true), arrow::field("foreignId", int64(), true)});
 
-  const arrow::Result<std::shared_ptr<Buffer>>& value =
-      ipc::SerializeSchema(*schema_table);
-  std::shared_ptr<Buffer> schema_buffer;
+  ASSERT_OK_AND_ASSIGN(auto schema_buffer, ipc::SerializeSchema(*schema_table));
 
-  ASSERT_OK_AND_ASSIGN(schema_buffer, value);
   std::shared_ptr<Array> table_schema;
-
   ArrayFromVector<BinaryType, std::string>({schema_buffer->ToString()}, &table_schema);
 
   const std::shared_ptr<Table>& expected_table =
@@ -344,7 +317,7 @@ TEST(TestFlightSqlServer, TestCommandGetCatalogs) {
 
   const std::shared_ptr<Schema>& expected_schema = SqlSchema::GetCatalogsSchema();
 
-  ASSERT_TRUE(table->schema()->Equals(*expected_schema));
+  AssertSchemaEqual(expected_schema, table->schema());
   ASSERT_EQ(0, table->num_rows());
 }
 
@@ -359,7 +332,7 @@ TEST(TestFlightSqlServer, TestCommandGetSchemas) {
 
   const std::shared_ptr<Schema>& expected_schema = SqlSchema::GetSchemasSchema();
 
-  ASSERT_TRUE(table->schema()->Equals(*expected_schema));
+  AssertSchemaEqual(expected_schema, table->schema());
   ASSERT_EQ(0, table->num_rows());
 }
 
@@ -372,8 +345,7 @@ TEST(TestFlightSqlServer, TestCommandGetTableTypes) {
   std::shared_ptr<Table> table;
   ASSERT_OK(stream->ReadAll(&table));
 
-  std::shared_ptr<Array> table_type;
-  ArrayFromVector<StringType, std::string>({"table"}, &table_type);
+  const auto table_type = ArrayFromJSON(utf8(), R"(["table"])");
 
   const std::shared_ptr<Table>& expected_table =
       Table::Make(SqlSchema::GetTableTypesSchema(), {table_type});
@@ -417,15 +389,10 @@ TEST(TestFlightSqlServer, TestCommandPreparedStatementQuery) {
       arrow::schema({arrow::field("id", int64()), arrow::field("keyName", utf8()),
                      arrow::field("value", int64()), arrow::field("foreignId", int64())});
 
-  std::shared_ptr<Array> id_array;
-  std::shared_ptr<Array> keyname_array;
-  std::shared_ptr<Array> value_array;
-  std::shared_ptr<Array> foreignId_array;
-  ArrayFromVector<Int64Type, std::int64_t>({1, 2, 3}, &id_array);
-  ArrayFromVector<StringType, std::string>({"one", "zero", "negative one"},
-                                           &keyname_array);
-  ArrayFromVector<Int64Type, std::int64_t>({1, 0, -1}, &value_array);
-  ArrayFromVector<Int64Type, std::int64_t>({1, 1, 1}, &foreignId_array);
+  const auto id_array = ArrayFromJSON(int64(), R"([1, 2, 3])");
+  const auto keyname_array = ArrayFromJSON(utf8(), R"(["one", "zero", "negative one"])");
+  const auto value_array = ArrayFromJSON(int64(), R"([1, 0, -1])");
+  const auto foreignId_array = ArrayFromJSON(int64(), R"([1, 1, 1])");
 
   const std::shared_ptr<Table>& expected_table = Table::Make(
       expected_schema, {id_array, keyname_array, value_array, foreignId_array});
@@ -443,21 +410,14 @@ TEST(TestFlightSqlServer, TestCommandPreparedStatementQueryWithParameterBinding)
   const std::shared_ptr<Schema>& expected_parameter_schema =
       arrow::schema({arrow::field("parameter_1", example::GetUnknownColumnDataType())});
 
-  ASSERT_TRUE(expected_parameter_schema->Equals(*parameter_schema));
+  AssertSchemaEqual(expected_parameter_schema, parameter_schema);
 
-  std::shared_ptr<Array> type_ids;
-  ArrayFromVector<Int8Type>({0}, &type_ids);
-  std::shared_ptr<Array> offsets;
-  ArrayFromVector<Int32Type>({0}, &offsets);
-
-  std::shared_ptr<Array> string_array;
-  ArrayFromVector<StringType, std::string>({"%one"}, &string_array);
-  std::shared_ptr<Array> bytes_array;
-  ArrayFromVector<BinaryType, std::string>({}, &bytes_array);
-  std::shared_ptr<Array> bigint_array;
-  ArrayFromVector<Int64Type>({}, &bigint_array);
-  std::shared_ptr<Array> double_array;
-  ArrayFromVector<FloatType>({}, &double_array);
+  std::shared_ptr<Array> type_ids = ArrayFromJSON(int8(), R"([0])");
+  std::shared_ptr<Array> offsets = ArrayFromJSON(int32(), R"([0])");
+  std::shared_ptr<Array> string_array = ArrayFromJSON(utf8(), R"(["%one"])");
+  std::shared_ptr<Array> bytes_array = ArrayFromJSON(binary(), R"([])");
+  std::shared_ptr<Array> bigint_array = ArrayFromJSON(int64(), R"([])");
+  std::shared_ptr<Array> double_array = ArrayFromJSON(float64(), R"([])");
 
   ASSERT_OK_AND_ASSIGN(
       auto parameter_1_array,
@@ -482,14 +442,10 @@ TEST(TestFlightSqlServer, TestCommandPreparedStatementQueryWithParameterBinding)
       arrow::schema({arrow::field("id", int64()), arrow::field("keyName", utf8()),
                      arrow::field("value", int64()), arrow::field("foreignId", int64())});
 
-  std::shared_ptr<Array> id_array;
-  std::shared_ptr<Array> keyname_array;
-  std::shared_ptr<Array> value_array;
-  std::shared_ptr<Array> foreignId_array;
-  ArrayFromVector<Int64Type, std::int64_t>({1, 3}, &id_array);
-  ArrayFromVector<StringType, std::string>({"one", "negative one"}, &keyname_array);
-  ArrayFromVector<Int64Type, std::int64_t>({1, -1}, &value_array);
-  ArrayFromVector<Int64Type, std::int64_t>({1, 1}, &foreignId_array);
+  const auto id_array = ArrayFromJSON(int64(), R"([1, 3])");
+  const auto keyname_array = ArrayFromJSON(utf8(), R"(["one", "negative one"])");
+  const auto value_array = ArrayFromJSON(int64(), R"([1, -1])");
+  const auto foreignId_array = ArrayFromJSON(int64(), R"([1, 1])");
 
   const std::shared_ptr<Table>& expected_table = Table::Make(
       expected_schema, {id_array, keyname_array, value_array, foreignId_array});
@@ -523,21 +479,14 @@ TEST(TestFlightSqlServer, TestCommandPreparedStatementUpdateWithParameterBinding
   const std::shared_ptr<Schema>& expected_parameter_schema =
       arrow::schema({arrow::field("parameter_1", example::GetUnknownColumnDataType())});
 
-  ASSERT_TRUE(expected_parameter_schema->Equals(*parameter_schema));
+  AssertSchemaEqual(expected_parameter_schema, parameter_schema);
 
-  std::shared_ptr<Array> type_ids;
-  ArrayFromVector<Int8Type>({2}, &type_ids);
-  std::shared_ptr<Array> offsets;
-  ArrayFromVector<Int32Type>({0}, &offsets);
-
-  std::shared_ptr<Array> string_array;
-  ArrayFromVector<StringType, std::string>({}, &string_array);
-  std::shared_ptr<Array> bytes_array;
-  ArrayFromVector<BinaryType, std::string>({}, &bytes_array);
-  std::shared_ptr<Array> bigint_array;
-  ArrayFromVector<Int64Type>({999}, &bigint_array);
-  std::shared_ptr<Array> double_array;
-  ArrayFromVector<FloatType>({}, &double_array);
+  std::shared_ptr<Array> type_ids = ArrayFromJSON(int8(), R"([2])");
+  std::shared_ptr<Array> offsets = ArrayFromJSON(int32(), R"([0])");
+  std::shared_ptr<Array> string_array = ArrayFromJSON(utf8(), R"([])");
+  std::shared_ptr<Array> bytes_array = ArrayFromJSON(binary(), R"([])");
+  std::shared_ptr<Array> bigint_array = ArrayFromJSON(int64(), R"([999])");
+  std::shared_ptr<Array> double_array = ArrayFromJSON(float64(), R"([])");
 
   ASSERT_OK_AND_ASSIGN(
       auto parameter_1_array,
@@ -550,23 +499,16 @@ TEST(TestFlightSqlServer, TestCommandPreparedStatementUpdateWithParameterBinding
 
   ASSERT_OK(prepared_statement->SetParameters(record_batch));
 
-  int64_t result;
-  ASSERT_OK_AND_ASSIGN(result, ExecuteCountQuery("SELECT COUNT(*) FROM intTable"));
-  ASSERT_EQ(3, result);
+  ASSERT_OK_AND_EQ(3, ExecuteCountQuery("SELECT COUNT(*) FROM intTable"));
 
-  ASSERT_OK_AND_ASSIGN(result, prepared_statement->ExecuteUpdate());
-  ASSERT_EQ(1, result);
+  ASSERT_OK_AND_EQ(1, prepared_statement->ExecuteUpdate());
 
-  ASSERT_OK_AND_ASSIGN(result, ExecuteCountQuery("SELECT COUNT(*) FROM intTable"));
-  ASSERT_EQ(4, result);
+  ASSERT_OK_AND_EQ(4, ExecuteCountQuery("SELECT COUNT(*) FROM intTable"));
 
-  ASSERT_OK_AND_ASSIGN(
-      result,
-      sql_client->ExecuteUpdate({}, "DELETE FROM intTable WHERE keyName = 'new_value'"));
-  ASSERT_EQ(1, result);
+  ASSERT_OK_AND_EQ(1, sql_client->ExecuteUpdate(
+                          {}, "DELETE FROM intTable WHERE keyName = 'new_value'"));
 
-  ASSERT_OK_AND_ASSIGN(result, ExecuteCountQuery("SELECT COUNT(*) FROM intTable"));
-  ASSERT_EQ(3, result);
+  ASSERT_OK_AND_EQ(3, ExecuteCountQuery("SELECT COUNT(*) FROM intTable"));
 }
 
 TEST(TestFlightSqlServer, TestCommandPreparedStatementUpdate) {
@@ -575,23 +517,16 @@ TEST(TestFlightSqlServer, TestCommandPreparedStatementUpdate) {
       sql_client->Prepare(
           {}, "INSERT INTO INTTABLE (keyName, value) VALUES ('new_value', 999)"));
 
-  int64_t result;
-  ASSERT_OK_AND_ASSIGN(result, ExecuteCountQuery("SELECT COUNT(*) FROM intTable"));
-  ASSERT_EQ(3, result);
+  ASSERT_OK_AND_EQ(3, ExecuteCountQuery("SELECT COUNT(*) FROM intTable"));
 
-  ASSERT_OK_AND_ASSIGN(result, prepared_statement->ExecuteUpdate());
-  ASSERT_EQ(1, result);
+  ASSERT_OK_AND_EQ(1, prepared_statement->ExecuteUpdate());
 
-  ASSERT_OK_AND_ASSIGN(result, ExecuteCountQuery("SELECT COUNT(*) FROM intTable"));
-  ASSERT_EQ(4, result);
+  ASSERT_OK_AND_EQ(4, ExecuteCountQuery("SELECT COUNT(*) FROM intTable"));
 
-  ASSERT_OK_AND_ASSIGN(
-      result,
-      sql_client->ExecuteUpdate({}, "DELETE FROM intTable WHERE keyName = 'new_value'"));
-  ASSERT_EQ(1, result);
+  ASSERT_OK_AND_EQ(1, sql_client->ExecuteUpdate(
+                          {}, "DELETE FROM intTable WHERE keyName = 'new_value'"));
 
-  ASSERT_OK_AND_ASSIGN(result, ExecuteCountQuery("SELECT COUNT(*) FROM intTable"));
-  ASSERT_EQ(3, result);
+  ASSERT_OK_AND_EQ(3, ExecuteCountQuery("SELECT COUNT(*) FROM intTable"));
 }
 
 TEST(TestFlightSqlServer, TestCommandGetPrimaryKeys) {
@@ -604,16 +539,12 @@ TEST(TestFlightSqlServer, TestCommandGetPrimaryKeys) {
   std::shared_ptr<Table> table;
   ASSERT_OK(stream->ReadAll(&table));
 
-  ASSERT_OK_AND_ASSIGN(auto catalog_name, MakeArrayOfNull(utf8(), 1))
-  ASSERT_OK_AND_ASSIGN(auto schema_name, MakeArrayOfNull(utf8(), 1))
-  ASSERT_OK_AND_ASSIGN(auto key_name, MakeArrayOfNull(utf8(), 1))
-
-  std::shared_ptr<Array> table_name;
-  std::shared_ptr<Array> column_name;
-  std::shared_ptr<Array> key_sequence;
-  ArrayFromVector<StringType, std::string>({"intTable"}, &table_name);
-  ArrayFromVector<StringType, std::string>({"id"}, &column_name);
-  ArrayFromVector<Int64Type, std::int64_t>({1}, &key_sequence);
+  const auto catalog_name = ArrayFromJSON(utf8(), R"([null])");
+  const auto schema_name = ArrayFromJSON(utf8(), R"([null])");
+  const auto key_name = ArrayFromJSON(utf8(), R"([null])");
+  const auto table_name = ArrayFromJSON(utf8(), R"(["intTable"])");
+  const auto column_name = ArrayFromJSON(utf8(), R"(["id"])");
+  const auto key_sequence = ArrayFromJSON(int64(), R"([1])");
 
   const std::shared_ptr<Table>& expected_table = Table::Make(
       SqlSchema::GetPrimaryKeysSchema(),
@@ -632,27 +563,19 @@ TEST(TestFlightSqlServer, TestCommandGetImportedKeys) {
   std::shared_ptr<Table> table;
   ASSERT_OK(stream->ReadAll(&table));
 
-  std::shared_ptr<Array> pk_table_name;
-  std::shared_ptr<Array> pk_column_name;
-  std::shared_ptr<Array> fk_table_name;
-  std::shared_ptr<Array> fk_column_name;
-  std::shared_ptr<Array> key_sequence;
-  std::shared_ptr<Array> update_rule;
-  std::shared_ptr<Array> delete_rule;
-  ArrayFromVector<StringType, std::string>({"foreignTable"}, &pk_table_name);
-  ArrayFromVector<StringType, std::string>({"id"}, &pk_column_name);
-  ArrayFromVector<StringType, std::string>({"intTable"}, &fk_table_name);
-  ArrayFromVector<StringType, std::string>({"foreignId"}, &fk_column_name);
-  ArrayFromVector<Int32Type, std::int32_t>({0}, &key_sequence);
-  ArrayFromVector<UInt8Type, std::uint8_t>({3}, &update_rule);
-  ArrayFromVector<UInt8Type, std::uint8_t>({3}, &delete_rule);
-
-  ASSERT_OK_AND_ASSIGN(auto pk_catalog_name, MakeArrayOfNull(utf8(), 1))
-  ASSERT_OK_AND_ASSIGN(auto pk_schema_name, MakeArrayOfNull(utf8(), 1))
-  ASSERT_OK_AND_ASSIGN(auto fk_catalog_name, MakeArrayOfNull(utf8(), 1))
-  ASSERT_OK_AND_ASSIGN(auto fk_schema_name, MakeArrayOfNull(utf8(), 1))
-  ASSERT_OK_AND_ASSIGN(auto fk_key_name, MakeArrayOfNull(utf8(), 1))
-  ASSERT_OK_AND_ASSIGN(auto pk_key_name, MakeArrayOfNull(utf8(), 1))
+  const auto pk_catalog_name = ArrayFromJSON(utf8(), R"([null])");
+  const auto pk_schema_name = ArrayFromJSON(utf8(), R"([null])");
+  const auto pk_table_name = ArrayFromJSON(utf8(), R"(["foreignTable"])");
+  const auto pk_column_name = ArrayFromJSON(utf8(), R"(["id"])");
+  const auto fk_catalog_name = ArrayFromJSON(utf8(), R"([null])");
+  const auto fk_schema_name = ArrayFromJSON(utf8(), R"([null])");
+  const auto fk_table_name = ArrayFromJSON(utf8(), R"(["intTable"])");
+  const auto fk_column_name = ArrayFromJSON(utf8(), R"(["foreignId"])");
+  const auto key_sequence = ArrayFromJSON(int32(), R"([0])");
+  const auto fk_key_name = ArrayFromJSON(utf8(), R"([null])");
+  const auto pk_key_name = ArrayFromJSON(utf8(), R"([null])");
+  const auto update_rule = ArrayFromJSON(uint8(), R"([3])");
+  const auto delete_rule = ArrayFromJSON(uint8(), R"([3])");
 
   const std::shared_ptr<Table>& expected_table =
       Table::Make(SqlSchema::GetImportedKeysSchema(),
@@ -672,27 +595,19 @@ TEST(TestFlightSqlServer, TestCommandGetExportedKeys) {
   std::shared_ptr<Table> table;
   ASSERT_OK(stream->ReadAll(&table));
 
-  std::shared_ptr<Array> pk_table_name;
-  std::shared_ptr<Array> pk_column_name;
-  std::shared_ptr<Array> fk_table_name;
-  std::shared_ptr<Array> fk_column_name;
-  std::shared_ptr<Array> key_sequence;
-  std::shared_ptr<Array> update_rule;
-  std::shared_ptr<Array> delete_rule;
-  ArrayFromVector<StringType, std::string>({"foreignTable"}, &pk_table_name);
-  ArrayFromVector<StringType, std::string>({"id"}, &pk_column_name);
-  ArrayFromVector<StringType, std::string>({"intTable"}, &fk_table_name);
-  ArrayFromVector<StringType, std::string>({"foreignId"}, &fk_column_name);
-  ArrayFromVector<Int32Type, std::int32_t>({0}, &key_sequence);
-  ArrayFromVector<UInt8Type, std::uint8_t>({3}, &update_rule);
-  ArrayFromVector<UInt8Type, std::uint8_t>({3}, &delete_rule);
-
-  ASSERT_OK_AND_ASSIGN(auto pk_catalog_name, MakeArrayOfNull(utf8(), 1))
-  ASSERT_OK_AND_ASSIGN(auto pk_schema_name, MakeArrayOfNull(utf8(), 1))
-  ASSERT_OK_AND_ASSIGN(auto fk_catalog_name, MakeArrayOfNull(utf8(), 1))
-  ASSERT_OK_AND_ASSIGN(auto fk_schema_name, MakeArrayOfNull(utf8(), 1))
-  ASSERT_OK_AND_ASSIGN(auto fk_key_name, MakeArrayOfNull(utf8(), 1))
-  ASSERT_OK_AND_ASSIGN(auto pk_key_name, MakeArrayOfNull(utf8(), 1))
+  const auto pk_catalog_name = ArrayFromJSON(utf8(), R"([null])");
+  const auto pk_schema_name = ArrayFromJSON(utf8(), R"([null])");
+  const auto pk_table_name = ArrayFromJSON(utf8(), R"(["foreignTable"])");
+  const auto pk_column_name = ArrayFromJSON(utf8(), R"(["id"])");
+  const auto fk_catalog_name = ArrayFromJSON(utf8(), R"([null])");
+  const auto fk_schema_name = ArrayFromJSON(utf8(), R"([null])");
+  const auto fk_table_name = ArrayFromJSON(utf8(), R"(["intTable"])");
+  const auto fk_column_name = ArrayFromJSON(utf8(), R"(["foreignId"])");
+  const auto key_sequence = ArrayFromJSON(int32(), R"([0])");
+  const auto fk_key_name = ArrayFromJSON(utf8(), R"([null])");
+  const auto pk_key_name = ArrayFromJSON(utf8(), R"([null])");
+  const auto update_rule = ArrayFromJSON(uint8(), R"([3])");
+  const auto delete_rule = ArrayFromJSON(uint8(), R"([3])");
 
   const std::shared_ptr<Table>& expected_table =
       Table::Make(SqlSchema::GetExportedKeysSchema(),
@@ -713,27 +628,20 @@ TEST(TestFlightSqlServer, TestCommandGetCrossReference) {
   std::shared_ptr<Table> table;
   ASSERT_OK(stream->ReadAll(&table));
 
-  std::shared_ptr<Array> pk_table_name;
-  std::shared_ptr<Array> pk_column_name;
-  std::shared_ptr<Array> fk_table_name;
-  std::shared_ptr<Array> fk_column_name;
-  std::shared_ptr<Array> key_sequence;
-  std::shared_ptr<Array> update_rule;
-  std::shared_ptr<Array> delete_rule;
-  ArrayFromVector<StringType, std::string>({"foreignTable"}, &pk_table_name);
-  ArrayFromVector<StringType, std::string>({"id"}, &pk_column_name);
-  ArrayFromVector<StringType, std::string>({"intTable"}, &fk_table_name);
-  ArrayFromVector<StringType, std::string>({"foreignId"}, &fk_column_name);
-  ArrayFromVector<Int32Type, std::int32_t>({0}, &key_sequence);
-  ArrayFromVector<UInt8Type, std::uint8_t>({3}, &update_rule);
-  ArrayFromVector<UInt8Type, std::uint8_t>({3}, &delete_rule);
+  const auto pk_catalog_name = ArrayFromJSON(utf8(), R"([null])");
+  const auto pk_schema_name = ArrayFromJSON(utf8(), R"([null])");
+  const auto pk_table_name = ArrayFromJSON(utf8(), R"(["foreignTable"])");
+  const auto pk_column_name = ArrayFromJSON(utf8(), R"(["id"])");
+  const auto fk_catalog_name = ArrayFromJSON(utf8(), R"([null])");
+  const auto fk_schema_name = ArrayFromJSON(utf8(), R"([null])");
+  const auto fk_table_name = ArrayFromJSON(utf8(), R"(["intTable"])");
+  const auto fk_column_name = ArrayFromJSON(utf8(), R"(["foreignId"])");
+  const auto key_sequence = ArrayFromJSON(int32(), R"([0])");
+  const auto fk_key_name = ArrayFromJSON(utf8(), R"([null])");
+  const auto pk_key_name = ArrayFromJSON(utf8(), R"([null])");
+  const auto update_rule = ArrayFromJSON(uint8(), R"([3])");
+  const auto delete_rule = ArrayFromJSON(uint8(), R"([3])");
 
-  ASSERT_OK_AND_ASSIGN(auto pk_catalog_name, MakeArrayOfNull(utf8(), 1))
-  ASSERT_OK_AND_ASSIGN(auto pk_schema_name, MakeArrayOfNull(utf8(), 1))
-  ASSERT_OK_AND_ASSIGN(auto fk_catalog_name, MakeArrayOfNull(utf8(), 1))
-  ASSERT_OK_AND_ASSIGN(auto fk_schema_name, MakeArrayOfNull(utf8(), 1))
-  ASSERT_OK_AND_ASSIGN(auto fk_key_name, MakeArrayOfNull(utf8(), 1))
-  ASSERT_OK_AND_ASSIGN(auto pk_key_name, MakeArrayOfNull(utf8(), 1))
   const std::shared_ptr<Table>& expected_table =
       Table::Make(SqlSchema::GetCrossReferenceSchema(),
                   {pk_catalog_name, pk_schema_name, pk_table_name, pk_column_name,
@@ -774,6 +682,17 @@ TEST(TestFlightSqlServer, TestCommandGetSqlInfo) {
       arrow::util::visit(validator, expected_result);
     }
   }
+}
+
+TEST(TestFlightSqlServer, TestCommandGetSqlInfoNoInfo) {
+  FlightCallOptions call_options;
+  ASSERT_OK_AND_ASSIGN(auto flight_info, sql_client->GetSqlInfo(call_options, {999999}));
+  auto result = sql_client->DoGet(call_options, flight_info->endpoints()[0].ticket);
+
+  ASSERT_FALSE(result.ok());
+  ASSERT_TRUE(result.status().IsKeyError());
+  ASSERT_THAT(result.status().message(),
+              ::testing::HasSubstr("No information for SQL info number 999999."));
 }
 
 auto env = ::testing::AddGlobalTestEnvironment(new TestFlightSqlServer);

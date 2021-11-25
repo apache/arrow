@@ -92,7 +92,7 @@ class ARROW_EXPORT FlightSqlClient {
   arrow::Result<std::unique_ptr<FlightInfo>> GetTables(
       const FlightCallOptions& options, const std::string* catalog,
       const std::string* schema_filter_pattern, const std::string* table_filter_pattern,
-      bool include_schema, const std::vector<std::string>& table_types);
+      bool include_schema, const std::vector<std::string>* table_types);
 
   /// \brief Request the primary keys for a table.
   /// \param[in] options          RPC-layer hints for this call.
@@ -244,12 +244,12 @@ class ARROW_EXPORT PreparedStatement {
   /// \return                     Status.
   Status SetParameters(std::shared_ptr<RecordBatch> parameter_binding);
 
-  /// \brief Closes the prepared statement.
-  /// \param[in] options  RPC-layer hints for this call.
+  /// \brief Close the prepared statement, so that this PreparedStatement can not used
+  /// anymore and server can free up any resources.
   /// \return Status.
   Status Close();
 
-  /// \brief Checks if the prepared statement is closed.
+  /// \brief Check if the prepared statement is closed.
   /// \return The state of the prepared statement.
   bool IsClosed() const;
 };

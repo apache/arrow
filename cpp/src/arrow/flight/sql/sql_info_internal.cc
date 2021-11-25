@@ -17,8 +17,8 @@
 
 #include "arrow/flight/sql/sql_info_internal.h"
 
-#include "arrow/api.h"
 #include "arrow/buffer.h"
+#include "arrow/builder.h"
 
 namespace arrow {
 namespace flight {
@@ -26,31 +26,31 @@ namespace sql {
 namespace internal {
 
 Status SqlInfoResultAppender::operator()(const std::string& value) {
-  ARROW_RETURN_NOT_OK(value_builder_.Append(STRING_VALUE_INDEX));
+  ARROW_RETURN_NOT_OK(value_builder_->Append(kStringValueIndex));
   ARROW_RETURN_NOT_OK(string_value_builder_->Append(value));
   return Status::OK();
 }
 
 Status SqlInfoResultAppender::operator()(const bool value) {
-  ARROW_RETURN_NOT_OK(value_builder_.Append(BOOL_VALUE_INDEX));
+  ARROW_RETURN_NOT_OK(value_builder_->Append(kBoolValueIndex));
   ARROW_RETURN_NOT_OK(bool_value_builder_->Append(value));
   return Status::OK();
 }
 
 Status SqlInfoResultAppender::operator()(const int64_t value) {
-  ARROW_RETURN_NOT_OK(value_builder_.Append(BIGINT_VALUE_INDEX));
+  ARROW_RETURN_NOT_OK(value_builder_->Append(kBigIntValueIndex));
   ARROW_RETURN_NOT_OK(bigint_value_builder_->Append(value));
   return Status::OK();
 }
 
 Status SqlInfoResultAppender::operator()(const int32_t value) {
-  ARROW_RETURN_NOT_OK(value_builder_.Append(INT32_BITMASK_INDEX));
+  ARROW_RETURN_NOT_OK(value_builder_->Append(kInt32BitMaskIndex));
   ARROW_RETURN_NOT_OK(int32_bitmask_builder_->Append(value));
   return Status::OK();
 }
 
 Status SqlInfoResultAppender::operator()(const std::vector<std::string>& value) {
-  ARROW_RETURN_NOT_OK(value_builder_.Append(STRING_LIST_INDEX));
+  ARROW_RETURN_NOT_OK(value_builder_->Append(kStringListIndex));
   ARROW_RETURN_NOT_OK(string_list_builder_->Append());
   auto* string_list_child =
       reinterpret_cast<StringBuilder*>(string_list_builder_->value_builder());
@@ -62,7 +62,7 @@ Status SqlInfoResultAppender::operator()(const std::vector<std::string>& value) 
 
 Status SqlInfoResultAppender::operator()(
     const std::unordered_map<int32_t, std::vector<int32_t>>& value) {
-  ARROW_RETURN_NOT_OK(value_builder_.Append(INT32_TO_INT32_LIST_INDEX));
+  ARROW_RETURN_NOT_OK(value_builder_->Append(kInt32ToInt32ListIndex));
   ARROW_RETURN_NOT_OK(int32_to_int32_list_builder_->Append());
   for (const auto& pair : value) {
     ARROW_RETURN_NOT_OK(
@@ -80,20 +80,20 @@ Status SqlInfoResultAppender::operator()(
   return Status::OK();
 }
 
-SqlInfoResultAppender::SqlInfoResultAppender(DenseUnionBuilder& value_builder)
+SqlInfoResultAppender::SqlInfoResultAppender(DenseUnionBuilder* value_builder)
     : value_builder_(value_builder),
       string_value_builder_(
-          reinterpret_cast<StringBuilder*>(value_builder_.child(STRING_VALUE_INDEX))),
+          reinterpret_cast<StringBuilder*>(value_builder_->child(kStringValueIndex))),
       bool_value_builder_(
-          reinterpret_cast<BooleanBuilder*>(value_builder_.child(BOOL_VALUE_INDEX))),
+          reinterpret_cast<BooleanBuilder*>(value_builder_->child(kBoolValueIndex))),
       bigint_value_builder_(
-          reinterpret_cast<Int64Builder*>(value_builder_.child(BIGINT_VALUE_INDEX))),
+          reinterpret_cast<Int64Builder*>(value_builder_->child(kBigIntValueIndex))),
       int32_bitmask_builder_(
-          reinterpret_cast<Int32Builder*>(value_builder_.child(INT32_BITMASK_INDEX))),
+          reinterpret_cast<Int32Builder*>(value_builder_->child(kInt32BitMaskIndex))),
       string_list_builder_(
-          reinterpret_cast<ListBuilder*>(value_builder_.child(STRING_LIST_INDEX))),
-      int32_to_int32_list_builder_(reinterpret_cast<MapBuilder*>(
-          value_builder_.child(INT32_TO_INT32_LIST_INDEX))) {}
+          reinterpret_cast<ListBuilder*>(value_builder_->child(kStringListIndex))),
+      int32_to_int32_list_builder_(
+          reinterpret_cast<MapBuilder*>(value_builder_->child(kInt32ToInt32ListIndex))) {}
 
 }  // namespace internal
 }  // namespace sql
