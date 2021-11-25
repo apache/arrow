@@ -117,7 +117,7 @@ jobs:
     name: AMD64 MacOS 10.15 C++
     runs-on: macos-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    timeout-minutes: 45
+    timeout-minutes: 60
     strategy:
       fail-fast: false
     env:

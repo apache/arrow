@@ -318,6 +318,9 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      "concat_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8",
                      NativeFunction::kNeedsContext),
 
+      NativeFunction("quote", {}, DataTypeVector{utf8()}, utf8(), kResultNullIfNull,
+                     "quote_utf8", NativeFunction::kNeedsContext),
+
       NativeFunction("byte_substr", {"bytesubstring"},
                      DataTypeVector{binary(), int32(), int32()}, binary(),
                      kResultNullIfNull, "byte_substr_binary_int32_int32",
@@ -434,6 +437,21 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
       NativeFunction("castVARBINARY", {}, DataTypeVector{float64(), int64()}, binary(),
                      kResultNullIfNull, "gdv_fn_castVARBINARY_float64_int64",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
+      NativeFunction("to_hex", {"hex"}, DataTypeVector{binary()}, utf8(),
+                     kResultNullIfNull, "to_hex_binary", NativeFunction::kNeedsContext),
+
+      NativeFunction("to_hex", {"hex"}, DataTypeVector{utf8()}, utf8(), kResultNullIfNull,
+                     "to_hex_binary", NativeFunction::kNeedsContext),
+
+      NativeFunction("to_hex", {"hex"}, DataTypeVector{int64()}, utf8(),
+                     kResultNullIfNull, "to_hex_int64", NativeFunction::kNeedsContext),
+
+      NativeFunction("to_hex", {"hex"}, DataTypeVector{int32()}, utf8(),
+                     kResultNullIfNull, "to_hex_int32", NativeFunction::kNeedsContext),
+
+      NativeFunction("from_hex", {"unhex"}, DataTypeVector{utf8()}, binary(),
+                     kResultNullIfNull, "from_hex_utf8", NativeFunction::kNeedsContext),
 
       NativeFunction("split_part", {}, DataTypeVector{utf8(), utf8(), int32()}, utf8(),
                      kResultNullIfNull, "split_part",
