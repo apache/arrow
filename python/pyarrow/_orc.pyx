@@ -139,14 +139,14 @@ cdef class ORCWriterOptions(_Weakrefable):
         return file_version_from_class(deref(self.options).file_version())
     
     def set_compression(self, comp):
-        return deref(self.options).set_compression(
+        deref(self.options).set_compression(
             compression_kind_from_name(comp))
 
     def get_compression(self):
         return compression_kind_from_enum(deref(self.options).compression())
 
     def set_compression_strategy(self, strategy):
-        return deref(self.options).set_compression_strategy(
+        deref(self.options).set_compression_strategy(
             compression_strategy_from_name(strategy))
 
     def get_compression_strategy(self):
@@ -189,6 +189,129 @@ cdef class ORCWriterOptions(_Weakrefable):
     def get_bloom_filter_version(self):
         return bloom_filter_version_from_enum(
             deref(self.options).bloom_filter_version())
+
+
+cdef unique_ptr[WriterOptions] _create_writer_options(
+        file_version=None,
+        stripe_size=None,
+        compression=None,
+        compression_block_size=None,
+        compression_strategy=None,
+        row_index_stride=None,
+        padding_tolerance=None,
+        dictionary_key_size_threshold=None,
+        bloom_filter_columns=None,
+        bloom_filter_fpp=None
+    ) except *:
+    """General writer options"""
+    cdef:
+        unique_ptr[WriterOptions] options
+
+    # file_version
+
+    if file_version is not None:
+        if str(file_version) == "0.12":
+            deref(options).set_file_version(FileVersion(0, 12))
+        elif str(file_version) == "0.11":
+            deref(options).set_file_version(FileVersion(0, 11))
+        else:
+            raise ValueError("Unsupported ORC file version: {0}"
+                             .format(file_version))
+
+    # stripe_size
+
+    if stripe_size is not None:
+        if isinstance(stripe_size, int) and stripe_size > 0:
+            deref(options).set_stripe_size(stripe_size)
+        else:
+            raise ValueError("Invalid ORC stripe size: {0}"
+                             .format(stripe_size))
+
+    # compression
+
+    if compression is not None:
+        if isinstance(compression, basestring): 
+            deref(options).set_compression(
+                compression_from_name(compression))
+        else:
+            raise ValueError("Unsupported ORC compression kind: {0}"
+                                .format(compression))
+
+    # compression_block_size
+
+    if compression_block_size is not None:
+        if isinstance(compression_block_size, int) and compression_block_size > 0:
+            deref(options).set_compression_block_size(compression_block_size)
+        else:
+            raise ValueError("Invalid ORC compression block size: {0}"
+                             .format(compression_block_size))
+
+    # compression_strategy
+
+    if compression_strategy is not None:
+        if isinstance(compression, basestring): 
+            deref(options).set_compression_strategy(
+                compression_strategy_from_name(compression_strategy))
+        else:
+            raise ValueError("Unsupported ORC compression strategy: {0}"
+                                .format(compression_strategy))
+
+    # row_index_stride
+
+    if row_index_stride is not None:
+        if isinstance(row_index_stride, int) and row_index_stride > 0:
+            deref(options).set_row_index_stride(row_index_stride)
+        else:
+            raise ValueError("Invalid ORC row index stride: {0}"
+                             .format(row_index_stride))
+
+    # padding_tolerance
+
+    if padding_tolerance is not None:
+        try:
+            padding_tolerance = float(padding_tolerance)
+            deref(options).set_padding_tolerance(padding_tolerance)
+        except Exception:
+            raise ValueError("Invalid ORC padding tolerance: {0}"
+                             .format(padding_tolerance))
+
+    # dictionary_key_size_threshold
+
+    if dictionary_key_size_threshold is not None:
+        try:
+            dictionary_key_size_threshold = float(dictionary_key_size_threshold)
+            deref(options).set_dictionary_key_size_threshold(
+                dictionary_key_size_threshold)
+        except Exception:
+            raise ValueError("Invalid ORC dictionary key size threshold: {0}"
+                             .format(dictionary_key_size_threshold))
+
+    # bloom_filter_columns
+
+    if bloom_filter_columns is not None:
+        try:
+            bloom_filter_columns = set(bloom_filter_columns)
+            for col in bloom_filter_columns:
+                assert isinstance(col, int) and col >= 0
+            deref(options).set_columns_use_bloom_filter(
+                dbloom_filter_columns)
+        except Exception:
+            raise ValueError("Invalid ORC BloomFilter columns: {0}"
+                             .format(bloom_filter_columns))
+
+    # False positive rate of the Bloom Filter
+
+    if bloom_filter_fpp is not None:
+        try:
+            bloom_filter_fpp = float(bloom_filter_fpp)
+            assert bloom_filter_fpp >= 0 and bloom_filter_fpp <= 1
+            deref(options).set_bloom_filter_fpp(
+                bloom_filter_fpp)
+        except Exception:
+            raise ValueError("Invalid ORC BloomFilter false positive rate: {0}"
+                             .format(dictionary_key_size_threshold))
+
+    return options
 
 
 cdef class ORCReader(_Weakrefable):
@@ -292,16 +415,40 @@ cdef class ORCReader(_Weakrefable):
 
 cdef class ORCWriter(_Weakrefable):
     cdef:
-        object source
+        object sink
         unique_ptr[ORCFileWriter] writer
         shared_ptr[COutputStream] rd_handle
 
-    def open(self, object source):
-        self.source = source
-        get_writer(source, &self.rd_handle)
+    def open(self, object sink, file_version=None,
+             stripe_size=None,
+             compression=None,
+             compression_block_size=None,
+             compression_strategy=None,
+             row_index_stride=None,
+             padding_tolerance=None,
+             dictionary_key_size_threshold=None,
+             bloom_filter_columns=None,
+             bloom_filter_fpp=None):
+
+        self.sink = sink
+        get_writer(sink, &self.rd_handle)
+
+        options = _create_writer_options(
+            file_version=file_version,
+            stripe_size=stripe_size,
+            compression=compression,
+            compression_block_size=compression_block_size,
+            compression_strategy=compression_strategy,
+            row_index_stride=row_index_stride,
+            padding_tolerance=padding_tolerance,
+            dictionary_key_size_threshold=dictionary_key_size_threshold,
+            bloom_filter_columns=bloom_filter_columns,
+            bloom_filter_fpp=bloom_filter_fpp
+        )
+        
         with nogil:
             self.writer = move(GetResultValue[unique_ptr[ORCFileWriter]](
-                ORCFileWriter.Open(self.rd_handle.get())))
+                ORCFileWriter.Open(self.rd_handle.get(), deref(options))))
 
     def write(self, Table table):
         cdef:
