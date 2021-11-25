@@ -53,6 +53,79 @@ TEST(TestStringOps, TestAscii) {
   EXPECT_EQ(ascii_utf8("999", 3), 57);
 }
 
+TEST(TestStringOps, TestChrBigInt) {
+  // CHR
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+  int32_t out_len = 0;
+
+  auto out = chr_int32(ctx_ptr, 88, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "X");
+
+  out = chr_int64(ctx_ptr, 65, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "A");
+
+  out = chr_int32(ctx_ptr, 49, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "1");
+
+  out = chr_int64(ctx_ptr, 84, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "T");
+
+  out = chr_int32(ctx_ptr, 340, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "T");
+
+  out = chr_int64(ctx_ptr, 256, &out_len);
+  EXPECT_EQ(std::strcmp(out, "\0"), 0);
+
+  out = chr_int32(ctx_ptr, 33, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "!");
+
+  out = chr_int64(ctx_ptr, 46, &out_len);
+  EXPECT_EQ(std::string(out, out_len), ".");
+
+  out = chr_int32(ctx_ptr, 63, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "?");
+
+  out = chr_int64(ctx_ptr, 0, &out_len);
+  EXPECT_EQ(std::strcmp(out, "\0"), 0);
+
+  out = chr_int32(ctx_ptr, -158, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "b");
+
+  out = chr_int64(ctx_ptr, -5, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "\xFB");
+
+  out = chr_int32(ctx_ptr, -340, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "\xAC");
+
+  out = chr_int64(ctx_ptr, -66, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "\xBE");
+
+  //€
+  out = chr_int32(ctx_ptr, 128, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "\x80");
+
+  //œ
+  out = chr_int64(ctx_ptr, 156, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "\x9C");
+
+  //ÿ
+  out = chr_int32(ctx_ptr, 255, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "\xFF");
+
+  // BACKSPACE
+  out = chr_int64(ctx_ptr, 8, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "\b");
+
+  // DEVICE CONTROL 3 (DC3)
+  out = chr_int32(ctx_ptr, 19, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "\x13");
+
+  // ESCAPE (ESC)
+  out = chr_int64(ctx_ptr, 27, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "\x1B");
+}
+
 TEST(TestStringOps, TestBeginsEnds) {
   // starts_with
   EXPECT_TRUE(starts_with_utf8_utf8("hello sir", 9, "hello", 5));

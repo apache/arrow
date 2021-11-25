@@ -65,6 +65,12 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
       UNARY_SAFE_NULL_NEVER_BOOL_FN(isnull, {}),
       UNARY_SAFE_NULL_NEVER_BOOL_FN(isnotnull, {}),
 
+      NativeFunction("chr", {}, DataTypeVector{int32()}, utf8(), kResultNullIfNull,
+                     "chr_int32", NativeFunction::kNeedsContext),
+
+      NativeFunction("chr", {}, DataTypeVector{int64()}, utf8(), kResultNullIfNull,
+                     "chr_int64", NativeFunction::kNeedsContext),
+
       NativeFunction("ascii", {}, DataTypeVector{utf8()}, int32(), kResultNullIfNull,
                      "ascii_utf8"),
 
