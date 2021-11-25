@@ -219,6 +219,8 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   define_option(ARROW_DATASET "Build the Arrow Dataset Modules" OFF)
 
+  define_option(ARROW_ENGINE "Build the Arrow Execution Engine" OFF)
+
   define_option(ARROW_FILESYSTEM "Build the Arrow Filesystem Layer" OFF)
 
   define_option(ARROW_FLIGHT
