@@ -494,9 +494,9 @@ def benchmark_run(ctx, rev_or_path, src, preserve, output, cmake_extras,
                 repetitions=repetitions,
                 benchmark_filter=benchmark_filter)
 
-        # XXX for some weird reason, running the benchmarks is coupled
-        # with JSON-encoding their results, so need to run `json` on
-        # the benchmark runner even when no JSON output is requested.
+        # XXX for some reason, the benchmark runner only does its work
+        # when asked to JSON-serialize the results, so produce a JSON
+        # output even when none is requested.
         json_out = json.dumps(runner_base, cls=JsonEncoder)
         if output is not None:
             output.write(json_out)
