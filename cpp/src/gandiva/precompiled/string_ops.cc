@@ -2870,7 +2870,7 @@ int32_t instr_utf8(const char* string, int32_t string_len, const char* substring
 
   for (int i = 0; i <= end_idx; i++) {
     if (string[i] == substring[0] &&
-        memcpy((void*)(string + i), substring, substring_len) != nullptr) {
+        memcmp((void*)(string + i), substring, substring_len) == 0) {
       return (i + 1);
     }
   }
