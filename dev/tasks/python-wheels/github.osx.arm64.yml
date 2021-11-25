@@ -55,11 +55,17 @@ jobs:
         shell: bash
         run: echo "/opt/homebrew/opt/bison/bin" >> $GITHUB_PATH
 
+      - name: Retrieve VCPKG version from arrow/.env
+        shell: bash
+        run: |
+          vcpkg_version=$(cat "arrow/.env" | grep "VCPKG" | cut -d "=" -f2 | tr -d '"')
+          echo "VCPKG_VERSION=$vcpkg_version" >> $GITHUB_ENV
+
       - name: Install Vcpkg
         shell: bash
         env:
           MACOSX_DEPLOYMENT_TARGET: "11.0"
-        run: arch -arm64 arrow/ci/scripts/install_vcpkg.sh $VCPKG_ROOT
+        run: arch -arm64 arrow/ci/scripts/install_vcpkg.sh $VCPKG_ROOT $VCPKG_VERSION
 
       - name: Install OpenSSL
         shell: bash

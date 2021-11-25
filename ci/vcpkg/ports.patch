@@ -1,3 +1,16 @@
+diff --git a/ports/aws-sdk-cpp/vcpkg.json b/ports/aws-sdk-cpp/vcpkg.json
+index 3836e2b6..cd88ef07 100644
+--- a/ports/aws-sdk-cpp/vcpkg.json
++++ b/ports/aws-sdk-cpp/vcpkg.json
+@@ -5,7 +5,7 @@
+   "port-version": 5,
+   "description": "AWS SDK for C++",
+   "homepage": "https://github.com/aws/aws-sdk-cpp",
+-  "supports": "!arm & !uwp",
++  "supports": "!uwp",
+   "dependencies": [
+     "aws-crt-cpp",
+     {
 diff --git a/ports/curl/portfile.cmake b/ports/curl/portfile.cmake
 index ce8b7570..8255ba24 100644
 --- a/ports/curl/portfile.cmake
