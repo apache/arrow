@@ -28,7 +28,6 @@
 #include "arrow/flight/sql/sql_info_internal.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/logging.h"
 
 #define PROPERTY_TO_OPTIONAL(COMMAND, PROPERTY) \
   COMMAND.has_##PROPERTY() ? util::make_optional(COMMAND.PROPERTY()) : util::nullopt;
@@ -42,21 +41,7 @@ namespace pb = arrow::flight::protocol;
 using arrow::internal::checked_cast;
 using arrow::internal::checked_pointer_cast;
 
-arrow::Result<std::string> CreateStatementQueryTicket(
-    const std::string& statement_handle) {
-  protocol::sql::TicketStatementQuery ticket_statement_query;
-  ticket_statement_query.set_statement_handle(statement_handle);
-
-  google::protobuf::Any ticket;
-  ticket.PackFrom(ticket_statement_query);
-
-  std::string ticket_string;
-
-  if (!ticket.SerializeToString(&ticket_string)) {
-    return Status::IOError("Invalid ticket.");
-  }
-  return ticket_string;
-}
+namespace {
 
 arrow::Result<GetCrossReference> ParseCommandGetCrossReference(
     const google::protobuf::Any& any) {
@@ -253,6 +238,24 @@ ParseActionClosePreparedStatementRequest(const google::protobuf::Any& any) {
   return result;
 }
 
+}  // namespace
+
+arrow::Result<std::string> CreateStatementQueryTicket(
+    const std::string& statement_handle) {
+  protocol::sql::TicketStatementQuery ticket_statement_query;
+  ticket_statement_query.set_statement_handle(statement_handle);
+
+  google::protobuf::Any ticket;
+  ticket.PackFrom(ticket_statement_query);
+
+  std::string ticket_string;
+
+  if (!ticket.SerializeToString(&ticket_string)) {
+    return Status::IOError("Invalid ticket.");
+  }
+  return ticket_string;
+}
+
 Status FlightSqlServerBase::GetFlightInfo(const ServerCallContext& context,
                                           const FlightDescriptor& request,
                                           std::unique_ptr<FlightInfo>* info) {
@@ -264,41 +267,60 @@ Status FlightSqlServerBase::GetFlightInfo(const ServerCallContext& context,
   if (any.Is<pb::sql::CommandStatementQuery>()) {
     ARROW_ASSIGN_OR_RAISE(StatementQuery internal_command,
                           ParseCommandStatementQuery(any));
-    return GetFlightInfoStatement(context, internal_command, request, info);
+    ARROW_ASSIGN_OR_RAISE(*info,
+                          GetFlightInfoStatement(context, internal_command, request));
+    return Status::OK();
   } else if (any.Is<pb::sql::CommandPreparedStatementQuery>()) {
     ARROW_ASSIGN_OR_RAISE(PreparedStatementQuery internal_command,
                           ParseCommandPreparedStatementQuery(any));
-    return GetFlightInfoPreparedStatement(context, internal_command, request, info);
+    ARROW_ASSIGN_OR_RAISE(
+        *info, GetFlightInfoPreparedStatement(context, internal_command, request));
+    return Status::OK();
   } else if (any.Is<pb::sql::CommandGetCatalogs>()) {
-    return GetFlightInfoCatalogs(context, request, info);
+    ARROW_ASSIGN_OR_RAISE(*info, GetFlightInfoCatalogs(context, request));
+    return Status::OK();
   } else if (any.Is<pb::sql::CommandGetSchemas>()) {
     ARROW_ASSIGN_OR_RAISE(GetSchemas internal_command, ParseCommandGetSchemas(any));
-    return GetFlightInfoSchemas(context, internal_command, request, info);
+    ARROW_ASSIGN_OR_RAISE(*info,
+                          GetFlightInfoSchemas(context, internal_command, request));
+    return Status::OK();
   } else if (any.Is<pb::sql::CommandGetTables>()) {
     ARROW_ASSIGN_OR_RAISE(GetTables command, ParseCommandGetTables(any));
-    return GetFlightInfoTables(context, command, request, info);
+    ARROW_ASSIGN_OR_RAISE(*info, GetFlightInfoTables(context, command, request));
+    return Status::OK();
   } else if (any.Is<pb::sql::CommandGetTableTypes>()) {
-    return GetFlightInfoTableTypes(context, request, info);
+    ARROW_ASSIGN_OR_RAISE(*info, GetFlightInfoTableTypes(context, request));
+    return Status::OK();
   } else if (any.Is<pb::sql::CommandGetSqlInfo>()) {
     ARROW_ASSIGN_OR_RAISE(GetSqlInfo internal_command,
                           ParseCommandGetSqlInfo(any, sql_info_id_to_result_));
-    return GetFlightInfoSqlInfo(context, internal_command, request, info);
+    ARROW_ASSIGN_OR_RAISE(*info,
+                          GetFlightInfoSqlInfo(context, internal_command, request));
+    return Status::OK();
   } else if (any.Is<pb::sql::CommandGetPrimaryKeys>()) {
     ARROW_ASSIGN_OR_RAISE(GetPrimaryKeys internal_command,
                           ParseCommandGetPrimaryKeys(any));
-    return GetFlightInfoPrimaryKeys(context, internal_command, request, info);
+    ARROW_ASSIGN_OR_RAISE(*info,
+                          GetFlightInfoPrimaryKeys(context, internal_command, request));
+    return Status::OK();
   } else if (any.Is<pb::sql::CommandGetExportedKeys>()) {
     ARROW_ASSIGN_OR_RAISE(GetExportedKeys internal_command,
                           ParseCommandGetExportedKeys(any));
-    return GetFlightInfoExportedKeys(context, internal_command, request, info);
+    ARROW_ASSIGN_OR_RAISE(*info,
+                          GetFlightInfoExportedKeys(context, internal_command, request));
+    return Status::OK();
   } else if (any.Is<pb::sql::CommandGetImportedKeys>()) {
     ARROW_ASSIGN_OR_RAISE(GetImportedKeys internal_command,
                           ParseCommandGetImportedKeys(any));
-    return GetFlightInfoImportedKeys(context, internal_command, request, info);
+    ARROW_ASSIGN_OR_RAISE(*info,
+                          GetFlightInfoImportedKeys(context, internal_command, request));
+    return Status::OK();
   } else if (any.Is<pb::sql::CommandGetCrossReference>()) {
     ARROW_ASSIGN_OR_RAISE(GetCrossReference internal_command,
                           ParseCommandGetCrossReference(any));
-    return GetFlightInfoCrossReference(context, internal_command, request, info);
+    ARROW_ASSIGN_OR_RAISE(
+        *info, GetFlightInfoCrossReference(context, internal_command, request));
+    return Status::OK();
   }
 
   return Status::Invalid("The defined request is invalid.");
@@ -315,41 +337,52 @@ Status FlightSqlServerBase::DoGet(const ServerCallContext& context, const Ticket
 
   if (any.Is<pb::sql::TicketStatementQuery>()) {
     ARROW_ASSIGN_OR_RAISE(StatementQueryTicket command, ParseStatementQueryTicket(any));
-    return DoGetStatement(context, command, stream);
+    ARROW_ASSIGN_OR_RAISE(*stream, DoGetStatement(context, command));
+    return Status::OK();
   } else if (any.Is<pb::sql::CommandPreparedStatementQuery>()) {
     ARROW_ASSIGN_OR_RAISE(PreparedStatementQuery internal_command,
                           ParseCommandPreparedStatementQuery(any));
-    return DoGetPreparedStatement(context, internal_command, stream);
+    ARROW_ASSIGN_OR_RAISE(*stream, DoGetPreparedStatement(context, internal_command));
+    return Status::OK();
   } else if (any.Is<pb::sql::CommandGetCatalogs>()) {
-    return DoGetCatalogs(context, stream);
+    ARROW_ASSIGN_OR_RAISE(*stream, DoGetCatalogs(context));
+    return Status::OK();
   } else if (any.Is<pb::sql::CommandGetSchemas>()) {
     ARROW_ASSIGN_OR_RAISE(GetSchemas internal_command, ParseCommandGetSchemas(any));
-    return DoGetSchemas(context, internal_command, stream);
+    ARROW_ASSIGN_OR_RAISE(*stream, DoGetSchemas(context, internal_command));
+    return Status::OK();
   } else if (any.Is<pb::sql::CommandGetTables>()) {
     ARROW_ASSIGN_OR_RAISE(GetTables command, ParseCommandGetTables(any));
-    return DoGetTables(context, command, stream);
+    ARROW_ASSIGN_OR_RAISE(*stream, DoGetTables(context, command));
+    return Status::OK();
   } else if (any.Is<pb::sql::CommandGetTableTypes>()) {
-    return DoGetTableTypes(context, stream);
+    ARROW_ASSIGN_OR_RAISE(*stream, DoGetTableTypes(context));
+    return Status::OK();
   } else if (any.Is<pb::sql::CommandGetSqlInfo>()) {
     ARROW_ASSIGN_OR_RAISE(GetSqlInfo internal_command,
                           ParseCommandGetSqlInfo(any, sql_info_id_to_result_));
-    return DoGetSqlInfo(context, internal_command, stream);
+    ARROW_ASSIGN_OR_RAISE(*stream, DoGetSqlInfo(context, internal_command));
+    return Status::OK();
   } else if (any.Is<pb::sql::CommandGetPrimaryKeys>()) {
     ARROW_ASSIGN_OR_RAISE(GetPrimaryKeys internal_command,
                           ParseCommandGetPrimaryKeys(any));
-    return DoGetPrimaryKeys(context, internal_command, stream);
+    ARROW_ASSIGN_OR_RAISE(*stream, DoGetPrimaryKeys(context, internal_command));
+    return Status::OK();
   } else if (any.Is<pb::sql::CommandGetExportedKeys>()) {
     ARROW_ASSIGN_OR_RAISE(GetExportedKeys internal_command,
                           ParseCommandGetExportedKeys(any));
-    return DoGetExportedKeys(context, internal_command, stream);
+    ARROW_ASSIGN_OR_RAISE(*stream, DoGetExportedKeys(context, internal_command));
+    return Status::OK();
   } else if (any.Is<pb::sql::CommandGetImportedKeys>()) {
     ARROW_ASSIGN_OR_RAISE(GetImportedKeys internal_command,
                           ParseCommandGetImportedKeys(any));
-    return DoGetImportedKeys(context, internal_command, stream);
+    ARROW_ASSIGN_OR_RAISE(*stream, DoGetImportedKeys(context, internal_command));
+    return Status::OK();
   } else if (any.Is<pb::sql::CommandGetCrossReference>()) {
     ARROW_ASSIGN_OR_RAISE(GetCrossReference internal_command,
                           ParseCommandGetCrossReference(any));
-    return DoGetCrossReference(context, internal_command, stream);
+    ARROW_ASSIGN_OR_RAISE(*stream, DoGetCrossReference(context, internal_command));
+    return Status::OK();
   }
 
   return Status::Invalid("The defined request is invalid.");
@@ -451,75 +484,69 @@ Status FlightSqlServerBase::DoAction(const ServerCallContext& context,
     ARROW_ASSIGN_OR_RAISE(ActionClosePreparedStatementRequest internal_command,
                           ParseActionClosePreparedStatementRequest(any));
 
-    return ClosePreparedStatement(context, internal_command, result_stream);
+    ARROW_RETURN_NOT_OK(ClosePreparedStatement(context, internal_command));
+
+    // Need to instantiate a ResultStream, otherwise clients can not wait for completion.
+    *result_stream = std::unique_ptr<ResultStream>(new SimpleResultStream({}));
+    return Status::OK();
   }
   return Status::Invalid("The defined request is invalid.");
 }
 
-Status FlightSqlServerBase::GetFlightInfoCatalogs(const ServerCallContext& context,
-                                                  const FlightDescriptor& descriptor,
-                                                  std::unique_ptr<FlightInfo>* info) {
+arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlServerBase::GetFlightInfoCatalogs(
+    const ServerCallContext& context, const FlightDescriptor& descriptor) {
   return Status::NotImplemented("GetFlightInfoCatalogs not implemented");
 }
 
-Status FlightSqlServerBase::DoGetCatalogs(const ServerCallContext& context,
-                                          std::unique_ptr<FlightDataStream>* result) {
+arrow::Result<std::unique_ptr<FlightDataStream>> FlightSqlServerBase::DoGetCatalogs(
+    const ServerCallContext& context) {
   return Status::NotImplemented("DoGetCatalogs not implemented");
 }
 
-Status FlightSqlServerBase::GetFlightInfoStatement(const ServerCallContext& context,
-                                                   const StatementQuery& command,
-                                                   const FlightDescriptor& descriptor,
-                                                   std::unique_ptr<FlightInfo>* info) {
+arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlServerBase::GetFlightInfoStatement(
+    const ServerCallContext& context, const StatementQuery& command,
+    const FlightDescriptor& descriptor) {
   return Status::NotImplemented("GetFlightInfoStatement not implemented");
 }
 
-Status FlightSqlServerBase::DoGetStatement(const ServerCallContext& context,
-                                           const StatementQueryTicket& command,
-                                           std::unique_ptr<FlightDataStream>* result) {
+arrow::Result<std::unique_ptr<FlightDataStream>> FlightSqlServerBase::DoGetStatement(
+    const ServerCallContext& context, const StatementQueryTicket& command) {
   return Status::NotImplemented("DoGetStatement not implemented");
 }
 
-Status FlightSqlServerBase::GetFlightInfoPreparedStatement(
-    const ServerCallContext& context, const PreparedStatementQuery& command,
-    const FlightDescriptor& descriptor, std::unique_ptr<FlightInfo>* info) {
+arrow::Result<std::unique_ptr<FlightInfo>>
+FlightSqlServerBase::GetFlightInfoPreparedStatement(const ServerCallContext& context,
+                                                    const PreparedStatementQuery& command,
+                                                    const FlightDescriptor& descriptor) {
   return Status::NotImplemented("GetFlightInfoPreparedStatement not implemented");
 }
 
-Status FlightSqlServerBase::DoGetPreparedStatement(
-    const ServerCallContext& context, const PreparedStatementQuery& command,
-    std::unique_ptr<FlightDataStream>* result) {
+arrow::Result<std::unique_ptr<FlightDataStream>>
+FlightSqlServerBase::DoGetPreparedStatement(const ServerCallContext& context,
+                                            const PreparedStatementQuery& command) {
   return Status::NotImplemented("DoGetPreparedStatement not implemented");
 }
 
-Status FlightSqlServerBase::GetFlightInfoSqlInfo(const ServerCallContext& context,
-                                                 const GetSqlInfo& command,
-                                                 const FlightDescriptor& descriptor,
-                                                 std::unique_ptr<FlightInfo>* info) {
-  DCHECK(info);
-
+arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlServerBase::GetFlightInfoSqlInfo(
+    const ServerCallContext& context, const GetSqlInfo& command,
+    const FlightDescriptor& descriptor) {
   if (sql_info_id_to_result_.empty()) {
-    return Status::NotImplemented("GetFlightInfoSqlInfo not implemented");
+    return Status::KeyError("No SQL information available.");
   }
 
   std::vector<FlightEndpoint> endpoints{FlightEndpoint{{descriptor.cmd}, {}}};
   ARROW_ASSIGN_OR_RAISE(auto result, FlightInfo::Make(*SqlSchema::GetSqlInfoSchema(),
                                                       descriptor, endpoints, -1, -1))
 
-  *info = std::unique_ptr<FlightInfo>(new FlightInfo(result));
-
-  return Status::OK();
+  return std::unique_ptr<FlightInfo>(new FlightInfo(result));
 }
 
 void FlightSqlServerBase::RegisterSqlInfo(int32_t id, const SqlInfoResult& result) {
   sql_info_id_to_result_[id] = result;
 }
 
-Status FlightSqlServerBase::DoGetSqlInfo(const ServerCallContext& context,
-                                         const GetSqlInfo& command,
-                                         std::unique_ptr<FlightDataStream>* result) {
-  DCHECK(result);
-
+arrow::Result<std::unique_ptr<FlightDataStream>> FlightSqlServerBase::DoGetSqlInfo(
+    const ServerCallContext& context, const GetSqlInfo& command) {
   MemoryPool* memory_pool = default_memory_pool();
   UInt32Builder name_field_builder(memory_pool);
   std::unique_ptr<ArrayBuilder> value_field_builder;
@@ -553,95 +580,84 @@ Status FlightSqlServerBase::DoGetSqlInfo(const ServerCallContext& context,
   const std::shared_ptr<RecordBatch>& batch =
       RecordBatch::Make(SqlSchema::GetSqlInfoSchema(), row_count, {name, value});
   ARROW_ASSIGN_OR_RAISE(const auto reader, RecordBatchReader::Make({batch}));
-  *result = std::unique_ptr<FlightDataStream>(new RecordBatchStream(reader));
-  return Status::OK();
+
+  return std::unique_ptr<FlightDataStream>(new RecordBatchStream(reader));
 }
 
-Status FlightSqlServerBase::GetFlightInfoSchemas(const ServerCallContext& context,
-                                                 const GetSchemas& command,
-                                                 const FlightDescriptor& descriptor,
-                                                 std::unique_ptr<FlightInfo>* info) {
+arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlServerBase::GetFlightInfoSchemas(
+    const ServerCallContext& context, const GetSchemas& command,
+    const FlightDescriptor& descriptor) {
   return Status::NotImplemented("GetFlightInfoSchemas not implemented");
 }
 
-Status FlightSqlServerBase::DoGetSchemas(const ServerCallContext& context,
-                                         const GetSchemas& command,
-                                         std::unique_ptr<FlightDataStream>* result) {
+arrow::Result<std::unique_ptr<FlightDataStream>> FlightSqlServerBase::DoGetSchemas(
+    const ServerCallContext& context, const GetSchemas& command) {
   return Status::NotImplemented("DoGetSchemas not implemented");
 }
 
-Status FlightSqlServerBase::GetFlightInfoTables(const ServerCallContext& context,
-                                                const GetTables& command,
-                                                const FlightDescriptor& descriptor,
-                                                std::unique_ptr<FlightInfo>* info) {
+arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlServerBase::GetFlightInfoTables(
+    const ServerCallContext& context, const GetTables& command,
+    const FlightDescriptor& descriptor) {
   return Status::NotImplemented("GetFlightInfoTables not implemented");
 }
 
-Status FlightSqlServerBase::DoGetTables(const ServerCallContext& context,
-                                        const GetTables& command,
-                                        std::unique_ptr<FlightDataStream>* result) {
+arrow::Result<std::unique_ptr<FlightDataStream>> FlightSqlServerBase::DoGetTables(
+    const ServerCallContext& context, const GetTables& command) {
   return Status::NotImplemented("DoGetTables not implemented");
 }
 
-Status FlightSqlServerBase::GetFlightInfoTableTypes(const ServerCallContext& context,
-                                                    const FlightDescriptor& descriptor,
-                                                    std::unique_ptr<FlightInfo>* info) {
+arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlServerBase::GetFlightInfoTableTypes(
+    const ServerCallContext& context, const FlightDescriptor& descriptor) {
   return Status::NotImplemented("GetFlightInfoTableTypes not implemented");
 }
 
-Status FlightSqlServerBase::DoGetTableTypes(const ServerCallContext& context,
-                                            std::unique_ptr<FlightDataStream>* result) {
+arrow::Result<std::unique_ptr<FlightDataStream>> FlightSqlServerBase::DoGetTableTypes(
+    const ServerCallContext& context) {
   return Status::NotImplemented("DoGetTableTypes not implemented");
 }
 
-Status FlightSqlServerBase::GetFlightInfoPrimaryKeys(const ServerCallContext& context,
-                                                     const GetPrimaryKeys& command,
-                                                     const FlightDescriptor& descriptor,
-                                                     std::unique_ptr<FlightInfo>* info) {
+arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlServerBase::GetFlightInfoPrimaryKeys(
+    const ServerCallContext& context, const GetPrimaryKeys& command,
+    const FlightDescriptor& descriptor) {
   return Status::NotImplemented("GetFlightInfoPrimaryKeys not implemented");
 }
 
-Status FlightSqlServerBase::DoGetPrimaryKeys(const ServerCallContext& context,
-                                             const GetPrimaryKeys& command,
-                                             std::unique_ptr<FlightDataStream>* result) {
+arrow::Result<std::unique_ptr<FlightDataStream>> FlightSqlServerBase::DoGetPrimaryKeys(
+    const ServerCallContext& context, const GetPrimaryKeys& command) {
   return Status::NotImplemented("DoGetPrimaryKeys not implemented");
 }
 
-Status FlightSqlServerBase::GetFlightInfoExportedKeys(const ServerCallContext& context,
-                                                      const GetExportedKeys& command,
-                                                      const FlightDescriptor& descriptor,
-                                                      std::unique_ptr<FlightInfo>* info) {
+arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlServerBase::GetFlightInfoExportedKeys(
+    const ServerCallContext& context, const GetExportedKeys& command,
+    const FlightDescriptor& descriptor) {
   return Status::NotImplemented("GetFlightInfoExportedKeys not implemented");
 }
 
-Status FlightSqlServerBase::DoGetExportedKeys(const ServerCallContext& context,
-                                              const GetExportedKeys& command,
-                                              std::unique_ptr<FlightDataStream>* result) {
+arrow::Result<std::unique_ptr<FlightDataStream>> FlightSqlServerBase::DoGetExportedKeys(
+    const ServerCallContext& context, const GetExportedKeys& command) {
   return Status::NotImplemented("DoGetExportedKeys not implemented");
 }
 
-Status FlightSqlServerBase::GetFlightInfoImportedKeys(const ServerCallContext& context,
-                                                      const GetImportedKeys& command,
-                                                      const FlightDescriptor& descriptor,
-                                                      std::unique_ptr<FlightInfo>* info) {
+arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlServerBase::GetFlightInfoImportedKeys(
+    const ServerCallContext& context, const GetImportedKeys& command,
+    const FlightDescriptor& descriptor) {
   return Status::NotImplemented("GetFlightInfoImportedKeys not implemented");
 }
 
-Status FlightSqlServerBase::DoGetImportedKeys(const ServerCallContext& context,
-                                              const GetImportedKeys& command,
-                                              std::unique_ptr<FlightDataStream>* result) {
+arrow::Result<std::unique_ptr<FlightDataStream>> FlightSqlServerBase::DoGetImportedKeys(
+    const ServerCallContext& context, const GetImportedKeys& command) {
   return Status::NotImplemented("DoGetImportedKeys not implemented");
 }
 
-Status FlightSqlServerBase::GetFlightInfoCrossReference(
-    const ServerCallContext& context, const GetCrossReference& command,
-    const FlightDescriptor& descriptor, std::unique_ptr<FlightInfo>* info) {
+arrow::Result<std::unique_ptr<FlightInfo>>
+FlightSqlServerBase::GetFlightInfoCrossReference(const ServerCallContext& context,
+                                                 const GetCrossReference& command,
+                                                 const FlightDescriptor& descriptor) {
   return Status::NotImplemented("GetFlightInfoCrossReference not implemented");
 }
 
-Status FlightSqlServerBase::DoGetCrossReference(
-    const ServerCallContext& context, const GetCrossReference& command,
-    std::unique_ptr<FlightDataStream>* result) {
+arrow::Result<std::unique_ptr<FlightDataStream>> FlightSqlServerBase::DoGetCrossReference(
+    const ServerCallContext& context, const GetCrossReference& command) {
   return Status::NotImplemented("DoGetCrossReference not implemented");
 }
 
@@ -653,8 +669,8 @@ FlightSqlServerBase::CreatePreparedStatement(
 }
 
 Status FlightSqlServerBase::ClosePreparedStatement(
-    const ServerCallContext& context, const ActionClosePreparedStatementRequest& request,
-    std::unique_ptr<ResultStream>* result) {
+    const ServerCallContext& context,
+    const ActionClosePreparedStatementRequest& request) {
   return Status::NotImplemented("ClosePreparedStatement not implemented");
 }
 
@@ -745,3 +761,5 @@ std::shared_ptr<Schema> SqlSchema::GetSqlInfoSchema() {
 }  // namespace sql
 }  // namespace flight
 }  // namespace arrow
+
+#undef PROPERTY_TO_OPTIONAL

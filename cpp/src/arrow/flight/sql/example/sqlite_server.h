@@ -258,40 +258,35 @@ class SQLiteFlightSqlServer : public FlightSqlServerBase {
   ///        SQLite database.
   Status ExecuteSql(const std::string& sql);
 
-  Status GetFlightInfoStatement(const ServerCallContext& context,
-                                const StatementQuery& command,
-                                const FlightDescriptor& descriptor,
-                                std::unique_ptr<FlightInfo>* info) override;
+  arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoStatement(
+      const ServerCallContext& context, const StatementQuery& command,
+      const FlightDescriptor& descriptor) override;
 
-  Status DoGetStatement(const ServerCallContext& context,
-                        const StatementQueryTicket& command,
-                        std::unique_ptr<FlightDataStream>* result) override;
-  Status GetFlightInfoCatalogs(const ServerCallContext& context,
-                               const FlightDescriptor& descriptor,
-                               std::unique_ptr<FlightInfo>* info) override;
-  Status DoGetCatalogs(const ServerCallContext& context,
-                       std::unique_ptr<FlightDataStream>* result) override;
-  Status GetFlightInfoSchemas(const ServerCallContext& context, const GetSchemas& command,
-                              const FlightDescriptor& descriptor,
-                              std::unique_ptr<FlightInfo>* info) override;
-  Status DoGetSchemas(const ServerCallContext& context, const GetSchemas& command,
-                      std::unique_ptr<FlightDataStream>* result) override;
+  arrow::Result<std::unique_ptr<FlightDataStream>> DoGetStatement(
+      const ServerCallContext& context, const StatementQueryTicket& command) override;
+  arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoCatalogs(
+      const ServerCallContext& context, const FlightDescriptor& descriptor) override;
+  arrow::Result<std::unique_ptr<FlightDataStream>> DoGetCatalogs(
+      const ServerCallContext& context) override;
+  arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoSchemas(
+      const ServerCallContext& context, const GetSchemas& command,
+      const FlightDescriptor& descriptor) override;
+  arrow::Result<std::unique_ptr<FlightDataStream>> DoGetSchemas(
+      const ServerCallContext& context, const GetSchemas& command) override;
   arrow::Result<int64_t> DoPutCommandStatementUpdate(
       const ServerCallContext& context, const StatementUpdate& update,
       std::unique_ptr<FlightMessageReader>& reader) override;
   arrow::Result<ActionCreatePreparedStatementResult> CreatePreparedStatement(
       const ServerCallContext& context,
       const ActionCreatePreparedStatementRequest& request) override;
-  Status ClosePreparedStatement(const ServerCallContext& context,
-                                const ActionClosePreparedStatementRequest& request,
-                                std::unique_ptr<ResultStream>* result) override;
-  Status GetFlightInfoPreparedStatement(const ServerCallContext& context,
-                                        const PreparedStatementQuery& command,
-                                        const FlightDescriptor& descriptor,
-                                        std::unique_ptr<FlightInfo>* info) override;
-  Status DoGetPreparedStatement(const ServerCallContext& context,
-                                const PreparedStatementQuery& command,
-                                std::unique_ptr<FlightDataStream>* result) override;
+  Status ClosePreparedStatement(
+      const ServerCallContext& context,
+      const ActionClosePreparedStatementRequest& request) override;
+  arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoPreparedStatement(
+      const ServerCallContext& context, const PreparedStatementQuery& command,
+      const FlightDescriptor& descriptor) override;
+  arrow::Result<std::unique_ptr<FlightDataStream>> DoGetPreparedStatement(
+      const ServerCallContext& context, const PreparedStatementQuery& command) override;
   Status DoPutPreparedStatementQuery(const ServerCallContext& context,
                                      const PreparedStatementQuery& command,
                                      FlightMessageReader* reader,
@@ -300,46 +295,38 @@ class SQLiteFlightSqlServer : public FlightSqlServerBase {
       const ServerCallContext& context, const PreparedStatementUpdate& command,
       FlightMessageReader* reader) override;
 
-  Status GetFlightInfoTables(const ServerCallContext& context, const GetTables& command,
-                             const FlightDescriptor& descriptor,
-                             std::unique_ptr<FlightInfo>* info) override;
+  arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoTables(
+      const ServerCallContext& context, const GetTables& command,
+      const FlightDescriptor& descriptor) override;
 
-  Status DoGetTables(const ServerCallContext& context, const GetTables& command,
-                     std::unique_ptr<FlightDataStream>* result) override;
-  Status GetFlightInfoTableTypes(const ServerCallContext& context,
-                                 const FlightDescriptor& descriptor,
-                                 std::unique_ptr<FlightInfo>* info) override;
-  Status DoGetTableTypes(const ServerCallContext& context,
-                         std::unique_ptr<FlightDataStream>* result) override;
-  Status GetFlightInfoImportedKeys(const ServerCallContext& context,
-                                   const GetImportedKeys& command,
-                                   const FlightDescriptor& descriptor,
-                                   std::unique_ptr<FlightInfo>* info) override;
-  Status DoGetImportedKeys(const ServerCallContext& context,
-                           const GetImportedKeys& command,
-                           std::unique_ptr<FlightDataStream>* result) override;
-  Status GetFlightInfoExportedKeys(const ServerCallContext& context,
-                                   const GetExportedKeys& command,
-                                   const FlightDescriptor& descriptor,
-                                   std::unique_ptr<FlightInfo>* info) override;
-  Status DoGetExportedKeys(const ServerCallContext& context,
-                           const GetExportedKeys& command,
-                           std::unique_ptr<FlightDataStream>* result) override;
-  Status GetFlightInfoCrossReference(const ServerCallContext& context,
-                                     const GetCrossReference& command,
-                                     const FlightDescriptor& descriptor,
-                                     std::unique_ptr<FlightInfo>* info) override;
-  Status DoGetCrossReference(const ServerCallContext& context,
-                             const GetCrossReference& command,
-                             std::unique_ptr<FlightDataStream>* result) override;
+  arrow::Result<std::unique_ptr<FlightDataStream>> DoGetTables(
+      const ServerCallContext& context, const GetTables& command) override;
+  arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoTableTypes(
+      const ServerCallContext& context, const FlightDescriptor& descriptor) override;
+  arrow::Result<std::unique_ptr<FlightDataStream>> DoGetTableTypes(
+      const ServerCallContext& context) override;
+  arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoImportedKeys(
+      const ServerCallContext& context, const GetImportedKeys& command,
+      const FlightDescriptor& descriptor) override;
+  arrow::Result<std::unique_ptr<FlightDataStream>> DoGetImportedKeys(
+      const ServerCallContext& context, const GetImportedKeys& command) override;
+  arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoExportedKeys(
+      const ServerCallContext& context, const GetExportedKeys& command,
+      const FlightDescriptor& descriptor) override;
+  arrow::Result<std::unique_ptr<FlightDataStream>> DoGetExportedKeys(
+      const ServerCallContext& context, const GetExportedKeys& command) override;
+  arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoCrossReference(
+      const ServerCallContext& context, const GetCrossReference& command,
+      const FlightDescriptor& descriptor) override;
+  arrow::Result<std::unique_ptr<FlightDataStream>> DoGetCrossReference(
+      const ServerCallContext& context, const GetCrossReference& command) override;
 
-  Status GetFlightInfoPrimaryKeys(const ServerCallContext& context,
-                                  const GetPrimaryKeys& command,
-                                  const FlightDescriptor& descriptor,
-                                  std::unique_ptr<FlightInfo>* info) override;
+  arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoPrimaryKeys(
+      const ServerCallContext& context, const GetPrimaryKeys& command,
+      const FlightDescriptor& descriptor) override;
 
-  Status DoGetPrimaryKeys(const ServerCallContext& context, const GetPrimaryKeys& command,
-                          std::unique_ptr<FlightDataStream>* result) override;
+  arrow::Result<std::unique_ptr<FlightDataStream>> DoGetPrimaryKeys(
+      const ServerCallContext& context, const GetPrimaryKeys& command) override;
 
  private:
   sqlite3* db_;

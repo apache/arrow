@@ -71,9 +71,7 @@ arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoForCommand(
     const google::protobuf::Message& command) {
   const FlightDescriptor& descriptor = GetFlightDescriptorForCommand(command);
 
-  std::unique_ptr<FlightInfo> flight_info;
-  ARROW_RETURN_NOT_OK(client.GetFlightInfo(options, descriptor, &flight_info));
-
+  ARROW_ASSIGN_OR_RAISE(auto flight_info, client.GetFlightInfo(options, descriptor));
   return std::move(flight_info);
 }
 
@@ -340,10 +338,8 @@ arrow::Result<std::unique_ptr<FlightInfo>> PreparedStatement::Execute() {
     ARROW_RETURN_NOT_OK(reader->ReadMetadata(&buffer));
   }
 
-  std::unique_ptr<FlightInfo> info;
-  ARROW_RETURN_NOT_OK(client_->GetFlightInfo(options_, descriptor, &info));
-
-  return std::move(info);
+  ARROW_ASSIGN_OR_RAISE(auto flight_info, client_->GetFlightInfo(options_, descriptor));
+  return std::move(flight_info);
 }
 
 arrow::Result<int64_t> PreparedStatement::ExecuteUpdate() {

@@ -185,8 +185,17 @@ TEST(TestFlightSqlServer, TestCommandStatementQuery) {
 }
 
 TEST(TestFlightSqlServer, TestCommandGetTables) {
-  ASSERT_OK_AND_ASSIGN(auto flight_info, sql_client->GetTables({}, nullptr, nullptr,
-                                                               nullptr, false, nullptr));
+  FlightCallOptions options = {};
+  std::string* catalog = nullptr;
+  std::string* schema_filter_pattern = nullptr;
+  std::string* table_filter_pattern = nullptr;
+  bool include_schema = false;
+  std::vector<std::string>* table_types = nullptr;
+
+  ASSERT_OK_AND_ASSIGN(
+      auto flight_info,
+      sql_client->GetTables(options, catalog, schema_filter_pattern, table_filter_pattern,
+                            include_schema, table_types));
 
   ASSERT_OK_AND_ASSIGN(auto stream,
                        sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
@@ -208,10 +217,17 @@ TEST(TestFlightSqlServer, TestCommandGetTables) {
 }
 
 TEST(TestFlightSqlServer, TestCommandGetTablesWithTableFilter) {
+  FlightCallOptions options = {};
+  std::string* catalog = nullptr;
+  std::string* schema_filter_pattern = nullptr;
   std::string table_filter_pattern = "int%";
+  bool include_schema = false;
+  std::vector<std::string>* table_types = nullptr;
+
   ASSERT_OK_AND_ASSIGN(
       auto flight_info,
-      sql_client->GetTables({}, nullptr, nullptr, &table_filter_pattern, false, nullptr));
+      sql_client->GetTables(options, catalog, schema_filter_pattern,
+                            &table_filter_pattern, include_schema, table_types));
 
   ASSERT_OK_AND_ASSIGN(auto stream,
                        sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
@@ -231,11 +247,17 @@ TEST(TestFlightSqlServer, TestCommandGetTablesWithTableFilter) {
 }
 
 TEST(TestFlightSqlServer, TestCommandGetTablesWithTableTypesFilter) {
+  FlightCallOptions options = {};
+  std::string* catalog = nullptr;
+  std::string* schema_filter_pattern = nullptr;
+  std::string* table_filter_pattern = nullptr;
+  bool include_schema = false;
   std::vector<std::string> table_types{"index"};
 
   ASSERT_OK_AND_ASSIGN(
       auto flight_info,
-      sql_client->GetTables({}, nullptr, nullptr, nullptr, false, &table_types));
+      sql_client->GetTables(options, catalog, schema_filter_pattern, table_filter_pattern,
+                            include_schema, &table_types));
 
   ASSERT_OK_AND_ASSIGN(auto stream,
                        sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
@@ -249,11 +271,17 @@ TEST(TestFlightSqlServer, TestCommandGetTablesWithTableTypesFilter) {
 }
 
 TEST(TestFlightSqlServer, TestCommandGetTablesWithUnexistenceTableTypeFilter) {
+  FlightCallOptions options = {};
+  std::string* catalog = nullptr;
+  std::string* schema_filter_pattern = nullptr;
+  std::string* table_filter_pattern = nullptr;
+  bool include_schema = false;
   std::vector<std::string> table_types{"table"};
 
   ASSERT_OK_AND_ASSIGN(
       auto flight_info,
-      sql_client->GetTables({}, nullptr, nullptr, nullptr, false, &table_types));
+      sql_client->GetTables(options, catalog, schema_filter_pattern, table_filter_pattern,
+                            include_schema, &table_types));
 
   ASSERT_OK_AND_ASSIGN(auto stream,
                        sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
@@ -274,10 +302,17 @@ TEST(TestFlightSqlServer, TestCommandGetTablesWithUnexistenceTableTypeFilter) {
 }
 
 TEST(TestFlightSqlServer, TestCommandGetTablesWithIncludedSchemas) {
+  FlightCallOptions options = {};
+  std::string* catalog = nullptr;
+  std::string* schema_filter_pattern = nullptr;
   std::string table_filter_pattern = "int%";
+  bool include_schema = true;
+  std::vector<std::string>* table_types = nullptr;
+
   ASSERT_OK_AND_ASSIGN(
       auto flight_info,
-      sql_client->GetTables({}, nullptr, nullptr, &table_filter_pattern, true, nullptr));
+      sql_client->GetTables(options, catalog, schema_filter_pattern,
+                            &table_filter_pattern, include_schema, table_types));
 
   ASSERT_OK_AND_ASSIGN(auto stream,
                        sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
@@ -322,7 +357,11 @@ TEST(TestFlightSqlServer, TestCommandGetCatalogs) {
 }
 
 TEST(TestFlightSqlServer, TestCommandGetSchemas) {
-  ASSERT_OK_AND_ASSIGN(auto flight_info, sql_client->GetSchemas({}, NULLPTR, NULLPTR));
+  FlightCallOptions options = {};
+  std::string* catalog = nullptr;
+  std::string* schema_filter_pattern = nullptr;
+  ASSERT_OK_AND_ASSIGN(auto flight_info,
+                       sql_client->GetSchemas(options, catalog, schema_filter_pattern));
 
   ASSERT_OK_AND_ASSIGN(auto stream,
                        sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
@@ -530,8 +569,12 @@ TEST(TestFlightSqlServer, TestCommandPreparedStatementUpdate) {
 }
 
 TEST(TestFlightSqlServer, TestCommandGetPrimaryKeys) {
-  ASSERT_OK_AND_ASSIGN(auto flight_info,
-                       sql_client->GetPrimaryKeys({}, nullptr, nullptr, "int%"));
+  FlightCallOptions options = {};
+  std::string* catalog = nullptr;
+  std::string* schema = nullptr;
+  std::string table_filter = "int%";
+  ASSERT_OK_AND_ASSIGN(auto flight_info, sql_client->GetPrimaryKeys(
+                                             options, catalog, schema, table_filter));
 
   ASSERT_OK_AND_ASSIGN(auto stream,
                        sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
@@ -554,8 +597,12 @@ TEST(TestFlightSqlServer, TestCommandGetPrimaryKeys) {
 }
 
 TEST(TestFlightSqlServer, TestCommandGetImportedKeys) {
-  ASSERT_OK_AND_ASSIGN(auto flight_info,
-                       sql_client->GetImportedKeys({}, NULLPTR, NULLPTR, "intTable"));
+  FlightCallOptions options = {};
+  std::string* catalog = nullptr;
+  std::string* schema = nullptr;
+  std::string table_filter = "intTable";
+  ASSERT_OK_AND_ASSIGN(auto flight_info, sql_client->GetImportedKeys(
+                                             options, catalog, schema, table_filter));
 
   ASSERT_OK_AND_ASSIGN(auto stream,
                        sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
@@ -586,8 +633,12 @@ TEST(TestFlightSqlServer, TestCommandGetImportedKeys) {
 }
 
 TEST(TestFlightSqlServer, TestCommandGetExportedKeys) {
-  ASSERT_OK_AND_ASSIGN(auto flight_info,
-                       sql_client->GetExportedKeys({}, NULLPTR, NULLPTR, "foreignTable"));
+  FlightCallOptions options = {};
+  std::string* catalog = nullptr;
+  std::string* schema = nullptr;
+  std::string table_filter = "foreignTable";
+  ASSERT_OK_AND_ASSIGN(auto flight_info, sql_client->GetExportedKeys(
+                                             options, catalog, schema, table_filter));
 
   ASSERT_OK_AND_ASSIGN(auto stream,
                        sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
@@ -618,9 +669,16 @@ TEST(TestFlightSqlServer, TestCommandGetExportedKeys) {
 }
 
 TEST(TestFlightSqlServer, TestCommandGetCrossReference) {
-  ASSERT_OK_AND_ASSIGN(auto flight_info,
-                       sql_client->GetCrossReference({}, NULLPTR, NULLPTR, "foreignTable",
-                                                     NULLPTR, NULLPTR, "intTable"));
+  FlightCallOptions options = {};
+  std::string* pk_catalog = nullptr;
+  std::string* pk_schema = nullptr;
+  std::string pk_table = "foreignTable";
+  std::string* fk_catalog = nullptr;
+  std::string* fk_schema = nullptr;
+  std::string fk_table = "intTable";
+  ASSERT_OK_AND_ASSIGN(auto flight_info, sql_client->GetCrossReference(
+                                             options, pk_catalog, pk_schema, pk_table,
+                                             fk_catalog, fk_schema, fk_table));
 
   ASSERT_OK_AND_ASSIGN(auto stream,
                        sql_client->DoGet({}, flight_info->endpoints()[0].ticket));

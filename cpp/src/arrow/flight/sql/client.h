@@ -164,15 +164,16 @@ class ARROW_EXPORT FlightSqlClient {
 
   /// \brief Retrieve the FlightInfo.
   /// \param[in] options      RPC-layer hints for this call.
-  /// \param[in] descriptor   The flight descriptior.
-  /// \param[out] info        The flight info with the metadata.
-  /// \return Status.
+  /// \param[in] descriptor   The flight descriptor.
+  /// \return The flight info with the metadata.
   // NOTE: This is public because it is been used by the anonymous
   // function GetFlightInfoForCommand.
-  virtual Status GetFlightInfo(const FlightCallOptions& options,
-                               const FlightDescriptor& descriptor,
-                               std::unique_ptr<FlightInfo>* info) {
-    return impl_->GetFlightInfo(options, descriptor, info);
+  virtual arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfo(
+      const FlightCallOptions& options, const FlightDescriptor& descriptor) {
+    std::unique_ptr<FlightInfo> info;
+    ARROW_RETURN_NOT_OK(impl_->GetFlightInfo(options, descriptor, &info));
+
+    return info;
   }
 
  protected:

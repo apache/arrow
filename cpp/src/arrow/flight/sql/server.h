@@ -150,245 +150,206 @@ class ARROW_EXPORT FlightSqlServerBase : public FlightServerBase {
   Status DoAction(const ServerCallContext& context, const Action& action,
                   std::unique_ptr<ResultStream>* result) override;
 
-  /// \brief Gets a FlightInfo for executing a SQL query.
+  /// \brief Get a FlightInfo for executing a SQL query.
   /// \param[in] context      Per-call context.
   /// \param[in] command      The StatementQuery object containing the SQL statement.
   /// \param[in] descriptor   The descriptor identifying the data stream.
-  /// \param[out] info        The FlightInfo describing where to access the dataset.
-  /// \return                 Status.
-  virtual Status GetFlightInfoStatement(const ServerCallContext& context,
-                                        const StatementQuery& command,
-                                        const FlightDescriptor& descriptor,
-                                        std::unique_ptr<FlightInfo>* info);
+  /// \return                 The FlightInfo describing where to access the dataset.
+  virtual arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoStatement(
+      const ServerCallContext& context, const StatementQuery& command,
+      const FlightDescriptor& descriptor);
 
-  /// \brief Gets a FlightDataStream containing the query results.
+  /// \brief Get a FlightDataStream containing the query results.
   /// \param[in] context      Per-call context.
   /// \param[in] command      The StatementQueryTicket containing the statement handle.
-  /// \param[out] result      The FlightDataStream containing the results.
-  /// \return                 Status.
-  virtual Status DoGetStatement(const ServerCallContext& context,
-                                const StatementQueryTicket& command,
-                                std::unique_ptr<FlightDataStream>* result);
+  /// \return                 The FlightDataStream containing the results.
+  virtual arrow::Result<std::unique_ptr<FlightDataStream>> DoGetStatement(
+      const ServerCallContext& context, const StatementQueryTicket& command);
 
-  /// \brief Gets a FlightInfo for executing an already created prepared statement.
+  /// \brief Get a FlightInfo for executing an already created prepared statement.
   /// \param[in] context      Per-call context.
   /// \param[in] command      The PreparedStatementQuery object containing the
   ///                         prepared statement handle.
   /// \param[in] descriptor   The descriptor identifying the data stream.
-  /// \param[out] info        The FlightInfo describing where to access the
+  /// \return                 The FlightInfo describing where to access the
   ///                         dataset.
-  /// \return                 Status.
-  virtual Status GetFlightInfoPreparedStatement(const ServerCallContext& context,
-                                                const PreparedStatementQuery& command,
-                                                const FlightDescriptor& descriptor,
-                                                std::unique_ptr<FlightInfo>* info);
+  virtual arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoPreparedStatement(
+      const ServerCallContext& context, const PreparedStatementQuery& command,
+      const FlightDescriptor& descriptor);
 
-  /// \brief Gets a FlightDataStream containing the prepared statement query results.
+  /// \brief Get a FlightDataStream containing the prepared statement query results.
   /// \param[in] context      Per-call context.
   /// \param[in] command      The PreparedStatementQuery object containing the
   ///                         prepared statement handle.
-  /// \param[out] result      The FlightDataStream containing the results.
-  /// \return                 Status.
-  virtual Status DoGetPreparedStatement(const ServerCallContext& context,
-                                        const PreparedStatementQuery& command,
-                                        std::unique_ptr<FlightDataStream>* result);
+  /// \return                 The FlightDataStream containing the results.
+  virtual arrow::Result<std::unique_ptr<FlightDataStream>> DoGetPreparedStatement(
+      const ServerCallContext& context, const PreparedStatementQuery& command);
 
-  /// \brief Gets a FlightInfo for listing catalogs.
+  /// \brief Get a FlightInfo for listing catalogs.
   /// \param[in] context      Per-call context.
   /// \param[in] descriptor   The descriptor identifying the data stream.
-  /// \param[out] info        The FlightInfo describing where to access the dataset.
-  /// \return                 Status.
-  virtual Status GetFlightInfoCatalogs(const ServerCallContext& context,
-                                       const FlightDescriptor& descriptor,
-                                       std::unique_ptr<FlightInfo>* info);
+  /// \return                 The FlightInfo describing where to access the dataset.
+  virtual arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoCatalogs(
+      const ServerCallContext& context, const FlightDescriptor& descriptor);
 
-  /// \brief Gets a FlightDataStream containing the list of catalogs.
+  /// \brief Get a FlightDataStream containing the list of catalogs.
   /// \param[in] context  Per-call context.
-  /// \param[out] result  An interface for sending data back to the client.
-  /// \return             Status.
-  virtual Status DoGetCatalogs(const ServerCallContext& context,
-                               std::unique_ptr<FlightDataStream>* result);
+  /// \return             An interface for sending data back to the client.
+  virtual arrow::Result<std::unique_ptr<FlightDataStream>> DoGetCatalogs(
+      const ServerCallContext& context);
 
-  /// \brief Gets a FlightInfo for retrieving other information (See SqlInfo).
+  /// \brief Get a FlightInfo for retrieving other information (See SqlInfo).
   /// \param[in] context      Per-call context.
   /// \param[in] command      The GetSqlInfo object containing the list of SqlInfo
   ///                         to be returned.
   /// \param[in] descriptor   The descriptor identifying the data stream.
-  /// \param[out] info        The FlightInfo describing where to access the dataset.
-  /// \return                 Status.
-  virtual Status GetFlightInfoSqlInfo(const ServerCallContext& context,
-                                      const GetSqlInfo& command,
-                                      const FlightDescriptor& descriptor,
-                                      std::unique_ptr<FlightInfo>* info);
+  /// \return                 The FlightInfo describing where to access the dataset.
+  virtual arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoSqlInfo(
+      const ServerCallContext& context, const GetSqlInfo& command,
+      const FlightDescriptor& descriptor);
 
-  /// \brief Gets a FlightDataStream containing the list of SqlInfo results.
+  /// \brief Get a FlightDataStream containing the list of SqlInfo results.
   /// \param[in] context    Per-call context.
   /// \param[in] command    The GetSqlInfo object containing the list of SqlInfo
   ///                       to be returned.
-  /// \param[out] result    The FlightDataStream containing the results.
-  /// \return               Status.
-  virtual Status DoGetSqlInfo(const ServerCallContext& context, const GetSqlInfo& command,
-                              std::unique_ptr<FlightDataStream>* result);
+  /// \return               The FlightDataStream containing the results.
+  virtual arrow::Result<std::unique_ptr<FlightDataStream>> DoGetSqlInfo(
+      const ServerCallContext& context, const GetSqlInfo& command);
 
-  /// \brief Gets a FlightInfo for listing schemas.
+  /// \brief Get a FlightInfo for listing schemas.
   /// \param[in] context      Per-call context.
   /// \param[in] command      The GetSchemas object which may contain filters for
   ///                         catalog and schema name.
   /// \param[in] descriptor   The descriptor identifying the data stream.
-  /// \param[out] info        The FlightInfo describing where to access the dataset.
-  /// \return                 Status.
-  virtual Status GetFlightInfoSchemas(const ServerCallContext& context,
-                                      const GetSchemas& command,
-                                      const FlightDescriptor& descriptor,
-                                      std::unique_ptr<FlightInfo>* info);
+  /// \return                 The FlightInfo describing where to access the dataset.
+  virtual arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoSchemas(
+      const ServerCallContext& context, const GetSchemas& command,
+      const FlightDescriptor& descriptor);
 
-  /// \brief Gets a FlightDataStream containing the list of schemas.
+  /// \brief Get a FlightDataStream containing the list of schemas.
   /// \param[in] context   Per-call context.
   /// \param[in] command   The GetSchemas object which may contain filters for
   ///                      catalog and schema name.
-  /// \param[out] result   The FlightDataStream containing the results.
-  /// \return              Status.
-  virtual Status DoGetSchemas(const ServerCallContext& context, const GetSchemas& command,
-                              std::unique_ptr<FlightDataStream>* result);
+  /// \return              The FlightDataStream containing the results.
+  virtual arrow::Result<std::unique_ptr<FlightDataStream>> DoGetSchemas(
+      const ServerCallContext& context, const GetSchemas& command);
 
-  ///\brief Gets a FlightInfo for listing tables.
+  ///\brief Get a FlightInfo for listing tables.
   /// \param[in] context      Per-call context.
   /// \param[in] command      The GetTables object which may contain filters for
   ///                         catalog, schema and table names.
   /// \param[in] descriptor   The descriptor identifying the data stream.
-  /// \param[out] info        The FlightInfo describing where to access the dataset.
-  /// \return                 Status.
-  virtual Status GetFlightInfoTables(const ServerCallContext& context,
-                                     const GetTables& command,
-                                     const FlightDescriptor& descriptor,
-                                     std::unique_ptr<FlightInfo>* info);
+  /// \return                 The FlightInfo describing where to access the dataset.
+  virtual arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoTables(
+      const ServerCallContext& context, const GetTables& command,
+      const FlightDescriptor& descriptor);
 
-  /// \brief Gets a FlightDataStream containing the list of tables.
+  /// \brief Get a FlightDataStream containing the list of tables.
   /// \param[in] context   Per-call context.
   /// \param[in] command   The GetTables object which may contain filters for
   ///                      catalog, schema and table names.
-  /// \param[out] result   The FlightDataStream containing the results.
-  /// \return              Status.
-  virtual Status DoGetTables(const ServerCallContext& context, const GetTables& command,
-                             std::unique_ptr<FlightDataStream>* result);
+  /// \return              The FlightDataStream containing the results.
+  virtual arrow::Result<std::unique_ptr<FlightDataStream>> DoGetTables(
+      const ServerCallContext& context, const GetTables& command);
 
-  /// \brief Gets a FlightInfo to extract information about the table types.
+  /// \brief Get a FlightInfo to extract information about the table types.
   /// \param[in] context      Per-call context.
   /// \param[in] descriptor   The descriptor identifying the data stream.
-  /// \param[out] info        The FlightInfo describing where to access the
+  /// \return                 The FlightInfo describing where to access the
   ///                         dataset.
-  /// \return                 Status.
-  virtual Status GetFlightInfoTableTypes(const ServerCallContext& context,
-                                         const FlightDescriptor& descriptor,
-                                         std::unique_ptr<FlightInfo>* info);
+  virtual arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoTableTypes(
+      const ServerCallContext& context, const FlightDescriptor& descriptor);
 
-  /// \brief Gets a FlightDataStream containing the data related to the table types.
+  /// \brief Get a FlightDataStream containing the data related to the table types.
   /// \param[in] context   Per-call context.
-  /// \param[out] result   The FlightDataStream containing the results.
-  /// \return               Status.
-  virtual Status DoGetTableTypes(const ServerCallContext& context,
-                                 std::unique_ptr<FlightDataStream>* result);
+  /// \return              The FlightDataStream containing the results.
+  virtual arrow::Result<std::unique_ptr<FlightDataStream>> DoGetTableTypes(
+      const ServerCallContext& context);
 
-  /// \brief Gets a FlightInfo to extract information about primary and foreign keys.
+  /// \brief Get a FlightInfo to extract information about primary and foreign keys.
   /// \param[in] context      Per-call context.
   /// \param[in] command      The GetPrimaryKeys object with necessary information
   ///                         to execute the request.
   /// \param[in] descriptor   The descriptor identifying the data stream.
-  /// \param[out] info        The FlightInfo describing where to access the
+  /// \return                 The FlightInfo describing where to access the
   ///                         dataset.
-  /// \return                 Status.
-  virtual Status GetFlightInfoPrimaryKeys(const ServerCallContext& context,
-                                          const GetPrimaryKeys& command,
-                                          const FlightDescriptor& descriptor,
-                                          std::unique_ptr<FlightInfo>* info);
+  virtual arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoPrimaryKeys(
+      const ServerCallContext& context, const GetPrimaryKeys& command,
+      const FlightDescriptor& descriptor);
 
-  /// \brief Gets a FlightDataStream containing the data related to the primary and
+  /// \brief Get a FlightDataStream containing the data related to the primary and
   /// foreign
   ///        keys.
   /// \param[in] context  Per-call context.
   /// \param[in] command  The GetPrimaryKeys object with necessary information
   ///                     to execute the request.
-  /// \param[out] result  The FlightDataStream containing the results.
-  /// \return             Status.
-  virtual Status DoGetPrimaryKeys(const ServerCallContext& context,
-                                  const GetPrimaryKeys& command,
-                                  std::unique_ptr<FlightDataStream>* result);
+  /// \return             The FlightDataStream containing the results.
+  virtual arrow::Result<std::unique_ptr<FlightDataStream>> DoGetPrimaryKeys(
+      const ServerCallContext& context, const GetPrimaryKeys& command);
 
-  /// \brief Gets a FlightInfo to extract information about foreign and primary keys.
+  /// \brief Get a FlightInfo to extract information about foreign and primary keys.
   /// \param[in] context      Per-call context.
   /// \param[in] command      The GetExportedKeys object with necessary information
   ///                         to execute the request.
   /// \param[in] descriptor   The descriptor identifying the data stream.
-  /// \param[out] info        The FlightInfo describing where to access the
+  /// \return                 The FlightInfo describing where to access the
   ///                         dataset.
-  /// \return                 Status.
-  virtual Status GetFlightInfoExportedKeys(const ServerCallContext& context,
-                                           const GetExportedKeys& command,
-                                           const FlightDescriptor& descriptor,
-                                           std::unique_ptr<FlightInfo>* info);
+  virtual arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoExportedKeys(
+      const ServerCallContext& context, const GetExportedKeys& command,
+      const FlightDescriptor& descriptor);
 
-  /// \brief Gets a FlightDataStream containing the data related to the foreign and
+  /// \brief Get a FlightDataStream containing the data related to the foreign and
   /// primary
   ///        keys.
   /// \param[in] context  Per-call context.
   /// \param[in] command  The GetExportedKeys object with necessary information
   ///                     to execute the request.
-  /// \param[out] result  The FlightDataStream containing the results.
-  /// \return             Status.
-  virtual Status DoGetExportedKeys(const ServerCallContext& context,
-                                   const GetExportedKeys& command,
-                                   std::unique_ptr<FlightDataStream>* result);
+  /// \return             The FlightDataStream containing the results.
+  virtual arrow::Result<std::unique_ptr<FlightDataStream>> DoGetExportedKeys(
+      const ServerCallContext& context, const GetExportedKeys& command);
 
-  /// \brief Gets a FlightInfo to extract information about foreign and primary keys.
+  /// \brief Get a FlightInfo to extract information about foreign and primary keys.
   /// \param[in] context      Per-call context.
   /// \param[in] command      The GetImportedKeys object with necessary information
   ///                         to execute the request.
   /// \param[in] descriptor   The descriptor identifying the data stream.
-  /// \param[out] info        The FlightInfo describing where to access the
+  /// \return                 The FlightInfo describing where to access the
   ///                         dataset.
-  /// \return                 Status.
-  virtual Status GetFlightInfoImportedKeys(const ServerCallContext& context,
-                                           const GetImportedKeys& command,
-                                           const FlightDescriptor& descriptor,
-                                           std::unique_ptr<FlightInfo>* info);
+  virtual arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoImportedKeys(
+      const ServerCallContext& context, const GetImportedKeys& command,
+      const FlightDescriptor& descriptor);
 
-  /// \brief Gets a FlightDataStream containing the data related to the foreign and
+  /// \brief Get a FlightDataStream containing the data related to the foreign and
   ///        primary keys.
   /// \param[in] context  Per-call context.
   /// \param[in] command  The GetImportedKeys object with necessary information
   ///                     to execute the request.
-  /// \param[out] result  The FlightDataStream containing the results.
-  /// \return             Status.
-  virtual Status DoGetImportedKeys(const ServerCallContext& context,
-                                   const GetImportedKeys& command,
-                                   std::unique_ptr<FlightDataStream>* result);
+  /// \return             The FlightDataStream containing the results.
+  virtual arrow::Result<std::unique_ptr<FlightDataStream>> DoGetImportedKeys(
+      const ServerCallContext& context, const GetImportedKeys& command);
 
-  /// \brief Gets a FlightInfo to extract information about foreign and primary keys.
+  /// \brief Get a FlightInfo to extract information about foreign and primary keys.
   /// \param[in] context      Per-call context.
   /// \param[in] command      The GetCrossReference object with necessary
   /// information
   ///                         to execute the request.
   /// \param[in] descriptor   The descriptor identifying the data stream.
-  /// \param[out] info        The FlightInfo describing where to access the
+  /// \return                 The FlightInfo describing where to access the
   ///                         dataset.
-  /// \return                 Status.
-  virtual Status GetFlightInfoCrossReference(const ServerCallContext& context,
-                                             const GetCrossReference& command,
-                                             const FlightDescriptor& descriptor,
-                                             std::unique_ptr<FlightInfo>* info);
+  virtual arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoCrossReference(
+      const ServerCallContext& context, const GetCrossReference& command,
+      const FlightDescriptor& descriptor);
 
-  /// \brief Gets a FlightDataStream containing the data related to the foreign and
+  /// \brief Get a FlightDataStream containing the data related to the foreign and
   ///        primary keys.
   /// \param[in] context  Per-call context.
   /// \param[in] command  The GetCrossReference object with necessary information
   ///                     to execute the request.
-  /// \param[out] result  The FlightDataStream containing the results.
-  /// \return             Status.
-  virtual Status DoGetCrossReference(const ServerCallContext& context,
-                                     const GetCrossReference& command,
-                                     std::unique_ptr<FlightDataStream>* result);
+  /// \return             The FlightDataStream containing the results.
+  virtual arrow::Result<std::unique_ptr<FlightDataStream>> DoGetCrossReference(
+      const ServerCallContext& context, const GetCrossReference& command);
 
-  /// \brief Executes an update SQL statement.
+  /// \brief Execute an update SQL statement.
   /// \param[in] context  The call context.
   /// \param[in] command  The StatementUpdate object containing the SQL statement.
   /// \param[in] reader   a sequence of uploaded record batches.
@@ -407,17 +368,15 @@ class ARROW_EXPORT FlightSqlServerBase : public FlightServerBase {
       const ServerCallContext& context,
       const ActionCreatePreparedStatementRequest& request);
 
-  /// \brief Closes a prepared statement.
+  /// \brief Close a prepared statement.
   /// \param[in] context  The call context.
   /// \param[in] request  The ActionClosePreparedStatementRequest object containing the
   ///                     prepared statement handle.
-  /// \param[out] result  Empty ResultStream.
   virtual Status ClosePreparedStatement(
       const ServerCallContext& context,
-      const ActionClosePreparedStatementRequest& request,
-      std::unique_ptr<ResultStream>* result);
+      const ActionClosePreparedStatementRequest& request);
 
-  /// \brief Binds parameters to given prepared statement.
+  /// \brief Bind parameters to given prepared statement.
   /// \param[in] context  The call context.
   /// \param[in] command  The PreparedStatementQuery object containing the
   ///                     prepared statement handle.
@@ -428,7 +387,7 @@ class ARROW_EXPORT FlightSqlServerBase : public FlightServerBase {
                                              FlightMessageReader* reader,
                                              FlightMetadataWriter* writer);
 
-  /// \brief Executes an update SQL prepared statement.
+  /// \brief Execute an update SQL prepared statement.
   /// \param[in] context  The call context.
   /// \param[in] command  The PreparedStatementUpdate object containing the
   ///                     prepared statement handle.
@@ -438,7 +397,7 @@ class ARROW_EXPORT FlightSqlServerBase : public FlightServerBase {
       const ServerCallContext& context, const PreparedStatementUpdate& command,
       FlightMessageReader* reader);
 
-  /// \brief Registers a new SqlInfo result.
+  /// \brief Register a new SqlInfo result, making it available when calling GetSqlInfo.
   /// \param[in] id the SqlInfo identifier.
   /// \param[in] result the result.
   void RegisterSqlInfo(int32_t id, const SqlInfoResult& result);
@@ -447,46 +406,46 @@ class ARROW_EXPORT FlightSqlServerBase : public FlightServerBase {
 /// \brief Auxiliary class containing all Schemas used on Flight SQL.
 class ARROW_EXPORT SqlSchema {
  public:
-  /// \brief Gets the Schema used on GetCatalogs response.
+  /// \brief Get the Schema used on GetCatalogs response.
   /// \return The default schema template.
   static std::shared_ptr<Schema> GetCatalogsSchema();
 
-  /// \brief Gets the Schema used on GetSchemas response.
+  /// \brief Get the Schema used on GetSchemas response.
   /// \return The default schema template.
   static std::shared_ptr<Schema> GetSchemasSchema();
 
-  /// \brief Gets the Schema used on GetTables response when included schema
+  /// \brief Get the Schema used on GetTables response when included schema
   /// flags is set to false.
   /// \return The default schema template.
   static std::shared_ptr<Schema> GetTablesSchema();
 
-  /// \brief Gets the Schema used on GetTables response when included schema
+  /// \brief Get the Schema used on GetTables response when included schema
   /// flags is set to true.
   /// \return The default schema template.
   static std::shared_ptr<Schema> GetTablesSchemaWithIncludedSchema();
 
-  /// \brief Gets the Schema used on GetTableTypes response.
+  /// \brief Get the Schema used on GetTableTypes response.
   /// \return The default schema template.
   static std::shared_ptr<Schema> GetTableTypesSchema();
 
-  /// \brief Gets the Schema used on GetPrimaryKeys response when included schema
+  /// \brief Get the Schema used on GetPrimaryKeys response when included schema
   /// flags is set to true.
   /// \return The default schema template.
   static std::shared_ptr<Schema> GetPrimaryKeysSchema();
 
-  /// \brief Gets the Schema used on GetImportedKeys response.
+  /// \brief Get the Schema used on GetImportedKeys response.
   /// \return The default schema template.
   static std::shared_ptr<Schema> GetExportedKeysSchema();
 
-  /// \brief Gets the Schema used on GetImportedKeys response.
+  /// \brief Get the Schema used on GetImportedKeys response.
   /// \return The default schema template.
   static std::shared_ptr<Schema> GetImportedKeysSchema();
 
-  /// \brief Gets the Schema used on GetCrossReference response.
+  /// \brief Get the Schema used on GetCrossReference response.
   /// \return The default schema template.
   static std::shared_ptr<Schema> GetCrossReferenceSchema();
 
-  /// \brief Gets the Schema used on GetSqlInfo response.
+  /// \brief Get the Schema used on GetSqlInfo response.
   /// \return The default schema template.
   static std::shared_ptr<Schema> GetSqlInfoSchema();
 };

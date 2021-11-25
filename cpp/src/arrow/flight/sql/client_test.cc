@@ -41,9 +41,8 @@ class FlightSqlClientMock : public FlightSqlClient {
 
   ~FlightSqlClientMock() = default;
 
-  MOCK_METHOD(Status, GetFlightInfo,
-              (const FlightCallOptions&, const FlightDescriptor&,
-               std::unique_ptr<FlightInfo>*));
+  MOCK_METHOD(arrow::Result<std::unique_ptr<FlightInfo>>, GetFlightInfo,
+              (const FlightCallOptions&, const FlightDescriptor&));
   MOCK_METHOD(Status, DoGet,
               (const FlightCallOptions& options, const Ticket& ticket,
                std::unique_ptr<FlightStreamReader>* stream));
@@ -59,8 +58,8 @@ class FlightSqlClientMock : public FlightSqlClient {
 
 class TestFlightSqlClient : public ::testing::Test {
  protected:
-  FlightSqlClientMock sql_client;
-  FlightCallOptions call_options;
+  FlightSqlClientMock sql_client_;
+  FlightCallOptions call_options_;
 
   void SetUp() override {}
 
@@ -120,13 +119,20 @@ FlightDescriptor getDescriptor(google::protobuf::Message& command) {
   return FlightDescriptor::Command(string);
 }
 
+auto ReturnEmptyFlightInfo = [](const FlightCallOptions& options,
+                                const FlightDescriptor& descriptor) {
+  std::unique_ptr<FlightInfo> flight_info;
+  return flight_info;
+};
+
 TEST_F(TestFlightSqlClient, TestGetCatalogs) {
   pb::sql::CommandGetCatalogs command;
   FlightDescriptor descriptor = getDescriptor(command);
 
-  EXPECT_CALL(sql_client, GetFlightInfo(Ref(call_options), descriptor, _));
+  ON_CALL(sql_client_, GetFlightInfo).WillByDefault(ReturnEmptyFlightInfo);
+  EXPECT_CALL(sql_client_, GetFlightInfo(Ref(call_options_), descriptor));
 
-  ASSERT_OK(sql_client.GetCatalogs(call_options));
+  ASSERT_OK(sql_client_.GetCatalogs(call_options_));
 }
 
 TEST_F(TestFlightSqlClient, TestGetSchemas) {
@@ -138,9 +144,10 @@ TEST_F(TestFlightSqlClient, TestGetSchemas) {
   command.set_schema_filter_pattern(schema_filter_pattern);
   FlightDescriptor descriptor = getDescriptor(command);
 
-  EXPECT_CALL(sql_client, GetFlightInfo(Ref(call_options), descriptor, _));
+  ON_CALL(sql_client_, GetFlightInfo).WillByDefault(ReturnEmptyFlightInfo);
+  EXPECT_CALL(sql_client_, GetFlightInfo(Ref(call_options_), descriptor));
 
-  ASSERT_OK(sql_client.GetSchemas(call_options, &catalog, &schema_filter_pattern));
+  ASSERT_OK(sql_client_.GetSchemas(call_options_, &catalog, &schema_filter_pattern));
 }
 
 TEST_F(TestFlightSqlClient, TestGetTables) {
@@ -160,20 +167,22 @@ TEST_F(TestFlightSqlClient, TestGetTables) {
   }
   FlightDescriptor descriptor = getDescriptor(command);
 
-  EXPECT_CALL(sql_client, GetFlightInfo(Ref(call_options), descriptor, _));
+  ON_CALL(sql_client_, GetFlightInfo).WillByDefault(ReturnEmptyFlightInfo);
+  EXPECT_CALL(sql_client_, GetFlightInfo(Ref(call_options_), descriptor));
 
-  ASSERT_OK(sql_client.GetTables(call_options, &catalog, &schema_filter_pattern,
-                                 &table_name_filter_pattern, include_schema,
-                                 &table_types));
+  ASSERT_OK(sql_client_.GetTables(call_options_, &catalog, &schema_filter_pattern,
+                                  &table_name_filter_pattern, include_schema,
+                                  &table_types));
 }
 
 TEST_F(TestFlightSqlClient, TestGetTableTypes) {
   pb::sql::CommandGetTableTypes command;
   FlightDescriptor descriptor = getDescriptor(command);
 
-  EXPECT_CALL(sql_client, GetFlightInfo(Ref(call_options), descriptor, _));
+  ON_CALL(sql_client_, GetFlightInfo).WillByDefault(ReturnEmptyFlightInfo);
+  EXPECT_CALL(sql_client_, GetFlightInfo(Ref(call_options_), descriptor));
 
-  ASSERT_OK(sql_client.GetTableTypes(call_options));
+  ASSERT_OK(sql_client_.GetTableTypes(call_options_));
 }
 
 TEST_F(TestFlightSqlClient, TestGetExported) {
@@ -187,9 +196,10 @@ TEST_F(TestFlightSqlClient, TestGetExported) {
   command.set_table(table);
   FlightDescriptor descriptor = getDescriptor(command);
 
-  EXPECT_CALL(sql_client, GetFlightInfo(Ref(call_options), descriptor, _));
+  ON_CALL(sql_client_, GetFlightInfo).WillByDefault(ReturnEmptyFlightInfo);
+  EXPECT_CALL(sql_client_, GetFlightInfo(Ref(call_options_), descriptor));
 
-  ASSERT_OK(sql_client.GetExportedKeys(call_options, &catalog, &schema, table));
+  ASSERT_OK(sql_client_.GetExportedKeys(call_options_, &catalog, &schema, table));
 }
 
 TEST_F(TestFlightSqlClient, TestGetImported) {
@@ -203,9 +213,10 @@ TEST_F(TestFlightSqlClient, TestGetImported) {
   command.set_table(table);
   FlightDescriptor descriptor = getDescriptor(command);
 
-  EXPECT_CALL(sql_client, GetFlightInfo(Ref(call_options), descriptor, _));
+  ON_CALL(sql_client_, GetFlightInfo).WillByDefault(ReturnEmptyFlightInfo);
+  EXPECT_CALL(sql_client_, GetFlightInfo(Ref(call_options_), descriptor));
 
-  ASSERT_OK(sql_client.GetImportedKeys(call_options, &catalog, &schema, table));
+  ASSERT_OK(sql_client_.GetImportedKeys(call_options_, &catalog, &schema, table));
 }
 
 TEST_F(TestFlightSqlClient, TestGetPrimary) {
@@ -219,9 +230,10 @@ TEST_F(TestFlightSqlClient, TestGetPrimary) {
   command.set_table(table);
   FlightDescriptor descriptor = getDescriptor(command);
 
-  EXPECT_CALL(sql_client, GetFlightInfo(Ref(call_options), descriptor, _));
+  ON_CALL(sql_client_, GetFlightInfo).WillByDefault(ReturnEmptyFlightInfo);
+  EXPECT_CALL(sql_client_, GetFlightInfo(Ref(call_options_), descriptor));
 
-  ASSERT_OK(sql_client.GetPrimaryKeys(call_options, &catalog, &schema, table));
+  ASSERT_OK(sql_client_.GetPrimaryKeys(call_options_, &catalog, &schema, table));
 }
 
 TEST_F(TestFlightSqlClient, TestGetCrossReference) {
@@ -241,10 +253,11 @@ TEST_F(TestFlightSqlClient, TestGetCrossReference) {
   command.set_fk_table(fk_table);
   FlightDescriptor descriptor = getDescriptor(command);
 
-  EXPECT_CALL(sql_client, GetFlightInfo(Ref(call_options), descriptor, _));
+  ON_CALL(sql_client_, GetFlightInfo).WillByDefault(ReturnEmptyFlightInfo);
+  EXPECT_CALL(sql_client_, GetFlightInfo(Ref(call_options_), descriptor));
 
-  ASSERT_OK(sql_client.GetCrossReference(call_options, &pk_catalog, &pk_schema, pk_table,
-                                         &fk_catalog, &fk_schema, fk_table));
+  ASSERT_OK(sql_client_.GetCrossReference(call_options_, &pk_catalog, &pk_schema,
+                                          pk_table, &fk_catalog, &fk_schema, fk_table));
 }
 
 TEST_F(TestFlightSqlClient, TestExecute) {
@@ -254,15 +267,16 @@ TEST_F(TestFlightSqlClient, TestExecute) {
   command.set_query(query);
   FlightDescriptor descriptor = getDescriptor(command);
 
-  EXPECT_CALL(sql_client, GetFlightInfo(Ref(call_options), descriptor, _));
+  ON_CALL(sql_client_, GetFlightInfo).WillByDefault(ReturnEmptyFlightInfo);
+  EXPECT_CALL(sql_client_, GetFlightInfo(Ref(call_options_), descriptor));
 
-  ASSERT_OK(sql_client.Execute(call_options, query));
+  ASSERT_OK(sql_client_.Execute(call_options_, query));
 }
 
 TEST_F(TestFlightSqlClient, TestPreparedStatementExecute) {
   const std::string query = "query";
 
-  ON_CALL(sql_client, DoAction)
+  ON_CALL(sql_client_, DoAction)
       .WillByDefault([](const FlightCallOptions& options, const Action& action,
                         std::unique_ptr<ResultStream>* results) {
         google::protobuf::Any command;
@@ -279,11 +293,13 @@ TEST_F(TestFlightSqlClient, TestPreparedStatementExecute) {
         return Status::OK();
       });
 
-  EXPECT_CALL(sql_client, DoAction(_, _, _)).Times(2);
+  EXPECT_CALL(sql_client_, DoAction(_, _, _)).Times(2);
 
-  ASSERT_OK_AND_ASSIGN(auto prepared_statement, sql_client.Prepare(call_options, query));
+  ASSERT_OK_AND_ASSIGN(auto prepared_statement,
+                       sql_client_.Prepare(call_options_, query));
 
-  EXPECT_CALL(sql_client, GetFlightInfo(_, _, _));
+  ON_CALL(sql_client_, GetFlightInfo).WillByDefault(ReturnEmptyFlightInfo);
+  EXPECT_CALL(sql_client_, GetFlightInfo(_, _));
 
   ASSERT_OK(prepared_statement->Execute());
 }
@@ -291,7 +307,7 @@ TEST_F(TestFlightSqlClient, TestPreparedStatementExecute) {
 TEST_F(TestFlightSqlClient, TestPreparedStatementExecuteParameterBinding) {
   const std::string query = "query";
 
-  ON_CALL(sql_client, DoAction)
+  ON_CALL(sql_client_, DoAction)
       .WillByDefault([](const FlightCallOptions& options, const Action& action,
                         std::unique_ptr<ResultStream>* results) {
         google::protobuf::Any command;
@@ -319,7 +335,7 @@ TEST_F(TestFlightSqlClient, TestPreparedStatementExecuteParameterBinding) {
       });
 
   std::shared_ptr<Buffer> buffer_ptr;
-  ON_CALL(sql_client, DoPut)
+  ON_CALL(sql_client_, DoPut)
       .WillByDefault([&buffer_ptr](const FlightCallOptions& options,
                                    const FlightDescriptor& descriptor1,
                                    const std::shared_ptr<Schema>& schema,
@@ -331,17 +347,19 @@ TEST_F(TestFlightSqlClient, TestPreparedStatementExecuteParameterBinding) {
         return Status::OK();
       });
 
-  EXPECT_CALL(sql_client, DoAction(_, _, _)).Times(2);
-  EXPECT_CALL(sql_client, DoPut(_, _, _, _, _));
+  EXPECT_CALL(sql_client_, DoAction(_, _, _)).Times(2);
+  EXPECT_CALL(sql_client_, DoPut(_, _, _, _, _));
 
-  ASSERT_OK_AND_ASSIGN(auto prepared_statement, sql_client.Prepare(call_options, query));
+  ASSERT_OK_AND_ASSIGN(auto prepared_statement,
+                       sql_client_.Prepare(call_options_, query));
 
   auto parameter_schema = prepared_statement->parameter_schema();
 
   auto result = RecordBatchFromJSON(parameter_schema, "[[1]]");
   ASSERT_OK(prepared_statement->SetParameters(result));
 
-  EXPECT_CALL(sql_client, GetFlightInfo(_, _, _));
+  ON_CALL(sql_client_, GetFlightInfo).WillByDefault(ReturnEmptyFlightInfo);
+  EXPECT_CALL(sql_client_, GetFlightInfo(_, _));
 
   ASSERT_OK(prepared_statement->Execute());
 }
@@ -365,7 +383,7 @@ TEST_F(TestFlightSqlClient, TestExecuteUpdate) {
   auto buffer_ptr = std::make_shared<Buffer>(
       reinterpret_cast<const uint8_t*>(string.data()), doPutUpdateResult.ByteSizeLong());
 
-  ON_CALL(sql_client, DoPut)
+  ON_CALL(sql_client_, DoPut)
       .WillByDefault([&buffer_ptr](const FlightCallOptions& options,
                                    const FlightDescriptor& descriptor1,
                                    const std::shared_ptr<Schema>& schema,
@@ -379,9 +397,9 @@ TEST_F(TestFlightSqlClient, TestExecuteUpdate) {
   std::unique_ptr<FlightInfo> flight_info;
   std::unique_ptr<FlightStreamWriter> writer;
   std::unique_ptr<FlightMetadataReader> reader;
-  EXPECT_CALL(sql_client, DoPut(Ref(call_options), descriptor, _, _, _));
+  EXPECT_CALL(sql_client_, DoPut(Ref(call_options_), descriptor, _, _, _));
 
-  ASSERT_OK_AND_ASSIGN(auto num_rows, sql_client.ExecuteUpdate(call_options, query));
+  ASSERT_OK_AND_ASSIGN(auto num_rows, sql_client_.ExecuteUpdate(call_options_, query));
 
   ASSERT_EQ(num_rows, 100);
 }
@@ -397,19 +415,21 @@ TEST_F(TestFlightSqlClient, TestGetSqlInfo) {
   any.PackFrom(command);
   const FlightDescriptor& descriptor = FlightDescriptor::Command(any.SerializeAsString());
 
-  EXPECT_CALL(sql_client, GetFlightInfo(Ref(call_options), descriptor, _));
-  ASSERT_OK(sql_client.GetSqlInfo(call_options, sql_info));
+  ON_CALL(sql_client_, GetFlightInfo).WillByDefault(ReturnEmptyFlightInfo);
+  EXPECT_CALL(sql_client_, GetFlightInfo(Ref(call_options_), descriptor));
+
+  ASSERT_OK(sql_client_.GetSqlInfo(call_options_, sql_info));
 }
 
 template <class Func>
 inline void AssertTestPreparedStatementExecuteUpdateOk(
-    Func func, const std::shared_ptr<Schema>* schema, FlightSqlClientMock& sql_client) {
+    Func func, const std::shared_ptr<Schema>* schema, FlightSqlClientMock& sql_client_) {
   const std::string query = "SELECT * FROM IRRELEVANT";
   int64_t expected_rows = 100L;
   pb::sql::DoPutUpdateResult result;
   result.set_record_count(expected_rows);
 
-  ON_CALL(sql_client, DoAction)
+  ON_CALL(sql_client_, DoAction)
       .WillByDefault([&query, &schema](const FlightCallOptions& options,
                                        const Action& action,
                                        std::unique_ptr<ResultStream>* results) {
@@ -433,10 +453,10 @@ inline void AssertTestPreparedStatementExecuteUpdateOk(
 
         return Status::OK();
       });
-  EXPECT_CALL(sql_client, DoAction(_, _, _)).Times(2);
+  EXPECT_CALL(sql_client_, DoAction(_, _, _)).Times(2);
 
   auto buffer = Buffer::FromString(result.SerializeAsString());
-  ON_CALL(sql_client, DoPut)
+  ON_CALL(sql_client_, DoPut)
       .WillByDefault([&buffer](const FlightCallOptions& options,
                                const FlightDescriptor& descriptor1,
                                const std::shared_ptr<Schema>& schema,
@@ -447,13 +467,13 @@ inline void AssertTestPreparedStatementExecuteUpdateOk(
         return Status::OK();
       });
   if (schema == NULLPTR) {
-    EXPECT_CALL(sql_client, DoPut(_, _, _, _, _));
+    EXPECT_CALL(sql_client_, DoPut(_, _, _, _, _));
   } else {
-    EXPECT_CALL(sql_client, DoPut(_, _, *schema, _, _));
+    EXPECT_CALL(sql_client_, DoPut(_, _, *schema, _, _));
   }
 
-  ASSERT_OK_AND_ASSIGN(auto prepared_statement, sql_client.Prepare({}, query));
-  func(prepared_statement, sql_client, schema, expected_rows);
+  ASSERT_OK_AND_ASSIGN(auto prepared_statement, sql_client_.Prepare({}, query));
+  func(prepared_statement, sql_client_, schema, expected_rows);
   ASSERT_OK_AND_ASSIGN(auto rows, prepared_statement->ExecuteUpdate());
   ASSERT_EQ(expected_rows, rows);
   ASSERT_OK(prepared_statement->Close());
@@ -462,9 +482,9 @@ inline void AssertTestPreparedStatementExecuteUpdateOk(
 TEST_F(TestFlightSqlClient, TestPreparedStatementExecuteUpdateNoParameterBinding) {
   AssertTestPreparedStatementExecuteUpdateOk(
       [](const std::shared_ptr<PreparedStatement>& prepared_statement,
-         FlightSqlClient& sql_client, const std::shared_ptr<Schema>* schema,
+         FlightSqlClient& sql_client_, const std::shared_ptr<Schema>* schema,
          const int64_t& row_count) {},
-      NULLPTR, sql_client);
+      NULLPTR, sql_client_);
 }
 
 TEST_F(TestFlightSqlClient, TestPreparedStatementExecuteUpdateWithParameterBinding) {
@@ -472,7 +492,7 @@ TEST_F(TestFlightSqlClient, TestPreparedStatementExecuteUpdateWithParameterBindi
       {arrow::field("field0", arrow::utf8()), arrow::field("field1", arrow::uint8())});
   AssertTestPreparedStatementExecuteUpdateOk(
       [](const std::shared_ptr<PreparedStatement>& prepared_statement,
-         FlightSqlClient& sql_client, const std::shared_ptr<Schema>* schema,
+         FlightSqlClient& sql_client_, const std::shared_ptr<Schema>* schema,
          const int64_t& row_count) {
         auto string_array =
             ArrayFromJSON(utf8(), R"(["Lorem", "Ipsum", "Foo", "Bar", "Baz"])");
@@ -481,7 +501,7 @@ TEST_F(TestFlightSqlClient, TestPreparedStatementExecuteUpdateWithParameterBindi
             RecordBatch::Make(*schema, row_count, {string_array, uint8_array});
         ASSERT_OK(prepared_statement->SetParameters(recordBatch));
       },
-      &schema, sql_client);
+      &schema, sql_client_);
 }
 
 }  // namespace sql
