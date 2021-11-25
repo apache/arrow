@@ -83,6 +83,10 @@ TEST(TestStringOps, TestSpace) {
   EXPECT_EQ(std::string(out, out_len), "     ");
   out = space_int32(ctx_ptr, -5, &out_len);
   EXPECT_EQ(std::string(out, out_len), "");
+  out = space_int32(ctx_ptr, 65537, &out_len);
+  EXPECT_EQ(std::string(out, out_len), std::string(65536, ' '));
+  out = space_int32(ctx_ptr, 2147483647, &out_len);
+  EXPECT_EQ(std::string(out, out_len), std::string(65536, ' '));
 
   out = space_int64(ctx_ptr, 2, &out_len);
   EXPECT_EQ(std::string(out, out_len), "  ");
@@ -91,6 +95,12 @@ TEST(TestStringOps, TestSpace) {
   out = space_int64(ctx_ptr, 4, &out_len);
   EXPECT_EQ(std::string(out, out_len), "    ");
   out = space_int64(ctx_ptr, -5, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "");
+  out = space_int64(ctx_ptr, 65536, &out_len);
+  EXPECT_EQ(std::string(out, out_len), std::string(65536, ' '));
+  out = space_int64(ctx_ptr, 9223372036854775807, &out_len);
+  EXPECT_EQ(std::string(out, out_len), std::string(65536, ' '));
+  out = space_int64(ctx_ptr, -2639077559LL, &out_len);
   EXPECT_EQ(std::string(out, out_len), "");
 }
 
@@ -1065,6 +1075,9 @@ TEST(TestStringOps, TestLpadString) {
   out_str = lpad_utf8_int32_utf8(ctx_ptr, "hello", 5, 6, "д", 2, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "дhello");
 
+  out_str = lpad_utf8_int32_utf8(ctx_ptr, "大学路", 9, 65536, "哈", 3, &out_len);
+  EXPECT_EQ(out_len, 65536 * 3);
+
   // LPAD function tests - with NO pad text
   out_str = lpad_utf8_int32(ctx_ptr, "TestString", 10, 4, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "Test");
@@ -1089,6 +1102,12 @@ TEST(TestStringOps, TestLpadString) {
 
   out_str = lpad_utf8_int32(ctx_ptr, "абвгд", 10, 7, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "  абвгд");
+
+  out_str = lpad_utf8_int32(ctx_ptr, "TestString", 10, 65537, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), std::string(65526, ' ') + "TestString");
+
+  out_str = lpad_utf8_int32(ctx_ptr, "TestString", 10, -1, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
 }
 
 TEST(TestStringOps, TestRpadString) {
@@ -1134,6 +1153,9 @@ TEST(TestStringOps, TestRpadString) {
   out_str = rpad_utf8_int32_utf8(ctx_ptr, "hello", 5, 6, "д", 2, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "helloд");
 
+  out_str = rpad_utf8_int32_utf8(ctx_ptr, "大学路", 9, 655360, "哈雷路", 3, &out_len);
+  EXPECT_EQ(out_len, 65536 * 3);
+
   // RPAD function tests - with NO pad text
   out_str = rpad_utf8_int32(ctx_ptr, "TestString", 10, 4, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "Test");
@@ -1158,6 +1180,12 @@ TEST(TestStringOps, TestRpadString) {
 
   out_str = rpad_utf8_int32(ctx_ptr, "абвгд", 10, 7, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "абвгд  ");
+
+  out_str = rpad_utf8_int32(ctx_ptr, "TestString", 10, 65537, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "TestString" + std::string(65526, ' '));
+
+  out_str = rpad_utf8_int32(ctx_ptr, "TestString", 10, -1, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
 }
 
 TEST(TestStringOps, TestRtrim) {
