@@ -53,6 +53,79 @@ TEST(TestStringOps, TestAscii) {
   EXPECT_EQ(ascii_utf8("999", 3), 57);
 }
 
+TEST(TestStringOps, TestChrBigInt) {
+  // CHR
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+  int32_t out_len = 0;
+
+  auto out = chr_int32(ctx_ptr, 88, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "X");
+
+  out = chr_int64(ctx_ptr, 65, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "A");
+
+  out = chr_int32(ctx_ptr, 49, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "1");
+
+  out = chr_int64(ctx_ptr, 84, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "T");
+
+  out = chr_int32(ctx_ptr, 340, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "T");
+
+  out = chr_int64(ctx_ptr, 256, &out_len);
+  EXPECT_EQ(std::strcmp(out, "\0"), 0);
+
+  out = chr_int32(ctx_ptr, 33, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "!");
+
+  out = chr_int64(ctx_ptr, 46, &out_len);
+  EXPECT_EQ(std::string(out, out_len), ".");
+
+  out = chr_int32(ctx_ptr, 63, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "?");
+
+  out = chr_int64(ctx_ptr, 0, &out_len);
+  EXPECT_EQ(std::strcmp(out, "\0"), 0);
+
+  out = chr_int32(ctx_ptr, -158, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "b");
+
+  out = chr_int64(ctx_ptr, -5, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "\xFB");
+
+  out = chr_int32(ctx_ptr, -340, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "\xAC");
+
+  out = chr_int64(ctx_ptr, -66, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "\xBE");
+
+  //€
+  out = chr_int32(ctx_ptr, 128, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "\x80");
+
+  //œ
+  out = chr_int64(ctx_ptr, 156, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "\x9C");
+
+  //ÿ
+  out = chr_int32(ctx_ptr, 255, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "\xFF");
+
+  // BACKSPACE
+  out = chr_int64(ctx_ptr, 8, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "\b");
+
+  // DEVICE CONTROL 3 (DC3)
+  out = chr_int32(ctx_ptr, 19, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "\x13");
+
+  // ESCAPE (ESC)
+  out = chr_int64(ctx_ptr, 27, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "\x1B");
+}
+
 TEST(TestStringOps, TestBeginsEnds) {
   // starts_with
   EXPECT_TRUE(starts_with_utf8_utf8("hello sir", 9, "hello", 5));
@@ -83,6 +156,10 @@ TEST(TestStringOps, TestSpace) {
   EXPECT_EQ(std::string(out, out_len), "     ");
   out = space_int32(ctx_ptr, -5, &out_len);
   EXPECT_EQ(std::string(out, out_len), "");
+  out = space_int32(ctx_ptr, 65537, &out_len);
+  EXPECT_EQ(std::string(out, out_len), std::string(65536, ' '));
+  out = space_int32(ctx_ptr, 2147483647, &out_len);
+  EXPECT_EQ(std::string(out, out_len), std::string(65536, ' '));
 
   out = space_int64(ctx_ptr, 2, &out_len);
   EXPECT_EQ(std::string(out, out_len), "  ");
@@ -91,6 +168,12 @@ TEST(TestStringOps, TestSpace) {
   out = space_int64(ctx_ptr, 4, &out_len);
   EXPECT_EQ(std::string(out, out_len), "    ");
   out = space_int64(ctx_ptr, -5, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "");
+  out = space_int64(ctx_ptr, 65536, &out_len);
+  EXPECT_EQ(std::string(out, out_len), std::string(65536, ' '));
+  out = space_int64(ctx_ptr, 9223372036854775807, &out_len);
+  EXPECT_EQ(std::string(out, out_len), std::string(65536, ' '));
+  out = space_int64(ctx_ptr, -2639077559LL, &out_len);
   EXPECT_EQ(std::string(out, out_len), "");
 }
 
@@ -1065,6 +1148,9 @@ TEST(TestStringOps, TestLpadString) {
   out_str = lpad_utf8_int32_utf8(ctx_ptr, "hello", 5, 6, "д", 2, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "дhello");
 
+  out_str = lpad_utf8_int32_utf8(ctx_ptr, "大学路", 9, 65536, "哈", 3, &out_len);
+  EXPECT_EQ(out_len, 65536 * 3);
+
   // LPAD function tests - with NO pad text
   out_str = lpad_utf8_int32(ctx_ptr, "TestString", 10, 4, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "Test");
@@ -1089,6 +1175,12 @@ TEST(TestStringOps, TestLpadString) {
 
   out_str = lpad_utf8_int32(ctx_ptr, "абвгд", 10, 7, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "  абвгд");
+
+  out_str = lpad_utf8_int32(ctx_ptr, "TestString", 10, 65537, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), std::string(65526, ' ') + "TestString");
+
+  out_str = lpad_utf8_int32(ctx_ptr, "TestString", 10, -1, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
 }
 
 TEST(TestStringOps, TestRpadString) {
@@ -1134,6 +1226,9 @@ TEST(TestStringOps, TestRpadString) {
   out_str = rpad_utf8_int32_utf8(ctx_ptr, "hello", 5, 6, "д", 2, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "helloд");
 
+  out_str = rpad_utf8_int32_utf8(ctx_ptr, "大学路", 9, 655360, "哈雷路", 3, &out_len);
+  EXPECT_EQ(out_len, 65536 * 3);
+
   // RPAD function tests - with NO pad text
   out_str = rpad_utf8_int32(ctx_ptr, "TestString", 10, 4, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "Test");
@@ -1158,6 +1253,12 @@ TEST(TestStringOps, TestRpadString) {
 
   out_str = rpad_utf8_int32(ctx_ptr, "абвгд", 10, 7, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "абвгд  ");
+
+  out_str = rpad_utf8_int32(ctx_ptr, "TestString", 10, 65537, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "TestString" + std::string(65526, ' '));
+
+  out_str = rpad_utf8_int32(ctx_ptr, "TestString", 10, -1, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
 }
 
 TEST(TestStringOps, TestRtrim) {
@@ -2129,4 +2230,45 @@ TEST(TestStringOps, TestFromHex) {
       ::testing::HasSubstr("Error parsing hex string, one or more bytes are not valid."));
   ctx.Reset();
 }
+TEST(TestStringOps, TestSoundex) {
+  gandiva::ExecutionContext ctx;
+  auto ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+  int32_t out_len = 0;
+  const char* out;
+
+  out = soundex_utf8(ctx_ptr, "Miller", 6, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "M460");
+
+  out = soundex_utf8(ctx_ptr, "3Miller", 7, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "M460");
+
+  out = soundex_utf8(ctx_ptr, "Mill3r", 6, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "M460");
+
+  out = soundex_utf8(ctx_ptr, "abc", 3, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "A120");
+
+  out = soundex_utf8(ctx_ptr, "123abc", 6, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "A120");
+
+  out = soundex_utf8(ctx_ptr, "test", 4, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "T230");
+
+  out = soundex_utf8(ctx_ptr, "", 0, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "");
+
+  out = soundex_utf8(ctx_ptr, "Elvis", 5, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "E412");
+
+  out = soundex_utf8(ctx_ptr, "waterloo", 8, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "W364");
+
+  out = soundex_utf8(ctx_ptr, "eowolf", 6, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "E410");
+
+  out = soundex_utf8(ctx_ptr, "Smith", 5, &out_len);
+  auto out2 = soundex_utf8(ctx_ptr, "Smythe", 6, &out_len);
+  EXPECT_EQ(std::string(out, out_len), std::string(out2, out_len));
+}
+
 }  // namespace gandiva
