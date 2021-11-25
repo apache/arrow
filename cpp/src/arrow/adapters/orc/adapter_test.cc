@@ -226,13 +226,46 @@ std::shared_ptr<Table> GenerateRandomTable(const std::shared_ptr<Schema>& schema
   return Table::Make(schema, cv);
 }
 
+arrow::adapters::orc::WriterOptions GenerateRandomWriterOptions(uint64_t num_cols) {
+  auto arrow_writer_options = arrow::adapters::orc::WriterOptions();
+  arrow_writer_options.set_file_version(arrow::adapters::orc::FileVersion(
+      0, arrow::random_single_int<uint32_t, uint32_t>(11, 12)));
+  arrow_writer_options.set_stripe_size(
+      arrow::random_single_int<uint64_t, uint64_t>(65536ull, 268435455ull));
+  arrow_writer_options.set_compression_block_size(
+      arrow::random_single_int<uint64_t, uint64_t>(1024ull, 524287ull));
+  arrow_writer_options.set_row_index_stride(
+      arrow::random_single_int<uint64_t, uint64_t>(0, 4096ull));
+  arrow_writer_options.set_compression(static_cast<arrow::adapters::orc::CompressionKind>(
+      arrow::random_single_int<uint8_t, uint8_t>(0, 5)));
+  arrow_writer_options.set_compression_strategy(
+      static_cast<arrow::adapters::orc::CompressionStrategy>(
+          arrow::random_single_int<uint8_t, uint8_t>(0, 1)));
+  arrow_writer_options.set_padding_tolerance(
+      arrow::random_single_real<double, double>(0, 1));
+  arrow_writer_options.set_dictionary_key_size_threshold(
+      arrow::random_single_real<double, double>(0, 1));
+  arrow_writer_options.set_bloom_filter_fpp(
+      arrow::random_single_real<double, double>(0, 1));
+  std::set<uint64_t> bloom_filter_cols;
+  for (uint64_t i = 0; i < num_cols; i++) {
+    if (arrow::random_single_int<uint8_t, uint8_t>(0, 1) == 1) {
+      bloom_filter_cols.insert(i);
+    }
+  }
+  arrow_writer_options.set_columns_use_bloom_filter(bloom_filter_cols);
+  return arrow_writer_options;
+}
+
 void AssertTableWriteReadEqual(const std::shared_ptr<Table>& input_table,
                                const std::shared_ptr<Table>& expected_output_table,
                                const int64_t max_size = kDefaultSmallMemStreamSize) {
   EXPECT_OK_AND_ASSIGN(auto buffer_output_stream,
                        io::BufferOutputStream::Create(max_size));
   EXPECT_OK_AND_ASSIGN(auto writer,
-                       adapters::orc::ORCFileWriter::Open(buffer_output_stream.get()));
+                       adapters::orc::ORCFileWriter::Open(
+                           buffer_output_stream.get(),
+                           GenerateRandomWriterOptions(input_table->num_columns())));
   ARROW_EXPECT_OK(writer->Write(*input_table));
   ARROW_EXPECT_OK(writer->Close());
   EXPECT_OK_AND_ASSIGN(auto buffer, buffer_output_stream->Finish());

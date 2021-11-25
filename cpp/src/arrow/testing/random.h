@@ -471,6 +471,22 @@ void rand_month_day_nanos(int64_t N,
                           std::vector<MonthDayNanoIntervalType::MonthDayNanos>* out);
 
 template <typename T, typename U>
+U random_single_int(T lower, T upper) {
+  const int random_seed = 0;
+  std::default_random_engine gen(random_seed);
+  std::uniform_int_distribution<T> d(lower, upper);
+  return static_cast<U>(d(gen));
+}
+
+template <typename T, typename U>
+U random_single_real(T min_value, T max_value) {
+  const int random_seed = 0;
+  std::default_random_engine gen(random_seed);
+  ::arrow::random::uniform_real_distribution<T> d(min_value, max_value);
+  return static_cast<U>(d(gen));
+}
+
+template <typename T, typename U>
 void randint(int64_t N, T lower, T upper, std::vector<U>* out) {
   const int random_seed = 0;
   std::default_random_engine gen(random_seed);
