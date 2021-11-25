@@ -2399,5 +2399,53 @@ TEST(TestStringOps, TestInstr) {
 
   result = instr_utf8(s1.c_str(), s1_len, s2.c_str(), s2_len);
   EXPECT_EQ(result, 1);
+
+  s1 = "Hello";
+  s1_len = static_cast<int32_t>(s1.size());
+  s2 = "Hell0";
+  s2_len = static_cast<int32_t>(s2.size());
+
+  result = instr_utf8(s1.c_str(), s1_len, s2.c_str(), s2_len);
+  EXPECT_EQ(result, 0);
+
+  s1 = "Hello";
+  s1_len = static_cast<int32_t>(s1.size());
+  s2 = "H3ll";
+  s2_len = static_cast<int32_t>(s2.size());
+
+  result = instr_utf8(s1.c_str(), s1_len, s2.c_str(), s2_len);
+  EXPECT_EQ(result, 0);
+
+  s1 = "wow";
+  s1_len = static_cast<int32_t>(s1.size());
+  s2 = "wou";
+  s2_len = static_cast<int32_t>(s2.size());
+
+  result = instr_utf8(s1.c_str(), s1_len, s2.c_str(), s2_len);
+  EXPECT_EQ(result, 0);
+
+  s1 = "alphabetic";
+  s1_len = static_cast<int32_t>(s1.size());
+  s2 = "alpha";
+  s2_len = static_cast<int32_t>(s2.size());
+
+  result = instr_utf8(s1.c_str(), s1_len, s2.c_str(), s2_len);
+  EXPECT_EQ(result, 1);
+
+  s1 = "alphabetic";
+  s1_len = static_cast<int32_t>(s1.size());
+  s2 = "bet";
+  s2_len = static_cast<int32_t>(s2.size());
+
+  result = instr_utf8(s1.c_str(), s1_len, s2.c_str(), s2_len);
+  EXPECT_EQ(result, 6);
+
+  s1 = "kaleidoscope";
+  s1_len = static_cast<int32_t>(s1.size());
+  s2 = "scope";
+  s2_len = static_cast<int32_t>(s2.size());
+
+  result = instr_utf8(s1.c_str(), s1_len, s2.c_str(), s2_len);
+  EXPECT_EQ(result, 8);
 }
 }  // namespace gandiva
