@@ -15,52 +15,45 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARG base
-FROM ${base}
-
 ARG arch_alias
-ARG arch_short_alias
+FROM quay.io/pypa/manylinux2010_${arch_alias}:2021-10-11-14ac00e
 
 RUN yum install -y git flex curl autoconf zip wget
 
+# Install more recent glibc>2.15 for prebuilt vcpkg binary
+ARG glibc=2.18
+COPY ci/scripts/install_glibc.sh arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_glibc.sh ${glibc} /opt/glibc-${glibc}
+
 # Install CMake
 # AWS SDK doesn't work with CMake=3.22 due to https://gitlab.kitware.com/cmake/cmake/-/issues/22524
+ARG arch
 ARG cmake=3.21.4
-RUN wget -q https://github.com/Kitware/CMake/releases/download/v${cmake}/cmake-${cmake}-Linux-${arch_alias}.tar.gz -O - | \
-    tar -xzf - --directory /usr/local --strip-components=1
+COPY ci/scripts/install_cmake.sh arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_cmake.sh ${arch} linux ${cmake} /usr/local
 
 # Install Ninja
 ARG ninja=1.10.2
-RUN mkdir /tmp/ninja && \
-    wget -q https://github.com/ninja-build/ninja/archive/v${ninja}.tar.gz -O - | \
-    tar -xzf - --directory /tmp/ninja --strip-components=1 && \
-    cd /tmp/ninja && \
-    ./configure.py --bootstrap && \
-    mv ninja /usr/local/bin && \
-    rm -rf /tmp/ninja
+COPY ci/scripts/install_ninja.sh arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_ninja.sh ${ninja} /usr/local
 
 # Install ccache
 ARG ccache=4.1
-RUN mkdir /tmp/ccache && \
-    wget -q https://github.com/ccache/ccache/archive/v${ccache}.tar.gz -O - | \
-    tar -xzf - --directory /tmp/ccache --strip-components=1 && \
-    cd /tmp/ccache && \
-    mkdir build && \
-    cd build && \
-    cmake -GNinja -DCMAKE_BUILD_TYPE=Release -DZSTD_FROM_INTERNET=ON .. && \
-    ninja install && \
-    rm -rf /tmp/ccache
+COPY ci/scripts/install_ccache.sh arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_ccache.sh ${ccache} /usr/local
 
 # Install vcpkg
-ARG vcpkg \
-    vcpkg_download_tool="ON"
+ARG vcpkg
 COPY ci/vcpkg/*.patch \
      ci/vcpkg/*linux*.cmake \
      arrow/ci/vcpkg/
 COPY ci/scripts/install_vcpkg.sh arrow/ci/scripts/
-RUN VCPKG_DOWNLOAD_TOOL=${vcpkg_download_tool} arrow/ci/scripts/install_vcpkg.sh /opt/vcpkg ${vcpkg}
+RUN arrow/ci/scripts/install_vcpkg.sh /opt/vcpkg ${vcpkg} && \
+    patchelf --set-interpreter /opt/glibc-2.18/lib/ld-linux-x86-64.so.2 /opt/vcpkg/vcpkg && \
+    patchelf --set-rpath /opt/glibc-2.18/lib:/usr/lib64 /opt/vcpkg/vcpkg
 ENV PATH="/opt/vcpkg:${PATH}"
 
+ARG arch_short_alias
 ARG build_type=release
 ENV CMAKE_BUILD_TYPE=${build_type} \
     VCPKG_FORCE_SYSTEM_BINARIES=1 \
