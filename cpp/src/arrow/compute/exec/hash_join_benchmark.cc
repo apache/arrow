@@ -49,10 +49,13 @@ namespace compute
         JoinType join_type = JoinType::INNER;
         double build_to_probe_proportion = 0.1;
         int batch_size = 1024;
-        int num_build_batches = 10;
-        std::vector<std::shared_ptr<DataType>> key_types;
-        std::vector<std::shared_ptr<DataType>> build_payload_types;
-        std::vector<std::shared_ptr<DataType>> probe_payload_types;
+        int num_build_batches = 32;
+        std::vector<std::shared_ptr<DataType>> key_types = { int32() };
+        std::vector<std::shared_ptr<DataType>> build_payload_types = {};
+        std::vector<std::shared_ptr<DataType>> probe_payload_types = {};
+
+        double null_percentage = 0.0;
+        double build_cardinality = 0.6;
     };
 
     class JoinBenchmark
@@ -68,8 +71,19 @@ namespace compute
             {
                 std::string l_name = "lk" + std::to_string(i);
                 std::string r_name = "rk" + std::to_string(i);
-                DCHECK_OK(l_schema_builder.AddField(field(l_name, settings.key_types[i])));
-                DCHECK_OK(r_schema_builder.AddField(field(r_name, settings.key_types[i])));
+
+                uint64_t num_build_rows = settings.num_build_batches * settings.batch_size;
+                uint64_t max_int_value = static_cast<uint64_t>(num_build_rows * settings.build_cardinality);
+
+                std::unordered_map<std::string, std::string> metadata;
+                metadata["null_probability"] = std::to_string(settings.null_percentage);
+                metadata["min"] = "0";
+                metadata["max"] = std::to_string(max_int_value);
+                auto l_field = field(l_name, settings.key_types[i], key_value_metadata(metadata));
+                auto r_field = field(r_name, settings.key_types[i], key_value_metadata(metadata));
+
+                DCHECK_OK(l_schema_builder.AddField(std::move(l_field)));
+                DCHECK_OK(r_schema_builder.AddField(std::move(r_field)));
 
                 left_keys.push_back(FieldRef(l_name));
                 right_keys.push_back(FieldRef(r_name));
@@ -188,13 +202,6 @@ namespace compute
     {
         BenchmarkSettings settings;
         settings.num_threads = static_cast<int>(st.range(0));
-        settings.join_type = JoinType::INNER;
-        settings.build_to_probe_proportion = 0.1;
-        settings.batch_size = 1024;
-        settings.num_build_batches = 32;
-        settings.key_types = { int32() };
-        settings.build_payload_types = {};
-        settings.probe_payload_types = {};
 
         HashJoinBasicBenchmarkImpl(st, settings);
     }
@@ -202,14 +209,7 @@ namespace compute
     static void BM_HashJoinBasic_RelativeBuildProbe(benchmark::State &st)
     {
         BenchmarkSettings settings;
-        settings.num_threads = 1;
-        settings.join_type = JoinType::INNER;
         settings.build_to_probe_proportion = static_cast<double>(st.range(0)) / 100.0;
-        settings.batch_size = 1024;
-        settings.num_build_batches = 32;
-        settings.key_types = { int32() };
-        settings.build_payload_types = {};
-        settings.probe_payload_types = {};
 
         HashJoinBasicBenchmarkImpl(st, settings);
     }
@@ -217,21 +217,32 @@ namespace compute
     static void BM_HashJoinBasic_NumKeyColumns(benchmark::State &st)
     {
         BenchmarkSettings settings;
-        settings.num_threads = 1;
-        settings.join_type = JoinType::INNER;
-        settings.build_to_probe_proportion = 0.1;
-        settings.batch_size = 1024;
-        settings.num_build_batches = 32;
         for(int i = 0; i < st.range(0); i++)
             settings.key_types.push_back(int32());
-        settings.build_payload_types = {};
-        settings.probe_payload_types = {};
+
+        HashJoinBasicBenchmarkImpl(st, settings);
+    }
+
+    static void BM_HashJoinBasic_NullPercentage(benchmark::State &st)
+    {
+        BenchmarkSettings settings;
+        settings.null_percentage = static_cast<double>(st.range(0)) / 100.0;
 
         HashJoinBasicBenchmarkImpl(st, settings);
     }
     
+    static void BM_HashJoinBasic_BuildCardinality(benchmark::State &st)
+    {
+        BenchmarkSettings settings;
+        settings.build_cardinality = static_cast<double>(st.range(0)) / 100.0;
+
+        HashJoinBasicBenchmarkImpl(st, settings);
+    }
+
     BENCHMARK(BM_HashJoinBasic_Threads)->ArgNames({"Threads"})->DenseRange(1, 16);
     BENCHMARK(BM_HashJoinBasic_RelativeBuildProbe)->ArgNames({"RelativeBuildProbePercentage"})->DenseRange(1, 200, 20);
     BENCHMARK(BM_HashJoinBasic_NumKeyColumns)->ArgNames({"NumKeyColumns"})->RangeMultiplier(2)->Range(1, 32);
+    BENCHMARK(BM_HashJoinBasic_NullPercentage)->ArgNames({"NullPercentage"})->DenseRange(0, 100, 10);
+    BENCHMARK(BM_HashJoinBasic_BuildCardinality)->ArgNames({"BuildCardinality"})->DenseRange(10, 100, 10);
 } // namespace compute
 } // namespace arrow
