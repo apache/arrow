@@ -170,6 +170,13 @@ class PrepareTest < Test::Unit::TestCase
         ],
       },
       {
+        path: "dev/tasks/homebrew-formulae/apache-arrow-glib.rb",
+        hunks: [
+          ["-  url \"https://www.apache.org/dyn/closer.lua?path=arrow/arrow-#{@snapshot_version}/apache-arrow-#{@snapshot_version}.tar.gz\"",
+           "+  url \"https://www.apache.org/dyn/closer.lua?path=arrow/arrow-#{@release_version}/apache-arrow-#{@release_version}.tar.gz\""],
+        ],
+      },
+      {
         path: "dev/tasks/homebrew-formulae/apache-arrow.rb",
         hunks: [
           ["-  url \"https://www.apache.org/dyn/closer.lua?path=arrow/arrow-#{@snapshot_version}/apache-arrow-#{@snapshot_version}.tar.gz\"",
@@ -293,6 +300,13 @@ class PrepareTest < Test::Unit::TestCase
         hunks: [
           ["-    <Version>#{@snapshot_version}</Version>",
            "+    <Version>#{@next_snapshot_version}</Version>"],
+        ],
+      },
+      {
+        path: "dev/tasks/homebrew-formulae/apache-arrow-glib.rb",
+        hunks: [
+          ["-  url \"https://www.apache.org/dyn/closer.lua?path=arrow/arrow-#{@snapshot_version}/apache-arrow-#{@snapshot_version}.tar.gz\"",
+           "+  url \"https://www.apache.org/dyn/closer.lua?path=arrow/arrow-#{@next_snapshot_version}/apache-arrow-#{@next_snapshot_version}.tar.gz\""],
         ],
       },
       {
