@@ -541,6 +541,9 @@ const char* byte_substr_binary_int32_int32(gdv_int64 context, const char* text,
                                            gdv_int32 text_len, gdv_int32 offset,
                                            gdv_int32 length, gdv_int32* out_len);
 
+const char* soundex_utf8(gdv_int64 ctx, const char* in, gdv_int32 in_len,
+                         int32_t* out_len);
+
 const char* castVARCHAR_bool_int64(gdv_int64 context, gdv_boolean value,
                                    gdv_int64 out_len, gdv_int32* out_length);
 
