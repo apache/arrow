@@ -40,7 +40,10 @@ jobs:
       {{ macros.github_checkout_arrow()|indent }}
 
       - name: Install System Dependencies
-        run: brew install bash bison coreutils ninja cmake
+        run: brew install bash bison coreutils ninja
+
+      - name: Install Specific CMake version
+        uses: lukka/get-cmake@v3.21.4
 
       - name: Retrieve VCPKG version from arrow/.env
         shell: bash
