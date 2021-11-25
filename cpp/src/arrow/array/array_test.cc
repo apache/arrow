@@ -3358,70 +3358,61 @@ TEST(TestSwapEndianArrayData, InvalidLength) {
   }
 }
 
-template <typename T>
+template <typename PType>
 class TestPrimitiveArray : public ::testing::Test {
  public:
-  void SetUp() { pool_ = default_memory_pool(); }
+  using ElementType = typename PType::T;
+
+  void SetUp() {
+    pool_ = default_memory_pool();
+    generate_input();
+  }
+
+  void generate_input() {
+    null_tags_ = std::vector<bool>{true, false, true, true, false, true};
+    values_ = std::vector<ElementType>{0, 1, 0, 0, 1, 0};
+  }
 
  protected:
   MemoryPool* pool_;
+  std::vector<bool> null_tags_;
+  std::vector<ElementType> values_;
 };
 
-typedef ::testing::Types<PBoolean, PUInt8, PUInt16, PUInt32, PUInt64, PInt8, PInt16,
-                         PInt32, PInt64, PFloat, PDouble>
-    NumericPrimitives;
+template <>
+void TestPrimitiveArray<PDayTimeInterval>::generate_input() {
+  null_tags_ = std::vector<bool>{true, false};
+  values_ = std::vector<DayTimeIntervalType::DayMilliseconds>{{0, 10}, {1, 0}};
+}
 
-TYPED_TEST_SUITE(TestPrimitiveArray, NumericPrimitives);
+template <>
+void TestPrimitiveArray<PMonthDayNanoInterval>::generate_input() {
+  null_tags_ = std::vector<bool>{false, true};
+  values_ =
+      std::vector<MonthDayNanoIntervalType::MonthDayNanos>{{0, 10, 100}, {1, 0, 10}};
+}
+
+TYPED_TEST_SUITE(TestPrimitiveArray, Primitives);
 
 TYPED_TEST(TestPrimitiveArray, IndexOperator) {
-  using BuilderType = typename TypeParam::BuilderType;
-  using ArrayType = typename TypeParam::ArrayType;
-  using T = typename TypeParam::T;
-
-  const int64_t length = 6;
-  std::vector<bool> null_tags = {true, false, true, true, false, true};
-  std::vector<T> expected_values = {0, 1, 0, 0, 1, 0};
-
-  BuilderType builder;
-  builder.Reserve(length);
-  builder.AppendValues(expected_values, null_tags);
+  typename TypeParam::BuilderType builder;
+  builder.Reserve(this->values_.size());
+  builder.AppendValues(this->values_, this->null_tags_);
   ASSERT_OK_AND_ASSIGN(auto array, builder.Finish());
 
-  const auto& carray = checked_cast<ArrayType&>(*array);
+  const auto& carray = checked_cast<typename TypeParam::ArrayType&>(*array);
 
-  ASSERT_EQ(length, carray.length());
-  for (int64_t i = 0; i < length; ++i) {
+  ASSERT_EQ(this->values_.size(), carray.length());
+  for (int64_t i = 0; i < carray.length(); ++i) {
     auto res = carray[i];
     if (res) {
       ASSERT_TRUE(res.has_value());
-      ASSERT_EQ(expected_values[i], res.value());
+      ASSERT_EQ(this->values_[i], res.value());
     } else {
       ASSERT_FALSE(res.has_value());
       ASSERT_EQ(res, util::nullopt);
     }
   }
-}
-
-TEST(TestPrimitiveArray, DayTimeIntervalArrayIndexOperator) {
-  auto array = ArrayFromJSON(day_time_interval(), "[[0, 10], null]");
-  const auto& carray = checked_cast<DayTimeIntervalArray&>(*array);
-
-  ASSERT_EQ(2, carray.length());
-  ASSERT_TRUE(carray[0].has_value());
-  ASSERT_EQ(carray[0].value(), DayTimeIntervalType::DayMilliseconds({0, 10}));
-  ASSERT_FALSE(carray[1].has_value());
-  ASSERT_EQ(carray[1], util::nullopt);
-}
-
-TEST(TestPrimitiveArray, MonthDayNanoIntervalArrayIndexOperator) {
-  auto array = ArrayFromJSON(month_day_nano_interval(), "[null, [2, 10, 100]]");
-  const auto& carray = checked_cast<MonthDayNanoIntervalArray&>(*array);
-
-  ASSERT_EQ(2, carray.length());
-  ASSERT_FALSE(carray[0].has_value());
-  ASSERT_EQ(carray[0], util::nullopt);
-  ASSERT_TRUE(carray[1].has_value());
-  ASSERT_EQ(carray[1].value(), MonthDayNanoIntervalType::MonthDayNanos({2, 10, 100}));
 }
 
 }  // namespace arrow
