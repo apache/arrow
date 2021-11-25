@@ -444,11 +444,43 @@ void AddBasicSetLookupKernels(ScalarKernel kernel,
   }
 }
 
+const FunctionDoc is_in_doc{
+    "Find each element in a set of values",
+    ("For each element in `values`, return true if it is found in a given\n"
+     "set of values, false otherwise.\n"
+     "The set of values to look for must be given in SetLookupOptions.\n"
+     "By default, nulls are matched against the value set, this can be\n"
+     "changed in SetLookupOptions."),
+    {"values"},
+    "SetLookupOptions"};
+
+const FunctionDoc is_in_meta_doc{
+    "Find each element in a set of values",
+    ("For each element in `values`, return true if it is found in `value_set`,\n"
+     "false otherwise."),
+    {"values", "value_set"}};
+
+const FunctionDoc index_in_doc{
+    "Return index of each element in a set of values",
+    ("For each element in `values`, return its index in a given set of\n"
+     "values, or null if it is not found there.\n"
+     "The set of values to look for must be given in SetLookupOptions.\n"
+     "By default, nulls are matched against the value set, this can be\n"
+     "changed in SetLookupOptions."),
+    {"values"},
+    "SetLookupOptions"};
+
+const FunctionDoc index_in_meta_doc{
+    "Return index of each element in a set of values",
+    ("For each element in `values`, return its index in the `value_set`,\n"
+     "or null if it is not found there."),
+    {"values", "value_set"}};
+
 // Enables calling is_in with CallFunction as though it were binary.
 class IsInMetaBinary : public MetaFunction {
  public:
   IsInMetaBinary()
-      : MetaFunction("is_in_meta_binary", Arity::Binary(), /*doc=*/nullptr) {}
+      : MetaFunction("is_in_meta_binary", Arity::Binary(), &is_in_meta_doc) {}
 
   Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
                             const FunctionOptions* options,
@@ -464,7 +496,7 @@ class IsInMetaBinary : public MetaFunction {
 class IndexInMetaBinary : public MetaFunction {
  public:
   IndexInMetaBinary()
-      : MetaFunction("index_in_meta_binary", Arity::Binary(), /*doc=*/nullptr) {}
+      : MetaFunction("index_in_meta_binary", Arity::Binary(), &index_in_meta_doc) {}
 
   Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
                             const FunctionOptions* options,
@@ -484,26 +516,6 @@ struct SetLookupFunction : ScalarFunction {
     return DispatchExact(*values);
   }
 };
-
-const FunctionDoc is_in_doc{
-    "Find each element in a set of values",
-    ("For each element in `values`, return true if it is found in a given\n"
-     "set of values, false otherwise.\n"
-     "The set of values to look for must be given in SetLookupOptions.\n"
-     "By default, nulls are matched against the value set, this can be\n"
-     "changed in SetLookupOptions."),
-    {"values"},
-    "SetLookupOptions"};
-
-const FunctionDoc index_in_doc{
-    "Return index of each element in a set of values",
-    ("For each element in `values`, return its index in a given set of\n"
-     "values, or null if it is not found there.\n"
-     "The set of values to look for must be given in SetLookupOptions.\n"
-     "By default, nulls are matched against the value set, this can be\n"
-     "changed in SetLookupOptions."),
-    {"values"},
-    "SetLookupOptions"};
 
 }  // namespace
 

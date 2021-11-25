@@ -22,6 +22,7 @@
 
 #if defined(ARROW_R_WITH_ARROW)
 #include <arrow/array/array_base.h>
+#include <arrow/chunked_array.h>
 
 namespace arrow {
 namespace r {
@@ -169,6 +170,10 @@ std::shared_ptr<arrow::DataType> InferArrowTypeFromVector<VECSXP>(SEXP x) {
 }
 
 std::shared_ptr<arrow::DataType> InferArrowType(SEXP x) {
+  if (arrow::r::altrep::is_arrow_altrep(x)) {
+    return arrow::r::altrep::vec_to_arrow_altrep_bypass(x)->type();
+  }
+
   switch (TYPEOF(x)) {
     case ENVSXP:
       return InferArrowTypeFromVector<ENVSXP>(x);

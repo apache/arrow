@@ -90,5 +90,5 @@ help output, for example:
      push    Push the generated docker-compose image.
      run     Execute docker-compose builds.
 
-A more detailed introduction to using docker with
-Archery is available in a separate :ref:`page <docker>`.
+A more detailed introduction to using Docker with
+Archery is available at :doc:`docker`.

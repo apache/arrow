@@ -22,12 +22,12 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/apache/arrow/go/arrow/memory"
-	"github.com/apache/arrow/go/parquet"
-	"github.com/apache/arrow/go/parquet/file"
-	"github.com/apache/arrow/go/parquet/internal/testutils"
-	"github.com/apache/arrow/go/parquet/internal/utils"
-	"github.com/apache/arrow/go/parquet/schema"
+	"github.com/apache/arrow/go/v7/arrow/memory"
+	"github.com/apache/arrow/go/v7/parquet"
+	"github.com/apache/arrow/go/v7/parquet/file"
+	"github.com/apache/arrow/go/v7/parquet/internal/testutils"
+	"github.com/apache/arrow/go/v7/parquet/internal/utils"
+	"github.com/apache/arrow/go/v7/parquet/schema"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )

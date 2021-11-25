@@ -20,9 +20,9 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/apache/arrow/go/arrow/bitutil"
-	"github.com/apache/arrow/go/parquet/internal/testutils"
-	"github.com/apache/arrow/go/parquet/internal/utils"
+	"github.com/apache/arrow/go/v7/arrow/bitutil"
+	"github.com/apache/arrow/go/v7/parquet/internal/testutils"
+	"github.com/apache/arrow/go/v7/parquet/internal/utils"
 )
 
 func randomBitsBuffer(nbits, setPct int64) []byte {

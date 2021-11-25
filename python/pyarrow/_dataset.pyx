@@ -1840,11 +1840,11 @@ cdef class CsvFileFormat(FileFormat):
 
     Parameters
     ----------
-    parse_options : ParseOptions
+    parse_options : csv.ParseOptions
         Options regarding CSV parsing.
-    convert_options : ConvertOptions
+    convert_options : csv.ConvertOptions
         Options regarding value conversion.
-    read_options : ReadOptions
+    read_options : csv.ReadOptions
         General read options.
     default_fragment_scan_options : CsvFragmentScanOptions
         Default options for fragments scan.
@@ -1923,9 +1923,9 @@ cdef class CsvFragmentScanOptions(FragmentScanOptions):
 
     Parameters
     ----------
-    convert_options : ConvertOptions
+    convert_options : csv.ConvertOptions
         Options regarding value conversion.
-    read_options : ReadOptions
+    read_options : csv.ReadOptions
         General read options.
     """
 

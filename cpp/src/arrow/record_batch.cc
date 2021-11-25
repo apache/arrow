@@ -282,31 +282,39 @@ std::string RecordBatch::ToString() const {
   return ss.str();
 }
 
-Status RecordBatch::Validate() const {
-  for (int i = 0; i < num_columns(); ++i) {
-    const auto& array = *this->column(i);
-    if (array.length() != num_rows_) {
+namespace {
+
+Status ValidateBatch(const RecordBatch& batch, bool full_validation) {
+  for (int i = 0; i < batch.num_columns(); ++i) {
+    const auto& array = *batch.column(i);
+    if (array.length() != batch.num_rows()) {
       return Status::Invalid("Number of rows in column ", i,
-                             " did not match batch: ", array.length(), " vs ", num_rows_);
+                             " did not match batch: ", array.length(), " vs ",
+                             batch.num_rows());
     }
-    const auto& schema_type = *schema_->field(i)->type();
+    const auto& schema_type = batch.schema()->field(i)->type();
     if (!array.type()->Equals(schema_type)) {
       return Status::Invalid("Column ", i,
                              " type not match schema: ", array.type()->ToString(), " vs ",
-                             schema_type.ToString());
+                             schema_type->ToString());
     }
-    RETURN_NOT_OK(internal::ValidateArray(array));
+    const auto st = full_validation ? internal::ValidateArrayFull(array)
+                                    : internal::ValidateArray(array);
+    if (!st.ok()) {
+      return Status::Invalid("In column ", i, ": ", st.ToString());
+    }
   }
   return Status::OK();
 }
 
+}  // namespace
+
+Status RecordBatch::Validate() const {
+  return ValidateBatch(*this, /*full_validation=*/false);
+}
+
 Status RecordBatch::ValidateFull() const {
-  RETURN_NOT_OK(Validate());
-  for (int i = 0; i < num_columns(); ++i) {
-    const auto& array = *this->column(i);
-    RETURN_NOT_OK(internal::ValidateArrayFull(array));
-  }
-  return Status::OK();
+  return ValidateBatch(*this, /*full_validation=*/true);
 }
 
 // ----------------------------------------------------------------------

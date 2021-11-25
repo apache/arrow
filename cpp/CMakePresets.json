@@ -1,0 +1,165 @@
+{
+  "version": 2,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 20,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "ninja-benchmarks",
+      "description": "Build for benchmarks",
+      "inherits": "ninja-release",
+      "cacheVariables": {
+        "ARROW_BUILD_BENCHMARKS": "ON",
+        "ARROW_BUILD_BENCHMARKS_REFERENCE": "ON",
+        "ARROW_BUILD_TESTS": "OFF"
+      }
+    },
+    {
+      "name": "ninja-debug",
+      "description": "Debug configuration with basic build",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "generator": "Ninja",
+      "cacheVariables": {
+        "ARROW_BUILD_BENCHMARKS": {
+          "type": "BOOL",
+          "value": "OFF"
+        },
+        "ARROW_BUILD_TESTS": {
+          "type": "BOOL",
+          "value": "ON"
+        },
+        "ARROW_COMPUTE": {
+          "type": "BOOL",
+          "value": "ON"
+        },
+        "ARROW_CSV": {
+          "type": "BOOL",
+          "value": "ON"
+        },
+        "ARROW_CUDA": {
+          "type": "BOOL",
+          "value": "OFF"
+        },
+        "ARROW_DATASET": {
+          "type": "BOOL",
+          "value": "OFF"
+        },
+        "ARROW_GANDIVA": {
+          "type": "BOOL",
+          "value": "OFF"
+        },
+        "ARROW_GANDIVA_JAVA": {
+          "type": "BOOL",
+          "value": "OFF"
+        },
+        "ARROW_GANDIVA_JNI": {
+          "type": "BOOL",
+          "value": "OFF"
+        },
+        "ARROW_FILESYSTEM": {
+          "type": "BOOL",
+          "value": "ON"
+        },
+        "ARROW_IPC": {
+          "type": "BOOL",
+          "value": "ON"
+        },
+        "ARROW_PARQUET": {
+          "type": "BOOL",
+          "value": "OFF"
+        },
+        "ARROW_PLASMA_JAVA_CLIENT": {
+          "type": "BOOL",
+          "value": "OFF"
+        },
+        "ARROW_PYTHON": {
+          "type": "BOOL",
+          "value": "ON"
+        },
+        "ARROW_SKYHOOK": {
+          "type": "BOOL",
+          "value": "OFF"
+        },
+        "ARROW_WITH_RE2": {
+          "type": "BOOL",
+          "value": "ON"
+        },
+        "CMAKE_BUILD_TYPE": {
+          "type": "String",
+          "value": "Debug"
+        },
+        "CMAKE_INSTALL_PREFIX": {
+          "type": "PATH",
+          "value": "${sourceDir}/build/${presetName}/pkg"
+        }
+      }
+    },
+    {
+      "name": "ninja-debug-cuda",
+      "description": "Debug Arrow build with CUDA extensions (requires CUDA toolkit)",
+      "inherits": "ninja-debug",
+      "cacheVariables": {
+        "ARROW_CUDA": "ON"
+      }
+    },
+    {
+      "name": "ninja-debug-dataset",
+      "description": "Builds Arrow Dataset modules",
+      "inherits": "ninja-debug",
+      "cacheVariables": {
+        "ARROW_DATASET": "ON"
+      }
+    },
+    {
+      "name": "ninja-debug-gandiva",
+      "description": "Builds Gandiva libraries",
+      "inherits": "ninja-debug",
+      "cacheVariables": {
+        "ARROW_GANDIVA": "ON"
+      }
+    },
+    {
+      "name": "ninja-debug-parquet",
+      "description": "Builds Parquet libraries",
+      "inherits": "ninja-debug",
+      "cacheVariables": {
+        "ARROW_PARQUET": "ON"
+      }
+    },
+    {
+      "name": "ninja-debug-skyhook",
+      "description": "Builds Skyhook libraries",
+
+      "inherits": "ninja-debug",
+      "cacheVariables": {
+        "ARROW_SKYHOOK": "ON"
+      }
+    },
+    {
+      "name": "ninja-release",
+      "description": "Release configuration",
+      "inherits": "ninja-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "ninja-release-gandiva",
+      "description": "Release configuration with Gandiva",
+      "inherits": "ninja-release",
+      "cacheVariables": {
+        "ARROW_GANDIVA": "ON"
+      }
+    },
+    {
+      "name": "ninja-release-parquet",
+      "description": "Release configuration with Parquet",
+      "inherits": "ninja-release",
+      "cacheVariables": {
+        "ARROW_PARQUET": "ON"
+      }
+    }
+  ]
+}

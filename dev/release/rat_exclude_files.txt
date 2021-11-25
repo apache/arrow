@@ -49,6 +49,7 @@ dev/archery/requirements*.txt
 dev/archery/archery/tests/fixtures/*
 dev/archery/archery/crossbow/tests/fixtures/*
 dev/release/rat_exclude_files.txt
+dev/tasks/homebrew-formulae/apache-arrow-glib.rb
 dev/tasks/homebrew-formulae/apache-arrow.rb
 dev/tasks/linux-packages/apache-arrow-apt-source/debian/apache-arrow-apt-source.install
 dev/tasks/linux-packages/apache-arrow-apt-source/debian/compat
@@ -123,7 +124,7 @@ dev/tasks/requirements*.txt
 dev/tasks/conda-recipes/*
 docs/requirements.txt
 go/arrow/flight/Flight_grpc.pb.go
-go/arrow/go.sum
+go/go.sum
 go/arrow/Gopkg.lock
 go/arrow/flight/Flight.pb.go
 go/arrow/flight/Flight_grpc.pb.go
@@ -132,7 +133,6 @@ go/arrow/type_string.go
 go/arrow/cdata/test/go.sum
 go/*.tmpldata
 go/*.s
-go/parquet/go.sum
 go/parquet/internal/gen-go/parquet/GoUnusedProtection__.go
 go/parquet/internal/gen-go/parquet/parquet-consts.go
 go/parquet/internal/gen-go/parquet/parquet.go
@@ -194,6 +194,7 @@ r/man/*.Rd
 r/cran-comments.md
 r/vignettes/*.Rmd
 r/tests/testthat/test-*.txt
+r/tests/testthat/_snaps/*.md
 r/inst/include/cpp11.hpp
 r/inst/include/cpp11/*.hpp
 r/tests/testthat/_snaps/*.md

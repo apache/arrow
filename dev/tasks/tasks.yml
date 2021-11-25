@@ -143,6 +143,23 @@ groups:
     - example-*
     - wheel-*
     - python-sdist
+    # ARROW-14256
+    - ~conda-linux-gcc-py310-arm64
+    - ~conda-linux-gcc-py310-cuda
+    - ~conda-linux-gcc-py36-arm64
+    - ~conda-linux-gcc-py37-arm64
+    - ~conda-linux-gcc-py37-cpu-r41
+    - ~conda-linux-gcc-py37-cuda
+    - ~conda-linux-gcc-py38-arm64
+    - ~conda-linux-gcc-py38-cpu
+    - ~conda-linux-gcc-py38-cuda
+    - ~conda-linux-gcc-py39-arm64
+    - ~conda-linux-gcc-py39-cpu
+    - ~conda-linux-gcc-py39-cuda
+    - ~conda-win-vs2017-py37-r41
+    # ARROW-14215
+    - ~conda-win-vs2017-py38
+    - ~conda-win-vs2017-py39
 
 tasks:
   # arbitrary_task_name:
@@ -1122,9 +1139,6 @@ tasks:
     ci: github
     template: docker-tests/github.linux.yml
     params:
-      env:
-        UBUNTU: 21.04
-        CLANG_TOOLS: 9 # can remove this when >=9 is the default
       flags: '-e ARROW_SOURCE_HOME="/arrow" -e FORCE_BUNDLED_BUILD=TRUE -e LIBARROW_BUILD=TRUE -e ARROW_DEPENDENCY_SOURCE=SYSTEM'
       image: ubuntu-r-only-r
 
@@ -1144,10 +1158,10 @@ tasks:
 
 {% for r_org, r_image, r_tag in [("rhub", "ubuntu-gcc-release", "latest"),
                                  ("rocker", "r-base", "latest"),
-                                 ("rstudio", "r-base", "3.6-bionic"),
-                                 ("rstudio", "r-base", "3.6-centos8"),
-                                 ("rstudio", "r-base", "3.6-opensuse15"),
-                                 ("rstudio", "r-base", "3.6-opensuse42")] %}
+                                 ("rstudio", "r-base", "4.1-focal"),
+                                 ("rstudio", "r-base", "4.1-centos8"),
+                                 ("rstudio", "r-base", "4.1-opensuse15"),
+                                 ("rstudio", "r-base", "4.1-opensuse42")] %}
   test-r-{{ r_org }}-{{ r_image }}-{{ r_tag }}:
     ci: azure
     template: r/azure.linux.yml
@@ -1193,13 +1207,13 @@ tasks:
       flags: '-e ARROW_SOURCE_HOME="/arrow" -e FORCE_BUNDLED_BUILD=TRUE -e LIBARROW_BUILD=TRUE -e ARROW_S3=OFF'
       image: ubuntu-r-only-r
 
-  test-r-rstudio-r-base-3.6-centos7-devtoolset-8:
+  test-r-rstudio-r-base-4.1-centos7-devtoolset-8:
     ci: azure
     template: r/azure.linux.yml
     params:
       r_org: rstudio
       r_image: r-base
-      r_tag: 3.6-centos7
+      r_tag: 4.1-centos7
       devtoolset_version: 8
 
   test-r-minimal-build:

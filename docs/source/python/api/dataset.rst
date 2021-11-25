@@ -47,10 +47,12 @@ Classes
    :toctree: ../generated/
 
    FileFormat
-   ParquetFileFormat
-   ORCFileFormat
-   IpcFileFormat
    CsvFileFormat
+   CsvFragmentScanOptions
+   IpcFileFormat
+   ParquetFileFormat
+   ParquetFragmentScanOptions
+   ORCFileFormat
    Partitioning
    PartitioningFactory
    DirectoryPartitioning

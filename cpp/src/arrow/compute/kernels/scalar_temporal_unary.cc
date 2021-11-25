@@ -856,7 +856,7 @@ const FunctionDoc day_of_year_doc{
 
 const FunctionDoc iso_year_doc{
     "Extract ISO year number",
-    ("First week of an ISO year has the majority (4 or more) of its days in January."
+    ("First week of an ISO year has the majority (4 or more) of its days in January.\n"
      "Null values emit null.\n"
      "An error is returned if the values have a defined timezone but it\n"
      "cannot be found in the timezone database."),
@@ -864,9 +864,9 @@ const FunctionDoc iso_year_doc{
 
 const FunctionDoc iso_week_doc{
     "Extract ISO week of year number",
-    ("First ISO week has the majority (4 or more) of its days in January."
-     "ISO week starts on Monday.\n"
-     "Week of the year starts with 1 and can run up to 53.\n"
+    ("First ISO week has the majority (4 or more) of its days in January.\n"
+     "ISO week starts on Monday. The week number starts with 1 and can run\n"
+     "up to 53.\n"
      "Null values emit null.\n"
      "An error is returned if the values have a defined timezone but it\n"
      "cannot be found in the timezone database."),
@@ -874,20 +874,20 @@ const FunctionDoc iso_week_doc{
 
 const FunctionDoc us_week_doc{
     "Extract US week of year number",
-    ("First US week has the majority (4 or more) of its days in January."
-     "US week starts on Sunday.\n"
-     "Week of the year starts with 1 and can run up to 53.\n"
+    ("First US week has the majority (4 or more) of its days in January.\n"
+     "US week starts on Monday. The week number starts with 1 and can run\n"
+     "up to 53.\n"
      "Null values emit null.\n"
-     "An error is returned if the timestamps have a defined timezone but it\n"
+     "An error is returned if the values have a defined timezone but it\n"
      "cannot be found in the timezone database."),
     {"values"}};
 
 const FunctionDoc week_doc{
     "Extract week of year number",
     ("First week has the majority (4 or more) of its days in January.\n"
-     "Year can have 52 or 53 weeks. Week numbering can start with 0 or 1 using "
+     "Year can have 52 or 53 weeks. Week numbering can start with 0 or 1 using\n"
      "DayOfWeekOptions.count_from_zero.\n"
-     "An error is returned if the timestamps have a defined timezone but it\n"
+     "An error is returned if the values have a defined timezone but it\n"
      "cannot be found in the timezone database."),
     {"values"},
     "WeekOptions"};

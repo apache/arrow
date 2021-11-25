@@ -286,7 +286,7 @@ std::shared_ptr<fs::S3FileSystem> fs___S3FileSystem__create(
     std::string session_token = "", std::string role_arn = "",
     std::string session_name = "", std::string external_id = "", int load_frequency = 900,
     std::string region = "", std::string endpoint_override = "", std::string scheme = "",
-    bool background_writes = true) {
+    std::string proxy_options = "", bool background_writes = true) {
   // We need to ensure that S3 is initialized before we start messing with the
   // options
   StopIfNotOk(fs::EnsureS3Initialized());
@@ -315,6 +315,12 @@ std::shared_ptr<fs::S3FileSystem> fs___S3FileSystem__create(
   if (scheme != "") {
     s3_opts.scheme = scheme;
   }
+
+  if (proxy_options != "") {
+    auto s3_proxy_opts = fs::S3ProxyOptions::FromUri(proxy_options);
+    s3_opts.proxy_options = ValueOrStop(s3_proxy_opts);
+  }
+
   /// Whether OutputStream writes will be issued in the background, without blocking
   /// default true
   s3_opts.background_writes = background_writes;

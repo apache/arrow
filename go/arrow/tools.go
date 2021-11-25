@@ -14,10 +14,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-module cdatatest
+//go:build tools
+// +build tools
 
-go 1.15
+package tools
 
-replace github.com/apache/arrow/go/arrow => ../../
-
-require github.com/apache/arrow/go/arrow v0.0.0-00010101000000-000000000000
+import (
+	_ "golang.org/x/tools/cmd/goimports"
+)

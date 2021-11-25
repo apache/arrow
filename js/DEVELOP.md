@@ -70,6 +70,10 @@ To run tests directly on the sources without bundling, use the `src` target (e.g
 
 Uses [lerna](https://github.com/lerna/lerna) to publish each build target to npm with [conventional](https://conventionalcommits.org/) [changelogs](https://github.com/conventional-changelog/conventional-changelog/tree/master/packages/conventional-changelog-cli).
 
+* `yarn doc`
+
+Compiles the documentation with [Typedoc](https://typedoc.org/). Use `yarn doc --watch` to automatically rebuild when the docs change.
+
 # Running the Performance Benchmarks
 
 You can run the benchmarks with `yarn perf`. To print the results to stderr as JSON, add the `--json` flag (e.g. `yarn perf --json 2> perf.json`).

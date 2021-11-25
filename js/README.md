@@ -221,7 +221,7 @@ Full list of broader Apache Arrow [projects & organizations](https://arrow.apach
 ## Open Source Projects
 
 * [Apache Arrow](https://arrow.apache.org) -- Parent project for Powering Columnar In-Memory Analytics, including affiliated open source projects
-* [Perspective](https://github.com/jpmorganchase/perspective) -- Perspective is a streaming data visualization engine by J.P. Morgan for JavaScript for building real-time & user-configurable analytics entirely in the browser.
+* [Perspective](https://github.com/finos/perspective) -- Perspective is an interactive analytics and data visualization component well-suited for large and/or streaming datasets. Perspective leverages Arrow C++ compiled to WebAssembly.
 * [Falcon](https://github.com/uwdata/falcon) is a visualization tool for linked interactions across multiple aggregate visualizations of millions or billions of records.
 * [Vega](https://github.com/vega) is an ecosystem of tools for interactive visualizations on the web. The Vega team implemented an [Arrow loader](https://github.com/vega/vega-loader-arrow).
 * [Arquero](https://github.com/uwdata/arquero) is a library for query processing and transformation of array-backed data tables.

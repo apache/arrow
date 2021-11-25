@@ -307,3 +307,27 @@ test_that("arith functions ", {
     df
   )
 })
+
+test_that("floor division maintains type consistency with R",  {
+  df <- tibble(
+    integers = c(1:4, NA_integer_),
+    doubles = c(as.numeric(1:4), NA_real_)
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      transmute(
+        int_div_dbl = integers %/% 2,
+        int_div_int = integers %/% 2L,
+        int_div_zero_int = integers %/% 0L,
+        int_div_zero_dbl = integers %/% 0,
+
+        dbl_div_dbl = doubles %/% 2,
+        dbl_div_int = doubles %/% 2L,
+        dbl_div_zero_int = doubles %/% 0L,
+        dbl_div_zero_dbl = doubles %/% 0
+      ) %>%
+      collect(),
+    df
+  )
+})

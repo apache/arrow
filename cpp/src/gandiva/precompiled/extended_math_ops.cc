@@ -28,6 +28,7 @@ extern "C" {
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
 #include "./types.h"
 
 // Expand the inner fn for types that support extended math.
@@ -235,6 +236,21 @@ gdv_int64 round_int64(gdv_int64 num) { return num; }
 
 ROUND_DECIMAL(float32)
 ROUND_DECIMAL(float64)
+
+// rounds the number to the nearest integer
+FORCE_INLINE
+gdv_float64 bround_float64(gdv_float64 num) {
+  gdv_float64 round_num = round(num);
+  gdv_float64 diff_num = round_num - num;
+  if ((diff_num != 0.5) && (diff_num != -0.5)) {
+    return round_num;
+  }
+  if (fmod(round_num, 2.0) == 0.0) {
+    return round_num;
+  }
+
+  return num - diff_num;
+}
 
 // rounds the number to the given scale
 #define ROUND_DECIMAL_TO_SCALE(TYPE)                                        \
