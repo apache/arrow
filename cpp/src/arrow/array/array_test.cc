@@ -3396,8 +3396,8 @@ TYPED_TEST_SUITE(TestPrimitiveArray, Primitives);
 
 TYPED_TEST(TestPrimitiveArray, IndexOperator) {
   typename TypeParam::BuilderType builder;
-  builder.Reserve(this->values_.size());
-  builder.AppendValues(this->values_, this->null_tags_);
+  ASSERT_OK(builder.Reserve(this->values_.size()));
+  ASSERT_OK(builder.AppendValues(this->values_, this->null_tags_));
   ASSERT_OK_AND_ASSIGN(auto array, builder.Finish());
 
   const auto& carray = checked_cast<typename TypeParam::ArrayType&>(*array);
