@@ -17,7 +17,7 @@
 
 # based on mcr.microsoft.com/windows/servercore:ltsc2019
 # contains choco and vs2017 preinstalled
-FROM abrarov/msvc-2017:2.10.0
+FROM abrarov/msvc-2017:2.12.1
 
 # Install CMake and Ninja
 RUN choco install --no-progress -r -y cmake --installargs 'ADD_CMAKE_TO_PATH=System' && \

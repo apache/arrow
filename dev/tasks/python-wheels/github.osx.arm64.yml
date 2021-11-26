@@ -73,14 +73,15 @@ jobs:
       # In order to prevent link time warnings (which may turn out to be errors)
       # we compile OpenSSL separately for the two architectures and merge the
       # binaries into universal2 ones using `lipo`.
-      - name: Create universal binaries for OpenSSL
+      - name: Create universal binaries for OpenSSL and s2n
         shell: bash
         run: |
           mkdir -p $VCPKG_ROOT/installed/universal2-osx-static-release/lib
           for arch in arm64 amd64; do
             arch -arm64 $VCPKG_ROOT/vcpkg install openssl:${arch}-osx-static-release
+            arch -arm64 $VCPKG_ROOT/vcpkg install s2n:${arch}-osx-static-release
           done
-          for lib in libcrypto libssl; do
+          for lib in libcrypto libssl s2n; do
             lipo -create $VCPKG_ROOT/installed/arm64-osx-static-release/lib/${lib}.a \
                          $VCPKG_ROOT/installed/amd64-osx-static-release/lib/${lib}.a \
                  -output $VCPKG_ROOT/installed/universal2-osx-static-release/lib/${lib}.a
