@@ -15,15 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARG arch_alias
-FROM quay.io/pypa/manylinux2010_${arch_alias}:2021-10-11-14ac00e
+ARG base
+FROM ${base}
 
+ARG manylinux
+ENV MANYLINUX_VERSION=${manylinux}
+
+# Install basic dependencies
 RUN yum install -y git flex curl autoconf zip wget
-
-# Install more recent glibc>2.15 for prebuilt vcpkg binary
-ARG glibc=2.18
-COPY ci/scripts/install_glibc.sh arrow/ci/scripts/
-RUN /arrow/ci/scripts/install_glibc.sh ${glibc} /opt/glibc-${glibc}
 
 # Install CMake
 # AWS SDK doesn't work with CMake=3.22 due to https://gitlab.kitware.com/cmake/cmake/-/issues/22524
@@ -42,23 +41,29 @@ ARG ccache=4.1
 COPY ci/scripts/install_ccache.sh arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_ccache.sh ${ccache} /usr/local
 
-# Install vcpkg
+# Install vcpkg and in case of manylinux2010 install a more recent glibc>2.15
+# for the prebuilt vcpkg binary
 ARG vcpkg
+ARG glibc=2.18
 COPY ci/vcpkg/*.patch \
      ci/vcpkg/*linux*.cmake \
      arrow/ci/vcpkg/
-COPY ci/scripts/install_vcpkg.sh arrow/ci/scripts/
+COPY ci/scripts/install_vcpkg.sh \
+     ci/scripts/install_glibc.sh \
+     arrow/ci/scripts/
 RUN arrow/ci/scripts/install_vcpkg.sh /opt/vcpkg ${vcpkg} && \
-    patchelf --set-interpreter /opt/glibc-2.18/lib/ld-linux-x86-64.so.2 /opt/vcpkg/vcpkg && \
-    patchelf --set-rpath /opt/glibc-2.18/lib:/usr/lib64 /opt/vcpkg/vcpkg
+    if [ "${manylinux}" == "2010" ]; then \
+        arrow/ci/scripts/install_glibc.sh ${glibc} /opt/glibc-${glibc} && \
+        patchelf --set-interpreter /opt/glibc-2.18/lib/ld-linux-x86-64.so.2 /opt/vcpkg/vcpkg && \
+        patchelf --set-rpath /opt/glibc-2.18/lib:/usr/lib64 /opt/vcpkg/vcpkg; \
+    fi
 ENV PATH="/opt/vcpkg:${PATH}"
 
-ARG arch_short_alias
 ARG build_type=release
 ENV CMAKE_BUILD_TYPE=${build_type} \
     VCPKG_FORCE_SYSTEM_BINARIES=1 \
     VCPKG_OVERLAY_TRIPLETS=/arrow/ci/vcpkg \
-    VCPKG_DEFAULT_TRIPLET=${arch_short_alias}-linux-static-${build_type} \
+    VCPKG_DEFAULT_TRIPLET=${arch}-linux-static-${build_type} \
     VCPKG_FEATURE_FLAGS=-manifests
 
 # Need to install the boost-build prior installing the boost packages, otherwise
@@ -66,8 +71,6 @@ ENV CMAKE_BUILD_TYPE=${build_type} \
 # TODO(kszucs): factor out the package enumeration to a text file and reuse it
 # from the windows image and potentially in a future macos wheel build
 RUN vcpkg install --clean-after-build \
-        boost-build:${arch_short_alias}-linux && \
-    vcpkg install --clean-after-build \
         abseil \
         aws-sdk-cpp[config,cognito-identity,core,identity-management,s3,sts,transfer] \
         boost-filesystem \
