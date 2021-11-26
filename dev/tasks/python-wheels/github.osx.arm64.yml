@@ -76,6 +76,7 @@ jobs:
       - name: Create universal binaries for OpenSSL
         shell: bash
         run: |
+          mkdir -p $VCPKG_ROOT/installed/universal2-osx-static-release
           for arch in arm64 amd64; do
             arch -arm64 $VCPKG_ROOT/vcpkg install openssl:${arch}-osx-static-release
           done
