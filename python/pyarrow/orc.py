@@ -133,7 +133,8 @@ compression_strategy : string, default 'speed'
     Specify the compression strategy i.e. speed vs size reduction.
     Valid values: {'SPEED', 'COMPRESSION'}
 row_index_stride : int, default 10000
-    Specify the row index stride i.e. the number of rows per an entry in the row index.
+    Specify the row index stride i.e. the number of rows per
+    an entry in the row index.
 padding_tolerance : double, default 0.0
     Set the padding tolerance.
 dictionary_key_size_threshold : double, default 0.0
@@ -168,8 +169,8 @@ class ORCWriter:
                  padding_tolerance=0.0,
                  dictionary_key_size_threshold=0.0,
                  bloom_filter_columns=None,
-                 bloom_filter_fpp=0.05
-        ):
+                 bloom_filter_fpp=0.05,
+                 ):
 
         self.writer = _orc.ORCWriter()
         self.writer.open(
@@ -231,19 +232,6 @@ def write_table(table, where, file_version='0.12',
                 dictionary_key_size_threshold=0.0,
                 bloom_filter_columns=None,
                 bloom_filter_fpp=0.05):
-    __doc__="""
-    Write a table into an ORC file
-
-    Parameters
-    ----------
-    table : pyarrow.lib.Table
-        The table to be written into the ORC file
-    where : str or pyarrow.io.NativeFile
-        Writable target. For passing Python file objects or byte buffers,
-        see pyarrow.io.PythonFileInterface, pyarrow.io.BufferOutputStream
-        or pyarrow.io.FixedSizeBufferWriter.
-    {}
-    """.format(_orc_writer_arg_docs)
     if isinstance(where, Table):
         warnings.warn(
             "The order of the arguments has changed. Pass as "
@@ -266,3 +254,17 @@ def write_table(table, where, file_version='0.12',
     )
     writer.write(table)
     writer.close()
+
+    write_table.__doc__ = """
+    Write a table into an ORC file
+
+    Parameters
+    ----------
+    table : pyarrow.lib.Table
+        The table to be written into the ORC file
+    where : str or pyarrow.io.NativeFile
+        Writable target. For passing Python file objects or byte buffers,
+        see pyarrow.io.PythonFileInterface, pyarrow.io.BufferOutputStream
+        or pyarrow.io.FixedSizeBufferWriter.
+    {}
+    """.format(_orc_writer_arg_docs)

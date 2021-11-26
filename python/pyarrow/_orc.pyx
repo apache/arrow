@@ -97,34 +97,34 @@ cdef file_version_from_class(FileVersion file_version_):
 cdef class ORCWriterOptions(_Weakrefable):
     cdef:
         unique_ptr[WriterOptions] options
-    
+
     def __cinit__(self):
         self.options.reset(new WriterOptions())
-    
+
     def set_stripe_size(self, size):
         deref(self.options).set_stripe_size(size)
-    
+
     def get_stripe_size(self):
         return deref(self.options).stripe_size()
 
     def set_compression_block_size(self, size):
         deref(self.options).set_compression_block_size(size)
-    
+
     def get_compression_block_size(self):
         return deref(self.options).compression_block_size()
 
     def set_row_index_stride(self, stride):
         deref(self.options).set_row_index_stride(stride)
-    
+
     def get_row_index_stride(self):
         return deref(self.options).row_index_stride()
-    
+
     def set_dictionary_key_size_threshold(self, val):
         deref(self.options).set_dictionary_key_size_threshold(val)
-    
+
     def get_dictionary_key_size_threshold(self):
         return deref(self.options).dictionary_key_size_threshold()
-        
+
     def set_file_version(self, file_version):
         cdef:
             uint32_t c_major, c_minor
@@ -136,7 +136,7 @@ cdef class ORCWriterOptions(_Weakrefable):
 
     def get_file_version(self):
         return file_version_from_class(deref(self.options).file_version())
-    
+
     def set_compression(self, comp):
         deref(self.options).set_compression(
             compression_kind_from_name(comp))
@@ -166,7 +166,7 @@ cdef class ORCWriterOptions(_Weakrefable):
 
     def get_enable_index(self):
         return deref(self.options).enable_index()
-    
+
     def get_enable_dictionary(self):
         return deref(self.options).enable_dictionary()
 
@@ -191,17 +191,17 @@ cdef class ORCWriterOptions(_Weakrefable):
 
 
 cdef unique_ptr[WriterOptions] _create_writer_options(
-        file_version=None,
-        stripe_size=None,
-        compression=None,
-        compression_block_size=None,
-        compression_strategy=None,
-        row_index_stride=None,
-        padding_tolerance=None,
-        dictionary_key_size_threshold=None,
-        bloom_filter_columns=None,
-        bloom_filter_fpp=None
-    ) except *:
+    file_version=None,
+    stripe_size=None,
+    compression=None,
+    compression_block_size=None,
+    compression_strategy=None,
+    row_index_stride=None,
+    padding_tolerance=None,
+    dictionary_key_size_threshold=None,
+    bloom_filter_columns=None,
+    bloom_filter_fpp=None
+) except *:
     """General writer options"""
     cdef:
         unique_ptr[WriterOptions] options
@@ -229,12 +229,12 @@ cdef unique_ptr[WriterOptions] _create_writer_options(
     # compression
 
     if compression is not None:
-        if isinstance(compression, basestring): 
+        if isinstance(compression, basestring):
             deref(options).set_compression(
                 compression_kind_from_name(compression))
         else:
             raise ValueError("Unsupported ORC compression kind: {0}"
-                                .format(compression))
+                             .format(compression))
 
     # compression_block_size
 
@@ -248,12 +248,12 @@ cdef unique_ptr[WriterOptions] _create_writer_options(
     # compression_strategy
 
     if compression_strategy is not None:
-        if isinstance(compression, basestring): 
+        if isinstance(compression, basestring):
             deref(options).set_compression_strategy(
                 compression_strategy_from_name(compression_strategy))
         else:
             raise ValueError("Unsupported ORC compression strategy: {0}"
-                                .format(compression_strategy))
+                             .format(compression_strategy))
 
     # row_index_stride
 
@@ -278,7 +278,8 @@ cdef unique_ptr[WriterOptions] _create_writer_options(
 
     if dictionary_key_size_threshold is not None:
         try:
-            dictionary_key_size_threshold = float(dictionary_key_size_threshold)
+            dictionary_key_size_threshold = float(
+                dictionary_key_size_threshold)
             deref(options).set_dictionary_key_size_threshold(
                 dictionary_key_size_threshold)
         except Exception:
@@ -444,7 +445,7 @@ cdef class ORCWriter(_Weakrefable):
             bloom_filter_columns=bloom_filter_columns,
             bloom_filter_fpp=bloom_filter_fpp
         )
-        
+
         with nogil:
             self.writer = move(GetResultValue[unique_ptr[ORCFileWriter]](
                 ORCFileWriter.Open(self.rd_handle.get(), deref(options))))

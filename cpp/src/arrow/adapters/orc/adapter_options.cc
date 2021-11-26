@@ -62,7 +62,7 @@ struct WriterOptionsPrivate {
   double bloom_filter_false_positive_prob_;
   BloomFilterVersion bloom_filter_version_;
 
-  WriterOptionsPrivate() : file_version_(FileVersion::v_0_12()) {  // default to Hive_0_12
+  WriterOptionsPrivate() : file_version_(FileVersion::v_0_12()) {
     stripe_size_ = 64 * 1024 * 1024;                               // 64M
     compression_block_size_ = 64 * 1024;                           // 64K
     row_index_stride_ = 10000;
@@ -156,14 +156,18 @@ WriterOptions& WriterOptions::set_file_version(const FileVersion& version) {
   throw std::logic_error("Unsupported file version specified.");
 }
 
-FileVersion WriterOptions::file_version() const { return private_bits_->file_version_; }
+FileVersion WriterOptions::file_version() const {
+  return private_bits_->file_version_;
+}
 
 WriterOptions& WriterOptions::set_compression(CompressionKind comp) {
   private_bits_->compression_ = comp;
   return *this;
 }
 
-CompressionKind WriterOptions::compression() const { return private_bits_->compression_; }
+CompressionKind WriterOptions::compression() const {
+  return private_bits_->compression_;
+}
 
 WriterOptions& WriterOptions::set_compression_strategy(CompressionStrategy strategy) {
   private_bits_->compression_strategy_ = strategy;
