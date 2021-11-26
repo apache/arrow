@@ -46,7 +46,7 @@ RUN bash arrow/ci/scripts/install_vcpkg.sh /c/vcpkg %vcpkg% && \
 ARG build_type=release
 ENV CMAKE_BUILD_TYPE=${build_type} \
     VCPKG_OVERLAY_TRIPLETS=C:\\arrow\\ci\\vcpkg \
-    VCPKG_DEFAULT_TRIPLET=x64-windows-static-md-${build_type} \
+    VCPKG_DEFAULT_TRIPLET=amd64-windows-static-md-${build_type} \
     VCPKG_FEATURE_FLAGS=-manifests
 
 RUN vcpkg install --clean-after-build \

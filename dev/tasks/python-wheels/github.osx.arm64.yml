@@ -67,10 +67,6 @@ jobs:
           MACOSX_DEPLOYMENT_TARGET: "11.0"
         run: arch -arm64 arrow/ci/scripts/install_vcpkg.sh $VCPKG_ROOT $VCPKG_VERSION
 
-      - name: Install OpenSSL
-        shell: bash
-        run: arch -arm64 $VCPKG_ROOT/vcpkg install openssl
-
       {% if arch == "universal2" %}
       # OpenSSL doesn't provide an universal2 configuration yet, so vcpkg is
       # unable to propagate the list of architectures from VCPKG_OSX_ARCHIETCTURES.
@@ -81,13 +77,17 @@ jobs:
         shell: bash
         run: |
           for arch in arm64 amd64; do
-            VCPKG_DEFAULT_TRIPLET=${arch}-osx-static-release arch -arm64 $VCPKG_ROOT/vcpkg install openssl
+            arch -arm64 $VCPKG_ROOT/vcpkg install openssl:${arch}-osx-static-release
           done
           for lib in libcrypto libssl; do
             lipo -create $VCPKG_ROOT/installed/arm64-osx-static-release/lib/${lib}.a \
                          $VCPKG_ROOT/installed/amd64-osx-static-release/lib/${lib}.a \
                  -output $VCPKG_ROOT/installed/universal2-osx-static-release/lib/${lib}.a
           done
+      {% else %}
+      - name: Install OpenSSL
+        shell: bash
+        run: arch -arm64 $VCPKG_ROOT/vcpkg install openssl:arm64-osx-static-release
       {% endif %}
 
       - name: Install Packages
