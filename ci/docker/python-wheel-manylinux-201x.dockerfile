@@ -18,7 +18,10 @@
 ARG base
 FROM ${base}
 
+ARG arch
+ARG arch_short
 ARG manylinux
+
 ENV MANYLINUX_VERSION=${manylinux}
 
 # Install basic dependencies
@@ -26,7 +29,6 @@ RUN yum install -y git flex curl autoconf zip wget
 
 # Install CMake
 # AWS SDK doesn't work with CMake=3.22 due to https://gitlab.kitware.com/cmake/cmake/-/issues/22524
-ARG arch
 ARG cmake=3.21.4
 COPY ci/scripts/install_cmake.sh arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_cmake.sh ${arch} linux ${cmake} /usr/local
@@ -63,7 +65,7 @@ ARG build_type=release
 ENV CMAKE_BUILD_TYPE=${build_type} \
     VCPKG_FORCE_SYSTEM_BINARIES=1 \
     VCPKG_OVERLAY_TRIPLETS=/arrow/ci/vcpkg \
-    VCPKG_DEFAULT_TRIPLET=${arch}-linux-static-${build_type} \
+    VCPKG_DEFAULT_TRIPLET=${arch_short}-linux-static-${build_type} \
     VCPKG_FEATURE_FLAGS=-manifests
 
 # Need to install the boost-build prior installing the boost packages, otherwise

@@ -779,6 +779,7 @@ services:
     build:
       args:
         arch: ${ARCH}
+        arch_short: ${ARCH_SHORT}
         base: quay.io/pypa/manylinux2010_${ARCH_ALIAS}:2021-10-11-14ac00e
         vcpkg: ${VCPKG}
         python: ${PYTHON}
@@ -801,6 +802,7 @@ services:
     build:
       args:
         arch: ${ARCH}
+        arch_short: ${ARCH_SHORT}
         base: quay.io/pypa/manylinux2014_${ARCH_ALIAS}:2021-10-11-14ac00e
         vcpkg: ${VCPKG}
         python: ${PYTHON}
