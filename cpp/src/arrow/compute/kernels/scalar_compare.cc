@@ -78,6 +78,12 @@ struct Minimum {
     return std::min(left, right);
   }
 
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_decimal_value<T> Call(Arg0 left, Arg1 right) {
+    static_assert(std::is_same<T, Arg0>::value && std::is_same<Arg0, Arg1>::value, "");
+    return std::min(left, right);
+  }
+
   static util::string_view CallBinary(util::string_view left, util::string_view right) {
     return std::min(left, right);
   }
@@ -96,6 +102,11 @@ struct Minimum {
   static constexpr enable_if_integer_value<T> antiextreme() {
     return std::numeric_limits<T>::max();
   }
+
+  template <typename T>
+  static constexpr enable_if_decimal_value<T> antiextreme() {
+    return T::GetMaxSentinel();
+  }
 };
 
 struct Maximum {
@@ -107,6 +118,12 @@ struct Maximum {
 
   template <typename T, typename Arg0, typename Arg1>
   static enable_if_integer_value<T> Call(Arg0 left, Arg1 right) {
+    static_assert(std::is_same<T, Arg0>::value && std::is_same<Arg0, Arg1>::value, "");
+    return std::max(left, right);
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_decimal_value<T> Call(Arg0 left, Arg1 right) {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<Arg0, Arg1>::value, "");
     return std::max(left, right);
   }
@@ -128,6 +145,11 @@ struct Maximum {
   template <typename T>
   static constexpr enable_if_integer_value<T> antiextreme() {
     return std::numeric_limits<T>::min();
+  }
+
+  template <typename T>
+  static constexpr enable_if_decimal_value<T> antiextreme() {
+    return T::GetMinSentinel();
   }
 };
 
@@ -600,6 +622,22 @@ struct BinaryScalarMinMax {
   }
 };
 
+Result<ValueDescr> ResolveMinOrMaxOutputType(KernelContext*,
+                                             const std::vector<ValueDescr>& args) {
+  if (args.empty()) {
+    return null();
+  }
+  auto first_type = args[0].type;
+  for (size_t i = 1; i < args.size(); ++i) {
+    auto type = args[i].type;
+    if (*type != *first_type) {
+      return Status::NotImplemented(
+          "Different decimal types not implemented for {min, max}_element_wise");
+    }
+  }
+  return ValueDescr(first_type, GetBroadcastShape(args));
+}
+
 template <typename Op>
 std::shared_ptr<ScalarFunction> MakeScalarMinMax(std::string name,
                                                  const FunctionDoc* doc) {
@@ -630,6 +668,16 @@ std::shared_ptr<ScalarFunction> MakeScalarMinMax(std::string name,
                         MinMaxState::Init};
     kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
     kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
+    DCHECK_OK(func->AddKernel(std::move(kernel)));
+  }
+  for (const auto id : {Type::DECIMAL128, Type::DECIMAL256}) {
+    auto exec = GeneratePhysicalDecimal<ScalarMinMax, Op>(id);
+    OutputType out_type(ResolveMinOrMaxOutputType);
+    ScalarKernel kernel{KernelSignature::Make({InputType{id}}, out_type,
+                                              /*is_varargs=*/true),
+                        exec, MinMaxState::Init};
+    kernel.null_handling = NullHandling::type::COMPUTED_NO_PREALLOCATE;
+    kernel.mem_allocation = MemAllocation::type::PREALLOCATE;
     DCHECK_OK(func->AddKernel(std::move(kernel)));
   }
   return func;

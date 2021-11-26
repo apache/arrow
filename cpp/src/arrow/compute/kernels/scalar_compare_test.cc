@@ -1160,6 +1160,20 @@ template <typename T>
 class TestVarArgsCompareNumeric : public TestVarArgsCompare<T> {};
 
 template <typename T>
+class TestVarArgsCompareDecimal : public TestVarArgsCompare<T> {
+ protected:
+  static std::shared_ptr<DataType> type_singleton() {
+    return std::make_shared<T>(/*precision=*/38, /*scale=*/2);
+  }
+
+  Datum scalar(const std::string& value) {
+    return ScalarFromJSON(type_singleton(), value);
+  }
+
+  Datum array(const std::string& value) { return ArrayFromJSON(type_singleton(), value); }
+};
+
+template <typename T>
 class TestVarArgsCompareFloating : public TestVarArgsCompare<T> {};
 
 template <typename T>
@@ -1190,6 +1204,7 @@ using NumericBasedTypes =
 using ParametricTemporalTypes = ::testing::Types<TimestampType, Time32Type, Time64Type>;
 
 TYPED_TEST_SUITE(TestVarArgsCompareNumeric, NumericBasedTypes);
+TYPED_TEST_SUITE(TestVarArgsCompareDecimal, DecimalArrowTypes);
 TYPED_TEST_SUITE(TestVarArgsCompareFloating, RealArrowTypes);
 TYPED_TEST_SUITE(TestVarArgsCompareParametricTemporal, ParametricTemporalTypes);
 TYPED_TEST_SUITE(TestVarArgsCompareBinary, BaseBinaryArrowTypes);
@@ -1262,6 +1277,11 @@ TYPED_TEST(TestVarArgsCompareNumeric, MinElementWise) {
                {this->scalar("1"), this->array("[null, null, null, null]")});
   this->Assert(MinElementWise, this->array("[null, null, null, null]"),
                {this->scalar("null"), this->array("[1, 1, 1, 1]")});
+}
+
+TYPED_TEST(TestVarArgsCompareDecimal, MinElementWise) {
+  this->Assert(MinElementWise, this->scalar(R"("2.14")"),
+               {this->scalar(R"("3.14")"), this->scalar(R"("2.14")")});
 }
 
 TYPED_TEST(TestVarArgsCompareFloating, MinElementWise) {
@@ -1469,6 +1489,11 @@ TYPED_TEST(TestVarArgsCompareNumeric, MaxElementWise) {
                {this->scalar("1"), this->array("[null, null, null, null]")});
   this->Assert(MaxElementWise, this->array("[null, null, null, null]"),
                {this->scalar("null"), this->array("[1, 1, 1, 1]")});
+}
+
+TYPED_TEST(TestVarArgsCompareDecimal, MaxElementWise) {
+  this->Assert(MaxElementWise, this->scalar(R"("3.14")"),
+               {this->scalar(R"("3.14")"), this->scalar(R"("2.14")")});
 }
 
 TYPED_TEST(TestVarArgsCompareFloating, MaxElementWise) {
