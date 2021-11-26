@@ -33,41 +33,27 @@ from pyarrow.includes.libarrow cimport (CArray, CSchema, CStatus,
 
 cdef extern from "arrow/adapters/orc/adapter_options.h" \
         namespace "arrow::adapters::orc" nogil:
-    enum CompressionKind" arrow::adapters::orc::CompressionKind::type":
-        _CompressionKind_NONE \
-            " arrow::adapters::orc::CompressionKind::CompressionKind_NONE"
-        _CompressionKind_ZLIB \
-            " arrow::adapters::orc::CompressionKind::CompressionKind_ZLIB"
-        _CompressionKind_SNAPPY \
-            " arrow::adapters::orc::CompressionKind::CompressionKind_SNAPPY"
-        _CompressionKind_LZO \
-            " arrow::adapters::orc::CompressionKind::CompressionKind_LZO"
-        _CompressionKind_LZ4 \
-            " arrow::adapters::orc::CompressionKind::CompressionKind_LZ4"
-        _CompressionKind_ZSTD \
-            " arrow::adapters::orc::CompressionKind::CompressionKind_ZSTD"
-        _CompressionKind_MAX \
-            " arrow::adapters::orc::CompressionKind::CompressionKind_MAX"
+    enum CompressionKind" arrow::adapters::orc::CompressionKind":
+        _CompressionKind_NONE" arrow::adapters::orc::CompressionKind::CompressionKind_NONE"
+        _CompressionKind_ZLIB" arrow::adapters::orc::CompressionKind::CompressionKind_ZLIB"
+        _CompressionKind_SNAPPY" arrow::adapters::orc::CompressionKind::CompressionKind_SNAPPY"
+        _CompressionKind_LZO" arrow::adapters::orc::CompressionKind::CompressionKind_LZO"
+        _CompressionKind_LZ4" arrow::adapters::orc::CompressionKind::CompressionKind_LZ4"
+        _CompressionKind_ZSTD" arrow::adapters::orc::CompressionKind::CompressionKind_ZSTD"
+        _CompressionKind_MAX" arrow::adapters::orc::CompressionKind::CompressionKind_MAX"
 
-    enum CompressionStrategy" arrow::adapters::orc::CompressionStrategy::type":
-        _CompressionStrategy_SPEED \
-            " arrow::adapters::orc::CompressionStrategy"\
-            "::CompressionStrategy_SPEED"
-        _CompressionStrategy_COMPRESSION \
-            " arrow::adapters::orc::CompressionStrategy"\
-            "::CompressionStrategy_COMPRESSION"
+    enum CompressionStrategy" arrow::adapters::orc::CompressionStrategy":
+        _CompressionStrategy_SPEED" arrow::adapters::orc::CompressionStrategy::CompressionStrategy_SPEED"
+        _CompressionStrategy_COMPRESSION" arrow::adapters::orc::CompressionStrategy::CompressionStrategy_COMPRESSION"
 
-    enum RleVersion" arrow::adapters::orc::RleVersion::type":
+    enum RleVersion" arrow::adapters::orc::RleVersion":
         _RleVersion_1" arrow::adapters::orc::RleVersion::RleVersion_1"
         _RleVersion_2" arrow::adapters::orc::RleVersion::RleVersion_2"
 
-    enum BloomFilterVersion" arrow::adapters::orc::BloomFilterVersion::type":
-        _BloomFilterVersion_ORIGINAL \
-            " arrow::adapters::orc::BloomFilterVersion::ORIGINAL"
-        _BloomFilterVersion_UTF8 \
-            " arrow::adapters::orc::BloomFilterVersion::UTF8"
-        _BloomFilterVersion_FUTURE \
-            " arrow::adapters::orc::BloomFilterVersion::FUTURE"
+    enum BloomFilterVersion" arrow::adapters::orc::BloomFilterVersion":
+        _BloomFilterVersion_ORIGINAL" arrow::adapters::orc::BloomFilterVersion::ORIGINAL"
+        _BloomFilterVersion_UTF8" arrow::adapters::orc::BloomFilterVersion::UTF8"
+        _BloomFilterVersion_FUTURE" arrow::adapters::orc::BloomFilterVersion::FUTURE"
 
     cdef cppclass FileVersion" arrow::adapters::orc::FileVersion":
         FileVersion(uint32_t major, uint32_t minor)
