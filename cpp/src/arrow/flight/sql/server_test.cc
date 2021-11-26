@@ -23,14 +23,13 @@
 #include "arrow/flight/api.h"
 #include "arrow/flight/sql/api.h"
 #include "arrow/flight/sql/example/sqlite_server.h"
+#include "arrow/flight/sql/example/sqlite_sql_info.h"
 #include "arrow/flight/test_util.h"
 #include "arrow/flight/types.h"
 #include "arrow/testing/gtest_util.h"
 
 using ::testing::_;
 using ::testing::Ref;
-
-namespace pb = arrow::flight::protocol;
 
 using arrow::internal::checked_cast;
 
@@ -173,10 +172,11 @@ TEST(TestFlightSqlServer, TestCommandStatementQuery) {
       arrow::schema({arrow::field("id", int64()), arrow::field("keyName", utf8()),
                      arrow::field("value", int64()), arrow::field("foreignId", int64())});
 
-  const auto id_array = ArrayFromJSON(int64(), R"([1, 2, 3])");
-  const auto keyname_array = ArrayFromJSON(utf8(), R"(["one", "zero", "negative one"])");
-  const auto value_array = ArrayFromJSON(int64(), R"([1, 0, -1])");
-  const auto foreignId_array = ArrayFromJSON(int64(), R"([1, 1, 1])");
+  const auto id_array = ArrayFromJSON(int64(), R"([1, 2, 3, 4])");
+  const auto keyname_array =
+      ArrayFromJSON(utf8(), R"(["one", "zero", "negative one", null])");
+  const auto value_array = ArrayFromJSON(int64(), R"([1, 0, -1, null])");
+  const auto foreignId_array = ArrayFromJSON(int64(), R"([1, 1, 1, null])");
 
   const std::shared_ptr<Table>& expected_table = Table::Make(
       expected_schema, {id_array, keyname_array, value_array, foreignId_array});
@@ -428,10 +428,11 @@ TEST(TestFlightSqlServer, TestCommandPreparedStatementQuery) {
       arrow::schema({arrow::field("id", int64()), arrow::field("keyName", utf8()),
                      arrow::field("value", int64()), arrow::field("foreignId", int64())});
 
-  const auto id_array = ArrayFromJSON(int64(), R"([1, 2, 3])");
-  const auto keyname_array = ArrayFromJSON(utf8(), R"(["one", "zero", "negative one"])");
-  const auto value_array = ArrayFromJSON(int64(), R"([1, 0, -1])");
-  const auto foreignId_array = ArrayFromJSON(int64(), R"([1, 1, 1])");
+  const auto id_array = ArrayFromJSON(int64(), R"([1, 2, 3, 4])");
+  const auto keyname_array =
+      ArrayFromJSON(utf8(), R"(["one", "zero", "negative one", null])");
+  const auto value_array = ArrayFromJSON(int64(), R"([1, 0, -1, null])");
+  const auto foreignId_array = ArrayFromJSON(int64(), R"([1, 1, 1, null])");
 
   const std::shared_ptr<Table>& expected_table = Table::Make(
       expected_schema, {id_array, keyname_array, value_array, foreignId_array});
@@ -538,16 +539,16 @@ TEST(TestFlightSqlServer, TestCommandPreparedStatementUpdateWithParameterBinding
 
   ASSERT_OK(prepared_statement->SetParameters(record_batch));
 
-  ASSERT_OK_AND_EQ(3, ExecuteCountQuery("SELECT COUNT(*) FROM intTable"));
+  ASSERT_OK_AND_EQ(4, ExecuteCountQuery("SELECT COUNT(*) FROM intTable"));
 
   ASSERT_OK_AND_EQ(1, prepared_statement->ExecuteUpdate());
 
-  ASSERT_OK_AND_EQ(4, ExecuteCountQuery("SELECT COUNT(*) FROM intTable"));
+  ASSERT_OK_AND_EQ(5, ExecuteCountQuery("SELECT COUNT(*) FROM intTable"));
 
   ASSERT_OK_AND_EQ(1, sql_client->ExecuteUpdate(
                           {}, "DELETE FROM intTable WHERE keyName = 'new_value'"));
 
-  ASSERT_OK_AND_EQ(3, ExecuteCountQuery("SELECT COUNT(*) FROM intTable"));
+  ASSERT_OK_AND_EQ(4, ExecuteCountQuery("SELECT COUNT(*) FROM intTable"));
 }
 
 TEST(TestFlightSqlServer, TestCommandPreparedStatementUpdate) {
@@ -556,16 +557,16 @@ TEST(TestFlightSqlServer, TestCommandPreparedStatementUpdate) {
       sql_client->Prepare(
           {}, "INSERT INTO INTTABLE (keyName, value) VALUES ('new_value', 999)"));
 
-  ASSERT_OK_AND_EQ(3, ExecuteCountQuery("SELECT COUNT(*) FROM intTable"));
+  ASSERT_OK_AND_EQ(4, ExecuteCountQuery("SELECT COUNT(*) FROM intTable"));
 
   ASSERT_OK_AND_EQ(1, prepared_statement->ExecuteUpdate());
 
-  ASSERT_OK_AND_EQ(4, ExecuteCountQuery("SELECT COUNT(*) FROM intTable"));
+  ASSERT_OK_AND_EQ(5, ExecuteCountQuery("SELECT COUNT(*) FROM intTable"));
 
   ASSERT_OK_AND_EQ(1, sql_client->ExecuteUpdate(
                           {}, "DELETE FROM intTable WHERE keyName = 'new_value'"));
 
-  ASSERT_OK_AND_EQ(3, ExecuteCountQuery("SELECT COUNT(*) FROM intTable"));
+  ASSERT_OK_AND_EQ(4, ExecuteCountQuery("SELECT COUNT(*) FROM intTable"));
 }
 
 TEST(TestFlightSqlServer, TestCommandGetPrimaryKeys) {

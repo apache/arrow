@@ -402,7 +402,7 @@ Status FlightSqlServerBase::DoPut(const ServerCallContext& context,
     ARROW_ASSIGN_OR_RAISE(StatementUpdate internal_command,
                           ParseCommandStatementUpdate(any));
     ARROW_ASSIGN_OR_RAISE(auto record_count,
-                          DoPutCommandStatementUpdate(context, internal_command, reader))
+                          DoPutCommandStatementUpdate(context, internal_command))
 
     pb::sql::DoPutUpdateResult result;
     result.set_record_count(record_count);
@@ -687,8 +687,7 @@ arrow::Result<int64_t> FlightSqlServerBase::DoPutPreparedStatementUpdate(
 }
 
 arrow::Result<int64_t> FlightSqlServerBase::DoPutCommandStatementUpdate(
-    const ServerCallContext& context, const StatementUpdate& command,
-    std::unique_ptr<FlightMessageReader>& reader) {
+    const ServerCallContext& context, const StatementUpdate& command) {
   return Status::NotImplemented("DoPutCommandStatementUpdate not implemented");
 }
 

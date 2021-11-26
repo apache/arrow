@@ -70,6 +70,7 @@ add_arrow_test(flight_sql_test
                SOURCES
                client_test.cc
                server_test.cc
+               example/sqlite_sql_info.cc
                STATIC_LINK_LIBS
                ${ARROW_FLIGHT_SQL_TEST_LINK_LIBS}
                LABELS
@@ -81,6 +82,7 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
 
   add_executable(flight_sql_test_server
                  test_server_cli.cc
+                 example/sqlite_sql_info.cc
                  example/sqlite_statement.cc
                  example/sqlite_statement_batch_reader.cc
                  example/sqlite_server.cc

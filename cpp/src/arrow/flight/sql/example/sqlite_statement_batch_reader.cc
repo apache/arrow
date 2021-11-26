@@ -50,28 +50,39 @@
     break;                                                                             \
   }
 
-#define INT_BUILDER_CASE(TYPE_CLASS, STMT, COLUMN)                        \
-  case TYPE_CLASS##Type::type_id: {                                       \
-    sqlite3_int64 value = sqlite3_column_int64(STMT, COLUMN);             \
-    ARROW_RETURN_NOT_OK(                                                  \
-        (reinterpret_cast<TYPE_CLASS##Builder&>(builder)).Append(value)); \
-    break;                                                                \
+#define INT_BUILDER_CASE(TYPE_CLASS, STMT, COLUMN)                         \
+  case TYPE_CLASS##Type::type_id: {                                        \
+    if (sqlite3_column_type(stmt_, i) == SQLITE_NULL) {                    \
+      ARROW_RETURN_NOT_OK(                                                 \
+          (reinterpret_cast<TYPE_CLASS##Builder&>(builder)).AppendNull()); \
+      break;                                                               \
+    }                                                                      \
+    sqlite3_int64 value = sqlite3_column_int64(STMT, COLUMN);              \
+    ARROW_RETURN_NOT_OK(                                                   \
+        (reinterpret_cast<TYPE_CLASS##Builder&>(builder)).Append(value));  \
+    break;                                                                 \
   }
 
-#define FLOAT_BUILDER_CASE(TYPE_CLASS, STMT, COLUMN)                      \
-  case TYPE_CLASS##Type::type_id: {                                       \
-    double value = sqlite3_column_double(STMT, COLUMN);                   \
-    ARROW_RETURN_NOT_OK(                                                  \
-        (reinterpret_cast<TYPE_CLASS##Builder&>(builder)).Append(value)); \
-    break;                                                                \
+#define FLOAT_BUILDER_CASE(TYPE_CLASS, STMT, COLUMN)                       \
+  case TYPE_CLASS##Type::type_id: {                                        \
+    if (sqlite3_column_type(stmt_, i) == SQLITE_NULL) {                    \
+      ARROW_RETURN_NOT_OK(                                                 \
+          (reinterpret_cast<TYPE_CLASS##Builder&>(builder)).AppendNull()); \
+      break;                                                               \
+    }                                                                      \
+    double value = sqlite3_column_double(STMT, COLUMN);                    \
+    ARROW_RETURN_NOT_OK(                                                   \
+        (reinterpret_cast<TYPE_CLASS##Builder&>(builder)).Append(value));  \
+    break;                                                                 \
   }
-
-#define MAX_BATCH_SIZE 1024
 
 namespace arrow {
 namespace flight {
 namespace sql {
 namespace example {
+
+// Batch size for SQLite statement results
+static constexpr int kMaxBatchSize = 1024;
 
 std::shared_ptr<Schema> SqliteStatementBatchReader::schema() const { return schema_; }
 
@@ -84,11 +95,9 @@ SqliteStatementBatchReader::SqliteStatementBatchReader(
 
 Result<std::shared_ptr<SqliteStatementBatchReader>> SqliteStatementBatchReader::Create(
     const std::shared_ptr<SqliteStatement>& statement_) {
-  int rc;
-  ARROW_RETURN_NOT_OK(statement_->Step(&rc));
+  ARROW_RETURN_NOT_OK(statement_->Step());
 
-  std::shared_ptr<Schema> schema;
-  ARROW_RETURN_NOT_OK(statement_->GetSchema(&schema));
+  ARROW_ASSIGN_OR_RAISE(auto schema, statement_->GetSchema());
 
   std::shared_ptr<SqliteStatementBatchReader> result(
       new SqliteStatementBatchReader(statement_, schema));
@@ -119,19 +128,22 @@ Status SqliteStatementBatchReader::ReadNext(std::shared_ptr<RecordBatch>* out) {
   }
 
   if (!already_executed_) {
-    ARROW_RETURN_NOT_OK(statement_->Reset(&rc_));
-    ARROW_RETURN_NOT_OK(statement_->Step(&rc_));
+    ARROW_ASSIGN_OR_RAISE(rc_, statement_->Reset());
+    ARROW_ASSIGN_OR_RAISE(rc_, statement_->Step());
     already_executed_ = true;
   }
 
-  int rows = 0;
-  while (rows < MAX_BATCH_SIZE && rc_ == SQLITE_ROW) {
+  int64_t rows = 0;
+  while (rows < kMaxBatchSize && rc_ == SQLITE_ROW) {
     rows++;
     for (int i = 0; i < num_fields; i++) {
       const std::shared_ptr<Field>& field = schema_->field(i);
       const std::shared_ptr<DataType>& field_type = field->type();
       ArrayBuilder& builder = *builders[i];
 
+      // NOTE: This is not the optimal way of building Arrow vectors.
+      // That would be to presize the builders to avoiding several resizing operations
+      // when appending values and also to build one vector at a time.
       switch (field_type->id()) {
         INT_BUILDER_CASE(Int64, stmt_, i)
         INT_BUILDER_CASE(UInt64, stmt_, i)
@@ -154,7 +166,7 @@ Status SqliteStatementBatchReader::ReadNext(std::shared_ptr<RecordBatch>* out) {
       }
     }
 
-    ARROW_RETURN_NOT_OK(statement_->Step(&rc_));
+    ARROW_ASSIGN_OR_RAISE(rc_, statement_->Step());
   }
 
   if (rows > 0) {

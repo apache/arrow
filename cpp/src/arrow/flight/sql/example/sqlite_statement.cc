@@ -66,7 +66,7 @@ arrow::Result<std::shared_ptr<SqliteStatement>> SqliteStatement::Create(
   return result;
 }
 
-Status SqliteStatement::GetSchema(std::shared_ptr<Schema>* schema) const {
+arrow::Result<std::shared_ptr<Schema>> SqliteStatement::GetSchema() const {
   std::vector<std::shared_ptr<Field>> fields;
   int column_count = sqlite3_column_count(stmt_);
   for (int i = 0; i < column_count; i++) {
@@ -99,41 +99,36 @@ Status SqliteStatement::GetSchema(std::shared_ptr<Schema>* schema) const {
     fields.push_back(arrow::field(column_name, data_type));
   }
 
-  *schema = arrow::schema(fields);
-  return Status::OK();
+  return arrow::schema(fields);
 }
 
 SqliteStatement::~SqliteStatement() { sqlite3_finalize(stmt_); }
 
-Status SqliteStatement::Step(int* rc) {
-  *rc = sqlite3_step(stmt_);
-  if (*rc == SQLITE_ERROR) {
+arrow::Result<int> SqliteStatement::Step() {
+  int rc = sqlite3_step(stmt_);
+  if (rc == SQLITE_ERROR) {
     return Status::ExecutionError("A SQLite runtime error has occurred: ",
                                   sqlite3_errmsg(db_));
   }
 
-  return Status::OK();
+  return rc;
 }
 
-Status SqliteStatement::Reset(int* rc) {
-  *rc = sqlite3_reset(stmt_);
-  if (*rc == SQLITE_ERROR) {
+arrow::Result<int> SqliteStatement::Reset() {
+  int rc = sqlite3_reset(stmt_);
+  if (rc == SQLITE_ERROR) {
     return Status::ExecutionError("A SQLite runtime error has occurred: ",
                                   sqlite3_errmsg(db_));
   }
 
-  return Status::OK();
+  return rc;
 }
 
 sqlite3_stmt* SqliteStatement::GetSqlite3Stmt() const { return stmt_; }
 
-Status SqliteStatement::ExecuteUpdate(int64_t* result) {
-  int rc;
-  ARROW_RETURN_NOT_OK(Step(&rc));
-
-  *result = sqlite3_changes(db_);
-
-  return Status::OK();
+arrow::Result<int64_t> SqliteStatement::ExecuteUpdate() {
+  ARROW_RETURN_NOT_OK(Step());
+  return sqlite3_changes(db_);
 }
 
 }  // namespace example

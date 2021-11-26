@@ -24,6 +24,7 @@
 #include <boost/uuid/uuid_io.hpp>
 
 #include "arrow/api.h"
+#include "arrow/flight/sql/example/sqlite_sql_info.h"
 #include "arrow/flight/sql/example/sqlite_statement.h"
 #include "arrow/flight/sql/example/sqlite_statement_batch_reader.h"
 #include "arrow/flight/sql/example/sqlite_tables_schema_batch_reader.h"
@@ -204,6 +205,7 @@ arrow::Result<std::shared_ptr<SQLiteFlightSqlServer>> SQLiteFlightSqlServer::Cre
     INSERT INTO intTable (keyName, value, foreignId) VALUES ('one', 1, 1);
     INSERT INTO intTable (keyName, value, foreignId) VALUES ('zero', 0, 1);
     INSERT INTO intTable (keyName, value, foreignId) VALUES ('negative one', -1, 1);
+    INSERT INTO intTable (keyName, value, foreignId) VALUES (NULL, NULL, NULL);
   )"));
 
   return result;
@@ -251,14 +253,11 @@ arrow::Result<std::unique_ptr<FlightInfo>> SQLiteFlightSqlServer::GetFlightInfoS
     const FlightDescriptor& descriptor) {
   const std::string& query = command.query;
 
-  std::shared_ptr<SqliteStatement> statement;
-  ARROW_ASSIGN_OR_RAISE(statement, SqliteStatement::Create(db_, query));
+  ARROW_ASSIGN_OR_RAISE(auto statement, SqliteStatement::Create(db_, query));
 
-  std::shared_ptr<Schema> schema;
-  ARROW_RETURN_NOT_OK(statement->GetSchema(&schema));
+  ARROW_ASSIGN_OR_RAISE(auto schema, statement->GetSchema());
 
-  std::string ticket_string;
-  ARROW_ASSIGN_OR_RAISE(ticket_string, CreateStatementQueryTicket(query));
+  ARROW_ASSIGN_OR_RAISE(auto ticket_string, CreateStatementQueryTicket(query));
   std::vector<FlightEndpoint> endpoints{FlightEndpoint{{ticket_string}, {}}};
   ARROW_ASSIGN_OR_RAISE(auto result,
                         FlightInfo::Make(*schema, descriptor, endpoints, -1, -1))
@@ -363,17 +362,12 @@ arrow::Result<std::unique_ptr<FlightDataStream>> SQLiteFlightSqlServer::DoGetTab
 }
 
 arrow::Result<int64_t> SQLiteFlightSqlServer::DoPutCommandStatementUpdate(
-    const ServerCallContext& context, const StatementUpdate& command,
-    std::unique_ptr<FlightMessageReader>& reader) {
+    const ServerCallContext& context, const StatementUpdate& command) {
   const std::string& sql = command.query;
 
-  std::shared_ptr<SqliteStatement> statement;
-  ARROW_ASSIGN_OR_RAISE(statement, SqliteStatement::Create(db_, sql));
+  ARROW_ASSIGN_OR_RAISE(auto statement, SqliteStatement::Create(db_, sql));
 
-  int64_t record_count;
-  ARROW_RETURN_NOT_OK(statement->ExecuteUpdate(&record_count));
-
-  return record_count;
+  return statement->ExecuteUpdate();
 }
 
 arrow::Result<ActionCreatePreparedStatementResult>
@@ -385,8 +379,7 @@ SQLiteFlightSqlServer::CreatePreparedStatement(
   boost::uuids::uuid uuid = uuid_generator_();
   prepared_statements_[uuid] = statement;
 
-  std::shared_ptr<Schema> dataset_schema;
-  ARROW_RETURN_NOT_OK(statement->GetSchema(&dataset_schema));
+  ARROW_ASSIGN_OR_RAISE(auto dataset_schema, statement->GetSchema());
 
   sqlite3_stmt* stmt = statement->GetSqlite3Stmt();
   const int parameter_count = sqlite3_bind_parameter_count(stmt);
@@ -449,8 +442,7 @@ SQLiteFlightSqlServer::GetFlightInfoPreparedStatement(
 
   std::shared_ptr<SqliteStatement> statement = search->second;
 
-  std::shared_ptr<Schema> schema;
-  ARROW_RETURN_NOT_OK(statement->GetSchema(&schema));
+  ARROW_ASSIGN_OR_RAISE(auto schema, statement->GetSchema());
 
   return GetFlightInfoForCommand(descriptor, schema);
 }
@@ -497,10 +489,7 @@ arrow::Result<int64_t> SQLiteFlightSqlServer::DoPutPreparedStatementUpdate(
   sqlite3_stmt* stmt = statement->GetSqlite3Stmt();
   ARROW_RETURN_NOT_OK(SetParametersOnSQLiteStatement(stmt, reader));
 
-  int64_t record_count;
-  ARROW_RETURN_NOT_OK(statement->ExecuteUpdate(&record_count));
-
-  return record_count;
+  return statement->ExecuteUpdate();
 }
 
 arrow::Result<std::unique_ptr<FlightInfo>> SQLiteFlightSqlServer::GetFlightInfoTableTypes(

@@ -352,11 +352,9 @@ class ARROW_EXPORT FlightSqlServerBase : public FlightServerBase {
   /// \brief Execute an update SQL statement.
   /// \param[in] context  The call context.
   /// \param[in] command  The StatementUpdate object containing the SQL statement.
-  /// \param[in] reader   a sequence of uploaded record batches.
   /// \return             The changed record count.
   virtual arrow::Result<int64_t> DoPutCommandStatementUpdate(
-      const ServerCallContext& context, const StatementUpdate& command,
-      std::unique_ptr<FlightMessageReader>& reader);
+      const ServerCallContext& context, const StatementUpdate& command);
 
   /// \brief Create a prepared statement from given SQL statement.
   /// \param[in] context  The call context.

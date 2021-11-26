@@ -41,28 +41,24 @@ class SqliteStatement {
   ~SqliteStatement();
 
   /// \brief Creates an Arrow Schema based on the results of this statement.
-  /// \param[out] schema   The resulting Schema.
-  /// \return              Status.
-  Status GetSchema(std::shared_ptr<Schema>* schema) const;
+  /// \return              The resulting Schema.
+  arrow::Result<std::shared_ptr<Schema>> GetSchema() const;
 
   /// \brief Steps on underlying sqlite3_stmt.
-  /// \param[out] rc   The resulting return code from SQLite.
-  /// \return          Status.
-  Status Step(int* rc);
+  /// \return          The resulting return code from SQLite.
+  arrow::Result<int> Step();
 
   /// \brief Reset the state of the sqlite3_stmt.
-  /// \param[out] rc   The resulting return code from SQLite.
-  /// \return          Status.
-  Status Reset(int* rc);
+  /// \return          The resulting return code from SQLite.
+  arrow::Result<int> Reset();
 
   /// \brief Returns the underlying sqlite3_stmt.
   /// \return A sqlite statement.
   sqlite3_stmt* GetSqlite3Stmt() const;
 
   /// \brief Executes an UPDATE, INSERT or DELETE statement.
-  /// \param[out] result   The number of rows changed by execution.
-  /// \return              Status.
-  Status ExecuteUpdate(int64_t* result);
+  /// \return              The number of rows changed by execution.
+  arrow::Result<int64_t> ExecuteUpdate();
 
  private:
   sqlite3* db_;
