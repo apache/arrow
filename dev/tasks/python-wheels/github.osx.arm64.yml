@@ -65,7 +65,7 @@ jobs:
         shell: bash
         env:
           MACOSX_DEPLOYMENT_TARGET: "11.0"
-        run: arch -arm64 arrow/ci/scripts/install_vcpkg.sh $VCPKG_ROOT $VCPKG_VERSION
+        run: arrow/ci/scripts/install_vcpkg.sh $VCPKG_ROOT $VCPKG_VERSION
 
       {% if arch == "universal2" %}
       # OpenSSL doesn't provide an universal2 configuration yet, so vcpkg is
@@ -78,7 +78,7 @@ jobs:
         run: |
           mkdir -p $VCPKG_ROOT/installed/universal2-osx-static-release/lib
           for arch in arm64 amd64; do
-            arch -arm64 $VCPKG_ROOT/vcpkg install openssl:${arch}-osx-static-release
+            $VCPKG_ROOT/vcpkg install openssl:${arch}-osx-static-release
           done
           for lib in libcrypto libssl; do
             lipo -create $VCPKG_ROOT/installed/arm64-osx-static-release/lib/${lib}.a \
@@ -88,12 +88,12 @@ jobs:
       {% else %}
       - name: Install OpenSSL
         shell: bash
-        run: arch -arm64 $VCPKG_ROOT/vcpkg install openssl:arm64-osx-static-release
+        run: $VCPKG_ROOT/vcpkg install openssl:arm64-osx-static-release
       {% endif %}
 
       - name: Install Packages
         run: |
-          arch -arm64 $VCPKG_ROOT/vcpkg install \
+          $VCPKG_ROOT/vcpkg install \
             aws-sdk-cpp[config,cognito-identity,core,identity-management,s3,sts,transfer] \
             boost-filesystem \
             brotli \
