@@ -80,12 +80,12 @@ jobs:
       - name: Create universal binaries for OpenSSL
         shell: bash
         run: |
-          for arch in arm64 x64; do
+          for arch in arm64 amd64; do
             VCPKG_DEFAULT_TRIPLET=${arch}-osx-static-release arch -arm64 $VCPKG_ROOT/vcpkg install openssl
           done
           for lib in libcrypto libssl; do
             lipo -create $VCPKG_ROOT/installed/arm64-osx-static-release/lib/${lib}.a \
-                         $VCPKG_ROOT/installed/x64-osx-static-release/lib/${lib}.a \
+                         $VCPKG_ROOT/installed/amd64-osx-static-release/lib/${lib}.a \
                  -output $VCPKG_ROOT/installed/universal2-osx-static-release/lib/${lib}.a
           done
       {% endif %}
