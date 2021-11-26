@@ -198,6 +198,7 @@ class build_ext(_build_ext):
         '_cuda',
         '_flight',
         '_dataset',
+        '_dataset_parquet',
         '_dataset_orc',
         '_feather',
         '_parquet',
@@ -427,6 +428,10 @@ class build_ext(_build_ext):
             return True
         if name == '_dataset_orc' and not (
                 self.with_orc and self.with_dataset
+        ):
+            return True
+        if name == '_dataset_parquet' and not (
+                self.with_parquet and self.with_dataset
         ):
             return True
         if name == '_cuda' and not self.with_cuda:
