@@ -65,7 +65,7 @@ jobs:
         shell: bash
         env:
           MACOSX_DEPLOYMENT_TARGET: "11.0"
-        run: arrow/ci/scripts/install_vcpkg.sh $VCPKG_ROOT $VCPKG_VERSION
+        run: arch -arm64 arrow/ci/scripts/install_vcpkg.sh $VCPKG_ROOT $VCPKG_VERSION
 
       {% if arch == "universal2" %}
       # OpenSSL doesn't provide an universal2 configuration yet, so vcpkg is
@@ -88,7 +88,7 @@ jobs:
       {% else %}
       - name: Install OpenSSL
         shell: bash
-        run: $VCPKG_ROOT/vcpkg install openssl:arm64-osx-static-release
+        run: arch -arm64 $VCPKG_ROOT/vcpkg install openssl:arm64-osx-static-release
       {% endif %}
 
       - name: Install Packages
