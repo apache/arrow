@@ -46,7 +46,7 @@ cdef compression_kind_from_enum(CompressionKind compression_kind_):
         _CompressionKind_LZO: 'LZO',
         _CompressionKind_LZ4: 'LZ4',
         _CompressionKind_ZSTD: 'ZSTD',
-    }.get(type_, 'UNKNOWN')
+    }.get(compression_kind_, 'UNKNOWN')
 
 cdef CompressionKind compression_kind_from_name(name):
     name = name.upper()
@@ -61,13 +61,13 @@ cdef CompressionKind compression_kind_from_name(name):
     elif name == 'ZSTD':
         return _CompressionKind_ZSTD
     else:
-        return _CompressionKind_None
+        return _CompressionKind_NONE
 
 cdef compression_strategy_from_enum(CompressionStrategy compression_strategy_):
     return {
         _CompressionStrategy_SPEED: 'SPEED',
         _CompressionStrategy_COMPRESSION: 'COMPRESSION',
-    }.get(type_, 'UNKNOWN')
+    }.get(compression_strategy_, 'UNKNOWN')
 
 cdef CompressionStrategy compression_strategy_from_name(name):
     name = name.upper()
@@ -99,7 +99,7 @@ cdef class ORCWriterOptions(_Weakrefable):
         unique_ptr[WriterOptions] options
     
     def __cinit__(self):
-        self.options = unique_ptr[WriterOptions](WriterOptions())
+        self.options.reset(new WriterOptions())
     
     def set_stripe_size(self, size):
         deref(self.options).set_stripe_size(size)
@@ -160,7 +160,7 @@ cdef class ORCWriterOptions(_Weakrefable):
         deref(self.options).set_padding_tolerance(tolerance)
 
     def get_padding_tolerance(self):
-        return deref(self.options).padding_tolerance(tolerance)
+        return deref(self.options).padding_tolerance()
 
     def get_rle_version(self):
         return rle_version_from_enum(deref(self.options).rle_version())
@@ -232,7 +232,7 @@ cdef unique_ptr[WriterOptions] _create_writer_options(
     if compression is not None:
         if isinstance(compression, basestring): 
             deref(options).set_compression(
-                compression_from_name(compression))
+                compression_kind_from_name(compression))
         else:
             raise ValueError("Unsupported ORC compression kind: {0}"
                                 .format(compression))
@@ -294,7 +294,7 @@ cdef unique_ptr[WriterOptions] _create_writer_options(
             for col in bloom_filter_columns:
                 assert isinstance(col, int) and col >= 0
             deref(options).set_columns_use_bloom_filter(
-                dbloom_filter_columns)
+                bloom_filter_columns)
         except Exception:
             raise ValueError("Invalid ORC BloomFilter columns: {0}"
                              .format(bloom_filter_columns))
