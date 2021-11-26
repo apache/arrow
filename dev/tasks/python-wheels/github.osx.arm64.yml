@@ -78,7 +78,7 @@ jobs:
         run: |
           mkdir -p $VCPKG_ROOT/installed/universal2-osx-static-release/lib
           for arch in arm64 amd64; do
-            $VCPKG_ROOT/vcpkg install openssl:${arch}-osx-static-release
+            arch -arm64 $VCPKG_ROOT/vcpkg install openssl:${arch}-osx-static-release
           done
           for lib in libcrypto libssl; do
             lipo -create $VCPKG_ROOT/installed/arm64-osx-static-release/lib/${lib}.a \
@@ -93,7 +93,11 @@ jobs:
 
       - name: Install Packages
         run: |
-          $VCPKG_ROOT/vcpkg install \
+          arch -x86_64 $VCPKG_ROOT/vcpkg install abseil
+
+      - name: Install Packages
+        run: |
+          arch -arm64 $VCPKG_ROOT/vcpkg install \
             aws-sdk-cpp[config,cognito-identity,core,identity-management,s3,sts,transfer] \
             boost-filesystem \
             brotli \
