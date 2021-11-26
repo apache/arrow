@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/adapters/orc/adapter_options.h"
+
 #include "arrow/adapters/orc/adapter.h"
 #include "orc/Common.hh"
 #include "orc/Int128.hh"
@@ -77,8 +79,7 @@ struct WriterOptionsPrivate {
 };
 
 WriterOptions::WriterOptions()
-    : private_bits_(std::unique_ptr<WriterOptionsPrivate>(
-          new WriterOptionsPrivate())) {
+    : private_bits_(std::unique_ptr<WriterOptionsPrivate>(new WriterOptionsPrivate())) {
   // PASS
 }
 
@@ -95,8 +96,7 @@ WriterOptions::WriterOptions(WriterOptions& rhs) {
 
 WriterOptions& WriterOptions::operator=(const WriterOptions& rhs) {
   if (this != &rhs) {
-    private_bits_.reset(
-        new WriterOptionsPrivate(*(rhs.private_bits_.get())));
+    private_bits_.reset(new WriterOptionsPrivate(*(rhs.private_bits_.get())));
   }
   return *this;
 }
@@ -134,7 +134,9 @@ WriterOptions& WriterOptions::set_row_index_stride(uint64_t stride) {
   return *this;
 }
 
-uint64_t WriterOptions::row_index_stride() const { return private_bits_->row_index_stride_; }
+uint64_t WriterOptions::row_index_stride() const {
+  return private_bits_->row_index_stride_;
+}
 
 WriterOptions& WriterOptions::set_dictionary_key_size_threshold(double val) {
   private_bits_->dictionary_key_size_threshold_ = val;
@@ -227,22 +229,27 @@ double WriterOptions::bloom_filter_fpp() const {
 // we only support UTF8 for now.
 BloomFilterVersion WriterOptions::bloom_filter_version() const {
   return private_bits_->bloom_filter_version_;
-}
+}  // namespace
 
 }  // namespace orc
 }  // namespace adapters
 }  // namespace arrow
 namespace {
-  liborc::CompressionKind AdaptCompressionKind(arrow::adapters::orc::CompressionKind arrow_compression_kind){
-    return static_cast<liborc::CompressionKind>(static_cast<int8_t>(arrow_compression_kind));
-  }
-  liborc::CompressionStrategy AdaptCompressionStrategy(arrow::adapters::orc::CompressionStrategy arrow_compression_strategy){
-    return static_cast<liborc::CompressionStrategy>(static_cast<int8_t>(arrow_compression_strategy));
-  }
-  liborc::FileVersion AdaptFileVersion(arrow::adapters::orc::FileVersion arrow_file_version){
-    return liborc::FileVersion(arrow_file_version.major(), arrow_file_version.minor());
-  }
+liborc::CompressionKind AdaptCompressionKind(
+    arrow::adapters::orc::CompressionKind arrow_compression_kind) {
+  return static_cast<liborc::CompressionKind>(
+      static_cast<int8_t>(arrow_compression_kind));
 }
+liborc::CompressionStrategy AdaptCompressionStrategy(
+    arrow::adapters::orc::CompressionStrategy arrow_compression_strategy) {
+  return static_cast<liborc::CompressionStrategy>(
+      static_cast<int8_t>(arrow_compression_strategy));
+}
+liborc::FileVersion AdaptFileVersion(
+    arrow::adapters::orc::FileVersion arrow_file_version) {
+  return liborc::FileVersion(arrow_file_version.major(), arrow_file_version.minor());
+}
+}  // namespace
 namespace arrow {
 
 namespace adapters {
@@ -252,16 +259,22 @@ namespace orc {
 liborc::WriterOptions* AdaptWriterOptions(const WriterOptions& arrow_writer_options) {
   auto orc_writer_options = new liborc::WriterOptions();
   orc_writer_options->setStripeSize(arrow_writer_options.stripe_size());
-  orc_writer_options->setCompressionBlockSize(arrow_writer_options.compression_block_size());
+  orc_writer_options->setCompressionBlockSize(
+      arrow_writer_options.compression_block_size());
   orc_writer_options->setRowIndexStride(arrow_writer_options.row_index_stride());
-  orc_writer_options->setDictionaryKeySizeThreshold(arrow_writer_options.dictionary_key_size_threshold());
-  orc_writer_options->setFileVersion(AdaptFileVersion(arrow_writer_options.file_version()));
-  orc_writer_options->setCompression(AdaptCompressionKind(arrow_writer_options.compression()));
-  orc_writer_options->setCompressionStrategy(AdaptCompressionStrategy(arrow_writer_options.compression_strategy()));
+  orc_writer_options->setDictionaryKeySizeThreshold(
+      arrow_writer_options.dictionary_key_size_threshold());
+  orc_writer_options->setFileVersion(
+      AdaptFileVersion(arrow_writer_options.file_version()));
+  orc_writer_options->setCompression(
+      AdaptCompressionKind(arrow_writer_options.compression()));
+  orc_writer_options->setCompressionStrategy(
+      AdaptCompressionStrategy(arrow_writer_options.compression_strategy()));
   orc_writer_options->setPaddingTolerance(arrow_writer_options.padding_tolerance());
   orc_writer_options->setErrorStream(*(arrow_writer_options.error_stream()));
   orc_writer_options->setBloomFilterFPP(arrow_writer_options.bloom_filter_fpp());
-  orc_writer_options->setColumnsUseBloomFilter(arrow_writer_options.columns_use_bloom_filter());
+  orc_writer_options->setColumnsUseBloomFilter(
+      arrow_writer_options.columns_use_bloom_filter());
   return orc_writer_options;
 }
 

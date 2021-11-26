@@ -81,14 +81,14 @@ cdef rle_version_from_enum(RleVersion rle_version_):
     return {
         _RleVersion_1: '1',
         _RleVersion_2: '2',
-    }.get(type_, 'UNKNOWN')
+    }.get(rle_version_, 'UNKNOWN')
 
 cdef bloom_filter_version_from_enum(BloomFilterVersion bloom_filter_version_):
     return {
         _BloomFilterVersion_ORIGINAL: 'ORIGINAL',
         _BloomFilterVersion_UTF8: 'UTF8',
         _BloomFilterVersion_FUTURE: 'FUTURE',
-    }.get(type_, 'UNKNOWN')
+    }.get(bloom_filter_version_, 'UNKNOWN')
 
 cdef file_version_from_class(FileVersion file_version_):
     cdef object file_version = file_version_.ToString()
@@ -127,7 +127,6 @@ cdef class ORCWriterOptions(_Weakrefable):
         
     def set_file_version(self, file_version):
         cdef:
-            FileVersion c_file_version
             uint32_t c_major, c_minor
             object major, minor
         major, minor = str(file_version).split('.')

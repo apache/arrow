@@ -17,8 +17,8 @@
 
 #pragma once
 
-#include <sstream>
 #include <set>
+#include <sstream>
 
 #include "arrow/io/interfaces.h"
 #include "arrow/util/visibility.h"
@@ -85,8 +85,7 @@ class ARROW_EXPORT FileVersion {
   uint32_t minor() const { return this->minor_version; }
 
   bool operator==(const FileVersion& right) const {
-    return this->major_version == right.major() &&
-           this->minor_version == right.minor();
+    return this->major_version == right.major() && this->minor_version == right.minor();
   }
 
   bool operator!=(const FileVersion& right) const { return !(*this == right); }
@@ -239,7 +238,7 @@ class ARROW_EXPORT WriterOptions {
   bool is_column_use_bloom_filter(uint64_t column) const;
 
   /**
-   * Get columns that use BloomFilter 
+   * Get columns that use BloomFilter
    * @return The set of columns that use BloomFilter
    */
   std::set<uint64_t> columns_use_bloom_filter() const;
@@ -258,9 +257,9 @@ class ARROW_EXPORT WriterOptions {
    * Get version of BloomFilter
    */
   BloomFilterVersion bloom_filter_version() const;
+
  private:
   std::unique_ptr<WriterOptionsPrivate> private_bits_;
-
 };
 
 liborc::WriterOptions* AdaptWriterOptions(const WriterOptions& arrow_writer_options);
