@@ -1262,6 +1262,7 @@ tasks:
     params:
       env:
         UBUNTU: "20.10"
+        R: "4.0"
       run: ubuntu-docs
 
   test-ubuntu-default-docs:
