@@ -48,8 +48,6 @@ add_arrow_lib(arrow_flight_sql
               ARROW_FLIGHT_SQL_LIBRARIES
               SOURCES
               ${ARROW_FLIGHT_SQL_SRCS}
-              PRECOMPILED_HEADERS
-              "$<$<COMPILE_LANGUAGE:CXX>:arrow/flight/sql/pch.h>"
               DEPENDENCIES
               flight_sql_protobuf_gen
               SHARED_LINK_FLAGS
