@@ -1001,6 +1001,29 @@ struct GroupedMeanImpl : public GroupedReducingAggregator<Type, GroupedMeanImpl<
     return static_cast<CType>(to_unsigned(u) + to_unsigned(v));
   }
 
+  template <typename T = Type>
+  static enable_if_decimal<T, Result<MeanType>> DoMean(CType reduced, int64_t count) {
+    static_assert(std::is_same<MeanType, CType>::value, "");
+    CType quotient, remainder;
+    ARROW_ASSIGN_OR_RAISE(std::tie(quotient, remainder), reduced.Divide(count));
+    // Round the decimal result based on the remainder
+    remainder.Abs();
+    if (remainder * 2 >= count) {
+      if (reduced >= 0) {
+        quotient += 1;
+      } else {
+        quotient -= 1;
+      }
+    }
+    return quotient;
+  }
+
+  template <typename T = Type>
+  static enable_if_t<!is_decimal_type<T>::value, Result<MeanType>> DoMean(CType reduced,
+                                                                          int64_t count) {
+    return static_cast<MeanType>(reduced) / count;
+  }
+
   static Result<std::shared_ptr<Buffer>> Finish(MemoryPool* pool,
                                                 const ScalarAggregateOptions& options,
                                                 const int64_t* counts,
@@ -1013,7 +1036,7 @@ struct GroupedMeanImpl : public GroupedReducingAggregator<Type, GroupedMeanImpl<
     MeanType* means = reinterpret_cast<MeanType*>(values->mutable_data());
     for (int64_t i = 0; i < num_groups; ++i) {
       if (counts[i] >= options.min_count) {
-        means[i] = static_cast<MeanType>(reduced[i]) / counts[i];
+        ARROW_ASSIGN_OR_RAISE(means[i], DoMean(reduced[i], counts[i]));
         continue;
       }
       means[i] = MeanType(0);
