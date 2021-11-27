@@ -622,6 +622,156 @@ struct BinaryScalarMinMax {
   }
 };
 
+template <typename Type, typename Op>
+struct FixedSizeBinaryScalarMinMax {
+  using BuilderType = typename TypeTraits<Type>::BuilderType;
+  using offset_type = size_t;
+
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    const ElementWiseAggregateOptions& options = MinMaxState::Get(ctx);
+    if (std::all_of(batch.values.begin(), batch.values.end(),
+                    [](const Datum& d) { return d.is_scalar(); })) {
+      return ExecOnlyScalar(ctx, options, batch, out);
+    }
+    return ExecContainingArrays(ctx, options, batch, out);
+  }
+
+  static Status ExecOnlyScalar(KernelContext* ctx,
+                               const ElementWiseAggregateOptions& options,
+                               const ExecBatch& batch, Datum* out) {
+    if (batch.values.empty()) {
+      return Status::OK();
+    }
+    BaseBinaryScalar* output = checked_cast<BaseBinaryScalar*>(out->scalar().get());
+    const size_t num_args = batch.values.size();
+
+    const auto batch_type = batch[0].type();
+    const auto binary_type = checked_cast<const FixedSizeBinaryType*>(batch_type.get());
+    int64_t final_size = CalculateRowSize(options, batch, 0, binary_type->byte_width());
+    if (final_size < 0) {
+      output->is_valid = false;
+      return Status::OK();
+    }
+    util::string_view result = UnboxScalar<Type>::Unbox(*batch.values.front().scalar());
+    for (size_t i = 1; i < num_args; i++) {
+      const Scalar& scalar = *batch[i].scalar();
+      if (!scalar.is_valid && options.skip_nulls) {
+        continue;
+      }
+      if (scalar.is_valid) {
+        util::string_view value = UnboxScalar<Type>::Unbox(scalar);
+        result = result.empty() ? value : Op::CallBinary(result, value);
+      }
+    }
+    if (!result.empty()) {
+      ARROW_ASSIGN_OR_RAISE(output->value, ctx->Allocate(final_size));
+      uint8_t* buf = output->value->mutable_data();
+      buf = std::copy(result.begin(), result.end(), buf);
+      output->is_valid = true;
+      DCHECK_GE(final_size, buf - output->value->mutable_data());
+    }
+    return Status::OK();
+  }
+
+  static Status ExecContainingArrays(KernelContext* ctx,
+                                     const ElementWiseAggregateOptions& options,
+                                     const ExecBatch& batch, Datum* out) {
+    const auto batch_type = batch[0].type();
+    const auto binary_type = checked_cast<const FixedSizeBinaryType*>(batch_type.get());
+    int32_t byte_width = binary_type->byte_width();
+    // Presize data to avoid reallocations
+    int64_t final_size = 0;
+    for (int64_t i = 0; i < batch.length; i++) {
+      auto size = CalculateRowSize(options, batch, i, byte_width);
+      if (size > 0) final_size += size;
+    }
+    BuilderType builder(batch_type);
+    RETURN_NOT_OK(builder.Reserve(batch.length));
+    RETURN_NOT_OK(builder.ReserveData(final_size));
+
+    std::vector<util::string_view> valid_cols(batch.values.size());
+    for (size_t row = 0; row < static_cast<size_t>(batch.length); row++) {
+      size_t num_valid = 0;
+      for (size_t col = 0; col < batch.values.size(); col++) {
+        if (batch[col].is_scalar()) {
+          const auto& scalar = *batch[col].scalar();
+          if (scalar.is_valid) {
+            valid_cols[col] = UnboxScalar<Type>::Unbox(scalar);
+            num_valid++;
+          } else {
+            valid_cols[col] = util::string_view();
+          }
+        } else {
+          const ArrayData& array = *batch[col].array();
+          if (!array.MayHaveNulls() ||
+              BitUtil::GetBit(array.buffers[0]->data(), array.offset + row)) {
+            const uint8_t* data = array.GetValues<uint8_t>(1, /*absolute_offset=*/0);
+            valid_cols[col] = util::string_view(
+                reinterpret_cast<const char*>(data) + row * byte_width, byte_width);
+            num_valid++;
+          } else {
+            valid_cols[col] = util::string_view();
+          }
+        }
+      }
+
+      if (num_valid < batch.values.size() && !options.skip_nulls) {
+        // We had some nulls
+        builder.UnsafeAppendNull();
+        continue;
+      }
+      util::string_view result = valid_cols.front();
+      for (size_t col = 1; col < batch.values.size(); ++col) {
+        util::string_view value = valid_cols[col];
+        if (value.empty()) {
+          DCHECK(options.skip_nulls);
+          continue;
+        }
+        result = result.empty() ? value : Op::CallBinary(result, value);
+      }
+      if (result.empty()) {
+        builder.UnsafeAppendNull();
+      } else {
+        builder.UnsafeAppend(result);
+      }
+    }
+
+    std::shared_ptr<Array> string_array;
+    RETURN_NOT_OK(builder.Finish(&string_array));
+    *out = *string_array->data();
+    out->mutable_array()->type = batch[0].type();
+    DCHECK_EQ(batch.length, out->array()->length);
+    return Status::OK();
+  }
+
+  // Compute the length of the output for the given position, or -1 if it would be null.
+  static int64_t CalculateRowSize(const ElementWiseAggregateOptions& options,
+                                  const ExecBatch& batch, const int64_t index,
+                                  int32_t byte_width) {
+    const auto num_args = batch.values.size();
+    int32_t final_size = 0;
+    for (size_t i = 0; i < num_args; i++) {
+      bool valid = true;
+      if (batch[i].is_scalar()) {
+        const Scalar& scalar = *batch[i].scalar();
+        valid = scalar.is_valid;
+      } else {
+        const ArrayData& array = *batch[i].array();
+        valid = !array.MayHaveNulls() ||
+                BitUtil::GetBit(array.buffers[0]->data(), array.offset + index);
+      }
+      if (!valid) {
+        if (options.skip_nulls) {
+          continue;
+        }
+        return -1;
+      }
+      final_size = std::max(final_size, byte_width);
+    }
+    return final_size;
+  }
+};
+
 Result<ValueDescr> ResolveMinOrMaxOutputType(KernelContext*,
                                              const std::vector<ValueDescr>& args) {
   if (args.empty()) {
@@ -678,6 +828,17 @@ std::shared_ptr<ScalarFunction> MakeScalarMinMax(std::string name,
                         exec, MinMaxState::Init};
     kernel.null_handling = NullHandling::type::COMPUTED_NO_PREALLOCATE;
     kernel.mem_allocation = MemAllocation::type::PREALLOCATE;
+    DCHECK_OK(func->AddKernel(std::move(kernel)));
+  }
+  {
+    const auto id = Type::FIXED_SIZE_BINARY;
+    auto exec = FixedSizeBinaryScalarMinMax<FixedSizeBinaryType, Op>::Exec;
+    OutputType out_type(ResolveMinOrMaxOutputType);
+    ScalarKernel kernel{KernelSignature::Make({InputType{id}}, out_type,
+                                              /*is_varargs=*/true),
+                        exec, MinMaxState::Init};
+    kernel.null_handling = NullHandling::type::COMPUTED_NO_PREALLOCATE;
+    kernel.mem_allocation = MemAllocation::type::NO_PREALLOCATE;
     DCHECK_OK(func->AddKernel(std::move(kernel)));
   }
   return func;

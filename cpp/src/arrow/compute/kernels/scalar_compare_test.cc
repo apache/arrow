@@ -1180,6 +1180,18 @@ template <typename T>
 class TestVarArgsCompareBinary : public TestVarArgsCompare<T> {};
 
 template <typename T>
+class TestVarArgsCompareFixedSizeBinary : public TestVarArgsCompare<T> {
+ protected:
+  Datum scalar(const std::string& value, int32_t byte_width = 1) {
+    return ScalarFromJSON(fixed_size_binary(byte_width), value);
+  }
+
+  Datum array(const std::string& value, int32_t byte_width = 1) {
+    return ArrayFromJSON(fixed_size_binary(byte_width), value);
+  }
+};
+
+template <typename T>
 class TestVarArgsCompareParametricTemporal : public TestVarArgsCompare<T> {
  protected:
   static std::shared_ptr<DataType> type_singleton() {
@@ -1202,12 +1214,14 @@ using NumericBasedTypes =
     ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type, Int8Type, Int16Type,
                      Int32Type, Int64Type, FloatType, DoubleType, Date32Type, Date64Type>;
 using ParametricTemporalTypes = ::testing::Types<TimestampType, Time32Type, Time64Type>;
+using FixedSizeBinaryTypes = ::testing::Types<FixedSizeBinaryType>;
 
 TYPED_TEST_SUITE(TestVarArgsCompareNumeric, NumericBasedTypes);
 TYPED_TEST_SUITE(TestVarArgsCompareDecimal, DecimalArrowTypes);
 TYPED_TEST_SUITE(TestVarArgsCompareFloating, RealArrowTypes);
 TYPED_TEST_SUITE(TestVarArgsCompareParametricTemporal, ParametricTemporalTypes);
 TYPED_TEST_SUITE(TestVarArgsCompareBinary, BaseBinaryArrowTypes);
+TYPED_TEST_SUITE(TestVarArgsCompareFixedSizeBinary, FixedSizeBinaryTypes);
 
 TYPED_TEST(TestVarArgsCompareNumeric, MinElementWise) {
   this->AssertNullScalar(MinElementWise, {});
@@ -1421,6 +1435,121 @@ TYPED_TEST(TestVarArgsCompareBinary, MinElementWise) {
                 this->array(R"(["foo", "bar", null, "bb"])")});
 }
 
+TYPED_TEST(TestVarArgsCompareFixedSizeBinary, MinElementWise) {
+  this->AssertNullScalar(MinElementWise, {});
+  this->AssertNullScalar(MinElementWise, {this->scalar("null"), this->scalar("null")});
+
+  this->Assert(MinElementWise, this->scalar(R"("0")"), {this->scalar(R"("0")")});
+  this->Assert(MinElementWise, this->scalar(R"("0")"),
+               {this->scalar(R"("2")"), this->scalar(R"("0")"), this->scalar(R"("1")")});
+  this->Assert(MinElementWise, this->scalar(R"("0")"),
+               {this->scalar(R"("2")"), this->scalar(R"("0")"), this->scalar(R"("1")"),
+                this->scalar("null")});
+  this->Assert(MinElementWise, this->scalar(R"("1")"),
+               {this->scalar("null"), this->scalar("null"), this->scalar(R"("1")"),
+                this->scalar("null")});
+
+  this->Assert(MinElementWise, (this->array("[]")), {this->array("[]")});
+  this->Assert(MinElementWise, this->array(R"(["1", "2", "3", null])"),
+               {this->array(R"(["1", "2", "3", null])")});
+
+  this->Assert(MinElementWise, this->array(R"(["1", "2", "2", "2"])"),
+               {this->array(R"(["1", "2", "3", "4"])"), this->scalar(R"("2")")});
+  this->Assert(MinElementWise, this->array(R"(["1", "2", "2", "2"])"),
+               {this->array(R"(["1", null, "3", "4"])"), this->scalar(R"("2")")});
+  this->Assert(MinElementWise, this->array(R"(["1", "2", "2", "2"])"),
+               {this->array(R"(["1", null, "3", "4"])"), this->scalar(R"("2")"),
+                this->scalar(R"("4")")});
+  this->Assert(MinElementWise, this->array(R"(["1", "2", "2", "2"])"),
+               {this->array(R"(["1", null, "3", "4"])"), this->scalar("null"),
+                this->scalar(R"("2")")});
+
+  this->Assert(
+      MinElementWise, this->array(R"(["1", "2", "2", "2"])"),
+      {this->array(R"(["1", "2", "3", "4"])"), this->array(R"(["2", "2", "2", "2"])")});
+  this->Assert(
+      MinElementWise, this->array(R"(["1", "2", "2", "2"])"),
+      {this->array(R"(["1", "2", "3", "4"])"), this->array(R"(["2", null, "2", "2"])")});
+  this->Assert(
+      MinElementWise, this->array(R"(["1", "2", "2", "2"])"),
+      {this->array(R"(["1", null, "3", "4"])"), this->array(R"(["2", "2", "2", "2"])")});
+
+  this->Assert(MinElementWise, this->array(R"(["1", "2", null, "6"])"),
+               {this->array(R"(["1", "2", null, null])"),
+                this->array(R"(["4", null, null, "6"])")});
+  this->Assert(MinElementWise, this->array(R"(["1", "2", null, "6"])"),
+               {this->array(R"(["4", null, null, "6"])"),
+                this->array(R"(["1", "2", null, null])")});
+  this->Assert(
+      MinElementWise, this->array(R"(["1", "2", "3", "4"])"),
+      {this->array(R"(["1", "2", "3", "4"])"), this->array("[null, null, null, null]")});
+  this->Assert(
+      MinElementWise, this->array(R"(["1", "2", "3", "4"])"),
+      {this->array("[null, null, null, null]"), this->array(R"(["1", "2", "3", "4"])")});
+
+  this->Assert(MinElementWise, this->array(R"(["1", "1", "1", "1"])"),
+               {this->scalar(R"("1")"), this->array(R"(["1", "2", "3", "4"])")});
+  this->Assert(MinElementWise, this->array(R"(["1", "1", "1", "1"])"),
+               {this->scalar(R"("1")"), this->array("[null, null, null, null]")});
+  this->Assert(MinElementWise, this->array(R"(["1", "1", "1", "1"])"),
+               {this->scalar("null"), this->array(R"(["1", "1", "1", "1"])")});
+  this->Assert(MinElementWise, this->array("[null, null, null, null]"),
+               {this->scalar("null"), this->array("[null, null, null, null]")});
+
+  this->Assert(MinElementWise,
+               this->array(R"(["abc", "abc", "abc", "abc", "abc"])", /*byte_width=*/3),
+               {this->array(R"(["abc", "abc", "abd", null, "abc"])", /*byte_width=*/3),
+                this->array(R"(["abc", "abd", "abc", "abc", null])", /*byte_width=*/3)});
+  this->Assert(MinElementWise, this->scalar(R"("abc")", /*byte_width=*/3),
+               {this->scalar(R"("abe")", /*byte_width=*/3),
+                this->scalar(R"("abc")", /*byte_width=*/3),
+                this->scalar(R"("abd")", /*byte_width=*/3)});
+
+  this->Assert(MinElementWise,
+               this->array(R"(["abc", "abc", "abc", "abc", "abc"])", /*byte_width=*/3),
+               {this->array(R"(["abc", "abc", "abd", null, "abc"])", /*byte_width=*/3),
+                this->scalar(R"("abc")", /*byte_width=*/3)});
+  this->Assert(MinElementWise,
+               this->array(R"(["abc", "abc", "abc", "abc", "abc"])", /*byte_width=*/3),
+               {this->array(R"(["abc", null, "abd", null, "abc"])", /*byte_width=*/3),
+                this->scalar(R"("abc")", /*byte_width=*/3)});
+  this->Assert(MinElementWise,
+               this->array(R"(["abc", "abc", "abc", "abc", "abc"])", /*byte_width=*/3),
+               {this->array(R"(["abc", null, "abd", null, "abc"])", /*byte_width=*/3),
+                this->scalar(R"("abc")", /*byte_width=*/3),
+                this->scalar(R"("abd")", /*byte_width=*/3)});
+  this->Assert(MinElementWise,
+               this->array(R"(["abc", "abc", "abc", "abc", "abc"])", /*byte_width=*/3),
+               {this->array(R"(["abc", null, "abd", null, "abc"])", /*byte_width=*/3),
+                this->scalar("null", /*byte_width=*/3),
+                this->scalar(R"("abc")", /*byte_width=*/3)});
+
+  // Test null handling
+  this->element_wise_aggregate_options_.skip_nulls = false;
+  this->AssertNullScalar(MinElementWise, {this->scalar("null"), this->scalar("null")});
+  this->AssertNullScalar(MinElementWise, {this->scalar(R"("0")"), this->scalar("null")});
+
+  this->Assert(MinElementWise, this->array(R"(["1", null, "2", "2"])"),
+               {this->array(R"(["1", null, "3", "4"])"), this->scalar(R"("2")"),
+                this->scalar(R"("4")")});
+  this->Assert(MinElementWise, this->array("[null, null, null, null]"),
+               {this->array(R"(["1", null, "3", "4"])"), this->scalar("null"),
+                this->scalar(R"("2")")});
+  this->Assert(
+      MinElementWise, this->array(R"(["1", null, "2", "2"])"),
+      {this->array(R"(["1", "2", "3", "4"])"), this->array(R"(["2", null, "2", "2"])")});
+
+  this->Assert(MinElementWise, this->array("[null, null, null, null]"),
+               {this->scalar(R"("1")"), this->array("[null, null, null, null]")});
+  this->Assert(MinElementWise, this->array("[null, null, null, null]"),
+               {this->scalar("null"), this->array(R"(["1", "1", "1", "1"])")});
+
+  this->Assert(MinElementWise,
+               this->array(R"(["abc", "abc", "abc", null, null])", /*byte_width=*/3),
+               {this->array(R"(["abc", "abc", "abd", null, "abc"])", /*byte_width=*/3),
+                this->array(R"(["abc", "abd", "abc", "abc", null])", /*byte_width=*/3)});
+}
+
 TYPED_TEST(TestVarArgsCompareNumeric, MaxElementWise) {
   this->AssertNullScalar(MaxElementWise, {});
   this->AssertNullScalar(MaxElementWise, {this->scalar("null"), this->scalar("null")});
@@ -1631,6 +1760,121 @@ TYPED_TEST(TestVarArgsCompareBinary, MaxElementWise) {
                {this->array(R"([null, "a", "bb", "cccc"])"),
                 this->array(R"(["gg", null, "h", "iii"])"),
                 this->array(R"(["foo", "bar", null, "bb"])")});
+}
+
+TYPED_TEST(TestVarArgsCompareFixedSizeBinary, MaxElementWise) {
+  this->AssertNullScalar(MaxElementWise, {});
+  this->AssertNullScalar(MaxElementWise, {this->scalar("null"), this->scalar("null")});
+
+  this->Assert(MaxElementWise, this->scalar(R"("0")"), {this->scalar(R"("0")")});
+  this->Assert(MaxElementWise, this->scalar(R"("2")"),
+               {this->scalar(R"("2")"), this->scalar(R"("0")"), this->scalar(R"("1")")});
+  this->Assert(MaxElementWise, this->scalar(R"("2")"),
+               {this->scalar(R"("2")"), this->scalar(R"("0")"), this->scalar(R"("1")"),
+                this->scalar("null")});
+  this->Assert(MaxElementWise, this->scalar(R"("1")"),
+               {this->scalar("null"), this->scalar("null"), this->scalar(R"("1")"),
+                this->scalar("null")});
+
+  this->Assert(MaxElementWise, (this->array("[]")), {this->array("[]")});
+  this->Assert(MaxElementWise, this->array(R"(["1", "2", "3", null])"),
+               {this->array(R"(["1", "2", "3", null])")});
+
+  this->Assert(MaxElementWise, this->array(R"(["2", "2", "3", "4"])"),
+               {this->array(R"(["1", "2", "3", "4"])"), this->scalar(R"("2")")});
+  this->Assert(MaxElementWise, this->array(R"(["2", "2", "3", "4"])"),
+               {this->array(R"(["1", null, "3", "4"])"), this->scalar(R"("2")")});
+  this->Assert(MaxElementWise, this->array(R"(["4", "4", "4", "4"])"),
+               {this->array(R"(["1", null, "3", "4"])"), this->scalar(R"("2")"),
+                this->scalar(R"("4")")});
+  this->Assert(MaxElementWise, this->array(R"(["2", "2", "3", "4"])"),
+               {this->array(R"(["1", null, "3", "4"])"), this->scalar("null"),
+                this->scalar(R"("2")")});
+
+  this->Assert(
+      MaxElementWise, this->array(R"(["2", "2", "3", "4"])"),
+      {this->array(R"(["1", "2", "3", "4"])"), this->array(R"(["2", "2", "2", "2"])")});
+  this->Assert(
+      MaxElementWise, this->array(R"(["2", "2", "3", "4"])"),
+      {this->array(R"(["1", "2", "3", "4"])"), this->array(R"(["2", null, "2", "2"])")});
+  this->Assert(
+      MaxElementWise, this->array(R"(["2", "2", "3", "4"])"),
+      {this->array(R"(["1", null, "3", "4"])"), this->array(R"(["2", "2", "2", "2"])")});
+
+  this->Assert(MaxElementWise, this->array(R"(["4", "2", null, "6"])"),
+               {this->array(R"(["1", "2", null, null])"),
+                this->array(R"(["4", null, null, "6"])")});
+  this->Assert(MaxElementWise, this->array(R"(["4", "2", null, "6"])"),
+               {this->array(R"(["4", null, null, "6"])"),
+                this->array(R"(["1", "2", null, null])")});
+  this->Assert(
+      MaxElementWise, this->array(R"(["1", "2", "3", "4"])"),
+      {this->array(R"(["1", "2", "3", "4"])"), this->array("[null, null, null, null]")});
+  this->Assert(
+      MaxElementWise, this->array(R"(["1", "2", "3", "4"])"),
+      {this->array("[null, null, null, null]"), this->array(R"(["1", "2", "3", "4"])")});
+
+  this->Assert(MaxElementWise, this->array(R"(["1", "2", "3", "4"])"),
+               {this->scalar(R"("1")"), this->array(R"(["1", "2", "3", "4"])")});
+  this->Assert(MaxElementWise, this->array(R"(["1", "1", "1", "1"])"),
+               {this->scalar(R"("1")"), this->array("[null, null, null, null]")});
+  this->Assert(MaxElementWise, this->array(R"(["1", "1", "1", "1"])"),
+               {this->scalar("null"), this->array(R"(["1", "1", "1", "1"])")});
+  this->Assert(MaxElementWise, this->array("[null, null, null, null]"),
+               {this->scalar("null"), this->array("[null, null, null, null]")});
+
+  this->Assert(MaxElementWise,
+               this->array(R"(["abc", "abd", "abd", "abc", "abc"])", /*byte_width=*/3),
+               {this->array(R"(["abc", "abc", "abd", null, "abc"])", /*byte_width=*/3),
+                this->array(R"(["abc", "abd", "abc", "abc", null])", /*byte_width=*/3)});
+  this->Assert(MaxElementWise, this->scalar(R"("abe")", /*byte_width=*/3),
+               {this->scalar(R"("abe")", /*byte_width=*/3),
+                this->scalar(R"("abc")", /*byte_width=*/3),
+                this->scalar(R"("abd")", /*byte_width=*/3)});
+
+  this->Assert(MaxElementWise,
+               this->array(R"(["abc", "abc", "abd", "abc", "abc"])", /*byte_width=*/3),
+               {this->array(R"(["abc", "abc", "abd", null, "abc"])", /*byte_width=*/3),
+                this->scalar(R"("abc")", /*byte_width=*/3)});
+  this->Assert(MaxElementWise,
+               this->array(R"(["abc", "abc", "abd", "abc", "abc"])", /*byte_width=*/3),
+               {this->array(R"(["abc", null, "abd", null, "abc"])", /*byte_width=*/3),
+                this->scalar(R"("abc")", /*byte_width=*/3)});
+  this->Assert(MaxElementWise,
+               this->array(R"(["abd", "abd", "abd", "abd", "abd"])", /*byte_width=*/3),
+               {this->array(R"(["abc", null, "abd", null, "abc"])", /*byte_width=*/3),
+                this->scalar(R"("abc")", /*byte_width=*/3),
+                this->scalar(R"("abd")", /*byte_width=*/3)});
+  this->Assert(MaxElementWise,
+               this->array(R"(["abc", "abc", "abd", "abc", "abc"])", /*byte_width=*/3),
+               {this->array(R"(["abc", null, "abd", null, "abc"])", /*byte_width=*/3),
+                this->scalar("null", /*byte_width=*/3),
+                this->scalar(R"("abc")", /*byte_width=*/3)});
+
+  // Test null handling
+  this->element_wise_aggregate_options_.skip_nulls = false;
+  this->AssertNullScalar(MaxElementWise, {this->scalar("null"), this->scalar("null")});
+  this->AssertNullScalar(MaxElementWise, {this->scalar(R"("0")"), this->scalar("null")});
+
+  this->Assert(MaxElementWise, this->array(R"(["4", null, "4", "4"])"),
+               {this->array(R"(["1", null, "3", "4"])"), this->scalar(R"("2")"),
+                this->scalar(R"("4")")});
+  this->Assert(MaxElementWise, this->array("[null, null, null, null]"),
+               {this->array(R"(["1", null, "3", "4"])"), this->scalar("null"),
+                this->scalar(R"("2")")});
+  this->Assert(
+      MaxElementWise, this->array(R"(["2", null, "3", "4"])"),
+      {this->array(R"(["1", "2", "3", "4"])"), this->array(R"(["2", null, "2", "2"])")});
+
+  this->Assert(MaxElementWise, this->array("[null, null, null, null]"),
+               {this->scalar(R"("1")"), this->array("[null, null, null, null]")});
+  this->Assert(MaxElementWise, this->array("[null, null, null, null]"),
+               {this->scalar("null"), this->array(R"(["1", "1", "1", "1"])")});
+
+  this->Assert(MaxElementWise,
+               this->array(R"(["abc", "abd", "abd", null, null])", /*byte_width=*/3),
+               {this->array(R"(["abc", "abc", "abd", null, "abc"])", /*byte_width=*/3),
+                this->array(R"(["abc", "abd", "abc", "abc", null])", /*byte_width=*/3)});
 }
 
 TEST(TestMaxElementWiseMinElementWise, CommonTemporal) {
