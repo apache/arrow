@@ -75,7 +75,7 @@ _parquet_fileformat = None
 _parquet_filefragment = None
 _parquet_filewriteoption = None
 _parquet_fragmentscanoptions = None
-_parquet_filesystemdataset_write_visitor = None
+_parquet_filesystemdatasetwritevisitor = None
 
 
 def _get_parquet_classes():
@@ -87,7 +87,7 @@ def _get_parquet_classes():
     global _parquet_filefragment
     global _parquet_filewriteoption
     global _parquet_fragmentscanoptions
-    global _parquet_filesystemdataset_write_visitor
+    global _parquet_filesystemdatasetwritevisitor
     global _parquet_imported
     if not _parquet_imported:
         try:
