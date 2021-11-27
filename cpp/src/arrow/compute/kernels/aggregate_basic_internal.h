@@ -121,6 +121,37 @@ struct SumImpl : public ScalarAggregator {
   ScalarAggregateOptions options;
 };
 
+struct NullSumImpl : public ScalarAggregator {
+  NullSumImpl(const ScalarAggregateOptions& options_) : options(options_) {}
+
+  Status Consume(KernelContext*, const ExecBatch& batch) override {
+    if (batch[0].is_scalar() || batch[0].array()->GetNullCount() > 0) {
+      // If the batch is a scalar or an array with elements, set is_empty to false
+      is_empty = false;
+    }
+    return Status::OK();
+  }
+
+  Status MergeFrom(KernelContext*, KernelState&& src) override {
+    const auto& other = checked_cast<const NullSumImpl&>(src);
+    this->is_empty &= other.is_empty;
+    return Status::OK();
+  }
+
+  Status Finalize(KernelContext*, Datum* out) override {
+    if ((options.skip_nulls || this->is_empty) && options.min_count == 0) {
+      // Return 0 if the remaining data is empty
+      out->value = std::make_shared<Int64Scalar>(0);
+    } else {
+      out->value = MakeNullScalar(null());
+    }
+    return Status::OK();
+  }
+
+  bool is_empty = true;
+  ScalarAggregateOptions options;
+};
+
 template <typename ArrowType, SimdLevel::type SimdLevel>
 struct MeanImpl : public SumImpl<ArrowType, SimdLevel> {
   using SumImpl<ArrowType, SimdLevel>::SumImpl;
@@ -164,6 +195,20 @@ struct MeanImpl : public SumImpl<ArrowType, SimdLevel> {
   using SumImpl<ArrowType, SimdLevel>::options;
 };
 
+struct NullMeanImpl : public NullSumImpl {
+  NullMeanImpl(const ScalarAggregateOptions& options_) : NullSumImpl(options_) {}
+
+  Status Finalize(KernelContext*, Datum* out) override {
+    if ((options.skip_nulls || this->is_empty) && options.min_count == 0) {
+      // Return 0 if the remaining data is empty
+      out->value = std::make_shared<DoubleScalar>(0);
+    } else {
+      out->value = MakeNullScalar(float64());
+    }
+    return Status::OK();
+  }
+};
+
 template <template <typename> class KernelClass>
 struct SumLikeInit {
   std::unique_ptr<KernelState> state;
@@ -200,9 +245,26 @@ struct SumLikeInit {
     return Status::OK();
   }
 
+  virtual Status Visit(const NullType&) {
+    state.reset(new NullSumImpl(options));
+    return Status::OK();
+  }
+
   Result<std::unique_ptr<KernelState>> Create() {
     RETURN_NOT_OK(VisitTypeInline(*type, this));
     return std::move(state);
+  }
+};
+
+template <template <typename> class KernelClass>
+struct MeanKernelInit : public SumLikeInit<KernelClass> {
+  MeanKernelInit(KernelContext* ctx, const std::shared_ptr<DataType>& type,
+                 const ScalarAggregateOptions& options)
+      : SumLikeInit<KernelClass>(ctx, type, options) {}
+
+  Status Visit(const NullType&) override {
+    this->state.reset(new NullMeanImpl(this->options));
+    return Status::OK();
   }
 };
 

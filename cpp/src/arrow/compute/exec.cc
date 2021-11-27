@@ -961,6 +961,14 @@ class ScalarAggExecutor : public KernelExecutorImpl<ScalarAggregateKernel> {
     return outputs[0];
   }
 
+  Status CheckResultType(const Datum& out, const char* function_name) override {
+    if (strcmp(function_name, "sum") == 0 && output_descr_.type->Equals(null())) {
+      // Skip CheckResultType for sum of null type, as it may return various types
+      return Status::OK();
+    }
+    return KernelExecutorImpl::CheckResultType(out, function_name);
+  }
+
  private:
   Status Consume(const ExecBatch& batch) {
     // FIXME(ARROW-11840) don't merge *any* aggegates for every batch
