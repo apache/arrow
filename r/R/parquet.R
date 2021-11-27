@@ -203,7 +203,7 @@ write_parquet <- function(x,
 
   # determine an approximate chunk size
   if (is.null(chunk_size)) {
-    num_cells <- x$num_rows * x$num_columns
+    num_cells <- as.numeric(x$num_rows) * as.numeric(x$num_columns)
     target_cells_per_group <- getOption("arrow.parquet_cells_per_group", 2.5e8)
 
     if (num_cells < target_cells_per_group) {
