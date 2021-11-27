@@ -2788,7 +2788,8 @@ def _filesystemdataset_write(
         # until after Finish has been called
         if _parquet_filesystemdatasetwritevisitor:
             c_options.writer_post_finish = BindFunction[cb_writer_finish_internal](
-                &_parquet_filesystemdatasetwritevisitor, visit_args)
+                # &_parquet_filesystemdatasetwritevisitor, visit_args)
+                &_filesystemdataset_write_visitor, visit_args)
         else:
             c_options.writer_post_finish = BindFunction[cb_writer_finish_internal](
                 &_filesystemdataset_write_visitor, visit_args)
