@@ -75,7 +75,7 @@ _parquet_fileformat = None
 _parquet_filefragment = None
 _parquet_filewriteoption = None
 _parquet_fragmentscanoptions = None
-_parquet_get_parquet_metadata = None
+_parquet_filesystemdataset_write_visitor = None
 
 
 def _get_parquet_classes():
@@ -87,6 +87,7 @@ def _get_parquet_classes():
     global _parquet_filefragment
     global _parquet_filewriteoption
     global _parquet_fragmentscanoptions
+    global _parquet_filesystemdataset_write_visitor
     global _parquet_imported
     if not _parquet_imported:
         try:
@@ -95,19 +96,19 @@ def _get_parquet_classes():
                 ParquetFileFragment,
                 ParquetWriteOption,
                 ParquetFragmentScanOptions,
-                get_parquet_metadata
+                _filesystemdataset_parquet_write_visitor
             )
             _parquet_fileformat = ParquetFileFormat
             _parquet_filefragment = ParquetFileFragment
             _parquet_filewriteoption = ParquetWriteOption
             _parquet_fragmentscanoptions = ParquetFragmentScanOptions
-            _parquet_get_parquet_metadata = get_parquet_metadata
+            _parquet_filesystemdatasetwritevisitor = _filesystemdataset_parquet_write_visitor
         except ImportError as e:
             _parquet_fileformat = None
             _parquet_filefragment = None
             _parquet_fragmentscanoptions = None
             _parquet_filewriteoption = None
-            _parquet_get_parquet_metadata = None
+            _parquet_filesystemdatasetwritevisitor = None
         finally:
             _parquet_imported = True
 
@@ -2737,10 +2738,6 @@ cdef void _filesystemdataset_write_visitor(
 
     parquet_metadata = None
     path = frombytes(deref(file_writer).destination().path)
-    if deref(deref(file_writer).format()).type_name() == b"parquet":
-        if _parquet_get_parquet_metadata:
-            parquet_metadata = _parquet_get_parquet_metadata(
-                visit_args, file_writer, path)
     written_file = WrittenFile(path, parquet_metadata)
     visit_args['file_visitor'](written_file)
 
@@ -2789,8 +2786,12 @@ def _filesystemdataset_write(
                       'file_visitor': file_visitor}
         # Need to use post_finish because parquet metadata is not available
         # until after Finish has been called
-        c_options.writer_post_finish = BindFunction[cb_writer_finish_internal](
-            &_filesystemdataset_write_visitor, visit_args)
+        if _parquet_filesystemdatasetwritevisitor:
+            c_options.writer_post_finish = BindFunction[cb_writer_finish_internal](
+                &_parquet_filesystemdatasetwritevisitor, visit_args)
+        else:
+            c_options.writer_post_finish = BindFunction[cb_writer_finish_internal](
+                &_filesystemdataset_write_visitor, visit_args)
 
     c_scanner = data.unwrap()
     with nogil:

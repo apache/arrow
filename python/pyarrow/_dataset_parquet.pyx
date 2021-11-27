@@ -722,23 +722,27 @@ cdef class ParquetDatasetFactory(DatasetFactory):
 
 ctypedef CParquetFileWriter* _CParquetFileWriterPtr
 
-cdef object get_parquet_metadata(
+cdef void _filesystemdataset_parquet_write_visitor(
         dict visit_args,
-        CFileWriter* file_writer,
-        str path):
+        CFileWriter* file_writer):
     cdef:
+        str path
         str base_dir
         WrittenFile written_file
         FileMetaData parquet_metadata
         CParquetFileWriter* parquet_file_writer
 
     parquet_metadata = None
-    parquet_file_writer = dynamic_cast[_CParquetFileWriterPtr](file_writer)
-    with nogil:
-        metadata = deref(
-            deref(parquet_file_writer).parquet_writer()).metadata()
-    if metadata:
-        base_dir = frombytes(visit_args['base_dir'])
-        parquet_metadata = FileMetaData()
-        parquet_metadata.init(metadata)
-        parquet_metadata.set_file_path(os.path.relpath(path, base_dir))
+    path = frombytes(deref(file_writer).destination().path)
+    if deref(deref(file_writer).format()).type_name() == b"parquet":
+        parquet_file_writer = dynamic_cast[_CParquetFileWriterPtr](file_writer)
+        with nogil:
+            metadata = deref(
+                deref(parquet_file_writer).parquet_writer()).metadata()
+        if metadata:
+            base_dir = frombytes(visit_args['base_dir'])
+            parquet_metadata = FileMetaData()
+            parquet_metadata.init(metadata)
+            parquet_metadata.set_file_path(os.path.relpath(path, base_dir))
+    written_file = WrittenFile(path, parquet_metadata)
+    visit_args['file_visitor'](written_file)
