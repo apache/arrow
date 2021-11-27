@@ -31,6 +31,12 @@ from pyarrow._dataset cimport (
 )
 
 
+from pyarrow._parquet cimport (
+    _create_writer_properties, _create_arrow_writer_properties,
+    FileMetaData, RowGroupMetaData, ColumnChunkMetaData
+)
+
+
 cdef class ParquetFileFormat(FileFormat):
     """
     FileFormat for Parquet
@@ -569,3 +575,170 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
             self.use_buffered_stream, self.buffer_size, self.pre_buffer,
             self.enable_parallel_column_conversion
         )
+
+
+cdef class ParquetFactoryOptions(_Weakrefable):
+    """
+    Influences the discovery of parquet dataset.
+
+    Parameters
+    ----------
+    partition_base_dir : str, optional
+        For the purposes of applying the partitioning, paths will be
+        stripped of the partition_base_dir. Files not matching the
+        partition_base_dir prefix will be skipped for partitioning discovery.
+        The ignored files will still be part of the Dataset, but will not
+        have partition information.
+    partitioning : Partitioning, PartitioningFactory, optional
+        The partitioning scheme applied to fragments, see ``Partitioning``.
+    validate_column_chunk_paths : bool, default False
+        Assert that all ColumnChunk paths are consistent. The parquet spec
+        allows for ColumnChunk data to be stored in multiple files, but
+        ParquetDatasetFactory supports only a single file with all ColumnChunk
+        data. If this flag is set construction of a ParquetDatasetFactory will
+        raise an error if ColumnChunk data is not resident in a single file.
+    """
+
+    cdef:
+        CParquetFactoryOptions options
+
+    __slots__ = ()  # avoid mistakingly creating attributes
+
+    def __init__(self, partition_base_dir=None, partitioning=None,
+                 validate_column_chunk_paths=False):
+        if isinstance(partitioning, PartitioningFactory):
+            self.partitioning_factory = partitioning
+        elif isinstance(partitioning, Partitioning):
+            self.partitioning = partitioning
+
+        if partition_base_dir is not None:
+            self.partition_base_dir = partition_base_dir
+
+        self.options.validate_column_chunk_paths = validate_column_chunk_paths
+
+    cdef inline CParquetFactoryOptions unwrap(self):
+        return self.options
+
+    @property
+    def partitioning(self):
+        """Partitioning to apply to discovered files.
+
+        NOTE: setting this property will overwrite partitioning_factory.
+        """
+        c_partitioning = self.options.partitioning.partitioning()
+        if c_partitioning.get() == nullptr:
+            return None
+        return Partitioning.wrap(c_partitioning)
+
+    @partitioning.setter
+    def partitioning(self, Partitioning value):
+        self.options.partitioning = (<Partitioning> value).unwrap()
+
+    @property
+    def partitioning_factory(self):
+        """PartitioningFactory to apply to discovered files and
+        discover a Partitioning.
+
+        NOTE: setting this property will overwrite partitioning.
+        """
+        c_factory = self.options.partitioning.factory()
+        if c_factory.get() == nullptr:
+            return None
+        return PartitioningFactory.wrap(c_factory)
+
+    @partitioning_factory.setter
+    def partitioning_factory(self, PartitioningFactory value):
+        self.options.partitioning = (<PartitioningFactory> value).unwrap()
+
+    @property
+    def partition_base_dir(self):
+        """
+        Base directory to strip paths before applying the partitioning.
+        """
+        return frombytes(self.options.partition_base_dir)
+
+    @partition_base_dir.setter
+    def partition_base_dir(self, value):
+        self.options.partition_base_dir = tobytes(value)
+
+    @property
+    def validate_column_chunk_paths(self):
+        """
+        Base directory to strip paths before applying the partitioning.
+        """
+        return self.options.validate_column_chunk_paths
+
+    @validate_column_chunk_paths.setter
+    def validate_column_chunk_paths(self, value):
+        self.options.validate_column_chunk_paths = value
+
+
+cdef class ParquetDatasetFactory(DatasetFactory):
+    """
+    Create a ParquetDatasetFactory from a Parquet `_metadata` file.
+
+    Parameters
+    ----------
+    metadata_path : str
+        Path to the `_metadata` parquet metadata-only file generated with
+        `pyarrow.parquet.write_metadata`.
+    filesystem : pyarrow.fs.FileSystem
+        Filesystem to read the metadata_path from, and subsequent parquet
+        files.
+    format : ParquetFileFormat
+        Parquet format options.
+    options : ParquetFactoryOptions, optional
+        Various flags influencing the discovery of filesystem paths.
+    """
+
+    cdef:
+        CParquetDatasetFactory* parquet_factory
+
+    def __init__(self, metadata_path, FileSystem filesystem not None,
+                 FileFormat format not None,
+                 ParquetFactoryOptions options=None):
+        cdef:
+            c_string path
+            shared_ptr[CFileSystem] c_filesystem
+            shared_ptr[CParquetFileFormat] c_format
+            CResult[shared_ptr[CDatasetFactory]] result
+            CParquetFactoryOptions c_options
+
+        c_path = tobytes(metadata_path)
+        c_filesystem = filesystem.unwrap()
+        c_format = static_pointer_cast[CParquetFileFormat, CFileFormat](
+            format.unwrap())
+        options = options or ParquetFactoryOptions()
+        c_options = options.unwrap()
+
+        result = CParquetDatasetFactory.MakeFromMetaDataPath(
+            c_path, c_filesystem, c_format, c_options)
+        self.init(GetResultValue(result))
+
+    cdef init(self, shared_ptr[CDatasetFactory]& sp):
+        DatasetFactory.init(self, sp)
+        self.parquet_factory = <CParquetDatasetFactory*> sp.get()
+
+
+ctypedef CParquetFileWriter* _CParquetFileWriterPtr
+
+cdef object get_parquet_metadata(
+        dict visit_args,
+        CFileWriter* file_writer,
+        str path):
+    cdef:
+        str base_dir
+        WrittenFile written_file
+        FileMetaData parquet_metadata
+        CParquetFileWriter* parquet_file_writer
+
+    parquet_metadata = None
+    parquet_file_writer = dynamic_cast[_CParquetFileWriterPtr](file_writer)
+    with nogil:
+        metadata = deref(
+            deref(parquet_file_writer).parquet_writer()).metadata()
+    if metadata:
+        base_dir = frombytes(visit_args['base_dir'])
+        parquet_metadata = FileMetaData()
+        parquet_metadata.init(metadata)
+        parquet_metadata.set_file_path(os.path.relpath(path, base_dir))
