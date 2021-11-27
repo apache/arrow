@@ -150,7 +150,7 @@ jobs:
           -e ARROW_GCS=OFF
           -e ARROW_MIMALLOC=OFF
           -e ARROW_ORC=OFF
-          -e ARROW_PARQUET=ON
+          -e ARROW_PARQUET=OFF
           -e ARROW_PYTHON=ON
           -e ARROW_S3=OFF
           -e CMAKE_UNITY_BUILD=ON
