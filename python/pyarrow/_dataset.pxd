@@ -24,6 +24,12 @@ from pyarrow.includes.libarrow_dataset cimport *
 from pyarrow.lib cimport *
 
 
+cdef class Expression(_Weakrefable):
+
+    cdef:
+        CExpression expr
+
+
 cdef class FragmentScanOptions(_Weakrefable):
 
     cdef:
@@ -49,3 +55,33 @@ cdef class FileFormat(_Weakrefable):
     cdef inline shared_ptr[CFileFormat] unwrap(self)
 
     cdef _set_default_fragment_scan_options(self, FragmentScanOptions options)
+
+
+cdef class Partitioning(_Weakrefable):
+
+    cdef:
+        shared_ptr[CPartitioning] wrapped
+        CPartitioning* partitioning
+
+    @staticmethod
+    cdef wrap(const shared_ptr[CPartitioning]& sp):
+
+
+cdef class PartitioningFactory(_Weakrefable):
+
+    cdef:
+        shared_ptr[CPartitioningFactory] wrapped
+        CPartitioningFactory* factory
+
+    @staticmethod
+    cdef wrap(const shared_ptr[CPartitioningFactory]& sp):
+
+
+cdef class WrittenFile(_Weakrefable):
+
+    cdef public str path
+    cdef public object metadata
+
+    def __init__(self, path, metadata):
+        self.path = path
+        self.metadata = metadata

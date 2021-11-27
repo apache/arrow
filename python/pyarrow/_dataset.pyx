@@ -1253,67 +1253,6 @@ cdef class FileFragment(Fragment):
         return FileFormat.wrap(self.file_fragment.format())
 
 
-class RowGroupInfo:
-    """
-    A wrapper class for RowGroup information
-
-    Parameters
-    ----------
-    id : the group id.
-    metadata : the rowgroup metadata.
-    schema : schema of the rows.
-    """
-
-    def __init__(self, id, metadata, schema):
-        self.id = id
-        self.metadata = metadata
-        self.schema = schema
-
-    @property
-    def num_rows(self):
-        return self.metadata.num_rows
-
-    @property
-    def total_byte_size(self):
-        return self.metadata.total_byte_size
-
-    @property
-    def statistics(self):
-        def name_stats(i):
-            col = self.metadata.column(i)
-
-            stats = col.statistics
-            if stats is None or not stats.has_min_max:
-                return None, None
-
-            name = col.path_in_schema
-            field_index = self.schema.get_field_index(name)
-            if field_index < 0:
-                return None, None
-
-            typ = self.schema.field(field_index).type
-            return col.path_in_schema, {
-                'min': pa.scalar(stats.min, type=typ).as_py(),
-                'max': pa.scalar(stats.max, type=typ).as_py()
-            }
-
-        return {
-            name: stats for name, stats
-            in map(name_stats, range(self.metadata.num_columns))
-            if stats is not None
-        }
-
-    def __repr__(self):
-        return "RowGroupInfo({})".format(self.id)
-
-    def __eq__(self, other):
-        if isinstance(other, int):
-            return self.id == other
-        if not isinstance(other, RowGroupInfo):
-            return False
-        return self.id == other.id
-
-
 cdef class FragmentScanOptions(_Weakrefable):
     """Scan options specific to a particular fragment and scan operation."""
 
