@@ -19,18 +19,29 @@
 
 """Dataset support for Parquest file format."""
 
+from cython.operator cimport dereference as deref
+
+import os
+import warnings
+
+import pyarrow as pa
 from pyarrow.lib cimport *
 from pyarrow.lib import frombytes, tobytes
 from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_dataset cimport *
 from pyarrow._fs cimport FileSystem
+from pyarrow.util import _is_path_like, _stringify_path
 
 from pyarrow._dataset cimport (
+    _bind,
+    _make_file_source,
+    DatasetFactory,
     Expression,
     FileFormat,
     FileFragment,
     FileWriteOptions,
-    FragmentScanOptions
+    Fragment,
+    FragmentScanOptions,
     Partitioning,
     PartitioningFactory,
     WrittenFile
@@ -41,6 +52,9 @@ from pyarrow._parquet cimport (
     _create_writer_properties, _create_arrow_writer_properties,
     FileMetaData, RowGroupMetaData, ColumnChunkMetaData
 )
+
+
+cdef Expression _true = Expression._scalar(True)
 
 
 cdef class ParquetFileFormat(FileFormat):

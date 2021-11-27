@@ -227,8 +227,6 @@ cdef class Expression(_Weakrefable):
       3
     ])>
     """
-    cdef:
-        CExpression expr
 
     def __init__(self):
         _forbid_instantiation(self.__class__)
@@ -886,10 +884,6 @@ cdef CExpression _bind(Expression filter, Schema schema) except *:
 
 cdef class FileWriteOptions(_Weakrefable):
 
-    cdef:
-        shared_ptr[CFileWriteOptions] wrapped
-        CFileWriteOptions* c_options
-
     def __init__(self):
         _forbid_instantiation(self.__class__)
 
@@ -1010,10 +1004,6 @@ cdef class FileFormat(_Weakrefable):
 
 cdef class Fragment(_Weakrefable):
     """Fragment of data from a Dataset."""
-
-    cdef:
-        shared_ptr[CFragment] wrapped
-        CFragment* fragment
 
     def __init__(self):
         _forbid_instantiation(self.__class__)
@@ -1174,9 +1164,6 @@ cdef class Fragment(_Weakrefable):
 
 cdef class FileFragment(Fragment):
     """A Fragment representing a data file."""
-
-    cdef:
-        CFileFragment* file_fragment
 
     cdef void init(self, const shared_ptr[CFragment]& sp):
         Fragment.init(self, sp)
@@ -1480,10 +1467,6 @@ cdef class CsvFileWriteOptions(FileWriteOptions):
 
 cdef class Partitioning(_Weakrefable):
 
-    cdef:
-        shared_ptr[CPartitioning] wrapped
-        CPartitioning* partitioning
-
     def __init__(self):
         _forbid_instantiation(self.__class__)
 
@@ -1523,10 +1506,6 @@ cdef class Partitioning(_Weakrefable):
 
 
 cdef class PartitioningFactory(_Weakrefable):
-
-    cdef:
-        shared_ptr[CPartitioningFactory] wrapped
-        CPartitioningFactory* factory
 
     def __init__(self):
         _forbid_instantiation(self.__class__)
@@ -1868,10 +1847,6 @@ cdef class DatasetFactory(_Weakrefable):
     DatasetFactory is used to create a Dataset, inspect the Schema
     of the fragments contained in it, and declare a partitioning.
     """
-
-    cdef:
-        shared_ptr[CDatasetFactory] wrapped
-        CDatasetFactory* factory
 
     def __init__(self):
         _forbid_instantiation(self.__class__)
@@ -2652,15 +2627,6 @@ cdef class WrittenFile(_Weakrefable):
     Metadata information about files written as
     part of a dataset write operation
     """
-
-    """The full path to the created file"""
-    cdef public str path
-    """
-    If the file is a parquet file this will contain the parquet metadata.
-    This metadata will have the file path attribute set to the path of
-    the written file.
-    """
-    cdef public object metadata
 
     def __init__(self, path, metadata):
         self.path = path
