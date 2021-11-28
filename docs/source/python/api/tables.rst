@@ -43,6 +43,7 @@ Classes
    ChunkedArray
    RecordBatch
    Table
+   TableGroupBy
 
 .. _api.tensor:
 

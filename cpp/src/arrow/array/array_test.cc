@@ -117,7 +117,8 @@ TEST_F(TestArray, TestNullToString) {
   auto data = std::make_shared<Buffer>(nullptr, 400);
 
   std::unique_ptr<Int32Array> arr(new Int32Array(100, data));
-  ASSERT_EQ(arr->ToString(), "<Invalid array: Missing values buffer in non-empty array>");
+  ASSERT_EQ(arr->ToString(),
+            "<Invalid array: Missing values buffer in non-empty fixed-width array>");
 }
 
 TEST_F(TestArray, TestSliceSafe) {
@@ -332,6 +333,10 @@ TEST_F(TestArray, BuildLargeInMemoryArray) {
 }
 
 TEST_F(TestArray, TestMakeArrayOfNull) {
+  FieldVector union_fields1({field("a", utf8()), field("b", int32())});
+  FieldVector union_fields2({field("a", null()), field("b", list(large_utf8()))});
+  std::vector<int8_t> union_type_codes{7, 42};
+
   std::shared_ptr<DataType> types[] = {
       // clang-format off
       null(),
@@ -354,19 +359,33 @@ TEST_F(TestArray, TestMakeArrayOfNull) {
       fixed_size_list(int64(), 4),
       dictionary(int32(), utf8()),
       struct_({field("a", utf8()), field("b", int32())}),
+      sparse_union(union_fields1, union_type_codes),
+      sparse_union(union_fields2, union_type_codes),
+      dense_union(union_fields1, union_type_codes),
+      dense_union(union_fields2, union_type_codes),
       smallint(),  // extension type
       // clang-format on
   };
 
   for (int64_t length : {0, 1, 16, 133}) {
     for (auto type : types) {
+      ARROW_SCOPED_TRACE("type = ", type->ToString());
       ASSERT_OK_AND_ASSIGN(auto array, MakeArrayOfNull(type, length));
       ASSERT_OK(array->ValidateFull());
       ASSERT_EQ(array->length(), length);
-      ASSERT_EQ(array->null_count(), length);
-      for (int64_t i = 0; i < length; ++i) {
-        ASSERT_TRUE(array->IsNull(i));
-        ASSERT_FALSE(array->IsValid(i));
+      if (is_union(type->id())) {
+        // For unions, MakeArrayOfNull places the nulls in the children
+        ASSERT_EQ(array->null_count(), 0);
+        const auto& union_array = checked_cast<const UnionArray&>(*array);
+        for (int i = 0; i < union_array.num_fields(); ++i) {
+          ASSERT_EQ(union_array.field(i)->null_count(), union_array.field(i)->length());
+        }
+      } else {
+        ASSERT_EQ(array->null_count(), length);
+        for (int64_t i = 0; i < length; ++i) {
+          ASSERT_TRUE(array->IsNull(i));
+          ASSERT_FALSE(array->IsValid(i));
+        }
       }
     }
   }

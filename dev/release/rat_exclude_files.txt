@@ -49,6 +49,7 @@ dev/archery/requirements*.txt
 dev/archery/archery/tests/fixtures/*
 dev/archery/archery/crossbow/tests/fixtures/*
 dev/release/rat_exclude_files.txt
+dev/tasks/homebrew-formulae/apache-arrow-glib.rb
 dev/tasks/homebrew-formulae/apache-arrow.rb
 dev/tasks/linux-packages/apache-arrow-apt-source/debian/apache-arrow-apt-source.install
 dev/tasks/linux-packages/apache-arrow-apt-source/debian/compat
@@ -193,6 +194,7 @@ r/man/*.Rd
 r/cran-comments.md
 r/vignettes/*.Rmd
 r/tests/testthat/test-*.txt
+r/tests/testthat/_snaps/*.md
 r/inst/include/cpp11.hpp
 r/inst/include/cpp11/*.hpp
 .gitattributes

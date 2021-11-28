@@ -30,6 +30,9 @@ ENV ARROW_R_DEV=${r_dev}
 ARG devtoolset_version=-1
 ENV DEVTOOLSET_VERSION=${devtoolset_version}
 
+ARG r_prune_deps=FALSE
+ENV R_PRUNE_DEPS=${r_prune_deps}
+
 ARG tz="UTC"
 ENV TZ=${tz}
 

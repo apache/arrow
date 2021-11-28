@@ -23,6 +23,7 @@ import (
 	"github.com/apache/arrow/go/v7/arrow"
 	"github.com/apache/arrow/go/v7/arrow/bitutil"
 	"github.com/apache/arrow/go/v7/arrow/memory"
+	"github.com/goccy/go-json"
 )
 
 const (
@@ -31,6 +32,9 @@ const (
 
 // Builder provides an interface to build arrow arrays.
 type Builder interface {
+	// you can unmarshal a json array to add the values to a builder
+	json.Unmarshaler
+
 	// Retain increases the reference count by 1.
 	// Retain may be called simultaneously from multiple goroutines.
 	Retain()
@@ -66,6 +70,9 @@ type Builder interface {
 
 	init(capacity int)
 	resize(newBits int, init func(int))
+
+	unmarshalOne(*json.Decoder) error
+	unmarshal(*json.Decoder) error
 }
 
 // builder provides common functionality for managing the validity bitmap (nulls) when building arrays.

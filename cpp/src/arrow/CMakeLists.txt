@@ -380,18 +380,18 @@ if(ARROW_COMPUTE)
        compute/exec/hash_join.cc
        compute/exec/hash_join_dict.cc
        compute/exec/hash_join_node.cc
+       compute/exec/ir_consumer.cc 
        compute/exec/key_compare.cc
        compute/exec/key_encode.cc
        compute/exec/key_hash.cc
        compute/exec/key_map.cc
-       compute/exec/ir_consumer.cc
+       compute/exec/order_by_impl.cc
        compute/exec/project_node.cc
-       compute/exec/source_node.cc
        compute/exec/sink_node.cc
+       compute/exec/source_node.cc
        compute/exec/task_util.cc
        compute/exec/union_node.cc
        compute/exec/util.cc
-       compute/exec/order_by_impl.cc
        compute/function.cc
        compute/function_internal.cc
        compute/kernel.cc
@@ -414,13 +414,13 @@ if(ARROW_COMPUTE)
        compute/kernels/scalar_cast_string.cc
        compute/kernels/scalar_cast_temporal.cc
        compute/kernels/scalar_compare.cc
+       compute/kernels/scalar_if_else.cc
        compute/kernels/scalar_nested.cc
        compute/kernels/scalar_set_lookup.cc
        compute/kernels/scalar_string.cc
        compute/kernels/scalar_temporal_binary.cc
        compute/kernels/scalar_temporal_unary.cc
        compute/kernels/scalar_validity.cc
-       compute/kernels/scalar_if_else.cc
        compute/kernels/util_internal.cc
        compute/kernels/vector_array_sort.cc
        compute/kernels/vector_hash.cc
@@ -432,10 +432,10 @@ if(ARROW_COMPUTE)
   append_avx2_src(compute/kernels/aggregate_basic_avx2.cc)
   append_avx512_src(compute/kernels/aggregate_basic_avx512.cc)
 
-  append_avx2_src(compute/exec/key_hash_avx2.cc)
-  append_avx2_src(compute/exec/key_map_avx2.cc)
   append_avx2_src(compute/exec/key_compare_avx2.cc)
   append_avx2_src(compute/exec/key_encode_avx2.cc)
+  append_avx2_src(compute/exec/key_hash_avx2.cc)
+  append_avx2_src(compute/exec/key_map_avx2.cc)
   append_avx2_src(compute/exec/util_avx2.cc)
 
   list(APPEND ARROW_TESTING_SRCS compute/exec/test_util.cc)

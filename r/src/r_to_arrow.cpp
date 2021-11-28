@@ -25,6 +25,7 @@
 #include <arrow/array/builder_dict.h>
 #include <arrow/array/builder_nested.h>
 #include <arrow/array/builder_primitive.h>
+#include <arrow/array/concatenate.h>
 #include <arrow/table.h>
 #include <arrow/type_traits.h>
 #include <arrow/util/bitmap_writer.h>
@@ -255,6 +256,11 @@ class RConverter : public Converter<SEXP, RConversionOptions> {
 
   virtual Status ExtendMasked(SEXP values, SEXP mask, int64_t size, int64_t offset = 0) {
     return Status::NotImplemented("ExtendMasked");
+  }
+
+  virtual Result<std::shared_ptr<ChunkedArray>> ToChunkedArray() {
+    ARROW_ASSIGN_OR_RAISE(auto array, this->ToArray())
+    return std::make_shared<ChunkedArray>(array);
   }
 };
 
@@ -863,7 +869,7 @@ class RDictionaryConverter<ValueType, enable_if_has_string_view<ValueType>>
     }
   }
 
-  Result<std::shared_ptr<Array>> ToArray() override {
+  Result<std::shared_ptr<ChunkedArray>> ToChunkedArray() override {
     ARROW_ASSIGN_OR_RAISE(auto result, this->builder_->Finish());
 
     auto result_type = checked_cast<DictionaryType*>(result->type().get());
@@ -874,7 +880,8 @@ class RDictionaryConverter<ValueType, enable_if_has_string_view<ValueType>>
           arrow::dictionary(result_type->index_type(), result_type->value_type(), true);
     }
 
-    return std::make_shared<DictionaryArray>(result->data());
+    return std::make_shared<ChunkedArray>(
+        std::make_shared<DictionaryArray>(result->data()));
   }
 
  private:
@@ -898,8 +905,11 @@ class RDictionaryConverter<ValueType, enable_if_has_string_view<ValueType>>
 
     // first we need to handle the levels
     SEXP levels = Rf_getAttrib(x, R_LevelsSymbol);
-    auto memo_array = arrow::r::vec_to_arrow(levels, utf8(), false);
-    RETURN_NOT_OK(this->value_builder_->InsertMemoValues(*memo_array));
+    auto memo_chunked_chunked_array =
+        arrow::r::vec_to_arrow_ChunkedArray(levels, utf8(), false);
+    for (const auto& chunk : memo_chunked_chunked_array->chunks()) {
+      RETURN_NOT_OK(this->value_builder_->InsertMemoValues(*chunk));
+    }
 
     // then we can proceed
     return this->Reserve(size - offset);
@@ -1157,19 +1167,20 @@ std::shared_ptr<arrow::Array> vec_to_arrow__reuse_memory(SEXP x) {
   cpp11::stop("Unreachable: you might need to fix can_reuse_memory()");
 }
 
-namespace altrep {
-std::shared_ptr<Array> vec_to_arrow_altrep_bypass(SEXP);  // in altrep.cpp
-}
-
-std::shared_ptr<arrow::Array> vec_to_arrow(SEXP x,
-                                           const std::shared_ptr<arrow::DataType>& type,
-                                           bool type_inferred) {
-  // short circuit if `x` is already an Array
-  if (Rf_inherits(x, "Array")) {
-    return cpp11::as_cpp<std::shared_ptr<arrow::Array>>(x);
+std::shared_ptr<arrow::ChunkedArray> vec_to_arrow_ChunkedArray(
+    SEXP x, const std::shared_ptr<arrow::DataType>& type, bool type_inferred) {
+  // short circuit if `x` is already a chunked array
+  if (Rf_inherits(x, "ChunkedArray")) {
+    return cpp11::as_cpp<std::shared_ptr<arrow::ChunkedArray>>(x);
   }
 
-  // short circuit if `x` is an altrep vector that shells an Array
+  // short circuit if `x` is an Array
+  if (Rf_inherits(x, "Array")) {
+    return std::make_shared<arrow::ChunkedArray>(
+        cpp11::as_cpp<std::shared_ptr<arrow::Array>>(x));
+  }
+
+  // short circuit if `x` is an altrep vector that shells a chunked Array
   auto maybe = altrep::vec_to_arrow_altrep_bypass(x);
   if (maybe.get()) {
     return maybe;
@@ -1182,7 +1193,7 @@ std::shared_ptr<arrow::Array> vec_to_arrow(SEXP x,
 
   // maybe short circuit when zero-copy is possible
   if (can_reuse_memory(x, options.type)) {
-    return vec_to_arrow__reuse_memory(x);
+    return std::make_shared<arrow::ChunkedArray>(vec_to_arrow__reuse_memory(x));
   }
 
   // otherwise go through the converter api
@@ -1191,7 +1202,17 @@ std::shared_ptr<arrow::Array> vec_to_arrow(SEXP x,
 
   StopIfNotOk(converter->Extend(x, options.size));
 
-  return ValueOrStop(converter->ToArray());
+  return ValueOrStop(converter->ToChunkedArray());
+}
+
+std::shared_ptr<arrow::Array> vec_to_arrow_Array(
+    SEXP x, const std::shared_ptr<arrow::DataType>& type, bool type_inferred) {
+  auto chunked_array = vec_to_arrow_ChunkedArray(x, type, type_inferred);
+  if (chunked_array->num_chunks() == 1) {
+    return chunked_array->chunk(0);
+  }
+
+  return ValueOrStop(arrow::Concatenate(chunked_array->chunks()));
 }
 
 // TODO: most of this is very similar to MakeSimpleArray, just adapted to
@@ -1352,6 +1373,8 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp,
     } else if (Rf_inherits(x, "Array")) {
       columns[j] = std::make_shared<arrow::ChunkedArray>(
           cpp11::as_cpp<std::shared_ptr<arrow::Array>>(x));
+    } else if (arrow::r::altrep::is_arrow_altrep(x)) {
+      columns[j] = arrow::r::altrep::vec_to_arrow_altrep_bypass(x);
     } else {
       arrow::r::RConversionOptions options;
       options.strict = !infer_schema;
@@ -1399,8 +1422,7 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp,
     tasks.Append(true, [&columns, j, &converters]() {
       auto& converter = converters[j];
       if (converter != nullptr) {
-        ARROW_ASSIGN_OR_RAISE(auto array, converter->ToArray());
-        columns[j] = std::make_shared<arrow::ChunkedArray>(array);
+        ARROW_ASSIGN_OR_RAISE(columns[j], converter->ToChunkedArray());
       }
       return arrow::Status::OK();
     });
@@ -1415,8 +1437,9 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp,
 }
 
 // [[arrow::export]]
-SEXP vec_to_arrow(SEXP x, SEXP s_type) {
+SEXP vec_to_Array(SEXP x, SEXP s_type) {
   if (Rf_inherits(x, "Array")) return x;
+
   bool type_inferred = Rf_isNull(s_type);
   std::shared_ptr<arrow::DataType> type;
 
@@ -1425,7 +1448,8 @@ SEXP vec_to_arrow(SEXP x, SEXP s_type) {
   } else {
     type = cpp11::as_cpp<std::shared_ptr<arrow::DataType>>(s_type);
   }
-  return cpp11::to_r6(arrow::r::vec_to_arrow(x, type, type_inferred));
+
+  return cpp11::to_r6(arrow::r::vec_to_arrow_Array(x, type, type_inferred));
 }
 
 // [[arrow::export]]

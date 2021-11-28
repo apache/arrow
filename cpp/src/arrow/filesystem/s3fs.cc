@@ -210,6 +210,10 @@ bool S3ProxyOptions::Equals(const S3ProxyOptions& other) const {
 // -----------------------------------------------------------------------
 // S3Options implementation
 
+S3Options::S3Options() {
+  DCHECK(aws_initialized.load()) << "Must initialize S3 before using S3Options";
+}
+
 void S3Options::ConfigureDefaultCredentials() {
   credentials_provider =
       std::make_shared<Aws::Auth::DefaultAWSCredentialsProviderChain>();

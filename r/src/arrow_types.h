@@ -114,9 +114,10 @@ bool can_reuse_memory(SEXP x, const std::shared_ptr<arrow::DataType>& type);
 Status count_fields(SEXP lst, int* out);
 
 void inspect(SEXP obj);
-std::shared_ptr<arrow::Array> vec_to_arrow(SEXP x,
-                                           const std::shared_ptr<arrow::DataType>& type,
-                                           bool type_inferred);
+std::shared_ptr<arrow::Array> vec_to_arrow_Array(
+    SEXP x, const std::shared_ptr<arrow::DataType>& type, bool type_inferred);
+std::shared_ptr<arrow::ChunkedArray> vec_to_arrow_ChunkedArray(
+    SEXP x, const std::shared_ptr<arrow::DataType>& type, bool type_inferred);
 
 // the integer64 sentinel
 constexpr int64_t NA_INT64 = std::numeric_limits<int64_t>::min();
@@ -185,6 +186,8 @@ void Init_Altrep_classes(DllInfo* dll);
 #endif
 
 SEXP MakeAltrepVector(const std::shared_ptr<ChunkedArray>& chunked_array);
+bool is_arrow_altrep(SEXP x);
+std::shared_ptr<ChunkedArray> vec_to_arrow_altrep_bypass(SEXP);
 
 }  // namespace altrep
 

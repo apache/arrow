@@ -413,13 +413,14 @@ VectorKernel NewModeKernel(const std::shared_ptr<DataType>& in_type,
 }
 
 const FunctionDoc mode_doc{
-    "Calculate the modal (most common) values of a numeric array",
-    ("Returns top-n most common values and number of times they occur in an array.\n"
-     "Result is an array of `struct<mode: T, count: int64>`, where T is the input type.\n"
-     "Values with larger counts are returned before smaller counts.\n"
-     "If there are more than one values with same count, smaller one is returned first.\n"
+    "Compute the modal (most common) values of a numeric array",
+    ("Compute the n most common values and their respective occurrence counts.\n"
+     "The output has type `struct<mode: T, count: int64>`, where T is the\n"
+     "input type.\n"
+     "The results are ordered by descending `count` first, and ascending `mode`\n"
+     "when breaking ties.\n"
      "Nulls are ignored.  If there are no non-null values in the array,\n"
-     "empty array is returned."),
+     "an empty array is returned."),
     {"array"},
     "ModeOptions"};
 

@@ -22,6 +22,7 @@ import (
 
 	"github.com/apache/arrow/go/v7/arrow"
 	"github.com/apache/arrow/go/v7/arrow/float16"
+	"github.com/goccy/go-json"
 )
 
 // A type which represents an immutable sequence of Float16 values.
@@ -68,6 +69,25 @@ func (a *Float16) setData(data *Data) {
 		end := beg + a.array.data.length
 		a.values = a.values[beg:end]
 	}
+}
+
+func (a *Float16) getOneForMarshal(i int) interface{} {
+	if a.IsValid(i) {
+		return a.values[i].Float32()
+	}
+	return nil
+}
+
+func (a *Float16) MarshalJSON() ([]byte, error) {
+	vals := make([]interface{}, a.Len())
+	for i, v := range a.values {
+		if a.IsValid(i) {
+			vals[i] = v.Float32()
+		} else {
+			vals[i] = nil
+		}
+	}
+	return json.Marshal(vals)
 }
 
 func arrayEqualFloat16(left, right *Float16) bool {

@@ -43,6 +43,7 @@ jobs:
       git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
       git -C arrow checkout FETCH_HEAD
       git -C arrow submodule update --init --recursive
+      git -C arrow remote add upstream https://github.com/apache/arrow.git
     displayName: Clone arrow
 
   - script: pip install -e arrow/dev/archery[docker]
