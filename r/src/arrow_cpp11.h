@@ -101,8 +101,14 @@ inline R_xlen_t r_string_size(SEXP s) {
 inline SEXP utf8_strings(SEXP x) {
   return cpp11::unwind_protect([x] {
     R_xlen_t n = XLENGTH(x);
-    for (R_xlen_t i = 0; i < n; i++) {
-      SEXP s = STRING_ELT(x, i);
+
+    // if `x` is an altrep of some sort, this will
+    // materialize upfront. That's usually better because
+    // the loop touches all strings
+    const SEXP* p_x = STRING_PTR_RO(x);
+
+    for (R_xlen_t i = 0; i < n; i++, ++p_x) {
+      SEXP s = *p_x;
       if (s != NA_STRING && !IS_UTF8(s) && !IS_ASCII(s)) {
         SET_STRING_ELT(x, i, Rf_mkCharCE(Rf_translateCharUTF8(s), CE_UTF8));
       }

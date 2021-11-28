@@ -1059,18 +1059,8 @@ TEST(HashJoin, Random) {
                        &(key_fields[i]), &(output_fields[i]), &(output_field_ids[i]));
     }
 
-    // Print test case parameters
-    // print num_rows, batch_size, join_type, join_cmp
-    std::cout << join_type_name << " " << key_cmp_str << " ";
-    key_types.Print();
-    std::cout << " payload_l: ";
-    payload_types[0].Print();
-    std::cout << " payload_r: ";
-    payload_types[1].Print();
-    std::cout << " num_rows_l = " << num_rows_l << " num_rows_r = " << num_rows_r
-              << " batch size = " << batch_size
-              << " parallel = " << (parallel ? "true" : "false");
-    std::cout << std::endl;
+    ARROW_SCOPED_TRACE(join_type_name, " ", key_cmp_str,
+                       " parallel = ", (parallel ? "true" : "false"));
 
     // Run reference join implementation
     std::vector<bool> null_in_key_vectors[2];

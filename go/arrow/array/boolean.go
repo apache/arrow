@@ -23,6 +23,7 @@ import (
 	"github.com/apache/arrow/go/v7/arrow"
 	"github.com/apache/arrow/go/v7/arrow/bitutil"
 	"github.com/apache/arrow/go/v7/arrow/memory"
+	"github.com/goccy/go-json"
 )
 
 // A type which represents an immutable sequence of boolean values.
@@ -76,6 +77,25 @@ func (a *Boolean) setData(data *Data) {
 	if vals != nil {
 		a.values = vals.Bytes()
 	}
+}
+
+func (a *Boolean) getOneForMarshal(i int) interface{} {
+	if a.IsValid(i) {
+		return a.Value(i)
+	}
+	return nil
+}
+
+func (a *Boolean) MarshalJSON() ([]byte, error) {
+	vals := make([]interface{}, a.Len())
+	for i := 0; i < a.Len(); i++ {
+		if a.IsValid(i) {
+			vals[i] = a.Value(i)
+		} else {
+			vals[i] = nil
+		}
+	}
+	return json.Marshal(vals)
 }
 
 func arrayEqualBoolean(left, right *Boolean) bool {

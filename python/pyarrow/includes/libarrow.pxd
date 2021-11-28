@@ -2218,6 +2218,17 @@ cdef extern from * namespace "arrow::compute":
             const CBuffer& buffer)
 
 
+cdef extern from "arrow/compute/api_aggregate.h" namespace \
+        "arrow::compute::internal" nogil:
+    cdef cppclass CAggregate "arrow::compute::internal::Aggregate":
+        c_string function
+        const CFunctionOptions* options
+
+    CResult[CDatum] GroupBy(const vector[CDatum]& arguments,
+                            const vector[CDatum]& keys,
+                            const vector[CAggregate]& aggregates)
+
+
 cdef extern from "arrow/python/api.h" namespace "arrow::py":
     # Requires GIL
     CResult[shared_ptr[CDataType]] InferArrowType(

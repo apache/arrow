@@ -21,7 +21,9 @@ go 1.15
 require (
 	github.com/JohnCGriffin/overflow v0.0.0-20211019200055-46fa312c352c
 	github.com/andybalholm/brotli v1.0.3
+	github.com/apache/arrow/go/arrow v0.0.0-20211112161151-bc219186db40
 	github.com/apache/thrift v0.15.0
+	github.com/goccy/go-json v0.7.10
 	github.com/golang/protobuf v1.5.2
 	github.com/golang/snappy v0.0.4
 	github.com/google/flatbuffers v2.0.0+incompatible
@@ -34,6 +36,7 @@ require (
 	github.com/zeebo/xxh3 v0.13.0
 	golang.org/x/exp v0.0.0-20211028214138-64b4c8e87d1a
 	golang.org/x/sys v0.0.0-20211025201205-69cdffdb9359
+	golang.org/x/tools v0.1.4
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1
 	gonum.org/v1/gonum v0.9.3
 	google.golang.org/grpc v1.41.0

@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	"github.com/apache/arrow/go/v7/arrow"
+	"github.com/goccy/go-json"
 )
 
 // A type which represents an immutable sequence of int64 values.
@@ -78,6 +79,27 @@ func (a *Int64) setData(data *Data) {
 		end := beg + a.array.data.length
 		a.values = a.values[beg:end]
 	}
+}
+
+func (a *Int64) getOneForMarshal(i int) interface{} {
+	if a.IsNull(i) {
+		return nil
+	}
+
+	return a.values[i]
+}
+
+func (a *Int64) MarshalJSON() ([]byte, error) {
+	vals := make([]interface{}, a.Len())
+	for i := 0; i < a.Len(); i++ {
+		if a.IsValid(i) {
+			vals[i] = float64(a.values[i]) // prevent uint8 from being seen as binary data
+		} else {
+			vals[i] = nil
+		}
+	}
+
+	return json.Marshal(vals)
 }
 
 func arrayEqualInt64(left, right *Int64) bool {
@@ -147,6 +169,27 @@ func (a *Uint64) setData(data *Data) {
 	}
 }
 
+func (a *Uint64) getOneForMarshal(i int) interface{} {
+	if a.IsNull(i) {
+		return nil
+	}
+
+	return a.values[i]
+}
+
+func (a *Uint64) MarshalJSON() ([]byte, error) {
+	vals := make([]interface{}, a.Len())
+	for i := 0; i < a.Len(); i++ {
+		if a.IsValid(i) {
+			vals[i] = float64(a.values[i]) // prevent uint8 from being seen as binary data
+		} else {
+			vals[i] = nil
+		}
+	}
+
+	return json.Marshal(vals)
+}
+
 func arrayEqualUint64(left, right *Uint64) bool {
 	for i := 0; i < left.Len(); i++ {
 		if left.IsNull(i) {
@@ -212,6 +255,27 @@ func (a *Float64) setData(data *Data) {
 		end := beg + a.array.data.length
 		a.values = a.values[beg:end]
 	}
+}
+
+func (a *Float64) getOneForMarshal(i int) interface{} {
+	if a.IsNull(i) {
+		return nil
+	}
+
+	return a.values[i]
+}
+
+func (a *Float64) MarshalJSON() ([]byte, error) {
+	vals := make([]interface{}, a.Len())
+	for i := 0; i < a.Len(); i++ {
+		if a.IsValid(i) {
+			vals[i] = float64(a.values[i]) // prevent uint8 from being seen as binary data
+		} else {
+			vals[i] = nil
+		}
+	}
+
+	return json.Marshal(vals)
 }
 
 func arrayEqualFloat64(left, right *Float64) bool {
@@ -281,6 +345,27 @@ func (a *Int32) setData(data *Data) {
 	}
 }
 
+func (a *Int32) getOneForMarshal(i int) interface{} {
+	if a.IsNull(i) {
+		return nil
+	}
+
+	return a.values[i]
+}
+
+func (a *Int32) MarshalJSON() ([]byte, error) {
+	vals := make([]interface{}, a.Len())
+	for i := 0; i < a.Len(); i++ {
+		if a.IsValid(i) {
+			vals[i] = float64(a.values[i]) // prevent uint8 from being seen as binary data
+		} else {
+			vals[i] = nil
+		}
+	}
+
+	return json.Marshal(vals)
+}
+
 func arrayEqualInt32(left, right *Int32) bool {
 	for i := 0; i < left.Len(); i++ {
 		if left.IsNull(i) {
@@ -346,6 +431,27 @@ func (a *Uint32) setData(data *Data) {
 		end := beg + a.array.data.length
 		a.values = a.values[beg:end]
 	}
+}
+
+func (a *Uint32) getOneForMarshal(i int) interface{} {
+	if a.IsNull(i) {
+		return nil
+	}
+
+	return a.values[i]
+}
+
+func (a *Uint32) MarshalJSON() ([]byte, error) {
+	vals := make([]interface{}, a.Len())
+	for i := 0; i < a.Len(); i++ {
+		if a.IsValid(i) {
+			vals[i] = float64(a.values[i]) // prevent uint8 from being seen as binary data
+		} else {
+			vals[i] = nil
+		}
+	}
+
+	return json.Marshal(vals)
 }
 
 func arrayEqualUint32(left, right *Uint32) bool {
@@ -415,6 +521,27 @@ func (a *Float32) setData(data *Data) {
 	}
 }
 
+func (a *Float32) getOneForMarshal(i int) interface{} {
+	if a.IsNull(i) {
+		return nil
+	}
+
+	return a.values[i]
+}
+
+func (a *Float32) MarshalJSON() ([]byte, error) {
+	vals := make([]interface{}, a.Len())
+	for i := 0; i < a.Len(); i++ {
+		if a.IsValid(i) {
+			vals[i] = float64(a.values[i]) // prevent uint8 from being seen as binary data
+		} else {
+			vals[i] = nil
+		}
+	}
+
+	return json.Marshal(vals)
+}
+
 func arrayEqualFloat32(left, right *Float32) bool {
 	for i := 0; i < left.Len(); i++ {
 		if left.IsNull(i) {
@@ -480,6 +607,27 @@ func (a *Int16) setData(data *Data) {
 		end := beg + a.array.data.length
 		a.values = a.values[beg:end]
 	}
+}
+
+func (a *Int16) getOneForMarshal(i int) interface{} {
+	if a.IsNull(i) {
+		return nil
+	}
+
+	return a.values[i]
+}
+
+func (a *Int16) MarshalJSON() ([]byte, error) {
+	vals := make([]interface{}, a.Len())
+	for i := 0; i < a.Len(); i++ {
+		if a.IsValid(i) {
+			vals[i] = float64(a.values[i]) // prevent uint8 from being seen as binary data
+		} else {
+			vals[i] = nil
+		}
+	}
+
+	return json.Marshal(vals)
 }
 
 func arrayEqualInt16(left, right *Int16) bool {
@@ -549,6 +697,27 @@ func (a *Uint16) setData(data *Data) {
 	}
 }
 
+func (a *Uint16) getOneForMarshal(i int) interface{} {
+	if a.IsNull(i) {
+		return nil
+	}
+
+	return a.values[i]
+}
+
+func (a *Uint16) MarshalJSON() ([]byte, error) {
+	vals := make([]interface{}, a.Len())
+	for i := 0; i < a.Len(); i++ {
+		if a.IsValid(i) {
+			vals[i] = float64(a.values[i]) // prevent uint8 from being seen as binary data
+		} else {
+			vals[i] = nil
+		}
+	}
+
+	return json.Marshal(vals)
+}
+
 func arrayEqualUint16(left, right *Uint16) bool {
 	for i := 0; i < left.Len(); i++ {
 		if left.IsNull(i) {
@@ -614,6 +783,27 @@ func (a *Int8) setData(data *Data) {
 		end := beg + a.array.data.length
 		a.values = a.values[beg:end]
 	}
+}
+
+func (a *Int8) getOneForMarshal(i int) interface{} {
+	if a.IsNull(i) {
+		return nil
+	}
+
+	return float64(a.values[i]) // prevent uint8 from being seen as binary data
+}
+
+func (a *Int8) MarshalJSON() ([]byte, error) {
+	vals := make([]interface{}, a.Len())
+	for i := 0; i < a.Len(); i++ {
+		if a.IsValid(i) {
+			vals[i] = float64(a.values[i]) // prevent uint8 from being seen as binary data
+		} else {
+			vals[i] = nil
+		}
+	}
+
+	return json.Marshal(vals)
 }
 
 func arrayEqualInt8(left, right *Int8) bool {
@@ -683,6 +873,27 @@ func (a *Uint8) setData(data *Data) {
 	}
 }
 
+func (a *Uint8) getOneForMarshal(i int) interface{} {
+	if a.IsNull(i) {
+		return nil
+	}
+
+	return float64(a.values[i]) // prevent uint8 from being seen as binary data
+}
+
+func (a *Uint8) MarshalJSON() ([]byte, error) {
+	vals := make([]interface{}, a.Len())
+	for i := 0; i < a.Len(); i++ {
+		if a.IsValid(i) {
+			vals[i] = float64(a.values[i]) // prevent uint8 from being seen as binary data
+		} else {
+			vals[i] = nil
+		}
+	}
+
+	return json.Marshal(vals)
+}
+
 func arrayEqualUint8(left, right *Uint8) bool {
 	for i := 0; i < left.Len(); i++ {
 		if left.IsNull(i) {
@@ -748,6 +959,22 @@ func (a *Timestamp) setData(data *Data) {
 		end := beg + a.array.data.length
 		a.values = a.values[beg:end]
 	}
+}
+
+func (a *Timestamp) getOneForMarshal(i int) interface{} {
+	if a.IsNull(i) {
+		return nil
+	}
+	return a.values[i].ToTime(a.DataType().(*arrow.TimestampType).Unit).Format("2006-01-02 15:04:05.999999999")
+}
+
+func (a *Timestamp) MarshalJSON() ([]byte, error) {
+	vals := make([]interface{}, a.Len())
+	for i := range a.values {
+		vals[i] = a.getOneForMarshal(i)
+	}
+
+	return json.Marshal(vals)
 }
 
 func arrayEqualTimestamp(left, right *Timestamp) bool {
@@ -817,6 +1044,22 @@ func (a *Time32) setData(data *Data) {
 	}
 }
 
+func (a *Time32) getOneForMarshal(i int) interface{} {
+	if a.IsNull(i) {
+		return nil
+	}
+	return a.values[i].ToTime(a.DataType().(*arrow.Time32Type).Unit).Format("15:04:05.999999999")
+}
+
+func (a *Time32) MarshalJSON() ([]byte, error) {
+	vals := make([]interface{}, a.Len())
+	for i := range a.values {
+		vals[i] = a.getOneForMarshal(i)
+	}
+
+	return json.Marshal(vals)
+}
+
 func arrayEqualTime32(left, right *Time32) bool {
 	for i := 0; i < left.Len(); i++ {
 		if left.IsNull(i) {
@@ -882,6 +1125,22 @@ func (a *Time64) setData(data *Data) {
 		end := beg + a.array.data.length
 		a.values = a.values[beg:end]
 	}
+}
+
+func (a *Time64) getOneForMarshal(i int) interface{} {
+	if a.IsNull(i) {
+		return nil
+	}
+	return a.values[i].ToTime(a.DataType().(*arrow.Time64Type).Unit).Format("15:04:05.999999999")
+}
+
+func (a *Time64) MarshalJSON() ([]byte, error) {
+	vals := make([]interface{}, a.Len())
+	for i := range a.values {
+		vals[i] = a.getOneForMarshal(i)
+	}
+
+	return json.Marshal(vals)
 }
 
 func arrayEqualTime64(left, right *Time64) bool {
@@ -951,6 +1210,22 @@ func (a *Date32) setData(data *Data) {
 	}
 }
 
+func (a *Date32) getOneForMarshal(i int) interface{} {
+	if a.IsNull(i) {
+		return nil
+	}
+	return a.values[i].ToTime().Format("2006-01-02")
+}
+
+func (a *Date32) MarshalJSON() ([]byte, error) {
+	vals := make([]interface{}, a.Len())
+	for i := range a.values {
+		vals[i] = a.getOneForMarshal(i)
+	}
+
+	return json.Marshal(vals)
+}
+
 func arrayEqualDate32(left, right *Date32) bool {
 	for i := 0; i < left.Len(); i++ {
 		if left.IsNull(i) {
@@ -1018,6 +1293,22 @@ func (a *Date64) setData(data *Data) {
 	}
 }
 
+func (a *Date64) getOneForMarshal(i int) interface{} {
+	if a.IsNull(i) {
+		return nil
+	}
+	return a.values[i].ToTime().Format("2006-01-02")
+}
+
+func (a *Date64) MarshalJSON() ([]byte, error) {
+	vals := make([]interface{}, a.Len())
+	for i := range a.values {
+		vals[i] = a.getOneForMarshal(i)
+	}
+
+	return json.Marshal(vals)
+}
+
 func arrayEqualDate64(left, right *Date64) bool {
 	for i := 0; i < left.Len(); i++ {
 		if left.IsNull(i) {
@@ -1083,6 +1374,23 @@ func (a *Duration) setData(data *Data) {
 		end := beg + a.array.data.length
 		a.values = a.values[beg:end]
 	}
+}
+
+func (a *Duration) getOneForMarshal(i int) interface{} {
+	if a.IsNull(i) {
+		return nil
+	}
+	// return value and suffix as a string such as "12345ms"
+	return fmt.Sprintf("%d%s", a.values[i], a.DataType().(*arrow.DurationType).Unit.String())
+}
+
+func (a *Duration) MarshalJSON() ([]byte, error) {
+	vals := make([]interface{}, a.Len())
+	for i := range a.values {
+		vals[i] = a.getOneForMarshal(i)
+	}
+
+	return json.Marshal(vals)
 }
 
 func arrayEqualDuration(left, right *Duration) bool {

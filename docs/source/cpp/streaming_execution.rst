@@ -50,12 +50,12 @@ as they are pushed to it along an edge of the graph by upstream nodes
 (its inputs), and pushes batches along an edge of the graph to downstream
 nodes (its outputs) as they are finalized.
 
-..seealso::
+.. seealso::
 
-  `SHAIKHHA, A., DASHTI, M., & KOCH, C.
-  (2018). Push versus pull-based loop fusion in query engines.
-  Journal of Functional Programming, 28.
-  <https://doi.org/10.1017/s0956796818000102>`_
+   `SHAIKHHA, A., DASHTI, M., & KOCH, C.
+   (2018). Push versus pull-based loop fusion in query engines.
+   Journal of Functional Programming, 28.
+   <https://doi.org/10.1017/s0956796818000102>`_
 
 Overview
 --------

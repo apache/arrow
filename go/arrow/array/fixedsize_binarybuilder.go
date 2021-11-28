@@ -17,12 +17,16 @@
 package array
 
 import (
+	"bytes"
+	"encoding/base64"
 	"fmt"
+	"reflect"
 	"sync/atomic"
 
 	"github.com/apache/arrow/go/v7/arrow"
 	"github.com/apache/arrow/go/v7/arrow/internal/debug"
 	"github.com/apache/arrow/go/v7/arrow/memory"
+	"github.com/goccy/go-json"
 )
 
 // A FixedSizeBinaryBuilder is used to build a FixedSizeBinary array using the Append methods.
@@ -147,6 +151,69 @@ func (b *FixedSizeBinaryBuilder) newData() (data *Data) {
 	b.builder.reset()
 
 	return
+}
+
+func (b *FixedSizeBinaryBuilder) unmarshalOne(dec *json.Decoder) error {
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	var val []byte
+	switch v := t.(type) {
+	case string:
+		data, err := base64.RawStdEncoding.DecodeString(v)
+		if err != nil {
+			return err
+		}
+		val = data
+	case []byte:
+		val = v
+	case nil:
+		b.AppendNull()
+		return nil
+	default:
+		return &json.UnmarshalTypeError{
+			Value:  fmt.Sprint(t),
+			Type:   reflect.TypeOf([]byte{}),
+			Offset: dec.InputOffset(),
+			Struct: fmt.Sprintf("FixedSizeBinary[%d]", b.dtype.ByteWidth),
+		}
+	}
+
+	if len(val) != b.dtype.ByteWidth {
+		return &json.UnmarshalTypeError{
+			Value:  fmt.Sprint(val),
+			Type:   reflect.TypeOf([]byte{}),
+			Offset: dec.InputOffset(),
+			Struct: fmt.Sprintf("FixedSizeBinary[%d]", b.dtype.ByteWidth),
+		}
+	}
+	b.Append(val)
+	return nil
+}
+
+func (b *FixedSizeBinaryBuilder) unmarshal(dec *json.Decoder) error {
+	for dec.More() {
+		if err := b.unmarshalOne(dec); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (b *FixedSizeBinaryBuilder) UnmarshalJSON(data []byte) error {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	if delim, ok := t.(json.Delim); !ok || delim != '[' {
+		return fmt.Errorf("fixed size binary builder must unpack from json array, found %s", delim)
+	}
+
+	return b.unmarshal(dec)
 }
 
 var (

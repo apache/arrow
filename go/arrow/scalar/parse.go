@@ -247,26 +247,10 @@ func ParseScalar(dt arrow.DataType, val string) (Scalar, error) {
 			return NewFloat64Scalar(float64(val)), nil
 		}
 	case arrow.TIMESTAMP:
-		format := "2006-01-02"
-		if val[len(val)-1] == 'Z' {
-			val = val[:len(val)-1]
-		}
-
-		switch {
-		case len(val) == 13:
-			format += string(val[10]) + "15"
-		case len(val) == 16:
-			format += string(val[10]) + "15:04"
-		case len(val) >= 19:
-			format += string(val[10]) + "15:04:05.999999999"
-		}
-
-		out, err := time.ParseInLocation(format, val, time.UTC)
+		value, err := arrow.TimestampFromString(val, dt.(*arrow.TimestampType).Unit)
 		if err != nil {
 			return nil, err
 		}
-
-		value := arrow.Timestamp(ConvertTimestampValue(arrow.Nanosecond, dt.(*arrow.TimestampType).Unit, out.UnixNano()))
 		return NewTimestampScalar(value, dt), nil
 	case arrow.DURATION:
 		value, err := time.ParseDuration(val)
@@ -292,48 +276,24 @@ func ParseScalar(dt arrow.DataType, val string) (Scalar, error) {
 			return nil, err
 		}
 		if dt.ID() == arrow.DATE32 {
-			return NewDate32Scalar(arrow.Date32(out.Unix() / int64((time.Hour * 24).Seconds()))), nil
+			return NewDate32Scalar(arrow.Date32FromTime(out)), nil
 		} else {
-			return NewDate64Scalar(arrow.Date64(out.Unix() * 1000)), nil
+			return NewDate64Scalar(arrow.Date64FromTime(out)), nil
 		}
 	case arrow.TIME32:
-		var (
-			out time.Time
-			err error
-		)
-		switch {
-		case len(val) == 5:
-			out, err = time.ParseInLocation("15:04", val, time.UTC)
-		default:
-			out, err = time.ParseInLocation("15:04:05.999", val, time.UTC)
-		}
+		tm, err := arrow.Time32FromString(val, dt.(*arrow.Time32Type).Unit)
 		if err != nil {
 			return nil, err
 		}
-		t := out.Sub(time.Date(0, 1, 1, 0, 0, 0, 0, time.UTC))
-		if dt.(*arrow.Time32Type).Unit == arrow.Second {
-			return NewTime32Scalar(arrow.Time32(t.Seconds()), dt), nil
-		}
-		return NewTime32Scalar(arrow.Time32(t.Milliseconds()), dt), nil
+
+		return NewTime32Scalar(tm, dt), nil
 	case arrow.TIME64:
-		var (
-			out time.Time
-			err error
-		)
-		switch {
-		case len(val) == 5:
-			out, err = time.ParseInLocation("15:04", val, time.UTC)
-		default:
-			out, err = time.ParseInLocation("15:04:05.999999999", val, time.UTC)
-		}
+		tm, err := arrow.Time64FromString(val, dt.(*arrow.Time64Type).Unit)
 		if err != nil {
 			return nil, err
 		}
-		t := out.Sub(time.Date(0, 1, 1, 0, 0, 0, 0, time.UTC))
-		if dt.(*arrow.Time64Type).Unit == arrow.Microsecond {
-			return NewTime64Scalar(arrow.Time64(t.Microseconds()), dt), nil
-		}
-		return NewTime64Scalar(arrow.Time64(t.Nanoseconds()), dt), nil
+
+		return NewTime64Scalar(tm, dt), nil
 	}
 
 	return nil, xerrors.Errorf("parsing of scalar for type %s not implemented", dt)

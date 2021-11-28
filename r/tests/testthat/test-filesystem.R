@@ -166,6 +166,17 @@ test_that("SubTreeFileSystem$create() with URI", {
   )
 })
 
+test_that("S3FileSystem$create() with proxy_options", {
+  skip_on_cran()
+  skip_if_not_available("s3")
+  skip_if_offline()
+
+  expect_error(
+    S3FileSystem$create(proxy_options = "definitely not a valid proxy URI"),
+    "Cannot parse URI"
+  )
+})
+
 test_that("s3_bucket", {
   skip_on_cran()
   skip_if_not_available("s3")

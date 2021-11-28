@@ -382,6 +382,7 @@ default_s3_options <- list(
   region = "",
   endpoint_override = "",
   scheme = "",
+  proxy_options = "",
   background_writes = TRUE
 )
 

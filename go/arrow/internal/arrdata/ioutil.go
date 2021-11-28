@@ -85,6 +85,7 @@ func CheckArrowConcurrentFile(t *testing.T, f *os.File, mem memory.Allocator, sc
 			errs <- fmt.Errorf("could not read record %d: %v", i, err)
 			return
 		}
+		defer rec.Release()
 		if !array.RecordEqual(rec, recs[i]) {
 			errs <- fmt.Errorf("records[%d] differ", i)
 		}
