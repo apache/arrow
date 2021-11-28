@@ -185,98 +185,75 @@ using ::arrow::internal::checked_cast;
 namespace internal {
 namespace {
 using ::arrow::internal::DataMember;
-static auto kArithmeticOptionsType =
-    GetFunctionOptionsType<ArithmeticOptions>(
-        DataMember("check_overflow", &ArithmeticOptions::check_overflow));
-static auto kAssumeTimezoneOptionsType =
-    GetFunctionOptionsType<AssumeTimezoneOptions>(
-        DataMember("timezone", &AssumeTimezoneOptions::timezone),
-        DataMember("ambiguous", &AssumeTimezoneOptions::ambiguous),
-        DataMember("nonexistent", &AssumeTimezoneOptions::nonexistent));
-static auto kDayOfWeekOptionsType =
-    GetFunctionOptionsType<DayOfWeekOptions>(
-        DataMember("count_from_zero", &DayOfWeekOptions::count_from_zero),
-        DataMember("week_start", &DayOfWeekOptions::week_start));
-static auto kElementWiseAggregateOptionsType =
-    GetFunctionOptionsType<ElementWiseAggregateOptions>(
-        DataMember("skip_nulls", &ElementWiseAggregateOptions::skip_nulls));
-static auto kExtractRegexOptionsType =
-    GetFunctionOptionsType<ExtractRegexOptions>(
-        DataMember("pattern", &ExtractRegexOptions::pattern));
-static auto kJoinOptionsType =
-    GetFunctionOptionsType<JoinOptions>(
-        DataMember("null_handling", &JoinOptions::null_handling),
-        DataMember("null_replacement", &JoinOptions::null_replacement));
-static auto kMakeStructOptionsType =
-    GetFunctionOptionsType<MakeStructOptions>(
-        DataMember("field_names", &MakeStructOptions::field_names),
-        DataMember("field_nullability", &MakeStructOptions::field_nullability),
-        DataMember("field_metadata", &MakeStructOptions::field_metadata));
-static auto kMatchSubstringOptionsType =
-    GetFunctionOptionsType<MatchSubstringOptions>(
-        DataMember("pattern", &MatchSubstringOptions::pattern),
-        DataMember("ignore_case", &MatchSubstringOptions::ignore_case));
-static auto kNullOptionsType =
-    GetFunctionOptionsType<NullOptions>(
-        DataMember("nan_is_null", &NullOptions::nan_is_null));
-static auto kPadOptionsType =
-    GetFunctionOptionsType<PadOptions>(
-        DataMember("width", &PadOptions::width),
-        DataMember("padding", &PadOptions::padding));
-static auto kReplaceSliceOptionsType =
-    GetFunctionOptionsType<ReplaceSliceOptions>(
-        DataMember("start", &ReplaceSliceOptions::start),
-        DataMember("stop", &ReplaceSliceOptions::stop),
-        DataMember("replacement", &ReplaceSliceOptions::replacement));
-static auto kReplaceSubstringOptionsType =
-    GetFunctionOptionsType<ReplaceSubstringOptions>(
-        DataMember("pattern", &ReplaceSubstringOptions::pattern),
-        DataMember("replacement", &ReplaceSubstringOptions::replacement),
-        DataMember("max_replacements", &ReplaceSubstringOptions::max_replacements));
-static auto kRoundOptionsType =
-    GetFunctionOptionsType<RoundOptions>(
-        DataMember("ndigits", &RoundOptions::ndigits),
-        DataMember("round_mode", &RoundOptions::round_mode));
-static auto kRoundToMultipleOptionsType =
-    GetFunctionOptionsType<RoundToMultipleOptions>(
-        DataMember("multiple", &RoundToMultipleOptions::multiple),
-        DataMember("round_mode", &RoundToMultipleOptions::round_mode));
-static auto kSetLookupOptionsType =
-    GetFunctionOptionsType<SetLookupOptions>(
-        DataMember("value_set", &SetLookupOptions::value_set),
-        DataMember("skip_nulls", &SetLookupOptions::skip_nulls));
-static auto kSliceOptionsType =
-    GetFunctionOptionsType<SliceOptions>(
-        DataMember("start", &SliceOptions::start),
-        DataMember("stop", &SliceOptions::stop),
-        DataMember("step", &SliceOptions::step));
-static auto kSplitPatternOptionsType =
-    GetFunctionOptionsType<SplitPatternOptions>(
-        DataMember("pattern", &SplitPatternOptions::pattern),
-        DataMember("max_splits", &SplitPatternOptions::max_splits),
-        DataMember("reverse", &SplitPatternOptions::reverse));
-static auto kSplitOptionsType =
-    GetFunctionOptionsType<SplitOptions>(
-        DataMember("max_splits", &SplitOptions::max_splits),
-        DataMember("reverse", &SplitOptions::reverse));
-static auto kStrftimeOptionsType =
-    GetFunctionOptionsType<StrftimeOptions>(
-        DataMember("format", &StrftimeOptions::format));
-static auto kStrptimeOptionsType =
-    GetFunctionOptionsType<StrptimeOptions>(
-        DataMember("format", &StrptimeOptions::format),
-        DataMember("unit", &StrptimeOptions::unit));
-static auto kStructFieldOptionsType =
-    GetFunctionOptionsType<StructFieldOptions>(
-        DataMember("indices", &StructFieldOptions::indices));
-static auto kTrimOptionsType =
-    GetFunctionOptionsType<TrimOptions>(
-        DataMember("characters", &TrimOptions::characters));
-static auto kWeekOptionsType =
-    GetFunctionOptionsType<WeekOptions>(
-        DataMember("week_starts_monday", &WeekOptions::week_starts_monday),
-        DataMember("count_from_zero", &WeekOptions::count_from_zero),
-        DataMember("first_week_is_fully_in_year", &WeekOptions::first_week_is_fully_in_year));
+static auto kArithmeticOptionsType = GetFunctionOptionsType<ArithmeticOptions>(
+    DataMember("check_overflow", &ArithmeticOptions::check_overflow));
+static auto kAssumeTimezoneOptionsType = GetFunctionOptionsType<AssumeTimezoneOptions>(
+    DataMember("timezone", &AssumeTimezoneOptions::timezone),
+    DataMember("ambiguous", &AssumeTimezoneOptions::ambiguous),
+    DataMember("nonexistent", &AssumeTimezoneOptions::nonexistent));
+static auto kDayOfWeekOptionsType = GetFunctionOptionsType<DayOfWeekOptions>(
+    DataMember("count_from_zero", &DayOfWeekOptions::count_from_zero),
+    DataMember("week_start", &DayOfWeekOptions::week_start));
+static auto kElementWiseAggregateOptionsType = GetFunctionOptionsType<ElementWiseAggregateOptions>(
+    DataMember("skip_nulls", &ElementWiseAggregateOptions::skip_nulls));
+static auto kExtractRegexOptionsType = GetFunctionOptionsType<ExtractRegexOptions>(
+    DataMember("pattern", &ExtractRegexOptions::pattern));
+static auto kJoinOptionsType = GetFunctionOptionsType<JoinOptions>(
+    DataMember("null_handling", &JoinOptions::null_handling),
+    DataMember("null_replacement", &JoinOptions::null_replacement));
+static auto kMakeStructOptionsType = GetFunctionOptionsType<MakeStructOptions>(
+    DataMember("field_names", &MakeStructOptions::field_names),
+    DataMember("field_nullability", &MakeStructOptions::field_nullability),
+    DataMember("field_metadata", &MakeStructOptions::field_metadata));
+static auto kMatchSubstringOptionsType = GetFunctionOptionsType<MatchSubstringOptions>(
+    DataMember("pattern", &MatchSubstringOptions::pattern),
+    DataMember("ignore_case", &MatchSubstringOptions::ignore_case));
+static auto kNullOptionsType = GetFunctionOptionsType<NullOptions>(
+    DataMember("nan_is_null", &NullOptions::nan_is_null));
+static auto kPadOptionsType = GetFunctionOptionsType<PadOptions>(
+    DataMember("width", &PadOptions::width),
+    DataMember("padding", &PadOptions::padding));
+static auto kReplaceSliceOptionsType = GetFunctionOptionsType<ReplaceSliceOptions>(
+    DataMember("start", &ReplaceSliceOptions::start),
+    DataMember("stop", &ReplaceSliceOptions::stop),
+    DataMember("replacement", &ReplaceSliceOptions::replacement));
+static auto kReplaceSubstringOptionsType = GetFunctionOptionsType<ReplaceSubstringOptions>(
+    DataMember("pattern", &ReplaceSubstringOptions::pattern),
+    DataMember("replacement", &ReplaceSubstringOptions::replacement),
+    DataMember("max_replacements", &ReplaceSubstringOptions::max_replacements));
+static auto kRoundOptionsType = GetFunctionOptionsType<RoundOptions>(
+    DataMember("ndigits", &RoundOptions::ndigits),
+    DataMember("round_mode", &RoundOptions::round_mode));
+static auto kRoundToMultipleOptionsType = GetFunctionOptionsType<RoundToMultipleOptions>(
+    DataMember("multiple", &RoundToMultipleOptions::multiple),
+    DataMember("round_mode", &RoundToMultipleOptions::round_mode));
+static auto kSetLookupOptionsType = GetFunctionOptionsType<SetLookupOptions>(
+    DataMember("value_set", &SetLookupOptions::value_set),
+    DataMember("skip_nulls", &SetLookupOptions::skip_nulls));
+static auto kSliceOptionsType = GetFunctionOptionsType<SliceOptions>(
+    DataMember("start", &SliceOptions::start),
+    DataMember("stop", &SliceOptions::stop),
+    DataMember("step", &SliceOptions::step));
+static auto kSplitPatternOptionsType = GetFunctionOptionsType<SplitPatternOptions>(
+    DataMember("pattern", &SplitPatternOptions::pattern),
+    DataMember("max_splits", &SplitPatternOptions::max_splits),
+    DataMember("reverse", &SplitPatternOptions::reverse));
+static auto kSplitOptionsType = GetFunctionOptionsType<SplitOptions>(
+    DataMember("max_splits", &SplitOptions::max_splits),
+    DataMember("reverse", &SplitOptions::reverse));
+static auto kStrftimeOptionsType = GetFunctionOptionsType<StrftimeOptions>(
+    DataMember("format", &StrftimeOptions::format));
+static auto kStrptimeOptionsType = GetFunctionOptionsType<StrptimeOptions>(
+    DataMember("format", &StrptimeOptions::format),
+    DataMember("unit", &StrptimeOptions::unit));
+static auto kStructFieldOptionsType = GetFunctionOptionsType<StructFieldOptions>(
+    DataMember("indices", &StructFieldOptions::indices));
+static auto kTrimOptionsType = GetFunctionOptionsType<TrimOptions>(
+    DataMember("characters", &TrimOptions::characters));
+static auto kWeekOptionsType = GetFunctionOptionsType<WeekOptions>(
+    DataMember("week_starts_monday", &WeekOptions::week_starts_monday),
+    DataMember("count_from_zero", &WeekOptions::count_from_zero),
+    DataMember("first_week_is_fully_in_year", &WeekOptions::first_week_is_fully_in_year));
 }  // namespace
 }  // namespace internal
 
