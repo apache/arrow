@@ -217,7 +217,7 @@ static auto kReplaceSliceOptionsType = GetFunctionOptionsType<ReplaceSliceOption
     DataMember("start", &ReplaceSliceOptions::start),
     DataMember("stop", &ReplaceSliceOptions::stop),
     DataMember("replacement", &ReplaceSliceOptions::replacement));
-static auto kReplaceSubstringOptionsType = 
+static auto kReplaceSubstringOptionsType =
     GetFunctionOptionsType<ReplaceSubstringOptions>(
         DataMember("pattern", &ReplaceSubstringOptions::pattern),
         DataMember("replacement", &ReplaceSubstringOptions::replacement),
@@ -436,8 +436,7 @@ WeekOptions::WeekOptions(bool week_starts_monday, bool count_from_zero,
       count_from_zero(count_from_zero),
       first_week_is_fully_in_year(first_week_is_fully_in_year) {}
 constexpr char WeekOptions::kTypeName[];
-
-    
+   
 namespace internal {
 void RegisterScalarOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kArithmeticOptionsType));
