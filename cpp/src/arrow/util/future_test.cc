@@ -1313,32 +1313,22 @@ TEST(FutureLoopTest, AllowsBreakFutToBeDiscarded) {
 
 class MoveTrackingCallable {
  public:
-  MoveTrackingCallable() {
-    // std::cout << "CONSTRUCT" << std::endl;
-  }
-  ~MoveTrackingCallable() {
-    valid_ = false;
-    // std::cout << "DESTRUCT" << std::endl;
-  }
-  MoveTrackingCallable(const MoveTrackingCallable& other) {
-    // std::cout << "COPY CONSTRUCT" << std::endl;
-  }
-  MoveTrackingCallable(MoveTrackingCallable&& other) {
-    other.valid_ = false;
-    // std::cout << "MOVE CONSTRUCT" << std::endl;
-  }
-  MoveTrackingCallable& operator=(const MoveTrackingCallable& other) {
-    // std::cout << "COPY ASSIGN" << std::endl;
-    return *this;
-  }
+  MoveTrackingCallable() {}
+
+  ~MoveTrackingCallable() { valid_ = false; }
+
+  MoveTrackingCallable(const MoveTrackingCallable& other) {}
+
+  MoveTrackingCallable(MoveTrackingCallable&& other) { other.valid_ = false; }
+
+  MoveTrackingCallable& operator=(const MoveTrackingCallable& other) { return *this; }
+
   MoveTrackingCallable& operator=(MoveTrackingCallable&& other) {
     other.valid_ = false;
-    // std::cout << "MOVE ASSIGN" << std::endl;
     return *this;
   }
 
   Status operator()() {
-    // std::cout << "TRIGGER" << std::endl;
     if (valid_) {
       return Status::OK();
     } else {

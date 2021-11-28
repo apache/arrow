@@ -426,7 +426,9 @@ struct _GArrowSortKeyClass
 
 GARROW_AVAILABLE_IN_3_0
 GArrowSortKey *
-garrow_sort_key_new(const gchar *name, GArrowSortOrder order);
+garrow_sort_key_new(const gchar *target,
+                    GArrowSortOrder order,
+                    GError **error);
 
 GARROW_AVAILABLE_IN_3_0
 gboolean

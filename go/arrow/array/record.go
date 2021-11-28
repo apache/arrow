@@ -17,6 +17,7 @@
 package array
 
 import (
+	"bytes"
 	"fmt"
 	"strings"
 	"sync/atomic"
@@ -24,6 +25,7 @@ import (
 	"github.com/apache/arrow/go/v7/arrow"
 	"github.com/apache/arrow/go/v7/arrow/internal/debug"
 	"github.com/apache/arrow/go/v7/arrow/memory"
+	"github.com/goccy/go-json"
 )
 
 // RecordReader reads a stream of records.
@@ -109,6 +111,8 @@ func (rs *simpleRecords) Next() bool {
 // Record is a collection of equal-length arrays
 // matching a particular Schema.
 type Record interface {
+	json.Marshaler
+
 	Release()
 	Retain()
 
@@ -254,6 +258,12 @@ func (rec *simpleRecord) String() string {
 	return o.String()
 }
 
+func (rec *simpleRecord) MarshalJSON() ([]byte, error) {
+	arr := RecordToStructArray(rec)
+	defer arr.Release()
+	return arr.MarshalJSON()
+}
+
 // RecordBuilder eases the process of building a Record, iteratively, from
 // a known Schema.
 type RecordBuilder struct {
@@ -336,6 +346,53 @@ func (b *RecordBuilder) NewRecord() Record {
 	}
 
 	return NewRecord(b.schema, cols, rows)
+}
+
+// UnmarshalJSON for record builder will read in a single object and add the values
+// to each field in the recordbuilder, missing fields will get a null and unexpected
+// keys will be ignored. If reading in an array of records as a single batch, then use
+// a structbuilder and use RecordFromStruct.
+func (b *RecordBuilder) UnmarshalJSON(data []byte) error {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	// should start with a '{'
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	if delim, ok := t.(json.Delim); !ok || delim != '{' {
+		return fmt.Errorf("record should start with '{', not %s", t)
+	}
+
+	keylist := make(map[string]bool)
+	for dec.More() {
+		keyTok, err := dec.Token()
+		if err != nil {
+			return err
+		}
+
+		key := keyTok.(string)
+		if keylist[key] {
+			return fmt.Errorf("key %s shows up twice in row to be decoded", key)
+		}
+		keylist[key] = true
+
+		indices := b.schema.FieldIndices(key)
+		if len(indices) == 0 {
+			continue
+		}
+
+		if err := b.fields[indices[0]].unmarshalOne(dec); err != nil {
+			return err
+		}
+	}
+
+	for i, f := range b.schema.Fields() {
+		if !keylist[f.Name] {
+			b.fields[i].AppendNull()
+		}
+	}
+	return nil
 }
 
 var (

@@ -1001,6 +1001,29 @@ struct GroupedMeanImpl : public GroupedReducingAggregator<Type, GroupedMeanImpl<
     return static_cast<CType>(to_unsigned(u) + to_unsigned(v));
   }
 
+  template <typename T = Type>
+  static enable_if_decimal<T, Result<MeanType>> DoMean(CType reduced, int64_t count) {
+    static_assert(std::is_same<MeanType, CType>::value, "");
+    CType quotient, remainder;
+    ARROW_ASSIGN_OR_RAISE(std::tie(quotient, remainder), reduced.Divide(count));
+    // Round the decimal result based on the remainder
+    remainder.Abs();
+    if (remainder * 2 >= count) {
+      if (reduced >= 0) {
+        quotient += 1;
+      } else {
+        quotient -= 1;
+      }
+    }
+    return quotient;
+  }
+
+  template <typename T = Type>
+  static enable_if_t<!is_decimal_type<T>::value, Result<MeanType>> DoMean(CType reduced,
+                                                                          int64_t count) {
+    return static_cast<MeanType>(reduced) / count;
+  }
+
   static Result<std::shared_ptr<Buffer>> Finish(MemoryPool* pool,
                                                 const ScalarAggregateOptions& options,
                                                 const int64_t* counts,
@@ -1013,7 +1036,7 @@ struct GroupedMeanImpl : public GroupedReducingAggregator<Type, GroupedMeanImpl<
     MeanType* means = reinterpret_cast<MeanType*>(values->mutable_data());
     for (int64_t i = 0; i < num_groups; ++i) {
       if (counts[i] >= options.min_count) {
-        means[i] = static_cast<MeanType>(reduced[i]) / counts[i];
+        ARROW_ASSIGN_OR_RAISE(means[i], DoMean(reduced[i], counts[i]));
         continue;
       }
       means[i] = MeanType(0);
@@ -2585,26 +2608,28 @@ Result<std::shared_ptr<ListArray>> Grouper::MakeGroupings(const UInt32Array& ids
 }
 
 namespace {
-const FunctionDoc hash_count_doc{"Count the number of null / non-null values",
-                                 ("By default, non-null values are counted.\n"
-                                  "This can be changed through ScalarAggregateOptions."),
-                                 {"array", "group_id_array"},
-                                 "CountOptions"};
+const FunctionDoc hash_count_doc{
+    "Count the number of null / non-null values in each group",
+    ("By default, non-null values are counted.\n"
+     "This can be changed through ScalarAggregateOptions."),
+    {"array", "group_id_array"},
+    "CountOptions"};
 
-const FunctionDoc hash_sum_doc{"Sum values of a numeric array",
+const FunctionDoc hash_sum_doc{"Sum values in each group",
                                ("Null values are ignored."),
                                {"array", "group_id_array"},
                                "ScalarAggregateOptions"};
 
 const FunctionDoc hash_product_doc{
-    "Compute product of values of a numeric array",
+    "Compute the product of values in each group",
     ("Null values are ignored.\n"
-     "Overflow will wrap around as if the calculation was done with unsigned integers."),
+     "On integer overflow, the result will wrap around as if the calculation\n"
+     "was done with unsigned integers."),
     {"array", "group_id_array"},
     "ScalarAggregateOptions"};
 
 const FunctionDoc hash_mean_doc{
-    "Average values of a numeric array",
+    "Compute the mean of values in each group",
     ("Null values are ignored.\n"
      "For integers and floats, NaN is returned if min_count = 0 and\n"
      "there are no values. For decimals, null is returned instead."),
@@ -2612,7 +2637,7 @@ const FunctionDoc hash_mean_doc{
     "ScalarAggregateOptions"};
 
 const FunctionDoc hash_stddev_doc{
-    "Calculate the standard deviation of a numeric array",
+    "Compute the standard deviation of values in each group",
     ("The number of degrees of freedom can be controlled using VarianceOptions.\n"
      "By default (`ddof` = 0), the population standard deviation is calculated.\n"
      "Nulls are ignored.  If there are not enough non-null values in the array\n"
@@ -2620,7 +2645,7 @@ const FunctionDoc hash_stddev_doc{
     {"array", "group_id_array"}};
 
 const FunctionDoc hash_variance_doc{
-    "Calculate the variance of a numeric array",
+    "Compute the variance of values in each group",
     ("The number of degrees of freedom can be controlled using VarianceOptions.\n"
      "By default (`ddof` = 0), the population variance is calculated.\n"
      "Nulls are ignored.  If there are not enough non-null values in the array\n"
@@ -2628,40 +2653,42 @@ const FunctionDoc hash_variance_doc{
     {"array", "group_id_array"}};
 
 const FunctionDoc hash_tdigest_doc{
-    "Calculate approximate quantiles of a numeric array with the T-Digest algorithm",
-    ("By default, the 0.5 quantile (median) is returned.\n"
+    "Compute approximate quantiles of values in each group",
+    ("The T-Digest algorithm is used for a fast approximation.\n"
+     "By default, the 0.5 quantile (i.e. median) is returned.\n"
      "Nulls and NaNs are ignored.\n"
-     "A array of nulls is returned if there are no valid data points."),
+     "Nulls are returned if there are no valid data points."),
     {"array", "group_id_array"},
     "TDigestOptions"};
 
 const FunctionDoc hash_approximate_median_doc{
-    "Calculate approximate medians of a numeric array with the T-Digest algorithm",
-    ("Nulls and NaNs are ignored.\n"
-     "Null is emitted for a group if there are no valid data points."),
+    "Compute approximate medians of values in each group",
+    ("The T-Digest algorithm is used for a fast approximation.\n"
+     "Nulls and NaNs are ignored.\n"
+     "Nulls are returned if there are no valid data points."),
     {"array", "group_id_array"},
     "ScalarAggregateOptions"};
 
 const FunctionDoc hash_min_max_doc{
-    "Compute the minimum and maximum values of a numeric array",
+    "Compute the minimum and maximum of values in each group",
     ("Null values are ignored by default.\n"
      "This can be changed through ScalarAggregateOptions."),
     {"array", "group_id_array"},
     "ScalarAggregateOptions"};
 
 const FunctionDoc hash_min_or_max_doc{
-    "Compute the minimum or maximum values of a numeric array",
+    "Compute the minimum or maximum of values in each group",
     ("Null values are ignored by default.\n"
      "This can be changed through ScalarAggregateOptions."),
     {"array", "group_id_array"},
     "ScalarAggregateOptions"};
 
-const FunctionDoc hash_any_doc{"Test whether any element evaluates to true",
+const FunctionDoc hash_any_doc{"Whether any element in each group evaluates to true",
                                ("Null values are ignored."),
                                {"array", "group_id_array"},
                                "ScalarAggregateOptions"};
 
-const FunctionDoc hash_all_doc{"Test whether all elements evaluate to true",
+const FunctionDoc hash_all_doc{"Whether all elements in each group evaluate to true",
                                ("Null values are ignored."),
                                {"array", "group_id_array"},
                                "ScalarAggregateOptions"};
@@ -2679,6 +2706,7 @@ const FunctionDoc hash_distinct_doc{
      "NaNs and signed zeroes are not normalized."),
     {"array", "group_id_array"},
     "CountOptions"};
+
 }  // namespace
 
 void RegisterHashAggregateBasic(FunctionRegistry* registry) {

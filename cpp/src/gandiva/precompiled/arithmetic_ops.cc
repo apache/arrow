@@ -57,6 +57,21 @@ extern "C" {
                        : static_cast<gdv_##OUT_TYPE>(left % right));    \
   }
 
+#define PMOD_OP(NAME, IN_TYPE1, IN_TYPE2, OUT_TYPE)                                   \
+  FORCE_INLINE                                                                        \
+  gdv_##OUT_TYPE NAME##_##IN_TYPE1##_##IN_TYPE2(int64_t context, gdv_##IN_TYPE1 left, \
+                                                gdv_##IN_TYPE2 right) {               \
+    if (right == static_cast<gdv_##IN_TYPE2>(0)) {                                    \
+      gdv_fn_context_set_error_msg(context, "divide by zero error");                  \
+      return static_cast<gdv_##IN_TYPE1>(0);                                          \
+    }                                                                                 \
+    double mod = fmod(static_cast<double>(left), static_cast<double>(right));         \
+    if (mod < 0 || right < 0) {                                                       \
+      mod += static_cast<double>(right);                                              \
+    }                                                                                 \
+    return static_cast<gdv_##IN_TYPE1>(mod);                                          \
+  }
+
 // Symmetric binary fns : left, right params and return type are same.
 #define BINARY_SYMMETRIC(NAME, TYPE, OP)                                 \
   FORCE_INLINE                                                           \
@@ -79,7 +94,13 @@ BINARY_SYMMETRIC(bitwise_xor, int64, ^)
 MOD_OP(mod, int64, int32, int32)
 MOD_OP(mod, int64, int64, int64)
 
+PMOD_OP(pmod, int32, int32, int32)
+PMOD_OP(pmod, int64, int64, int64)
+PMOD_OP(pmod, float32, float32, float32)
+PMOD_OP(pmod, float64, float64, float64)
+
 #undef MOD_OP
+#undef PMOD_OP
 
 gdv_float64 mod_float64_float64(int64_t context, gdv_float64 x, gdv_float64 y) {
   if (y == 0.0) {

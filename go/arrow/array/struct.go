@@ -18,6 +18,7 @@ package array
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"strings"
 	"sync/atomic"
@@ -26,6 +27,7 @@ import (
 	"github.com/apache/arrow/go/v7/arrow/bitutil"
 	"github.com/apache/arrow/go/v7/arrow/internal/debug"
 	"github.com/apache/arrow/go/v7/arrow/memory"
+	"github.com/goccy/go-json"
 )
 
 // Struct represents an ordered sequence of relative types.
@@ -103,6 +105,36 @@ func (a *Struct) setData(data *Data) {
 			a.fields[i] = MakeFromData(child)
 		}
 	}
+}
+
+func (a *Struct) getOneForMarshal(i int) interface{} {
+	if a.IsNull(i) {
+		return nil
+	}
+
+	tmp := make(map[string]interface{})
+	fieldList := a.data.dtype.(*arrow.StructType).Fields()
+	for j, d := range a.fields {
+		tmp[fieldList[j].Name] = d.getOneForMarshal(i)
+	}
+	return tmp
+}
+
+func (a *Struct) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+
+	buf.WriteByte('[')
+	for i := 0; i < a.Len(); i++ {
+		if i != 0 {
+			buf.WriteByte(',')
+		}
+		if err := enc.Encode(a.getOneForMarshal(i)); err != nil {
+			return nil, err
+		}
+	}
+	buf.WriteByte(']')
+	return buf.Bytes(), nil
 }
 
 func arrayEqualStruct(left, right *Struct) bool {
@@ -270,6 +302,79 @@ func (b *StructBuilder) newData() (data *Data) {
 	b.reset()
 
 	return
+}
+
+func (b *StructBuilder) unmarshalOne(dec *json.Decoder) error {
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	switch t {
+	case json.Delim('{'):
+		b.Append(true)
+		keylist := make(map[string]bool)
+		for dec.More() {
+			keyTok, err := dec.Token()
+			if err != nil {
+				return err
+			}
+
+			key, ok := keyTok.(string)
+			if !ok {
+				return errors.New("missing key")
+			}
+
+			if keylist[key] {
+				return fmt.Errorf("key %s is specified twice", key)
+			}
+
+			keylist[key] = true
+
+			idx, ok := b.dtype.(*arrow.StructType).FieldIdx(key)
+			if !ok {
+				continue
+			}
+
+			if err := b.fields[idx].unmarshalOne(dec); err != nil {
+				return err
+			}
+		}
+		// consume '}'
+		_, err := dec.Token()
+		return err
+	case nil:
+		b.AppendNull()
+	default:
+		return &json.UnmarshalTypeError{
+			Offset: dec.InputOffset(),
+			Struct: fmt.Sprint(b.dtype),
+		}
+	}
+	return nil
+}
+
+func (b *StructBuilder) unmarshal(dec *json.Decoder) error {
+	for dec.More() {
+		if err := b.unmarshalOne(dec); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (b *StructBuilder) UnmarshalJSON(data []byte) error {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	if delim, ok := t.(json.Delim); !ok || delim != '[' {
+		return fmt.Errorf("struct builder must unpack from json array, found %s", delim)
+	}
+
+	return b.unmarshal(dec)
 }
 
 var (

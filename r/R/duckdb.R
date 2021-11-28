@@ -55,7 +55,7 @@
 to_duckdb <- function(.data,
                       con = arrow_duck_connection(),
                       table_name = unique_arrow_tablename(),
-                      auto_disconnect = FALSE) {
+                      auto_disconnect = TRUE) {
   .data <- as_adq(.data)
   duckdb::duckdb_register_arrow(con, table_name, .data)
 
@@ -67,8 +67,8 @@ to_duckdb <- function(.data,
 
   if (auto_disconnect) {
     # this will add the correct connection disconnection when the tbl is gced.
-    # we should probably confirm that this use of src$disco is kosher.
-    tbl$src$disco <- duckdb_disconnector(con, table_name)
+    # this is similar to what dbplyr does, though it calls it tbl$src$disco
+    tbl$src$.arrow_finalizer_environment <- duckdb_disconnector(con, table_name)
   }
 
   tbl
@@ -109,11 +109,6 @@ duckdb_disconnector <- function(con, tbl_name) {
     # still valid)
     if (DBI::dbIsValid(con)) {
       duckdb::duckdb_unregister_arrow(con, tbl_name)
-    }
-
-    # and there are no more tables, so we can safely shutdown
-    if (length(DBI::dbListTables(con)) == 0) {
-      DBI::dbDisconnect(con, shutdown = TRUE)
     }
   })
   environment()

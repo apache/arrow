@@ -126,10 +126,17 @@ std::shared_ptr<arrow::ChunkedArray> ChunkedArray__from_list(cpp11::list chunks,
     // because we might have inferred the type from the first element of the list
     //
     // this only really matters for dictionary arrays
-    vec.push_back(arrow::r::vec_to_arrow(chunks[0], type, type_inferred));
+    auto chunked_array =
+        arrow::r::vec_to_arrow_ChunkedArray(chunks[0], type, type_inferred);
+    for (const auto& chunk : chunked_array->chunks()) {
+      vec.push_back(chunk);
+    }
 
     for (R_xlen_t i = 1; i < n; i++) {
-      vec.push_back(arrow::r::vec_to_arrow(chunks[i], type, false));
+      chunked_array = arrow::r::vec_to_arrow_ChunkedArray(chunks[i], type, false);
+      for (const auto& chunk : chunked_array->chunks()) {
+        vec.push_back(chunk);
+      }
     }
   }
 

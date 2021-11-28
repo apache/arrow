@@ -72,19 +72,6 @@ void AssertNullToNull(const std::string& func_name) {
   }
 }
 
-// Construct an array of decimals, where negative scale is allowed.
-//
-// Works around DecimalXXX::FromString intentionally not inferring
-// negative scales.
-std::shared_ptr<Array> DecimalArrayFromJSON(const std::shared_ptr<DataType>& type,
-                                            const std::string& json) {
-  const auto& ty = checked_cast<const DecimalType&>(*type);
-  if (ty.scale() >= 0) return ArrayFromJSON(type, json);
-  auto p = ty.precision() - ty.scale();
-  auto adjusted_ty = ty.id() == Type::DECIMAL128 ? decimal128(p, 0) : decimal256(p, 0);
-  return Cast(ArrayFromJSON(adjusted_ty, json), type).ValueOrDie().make_array();
-}
-
 template <typename T, typename OptionsType>
 class TestBaseUnaryArithmetic : public TestBase {
  protected:

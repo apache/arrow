@@ -2299,7 +2299,7 @@ typedef struct GArrowSortKeyPrivate_ {
 } GArrowSortKeyPrivate;
 
 enum {
-  PROP_SORT_KEY_NAME = 1,
+  PROP_SORT_KEY_TARGET = 1,
   PROP_SORT_KEY_ORDER,
 };
 
@@ -2329,9 +2329,6 @@ garrow_sort_key_set_property(GObject *object,
   auto priv = GARROW_SORT_KEY_GET_PRIVATE(object);
 
   switch (prop_id) {
-  case PROP_SORT_KEY_NAME:
-    priv->sort_key.target = g_value_get_string(value);
-    break;
   case PROP_SORT_KEY_ORDER:
     priv->sort_key.order =
       static_cast<arrow::compute::SortOrder>(g_value_get_enum(value));
@@ -2351,11 +2348,14 @@ garrow_sort_key_get_property(GObject *object,
   auto priv = GARROW_SORT_KEY_GET_PRIVATE(object);
 
   switch (prop_id) {
-  case PROP_SORT_KEY_NAME:
-    if (auto name = priv->sort_key.target.name()) {
-      g_value_set_string(value, name->c_str());
-    } else {
-      g_value_set_string(value, "");
+  case PROP_SORT_KEY_TARGET:
+    {
+      auto name = priv->sort_key.target.name();
+      if (name) {
+        g_value_set_string(value, name->c_str());
+      } else {
+        g_value_set_string(value, priv->sort_key.target.ToDotPath().c_str());
+      }
     }
     break;
   case PROP_SORT_KEY_ORDER:
@@ -2385,18 +2385,22 @@ garrow_sort_key_class_init(GArrowSortKeyClass *klass)
 
   GParamSpec *spec;
   /**
-   * GArrowSortKey:name:
+   * GArrowSortKey:target:
    *
-   * The column name to be used.
+   * A name or dot path for the sort target.
    *
-   * Since: 3.0.0
+   *     dot_path = '.' name
+   *              | '[' digit+ ']'
+   *              | dot_path+
+   *
+   * Since: 7.0.0
    */
-  spec = g_param_spec_string("name",
-                             "Name",
-                             "The column name to be used",
+  spec = g_param_spec_string("target",
+                             "Target",
+                             "The sort target",
                              NULL,
-                             static_cast<GParamFlags>(G_PARAM_READWRITE));
-  g_object_class_install_property(gobject_class, PROP_SORT_KEY_NAME, spec);
+                             static_cast<GParamFlags>(G_PARAM_READABLE));
+  g_object_class_install_property(gobject_class, PROP_SORT_KEY_TARGET, spec);
 
   /**
    * GArrowSortKey:order:
@@ -2410,13 +2414,14 @@ garrow_sort_key_class_init(GArrowSortKeyClass *klass)
                            "How to order values",
                            GARROW_TYPE_SORT_ORDER,
                            0,
-                           static_cast<GParamFlags>(G_PARAM_READWRITE));
+                           static_cast<GParamFlags>(G_PARAM_READWRITE |
+                                                    G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_SORT_KEY_ORDER, spec);
 }
 
 /**
  * garrow_sort_key_new:
- * @name: A column name to be used.
+ * @target: A name or dot path for sort target.
  * @order: How to order by this sort key.
  *
  * Returns: A newly created #GArrowSortKey.
@@ -2424,12 +2429,21 @@ garrow_sort_key_class_init(GArrowSortKeyClass *klass)
  * Since: 3.0.0
  */
 GArrowSortKey *
-garrow_sort_key_new(const gchar *name, GArrowSortOrder order)
+garrow_sort_key_new(const gchar *target,
+                    GArrowSortOrder order,
+                    GError **error)
 {
+  auto arrow_reference_result = garrow_field_reference_resolve_raw(target);
+  if (!garrow::check(error,
+                     arrow_reference_result,
+                     "[sort-key][new]")) {
+    return NULL;
+  }
   auto sort_key = g_object_new(GARROW_TYPE_SORT_KEY,
-                               "name", name,
                                "order", order,
                                NULL);
+  auto priv = GARROW_SORT_KEY_GET_PRIVATE(sort_key);
+  priv->sort_key.target = *arrow_reference_result;
   return GARROW_SORT_KEY(sort_key);
 }
 
@@ -2535,8 +2549,7 @@ garrow_sort_options_get_sort_keys(GArrowSortOptions *options)
   auto arrow_options = garrow_sort_options_get_raw(options);
   GList *sort_keys = NULL;
   for (const auto &arrow_sort_key : arrow_options->sort_keys) {
-    auto sort_key = g_object_new(GARROW_TYPE_SORT_KEY, NULL);
-    GARROW_SORT_KEY_GET_PRIVATE(sort_key)->sort_key = arrow_sort_key;
+    auto sort_key = garrow_sort_key_new_raw(arrow_sort_key);
     sort_keys = g_list_prepend(sort_keys, sort_key);
   }
   return g_list_reverse(sort_keys);
@@ -4068,6 +4081,19 @@ garrow_record_batch_filter(GArrowRecordBatch *record_batch,
 
 G_END_DECLS
 
+
+arrow::Result<arrow::FieldRef>
+garrow_field_reference_resolve_raw(const gchar *reference)
+{
+  if (reference && reference[0] == '.') {
+    return arrow::FieldRef::FromDotPath(reference);
+  } else {
+    arrow::FieldRef arrow_reference(reference);
+    return arrow_reference;
+  }
+}
+
+
 arrow::compute::ExecContext *
 garrow_execute_context_get_raw(GArrowExecuteContext *context)
 {
@@ -4231,12 +4257,23 @@ garrow_array_sort_options_get_raw(GArrowArraySortOptions *options)
     garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
 }
 
+
+GArrowSortKey *
+garrow_sort_key_new_raw(const arrow::compute::SortKey &arrow_sort_key)
+{
+  auto sort_key = g_object_new(GARROW_TYPE_SORT_KEY, NULL);
+  auto priv = GARROW_SORT_KEY_GET_PRIVATE(sort_key);
+  priv->sort_key = arrow_sort_key;
+  return GARROW_SORT_KEY(sort_key);
+}
+
 arrow::compute::SortKey *
 garrow_sort_key_get_raw(GArrowSortKey *sort_key)
 {
   auto priv = GARROW_SORT_KEY_GET_PRIVATE(sort_key);
   return &(priv->sort_key);
 }
+
 
 arrow::compute::SortOptions *
 garrow_sort_options_get_raw(GArrowSortOptions *options)
