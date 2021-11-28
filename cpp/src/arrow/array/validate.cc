@@ -564,7 +564,7 @@ struct ValidateArrayImpl {
                              " and offset: ", data.offset);
     }
 
-    if (full_validation && offsets_byte_size != 0) {
+    if (full_validation && required_offsets > 0) {
       // Validate all offset values
       const offset_type* offsets = data.GetValues<offset_type>(1);
 

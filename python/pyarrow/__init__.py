@@ -182,7 +182,7 @@ from pyarrow.lib import (NativeFile, PythonFile,
 from pyarrow._hdfsio import HdfsFile, have_libhdfs
 
 from pyarrow.lib import (ChunkedArray, RecordBatch, Table, table,
-                         concat_arrays, concat_tables)
+                         concat_arrays, concat_tables, TableGroupBy)
 
 # Exceptions
 from pyarrow.lib import (ArrowCancelled,

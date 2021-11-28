@@ -39,19 +39,16 @@ void CheckBooleanScalarArrayBinary(std::string func_name, Datum array) {
   for (std::shared_ptr<Scalar> scalar :
        {std::make_shared<BooleanScalar>(), std::make_shared<BooleanScalar>(true),
         std::make_shared<BooleanScalar>(false)}) {
-    ASSERT_OK_AND_ASSIGN(Datum actual, CallFunction(func_name, {Datum(scalar), array}));
-
     ASSERT_OK_AND_ASSIGN(auto constant_array,
                          MakeArrayFromScalar(*scalar, array.length()));
 
     ASSERT_OK_AND_ASSIGN(Datum expected,
                          CallFunction(func_name, {Datum(constant_array), array}));
-    AssertDatumsEqual(expected, actual);
+    CheckScalar(func_name, {scalar, array}, expected);
 
-    ASSERT_OK_AND_ASSIGN(actual, CallFunction(func_name, {array, Datum(scalar)}));
     ASSERT_OK_AND_ASSIGN(expected,
                          CallFunction(func_name, {array, Datum(constant_array)}));
-    AssertDatumsEqual(expected, actual);
+    CheckScalar(func_name, {array, scalar}, expected);
   }
 }
 

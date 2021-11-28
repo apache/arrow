@@ -85,11 +85,20 @@ if [ ${SOURCE_RAT} -gt 0 ]; then
   "${SOURCE_DIR}/run-rat.sh" ${tarball}
 fi
 
+if type shasum >/dev/null 2>&1; then
+  sha256_generate="shasum -a 256"
+  sha512_generate="shasum -a 512"
+else
+  sha256_generate="sha256sum"
+  sha512_generate="sha512sum"
+fi
+
+
 if [ ${SOURCE_UPLOAD} -gt 0 ]; then
   # sign the archive
   gpg --armor --output ${tarball}.asc --detach-sig ${tarball}
-  shasum -a 256 $tarball > ${tarball}.sha256
-  shasum -a 512 $tarball > ${tarball}.sha512
+  ${sha256_generate} $tarball > ${tarball}.sha256
+  ${sha512_generate} $tarball > ${tarball}.sha512
 
   # check out the arrow RC folder
   svn co --depth=empty https://dist.apache.org/repos/dist/dev/arrow tmp
