@@ -194,8 +194,9 @@ static auto kAssumeTimezoneOptionsType = GetFunctionOptionsType<AssumeTimezoneOp
 static auto kDayOfWeekOptionsType = GetFunctionOptionsType<DayOfWeekOptions>(
     DataMember("count_from_zero", &DayOfWeekOptions::count_from_zero),
     DataMember("week_start", &DayOfWeekOptions::week_start));
-static auto kElementWiseAggregateOptionsType = GetFunctionOptionsType<ElementWiseAggregateOptions>(
-    DataMember("skip_nulls", &ElementWiseAggregateOptions::skip_nulls));
+static auto kElementWiseAggregateOptionsType =
+    GetFunctionOptionsType<ElementWiseAggregateOptions>(
+        DataMember("skip_nulls", &ElementWiseAggregateOptions::skip_nulls));
 static auto kExtractRegexOptionsType = GetFunctionOptionsType<ExtractRegexOptions>(
     DataMember("pattern", &ExtractRegexOptions::pattern));
 static auto kJoinOptionsType = GetFunctionOptionsType<JoinOptions>(
@@ -211,16 +212,16 @@ static auto kMatchSubstringOptionsType = GetFunctionOptionsType<MatchSubstringOp
 static auto kNullOptionsType = GetFunctionOptionsType<NullOptions>(
     DataMember("nan_is_null", &NullOptions::nan_is_null));
 static auto kPadOptionsType = GetFunctionOptionsType<PadOptions>(
-    DataMember("width", &PadOptions::width),
-    DataMember("padding", &PadOptions::padding));
+    DataMember("width", &PadOptions::width), DataMember("padding", &PadOptions::padding));
 static auto kReplaceSliceOptionsType = GetFunctionOptionsType<ReplaceSliceOptions>(
     DataMember("start", &ReplaceSliceOptions::start),
     DataMember("stop", &ReplaceSliceOptions::stop),
     DataMember("replacement", &ReplaceSliceOptions::replacement));
-static auto kReplaceSubstringOptionsType = GetFunctionOptionsType<ReplaceSubstringOptions>(
-    DataMember("pattern", &ReplaceSubstringOptions::pattern),
-    DataMember("replacement", &ReplaceSubstringOptions::replacement),
-    DataMember("max_replacements", &ReplaceSubstringOptions::max_replacements));
+static auto kReplaceSubstringOptionsType = 
+    GetFunctionOptionsType<ReplaceSubstringOptions>(
+        DataMember("pattern", &ReplaceSubstringOptions::pattern),
+        DataMember("replacement", &ReplaceSubstringOptions::replacement),
+        DataMember("max_replacements", &ReplaceSubstringOptions::max_replacements));
 static auto kRoundOptionsType = GetFunctionOptionsType<RoundOptions>(
     DataMember("ndigits", &RoundOptions::ndigits),
     DataMember("round_mode", &RoundOptions::round_mode));
@@ -231,8 +232,7 @@ static auto kSetLookupOptionsType = GetFunctionOptionsType<SetLookupOptions>(
     DataMember("value_set", &SetLookupOptions::value_set),
     DataMember("skip_nulls", &SetLookupOptions::skip_nulls));
 static auto kSliceOptionsType = GetFunctionOptionsType<SliceOptions>(
-    DataMember("start", &SliceOptions::start),
-    DataMember("stop", &SliceOptions::stop),
+    DataMember("start", &SliceOptions::start), DataMember("stop", &SliceOptions::stop),
     DataMember("step", &SliceOptions::step));
 static auto kSplitPatternOptionsType = GetFunctionOptionsType<SplitPatternOptions>(
     DataMember("pattern", &SplitPatternOptions::pattern),
