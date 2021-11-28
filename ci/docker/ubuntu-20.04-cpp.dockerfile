@@ -38,11 +38,11 @@ RUN if [ "${llvm}" -gt "10" ]; then \
           wget && \
       wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
       echo "deb https://apt.llvm.org/focal/ llvm-toolchain-focal-${llvm} main" > \
-         /etc/apt/sources.list.d/llvm.list && \
-      if [ "${clang_tools}" != "${llvm}" -a "${clang_tools}" -gt 10 ]; then \
-        echo "deb https://apt.llvm.org/focal/ llvm-toolchain-focal-${clang_tools} main" > \
-           /etc/apt/sources.list.d/clang-tools.list; \
-      fi \
+         /etc/apt/sources.list.d/llvm.list; \
+    fi && \
+    if [ "${clang_tools}" != "${llvm}" -a "${clang_tools}" -gt 10 ]; then \
+      echo "deb https://apt.llvm.org/focal/ llvm-toolchain-focal-${clang_tools} main" > \
+         /etc/apt/sources.list.d/clang-tools.list; \
     fi && \
     apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
