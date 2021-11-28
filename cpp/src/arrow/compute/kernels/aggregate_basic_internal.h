@@ -122,7 +122,7 @@ struct SumImpl : public ScalarAggregator {
 };
 
 struct NullSumImpl : public ScalarAggregator {
-  NullSumImpl(const ScalarAggregateOptions& options_) : options(options_) {}
+  explicit NullSumImpl(const ScalarAggregateOptions& options_) : options(options_) {}
 
   Status Consume(KernelContext*, const ExecBatch& batch) override {
     if (batch[0].is_scalar() || batch[0].array()->GetNullCount() > 0) {
@@ -196,7 +196,7 @@ struct MeanImpl : public SumImpl<ArrowType, SimdLevel> {
 };
 
 struct NullMeanImpl : public NullSumImpl {
-  NullMeanImpl(const ScalarAggregateOptions& options_) : NullSumImpl(options_) {}
+  explicit NullMeanImpl(const ScalarAggregateOptions& options_) : NullSumImpl(options_) {}
 
   Status Finalize(KernelContext*, Datum* out) override {
     if ((options.skip_nulls || this->is_empty) && options.min_count == 0) {
