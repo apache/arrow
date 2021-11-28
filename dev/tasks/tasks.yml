@@ -1191,6 +1191,7 @@ tasks:
       env:
         UBUNTU: 21.04
         CLANG_TOOLS: 9 # can remove this when >=9 is the default
+        R_PRUNE_DEPS: TRUE
       flags: '-e ARROW_SOURCE_HOME="/arrow" -e FORCE_BUNDLED_BUILD=TRUE -e LIBARROW_BUILD=TRUE'
       image: ubuntu-r-only-r
 
@@ -1231,12 +1232,15 @@ tasks:
     params:
       env:
         UBUNTU: 18.04
+        R_PRUNE_DEPS: TRUE
       run: ubuntu-r-sanitizer
 
   test-fedora-r-clang-sanitizer:
     ci: azure
     template: docker-tests/azure.linux.yml
     params:
+      env:
+        R_PRUNE_DEPS: TRUE
       run: fedora-r-clang-sanitizer
 
   revdep-r-check:

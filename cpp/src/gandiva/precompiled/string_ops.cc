@@ -245,10 +245,16 @@ UTF8_LENGTH(char_length, utf8)
 UTF8_LENGTH(length, utf8)
 UTF8_LENGTH(lengthUtf8, binary)
 
+// set max/min str length for space_int32, space_int64, lpad_utf8_int32_utf8
+// and rpad_utf8_int32_utf8 to avoid exceptions
+static const gdv_int32 max_str_length = 65536;
+static const gdv_int32 min_str_length = 0;
 // Returns a string of 'n' spaces.
 #define SPACE_STR(IN_TYPE)                                                              \
   GANDIVA_EXPORT                                                                        \
   const char* space_##IN_TYPE(gdv_int64 ctx, gdv_##IN_TYPE n, int32_t* out_len) {       \
+    n = std::min(static_cast<gdv_##IN_TYPE>(max_str_length), n);                        \
+    n = std::max(static_cast<gdv_##IN_TYPE>(min_str_length), n);                        \
     gdv_int32 n_times = static_cast<gdv_int32>(n);                                      \
     if (n_times <= 0) {                                                                 \
       *out_len = 0;                                                                     \
@@ -1363,6 +1369,40 @@ gdv_int32 ascii_utf8(const char* data, gdv_int32 data_len) {
   return static_cast<gdv_int32>(data[0]);
 }
 
+// Returns the ASCII character having the binary equivalent to A.
+// If A is larger than 256 the result is equivalent to chr(A % 256).
+FORCE_INLINE
+const char* chr_int32(gdv_int64 context, gdv_int32 in, gdv_int32* out_len) {
+  in = in % 256;
+  *out_len = 1;
+
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+  ret[0] = char(in);
+  return ret;
+}
+
+// Returns the ASCII character having the binary equivalent to A.
+// If A is larger than 256 the result is equivalent to chr(A % 256).
+FORCE_INLINE
+const char* chr_int64(gdv_int64 context, gdv_int64 in, gdv_int32* out_len) {
+  in = in % 256;
+  *out_len = 1;
+
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+  ret[0] = char(in);
+  return ret;
+}
+
 FORCE_INLINE
 const char* convert_fromUTF8_binary(gdv_int64 context, const char* bin_in, gdv_int32 len,
                                     gdv_int32* out_len) {
@@ -1801,35 +1841,57 @@ const char* quote_utf8(gdv_int64 context, const char* in, gdv_int32 in_len,
 }
 
 FORCE_INLINE
+gdv_int32 evaluate_return_char_length(gdv_int32 text_len, gdv_int32 actual_text_len,
+                                      gdv_int32 return_length, const char* fill_text,
+                                      gdv_int32 fill_text_len) {
+  gdv_int32 fill_actual_text_len = utf8_length_ignore_invalid(fill_text, fill_text_len);
+  gdv_int32 repeat_times = (return_length - actual_text_len) / fill_actual_text_len;
+  gdv_int32 return_char_length = repeat_times * fill_text_len + text_len;
+  gdv_int32 mod = (return_length - actual_text_len) % fill_actual_text_len;
+  gdv_int32 char_len = 0;
+  gdv_int32 fill_index = 0;
+  for (gdv_int32 i = 0; i < mod; i++) {
+    char_len = utf8_char_length(fill_text[fill_index]);
+    fill_index += char_len;
+    return_char_length += char_len;
+  }
+  return return_char_length;
+}
+
+FORCE_INLINE
 const char* lpad_utf8_int32_utf8(gdv_int64 context, const char* text, gdv_int32 text_len,
                                  gdv_int32 return_length, const char* fill_text,
                                  gdv_int32 fill_text_len, gdv_int32* out_len) {
   // if the text length or the defined return length (number of characters to return)
   // is <=0, then return an empty string.
+  return_length = std::min(max_str_length, return_length);
+  return_length = std::max(min_str_length, return_length);
   if (text_len == 0 || return_length <= 0) {
     *out_len = 0;
     return "";
   }
 
   // count the number of utf8 characters on text, ignoring invalid bytes
-  int text_char_count = utf8_length_ignore_invalid(text, text_len);
+  int actual_text_len = utf8_length_ignore_invalid(text, text_len);
 
-  if (return_length == text_char_count ||
-      (return_length > text_char_count && fill_text_len == 0)) {
+  if (return_length == actual_text_len ||
+      (return_length > actual_text_len && fill_text_len == 0)) {
     // case where the return length is same as the text's length, or if it need to
     // fill into text but "fill_text" is empty, then return text directly.
     *out_len = text_len;
     return text;
-  } else if (return_length < text_char_count) {
+  } else if (return_length < actual_text_len) {
     // case where it truncates the result on return length.
     *out_len = utf8_byte_pos(context, text, text_len, return_length);
     return text;
   } else {
-    // case (return_length > text_char_count)
+    // case (return_length > actual_text_len)
     // case where it needs to copy "fill_text" on the string left. The total number
-    // of chars to copy is given by (return_length -  text_char_count)
-    char* ret =
-        reinterpret_cast<gdv_binary>(gdv_fn_context_arena_malloc(context, return_length));
+    // of chars to copy is given by (return_length -  actual_text_len)
+    gdv_int32 return_char_length = evaluate_return_char_length(
+        text_len, actual_text_len, return_length, fill_text, fill_text_len);
+    char* ret = reinterpret_cast<gdv_binary>(
+        gdv_fn_context_arena_malloc(context, return_char_length));
     if (ret == nullptr) {
       gdv_fn_context_set_error_msg(context,
                                    "Could not allocate memory for output string");
@@ -1839,12 +1901,12 @@ const char* lpad_utf8_int32_utf8(gdv_int64 context, const char* text, gdv_int32 
     // try to fulfill the return string with the "fill_text" continuously
     int32_t copied_chars_count = 0;
     int32_t copied_chars_position = 0;
-    while (copied_chars_count < return_length - text_char_count) {
+    while (copied_chars_count < return_length - actual_text_len) {
       int32_t char_len;
       int32_t fill_index;
       // for each char, evaluate its length to consider it when mem copying
       for (fill_index = 0; fill_index < fill_text_len; fill_index += char_len) {
-        if (copied_chars_count >= return_length - text_char_count) {
+        if (copied_chars_count >= return_length - actual_text_len) {
           break;
         }
         char_len = utf8_char_length(fill_text[fill_index]);
@@ -1868,29 +1930,33 @@ const char* rpad_utf8_int32_utf8(gdv_int64 context, const char* text, gdv_int32 
                                  gdv_int32 fill_text_len, gdv_int32* out_len) {
   // if the text length or the defined return length (number of characters to return)
   // is <=0, then return an empty string.
+  return_length = std::min(max_str_length, return_length);
+  return_length = std::max(min_str_length, return_length);
   if (text_len == 0 || return_length <= 0) {
     *out_len = 0;
     return "";
   }
 
   // count the number of utf8 characters on text, ignoring invalid bytes
-  int text_char_count = utf8_length_ignore_invalid(text, text_len);
+  int actual_text_len = utf8_length_ignore_invalid(text, text_len);
 
-  if (return_length == text_char_count ||
-      (return_length > text_char_count && fill_text_len == 0)) {
+  if (return_length == actual_text_len ||
+      (return_length > actual_text_len && fill_text_len == 0)) {
     // case where the return length is same as the text's length, or if it need to
     // fill into text but "fill_text" is empty, then return text directly.
     *out_len = text_len;
     return text;
-  } else if (return_length < text_char_count) {
+  } else if (return_length < actual_text_len) {
     // case where it truncates the result on return length.
     *out_len = utf8_byte_pos(context, text, text_len, return_length);
     return text;
   } else {
-    // case (return_length > text_char_count)
+    // case (return_length > actual_text_len)
     // case where it needs to copy "fill_text" on the string right
-    char* ret =
-        reinterpret_cast<gdv_binary>(gdv_fn_context_arena_malloc(context, return_length));
+    gdv_int32 return_char_length = evaluate_return_char_length(
+        text_len, actual_text_len, return_length, fill_text, fill_text_len);
+    char* ret = reinterpret_cast<gdv_binary>(
+        gdv_fn_context_arena_malloc(context, return_char_length));
     if (ret == nullptr) {
       gdv_fn_context_set_error_msg(context,
                                    "Could not allocate memory for output string");
@@ -1902,12 +1968,12 @@ const char* rpad_utf8_int32_utf8(gdv_int64 context, const char* text, gdv_int32 
     // try to fulfill the return string with the "fill_text" continuously
     int32_t copied_chars_count = 0;
     int32_t copied_chars_position = 0;
-    while (text_char_count + copied_chars_count < return_length) {
+    while (actual_text_len + copied_chars_count < return_length) {
       int32_t char_len;
       int32_t fill_length;
       // for each char, evaluate its length to consider it when mem copying
       for (fill_length = 0; fill_length < fill_text_len; fill_length += char_len) {
-        if (text_char_count + copied_chars_count >= return_length) {
+        if (actual_text_len + copied_chars_count >= return_length) {
           break;
         }
         char_len = utf8_char_length(fill_text[fill_length]);
@@ -2615,6 +2681,87 @@ const char* from_hex_utf8(int64_t context, const char* text, int32_t text_len,
     }
   }
   *out_len = j;
+  return ret;
+}
+
+// Array that maps each letter from the alphabet to its corresponding number for the
+// soundex algorithm. ABCDEFGHIJKLMNOPQRSTUVWXYZ -> 01230120022455012623010202
+static char mappings[] = {'0', '1', '2', '3', '0', '1', '2', '0', '0',
+                          '2', '2', '4', '5', '5', '0', '1', '2', '6',
+                          '2', '3', '0', '1', '0', '2', '0', '2'};
+
+// Returns the soundex code for a given string
+//
+// The soundex function evaluates expression and returns the most significant letter in
+// the input string followed by a phonetic code. Characters that are not alphabetic are
+// ignored. If expression evaluates to the null value, null is returned.
+//
+// The soundex algorith works with the following steps:
+//    1. Retain the first letter of the string and drop all other occurrences of a, e, i,
+//    o, u, y, h, w.
+//    2. Replace consonants with digits as follows (after the first letter):
+//        b, f, p, v → 1
+//        c, g, j, k, q, s, x, z → 2
+//        d, t → 3
+//        l → 4
+//        m, n → 5
+//        r → 6
+//    3. If two or more letters with the same number are adjacent in the original name
+//    (before step 1), only retain the first letter; also two letters with the same number
+//    separated by 'h' or 'w' are coded as a single number, whereas such letters separated
+//    by a vowel are coded twice. This rule also applies to the first letter.
+//    4. If the string have too few letters in the word that you can't assign three
+//    numbers, append with zeros until there are three numbers. If you have four or more
+//    numbers, retain only the first three.
+FORCE_INLINE
+const char* soundex_utf8(gdv_int64 ctx, const char* in, gdv_int32 in_len,
+                         int32_t* out_len) {
+  if (in_len <= 0) {
+    *out_len = 0;
+    return "";
+  }
+
+  // The soundex code is composed by one letter and three numbers
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(ctx, 4));
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(ctx, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+
+  int si = 1;
+  unsigned char c;
+
+  int start_idx = 0;
+  for (int i = 0; i < in_len; ++i) {
+    if (isalpha(in[i]) > 0) {
+      ret[0] = toupper(in[i]);
+      start_idx = i + 1;
+      break;
+    }
+  }
+
+  for (int i = start_idx, l = in_len; i < l; i++) {
+    if (isalpha(in[i]) > 0) {
+      c = toupper(in[i]) - 65;
+      if (mappings[c] != '0') {
+        if (mappings[c] != ret[si - 1]) {
+          ret[si] = mappings[c];
+          si++;
+        }
+
+        if (si > 3) break;
+      }
+    }
+  }
+
+  if (si <= 3) {
+    while (si <= 3) {
+      ret[si] = '0';
+      si++;
+    }
+  }
+  *out_len = 4;
   return ret;
 }
 }  // extern "C"

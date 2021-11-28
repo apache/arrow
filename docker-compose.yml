@@ -1123,6 +1123,7 @@ services:
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
         gcc_version: ${GCC_VERSION}
         tz: ${TZ}
+        r_prune_deps: ${R_PRUNE_DEPS}
     shm_size: *shm-size
     environment:
       <<: *ccache
@@ -1163,6 +1164,7 @@ services:
         r_dev: ${ARROW_R_DEV}
         devtoolset_version: ${DEVTOOLSET_VERSION}
         tz: ${TZ}
+        r_prune_deps: ${R_PRUNE_DEPS}
     shm_size: *shm-size
     environment:
       LIBARROW_DOWNLOAD: "false"
@@ -1194,6 +1196,7 @@ services:
         base: wch1/r-debug:latest
         r_bin: RDsan
         tz: ${TZ}
+        r_prune_deps: ${R_PRUNE_DEPS}
     environment:
       <<: *ccache
     volumes: *ubuntu-volumes
@@ -1214,6 +1217,7 @@ services:
         devtoolset_version: ${DEVTOOLSET_VERSION}
         r_bin: RDsan
         tz: ${TZ}
+        r_prune_deps: ${R_PRUNE_DEPS}
     shm_size: *shm-size
     environment:
       LIBARROW_DOWNLOAD: "false"
