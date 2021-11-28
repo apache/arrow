@@ -190,7 +190,7 @@ cdef class ORCWriterOptions(_Weakrefable):
             deref(self.options).bloom_filter_version())
 
 
-cdef unique_ptr[WriterOptions] _create_writer_options(
+cdef shared_ptr[WriterOptions] _create_writer_options(
     file_version=None,
     stripe_size=None,
     compression=None,
@@ -204,7 +204,9 @@ cdef unique_ptr[WriterOptions] _create_writer_options(
 ) except *:
     """General writer options"""
     cdef:
-        unique_ptr[WriterOptions] options
+        shared_ptr[WriterOptions] options
+
+    options = make_shared[WriterOptions]()
 
     # file_version
 
