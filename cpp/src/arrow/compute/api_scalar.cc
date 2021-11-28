@@ -447,13 +447,6 @@ StructFieldOptions::StructFieldOptions(std::vector<int> indices)
 StructFieldOptions::StructFieldOptions() : StructFieldOptions(std::vector<int>()) {}
 constexpr char StructFieldOptions::kTypeName[];
 
-StrptimeOptions::StrptimeOptions(std::string format, TimeUnit::type unit)
-    : FunctionOptions(internal::kStrptimeOptionsType),
-      format(std::move(format)),
-      unit(unit) {}
-StrptimeOptions::StrptimeOptions() : StrptimeOptions("", TimeUnit::SECOND) {}
-constexpr char StrptimeOptions::kTypeName[];
-
 TrimOptions::TrimOptions(std::string characters)
     : FunctionOptions(internal::kTrimOptionsType), characters(std::move(characters)) {}
 TrimOptions::TrimOptions() : TrimOptions("") {}
