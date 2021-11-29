@@ -22,6 +22,7 @@
 
 #include "arrow/io/interfaces.h"
 #include "arrow/util/visibility.h"
+#include "orc/OrcFile.hh"
 
 namespace liborc = orc;
 
