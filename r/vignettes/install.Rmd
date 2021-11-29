@@ -107,6 +107,7 @@ environment variable set.
 
 The instructions above are useful for a fresh arrow installation, but arrow 
 provides the function `install_arrow()`, which you can use if you:
+
 * already have `arrow` installed and want to upgrade to a different version
 * want to install a development build
 * want to try to reinstall and fix issues with Linux C++ binaries
