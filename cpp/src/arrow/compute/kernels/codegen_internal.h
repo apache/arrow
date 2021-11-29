@@ -1224,8 +1224,8 @@ struct ScalarTernaryNotNullStateful {
         [&](Arg0Value u, Arg1Value v, Arg2Value w) {
           writer.Write(op.template Call<OutValue, Arg0Value, Arg1Value, Arg2Value>(
               ctx, u, v, w, &st));
-          },
-          [&]()  { writer.WriteNull(); });
+        },
+        [&]()  { writer.WriteNull(); });
     return st;
   }
 
@@ -1415,7 +1415,7 @@ using ScalarTernaryEqualTypes = ScalarTernary<OutType, ArgType, ArgType, ArgType
 // A kernel exec generator for non-null ternary kernels where both input types are the
 // same
 template <typename OutType, typename ArgType, typename Op>
-using ScalarTernaryNotNullEqualTypes = 
+using ScalarTernaryNotNullEqualTypes =
     ScalarTernaryNotNull<OutType, ArgType, ArgType, ArgType, Op>;
 
 template <typename OutType, typename ArgType, typename Op>
