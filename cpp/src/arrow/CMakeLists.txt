@@ -380,7 +380,7 @@ if(ARROW_COMPUTE)
        compute/exec/hash_join.cc
        compute/exec/hash_join_dict.cc
        compute/exec/hash_join_node.cc
-       compute/exec/ir_consumer.cc 
+       compute/exec/ir_consumer.cc
        compute/exec/key_compare.cc
        compute/exec/key_encode.cc
        compute/exec/key_hash.cc
