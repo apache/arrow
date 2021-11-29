@@ -711,7 +711,7 @@ Result<Datum> MinElementWise(
     ExecContext* ctx = NULLPTR);
 
 /// \brief Between compares each element in `values`
-/// with `left` as a lower bound and 'right' as an upperbound
+/// with `left` as a lower bound and 'right' as an upper bound
 ///
 /// \param[in] values input to compare between left and right
 /// \param[in] left used as the lower bound for comparison
