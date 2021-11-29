@@ -87,7 +87,7 @@ if [ -d mingw64/lib/ ]; then
   # These may be from https://dl.bintray.com/rtools/backports/
   cp $MSYS_LIB_DIR/mingw64/lib/lib{thrift,snappy}.a $DST_DIR/${RWINLIB_LIB_DIR}/x64
   # These are from https://dl.bintray.com/rtools/mingw{32,64}/
-  cp $MSYS_LIB_DIR/mingw64/lib/lib{zstd,lz4,brotlicommon,brotlidec,brotlienc,crypto,utf8proc,re2,aws*}.a $DST_DIR/lib/x64
+  cp $MSYS_LIB_DIR/mingw64/lib/lib{zstd,lz4,brotli*,crypto,utf8proc,re2,aws*}.a $DST_DIR/lib/x64
 fi
 
 # Same for the 32-bit versions
