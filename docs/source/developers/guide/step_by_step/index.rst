@@ -27,6 +27,5 @@ Steps in making your first PR
    set_up
    building
    finding_issues
-   solving_the_problem
    testing
    pr_and_github

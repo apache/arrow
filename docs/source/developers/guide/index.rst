@@ -76,7 +76,7 @@ of adding a basic feature.
    the installation of third-party packages, depending on which build
    options and components you enable. The C++ build guide
    has suggestions for for commonly encountered issues - you can find it
-   `here <https://arrow.apache.org/docs/developers/cpp/index.html#cpp-development>`_. 
+   :ref:`here <cpp-development>`. 
    Anytime you are stuck, feel free to reach out via
    appropriate :ref:`communication` channel.
 
