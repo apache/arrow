@@ -25,5 +25,5 @@
 .. _other:
 
 *****************************
-Additional info and resources
+Additional information and resources
 *****************************

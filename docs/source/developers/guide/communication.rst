@@ -124,7 +124,7 @@ There is also a **biweekly developers sync call** that anyone is welcome to join
 It is announced on the development mailing list together with the link to join.
 
 .. seealso::
-  Link to subscribe to the mailing lists and find more info `can be found here <https://arrow.apache.org/community/>`_.
+  More information and links for subscribing to the mailing lists `can be found here <https://arrow.apache.org/community/>`_.
 
 Recommended learning resources
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -25,7 +25,7 @@
 .. _pr_and_github:
 
 ****************************
-Life cycle of a Pull Request
+Lifecycle of a Pull Request
 ****************************
 
 

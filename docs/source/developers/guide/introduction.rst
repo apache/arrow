@@ -33,23 +33,23 @@ New Contributor's Guide
 This guide is meant to be a resource for contributing to
 `Arrow <https://arrow.apache.org>`_ for new contributors.
 
-No matter what your current skills are you can try and make
+No matter what your current skills are, you can try and make
 your first time contribution to Arrow.
 
 Starting to contribute to a project like Apache Arrow can be
-intimidating. Taking small steps will help making this tack
+intimidating. Taking small steps will make this task
 easier.
 
 
 Why contribute to Arrow?
 ========================
-There can be various reasons why someone would want to contribute
+There can be various reasons why you might want to contribute
 to Arrow:
 
 * You find the project interesting and would like to try making
   a contribution to learn more about the library and grow your skills.
 
-* You use Arrow in the project you are working on and you would like
+* You use Arrow in a project you are working on and you would like
   to implement a new feature.
 
 Read more about the project in the :ref:`architectural_overview` section.
@@ -58,14 +58,14 @@ Quick Reference
 ===============
 
 Here are the basic steps needed to get set up and contribute to Arrow.
-This is meant as a checklist and also to have an overall picture.
+This is meant both as a checklist and also to provide an overall picture of the process.
 
 For complete instructions please follow :ref:`step_by_step` (a
 step-by-step guide) or R and Python :ref:`tutorial-index` for an example
 of adding a basic feature.
 
 
-#. **Install and set up Git, fork the Arrow repository**
+#. **Install and set up Git, and fork the Arrow repository**
 
    See detailed instructions on how to :ref:`set-up` Git and fork the
    Arrow repository.
@@ -105,23 +105,21 @@ of adding a basic feature.
 
    **Finding an issue**
 
-   You can have a new bug or a new feature you want to implement. But if you
-   don't and you need an issue to work on you may need help finding it. Read
+   You might already have a bug to fix in mind, or a new feature that you want to implement. But if you
+   don't and you need an issue to work on, then you may need help finding it. Read
    through the :ref:`finding-issues`  section to get some ideas.
 
    **Finding your way through the project**
 
-   The first step when starting a new project is the hardest. We wrote some
-   help guides that we used when we were looking for solutions and we hope
-   they will help.
+   The first step when starting a new project is the hardest and so we've wrote some guides to help you with this.
 
    .. TODO: Read through :ref:`solving`  section.
 
    **Communication**
 
    Communication is very important. You may need some help solving problems
-   you encounter on the way (happening to developers all the time). Also,
-   if you have a JIRA issue you want to solve it is advisable to let the team
+   you encounter on the way (this happens to developers all the time). Also,
+   if you have a JIRA issue you want to solve, then it is advisable to let the team
    know you are working on it and may need some help.
 
    See possible channels of :ref:`communication`.
