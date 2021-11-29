@@ -44,7 +44,7 @@ ${R_BIN} -e "options(warn=2); install.packages('remotes'); remotes::install_cran
 
 # (Temporarily) install DuckDB from source to avoid their Unity builds (though only if we haven't filtered it out of the deps above)
 if grep -q "duckdb" DESCRIPTION; then
-  ${R_BIN} -e "remotes::install_github('duckdb/duckdb', subdir = '/tools/rpkg')"
+  ${R_BIN} -e "remotes::install_github('duckdb/duckdb', subdir = '/tools/rpkg', build = FALSE)"
 fi
 
 # Separately install the optional/test dependencies but don't error on them,
