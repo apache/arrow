@@ -346,9 +346,9 @@ the bundled build script.  All boolean variables are case-insensitive.
 | Name | Description | Default |
 | --- | --- | :-: |
 | `ARROW_USE_PKG_CONFIG` | Use `pkg-config` to search for `libarrow` install | `true` |
-| `LIBARROW_BINARY` | Try to install `libarrow` binary instead of building from source | `true` |
 | `LIBARROW_BUILD` | Allow building from source | `true` |
-| `LIBARROW_MINIMAL` | Build with minimal features enabled | `true` |
+| `LIBARROW_BINARY` | Try to install `libarrow` binary instead of building from source | `true` |
+| `LIBARROW_MINIMAL` | Build with minimal features enabled | (unset) |
 | `NOT_CRAN` | Set `LIBARROW_BINARY=true` and `LIBARROW_MINIMAL=false` | `false` |
 | `ARROW_R_DEV` | More verbose messaging and regenerates some code | `false` |
 | `LIBARROW_DEBUG_DIR` | Directory to save source build logs | (unset) |
@@ -371,7 +371,9 @@ Arrow libraries on your system and instead will look to download/build them.
 * `LIBARROW_MINIMAL` : If set to `false`, the build script
   will enable some optional features, including S3
   support and additional alternative memory allocators. This will increase the
-  source build time but results in a more fully functional library. 
+  source build time but results in a more fully functional library. If set to 
+  `true` turns off Parquet, Datasets, compression libraries, and other optional 
+  features.
 * `NOT_CRAN` : If this variable is set to `true`, as the `devtools` package does,
   the build script will set `LIBARROW_BINARY=true` and `LIBARROW_MINIMAL=false`
   unless those environment variables are already set. This provides for a more
