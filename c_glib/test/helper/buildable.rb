@@ -167,19 +167,6 @@ module Helper
       builder.finish
     end
 
-    def build_map_array(key_data_type, item_data_type, maps)
-      data_type = Arrow::MapDataType.new(key_data_type, item_data_type)
-      builder = Arrow::MapArrayBuilder.new(data_type)
-      maps.each do |map|
-        if map.nil?
-          builder.append_null
-        else
-          append_to_builder(builder, map)
-        end
-      end
-      builder.finish
-    end
-
     def build_struct_array(fields, structs)
       data_type = Arrow::StructDataType.new(fields)
       builder = Arrow::StructArrayBuilder.new(data_type)
