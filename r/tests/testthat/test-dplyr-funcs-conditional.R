@@ -122,8 +122,10 @@ test_that("if_else and ifelse", {
         y = if_else(int > 5, fct, factor("a"))
       ) %>%
       collect() %>%
-      # This is a no-op on the Arrow side, but necessary to make the results equal
-      mutate(y = as.character(y)),
+      # Arrow coalesce() kernel does not preserve unused factor levels,
+      # so reset the levels of all the factor columns to make the test pass
+      # (ARROW-14649)
+      transmute(across(where(is.factor), ~ factor(.x, levels = c("a", "b", "c")))),
     tbl
   )
 
