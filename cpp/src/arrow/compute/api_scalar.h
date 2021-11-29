@@ -1273,4 +1273,3 @@ Result<Datum> Between(const Datum& values, const Datum& left, const Datum& right
 
 }  // namespace compute
 }  // namespace arrow
-

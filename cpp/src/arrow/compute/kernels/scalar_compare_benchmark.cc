@@ -86,8 +86,7 @@ static void BetweenScalarArrayScalar(benchmark::State& state) {
   auto scalar_left = *rand.ArrayOf(ty, 1, 0)->GetScalar(0);
   auto scalar_right = *rand.ArrayOf(ty, 1,.0)->GetScalar(0);
   for (auto _ : state) {
-    ABORT_NOT_OK(
-        CallFunction("between", {array, scalar_left, scalar_right}).status());
+    ABORT_NOT_OK(CallFunction("between", {array, scalar_left, scalar_right}).status());
   }
 }
 
