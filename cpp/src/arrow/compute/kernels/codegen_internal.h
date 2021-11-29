@@ -445,10 +445,10 @@ static void VisitTwoArrayValuesInline(const ArrayData& arr0, const ArrayData& ar
                         arr0.length, std::move(visit_valid), std::move(visit_null));
 }
 
-template <typename Arg0Type, typename Arg1Type, typename Arg2Type,
-	 typename VisitFunc, typename NullFunc>
+template <typename Arg0Type, typename Arg1Type, typename Arg2Type, typename VisitFunc,
+          typename NullFunc>
 static void VisitThreeArrayValuesInline(const ArrayData& arr0, const ArrayData& arr1,
-                                        const ArrayData& arr2, VisitFunc&& valid_func, 
+                                        const ArrayData& arr2, VisitFunc&& valid_func,
                                         NullFunc&& null_func) {
   ArrayIterator<Arg0Type> arr0_it(arr0);
   ArrayIterator<Arg1Type> arr1_it(arr1);
@@ -465,7 +465,7 @@ static void VisitThreeArrayValuesInline(const ArrayData& arr0, const ArrayData& 
     null_func();
   };
   VisitThreeBitBlocksVoid(arr0.buffers[0], arr0.offset, arr1.buffers[0], arr1.offset,
-	                  arr2.buffers[0], arr2.offset, arr0.length, 
+                          arr2.buffers[0], arr2.offset, arr0.length,
                           std::move(visit_valid), std::move(visit_null));
 }
 // ----------------------------------------------------------------------
@@ -1070,7 +1070,7 @@ struct ScalarTernary {
     auto arg2_val = UnboxScalar<Arg2Type>::Unbox(arg2);
     RETURN_NOT_OK(OutputAdapter<OutType>::Write(ctx, out, [&]() -> OutValue {
       return Op::template Call<OutValue, Arg0Value, Arg1Value, Arg2Value>(
-         ctx, arg0_it(), arg1_it(), arg2_val, &st);
+          ctx, arg0_it(), arg1_it(), arg2_val, &st);
     }));
     return st;
   }
@@ -1089,7 +1089,7 @@ struct ScalarTernary {
   }
 
   static Status ScalarArrayArray(KernelContext* ctx, const Scalar& arg0,
-                                 const ArrayData& arg1, const ArrayData& arg2, 
+                                 const ArrayData& arg1, const ArrayData& arg2,
                                  Datum* out) {
     Status st = Status::OK();
     auto arg0_val = UnboxScalar<Arg0Type>::Unbox(arg0);
@@ -1144,7 +1144,7 @@ struct ScalarTernary {
   static Status ScalarScalarScalar(KernelContext* ctx, const Scalar& arg0,
                                    const Scalar& arg1, const Scalar& arg2, Datum* out) {
     Status st = Status::OK();
-    if (out->scalar()->is_valid){
+    if (out->scalar()->is_valid) {
       auto arg0_val = UnboxScalar<Arg0Type>::Unbox(arg0);
       auto arg1_val = UnboxScalar<Arg1Type>::Unbox(arg1);
       auto arg2_val = UnboxScalar<Arg2Type>::Unbox(arg2);
@@ -1215,22 +1215,22 @@ struct ScalarTernaryNotNullStateful {
   // NOTE: In ArrayExec<Type>, Type is really OutputType
 
   Status ArrayArrayArray(KernelContext* ctx, const ArrayData& arg0, const ArrayData& arg1,
-		         const ArrayData& arg2, Datum* out) {
+                         const ArrayData& arg2, Datum* out) {
     // recently added, needs checking
     Status st = Status::OK();
     OutputArrayWriter<OutType> writer(out->mutable_array());
     VisitThreeArrayValuesInline<Arg0Type, Arg1Type, Arg2Type>(
-       arg0, arg1, arg2,
-       [&](Arg0Value u, Arg1Value v, Arg2Value w) {
+        arg0, arg1, arg2,
+        [&](Arg0Value u, Arg1Value v, Arg2Value w) {
           writer.Write(op.template Call<OutValue, Arg0Value, Arg1Value, Arg2Value>(
-	      ctx, u, v, w, &st));
-	  },
-	  [&]()  { writer.WriteNull(); });
+              ctx, u, v, w, &st));
+          },
+          [&]()  { writer.WriteNull(); });
     return st;
   }
 
   Status ArrayArrayScalar(KernelContext* ctx, const ArrayData& arg0,
-		          const ArrayData& arg1, const Scalar& arg2, Datum* out) {
+                          const ArrayData& arg1, const Scalar& arg2, Datum* out) {
     Status st = Status::OK();
     OutputArrayWriter<OutType> writer(out->mutable_array());
     if (arg2.is_valid) {
@@ -1415,7 +1415,8 @@ using ScalarTernaryEqualTypes = ScalarTernary<OutType, ArgType, ArgType, ArgType
 // A kernel exec generator for non-null ternary kernels where both input types are the
 // same
 template <typename OutType, typename ArgType, typename Op>
-using ScalarTernaryNotNullEqualTypes = ScalarTernaryNotNull<OutType, ArgType, ArgType, ArgType, Op>;
+using ScalarTernaryNotNullEqualTypes = 
+    ScalarTernaryNotNull<OutType, ArgType, ArgType, ArgType, Op>;
 
 template <typename OutType, typename ArgType, typename Op>
 using ScalarTernaryNotNullStatefulEqualTypes =
