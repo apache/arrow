@@ -237,6 +237,7 @@ def _wrap_function(name, func):
                                             option_class)
     return _decorate_compute_function(wrapper, name, func, option_class)
 
+
 def _simple_ternary_function(name):
     func = get_function(name)
     option_class = _option_classes.get(name)
@@ -250,6 +251,7 @@ def _simple_ternary_function(name):
             return func.call([value, left, right], None, memory_pool)
 
     return _decorate_compute_function(wrapper, name, func, option_class)
+
 
 def _make_global_functions():
     """
