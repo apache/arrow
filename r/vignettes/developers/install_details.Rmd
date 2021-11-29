@@ -1,0 +1,88 @@
+# How the R package is installed
+
+In order for the `arrow` R package to work, it needs the Arrow C++ library, 
+also known as libarrow.  There are a number of scripts that are triggered 
+when `R CMD INSTALL .` is run and for Arrow users, these should all just work 
+without configuration and pull in the most complete pieces (e.g. official 
+binaries that we host).
+
+An overview of these scripts is shown below:
+
+* `configure` and `configure.win` - these scripts are triggered during
+`R CMD INSTALL .` on non-Windows and Windows platforms, respectively. They
+handle finding the libarrow, setting up the build variables necessary, and
+writing the package Makevars file that is used to compile the C++ code in the R
+package.
+
+* `tools/nixlibs.R` - this script is sometimes called by `configure` on Linux
+(or on any non-windows OS with the environment variable
+`FORCE_BUNDLED_BUILD=true`). This sets up the build process for our bundled
+builds (which is the default on linux) and checks for binaries or downloads 
+libarrow from source depending on dependency availability and build configuration.
+
+* `inst/build_arrow_static.sh` - called by `tools/nixlibs.R` when libarrow is 
+being built.  It builds libarrow for a bundled, static build, and
+mirrors the steps described in the ["Arrow R Developer Guide" vignette](./setup.html)
+This build script is also what is used to generate the prebuilt binaries.
+
+The actions taken by these scripts to resolve dependencies and install the 
+correct components are described below.
+
+## How dependencies are resolved
+
+There are a number of different ways you may have installed the Arrow C++ library:
+
+* a system package
+* a library you've built yourself outside of the context of installing the R package
+* if you don't already have it, the R package will attempt to resolve it automatically when it installs.
+
+If you are authorized to install system packages and you're installing a CRAN release,
+you may want to use the official Apache Arrow release packages corresponding to 
+the R package version (though there are some drawbacks: see the 
+["Troubleshooting" section in the main installation docs]("../install.html)).
+See the [Arrow project installation page](https://arrow.apache.org/install/)
+to find pre-compiled binary packages for some common Linux distributions,
+including Debian, Ubuntu, and CentOS.
+
+### libarrow dependencies
+
+You'll need to install `libparquet-dev` on Debian and Ubuntu, or `parquet-devel` on CentOS.
+This will also automatically install libarrow as a dependency.
+
+### How the R package finds libarrow
+
+The diagram below shows how the R package finds a libarrow installation.
+
+![](../img/install_diagram.png)
+
+#### Using pkg-config
+
+When you install the arrow R package on Linux, if no environment variables 
+relating to the location of an existing libarrow installation have already by 
+set, the installation code will attempt to find the Arrow C++ libraries on
+your system using the `pkg-config` command.
+
+This will find either installed system packages or libraries you've built yourself.
+In order for `install.packages("arrow")` to work with these system packages,
+you'll need to install them before installing the R package.
+
+#### Prebuilt binaries
+
+If no Arrow C++ libraries are found on the system, the R package installation 
+script will next attempt to download prebuilt static Arrow C++ libraries
+that match your both your local operating system and `arrow` R package version.
+C++ binaries will only be retrieved if you have set the environment variable
+`LIBARROW_BINARY` or `NOT_CRAN`.
+
+If found, they will be downloaded and bundled when your R package compiles.
+For a list of supported distributions and versions,
+see the [arrow-r-nightly](https://github.com/ursa-labs/arrow-r-nightly/blob/master/README.md) project.
+
+#### Building from source
+
+If no C++ library binary is found, it will attempt to build it locally.
+First, it will also look to see if you are in
+a checkout of the `apache/arrow` git repository and thus have the C++ source there.
+Otherwise, it builds from the C++ files included in the package.
+Depending on your system, building Arrow C++ from source may be slow.  If the
+C++ library is built from source, `inst/build_arrow_static.sh` is executed.
