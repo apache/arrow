@@ -41,6 +41,12 @@ fi
 # but we want to error/fail the build.
 # options(warn=2) turns warnings into errors
 ${R_BIN} -e "options(warn=2); install.packages('remotes'); remotes::install_cran(c('glue', 'rcmdcheck', 'sys')); remotes::install_deps(INSTALL_opts = '"${INSTALL_ARGS}"')"
+
+# (Temporarily) install DuckDB from source to avoid their Unity builds (though only if we haven't filtered it out of the deps above)
+if grep -q "duckdb" DESCRIPTION; then
+  ${R_BIN} -e "remotes::install_github('duckdb/duckdb', subdir = '/tools/rpkg')"
+fi
+
 # Separately install the optional/test dependencies but don't error on them,
 # they're not available everywhere and that's ok
 ${R_BIN} -e "remotes::install_deps(dependencies = TRUE, INSTALL_opts = '"${INSTALL_ARGS}"')"
