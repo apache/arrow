@@ -128,8 +128,7 @@ if(ARROW_BUILD_TESTS)
                  decimal_ops_test.cc
                  decimal_ops.cc
                  ../decimal_type_util.cc
-                 ../decimal_xlarge.cc
-                 ../crc32.cc)
+                 ../decimal_xlarge.cc)
   target_include_directories(gandiva-precompiled-test PRIVATE ${CMAKE_SOURCE_DIR}/src)
   target_link_libraries(gandiva-precompiled-test PRIVATE ${ARROW_TEST_LINK_LIBS})
   target_compile_definitions(gandiva-precompiled-test PRIVATE GANDIVA_UNIT_TEST=1

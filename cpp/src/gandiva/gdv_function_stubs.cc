@@ -21,14 +21,13 @@
 
 #include <string>
 #include <vector>
-
+#include <boost/crc.hpp>
 #include "arrow/util/base64.h"
 #include "arrow/util/double_conversion.h"
 #include "arrow/util/formatting.h"
 #include "arrow/util/string_view.h"
 #include "arrow/util/utf8.h"
 #include "arrow/util/value_parsing.h"
-#include "gandiva/crc32.h"
 #include "gandiva/encrypt_utils.h"
 #include "gandiva/engine.h"
 #include "gandiva/exported_funcs.h"
@@ -212,7 +211,9 @@ int32_t gdv_fn_populate_varlen_vector(int64_t context_ptr, int8_t* data_ptr,
       gdv_fn_context_set_error_msg(ctx, "Input length can't be negative");          \
       return 0;                                                                     \
     }                                                                               \
-    return crc32(input, input_len);                                                 \
+    boost::crc_32_type result;                                                      \
+    result.process_bytes(input, input_len);                                         \
+    return result.checksum();                                                       \
   }
 CRC_FUNCTION(utf8)
 CRC_FUNCTION(binary)

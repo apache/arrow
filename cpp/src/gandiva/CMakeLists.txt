@@ -58,7 +58,6 @@ set(SRC_FILES
     cast_time.cc
     configuration.cc
     context_helper.cc
-    crc32.cc
     decimal_ir.cc
     decimal_type_util.cc
     decimal_xlarge.cc
