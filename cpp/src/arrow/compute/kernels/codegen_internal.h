@@ -1225,7 +1225,7 @@ struct ScalarTernaryNotNullStateful {
           writer.Write(op.template Call<OutValue, Arg0Value, Arg1Value, Arg2Value>(
               ctx, u, v, w, &st));
         },
-        [&]()  { writer.WriteNull(); });
+        [&]() { writer.WriteNull(); });
     return st;
   }
 
