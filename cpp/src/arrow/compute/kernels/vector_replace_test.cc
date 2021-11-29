@@ -235,6 +235,38 @@ TYPED_TEST(TestReplaceNumeric, ReplaceWithMask) {
                this->array("[0, null, 10]"));
 }
 
+TYPED_TEST(TestReplaceNumeric, ReplaceWithMaskForNullValuesAndMaskEnabled) {
+  this->Assert(ReplaceWithMask, this->array("[1, null, 1]"),
+               this->mask("[false, true, false]"), this->array("[7]"),
+               this->array("[1, 7, 1]"));
+  this->Assert(ReplaceWithMask, this->array("[1, null, 1, 7]"),
+               this->mask("[false, true, false, true]"), this->array("[7, 20]"),
+               this->array("[1, 7, 1, 20]"));
+  this->Assert(ReplaceWithMask, this->array("[1, 2, 3, 4]"),
+               this->mask("[false, true, false, true]"), this->array("[null, null]"),
+               this->array("[1, null, 3, null]"));
+  this->Assert(ReplaceWithMask, this->array("[null, 2, 3, 4]"),
+               this->mask("[true, true, false, true]"), this->array("[1, null, null]"),
+               this->array("[1, null, 3, null]"));
+  this->Assert(ReplaceWithMask, this->array("[1, null, 1]"),
+               this->mask("[false, true, false]"), this->scalar("null"),
+               this->array("[1, null, 1]"));
+  this->Assert(ReplaceWithMask, this->array("[1, null, 1]"),
+               this->mask("[true, true, true]"), this->array("[7, 7, 7]"),
+               this->array("[7, 7, 7]"));
+  this->Assert(ReplaceWithMask, this->array("[1, null, 1]"),
+               this->mask("[true, true, true]"), this->array("[null, null, null]"),
+               this->array("[null, null, null]"));
+  this->Assert(ReplaceWithMask, this->array("[1, null, 1]"),
+               this->mask("[false, true, false]"), this->scalar("null"),
+               this->array("[1, null, 1]"));
+  this->Assert(ReplaceWithMask, this->array("[1, null, 1]"),
+               this->mask("[true, true, true]"), this->scalar("null"),
+               this->array("[null, null, null]"));
+  this->Assert(ReplaceWithMask, this->array("[null, null]"), this->mask("[true, true]"),
+               this->array("[1, 1]"), this->array("[1, 1]"));
+}
+
 TYPED_TEST(TestReplaceNumeric, ReplaceWithMaskRandom) {
   using ArrayType = typename TypeTraits<TypeParam>::ArrayType;
   using CType = typename TypeTraits<TypeParam>::CType;
@@ -340,9 +372,15 @@ TEST_F(TestReplaceBoolean, ReplaceWithMask) {
                this->mask("[false, false, null, null, true, true]"),
                this->array("[false, null]"),
                this->array("[null, null, null, null, false, null]"));
+  this->Assert(ReplaceWithMask, this->array("[true, null, true]"),
+               this->mask("[false, true, false]"), this->array("[true]"),
+               this->array("[true, true, true]"));
 
   this->Assert(ReplaceWithMask, this->array("[]"), this->mask("[]"), this->scalar("true"),
                this->array("[]"));
+  this->Assert(ReplaceWithMask, this->array("[null, false, true]"),
+               this->mask("[true, false, false]"), this->scalar("false"),
+               this->array("[false, false, true]"));
   this->Assert(ReplaceWithMask, this->array("[false, false]"), this->mask("[true, true]"),
                this->scalar("true"), this->array("[true, true]"));
   this->Assert(ReplaceWithMask, this->array("[false, false]"), this->mask("[true, true]"),
@@ -350,6 +388,8 @@ TEST_F(TestReplaceBoolean, ReplaceWithMask) {
   this->Assert(ReplaceWithMask, this->array("[false, false, false]"),
                this->mask("[false, null, true]"), this->scalar("true"),
                this->array("[false, null, true]"));
+  this->Assert(ReplaceWithMask, this->array("[null, null]"), this->mask("[true, true]"),
+               this->array("[true, true]"), this->array("[true, true]"));
 }
 
 TEST_F(TestReplaceBoolean, ReplaceWithMaskErrors) {
@@ -427,6 +467,9 @@ TEST_F(TestReplaceFixedSizeBinary, ReplaceWithMask) {
                this->mask("[false, false, null, null, true, true]"),
                this->array(R"(["aaa", null])"),
                this->array(R"([null, null, null, null, "aaa", null])"));
+  this->Assert(ReplaceWithMask, this->array(R"(["aaa", null, "bbb"])"),
+               this->mask("[false, true, false]"), this->array(R"(["aba"])"),
+               this->array(R"(["aaa", "aba", "bbb"])"));
 
   this->Assert(ReplaceWithMask, this->array("[]"), this->mask("[]"),
                this->scalar(R"("zzz")"), this->array("[]"));
