@@ -47,7 +47,6 @@ Suggests:
     decor,
     distro,
     dplyr,
-    duckdb (>= 0.2.8),
     hms,
     knitr,
     lubridate,
@@ -59,6 +58,8 @@ Suggests:
     testthat (>= 3.1.0),
     tibble,
     withr
+Remotes:
+  duckdb/duckdb/tools/rpkg
 Collate:
     'arrowExports.R'
     'enums.R'
