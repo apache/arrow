@@ -981,7 +981,7 @@ tasks:
       image: ubuntu-cpp
 
 {% for arch, flags in [("amd64", ""), ("i386", "-e ARROW_S3=OFF -e ARROW_GANDIVA=OFF")] %}
-  {% for debian_version in [("10", "11"] %}
+  {% for debian_version in ["10", "11"] %}
   test-debian-{{ debian_version }}-cpp-{{ arch }}:
     ci: github
     template: docker-tests/github.linux.yml
