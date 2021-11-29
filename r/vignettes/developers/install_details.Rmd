@@ -53,7 +53,9 @@ This will also automatically install libarrow as a dependency.
 
 The diagram below shows how the R package finds a libarrow installation.
 
-![](../img/install_diagram.png)
+```{r, echo=FALSE, out.width="70%"}
+knitr::include_graphics("../img/install_diagram.png")
+```
 
 #### Using pkg-config
 
