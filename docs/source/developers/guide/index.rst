@@ -50,7 +50,7 @@ to Arrow:
   a contribution to learn more about the library and grow your skills.
 
 * You use Arrow in a project you are working on and you would like
-  to implement a new feature.
+  to implement a new feature or fix a bug you encountered.
 
 Read more about the project in the :ref:`architectural_overview` section.
 

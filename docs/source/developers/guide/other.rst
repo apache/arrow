@@ -22,7 +22,7 @@
 .. included in the project.
 
 
-.. _other:
+.. _other-resources:
 
 ************************************
 Additional information and resources
