@@ -822,50 +822,6 @@ TEST(TestTime, TestMonthsBetween) {
   }
 }
 
-TEST(TestTime, TestCastVarcharTimestamp) {
-  ExecutionContext context;
-  int64_t context_ptr = reinterpret_cast<int64_t>(&context);
-  gdv_int32 out_len;
-  gdv_timestamp ts = StringToTimestamp("2000-05-01 10:20:34");
-  const char* out = castVARCHAR_timestamp_int64(context_ptr, ts, 30L, &out_len);
-  EXPECT_EQ(std::string(out, out_len), "2000-05-01 10:20:34.000");
-
-  out = castVARCHAR_timestamp_int64(context_ptr, ts, 19L, &out_len);
-  EXPECT_EQ(std::string(out, out_len), "2000-05-01 10:20:34");
-
-  out = castVARCHAR_timestamp_int64(context_ptr, ts, 0L, &out_len);
-  EXPECT_EQ(std::string(out, out_len), "");
-
-  ts = StringToTimestamp("2-5-1 00:00:04");
-  out = castVARCHAR_timestamp_int64(context_ptr, ts, 24L, &out_len);
-  EXPECT_EQ(std::string(out, out_len), "0002-05-01 00:00:04.000");
-}
-
-TEST(TestTime, TestCastVarcharDate) {
-  ExecutionContext context;
-  auto context_ptr = reinterpret_cast<int64_t>(&context);
-  int32_t out_len;
-  int64_t date = StringToTimestamp("2000-05-01 00:00:00");
-  const char* out = castVARCHAR_date_int64(context_ptr, date, 10L, &out_len);
-  EXPECT_EQ(std::string(out, out_len), "2000-05-01");
-
-  out = castVARCHAR_date_int64(context_ptr, date, 4L, &out_len);
-  EXPECT_EQ(std::string(out, out_len), "2000");
-
-  out = castVARCHAR_date_int64(context_ptr, date, 0L, &out_len);
-  EXPECT_EQ(std::string(out, out_len), "");
-
-  out = castVARCHAR_date_int64(context_ptr, date, -1L, &out_len);
-  EXPECT_TRUE(context.has_error());
-  EXPECT_EQ(std::string(out, out_len), "");
-
-  context.Reset();
-
-  date = StringToTimestamp("2-5-1 00:00:00");
-  out = castVARCHAR_date_int64(context_ptr, date, 10L, &out_len);
-  EXPECT_EQ(std::string(out, out_len), "0002-05-01");
-}
-
 TEST(TestTime, TestCastVarcharTime) {
   ExecutionContext context;
   auto context_ptr = reinterpret_cast<int64_t>(&context);
