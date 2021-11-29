@@ -312,9 +312,9 @@ setting `ARROW_WITH_ZSTD=OFF` to build without `zstd`; or (3) uninstalling
 the conflicting `zstd`.
 See discussion [here](https://issues.apache.org/jira/browse/ARROW-8556).
 
-## Summary of build environment variables
+# Summary of build environment variables
 
-### libarrow configuration
+## libarrow configuration
 
 Some features are optional when you build Arrow from source - you can configure
 whether these components are built via the use of environment variables.  The 
@@ -338,7 +338,7 @@ default values are shown below.
 | `ARROW_WITH_ZLIB`    | Compression algorithm | `ON` |
 | `ARROW_WITH_ZSTD`    | Compression algorithm | `ON` |
 
-### R package configuration
+## R package configuration
 
 There are a number of other variables that affect the `configure` script and 
 the bundled build script.  All boolean variables are case-insensitive.
