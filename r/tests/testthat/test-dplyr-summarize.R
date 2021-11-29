@@ -913,7 +913,7 @@ test_that("summarise() passes through type information for temporary columns", {
 })
 
 test_that("summarise() can handle scalars and literal values", {
-  some_scalar_value = 2L
+  some_scalar_value <- 2L
 
   compare_dplyr_binding(
     .input %>% summarise(y = 1L) %>% collect(),
