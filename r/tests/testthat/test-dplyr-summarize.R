@@ -708,17 +708,27 @@ test_that("Expressions on aggregations", {
   # Aggregates on aggregates are not supported
   expect_warning(
     record_batch(tbl) %>% summarise(any(any(lgl))),
-    "Aggregate within aggregate expression any\\(any\\(lgl\\)\\) not supported in Arrow"
+    paste(
+      "Aggregate within aggregate expression",
+      "any\\(any\\(lgl\\)\\) not supported in Arrow"
+    )
   )
 
   # Check aggregates on aggeregates with more complex calls
   expect_warning(
     record_batch(tbl) %>% summarise(any(any(!lgl))),
-    "Aggregate within aggregate expression any\\(any\\(!lgl\\)\\) not supported in Arrow"
+    paste(
+      "Aggregate within aggregate expression",
+      "any\\(any\\(!lgl\\)\\) not supported in Arrow"
+    )
+
   )
   expect_warning(
     record_batch(tbl) %>% summarise(!any(any(lgl))),
-    "Aggregate within aggregate expression any\\(any\\(lgl\\)\\) not supported in Arrow"
+    paste(
+      "Aggregate within aggregate expression",
+      "any\\(any\\(lgl\\)\\) not supported in Arrow"
+    )
   )
 })
 
@@ -742,7 +752,10 @@ test_that("Not (yet) supported: implicit join", {
       ) %>%
       collect(),
     tbl,
-    warning = "Aggregate within aggregate expression sum\\(\\(dbl - mean\\(dbl\\)\\)\\^2\\) not supported in Arrow; pulling data into R"
+    warning = paste(
+      "Aggregate within aggregate expression sum\\(\\(dbl - mean\\(dbl\\)\\)\\^2\\)",
+      "not supported in Arrow; pulling data into R"
+    )
   )
   compare_dplyr_binding(
     .input %>%
@@ -752,7 +765,10 @@ test_that("Not (yet) supported: implicit join", {
       ) %>%
       collect(),
     tbl,
-    warning = "Aggregate within aggregate expression sum\\(dbl - mean\\(dbl\\)\\) not supported in Arrow; pulling data into R"
+    warning = paste(
+      "Aggregate within aggregate expression sum\\(dbl - mean\\(dbl\\)\\)",
+      "not supported in Arrow; pulling data into R"
+    )
   )
   compare_dplyr_binding(
     .input %>%
@@ -762,7 +778,10 @@ test_that("Not (yet) supported: implicit join", {
       ) %>%
       collect(),
     tbl,
-    warning = "Aggregate within aggregate expression sum\\(\\(dbl - mean\\(dbl\\)\\)\\^2\\) not supported in Arrow; pulling data into R"
+    warning = paste(
+      "Aggregate within aggregate expression sum\\(\\(dbl - mean\\(dbl\\)\\)\\^2\\)",
+      "not supported in Arrow; pulling data into R"
+    )
   )
 
   compare_dplyr_binding(
@@ -773,7 +792,10 @@ test_that("Not (yet) supported: implicit join", {
       ) %>%
       collect(),
     tbl,
-    warning = "Expression dbl - mean\\(dbl\\) is not an aggregate expression or is not supported in Arrow; pulling data into R"
+    warning = paste(
+      "Expression dbl - mean\\(dbl\\) is not an aggregate expression",
+      "or is not supported in Arrow; pulling data into R"
+    )
   )
 
   compare_dplyr_binding(
@@ -784,7 +806,10 @@ test_that("Not (yet) supported: implicit join", {
       ) %>%
       collect(),
     tbl,
-    warning = "Expression dbl is not an aggregate expression or is not supported in Arrow; pulling data into R"
+    warning = paste(
+      "Expression dbl is not an aggregate expression",
+      "or is not supported in Arrow; pulling data into R"
+    )
   )
 
   # This one could possibly be supported--in mutate()
@@ -796,7 +821,10 @@ test_that("Not (yet) supported: implicit join", {
       ) %>%
       collect(),
     tbl,
-    warning = "Expression dbl - int is not an aggregate expression or is not supported in Arrow; pulling data into R"
+    warning = paste(
+      "Expression dbl - int is not an aggregate expression",
+      "or is not supported in Arrow; pulling data into R"
+    )
   )
 })
 
