@@ -116,8 +116,6 @@ test_that("if_else and ifelse", {
     tbl
   )
 
-  # TODO: remove the mutate + warning after ARROW-13358 is merged and Arrow
-  # supports factors in if(_)else
   compare_dplyr_binding(
     .input %>%
       mutate(
@@ -126,8 +124,7 @@ test_that("if_else and ifelse", {
       collect() %>%
       # This is a no-op on the Arrow side, but necessary to make the results equal
       mutate(y = as.character(y)),
-    tbl,
-    warning = "Dictionaries .* are currently converted to strings .* in if_else and ifelse"
+    tbl
   )
 
   # detecting NA and NaN works just fine
