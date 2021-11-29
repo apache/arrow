@@ -454,7 +454,7 @@ struct MinMaxImpl : public ScalarAggregator {
     // First handle the leading bits
     const int64_t leading_bits = p.leading_bits;
     while (idx < leading_bits) {
-      if (BitUtil::GetBit(bitmap, offset)) {
+      if (bit_util::GetBit(bitmap, offset)) {
         local.MergeOne(arr.GetView(idx));
       }
       idx++;

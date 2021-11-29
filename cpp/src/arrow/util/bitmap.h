@@ -58,13 +58,13 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
 
   Bitmap(const void* data, int64_t offset, int64_t length)
       : buffer_(std::make_shared<Buffer>(static_cast<const uint8_t*>(data),
-                                         BitUtil::BytesForBits(offset + length))),
+                                         bit_util::BytesForBits(offset + length))),
         offset_(offset),
         length_(length) {}
 
   Bitmap(void* data, int64_t offset, int64_t length)
       : buffer_(std::make_shared<MutableBuffer>(static_cast<uint8_t*>(data),
-                                                BitUtil::BytesForBits(offset + length))),
+                                                bit_util::BytesForBits(offset + length))),
         offset_(offset),
         length_(length) {}
 
@@ -82,16 +82,16 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
 
   std::string Diff(const Bitmap& other) const;
 
-  bool GetBit(int64_t i) const { return BitUtil::GetBit(buffer_->data(), i + offset_); }
+  bool GetBit(int64_t i) const { return bit_util::GetBit(buffer_->data(), i + offset_); }
 
   bool operator[](int64_t i) const { return GetBit(i); }
 
   void SetBitTo(int64_t i, bool v) const {
-    BitUtil::SetBitTo(buffer_->mutable_data(), i + offset_, v);
+    bit_util::SetBitTo(buffer_->mutable_data(), i + offset_, v);
   }
 
   void SetBitsTo(bool v) {
-    BitUtil::SetBitsTo(buffer_->mutable_data(), offset_, length_, v);
+    bit_util::SetBitsTo(buffer_->mutable_data(), offset_, length_, v);
   }
 
   void CopyFrom(const Bitmap& other);
@@ -218,9 +218,9 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
           if (offsets[i] == 0) {
             visited_words[i] = words[i][word_i];
           } else {
-            auto words0 = BitUtil::ToLittleEndian(words[i][word_i]);
-            auto words1 = BitUtil::ToLittleEndian(words[i][word_i + 1]);
-            visited_words[i] = BitUtil::FromLittleEndian(
+            auto words0 = bit_util::ToLittleEndian(words[i][word_i]);
+            auto words1 = bit_util::ToLittleEndian(words[i][word_i + 1]);
+            visited_words[i] = bit_util::FromLittleEndian(
                 (words0 >> offsets[i]) | (words1 << (kBitWidth - offsets[i])));
           }
         }
@@ -380,7 +380,7 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
   /// string_view of all bytes which contain any bit in this Bitmap
   util::bytes_view bytes() const {
     auto byte_offset = offset_ / 8;
-    auto byte_count = BitUtil::CeilDiv(offset_ + length_, 8) - byte_offset;
+    auto byte_count = bit_util::CeilDiv(offset_ + length_, 8) - byte_offset;
     return util::bytes_view(buffer_->data() + byte_offset, byte_count);
   }
 
@@ -402,8 +402,8 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
     auto bytes_addr = reinterpret_cast<intptr_t>(bytes().data());
     auto words_addr = bytes_addr - bytes_addr % sizeof(Word);
     auto word_byte_count =
-        BitUtil::RoundUpToPowerOf2(static_cast<int64_t>(bytes_addr + bytes().size()),
-                                   static_cast<int64_t>(sizeof(Word))) -
+        bit_util::RoundUpToPowerOf2(static_cast<int64_t>(bytes_addr + bytes().size()),
+                                    static_cast<int64_t>(sizeof(Word))) -
         words_addr;
     return View<Word>(reinterpret_cast<const Word*>(words_addr),
                       word_byte_count / sizeof(Word));

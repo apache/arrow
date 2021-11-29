@@ -464,7 +464,7 @@ static inline Status GetBitmapFromVector(const std::vector<T>& is_valid,
   uint8_t* bitmap = buffer->mutable_data();
   for (size_t i = 0; i < static_cast<size_t>(length); ++i) {
     if (is_valid[i]) {
-      BitUtil::SetBit(bitmap, i);
+      bit_util::SetBit(bitmap, i);
     }
   }
 
