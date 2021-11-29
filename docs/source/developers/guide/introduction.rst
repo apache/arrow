@@ -31,10 +31,14 @@ New Contributor's Guide
 ***********************
 
 This guide is meant to be a resource for contributing to
-`Arrow <https://arrow.apache.org//>`_ for new contributors.
+`Arrow <https://arrow.apache.org>`_ for new contributors.
 
-Starting to contribute to a project like Apache Arrow can look
-scary. Taking small steps will help making this tack easier.
+No matter what your current skills are you can try and make
+your first time contribution to Arrow.
+
+Starting to contribute to a project like Apache Arrow can be
+intimidating. Taking small steps will help making this tack
+easier.
 
 
 Why contribute to Arrow?
@@ -46,9 +50,9 @@ to Arrow:
   a contribution to learn more about the library and grow your skills.
 
 * You use Arrow in the project you are working on and you would like
-  to make a new feature or fix a bug yourself.
+  to implement a new feature.
 
-Read more about the project in the :ref:`about_arrow` section.
+Read more about the project in the :ref:`architectural_overview` section.
 
 Quick Reference
 ===============
@@ -68,12 +72,17 @@ of adding a basic feature.
 
 #. **Build Arrow**
 
-   This can be quite easy or a real blocker. Be prepared to dig through the
-   additional flags for cmake in the C++ build guide and read the doc carefully
-   to not miss any suggestions already given there. Anytime you are stuck,
-   reach out to us via appropriate :ref:`communication` channel.
+   Arrow libraries include a wide range of functionalities and may require
+   the installation of third-party packages, depending on which build
+   options and components you enable. For example, the C++ build guide
+   has suggestions for whenever you are experiencing difficulties, be sure
+   to read them. Anytime you are stuck, feel free to reach out via
+   appropriate :ref:`communication` channel.
 
-   See detailed instructions on how to :ref:`build-arrow`.
+   See a short description about the building process of 
+   :ref:`PyArrow or R-Arrow<build-arrow>` or go straight to detailed
+   instructions on how to build one of Arrow libraries in the
+   `documentation <https://arrow.apache.org/docs/>`_ .
  
 #. **Run the tests**
    
@@ -83,18 +92,21 @@ of adding a basic feature.
 
       $ pytest pyarrow
 
-   or R
+   or in R console for R
 
-   .. code-block::
+   .. code-block:: R
 
-      $ devtools::test()
+      devtools::test()
 
-#. **Find an issue, create a new branch and work on the problem**
+   See also the section on :ref:`testing`.
+
+#. **Find an issue (if needed), create a new branch and work on the problem**
 
    **Finding an issue**
 
-   Not so easy, we agree.
-   Read through the :ref:`finding-issues` section to get some ideas.
+   You can have a new bug or a new feature you want to implement. But if you
+   don't and you need an issue to work on you may need help finding it. Read
+   through the :ref:`finding-issues`  section to get some ideas.
 
    **Finding your way through the project**
 
@@ -102,22 +114,22 @@ of adding a basic feature.
    help guides that we used when we were looking for solutions and we hope
    they will help.
 
-   Read through :ref:`solving` section.
+   .. TODO: Read through :ref:`solving`  section.
 
    **Communication**
 
-   Communication is very important. You may need some help solving the problem
-   (happening to developers all the time). Also, when you have an issue you want
-   to solve it is advisable to let the team know you are working on it and may
-   need some help.
+   Communication is very important. You may need some help solving problems
+   you encounter on the way (happening to developers all the time). Also,
+   if you have a JIRA issue you want to solve it is advisable to let the team
+   know you are working on it and may need some help.
 
    See possible channels of :ref:`communication`.
 
-#. **Once you found the solution, write and run the test**
+#. **Once you implemented the planned fix or feature, write and run tests for it**
 
-   See detailed instructions on how to do the :ref:`testing`.
+   See detailed instructions on how to :ref:`test <testing>`.
 
-#. **Push the branch on your fork and create a pull request**
+#. **Push the branch on your fork and create a Pull Request**
 
    See detailed instructions on :ref:`pr_and_github`
 
@@ -134,7 +146,7 @@ Full Table of Contents
 .. toctree::
    :maxdepth: 3
 
-   about_arrow
+   architectural_overview
    communication
    step_by_step/index
    documentation

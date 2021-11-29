@@ -50,10 +50,17 @@ tags ([C++], [R], [Ruby] etc.) so it gets noticed by the right people.
 Where to get help 👋
 ====================
 
+For any question you may have or problems you are facing you can write to 
+user or development :ref:`mailing_list` or you can create an issue on
+:ref:`github`.
+
+For searching through the issues, reporting bugs and creating feature
+requests or proposals you can use :ref:`jira` issue tracker.
+
+.. _jira:
+
 JIRA
 ~~~~
-
-The most used way is to communicate through JIRA.
 
 When to use JIRA?
 
@@ -61,56 +68,66 @@ When to use JIRA?
 - If you want to **propose a new feature**.
 - If you want to **propose a bigger change in the documentation**.
 
-In these cases you can create a JIRA issue and connect
-with other contributors in the comments.
+In these cases you can create a JIRA issue and connect with other
+contributors in the issue comments. It is good to mention the
+way you are planning to solve the issue and have one of the Arrow
+developers agree with your basic proposal for fixing it. Better
+to ask before you spend too much of your time on something that we
+might think is not a good idea.
 
-.. note::
-   How to make a JIRA issue. See `Tips for using JIRA <https://arrow.apache.org/docs/developers/contributing.html#tips-for-using-jira/>`_.
+.. seealso::
+   How to create a JIRA issue. See `Tips for using JIRA <https://arrow.apache.org/docs/developers/contributing.html#tips-for-using-jira/>`_.
 
 - If you want to **solve an issue that is already in JIRA**, you should
-  connect with other contributors in the comments.
+  connect with other contributors in the issue comments.
 
-JIRA is used to discuss the problem before the pull request is made (how to start,
-where to search for the solution, etc..).
+JIRA is used to discuss the problem before a Pull Request is possibly made
+(how to start, where to search for the solution, etc..).
+
+.. _github:
 
 GitHub
 ~~~~~~
 
-Further options of communicating are provided through GitHub.
+Further options of communicating are provided through GitHub where the project
+is hosted. What we use are GitGub Issues and Pull Requests.
 
 When to use GitHub?
 
-- **For any question you may have or problems you are facing, you can make an issue on GutHub.**
-- If you have **a problem with the build**, you can make an issue on GitHub
-  and discuss the possible solution (or write to the user mailing list).
+- If you have **a problem with building** one of the Arrow libraries, you can
+  create an issue on GitHub and discuss the possible solution (or write to the
+  user mailing list).
 
   Making an issue about things you are not sure about may feel intimidating,
   but it is also useful for others and the project.
 
-  .. warning::
+  .. note::
      Make sure to add which operating system and Arrow version you are using in the
      ticket description plus the debug information/error.
 
-- If you have **a new feature already written**, you should make a pull request and
-  write in the comment about the feature you are proposing.
-- GitHub is also used to discuss your work after the **pull request** is made.
+- If you have **a new feature already written**, you can create a Pull Request after
+  creating a JIRA ticket and mentioning the way you plan to implement it.
+- GitHub is also used to discuss your work after the **Pull Request** is made.
+
+.. _mailing_list:
 
 Mailing List
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
 You can subscribe to the **user** or **development** mailing list and browse for
 previous topics or ask questions. Whereas discussion on GitHub and JIRA
-only notifies people who have subscribed to that particular pull request or ticket,
+only notifies people who have subscribed to that particular Pull Request or ticket,
 the mailing list allows you to broadcast to all users or developers. Use these when
 you want to get feedback or answers from a wider audience.
 
 There is also a **biweekly developers sync call** that anyone is welcome to join.
 It is announced on the development mailing list together with the link to join.
 
-.. note::
+.. seealso::
   Link to subscribe to the mailing lists and find more info `can be found here <https://arrow.apache.org/community/>`_.
 
 Recommended learning resources
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-To find articles on concepts important to Arrow as well as recommended books for learning languages visit :ref:`other`.
+To find articles on concepts important to Arrow as well as recommended books for
+learning languages visit :ref:`other`.

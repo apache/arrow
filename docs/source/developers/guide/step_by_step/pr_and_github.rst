@@ -29,7 +29,7 @@ Life cycle of a Pull Request
 ****************************
 
 
-Making the PR 🙀
+Creating a PR 🙀
 ================
 
 

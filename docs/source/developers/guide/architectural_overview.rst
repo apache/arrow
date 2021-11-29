@@ -17,20 +17,24 @@
 
 
 .. SCOPE OF THIS SECTION
-.. This section is intended to give some ideas on how to
-.. work and find way around the Arrow library depending
-.. on the type of the problem (simple binding, adding a
-.. new feature, writing a test, …).
+.. This section should include architectural overview
+.. of the Arrow project. If possible the content should be
+.. written in words easy understandable to beginner not
+.. necessary acquainted with the library and the technical
+.. details.
 
-
-.. _solving:
+.. _architectural_overview:
 
 **********************
-Solving the problem 🧐
+Architectural Overview
 **********************
 
-Python bindings
-===============
+A general overview of Apache Arrow project can be found on the 
+`front page <https://arrow.apache.org/>`_ and in the 
+`Apache Arrow Overview <https://arrow.apache.org/overview/>`_.
 
-R bindings
-==========
+For an Architectural Overview of Arrow's libraries please
+refer to:
+
+- PyArrow Architectural Overview
+- R-Arrow Architectural Overview
