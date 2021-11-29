@@ -17,6 +17,7 @@
 
 #include "arrow/filesystem/gcsfs.h"
 
+#include <absl/time/time.h>
 #include <gmock/gmock-matchers.h>
 #include <gmock/gmock-more-matchers.h>
 #include <google/cloud/credentials.h>
@@ -109,6 +110,13 @@ class GcsIntegrationTest : public ::testing::Test {
     options.endpoint_override = "127.0.0.1:" + port_;
     options.scheme = "http";
     return options;
+  }
+
+  gcs::Client GcsClient() {
+    return gcs::Client(
+        google::cloud::Options{}
+            .set<gcs::RestEndpointOption>("http://127.0.0.1:" + port_)
+            .set<gc::UnifiedCredentialsOption>(gc::MakeInsecureCredentials()));
   }
 
  private:
@@ -350,6 +358,68 @@ TEST_F(GcsIntegrationTest, ReadObjectInfoInvalid) {
   ASSERT_OK_AND_ASSIGN(info, fs->GetFileInfo(NotFoundObjectPath()));
   result = fs->OpenInputStream(NotFoundObjectPath());
   EXPECT_EQ(result.status().code(), StatusCode::IOError);
+}
+
+TEST_F(GcsIntegrationTest, ReadObjectReadMetadata) {
+  auto client = GcsClient();
+  const auto custom_time = std::chrono::system_clock::now() + std::chrono::hours(1);
+  const std::string object_name = "ReadObjectMetadataTest/simple.txt";
+  const gcs::ObjectMetadata expected =
+      client
+          .InsertObject(kPreexistingBucket, object_name,
+                        "The quick brown fox jumps over the lazy dog",
+                        gcs::WithObjectMetadata(gcs::ObjectMetadata()
+                                                    .set_content_type("text/plain")
+                                                    .set_custom_time(custom_time)
+                                                    .set_cache_control("no-cache")
+                                                    .upsert_metadata("key0", "value0")))
+          .value();
+
+  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+  std::shared_ptr<io::InputStream> stream;
+  ASSERT_OK_AND_ASSIGN(
+      stream, fs->OpenInputStream(std::string(kPreexistingBucket) + "/" + object_name));
+
+  auto format_time = [](std::chrono::system_clock::time_point tp) {
+    return absl::FormatTime(absl::RFC3339_full, absl::FromChrono(tp),
+                            absl::UTCTimeZone());
+  };
+
+  std::shared_ptr<const KeyValueMetadata> actual;
+  ASSERT_OK_AND_ASSIGN(actual, stream->ReadMetadata());
+  ASSERT_OK_AND_EQ(expected.self_link(), actual->Get("selfLink"));
+  ASSERT_OK_AND_EQ(expected.name(), actual->Get("name"));
+  ASSERT_OK_AND_EQ(expected.bucket(), actual->Get("bucket"));
+  ASSERT_OK_AND_EQ(std::to_string(expected.generation()), actual->Get("generation"));
+  ASSERT_OK_AND_EQ(expected.content_type(), actual->Get("Content-Type"));
+  ASSERT_OK_AND_EQ(format_time(expected.time_created()), actual->Get("timeCreated"));
+  ASSERT_OK_AND_EQ(format_time(expected.updated()), actual->Get("updated"));
+  ASSERT_FALSE(actual->Contains("timeDeleted"));
+  ASSERT_OK_AND_EQ(format_time(custom_time), actual->Get("customTime"));
+  ASSERT_OK_AND_EQ("false", actual->Get("temporaryHold"));
+  ASSERT_OK_AND_EQ("false", actual->Get("eventBasedHold"));
+  ASSERT_FALSE(actual->Contains("retentionExpirationTime"));
+  ASSERT_OK_AND_EQ(expected.storage_class(), actual->Get("storageClass"));
+  ASSERT_FALSE(actual->Contains("storageClassUpdated"));
+  ASSERT_OK_AND_EQ(std::to_string(expected.size()), actual->Get("size"));
+  ASSERT_OK_AND_EQ(expected.md5_hash(), actual->Get("md5Hash"));
+  ASSERT_OK_AND_EQ(expected.media_link(), actual->Get("mediaLink"));
+  ASSERT_OK_AND_EQ(expected.content_encoding(), actual->Get("Content-Encoding"));
+  ASSERT_OK_AND_EQ(expected.content_disposition(), actual->Get("Content-Disposition"));
+  ASSERT_OK_AND_EQ(expected.content_language(), actual->Get("Content-Language"));
+  ASSERT_OK_AND_EQ(expected.cache_control(), actual->Get("Cache-Control"));
+  auto p = expected.metadata().find("key0");
+  ASSERT_TRUE(p != expected.metadata().end());
+  ASSERT_OK_AND_EQ(p->second, actual->Get("metadata.key0"));
+  ASSERT_EQ(expected.has_owner(), actual->Contains("owner.entity"));
+  ASSERT_EQ(expected.has_owner(), actual->Contains("owner.entityId"));
+  ASSERT_OK_AND_EQ(expected.crc32c(), actual->Get("crc32c"));
+  ASSERT_OK_AND_EQ(std::to_string(expected.component_count()),
+                   actual->Get("componentCount"));
+  ASSERT_OK_AND_EQ(expected.etag(), actual->Get("etag"));
+  ASSERT_FALSE(actual->Contains("customerEncryption.encryptionAlgorithm"));
+  ASSERT_FALSE(actual->Contains("customerEncryption.keySha256"));
+  ASSERT_FALSE(actual->Contains("kmsKeyName"));
 }
 
 TEST_F(GcsIntegrationTest, WriteObjectSmall) {
