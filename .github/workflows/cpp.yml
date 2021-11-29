@@ -153,6 +153,19 @@ jobs:
           rm -f /usr/local/bin/2to3
           brew update --preinstall
           brew bundle --file=cpp/Brewfile
+      - name: Setup ccache
+        run: |
+          ci/scripts/ccache_setup.sh
+      - name: ccache info
+        id: ccache-info
+        run: |
+          echo "::set-output name=cache-dir::$(ccache --get-config cache_dir)"
+      - name: Cache ccache
+        uses: actions/cache@v2
+        with:
+          path: ${{ steps.ccache-info.outputs.cache-dir }}
+          key: cpp-ccache-macos-${{ hashFiles('cpp/**') }}
+          restore-keys: cpp-ccache-macos-
       - name: Build
         shell: bash
         run: ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
