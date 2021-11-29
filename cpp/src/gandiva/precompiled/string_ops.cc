@@ -1733,6 +1733,7 @@ gdv_int32 levenshtein(int64_t context, const char* in1, int32_t in1_len, const c
   // v1 -> (in2_len+1, ..., &ptr[in2_len * 2])
   int* v0;
   int* v1;
+  int* aux;
   v0 = &ptr[0];
   v1 = &ptr[len_smaller + 1];
 
@@ -1773,7 +1774,9 @@ gdv_int32 levenshtein(int64_t context, const char* in1, int32_t in1_len, const c
     }
 
     // Swaping v0 and v1
-    std::swap(v0, v1);
+    aux = v0;
+    v0 = v1;
+    v1 = aux;
   }
   // The results of v1 are now in v0, Levenshtein value is in v0[n]
   int result = v0[len_smaller];
