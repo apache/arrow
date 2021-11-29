@@ -26,7 +26,10 @@ versions, and configurations as possible with the above options.
 
 This rest of this document describes how it works and the options for fine-tuning Linux installation.
 The intended audience for this document is `arrow` R package users on Linux, not Arrow developers.
-If you're contributing to the Arrow project, see `vignette("developing", package = "arrow") for guidance on setting up your development environment.
+If you're contributing to the Arrow project, see `vignette("developing", package = "arrow") for
+resources to help you on set up your development environment.  You can also find
+a more detailed discussion of the code run during the installation process in the 
+[developers' installation docs](https://arrow.apache.org/docs/r/articles/developers/install_details.html)
 
 Generally compiling and installing R packages with C++ dependencies, requires 
 either installing system packages, which you may not have privileges to do, or 
@@ -193,52 +196,6 @@ build if the prerequisites are not met--installation will succeed but without
 S3 functionality. If afterwards you install the missing system requirements,
 you'll need to reinstall the package in order to enable S3 support.
 
-# How dependencies are resolved
-
-In order for the `arrow` R package to work, it needs the Arrow C++ library.
-There are a number of ways you can get it:
-
-* a system package
-* a library you've built yourself outside of the context of installing the R package
-* if you don't already have it, the R package will attempt to resolve it automatically when it installs.
-
-If you are authorized to install system packages and you're installing a CRAN release,
-you may want to use the official Apache Arrow release packages corresponding to the R package version (though there are some drawbacks: see "Troubleshooting" below).
-See the [Arrow project installation page](https://arrow.apache.org/install/)
-to find pre-compiled binary packages for some common Linux distributions,
-including Debian, Ubuntu, and CentOS.
-You'll need to install `libparquet-dev` on Debian and Ubuntu, or `parquet-devel` on CentOS.
-This will also automatically install the Arrow C++ library as a dependency.
-
-When you install the `arrow` R package on Linux,
-it will first attempt to find the Arrow C++ libraries on your system using
-the `pkg-config` command.
-This will find either installed system packages or libraries you've built yourself.
-In order for `install.packages("arrow")` to work with these system packages,
-you'll need to install them before installing the R package.
-
-If no Arrow C++ libraries are found on the system,
-the R package installation script will next attempt to download
-prebuilt static Arrow C++ libraries
-that match your both your local operating system and `arrow` R package version.
-C++ binaries will only be retrieved if you have set the environment variable
-`LIBARROW_BINARY` or `NOT_CRAN`.
-If found, they will be downloaded and bundled when your R package compiles.
-For a list of supported distributions and versions,
-see the [arrow-r-nightly](https://github.com/ursa-labs/arrow-r-nightly/blob/master/README.md) project.
-
-If no C++ library binary is found, it will attempt to build it locally.
-First, it will also look to see if you are in
-a checkout of the `apache/arrow` git repository and thus have the C++ source there.
-Otherwise, it builds from the C++ files included in the package.
-Depending on your system, building Arrow C++ from source may be slow.
-
-For the specific mechanics of how all this works, see the R package `configure` script,
-which calls `tools/nixlibs.R`.
-
-If the C++ library is built from source, `inst/build_arrow_static.sh` is executed.
-This build script is also what is used to generate the prebuilt binaries.
-
 # Troubleshooting
 
 The intent is that `install.packages("arrow")` will just work and handle all C++
@@ -260,13 +217,11 @@ in the output when the package fails to install,
 that means that installation failed to retrieve or build C++ libraries
 compatible with the current version of the R package.
 
-It is expected that C++ dependencies should be built successfully
-on all Linux distributions, so you should not see this message. If you do,
-please check the "Known installation issues" below to see if any apply.
-If none apply, set the environment variable `ARROW_R_DEV=TRUE`
-so that details on what failed are shown, and try installing again. Then,
+Please check the "Known installation issues" below to see if any apply, and if 
+none apply, set the environment variable `ARROW_R_DEV=TRUE` for more verbose 
+output and try installing again. Then,
 please [report an issue](https://issues.apache.org/jira/projects/ARROW/issues)
-and include the full verbose installation output.
+and include the full installation output.
 
 ## Using system libraries
 
