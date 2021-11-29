@@ -1112,7 +1112,7 @@ TEST(ExecPlanExecution, SelfInnerHashJoinSink) {
 
     HashJoinNodeOptions join_opts{JoinType::INNER,
                                   /*left_keys=*/{"str"},
-                                  /*right_keys=*/{"str"}, "l_", "r_"};
+                                  /*right_keys=*/{"str"}, literal(true), "l_", "r_"};
 
     ASSERT_OK_AND_ASSIGN(
         auto hashjoin,
@@ -1169,7 +1169,7 @@ TEST(ExecPlanExecution, SelfOuterHashJoinSink) {
 
     HashJoinNodeOptions join_opts{JoinType::FULL_OUTER,
                                   /*left_keys=*/{"str"},
-                                  /*right_keys=*/{"str"}, "l_", "r_"};
+                                  /*right_keys=*/{"str"}, literal(true), "l_", "r_"};
 
     ASSERT_OK_AND_ASSIGN(
         auto hashjoin,

@@ -43,32 +43,49 @@ bool HashJoinSchema::IsTypeSupported(const DataType& type) {
   return is_fixed_width(id) || is_binary_like(id) || is_large_binary_like(id);
 }
 
-Result<std::vector<FieldRef>> HashJoinSchema::VectorDiff(const Schema& schema,
-                                                         const std::vector<FieldRef>& a,
-                                                         const std::vector<FieldRef>& b) {
-  std::unordered_set<int> b_paths;
-  for (size_t i = 0; i < b.size(); ++i) {
-    ARROW_ASSIGN_OR_RAISE(auto match, b[i].FindOne(schema));
-    b_paths.insert(match[0]);
+Result<std::vector<FieldRef>> HashJoinSchema::ComputePayload(
+    const Schema& schema, const std::vector<FieldRef>& output,
+    const std::vector<FieldRef>& filter, const std::vector<FieldRef>& keys) {
+  // payload = (output + filter) - keys, with no duplicates
+  std::unordered_set<int> payload_fields;
+  for (auto ref : output) {
+    ARROW_ASSIGN_OR_RAISE(auto match, ref.FindOne(schema));
+    payload_fields.insert(match[0]);
   }
 
-  std::vector<FieldRef> result;
+  for (auto ref : filter) {
+    ARROW_ASSIGN_OR_RAISE(auto match, ref.FindOne(schema));
+    payload_fields.insert(match[0]);
+  }
 
-  for (size_t i = 0; i < a.size(); ++i) {
-    ARROW_ASSIGN_OR_RAISE(auto match, a[i].FindOne(schema));
-    bool is_found = (b_paths.find(match[0]) != b_paths.end());
-    if (!is_found) {
-      result.push_back(a[i]);
+  for (auto ref : keys) {
+    ARROW_ASSIGN_OR_RAISE(auto match, ref.FindOne(schema));
+    payload_fields.erase(match[0]);
+  }
+
+  std::vector<FieldRef> payload_refs;
+  for (auto ref : output) {
+    ARROW_ASSIGN_OR_RAISE(auto match, ref.FindOne(schema));
+    if (payload_fields.find(match[0]) != payload_fields.end()) {
+      payload_refs.push_back(ref);
+      payload_fields.erase(match[0]);
     }
   }
-
-  return result;
+  for (auto ref : filter) {
+    ARROW_ASSIGN_OR_RAISE(auto match, ref.FindOne(schema));
+    if (payload_fields.find(match[0]) != payload_fields.end()) {
+      payload_refs.push_back(ref);
+      payload_fields.erase(match[0]);
+    }
+  }
+  return payload_refs;
 }
 
 Status HashJoinSchema::Init(JoinType join_type, const Schema& left_schema,
                             const std::vector<FieldRef>& left_keys,
                             const Schema& right_schema,
                             const std::vector<FieldRef>& right_keys,
+                            const Expression& filter,
                             const std::string& left_field_name_prefix,
                             const std::string& right_field_name_prefix) {
   std::vector<FieldRef> left_output;
@@ -89,17 +106,15 @@ Status HashJoinSchema::Init(JoinType join_type, const Schema& left_schema,
     }
   }
   return Init(join_type, left_schema, left_keys, left_output, right_schema, right_keys,
-              right_output, left_field_name_prefix, right_field_name_prefix);
+              right_output, filter, left_field_name_prefix, right_field_name_prefix);
 }
 
-Status HashJoinSchema::Init(JoinType join_type, const Schema& left_schema,
-                            const std::vector<FieldRef>& left_keys,
-                            const std::vector<FieldRef>& left_output,
-                            const Schema& right_schema,
-                            const std::vector<FieldRef>& right_keys,
-                            const std::vector<FieldRef>& right_output,
-                            const std::string& left_field_name_prefix,
-                            const std::string& right_field_name_prefix) {
+Status HashJoinSchema::Init(
+    JoinType join_type, const Schema& left_schema, const std::vector<FieldRef>& left_keys,
+    const std::vector<FieldRef>& left_output, const Schema& right_schema,
+    const std::vector<FieldRef>& right_keys, const std::vector<FieldRef>& right_output,
+    const Expression& filter, const std::string& left_field_name_prefix,
+    const std::string& right_field_name_prefix) {
   RETURN_NOT_OK(ValidateSchemas(join_type, left_schema, left_keys, left_output,
                                 right_schema, right_keys, right_output,
                                 left_field_name_prefix, right_field_name_prefix));
@@ -107,12 +122,21 @@ Status HashJoinSchema::Init(JoinType join_type, const Schema& left_schema,
   std::vector<HashJoinProjection> handles;
   std::vector<const std::vector<FieldRef>*> field_refs;
 
+  std::vector<FieldRef> left_filter, right_filter;
+  RETURN_NOT_OK(
+      CollectFilterColumns(left_filter, right_filter, filter, left_schema, right_schema));
+
   handles.push_back(HashJoinProjection::KEY);
   field_refs.push_back(&left_keys);
+
   ARROW_ASSIGN_OR_RAISE(auto left_payload,
-                        VectorDiff(left_schema, left_output, left_keys));
+                        ComputePayload(left_schema, left_output, left_filter, left_keys));
   handles.push_back(HashJoinProjection::PAYLOAD);
   field_refs.push_back(&left_payload);
+
+  handles.push_back(HashJoinProjection::FILTER);
+  field_refs.push_back(&left_filter);
+
   handles.push_back(HashJoinProjection::OUTPUT);
   field_refs.push_back(&left_output);
 
@@ -124,10 +148,15 @@ Status HashJoinSchema::Init(JoinType join_type, const Schema& left_schema,
 
   handles.push_back(HashJoinProjection::KEY);
   field_refs.push_back(&right_keys);
-  ARROW_ASSIGN_OR_RAISE(auto right_payload,
-                        VectorDiff(right_schema, right_output, right_keys));
+
+  ARROW_ASSIGN_OR_RAISE(auto right_payload, ComputePayload(right_schema, right_output,
+                                                           right_filter, right_keys));
   handles.push_back(HashJoinProjection::PAYLOAD);
   field_refs.push_back(&right_payload);
+
+  handles.push_back(HashJoinProjection::FILTER);
+  field_refs.push_back(&right_filter);
+
   handles.push_back(HashJoinProjection::OUTPUT);
   field_refs.push_back(&right_output);
 
@@ -274,17 +303,138 @@ std::shared_ptr<Schema> HashJoinSchema::MakeOutputSchema(
   return std::make_shared<Schema>(std::move(fields));
 }
 
+Result<Expression> HashJoinSchema::BindFilter(Expression filter,
+                                              const Schema& left_schema,
+                                              const Schema& right_schema) {
+  if (filter.IsBound() || filter == literal(true)) {
+    return std::move(filter);
+  }
+  // Step 1: Construct filter schema
+  FieldVector fields;
+  auto left_f_to_i =
+      proj_maps[0].map(HashJoinProjection::FILTER, HashJoinProjection::INPUT);
+  auto right_f_to_i =
+      proj_maps[1].map(HashJoinProjection::FILTER, HashJoinProjection::INPUT);
+
+  auto AppendFieldsInMap = [&fields](const SchemaProjectionMap& map,
+                                     const Schema& schema) {
+    for (int i = 0; i < map.num_cols; i++) {
+      int input_idx = map.get(i);
+      fields.push_back(schema.fields()[input_idx]);
+    }
+  };
+  AppendFieldsInMap(left_f_to_i, left_schema);
+  AppendFieldsInMap(right_f_to_i, right_schema);
+  Schema filter_schema(fields);
+
+  // Step 2: Rewrite expression to use filter schema
+  auto left_i_to_f =
+      proj_maps[0].map(HashJoinProjection::INPUT, HashJoinProjection::FILTER);
+  auto right_i_to_f =
+      proj_maps[1].map(HashJoinProjection::INPUT, HashJoinProjection::FILTER);
+  filter = RewriteFilterToUseFilterSchema(left_f_to_i.num_cols, left_i_to_f, right_i_to_f,
+                                          filter);
+
+  // Step 3: Bind
+  ARROW_ASSIGN_OR_RAISE(filter, filter.Bind(filter_schema));
+  if (filter.type()->id() != Type::BOOL) {
+    return Status::TypeError("Filter expression must evaluate to bool, but ",
+                             filter.ToString(), " evaluates to ",
+                             filter.type()->ToString());
+  }
+  return std::move(filter);
+}
+
+Expression HashJoinSchema::RewriteFilterToUseFilterSchema(
+    const int right_filter_offset, const SchemaProjectionMap& left_to_filter,
+    const SchemaProjectionMap& right_to_filter, const Expression& filter) {
+  if (const Expression::Call* c = filter.call()) {
+    std::vector<Expression> args = c->arguments;
+    for (size_t i = 0; i < args.size(); i++)
+      args[i] = RewriteFilterToUseFilterSchema(right_filter_offset, left_to_filter,
+                                               right_to_filter, args[i]);
+    return call(c->function_name, args, c->options);
+  } else if (const FieldRef* r = filter.field_ref()) {
+    if (const FieldPath* path = r->field_path()) {
+      auto indices = path->indices();
+      if (indices[0] >= left_to_filter.num_cols) {
+        indices[0] -= left_to_filter.num_cols;  // Convert to index into right schema
+        indices[0] =
+            right_to_filter.get(indices[0]) +
+            right_filter_offset;  // Convert right schema index to filter schema index
+      } else {
+        indices[0] = left_to_filter.get(
+            indices[0]);  // Convert left schema index to filter schema index
+      }
+      return field_ref({std::move(indices)});
+    }
+  }
+  return filter;
+}
+
+Status HashJoinSchema::CollectFilterColumns(std::vector<FieldRef>& left_filter,
+                                            std::vector<FieldRef>& right_filter,
+                                            const Expression& filter,
+                                            const Schema& left_schema,
+                                            const Schema& right_schema) {
+  std::vector<FieldRef> nonunique_refs = FieldsInExpression(filter);
+
+  std::unordered_set<FieldPath, FieldPath::Hash> left_seen_paths;
+  std::unordered_set<FieldPath, FieldPath::Hash> right_seen_paths;
+  for (const FieldRef& ref : nonunique_refs) {
+    if (const FieldPath* path = ref.field_path()) {
+      std::vector<int> indices = path->indices();
+      if (indices[0] >= left_schema.num_fields()) {
+        indices[0] -= left_schema.num_fields();
+        FieldPath corrected_path(std::move(indices));
+        if (right_seen_paths.find(*path) == right_seen_paths.end()) {
+          right_filter.push_back(corrected_path);
+          right_seen_paths.emplace(std::move(corrected_path));
+        }
+      } else if (left_seen_paths.find(*path) == left_seen_paths.end()) {
+        left_filter.push_back(ref);
+        left_seen_paths.emplace(std::move(indices));
+      }
+    } else {
+      ARROW_DCHECK(ref.IsName());
+      ARROW_ASSIGN_OR_RAISE(auto left_match, ref.FindOneOrNone(left_schema));
+      ARROW_ASSIGN_OR_RAISE(auto right_match, ref.FindOneOrNone(right_schema));
+      bool in_left = !left_match.empty();
+      bool in_right = !right_match.empty();
+      if (in_left && in_right) {
+        return Status::Invalid("FieldRef", ref.ToString(),
+                               "was found in both left and right schemas");
+      } else if (!in_left && !in_right) {
+        return Status::Invalid("FieldRef", ref.ToString(),
+                               "was not found in either left or right schema");
+      }
+
+      ARROW_DCHECK(in_left != in_right);
+      auto& target_array = in_left ? left_filter : right_filter;
+      auto& target_set = in_left ? left_seen_paths : right_seen_paths;
+      auto& target_match = in_left ? left_match : right_match;
+
+      if (target_set.find(target_match) == target_set.end()) {
+        target_array.push_back(ref);
+        target_set.emplace(std::move(target_match));
+      }
+    }
+  }
+  return Status::OK();
+}
+
 class HashJoinNode : public ExecNode {
  public:
   HashJoinNode(ExecPlan* plan, NodeVector inputs, const HashJoinNodeOptions& join_options,
                std::shared_ptr<Schema> output_schema,
-               std::unique_ptr<HashJoinSchema> schema_mgr,
+               std::unique_ptr<HashJoinSchema> schema_mgr, Expression filter,
                std::unique_ptr<HashJoinImpl> impl)
       : ExecNode(plan, inputs, {"left", "right"},
                  /*output_schema=*/std::move(output_schema),
                  /*num_outputs=*/1),
         join_type_(join_options.join_type),
         key_cmp_(join_options.key_cmp),
+        filter_(std::move(filter)),
         schema_mgr_(std::move(schema_mgr)),
         impl_(std::move(impl)) {
     complete_.store(false);
@@ -300,19 +450,25 @@ class HashJoinNode : public ExecNode {
 
     const auto& join_options = checked_cast<const HashJoinNodeOptions&>(options);
 
+    const auto& left_schema = *(inputs[0]->output_schema());
+    const auto& right_schema = *(inputs[1]->output_schema());
     // This will also validate input schemas
     if (join_options.output_all) {
       RETURN_NOT_OK(schema_mgr->Init(
-          join_options.join_type, *(inputs[0]->output_schema()), join_options.left_keys,
-          *(inputs[1]->output_schema()), join_options.right_keys,
+          join_options.join_type, left_schema, join_options.left_keys, right_schema,
+          join_options.right_keys, join_options.filter,
           join_options.output_prefix_for_left, join_options.output_prefix_for_right));
     } else {
       RETURN_NOT_OK(schema_mgr->Init(
-          join_options.join_type, *(inputs[0]->output_schema()), join_options.left_keys,
-          join_options.left_output, *(inputs[1]->output_schema()),
-          join_options.right_keys, join_options.right_output,
+          join_options.join_type, left_schema, join_options.left_keys,
+          join_options.left_output, right_schema, join_options.right_keys,
+          join_options.right_output, join_options.filter,
           join_options.output_prefix_for_left, join_options.output_prefix_for_right));
     }
+
+    ARROW_ASSIGN_OR_RAISE(
+        Expression filter,
+        schema_mgr->BindFilter(join_options.filter, left_schema, right_schema));
 
     // Generate output schema
     std::shared_ptr<Schema> output_schema = schema_mgr->MakeOutputSchema(
@@ -321,9 +477,9 @@ class HashJoinNode : public ExecNode {
     // Create hash join implementation object
     ARROW_ASSIGN_OR_RAISE(std::unique_ptr<HashJoinImpl> impl, HashJoinImpl::MakeBasic());
 
-    return plan->EmplaceNode<HashJoinNode>(plan, inputs, join_options,
-                                           std::move(output_schema),
-                                           std::move(schema_mgr), std::move(impl));
+    return plan->EmplaceNode<HashJoinNode>(
+        plan, inputs, join_options, std::move(output_schema), std::move(schema_mgr),
+        std::move(filter), std::move(impl));
   }
 
   const char* kind_name() const override { return "HashJoinNode"; }
@@ -385,7 +541,7 @@ class HashJoinNode : public ExecNode {
 
     RETURN_NOT_OK(impl_->Init(
         plan_->exec_context(), join_type_, use_sync_execution, num_threads,
-        schema_mgr_.get(), key_cmp_,
+        schema_mgr_.get(), key_cmp_, filter_,
         [this](ExecBatch batch) { this->OutputBatchCallback(batch); },
         [this](int64_t total_num_batches) { this->FinishedCallback(total_num_batches); },
         [this](std::function<Status(size_t)> func) -> Status {
@@ -453,6 +609,7 @@ class HashJoinNode : public ExecNode {
   Future<> finished_ = Future<>::MakeFinished();
   JoinType join_type_;
   std::vector<JoinKeyCmp> key_cmp_;
+  Expression filter_;
   ThreadIndexer thread_indexer_;
   std::unique_ptr<HashJoinSchema> schema_mgr_;
   std::unique_ptr<HashJoinImpl> impl_;
