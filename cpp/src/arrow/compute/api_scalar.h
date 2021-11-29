@@ -1245,4 +1245,3 @@ ARROW_EXPORT Result<Datum> AssumeTimezone(const Datum& values,
 
 }  // namespace compute
 }  // namespace arrow
-

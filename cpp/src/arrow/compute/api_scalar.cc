@@ -453,8 +453,8 @@ void RegisterScalarOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kReplaceSubstringOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kRoundOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kRoundToMultipleOptionsType));
-  DCHECK_OK(registry->AddFunctionOptionsType(kSetLookupOptionsType));  
-  DCHECK_OK(registry->AddFunctionOptionsType(kSliceOptionsType));  
+  DCHECK_OK(registry->AddFunctionOptionsType(kSetLookupOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kSliceOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kSplitOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kSplitPatternOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kStrftimeOptionsType));
@@ -668,4 +668,3 @@ Result<Datum> Week(const Datum& arg, WeekOptions options, ExecContext* ctx) {
 
 }  // namespace compute
 }  // namespace arrow
-
