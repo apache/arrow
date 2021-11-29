@@ -80,7 +80,7 @@ const char* r6_class_name<arrow::DataType>::get(
     case Type::TIME64:
       return "Time64";
 
-    case Type::DECIMAL:
+    case Type::DECIMAL128:
       return "Decimal128Type";
 
     case Type::LIST:

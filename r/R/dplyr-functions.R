@@ -201,7 +201,7 @@ nse_funcs$is.numeric <- function(x) {
   is.numeric(x) || (inherits(x, "Expression") && x$type_id() %in% Type[c(
     "UINT8", "INT8", "UINT16", "INT16", "UINT32", "INT32",
     "UINT64", "INT64", "HALF_FLOAT", "FLOAT", "DOUBLE",
-    "DECIMAL", "DECIMAL256"
+    "DECIMAL128", "DECIMAL256"
   )])
 }
 nse_funcs$is.double <- function(x) {
