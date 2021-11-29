@@ -43,12 +43,16 @@ release of the R package along with any C++ dependencies.
 
 ## Install the latest release
 
-Install the latest release of `arrow` from CRAN with
+Install the latest release of `arrow` using:
 
 ```r
 Sys.setenv(NOT_CRAN = TRUE)
 install.packages("arrow")
 ```
+
+We use the environment variable `NOT_CRAN` to enable a more full-featured build
+including S3 support, alternative memory allocators, Linux binaries, 
+and other features.
 
 ## Install the nightly build
 
