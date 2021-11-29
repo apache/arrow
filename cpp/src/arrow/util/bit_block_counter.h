@@ -986,7 +986,7 @@ static void VisitThreeBitBlocksVoid(
     }
   }
   // Two bitmaps are present
-  if (left_bitmap_buf == NULLPTR) { 
+  if (left_bitmap_buf == NULLPTR) {
     const uint8_t* mid_bitmap = mid_bitmap_buf->data();
     const uint8_t* right_bitmap = right_bitmap_buf->data();
     BinaryBitBlockCounter bit_counter(mid_bitmap, mid_offset, right_bitmap, right_offset,
