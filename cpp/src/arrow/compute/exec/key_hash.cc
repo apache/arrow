@@ -138,6 +138,19 @@ inline uint32_t Hashing::helper_tail(uint32_t offset, uint64_t mask, const uint8
   return acc;
 }
 
+inline uint32_t Hashing::helper_tail(uint32_t offset, uint64_t mask, const uint8_t* keys,
+                                     uint32_t acc, uint32_t keys_length) {
+  uint64_t v = util::SafeLoadAs<const uint64_t>(keys + offset, keys_length);
+  v &= mask;
+  uint32_t x1 = static_cast<uint32_t>(v);
+  uint32_t x2 = static_cast<uint32_t>(v >> 32);
+  acc += x1 * PRIME32_3;
+  acc = ROTL(acc, 17) * PRIME32_4;
+  acc += x2 * PRIME32_3;
+  acc = ROTL(acc, 17) * PRIME32_4;
+  return acc;
+}
+
 void Hashing::helper_tails(int64_t hardware_flags, uint32_t num_keys, uint32_t key_length,
                            const uint8_t* keys, uint32_t* hash) {
   uint32_t processed = 0;
@@ -232,7 +245,7 @@ void Hashing::hash_varlen(int64_t hardware_flags, uint32_t num_rows,
     } else if (key_length > 0) {
       uint32_t acc_combined = combine_accumulators(acc1, acc2, acc3, acc4);
       hashes[i] = helper_tail(offset, masks[key_length_remaining], concatenated_keys,
-                              acc_combined);
+                              acc_combined, key_length_remaining);
     } else {
       hashes[i] = combine_accumulators(acc1, acc2, acc3, acc4);
     }
