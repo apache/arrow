@@ -411,7 +411,9 @@ See discussion [here](https://issues.apache.org/jira/browse/ARROW-8556).
 
 ## Summary of build environment variables
 
-Some features are optional when you build Arrow from source. With the exception of `ARROW_S3`, these are all `ON` by default in the bundled C++ build, but you can set them to `OFF` to disable them.
+Some features are optional when you build Arrow from source. With the exception 
+of `ARROW_S3`, these are all `ON` by default in the bundled C++ build, but you 
+can set them to `OFF` to disable them.
 
 * `ARROW_S3`: If set to `ON` S3 support will be built as long as the
   dependencies are met; if they are not met, the build script will turn this `OFF`
@@ -423,7 +425,6 @@ Some features are optional when you build Arrow from source. With the exception 
 * `ARROW_WITH_RE2` for the RE2 regular expression library, used in some string compute functions
 * `ARROW_WITH_UTF8PROC` for the UTF8Proc string library, used in many other string compute functions
 * `ARROW_WITH_BROTLI`, `ARROW_WITH_BZ2`, `ARROW_WITH_LZ4`, `ARROW_WITH_SNAPPY`, `ARROW_WITH_ZLIB`, and `ARROW_WITH_ZSTD` for various compression algorithms
-
 
 There are a number of other variables that affect the `configure` script and the bundled build script.
 By default, these are all unset. All boolean variables are case-insensitive.
