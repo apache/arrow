@@ -243,7 +243,8 @@ def _simple_ternary_function(name):
     option_class = _option_classes.get(name)
 
     if option_class is not None:
-        def wrapper(value, left, right, *, options=None, memory_pool=None, **kwargs):
+        def wrapper(value, left, right, *, options=None, memory_pool=None,
+                    **kwargs):
             options = _handle_options(name, option_class, options, kwargs)
             return func.call([value, left, right], options, memory_pool)
     else:
