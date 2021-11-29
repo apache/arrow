@@ -658,8 +658,8 @@ write_csv_arrow <- function(x,
 
   if (!missing(file) && !missing(sink)) {
     stop(
-      paste("You have supplied both \"file\" and \"sink\" arguments. Please",
-            "supply only one of them."),
+      "You have supplied both \"file\" and \"sink\" arguments. Please ",
+      "supply only one of them.",
       call. = FALSE
     )
   }
@@ -670,8 +670,8 @@ write_csv_arrow <- function(x,
 
   if (!missing(col_names) && !missing(include_header)) {
     stop(
-      paste("You have supplied both \"col_names\" and \"include_header\"",
-            "arguments. Please supply only one of them."),
+      "You have supplied both \"col_names\" and \"include_header\" ",
+      "arguments. Please supply only one of them.",
       call. = FALSE
     )
   }
@@ -679,9 +679,8 @@ write_csv_arrow <- function(x,
   # default value are considered missing by base R
   if (missing(include_header) && !missing(col_names)) {
     message(
-      paste(
-        "You have supplied a value for \"col_names\". This will overwrite",
-        "the value for the \"include_headers\" argument."))
+      "You have supplied a value for \"col_names\". This will overwrite ",
+      "the value for the \"include_headers\" argument.")
     include_header <- col_names
   }
 
