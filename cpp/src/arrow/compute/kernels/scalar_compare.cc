@@ -292,8 +292,7 @@ std::shared_ptr<ScalarFunction> MakeCompareFunction(std::string name,
   }
 
   {
-    auto exec =
-        ScalarBinaryEqualTypes<BooleanType, FixedSizeBinaryType, Op>::Exec;
+    auto exec = ScalarBinaryEqualTypes<BooleanType, FixedSizeBinaryType, Op>::Exec;
     auto ty = InputType(Type::FIXED_SIZE_BINARY);
     DCHECK_OK(func->AddKernel({ty, ty}, boolean(), std::move(exec)));
   }
@@ -497,10 +496,9 @@ void AddIntegerBetween(const std::shared_ptr<DataType>& ty, ScalarFunction* func
 
 template <typename InType, typename Op>
 void AddGenericBetween(const std::shared_ptr<DataType>& ty, ScalarFunction* func) {
-  DCHECK_OK(func->AddKernel({ty, ty, ty}, boolean(), 
+  DCHECK_OK(func->AddKernel({ty, ty, ty}, boolean(),
                             ScalarTernaryEqualTypes<BooleanType, InType, Op>::Exec));
 }
-
 
 template <typename Op>
 std::shared_ptr<ScalarFunction> MakeBetweenFunction(std::string name,

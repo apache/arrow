@@ -572,7 +572,7 @@ class ARROW_EXPORT OptionalBinaryBitBlockCounter {
 class ARROW_EXPORT TernaryBitBlockCounter {
  public:
   TernaryBitBlockCounter(const uint8_t* left_bitmap, int64_t left_offset,
-                         const uint8_t* mid_bitmap,  int64_t mid_offset,
+                         const uint8_t* mid_bitmap, int64_t mid_offset,
                          const uint8_t* right_bitmap, int64_t right_offset,
                          int64_t length)
       : left_bitmap_(util::MakeNonNull(left_bitmap) + left_offset / 8),
@@ -648,9 +648,9 @@ class ARROW_EXPORT TernaryBitBlockCounter {
     // word in the bitmap for the bit shifting logic.
     constexpr int64_t kWordBits = BitBlockCounter::kWordBits;
     const int64_t bits_required_to_use_words =
-        std::max({left_offset_  == 0 ? 64 : 64 + (64 - left_offset_),
-                  mid_offset_   == 0 ? 64 : 64 + (64 - mid_offset_),
-                  right_offset_ == 0 ? 64 : 64 + (64 - right_offset_) });
+        std::max({left_offset_ == 0 ? 64 : 64 + (64 - left_offset_),
+                  mid_offset_ == 0 ? 64 : 64 + (64 - mid_offset_),
+                  right_offset_ == 0 ? 64 : 64 + (64 - right_offset_)});
     if (bits_remaining_ < bits_required_to_use_words) {
       const int16_t run_length =
           static_cast<int16_t>(std::min(bits_remaining_, kWordBits));
@@ -786,7 +786,7 @@ class ARROW_EXPORT OptionalTernaryBitBlockCounter {
 
   static HasBitmap HasBitmapFromBitmaps(bool has_left, bool has_mid, bool has_right) {
     switch (static_cast<int>(has_left) + static_cast<int>(has_mid) +
-	    static_cast<int>(has_right)) {
+            static_cast<int>(has_right)) {
       case 0:
         return HasBitmap::NONE;
       case 1:
@@ -967,9 +967,9 @@ static void VisitThreeBitBlocksVoid(
     const std::shared_ptr<Buffer>& mid_bitmap_buf, int64_t mid_offset,
     const std::shared_ptr<Buffer>& right_bitmap_buf, int64_t right_offset, int64_t length,
     VisitNotNull&& visit_not_null, VisitNull&& visit_null) {
-  if (((left_bitmap_buf == NULLPTR) && (mid_bitmap_buf   == NULLPTR) ) ||
-      ((mid_bitmap_buf == NULLPTR) && (right_bitmap_buf == NULLPTR) ) ||
-      ((left_bitmap_buf == NULLPTR) && (right_bitmap_buf == NULLPTR) ) ) {
+  if (((left_bitmap_buf == NULLPTR) && (mid_bitmap_buf == NULLPTR)) ||
+      ((mid_bitmap_buf == NULLPTR) && (right_bitmap_buf == NULLPTR)) ||
+      ((left_bitmap_buf == NULLPTR) && (right_bitmap_buf == NULLPTR))) {
     // At most one bitmap is present
     if ((left_bitmap_buf == NULLPTR) && (mid_bitmap_buf == NULLPTR)) {
       return VisitBitBlocksVoid(right_bitmap_buf, right_offset, length,
@@ -986,7 +986,7 @@ static void VisitThreeBitBlocksVoid(
     }
   }
   // Two bitmaps are present
-  if (left_bitmap_buf == NULLPTR ) { 
+  if (left_bitmap_buf == NULLPTR) { 
     const uint8_t* mid_bitmap = mid_bitmap_buf->data();
     const uint8_t* right_bitmap = right_bitmap_buf->data();
     BinaryBitBlockCounter bit_counter(mid_bitmap, mid_offset, right_bitmap, right_offset,
@@ -1017,7 +1017,7 @@ static void VisitThreeBitBlocksVoid(
     const uint8_t* left_bitmap = left_bitmap_buf->data();
     const uint8_t* right_bitmap = right_bitmap_buf->data();
     BinaryBitBlockCounter bit_counter(left_bitmap, left_offset, right_bitmap,
-		                      right_offset, length);
+                                      right_offset, length);
     int64_t position = 0;
     while (position < length) {
       BitBlockCount block = bit_counter.NextAndWord();
@@ -1044,7 +1044,7 @@ static void VisitThreeBitBlocksVoid(
     const uint8_t* left_bitmap = left_bitmap_buf->data();
     const uint8_t* mid_bitmap = mid_bitmap_buf->data();
     BinaryBitBlockCounter bit_counter(left_bitmap, left_offset, mid_bitmap, mid_offset,
-                                    length);
+                                      length);
     int64_t position = 0;
     while (position < length) {
       BitBlockCount block = bit_counter.NextAndWord();
@@ -1067,7 +1067,6 @@ static void VisitThreeBitBlocksVoid(
         }
       }
     }
- 
   }
   // All three bitmaps are present
 
@@ -1075,7 +1074,7 @@ static void VisitThreeBitBlocksVoid(
   const uint8_t* mid_bitmap = mid_bitmap_buf->data();
   const uint8_t* right_bitmap = right_bitmap_buf->data();
   TernaryBitBlockCounter bit_counter(left_bitmap, left_offset, mid_bitmap, mid_offset,
-		                     right_bitmap, right_offset, length);
+                                     right_bitmap, right_offset, length);
   int64_t position = 0;
   while (position < length) {
     BitBlockCount block = bit_counter.NextAndAndWord();
@@ -1099,9 +1098,7 @@ static void VisitThreeBitBlocksVoid(
       }
     }
   }
-
 }
-
 
 }  // namespace internal
 }  // namespace arrow
