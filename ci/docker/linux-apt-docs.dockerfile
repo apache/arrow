@@ -74,15 +74,8 @@ RUN wget -q -O - https://deb.nodesource.com/setup_${node}.x | bash - && \
     rm -rf /var/lib/apt/lists/* && \
     npm install -g yarn
 
-# ARROW-13353: breathe >= 4.29.1 tries to parse template arguments,
-# but Sphinx can't parse constructs like `typename...`.
-RUN pip install \
-        meson \
-        breathe==4.29.0 \
-        ipython \
-        pydata-sphinx-theme \
-        sphinx \
-        sphinx-tabs
+COPY ci/conda_env_sphinx.txt /arrow/ci/
+RUN pip install -r arrow/ci/conda_env_sphinx.txt meson
 
 COPY c_glib/Gemfile /arrow/c_glib/
 RUN gem install --no-document bundler && \
@@ -107,4 +100,4 @@ ENV ARROW_FLIGHT=ON \
     ARROW_BUILD_TESTS=OFF \
     ARROW_BUILD_UTILITIES=OFF \
     ARROW_USE_GLOG=OFF \
-    CMAKE_UNITY_BUILD=ON \
+    CMAKE_UNITY_BUILD=ON
