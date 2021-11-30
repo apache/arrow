@@ -89,81 +89,87 @@ public class ArrowFlightJdbcAccessorFactory {
    * @param getCurrentRow a supplier to check which row is being accessed.
    * @return an instance of one of the accessors.
    */
-  public static ArrowFlightJdbcAccessor createAccessor(ValueVector vector, IntSupplier getCurrentRow) {
+  public static ArrowFlightJdbcAccessor createAccessor(ValueVector vector, IntSupplier getCurrentRow, WasNullConsumer setCursorWasNull) {
     if (vector instanceof UInt1Vector) {
-      return new ArrowFlightJdbcBaseIntVectorAccessor((UInt1Vector) vector, getCurrentRow);
+      return new ArrowFlightJdbcBaseIntVectorAccessor((UInt1Vector) vector, getCurrentRow, setCursorWasNull);
     } else if (vector instanceof UInt2Vector) {
-      return new ArrowFlightJdbcBaseIntVectorAccessor((UInt2Vector) vector, getCurrentRow);
+      return new ArrowFlightJdbcBaseIntVectorAccessor((UInt2Vector) vector, getCurrentRow, setCursorWasNull);
     } else if (vector instanceof UInt4Vector) {
-      return new ArrowFlightJdbcBaseIntVectorAccessor((UInt4Vector) vector, getCurrentRow);
+      return new ArrowFlightJdbcBaseIntVectorAccessor((UInt4Vector) vector, getCurrentRow, setCursorWasNull);
     } else if (vector instanceof UInt8Vector) {
-      return new ArrowFlightJdbcBaseIntVectorAccessor((UInt8Vector) vector, getCurrentRow);
+      return new ArrowFlightJdbcBaseIntVectorAccessor((UInt8Vector) vector, getCurrentRow, setCursorWasNull);
     } else if (vector instanceof TinyIntVector) {
-      return new ArrowFlightJdbcBaseIntVectorAccessor((TinyIntVector) vector, getCurrentRow);
+      return new ArrowFlightJdbcBaseIntVectorAccessor((TinyIntVector) vector, getCurrentRow, setCursorWasNull);
     } else if (vector instanceof SmallIntVector) {
-      return new ArrowFlightJdbcBaseIntVectorAccessor((SmallIntVector) vector, getCurrentRow);
+      return new ArrowFlightJdbcBaseIntVectorAccessor((SmallIntVector) vector, getCurrentRow, setCursorWasNull);
     } else if (vector instanceof IntVector) {
-      return new ArrowFlightJdbcBaseIntVectorAccessor((IntVector) vector, getCurrentRow);
+      return new ArrowFlightJdbcBaseIntVectorAccessor((IntVector) vector, getCurrentRow, setCursorWasNull);
     } else if (vector instanceof BigIntVector) {
-      return new ArrowFlightJdbcBaseIntVectorAccessor((BigIntVector) vector, getCurrentRow);
+      return new ArrowFlightJdbcBaseIntVectorAccessor((BigIntVector) vector, getCurrentRow, setCursorWasNull);
     } else if (vector instanceof Float4Vector) {
-      return new ArrowFlightJdbcFloat4VectorAccessor((Float4Vector) vector, getCurrentRow);
+      return new ArrowFlightJdbcFloat4VectorAccessor((Float4Vector) vector, getCurrentRow, setCursorWasNull);
     } else if (vector instanceof Float8Vector) {
-      return new ArrowFlightJdbcFloat8VectorAccessor((Float8Vector) vector, getCurrentRow);
+      return new ArrowFlightJdbcFloat8VectorAccessor((Float8Vector) vector, getCurrentRow, setCursorWasNull);
     } else if (vector instanceof BitVector) {
-      return new ArrowFlightJdbcBitVectorAccessor((BitVector) vector, getCurrentRow);
+      return new ArrowFlightJdbcBitVectorAccessor((BitVector) vector, getCurrentRow, setCursorWasNull);
     } else if (vector instanceof DecimalVector) {
-      return new ArrowFlightJdbcDecimalVectorAccessor((DecimalVector) vector, getCurrentRow);
+      return new ArrowFlightJdbcDecimalVectorAccessor((DecimalVector) vector, getCurrentRow, setCursorWasNull);
     } else if (vector instanceof Decimal256Vector) {
-      return new ArrowFlightJdbcDecimalVectorAccessor((Decimal256Vector) vector, getCurrentRow);
+      return new ArrowFlightJdbcDecimalVectorAccessor((Decimal256Vector) vector, getCurrentRow, setCursorWasNull);
     } else if (vector instanceof VarBinaryVector) {
-      return new ArrowFlightJdbcBinaryVectorAccessor((VarBinaryVector) vector, getCurrentRow);
+      return new ArrowFlightJdbcBinaryVectorAccessor((VarBinaryVector) vector, getCurrentRow, setCursorWasNull);
     } else if (vector instanceof LargeVarBinaryVector) {
-      return new ArrowFlightJdbcBinaryVectorAccessor((LargeVarBinaryVector) vector, getCurrentRow);
+      return new ArrowFlightJdbcBinaryVectorAccessor((LargeVarBinaryVector) vector, getCurrentRow, setCursorWasNull);
     } else if (vector instanceof FixedSizeBinaryVector) {
-      return new ArrowFlightJdbcBinaryVectorAccessor((FixedSizeBinaryVector) vector, getCurrentRow);
+      return new ArrowFlightJdbcBinaryVectorAccessor((FixedSizeBinaryVector) vector, getCurrentRow, setCursorWasNull);
     } else if (vector instanceof TimeStampVector) {
-      return new ArrowFlightJdbcTimeStampVectorAccessor((TimeStampVector) vector, getCurrentRow);
+      return new ArrowFlightJdbcTimeStampVectorAccessor((TimeStampVector) vector, getCurrentRow, setCursorWasNull);
     } else if (vector instanceof TimeNanoVector) {
-      return new ArrowFlightJdbcTimeVectorAccessor((TimeNanoVector) vector, getCurrentRow);
+      return new ArrowFlightJdbcTimeVectorAccessor((TimeNanoVector) vector, getCurrentRow, setCursorWasNull);
     } else if (vector instanceof TimeMicroVector) {
-      return new ArrowFlightJdbcTimeVectorAccessor((TimeMicroVector) vector, getCurrentRow);
+      return new ArrowFlightJdbcTimeVectorAccessor((TimeMicroVector) vector, getCurrentRow, setCursorWasNull);
     } else if (vector instanceof TimeMilliVector) {
-      return new ArrowFlightJdbcTimeVectorAccessor((TimeMilliVector) vector, getCurrentRow);
+      return new ArrowFlightJdbcTimeVectorAccessor((TimeMilliVector) vector, getCurrentRow, setCursorWasNull);
     } else if (vector instanceof TimeSecVector) {
-      return new ArrowFlightJdbcTimeVectorAccessor((TimeSecVector) vector, getCurrentRow);
+      return new ArrowFlightJdbcTimeVectorAccessor((TimeSecVector) vector, getCurrentRow, setCursorWasNull);
     } else if (vector instanceof DateDayVector) {
-      return new ArrowFlightJdbcDateVectorAccessor(((DateDayVector) vector), getCurrentRow);
+      return new ArrowFlightJdbcDateVectorAccessor(((DateDayVector) vector), getCurrentRow, setCursorWasNull);
     } else if (vector instanceof DateMilliVector) {
-      return new ArrowFlightJdbcDateVectorAccessor(((DateMilliVector) vector), getCurrentRow);
+      return new ArrowFlightJdbcDateVectorAccessor(((DateMilliVector) vector), getCurrentRow, setCursorWasNull);
     } else if (vector instanceof VarCharVector) {
-      return new ArrowFlightJdbcVarCharVectorAccessor((VarCharVector) vector, getCurrentRow);
+      return new ArrowFlightJdbcVarCharVectorAccessor((VarCharVector) vector, getCurrentRow, setCursorWasNull);
     } else if (vector instanceof LargeVarCharVector) {
-      return new ArrowFlightJdbcVarCharVectorAccessor((LargeVarCharVector) vector, getCurrentRow);
+      return new ArrowFlightJdbcVarCharVectorAccessor((LargeVarCharVector) vector, getCurrentRow, setCursorWasNull);
     } else if (vector instanceof DurationVector) {
-      return new ArrowFlightJdbcDurationVectorAccessor((DurationVector) vector, getCurrentRow);
+      return new ArrowFlightJdbcDurationVectorAccessor((DurationVector) vector, getCurrentRow, setCursorWasNull);
     } else if (vector instanceof IntervalDayVector) {
-      return new ArrowFlightJdbcIntervalVectorAccessor(((IntervalDayVector) vector), getCurrentRow);
+      return new ArrowFlightJdbcIntervalVectorAccessor(((IntervalDayVector) vector), getCurrentRow, setCursorWasNull);
     } else if (vector instanceof IntervalYearVector) {
-      return new ArrowFlightJdbcIntervalVectorAccessor(((IntervalYearVector) vector), getCurrentRow);
+      return new ArrowFlightJdbcIntervalVectorAccessor(((IntervalYearVector) vector), getCurrentRow, setCursorWasNull);
     } else if (vector instanceof StructVector) {
-      return new ArrowFlightJdbcStructVectorAccessor((StructVector) vector, getCurrentRow);
+      return new ArrowFlightJdbcStructVectorAccessor((StructVector) vector, getCurrentRow, setCursorWasNull);
     } else if (vector instanceof MapVector) {
-      return new ArrowFlightJdbcMapVectorAccessor((MapVector) vector, getCurrentRow);
+      return new ArrowFlightJdbcMapVectorAccessor((MapVector) vector, getCurrentRow, setCursorWasNull);
     } else if (vector instanceof ListVector) {
-      return new ArrowFlightJdbcListVectorAccessor((ListVector) vector, getCurrentRow);
+      return new ArrowFlightJdbcListVectorAccessor((ListVector) vector, getCurrentRow, setCursorWasNull);
     } else if (vector instanceof LargeListVector) {
-      return new ArrowFlightJdbcLargeListVectorAccessor((LargeListVector) vector, getCurrentRow);
+      return new ArrowFlightJdbcLargeListVectorAccessor((LargeListVector) vector, getCurrentRow, setCursorWasNull);
     } else if (vector instanceof FixedSizeListVector) {
-      return new ArrowFlightJdbcFixedSizeListVectorAccessor((FixedSizeListVector) vector, getCurrentRow);
+      return new ArrowFlightJdbcFixedSizeListVectorAccessor((FixedSizeListVector) vector, getCurrentRow, setCursorWasNull);
     } else if (vector instanceof UnionVector) {
-      return new ArrowFlightJdbcUnionVectorAccessor((UnionVector) vector, getCurrentRow);
+      return new ArrowFlightJdbcUnionVectorAccessor((UnionVector) vector, getCurrentRow, setCursorWasNull);
     } else if (vector instanceof DenseUnionVector) {
-      return new ArrowFlightJdbcDenseUnionVectorAccessor((DenseUnionVector) vector, getCurrentRow);
+      return new ArrowFlightJdbcDenseUnionVectorAccessor((DenseUnionVector) vector, getCurrentRow, setCursorWasNull);
     } else if (vector instanceof NullVector || vector == null) {
-      return new ArrowFlightJdbcNullVectorAccessor();
+      return new ArrowFlightJdbcNullVectorAccessor(setCursorWasNull);
     }
 
     throw new UnsupportedOperationException();
   }
+
+  @FunctionalInterface
+  public interface WasNullConsumer {
+    void setWasNull(boolean wasNull);
+  }
+
 }

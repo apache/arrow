@@ -40,6 +40,7 @@ public class ArrowFlightJdbcNullVectorAccessor extends ArrowFlightJdbcAccessor {
 
   @Override
   public Object getObject() {
+    this.wasNullConsumer.setWasNull(true);
     return null;
   }
 }
