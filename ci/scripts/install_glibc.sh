@@ -35,7 +35,7 @@ wget -q ${url} -O - | tar -xzf - --directory /tmp/glibc --strip-components=1
 mkdir /tmp/glibc/build
 pushd /tmp/glibc/build
 ../configure --prefix=${prefix}
-make -j4
+make -j$(nproc)
 make install
 popd
 
