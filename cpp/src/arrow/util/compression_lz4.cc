@@ -53,11 +53,6 @@ static LZ4F_preferences_t DefaultPreferences() {
   return prefs;
 }
 
-static LZ4F_preferences_t DefaultPreferences(int compression_level) {
-  LZ4F_preferences_t prefs = DefaultPreferences();
-  return prefs;
-}
-
 // ----------------------------------------------------------------------
 // Lz4 frame decompressor implementation
 
