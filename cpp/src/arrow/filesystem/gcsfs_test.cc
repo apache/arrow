@@ -284,6 +284,35 @@ TEST(GcsFileSystem, ToObjectMetadataInvalidCustomTime) {
   EXPECT_THAT(metadata.status().message(), HasSubstr("Error parsing RFC-3339"));
 }
 
+TEST(GcsFileSystem, ObjectMetadataRoundtrip) {
+  const auto source = KeyValueMetadataForTest();
+  gcs::WithObjectMetadata tmp;
+  ASSERT_OK_AND_ASSIGN(tmp, arrow::fs::internal::ToObjectMetadata(source));
+  std::shared_ptr<const KeyValueMetadata> destination;
+  ASSERT_OK_AND_ASSIGN(destination, arrow::fs::internal::FromObjectMetadata(tmp.value()));
+  // Only a subset of the keys are configurable in gcs::ObjectMetadata, for example, the
+  // size and CRC32C values of an object are only settable when the metadata is received
+  // from the services. For those keys that should be preserved, verify they are preserved
+  // in the round trip.
+  for (auto key : {"Cache-Control", "Content-Disposition", "Content-Encoding",
+                   "Content-Language", "Content-Type", "storageClass"}) {
+    SCOPED_TRACE("Testing key " + std::string(key));
+    ASSERT_OK_AND_ASSIGN(auto s, source->Get(key));
+    ASSERT_OK_AND_ASSIGN(auto d, destination->Get(key));
+    EXPECT_EQ(s, d);
+  }
+  // RFC-3339 formatted timestamps may differ in trivial things, e.g., the UTC timezone
+  // can be represented as 'Z' or '+00:00'.
+  ASSERT_OK_AND_ASSIGN(auto s, source->Get("customTime"));
+  ASSERT_OK_AND_ASSIGN(auto d, destination->Get("customTime"));
+  std::string err;
+  absl::Time ts;
+  absl::Time td;
+  ASSERT_TRUE(absl::ParseTime(absl::RFC3339_full, s, &ts, &err)) << "error=" << err;
+  ASSERT_TRUE(absl::ParseTime(absl::RFC3339_full, d, &td, &err)) << "error=" << err;
+  EXPECT_NEAR(absl::ToDoubleSeconds(ts - td), 0, 0.5);
+}
+
 TEST_F(GcsIntegrationTest, GetFileInfoBucket) {
   auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
   arrow::fs::AssertFileInfo(fs.get(), kPreexistingBucket, FileType::Directory);
