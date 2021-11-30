@@ -34,7 +34,13 @@ namespace compute {
 
 // Identifiers for all different row schemas that are used in a join
 //
-enum class HashJoinProjection : int { INPUT = 0, KEY = 1, PAYLOAD = 2, OUTPUT = 3 };
+enum class HashJoinProjection : int {
+  INPUT = 0,
+  KEY = 1,
+  PAYLOAD = 2,
+  FILTER = 3,
+  OUTPUT = 4
+};
 
 struct SchemaProjectionMap {
   static constexpr int kMissingField = -1;

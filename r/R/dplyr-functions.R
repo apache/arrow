@@ -908,17 +908,6 @@ nse_funcs$if_else <- function(condition, true, false, missing = NULL) {
     ))
   }
 
-  # if_else doesn't yet support factors/dictionaries
-  # TODO: remove this after ARROW-13358 is merged
-  warn_types <- nse_funcs$is.factor(true) | nse_funcs$is.factor(false)
-  if (warn_types) {
-    warning(
-      "Dictionaries (in R: factors) are currently converted to strings (characters) ",
-      "in if_else and ifelse",
-      call. = FALSE
-    )
-  }
-
   build_expr("if_else", condition, true, false)
 }
 

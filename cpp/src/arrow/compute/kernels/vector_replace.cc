@@ -81,7 +81,7 @@ struct CopyArrayBitmap {
 
   void SetBit(uint8_t* out_bitmap, int64_t out_offset, int64_t offset) const {
     BitUtil::SetBitTo(out_bitmap, out_offset,
-                      BitUtil::GetBit(in_bitmap, in_offset + offset));
+                      in_bitmap ? BitUtil::GetBit(in_bitmap, in_offset + offset) : true);
   }
 };
 
@@ -122,7 +122,7 @@ void ReplaceWithArrayMaskImpl(const ArrayData& array, const ArrayData& mask,
       if (replacements_bitmap) {
         copy_bitmap.CopyBitmap(out_bitmap, out_offset + write_offset, replacements_offset,
                                block.length);
-      } else if (!replacements_bitmap && out_bitmap) {
+      } else if (out_bitmap) {
         BitUtil::SetBitsTo(out_bitmap, out_offset + write_offset, block.length, true);
       }
       replacements_offset += block.length;
@@ -133,10 +133,9 @@ void ReplaceWithArrayMaskImpl(const ArrayData& array, const ArrayData& mask,
              BitUtil::GetBit(mask_bitmap, write_offset + mask.offset + i))) {
           Functor::CopyData(*array.type, out_values, out_offset + write_offset + i,
                             replacements, replacements_offset, /*length=*/1);
-          if (replacements_bitmap) {
-            copy_bitmap.SetBit(out_bitmap, out_offset + write_offset + i,
-                               replacements_offset);
-          }
+          copy_bitmap.SetBit(out_bitmap, out_offset + write_offset + i,
+
+                             replacements_offset);
           replacements_offset++;
         }
       }
@@ -154,9 +153,8 @@ Status ReplaceWithArrayMask(KernelContext* ctx, const ArrayData& array,
   uint8_t* out_values = output->buffers[1]->mutable_data();
   const uint8_t* mask_bitmap = mask.MayHaveNulls() ? mask.buffers[0]->data() : nullptr;
   const uint8_t* mask_values = mask.buffers[1]->data();
-  const bool replacements_bitmap = replacements.is_array()
-                                       ? replacements.array()->MayHaveNulls()
-                                       : !replacements.scalar()->is_valid;
+  const bool replacements_bitmap =
+      replacements.is_array() ? replacements.array()->MayHaveNulls() : true;
   if (replacements.is_array()) {
     // Check that we have enough replacement values
     const int64_t replacements_length = replacements.array()->length;
@@ -189,7 +187,7 @@ Status ReplaceWithArrayMask(KernelContext* ctx, const ArrayData& array,
     const ArrayData& array_repl = *replacements.array();
     ReplaceWithArrayMaskImpl<Functor>(
         array, mask, array_repl, replacements_bitmap,
-        CopyArrayBitmap{replacements_bitmap ? array_repl.buffers[0]->data() : nullptr,
+        CopyArrayBitmap{(replacements_bitmap) ? array_repl.buffers[0]->data() : nullptr,
                         array_repl.offset},
         mask_bitmap, mask_values, out_bitmap, out_values, out_offset);
   } else {
@@ -254,7 +252,9 @@ struct ReplaceWithMask<Type, enable_if_boolean<Type>> {
   }
   static void CopyData(const DataType&, uint8_t* out, const int64_t out_offset,
                        const Scalar& in, const int64_t in_offset, const int64_t length) {
-    BitUtil::SetBitsTo(out, out_offset, length, in.is_valid);
+    BitUtil::SetBitsTo(
+        out, out_offset, length,
+        in.is_valid ? checked_cast<const BooleanScalar&>(in).value : false);
   }
 
   static Status ExecScalarMask(KernelContext* ctx, const ArrayData& array,

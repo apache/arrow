@@ -137,10 +137,9 @@ struct AltrepVectorBase {
     return TRUE;
   }
 
-  // Duplication is done by first materializing the vector and
-  // then make a lazy duplicate of data2
+  // Materialize and then duplicate data2
   static SEXP Duplicate(SEXP alt, Rboolean /* deep */) {
-    return Rf_lazy_duplicate(Impl::Materialize(alt));
+    return Rf_duplicate(Impl::Materialize(alt));
   }
 
   static SEXP Coerce(SEXP alt, int type) {
