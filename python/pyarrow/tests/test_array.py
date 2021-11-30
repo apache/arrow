@@ -764,6 +764,37 @@ def test_struct_array_sort():
         {"a": 35, "b": "foobar"},
     ]
 
+
+def test_struct_chunked_array_sort():
+    arr1 = pa.StructArray.from_arrays([
+        pa.array([5, 7], type=pa.int64()),
+        pa.array(["foo", "car"])
+    ], names=["a", "b"])
+
+    arr2 = pa.StructArray.from_arrays([
+        pa.array([7, 35], type=pa.int64()),
+        pa.array(["bar", "foobar"])
+    ], names=["a", "b"])
+
+    chunked_arr = pa.chunked_array([arr1, arr2])
+
+    sorted_arr = chunked_arr.sort("descending")
+    assert sorted_arr.to_pylist() == [
+        {"a": 35, "b": "foobar"},
+        {"a": 7, "b": "car"},
+        {"a": 7, "b": "bar"},
+        {"a": 5, "b": "foo"},
+    ]
+
+    sorted_arr = chunked_arr.sort("ascending")
+    assert sorted_arr.to_pylist() == [
+        {"a": 5, "b": "foo"},
+        {"a": 7, "b": "bar"},
+        {"a": 7, "b": "car"},
+        {"a": 35, "b": "foobar"},
+    ]
+
+
 def test_dictionary_from_numpy():
     indices = np.repeat([0, 1, 2], 2)
     dictionary = np.array(['foo', 'bar', 'baz'], dtype=object)

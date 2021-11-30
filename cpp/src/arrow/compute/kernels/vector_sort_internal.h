@@ -452,6 +452,86 @@ using ArraySortFunc = std::function<NullPartitionResult(
 
 Result<ArraySortFunc> GetArraySorter(const DataType& type);
 
+class NestedValuesComparator {
+  public:
+    NestedValuesComparator(Array const &array) {
+      for(auto field = fields.begin(); field != fields.end(); field++) {
+        std::shared_ptr<DataType> physical_type = GetPhysicalType((*field)->type());
+        NestedComparatorFactory comparator_factory = NestedComparatorFactory();
+        if(NestedComparatorFactory().MakeFieldComparator(*physical_type) != Status::OK())
+          // TODO: Improve error handling
+          return NullPartitionResult();
+        field_comparators_.push_back(current_field_comparator_);
+      }
+    }
+
+
+  private:
+    std::vector<NestedValueComparator> comparators_;
+
+  /** 
+   * Internal use factory whose purpose is to detect the right type
+   * of comparator that should be built to be able to compare two
+   * nested values in the same field or column
+   */
+  struct NestedComparatorFactory {
+    Result<std::shared_ptr<FieldValueComparator>> MakeFieldComparator(DataType const &physical_type) {
+        RETURN_NOT_OK(VisitTypeInline(physical_type, this));
+        DCHECK_NE(current_field_comparator_, nullptr);
+        return std::move(current_field_comparator_);
+    }
+
+  #define VISIT(TYPE) \
+    Status Visit(const TYPE& type) { return VisitGeneric(type); }
+
+      VISIT_SORTABLE_PHYSICAL_TYPES(VISIT)
+  #undef VISIT
+
+    Status Visit(const DataType& type) {
+      return Status::TypeError("Unsupported type for NestedComparatorFactory: ",
+                              type.ToString());
+    }
+
+    template <typename Type>
+    Status VisitGeneric(const Type&) {
+      current_field_comparator_ = std::shared_ptr<FieldValueComparator>(
+        new ConcreteFieldValueComparator<Type>()
+      );
+      return Status::OK();
+    }
+
+    std::shared_ptr<FieldValueComparator> current_field_comparator_;
+  }
+
+  
+  struct FieldValueComparator {
+    virtual int Compare(Array const &array, uint64_t offset, 
+                        uint64_t leftidx, uint64_t rightidx) = 0;
+    virtual ~FieldValueComparator() = default;
+  };
+
+  template <typename Type>
+  struct ConcreteFieldValueComparator : FieldValueComparator {
+    using FieldArrayType = typename TypeTraits<Type>::ArrayType;
+    using GetView = GetViewType<Type>;
+
+    virtual int Compare(Array const &array, uint64_t offset, 
+                        uint64_t leftidx, uint64_t rightidx) {
+      const FieldArrayType& values = checked_cast<const FieldArrayType&>(array);
+      auto left_value = GetView::LogicalValue(values.GetView(leftidx - offset));
+      auto right_value = GetView::LogicalValue(values.GetView(rightidx - offset));
+      if (left_value == right_value)
+        return 0;
+      else if (left_value < right_value)
+        return -1;
+      else
+        return 1;
+    }
+  };
+
+  std::vector<std::shared_ptr<FieldValueComparator>> field_comparators_;
+};
+
 }  // namespace internal
 }  // namespace compute
 }  // namespace arrow

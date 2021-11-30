@@ -1929,5 +1929,32 @@ INSTANTIATE_TEST_SUITE_P(AllNull, TestTableSortIndicesRandom,
                          testing::Combine(first_sort_keys, num_sort_keys,
                                           testing::Values(1.0)));
 
+// Test basic cases for table.
+class TestNestedValuesComparator : public ::testing::Test {};
+
+TEST_F(TestNestedValuesComparator, Table) {
+  auto schema = ::arrow::schema({
+      {field("a", uint8())},
+      {field("b", uint32())},
+  });
+  std::shared_ptr<Table> table;
+
+  table = TableFromJSON(schema, {R"([{"a": null, "b": 5},
+                                     {"a": 1,    "b": 3},
+                                     {"a": 3,    "b": null},
+                                     {"a": null, "b": null},
+                                     {"a": 2,    "b": 5},
+                                     {"a": 1,    "b": 5},
+                                     {"a": 3,    "b": 5}
+                                    ])"});
+}
+
+TEST_F(TestNestedValuesComparator, StructArray) {
+  auto expected = ArrayFromJSON(
+    struct_({field("a", int32()), field("b", utf8())}),
+    R"([{"a": 4, "b": null}, {"a": null, "b": "foo"}])"
+  );
+}
+
 }  // namespace compute
 }  // namespace arrow

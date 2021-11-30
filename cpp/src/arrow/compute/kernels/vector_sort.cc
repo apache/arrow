@@ -180,6 +180,7 @@ class ChunkedArraySorter : public TypeVisitor {
   Status Visit(const TYPE& type) override { return SortInternal<TYPE>(); }
 
   VISIT_SORTABLE_PHYSICAL_TYPES(VISIT)
+  VISIT(StructType)
 
 #undef VISIT
 
