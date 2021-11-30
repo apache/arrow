@@ -48,8 +48,8 @@ class ARROW_EXPORT BooleanArray : public PrimitiveArray {
                int64_t null_count = kUnknownNullCount, int64_t offset = 0);
 
   bool Value(int64_t i) const {
-    return BitUtil::GetBit(reinterpret_cast<const uint8_t*>(raw_values_),
-                           i + data_->offset);
+    return bit_util::GetBit(reinterpret_cast<const uint8_t*>(raw_values_),
+                            i + data_->offset);
   }
 
   bool GetView(int64_t i) const { return Value(i); }

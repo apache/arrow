@@ -204,7 +204,7 @@ Status KeyEncoder::KeyRowArray::AppendSelectionFrom(const KeyRowArray& from,
       uint32_t length = from_offsets[row_id + 1] - from_offsets[row_id];
       auto src64 = reinterpret_cast<const uint64_t*>(src + from_offsets[row_id]);
       auto dst64 = reinterpret_cast<uint64_t*>(dst);
-      for (uint32_t j = 0; j < BitUtil::CeilDiv(length, 8); ++j) {
+      for (uint32_t j = 0; j < bit_util::CeilDiv(length, 8); ++j) {
         dst64[j] = src64[j];
       }
       dst += length;
@@ -218,7 +218,7 @@ Status KeyEncoder::KeyRowArray::AppendSelectionFrom(const KeyRowArray& from,
       uint32_t length = metadata_.fixed_length;
       auto src64 = reinterpret_cast<const uint64_t*>(src + length * row_id);
       auto dst64 = reinterpret_cast<uint64_t*>(dst);
-      for (uint32_t j = 0; j < BitUtil::CeilDiv(length, 8); ++j) {
+      for (uint32_t j = 0; j < bit_util::CeilDiv(length, 8); ++j) {
         dst64[j] = src64[j];
       }
       dst += length;
@@ -263,7 +263,7 @@ bool KeyEncoder::KeyRowArray::has_any_nulls(const KeyEncoderContext* ctx) const 
   }
   if (num_rows_for_has_any_nulls_ < num_rows_) {
     auto size_per_row = metadata().null_masks_bytes_per_row;
-    has_any_nulls_ = !util::BitUtil::are_all_bytes_zero(
+    has_any_nulls_ = !util::bit_util::are_all_bytes_zero(
         ctx->hardware_flags, null_masks() + size_per_row * num_rows_for_has_any_nulls_,
         static_cast<uint32_t>(size_per_row * (num_rows_ - num_rows_for_has_any_nulls_)));
     num_rows_for_has_any_nulls_ = num_rows_;
@@ -374,7 +374,7 @@ void KeyEncoder::TransformBoolean::PostDecode(const KeyColumnArray& input,
   DCHECK(input.data(buffer_index) != nullptr);
   DCHECK(output->mutable_data(buffer_index) != nullptr);
 
-  util::BitUtil::bytes_to_bits(
+  util::bit_util::bytes_to_bits(
       ctx->hardware_flags, static_cast<int>(input.length()), input.data(buffer_index),
       output->mutable_data(buffer_index), output->bit_offset(buffer_index));
 }
@@ -543,7 +543,7 @@ void KeyEncoder::EncoderBinary::DecodeImp(uint32_t start_row, uint32_t num_rows,
   DecodeHelper<is_row_fixed_length>(
       start_row, num_rows, offset_within_row, &rows, nullptr, col, col,
       [](uint8_t* dst, const uint8_t* src, int64_t length) {
-        for (uint32_t istripe = 0; istripe < BitUtil::CeilDiv(length, 8); ++istripe) {
+        for (uint32_t istripe = 0; istripe < bit_util::CeilDiv(length, 8); ++istripe) {
           auto dst64 = reinterpret_cast<uint64_t*>(dst);
           auto src64 = reinterpret_cast<const uint64_t*>(src);
           util::SafeStore(dst64 + istripe, src64[istripe]);
@@ -746,7 +746,7 @@ void KeyEncoder::EncoderVarBinary::DecodeImp(uint32_t start_row, uint32_t num_ro
   DecodeHelper<first_varbinary_col>(
       start_row, num_rows, varbinary_col_id, &rows, nullptr, col, col,
       [](uint8_t* dst, const uint8_t* src, int64_t length) {
-        for (uint32_t istripe = 0; istripe < BitUtil::CeilDiv(length, 8); ++istripe) {
+        for (uint32_t istripe = 0; istripe < bit_util::CeilDiv(length, 8); ++istripe) {
           auto dst64 = reinterpret_cast<uint64_t*>(dst);
           auto src64 = reinterpret_cast<const uint64_t*>(src);
           util::SafeStore(dst64 + istripe, src64[istripe]);
@@ -774,14 +774,14 @@ void KeyEncoder::EncoderNulls::Decode(uint32_t start_row, uint32_t num_rows,
     non_nulls[0] |= 0xff << (bit_offset);
     if (bit_offset + num_rows > 8) {
       int bits_in_first_byte = 8 - bit_offset;
-      memset(non_nulls + 1, 0xff, BitUtil::BytesForBits(num_rows - bits_in_first_byte));
+      memset(non_nulls + 1, 0xff, bit_util::BytesForBits(num_rows - bits_in_first_byte));
     }
     for (uint32_t row = 0; row < num_rows; ++row) {
       uint32_t null_masks_bit_id =
           (start_row + row) * null_masks_bytes_per_row * 8 + static_cast<uint32_t>(col);
-      bool is_set = BitUtil::GetBit(null_masks, null_masks_bit_id);
+      bool is_set = bit_util::GetBit(null_masks, null_masks_bit_id);
       if (is_set) {
-        BitUtil::ClearBit(non_nulls, bit_offset + row);
+        bit_util::ClearBit(non_nulls, bit_offset + row);
       }
     }
   }
@@ -1055,7 +1055,7 @@ void KeyEncoder::EncoderBinary::EncodeSelectedImp(
       const uint8_t* non_null_bits = col.data(0);
       uint8_t* dst = rows->mutable_data(1) + offset_within_row;
       for (uint32_t i = 0; i < num_selected; ++i) {
-        bool is_null = !BitUtil::GetBit(non_null_bits, selection[i] + col.bit_offset(0));
+        bool is_null = !bit_util::GetBit(non_null_bits, selection[i] + col.bit_offset(0));
         if (is_null) {
           set_null_fn(dst);
         }
@@ -1074,7 +1074,7 @@ void KeyEncoder::EncoderBinary::EncodeSelectedImp(
       uint8_t* dst = rows->mutable_data(2) + offset_within_row;
       const uint32_t* offsets = rows->offsets();
       for (uint32_t i = 0; i < num_selected; ++i) {
-        bool is_null = !BitUtil::GetBit(non_null_bits, selection[i] + col.bit_offset(0));
+        bool is_null = !bit_util::GetBit(non_null_bits, selection[i] + col.bit_offset(0));
         if (is_null) {
           set_null_fn(dst + offsets[i]);
         }
@@ -1094,7 +1094,7 @@ void KeyEncoder::EncoderBinary::EncodeSelected(uint32_t offset_within_row,
     EncodeSelectedImp(
         offset_within_row, rows, col, num_selected, selection,
         [bit_offset](uint8_t* dst, const uint8_t* src_base, uint16_t irow) {
-          *dst = BitUtil::GetBit(src_base, irow + bit_offset) ? 0xff : 0x00;
+          *dst = bit_util::GetBit(src_base, irow + bit_offset) ? 0xff : 0x00;
         },
         [](uint8_t* dst) { *dst = 0xae; });
   } else if (col_width == 1) {
@@ -1168,7 +1168,8 @@ void KeyEncoder::EncoderOffsets::GetRowOffsetsSelected(
         const uint32_t* col_offsets = cols[icol].offsets();
         for (uint32_t i = 0; i < num_selected; ++i) {
           uint32_t irow = selection[i];
-          bool is_null = !BitUtil::GetBit(non_null_bits, irow + cols[icol].bit_offset(0));
+          bool is_null =
+              !bit_util::GetBit(non_null_bits, irow + cols[icol].bit_offset(0));
           if (is_null) {
             uint32_t length = col_offsets[irow + 1] - col_offsets[irow];
             row_offsets[i] -= length;
@@ -1205,8 +1206,8 @@ void KeyEncoder::EncoderOffsets::EncodeSelectedImp(
     uint32_t length = col_offsets[irow + 1] - col_offsets[irow];
     if (has_nulls) {
       uint32_t null_multiplier =
-          BitUtil::GetBit(col_non_null_bits, irow + cols[ivarbinary].bit_offset(0)) ? 1
-                                                                                    : 0;
+          bit_util::GetBit(col_non_null_bits, irow + cols[ivarbinary].bit_offset(0)) ? 1
+                                                                                     : 0;
       length *= null_multiplier;
     }
     uint32_t* row = reinterpret_cast<uint32_t*>(row_base + row_offsets[i]);
@@ -1289,9 +1290,9 @@ void KeyEncoder::EncoderNulls::EncodeSelected(KeyRowArray* rows,
     if (non_null_bits) {
       for (uint32_t i = 0; i < num_selected; ++i) {
         uint32_t irow = selection[i];
-        bool is_null = !BitUtil::GetBit(non_null_bits, irow + cols[icol].bit_offset(0));
+        bool is_null = !bit_util::GetBit(non_null_bits, irow + cols[icol].bit_offset(0));
         if (is_null) {
-          BitUtil::SetBit(null_masks, i * null_mask_num_bytes * 8 + icol);
+          bit_util::SetBit(null_masks, i * null_mask_num_bytes * 8 + icol);
         }
       }
     }

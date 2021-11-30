@@ -173,7 +173,7 @@ struct ArrayDataInlineVisitor<BooleanType> {
     const uint8_t* data = arr.buffers[1]->data();
     return VisitBitBlocks(
         arr.buffers[0], offset, arr.length,
-        [&](int64_t i) { return valid_func(BitUtil::GetBit(data, offset + i)); },
+        [&](int64_t i) { return valid_func(bit_util::GetBit(data, offset + i)); },
         std::forward<NullFunc>(null_func));
   }
 
@@ -184,7 +184,7 @@ struct ArrayDataInlineVisitor<BooleanType> {
     const uint8_t* data = arr.buffers[1]->data();
     VisitBitBlocksVoid(
         arr.buffers[0], offset, arr.length,
-        [&](int64_t i) { valid_func(BitUtil::GetBit(data, offset + i)); },
+        [&](int64_t i) { valid_func(bit_util::GetBit(data, offset + i)); },
         std::forward<NullFunc>(null_func));
   }
 };
@@ -406,7 +406,7 @@ VisitNullBitmapInline(const uint8_t* valid_bits, int64_t valid_bits_offset,
       }
     } else {
       for (int64_t i = 0; i < block.length; ++i) {
-        ARROW_RETURN_NOT_OK(BitUtil::GetBit(valid_bits, offset_position + i)
+        ARROW_RETURN_NOT_OK(bit_util::GetBit(valid_bits, offset_position + i)
                                 ? valid_func()
                                 : null_func());
       }
@@ -439,7 +439,7 @@ VisitNullBitmapInline(const uint8_t* valid_bits, int64_t valid_bits_offset,
       }
     } else {
       for (int64_t i = 0; i < block.length; ++i) {
-        BitUtil::GetBit(valid_bits, offset_position + i) ? valid_func() : null_func();
+        bit_util::GetBit(valid_bits, offset_position + i) ? valid_func() : null_func();
       }
     }
     position += block.length;

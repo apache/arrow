@@ -609,7 +609,7 @@ class TestStringBuilder : public TestBuilder {
     int reps = 15;
     int64_t length = 0;
     int64_t capacity = 1000;
-    int64_t expected_capacity = BitUtil::RoundUpToMultipleOf64(capacity);
+    int64_t expected_capacity = bit_util::RoundUpToMultipleOf64(capacity);
 
     ASSERT_OK(builder_->ReserveData(capacity));
 
@@ -627,7 +627,7 @@ class TestStringBuilder : public TestBuilder {
     }
 
     int extra_capacity = 500;
-    expected_capacity = BitUtil::RoundUpToMultipleOf64(length + extra_capacity);
+    expected_capacity = bit_util::RoundUpToMultipleOf64(length + extra_capacity);
 
     ASSERT_OK(builder_->ReserveData(extra_capacity));
 

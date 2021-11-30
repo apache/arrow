@@ -1050,7 +1050,7 @@ void TestPrimitiveBuilder<PBoolean>::Check(const std::unique_ptr<BooleanBuilder>
       ASSERT_FALSE(result->IsNull(i));
     }
     if (!result->IsNull(i)) {
-      bool actual = BitUtil::GetBit(result->values()->data(), i);
+      bool actual = bit_util::GetBit(result->values()->data(), i);
       ASSERT_EQ(draws_[i] != 0, actual) << i;
     }
   }
@@ -1058,11 +1058,11 @@ void TestPrimitiveBuilder<PBoolean>::Check(const std::unique_ptr<BooleanBuilder>
 
   // buffers are correctly sized
   if (result->data()->buffers[0]) {
-    ASSERT_EQ(result->data()->buffers[0]->size(), BitUtil::BytesForBits(size));
+    ASSERT_EQ(result->data()->buffers[0]->size(), bit_util::BytesForBits(size));
   } else {
     ASSERT_EQ(result->data()->null_count, 0);
   }
-  ASSERT_EQ(result->data()->buffers[1]->size(), BitUtil::BytesForBits(size));
+  ASSERT_EQ(result->data()->buffers[1]->size(), bit_util::BytesForBits(size));
 
   // Builder is now reset
   ASSERT_EQ(0, builder->length());

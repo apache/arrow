@@ -468,10 +468,10 @@ void LLVMGenerator::ComputeBitMapsForExpr(const CompiledExpr& compiled_expr,
 
     auto num_out_records = selection_vector->GetNumSlots();
     // the memset isn't required, doing it just for valgrind.
-    memset(dst_bitmap, 0, arrow::BitUtil::BytesForBits(num_out_records));
+    memset(dst_bitmap, 0, arrow::bit_util::BytesForBits(num_out_records));
     for (auto i = 0; i < num_out_records; ++i) {
-      auto bit = arrow::BitUtil::GetBit(temp_bitmap, selection_vector->GetIndex(i));
-      arrow::BitUtil::SetBitTo(dst_bitmap, i, bit);
+      auto bit = arrow::bit_util::GetBit(temp_bitmap, selection_vector->GetIndex(i));
+      arrow::bit_util::SetBitTo(dst_bitmap, i, bit);
     }
   }
 }

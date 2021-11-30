@@ -4516,7 +4516,7 @@ struct BinaryJoinElementWise {
         } else {
           const ArrayData& array = *batch[col].array();
           if (!array.MayHaveNulls() ||
-              BitUtil::GetBit(array.buffers[0]->data(), array.offset + row)) {
+              bit_util::GetBit(array.buffers[0]->data(), array.offset + row)) {
             const offset_type* offsets = array.GetValues<offset_type>(1);
             const uint8_t* data = array.GetValues<uint8_t>(2, /*absolute_offset=*/0);
             const int64_t length = offsets[row + 1] - offsets[row];
@@ -4596,7 +4596,7 @@ struct BinaryJoinElementWise {
       } else {
         const ArrayData& array = *batch[i].array();
         valid = !array.MayHaveNulls() ||
-                BitUtil::GetBit(array.buffers[0]->data(), array.offset + index);
+                bit_util::GetBit(array.buffers[0]->data(), array.offset + index);
         const offset_type* offsets = array.GetValues<offset_type>(1);
         element_size = offsets[index + 1] - offsets[index];
       }
