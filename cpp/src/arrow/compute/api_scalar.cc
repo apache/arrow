@@ -187,28 +187,32 @@ namespace {
 using ::arrow::internal::DataMember;
 static auto kArithmeticOptionsType = GetFunctionOptionsType<ArithmeticOptions>(
     DataMember("check_overflow", &ArithmeticOptions::check_overflow));
+static auto kAssumeTimezoneOptionsType = GetFunctionOptionsType<AssumeTimezoneOptions>(
+    DataMember("timezone", &AssumeTimezoneOptions::timezone),
+    DataMember("ambiguous", &AssumeTimezoneOptions::ambiguous),
+    DataMember("nonexistent", &AssumeTimezoneOptions::nonexistent));
+static auto kDayOfWeekOptionsType = GetFunctionOptionsType<DayOfWeekOptions>(
+    DataMember("count_from_zero", &DayOfWeekOptions::count_from_zero),
+    DataMember("week_start", &DayOfWeekOptions::week_start));
 static auto kElementWiseAggregateOptionsType =
     GetFunctionOptionsType<ElementWiseAggregateOptions>(
         DataMember("skip_nulls", &ElementWiseAggregateOptions::skip_nulls));
-static auto kRoundOptionsType = GetFunctionOptionsType<RoundOptions>(
-    DataMember("ndigits", &RoundOptions::ndigits),
-    DataMember("round_mode", &RoundOptions::round_mode));
-static auto kRoundToMultipleOptionsType = GetFunctionOptionsType<RoundToMultipleOptions>(
-    DataMember("multiple", &RoundToMultipleOptions::multiple),
-    DataMember("round_mode", &RoundToMultipleOptions::round_mode));
+static auto kExtractRegexOptionsType = GetFunctionOptionsType<ExtractRegexOptions>(
+    DataMember("pattern", &ExtractRegexOptions::pattern));
 static auto kJoinOptionsType = GetFunctionOptionsType<JoinOptions>(
     DataMember("null_handling", &JoinOptions::null_handling),
     DataMember("null_replacement", &JoinOptions::null_replacement));
+static auto kMakeStructOptionsType = GetFunctionOptionsType<MakeStructOptions>(
+    DataMember("field_names", &MakeStructOptions::field_names),
+    DataMember("field_nullability", &MakeStructOptions::field_nullability),
+    DataMember("field_metadata", &MakeStructOptions::field_metadata));
 static auto kMatchSubstringOptionsType = GetFunctionOptionsType<MatchSubstringOptions>(
     DataMember("pattern", &MatchSubstringOptions::pattern),
     DataMember("ignore_case", &MatchSubstringOptions::ignore_case));
-static auto kSplitOptionsType = GetFunctionOptionsType<SplitOptions>(
-    DataMember("max_splits", &SplitOptions::max_splits),
-    DataMember("reverse", &SplitOptions::reverse));
-static auto kSplitPatternOptionsType = GetFunctionOptionsType<SplitPatternOptions>(
-    DataMember("pattern", &SplitPatternOptions::pattern),
-    DataMember("max_splits", &SplitPatternOptions::max_splits),
-    DataMember("reverse", &SplitPatternOptions::reverse));
+static auto kNullOptionsType = GetFunctionOptionsType<NullOptions>(
+    DataMember("nan_is_null", &NullOptions::nan_is_null));
+static auto kPadOptionsType = GetFunctionOptionsType<PadOptions>(
+    DataMember("width", &PadOptions::width), DataMember("padding", &PadOptions::padding));
 static auto kReplaceSliceOptionsType = GetFunctionOptionsType<ReplaceSliceOptions>(
     DataMember("start", &ReplaceSliceOptions::start),
     DataMember("stop", &ReplaceSliceOptions::stop),
@@ -218,42 +222,38 @@ static auto kReplaceSubstringOptionsType =
         DataMember("pattern", &ReplaceSubstringOptions::pattern),
         DataMember("replacement", &ReplaceSubstringOptions::replacement),
         DataMember("max_replacements", &ReplaceSubstringOptions::max_replacements));
-static auto kExtractRegexOptionsType = GetFunctionOptionsType<ExtractRegexOptions>(
-    DataMember("pattern", &ExtractRegexOptions::pattern));
+static auto kRoundOptionsType = GetFunctionOptionsType<RoundOptions>(
+    DataMember("ndigits", &RoundOptions::ndigits),
+    DataMember("round_mode", &RoundOptions::round_mode));
+static auto kRoundToMultipleOptionsType = GetFunctionOptionsType<RoundToMultipleOptions>(
+    DataMember("multiple", &RoundToMultipleOptions::multiple),
+    DataMember("round_mode", &RoundToMultipleOptions::round_mode));
 static auto kSetLookupOptionsType = GetFunctionOptionsType<SetLookupOptions>(
     DataMember("value_set", &SetLookupOptions::value_set),
     DataMember("skip_nulls", &SetLookupOptions::skip_nulls));
-static auto kStructFieldOptionsType = GetFunctionOptionsType<StructFieldOptions>(
-    DataMember("indices", &StructFieldOptions::indices));
-static auto kStrptimeOptionsType = GetFunctionOptionsType<StrptimeOptions>(
-    DataMember("format", &StrptimeOptions::format),
-    DataMember("unit", &StrptimeOptions::unit));
-static auto kStrftimeOptionsType = GetFunctionOptionsType<StrftimeOptions>(
-    DataMember("format", &StrftimeOptions::format));
-static auto kAssumeTimezoneOptionsType = GetFunctionOptionsType<AssumeTimezoneOptions>(
-    DataMember("timezone", &AssumeTimezoneOptions::timezone),
-    DataMember("ambiguous", &AssumeTimezoneOptions::ambiguous),
-    DataMember("nonexistent", &AssumeTimezoneOptions::nonexistent));
-static auto kPadOptionsType = GetFunctionOptionsType<PadOptions>(
-    DataMember("width", &PadOptions::width), DataMember("padding", &PadOptions::padding));
-static auto kTrimOptionsType = GetFunctionOptionsType<TrimOptions>(
-    DataMember("characters", &TrimOptions::characters));
 static auto kSliceOptionsType = GetFunctionOptionsType<SliceOptions>(
     DataMember("start", &SliceOptions::start), DataMember("stop", &SliceOptions::stop),
     DataMember("step", &SliceOptions::step));
-static auto kMakeStructOptionsType = GetFunctionOptionsType<MakeStructOptions>(
-    DataMember("field_names", &MakeStructOptions::field_names),
-    DataMember("field_nullability", &MakeStructOptions::field_nullability),
-    DataMember("field_metadata", &MakeStructOptions::field_metadata));
-static auto kDayOfWeekOptionsType = GetFunctionOptionsType<DayOfWeekOptions>(
-    DataMember("count_from_zero", &DayOfWeekOptions::count_from_zero),
-    DataMember("week_start", &DayOfWeekOptions::week_start));
+static auto kSplitPatternOptionsType = GetFunctionOptionsType<SplitPatternOptions>(
+    DataMember("pattern", &SplitPatternOptions::pattern),
+    DataMember("max_splits", &SplitPatternOptions::max_splits),
+    DataMember("reverse", &SplitPatternOptions::reverse));
+static auto kSplitOptionsType = GetFunctionOptionsType<SplitOptions>(
+    DataMember("max_splits", &SplitOptions::max_splits),
+    DataMember("reverse", &SplitOptions::reverse));
+static auto kStrftimeOptionsType = GetFunctionOptionsType<StrftimeOptions>(
+    DataMember("format", &StrftimeOptions::format));
+static auto kStrptimeOptionsType = GetFunctionOptionsType<StrptimeOptions>(
+    DataMember("format", &StrptimeOptions::format),
+    DataMember("unit", &StrptimeOptions::unit));
+static auto kStructFieldOptionsType = GetFunctionOptionsType<StructFieldOptions>(
+    DataMember("indices", &StructFieldOptions::indices));
+static auto kTrimOptionsType = GetFunctionOptionsType<TrimOptions>(
+    DataMember("characters", &TrimOptions::characters));
 static auto kWeekOptionsType = GetFunctionOptionsType<WeekOptions>(
     DataMember("week_starts_monday", &WeekOptions::week_starts_monday),
     DataMember("count_from_zero", &WeekOptions::count_from_zero),
     DataMember("first_week_is_fully_in_year", &WeekOptions::first_week_is_fully_in_year));
-static auto kNullOptionsType = GetFunctionOptionsType<NullOptions>(
-    DataMember("nan_is_null", &NullOptions::nan_is_null));
 }  // namespace
 }  // namespace internal
 
@@ -261,10 +261,91 @@ ArithmeticOptions::ArithmeticOptions(bool check_overflow)
     : FunctionOptions(internal::kArithmeticOptionsType), check_overflow(check_overflow) {}
 constexpr char ArithmeticOptions::kTypeName[];
 
+AssumeTimezoneOptions::AssumeTimezoneOptions(std::string timezone, Ambiguous ambiguous,
+                                             Nonexistent nonexistent)
+    : FunctionOptions(internal::kAssumeTimezoneOptionsType),
+      timezone(std::move(timezone)),
+      ambiguous(ambiguous),
+      nonexistent(nonexistent) {}
+AssumeTimezoneOptions::AssumeTimezoneOptions() : AssumeTimezoneOptions("UTC") {}
+constexpr char AssumeTimezoneOptions::kTypeName[];
+
+DayOfWeekOptions::DayOfWeekOptions(bool count_from_zero, uint32_t week_start)
+    : FunctionOptions(internal::kDayOfWeekOptionsType),
+      count_from_zero(count_from_zero),
+      week_start(week_start) {}
+constexpr char DayOfWeekOptions::kTypeName[];
+
 ElementWiseAggregateOptions::ElementWiseAggregateOptions(bool skip_nulls)
     : FunctionOptions(internal::kElementWiseAggregateOptionsType),
       skip_nulls(skip_nulls) {}
 constexpr char ElementWiseAggregateOptions::kTypeName[];
+
+ExtractRegexOptions::ExtractRegexOptions(std::string pattern)
+    : FunctionOptions(internal::kExtractRegexOptionsType), pattern(std::move(pattern)) {}
+ExtractRegexOptions::ExtractRegexOptions() : ExtractRegexOptions("") {}
+constexpr char ExtractRegexOptions::kTypeName[];
+
+JoinOptions::JoinOptions(NullHandlingBehavior null_handling, std::string null_replacement)
+    : FunctionOptions(internal::kJoinOptionsType),
+      null_handling(null_handling),
+      null_replacement(std::move(null_replacement)) {}
+constexpr char JoinOptions::kTypeName[];
+
+MakeStructOptions::MakeStructOptions(
+    std::vector<std::string> n, std::vector<bool> r,
+    std::vector<std::shared_ptr<const KeyValueMetadata>> m)
+    : FunctionOptions(internal::kMakeStructOptionsType),
+      field_names(std::move(n)),
+      field_nullability(std::move(r)),
+      field_metadata(std::move(m)) {}
+
+MakeStructOptions::MakeStructOptions(std::vector<std::string> n)
+    : FunctionOptions(internal::kMakeStructOptionsType),
+      field_names(std::move(n)),
+      field_nullability(field_names.size(), true),
+      field_metadata(field_names.size(), NULLPTR) {}
+
+MakeStructOptions::MakeStructOptions() : MakeStructOptions(std::vector<std::string>()) {}
+constexpr char MakeStructOptions::kTypeName[];
+
+MatchSubstringOptions::MatchSubstringOptions(std::string pattern, bool ignore_case)
+    : FunctionOptions(internal::kMatchSubstringOptionsType),
+      pattern(std::move(pattern)),
+      ignore_case(ignore_case) {}
+MatchSubstringOptions::MatchSubstringOptions() : MatchSubstringOptions("", false) {}
+constexpr char MatchSubstringOptions::kTypeName[];
+
+NullOptions::NullOptions(bool nan_is_null)
+    : FunctionOptions(internal::kNullOptionsType), nan_is_null(nan_is_null) {}
+constexpr char NullOptions::kTypeName[];
+
+PadOptions::PadOptions(int64_t width, std::string padding)
+    : FunctionOptions(internal::kPadOptionsType),
+      width(width),
+      padding(std::move(padding)) {}
+PadOptions::PadOptions() : PadOptions(0, " ") {}
+constexpr char PadOptions::kTypeName[];
+
+ReplaceSliceOptions::ReplaceSliceOptions(int64_t start, int64_t stop,
+                                         std::string replacement)
+    : FunctionOptions(internal::kReplaceSliceOptionsType),
+      start(start),
+      stop(stop),
+      replacement(std::move(replacement)) {}
+ReplaceSliceOptions::ReplaceSliceOptions() : ReplaceSliceOptions(0, 0, "") {}
+constexpr char ReplaceSliceOptions::kTypeName[];
+
+ReplaceSubstringOptions::ReplaceSubstringOptions(std::string pattern,
+                                                 std::string replacement,
+                                                 int64_t max_replacements)
+    : FunctionOptions(internal::kReplaceSubstringOptionsType),
+      pattern(std::move(pattern)),
+      replacement(std::move(replacement)),
+      max_replacements(max_replacements) {}
+ReplaceSubstringOptions::ReplaceSubstringOptions()
+    : ReplaceSubstringOptions("", "", -1) {}
+constexpr char ReplaceSubstringOptions::kTypeName[];
 
 RoundOptions::RoundOptions(int64_t ndigits, RoundMode round_mode)
     : FunctionOptions(internal::kRoundOptionsType),
@@ -293,18 +374,20 @@ RoundToMultipleOptions::RoundToMultipleOptions(std::shared_ptr<Scalar> multiple,
       round_mode(round_mode) {}
 constexpr char RoundToMultipleOptions::kTypeName[];
 
-JoinOptions::JoinOptions(NullHandlingBehavior null_handling, std::string null_replacement)
-    : FunctionOptions(internal::kJoinOptionsType),
-      null_handling(null_handling),
-      null_replacement(std::move(null_replacement)) {}
-constexpr char JoinOptions::kTypeName[];
+SetLookupOptions::SetLookupOptions(Datum value_set, bool skip_nulls)
+    : FunctionOptions(internal::kSetLookupOptionsType),
+      value_set(std::move(value_set)),
+      skip_nulls(skip_nulls) {}
+SetLookupOptions::SetLookupOptions() : SetLookupOptions({}, false) {}
+constexpr char SetLookupOptions::kTypeName[];
 
-MatchSubstringOptions::MatchSubstringOptions(std::string pattern, bool ignore_case)
-    : FunctionOptions(internal::kMatchSubstringOptionsType),
-      pattern(std::move(pattern)),
-      ignore_case(ignore_case) {}
-MatchSubstringOptions::MatchSubstringOptions() : MatchSubstringOptions("", false) {}
-constexpr char MatchSubstringOptions::kTypeName[];
+SliceOptions::SliceOptions(int64_t start, int64_t stop, int64_t step)
+    : FunctionOptions(internal::kSliceOptionsType),
+      start(start),
+      stop(stop),
+      step(step) {}
+SliceOptions::SliceOptions() : SliceOptions(0, 0, 1) {}
+constexpr char SliceOptions::kTypeName[];
 
 SplitOptions::SplitOptions(int64_t max_splits, bool reverse)
     : FunctionOptions(internal::kSplitOptionsType),
@@ -321,50 +404,6 @@ SplitPatternOptions::SplitPatternOptions(std::string pattern, int64_t max_splits
 SplitPatternOptions::SplitPatternOptions() : SplitPatternOptions("", -1, false) {}
 constexpr char SplitPatternOptions::kTypeName[];
 
-ReplaceSliceOptions::ReplaceSliceOptions(int64_t start, int64_t stop,
-                                         std::string replacement)
-    : FunctionOptions(internal::kReplaceSliceOptionsType),
-      start(start),
-      stop(stop),
-      replacement(std::move(replacement)) {}
-ReplaceSliceOptions::ReplaceSliceOptions() : ReplaceSliceOptions(0, 0, "") {}
-constexpr char ReplaceSliceOptions::kTypeName[];
-
-ReplaceSubstringOptions::ReplaceSubstringOptions(std::string pattern,
-                                                 std::string replacement,
-                                                 int64_t max_replacements)
-    : FunctionOptions(internal::kReplaceSubstringOptionsType),
-      pattern(std::move(pattern)),
-      replacement(std::move(replacement)),
-      max_replacements(max_replacements) {}
-ReplaceSubstringOptions::ReplaceSubstringOptions()
-    : ReplaceSubstringOptions("", "", -1) {}
-constexpr char ReplaceSubstringOptions::kTypeName[];
-
-ExtractRegexOptions::ExtractRegexOptions(std::string pattern)
-    : FunctionOptions(internal::kExtractRegexOptionsType), pattern(std::move(pattern)) {}
-ExtractRegexOptions::ExtractRegexOptions() : ExtractRegexOptions("") {}
-constexpr char ExtractRegexOptions::kTypeName[];
-
-SetLookupOptions::SetLookupOptions(Datum value_set, bool skip_nulls)
-    : FunctionOptions(internal::kSetLookupOptionsType),
-      value_set(std::move(value_set)),
-      skip_nulls(skip_nulls) {}
-SetLookupOptions::SetLookupOptions() : SetLookupOptions({}, false) {}
-constexpr char SetLookupOptions::kTypeName[];
-
-StructFieldOptions::StructFieldOptions(std::vector<int> indices)
-    : FunctionOptions(internal::kStructFieldOptionsType), indices(std::move(indices)) {}
-StructFieldOptions::StructFieldOptions() : StructFieldOptions(std::vector<int>()) {}
-constexpr char StructFieldOptions::kTypeName[];
-
-StrptimeOptions::StrptimeOptions(std::string format, TimeUnit::type unit)
-    : FunctionOptions(internal::kStrptimeOptionsType),
-      format(std::move(format)),
-      unit(unit) {}
-StrptimeOptions::StrptimeOptions() : StrptimeOptions("", TimeUnit::SECOND) {}
-constexpr char StrptimeOptions::kTypeName[];
-
 StrftimeOptions::StrftimeOptions(std::string format, std::string locale)
     : FunctionOptions(internal::kStrftimeOptionsType),
       format(std::move(format)),
@@ -373,57 +412,22 @@ StrftimeOptions::StrftimeOptions() : StrftimeOptions(kDefaultFormat) {}
 constexpr char StrftimeOptions::kTypeName[];
 constexpr const char* StrftimeOptions::kDefaultFormat;
 
-AssumeTimezoneOptions::AssumeTimezoneOptions(std::string timezone, Ambiguous ambiguous,
-                                             Nonexistent nonexistent)
-    : FunctionOptions(internal::kAssumeTimezoneOptionsType),
-      timezone(std::move(timezone)),
-      ambiguous(ambiguous),
-      nonexistent(nonexistent) {}
-AssumeTimezoneOptions::AssumeTimezoneOptions() : AssumeTimezoneOptions("UTC") {}
-constexpr char AssumeTimezoneOptions::kTypeName[];
+StrptimeOptions::StrptimeOptions(std::string format, TimeUnit::type unit)
+    : FunctionOptions(internal::kStrptimeOptionsType),
+      format(std::move(format)),
+      unit(unit) {}
+StrptimeOptions::StrptimeOptions() : StrptimeOptions("", TimeUnit::SECOND) {}
+constexpr char StrptimeOptions::kTypeName[];
 
-PadOptions::PadOptions(int64_t width, std::string padding)
-    : FunctionOptions(internal::kPadOptionsType),
-      width(width),
-      padding(std::move(padding)) {}
-PadOptions::PadOptions() : PadOptions(0, " ") {}
-constexpr char PadOptions::kTypeName[];
+StructFieldOptions::StructFieldOptions(std::vector<int> indices)
+    : FunctionOptions(internal::kStructFieldOptionsType), indices(std::move(indices)) {}
+StructFieldOptions::StructFieldOptions() : StructFieldOptions(std::vector<int>()) {}
+constexpr char StructFieldOptions::kTypeName[];
 
 TrimOptions::TrimOptions(std::string characters)
     : FunctionOptions(internal::kTrimOptionsType), characters(std::move(characters)) {}
 TrimOptions::TrimOptions() : TrimOptions("") {}
 constexpr char TrimOptions::kTypeName[];
-
-SliceOptions::SliceOptions(int64_t start, int64_t stop, int64_t step)
-    : FunctionOptions(internal::kSliceOptionsType),
-      start(start),
-      stop(stop),
-      step(step) {}
-SliceOptions::SliceOptions() : SliceOptions(0, 0, 1) {}
-constexpr char SliceOptions::kTypeName[];
-
-MakeStructOptions::MakeStructOptions(
-    std::vector<std::string> n, std::vector<bool> r,
-    std::vector<std::shared_ptr<const KeyValueMetadata>> m)
-    : FunctionOptions(internal::kMakeStructOptionsType),
-      field_names(std::move(n)),
-      field_nullability(std::move(r)),
-      field_metadata(std::move(m)) {}
-
-MakeStructOptions::MakeStructOptions(std::vector<std::string> n)
-    : FunctionOptions(internal::kMakeStructOptionsType),
-      field_names(std::move(n)),
-      field_nullability(field_names.size(), true),
-      field_metadata(field_names.size(), NULLPTR) {}
-
-MakeStructOptions::MakeStructOptions() : MakeStructOptions(std::vector<std::string>()) {}
-constexpr char MakeStructOptions::kTypeName[];
-
-DayOfWeekOptions::DayOfWeekOptions(bool count_from_zero, uint32_t week_start)
-    : FunctionOptions(internal::kDayOfWeekOptionsType),
-      count_from_zero(count_from_zero),
-      week_start(week_start) {}
-constexpr char DayOfWeekOptions::kTypeName[];
 
 WeekOptions::WeekOptions(bool week_starts_monday, bool count_from_zero,
                          bool first_week_is_fully_in_year)
@@ -433,35 +437,31 @@ WeekOptions::WeekOptions(bool week_starts_monday, bool count_from_zero,
       first_week_is_fully_in_year(first_week_is_fully_in_year) {}
 constexpr char WeekOptions::kTypeName[];
 
-NullOptions::NullOptions(bool nan_is_null)
-    : FunctionOptions(internal::kNullOptionsType), nan_is_null(nan_is_null) {}
-constexpr char NullOptions::kTypeName[];
-
 namespace internal {
 void RegisterScalarOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kArithmeticOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kAssumeTimezoneOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kDayOfWeekOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kElementWiseAggregateOptionsType));
-  DCHECK_OK(registry->AddFunctionOptionsType(kRoundOptionsType));
-  DCHECK_OK(registry->AddFunctionOptionsType(kRoundToMultipleOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kExtractRegexOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kJoinOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kMakeStructOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kMatchSubstringOptionsType));
-  DCHECK_OK(registry->AddFunctionOptionsType(kSplitOptionsType));
-  DCHECK_OK(registry->AddFunctionOptionsType(kSplitPatternOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kNullOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kPadOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kReplaceSliceOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kReplaceSubstringOptionsType));
-  DCHECK_OK(registry->AddFunctionOptionsType(kExtractRegexOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kRoundOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kRoundToMultipleOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kSetLookupOptionsType));
-  DCHECK_OK(registry->AddFunctionOptionsType(kStructFieldOptionsType));
-  DCHECK_OK(registry->AddFunctionOptionsType(kStrptimeOptionsType));
-  DCHECK_OK(registry->AddFunctionOptionsType(kStrftimeOptionsType));
-  DCHECK_OK(registry->AddFunctionOptionsType(kAssumeTimezoneOptionsType));
-  DCHECK_OK(registry->AddFunctionOptionsType(kPadOptionsType));
-  DCHECK_OK(registry->AddFunctionOptionsType(kTrimOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kSliceOptionsType));
-  DCHECK_OK(registry->AddFunctionOptionsType(kMakeStructOptionsType));
-  DCHECK_OK(registry->AddFunctionOptionsType(kDayOfWeekOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kSplitOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kSplitPatternOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kStrftimeOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kStrptimeOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kStructFieldOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kTrimOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kWeekOptionsType));
-  DCHECK_OK(registry->AddFunctionOptionsType(kNullOptionsType));
 }
 }  // namespace internal
 
@@ -485,18 +485,18 @@ void RegisterScalarOptions(FunctionRegistry* registry) {
   }
 
 SCALAR_ARITHMETIC_UNARY(AbsoluteValue, "abs", "abs_checked")
-SCALAR_ARITHMETIC_UNARY(Negate, "negate", "negate_checked")
-SCALAR_EAGER_UNARY(Sign, "sign")
-SCALAR_ARITHMETIC_UNARY(Sin, "sin", "sin_checked")
-SCALAR_ARITHMETIC_UNARY(Cos, "cos", "cos_checked")
-SCALAR_ARITHMETIC_UNARY(Asin, "asin", "asin_checked")
 SCALAR_ARITHMETIC_UNARY(Acos, "acos", "acos_checked")
-SCALAR_ARITHMETIC_UNARY(Tan, "tan", "tan_checked")
-SCALAR_EAGER_UNARY(Atan, "atan")
+SCALAR_ARITHMETIC_UNARY(Asin, "asin", "asin_checked")
+SCALAR_ARITHMETIC_UNARY(Cos, "cos", "cos_checked")
 SCALAR_ARITHMETIC_UNARY(Ln, "ln", "ln_checked")
 SCALAR_ARITHMETIC_UNARY(Log10, "log10", "log10_checked")
-SCALAR_ARITHMETIC_UNARY(Log2, "log2", "log2_checked")
 SCALAR_ARITHMETIC_UNARY(Log1p, "log1p", "log1p_checked")
+SCALAR_ARITHMETIC_UNARY(Log2, "log2", "log2_checked")
+SCALAR_ARITHMETIC_UNARY(Negate, "negate", "negate_checked")
+SCALAR_ARITHMETIC_UNARY(Sin, "sin", "sin_checked")
+SCALAR_ARITHMETIC_UNARY(Tan, "tan", "tan_checked")
+SCALAR_EAGER_UNARY(Atan, "atan")
+SCALAR_EAGER_UNARY(Sign, "sign")
 
 Result<Datum> Round(const Datum& arg, RoundOptions options, ExecContext* ctx) {
   return CallFunction("round", {arg}, &options, ctx);
@@ -515,13 +515,13 @@ Result<Datum> RoundToMultiple(const Datum& arg, RoundToMultipleOptions options,
   }
 
 SCALAR_ARITHMETIC_BINARY(Add, "add", "add_checked")
-SCALAR_ARITHMETIC_BINARY(Subtract, "subtract", "subtract_checked")
-SCALAR_ARITHMETIC_BINARY(Multiply, "multiply", "multiply_checked")
 SCALAR_ARITHMETIC_BINARY(Divide, "divide", "divide_checked")
+SCALAR_ARITHMETIC_BINARY(Logb, "logb", "logb_checked")
+SCALAR_ARITHMETIC_BINARY(Multiply, "multiply", "multiply_checked")
 SCALAR_ARITHMETIC_BINARY(Power, "power", "power_checked")
 SCALAR_ARITHMETIC_BINARY(ShiftLeft, "shift_left", "shift_left_checked")
 SCALAR_ARITHMETIC_BINARY(ShiftRight, "shift_right", "shift_right_checked")
-SCALAR_ARITHMETIC_BINARY(Logb, "logb", "logb_checked")
+SCALAR_ARITHMETIC_BINARY(Subtract, "subtract", "subtract_checked")
 SCALAR_EAGER_BINARY(Atan2, "atan2")
 SCALAR_EAGER_UNARY(Floor, "floor")
 SCALAR_EAGER_UNARY(Ceil, "ceil")
@@ -561,14 +561,14 @@ Result<Datum> IndexIn(const Datum& values, const Datum& value_set, ExecContext* 
 // ----------------------------------------------------------------------
 // Boolean functions
 
-SCALAR_EAGER_UNARY(Invert, "invert")
 SCALAR_EAGER_BINARY(And, "and")
-SCALAR_EAGER_BINARY(KleeneAnd, "and_kleene")
-SCALAR_EAGER_BINARY(Or, "or")
-SCALAR_EAGER_BINARY(KleeneOr, "or_kleene")
-SCALAR_EAGER_BINARY(Xor, "xor")
 SCALAR_EAGER_BINARY(AndNot, "and_not")
+SCALAR_EAGER_BINARY(KleeneAnd, "and_kleene")
 SCALAR_EAGER_BINARY(KleeneAndNot, "and_not_kleene")
+SCALAR_EAGER_BINARY(KleeneOr, "or_kleene")
+SCALAR_EAGER_BINARY(Or, "or")
+SCALAR_EAGER_BINARY(Xor, "xor")
+SCALAR_EAGER_UNARY(Invert, "invert")
 
 // ----------------------------------------------------------------------
 
@@ -601,13 +601,8 @@ Result<Datum> Compare(const Datum& left, const Datum& right, CompareOptions opti
 // ----------------------------------------------------------------------
 // Validity functions
 
-SCALAR_EAGER_UNARY(IsValid, "is_valid")
 SCALAR_EAGER_UNARY(IsNan, "is_nan")
-
-Result<Datum> IfElse(const Datum& cond, const Datum& if_true, const Datum& if_false,
-                     ExecContext* ctx) {
-  return CallFunction("if_else", {cond, if_true, if_false}, ctx);
-}
+SCALAR_EAGER_UNARY(IsValid, "is_valid")
 
 Result<Datum> CaseWhen(const Datum& cond, const std::vector<Datum>& cases,
                        ExecContext* ctx) {
@@ -617,6 +612,11 @@ Result<Datum> CaseWhen(const Datum& cond, const std::vector<Datum>& cases,
   return CallFunction("case_when", args, ctx);
 }
 
+Result<Datum> IfElse(const Datum& cond, const Datum& if_true, const Datum& if_false,
+                     ExecContext* ctx) {
+  return CallFunction("if_else", {cond, if_true, if_false}, ctx);
+}
+
 Result<Datum> IsNull(const Datum& arg, NullOptions options, ExecContext* ctx) {
   return CallFunction("is_null", {arg}, &options, ctx);
 }
@@ -624,38 +624,38 @@ Result<Datum> IsNull(const Datum& arg, NullOptions options, ExecContext* ctx) {
 // ----------------------------------------------------------------------
 // Temporal functions
 
-SCALAR_EAGER_UNARY(Year, "year")
-SCALAR_EAGER_UNARY(Month, "month")
 SCALAR_EAGER_UNARY(Day, "day")
 SCALAR_EAGER_UNARY(DayOfYear, "day_of_year")
-SCALAR_EAGER_UNARY(ISOYear, "iso_year")
-SCALAR_EAGER_UNARY(ISOWeek, "iso_week")
-SCALAR_EAGER_UNARY(USWeek, "us_week")
-SCALAR_EAGER_UNARY(ISOCalendar, "iso_calendar")
-SCALAR_EAGER_UNARY(Quarter, "quarter")
 SCALAR_EAGER_UNARY(Hour, "hour")
-SCALAR_EAGER_UNARY(Minute, "minute")
-SCALAR_EAGER_UNARY(Second, "second")
-SCALAR_EAGER_UNARY(Millisecond, "millisecond")
+SCALAR_EAGER_UNARY(ISOCalendar, "iso_calendar")
+SCALAR_EAGER_UNARY(ISOWeek, "iso_week")
+SCALAR_EAGER_UNARY(ISOYear, "iso_year")
 SCALAR_EAGER_UNARY(Microsecond, "microsecond")
+SCALAR_EAGER_UNARY(Millisecond, "millisecond")
+SCALAR_EAGER_UNARY(Minute, "minute")
+SCALAR_EAGER_UNARY(Month, "month")
 SCALAR_EAGER_UNARY(Nanosecond, "nanosecond")
+SCALAR_EAGER_UNARY(Quarter, "quarter")
+SCALAR_EAGER_UNARY(Second, "second")
 SCALAR_EAGER_UNARY(Subsecond, "subsecond")
-
-Result<Datum> DayOfWeek(const Datum& arg, DayOfWeekOptions options, ExecContext* ctx) {
-  return CallFunction("day_of_week", {arg}, &options, ctx);
-}
+SCALAR_EAGER_UNARY(USWeek, "us_week")
+SCALAR_EAGER_UNARY(Year, "year")
 
 Result<Datum> AssumeTimezone(const Datum& arg, AssumeTimezoneOptions options,
                              ExecContext* ctx) {
   return CallFunction("assume_timezone", {arg}, &options, ctx);
 }
 
-Result<Datum> Week(const Datum& arg, WeekOptions options, ExecContext* ctx) {
-  return CallFunction("week", {arg}, &options, ctx);
+Result<Datum> DayOfWeek(const Datum& arg, DayOfWeekOptions options, ExecContext* ctx) {
+  return CallFunction("day_of_week", {arg}, &options, ctx);
 }
 
 Result<Datum> Strftime(const Datum& arg, StrftimeOptions options, ExecContext* ctx) {
   return CallFunction("strftime", {arg}, &options, ctx);
+}
+
+Result<Datum> Week(const Datum& arg, WeekOptions options, ExecContext* ctx) {
+  return CallFunction("week", {arg}, &options, ctx);
 }
 
 }  // namespace compute
