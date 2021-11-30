@@ -63,9 +63,11 @@ import static org.junit.Assert.assertTrue;
 public class ArrowFlightJdbcCursorTest {
 
     ArrowFlightJdbcCursor cursor;
+    BufferAllocator allocator;
 
     @AfterEach
     public void cleanUp() {
+        allocator.close();
         cursor.close();
     }
 
@@ -228,7 +230,7 @@ public class ArrowFlightJdbcCursorTest {
                         new FieldType(true, arrowType,
                                 null),
                         children)));
-        final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
+        allocator = new RootAllocator(Long.MAX_VALUE);
         final VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator);
         root.allocateNew();
         return root;
@@ -241,5 +243,6 @@ public class ArrowFlightJdbcCursorTest {
         List<Cursor.Accessor> accessorList = cursor.createAccessors(null,null,null);
         accessorList.get(0).getObject();
         assertTrue(cursor.wasNull());
+        root.close();
     }
 }
