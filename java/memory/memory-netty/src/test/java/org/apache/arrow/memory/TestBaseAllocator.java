@@ -159,6 +159,87 @@ public class TestBaseAllocator {
     }
   }
 
+  @Test
+  public void testAllocator_transferOwnershipWithDifferentListeners() throws Exception {
+    try (final RootAllocator rootAllocator =
+             new RootAllocator(MAX_ALLOCATION)) {
+      TestAllocationListener l1 = new TestAllocationListener();
+      TestAllocationListener l2 = new TestAllocationListener();
+      final BufferAllocator childAllocator1 =
+          rootAllocator.newChildAllocator("changeOwnership1", l1, 0, MAX_ALLOCATION);
+      final BufferAllocator childAllocator2 =
+          rootAllocator.newChildAllocator("changeOwnership2", l2, 0, MAX_ALLOCATION);
+
+      ArrowBuf buffer1 = childAllocator1.buffer(1024L);
+
+      // initial states
+      assertEquals(1, l1.getNumCalls());
+      assertEquals(0, l1.getNumReleaseCalls());
+      assertEquals(0, l2.getNumCalls());
+      assertEquals(0, l2.getNumReleaseCalls());
+
+      // do transfer
+      OwnershipTransferResult transferResult = buffer1.getReferenceManager()
+          .transferOwnership(buffer1, childAllocator2);
+      assertTrue(transferResult.getAllocationFit());
+      ArrowBuf buffer2 = transferResult.getTransferredBuffer();
+
+      // reservations from l1 should also be transferred to l2 and during buffer transferring
+      assertEquals(1, l1.getNumCalls());
+      assertEquals(1, l1.getNumReleaseCalls());
+      assertEquals(1, l2.getNumCalls());
+      assertEquals(0, l2.getNumReleaseCalls());
+
+      buffer1.close();
+      buffer2.close();
+
+      childAllocator1.close();
+      rootAllocator.verify();
+
+      childAllocator2.close();
+      rootAllocator.verify();
+    }
+  }
+
+  @Test
+  public void testAllocator_transferOwnershipImplicitlyWithDifferentListeners() throws Exception {
+    try (final RootAllocator rootAllocator =
+             new RootAllocator(MAX_ALLOCATION)) {
+      TestAllocationListener l1 = new TestAllocationListener();
+      TestAllocationListener l2 = new TestAllocationListener();
+      final BufferAllocator childAllocator1 =
+          rootAllocator.newChildAllocator("changeOwnership1", l1, 0, MAX_ALLOCATION);
+      final BufferAllocator childAllocator2 =
+          rootAllocator.newChildAllocator("changeOwnership2", l2, 0, MAX_ALLOCATION);
+
+      ArrowBuf buffer1 = childAllocator1.buffer(1024L);
+      ArrowBuf buffer2 = buffer1.getReferenceManager().retain(buffer1, childAllocator2);
+
+      // initial states
+      assertEquals(1, l1.getNumCalls());
+      assertEquals(0, l1.getNumReleaseCalls());
+      assertEquals(0, l2.getNumCalls());
+      assertEquals(0, l2.getNumReleaseCalls());
+
+      // do transfer, implicitly
+      buffer1.close();
+
+      // reservations from l1 should also be transferred to l2 and during buffer transferring
+      assertEquals(1, l1.getNumCalls());
+      assertEquals(1, l1.getNumReleaseCalls());
+      assertEquals(1, l2.getNumCalls());
+      assertEquals(0, l2.getNumReleaseCalls());
+
+      buffer2.close();
+
+      childAllocator1.close();
+      rootAllocator.verify();
+
+      childAllocator2.close();
+      rootAllocator.verify();
+    }
+  }
+
   static <T> boolean equalsIgnoreOrder(Collection<T> c1, Collection<T> c2) {
     return (c1.size() == c2.size() && c1.containsAll(c2));
   }
