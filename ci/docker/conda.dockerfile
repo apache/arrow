@@ -25,7 +25,7 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# install conda and minio
+# install conda and mamba via mambaforge
 COPY ci/scripts/install_conda.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_conda.sh mambaforge latest /opt/conda
 ENV PATH=/opt/conda/bin:$PATH
