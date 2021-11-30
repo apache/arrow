@@ -323,6 +323,23 @@ TEST_F(GcsIntegrationTest, GetFileInfoObject) {
   arrow::fs::AssertFileInfo(fs.get(), PreexistingObjectPath(), FileType::File);
 }
 
+TEST_F(GcsIntegrationTest, DeleteFileSuccess) {
+  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+  ASSERT_OK(fs->DeleteFile(PreexistingObjectPath()));
+  arrow::fs::AssertFileInfo(fs.get(), PreexistingObjectPath(), FileType::NotFound);
+}
+
+TEST_F(GcsIntegrationTest, DeleteFileFailure) {
+  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+  ASSERT_RAISES(IOError, fs->DeleteFile(NotFoundObjectPath()));
+}
+
+TEST_F(GcsIntegrationTest, DeleteFileDirectoryFails) {
+  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+  const auto path = std::string(kPreexistingBucket) + "/DeleteFileDirectoryFails/";
+  ASSERT_RAISES(IOError, fs->DeleteFile(path));
+}
+
 TEST_F(GcsIntegrationTest, CopyFileSuccess) {
   auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
   const auto destination_path = kPreexistingBucket + std::string("/copy-destination");

@@ -208,6 +208,14 @@ class GcsFileSystem::Impl {
     return GetFileInfoImpl(path, std::move(meta).status(), FileType::Directory);
   }
 
+  Status DeleteFile(const GcsPath& p) {
+    if (!p.object.empty() && p.object.back() == '/') {
+      return Status::IOError("The given path (" + p.full_path +
+                             ") is a directory, use DeleteDir");
+    }
+    return internal::ToArrowStatus(client_.DeleteObject(p.bucket, p.object));
+  }
+
   Status CopyFile(const GcsPath& src, const GcsPath& dest) {
     auto metadata =
         client_.RewriteObjectBlocking(src.bucket, src.object, dest.bucket, dest.object);
@@ -299,7 +307,8 @@ Status GcsFileSystem::DeleteRootDirContents() {
 }
 
 Status GcsFileSystem::DeleteFile(const std::string& path) {
-  return Status::NotImplemented("The GCS FileSystem is not fully implemented");
+  ARROW_ASSIGN_OR_RAISE(auto p, GcsPath::FromString(path));
+  return impl_->DeleteFile(p);
 }
 
 Status GcsFileSystem::Move(const std::string& src, const std::string& dest) {
