@@ -29,11 +29,12 @@ RUN echo "debconf debconf/frontend select Noninteractive" | \
 # while debugging package list with docker build.
 ARG clang_tools
 ARG llvm
-RUN if [ "${llvm}" -gt "10" ]; then \
-      apt-get update -y -q && \
+RUN apt-get update -y -q && \
       apt-get install -y -q --no-install-recommends \
           apt-transport-https \
-          ca-certificates \
+          ca-certificates && \
+    if [ "${llvm}" -gt "10" ]; then \
+      apt-get install -y -q --no-install-recommends \
           gnupg \
           wget && \
       wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
