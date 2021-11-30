@@ -64,7 +64,10 @@ public class ArrowFlightJdbcCursor extends AbstractCursor {
   }
 
   private Accessor createAccessor(FieldVector vector) {
-    return ArrowFlightJdbcAccessorFactory.createAccessor(vector, this::getCurrentRow);
+    return ArrowFlightJdbcAccessorFactory.createAccessor(vector, this::getCurrentRow, (boolean wasNull)->{
+      // AbstractCursor creates a boolean array of length 1 to hold the wasNull value
+      this.wasNull[0]=wasNull;
+    });
   }
 
   /**
