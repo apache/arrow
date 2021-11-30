@@ -19,6 +19,8 @@
 
 # arrow 6.0.1.9000
 
+* Added `decimal256()`.
+
 # arrow 6.0.1
 
 * Joins now support inclusion of dictionary columns, and multiple crashes have been fixed
