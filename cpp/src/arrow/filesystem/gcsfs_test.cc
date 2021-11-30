@@ -286,6 +286,20 @@ TEST_F(GcsIntegrationTest, GetFileInfoObject) {
   arrow::fs::AssertFileInfo(fs.get(), PreexistingObjectPath(), FileType::File);
 }
 
+TEST_F(GcsIntegrationTest, CopyFileSuccess) {
+  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+  const auto destination_path = kPreexistingBucket + std::string("/copy-destination");
+  ASSERT_OK(fs->CopyFile(PreexistingObjectPath(), destination_path));
+  arrow::fs::AssertFileInfo(fs.get(), destination_path, FileType::File);
+}
+
+TEST_F(GcsIntegrationTest, CopyFileNotFound) {
+  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+  const auto destination_path = kPreexistingBucket + std::string("/copy-destination");
+  const auto status = fs->CopyFile(NotFoundObjectPath(), destination_path);
+  EXPECT_EQ(status.code(), StatusCode::IOError);
+}
+
 TEST_F(GcsIntegrationTest, ReadObjectString) {
   auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
 
