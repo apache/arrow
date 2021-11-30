@@ -22,7 +22,8 @@ set -ex
 arrow_dir=${1}
 source_dir=${arrow_dir}/js
 build_dir=${2}
-with_docs=${3:-false}
+
+: ${BUILD_DOCS_JS:=OFF}
 
 pushd ${source_dir}
 
@@ -30,7 +31,7 @@ yarn --frozen-lockfile
 yarn lint:ci
 yarn build
 
-if [ "${with_docs}" == "true" ]; then
+if [ "${BUILD_DOCS_JS}" == "ON" ]; then
   if [ "$(git config --get remote.origin.url)" == "https://github.com/apache/arrow.git" ]; then
     yarn doc
   elif [ "$(git config --get remote.upstream.url)" == "https://github.com/apache/arrow.git" ]; then

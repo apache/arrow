@@ -22,7 +22,8 @@ set -ex
 arrow_dir=${1}
 source_dir=${arrow_dir}/python
 build_dir=${2}/python
-with_docs=${3:-false}
+
+: ${BUILD_DOCS_PYTHON:=OFF}
 
 if [ ! -z "${CONDA_PREFIX}" ]; then
   echo -e "===\n=== Conda environment for build\n==="
@@ -55,7 +56,7 @@ ${PYTHON:-python} \
 
 popd
 
-if [ "${with_docs}" == "true" ]; then
+if [ "${BUILD_DOCS_PYTHON}" == "ON" ]; then
   ncpus=$(python -c "import os; print(os.cpu_count())")
   sphinx-build -b html -j ${ncpus} ${arrow_dir}/docs/source ${build_dir}/docs
 fi

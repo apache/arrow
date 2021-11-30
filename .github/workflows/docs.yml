@@ -42,10 +42,12 @@ env:
 jobs:
 
   docker:
-    name: AMD64 Ubuntu 20.10 Complete Documentation
+    name: AMD64 Ubuntu 20.04 Complete Documentation
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 120
+    env:
+      UBUNTU: "20.04"
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v2
