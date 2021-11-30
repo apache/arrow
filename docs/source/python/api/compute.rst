@@ -48,24 +48,25 @@ Aggregations
 Grouped Aggregations
 --------------------
 
-.. autosummary::
-   :toctree: ../generated/
+The grouped aggregation functions are not directly invokable, but are used
+as part of a SQL-style "group by" operation using the
+:meth:`~pyarrow.Table.group_by` method. A list of the available aggregations:
 
-   hash_all
-   hash_any
-   hash_approximate_median
-   hash_count
-   hash_count_distinct
-   hash_distinct
-   hash_max
-   hash_mean
-   hash_min
-   hash_min_max
-   hash_product
-   hash_stddev
-   hash_sum
-   hash_tdigest
-   hash_variance
+* ``hash_all``
+* ``hash_any``
+* ``hash_approximate_median``
+* ``hash_count``
+* ``hash_count_distinct``
+* ``hash_distinct``
+* ``hash_max``
+* ``hash_mean``
+* ``hash_min``
+* ``hash_min_max``
+* ``hash_product``
+* ``hash_stddev``
+* ``hash_sum``
+* ``hash_tdigest``
+* ``hash_variance``
 
 Arithmetic Functions
 --------------------
