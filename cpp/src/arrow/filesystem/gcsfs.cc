@@ -182,6 +182,12 @@ class GcsFileSystem::Impl {
     return GetFileInfoImpl(path, std::move(meta).status(), FileType::Directory);
   }
 
+  Status CopyFile(const GcsPath& src, const GcsPath& dest) {
+    auto metadata =
+        client_.RewriteObjectBlocking(src.bucket, src.object, dest.bucket, dest.object);
+    return internal::ToArrowStatus(metadata.status());
+  }
+
   Result<std::shared_ptr<io::InputStream>> OpenInputStream(const GcsPath& path) {
     auto stream = client_.ReadObject(path.bucket, path.object);
     ARROW_GCS_RETURN_NOT_OK(stream.status());
@@ -274,7 +280,9 @@ Status GcsFileSystem::Move(const std::string& src, const std::string& dest) {
 }
 
 Status GcsFileSystem::CopyFile(const std::string& src, const std::string& dest) {
-  return Status::NotImplemented("The GCS FileSystem is not fully implemented");
+  ARROW_ASSIGN_OR_RAISE(auto s, GcsPath::FromString(src));
+  ARROW_ASSIGN_OR_RAISE(auto d, GcsPath::FromString(dest));
+  return impl_->CopyFile(s, d);
 }
 
 Result<std::shared_ptr<io::InputStream>> GcsFileSystem::OpenInputStream(
