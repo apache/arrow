@@ -296,8 +296,7 @@ TEST_F(GcsIntegrationTest, CopyFileSuccess) {
 TEST_F(GcsIntegrationTest, CopyFileNotFound) {
   auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
   const auto destination_path = kPreexistingBucket + std::string("/copy-destination");
-  const auto status = fs->CopyFile(NotFoundObjectPath(), destination_path);
-  EXPECT_EQ(status.code(), StatusCode::IOError);
+  ASSERT_RAISES(IOError, fs->CopyFile(NotFoundObjectPath(), destination_path));
 }
 
 TEST_F(GcsIntegrationTest, ReadObjectString) {
