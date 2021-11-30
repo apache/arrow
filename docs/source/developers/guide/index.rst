@@ -24,7 +24,7 @@
 .. should be added as a link in the content.
 
 
-.. _introduction:
+.. _guide-introduction:
 
 ***********************
 New Contributor's Guide
@@ -150,4 +150,4 @@ Full Table of Contents
    step_by_step/index
    documentation
    tutorials/index
-   other
+   resources

@@ -130,4 +130,4 @@ Recommended learning resources
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 To find articles on concepts important to Arrow as well as recommended books for
-learning languages visit :ref:`other`.
+learning languages visit :ref:`other-resources`.
