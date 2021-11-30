@@ -49,7 +49,8 @@ static Status LZ4Error(LZ4F_errorCode_t ret, const char* prefix_msg) {
 }
 
 static LZ4F_preferences_t DefaultPreferences() {
-  LZ4F_preferences_t prefs = LZ4F_INIT_PREFERENCES;
+  LZ4F_preferences_t prefs;
+  memset(&prefs, 0, sizeof(prefs));
   return prefs;
 }
 
