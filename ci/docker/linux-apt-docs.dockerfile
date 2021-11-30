@@ -81,7 +81,8 @@ RUN pip install \
         breathe==4.29.0 \
         ipython \
         sphinx \
-        pydata-sphinx-theme
+        pydata-sphinx-theme\
+        sphinx-tabs
 
 COPY c_glib/Gemfile /arrow/c_glib/
 RUN gem install --no-document bundler && \
