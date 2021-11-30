@@ -182,6 +182,7 @@ std::shared_ptr<arrow::DataType> Decimal128Type__initialize(int32_t precision,
   return ValueOrStop(arrow::Decimal128Type::Make(precision, scale));
 }
 
+// [[arrow::export]]
 std::shared_ptr<arrow::DataType> Decimal256Type__initialize(int32_t precision,
                                                             int32_t scale) {
   // Use the builder that validates inputs
