@@ -49,7 +49,6 @@ constexpr FunctionSignature_Scalar::FunctionSignature_Scalar(
   : arguments_()
   , name_()
   , implementations_()
-  , id_(nullptr)
   , description_(nullptr)
   , output_type_(nullptr)
   , deterministic_(false)
@@ -67,16 +66,15 @@ PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT FunctionSignature_ScalarDefault
 constexpr FunctionSignature_Aggregate::FunctionSignature_Aggregate(
   ::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized)
   : arguments_()
-  , name_()
   , implementations_()
-  , id_(nullptr)
+  , name_(&::PROTOBUF_NAMESPACE_ID::internal::fixed_address_empty_string)
   , description_(nullptr)
   , output_type_(nullptr)
   , intermediate_type_(nullptr)
-  , max_set_(PROTOBUF_ULONGLONG(0))
   , deterministic_(false)
   , session_dependent_(false)
   , ordered_(false)
+  , max_set_(PROTOBUF_ULONGLONG(0))
   , _oneof_case_{}{}
 struct FunctionSignature_AggregateDefaultTypeInternal {
   constexpr FunctionSignature_AggregateDefaultTypeInternal()
@@ -92,7 +90,6 @@ constexpr FunctionSignature_Window::FunctionSignature_Window(
   : arguments_()
   , name_()
   , implementations_()
-  , id_(nullptr)
   , description_(nullptr)
   , intermediate_type_(nullptr)
   , output_type_(nullptr)
@@ -226,7 +223,6 @@ const ::PROTOBUF_NAMESPACE_ID::uint32 TableStruct_function_2eproto::offsets[] PR
   ~0u,  // no _extensions_
   PROTOBUF_FIELD_OFFSET(::io::substrait::FunctionSignature_Scalar, _oneof_case_[0]),
   ~0u,  // no _weak_field_map_
-  PROTOBUF_FIELD_OFFSET(::io::substrait::FunctionSignature_Scalar, id_),
   PROTOBUF_FIELD_OFFSET(::io::substrait::FunctionSignature_Scalar, arguments_),
   PROTOBUF_FIELD_OFFSET(::io::substrait::FunctionSignature_Scalar, name_),
   PROTOBUF_FIELD_OFFSET(::io::substrait::FunctionSignature_Scalar, description_),
@@ -242,7 +238,6 @@ const ::PROTOBUF_NAMESPACE_ID::uint32 TableStruct_function_2eproto::offsets[] PR
   ~0u,  // no _extensions_
   PROTOBUF_FIELD_OFFSET(::io::substrait::FunctionSignature_Aggregate, _oneof_case_[0]),
   ~0u,  // no _weak_field_map_
-  PROTOBUF_FIELD_OFFSET(::io::substrait::FunctionSignature_Aggregate, id_),
   PROTOBUF_FIELD_OFFSET(::io::substrait::FunctionSignature_Aggregate, arguments_),
   PROTOBUF_FIELD_OFFSET(::io::substrait::FunctionSignature_Aggregate, name_),
   PROTOBUF_FIELD_OFFSET(::io::substrait::FunctionSignature_Aggregate, description_),
@@ -261,7 +256,6 @@ const ::PROTOBUF_NAMESPACE_ID::uint32 TableStruct_function_2eproto::offsets[] PR
   ~0u,  // no _extensions_
   PROTOBUF_FIELD_OFFSET(::io::substrait::FunctionSignature_Window, _oneof_case_[0]),
   ~0u,  // no _weak_field_map_
-  PROTOBUF_FIELD_OFFSET(::io::substrait::FunctionSignature_Window, id_),
   PROTOBUF_FIELD_OFFSET(::io::substrait::FunctionSignature_Window, arguments_),
   PROTOBUF_FIELD_OFFSET(::io::substrait::FunctionSignature_Window, name_),
   PROTOBUF_FIELD_OFFSET(::io::substrait::FunctionSignature_Window, description_),
@@ -330,15 +324,15 @@ static const ::PROTOBUF_NAMESPACE_ID::internal::MigrationSchema schemas[] PROTOB
   { 0, -1, sizeof(::io::substrait::FunctionSignature_FinalArgVariadic)},
   { 8, -1, sizeof(::io::substrait::FunctionSignature_FinalArgNormal)},
   { 13, -1, sizeof(::io::substrait::FunctionSignature_Scalar)},
-  { 29, -1, sizeof(::io::substrait::FunctionSignature_Aggregate)},
-  { 48, -1, sizeof(::io::substrait::FunctionSignature_Window)},
-  { 68, -1, sizeof(::io::substrait::FunctionSignature_Description)},
-  { 75, -1, sizeof(::io::substrait::FunctionSignature_Implementation)},
-  { 82, -1, sizeof(::io::substrait::FunctionSignature_Argument_ValueArgument)},
-  { 89, -1, sizeof(::io::substrait::FunctionSignature_Argument_TypeArgument)},
-  { 95, -1, sizeof(::io::substrait::FunctionSignature_Argument_EnumArgument)},
-  { 102, -1, sizeof(::io::substrait::FunctionSignature_Argument)},
-  { 112, -1, sizeof(::io::substrait::FunctionSignature)},
+  { 28, -1, sizeof(::io::substrait::FunctionSignature_Aggregate)},
+  { 46, -1, sizeof(::io::substrait::FunctionSignature_Window)},
+  { 65, -1, sizeof(::io::substrait::FunctionSignature_Description)},
+  { 72, -1, sizeof(::io::substrait::FunctionSignature_Implementation)},
+  { 79, -1, sizeof(::io::substrait::FunctionSignature_Argument_ValueArgument)},
+  { 86, -1, sizeof(::io::substrait::FunctionSignature_Argument_TypeArgument)},
+  { 92, -1, sizeof(::io::substrait::FunctionSignature_Argument_EnumArgument)},
+  { 99, -1, sizeof(::io::substrait::FunctionSignature_Argument)},
+  { 109, -1, sizeof(::io::substrait::FunctionSignature)},
 };
 
 static ::PROTOBUF_NAMESPACE_ID::Message const * const file_default_instances[] = {
@@ -359,91 +353,86 @@ static ::PROTOBUF_NAMESPACE_ID::Message const * const file_default_instances[] =
 const char descriptor_table_protodef_function_2eproto[] PROTOBUF_SECTION_VARIABLE(protodesc_cold) =
   "\n\016function.proto\022\014io.substrait\032\ntype.pro"
   "to\032\031parameterized_types.proto\032\026type_expr"
-  "essions.proto\032\020extensions.proto\"\246\026\n\021Func"
-  "tionSignature\032\331\001\n\020FinalArgVariadic\022\020\n\010mi"
-  "n_args\030\001 \001(\003\022\020\n\010max_args\030\002 \001(\003\022Z\n\013consis"
-  "tency\030\003 \001(\0162E.io.substrait.FunctionSigna"
-  "ture.FinalArgVariadic.ParameterConsisten"
-  "cy\"E\n\024ParameterConsistency\022\013\n\007UNKNOWN\020\000\022"
-  "\016\n\nCONSISTENT\020\001\022\020\n\014INCONSISTENT\020\002\032\020\n\016Fin"
-  "alArgNormal\032\235\004\n\006Scalar\022/\n\002id\030\001 \001(\0132#.io."
-  "substrait.Extensions.FunctionId\022;\n\targum"
-  "ents\030\002 \003(\0132(.io.substrait.FunctionSignat"
-  "ure.Argument\022\014\n\004name\030\003 \003(\t\022@\n\013descriptio"
-  "n\030\004 \001(\0132+.io.substrait.FunctionSignature"
-  ".Description\022\025\n\rdeterministic\030\007 \001(\010\022\031\n\021s"
-  "ession_dependent\030\010 \001(\010\0227\n\013output_type\030\t "
-  "\001(\0132\".io.substrait.DerivationExpression\022"
-  "D\n\010variadic\030\n \001(\01320.io.substrait.Functio"
-  "nSignature.FinalArgVariadicH\000\022@\n\006normal\030"
-  "\013 \001(\0132..io.substrait.FunctionSignature.F"
-  "inalArgNormalH\000\022G\n\017implementations\030\014 \003(\013"
-  "2..io.substrait.FunctionSignature.Implem"
-  "entationB\031\n\027final_variable_behavior\032\361\004\n\t"
-  "Aggregate\022/\n\002id\030\001 \001(\0132#.io.substrait.Ext"
-  "ensions.FunctionId\022;\n\targuments\030\002 \003(\0132(."
-  "io.substrait.FunctionSignature.Argument\022"
-  "\014\n\004name\030\003 \003(\t\022@\n\013description\030\004 \001(\0132+.io."
-  "substrait.FunctionSignature.Description\022"
-  "\025\n\rdeterministic\030\007 \001(\010\022\031\n\021session_depend"
-  "ent\030\010 \001(\010\0227\n\013output_type\030\t \001(\0132\".io.subs"
-  "trait.DerivationExpression\022D\n\010variadic\030\n"
-  " \001(\01320.io.substrait.FunctionSignature.Fi"
-  "nalArgVariadicH\000\022@\n\006normal\030\013 \001(\0132..io.su"
-  "bstrait.FunctionSignature.FinalArgNormal"
-  "H\000\022\017\n\007ordered\030\016 \001(\010\022\017\n\007max_set\030\014 \001(\004\022-\n\021"
-  "intermediate_type\030\r \001(\0132\022.io.substrait.T"
-  "ype\022G\n\017implementations\030\017 \003(\0132..io.substr"
-  "ait.FunctionSignature.ImplementationB\031\n\027"
-  "final_variable_behavior\032\377\005\n\006Window\022/\n\002id"
-  "\030\001 \001(\0132#.io.substrait.Extensions.Functio"
-  "nId\022;\n\targuments\030\002 \003(\0132(.io.substrait.Fu"
-  "nctionSignature.Argument\022\014\n\004name\030\003 \003(\t\022@"
-  "\n\013description\030\004 \001(\0132+.io.substrait.Funct"
-  "ionSignature.Description\022\025\n\rdeterministi"
-  "c\030\007 \001(\010\022\031\n\021session_dependent\030\010 \001(\010\022=\n\021in"
-  "termediate_type\030\t \001(\0132\".io.substrait.Der"
-  "ivationExpression\0227\n\013output_type\030\n \001(\0132\""
-  ".io.substrait.DerivationExpression\022D\n\010va"
-  "riadic\030\020 \001(\01320.io.substrait.FunctionSign"
-  "ature.FinalArgVariadicH\000\022@\n\006normal\030\021 \001(\013"
-  "2..io.substrait.FunctionSignature.FinalA"
-  "rgNormalH\000\022\017\n\007ordered\030\013 \001(\010\022\017\n\007max_set\030\014"
-  " \001(\004\022F\n\013window_type\030\016 \001(\01621.io.substrait"
-  ".FunctionSignature.Window.WindowType\022G\n\017"
-  "implementations\030\017 \003(\0132..io.substrait.Fun"
-  "ctionSignature.Implementation\"7\n\nWindowT"
-  "ype\022\013\n\007UNKNOWN\020\000\022\r\n\tSTREAMING\020\001\022\r\n\tPARTI"
-  "TION\020\002B\031\n\027final_variable_behavior\032-\n\013Des"
-  "cription\022\020\n\010language\030\001 \001(\t\022\014\n\004body\030\002 \001(\t"
-  "\032\226\001\n\016Implementation\022A\n\004type\030\001 \001(\01623.io.s"
-  "ubstrait.FunctionSignature.Implementatio"
-  "n.Type\022\013\n\003uri\030\002 \001(\t\"4\n\004Type\022\013\n\007UNKNOWN\020\000"
-  "\022\020\n\014WEB_ASSEMBLY\020\001\022\r\n\tTRINO_JAR\020\002\032\304\003\n\010Ar"
-  "gument\022\014\n\004name\030\001 \001(\t\022G\n\005value\030\002 \001(\01326.io"
-  ".substrait.FunctionSignature.Argument.Va"
-  "lueArgumentH\000\022E\n\004type\030\003 \001(\01325.io.substra"
-  "it.FunctionSignature.Argument.TypeArgume"
-  "ntH\000\022E\n\004enum\030\004 \001(\01325.io.substrait.Functi"
-  "onSignature.Argument.EnumArgumentH\000\032P\n\rV"
-  "alueArgument\022-\n\004type\030\001 \001(\0132\037.io.substrai"
-  "t.ParameterizedType\022\020\n\010constant\030\002 \001(\010\032=\n"
-  "\014TypeArgument\022-\n\004type\030\001 \001(\0132\037.io.substra"
-  "it.ParameterizedType\0321\n\014EnumArgument\022\017\n\007"
-  "options\030\001 \003(\t\022\020\n\010optional\030\002 \001(\010B\017\n\rargum"
-  "ent_kindB\027P\001\252\002\022Substrait.Protobufb\006proto"
-  "3"
+  "essions.proto\"\223\025\n\021FunctionSignature\032\331\001\n\020"
+  "FinalArgVariadic\022\020\n\010min_args\030\001 \001(\003\022\020\n\010ma"
+  "x_args\030\002 \001(\003\022Z\n\013consistency\030\003 \001(\0162E.io.s"
+  "ubstrait.FunctionSignature.FinalArgVaria"
+  "dic.ParameterConsistency\"E\n\024ParameterCon"
+  "sistency\022\013\n\007UNKNOWN\020\000\022\016\n\nCONSISTENT\020\001\022\020\n"
+  "\014INCONSISTENT\020\002\032\020\n\016FinalArgNormal\032\354\003\n\006Sc"
+  "alar\022;\n\targuments\030\002 \003(\0132(.io.substrait.F"
+  "unctionSignature.Argument\022\014\n\004name\030\003 \003(\t\022"
+  "@\n\013description\030\004 \001(\0132+.io.substrait.Func"
+  "tionSignature.Description\022\025\n\rdeterminist"
+  "ic\030\007 \001(\010\022\031\n\021session_dependent\030\010 \001(\010\0227\n\013o"
+  "utput_type\030\t \001(\0132\".io.substrait.Derivati"
+  "onExpression\022D\n\010variadic\030\n \001(\01320.io.subs"
+  "trait.FunctionSignature.FinalArgVariadic"
+  "H\000\022@\n\006normal\030\013 \001(\0132..io.substrait.Functi"
+  "onSignature.FinalArgNormalH\000\022G\n\017implemen"
+  "tations\030\014 \003(\0132..io.substrait.FunctionSig"
+  "nature.ImplementationB\031\n\027final_variable_"
+  "behavior\032\300\004\n\tAggregate\022;\n\targuments\030\002 \003("
+  "\0132(.io.substrait.FunctionSignature.Argum"
+  "ent\022\014\n\004name\030\003 \001(\t\022@\n\013description\030\004 \001(\0132+"
+  ".io.substrait.FunctionSignature.Descript"
+  "ion\022\025\n\rdeterministic\030\007 \001(\010\022\031\n\021session_de"
+  "pendent\030\010 \001(\010\0227\n\013output_type\030\t \001(\0132\".io."
+  "substrait.DerivationExpression\022D\n\010variad"
+  "ic\030\n \001(\01320.io.substrait.FunctionSignatur"
+  "e.FinalArgVariadicH\000\022@\n\006normal\030\013 \001(\0132..i"
+  "o.substrait.FunctionSignature.FinalArgNo"
+  "rmalH\000\022\017\n\007ordered\030\016 \001(\010\022\017\n\007max_set\030\014 \001(\004"
+  "\022-\n\021intermediate_type\030\r \001(\0132\022.io.substra"
+  "it.Type\022G\n\017implementations\030\017 \003(\0132..io.su"
+  "bstrait.FunctionSignature.Implementation"
+  "B\031\n\027final_variable_behavior\032\316\005\n\006Window\022;"
+  "\n\targuments\030\002 \003(\0132(.io.substrait.Functio"
+  "nSignature.Argument\022\014\n\004name\030\003 \003(\t\022@\n\013des"
+  "cription\030\004 \001(\0132+.io.substrait.FunctionSi"
+  "gnature.Description\022\025\n\rdeterministic\030\007 \001"
+  "(\010\022\031\n\021session_dependent\030\010 \001(\010\022=\n\021interme"
+  "diate_type\030\t \001(\0132\".io.substrait.Derivati"
+  "onExpression\0227\n\013output_type\030\n \001(\0132\".io.s"
+  "ubstrait.DerivationExpression\022D\n\010variadi"
+  "c\030\020 \001(\01320.io.substrait.FunctionSignature"
+  ".FinalArgVariadicH\000\022@\n\006normal\030\021 \001(\0132..io"
+  ".substrait.FunctionSignature.FinalArgNor"
+  "malH\000\022\017\n\007ordered\030\013 \001(\010\022\017\n\007max_set\030\014 \001(\004\022"
+  "F\n\013window_type\030\016 \001(\01621.io.substrait.Func"
+  "tionSignature.Window.WindowType\022G\n\017imple"
+  "mentations\030\017 \003(\0132..io.substrait.Function"
+  "Signature.Implementation\"7\n\nWindowType\022\013"
+  "\n\007UNKNOWN\020\000\022\r\n\tSTREAMING\020\001\022\r\n\tPARTITION\020"
+  "\002B\031\n\027final_variable_behavior\032-\n\013Descript"
+  "ion\022\020\n\010language\030\001 \001(\t\022\014\n\004body\030\002 \001(\t\032\226\001\n\016"
+  "Implementation\022A\n\004type\030\001 \001(\01623.io.substr"
+  "ait.FunctionSignature.Implementation.Typ"
+  "e\022\013\n\003uri\030\002 \001(\t\"4\n\004Type\022\013\n\007UNKNOWN\020\000\022\020\n\014W"
+  "EB_ASSEMBLY\020\001\022\r\n\tTRINO_JAR\020\002\032\304\003\n\010Argumen"
+  "t\022\014\n\004name\030\001 \001(\t\022G\n\005value\030\002 \001(\01326.io.subs"
+  "trait.FunctionSignature.Argument.ValueAr"
+  "gumentH\000\022E\n\004type\030\003 \001(\01325.io.substrait.Fu"
+  "nctionSignature.Argument.TypeArgumentH\000\022"
+  "E\n\004enum\030\004 \001(\01325.io.substrait.FunctionSig"
+  "nature.Argument.EnumArgumentH\000\032P\n\rValueA"
+  "rgument\022-\n\004type\030\001 \001(\0132\037.io.substrait.Par"
+  "ameterizedType\022\020\n\010constant\030\002 \001(\010\032=\n\014Type"
+  "Argument\022-\n\004type\030\001 \001(\0132\037.io.substrait.Pa"
+  "rameterizedType\0321\n\014EnumArgument\022\017\n\007optio"
+  "ns\030\001 \003(\t\022\020\n\010optional\030\002 \001(\010B\017\n\rargument_k"
+  "indB+\n\022io.substrait.protoP\001\252\002\022Substrait."
+  "Protobufb\006proto3"
   ;
-static const ::PROTOBUF_NAMESPACE_ID::internal::DescriptorTable*const descriptor_table_function_2eproto_deps[4] = {
-  &::descriptor_table_extensions_2eproto,
+static const ::PROTOBUF_NAMESPACE_ID::internal::DescriptorTable*const descriptor_table_function_2eproto_deps[3] = {
   &::descriptor_table_parameterized_5ftypes_2eproto,
   &::descriptor_table_type_2eproto,
   &::descriptor_table_type_5fexpressions_2eproto,
 };
 static ::PROTOBUF_NAMESPACE_ID::internal::once_flag descriptor_table_function_2eproto_once;
 const ::PROTOBUF_NAMESPACE_ID::internal::DescriptorTable descriptor_table_function_2eproto = {
-  false, false, 3001, descriptor_table_protodef_function_2eproto, "function.proto", 
-  &descriptor_table_function_2eproto_once, descriptor_table_function_2eproto_deps, 4, 12,
+  false, false, 2856, descriptor_table_protodef_function_2eproto, "function.proto", 
+  &descriptor_table_function_2eproto_once, descriptor_table_function_2eproto_deps, 3, 12,
   schemas, file_default_instances, TableStruct_function_2eproto::offsets,
   file_level_metadata_function_2eproto, file_level_enum_descriptors_function_2eproto, file_level_service_descriptors_function_2eproto,
 };
@@ -936,17 +925,12 @@ void FunctionSignature_FinalArgNormal::InternalSwap(FunctionSignature_FinalArgNo
 
 class FunctionSignature_Scalar::_Internal {
  public:
-  static const ::io::substrait::Extensions_FunctionId& id(const FunctionSignature_Scalar* msg);
   static const ::io::substrait::FunctionSignature_Description& description(const FunctionSignature_Scalar* msg);
   static const ::io::substrait::DerivationExpression& output_type(const FunctionSignature_Scalar* msg);
   static const ::io::substrait::FunctionSignature_FinalArgVariadic& variadic(const FunctionSignature_Scalar* msg);
   static const ::io::substrait::FunctionSignature_FinalArgNormal& normal(const FunctionSignature_Scalar* msg);
 };
 
-const ::io::substrait::Extensions_FunctionId&
-FunctionSignature_Scalar::_Internal::id(const FunctionSignature_Scalar* msg) {
-  return *msg->id_;
-}
 const ::io::substrait::FunctionSignature_Description&
 FunctionSignature_Scalar::_Internal::description(const FunctionSignature_Scalar* msg) {
   return *msg->description_;
@@ -962,12 +946,6 @@ FunctionSignature_Scalar::_Internal::variadic(const FunctionSignature_Scalar* ms
 const ::io::substrait::FunctionSignature_FinalArgNormal&
 FunctionSignature_Scalar::_Internal::normal(const FunctionSignature_Scalar* msg) {
   return *msg->final_variable_behavior_.normal_;
-}
-void FunctionSignature_Scalar::clear_id() {
-  if (GetArena() == nullptr && id_ != nullptr) {
-    delete id_;
-  }
-  id_ = nullptr;
 }
 void FunctionSignature_Scalar::clear_output_type() {
   if (GetArena() == nullptr && output_type_ != nullptr) {
@@ -1020,11 +998,6 @@ FunctionSignature_Scalar::FunctionSignature_Scalar(const FunctionSignature_Scala
       name_(from.name_),
       implementations_(from.implementations_) {
   _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
-  if (from._internal_has_id()) {
-    id_ = new ::io::substrait::Extensions_FunctionId(*from.id_);
-  } else {
-    id_ = nullptr;
-  }
   if (from._internal_has_description()) {
     description_ = new ::io::substrait::FunctionSignature_Description(*from.description_);
   } else {
@@ -1057,9 +1030,9 @@ FunctionSignature_Scalar::FunctionSignature_Scalar(const FunctionSignature_Scala
 
 void FunctionSignature_Scalar::SharedCtor() {
 ::memset(reinterpret_cast<char*>(this) + static_cast<size_t>(
-    reinterpret_cast<char*>(&id_) - reinterpret_cast<char*>(this)),
+    reinterpret_cast<char*>(&description_) - reinterpret_cast<char*>(this)),
     0, static_cast<size_t>(reinterpret_cast<char*>(&session_dependent_) -
-    reinterpret_cast<char*>(&id_)) + sizeof(session_dependent_));
+    reinterpret_cast<char*>(&description_)) + sizeof(session_dependent_));
 clear_has_final_variable_behavior();
 }
 
@@ -1071,7 +1044,6 @@ FunctionSignature_Scalar::~FunctionSignature_Scalar() {
 
 void FunctionSignature_Scalar::SharedDtor() {
   GOOGLE_DCHECK(GetArena() == nullptr);
-  if (this != internal_default_instance()) delete id_;
   if (this != internal_default_instance()) delete description_;
   if (this != internal_default_instance()) delete output_type_;
   if (has_final_variable_behavior()) {
@@ -1121,10 +1093,6 @@ void FunctionSignature_Scalar::Clear() {
   arguments_.Clear();
   name_.Clear();
   implementations_.Clear();
-  if (GetArena() == nullptr && id_ != nullptr) {
-    delete id_;
-  }
-  id_ = nullptr;
   if (GetArena() == nullptr && description_ != nullptr) {
     delete description_;
   }
@@ -1146,13 +1114,6 @@ const char* FunctionSignature_Scalar::_InternalParse(const char* ptr, ::PROTOBUF
     ::PROTOBUF_NAMESPACE_ID::uint32 tag;
     ptr = ::PROTOBUF_NAMESPACE_ID::internal::ReadTag(ptr, &tag);
     switch (tag >> 3) {
-      // .io.substrait.Extensions.FunctionId id = 1;
-      case 1:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 10)) {
-          ptr = ctx->ParseMessage(_internal_mutable_id(), ptr);
-          CHK_(ptr);
-        } else goto handle_unusual;
-        continue;
       // repeated .io.substrait.FunctionSignature.Argument arguments = 2;
       case 2:
         if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 18)) {
@@ -1262,14 +1223,6 @@ failure:
   ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
   (void) cached_has_bits;
 
-  // .io.substrait.Extensions.FunctionId id = 1;
-  if (this->has_id()) {
-    target = stream->EnsureSpace(target);
-    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
-      InternalWriteMessage(
-        1, _Internal::id(this), target, stream);
-  }
-
   // repeated .io.substrait.FunctionSignature.Argument arguments = 2;
   for (unsigned int i = 0,
       n = static_cast<unsigned int>(this->_internal_arguments_size()); i < n; i++) {
@@ -1378,13 +1331,6 @@ size_t FunctionSignature_Scalar::ByteSizeLong() const {
       ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(msg);
   }
 
-  // .io.substrait.Extensions.FunctionId id = 1;
-  if (this->has_id()) {
-    total_size += 1 +
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
-        *id_);
-  }
-
   // .io.substrait.FunctionSignature.Description description = 4;
   if (this->has_description()) {
     total_size += 1 +
@@ -1462,9 +1408,6 @@ void FunctionSignature_Scalar::MergeFrom(const FunctionSignature_Scalar& from) {
   arguments_.MergeFrom(from.arguments_);
   name_.MergeFrom(from.name_);
   implementations_.MergeFrom(from.implementations_);
-  if (from.has_id()) {
-    _internal_mutable_id()->::io::substrait::Extensions_FunctionId::MergeFrom(from._internal_id());
-  }
   if (from.has_description()) {
     _internal_mutable_description()->::io::substrait::FunctionSignature_Description::MergeFrom(from._internal_description());
   }
@@ -1519,9 +1462,9 @@ void FunctionSignature_Scalar::InternalSwap(FunctionSignature_Scalar* other) {
   ::PROTOBUF_NAMESPACE_ID::internal::memswap<
       PROTOBUF_FIELD_OFFSET(FunctionSignature_Scalar, session_dependent_)
       + sizeof(FunctionSignature_Scalar::session_dependent_)
-      - PROTOBUF_FIELD_OFFSET(FunctionSignature_Scalar, id_)>(
-          reinterpret_cast<char*>(&id_),
-          reinterpret_cast<char*>(&other->id_));
+      - PROTOBUF_FIELD_OFFSET(FunctionSignature_Scalar, description_)>(
+          reinterpret_cast<char*>(&description_),
+          reinterpret_cast<char*>(&other->description_));
   swap(final_variable_behavior_, other->final_variable_behavior_);
   swap(_oneof_case_[0], other->_oneof_case_[0]);
 }
@@ -1536,7 +1479,6 @@ void FunctionSignature_Scalar::InternalSwap(FunctionSignature_Scalar* other) {
 
 class FunctionSignature_Aggregate::_Internal {
  public:
-  static const ::io::substrait::Extensions_FunctionId& id(const FunctionSignature_Aggregate* msg);
   static const ::io::substrait::FunctionSignature_Description& description(const FunctionSignature_Aggregate* msg);
   static const ::io::substrait::DerivationExpression& output_type(const FunctionSignature_Aggregate* msg);
   static const ::io::substrait::FunctionSignature_FinalArgVariadic& variadic(const FunctionSignature_Aggregate* msg);
@@ -1544,10 +1486,6 @@ class FunctionSignature_Aggregate::_Internal {
   static const ::io::substrait::Type& intermediate_type(const FunctionSignature_Aggregate* msg);
 };
 
-const ::io::substrait::Extensions_FunctionId&
-FunctionSignature_Aggregate::_Internal::id(const FunctionSignature_Aggregate* msg) {
-  return *msg->id_;
-}
 const ::io::substrait::FunctionSignature_Description&
 FunctionSignature_Aggregate::_Internal::description(const FunctionSignature_Aggregate* msg) {
   return *msg->description_;
@@ -1567,12 +1505,6 @@ FunctionSignature_Aggregate::_Internal::normal(const FunctionSignature_Aggregate
 const ::io::substrait::Type&
 FunctionSignature_Aggregate::_Internal::intermediate_type(const FunctionSignature_Aggregate* msg) {
   return *msg->intermediate_type_;
-}
-void FunctionSignature_Aggregate::clear_id() {
-  if (GetArena() == nullptr && id_ != nullptr) {
-    delete id_;
-  }
-  id_ = nullptr;
 }
 void FunctionSignature_Aggregate::clear_output_type() {
   if (GetArena() == nullptr && output_type_ != nullptr) {
@@ -1619,7 +1551,6 @@ void FunctionSignature_Aggregate::clear_intermediate_type() {
 FunctionSignature_Aggregate::FunctionSignature_Aggregate(::PROTOBUF_NAMESPACE_ID::Arena* arena)
   : ::PROTOBUF_NAMESPACE_ID::Message(arena),
   arguments_(arena),
-  name_(arena),
   implementations_(arena) {
   SharedCtor();
   RegisterArenaDtor(arena);
@@ -1628,13 +1559,12 @@ FunctionSignature_Aggregate::FunctionSignature_Aggregate(::PROTOBUF_NAMESPACE_ID
 FunctionSignature_Aggregate::FunctionSignature_Aggregate(const FunctionSignature_Aggregate& from)
   : ::PROTOBUF_NAMESPACE_ID::Message(),
       arguments_(from.arguments_),
-      name_(from.name_),
       implementations_(from.implementations_) {
   _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
-  if (from._internal_has_id()) {
-    id_ = new ::io::substrait::Extensions_FunctionId(*from.id_);
-  } else {
-    id_ = nullptr;
+  name_.UnsafeSetDefault(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited());
+  if (!from._internal_name().empty()) {
+    name_.Set(::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::EmptyDefault{}, from._internal_name(), 
+      GetArena());
   }
   if (from._internal_has_description()) {
     description_ = new ::io::substrait::FunctionSignature_Description(*from.description_);
@@ -1651,9 +1581,9 @@ FunctionSignature_Aggregate::FunctionSignature_Aggregate(const FunctionSignature
   } else {
     intermediate_type_ = nullptr;
   }
-  ::memcpy(&max_set_, &from.max_set_,
-    static_cast<size_t>(reinterpret_cast<char*>(&ordered_) -
-    reinterpret_cast<char*>(&max_set_)) + sizeof(ordered_));
+  ::memcpy(&deterministic_, &from.deterministic_,
+    static_cast<size_t>(reinterpret_cast<char*>(&max_set_) -
+    reinterpret_cast<char*>(&deterministic_)) + sizeof(max_set_));
   clear_has_final_variable_behavior();
   switch (from.final_variable_behavior_case()) {
     case kVariadic: {
@@ -1672,10 +1602,11 @@ FunctionSignature_Aggregate::FunctionSignature_Aggregate(const FunctionSignature
 }
 
 void FunctionSignature_Aggregate::SharedCtor() {
+name_.UnsafeSetDefault(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited());
 ::memset(reinterpret_cast<char*>(this) + static_cast<size_t>(
-    reinterpret_cast<char*>(&id_) - reinterpret_cast<char*>(this)),
-    0, static_cast<size_t>(reinterpret_cast<char*>(&ordered_) -
-    reinterpret_cast<char*>(&id_)) + sizeof(ordered_));
+    reinterpret_cast<char*>(&description_) - reinterpret_cast<char*>(this)),
+    0, static_cast<size_t>(reinterpret_cast<char*>(&max_set_) -
+    reinterpret_cast<char*>(&description_)) + sizeof(max_set_));
 clear_has_final_variable_behavior();
 }
 
@@ -1687,7 +1618,7 @@ FunctionSignature_Aggregate::~FunctionSignature_Aggregate() {
 
 void FunctionSignature_Aggregate::SharedDtor() {
   GOOGLE_DCHECK(GetArena() == nullptr);
-  if (this != internal_default_instance()) delete id_;
+  name_.DestroyNoArena(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited());
   if (this != internal_default_instance()) delete description_;
   if (this != internal_default_instance()) delete output_type_;
   if (this != internal_default_instance()) delete intermediate_type_;
@@ -1736,12 +1667,8 @@ void FunctionSignature_Aggregate::Clear() {
   (void) cached_has_bits;
 
   arguments_.Clear();
-  name_.Clear();
   implementations_.Clear();
-  if (GetArena() == nullptr && id_ != nullptr) {
-    delete id_;
-  }
-  id_ = nullptr;
+  name_.ClearToEmpty();
   if (GetArena() == nullptr && description_ != nullptr) {
     delete description_;
   }
@@ -1754,9 +1681,9 @@ void FunctionSignature_Aggregate::Clear() {
     delete intermediate_type_;
   }
   intermediate_type_ = nullptr;
-  ::memset(&max_set_, 0, static_cast<size_t>(
-      reinterpret_cast<char*>(&ordered_) -
-      reinterpret_cast<char*>(&max_set_)) + sizeof(ordered_));
+  ::memset(&deterministic_, 0, static_cast<size_t>(
+      reinterpret_cast<char*>(&max_set_) -
+      reinterpret_cast<char*>(&deterministic_)) + sizeof(max_set_));
   clear_final_variable_behavior();
   _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
@@ -1767,13 +1694,6 @@ const char* FunctionSignature_Aggregate::_InternalParse(const char* ptr, ::PROTO
     ::PROTOBUF_NAMESPACE_ID::uint32 tag;
     ptr = ::PROTOBUF_NAMESPACE_ID::internal::ReadTag(ptr, &tag);
     switch (tag >> 3) {
-      // .io.substrait.Extensions.FunctionId id = 1;
-      case 1:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 10)) {
-          ptr = ctx->ParseMessage(_internal_mutable_id(), ptr);
-          CHK_(ptr);
-        } else goto handle_unusual;
-        continue;
       // repeated .io.substrait.FunctionSignature.Argument arguments = 2;
       case 2:
         if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 18)) {
@@ -1786,18 +1706,13 @@ const char* FunctionSignature_Aggregate::_InternalParse(const char* ptr, ::PROTO
           } while (::PROTOBUF_NAMESPACE_ID::internal::ExpectTag<18>(ptr));
         } else goto handle_unusual;
         continue;
-      // repeated string name = 3;
+      // string name = 3;
       case 3:
         if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 26)) {
-          ptr -= 1;
-          do {
-            ptr += 1;
-            auto str = _internal_add_name();
-            ptr = ::PROTOBUF_NAMESPACE_ID::internal::InlineGreedyStringParser(str, ptr, ctx);
-            CHK_(::PROTOBUF_NAMESPACE_ID::internal::VerifyUTF8(str, "io.substrait.FunctionSignature.Aggregate.name"));
-            CHK_(ptr);
-            if (!ctx->DataAvailable(ptr)) break;
-          } while (::PROTOBUF_NAMESPACE_ID::internal::ExpectTag<26>(ptr));
+          auto str = _internal_mutable_name();
+          ptr = ::PROTOBUF_NAMESPACE_ID::internal::InlineGreedyStringParser(str, ptr, ctx);
+          CHK_(::PROTOBUF_NAMESPACE_ID::internal::VerifyUTF8(str, "io.substrait.FunctionSignature.Aggregate.name"));
+          CHK_(ptr);
         } else goto handle_unusual;
         continue;
       // .io.substrait.FunctionSignature.Description description = 4;
@@ -1904,14 +1819,6 @@ failure:
   ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
   (void) cached_has_bits;
 
-  // .io.substrait.Extensions.FunctionId id = 1;
-  if (this->has_id()) {
-    target = stream->EnsureSpace(target);
-    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
-      InternalWriteMessage(
-        1, _Internal::id(this), target, stream);
-  }
-
   // repeated .io.substrait.FunctionSignature.Argument arguments = 2;
   for (unsigned int i = 0,
       n = static_cast<unsigned int>(this->_internal_arguments_size()); i < n; i++) {
@@ -1920,14 +1827,14 @@ failure:
       InternalWriteMessage(2, this->_internal_arguments(i), target, stream);
   }
 
-  // repeated string name = 3;
-  for (int i = 0, n = this->_internal_name_size(); i < n; i++) {
-    const auto& s = this->_internal_name(i);
+  // string name = 3;
+  if (this->name().size() > 0) {
     ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::VerifyUtf8String(
-      s.data(), static_cast<int>(s.length()),
+      this->_internal_name().data(), static_cast<int>(this->_internal_name().length()),
       ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::SERIALIZE,
       "io.substrait.FunctionSignature.Aggregate.name");
-    target = stream->WriteString(3, s, target);
+    target = stream->WriteStringMaybeAliased(
+        3, this->_internal_name(), target);
   }
 
   // .io.substrait.FunctionSignature.Description description = 4;
@@ -2025,14 +1932,6 @@ size_t FunctionSignature_Aggregate::ByteSizeLong() const {
       ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(msg);
   }
 
-  // repeated string name = 3;
-  total_size += 1 *
-      ::PROTOBUF_NAMESPACE_ID::internal::FromIntSize(name_.size());
-  for (int i = 0, n = name_.size(); i < n; i++) {
-    total_size += ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::StringSize(
-      name_.Get(i));
-  }
-
   // repeated .io.substrait.FunctionSignature.Implementation implementations = 15;
   total_size += 1UL * this->_internal_implementations_size();
   for (const auto& msg : this->implementations_) {
@@ -2040,11 +1939,11 @@ size_t FunctionSignature_Aggregate::ByteSizeLong() const {
       ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(msg);
   }
 
-  // .io.substrait.Extensions.FunctionId id = 1;
-  if (this->has_id()) {
+  // string name = 3;
+  if (this->name().size() > 0) {
     total_size += 1 +
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
-        *id_);
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::StringSize(
+        this->_internal_name());
   }
 
   // .io.substrait.FunctionSignature.Description description = 4;
@@ -2068,13 +1967,6 @@ size_t FunctionSignature_Aggregate::ByteSizeLong() const {
         *intermediate_type_);
   }
 
-  // uint64 max_set = 12;
-  if (this->max_set() != 0) {
-    total_size += 1 +
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::UInt64Size(
-        this->_internal_max_set());
-  }
-
   // bool deterministic = 7;
   if (this->deterministic() != 0) {
     total_size += 1 + 1;
@@ -2088,6 +1980,13 @@ size_t FunctionSignature_Aggregate::ByteSizeLong() const {
   // bool ordered = 14;
   if (this->ordered() != 0) {
     total_size += 1 + 1;
+  }
+
+  // uint64 max_set = 12;
+  if (this->max_set() != 0) {
+    total_size += 1 +
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::UInt64Size(
+        this->_internal_max_set());
   }
 
   switch (final_variable_behavior_case()) {
@@ -2141,10 +2040,9 @@ void FunctionSignature_Aggregate::MergeFrom(const FunctionSignature_Aggregate& f
   (void) cached_has_bits;
 
   arguments_.MergeFrom(from.arguments_);
-  name_.MergeFrom(from.name_);
   implementations_.MergeFrom(from.implementations_);
-  if (from.has_id()) {
-    _internal_mutable_id()->::io::substrait::Extensions_FunctionId::MergeFrom(from._internal_id());
+  if (from.name().size() > 0) {
+    _internal_set_name(from._internal_name());
   }
   if (from.has_description()) {
     _internal_mutable_description()->::io::substrait::FunctionSignature_Description::MergeFrom(from._internal_description());
@@ -2155,9 +2053,6 @@ void FunctionSignature_Aggregate::MergeFrom(const FunctionSignature_Aggregate& f
   if (from.has_intermediate_type()) {
     _internal_mutable_intermediate_type()->::io::substrait::Type::MergeFrom(from._internal_intermediate_type());
   }
-  if (from.max_set() != 0) {
-    _internal_set_max_set(from._internal_max_set());
-  }
   if (from.deterministic() != 0) {
     _internal_set_deterministic(from._internal_deterministic());
   }
@@ -2166,6 +2061,9 @@ void FunctionSignature_Aggregate::MergeFrom(const FunctionSignature_Aggregate& f
   }
   if (from.ordered() != 0) {
     _internal_set_ordered(from._internal_ordered());
+  }
+  if (from.max_set() != 0) {
+    _internal_set_max_set(from._internal_max_set());
   }
   switch (from.final_variable_behavior_case()) {
     case kVariadic: {
@@ -2204,14 +2102,14 @@ void FunctionSignature_Aggregate::InternalSwap(FunctionSignature_Aggregate* othe
   using std::swap;
   _internal_metadata_.Swap<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(&other->_internal_metadata_);
   arguments_.InternalSwap(&other->arguments_);
-  name_.InternalSwap(&other->name_);
   implementations_.InternalSwap(&other->implementations_);
+  name_.Swap(&other->name_, &::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(), GetArena());
   ::PROTOBUF_NAMESPACE_ID::internal::memswap<
-      PROTOBUF_FIELD_OFFSET(FunctionSignature_Aggregate, ordered_)
-      + sizeof(FunctionSignature_Aggregate::ordered_)
-      - PROTOBUF_FIELD_OFFSET(FunctionSignature_Aggregate, id_)>(
-          reinterpret_cast<char*>(&id_),
-          reinterpret_cast<char*>(&other->id_));
+      PROTOBUF_FIELD_OFFSET(FunctionSignature_Aggregate, max_set_)
+      + sizeof(FunctionSignature_Aggregate::max_set_)
+      - PROTOBUF_FIELD_OFFSET(FunctionSignature_Aggregate, description_)>(
+          reinterpret_cast<char*>(&description_),
+          reinterpret_cast<char*>(&other->description_));
   swap(final_variable_behavior_, other->final_variable_behavior_);
   swap(_oneof_case_[0], other->_oneof_case_[0]);
 }
@@ -2226,7 +2124,6 @@ void FunctionSignature_Aggregate::InternalSwap(FunctionSignature_Aggregate* othe
 
 class FunctionSignature_Window::_Internal {
  public:
-  static const ::io::substrait::Extensions_FunctionId& id(const FunctionSignature_Window* msg);
   static const ::io::substrait::FunctionSignature_Description& description(const FunctionSignature_Window* msg);
   static const ::io::substrait::DerivationExpression& intermediate_type(const FunctionSignature_Window* msg);
   static const ::io::substrait::DerivationExpression& output_type(const FunctionSignature_Window* msg);
@@ -2234,10 +2131,6 @@ class FunctionSignature_Window::_Internal {
   static const ::io::substrait::FunctionSignature_FinalArgNormal& normal(const FunctionSignature_Window* msg);
 };
 
-const ::io::substrait::Extensions_FunctionId&
-FunctionSignature_Window::_Internal::id(const FunctionSignature_Window* msg) {
-  return *msg->id_;
-}
 const ::io::substrait::FunctionSignature_Description&
 FunctionSignature_Window::_Internal::description(const FunctionSignature_Window* msg) {
   return *msg->description_;
@@ -2257,12 +2150,6 @@ FunctionSignature_Window::_Internal::variadic(const FunctionSignature_Window* ms
 const ::io::substrait::FunctionSignature_FinalArgNormal&
 FunctionSignature_Window::_Internal::normal(const FunctionSignature_Window* msg) {
   return *msg->final_variable_behavior_.normal_;
-}
-void FunctionSignature_Window::clear_id() {
-  if (GetArena() == nullptr && id_ != nullptr) {
-    delete id_;
-  }
-  id_ = nullptr;
 }
 void FunctionSignature_Window::clear_intermediate_type() {
   if (GetArena() == nullptr && intermediate_type_ != nullptr) {
@@ -2321,11 +2208,6 @@ FunctionSignature_Window::FunctionSignature_Window(const FunctionSignature_Windo
       name_(from.name_),
       implementations_(from.implementations_) {
   _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
-  if (from._internal_has_id()) {
-    id_ = new ::io::substrait::Extensions_FunctionId(*from.id_);
-  } else {
-    id_ = nullptr;
-  }
   if (from._internal_has_description()) {
     description_ = new ::io::substrait::FunctionSignature_Description(*from.description_);
   } else {
@@ -2363,9 +2245,9 @@ FunctionSignature_Window::FunctionSignature_Window(const FunctionSignature_Windo
 
 void FunctionSignature_Window::SharedCtor() {
 ::memset(reinterpret_cast<char*>(this) + static_cast<size_t>(
-    reinterpret_cast<char*>(&id_) - reinterpret_cast<char*>(this)),
+    reinterpret_cast<char*>(&description_) - reinterpret_cast<char*>(this)),
     0, static_cast<size_t>(reinterpret_cast<char*>(&max_set_) -
-    reinterpret_cast<char*>(&id_)) + sizeof(max_set_));
+    reinterpret_cast<char*>(&description_)) + sizeof(max_set_));
 clear_has_final_variable_behavior();
 }
 
@@ -2377,7 +2259,6 @@ FunctionSignature_Window::~FunctionSignature_Window() {
 
 void FunctionSignature_Window::SharedDtor() {
   GOOGLE_DCHECK(GetArena() == nullptr);
-  if (this != internal_default_instance()) delete id_;
   if (this != internal_default_instance()) delete description_;
   if (this != internal_default_instance()) delete intermediate_type_;
   if (this != internal_default_instance()) delete output_type_;
@@ -2428,10 +2309,6 @@ void FunctionSignature_Window::Clear() {
   arguments_.Clear();
   name_.Clear();
   implementations_.Clear();
-  if (GetArena() == nullptr && id_ != nullptr) {
-    delete id_;
-  }
-  id_ = nullptr;
   if (GetArena() == nullptr && description_ != nullptr) {
     delete description_;
   }
@@ -2457,13 +2334,6 @@ const char* FunctionSignature_Window::_InternalParse(const char* ptr, ::PROTOBUF
     ::PROTOBUF_NAMESPACE_ID::uint32 tag;
     ptr = ::PROTOBUF_NAMESPACE_ID::internal::ReadTag(ptr, &tag);
     switch (tag >> 3) {
-      // .io.substrait.Extensions.FunctionId id = 1;
-      case 1:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 10)) {
-          ptr = ctx->ParseMessage(_internal_mutable_id(), ptr);
-          CHK_(ptr);
-        } else goto handle_unusual;
-        continue;
       // repeated .io.substrait.FunctionSignature.Argument arguments = 2;
       case 2:
         if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 18)) {
@@ -2602,14 +2472,6 @@ failure:
   ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
   (void) cached_has_bits;
 
-  // .io.substrait.Extensions.FunctionId id = 1;
-  if (this->has_id()) {
-    target = stream->EnsureSpace(target);
-    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
-      InternalWriteMessage(
-        1, _Internal::id(this), target, stream);
-  }
-
   // repeated .io.substrait.FunctionSignature.Argument arguments = 2;
   for (unsigned int i = 0,
       n = static_cast<unsigned int>(this->_internal_arguments_size()); i < n; i++) {
@@ -2745,13 +2607,6 @@ size_t FunctionSignature_Window::ByteSizeLong() const {
       ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(msg);
   }
 
-  // .io.substrait.Extensions.FunctionId id = 1;
-  if (this->has_id()) {
-    total_size += 1 +
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
-        *id_);
-  }
-
   // .io.substrait.FunctionSignature.Description description = 4;
   if (this->has_description()) {
     total_size += 1 +
@@ -2854,9 +2709,6 @@ void FunctionSignature_Window::MergeFrom(const FunctionSignature_Window& from) {
   arguments_.MergeFrom(from.arguments_);
   name_.MergeFrom(from.name_);
   implementations_.MergeFrom(from.implementations_);
-  if (from.has_id()) {
-    _internal_mutable_id()->::io::substrait::Extensions_FunctionId::MergeFrom(from._internal_id());
-  }
   if (from.has_description()) {
     _internal_mutable_description()->::io::substrait::FunctionSignature_Description::MergeFrom(from._internal_description());
   }
@@ -2923,9 +2775,9 @@ void FunctionSignature_Window::InternalSwap(FunctionSignature_Window* other) {
   ::PROTOBUF_NAMESPACE_ID::internal::memswap<
       PROTOBUF_FIELD_OFFSET(FunctionSignature_Window, max_set_)
       + sizeof(FunctionSignature_Window::max_set_)
-      - PROTOBUF_FIELD_OFFSET(FunctionSignature_Window, id_)>(
-          reinterpret_cast<char*>(&id_),
-          reinterpret_cast<char*>(&other->id_));
+      - PROTOBUF_FIELD_OFFSET(FunctionSignature_Window, description_)>(
+          reinterpret_cast<char*>(&description_),
+          reinterpret_cast<char*>(&other->description_));
   swap(final_variable_behavior_, other->final_variable_behavior_);
   swap(_oneof_case_[0], other->_oneof_case_[0]);
 }

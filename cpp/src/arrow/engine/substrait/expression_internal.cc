@@ -56,9 +56,51 @@ Result<compute::Expression> FromProto(const st::Expression& expr) {
       return compute::literal(std::move(datum));
     }
 
-    case st::Expression::kSelection:
+    case st::Expression::kSelection: {
       if (!expr.selection().has_direct_reference()) break;
-      return FromProto(expr.selection().direct_reference());
+
+      util::optional<compute::Expression> root_expr;
+      if (expr.selection().has_expression()) {
+        ARROW_ASSIGN_OR_RAISE(*root_expr, FromProto(expr.selection().expression()));
+      }
+
+      const auto& ref = expr.selection().direct_reference();
+      switch (ref.reference_type_case()) {
+        case st::Expression::ReferenceSegment::kStructField: {
+          if (ref.struct_field().has_child()) break;
+
+          FieldRef out(ref.struct_field().field());
+
+          if (root_expr) {
+            if (auto root_ref = root_expr->field_ref()) {
+              out = FieldRef(std::move(out), *root_ref);
+            } else {
+              // FIXME add field_ref compute function to handle
+              // field references into expressions
+              break;
+            }
+          }
+          return compute::field_ref(std::move(out));
+        }
+
+        case st::Expression::ReferenceSegment::kListElement: {
+          if (ref.list_element().has_child()) break;
+          if (!root_expr) {
+            return Status::Invalid(
+                "substrait::ListElement cannot take a Relation as an argument");
+          }
+
+          return compute::call(
+              "list_element",
+              {std::move(*root_expr), compute::literal(ref.list_element().offset())});
+          break;
+        }
+
+        default:
+          break;
+      }
+      break;
+    }
 
     case st::Expression::kIfThen: {
       const auto& if_then = expr.if_then();
@@ -77,39 +119,6 @@ Result<compute::Expression> FromProto(const st::Expression& expr) {
 
   return Status::NotImplemented("conversion to arrow::compute::Expression from ",
                                 expr.DebugString());
-}
-
-Result<compute::Expression> FromProto(const st::ReferenceSegment& ref) {
-  switch (ref.reference_type_case()) {
-    case st::ReferenceSegment::kStructField: {
-      FieldRef out(ref.struct_field().field());
-
-      if (ref.struct_field().has_child()) {
-        ARROW_ASSIGN_OR_RAISE(auto child, FromProto(ref.struct_field().child()));
-        auto child_ref = child.field_ref();
-        if (!child_ref) break;
-        out = FieldRef(std::move(out), *child_ref);
-      }
-
-      return compute::field_ref(std::move(out));
-    }
-
-    case st::ReferenceSegment::kListElement: {
-      if (ref.list_element().has_child()) {
-        ARROW_ASSIGN_OR_RAISE(auto child, FromProto(ref.list_element().child()));
-        return compute::call(
-            "list_element",
-            {std::move(child), compute::literal(ref.list_element().offset())});
-      }
-      break;
-    }
-
-    default:
-      break;
-  }
-
-  return Status::NotImplemented("conversion to arrow::compute::Expression from ",
-                                ref.DebugString());
 }
 
 Result<Datum> FromProto(const st::Expression::Literal& lit) {
@@ -165,23 +174,29 @@ Result<Datum> FromProto(const st::Expression::Literal& lit) {
           fixed_char(static_cast<int32_t>(lit.fixed_char().size()))));
 
     case st::Expression::Literal::kVarChar:
-      // FIXME
-      // There's no way to determine VarChar.length from the literal
-      break;
+      return Datum(std::make_shared<ExtensionScalar>(
+          std::make_shared<StringScalar>(lit.var_char().value()),
+          varchar(static_cast<int32_t>(lit.var_char().length()))));
 
     case st::Expression::Literal::kFixedBinary:
       return Datum(FixedSizeBinaryScalarFromBytes(lit.fixed_char()));
 
-    case st::Expression::Literal::kDecimal:
-      if (lit.decimal().size() != sizeof(Decimal128)) {
-        return Status::Invalid("Decimal literal had ", lit.decimal().size(),
+    case st::Expression::Literal::kDecimal: {
+      if (lit.decimal().value().size() != sizeof(Decimal128)) {
+        return Status::Invalid("Decimal literal had ", lit.decimal().value().size(),
                                " bytes (expected ", sizeof(Decimal128), ")");
       }
 
-      // FIXME
-      // It's not clear how these bytes should be interpreted...
-      // Furthermore, there's no way to determine scale or precision
-      break;
+      Decimal128 value;
+      std::memcpy(value.mutable_native_endian_bytes(), lit.decimal().value().data(),
+                  sizeof(Decimal128));
+#if !ARROW_LITTLE_ENDIAN
+      std::reverse(value.mutable_native_endian_bytes(),
+                   value.mutable_native_endian_bytes() + sizeof(Decimal128));
+#endif
+      auto type = decimal128(lit.decimal().precision(), lit.decimal().scale());
+      return Datum(std::make_shared<Decimal128Scalar>(value, std::move(type)));
+    }
 
     case st::Expression::Literal::kStruct: {
       const auto& struct_ = lit.struct_();
@@ -200,19 +215,33 @@ Result<Datum> FromProto(const st::Expression::Literal& lit) {
 
     case st::Expression::Literal::kList: {
       const auto& list = lit.list();
+      if (list.values_size() == 0 && !list.has_element_type()) {
+        return Status::Invalid(
+            "substrait::Expression::Literal::List had no values and no element_type");
+      }
 
-      // FIXME
-      // No way to determine list value type for empty list literals
-      DCHECK_NE(list.values_size(), 0);
+      std::shared_ptr<DataType> element_type;
+      if (list.has_element_type()) {
+        ARROW_ASSIGN_OR_RAISE(std::tie(element_type, std::ignore),
+                              FromProto(list.element_type()));
+      }
 
       ScalarVector values(list.values_size());
       for (size_t i = 0; i < values.size(); ++i) {
         ARROW_ASSIGN_OR_RAISE(auto value, FromProto(list.values(i)));
         DCHECK(value.is_scalar());
         values.push_back(value.scalar());
+        if (element_type) {
+          if (!value.type()->Equals(*element_type)) {
+            return Status::Invalid(list.DebugString(),
+                                   " has a value whose type doesn't match element_type");
+          }
+        } else {
+          element_type = value.type();
+        }
       }
 
-      ARROW_ASSIGN_OR_RAISE(auto builder, MakeBuilder(values[0]->type));
+      ARROW_ASSIGN_OR_RAISE(auto builder, MakeBuilder(element_type));
       RETURN_NOT_OK(builder->AppendScalars(values));
       ARROW_ASSIGN_OR_RAISE(auto arr, builder->Finish());
       return Datum(std::make_shared<ListScalar>(std::move(arr)));
@@ -220,10 +249,20 @@ Result<Datum> FromProto(const st::Expression::Literal& lit) {
 
     case st::Expression::Literal::kMap: {
       const auto& map = lit.map();
+      if (map.key_values_size() == 0 && !(map.has_key_type() && map.has_value_type())) {
+        return Status::Invalid(
+            "substrait::Expression::Literal::Map had no key_values and no key_type or "
+            "values_type");
+      }
 
-      // FIXME
-      // No way to determine list value type for empty list literals
-      DCHECK_NE(map.key_values_size(), 0);
+      std::shared_ptr<DataType> key_type, value_type;
+      if (map.has_key_type()) {
+        ARROW_ASSIGN_OR_RAISE(std::tie(key_type, std::ignore), FromProto(map.key_type()));
+      }
+      if (map.has_value_type()) {
+        ARROW_ASSIGN_OR_RAISE(std::tie(value_type, std::ignore),
+                              FromProto(map.value_type()));
+      }
 
       ScalarVector keys(map.key_values_size()), values(map.key_values_size());
       for (size_t i = 0; i < values.size(); ++i) {
@@ -243,10 +282,28 @@ Result<Datum> FromProto(const st::Expression::Literal& lit) {
 
         keys.push_back(key.scalar());
         values.push_back(value.scalar());
+
+        if (key_type) {
+          if (!key.type()->Equals(*key_type)) {
+            return Status::Invalid(map.DebugString(),
+                                   " has a key whose type doesn't match key_type");
+          }
+        } else {
+          key_type = value.type();
+        }
+
+        if (value_type) {
+          if (!value.type()->Equals(*value_type)) {
+            return Status::Invalid(map.DebugString(),
+                                   " has a value whose type doesn't match value_type");
+          }
+        } else {
+          value_type = value.type();
+        }
       }
 
-      ARROW_ASSIGN_OR_RAISE(auto key_builder, MakeBuilder(keys[0]->type));
-      ARROW_ASSIGN_OR_RAISE(auto value_builder, MakeBuilder(keys[0]->type));
+      ARROW_ASSIGN_OR_RAISE(auto key_builder, MakeBuilder(key_type));
+      ARROW_ASSIGN_OR_RAISE(auto value_builder, MakeBuilder(value_type));
       RETURN_NOT_OK(key_builder->AppendScalars(keys));
       RETURN_NOT_OK(value_builder->AppendScalars(values));
       ARROW_ASSIGN_OR_RAISE(auto key_arr, key_builder->Finish());
@@ -472,27 +529,32 @@ Result<std::unique_ptr<st::Expression>> ToProto(const compute::Expression& expr)
   }
 
   if (auto param = expr.parameter()) {
-    DCHECK(!param->indices.empty());
-    std::unique_ptr<st::ReferenceSegment> ref_segment;
+    /*
+        DCHECK(!param->indices.empty());
+        for (int i : param->indices) {
+        }
 
-    for (auto it = param->indices.rbegin(); it != param->indices.rend(); ++it) {
-      auto struct_field = internal::make_unique<st::ReferenceSegment::StructField>();
+        std::unique_ptr<st::ReferenceSegment> ref_segment;
 
-      if (ref_segment) {
-        struct_field->set_allocated_child(ref_segment.release());
-      }
-      struct_field->set_field(*it);
+        for (auto it = param->indices.rbegin(); it != param->indices.rend(); ++it) {
+          auto struct_field = internal::make_unique<st::ReferenceSegment::StructField>();
 
-      ref_segment = internal::make_unique<st::ReferenceSegment>();
-      ref_segment->set_allocated_struct_field(struct_field.release());
-    }
+          if (ref_segment) {
+            struct_field->set_allocated_child(ref_segment.release());
+          }
+          struct_field->set_field(*it);
 
-    auto field_ref = internal::make_unique<st::FieldReference>();
-    field_ref->set_allocated_direct_reference(ref_segment.release());
+          ref_segment = internal::make_unique<st::ReferenceSegment>();
+          ref_segment->set_allocated_struct_field(struct_field.release());
+        }
 
-    auto out = internal::make_unique<st::Expression>();
-    out->set_allocated_selection(field_ref.release());
-    return std::move(out);
+        auto field_ref = internal::make_unique<st::FieldReference>();
+        field_ref->set_allocated_direct_reference(ref_segment.release());
+
+        auto out = internal::make_unique<st::Expression>();
+        out->set_allocated_selection(field_ref.release());
+        return std::move(out);
+    */
   }
 
   auto call = CallNotNull(expr);
@@ -504,27 +566,30 @@ Result<std::unique_ptr<st::Expression>> ToProto(const compute::Expression& expr)
   }
 
   if (call->function_name == "list_element") {
-    // catch the special case of calls convertible to a ListElement
-    if (arguments[0]->has_selection() &&
-        arguments[0]->selection().has_direct_reference()) {
-      if (arguments[1]->has_literal() && arguments[1]->literal().has_i32()) {
-        auto list_element = internal::make_unique<st::ReferenceSegment::ListElement>();
+    /*
+        // catch the special case of calls convertible to a ListElement
+        if (arguments[0]->has_selection() &&
+            arguments[0]->selection().has_direct_reference()) {
+          if (arguments[1]->has_literal() && arguments[1]->literal().has_i32()) {
+            auto list_element =
+       internal::make_unique<st::ReferenceSegment::ListElement>();
 
-        list_element->set_allocated_child(
-            arguments[0]->mutable_selection()->release_direct_reference());
-        list_element->set_offset(arguments[1]->literal().i32());
+            list_element->set_allocated_child(
+                arguments[0]->mutable_selection()->release_direct_reference());
+            list_element->set_offset(arguments[1]->literal().i32());
 
-        auto ref_segment = internal::make_unique<st::ReferenceSegment>();
-        ref_segment->set_allocated_list_element(list_element.release());
+            auto ref_segment = internal::make_unique<st::ReferenceSegment>();
+            ref_segment->set_allocated_list_element(list_element.release());
 
-        auto field_ref = internal::make_unique<st::FieldReference>();
-        field_ref->set_allocated_direct_reference(ref_segment.release());
+            auto field_ref = internal::make_unique<st::FieldReference>();
+            field_ref->set_allocated_direct_reference(ref_segment.release());
 
-        auto out = std::move(arguments[0]);  // reuse an emptied st::Expression
-        out->set_allocated_selection(field_ref.release());
-        return std::move(out);
-      }
-    }
+            auto out = std::move(arguments[0]);  // reuse an emptied st::Expression
+            out->set_allocated_selection(field_ref.release());
+            return std::move(out);
+          }
+        }
+    */
   }
 
   if (call->function_name == "if_else") {

@@ -31,6 +31,7 @@
 #include <google/protobuf/repeated_field.h>  // IWYU pragma: export
 #include <google/protobuf/extension_set.h>  // IWYU pragma: export
 #include <google/protobuf/unknown_field_set.h>
+#include <google/protobuf/any.pb.h>
 // @@protoc_insertion_point(includes)
 #include <google/protobuf/port_def.inc>
 #define PROTOBUF_INTERNAL_EXPORT_extensions_2eproto
@@ -46,7 +47,7 @@ struct TableStruct_extensions_2eproto {
     PROTOBUF_SECTION_VARIABLE(protodesc_cold);
   static const ::PROTOBUF_NAMESPACE_ID::internal::AuxiliaryParseTableField aux[]
     PROTOBUF_SECTION_VARIABLE(protodesc_cold);
-  static const ::PROTOBUF_NAMESPACE_ID::internal::ParseTable schema[11]
+  static const ::PROTOBUF_NAMESPACE_ID::internal::ParseTable schema[6]
     PROTOBUF_SECTION_VARIABLE(protodesc_cold);
   static const ::PROTOBUF_NAMESPACE_ID::internal::FieldMetadata field_metadata[];
   static const ::PROTOBUF_NAMESPACE_ID::internal::SerializationTable serialization_table[];
@@ -55,77 +56,60 @@ struct TableStruct_extensions_2eproto {
 extern const ::PROTOBUF_NAMESPACE_ID::internal::DescriptorTable descriptor_table_extensions_2eproto;
 namespace io {
 namespace substrait {
-class Extensions;
-struct ExtensionsDefaultTypeInternal;
-extern ExtensionsDefaultTypeInternal _Extensions_default_instance_;
-class Extensions_Extension;
-struct Extensions_ExtensionDefaultTypeInternal;
-extern Extensions_ExtensionDefaultTypeInternal _Extensions_Extension_default_instance_;
-class Extensions_ExtensionId;
-struct Extensions_ExtensionIdDefaultTypeInternal;
-extern Extensions_ExtensionIdDefaultTypeInternal _Extensions_ExtensionId_default_instance_;
-class Extensions_Extension_FunctionExtension;
-struct Extensions_Extension_FunctionExtensionDefaultTypeInternal;
-extern Extensions_Extension_FunctionExtensionDefaultTypeInternal _Extensions_Extension_FunctionExtension_default_instance_;
-class Extensions_Extension_TypeExtension;
-struct Extensions_Extension_TypeExtensionDefaultTypeInternal;
-extern Extensions_Extension_TypeExtensionDefaultTypeInternal _Extensions_Extension_TypeExtension_default_instance_;
-class Extensions_FunctionId;
-struct Extensions_FunctionIdDefaultTypeInternal;
-extern Extensions_FunctionIdDefaultTypeInternal _Extensions_FunctionId_default_instance_;
-class Extensions_Mapping;
-struct Extensions_MappingDefaultTypeInternal;
-extern Extensions_MappingDefaultTypeInternal _Extensions_Mapping_default_instance_;
-class Extensions_Mapping_FunctionMapping;
-struct Extensions_Mapping_FunctionMappingDefaultTypeInternal;
-extern Extensions_Mapping_FunctionMappingDefaultTypeInternal _Extensions_Mapping_FunctionMapping_default_instance_;
-class Extensions_Mapping_FunctionMapping_Option;
-struct Extensions_Mapping_FunctionMapping_OptionDefaultTypeInternal;
-extern Extensions_Mapping_FunctionMapping_OptionDefaultTypeInternal _Extensions_Mapping_FunctionMapping_Option_default_instance_;
-class Extensions_Mapping_TypeMapping;
-struct Extensions_Mapping_TypeMappingDefaultTypeInternal;
-extern Extensions_Mapping_TypeMappingDefaultTypeInternal _Extensions_Mapping_TypeMapping_default_instance_;
-class Extensions_TypeId;
-struct Extensions_TypeIdDefaultTypeInternal;
-extern Extensions_TypeIdDefaultTypeInternal _Extensions_TypeId_default_instance_;
+namespace extensions {
+class AdvancedExtension;
+struct AdvancedExtensionDefaultTypeInternal;
+extern AdvancedExtensionDefaultTypeInternal _AdvancedExtension_default_instance_;
+class SimpleExtensionDeclaration;
+struct SimpleExtensionDeclarationDefaultTypeInternal;
+extern SimpleExtensionDeclarationDefaultTypeInternal _SimpleExtensionDeclaration_default_instance_;
+class SimpleExtensionDeclaration_ExtensionFunction;
+struct SimpleExtensionDeclaration_ExtensionFunctionDefaultTypeInternal;
+extern SimpleExtensionDeclaration_ExtensionFunctionDefaultTypeInternal _SimpleExtensionDeclaration_ExtensionFunction_default_instance_;
+class SimpleExtensionDeclaration_ExtensionType;
+struct SimpleExtensionDeclaration_ExtensionTypeDefaultTypeInternal;
+extern SimpleExtensionDeclaration_ExtensionTypeDefaultTypeInternal _SimpleExtensionDeclaration_ExtensionType_default_instance_;
+class SimpleExtensionDeclaration_ExtensionTypeVariation;
+struct SimpleExtensionDeclaration_ExtensionTypeVariationDefaultTypeInternal;
+extern SimpleExtensionDeclaration_ExtensionTypeVariationDefaultTypeInternal _SimpleExtensionDeclaration_ExtensionTypeVariation_default_instance_;
+class SimpleExtensionURI;
+struct SimpleExtensionURIDefaultTypeInternal;
+extern SimpleExtensionURIDefaultTypeInternal _SimpleExtensionURI_default_instance_;
+}  // namespace extensions
 }  // namespace substrait
 }  // namespace io
 PROTOBUF_NAMESPACE_OPEN
-template<> ::io::substrait::Extensions* Arena::CreateMaybeMessage<::io::substrait::Extensions>(Arena*);
-template<> ::io::substrait::Extensions_Extension* Arena::CreateMaybeMessage<::io::substrait::Extensions_Extension>(Arena*);
-template<> ::io::substrait::Extensions_ExtensionId* Arena::CreateMaybeMessage<::io::substrait::Extensions_ExtensionId>(Arena*);
-template<> ::io::substrait::Extensions_Extension_FunctionExtension* Arena::CreateMaybeMessage<::io::substrait::Extensions_Extension_FunctionExtension>(Arena*);
-template<> ::io::substrait::Extensions_Extension_TypeExtension* Arena::CreateMaybeMessage<::io::substrait::Extensions_Extension_TypeExtension>(Arena*);
-template<> ::io::substrait::Extensions_FunctionId* Arena::CreateMaybeMessage<::io::substrait::Extensions_FunctionId>(Arena*);
-template<> ::io::substrait::Extensions_Mapping* Arena::CreateMaybeMessage<::io::substrait::Extensions_Mapping>(Arena*);
-template<> ::io::substrait::Extensions_Mapping_FunctionMapping* Arena::CreateMaybeMessage<::io::substrait::Extensions_Mapping_FunctionMapping>(Arena*);
-template<> ::io::substrait::Extensions_Mapping_FunctionMapping_Option* Arena::CreateMaybeMessage<::io::substrait::Extensions_Mapping_FunctionMapping_Option>(Arena*);
-template<> ::io::substrait::Extensions_Mapping_TypeMapping* Arena::CreateMaybeMessage<::io::substrait::Extensions_Mapping_TypeMapping>(Arena*);
-template<> ::io::substrait::Extensions_TypeId* Arena::CreateMaybeMessage<::io::substrait::Extensions_TypeId>(Arena*);
+template<> ::io::substrait::extensions::AdvancedExtension* Arena::CreateMaybeMessage<::io::substrait::extensions::AdvancedExtension>(Arena*);
+template<> ::io::substrait::extensions::SimpleExtensionDeclaration* Arena::CreateMaybeMessage<::io::substrait::extensions::SimpleExtensionDeclaration>(Arena*);
+template<> ::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionFunction* Arena::CreateMaybeMessage<::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionFunction>(Arena*);
+template<> ::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionType* Arena::CreateMaybeMessage<::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionType>(Arena*);
+template<> ::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionTypeVariation* Arena::CreateMaybeMessage<::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionTypeVariation>(Arena*);
+template<> ::io::substrait::extensions::SimpleExtensionURI* Arena::CreateMaybeMessage<::io::substrait::extensions::SimpleExtensionURI>(Arena*);
 PROTOBUF_NAMESPACE_CLOSE
 namespace io {
 namespace substrait {
+namespace extensions {
 
 // ===================================================================
 
-class Extensions_Extension_TypeExtension PROTOBUF_FINAL :
-    public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:io.substrait.Extensions.Extension.TypeExtension) */ {
+class SimpleExtensionURI PROTOBUF_FINAL :
+    public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:io.substrait.extensions.SimpleExtensionURI) */ {
  public:
-  inline Extensions_Extension_TypeExtension() : Extensions_Extension_TypeExtension(nullptr) {}
-  ~Extensions_Extension_TypeExtension() override;
-  explicit constexpr Extensions_Extension_TypeExtension(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized);
+  inline SimpleExtensionURI() : SimpleExtensionURI(nullptr) {}
+  ~SimpleExtensionURI() override;
+  explicit constexpr SimpleExtensionURI(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized);
 
-  Extensions_Extension_TypeExtension(const Extensions_Extension_TypeExtension& from);
-  Extensions_Extension_TypeExtension(Extensions_Extension_TypeExtension&& from) noexcept
-    : Extensions_Extension_TypeExtension() {
+  SimpleExtensionURI(const SimpleExtensionURI& from);
+  SimpleExtensionURI(SimpleExtensionURI&& from) noexcept
+    : SimpleExtensionURI() {
     *this = ::std::move(from);
   }
 
-  inline Extensions_Extension_TypeExtension& operator=(const Extensions_Extension_TypeExtension& from) {
+  inline SimpleExtensionURI& operator=(const SimpleExtensionURI& from) {
     CopyFrom(from);
     return *this;
   }
-  inline Extensions_Extension_TypeExtension& operator=(Extensions_Extension_TypeExtension&& from) noexcept {
+  inline SimpleExtensionURI& operator=(SimpleExtensionURI&& from) noexcept {
     if (GetArena() == from.GetArena()) {
       if (this != &from) InternalSwap(&from);
     } else {
@@ -143,20 +127,20 @@ class Extensions_Extension_TypeExtension PROTOBUF_FINAL :
   static const ::PROTOBUF_NAMESPACE_ID::Reflection* GetReflection() {
     return default_instance().GetMetadata().reflection;
   }
-  static const Extensions_Extension_TypeExtension& default_instance() {
+  static const SimpleExtensionURI& default_instance() {
     return *internal_default_instance();
   }
-  static inline const Extensions_Extension_TypeExtension* internal_default_instance() {
-    return reinterpret_cast<const Extensions_Extension_TypeExtension*>(
-               &_Extensions_Extension_TypeExtension_default_instance_);
+  static inline const SimpleExtensionURI* internal_default_instance() {
+    return reinterpret_cast<const SimpleExtensionURI*>(
+               &_SimpleExtensionURI_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
     0;
 
-  friend void swap(Extensions_Extension_TypeExtension& a, Extensions_Extension_TypeExtension& b) {
+  friend void swap(SimpleExtensionURI& a, SimpleExtensionURI& b) {
     a.Swap(&b);
   }
-  inline void Swap(Extensions_Extension_TypeExtension* other) {
+  inline void Swap(SimpleExtensionURI* other) {
     if (other == this) return;
     if (GetArena() == other->GetArena()) {
       InternalSwap(other);
@@ -164,7 +148,7 @@ class Extensions_Extension_TypeExtension PROTOBUF_FINAL :
       ::PROTOBUF_NAMESPACE_ID::internal::GenericSwap(this, other);
     }
   }
-  void UnsafeArenaSwap(Extensions_Extension_TypeExtension* other) {
+  void UnsafeArenaSwap(SimpleExtensionURI* other) {
     if (other == this) return;
     GOOGLE_DCHECK(GetArena() == other->GetArena());
     InternalSwap(other);
@@ -172,17 +156,17 @@ class Extensions_Extension_TypeExtension PROTOBUF_FINAL :
 
   // implements Message ----------------------------------------------
 
-  inline Extensions_Extension_TypeExtension* New() const final {
-    return CreateMaybeMessage<Extensions_Extension_TypeExtension>(nullptr);
+  inline SimpleExtensionURI* New() const final {
+    return CreateMaybeMessage<SimpleExtensionURI>(nullptr);
   }
 
-  Extensions_Extension_TypeExtension* New(::PROTOBUF_NAMESPACE_ID::Arena* arena) const final {
-    return CreateMaybeMessage<Extensions_Extension_TypeExtension>(arena);
+  SimpleExtensionURI* New(::PROTOBUF_NAMESPACE_ID::Arena* arena) const final {
+    return CreateMaybeMessage<SimpleExtensionURI>(arena);
   }
   void CopyFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) final;
   void MergeFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) final;
-  void CopyFrom(const Extensions_Extension_TypeExtension& from);
-  void MergeFrom(const Extensions_Extension_TypeExtension& from);
+  void CopyFrom(const SimpleExtensionURI& from);
+  void MergeFrom(const SimpleExtensionURI& from);
   PROTOBUF_ATTRIBUTE_REINITIALIZES void Clear() final;
   bool IsInitialized() const final;
 
@@ -196,13 +180,13 @@ class Extensions_Extension_TypeExtension PROTOBUF_FINAL :
   inline void SharedCtor();
   inline void SharedDtor();
   void SetCachedSize(int size) const final;
-  void InternalSwap(Extensions_Extension_TypeExtension* other);
+  void InternalSwap(SimpleExtensionURI* other);
   friend class ::PROTOBUF_NAMESPACE_ID::internal::AnyMetadata;
   static ::PROTOBUF_NAMESPACE_ID::StringPiece FullMessageName() {
-    return "io.substrait.Extensions.Extension.TypeExtension";
+    return "io.substrait.extensions.SimpleExtensionURI";
   }
   protected:
-  explicit Extensions_Extension_TypeExtension(::PROTOBUF_NAMESPACE_ID::Arena* arena);
+  explicit SimpleExtensionURI(::PROTOBUF_NAMESPACE_ID::Arena* arena);
   private:
   static void ArenaDtor(void* object);
   inline void RegisterArenaDtor(::PROTOBUF_NAMESPACE_ID::Arena* arena);
@@ -215,53 +199,64 @@ class Extensions_Extension_TypeExtension PROTOBUF_FINAL :
   // accessors -------------------------------------------------------
 
   enum : int {
-    kGitUriFieldNumber = 1,
+    kUriFieldNumber = 2,
+    kExtensionUriAnchorFieldNumber = 1,
   };
-  // string git_uri = 1;
-  void clear_git_uri();
-  const std::string& git_uri() const;
+  // string uri = 2;
+  void clear_uri();
+  const std::string& uri() const;
   template <typename ArgT0 = const std::string&, typename... ArgT>
-  void set_git_uri(ArgT0&& arg0, ArgT... args);
-  std::string* mutable_git_uri();
-  std::string* release_git_uri();
-  void set_allocated_git_uri(std::string* git_uri);
+  void set_uri(ArgT0&& arg0, ArgT... args);
+  std::string* mutable_uri();
+  std::string* release_uri();
+  void set_allocated_uri(std::string* uri);
   private:
-  const std::string& _internal_git_uri() const;
-  void _internal_set_git_uri(const std::string& value);
-  std::string* _internal_mutable_git_uri();
+  const std::string& _internal_uri() const;
+  void _internal_set_uri(const std::string& value);
+  std::string* _internal_mutable_uri();
   public:
 
-  // @@protoc_insertion_point(class_scope:io.substrait.Extensions.Extension.TypeExtension)
+  // uint32 extension_uri_anchor = 1;
+  void clear_extension_uri_anchor();
+  ::PROTOBUF_NAMESPACE_ID::uint32 extension_uri_anchor() const;
+  void set_extension_uri_anchor(::PROTOBUF_NAMESPACE_ID::uint32 value);
+  private:
+  ::PROTOBUF_NAMESPACE_ID::uint32 _internal_extension_uri_anchor() const;
+  void _internal_set_extension_uri_anchor(::PROTOBUF_NAMESPACE_ID::uint32 value);
+  public:
+
+  // @@protoc_insertion_point(class_scope:io.substrait.extensions.SimpleExtensionURI)
  private:
   class _Internal;
 
   template <typename T> friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
   typedef void InternalArenaConstructable_;
   typedef void DestructorSkippable_;
-  ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr git_uri_;
+  ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr uri_;
+  ::PROTOBUF_NAMESPACE_ID::uint32 extension_uri_anchor_;
   mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   friend struct ::TableStruct_extensions_2eproto;
 };
 // -------------------------------------------------------------------
 
-class Extensions_Extension_FunctionExtension PROTOBUF_FINAL :
-    public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:io.substrait.Extensions.Extension.FunctionExtension) */ {
+class SimpleExtensionDeclaration_ExtensionType PROTOBUF_FINAL :
+    public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:io.substrait.extensions.SimpleExtensionDeclaration.ExtensionType) */ {
  public:
-  inline Extensions_Extension_FunctionExtension() : Extensions_Extension_FunctionExtension(nullptr) {}
-  ~Extensions_Extension_FunctionExtension() override;
-  explicit constexpr Extensions_Extension_FunctionExtension(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized);
+  inline SimpleExtensionDeclaration_ExtensionType() : SimpleExtensionDeclaration_ExtensionType(nullptr) {}
+  ~SimpleExtensionDeclaration_ExtensionType() override;
+  explicit constexpr SimpleExtensionDeclaration_ExtensionType(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized);
 
-  Extensions_Extension_FunctionExtension(const Extensions_Extension_FunctionExtension& from);
-  Extensions_Extension_FunctionExtension(Extensions_Extension_FunctionExtension&& from) noexcept
-    : Extensions_Extension_FunctionExtension() {
+  SimpleExtensionDeclaration_ExtensionType(const SimpleExtensionDeclaration_ExtensionType& from);
+  SimpleExtensionDeclaration_ExtensionType(SimpleExtensionDeclaration_ExtensionType&& from) noexcept
+    : SimpleExtensionDeclaration_ExtensionType() {
     *this = ::std::move(from);
   }
 
-  inline Extensions_Extension_FunctionExtension& operator=(const Extensions_Extension_FunctionExtension& from) {
+  inline SimpleExtensionDeclaration_ExtensionType& operator=(const SimpleExtensionDeclaration_ExtensionType& from) {
     CopyFrom(from);
     return *this;
   }
-  inline Extensions_Extension_FunctionExtension& operator=(Extensions_Extension_FunctionExtension&& from) noexcept {
+  inline SimpleExtensionDeclaration_ExtensionType& operator=(SimpleExtensionDeclaration_ExtensionType&& from) noexcept {
     if (GetArena() == from.GetArena()) {
       if (this != &from) InternalSwap(&from);
     } else {
@@ -279,20 +274,20 @@ class Extensions_Extension_FunctionExtension PROTOBUF_FINAL :
   static const ::PROTOBUF_NAMESPACE_ID::Reflection* GetReflection() {
     return default_instance().GetMetadata().reflection;
   }
-  static const Extensions_Extension_FunctionExtension& default_instance() {
+  static const SimpleExtensionDeclaration_ExtensionType& default_instance() {
     return *internal_default_instance();
   }
-  static inline const Extensions_Extension_FunctionExtension* internal_default_instance() {
-    return reinterpret_cast<const Extensions_Extension_FunctionExtension*>(
-               &_Extensions_Extension_FunctionExtension_default_instance_);
+  static inline const SimpleExtensionDeclaration_ExtensionType* internal_default_instance() {
+    return reinterpret_cast<const SimpleExtensionDeclaration_ExtensionType*>(
+               &_SimpleExtensionDeclaration_ExtensionType_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
     1;
 
-  friend void swap(Extensions_Extension_FunctionExtension& a, Extensions_Extension_FunctionExtension& b) {
+  friend void swap(SimpleExtensionDeclaration_ExtensionType& a, SimpleExtensionDeclaration_ExtensionType& b) {
     a.Swap(&b);
   }
-  inline void Swap(Extensions_Extension_FunctionExtension* other) {
+  inline void Swap(SimpleExtensionDeclaration_ExtensionType* other) {
     if (other == this) return;
     if (GetArena() == other->GetArena()) {
       InternalSwap(other);
@@ -300,7 +295,7 @@ class Extensions_Extension_FunctionExtension PROTOBUF_FINAL :
       ::PROTOBUF_NAMESPACE_ID::internal::GenericSwap(this, other);
     }
   }
-  void UnsafeArenaSwap(Extensions_Extension_FunctionExtension* other) {
+  void UnsafeArenaSwap(SimpleExtensionDeclaration_ExtensionType* other) {
     if (other == this) return;
     GOOGLE_DCHECK(GetArena() == other->GetArena());
     InternalSwap(other);
@@ -308,17 +303,17 @@ class Extensions_Extension_FunctionExtension PROTOBUF_FINAL :
 
   // implements Message ----------------------------------------------
 
-  inline Extensions_Extension_FunctionExtension* New() const final {
-    return CreateMaybeMessage<Extensions_Extension_FunctionExtension>(nullptr);
+  inline SimpleExtensionDeclaration_ExtensionType* New() const final {
+    return CreateMaybeMessage<SimpleExtensionDeclaration_ExtensionType>(nullptr);
   }
 
-  Extensions_Extension_FunctionExtension* New(::PROTOBUF_NAMESPACE_ID::Arena* arena) const final {
-    return CreateMaybeMessage<Extensions_Extension_FunctionExtension>(arena);
+  SimpleExtensionDeclaration_ExtensionType* New(::PROTOBUF_NAMESPACE_ID::Arena* arena) const final {
+    return CreateMaybeMessage<SimpleExtensionDeclaration_ExtensionType>(arena);
   }
   void CopyFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) final;
   void MergeFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) final;
-  void CopyFrom(const Extensions_Extension_FunctionExtension& from);
-  void MergeFrom(const Extensions_Extension_FunctionExtension& from);
+  void CopyFrom(const SimpleExtensionDeclaration_ExtensionType& from);
+  void MergeFrom(const SimpleExtensionDeclaration_ExtensionType& from);
   PROTOBUF_ATTRIBUTE_REINITIALIZES void Clear() final;
   bool IsInitialized() const final;
 
@@ -332,13 +327,13 @@ class Extensions_Extension_FunctionExtension PROTOBUF_FINAL :
   inline void SharedCtor();
   inline void SharedDtor();
   void SetCachedSize(int size) const final;
-  void InternalSwap(Extensions_Extension_FunctionExtension* other);
+  void InternalSwap(SimpleExtensionDeclaration_ExtensionType* other);
   friend class ::PROTOBUF_NAMESPACE_ID::internal::AnyMetadata;
   static ::PROTOBUF_NAMESPACE_ID::StringPiece FullMessageName() {
-    return "io.substrait.Extensions.Extension.FunctionExtension";
+    return "io.substrait.extensions.SimpleExtensionDeclaration.ExtensionType";
   }
   protected:
-  explicit Extensions_Extension_FunctionExtension(::PROTOBUF_NAMESPACE_ID::Arena* arena);
+  explicit SimpleExtensionDeclaration_ExtensionType(::PROTOBUF_NAMESPACE_ID::Arena* arena);
   private:
   static void ArenaDtor(void* object);
   inline void RegisterArenaDtor(::PROTOBUF_NAMESPACE_ID::Arena* arena);
@@ -351,53 +346,75 @@ class Extensions_Extension_FunctionExtension PROTOBUF_FINAL :
   // accessors -------------------------------------------------------
 
   enum : int {
-    kGitUriFieldNumber = 1,
+    kNameFieldNumber = 3,
+    kExtensionUriReferenceFieldNumber = 1,
+    kTypeAnchorFieldNumber = 2,
   };
-  // string git_uri = 1;
-  void clear_git_uri();
-  const std::string& git_uri() const;
+  // string name = 3;
+  void clear_name();
+  const std::string& name() const;
   template <typename ArgT0 = const std::string&, typename... ArgT>
-  void set_git_uri(ArgT0&& arg0, ArgT... args);
-  std::string* mutable_git_uri();
-  std::string* release_git_uri();
-  void set_allocated_git_uri(std::string* git_uri);
+  void set_name(ArgT0&& arg0, ArgT... args);
+  std::string* mutable_name();
+  std::string* release_name();
+  void set_allocated_name(std::string* name);
   private:
-  const std::string& _internal_git_uri() const;
-  void _internal_set_git_uri(const std::string& value);
-  std::string* _internal_mutable_git_uri();
+  const std::string& _internal_name() const;
+  void _internal_set_name(const std::string& value);
+  std::string* _internal_mutable_name();
   public:
 
-  // @@protoc_insertion_point(class_scope:io.substrait.Extensions.Extension.FunctionExtension)
+  // uint32 extension_uri_reference = 1;
+  void clear_extension_uri_reference();
+  ::PROTOBUF_NAMESPACE_ID::uint32 extension_uri_reference() const;
+  void set_extension_uri_reference(::PROTOBUF_NAMESPACE_ID::uint32 value);
+  private:
+  ::PROTOBUF_NAMESPACE_ID::uint32 _internal_extension_uri_reference() const;
+  void _internal_set_extension_uri_reference(::PROTOBUF_NAMESPACE_ID::uint32 value);
+  public:
+
+  // uint32 type_anchor = 2;
+  void clear_type_anchor();
+  ::PROTOBUF_NAMESPACE_ID::uint32 type_anchor() const;
+  void set_type_anchor(::PROTOBUF_NAMESPACE_ID::uint32 value);
+  private:
+  ::PROTOBUF_NAMESPACE_ID::uint32 _internal_type_anchor() const;
+  void _internal_set_type_anchor(::PROTOBUF_NAMESPACE_ID::uint32 value);
+  public:
+
+  // @@protoc_insertion_point(class_scope:io.substrait.extensions.SimpleExtensionDeclaration.ExtensionType)
  private:
   class _Internal;
 
   template <typename T> friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
   typedef void InternalArenaConstructable_;
   typedef void DestructorSkippable_;
-  ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr git_uri_;
+  ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr name_;
+  ::PROTOBUF_NAMESPACE_ID::uint32 extension_uri_reference_;
+  ::PROTOBUF_NAMESPACE_ID::uint32 type_anchor_;
   mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   friend struct ::TableStruct_extensions_2eproto;
 };
 // -------------------------------------------------------------------
 
-class Extensions_Extension PROTOBUF_FINAL :
-    public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:io.substrait.Extensions.Extension) */ {
+class SimpleExtensionDeclaration_ExtensionTypeVariation PROTOBUF_FINAL :
+    public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:io.substrait.extensions.SimpleExtensionDeclaration.ExtensionTypeVariation) */ {
  public:
-  inline Extensions_Extension() : Extensions_Extension(nullptr) {}
-  ~Extensions_Extension() override;
-  explicit constexpr Extensions_Extension(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized);
+  inline SimpleExtensionDeclaration_ExtensionTypeVariation() : SimpleExtensionDeclaration_ExtensionTypeVariation(nullptr) {}
+  ~SimpleExtensionDeclaration_ExtensionTypeVariation() override;
+  explicit constexpr SimpleExtensionDeclaration_ExtensionTypeVariation(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized);
 
-  Extensions_Extension(const Extensions_Extension& from);
-  Extensions_Extension(Extensions_Extension&& from) noexcept
-    : Extensions_Extension() {
+  SimpleExtensionDeclaration_ExtensionTypeVariation(const SimpleExtensionDeclaration_ExtensionTypeVariation& from);
+  SimpleExtensionDeclaration_ExtensionTypeVariation(SimpleExtensionDeclaration_ExtensionTypeVariation&& from) noexcept
+    : SimpleExtensionDeclaration_ExtensionTypeVariation() {
     *this = ::std::move(from);
   }
 
-  inline Extensions_Extension& operator=(const Extensions_Extension& from) {
+  inline SimpleExtensionDeclaration_ExtensionTypeVariation& operator=(const SimpleExtensionDeclaration_ExtensionTypeVariation& from) {
     CopyFrom(from);
     return *this;
   }
-  inline Extensions_Extension& operator=(Extensions_Extension&& from) noexcept {
+  inline SimpleExtensionDeclaration_ExtensionTypeVariation& operator=(SimpleExtensionDeclaration_ExtensionTypeVariation&& from) noexcept {
     if (GetArena() == from.GetArena()) {
       if (this != &from) InternalSwap(&from);
     } else {
@@ -415,26 +432,20 @@ class Extensions_Extension PROTOBUF_FINAL :
   static const ::PROTOBUF_NAMESPACE_ID::Reflection* GetReflection() {
     return default_instance().GetMetadata().reflection;
   }
-  static const Extensions_Extension& default_instance() {
+  static const SimpleExtensionDeclaration_ExtensionTypeVariation& default_instance() {
     return *internal_default_instance();
   }
-  enum ExtensionTypeCase {
-    kTypeExtension = 2,
-    kFunctionExtension = 3,
-    EXTENSION_TYPE_NOT_SET = 0,
-  };
-
-  static inline const Extensions_Extension* internal_default_instance() {
-    return reinterpret_cast<const Extensions_Extension*>(
-               &_Extensions_Extension_default_instance_);
+  static inline const SimpleExtensionDeclaration_ExtensionTypeVariation* internal_default_instance() {
+    return reinterpret_cast<const SimpleExtensionDeclaration_ExtensionTypeVariation*>(
+               &_SimpleExtensionDeclaration_ExtensionTypeVariation_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
     2;
 
-  friend void swap(Extensions_Extension& a, Extensions_Extension& b) {
+  friend void swap(SimpleExtensionDeclaration_ExtensionTypeVariation& a, SimpleExtensionDeclaration_ExtensionTypeVariation& b) {
     a.Swap(&b);
   }
-  inline void Swap(Extensions_Extension* other) {
+  inline void Swap(SimpleExtensionDeclaration_ExtensionTypeVariation* other) {
     if (other == this) return;
     if (GetArena() == other->GetArena()) {
       InternalSwap(other);
@@ -442,7 +453,7 @@ class Extensions_Extension PROTOBUF_FINAL :
       ::PROTOBUF_NAMESPACE_ID::internal::GenericSwap(this, other);
     }
   }
-  void UnsafeArenaSwap(Extensions_Extension* other) {
+  void UnsafeArenaSwap(SimpleExtensionDeclaration_ExtensionTypeVariation* other) {
     if (other == this) return;
     GOOGLE_DCHECK(GetArena() == other->GetArena());
     InternalSwap(other);
@@ -450,17 +461,17 @@ class Extensions_Extension PROTOBUF_FINAL :
 
   // implements Message ----------------------------------------------
 
-  inline Extensions_Extension* New() const final {
-    return CreateMaybeMessage<Extensions_Extension>(nullptr);
+  inline SimpleExtensionDeclaration_ExtensionTypeVariation* New() const final {
+    return CreateMaybeMessage<SimpleExtensionDeclaration_ExtensionTypeVariation>(nullptr);
   }
 
-  Extensions_Extension* New(::PROTOBUF_NAMESPACE_ID::Arena* arena) const final {
-    return CreateMaybeMessage<Extensions_Extension>(arena);
+  SimpleExtensionDeclaration_ExtensionTypeVariation* New(::PROTOBUF_NAMESPACE_ID::Arena* arena) const final {
+    return CreateMaybeMessage<SimpleExtensionDeclaration_ExtensionTypeVariation>(arena);
   }
   void CopyFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) final;
   void MergeFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) final;
-  void CopyFrom(const Extensions_Extension& from);
-  void MergeFrom(const Extensions_Extension& from);
+  void CopyFrom(const SimpleExtensionDeclaration_ExtensionTypeVariation& from);
+  void MergeFrom(const SimpleExtensionDeclaration_ExtensionTypeVariation& from);
   PROTOBUF_ATTRIBUTE_REINITIALIZES void Clear() final;
   bool IsInitialized() const final;
 
@@ -474,13 +485,13 @@ class Extensions_Extension PROTOBUF_FINAL :
   inline void SharedCtor();
   inline void SharedDtor();
   void SetCachedSize(int size) const final;
-  void InternalSwap(Extensions_Extension* other);
+  void InternalSwap(SimpleExtensionDeclaration_ExtensionTypeVariation* other);
   friend class ::PROTOBUF_NAMESPACE_ID::internal::AnyMetadata;
   static ::PROTOBUF_NAMESPACE_ID::StringPiece FullMessageName() {
-    return "io.substrait.Extensions.Extension";
+    return "io.substrait.extensions.SimpleExtensionDeclaration.ExtensionTypeVariation";
   }
   protected:
-  explicit Extensions_Extension(::PROTOBUF_NAMESPACE_ID::Arena* arena);
+  explicit SimpleExtensionDeclaration_ExtensionTypeVariation(::PROTOBUF_NAMESPACE_ID::Arena* arena);
   private:
   static void ArenaDtor(void* object);
   inline void RegisterArenaDtor(::PROTOBUF_NAMESPACE_ID::Arena* arena);
@@ -490,116 +501,78 @@ class Extensions_Extension PROTOBUF_FINAL :
 
   // nested types ----------------------------------------------------
 
-  typedef Extensions_Extension_TypeExtension TypeExtension;
-  typedef Extensions_Extension_FunctionExtension FunctionExtension;
-
   // accessors -------------------------------------------------------
 
   enum : int {
-    kExtensionIdFieldNumber = 1,
-    kTypeExtensionFieldNumber = 2,
-    kFunctionExtensionFieldNumber = 3,
+    kNameFieldNumber = 3,
+    kExtensionUriPointerFieldNumber = 1,
+    kTypeVariationAnchorFieldNumber = 2,
   };
-  // .io.substrait.Extensions.ExtensionId extension_id = 1;
-  bool has_extension_id() const;
+  // string name = 3;
+  void clear_name();
+  const std::string& name() const;
+  template <typename ArgT0 = const std::string&, typename... ArgT>
+  void set_name(ArgT0&& arg0, ArgT... args);
+  std::string* mutable_name();
+  std::string* release_name();
+  void set_allocated_name(std::string* name);
   private:
-  bool _internal_has_extension_id() const;
+  const std::string& _internal_name() const;
+  void _internal_set_name(const std::string& value);
+  std::string* _internal_mutable_name();
   public:
-  void clear_extension_id();
-  const ::io::substrait::Extensions_ExtensionId& extension_id() const;
-  ::io::substrait::Extensions_ExtensionId* release_extension_id();
-  ::io::substrait::Extensions_ExtensionId* mutable_extension_id();
-  void set_allocated_extension_id(::io::substrait::Extensions_ExtensionId* extension_id);
-  private:
-  const ::io::substrait::Extensions_ExtensionId& _internal_extension_id() const;
-  ::io::substrait::Extensions_ExtensionId* _internal_mutable_extension_id();
-  public:
-  void unsafe_arena_set_allocated_extension_id(
-      ::io::substrait::Extensions_ExtensionId* extension_id);
-  ::io::substrait::Extensions_ExtensionId* unsafe_arena_release_extension_id();
 
-  // .io.substrait.Extensions.Extension.TypeExtension type_extension = 2;
-  bool has_type_extension() const;
+  // uint32 extension_uri_pointer = 1;
+  void clear_extension_uri_pointer();
+  ::PROTOBUF_NAMESPACE_ID::uint32 extension_uri_pointer() const;
+  void set_extension_uri_pointer(::PROTOBUF_NAMESPACE_ID::uint32 value);
   private:
-  bool _internal_has_type_extension() const;
+  ::PROTOBUF_NAMESPACE_ID::uint32 _internal_extension_uri_pointer() const;
+  void _internal_set_extension_uri_pointer(::PROTOBUF_NAMESPACE_ID::uint32 value);
   public:
-  void clear_type_extension();
-  const ::io::substrait::Extensions_Extension_TypeExtension& type_extension() const;
-  ::io::substrait::Extensions_Extension_TypeExtension* release_type_extension();
-  ::io::substrait::Extensions_Extension_TypeExtension* mutable_type_extension();
-  void set_allocated_type_extension(::io::substrait::Extensions_Extension_TypeExtension* type_extension);
-  private:
-  const ::io::substrait::Extensions_Extension_TypeExtension& _internal_type_extension() const;
-  ::io::substrait::Extensions_Extension_TypeExtension* _internal_mutable_type_extension();
-  public:
-  void unsafe_arena_set_allocated_type_extension(
-      ::io::substrait::Extensions_Extension_TypeExtension* type_extension);
-  ::io::substrait::Extensions_Extension_TypeExtension* unsafe_arena_release_type_extension();
 
-  // .io.substrait.Extensions.Extension.FunctionExtension function_extension = 3;
-  bool has_function_extension() const;
+  // uint32 type_variation_anchor = 2;
+  void clear_type_variation_anchor();
+  ::PROTOBUF_NAMESPACE_ID::uint32 type_variation_anchor() const;
+  void set_type_variation_anchor(::PROTOBUF_NAMESPACE_ID::uint32 value);
   private:
-  bool _internal_has_function_extension() const;
+  ::PROTOBUF_NAMESPACE_ID::uint32 _internal_type_variation_anchor() const;
+  void _internal_set_type_variation_anchor(::PROTOBUF_NAMESPACE_ID::uint32 value);
   public:
-  void clear_function_extension();
-  const ::io::substrait::Extensions_Extension_FunctionExtension& function_extension() const;
-  ::io::substrait::Extensions_Extension_FunctionExtension* release_function_extension();
-  ::io::substrait::Extensions_Extension_FunctionExtension* mutable_function_extension();
-  void set_allocated_function_extension(::io::substrait::Extensions_Extension_FunctionExtension* function_extension);
-  private:
-  const ::io::substrait::Extensions_Extension_FunctionExtension& _internal_function_extension() const;
-  ::io::substrait::Extensions_Extension_FunctionExtension* _internal_mutable_function_extension();
-  public:
-  void unsafe_arena_set_allocated_function_extension(
-      ::io::substrait::Extensions_Extension_FunctionExtension* function_extension);
-  ::io::substrait::Extensions_Extension_FunctionExtension* unsafe_arena_release_function_extension();
 
-  void clear_extension_type();
-  ExtensionTypeCase extension_type_case() const;
-  // @@protoc_insertion_point(class_scope:io.substrait.Extensions.Extension)
+  // @@protoc_insertion_point(class_scope:io.substrait.extensions.SimpleExtensionDeclaration.ExtensionTypeVariation)
  private:
   class _Internal;
-  void set_has_type_extension();
-  void set_has_function_extension();
-
-  inline bool has_extension_type() const;
-  inline void clear_has_extension_type();
 
   template <typename T> friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
   typedef void InternalArenaConstructable_;
   typedef void DestructorSkippable_;
-  ::io::substrait::Extensions_ExtensionId* extension_id_;
-  union ExtensionTypeUnion {
-    constexpr ExtensionTypeUnion() : _constinit_{} {}
-      ::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized _constinit_;
-    ::io::substrait::Extensions_Extension_TypeExtension* type_extension_;
-    ::io::substrait::Extensions_Extension_FunctionExtension* function_extension_;
-  } extension_type_;
+  ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr name_;
+  ::PROTOBUF_NAMESPACE_ID::uint32 extension_uri_pointer_;
+  ::PROTOBUF_NAMESPACE_ID::uint32 type_variation_anchor_;
   mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
-  ::PROTOBUF_NAMESPACE_ID::uint32 _oneof_case_[1];
-
   friend struct ::TableStruct_extensions_2eproto;
 };
 // -------------------------------------------------------------------
 
-class Extensions_Mapping_TypeMapping PROTOBUF_FINAL :
-    public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:io.substrait.Extensions.Mapping.TypeMapping) */ {
+class SimpleExtensionDeclaration_ExtensionFunction PROTOBUF_FINAL :
+    public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:io.substrait.extensions.SimpleExtensionDeclaration.ExtensionFunction) */ {
  public:
-  inline Extensions_Mapping_TypeMapping() : Extensions_Mapping_TypeMapping(nullptr) {}
-  ~Extensions_Mapping_TypeMapping() override;
-  explicit constexpr Extensions_Mapping_TypeMapping(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized);
+  inline SimpleExtensionDeclaration_ExtensionFunction() : SimpleExtensionDeclaration_ExtensionFunction(nullptr) {}
+  ~SimpleExtensionDeclaration_ExtensionFunction() override;
+  explicit constexpr SimpleExtensionDeclaration_ExtensionFunction(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized);
 
-  Extensions_Mapping_TypeMapping(const Extensions_Mapping_TypeMapping& from);
-  Extensions_Mapping_TypeMapping(Extensions_Mapping_TypeMapping&& from) noexcept
-    : Extensions_Mapping_TypeMapping() {
+  SimpleExtensionDeclaration_ExtensionFunction(const SimpleExtensionDeclaration_ExtensionFunction& from);
+  SimpleExtensionDeclaration_ExtensionFunction(SimpleExtensionDeclaration_ExtensionFunction&& from) noexcept
+    : SimpleExtensionDeclaration_ExtensionFunction() {
     *this = ::std::move(from);
   }
 
-  inline Extensions_Mapping_TypeMapping& operator=(const Extensions_Mapping_TypeMapping& from) {
+  inline SimpleExtensionDeclaration_ExtensionFunction& operator=(const SimpleExtensionDeclaration_ExtensionFunction& from) {
     CopyFrom(from);
     return *this;
   }
-  inline Extensions_Mapping_TypeMapping& operator=(Extensions_Mapping_TypeMapping&& from) noexcept {
+  inline SimpleExtensionDeclaration_ExtensionFunction& operator=(SimpleExtensionDeclaration_ExtensionFunction&& from) noexcept {
     if (GetArena() == from.GetArena()) {
       if (this != &from) InternalSwap(&from);
     } else {
@@ -617,20 +590,20 @@ class Extensions_Mapping_TypeMapping PROTOBUF_FINAL :
   static const ::PROTOBUF_NAMESPACE_ID::Reflection* GetReflection() {
     return default_instance().GetMetadata().reflection;
   }
-  static const Extensions_Mapping_TypeMapping& default_instance() {
+  static const SimpleExtensionDeclaration_ExtensionFunction& default_instance() {
     return *internal_default_instance();
   }
-  static inline const Extensions_Mapping_TypeMapping* internal_default_instance() {
-    return reinterpret_cast<const Extensions_Mapping_TypeMapping*>(
-               &_Extensions_Mapping_TypeMapping_default_instance_);
+  static inline const SimpleExtensionDeclaration_ExtensionFunction* internal_default_instance() {
+    return reinterpret_cast<const SimpleExtensionDeclaration_ExtensionFunction*>(
+               &_SimpleExtensionDeclaration_ExtensionFunction_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
     3;
 
-  friend void swap(Extensions_Mapping_TypeMapping& a, Extensions_Mapping_TypeMapping& b) {
+  friend void swap(SimpleExtensionDeclaration_ExtensionFunction& a, SimpleExtensionDeclaration_ExtensionFunction& b) {
     a.Swap(&b);
   }
-  inline void Swap(Extensions_Mapping_TypeMapping* other) {
+  inline void Swap(SimpleExtensionDeclaration_ExtensionFunction* other) {
     if (other == this) return;
     if (GetArena() == other->GetArena()) {
       InternalSwap(other);
@@ -638,7 +611,7 @@ class Extensions_Mapping_TypeMapping PROTOBUF_FINAL :
       ::PROTOBUF_NAMESPACE_ID::internal::GenericSwap(this, other);
     }
   }
-  void UnsafeArenaSwap(Extensions_Mapping_TypeMapping* other) {
+  void UnsafeArenaSwap(SimpleExtensionDeclaration_ExtensionFunction* other) {
     if (other == this) return;
     GOOGLE_DCHECK(GetArena() == other->GetArena());
     InternalSwap(other);
@@ -646,17 +619,17 @@ class Extensions_Mapping_TypeMapping PROTOBUF_FINAL :
 
   // implements Message ----------------------------------------------
 
-  inline Extensions_Mapping_TypeMapping* New() const final {
-    return CreateMaybeMessage<Extensions_Mapping_TypeMapping>(nullptr);
+  inline SimpleExtensionDeclaration_ExtensionFunction* New() const final {
+    return CreateMaybeMessage<SimpleExtensionDeclaration_ExtensionFunction>(nullptr);
   }
 
-  Extensions_Mapping_TypeMapping* New(::PROTOBUF_NAMESPACE_ID::Arena* arena) const final {
-    return CreateMaybeMessage<Extensions_Mapping_TypeMapping>(arena);
+  SimpleExtensionDeclaration_ExtensionFunction* New(::PROTOBUF_NAMESPACE_ID::Arena* arena) const final {
+    return CreateMaybeMessage<SimpleExtensionDeclaration_ExtensionFunction>(arena);
   }
   void CopyFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) final;
   void MergeFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) final;
-  void CopyFrom(const Extensions_Mapping_TypeMapping& from);
-  void MergeFrom(const Extensions_Mapping_TypeMapping& from);
+  void CopyFrom(const SimpleExtensionDeclaration_ExtensionFunction& from);
+  void MergeFrom(const SimpleExtensionDeclaration_ExtensionFunction& from);
   PROTOBUF_ATTRIBUTE_REINITIALIZES void Clear() final;
   bool IsInitialized() const final;
 
@@ -670,13 +643,13 @@ class Extensions_Mapping_TypeMapping PROTOBUF_FINAL :
   inline void SharedCtor();
   inline void SharedDtor();
   void SetCachedSize(int size) const final;
-  void InternalSwap(Extensions_Mapping_TypeMapping* other);
+  void InternalSwap(SimpleExtensionDeclaration_ExtensionFunction* other);
   friend class ::PROTOBUF_NAMESPACE_ID::internal::AnyMetadata;
   static ::PROTOBUF_NAMESPACE_ID::StringPiece FullMessageName() {
-    return "io.substrait.Extensions.Mapping.TypeMapping";
+    return "io.substrait.extensions.SimpleExtensionDeclaration.ExtensionFunction";
   }
   protected:
-  explicit Extensions_Mapping_TypeMapping(::PROTOBUF_NAMESPACE_ID::Arena* arena);
+  explicit SimpleExtensionDeclaration_ExtensionFunction(::PROTOBUF_NAMESPACE_ID::Arena* arena);
   private:
   static void ArenaDtor(void* object);
   inline void RegisterArenaDtor(::PROTOBUF_NAMESPACE_ID::Arena* arena);
@@ -690,8 +663,8 @@ class Extensions_Mapping_TypeMapping PROTOBUF_FINAL :
 
   enum : int {
     kNameFieldNumber = 3,
-    kTypeIdFieldNumber = 1,
-    kExtensionIdFieldNumber = 2,
+    kExtensionUriPointerFieldNumber = 1,
+    kFunctionAnchorFieldNumber = 2,
   };
   // string name = 3;
   void clear_name();
@@ -707,43 +680,25 @@ class Extensions_Mapping_TypeMapping PROTOBUF_FINAL :
   std::string* _internal_mutable_name();
   public:
 
-  // .io.substrait.Extensions.TypeId type_id = 1;
-  bool has_type_id() const;
+  // uint32 extension_uri_pointer = 1;
+  void clear_extension_uri_pointer();
+  ::PROTOBUF_NAMESPACE_ID::uint32 extension_uri_pointer() const;
+  void set_extension_uri_pointer(::PROTOBUF_NAMESPACE_ID::uint32 value);
   private:
-  bool _internal_has_type_id() const;
+  ::PROTOBUF_NAMESPACE_ID::uint32 _internal_extension_uri_pointer() const;
+  void _internal_set_extension_uri_pointer(::PROTOBUF_NAMESPACE_ID::uint32 value);
   public:
-  void clear_type_id();
-  const ::io::substrait::Extensions_TypeId& type_id() const;
-  ::io::substrait::Extensions_TypeId* release_type_id();
-  ::io::substrait::Extensions_TypeId* mutable_type_id();
-  void set_allocated_type_id(::io::substrait::Extensions_TypeId* type_id);
-  private:
-  const ::io::substrait::Extensions_TypeId& _internal_type_id() const;
-  ::io::substrait::Extensions_TypeId* _internal_mutable_type_id();
-  public:
-  void unsafe_arena_set_allocated_type_id(
-      ::io::substrait::Extensions_TypeId* type_id);
-  ::io::substrait::Extensions_TypeId* unsafe_arena_release_type_id();
 
-  // .io.substrait.Extensions.ExtensionId extension_id = 2;
-  bool has_extension_id() const;
+  // uint32 function_anchor = 2;
+  void clear_function_anchor();
+  ::PROTOBUF_NAMESPACE_ID::uint32 function_anchor() const;
+  void set_function_anchor(::PROTOBUF_NAMESPACE_ID::uint32 value);
   private:
-  bool _internal_has_extension_id() const;
+  ::PROTOBUF_NAMESPACE_ID::uint32 _internal_function_anchor() const;
+  void _internal_set_function_anchor(::PROTOBUF_NAMESPACE_ID::uint32 value);
   public:
-  void clear_extension_id();
-  const ::io::substrait::Extensions_ExtensionId& extension_id() const;
-  ::io::substrait::Extensions_ExtensionId* release_extension_id();
-  ::io::substrait::Extensions_ExtensionId* mutable_extension_id();
-  void set_allocated_extension_id(::io::substrait::Extensions_ExtensionId* extension_id);
-  private:
-  const ::io::substrait::Extensions_ExtensionId& _internal_extension_id() const;
-  ::io::substrait::Extensions_ExtensionId* _internal_mutable_extension_id();
-  public:
-  void unsafe_arena_set_allocated_extension_id(
-      ::io::substrait::Extensions_ExtensionId* extension_id);
-  ::io::substrait::Extensions_ExtensionId* unsafe_arena_release_extension_id();
 
-  // @@protoc_insertion_point(class_scope:io.substrait.Extensions.Mapping.TypeMapping)
+  // @@protoc_insertion_point(class_scope:io.substrait.extensions.SimpleExtensionDeclaration.ExtensionFunction)
  private:
   class _Internal;
 
@@ -751,31 +706,31 @@ class Extensions_Mapping_TypeMapping PROTOBUF_FINAL :
   typedef void InternalArenaConstructable_;
   typedef void DestructorSkippable_;
   ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr name_;
-  ::io::substrait::Extensions_TypeId* type_id_;
-  ::io::substrait::Extensions_ExtensionId* extension_id_;
+  ::PROTOBUF_NAMESPACE_ID::uint32 extension_uri_pointer_;
+  ::PROTOBUF_NAMESPACE_ID::uint32 function_anchor_;
   mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   friend struct ::TableStruct_extensions_2eproto;
 };
 // -------------------------------------------------------------------
 
-class Extensions_Mapping_FunctionMapping_Option PROTOBUF_FINAL :
-    public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:io.substrait.Extensions.Mapping.FunctionMapping.Option) */ {
+class SimpleExtensionDeclaration PROTOBUF_FINAL :
+    public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:io.substrait.extensions.SimpleExtensionDeclaration) */ {
  public:
-  inline Extensions_Mapping_FunctionMapping_Option() : Extensions_Mapping_FunctionMapping_Option(nullptr) {}
-  ~Extensions_Mapping_FunctionMapping_Option() override;
-  explicit constexpr Extensions_Mapping_FunctionMapping_Option(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized);
+  inline SimpleExtensionDeclaration() : SimpleExtensionDeclaration(nullptr) {}
+  ~SimpleExtensionDeclaration() override;
+  explicit constexpr SimpleExtensionDeclaration(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized);
 
-  Extensions_Mapping_FunctionMapping_Option(const Extensions_Mapping_FunctionMapping_Option& from);
-  Extensions_Mapping_FunctionMapping_Option(Extensions_Mapping_FunctionMapping_Option&& from) noexcept
-    : Extensions_Mapping_FunctionMapping_Option() {
+  SimpleExtensionDeclaration(const SimpleExtensionDeclaration& from);
+  SimpleExtensionDeclaration(SimpleExtensionDeclaration&& from) noexcept
+    : SimpleExtensionDeclaration() {
     *this = ::std::move(from);
   }
 
-  inline Extensions_Mapping_FunctionMapping_Option& operator=(const Extensions_Mapping_FunctionMapping_Option& from) {
+  inline SimpleExtensionDeclaration& operator=(const SimpleExtensionDeclaration& from) {
     CopyFrom(from);
     return *this;
   }
-  inline Extensions_Mapping_FunctionMapping_Option& operator=(Extensions_Mapping_FunctionMapping_Option&& from) noexcept {
+  inline SimpleExtensionDeclaration& operator=(SimpleExtensionDeclaration&& from) noexcept {
     if (GetArena() == from.GetArena()) {
       if (this != &from) InternalSwap(&from);
     } else {
@@ -793,20 +748,27 @@ class Extensions_Mapping_FunctionMapping_Option PROTOBUF_FINAL :
   static const ::PROTOBUF_NAMESPACE_ID::Reflection* GetReflection() {
     return default_instance().GetMetadata().reflection;
   }
-  static const Extensions_Mapping_FunctionMapping_Option& default_instance() {
+  static const SimpleExtensionDeclaration& default_instance() {
     return *internal_default_instance();
   }
-  static inline const Extensions_Mapping_FunctionMapping_Option* internal_default_instance() {
-    return reinterpret_cast<const Extensions_Mapping_FunctionMapping_Option*>(
-               &_Extensions_Mapping_FunctionMapping_Option_default_instance_);
+  enum MappingTypeCase {
+    kExtensionType = 1,
+    kExtensionTypeVariation = 2,
+    kExtensionFunction = 3,
+    MAPPING_TYPE_NOT_SET = 0,
+  };
+
+  static inline const SimpleExtensionDeclaration* internal_default_instance() {
+    return reinterpret_cast<const SimpleExtensionDeclaration*>(
+               &_SimpleExtensionDeclaration_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
     4;
 
-  friend void swap(Extensions_Mapping_FunctionMapping_Option& a, Extensions_Mapping_FunctionMapping_Option& b) {
+  friend void swap(SimpleExtensionDeclaration& a, SimpleExtensionDeclaration& b) {
     a.Swap(&b);
   }
-  inline void Swap(Extensions_Mapping_FunctionMapping_Option* other) {
+  inline void Swap(SimpleExtensionDeclaration* other) {
     if (other == this) return;
     if (GetArena() == other->GetArena()) {
       InternalSwap(other);
@@ -814,7 +776,7 @@ class Extensions_Mapping_FunctionMapping_Option PROTOBUF_FINAL :
       ::PROTOBUF_NAMESPACE_ID::internal::GenericSwap(this, other);
     }
   }
-  void UnsafeArenaSwap(Extensions_Mapping_FunctionMapping_Option* other) {
+  void UnsafeArenaSwap(SimpleExtensionDeclaration* other) {
     if (other == this) return;
     GOOGLE_DCHECK(GetArena() == other->GetArena());
     InternalSwap(other);
@@ -822,17 +784,17 @@ class Extensions_Mapping_FunctionMapping_Option PROTOBUF_FINAL :
 
   // implements Message ----------------------------------------------
 
-  inline Extensions_Mapping_FunctionMapping_Option* New() const final {
-    return CreateMaybeMessage<Extensions_Mapping_FunctionMapping_Option>(nullptr);
+  inline SimpleExtensionDeclaration* New() const final {
+    return CreateMaybeMessage<SimpleExtensionDeclaration>(nullptr);
   }
 
-  Extensions_Mapping_FunctionMapping_Option* New(::PROTOBUF_NAMESPACE_ID::Arena* arena) const final {
-    return CreateMaybeMessage<Extensions_Mapping_FunctionMapping_Option>(arena);
+  SimpleExtensionDeclaration* New(::PROTOBUF_NAMESPACE_ID::Arena* arena) const final {
+    return CreateMaybeMessage<SimpleExtensionDeclaration>(arena);
   }
   void CopyFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) final;
   void MergeFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) final;
-  void CopyFrom(const Extensions_Mapping_FunctionMapping_Option& from);
-  void MergeFrom(const Extensions_Mapping_FunctionMapping_Option& from);
+  void CopyFrom(const SimpleExtensionDeclaration& from);
+  void MergeFrom(const SimpleExtensionDeclaration& from);
   PROTOBUF_ATTRIBUTE_REINITIALIZES void Clear() final;
   bool IsInitialized() const final;
 
@@ -846,13 +808,13 @@ class Extensions_Mapping_FunctionMapping_Option PROTOBUF_FINAL :
   inline void SharedCtor();
   inline void SharedDtor();
   void SetCachedSize(int size) const final;
-  void InternalSwap(Extensions_Mapping_FunctionMapping_Option* other);
+  void InternalSwap(SimpleExtensionDeclaration* other);
   friend class ::PROTOBUF_NAMESPACE_ID::internal::AnyMetadata;
   static ::PROTOBUF_NAMESPACE_ID::StringPiece FullMessageName() {
-    return "io.substrait.Extensions.Mapping.FunctionMapping.Option";
+    return "io.substrait.extensions.SimpleExtensionDeclaration";
   }
   protected:
-  explicit Extensions_Mapping_FunctionMapping_Option(::PROTOBUF_NAMESPACE_ID::Arena* arena);
+  explicit SimpleExtensionDeclaration(::PROTOBUF_NAMESPACE_ID::Arena* arena);
   private:
   static void ArenaDtor(void* object);
   inline void RegisterArenaDtor(::PROTOBUF_NAMESPACE_ID::Arena* arena);
@@ -862,414 +824,79 @@ class Extensions_Mapping_FunctionMapping_Option PROTOBUF_FINAL :
 
   // nested types ----------------------------------------------------
 
-  // accessors -------------------------------------------------------
-
-  enum : int {
-    kKeyFieldNumber = 1,
-    kValueFieldNumber = 2,
-  };
-  // string key = 1;
-  void clear_key();
-  const std::string& key() const;
-  template <typename ArgT0 = const std::string&, typename... ArgT>
-  void set_key(ArgT0&& arg0, ArgT... args);
-  std::string* mutable_key();
-  std::string* release_key();
-  void set_allocated_key(std::string* key);
-  private:
-  const std::string& _internal_key() const;
-  void _internal_set_key(const std::string& value);
-  std::string* _internal_mutable_key();
-  public:
-
-  // string value = 2;
-  void clear_value();
-  const std::string& value() const;
-  template <typename ArgT0 = const std::string&, typename... ArgT>
-  void set_value(ArgT0&& arg0, ArgT... args);
-  std::string* mutable_value();
-  std::string* release_value();
-  void set_allocated_value(std::string* value);
-  private:
-  const std::string& _internal_value() const;
-  void _internal_set_value(const std::string& value);
-  std::string* _internal_mutable_value();
-  public:
-
-  // @@protoc_insertion_point(class_scope:io.substrait.Extensions.Mapping.FunctionMapping.Option)
- private:
-  class _Internal;
-
-  template <typename T> friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
-  typedef void InternalArenaConstructable_;
-  typedef void DestructorSkippable_;
-  ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr key_;
-  ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr value_;
-  mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
-  friend struct ::TableStruct_extensions_2eproto;
-};
-// -------------------------------------------------------------------
-
-class Extensions_Mapping_FunctionMapping PROTOBUF_FINAL :
-    public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:io.substrait.Extensions.Mapping.FunctionMapping) */ {
- public:
-  inline Extensions_Mapping_FunctionMapping() : Extensions_Mapping_FunctionMapping(nullptr) {}
-  ~Extensions_Mapping_FunctionMapping() override;
-  explicit constexpr Extensions_Mapping_FunctionMapping(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized);
-
-  Extensions_Mapping_FunctionMapping(const Extensions_Mapping_FunctionMapping& from);
-  Extensions_Mapping_FunctionMapping(Extensions_Mapping_FunctionMapping&& from) noexcept
-    : Extensions_Mapping_FunctionMapping() {
-    *this = ::std::move(from);
-  }
-
-  inline Extensions_Mapping_FunctionMapping& operator=(const Extensions_Mapping_FunctionMapping& from) {
-    CopyFrom(from);
-    return *this;
-  }
-  inline Extensions_Mapping_FunctionMapping& operator=(Extensions_Mapping_FunctionMapping&& from) noexcept {
-    if (GetArena() == from.GetArena()) {
-      if (this != &from) InternalSwap(&from);
-    } else {
-      CopyFrom(from);
-    }
-    return *this;
-  }
-
-  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* descriptor() {
-    return GetDescriptor();
-  }
-  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* GetDescriptor() {
-    return default_instance().GetMetadata().descriptor;
-  }
-  static const ::PROTOBUF_NAMESPACE_ID::Reflection* GetReflection() {
-    return default_instance().GetMetadata().reflection;
-  }
-  static const Extensions_Mapping_FunctionMapping& default_instance() {
-    return *internal_default_instance();
-  }
-  static inline const Extensions_Mapping_FunctionMapping* internal_default_instance() {
-    return reinterpret_cast<const Extensions_Mapping_FunctionMapping*>(
-               &_Extensions_Mapping_FunctionMapping_default_instance_);
-  }
-  static constexpr int kIndexInFileMessages =
-    5;
-
-  friend void swap(Extensions_Mapping_FunctionMapping& a, Extensions_Mapping_FunctionMapping& b) {
-    a.Swap(&b);
-  }
-  inline void Swap(Extensions_Mapping_FunctionMapping* other) {
-    if (other == this) return;
-    if (GetArena() == other->GetArena()) {
-      InternalSwap(other);
-    } else {
-      ::PROTOBUF_NAMESPACE_ID::internal::GenericSwap(this, other);
-    }
-  }
-  void UnsafeArenaSwap(Extensions_Mapping_FunctionMapping* other) {
-    if (other == this) return;
-    GOOGLE_DCHECK(GetArena() == other->GetArena());
-    InternalSwap(other);
-  }
-
-  // implements Message ----------------------------------------------
-
-  inline Extensions_Mapping_FunctionMapping* New() const final {
-    return CreateMaybeMessage<Extensions_Mapping_FunctionMapping>(nullptr);
-  }
-
-  Extensions_Mapping_FunctionMapping* New(::PROTOBUF_NAMESPACE_ID::Arena* arena) const final {
-    return CreateMaybeMessage<Extensions_Mapping_FunctionMapping>(arena);
-  }
-  void CopyFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) final;
-  void MergeFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) final;
-  void CopyFrom(const Extensions_Mapping_FunctionMapping& from);
-  void MergeFrom(const Extensions_Mapping_FunctionMapping& from);
-  PROTOBUF_ATTRIBUTE_REINITIALIZES void Clear() final;
-  bool IsInitialized() const final;
-
-  size_t ByteSizeLong() const final;
-  const char* _InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) final;
-  ::PROTOBUF_NAMESPACE_ID::uint8* _InternalSerialize(
-      ::PROTOBUF_NAMESPACE_ID::uint8* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const final;
-  int GetCachedSize() const final { return _cached_size_.Get(); }
-
-  private:
-  inline void SharedCtor();
-  inline void SharedDtor();
-  void SetCachedSize(int size) const final;
-  void InternalSwap(Extensions_Mapping_FunctionMapping* other);
-  friend class ::PROTOBUF_NAMESPACE_ID::internal::AnyMetadata;
-  static ::PROTOBUF_NAMESPACE_ID::StringPiece FullMessageName() {
-    return "io.substrait.Extensions.Mapping.FunctionMapping";
-  }
-  protected:
-  explicit Extensions_Mapping_FunctionMapping(::PROTOBUF_NAMESPACE_ID::Arena* arena);
-  private:
-  static void ArenaDtor(void* object);
-  inline void RegisterArenaDtor(::PROTOBUF_NAMESPACE_ID::Arena* arena);
-  public:
-
-  ::PROTOBUF_NAMESPACE_ID::Metadata GetMetadata() const final;
-
-  // nested types ----------------------------------------------------
-
-  typedef Extensions_Mapping_FunctionMapping_Option Option;
+  typedef SimpleExtensionDeclaration_ExtensionType ExtensionType;
+  typedef SimpleExtensionDeclaration_ExtensionTypeVariation ExtensionTypeVariation;
+  typedef SimpleExtensionDeclaration_ExtensionFunction ExtensionFunction;
 
   // accessors -------------------------------------------------------
 
   enum : int {
-    kOptionsFieldNumber = 5,
-    kNameFieldNumber = 3,
-    kFunctionIdFieldNumber = 1,
-    kExtensionIdFieldNumber = 2,
+    kExtensionTypeFieldNumber = 1,
+    kExtensionTypeVariationFieldNumber = 2,
+    kExtensionFunctionFieldNumber = 3,
   };
-  // repeated .io.substrait.Extensions.Mapping.FunctionMapping.Option options = 5;
-  int options_size() const;
+  // .io.substrait.extensions.SimpleExtensionDeclaration.ExtensionType extension_type = 1;
+  bool has_extension_type() const;
   private:
-  int _internal_options_size() const;
+  bool _internal_has_extension_type() const;
   public:
-  void clear_options();
-  ::io::substrait::Extensions_Mapping_FunctionMapping_Option* mutable_options(int index);
-  ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::io::substrait::Extensions_Mapping_FunctionMapping_Option >*
-      mutable_options();
+  void clear_extension_type();
+  const ::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionType& extension_type() const;
+  ::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionType* release_extension_type();
+  ::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionType* mutable_extension_type();
+  void set_allocated_extension_type(::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionType* extension_type);
   private:
-  const ::io::substrait::Extensions_Mapping_FunctionMapping_Option& _internal_options(int index) const;
-  ::io::substrait::Extensions_Mapping_FunctionMapping_Option* _internal_add_options();
+  const ::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionType& _internal_extension_type() const;
+  ::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionType* _internal_mutable_extension_type();
   public:
-  const ::io::substrait::Extensions_Mapping_FunctionMapping_Option& options(int index) const;
-  ::io::substrait::Extensions_Mapping_FunctionMapping_Option* add_options();
-  const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::io::substrait::Extensions_Mapping_FunctionMapping_Option >&
-      options() const;
+  void unsafe_arena_set_allocated_extension_type(
+      ::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionType* extension_type);
+  ::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionType* unsafe_arena_release_extension_type();
 
-  // string name = 3;
-  void clear_name();
-  const std::string& name() const;
-  template <typename ArgT0 = const std::string&, typename... ArgT>
-  void set_name(ArgT0&& arg0, ArgT... args);
-  std::string* mutable_name();
-  std::string* release_name();
-  void set_allocated_name(std::string* name);
+  // .io.substrait.extensions.SimpleExtensionDeclaration.ExtensionTypeVariation extension_type_variation = 2;
+  bool has_extension_type_variation() const;
   private:
-  const std::string& _internal_name() const;
-  void _internal_set_name(const std::string& value);
-  std::string* _internal_mutable_name();
+  bool _internal_has_extension_type_variation() const;
   public:
-
-  // .io.substrait.Extensions.FunctionId function_id = 1;
-  bool has_function_id() const;
+  void clear_extension_type_variation();
+  const ::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionTypeVariation& extension_type_variation() const;
+  ::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionTypeVariation* release_extension_type_variation();
+  ::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionTypeVariation* mutable_extension_type_variation();
+  void set_allocated_extension_type_variation(::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionTypeVariation* extension_type_variation);
   private:
-  bool _internal_has_function_id() const;
+  const ::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionTypeVariation& _internal_extension_type_variation() const;
+  ::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionTypeVariation* _internal_mutable_extension_type_variation();
   public:
-  void clear_function_id();
-  const ::io::substrait::Extensions_FunctionId& function_id() const;
-  ::io::substrait::Extensions_FunctionId* release_function_id();
-  ::io::substrait::Extensions_FunctionId* mutable_function_id();
-  void set_allocated_function_id(::io::substrait::Extensions_FunctionId* function_id);
+  void unsafe_arena_set_allocated_extension_type_variation(
+      ::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionTypeVariation* extension_type_variation);
+  ::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionTypeVariation* unsafe_arena_release_extension_type_variation();
+
+  // .io.substrait.extensions.SimpleExtensionDeclaration.ExtensionFunction extension_function = 3;
+  bool has_extension_function() const;
   private:
-  const ::io::substrait::Extensions_FunctionId& _internal_function_id() const;
-  ::io::substrait::Extensions_FunctionId* _internal_mutable_function_id();
+  bool _internal_has_extension_function() const;
   public:
-  void unsafe_arena_set_allocated_function_id(
-      ::io::substrait::Extensions_FunctionId* function_id);
-  ::io::substrait::Extensions_FunctionId* unsafe_arena_release_function_id();
-
-  // .io.substrait.Extensions.ExtensionId extension_id = 2;
-  bool has_extension_id() const;
+  void clear_extension_function();
+  const ::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionFunction& extension_function() const;
+  ::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionFunction* release_extension_function();
+  ::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionFunction* mutable_extension_function();
+  void set_allocated_extension_function(::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionFunction* extension_function);
   private:
-  bool _internal_has_extension_id() const;
+  const ::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionFunction& _internal_extension_function() const;
+  ::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionFunction* _internal_mutable_extension_function();
   public:
-  void clear_extension_id();
-  const ::io::substrait::Extensions_ExtensionId& extension_id() const;
-  ::io::substrait::Extensions_ExtensionId* release_extension_id();
-  ::io::substrait::Extensions_ExtensionId* mutable_extension_id();
-  void set_allocated_extension_id(::io::substrait::Extensions_ExtensionId* extension_id);
-  private:
-  const ::io::substrait::Extensions_ExtensionId& _internal_extension_id() const;
-  ::io::substrait::Extensions_ExtensionId* _internal_mutable_extension_id();
-  public:
-  void unsafe_arena_set_allocated_extension_id(
-      ::io::substrait::Extensions_ExtensionId* extension_id);
-  ::io::substrait::Extensions_ExtensionId* unsafe_arena_release_extension_id();
-
-  // @@protoc_insertion_point(class_scope:io.substrait.Extensions.Mapping.FunctionMapping)
- private:
-  class _Internal;
-
-  template <typename T> friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
-  typedef void InternalArenaConstructable_;
-  typedef void DestructorSkippable_;
-  ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::io::substrait::Extensions_Mapping_FunctionMapping_Option > options_;
-  ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr name_;
-  ::io::substrait::Extensions_FunctionId* function_id_;
-  ::io::substrait::Extensions_ExtensionId* extension_id_;
-  mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
-  friend struct ::TableStruct_extensions_2eproto;
-};
-// -------------------------------------------------------------------
-
-class Extensions_Mapping PROTOBUF_FINAL :
-    public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:io.substrait.Extensions.Mapping) */ {
- public:
-  inline Extensions_Mapping() : Extensions_Mapping(nullptr) {}
-  ~Extensions_Mapping() override;
-  explicit constexpr Extensions_Mapping(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized);
-
-  Extensions_Mapping(const Extensions_Mapping& from);
-  Extensions_Mapping(Extensions_Mapping&& from) noexcept
-    : Extensions_Mapping() {
-    *this = ::std::move(from);
-  }
-
-  inline Extensions_Mapping& operator=(const Extensions_Mapping& from) {
-    CopyFrom(from);
-    return *this;
-  }
-  inline Extensions_Mapping& operator=(Extensions_Mapping&& from) noexcept {
-    if (GetArena() == from.GetArena()) {
-      if (this != &from) InternalSwap(&from);
-    } else {
-      CopyFrom(from);
-    }
-    return *this;
-  }
-
-  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* descriptor() {
-    return GetDescriptor();
-  }
-  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* GetDescriptor() {
-    return default_instance().GetMetadata().descriptor;
-  }
-  static const ::PROTOBUF_NAMESPACE_ID::Reflection* GetReflection() {
-    return default_instance().GetMetadata().reflection;
-  }
-  static const Extensions_Mapping& default_instance() {
-    return *internal_default_instance();
-  }
-  enum MappingTypeCase {
-    kTypeMapping = 1,
-    kFunctionMapping = 2,
-    MAPPING_TYPE_NOT_SET = 0,
-  };
-
-  static inline const Extensions_Mapping* internal_default_instance() {
-    return reinterpret_cast<const Extensions_Mapping*>(
-               &_Extensions_Mapping_default_instance_);
-  }
-  static constexpr int kIndexInFileMessages =
-    6;
-
-  friend void swap(Extensions_Mapping& a, Extensions_Mapping& b) {
-    a.Swap(&b);
-  }
-  inline void Swap(Extensions_Mapping* other) {
-    if (other == this) return;
-    if (GetArena() == other->GetArena()) {
-      InternalSwap(other);
-    } else {
-      ::PROTOBUF_NAMESPACE_ID::internal::GenericSwap(this, other);
-    }
-  }
-  void UnsafeArenaSwap(Extensions_Mapping* other) {
-    if (other == this) return;
-    GOOGLE_DCHECK(GetArena() == other->GetArena());
-    InternalSwap(other);
-  }
-
-  // implements Message ----------------------------------------------
-
-  inline Extensions_Mapping* New() const final {
-    return CreateMaybeMessage<Extensions_Mapping>(nullptr);
-  }
-
-  Extensions_Mapping* New(::PROTOBUF_NAMESPACE_ID::Arena* arena) const final {
-    return CreateMaybeMessage<Extensions_Mapping>(arena);
-  }
-  void CopyFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) final;
-  void MergeFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) final;
-  void CopyFrom(const Extensions_Mapping& from);
-  void MergeFrom(const Extensions_Mapping& from);
-  PROTOBUF_ATTRIBUTE_REINITIALIZES void Clear() final;
-  bool IsInitialized() const final;
-
-  size_t ByteSizeLong() const final;
-  const char* _InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) final;
-  ::PROTOBUF_NAMESPACE_ID::uint8* _InternalSerialize(
-      ::PROTOBUF_NAMESPACE_ID::uint8* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const final;
-  int GetCachedSize() const final { return _cached_size_.Get(); }
-
-  private:
-  inline void SharedCtor();
-  inline void SharedDtor();
-  void SetCachedSize(int size) const final;
-  void InternalSwap(Extensions_Mapping* other);
-  friend class ::PROTOBUF_NAMESPACE_ID::internal::AnyMetadata;
-  static ::PROTOBUF_NAMESPACE_ID::StringPiece FullMessageName() {
-    return "io.substrait.Extensions.Mapping";
-  }
-  protected:
-  explicit Extensions_Mapping(::PROTOBUF_NAMESPACE_ID::Arena* arena);
-  private:
-  static void ArenaDtor(void* object);
-  inline void RegisterArenaDtor(::PROTOBUF_NAMESPACE_ID::Arena* arena);
-  public:
-
-  ::PROTOBUF_NAMESPACE_ID::Metadata GetMetadata() const final;
-
-  // nested types ----------------------------------------------------
-
-  typedef Extensions_Mapping_TypeMapping TypeMapping;
-  typedef Extensions_Mapping_FunctionMapping FunctionMapping;
-
-  // accessors -------------------------------------------------------
-
-  enum : int {
-    kTypeMappingFieldNumber = 1,
-    kFunctionMappingFieldNumber = 2,
-  };
-  // .io.substrait.Extensions.Mapping.TypeMapping type_mapping = 1;
-  bool has_type_mapping() const;
-  private:
-  bool _internal_has_type_mapping() const;
-  public:
-  void clear_type_mapping();
-  const ::io::substrait::Extensions_Mapping_TypeMapping& type_mapping() const;
-  ::io::substrait::Extensions_Mapping_TypeMapping* release_type_mapping();
-  ::io::substrait::Extensions_Mapping_TypeMapping* mutable_type_mapping();
-  void set_allocated_type_mapping(::io::substrait::Extensions_Mapping_TypeMapping* type_mapping);
-  private:
-  const ::io::substrait::Extensions_Mapping_TypeMapping& _internal_type_mapping() const;
-  ::io::substrait::Extensions_Mapping_TypeMapping* _internal_mutable_type_mapping();
-  public:
-  void unsafe_arena_set_allocated_type_mapping(
-      ::io::substrait::Extensions_Mapping_TypeMapping* type_mapping);
-  ::io::substrait::Extensions_Mapping_TypeMapping* unsafe_arena_release_type_mapping();
-
-  // .io.substrait.Extensions.Mapping.FunctionMapping function_mapping = 2;
-  bool has_function_mapping() const;
-  private:
-  bool _internal_has_function_mapping() const;
-  public:
-  void clear_function_mapping();
-  const ::io::substrait::Extensions_Mapping_FunctionMapping& function_mapping() const;
-  ::io::substrait::Extensions_Mapping_FunctionMapping* release_function_mapping();
-  ::io::substrait::Extensions_Mapping_FunctionMapping* mutable_function_mapping();
-  void set_allocated_function_mapping(::io::substrait::Extensions_Mapping_FunctionMapping* function_mapping);
-  private:
-  const ::io::substrait::Extensions_Mapping_FunctionMapping& _internal_function_mapping() const;
-  ::io::substrait::Extensions_Mapping_FunctionMapping* _internal_mutable_function_mapping();
-  public:
-  void unsafe_arena_set_allocated_function_mapping(
-      ::io::substrait::Extensions_Mapping_FunctionMapping* function_mapping);
-  ::io::substrait::Extensions_Mapping_FunctionMapping* unsafe_arena_release_function_mapping();
+  void unsafe_arena_set_allocated_extension_function(
+      ::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionFunction* extension_function);
+  ::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionFunction* unsafe_arena_release_extension_function();
 
   void clear_mapping_type();
   MappingTypeCase mapping_type_case() const;
-  // @@protoc_insertion_point(class_scope:io.substrait.Extensions.Mapping)
+  // @@protoc_insertion_point(class_scope:io.substrait.extensions.SimpleExtensionDeclaration)
  private:
   class _Internal;
-  void set_has_type_mapping();
-  void set_has_function_mapping();
+  void set_has_extension_type();
+  void set_has_extension_type_variation();
+  void set_has_extension_function();
 
   inline bool has_mapping_type() const;
   inline void clear_has_mapping_type();
@@ -1280,8 +907,9 @@ class Extensions_Mapping PROTOBUF_FINAL :
   union MappingTypeUnion {
     constexpr MappingTypeUnion() : _constinit_{} {}
       ::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized _constinit_;
-    ::io::substrait::Extensions_Mapping_TypeMapping* type_mapping_;
-    ::io::substrait::Extensions_Mapping_FunctionMapping* function_mapping_;
+    ::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionType* extension_type_;
+    ::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionTypeVariation* extension_type_variation_;
+    ::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionFunction* extension_function_;
   } mapping_type_;
   mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   ::PROTOBUF_NAMESPACE_ID::uint32 _oneof_case_[1];
@@ -1290,24 +918,24 @@ class Extensions_Mapping PROTOBUF_FINAL :
 };
 // -------------------------------------------------------------------
 
-class Extensions_ExtensionId PROTOBUF_FINAL :
-    public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:io.substrait.Extensions.ExtensionId) */ {
+class AdvancedExtension PROTOBUF_FINAL :
+    public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:io.substrait.extensions.AdvancedExtension) */ {
  public:
-  inline Extensions_ExtensionId() : Extensions_ExtensionId(nullptr) {}
-  ~Extensions_ExtensionId() override;
-  explicit constexpr Extensions_ExtensionId(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized);
+  inline AdvancedExtension() : AdvancedExtension(nullptr) {}
+  ~AdvancedExtension() override;
+  explicit constexpr AdvancedExtension(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized);
 
-  Extensions_ExtensionId(const Extensions_ExtensionId& from);
-  Extensions_ExtensionId(Extensions_ExtensionId&& from) noexcept
-    : Extensions_ExtensionId() {
+  AdvancedExtension(const AdvancedExtension& from);
+  AdvancedExtension(AdvancedExtension&& from) noexcept
+    : AdvancedExtension() {
     *this = ::std::move(from);
   }
 
-  inline Extensions_ExtensionId& operator=(const Extensions_ExtensionId& from) {
+  inline AdvancedExtension& operator=(const AdvancedExtension& from) {
     CopyFrom(from);
     return *this;
   }
-  inline Extensions_ExtensionId& operator=(Extensions_ExtensionId&& from) noexcept {
+  inline AdvancedExtension& operator=(AdvancedExtension&& from) noexcept {
     if (GetArena() == from.GetArena()) {
       if (this != &from) InternalSwap(&from);
     } else {
@@ -1325,20 +953,20 @@ class Extensions_ExtensionId PROTOBUF_FINAL :
   static const ::PROTOBUF_NAMESPACE_ID::Reflection* GetReflection() {
     return default_instance().GetMetadata().reflection;
   }
-  static const Extensions_ExtensionId& default_instance() {
+  static const AdvancedExtension& default_instance() {
     return *internal_default_instance();
   }
-  static inline const Extensions_ExtensionId* internal_default_instance() {
-    return reinterpret_cast<const Extensions_ExtensionId*>(
-               &_Extensions_ExtensionId_default_instance_);
+  static inline const AdvancedExtension* internal_default_instance() {
+    return reinterpret_cast<const AdvancedExtension*>(
+               &_AdvancedExtension_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    7;
+    5;
 
-  friend void swap(Extensions_ExtensionId& a, Extensions_ExtensionId& b) {
+  friend void swap(AdvancedExtension& a, AdvancedExtension& b) {
     a.Swap(&b);
   }
-  inline void Swap(Extensions_ExtensionId* other) {
+  inline void Swap(AdvancedExtension* other) {
     if (other == this) return;
     if (GetArena() == other->GetArena()) {
       InternalSwap(other);
@@ -1346,7 +974,7 @@ class Extensions_ExtensionId PROTOBUF_FINAL :
       ::PROTOBUF_NAMESPACE_ID::internal::GenericSwap(this, other);
     }
   }
-  void UnsafeArenaSwap(Extensions_ExtensionId* other) {
+  void UnsafeArenaSwap(AdvancedExtension* other) {
     if (other == this) return;
     GOOGLE_DCHECK(GetArena() == other->GetArena());
     InternalSwap(other);
@@ -1354,17 +982,17 @@ class Extensions_ExtensionId PROTOBUF_FINAL :
 
   // implements Message ----------------------------------------------
 
-  inline Extensions_ExtensionId* New() const final {
-    return CreateMaybeMessage<Extensions_ExtensionId>(nullptr);
+  inline AdvancedExtension* New() const final {
+    return CreateMaybeMessage<AdvancedExtension>(nullptr);
   }
 
-  Extensions_ExtensionId* New(::PROTOBUF_NAMESPACE_ID::Arena* arena) const final {
-    return CreateMaybeMessage<Extensions_ExtensionId>(arena);
+  AdvancedExtension* New(::PROTOBUF_NAMESPACE_ID::Arena* arena) const final {
+    return CreateMaybeMessage<AdvancedExtension>(arena);
   }
   void CopyFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) final;
   void MergeFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) final;
-  void CopyFrom(const Extensions_ExtensionId& from);
-  void MergeFrom(const Extensions_ExtensionId& from);
+  void CopyFrom(const AdvancedExtension& from);
+  void MergeFrom(const AdvancedExtension& from);
   PROTOBUF_ATTRIBUTE_REINITIALIZES void Clear() final;
   bool IsInitialized() const final;
 
@@ -1378,13 +1006,13 @@ class Extensions_ExtensionId PROTOBUF_FINAL :
   inline void SharedCtor();
   inline void SharedDtor();
   void SetCachedSize(int size) const final;
-  void InternalSwap(Extensions_ExtensionId* other);
+  void InternalSwap(AdvancedExtension* other);
   friend class ::PROTOBUF_NAMESPACE_ID::internal::AnyMetadata;
   static ::PROTOBUF_NAMESPACE_ID::StringPiece FullMessageName() {
-    return "io.substrait.Extensions.ExtensionId";
+    return "io.substrait.extensions.AdvancedExtension";
   }
   protected:
-  explicit Extensions_ExtensionId(::PROTOBUF_NAMESPACE_ID::Arena* arena);
+  explicit AdvancedExtension(::PROTOBUF_NAMESPACE_ID::Arena* arena);
   private:
   static void ArenaDtor(void* object);
   inline void RegisterArenaDtor(::PROTOBUF_NAMESPACE_ID::Arena* arena);
@@ -1397,411 +1025,54 @@ class Extensions_ExtensionId PROTOBUF_FINAL :
   // accessors -------------------------------------------------------
 
   enum : int {
-    kIdFieldNumber = 1,
+    kOptimizationFieldNumber = 1,
+    kEnhancementFieldNumber = 2,
   };
-  // uint32 id = 1;
-  void clear_id();
-  ::PROTOBUF_NAMESPACE_ID::uint32 id() const;
-  void set_id(::PROTOBUF_NAMESPACE_ID::uint32 value);
+  // .google.protobuf.Any optimization = 1;
+  bool has_optimization() const;
   private:
-  ::PROTOBUF_NAMESPACE_ID::uint32 _internal_id() const;
-  void _internal_set_id(::PROTOBUF_NAMESPACE_ID::uint32 value);
+  bool _internal_has_optimization() const;
   public:
+  void clear_optimization();
+  const PROTOBUF_NAMESPACE_ID::Any& optimization() const;
+  PROTOBUF_NAMESPACE_ID::Any* release_optimization();
+  PROTOBUF_NAMESPACE_ID::Any* mutable_optimization();
+  void set_allocated_optimization(PROTOBUF_NAMESPACE_ID::Any* optimization);
+  private:
+  const PROTOBUF_NAMESPACE_ID::Any& _internal_optimization() const;
+  PROTOBUF_NAMESPACE_ID::Any* _internal_mutable_optimization();
+  public:
+  void unsafe_arena_set_allocated_optimization(
+      PROTOBUF_NAMESPACE_ID::Any* optimization);
+  PROTOBUF_NAMESPACE_ID::Any* unsafe_arena_release_optimization();
 
-  // @@protoc_insertion_point(class_scope:io.substrait.Extensions.ExtensionId)
+  // .google.protobuf.Any enhancement = 2;
+  bool has_enhancement() const;
+  private:
+  bool _internal_has_enhancement() const;
+  public:
+  void clear_enhancement();
+  const PROTOBUF_NAMESPACE_ID::Any& enhancement() const;
+  PROTOBUF_NAMESPACE_ID::Any* release_enhancement();
+  PROTOBUF_NAMESPACE_ID::Any* mutable_enhancement();
+  void set_allocated_enhancement(PROTOBUF_NAMESPACE_ID::Any* enhancement);
+  private:
+  const PROTOBUF_NAMESPACE_ID::Any& _internal_enhancement() const;
+  PROTOBUF_NAMESPACE_ID::Any* _internal_mutable_enhancement();
+  public:
+  void unsafe_arena_set_allocated_enhancement(
+      PROTOBUF_NAMESPACE_ID::Any* enhancement);
+  PROTOBUF_NAMESPACE_ID::Any* unsafe_arena_release_enhancement();
+
+  // @@protoc_insertion_point(class_scope:io.substrait.extensions.AdvancedExtension)
  private:
   class _Internal;
 
   template <typename T> friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
   typedef void InternalArenaConstructable_;
   typedef void DestructorSkippable_;
-  ::PROTOBUF_NAMESPACE_ID::uint32 id_;
-  mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
-  friend struct ::TableStruct_extensions_2eproto;
-};
-// -------------------------------------------------------------------
-
-class Extensions_FunctionId PROTOBUF_FINAL :
-    public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:io.substrait.Extensions.FunctionId) */ {
- public:
-  inline Extensions_FunctionId() : Extensions_FunctionId(nullptr) {}
-  ~Extensions_FunctionId() override;
-  explicit constexpr Extensions_FunctionId(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized);
-
-  Extensions_FunctionId(const Extensions_FunctionId& from);
-  Extensions_FunctionId(Extensions_FunctionId&& from) noexcept
-    : Extensions_FunctionId() {
-    *this = ::std::move(from);
-  }
-
-  inline Extensions_FunctionId& operator=(const Extensions_FunctionId& from) {
-    CopyFrom(from);
-    return *this;
-  }
-  inline Extensions_FunctionId& operator=(Extensions_FunctionId&& from) noexcept {
-    if (GetArena() == from.GetArena()) {
-      if (this != &from) InternalSwap(&from);
-    } else {
-      CopyFrom(from);
-    }
-    return *this;
-  }
-
-  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* descriptor() {
-    return GetDescriptor();
-  }
-  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* GetDescriptor() {
-    return default_instance().GetMetadata().descriptor;
-  }
-  static const ::PROTOBUF_NAMESPACE_ID::Reflection* GetReflection() {
-    return default_instance().GetMetadata().reflection;
-  }
-  static const Extensions_FunctionId& default_instance() {
-    return *internal_default_instance();
-  }
-  static inline const Extensions_FunctionId* internal_default_instance() {
-    return reinterpret_cast<const Extensions_FunctionId*>(
-               &_Extensions_FunctionId_default_instance_);
-  }
-  static constexpr int kIndexInFileMessages =
-    8;
-
-  friend void swap(Extensions_FunctionId& a, Extensions_FunctionId& b) {
-    a.Swap(&b);
-  }
-  inline void Swap(Extensions_FunctionId* other) {
-    if (other == this) return;
-    if (GetArena() == other->GetArena()) {
-      InternalSwap(other);
-    } else {
-      ::PROTOBUF_NAMESPACE_ID::internal::GenericSwap(this, other);
-    }
-  }
-  void UnsafeArenaSwap(Extensions_FunctionId* other) {
-    if (other == this) return;
-    GOOGLE_DCHECK(GetArena() == other->GetArena());
-    InternalSwap(other);
-  }
-
-  // implements Message ----------------------------------------------
-
-  inline Extensions_FunctionId* New() const final {
-    return CreateMaybeMessage<Extensions_FunctionId>(nullptr);
-  }
-
-  Extensions_FunctionId* New(::PROTOBUF_NAMESPACE_ID::Arena* arena) const final {
-    return CreateMaybeMessage<Extensions_FunctionId>(arena);
-  }
-  void CopyFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) final;
-  void MergeFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) final;
-  void CopyFrom(const Extensions_FunctionId& from);
-  void MergeFrom(const Extensions_FunctionId& from);
-  PROTOBUF_ATTRIBUTE_REINITIALIZES void Clear() final;
-  bool IsInitialized() const final;
-
-  size_t ByteSizeLong() const final;
-  const char* _InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) final;
-  ::PROTOBUF_NAMESPACE_ID::uint8* _InternalSerialize(
-      ::PROTOBUF_NAMESPACE_ID::uint8* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const final;
-  int GetCachedSize() const final { return _cached_size_.Get(); }
-
-  private:
-  inline void SharedCtor();
-  inline void SharedDtor();
-  void SetCachedSize(int size) const final;
-  void InternalSwap(Extensions_FunctionId* other);
-  friend class ::PROTOBUF_NAMESPACE_ID::internal::AnyMetadata;
-  static ::PROTOBUF_NAMESPACE_ID::StringPiece FullMessageName() {
-    return "io.substrait.Extensions.FunctionId";
-  }
-  protected:
-  explicit Extensions_FunctionId(::PROTOBUF_NAMESPACE_ID::Arena* arena);
-  private:
-  static void ArenaDtor(void* object);
-  inline void RegisterArenaDtor(::PROTOBUF_NAMESPACE_ID::Arena* arena);
-  public:
-
-  ::PROTOBUF_NAMESPACE_ID::Metadata GetMetadata() const final;
-
-  // nested types ----------------------------------------------------
-
-  // accessors -------------------------------------------------------
-
-  enum : int {
-    kIdFieldNumber = 1,
-  };
-  // uint64 id = 1;
-  void clear_id();
-  ::PROTOBUF_NAMESPACE_ID::uint64 id() const;
-  void set_id(::PROTOBUF_NAMESPACE_ID::uint64 value);
-  private:
-  ::PROTOBUF_NAMESPACE_ID::uint64 _internal_id() const;
-  void _internal_set_id(::PROTOBUF_NAMESPACE_ID::uint64 value);
-  public:
-
-  // @@protoc_insertion_point(class_scope:io.substrait.Extensions.FunctionId)
- private:
-  class _Internal;
-
-  template <typename T> friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
-  typedef void InternalArenaConstructable_;
-  typedef void DestructorSkippable_;
-  ::PROTOBUF_NAMESPACE_ID::uint64 id_;
-  mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
-  friend struct ::TableStruct_extensions_2eproto;
-};
-// -------------------------------------------------------------------
-
-class Extensions_TypeId PROTOBUF_FINAL :
-    public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:io.substrait.Extensions.TypeId) */ {
- public:
-  inline Extensions_TypeId() : Extensions_TypeId(nullptr) {}
-  ~Extensions_TypeId() override;
-  explicit constexpr Extensions_TypeId(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized);
-
-  Extensions_TypeId(const Extensions_TypeId& from);
-  Extensions_TypeId(Extensions_TypeId&& from) noexcept
-    : Extensions_TypeId() {
-    *this = ::std::move(from);
-  }
-
-  inline Extensions_TypeId& operator=(const Extensions_TypeId& from) {
-    CopyFrom(from);
-    return *this;
-  }
-  inline Extensions_TypeId& operator=(Extensions_TypeId&& from) noexcept {
-    if (GetArena() == from.GetArena()) {
-      if (this != &from) InternalSwap(&from);
-    } else {
-      CopyFrom(from);
-    }
-    return *this;
-  }
-
-  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* descriptor() {
-    return GetDescriptor();
-  }
-  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* GetDescriptor() {
-    return default_instance().GetMetadata().descriptor;
-  }
-  static const ::PROTOBUF_NAMESPACE_ID::Reflection* GetReflection() {
-    return default_instance().GetMetadata().reflection;
-  }
-  static const Extensions_TypeId& default_instance() {
-    return *internal_default_instance();
-  }
-  static inline const Extensions_TypeId* internal_default_instance() {
-    return reinterpret_cast<const Extensions_TypeId*>(
-               &_Extensions_TypeId_default_instance_);
-  }
-  static constexpr int kIndexInFileMessages =
-    9;
-
-  friend void swap(Extensions_TypeId& a, Extensions_TypeId& b) {
-    a.Swap(&b);
-  }
-  inline void Swap(Extensions_TypeId* other) {
-    if (other == this) return;
-    if (GetArena() == other->GetArena()) {
-      InternalSwap(other);
-    } else {
-      ::PROTOBUF_NAMESPACE_ID::internal::GenericSwap(this, other);
-    }
-  }
-  void UnsafeArenaSwap(Extensions_TypeId* other) {
-    if (other == this) return;
-    GOOGLE_DCHECK(GetArena() == other->GetArena());
-    InternalSwap(other);
-  }
-
-  // implements Message ----------------------------------------------
-
-  inline Extensions_TypeId* New() const final {
-    return CreateMaybeMessage<Extensions_TypeId>(nullptr);
-  }
-
-  Extensions_TypeId* New(::PROTOBUF_NAMESPACE_ID::Arena* arena) const final {
-    return CreateMaybeMessage<Extensions_TypeId>(arena);
-  }
-  void CopyFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) final;
-  void MergeFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) final;
-  void CopyFrom(const Extensions_TypeId& from);
-  void MergeFrom(const Extensions_TypeId& from);
-  PROTOBUF_ATTRIBUTE_REINITIALIZES void Clear() final;
-  bool IsInitialized() const final;
-
-  size_t ByteSizeLong() const final;
-  const char* _InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) final;
-  ::PROTOBUF_NAMESPACE_ID::uint8* _InternalSerialize(
-      ::PROTOBUF_NAMESPACE_ID::uint8* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const final;
-  int GetCachedSize() const final { return _cached_size_.Get(); }
-
-  private:
-  inline void SharedCtor();
-  inline void SharedDtor();
-  void SetCachedSize(int size) const final;
-  void InternalSwap(Extensions_TypeId* other);
-  friend class ::PROTOBUF_NAMESPACE_ID::internal::AnyMetadata;
-  static ::PROTOBUF_NAMESPACE_ID::StringPiece FullMessageName() {
-    return "io.substrait.Extensions.TypeId";
-  }
-  protected:
-  explicit Extensions_TypeId(::PROTOBUF_NAMESPACE_ID::Arena* arena);
-  private:
-  static void ArenaDtor(void* object);
-  inline void RegisterArenaDtor(::PROTOBUF_NAMESPACE_ID::Arena* arena);
-  public:
-
-  ::PROTOBUF_NAMESPACE_ID::Metadata GetMetadata() const final;
-
-  // nested types ----------------------------------------------------
-
-  // accessors -------------------------------------------------------
-
-  enum : int {
-    kIdFieldNumber = 1,
-  };
-  // uint64 id = 1;
-  void clear_id();
-  ::PROTOBUF_NAMESPACE_ID::uint64 id() const;
-  void set_id(::PROTOBUF_NAMESPACE_ID::uint64 value);
-  private:
-  ::PROTOBUF_NAMESPACE_ID::uint64 _internal_id() const;
-  void _internal_set_id(::PROTOBUF_NAMESPACE_ID::uint64 value);
-  public:
-
-  // @@protoc_insertion_point(class_scope:io.substrait.Extensions.TypeId)
- private:
-  class _Internal;
-
-  template <typename T> friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
-  typedef void InternalArenaConstructable_;
-  typedef void DestructorSkippable_;
-  ::PROTOBUF_NAMESPACE_ID::uint64 id_;
-  mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
-  friend struct ::TableStruct_extensions_2eproto;
-};
-// -------------------------------------------------------------------
-
-class Extensions PROTOBUF_FINAL :
-    public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:io.substrait.Extensions) */ {
- public:
-  inline Extensions() : Extensions(nullptr) {}
-  ~Extensions() override;
-  explicit constexpr Extensions(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized);
-
-  Extensions(const Extensions& from);
-  Extensions(Extensions&& from) noexcept
-    : Extensions() {
-    *this = ::std::move(from);
-  }
-
-  inline Extensions& operator=(const Extensions& from) {
-    CopyFrom(from);
-    return *this;
-  }
-  inline Extensions& operator=(Extensions&& from) noexcept {
-    if (GetArena() == from.GetArena()) {
-      if (this != &from) InternalSwap(&from);
-    } else {
-      CopyFrom(from);
-    }
-    return *this;
-  }
-
-  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* descriptor() {
-    return GetDescriptor();
-  }
-  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* GetDescriptor() {
-    return default_instance().GetMetadata().descriptor;
-  }
-  static const ::PROTOBUF_NAMESPACE_ID::Reflection* GetReflection() {
-    return default_instance().GetMetadata().reflection;
-  }
-  static const Extensions& default_instance() {
-    return *internal_default_instance();
-  }
-  static inline const Extensions* internal_default_instance() {
-    return reinterpret_cast<const Extensions*>(
-               &_Extensions_default_instance_);
-  }
-  static constexpr int kIndexInFileMessages =
-    10;
-
-  friend void swap(Extensions& a, Extensions& b) {
-    a.Swap(&b);
-  }
-  inline void Swap(Extensions* other) {
-    if (other == this) return;
-    if (GetArena() == other->GetArena()) {
-      InternalSwap(other);
-    } else {
-      ::PROTOBUF_NAMESPACE_ID::internal::GenericSwap(this, other);
-    }
-  }
-  void UnsafeArenaSwap(Extensions* other) {
-    if (other == this) return;
-    GOOGLE_DCHECK(GetArena() == other->GetArena());
-    InternalSwap(other);
-  }
-
-  // implements Message ----------------------------------------------
-
-  inline Extensions* New() const final {
-    return CreateMaybeMessage<Extensions>(nullptr);
-  }
-
-  Extensions* New(::PROTOBUF_NAMESPACE_ID::Arena* arena) const final {
-    return CreateMaybeMessage<Extensions>(arena);
-  }
-  void CopyFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) final;
-  void MergeFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) final;
-  void CopyFrom(const Extensions& from);
-  void MergeFrom(const Extensions& from);
-  PROTOBUF_ATTRIBUTE_REINITIALIZES void Clear() final;
-  bool IsInitialized() const final;
-
-  size_t ByteSizeLong() const final;
-  const char* _InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) final;
-  ::PROTOBUF_NAMESPACE_ID::uint8* _InternalSerialize(
-      ::PROTOBUF_NAMESPACE_ID::uint8* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const final;
-  int GetCachedSize() const final { return _cached_size_.Get(); }
-
-  private:
-  inline void SharedCtor();
-  inline void SharedDtor();
-  void SetCachedSize(int size) const final;
-  void InternalSwap(Extensions* other);
-  friend class ::PROTOBUF_NAMESPACE_ID::internal::AnyMetadata;
-  static ::PROTOBUF_NAMESPACE_ID::StringPiece FullMessageName() {
-    return "io.substrait.Extensions";
-  }
-  protected:
-  explicit Extensions(::PROTOBUF_NAMESPACE_ID::Arena* arena);
-  private:
-  static void ArenaDtor(void* object);
-  inline void RegisterArenaDtor(::PROTOBUF_NAMESPACE_ID::Arena* arena);
-  public:
-
-  ::PROTOBUF_NAMESPACE_ID::Metadata GetMetadata() const final;
-
-  // nested types ----------------------------------------------------
-
-  typedef Extensions_Extension Extension;
-  typedef Extensions_Mapping Mapping;
-  typedef Extensions_ExtensionId ExtensionId;
-  typedef Extensions_FunctionId FunctionId;
-  typedef Extensions_TypeId TypeId;
-
-  // accessors -------------------------------------------------------
-
-  // @@protoc_insertion_point(class_scope:io.substrait.Extensions)
- private:
-  class _Internal;
-
-  template <typename T> friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
-  typedef void InternalArenaConstructable_;
-  typedef void DestructorSkippable_;
+  PROTOBUF_NAMESPACE_ID::Any* optimization_;
+  PROTOBUF_NAMESPACE_ID::Any* enhancement_;
   mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   friend struct ::TableStruct_extensions_2eproto;
 };
@@ -1814,549 +1085,152 @@ class Extensions PROTOBUF_FINAL :
   #pragma GCC diagnostic push
   #pragma GCC diagnostic ignored "-Wstrict-aliasing"
 #endif  // __GNUC__
-// Extensions_Extension_TypeExtension
+// SimpleExtensionURI
 
-// string git_uri = 1;
-inline void Extensions_Extension_TypeExtension::clear_git_uri() {
-  git_uri_.ClearToEmpty();
+// uint32 extension_uri_anchor = 1;
+inline void SimpleExtensionURI::clear_extension_uri_anchor() {
+  extension_uri_anchor_ = 0u;
 }
-inline const std::string& Extensions_Extension_TypeExtension::git_uri() const {
-  // @@protoc_insertion_point(field_get:io.substrait.Extensions.Extension.TypeExtension.git_uri)
-  return _internal_git_uri();
+inline ::PROTOBUF_NAMESPACE_ID::uint32 SimpleExtensionURI::_internal_extension_uri_anchor() const {
+  return extension_uri_anchor_;
+}
+inline ::PROTOBUF_NAMESPACE_ID::uint32 SimpleExtensionURI::extension_uri_anchor() const {
+  // @@protoc_insertion_point(field_get:io.substrait.extensions.SimpleExtensionURI.extension_uri_anchor)
+  return _internal_extension_uri_anchor();
+}
+inline void SimpleExtensionURI::_internal_set_extension_uri_anchor(::PROTOBUF_NAMESPACE_ID::uint32 value) {
+  
+  extension_uri_anchor_ = value;
+}
+inline void SimpleExtensionURI::set_extension_uri_anchor(::PROTOBUF_NAMESPACE_ID::uint32 value) {
+  _internal_set_extension_uri_anchor(value);
+  // @@protoc_insertion_point(field_set:io.substrait.extensions.SimpleExtensionURI.extension_uri_anchor)
+}
+
+// string uri = 2;
+inline void SimpleExtensionURI::clear_uri() {
+  uri_.ClearToEmpty();
+}
+inline const std::string& SimpleExtensionURI::uri() const {
+  // @@protoc_insertion_point(field_get:io.substrait.extensions.SimpleExtensionURI.uri)
+  return _internal_uri();
 }
 template <typename ArgT0, typename... ArgT>
 PROTOBUF_ALWAYS_INLINE
-inline void Extensions_Extension_TypeExtension::set_git_uri(ArgT0&& arg0, ArgT... args) {
+inline void SimpleExtensionURI::set_uri(ArgT0&& arg0, ArgT... args) {
  
- git_uri_.Set(::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::EmptyDefault{}, static_cast<ArgT0 &&>(arg0), args..., GetArena());
-  // @@protoc_insertion_point(field_set:io.substrait.Extensions.Extension.TypeExtension.git_uri)
+ uri_.Set(::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::EmptyDefault{}, static_cast<ArgT0 &&>(arg0), args..., GetArena());
+  // @@protoc_insertion_point(field_set:io.substrait.extensions.SimpleExtensionURI.uri)
 }
-inline std::string* Extensions_Extension_TypeExtension::mutable_git_uri() {
-  // @@protoc_insertion_point(field_mutable:io.substrait.Extensions.Extension.TypeExtension.git_uri)
-  return _internal_mutable_git_uri();
+inline std::string* SimpleExtensionURI::mutable_uri() {
+  // @@protoc_insertion_point(field_mutable:io.substrait.extensions.SimpleExtensionURI.uri)
+  return _internal_mutable_uri();
 }
-inline const std::string& Extensions_Extension_TypeExtension::_internal_git_uri() const {
-  return git_uri_.Get();
+inline const std::string& SimpleExtensionURI::_internal_uri() const {
+  return uri_.Get();
 }
-inline void Extensions_Extension_TypeExtension::_internal_set_git_uri(const std::string& value) {
+inline void SimpleExtensionURI::_internal_set_uri(const std::string& value) {
   
-  git_uri_.Set(::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::EmptyDefault{}, value, GetArena());
+  uri_.Set(::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::EmptyDefault{}, value, GetArena());
 }
-inline std::string* Extensions_Extension_TypeExtension::_internal_mutable_git_uri() {
+inline std::string* SimpleExtensionURI::_internal_mutable_uri() {
   
-  return git_uri_.Mutable(::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::EmptyDefault{}, GetArena());
+  return uri_.Mutable(::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::EmptyDefault{}, GetArena());
 }
-inline std::string* Extensions_Extension_TypeExtension::release_git_uri() {
-  // @@protoc_insertion_point(field_release:io.substrait.Extensions.Extension.TypeExtension.git_uri)
-  return git_uri_.Release(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(), GetArena());
+inline std::string* SimpleExtensionURI::release_uri() {
+  // @@protoc_insertion_point(field_release:io.substrait.extensions.SimpleExtensionURI.uri)
+  return uri_.Release(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(), GetArena());
 }
-inline void Extensions_Extension_TypeExtension::set_allocated_git_uri(std::string* git_uri) {
-  if (git_uri != nullptr) {
+inline void SimpleExtensionURI::set_allocated_uri(std::string* uri) {
+  if (uri != nullptr) {
     
   } else {
     
   }
-  git_uri_.SetAllocated(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(), git_uri,
+  uri_.SetAllocated(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(), uri,
       GetArena());
-  // @@protoc_insertion_point(field_set_allocated:io.substrait.Extensions.Extension.TypeExtension.git_uri)
+  // @@protoc_insertion_point(field_set_allocated:io.substrait.extensions.SimpleExtensionURI.uri)
 }
 
 // -------------------------------------------------------------------
 
-// Extensions_Extension_FunctionExtension
+// SimpleExtensionDeclaration_ExtensionType
 
-// string git_uri = 1;
-inline void Extensions_Extension_FunctionExtension::clear_git_uri() {
-  git_uri_.ClearToEmpty();
+// uint32 extension_uri_reference = 1;
+inline void SimpleExtensionDeclaration_ExtensionType::clear_extension_uri_reference() {
+  extension_uri_reference_ = 0u;
 }
-inline const std::string& Extensions_Extension_FunctionExtension::git_uri() const {
-  // @@protoc_insertion_point(field_get:io.substrait.Extensions.Extension.FunctionExtension.git_uri)
-  return _internal_git_uri();
+inline ::PROTOBUF_NAMESPACE_ID::uint32 SimpleExtensionDeclaration_ExtensionType::_internal_extension_uri_reference() const {
+  return extension_uri_reference_;
 }
-template <typename ArgT0, typename... ArgT>
-PROTOBUF_ALWAYS_INLINE
-inline void Extensions_Extension_FunctionExtension::set_git_uri(ArgT0&& arg0, ArgT... args) {
- 
- git_uri_.Set(::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::EmptyDefault{}, static_cast<ArgT0 &&>(arg0), args..., GetArena());
-  // @@protoc_insertion_point(field_set:io.substrait.Extensions.Extension.FunctionExtension.git_uri)
+inline ::PROTOBUF_NAMESPACE_ID::uint32 SimpleExtensionDeclaration_ExtensionType::extension_uri_reference() const {
+  // @@protoc_insertion_point(field_get:io.substrait.extensions.SimpleExtensionDeclaration.ExtensionType.extension_uri_reference)
+  return _internal_extension_uri_reference();
 }
-inline std::string* Extensions_Extension_FunctionExtension::mutable_git_uri() {
-  // @@protoc_insertion_point(field_mutable:io.substrait.Extensions.Extension.FunctionExtension.git_uri)
-  return _internal_mutable_git_uri();
-}
-inline const std::string& Extensions_Extension_FunctionExtension::_internal_git_uri() const {
-  return git_uri_.Get();
-}
-inline void Extensions_Extension_FunctionExtension::_internal_set_git_uri(const std::string& value) {
+inline void SimpleExtensionDeclaration_ExtensionType::_internal_set_extension_uri_reference(::PROTOBUF_NAMESPACE_ID::uint32 value) {
   
-  git_uri_.Set(::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::EmptyDefault{}, value, GetArena());
+  extension_uri_reference_ = value;
 }
-inline std::string* Extensions_Extension_FunctionExtension::_internal_mutable_git_uri() {
-  
-  return git_uri_.Mutable(::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::EmptyDefault{}, GetArena());
-}
-inline std::string* Extensions_Extension_FunctionExtension::release_git_uri() {
-  // @@protoc_insertion_point(field_release:io.substrait.Extensions.Extension.FunctionExtension.git_uri)
-  return git_uri_.Release(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(), GetArena());
-}
-inline void Extensions_Extension_FunctionExtension::set_allocated_git_uri(std::string* git_uri) {
-  if (git_uri != nullptr) {
-    
-  } else {
-    
-  }
-  git_uri_.SetAllocated(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(), git_uri,
-      GetArena());
-  // @@protoc_insertion_point(field_set_allocated:io.substrait.Extensions.Extension.FunctionExtension.git_uri)
+inline void SimpleExtensionDeclaration_ExtensionType::set_extension_uri_reference(::PROTOBUF_NAMESPACE_ID::uint32 value) {
+  _internal_set_extension_uri_reference(value);
+  // @@protoc_insertion_point(field_set:io.substrait.extensions.SimpleExtensionDeclaration.ExtensionType.extension_uri_reference)
 }
 
-// -------------------------------------------------------------------
-
-// Extensions_Extension
-
-// .io.substrait.Extensions.ExtensionId extension_id = 1;
-inline bool Extensions_Extension::_internal_has_extension_id() const {
-  return this != internal_default_instance() && extension_id_ != nullptr;
+// uint32 type_anchor = 2;
+inline void SimpleExtensionDeclaration_ExtensionType::clear_type_anchor() {
+  type_anchor_ = 0u;
 }
-inline bool Extensions_Extension::has_extension_id() const {
-  return _internal_has_extension_id();
+inline ::PROTOBUF_NAMESPACE_ID::uint32 SimpleExtensionDeclaration_ExtensionType::_internal_type_anchor() const {
+  return type_anchor_;
 }
-inline void Extensions_Extension::clear_extension_id() {
-  if (GetArena() == nullptr && extension_id_ != nullptr) {
-    delete extension_id_;
-  }
-  extension_id_ = nullptr;
+inline ::PROTOBUF_NAMESPACE_ID::uint32 SimpleExtensionDeclaration_ExtensionType::type_anchor() const {
+  // @@protoc_insertion_point(field_get:io.substrait.extensions.SimpleExtensionDeclaration.ExtensionType.type_anchor)
+  return _internal_type_anchor();
 }
-inline const ::io::substrait::Extensions_ExtensionId& Extensions_Extension::_internal_extension_id() const {
-  const ::io::substrait::Extensions_ExtensionId* p = extension_id_;
-  return p != nullptr ? *p : reinterpret_cast<const ::io::substrait::Extensions_ExtensionId&>(
-      ::io::substrait::_Extensions_ExtensionId_default_instance_);
-}
-inline const ::io::substrait::Extensions_ExtensionId& Extensions_Extension::extension_id() const {
-  // @@protoc_insertion_point(field_get:io.substrait.Extensions.Extension.extension_id)
-  return _internal_extension_id();
-}
-inline void Extensions_Extension::unsafe_arena_set_allocated_extension_id(
-    ::io::substrait::Extensions_ExtensionId* extension_id) {
-  if (GetArena() == nullptr) {
-    delete reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(extension_id_);
-  }
-  extension_id_ = extension_id;
-  if (extension_id) {
-    
-  } else {
-    
-  }
-  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:io.substrait.Extensions.Extension.extension_id)
-}
-inline ::io::substrait::Extensions_ExtensionId* Extensions_Extension::release_extension_id() {
+inline void SimpleExtensionDeclaration_ExtensionType::_internal_set_type_anchor(::PROTOBUF_NAMESPACE_ID::uint32 value) {
   
-  ::io::substrait::Extensions_ExtensionId* temp = extension_id_;
-  extension_id_ = nullptr;
-  if (GetArena() != nullptr) {
-    temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
-  }
-  return temp;
+  type_anchor_ = value;
 }
-inline ::io::substrait::Extensions_ExtensionId* Extensions_Extension::unsafe_arena_release_extension_id() {
-  // @@protoc_insertion_point(field_release:io.substrait.Extensions.Extension.extension_id)
-  
-  ::io::substrait::Extensions_ExtensionId* temp = extension_id_;
-  extension_id_ = nullptr;
-  return temp;
-}
-inline ::io::substrait::Extensions_ExtensionId* Extensions_Extension::_internal_mutable_extension_id() {
-  
-  if (extension_id_ == nullptr) {
-    auto* p = CreateMaybeMessage<::io::substrait::Extensions_ExtensionId>(GetArena());
-    extension_id_ = p;
-  }
-  return extension_id_;
-}
-inline ::io::substrait::Extensions_ExtensionId* Extensions_Extension::mutable_extension_id() {
-  // @@protoc_insertion_point(field_mutable:io.substrait.Extensions.Extension.extension_id)
-  return _internal_mutable_extension_id();
-}
-inline void Extensions_Extension::set_allocated_extension_id(::io::substrait::Extensions_ExtensionId* extension_id) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
-  if (message_arena == nullptr) {
-    delete extension_id_;
-  }
-  if (extension_id) {
-    ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      ::PROTOBUF_NAMESPACE_ID::Arena::GetArena(extension_id);
-    if (message_arena != submessage_arena) {
-      extension_id = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
-          message_arena, extension_id, submessage_arena);
-    }
-    
-  } else {
-    
-  }
-  extension_id_ = extension_id;
-  // @@protoc_insertion_point(field_set_allocated:io.substrait.Extensions.Extension.extension_id)
-}
-
-// .io.substrait.Extensions.Extension.TypeExtension type_extension = 2;
-inline bool Extensions_Extension::_internal_has_type_extension() const {
-  return extension_type_case() == kTypeExtension;
-}
-inline bool Extensions_Extension::has_type_extension() const {
-  return _internal_has_type_extension();
-}
-inline void Extensions_Extension::set_has_type_extension() {
-  _oneof_case_[0] = kTypeExtension;
-}
-inline void Extensions_Extension::clear_type_extension() {
-  if (_internal_has_type_extension()) {
-    if (GetArena() == nullptr) {
-      delete extension_type_.type_extension_;
-    }
-    clear_has_extension_type();
-  }
-}
-inline ::io::substrait::Extensions_Extension_TypeExtension* Extensions_Extension::release_type_extension() {
-  // @@protoc_insertion_point(field_release:io.substrait.Extensions.Extension.type_extension)
-  if (_internal_has_type_extension()) {
-    clear_has_extension_type();
-      ::io::substrait::Extensions_Extension_TypeExtension* temp = extension_type_.type_extension_;
-    if (GetArena() != nullptr) {
-      temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
-    }
-    extension_type_.type_extension_ = nullptr;
-    return temp;
-  } else {
-    return nullptr;
-  }
-}
-inline const ::io::substrait::Extensions_Extension_TypeExtension& Extensions_Extension::_internal_type_extension() const {
-  return _internal_has_type_extension()
-      ? *extension_type_.type_extension_
-      : reinterpret_cast< ::io::substrait::Extensions_Extension_TypeExtension&>(::io::substrait::_Extensions_Extension_TypeExtension_default_instance_);
-}
-inline const ::io::substrait::Extensions_Extension_TypeExtension& Extensions_Extension::type_extension() const {
-  // @@protoc_insertion_point(field_get:io.substrait.Extensions.Extension.type_extension)
-  return _internal_type_extension();
-}
-inline ::io::substrait::Extensions_Extension_TypeExtension* Extensions_Extension::unsafe_arena_release_type_extension() {
-  // @@protoc_insertion_point(field_unsafe_arena_release:io.substrait.Extensions.Extension.type_extension)
-  if (_internal_has_type_extension()) {
-    clear_has_extension_type();
-    ::io::substrait::Extensions_Extension_TypeExtension* temp = extension_type_.type_extension_;
-    extension_type_.type_extension_ = nullptr;
-    return temp;
-  } else {
-    return nullptr;
-  }
-}
-inline void Extensions_Extension::unsafe_arena_set_allocated_type_extension(::io::substrait::Extensions_Extension_TypeExtension* type_extension) {
-  clear_extension_type();
-  if (type_extension) {
-    set_has_type_extension();
-    extension_type_.type_extension_ = type_extension;
-  }
-  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:io.substrait.Extensions.Extension.type_extension)
-}
-inline ::io::substrait::Extensions_Extension_TypeExtension* Extensions_Extension::_internal_mutable_type_extension() {
-  if (!_internal_has_type_extension()) {
-    clear_extension_type();
-    set_has_type_extension();
-    extension_type_.type_extension_ = CreateMaybeMessage< ::io::substrait::Extensions_Extension_TypeExtension >(GetArena());
-  }
-  return extension_type_.type_extension_;
-}
-inline ::io::substrait::Extensions_Extension_TypeExtension* Extensions_Extension::mutable_type_extension() {
-  // @@protoc_insertion_point(field_mutable:io.substrait.Extensions.Extension.type_extension)
-  return _internal_mutable_type_extension();
-}
-
-// .io.substrait.Extensions.Extension.FunctionExtension function_extension = 3;
-inline bool Extensions_Extension::_internal_has_function_extension() const {
-  return extension_type_case() == kFunctionExtension;
-}
-inline bool Extensions_Extension::has_function_extension() const {
-  return _internal_has_function_extension();
-}
-inline void Extensions_Extension::set_has_function_extension() {
-  _oneof_case_[0] = kFunctionExtension;
-}
-inline void Extensions_Extension::clear_function_extension() {
-  if (_internal_has_function_extension()) {
-    if (GetArena() == nullptr) {
-      delete extension_type_.function_extension_;
-    }
-    clear_has_extension_type();
-  }
-}
-inline ::io::substrait::Extensions_Extension_FunctionExtension* Extensions_Extension::release_function_extension() {
-  // @@protoc_insertion_point(field_release:io.substrait.Extensions.Extension.function_extension)
-  if (_internal_has_function_extension()) {
-    clear_has_extension_type();
-      ::io::substrait::Extensions_Extension_FunctionExtension* temp = extension_type_.function_extension_;
-    if (GetArena() != nullptr) {
-      temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
-    }
-    extension_type_.function_extension_ = nullptr;
-    return temp;
-  } else {
-    return nullptr;
-  }
-}
-inline const ::io::substrait::Extensions_Extension_FunctionExtension& Extensions_Extension::_internal_function_extension() const {
-  return _internal_has_function_extension()
-      ? *extension_type_.function_extension_
-      : reinterpret_cast< ::io::substrait::Extensions_Extension_FunctionExtension&>(::io::substrait::_Extensions_Extension_FunctionExtension_default_instance_);
-}
-inline const ::io::substrait::Extensions_Extension_FunctionExtension& Extensions_Extension::function_extension() const {
-  // @@protoc_insertion_point(field_get:io.substrait.Extensions.Extension.function_extension)
-  return _internal_function_extension();
-}
-inline ::io::substrait::Extensions_Extension_FunctionExtension* Extensions_Extension::unsafe_arena_release_function_extension() {
-  // @@protoc_insertion_point(field_unsafe_arena_release:io.substrait.Extensions.Extension.function_extension)
-  if (_internal_has_function_extension()) {
-    clear_has_extension_type();
-    ::io::substrait::Extensions_Extension_FunctionExtension* temp = extension_type_.function_extension_;
-    extension_type_.function_extension_ = nullptr;
-    return temp;
-  } else {
-    return nullptr;
-  }
-}
-inline void Extensions_Extension::unsafe_arena_set_allocated_function_extension(::io::substrait::Extensions_Extension_FunctionExtension* function_extension) {
-  clear_extension_type();
-  if (function_extension) {
-    set_has_function_extension();
-    extension_type_.function_extension_ = function_extension;
-  }
-  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:io.substrait.Extensions.Extension.function_extension)
-}
-inline ::io::substrait::Extensions_Extension_FunctionExtension* Extensions_Extension::_internal_mutable_function_extension() {
-  if (!_internal_has_function_extension()) {
-    clear_extension_type();
-    set_has_function_extension();
-    extension_type_.function_extension_ = CreateMaybeMessage< ::io::substrait::Extensions_Extension_FunctionExtension >(GetArena());
-  }
-  return extension_type_.function_extension_;
-}
-inline ::io::substrait::Extensions_Extension_FunctionExtension* Extensions_Extension::mutable_function_extension() {
-  // @@protoc_insertion_point(field_mutable:io.substrait.Extensions.Extension.function_extension)
-  return _internal_mutable_function_extension();
-}
-
-inline bool Extensions_Extension::has_extension_type() const {
-  return extension_type_case() != EXTENSION_TYPE_NOT_SET;
-}
-inline void Extensions_Extension::clear_has_extension_type() {
-  _oneof_case_[0] = EXTENSION_TYPE_NOT_SET;
-}
-inline Extensions_Extension::ExtensionTypeCase Extensions_Extension::extension_type_case() const {
-  return Extensions_Extension::ExtensionTypeCase(_oneof_case_[0]);
-}
-// -------------------------------------------------------------------
-
-// Extensions_Mapping_TypeMapping
-
-// .io.substrait.Extensions.TypeId type_id = 1;
-inline bool Extensions_Mapping_TypeMapping::_internal_has_type_id() const {
-  return this != internal_default_instance() && type_id_ != nullptr;
-}
-inline bool Extensions_Mapping_TypeMapping::has_type_id() const {
-  return _internal_has_type_id();
-}
-inline void Extensions_Mapping_TypeMapping::clear_type_id() {
-  if (GetArena() == nullptr && type_id_ != nullptr) {
-    delete type_id_;
-  }
-  type_id_ = nullptr;
-}
-inline const ::io::substrait::Extensions_TypeId& Extensions_Mapping_TypeMapping::_internal_type_id() const {
-  const ::io::substrait::Extensions_TypeId* p = type_id_;
-  return p != nullptr ? *p : reinterpret_cast<const ::io::substrait::Extensions_TypeId&>(
-      ::io::substrait::_Extensions_TypeId_default_instance_);
-}
-inline const ::io::substrait::Extensions_TypeId& Extensions_Mapping_TypeMapping::type_id() const {
-  // @@protoc_insertion_point(field_get:io.substrait.Extensions.Mapping.TypeMapping.type_id)
-  return _internal_type_id();
-}
-inline void Extensions_Mapping_TypeMapping::unsafe_arena_set_allocated_type_id(
-    ::io::substrait::Extensions_TypeId* type_id) {
-  if (GetArena() == nullptr) {
-    delete reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(type_id_);
-  }
-  type_id_ = type_id;
-  if (type_id) {
-    
-  } else {
-    
-  }
-  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:io.substrait.Extensions.Mapping.TypeMapping.type_id)
-}
-inline ::io::substrait::Extensions_TypeId* Extensions_Mapping_TypeMapping::release_type_id() {
-  
-  ::io::substrait::Extensions_TypeId* temp = type_id_;
-  type_id_ = nullptr;
-  if (GetArena() != nullptr) {
-    temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
-  }
-  return temp;
-}
-inline ::io::substrait::Extensions_TypeId* Extensions_Mapping_TypeMapping::unsafe_arena_release_type_id() {
-  // @@protoc_insertion_point(field_release:io.substrait.Extensions.Mapping.TypeMapping.type_id)
-  
-  ::io::substrait::Extensions_TypeId* temp = type_id_;
-  type_id_ = nullptr;
-  return temp;
-}
-inline ::io::substrait::Extensions_TypeId* Extensions_Mapping_TypeMapping::_internal_mutable_type_id() {
-  
-  if (type_id_ == nullptr) {
-    auto* p = CreateMaybeMessage<::io::substrait::Extensions_TypeId>(GetArena());
-    type_id_ = p;
-  }
-  return type_id_;
-}
-inline ::io::substrait::Extensions_TypeId* Extensions_Mapping_TypeMapping::mutable_type_id() {
-  // @@protoc_insertion_point(field_mutable:io.substrait.Extensions.Mapping.TypeMapping.type_id)
-  return _internal_mutable_type_id();
-}
-inline void Extensions_Mapping_TypeMapping::set_allocated_type_id(::io::substrait::Extensions_TypeId* type_id) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
-  if (message_arena == nullptr) {
-    delete type_id_;
-  }
-  if (type_id) {
-    ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      ::PROTOBUF_NAMESPACE_ID::Arena::GetArena(type_id);
-    if (message_arena != submessage_arena) {
-      type_id = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
-          message_arena, type_id, submessage_arena);
-    }
-    
-  } else {
-    
-  }
-  type_id_ = type_id;
-  // @@protoc_insertion_point(field_set_allocated:io.substrait.Extensions.Mapping.TypeMapping.type_id)
-}
-
-// .io.substrait.Extensions.ExtensionId extension_id = 2;
-inline bool Extensions_Mapping_TypeMapping::_internal_has_extension_id() const {
-  return this != internal_default_instance() && extension_id_ != nullptr;
-}
-inline bool Extensions_Mapping_TypeMapping::has_extension_id() const {
-  return _internal_has_extension_id();
-}
-inline void Extensions_Mapping_TypeMapping::clear_extension_id() {
-  if (GetArena() == nullptr && extension_id_ != nullptr) {
-    delete extension_id_;
-  }
-  extension_id_ = nullptr;
-}
-inline const ::io::substrait::Extensions_ExtensionId& Extensions_Mapping_TypeMapping::_internal_extension_id() const {
-  const ::io::substrait::Extensions_ExtensionId* p = extension_id_;
-  return p != nullptr ? *p : reinterpret_cast<const ::io::substrait::Extensions_ExtensionId&>(
-      ::io::substrait::_Extensions_ExtensionId_default_instance_);
-}
-inline const ::io::substrait::Extensions_ExtensionId& Extensions_Mapping_TypeMapping::extension_id() const {
-  // @@protoc_insertion_point(field_get:io.substrait.Extensions.Mapping.TypeMapping.extension_id)
-  return _internal_extension_id();
-}
-inline void Extensions_Mapping_TypeMapping::unsafe_arena_set_allocated_extension_id(
-    ::io::substrait::Extensions_ExtensionId* extension_id) {
-  if (GetArena() == nullptr) {
-    delete reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(extension_id_);
-  }
-  extension_id_ = extension_id;
-  if (extension_id) {
-    
-  } else {
-    
-  }
-  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:io.substrait.Extensions.Mapping.TypeMapping.extension_id)
-}
-inline ::io::substrait::Extensions_ExtensionId* Extensions_Mapping_TypeMapping::release_extension_id() {
-  
-  ::io::substrait::Extensions_ExtensionId* temp = extension_id_;
-  extension_id_ = nullptr;
-  if (GetArena() != nullptr) {
-    temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
-  }
-  return temp;
-}
-inline ::io::substrait::Extensions_ExtensionId* Extensions_Mapping_TypeMapping::unsafe_arena_release_extension_id() {
-  // @@protoc_insertion_point(field_release:io.substrait.Extensions.Mapping.TypeMapping.extension_id)
-  
-  ::io::substrait::Extensions_ExtensionId* temp = extension_id_;
-  extension_id_ = nullptr;
-  return temp;
-}
-inline ::io::substrait::Extensions_ExtensionId* Extensions_Mapping_TypeMapping::_internal_mutable_extension_id() {
-  
-  if (extension_id_ == nullptr) {
-    auto* p = CreateMaybeMessage<::io::substrait::Extensions_ExtensionId>(GetArena());
-    extension_id_ = p;
-  }
-  return extension_id_;
-}
-inline ::io::substrait::Extensions_ExtensionId* Extensions_Mapping_TypeMapping::mutable_extension_id() {
-  // @@protoc_insertion_point(field_mutable:io.substrait.Extensions.Mapping.TypeMapping.extension_id)
-  return _internal_mutable_extension_id();
-}
-inline void Extensions_Mapping_TypeMapping::set_allocated_extension_id(::io::substrait::Extensions_ExtensionId* extension_id) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
-  if (message_arena == nullptr) {
-    delete extension_id_;
-  }
-  if (extension_id) {
-    ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      ::PROTOBUF_NAMESPACE_ID::Arena::GetArena(extension_id);
-    if (message_arena != submessage_arena) {
-      extension_id = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
-          message_arena, extension_id, submessage_arena);
-    }
-    
-  } else {
-    
-  }
-  extension_id_ = extension_id;
-  // @@protoc_insertion_point(field_set_allocated:io.substrait.Extensions.Mapping.TypeMapping.extension_id)
+inline void SimpleExtensionDeclaration_ExtensionType::set_type_anchor(::PROTOBUF_NAMESPACE_ID::uint32 value) {
+  _internal_set_type_anchor(value);
+  // @@protoc_insertion_point(field_set:io.substrait.extensions.SimpleExtensionDeclaration.ExtensionType.type_anchor)
 }
 
 // string name = 3;
-inline void Extensions_Mapping_TypeMapping::clear_name() {
+inline void SimpleExtensionDeclaration_ExtensionType::clear_name() {
   name_.ClearToEmpty();
 }
-inline const std::string& Extensions_Mapping_TypeMapping::name() const {
-  // @@protoc_insertion_point(field_get:io.substrait.Extensions.Mapping.TypeMapping.name)
+inline const std::string& SimpleExtensionDeclaration_ExtensionType::name() const {
+  // @@protoc_insertion_point(field_get:io.substrait.extensions.SimpleExtensionDeclaration.ExtensionType.name)
   return _internal_name();
 }
 template <typename ArgT0, typename... ArgT>
 PROTOBUF_ALWAYS_INLINE
-inline void Extensions_Mapping_TypeMapping::set_name(ArgT0&& arg0, ArgT... args) {
+inline void SimpleExtensionDeclaration_ExtensionType::set_name(ArgT0&& arg0, ArgT... args) {
  
  name_.Set(::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::EmptyDefault{}, static_cast<ArgT0 &&>(arg0), args..., GetArena());
-  // @@protoc_insertion_point(field_set:io.substrait.Extensions.Mapping.TypeMapping.name)
+  // @@protoc_insertion_point(field_set:io.substrait.extensions.SimpleExtensionDeclaration.ExtensionType.name)
 }
-inline std::string* Extensions_Mapping_TypeMapping::mutable_name() {
-  // @@protoc_insertion_point(field_mutable:io.substrait.Extensions.Mapping.TypeMapping.name)
+inline std::string* SimpleExtensionDeclaration_ExtensionType::mutable_name() {
+  // @@protoc_insertion_point(field_mutable:io.substrait.extensions.SimpleExtensionDeclaration.ExtensionType.name)
   return _internal_mutable_name();
 }
-inline const std::string& Extensions_Mapping_TypeMapping::_internal_name() const {
+inline const std::string& SimpleExtensionDeclaration_ExtensionType::_internal_name() const {
   return name_.Get();
 }
-inline void Extensions_Mapping_TypeMapping::_internal_set_name(const std::string& value) {
+inline void SimpleExtensionDeclaration_ExtensionType::_internal_set_name(const std::string& value) {
   
   name_.Set(::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::EmptyDefault{}, value, GetArena());
 }
-inline std::string* Extensions_Mapping_TypeMapping::_internal_mutable_name() {
+inline std::string* SimpleExtensionDeclaration_ExtensionType::_internal_mutable_name() {
   
   return name_.Mutable(::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::EmptyDefault{}, GetArena());
 }
-inline std::string* Extensions_Mapping_TypeMapping::release_name() {
-  // @@protoc_insertion_point(field_release:io.substrait.Extensions.Mapping.TypeMapping.name)
+inline std::string* SimpleExtensionDeclaration_ExtensionType::release_name() {
+  // @@protoc_insertion_point(field_release:io.substrait.extensions.SimpleExtensionDeclaration.ExtensionType.name)
   return name_.Release(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(), GetArena());
 }
-inline void Extensions_Mapping_TypeMapping::set_allocated_name(std::string* name) {
+inline void SimpleExtensionDeclaration_ExtensionType::set_allocated_name(std::string* name) {
   if (name != nullptr) {
     
   } else {
@@ -2364,308 +1238,88 @@ inline void Extensions_Mapping_TypeMapping::set_allocated_name(std::string* name
   }
   name_.SetAllocated(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(), name,
       GetArena());
-  // @@protoc_insertion_point(field_set_allocated:io.substrait.Extensions.Mapping.TypeMapping.name)
+  // @@protoc_insertion_point(field_set_allocated:io.substrait.extensions.SimpleExtensionDeclaration.ExtensionType.name)
 }
 
 // -------------------------------------------------------------------
 
-// Extensions_Mapping_FunctionMapping_Option
+// SimpleExtensionDeclaration_ExtensionTypeVariation
 
-// string key = 1;
-inline void Extensions_Mapping_FunctionMapping_Option::clear_key() {
-  key_.ClearToEmpty();
+// uint32 extension_uri_pointer = 1;
+inline void SimpleExtensionDeclaration_ExtensionTypeVariation::clear_extension_uri_pointer() {
+  extension_uri_pointer_ = 0u;
 }
-inline const std::string& Extensions_Mapping_FunctionMapping_Option::key() const {
-  // @@protoc_insertion_point(field_get:io.substrait.Extensions.Mapping.FunctionMapping.Option.key)
-  return _internal_key();
+inline ::PROTOBUF_NAMESPACE_ID::uint32 SimpleExtensionDeclaration_ExtensionTypeVariation::_internal_extension_uri_pointer() const {
+  return extension_uri_pointer_;
 }
-template <typename ArgT0, typename... ArgT>
-PROTOBUF_ALWAYS_INLINE
-inline void Extensions_Mapping_FunctionMapping_Option::set_key(ArgT0&& arg0, ArgT... args) {
- 
- key_.Set(::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::EmptyDefault{}, static_cast<ArgT0 &&>(arg0), args..., GetArena());
-  // @@protoc_insertion_point(field_set:io.substrait.Extensions.Mapping.FunctionMapping.Option.key)
+inline ::PROTOBUF_NAMESPACE_ID::uint32 SimpleExtensionDeclaration_ExtensionTypeVariation::extension_uri_pointer() const {
+  // @@protoc_insertion_point(field_get:io.substrait.extensions.SimpleExtensionDeclaration.ExtensionTypeVariation.extension_uri_pointer)
+  return _internal_extension_uri_pointer();
 }
-inline std::string* Extensions_Mapping_FunctionMapping_Option::mutable_key() {
-  // @@protoc_insertion_point(field_mutable:io.substrait.Extensions.Mapping.FunctionMapping.Option.key)
-  return _internal_mutable_key();
-}
-inline const std::string& Extensions_Mapping_FunctionMapping_Option::_internal_key() const {
-  return key_.Get();
-}
-inline void Extensions_Mapping_FunctionMapping_Option::_internal_set_key(const std::string& value) {
+inline void SimpleExtensionDeclaration_ExtensionTypeVariation::_internal_set_extension_uri_pointer(::PROTOBUF_NAMESPACE_ID::uint32 value) {
   
-  key_.Set(::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::EmptyDefault{}, value, GetArena());
+  extension_uri_pointer_ = value;
 }
-inline std::string* Extensions_Mapping_FunctionMapping_Option::_internal_mutable_key() {
-  
-  return key_.Mutable(::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::EmptyDefault{}, GetArena());
-}
-inline std::string* Extensions_Mapping_FunctionMapping_Option::release_key() {
-  // @@protoc_insertion_point(field_release:io.substrait.Extensions.Mapping.FunctionMapping.Option.key)
-  return key_.Release(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(), GetArena());
-}
-inline void Extensions_Mapping_FunctionMapping_Option::set_allocated_key(std::string* key) {
-  if (key != nullptr) {
-    
-  } else {
-    
-  }
-  key_.SetAllocated(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(), key,
-      GetArena());
-  // @@protoc_insertion_point(field_set_allocated:io.substrait.Extensions.Mapping.FunctionMapping.Option.key)
+inline void SimpleExtensionDeclaration_ExtensionTypeVariation::set_extension_uri_pointer(::PROTOBUF_NAMESPACE_ID::uint32 value) {
+  _internal_set_extension_uri_pointer(value);
+  // @@protoc_insertion_point(field_set:io.substrait.extensions.SimpleExtensionDeclaration.ExtensionTypeVariation.extension_uri_pointer)
 }
 
-// string value = 2;
-inline void Extensions_Mapping_FunctionMapping_Option::clear_value() {
-  value_.ClearToEmpty();
+// uint32 type_variation_anchor = 2;
+inline void SimpleExtensionDeclaration_ExtensionTypeVariation::clear_type_variation_anchor() {
+  type_variation_anchor_ = 0u;
 }
-inline const std::string& Extensions_Mapping_FunctionMapping_Option::value() const {
-  // @@protoc_insertion_point(field_get:io.substrait.Extensions.Mapping.FunctionMapping.Option.value)
-  return _internal_value();
+inline ::PROTOBUF_NAMESPACE_ID::uint32 SimpleExtensionDeclaration_ExtensionTypeVariation::_internal_type_variation_anchor() const {
+  return type_variation_anchor_;
 }
-template <typename ArgT0, typename... ArgT>
-PROTOBUF_ALWAYS_INLINE
-inline void Extensions_Mapping_FunctionMapping_Option::set_value(ArgT0&& arg0, ArgT... args) {
- 
- value_.Set(::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::EmptyDefault{}, static_cast<ArgT0 &&>(arg0), args..., GetArena());
-  // @@protoc_insertion_point(field_set:io.substrait.Extensions.Mapping.FunctionMapping.Option.value)
+inline ::PROTOBUF_NAMESPACE_ID::uint32 SimpleExtensionDeclaration_ExtensionTypeVariation::type_variation_anchor() const {
+  // @@protoc_insertion_point(field_get:io.substrait.extensions.SimpleExtensionDeclaration.ExtensionTypeVariation.type_variation_anchor)
+  return _internal_type_variation_anchor();
 }
-inline std::string* Extensions_Mapping_FunctionMapping_Option::mutable_value() {
-  // @@protoc_insertion_point(field_mutable:io.substrait.Extensions.Mapping.FunctionMapping.Option.value)
-  return _internal_mutable_value();
-}
-inline const std::string& Extensions_Mapping_FunctionMapping_Option::_internal_value() const {
-  return value_.Get();
-}
-inline void Extensions_Mapping_FunctionMapping_Option::_internal_set_value(const std::string& value) {
+inline void SimpleExtensionDeclaration_ExtensionTypeVariation::_internal_set_type_variation_anchor(::PROTOBUF_NAMESPACE_ID::uint32 value) {
   
-  value_.Set(::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::EmptyDefault{}, value, GetArena());
+  type_variation_anchor_ = value;
 }
-inline std::string* Extensions_Mapping_FunctionMapping_Option::_internal_mutable_value() {
-  
-  return value_.Mutable(::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::EmptyDefault{}, GetArena());
-}
-inline std::string* Extensions_Mapping_FunctionMapping_Option::release_value() {
-  // @@protoc_insertion_point(field_release:io.substrait.Extensions.Mapping.FunctionMapping.Option.value)
-  return value_.Release(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(), GetArena());
-}
-inline void Extensions_Mapping_FunctionMapping_Option::set_allocated_value(std::string* value) {
-  if (value != nullptr) {
-    
-  } else {
-    
-  }
-  value_.SetAllocated(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(), value,
-      GetArena());
-  // @@protoc_insertion_point(field_set_allocated:io.substrait.Extensions.Mapping.FunctionMapping.Option.value)
-}
-
-// -------------------------------------------------------------------
-
-// Extensions_Mapping_FunctionMapping
-
-// .io.substrait.Extensions.FunctionId function_id = 1;
-inline bool Extensions_Mapping_FunctionMapping::_internal_has_function_id() const {
-  return this != internal_default_instance() && function_id_ != nullptr;
-}
-inline bool Extensions_Mapping_FunctionMapping::has_function_id() const {
-  return _internal_has_function_id();
-}
-inline void Extensions_Mapping_FunctionMapping::clear_function_id() {
-  if (GetArena() == nullptr && function_id_ != nullptr) {
-    delete function_id_;
-  }
-  function_id_ = nullptr;
-}
-inline const ::io::substrait::Extensions_FunctionId& Extensions_Mapping_FunctionMapping::_internal_function_id() const {
-  const ::io::substrait::Extensions_FunctionId* p = function_id_;
-  return p != nullptr ? *p : reinterpret_cast<const ::io::substrait::Extensions_FunctionId&>(
-      ::io::substrait::_Extensions_FunctionId_default_instance_);
-}
-inline const ::io::substrait::Extensions_FunctionId& Extensions_Mapping_FunctionMapping::function_id() const {
-  // @@protoc_insertion_point(field_get:io.substrait.Extensions.Mapping.FunctionMapping.function_id)
-  return _internal_function_id();
-}
-inline void Extensions_Mapping_FunctionMapping::unsafe_arena_set_allocated_function_id(
-    ::io::substrait::Extensions_FunctionId* function_id) {
-  if (GetArena() == nullptr) {
-    delete reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(function_id_);
-  }
-  function_id_ = function_id;
-  if (function_id) {
-    
-  } else {
-    
-  }
-  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:io.substrait.Extensions.Mapping.FunctionMapping.function_id)
-}
-inline ::io::substrait::Extensions_FunctionId* Extensions_Mapping_FunctionMapping::release_function_id() {
-  
-  ::io::substrait::Extensions_FunctionId* temp = function_id_;
-  function_id_ = nullptr;
-  if (GetArena() != nullptr) {
-    temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
-  }
-  return temp;
-}
-inline ::io::substrait::Extensions_FunctionId* Extensions_Mapping_FunctionMapping::unsafe_arena_release_function_id() {
-  // @@protoc_insertion_point(field_release:io.substrait.Extensions.Mapping.FunctionMapping.function_id)
-  
-  ::io::substrait::Extensions_FunctionId* temp = function_id_;
-  function_id_ = nullptr;
-  return temp;
-}
-inline ::io::substrait::Extensions_FunctionId* Extensions_Mapping_FunctionMapping::_internal_mutable_function_id() {
-  
-  if (function_id_ == nullptr) {
-    auto* p = CreateMaybeMessage<::io::substrait::Extensions_FunctionId>(GetArena());
-    function_id_ = p;
-  }
-  return function_id_;
-}
-inline ::io::substrait::Extensions_FunctionId* Extensions_Mapping_FunctionMapping::mutable_function_id() {
-  // @@protoc_insertion_point(field_mutable:io.substrait.Extensions.Mapping.FunctionMapping.function_id)
-  return _internal_mutable_function_id();
-}
-inline void Extensions_Mapping_FunctionMapping::set_allocated_function_id(::io::substrait::Extensions_FunctionId* function_id) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
-  if (message_arena == nullptr) {
-    delete function_id_;
-  }
-  if (function_id) {
-    ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      ::PROTOBUF_NAMESPACE_ID::Arena::GetArena(function_id);
-    if (message_arena != submessage_arena) {
-      function_id = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
-          message_arena, function_id, submessage_arena);
-    }
-    
-  } else {
-    
-  }
-  function_id_ = function_id;
-  // @@protoc_insertion_point(field_set_allocated:io.substrait.Extensions.Mapping.FunctionMapping.function_id)
-}
-
-// .io.substrait.Extensions.ExtensionId extension_id = 2;
-inline bool Extensions_Mapping_FunctionMapping::_internal_has_extension_id() const {
-  return this != internal_default_instance() && extension_id_ != nullptr;
-}
-inline bool Extensions_Mapping_FunctionMapping::has_extension_id() const {
-  return _internal_has_extension_id();
-}
-inline void Extensions_Mapping_FunctionMapping::clear_extension_id() {
-  if (GetArena() == nullptr && extension_id_ != nullptr) {
-    delete extension_id_;
-  }
-  extension_id_ = nullptr;
-}
-inline const ::io::substrait::Extensions_ExtensionId& Extensions_Mapping_FunctionMapping::_internal_extension_id() const {
-  const ::io::substrait::Extensions_ExtensionId* p = extension_id_;
-  return p != nullptr ? *p : reinterpret_cast<const ::io::substrait::Extensions_ExtensionId&>(
-      ::io::substrait::_Extensions_ExtensionId_default_instance_);
-}
-inline const ::io::substrait::Extensions_ExtensionId& Extensions_Mapping_FunctionMapping::extension_id() const {
-  // @@protoc_insertion_point(field_get:io.substrait.Extensions.Mapping.FunctionMapping.extension_id)
-  return _internal_extension_id();
-}
-inline void Extensions_Mapping_FunctionMapping::unsafe_arena_set_allocated_extension_id(
-    ::io::substrait::Extensions_ExtensionId* extension_id) {
-  if (GetArena() == nullptr) {
-    delete reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(extension_id_);
-  }
-  extension_id_ = extension_id;
-  if (extension_id) {
-    
-  } else {
-    
-  }
-  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:io.substrait.Extensions.Mapping.FunctionMapping.extension_id)
-}
-inline ::io::substrait::Extensions_ExtensionId* Extensions_Mapping_FunctionMapping::release_extension_id() {
-  
-  ::io::substrait::Extensions_ExtensionId* temp = extension_id_;
-  extension_id_ = nullptr;
-  if (GetArena() != nullptr) {
-    temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
-  }
-  return temp;
-}
-inline ::io::substrait::Extensions_ExtensionId* Extensions_Mapping_FunctionMapping::unsafe_arena_release_extension_id() {
-  // @@protoc_insertion_point(field_release:io.substrait.Extensions.Mapping.FunctionMapping.extension_id)
-  
-  ::io::substrait::Extensions_ExtensionId* temp = extension_id_;
-  extension_id_ = nullptr;
-  return temp;
-}
-inline ::io::substrait::Extensions_ExtensionId* Extensions_Mapping_FunctionMapping::_internal_mutable_extension_id() {
-  
-  if (extension_id_ == nullptr) {
-    auto* p = CreateMaybeMessage<::io::substrait::Extensions_ExtensionId>(GetArena());
-    extension_id_ = p;
-  }
-  return extension_id_;
-}
-inline ::io::substrait::Extensions_ExtensionId* Extensions_Mapping_FunctionMapping::mutable_extension_id() {
-  // @@protoc_insertion_point(field_mutable:io.substrait.Extensions.Mapping.FunctionMapping.extension_id)
-  return _internal_mutable_extension_id();
-}
-inline void Extensions_Mapping_FunctionMapping::set_allocated_extension_id(::io::substrait::Extensions_ExtensionId* extension_id) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
-  if (message_arena == nullptr) {
-    delete extension_id_;
-  }
-  if (extension_id) {
-    ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      ::PROTOBUF_NAMESPACE_ID::Arena::GetArena(extension_id);
-    if (message_arena != submessage_arena) {
-      extension_id = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
-          message_arena, extension_id, submessage_arena);
-    }
-    
-  } else {
-    
-  }
-  extension_id_ = extension_id;
-  // @@protoc_insertion_point(field_set_allocated:io.substrait.Extensions.Mapping.FunctionMapping.extension_id)
+inline void SimpleExtensionDeclaration_ExtensionTypeVariation::set_type_variation_anchor(::PROTOBUF_NAMESPACE_ID::uint32 value) {
+  _internal_set_type_variation_anchor(value);
+  // @@protoc_insertion_point(field_set:io.substrait.extensions.SimpleExtensionDeclaration.ExtensionTypeVariation.type_variation_anchor)
 }
 
 // string name = 3;
-inline void Extensions_Mapping_FunctionMapping::clear_name() {
+inline void SimpleExtensionDeclaration_ExtensionTypeVariation::clear_name() {
   name_.ClearToEmpty();
 }
-inline const std::string& Extensions_Mapping_FunctionMapping::name() const {
-  // @@protoc_insertion_point(field_get:io.substrait.Extensions.Mapping.FunctionMapping.name)
+inline const std::string& SimpleExtensionDeclaration_ExtensionTypeVariation::name() const {
+  // @@protoc_insertion_point(field_get:io.substrait.extensions.SimpleExtensionDeclaration.ExtensionTypeVariation.name)
   return _internal_name();
 }
 template <typename ArgT0, typename... ArgT>
 PROTOBUF_ALWAYS_INLINE
-inline void Extensions_Mapping_FunctionMapping::set_name(ArgT0&& arg0, ArgT... args) {
+inline void SimpleExtensionDeclaration_ExtensionTypeVariation::set_name(ArgT0&& arg0, ArgT... args) {
  
  name_.Set(::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::EmptyDefault{}, static_cast<ArgT0 &&>(arg0), args..., GetArena());
-  // @@protoc_insertion_point(field_set:io.substrait.Extensions.Mapping.FunctionMapping.name)
+  // @@protoc_insertion_point(field_set:io.substrait.extensions.SimpleExtensionDeclaration.ExtensionTypeVariation.name)
 }
-inline std::string* Extensions_Mapping_FunctionMapping::mutable_name() {
-  // @@protoc_insertion_point(field_mutable:io.substrait.Extensions.Mapping.FunctionMapping.name)
+inline std::string* SimpleExtensionDeclaration_ExtensionTypeVariation::mutable_name() {
+  // @@protoc_insertion_point(field_mutable:io.substrait.extensions.SimpleExtensionDeclaration.ExtensionTypeVariation.name)
   return _internal_mutable_name();
 }
-inline const std::string& Extensions_Mapping_FunctionMapping::_internal_name() const {
+inline const std::string& SimpleExtensionDeclaration_ExtensionTypeVariation::_internal_name() const {
   return name_.Get();
 }
-inline void Extensions_Mapping_FunctionMapping::_internal_set_name(const std::string& value) {
+inline void SimpleExtensionDeclaration_ExtensionTypeVariation::_internal_set_name(const std::string& value) {
   
   name_.Set(::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::EmptyDefault{}, value, GetArena());
 }
-inline std::string* Extensions_Mapping_FunctionMapping::_internal_mutable_name() {
+inline std::string* SimpleExtensionDeclaration_ExtensionTypeVariation::_internal_mutable_name() {
   
   return name_.Mutable(::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::EmptyDefault{}, GetArena());
 }
-inline std::string* Extensions_Mapping_FunctionMapping::release_name() {
-  // @@protoc_insertion_point(field_release:io.substrait.Extensions.Mapping.FunctionMapping.name)
+inline std::string* SimpleExtensionDeclaration_ExtensionTypeVariation::release_name() {
+  // @@protoc_insertion_point(field_release:io.substrait.extensions.SimpleExtensionDeclaration.ExtensionTypeVariation.name)
   return name_.Release(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(), GetArena());
 }
-inline void Extensions_Mapping_FunctionMapping::set_allocated_name(std::string* name) {
+inline void SimpleExtensionDeclaration_ExtensionTypeVariation::set_allocated_name(std::string* name) {
   if (name != nullptr) {
     
   } else {
@@ -2673,282 +1327,487 @@ inline void Extensions_Mapping_FunctionMapping::set_allocated_name(std::string* 
   }
   name_.SetAllocated(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(), name,
       GetArena());
-  // @@protoc_insertion_point(field_set_allocated:io.substrait.Extensions.Mapping.FunctionMapping.name)
-}
-
-// repeated .io.substrait.Extensions.Mapping.FunctionMapping.Option options = 5;
-inline int Extensions_Mapping_FunctionMapping::_internal_options_size() const {
-  return options_.size();
-}
-inline int Extensions_Mapping_FunctionMapping::options_size() const {
-  return _internal_options_size();
-}
-inline void Extensions_Mapping_FunctionMapping::clear_options() {
-  options_.Clear();
-}
-inline ::io::substrait::Extensions_Mapping_FunctionMapping_Option* Extensions_Mapping_FunctionMapping::mutable_options(int index) {
-  // @@protoc_insertion_point(field_mutable:io.substrait.Extensions.Mapping.FunctionMapping.options)
-  return options_.Mutable(index);
-}
-inline ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::io::substrait::Extensions_Mapping_FunctionMapping_Option >*
-Extensions_Mapping_FunctionMapping::mutable_options() {
-  // @@protoc_insertion_point(field_mutable_list:io.substrait.Extensions.Mapping.FunctionMapping.options)
-  return &options_;
-}
-inline const ::io::substrait::Extensions_Mapping_FunctionMapping_Option& Extensions_Mapping_FunctionMapping::_internal_options(int index) const {
-  return options_.Get(index);
-}
-inline const ::io::substrait::Extensions_Mapping_FunctionMapping_Option& Extensions_Mapping_FunctionMapping::options(int index) const {
-  // @@protoc_insertion_point(field_get:io.substrait.Extensions.Mapping.FunctionMapping.options)
-  return _internal_options(index);
-}
-inline ::io::substrait::Extensions_Mapping_FunctionMapping_Option* Extensions_Mapping_FunctionMapping::_internal_add_options() {
-  return options_.Add();
-}
-inline ::io::substrait::Extensions_Mapping_FunctionMapping_Option* Extensions_Mapping_FunctionMapping::add_options() {
-  // @@protoc_insertion_point(field_add:io.substrait.Extensions.Mapping.FunctionMapping.options)
-  return _internal_add_options();
-}
-inline const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::io::substrait::Extensions_Mapping_FunctionMapping_Option >&
-Extensions_Mapping_FunctionMapping::options() const {
-  // @@protoc_insertion_point(field_list:io.substrait.Extensions.Mapping.FunctionMapping.options)
-  return options_;
+  // @@protoc_insertion_point(field_set_allocated:io.substrait.extensions.SimpleExtensionDeclaration.ExtensionTypeVariation.name)
 }
 
 // -------------------------------------------------------------------
 
-// Extensions_Mapping
+// SimpleExtensionDeclaration_ExtensionFunction
 
-// .io.substrait.Extensions.Mapping.TypeMapping type_mapping = 1;
-inline bool Extensions_Mapping::_internal_has_type_mapping() const {
-  return mapping_type_case() == kTypeMapping;
+// uint32 extension_uri_pointer = 1;
+inline void SimpleExtensionDeclaration_ExtensionFunction::clear_extension_uri_pointer() {
+  extension_uri_pointer_ = 0u;
 }
-inline bool Extensions_Mapping::has_type_mapping() const {
-  return _internal_has_type_mapping();
+inline ::PROTOBUF_NAMESPACE_ID::uint32 SimpleExtensionDeclaration_ExtensionFunction::_internal_extension_uri_pointer() const {
+  return extension_uri_pointer_;
 }
-inline void Extensions_Mapping::set_has_type_mapping() {
-  _oneof_case_[0] = kTypeMapping;
+inline ::PROTOBUF_NAMESPACE_ID::uint32 SimpleExtensionDeclaration_ExtensionFunction::extension_uri_pointer() const {
+  // @@protoc_insertion_point(field_get:io.substrait.extensions.SimpleExtensionDeclaration.ExtensionFunction.extension_uri_pointer)
+  return _internal_extension_uri_pointer();
 }
-inline void Extensions_Mapping::clear_type_mapping() {
-  if (_internal_has_type_mapping()) {
+inline void SimpleExtensionDeclaration_ExtensionFunction::_internal_set_extension_uri_pointer(::PROTOBUF_NAMESPACE_ID::uint32 value) {
+  
+  extension_uri_pointer_ = value;
+}
+inline void SimpleExtensionDeclaration_ExtensionFunction::set_extension_uri_pointer(::PROTOBUF_NAMESPACE_ID::uint32 value) {
+  _internal_set_extension_uri_pointer(value);
+  // @@protoc_insertion_point(field_set:io.substrait.extensions.SimpleExtensionDeclaration.ExtensionFunction.extension_uri_pointer)
+}
+
+// uint32 function_anchor = 2;
+inline void SimpleExtensionDeclaration_ExtensionFunction::clear_function_anchor() {
+  function_anchor_ = 0u;
+}
+inline ::PROTOBUF_NAMESPACE_ID::uint32 SimpleExtensionDeclaration_ExtensionFunction::_internal_function_anchor() const {
+  return function_anchor_;
+}
+inline ::PROTOBUF_NAMESPACE_ID::uint32 SimpleExtensionDeclaration_ExtensionFunction::function_anchor() const {
+  // @@protoc_insertion_point(field_get:io.substrait.extensions.SimpleExtensionDeclaration.ExtensionFunction.function_anchor)
+  return _internal_function_anchor();
+}
+inline void SimpleExtensionDeclaration_ExtensionFunction::_internal_set_function_anchor(::PROTOBUF_NAMESPACE_ID::uint32 value) {
+  
+  function_anchor_ = value;
+}
+inline void SimpleExtensionDeclaration_ExtensionFunction::set_function_anchor(::PROTOBUF_NAMESPACE_ID::uint32 value) {
+  _internal_set_function_anchor(value);
+  // @@protoc_insertion_point(field_set:io.substrait.extensions.SimpleExtensionDeclaration.ExtensionFunction.function_anchor)
+}
+
+// string name = 3;
+inline void SimpleExtensionDeclaration_ExtensionFunction::clear_name() {
+  name_.ClearToEmpty();
+}
+inline const std::string& SimpleExtensionDeclaration_ExtensionFunction::name() const {
+  // @@protoc_insertion_point(field_get:io.substrait.extensions.SimpleExtensionDeclaration.ExtensionFunction.name)
+  return _internal_name();
+}
+template <typename ArgT0, typename... ArgT>
+PROTOBUF_ALWAYS_INLINE
+inline void SimpleExtensionDeclaration_ExtensionFunction::set_name(ArgT0&& arg0, ArgT... args) {
+ 
+ name_.Set(::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::EmptyDefault{}, static_cast<ArgT0 &&>(arg0), args..., GetArena());
+  // @@protoc_insertion_point(field_set:io.substrait.extensions.SimpleExtensionDeclaration.ExtensionFunction.name)
+}
+inline std::string* SimpleExtensionDeclaration_ExtensionFunction::mutable_name() {
+  // @@protoc_insertion_point(field_mutable:io.substrait.extensions.SimpleExtensionDeclaration.ExtensionFunction.name)
+  return _internal_mutable_name();
+}
+inline const std::string& SimpleExtensionDeclaration_ExtensionFunction::_internal_name() const {
+  return name_.Get();
+}
+inline void SimpleExtensionDeclaration_ExtensionFunction::_internal_set_name(const std::string& value) {
+  
+  name_.Set(::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::EmptyDefault{}, value, GetArena());
+}
+inline std::string* SimpleExtensionDeclaration_ExtensionFunction::_internal_mutable_name() {
+  
+  return name_.Mutable(::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::EmptyDefault{}, GetArena());
+}
+inline std::string* SimpleExtensionDeclaration_ExtensionFunction::release_name() {
+  // @@protoc_insertion_point(field_release:io.substrait.extensions.SimpleExtensionDeclaration.ExtensionFunction.name)
+  return name_.Release(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(), GetArena());
+}
+inline void SimpleExtensionDeclaration_ExtensionFunction::set_allocated_name(std::string* name) {
+  if (name != nullptr) {
+    
+  } else {
+    
+  }
+  name_.SetAllocated(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(), name,
+      GetArena());
+  // @@protoc_insertion_point(field_set_allocated:io.substrait.extensions.SimpleExtensionDeclaration.ExtensionFunction.name)
+}
+
+// -------------------------------------------------------------------
+
+// SimpleExtensionDeclaration
+
+// .io.substrait.extensions.SimpleExtensionDeclaration.ExtensionType extension_type = 1;
+inline bool SimpleExtensionDeclaration::_internal_has_extension_type() const {
+  return mapping_type_case() == kExtensionType;
+}
+inline bool SimpleExtensionDeclaration::has_extension_type() const {
+  return _internal_has_extension_type();
+}
+inline void SimpleExtensionDeclaration::set_has_extension_type() {
+  _oneof_case_[0] = kExtensionType;
+}
+inline void SimpleExtensionDeclaration::clear_extension_type() {
+  if (_internal_has_extension_type()) {
     if (GetArena() == nullptr) {
-      delete mapping_type_.type_mapping_;
+      delete mapping_type_.extension_type_;
     }
     clear_has_mapping_type();
   }
 }
-inline ::io::substrait::Extensions_Mapping_TypeMapping* Extensions_Mapping::release_type_mapping() {
-  // @@protoc_insertion_point(field_release:io.substrait.Extensions.Mapping.type_mapping)
-  if (_internal_has_type_mapping()) {
+inline ::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionType* SimpleExtensionDeclaration::release_extension_type() {
+  // @@protoc_insertion_point(field_release:io.substrait.extensions.SimpleExtensionDeclaration.extension_type)
+  if (_internal_has_extension_type()) {
     clear_has_mapping_type();
-      ::io::substrait::Extensions_Mapping_TypeMapping* temp = mapping_type_.type_mapping_;
+      ::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionType* temp = mapping_type_.extension_type_;
     if (GetArena() != nullptr) {
       temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
     }
-    mapping_type_.type_mapping_ = nullptr;
+    mapping_type_.extension_type_ = nullptr;
     return temp;
   } else {
     return nullptr;
   }
 }
-inline const ::io::substrait::Extensions_Mapping_TypeMapping& Extensions_Mapping::_internal_type_mapping() const {
-  return _internal_has_type_mapping()
-      ? *mapping_type_.type_mapping_
-      : reinterpret_cast< ::io::substrait::Extensions_Mapping_TypeMapping&>(::io::substrait::_Extensions_Mapping_TypeMapping_default_instance_);
+inline const ::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionType& SimpleExtensionDeclaration::_internal_extension_type() const {
+  return _internal_has_extension_type()
+      ? *mapping_type_.extension_type_
+      : reinterpret_cast< ::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionType&>(::io::substrait::extensions::_SimpleExtensionDeclaration_ExtensionType_default_instance_);
 }
-inline const ::io::substrait::Extensions_Mapping_TypeMapping& Extensions_Mapping::type_mapping() const {
-  // @@protoc_insertion_point(field_get:io.substrait.Extensions.Mapping.type_mapping)
-  return _internal_type_mapping();
+inline const ::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionType& SimpleExtensionDeclaration::extension_type() const {
+  // @@protoc_insertion_point(field_get:io.substrait.extensions.SimpleExtensionDeclaration.extension_type)
+  return _internal_extension_type();
 }
-inline ::io::substrait::Extensions_Mapping_TypeMapping* Extensions_Mapping::unsafe_arena_release_type_mapping() {
-  // @@protoc_insertion_point(field_unsafe_arena_release:io.substrait.Extensions.Mapping.type_mapping)
-  if (_internal_has_type_mapping()) {
+inline ::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionType* SimpleExtensionDeclaration::unsafe_arena_release_extension_type() {
+  // @@protoc_insertion_point(field_unsafe_arena_release:io.substrait.extensions.SimpleExtensionDeclaration.extension_type)
+  if (_internal_has_extension_type()) {
     clear_has_mapping_type();
-    ::io::substrait::Extensions_Mapping_TypeMapping* temp = mapping_type_.type_mapping_;
-    mapping_type_.type_mapping_ = nullptr;
+    ::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionType* temp = mapping_type_.extension_type_;
+    mapping_type_.extension_type_ = nullptr;
     return temp;
   } else {
     return nullptr;
   }
 }
-inline void Extensions_Mapping::unsafe_arena_set_allocated_type_mapping(::io::substrait::Extensions_Mapping_TypeMapping* type_mapping) {
+inline void SimpleExtensionDeclaration::unsafe_arena_set_allocated_extension_type(::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionType* extension_type) {
   clear_mapping_type();
-  if (type_mapping) {
-    set_has_type_mapping();
-    mapping_type_.type_mapping_ = type_mapping;
+  if (extension_type) {
+    set_has_extension_type();
+    mapping_type_.extension_type_ = extension_type;
   }
-  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:io.substrait.Extensions.Mapping.type_mapping)
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:io.substrait.extensions.SimpleExtensionDeclaration.extension_type)
 }
-inline ::io::substrait::Extensions_Mapping_TypeMapping* Extensions_Mapping::_internal_mutable_type_mapping() {
-  if (!_internal_has_type_mapping()) {
+inline ::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionType* SimpleExtensionDeclaration::_internal_mutable_extension_type() {
+  if (!_internal_has_extension_type()) {
     clear_mapping_type();
-    set_has_type_mapping();
-    mapping_type_.type_mapping_ = CreateMaybeMessage< ::io::substrait::Extensions_Mapping_TypeMapping >(GetArena());
+    set_has_extension_type();
+    mapping_type_.extension_type_ = CreateMaybeMessage< ::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionType >(GetArena());
   }
-  return mapping_type_.type_mapping_;
+  return mapping_type_.extension_type_;
 }
-inline ::io::substrait::Extensions_Mapping_TypeMapping* Extensions_Mapping::mutable_type_mapping() {
-  // @@protoc_insertion_point(field_mutable:io.substrait.Extensions.Mapping.type_mapping)
-  return _internal_mutable_type_mapping();
+inline ::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionType* SimpleExtensionDeclaration::mutable_extension_type() {
+  // @@protoc_insertion_point(field_mutable:io.substrait.extensions.SimpleExtensionDeclaration.extension_type)
+  return _internal_mutable_extension_type();
 }
 
-// .io.substrait.Extensions.Mapping.FunctionMapping function_mapping = 2;
-inline bool Extensions_Mapping::_internal_has_function_mapping() const {
-  return mapping_type_case() == kFunctionMapping;
+// .io.substrait.extensions.SimpleExtensionDeclaration.ExtensionTypeVariation extension_type_variation = 2;
+inline bool SimpleExtensionDeclaration::_internal_has_extension_type_variation() const {
+  return mapping_type_case() == kExtensionTypeVariation;
 }
-inline bool Extensions_Mapping::has_function_mapping() const {
-  return _internal_has_function_mapping();
+inline bool SimpleExtensionDeclaration::has_extension_type_variation() const {
+  return _internal_has_extension_type_variation();
 }
-inline void Extensions_Mapping::set_has_function_mapping() {
-  _oneof_case_[0] = kFunctionMapping;
+inline void SimpleExtensionDeclaration::set_has_extension_type_variation() {
+  _oneof_case_[0] = kExtensionTypeVariation;
 }
-inline void Extensions_Mapping::clear_function_mapping() {
-  if (_internal_has_function_mapping()) {
+inline void SimpleExtensionDeclaration::clear_extension_type_variation() {
+  if (_internal_has_extension_type_variation()) {
     if (GetArena() == nullptr) {
-      delete mapping_type_.function_mapping_;
+      delete mapping_type_.extension_type_variation_;
     }
     clear_has_mapping_type();
   }
 }
-inline ::io::substrait::Extensions_Mapping_FunctionMapping* Extensions_Mapping::release_function_mapping() {
-  // @@protoc_insertion_point(field_release:io.substrait.Extensions.Mapping.function_mapping)
-  if (_internal_has_function_mapping()) {
+inline ::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionTypeVariation* SimpleExtensionDeclaration::release_extension_type_variation() {
+  // @@protoc_insertion_point(field_release:io.substrait.extensions.SimpleExtensionDeclaration.extension_type_variation)
+  if (_internal_has_extension_type_variation()) {
     clear_has_mapping_type();
-      ::io::substrait::Extensions_Mapping_FunctionMapping* temp = mapping_type_.function_mapping_;
+      ::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionTypeVariation* temp = mapping_type_.extension_type_variation_;
     if (GetArena() != nullptr) {
       temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
     }
-    mapping_type_.function_mapping_ = nullptr;
+    mapping_type_.extension_type_variation_ = nullptr;
     return temp;
   } else {
     return nullptr;
   }
 }
-inline const ::io::substrait::Extensions_Mapping_FunctionMapping& Extensions_Mapping::_internal_function_mapping() const {
-  return _internal_has_function_mapping()
-      ? *mapping_type_.function_mapping_
-      : reinterpret_cast< ::io::substrait::Extensions_Mapping_FunctionMapping&>(::io::substrait::_Extensions_Mapping_FunctionMapping_default_instance_);
+inline const ::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionTypeVariation& SimpleExtensionDeclaration::_internal_extension_type_variation() const {
+  return _internal_has_extension_type_variation()
+      ? *mapping_type_.extension_type_variation_
+      : reinterpret_cast< ::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionTypeVariation&>(::io::substrait::extensions::_SimpleExtensionDeclaration_ExtensionTypeVariation_default_instance_);
 }
-inline const ::io::substrait::Extensions_Mapping_FunctionMapping& Extensions_Mapping::function_mapping() const {
-  // @@protoc_insertion_point(field_get:io.substrait.Extensions.Mapping.function_mapping)
-  return _internal_function_mapping();
+inline const ::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionTypeVariation& SimpleExtensionDeclaration::extension_type_variation() const {
+  // @@protoc_insertion_point(field_get:io.substrait.extensions.SimpleExtensionDeclaration.extension_type_variation)
+  return _internal_extension_type_variation();
 }
-inline ::io::substrait::Extensions_Mapping_FunctionMapping* Extensions_Mapping::unsafe_arena_release_function_mapping() {
-  // @@protoc_insertion_point(field_unsafe_arena_release:io.substrait.Extensions.Mapping.function_mapping)
-  if (_internal_has_function_mapping()) {
+inline ::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionTypeVariation* SimpleExtensionDeclaration::unsafe_arena_release_extension_type_variation() {
+  // @@protoc_insertion_point(field_unsafe_arena_release:io.substrait.extensions.SimpleExtensionDeclaration.extension_type_variation)
+  if (_internal_has_extension_type_variation()) {
     clear_has_mapping_type();
-    ::io::substrait::Extensions_Mapping_FunctionMapping* temp = mapping_type_.function_mapping_;
-    mapping_type_.function_mapping_ = nullptr;
+    ::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionTypeVariation* temp = mapping_type_.extension_type_variation_;
+    mapping_type_.extension_type_variation_ = nullptr;
     return temp;
   } else {
     return nullptr;
   }
 }
-inline void Extensions_Mapping::unsafe_arena_set_allocated_function_mapping(::io::substrait::Extensions_Mapping_FunctionMapping* function_mapping) {
+inline void SimpleExtensionDeclaration::unsafe_arena_set_allocated_extension_type_variation(::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionTypeVariation* extension_type_variation) {
   clear_mapping_type();
-  if (function_mapping) {
-    set_has_function_mapping();
-    mapping_type_.function_mapping_ = function_mapping;
+  if (extension_type_variation) {
+    set_has_extension_type_variation();
+    mapping_type_.extension_type_variation_ = extension_type_variation;
   }
-  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:io.substrait.Extensions.Mapping.function_mapping)
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:io.substrait.extensions.SimpleExtensionDeclaration.extension_type_variation)
 }
-inline ::io::substrait::Extensions_Mapping_FunctionMapping* Extensions_Mapping::_internal_mutable_function_mapping() {
-  if (!_internal_has_function_mapping()) {
+inline ::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionTypeVariation* SimpleExtensionDeclaration::_internal_mutable_extension_type_variation() {
+  if (!_internal_has_extension_type_variation()) {
     clear_mapping_type();
-    set_has_function_mapping();
-    mapping_type_.function_mapping_ = CreateMaybeMessage< ::io::substrait::Extensions_Mapping_FunctionMapping >(GetArena());
+    set_has_extension_type_variation();
+    mapping_type_.extension_type_variation_ = CreateMaybeMessage< ::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionTypeVariation >(GetArena());
   }
-  return mapping_type_.function_mapping_;
+  return mapping_type_.extension_type_variation_;
 }
-inline ::io::substrait::Extensions_Mapping_FunctionMapping* Extensions_Mapping::mutable_function_mapping() {
-  // @@protoc_insertion_point(field_mutable:io.substrait.Extensions.Mapping.function_mapping)
-  return _internal_mutable_function_mapping();
+inline ::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionTypeVariation* SimpleExtensionDeclaration::mutable_extension_type_variation() {
+  // @@protoc_insertion_point(field_mutable:io.substrait.extensions.SimpleExtensionDeclaration.extension_type_variation)
+  return _internal_mutable_extension_type_variation();
 }
 
-inline bool Extensions_Mapping::has_mapping_type() const {
+// .io.substrait.extensions.SimpleExtensionDeclaration.ExtensionFunction extension_function = 3;
+inline bool SimpleExtensionDeclaration::_internal_has_extension_function() const {
+  return mapping_type_case() == kExtensionFunction;
+}
+inline bool SimpleExtensionDeclaration::has_extension_function() const {
+  return _internal_has_extension_function();
+}
+inline void SimpleExtensionDeclaration::set_has_extension_function() {
+  _oneof_case_[0] = kExtensionFunction;
+}
+inline void SimpleExtensionDeclaration::clear_extension_function() {
+  if (_internal_has_extension_function()) {
+    if (GetArena() == nullptr) {
+      delete mapping_type_.extension_function_;
+    }
+    clear_has_mapping_type();
+  }
+}
+inline ::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionFunction* SimpleExtensionDeclaration::release_extension_function() {
+  // @@protoc_insertion_point(field_release:io.substrait.extensions.SimpleExtensionDeclaration.extension_function)
+  if (_internal_has_extension_function()) {
+    clear_has_mapping_type();
+      ::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionFunction* temp = mapping_type_.extension_function_;
+    if (GetArena() != nullptr) {
+      temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
+    }
+    mapping_type_.extension_function_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline const ::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionFunction& SimpleExtensionDeclaration::_internal_extension_function() const {
+  return _internal_has_extension_function()
+      ? *mapping_type_.extension_function_
+      : reinterpret_cast< ::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionFunction&>(::io::substrait::extensions::_SimpleExtensionDeclaration_ExtensionFunction_default_instance_);
+}
+inline const ::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionFunction& SimpleExtensionDeclaration::extension_function() const {
+  // @@protoc_insertion_point(field_get:io.substrait.extensions.SimpleExtensionDeclaration.extension_function)
+  return _internal_extension_function();
+}
+inline ::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionFunction* SimpleExtensionDeclaration::unsafe_arena_release_extension_function() {
+  // @@protoc_insertion_point(field_unsafe_arena_release:io.substrait.extensions.SimpleExtensionDeclaration.extension_function)
+  if (_internal_has_extension_function()) {
+    clear_has_mapping_type();
+    ::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionFunction* temp = mapping_type_.extension_function_;
+    mapping_type_.extension_function_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline void SimpleExtensionDeclaration::unsafe_arena_set_allocated_extension_function(::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionFunction* extension_function) {
+  clear_mapping_type();
+  if (extension_function) {
+    set_has_extension_function();
+    mapping_type_.extension_function_ = extension_function;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:io.substrait.extensions.SimpleExtensionDeclaration.extension_function)
+}
+inline ::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionFunction* SimpleExtensionDeclaration::_internal_mutable_extension_function() {
+  if (!_internal_has_extension_function()) {
+    clear_mapping_type();
+    set_has_extension_function();
+    mapping_type_.extension_function_ = CreateMaybeMessage< ::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionFunction >(GetArena());
+  }
+  return mapping_type_.extension_function_;
+}
+inline ::io::substrait::extensions::SimpleExtensionDeclaration_ExtensionFunction* SimpleExtensionDeclaration::mutable_extension_function() {
+  // @@protoc_insertion_point(field_mutable:io.substrait.extensions.SimpleExtensionDeclaration.extension_function)
+  return _internal_mutable_extension_function();
+}
+
+inline bool SimpleExtensionDeclaration::has_mapping_type() const {
   return mapping_type_case() != MAPPING_TYPE_NOT_SET;
 }
-inline void Extensions_Mapping::clear_has_mapping_type() {
+inline void SimpleExtensionDeclaration::clear_has_mapping_type() {
   _oneof_case_[0] = MAPPING_TYPE_NOT_SET;
 }
-inline Extensions_Mapping::MappingTypeCase Extensions_Mapping::mapping_type_case() const {
-  return Extensions_Mapping::MappingTypeCase(_oneof_case_[0]);
+inline SimpleExtensionDeclaration::MappingTypeCase SimpleExtensionDeclaration::mapping_type_case() const {
+  return SimpleExtensionDeclaration::MappingTypeCase(_oneof_case_[0]);
 }
 // -------------------------------------------------------------------
 
-// Extensions_ExtensionId
+// AdvancedExtension
 
-// uint32 id = 1;
-inline void Extensions_ExtensionId::clear_id() {
-  id_ = 0u;
+// .google.protobuf.Any optimization = 1;
+inline bool AdvancedExtension::_internal_has_optimization() const {
+  return this != internal_default_instance() && optimization_ != nullptr;
 }
-inline ::PROTOBUF_NAMESPACE_ID::uint32 Extensions_ExtensionId::_internal_id() const {
-  return id_;
+inline bool AdvancedExtension::has_optimization() const {
+  return _internal_has_optimization();
 }
-inline ::PROTOBUF_NAMESPACE_ID::uint32 Extensions_ExtensionId::id() const {
-  // @@protoc_insertion_point(field_get:io.substrait.Extensions.ExtensionId.id)
-  return _internal_id();
+inline const PROTOBUF_NAMESPACE_ID::Any& AdvancedExtension::_internal_optimization() const {
+  const PROTOBUF_NAMESPACE_ID::Any* p = optimization_;
+  return p != nullptr ? *p : reinterpret_cast<const PROTOBUF_NAMESPACE_ID::Any&>(
+      PROTOBUF_NAMESPACE_ID::_Any_default_instance_);
 }
-inline void Extensions_ExtensionId::_internal_set_id(::PROTOBUF_NAMESPACE_ID::uint32 value) {
+inline const PROTOBUF_NAMESPACE_ID::Any& AdvancedExtension::optimization() const {
+  // @@protoc_insertion_point(field_get:io.substrait.extensions.AdvancedExtension.optimization)
+  return _internal_optimization();
+}
+inline void AdvancedExtension::unsafe_arena_set_allocated_optimization(
+    PROTOBUF_NAMESPACE_ID::Any* optimization) {
+  if (GetArena() == nullptr) {
+    delete reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(optimization_);
+  }
+  optimization_ = optimization;
+  if (optimization) {
+    
+  } else {
+    
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:io.substrait.extensions.AdvancedExtension.optimization)
+}
+inline PROTOBUF_NAMESPACE_ID::Any* AdvancedExtension::release_optimization() {
   
-  id_ = value;
+  PROTOBUF_NAMESPACE_ID::Any* temp = optimization_;
+  optimization_ = nullptr;
+  if (GetArena() != nullptr) {
+    temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
+  }
+  return temp;
 }
-inline void Extensions_ExtensionId::set_id(::PROTOBUF_NAMESPACE_ID::uint32 value) {
-  _internal_set_id(value);
-  // @@protoc_insertion_point(field_set:io.substrait.Extensions.ExtensionId.id)
-}
-
-// -------------------------------------------------------------------
-
-// Extensions_FunctionId
-
-// uint64 id = 1;
-inline void Extensions_FunctionId::clear_id() {
-  id_ = PROTOBUF_ULONGLONG(0);
-}
-inline ::PROTOBUF_NAMESPACE_ID::uint64 Extensions_FunctionId::_internal_id() const {
-  return id_;
-}
-inline ::PROTOBUF_NAMESPACE_ID::uint64 Extensions_FunctionId::id() const {
-  // @@protoc_insertion_point(field_get:io.substrait.Extensions.FunctionId.id)
-  return _internal_id();
-}
-inline void Extensions_FunctionId::_internal_set_id(::PROTOBUF_NAMESPACE_ID::uint64 value) {
+inline PROTOBUF_NAMESPACE_ID::Any* AdvancedExtension::unsafe_arena_release_optimization() {
+  // @@protoc_insertion_point(field_release:io.substrait.extensions.AdvancedExtension.optimization)
   
-  id_ = value;
+  PROTOBUF_NAMESPACE_ID::Any* temp = optimization_;
+  optimization_ = nullptr;
+  return temp;
 }
-inline void Extensions_FunctionId::set_id(::PROTOBUF_NAMESPACE_ID::uint64 value) {
-  _internal_set_id(value);
-  // @@protoc_insertion_point(field_set:io.substrait.Extensions.FunctionId.id)
-}
-
-// -------------------------------------------------------------------
-
-// Extensions_TypeId
-
-// uint64 id = 1;
-inline void Extensions_TypeId::clear_id() {
-  id_ = PROTOBUF_ULONGLONG(0);
-}
-inline ::PROTOBUF_NAMESPACE_ID::uint64 Extensions_TypeId::_internal_id() const {
-  return id_;
-}
-inline ::PROTOBUF_NAMESPACE_ID::uint64 Extensions_TypeId::id() const {
-  // @@protoc_insertion_point(field_get:io.substrait.Extensions.TypeId.id)
-  return _internal_id();
-}
-inline void Extensions_TypeId::_internal_set_id(::PROTOBUF_NAMESPACE_ID::uint64 value) {
+inline PROTOBUF_NAMESPACE_ID::Any* AdvancedExtension::_internal_mutable_optimization() {
   
-  id_ = value;
+  if (optimization_ == nullptr) {
+    auto* p = CreateMaybeMessage<PROTOBUF_NAMESPACE_ID::Any>(GetArena());
+    optimization_ = p;
+  }
+  return optimization_;
 }
-inline void Extensions_TypeId::set_id(::PROTOBUF_NAMESPACE_ID::uint64 value) {
-  _internal_set_id(value);
-  // @@protoc_insertion_point(field_set:io.substrait.Extensions.TypeId.id)
+inline PROTOBUF_NAMESPACE_ID::Any* AdvancedExtension::mutable_optimization() {
+  // @@protoc_insertion_point(field_mutable:io.substrait.extensions.AdvancedExtension.optimization)
+  return _internal_mutable_optimization();
+}
+inline void AdvancedExtension::set_allocated_optimization(PROTOBUF_NAMESPACE_ID::Any* optimization) {
+  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
+  if (message_arena == nullptr) {
+    delete reinterpret_cast< ::PROTOBUF_NAMESPACE_ID::MessageLite*>(optimization_);
+  }
+  if (optimization) {
+    ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
+      reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(optimization)->GetArena();
+    if (message_arena != submessage_arena) {
+      optimization = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
+          message_arena, optimization, submessage_arena);
+    }
+    
+  } else {
+    
+  }
+  optimization_ = optimization;
+  // @@protoc_insertion_point(field_set_allocated:io.substrait.extensions.AdvancedExtension.optimization)
 }
 
-// -------------------------------------------------------------------
-
-// Extensions
+// .google.protobuf.Any enhancement = 2;
+inline bool AdvancedExtension::_internal_has_enhancement() const {
+  return this != internal_default_instance() && enhancement_ != nullptr;
+}
+inline bool AdvancedExtension::has_enhancement() const {
+  return _internal_has_enhancement();
+}
+inline const PROTOBUF_NAMESPACE_ID::Any& AdvancedExtension::_internal_enhancement() const {
+  const PROTOBUF_NAMESPACE_ID::Any* p = enhancement_;
+  return p != nullptr ? *p : reinterpret_cast<const PROTOBUF_NAMESPACE_ID::Any&>(
+      PROTOBUF_NAMESPACE_ID::_Any_default_instance_);
+}
+inline const PROTOBUF_NAMESPACE_ID::Any& AdvancedExtension::enhancement() const {
+  // @@protoc_insertion_point(field_get:io.substrait.extensions.AdvancedExtension.enhancement)
+  return _internal_enhancement();
+}
+inline void AdvancedExtension::unsafe_arena_set_allocated_enhancement(
+    PROTOBUF_NAMESPACE_ID::Any* enhancement) {
+  if (GetArena() == nullptr) {
+    delete reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(enhancement_);
+  }
+  enhancement_ = enhancement;
+  if (enhancement) {
+    
+  } else {
+    
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:io.substrait.extensions.AdvancedExtension.enhancement)
+}
+inline PROTOBUF_NAMESPACE_ID::Any* AdvancedExtension::release_enhancement() {
+  
+  PROTOBUF_NAMESPACE_ID::Any* temp = enhancement_;
+  enhancement_ = nullptr;
+  if (GetArena() != nullptr) {
+    temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
+  }
+  return temp;
+}
+inline PROTOBUF_NAMESPACE_ID::Any* AdvancedExtension::unsafe_arena_release_enhancement() {
+  // @@protoc_insertion_point(field_release:io.substrait.extensions.AdvancedExtension.enhancement)
+  
+  PROTOBUF_NAMESPACE_ID::Any* temp = enhancement_;
+  enhancement_ = nullptr;
+  return temp;
+}
+inline PROTOBUF_NAMESPACE_ID::Any* AdvancedExtension::_internal_mutable_enhancement() {
+  
+  if (enhancement_ == nullptr) {
+    auto* p = CreateMaybeMessage<PROTOBUF_NAMESPACE_ID::Any>(GetArena());
+    enhancement_ = p;
+  }
+  return enhancement_;
+}
+inline PROTOBUF_NAMESPACE_ID::Any* AdvancedExtension::mutable_enhancement() {
+  // @@protoc_insertion_point(field_mutable:io.substrait.extensions.AdvancedExtension.enhancement)
+  return _internal_mutable_enhancement();
+}
+inline void AdvancedExtension::set_allocated_enhancement(PROTOBUF_NAMESPACE_ID::Any* enhancement) {
+  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
+  if (message_arena == nullptr) {
+    delete reinterpret_cast< ::PROTOBUF_NAMESPACE_ID::MessageLite*>(enhancement_);
+  }
+  if (enhancement) {
+    ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
+      reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(enhancement)->GetArena();
+    if (message_arena != submessage_arena) {
+      enhancement = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
+          message_arena, enhancement, submessage_arena);
+    }
+    
+  } else {
+    
+  }
+  enhancement_ = enhancement;
+  // @@protoc_insertion_point(field_set_allocated:io.substrait.extensions.AdvancedExtension.enhancement)
+}
 
 #ifdef __GNUC__
   #pragma GCC diagnostic pop
@@ -2963,19 +1822,10 @@ inline void Extensions_TypeId::set_id(::PROTOBUF_NAMESPACE_ID::uint64 value) {
 
 // -------------------------------------------------------------------
 
-// -------------------------------------------------------------------
-
-// -------------------------------------------------------------------
-
-// -------------------------------------------------------------------
-
-// -------------------------------------------------------------------
-
-// -------------------------------------------------------------------
-
 
 // @@protoc_insertion_point(namespace_scope)
 
+}  // namespace extensions
 }  // namespace substrait
 }  // namespace io
 

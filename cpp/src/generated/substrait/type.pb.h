@@ -32,7 +32,6 @@
 #include <google/protobuf/extension_set.h>  // IWYU pragma: export
 #include <google/protobuf/generated_enum_reflection.h>
 #include <google/protobuf/unknown_field_set.h>
-#include "extensions.pb.h"
 // @@protoc_insertion_point(includes)
 #include <google/protobuf/port_def.inc>
 #define PROTOBUF_INTERNAL_EXPORT_type_2eproto
@@ -48,7 +47,7 @@ struct TableStruct_type_2eproto {
     PROTOBUF_SECTION_VARIABLE(protodesc_cold);
   static const ::PROTOBUF_NAMESPACE_ID::internal::AuxiliaryParseTableField aux[]
     PROTOBUF_SECTION_VARIABLE(protodesc_cold);
-  static const ::PROTOBUF_NAMESPACE_ID::internal::ParseTable schema[26]
+  static const ::PROTOBUF_NAMESPACE_ID::internal::ParseTable schema[25]
     PROTOBUF_SECTION_VARIABLE(protodesc_cold);
   static const ::PROTOBUF_NAMESPACE_ID::internal::FieldMetadata field_metadata[];
   static const ::PROTOBUF_NAMESPACE_ID::internal::SerializationTable serialization_table[];
@@ -57,6 +56,9 @@ struct TableStruct_type_2eproto {
 extern const ::PROTOBUF_NAMESPACE_ID::internal::DescriptorTable descriptor_table_type_2eproto;
 namespace io {
 namespace substrait {
+class NamedStruct;
+struct NamedStructDefaultTypeInternal;
+extern NamedStructDefaultTypeInternal _NamedStruct_default_instance_;
 class Type;
 struct TypeDefaultTypeInternal;
 extern TypeDefaultTypeInternal _Type_default_instance_;
@@ -108,9 +110,6 @@ extern Type_ListDefaultTypeInternal _Type_List_default_instance_;
 class Type_Map;
 struct Type_MapDefaultTypeInternal;
 extern Type_MapDefaultTypeInternal _Type_Map_default_instance_;
-class Type_NamedStruct;
-struct Type_NamedStructDefaultTypeInternal;
-extern Type_NamedStructDefaultTypeInternal _Type_NamedStruct_default_instance_;
 class Type_String;
 struct Type_StringDefaultTypeInternal;
 extern Type_StringDefaultTypeInternal _Type_String_default_instance_;
@@ -132,12 +131,10 @@ extern Type_UUIDDefaultTypeInternal _Type_UUID_default_instance_;
 class Type_VarChar;
 struct Type_VarCharDefaultTypeInternal;
 extern Type_VarCharDefaultTypeInternal _Type_VarChar_default_instance_;
-class Type_Variation;
-struct Type_VariationDefaultTypeInternal;
-extern Type_VariationDefaultTypeInternal _Type_Variation_default_instance_;
 }  // namespace substrait
 }  // namespace io
 PROTOBUF_NAMESPACE_OPEN
+template<> ::io::substrait::NamedStruct* Arena::CreateMaybeMessage<::io::substrait::NamedStruct>(Arena*);
 template<> ::io::substrait::Type* Arena::CreateMaybeMessage<::io::substrait::Type>(Arena*);
 template<> ::io::substrait::Type_Binary* Arena::CreateMaybeMessage<::io::substrait::Type_Binary>(Arena*);
 template<> ::io::substrait::Type_Boolean* Arena::CreateMaybeMessage<::io::substrait::Type_Boolean>(Arena*);
@@ -155,7 +152,6 @@ template<> ::io::substrait::Type_IntervalDay* Arena::CreateMaybeMessage<::io::su
 template<> ::io::substrait::Type_IntervalYear* Arena::CreateMaybeMessage<::io::substrait::Type_IntervalYear>(Arena*);
 template<> ::io::substrait::Type_List* Arena::CreateMaybeMessage<::io::substrait::Type_List>(Arena*);
 template<> ::io::substrait::Type_Map* Arena::CreateMaybeMessage<::io::substrait::Type_Map>(Arena*);
-template<> ::io::substrait::Type_NamedStruct* Arena::CreateMaybeMessage<::io::substrait::Type_NamedStruct>(Arena*);
 template<> ::io::substrait::Type_String* Arena::CreateMaybeMessage<::io::substrait::Type_String>(Arena*);
 template<> ::io::substrait::Type_Struct* Arena::CreateMaybeMessage<::io::substrait::Type_Struct>(Arena*);
 template<> ::io::substrait::Type_Time* Arena::CreateMaybeMessage<::io::substrait::Type_Time>(Arena*);
@@ -163,7 +159,6 @@ template<> ::io::substrait::Type_Timestamp* Arena::CreateMaybeMessage<::io::subs
 template<> ::io::substrait::Type_TimestampTZ* Arena::CreateMaybeMessage<::io::substrait::Type_TimestampTZ>(Arena*);
 template<> ::io::substrait::Type_UUID* Arena::CreateMaybeMessage<::io::substrait::Type_UUID>(Arena*);
 template<> ::io::substrait::Type_VarChar* Arena::CreateMaybeMessage<::io::substrait::Type_VarChar>(Arena*);
-template<> ::io::substrait::Type_Variation* Arena::CreateMaybeMessage<::io::substrait::Type_Variation>(Arena*);
 PROTOBUF_NAMESPACE_CLOSE
 namespace io {
 namespace substrait {
@@ -302,26 +297,17 @@ class Type_Boolean PROTOBUF_FINAL :
   // accessors -------------------------------------------------------
 
   enum : int {
-    kVariationFieldNumber = 1,
+    kTypeVariationReferenceFieldNumber = 1,
     kNullabilityFieldNumber = 2,
   };
-  // .io.substrait.Type.Variation variation = 1;
-  bool has_variation() const;
+  // uint32 type_variation_reference = 1;
+  void clear_type_variation_reference();
+  ::PROTOBUF_NAMESPACE_ID::uint32 type_variation_reference() const;
+  void set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value);
   private:
-  bool _internal_has_variation() const;
+  ::PROTOBUF_NAMESPACE_ID::uint32 _internal_type_variation_reference() const;
+  void _internal_set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value);
   public:
-  void clear_variation();
-  const ::io::substrait::Type_Variation& variation() const;
-  ::io::substrait::Type_Variation* release_variation();
-  ::io::substrait::Type_Variation* mutable_variation();
-  void set_allocated_variation(::io::substrait::Type_Variation* variation);
-  private:
-  const ::io::substrait::Type_Variation& _internal_variation() const;
-  ::io::substrait::Type_Variation* _internal_mutable_variation();
-  public:
-  void unsafe_arena_set_allocated_variation(
-      ::io::substrait::Type_Variation* variation);
-  ::io::substrait::Type_Variation* unsafe_arena_release_variation();
 
   // .io.substrait.Type.Nullability nullability = 2;
   void clear_nullability();
@@ -339,7 +325,7 @@ class Type_Boolean PROTOBUF_FINAL :
   template <typename T> friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
   typedef void InternalArenaConstructable_;
   typedef void DestructorSkippable_;
-  ::io::substrait::Type_Variation* variation_;
+  ::PROTOBUF_NAMESPACE_ID::uint32 type_variation_reference_;
   int nullability_;
   mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   friend struct ::TableStruct_type_2eproto;
@@ -453,26 +439,17 @@ class Type_I8 PROTOBUF_FINAL :
   // accessors -------------------------------------------------------
 
   enum : int {
-    kVariationFieldNumber = 1,
+    kTypeVariationReferenceFieldNumber = 1,
     kNullabilityFieldNumber = 2,
   };
-  // .io.substrait.Type.Variation variation = 1;
-  bool has_variation() const;
+  // uint32 type_variation_reference = 1;
+  void clear_type_variation_reference();
+  ::PROTOBUF_NAMESPACE_ID::uint32 type_variation_reference() const;
+  void set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value);
   private:
-  bool _internal_has_variation() const;
+  ::PROTOBUF_NAMESPACE_ID::uint32 _internal_type_variation_reference() const;
+  void _internal_set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value);
   public:
-  void clear_variation();
-  const ::io::substrait::Type_Variation& variation() const;
-  ::io::substrait::Type_Variation* release_variation();
-  ::io::substrait::Type_Variation* mutable_variation();
-  void set_allocated_variation(::io::substrait::Type_Variation* variation);
-  private:
-  const ::io::substrait::Type_Variation& _internal_variation() const;
-  ::io::substrait::Type_Variation* _internal_mutable_variation();
-  public:
-  void unsafe_arena_set_allocated_variation(
-      ::io::substrait::Type_Variation* variation);
-  ::io::substrait::Type_Variation* unsafe_arena_release_variation();
 
   // .io.substrait.Type.Nullability nullability = 2;
   void clear_nullability();
@@ -490,7 +467,7 @@ class Type_I8 PROTOBUF_FINAL :
   template <typename T> friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
   typedef void InternalArenaConstructable_;
   typedef void DestructorSkippable_;
-  ::io::substrait::Type_Variation* variation_;
+  ::PROTOBUF_NAMESPACE_ID::uint32 type_variation_reference_;
   int nullability_;
   mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   friend struct ::TableStruct_type_2eproto;
@@ -604,26 +581,17 @@ class Type_I16 PROTOBUF_FINAL :
   // accessors -------------------------------------------------------
 
   enum : int {
-    kVariationFieldNumber = 1,
+    kTypeVariationReferenceFieldNumber = 1,
     kNullabilityFieldNumber = 2,
   };
-  // .io.substrait.Type.Variation variation = 1;
-  bool has_variation() const;
+  // uint32 type_variation_reference = 1;
+  void clear_type_variation_reference();
+  ::PROTOBUF_NAMESPACE_ID::uint32 type_variation_reference() const;
+  void set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value);
   private:
-  bool _internal_has_variation() const;
+  ::PROTOBUF_NAMESPACE_ID::uint32 _internal_type_variation_reference() const;
+  void _internal_set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value);
   public:
-  void clear_variation();
-  const ::io::substrait::Type_Variation& variation() const;
-  ::io::substrait::Type_Variation* release_variation();
-  ::io::substrait::Type_Variation* mutable_variation();
-  void set_allocated_variation(::io::substrait::Type_Variation* variation);
-  private:
-  const ::io::substrait::Type_Variation& _internal_variation() const;
-  ::io::substrait::Type_Variation* _internal_mutable_variation();
-  public:
-  void unsafe_arena_set_allocated_variation(
-      ::io::substrait::Type_Variation* variation);
-  ::io::substrait::Type_Variation* unsafe_arena_release_variation();
 
   // .io.substrait.Type.Nullability nullability = 2;
   void clear_nullability();
@@ -641,7 +609,7 @@ class Type_I16 PROTOBUF_FINAL :
   template <typename T> friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
   typedef void InternalArenaConstructable_;
   typedef void DestructorSkippable_;
-  ::io::substrait::Type_Variation* variation_;
+  ::PROTOBUF_NAMESPACE_ID::uint32 type_variation_reference_;
   int nullability_;
   mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   friend struct ::TableStruct_type_2eproto;
@@ -755,26 +723,17 @@ class Type_I32 PROTOBUF_FINAL :
   // accessors -------------------------------------------------------
 
   enum : int {
-    kVariationFieldNumber = 1,
+    kTypeVariationReferenceFieldNumber = 1,
     kNullabilityFieldNumber = 2,
   };
-  // .io.substrait.Type.Variation variation = 1;
-  bool has_variation() const;
+  // uint32 type_variation_reference = 1;
+  void clear_type_variation_reference();
+  ::PROTOBUF_NAMESPACE_ID::uint32 type_variation_reference() const;
+  void set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value);
   private:
-  bool _internal_has_variation() const;
+  ::PROTOBUF_NAMESPACE_ID::uint32 _internal_type_variation_reference() const;
+  void _internal_set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value);
   public:
-  void clear_variation();
-  const ::io::substrait::Type_Variation& variation() const;
-  ::io::substrait::Type_Variation* release_variation();
-  ::io::substrait::Type_Variation* mutable_variation();
-  void set_allocated_variation(::io::substrait::Type_Variation* variation);
-  private:
-  const ::io::substrait::Type_Variation& _internal_variation() const;
-  ::io::substrait::Type_Variation* _internal_mutable_variation();
-  public:
-  void unsafe_arena_set_allocated_variation(
-      ::io::substrait::Type_Variation* variation);
-  ::io::substrait::Type_Variation* unsafe_arena_release_variation();
 
   // .io.substrait.Type.Nullability nullability = 2;
   void clear_nullability();
@@ -792,7 +751,7 @@ class Type_I32 PROTOBUF_FINAL :
   template <typename T> friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
   typedef void InternalArenaConstructable_;
   typedef void DestructorSkippable_;
-  ::io::substrait::Type_Variation* variation_;
+  ::PROTOBUF_NAMESPACE_ID::uint32 type_variation_reference_;
   int nullability_;
   mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   friend struct ::TableStruct_type_2eproto;
@@ -906,26 +865,17 @@ class Type_I64 PROTOBUF_FINAL :
   // accessors -------------------------------------------------------
 
   enum : int {
-    kVariationFieldNumber = 1,
+    kTypeVariationReferenceFieldNumber = 1,
     kNullabilityFieldNumber = 2,
   };
-  // .io.substrait.Type.Variation variation = 1;
-  bool has_variation() const;
+  // uint32 type_variation_reference = 1;
+  void clear_type_variation_reference();
+  ::PROTOBUF_NAMESPACE_ID::uint32 type_variation_reference() const;
+  void set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value);
   private:
-  bool _internal_has_variation() const;
+  ::PROTOBUF_NAMESPACE_ID::uint32 _internal_type_variation_reference() const;
+  void _internal_set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value);
   public:
-  void clear_variation();
-  const ::io::substrait::Type_Variation& variation() const;
-  ::io::substrait::Type_Variation* release_variation();
-  ::io::substrait::Type_Variation* mutable_variation();
-  void set_allocated_variation(::io::substrait::Type_Variation* variation);
-  private:
-  const ::io::substrait::Type_Variation& _internal_variation() const;
-  ::io::substrait::Type_Variation* _internal_mutable_variation();
-  public:
-  void unsafe_arena_set_allocated_variation(
-      ::io::substrait::Type_Variation* variation);
-  ::io::substrait::Type_Variation* unsafe_arena_release_variation();
 
   // .io.substrait.Type.Nullability nullability = 2;
   void clear_nullability();
@@ -943,7 +893,7 @@ class Type_I64 PROTOBUF_FINAL :
   template <typename T> friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
   typedef void InternalArenaConstructable_;
   typedef void DestructorSkippable_;
-  ::io::substrait::Type_Variation* variation_;
+  ::PROTOBUF_NAMESPACE_ID::uint32 type_variation_reference_;
   int nullability_;
   mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   friend struct ::TableStruct_type_2eproto;
@@ -1057,26 +1007,17 @@ class Type_FP32 PROTOBUF_FINAL :
   // accessors -------------------------------------------------------
 
   enum : int {
-    kVariationFieldNumber = 1,
+    kTypeVariationReferenceFieldNumber = 1,
     kNullabilityFieldNumber = 2,
   };
-  // .io.substrait.Type.Variation variation = 1;
-  bool has_variation() const;
+  // uint32 type_variation_reference = 1;
+  void clear_type_variation_reference();
+  ::PROTOBUF_NAMESPACE_ID::uint32 type_variation_reference() const;
+  void set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value);
   private:
-  bool _internal_has_variation() const;
+  ::PROTOBUF_NAMESPACE_ID::uint32 _internal_type_variation_reference() const;
+  void _internal_set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value);
   public:
-  void clear_variation();
-  const ::io::substrait::Type_Variation& variation() const;
-  ::io::substrait::Type_Variation* release_variation();
-  ::io::substrait::Type_Variation* mutable_variation();
-  void set_allocated_variation(::io::substrait::Type_Variation* variation);
-  private:
-  const ::io::substrait::Type_Variation& _internal_variation() const;
-  ::io::substrait::Type_Variation* _internal_mutable_variation();
-  public:
-  void unsafe_arena_set_allocated_variation(
-      ::io::substrait::Type_Variation* variation);
-  ::io::substrait::Type_Variation* unsafe_arena_release_variation();
 
   // .io.substrait.Type.Nullability nullability = 2;
   void clear_nullability();
@@ -1094,7 +1035,7 @@ class Type_FP32 PROTOBUF_FINAL :
   template <typename T> friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
   typedef void InternalArenaConstructable_;
   typedef void DestructorSkippable_;
-  ::io::substrait::Type_Variation* variation_;
+  ::PROTOBUF_NAMESPACE_ID::uint32 type_variation_reference_;
   int nullability_;
   mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   friend struct ::TableStruct_type_2eproto;
@@ -1208,26 +1149,17 @@ class Type_FP64 PROTOBUF_FINAL :
   // accessors -------------------------------------------------------
 
   enum : int {
-    kVariationFieldNumber = 1,
+    kTypeVariationReferenceFieldNumber = 1,
     kNullabilityFieldNumber = 2,
   };
-  // .io.substrait.Type.Variation variation = 1;
-  bool has_variation() const;
+  // uint32 type_variation_reference = 1;
+  void clear_type_variation_reference();
+  ::PROTOBUF_NAMESPACE_ID::uint32 type_variation_reference() const;
+  void set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value);
   private:
-  bool _internal_has_variation() const;
+  ::PROTOBUF_NAMESPACE_ID::uint32 _internal_type_variation_reference() const;
+  void _internal_set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value);
   public:
-  void clear_variation();
-  const ::io::substrait::Type_Variation& variation() const;
-  ::io::substrait::Type_Variation* release_variation();
-  ::io::substrait::Type_Variation* mutable_variation();
-  void set_allocated_variation(::io::substrait::Type_Variation* variation);
-  private:
-  const ::io::substrait::Type_Variation& _internal_variation() const;
-  ::io::substrait::Type_Variation* _internal_mutable_variation();
-  public:
-  void unsafe_arena_set_allocated_variation(
-      ::io::substrait::Type_Variation* variation);
-  ::io::substrait::Type_Variation* unsafe_arena_release_variation();
 
   // .io.substrait.Type.Nullability nullability = 2;
   void clear_nullability();
@@ -1245,7 +1177,7 @@ class Type_FP64 PROTOBUF_FINAL :
   template <typename T> friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
   typedef void InternalArenaConstructable_;
   typedef void DestructorSkippable_;
-  ::io::substrait::Type_Variation* variation_;
+  ::PROTOBUF_NAMESPACE_ID::uint32 type_variation_reference_;
   int nullability_;
   mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   friend struct ::TableStruct_type_2eproto;
@@ -1359,26 +1291,17 @@ class Type_String PROTOBUF_FINAL :
   // accessors -------------------------------------------------------
 
   enum : int {
-    kVariationFieldNumber = 1,
+    kTypeVariationReferenceFieldNumber = 1,
     kNullabilityFieldNumber = 2,
   };
-  // .io.substrait.Type.Variation variation = 1;
-  bool has_variation() const;
+  // uint32 type_variation_reference = 1;
+  void clear_type_variation_reference();
+  ::PROTOBUF_NAMESPACE_ID::uint32 type_variation_reference() const;
+  void set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value);
   private:
-  bool _internal_has_variation() const;
+  ::PROTOBUF_NAMESPACE_ID::uint32 _internal_type_variation_reference() const;
+  void _internal_set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value);
   public:
-  void clear_variation();
-  const ::io::substrait::Type_Variation& variation() const;
-  ::io::substrait::Type_Variation* release_variation();
-  ::io::substrait::Type_Variation* mutable_variation();
-  void set_allocated_variation(::io::substrait::Type_Variation* variation);
-  private:
-  const ::io::substrait::Type_Variation& _internal_variation() const;
-  ::io::substrait::Type_Variation* _internal_mutable_variation();
-  public:
-  void unsafe_arena_set_allocated_variation(
-      ::io::substrait::Type_Variation* variation);
-  ::io::substrait::Type_Variation* unsafe_arena_release_variation();
 
   // .io.substrait.Type.Nullability nullability = 2;
   void clear_nullability();
@@ -1396,7 +1319,7 @@ class Type_String PROTOBUF_FINAL :
   template <typename T> friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
   typedef void InternalArenaConstructable_;
   typedef void DestructorSkippable_;
-  ::io::substrait::Type_Variation* variation_;
+  ::PROTOBUF_NAMESPACE_ID::uint32 type_variation_reference_;
   int nullability_;
   mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   friend struct ::TableStruct_type_2eproto;
@@ -1510,26 +1433,17 @@ class Type_Binary PROTOBUF_FINAL :
   // accessors -------------------------------------------------------
 
   enum : int {
-    kVariationFieldNumber = 1,
+    kTypeVariationReferenceFieldNumber = 1,
     kNullabilityFieldNumber = 2,
   };
-  // .io.substrait.Type.Variation variation = 1;
-  bool has_variation() const;
+  // uint32 type_variation_reference = 1;
+  void clear_type_variation_reference();
+  ::PROTOBUF_NAMESPACE_ID::uint32 type_variation_reference() const;
+  void set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value);
   private:
-  bool _internal_has_variation() const;
+  ::PROTOBUF_NAMESPACE_ID::uint32 _internal_type_variation_reference() const;
+  void _internal_set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value);
   public:
-  void clear_variation();
-  const ::io::substrait::Type_Variation& variation() const;
-  ::io::substrait::Type_Variation* release_variation();
-  ::io::substrait::Type_Variation* mutable_variation();
-  void set_allocated_variation(::io::substrait::Type_Variation* variation);
-  private:
-  const ::io::substrait::Type_Variation& _internal_variation() const;
-  ::io::substrait::Type_Variation* _internal_mutable_variation();
-  public:
-  void unsafe_arena_set_allocated_variation(
-      ::io::substrait::Type_Variation* variation);
-  ::io::substrait::Type_Variation* unsafe_arena_release_variation();
 
   // .io.substrait.Type.Nullability nullability = 2;
   void clear_nullability();
@@ -1547,7 +1461,7 @@ class Type_Binary PROTOBUF_FINAL :
   template <typename T> friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
   typedef void InternalArenaConstructable_;
   typedef void DestructorSkippable_;
-  ::io::substrait::Type_Variation* variation_;
+  ::PROTOBUF_NAMESPACE_ID::uint32 type_variation_reference_;
   int nullability_;
   mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   friend struct ::TableStruct_type_2eproto;
@@ -1661,26 +1575,17 @@ class Type_Timestamp PROTOBUF_FINAL :
   // accessors -------------------------------------------------------
 
   enum : int {
-    kVariationFieldNumber = 1,
+    kTypeVariationReferenceFieldNumber = 1,
     kNullabilityFieldNumber = 2,
   };
-  // .io.substrait.Type.Variation variation = 1;
-  bool has_variation() const;
+  // uint32 type_variation_reference = 1;
+  void clear_type_variation_reference();
+  ::PROTOBUF_NAMESPACE_ID::uint32 type_variation_reference() const;
+  void set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value);
   private:
-  bool _internal_has_variation() const;
+  ::PROTOBUF_NAMESPACE_ID::uint32 _internal_type_variation_reference() const;
+  void _internal_set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value);
   public:
-  void clear_variation();
-  const ::io::substrait::Type_Variation& variation() const;
-  ::io::substrait::Type_Variation* release_variation();
-  ::io::substrait::Type_Variation* mutable_variation();
-  void set_allocated_variation(::io::substrait::Type_Variation* variation);
-  private:
-  const ::io::substrait::Type_Variation& _internal_variation() const;
-  ::io::substrait::Type_Variation* _internal_mutable_variation();
-  public:
-  void unsafe_arena_set_allocated_variation(
-      ::io::substrait::Type_Variation* variation);
-  ::io::substrait::Type_Variation* unsafe_arena_release_variation();
 
   // .io.substrait.Type.Nullability nullability = 2;
   void clear_nullability();
@@ -1698,7 +1603,7 @@ class Type_Timestamp PROTOBUF_FINAL :
   template <typename T> friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
   typedef void InternalArenaConstructable_;
   typedef void DestructorSkippable_;
-  ::io::substrait::Type_Variation* variation_;
+  ::PROTOBUF_NAMESPACE_ID::uint32 type_variation_reference_;
   int nullability_;
   mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   friend struct ::TableStruct_type_2eproto;
@@ -1812,26 +1717,17 @@ class Type_Date PROTOBUF_FINAL :
   // accessors -------------------------------------------------------
 
   enum : int {
-    kVariationFieldNumber = 1,
+    kTypeVariationReferenceFieldNumber = 1,
     kNullabilityFieldNumber = 2,
   };
-  // .io.substrait.Type.Variation variation = 1;
-  bool has_variation() const;
+  // uint32 type_variation_reference = 1;
+  void clear_type_variation_reference();
+  ::PROTOBUF_NAMESPACE_ID::uint32 type_variation_reference() const;
+  void set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value);
   private:
-  bool _internal_has_variation() const;
+  ::PROTOBUF_NAMESPACE_ID::uint32 _internal_type_variation_reference() const;
+  void _internal_set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value);
   public:
-  void clear_variation();
-  const ::io::substrait::Type_Variation& variation() const;
-  ::io::substrait::Type_Variation* release_variation();
-  ::io::substrait::Type_Variation* mutable_variation();
-  void set_allocated_variation(::io::substrait::Type_Variation* variation);
-  private:
-  const ::io::substrait::Type_Variation& _internal_variation() const;
-  ::io::substrait::Type_Variation* _internal_mutable_variation();
-  public:
-  void unsafe_arena_set_allocated_variation(
-      ::io::substrait::Type_Variation* variation);
-  ::io::substrait::Type_Variation* unsafe_arena_release_variation();
 
   // .io.substrait.Type.Nullability nullability = 2;
   void clear_nullability();
@@ -1849,7 +1745,7 @@ class Type_Date PROTOBUF_FINAL :
   template <typename T> friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
   typedef void InternalArenaConstructable_;
   typedef void DestructorSkippable_;
-  ::io::substrait::Type_Variation* variation_;
+  ::PROTOBUF_NAMESPACE_ID::uint32 type_variation_reference_;
   int nullability_;
   mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   friend struct ::TableStruct_type_2eproto;
@@ -1963,26 +1859,17 @@ class Type_Time PROTOBUF_FINAL :
   // accessors -------------------------------------------------------
 
   enum : int {
-    kVariationFieldNumber = 1,
+    kTypeVariationReferenceFieldNumber = 1,
     kNullabilityFieldNumber = 2,
   };
-  // .io.substrait.Type.Variation variation = 1;
-  bool has_variation() const;
+  // uint32 type_variation_reference = 1;
+  void clear_type_variation_reference();
+  ::PROTOBUF_NAMESPACE_ID::uint32 type_variation_reference() const;
+  void set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value);
   private:
-  bool _internal_has_variation() const;
+  ::PROTOBUF_NAMESPACE_ID::uint32 _internal_type_variation_reference() const;
+  void _internal_set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value);
   public:
-  void clear_variation();
-  const ::io::substrait::Type_Variation& variation() const;
-  ::io::substrait::Type_Variation* release_variation();
-  ::io::substrait::Type_Variation* mutable_variation();
-  void set_allocated_variation(::io::substrait::Type_Variation* variation);
-  private:
-  const ::io::substrait::Type_Variation& _internal_variation() const;
-  ::io::substrait::Type_Variation* _internal_mutable_variation();
-  public:
-  void unsafe_arena_set_allocated_variation(
-      ::io::substrait::Type_Variation* variation);
-  ::io::substrait::Type_Variation* unsafe_arena_release_variation();
 
   // .io.substrait.Type.Nullability nullability = 2;
   void clear_nullability();
@@ -2000,7 +1887,7 @@ class Type_Time PROTOBUF_FINAL :
   template <typename T> friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
   typedef void InternalArenaConstructable_;
   typedef void DestructorSkippable_;
-  ::io::substrait::Type_Variation* variation_;
+  ::PROTOBUF_NAMESPACE_ID::uint32 type_variation_reference_;
   int nullability_;
   mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   friend struct ::TableStruct_type_2eproto;
@@ -2114,26 +2001,17 @@ class Type_TimestampTZ PROTOBUF_FINAL :
   // accessors -------------------------------------------------------
 
   enum : int {
-    kVariationFieldNumber = 1,
+    kTypeVariationReferenceFieldNumber = 1,
     kNullabilityFieldNumber = 2,
   };
-  // .io.substrait.Type.Variation variation = 1;
-  bool has_variation() const;
+  // uint32 type_variation_reference = 1;
+  void clear_type_variation_reference();
+  ::PROTOBUF_NAMESPACE_ID::uint32 type_variation_reference() const;
+  void set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value);
   private:
-  bool _internal_has_variation() const;
+  ::PROTOBUF_NAMESPACE_ID::uint32 _internal_type_variation_reference() const;
+  void _internal_set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value);
   public:
-  void clear_variation();
-  const ::io::substrait::Type_Variation& variation() const;
-  ::io::substrait::Type_Variation* release_variation();
-  ::io::substrait::Type_Variation* mutable_variation();
-  void set_allocated_variation(::io::substrait::Type_Variation* variation);
-  private:
-  const ::io::substrait::Type_Variation& _internal_variation() const;
-  ::io::substrait::Type_Variation* _internal_mutable_variation();
-  public:
-  void unsafe_arena_set_allocated_variation(
-      ::io::substrait::Type_Variation* variation);
-  ::io::substrait::Type_Variation* unsafe_arena_release_variation();
 
   // .io.substrait.Type.Nullability nullability = 2;
   void clear_nullability();
@@ -2151,7 +2029,7 @@ class Type_TimestampTZ PROTOBUF_FINAL :
   template <typename T> friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
   typedef void InternalArenaConstructable_;
   typedef void DestructorSkippable_;
-  ::io::substrait::Type_Variation* variation_;
+  ::PROTOBUF_NAMESPACE_ID::uint32 type_variation_reference_;
   int nullability_;
   mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   friend struct ::TableStruct_type_2eproto;
@@ -2265,26 +2143,17 @@ class Type_IntervalYear PROTOBUF_FINAL :
   // accessors -------------------------------------------------------
 
   enum : int {
-    kVariationFieldNumber = 1,
+    kTypeVariationReferenceFieldNumber = 1,
     kNullabilityFieldNumber = 2,
   };
-  // .io.substrait.Type.Variation variation = 1;
-  bool has_variation() const;
+  // uint32 type_variation_reference = 1;
+  void clear_type_variation_reference();
+  ::PROTOBUF_NAMESPACE_ID::uint32 type_variation_reference() const;
+  void set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value);
   private:
-  bool _internal_has_variation() const;
+  ::PROTOBUF_NAMESPACE_ID::uint32 _internal_type_variation_reference() const;
+  void _internal_set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value);
   public:
-  void clear_variation();
-  const ::io::substrait::Type_Variation& variation() const;
-  ::io::substrait::Type_Variation* release_variation();
-  ::io::substrait::Type_Variation* mutable_variation();
-  void set_allocated_variation(::io::substrait::Type_Variation* variation);
-  private:
-  const ::io::substrait::Type_Variation& _internal_variation() const;
-  ::io::substrait::Type_Variation* _internal_mutable_variation();
-  public:
-  void unsafe_arena_set_allocated_variation(
-      ::io::substrait::Type_Variation* variation);
-  ::io::substrait::Type_Variation* unsafe_arena_release_variation();
 
   // .io.substrait.Type.Nullability nullability = 2;
   void clear_nullability();
@@ -2302,7 +2171,7 @@ class Type_IntervalYear PROTOBUF_FINAL :
   template <typename T> friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
   typedef void InternalArenaConstructable_;
   typedef void DestructorSkippable_;
-  ::io::substrait::Type_Variation* variation_;
+  ::PROTOBUF_NAMESPACE_ID::uint32 type_variation_reference_;
   int nullability_;
   mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   friend struct ::TableStruct_type_2eproto;
@@ -2416,26 +2285,17 @@ class Type_IntervalDay PROTOBUF_FINAL :
   // accessors -------------------------------------------------------
 
   enum : int {
-    kVariationFieldNumber = 1,
+    kTypeVariationReferenceFieldNumber = 1,
     kNullabilityFieldNumber = 2,
   };
-  // .io.substrait.Type.Variation variation = 1;
-  bool has_variation() const;
+  // uint32 type_variation_reference = 1;
+  void clear_type_variation_reference();
+  ::PROTOBUF_NAMESPACE_ID::uint32 type_variation_reference() const;
+  void set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value);
   private:
-  bool _internal_has_variation() const;
+  ::PROTOBUF_NAMESPACE_ID::uint32 _internal_type_variation_reference() const;
+  void _internal_set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value);
   public:
-  void clear_variation();
-  const ::io::substrait::Type_Variation& variation() const;
-  ::io::substrait::Type_Variation* release_variation();
-  ::io::substrait::Type_Variation* mutable_variation();
-  void set_allocated_variation(::io::substrait::Type_Variation* variation);
-  private:
-  const ::io::substrait::Type_Variation& _internal_variation() const;
-  ::io::substrait::Type_Variation* _internal_mutable_variation();
-  public:
-  void unsafe_arena_set_allocated_variation(
-      ::io::substrait::Type_Variation* variation);
-  ::io::substrait::Type_Variation* unsafe_arena_release_variation();
 
   // .io.substrait.Type.Nullability nullability = 2;
   void clear_nullability();
@@ -2453,7 +2313,7 @@ class Type_IntervalDay PROTOBUF_FINAL :
   template <typename T> friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
   typedef void InternalArenaConstructable_;
   typedef void DestructorSkippable_;
-  ::io::substrait::Type_Variation* variation_;
+  ::PROTOBUF_NAMESPACE_ID::uint32 type_variation_reference_;
   int nullability_;
   mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   friend struct ::TableStruct_type_2eproto;
@@ -2567,26 +2427,17 @@ class Type_UUID PROTOBUF_FINAL :
   // accessors -------------------------------------------------------
 
   enum : int {
-    kVariationFieldNumber = 1,
+    kTypeVariationReferenceFieldNumber = 1,
     kNullabilityFieldNumber = 2,
   };
-  // .io.substrait.Type.Variation variation = 1;
-  bool has_variation() const;
+  // uint32 type_variation_reference = 1;
+  void clear_type_variation_reference();
+  ::PROTOBUF_NAMESPACE_ID::uint32 type_variation_reference() const;
+  void set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value);
   private:
-  bool _internal_has_variation() const;
+  ::PROTOBUF_NAMESPACE_ID::uint32 _internal_type_variation_reference() const;
+  void _internal_set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value);
   public:
-  void clear_variation();
-  const ::io::substrait::Type_Variation& variation() const;
-  ::io::substrait::Type_Variation* release_variation();
-  ::io::substrait::Type_Variation* mutable_variation();
-  void set_allocated_variation(::io::substrait::Type_Variation* variation);
-  private:
-  const ::io::substrait::Type_Variation& _internal_variation() const;
-  ::io::substrait::Type_Variation* _internal_mutable_variation();
-  public:
-  void unsafe_arena_set_allocated_variation(
-      ::io::substrait::Type_Variation* variation);
-  ::io::substrait::Type_Variation* unsafe_arena_release_variation();
 
   // .io.substrait.Type.Nullability nullability = 2;
   void clear_nullability();
@@ -2604,7 +2455,7 @@ class Type_UUID PROTOBUF_FINAL :
   template <typename T> friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
   typedef void InternalArenaConstructable_;
   typedef void DestructorSkippable_;
-  ::io::substrait::Type_Variation* variation_;
+  ::PROTOBUF_NAMESPACE_ID::uint32 type_variation_reference_;
   int nullability_;
   mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   friend struct ::TableStruct_type_2eproto;
@@ -2718,28 +2569,10 @@ class Type_FixedChar PROTOBUF_FINAL :
   // accessors -------------------------------------------------------
 
   enum : int {
-    kVariationFieldNumber = 2,
     kLengthFieldNumber = 1,
+    kTypeVariationReferenceFieldNumber = 2,
     kNullabilityFieldNumber = 3,
   };
-  // .io.substrait.Type.Variation variation = 2;
-  bool has_variation() const;
-  private:
-  bool _internal_has_variation() const;
-  public:
-  void clear_variation();
-  const ::io::substrait::Type_Variation& variation() const;
-  ::io::substrait::Type_Variation* release_variation();
-  ::io::substrait::Type_Variation* mutable_variation();
-  void set_allocated_variation(::io::substrait::Type_Variation* variation);
-  private:
-  const ::io::substrait::Type_Variation& _internal_variation() const;
-  ::io::substrait::Type_Variation* _internal_mutable_variation();
-  public:
-  void unsafe_arena_set_allocated_variation(
-      ::io::substrait::Type_Variation* variation);
-  ::io::substrait::Type_Variation* unsafe_arena_release_variation();
-
   // int32 length = 1;
   void clear_length();
   ::PROTOBUF_NAMESPACE_ID::int32 length() const;
@@ -2747,6 +2580,15 @@ class Type_FixedChar PROTOBUF_FINAL :
   private:
   ::PROTOBUF_NAMESPACE_ID::int32 _internal_length() const;
   void _internal_set_length(::PROTOBUF_NAMESPACE_ID::int32 value);
+  public:
+
+  // uint32 type_variation_reference = 2;
+  void clear_type_variation_reference();
+  ::PROTOBUF_NAMESPACE_ID::uint32 type_variation_reference() const;
+  void set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value);
+  private:
+  ::PROTOBUF_NAMESPACE_ID::uint32 _internal_type_variation_reference() const;
+  void _internal_set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value);
   public:
 
   // .io.substrait.Type.Nullability nullability = 3;
@@ -2765,8 +2607,8 @@ class Type_FixedChar PROTOBUF_FINAL :
   template <typename T> friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
   typedef void InternalArenaConstructable_;
   typedef void DestructorSkippable_;
-  ::io::substrait::Type_Variation* variation_;
   ::PROTOBUF_NAMESPACE_ID::int32 length_;
+  ::PROTOBUF_NAMESPACE_ID::uint32 type_variation_reference_;
   int nullability_;
   mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   friend struct ::TableStruct_type_2eproto;
@@ -2880,28 +2722,10 @@ class Type_VarChar PROTOBUF_FINAL :
   // accessors -------------------------------------------------------
 
   enum : int {
-    kVariationFieldNumber = 2,
     kLengthFieldNumber = 1,
+    kTypeVariationReferenceFieldNumber = 2,
     kNullabilityFieldNumber = 3,
   };
-  // .io.substrait.Type.Variation variation = 2;
-  bool has_variation() const;
-  private:
-  bool _internal_has_variation() const;
-  public:
-  void clear_variation();
-  const ::io::substrait::Type_Variation& variation() const;
-  ::io::substrait::Type_Variation* release_variation();
-  ::io::substrait::Type_Variation* mutable_variation();
-  void set_allocated_variation(::io::substrait::Type_Variation* variation);
-  private:
-  const ::io::substrait::Type_Variation& _internal_variation() const;
-  ::io::substrait::Type_Variation* _internal_mutable_variation();
-  public:
-  void unsafe_arena_set_allocated_variation(
-      ::io::substrait::Type_Variation* variation);
-  ::io::substrait::Type_Variation* unsafe_arena_release_variation();
-
   // int32 length = 1;
   void clear_length();
   ::PROTOBUF_NAMESPACE_ID::int32 length() const;
@@ -2909,6 +2733,15 @@ class Type_VarChar PROTOBUF_FINAL :
   private:
   ::PROTOBUF_NAMESPACE_ID::int32 _internal_length() const;
   void _internal_set_length(::PROTOBUF_NAMESPACE_ID::int32 value);
+  public:
+
+  // uint32 type_variation_reference = 2;
+  void clear_type_variation_reference();
+  ::PROTOBUF_NAMESPACE_ID::uint32 type_variation_reference() const;
+  void set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value);
+  private:
+  ::PROTOBUF_NAMESPACE_ID::uint32 _internal_type_variation_reference() const;
+  void _internal_set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value);
   public:
 
   // .io.substrait.Type.Nullability nullability = 3;
@@ -2927,8 +2760,8 @@ class Type_VarChar PROTOBUF_FINAL :
   template <typename T> friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
   typedef void InternalArenaConstructable_;
   typedef void DestructorSkippable_;
-  ::io::substrait::Type_Variation* variation_;
   ::PROTOBUF_NAMESPACE_ID::int32 length_;
+  ::PROTOBUF_NAMESPACE_ID::uint32 type_variation_reference_;
   int nullability_;
   mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   friend struct ::TableStruct_type_2eproto;
@@ -3042,28 +2875,10 @@ class Type_FixedBinary PROTOBUF_FINAL :
   // accessors -------------------------------------------------------
 
   enum : int {
-    kVariationFieldNumber = 2,
     kLengthFieldNumber = 1,
+    kTypeVariationReferenceFieldNumber = 2,
     kNullabilityFieldNumber = 3,
   };
-  // .io.substrait.Type.Variation variation = 2;
-  bool has_variation() const;
-  private:
-  bool _internal_has_variation() const;
-  public:
-  void clear_variation();
-  const ::io::substrait::Type_Variation& variation() const;
-  ::io::substrait::Type_Variation* release_variation();
-  ::io::substrait::Type_Variation* mutable_variation();
-  void set_allocated_variation(::io::substrait::Type_Variation* variation);
-  private:
-  const ::io::substrait::Type_Variation& _internal_variation() const;
-  ::io::substrait::Type_Variation* _internal_mutable_variation();
-  public:
-  void unsafe_arena_set_allocated_variation(
-      ::io::substrait::Type_Variation* variation);
-  ::io::substrait::Type_Variation* unsafe_arena_release_variation();
-
   // int32 length = 1;
   void clear_length();
   ::PROTOBUF_NAMESPACE_ID::int32 length() const;
@@ -3071,6 +2886,15 @@ class Type_FixedBinary PROTOBUF_FINAL :
   private:
   ::PROTOBUF_NAMESPACE_ID::int32 _internal_length() const;
   void _internal_set_length(::PROTOBUF_NAMESPACE_ID::int32 value);
+  public:
+
+  // uint32 type_variation_reference = 2;
+  void clear_type_variation_reference();
+  ::PROTOBUF_NAMESPACE_ID::uint32 type_variation_reference() const;
+  void set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value);
+  private:
+  ::PROTOBUF_NAMESPACE_ID::uint32 _internal_type_variation_reference() const;
+  void _internal_set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value);
   public:
 
   // .io.substrait.Type.Nullability nullability = 3;
@@ -3089,8 +2913,8 @@ class Type_FixedBinary PROTOBUF_FINAL :
   template <typename T> friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
   typedef void InternalArenaConstructable_;
   typedef void DestructorSkippable_;
-  ::io::substrait::Type_Variation* variation_;
   ::PROTOBUF_NAMESPACE_ID::int32 length_;
+  ::PROTOBUF_NAMESPACE_ID::uint32 type_variation_reference_;
   int nullability_;
   mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   friend struct ::TableStruct_type_2eproto;
@@ -3204,29 +3028,11 @@ class Type_Decimal PROTOBUF_FINAL :
   // accessors -------------------------------------------------------
 
   enum : int {
-    kVariationFieldNumber = 3,
     kScaleFieldNumber = 1,
     kPrecisionFieldNumber = 2,
+    kTypeVariationReferenceFieldNumber = 3,
     kNullabilityFieldNumber = 4,
   };
-  // .io.substrait.Type.Variation variation = 3;
-  bool has_variation() const;
-  private:
-  bool _internal_has_variation() const;
-  public:
-  void clear_variation();
-  const ::io::substrait::Type_Variation& variation() const;
-  ::io::substrait::Type_Variation* release_variation();
-  ::io::substrait::Type_Variation* mutable_variation();
-  void set_allocated_variation(::io::substrait::Type_Variation* variation);
-  private:
-  const ::io::substrait::Type_Variation& _internal_variation() const;
-  ::io::substrait::Type_Variation* _internal_mutable_variation();
-  public:
-  void unsafe_arena_set_allocated_variation(
-      ::io::substrait::Type_Variation* variation);
-  ::io::substrait::Type_Variation* unsafe_arena_release_variation();
-
   // int32 scale = 1;
   void clear_scale();
   ::PROTOBUF_NAMESPACE_ID::int32 scale() const;
@@ -3245,6 +3051,15 @@ class Type_Decimal PROTOBUF_FINAL :
   void _internal_set_precision(::PROTOBUF_NAMESPACE_ID::int32 value);
   public:
 
+  // uint32 type_variation_reference = 3;
+  void clear_type_variation_reference();
+  ::PROTOBUF_NAMESPACE_ID::uint32 type_variation_reference() const;
+  void set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value);
+  private:
+  ::PROTOBUF_NAMESPACE_ID::uint32 _internal_type_variation_reference() const;
+  void _internal_set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value);
+  public:
+
   // .io.substrait.Type.Nullability nullability = 4;
   void clear_nullability();
   ::io::substrait::Type_Nullability nullability() const;
@@ -3261,9 +3076,9 @@ class Type_Decimal PROTOBUF_FINAL :
   template <typename T> friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
   typedef void InternalArenaConstructable_;
   typedef void DestructorSkippable_;
-  ::io::substrait::Type_Variation* variation_;
   ::PROTOBUF_NAMESPACE_ID::int32 scale_;
   ::PROTOBUF_NAMESPACE_ID::int32 precision_;
+  ::PROTOBUF_NAMESPACE_ID::uint32 type_variation_reference_;
   int nullability_;
   mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   friend struct ::TableStruct_type_2eproto;
@@ -3378,7 +3193,7 @@ class Type_Struct PROTOBUF_FINAL :
 
   enum : int {
     kTypesFieldNumber = 1,
-    kVariationFieldNumber = 2,
+    kTypeVariationReferenceFieldNumber = 2,
     kNullabilityFieldNumber = 3,
   };
   // repeated .io.substrait.Type types = 1;
@@ -3399,23 +3214,14 @@ class Type_Struct PROTOBUF_FINAL :
   const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::io::substrait::Type >&
       types() const;
 
-  // .io.substrait.Type.Variation variation = 2;
-  bool has_variation() const;
+  // uint32 type_variation_reference = 2;
+  void clear_type_variation_reference();
+  ::PROTOBUF_NAMESPACE_ID::uint32 type_variation_reference() const;
+  void set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value);
   private:
-  bool _internal_has_variation() const;
+  ::PROTOBUF_NAMESPACE_ID::uint32 _internal_type_variation_reference() const;
+  void _internal_set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value);
   public:
-  void clear_variation();
-  const ::io::substrait::Type_Variation& variation() const;
-  ::io::substrait::Type_Variation* release_variation();
-  ::io::substrait::Type_Variation* mutable_variation();
-  void set_allocated_variation(::io::substrait::Type_Variation* variation);
-  private:
-  const ::io::substrait::Type_Variation& _internal_variation() const;
-  ::io::substrait::Type_Variation* _internal_mutable_variation();
-  public:
-  void unsafe_arena_set_allocated_variation(
-      ::io::substrait::Type_Variation* variation);
-  ::io::substrait::Type_Variation* unsafe_arena_release_variation();
 
   // .io.substrait.Type.Nullability nullability = 3;
   void clear_nullability();
@@ -3434,174 +3240,8 @@ class Type_Struct PROTOBUF_FINAL :
   typedef void InternalArenaConstructable_;
   typedef void DestructorSkippable_;
   ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::io::substrait::Type > types_;
-  ::io::substrait::Type_Variation* variation_;
+  ::PROTOBUF_NAMESPACE_ID::uint32 type_variation_reference_;
   int nullability_;
-  mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
-  friend struct ::TableStruct_type_2eproto;
-};
-// -------------------------------------------------------------------
-
-class Type_NamedStruct PROTOBUF_FINAL :
-    public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:io.substrait.Type.NamedStruct) */ {
- public:
-  inline Type_NamedStruct() : Type_NamedStruct(nullptr) {}
-  ~Type_NamedStruct() override;
-  explicit constexpr Type_NamedStruct(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized);
-
-  Type_NamedStruct(const Type_NamedStruct& from);
-  Type_NamedStruct(Type_NamedStruct&& from) noexcept
-    : Type_NamedStruct() {
-    *this = ::std::move(from);
-  }
-
-  inline Type_NamedStruct& operator=(const Type_NamedStruct& from) {
-    CopyFrom(from);
-    return *this;
-  }
-  inline Type_NamedStruct& operator=(Type_NamedStruct&& from) noexcept {
-    if (GetArena() == from.GetArena()) {
-      if (this != &from) InternalSwap(&from);
-    } else {
-      CopyFrom(from);
-    }
-    return *this;
-  }
-
-  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* descriptor() {
-    return GetDescriptor();
-  }
-  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* GetDescriptor() {
-    return default_instance().GetMetadata().descriptor;
-  }
-  static const ::PROTOBUF_NAMESPACE_ID::Reflection* GetReflection() {
-    return default_instance().GetMetadata().reflection;
-  }
-  static const Type_NamedStruct& default_instance() {
-    return *internal_default_instance();
-  }
-  static inline const Type_NamedStruct* internal_default_instance() {
-    return reinterpret_cast<const Type_NamedStruct*>(
-               &_Type_NamedStruct_default_instance_);
-  }
-  static constexpr int kIndexInFileMessages =
-    21;
-
-  friend void swap(Type_NamedStruct& a, Type_NamedStruct& b) {
-    a.Swap(&b);
-  }
-  inline void Swap(Type_NamedStruct* other) {
-    if (other == this) return;
-    if (GetArena() == other->GetArena()) {
-      InternalSwap(other);
-    } else {
-      ::PROTOBUF_NAMESPACE_ID::internal::GenericSwap(this, other);
-    }
-  }
-  void UnsafeArenaSwap(Type_NamedStruct* other) {
-    if (other == this) return;
-    GOOGLE_DCHECK(GetArena() == other->GetArena());
-    InternalSwap(other);
-  }
-
-  // implements Message ----------------------------------------------
-
-  inline Type_NamedStruct* New() const final {
-    return CreateMaybeMessage<Type_NamedStruct>(nullptr);
-  }
-
-  Type_NamedStruct* New(::PROTOBUF_NAMESPACE_ID::Arena* arena) const final {
-    return CreateMaybeMessage<Type_NamedStruct>(arena);
-  }
-  void CopyFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) final;
-  void MergeFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) final;
-  void CopyFrom(const Type_NamedStruct& from);
-  void MergeFrom(const Type_NamedStruct& from);
-  PROTOBUF_ATTRIBUTE_REINITIALIZES void Clear() final;
-  bool IsInitialized() const final;
-
-  size_t ByteSizeLong() const final;
-  const char* _InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) final;
-  ::PROTOBUF_NAMESPACE_ID::uint8* _InternalSerialize(
-      ::PROTOBUF_NAMESPACE_ID::uint8* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const final;
-  int GetCachedSize() const final { return _cached_size_.Get(); }
-
-  private:
-  inline void SharedCtor();
-  inline void SharedDtor();
-  void SetCachedSize(int size) const final;
-  void InternalSwap(Type_NamedStruct* other);
-  friend class ::PROTOBUF_NAMESPACE_ID::internal::AnyMetadata;
-  static ::PROTOBUF_NAMESPACE_ID::StringPiece FullMessageName() {
-    return "io.substrait.Type.NamedStruct";
-  }
-  protected:
-  explicit Type_NamedStruct(::PROTOBUF_NAMESPACE_ID::Arena* arena);
-  private:
-  static void ArenaDtor(void* object);
-  inline void RegisterArenaDtor(::PROTOBUF_NAMESPACE_ID::Arena* arena);
-  public:
-
-  ::PROTOBUF_NAMESPACE_ID::Metadata GetMetadata() const final;
-
-  // nested types ----------------------------------------------------
-
-  // accessors -------------------------------------------------------
-
-  enum : int {
-    kNamesFieldNumber = 1,
-    kStructFieldNumber = 2,
-  };
-  // repeated string names = 1;
-  int names_size() const;
-  private:
-  int _internal_names_size() const;
-  public:
-  void clear_names();
-  const std::string& names(int index) const;
-  std::string* mutable_names(int index);
-  void set_names(int index, const std::string& value);
-  void set_names(int index, std::string&& value);
-  void set_names(int index, const char* value);
-  void set_names(int index, const char* value, size_t size);
-  std::string* add_names();
-  void add_names(const std::string& value);
-  void add_names(std::string&& value);
-  void add_names(const char* value);
-  void add_names(const char* value, size_t size);
-  const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<std::string>& names() const;
-  ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<std::string>* mutable_names();
-  private:
-  const std::string& _internal_names(int index) const;
-  std::string* _internal_add_names();
-  public:
-
-  // .io.substrait.Type.Struct struct = 2;
-  bool has_struct_() const;
-  private:
-  bool _internal_has_struct_() const;
-  public:
-  void clear_struct_();
-  const ::io::substrait::Type_Struct& struct_() const;
-  ::io::substrait::Type_Struct* release_struct_();
-  ::io::substrait::Type_Struct* mutable_struct_();
-  void set_allocated_struct_(::io::substrait::Type_Struct* struct_);
-  private:
-  const ::io::substrait::Type_Struct& _internal_struct_() const;
-  ::io::substrait::Type_Struct* _internal_mutable_struct_();
-  public:
-  void unsafe_arena_set_allocated_struct_(
-      ::io::substrait::Type_Struct* struct_);
-  ::io::substrait::Type_Struct* unsafe_arena_release_struct_();
-
-  // @@protoc_insertion_point(class_scope:io.substrait.Type.NamedStruct)
- private:
-  class _Internal;
-
-  template <typename T> friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
-  typedef void InternalArenaConstructable_;
-  typedef void DestructorSkippable_;
-  ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<std::string> names_;
-  ::io::substrait::Type_Struct* struct__;
   mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   friend struct ::TableStruct_type_2eproto;
 };
@@ -3650,7 +3290,7 @@ class Type_List PROTOBUF_FINAL :
                &_Type_List_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    22;
+    21;
 
   friend void swap(Type_List& a, Type_List& b) {
     a.Swap(&b);
@@ -3715,7 +3355,7 @@ class Type_List PROTOBUF_FINAL :
 
   enum : int {
     kTypeFieldNumber = 1,
-    kVariationFieldNumber = 2,
+    kTypeVariationReferenceFieldNumber = 2,
     kNullabilityFieldNumber = 3,
   };
   // .io.substrait.Type type = 1;
@@ -3736,23 +3376,14 @@ class Type_List PROTOBUF_FINAL :
       ::io::substrait::Type* type);
   ::io::substrait::Type* unsafe_arena_release_type();
 
-  // .io.substrait.Type.Variation variation = 2;
-  bool has_variation() const;
+  // uint32 type_variation_reference = 2;
+  void clear_type_variation_reference();
+  ::PROTOBUF_NAMESPACE_ID::uint32 type_variation_reference() const;
+  void set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value);
   private:
-  bool _internal_has_variation() const;
+  ::PROTOBUF_NAMESPACE_ID::uint32 _internal_type_variation_reference() const;
+  void _internal_set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value);
   public:
-  void clear_variation();
-  const ::io::substrait::Type_Variation& variation() const;
-  ::io::substrait::Type_Variation* release_variation();
-  ::io::substrait::Type_Variation* mutable_variation();
-  void set_allocated_variation(::io::substrait::Type_Variation* variation);
-  private:
-  const ::io::substrait::Type_Variation& _internal_variation() const;
-  ::io::substrait::Type_Variation* _internal_mutable_variation();
-  public:
-  void unsafe_arena_set_allocated_variation(
-      ::io::substrait::Type_Variation* variation);
-  ::io::substrait::Type_Variation* unsafe_arena_release_variation();
 
   // .io.substrait.Type.Nullability nullability = 3;
   void clear_nullability();
@@ -3771,7 +3402,7 @@ class Type_List PROTOBUF_FINAL :
   typedef void InternalArenaConstructable_;
   typedef void DestructorSkippable_;
   ::io::substrait::Type* type_;
-  ::io::substrait::Type_Variation* variation_;
+  ::PROTOBUF_NAMESPACE_ID::uint32 type_variation_reference_;
   int nullability_;
   mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   friend struct ::TableStruct_type_2eproto;
@@ -3821,7 +3452,7 @@ class Type_Map PROTOBUF_FINAL :
                &_Type_Map_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    23;
+    22;
 
   friend void swap(Type_Map& a, Type_Map& b) {
     a.Swap(&b);
@@ -3887,7 +3518,7 @@ class Type_Map PROTOBUF_FINAL :
   enum : int {
     kKeyFieldNumber = 1,
     kValueFieldNumber = 2,
-    kVariationFieldNumber = 3,
+    kTypeVariationReferenceFieldNumber = 3,
     kNullabilityFieldNumber = 4,
   };
   // .io.substrait.Type key = 1;
@@ -3926,23 +3557,14 @@ class Type_Map PROTOBUF_FINAL :
       ::io::substrait::Type* value);
   ::io::substrait::Type* unsafe_arena_release_value();
 
-  // .io.substrait.Type.Variation variation = 3;
-  bool has_variation() const;
+  // uint32 type_variation_reference = 3;
+  void clear_type_variation_reference();
+  ::PROTOBUF_NAMESPACE_ID::uint32 type_variation_reference() const;
+  void set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value);
   private:
-  bool _internal_has_variation() const;
+  ::PROTOBUF_NAMESPACE_ID::uint32 _internal_type_variation_reference() const;
+  void _internal_set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value);
   public:
-  void clear_variation();
-  const ::io::substrait::Type_Variation& variation() const;
-  ::io::substrait::Type_Variation* release_variation();
-  ::io::substrait::Type_Variation* mutable_variation();
-  void set_allocated_variation(::io::substrait::Type_Variation* variation);
-  private:
-  const ::io::substrait::Type_Variation& _internal_variation() const;
-  ::io::substrait::Type_Variation* _internal_mutable_variation();
-  public:
-  void unsafe_arena_set_allocated_variation(
-      ::io::substrait::Type_Variation* variation);
-  ::io::substrait::Type_Variation* unsafe_arena_release_variation();
 
   // .io.substrait.Type.Nullability nullability = 4;
   void clear_nullability();
@@ -3962,155 +3584,8 @@ class Type_Map PROTOBUF_FINAL :
   typedef void DestructorSkippable_;
   ::io::substrait::Type* key_;
   ::io::substrait::Type* value_;
-  ::io::substrait::Type_Variation* variation_;
+  ::PROTOBUF_NAMESPACE_ID::uint32 type_variation_reference_;
   int nullability_;
-  mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
-  friend struct ::TableStruct_type_2eproto;
-};
-// -------------------------------------------------------------------
-
-class Type_Variation PROTOBUF_FINAL :
-    public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:io.substrait.Type.Variation) */ {
- public:
-  inline Type_Variation() : Type_Variation(nullptr) {}
-  ~Type_Variation() override;
-  explicit constexpr Type_Variation(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized);
-
-  Type_Variation(const Type_Variation& from);
-  Type_Variation(Type_Variation&& from) noexcept
-    : Type_Variation() {
-    *this = ::std::move(from);
-  }
-
-  inline Type_Variation& operator=(const Type_Variation& from) {
-    CopyFrom(from);
-    return *this;
-  }
-  inline Type_Variation& operator=(Type_Variation&& from) noexcept {
-    if (GetArena() == from.GetArena()) {
-      if (this != &from) InternalSwap(&from);
-    } else {
-      CopyFrom(from);
-    }
-    return *this;
-  }
-
-  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* descriptor() {
-    return GetDescriptor();
-  }
-  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* GetDescriptor() {
-    return default_instance().GetMetadata().descriptor;
-  }
-  static const ::PROTOBUF_NAMESPACE_ID::Reflection* GetReflection() {
-    return default_instance().GetMetadata().reflection;
-  }
-  static const Type_Variation& default_instance() {
-    return *internal_default_instance();
-  }
-  static inline const Type_Variation* internal_default_instance() {
-    return reinterpret_cast<const Type_Variation*>(
-               &_Type_Variation_default_instance_);
-  }
-  static constexpr int kIndexInFileMessages =
-    24;
-
-  friend void swap(Type_Variation& a, Type_Variation& b) {
-    a.Swap(&b);
-  }
-  inline void Swap(Type_Variation* other) {
-    if (other == this) return;
-    if (GetArena() == other->GetArena()) {
-      InternalSwap(other);
-    } else {
-      ::PROTOBUF_NAMESPACE_ID::internal::GenericSwap(this, other);
-    }
-  }
-  void UnsafeArenaSwap(Type_Variation* other) {
-    if (other == this) return;
-    GOOGLE_DCHECK(GetArena() == other->GetArena());
-    InternalSwap(other);
-  }
-
-  // implements Message ----------------------------------------------
-
-  inline Type_Variation* New() const final {
-    return CreateMaybeMessage<Type_Variation>(nullptr);
-  }
-
-  Type_Variation* New(::PROTOBUF_NAMESPACE_ID::Arena* arena) const final {
-    return CreateMaybeMessage<Type_Variation>(arena);
-  }
-  void CopyFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) final;
-  void MergeFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) final;
-  void CopyFrom(const Type_Variation& from);
-  void MergeFrom(const Type_Variation& from);
-  PROTOBUF_ATTRIBUTE_REINITIALIZES void Clear() final;
-  bool IsInitialized() const final;
-
-  size_t ByteSizeLong() const final;
-  const char* _InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) final;
-  ::PROTOBUF_NAMESPACE_ID::uint8* _InternalSerialize(
-      ::PROTOBUF_NAMESPACE_ID::uint8* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const final;
-  int GetCachedSize() const final { return _cached_size_.Get(); }
-
-  private:
-  inline void SharedCtor();
-  inline void SharedDtor();
-  void SetCachedSize(int size) const final;
-  void InternalSwap(Type_Variation* other);
-  friend class ::PROTOBUF_NAMESPACE_ID::internal::AnyMetadata;
-  static ::PROTOBUF_NAMESPACE_ID::StringPiece FullMessageName() {
-    return "io.substrait.Type.Variation";
-  }
-  protected:
-  explicit Type_Variation(::PROTOBUF_NAMESPACE_ID::Arena* arena);
-  private:
-  static void ArenaDtor(void* object);
-  inline void RegisterArenaDtor(::PROTOBUF_NAMESPACE_ID::Arena* arena);
-  public:
-
-  ::PROTOBUF_NAMESPACE_ID::Metadata GetMetadata() const final;
-
-  // nested types ----------------------------------------------------
-
-  // accessors -------------------------------------------------------
-
-  enum : int {
-    kNameFieldNumber = 2,
-    kOrganizationFieldNumber = 1,
-  };
-  // string name = 2;
-  void clear_name();
-  const std::string& name() const;
-  template <typename ArgT0 = const std::string&, typename... ArgT>
-  void set_name(ArgT0&& arg0, ArgT... args);
-  std::string* mutable_name();
-  std::string* release_name();
-  void set_allocated_name(std::string* name);
-  private:
-  const std::string& _internal_name() const;
-  void _internal_set_name(const std::string& value);
-  std::string* _internal_mutable_name();
-  public:
-
-  // int32 organization = 1;
-  void clear_organization();
-  ::PROTOBUF_NAMESPACE_ID::int32 organization() const;
-  void set_organization(::PROTOBUF_NAMESPACE_ID::int32 value);
-  private:
-  ::PROTOBUF_NAMESPACE_ID::int32 _internal_organization() const;
-  void _internal_set_organization(::PROTOBUF_NAMESPACE_ID::int32 value);
-  public:
-
-  // @@protoc_insertion_point(class_scope:io.substrait.Type.Variation)
- private:
-  class _Internal;
-
-  template <typename T> friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
-  typedef void InternalArenaConstructable_;
-  typedef void DestructorSkippable_;
-  ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr name_;
-  ::PROTOBUF_NAMESPACE_ID::int32 organization_;
   mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   friend struct ::TableStruct_type_2eproto;
 };
@@ -4178,7 +3653,7 @@ class Type PROTOBUF_FINAL :
     kStruct = 25,
     kList = 27,
     kMap = 28,
-    kUserDefined = 31,
+    kUserDefinedTypeReference = 31,
     KIND_NOT_SET = 0,
   };
 
@@ -4187,7 +3662,7 @@ class Type PROTOBUF_FINAL :
                &_Type_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    25;
+    23;
 
   friend void swap(Type& a, Type& b) {
     a.Swap(&b);
@@ -4269,10 +3744,8 @@ class Type PROTOBUF_FINAL :
   typedef Type_FixedBinary FixedBinary;
   typedef Type_Decimal Decimal;
   typedef Type_Struct Struct;
-  typedef Type_NamedStruct NamedStruct;
   typedef Type_List List;
   typedef Type_Map Map;
-  typedef Type_Variation Variation;
 
   typedef Type_Nullability Nullability;
   static constexpr Nullability NULLABLE =
@@ -4330,7 +3803,7 @@ class Type PROTOBUF_FINAL :
     kStructFieldNumber = 25,
     kListFieldNumber = 27,
     kMapFieldNumber = 28,
-    kUserDefinedFieldNumber = 31,
+    kUserDefinedTypeReferenceFieldNumber = 31,
   };
   // .io.substrait.Type.Boolean bool = 1;
   bool has_bool_() const;
@@ -4746,23 +4219,18 @@ class Type PROTOBUF_FINAL :
       ::io::substrait::Type_Map* map);
   ::io::substrait::Type_Map* unsafe_arena_release_map();
 
-  // .io.substrait.Extensions.TypeId user_defined = 31;
-  bool has_user_defined() const;
+  // uint32 user_defined_type_reference = 31;
+  bool has_user_defined_type_reference() const;
   private:
-  bool _internal_has_user_defined() const;
+  bool _internal_has_user_defined_type_reference() const;
   public:
-  void clear_user_defined();
-  const ::io::substrait::Extensions_TypeId& user_defined() const;
-  ::io::substrait::Extensions_TypeId* release_user_defined();
-  ::io::substrait::Extensions_TypeId* mutable_user_defined();
-  void set_allocated_user_defined(::io::substrait::Extensions_TypeId* user_defined);
+  void clear_user_defined_type_reference();
+  ::PROTOBUF_NAMESPACE_ID::uint32 user_defined_type_reference() const;
+  void set_user_defined_type_reference(::PROTOBUF_NAMESPACE_ID::uint32 value);
   private:
-  const ::io::substrait::Extensions_TypeId& _internal_user_defined() const;
-  ::io::substrait::Extensions_TypeId* _internal_mutable_user_defined();
+  ::PROTOBUF_NAMESPACE_ID::uint32 _internal_user_defined_type_reference() const;
+  void _internal_set_user_defined_type_reference(::PROTOBUF_NAMESPACE_ID::uint32 value);
   public:
-  void unsafe_arena_set_allocated_user_defined(
-      ::io::substrait::Extensions_TypeId* user_defined);
-  ::io::substrait::Extensions_TypeId* unsafe_arena_release_user_defined();
 
   void clear_kind();
   KindCase kind_case() const;
@@ -4792,7 +4260,7 @@ class Type PROTOBUF_FINAL :
   void set_has_struct_();
   void set_has_list();
   void set_has_map();
-  void set_has_user_defined();
+  void set_has_user_defined_type_reference();
 
   inline bool has_kind() const;
   inline void clear_has_kind();
@@ -4826,11 +4294,177 @@ class Type PROTOBUF_FINAL :
     ::io::substrait::Type_Struct* struct__;
     ::io::substrait::Type_List* list_;
     ::io::substrait::Type_Map* map_;
-    ::io::substrait::Extensions_TypeId* user_defined_;
+    ::PROTOBUF_NAMESPACE_ID::uint32 user_defined_type_reference_;
   } kind_;
   mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   ::PROTOBUF_NAMESPACE_ID::uint32 _oneof_case_[1];
 
+  friend struct ::TableStruct_type_2eproto;
+};
+// -------------------------------------------------------------------
+
+class NamedStruct PROTOBUF_FINAL :
+    public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:io.substrait.NamedStruct) */ {
+ public:
+  inline NamedStruct() : NamedStruct(nullptr) {}
+  ~NamedStruct() override;
+  explicit constexpr NamedStruct(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized);
+
+  NamedStruct(const NamedStruct& from);
+  NamedStruct(NamedStruct&& from) noexcept
+    : NamedStruct() {
+    *this = ::std::move(from);
+  }
+
+  inline NamedStruct& operator=(const NamedStruct& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline NamedStruct& operator=(NamedStruct&& from) noexcept {
+    if (GetArena() == from.GetArena()) {
+      if (this != &from) InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* descriptor() {
+    return GetDescriptor();
+  }
+  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  static const ::PROTOBUF_NAMESPACE_ID::Reflection* GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  static const NamedStruct& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const NamedStruct* internal_default_instance() {
+    return reinterpret_cast<const NamedStruct*>(
+               &_NamedStruct_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages =
+    24;
+
+  friend void swap(NamedStruct& a, NamedStruct& b) {
+    a.Swap(&b);
+  }
+  inline void Swap(NamedStruct* other) {
+    if (other == this) return;
+    if (GetArena() == other->GetArena()) {
+      InternalSwap(other);
+    } else {
+      ::PROTOBUF_NAMESPACE_ID::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(NamedStruct* other) {
+    if (other == this) return;
+    GOOGLE_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  inline NamedStruct* New() const final {
+    return CreateMaybeMessage<NamedStruct>(nullptr);
+  }
+
+  NamedStruct* New(::PROTOBUF_NAMESPACE_ID::Arena* arena) const final {
+    return CreateMaybeMessage<NamedStruct>(arena);
+  }
+  void CopyFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) final;
+  void MergeFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) final;
+  void CopyFrom(const NamedStruct& from);
+  void MergeFrom(const NamedStruct& from);
+  PROTOBUF_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  size_t ByteSizeLong() const final;
+  const char* _InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) final;
+  ::PROTOBUF_NAMESPACE_ID::uint8* _InternalSerialize(
+      ::PROTOBUF_NAMESPACE_ID::uint8* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const final;
+  int GetCachedSize() const final { return _cached_size_.Get(); }
+
+  private:
+  inline void SharedCtor();
+  inline void SharedDtor();
+  void SetCachedSize(int size) const final;
+  void InternalSwap(NamedStruct* other);
+  friend class ::PROTOBUF_NAMESPACE_ID::internal::AnyMetadata;
+  static ::PROTOBUF_NAMESPACE_ID::StringPiece FullMessageName() {
+    return "io.substrait.NamedStruct";
+  }
+  protected:
+  explicit NamedStruct(::PROTOBUF_NAMESPACE_ID::Arena* arena);
+  private:
+  static void ArenaDtor(void* object);
+  inline void RegisterArenaDtor(::PROTOBUF_NAMESPACE_ID::Arena* arena);
+  public:
+
+  ::PROTOBUF_NAMESPACE_ID::Metadata GetMetadata() const final;
+
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+
+  enum : int {
+    kNamesFieldNumber = 1,
+    kStructFieldNumber = 2,
+  };
+  // repeated string names = 1;
+  int names_size() const;
+  private:
+  int _internal_names_size() const;
+  public:
+  void clear_names();
+  const std::string& names(int index) const;
+  std::string* mutable_names(int index);
+  void set_names(int index, const std::string& value);
+  void set_names(int index, std::string&& value);
+  void set_names(int index, const char* value);
+  void set_names(int index, const char* value, size_t size);
+  std::string* add_names();
+  void add_names(const std::string& value);
+  void add_names(std::string&& value);
+  void add_names(const char* value);
+  void add_names(const char* value, size_t size);
+  const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<std::string>& names() const;
+  ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<std::string>* mutable_names();
+  private:
+  const std::string& _internal_names(int index) const;
+  std::string* _internal_add_names();
+  public:
+
+  // .io.substrait.Type.Struct struct = 2;
+  bool has_struct_() const;
+  private:
+  bool _internal_has_struct_() const;
+  public:
+  void clear_struct_();
+  const ::io::substrait::Type_Struct& struct_() const;
+  ::io::substrait::Type_Struct* release_struct_();
+  ::io::substrait::Type_Struct* mutable_struct_();
+  void set_allocated_struct_(::io::substrait::Type_Struct* struct_);
+  private:
+  const ::io::substrait::Type_Struct& _internal_struct_() const;
+  ::io::substrait::Type_Struct* _internal_mutable_struct_();
+  public:
+  void unsafe_arena_set_allocated_struct_(
+      ::io::substrait::Type_Struct* struct_);
+  ::io::substrait::Type_Struct* unsafe_arena_release_struct_();
+
+  // @@protoc_insertion_point(class_scope:io.substrait.NamedStruct)
+ private:
+  class _Internal;
+
+  template <typename T> friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
+  typedef void InternalArenaConstructable_;
+  typedef void DestructorSkippable_;
+  ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<std::string> names_;
+  ::io::substrait::Type_Struct* struct__;
+  mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   friend struct ::TableStruct_type_2eproto;
 };
 // ===================================================================
@@ -4844,87 +4478,24 @@ class Type PROTOBUF_FINAL :
 #endif  // __GNUC__
 // Type_Boolean
 
-// .io.substrait.Type.Variation variation = 1;
-inline bool Type_Boolean::_internal_has_variation() const {
-  return this != internal_default_instance() && variation_ != nullptr;
+// uint32 type_variation_reference = 1;
+inline void Type_Boolean::clear_type_variation_reference() {
+  type_variation_reference_ = 0u;
 }
-inline bool Type_Boolean::has_variation() const {
-  return _internal_has_variation();
+inline ::PROTOBUF_NAMESPACE_ID::uint32 Type_Boolean::_internal_type_variation_reference() const {
+  return type_variation_reference_;
 }
-inline void Type_Boolean::clear_variation() {
-  if (GetArena() == nullptr && variation_ != nullptr) {
-    delete variation_;
-  }
-  variation_ = nullptr;
+inline ::PROTOBUF_NAMESPACE_ID::uint32 Type_Boolean::type_variation_reference() const {
+  // @@protoc_insertion_point(field_get:io.substrait.Type.Boolean.type_variation_reference)
+  return _internal_type_variation_reference();
 }
-inline const ::io::substrait::Type_Variation& Type_Boolean::_internal_variation() const {
-  const ::io::substrait::Type_Variation* p = variation_;
-  return p != nullptr ? *p : reinterpret_cast<const ::io::substrait::Type_Variation&>(
-      ::io::substrait::_Type_Variation_default_instance_);
-}
-inline const ::io::substrait::Type_Variation& Type_Boolean::variation() const {
-  // @@protoc_insertion_point(field_get:io.substrait.Type.Boolean.variation)
-  return _internal_variation();
-}
-inline void Type_Boolean::unsafe_arena_set_allocated_variation(
-    ::io::substrait::Type_Variation* variation) {
-  if (GetArena() == nullptr) {
-    delete reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(variation_);
-  }
-  variation_ = variation;
-  if (variation) {
-    
-  } else {
-    
-  }
-  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:io.substrait.Type.Boolean.variation)
-}
-inline ::io::substrait::Type_Variation* Type_Boolean::release_variation() {
+inline void Type_Boolean::_internal_set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value) {
   
-  ::io::substrait::Type_Variation* temp = variation_;
-  variation_ = nullptr;
-  if (GetArena() != nullptr) {
-    temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
-  }
-  return temp;
+  type_variation_reference_ = value;
 }
-inline ::io::substrait::Type_Variation* Type_Boolean::unsafe_arena_release_variation() {
-  // @@protoc_insertion_point(field_release:io.substrait.Type.Boolean.variation)
-  
-  ::io::substrait::Type_Variation* temp = variation_;
-  variation_ = nullptr;
-  return temp;
-}
-inline ::io::substrait::Type_Variation* Type_Boolean::_internal_mutable_variation() {
-  
-  if (variation_ == nullptr) {
-    auto* p = CreateMaybeMessage<::io::substrait::Type_Variation>(GetArena());
-    variation_ = p;
-  }
-  return variation_;
-}
-inline ::io::substrait::Type_Variation* Type_Boolean::mutable_variation() {
-  // @@protoc_insertion_point(field_mutable:io.substrait.Type.Boolean.variation)
-  return _internal_mutable_variation();
-}
-inline void Type_Boolean::set_allocated_variation(::io::substrait::Type_Variation* variation) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
-  if (message_arena == nullptr) {
-    delete variation_;
-  }
-  if (variation) {
-    ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      ::PROTOBUF_NAMESPACE_ID::Arena::GetArena(variation);
-    if (message_arena != submessage_arena) {
-      variation = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
-          message_arena, variation, submessage_arena);
-    }
-    
-  } else {
-    
-  }
-  variation_ = variation;
-  // @@protoc_insertion_point(field_set_allocated:io.substrait.Type.Boolean.variation)
+inline void Type_Boolean::set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value) {
+  _internal_set_type_variation_reference(value);
+  // @@protoc_insertion_point(field_set:io.substrait.Type.Boolean.type_variation_reference)
 }
 
 // .io.substrait.Type.Nullability nullability = 2;
@@ -4951,87 +4522,24 @@ inline void Type_Boolean::set_nullability(::io::substrait::Type_Nullability valu
 
 // Type_I8
 
-// .io.substrait.Type.Variation variation = 1;
-inline bool Type_I8::_internal_has_variation() const {
-  return this != internal_default_instance() && variation_ != nullptr;
+// uint32 type_variation_reference = 1;
+inline void Type_I8::clear_type_variation_reference() {
+  type_variation_reference_ = 0u;
 }
-inline bool Type_I8::has_variation() const {
-  return _internal_has_variation();
+inline ::PROTOBUF_NAMESPACE_ID::uint32 Type_I8::_internal_type_variation_reference() const {
+  return type_variation_reference_;
 }
-inline void Type_I8::clear_variation() {
-  if (GetArena() == nullptr && variation_ != nullptr) {
-    delete variation_;
-  }
-  variation_ = nullptr;
+inline ::PROTOBUF_NAMESPACE_ID::uint32 Type_I8::type_variation_reference() const {
+  // @@protoc_insertion_point(field_get:io.substrait.Type.I8.type_variation_reference)
+  return _internal_type_variation_reference();
 }
-inline const ::io::substrait::Type_Variation& Type_I8::_internal_variation() const {
-  const ::io::substrait::Type_Variation* p = variation_;
-  return p != nullptr ? *p : reinterpret_cast<const ::io::substrait::Type_Variation&>(
-      ::io::substrait::_Type_Variation_default_instance_);
-}
-inline const ::io::substrait::Type_Variation& Type_I8::variation() const {
-  // @@protoc_insertion_point(field_get:io.substrait.Type.I8.variation)
-  return _internal_variation();
-}
-inline void Type_I8::unsafe_arena_set_allocated_variation(
-    ::io::substrait::Type_Variation* variation) {
-  if (GetArena() == nullptr) {
-    delete reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(variation_);
-  }
-  variation_ = variation;
-  if (variation) {
-    
-  } else {
-    
-  }
-  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:io.substrait.Type.I8.variation)
-}
-inline ::io::substrait::Type_Variation* Type_I8::release_variation() {
+inline void Type_I8::_internal_set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value) {
   
-  ::io::substrait::Type_Variation* temp = variation_;
-  variation_ = nullptr;
-  if (GetArena() != nullptr) {
-    temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
-  }
-  return temp;
+  type_variation_reference_ = value;
 }
-inline ::io::substrait::Type_Variation* Type_I8::unsafe_arena_release_variation() {
-  // @@protoc_insertion_point(field_release:io.substrait.Type.I8.variation)
-  
-  ::io::substrait::Type_Variation* temp = variation_;
-  variation_ = nullptr;
-  return temp;
-}
-inline ::io::substrait::Type_Variation* Type_I8::_internal_mutable_variation() {
-  
-  if (variation_ == nullptr) {
-    auto* p = CreateMaybeMessage<::io::substrait::Type_Variation>(GetArena());
-    variation_ = p;
-  }
-  return variation_;
-}
-inline ::io::substrait::Type_Variation* Type_I8::mutable_variation() {
-  // @@protoc_insertion_point(field_mutable:io.substrait.Type.I8.variation)
-  return _internal_mutable_variation();
-}
-inline void Type_I8::set_allocated_variation(::io::substrait::Type_Variation* variation) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
-  if (message_arena == nullptr) {
-    delete variation_;
-  }
-  if (variation) {
-    ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      ::PROTOBUF_NAMESPACE_ID::Arena::GetArena(variation);
-    if (message_arena != submessage_arena) {
-      variation = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
-          message_arena, variation, submessage_arena);
-    }
-    
-  } else {
-    
-  }
-  variation_ = variation;
-  // @@protoc_insertion_point(field_set_allocated:io.substrait.Type.I8.variation)
+inline void Type_I8::set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value) {
+  _internal_set_type_variation_reference(value);
+  // @@protoc_insertion_point(field_set:io.substrait.Type.I8.type_variation_reference)
 }
 
 // .io.substrait.Type.Nullability nullability = 2;
@@ -5058,87 +4566,24 @@ inline void Type_I8::set_nullability(::io::substrait::Type_Nullability value) {
 
 // Type_I16
 
-// .io.substrait.Type.Variation variation = 1;
-inline bool Type_I16::_internal_has_variation() const {
-  return this != internal_default_instance() && variation_ != nullptr;
+// uint32 type_variation_reference = 1;
+inline void Type_I16::clear_type_variation_reference() {
+  type_variation_reference_ = 0u;
 }
-inline bool Type_I16::has_variation() const {
-  return _internal_has_variation();
+inline ::PROTOBUF_NAMESPACE_ID::uint32 Type_I16::_internal_type_variation_reference() const {
+  return type_variation_reference_;
 }
-inline void Type_I16::clear_variation() {
-  if (GetArena() == nullptr && variation_ != nullptr) {
-    delete variation_;
-  }
-  variation_ = nullptr;
+inline ::PROTOBUF_NAMESPACE_ID::uint32 Type_I16::type_variation_reference() const {
+  // @@protoc_insertion_point(field_get:io.substrait.Type.I16.type_variation_reference)
+  return _internal_type_variation_reference();
 }
-inline const ::io::substrait::Type_Variation& Type_I16::_internal_variation() const {
-  const ::io::substrait::Type_Variation* p = variation_;
-  return p != nullptr ? *p : reinterpret_cast<const ::io::substrait::Type_Variation&>(
-      ::io::substrait::_Type_Variation_default_instance_);
-}
-inline const ::io::substrait::Type_Variation& Type_I16::variation() const {
-  // @@protoc_insertion_point(field_get:io.substrait.Type.I16.variation)
-  return _internal_variation();
-}
-inline void Type_I16::unsafe_arena_set_allocated_variation(
-    ::io::substrait::Type_Variation* variation) {
-  if (GetArena() == nullptr) {
-    delete reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(variation_);
-  }
-  variation_ = variation;
-  if (variation) {
-    
-  } else {
-    
-  }
-  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:io.substrait.Type.I16.variation)
-}
-inline ::io::substrait::Type_Variation* Type_I16::release_variation() {
+inline void Type_I16::_internal_set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value) {
   
-  ::io::substrait::Type_Variation* temp = variation_;
-  variation_ = nullptr;
-  if (GetArena() != nullptr) {
-    temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
-  }
-  return temp;
+  type_variation_reference_ = value;
 }
-inline ::io::substrait::Type_Variation* Type_I16::unsafe_arena_release_variation() {
-  // @@protoc_insertion_point(field_release:io.substrait.Type.I16.variation)
-  
-  ::io::substrait::Type_Variation* temp = variation_;
-  variation_ = nullptr;
-  return temp;
-}
-inline ::io::substrait::Type_Variation* Type_I16::_internal_mutable_variation() {
-  
-  if (variation_ == nullptr) {
-    auto* p = CreateMaybeMessage<::io::substrait::Type_Variation>(GetArena());
-    variation_ = p;
-  }
-  return variation_;
-}
-inline ::io::substrait::Type_Variation* Type_I16::mutable_variation() {
-  // @@protoc_insertion_point(field_mutable:io.substrait.Type.I16.variation)
-  return _internal_mutable_variation();
-}
-inline void Type_I16::set_allocated_variation(::io::substrait::Type_Variation* variation) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
-  if (message_arena == nullptr) {
-    delete variation_;
-  }
-  if (variation) {
-    ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      ::PROTOBUF_NAMESPACE_ID::Arena::GetArena(variation);
-    if (message_arena != submessage_arena) {
-      variation = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
-          message_arena, variation, submessage_arena);
-    }
-    
-  } else {
-    
-  }
-  variation_ = variation;
-  // @@protoc_insertion_point(field_set_allocated:io.substrait.Type.I16.variation)
+inline void Type_I16::set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value) {
+  _internal_set_type_variation_reference(value);
+  // @@protoc_insertion_point(field_set:io.substrait.Type.I16.type_variation_reference)
 }
 
 // .io.substrait.Type.Nullability nullability = 2;
@@ -5165,87 +4610,24 @@ inline void Type_I16::set_nullability(::io::substrait::Type_Nullability value) {
 
 // Type_I32
 
-// .io.substrait.Type.Variation variation = 1;
-inline bool Type_I32::_internal_has_variation() const {
-  return this != internal_default_instance() && variation_ != nullptr;
+// uint32 type_variation_reference = 1;
+inline void Type_I32::clear_type_variation_reference() {
+  type_variation_reference_ = 0u;
 }
-inline bool Type_I32::has_variation() const {
-  return _internal_has_variation();
+inline ::PROTOBUF_NAMESPACE_ID::uint32 Type_I32::_internal_type_variation_reference() const {
+  return type_variation_reference_;
 }
-inline void Type_I32::clear_variation() {
-  if (GetArena() == nullptr && variation_ != nullptr) {
-    delete variation_;
-  }
-  variation_ = nullptr;
+inline ::PROTOBUF_NAMESPACE_ID::uint32 Type_I32::type_variation_reference() const {
+  // @@protoc_insertion_point(field_get:io.substrait.Type.I32.type_variation_reference)
+  return _internal_type_variation_reference();
 }
-inline const ::io::substrait::Type_Variation& Type_I32::_internal_variation() const {
-  const ::io::substrait::Type_Variation* p = variation_;
-  return p != nullptr ? *p : reinterpret_cast<const ::io::substrait::Type_Variation&>(
-      ::io::substrait::_Type_Variation_default_instance_);
-}
-inline const ::io::substrait::Type_Variation& Type_I32::variation() const {
-  // @@protoc_insertion_point(field_get:io.substrait.Type.I32.variation)
-  return _internal_variation();
-}
-inline void Type_I32::unsafe_arena_set_allocated_variation(
-    ::io::substrait::Type_Variation* variation) {
-  if (GetArena() == nullptr) {
-    delete reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(variation_);
-  }
-  variation_ = variation;
-  if (variation) {
-    
-  } else {
-    
-  }
-  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:io.substrait.Type.I32.variation)
-}
-inline ::io::substrait::Type_Variation* Type_I32::release_variation() {
+inline void Type_I32::_internal_set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value) {
   
-  ::io::substrait::Type_Variation* temp = variation_;
-  variation_ = nullptr;
-  if (GetArena() != nullptr) {
-    temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
-  }
-  return temp;
+  type_variation_reference_ = value;
 }
-inline ::io::substrait::Type_Variation* Type_I32::unsafe_arena_release_variation() {
-  // @@protoc_insertion_point(field_release:io.substrait.Type.I32.variation)
-  
-  ::io::substrait::Type_Variation* temp = variation_;
-  variation_ = nullptr;
-  return temp;
-}
-inline ::io::substrait::Type_Variation* Type_I32::_internal_mutable_variation() {
-  
-  if (variation_ == nullptr) {
-    auto* p = CreateMaybeMessage<::io::substrait::Type_Variation>(GetArena());
-    variation_ = p;
-  }
-  return variation_;
-}
-inline ::io::substrait::Type_Variation* Type_I32::mutable_variation() {
-  // @@protoc_insertion_point(field_mutable:io.substrait.Type.I32.variation)
-  return _internal_mutable_variation();
-}
-inline void Type_I32::set_allocated_variation(::io::substrait::Type_Variation* variation) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
-  if (message_arena == nullptr) {
-    delete variation_;
-  }
-  if (variation) {
-    ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      ::PROTOBUF_NAMESPACE_ID::Arena::GetArena(variation);
-    if (message_arena != submessage_arena) {
-      variation = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
-          message_arena, variation, submessage_arena);
-    }
-    
-  } else {
-    
-  }
-  variation_ = variation;
-  // @@protoc_insertion_point(field_set_allocated:io.substrait.Type.I32.variation)
+inline void Type_I32::set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value) {
+  _internal_set_type_variation_reference(value);
+  // @@protoc_insertion_point(field_set:io.substrait.Type.I32.type_variation_reference)
 }
 
 // .io.substrait.Type.Nullability nullability = 2;
@@ -5272,87 +4654,24 @@ inline void Type_I32::set_nullability(::io::substrait::Type_Nullability value) {
 
 // Type_I64
 
-// .io.substrait.Type.Variation variation = 1;
-inline bool Type_I64::_internal_has_variation() const {
-  return this != internal_default_instance() && variation_ != nullptr;
+// uint32 type_variation_reference = 1;
+inline void Type_I64::clear_type_variation_reference() {
+  type_variation_reference_ = 0u;
 }
-inline bool Type_I64::has_variation() const {
-  return _internal_has_variation();
+inline ::PROTOBUF_NAMESPACE_ID::uint32 Type_I64::_internal_type_variation_reference() const {
+  return type_variation_reference_;
 }
-inline void Type_I64::clear_variation() {
-  if (GetArena() == nullptr && variation_ != nullptr) {
-    delete variation_;
-  }
-  variation_ = nullptr;
+inline ::PROTOBUF_NAMESPACE_ID::uint32 Type_I64::type_variation_reference() const {
+  // @@protoc_insertion_point(field_get:io.substrait.Type.I64.type_variation_reference)
+  return _internal_type_variation_reference();
 }
-inline const ::io::substrait::Type_Variation& Type_I64::_internal_variation() const {
-  const ::io::substrait::Type_Variation* p = variation_;
-  return p != nullptr ? *p : reinterpret_cast<const ::io::substrait::Type_Variation&>(
-      ::io::substrait::_Type_Variation_default_instance_);
-}
-inline const ::io::substrait::Type_Variation& Type_I64::variation() const {
-  // @@protoc_insertion_point(field_get:io.substrait.Type.I64.variation)
-  return _internal_variation();
-}
-inline void Type_I64::unsafe_arena_set_allocated_variation(
-    ::io::substrait::Type_Variation* variation) {
-  if (GetArena() == nullptr) {
-    delete reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(variation_);
-  }
-  variation_ = variation;
-  if (variation) {
-    
-  } else {
-    
-  }
-  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:io.substrait.Type.I64.variation)
-}
-inline ::io::substrait::Type_Variation* Type_I64::release_variation() {
+inline void Type_I64::_internal_set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value) {
   
-  ::io::substrait::Type_Variation* temp = variation_;
-  variation_ = nullptr;
-  if (GetArena() != nullptr) {
-    temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
-  }
-  return temp;
+  type_variation_reference_ = value;
 }
-inline ::io::substrait::Type_Variation* Type_I64::unsafe_arena_release_variation() {
-  // @@protoc_insertion_point(field_release:io.substrait.Type.I64.variation)
-  
-  ::io::substrait::Type_Variation* temp = variation_;
-  variation_ = nullptr;
-  return temp;
-}
-inline ::io::substrait::Type_Variation* Type_I64::_internal_mutable_variation() {
-  
-  if (variation_ == nullptr) {
-    auto* p = CreateMaybeMessage<::io::substrait::Type_Variation>(GetArena());
-    variation_ = p;
-  }
-  return variation_;
-}
-inline ::io::substrait::Type_Variation* Type_I64::mutable_variation() {
-  // @@protoc_insertion_point(field_mutable:io.substrait.Type.I64.variation)
-  return _internal_mutable_variation();
-}
-inline void Type_I64::set_allocated_variation(::io::substrait::Type_Variation* variation) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
-  if (message_arena == nullptr) {
-    delete variation_;
-  }
-  if (variation) {
-    ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      ::PROTOBUF_NAMESPACE_ID::Arena::GetArena(variation);
-    if (message_arena != submessage_arena) {
-      variation = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
-          message_arena, variation, submessage_arena);
-    }
-    
-  } else {
-    
-  }
-  variation_ = variation;
-  // @@protoc_insertion_point(field_set_allocated:io.substrait.Type.I64.variation)
+inline void Type_I64::set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value) {
+  _internal_set_type_variation_reference(value);
+  // @@protoc_insertion_point(field_set:io.substrait.Type.I64.type_variation_reference)
 }
 
 // .io.substrait.Type.Nullability nullability = 2;
@@ -5379,87 +4698,24 @@ inline void Type_I64::set_nullability(::io::substrait::Type_Nullability value) {
 
 // Type_FP32
 
-// .io.substrait.Type.Variation variation = 1;
-inline bool Type_FP32::_internal_has_variation() const {
-  return this != internal_default_instance() && variation_ != nullptr;
+// uint32 type_variation_reference = 1;
+inline void Type_FP32::clear_type_variation_reference() {
+  type_variation_reference_ = 0u;
 }
-inline bool Type_FP32::has_variation() const {
-  return _internal_has_variation();
+inline ::PROTOBUF_NAMESPACE_ID::uint32 Type_FP32::_internal_type_variation_reference() const {
+  return type_variation_reference_;
 }
-inline void Type_FP32::clear_variation() {
-  if (GetArena() == nullptr && variation_ != nullptr) {
-    delete variation_;
-  }
-  variation_ = nullptr;
+inline ::PROTOBUF_NAMESPACE_ID::uint32 Type_FP32::type_variation_reference() const {
+  // @@protoc_insertion_point(field_get:io.substrait.Type.FP32.type_variation_reference)
+  return _internal_type_variation_reference();
 }
-inline const ::io::substrait::Type_Variation& Type_FP32::_internal_variation() const {
-  const ::io::substrait::Type_Variation* p = variation_;
-  return p != nullptr ? *p : reinterpret_cast<const ::io::substrait::Type_Variation&>(
-      ::io::substrait::_Type_Variation_default_instance_);
-}
-inline const ::io::substrait::Type_Variation& Type_FP32::variation() const {
-  // @@protoc_insertion_point(field_get:io.substrait.Type.FP32.variation)
-  return _internal_variation();
-}
-inline void Type_FP32::unsafe_arena_set_allocated_variation(
-    ::io::substrait::Type_Variation* variation) {
-  if (GetArena() == nullptr) {
-    delete reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(variation_);
-  }
-  variation_ = variation;
-  if (variation) {
-    
-  } else {
-    
-  }
-  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:io.substrait.Type.FP32.variation)
-}
-inline ::io::substrait::Type_Variation* Type_FP32::release_variation() {
+inline void Type_FP32::_internal_set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value) {
   
-  ::io::substrait::Type_Variation* temp = variation_;
-  variation_ = nullptr;
-  if (GetArena() != nullptr) {
-    temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
-  }
-  return temp;
+  type_variation_reference_ = value;
 }
-inline ::io::substrait::Type_Variation* Type_FP32::unsafe_arena_release_variation() {
-  // @@protoc_insertion_point(field_release:io.substrait.Type.FP32.variation)
-  
-  ::io::substrait::Type_Variation* temp = variation_;
-  variation_ = nullptr;
-  return temp;
-}
-inline ::io::substrait::Type_Variation* Type_FP32::_internal_mutable_variation() {
-  
-  if (variation_ == nullptr) {
-    auto* p = CreateMaybeMessage<::io::substrait::Type_Variation>(GetArena());
-    variation_ = p;
-  }
-  return variation_;
-}
-inline ::io::substrait::Type_Variation* Type_FP32::mutable_variation() {
-  // @@protoc_insertion_point(field_mutable:io.substrait.Type.FP32.variation)
-  return _internal_mutable_variation();
-}
-inline void Type_FP32::set_allocated_variation(::io::substrait::Type_Variation* variation) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
-  if (message_arena == nullptr) {
-    delete variation_;
-  }
-  if (variation) {
-    ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      ::PROTOBUF_NAMESPACE_ID::Arena::GetArena(variation);
-    if (message_arena != submessage_arena) {
-      variation = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
-          message_arena, variation, submessage_arena);
-    }
-    
-  } else {
-    
-  }
-  variation_ = variation;
-  // @@protoc_insertion_point(field_set_allocated:io.substrait.Type.FP32.variation)
+inline void Type_FP32::set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value) {
+  _internal_set_type_variation_reference(value);
+  // @@protoc_insertion_point(field_set:io.substrait.Type.FP32.type_variation_reference)
 }
 
 // .io.substrait.Type.Nullability nullability = 2;
@@ -5486,87 +4742,24 @@ inline void Type_FP32::set_nullability(::io::substrait::Type_Nullability value) 
 
 // Type_FP64
 
-// .io.substrait.Type.Variation variation = 1;
-inline bool Type_FP64::_internal_has_variation() const {
-  return this != internal_default_instance() && variation_ != nullptr;
+// uint32 type_variation_reference = 1;
+inline void Type_FP64::clear_type_variation_reference() {
+  type_variation_reference_ = 0u;
 }
-inline bool Type_FP64::has_variation() const {
-  return _internal_has_variation();
+inline ::PROTOBUF_NAMESPACE_ID::uint32 Type_FP64::_internal_type_variation_reference() const {
+  return type_variation_reference_;
 }
-inline void Type_FP64::clear_variation() {
-  if (GetArena() == nullptr && variation_ != nullptr) {
-    delete variation_;
-  }
-  variation_ = nullptr;
+inline ::PROTOBUF_NAMESPACE_ID::uint32 Type_FP64::type_variation_reference() const {
+  // @@protoc_insertion_point(field_get:io.substrait.Type.FP64.type_variation_reference)
+  return _internal_type_variation_reference();
 }
-inline const ::io::substrait::Type_Variation& Type_FP64::_internal_variation() const {
-  const ::io::substrait::Type_Variation* p = variation_;
-  return p != nullptr ? *p : reinterpret_cast<const ::io::substrait::Type_Variation&>(
-      ::io::substrait::_Type_Variation_default_instance_);
-}
-inline const ::io::substrait::Type_Variation& Type_FP64::variation() const {
-  // @@protoc_insertion_point(field_get:io.substrait.Type.FP64.variation)
-  return _internal_variation();
-}
-inline void Type_FP64::unsafe_arena_set_allocated_variation(
-    ::io::substrait::Type_Variation* variation) {
-  if (GetArena() == nullptr) {
-    delete reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(variation_);
-  }
-  variation_ = variation;
-  if (variation) {
-    
-  } else {
-    
-  }
-  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:io.substrait.Type.FP64.variation)
-}
-inline ::io::substrait::Type_Variation* Type_FP64::release_variation() {
+inline void Type_FP64::_internal_set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value) {
   
-  ::io::substrait::Type_Variation* temp = variation_;
-  variation_ = nullptr;
-  if (GetArena() != nullptr) {
-    temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
-  }
-  return temp;
+  type_variation_reference_ = value;
 }
-inline ::io::substrait::Type_Variation* Type_FP64::unsafe_arena_release_variation() {
-  // @@protoc_insertion_point(field_release:io.substrait.Type.FP64.variation)
-  
-  ::io::substrait::Type_Variation* temp = variation_;
-  variation_ = nullptr;
-  return temp;
-}
-inline ::io::substrait::Type_Variation* Type_FP64::_internal_mutable_variation() {
-  
-  if (variation_ == nullptr) {
-    auto* p = CreateMaybeMessage<::io::substrait::Type_Variation>(GetArena());
-    variation_ = p;
-  }
-  return variation_;
-}
-inline ::io::substrait::Type_Variation* Type_FP64::mutable_variation() {
-  // @@protoc_insertion_point(field_mutable:io.substrait.Type.FP64.variation)
-  return _internal_mutable_variation();
-}
-inline void Type_FP64::set_allocated_variation(::io::substrait::Type_Variation* variation) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
-  if (message_arena == nullptr) {
-    delete variation_;
-  }
-  if (variation) {
-    ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      ::PROTOBUF_NAMESPACE_ID::Arena::GetArena(variation);
-    if (message_arena != submessage_arena) {
-      variation = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
-          message_arena, variation, submessage_arena);
-    }
-    
-  } else {
-    
-  }
-  variation_ = variation;
-  // @@protoc_insertion_point(field_set_allocated:io.substrait.Type.FP64.variation)
+inline void Type_FP64::set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value) {
+  _internal_set_type_variation_reference(value);
+  // @@protoc_insertion_point(field_set:io.substrait.Type.FP64.type_variation_reference)
 }
 
 // .io.substrait.Type.Nullability nullability = 2;
@@ -5593,87 +4786,24 @@ inline void Type_FP64::set_nullability(::io::substrait::Type_Nullability value) 
 
 // Type_String
 
-// .io.substrait.Type.Variation variation = 1;
-inline bool Type_String::_internal_has_variation() const {
-  return this != internal_default_instance() && variation_ != nullptr;
+// uint32 type_variation_reference = 1;
+inline void Type_String::clear_type_variation_reference() {
+  type_variation_reference_ = 0u;
 }
-inline bool Type_String::has_variation() const {
-  return _internal_has_variation();
+inline ::PROTOBUF_NAMESPACE_ID::uint32 Type_String::_internal_type_variation_reference() const {
+  return type_variation_reference_;
 }
-inline void Type_String::clear_variation() {
-  if (GetArena() == nullptr && variation_ != nullptr) {
-    delete variation_;
-  }
-  variation_ = nullptr;
+inline ::PROTOBUF_NAMESPACE_ID::uint32 Type_String::type_variation_reference() const {
+  // @@protoc_insertion_point(field_get:io.substrait.Type.String.type_variation_reference)
+  return _internal_type_variation_reference();
 }
-inline const ::io::substrait::Type_Variation& Type_String::_internal_variation() const {
-  const ::io::substrait::Type_Variation* p = variation_;
-  return p != nullptr ? *p : reinterpret_cast<const ::io::substrait::Type_Variation&>(
-      ::io::substrait::_Type_Variation_default_instance_);
-}
-inline const ::io::substrait::Type_Variation& Type_String::variation() const {
-  // @@protoc_insertion_point(field_get:io.substrait.Type.String.variation)
-  return _internal_variation();
-}
-inline void Type_String::unsafe_arena_set_allocated_variation(
-    ::io::substrait::Type_Variation* variation) {
-  if (GetArena() == nullptr) {
-    delete reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(variation_);
-  }
-  variation_ = variation;
-  if (variation) {
-    
-  } else {
-    
-  }
-  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:io.substrait.Type.String.variation)
-}
-inline ::io::substrait::Type_Variation* Type_String::release_variation() {
+inline void Type_String::_internal_set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value) {
   
-  ::io::substrait::Type_Variation* temp = variation_;
-  variation_ = nullptr;
-  if (GetArena() != nullptr) {
-    temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
-  }
-  return temp;
+  type_variation_reference_ = value;
 }
-inline ::io::substrait::Type_Variation* Type_String::unsafe_arena_release_variation() {
-  // @@protoc_insertion_point(field_release:io.substrait.Type.String.variation)
-  
-  ::io::substrait::Type_Variation* temp = variation_;
-  variation_ = nullptr;
-  return temp;
-}
-inline ::io::substrait::Type_Variation* Type_String::_internal_mutable_variation() {
-  
-  if (variation_ == nullptr) {
-    auto* p = CreateMaybeMessage<::io::substrait::Type_Variation>(GetArena());
-    variation_ = p;
-  }
-  return variation_;
-}
-inline ::io::substrait::Type_Variation* Type_String::mutable_variation() {
-  // @@protoc_insertion_point(field_mutable:io.substrait.Type.String.variation)
-  return _internal_mutable_variation();
-}
-inline void Type_String::set_allocated_variation(::io::substrait::Type_Variation* variation) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
-  if (message_arena == nullptr) {
-    delete variation_;
-  }
-  if (variation) {
-    ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      ::PROTOBUF_NAMESPACE_ID::Arena::GetArena(variation);
-    if (message_arena != submessage_arena) {
-      variation = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
-          message_arena, variation, submessage_arena);
-    }
-    
-  } else {
-    
-  }
-  variation_ = variation;
-  // @@protoc_insertion_point(field_set_allocated:io.substrait.Type.String.variation)
+inline void Type_String::set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value) {
+  _internal_set_type_variation_reference(value);
+  // @@protoc_insertion_point(field_set:io.substrait.Type.String.type_variation_reference)
 }
 
 // .io.substrait.Type.Nullability nullability = 2;
@@ -5700,87 +4830,24 @@ inline void Type_String::set_nullability(::io::substrait::Type_Nullability value
 
 // Type_Binary
 
-// .io.substrait.Type.Variation variation = 1;
-inline bool Type_Binary::_internal_has_variation() const {
-  return this != internal_default_instance() && variation_ != nullptr;
+// uint32 type_variation_reference = 1;
+inline void Type_Binary::clear_type_variation_reference() {
+  type_variation_reference_ = 0u;
 }
-inline bool Type_Binary::has_variation() const {
-  return _internal_has_variation();
+inline ::PROTOBUF_NAMESPACE_ID::uint32 Type_Binary::_internal_type_variation_reference() const {
+  return type_variation_reference_;
 }
-inline void Type_Binary::clear_variation() {
-  if (GetArena() == nullptr && variation_ != nullptr) {
-    delete variation_;
-  }
-  variation_ = nullptr;
+inline ::PROTOBUF_NAMESPACE_ID::uint32 Type_Binary::type_variation_reference() const {
+  // @@protoc_insertion_point(field_get:io.substrait.Type.Binary.type_variation_reference)
+  return _internal_type_variation_reference();
 }
-inline const ::io::substrait::Type_Variation& Type_Binary::_internal_variation() const {
-  const ::io::substrait::Type_Variation* p = variation_;
-  return p != nullptr ? *p : reinterpret_cast<const ::io::substrait::Type_Variation&>(
-      ::io::substrait::_Type_Variation_default_instance_);
-}
-inline const ::io::substrait::Type_Variation& Type_Binary::variation() const {
-  // @@protoc_insertion_point(field_get:io.substrait.Type.Binary.variation)
-  return _internal_variation();
-}
-inline void Type_Binary::unsafe_arena_set_allocated_variation(
-    ::io::substrait::Type_Variation* variation) {
-  if (GetArena() == nullptr) {
-    delete reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(variation_);
-  }
-  variation_ = variation;
-  if (variation) {
-    
-  } else {
-    
-  }
-  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:io.substrait.Type.Binary.variation)
-}
-inline ::io::substrait::Type_Variation* Type_Binary::release_variation() {
+inline void Type_Binary::_internal_set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value) {
   
-  ::io::substrait::Type_Variation* temp = variation_;
-  variation_ = nullptr;
-  if (GetArena() != nullptr) {
-    temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
-  }
-  return temp;
+  type_variation_reference_ = value;
 }
-inline ::io::substrait::Type_Variation* Type_Binary::unsafe_arena_release_variation() {
-  // @@protoc_insertion_point(field_release:io.substrait.Type.Binary.variation)
-  
-  ::io::substrait::Type_Variation* temp = variation_;
-  variation_ = nullptr;
-  return temp;
-}
-inline ::io::substrait::Type_Variation* Type_Binary::_internal_mutable_variation() {
-  
-  if (variation_ == nullptr) {
-    auto* p = CreateMaybeMessage<::io::substrait::Type_Variation>(GetArena());
-    variation_ = p;
-  }
-  return variation_;
-}
-inline ::io::substrait::Type_Variation* Type_Binary::mutable_variation() {
-  // @@protoc_insertion_point(field_mutable:io.substrait.Type.Binary.variation)
-  return _internal_mutable_variation();
-}
-inline void Type_Binary::set_allocated_variation(::io::substrait::Type_Variation* variation) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
-  if (message_arena == nullptr) {
-    delete variation_;
-  }
-  if (variation) {
-    ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      ::PROTOBUF_NAMESPACE_ID::Arena::GetArena(variation);
-    if (message_arena != submessage_arena) {
-      variation = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
-          message_arena, variation, submessage_arena);
-    }
-    
-  } else {
-    
-  }
-  variation_ = variation;
-  // @@protoc_insertion_point(field_set_allocated:io.substrait.Type.Binary.variation)
+inline void Type_Binary::set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value) {
+  _internal_set_type_variation_reference(value);
+  // @@protoc_insertion_point(field_set:io.substrait.Type.Binary.type_variation_reference)
 }
 
 // .io.substrait.Type.Nullability nullability = 2;
@@ -5807,87 +4874,24 @@ inline void Type_Binary::set_nullability(::io::substrait::Type_Nullability value
 
 // Type_Timestamp
 
-// .io.substrait.Type.Variation variation = 1;
-inline bool Type_Timestamp::_internal_has_variation() const {
-  return this != internal_default_instance() && variation_ != nullptr;
+// uint32 type_variation_reference = 1;
+inline void Type_Timestamp::clear_type_variation_reference() {
+  type_variation_reference_ = 0u;
 }
-inline bool Type_Timestamp::has_variation() const {
-  return _internal_has_variation();
+inline ::PROTOBUF_NAMESPACE_ID::uint32 Type_Timestamp::_internal_type_variation_reference() const {
+  return type_variation_reference_;
 }
-inline void Type_Timestamp::clear_variation() {
-  if (GetArena() == nullptr && variation_ != nullptr) {
-    delete variation_;
-  }
-  variation_ = nullptr;
+inline ::PROTOBUF_NAMESPACE_ID::uint32 Type_Timestamp::type_variation_reference() const {
+  // @@protoc_insertion_point(field_get:io.substrait.Type.Timestamp.type_variation_reference)
+  return _internal_type_variation_reference();
 }
-inline const ::io::substrait::Type_Variation& Type_Timestamp::_internal_variation() const {
-  const ::io::substrait::Type_Variation* p = variation_;
-  return p != nullptr ? *p : reinterpret_cast<const ::io::substrait::Type_Variation&>(
-      ::io::substrait::_Type_Variation_default_instance_);
-}
-inline const ::io::substrait::Type_Variation& Type_Timestamp::variation() const {
-  // @@protoc_insertion_point(field_get:io.substrait.Type.Timestamp.variation)
-  return _internal_variation();
-}
-inline void Type_Timestamp::unsafe_arena_set_allocated_variation(
-    ::io::substrait::Type_Variation* variation) {
-  if (GetArena() == nullptr) {
-    delete reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(variation_);
-  }
-  variation_ = variation;
-  if (variation) {
-    
-  } else {
-    
-  }
-  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:io.substrait.Type.Timestamp.variation)
-}
-inline ::io::substrait::Type_Variation* Type_Timestamp::release_variation() {
+inline void Type_Timestamp::_internal_set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value) {
   
-  ::io::substrait::Type_Variation* temp = variation_;
-  variation_ = nullptr;
-  if (GetArena() != nullptr) {
-    temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
-  }
-  return temp;
+  type_variation_reference_ = value;
 }
-inline ::io::substrait::Type_Variation* Type_Timestamp::unsafe_arena_release_variation() {
-  // @@protoc_insertion_point(field_release:io.substrait.Type.Timestamp.variation)
-  
-  ::io::substrait::Type_Variation* temp = variation_;
-  variation_ = nullptr;
-  return temp;
-}
-inline ::io::substrait::Type_Variation* Type_Timestamp::_internal_mutable_variation() {
-  
-  if (variation_ == nullptr) {
-    auto* p = CreateMaybeMessage<::io::substrait::Type_Variation>(GetArena());
-    variation_ = p;
-  }
-  return variation_;
-}
-inline ::io::substrait::Type_Variation* Type_Timestamp::mutable_variation() {
-  // @@protoc_insertion_point(field_mutable:io.substrait.Type.Timestamp.variation)
-  return _internal_mutable_variation();
-}
-inline void Type_Timestamp::set_allocated_variation(::io::substrait::Type_Variation* variation) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
-  if (message_arena == nullptr) {
-    delete variation_;
-  }
-  if (variation) {
-    ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      ::PROTOBUF_NAMESPACE_ID::Arena::GetArena(variation);
-    if (message_arena != submessage_arena) {
-      variation = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
-          message_arena, variation, submessage_arena);
-    }
-    
-  } else {
-    
-  }
-  variation_ = variation;
-  // @@protoc_insertion_point(field_set_allocated:io.substrait.Type.Timestamp.variation)
+inline void Type_Timestamp::set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value) {
+  _internal_set_type_variation_reference(value);
+  // @@protoc_insertion_point(field_set:io.substrait.Type.Timestamp.type_variation_reference)
 }
 
 // .io.substrait.Type.Nullability nullability = 2;
@@ -5914,87 +4918,24 @@ inline void Type_Timestamp::set_nullability(::io::substrait::Type_Nullability va
 
 // Type_Date
 
-// .io.substrait.Type.Variation variation = 1;
-inline bool Type_Date::_internal_has_variation() const {
-  return this != internal_default_instance() && variation_ != nullptr;
+// uint32 type_variation_reference = 1;
+inline void Type_Date::clear_type_variation_reference() {
+  type_variation_reference_ = 0u;
 }
-inline bool Type_Date::has_variation() const {
-  return _internal_has_variation();
+inline ::PROTOBUF_NAMESPACE_ID::uint32 Type_Date::_internal_type_variation_reference() const {
+  return type_variation_reference_;
 }
-inline void Type_Date::clear_variation() {
-  if (GetArena() == nullptr && variation_ != nullptr) {
-    delete variation_;
-  }
-  variation_ = nullptr;
+inline ::PROTOBUF_NAMESPACE_ID::uint32 Type_Date::type_variation_reference() const {
+  // @@protoc_insertion_point(field_get:io.substrait.Type.Date.type_variation_reference)
+  return _internal_type_variation_reference();
 }
-inline const ::io::substrait::Type_Variation& Type_Date::_internal_variation() const {
-  const ::io::substrait::Type_Variation* p = variation_;
-  return p != nullptr ? *p : reinterpret_cast<const ::io::substrait::Type_Variation&>(
-      ::io::substrait::_Type_Variation_default_instance_);
-}
-inline const ::io::substrait::Type_Variation& Type_Date::variation() const {
-  // @@protoc_insertion_point(field_get:io.substrait.Type.Date.variation)
-  return _internal_variation();
-}
-inline void Type_Date::unsafe_arena_set_allocated_variation(
-    ::io::substrait::Type_Variation* variation) {
-  if (GetArena() == nullptr) {
-    delete reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(variation_);
-  }
-  variation_ = variation;
-  if (variation) {
-    
-  } else {
-    
-  }
-  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:io.substrait.Type.Date.variation)
-}
-inline ::io::substrait::Type_Variation* Type_Date::release_variation() {
+inline void Type_Date::_internal_set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value) {
   
-  ::io::substrait::Type_Variation* temp = variation_;
-  variation_ = nullptr;
-  if (GetArena() != nullptr) {
-    temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
-  }
-  return temp;
+  type_variation_reference_ = value;
 }
-inline ::io::substrait::Type_Variation* Type_Date::unsafe_arena_release_variation() {
-  // @@protoc_insertion_point(field_release:io.substrait.Type.Date.variation)
-  
-  ::io::substrait::Type_Variation* temp = variation_;
-  variation_ = nullptr;
-  return temp;
-}
-inline ::io::substrait::Type_Variation* Type_Date::_internal_mutable_variation() {
-  
-  if (variation_ == nullptr) {
-    auto* p = CreateMaybeMessage<::io::substrait::Type_Variation>(GetArena());
-    variation_ = p;
-  }
-  return variation_;
-}
-inline ::io::substrait::Type_Variation* Type_Date::mutable_variation() {
-  // @@protoc_insertion_point(field_mutable:io.substrait.Type.Date.variation)
-  return _internal_mutable_variation();
-}
-inline void Type_Date::set_allocated_variation(::io::substrait::Type_Variation* variation) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
-  if (message_arena == nullptr) {
-    delete variation_;
-  }
-  if (variation) {
-    ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      ::PROTOBUF_NAMESPACE_ID::Arena::GetArena(variation);
-    if (message_arena != submessage_arena) {
-      variation = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
-          message_arena, variation, submessage_arena);
-    }
-    
-  } else {
-    
-  }
-  variation_ = variation;
-  // @@protoc_insertion_point(field_set_allocated:io.substrait.Type.Date.variation)
+inline void Type_Date::set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value) {
+  _internal_set_type_variation_reference(value);
+  // @@protoc_insertion_point(field_set:io.substrait.Type.Date.type_variation_reference)
 }
 
 // .io.substrait.Type.Nullability nullability = 2;
@@ -6021,87 +4962,24 @@ inline void Type_Date::set_nullability(::io::substrait::Type_Nullability value) 
 
 // Type_Time
 
-// .io.substrait.Type.Variation variation = 1;
-inline bool Type_Time::_internal_has_variation() const {
-  return this != internal_default_instance() && variation_ != nullptr;
+// uint32 type_variation_reference = 1;
+inline void Type_Time::clear_type_variation_reference() {
+  type_variation_reference_ = 0u;
 }
-inline bool Type_Time::has_variation() const {
-  return _internal_has_variation();
+inline ::PROTOBUF_NAMESPACE_ID::uint32 Type_Time::_internal_type_variation_reference() const {
+  return type_variation_reference_;
 }
-inline void Type_Time::clear_variation() {
-  if (GetArena() == nullptr && variation_ != nullptr) {
-    delete variation_;
-  }
-  variation_ = nullptr;
+inline ::PROTOBUF_NAMESPACE_ID::uint32 Type_Time::type_variation_reference() const {
+  // @@protoc_insertion_point(field_get:io.substrait.Type.Time.type_variation_reference)
+  return _internal_type_variation_reference();
 }
-inline const ::io::substrait::Type_Variation& Type_Time::_internal_variation() const {
-  const ::io::substrait::Type_Variation* p = variation_;
-  return p != nullptr ? *p : reinterpret_cast<const ::io::substrait::Type_Variation&>(
-      ::io::substrait::_Type_Variation_default_instance_);
-}
-inline const ::io::substrait::Type_Variation& Type_Time::variation() const {
-  // @@protoc_insertion_point(field_get:io.substrait.Type.Time.variation)
-  return _internal_variation();
-}
-inline void Type_Time::unsafe_arena_set_allocated_variation(
-    ::io::substrait::Type_Variation* variation) {
-  if (GetArena() == nullptr) {
-    delete reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(variation_);
-  }
-  variation_ = variation;
-  if (variation) {
-    
-  } else {
-    
-  }
-  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:io.substrait.Type.Time.variation)
-}
-inline ::io::substrait::Type_Variation* Type_Time::release_variation() {
+inline void Type_Time::_internal_set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value) {
   
-  ::io::substrait::Type_Variation* temp = variation_;
-  variation_ = nullptr;
-  if (GetArena() != nullptr) {
-    temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
-  }
-  return temp;
+  type_variation_reference_ = value;
 }
-inline ::io::substrait::Type_Variation* Type_Time::unsafe_arena_release_variation() {
-  // @@protoc_insertion_point(field_release:io.substrait.Type.Time.variation)
-  
-  ::io::substrait::Type_Variation* temp = variation_;
-  variation_ = nullptr;
-  return temp;
-}
-inline ::io::substrait::Type_Variation* Type_Time::_internal_mutable_variation() {
-  
-  if (variation_ == nullptr) {
-    auto* p = CreateMaybeMessage<::io::substrait::Type_Variation>(GetArena());
-    variation_ = p;
-  }
-  return variation_;
-}
-inline ::io::substrait::Type_Variation* Type_Time::mutable_variation() {
-  // @@protoc_insertion_point(field_mutable:io.substrait.Type.Time.variation)
-  return _internal_mutable_variation();
-}
-inline void Type_Time::set_allocated_variation(::io::substrait::Type_Variation* variation) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
-  if (message_arena == nullptr) {
-    delete variation_;
-  }
-  if (variation) {
-    ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      ::PROTOBUF_NAMESPACE_ID::Arena::GetArena(variation);
-    if (message_arena != submessage_arena) {
-      variation = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
-          message_arena, variation, submessage_arena);
-    }
-    
-  } else {
-    
-  }
-  variation_ = variation;
-  // @@protoc_insertion_point(field_set_allocated:io.substrait.Type.Time.variation)
+inline void Type_Time::set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value) {
+  _internal_set_type_variation_reference(value);
+  // @@protoc_insertion_point(field_set:io.substrait.Type.Time.type_variation_reference)
 }
 
 // .io.substrait.Type.Nullability nullability = 2;
@@ -6128,87 +5006,24 @@ inline void Type_Time::set_nullability(::io::substrait::Type_Nullability value) 
 
 // Type_TimestampTZ
 
-// .io.substrait.Type.Variation variation = 1;
-inline bool Type_TimestampTZ::_internal_has_variation() const {
-  return this != internal_default_instance() && variation_ != nullptr;
+// uint32 type_variation_reference = 1;
+inline void Type_TimestampTZ::clear_type_variation_reference() {
+  type_variation_reference_ = 0u;
 }
-inline bool Type_TimestampTZ::has_variation() const {
-  return _internal_has_variation();
+inline ::PROTOBUF_NAMESPACE_ID::uint32 Type_TimestampTZ::_internal_type_variation_reference() const {
+  return type_variation_reference_;
 }
-inline void Type_TimestampTZ::clear_variation() {
-  if (GetArena() == nullptr && variation_ != nullptr) {
-    delete variation_;
-  }
-  variation_ = nullptr;
+inline ::PROTOBUF_NAMESPACE_ID::uint32 Type_TimestampTZ::type_variation_reference() const {
+  // @@protoc_insertion_point(field_get:io.substrait.Type.TimestampTZ.type_variation_reference)
+  return _internal_type_variation_reference();
 }
-inline const ::io::substrait::Type_Variation& Type_TimestampTZ::_internal_variation() const {
-  const ::io::substrait::Type_Variation* p = variation_;
-  return p != nullptr ? *p : reinterpret_cast<const ::io::substrait::Type_Variation&>(
-      ::io::substrait::_Type_Variation_default_instance_);
-}
-inline const ::io::substrait::Type_Variation& Type_TimestampTZ::variation() const {
-  // @@protoc_insertion_point(field_get:io.substrait.Type.TimestampTZ.variation)
-  return _internal_variation();
-}
-inline void Type_TimestampTZ::unsafe_arena_set_allocated_variation(
-    ::io::substrait::Type_Variation* variation) {
-  if (GetArena() == nullptr) {
-    delete reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(variation_);
-  }
-  variation_ = variation;
-  if (variation) {
-    
-  } else {
-    
-  }
-  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:io.substrait.Type.TimestampTZ.variation)
-}
-inline ::io::substrait::Type_Variation* Type_TimestampTZ::release_variation() {
+inline void Type_TimestampTZ::_internal_set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value) {
   
-  ::io::substrait::Type_Variation* temp = variation_;
-  variation_ = nullptr;
-  if (GetArena() != nullptr) {
-    temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
-  }
-  return temp;
+  type_variation_reference_ = value;
 }
-inline ::io::substrait::Type_Variation* Type_TimestampTZ::unsafe_arena_release_variation() {
-  // @@protoc_insertion_point(field_release:io.substrait.Type.TimestampTZ.variation)
-  
-  ::io::substrait::Type_Variation* temp = variation_;
-  variation_ = nullptr;
-  return temp;
-}
-inline ::io::substrait::Type_Variation* Type_TimestampTZ::_internal_mutable_variation() {
-  
-  if (variation_ == nullptr) {
-    auto* p = CreateMaybeMessage<::io::substrait::Type_Variation>(GetArena());
-    variation_ = p;
-  }
-  return variation_;
-}
-inline ::io::substrait::Type_Variation* Type_TimestampTZ::mutable_variation() {
-  // @@protoc_insertion_point(field_mutable:io.substrait.Type.TimestampTZ.variation)
-  return _internal_mutable_variation();
-}
-inline void Type_TimestampTZ::set_allocated_variation(::io::substrait::Type_Variation* variation) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
-  if (message_arena == nullptr) {
-    delete variation_;
-  }
-  if (variation) {
-    ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      ::PROTOBUF_NAMESPACE_ID::Arena::GetArena(variation);
-    if (message_arena != submessage_arena) {
-      variation = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
-          message_arena, variation, submessage_arena);
-    }
-    
-  } else {
-    
-  }
-  variation_ = variation;
-  // @@protoc_insertion_point(field_set_allocated:io.substrait.Type.TimestampTZ.variation)
+inline void Type_TimestampTZ::set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value) {
+  _internal_set_type_variation_reference(value);
+  // @@protoc_insertion_point(field_set:io.substrait.Type.TimestampTZ.type_variation_reference)
 }
 
 // .io.substrait.Type.Nullability nullability = 2;
@@ -6235,87 +5050,24 @@ inline void Type_TimestampTZ::set_nullability(::io::substrait::Type_Nullability 
 
 // Type_IntervalYear
 
-// .io.substrait.Type.Variation variation = 1;
-inline bool Type_IntervalYear::_internal_has_variation() const {
-  return this != internal_default_instance() && variation_ != nullptr;
+// uint32 type_variation_reference = 1;
+inline void Type_IntervalYear::clear_type_variation_reference() {
+  type_variation_reference_ = 0u;
 }
-inline bool Type_IntervalYear::has_variation() const {
-  return _internal_has_variation();
+inline ::PROTOBUF_NAMESPACE_ID::uint32 Type_IntervalYear::_internal_type_variation_reference() const {
+  return type_variation_reference_;
 }
-inline void Type_IntervalYear::clear_variation() {
-  if (GetArena() == nullptr && variation_ != nullptr) {
-    delete variation_;
-  }
-  variation_ = nullptr;
+inline ::PROTOBUF_NAMESPACE_ID::uint32 Type_IntervalYear::type_variation_reference() const {
+  // @@protoc_insertion_point(field_get:io.substrait.Type.IntervalYear.type_variation_reference)
+  return _internal_type_variation_reference();
 }
-inline const ::io::substrait::Type_Variation& Type_IntervalYear::_internal_variation() const {
-  const ::io::substrait::Type_Variation* p = variation_;
-  return p != nullptr ? *p : reinterpret_cast<const ::io::substrait::Type_Variation&>(
-      ::io::substrait::_Type_Variation_default_instance_);
-}
-inline const ::io::substrait::Type_Variation& Type_IntervalYear::variation() const {
-  // @@protoc_insertion_point(field_get:io.substrait.Type.IntervalYear.variation)
-  return _internal_variation();
-}
-inline void Type_IntervalYear::unsafe_arena_set_allocated_variation(
-    ::io::substrait::Type_Variation* variation) {
-  if (GetArena() == nullptr) {
-    delete reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(variation_);
-  }
-  variation_ = variation;
-  if (variation) {
-    
-  } else {
-    
-  }
-  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:io.substrait.Type.IntervalYear.variation)
-}
-inline ::io::substrait::Type_Variation* Type_IntervalYear::release_variation() {
+inline void Type_IntervalYear::_internal_set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value) {
   
-  ::io::substrait::Type_Variation* temp = variation_;
-  variation_ = nullptr;
-  if (GetArena() != nullptr) {
-    temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
-  }
-  return temp;
+  type_variation_reference_ = value;
 }
-inline ::io::substrait::Type_Variation* Type_IntervalYear::unsafe_arena_release_variation() {
-  // @@protoc_insertion_point(field_release:io.substrait.Type.IntervalYear.variation)
-  
-  ::io::substrait::Type_Variation* temp = variation_;
-  variation_ = nullptr;
-  return temp;
-}
-inline ::io::substrait::Type_Variation* Type_IntervalYear::_internal_mutable_variation() {
-  
-  if (variation_ == nullptr) {
-    auto* p = CreateMaybeMessage<::io::substrait::Type_Variation>(GetArena());
-    variation_ = p;
-  }
-  return variation_;
-}
-inline ::io::substrait::Type_Variation* Type_IntervalYear::mutable_variation() {
-  // @@protoc_insertion_point(field_mutable:io.substrait.Type.IntervalYear.variation)
-  return _internal_mutable_variation();
-}
-inline void Type_IntervalYear::set_allocated_variation(::io::substrait::Type_Variation* variation) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
-  if (message_arena == nullptr) {
-    delete variation_;
-  }
-  if (variation) {
-    ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      ::PROTOBUF_NAMESPACE_ID::Arena::GetArena(variation);
-    if (message_arena != submessage_arena) {
-      variation = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
-          message_arena, variation, submessage_arena);
-    }
-    
-  } else {
-    
-  }
-  variation_ = variation;
-  // @@protoc_insertion_point(field_set_allocated:io.substrait.Type.IntervalYear.variation)
+inline void Type_IntervalYear::set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value) {
+  _internal_set_type_variation_reference(value);
+  // @@protoc_insertion_point(field_set:io.substrait.Type.IntervalYear.type_variation_reference)
 }
 
 // .io.substrait.Type.Nullability nullability = 2;
@@ -6342,87 +5094,24 @@ inline void Type_IntervalYear::set_nullability(::io::substrait::Type_Nullability
 
 // Type_IntervalDay
 
-// .io.substrait.Type.Variation variation = 1;
-inline bool Type_IntervalDay::_internal_has_variation() const {
-  return this != internal_default_instance() && variation_ != nullptr;
+// uint32 type_variation_reference = 1;
+inline void Type_IntervalDay::clear_type_variation_reference() {
+  type_variation_reference_ = 0u;
 }
-inline bool Type_IntervalDay::has_variation() const {
-  return _internal_has_variation();
+inline ::PROTOBUF_NAMESPACE_ID::uint32 Type_IntervalDay::_internal_type_variation_reference() const {
+  return type_variation_reference_;
 }
-inline void Type_IntervalDay::clear_variation() {
-  if (GetArena() == nullptr && variation_ != nullptr) {
-    delete variation_;
-  }
-  variation_ = nullptr;
+inline ::PROTOBUF_NAMESPACE_ID::uint32 Type_IntervalDay::type_variation_reference() const {
+  // @@protoc_insertion_point(field_get:io.substrait.Type.IntervalDay.type_variation_reference)
+  return _internal_type_variation_reference();
 }
-inline const ::io::substrait::Type_Variation& Type_IntervalDay::_internal_variation() const {
-  const ::io::substrait::Type_Variation* p = variation_;
-  return p != nullptr ? *p : reinterpret_cast<const ::io::substrait::Type_Variation&>(
-      ::io::substrait::_Type_Variation_default_instance_);
-}
-inline const ::io::substrait::Type_Variation& Type_IntervalDay::variation() const {
-  // @@protoc_insertion_point(field_get:io.substrait.Type.IntervalDay.variation)
-  return _internal_variation();
-}
-inline void Type_IntervalDay::unsafe_arena_set_allocated_variation(
-    ::io::substrait::Type_Variation* variation) {
-  if (GetArena() == nullptr) {
-    delete reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(variation_);
-  }
-  variation_ = variation;
-  if (variation) {
-    
-  } else {
-    
-  }
-  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:io.substrait.Type.IntervalDay.variation)
-}
-inline ::io::substrait::Type_Variation* Type_IntervalDay::release_variation() {
+inline void Type_IntervalDay::_internal_set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value) {
   
-  ::io::substrait::Type_Variation* temp = variation_;
-  variation_ = nullptr;
-  if (GetArena() != nullptr) {
-    temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
-  }
-  return temp;
+  type_variation_reference_ = value;
 }
-inline ::io::substrait::Type_Variation* Type_IntervalDay::unsafe_arena_release_variation() {
-  // @@protoc_insertion_point(field_release:io.substrait.Type.IntervalDay.variation)
-  
-  ::io::substrait::Type_Variation* temp = variation_;
-  variation_ = nullptr;
-  return temp;
-}
-inline ::io::substrait::Type_Variation* Type_IntervalDay::_internal_mutable_variation() {
-  
-  if (variation_ == nullptr) {
-    auto* p = CreateMaybeMessage<::io::substrait::Type_Variation>(GetArena());
-    variation_ = p;
-  }
-  return variation_;
-}
-inline ::io::substrait::Type_Variation* Type_IntervalDay::mutable_variation() {
-  // @@protoc_insertion_point(field_mutable:io.substrait.Type.IntervalDay.variation)
-  return _internal_mutable_variation();
-}
-inline void Type_IntervalDay::set_allocated_variation(::io::substrait::Type_Variation* variation) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
-  if (message_arena == nullptr) {
-    delete variation_;
-  }
-  if (variation) {
-    ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      ::PROTOBUF_NAMESPACE_ID::Arena::GetArena(variation);
-    if (message_arena != submessage_arena) {
-      variation = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
-          message_arena, variation, submessage_arena);
-    }
-    
-  } else {
-    
-  }
-  variation_ = variation;
-  // @@protoc_insertion_point(field_set_allocated:io.substrait.Type.IntervalDay.variation)
+inline void Type_IntervalDay::set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value) {
+  _internal_set_type_variation_reference(value);
+  // @@protoc_insertion_point(field_set:io.substrait.Type.IntervalDay.type_variation_reference)
 }
 
 // .io.substrait.Type.Nullability nullability = 2;
@@ -6449,87 +5138,24 @@ inline void Type_IntervalDay::set_nullability(::io::substrait::Type_Nullability 
 
 // Type_UUID
 
-// .io.substrait.Type.Variation variation = 1;
-inline bool Type_UUID::_internal_has_variation() const {
-  return this != internal_default_instance() && variation_ != nullptr;
+// uint32 type_variation_reference = 1;
+inline void Type_UUID::clear_type_variation_reference() {
+  type_variation_reference_ = 0u;
 }
-inline bool Type_UUID::has_variation() const {
-  return _internal_has_variation();
+inline ::PROTOBUF_NAMESPACE_ID::uint32 Type_UUID::_internal_type_variation_reference() const {
+  return type_variation_reference_;
 }
-inline void Type_UUID::clear_variation() {
-  if (GetArena() == nullptr && variation_ != nullptr) {
-    delete variation_;
-  }
-  variation_ = nullptr;
+inline ::PROTOBUF_NAMESPACE_ID::uint32 Type_UUID::type_variation_reference() const {
+  // @@protoc_insertion_point(field_get:io.substrait.Type.UUID.type_variation_reference)
+  return _internal_type_variation_reference();
 }
-inline const ::io::substrait::Type_Variation& Type_UUID::_internal_variation() const {
-  const ::io::substrait::Type_Variation* p = variation_;
-  return p != nullptr ? *p : reinterpret_cast<const ::io::substrait::Type_Variation&>(
-      ::io::substrait::_Type_Variation_default_instance_);
-}
-inline const ::io::substrait::Type_Variation& Type_UUID::variation() const {
-  // @@protoc_insertion_point(field_get:io.substrait.Type.UUID.variation)
-  return _internal_variation();
-}
-inline void Type_UUID::unsafe_arena_set_allocated_variation(
-    ::io::substrait::Type_Variation* variation) {
-  if (GetArena() == nullptr) {
-    delete reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(variation_);
-  }
-  variation_ = variation;
-  if (variation) {
-    
-  } else {
-    
-  }
-  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:io.substrait.Type.UUID.variation)
-}
-inline ::io::substrait::Type_Variation* Type_UUID::release_variation() {
+inline void Type_UUID::_internal_set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value) {
   
-  ::io::substrait::Type_Variation* temp = variation_;
-  variation_ = nullptr;
-  if (GetArena() != nullptr) {
-    temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
-  }
-  return temp;
+  type_variation_reference_ = value;
 }
-inline ::io::substrait::Type_Variation* Type_UUID::unsafe_arena_release_variation() {
-  // @@protoc_insertion_point(field_release:io.substrait.Type.UUID.variation)
-  
-  ::io::substrait::Type_Variation* temp = variation_;
-  variation_ = nullptr;
-  return temp;
-}
-inline ::io::substrait::Type_Variation* Type_UUID::_internal_mutable_variation() {
-  
-  if (variation_ == nullptr) {
-    auto* p = CreateMaybeMessage<::io::substrait::Type_Variation>(GetArena());
-    variation_ = p;
-  }
-  return variation_;
-}
-inline ::io::substrait::Type_Variation* Type_UUID::mutable_variation() {
-  // @@protoc_insertion_point(field_mutable:io.substrait.Type.UUID.variation)
-  return _internal_mutable_variation();
-}
-inline void Type_UUID::set_allocated_variation(::io::substrait::Type_Variation* variation) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
-  if (message_arena == nullptr) {
-    delete variation_;
-  }
-  if (variation) {
-    ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      ::PROTOBUF_NAMESPACE_ID::Arena::GetArena(variation);
-    if (message_arena != submessage_arena) {
-      variation = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
-          message_arena, variation, submessage_arena);
-    }
-    
-  } else {
-    
-  }
-  variation_ = variation;
-  // @@protoc_insertion_point(field_set_allocated:io.substrait.Type.UUID.variation)
+inline void Type_UUID::set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value) {
+  _internal_set_type_variation_reference(value);
+  // @@protoc_insertion_point(field_set:io.substrait.Type.UUID.type_variation_reference)
 }
 
 // .io.substrait.Type.Nullability nullability = 2;
@@ -6576,87 +5202,24 @@ inline void Type_FixedChar::set_length(::PROTOBUF_NAMESPACE_ID::int32 value) {
   // @@protoc_insertion_point(field_set:io.substrait.Type.FixedChar.length)
 }
 
-// .io.substrait.Type.Variation variation = 2;
-inline bool Type_FixedChar::_internal_has_variation() const {
-  return this != internal_default_instance() && variation_ != nullptr;
+// uint32 type_variation_reference = 2;
+inline void Type_FixedChar::clear_type_variation_reference() {
+  type_variation_reference_ = 0u;
 }
-inline bool Type_FixedChar::has_variation() const {
-  return _internal_has_variation();
+inline ::PROTOBUF_NAMESPACE_ID::uint32 Type_FixedChar::_internal_type_variation_reference() const {
+  return type_variation_reference_;
 }
-inline void Type_FixedChar::clear_variation() {
-  if (GetArena() == nullptr && variation_ != nullptr) {
-    delete variation_;
-  }
-  variation_ = nullptr;
+inline ::PROTOBUF_NAMESPACE_ID::uint32 Type_FixedChar::type_variation_reference() const {
+  // @@protoc_insertion_point(field_get:io.substrait.Type.FixedChar.type_variation_reference)
+  return _internal_type_variation_reference();
 }
-inline const ::io::substrait::Type_Variation& Type_FixedChar::_internal_variation() const {
-  const ::io::substrait::Type_Variation* p = variation_;
-  return p != nullptr ? *p : reinterpret_cast<const ::io::substrait::Type_Variation&>(
-      ::io::substrait::_Type_Variation_default_instance_);
-}
-inline const ::io::substrait::Type_Variation& Type_FixedChar::variation() const {
-  // @@protoc_insertion_point(field_get:io.substrait.Type.FixedChar.variation)
-  return _internal_variation();
-}
-inline void Type_FixedChar::unsafe_arena_set_allocated_variation(
-    ::io::substrait::Type_Variation* variation) {
-  if (GetArena() == nullptr) {
-    delete reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(variation_);
-  }
-  variation_ = variation;
-  if (variation) {
-    
-  } else {
-    
-  }
-  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:io.substrait.Type.FixedChar.variation)
-}
-inline ::io::substrait::Type_Variation* Type_FixedChar::release_variation() {
+inline void Type_FixedChar::_internal_set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value) {
   
-  ::io::substrait::Type_Variation* temp = variation_;
-  variation_ = nullptr;
-  if (GetArena() != nullptr) {
-    temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
-  }
-  return temp;
+  type_variation_reference_ = value;
 }
-inline ::io::substrait::Type_Variation* Type_FixedChar::unsafe_arena_release_variation() {
-  // @@protoc_insertion_point(field_release:io.substrait.Type.FixedChar.variation)
-  
-  ::io::substrait::Type_Variation* temp = variation_;
-  variation_ = nullptr;
-  return temp;
-}
-inline ::io::substrait::Type_Variation* Type_FixedChar::_internal_mutable_variation() {
-  
-  if (variation_ == nullptr) {
-    auto* p = CreateMaybeMessage<::io::substrait::Type_Variation>(GetArena());
-    variation_ = p;
-  }
-  return variation_;
-}
-inline ::io::substrait::Type_Variation* Type_FixedChar::mutable_variation() {
-  // @@protoc_insertion_point(field_mutable:io.substrait.Type.FixedChar.variation)
-  return _internal_mutable_variation();
-}
-inline void Type_FixedChar::set_allocated_variation(::io::substrait::Type_Variation* variation) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
-  if (message_arena == nullptr) {
-    delete variation_;
-  }
-  if (variation) {
-    ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      ::PROTOBUF_NAMESPACE_ID::Arena::GetArena(variation);
-    if (message_arena != submessage_arena) {
-      variation = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
-          message_arena, variation, submessage_arena);
-    }
-    
-  } else {
-    
-  }
-  variation_ = variation;
-  // @@protoc_insertion_point(field_set_allocated:io.substrait.Type.FixedChar.variation)
+inline void Type_FixedChar::set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value) {
+  _internal_set_type_variation_reference(value);
+  // @@protoc_insertion_point(field_set:io.substrait.Type.FixedChar.type_variation_reference)
 }
 
 // .io.substrait.Type.Nullability nullability = 3;
@@ -6703,87 +5266,24 @@ inline void Type_VarChar::set_length(::PROTOBUF_NAMESPACE_ID::int32 value) {
   // @@protoc_insertion_point(field_set:io.substrait.Type.VarChar.length)
 }
 
-// .io.substrait.Type.Variation variation = 2;
-inline bool Type_VarChar::_internal_has_variation() const {
-  return this != internal_default_instance() && variation_ != nullptr;
+// uint32 type_variation_reference = 2;
+inline void Type_VarChar::clear_type_variation_reference() {
+  type_variation_reference_ = 0u;
 }
-inline bool Type_VarChar::has_variation() const {
-  return _internal_has_variation();
+inline ::PROTOBUF_NAMESPACE_ID::uint32 Type_VarChar::_internal_type_variation_reference() const {
+  return type_variation_reference_;
 }
-inline void Type_VarChar::clear_variation() {
-  if (GetArena() == nullptr && variation_ != nullptr) {
-    delete variation_;
-  }
-  variation_ = nullptr;
+inline ::PROTOBUF_NAMESPACE_ID::uint32 Type_VarChar::type_variation_reference() const {
+  // @@protoc_insertion_point(field_get:io.substrait.Type.VarChar.type_variation_reference)
+  return _internal_type_variation_reference();
 }
-inline const ::io::substrait::Type_Variation& Type_VarChar::_internal_variation() const {
-  const ::io::substrait::Type_Variation* p = variation_;
-  return p != nullptr ? *p : reinterpret_cast<const ::io::substrait::Type_Variation&>(
-      ::io::substrait::_Type_Variation_default_instance_);
-}
-inline const ::io::substrait::Type_Variation& Type_VarChar::variation() const {
-  // @@protoc_insertion_point(field_get:io.substrait.Type.VarChar.variation)
-  return _internal_variation();
-}
-inline void Type_VarChar::unsafe_arena_set_allocated_variation(
-    ::io::substrait::Type_Variation* variation) {
-  if (GetArena() == nullptr) {
-    delete reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(variation_);
-  }
-  variation_ = variation;
-  if (variation) {
-    
-  } else {
-    
-  }
-  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:io.substrait.Type.VarChar.variation)
-}
-inline ::io::substrait::Type_Variation* Type_VarChar::release_variation() {
+inline void Type_VarChar::_internal_set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value) {
   
-  ::io::substrait::Type_Variation* temp = variation_;
-  variation_ = nullptr;
-  if (GetArena() != nullptr) {
-    temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
-  }
-  return temp;
+  type_variation_reference_ = value;
 }
-inline ::io::substrait::Type_Variation* Type_VarChar::unsafe_arena_release_variation() {
-  // @@protoc_insertion_point(field_release:io.substrait.Type.VarChar.variation)
-  
-  ::io::substrait::Type_Variation* temp = variation_;
-  variation_ = nullptr;
-  return temp;
-}
-inline ::io::substrait::Type_Variation* Type_VarChar::_internal_mutable_variation() {
-  
-  if (variation_ == nullptr) {
-    auto* p = CreateMaybeMessage<::io::substrait::Type_Variation>(GetArena());
-    variation_ = p;
-  }
-  return variation_;
-}
-inline ::io::substrait::Type_Variation* Type_VarChar::mutable_variation() {
-  // @@protoc_insertion_point(field_mutable:io.substrait.Type.VarChar.variation)
-  return _internal_mutable_variation();
-}
-inline void Type_VarChar::set_allocated_variation(::io::substrait::Type_Variation* variation) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
-  if (message_arena == nullptr) {
-    delete variation_;
-  }
-  if (variation) {
-    ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      ::PROTOBUF_NAMESPACE_ID::Arena::GetArena(variation);
-    if (message_arena != submessage_arena) {
-      variation = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
-          message_arena, variation, submessage_arena);
-    }
-    
-  } else {
-    
-  }
-  variation_ = variation;
-  // @@protoc_insertion_point(field_set_allocated:io.substrait.Type.VarChar.variation)
+inline void Type_VarChar::set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value) {
+  _internal_set_type_variation_reference(value);
+  // @@protoc_insertion_point(field_set:io.substrait.Type.VarChar.type_variation_reference)
 }
 
 // .io.substrait.Type.Nullability nullability = 3;
@@ -6830,87 +5330,24 @@ inline void Type_FixedBinary::set_length(::PROTOBUF_NAMESPACE_ID::int32 value) {
   // @@protoc_insertion_point(field_set:io.substrait.Type.FixedBinary.length)
 }
 
-// .io.substrait.Type.Variation variation = 2;
-inline bool Type_FixedBinary::_internal_has_variation() const {
-  return this != internal_default_instance() && variation_ != nullptr;
+// uint32 type_variation_reference = 2;
+inline void Type_FixedBinary::clear_type_variation_reference() {
+  type_variation_reference_ = 0u;
 }
-inline bool Type_FixedBinary::has_variation() const {
-  return _internal_has_variation();
+inline ::PROTOBUF_NAMESPACE_ID::uint32 Type_FixedBinary::_internal_type_variation_reference() const {
+  return type_variation_reference_;
 }
-inline void Type_FixedBinary::clear_variation() {
-  if (GetArena() == nullptr && variation_ != nullptr) {
-    delete variation_;
-  }
-  variation_ = nullptr;
+inline ::PROTOBUF_NAMESPACE_ID::uint32 Type_FixedBinary::type_variation_reference() const {
+  // @@protoc_insertion_point(field_get:io.substrait.Type.FixedBinary.type_variation_reference)
+  return _internal_type_variation_reference();
 }
-inline const ::io::substrait::Type_Variation& Type_FixedBinary::_internal_variation() const {
-  const ::io::substrait::Type_Variation* p = variation_;
-  return p != nullptr ? *p : reinterpret_cast<const ::io::substrait::Type_Variation&>(
-      ::io::substrait::_Type_Variation_default_instance_);
-}
-inline const ::io::substrait::Type_Variation& Type_FixedBinary::variation() const {
-  // @@protoc_insertion_point(field_get:io.substrait.Type.FixedBinary.variation)
-  return _internal_variation();
-}
-inline void Type_FixedBinary::unsafe_arena_set_allocated_variation(
-    ::io::substrait::Type_Variation* variation) {
-  if (GetArena() == nullptr) {
-    delete reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(variation_);
-  }
-  variation_ = variation;
-  if (variation) {
-    
-  } else {
-    
-  }
-  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:io.substrait.Type.FixedBinary.variation)
-}
-inline ::io::substrait::Type_Variation* Type_FixedBinary::release_variation() {
+inline void Type_FixedBinary::_internal_set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value) {
   
-  ::io::substrait::Type_Variation* temp = variation_;
-  variation_ = nullptr;
-  if (GetArena() != nullptr) {
-    temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
-  }
-  return temp;
+  type_variation_reference_ = value;
 }
-inline ::io::substrait::Type_Variation* Type_FixedBinary::unsafe_arena_release_variation() {
-  // @@protoc_insertion_point(field_release:io.substrait.Type.FixedBinary.variation)
-  
-  ::io::substrait::Type_Variation* temp = variation_;
-  variation_ = nullptr;
-  return temp;
-}
-inline ::io::substrait::Type_Variation* Type_FixedBinary::_internal_mutable_variation() {
-  
-  if (variation_ == nullptr) {
-    auto* p = CreateMaybeMessage<::io::substrait::Type_Variation>(GetArena());
-    variation_ = p;
-  }
-  return variation_;
-}
-inline ::io::substrait::Type_Variation* Type_FixedBinary::mutable_variation() {
-  // @@protoc_insertion_point(field_mutable:io.substrait.Type.FixedBinary.variation)
-  return _internal_mutable_variation();
-}
-inline void Type_FixedBinary::set_allocated_variation(::io::substrait::Type_Variation* variation) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
-  if (message_arena == nullptr) {
-    delete variation_;
-  }
-  if (variation) {
-    ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      ::PROTOBUF_NAMESPACE_ID::Arena::GetArena(variation);
-    if (message_arena != submessage_arena) {
-      variation = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
-          message_arena, variation, submessage_arena);
-    }
-    
-  } else {
-    
-  }
-  variation_ = variation;
-  // @@protoc_insertion_point(field_set_allocated:io.substrait.Type.FixedBinary.variation)
+inline void Type_FixedBinary::set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value) {
+  _internal_set_type_variation_reference(value);
+  // @@protoc_insertion_point(field_set:io.substrait.Type.FixedBinary.type_variation_reference)
 }
 
 // .io.substrait.Type.Nullability nullability = 3;
@@ -6977,87 +5414,24 @@ inline void Type_Decimal::set_precision(::PROTOBUF_NAMESPACE_ID::int32 value) {
   // @@protoc_insertion_point(field_set:io.substrait.Type.Decimal.precision)
 }
 
-// .io.substrait.Type.Variation variation = 3;
-inline bool Type_Decimal::_internal_has_variation() const {
-  return this != internal_default_instance() && variation_ != nullptr;
+// uint32 type_variation_reference = 3;
+inline void Type_Decimal::clear_type_variation_reference() {
+  type_variation_reference_ = 0u;
 }
-inline bool Type_Decimal::has_variation() const {
-  return _internal_has_variation();
+inline ::PROTOBUF_NAMESPACE_ID::uint32 Type_Decimal::_internal_type_variation_reference() const {
+  return type_variation_reference_;
 }
-inline void Type_Decimal::clear_variation() {
-  if (GetArena() == nullptr && variation_ != nullptr) {
-    delete variation_;
-  }
-  variation_ = nullptr;
+inline ::PROTOBUF_NAMESPACE_ID::uint32 Type_Decimal::type_variation_reference() const {
+  // @@protoc_insertion_point(field_get:io.substrait.Type.Decimal.type_variation_reference)
+  return _internal_type_variation_reference();
 }
-inline const ::io::substrait::Type_Variation& Type_Decimal::_internal_variation() const {
-  const ::io::substrait::Type_Variation* p = variation_;
-  return p != nullptr ? *p : reinterpret_cast<const ::io::substrait::Type_Variation&>(
-      ::io::substrait::_Type_Variation_default_instance_);
-}
-inline const ::io::substrait::Type_Variation& Type_Decimal::variation() const {
-  // @@protoc_insertion_point(field_get:io.substrait.Type.Decimal.variation)
-  return _internal_variation();
-}
-inline void Type_Decimal::unsafe_arena_set_allocated_variation(
-    ::io::substrait::Type_Variation* variation) {
-  if (GetArena() == nullptr) {
-    delete reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(variation_);
-  }
-  variation_ = variation;
-  if (variation) {
-    
-  } else {
-    
-  }
-  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:io.substrait.Type.Decimal.variation)
-}
-inline ::io::substrait::Type_Variation* Type_Decimal::release_variation() {
+inline void Type_Decimal::_internal_set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value) {
   
-  ::io::substrait::Type_Variation* temp = variation_;
-  variation_ = nullptr;
-  if (GetArena() != nullptr) {
-    temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
-  }
-  return temp;
+  type_variation_reference_ = value;
 }
-inline ::io::substrait::Type_Variation* Type_Decimal::unsafe_arena_release_variation() {
-  // @@protoc_insertion_point(field_release:io.substrait.Type.Decimal.variation)
-  
-  ::io::substrait::Type_Variation* temp = variation_;
-  variation_ = nullptr;
-  return temp;
-}
-inline ::io::substrait::Type_Variation* Type_Decimal::_internal_mutable_variation() {
-  
-  if (variation_ == nullptr) {
-    auto* p = CreateMaybeMessage<::io::substrait::Type_Variation>(GetArena());
-    variation_ = p;
-  }
-  return variation_;
-}
-inline ::io::substrait::Type_Variation* Type_Decimal::mutable_variation() {
-  // @@protoc_insertion_point(field_mutable:io.substrait.Type.Decimal.variation)
-  return _internal_mutable_variation();
-}
-inline void Type_Decimal::set_allocated_variation(::io::substrait::Type_Variation* variation) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
-  if (message_arena == nullptr) {
-    delete variation_;
-  }
-  if (variation) {
-    ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      ::PROTOBUF_NAMESPACE_ID::Arena::GetArena(variation);
-    if (message_arena != submessage_arena) {
-      variation = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
-          message_arena, variation, submessage_arena);
-    }
-    
-  } else {
-    
-  }
-  variation_ = variation;
-  // @@protoc_insertion_point(field_set_allocated:io.substrait.Type.Decimal.variation)
+inline void Type_Decimal::set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value) {
+  _internal_set_type_variation_reference(value);
+  // @@protoc_insertion_point(field_set:io.substrait.Type.Decimal.type_variation_reference)
 }
 
 // .io.substrait.Type.Nullability nullability = 4;
@@ -7123,87 +5497,24 @@ Type_Struct::types() const {
   return types_;
 }
 
-// .io.substrait.Type.Variation variation = 2;
-inline bool Type_Struct::_internal_has_variation() const {
-  return this != internal_default_instance() && variation_ != nullptr;
+// uint32 type_variation_reference = 2;
+inline void Type_Struct::clear_type_variation_reference() {
+  type_variation_reference_ = 0u;
 }
-inline bool Type_Struct::has_variation() const {
-  return _internal_has_variation();
+inline ::PROTOBUF_NAMESPACE_ID::uint32 Type_Struct::_internal_type_variation_reference() const {
+  return type_variation_reference_;
 }
-inline void Type_Struct::clear_variation() {
-  if (GetArena() == nullptr && variation_ != nullptr) {
-    delete variation_;
-  }
-  variation_ = nullptr;
+inline ::PROTOBUF_NAMESPACE_ID::uint32 Type_Struct::type_variation_reference() const {
+  // @@protoc_insertion_point(field_get:io.substrait.Type.Struct.type_variation_reference)
+  return _internal_type_variation_reference();
 }
-inline const ::io::substrait::Type_Variation& Type_Struct::_internal_variation() const {
-  const ::io::substrait::Type_Variation* p = variation_;
-  return p != nullptr ? *p : reinterpret_cast<const ::io::substrait::Type_Variation&>(
-      ::io::substrait::_Type_Variation_default_instance_);
-}
-inline const ::io::substrait::Type_Variation& Type_Struct::variation() const {
-  // @@protoc_insertion_point(field_get:io.substrait.Type.Struct.variation)
-  return _internal_variation();
-}
-inline void Type_Struct::unsafe_arena_set_allocated_variation(
-    ::io::substrait::Type_Variation* variation) {
-  if (GetArena() == nullptr) {
-    delete reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(variation_);
-  }
-  variation_ = variation;
-  if (variation) {
-    
-  } else {
-    
-  }
-  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:io.substrait.Type.Struct.variation)
-}
-inline ::io::substrait::Type_Variation* Type_Struct::release_variation() {
+inline void Type_Struct::_internal_set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value) {
   
-  ::io::substrait::Type_Variation* temp = variation_;
-  variation_ = nullptr;
-  if (GetArena() != nullptr) {
-    temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
-  }
-  return temp;
+  type_variation_reference_ = value;
 }
-inline ::io::substrait::Type_Variation* Type_Struct::unsafe_arena_release_variation() {
-  // @@protoc_insertion_point(field_release:io.substrait.Type.Struct.variation)
-  
-  ::io::substrait::Type_Variation* temp = variation_;
-  variation_ = nullptr;
-  return temp;
-}
-inline ::io::substrait::Type_Variation* Type_Struct::_internal_mutable_variation() {
-  
-  if (variation_ == nullptr) {
-    auto* p = CreateMaybeMessage<::io::substrait::Type_Variation>(GetArena());
-    variation_ = p;
-  }
-  return variation_;
-}
-inline ::io::substrait::Type_Variation* Type_Struct::mutable_variation() {
-  // @@protoc_insertion_point(field_mutable:io.substrait.Type.Struct.variation)
-  return _internal_mutable_variation();
-}
-inline void Type_Struct::set_allocated_variation(::io::substrait::Type_Variation* variation) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
-  if (message_arena == nullptr) {
-    delete variation_;
-  }
-  if (variation) {
-    ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      ::PROTOBUF_NAMESPACE_ID::Arena::GetArena(variation);
-    if (message_arena != submessage_arena) {
-      variation = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
-          message_arena, variation, submessage_arena);
-    }
-    
-  } else {
-    
-  }
-  variation_ = variation;
-  // @@protoc_insertion_point(field_set_allocated:io.substrait.Type.Struct.variation)
+inline void Type_Struct::set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value) {
+  _internal_set_type_variation_reference(value);
+  // @@protoc_insertion_point(field_set:io.substrait.Type.Struct.type_variation_reference)
 }
 
 // .io.substrait.Type.Nullability nullability = 3;
@@ -7224,167 +5535,6 @@ inline void Type_Struct::_internal_set_nullability(::io::substrait::Type_Nullabi
 inline void Type_Struct::set_nullability(::io::substrait::Type_Nullability value) {
   _internal_set_nullability(value);
   // @@protoc_insertion_point(field_set:io.substrait.Type.Struct.nullability)
-}
-
-// -------------------------------------------------------------------
-
-// Type_NamedStruct
-
-// repeated string names = 1;
-inline int Type_NamedStruct::_internal_names_size() const {
-  return names_.size();
-}
-inline int Type_NamedStruct::names_size() const {
-  return _internal_names_size();
-}
-inline void Type_NamedStruct::clear_names() {
-  names_.Clear();
-}
-inline std::string* Type_NamedStruct::add_names() {
-  // @@protoc_insertion_point(field_add_mutable:io.substrait.Type.NamedStruct.names)
-  return _internal_add_names();
-}
-inline const std::string& Type_NamedStruct::_internal_names(int index) const {
-  return names_.Get(index);
-}
-inline const std::string& Type_NamedStruct::names(int index) const {
-  // @@protoc_insertion_point(field_get:io.substrait.Type.NamedStruct.names)
-  return _internal_names(index);
-}
-inline std::string* Type_NamedStruct::mutable_names(int index) {
-  // @@protoc_insertion_point(field_mutable:io.substrait.Type.NamedStruct.names)
-  return names_.Mutable(index);
-}
-inline void Type_NamedStruct::set_names(int index, const std::string& value) {
-  // @@protoc_insertion_point(field_set:io.substrait.Type.NamedStruct.names)
-  names_.Mutable(index)->assign(value);
-}
-inline void Type_NamedStruct::set_names(int index, std::string&& value) {
-  // @@protoc_insertion_point(field_set:io.substrait.Type.NamedStruct.names)
-  names_.Mutable(index)->assign(std::move(value));
-}
-inline void Type_NamedStruct::set_names(int index, const char* value) {
-  GOOGLE_DCHECK(value != nullptr);
-  names_.Mutable(index)->assign(value);
-  // @@protoc_insertion_point(field_set_char:io.substrait.Type.NamedStruct.names)
-}
-inline void Type_NamedStruct::set_names(int index, const char* value, size_t size) {
-  names_.Mutable(index)->assign(
-    reinterpret_cast<const char*>(value), size);
-  // @@protoc_insertion_point(field_set_pointer:io.substrait.Type.NamedStruct.names)
-}
-inline std::string* Type_NamedStruct::_internal_add_names() {
-  return names_.Add();
-}
-inline void Type_NamedStruct::add_names(const std::string& value) {
-  names_.Add()->assign(value);
-  // @@protoc_insertion_point(field_add:io.substrait.Type.NamedStruct.names)
-}
-inline void Type_NamedStruct::add_names(std::string&& value) {
-  names_.Add(std::move(value));
-  // @@protoc_insertion_point(field_add:io.substrait.Type.NamedStruct.names)
-}
-inline void Type_NamedStruct::add_names(const char* value) {
-  GOOGLE_DCHECK(value != nullptr);
-  names_.Add()->assign(value);
-  // @@protoc_insertion_point(field_add_char:io.substrait.Type.NamedStruct.names)
-}
-inline void Type_NamedStruct::add_names(const char* value, size_t size) {
-  names_.Add()->assign(reinterpret_cast<const char*>(value), size);
-  // @@protoc_insertion_point(field_add_pointer:io.substrait.Type.NamedStruct.names)
-}
-inline const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<std::string>&
-Type_NamedStruct::names() const {
-  // @@protoc_insertion_point(field_list:io.substrait.Type.NamedStruct.names)
-  return names_;
-}
-inline ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<std::string>*
-Type_NamedStruct::mutable_names() {
-  // @@protoc_insertion_point(field_mutable_list:io.substrait.Type.NamedStruct.names)
-  return &names_;
-}
-
-// .io.substrait.Type.Struct struct = 2;
-inline bool Type_NamedStruct::_internal_has_struct_() const {
-  return this != internal_default_instance() && struct__ != nullptr;
-}
-inline bool Type_NamedStruct::has_struct_() const {
-  return _internal_has_struct_();
-}
-inline void Type_NamedStruct::clear_struct_() {
-  if (GetArena() == nullptr && struct__ != nullptr) {
-    delete struct__;
-  }
-  struct__ = nullptr;
-}
-inline const ::io::substrait::Type_Struct& Type_NamedStruct::_internal_struct_() const {
-  const ::io::substrait::Type_Struct* p = struct__;
-  return p != nullptr ? *p : reinterpret_cast<const ::io::substrait::Type_Struct&>(
-      ::io::substrait::_Type_Struct_default_instance_);
-}
-inline const ::io::substrait::Type_Struct& Type_NamedStruct::struct_() const {
-  // @@protoc_insertion_point(field_get:io.substrait.Type.NamedStruct.struct)
-  return _internal_struct_();
-}
-inline void Type_NamedStruct::unsafe_arena_set_allocated_struct_(
-    ::io::substrait::Type_Struct* struct_) {
-  if (GetArena() == nullptr) {
-    delete reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(struct__);
-  }
-  struct__ = struct_;
-  if (struct_) {
-    
-  } else {
-    
-  }
-  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:io.substrait.Type.NamedStruct.struct)
-}
-inline ::io::substrait::Type_Struct* Type_NamedStruct::release_struct_() {
-  
-  ::io::substrait::Type_Struct* temp = struct__;
-  struct__ = nullptr;
-  if (GetArena() != nullptr) {
-    temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
-  }
-  return temp;
-}
-inline ::io::substrait::Type_Struct* Type_NamedStruct::unsafe_arena_release_struct_() {
-  // @@protoc_insertion_point(field_release:io.substrait.Type.NamedStruct.struct)
-  
-  ::io::substrait::Type_Struct* temp = struct__;
-  struct__ = nullptr;
-  return temp;
-}
-inline ::io::substrait::Type_Struct* Type_NamedStruct::_internal_mutable_struct_() {
-  
-  if (struct__ == nullptr) {
-    auto* p = CreateMaybeMessage<::io::substrait::Type_Struct>(GetArena());
-    struct__ = p;
-  }
-  return struct__;
-}
-inline ::io::substrait::Type_Struct* Type_NamedStruct::mutable_struct_() {
-  // @@protoc_insertion_point(field_mutable:io.substrait.Type.NamedStruct.struct)
-  return _internal_mutable_struct_();
-}
-inline void Type_NamedStruct::set_allocated_struct_(::io::substrait::Type_Struct* struct_) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
-  if (message_arena == nullptr) {
-    delete struct__;
-  }
-  if (struct_) {
-    ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      ::PROTOBUF_NAMESPACE_ID::Arena::GetArena(struct_);
-    if (message_arena != submessage_arena) {
-      struct_ = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
-          message_arena, struct_, submessage_arena);
-    }
-    
-  } else {
-    
-  }
-  struct__ = struct_;
-  // @@protoc_insertion_point(field_set_allocated:io.substrait.Type.NamedStruct.struct)
 }
 
 // -------------------------------------------------------------------
@@ -7474,87 +5624,24 @@ inline void Type_List::set_allocated_type(::io::substrait::Type* type) {
   // @@protoc_insertion_point(field_set_allocated:io.substrait.Type.List.type)
 }
 
-// .io.substrait.Type.Variation variation = 2;
-inline bool Type_List::_internal_has_variation() const {
-  return this != internal_default_instance() && variation_ != nullptr;
+// uint32 type_variation_reference = 2;
+inline void Type_List::clear_type_variation_reference() {
+  type_variation_reference_ = 0u;
 }
-inline bool Type_List::has_variation() const {
-  return _internal_has_variation();
+inline ::PROTOBUF_NAMESPACE_ID::uint32 Type_List::_internal_type_variation_reference() const {
+  return type_variation_reference_;
 }
-inline void Type_List::clear_variation() {
-  if (GetArena() == nullptr && variation_ != nullptr) {
-    delete variation_;
-  }
-  variation_ = nullptr;
+inline ::PROTOBUF_NAMESPACE_ID::uint32 Type_List::type_variation_reference() const {
+  // @@protoc_insertion_point(field_get:io.substrait.Type.List.type_variation_reference)
+  return _internal_type_variation_reference();
 }
-inline const ::io::substrait::Type_Variation& Type_List::_internal_variation() const {
-  const ::io::substrait::Type_Variation* p = variation_;
-  return p != nullptr ? *p : reinterpret_cast<const ::io::substrait::Type_Variation&>(
-      ::io::substrait::_Type_Variation_default_instance_);
-}
-inline const ::io::substrait::Type_Variation& Type_List::variation() const {
-  // @@protoc_insertion_point(field_get:io.substrait.Type.List.variation)
-  return _internal_variation();
-}
-inline void Type_List::unsafe_arena_set_allocated_variation(
-    ::io::substrait::Type_Variation* variation) {
-  if (GetArena() == nullptr) {
-    delete reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(variation_);
-  }
-  variation_ = variation;
-  if (variation) {
-    
-  } else {
-    
-  }
-  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:io.substrait.Type.List.variation)
-}
-inline ::io::substrait::Type_Variation* Type_List::release_variation() {
+inline void Type_List::_internal_set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value) {
   
-  ::io::substrait::Type_Variation* temp = variation_;
-  variation_ = nullptr;
-  if (GetArena() != nullptr) {
-    temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
-  }
-  return temp;
+  type_variation_reference_ = value;
 }
-inline ::io::substrait::Type_Variation* Type_List::unsafe_arena_release_variation() {
-  // @@protoc_insertion_point(field_release:io.substrait.Type.List.variation)
-  
-  ::io::substrait::Type_Variation* temp = variation_;
-  variation_ = nullptr;
-  return temp;
-}
-inline ::io::substrait::Type_Variation* Type_List::_internal_mutable_variation() {
-  
-  if (variation_ == nullptr) {
-    auto* p = CreateMaybeMessage<::io::substrait::Type_Variation>(GetArena());
-    variation_ = p;
-  }
-  return variation_;
-}
-inline ::io::substrait::Type_Variation* Type_List::mutable_variation() {
-  // @@protoc_insertion_point(field_mutable:io.substrait.Type.List.variation)
-  return _internal_mutable_variation();
-}
-inline void Type_List::set_allocated_variation(::io::substrait::Type_Variation* variation) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
-  if (message_arena == nullptr) {
-    delete variation_;
-  }
-  if (variation) {
-    ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      ::PROTOBUF_NAMESPACE_ID::Arena::GetArena(variation);
-    if (message_arena != submessage_arena) {
-      variation = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
-          message_arena, variation, submessage_arena);
-    }
-    
-  } else {
-    
-  }
-  variation_ = variation;
-  // @@protoc_insertion_point(field_set_allocated:io.substrait.Type.List.variation)
+inline void Type_List::set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value) {
+  _internal_set_type_variation_reference(value);
+  // @@protoc_insertion_point(field_set:io.substrait.Type.List.type_variation_reference)
 }
 
 // .io.substrait.Type.Nullability nullability = 3;
@@ -7747,87 +5834,24 @@ inline void Type_Map::set_allocated_value(::io::substrait::Type* value) {
   // @@protoc_insertion_point(field_set_allocated:io.substrait.Type.Map.value)
 }
 
-// .io.substrait.Type.Variation variation = 3;
-inline bool Type_Map::_internal_has_variation() const {
-  return this != internal_default_instance() && variation_ != nullptr;
+// uint32 type_variation_reference = 3;
+inline void Type_Map::clear_type_variation_reference() {
+  type_variation_reference_ = 0u;
 }
-inline bool Type_Map::has_variation() const {
-  return _internal_has_variation();
+inline ::PROTOBUF_NAMESPACE_ID::uint32 Type_Map::_internal_type_variation_reference() const {
+  return type_variation_reference_;
 }
-inline void Type_Map::clear_variation() {
-  if (GetArena() == nullptr && variation_ != nullptr) {
-    delete variation_;
-  }
-  variation_ = nullptr;
+inline ::PROTOBUF_NAMESPACE_ID::uint32 Type_Map::type_variation_reference() const {
+  // @@protoc_insertion_point(field_get:io.substrait.Type.Map.type_variation_reference)
+  return _internal_type_variation_reference();
 }
-inline const ::io::substrait::Type_Variation& Type_Map::_internal_variation() const {
-  const ::io::substrait::Type_Variation* p = variation_;
-  return p != nullptr ? *p : reinterpret_cast<const ::io::substrait::Type_Variation&>(
-      ::io::substrait::_Type_Variation_default_instance_);
-}
-inline const ::io::substrait::Type_Variation& Type_Map::variation() const {
-  // @@protoc_insertion_point(field_get:io.substrait.Type.Map.variation)
-  return _internal_variation();
-}
-inline void Type_Map::unsafe_arena_set_allocated_variation(
-    ::io::substrait::Type_Variation* variation) {
-  if (GetArena() == nullptr) {
-    delete reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(variation_);
-  }
-  variation_ = variation;
-  if (variation) {
-    
-  } else {
-    
-  }
-  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:io.substrait.Type.Map.variation)
-}
-inline ::io::substrait::Type_Variation* Type_Map::release_variation() {
+inline void Type_Map::_internal_set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value) {
   
-  ::io::substrait::Type_Variation* temp = variation_;
-  variation_ = nullptr;
-  if (GetArena() != nullptr) {
-    temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
-  }
-  return temp;
+  type_variation_reference_ = value;
 }
-inline ::io::substrait::Type_Variation* Type_Map::unsafe_arena_release_variation() {
-  // @@protoc_insertion_point(field_release:io.substrait.Type.Map.variation)
-  
-  ::io::substrait::Type_Variation* temp = variation_;
-  variation_ = nullptr;
-  return temp;
-}
-inline ::io::substrait::Type_Variation* Type_Map::_internal_mutable_variation() {
-  
-  if (variation_ == nullptr) {
-    auto* p = CreateMaybeMessage<::io::substrait::Type_Variation>(GetArena());
-    variation_ = p;
-  }
-  return variation_;
-}
-inline ::io::substrait::Type_Variation* Type_Map::mutable_variation() {
-  // @@protoc_insertion_point(field_mutable:io.substrait.Type.Map.variation)
-  return _internal_mutable_variation();
-}
-inline void Type_Map::set_allocated_variation(::io::substrait::Type_Variation* variation) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
-  if (message_arena == nullptr) {
-    delete variation_;
-  }
-  if (variation) {
-    ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      ::PROTOBUF_NAMESPACE_ID::Arena::GetArena(variation);
-    if (message_arena != submessage_arena) {
-      variation = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
-          message_arena, variation, submessage_arena);
-    }
-    
-  } else {
-    
-  }
-  variation_ = variation;
-  // @@protoc_insertion_point(field_set_allocated:io.substrait.Type.Map.variation)
+inline void Type_Map::set_type_variation_reference(::PROTOBUF_NAMESPACE_ID::uint32 value) {
+  _internal_set_type_variation_reference(value);
+  // @@protoc_insertion_point(field_set:io.substrait.Type.Map.type_variation_reference)
 }
 
 // .io.substrait.Type.Nullability nullability = 4;
@@ -7848,75 +5872,6 @@ inline void Type_Map::_internal_set_nullability(::io::substrait::Type_Nullabilit
 inline void Type_Map::set_nullability(::io::substrait::Type_Nullability value) {
   _internal_set_nullability(value);
   // @@protoc_insertion_point(field_set:io.substrait.Type.Map.nullability)
-}
-
-// -------------------------------------------------------------------
-
-// Type_Variation
-
-// int32 organization = 1;
-inline void Type_Variation::clear_organization() {
-  organization_ = 0;
-}
-inline ::PROTOBUF_NAMESPACE_ID::int32 Type_Variation::_internal_organization() const {
-  return organization_;
-}
-inline ::PROTOBUF_NAMESPACE_ID::int32 Type_Variation::organization() const {
-  // @@protoc_insertion_point(field_get:io.substrait.Type.Variation.organization)
-  return _internal_organization();
-}
-inline void Type_Variation::_internal_set_organization(::PROTOBUF_NAMESPACE_ID::int32 value) {
-  
-  organization_ = value;
-}
-inline void Type_Variation::set_organization(::PROTOBUF_NAMESPACE_ID::int32 value) {
-  _internal_set_organization(value);
-  // @@protoc_insertion_point(field_set:io.substrait.Type.Variation.organization)
-}
-
-// string name = 2;
-inline void Type_Variation::clear_name() {
-  name_.ClearToEmpty();
-}
-inline const std::string& Type_Variation::name() const {
-  // @@protoc_insertion_point(field_get:io.substrait.Type.Variation.name)
-  return _internal_name();
-}
-template <typename ArgT0, typename... ArgT>
-PROTOBUF_ALWAYS_INLINE
-inline void Type_Variation::set_name(ArgT0&& arg0, ArgT... args) {
- 
- name_.Set(::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::EmptyDefault{}, static_cast<ArgT0 &&>(arg0), args..., GetArena());
-  // @@protoc_insertion_point(field_set:io.substrait.Type.Variation.name)
-}
-inline std::string* Type_Variation::mutable_name() {
-  // @@protoc_insertion_point(field_mutable:io.substrait.Type.Variation.name)
-  return _internal_mutable_name();
-}
-inline const std::string& Type_Variation::_internal_name() const {
-  return name_.Get();
-}
-inline void Type_Variation::_internal_set_name(const std::string& value) {
-  
-  name_.Set(::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::EmptyDefault{}, value, GetArena());
-}
-inline std::string* Type_Variation::_internal_mutable_name() {
-  
-  return name_.Mutable(::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::EmptyDefault{}, GetArena());
-}
-inline std::string* Type_Variation::release_name() {
-  // @@protoc_insertion_point(field_release:io.substrait.Type.Variation.name)
-  return name_.Release(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(), GetArena());
-}
-inline void Type_Variation::set_allocated_name(std::string* name) {
-  if (name != nullptr) {
-    
-  } else {
-    
-  }
-  name_.SetAllocated(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(), name,
-      GetArena());
-  // @@protoc_insertion_point(field_set_allocated:io.substrait.Type.Variation.name)
 }
 
 // -------------------------------------------------------------------
@@ -9602,69 +7557,42 @@ inline ::io::substrait::Type_Map* Type::mutable_map() {
   return _internal_mutable_map();
 }
 
-// .io.substrait.Extensions.TypeId user_defined = 31;
-inline bool Type::_internal_has_user_defined() const {
-  return kind_case() == kUserDefined;
+// uint32 user_defined_type_reference = 31;
+inline bool Type::_internal_has_user_defined_type_reference() const {
+  return kind_case() == kUserDefinedTypeReference;
 }
-inline bool Type::has_user_defined() const {
-  return _internal_has_user_defined();
+inline bool Type::has_user_defined_type_reference() const {
+  return _internal_has_user_defined_type_reference();
 }
-inline void Type::set_has_user_defined() {
-  _oneof_case_[0] = kUserDefined;
+inline void Type::set_has_user_defined_type_reference() {
+  _oneof_case_[0] = kUserDefinedTypeReference;
 }
-inline ::io::substrait::Extensions_TypeId* Type::release_user_defined() {
-  // @@protoc_insertion_point(field_release:io.substrait.Type.user_defined)
-  if (_internal_has_user_defined()) {
+inline void Type::clear_user_defined_type_reference() {
+  if (_internal_has_user_defined_type_reference()) {
+    kind_.user_defined_type_reference_ = 0u;
     clear_has_kind();
-      ::io::substrait::Extensions_TypeId* temp = kind_.user_defined_;
-    if (GetArena() != nullptr) {
-      temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
-    }
-    kind_.user_defined_ = nullptr;
-    return temp;
-  } else {
-    return nullptr;
   }
 }
-inline const ::io::substrait::Extensions_TypeId& Type::_internal_user_defined() const {
-  return _internal_has_user_defined()
-      ? *kind_.user_defined_
-      : reinterpret_cast< ::io::substrait::Extensions_TypeId&>(::io::substrait::_Extensions_TypeId_default_instance_);
-}
-inline const ::io::substrait::Extensions_TypeId& Type::user_defined() const {
-  // @@protoc_insertion_point(field_get:io.substrait.Type.user_defined)
-  return _internal_user_defined();
-}
-inline ::io::substrait::Extensions_TypeId* Type::unsafe_arena_release_user_defined() {
-  // @@protoc_insertion_point(field_unsafe_arena_release:io.substrait.Type.user_defined)
-  if (_internal_has_user_defined()) {
-    clear_has_kind();
-    ::io::substrait::Extensions_TypeId* temp = kind_.user_defined_;
-    kind_.user_defined_ = nullptr;
-    return temp;
-  } else {
-    return nullptr;
+inline ::PROTOBUF_NAMESPACE_ID::uint32 Type::_internal_user_defined_type_reference() const {
+  if (_internal_has_user_defined_type_reference()) {
+    return kind_.user_defined_type_reference_;
   }
+  return 0u;
 }
-inline void Type::unsafe_arena_set_allocated_user_defined(::io::substrait::Extensions_TypeId* user_defined) {
-  clear_kind();
-  if (user_defined) {
-    set_has_user_defined();
-    kind_.user_defined_ = user_defined;
-  }
-  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:io.substrait.Type.user_defined)
-}
-inline ::io::substrait::Extensions_TypeId* Type::_internal_mutable_user_defined() {
-  if (!_internal_has_user_defined()) {
+inline void Type::_internal_set_user_defined_type_reference(::PROTOBUF_NAMESPACE_ID::uint32 value) {
+  if (!_internal_has_user_defined_type_reference()) {
     clear_kind();
-    set_has_user_defined();
-    kind_.user_defined_ = CreateMaybeMessage< ::io::substrait::Extensions_TypeId >(GetArena());
+    set_has_user_defined_type_reference();
   }
-  return kind_.user_defined_;
+  kind_.user_defined_type_reference_ = value;
 }
-inline ::io::substrait::Extensions_TypeId* Type::mutable_user_defined() {
-  // @@protoc_insertion_point(field_mutable:io.substrait.Type.user_defined)
-  return _internal_mutable_user_defined();
+inline ::PROTOBUF_NAMESPACE_ID::uint32 Type::user_defined_type_reference() const {
+  // @@protoc_insertion_point(field_get:io.substrait.Type.user_defined_type_reference)
+  return _internal_user_defined_type_reference();
+}
+inline void Type::set_user_defined_type_reference(::PROTOBUF_NAMESPACE_ID::uint32 value) {
+  _internal_set_user_defined_type_reference(value);
+  // @@protoc_insertion_point(field_set:io.substrait.Type.user_defined_type_reference)
 }
 
 inline bool Type::has_kind() const {
@@ -9676,11 +7604,170 @@ inline void Type::clear_has_kind() {
 inline Type::KindCase Type::kind_case() const {
   return Type::KindCase(_oneof_case_[0]);
 }
+// -------------------------------------------------------------------
+
+// NamedStruct
+
+// repeated string names = 1;
+inline int NamedStruct::_internal_names_size() const {
+  return names_.size();
+}
+inline int NamedStruct::names_size() const {
+  return _internal_names_size();
+}
+inline void NamedStruct::clear_names() {
+  names_.Clear();
+}
+inline std::string* NamedStruct::add_names() {
+  // @@protoc_insertion_point(field_add_mutable:io.substrait.NamedStruct.names)
+  return _internal_add_names();
+}
+inline const std::string& NamedStruct::_internal_names(int index) const {
+  return names_.Get(index);
+}
+inline const std::string& NamedStruct::names(int index) const {
+  // @@protoc_insertion_point(field_get:io.substrait.NamedStruct.names)
+  return _internal_names(index);
+}
+inline std::string* NamedStruct::mutable_names(int index) {
+  // @@protoc_insertion_point(field_mutable:io.substrait.NamedStruct.names)
+  return names_.Mutable(index);
+}
+inline void NamedStruct::set_names(int index, const std::string& value) {
+  // @@protoc_insertion_point(field_set:io.substrait.NamedStruct.names)
+  names_.Mutable(index)->assign(value);
+}
+inline void NamedStruct::set_names(int index, std::string&& value) {
+  // @@protoc_insertion_point(field_set:io.substrait.NamedStruct.names)
+  names_.Mutable(index)->assign(std::move(value));
+}
+inline void NamedStruct::set_names(int index, const char* value) {
+  GOOGLE_DCHECK(value != nullptr);
+  names_.Mutable(index)->assign(value);
+  // @@protoc_insertion_point(field_set_char:io.substrait.NamedStruct.names)
+}
+inline void NamedStruct::set_names(int index, const char* value, size_t size) {
+  names_.Mutable(index)->assign(
+    reinterpret_cast<const char*>(value), size);
+  // @@protoc_insertion_point(field_set_pointer:io.substrait.NamedStruct.names)
+}
+inline std::string* NamedStruct::_internal_add_names() {
+  return names_.Add();
+}
+inline void NamedStruct::add_names(const std::string& value) {
+  names_.Add()->assign(value);
+  // @@protoc_insertion_point(field_add:io.substrait.NamedStruct.names)
+}
+inline void NamedStruct::add_names(std::string&& value) {
+  names_.Add(std::move(value));
+  // @@protoc_insertion_point(field_add:io.substrait.NamedStruct.names)
+}
+inline void NamedStruct::add_names(const char* value) {
+  GOOGLE_DCHECK(value != nullptr);
+  names_.Add()->assign(value);
+  // @@protoc_insertion_point(field_add_char:io.substrait.NamedStruct.names)
+}
+inline void NamedStruct::add_names(const char* value, size_t size) {
+  names_.Add()->assign(reinterpret_cast<const char*>(value), size);
+  // @@protoc_insertion_point(field_add_pointer:io.substrait.NamedStruct.names)
+}
+inline const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<std::string>&
+NamedStruct::names() const {
+  // @@protoc_insertion_point(field_list:io.substrait.NamedStruct.names)
+  return names_;
+}
+inline ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<std::string>*
+NamedStruct::mutable_names() {
+  // @@protoc_insertion_point(field_mutable_list:io.substrait.NamedStruct.names)
+  return &names_;
+}
+
+// .io.substrait.Type.Struct struct = 2;
+inline bool NamedStruct::_internal_has_struct_() const {
+  return this != internal_default_instance() && struct__ != nullptr;
+}
+inline bool NamedStruct::has_struct_() const {
+  return _internal_has_struct_();
+}
+inline void NamedStruct::clear_struct_() {
+  if (GetArena() == nullptr && struct__ != nullptr) {
+    delete struct__;
+  }
+  struct__ = nullptr;
+}
+inline const ::io::substrait::Type_Struct& NamedStruct::_internal_struct_() const {
+  const ::io::substrait::Type_Struct* p = struct__;
+  return p != nullptr ? *p : reinterpret_cast<const ::io::substrait::Type_Struct&>(
+      ::io::substrait::_Type_Struct_default_instance_);
+}
+inline const ::io::substrait::Type_Struct& NamedStruct::struct_() const {
+  // @@protoc_insertion_point(field_get:io.substrait.NamedStruct.struct)
+  return _internal_struct_();
+}
+inline void NamedStruct::unsafe_arena_set_allocated_struct_(
+    ::io::substrait::Type_Struct* struct_) {
+  if (GetArena() == nullptr) {
+    delete reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(struct__);
+  }
+  struct__ = struct_;
+  if (struct_) {
+    
+  } else {
+    
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:io.substrait.NamedStruct.struct)
+}
+inline ::io::substrait::Type_Struct* NamedStruct::release_struct_() {
+  
+  ::io::substrait::Type_Struct* temp = struct__;
+  struct__ = nullptr;
+  if (GetArena() != nullptr) {
+    temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
+  }
+  return temp;
+}
+inline ::io::substrait::Type_Struct* NamedStruct::unsafe_arena_release_struct_() {
+  // @@protoc_insertion_point(field_release:io.substrait.NamedStruct.struct)
+  
+  ::io::substrait::Type_Struct* temp = struct__;
+  struct__ = nullptr;
+  return temp;
+}
+inline ::io::substrait::Type_Struct* NamedStruct::_internal_mutable_struct_() {
+  
+  if (struct__ == nullptr) {
+    auto* p = CreateMaybeMessage<::io::substrait::Type_Struct>(GetArena());
+    struct__ = p;
+  }
+  return struct__;
+}
+inline ::io::substrait::Type_Struct* NamedStruct::mutable_struct_() {
+  // @@protoc_insertion_point(field_mutable:io.substrait.NamedStruct.struct)
+  return _internal_mutable_struct_();
+}
+inline void NamedStruct::set_allocated_struct_(::io::substrait::Type_Struct* struct_) {
+  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
+  if (message_arena == nullptr) {
+    delete struct__;
+  }
+  if (struct_) {
+    ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
+      ::PROTOBUF_NAMESPACE_ID::Arena::GetArena(struct_);
+    if (message_arena != submessage_arena) {
+      struct_ = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
+          message_arena, struct_, submessage_arena);
+    }
+    
+  } else {
+    
+  }
+  struct__ = struct_;
+  // @@protoc_insertion_point(field_set_allocated:io.substrait.NamedStruct.struct)
+}
+
 #ifdef __GNUC__
   #pragma GCC diagnostic pop
 #endif  // __GNUC__
-// -------------------------------------------------------------------
-
 // -------------------------------------------------------------------
 
 // -------------------------------------------------------------------

@@ -44,7 +44,8 @@ struct RelCommon_EmitDefaultTypeInternal {
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT RelCommon_EmitDefaultTypeInternal _RelCommon_Emit_default_instance_;
 constexpr RelCommon_Hint_Stats::RelCommon_Hint_Stats(
   ::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized)
-  : row_count_(0)
+  : advanced_extension_(nullptr)
+  , row_count_(0)
   , record_size_(0){}
 struct RelCommon_Hint_StatsDefaultTypeInternal {
   constexpr RelCommon_Hint_StatsDefaultTypeInternal()
@@ -55,23 +56,23 @@ struct RelCommon_Hint_StatsDefaultTypeInternal {
   };
 };
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT RelCommon_Hint_StatsDefaultTypeInternal _RelCommon_Hint_Stats_default_instance_;
-constexpr RelCommon_Hint_HintKeyValue::RelCommon_Hint_HintKeyValue(
+constexpr RelCommon_Hint_RuntimeConstraint::RelCommon_Hint_RuntimeConstraint(
   ::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized)
-  : key_(&::PROTOBUF_NAMESPACE_ID::internal::fixed_address_empty_string)
-  , value_(&::PROTOBUF_NAMESPACE_ID::internal::fixed_address_empty_string){}
-struct RelCommon_Hint_HintKeyValueDefaultTypeInternal {
-  constexpr RelCommon_Hint_HintKeyValueDefaultTypeInternal()
+  : advanced_extension_(nullptr){}
+struct RelCommon_Hint_RuntimeConstraintDefaultTypeInternal {
+  constexpr RelCommon_Hint_RuntimeConstraintDefaultTypeInternal()
     : _instance(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized{}) {}
-  ~RelCommon_Hint_HintKeyValueDefaultTypeInternal() {}
+  ~RelCommon_Hint_RuntimeConstraintDefaultTypeInternal() {}
   union {
-    RelCommon_Hint_HintKeyValue _instance;
+    RelCommon_Hint_RuntimeConstraint _instance;
   };
 };
-PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT RelCommon_Hint_HintKeyValueDefaultTypeInternal _RelCommon_Hint_HintKeyValue_default_instance_;
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT RelCommon_Hint_RuntimeConstraintDefaultTypeInternal _RelCommon_Hint_RuntimeConstraint_default_instance_;
 constexpr RelCommon_Hint::RelCommon_Hint(
   ::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized)
-  : hint_key_values_()
-  , stats_(nullptr){}
+  : stats_(nullptr)
+  , constraint_(nullptr)
+  , advanced_extension_(nullptr){}
 struct RelCommon_HintDefaultTypeInternal {
   constexpr RelCommon_HintDefaultTypeInternal()
     : _instance(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized{}) {}
@@ -81,21 +82,10 @@ struct RelCommon_HintDefaultTypeInternal {
   };
 };
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT RelCommon_HintDefaultTypeInternal _RelCommon_Hint_default_instance_;
-constexpr RelCommon_RuntimeConstraint::RelCommon_RuntimeConstraint(
-  ::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized){}
-struct RelCommon_RuntimeConstraintDefaultTypeInternal {
-  constexpr RelCommon_RuntimeConstraintDefaultTypeInternal()
-    : _instance(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized{}) {}
-  ~RelCommon_RuntimeConstraintDefaultTypeInternal() {}
-  union {
-    RelCommon_RuntimeConstraint _instance;
-  };
-};
-PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT RelCommon_RuntimeConstraintDefaultTypeInternal _RelCommon_RuntimeConstraint_default_instance_;
 constexpr RelCommon::RelCommon(
   ::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized)
   : hint_(nullptr)
-  , constraint_(nullptr)
+  , advanced_extension_(nullptr)
   , _oneof_case_{}{}
 struct RelCommonDefaultTypeInternal {
   constexpr RelCommonDefaultTypeInternal()
@@ -108,7 +98,8 @@ struct RelCommonDefaultTypeInternal {
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT RelCommonDefaultTypeInternal _RelCommon_default_instance_;
 constexpr ReadRel_NamedTable::ReadRel_NamedTable(
   ::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized)
-  : names_(){}
+  : names_()
+  , advanced_extension_(nullptr){}
 struct ReadRel_NamedTableDefaultTypeInternal {
   constexpr ReadRel_NamedTableDefaultTypeInternal()
     : _instance(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized{}) {}
@@ -130,6 +121,18 @@ struct ReadRel_VirtualTableDefaultTypeInternal {
   };
 };
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT ReadRel_VirtualTableDefaultTypeInternal _ReadRel_VirtualTable_default_instance_;
+constexpr ReadRel_ExtensionTable::ReadRel_ExtensionTable(
+  ::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized)
+  : detail_(nullptr){}
+struct ReadRel_ExtensionTableDefaultTypeInternal {
+  constexpr ReadRel_ExtensionTableDefaultTypeInternal()
+    : _instance(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized{}) {}
+  ~ReadRel_ExtensionTableDefaultTypeInternal() {}
+  union {
+    ReadRel_ExtensionTable _instance;
+  };
+};
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT ReadRel_ExtensionTableDefaultTypeInternal _ReadRel_ExtensionTable_default_instance_;
 constexpr ReadRel_LocalFiles_FileOrFiles::ReadRel_LocalFiles_FileOrFiles(
   ::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized)
   : format_(0)
@@ -146,7 +149,8 @@ struct ReadRel_LocalFiles_FileOrFilesDefaultTypeInternal {
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT ReadRel_LocalFiles_FileOrFilesDefaultTypeInternal _ReadRel_LocalFiles_FileOrFiles_default_instance_;
 constexpr ReadRel_LocalFiles::ReadRel_LocalFiles(
   ::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized)
-  : items_(){}
+  : items_()
+  , advanced_extension_(nullptr){}
 struct ReadRel_LocalFilesDefaultTypeInternal {
   constexpr ReadRel_LocalFilesDefaultTypeInternal()
     : _instance(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized{}) {}
@@ -162,6 +166,7 @@ constexpr ReadRel::ReadRel(
   , base_schema_(nullptr)
   , filter_(nullptr)
   , projection_(nullptr)
+  , advanced_extension_(nullptr)
   , _oneof_case_{}{}
 struct ReadRelDefaultTypeInternal {
   constexpr ReadRelDefaultTypeInternal()
@@ -176,7 +181,8 @@ constexpr ProjectRel::ProjectRel(
   ::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized)
   : expressions_()
   , common_(nullptr)
-  , input_(nullptr){}
+  , input_(nullptr)
+  , advanced_extension_(nullptr){}
 struct ProjectRelDefaultTypeInternal {
   constexpr ProjectRelDefaultTypeInternal()
     : _instance(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized{}) {}
@@ -193,6 +199,7 @@ constexpr JoinRel::JoinRel(
   , right_(nullptr)
   , expression_(nullptr)
   , post_join_filter_(nullptr)
+  , advanced_extension_(nullptr)
   , type_(0)
 {}
 struct JoinRelDefaultTypeInternal {
@@ -208,6 +215,7 @@ constexpr FetchRel::FetchRel(
   ::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized)
   : common_(nullptr)
   , input_(nullptr)
+  , advanced_extension_(nullptr)
   , offset_(PROTOBUF_LONGLONG(0))
   , count_(PROTOBUF_LONGLONG(0)){}
 struct FetchRelDefaultTypeInternal {
@@ -234,7 +242,8 @@ struct AggregateRel_GroupingDefaultTypeInternal {
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT AggregateRel_GroupingDefaultTypeInternal _AggregateRel_Grouping_default_instance_;
 constexpr AggregateRel_Measure::AggregateRel_Measure(
   ::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized)
-  : measure_(nullptr){}
+  : measure_(nullptr)
+  , filter_(nullptr){}
 struct AggregateRel_MeasureDefaultTypeInternal {
   constexpr AggregateRel_MeasureDefaultTypeInternal()
     : _instance(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized{}) {}
@@ -250,8 +259,7 @@ constexpr AggregateRel::AggregateRel(
   , measures_()
   , common_(nullptr)
   , input_(nullptr)
-  , phase_(0)
-{}
+  , advanced_extension_(nullptr){}
 struct AggregateRelDefaultTypeInternal {
   constexpr AggregateRelDefaultTypeInternal()
     : _instance(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized{}) {}
@@ -265,7 +273,8 @@ constexpr SortRel::SortRel(
   ::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized)
   : sorts_()
   , common_(nullptr)
-  , input_(nullptr){}
+  , input_(nullptr)
+  , advanced_extension_(nullptr){}
 struct SortRelDefaultTypeInternal {
   constexpr SortRelDefaultTypeInternal()
     : _instance(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized{}) {}
@@ -279,7 +288,8 @@ constexpr FilterRel::FilterRel(
   ::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized)
   : common_(nullptr)
   , input_(nullptr)
-  , condition_(nullptr){}
+  , condition_(nullptr)
+  , advanced_extension_(nullptr){}
 struct FilterRelDefaultTypeInternal {
   constexpr FilterRelDefaultTypeInternal()
     : _instance(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized{}) {}
@@ -293,6 +303,7 @@ constexpr SetRel::SetRel(
   ::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized)
   : inputs_()
   , common_(nullptr)
+  , advanced_extension_(nullptr)
   , op_(0)
 {}
 struct SetRelDefaultTypeInternal {
@@ -304,6 +315,60 @@ struct SetRelDefaultTypeInternal {
   };
 };
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT SetRelDefaultTypeInternal _SetRel_default_instance_;
+constexpr ExtensionSingleRel::ExtensionSingleRel(
+  ::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized)
+  : common_(nullptr)
+  , input_(nullptr)
+  , detail_(nullptr){}
+struct ExtensionSingleRelDefaultTypeInternal {
+  constexpr ExtensionSingleRelDefaultTypeInternal()
+    : _instance(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized{}) {}
+  ~ExtensionSingleRelDefaultTypeInternal() {}
+  union {
+    ExtensionSingleRel _instance;
+  };
+};
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT ExtensionSingleRelDefaultTypeInternal _ExtensionSingleRel_default_instance_;
+constexpr ExtensionLeafRel::ExtensionLeafRel(
+  ::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized)
+  : common_(nullptr)
+  , detail_(nullptr){}
+struct ExtensionLeafRelDefaultTypeInternal {
+  constexpr ExtensionLeafRelDefaultTypeInternal()
+    : _instance(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized{}) {}
+  ~ExtensionLeafRelDefaultTypeInternal() {}
+  union {
+    ExtensionLeafRel _instance;
+  };
+};
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT ExtensionLeafRelDefaultTypeInternal _ExtensionLeafRel_default_instance_;
+constexpr ExtensionMultiRel::ExtensionMultiRel(
+  ::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized)
+  : inputs_()
+  , common_(nullptr)
+  , detail_(nullptr){}
+struct ExtensionMultiRelDefaultTypeInternal {
+  constexpr ExtensionMultiRelDefaultTypeInternal()
+    : _instance(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized{}) {}
+  ~ExtensionMultiRelDefaultTypeInternal() {}
+  union {
+    ExtensionMultiRel _instance;
+  };
+};
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT ExtensionMultiRelDefaultTypeInternal _ExtensionMultiRel_default_instance_;
+constexpr RelRoot::RelRoot(
+  ::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized)
+  : names_()
+  , input_(nullptr){}
+struct RelRootDefaultTypeInternal {
+  constexpr RelRootDefaultTypeInternal()
+    : _instance(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized{}) {}
+  ~RelRootDefaultTypeInternal() {}
+  union {
+    RelRoot _instance;
+  };
+};
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT RelRootDefaultTypeInternal _RelRoot_default_instance_;
 constexpr Rel::Rel(
   ::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized)
   : _oneof_case_{}{}
@@ -318,7 +383,7 @@ struct RelDefaultTypeInternal {
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT RelDefaultTypeInternal _Rel_default_instance_;
 }  // namespace substrait
 }  // namespace io
-static ::PROTOBUF_NAMESPACE_ID::Metadata file_level_metadata_relations_2eproto[22];
+static ::PROTOBUF_NAMESPACE_ID::Metadata file_level_metadata_relations_2eproto[26];
 static const ::PROTOBUF_NAMESPACE_ID::EnumDescriptor* file_level_enum_descriptors_relations_2eproto[3];
 static constexpr ::PROTOBUF_NAMESPACE_ID::ServiceDescriptor const** file_level_service_descriptors_relations_2eproto = nullptr;
 
@@ -341,25 +406,21 @@ const ::PROTOBUF_NAMESPACE_ID::uint32 TableStruct_relations_2eproto::offsets[] P
   ~0u,  // no _weak_field_map_
   PROTOBUF_FIELD_OFFSET(::io::substrait::RelCommon_Hint_Stats, row_count_),
   PROTOBUF_FIELD_OFFSET(::io::substrait::RelCommon_Hint_Stats, record_size_),
+  PROTOBUF_FIELD_OFFSET(::io::substrait::RelCommon_Hint_Stats, advanced_extension_),
   ~0u,  // no _has_bits_
-  PROTOBUF_FIELD_OFFSET(::io::substrait::RelCommon_Hint_HintKeyValue, _internal_metadata_),
+  PROTOBUF_FIELD_OFFSET(::io::substrait::RelCommon_Hint_RuntimeConstraint, _internal_metadata_),
   ~0u,  // no _extensions_
   ~0u,  // no _oneof_case_
   ~0u,  // no _weak_field_map_
-  PROTOBUF_FIELD_OFFSET(::io::substrait::RelCommon_Hint_HintKeyValue, key_),
-  PROTOBUF_FIELD_OFFSET(::io::substrait::RelCommon_Hint_HintKeyValue, value_),
+  PROTOBUF_FIELD_OFFSET(::io::substrait::RelCommon_Hint_RuntimeConstraint, advanced_extension_),
   ~0u,  // no _has_bits_
   PROTOBUF_FIELD_OFFSET(::io::substrait::RelCommon_Hint, _internal_metadata_),
   ~0u,  // no _extensions_
   ~0u,  // no _oneof_case_
   ~0u,  // no _weak_field_map_
-  PROTOBUF_FIELD_OFFSET(::io::substrait::RelCommon_Hint, hint_key_values_),
   PROTOBUF_FIELD_OFFSET(::io::substrait::RelCommon_Hint, stats_),
-  ~0u,  // no _has_bits_
-  PROTOBUF_FIELD_OFFSET(::io::substrait::RelCommon_RuntimeConstraint, _internal_metadata_),
-  ~0u,  // no _extensions_
-  ~0u,  // no _oneof_case_
-  ~0u,  // no _weak_field_map_
+  PROTOBUF_FIELD_OFFSET(::io::substrait::RelCommon_Hint, constraint_),
+  PROTOBUF_FIELD_OFFSET(::io::substrait::RelCommon_Hint, advanced_extension_),
   ~0u,  // no _has_bits_
   PROTOBUF_FIELD_OFFSET(::io::substrait::RelCommon, _internal_metadata_),
   ~0u,  // no _extensions_
@@ -368,14 +429,15 @@ const ::PROTOBUF_NAMESPACE_ID::uint32 TableStruct_relations_2eproto::offsets[] P
   ::PROTOBUF_NAMESPACE_ID::internal::kInvalidFieldOffsetTag,
   ::PROTOBUF_NAMESPACE_ID::internal::kInvalidFieldOffsetTag,
   PROTOBUF_FIELD_OFFSET(::io::substrait::RelCommon, hint_),
-  PROTOBUF_FIELD_OFFSET(::io::substrait::RelCommon, constraint_),
-  PROTOBUF_FIELD_OFFSET(::io::substrait::RelCommon, kind_),
+  PROTOBUF_FIELD_OFFSET(::io::substrait::RelCommon, advanced_extension_),
+  PROTOBUF_FIELD_OFFSET(::io::substrait::RelCommon, emit_kind_),
   ~0u,  // no _has_bits_
   PROTOBUF_FIELD_OFFSET(::io::substrait::ReadRel_NamedTable, _internal_metadata_),
   ~0u,  // no _extensions_
   ~0u,  // no _oneof_case_
   ~0u,  // no _weak_field_map_
   PROTOBUF_FIELD_OFFSET(::io::substrait::ReadRel_NamedTable, names_),
+  PROTOBUF_FIELD_OFFSET(::io::substrait::ReadRel_NamedTable, advanced_extension_),
   ~0u,  // no _has_bits_
   PROTOBUF_FIELD_OFFSET(::io::substrait::ReadRel_VirtualTable, _internal_metadata_),
   ~0u,  // no _extensions_
@@ -383,10 +445,18 @@ const ::PROTOBUF_NAMESPACE_ID::uint32 TableStruct_relations_2eproto::offsets[] P
   ~0u,  // no _weak_field_map_
   PROTOBUF_FIELD_OFFSET(::io::substrait::ReadRel_VirtualTable, values_),
   ~0u,  // no _has_bits_
+  PROTOBUF_FIELD_OFFSET(::io::substrait::ReadRel_ExtensionTable, _internal_metadata_),
+  ~0u,  // no _extensions_
+  ~0u,  // no _oneof_case_
+  ~0u,  // no _weak_field_map_
+  PROTOBUF_FIELD_OFFSET(::io::substrait::ReadRel_ExtensionTable, detail_),
+  ~0u,  // no _has_bits_
   PROTOBUF_FIELD_OFFSET(::io::substrait::ReadRel_LocalFiles_FileOrFiles, _internal_metadata_),
   ~0u,  // no _extensions_
   PROTOBUF_FIELD_OFFSET(::io::substrait::ReadRel_LocalFiles_FileOrFiles, _oneof_case_[0]),
   ~0u,  // no _weak_field_map_
+  ::PROTOBUF_NAMESPACE_ID::internal::kInvalidFieldOffsetTag,
+  ::PROTOBUF_NAMESPACE_ID::internal::kInvalidFieldOffsetTag,
   ::PROTOBUF_NAMESPACE_ID::internal::kInvalidFieldOffsetTag,
   ::PROTOBUF_NAMESPACE_ID::internal::kInvalidFieldOffsetTag,
   PROTOBUF_FIELD_OFFSET(::io::substrait::ReadRel_LocalFiles_FileOrFiles, format_),
@@ -397,6 +467,7 @@ const ::PROTOBUF_NAMESPACE_ID::uint32 TableStruct_relations_2eproto::offsets[] P
   ~0u,  // no _oneof_case_
   ~0u,  // no _weak_field_map_
   PROTOBUF_FIELD_OFFSET(::io::substrait::ReadRel_LocalFiles, items_),
+  PROTOBUF_FIELD_OFFSET(::io::substrait::ReadRel_LocalFiles, advanced_extension_),
   ~0u,  // no _has_bits_
   PROTOBUF_FIELD_OFFSET(::io::substrait::ReadRel, _internal_metadata_),
   ~0u,  // no _extensions_
@@ -406,6 +477,8 @@ const ::PROTOBUF_NAMESPACE_ID::uint32 TableStruct_relations_2eproto::offsets[] P
   PROTOBUF_FIELD_OFFSET(::io::substrait::ReadRel, base_schema_),
   PROTOBUF_FIELD_OFFSET(::io::substrait::ReadRel, filter_),
   PROTOBUF_FIELD_OFFSET(::io::substrait::ReadRel, projection_),
+  PROTOBUF_FIELD_OFFSET(::io::substrait::ReadRel, advanced_extension_),
+  ::PROTOBUF_NAMESPACE_ID::internal::kInvalidFieldOffsetTag,
   ::PROTOBUF_NAMESPACE_ID::internal::kInvalidFieldOffsetTag,
   ::PROTOBUF_NAMESPACE_ID::internal::kInvalidFieldOffsetTag,
   ::PROTOBUF_NAMESPACE_ID::internal::kInvalidFieldOffsetTag,
@@ -418,6 +491,7 @@ const ::PROTOBUF_NAMESPACE_ID::uint32 TableStruct_relations_2eproto::offsets[] P
   PROTOBUF_FIELD_OFFSET(::io::substrait::ProjectRel, common_),
   PROTOBUF_FIELD_OFFSET(::io::substrait::ProjectRel, input_),
   PROTOBUF_FIELD_OFFSET(::io::substrait::ProjectRel, expressions_),
+  PROTOBUF_FIELD_OFFSET(::io::substrait::ProjectRel, advanced_extension_),
   ~0u,  // no _has_bits_
   PROTOBUF_FIELD_OFFSET(::io::substrait::JoinRel, _internal_metadata_),
   ~0u,  // no _extensions_
@@ -429,6 +503,7 @@ const ::PROTOBUF_NAMESPACE_ID::uint32 TableStruct_relations_2eproto::offsets[] P
   PROTOBUF_FIELD_OFFSET(::io::substrait::JoinRel, expression_),
   PROTOBUF_FIELD_OFFSET(::io::substrait::JoinRel, post_join_filter_),
   PROTOBUF_FIELD_OFFSET(::io::substrait::JoinRel, type_),
+  PROTOBUF_FIELD_OFFSET(::io::substrait::JoinRel, advanced_extension_),
   ~0u,  // no _has_bits_
   PROTOBUF_FIELD_OFFSET(::io::substrait::FetchRel, _internal_metadata_),
   ~0u,  // no _extensions_
@@ -438,6 +513,7 @@ const ::PROTOBUF_NAMESPACE_ID::uint32 TableStruct_relations_2eproto::offsets[] P
   PROTOBUF_FIELD_OFFSET(::io::substrait::FetchRel, input_),
   PROTOBUF_FIELD_OFFSET(::io::substrait::FetchRel, offset_),
   PROTOBUF_FIELD_OFFSET(::io::substrait::FetchRel, count_),
+  PROTOBUF_FIELD_OFFSET(::io::substrait::FetchRel, advanced_extension_),
   ~0u,  // no _has_bits_
   PROTOBUF_FIELD_OFFSET(::io::substrait::AggregateRel_Grouping, _internal_metadata_),
   ~0u,  // no _extensions_
@@ -450,6 +526,7 @@ const ::PROTOBUF_NAMESPACE_ID::uint32 TableStruct_relations_2eproto::offsets[] P
   ~0u,  // no _oneof_case_
   ~0u,  // no _weak_field_map_
   PROTOBUF_FIELD_OFFSET(::io::substrait::AggregateRel_Measure, measure_),
+  PROTOBUF_FIELD_OFFSET(::io::substrait::AggregateRel_Measure, filter_),
   ~0u,  // no _has_bits_
   PROTOBUF_FIELD_OFFSET(::io::substrait::AggregateRel, _internal_metadata_),
   ~0u,  // no _extensions_
@@ -459,7 +536,7 @@ const ::PROTOBUF_NAMESPACE_ID::uint32 TableStruct_relations_2eproto::offsets[] P
   PROTOBUF_FIELD_OFFSET(::io::substrait::AggregateRel, input_),
   PROTOBUF_FIELD_OFFSET(::io::substrait::AggregateRel, groupings_),
   PROTOBUF_FIELD_OFFSET(::io::substrait::AggregateRel, measures_),
-  PROTOBUF_FIELD_OFFSET(::io::substrait::AggregateRel, phase_),
+  PROTOBUF_FIELD_OFFSET(::io::substrait::AggregateRel, advanced_extension_),
   ~0u,  // no _has_bits_
   PROTOBUF_FIELD_OFFSET(::io::substrait::SortRel, _internal_metadata_),
   ~0u,  // no _extensions_
@@ -468,6 +545,7 @@ const ::PROTOBUF_NAMESPACE_ID::uint32 TableStruct_relations_2eproto::offsets[] P
   PROTOBUF_FIELD_OFFSET(::io::substrait::SortRel, common_),
   PROTOBUF_FIELD_OFFSET(::io::substrait::SortRel, input_),
   PROTOBUF_FIELD_OFFSET(::io::substrait::SortRel, sorts_),
+  PROTOBUF_FIELD_OFFSET(::io::substrait::SortRel, advanced_extension_),
   ~0u,  // no _has_bits_
   PROTOBUF_FIELD_OFFSET(::io::substrait::FilterRel, _internal_metadata_),
   ~0u,  // no _extensions_
@@ -476,6 +554,7 @@ const ::PROTOBUF_NAMESPACE_ID::uint32 TableStruct_relations_2eproto::offsets[] P
   PROTOBUF_FIELD_OFFSET(::io::substrait::FilterRel, common_),
   PROTOBUF_FIELD_OFFSET(::io::substrait::FilterRel, input_),
   PROTOBUF_FIELD_OFFSET(::io::substrait::FilterRel, condition_),
+  PROTOBUF_FIELD_OFFSET(::io::substrait::FilterRel, advanced_extension_),
   ~0u,  // no _has_bits_
   PROTOBUF_FIELD_OFFSET(::io::substrait::SetRel, _internal_metadata_),
   ~0u,  // no _extensions_
@@ -484,11 +563,45 @@ const ::PROTOBUF_NAMESPACE_ID::uint32 TableStruct_relations_2eproto::offsets[] P
   PROTOBUF_FIELD_OFFSET(::io::substrait::SetRel, common_),
   PROTOBUF_FIELD_OFFSET(::io::substrait::SetRel, inputs_),
   PROTOBUF_FIELD_OFFSET(::io::substrait::SetRel, op_),
+  PROTOBUF_FIELD_OFFSET(::io::substrait::SetRel, advanced_extension_),
+  ~0u,  // no _has_bits_
+  PROTOBUF_FIELD_OFFSET(::io::substrait::ExtensionSingleRel, _internal_metadata_),
+  ~0u,  // no _extensions_
+  ~0u,  // no _oneof_case_
+  ~0u,  // no _weak_field_map_
+  PROTOBUF_FIELD_OFFSET(::io::substrait::ExtensionSingleRel, common_),
+  PROTOBUF_FIELD_OFFSET(::io::substrait::ExtensionSingleRel, input_),
+  PROTOBUF_FIELD_OFFSET(::io::substrait::ExtensionSingleRel, detail_),
+  ~0u,  // no _has_bits_
+  PROTOBUF_FIELD_OFFSET(::io::substrait::ExtensionLeafRel, _internal_metadata_),
+  ~0u,  // no _extensions_
+  ~0u,  // no _oneof_case_
+  ~0u,  // no _weak_field_map_
+  PROTOBUF_FIELD_OFFSET(::io::substrait::ExtensionLeafRel, common_),
+  PROTOBUF_FIELD_OFFSET(::io::substrait::ExtensionLeafRel, detail_),
+  ~0u,  // no _has_bits_
+  PROTOBUF_FIELD_OFFSET(::io::substrait::ExtensionMultiRel, _internal_metadata_),
+  ~0u,  // no _extensions_
+  ~0u,  // no _oneof_case_
+  ~0u,  // no _weak_field_map_
+  PROTOBUF_FIELD_OFFSET(::io::substrait::ExtensionMultiRel, common_),
+  PROTOBUF_FIELD_OFFSET(::io::substrait::ExtensionMultiRel, inputs_),
+  PROTOBUF_FIELD_OFFSET(::io::substrait::ExtensionMultiRel, detail_),
+  ~0u,  // no _has_bits_
+  PROTOBUF_FIELD_OFFSET(::io::substrait::RelRoot, _internal_metadata_),
+  ~0u,  // no _extensions_
+  ~0u,  // no _oneof_case_
+  ~0u,  // no _weak_field_map_
+  PROTOBUF_FIELD_OFFSET(::io::substrait::RelRoot, input_),
+  PROTOBUF_FIELD_OFFSET(::io::substrait::RelRoot, names_),
   ~0u,  // no _has_bits_
   PROTOBUF_FIELD_OFFSET(::io::substrait::Rel, _internal_metadata_),
   ~0u,  // no _extensions_
   PROTOBUF_FIELD_OFFSET(::io::substrait::Rel, _oneof_case_[0]),
   ~0u,  // no _weak_field_map_
+  ::PROTOBUF_NAMESPACE_ID::internal::kInvalidFieldOffsetTag,
+  ::PROTOBUF_NAMESPACE_ID::internal::kInvalidFieldOffsetTag,
+  ::PROTOBUF_NAMESPACE_ID::internal::kInvalidFieldOffsetTag,
   ::PROTOBUF_NAMESPACE_ID::internal::kInvalidFieldOffsetTag,
   ::PROTOBUF_NAMESPACE_ID::internal::kInvalidFieldOffsetTag,
   ::PROTOBUF_NAMESPACE_ID::internal::kInvalidFieldOffsetTag,
@@ -503,37 +616,41 @@ static const ::PROTOBUF_NAMESPACE_ID::internal::MigrationSchema schemas[] PROTOB
   { 0, -1, sizeof(::io::substrait::RelCommon_Direct)},
   { 5, -1, sizeof(::io::substrait::RelCommon_Emit)},
   { 11, -1, sizeof(::io::substrait::RelCommon_Hint_Stats)},
-  { 18, -1, sizeof(::io::substrait::RelCommon_Hint_HintKeyValue)},
+  { 19, -1, sizeof(::io::substrait::RelCommon_Hint_RuntimeConstraint)},
   { 25, -1, sizeof(::io::substrait::RelCommon_Hint)},
-  { 32, -1, sizeof(::io::substrait::RelCommon_RuntimeConstraint)},
-  { 37, -1, sizeof(::io::substrait::RelCommon)},
-  { 47, -1, sizeof(::io::substrait::ReadRel_NamedTable)},
-  { 53, -1, sizeof(::io::substrait::ReadRel_VirtualTable)},
-  { 59, -1, sizeof(::io::substrait::ReadRel_LocalFiles_FileOrFiles)},
-  { 68, -1, sizeof(::io::substrait::ReadRel_LocalFiles)},
-  { 74, -1, sizeof(::io::substrait::ReadRel)},
-  { 87, -1, sizeof(::io::substrait::ProjectRel)},
-  { 95, -1, sizeof(::io::substrait::JoinRel)},
-  { 106, -1, sizeof(::io::substrait::FetchRel)},
-  { 115, -1, sizeof(::io::substrait::AggregateRel_Grouping)},
-  { 121, -1, sizeof(::io::substrait::AggregateRel_Measure)},
-  { 127, -1, sizeof(::io::substrait::AggregateRel)},
-  { 137, -1, sizeof(::io::substrait::SortRel)},
-  { 145, -1, sizeof(::io::substrait::FilterRel)},
-  { 153, -1, sizeof(::io::substrait::SetRel)},
-  { 161, -1, sizeof(::io::substrait::Rel)},
+  { 33, -1, sizeof(::io::substrait::RelCommon)},
+  { 43, -1, sizeof(::io::substrait::ReadRel_NamedTable)},
+  { 50, -1, sizeof(::io::substrait::ReadRel_VirtualTable)},
+  { 56, -1, sizeof(::io::substrait::ReadRel_ExtensionTable)},
+  { 62, -1, sizeof(::io::substrait::ReadRel_LocalFiles_FileOrFiles)},
+  { 73, -1, sizeof(::io::substrait::ReadRel_LocalFiles)},
+  { 80, -1, sizeof(::io::substrait::ReadRel)},
+  { 95, -1, sizeof(::io::substrait::ProjectRel)},
+  { 104, -1, sizeof(::io::substrait::JoinRel)},
+  { 116, -1, sizeof(::io::substrait::FetchRel)},
+  { 126, -1, sizeof(::io::substrait::AggregateRel_Grouping)},
+  { 132, -1, sizeof(::io::substrait::AggregateRel_Measure)},
+  { 139, -1, sizeof(::io::substrait::AggregateRel)},
+  { 149, -1, sizeof(::io::substrait::SortRel)},
+  { 158, -1, sizeof(::io::substrait::FilterRel)},
+  { 167, -1, sizeof(::io::substrait::SetRel)},
+  { 176, -1, sizeof(::io::substrait::ExtensionSingleRel)},
+  { 184, -1, sizeof(::io::substrait::ExtensionLeafRel)},
+  { 191, -1, sizeof(::io::substrait::ExtensionMultiRel)},
+  { 199, -1, sizeof(::io::substrait::RelRoot)},
+  { 206, -1, sizeof(::io::substrait::Rel)},
 };
 
 static ::PROTOBUF_NAMESPACE_ID::Message const * const file_default_instances[] = {
   reinterpret_cast<const ::PROTOBUF_NAMESPACE_ID::Message*>(&::io::substrait::_RelCommon_Direct_default_instance_),
   reinterpret_cast<const ::PROTOBUF_NAMESPACE_ID::Message*>(&::io::substrait::_RelCommon_Emit_default_instance_),
   reinterpret_cast<const ::PROTOBUF_NAMESPACE_ID::Message*>(&::io::substrait::_RelCommon_Hint_Stats_default_instance_),
-  reinterpret_cast<const ::PROTOBUF_NAMESPACE_ID::Message*>(&::io::substrait::_RelCommon_Hint_HintKeyValue_default_instance_),
+  reinterpret_cast<const ::PROTOBUF_NAMESPACE_ID::Message*>(&::io::substrait::_RelCommon_Hint_RuntimeConstraint_default_instance_),
   reinterpret_cast<const ::PROTOBUF_NAMESPACE_ID::Message*>(&::io::substrait::_RelCommon_Hint_default_instance_),
-  reinterpret_cast<const ::PROTOBUF_NAMESPACE_ID::Message*>(&::io::substrait::_RelCommon_RuntimeConstraint_default_instance_),
   reinterpret_cast<const ::PROTOBUF_NAMESPACE_ID::Message*>(&::io::substrait::_RelCommon_default_instance_),
   reinterpret_cast<const ::PROTOBUF_NAMESPACE_ID::Message*>(&::io::substrait::_ReadRel_NamedTable_default_instance_),
   reinterpret_cast<const ::PROTOBUF_NAMESPACE_ID::Message*>(&::io::substrait::_ReadRel_VirtualTable_default_instance_),
+  reinterpret_cast<const ::PROTOBUF_NAMESPACE_ID::Message*>(&::io::substrait::_ReadRel_ExtensionTable_default_instance_),
   reinterpret_cast<const ::PROTOBUF_NAMESPACE_ID::Message*>(&::io::substrait::_ReadRel_LocalFiles_FileOrFiles_default_instance_),
   reinterpret_cast<const ::PROTOBUF_NAMESPACE_ID::Message*>(&::io::substrait::_ReadRel_LocalFiles_default_instance_),
   reinterpret_cast<const ::PROTOBUF_NAMESPACE_ID::Message*>(&::io::substrait::_ReadRel_default_instance_),
@@ -546,101 +663,149 @@ static ::PROTOBUF_NAMESPACE_ID::Message const * const file_default_instances[] =
   reinterpret_cast<const ::PROTOBUF_NAMESPACE_ID::Message*>(&::io::substrait::_SortRel_default_instance_),
   reinterpret_cast<const ::PROTOBUF_NAMESPACE_ID::Message*>(&::io::substrait::_FilterRel_default_instance_),
   reinterpret_cast<const ::PROTOBUF_NAMESPACE_ID::Message*>(&::io::substrait::_SetRel_default_instance_),
+  reinterpret_cast<const ::PROTOBUF_NAMESPACE_ID::Message*>(&::io::substrait::_ExtensionSingleRel_default_instance_),
+  reinterpret_cast<const ::PROTOBUF_NAMESPACE_ID::Message*>(&::io::substrait::_ExtensionLeafRel_default_instance_),
+  reinterpret_cast<const ::PROTOBUF_NAMESPACE_ID::Message*>(&::io::substrait::_ExtensionMultiRel_default_instance_),
+  reinterpret_cast<const ::PROTOBUF_NAMESPACE_ID::Message*>(&::io::substrait::_RelRoot_default_instance_),
   reinterpret_cast<const ::PROTOBUF_NAMESPACE_ID::Message*>(&::io::substrait::_Rel_default_instance_),
 };
 
 const char descriptor_table_protodef_relations_2eproto[] PROTOBUF_SECTION_VARIABLE(protodesc_cold) =
   "\n\017relations.proto\022\014io.substrait\032\ntype.pr"
-  "oto\032\020expression.proto\032\017selection.proto\"\372"
-  "\003\n\tRelCommon\0220\n\006direct\030\001 \001(\0132\036.io.substr"
-  "ait.RelCommon.DirectH\000\022,\n\004emit\030\002 \001(\0132\034.i"
-  "o.substrait.RelCommon.EmitH\000\022*\n\004hint\030\003 \001"
-  "(\0132\034.io.substrait.RelCommon.Hint\022=\n\ncons"
-  "traint\030\004 \001(\0132).io.substrait.RelCommon.Ru"
-  "ntimeConstraint\032\010\n\006Direct\032\036\n\004Emit\022\026\n\016out"
-  "put_mapping\030\001 \003(\005\032\332\001\n\004Hint\022B\n\017hint_key_v"
-  "alues\030\001 \003(\0132).io.substrait.RelCommon.Hin"
-  "t.HintKeyValue\0221\n\005stats\030\002 \001(\0132\".io.subst"
-  "rait.RelCommon.Hint.Stats\032/\n\005Stats\022\021\n\tro"
-  "w_count\030\001 \001(\001\022\023\n\013record_size\030\002 \001(\001\032*\n\014Hi"
-  "ntKeyValue\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\014\032\023"
-  "\n\021RuntimeConstraintB\006\n\004kind\"\344\005\n\007ReadRel\022"
-  "\'\n\006common\030\001 \001(\0132\027.io.substrait.RelCommon"
-  "\0223\n\013base_schema\030\002 \001(\0132\036.io.substrait.Typ"
-  "e.NamedStruct\022(\n\006filter\030\003 \001(\0132\030.io.subst"
-  "rait.Expression\0220\n\nprojection\030\004 \001(\0132\034.io"
-  ".substrait.MaskExpression\022;\n\rvirtual_tab"
-  "le\030\005 \001(\0132\".io.substrait.ReadRel.VirtualT"
-  "ableH\000\0227\n\013local_files\030\006 \001(\0132 .io.substra"
-  "it.ReadRel.LocalFilesH\000\0227\n\013named_table\030\007"
-  " \001(\0132 .io.substrait.ReadRel.NamedTableH\000"
-  "\032\033\n\nNamedTable\022\r\n\005names\030\001 \003(\t\032G\n\014Virtual"
-  "Table\0227\n\006values\030\001 \003(\0132\'.io.substrait.Exp"
-  "ression.Literal.Struct\032\374\001\n\nLocalFiles\022;\n"
-  "\005items\030\001 \003(\0132,.io.substrait.ReadRel.Loca"
-  "lFiles.FileOrFiles\032\260\001\n\013FileOrFiles\022\022\n\010ur"
-  "i_path\030\001 \001(\tH\000\022\027\n\ruri_path_glob\030\002 \001(\tH\000\022"
-  "C\n\006format\030\003 \001(\01623.io.substrait.ReadRel.L"
-  "ocalFiles.FileOrFiles.Format\"\"\n\006Format\022\013"
-  "\n\007UNKNOWN\020\000\022\013\n\007PARQUET\020\001B\013\n\tpath_typeB\013\n"
-  "\tread_type\"\206\001\n\nProjectRel\022\'\n\006common\030\001 \001("
-  "\0132\027.io.substrait.RelCommon\022 \n\005input\030\002 \001("
-  "\0132\021.io.substrait.Rel\022-\n\013expressions\030\003 \003("
-  "\0132\030.io.substrait.Expression\"\311\002\n\007JoinRel\022"
-  "\'\n\006common\030\001 \001(\0132\027.io.substrait.RelCommon"
-  "\022\037\n\004left\030\002 \001(\0132\021.io.substrait.Rel\022 \n\005rig"
-  "ht\030\003 \001(\0132\021.io.substrait.Rel\022,\n\nexpressio"
-  "n\030\004 \001(\0132\030.io.substrait.Expression\0222\n\020pos"
-  "t_join_filter\030\005 \001(\0132\030.io.substrait.Expre"
-  "ssion\022,\n\004type\030\006 \001(\0162\036.io.substrait.JoinR"
-  "el.JoinType\"B\n\010JoinType\022\013\n\007UNKNOWN\020\000\022\t\n\005"
-  "INNER\020\001\022\t\n\005OUTER\020\002\022\010\n\004LEFT\020\003\022\t\n\005RIGHT\020\004\""
-  "t\n\010FetchRel\022\'\n\006common\030\001 \001(\0132\027.io.substra"
-  "it.RelCommon\022 \n\005input\030\002 \001(\0132\021.io.substra"
-  "it.Rel\022\016\n\006offset\030\003 \001(\003\022\r\n\005count\030\004 \001(\003\"\353\002"
-  "\n\014AggregateRel\022\'\n\006common\030\001 \001(\0132\027.io.subs"
-  "trait.RelCommon\022 \n\005input\030\002 \001(\0132\021.io.subs"
-  "trait.Rel\0226\n\tgroupings\030\003 \003(\0132#.io.substr"
-  "ait.AggregateRel.Grouping\0224\n\010measures\030\004 "
-  "\003(\0132\".io.substrait.AggregateRel.Measure\022"
-  "8\n\005phase\030\005 \001(\0162).io.substrait.Expression"
-  ".AggregationPhase\032 \n\010Grouping\022\024\n\014input_f"
-  "ields\030\001 \003(\005\032F\n\007Measure\022;\n\007measure\030\001 \001(\0132"
-  "*.io.substrait.Expression.AggregateFunct"
-  "ion\"\207\001\n\007SortRel\022\'\n\006common\030\001 \001(\0132\027.io.sub"
+  "oto\032\020expression.proto\032\020extensions.proto\032"
+  "\031google/protobuf/any.proto\"\264\005\n\tRelCommon"
+  "\0220\n\006direct\030\001 \001(\0132\036.io.substrait.RelCommo"
+  "n.DirectH\000\022,\n\004emit\030\002 \001(\0132\034.io.substrait."
+  "RelCommon.EmitH\000\022*\n\004hint\030\003 \001(\0132\034.io.subs"
+  "trait.RelCommon.Hint\022F\n\022advanced_extensi"
+  "on\030\004 \001(\0132*.io.substrait.extensions.Advan"
+  "cedExtension\032\010\n\006Direct\032\036\n\004Emit\022\026\n\016output"
+  "_mapping\030\001 \003(\005\032\233\003\n\004Hint\0221\n\005stats\030\001 \001(\0132\""
+  ".io.substrait.RelCommon.Hint.Stats\022B\n\nco"
+  "nstraint\030\002 \001(\0132..io.substrait.RelCommon."
+  "Hint.RuntimeConstraint\022F\n\022advanced_exten"
+  "sion\030\n \001(\0132*.io.substrait.extensions.Adv"
+  "ancedExtension\032w\n\005Stats\022\021\n\trow_count\030\001 \001"
+  "(\001\022\023\n\013record_size\030\002 \001(\001\022F\n\022advanced_exte"
+  "nsion\030\n \001(\0132*.io.substrait.extensions.Ad"
+  "vancedExtension\032[\n\021RuntimeConstraint\022F\n\022"
+  "advanced_extension\030\n \001(\0132*.io.substrait."
+  "extensions.AdvancedExtensionB\013\n\temit_kin"
+  "d\"\345\010\n\007ReadRel\022\'\n\006common\030\001 \001(\0132\027.io.subst"
+  "rait.RelCommon\022.\n\013base_schema\030\002 \001(\0132\031.io"
+  ".substrait.NamedStruct\022(\n\006filter\030\003 \001(\0132\030"
+  ".io.substrait.Expression\022;\n\nprojection\030\004"
+  " \001(\0132\'.io.substrait.Expression.MaskExpre"
+  "ssion\022F\n\022advanced_extension\030\n \001(\0132*.io.s"
+  "ubstrait.extensions.AdvancedExtension\022;\n"
+  "\rvirtual_table\030\005 \001(\0132\".io.substrait.Read"
+  "Rel.VirtualTableH\000\0227\n\013local_files\030\006 \001(\0132"
+  " .io.substrait.ReadRel.LocalFilesH\000\0227\n\013n"
+  "amed_table\030\007 \001(\0132 .io.substrait.ReadRel."
+  "NamedTableH\000\022\?\n\017extension_table\030\010 \001(\0132$."
+  "io.substrait.ReadRel.ExtensionTableH\000\032c\n"
+  "\nNamedTable\022\r\n\005names\030\001 \003(\t\022F\n\022advanced_e"
+  "xtension\030\n \001(\0132*.io.substrait.extensions"
+  ".AdvancedExtension\032G\n\014VirtualTable\0227\n\006va"
+  "lues\030\001 \003(\0132\'.io.substrait.Expression.Lit"
+  "eral.Struct\0326\n\016ExtensionTable\022$\n\006detail\030"
+  "\001 \001(\0132\024.google.protobuf.Any\032\356\002\n\nLocalFil"
+  "es\022;\n\005items\030\001 \003(\0132,.io.substrait.ReadRel"
+  ".LocalFiles.FileOrFiles\022F\n\022advanced_exte"
+  "nsion\030\n \001(\0132*.io.substrait.extensions.Ad"
+  "vancedExtension\032\332\001\n\013FileOrFiles\022\022\n\010uri_p"
+  "ath\030\001 \001(\tH\000\022\027\n\ruri_path_glob\030\002 \001(\tH\000\022\022\n\010"
+  "uri_file\030\003 \001(\tH\000\022\024\n\nuri_folder\030\004 \001(\tH\000\022C"
+  "\n\006format\030\005 \001(\01623.io.substrait.ReadRel.Lo"
+  "calFiles.FileOrFiles.Format\"\"\n\006Format\022\013\n"
+  "\007UNKNOWN\020\000\022\013\n\007PARQUET\020\001B\013\n\tpath_typeB\013\n\t"
+  "read_type\"\316\001\n\nProjectRel\022\'\n\006common\030\001 \001(\013"
+  "2\027.io.substrait.RelCommon\022 \n\005input\030\002 \001(\013"
+  "2\021.io.substrait.Rel\022-\n\013expressions\030\003 \003(\013"
+  "2\030.io.substrait.Expression\022F\n\022advanced_e"
+  "xtension\030\n \001(\0132*.io.substrait.extensions"
+  ".AdvancedExtension\"\245\003\n\007JoinRel\022\'\n\006common"
+  "\030\001 \001(\0132\027.io.substrait.RelCommon\022\037\n\004left\030"
+  "\002 \001(\0132\021.io.substrait.Rel\022 \n\005right\030\003 \001(\0132"
+  "\021.io.substrait.Rel\022,\n\nexpression\030\004 \001(\0132\030"
+  ".io.substrait.Expression\0222\n\020post_join_fi"
+  "lter\030\005 \001(\0132\030.io.substrait.Expression\022,\n\004"
+  "type\030\006 \001(\0162\036.io.substrait.JoinRel.JoinTy"
+  "pe\022F\n\022advanced_extension\030\n \001(\0132*.io.subs"
+  "trait.extensions.AdvancedExtension\"V\n\010Jo"
+  "inType\022\013\n\007UNKNOWN\020\000\022\t\n\005INNER\020\001\022\t\n\005OUTER\020"
+  "\002\022\010\n\004LEFT\020\003\022\t\n\005RIGHT\020\004\022\010\n\004SEMI\020\005\022\010\n\004ANTI"
+  "\020\006\"\274\001\n\010FetchRel\022\'\n\006common\030\001 \001(\0132\027.io.sub"
   "strait.RelCommon\022 \n\005input\030\002 \001(\0132\021.io.sub"
-  "strait.Rel\0221\n\005sorts\030\003 \003(\0132\".io.substrait"
-  ".Expression.SortField\"\203\001\n\tFilterRel\022\'\n\006c"
-  "ommon\030\001 \001(\0132\027.io.substrait.RelCommon\022 \n\005"
-  "input\030\002 \001(\0132\021.io.substrait.Rel\022+\n\tcondit"
-  "ion\030\003 \001(\0132\030.io.substrait.Expression\"\222\002\n\006"
-  "SetRel\022\'\n\006common\030\001 \001(\0132\027.io.substrait.Re"
-  "lCommon\022!\n\006inputs\030\002 \003(\0132\021.io.substrait.R"
-  "el\022&\n\002op\030\003 \001(\0162\032.io.substrait.SetRel.Set"
-  "Op\"\223\001\n\005SetOp\022\013\n\007UNKNOWN\020\000\022\021\n\rMINUS_PRIMA"
-  "RY\020\001\022\022\n\016MINUS_MULTISET\020\002\022\030\n\024INTERSECTION"
-  "_PRIMARY\020\003\022\031\n\025INTERSECTION_MULTISET\020\004\022\022\n"
-  "\016UNION_DISTINCT\020\005\022\r\n\tUNION_ALL\020\006\"\334\002\n\003Rel"
-  "\022%\n\004read\030\001 \001(\0132\025.io.substrait.ReadRelH\000\022"
-  ")\n\006filter\030\002 \001(\0132\027.io.substrait.FilterRel"
-  "H\000\022\'\n\005fetch\030\003 \001(\0132\026.io.substrait.FetchRe"
-  "lH\000\022/\n\taggregate\030\004 \001(\0132\032.io.substrait.Ag"
-  "gregateRelH\000\022%\n\004sort\030\005 \001(\0132\025.io.substrai"
-  "t.SortRelH\000\022%\n\004join\030\006 \001(\0132\025.io.substrait"
-  ".JoinRelH\000\022+\n\007project\030\007 \001(\0132\030.io.substra"
-  "it.ProjectRelH\000\022#\n\003set\030\010 \001(\0132\024.io.substr"
-  "ait.SetRelH\000B\t\n\007RelTypeB\027P\001\252\002\022Substrait."
-  "Protobufb\006proto3"
+  "strait.Rel\022\016\n\006offset\030\003 \001(\003\022\r\n\005count\030\004 \001("
+  "\003\022F\n\022advanced_extension\030\n \001(\0132*.io.subst"
+  "rait.extensions.AdvancedExtension\"\230\003\n\014Ag"
+  "gregateRel\022\'\n\006common\030\001 \001(\0132\027.io.substrai"
+  "t.RelCommon\022 \n\005input\030\002 \001(\0132\021.io.substrai"
+  "t.Rel\0226\n\tgroupings\030\003 \003(\0132#.io.substrait."
+  "AggregateRel.Grouping\0224\n\010measures\030\004 \003(\0132"
+  "\".io.substrait.AggregateRel.Measure\022F\n\022a"
+  "dvanced_extension\030\n \001(\0132*.io.substrait.e"
+  "xtensions.AdvancedExtension\032 \n\010Grouping\022"
+  "\024\n\014input_fields\030\001 \003(\005\032e\n\007Measure\0220\n\007meas"
+  "ure\030\001 \001(\0132\037.io.substrait.AggregateFuncti"
+  "on\022(\n\006filter\030\002 \001(\0132\030.io.substrait.Expres"
+  "sion\"\304\001\n\007SortRel\022\'\n\006common\030\001 \001(\0132\027.io.su"
+  "bstrait.RelCommon\022 \n\005input\030\002 \001(\0132\021.io.su"
+  "bstrait.Rel\022&\n\005sorts\030\003 \003(\0132\027.io.substrai"
+  "t.SortField\022F\n\022advanced_extension\030\n \001(\0132"
+  "*.io.substrait.extensions.AdvancedExtens"
+  "ion\"\313\001\n\tFilterRel\022\'\n\006common\030\001 \001(\0132\027.io.s"
+  "ubstrait.RelCommon\022 \n\005input\030\002 \001(\0132\021.io.s"
+  "ubstrait.Rel\022+\n\tcondition\030\003 \001(\0132\030.io.sub"
+  "strait.Expression\022F\n\022advanced_extension\030"
+  "\n \001(\0132*.io.substrait.extensions.Advanced"
+  "Extension\"\332\002\n\006SetRel\022\'\n\006common\030\001 \001(\0132\027.i"
+  "o.substrait.RelCommon\022!\n\006inputs\030\002 \003(\0132\021."
+  "io.substrait.Rel\022&\n\002op\030\003 \001(\0162\032.io.substr"
+  "ait.SetRel.SetOp\022F\n\022advanced_extension\030\n"
+  " \001(\0132*.io.substrait.extensions.AdvancedE"
+  "xtension\"\223\001\n\005SetOp\022\013\n\007UNKNOWN\020\000\022\021\n\rMINUS"
+  "_PRIMARY\020\001\022\022\n\016MINUS_MULTISET\020\002\022\030\n\024INTERS"
+  "ECTION_PRIMARY\020\003\022\031\n\025INTERSECTION_MULTISE"
+  "T\020\004\022\022\n\016UNION_DISTINCT\020\005\022\r\n\tUNION_ALL\020\006\"\205"
+  "\001\n\022ExtensionSingleRel\022\'\n\006common\030\001 \001(\0132\027."
+  "io.substrait.RelCommon\022 \n\005input\030\002 \001(\0132\021."
+  "io.substrait.Rel\022$\n\006detail\030\003 \001(\0132\024.googl"
+  "e.protobuf.Any\"a\n\020ExtensionLeafRel\022\'\n\006co"
+  "mmon\030\001 \001(\0132\027.io.substrait.RelCommon\022$\n\006d"
+  "etail\030\002 \001(\0132\024.google.protobuf.Any\"\205\001\n\021Ex"
+  "tensionMultiRel\022\'\n\006common\030\001 \001(\0132\027.io.sub"
+  "strait.RelCommon\022!\n\006inputs\030\002 \003(\0132\021.io.su"
+  "bstrait.Rel\022$\n\006detail\030\003 \001(\0132\024.google.pro"
+  "tobuf.Any\":\n\007RelRoot\022 \n\005input\030\001 \001(\0132\021.io"
+  ".substrait.Rel\022\r\n\005names\030\002 \003(\t\"\220\004\n\003Rel\022%\n"
+  "\004read\030\001 \001(\0132\025.io.substrait.ReadRelH\000\022)\n\006"
+  "filter\030\002 \001(\0132\027.io.substrait.FilterRelH\000\022"
+  "\'\n\005fetch\030\003 \001(\0132\026.io.substrait.FetchRelH\000"
+  "\022/\n\taggregate\030\004 \001(\0132\032.io.substrait.Aggre"
+  "gateRelH\000\022%\n\004sort\030\005 \001(\0132\025.io.substrait.S"
+  "ortRelH\000\022%\n\004join\030\006 \001(\0132\025.io.substrait.Jo"
+  "inRelH\000\022+\n\007project\030\007 \001(\0132\030.io.substrait."
+  "ProjectRelH\000\022#\n\003set\030\010 \001(\0132\024.io.substrait"
+  ".SetRelH\000\022<\n\020extension_single\030\t \001(\0132 .io"
+  ".substrait.ExtensionSingleRelH\000\022:\n\017exten"
+  "sion_multi\030\n \001(\0132\037.io.substrait.Extensio"
+  "nMultiRelH\000\0228\n\016extension_leaf\030\013 \001(\0132\036.io"
+  ".substrait.ExtensionLeafRelH\000B\t\n\007RelType"
+  "B+\n\022io.substrait.protoP\001\252\002\022Substrait.Pro"
+  "tobufb\006proto3"
   ;
-static const ::PROTOBUF_NAMESPACE_ID::internal::DescriptorTable*const descriptor_table_relations_2eproto_deps[3] = {
+static const ::PROTOBUF_NAMESPACE_ID::internal::DescriptorTable*const descriptor_table_relations_2eproto_deps[4] = {
   &::descriptor_table_expression_2eproto,
-  &::descriptor_table_selection_2eproto,
+  &::descriptor_table_extensions_2eproto,
+  &::descriptor_table_google_2fprotobuf_2fany_2eproto,
   &::descriptor_table_type_2eproto,
 };
 static ::PROTOBUF_NAMESPACE_ID::internal::once_flag descriptor_table_relations_2eproto_once;
 const ::PROTOBUF_NAMESPACE_ID::internal::DescriptorTable descriptor_table_relations_2eproto = {
-  false, false, 3216, descriptor_table_protodef_relations_2eproto, "relations.proto", 
-  &descriptor_table_relations_2eproto_once, descriptor_table_relations_2eproto_deps, 3, 22,
+  false, false, 4933, descriptor_table_protodef_relations_2eproto, "relations.proto", 
+  &descriptor_table_relations_2eproto_once, descriptor_table_relations_2eproto_deps, 4, 26,
   schemas, file_default_instances, TableStruct_relations_2eproto::offsets,
   file_level_metadata_relations_2eproto, file_level_enum_descriptors_relations_2eproto, file_level_service_descriptors_relations_2eproto,
 };
@@ -684,6 +849,8 @@ bool JoinRel_JoinType_IsValid(int value) {
     case 2:
     case 3:
     case 4:
+    case 5:
+    case 6:
       return true;
     default:
       return false;
@@ -696,6 +863,8 @@ constexpr JoinRel_JoinType JoinRel::INNER;
 constexpr JoinRel_JoinType JoinRel::OUTER;
 constexpr JoinRel_JoinType JoinRel::LEFT;
 constexpr JoinRel_JoinType JoinRel::RIGHT;
+constexpr JoinRel_JoinType JoinRel::SEMI;
+constexpr JoinRel_JoinType JoinRel::ANTI;
 constexpr JoinRel_JoinType JoinRel::JoinType_MIN;
 constexpr JoinRel_JoinType JoinRel::JoinType_MAX;
 constexpr int JoinRel::JoinType_ARRAYSIZE;
@@ -1096,8 +1265,19 @@ void RelCommon_Emit::InternalSwap(RelCommon_Emit* other) {
 
 class RelCommon_Hint_Stats::_Internal {
  public:
+  static const ::io::substrait::extensions::AdvancedExtension& advanced_extension(const RelCommon_Hint_Stats* msg);
 };
 
+const ::io::substrait::extensions::AdvancedExtension&
+RelCommon_Hint_Stats::_Internal::advanced_extension(const RelCommon_Hint_Stats* msg) {
+  return *msg->advanced_extension_;
+}
+void RelCommon_Hint_Stats::clear_advanced_extension() {
+  if (GetArena() == nullptr && advanced_extension_ != nullptr) {
+    delete advanced_extension_;
+  }
+  advanced_extension_ = nullptr;
+}
 RelCommon_Hint_Stats::RelCommon_Hint_Stats(::PROTOBUF_NAMESPACE_ID::Arena* arena)
   : ::PROTOBUF_NAMESPACE_ID::Message(arena) {
   SharedCtor();
@@ -1107,6 +1287,11 @@ RelCommon_Hint_Stats::RelCommon_Hint_Stats(::PROTOBUF_NAMESPACE_ID::Arena* arena
 RelCommon_Hint_Stats::RelCommon_Hint_Stats(const RelCommon_Hint_Stats& from)
   : ::PROTOBUF_NAMESPACE_ID::Message() {
   _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
+  if (from._internal_has_advanced_extension()) {
+    advanced_extension_ = new ::io::substrait::extensions::AdvancedExtension(*from.advanced_extension_);
+  } else {
+    advanced_extension_ = nullptr;
+  }
   ::memcpy(&row_count_, &from.row_count_,
     static_cast<size_t>(reinterpret_cast<char*>(&record_size_) -
     reinterpret_cast<char*>(&row_count_)) + sizeof(record_size_));
@@ -1115,9 +1300,9 @@ RelCommon_Hint_Stats::RelCommon_Hint_Stats(const RelCommon_Hint_Stats& from)
 
 void RelCommon_Hint_Stats::SharedCtor() {
 ::memset(reinterpret_cast<char*>(this) + static_cast<size_t>(
-    reinterpret_cast<char*>(&row_count_) - reinterpret_cast<char*>(this)),
+    reinterpret_cast<char*>(&advanced_extension_) - reinterpret_cast<char*>(this)),
     0, static_cast<size_t>(reinterpret_cast<char*>(&record_size_) -
-    reinterpret_cast<char*>(&row_count_)) + sizeof(record_size_));
+    reinterpret_cast<char*>(&advanced_extension_)) + sizeof(record_size_));
 }
 
 RelCommon_Hint_Stats::~RelCommon_Hint_Stats() {
@@ -1128,6 +1313,7 @@ RelCommon_Hint_Stats::~RelCommon_Hint_Stats() {
 
 void RelCommon_Hint_Stats::SharedDtor() {
   GOOGLE_DCHECK(GetArena() == nullptr);
+  if (this != internal_default_instance()) delete advanced_extension_;
 }
 
 void RelCommon_Hint_Stats::ArenaDtor(void* object) {
@@ -1146,6 +1332,10 @@ void RelCommon_Hint_Stats::Clear() {
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
+  if (GetArena() == nullptr && advanced_extension_ != nullptr) {
+    delete advanced_extension_;
+  }
+  advanced_extension_ = nullptr;
   ::memset(&row_count_, 0, static_cast<size_t>(
       reinterpret_cast<char*>(&record_size_) -
       reinterpret_cast<char*>(&row_count_)) + sizeof(record_size_));
@@ -1170,6 +1360,13 @@ const char* RelCommon_Hint_Stats::_InternalParse(const char* ptr, ::PROTOBUF_NAM
         if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 17)) {
           record_size_ = ::PROTOBUF_NAMESPACE_ID::internal::UnalignedLoad<double>(ptr);
           ptr += sizeof(double);
+        } else goto handle_unusual;
+        continue;
+      // .io.substrait.extensions.AdvancedExtension advanced_extension = 10;
+      case 10:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 82)) {
+          ptr = ctx->ParseMessage(_internal_mutable_advanced_extension(), ptr);
+          CHK_(ptr);
         } else goto handle_unusual;
         continue;
       default: {
@@ -1213,6 +1410,14 @@ failure:
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::WriteDoubleToArray(2, this->_internal_record_size(), target);
   }
 
+  // .io.substrait.extensions.AdvancedExtension advanced_extension = 10;
+  if (this->has_advanced_extension()) {
+    target = stream->EnsureSpace(target);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
+      InternalWriteMessage(
+        10, _Internal::advanced_extension(this), target, stream);
+  }
+
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormat::InternalSerializeUnknownFieldsToArray(
         _internal_metadata_.unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(::PROTOBUF_NAMESPACE_ID::UnknownFieldSet::default_instance), target, stream);
@@ -1228,6 +1433,13 @@ size_t RelCommon_Hint_Stats::ByteSizeLong() const {
   ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
+
+  // .io.substrait.extensions.AdvancedExtension advanced_extension = 10;
+  if (this->has_advanced_extension()) {
+    total_size += 1 +
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
+        *advanced_extension_);
+  }
 
   // double row_count = 1;
   if (!(this->row_count() <= 0 && this->row_count() >= 0)) {
@@ -1270,6 +1482,9 @@ void RelCommon_Hint_Stats::MergeFrom(const RelCommon_Hint_Stats& from) {
   ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
   (void) cached_has_bits;
 
+  if (from.has_advanced_extension()) {
+    _internal_mutable_advanced_extension()->::io::substrait::extensions::AdvancedExtension::MergeFrom(from._internal_advanced_extension());
+  }
   if (!(from.row_count() <= 0 && from.row_count() >= 0)) {
     _internal_set_row_count(from._internal_row_count());
   }
@@ -1302,9 +1517,9 @@ void RelCommon_Hint_Stats::InternalSwap(RelCommon_Hint_Stats* other) {
   ::PROTOBUF_NAMESPACE_ID::internal::memswap<
       PROTOBUF_FIELD_OFFSET(RelCommon_Hint_Stats, record_size_)
       + sizeof(RelCommon_Hint_Stats::record_size_)
-      - PROTOBUF_FIELD_OFFSET(RelCommon_Hint_Stats, row_count_)>(
-          reinterpret_cast<char*>(&row_count_),
-          reinterpret_cast<char*>(&other->row_count_));
+      - PROTOBUF_FIELD_OFFSET(RelCommon_Hint_Stats, advanced_extension_)>(
+          reinterpret_cast<char*>(&advanced_extension_),
+          reinterpret_cast<char*>(&other->advanced_extension_));
 }
 
 ::PROTOBUF_NAMESPACE_ID::Metadata RelCommon_Hint_Stats::GetMetadata() const {
@@ -1315,90 +1530,86 @@ void RelCommon_Hint_Stats::InternalSwap(RelCommon_Hint_Stats* other) {
 
 // ===================================================================
 
-class RelCommon_Hint_HintKeyValue::_Internal {
+class RelCommon_Hint_RuntimeConstraint::_Internal {
  public:
+  static const ::io::substrait::extensions::AdvancedExtension& advanced_extension(const RelCommon_Hint_RuntimeConstraint* msg);
 };
 
-RelCommon_Hint_HintKeyValue::RelCommon_Hint_HintKeyValue(::PROTOBUF_NAMESPACE_ID::Arena* arena)
+const ::io::substrait::extensions::AdvancedExtension&
+RelCommon_Hint_RuntimeConstraint::_Internal::advanced_extension(const RelCommon_Hint_RuntimeConstraint* msg) {
+  return *msg->advanced_extension_;
+}
+void RelCommon_Hint_RuntimeConstraint::clear_advanced_extension() {
+  if (GetArena() == nullptr && advanced_extension_ != nullptr) {
+    delete advanced_extension_;
+  }
+  advanced_extension_ = nullptr;
+}
+RelCommon_Hint_RuntimeConstraint::RelCommon_Hint_RuntimeConstraint(::PROTOBUF_NAMESPACE_ID::Arena* arena)
   : ::PROTOBUF_NAMESPACE_ID::Message(arena) {
   SharedCtor();
   RegisterArenaDtor(arena);
-  // @@protoc_insertion_point(arena_constructor:io.substrait.RelCommon.Hint.HintKeyValue)
+  // @@protoc_insertion_point(arena_constructor:io.substrait.RelCommon.Hint.RuntimeConstraint)
 }
-RelCommon_Hint_HintKeyValue::RelCommon_Hint_HintKeyValue(const RelCommon_Hint_HintKeyValue& from)
+RelCommon_Hint_RuntimeConstraint::RelCommon_Hint_RuntimeConstraint(const RelCommon_Hint_RuntimeConstraint& from)
   : ::PROTOBUF_NAMESPACE_ID::Message() {
   _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
-  key_.UnsafeSetDefault(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited());
-  if (!from._internal_key().empty()) {
-    key_.Set(::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::EmptyDefault{}, from._internal_key(), 
-      GetArena());
+  if (from._internal_has_advanced_extension()) {
+    advanced_extension_ = new ::io::substrait::extensions::AdvancedExtension(*from.advanced_extension_);
+  } else {
+    advanced_extension_ = nullptr;
   }
-  value_.UnsafeSetDefault(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited());
-  if (!from._internal_value().empty()) {
-    value_.Set(::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::EmptyDefault{}, from._internal_value(), 
-      GetArena());
-  }
-  // @@protoc_insertion_point(copy_constructor:io.substrait.RelCommon.Hint.HintKeyValue)
+  // @@protoc_insertion_point(copy_constructor:io.substrait.RelCommon.Hint.RuntimeConstraint)
 }
 
-void RelCommon_Hint_HintKeyValue::SharedCtor() {
-key_.UnsafeSetDefault(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited());
-value_.UnsafeSetDefault(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited());
+void RelCommon_Hint_RuntimeConstraint::SharedCtor() {
+advanced_extension_ = nullptr;
 }
 
-RelCommon_Hint_HintKeyValue::~RelCommon_Hint_HintKeyValue() {
-  // @@protoc_insertion_point(destructor:io.substrait.RelCommon.Hint.HintKeyValue)
+RelCommon_Hint_RuntimeConstraint::~RelCommon_Hint_RuntimeConstraint() {
+  // @@protoc_insertion_point(destructor:io.substrait.RelCommon.Hint.RuntimeConstraint)
   SharedDtor();
   _internal_metadata_.Delete<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
-void RelCommon_Hint_HintKeyValue::SharedDtor() {
+void RelCommon_Hint_RuntimeConstraint::SharedDtor() {
   GOOGLE_DCHECK(GetArena() == nullptr);
-  key_.DestroyNoArena(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited());
-  value_.DestroyNoArena(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited());
+  if (this != internal_default_instance()) delete advanced_extension_;
 }
 
-void RelCommon_Hint_HintKeyValue::ArenaDtor(void* object) {
-  RelCommon_Hint_HintKeyValue* _this = reinterpret_cast< RelCommon_Hint_HintKeyValue* >(object);
+void RelCommon_Hint_RuntimeConstraint::ArenaDtor(void* object) {
+  RelCommon_Hint_RuntimeConstraint* _this = reinterpret_cast< RelCommon_Hint_RuntimeConstraint* >(object);
   (void)_this;
 }
-void RelCommon_Hint_HintKeyValue::RegisterArenaDtor(::PROTOBUF_NAMESPACE_ID::Arena*) {
+void RelCommon_Hint_RuntimeConstraint::RegisterArenaDtor(::PROTOBUF_NAMESPACE_ID::Arena*) {
 }
-void RelCommon_Hint_HintKeyValue::SetCachedSize(int size) const {
+void RelCommon_Hint_RuntimeConstraint::SetCachedSize(int size) const {
   _cached_size_.Set(size);
 }
 
-void RelCommon_Hint_HintKeyValue::Clear() {
-// @@protoc_insertion_point(message_clear_start:io.substrait.RelCommon.Hint.HintKeyValue)
+void RelCommon_Hint_RuntimeConstraint::Clear() {
+// @@protoc_insertion_point(message_clear_start:io.substrait.RelCommon.Hint.RuntimeConstraint)
   ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  key_.ClearToEmpty();
-  value_.ClearToEmpty();
+  if (GetArena() == nullptr && advanced_extension_ != nullptr) {
+    delete advanced_extension_;
+  }
+  advanced_extension_ = nullptr;
   _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
-const char* RelCommon_Hint_HintKeyValue::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) {
+const char* RelCommon_Hint_RuntimeConstraint::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) {
 #define CHK_(x) if (PROTOBUF_PREDICT_FALSE(!(x))) goto failure
   while (!ctx->Done(&ptr)) {
     ::PROTOBUF_NAMESPACE_ID::uint32 tag;
     ptr = ::PROTOBUF_NAMESPACE_ID::internal::ReadTag(ptr, &tag);
     switch (tag >> 3) {
-      // string key = 1;
-      case 1:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 10)) {
-          auto str = _internal_mutable_key();
-          ptr = ::PROTOBUF_NAMESPACE_ID::internal::InlineGreedyStringParser(str, ptr, ctx);
-          CHK_(::PROTOBUF_NAMESPACE_ID::internal::VerifyUTF8(str, "io.substrait.RelCommon.Hint.HintKeyValue.key"));
-          CHK_(ptr);
-        } else goto handle_unusual;
-        continue;
-      // bytes value = 2;
-      case 2:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 18)) {
-          auto str = _internal_mutable_value();
-          ptr = ::PROTOBUF_NAMESPACE_ID::internal::InlineGreedyStringParser(str, ptr, ctx);
+      // .io.substrait.extensions.AdvancedExtension advanced_extension = 10;
+      case 10:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 82)) {
+          ptr = ctx->ParseMessage(_internal_mutable_advanced_extension(), ptr);
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
@@ -1425,56 +1636,41 @@ failure:
 #undef CHK_
 }
 
-::PROTOBUF_NAMESPACE_ID::uint8* RelCommon_Hint_HintKeyValue::_InternalSerialize(
+::PROTOBUF_NAMESPACE_ID::uint8* RelCommon_Hint_RuntimeConstraint::_InternalSerialize(
     ::PROTOBUF_NAMESPACE_ID::uint8* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const {
-  // @@protoc_insertion_point(serialize_to_array_start:io.substrait.RelCommon.Hint.HintKeyValue)
+  // @@protoc_insertion_point(serialize_to_array_start:io.substrait.RelCommon.Hint.RuntimeConstraint)
   ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
   (void) cached_has_bits;
 
-  // string key = 1;
-  if (this->key().size() > 0) {
-    ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::VerifyUtf8String(
-      this->_internal_key().data(), static_cast<int>(this->_internal_key().length()),
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::SERIALIZE,
-      "io.substrait.RelCommon.Hint.HintKeyValue.key");
-    target = stream->WriteStringMaybeAliased(
-        1, this->_internal_key(), target);
-  }
-
-  // bytes value = 2;
-  if (this->value().size() > 0) {
-    target = stream->WriteBytesMaybeAliased(
-        2, this->_internal_value(), target);
+  // .io.substrait.extensions.AdvancedExtension advanced_extension = 10;
+  if (this->has_advanced_extension()) {
+    target = stream->EnsureSpace(target);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
+      InternalWriteMessage(
+        10, _Internal::advanced_extension(this), target, stream);
   }
 
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormat::InternalSerializeUnknownFieldsToArray(
         _internal_metadata_.unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(::PROTOBUF_NAMESPACE_ID::UnknownFieldSet::default_instance), target, stream);
   }
-  // @@protoc_insertion_point(serialize_to_array_end:io.substrait.RelCommon.Hint.HintKeyValue)
+  // @@protoc_insertion_point(serialize_to_array_end:io.substrait.RelCommon.Hint.RuntimeConstraint)
   return target;
 }
 
-size_t RelCommon_Hint_HintKeyValue::ByteSizeLong() const {
-// @@protoc_insertion_point(message_byte_size_start:io.substrait.RelCommon.Hint.HintKeyValue)
+size_t RelCommon_Hint_RuntimeConstraint::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:io.substrait.RelCommon.Hint.RuntimeConstraint)
   size_t total_size = 0;
 
   ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  // string key = 1;
-  if (this->key().size() > 0) {
+  // .io.substrait.extensions.AdvancedExtension advanced_extension = 10;
+  if (this->has_advanced_extension()) {
     total_size += 1 +
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::StringSize(
-        this->_internal_key());
-  }
-
-  // bytes value = 2;
-  if (this->value().size() > 0) {
-    total_size += 1 +
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::BytesSize(
-        this->_internal_value());
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
+        *advanced_extension_);
   }
 
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
@@ -1486,62 +1682,58 @@ size_t RelCommon_Hint_HintKeyValue::ByteSizeLong() const {
   return total_size;
 }
 
-void RelCommon_Hint_HintKeyValue::MergeFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
-// @@protoc_insertion_point(generalized_merge_from_start:io.substrait.RelCommon.Hint.HintKeyValue)
+void RelCommon_Hint_RuntimeConstraint::MergeFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
+// @@protoc_insertion_point(generalized_merge_from_start:io.substrait.RelCommon.Hint.RuntimeConstraint)
   GOOGLE_DCHECK_NE(&from, this);
-  const RelCommon_Hint_HintKeyValue* source =
-      ::PROTOBUF_NAMESPACE_ID::DynamicCastToGenerated<RelCommon_Hint_HintKeyValue>(
+  const RelCommon_Hint_RuntimeConstraint* source =
+      ::PROTOBUF_NAMESPACE_ID::DynamicCastToGenerated<RelCommon_Hint_RuntimeConstraint>(
           &from);
   if (source == nullptr) {
-  // @@protoc_insertion_point(generalized_merge_from_cast_fail:io.substrait.RelCommon.Hint.HintKeyValue)
+  // @@protoc_insertion_point(generalized_merge_from_cast_fail:io.substrait.RelCommon.Hint.RuntimeConstraint)
     ::PROTOBUF_NAMESPACE_ID::internal::ReflectionOps::Merge(from, this);
   } else {
-  // @@protoc_insertion_point(generalized_merge_from_cast_success:io.substrait.RelCommon.Hint.HintKeyValue)
+  // @@protoc_insertion_point(generalized_merge_from_cast_success:io.substrait.RelCommon.Hint.RuntimeConstraint)
     MergeFrom(*source);
   }
 }
 
-void RelCommon_Hint_HintKeyValue::MergeFrom(const RelCommon_Hint_HintKeyValue& from) {
-// @@protoc_insertion_point(class_specific_merge_from_start:io.substrait.RelCommon.Hint.HintKeyValue)
+void RelCommon_Hint_RuntimeConstraint::MergeFrom(const RelCommon_Hint_RuntimeConstraint& from) {
+// @@protoc_insertion_point(class_specific_merge_from_start:io.substrait.RelCommon.Hint.RuntimeConstraint)
   GOOGLE_DCHECK_NE(&from, this);
   _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
   ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
   (void) cached_has_bits;
 
-  if (from.key().size() > 0) {
-    _internal_set_key(from._internal_key());
-  }
-  if (from.value().size() > 0) {
-    _internal_set_value(from._internal_value());
+  if (from.has_advanced_extension()) {
+    _internal_mutable_advanced_extension()->::io::substrait::extensions::AdvancedExtension::MergeFrom(from._internal_advanced_extension());
   }
 }
 
-void RelCommon_Hint_HintKeyValue::CopyFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
-// @@protoc_insertion_point(generalized_copy_from_start:io.substrait.RelCommon.Hint.HintKeyValue)
+void RelCommon_Hint_RuntimeConstraint::CopyFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
+// @@protoc_insertion_point(generalized_copy_from_start:io.substrait.RelCommon.Hint.RuntimeConstraint)
   if (&from == this) return;
   Clear();
   MergeFrom(from);
 }
 
-void RelCommon_Hint_HintKeyValue::CopyFrom(const RelCommon_Hint_HintKeyValue& from) {
-// @@protoc_insertion_point(class_specific_copy_from_start:io.substrait.RelCommon.Hint.HintKeyValue)
+void RelCommon_Hint_RuntimeConstraint::CopyFrom(const RelCommon_Hint_RuntimeConstraint& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:io.substrait.RelCommon.Hint.RuntimeConstraint)
   if (&from == this) return;
   Clear();
   MergeFrom(from);
 }
 
-bool RelCommon_Hint_HintKeyValue::IsInitialized() const {
+bool RelCommon_Hint_RuntimeConstraint::IsInitialized() const {
   return true;
 }
 
-void RelCommon_Hint_HintKeyValue::InternalSwap(RelCommon_Hint_HintKeyValue* other) {
+void RelCommon_Hint_RuntimeConstraint::InternalSwap(RelCommon_Hint_RuntimeConstraint* other) {
   using std::swap;
   _internal_metadata_.Swap<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(&other->_internal_metadata_);
-  key_.Swap(&other->key_, &::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(), GetArena());
-  value_.Swap(&other->value_, &::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(), GetArena());
+  swap(advanced_extension_, other->advanced_extension_);
 }
 
-::PROTOBUF_NAMESPACE_ID::Metadata RelCommon_Hint_HintKeyValue::GetMetadata() const {
+::PROTOBUF_NAMESPACE_ID::Metadata RelCommon_Hint_RuntimeConstraint::GetMetadata() const {
   return ::PROTOBUF_NAMESPACE_ID::internal::AssignDescriptors(
       &descriptor_table_relations_2eproto_getter, &descriptor_table_relations_2eproto_once,
       file_level_metadata_relations_2eproto[3]);
@@ -1552,33 +1744,60 @@ void RelCommon_Hint_HintKeyValue::InternalSwap(RelCommon_Hint_HintKeyValue* othe
 class RelCommon_Hint::_Internal {
  public:
   static const ::io::substrait::RelCommon_Hint_Stats& stats(const RelCommon_Hint* msg);
+  static const ::io::substrait::RelCommon_Hint_RuntimeConstraint& constraint(const RelCommon_Hint* msg);
+  static const ::io::substrait::extensions::AdvancedExtension& advanced_extension(const RelCommon_Hint* msg);
 };
 
 const ::io::substrait::RelCommon_Hint_Stats&
 RelCommon_Hint::_Internal::stats(const RelCommon_Hint* msg) {
   return *msg->stats_;
 }
+const ::io::substrait::RelCommon_Hint_RuntimeConstraint&
+RelCommon_Hint::_Internal::constraint(const RelCommon_Hint* msg) {
+  return *msg->constraint_;
+}
+const ::io::substrait::extensions::AdvancedExtension&
+RelCommon_Hint::_Internal::advanced_extension(const RelCommon_Hint* msg) {
+  return *msg->advanced_extension_;
+}
+void RelCommon_Hint::clear_advanced_extension() {
+  if (GetArena() == nullptr && advanced_extension_ != nullptr) {
+    delete advanced_extension_;
+  }
+  advanced_extension_ = nullptr;
+}
 RelCommon_Hint::RelCommon_Hint(::PROTOBUF_NAMESPACE_ID::Arena* arena)
-  : ::PROTOBUF_NAMESPACE_ID::Message(arena),
-  hint_key_values_(arena) {
+  : ::PROTOBUF_NAMESPACE_ID::Message(arena) {
   SharedCtor();
   RegisterArenaDtor(arena);
   // @@protoc_insertion_point(arena_constructor:io.substrait.RelCommon.Hint)
 }
 RelCommon_Hint::RelCommon_Hint(const RelCommon_Hint& from)
-  : ::PROTOBUF_NAMESPACE_ID::Message(),
-      hint_key_values_(from.hint_key_values_) {
+  : ::PROTOBUF_NAMESPACE_ID::Message() {
   _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
   if (from._internal_has_stats()) {
     stats_ = new ::io::substrait::RelCommon_Hint_Stats(*from.stats_);
   } else {
     stats_ = nullptr;
   }
+  if (from._internal_has_constraint()) {
+    constraint_ = new ::io::substrait::RelCommon_Hint_RuntimeConstraint(*from.constraint_);
+  } else {
+    constraint_ = nullptr;
+  }
+  if (from._internal_has_advanced_extension()) {
+    advanced_extension_ = new ::io::substrait::extensions::AdvancedExtension(*from.advanced_extension_);
+  } else {
+    advanced_extension_ = nullptr;
+  }
   // @@protoc_insertion_point(copy_constructor:io.substrait.RelCommon.Hint)
 }
 
 void RelCommon_Hint::SharedCtor() {
-stats_ = nullptr;
+::memset(reinterpret_cast<char*>(this) + static_cast<size_t>(
+    reinterpret_cast<char*>(&stats_) - reinterpret_cast<char*>(this)),
+    0, static_cast<size_t>(reinterpret_cast<char*>(&advanced_extension_) -
+    reinterpret_cast<char*>(&stats_)) + sizeof(advanced_extension_));
 }
 
 RelCommon_Hint::~RelCommon_Hint() {
@@ -1590,6 +1809,8 @@ RelCommon_Hint::~RelCommon_Hint() {
 void RelCommon_Hint::SharedDtor() {
   GOOGLE_DCHECK(GetArena() == nullptr);
   if (this != internal_default_instance()) delete stats_;
+  if (this != internal_default_instance()) delete constraint_;
+  if (this != internal_default_instance()) delete advanced_extension_;
 }
 
 void RelCommon_Hint::ArenaDtor(void* object) {
@@ -1608,11 +1829,18 @@ void RelCommon_Hint::Clear() {
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  hint_key_values_.Clear();
   if (GetArena() == nullptr && stats_ != nullptr) {
     delete stats_;
   }
   stats_ = nullptr;
+  if (GetArena() == nullptr && constraint_ != nullptr) {
+    delete constraint_;
+  }
+  constraint_ = nullptr;
+  if (GetArena() == nullptr && advanced_extension_ != nullptr) {
+    delete advanced_extension_;
+  }
+  advanced_extension_ = nullptr;
   _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
@@ -1622,22 +1850,24 @@ const char* RelCommon_Hint::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE
     ::PROTOBUF_NAMESPACE_ID::uint32 tag;
     ptr = ::PROTOBUF_NAMESPACE_ID::internal::ReadTag(ptr, &tag);
     switch (tag >> 3) {
-      // repeated .io.substrait.RelCommon.Hint.HintKeyValue hint_key_values = 1;
+      // .io.substrait.RelCommon.Hint.Stats stats = 1;
       case 1:
         if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 10)) {
-          ptr -= 1;
-          do {
-            ptr += 1;
-            ptr = ctx->ParseMessage(_internal_add_hint_key_values(), ptr);
-            CHK_(ptr);
-            if (!ctx->DataAvailable(ptr)) break;
-          } while (::PROTOBUF_NAMESPACE_ID::internal::ExpectTag<10>(ptr));
+          ptr = ctx->ParseMessage(_internal_mutable_stats(), ptr);
+          CHK_(ptr);
         } else goto handle_unusual;
         continue;
-      // .io.substrait.RelCommon.Hint.Stats stats = 2;
+      // .io.substrait.RelCommon.Hint.RuntimeConstraint constraint = 2;
       case 2:
         if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 18)) {
-          ptr = ctx->ParseMessage(_internal_mutable_stats(), ptr);
+          ptr = ctx->ParseMessage(_internal_mutable_constraint(), ptr);
+          CHK_(ptr);
+        } else goto handle_unusual;
+        continue;
+      // .io.substrait.extensions.AdvancedExtension advanced_extension = 10;
+      case 10:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 82)) {
+          ptr = ctx->ParseMessage(_internal_mutable_advanced_extension(), ptr);
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
@@ -1670,20 +1900,28 @@ failure:
   ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
   (void) cached_has_bits;
 
-  // repeated .io.substrait.RelCommon.Hint.HintKeyValue hint_key_values = 1;
-  for (unsigned int i = 0,
-      n = static_cast<unsigned int>(this->_internal_hint_key_values_size()); i < n; i++) {
-    target = stream->EnsureSpace(target);
-    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
-      InternalWriteMessage(1, this->_internal_hint_key_values(i), target, stream);
-  }
-
-  // .io.substrait.RelCommon.Hint.Stats stats = 2;
+  // .io.substrait.RelCommon.Hint.Stats stats = 1;
   if (this->has_stats()) {
     target = stream->EnsureSpace(target);
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
       InternalWriteMessage(
-        2, _Internal::stats(this), target, stream);
+        1, _Internal::stats(this), target, stream);
+  }
+
+  // .io.substrait.RelCommon.Hint.RuntimeConstraint constraint = 2;
+  if (this->has_constraint()) {
+    target = stream->EnsureSpace(target);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
+      InternalWriteMessage(
+        2, _Internal::constraint(this), target, stream);
+  }
+
+  // .io.substrait.extensions.AdvancedExtension advanced_extension = 10;
+  if (this->has_advanced_extension()) {
+    target = stream->EnsureSpace(target);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
+      InternalWriteMessage(
+        10, _Internal::advanced_extension(this), target, stream);
   }
 
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
@@ -1702,18 +1940,25 @@ size_t RelCommon_Hint::ByteSizeLong() const {
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  // repeated .io.substrait.RelCommon.Hint.HintKeyValue hint_key_values = 1;
-  total_size += 1UL * this->_internal_hint_key_values_size();
-  for (const auto& msg : this->hint_key_values_) {
-    total_size +=
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(msg);
-  }
-
-  // .io.substrait.RelCommon.Hint.Stats stats = 2;
+  // .io.substrait.RelCommon.Hint.Stats stats = 1;
   if (this->has_stats()) {
     total_size += 1 +
       ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
         *stats_);
+  }
+
+  // .io.substrait.RelCommon.Hint.RuntimeConstraint constraint = 2;
+  if (this->has_constraint()) {
+    total_size += 1 +
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
+        *constraint_);
+  }
+
+  // .io.substrait.extensions.AdvancedExtension advanced_extension = 10;
+  if (this->has_advanced_extension()) {
+    total_size += 1 +
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
+        *advanced_extension_);
   }
 
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
@@ -1747,9 +1992,14 @@ void RelCommon_Hint::MergeFrom(const RelCommon_Hint& from) {
   ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
   (void) cached_has_bits;
 
-  hint_key_values_.MergeFrom(from.hint_key_values_);
   if (from.has_stats()) {
     _internal_mutable_stats()->::io::substrait::RelCommon_Hint_Stats::MergeFrom(from._internal_stats());
+  }
+  if (from.has_constraint()) {
+    _internal_mutable_constraint()->::io::substrait::RelCommon_Hint_RuntimeConstraint::MergeFrom(from._internal_constraint());
+  }
+  if (from.has_advanced_extension()) {
+    _internal_mutable_advanced_extension()->::io::substrait::extensions::AdvancedExtension::MergeFrom(from._internal_advanced_extension());
   }
 }
 
@@ -1774,8 +2024,12 @@ bool RelCommon_Hint::IsInitialized() const {
 void RelCommon_Hint::InternalSwap(RelCommon_Hint* other) {
   using std::swap;
   _internal_metadata_.Swap<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(&other->_internal_metadata_);
-  hint_key_values_.InternalSwap(&other->hint_key_values_);
-  swap(stats_, other->stats_);
+  ::PROTOBUF_NAMESPACE_ID::internal::memswap<
+      PROTOBUF_FIELD_OFFSET(RelCommon_Hint, advanced_extension_)
+      + sizeof(RelCommon_Hint::advanced_extension_)
+      - PROTOBUF_FIELD_OFFSET(RelCommon_Hint, stats_)>(
+          reinterpret_cast<char*>(&stats_),
+          reinterpret_cast<char*>(&other->stats_));
 }
 
 ::PROTOBUF_NAMESPACE_ID::Metadata RelCommon_Hint::GetMetadata() const {
@@ -1786,191 +2040,33 @@ void RelCommon_Hint::InternalSwap(RelCommon_Hint* other) {
 
 // ===================================================================
 
-class RelCommon_RuntimeConstraint::_Internal {
- public:
-};
-
-RelCommon_RuntimeConstraint::RelCommon_RuntimeConstraint(::PROTOBUF_NAMESPACE_ID::Arena* arena)
-  : ::PROTOBUF_NAMESPACE_ID::Message(arena) {
-  SharedCtor();
-  RegisterArenaDtor(arena);
-  // @@protoc_insertion_point(arena_constructor:io.substrait.RelCommon.RuntimeConstraint)
-}
-RelCommon_RuntimeConstraint::RelCommon_RuntimeConstraint(const RelCommon_RuntimeConstraint& from)
-  : ::PROTOBUF_NAMESPACE_ID::Message() {
-  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
-  // @@protoc_insertion_point(copy_constructor:io.substrait.RelCommon.RuntimeConstraint)
-}
-
-void RelCommon_RuntimeConstraint::SharedCtor() {
-}
-
-RelCommon_RuntimeConstraint::~RelCommon_RuntimeConstraint() {
-  // @@protoc_insertion_point(destructor:io.substrait.RelCommon.RuntimeConstraint)
-  SharedDtor();
-  _internal_metadata_.Delete<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
-}
-
-void RelCommon_RuntimeConstraint::SharedDtor() {
-  GOOGLE_DCHECK(GetArena() == nullptr);
-}
-
-void RelCommon_RuntimeConstraint::ArenaDtor(void* object) {
-  RelCommon_RuntimeConstraint* _this = reinterpret_cast< RelCommon_RuntimeConstraint* >(object);
-  (void)_this;
-}
-void RelCommon_RuntimeConstraint::RegisterArenaDtor(::PROTOBUF_NAMESPACE_ID::Arena*) {
-}
-void RelCommon_RuntimeConstraint::SetCachedSize(int size) const {
-  _cached_size_.Set(size);
-}
-
-void RelCommon_RuntimeConstraint::Clear() {
-// @@protoc_insertion_point(message_clear_start:io.substrait.RelCommon.RuntimeConstraint)
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
-  // Prevent compiler warnings about cached_has_bits being unused
-  (void) cached_has_bits;
-
-  _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
-}
-
-const char* RelCommon_RuntimeConstraint::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) {
-#define CHK_(x) if (PROTOBUF_PREDICT_FALSE(!(x))) goto failure
-  while (!ctx->Done(&ptr)) {
-    ::PROTOBUF_NAMESPACE_ID::uint32 tag;
-    ptr = ::PROTOBUF_NAMESPACE_ID::internal::ReadTag(ptr, &tag);
-        if ((tag == 0) || ((tag & 7) == 4)) {
-          CHK_(ptr);
-          ctx->SetLastTag(tag);
-          goto success;
-        }
-        ptr = UnknownFieldParse(tag,
-            _internal_metadata_.mutable_unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(),
-            ptr, ctx);
-        CHK_(ptr != nullptr);
-        continue;
-  }  // while
-success:
-  return ptr;
-failure:
-  ptr = nullptr;
-  goto success;
-#undef CHK_
-}
-
-::PROTOBUF_NAMESPACE_ID::uint8* RelCommon_RuntimeConstraint::_InternalSerialize(
-    ::PROTOBUF_NAMESPACE_ID::uint8* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const {
-  // @@protoc_insertion_point(serialize_to_array_start:io.substrait.RelCommon.RuntimeConstraint)
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
-  (void) cached_has_bits;
-
-  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
-    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormat::InternalSerializeUnknownFieldsToArray(
-        _internal_metadata_.unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(::PROTOBUF_NAMESPACE_ID::UnknownFieldSet::default_instance), target, stream);
-  }
-  // @@protoc_insertion_point(serialize_to_array_end:io.substrait.RelCommon.RuntimeConstraint)
-  return target;
-}
-
-size_t RelCommon_RuntimeConstraint::ByteSizeLong() const {
-// @@protoc_insertion_point(message_byte_size_start:io.substrait.RelCommon.RuntimeConstraint)
-  size_t total_size = 0;
-
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
-  // Prevent compiler warnings about cached_has_bits being unused
-  (void) cached_has_bits;
-
-  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
-    return ::PROTOBUF_NAMESPACE_ID::internal::ComputeUnknownFieldsSize(
-        _internal_metadata_, total_size, &_cached_size_);
-  }
-  int cached_size = ::PROTOBUF_NAMESPACE_ID::internal::ToCachedSize(total_size);
-  SetCachedSize(cached_size);
-  return total_size;
-}
-
-void RelCommon_RuntimeConstraint::MergeFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
-// @@protoc_insertion_point(generalized_merge_from_start:io.substrait.RelCommon.RuntimeConstraint)
-  GOOGLE_DCHECK_NE(&from, this);
-  const RelCommon_RuntimeConstraint* source =
-      ::PROTOBUF_NAMESPACE_ID::DynamicCastToGenerated<RelCommon_RuntimeConstraint>(
-          &from);
-  if (source == nullptr) {
-  // @@protoc_insertion_point(generalized_merge_from_cast_fail:io.substrait.RelCommon.RuntimeConstraint)
-    ::PROTOBUF_NAMESPACE_ID::internal::ReflectionOps::Merge(from, this);
-  } else {
-  // @@protoc_insertion_point(generalized_merge_from_cast_success:io.substrait.RelCommon.RuntimeConstraint)
-    MergeFrom(*source);
-  }
-}
-
-void RelCommon_RuntimeConstraint::MergeFrom(const RelCommon_RuntimeConstraint& from) {
-// @@protoc_insertion_point(class_specific_merge_from_start:io.substrait.RelCommon.RuntimeConstraint)
-  GOOGLE_DCHECK_NE(&from, this);
-  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
-  (void) cached_has_bits;
-
-}
-
-void RelCommon_RuntimeConstraint::CopyFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
-// @@protoc_insertion_point(generalized_copy_from_start:io.substrait.RelCommon.RuntimeConstraint)
-  if (&from == this) return;
-  Clear();
-  MergeFrom(from);
-}
-
-void RelCommon_RuntimeConstraint::CopyFrom(const RelCommon_RuntimeConstraint& from) {
-// @@protoc_insertion_point(class_specific_copy_from_start:io.substrait.RelCommon.RuntimeConstraint)
-  if (&from == this) return;
-  Clear();
-  MergeFrom(from);
-}
-
-bool RelCommon_RuntimeConstraint::IsInitialized() const {
-  return true;
-}
-
-void RelCommon_RuntimeConstraint::InternalSwap(RelCommon_RuntimeConstraint* other) {
-  using std::swap;
-  _internal_metadata_.Swap<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(&other->_internal_metadata_);
-}
-
-::PROTOBUF_NAMESPACE_ID::Metadata RelCommon_RuntimeConstraint::GetMetadata() const {
-  return ::PROTOBUF_NAMESPACE_ID::internal::AssignDescriptors(
-      &descriptor_table_relations_2eproto_getter, &descriptor_table_relations_2eproto_once,
-      file_level_metadata_relations_2eproto[5]);
-}
-
-// ===================================================================
-
 class RelCommon::_Internal {
  public:
   static const ::io::substrait::RelCommon_Direct& direct(const RelCommon* msg);
   static const ::io::substrait::RelCommon_Emit& emit(const RelCommon* msg);
   static const ::io::substrait::RelCommon_Hint& hint(const RelCommon* msg);
-  static const ::io::substrait::RelCommon_RuntimeConstraint& constraint(const RelCommon* msg);
+  static const ::io::substrait::extensions::AdvancedExtension& advanced_extension(const RelCommon* msg);
 };
 
 const ::io::substrait::RelCommon_Direct&
 RelCommon::_Internal::direct(const RelCommon* msg) {
-  return *msg->kind_.direct_;
+  return *msg->emit_kind_.direct_;
 }
 const ::io::substrait::RelCommon_Emit&
 RelCommon::_Internal::emit(const RelCommon* msg) {
-  return *msg->kind_.emit_;
+  return *msg->emit_kind_.emit_;
 }
 const ::io::substrait::RelCommon_Hint&
 RelCommon::_Internal::hint(const RelCommon* msg) {
   return *msg->hint_;
 }
-const ::io::substrait::RelCommon_RuntimeConstraint&
-RelCommon::_Internal::constraint(const RelCommon* msg) {
-  return *msg->constraint_;
+const ::io::substrait::extensions::AdvancedExtension&
+RelCommon::_Internal::advanced_extension(const RelCommon* msg) {
+  return *msg->advanced_extension_;
 }
 void RelCommon::set_allocated_direct(::io::substrait::RelCommon_Direct* direct) {
   ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
-  clear_kind();
+  clear_emit_kind();
   if (direct) {
     ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
       ::PROTOBUF_NAMESPACE_ID::Arena::GetArena(direct);
@@ -1979,13 +2075,13 @@ void RelCommon::set_allocated_direct(::io::substrait::RelCommon_Direct* direct) 
           message_arena, direct, submessage_arena);
     }
     set_has_direct();
-    kind_.direct_ = direct;
+    emit_kind_.direct_ = direct;
   }
   // @@protoc_insertion_point(field_set_allocated:io.substrait.RelCommon.direct)
 }
 void RelCommon::set_allocated_emit(::io::substrait::RelCommon_Emit* emit) {
   ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
-  clear_kind();
+  clear_emit_kind();
   if (emit) {
     ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
       ::PROTOBUF_NAMESPACE_ID::Arena::GetArena(emit);
@@ -1994,9 +2090,15 @@ void RelCommon::set_allocated_emit(::io::substrait::RelCommon_Emit* emit) {
           message_arena, emit, submessage_arena);
     }
     set_has_emit();
-    kind_.emit_ = emit;
+    emit_kind_.emit_ = emit;
   }
   // @@protoc_insertion_point(field_set_allocated:io.substrait.RelCommon.emit)
+}
+void RelCommon::clear_advanced_extension() {
+  if (GetArena() == nullptr && advanced_extension_ != nullptr) {
+    delete advanced_extension_;
+  }
+  advanced_extension_ = nullptr;
 }
 RelCommon::RelCommon(::PROTOBUF_NAMESPACE_ID::Arena* arena)
   : ::PROTOBUF_NAMESPACE_ID::Message(arena) {
@@ -2012,13 +2114,13 @@ RelCommon::RelCommon(const RelCommon& from)
   } else {
     hint_ = nullptr;
   }
-  if (from._internal_has_constraint()) {
-    constraint_ = new ::io::substrait::RelCommon_RuntimeConstraint(*from.constraint_);
+  if (from._internal_has_advanced_extension()) {
+    advanced_extension_ = new ::io::substrait::extensions::AdvancedExtension(*from.advanced_extension_);
   } else {
-    constraint_ = nullptr;
+    advanced_extension_ = nullptr;
   }
-  clear_has_kind();
-  switch (from.kind_case()) {
+  clear_has_emit_kind();
+  switch (from.emit_kind_case()) {
     case kDirect: {
       _internal_mutable_direct()->::io::substrait::RelCommon_Direct::MergeFrom(from._internal_direct());
       break;
@@ -2027,7 +2129,7 @@ RelCommon::RelCommon(const RelCommon& from)
       _internal_mutable_emit()->::io::substrait::RelCommon_Emit::MergeFrom(from._internal_emit());
       break;
     }
-    case KIND_NOT_SET: {
+    case EMIT_KIND_NOT_SET: {
       break;
     }
   }
@@ -2037,9 +2139,9 @@ RelCommon::RelCommon(const RelCommon& from)
 void RelCommon::SharedCtor() {
 ::memset(reinterpret_cast<char*>(this) + static_cast<size_t>(
     reinterpret_cast<char*>(&hint_) - reinterpret_cast<char*>(this)),
-    0, static_cast<size_t>(reinterpret_cast<char*>(&constraint_) -
-    reinterpret_cast<char*>(&hint_)) + sizeof(constraint_));
-clear_has_kind();
+    0, static_cast<size_t>(reinterpret_cast<char*>(&advanced_extension_) -
+    reinterpret_cast<char*>(&hint_)) + sizeof(advanced_extension_));
+clear_has_emit_kind();
 }
 
 RelCommon::~RelCommon() {
@@ -2051,9 +2153,9 @@ RelCommon::~RelCommon() {
 void RelCommon::SharedDtor() {
   GOOGLE_DCHECK(GetArena() == nullptr);
   if (this != internal_default_instance()) delete hint_;
-  if (this != internal_default_instance()) delete constraint_;
-  if (has_kind()) {
-    clear_kind();
+  if (this != internal_default_instance()) delete advanced_extension_;
+  if (has_emit_kind()) {
+    clear_emit_kind();
   }
 }
 
@@ -2067,26 +2169,26 @@ void RelCommon::SetCachedSize(int size) const {
   _cached_size_.Set(size);
 }
 
-void RelCommon::clear_kind() {
+void RelCommon::clear_emit_kind() {
 // @@protoc_insertion_point(one_of_clear_start:io.substrait.RelCommon)
-  switch (kind_case()) {
+  switch (emit_kind_case()) {
     case kDirect: {
       if (GetArena() == nullptr) {
-        delete kind_.direct_;
+        delete emit_kind_.direct_;
       }
       break;
     }
     case kEmit: {
       if (GetArena() == nullptr) {
-        delete kind_.emit_;
+        delete emit_kind_.emit_;
       }
       break;
     }
-    case KIND_NOT_SET: {
+    case EMIT_KIND_NOT_SET: {
       break;
     }
   }
-  _oneof_case_[0] = KIND_NOT_SET;
+  _oneof_case_[0] = EMIT_KIND_NOT_SET;
 }
 
 
@@ -2100,11 +2202,11 @@ void RelCommon::Clear() {
     delete hint_;
   }
   hint_ = nullptr;
-  if (GetArena() == nullptr && constraint_ != nullptr) {
-    delete constraint_;
+  if (GetArena() == nullptr && advanced_extension_ != nullptr) {
+    delete advanced_extension_;
   }
-  constraint_ = nullptr;
-  clear_kind();
+  advanced_extension_ = nullptr;
+  clear_emit_kind();
   _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
@@ -2135,10 +2237,10 @@ const char* RelCommon::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
-      // .io.substrait.RelCommon.RuntimeConstraint constraint = 4;
+      // .io.substrait.extensions.AdvancedExtension advanced_extension = 4;
       case 4:
         if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 34)) {
-          ptr = ctx->ParseMessage(_internal_mutable_constraint(), ptr);
+          ptr = ctx->ParseMessage(_internal_mutable_advanced_extension(), ptr);
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
@@ -2195,12 +2297,12 @@ failure:
         3, _Internal::hint(this), target, stream);
   }
 
-  // .io.substrait.RelCommon.RuntimeConstraint constraint = 4;
-  if (this->has_constraint()) {
+  // .io.substrait.extensions.AdvancedExtension advanced_extension = 4;
+  if (this->has_advanced_extension()) {
     target = stream->EnsureSpace(target);
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
       InternalWriteMessage(
-        4, _Internal::constraint(this), target, stream);
+        4, _Internal::advanced_extension(this), target, stream);
   }
 
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
@@ -2226,29 +2328,29 @@ size_t RelCommon::ByteSizeLong() const {
         *hint_);
   }
 
-  // .io.substrait.RelCommon.RuntimeConstraint constraint = 4;
-  if (this->has_constraint()) {
+  // .io.substrait.extensions.AdvancedExtension advanced_extension = 4;
+  if (this->has_advanced_extension()) {
     total_size += 1 +
       ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
-        *constraint_);
+        *advanced_extension_);
   }
 
-  switch (kind_case()) {
+  switch (emit_kind_case()) {
     // .io.substrait.RelCommon.Direct direct = 1;
     case kDirect: {
       total_size += 1 +
         ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
-          *kind_.direct_);
+          *emit_kind_.direct_);
       break;
     }
     // .io.substrait.RelCommon.Emit emit = 2;
     case kEmit: {
       total_size += 1 +
         ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
-          *kind_.emit_);
+          *emit_kind_.emit_);
       break;
     }
-    case KIND_NOT_SET: {
+    case EMIT_KIND_NOT_SET: {
       break;
     }
   }
@@ -2286,10 +2388,10 @@ void RelCommon::MergeFrom(const RelCommon& from) {
   if (from.has_hint()) {
     _internal_mutable_hint()->::io::substrait::RelCommon_Hint::MergeFrom(from._internal_hint());
   }
-  if (from.has_constraint()) {
-    _internal_mutable_constraint()->::io::substrait::RelCommon_RuntimeConstraint::MergeFrom(from._internal_constraint());
+  if (from.has_advanced_extension()) {
+    _internal_mutable_advanced_extension()->::io::substrait::extensions::AdvancedExtension::MergeFrom(from._internal_advanced_extension());
   }
-  switch (from.kind_case()) {
+  switch (from.emit_kind_case()) {
     case kDirect: {
       _internal_mutable_direct()->::io::substrait::RelCommon_Direct::MergeFrom(from._internal_direct());
       break;
@@ -2298,7 +2400,7 @@ void RelCommon::MergeFrom(const RelCommon& from) {
       _internal_mutable_emit()->::io::substrait::RelCommon_Emit::MergeFrom(from._internal_emit());
       break;
     }
-    case KIND_NOT_SET: {
+    case EMIT_KIND_NOT_SET: {
       break;
     }
   }
@@ -2326,27 +2428,38 @@ void RelCommon::InternalSwap(RelCommon* other) {
   using std::swap;
   _internal_metadata_.Swap<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(&other->_internal_metadata_);
   ::PROTOBUF_NAMESPACE_ID::internal::memswap<
-      PROTOBUF_FIELD_OFFSET(RelCommon, constraint_)
-      + sizeof(RelCommon::constraint_)
+      PROTOBUF_FIELD_OFFSET(RelCommon, advanced_extension_)
+      + sizeof(RelCommon::advanced_extension_)
       - PROTOBUF_FIELD_OFFSET(RelCommon, hint_)>(
           reinterpret_cast<char*>(&hint_),
           reinterpret_cast<char*>(&other->hint_));
-  swap(kind_, other->kind_);
+  swap(emit_kind_, other->emit_kind_);
   swap(_oneof_case_[0], other->_oneof_case_[0]);
 }
 
 ::PROTOBUF_NAMESPACE_ID::Metadata RelCommon::GetMetadata() const {
   return ::PROTOBUF_NAMESPACE_ID::internal::AssignDescriptors(
       &descriptor_table_relations_2eproto_getter, &descriptor_table_relations_2eproto_once,
-      file_level_metadata_relations_2eproto[6]);
+      file_level_metadata_relations_2eproto[5]);
 }
 
 // ===================================================================
 
 class ReadRel_NamedTable::_Internal {
  public:
+  static const ::io::substrait::extensions::AdvancedExtension& advanced_extension(const ReadRel_NamedTable* msg);
 };
 
+const ::io::substrait::extensions::AdvancedExtension&
+ReadRel_NamedTable::_Internal::advanced_extension(const ReadRel_NamedTable* msg) {
+  return *msg->advanced_extension_;
+}
+void ReadRel_NamedTable::clear_advanced_extension() {
+  if (GetArena() == nullptr && advanced_extension_ != nullptr) {
+    delete advanced_extension_;
+  }
+  advanced_extension_ = nullptr;
+}
 ReadRel_NamedTable::ReadRel_NamedTable(::PROTOBUF_NAMESPACE_ID::Arena* arena)
   : ::PROTOBUF_NAMESPACE_ID::Message(arena),
   names_(arena) {
@@ -2358,10 +2471,16 @@ ReadRel_NamedTable::ReadRel_NamedTable(const ReadRel_NamedTable& from)
   : ::PROTOBUF_NAMESPACE_ID::Message(),
       names_(from.names_) {
   _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
+  if (from._internal_has_advanced_extension()) {
+    advanced_extension_ = new ::io::substrait::extensions::AdvancedExtension(*from.advanced_extension_);
+  } else {
+    advanced_extension_ = nullptr;
+  }
   // @@protoc_insertion_point(copy_constructor:io.substrait.ReadRel.NamedTable)
 }
 
 void ReadRel_NamedTable::SharedCtor() {
+advanced_extension_ = nullptr;
 }
 
 ReadRel_NamedTable::~ReadRel_NamedTable() {
@@ -2372,6 +2491,7 @@ ReadRel_NamedTable::~ReadRel_NamedTable() {
 
 void ReadRel_NamedTable::SharedDtor() {
   GOOGLE_DCHECK(GetArena() == nullptr);
+  if (this != internal_default_instance()) delete advanced_extension_;
 }
 
 void ReadRel_NamedTable::ArenaDtor(void* object) {
@@ -2391,6 +2511,10 @@ void ReadRel_NamedTable::Clear() {
   (void) cached_has_bits;
 
   names_.Clear();
+  if (GetArena() == nullptr && advanced_extension_ != nullptr) {
+    delete advanced_extension_;
+  }
+  advanced_extension_ = nullptr;
   _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
@@ -2412,6 +2536,13 @@ const char* ReadRel_NamedTable::_InternalParse(const char* ptr, ::PROTOBUF_NAMES
             CHK_(ptr);
             if (!ctx->DataAvailable(ptr)) break;
           } while (::PROTOBUF_NAMESPACE_ID::internal::ExpectTag<10>(ptr));
+        } else goto handle_unusual;
+        continue;
+      // .io.substrait.extensions.AdvancedExtension advanced_extension = 10;
+      case 10:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 82)) {
+          ptr = ctx->ParseMessage(_internal_mutable_advanced_extension(), ptr);
+          CHK_(ptr);
         } else goto handle_unusual;
         continue;
       default: {
@@ -2453,6 +2584,14 @@ failure:
     target = stream->WriteString(1, s, target);
   }
 
+  // .io.substrait.extensions.AdvancedExtension advanced_extension = 10;
+  if (this->has_advanced_extension()) {
+    target = stream->EnsureSpace(target);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
+      InternalWriteMessage(
+        10, _Internal::advanced_extension(this), target, stream);
+  }
+
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormat::InternalSerializeUnknownFieldsToArray(
         _internal_metadata_.unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(::PROTOBUF_NAMESPACE_ID::UnknownFieldSet::default_instance), target, stream);
@@ -2475,6 +2614,13 @@ size_t ReadRel_NamedTable::ByteSizeLong() const {
   for (int i = 0, n = names_.size(); i < n; i++) {
     total_size += ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::StringSize(
       names_.Get(i));
+  }
+
+  // .io.substrait.extensions.AdvancedExtension advanced_extension = 10;
+  if (this->has_advanced_extension()) {
+    total_size += 1 +
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
+        *advanced_extension_);
   }
 
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
@@ -2509,6 +2655,9 @@ void ReadRel_NamedTable::MergeFrom(const ReadRel_NamedTable& from) {
   (void) cached_has_bits;
 
   names_.MergeFrom(from.names_);
+  if (from.has_advanced_extension()) {
+    _internal_mutable_advanced_extension()->::io::substrait::extensions::AdvancedExtension::MergeFrom(from._internal_advanced_extension());
+  }
 }
 
 void ReadRel_NamedTable::CopyFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
@@ -2533,12 +2682,13 @@ void ReadRel_NamedTable::InternalSwap(ReadRel_NamedTable* other) {
   using std::swap;
   _internal_metadata_.Swap<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(&other->_internal_metadata_);
   names_.InternalSwap(&other->names_);
+  swap(advanced_extension_, other->advanced_extension_);
 }
 
 ::PROTOBUF_NAMESPACE_ID::Metadata ReadRel_NamedTable::GetMetadata() const {
   return ::PROTOBUF_NAMESPACE_ID::internal::AssignDescriptors(
       &descriptor_table_relations_2eproto_getter, &descriptor_table_relations_2eproto_once,
-      file_level_metadata_relations_2eproto[7]);
+      file_level_metadata_relations_2eproto[6]);
 }
 
 // ===================================================================
@@ -2736,6 +2886,217 @@ void ReadRel_VirtualTable::InternalSwap(ReadRel_VirtualTable* other) {
 ::PROTOBUF_NAMESPACE_ID::Metadata ReadRel_VirtualTable::GetMetadata() const {
   return ::PROTOBUF_NAMESPACE_ID::internal::AssignDescriptors(
       &descriptor_table_relations_2eproto_getter, &descriptor_table_relations_2eproto_once,
+      file_level_metadata_relations_2eproto[7]);
+}
+
+// ===================================================================
+
+class ReadRel_ExtensionTable::_Internal {
+ public:
+  static const PROTOBUF_NAMESPACE_ID::Any& detail(const ReadRel_ExtensionTable* msg);
+};
+
+const PROTOBUF_NAMESPACE_ID::Any&
+ReadRel_ExtensionTable::_Internal::detail(const ReadRel_ExtensionTable* msg) {
+  return *msg->detail_;
+}
+void ReadRel_ExtensionTable::clear_detail() {
+  if (GetArena() == nullptr && detail_ != nullptr) {
+    delete detail_;
+  }
+  detail_ = nullptr;
+}
+ReadRel_ExtensionTable::ReadRel_ExtensionTable(::PROTOBUF_NAMESPACE_ID::Arena* arena)
+  : ::PROTOBUF_NAMESPACE_ID::Message(arena) {
+  SharedCtor();
+  RegisterArenaDtor(arena);
+  // @@protoc_insertion_point(arena_constructor:io.substrait.ReadRel.ExtensionTable)
+}
+ReadRel_ExtensionTable::ReadRel_ExtensionTable(const ReadRel_ExtensionTable& from)
+  : ::PROTOBUF_NAMESPACE_ID::Message() {
+  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
+  if (from._internal_has_detail()) {
+    detail_ = new PROTOBUF_NAMESPACE_ID::Any(*from.detail_);
+  } else {
+    detail_ = nullptr;
+  }
+  // @@protoc_insertion_point(copy_constructor:io.substrait.ReadRel.ExtensionTable)
+}
+
+void ReadRel_ExtensionTable::SharedCtor() {
+detail_ = nullptr;
+}
+
+ReadRel_ExtensionTable::~ReadRel_ExtensionTable() {
+  // @@protoc_insertion_point(destructor:io.substrait.ReadRel.ExtensionTable)
+  SharedDtor();
+  _internal_metadata_.Delete<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
+}
+
+void ReadRel_ExtensionTable::SharedDtor() {
+  GOOGLE_DCHECK(GetArena() == nullptr);
+  if (this != internal_default_instance()) delete detail_;
+}
+
+void ReadRel_ExtensionTable::ArenaDtor(void* object) {
+  ReadRel_ExtensionTable* _this = reinterpret_cast< ReadRel_ExtensionTable* >(object);
+  (void)_this;
+}
+void ReadRel_ExtensionTable::RegisterArenaDtor(::PROTOBUF_NAMESPACE_ID::Arena*) {
+}
+void ReadRel_ExtensionTable::SetCachedSize(int size) const {
+  _cached_size_.Set(size);
+}
+
+void ReadRel_ExtensionTable::Clear() {
+// @@protoc_insertion_point(message_clear_start:io.substrait.ReadRel.ExtensionTable)
+  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  if (GetArena() == nullptr && detail_ != nullptr) {
+    delete detail_;
+  }
+  detail_ = nullptr;
+  _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
+}
+
+const char* ReadRel_ExtensionTable::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) {
+#define CHK_(x) if (PROTOBUF_PREDICT_FALSE(!(x))) goto failure
+  while (!ctx->Done(&ptr)) {
+    ::PROTOBUF_NAMESPACE_ID::uint32 tag;
+    ptr = ::PROTOBUF_NAMESPACE_ID::internal::ReadTag(ptr, &tag);
+    switch (tag >> 3) {
+      // .google.protobuf.Any detail = 1;
+      case 1:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 10)) {
+          ptr = ctx->ParseMessage(_internal_mutable_detail(), ptr);
+          CHK_(ptr);
+        } else goto handle_unusual;
+        continue;
+      default: {
+      handle_unusual:
+        if ((tag == 0) || ((tag & 7) == 4)) {
+          CHK_(ptr);
+          ctx->SetLastTag(tag);
+          goto success;
+        }
+        ptr = UnknownFieldParse(tag,
+            _internal_metadata_.mutable_unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(),
+            ptr, ctx);
+        CHK_(ptr != nullptr);
+        continue;
+      }
+    }  // switch
+  }  // while
+success:
+  return ptr;
+failure:
+  ptr = nullptr;
+  goto success;
+#undef CHK_
+}
+
+::PROTOBUF_NAMESPACE_ID::uint8* ReadRel_ExtensionTable::_InternalSerialize(
+    ::PROTOBUF_NAMESPACE_ID::uint8* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const {
+  // @@protoc_insertion_point(serialize_to_array_start:io.substrait.ReadRel.ExtensionTable)
+  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  // .google.protobuf.Any detail = 1;
+  if (this->has_detail()) {
+    target = stream->EnsureSpace(target);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
+      InternalWriteMessage(
+        1, _Internal::detail(this), target, stream);
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormat::InternalSerializeUnknownFieldsToArray(
+        _internal_metadata_.unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(::PROTOBUF_NAMESPACE_ID::UnknownFieldSet::default_instance), target, stream);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:io.substrait.ReadRel.ExtensionTable)
+  return target;
+}
+
+size_t ReadRel_ExtensionTable::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:io.substrait.ReadRel.ExtensionTable)
+  size_t total_size = 0;
+
+  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  // .google.protobuf.Any detail = 1;
+  if (this->has_detail()) {
+    total_size += 1 +
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
+        *detail_);
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    return ::PROTOBUF_NAMESPACE_ID::internal::ComputeUnknownFieldsSize(
+        _internal_metadata_, total_size, &_cached_size_);
+  }
+  int cached_size = ::PROTOBUF_NAMESPACE_ID::internal::ToCachedSize(total_size);
+  SetCachedSize(cached_size);
+  return total_size;
+}
+
+void ReadRel_ExtensionTable::MergeFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
+// @@protoc_insertion_point(generalized_merge_from_start:io.substrait.ReadRel.ExtensionTable)
+  GOOGLE_DCHECK_NE(&from, this);
+  const ReadRel_ExtensionTable* source =
+      ::PROTOBUF_NAMESPACE_ID::DynamicCastToGenerated<ReadRel_ExtensionTable>(
+          &from);
+  if (source == nullptr) {
+  // @@protoc_insertion_point(generalized_merge_from_cast_fail:io.substrait.ReadRel.ExtensionTable)
+    ::PROTOBUF_NAMESPACE_ID::internal::ReflectionOps::Merge(from, this);
+  } else {
+  // @@protoc_insertion_point(generalized_merge_from_cast_success:io.substrait.ReadRel.ExtensionTable)
+    MergeFrom(*source);
+  }
+}
+
+void ReadRel_ExtensionTable::MergeFrom(const ReadRel_ExtensionTable& from) {
+// @@protoc_insertion_point(class_specific_merge_from_start:io.substrait.ReadRel.ExtensionTable)
+  GOOGLE_DCHECK_NE(&from, this);
+  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
+  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  if (from.has_detail()) {
+    _internal_mutable_detail()->PROTOBUF_NAMESPACE_ID::Any::MergeFrom(from._internal_detail());
+  }
+}
+
+void ReadRel_ExtensionTable::CopyFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
+// @@protoc_insertion_point(generalized_copy_from_start:io.substrait.ReadRel.ExtensionTable)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+void ReadRel_ExtensionTable::CopyFrom(const ReadRel_ExtensionTable& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:io.substrait.ReadRel.ExtensionTable)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+bool ReadRel_ExtensionTable::IsInitialized() const {
+  return true;
+}
+
+void ReadRel_ExtensionTable::InternalSwap(ReadRel_ExtensionTable* other) {
+  using std::swap;
+  _internal_metadata_.Swap<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(&other->_internal_metadata_);
+  swap(detail_, other->detail_);
+}
+
+::PROTOBUF_NAMESPACE_ID::Metadata ReadRel_ExtensionTable::GetMetadata() const {
+  return ::PROTOBUF_NAMESPACE_ID::internal::AssignDescriptors(
+      &descriptor_table_relations_2eproto_getter, &descriptor_table_relations_2eproto_once,
       file_level_metadata_relations_2eproto[8]);
 }
 
@@ -2763,6 +3124,14 @@ ReadRel_LocalFiles_FileOrFiles::ReadRel_LocalFiles_FileOrFiles(const ReadRel_Loc
     }
     case kUriPathGlob: {
       _internal_set_uri_path_glob(from._internal_uri_path_glob());
+      break;
+    }
+    case kUriFile: {
+      _internal_set_uri_file(from._internal_uri_file());
+      break;
+    }
+    case kUriFolder: {
+      _internal_set_uri_folder(from._internal_uri_folder());
       break;
     }
     case PATH_TYPE_NOT_SET: {
@@ -2811,6 +3180,14 @@ void ReadRel_LocalFiles_FileOrFiles::clear_path_type() {
       path_type_.uri_path_glob_.Destroy(::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::EmptyDefault{}, GetArena());
       break;
     }
+    case kUriFile: {
+      path_type_.uri_file_.Destroy(::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::EmptyDefault{}, GetArena());
+      break;
+    }
+    case kUriFolder: {
+      path_type_.uri_folder_.Destroy(::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::EmptyDefault{}, GetArena());
+      break;
+    }
     case PATH_TYPE_NOT_SET: {
       break;
     }
@@ -2854,9 +3231,27 @@ const char* ReadRel_LocalFiles_FileOrFiles::_InternalParse(const char* ptr, ::PR
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
-      // .io.substrait.ReadRel.LocalFiles.FileOrFiles.Format format = 3;
+      // string uri_file = 3;
       case 3:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 24)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 26)) {
+          auto str = _internal_mutable_uri_file();
+          ptr = ::PROTOBUF_NAMESPACE_ID::internal::InlineGreedyStringParser(str, ptr, ctx);
+          CHK_(::PROTOBUF_NAMESPACE_ID::internal::VerifyUTF8(str, "io.substrait.ReadRel.LocalFiles.FileOrFiles.uri_file"));
+          CHK_(ptr);
+        } else goto handle_unusual;
+        continue;
+      // string uri_folder = 4;
+      case 4:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 34)) {
+          auto str = _internal_mutable_uri_folder();
+          ptr = ::PROTOBUF_NAMESPACE_ID::internal::InlineGreedyStringParser(str, ptr, ctx);
+          CHK_(::PROTOBUF_NAMESPACE_ID::internal::VerifyUTF8(str, "io.substrait.ReadRel.LocalFiles.FileOrFiles.uri_folder"));
+          CHK_(ptr);
+        } else goto handle_unusual;
+        continue;
+      // .io.substrait.ReadRel.LocalFiles.FileOrFiles.Format format = 5;
+      case 5:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 40)) {
           ::PROTOBUF_NAMESPACE_ID::uint64 val = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint64(&ptr);
           CHK_(ptr);
           _internal_set_format(static_cast<::io::substrait::ReadRel_LocalFiles_FileOrFiles_Format>(val));
@@ -2911,11 +3306,31 @@ failure:
         2, this->_internal_uri_path_glob(), target);
   }
 
-  // .io.substrait.ReadRel.LocalFiles.FileOrFiles.Format format = 3;
+  // string uri_file = 3;
+  if (_internal_has_uri_file()) {
+    ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::VerifyUtf8String(
+      this->_internal_uri_file().data(), static_cast<int>(this->_internal_uri_file().length()),
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::SERIALIZE,
+      "io.substrait.ReadRel.LocalFiles.FileOrFiles.uri_file");
+    target = stream->WriteStringMaybeAliased(
+        3, this->_internal_uri_file(), target);
+  }
+
+  // string uri_folder = 4;
+  if (_internal_has_uri_folder()) {
+    ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::VerifyUtf8String(
+      this->_internal_uri_folder().data(), static_cast<int>(this->_internal_uri_folder().length()),
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::SERIALIZE,
+      "io.substrait.ReadRel.LocalFiles.FileOrFiles.uri_folder");
+    target = stream->WriteStringMaybeAliased(
+        4, this->_internal_uri_folder(), target);
+  }
+
+  // .io.substrait.ReadRel.LocalFiles.FileOrFiles.Format format = 5;
   if (this->format() != 0) {
     target = stream->EnsureSpace(target);
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::WriteEnumToArray(
-      3, this->_internal_format(), target);
+      5, this->_internal_format(), target);
   }
 
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
@@ -2934,7 +3349,7 @@ size_t ReadRel_LocalFiles_FileOrFiles::ByteSizeLong() const {
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  // .io.substrait.ReadRel.LocalFiles.FileOrFiles.Format format = 3;
+  // .io.substrait.ReadRel.LocalFiles.FileOrFiles.Format format = 5;
   if (this->format() != 0) {
     total_size += 1 +
       ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::EnumSize(this->_internal_format());
@@ -2953,6 +3368,20 @@ size_t ReadRel_LocalFiles_FileOrFiles::ByteSizeLong() const {
       total_size += 1 +
         ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::StringSize(
           this->_internal_uri_path_glob());
+      break;
+    }
+    // string uri_file = 3;
+    case kUriFile: {
+      total_size += 1 +
+        ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::StringSize(
+          this->_internal_uri_file());
+      break;
+    }
+    // string uri_folder = 4;
+    case kUriFolder: {
+      total_size += 1 +
+        ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::StringSize(
+          this->_internal_uri_folder());
       break;
     }
     case PATH_TYPE_NOT_SET: {
@@ -3002,6 +3431,14 @@ void ReadRel_LocalFiles_FileOrFiles::MergeFrom(const ReadRel_LocalFiles_FileOrFi
       _internal_set_uri_path_glob(from._internal_uri_path_glob());
       break;
     }
+    case kUriFile: {
+      _internal_set_uri_file(from._internal_uri_file());
+      break;
+    }
+    case kUriFolder: {
+      _internal_set_uri_folder(from._internal_uri_folder());
+      break;
+    }
     case PATH_TYPE_NOT_SET: {
       break;
     }
@@ -3044,8 +3481,19 @@ void ReadRel_LocalFiles_FileOrFiles::InternalSwap(ReadRel_LocalFiles_FileOrFiles
 
 class ReadRel_LocalFiles::_Internal {
  public:
+  static const ::io::substrait::extensions::AdvancedExtension& advanced_extension(const ReadRel_LocalFiles* msg);
 };
 
+const ::io::substrait::extensions::AdvancedExtension&
+ReadRel_LocalFiles::_Internal::advanced_extension(const ReadRel_LocalFiles* msg) {
+  return *msg->advanced_extension_;
+}
+void ReadRel_LocalFiles::clear_advanced_extension() {
+  if (GetArena() == nullptr && advanced_extension_ != nullptr) {
+    delete advanced_extension_;
+  }
+  advanced_extension_ = nullptr;
+}
 ReadRel_LocalFiles::ReadRel_LocalFiles(::PROTOBUF_NAMESPACE_ID::Arena* arena)
   : ::PROTOBUF_NAMESPACE_ID::Message(arena),
   items_(arena) {
@@ -3057,10 +3505,16 @@ ReadRel_LocalFiles::ReadRel_LocalFiles(const ReadRel_LocalFiles& from)
   : ::PROTOBUF_NAMESPACE_ID::Message(),
       items_(from.items_) {
   _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
+  if (from._internal_has_advanced_extension()) {
+    advanced_extension_ = new ::io::substrait::extensions::AdvancedExtension(*from.advanced_extension_);
+  } else {
+    advanced_extension_ = nullptr;
+  }
   // @@protoc_insertion_point(copy_constructor:io.substrait.ReadRel.LocalFiles)
 }
 
 void ReadRel_LocalFiles::SharedCtor() {
+advanced_extension_ = nullptr;
 }
 
 ReadRel_LocalFiles::~ReadRel_LocalFiles() {
@@ -3071,6 +3525,7 @@ ReadRel_LocalFiles::~ReadRel_LocalFiles() {
 
 void ReadRel_LocalFiles::SharedDtor() {
   GOOGLE_DCHECK(GetArena() == nullptr);
+  if (this != internal_default_instance()) delete advanced_extension_;
 }
 
 void ReadRel_LocalFiles::ArenaDtor(void* object) {
@@ -3090,6 +3545,10 @@ void ReadRel_LocalFiles::Clear() {
   (void) cached_has_bits;
 
   items_.Clear();
+  if (GetArena() == nullptr && advanced_extension_ != nullptr) {
+    delete advanced_extension_;
+  }
+  advanced_extension_ = nullptr;
   _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
@@ -3109,6 +3568,13 @@ const char* ReadRel_LocalFiles::_InternalParse(const char* ptr, ::PROTOBUF_NAMES
             CHK_(ptr);
             if (!ctx->DataAvailable(ptr)) break;
           } while (::PROTOBUF_NAMESPACE_ID::internal::ExpectTag<10>(ptr));
+        } else goto handle_unusual;
+        continue;
+      // .io.substrait.extensions.AdvancedExtension advanced_extension = 10;
+      case 10:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 82)) {
+          ptr = ctx->ParseMessage(_internal_mutable_advanced_extension(), ptr);
+          CHK_(ptr);
         } else goto handle_unusual;
         continue;
       default: {
@@ -3148,6 +3614,14 @@ failure:
       InternalWriteMessage(1, this->_internal_items(i), target, stream);
   }
 
+  // .io.substrait.extensions.AdvancedExtension advanced_extension = 10;
+  if (this->has_advanced_extension()) {
+    target = stream->EnsureSpace(target);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
+      InternalWriteMessage(
+        10, _Internal::advanced_extension(this), target, stream);
+  }
+
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormat::InternalSerializeUnknownFieldsToArray(
         _internal_metadata_.unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(::PROTOBUF_NAMESPACE_ID::UnknownFieldSet::default_instance), target, stream);
@@ -3169,6 +3643,13 @@ size_t ReadRel_LocalFiles::ByteSizeLong() const {
   for (const auto& msg : this->items_) {
     total_size +=
       ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(msg);
+  }
+
+  // .io.substrait.extensions.AdvancedExtension advanced_extension = 10;
+  if (this->has_advanced_extension()) {
+    total_size += 1 +
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
+        *advanced_extension_);
   }
 
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
@@ -3203,6 +3684,9 @@ void ReadRel_LocalFiles::MergeFrom(const ReadRel_LocalFiles& from) {
   (void) cached_has_bits;
 
   items_.MergeFrom(from.items_);
+  if (from.has_advanced_extension()) {
+    _internal_mutable_advanced_extension()->::io::substrait::extensions::AdvancedExtension::MergeFrom(from._internal_advanced_extension());
+  }
 }
 
 void ReadRel_LocalFiles::CopyFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
@@ -3227,6 +3711,7 @@ void ReadRel_LocalFiles::InternalSwap(ReadRel_LocalFiles* other) {
   using std::swap;
   _internal_metadata_.Swap<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(&other->_internal_metadata_);
   items_.InternalSwap(&other->items_);
+  swap(advanced_extension_, other->advanced_extension_);
 }
 
 ::PROTOBUF_NAMESPACE_ID::Metadata ReadRel_LocalFiles::GetMetadata() const {
@@ -3240,19 +3725,21 @@ void ReadRel_LocalFiles::InternalSwap(ReadRel_LocalFiles* other) {
 class ReadRel::_Internal {
  public:
   static const ::io::substrait::RelCommon& common(const ReadRel* msg);
-  static const ::io::substrait::Type_NamedStruct& base_schema(const ReadRel* msg);
+  static const ::io::substrait::NamedStruct& base_schema(const ReadRel* msg);
   static const ::io::substrait::Expression& filter(const ReadRel* msg);
-  static const ::io::substrait::MaskExpression& projection(const ReadRel* msg);
+  static const ::io::substrait::Expression_MaskExpression& projection(const ReadRel* msg);
+  static const ::io::substrait::extensions::AdvancedExtension& advanced_extension(const ReadRel* msg);
   static const ::io::substrait::ReadRel_VirtualTable& virtual_table(const ReadRel* msg);
   static const ::io::substrait::ReadRel_LocalFiles& local_files(const ReadRel* msg);
   static const ::io::substrait::ReadRel_NamedTable& named_table(const ReadRel* msg);
+  static const ::io::substrait::ReadRel_ExtensionTable& extension_table(const ReadRel* msg);
 };
 
 const ::io::substrait::RelCommon&
 ReadRel::_Internal::common(const ReadRel* msg) {
   return *msg->common_;
 }
-const ::io::substrait::Type_NamedStruct&
+const ::io::substrait::NamedStruct&
 ReadRel::_Internal::base_schema(const ReadRel* msg) {
   return *msg->base_schema_;
 }
@@ -3260,9 +3747,13 @@ const ::io::substrait::Expression&
 ReadRel::_Internal::filter(const ReadRel* msg) {
   return *msg->filter_;
 }
-const ::io::substrait::MaskExpression&
+const ::io::substrait::Expression_MaskExpression&
 ReadRel::_Internal::projection(const ReadRel* msg) {
   return *msg->projection_;
+}
+const ::io::substrait::extensions::AdvancedExtension&
+ReadRel::_Internal::advanced_extension(const ReadRel* msg) {
+  return *msg->advanced_extension_;
 }
 const ::io::substrait::ReadRel_VirtualTable&
 ReadRel::_Internal::virtual_table(const ReadRel* msg) {
@@ -3275,6 +3766,10 @@ ReadRel::_Internal::local_files(const ReadRel* msg) {
 const ::io::substrait::ReadRel_NamedTable&
 ReadRel::_Internal::named_table(const ReadRel* msg) {
   return *msg->read_type_.named_table_;
+}
+const ::io::substrait::ReadRel_ExtensionTable&
+ReadRel::_Internal::extension_table(const ReadRel* msg) {
+  return *msg->read_type_.extension_table_;
 }
 void ReadRel::clear_base_schema() {
   if (GetArena() == nullptr && base_schema_ != nullptr) {
@@ -3293,6 +3788,12 @@ void ReadRel::clear_projection() {
     delete projection_;
   }
   projection_ = nullptr;
+}
+void ReadRel::clear_advanced_extension() {
+  if (GetArena() == nullptr && advanced_extension_ != nullptr) {
+    delete advanced_extension_;
+  }
+  advanced_extension_ = nullptr;
 }
 void ReadRel::set_allocated_virtual_table(::io::substrait::ReadRel_VirtualTable* virtual_table) {
   ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
@@ -3339,6 +3840,21 @@ void ReadRel::set_allocated_named_table(::io::substrait::ReadRel_NamedTable* nam
   }
   // @@protoc_insertion_point(field_set_allocated:io.substrait.ReadRel.named_table)
 }
+void ReadRel::set_allocated_extension_table(::io::substrait::ReadRel_ExtensionTable* extension_table) {
+  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
+  clear_read_type();
+  if (extension_table) {
+    ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
+      ::PROTOBUF_NAMESPACE_ID::Arena::GetArena(extension_table);
+    if (message_arena != submessage_arena) {
+      extension_table = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
+          message_arena, extension_table, submessage_arena);
+    }
+    set_has_extension_table();
+    read_type_.extension_table_ = extension_table;
+  }
+  // @@protoc_insertion_point(field_set_allocated:io.substrait.ReadRel.extension_table)
+}
 ReadRel::ReadRel(::PROTOBUF_NAMESPACE_ID::Arena* arena)
   : ::PROTOBUF_NAMESPACE_ID::Message(arena) {
   SharedCtor();
@@ -3354,7 +3870,7 @@ ReadRel::ReadRel(const ReadRel& from)
     common_ = nullptr;
   }
   if (from._internal_has_base_schema()) {
-    base_schema_ = new ::io::substrait::Type_NamedStruct(*from.base_schema_);
+    base_schema_ = new ::io::substrait::NamedStruct(*from.base_schema_);
   } else {
     base_schema_ = nullptr;
   }
@@ -3364,9 +3880,14 @@ ReadRel::ReadRel(const ReadRel& from)
     filter_ = nullptr;
   }
   if (from._internal_has_projection()) {
-    projection_ = new ::io::substrait::MaskExpression(*from.projection_);
+    projection_ = new ::io::substrait::Expression_MaskExpression(*from.projection_);
   } else {
     projection_ = nullptr;
+  }
+  if (from._internal_has_advanced_extension()) {
+    advanced_extension_ = new ::io::substrait::extensions::AdvancedExtension(*from.advanced_extension_);
+  } else {
+    advanced_extension_ = nullptr;
   }
   clear_has_read_type();
   switch (from.read_type_case()) {
@@ -3382,6 +3903,10 @@ ReadRel::ReadRel(const ReadRel& from)
       _internal_mutable_named_table()->::io::substrait::ReadRel_NamedTable::MergeFrom(from._internal_named_table());
       break;
     }
+    case kExtensionTable: {
+      _internal_mutable_extension_table()->::io::substrait::ReadRel_ExtensionTable::MergeFrom(from._internal_extension_table());
+      break;
+    }
     case READ_TYPE_NOT_SET: {
       break;
     }
@@ -3392,8 +3917,8 @@ ReadRel::ReadRel(const ReadRel& from)
 void ReadRel::SharedCtor() {
 ::memset(reinterpret_cast<char*>(this) + static_cast<size_t>(
     reinterpret_cast<char*>(&common_) - reinterpret_cast<char*>(this)),
-    0, static_cast<size_t>(reinterpret_cast<char*>(&projection_) -
-    reinterpret_cast<char*>(&common_)) + sizeof(projection_));
+    0, static_cast<size_t>(reinterpret_cast<char*>(&advanced_extension_) -
+    reinterpret_cast<char*>(&common_)) + sizeof(advanced_extension_));
 clear_has_read_type();
 }
 
@@ -3409,6 +3934,7 @@ void ReadRel::SharedDtor() {
   if (this != internal_default_instance()) delete base_schema_;
   if (this != internal_default_instance()) delete filter_;
   if (this != internal_default_instance()) delete projection_;
+  if (this != internal_default_instance()) delete advanced_extension_;
   if (has_read_type()) {
     clear_read_type();
   }
@@ -3445,6 +3971,12 @@ void ReadRel::clear_read_type() {
       }
       break;
     }
+    case kExtensionTable: {
+      if (GetArena() == nullptr) {
+        delete read_type_.extension_table_;
+      }
+      break;
+    }
     case READ_TYPE_NOT_SET: {
       break;
     }
@@ -3475,6 +4007,10 @@ void ReadRel::Clear() {
     delete projection_;
   }
   projection_ = nullptr;
+  if (GetArena() == nullptr && advanced_extension_ != nullptr) {
+    delete advanced_extension_;
+  }
+  advanced_extension_ = nullptr;
   clear_read_type();
   _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
@@ -3492,7 +4028,7 @@ const char* ReadRel::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::in
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
-      // .io.substrait.Type.NamedStruct base_schema = 2;
+      // .io.substrait.NamedStruct base_schema = 2;
       case 2:
         if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 18)) {
           ptr = ctx->ParseMessage(_internal_mutable_base_schema(), ptr);
@@ -3506,7 +4042,7 @@ const char* ReadRel::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::in
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
-      // .io.substrait.MaskExpression projection = 4;
+      // .io.substrait.Expression.MaskExpression projection = 4;
       case 4:
         if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 34)) {
           ptr = ctx->ParseMessage(_internal_mutable_projection(), ptr);
@@ -3531,6 +4067,20 @@ const char* ReadRel::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::in
       case 7:
         if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 58)) {
           ptr = ctx->ParseMessage(_internal_mutable_named_table(), ptr);
+          CHK_(ptr);
+        } else goto handle_unusual;
+        continue;
+      // .io.substrait.ReadRel.ExtensionTable extension_table = 8;
+      case 8:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 66)) {
+          ptr = ctx->ParseMessage(_internal_mutable_extension_table(), ptr);
+          CHK_(ptr);
+        } else goto handle_unusual;
+        continue;
+      // .io.substrait.extensions.AdvancedExtension advanced_extension = 10;
+      case 10:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 82)) {
+          ptr = ctx->ParseMessage(_internal_mutable_advanced_extension(), ptr);
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
@@ -3571,7 +4121,7 @@ failure:
         1, _Internal::common(this), target, stream);
   }
 
-  // .io.substrait.Type.NamedStruct base_schema = 2;
+  // .io.substrait.NamedStruct base_schema = 2;
   if (this->has_base_schema()) {
     target = stream->EnsureSpace(target);
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
@@ -3587,7 +4137,7 @@ failure:
         3, _Internal::filter(this), target, stream);
   }
 
-  // .io.substrait.MaskExpression projection = 4;
+  // .io.substrait.Expression.MaskExpression projection = 4;
   if (this->has_projection()) {
     target = stream->EnsureSpace(target);
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
@@ -3619,6 +4169,22 @@ failure:
         7, _Internal::named_table(this), target, stream);
   }
 
+  // .io.substrait.ReadRel.ExtensionTable extension_table = 8;
+  if (_internal_has_extension_table()) {
+    target = stream->EnsureSpace(target);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
+      InternalWriteMessage(
+        8, _Internal::extension_table(this), target, stream);
+  }
+
+  // .io.substrait.extensions.AdvancedExtension advanced_extension = 10;
+  if (this->has_advanced_extension()) {
+    target = stream->EnsureSpace(target);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
+      InternalWriteMessage(
+        10, _Internal::advanced_extension(this), target, stream);
+  }
+
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormat::InternalSerializeUnknownFieldsToArray(
         _internal_metadata_.unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(::PROTOBUF_NAMESPACE_ID::UnknownFieldSet::default_instance), target, stream);
@@ -3642,7 +4208,7 @@ size_t ReadRel::ByteSizeLong() const {
         *common_);
   }
 
-  // .io.substrait.Type.NamedStruct base_schema = 2;
+  // .io.substrait.NamedStruct base_schema = 2;
   if (this->has_base_schema()) {
     total_size += 1 +
       ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
@@ -3656,11 +4222,18 @@ size_t ReadRel::ByteSizeLong() const {
         *filter_);
   }
 
-  // .io.substrait.MaskExpression projection = 4;
+  // .io.substrait.Expression.MaskExpression projection = 4;
   if (this->has_projection()) {
     total_size += 1 +
       ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
         *projection_);
+  }
+
+  // .io.substrait.extensions.AdvancedExtension advanced_extension = 10;
+  if (this->has_advanced_extension()) {
+    total_size += 1 +
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
+        *advanced_extension_);
   }
 
   switch (read_type_case()) {
@@ -3683,6 +4256,13 @@ size_t ReadRel::ByteSizeLong() const {
       total_size += 1 +
         ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
           *read_type_.named_table_);
+      break;
+    }
+    // .io.substrait.ReadRel.ExtensionTable extension_table = 8;
+    case kExtensionTable: {
+      total_size += 1 +
+        ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
+          *read_type_.extension_table_);
       break;
     }
     case READ_TYPE_NOT_SET: {
@@ -3724,13 +4304,16 @@ void ReadRel::MergeFrom(const ReadRel& from) {
     _internal_mutable_common()->::io::substrait::RelCommon::MergeFrom(from._internal_common());
   }
   if (from.has_base_schema()) {
-    _internal_mutable_base_schema()->::io::substrait::Type_NamedStruct::MergeFrom(from._internal_base_schema());
+    _internal_mutable_base_schema()->::io::substrait::NamedStruct::MergeFrom(from._internal_base_schema());
   }
   if (from.has_filter()) {
     _internal_mutable_filter()->::io::substrait::Expression::MergeFrom(from._internal_filter());
   }
   if (from.has_projection()) {
-    _internal_mutable_projection()->::io::substrait::MaskExpression::MergeFrom(from._internal_projection());
+    _internal_mutable_projection()->::io::substrait::Expression_MaskExpression::MergeFrom(from._internal_projection());
+  }
+  if (from.has_advanced_extension()) {
+    _internal_mutable_advanced_extension()->::io::substrait::extensions::AdvancedExtension::MergeFrom(from._internal_advanced_extension());
   }
   switch (from.read_type_case()) {
     case kVirtualTable: {
@@ -3743,6 +4326,10 @@ void ReadRel::MergeFrom(const ReadRel& from) {
     }
     case kNamedTable: {
       _internal_mutable_named_table()->::io::substrait::ReadRel_NamedTable::MergeFrom(from._internal_named_table());
+      break;
+    }
+    case kExtensionTable: {
+      _internal_mutable_extension_table()->::io::substrait::ReadRel_ExtensionTable::MergeFrom(from._internal_extension_table());
       break;
     }
     case READ_TYPE_NOT_SET: {
@@ -3773,8 +4360,8 @@ void ReadRel::InternalSwap(ReadRel* other) {
   using std::swap;
   _internal_metadata_.Swap<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(&other->_internal_metadata_);
   ::PROTOBUF_NAMESPACE_ID::internal::memswap<
-      PROTOBUF_FIELD_OFFSET(ReadRel, projection_)
-      + sizeof(ReadRel::projection_)
+      PROTOBUF_FIELD_OFFSET(ReadRel, advanced_extension_)
+      + sizeof(ReadRel::advanced_extension_)
       - PROTOBUF_FIELD_OFFSET(ReadRel, common_)>(
           reinterpret_cast<char*>(&common_),
           reinterpret_cast<char*>(&other->common_));
@@ -3794,6 +4381,7 @@ class ProjectRel::_Internal {
  public:
   static const ::io::substrait::RelCommon& common(const ProjectRel* msg);
   static const ::io::substrait::Rel& input(const ProjectRel* msg);
+  static const ::io::substrait::extensions::AdvancedExtension& advanced_extension(const ProjectRel* msg);
 };
 
 const ::io::substrait::RelCommon&
@@ -3804,8 +4392,18 @@ const ::io::substrait::Rel&
 ProjectRel::_Internal::input(const ProjectRel* msg) {
   return *msg->input_;
 }
+const ::io::substrait::extensions::AdvancedExtension&
+ProjectRel::_Internal::advanced_extension(const ProjectRel* msg) {
+  return *msg->advanced_extension_;
+}
 void ProjectRel::clear_expressions() {
   expressions_.Clear();
+}
+void ProjectRel::clear_advanced_extension() {
+  if (GetArena() == nullptr && advanced_extension_ != nullptr) {
+    delete advanced_extension_;
+  }
+  advanced_extension_ = nullptr;
 }
 ProjectRel::ProjectRel(::PROTOBUF_NAMESPACE_ID::Arena* arena)
   : ::PROTOBUF_NAMESPACE_ID::Message(arena),
@@ -3828,14 +4426,19 @@ ProjectRel::ProjectRel(const ProjectRel& from)
   } else {
     input_ = nullptr;
   }
+  if (from._internal_has_advanced_extension()) {
+    advanced_extension_ = new ::io::substrait::extensions::AdvancedExtension(*from.advanced_extension_);
+  } else {
+    advanced_extension_ = nullptr;
+  }
   // @@protoc_insertion_point(copy_constructor:io.substrait.ProjectRel)
 }
 
 void ProjectRel::SharedCtor() {
 ::memset(reinterpret_cast<char*>(this) + static_cast<size_t>(
     reinterpret_cast<char*>(&common_) - reinterpret_cast<char*>(this)),
-    0, static_cast<size_t>(reinterpret_cast<char*>(&input_) -
-    reinterpret_cast<char*>(&common_)) + sizeof(input_));
+    0, static_cast<size_t>(reinterpret_cast<char*>(&advanced_extension_) -
+    reinterpret_cast<char*>(&common_)) + sizeof(advanced_extension_));
 }
 
 ProjectRel::~ProjectRel() {
@@ -3848,6 +4451,7 @@ void ProjectRel::SharedDtor() {
   GOOGLE_DCHECK(GetArena() == nullptr);
   if (this != internal_default_instance()) delete common_;
   if (this != internal_default_instance()) delete input_;
+  if (this != internal_default_instance()) delete advanced_extension_;
 }
 
 void ProjectRel::ArenaDtor(void* object) {
@@ -3875,6 +4479,10 @@ void ProjectRel::Clear() {
     delete input_;
   }
   input_ = nullptr;
+  if (GetArena() == nullptr && advanced_extension_ != nullptr) {
+    delete advanced_extension_;
+  }
+  advanced_extension_ = nullptr;
   _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
@@ -3908,6 +4516,13 @@ const char* ProjectRel::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID:
             CHK_(ptr);
             if (!ctx->DataAvailable(ptr)) break;
           } while (::PROTOBUF_NAMESPACE_ID::internal::ExpectTag<26>(ptr));
+        } else goto handle_unusual;
+        continue;
+      // .io.substrait.extensions.AdvancedExtension advanced_extension = 10;
+      case 10:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 82)) {
+          ptr = ctx->ParseMessage(_internal_mutable_advanced_extension(), ptr);
+          CHK_(ptr);
         } else goto handle_unusual;
         continue;
       default: {
@@ -3963,6 +4578,14 @@ failure:
       InternalWriteMessage(3, this->_internal_expressions(i), target, stream);
   }
 
+  // .io.substrait.extensions.AdvancedExtension advanced_extension = 10;
+  if (this->has_advanced_extension()) {
+    target = stream->EnsureSpace(target);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
+      InternalWriteMessage(
+        10, _Internal::advanced_extension(this), target, stream);
+  }
+
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormat::InternalSerializeUnknownFieldsToArray(
         _internal_metadata_.unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(::PROTOBUF_NAMESPACE_ID::UnknownFieldSet::default_instance), target, stream);
@@ -3998,6 +4621,13 @@ size_t ProjectRel::ByteSizeLong() const {
     total_size += 1 +
       ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
         *input_);
+  }
+
+  // .io.substrait.extensions.AdvancedExtension advanced_extension = 10;
+  if (this->has_advanced_extension()) {
+    total_size += 1 +
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
+        *advanced_extension_);
   }
 
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
@@ -4038,6 +4668,9 @@ void ProjectRel::MergeFrom(const ProjectRel& from) {
   if (from.has_input()) {
     _internal_mutable_input()->::io::substrait::Rel::MergeFrom(from._internal_input());
   }
+  if (from.has_advanced_extension()) {
+    _internal_mutable_advanced_extension()->::io::substrait::extensions::AdvancedExtension::MergeFrom(from._internal_advanced_extension());
+  }
 }
 
 void ProjectRel::CopyFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
@@ -4063,8 +4696,8 @@ void ProjectRel::InternalSwap(ProjectRel* other) {
   _internal_metadata_.Swap<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(&other->_internal_metadata_);
   expressions_.InternalSwap(&other->expressions_);
   ::PROTOBUF_NAMESPACE_ID::internal::memswap<
-      PROTOBUF_FIELD_OFFSET(ProjectRel, input_)
-      + sizeof(ProjectRel::input_)
+      PROTOBUF_FIELD_OFFSET(ProjectRel, advanced_extension_)
+      + sizeof(ProjectRel::advanced_extension_)
       - PROTOBUF_FIELD_OFFSET(ProjectRel, common_)>(
           reinterpret_cast<char*>(&common_),
           reinterpret_cast<char*>(&other->common_));
@@ -4085,6 +4718,7 @@ class JoinRel::_Internal {
   static const ::io::substrait::Rel& right(const JoinRel* msg);
   static const ::io::substrait::Expression& expression(const JoinRel* msg);
   static const ::io::substrait::Expression& post_join_filter(const JoinRel* msg);
+  static const ::io::substrait::extensions::AdvancedExtension& advanced_extension(const JoinRel* msg);
 };
 
 const ::io::substrait::RelCommon&
@@ -4107,6 +4741,10 @@ const ::io::substrait::Expression&
 JoinRel::_Internal::post_join_filter(const JoinRel* msg) {
   return *msg->post_join_filter_;
 }
+const ::io::substrait::extensions::AdvancedExtension&
+JoinRel::_Internal::advanced_extension(const JoinRel* msg) {
+  return *msg->advanced_extension_;
+}
 void JoinRel::clear_expression() {
   if (GetArena() == nullptr && expression_ != nullptr) {
     delete expression_;
@@ -4118,6 +4756,12 @@ void JoinRel::clear_post_join_filter() {
     delete post_join_filter_;
   }
   post_join_filter_ = nullptr;
+}
+void JoinRel::clear_advanced_extension() {
+  if (GetArena() == nullptr && advanced_extension_ != nullptr) {
+    delete advanced_extension_;
+  }
+  advanced_extension_ = nullptr;
 }
 JoinRel::JoinRel(::PROTOBUF_NAMESPACE_ID::Arena* arena)
   : ::PROTOBUF_NAMESPACE_ID::Message(arena) {
@@ -4153,6 +4797,11 @@ JoinRel::JoinRel(const JoinRel& from)
   } else {
     post_join_filter_ = nullptr;
   }
+  if (from._internal_has_advanced_extension()) {
+    advanced_extension_ = new ::io::substrait::extensions::AdvancedExtension(*from.advanced_extension_);
+  } else {
+    advanced_extension_ = nullptr;
+  }
   type_ = from.type_;
   // @@protoc_insertion_point(copy_constructor:io.substrait.JoinRel)
 }
@@ -4177,6 +4826,7 @@ void JoinRel::SharedDtor() {
   if (this != internal_default_instance()) delete right_;
   if (this != internal_default_instance()) delete expression_;
   if (this != internal_default_instance()) delete post_join_filter_;
+  if (this != internal_default_instance()) delete advanced_extension_;
 }
 
 void JoinRel::ArenaDtor(void* object) {
@@ -4215,6 +4865,10 @@ void JoinRel::Clear() {
     delete post_join_filter_;
   }
   post_join_filter_ = nullptr;
+  if (GetArena() == nullptr && advanced_extension_ != nullptr) {
+    delete advanced_extension_;
+  }
+  advanced_extension_ = nullptr;
   type_ = 0;
   _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
@@ -4266,6 +4920,13 @@ const char* JoinRel::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::in
           ::PROTOBUF_NAMESPACE_ID::uint64 val = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint64(&ptr);
           CHK_(ptr);
           _internal_set_type(static_cast<::io::substrait::JoinRel_JoinType>(val));
+        } else goto handle_unusual;
+        continue;
+      // .io.substrait.extensions.AdvancedExtension advanced_extension = 10;
+      case 10:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 82)) {
+          ptr = ctx->ParseMessage(_internal_mutable_advanced_extension(), ptr);
+          CHK_(ptr);
         } else goto handle_unusual;
         continue;
       default: {
@@ -4344,6 +5005,14 @@ failure:
       6, this->_internal_type(), target);
   }
 
+  // .io.substrait.extensions.AdvancedExtension advanced_extension = 10;
+  if (this->has_advanced_extension()) {
+    target = stream->EnsureSpace(target);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
+      InternalWriteMessage(
+        10, _Internal::advanced_extension(this), target, stream);
+  }
+
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormat::InternalSerializeUnknownFieldsToArray(
         _internal_metadata_.unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(::PROTOBUF_NAMESPACE_ID::UnknownFieldSet::default_instance), target, stream);
@@ -4393,6 +5062,13 @@ size_t JoinRel::ByteSizeLong() const {
     total_size += 1 +
       ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
         *post_join_filter_);
+  }
+
+  // .io.substrait.extensions.AdvancedExtension advanced_extension = 10;
+  if (this->has_advanced_extension()) {
+    total_size += 1 +
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
+        *advanced_extension_);
   }
 
   // .io.substrait.JoinRel.JoinType type = 6;
@@ -4447,6 +5123,9 @@ void JoinRel::MergeFrom(const JoinRel& from) {
   if (from.has_post_join_filter()) {
     _internal_mutable_post_join_filter()->::io::substrait::Expression::MergeFrom(from._internal_post_join_filter());
   }
+  if (from.has_advanced_extension()) {
+    _internal_mutable_advanced_extension()->::io::substrait::extensions::AdvancedExtension::MergeFrom(from._internal_advanced_extension());
+  }
   if (from.type() != 0) {
     _internal_set_type(from._internal_type());
   }
@@ -4493,6 +5172,7 @@ class FetchRel::_Internal {
  public:
   static const ::io::substrait::RelCommon& common(const FetchRel* msg);
   static const ::io::substrait::Rel& input(const FetchRel* msg);
+  static const ::io::substrait::extensions::AdvancedExtension& advanced_extension(const FetchRel* msg);
 };
 
 const ::io::substrait::RelCommon&
@@ -4502,6 +5182,16 @@ FetchRel::_Internal::common(const FetchRel* msg) {
 const ::io::substrait::Rel&
 FetchRel::_Internal::input(const FetchRel* msg) {
   return *msg->input_;
+}
+const ::io::substrait::extensions::AdvancedExtension&
+FetchRel::_Internal::advanced_extension(const FetchRel* msg) {
+  return *msg->advanced_extension_;
+}
+void FetchRel::clear_advanced_extension() {
+  if (GetArena() == nullptr && advanced_extension_ != nullptr) {
+    delete advanced_extension_;
+  }
+  advanced_extension_ = nullptr;
 }
 FetchRel::FetchRel(::PROTOBUF_NAMESPACE_ID::Arena* arena)
   : ::PROTOBUF_NAMESPACE_ID::Message(arena) {
@@ -4521,6 +5211,11 @@ FetchRel::FetchRel(const FetchRel& from)
     input_ = new ::io::substrait::Rel(*from.input_);
   } else {
     input_ = nullptr;
+  }
+  if (from._internal_has_advanced_extension()) {
+    advanced_extension_ = new ::io::substrait::extensions::AdvancedExtension(*from.advanced_extension_);
+  } else {
+    advanced_extension_ = nullptr;
   }
   ::memcpy(&offset_, &from.offset_,
     static_cast<size_t>(reinterpret_cast<char*>(&count_) -
@@ -4545,6 +5240,7 @@ void FetchRel::SharedDtor() {
   GOOGLE_DCHECK(GetArena() == nullptr);
   if (this != internal_default_instance()) delete common_;
   if (this != internal_default_instance()) delete input_;
+  if (this != internal_default_instance()) delete advanced_extension_;
 }
 
 void FetchRel::ArenaDtor(void* object) {
@@ -4571,6 +5267,10 @@ void FetchRel::Clear() {
     delete input_;
   }
   input_ = nullptr;
+  if (GetArena() == nullptr && advanced_extension_ != nullptr) {
+    delete advanced_extension_;
+  }
+  advanced_extension_ = nullptr;
   ::memset(&offset_, 0, static_cast<size_t>(
       reinterpret_cast<char*>(&count_) -
       reinterpret_cast<char*>(&offset_)) + sizeof(count_));
@@ -4608,6 +5308,13 @@ const char* FetchRel::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::i
       case 4:
         if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 32)) {
           count_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint64(&ptr);
+          CHK_(ptr);
+        } else goto handle_unusual;
+        continue;
+      // .io.substrait.extensions.AdvancedExtension advanced_extension = 10;
+      case 10:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 82)) {
+          ptr = ctx->ParseMessage(_internal_mutable_advanced_extension(), ptr);
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
@@ -4668,6 +5375,14 @@ failure:
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::WriteInt64ToArray(4, this->_internal_count(), target);
   }
 
+  // .io.substrait.extensions.AdvancedExtension advanced_extension = 10;
+  if (this->has_advanced_extension()) {
+    target = stream->EnsureSpace(target);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
+      InternalWriteMessage(
+        10, _Internal::advanced_extension(this), target, stream);
+  }
+
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormat::InternalSerializeUnknownFieldsToArray(
         _internal_metadata_.unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(::PROTOBUF_NAMESPACE_ID::UnknownFieldSet::default_instance), target, stream);
@@ -4696,6 +5411,13 @@ size_t FetchRel::ByteSizeLong() const {
     total_size += 1 +
       ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
         *input_);
+  }
+
+  // .io.substrait.extensions.AdvancedExtension advanced_extension = 10;
+  if (this->has_advanced_extension()) {
+    total_size += 1 +
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
+        *advanced_extension_);
   }
 
   // int64 offset = 3;
@@ -4748,6 +5470,9 @@ void FetchRel::MergeFrom(const FetchRel& from) {
   }
   if (from.has_input()) {
     _internal_mutable_input()->::io::substrait::Rel::MergeFrom(from._internal_input());
+  }
+  if (from.has_advanced_extension()) {
+    _internal_mutable_advanced_extension()->::io::substrait::extensions::AdvancedExtension::MergeFrom(from._internal_advanced_extension());
   }
   if (from.offset() != 0) {
     _internal_set_offset(from._internal_offset());
@@ -4998,18 +5723,29 @@ void AggregateRel_Grouping::InternalSwap(AggregateRel_Grouping* other) {
 
 class AggregateRel_Measure::_Internal {
  public:
-  static const ::io::substrait::Expression_AggregateFunction& measure(const AggregateRel_Measure* msg);
+  static const ::io::substrait::AggregateFunction& measure(const AggregateRel_Measure* msg);
+  static const ::io::substrait::Expression& filter(const AggregateRel_Measure* msg);
 };
 
-const ::io::substrait::Expression_AggregateFunction&
+const ::io::substrait::AggregateFunction&
 AggregateRel_Measure::_Internal::measure(const AggregateRel_Measure* msg) {
   return *msg->measure_;
+}
+const ::io::substrait::Expression&
+AggregateRel_Measure::_Internal::filter(const AggregateRel_Measure* msg) {
+  return *msg->filter_;
 }
 void AggregateRel_Measure::clear_measure() {
   if (GetArena() == nullptr && measure_ != nullptr) {
     delete measure_;
   }
   measure_ = nullptr;
+}
+void AggregateRel_Measure::clear_filter() {
+  if (GetArena() == nullptr && filter_ != nullptr) {
+    delete filter_;
+  }
+  filter_ = nullptr;
 }
 AggregateRel_Measure::AggregateRel_Measure(::PROTOBUF_NAMESPACE_ID::Arena* arena)
   : ::PROTOBUF_NAMESPACE_ID::Message(arena) {
@@ -5021,15 +5757,23 @@ AggregateRel_Measure::AggregateRel_Measure(const AggregateRel_Measure& from)
   : ::PROTOBUF_NAMESPACE_ID::Message() {
   _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
   if (from._internal_has_measure()) {
-    measure_ = new ::io::substrait::Expression_AggregateFunction(*from.measure_);
+    measure_ = new ::io::substrait::AggregateFunction(*from.measure_);
   } else {
     measure_ = nullptr;
+  }
+  if (from._internal_has_filter()) {
+    filter_ = new ::io::substrait::Expression(*from.filter_);
+  } else {
+    filter_ = nullptr;
   }
   // @@protoc_insertion_point(copy_constructor:io.substrait.AggregateRel.Measure)
 }
 
 void AggregateRel_Measure::SharedCtor() {
-measure_ = nullptr;
+::memset(reinterpret_cast<char*>(this) + static_cast<size_t>(
+    reinterpret_cast<char*>(&measure_) - reinterpret_cast<char*>(this)),
+    0, static_cast<size_t>(reinterpret_cast<char*>(&filter_) -
+    reinterpret_cast<char*>(&measure_)) + sizeof(filter_));
 }
 
 AggregateRel_Measure::~AggregateRel_Measure() {
@@ -5041,6 +5785,7 @@ AggregateRel_Measure::~AggregateRel_Measure() {
 void AggregateRel_Measure::SharedDtor() {
   GOOGLE_DCHECK(GetArena() == nullptr);
   if (this != internal_default_instance()) delete measure_;
+  if (this != internal_default_instance()) delete filter_;
 }
 
 void AggregateRel_Measure::ArenaDtor(void* object) {
@@ -5063,6 +5808,10 @@ void AggregateRel_Measure::Clear() {
     delete measure_;
   }
   measure_ = nullptr;
+  if (GetArena() == nullptr && filter_ != nullptr) {
+    delete filter_;
+  }
+  filter_ = nullptr;
   _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
@@ -5072,10 +5821,17 @@ const char* AggregateRel_Measure::_InternalParse(const char* ptr, ::PROTOBUF_NAM
     ::PROTOBUF_NAMESPACE_ID::uint32 tag;
     ptr = ::PROTOBUF_NAMESPACE_ID::internal::ReadTag(ptr, &tag);
     switch (tag >> 3) {
-      // .io.substrait.Expression.AggregateFunction measure = 1;
+      // .io.substrait.AggregateFunction measure = 1;
       case 1:
         if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 10)) {
           ptr = ctx->ParseMessage(_internal_mutable_measure(), ptr);
+          CHK_(ptr);
+        } else goto handle_unusual;
+        continue;
+      // .io.substrait.Expression filter = 2;
+      case 2:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 18)) {
+          ptr = ctx->ParseMessage(_internal_mutable_filter(), ptr);
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
@@ -5108,12 +5864,20 @@ failure:
   ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
   (void) cached_has_bits;
 
-  // .io.substrait.Expression.AggregateFunction measure = 1;
+  // .io.substrait.AggregateFunction measure = 1;
   if (this->has_measure()) {
     target = stream->EnsureSpace(target);
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
       InternalWriteMessage(
         1, _Internal::measure(this), target, stream);
+  }
+
+  // .io.substrait.Expression filter = 2;
+  if (this->has_filter()) {
+    target = stream->EnsureSpace(target);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
+      InternalWriteMessage(
+        2, _Internal::filter(this), target, stream);
   }
 
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
@@ -5132,11 +5896,18 @@ size_t AggregateRel_Measure::ByteSizeLong() const {
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  // .io.substrait.Expression.AggregateFunction measure = 1;
+  // .io.substrait.AggregateFunction measure = 1;
   if (this->has_measure()) {
     total_size += 1 +
       ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
         *measure_);
+  }
+
+  // .io.substrait.Expression filter = 2;
+  if (this->has_filter()) {
+    total_size += 1 +
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
+        *filter_);
   }
 
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
@@ -5171,7 +5942,10 @@ void AggregateRel_Measure::MergeFrom(const AggregateRel_Measure& from) {
   (void) cached_has_bits;
 
   if (from.has_measure()) {
-    _internal_mutable_measure()->::io::substrait::Expression_AggregateFunction::MergeFrom(from._internal_measure());
+    _internal_mutable_measure()->::io::substrait::AggregateFunction::MergeFrom(from._internal_measure());
+  }
+  if (from.has_filter()) {
+    _internal_mutable_filter()->::io::substrait::Expression::MergeFrom(from._internal_filter());
   }
 }
 
@@ -5196,7 +5970,12 @@ bool AggregateRel_Measure::IsInitialized() const {
 void AggregateRel_Measure::InternalSwap(AggregateRel_Measure* other) {
   using std::swap;
   _internal_metadata_.Swap<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(&other->_internal_metadata_);
-  swap(measure_, other->measure_);
+  ::PROTOBUF_NAMESPACE_ID::internal::memswap<
+      PROTOBUF_FIELD_OFFSET(AggregateRel_Measure, filter_)
+      + sizeof(AggregateRel_Measure::filter_)
+      - PROTOBUF_FIELD_OFFSET(AggregateRel_Measure, measure_)>(
+          reinterpret_cast<char*>(&measure_),
+          reinterpret_cast<char*>(&other->measure_));
 }
 
 ::PROTOBUF_NAMESPACE_ID::Metadata AggregateRel_Measure::GetMetadata() const {
@@ -5211,6 +5990,7 @@ class AggregateRel::_Internal {
  public:
   static const ::io::substrait::RelCommon& common(const AggregateRel* msg);
   static const ::io::substrait::Rel& input(const AggregateRel* msg);
+  static const ::io::substrait::extensions::AdvancedExtension& advanced_extension(const AggregateRel* msg);
 };
 
 const ::io::substrait::RelCommon&
@@ -5220,6 +6000,16 @@ AggregateRel::_Internal::common(const AggregateRel* msg) {
 const ::io::substrait::Rel&
 AggregateRel::_Internal::input(const AggregateRel* msg) {
   return *msg->input_;
+}
+const ::io::substrait::extensions::AdvancedExtension&
+AggregateRel::_Internal::advanced_extension(const AggregateRel* msg) {
+  return *msg->advanced_extension_;
+}
+void AggregateRel::clear_advanced_extension() {
+  if (GetArena() == nullptr && advanced_extension_ != nullptr) {
+    delete advanced_extension_;
+  }
+  advanced_extension_ = nullptr;
 }
 AggregateRel::AggregateRel(::PROTOBUF_NAMESPACE_ID::Arena* arena)
   : ::PROTOBUF_NAMESPACE_ID::Message(arena),
@@ -5244,15 +6034,19 @@ AggregateRel::AggregateRel(const AggregateRel& from)
   } else {
     input_ = nullptr;
   }
-  phase_ = from.phase_;
+  if (from._internal_has_advanced_extension()) {
+    advanced_extension_ = new ::io::substrait::extensions::AdvancedExtension(*from.advanced_extension_);
+  } else {
+    advanced_extension_ = nullptr;
+  }
   // @@protoc_insertion_point(copy_constructor:io.substrait.AggregateRel)
 }
 
 void AggregateRel::SharedCtor() {
 ::memset(reinterpret_cast<char*>(this) + static_cast<size_t>(
     reinterpret_cast<char*>(&common_) - reinterpret_cast<char*>(this)),
-    0, static_cast<size_t>(reinterpret_cast<char*>(&phase_) -
-    reinterpret_cast<char*>(&common_)) + sizeof(phase_));
+    0, static_cast<size_t>(reinterpret_cast<char*>(&advanced_extension_) -
+    reinterpret_cast<char*>(&common_)) + sizeof(advanced_extension_));
 }
 
 AggregateRel::~AggregateRel() {
@@ -5265,6 +6059,7 @@ void AggregateRel::SharedDtor() {
   GOOGLE_DCHECK(GetArena() == nullptr);
   if (this != internal_default_instance()) delete common_;
   if (this != internal_default_instance()) delete input_;
+  if (this != internal_default_instance()) delete advanced_extension_;
 }
 
 void AggregateRel::ArenaDtor(void* object) {
@@ -5293,7 +6088,10 @@ void AggregateRel::Clear() {
     delete input_;
   }
   input_ = nullptr;
-  phase_ = 0;
+  if (GetArena() == nullptr && advanced_extension_ != nullptr) {
+    delete advanced_extension_;
+  }
+  advanced_extension_ = nullptr;
   _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
@@ -5341,12 +6139,11 @@ const char* AggregateRel::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_I
           } while (::PROTOBUF_NAMESPACE_ID::internal::ExpectTag<34>(ptr));
         } else goto handle_unusual;
         continue;
-      // .io.substrait.Expression.AggregationPhase phase = 5;
-      case 5:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 40)) {
-          ::PROTOBUF_NAMESPACE_ID::uint64 val = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint64(&ptr);
+      // .io.substrait.extensions.AdvancedExtension advanced_extension = 10;
+      case 10:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 82)) {
+          ptr = ctx->ParseMessage(_internal_mutable_advanced_extension(), ptr);
           CHK_(ptr);
-          _internal_set_phase(static_cast<::io::substrait::Expression_AggregationPhase>(val));
         } else goto handle_unusual;
         continue;
       default: {
@@ -5410,11 +6207,12 @@ failure:
       InternalWriteMessage(4, this->_internal_measures(i), target, stream);
   }
 
-  // .io.substrait.Expression.AggregationPhase phase = 5;
-  if (this->phase() != 0) {
+  // .io.substrait.extensions.AdvancedExtension advanced_extension = 10;
+  if (this->has_advanced_extension()) {
     target = stream->EnsureSpace(target);
-    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::WriteEnumToArray(
-      5, this->_internal_phase(), target);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
+      InternalWriteMessage(
+        10, _Internal::advanced_extension(this), target, stream);
   }
 
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
@@ -5461,10 +6259,11 @@ size_t AggregateRel::ByteSizeLong() const {
         *input_);
   }
 
-  // .io.substrait.Expression.AggregationPhase phase = 5;
-  if (this->phase() != 0) {
+  // .io.substrait.extensions.AdvancedExtension advanced_extension = 10;
+  if (this->has_advanced_extension()) {
     total_size += 1 +
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::EnumSize(this->_internal_phase());
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
+        *advanced_extension_);
   }
 
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
@@ -5506,8 +6305,8 @@ void AggregateRel::MergeFrom(const AggregateRel& from) {
   if (from.has_input()) {
     _internal_mutable_input()->::io::substrait::Rel::MergeFrom(from._internal_input());
   }
-  if (from.phase() != 0) {
-    _internal_set_phase(from._internal_phase());
+  if (from.has_advanced_extension()) {
+    _internal_mutable_advanced_extension()->::io::substrait::extensions::AdvancedExtension::MergeFrom(from._internal_advanced_extension());
   }
 }
 
@@ -5535,8 +6334,8 @@ void AggregateRel::InternalSwap(AggregateRel* other) {
   groupings_.InternalSwap(&other->groupings_);
   measures_.InternalSwap(&other->measures_);
   ::PROTOBUF_NAMESPACE_ID::internal::memswap<
-      PROTOBUF_FIELD_OFFSET(AggregateRel, phase_)
-      + sizeof(AggregateRel::phase_)
+      PROTOBUF_FIELD_OFFSET(AggregateRel, advanced_extension_)
+      + sizeof(AggregateRel::advanced_extension_)
       - PROTOBUF_FIELD_OFFSET(AggregateRel, common_)>(
           reinterpret_cast<char*>(&common_),
           reinterpret_cast<char*>(&other->common_));
@@ -5554,6 +6353,7 @@ class SortRel::_Internal {
  public:
   static const ::io::substrait::RelCommon& common(const SortRel* msg);
   static const ::io::substrait::Rel& input(const SortRel* msg);
+  static const ::io::substrait::extensions::AdvancedExtension& advanced_extension(const SortRel* msg);
 };
 
 const ::io::substrait::RelCommon&
@@ -5564,8 +6364,18 @@ const ::io::substrait::Rel&
 SortRel::_Internal::input(const SortRel* msg) {
   return *msg->input_;
 }
+const ::io::substrait::extensions::AdvancedExtension&
+SortRel::_Internal::advanced_extension(const SortRel* msg) {
+  return *msg->advanced_extension_;
+}
 void SortRel::clear_sorts() {
   sorts_.Clear();
+}
+void SortRel::clear_advanced_extension() {
+  if (GetArena() == nullptr && advanced_extension_ != nullptr) {
+    delete advanced_extension_;
+  }
+  advanced_extension_ = nullptr;
 }
 SortRel::SortRel(::PROTOBUF_NAMESPACE_ID::Arena* arena)
   : ::PROTOBUF_NAMESPACE_ID::Message(arena),
@@ -5588,14 +6398,19 @@ SortRel::SortRel(const SortRel& from)
   } else {
     input_ = nullptr;
   }
+  if (from._internal_has_advanced_extension()) {
+    advanced_extension_ = new ::io::substrait::extensions::AdvancedExtension(*from.advanced_extension_);
+  } else {
+    advanced_extension_ = nullptr;
+  }
   // @@protoc_insertion_point(copy_constructor:io.substrait.SortRel)
 }
 
 void SortRel::SharedCtor() {
 ::memset(reinterpret_cast<char*>(this) + static_cast<size_t>(
     reinterpret_cast<char*>(&common_) - reinterpret_cast<char*>(this)),
-    0, static_cast<size_t>(reinterpret_cast<char*>(&input_) -
-    reinterpret_cast<char*>(&common_)) + sizeof(input_));
+    0, static_cast<size_t>(reinterpret_cast<char*>(&advanced_extension_) -
+    reinterpret_cast<char*>(&common_)) + sizeof(advanced_extension_));
 }
 
 SortRel::~SortRel() {
@@ -5608,6 +6423,7 @@ void SortRel::SharedDtor() {
   GOOGLE_DCHECK(GetArena() == nullptr);
   if (this != internal_default_instance()) delete common_;
   if (this != internal_default_instance()) delete input_;
+  if (this != internal_default_instance()) delete advanced_extension_;
 }
 
 void SortRel::ArenaDtor(void* object) {
@@ -5635,6 +6451,10 @@ void SortRel::Clear() {
     delete input_;
   }
   input_ = nullptr;
+  if (GetArena() == nullptr && advanced_extension_ != nullptr) {
+    delete advanced_extension_;
+  }
+  advanced_extension_ = nullptr;
   _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
@@ -5658,7 +6478,7 @@ const char* SortRel::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::in
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
-      // repeated .io.substrait.Expression.SortField sorts = 3;
+      // repeated .io.substrait.SortField sorts = 3;
       case 3:
         if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 26)) {
           ptr -= 1;
@@ -5668,6 +6488,13 @@ const char* SortRel::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::in
             CHK_(ptr);
             if (!ctx->DataAvailable(ptr)) break;
           } while (::PROTOBUF_NAMESPACE_ID::internal::ExpectTag<26>(ptr));
+        } else goto handle_unusual;
+        continue;
+      // .io.substrait.extensions.AdvancedExtension advanced_extension = 10;
+      case 10:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 82)) {
+          ptr = ctx->ParseMessage(_internal_mutable_advanced_extension(), ptr);
+          CHK_(ptr);
         } else goto handle_unusual;
         continue;
       default: {
@@ -5715,12 +6542,20 @@ failure:
         2, _Internal::input(this), target, stream);
   }
 
-  // repeated .io.substrait.Expression.SortField sorts = 3;
+  // repeated .io.substrait.SortField sorts = 3;
   for (unsigned int i = 0,
       n = static_cast<unsigned int>(this->_internal_sorts_size()); i < n; i++) {
     target = stream->EnsureSpace(target);
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
       InternalWriteMessage(3, this->_internal_sorts(i), target, stream);
+  }
+
+  // .io.substrait.extensions.AdvancedExtension advanced_extension = 10;
+  if (this->has_advanced_extension()) {
+    target = stream->EnsureSpace(target);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
+      InternalWriteMessage(
+        10, _Internal::advanced_extension(this), target, stream);
   }
 
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
@@ -5739,7 +6574,7 @@ size_t SortRel::ByteSizeLong() const {
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  // repeated .io.substrait.Expression.SortField sorts = 3;
+  // repeated .io.substrait.SortField sorts = 3;
   total_size += 1UL * this->_internal_sorts_size();
   for (const auto& msg : this->sorts_) {
     total_size +=
@@ -5758,6 +6593,13 @@ size_t SortRel::ByteSizeLong() const {
     total_size += 1 +
       ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
         *input_);
+  }
+
+  // .io.substrait.extensions.AdvancedExtension advanced_extension = 10;
+  if (this->has_advanced_extension()) {
+    total_size += 1 +
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
+        *advanced_extension_);
   }
 
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
@@ -5798,6 +6640,9 @@ void SortRel::MergeFrom(const SortRel& from) {
   if (from.has_input()) {
     _internal_mutable_input()->::io::substrait::Rel::MergeFrom(from._internal_input());
   }
+  if (from.has_advanced_extension()) {
+    _internal_mutable_advanced_extension()->::io::substrait::extensions::AdvancedExtension::MergeFrom(from._internal_advanced_extension());
+  }
 }
 
 void SortRel::CopyFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
@@ -5823,8 +6668,8 @@ void SortRel::InternalSwap(SortRel* other) {
   _internal_metadata_.Swap<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(&other->_internal_metadata_);
   sorts_.InternalSwap(&other->sorts_);
   ::PROTOBUF_NAMESPACE_ID::internal::memswap<
-      PROTOBUF_FIELD_OFFSET(SortRel, input_)
-      + sizeof(SortRel::input_)
+      PROTOBUF_FIELD_OFFSET(SortRel, advanced_extension_)
+      + sizeof(SortRel::advanced_extension_)
       - PROTOBUF_FIELD_OFFSET(SortRel, common_)>(
           reinterpret_cast<char*>(&common_),
           reinterpret_cast<char*>(&other->common_));
@@ -5843,6 +6688,7 @@ class FilterRel::_Internal {
   static const ::io::substrait::RelCommon& common(const FilterRel* msg);
   static const ::io::substrait::Rel& input(const FilterRel* msg);
   static const ::io::substrait::Expression& condition(const FilterRel* msg);
+  static const ::io::substrait::extensions::AdvancedExtension& advanced_extension(const FilterRel* msg);
 };
 
 const ::io::substrait::RelCommon&
@@ -5857,11 +6703,21 @@ const ::io::substrait::Expression&
 FilterRel::_Internal::condition(const FilterRel* msg) {
   return *msg->condition_;
 }
+const ::io::substrait::extensions::AdvancedExtension&
+FilterRel::_Internal::advanced_extension(const FilterRel* msg) {
+  return *msg->advanced_extension_;
+}
 void FilterRel::clear_condition() {
   if (GetArena() == nullptr && condition_ != nullptr) {
     delete condition_;
   }
   condition_ = nullptr;
+}
+void FilterRel::clear_advanced_extension() {
+  if (GetArena() == nullptr && advanced_extension_ != nullptr) {
+    delete advanced_extension_;
+  }
+  advanced_extension_ = nullptr;
 }
 FilterRel::FilterRel(::PROTOBUF_NAMESPACE_ID::Arena* arena)
   : ::PROTOBUF_NAMESPACE_ID::Message(arena) {
@@ -5887,14 +6743,19 @@ FilterRel::FilterRel(const FilterRel& from)
   } else {
     condition_ = nullptr;
   }
+  if (from._internal_has_advanced_extension()) {
+    advanced_extension_ = new ::io::substrait::extensions::AdvancedExtension(*from.advanced_extension_);
+  } else {
+    advanced_extension_ = nullptr;
+  }
   // @@protoc_insertion_point(copy_constructor:io.substrait.FilterRel)
 }
 
 void FilterRel::SharedCtor() {
 ::memset(reinterpret_cast<char*>(this) + static_cast<size_t>(
     reinterpret_cast<char*>(&common_) - reinterpret_cast<char*>(this)),
-    0, static_cast<size_t>(reinterpret_cast<char*>(&condition_) -
-    reinterpret_cast<char*>(&common_)) + sizeof(condition_));
+    0, static_cast<size_t>(reinterpret_cast<char*>(&advanced_extension_) -
+    reinterpret_cast<char*>(&common_)) + sizeof(advanced_extension_));
 }
 
 FilterRel::~FilterRel() {
@@ -5908,6 +6769,7 @@ void FilterRel::SharedDtor() {
   if (this != internal_default_instance()) delete common_;
   if (this != internal_default_instance()) delete input_;
   if (this != internal_default_instance()) delete condition_;
+  if (this != internal_default_instance()) delete advanced_extension_;
 }
 
 void FilterRel::ArenaDtor(void* object) {
@@ -5938,6 +6800,10 @@ void FilterRel::Clear() {
     delete condition_;
   }
   condition_ = nullptr;
+  if (GetArena() == nullptr && advanced_extension_ != nullptr) {
+    delete advanced_extension_;
+  }
+  advanced_extension_ = nullptr;
   _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
@@ -5965,6 +6831,13 @@ const char* FilterRel::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::
       case 3:
         if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 26)) {
           ptr = ctx->ParseMessage(_internal_mutable_condition(), ptr);
+          CHK_(ptr);
+        } else goto handle_unusual;
+        continue;
+      // .io.substrait.extensions.AdvancedExtension advanced_extension = 10;
+      case 10:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 82)) {
+          ptr = ctx->ParseMessage(_internal_mutable_advanced_extension(), ptr);
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
@@ -6021,6 +6894,14 @@ failure:
         3, _Internal::condition(this), target, stream);
   }
 
+  // .io.substrait.extensions.AdvancedExtension advanced_extension = 10;
+  if (this->has_advanced_extension()) {
+    target = stream->EnsureSpace(target);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
+      InternalWriteMessage(
+        10, _Internal::advanced_extension(this), target, stream);
+  }
+
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormat::InternalSerializeUnknownFieldsToArray(
         _internal_metadata_.unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(::PROTOBUF_NAMESPACE_ID::UnknownFieldSet::default_instance), target, stream);
@@ -6056,6 +6937,13 @@ size_t FilterRel::ByteSizeLong() const {
     total_size += 1 +
       ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
         *condition_);
+  }
+
+  // .io.substrait.extensions.AdvancedExtension advanced_extension = 10;
+  if (this->has_advanced_extension()) {
+    total_size += 1 +
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
+        *advanced_extension_);
   }
 
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
@@ -6098,6 +6986,9 @@ void FilterRel::MergeFrom(const FilterRel& from) {
   if (from.has_condition()) {
     _internal_mutable_condition()->::io::substrait::Expression::MergeFrom(from._internal_condition());
   }
+  if (from.has_advanced_extension()) {
+    _internal_mutable_advanced_extension()->::io::substrait::extensions::AdvancedExtension::MergeFrom(from._internal_advanced_extension());
+  }
 }
 
 void FilterRel::CopyFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
@@ -6122,8 +7013,8 @@ void FilterRel::InternalSwap(FilterRel* other) {
   using std::swap;
   _internal_metadata_.Swap<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(&other->_internal_metadata_);
   ::PROTOBUF_NAMESPACE_ID::internal::memswap<
-      PROTOBUF_FIELD_OFFSET(FilterRel, condition_)
-      + sizeof(FilterRel::condition_)
+      PROTOBUF_FIELD_OFFSET(FilterRel, advanced_extension_)
+      + sizeof(FilterRel::advanced_extension_)
       - PROTOBUF_FIELD_OFFSET(FilterRel, common_)>(
           reinterpret_cast<char*>(&common_),
           reinterpret_cast<char*>(&other->common_));
@@ -6140,11 +7031,22 @@ void FilterRel::InternalSwap(FilterRel* other) {
 class SetRel::_Internal {
  public:
   static const ::io::substrait::RelCommon& common(const SetRel* msg);
+  static const ::io::substrait::extensions::AdvancedExtension& advanced_extension(const SetRel* msg);
 };
 
 const ::io::substrait::RelCommon&
 SetRel::_Internal::common(const SetRel* msg) {
   return *msg->common_;
+}
+const ::io::substrait::extensions::AdvancedExtension&
+SetRel::_Internal::advanced_extension(const SetRel* msg) {
+  return *msg->advanced_extension_;
+}
+void SetRel::clear_advanced_extension() {
+  if (GetArena() == nullptr && advanced_extension_ != nullptr) {
+    delete advanced_extension_;
+  }
+  advanced_extension_ = nullptr;
 }
 SetRel::SetRel(::PROTOBUF_NAMESPACE_ID::Arena* arena)
   : ::PROTOBUF_NAMESPACE_ID::Message(arena),
@@ -6161,6 +7063,11 @@ SetRel::SetRel(const SetRel& from)
     common_ = new ::io::substrait::RelCommon(*from.common_);
   } else {
     common_ = nullptr;
+  }
+  if (from._internal_has_advanced_extension()) {
+    advanced_extension_ = new ::io::substrait::extensions::AdvancedExtension(*from.advanced_extension_);
+  } else {
+    advanced_extension_ = nullptr;
   }
   op_ = from.op_;
   // @@protoc_insertion_point(copy_constructor:io.substrait.SetRel)
@@ -6182,6 +7089,7 @@ SetRel::~SetRel() {
 void SetRel::SharedDtor() {
   GOOGLE_DCHECK(GetArena() == nullptr);
   if (this != internal_default_instance()) delete common_;
+  if (this != internal_default_instance()) delete advanced_extension_;
 }
 
 void SetRel::ArenaDtor(void* object) {
@@ -6205,6 +7113,10 @@ void SetRel::Clear() {
     delete common_;
   }
   common_ = nullptr;
+  if (GetArena() == nullptr && advanced_extension_ != nullptr) {
+    delete advanced_extension_;
+  }
+  advanced_extension_ = nullptr;
   op_ = 0;
   _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
@@ -6240,6 +7152,13 @@ const char* SetRel::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::int
           ::PROTOBUF_NAMESPACE_ID::uint64 val = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint64(&ptr);
           CHK_(ptr);
           _internal_set_op(static_cast<::io::substrait::SetRel_SetOp>(val));
+        } else goto handle_unusual;
+        continue;
+      // .io.substrait.extensions.AdvancedExtension advanced_extension = 10;
+      case 10:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 82)) {
+          ptr = ctx->ParseMessage(_internal_mutable_advanced_extension(), ptr);
+          CHK_(ptr);
         } else goto handle_unusual;
         continue;
       default: {
@@ -6294,6 +7213,14 @@ failure:
       3, this->_internal_op(), target);
   }
 
+  // .io.substrait.extensions.AdvancedExtension advanced_extension = 10;
+  if (this->has_advanced_extension()) {
+    target = stream->EnsureSpace(target);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
+      InternalWriteMessage(
+        10, _Internal::advanced_extension(this), target, stream);
+  }
+
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormat::InternalSerializeUnknownFieldsToArray(
         _internal_metadata_.unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(::PROTOBUF_NAMESPACE_ID::UnknownFieldSet::default_instance), target, stream);
@@ -6322,6 +7249,13 @@ size_t SetRel::ByteSizeLong() const {
     total_size += 1 +
       ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
         *common_);
+  }
+
+  // .io.substrait.extensions.AdvancedExtension advanced_extension = 10;
+  if (this->has_advanced_extension()) {
+    total_size += 1 +
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
+        *advanced_extension_);
   }
 
   // .io.substrait.SetRel.SetOp op = 3;
@@ -6364,6 +7298,9 @@ void SetRel::MergeFrom(const SetRel& from) {
   inputs_.MergeFrom(from.inputs_);
   if (from.has_common()) {
     _internal_mutable_common()->::io::substrait::RelCommon::MergeFrom(from._internal_common());
+  }
+  if (from.has_advanced_extension()) {
+    _internal_mutable_advanced_extension()->::io::substrait::extensions::AdvancedExtension::MergeFrom(from._internal_advanced_extension());
   }
   if (from.op() != 0) {
     _internal_set_op(from._internal_op());
@@ -6408,6 +7345,1097 @@ void SetRel::InternalSwap(SetRel* other) {
 
 // ===================================================================
 
+class ExtensionSingleRel::_Internal {
+ public:
+  static const ::io::substrait::RelCommon& common(const ExtensionSingleRel* msg);
+  static const ::io::substrait::Rel& input(const ExtensionSingleRel* msg);
+  static const PROTOBUF_NAMESPACE_ID::Any& detail(const ExtensionSingleRel* msg);
+};
+
+const ::io::substrait::RelCommon&
+ExtensionSingleRel::_Internal::common(const ExtensionSingleRel* msg) {
+  return *msg->common_;
+}
+const ::io::substrait::Rel&
+ExtensionSingleRel::_Internal::input(const ExtensionSingleRel* msg) {
+  return *msg->input_;
+}
+const PROTOBUF_NAMESPACE_ID::Any&
+ExtensionSingleRel::_Internal::detail(const ExtensionSingleRel* msg) {
+  return *msg->detail_;
+}
+void ExtensionSingleRel::clear_detail() {
+  if (GetArena() == nullptr && detail_ != nullptr) {
+    delete detail_;
+  }
+  detail_ = nullptr;
+}
+ExtensionSingleRel::ExtensionSingleRel(::PROTOBUF_NAMESPACE_ID::Arena* arena)
+  : ::PROTOBUF_NAMESPACE_ID::Message(arena) {
+  SharedCtor();
+  RegisterArenaDtor(arena);
+  // @@protoc_insertion_point(arena_constructor:io.substrait.ExtensionSingleRel)
+}
+ExtensionSingleRel::ExtensionSingleRel(const ExtensionSingleRel& from)
+  : ::PROTOBUF_NAMESPACE_ID::Message() {
+  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
+  if (from._internal_has_common()) {
+    common_ = new ::io::substrait::RelCommon(*from.common_);
+  } else {
+    common_ = nullptr;
+  }
+  if (from._internal_has_input()) {
+    input_ = new ::io::substrait::Rel(*from.input_);
+  } else {
+    input_ = nullptr;
+  }
+  if (from._internal_has_detail()) {
+    detail_ = new PROTOBUF_NAMESPACE_ID::Any(*from.detail_);
+  } else {
+    detail_ = nullptr;
+  }
+  // @@protoc_insertion_point(copy_constructor:io.substrait.ExtensionSingleRel)
+}
+
+void ExtensionSingleRel::SharedCtor() {
+::memset(reinterpret_cast<char*>(this) + static_cast<size_t>(
+    reinterpret_cast<char*>(&common_) - reinterpret_cast<char*>(this)),
+    0, static_cast<size_t>(reinterpret_cast<char*>(&detail_) -
+    reinterpret_cast<char*>(&common_)) + sizeof(detail_));
+}
+
+ExtensionSingleRel::~ExtensionSingleRel() {
+  // @@protoc_insertion_point(destructor:io.substrait.ExtensionSingleRel)
+  SharedDtor();
+  _internal_metadata_.Delete<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
+}
+
+void ExtensionSingleRel::SharedDtor() {
+  GOOGLE_DCHECK(GetArena() == nullptr);
+  if (this != internal_default_instance()) delete common_;
+  if (this != internal_default_instance()) delete input_;
+  if (this != internal_default_instance()) delete detail_;
+}
+
+void ExtensionSingleRel::ArenaDtor(void* object) {
+  ExtensionSingleRel* _this = reinterpret_cast< ExtensionSingleRel* >(object);
+  (void)_this;
+}
+void ExtensionSingleRel::RegisterArenaDtor(::PROTOBUF_NAMESPACE_ID::Arena*) {
+}
+void ExtensionSingleRel::SetCachedSize(int size) const {
+  _cached_size_.Set(size);
+}
+
+void ExtensionSingleRel::Clear() {
+// @@protoc_insertion_point(message_clear_start:io.substrait.ExtensionSingleRel)
+  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  if (GetArena() == nullptr && common_ != nullptr) {
+    delete common_;
+  }
+  common_ = nullptr;
+  if (GetArena() == nullptr && input_ != nullptr) {
+    delete input_;
+  }
+  input_ = nullptr;
+  if (GetArena() == nullptr && detail_ != nullptr) {
+    delete detail_;
+  }
+  detail_ = nullptr;
+  _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
+}
+
+const char* ExtensionSingleRel::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) {
+#define CHK_(x) if (PROTOBUF_PREDICT_FALSE(!(x))) goto failure
+  while (!ctx->Done(&ptr)) {
+    ::PROTOBUF_NAMESPACE_ID::uint32 tag;
+    ptr = ::PROTOBUF_NAMESPACE_ID::internal::ReadTag(ptr, &tag);
+    switch (tag >> 3) {
+      // .io.substrait.RelCommon common = 1;
+      case 1:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 10)) {
+          ptr = ctx->ParseMessage(_internal_mutable_common(), ptr);
+          CHK_(ptr);
+        } else goto handle_unusual;
+        continue;
+      // .io.substrait.Rel input = 2;
+      case 2:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 18)) {
+          ptr = ctx->ParseMessage(_internal_mutable_input(), ptr);
+          CHK_(ptr);
+        } else goto handle_unusual;
+        continue;
+      // .google.protobuf.Any detail = 3;
+      case 3:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 26)) {
+          ptr = ctx->ParseMessage(_internal_mutable_detail(), ptr);
+          CHK_(ptr);
+        } else goto handle_unusual;
+        continue;
+      default: {
+      handle_unusual:
+        if ((tag == 0) || ((tag & 7) == 4)) {
+          CHK_(ptr);
+          ctx->SetLastTag(tag);
+          goto success;
+        }
+        ptr = UnknownFieldParse(tag,
+            _internal_metadata_.mutable_unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(),
+            ptr, ctx);
+        CHK_(ptr != nullptr);
+        continue;
+      }
+    }  // switch
+  }  // while
+success:
+  return ptr;
+failure:
+  ptr = nullptr;
+  goto success;
+#undef CHK_
+}
+
+::PROTOBUF_NAMESPACE_ID::uint8* ExtensionSingleRel::_InternalSerialize(
+    ::PROTOBUF_NAMESPACE_ID::uint8* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const {
+  // @@protoc_insertion_point(serialize_to_array_start:io.substrait.ExtensionSingleRel)
+  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  // .io.substrait.RelCommon common = 1;
+  if (this->has_common()) {
+    target = stream->EnsureSpace(target);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
+      InternalWriteMessage(
+        1, _Internal::common(this), target, stream);
+  }
+
+  // .io.substrait.Rel input = 2;
+  if (this->has_input()) {
+    target = stream->EnsureSpace(target);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
+      InternalWriteMessage(
+        2, _Internal::input(this), target, stream);
+  }
+
+  // .google.protobuf.Any detail = 3;
+  if (this->has_detail()) {
+    target = stream->EnsureSpace(target);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
+      InternalWriteMessage(
+        3, _Internal::detail(this), target, stream);
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormat::InternalSerializeUnknownFieldsToArray(
+        _internal_metadata_.unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(::PROTOBUF_NAMESPACE_ID::UnknownFieldSet::default_instance), target, stream);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:io.substrait.ExtensionSingleRel)
+  return target;
+}
+
+size_t ExtensionSingleRel::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:io.substrait.ExtensionSingleRel)
+  size_t total_size = 0;
+
+  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  // .io.substrait.RelCommon common = 1;
+  if (this->has_common()) {
+    total_size += 1 +
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
+        *common_);
+  }
+
+  // .io.substrait.Rel input = 2;
+  if (this->has_input()) {
+    total_size += 1 +
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
+        *input_);
+  }
+
+  // .google.protobuf.Any detail = 3;
+  if (this->has_detail()) {
+    total_size += 1 +
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
+        *detail_);
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    return ::PROTOBUF_NAMESPACE_ID::internal::ComputeUnknownFieldsSize(
+        _internal_metadata_, total_size, &_cached_size_);
+  }
+  int cached_size = ::PROTOBUF_NAMESPACE_ID::internal::ToCachedSize(total_size);
+  SetCachedSize(cached_size);
+  return total_size;
+}
+
+void ExtensionSingleRel::MergeFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
+// @@protoc_insertion_point(generalized_merge_from_start:io.substrait.ExtensionSingleRel)
+  GOOGLE_DCHECK_NE(&from, this);
+  const ExtensionSingleRel* source =
+      ::PROTOBUF_NAMESPACE_ID::DynamicCastToGenerated<ExtensionSingleRel>(
+          &from);
+  if (source == nullptr) {
+  // @@protoc_insertion_point(generalized_merge_from_cast_fail:io.substrait.ExtensionSingleRel)
+    ::PROTOBUF_NAMESPACE_ID::internal::ReflectionOps::Merge(from, this);
+  } else {
+  // @@protoc_insertion_point(generalized_merge_from_cast_success:io.substrait.ExtensionSingleRel)
+    MergeFrom(*source);
+  }
+}
+
+void ExtensionSingleRel::MergeFrom(const ExtensionSingleRel& from) {
+// @@protoc_insertion_point(class_specific_merge_from_start:io.substrait.ExtensionSingleRel)
+  GOOGLE_DCHECK_NE(&from, this);
+  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
+  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  if (from.has_common()) {
+    _internal_mutable_common()->::io::substrait::RelCommon::MergeFrom(from._internal_common());
+  }
+  if (from.has_input()) {
+    _internal_mutable_input()->::io::substrait::Rel::MergeFrom(from._internal_input());
+  }
+  if (from.has_detail()) {
+    _internal_mutable_detail()->PROTOBUF_NAMESPACE_ID::Any::MergeFrom(from._internal_detail());
+  }
+}
+
+void ExtensionSingleRel::CopyFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
+// @@protoc_insertion_point(generalized_copy_from_start:io.substrait.ExtensionSingleRel)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+void ExtensionSingleRel::CopyFrom(const ExtensionSingleRel& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:io.substrait.ExtensionSingleRel)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+bool ExtensionSingleRel::IsInitialized() const {
+  return true;
+}
+
+void ExtensionSingleRel::InternalSwap(ExtensionSingleRel* other) {
+  using std::swap;
+  _internal_metadata_.Swap<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(&other->_internal_metadata_);
+  ::PROTOBUF_NAMESPACE_ID::internal::memswap<
+      PROTOBUF_FIELD_OFFSET(ExtensionSingleRel, detail_)
+      + sizeof(ExtensionSingleRel::detail_)
+      - PROTOBUF_FIELD_OFFSET(ExtensionSingleRel, common_)>(
+          reinterpret_cast<char*>(&common_),
+          reinterpret_cast<char*>(&other->common_));
+}
+
+::PROTOBUF_NAMESPACE_ID::Metadata ExtensionSingleRel::GetMetadata() const {
+  return ::PROTOBUF_NAMESPACE_ID::internal::AssignDescriptors(
+      &descriptor_table_relations_2eproto_getter, &descriptor_table_relations_2eproto_once,
+      file_level_metadata_relations_2eproto[21]);
+}
+
+// ===================================================================
+
+class ExtensionLeafRel::_Internal {
+ public:
+  static const ::io::substrait::RelCommon& common(const ExtensionLeafRel* msg);
+  static const PROTOBUF_NAMESPACE_ID::Any& detail(const ExtensionLeafRel* msg);
+};
+
+const ::io::substrait::RelCommon&
+ExtensionLeafRel::_Internal::common(const ExtensionLeafRel* msg) {
+  return *msg->common_;
+}
+const PROTOBUF_NAMESPACE_ID::Any&
+ExtensionLeafRel::_Internal::detail(const ExtensionLeafRel* msg) {
+  return *msg->detail_;
+}
+void ExtensionLeafRel::clear_detail() {
+  if (GetArena() == nullptr && detail_ != nullptr) {
+    delete detail_;
+  }
+  detail_ = nullptr;
+}
+ExtensionLeafRel::ExtensionLeafRel(::PROTOBUF_NAMESPACE_ID::Arena* arena)
+  : ::PROTOBUF_NAMESPACE_ID::Message(arena) {
+  SharedCtor();
+  RegisterArenaDtor(arena);
+  // @@protoc_insertion_point(arena_constructor:io.substrait.ExtensionLeafRel)
+}
+ExtensionLeafRel::ExtensionLeafRel(const ExtensionLeafRel& from)
+  : ::PROTOBUF_NAMESPACE_ID::Message() {
+  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
+  if (from._internal_has_common()) {
+    common_ = new ::io::substrait::RelCommon(*from.common_);
+  } else {
+    common_ = nullptr;
+  }
+  if (from._internal_has_detail()) {
+    detail_ = new PROTOBUF_NAMESPACE_ID::Any(*from.detail_);
+  } else {
+    detail_ = nullptr;
+  }
+  // @@protoc_insertion_point(copy_constructor:io.substrait.ExtensionLeafRel)
+}
+
+void ExtensionLeafRel::SharedCtor() {
+::memset(reinterpret_cast<char*>(this) + static_cast<size_t>(
+    reinterpret_cast<char*>(&common_) - reinterpret_cast<char*>(this)),
+    0, static_cast<size_t>(reinterpret_cast<char*>(&detail_) -
+    reinterpret_cast<char*>(&common_)) + sizeof(detail_));
+}
+
+ExtensionLeafRel::~ExtensionLeafRel() {
+  // @@protoc_insertion_point(destructor:io.substrait.ExtensionLeafRel)
+  SharedDtor();
+  _internal_metadata_.Delete<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
+}
+
+void ExtensionLeafRel::SharedDtor() {
+  GOOGLE_DCHECK(GetArena() == nullptr);
+  if (this != internal_default_instance()) delete common_;
+  if (this != internal_default_instance()) delete detail_;
+}
+
+void ExtensionLeafRel::ArenaDtor(void* object) {
+  ExtensionLeafRel* _this = reinterpret_cast< ExtensionLeafRel* >(object);
+  (void)_this;
+}
+void ExtensionLeafRel::RegisterArenaDtor(::PROTOBUF_NAMESPACE_ID::Arena*) {
+}
+void ExtensionLeafRel::SetCachedSize(int size) const {
+  _cached_size_.Set(size);
+}
+
+void ExtensionLeafRel::Clear() {
+// @@protoc_insertion_point(message_clear_start:io.substrait.ExtensionLeafRel)
+  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  if (GetArena() == nullptr && common_ != nullptr) {
+    delete common_;
+  }
+  common_ = nullptr;
+  if (GetArena() == nullptr && detail_ != nullptr) {
+    delete detail_;
+  }
+  detail_ = nullptr;
+  _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
+}
+
+const char* ExtensionLeafRel::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) {
+#define CHK_(x) if (PROTOBUF_PREDICT_FALSE(!(x))) goto failure
+  while (!ctx->Done(&ptr)) {
+    ::PROTOBUF_NAMESPACE_ID::uint32 tag;
+    ptr = ::PROTOBUF_NAMESPACE_ID::internal::ReadTag(ptr, &tag);
+    switch (tag >> 3) {
+      // .io.substrait.RelCommon common = 1;
+      case 1:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 10)) {
+          ptr = ctx->ParseMessage(_internal_mutable_common(), ptr);
+          CHK_(ptr);
+        } else goto handle_unusual;
+        continue;
+      // .google.protobuf.Any detail = 2;
+      case 2:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 18)) {
+          ptr = ctx->ParseMessage(_internal_mutable_detail(), ptr);
+          CHK_(ptr);
+        } else goto handle_unusual;
+        continue;
+      default: {
+      handle_unusual:
+        if ((tag == 0) || ((tag & 7) == 4)) {
+          CHK_(ptr);
+          ctx->SetLastTag(tag);
+          goto success;
+        }
+        ptr = UnknownFieldParse(tag,
+            _internal_metadata_.mutable_unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(),
+            ptr, ctx);
+        CHK_(ptr != nullptr);
+        continue;
+      }
+    }  // switch
+  }  // while
+success:
+  return ptr;
+failure:
+  ptr = nullptr;
+  goto success;
+#undef CHK_
+}
+
+::PROTOBUF_NAMESPACE_ID::uint8* ExtensionLeafRel::_InternalSerialize(
+    ::PROTOBUF_NAMESPACE_ID::uint8* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const {
+  // @@protoc_insertion_point(serialize_to_array_start:io.substrait.ExtensionLeafRel)
+  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  // .io.substrait.RelCommon common = 1;
+  if (this->has_common()) {
+    target = stream->EnsureSpace(target);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
+      InternalWriteMessage(
+        1, _Internal::common(this), target, stream);
+  }
+
+  // .google.protobuf.Any detail = 2;
+  if (this->has_detail()) {
+    target = stream->EnsureSpace(target);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
+      InternalWriteMessage(
+        2, _Internal::detail(this), target, stream);
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormat::InternalSerializeUnknownFieldsToArray(
+        _internal_metadata_.unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(::PROTOBUF_NAMESPACE_ID::UnknownFieldSet::default_instance), target, stream);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:io.substrait.ExtensionLeafRel)
+  return target;
+}
+
+size_t ExtensionLeafRel::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:io.substrait.ExtensionLeafRel)
+  size_t total_size = 0;
+
+  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  // .io.substrait.RelCommon common = 1;
+  if (this->has_common()) {
+    total_size += 1 +
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
+        *common_);
+  }
+
+  // .google.protobuf.Any detail = 2;
+  if (this->has_detail()) {
+    total_size += 1 +
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
+        *detail_);
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    return ::PROTOBUF_NAMESPACE_ID::internal::ComputeUnknownFieldsSize(
+        _internal_metadata_, total_size, &_cached_size_);
+  }
+  int cached_size = ::PROTOBUF_NAMESPACE_ID::internal::ToCachedSize(total_size);
+  SetCachedSize(cached_size);
+  return total_size;
+}
+
+void ExtensionLeafRel::MergeFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
+// @@protoc_insertion_point(generalized_merge_from_start:io.substrait.ExtensionLeafRel)
+  GOOGLE_DCHECK_NE(&from, this);
+  const ExtensionLeafRel* source =
+      ::PROTOBUF_NAMESPACE_ID::DynamicCastToGenerated<ExtensionLeafRel>(
+          &from);
+  if (source == nullptr) {
+  // @@protoc_insertion_point(generalized_merge_from_cast_fail:io.substrait.ExtensionLeafRel)
+    ::PROTOBUF_NAMESPACE_ID::internal::ReflectionOps::Merge(from, this);
+  } else {
+  // @@protoc_insertion_point(generalized_merge_from_cast_success:io.substrait.ExtensionLeafRel)
+    MergeFrom(*source);
+  }
+}
+
+void ExtensionLeafRel::MergeFrom(const ExtensionLeafRel& from) {
+// @@protoc_insertion_point(class_specific_merge_from_start:io.substrait.ExtensionLeafRel)
+  GOOGLE_DCHECK_NE(&from, this);
+  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
+  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  if (from.has_common()) {
+    _internal_mutable_common()->::io::substrait::RelCommon::MergeFrom(from._internal_common());
+  }
+  if (from.has_detail()) {
+    _internal_mutable_detail()->PROTOBUF_NAMESPACE_ID::Any::MergeFrom(from._internal_detail());
+  }
+}
+
+void ExtensionLeafRel::CopyFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
+// @@protoc_insertion_point(generalized_copy_from_start:io.substrait.ExtensionLeafRel)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+void ExtensionLeafRel::CopyFrom(const ExtensionLeafRel& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:io.substrait.ExtensionLeafRel)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+bool ExtensionLeafRel::IsInitialized() const {
+  return true;
+}
+
+void ExtensionLeafRel::InternalSwap(ExtensionLeafRel* other) {
+  using std::swap;
+  _internal_metadata_.Swap<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(&other->_internal_metadata_);
+  ::PROTOBUF_NAMESPACE_ID::internal::memswap<
+      PROTOBUF_FIELD_OFFSET(ExtensionLeafRel, detail_)
+      + sizeof(ExtensionLeafRel::detail_)
+      - PROTOBUF_FIELD_OFFSET(ExtensionLeafRel, common_)>(
+          reinterpret_cast<char*>(&common_),
+          reinterpret_cast<char*>(&other->common_));
+}
+
+::PROTOBUF_NAMESPACE_ID::Metadata ExtensionLeafRel::GetMetadata() const {
+  return ::PROTOBUF_NAMESPACE_ID::internal::AssignDescriptors(
+      &descriptor_table_relations_2eproto_getter, &descriptor_table_relations_2eproto_once,
+      file_level_metadata_relations_2eproto[22]);
+}
+
+// ===================================================================
+
+class ExtensionMultiRel::_Internal {
+ public:
+  static const ::io::substrait::RelCommon& common(const ExtensionMultiRel* msg);
+  static const PROTOBUF_NAMESPACE_ID::Any& detail(const ExtensionMultiRel* msg);
+};
+
+const ::io::substrait::RelCommon&
+ExtensionMultiRel::_Internal::common(const ExtensionMultiRel* msg) {
+  return *msg->common_;
+}
+const PROTOBUF_NAMESPACE_ID::Any&
+ExtensionMultiRel::_Internal::detail(const ExtensionMultiRel* msg) {
+  return *msg->detail_;
+}
+void ExtensionMultiRel::clear_detail() {
+  if (GetArena() == nullptr && detail_ != nullptr) {
+    delete detail_;
+  }
+  detail_ = nullptr;
+}
+ExtensionMultiRel::ExtensionMultiRel(::PROTOBUF_NAMESPACE_ID::Arena* arena)
+  : ::PROTOBUF_NAMESPACE_ID::Message(arena),
+  inputs_(arena) {
+  SharedCtor();
+  RegisterArenaDtor(arena);
+  // @@protoc_insertion_point(arena_constructor:io.substrait.ExtensionMultiRel)
+}
+ExtensionMultiRel::ExtensionMultiRel(const ExtensionMultiRel& from)
+  : ::PROTOBUF_NAMESPACE_ID::Message(),
+      inputs_(from.inputs_) {
+  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
+  if (from._internal_has_common()) {
+    common_ = new ::io::substrait::RelCommon(*from.common_);
+  } else {
+    common_ = nullptr;
+  }
+  if (from._internal_has_detail()) {
+    detail_ = new PROTOBUF_NAMESPACE_ID::Any(*from.detail_);
+  } else {
+    detail_ = nullptr;
+  }
+  // @@protoc_insertion_point(copy_constructor:io.substrait.ExtensionMultiRel)
+}
+
+void ExtensionMultiRel::SharedCtor() {
+::memset(reinterpret_cast<char*>(this) + static_cast<size_t>(
+    reinterpret_cast<char*>(&common_) - reinterpret_cast<char*>(this)),
+    0, static_cast<size_t>(reinterpret_cast<char*>(&detail_) -
+    reinterpret_cast<char*>(&common_)) + sizeof(detail_));
+}
+
+ExtensionMultiRel::~ExtensionMultiRel() {
+  // @@protoc_insertion_point(destructor:io.substrait.ExtensionMultiRel)
+  SharedDtor();
+  _internal_metadata_.Delete<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
+}
+
+void ExtensionMultiRel::SharedDtor() {
+  GOOGLE_DCHECK(GetArena() == nullptr);
+  if (this != internal_default_instance()) delete common_;
+  if (this != internal_default_instance()) delete detail_;
+}
+
+void ExtensionMultiRel::ArenaDtor(void* object) {
+  ExtensionMultiRel* _this = reinterpret_cast< ExtensionMultiRel* >(object);
+  (void)_this;
+}
+void ExtensionMultiRel::RegisterArenaDtor(::PROTOBUF_NAMESPACE_ID::Arena*) {
+}
+void ExtensionMultiRel::SetCachedSize(int size) const {
+  _cached_size_.Set(size);
+}
+
+void ExtensionMultiRel::Clear() {
+// @@protoc_insertion_point(message_clear_start:io.substrait.ExtensionMultiRel)
+  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  inputs_.Clear();
+  if (GetArena() == nullptr && common_ != nullptr) {
+    delete common_;
+  }
+  common_ = nullptr;
+  if (GetArena() == nullptr && detail_ != nullptr) {
+    delete detail_;
+  }
+  detail_ = nullptr;
+  _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
+}
+
+const char* ExtensionMultiRel::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) {
+#define CHK_(x) if (PROTOBUF_PREDICT_FALSE(!(x))) goto failure
+  while (!ctx->Done(&ptr)) {
+    ::PROTOBUF_NAMESPACE_ID::uint32 tag;
+    ptr = ::PROTOBUF_NAMESPACE_ID::internal::ReadTag(ptr, &tag);
+    switch (tag >> 3) {
+      // .io.substrait.RelCommon common = 1;
+      case 1:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 10)) {
+          ptr = ctx->ParseMessage(_internal_mutable_common(), ptr);
+          CHK_(ptr);
+        } else goto handle_unusual;
+        continue;
+      // repeated .io.substrait.Rel inputs = 2;
+      case 2:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 18)) {
+          ptr -= 1;
+          do {
+            ptr += 1;
+            ptr = ctx->ParseMessage(_internal_add_inputs(), ptr);
+            CHK_(ptr);
+            if (!ctx->DataAvailable(ptr)) break;
+          } while (::PROTOBUF_NAMESPACE_ID::internal::ExpectTag<18>(ptr));
+        } else goto handle_unusual;
+        continue;
+      // .google.protobuf.Any detail = 3;
+      case 3:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 26)) {
+          ptr = ctx->ParseMessage(_internal_mutable_detail(), ptr);
+          CHK_(ptr);
+        } else goto handle_unusual;
+        continue;
+      default: {
+      handle_unusual:
+        if ((tag == 0) || ((tag & 7) == 4)) {
+          CHK_(ptr);
+          ctx->SetLastTag(tag);
+          goto success;
+        }
+        ptr = UnknownFieldParse(tag,
+            _internal_metadata_.mutable_unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(),
+            ptr, ctx);
+        CHK_(ptr != nullptr);
+        continue;
+      }
+    }  // switch
+  }  // while
+success:
+  return ptr;
+failure:
+  ptr = nullptr;
+  goto success;
+#undef CHK_
+}
+
+::PROTOBUF_NAMESPACE_ID::uint8* ExtensionMultiRel::_InternalSerialize(
+    ::PROTOBUF_NAMESPACE_ID::uint8* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const {
+  // @@protoc_insertion_point(serialize_to_array_start:io.substrait.ExtensionMultiRel)
+  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  // .io.substrait.RelCommon common = 1;
+  if (this->has_common()) {
+    target = stream->EnsureSpace(target);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
+      InternalWriteMessage(
+        1, _Internal::common(this), target, stream);
+  }
+
+  // repeated .io.substrait.Rel inputs = 2;
+  for (unsigned int i = 0,
+      n = static_cast<unsigned int>(this->_internal_inputs_size()); i < n; i++) {
+    target = stream->EnsureSpace(target);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
+      InternalWriteMessage(2, this->_internal_inputs(i), target, stream);
+  }
+
+  // .google.protobuf.Any detail = 3;
+  if (this->has_detail()) {
+    target = stream->EnsureSpace(target);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
+      InternalWriteMessage(
+        3, _Internal::detail(this), target, stream);
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormat::InternalSerializeUnknownFieldsToArray(
+        _internal_metadata_.unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(::PROTOBUF_NAMESPACE_ID::UnknownFieldSet::default_instance), target, stream);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:io.substrait.ExtensionMultiRel)
+  return target;
+}
+
+size_t ExtensionMultiRel::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:io.substrait.ExtensionMultiRel)
+  size_t total_size = 0;
+
+  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  // repeated .io.substrait.Rel inputs = 2;
+  total_size += 1UL * this->_internal_inputs_size();
+  for (const auto& msg : this->inputs_) {
+    total_size +=
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(msg);
+  }
+
+  // .io.substrait.RelCommon common = 1;
+  if (this->has_common()) {
+    total_size += 1 +
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
+        *common_);
+  }
+
+  // .google.protobuf.Any detail = 3;
+  if (this->has_detail()) {
+    total_size += 1 +
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
+        *detail_);
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    return ::PROTOBUF_NAMESPACE_ID::internal::ComputeUnknownFieldsSize(
+        _internal_metadata_, total_size, &_cached_size_);
+  }
+  int cached_size = ::PROTOBUF_NAMESPACE_ID::internal::ToCachedSize(total_size);
+  SetCachedSize(cached_size);
+  return total_size;
+}
+
+void ExtensionMultiRel::MergeFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
+// @@protoc_insertion_point(generalized_merge_from_start:io.substrait.ExtensionMultiRel)
+  GOOGLE_DCHECK_NE(&from, this);
+  const ExtensionMultiRel* source =
+      ::PROTOBUF_NAMESPACE_ID::DynamicCastToGenerated<ExtensionMultiRel>(
+          &from);
+  if (source == nullptr) {
+  // @@protoc_insertion_point(generalized_merge_from_cast_fail:io.substrait.ExtensionMultiRel)
+    ::PROTOBUF_NAMESPACE_ID::internal::ReflectionOps::Merge(from, this);
+  } else {
+  // @@protoc_insertion_point(generalized_merge_from_cast_success:io.substrait.ExtensionMultiRel)
+    MergeFrom(*source);
+  }
+}
+
+void ExtensionMultiRel::MergeFrom(const ExtensionMultiRel& from) {
+// @@protoc_insertion_point(class_specific_merge_from_start:io.substrait.ExtensionMultiRel)
+  GOOGLE_DCHECK_NE(&from, this);
+  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
+  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  inputs_.MergeFrom(from.inputs_);
+  if (from.has_common()) {
+    _internal_mutable_common()->::io::substrait::RelCommon::MergeFrom(from._internal_common());
+  }
+  if (from.has_detail()) {
+    _internal_mutable_detail()->PROTOBUF_NAMESPACE_ID::Any::MergeFrom(from._internal_detail());
+  }
+}
+
+void ExtensionMultiRel::CopyFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
+// @@protoc_insertion_point(generalized_copy_from_start:io.substrait.ExtensionMultiRel)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+void ExtensionMultiRel::CopyFrom(const ExtensionMultiRel& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:io.substrait.ExtensionMultiRel)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+bool ExtensionMultiRel::IsInitialized() const {
+  return true;
+}
+
+void ExtensionMultiRel::InternalSwap(ExtensionMultiRel* other) {
+  using std::swap;
+  _internal_metadata_.Swap<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(&other->_internal_metadata_);
+  inputs_.InternalSwap(&other->inputs_);
+  ::PROTOBUF_NAMESPACE_ID::internal::memswap<
+      PROTOBUF_FIELD_OFFSET(ExtensionMultiRel, detail_)
+      + sizeof(ExtensionMultiRel::detail_)
+      - PROTOBUF_FIELD_OFFSET(ExtensionMultiRel, common_)>(
+          reinterpret_cast<char*>(&common_),
+          reinterpret_cast<char*>(&other->common_));
+}
+
+::PROTOBUF_NAMESPACE_ID::Metadata ExtensionMultiRel::GetMetadata() const {
+  return ::PROTOBUF_NAMESPACE_ID::internal::AssignDescriptors(
+      &descriptor_table_relations_2eproto_getter, &descriptor_table_relations_2eproto_once,
+      file_level_metadata_relations_2eproto[23]);
+}
+
+// ===================================================================
+
+class RelRoot::_Internal {
+ public:
+  static const ::io::substrait::Rel& input(const RelRoot* msg);
+};
+
+const ::io::substrait::Rel&
+RelRoot::_Internal::input(const RelRoot* msg) {
+  return *msg->input_;
+}
+RelRoot::RelRoot(::PROTOBUF_NAMESPACE_ID::Arena* arena)
+  : ::PROTOBUF_NAMESPACE_ID::Message(arena),
+  names_(arena) {
+  SharedCtor();
+  RegisterArenaDtor(arena);
+  // @@protoc_insertion_point(arena_constructor:io.substrait.RelRoot)
+}
+RelRoot::RelRoot(const RelRoot& from)
+  : ::PROTOBUF_NAMESPACE_ID::Message(),
+      names_(from.names_) {
+  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
+  if (from._internal_has_input()) {
+    input_ = new ::io::substrait::Rel(*from.input_);
+  } else {
+    input_ = nullptr;
+  }
+  // @@protoc_insertion_point(copy_constructor:io.substrait.RelRoot)
+}
+
+void RelRoot::SharedCtor() {
+input_ = nullptr;
+}
+
+RelRoot::~RelRoot() {
+  // @@protoc_insertion_point(destructor:io.substrait.RelRoot)
+  SharedDtor();
+  _internal_metadata_.Delete<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
+}
+
+void RelRoot::SharedDtor() {
+  GOOGLE_DCHECK(GetArena() == nullptr);
+  if (this != internal_default_instance()) delete input_;
+}
+
+void RelRoot::ArenaDtor(void* object) {
+  RelRoot* _this = reinterpret_cast< RelRoot* >(object);
+  (void)_this;
+}
+void RelRoot::RegisterArenaDtor(::PROTOBUF_NAMESPACE_ID::Arena*) {
+}
+void RelRoot::SetCachedSize(int size) const {
+  _cached_size_.Set(size);
+}
+
+void RelRoot::Clear() {
+// @@protoc_insertion_point(message_clear_start:io.substrait.RelRoot)
+  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  names_.Clear();
+  if (GetArena() == nullptr && input_ != nullptr) {
+    delete input_;
+  }
+  input_ = nullptr;
+  _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
+}
+
+const char* RelRoot::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) {
+#define CHK_(x) if (PROTOBUF_PREDICT_FALSE(!(x))) goto failure
+  while (!ctx->Done(&ptr)) {
+    ::PROTOBUF_NAMESPACE_ID::uint32 tag;
+    ptr = ::PROTOBUF_NAMESPACE_ID::internal::ReadTag(ptr, &tag);
+    switch (tag >> 3) {
+      // .io.substrait.Rel input = 1;
+      case 1:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 10)) {
+          ptr = ctx->ParseMessage(_internal_mutable_input(), ptr);
+          CHK_(ptr);
+        } else goto handle_unusual;
+        continue;
+      // repeated string names = 2;
+      case 2:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 18)) {
+          ptr -= 1;
+          do {
+            ptr += 1;
+            auto str = _internal_add_names();
+            ptr = ::PROTOBUF_NAMESPACE_ID::internal::InlineGreedyStringParser(str, ptr, ctx);
+            CHK_(::PROTOBUF_NAMESPACE_ID::internal::VerifyUTF8(str, "io.substrait.RelRoot.names"));
+            CHK_(ptr);
+            if (!ctx->DataAvailable(ptr)) break;
+          } while (::PROTOBUF_NAMESPACE_ID::internal::ExpectTag<18>(ptr));
+        } else goto handle_unusual;
+        continue;
+      default: {
+      handle_unusual:
+        if ((tag == 0) || ((tag & 7) == 4)) {
+          CHK_(ptr);
+          ctx->SetLastTag(tag);
+          goto success;
+        }
+        ptr = UnknownFieldParse(tag,
+            _internal_metadata_.mutable_unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(),
+            ptr, ctx);
+        CHK_(ptr != nullptr);
+        continue;
+      }
+    }  // switch
+  }  // while
+success:
+  return ptr;
+failure:
+  ptr = nullptr;
+  goto success;
+#undef CHK_
+}
+
+::PROTOBUF_NAMESPACE_ID::uint8* RelRoot::_InternalSerialize(
+    ::PROTOBUF_NAMESPACE_ID::uint8* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const {
+  // @@protoc_insertion_point(serialize_to_array_start:io.substrait.RelRoot)
+  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  // .io.substrait.Rel input = 1;
+  if (this->has_input()) {
+    target = stream->EnsureSpace(target);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
+      InternalWriteMessage(
+        1, _Internal::input(this), target, stream);
+  }
+
+  // repeated string names = 2;
+  for (int i = 0, n = this->_internal_names_size(); i < n; i++) {
+    const auto& s = this->_internal_names(i);
+    ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::VerifyUtf8String(
+      s.data(), static_cast<int>(s.length()),
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::SERIALIZE,
+      "io.substrait.RelRoot.names");
+    target = stream->WriteString(2, s, target);
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormat::InternalSerializeUnknownFieldsToArray(
+        _internal_metadata_.unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(::PROTOBUF_NAMESPACE_ID::UnknownFieldSet::default_instance), target, stream);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:io.substrait.RelRoot)
+  return target;
+}
+
+size_t RelRoot::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:io.substrait.RelRoot)
+  size_t total_size = 0;
+
+  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  // repeated string names = 2;
+  total_size += 1 *
+      ::PROTOBUF_NAMESPACE_ID::internal::FromIntSize(names_.size());
+  for (int i = 0, n = names_.size(); i < n; i++) {
+    total_size += ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::StringSize(
+      names_.Get(i));
+  }
+
+  // .io.substrait.Rel input = 1;
+  if (this->has_input()) {
+    total_size += 1 +
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
+        *input_);
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    return ::PROTOBUF_NAMESPACE_ID::internal::ComputeUnknownFieldsSize(
+        _internal_metadata_, total_size, &_cached_size_);
+  }
+  int cached_size = ::PROTOBUF_NAMESPACE_ID::internal::ToCachedSize(total_size);
+  SetCachedSize(cached_size);
+  return total_size;
+}
+
+void RelRoot::MergeFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
+// @@protoc_insertion_point(generalized_merge_from_start:io.substrait.RelRoot)
+  GOOGLE_DCHECK_NE(&from, this);
+  const RelRoot* source =
+      ::PROTOBUF_NAMESPACE_ID::DynamicCastToGenerated<RelRoot>(
+          &from);
+  if (source == nullptr) {
+  // @@protoc_insertion_point(generalized_merge_from_cast_fail:io.substrait.RelRoot)
+    ::PROTOBUF_NAMESPACE_ID::internal::ReflectionOps::Merge(from, this);
+  } else {
+  // @@protoc_insertion_point(generalized_merge_from_cast_success:io.substrait.RelRoot)
+    MergeFrom(*source);
+  }
+}
+
+void RelRoot::MergeFrom(const RelRoot& from) {
+// @@protoc_insertion_point(class_specific_merge_from_start:io.substrait.RelRoot)
+  GOOGLE_DCHECK_NE(&from, this);
+  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
+  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  names_.MergeFrom(from.names_);
+  if (from.has_input()) {
+    _internal_mutable_input()->::io::substrait::Rel::MergeFrom(from._internal_input());
+  }
+}
+
+void RelRoot::CopyFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
+// @@protoc_insertion_point(generalized_copy_from_start:io.substrait.RelRoot)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+void RelRoot::CopyFrom(const RelRoot& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:io.substrait.RelRoot)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+bool RelRoot::IsInitialized() const {
+  return true;
+}
+
+void RelRoot::InternalSwap(RelRoot* other) {
+  using std::swap;
+  _internal_metadata_.Swap<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(&other->_internal_metadata_);
+  names_.InternalSwap(&other->names_);
+  swap(input_, other->input_);
+}
+
+::PROTOBUF_NAMESPACE_ID::Metadata RelRoot::GetMetadata() const {
+  return ::PROTOBUF_NAMESPACE_ID::internal::AssignDescriptors(
+      &descriptor_table_relations_2eproto_getter, &descriptor_table_relations_2eproto_once,
+      file_level_metadata_relations_2eproto[24]);
+}
+
+// ===================================================================
+
 class Rel::_Internal {
  public:
   static const ::io::substrait::ReadRel& read(const Rel* msg);
@@ -6418,6 +8446,9 @@ class Rel::_Internal {
   static const ::io::substrait::JoinRel& join(const Rel* msg);
   static const ::io::substrait::ProjectRel& project(const Rel* msg);
   static const ::io::substrait::SetRel& set(const Rel* msg);
+  static const ::io::substrait::ExtensionSingleRel& extension_single(const Rel* msg);
+  static const ::io::substrait::ExtensionMultiRel& extension_multi(const Rel* msg);
+  static const ::io::substrait::ExtensionLeafRel& extension_leaf(const Rel* msg);
 };
 
 const ::io::substrait::ReadRel&
@@ -6451,6 +8482,18 @@ Rel::_Internal::project(const Rel* msg) {
 const ::io::substrait::SetRel&
 Rel::_Internal::set(const Rel* msg) {
   return *msg->RelType_.set_;
+}
+const ::io::substrait::ExtensionSingleRel&
+Rel::_Internal::extension_single(const Rel* msg) {
+  return *msg->RelType_.extension_single_;
+}
+const ::io::substrait::ExtensionMultiRel&
+Rel::_Internal::extension_multi(const Rel* msg) {
+  return *msg->RelType_.extension_multi_;
+}
+const ::io::substrait::ExtensionLeafRel&
+Rel::_Internal::extension_leaf(const Rel* msg) {
+  return *msg->RelType_.extension_leaf_;
 }
 void Rel::set_allocated_read(::io::substrait::ReadRel* read) {
   ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
@@ -6572,6 +8615,51 @@ void Rel::set_allocated_set(::io::substrait::SetRel* set) {
   }
   // @@protoc_insertion_point(field_set_allocated:io.substrait.Rel.set)
 }
+void Rel::set_allocated_extension_single(::io::substrait::ExtensionSingleRel* extension_single) {
+  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
+  clear_RelType();
+  if (extension_single) {
+    ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
+      ::PROTOBUF_NAMESPACE_ID::Arena::GetArena(extension_single);
+    if (message_arena != submessage_arena) {
+      extension_single = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
+          message_arena, extension_single, submessage_arena);
+    }
+    set_has_extension_single();
+    RelType_.extension_single_ = extension_single;
+  }
+  // @@protoc_insertion_point(field_set_allocated:io.substrait.Rel.extension_single)
+}
+void Rel::set_allocated_extension_multi(::io::substrait::ExtensionMultiRel* extension_multi) {
+  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
+  clear_RelType();
+  if (extension_multi) {
+    ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
+      ::PROTOBUF_NAMESPACE_ID::Arena::GetArena(extension_multi);
+    if (message_arena != submessage_arena) {
+      extension_multi = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
+          message_arena, extension_multi, submessage_arena);
+    }
+    set_has_extension_multi();
+    RelType_.extension_multi_ = extension_multi;
+  }
+  // @@protoc_insertion_point(field_set_allocated:io.substrait.Rel.extension_multi)
+}
+void Rel::set_allocated_extension_leaf(::io::substrait::ExtensionLeafRel* extension_leaf) {
+  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
+  clear_RelType();
+  if (extension_leaf) {
+    ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
+      ::PROTOBUF_NAMESPACE_ID::Arena::GetArena(extension_leaf);
+    if (message_arena != submessage_arena) {
+      extension_leaf = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
+          message_arena, extension_leaf, submessage_arena);
+    }
+    set_has_extension_leaf();
+    RelType_.extension_leaf_ = extension_leaf;
+  }
+  // @@protoc_insertion_point(field_set_allocated:io.substrait.Rel.extension_leaf)
+}
 Rel::Rel(::PROTOBUF_NAMESPACE_ID::Arena* arena)
   : ::PROTOBUF_NAMESPACE_ID::Message(arena) {
   SharedCtor();
@@ -6613,6 +8701,18 @@ Rel::Rel(const Rel& from)
     }
     case kSet: {
       _internal_mutable_set()->::io::substrait::SetRel::MergeFrom(from._internal_set());
+      break;
+    }
+    case kExtensionSingle: {
+      _internal_mutable_extension_single()->::io::substrait::ExtensionSingleRel::MergeFrom(from._internal_extension_single());
+      break;
+    }
+    case kExtensionMulti: {
+      _internal_mutable_extension_multi()->::io::substrait::ExtensionMultiRel::MergeFrom(from._internal_extension_multi());
+      break;
+    }
+    case kExtensionLeaf: {
+      _internal_mutable_extension_leaf()->::io::substrait::ExtensionLeafRel::MergeFrom(from._internal_extension_leaf());
       break;
     }
     case RELTYPE_NOT_SET: {
@@ -6700,6 +8800,24 @@ void Rel::clear_RelType() {
       }
       break;
     }
+    case kExtensionSingle: {
+      if (GetArena() == nullptr) {
+        delete RelType_.extension_single_;
+      }
+      break;
+    }
+    case kExtensionMulti: {
+      if (GetArena() == nullptr) {
+        delete RelType_.extension_multi_;
+      }
+      break;
+    }
+    case kExtensionLeaf: {
+      if (GetArena() == nullptr) {
+        delete RelType_.extension_leaf_;
+      }
+      break;
+    }
     case RELTYPE_NOT_SET: {
       break;
     }
@@ -6777,6 +8895,27 @@ const char* Rel::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::intern
       case 8:
         if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 66)) {
           ptr = ctx->ParseMessage(_internal_mutable_set(), ptr);
+          CHK_(ptr);
+        } else goto handle_unusual;
+        continue;
+      // .io.substrait.ExtensionSingleRel extension_single = 9;
+      case 9:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 74)) {
+          ptr = ctx->ParseMessage(_internal_mutable_extension_single(), ptr);
+          CHK_(ptr);
+        } else goto handle_unusual;
+        continue;
+      // .io.substrait.ExtensionMultiRel extension_multi = 10;
+      case 10:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 82)) {
+          ptr = ctx->ParseMessage(_internal_mutable_extension_multi(), ptr);
+          CHK_(ptr);
+        } else goto handle_unusual;
+        continue;
+      // .io.substrait.ExtensionLeafRel extension_leaf = 11;
+      case 11:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 90)) {
+          ptr = ctx->ParseMessage(_internal_mutable_extension_leaf(), ptr);
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
@@ -6873,6 +9012,30 @@ failure:
         8, _Internal::set(this), target, stream);
   }
 
+  // .io.substrait.ExtensionSingleRel extension_single = 9;
+  if (_internal_has_extension_single()) {
+    target = stream->EnsureSpace(target);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
+      InternalWriteMessage(
+        9, _Internal::extension_single(this), target, stream);
+  }
+
+  // .io.substrait.ExtensionMultiRel extension_multi = 10;
+  if (_internal_has_extension_multi()) {
+    target = stream->EnsureSpace(target);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
+      InternalWriteMessage(
+        10, _Internal::extension_multi(this), target, stream);
+  }
+
+  // .io.substrait.ExtensionLeafRel extension_leaf = 11;
+  if (_internal_has_extension_leaf()) {
+    target = stream->EnsureSpace(target);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
+      InternalWriteMessage(
+        11, _Internal::extension_leaf(this), target, stream);
+  }
+
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormat::InternalSerializeUnknownFieldsToArray(
         _internal_metadata_.unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(::PROTOBUF_NAMESPACE_ID::UnknownFieldSet::default_instance), target, stream);
@@ -6946,6 +9109,27 @@ size_t Rel::ByteSizeLong() const {
           *RelType_.set_);
       break;
     }
+    // .io.substrait.ExtensionSingleRel extension_single = 9;
+    case kExtensionSingle: {
+      total_size += 1 +
+        ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
+          *RelType_.extension_single_);
+      break;
+    }
+    // .io.substrait.ExtensionMultiRel extension_multi = 10;
+    case kExtensionMulti: {
+      total_size += 1 +
+        ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
+          *RelType_.extension_multi_);
+      break;
+    }
+    // .io.substrait.ExtensionLeafRel extension_leaf = 11;
+    case kExtensionLeaf: {
+      total_size += 1 +
+        ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
+          *RelType_.extension_leaf_);
+      break;
+    }
     case RELTYPE_NOT_SET: {
       break;
     }
@@ -7014,6 +9198,18 @@ void Rel::MergeFrom(const Rel& from) {
       _internal_mutable_set()->::io::substrait::SetRel::MergeFrom(from._internal_set());
       break;
     }
+    case kExtensionSingle: {
+      _internal_mutable_extension_single()->::io::substrait::ExtensionSingleRel::MergeFrom(from._internal_extension_single());
+      break;
+    }
+    case kExtensionMulti: {
+      _internal_mutable_extension_multi()->::io::substrait::ExtensionMultiRel::MergeFrom(from._internal_extension_multi());
+      break;
+    }
+    case kExtensionLeaf: {
+      _internal_mutable_extension_leaf()->::io::substrait::ExtensionLeafRel::MergeFrom(from._internal_extension_leaf());
+      break;
+    }
     case RELTYPE_NOT_SET: {
       break;
     }
@@ -7048,7 +9244,7 @@ void Rel::InternalSwap(Rel* other) {
 ::PROTOBUF_NAMESPACE_ID::Metadata Rel::GetMetadata() const {
   return ::PROTOBUF_NAMESPACE_ID::internal::AssignDescriptors(
       &descriptor_table_relations_2eproto_getter, &descriptor_table_relations_2eproto_once,
-      file_level_metadata_relations_2eproto[21]);
+      file_level_metadata_relations_2eproto[25]);
 }
 
 // @@protoc_insertion_point(namespace_scope)
@@ -7064,14 +9260,11 @@ template<> PROTOBUF_NOINLINE ::io::substrait::RelCommon_Emit* Arena::CreateMaybe
 template<> PROTOBUF_NOINLINE ::io::substrait::RelCommon_Hint_Stats* Arena::CreateMaybeMessage< ::io::substrait::RelCommon_Hint_Stats >(Arena* arena) {
   return Arena::CreateMessageInternal< ::io::substrait::RelCommon_Hint_Stats >(arena);
 }
-template<> PROTOBUF_NOINLINE ::io::substrait::RelCommon_Hint_HintKeyValue* Arena::CreateMaybeMessage< ::io::substrait::RelCommon_Hint_HintKeyValue >(Arena* arena) {
-  return Arena::CreateMessageInternal< ::io::substrait::RelCommon_Hint_HintKeyValue >(arena);
+template<> PROTOBUF_NOINLINE ::io::substrait::RelCommon_Hint_RuntimeConstraint* Arena::CreateMaybeMessage< ::io::substrait::RelCommon_Hint_RuntimeConstraint >(Arena* arena) {
+  return Arena::CreateMessageInternal< ::io::substrait::RelCommon_Hint_RuntimeConstraint >(arena);
 }
 template<> PROTOBUF_NOINLINE ::io::substrait::RelCommon_Hint* Arena::CreateMaybeMessage< ::io::substrait::RelCommon_Hint >(Arena* arena) {
   return Arena::CreateMessageInternal< ::io::substrait::RelCommon_Hint >(arena);
-}
-template<> PROTOBUF_NOINLINE ::io::substrait::RelCommon_RuntimeConstraint* Arena::CreateMaybeMessage< ::io::substrait::RelCommon_RuntimeConstraint >(Arena* arena) {
-  return Arena::CreateMessageInternal< ::io::substrait::RelCommon_RuntimeConstraint >(arena);
 }
 template<> PROTOBUF_NOINLINE ::io::substrait::RelCommon* Arena::CreateMaybeMessage< ::io::substrait::RelCommon >(Arena* arena) {
   return Arena::CreateMessageInternal< ::io::substrait::RelCommon >(arena);
@@ -7081,6 +9274,9 @@ template<> PROTOBUF_NOINLINE ::io::substrait::ReadRel_NamedTable* Arena::CreateM
 }
 template<> PROTOBUF_NOINLINE ::io::substrait::ReadRel_VirtualTable* Arena::CreateMaybeMessage< ::io::substrait::ReadRel_VirtualTable >(Arena* arena) {
   return Arena::CreateMessageInternal< ::io::substrait::ReadRel_VirtualTable >(arena);
+}
+template<> PROTOBUF_NOINLINE ::io::substrait::ReadRel_ExtensionTable* Arena::CreateMaybeMessage< ::io::substrait::ReadRel_ExtensionTable >(Arena* arena) {
+  return Arena::CreateMessageInternal< ::io::substrait::ReadRel_ExtensionTable >(arena);
 }
 template<> PROTOBUF_NOINLINE ::io::substrait::ReadRel_LocalFiles_FileOrFiles* Arena::CreateMaybeMessage< ::io::substrait::ReadRel_LocalFiles_FileOrFiles >(Arena* arena) {
   return Arena::CreateMessageInternal< ::io::substrait::ReadRel_LocalFiles_FileOrFiles >(arena);
@@ -7117,6 +9313,18 @@ template<> PROTOBUF_NOINLINE ::io::substrait::FilterRel* Arena::CreateMaybeMessa
 }
 template<> PROTOBUF_NOINLINE ::io::substrait::SetRel* Arena::CreateMaybeMessage< ::io::substrait::SetRel >(Arena* arena) {
   return Arena::CreateMessageInternal< ::io::substrait::SetRel >(arena);
+}
+template<> PROTOBUF_NOINLINE ::io::substrait::ExtensionSingleRel* Arena::CreateMaybeMessage< ::io::substrait::ExtensionSingleRel >(Arena* arena) {
+  return Arena::CreateMessageInternal< ::io::substrait::ExtensionSingleRel >(arena);
+}
+template<> PROTOBUF_NOINLINE ::io::substrait::ExtensionLeafRel* Arena::CreateMaybeMessage< ::io::substrait::ExtensionLeafRel >(Arena* arena) {
+  return Arena::CreateMessageInternal< ::io::substrait::ExtensionLeafRel >(arena);
+}
+template<> PROTOBUF_NOINLINE ::io::substrait::ExtensionMultiRel* Arena::CreateMaybeMessage< ::io::substrait::ExtensionMultiRel >(Arena* arena) {
+  return Arena::CreateMessageInternal< ::io::substrait::ExtensionMultiRel >(arena);
+}
+template<> PROTOBUF_NOINLINE ::io::substrait::RelRoot* Arena::CreateMaybeMessage< ::io::substrait::RelRoot >(Arena* arena) {
+  return Arena::CreateMessageInternal< ::io::substrait::RelRoot >(arena);
 }
 template<> PROTOBUF_NOINLINE ::io::substrait::Rel* Arena::CreateMaybeMessage< ::io::substrait::Rel >(Arena* arena) {
   return Arena::CreateMessageInternal< ::io::substrait::Rel >(arena);

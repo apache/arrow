@@ -32,7 +32,6 @@
 #include <google/protobuf/extension_set.h>  // IWYU pragma: export
 #include <google/protobuf/unknown_field_set.h>
 #include "type.pb.h"
-#include "extensions.pb.h"
 // @@protoc_insertion_point(includes)
 #include <google/protobuf/port_def.inc>
 #define PROTOBUF_INTERNAL_EXPORT_parameterized_5ftypes_2eproto
@@ -689,7 +688,7 @@ class ParameterizedType_ParameterizedFixedChar PROTOBUF_FINAL :
 
   enum : int {
     kLengthFieldNumber = 1,
-    kVariationFieldNumber = 2,
+    kVariationPointerFieldNumber = 2,
     kNullabilityFieldNumber = 3,
   };
   // .io.substrait.ParameterizedType.IntegerOption length = 1;
@@ -710,23 +709,14 @@ class ParameterizedType_ParameterizedFixedChar PROTOBUF_FINAL :
       ::io::substrait::ParameterizedType_IntegerOption* length);
   ::io::substrait::ParameterizedType_IntegerOption* unsafe_arena_release_length();
 
-  // .io.substrait.Type.Variation variation = 2;
-  bool has_variation() const;
+  // uint32 variation_pointer = 2;
+  void clear_variation_pointer();
+  ::PROTOBUF_NAMESPACE_ID::uint32 variation_pointer() const;
+  void set_variation_pointer(::PROTOBUF_NAMESPACE_ID::uint32 value);
   private:
-  bool _internal_has_variation() const;
+  ::PROTOBUF_NAMESPACE_ID::uint32 _internal_variation_pointer() const;
+  void _internal_set_variation_pointer(::PROTOBUF_NAMESPACE_ID::uint32 value);
   public:
-  void clear_variation();
-  const ::io::substrait::Type_Variation& variation() const;
-  ::io::substrait::Type_Variation* release_variation();
-  ::io::substrait::Type_Variation* mutable_variation();
-  void set_allocated_variation(::io::substrait::Type_Variation* variation);
-  private:
-  const ::io::substrait::Type_Variation& _internal_variation() const;
-  ::io::substrait::Type_Variation* _internal_mutable_variation();
-  public:
-  void unsafe_arena_set_allocated_variation(
-      ::io::substrait::Type_Variation* variation);
-  ::io::substrait::Type_Variation* unsafe_arena_release_variation();
 
   // .io.substrait.Type.Nullability nullability = 3;
   void clear_nullability();
@@ -745,7 +735,7 @@ class ParameterizedType_ParameterizedFixedChar PROTOBUF_FINAL :
   typedef void InternalArenaConstructable_;
   typedef void DestructorSkippable_;
   ::io::substrait::ParameterizedType_IntegerOption* length_;
-  ::io::substrait::Type_Variation* variation_;
+  ::PROTOBUF_NAMESPACE_ID::uint32 variation_pointer_;
   int nullability_;
   mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   friend struct ::TableStruct_parameterized_5ftypes_2eproto;
@@ -860,7 +850,7 @@ class ParameterizedType_ParameterizedVarChar PROTOBUF_FINAL :
 
   enum : int {
     kLengthFieldNumber = 1,
-    kVariationFieldNumber = 2,
+    kVariationPointerFieldNumber = 2,
     kNullabilityFieldNumber = 3,
   };
   // .io.substrait.ParameterizedType.IntegerOption length = 1;
@@ -881,23 +871,14 @@ class ParameterizedType_ParameterizedVarChar PROTOBUF_FINAL :
       ::io::substrait::ParameterizedType_IntegerOption* length);
   ::io::substrait::ParameterizedType_IntegerOption* unsafe_arena_release_length();
 
-  // .io.substrait.Type.Variation variation = 2;
-  bool has_variation() const;
+  // uint32 variation_pointer = 2;
+  void clear_variation_pointer();
+  ::PROTOBUF_NAMESPACE_ID::uint32 variation_pointer() const;
+  void set_variation_pointer(::PROTOBUF_NAMESPACE_ID::uint32 value);
   private:
-  bool _internal_has_variation() const;
+  ::PROTOBUF_NAMESPACE_ID::uint32 _internal_variation_pointer() const;
+  void _internal_set_variation_pointer(::PROTOBUF_NAMESPACE_ID::uint32 value);
   public:
-  void clear_variation();
-  const ::io::substrait::Type_Variation& variation() const;
-  ::io::substrait::Type_Variation* release_variation();
-  ::io::substrait::Type_Variation* mutable_variation();
-  void set_allocated_variation(::io::substrait::Type_Variation* variation);
-  private:
-  const ::io::substrait::Type_Variation& _internal_variation() const;
-  ::io::substrait::Type_Variation* _internal_mutable_variation();
-  public:
-  void unsafe_arena_set_allocated_variation(
-      ::io::substrait::Type_Variation* variation);
-  ::io::substrait::Type_Variation* unsafe_arena_release_variation();
 
   // .io.substrait.Type.Nullability nullability = 3;
   void clear_nullability();
@@ -916,7 +897,7 @@ class ParameterizedType_ParameterizedVarChar PROTOBUF_FINAL :
   typedef void InternalArenaConstructable_;
   typedef void DestructorSkippable_;
   ::io::substrait::ParameterizedType_IntegerOption* length_;
-  ::io::substrait::Type_Variation* variation_;
+  ::PROTOBUF_NAMESPACE_ID::uint32 variation_pointer_;
   int nullability_;
   mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   friend struct ::TableStruct_parameterized_5ftypes_2eproto;
@@ -1031,7 +1012,7 @@ class ParameterizedType_ParameterizedFixedBinary PROTOBUF_FINAL :
 
   enum : int {
     kLengthFieldNumber = 1,
-    kVariationFieldNumber = 2,
+    kVariationPointerFieldNumber = 2,
     kNullabilityFieldNumber = 3,
   };
   // .io.substrait.ParameterizedType.IntegerOption length = 1;
@@ -1052,23 +1033,14 @@ class ParameterizedType_ParameterizedFixedBinary PROTOBUF_FINAL :
       ::io::substrait::ParameterizedType_IntegerOption* length);
   ::io::substrait::ParameterizedType_IntegerOption* unsafe_arena_release_length();
 
-  // .io.substrait.Type.Variation variation = 2;
-  bool has_variation() const;
+  // uint32 variation_pointer = 2;
+  void clear_variation_pointer();
+  ::PROTOBUF_NAMESPACE_ID::uint32 variation_pointer() const;
+  void set_variation_pointer(::PROTOBUF_NAMESPACE_ID::uint32 value);
   private:
-  bool _internal_has_variation() const;
+  ::PROTOBUF_NAMESPACE_ID::uint32 _internal_variation_pointer() const;
+  void _internal_set_variation_pointer(::PROTOBUF_NAMESPACE_ID::uint32 value);
   public:
-  void clear_variation();
-  const ::io::substrait::Type_Variation& variation() const;
-  ::io::substrait::Type_Variation* release_variation();
-  ::io::substrait::Type_Variation* mutable_variation();
-  void set_allocated_variation(::io::substrait::Type_Variation* variation);
-  private:
-  const ::io::substrait::Type_Variation& _internal_variation() const;
-  ::io::substrait::Type_Variation* _internal_mutable_variation();
-  public:
-  void unsafe_arena_set_allocated_variation(
-      ::io::substrait::Type_Variation* variation);
-  ::io::substrait::Type_Variation* unsafe_arena_release_variation();
 
   // .io.substrait.Type.Nullability nullability = 3;
   void clear_nullability();
@@ -1087,7 +1059,7 @@ class ParameterizedType_ParameterizedFixedBinary PROTOBUF_FINAL :
   typedef void InternalArenaConstructable_;
   typedef void DestructorSkippable_;
   ::io::substrait::ParameterizedType_IntegerOption* length_;
-  ::io::substrait::Type_Variation* variation_;
+  ::PROTOBUF_NAMESPACE_ID::uint32 variation_pointer_;
   int nullability_;
   mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   friend struct ::TableStruct_parameterized_5ftypes_2eproto;
@@ -1203,7 +1175,7 @@ class ParameterizedType_ParameterizedDecimal PROTOBUF_FINAL :
   enum : int {
     kScaleFieldNumber = 1,
     kPrecisionFieldNumber = 2,
-    kVariationFieldNumber = 3,
+    kVariationPointerFieldNumber = 3,
     kNullabilityFieldNumber = 4,
   };
   // .io.substrait.ParameterizedType.IntegerOption scale = 1;
@@ -1242,23 +1214,14 @@ class ParameterizedType_ParameterizedDecimal PROTOBUF_FINAL :
       ::io::substrait::ParameterizedType_IntegerOption* precision);
   ::io::substrait::ParameterizedType_IntegerOption* unsafe_arena_release_precision();
 
-  // .io.substrait.Type.Variation variation = 3;
-  bool has_variation() const;
+  // uint32 variation_pointer = 3;
+  void clear_variation_pointer();
+  ::PROTOBUF_NAMESPACE_ID::uint32 variation_pointer() const;
+  void set_variation_pointer(::PROTOBUF_NAMESPACE_ID::uint32 value);
   private:
-  bool _internal_has_variation() const;
+  ::PROTOBUF_NAMESPACE_ID::uint32 _internal_variation_pointer() const;
+  void _internal_set_variation_pointer(::PROTOBUF_NAMESPACE_ID::uint32 value);
   public:
-  void clear_variation();
-  const ::io::substrait::Type_Variation& variation() const;
-  ::io::substrait::Type_Variation* release_variation();
-  ::io::substrait::Type_Variation* mutable_variation();
-  void set_allocated_variation(::io::substrait::Type_Variation* variation);
-  private:
-  const ::io::substrait::Type_Variation& _internal_variation() const;
-  ::io::substrait::Type_Variation* _internal_mutable_variation();
-  public:
-  void unsafe_arena_set_allocated_variation(
-      ::io::substrait::Type_Variation* variation);
-  ::io::substrait::Type_Variation* unsafe_arena_release_variation();
 
   // .io.substrait.Type.Nullability nullability = 4;
   void clear_nullability();
@@ -1278,7 +1241,7 @@ class ParameterizedType_ParameterizedDecimal PROTOBUF_FINAL :
   typedef void DestructorSkippable_;
   ::io::substrait::ParameterizedType_IntegerOption* scale_;
   ::io::substrait::ParameterizedType_IntegerOption* precision_;
-  ::io::substrait::Type_Variation* variation_;
+  ::PROTOBUF_NAMESPACE_ID::uint32 variation_pointer_;
   int nullability_;
   mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   friend struct ::TableStruct_parameterized_5ftypes_2eproto;
@@ -1393,7 +1356,7 @@ class ParameterizedType_ParameterizedStruct PROTOBUF_FINAL :
 
   enum : int {
     kTypesFieldNumber = 1,
-    kVariationFieldNumber = 2,
+    kVariationPointerFieldNumber = 2,
     kNullabilityFieldNumber = 3,
   };
   // repeated .io.substrait.ParameterizedType types = 1;
@@ -1414,23 +1377,14 @@ class ParameterizedType_ParameterizedStruct PROTOBUF_FINAL :
   const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::io::substrait::ParameterizedType >&
       types() const;
 
-  // .io.substrait.Type.Variation variation = 2;
-  bool has_variation() const;
+  // uint32 variation_pointer = 2;
+  void clear_variation_pointer();
+  ::PROTOBUF_NAMESPACE_ID::uint32 variation_pointer() const;
+  void set_variation_pointer(::PROTOBUF_NAMESPACE_ID::uint32 value);
   private:
-  bool _internal_has_variation() const;
+  ::PROTOBUF_NAMESPACE_ID::uint32 _internal_variation_pointer() const;
+  void _internal_set_variation_pointer(::PROTOBUF_NAMESPACE_ID::uint32 value);
   public:
-  void clear_variation();
-  const ::io::substrait::Type_Variation& variation() const;
-  ::io::substrait::Type_Variation* release_variation();
-  ::io::substrait::Type_Variation* mutable_variation();
-  void set_allocated_variation(::io::substrait::Type_Variation* variation);
-  private:
-  const ::io::substrait::Type_Variation& _internal_variation() const;
-  ::io::substrait::Type_Variation* _internal_mutable_variation();
-  public:
-  void unsafe_arena_set_allocated_variation(
-      ::io::substrait::Type_Variation* variation);
-  ::io::substrait::Type_Variation* unsafe_arena_release_variation();
 
   // .io.substrait.Type.Nullability nullability = 3;
   void clear_nullability();
@@ -1449,7 +1403,7 @@ class ParameterizedType_ParameterizedStruct PROTOBUF_FINAL :
   typedef void InternalArenaConstructable_;
   typedef void DestructorSkippable_;
   ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::io::substrait::ParameterizedType > types_;
-  ::io::substrait::Type_Variation* variation_;
+  ::PROTOBUF_NAMESPACE_ID::uint32 variation_pointer_;
   int nullability_;
   mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   friend struct ::TableStruct_parameterized_5ftypes_2eproto;
@@ -1730,7 +1684,7 @@ class ParameterizedType_ParameterizedList PROTOBUF_FINAL :
 
   enum : int {
     kTypeFieldNumber = 1,
-    kVariationFieldNumber = 2,
+    kVariationPointerFieldNumber = 2,
     kNullabilityFieldNumber = 3,
   };
   // .io.substrait.ParameterizedType type = 1;
@@ -1751,23 +1705,14 @@ class ParameterizedType_ParameterizedList PROTOBUF_FINAL :
       ::io::substrait::ParameterizedType* type);
   ::io::substrait::ParameterizedType* unsafe_arena_release_type();
 
-  // .io.substrait.Type.Variation variation = 2;
-  bool has_variation() const;
+  // uint32 variation_pointer = 2;
+  void clear_variation_pointer();
+  ::PROTOBUF_NAMESPACE_ID::uint32 variation_pointer() const;
+  void set_variation_pointer(::PROTOBUF_NAMESPACE_ID::uint32 value);
   private:
-  bool _internal_has_variation() const;
+  ::PROTOBUF_NAMESPACE_ID::uint32 _internal_variation_pointer() const;
+  void _internal_set_variation_pointer(::PROTOBUF_NAMESPACE_ID::uint32 value);
   public:
-  void clear_variation();
-  const ::io::substrait::Type_Variation& variation() const;
-  ::io::substrait::Type_Variation* release_variation();
-  ::io::substrait::Type_Variation* mutable_variation();
-  void set_allocated_variation(::io::substrait::Type_Variation* variation);
-  private:
-  const ::io::substrait::Type_Variation& _internal_variation() const;
-  ::io::substrait::Type_Variation* _internal_mutable_variation();
-  public:
-  void unsafe_arena_set_allocated_variation(
-      ::io::substrait::Type_Variation* variation);
-  ::io::substrait::Type_Variation* unsafe_arena_release_variation();
 
   // .io.substrait.Type.Nullability nullability = 3;
   void clear_nullability();
@@ -1786,7 +1731,7 @@ class ParameterizedType_ParameterizedList PROTOBUF_FINAL :
   typedef void InternalArenaConstructable_;
   typedef void DestructorSkippable_;
   ::io::substrait::ParameterizedType* type_;
-  ::io::substrait::Type_Variation* variation_;
+  ::PROTOBUF_NAMESPACE_ID::uint32 variation_pointer_;
   int nullability_;
   mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   friend struct ::TableStruct_parameterized_5ftypes_2eproto;
@@ -1902,7 +1847,7 @@ class ParameterizedType_ParameterizedMap PROTOBUF_FINAL :
   enum : int {
     kKeyFieldNumber = 1,
     kValueFieldNumber = 2,
-    kVariationFieldNumber = 3,
+    kVariationPointerFieldNumber = 3,
     kNullabilityFieldNumber = 4,
   };
   // .io.substrait.ParameterizedType key = 1;
@@ -1941,23 +1886,14 @@ class ParameterizedType_ParameterizedMap PROTOBUF_FINAL :
       ::io::substrait::ParameterizedType* value);
   ::io::substrait::ParameterizedType* unsafe_arena_release_value();
 
-  // .io.substrait.Type.Variation variation = 3;
-  bool has_variation() const;
+  // uint32 variation_pointer = 3;
+  void clear_variation_pointer();
+  ::PROTOBUF_NAMESPACE_ID::uint32 variation_pointer() const;
+  void set_variation_pointer(::PROTOBUF_NAMESPACE_ID::uint32 value);
   private:
-  bool _internal_has_variation() const;
+  ::PROTOBUF_NAMESPACE_ID::uint32 _internal_variation_pointer() const;
+  void _internal_set_variation_pointer(::PROTOBUF_NAMESPACE_ID::uint32 value);
   public:
-  void clear_variation();
-  const ::io::substrait::Type_Variation& variation() const;
-  ::io::substrait::Type_Variation* release_variation();
-  ::io::substrait::Type_Variation* mutable_variation();
-  void set_allocated_variation(::io::substrait::Type_Variation* variation);
-  private:
-  const ::io::substrait::Type_Variation& _internal_variation() const;
-  ::io::substrait::Type_Variation* _internal_mutable_variation();
-  public:
-  void unsafe_arena_set_allocated_variation(
-      ::io::substrait::Type_Variation* variation);
-  ::io::substrait::Type_Variation* unsafe_arena_release_variation();
 
   // .io.substrait.Type.Nullability nullability = 4;
   void clear_nullability();
@@ -1977,7 +1913,7 @@ class ParameterizedType_ParameterizedMap PROTOBUF_FINAL :
   typedef void DestructorSkippable_;
   ::io::substrait::ParameterizedType* key_;
   ::io::substrait::ParameterizedType* value_;
-  ::io::substrait::Type_Variation* variation_;
+  ::PROTOBUF_NAMESPACE_ID::uint32 variation_pointer_;
   int nullability_;
   mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   friend struct ::TableStruct_parameterized_5ftypes_2eproto;
@@ -2220,7 +2156,7 @@ class ParameterizedType PROTOBUF_FINAL :
     kStruct = 25,
     kList = 27,
     kMap = 28,
-    kUserDefined = 31,
+    kUserDefinedPointer = 31,
     kTypeParameter = 33,
     KIND_NOT_SET = 0,
   };
@@ -2330,7 +2266,7 @@ class ParameterizedType PROTOBUF_FINAL :
     kStructFieldNumber = 25,
     kListFieldNumber = 27,
     kMapFieldNumber = 28,
-    kUserDefinedFieldNumber = 31,
+    kUserDefinedPointerFieldNumber = 31,
     kTypeParameterFieldNumber = 33,
   };
   // .io.substrait.Type.Boolean bool = 1;
@@ -2747,23 +2683,18 @@ class ParameterizedType PROTOBUF_FINAL :
       ::io::substrait::ParameterizedType_ParameterizedMap* map);
   ::io::substrait::ParameterizedType_ParameterizedMap* unsafe_arena_release_map();
 
-  // .io.substrait.Extensions.TypeId user_defined = 31;
-  bool has_user_defined() const;
+  // uint32 user_defined_pointer = 31;
+  bool has_user_defined_pointer() const;
   private:
-  bool _internal_has_user_defined() const;
+  bool _internal_has_user_defined_pointer() const;
   public:
-  void clear_user_defined();
-  const ::io::substrait::Extensions_TypeId& user_defined() const;
-  ::io::substrait::Extensions_TypeId* release_user_defined();
-  ::io::substrait::Extensions_TypeId* mutable_user_defined();
-  void set_allocated_user_defined(::io::substrait::Extensions_TypeId* user_defined);
+  void clear_user_defined_pointer();
+  ::PROTOBUF_NAMESPACE_ID::uint32 user_defined_pointer() const;
+  void set_user_defined_pointer(::PROTOBUF_NAMESPACE_ID::uint32 value);
   private:
-  const ::io::substrait::Extensions_TypeId& _internal_user_defined() const;
-  ::io::substrait::Extensions_TypeId* _internal_mutable_user_defined();
+  ::PROTOBUF_NAMESPACE_ID::uint32 _internal_user_defined_pointer() const;
+  void _internal_set_user_defined_pointer(::PROTOBUF_NAMESPACE_ID::uint32 value);
   public:
-  void unsafe_arena_set_allocated_user_defined(
-      ::io::substrait::Extensions_TypeId* user_defined);
-  ::io::substrait::Extensions_TypeId* unsafe_arena_release_user_defined();
 
   // .io.substrait.ParameterizedType.TypeParameter type_parameter = 33;
   bool has_type_parameter() const;
@@ -2811,7 +2742,7 @@ class ParameterizedType PROTOBUF_FINAL :
   void set_has_struct_();
   void set_has_list();
   void set_has_map();
-  void set_has_user_defined();
+  void set_has_user_defined_pointer();
   void set_has_type_parameter();
 
   inline bool has_kind() const;
@@ -2846,7 +2777,7 @@ class ParameterizedType PROTOBUF_FINAL :
     ::io::substrait::ParameterizedType_ParameterizedStruct* struct__;
     ::io::substrait::ParameterizedType_ParameterizedList* list_;
     ::io::substrait::ParameterizedType_ParameterizedMap* map_;
-    ::io::substrait::Extensions_TypeId* user_defined_;
+    ::PROTOBUF_NAMESPACE_ID::uint32 user_defined_pointer_;
     ::io::substrait::ParameterizedType_TypeParameter* type_parameter_;
   } kind_;
   mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
@@ -3275,81 +3206,24 @@ inline void ParameterizedType_ParameterizedFixedChar::set_allocated_length(::io:
   // @@protoc_insertion_point(field_set_allocated:io.substrait.ParameterizedType.ParameterizedFixedChar.length)
 }
 
-// .io.substrait.Type.Variation variation = 2;
-inline bool ParameterizedType_ParameterizedFixedChar::_internal_has_variation() const {
-  return this != internal_default_instance() && variation_ != nullptr;
+// uint32 variation_pointer = 2;
+inline void ParameterizedType_ParameterizedFixedChar::clear_variation_pointer() {
+  variation_pointer_ = 0u;
 }
-inline bool ParameterizedType_ParameterizedFixedChar::has_variation() const {
-  return _internal_has_variation();
+inline ::PROTOBUF_NAMESPACE_ID::uint32 ParameterizedType_ParameterizedFixedChar::_internal_variation_pointer() const {
+  return variation_pointer_;
 }
-inline const ::io::substrait::Type_Variation& ParameterizedType_ParameterizedFixedChar::_internal_variation() const {
-  const ::io::substrait::Type_Variation* p = variation_;
-  return p != nullptr ? *p : reinterpret_cast<const ::io::substrait::Type_Variation&>(
-      ::io::substrait::_Type_Variation_default_instance_);
+inline ::PROTOBUF_NAMESPACE_ID::uint32 ParameterizedType_ParameterizedFixedChar::variation_pointer() const {
+  // @@protoc_insertion_point(field_get:io.substrait.ParameterizedType.ParameterizedFixedChar.variation_pointer)
+  return _internal_variation_pointer();
 }
-inline const ::io::substrait::Type_Variation& ParameterizedType_ParameterizedFixedChar::variation() const {
-  // @@protoc_insertion_point(field_get:io.substrait.ParameterizedType.ParameterizedFixedChar.variation)
-  return _internal_variation();
-}
-inline void ParameterizedType_ParameterizedFixedChar::unsafe_arena_set_allocated_variation(
-    ::io::substrait::Type_Variation* variation) {
-  if (GetArena() == nullptr) {
-    delete reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(variation_);
-  }
-  variation_ = variation;
-  if (variation) {
-    
-  } else {
-    
-  }
-  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:io.substrait.ParameterizedType.ParameterizedFixedChar.variation)
-}
-inline ::io::substrait::Type_Variation* ParameterizedType_ParameterizedFixedChar::release_variation() {
+inline void ParameterizedType_ParameterizedFixedChar::_internal_set_variation_pointer(::PROTOBUF_NAMESPACE_ID::uint32 value) {
   
-  ::io::substrait::Type_Variation* temp = variation_;
-  variation_ = nullptr;
-  if (GetArena() != nullptr) {
-    temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
-  }
-  return temp;
+  variation_pointer_ = value;
 }
-inline ::io::substrait::Type_Variation* ParameterizedType_ParameterizedFixedChar::unsafe_arena_release_variation() {
-  // @@protoc_insertion_point(field_release:io.substrait.ParameterizedType.ParameterizedFixedChar.variation)
-  
-  ::io::substrait::Type_Variation* temp = variation_;
-  variation_ = nullptr;
-  return temp;
-}
-inline ::io::substrait::Type_Variation* ParameterizedType_ParameterizedFixedChar::_internal_mutable_variation() {
-  
-  if (variation_ == nullptr) {
-    auto* p = CreateMaybeMessage<::io::substrait::Type_Variation>(GetArena());
-    variation_ = p;
-  }
-  return variation_;
-}
-inline ::io::substrait::Type_Variation* ParameterizedType_ParameterizedFixedChar::mutable_variation() {
-  // @@protoc_insertion_point(field_mutable:io.substrait.ParameterizedType.ParameterizedFixedChar.variation)
-  return _internal_mutable_variation();
-}
-inline void ParameterizedType_ParameterizedFixedChar::set_allocated_variation(::io::substrait::Type_Variation* variation) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
-  if (message_arena == nullptr) {
-    delete reinterpret_cast< ::PROTOBUF_NAMESPACE_ID::MessageLite*>(variation_);
-  }
-  if (variation) {
-    ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(variation)->GetArena();
-    if (message_arena != submessage_arena) {
-      variation = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
-          message_arena, variation, submessage_arena);
-    }
-    
-  } else {
-    
-  }
-  variation_ = variation;
-  // @@protoc_insertion_point(field_set_allocated:io.substrait.ParameterizedType.ParameterizedFixedChar.variation)
+inline void ParameterizedType_ParameterizedFixedChar::set_variation_pointer(::PROTOBUF_NAMESPACE_ID::uint32 value) {
+  _internal_set_variation_pointer(value);
+  // @@protoc_insertion_point(field_set:io.substrait.ParameterizedType.ParameterizedFixedChar.variation_pointer)
 }
 
 // .io.substrait.Type.Nullability nullability = 3;
@@ -3459,81 +3333,24 @@ inline void ParameterizedType_ParameterizedVarChar::set_allocated_length(::io::s
   // @@protoc_insertion_point(field_set_allocated:io.substrait.ParameterizedType.ParameterizedVarChar.length)
 }
 
-// .io.substrait.Type.Variation variation = 2;
-inline bool ParameterizedType_ParameterizedVarChar::_internal_has_variation() const {
-  return this != internal_default_instance() && variation_ != nullptr;
+// uint32 variation_pointer = 2;
+inline void ParameterizedType_ParameterizedVarChar::clear_variation_pointer() {
+  variation_pointer_ = 0u;
 }
-inline bool ParameterizedType_ParameterizedVarChar::has_variation() const {
-  return _internal_has_variation();
+inline ::PROTOBUF_NAMESPACE_ID::uint32 ParameterizedType_ParameterizedVarChar::_internal_variation_pointer() const {
+  return variation_pointer_;
 }
-inline const ::io::substrait::Type_Variation& ParameterizedType_ParameterizedVarChar::_internal_variation() const {
-  const ::io::substrait::Type_Variation* p = variation_;
-  return p != nullptr ? *p : reinterpret_cast<const ::io::substrait::Type_Variation&>(
-      ::io::substrait::_Type_Variation_default_instance_);
+inline ::PROTOBUF_NAMESPACE_ID::uint32 ParameterizedType_ParameterizedVarChar::variation_pointer() const {
+  // @@protoc_insertion_point(field_get:io.substrait.ParameterizedType.ParameterizedVarChar.variation_pointer)
+  return _internal_variation_pointer();
 }
-inline const ::io::substrait::Type_Variation& ParameterizedType_ParameterizedVarChar::variation() const {
-  // @@protoc_insertion_point(field_get:io.substrait.ParameterizedType.ParameterizedVarChar.variation)
-  return _internal_variation();
-}
-inline void ParameterizedType_ParameterizedVarChar::unsafe_arena_set_allocated_variation(
-    ::io::substrait::Type_Variation* variation) {
-  if (GetArena() == nullptr) {
-    delete reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(variation_);
-  }
-  variation_ = variation;
-  if (variation) {
-    
-  } else {
-    
-  }
-  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:io.substrait.ParameterizedType.ParameterizedVarChar.variation)
-}
-inline ::io::substrait::Type_Variation* ParameterizedType_ParameterizedVarChar::release_variation() {
+inline void ParameterizedType_ParameterizedVarChar::_internal_set_variation_pointer(::PROTOBUF_NAMESPACE_ID::uint32 value) {
   
-  ::io::substrait::Type_Variation* temp = variation_;
-  variation_ = nullptr;
-  if (GetArena() != nullptr) {
-    temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
-  }
-  return temp;
+  variation_pointer_ = value;
 }
-inline ::io::substrait::Type_Variation* ParameterizedType_ParameterizedVarChar::unsafe_arena_release_variation() {
-  // @@protoc_insertion_point(field_release:io.substrait.ParameterizedType.ParameterizedVarChar.variation)
-  
-  ::io::substrait::Type_Variation* temp = variation_;
-  variation_ = nullptr;
-  return temp;
-}
-inline ::io::substrait::Type_Variation* ParameterizedType_ParameterizedVarChar::_internal_mutable_variation() {
-  
-  if (variation_ == nullptr) {
-    auto* p = CreateMaybeMessage<::io::substrait::Type_Variation>(GetArena());
-    variation_ = p;
-  }
-  return variation_;
-}
-inline ::io::substrait::Type_Variation* ParameterizedType_ParameterizedVarChar::mutable_variation() {
-  // @@protoc_insertion_point(field_mutable:io.substrait.ParameterizedType.ParameterizedVarChar.variation)
-  return _internal_mutable_variation();
-}
-inline void ParameterizedType_ParameterizedVarChar::set_allocated_variation(::io::substrait::Type_Variation* variation) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
-  if (message_arena == nullptr) {
-    delete reinterpret_cast< ::PROTOBUF_NAMESPACE_ID::MessageLite*>(variation_);
-  }
-  if (variation) {
-    ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(variation)->GetArena();
-    if (message_arena != submessage_arena) {
-      variation = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
-          message_arena, variation, submessage_arena);
-    }
-    
-  } else {
-    
-  }
-  variation_ = variation;
-  // @@protoc_insertion_point(field_set_allocated:io.substrait.ParameterizedType.ParameterizedVarChar.variation)
+inline void ParameterizedType_ParameterizedVarChar::set_variation_pointer(::PROTOBUF_NAMESPACE_ID::uint32 value) {
+  _internal_set_variation_pointer(value);
+  // @@protoc_insertion_point(field_set:io.substrait.ParameterizedType.ParameterizedVarChar.variation_pointer)
 }
 
 // .io.substrait.Type.Nullability nullability = 3;
@@ -3643,81 +3460,24 @@ inline void ParameterizedType_ParameterizedFixedBinary::set_allocated_length(::i
   // @@protoc_insertion_point(field_set_allocated:io.substrait.ParameterizedType.ParameterizedFixedBinary.length)
 }
 
-// .io.substrait.Type.Variation variation = 2;
-inline bool ParameterizedType_ParameterizedFixedBinary::_internal_has_variation() const {
-  return this != internal_default_instance() && variation_ != nullptr;
+// uint32 variation_pointer = 2;
+inline void ParameterizedType_ParameterizedFixedBinary::clear_variation_pointer() {
+  variation_pointer_ = 0u;
 }
-inline bool ParameterizedType_ParameterizedFixedBinary::has_variation() const {
-  return _internal_has_variation();
+inline ::PROTOBUF_NAMESPACE_ID::uint32 ParameterizedType_ParameterizedFixedBinary::_internal_variation_pointer() const {
+  return variation_pointer_;
 }
-inline const ::io::substrait::Type_Variation& ParameterizedType_ParameterizedFixedBinary::_internal_variation() const {
-  const ::io::substrait::Type_Variation* p = variation_;
-  return p != nullptr ? *p : reinterpret_cast<const ::io::substrait::Type_Variation&>(
-      ::io::substrait::_Type_Variation_default_instance_);
+inline ::PROTOBUF_NAMESPACE_ID::uint32 ParameterizedType_ParameterizedFixedBinary::variation_pointer() const {
+  // @@protoc_insertion_point(field_get:io.substrait.ParameterizedType.ParameterizedFixedBinary.variation_pointer)
+  return _internal_variation_pointer();
 }
-inline const ::io::substrait::Type_Variation& ParameterizedType_ParameterizedFixedBinary::variation() const {
-  // @@protoc_insertion_point(field_get:io.substrait.ParameterizedType.ParameterizedFixedBinary.variation)
-  return _internal_variation();
-}
-inline void ParameterizedType_ParameterizedFixedBinary::unsafe_arena_set_allocated_variation(
-    ::io::substrait::Type_Variation* variation) {
-  if (GetArena() == nullptr) {
-    delete reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(variation_);
-  }
-  variation_ = variation;
-  if (variation) {
-    
-  } else {
-    
-  }
-  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:io.substrait.ParameterizedType.ParameterizedFixedBinary.variation)
-}
-inline ::io::substrait::Type_Variation* ParameterizedType_ParameterizedFixedBinary::release_variation() {
+inline void ParameterizedType_ParameterizedFixedBinary::_internal_set_variation_pointer(::PROTOBUF_NAMESPACE_ID::uint32 value) {
   
-  ::io::substrait::Type_Variation* temp = variation_;
-  variation_ = nullptr;
-  if (GetArena() != nullptr) {
-    temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
-  }
-  return temp;
+  variation_pointer_ = value;
 }
-inline ::io::substrait::Type_Variation* ParameterizedType_ParameterizedFixedBinary::unsafe_arena_release_variation() {
-  // @@protoc_insertion_point(field_release:io.substrait.ParameterizedType.ParameterizedFixedBinary.variation)
-  
-  ::io::substrait::Type_Variation* temp = variation_;
-  variation_ = nullptr;
-  return temp;
-}
-inline ::io::substrait::Type_Variation* ParameterizedType_ParameterizedFixedBinary::_internal_mutable_variation() {
-  
-  if (variation_ == nullptr) {
-    auto* p = CreateMaybeMessage<::io::substrait::Type_Variation>(GetArena());
-    variation_ = p;
-  }
-  return variation_;
-}
-inline ::io::substrait::Type_Variation* ParameterizedType_ParameterizedFixedBinary::mutable_variation() {
-  // @@protoc_insertion_point(field_mutable:io.substrait.ParameterizedType.ParameterizedFixedBinary.variation)
-  return _internal_mutable_variation();
-}
-inline void ParameterizedType_ParameterizedFixedBinary::set_allocated_variation(::io::substrait::Type_Variation* variation) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
-  if (message_arena == nullptr) {
-    delete reinterpret_cast< ::PROTOBUF_NAMESPACE_ID::MessageLite*>(variation_);
-  }
-  if (variation) {
-    ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(variation)->GetArena();
-    if (message_arena != submessage_arena) {
-      variation = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
-          message_arena, variation, submessage_arena);
-    }
-    
-  } else {
-    
-  }
-  variation_ = variation;
-  // @@protoc_insertion_point(field_set_allocated:io.substrait.ParameterizedType.ParameterizedFixedBinary.variation)
+inline void ParameterizedType_ParameterizedFixedBinary::set_variation_pointer(::PROTOBUF_NAMESPACE_ID::uint32 value) {
+  _internal_set_variation_pointer(value);
+  // @@protoc_insertion_point(field_set:io.substrait.ParameterizedType.ParameterizedFixedBinary.variation_pointer)
 }
 
 // .io.substrait.Type.Nullability nullability = 3;
@@ -3910,81 +3670,24 @@ inline void ParameterizedType_ParameterizedDecimal::set_allocated_precision(::io
   // @@protoc_insertion_point(field_set_allocated:io.substrait.ParameterizedType.ParameterizedDecimal.precision)
 }
 
-// .io.substrait.Type.Variation variation = 3;
-inline bool ParameterizedType_ParameterizedDecimal::_internal_has_variation() const {
-  return this != internal_default_instance() && variation_ != nullptr;
+// uint32 variation_pointer = 3;
+inline void ParameterizedType_ParameterizedDecimal::clear_variation_pointer() {
+  variation_pointer_ = 0u;
 }
-inline bool ParameterizedType_ParameterizedDecimal::has_variation() const {
-  return _internal_has_variation();
+inline ::PROTOBUF_NAMESPACE_ID::uint32 ParameterizedType_ParameterizedDecimal::_internal_variation_pointer() const {
+  return variation_pointer_;
 }
-inline const ::io::substrait::Type_Variation& ParameterizedType_ParameterizedDecimal::_internal_variation() const {
-  const ::io::substrait::Type_Variation* p = variation_;
-  return p != nullptr ? *p : reinterpret_cast<const ::io::substrait::Type_Variation&>(
-      ::io::substrait::_Type_Variation_default_instance_);
+inline ::PROTOBUF_NAMESPACE_ID::uint32 ParameterizedType_ParameterizedDecimal::variation_pointer() const {
+  // @@protoc_insertion_point(field_get:io.substrait.ParameterizedType.ParameterizedDecimal.variation_pointer)
+  return _internal_variation_pointer();
 }
-inline const ::io::substrait::Type_Variation& ParameterizedType_ParameterizedDecimal::variation() const {
-  // @@protoc_insertion_point(field_get:io.substrait.ParameterizedType.ParameterizedDecimal.variation)
-  return _internal_variation();
-}
-inline void ParameterizedType_ParameterizedDecimal::unsafe_arena_set_allocated_variation(
-    ::io::substrait::Type_Variation* variation) {
-  if (GetArena() == nullptr) {
-    delete reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(variation_);
-  }
-  variation_ = variation;
-  if (variation) {
-    
-  } else {
-    
-  }
-  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:io.substrait.ParameterizedType.ParameterizedDecimal.variation)
-}
-inline ::io::substrait::Type_Variation* ParameterizedType_ParameterizedDecimal::release_variation() {
+inline void ParameterizedType_ParameterizedDecimal::_internal_set_variation_pointer(::PROTOBUF_NAMESPACE_ID::uint32 value) {
   
-  ::io::substrait::Type_Variation* temp = variation_;
-  variation_ = nullptr;
-  if (GetArena() != nullptr) {
-    temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
-  }
-  return temp;
+  variation_pointer_ = value;
 }
-inline ::io::substrait::Type_Variation* ParameterizedType_ParameterizedDecimal::unsafe_arena_release_variation() {
-  // @@protoc_insertion_point(field_release:io.substrait.ParameterizedType.ParameterizedDecimal.variation)
-  
-  ::io::substrait::Type_Variation* temp = variation_;
-  variation_ = nullptr;
-  return temp;
-}
-inline ::io::substrait::Type_Variation* ParameterizedType_ParameterizedDecimal::_internal_mutable_variation() {
-  
-  if (variation_ == nullptr) {
-    auto* p = CreateMaybeMessage<::io::substrait::Type_Variation>(GetArena());
-    variation_ = p;
-  }
-  return variation_;
-}
-inline ::io::substrait::Type_Variation* ParameterizedType_ParameterizedDecimal::mutable_variation() {
-  // @@protoc_insertion_point(field_mutable:io.substrait.ParameterizedType.ParameterizedDecimal.variation)
-  return _internal_mutable_variation();
-}
-inline void ParameterizedType_ParameterizedDecimal::set_allocated_variation(::io::substrait::Type_Variation* variation) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
-  if (message_arena == nullptr) {
-    delete reinterpret_cast< ::PROTOBUF_NAMESPACE_ID::MessageLite*>(variation_);
-  }
-  if (variation) {
-    ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(variation)->GetArena();
-    if (message_arena != submessage_arena) {
-      variation = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
-          message_arena, variation, submessage_arena);
-    }
-    
-  } else {
-    
-  }
-  variation_ = variation;
-  // @@protoc_insertion_point(field_set_allocated:io.substrait.ParameterizedType.ParameterizedDecimal.variation)
+inline void ParameterizedType_ParameterizedDecimal::set_variation_pointer(::PROTOBUF_NAMESPACE_ID::uint32 value) {
+  _internal_set_variation_pointer(value);
+  // @@protoc_insertion_point(field_set:io.substrait.ParameterizedType.ParameterizedDecimal.variation_pointer)
 }
 
 // .io.substrait.Type.Nullability nullability = 4;
@@ -4050,81 +3753,24 @@ ParameterizedType_ParameterizedStruct::types() const {
   return types_;
 }
 
-// .io.substrait.Type.Variation variation = 2;
-inline bool ParameterizedType_ParameterizedStruct::_internal_has_variation() const {
-  return this != internal_default_instance() && variation_ != nullptr;
+// uint32 variation_pointer = 2;
+inline void ParameterizedType_ParameterizedStruct::clear_variation_pointer() {
+  variation_pointer_ = 0u;
 }
-inline bool ParameterizedType_ParameterizedStruct::has_variation() const {
-  return _internal_has_variation();
+inline ::PROTOBUF_NAMESPACE_ID::uint32 ParameterizedType_ParameterizedStruct::_internal_variation_pointer() const {
+  return variation_pointer_;
 }
-inline const ::io::substrait::Type_Variation& ParameterizedType_ParameterizedStruct::_internal_variation() const {
-  const ::io::substrait::Type_Variation* p = variation_;
-  return p != nullptr ? *p : reinterpret_cast<const ::io::substrait::Type_Variation&>(
-      ::io::substrait::_Type_Variation_default_instance_);
+inline ::PROTOBUF_NAMESPACE_ID::uint32 ParameterizedType_ParameterizedStruct::variation_pointer() const {
+  // @@protoc_insertion_point(field_get:io.substrait.ParameterizedType.ParameterizedStruct.variation_pointer)
+  return _internal_variation_pointer();
 }
-inline const ::io::substrait::Type_Variation& ParameterizedType_ParameterizedStruct::variation() const {
-  // @@protoc_insertion_point(field_get:io.substrait.ParameterizedType.ParameterizedStruct.variation)
-  return _internal_variation();
-}
-inline void ParameterizedType_ParameterizedStruct::unsafe_arena_set_allocated_variation(
-    ::io::substrait::Type_Variation* variation) {
-  if (GetArena() == nullptr) {
-    delete reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(variation_);
-  }
-  variation_ = variation;
-  if (variation) {
-    
-  } else {
-    
-  }
-  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:io.substrait.ParameterizedType.ParameterizedStruct.variation)
-}
-inline ::io::substrait::Type_Variation* ParameterizedType_ParameterizedStruct::release_variation() {
+inline void ParameterizedType_ParameterizedStruct::_internal_set_variation_pointer(::PROTOBUF_NAMESPACE_ID::uint32 value) {
   
-  ::io::substrait::Type_Variation* temp = variation_;
-  variation_ = nullptr;
-  if (GetArena() != nullptr) {
-    temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
-  }
-  return temp;
+  variation_pointer_ = value;
 }
-inline ::io::substrait::Type_Variation* ParameterizedType_ParameterizedStruct::unsafe_arena_release_variation() {
-  // @@protoc_insertion_point(field_release:io.substrait.ParameterizedType.ParameterizedStruct.variation)
-  
-  ::io::substrait::Type_Variation* temp = variation_;
-  variation_ = nullptr;
-  return temp;
-}
-inline ::io::substrait::Type_Variation* ParameterizedType_ParameterizedStruct::_internal_mutable_variation() {
-  
-  if (variation_ == nullptr) {
-    auto* p = CreateMaybeMessage<::io::substrait::Type_Variation>(GetArena());
-    variation_ = p;
-  }
-  return variation_;
-}
-inline ::io::substrait::Type_Variation* ParameterizedType_ParameterizedStruct::mutable_variation() {
-  // @@protoc_insertion_point(field_mutable:io.substrait.ParameterizedType.ParameterizedStruct.variation)
-  return _internal_mutable_variation();
-}
-inline void ParameterizedType_ParameterizedStruct::set_allocated_variation(::io::substrait::Type_Variation* variation) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
-  if (message_arena == nullptr) {
-    delete reinterpret_cast< ::PROTOBUF_NAMESPACE_ID::MessageLite*>(variation_);
-  }
-  if (variation) {
-    ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(variation)->GetArena();
-    if (message_arena != submessage_arena) {
-      variation = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
-          message_arena, variation, submessage_arena);
-    }
-    
-  } else {
-    
-  }
-  variation_ = variation;
-  // @@protoc_insertion_point(field_set_allocated:io.substrait.ParameterizedType.ParameterizedStruct.variation)
+inline void ParameterizedType_ParameterizedStruct::set_variation_pointer(::PROTOBUF_NAMESPACE_ID::uint32 value) {
+  _internal_set_variation_pointer(value);
+  // @@protoc_insertion_point(field_set:io.substrait.ParameterizedType.ParameterizedStruct.variation_pointer)
 }
 
 // .io.substrait.Type.Nullability nullability = 3;
@@ -4395,81 +4041,24 @@ inline void ParameterizedType_ParameterizedList::set_allocated_type(::io::substr
   // @@protoc_insertion_point(field_set_allocated:io.substrait.ParameterizedType.ParameterizedList.type)
 }
 
-// .io.substrait.Type.Variation variation = 2;
-inline bool ParameterizedType_ParameterizedList::_internal_has_variation() const {
-  return this != internal_default_instance() && variation_ != nullptr;
+// uint32 variation_pointer = 2;
+inline void ParameterizedType_ParameterizedList::clear_variation_pointer() {
+  variation_pointer_ = 0u;
 }
-inline bool ParameterizedType_ParameterizedList::has_variation() const {
-  return _internal_has_variation();
+inline ::PROTOBUF_NAMESPACE_ID::uint32 ParameterizedType_ParameterizedList::_internal_variation_pointer() const {
+  return variation_pointer_;
 }
-inline const ::io::substrait::Type_Variation& ParameterizedType_ParameterizedList::_internal_variation() const {
-  const ::io::substrait::Type_Variation* p = variation_;
-  return p != nullptr ? *p : reinterpret_cast<const ::io::substrait::Type_Variation&>(
-      ::io::substrait::_Type_Variation_default_instance_);
+inline ::PROTOBUF_NAMESPACE_ID::uint32 ParameterizedType_ParameterizedList::variation_pointer() const {
+  // @@protoc_insertion_point(field_get:io.substrait.ParameterizedType.ParameterizedList.variation_pointer)
+  return _internal_variation_pointer();
 }
-inline const ::io::substrait::Type_Variation& ParameterizedType_ParameterizedList::variation() const {
-  // @@protoc_insertion_point(field_get:io.substrait.ParameterizedType.ParameterizedList.variation)
-  return _internal_variation();
-}
-inline void ParameterizedType_ParameterizedList::unsafe_arena_set_allocated_variation(
-    ::io::substrait::Type_Variation* variation) {
-  if (GetArena() == nullptr) {
-    delete reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(variation_);
-  }
-  variation_ = variation;
-  if (variation) {
-    
-  } else {
-    
-  }
-  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:io.substrait.ParameterizedType.ParameterizedList.variation)
-}
-inline ::io::substrait::Type_Variation* ParameterizedType_ParameterizedList::release_variation() {
+inline void ParameterizedType_ParameterizedList::_internal_set_variation_pointer(::PROTOBUF_NAMESPACE_ID::uint32 value) {
   
-  ::io::substrait::Type_Variation* temp = variation_;
-  variation_ = nullptr;
-  if (GetArena() != nullptr) {
-    temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
-  }
-  return temp;
+  variation_pointer_ = value;
 }
-inline ::io::substrait::Type_Variation* ParameterizedType_ParameterizedList::unsafe_arena_release_variation() {
-  // @@protoc_insertion_point(field_release:io.substrait.ParameterizedType.ParameterizedList.variation)
-  
-  ::io::substrait::Type_Variation* temp = variation_;
-  variation_ = nullptr;
-  return temp;
-}
-inline ::io::substrait::Type_Variation* ParameterizedType_ParameterizedList::_internal_mutable_variation() {
-  
-  if (variation_ == nullptr) {
-    auto* p = CreateMaybeMessage<::io::substrait::Type_Variation>(GetArena());
-    variation_ = p;
-  }
-  return variation_;
-}
-inline ::io::substrait::Type_Variation* ParameterizedType_ParameterizedList::mutable_variation() {
-  // @@protoc_insertion_point(field_mutable:io.substrait.ParameterizedType.ParameterizedList.variation)
-  return _internal_mutable_variation();
-}
-inline void ParameterizedType_ParameterizedList::set_allocated_variation(::io::substrait::Type_Variation* variation) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
-  if (message_arena == nullptr) {
-    delete reinterpret_cast< ::PROTOBUF_NAMESPACE_ID::MessageLite*>(variation_);
-  }
-  if (variation) {
-    ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(variation)->GetArena();
-    if (message_arena != submessage_arena) {
-      variation = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
-          message_arena, variation, submessage_arena);
-    }
-    
-  } else {
-    
-  }
-  variation_ = variation;
-  // @@protoc_insertion_point(field_set_allocated:io.substrait.ParameterizedType.ParameterizedList.variation)
+inline void ParameterizedType_ParameterizedList::set_variation_pointer(::PROTOBUF_NAMESPACE_ID::uint32 value) {
+  _internal_set_variation_pointer(value);
+  // @@protoc_insertion_point(field_set:io.substrait.ParameterizedType.ParameterizedList.variation_pointer)
 }
 
 // .io.substrait.Type.Nullability nullability = 3;
@@ -4662,81 +4251,24 @@ inline void ParameterizedType_ParameterizedMap::set_allocated_value(::io::substr
   // @@protoc_insertion_point(field_set_allocated:io.substrait.ParameterizedType.ParameterizedMap.value)
 }
 
-// .io.substrait.Type.Variation variation = 3;
-inline bool ParameterizedType_ParameterizedMap::_internal_has_variation() const {
-  return this != internal_default_instance() && variation_ != nullptr;
+// uint32 variation_pointer = 3;
+inline void ParameterizedType_ParameterizedMap::clear_variation_pointer() {
+  variation_pointer_ = 0u;
 }
-inline bool ParameterizedType_ParameterizedMap::has_variation() const {
-  return _internal_has_variation();
+inline ::PROTOBUF_NAMESPACE_ID::uint32 ParameterizedType_ParameterizedMap::_internal_variation_pointer() const {
+  return variation_pointer_;
 }
-inline const ::io::substrait::Type_Variation& ParameterizedType_ParameterizedMap::_internal_variation() const {
-  const ::io::substrait::Type_Variation* p = variation_;
-  return p != nullptr ? *p : reinterpret_cast<const ::io::substrait::Type_Variation&>(
-      ::io::substrait::_Type_Variation_default_instance_);
+inline ::PROTOBUF_NAMESPACE_ID::uint32 ParameterizedType_ParameterizedMap::variation_pointer() const {
+  // @@protoc_insertion_point(field_get:io.substrait.ParameterizedType.ParameterizedMap.variation_pointer)
+  return _internal_variation_pointer();
 }
-inline const ::io::substrait::Type_Variation& ParameterizedType_ParameterizedMap::variation() const {
-  // @@protoc_insertion_point(field_get:io.substrait.ParameterizedType.ParameterizedMap.variation)
-  return _internal_variation();
-}
-inline void ParameterizedType_ParameterizedMap::unsafe_arena_set_allocated_variation(
-    ::io::substrait::Type_Variation* variation) {
-  if (GetArena() == nullptr) {
-    delete reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(variation_);
-  }
-  variation_ = variation;
-  if (variation) {
-    
-  } else {
-    
-  }
-  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:io.substrait.ParameterizedType.ParameterizedMap.variation)
-}
-inline ::io::substrait::Type_Variation* ParameterizedType_ParameterizedMap::release_variation() {
+inline void ParameterizedType_ParameterizedMap::_internal_set_variation_pointer(::PROTOBUF_NAMESPACE_ID::uint32 value) {
   
-  ::io::substrait::Type_Variation* temp = variation_;
-  variation_ = nullptr;
-  if (GetArena() != nullptr) {
-    temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
-  }
-  return temp;
+  variation_pointer_ = value;
 }
-inline ::io::substrait::Type_Variation* ParameterizedType_ParameterizedMap::unsafe_arena_release_variation() {
-  // @@protoc_insertion_point(field_release:io.substrait.ParameterizedType.ParameterizedMap.variation)
-  
-  ::io::substrait::Type_Variation* temp = variation_;
-  variation_ = nullptr;
-  return temp;
-}
-inline ::io::substrait::Type_Variation* ParameterizedType_ParameterizedMap::_internal_mutable_variation() {
-  
-  if (variation_ == nullptr) {
-    auto* p = CreateMaybeMessage<::io::substrait::Type_Variation>(GetArena());
-    variation_ = p;
-  }
-  return variation_;
-}
-inline ::io::substrait::Type_Variation* ParameterizedType_ParameterizedMap::mutable_variation() {
-  // @@protoc_insertion_point(field_mutable:io.substrait.ParameterizedType.ParameterizedMap.variation)
-  return _internal_mutable_variation();
-}
-inline void ParameterizedType_ParameterizedMap::set_allocated_variation(::io::substrait::Type_Variation* variation) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
-  if (message_arena == nullptr) {
-    delete reinterpret_cast< ::PROTOBUF_NAMESPACE_ID::MessageLite*>(variation_);
-  }
-  if (variation) {
-    ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(variation)->GetArena();
-    if (message_arena != submessage_arena) {
-      variation = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
-          message_arena, variation, submessage_arena);
-    }
-    
-  } else {
-    
-  }
-  variation_ = variation;
-  // @@protoc_insertion_point(field_set_allocated:io.substrait.ParameterizedType.ParameterizedMap.variation)
+inline void ParameterizedType_ParameterizedMap::set_variation_pointer(::PROTOBUF_NAMESPACE_ID::uint32 value) {
+  _internal_set_variation_pointer(value);
+  // @@protoc_insertion_point(field_set:io.substrait.ParameterizedType.ParameterizedMap.variation_pointer)
 }
 
 // .io.substrait.Type.Nullability nullability = 4;
@@ -6438,69 +5970,42 @@ inline ::io::substrait::ParameterizedType_ParameterizedMap* ParameterizedType::m
   return _internal_mutable_map();
 }
 
-// .io.substrait.Extensions.TypeId user_defined = 31;
-inline bool ParameterizedType::_internal_has_user_defined() const {
-  return kind_case() == kUserDefined;
+// uint32 user_defined_pointer = 31;
+inline bool ParameterizedType::_internal_has_user_defined_pointer() const {
+  return kind_case() == kUserDefinedPointer;
 }
-inline bool ParameterizedType::has_user_defined() const {
-  return _internal_has_user_defined();
+inline bool ParameterizedType::has_user_defined_pointer() const {
+  return _internal_has_user_defined_pointer();
 }
-inline void ParameterizedType::set_has_user_defined() {
-  _oneof_case_[0] = kUserDefined;
+inline void ParameterizedType::set_has_user_defined_pointer() {
+  _oneof_case_[0] = kUserDefinedPointer;
 }
-inline ::io::substrait::Extensions_TypeId* ParameterizedType::release_user_defined() {
-  // @@protoc_insertion_point(field_release:io.substrait.ParameterizedType.user_defined)
-  if (_internal_has_user_defined()) {
+inline void ParameterizedType::clear_user_defined_pointer() {
+  if (_internal_has_user_defined_pointer()) {
+    kind_.user_defined_pointer_ = 0u;
     clear_has_kind();
-      ::io::substrait::Extensions_TypeId* temp = kind_.user_defined_;
-    if (GetArena() != nullptr) {
-      temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
-    }
-    kind_.user_defined_ = nullptr;
-    return temp;
-  } else {
-    return nullptr;
   }
 }
-inline const ::io::substrait::Extensions_TypeId& ParameterizedType::_internal_user_defined() const {
-  return _internal_has_user_defined()
-      ? *kind_.user_defined_
-      : reinterpret_cast< ::io::substrait::Extensions_TypeId&>(::io::substrait::_Extensions_TypeId_default_instance_);
-}
-inline const ::io::substrait::Extensions_TypeId& ParameterizedType::user_defined() const {
-  // @@protoc_insertion_point(field_get:io.substrait.ParameterizedType.user_defined)
-  return _internal_user_defined();
-}
-inline ::io::substrait::Extensions_TypeId* ParameterizedType::unsafe_arena_release_user_defined() {
-  // @@protoc_insertion_point(field_unsafe_arena_release:io.substrait.ParameterizedType.user_defined)
-  if (_internal_has_user_defined()) {
-    clear_has_kind();
-    ::io::substrait::Extensions_TypeId* temp = kind_.user_defined_;
-    kind_.user_defined_ = nullptr;
-    return temp;
-  } else {
-    return nullptr;
+inline ::PROTOBUF_NAMESPACE_ID::uint32 ParameterizedType::_internal_user_defined_pointer() const {
+  if (_internal_has_user_defined_pointer()) {
+    return kind_.user_defined_pointer_;
   }
+  return 0u;
 }
-inline void ParameterizedType::unsafe_arena_set_allocated_user_defined(::io::substrait::Extensions_TypeId* user_defined) {
-  clear_kind();
-  if (user_defined) {
-    set_has_user_defined();
-    kind_.user_defined_ = user_defined;
-  }
-  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:io.substrait.ParameterizedType.user_defined)
-}
-inline ::io::substrait::Extensions_TypeId* ParameterizedType::_internal_mutable_user_defined() {
-  if (!_internal_has_user_defined()) {
+inline void ParameterizedType::_internal_set_user_defined_pointer(::PROTOBUF_NAMESPACE_ID::uint32 value) {
+  if (!_internal_has_user_defined_pointer()) {
     clear_kind();
-    set_has_user_defined();
-    kind_.user_defined_ = CreateMaybeMessage< ::io::substrait::Extensions_TypeId >(GetArena());
+    set_has_user_defined_pointer();
   }
-  return kind_.user_defined_;
+  kind_.user_defined_pointer_ = value;
 }
-inline ::io::substrait::Extensions_TypeId* ParameterizedType::mutable_user_defined() {
-  // @@protoc_insertion_point(field_mutable:io.substrait.ParameterizedType.user_defined)
-  return _internal_mutable_user_defined();
+inline ::PROTOBUF_NAMESPACE_ID::uint32 ParameterizedType::user_defined_pointer() const {
+  // @@protoc_insertion_point(field_get:io.substrait.ParameterizedType.user_defined_pointer)
+  return _internal_user_defined_pointer();
+}
+inline void ParameterizedType::set_user_defined_pointer(::PROTOBUF_NAMESPACE_ID::uint32 value) {
+  _internal_set_user_defined_pointer(value);
+  // @@protoc_insertion_point(field_set:io.substrait.ParameterizedType.user_defined_pointer)
 }
 
 // .io.substrait.ParameterizedType.TypeParameter type_parameter = 33;

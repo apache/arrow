@@ -35,8 +35,8 @@ namespace {
 
 template <typename TypeMessage>
 Status CheckVariation(const TypeMessage& type) {
-  if (!type.has_variation()) return Status::OK();
-  return Status::NotImplemented("Type.Variation for ", type.DebugString());
+  if (type.type_variation_reference() != 0) return Status::OK();
+  return Status::NotImplemented("Type variations for ", type.DebugString());
 }
 
 template <typename TypeMessage>
@@ -175,8 +175,6 @@ Result<std::pair<std::shared_ptr<DataType>, bool>> FromProto(const st::Type& typ
       return FromProtoImpl<StructType>(struct_, std::move(fields));
     }
 
-      // NOTE: NamedStruct is not enumerated in KindCase.
-
     case st::Type::kList: {
       const auto& list = type.list();
 
@@ -223,7 +221,7 @@ Result<std::pair<std::shared_ptr<DataType>, bool>> FromProto(const st::Type& typ
                                 type.DebugString());
 }
 
-Result<std::shared_ptr<Schema>> FromProto(const st::Type::NamedStruct& named_struct) {
+Result<std::shared_ptr<Schema>> FromProto(const st::NamedStruct& named_struct) {
   if (named_struct.has_struct_()) {
     return Status::Invalid("While converting ", named_struct.DebugString(),
                            " no anonymous struct type was provided to which to names "
@@ -405,8 +403,8 @@ Result<std::unique_ptr<st::Type>> ToProto(const DataType& type, bool nullable) {
   return std::move(out);
 }
 
-Result<std::unique_ptr<st::Type::NamedStruct>> ToProto(const Schema& schema) {
-  auto named_struct = internal::make_unique<st::Type::NamedStruct>();
+Result<std::unique_ptr<st::NamedStruct>> ToProto(const Schema& schema) {
+  auto named_struct = internal::make_unique<st::NamedStruct>();
   auto names = named_struct->mutable_names();
   names->Reserve(schema.num_fields());
 
@@ -418,8 +416,7 @@ Result<std::unique_ptr<st::Type::NamedStruct>> ToProto(const Schema& schema) {
     *names->Add() = field->name();
 
     if (field->metadata() != nullptr) {
-      return Status::Invalid(
-          "substrait::Type::NamedStruct does not support field metadata");
+      return Status::Invalid("substrait::NamedStruct does not support field metadata");
     }
 
     ARROW_ASSIGN_OR_RAISE(auto type, ToProto(*field->type(), field->nullable()));

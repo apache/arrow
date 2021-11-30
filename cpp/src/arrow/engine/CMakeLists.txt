@@ -33,13 +33,13 @@ set(ARROW_ENGINE_SRCS
 
 set(SUBSTRAIT_DIR "${CMAKE_CURRENT_BINARY_DIR}/substrait")
 set(SUBSTRAIT_GEN_DIR "${ARROW_SOURCE_DIR}/src/generated/substrait")
-set(SUBSTRAIT_PROTOS expression
+set(SUBSTRAIT_PROTOS capabilities
+                     expression
                      extensions
                      function
                      parameterized_types
                      plan
                      relations
-                     selection
                      type
                      type_expressions)
 
@@ -69,7 +69,7 @@ foreach(SUBSTRAIT_PROTO ${SUBSTRAIT_PROTOS})
                        COMMAND ${ARROW_PROTOBUF_PROTOC}
                                "-I${SUBSTRAIT_DIR}/binary"
                                "--cpp_out=${SUBSTRAIT_GEN_DIR}"
-                               "${SUBSTRAIT_PROTO}.proto"
+                               "${SUBSTRAIT_DIR}/binary/${SUBSTRAIT_PROTO}.proto"
                        DEPENDS ${PROTO_DEPENDS} substrait_ep)
     list(APPEND SUBSTRAIT_PROTO_GEN_ALL "${SUBSTRAIT_PROTO_GEN}.${EXT}")
   endforeach()

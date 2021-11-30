@@ -36,9 +36,6 @@ ARROW_ENGINE_EXPORT
 Result<compute::Expression> FromProto(const st::Expression&);
 
 ARROW_ENGINE_EXPORT
-Result<compute::Expression> FromProto(const st::ReferenceSegment&);
-
-ARROW_ENGINE_EXPORT
 Result<std::unique_ptr<st::Expression>> ToProto(const compute::Expression&);
 
 ARROW_ENGINE_EXPORT

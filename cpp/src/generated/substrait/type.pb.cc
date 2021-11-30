@@ -20,7 +20,7 @@ namespace io {
 namespace substrait {
 constexpr Type_Boolean::Type_Boolean(
   ::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized)
-  : variation_(nullptr)
+  : type_variation_reference_(0u)
   , nullability_(0)
 {}
 struct Type_BooleanDefaultTypeInternal {
@@ -34,7 +34,7 @@ struct Type_BooleanDefaultTypeInternal {
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT Type_BooleanDefaultTypeInternal _Type_Boolean_default_instance_;
 constexpr Type_I8::Type_I8(
   ::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized)
-  : variation_(nullptr)
+  : type_variation_reference_(0u)
   , nullability_(0)
 {}
 struct Type_I8DefaultTypeInternal {
@@ -48,7 +48,7 @@ struct Type_I8DefaultTypeInternal {
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT Type_I8DefaultTypeInternal _Type_I8_default_instance_;
 constexpr Type_I16::Type_I16(
   ::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized)
-  : variation_(nullptr)
+  : type_variation_reference_(0u)
   , nullability_(0)
 {}
 struct Type_I16DefaultTypeInternal {
@@ -62,7 +62,7 @@ struct Type_I16DefaultTypeInternal {
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT Type_I16DefaultTypeInternal _Type_I16_default_instance_;
 constexpr Type_I32::Type_I32(
   ::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized)
-  : variation_(nullptr)
+  : type_variation_reference_(0u)
   , nullability_(0)
 {}
 struct Type_I32DefaultTypeInternal {
@@ -76,7 +76,7 @@ struct Type_I32DefaultTypeInternal {
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT Type_I32DefaultTypeInternal _Type_I32_default_instance_;
 constexpr Type_I64::Type_I64(
   ::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized)
-  : variation_(nullptr)
+  : type_variation_reference_(0u)
   , nullability_(0)
 {}
 struct Type_I64DefaultTypeInternal {
@@ -90,7 +90,7 @@ struct Type_I64DefaultTypeInternal {
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT Type_I64DefaultTypeInternal _Type_I64_default_instance_;
 constexpr Type_FP32::Type_FP32(
   ::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized)
-  : variation_(nullptr)
+  : type_variation_reference_(0u)
   , nullability_(0)
 {}
 struct Type_FP32DefaultTypeInternal {
@@ -104,7 +104,7 @@ struct Type_FP32DefaultTypeInternal {
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT Type_FP32DefaultTypeInternal _Type_FP32_default_instance_;
 constexpr Type_FP64::Type_FP64(
   ::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized)
-  : variation_(nullptr)
+  : type_variation_reference_(0u)
   , nullability_(0)
 {}
 struct Type_FP64DefaultTypeInternal {
@@ -118,7 +118,7 @@ struct Type_FP64DefaultTypeInternal {
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT Type_FP64DefaultTypeInternal _Type_FP64_default_instance_;
 constexpr Type_String::Type_String(
   ::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized)
-  : variation_(nullptr)
+  : type_variation_reference_(0u)
   , nullability_(0)
 {}
 struct Type_StringDefaultTypeInternal {
@@ -132,7 +132,7 @@ struct Type_StringDefaultTypeInternal {
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT Type_StringDefaultTypeInternal _Type_String_default_instance_;
 constexpr Type_Binary::Type_Binary(
   ::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized)
-  : variation_(nullptr)
+  : type_variation_reference_(0u)
   , nullability_(0)
 {}
 struct Type_BinaryDefaultTypeInternal {
@@ -146,7 +146,7 @@ struct Type_BinaryDefaultTypeInternal {
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT Type_BinaryDefaultTypeInternal _Type_Binary_default_instance_;
 constexpr Type_Timestamp::Type_Timestamp(
   ::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized)
-  : variation_(nullptr)
+  : type_variation_reference_(0u)
   , nullability_(0)
 {}
 struct Type_TimestampDefaultTypeInternal {
@@ -160,7 +160,7 @@ struct Type_TimestampDefaultTypeInternal {
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT Type_TimestampDefaultTypeInternal _Type_Timestamp_default_instance_;
 constexpr Type_Date::Type_Date(
   ::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized)
-  : variation_(nullptr)
+  : type_variation_reference_(0u)
   , nullability_(0)
 {}
 struct Type_DateDefaultTypeInternal {
@@ -174,7 +174,7 @@ struct Type_DateDefaultTypeInternal {
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT Type_DateDefaultTypeInternal _Type_Date_default_instance_;
 constexpr Type_Time::Type_Time(
   ::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized)
-  : variation_(nullptr)
+  : type_variation_reference_(0u)
   , nullability_(0)
 {}
 struct Type_TimeDefaultTypeInternal {
@@ -188,7 +188,7 @@ struct Type_TimeDefaultTypeInternal {
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT Type_TimeDefaultTypeInternal _Type_Time_default_instance_;
 constexpr Type_TimestampTZ::Type_TimestampTZ(
   ::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized)
-  : variation_(nullptr)
+  : type_variation_reference_(0u)
   , nullability_(0)
 {}
 struct Type_TimestampTZDefaultTypeInternal {
@@ -202,7 +202,7 @@ struct Type_TimestampTZDefaultTypeInternal {
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT Type_TimestampTZDefaultTypeInternal _Type_TimestampTZ_default_instance_;
 constexpr Type_IntervalYear::Type_IntervalYear(
   ::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized)
-  : variation_(nullptr)
+  : type_variation_reference_(0u)
   , nullability_(0)
 {}
 struct Type_IntervalYearDefaultTypeInternal {
@@ -216,7 +216,7 @@ struct Type_IntervalYearDefaultTypeInternal {
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT Type_IntervalYearDefaultTypeInternal _Type_IntervalYear_default_instance_;
 constexpr Type_IntervalDay::Type_IntervalDay(
   ::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized)
-  : variation_(nullptr)
+  : type_variation_reference_(0u)
   , nullability_(0)
 {}
 struct Type_IntervalDayDefaultTypeInternal {
@@ -230,7 +230,7 @@ struct Type_IntervalDayDefaultTypeInternal {
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT Type_IntervalDayDefaultTypeInternal _Type_IntervalDay_default_instance_;
 constexpr Type_UUID::Type_UUID(
   ::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized)
-  : variation_(nullptr)
+  : type_variation_reference_(0u)
   , nullability_(0)
 {}
 struct Type_UUIDDefaultTypeInternal {
@@ -244,8 +244,8 @@ struct Type_UUIDDefaultTypeInternal {
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT Type_UUIDDefaultTypeInternal _Type_UUID_default_instance_;
 constexpr Type_FixedChar::Type_FixedChar(
   ::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized)
-  : variation_(nullptr)
-  , length_(0)
+  : length_(0)
+  , type_variation_reference_(0u)
   , nullability_(0)
 {}
 struct Type_FixedCharDefaultTypeInternal {
@@ -259,8 +259,8 @@ struct Type_FixedCharDefaultTypeInternal {
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT Type_FixedCharDefaultTypeInternal _Type_FixedChar_default_instance_;
 constexpr Type_VarChar::Type_VarChar(
   ::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized)
-  : variation_(nullptr)
-  , length_(0)
+  : length_(0)
+  , type_variation_reference_(0u)
   , nullability_(0)
 {}
 struct Type_VarCharDefaultTypeInternal {
@@ -274,8 +274,8 @@ struct Type_VarCharDefaultTypeInternal {
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT Type_VarCharDefaultTypeInternal _Type_VarChar_default_instance_;
 constexpr Type_FixedBinary::Type_FixedBinary(
   ::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized)
-  : variation_(nullptr)
-  , length_(0)
+  : length_(0)
+  , type_variation_reference_(0u)
   , nullability_(0)
 {}
 struct Type_FixedBinaryDefaultTypeInternal {
@@ -289,9 +289,9 @@ struct Type_FixedBinaryDefaultTypeInternal {
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT Type_FixedBinaryDefaultTypeInternal _Type_FixedBinary_default_instance_;
 constexpr Type_Decimal::Type_Decimal(
   ::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized)
-  : variation_(nullptr)
-  , scale_(0)
+  : scale_(0)
   , precision_(0)
+  , type_variation_reference_(0u)
   , nullability_(0)
 {}
 struct Type_DecimalDefaultTypeInternal {
@@ -306,7 +306,7 @@ PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT Type_DecimalDefaultTypeInternal
 constexpr Type_Struct::Type_Struct(
   ::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized)
   : types_()
-  , variation_(nullptr)
+  , type_variation_reference_(0u)
   , nullability_(0)
 {}
 struct Type_StructDefaultTypeInternal {
@@ -318,23 +318,10 @@ struct Type_StructDefaultTypeInternal {
   };
 };
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT Type_StructDefaultTypeInternal _Type_Struct_default_instance_;
-constexpr Type_NamedStruct::Type_NamedStruct(
-  ::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized)
-  : names_()
-  , struct__(nullptr){}
-struct Type_NamedStructDefaultTypeInternal {
-  constexpr Type_NamedStructDefaultTypeInternal()
-    : _instance(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized{}) {}
-  ~Type_NamedStructDefaultTypeInternal() {}
-  union {
-    Type_NamedStruct _instance;
-  };
-};
-PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT Type_NamedStructDefaultTypeInternal _Type_NamedStruct_default_instance_;
 constexpr Type_List::Type_List(
   ::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized)
   : type_(nullptr)
-  , variation_(nullptr)
+  , type_variation_reference_(0u)
   , nullability_(0)
 {}
 struct Type_ListDefaultTypeInternal {
@@ -350,7 +337,7 @@ constexpr Type_Map::Type_Map(
   ::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized)
   : key_(nullptr)
   , value_(nullptr)
-  , variation_(nullptr)
+  , type_variation_reference_(0u)
   , nullability_(0)
 {}
 struct Type_MapDefaultTypeInternal {
@@ -362,19 +349,6 @@ struct Type_MapDefaultTypeInternal {
   };
 };
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT Type_MapDefaultTypeInternal _Type_Map_default_instance_;
-constexpr Type_Variation::Type_Variation(
-  ::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized)
-  : name_(&::PROTOBUF_NAMESPACE_ID::internal::fixed_address_empty_string)
-  , organization_(0){}
-struct Type_VariationDefaultTypeInternal {
-  constexpr Type_VariationDefaultTypeInternal()
-    : _instance(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized{}) {}
-  ~Type_VariationDefaultTypeInternal() {}
-  union {
-    Type_Variation _instance;
-  };
-};
-PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT Type_VariationDefaultTypeInternal _Type_Variation_default_instance_;
 constexpr Type::Type(
   ::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized)
   : _oneof_case_{}{}
@@ -387,9 +361,22 @@ struct TypeDefaultTypeInternal {
   };
 };
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT TypeDefaultTypeInternal _Type_default_instance_;
+constexpr NamedStruct::NamedStruct(
+  ::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized)
+  : names_()
+  , struct__(nullptr){}
+struct NamedStructDefaultTypeInternal {
+  constexpr NamedStructDefaultTypeInternal()
+    : _instance(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized{}) {}
+  ~NamedStructDefaultTypeInternal() {}
+  union {
+    NamedStruct _instance;
+  };
+};
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT NamedStructDefaultTypeInternal _NamedStruct_default_instance_;
 }  // namespace substrait
 }  // namespace io
-static ::PROTOBUF_NAMESPACE_ID::Metadata file_level_metadata_type_2eproto[26];
+static ::PROTOBUF_NAMESPACE_ID::Metadata file_level_metadata_type_2eproto[25];
 static const ::PROTOBUF_NAMESPACE_ID::EnumDescriptor* file_level_enum_descriptors_type_2eproto[1];
 static constexpr ::PROTOBUF_NAMESPACE_ID::ServiceDescriptor const** file_level_service_descriptors_type_2eproto = nullptr;
 
@@ -399,112 +386,112 @@ const ::PROTOBUF_NAMESPACE_ID::uint32 TableStruct_type_2eproto::offsets[] PROTOB
   ~0u,  // no _extensions_
   ~0u,  // no _oneof_case_
   ~0u,  // no _weak_field_map_
-  PROTOBUF_FIELD_OFFSET(::io::substrait::Type_Boolean, variation_),
+  PROTOBUF_FIELD_OFFSET(::io::substrait::Type_Boolean, type_variation_reference_),
   PROTOBUF_FIELD_OFFSET(::io::substrait::Type_Boolean, nullability_),
   ~0u,  // no _has_bits_
   PROTOBUF_FIELD_OFFSET(::io::substrait::Type_I8, _internal_metadata_),
   ~0u,  // no _extensions_
   ~0u,  // no _oneof_case_
   ~0u,  // no _weak_field_map_
-  PROTOBUF_FIELD_OFFSET(::io::substrait::Type_I8, variation_),
+  PROTOBUF_FIELD_OFFSET(::io::substrait::Type_I8, type_variation_reference_),
   PROTOBUF_FIELD_OFFSET(::io::substrait::Type_I8, nullability_),
   ~0u,  // no _has_bits_
   PROTOBUF_FIELD_OFFSET(::io::substrait::Type_I16, _internal_metadata_),
   ~0u,  // no _extensions_
   ~0u,  // no _oneof_case_
   ~0u,  // no _weak_field_map_
-  PROTOBUF_FIELD_OFFSET(::io::substrait::Type_I16, variation_),
+  PROTOBUF_FIELD_OFFSET(::io::substrait::Type_I16, type_variation_reference_),
   PROTOBUF_FIELD_OFFSET(::io::substrait::Type_I16, nullability_),
   ~0u,  // no _has_bits_
   PROTOBUF_FIELD_OFFSET(::io::substrait::Type_I32, _internal_metadata_),
   ~0u,  // no _extensions_
   ~0u,  // no _oneof_case_
   ~0u,  // no _weak_field_map_
-  PROTOBUF_FIELD_OFFSET(::io::substrait::Type_I32, variation_),
+  PROTOBUF_FIELD_OFFSET(::io::substrait::Type_I32, type_variation_reference_),
   PROTOBUF_FIELD_OFFSET(::io::substrait::Type_I32, nullability_),
   ~0u,  // no _has_bits_
   PROTOBUF_FIELD_OFFSET(::io::substrait::Type_I64, _internal_metadata_),
   ~0u,  // no _extensions_
   ~0u,  // no _oneof_case_
   ~0u,  // no _weak_field_map_
-  PROTOBUF_FIELD_OFFSET(::io::substrait::Type_I64, variation_),
+  PROTOBUF_FIELD_OFFSET(::io::substrait::Type_I64, type_variation_reference_),
   PROTOBUF_FIELD_OFFSET(::io::substrait::Type_I64, nullability_),
   ~0u,  // no _has_bits_
   PROTOBUF_FIELD_OFFSET(::io::substrait::Type_FP32, _internal_metadata_),
   ~0u,  // no _extensions_
   ~0u,  // no _oneof_case_
   ~0u,  // no _weak_field_map_
-  PROTOBUF_FIELD_OFFSET(::io::substrait::Type_FP32, variation_),
+  PROTOBUF_FIELD_OFFSET(::io::substrait::Type_FP32, type_variation_reference_),
   PROTOBUF_FIELD_OFFSET(::io::substrait::Type_FP32, nullability_),
   ~0u,  // no _has_bits_
   PROTOBUF_FIELD_OFFSET(::io::substrait::Type_FP64, _internal_metadata_),
   ~0u,  // no _extensions_
   ~0u,  // no _oneof_case_
   ~0u,  // no _weak_field_map_
-  PROTOBUF_FIELD_OFFSET(::io::substrait::Type_FP64, variation_),
+  PROTOBUF_FIELD_OFFSET(::io::substrait::Type_FP64, type_variation_reference_),
   PROTOBUF_FIELD_OFFSET(::io::substrait::Type_FP64, nullability_),
   ~0u,  // no _has_bits_
   PROTOBUF_FIELD_OFFSET(::io::substrait::Type_String, _internal_metadata_),
   ~0u,  // no _extensions_
   ~0u,  // no _oneof_case_
   ~0u,  // no _weak_field_map_
-  PROTOBUF_FIELD_OFFSET(::io::substrait::Type_String, variation_),
+  PROTOBUF_FIELD_OFFSET(::io::substrait::Type_String, type_variation_reference_),
   PROTOBUF_FIELD_OFFSET(::io::substrait::Type_String, nullability_),
   ~0u,  // no _has_bits_
   PROTOBUF_FIELD_OFFSET(::io::substrait::Type_Binary, _internal_metadata_),
   ~0u,  // no _extensions_
   ~0u,  // no _oneof_case_
   ~0u,  // no _weak_field_map_
-  PROTOBUF_FIELD_OFFSET(::io::substrait::Type_Binary, variation_),
+  PROTOBUF_FIELD_OFFSET(::io::substrait::Type_Binary, type_variation_reference_),
   PROTOBUF_FIELD_OFFSET(::io::substrait::Type_Binary, nullability_),
   ~0u,  // no _has_bits_
   PROTOBUF_FIELD_OFFSET(::io::substrait::Type_Timestamp, _internal_metadata_),
   ~0u,  // no _extensions_
   ~0u,  // no _oneof_case_
   ~0u,  // no _weak_field_map_
-  PROTOBUF_FIELD_OFFSET(::io::substrait::Type_Timestamp, variation_),
+  PROTOBUF_FIELD_OFFSET(::io::substrait::Type_Timestamp, type_variation_reference_),
   PROTOBUF_FIELD_OFFSET(::io::substrait::Type_Timestamp, nullability_),
   ~0u,  // no _has_bits_
   PROTOBUF_FIELD_OFFSET(::io::substrait::Type_Date, _internal_metadata_),
   ~0u,  // no _extensions_
   ~0u,  // no _oneof_case_
   ~0u,  // no _weak_field_map_
-  PROTOBUF_FIELD_OFFSET(::io::substrait::Type_Date, variation_),
+  PROTOBUF_FIELD_OFFSET(::io::substrait::Type_Date, type_variation_reference_),
   PROTOBUF_FIELD_OFFSET(::io::substrait::Type_Date, nullability_),
   ~0u,  // no _has_bits_
   PROTOBUF_FIELD_OFFSET(::io::substrait::Type_Time, _internal_metadata_),
   ~0u,  // no _extensions_
   ~0u,  // no _oneof_case_
   ~0u,  // no _weak_field_map_
-  PROTOBUF_FIELD_OFFSET(::io::substrait::Type_Time, variation_),
+  PROTOBUF_FIELD_OFFSET(::io::substrait::Type_Time, type_variation_reference_),
   PROTOBUF_FIELD_OFFSET(::io::substrait::Type_Time, nullability_),
   ~0u,  // no _has_bits_
   PROTOBUF_FIELD_OFFSET(::io::substrait::Type_TimestampTZ, _internal_metadata_),
   ~0u,  // no _extensions_
   ~0u,  // no _oneof_case_
   ~0u,  // no _weak_field_map_
-  PROTOBUF_FIELD_OFFSET(::io::substrait::Type_TimestampTZ, variation_),
+  PROTOBUF_FIELD_OFFSET(::io::substrait::Type_TimestampTZ, type_variation_reference_),
   PROTOBUF_FIELD_OFFSET(::io::substrait::Type_TimestampTZ, nullability_),
   ~0u,  // no _has_bits_
   PROTOBUF_FIELD_OFFSET(::io::substrait::Type_IntervalYear, _internal_metadata_),
   ~0u,  // no _extensions_
   ~0u,  // no _oneof_case_
   ~0u,  // no _weak_field_map_
-  PROTOBUF_FIELD_OFFSET(::io::substrait::Type_IntervalYear, variation_),
+  PROTOBUF_FIELD_OFFSET(::io::substrait::Type_IntervalYear, type_variation_reference_),
   PROTOBUF_FIELD_OFFSET(::io::substrait::Type_IntervalYear, nullability_),
   ~0u,  // no _has_bits_
   PROTOBUF_FIELD_OFFSET(::io::substrait::Type_IntervalDay, _internal_metadata_),
   ~0u,  // no _extensions_
   ~0u,  // no _oneof_case_
   ~0u,  // no _weak_field_map_
-  PROTOBUF_FIELD_OFFSET(::io::substrait::Type_IntervalDay, variation_),
+  PROTOBUF_FIELD_OFFSET(::io::substrait::Type_IntervalDay, type_variation_reference_),
   PROTOBUF_FIELD_OFFSET(::io::substrait::Type_IntervalDay, nullability_),
   ~0u,  // no _has_bits_
   PROTOBUF_FIELD_OFFSET(::io::substrait::Type_UUID, _internal_metadata_),
   ~0u,  // no _extensions_
   ~0u,  // no _oneof_case_
   ~0u,  // no _weak_field_map_
-  PROTOBUF_FIELD_OFFSET(::io::substrait::Type_UUID, variation_),
+  PROTOBUF_FIELD_OFFSET(::io::substrait::Type_UUID, type_variation_reference_),
   PROTOBUF_FIELD_OFFSET(::io::substrait::Type_UUID, nullability_),
   ~0u,  // no _has_bits_
   PROTOBUF_FIELD_OFFSET(::io::substrait::Type_FixedChar, _internal_metadata_),
@@ -512,7 +499,7 @@ const ::PROTOBUF_NAMESPACE_ID::uint32 TableStruct_type_2eproto::offsets[] PROTOB
   ~0u,  // no _oneof_case_
   ~0u,  // no _weak_field_map_
   PROTOBUF_FIELD_OFFSET(::io::substrait::Type_FixedChar, length_),
-  PROTOBUF_FIELD_OFFSET(::io::substrait::Type_FixedChar, variation_),
+  PROTOBUF_FIELD_OFFSET(::io::substrait::Type_FixedChar, type_variation_reference_),
   PROTOBUF_FIELD_OFFSET(::io::substrait::Type_FixedChar, nullability_),
   ~0u,  // no _has_bits_
   PROTOBUF_FIELD_OFFSET(::io::substrait::Type_VarChar, _internal_metadata_),
@@ -520,7 +507,7 @@ const ::PROTOBUF_NAMESPACE_ID::uint32 TableStruct_type_2eproto::offsets[] PROTOB
   ~0u,  // no _oneof_case_
   ~0u,  // no _weak_field_map_
   PROTOBUF_FIELD_OFFSET(::io::substrait::Type_VarChar, length_),
-  PROTOBUF_FIELD_OFFSET(::io::substrait::Type_VarChar, variation_),
+  PROTOBUF_FIELD_OFFSET(::io::substrait::Type_VarChar, type_variation_reference_),
   PROTOBUF_FIELD_OFFSET(::io::substrait::Type_VarChar, nullability_),
   ~0u,  // no _has_bits_
   PROTOBUF_FIELD_OFFSET(::io::substrait::Type_FixedBinary, _internal_metadata_),
@@ -528,7 +515,7 @@ const ::PROTOBUF_NAMESPACE_ID::uint32 TableStruct_type_2eproto::offsets[] PROTOB
   ~0u,  // no _oneof_case_
   ~0u,  // no _weak_field_map_
   PROTOBUF_FIELD_OFFSET(::io::substrait::Type_FixedBinary, length_),
-  PROTOBUF_FIELD_OFFSET(::io::substrait::Type_FixedBinary, variation_),
+  PROTOBUF_FIELD_OFFSET(::io::substrait::Type_FixedBinary, type_variation_reference_),
   PROTOBUF_FIELD_OFFSET(::io::substrait::Type_FixedBinary, nullability_),
   ~0u,  // no _has_bits_
   PROTOBUF_FIELD_OFFSET(::io::substrait::Type_Decimal, _internal_metadata_),
@@ -537,7 +524,7 @@ const ::PROTOBUF_NAMESPACE_ID::uint32 TableStruct_type_2eproto::offsets[] PROTOB
   ~0u,  // no _weak_field_map_
   PROTOBUF_FIELD_OFFSET(::io::substrait::Type_Decimal, scale_),
   PROTOBUF_FIELD_OFFSET(::io::substrait::Type_Decimal, precision_),
-  PROTOBUF_FIELD_OFFSET(::io::substrait::Type_Decimal, variation_),
+  PROTOBUF_FIELD_OFFSET(::io::substrait::Type_Decimal, type_variation_reference_),
   PROTOBUF_FIELD_OFFSET(::io::substrait::Type_Decimal, nullability_),
   ~0u,  // no _has_bits_
   PROTOBUF_FIELD_OFFSET(::io::substrait::Type_Struct, _internal_metadata_),
@@ -545,22 +532,15 @@ const ::PROTOBUF_NAMESPACE_ID::uint32 TableStruct_type_2eproto::offsets[] PROTOB
   ~0u,  // no _oneof_case_
   ~0u,  // no _weak_field_map_
   PROTOBUF_FIELD_OFFSET(::io::substrait::Type_Struct, types_),
-  PROTOBUF_FIELD_OFFSET(::io::substrait::Type_Struct, variation_),
+  PROTOBUF_FIELD_OFFSET(::io::substrait::Type_Struct, type_variation_reference_),
   PROTOBUF_FIELD_OFFSET(::io::substrait::Type_Struct, nullability_),
-  ~0u,  // no _has_bits_
-  PROTOBUF_FIELD_OFFSET(::io::substrait::Type_NamedStruct, _internal_metadata_),
-  ~0u,  // no _extensions_
-  ~0u,  // no _oneof_case_
-  ~0u,  // no _weak_field_map_
-  PROTOBUF_FIELD_OFFSET(::io::substrait::Type_NamedStruct, names_),
-  PROTOBUF_FIELD_OFFSET(::io::substrait::Type_NamedStruct, struct__),
   ~0u,  // no _has_bits_
   PROTOBUF_FIELD_OFFSET(::io::substrait::Type_List, _internal_metadata_),
   ~0u,  // no _extensions_
   ~0u,  // no _oneof_case_
   ~0u,  // no _weak_field_map_
   PROTOBUF_FIELD_OFFSET(::io::substrait::Type_List, type_),
-  PROTOBUF_FIELD_OFFSET(::io::substrait::Type_List, variation_),
+  PROTOBUF_FIELD_OFFSET(::io::substrait::Type_List, type_variation_reference_),
   PROTOBUF_FIELD_OFFSET(::io::substrait::Type_List, nullability_),
   ~0u,  // no _has_bits_
   PROTOBUF_FIELD_OFFSET(::io::substrait::Type_Map, _internal_metadata_),
@@ -569,15 +549,8 @@ const ::PROTOBUF_NAMESPACE_ID::uint32 TableStruct_type_2eproto::offsets[] PROTOB
   ~0u,  // no _weak_field_map_
   PROTOBUF_FIELD_OFFSET(::io::substrait::Type_Map, key_),
   PROTOBUF_FIELD_OFFSET(::io::substrait::Type_Map, value_),
-  PROTOBUF_FIELD_OFFSET(::io::substrait::Type_Map, variation_),
+  PROTOBUF_FIELD_OFFSET(::io::substrait::Type_Map, type_variation_reference_),
   PROTOBUF_FIELD_OFFSET(::io::substrait::Type_Map, nullability_),
-  ~0u,  // no _has_bits_
-  PROTOBUF_FIELD_OFFSET(::io::substrait::Type_Variation, _internal_metadata_),
-  ~0u,  // no _extensions_
-  ~0u,  // no _oneof_case_
-  ~0u,  // no _weak_field_map_
-  PROTOBUF_FIELD_OFFSET(::io::substrait::Type_Variation, organization_),
-  PROTOBUF_FIELD_OFFSET(::io::substrait::Type_Variation, name_),
   ~0u,  // no _has_bits_
   PROTOBUF_FIELD_OFFSET(::io::substrait::Type, _internal_metadata_),
   ~0u,  // no _extensions_
@@ -608,6 +581,13 @@ const ::PROTOBUF_NAMESPACE_ID::uint32 TableStruct_type_2eproto::offsets[] PROTOB
   ::PROTOBUF_NAMESPACE_ID::internal::kInvalidFieldOffsetTag,
   ::PROTOBUF_NAMESPACE_ID::internal::kInvalidFieldOffsetTag,
   PROTOBUF_FIELD_OFFSET(::io::substrait::Type, kind_),
+  ~0u,  // no _has_bits_
+  PROTOBUF_FIELD_OFFSET(::io::substrait::NamedStruct, _internal_metadata_),
+  ~0u,  // no _extensions_
+  ~0u,  // no _oneof_case_
+  ~0u,  // no _weak_field_map_
+  PROTOBUF_FIELD_OFFSET(::io::substrait::NamedStruct, names_),
+  PROTOBUF_FIELD_OFFSET(::io::substrait::NamedStruct, struct__),
 };
 static const ::PROTOBUF_NAMESPACE_ID::internal::MigrationSchema schemas[] PROTOBUF_SECTION_VARIABLE(protodesc_cold) = {
   { 0, -1, sizeof(::io::substrait::Type_Boolean)},
@@ -631,11 +611,10 @@ static const ::PROTOBUF_NAMESPACE_ID::internal::MigrationSchema schemas[] PROTOB
   { 128, -1, sizeof(::io::substrait::Type_FixedBinary)},
   { 136, -1, sizeof(::io::substrait::Type_Decimal)},
   { 145, -1, sizeof(::io::substrait::Type_Struct)},
-  { 153, -1, sizeof(::io::substrait::Type_NamedStruct)},
-  { 160, -1, sizeof(::io::substrait::Type_List)},
-  { 168, -1, sizeof(::io::substrait::Type_Map)},
-  { 177, -1, sizeof(::io::substrait::Type_Variation)},
-  { 184, -1, sizeof(::io::substrait::Type)},
+  { 153, -1, sizeof(::io::substrait::Type_List)},
+  { 161, -1, sizeof(::io::substrait::Type_Map)},
+  { 170, -1, sizeof(::io::substrait::Type)},
+  { 200, -1, sizeof(::io::substrait::NamedStruct)},
 };
 
 static ::PROTOBUF_NAMESPACE_ID::Message const * const file_default_instances[] = {
@@ -660,126 +639,112 @@ static ::PROTOBUF_NAMESPACE_ID::Message const * const file_default_instances[] =
   reinterpret_cast<const ::PROTOBUF_NAMESPACE_ID::Message*>(&::io::substrait::_Type_FixedBinary_default_instance_),
   reinterpret_cast<const ::PROTOBUF_NAMESPACE_ID::Message*>(&::io::substrait::_Type_Decimal_default_instance_),
   reinterpret_cast<const ::PROTOBUF_NAMESPACE_ID::Message*>(&::io::substrait::_Type_Struct_default_instance_),
-  reinterpret_cast<const ::PROTOBUF_NAMESPACE_ID::Message*>(&::io::substrait::_Type_NamedStruct_default_instance_),
   reinterpret_cast<const ::PROTOBUF_NAMESPACE_ID::Message*>(&::io::substrait::_Type_List_default_instance_),
   reinterpret_cast<const ::PROTOBUF_NAMESPACE_ID::Message*>(&::io::substrait::_Type_Map_default_instance_),
-  reinterpret_cast<const ::PROTOBUF_NAMESPACE_ID::Message*>(&::io::substrait::_Type_Variation_default_instance_),
   reinterpret_cast<const ::PROTOBUF_NAMESPACE_ID::Message*>(&::io::substrait::_Type_default_instance_),
+  reinterpret_cast<const ::PROTOBUF_NAMESPACE_ID::Message*>(&::io::substrait::_NamedStruct_default_instance_),
 };
 
 const char descriptor_table_protodef_type_2eproto[] PROTOBUF_SECTION_VARIABLE(protodesc_cold) =
-  "\n\ntype.proto\022\014io.substrait\032\020extensions.p"
-  "roto\"\360\037\n\004Type\022*\n\004bool\030\001 \001(\0132\032.io.substra"
-  "it.Type.BooleanH\000\022#\n\002i8\030\002 \001(\0132\025.io.subst"
-  "rait.Type.I8H\000\022%\n\003i16\030\003 \001(\0132\026.io.substra"
-  "it.Type.I16H\000\022%\n\003i32\030\005 \001(\0132\026.io.substrai"
-  "t.Type.I32H\000\022%\n\003i64\030\007 \001(\0132\026.io.substrait"
-  ".Type.I64H\000\022\'\n\004fp32\030\n \001(\0132\027.io.substrait"
-  ".Type.FP32H\000\022\'\n\004fp64\030\013 \001(\0132\027.io.substrai"
-  "t.Type.FP64H\000\022+\n\006string\030\014 \001(\0132\031.io.subst"
-  "rait.Type.StringH\000\022+\n\006binary\030\r \001(\0132\031.io."
-  "substrait.Type.BinaryH\000\0221\n\ttimestamp\030\016 \001"
-  "(\0132\034.io.substrait.Type.TimestampH\000\022\'\n\004da"
-  "te\030\020 \001(\0132\027.io.substrait.Type.DateH\000\022\'\n\004t"
-  "ime\030\021 \001(\0132\027.io.substrait.Type.TimeH\000\0228\n\r"
-  "interval_year\030\023 \001(\0132\037.io.substrait.Type."
-  "IntervalYearH\000\0226\n\014interval_day\030\024 \001(\0132\036.i"
-  "o.substrait.Type.IntervalDayH\000\0226\n\014timest"
-  "amp_tz\030\035 \001(\0132\036.io.substrait.Type.Timesta"
-  "mpTZH\000\022\'\n\004uuid\030  \001(\0132\027.io.substrait.Type"
-  ".UUIDH\000\0222\n\nfixed_char\030\025 \001(\0132\034.io.substra"
-  "it.Type.FixedCharH\000\022-\n\007varchar\030\026 \001(\0132\032.i"
-  "o.substrait.Type.VarCharH\000\0226\n\014fixed_bina"
-  "ry\030\027 \001(\0132\036.io.substrait.Type.FixedBinary"
-  "H\000\022-\n\007decimal\030\030 \001(\0132\032.io.substrait.Type."
-  "DecimalH\000\022+\n\006struct\030\031 \001(\0132\031.io.substrait"
-  ".Type.StructH\000\022\'\n\004list\030\033 \001(\0132\027.io.substr"
-  "ait.Type.ListH\000\022%\n\003map\030\034 \001(\0132\026.io.substr"
-  "ait.Type.MapH\000\0227\n\014user_defined\030\037 \001(\0132\037.i"
-  "o.substrait.Extensions.TypeIdH\000\032o\n\007Boole"
-  "an\022/\n\tvariation\030\001 \001(\0132\034.io.substrait.Typ"
-  "e.Variation\0223\n\013nullability\030\002 \001(\0162\036.io.su"
-  "bstrait.Type.Nullability\032j\n\002I8\022/\n\tvariat"
-  "ion\030\001 \001(\0132\034.io.substrait.Type.Variation\022"
+  "\n\ntype.proto\022\014io.substrait\"\210\034\n\004Type\022*\n\004b"
+  "ool\030\001 \001(\0132\032.io.substrait.Type.BooleanH\000\022"
+  "#\n\002i8\030\002 \001(\0132\025.io.substrait.Type.I8H\000\022%\n\003"
+  "i16\030\003 \001(\0132\026.io.substrait.Type.I16H\000\022%\n\003i"
+  "32\030\005 \001(\0132\026.io.substrait.Type.I32H\000\022%\n\003i6"
+  "4\030\007 \001(\0132\026.io.substrait.Type.I64H\000\022\'\n\004fp3"
+  "2\030\n \001(\0132\027.io.substrait.Type.FP32H\000\022\'\n\004fp"
+  "64\030\013 \001(\0132\027.io.substrait.Type.FP64H\000\022+\n\006s"
+  "tring\030\014 \001(\0132\031.io.substrait.Type.StringH\000"
+  "\022+\n\006binary\030\r \001(\0132\031.io.substrait.Type.Bin"
+  "aryH\000\0221\n\ttimestamp\030\016 \001(\0132\034.io.substrait."
+  "Type.TimestampH\000\022\'\n\004date\030\020 \001(\0132\027.io.subs"
+  "trait.Type.DateH\000\022\'\n\004time\030\021 \001(\0132\027.io.sub"
+  "strait.Type.TimeH\000\0228\n\rinterval_year\030\023 \001("
+  "\0132\037.io.substrait.Type.IntervalYearH\000\0226\n\014"
+  "interval_day\030\024 \001(\0132\036.io.substrait.Type.I"
+  "ntervalDayH\000\0226\n\014timestamp_tz\030\035 \001(\0132\036.io."
+  "substrait.Type.TimestampTZH\000\022\'\n\004uuid\030  \001"
+  "(\0132\027.io.substrait.Type.UUIDH\000\0222\n\nfixed_c"
+  "har\030\025 \001(\0132\034.io.substrait.Type.FixedCharH"
+  "\000\022-\n\007varchar\030\026 \001(\0132\032.io.substrait.Type.V"
+  "arCharH\000\0226\n\014fixed_binary\030\027 \001(\0132\036.io.subs"
+  "trait.Type.FixedBinaryH\000\022-\n\007decimal\030\030 \001("
+  "\0132\032.io.substrait.Type.DecimalH\000\022+\n\006struc"
+  "t\030\031 \001(\0132\031.io.substrait.Type.StructH\000\022\'\n\004"
+  "list\030\033 \001(\0132\027.io.substrait.Type.ListH\000\022%\n"
+  "\003map\030\034 \001(\0132\026.io.substrait.Type.MapH\000\022%\n\033"
+  "user_defined_type_reference\030\037 \001(\rH\000\032`\n\007B"
+  "oolean\022 \n\030type_variation_reference\030\001 \001(\r"
+  "\0223\n\013nullability\030\002 \001(\0162\036.io.substrait.Typ"
+  "e.Nullability\032[\n\002I8\022 \n\030type_variation_re"
+  "ference\030\001 \001(\r\0223\n\013nullability\030\002 \001(\0162\036.io."
+  "substrait.Type.Nullability\032\\\n\003I16\022 \n\030typ"
+  "e_variation_reference\030\001 \001(\r\0223\n\013nullabili"
+  "ty\030\002 \001(\0162\036.io.substrait.Type.Nullability"
+  "\032\\\n\003I32\022 \n\030type_variation_reference\030\001 \001("
+  "\r\0223\n\013nullability\030\002 \001(\0162\036.io.substrait.Ty"
+  "pe.Nullability\032\\\n\003I64\022 \n\030type_variation_"
+  "reference\030\001 \001(\r\0223\n\013nullability\030\002 \001(\0162\036.i"
+  "o.substrait.Type.Nullability\032]\n\004FP32\022 \n\030"
+  "type_variation_reference\030\001 \001(\r\0223\n\013nullab"
+  "ility\030\002 \001(\0162\036.io.substrait.Type.Nullabil"
+  "ity\032]\n\004FP64\022 \n\030type_variation_reference\030"
+  "\001 \001(\r\0223\n\013nullability\030\002 \001(\0162\036.io.substrai"
+  "t.Type.Nullability\032_\n\006String\022 \n\030type_var"
+  "iation_reference\030\001 \001(\r\0223\n\013nullability\030\002 "
+  "\001(\0162\036.io.substrait.Type.Nullability\032_\n\006B"
+  "inary\022 \n\030type_variation_reference\030\001 \001(\r\022"
   "3\n\013nullability\030\002 \001(\0162\036.io.substrait.Type"
-  ".Nullability\032k\n\003I16\022/\n\tvariation\030\001 \001(\0132\034"
-  ".io.substrait.Type.Variation\0223\n\013nullabil"
-  "ity\030\002 \001(\0162\036.io.substrait.Type.Nullabilit"
-  "y\032k\n\003I32\022/\n\tvariation\030\001 \001(\0132\034.io.substra"
-  "it.Type.Variation\0223\n\013nullability\030\002 \001(\0162\036"
-  ".io.substrait.Type.Nullability\032k\n\003I64\022/\n"
-  "\tvariation\030\001 \001(\0132\034.io.substrait.Type.Var"
-  "iation\0223\n\013nullability\030\002 \001(\0162\036.io.substra"
-  "it.Type.Nullability\032l\n\004FP32\022/\n\tvariation"
-  "\030\001 \001(\0132\034.io.substrait.Type.Variation\0223\n\013"
+  ".Nullability\032b\n\tTimestamp\022 \n\030type_variat"
+  "ion_reference\030\001 \001(\r\0223\n\013nullability\030\002 \001(\016"
+  "2\036.io.substrait.Type.Nullability\032]\n\004Date"
+  "\022 \n\030type_variation_reference\030\001 \001(\r\0223\n\013nu"
+  "llability\030\002 \001(\0162\036.io.substrait.Type.Null"
+  "ability\032]\n\004Time\022 \n\030type_variation_refere"
+  "nce\030\001 \001(\r\0223\n\013nullability\030\002 \001(\0162\036.io.subs"
+  "trait.Type.Nullability\032d\n\013TimestampTZ\022 \n"
+  "\030type_variation_reference\030\001 \001(\r\0223\n\013nulla"
+  "bility\030\002 \001(\0162\036.io.substrait.Type.Nullabi"
+  "lity\032e\n\014IntervalYear\022 \n\030type_variation_r"
+  "eference\030\001 \001(\r\0223\n\013nullability\030\002 \001(\0162\036.io"
+  ".substrait.Type.Nullability\032d\n\013IntervalD"
+  "ay\022 \n\030type_variation_reference\030\001 \001(\r\0223\n\013"
   "nullability\030\002 \001(\0162\036.io.substrait.Type.Nu"
-  "llability\032l\n\004FP64\022/\n\tvariation\030\001 \001(\0132\034.i"
-  "o.substrait.Type.Variation\0223\n\013nullabilit"
-  "y\030\002 \001(\0162\036.io.substrait.Type.Nullability\032"
-  "n\n\006String\022/\n\tvariation\030\001 \001(\0132\034.io.substr"
-  "ait.Type.Variation\0223\n\013nullability\030\002 \001(\0162"
-  "\036.io.substrait.Type.Nullability\032n\n\006Binar"
-  "y\022/\n\tvariation\030\001 \001(\0132\034.io.substrait.Type"
-  ".Variation\0223\n\013nullability\030\002 \001(\0162\036.io.sub"
-  "strait.Type.Nullability\032q\n\tTimestamp\022/\n\t"
-  "variation\030\001 \001(\0132\034.io.substrait.Type.Vari"
-  "ation\0223\n\013nullability\030\002 \001(\0162\036.io.substrai"
-  "t.Type.Nullability\032l\n\004Date\022/\n\tvariation\030"
-  "\001 \001(\0132\034.io.substrait.Type.Variation\0223\n\013n"
-  "ullability\030\002 \001(\0162\036.io.substrait.Type.Nul"
-  "lability\032l\n\004Time\022/\n\tvariation\030\001 \001(\0132\034.io"
-  ".substrait.Type.Variation\0223\n\013nullability"
-  "\030\002 \001(\0162\036.io.substrait.Type.Nullability\032s"
-  "\n\013TimestampTZ\022/\n\tvariation\030\001 \001(\0132\034.io.su"
-  "bstrait.Type.Variation\0223\n\013nullability\030\002 "
-  "\001(\0162\036.io.substrait.Type.Nullability\032t\n\014I"
-  "ntervalYear\022/\n\tvariation\030\001 \001(\0132\034.io.subs"
-  "trait.Type.Variation\0223\n\013nullability\030\002 \001("
-  "\0162\036.io.substrait.Type.Nullability\032s\n\013Int"
-  "ervalDay\022/\n\tvariation\030\001 \001(\0132\034.io.substra"
-  "it.Type.Variation\0223\n\013nullability\030\002 \001(\0162\036"
-  ".io.substrait.Type.Nullability\032l\n\004UUID\022/"
-  "\n\tvariation\030\001 \001(\0132\034.io.substrait.Type.Va"
-  "riation\0223\n\013nullability\030\002 \001(\0162\036.io.substr"
-  "ait.Type.Nullability\032\201\001\n\tFixedChar\022\016\n\006le"
-  "ngth\030\001 \001(\005\022/\n\tvariation\030\002 \001(\0132\034.io.subst"
-  "rait.Type.Variation\0223\n\013nullability\030\003 \001(\016"
-  "2\036.io.substrait.Type.Nullability\032\177\n\007VarC"
-  "har\022\016\n\006length\030\001 \001(\005\022/\n\tvariation\030\002 \001(\0132\034"
-  ".io.substrait.Type.Variation\0223\n\013nullabil"
-  "ity\030\003 \001(\0162\036.io.substrait.Type.Nullabilit"
-  "y\032\203\001\n\013FixedBinary\022\016\n\006length\030\001 \001(\005\022/\n\tvar"
-  "iation\030\002 \001(\0132\034.io.substrait.Type.Variati"
-  "on\0223\n\013nullability\030\003 \001(\0162\036.io.substrait.T"
-  "ype.Nullability\032\221\001\n\007Decimal\022\r\n\005scale\030\001 \001"
-  "(\005\022\021\n\tprecision\030\002 \001(\005\022/\n\tvariation\030\003 \001(\013"
-  "2\034.io.substrait.Type.Variation\0223\n\013nullab"
-  "ility\030\004 \001(\0162\036.io.substrait.Type.Nullabil"
-  "ity\032\221\001\n\006Struct\022!\n\005types\030\001 \003(\0132\022.io.subst"
-  "rait.Type\022/\n\tvariation\030\002 \001(\0132\034.io.substr"
-  "ait.Type.Variation\0223\n\013nullability\030\003 \001(\0162"
-  "\036.io.substrait.Type.Nullability\032G\n\013Named"
-  "Struct\022\r\n\005names\030\001 \003(\t\022)\n\006struct\030\002 \001(\0132\031."
-  "io.substrait.Type.Struct\032\216\001\n\004List\022 \n\004typ"
-  "e\030\001 \001(\0132\022.io.substrait.Type\022/\n\tvariation"
-  "\030\002 \001(\0132\034.io.substrait.Type.Variation\0223\n\013"
-  "nullability\030\003 \001(\0162\036.io.substrait.Type.Nu"
-  "llability\032\257\001\n\003Map\022\037\n\003key\030\001 \001(\0132\022.io.subs"
-  "trait.Type\022!\n\005value\030\002 \001(\0132\022.io.substrait"
-  ".Type\022/\n\tvariation\030\003 \001(\0132\034.io.substrait."
-  "Type.Variation\0223\n\013nullability\030\004 \001(\0162\036.io"
-  ".substrait.Type.Nullability\032/\n\tVariation"
-  "\022\024\n\014organization\030\001 \001(\005\022\014\n\004name\030\002 \001(\t\")\n\013"
-  "Nullability\022\014\n\010NULLABLE\020\000\022\014\n\010REQUIRED\020\001B"
-  "\006\n\004kindB\027P\001\252\002\022Substrait.Protobufb\006proto3"
+  "llability\032]\n\004UUID\022 \n\030type_variation_refe"
+  "rence\030\001 \001(\r\0223\n\013nullability\030\002 \001(\0162\036.io.su"
+  "bstrait.Type.Nullability\032r\n\tFixedChar\022\016\n"
+  "\006length\030\001 \001(\005\022 \n\030type_variation_referenc"
+  "e\030\002 \001(\r\0223\n\013nullability\030\003 \001(\0162\036.io.substr"
+  "ait.Type.Nullability\032p\n\007VarChar\022\016\n\006lengt"
+  "h\030\001 \001(\005\022 \n\030type_variation_reference\030\002 \001("
+  "\r\0223\n\013nullability\030\003 \001(\0162\036.io.substrait.Ty"
+  "pe.Nullability\032t\n\013FixedBinary\022\016\n\006length\030"
+  "\001 \001(\005\022 \n\030type_variation_reference\030\002 \001(\r\022"
+  "3\n\013nullability\030\003 \001(\0162\036.io.substrait.Type"
+  ".Nullability\032\202\001\n\007Decimal\022\r\n\005scale\030\001 \001(\005\022"
+  "\021\n\tprecision\030\002 \001(\005\022 \n\030type_variation_ref"
+  "erence\030\003 \001(\r\0223\n\013nullability\030\004 \001(\0162\036.io.s"
+  "ubstrait.Type.Nullability\032\202\001\n\006Struct\022!\n\005"
+  "types\030\001 \003(\0132\022.io.substrait.Type\022 \n\030type_"
+  "variation_reference\030\002 \001(\r\0223\n\013nullability"
+  "\030\003 \001(\0162\036.io.substrait.Type.Nullability\032\177"
+  "\n\004List\022 \n\004type\030\001 \001(\0132\022.io.substrait.Type"
+  "\022 \n\030type_variation_reference\030\002 \001(\r\0223\n\013nu"
+  "llability\030\003 \001(\0162\036.io.substrait.Type.Null"
+  "ability\032\240\001\n\003Map\022\037\n\003key\030\001 \001(\0132\022.io.substr"
+  "ait.Type\022!\n\005value\030\002 \001(\0132\022.io.substrait.T"
+  "ype\022 \n\030type_variation_reference\030\003 \001(\r\0223\n"
+  "\013nullability\030\004 \001(\0162\036.io.substrait.Type.N"
+  "ullability\")\n\013Nullability\022\014\n\010NULLABLE\020\000\022"
+  "\014\n\010REQUIRED\020\001B\006\n\004kind\"G\n\013NamedStruct\022\r\n\005"
+  "names\030\001 \003(\t\022)\n\006struct\030\002 \001(\0132\031.io.substra"
+  "it.Type.StructB+\n\022io.substrait.protoP\001\252\002"
+  "\022Substrait.Protobufb\006proto3"
   ;
-static const ::PROTOBUF_NAMESPACE_ID::internal::DescriptorTable*const descriptor_table_type_2eproto_deps[1] = {
-  &::descriptor_table_extensions_2eproto,
-};
 static ::PROTOBUF_NAMESPACE_ID::internal::once_flag descriptor_table_type_2eproto_once;
 const ::PROTOBUF_NAMESPACE_ID::internal::DescriptorTable descriptor_table_type_2eproto = {
-  false, false, 4160, descriptor_table_protodef_type_2eproto, "type.proto", 
-  &descriptor_table_type_2eproto_once, descriptor_table_type_2eproto_deps, 1, 26,
+  false, false, 3747, descriptor_table_protodef_type_2eproto, "type.proto", 
+  &descriptor_table_type_2eproto_once, nullptr, 0, 25,
   schemas, file_default_instances, TableStruct_type_2eproto::offsets,
   file_level_metadata_type_2eproto, file_level_enum_descriptors_type_2eproto, file_level_service_descriptors_type_2eproto,
 };
@@ -817,13 +782,8 @@ constexpr int Type::Nullability_ARRAYSIZE;
 
 class Type_Boolean::_Internal {
  public:
-  static const ::io::substrait::Type_Variation& variation(const Type_Boolean* msg);
 };
 
-const ::io::substrait::Type_Variation&
-Type_Boolean::_Internal::variation(const Type_Boolean* msg) {
-  return *msg->variation_;
-}
 Type_Boolean::Type_Boolean(::PROTOBUF_NAMESPACE_ID::Arena* arena)
   : ::PROTOBUF_NAMESPACE_ID::Message(arena) {
   SharedCtor();
@@ -833,20 +793,17 @@ Type_Boolean::Type_Boolean(::PROTOBUF_NAMESPACE_ID::Arena* arena)
 Type_Boolean::Type_Boolean(const Type_Boolean& from)
   : ::PROTOBUF_NAMESPACE_ID::Message() {
   _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
-  if (from._internal_has_variation()) {
-    variation_ = new ::io::substrait::Type_Variation(*from.variation_);
-  } else {
-    variation_ = nullptr;
-  }
-  nullability_ = from.nullability_;
+  ::memcpy(&type_variation_reference_, &from.type_variation_reference_,
+    static_cast<size_t>(reinterpret_cast<char*>(&nullability_) -
+    reinterpret_cast<char*>(&type_variation_reference_)) + sizeof(nullability_));
   // @@protoc_insertion_point(copy_constructor:io.substrait.Type.Boolean)
 }
 
 void Type_Boolean::SharedCtor() {
 ::memset(reinterpret_cast<char*>(this) + static_cast<size_t>(
-    reinterpret_cast<char*>(&variation_) - reinterpret_cast<char*>(this)),
+    reinterpret_cast<char*>(&type_variation_reference_) - reinterpret_cast<char*>(this)),
     0, static_cast<size_t>(reinterpret_cast<char*>(&nullability_) -
-    reinterpret_cast<char*>(&variation_)) + sizeof(nullability_));
+    reinterpret_cast<char*>(&type_variation_reference_)) + sizeof(nullability_));
 }
 
 Type_Boolean::~Type_Boolean() {
@@ -857,7 +814,6 @@ Type_Boolean::~Type_Boolean() {
 
 void Type_Boolean::SharedDtor() {
   GOOGLE_DCHECK(GetArena() == nullptr);
-  if (this != internal_default_instance()) delete variation_;
 }
 
 void Type_Boolean::ArenaDtor(void* object) {
@@ -876,11 +832,9 @@ void Type_Boolean::Clear() {
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  if (GetArena() == nullptr && variation_ != nullptr) {
-    delete variation_;
-  }
-  variation_ = nullptr;
-  nullability_ = 0;
+  ::memset(&type_variation_reference_, 0, static_cast<size_t>(
+      reinterpret_cast<char*>(&nullability_) -
+      reinterpret_cast<char*>(&type_variation_reference_)) + sizeof(nullability_));
   _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
@@ -890,10 +844,10 @@ const char* Type_Boolean::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_I
     ::PROTOBUF_NAMESPACE_ID::uint32 tag;
     ptr = ::PROTOBUF_NAMESPACE_ID::internal::ReadTag(ptr, &tag);
     switch (tag >> 3) {
-      // .io.substrait.Type.Variation variation = 1;
+      // uint32 type_variation_reference = 1;
       case 1:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 10)) {
-          ptr = ctx->ParseMessage(_internal_mutable_variation(), ptr);
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 8)) {
+          type_variation_reference_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint32(&ptr);
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
@@ -934,12 +888,10 @@ failure:
   ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
   (void) cached_has_bits;
 
-  // .io.substrait.Type.Variation variation = 1;
-  if (this->has_variation()) {
+  // uint32 type_variation_reference = 1;
+  if (this->type_variation_reference() != 0) {
     target = stream->EnsureSpace(target);
-    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
-      InternalWriteMessage(
-        1, _Internal::variation(this), target, stream);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::WriteUInt32ToArray(1, this->_internal_type_variation_reference(), target);
   }
 
   // .io.substrait.Type.Nullability nullability = 2;
@@ -965,11 +917,11 @@ size_t Type_Boolean::ByteSizeLong() const {
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  // .io.substrait.Type.Variation variation = 1;
-  if (this->has_variation()) {
+  // uint32 type_variation_reference = 1;
+  if (this->type_variation_reference() != 0) {
     total_size += 1 +
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
-        *variation_);
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::UInt32Size(
+        this->_internal_type_variation_reference());
   }
 
   // .io.substrait.Type.Nullability nullability = 2;
@@ -1009,8 +961,8 @@ void Type_Boolean::MergeFrom(const Type_Boolean& from) {
   ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
   (void) cached_has_bits;
 
-  if (from.has_variation()) {
-    _internal_mutable_variation()->::io::substrait::Type_Variation::MergeFrom(from._internal_variation());
+  if (from.type_variation_reference() != 0) {
+    _internal_set_type_variation_reference(from._internal_type_variation_reference());
   }
   if (from.nullability() != 0) {
     _internal_set_nullability(from._internal_nullability());
@@ -1041,9 +993,9 @@ void Type_Boolean::InternalSwap(Type_Boolean* other) {
   ::PROTOBUF_NAMESPACE_ID::internal::memswap<
       PROTOBUF_FIELD_OFFSET(Type_Boolean, nullability_)
       + sizeof(Type_Boolean::nullability_)
-      - PROTOBUF_FIELD_OFFSET(Type_Boolean, variation_)>(
-          reinterpret_cast<char*>(&variation_),
-          reinterpret_cast<char*>(&other->variation_));
+      - PROTOBUF_FIELD_OFFSET(Type_Boolean, type_variation_reference_)>(
+          reinterpret_cast<char*>(&type_variation_reference_),
+          reinterpret_cast<char*>(&other->type_variation_reference_));
 }
 
 ::PROTOBUF_NAMESPACE_ID::Metadata Type_Boolean::GetMetadata() const {
@@ -1056,13 +1008,8 @@ void Type_Boolean::InternalSwap(Type_Boolean* other) {
 
 class Type_I8::_Internal {
  public:
-  static const ::io::substrait::Type_Variation& variation(const Type_I8* msg);
 };
 
-const ::io::substrait::Type_Variation&
-Type_I8::_Internal::variation(const Type_I8* msg) {
-  return *msg->variation_;
-}
 Type_I8::Type_I8(::PROTOBUF_NAMESPACE_ID::Arena* arena)
   : ::PROTOBUF_NAMESPACE_ID::Message(arena) {
   SharedCtor();
@@ -1072,20 +1019,17 @@ Type_I8::Type_I8(::PROTOBUF_NAMESPACE_ID::Arena* arena)
 Type_I8::Type_I8(const Type_I8& from)
   : ::PROTOBUF_NAMESPACE_ID::Message() {
   _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
-  if (from._internal_has_variation()) {
-    variation_ = new ::io::substrait::Type_Variation(*from.variation_);
-  } else {
-    variation_ = nullptr;
-  }
-  nullability_ = from.nullability_;
+  ::memcpy(&type_variation_reference_, &from.type_variation_reference_,
+    static_cast<size_t>(reinterpret_cast<char*>(&nullability_) -
+    reinterpret_cast<char*>(&type_variation_reference_)) + sizeof(nullability_));
   // @@protoc_insertion_point(copy_constructor:io.substrait.Type.I8)
 }
 
 void Type_I8::SharedCtor() {
 ::memset(reinterpret_cast<char*>(this) + static_cast<size_t>(
-    reinterpret_cast<char*>(&variation_) - reinterpret_cast<char*>(this)),
+    reinterpret_cast<char*>(&type_variation_reference_) - reinterpret_cast<char*>(this)),
     0, static_cast<size_t>(reinterpret_cast<char*>(&nullability_) -
-    reinterpret_cast<char*>(&variation_)) + sizeof(nullability_));
+    reinterpret_cast<char*>(&type_variation_reference_)) + sizeof(nullability_));
 }
 
 Type_I8::~Type_I8() {
@@ -1096,7 +1040,6 @@ Type_I8::~Type_I8() {
 
 void Type_I8::SharedDtor() {
   GOOGLE_DCHECK(GetArena() == nullptr);
-  if (this != internal_default_instance()) delete variation_;
 }
 
 void Type_I8::ArenaDtor(void* object) {
@@ -1115,11 +1058,9 @@ void Type_I8::Clear() {
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  if (GetArena() == nullptr && variation_ != nullptr) {
-    delete variation_;
-  }
-  variation_ = nullptr;
-  nullability_ = 0;
+  ::memset(&type_variation_reference_, 0, static_cast<size_t>(
+      reinterpret_cast<char*>(&nullability_) -
+      reinterpret_cast<char*>(&type_variation_reference_)) + sizeof(nullability_));
   _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
@@ -1129,10 +1070,10 @@ const char* Type_I8::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::in
     ::PROTOBUF_NAMESPACE_ID::uint32 tag;
     ptr = ::PROTOBUF_NAMESPACE_ID::internal::ReadTag(ptr, &tag);
     switch (tag >> 3) {
-      // .io.substrait.Type.Variation variation = 1;
+      // uint32 type_variation_reference = 1;
       case 1:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 10)) {
-          ptr = ctx->ParseMessage(_internal_mutable_variation(), ptr);
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 8)) {
+          type_variation_reference_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint32(&ptr);
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
@@ -1173,12 +1114,10 @@ failure:
   ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
   (void) cached_has_bits;
 
-  // .io.substrait.Type.Variation variation = 1;
-  if (this->has_variation()) {
+  // uint32 type_variation_reference = 1;
+  if (this->type_variation_reference() != 0) {
     target = stream->EnsureSpace(target);
-    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
-      InternalWriteMessage(
-        1, _Internal::variation(this), target, stream);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::WriteUInt32ToArray(1, this->_internal_type_variation_reference(), target);
   }
 
   // .io.substrait.Type.Nullability nullability = 2;
@@ -1204,11 +1143,11 @@ size_t Type_I8::ByteSizeLong() const {
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  // .io.substrait.Type.Variation variation = 1;
-  if (this->has_variation()) {
+  // uint32 type_variation_reference = 1;
+  if (this->type_variation_reference() != 0) {
     total_size += 1 +
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
-        *variation_);
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::UInt32Size(
+        this->_internal_type_variation_reference());
   }
 
   // .io.substrait.Type.Nullability nullability = 2;
@@ -1248,8 +1187,8 @@ void Type_I8::MergeFrom(const Type_I8& from) {
   ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
   (void) cached_has_bits;
 
-  if (from.has_variation()) {
-    _internal_mutable_variation()->::io::substrait::Type_Variation::MergeFrom(from._internal_variation());
+  if (from.type_variation_reference() != 0) {
+    _internal_set_type_variation_reference(from._internal_type_variation_reference());
   }
   if (from.nullability() != 0) {
     _internal_set_nullability(from._internal_nullability());
@@ -1280,9 +1219,9 @@ void Type_I8::InternalSwap(Type_I8* other) {
   ::PROTOBUF_NAMESPACE_ID::internal::memswap<
       PROTOBUF_FIELD_OFFSET(Type_I8, nullability_)
       + sizeof(Type_I8::nullability_)
-      - PROTOBUF_FIELD_OFFSET(Type_I8, variation_)>(
-          reinterpret_cast<char*>(&variation_),
-          reinterpret_cast<char*>(&other->variation_));
+      - PROTOBUF_FIELD_OFFSET(Type_I8, type_variation_reference_)>(
+          reinterpret_cast<char*>(&type_variation_reference_),
+          reinterpret_cast<char*>(&other->type_variation_reference_));
 }
 
 ::PROTOBUF_NAMESPACE_ID::Metadata Type_I8::GetMetadata() const {
@@ -1295,13 +1234,8 @@ void Type_I8::InternalSwap(Type_I8* other) {
 
 class Type_I16::_Internal {
  public:
-  static const ::io::substrait::Type_Variation& variation(const Type_I16* msg);
 };
 
-const ::io::substrait::Type_Variation&
-Type_I16::_Internal::variation(const Type_I16* msg) {
-  return *msg->variation_;
-}
 Type_I16::Type_I16(::PROTOBUF_NAMESPACE_ID::Arena* arena)
   : ::PROTOBUF_NAMESPACE_ID::Message(arena) {
   SharedCtor();
@@ -1311,20 +1245,17 @@ Type_I16::Type_I16(::PROTOBUF_NAMESPACE_ID::Arena* arena)
 Type_I16::Type_I16(const Type_I16& from)
   : ::PROTOBUF_NAMESPACE_ID::Message() {
   _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
-  if (from._internal_has_variation()) {
-    variation_ = new ::io::substrait::Type_Variation(*from.variation_);
-  } else {
-    variation_ = nullptr;
-  }
-  nullability_ = from.nullability_;
+  ::memcpy(&type_variation_reference_, &from.type_variation_reference_,
+    static_cast<size_t>(reinterpret_cast<char*>(&nullability_) -
+    reinterpret_cast<char*>(&type_variation_reference_)) + sizeof(nullability_));
   // @@protoc_insertion_point(copy_constructor:io.substrait.Type.I16)
 }
 
 void Type_I16::SharedCtor() {
 ::memset(reinterpret_cast<char*>(this) + static_cast<size_t>(
-    reinterpret_cast<char*>(&variation_) - reinterpret_cast<char*>(this)),
+    reinterpret_cast<char*>(&type_variation_reference_) - reinterpret_cast<char*>(this)),
     0, static_cast<size_t>(reinterpret_cast<char*>(&nullability_) -
-    reinterpret_cast<char*>(&variation_)) + sizeof(nullability_));
+    reinterpret_cast<char*>(&type_variation_reference_)) + sizeof(nullability_));
 }
 
 Type_I16::~Type_I16() {
@@ -1335,7 +1266,6 @@ Type_I16::~Type_I16() {
 
 void Type_I16::SharedDtor() {
   GOOGLE_DCHECK(GetArena() == nullptr);
-  if (this != internal_default_instance()) delete variation_;
 }
 
 void Type_I16::ArenaDtor(void* object) {
@@ -1354,11 +1284,9 @@ void Type_I16::Clear() {
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  if (GetArena() == nullptr && variation_ != nullptr) {
-    delete variation_;
-  }
-  variation_ = nullptr;
-  nullability_ = 0;
+  ::memset(&type_variation_reference_, 0, static_cast<size_t>(
+      reinterpret_cast<char*>(&nullability_) -
+      reinterpret_cast<char*>(&type_variation_reference_)) + sizeof(nullability_));
   _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
@@ -1368,10 +1296,10 @@ const char* Type_I16::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::i
     ::PROTOBUF_NAMESPACE_ID::uint32 tag;
     ptr = ::PROTOBUF_NAMESPACE_ID::internal::ReadTag(ptr, &tag);
     switch (tag >> 3) {
-      // .io.substrait.Type.Variation variation = 1;
+      // uint32 type_variation_reference = 1;
       case 1:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 10)) {
-          ptr = ctx->ParseMessage(_internal_mutable_variation(), ptr);
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 8)) {
+          type_variation_reference_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint32(&ptr);
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
@@ -1412,12 +1340,10 @@ failure:
   ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
   (void) cached_has_bits;
 
-  // .io.substrait.Type.Variation variation = 1;
-  if (this->has_variation()) {
+  // uint32 type_variation_reference = 1;
+  if (this->type_variation_reference() != 0) {
     target = stream->EnsureSpace(target);
-    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
-      InternalWriteMessage(
-        1, _Internal::variation(this), target, stream);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::WriteUInt32ToArray(1, this->_internal_type_variation_reference(), target);
   }
 
   // .io.substrait.Type.Nullability nullability = 2;
@@ -1443,11 +1369,11 @@ size_t Type_I16::ByteSizeLong() const {
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  // .io.substrait.Type.Variation variation = 1;
-  if (this->has_variation()) {
+  // uint32 type_variation_reference = 1;
+  if (this->type_variation_reference() != 0) {
     total_size += 1 +
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
-        *variation_);
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::UInt32Size(
+        this->_internal_type_variation_reference());
   }
 
   // .io.substrait.Type.Nullability nullability = 2;
@@ -1487,8 +1413,8 @@ void Type_I16::MergeFrom(const Type_I16& from) {
   ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
   (void) cached_has_bits;
 
-  if (from.has_variation()) {
-    _internal_mutable_variation()->::io::substrait::Type_Variation::MergeFrom(from._internal_variation());
+  if (from.type_variation_reference() != 0) {
+    _internal_set_type_variation_reference(from._internal_type_variation_reference());
   }
   if (from.nullability() != 0) {
     _internal_set_nullability(from._internal_nullability());
@@ -1519,9 +1445,9 @@ void Type_I16::InternalSwap(Type_I16* other) {
   ::PROTOBUF_NAMESPACE_ID::internal::memswap<
       PROTOBUF_FIELD_OFFSET(Type_I16, nullability_)
       + sizeof(Type_I16::nullability_)
-      - PROTOBUF_FIELD_OFFSET(Type_I16, variation_)>(
-          reinterpret_cast<char*>(&variation_),
-          reinterpret_cast<char*>(&other->variation_));
+      - PROTOBUF_FIELD_OFFSET(Type_I16, type_variation_reference_)>(
+          reinterpret_cast<char*>(&type_variation_reference_),
+          reinterpret_cast<char*>(&other->type_variation_reference_));
 }
 
 ::PROTOBUF_NAMESPACE_ID::Metadata Type_I16::GetMetadata() const {
@@ -1534,13 +1460,8 @@ void Type_I16::InternalSwap(Type_I16* other) {
 
 class Type_I32::_Internal {
  public:
-  static const ::io::substrait::Type_Variation& variation(const Type_I32* msg);
 };
 
-const ::io::substrait::Type_Variation&
-Type_I32::_Internal::variation(const Type_I32* msg) {
-  return *msg->variation_;
-}
 Type_I32::Type_I32(::PROTOBUF_NAMESPACE_ID::Arena* arena)
   : ::PROTOBUF_NAMESPACE_ID::Message(arena) {
   SharedCtor();
@@ -1550,20 +1471,17 @@ Type_I32::Type_I32(::PROTOBUF_NAMESPACE_ID::Arena* arena)
 Type_I32::Type_I32(const Type_I32& from)
   : ::PROTOBUF_NAMESPACE_ID::Message() {
   _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
-  if (from._internal_has_variation()) {
-    variation_ = new ::io::substrait::Type_Variation(*from.variation_);
-  } else {
-    variation_ = nullptr;
-  }
-  nullability_ = from.nullability_;
+  ::memcpy(&type_variation_reference_, &from.type_variation_reference_,
+    static_cast<size_t>(reinterpret_cast<char*>(&nullability_) -
+    reinterpret_cast<char*>(&type_variation_reference_)) + sizeof(nullability_));
   // @@protoc_insertion_point(copy_constructor:io.substrait.Type.I32)
 }
 
 void Type_I32::SharedCtor() {
 ::memset(reinterpret_cast<char*>(this) + static_cast<size_t>(
-    reinterpret_cast<char*>(&variation_) - reinterpret_cast<char*>(this)),
+    reinterpret_cast<char*>(&type_variation_reference_) - reinterpret_cast<char*>(this)),
     0, static_cast<size_t>(reinterpret_cast<char*>(&nullability_) -
-    reinterpret_cast<char*>(&variation_)) + sizeof(nullability_));
+    reinterpret_cast<char*>(&type_variation_reference_)) + sizeof(nullability_));
 }
 
 Type_I32::~Type_I32() {
@@ -1574,7 +1492,6 @@ Type_I32::~Type_I32() {
 
 void Type_I32::SharedDtor() {
   GOOGLE_DCHECK(GetArena() == nullptr);
-  if (this != internal_default_instance()) delete variation_;
 }
 
 void Type_I32::ArenaDtor(void* object) {
@@ -1593,11 +1510,9 @@ void Type_I32::Clear() {
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  if (GetArena() == nullptr && variation_ != nullptr) {
-    delete variation_;
-  }
-  variation_ = nullptr;
-  nullability_ = 0;
+  ::memset(&type_variation_reference_, 0, static_cast<size_t>(
+      reinterpret_cast<char*>(&nullability_) -
+      reinterpret_cast<char*>(&type_variation_reference_)) + sizeof(nullability_));
   _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
@@ -1607,10 +1522,10 @@ const char* Type_I32::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::i
     ::PROTOBUF_NAMESPACE_ID::uint32 tag;
     ptr = ::PROTOBUF_NAMESPACE_ID::internal::ReadTag(ptr, &tag);
     switch (tag >> 3) {
-      // .io.substrait.Type.Variation variation = 1;
+      // uint32 type_variation_reference = 1;
       case 1:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 10)) {
-          ptr = ctx->ParseMessage(_internal_mutable_variation(), ptr);
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 8)) {
+          type_variation_reference_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint32(&ptr);
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
@@ -1651,12 +1566,10 @@ failure:
   ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
   (void) cached_has_bits;
 
-  // .io.substrait.Type.Variation variation = 1;
-  if (this->has_variation()) {
+  // uint32 type_variation_reference = 1;
+  if (this->type_variation_reference() != 0) {
     target = stream->EnsureSpace(target);
-    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
-      InternalWriteMessage(
-        1, _Internal::variation(this), target, stream);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::WriteUInt32ToArray(1, this->_internal_type_variation_reference(), target);
   }
 
   // .io.substrait.Type.Nullability nullability = 2;
@@ -1682,11 +1595,11 @@ size_t Type_I32::ByteSizeLong() const {
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  // .io.substrait.Type.Variation variation = 1;
-  if (this->has_variation()) {
+  // uint32 type_variation_reference = 1;
+  if (this->type_variation_reference() != 0) {
     total_size += 1 +
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
-        *variation_);
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::UInt32Size(
+        this->_internal_type_variation_reference());
   }
 
   // .io.substrait.Type.Nullability nullability = 2;
@@ -1726,8 +1639,8 @@ void Type_I32::MergeFrom(const Type_I32& from) {
   ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
   (void) cached_has_bits;
 
-  if (from.has_variation()) {
-    _internal_mutable_variation()->::io::substrait::Type_Variation::MergeFrom(from._internal_variation());
+  if (from.type_variation_reference() != 0) {
+    _internal_set_type_variation_reference(from._internal_type_variation_reference());
   }
   if (from.nullability() != 0) {
     _internal_set_nullability(from._internal_nullability());
@@ -1758,9 +1671,9 @@ void Type_I32::InternalSwap(Type_I32* other) {
   ::PROTOBUF_NAMESPACE_ID::internal::memswap<
       PROTOBUF_FIELD_OFFSET(Type_I32, nullability_)
       + sizeof(Type_I32::nullability_)
-      - PROTOBUF_FIELD_OFFSET(Type_I32, variation_)>(
-          reinterpret_cast<char*>(&variation_),
-          reinterpret_cast<char*>(&other->variation_));
+      - PROTOBUF_FIELD_OFFSET(Type_I32, type_variation_reference_)>(
+          reinterpret_cast<char*>(&type_variation_reference_),
+          reinterpret_cast<char*>(&other->type_variation_reference_));
 }
 
 ::PROTOBUF_NAMESPACE_ID::Metadata Type_I32::GetMetadata() const {
@@ -1773,13 +1686,8 @@ void Type_I32::InternalSwap(Type_I32* other) {
 
 class Type_I64::_Internal {
  public:
-  static const ::io::substrait::Type_Variation& variation(const Type_I64* msg);
 };
 
-const ::io::substrait::Type_Variation&
-Type_I64::_Internal::variation(const Type_I64* msg) {
-  return *msg->variation_;
-}
 Type_I64::Type_I64(::PROTOBUF_NAMESPACE_ID::Arena* arena)
   : ::PROTOBUF_NAMESPACE_ID::Message(arena) {
   SharedCtor();
@@ -1789,20 +1697,17 @@ Type_I64::Type_I64(::PROTOBUF_NAMESPACE_ID::Arena* arena)
 Type_I64::Type_I64(const Type_I64& from)
   : ::PROTOBUF_NAMESPACE_ID::Message() {
   _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
-  if (from._internal_has_variation()) {
-    variation_ = new ::io::substrait::Type_Variation(*from.variation_);
-  } else {
-    variation_ = nullptr;
-  }
-  nullability_ = from.nullability_;
+  ::memcpy(&type_variation_reference_, &from.type_variation_reference_,
+    static_cast<size_t>(reinterpret_cast<char*>(&nullability_) -
+    reinterpret_cast<char*>(&type_variation_reference_)) + sizeof(nullability_));
   // @@protoc_insertion_point(copy_constructor:io.substrait.Type.I64)
 }
 
 void Type_I64::SharedCtor() {
 ::memset(reinterpret_cast<char*>(this) + static_cast<size_t>(
-    reinterpret_cast<char*>(&variation_) - reinterpret_cast<char*>(this)),
+    reinterpret_cast<char*>(&type_variation_reference_) - reinterpret_cast<char*>(this)),
     0, static_cast<size_t>(reinterpret_cast<char*>(&nullability_) -
-    reinterpret_cast<char*>(&variation_)) + sizeof(nullability_));
+    reinterpret_cast<char*>(&type_variation_reference_)) + sizeof(nullability_));
 }
 
 Type_I64::~Type_I64() {
@@ -1813,7 +1718,6 @@ Type_I64::~Type_I64() {
 
 void Type_I64::SharedDtor() {
   GOOGLE_DCHECK(GetArena() == nullptr);
-  if (this != internal_default_instance()) delete variation_;
 }
 
 void Type_I64::ArenaDtor(void* object) {
@@ -1832,11 +1736,9 @@ void Type_I64::Clear() {
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  if (GetArena() == nullptr && variation_ != nullptr) {
-    delete variation_;
-  }
-  variation_ = nullptr;
-  nullability_ = 0;
+  ::memset(&type_variation_reference_, 0, static_cast<size_t>(
+      reinterpret_cast<char*>(&nullability_) -
+      reinterpret_cast<char*>(&type_variation_reference_)) + sizeof(nullability_));
   _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
@@ -1846,10 +1748,10 @@ const char* Type_I64::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::i
     ::PROTOBUF_NAMESPACE_ID::uint32 tag;
     ptr = ::PROTOBUF_NAMESPACE_ID::internal::ReadTag(ptr, &tag);
     switch (tag >> 3) {
-      // .io.substrait.Type.Variation variation = 1;
+      // uint32 type_variation_reference = 1;
       case 1:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 10)) {
-          ptr = ctx->ParseMessage(_internal_mutable_variation(), ptr);
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 8)) {
+          type_variation_reference_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint32(&ptr);
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
@@ -1890,12 +1792,10 @@ failure:
   ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
   (void) cached_has_bits;
 
-  // .io.substrait.Type.Variation variation = 1;
-  if (this->has_variation()) {
+  // uint32 type_variation_reference = 1;
+  if (this->type_variation_reference() != 0) {
     target = stream->EnsureSpace(target);
-    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
-      InternalWriteMessage(
-        1, _Internal::variation(this), target, stream);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::WriteUInt32ToArray(1, this->_internal_type_variation_reference(), target);
   }
 
   // .io.substrait.Type.Nullability nullability = 2;
@@ -1921,11 +1821,11 @@ size_t Type_I64::ByteSizeLong() const {
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  // .io.substrait.Type.Variation variation = 1;
-  if (this->has_variation()) {
+  // uint32 type_variation_reference = 1;
+  if (this->type_variation_reference() != 0) {
     total_size += 1 +
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
-        *variation_);
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::UInt32Size(
+        this->_internal_type_variation_reference());
   }
 
   // .io.substrait.Type.Nullability nullability = 2;
@@ -1965,8 +1865,8 @@ void Type_I64::MergeFrom(const Type_I64& from) {
   ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
   (void) cached_has_bits;
 
-  if (from.has_variation()) {
-    _internal_mutable_variation()->::io::substrait::Type_Variation::MergeFrom(from._internal_variation());
+  if (from.type_variation_reference() != 0) {
+    _internal_set_type_variation_reference(from._internal_type_variation_reference());
   }
   if (from.nullability() != 0) {
     _internal_set_nullability(from._internal_nullability());
@@ -1997,9 +1897,9 @@ void Type_I64::InternalSwap(Type_I64* other) {
   ::PROTOBUF_NAMESPACE_ID::internal::memswap<
       PROTOBUF_FIELD_OFFSET(Type_I64, nullability_)
       + sizeof(Type_I64::nullability_)
-      - PROTOBUF_FIELD_OFFSET(Type_I64, variation_)>(
-          reinterpret_cast<char*>(&variation_),
-          reinterpret_cast<char*>(&other->variation_));
+      - PROTOBUF_FIELD_OFFSET(Type_I64, type_variation_reference_)>(
+          reinterpret_cast<char*>(&type_variation_reference_),
+          reinterpret_cast<char*>(&other->type_variation_reference_));
 }
 
 ::PROTOBUF_NAMESPACE_ID::Metadata Type_I64::GetMetadata() const {
@@ -2012,13 +1912,8 @@ void Type_I64::InternalSwap(Type_I64* other) {
 
 class Type_FP32::_Internal {
  public:
-  static const ::io::substrait::Type_Variation& variation(const Type_FP32* msg);
 };
 
-const ::io::substrait::Type_Variation&
-Type_FP32::_Internal::variation(const Type_FP32* msg) {
-  return *msg->variation_;
-}
 Type_FP32::Type_FP32(::PROTOBUF_NAMESPACE_ID::Arena* arena)
   : ::PROTOBUF_NAMESPACE_ID::Message(arena) {
   SharedCtor();
@@ -2028,20 +1923,17 @@ Type_FP32::Type_FP32(::PROTOBUF_NAMESPACE_ID::Arena* arena)
 Type_FP32::Type_FP32(const Type_FP32& from)
   : ::PROTOBUF_NAMESPACE_ID::Message() {
   _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
-  if (from._internal_has_variation()) {
-    variation_ = new ::io::substrait::Type_Variation(*from.variation_);
-  } else {
-    variation_ = nullptr;
-  }
-  nullability_ = from.nullability_;
+  ::memcpy(&type_variation_reference_, &from.type_variation_reference_,
+    static_cast<size_t>(reinterpret_cast<char*>(&nullability_) -
+    reinterpret_cast<char*>(&type_variation_reference_)) + sizeof(nullability_));
   // @@protoc_insertion_point(copy_constructor:io.substrait.Type.FP32)
 }
 
 void Type_FP32::SharedCtor() {
 ::memset(reinterpret_cast<char*>(this) + static_cast<size_t>(
-    reinterpret_cast<char*>(&variation_) - reinterpret_cast<char*>(this)),
+    reinterpret_cast<char*>(&type_variation_reference_) - reinterpret_cast<char*>(this)),
     0, static_cast<size_t>(reinterpret_cast<char*>(&nullability_) -
-    reinterpret_cast<char*>(&variation_)) + sizeof(nullability_));
+    reinterpret_cast<char*>(&type_variation_reference_)) + sizeof(nullability_));
 }
 
 Type_FP32::~Type_FP32() {
@@ -2052,7 +1944,6 @@ Type_FP32::~Type_FP32() {
 
 void Type_FP32::SharedDtor() {
   GOOGLE_DCHECK(GetArena() == nullptr);
-  if (this != internal_default_instance()) delete variation_;
 }
 
 void Type_FP32::ArenaDtor(void* object) {
@@ -2071,11 +1962,9 @@ void Type_FP32::Clear() {
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  if (GetArena() == nullptr && variation_ != nullptr) {
-    delete variation_;
-  }
-  variation_ = nullptr;
-  nullability_ = 0;
+  ::memset(&type_variation_reference_, 0, static_cast<size_t>(
+      reinterpret_cast<char*>(&nullability_) -
+      reinterpret_cast<char*>(&type_variation_reference_)) + sizeof(nullability_));
   _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
@@ -2085,10 +1974,10 @@ const char* Type_FP32::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::
     ::PROTOBUF_NAMESPACE_ID::uint32 tag;
     ptr = ::PROTOBUF_NAMESPACE_ID::internal::ReadTag(ptr, &tag);
     switch (tag >> 3) {
-      // .io.substrait.Type.Variation variation = 1;
+      // uint32 type_variation_reference = 1;
       case 1:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 10)) {
-          ptr = ctx->ParseMessage(_internal_mutable_variation(), ptr);
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 8)) {
+          type_variation_reference_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint32(&ptr);
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
@@ -2129,12 +2018,10 @@ failure:
   ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
   (void) cached_has_bits;
 
-  // .io.substrait.Type.Variation variation = 1;
-  if (this->has_variation()) {
+  // uint32 type_variation_reference = 1;
+  if (this->type_variation_reference() != 0) {
     target = stream->EnsureSpace(target);
-    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
-      InternalWriteMessage(
-        1, _Internal::variation(this), target, stream);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::WriteUInt32ToArray(1, this->_internal_type_variation_reference(), target);
   }
 
   // .io.substrait.Type.Nullability nullability = 2;
@@ -2160,11 +2047,11 @@ size_t Type_FP32::ByteSizeLong() const {
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  // .io.substrait.Type.Variation variation = 1;
-  if (this->has_variation()) {
+  // uint32 type_variation_reference = 1;
+  if (this->type_variation_reference() != 0) {
     total_size += 1 +
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
-        *variation_);
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::UInt32Size(
+        this->_internal_type_variation_reference());
   }
 
   // .io.substrait.Type.Nullability nullability = 2;
@@ -2204,8 +2091,8 @@ void Type_FP32::MergeFrom(const Type_FP32& from) {
   ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
   (void) cached_has_bits;
 
-  if (from.has_variation()) {
-    _internal_mutable_variation()->::io::substrait::Type_Variation::MergeFrom(from._internal_variation());
+  if (from.type_variation_reference() != 0) {
+    _internal_set_type_variation_reference(from._internal_type_variation_reference());
   }
   if (from.nullability() != 0) {
     _internal_set_nullability(from._internal_nullability());
@@ -2236,9 +2123,9 @@ void Type_FP32::InternalSwap(Type_FP32* other) {
   ::PROTOBUF_NAMESPACE_ID::internal::memswap<
       PROTOBUF_FIELD_OFFSET(Type_FP32, nullability_)
       + sizeof(Type_FP32::nullability_)
-      - PROTOBUF_FIELD_OFFSET(Type_FP32, variation_)>(
-          reinterpret_cast<char*>(&variation_),
-          reinterpret_cast<char*>(&other->variation_));
+      - PROTOBUF_FIELD_OFFSET(Type_FP32, type_variation_reference_)>(
+          reinterpret_cast<char*>(&type_variation_reference_),
+          reinterpret_cast<char*>(&other->type_variation_reference_));
 }
 
 ::PROTOBUF_NAMESPACE_ID::Metadata Type_FP32::GetMetadata() const {
@@ -2251,13 +2138,8 @@ void Type_FP32::InternalSwap(Type_FP32* other) {
 
 class Type_FP64::_Internal {
  public:
-  static const ::io::substrait::Type_Variation& variation(const Type_FP64* msg);
 };
 
-const ::io::substrait::Type_Variation&
-Type_FP64::_Internal::variation(const Type_FP64* msg) {
-  return *msg->variation_;
-}
 Type_FP64::Type_FP64(::PROTOBUF_NAMESPACE_ID::Arena* arena)
   : ::PROTOBUF_NAMESPACE_ID::Message(arena) {
   SharedCtor();
@@ -2267,20 +2149,17 @@ Type_FP64::Type_FP64(::PROTOBUF_NAMESPACE_ID::Arena* arena)
 Type_FP64::Type_FP64(const Type_FP64& from)
   : ::PROTOBUF_NAMESPACE_ID::Message() {
   _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
-  if (from._internal_has_variation()) {
-    variation_ = new ::io::substrait::Type_Variation(*from.variation_);
-  } else {
-    variation_ = nullptr;
-  }
-  nullability_ = from.nullability_;
+  ::memcpy(&type_variation_reference_, &from.type_variation_reference_,
+    static_cast<size_t>(reinterpret_cast<char*>(&nullability_) -
+    reinterpret_cast<char*>(&type_variation_reference_)) + sizeof(nullability_));
   // @@protoc_insertion_point(copy_constructor:io.substrait.Type.FP64)
 }
 
 void Type_FP64::SharedCtor() {
 ::memset(reinterpret_cast<char*>(this) + static_cast<size_t>(
-    reinterpret_cast<char*>(&variation_) - reinterpret_cast<char*>(this)),
+    reinterpret_cast<char*>(&type_variation_reference_) - reinterpret_cast<char*>(this)),
     0, static_cast<size_t>(reinterpret_cast<char*>(&nullability_) -
-    reinterpret_cast<char*>(&variation_)) + sizeof(nullability_));
+    reinterpret_cast<char*>(&type_variation_reference_)) + sizeof(nullability_));
 }
 
 Type_FP64::~Type_FP64() {
@@ -2291,7 +2170,6 @@ Type_FP64::~Type_FP64() {
 
 void Type_FP64::SharedDtor() {
   GOOGLE_DCHECK(GetArena() == nullptr);
-  if (this != internal_default_instance()) delete variation_;
 }
 
 void Type_FP64::ArenaDtor(void* object) {
@@ -2310,11 +2188,9 @@ void Type_FP64::Clear() {
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  if (GetArena() == nullptr && variation_ != nullptr) {
-    delete variation_;
-  }
-  variation_ = nullptr;
-  nullability_ = 0;
+  ::memset(&type_variation_reference_, 0, static_cast<size_t>(
+      reinterpret_cast<char*>(&nullability_) -
+      reinterpret_cast<char*>(&type_variation_reference_)) + sizeof(nullability_));
   _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
@@ -2324,10 +2200,10 @@ const char* Type_FP64::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::
     ::PROTOBUF_NAMESPACE_ID::uint32 tag;
     ptr = ::PROTOBUF_NAMESPACE_ID::internal::ReadTag(ptr, &tag);
     switch (tag >> 3) {
-      // .io.substrait.Type.Variation variation = 1;
+      // uint32 type_variation_reference = 1;
       case 1:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 10)) {
-          ptr = ctx->ParseMessage(_internal_mutable_variation(), ptr);
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 8)) {
+          type_variation_reference_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint32(&ptr);
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
@@ -2368,12 +2244,10 @@ failure:
   ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
   (void) cached_has_bits;
 
-  // .io.substrait.Type.Variation variation = 1;
-  if (this->has_variation()) {
+  // uint32 type_variation_reference = 1;
+  if (this->type_variation_reference() != 0) {
     target = stream->EnsureSpace(target);
-    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
-      InternalWriteMessage(
-        1, _Internal::variation(this), target, stream);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::WriteUInt32ToArray(1, this->_internal_type_variation_reference(), target);
   }
 
   // .io.substrait.Type.Nullability nullability = 2;
@@ -2399,11 +2273,11 @@ size_t Type_FP64::ByteSizeLong() const {
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  // .io.substrait.Type.Variation variation = 1;
-  if (this->has_variation()) {
+  // uint32 type_variation_reference = 1;
+  if (this->type_variation_reference() != 0) {
     total_size += 1 +
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
-        *variation_);
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::UInt32Size(
+        this->_internal_type_variation_reference());
   }
 
   // .io.substrait.Type.Nullability nullability = 2;
@@ -2443,8 +2317,8 @@ void Type_FP64::MergeFrom(const Type_FP64& from) {
   ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
   (void) cached_has_bits;
 
-  if (from.has_variation()) {
-    _internal_mutable_variation()->::io::substrait::Type_Variation::MergeFrom(from._internal_variation());
+  if (from.type_variation_reference() != 0) {
+    _internal_set_type_variation_reference(from._internal_type_variation_reference());
   }
   if (from.nullability() != 0) {
     _internal_set_nullability(from._internal_nullability());
@@ -2475,9 +2349,9 @@ void Type_FP64::InternalSwap(Type_FP64* other) {
   ::PROTOBUF_NAMESPACE_ID::internal::memswap<
       PROTOBUF_FIELD_OFFSET(Type_FP64, nullability_)
       + sizeof(Type_FP64::nullability_)
-      - PROTOBUF_FIELD_OFFSET(Type_FP64, variation_)>(
-          reinterpret_cast<char*>(&variation_),
-          reinterpret_cast<char*>(&other->variation_));
+      - PROTOBUF_FIELD_OFFSET(Type_FP64, type_variation_reference_)>(
+          reinterpret_cast<char*>(&type_variation_reference_),
+          reinterpret_cast<char*>(&other->type_variation_reference_));
 }
 
 ::PROTOBUF_NAMESPACE_ID::Metadata Type_FP64::GetMetadata() const {
@@ -2490,13 +2364,8 @@ void Type_FP64::InternalSwap(Type_FP64* other) {
 
 class Type_String::_Internal {
  public:
-  static const ::io::substrait::Type_Variation& variation(const Type_String* msg);
 };
 
-const ::io::substrait::Type_Variation&
-Type_String::_Internal::variation(const Type_String* msg) {
-  return *msg->variation_;
-}
 Type_String::Type_String(::PROTOBUF_NAMESPACE_ID::Arena* arena)
   : ::PROTOBUF_NAMESPACE_ID::Message(arena) {
   SharedCtor();
@@ -2506,20 +2375,17 @@ Type_String::Type_String(::PROTOBUF_NAMESPACE_ID::Arena* arena)
 Type_String::Type_String(const Type_String& from)
   : ::PROTOBUF_NAMESPACE_ID::Message() {
   _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
-  if (from._internal_has_variation()) {
-    variation_ = new ::io::substrait::Type_Variation(*from.variation_);
-  } else {
-    variation_ = nullptr;
-  }
-  nullability_ = from.nullability_;
+  ::memcpy(&type_variation_reference_, &from.type_variation_reference_,
+    static_cast<size_t>(reinterpret_cast<char*>(&nullability_) -
+    reinterpret_cast<char*>(&type_variation_reference_)) + sizeof(nullability_));
   // @@protoc_insertion_point(copy_constructor:io.substrait.Type.String)
 }
 
 void Type_String::SharedCtor() {
 ::memset(reinterpret_cast<char*>(this) + static_cast<size_t>(
-    reinterpret_cast<char*>(&variation_) - reinterpret_cast<char*>(this)),
+    reinterpret_cast<char*>(&type_variation_reference_) - reinterpret_cast<char*>(this)),
     0, static_cast<size_t>(reinterpret_cast<char*>(&nullability_) -
-    reinterpret_cast<char*>(&variation_)) + sizeof(nullability_));
+    reinterpret_cast<char*>(&type_variation_reference_)) + sizeof(nullability_));
 }
 
 Type_String::~Type_String() {
@@ -2530,7 +2396,6 @@ Type_String::~Type_String() {
 
 void Type_String::SharedDtor() {
   GOOGLE_DCHECK(GetArena() == nullptr);
-  if (this != internal_default_instance()) delete variation_;
 }
 
 void Type_String::ArenaDtor(void* object) {
@@ -2549,11 +2414,9 @@ void Type_String::Clear() {
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  if (GetArena() == nullptr && variation_ != nullptr) {
-    delete variation_;
-  }
-  variation_ = nullptr;
-  nullability_ = 0;
+  ::memset(&type_variation_reference_, 0, static_cast<size_t>(
+      reinterpret_cast<char*>(&nullability_) -
+      reinterpret_cast<char*>(&type_variation_reference_)) + sizeof(nullability_));
   _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
@@ -2563,10 +2426,10 @@ const char* Type_String::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID
     ::PROTOBUF_NAMESPACE_ID::uint32 tag;
     ptr = ::PROTOBUF_NAMESPACE_ID::internal::ReadTag(ptr, &tag);
     switch (tag >> 3) {
-      // .io.substrait.Type.Variation variation = 1;
+      // uint32 type_variation_reference = 1;
       case 1:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 10)) {
-          ptr = ctx->ParseMessage(_internal_mutable_variation(), ptr);
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 8)) {
+          type_variation_reference_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint32(&ptr);
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
@@ -2607,12 +2470,10 @@ failure:
   ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
   (void) cached_has_bits;
 
-  // .io.substrait.Type.Variation variation = 1;
-  if (this->has_variation()) {
+  // uint32 type_variation_reference = 1;
+  if (this->type_variation_reference() != 0) {
     target = stream->EnsureSpace(target);
-    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
-      InternalWriteMessage(
-        1, _Internal::variation(this), target, stream);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::WriteUInt32ToArray(1, this->_internal_type_variation_reference(), target);
   }
 
   // .io.substrait.Type.Nullability nullability = 2;
@@ -2638,11 +2499,11 @@ size_t Type_String::ByteSizeLong() const {
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  // .io.substrait.Type.Variation variation = 1;
-  if (this->has_variation()) {
+  // uint32 type_variation_reference = 1;
+  if (this->type_variation_reference() != 0) {
     total_size += 1 +
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
-        *variation_);
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::UInt32Size(
+        this->_internal_type_variation_reference());
   }
 
   // .io.substrait.Type.Nullability nullability = 2;
@@ -2682,8 +2543,8 @@ void Type_String::MergeFrom(const Type_String& from) {
   ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
   (void) cached_has_bits;
 
-  if (from.has_variation()) {
-    _internal_mutable_variation()->::io::substrait::Type_Variation::MergeFrom(from._internal_variation());
+  if (from.type_variation_reference() != 0) {
+    _internal_set_type_variation_reference(from._internal_type_variation_reference());
   }
   if (from.nullability() != 0) {
     _internal_set_nullability(from._internal_nullability());
@@ -2714,9 +2575,9 @@ void Type_String::InternalSwap(Type_String* other) {
   ::PROTOBUF_NAMESPACE_ID::internal::memswap<
       PROTOBUF_FIELD_OFFSET(Type_String, nullability_)
       + sizeof(Type_String::nullability_)
-      - PROTOBUF_FIELD_OFFSET(Type_String, variation_)>(
-          reinterpret_cast<char*>(&variation_),
-          reinterpret_cast<char*>(&other->variation_));
+      - PROTOBUF_FIELD_OFFSET(Type_String, type_variation_reference_)>(
+          reinterpret_cast<char*>(&type_variation_reference_),
+          reinterpret_cast<char*>(&other->type_variation_reference_));
 }
 
 ::PROTOBUF_NAMESPACE_ID::Metadata Type_String::GetMetadata() const {
@@ -2729,13 +2590,8 @@ void Type_String::InternalSwap(Type_String* other) {
 
 class Type_Binary::_Internal {
  public:
-  static const ::io::substrait::Type_Variation& variation(const Type_Binary* msg);
 };
 
-const ::io::substrait::Type_Variation&
-Type_Binary::_Internal::variation(const Type_Binary* msg) {
-  return *msg->variation_;
-}
 Type_Binary::Type_Binary(::PROTOBUF_NAMESPACE_ID::Arena* arena)
   : ::PROTOBUF_NAMESPACE_ID::Message(arena) {
   SharedCtor();
@@ -2745,20 +2601,17 @@ Type_Binary::Type_Binary(::PROTOBUF_NAMESPACE_ID::Arena* arena)
 Type_Binary::Type_Binary(const Type_Binary& from)
   : ::PROTOBUF_NAMESPACE_ID::Message() {
   _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
-  if (from._internal_has_variation()) {
-    variation_ = new ::io::substrait::Type_Variation(*from.variation_);
-  } else {
-    variation_ = nullptr;
-  }
-  nullability_ = from.nullability_;
+  ::memcpy(&type_variation_reference_, &from.type_variation_reference_,
+    static_cast<size_t>(reinterpret_cast<char*>(&nullability_) -
+    reinterpret_cast<char*>(&type_variation_reference_)) + sizeof(nullability_));
   // @@protoc_insertion_point(copy_constructor:io.substrait.Type.Binary)
 }
 
 void Type_Binary::SharedCtor() {
 ::memset(reinterpret_cast<char*>(this) + static_cast<size_t>(
-    reinterpret_cast<char*>(&variation_) - reinterpret_cast<char*>(this)),
+    reinterpret_cast<char*>(&type_variation_reference_) - reinterpret_cast<char*>(this)),
     0, static_cast<size_t>(reinterpret_cast<char*>(&nullability_) -
-    reinterpret_cast<char*>(&variation_)) + sizeof(nullability_));
+    reinterpret_cast<char*>(&type_variation_reference_)) + sizeof(nullability_));
 }
 
 Type_Binary::~Type_Binary() {
@@ -2769,7 +2622,6 @@ Type_Binary::~Type_Binary() {
 
 void Type_Binary::SharedDtor() {
   GOOGLE_DCHECK(GetArena() == nullptr);
-  if (this != internal_default_instance()) delete variation_;
 }
 
 void Type_Binary::ArenaDtor(void* object) {
@@ -2788,11 +2640,9 @@ void Type_Binary::Clear() {
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  if (GetArena() == nullptr && variation_ != nullptr) {
-    delete variation_;
-  }
-  variation_ = nullptr;
-  nullability_ = 0;
+  ::memset(&type_variation_reference_, 0, static_cast<size_t>(
+      reinterpret_cast<char*>(&nullability_) -
+      reinterpret_cast<char*>(&type_variation_reference_)) + sizeof(nullability_));
   _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
@@ -2802,10 +2652,10 @@ const char* Type_Binary::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID
     ::PROTOBUF_NAMESPACE_ID::uint32 tag;
     ptr = ::PROTOBUF_NAMESPACE_ID::internal::ReadTag(ptr, &tag);
     switch (tag >> 3) {
-      // .io.substrait.Type.Variation variation = 1;
+      // uint32 type_variation_reference = 1;
       case 1:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 10)) {
-          ptr = ctx->ParseMessage(_internal_mutable_variation(), ptr);
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 8)) {
+          type_variation_reference_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint32(&ptr);
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
@@ -2846,12 +2696,10 @@ failure:
   ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
   (void) cached_has_bits;
 
-  // .io.substrait.Type.Variation variation = 1;
-  if (this->has_variation()) {
+  // uint32 type_variation_reference = 1;
+  if (this->type_variation_reference() != 0) {
     target = stream->EnsureSpace(target);
-    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
-      InternalWriteMessage(
-        1, _Internal::variation(this), target, stream);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::WriteUInt32ToArray(1, this->_internal_type_variation_reference(), target);
   }
 
   // .io.substrait.Type.Nullability nullability = 2;
@@ -2877,11 +2725,11 @@ size_t Type_Binary::ByteSizeLong() const {
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  // .io.substrait.Type.Variation variation = 1;
-  if (this->has_variation()) {
+  // uint32 type_variation_reference = 1;
+  if (this->type_variation_reference() != 0) {
     total_size += 1 +
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
-        *variation_);
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::UInt32Size(
+        this->_internal_type_variation_reference());
   }
 
   // .io.substrait.Type.Nullability nullability = 2;
@@ -2921,8 +2769,8 @@ void Type_Binary::MergeFrom(const Type_Binary& from) {
   ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
   (void) cached_has_bits;
 
-  if (from.has_variation()) {
-    _internal_mutable_variation()->::io::substrait::Type_Variation::MergeFrom(from._internal_variation());
+  if (from.type_variation_reference() != 0) {
+    _internal_set_type_variation_reference(from._internal_type_variation_reference());
   }
   if (from.nullability() != 0) {
     _internal_set_nullability(from._internal_nullability());
@@ -2953,9 +2801,9 @@ void Type_Binary::InternalSwap(Type_Binary* other) {
   ::PROTOBUF_NAMESPACE_ID::internal::memswap<
       PROTOBUF_FIELD_OFFSET(Type_Binary, nullability_)
       + sizeof(Type_Binary::nullability_)
-      - PROTOBUF_FIELD_OFFSET(Type_Binary, variation_)>(
-          reinterpret_cast<char*>(&variation_),
-          reinterpret_cast<char*>(&other->variation_));
+      - PROTOBUF_FIELD_OFFSET(Type_Binary, type_variation_reference_)>(
+          reinterpret_cast<char*>(&type_variation_reference_),
+          reinterpret_cast<char*>(&other->type_variation_reference_));
 }
 
 ::PROTOBUF_NAMESPACE_ID::Metadata Type_Binary::GetMetadata() const {
@@ -2968,13 +2816,8 @@ void Type_Binary::InternalSwap(Type_Binary* other) {
 
 class Type_Timestamp::_Internal {
  public:
-  static const ::io::substrait::Type_Variation& variation(const Type_Timestamp* msg);
 };
 
-const ::io::substrait::Type_Variation&
-Type_Timestamp::_Internal::variation(const Type_Timestamp* msg) {
-  return *msg->variation_;
-}
 Type_Timestamp::Type_Timestamp(::PROTOBUF_NAMESPACE_ID::Arena* arena)
   : ::PROTOBUF_NAMESPACE_ID::Message(arena) {
   SharedCtor();
@@ -2984,20 +2827,17 @@ Type_Timestamp::Type_Timestamp(::PROTOBUF_NAMESPACE_ID::Arena* arena)
 Type_Timestamp::Type_Timestamp(const Type_Timestamp& from)
   : ::PROTOBUF_NAMESPACE_ID::Message() {
   _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
-  if (from._internal_has_variation()) {
-    variation_ = new ::io::substrait::Type_Variation(*from.variation_);
-  } else {
-    variation_ = nullptr;
-  }
-  nullability_ = from.nullability_;
+  ::memcpy(&type_variation_reference_, &from.type_variation_reference_,
+    static_cast<size_t>(reinterpret_cast<char*>(&nullability_) -
+    reinterpret_cast<char*>(&type_variation_reference_)) + sizeof(nullability_));
   // @@protoc_insertion_point(copy_constructor:io.substrait.Type.Timestamp)
 }
 
 void Type_Timestamp::SharedCtor() {
 ::memset(reinterpret_cast<char*>(this) + static_cast<size_t>(
-    reinterpret_cast<char*>(&variation_) - reinterpret_cast<char*>(this)),
+    reinterpret_cast<char*>(&type_variation_reference_) - reinterpret_cast<char*>(this)),
     0, static_cast<size_t>(reinterpret_cast<char*>(&nullability_) -
-    reinterpret_cast<char*>(&variation_)) + sizeof(nullability_));
+    reinterpret_cast<char*>(&type_variation_reference_)) + sizeof(nullability_));
 }
 
 Type_Timestamp::~Type_Timestamp() {
@@ -3008,7 +2848,6 @@ Type_Timestamp::~Type_Timestamp() {
 
 void Type_Timestamp::SharedDtor() {
   GOOGLE_DCHECK(GetArena() == nullptr);
-  if (this != internal_default_instance()) delete variation_;
 }
 
 void Type_Timestamp::ArenaDtor(void* object) {
@@ -3027,11 +2866,9 @@ void Type_Timestamp::Clear() {
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  if (GetArena() == nullptr && variation_ != nullptr) {
-    delete variation_;
-  }
-  variation_ = nullptr;
-  nullability_ = 0;
+  ::memset(&type_variation_reference_, 0, static_cast<size_t>(
+      reinterpret_cast<char*>(&nullability_) -
+      reinterpret_cast<char*>(&type_variation_reference_)) + sizeof(nullability_));
   _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
@@ -3041,10 +2878,10 @@ const char* Type_Timestamp::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE
     ::PROTOBUF_NAMESPACE_ID::uint32 tag;
     ptr = ::PROTOBUF_NAMESPACE_ID::internal::ReadTag(ptr, &tag);
     switch (tag >> 3) {
-      // .io.substrait.Type.Variation variation = 1;
+      // uint32 type_variation_reference = 1;
       case 1:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 10)) {
-          ptr = ctx->ParseMessage(_internal_mutable_variation(), ptr);
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 8)) {
+          type_variation_reference_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint32(&ptr);
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
@@ -3085,12 +2922,10 @@ failure:
   ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
   (void) cached_has_bits;
 
-  // .io.substrait.Type.Variation variation = 1;
-  if (this->has_variation()) {
+  // uint32 type_variation_reference = 1;
+  if (this->type_variation_reference() != 0) {
     target = stream->EnsureSpace(target);
-    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
-      InternalWriteMessage(
-        1, _Internal::variation(this), target, stream);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::WriteUInt32ToArray(1, this->_internal_type_variation_reference(), target);
   }
 
   // .io.substrait.Type.Nullability nullability = 2;
@@ -3116,11 +2951,11 @@ size_t Type_Timestamp::ByteSizeLong() const {
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  // .io.substrait.Type.Variation variation = 1;
-  if (this->has_variation()) {
+  // uint32 type_variation_reference = 1;
+  if (this->type_variation_reference() != 0) {
     total_size += 1 +
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
-        *variation_);
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::UInt32Size(
+        this->_internal_type_variation_reference());
   }
 
   // .io.substrait.Type.Nullability nullability = 2;
@@ -3160,8 +2995,8 @@ void Type_Timestamp::MergeFrom(const Type_Timestamp& from) {
   ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
   (void) cached_has_bits;
 
-  if (from.has_variation()) {
-    _internal_mutable_variation()->::io::substrait::Type_Variation::MergeFrom(from._internal_variation());
+  if (from.type_variation_reference() != 0) {
+    _internal_set_type_variation_reference(from._internal_type_variation_reference());
   }
   if (from.nullability() != 0) {
     _internal_set_nullability(from._internal_nullability());
@@ -3192,9 +3027,9 @@ void Type_Timestamp::InternalSwap(Type_Timestamp* other) {
   ::PROTOBUF_NAMESPACE_ID::internal::memswap<
       PROTOBUF_FIELD_OFFSET(Type_Timestamp, nullability_)
       + sizeof(Type_Timestamp::nullability_)
-      - PROTOBUF_FIELD_OFFSET(Type_Timestamp, variation_)>(
-          reinterpret_cast<char*>(&variation_),
-          reinterpret_cast<char*>(&other->variation_));
+      - PROTOBUF_FIELD_OFFSET(Type_Timestamp, type_variation_reference_)>(
+          reinterpret_cast<char*>(&type_variation_reference_),
+          reinterpret_cast<char*>(&other->type_variation_reference_));
 }
 
 ::PROTOBUF_NAMESPACE_ID::Metadata Type_Timestamp::GetMetadata() const {
@@ -3207,13 +3042,8 @@ void Type_Timestamp::InternalSwap(Type_Timestamp* other) {
 
 class Type_Date::_Internal {
  public:
-  static const ::io::substrait::Type_Variation& variation(const Type_Date* msg);
 };
 
-const ::io::substrait::Type_Variation&
-Type_Date::_Internal::variation(const Type_Date* msg) {
-  return *msg->variation_;
-}
 Type_Date::Type_Date(::PROTOBUF_NAMESPACE_ID::Arena* arena)
   : ::PROTOBUF_NAMESPACE_ID::Message(arena) {
   SharedCtor();
@@ -3223,20 +3053,17 @@ Type_Date::Type_Date(::PROTOBUF_NAMESPACE_ID::Arena* arena)
 Type_Date::Type_Date(const Type_Date& from)
   : ::PROTOBUF_NAMESPACE_ID::Message() {
   _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
-  if (from._internal_has_variation()) {
-    variation_ = new ::io::substrait::Type_Variation(*from.variation_);
-  } else {
-    variation_ = nullptr;
-  }
-  nullability_ = from.nullability_;
+  ::memcpy(&type_variation_reference_, &from.type_variation_reference_,
+    static_cast<size_t>(reinterpret_cast<char*>(&nullability_) -
+    reinterpret_cast<char*>(&type_variation_reference_)) + sizeof(nullability_));
   // @@protoc_insertion_point(copy_constructor:io.substrait.Type.Date)
 }
 
 void Type_Date::SharedCtor() {
 ::memset(reinterpret_cast<char*>(this) + static_cast<size_t>(
-    reinterpret_cast<char*>(&variation_) - reinterpret_cast<char*>(this)),
+    reinterpret_cast<char*>(&type_variation_reference_) - reinterpret_cast<char*>(this)),
     0, static_cast<size_t>(reinterpret_cast<char*>(&nullability_) -
-    reinterpret_cast<char*>(&variation_)) + sizeof(nullability_));
+    reinterpret_cast<char*>(&type_variation_reference_)) + sizeof(nullability_));
 }
 
 Type_Date::~Type_Date() {
@@ -3247,7 +3074,6 @@ Type_Date::~Type_Date() {
 
 void Type_Date::SharedDtor() {
   GOOGLE_DCHECK(GetArena() == nullptr);
-  if (this != internal_default_instance()) delete variation_;
 }
 
 void Type_Date::ArenaDtor(void* object) {
@@ -3266,11 +3092,9 @@ void Type_Date::Clear() {
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  if (GetArena() == nullptr && variation_ != nullptr) {
-    delete variation_;
-  }
-  variation_ = nullptr;
-  nullability_ = 0;
+  ::memset(&type_variation_reference_, 0, static_cast<size_t>(
+      reinterpret_cast<char*>(&nullability_) -
+      reinterpret_cast<char*>(&type_variation_reference_)) + sizeof(nullability_));
   _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
@@ -3280,10 +3104,10 @@ const char* Type_Date::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::
     ::PROTOBUF_NAMESPACE_ID::uint32 tag;
     ptr = ::PROTOBUF_NAMESPACE_ID::internal::ReadTag(ptr, &tag);
     switch (tag >> 3) {
-      // .io.substrait.Type.Variation variation = 1;
+      // uint32 type_variation_reference = 1;
       case 1:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 10)) {
-          ptr = ctx->ParseMessage(_internal_mutable_variation(), ptr);
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 8)) {
+          type_variation_reference_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint32(&ptr);
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
@@ -3324,12 +3148,10 @@ failure:
   ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
   (void) cached_has_bits;
 
-  // .io.substrait.Type.Variation variation = 1;
-  if (this->has_variation()) {
+  // uint32 type_variation_reference = 1;
+  if (this->type_variation_reference() != 0) {
     target = stream->EnsureSpace(target);
-    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
-      InternalWriteMessage(
-        1, _Internal::variation(this), target, stream);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::WriteUInt32ToArray(1, this->_internal_type_variation_reference(), target);
   }
 
   // .io.substrait.Type.Nullability nullability = 2;
@@ -3355,11 +3177,11 @@ size_t Type_Date::ByteSizeLong() const {
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  // .io.substrait.Type.Variation variation = 1;
-  if (this->has_variation()) {
+  // uint32 type_variation_reference = 1;
+  if (this->type_variation_reference() != 0) {
     total_size += 1 +
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
-        *variation_);
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::UInt32Size(
+        this->_internal_type_variation_reference());
   }
 
   // .io.substrait.Type.Nullability nullability = 2;
@@ -3399,8 +3221,8 @@ void Type_Date::MergeFrom(const Type_Date& from) {
   ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
   (void) cached_has_bits;
 
-  if (from.has_variation()) {
-    _internal_mutable_variation()->::io::substrait::Type_Variation::MergeFrom(from._internal_variation());
+  if (from.type_variation_reference() != 0) {
+    _internal_set_type_variation_reference(from._internal_type_variation_reference());
   }
   if (from.nullability() != 0) {
     _internal_set_nullability(from._internal_nullability());
@@ -3431,9 +3253,9 @@ void Type_Date::InternalSwap(Type_Date* other) {
   ::PROTOBUF_NAMESPACE_ID::internal::memswap<
       PROTOBUF_FIELD_OFFSET(Type_Date, nullability_)
       + sizeof(Type_Date::nullability_)
-      - PROTOBUF_FIELD_OFFSET(Type_Date, variation_)>(
-          reinterpret_cast<char*>(&variation_),
-          reinterpret_cast<char*>(&other->variation_));
+      - PROTOBUF_FIELD_OFFSET(Type_Date, type_variation_reference_)>(
+          reinterpret_cast<char*>(&type_variation_reference_),
+          reinterpret_cast<char*>(&other->type_variation_reference_));
 }
 
 ::PROTOBUF_NAMESPACE_ID::Metadata Type_Date::GetMetadata() const {
@@ -3446,13 +3268,8 @@ void Type_Date::InternalSwap(Type_Date* other) {
 
 class Type_Time::_Internal {
  public:
-  static const ::io::substrait::Type_Variation& variation(const Type_Time* msg);
 };
 
-const ::io::substrait::Type_Variation&
-Type_Time::_Internal::variation(const Type_Time* msg) {
-  return *msg->variation_;
-}
 Type_Time::Type_Time(::PROTOBUF_NAMESPACE_ID::Arena* arena)
   : ::PROTOBUF_NAMESPACE_ID::Message(arena) {
   SharedCtor();
@@ -3462,20 +3279,17 @@ Type_Time::Type_Time(::PROTOBUF_NAMESPACE_ID::Arena* arena)
 Type_Time::Type_Time(const Type_Time& from)
   : ::PROTOBUF_NAMESPACE_ID::Message() {
   _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
-  if (from._internal_has_variation()) {
-    variation_ = new ::io::substrait::Type_Variation(*from.variation_);
-  } else {
-    variation_ = nullptr;
-  }
-  nullability_ = from.nullability_;
+  ::memcpy(&type_variation_reference_, &from.type_variation_reference_,
+    static_cast<size_t>(reinterpret_cast<char*>(&nullability_) -
+    reinterpret_cast<char*>(&type_variation_reference_)) + sizeof(nullability_));
   // @@protoc_insertion_point(copy_constructor:io.substrait.Type.Time)
 }
 
 void Type_Time::SharedCtor() {
 ::memset(reinterpret_cast<char*>(this) + static_cast<size_t>(
-    reinterpret_cast<char*>(&variation_) - reinterpret_cast<char*>(this)),
+    reinterpret_cast<char*>(&type_variation_reference_) - reinterpret_cast<char*>(this)),
     0, static_cast<size_t>(reinterpret_cast<char*>(&nullability_) -
-    reinterpret_cast<char*>(&variation_)) + sizeof(nullability_));
+    reinterpret_cast<char*>(&type_variation_reference_)) + sizeof(nullability_));
 }
 
 Type_Time::~Type_Time() {
@@ -3486,7 +3300,6 @@ Type_Time::~Type_Time() {
 
 void Type_Time::SharedDtor() {
   GOOGLE_DCHECK(GetArena() == nullptr);
-  if (this != internal_default_instance()) delete variation_;
 }
 
 void Type_Time::ArenaDtor(void* object) {
@@ -3505,11 +3318,9 @@ void Type_Time::Clear() {
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  if (GetArena() == nullptr && variation_ != nullptr) {
-    delete variation_;
-  }
-  variation_ = nullptr;
-  nullability_ = 0;
+  ::memset(&type_variation_reference_, 0, static_cast<size_t>(
+      reinterpret_cast<char*>(&nullability_) -
+      reinterpret_cast<char*>(&type_variation_reference_)) + sizeof(nullability_));
   _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
@@ -3519,10 +3330,10 @@ const char* Type_Time::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::
     ::PROTOBUF_NAMESPACE_ID::uint32 tag;
     ptr = ::PROTOBUF_NAMESPACE_ID::internal::ReadTag(ptr, &tag);
     switch (tag >> 3) {
-      // .io.substrait.Type.Variation variation = 1;
+      // uint32 type_variation_reference = 1;
       case 1:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 10)) {
-          ptr = ctx->ParseMessage(_internal_mutable_variation(), ptr);
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 8)) {
+          type_variation_reference_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint32(&ptr);
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
@@ -3563,12 +3374,10 @@ failure:
   ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
   (void) cached_has_bits;
 
-  // .io.substrait.Type.Variation variation = 1;
-  if (this->has_variation()) {
+  // uint32 type_variation_reference = 1;
+  if (this->type_variation_reference() != 0) {
     target = stream->EnsureSpace(target);
-    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
-      InternalWriteMessage(
-        1, _Internal::variation(this), target, stream);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::WriteUInt32ToArray(1, this->_internal_type_variation_reference(), target);
   }
 
   // .io.substrait.Type.Nullability nullability = 2;
@@ -3594,11 +3403,11 @@ size_t Type_Time::ByteSizeLong() const {
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  // .io.substrait.Type.Variation variation = 1;
-  if (this->has_variation()) {
+  // uint32 type_variation_reference = 1;
+  if (this->type_variation_reference() != 0) {
     total_size += 1 +
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
-        *variation_);
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::UInt32Size(
+        this->_internal_type_variation_reference());
   }
 
   // .io.substrait.Type.Nullability nullability = 2;
@@ -3638,8 +3447,8 @@ void Type_Time::MergeFrom(const Type_Time& from) {
   ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
   (void) cached_has_bits;
 
-  if (from.has_variation()) {
-    _internal_mutable_variation()->::io::substrait::Type_Variation::MergeFrom(from._internal_variation());
+  if (from.type_variation_reference() != 0) {
+    _internal_set_type_variation_reference(from._internal_type_variation_reference());
   }
   if (from.nullability() != 0) {
     _internal_set_nullability(from._internal_nullability());
@@ -3670,9 +3479,9 @@ void Type_Time::InternalSwap(Type_Time* other) {
   ::PROTOBUF_NAMESPACE_ID::internal::memswap<
       PROTOBUF_FIELD_OFFSET(Type_Time, nullability_)
       + sizeof(Type_Time::nullability_)
-      - PROTOBUF_FIELD_OFFSET(Type_Time, variation_)>(
-          reinterpret_cast<char*>(&variation_),
-          reinterpret_cast<char*>(&other->variation_));
+      - PROTOBUF_FIELD_OFFSET(Type_Time, type_variation_reference_)>(
+          reinterpret_cast<char*>(&type_variation_reference_),
+          reinterpret_cast<char*>(&other->type_variation_reference_));
 }
 
 ::PROTOBUF_NAMESPACE_ID::Metadata Type_Time::GetMetadata() const {
@@ -3685,13 +3494,8 @@ void Type_Time::InternalSwap(Type_Time* other) {
 
 class Type_TimestampTZ::_Internal {
  public:
-  static const ::io::substrait::Type_Variation& variation(const Type_TimestampTZ* msg);
 };
 
-const ::io::substrait::Type_Variation&
-Type_TimestampTZ::_Internal::variation(const Type_TimestampTZ* msg) {
-  return *msg->variation_;
-}
 Type_TimestampTZ::Type_TimestampTZ(::PROTOBUF_NAMESPACE_ID::Arena* arena)
   : ::PROTOBUF_NAMESPACE_ID::Message(arena) {
   SharedCtor();
@@ -3701,20 +3505,17 @@ Type_TimestampTZ::Type_TimestampTZ(::PROTOBUF_NAMESPACE_ID::Arena* arena)
 Type_TimestampTZ::Type_TimestampTZ(const Type_TimestampTZ& from)
   : ::PROTOBUF_NAMESPACE_ID::Message() {
   _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
-  if (from._internal_has_variation()) {
-    variation_ = new ::io::substrait::Type_Variation(*from.variation_);
-  } else {
-    variation_ = nullptr;
-  }
-  nullability_ = from.nullability_;
+  ::memcpy(&type_variation_reference_, &from.type_variation_reference_,
+    static_cast<size_t>(reinterpret_cast<char*>(&nullability_) -
+    reinterpret_cast<char*>(&type_variation_reference_)) + sizeof(nullability_));
   // @@protoc_insertion_point(copy_constructor:io.substrait.Type.TimestampTZ)
 }
 
 void Type_TimestampTZ::SharedCtor() {
 ::memset(reinterpret_cast<char*>(this) + static_cast<size_t>(
-    reinterpret_cast<char*>(&variation_) - reinterpret_cast<char*>(this)),
+    reinterpret_cast<char*>(&type_variation_reference_) - reinterpret_cast<char*>(this)),
     0, static_cast<size_t>(reinterpret_cast<char*>(&nullability_) -
-    reinterpret_cast<char*>(&variation_)) + sizeof(nullability_));
+    reinterpret_cast<char*>(&type_variation_reference_)) + sizeof(nullability_));
 }
 
 Type_TimestampTZ::~Type_TimestampTZ() {
@@ -3725,7 +3526,6 @@ Type_TimestampTZ::~Type_TimestampTZ() {
 
 void Type_TimestampTZ::SharedDtor() {
   GOOGLE_DCHECK(GetArena() == nullptr);
-  if (this != internal_default_instance()) delete variation_;
 }
 
 void Type_TimestampTZ::ArenaDtor(void* object) {
@@ -3744,11 +3544,9 @@ void Type_TimestampTZ::Clear() {
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  if (GetArena() == nullptr && variation_ != nullptr) {
-    delete variation_;
-  }
-  variation_ = nullptr;
-  nullability_ = 0;
+  ::memset(&type_variation_reference_, 0, static_cast<size_t>(
+      reinterpret_cast<char*>(&nullability_) -
+      reinterpret_cast<char*>(&type_variation_reference_)) + sizeof(nullability_));
   _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
@@ -3758,10 +3556,10 @@ const char* Type_TimestampTZ::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPA
     ::PROTOBUF_NAMESPACE_ID::uint32 tag;
     ptr = ::PROTOBUF_NAMESPACE_ID::internal::ReadTag(ptr, &tag);
     switch (tag >> 3) {
-      // .io.substrait.Type.Variation variation = 1;
+      // uint32 type_variation_reference = 1;
       case 1:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 10)) {
-          ptr = ctx->ParseMessage(_internal_mutable_variation(), ptr);
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 8)) {
+          type_variation_reference_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint32(&ptr);
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
@@ -3802,12 +3600,10 @@ failure:
   ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
   (void) cached_has_bits;
 
-  // .io.substrait.Type.Variation variation = 1;
-  if (this->has_variation()) {
+  // uint32 type_variation_reference = 1;
+  if (this->type_variation_reference() != 0) {
     target = stream->EnsureSpace(target);
-    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
-      InternalWriteMessage(
-        1, _Internal::variation(this), target, stream);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::WriteUInt32ToArray(1, this->_internal_type_variation_reference(), target);
   }
 
   // .io.substrait.Type.Nullability nullability = 2;
@@ -3833,11 +3629,11 @@ size_t Type_TimestampTZ::ByteSizeLong() const {
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  // .io.substrait.Type.Variation variation = 1;
-  if (this->has_variation()) {
+  // uint32 type_variation_reference = 1;
+  if (this->type_variation_reference() != 0) {
     total_size += 1 +
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
-        *variation_);
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::UInt32Size(
+        this->_internal_type_variation_reference());
   }
 
   // .io.substrait.Type.Nullability nullability = 2;
@@ -3877,8 +3673,8 @@ void Type_TimestampTZ::MergeFrom(const Type_TimestampTZ& from) {
   ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
   (void) cached_has_bits;
 
-  if (from.has_variation()) {
-    _internal_mutable_variation()->::io::substrait::Type_Variation::MergeFrom(from._internal_variation());
+  if (from.type_variation_reference() != 0) {
+    _internal_set_type_variation_reference(from._internal_type_variation_reference());
   }
   if (from.nullability() != 0) {
     _internal_set_nullability(from._internal_nullability());
@@ -3909,9 +3705,9 @@ void Type_TimestampTZ::InternalSwap(Type_TimestampTZ* other) {
   ::PROTOBUF_NAMESPACE_ID::internal::memswap<
       PROTOBUF_FIELD_OFFSET(Type_TimestampTZ, nullability_)
       + sizeof(Type_TimestampTZ::nullability_)
-      - PROTOBUF_FIELD_OFFSET(Type_TimestampTZ, variation_)>(
-          reinterpret_cast<char*>(&variation_),
-          reinterpret_cast<char*>(&other->variation_));
+      - PROTOBUF_FIELD_OFFSET(Type_TimestampTZ, type_variation_reference_)>(
+          reinterpret_cast<char*>(&type_variation_reference_),
+          reinterpret_cast<char*>(&other->type_variation_reference_));
 }
 
 ::PROTOBUF_NAMESPACE_ID::Metadata Type_TimestampTZ::GetMetadata() const {
@@ -3924,13 +3720,8 @@ void Type_TimestampTZ::InternalSwap(Type_TimestampTZ* other) {
 
 class Type_IntervalYear::_Internal {
  public:
-  static const ::io::substrait::Type_Variation& variation(const Type_IntervalYear* msg);
 };
 
-const ::io::substrait::Type_Variation&
-Type_IntervalYear::_Internal::variation(const Type_IntervalYear* msg) {
-  return *msg->variation_;
-}
 Type_IntervalYear::Type_IntervalYear(::PROTOBUF_NAMESPACE_ID::Arena* arena)
   : ::PROTOBUF_NAMESPACE_ID::Message(arena) {
   SharedCtor();
@@ -3940,20 +3731,17 @@ Type_IntervalYear::Type_IntervalYear(::PROTOBUF_NAMESPACE_ID::Arena* arena)
 Type_IntervalYear::Type_IntervalYear(const Type_IntervalYear& from)
   : ::PROTOBUF_NAMESPACE_ID::Message() {
   _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
-  if (from._internal_has_variation()) {
-    variation_ = new ::io::substrait::Type_Variation(*from.variation_);
-  } else {
-    variation_ = nullptr;
-  }
-  nullability_ = from.nullability_;
+  ::memcpy(&type_variation_reference_, &from.type_variation_reference_,
+    static_cast<size_t>(reinterpret_cast<char*>(&nullability_) -
+    reinterpret_cast<char*>(&type_variation_reference_)) + sizeof(nullability_));
   // @@protoc_insertion_point(copy_constructor:io.substrait.Type.IntervalYear)
 }
 
 void Type_IntervalYear::SharedCtor() {
 ::memset(reinterpret_cast<char*>(this) + static_cast<size_t>(
-    reinterpret_cast<char*>(&variation_) - reinterpret_cast<char*>(this)),
+    reinterpret_cast<char*>(&type_variation_reference_) - reinterpret_cast<char*>(this)),
     0, static_cast<size_t>(reinterpret_cast<char*>(&nullability_) -
-    reinterpret_cast<char*>(&variation_)) + sizeof(nullability_));
+    reinterpret_cast<char*>(&type_variation_reference_)) + sizeof(nullability_));
 }
 
 Type_IntervalYear::~Type_IntervalYear() {
@@ -3964,7 +3752,6 @@ Type_IntervalYear::~Type_IntervalYear() {
 
 void Type_IntervalYear::SharedDtor() {
   GOOGLE_DCHECK(GetArena() == nullptr);
-  if (this != internal_default_instance()) delete variation_;
 }
 
 void Type_IntervalYear::ArenaDtor(void* object) {
@@ -3983,11 +3770,9 @@ void Type_IntervalYear::Clear() {
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  if (GetArena() == nullptr && variation_ != nullptr) {
-    delete variation_;
-  }
-  variation_ = nullptr;
-  nullability_ = 0;
+  ::memset(&type_variation_reference_, 0, static_cast<size_t>(
+      reinterpret_cast<char*>(&nullability_) -
+      reinterpret_cast<char*>(&type_variation_reference_)) + sizeof(nullability_));
   _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
@@ -3997,10 +3782,10 @@ const char* Type_IntervalYear::_InternalParse(const char* ptr, ::PROTOBUF_NAMESP
     ::PROTOBUF_NAMESPACE_ID::uint32 tag;
     ptr = ::PROTOBUF_NAMESPACE_ID::internal::ReadTag(ptr, &tag);
     switch (tag >> 3) {
-      // .io.substrait.Type.Variation variation = 1;
+      // uint32 type_variation_reference = 1;
       case 1:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 10)) {
-          ptr = ctx->ParseMessage(_internal_mutable_variation(), ptr);
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 8)) {
+          type_variation_reference_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint32(&ptr);
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
@@ -4041,12 +3826,10 @@ failure:
   ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
   (void) cached_has_bits;
 
-  // .io.substrait.Type.Variation variation = 1;
-  if (this->has_variation()) {
+  // uint32 type_variation_reference = 1;
+  if (this->type_variation_reference() != 0) {
     target = stream->EnsureSpace(target);
-    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
-      InternalWriteMessage(
-        1, _Internal::variation(this), target, stream);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::WriteUInt32ToArray(1, this->_internal_type_variation_reference(), target);
   }
 
   // .io.substrait.Type.Nullability nullability = 2;
@@ -4072,11 +3855,11 @@ size_t Type_IntervalYear::ByteSizeLong() const {
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  // .io.substrait.Type.Variation variation = 1;
-  if (this->has_variation()) {
+  // uint32 type_variation_reference = 1;
+  if (this->type_variation_reference() != 0) {
     total_size += 1 +
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
-        *variation_);
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::UInt32Size(
+        this->_internal_type_variation_reference());
   }
 
   // .io.substrait.Type.Nullability nullability = 2;
@@ -4116,8 +3899,8 @@ void Type_IntervalYear::MergeFrom(const Type_IntervalYear& from) {
   ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
   (void) cached_has_bits;
 
-  if (from.has_variation()) {
-    _internal_mutable_variation()->::io::substrait::Type_Variation::MergeFrom(from._internal_variation());
+  if (from.type_variation_reference() != 0) {
+    _internal_set_type_variation_reference(from._internal_type_variation_reference());
   }
   if (from.nullability() != 0) {
     _internal_set_nullability(from._internal_nullability());
@@ -4148,9 +3931,9 @@ void Type_IntervalYear::InternalSwap(Type_IntervalYear* other) {
   ::PROTOBUF_NAMESPACE_ID::internal::memswap<
       PROTOBUF_FIELD_OFFSET(Type_IntervalYear, nullability_)
       + sizeof(Type_IntervalYear::nullability_)
-      - PROTOBUF_FIELD_OFFSET(Type_IntervalYear, variation_)>(
-          reinterpret_cast<char*>(&variation_),
-          reinterpret_cast<char*>(&other->variation_));
+      - PROTOBUF_FIELD_OFFSET(Type_IntervalYear, type_variation_reference_)>(
+          reinterpret_cast<char*>(&type_variation_reference_),
+          reinterpret_cast<char*>(&other->type_variation_reference_));
 }
 
 ::PROTOBUF_NAMESPACE_ID::Metadata Type_IntervalYear::GetMetadata() const {
@@ -4163,13 +3946,8 @@ void Type_IntervalYear::InternalSwap(Type_IntervalYear* other) {
 
 class Type_IntervalDay::_Internal {
  public:
-  static const ::io::substrait::Type_Variation& variation(const Type_IntervalDay* msg);
 };
 
-const ::io::substrait::Type_Variation&
-Type_IntervalDay::_Internal::variation(const Type_IntervalDay* msg) {
-  return *msg->variation_;
-}
 Type_IntervalDay::Type_IntervalDay(::PROTOBUF_NAMESPACE_ID::Arena* arena)
   : ::PROTOBUF_NAMESPACE_ID::Message(arena) {
   SharedCtor();
@@ -4179,20 +3957,17 @@ Type_IntervalDay::Type_IntervalDay(::PROTOBUF_NAMESPACE_ID::Arena* arena)
 Type_IntervalDay::Type_IntervalDay(const Type_IntervalDay& from)
   : ::PROTOBUF_NAMESPACE_ID::Message() {
   _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
-  if (from._internal_has_variation()) {
-    variation_ = new ::io::substrait::Type_Variation(*from.variation_);
-  } else {
-    variation_ = nullptr;
-  }
-  nullability_ = from.nullability_;
+  ::memcpy(&type_variation_reference_, &from.type_variation_reference_,
+    static_cast<size_t>(reinterpret_cast<char*>(&nullability_) -
+    reinterpret_cast<char*>(&type_variation_reference_)) + sizeof(nullability_));
   // @@protoc_insertion_point(copy_constructor:io.substrait.Type.IntervalDay)
 }
 
 void Type_IntervalDay::SharedCtor() {
 ::memset(reinterpret_cast<char*>(this) + static_cast<size_t>(
-    reinterpret_cast<char*>(&variation_) - reinterpret_cast<char*>(this)),
+    reinterpret_cast<char*>(&type_variation_reference_) - reinterpret_cast<char*>(this)),
     0, static_cast<size_t>(reinterpret_cast<char*>(&nullability_) -
-    reinterpret_cast<char*>(&variation_)) + sizeof(nullability_));
+    reinterpret_cast<char*>(&type_variation_reference_)) + sizeof(nullability_));
 }
 
 Type_IntervalDay::~Type_IntervalDay() {
@@ -4203,7 +3978,6 @@ Type_IntervalDay::~Type_IntervalDay() {
 
 void Type_IntervalDay::SharedDtor() {
   GOOGLE_DCHECK(GetArena() == nullptr);
-  if (this != internal_default_instance()) delete variation_;
 }
 
 void Type_IntervalDay::ArenaDtor(void* object) {
@@ -4222,11 +3996,9 @@ void Type_IntervalDay::Clear() {
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  if (GetArena() == nullptr && variation_ != nullptr) {
-    delete variation_;
-  }
-  variation_ = nullptr;
-  nullability_ = 0;
+  ::memset(&type_variation_reference_, 0, static_cast<size_t>(
+      reinterpret_cast<char*>(&nullability_) -
+      reinterpret_cast<char*>(&type_variation_reference_)) + sizeof(nullability_));
   _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
@@ -4236,10 +4008,10 @@ const char* Type_IntervalDay::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPA
     ::PROTOBUF_NAMESPACE_ID::uint32 tag;
     ptr = ::PROTOBUF_NAMESPACE_ID::internal::ReadTag(ptr, &tag);
     switch (tag >> 3) {
-      // .io.substrait.Type.Variation variation = 1;
+      // uint32 type_variation_reference = 1;
       case 1:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 10)) {
-          ptr = ctx->ParseMessage(_internal_mutable_variation(), ptr);
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 8)) {
+          type_variation_reference_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint32(&ptr);
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
@@ -4280,12 +4052,10 @@ failure:
   ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
   (void) cached_has_bits;
 
-  // .io.substrait.Type.Variation variation = 1;
-  if (this->has_variation()) {
+  // uint32 type_variation_reference = 1;
+  if (this->type_variation_reference() != 0) {
     target = stream->EnsureSpace(target);
-    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
-      InternalWriteMessage(
-        1, _Internal::variation(this), target, stream);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::WriteUInt32ToArray(1, this->_internal_type_variation_reference(), target);
   }
 
   // .io.substrait.Type.Nullability nullability = 2;
@@ -4311,11 +4081,11 @@ size_t Type_IntervalDay::ByteSizeLong() const {
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  // .io.substrait.Type.Variation variation = 1;
-  if (this->has_variation()) {
+  // uint32 type_variation_reference = 1;
+  if (this->type_variation_reference() != 0) {
     total_size += 1 +
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
-        *variation_);
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::UInt32Size(
+        this->_internal_type_variation_reference());
   }
 
   // .io.substrait.Type.Nullability nullability = 2;
@@ -4355,8 +4125,8 @@ void Type_IntervalDay::MergeFrom(const Type_IntervalDay& from) {
   ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
   (void) cached_has_bits;
 
-  if (from.has_variation()) {
-    _internal_mutable_variation()->::io::substrait::Type_Variation::MergeFrom(from._internal_variation());
+  if (from.type_variation_reference() != 0) {
+    _internal_set_type_variation_reference(from._internal_type_variation_reference());
   }
   if (from.nullability() != 0) {
     _internal_set_nullability(from._internal_nullability());
@@ -4387,9 +4157,9 @@ void Type_IntervalDay::InternalSwap(Type_IntervalDay* other) {
   ::PROTOBUF_NAMESPACE_ID::internal::memswap<
       PROTOBUF_FIELD_OFFSET(Type_IntervalDay, nullability_)
       + sizeof(Type_IntervalDay::nullability_)
-      - PROTOBUF_FIELD_OFFSET(Type_IntervalDay, variation_)>(
-          reinterpret_cast<char*>(&variation_),
-          reinterpret_cast<char*>(&other->variation_));
+      - PROTOBUF_FIELD_OFFSET(Type_IntervalDay, type_variation_reference_)>(
+          reinterpret_cast<char*>(&type_variation_reference_),
+          reinterpret_cast<char*>(&other->type_variation_reference_));
 }
 
 ::PROTOBUF_NAMESPACE_ID::Metadata Type_IntervalDay::GetMetadata() const {
@@ -4402,13 +4172,8 @@ void Type_IntervalDay::InternalSwap(Type_IntervalDay* other) {
 
 class Type_UUID::_Internal {
  public:
-  static const ::io::substrait::Type_Variation& variation(const Type_UUID* msg);
 };
 
-const ::io::substrait::Type_Variation&
-Type_UUID::_Internal::variation(const Type_UUID* msg) {
-  return *msg->variation_;
-}
 Type_UUID::Type_UUID(::PROTOBUF_NAMESPACE_ID::Arena* arena)
   : ::PROTOBUF_NAMESPACE_ID::Message(arena) {
   SharedCtor();
@@ -4418,20 +4183,17 @@ Type_UUID::Type_UUID(::PROTOBUF_NAMESPACE_ID::Arena* arena)
 Type_UUID::Type_UUID(const Type_UUID& from)
   : ::PROTOBUF_NAMESPACE_ID::Message() {
   _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
-  if (from._internal_has_variation()) {
-    variation_ = new ::io::substrait::Type_Variation(*from.variation_);
-  } else {
-    variation_ = nullptr;
-  }
-  nullability_ = from.nullability_;
+  ::memcpy(&type_variation_reference_, &from.type_variation_reference_,
+    static_cast<size_t>(reinterpret_cast<char*>(&nullability_) -
+    reinterpret_cast<char*>(&type_variation_reference_)) + sizeof(nullability_));
   // @@protoc_insertion_point(copy_constructor:io.substrait.Type.UUID)
 }
 
 void Type_UUID::SharedCtor() {
 ::memset(reinterpret_cast<char*>(this) + static_cast<size_t>(
-    reinterpret_cast<char*>(&variation_) - reinterpret_cast<char*>(this)),
+    reinterpret_cast<char*>(&type_variation_reference_) - reinterpret_cast<char*>(this)),
     0, static_cast<size_t>(reinterpret_cast<char*>(&nullability_) -
-    reinterpret_cast<char*>(&variation_)) + sizeof(nullability_));
+    reinterpret_cast<char*>(&type_variation_reference_)) + sizeof(nullability_));
 }
 
 Type_UUID::~Type_UUID() {
@@ -4442,7 +4204,6 @@ Type_UUID::~Type_UUID() {
 
 void Type_UUID::SharedDtor() {
   GOOGLE_DCHECK(GetArena() == nullptr);
-  if (this != internal_default_instance()) delete variation_;
 }
 
 void Type_UUID::ArenaDtor(void* object) {
@@ -4461,11 +4222,9 @@ void Type_UUID::Clear() {
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  if (GetArena() == nullptr && variation_ != nullptr) {
-    delete variation_;
-  }
-  variation_ = nullptr;
-  nullability_ = 0;
+  ::memset(&type_variation_reference_, 0, static_cast<size_t>(
+      reinterpret_cast<char*>(&nullability_) -
+      reinterpret_cast<char*>(&type_variation_reference_)) + sizeof(nullability_));
   _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
@@ -4475,10 +4234,10 @@ const char* Type_UUID::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::
     ::PROTOBUF_NAMESPACE_ID::uint32 tag;
     ptr = ::PROTOBUF_NAMESPACE_ID::internal::ReadTag(ptr, &tag);
     switch (tag >> 3) {
-      // .io.substrait.Type.Variation variation = 1;
+      // uint32 type_variation_reference = 1;
       case 1:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 10)) {
-          ptr = ctx->ParseMessage(_internal_mutable_variation(), ptr);
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 8)) {
+          type_variation_reference_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint32(&ptr);
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
@@ -4519,12 +4278,10 @@ failure:
   ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
   (void) cached_has_bits;
 
-  // .io.substrait.Type.Variation variation = 1;
-  if (this->has_variation()) {
+  // uint32 type_variation_reference = 1;
+  if (this->type_variation_reference() != 0) {
     target = stream->EnsureSpace(target);
-    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
-      InternalWriteMessage(
-        1, _Internal::variation(this), target, stream);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::WriteUInt32ToArray(1, this->_internal_type_variation_reference(), target);
   }
 
   // .io.substrait.Type.Nullability nullability = 2;
@@ -4550,11 +4307,11 @@ size_t Type_UUID::ByteSizeLong() const {
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  // .io.substrait.Type.Variation variation = 1;
-  if (this->has_variation()) {
+  // uint32 type_variation_reference = 1;
+  if (this->type_variation_reference() != 0) {
     total_size += 1 +
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
-        *variation_);
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::UInt32Size(
+        this->_internal_type_variation_reference());
   }
 
   // .io.substrait.Type.Nullability nullability = 2;
@@ -4594,8 +4351,8 @@ void Type_UUID::MergeFrom(const Type_UUID& from) {
   ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
   (void) cached_has_bits;
 
-  if (from.has_variation()) {
-    _internal_mutable_variation()->::io::substrait::Type_Variation::MergeFrom(from._internal_variation());
+  if (from.type_variation_reference() != 0) {
+    _internal_set_type_variation_reference(from._internal_type_variation_reference());
   }
   if (from.nullability() != 0) {
     _internal_set_nullability(from._internal_nullability());
@@ -4626,9 +4383,9 @@ void Type_UUID::InternalSwap(Type_UUID* other) {
   ::PROTOBUF_NAMESPACE_ID::internal::memswap<
       PROTOBUF_FIELD_OFFSET(Type_UUID, nullability_)
       + sizeof(Type_UUID::nullability_)
-      - PROTOBUF_FIELD_OFFSET(Type_UUID, variation_)>(
-          reinterpret_cast<char*>(&variation_),
-          reinterpret_cast<char*>(&other->variation_));
+      - PROTOBUF_FIELD_OFFSET(Type_UUID, type_variation_reference_)>(
+          reinterpret_cast<char*>(&type_variation_reference_),
+          reinterpret_cast<char*>(&other->type_variation_reference_));
 }
 
 ::PROTOBUF_NAMESPACE_ID::Metadata Type_UUID::GetMetadata() const {
@@ -4641,13 +4398,8 @@ void Type_UUID::InternalSwap(Type_UUID* other) {
 
 class Type_FixedChar::_Internal {
  public:
-  static const ::io::substrait::Type_Variation& variation(const Type_FixedChar* msg);
 };
 
-const ::io::substrait::Type_Variation&
-Type_FixedChar::_Internal::variation(const Type_FixedChar* msg) {
-  return *msg->variation_;
-}
 Type_FixedChar::Type_FixedChar(::PROTOBUF_NAMESPACE_ID::Arena* arena)
   : ::PROTOBUF_NAMESPACE_ID::Message(arena) {
   SharedCtor();
@@ -4657,11 +4409,6 @@ Type_FixedChar::Type_FixedChar(::PROTOBUF_NAMESPACE_ID::Arena* arena)
 Type_FixedChar::Type_FixedChar(const Type_FixedChar& from)
   : ::PROTOBUF_NAMESPACE_ID::Message() {
   _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
-  if (from._internal_has_variation()) {
-    variation_ = new ::io::substrait::Type_Variation(*from.variation_);
-  } else {
-    variation_ = nullptr;
-  }
   ::memcpy(&length_, &from.length_,
     static_cast<size_t>(reinterpret_cast<char*>(&nullability_) -
     reinterpret_cast<char*>(&length_)) + sizeof(nullability_));
@@ -4670,9 +4417,9 @@ Type_FixedChar::Type_FixedChar(const Type_FixedChar& from)
 
 void Type_FixedChar::SharedCtor() {
 ::memset(reinterpret_cast<char*>(this) + static_cast<size_t>(
-    reinterpret_cast<char*>(&variation_) - reinterpret_cast<char*>(this)),
+    reinterpret_cast<char*>(&length_) - reinterpret_cast<char*>(this)),
     0, static_cast<size_t>(reinterpret_cast<char*>(&nullability_) -
-    reinterpret_cast<char*>(&variation_)) + sizeof(nullability_));
+    reinterpret_cast<char*>(&length_)) + sizeof(nullability_));
 }
 
 Type_FixedChar::~Type_FixedChar() {
@@ -4683,7 +4430,6 @@ Type_FixedChar::~Type_FixedChar() {
 
 void Type_FixedChar::SharedDtor() {
   GOOGLE_DCHECK(GetArena() == nullptr);
-  if (this != internal_default_instance()) delete variation_;
 }
 
 void Type_FixedChar::ArenaDtor(void* object) {
@@ -4702,10 +4448,6 @@ void Type_FixedChar::Clear() {
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  if (GetArena() == nullptr && variation_ != nullptr) {
-    delete variation_;
-  }
-  variation_ = nullptr;
   ::memset(&length_, 0, static_cast<size_t>(
       reinterpret_cast<char*>(&nullability_) -
       reinterpret_cast<char*>(&length_)) + sizeof(nullability_));
@@ -4725,10 +4467,10 @@ const char* Type_FixedChar::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
-      // .io.substrait.Type.Variation variation = 2;
+      // uint32 type_variation_reference = 2;
       case 2:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 18)) {
-          ptr = ctx->ParseMessage(_internal_mutable_variation(), ptr);
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 16)) {
+          type_variation_reference_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint32(&ptr);
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
@@ -4775,12 +4517,10 @@ failure:
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::WriteInt32ToArray(1, this->_internal_length(), target);
   }
 
-  // .io.substrait.Type.Variation variation = 2;
-  if (this->has_variation()) {
+  // uint32 type_variation_reference = 2;
+  if (this->type_variation_reference() != 0) {
     target = stream->EnsureSpace(target);
-    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
-      InternalWriteMessage(
-        2, _Internal::variation(this), target, stream);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::WriteUInt32ToArray(2, this->_internal_type_variation_reference(), target);
   }
 
   // .io.substrait.Type.Nullability nullability = 3;
@@ -4806,18 +4546,18 @@ size_t Type_FixedChar::ByteSizeLong() const {
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  // .io.substrait.Type.Variation variation = 2;
-  if (this->has_variation()) {
-    total_size += 1 +
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
-        *variation_);
-  }
-
   // int32 length = 1;
   if (this->length() != 0) {
     total_size += 1 +
       ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::Int32Size(
         this->_internal_length());
+  }
+
+  // uint32 type_variation_reference = 2;
+  if (this->type_variation_reference() != 0) {
+    total_size += 1 +
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::UInt32Size(
+        this->_internal_type_variation_reference());
   }
 
   // .io.substrait.Type.Nullability nullability = 3;
@@ -4857,11 +4597,11 @@ void Type_FixedChar::MergeFrom(const Type_FixedChar& from) {
   ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
   (void) cached_has_bits;
 
-  if (from.has_variation()) {
-    _internal_mutable_variation()->::io::substrait::Type_Variation::MergeFrom(from._internal_variation());
-  }
   if (from.length() != 0) {
     _internal_set_length(from._internal_length());
+  }
+  if (from.type_variation_reference() != 0) {
+    _internal_set_type_variation_reference(from._internal_type_variation_reference());
   }
   if (from.nullability() != 0) {
     _internal_set_nullability(from._internal_nullability());
@@ -4892,9 +4632,9 @@ void Type_FixedChar::InternalSwap(Type_FixedChar* other) {
   ::PROTOBUF_NAMESPACE_ID::internal::memswap<
       PROTOBUF_FIELD_OFFSET(Type_FixedChar, nullability_)
       + sizeof(Type_FixedChar::nullability_)
-      - PROTOBUF_FIELD_OFFSET(Type_FixedChar, variation_)>(
-          reinterpret_cast<char*>(&variation_),
-          reinterpret_cast<char*>(&other->variation_));
+      - PROTOBUF_FIELD_OFFSET(Type_FixedChar, length_)>(
+          reinterpret_cast<char*>(&length_),
+          reinterpret_cast<char*>(&other->length_));
 }
 
 ::PROTOBUF_NAMESPACE_ID::Metadata Type_FixedChar::GetMetadata() const {
@@ -4907,13 +4647,8 @@ void Type_FixedChar::InternalSwap(Type_FixedChar* other) {
 
 class Type_VarChar::_Internal {
  public:
-  static const ::io::substrait::Type_Variation& variation(const Type_VarChar* msg);
 };
 
-const ::io::substrait::Type_Variation&
-Type_VarChar::_Internal::variation(const Type_VarChar* msg) {
-  return *msg->variation_;
-}
 Type_VarChar::Type_VarChar(::PROTOBUF_NAMESPACE_ID::Arena* arena)
   : ::PROTOBUF_NAMESPACE_ID::Message(arena) {
   SharedCtor();
@@ -4923,11 +4658,6 @@ Type_VarChar::Type_VarChar(::PROTOBUF_NAMESPACE_ID::Arena* arena)
 Type_VarChar::Type_VarChar(const Type_VarChar& from)
   : ::PROTOBUF_NAMESPACE_ID::Message() {
   _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
-  if (from._internal_has_variation()) {
-    variation_ = new ::io::substrait::Type_Variation(*from.variation_);
-  } else {
-    variation_ = nullptr;
-  }
   ::memcpy(&length_, &from.length_,
     static_cast<size_t>(reinterpret_cast<char*>(&nullability_) -
     reinterpret_cast<char*>(&length_)) + sizeof(nullability_));
@@ -4936,9 +4666,9 @@ Type_VarChar::Type_VarChar(const Type_VarChar& from)
 
 void Type_VarChar::SharedCtor() {
 ::memset(reinterpret_cast<char*>(this) + static_cast<size_t>(
-    reinterpret_cast<char*>(&variation_) - reinterpret_cast<char*>(this)),
+    reinterpret_cast<char*>(&length_) - reinterpret_cast<char*>(this)),
     0, static_cast<size_t>(reinterpret_cast<char*>(&nullability_) -
-    reinterpret_cast<char*>(&variation_)) + sizeof(nullability_));
+    reinterpret_cast<char*>(&length_)) + sizeof(nullability_));
 }
 
 Type_VarChar::~Type_VarChar() {
@@ -4949,7 +4679,6 @@ Type_VarChar::~Type_VarChar() {
 
 void Type_VarChar::SharedDtor() {
   GOOGLE_DCHECK(GetArena() == nullptr);
-  if (this != internal_default_instance()) delete variation_;
 }
 
 void Type_VarChar::ArenaDtor(void* object) {
@@ -4968,10 +4697,6 @@ void Type_VarChar::Clear() {
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  if (GetArena() == nullptr && variation_ != nullptr) {
-    delete variation_;
-  }
-  variation_ = nullptr;
   ::memset(&length_, 0, static_cast<size_t>(
       reinterpret_cast<char*>(&nullability_) -
       reinterpret_cast<char*>(&length_)) + sizeof(nullability_));
@@ -4991,10 +4716,10 @@ const char* Type_VarChar::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_I
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
-      // .io.substrait.Type.Variation variation = 2;
+      // uint32 type_variation_reference = 2;
       case 2:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 18)) {
-          ptr = ctx->ParseMessage(_internal_mutable_variation(), ptr);
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 16)) {
+          type_variation_reference_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint32(&ptr);
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
@@ -5041,12 +4766,10 @@ failure:
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::WriteInt32ToArray(1, this->_internal_length(), target);
   }
 
-  // .io.substrait.Type.Variation variation = 2;
-  if (this->has_variation()) {
+  // uint32 type_variation_reference = 2;
+  if (this->type_variation_reference() != 0) {
     target = stream->EnsureSpace(target);
-    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
-      InternalWriteMessage(
-        2, _Internal::variation(this), target, stream);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::WriteUInt32ToArray(2, this->_internal_type_variation_reference(), target);
   }
 
   // .io.substrait.Type.Nullability nullability = 3;
@@ -5072,18 +4795,18 @@ size_t Type_VarChar::ByteSizeLong() const {
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  // .io.substrait.Type.Variation variation = 2;
-  if (this->has_variation()) {
-    total_size += 1 +
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
-        *variation_);
-  }
-
   // int32 length = 1;
   if (this->length() != 0) {
     total_size += 1 +
       ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::Int32Size(
         this->_internal_length());
+  }
+
+  // uint32 type_variation_reference = 2;
+  if (this->type_variation_reference() != 0) {
+    total_size += 1 +
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::UInt32Size(
+        this->_internal_type_variation_reference());
   }
 
   // .io.substrait.Type.Nullability nullability = 3;
@@ -5123,11 +4846,11 @@ void Type_VarChar::MergeFrom(const Type_VarChar& from) {
   ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
   (void) cached_has_bits;
 
-  if (from.has_variation()) {
-    _internal_mutable_variation()->::io::substrait::Type_Variation::MergeFrom(from._internal_variation());
-  }
   if (from.length() != 0) {
     _internal_set_length(from._internal_length());
+  }
+  if (from.type_variation_reference() != 0) {
+    _internal_set_type_variation_reference(from._internal_type_variation_reference());
   }
   if (from.nullability() != 0) {
     _internal_set_nullability(from._internal_nullability());
@@ -5158,9 +4881,9 @@ void Type_VarChar::InternalSwap(Type_VarChar* other) {
   ::PROTOBUF_NAMESPACE_ID::internal::memswap<
       PROTOBUF_FIELD_OFFSET(Type_VarChar, nullability_)
       + sizeof(Type_VarChar::nullability_)
-      - PROTOBUF_FIELD_OFFSET(Type_VarChar, variation_)>(
-          reinterpret_cast<char*>(&variation_),
-          reinterpret_cast<char*>(&other->variation_));
+      - PROTOBUF_FIELD_OFFSET(Type_VarChar, length_)>(
+          reinterpret_cast<char*>(&length_),
+          reinterpret_cast<char*>(&other->length_));
 }
 
 ::PROTOBUF_NAMESPACE_ID::Metadata Type_VarChar::GetMetadata() const {
@@ -5173,13 +4896,8 @@ void Type_VarChar::InternalSwap(Type_VarChar* other) {
 
 class Type_FixedBinary::_Internal {
  public:
-  static const ::io::substrait::Type_Variation& variation(const Type_FixedBinary* msg);
 };
 
-const ::io::substrait::Type_Variation&
-Type_FixedBinary::_Internal::variation(const Type_FixedBinary* msg) {
-  return *msg->variation_;
-}
 Type_FixedBinary::Type_FixedBinary(::PROTOBUF_NAMESPACE_ID::Arena* arena)
   : ::PROTOBUF_NAMESPACE_ID::Message(arena) {
   SharedCtor();
@@ -5189,11 +4907,6 @@ Type_FixedBinary::Type_FixedBinary(::PROTOBUF_NAMESPACE_ID::Arena* arena)
 Type_FixedBinary::Type_FixedBinary(const Type_FixedBinary& from)
   : ::PROTOBUF_NAMESPACE_ID::Message() {
   _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
-  if (from._internal_has_variation()) {
-    variation_ = new ::io::substrait::Type_Variation(*from.variation_);
-  } else {
-    variation_ = nullptr;
-  }
   ::memcpy(&length_, &from.length_,
     static_cast<size_t>(reinterpret_cast<char*>(&nullability_) -
     reinterpret_cast<char*>(&length_)) + sizeof(nullability_));
@@ -5202,9 +4915,9 @@ Type_FixedBinary::Type_FixedBinary(const Type_FixedBinary& from)
 
 void Type_FixedBinary::SharedCtor() {
 ::memset(reinterpret_cast<char*>(this) + static_cast<size_t>(
-    reinterpret_cast<char*>(&variation_) - reinterpret_cast<char*>(this)),
+    reinterpret_cast<char*>(&length_) - reinterpret_cast<char*>(this)),
     0, static_cast<size_t>(reinterpret_cast<char*>(&nullability_) -
-    reinterpret_cast<char*>(&variation_)) + sizeof(nullability_));
+    reinterpret_cast<char*>(&length_)) + sizeof(nullability_));
 }
 
 Type_FixedBinary::~Type_FixedBinary() {
@@ -5215,7 +4928,6 @@ Type_FixedBinary::~Type_FixedBinary() {
 
 void Type_FixedBinary::SharedDtor() {
   GOOGLE_DCHECK(GetArena() == nullptr);
-  if (this != internal_default_instance()) delete variation_;
 }
 
 void Type_FixedBinary::ArenaDtor(void* object) {
@@ -5234,10 +4946,6 @@ void Type_FixedBinary::Clear() {
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  if (GetArena() == nullptr && variation_ != nullptr) {
-    delete variation_;
-  }
-  variation_ = nullptr;
   ::memset(&length_, 0, static_cast<size_t>(
       reinterpret_cast<char*>(&nullability_) -
       reinterpret_cast<char*>(&length_)) + sizeof(nullability_));
@@ -5257,10 +4965,10 @@ const char* Type_FixedBinary::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPA
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
-      // .io.substrait.Type.Variation variation = 2;
+      // uint32 type_variation_reference = 2;
       case 2:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 18)) {
-          ptr = ctx->ParseMessage(_internal_mutable_variation(), ptr);
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 16)) {
+          type_variation_reference_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint32(&ptr);
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
@@ -5307,12 +5015,10 @@ failure:
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::WriteInt32ToArray(1, this->_internal_length(), target);
   }
 
-  // .io.substrait.Type.Variation variation = 2;
-  if (this->has_variation()) {
+  // uint32 type_variation_reference = 2;
+  if (this->type_variation_reference() != 0) {
     target = stream->EnsureSpace(target);
-    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
-      InternalWriteMessage(
-        2, _Internal::variation(this), target, stream);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::WriteUInt32ToArray(2, this->_internal_type_variation_reference(), target);
   }
 
   // .io.substrait.Type.Nullability nullability = 3;
@@ -5338,18 +5044,18 @@ size_t Type_FixedBinary::ByteSizeLong() const {
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  // .io.substrait.Type.Variation variation = 2;
-  if (this->has_variation()) {
-    total_size += 1 +
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
-        *variation_);
-  }
-
   // int32 length = 1;
   if (this->length() != 0) {
     total_size += 1 +
       ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::Int32Size(
         this->_internal_length());
+  }
+
+  // uint32 type_variation_reference = 2;
+  if (this->type_variation_reference() != 0) {
+    total_size += 1 +
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::UInt32Size(
+        this->_internal_type_variation_reference());
   }
 
   // .io.substrait.Type.Nullability nullability = 3;
@@ -5389,11 +5095,11 @@ void Type_FixedBinary::MergeFrom(const Type_FixedBinary& from) {
   ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
   (void) cached_has_bits;
 
-  if (from.has_variation()) {
-    _internal_mutable_variation()->::io::substrait::Type_Variation::MergeFrom(from._internal_variation());
-  }
   if (from.length() != 0) {
     _internal_set_length(from._internal_length());
+  }
+  if (from.type_variation_reference() != 0) {
+    _internal_set_type_variation_reference(from._internal_type_variation_reference());
   }
   if (from.nullability() != 0) {
     _internal_set_nullability(from._internal_nullability());
@@ -5424,9 +5130,9 @@ void Type_FixedBinary::InternalSwap(Type_FixedBinary* other) {
   ::PROTOBUF_NAMESPACE_ID::internal::memswap<
       PROTOBUF_FIELD_OFFSET(Type_FixedBinary, nullability_)
       + sizeof(Type_FixedBinary::nullability_)
-      - PROTOBUF_FIELD_OFFSET(Type_FixedBinary, variation_)>(
-          reinterpret_cast<char*>(&variation_),
-          reinterpret_cast<char*>(&other->variation_));
+      - PROTOBUF_FIELD_OFFSET(Type_FixedBinary, length_)>(
+          reinterpret_cast<char*>(&length_),
+          reinterpret_cast<char*>(&other->length_));
 }
 
 ::PROTOBUF_NAMESPACE_ID::Metadata Type_FixedBinary::GetMetadata() const {
@@ -5439,13 +5145,8 @@ void Type_FixedBinary::InternalSwap(Type_FixedBinary* other) {
 
 class Type_Decimal::_Internal {
  public:
-  static const ::io::substrait::Type_Variation& variation(const Type_Decimal* msg);
 };
 
-const ::io::substrait::Type_Variation&
-Type_Decimal::_Internal::variation(const Type_Decimal* msg) {
-  return *msg->variation_;
-}
 Type_Decimal::Type_Decimal(::PROTOBUF_NAMESPACE_ID::Arena* arena)
   : ::PROTOBUF_NAMESPACE_ID::Message(arena) {
   SharedCtor();
@@ -5455,11 +5156,6 @@ Type_Decimal::Type_Decimal(::PROTOBUF_NAMESPACE_ID::Arena* arena)
 Type_Decimal::Type_Decimal(const Type_Decimal& from)
   : ::PROTOBUF_NAMESPACE_ID::Message() {
   _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
-  if (from._internal_has_variation()) {
-    variation_ = new ::io::substrait::Type_Variation(*from.variation_);
-  } else {
-    variation_ = nullptr;
-  }
   ::memcpy(&scale_, &from.scale_,
     static_cast<size_t>(reinterpret_cast<char*>(&nullability_) -
     reinterpret_cast<char*>(&scale_)) + sizeof(nullability_));
@@ -5468,9 +5164,9 @@ Type_Decimal::Type_Decimal(const Type_Decimal& from)
 
 void Type_Decimal::SharedCtor() {
 ::memset(reinterpret_cast<char*>(this) + static_cast<size_t>(
-    reinterpret_cast<char*>(&variation_) - reinterpret_cast<char*>(this)),
+    reinterpret_cast<char*>(&scale_) - reinterpret_cast<char*>(this)),
     0, static_cast<size_t>(reinterpret_cast<char*>(&nullability_) -
-    reinterpret_cast<char*>(&variation_)) + sizeof(nullability_));
+    reinterpret_cast<char*>(&scale_)) + sizeof(nullability_));
 }
 
 Type_Decimal::~Type_Decimal() {
@@ -5481,7 +5177,6 @@ Type_Decimal::~Type_Decimal() {
 
 void Type_Decimal::SharedDtor() {
   GOOGLE_DCHECK(GetArena() == nullptr);
-  if (this != internal_default_instance()) delete variation_;
 }
 
 void Type_Decimal::ArenaDtor(void* object) {
@@ -5500,10 +5195,6 @@ void Type_Decimal::Clear() {
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  if (GetArena() == nullptr && variation_ != nullptr) {
-    delete variation_;
-  }
-  variation_ = nullptr;
   ::memset(&scale_, 0, static_cast<size_t>(
       reinterpret_cast<char*>(&nullability_) -
       reinterpret_cast<char*>(&scale_)) + sizeof(nullability_));
@@ -5530,10 +5221,10 @@ const char* Type_Decimal::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_I
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
-      // .io.substrait.Type.Variation variation = 3;
+      // uint32 type_variation_reference = 3;
       case 3:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 26)) {
-          ptr = ctx->ParseMessage(_internal_mutable_variation(), ptr);
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 24)) {
+          type_variation_reference_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint32(&ptr);
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
@@ -5586,12 +5277,10 @@ failure:
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::WriteInt32ToArray(2, this->_internal_precision(), target);
   }
 
-  // .io.substrait.Type.Variation variation = 3;
-  if (this->has_variation()) {
+  // uint32 type_variation_reference = 3;
+  if (this->type_variation_reference() != 0) {
     target = stream->EnsureSpace(target);
-    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
-      InternalWriteMessage(
-        3, _Internal::variation(this), target, stream);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::WriteUInt32ToArray(3, this->_internal_type_variation_reference(), target);
   }
 
   // .io.substrait.Type.Nullability nullability = 4;
@@ -5617,13 +5306,6 @@ size_t Type_Decimal::ByteSizeLong() const {
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  // .io.substrait.Type.Variation variation = 3;
-  if (this->has_variation()) {
-    total_size += 1 +
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
-        *variation_);
-  }
-
   // int32 scale = 1;
   if (this->scale() != 0) {
     total_size += 1 +
@@ -5636,6 +5318,13 @@ size_t Type_Decimal::ByteSizeLong() const {
     total_size += 1 +
       ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::Int32Size(
         this->_internal_precision());
+  }
+
+  // uint32 type_variation_reference = 3;
+  if (this->type_variation_reference() != 0) {
+    total_size += 1 +
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::UInt32Size(
+        this->_internal_type_variation_reference());
   }
 
   // .io.substrait.Type.Nullability nullability = 4;
@@ -5675,14 +5364,14 @@ void Type_Decimal::MergeFrom(const Type_Decimal& from) {
   ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
   (void) cached_has_bits;
 
-  if (from.has_variation()) {
-    _internal_mutable_variation()->::io::substrait::Type_Variation::MergeFrom(from._internal_variation());
-  }
   if (from.scale() != 0) {
     _internal_set_scale(from._internal_scale());
   }
   if (from.precision() != 0) {
     _internal_set_precision(from._internal_precision());
+  }
+  if (from.type_variation_reference() != 0) {
+    _internal_set_type_variation_reference(from._internal_type_variation_reference());
   }
   if (from.nullability() != 0) {
     _internal_set_nullability(from._internal_nullability());
@@ -5713,9 +5402,9 @@ void Type_Decimal::InternalSwap(Type_Decimal* other) {
   ::PROTOBUF_NAMESPACE_ID::internal::memswap<
       PROTOBUF_FIELD_OFFSET(Type_Decimal, nullability_)
       + sizeof(Type_Decimal::nullability_)
-      - PROTOBUF_FIELD_OFFSET(Type_Decimal, variation_)>(
-          reinterpret_cast<char*>(&variation_),
-          reinterpret_cast<char*>(&other->variation_));
+      - PROTOBUF_FIELD_OFFSET(Type_Decimal, scale_)>(
+          reinterpret_cast<char*>(&scale_),
+          reinterpret_cast<char*>(&other->scale_));
 }
 
 ::PROTOBUF_NAMESPACE_ID::Metadata Type_Decimal::GetMetadata() const {
@@ -5728,13 +5417,8 @@ void Type_Decimal::InternalSwap(Type_Decimal* other) {
 
 class Type_Struct::_Internal {
  public:
-  static const ::io::substrait::Type_Variation& variation(const Type_Struct* msg);
 };
 
-const ::io::substrait::Type_Variation&
-Type_Struct::_Internal::variation(const Type_Struct* msg) {
-  return *msg->variation_;
-}
 Type_Struct::Type_Struct(::PROTOBUF_NAMESPACE_ID::Arena* arena)
   : ::PROTOBUF_NAMESPACE_ID::Message(arena),
   types_(arena) {
@@ -5746,20 +5430,17 @@ Type_Struct::Type_Struct(const Type_Struct& from)
   : ::PROTOBUF_NAMESPACE_ID::Message(),
       types_(from.types_) {
   _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
-  if (from._internal_has_variation()) {
-    variation_ = new ::io::substrait::Type_Variation(*from.variation_);
-  } else {
-    variation_ = nullptr;
-  }
-  nullability_ = from.nullability_;
+  ::memcpy(&type_variation_reference_, &from.type_variation_reference_,
+    static_cast<size_t>(reinterpret_cast<char*>(&nullability_) -
+    reinterpret_cast<char*>(&type_variation_reference_)) + sizeof(nullability_));
   // @@protoc_insertion_point(copy_constructor:io.substrait.Type.Struct)
 }
 
 void Type_Struct::SharedCtor() {
 ::memset(reinterpret_cast<char*>(this) + static_cast<size_t>(
-    reinterpret_cast<char*>(&variation_) - reinterpret_cast<char*>(this)),
+    reinterpret_cast<char*>(&type_variation_reference_) - reinterpret_cast<char*>(this)),
     0, static_cast<size_t>(reinterpret_cast<char*>(&nullability_) -
-    reinterpret_cast<char*>(&variation_)) + sizeof(nullability_));
+    reinterpret_cast<char*>(&type_variation_reference_)) + sizeof(nullability_));
 }
 
 Type_Struct::~Type_Struct() {
@@ -5770,7 +5451,6 @@ Type_Struct::~Type_Struct() {
 
 void Type_Struct::SharedDtor() {
   GOOGLE_DCHECK(GetArena() == nullptr);
-  if (this != internal_default_instance()) delete variation_;
 }
 
 void Type_Struct::ArenaDtor(void* object) {
@@ -5790,11 +5470,9 @@ void Type_Struct::Clear() {
   (void) cached_has_bits;
 
   types_.Clear();
-  if (GetArena() == nullptr && variation_ != nullptr) {
-    delete variation_;
-  }
-  variation_ = nullptr;
-  nullability_ = 0;
+  ::memset(&type_variation_reference_, 0, static_cast<size_t>(
+      reinterpret_cast<char*>(&nullability_) -
+      reinterpret_cast<char*>(&type_variation_reference_)) + sizeof(nullability_));
   _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
@@ -5816,10 +5494,10 @@ const char* Type_Struct::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID
           } while (::PROTOBUF_NAMESPACE_ID::internal::ExpectTag<10>(ptr));
         } else goto handle_unusual;
         continue;
-      // .io.substrait.Type.Variation variation = 2;
+      // uint32 type_variation_reference = 2;
       case 2:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 18)) {
-          ptr = ctx->ParseMessage(_internal_mutable_variation(), ptr);
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 16)) {
+          type_variation_reference_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint32(&ptr);
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
@@ -5868,12 +5546,10 @@ failure:
       InternalWriteMessage(1, this->_internal_types(i), target, stream);
   }
 
-  // .io.substrait.Type.Variation variation = 2;
-  if (this->has_variation()) {
+  // uint32 type_variation_reference = 2;
+  if (this->type_variation_reference() != 0) {
     target = stream->EnsureSpace(target);
-    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
-      InternalWriteMessage(
-        2, _Internal::variation(this), target, stream);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::WriteUInt32ToArray(2, this->_internal_type_variation_reference(), target);
   }
 
   // .io.substrait.Type.Nullability nullability = 3;
@@ -5906,11 +5582,11 @@ size_t Type_Struct::ByteSizeLong() const {
       ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(msg);
   }
 
-  // .io.substrait.Type.Variation variation = 2;
-  if (this->has_variation()) {
+  // uint32 type_variation_reference = 2;
+  if (this->type_variation_reference() != 0) {
     total_size += 1 +
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
-        *variation_);
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::UInt32Size(
+        this->_internal_type_variation_reference());
   }
 
   // .io.substrait.Type.Nullability nullability = 3;
@@ -5951,8 +5627,8 @@ void Type_Struct::MergeFrom(const Type_Struct& from) {
   (void) cached_has_bits;
 
   types_.MergeFrom(from.types_);
-  if (from.has_variation()) {
-    _internal_mutable_variation()->::io::substrait::Type_Variation::MergeFrom(from._internal_variation());
+  if (from.type_variation_reference() != 0) {
+    _internal_set_type_variation_reference(from._internal_type_variation_reference());
   }
   if (from.nullability() != 0) {
     _internal_set_nullability(from._internal_nullability());
@@ -5984,9 +5660,9 @@ void Type_Struct::InternalSwap(Type_Struct* other) {
   ::PROTOBUF_NAMESPACE_ID::internal::memswap<
       PROTOBUF_FIELD_OFFSET(Type_Struct, nullability_)
       + sizeof(Type_Struct::nullability_)
-      - PROTOBUF_FIELD_OFFSET(Type_Struct, variation_)>(
-          reinterpret_cast<char*>(&variation_),
-          reinterpret_cast<char*>(&other->variation_));
+      - PROTOBUF_FIELD_OFFSET(Type_Struct, type_variation_reference_)>(
+          reinterpret_cast<char*>(&type_variation_reference_),
+          reinterpret_cast<char*>(&other->type_variation_reference_));
 }
 
 ::PROTOBUF_NAMESPACE_ID::Metadata Type_Struct::GetMetadata() const {
@@ -5997,261 +5673,14 @@ void Type_Struct::InternalSwap(Type_Struct* other) {
 
 // ===================================================================
 
-class Type_NamedStruct::_Internal {
- public:
-  static const ::io::substrait::Type_Struct& struct_(const Type_NamedStruct* msg);
-};
-
-const ::io::substrait::Type_Struct&
-Type_NamedStruct::_Internal::struct_(const Type_NamedStruct* msg) {
-  return *msg->struct__;
-}
-Type_NamedStruct::Type_NamedStruct(::PROTOBUF_NAMESPACE_ID::Arena* arena)
-  : ::PROTOBUF_NAMESPACE_ID::Message(arena),
-  names_(arena) {
-  SharedCtor();
-  RegisterArenaDtor(arena);
-  // @@protoc_insertion_point(arena_constructor:io.substrait.Type.NamedStruct)
-}
-Type_NamedStruct::Type_NamedStruct(const Type_NamedStruct& from)
-  : ::PROTOBUF_NAMESPACE_ID::Message(),
-      names_(from.names_) {
-  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
-  if (from._internal_has_struct_()) {
-    struct__ = new ::io::substrait::Type_Struct(*from.struct__);
-  } else {
-    struct__ = nullptr;
-  }
-  // @@protoc_insertion_point(copy_constructor:io.substrait.Type.NamedStruct)
-}
-
-void Type_NamedStruct::SharedCtor() {
-struct__ = nullptr;
-}
-
-Type_NamedStruct::~Type_NamedStruct() {
-  // @@protoc_insertion_point(destructor:io.substrait.Type.NamedStruct)
-  SharedDtor();
-  _internal_metadata_.Delete<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
-}
-
-void Type_NamedStruct::SharedDtor() {
-  GOOGLE_DCHECK(GetArena() == nullptr);
-  if (this != internal_default_instance()) delete struct__;
-}
-
-void Type_NamedStruct::ArenaDtor(void* object) {
-  Type_NamedStruct* _this = reinterpret_cast< Type_NamedStruct* >(object);
-  (void)_this;
-}
-void Type_NamedStruct::RegisterArenaDtor(::PROTOBUF_NAMESPACE_ID::Arena*) {
-}
-void Type_NamedStruct::SetCachedSize(int size) const {
-  _cached_size_.Set(size);
-}
-
-void Type_NamedStruct::Clear() {
-// @@protoc_insertion_point(message_clear_start:io.substrait.Type.NamedStruct)
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
-  // Prevent compiler warnings about cached_has_bits being unused
-  (void) cached_has_bits;
-
-  names_.Clear();
-  if (GetArena() == nullptr && struct__ != nullptr) {
-    delete struct__;
-  }
-  struct__ = nullptr;
-  _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
-}
-
-const char* Type_NamedStruct::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) {
-#define CHK_(x) if (PROTOBUF_PREDICT_FALSE(!(x))) goto failure
-  while (!ctx->Done(&ptr)) {
-    ::PROTOBUF_NAMESPACE_ID::uint32 tag;
-    ptr = ::PROTOBUF_NAMESPACE_ID::internal::ReadTag(ptr, &tag);
-    switch (tag >> 3) {
-      // repeated string names = 1;
-      case 1:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 10)) {
-          ptr -= 1;
-          do {
-            ptr += 1;
-            auto str = _internal_add_names();
-            ptr = ::PROTOBUF_NAMESPACE_ID::internal::InlineGreedyStringParser(str, ptr, ctx);
-            CHK_(::PROTOBUF_NAMESPACE_ID::internal::VerifyUTF8(str, "io.substrait.Type.NamedStruct.names"));
-            CHK_(ptr);
-            if (!ctx->DataAvailable(ptr)) break;
-          } while (::PROTOBUF_NAMESPACE_ID::internal::ExpectTag<10>(ptr));
-        } else goto handle_unusual;
-        continue;
-      // .io.substrait.Type.Struct struct = 2;
-      case 2:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 18)) {
-          ptr = ctx->ParseMessage(_internal_mutable_struct_(), ptr);
-          CHK_(ptr);
-        } else goto handle_unusual;
-        continue;
-      default: {
-      handle_unusual:
-        if ((tag == 0) || ((tag & 7) == 4)) {
-          CHK_(ptr);
-          ctx->SetLastTag(tag);
-          goto success;
-        }
-        ptr = UnknownFieldParse(tag,
-            _internal_metadata_.mutable_unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(),
-            ptr, ctx);
-        CHK_(ptr != nullptr);
-        continue;
-      }
-    }  // switch
-  }  // while
-success:
-  return ptr;
-failure:
-  ptr = nullptr;
-  goto success;
-#undef CHK_
-}
-
-::PROTOBUF_NAMESPACE_ID::uint8* Type_NamedStruct::_InternalSerialize(
-    ::PROTOBUF_NAMESPACE_ID::uint8* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const {
-  // @@protoc_insertion_point(serialize_to_array_start:io.substrait.Type.NamedStruct)
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
-  (void) cached_has_bits;
-
-  // repeated string names = 1;
-  for (int i = 0, n = this->_internal_names_size(); i < n; i++) {
-    const auto& s = this->_internal_names(i);
-    ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::VerifyUtf8String(
-      s.data(), static_cast<int>(s.length()),
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::SERIALIZE,
-      "io.substrait.Type.NamedStruct.names");
-    target = stream->WriteString(1, s, target);
-  }
-
-  // .io.substrait.Type.Struct struct = 2;
-  if (this->has_struct_()) {
-    target = stream->EnsureSpace(target);
-    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
-      InternalWriteMessage(
-        2, _Internal::struct_(this), target, stream);
-  }
-
-  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
-    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormat::InternalSerializeUnknownFieldsToArray(
-        _internal_metadata_.unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(::PROTOBUF_NAMESPACE_ID::UnknownFieldSet::default_instance), target, stream);
-  }
-  // @@protoc_insertion_point(serialize_to_array_end:io.substrait.Type.NamedStruct)
-  return target;
-}
-
-size_t Type_NamedStruct::ByteSizeLong() const {
-// @@protoc_insertion_point(message_byte_size_start:io.substrait.Type.NamedStruct)
-  size_t total_size = 0;
-
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
-  // Prevent compiler warnings about cached_has_bits being unused
-  (void) cached_has_bits;
-
-  // repeated string names = 1;
-  total_size += 1 *
-      ::PROTOBUF_NAMESPACE_ID::internal::FromIntSize(names_.size());
-  for (int i = 0, n = names_.size(); i < n; i++) {
-    total_size += ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::StringSize(
-      names_.Get(i));
-  }
-
-  // .io.substrait.Type.Struct struct = 2;
-  if (this->has_struct_()) {
-    total_size += 1 +
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
-        *struct__);
-  }
-
-  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
-    return ::PROTOBUF_NAMESPACE_ID::internal::ComputeUnknownFieldsSize(
-        _internal_metadata_, total_size, &_cached_size_);
-  }
-  int cached_size = ::PROTOBUF_NAMESPACE_ID::internal::ToCachedSize(total_size);
-  SetCachedSize(cached_size);
-  return total_size;
-}
-
-void Type_NamedStruct::MergeFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
-// @@protoc_insertion_point(generalized_merge_from_start:io.substrait.Type.NamedStruct)
-  GOOGLE_DCHECK_NE(&from, this);
-  const Type_NamedStruct* source =
-      ::PROTOBUF_NAMESPACE_ID::DynamicCastToGenerated<Type_NamedStruct>(
-          &from);
-  if (source == nullptr) {
-  // @@protoc_insertion_point(generalized_merge_from_cast_fail:io.substrait.Type.NamedStruct)
-    ::PROTOBUF_NAMESPACE_ID::internal::ReflectionOps::Merge(from, this);
-  } else {
-  // @@protoc_insertion_point(generalized_merge_from_cast_success:io.substrait.Type.NamedStruct)
-    MergeFrom(*source);
-  }
-}
-
-void Type_NamedStruct::MergeFrom(const Type_NamedStruct& from) {
-// @@protoc_insertion_point(class_specific_merge_from_start:io.substrait.Type.NamedStruct)
-  GOOGLE_DCHECK_NE(&from, this);
-  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
-  (void) cached_has_bits;
-
-  names_.MergeFrom(from.names_);
-  if (from.has_struct_()) {
-    _internal_mutable_struct_()->::io::substrait::Type_Struct::MergeFrom(from._internal_struct_());
-  }
-}
-
-void Type_NamedStruct::CopyFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
-// @@protoc_insertion_point(generalized_copy_from_start:io.substrait.Type.NamedStruct)
-  if (&from == this) return;
-  Clear();
-  MergeFrom(from);
-}
-
-void Type_NamedStruct::CopyFrom(const Type_NamedStruct& from) {
-// @@protoc_insertion_point(class_specific_copy_from_start:io.substrait.Type.NamedStruct)
-  if (&from == this) return;
-  Clear();
-  MergeFrom(from);
-}
-
-bool Type_NamedStruct::IsInitialized() const {
-  return true;
-}
-
-void Type_NamedStruct::InternalSwap(Type_NamedStruct* other) {
-  using std::swap;
-  _internal_metadata_.Swap<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(&other->_internal_metadata_);
-  names_.InternalSwap(&other->names_);
-  swap(struct__, other->struct__);
-}
-
-::PROTOBUF_NAMESPACE_ID::Metadata Type_NamedStruct::GetMetadata() const {
-  return ::PROTOBUF_NAMESPACE_ID::internal::AssignDescriptors(
-      &descriptor_table_type_2eproto_getter, &descriptor_table_type_2eproto_once,
-      file_level_metadata_type_2eproto[21]);
-}
-
-// ===================================================================
-
 class Type_List::_Internal {
  public:
   static const ::io::substrait::Type& type(const Type_List* msg);
-  static const ::io::substrait::Type_Variation& variation(const Type_List* msg);
 };
 
 const ::io::substrait::Type&
 Type_List::_Internal::type(const Type_List* msg) {
   return *msg->type_;
-}
-const ::io::substrait::Type_Variation&
-Type_List::_Internal::variation(const Type_List* msg) {
-  return *msg->variation_;
 }
 Type_List::Type_List(::PROTOBUF_NAMESPACE_ID::Arena* arena)
   : ::PROTOBUF_NAMESPACE_ID::Message(arena) {
@@ -6267,12 +5696,9 @@ Type_List::Type_List(const Type_List& from)
   } else {
     type_ = nullptr;
   }
-  if (from._internal_has_variation()) {
-    variation_ = new ::io::substrait::Type_Variation(*from.variation_);
-  } else {
-    variation_ = nullptr;
-  }
-  nullability_ = from.nullability_;
+  ::memcpy(&type_variation_reference_, &from.type_variation_reference_,
+    static_cast<size_t>(reinterpret_cast<char*>(&nullability_) -
+    reinterpret_cast<char*>(&type_variation_reference_)) + sizeof(nullability_));
   // @@protoc_insertion_point(copy_constructor:io.substrait.Type.List)
 }
 
@@ -6292,7 +5718,6 @@ Type_List::~Type_List() {
 void Type_List::SharedDtor() {
   GOOGLE_DCHECK(GetArena() == nullptr);
   if (this != internal_default_instance()) delete type_;
-  if (this != internal_default_instance()) delete variation_;
 }
 
 void Type_List::ArenaDtor(void* object) {
@@ -6315,11 +5740,9 @@ void Type_List::Clear() {
     delete type_;
   }
   type_ = nullptr;
-  if (GetArena() == nullptr && variation_ != nullptr) {
-    delete variation_;
-  }
-  variation_ = nullptr;
-  nullability_ = 0;
+  ::memset(&type_variation_reference_, 0, static_cast<size_t>(
+      reinterpret_cast<char*>(&nullability_) -
+      reinterpret_cast<char*>(&type_variation_reference_)) + sizeof(nullability_));
   _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
@@ -6336,10 +5759,10 @@ const char* Type_List::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
-      // .io.substrait.Type.Variation variation = 2;
+      // uint32 type_variation_reference = 2;
       case 2:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 18)) {
-          ptr = ctx->ParseMessage(_internal_mutable_variation(), ptr);
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 16)) {
+          type_variation_reference_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint32(&ptr);
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
@@ -6388,12 +5811,10 @@ failure:
         1, _Internal::type(this), target, stream);
   }
 
-  // .io.substrait.Type.Variation variation = 2;
-  if (this->has_variation()) {
+  // uint32 type_variation_reference = 2;
+  if (this->type_variation_reference() != 0) {
     target = stream->EnsureSpace(target);
-    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
-      InternalWriteMessage(
-        2, _Internal::variation(this), target, stream);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::WriteUInt32ToArray(2, this->_internal_type_variation_reference(), target);
   }
 
   // .io.substrait.Type.Nullability nullability = 3;
@@ -6426,11 +5847,11 @@ size_t Type_List::ByteSizeLong() const {
         *type_);
   }
 
-  // .io.substrait.Type.Variation variation = 2;
-  if (this->has_variation()) {
+  // uint32 type_variation_reference = 2;
+  if (this->type_variation_reference() != 0) {
     total_size += 1 +
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
-        *variation_);
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::UInt32Size(
+        this->_internal_type_variation_reference());
   }
 
   // .io.substrait.Type.Nullability nullability = 3;
@@ -6473,8 +5894,8 @@ void Type_List::MergeFrom(const Type_List& from) {
   if (from.has_type()) {
     _internal_mutable_type()->::io::substrait::Type::MergeFrom(from._internal_type());
   }
-  if (from.has_variation()) {
-    _internal_mutable_variation()->::io::substrait::Type_Variation::MergeFrom(from._internal_variation());
+  if (from.type_variation_reference() != 0) {
+    _internal_set_type_variation_reference(from._internal_type_variation_reference());
   }
   if (from.nullability() != 0) {
     _internal_set_nullability(from._internal_nullability());
@@ -6513,7 +5934,7 @@ void Type_List::InternalSwap(Type_List* other) {
 ::PROTOBUF_NAMESPACE_ID::Metadata Type_List::GetMetadata() const {
   return ::PROTOBUF_NAMESPACE_ID::internal::AssignDescriptors(
       &descriptor_table_type_2eproto_getter, &descriptor_table_type_2eproto_once,
-      file_level_metadata_type_2eproto[22]);
+      file_level_metadata_type_2eproto[21]);
 }
 
 // ===================================================================
@@ -6522,7 +5943,6 @@ class Type_Map::_Internal {
  public:
   static const ::io::substrait::Type& key(const Type_Map* msg);
   static const ::io::substrait::Type& value(const Type_Map* msg);
-  static const ::io::substrait::Type_Variation& variation(const Type_Map* msg);
 };
 
 const ::io::substrait::Type&
@@ -6532,10 +5952,6 @@ Type_Map::_Internal::key(const Type_Map* msg) {
 const ::io::substrait::Type&
 Type_Map::_Internal::value(const Type_Map* msg) {
   return *msg->value_;
-}
-const ::io::substrait::Type_Variation&
-Type_Map::_Internal::variation(const Type_Map* msg) {
-  return *msg->variation_;
 }
 Type_Map::Type_Map(::PROTOBUF_NAMESPACE_ID::Arena* arena)
   : ::PROTOBUF_NAMESPACE_ID::Message(arena) {
@@ -6556,12 +5972,9 @@ Type_Map::Type_Map(const Type_Map& from)
   } else {
     value_ = nullptr;
   }
-  if (from._internal_has_variation()) {
-    variation_ = new ::io::substrait::Type_Variation(*from.variation_);
-  } else {
-    variation_ = nullptr;
-  }
-  nullability_ = from.nullability_;
+  ::memcpy(&type_variation_reference_, &from.type_variation_reference_,
+    static_cast<size_t>(reinterpret_cast<char*>(&nullability_) -
+    reinterpret_cast<char*>(&type_variation_reference_)) + sizeof(nullability_));
   // @@protoc_insertion_point(copy_constructor:io.substrait.Type.Map)
 }
 
@@ -6582,7 +5995,6 @@ void Type_Map::SharedDtor() {
   GOOGLE_DCHECK(GetArena() == nullptr);
   if (this != internal_default_instance()) delete key_;
   if (this != internal_default_instance()) delete value_;
-  if (this != internal_default_instance()) delete variation_;
 }
 
 void Type_Map::ArenaDtor(void* object) {
@@ -6609,11 +6021,9 @@ void Type_Map::Clear() {
     delete value_;
   }
   value_ = nullptr;
-  if (GetArena() == nullptr && variation_ != nullptr) {
-    delete variation_;
-  }
-  variation_ = nullptr;
-  nullability_ = 0;
+  ::memset(&type_variation_reference_, 0, static_cast<size_t>(
+      reinterpret_cast<char*>(&nullability_) -
+      reinterpret_cast<char*>(&type_variation_reference_)) + sizeof(nullability_));
   _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
@@ -6637,10 +6047,10 @@ const char* Type_Map::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::i
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
-      // .io.substrait.Type.Variation variation = 3;
+      // uint32 type_variation_reference = 3;
       case 3:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 26)) {
-          ptr = ctx->ParseMessage(_internal_mutable_variation(), ptr);
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 24)) {
+          type_variation_reference_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint32(&ptr);
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
@@ -6697,12 +6107,10 @@ failure:
         2, _Internal::value(this), target, stream);
   }
 
-  // .io.substrait.Type.Variation variation = 3;
-  if (this->has_variation()) {
+  // uint32 type_variation_reference = 3;
+  if (this->type_variation_reference() != 0) {
     target = stream->EnsureSpace(target);
-    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
-      InternalWriteMessage(
-        3, _Internal::variation(this), target, stream);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::WriteUInt32ToArray(3, this->_internal_type_variation_reference(), target);
   }
 
   // .io.substrait.Type.Nullability nullability = 4;
@@ -6742,11 +6150,11 @@ size_t Type_Map::ByteSizeLong() const {
         *value_);
   }
 
-  // .io.substrait.Type.Variation variation = 3;
-  if (this->has_variation()) {
+  // uint32 type_variation_reference = 3;
+  if (this->type_variation_reference() != 0) {
     total_size += 1 +
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
-        *variation_);
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::UInt32Size(
+        this->_internal_type_variation_reference());
   }
 
   // .io.substrait.Type.Nullability nullability = 4;
@@ -6792,8 +6200,8 @@ void Type_Map::MergeFrom(const Type_Map& from) {
   if (from.has_value()) {
     _internal_mutable_value()->::io::substrait::Type::MergeFrom(from._internal_value());
   }
-  if (from.has_variation()) {
-    _internal_mutable_variation()->::io::substrait::Type_Variation::MergeFrom(from._internal_variation());
+  if (from.type_variation_reference() != 0) {
+    _internal_set_type_variation_reference(from._internal_type_variation_reference());
   }
   if (from.nullability() != 0) {
     _internal_set_nullability(from._internal_nullability());
@@ -6832,235 +6240,7 @@ void Type_Map::InternalSwap(Type_Map* other) {
 ::PROTOBUF_NAMESPACE_ID::Metadata Type_Map::GetMetadata() const {
   return ::PROTOBUF_NAMESPACE_ID::internal::AssignDescriptors(
       &descriptor_table_type_2eproto_getter, &descriptor_table_type_2eproto_once,
-      file_level_metadata_type_2eproto[23]);
-}
-
-// ===================================================================
-
-class Type_Variation::_Internal {
- public:
-};
-
-Type_Variation::Type_Variation(::PROTOBUF_NAMESPACE_ID::Arena* arena)
-  : ::PROTOBUF_NAMESPACE_ID::Message(arena) {
-  SharedCtor();
-  RegisterArenaDtor(arena);
-  // @@protoc_insertion_point(arena_constructor:io.substrait.Type.Variation)
-}
-Type_Variation::Type_Variation(const Type_Variation& from)
-  : ::PROTOBUF_NAMESPACE_ID::Message() {
-  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
-  name_.UnsafeSetDefault(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited());
-  if (!from._internal_name().empty()) {
-    name_.Set(::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::EmptyDefault{}, from._internal_name(), 
-      GetArena());
-  }
-  organization_ = from.organization_;
-  // @@protoc_insertion_point(copy_constructor:io.substrait.Type.Variation)
-}
-
-void Type_Variation::SharedCtor() {
-name_.UnsafeSetDefault(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited());
-organization_ = 0;
-}
-
-Type_Variation::~Type_Variation() {
-  // @@protoc_insertion_point(destructor:io.substrait.Type.Variation)
-  SharedDtor();
-  _internal_metadata_.Delete<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
-}
-
-void Type_Variation::SharedDtor() {
-  GOOGLE_DCHECK(GetArena() == nullptr);
-  name_.DestroyNoArena(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited());
-}
-
-void Type_Variation::ArenaDtor(void* object) {
-  Type_Variation* _this = reinterpret_cast< Type_Variation* >(object);
-  (void)_this;
-}
-void Type_Variation::RegisterArenaDtor(::PROTOBUF_NAMESPACE_ID::Arena*) {
-}
-void Type_Variation::SetCachedSize(int size) const {
-  _cached_size_.Set(size);
-}
-
-void Type_Variation::Clear() {
-// @@protoc_insertion_point(message_clear_start:io.substrait.Type.Variation)
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
-  // Prevent compiler warnings about cached_has_bits being unused
-  (void) cached_has_bits;
-
-  name_.ClearToEmpty();
-  organization_ = 0;
-  _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
-}
-
-const char* Type_Variation::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) {
-#define CHK_(x) if (PROTOBUF_PREDICT_FALSE(!(x))) goto failure
-  while (!ctx->Done(&ptr)) {
-    ::PROTOBUF_NAMESPACE_ID::uint32 tag;
-    ptr = ::PROTOBUF_NAMESPACE_ID::internal::ReadTag(ptr, &tag);
-    switch (tag >> 3) {
-      // int32 organization = 1;
-      case 1:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 8)) {
-          organization_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint64(&ptr);
-          CHK_(ptr);
-        } else goto handle_unusual;
-        continue;
-      // string name = 2;
-      case 2:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 18)) {
-          auto str = _internal_mutable_name();
-          ptr = ::PROTOBUF_NAMESPACE_ID::internal::InlineGreedyStringParser(str, ptr, ctx);
-          CHK_(::PROTOBUF_NAMESPACE_ID::internal::VerifyUTF8(str, "io.substrait.Type.Variation.name"));
-          CHK_(ptr);
-        } else goto handle_unusual;
-        continue;
-      default: {
-      handle_unusual:
-        if ((tag == 0) || ((tag & 7) == 4)) {
-          CHK_(ptr);
-          ctx->SetLastTag(tag);
-          goto success;
-        }
-        ptr = UnknownFieldParse(tag,
-            _internal_metadata_.mutable_unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(),
-            ptr, ctx);
-        CHK_(ptr != nullptr);
-        continue;
-      }
-    }  // switch
-  }  // while
-success:
-  return ptr;
-failure:
-  ptr = nullptr;
-  goto success;
-#undef CHK_
-}
-
-::PROTOBUF_NAMESPACE_ID::uint8* Type_Variation::_InternalSerialize(
-    ::PROTOBUF_NAMESPACE_ID::uint8* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const {
-  // @@protoc_insertion_point(serialize_to_array_start:io.substrait.Type.Variation)
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
-  (void) cached_has_bits;
-
-  // int32 organization = 1;
-  if (this->organization() != 0) {
-    target = stream->EnsureSpace(target);
-    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::WriteInt32ToArray(1, this->_internal_organization(), target);
-  }
-
-  // string name = 2;
-  if (this->name().size() > 0) {
-    ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::VerifyUtf8String(
-      this->_internal_name().data(), static_cast<int>(this->_internal_name().length()),
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::SERIALIZE,
-      "io.substrait.Type.Variation.name");
-    target = stream->WriteStringMaybeAliased(
-        2, this->_internal_name(), target);
-  }
-
-  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
-    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormat::InternalSerializeUnknownFieldsToArray(
-        _internal_metadata_.unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(::PROTOBUF_NAMESPACE_ID::UnknownFieldSet::default_instance), target, stream);
-  }
-  // @@protoc_insertion_point(serialize_to_array_end:io.substrait.Type.Variation)
-  return target;
-}
-
-size_t Type_Variation::ByteSizeLong() const {
-// @@protoc_insertion_point(message_byte_size_start:io.substrait.Type.Variation)
-  size_t total_size = 0;
-
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
-  // Prevent compiler warnings about cached_has_bits being unused
-  (void) cached_has_bits;
-
-  // string name = 2;
-  if (this->name().size() > 0) {
-    total_size += 1 +
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::StringSize(
-        this->_internal_name());
-  }
-
-  // int32 organization = 1;
-  if (this->organization() != 0) {
-    total_size += 1 +
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::Int32Size(
-        this->_internal_organization());
-  }
-
-  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
-    return ::PROTOBUF_NAMESPACE_ID::internal::ComputeUnknownFieldsSize(
-        _internal_metadata_, total_size, &_cached_size_);
-  }
-  int cached_size = ::PROTOBUF_NAMESPACE_ID::internal::ToCachedSize(total_size);
-  SetCachedSize(cached_size);
-  return total_size;
-}
-
-void Type_Variation::MergeFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
-// @@protoc_insertion_point(generalized_merge_from_start:io.substrait.Type.Variation)
-  GOOGLE_DCHECK_NE(&from, this);
-  const Type_Variation* source =
-      ::PROTOBUF_NAMESPACE_ID::DynamicCastToGenerated<Type_Variation>(
-          &from);
-  if (source == nullptr) {
-  // @@protoc_insertion_point(generalized_merge_from_cast_fail:io.substrait.Type.Variation)
-    ::PROTOBUF_NAMESPACE_ID::internal::ReflectionOps::Merge(from, this);
-  } else {
-  // @@protoc_insertion_point(generalized_merge_from_cast_success:io.substrait.Type.Variation)
-    MergeFrom(*source);
-  }
-}
-
-void Type_Variation::MergeFrom(const Type_Variation& from) {
-// @@protoc_insertion_point(class_specific_merge_from_start:io.substrait.Type.Variation)
-  GOOGLE_DCHECK_NE(&from, this);
-  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
-  (void) cached_has_bits;
-
-  if (from.name().size() > 0) {
-    _internal_set_name(from._internal_name());
-  }
-  if (from.organization() != 0) {
-    _internal_set_organization(from._internal_organization());
-  }
-}
-
-void Type_Variation::CopyFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
-// @@protoc_insertion_point(generalized_copy_from_start:io.substrait.Type.Variation)
-  if (&from == this) return;
-  Clear();
-  MergeFrom(from);
-}
-
-void Type_Variation::CopyFrom(const Type_Variation& from) {
-// @@protoc_insertion_point(class_specific_copy_from_start:io.substrait.Type.Variation)
-  if (&from == this) return;
-  Clear();
-  MergeFrom(from);
-}
-
-bool Type_Variation::IsInitialized() const {
-  return true;
-}
-
-void Type_Variation::InternalSwap(Type_Variation* other) {
-  using std::swap;
-  _internal_metadata_.Swap<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(&other->_internal_metadata_);
-  name_.Swap(&other->name_, &::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(), GetArena());
-  swap(organization_, other->organization_);
-}
-
-::PROTOBUF_NAMESPACE_ID::Metadata Type_Variation::GetMetadata() const {
-  return ::PROTOBUF_NAMESPACE_ID::internal::AssignDescriptors(
-      &descriptor_table_type_2eproto_getter, &descriptor_table_type_2eproto_once,
-      file_level_metadata_type_2eproto[24]);
+      file_level_metadata_type_2eproto[22]);
 }
 
 // ===================================================================
@@ -7090,7 +6270,6 @@ class Type::_Internal {
   static const ::io::substrait::Type_Struct& struct_(const Type* msg);
   static const ::io::substrait::Type_List& list(const Type* msg);
   static const ::io::substrait::Type_Map& map(const Type* msg);
-  static const ::io::substrait::Extensions_TypeId& user_defined(const Type* msg);
 };
 
 const ::io::substrait::Type_Boolean&
@@ -7184,10 +6363,6 @@ Type::_Internal::list(const Type* msg) {
 const ::io::substrait::Type_Map&
 Type::_Internal::map(const Type* msg) {
   return *msg->kind_.map_;
-}
-const ::io::substrait::Extensions_TypeId&
-Type::_Internal::user_defined(const Type* msg) {
-  return *msg->kind_.user_defined_;
 }
 void Type::set_allocated_bool_(::io::substrait::Type_Boolean* bool_) {
   ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
@@ -7534,29 +6709,6 @@ void Type::set_allocated_map(::io::substrait::Type_Map* map) {
   }
   // @@protoc_insertion_point(field_set_allocated:io.substrait.Type.map)
 }
-void Type::set_allocated_user_defined(::io::substrait::Extensions_TypeId* user_defined) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
-  clear_kind();
-  if (user_defined) {
-    ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(user_defined)->GetArena();
-    if (message_arena != submessage_arena) {
-      user_defined = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
-          message_arena, user_defined, submessage_arena);
-    }
-    set_has_user_defined();
-    kind_.user_defined_ = user_defined;
-  }
-  // @@protoc_insertion_point(field_set_allocated:io.substrait.Type.user_defined)
-}
-void Type::clear_user_defined() {
-  if (_internal_has_user_defined()) {
-    if (GetArena() == nullptr) {
-      delete kind_.user_defined_;
-    }
-    clear_has_kind();
-  }
-}
 Type::Type(::PROTOBUF_NAMESPACE_ID::Arena* arena)
   : ::PROTOBUF_NAMESPACE_ID::Message(arena) {
   SharedCtor();
@@ -7660,8 +6812,8 @@ Type::Type(const Type& from)
       _internal_mutable_map()->::io::substrait::Type_Map::MergeFrom(from._internal_map());
       break;
     }
-    case kUserDefined: {
-      _internal_mutable_user_defined()->::io::substrait::Extensions_TypeId::MergeFrom(from._internal_user_defined());
+    case kUserDefinedTypeReference: {
+      _internal_set_user_defined_type_reference(from._internal_user_defined_type_reference());
       break;
     }
     case KIND_NOT_SET: {
@@ -7839,10 +6991,8 @@ void Type::clear_kind() {
       }
       break;
     }
-    case kUserDefined: {
-      if (GetArena() == nullptr) {
-        delete kind_.user_defined_;
-      }
+    case kUserDefinedTypeReference: {
+      // No need to clear
       break;
     }
     case KIND_NOT_SET: {
@@ -8023,10 +7173,10 @@ const char* Type::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::inter
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
-      // .io.substrait.Extensions.TypeId user_defined = 31;
+      // uint32 user_defined_type_reference = 31;
       case 31:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 250)) {
-          ptr = ctx->ParseMessage(_internal_mutable_user_defined(), ptr);
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 248)) {
+          _internal_set_user_defined_type_reference(::PROTOBUF_NAMESPACE_ID::internal::ReadVarint32(&ptr));
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
@@ -8242,12 +7392,10 @@ failure:
         29, _Internal::timestamp_tz(this), target, stream);
   }
 
-  // .io.substrait.Extensions.TypeId user_defined = 31;
-  if (_internal_has_user_defined()) {
+  // uint32 user_defined_type_reference = 31;
+  if (_internal_has_user_defined_type_reference()) {
     target = stream->EnsureSpace(target);
-    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
-      InternalWriteMessage(
-        31, _Internal::user_defined(this), target, stream);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::WriteUInt32ToArray(31, this->_internal_user_defined_type_reference(), target);
   }
 
   // .io.substrait.Type.UUID uuid = 32;
@@ -8436,11 +7584,11 @@ size_t Type::ByteSizeLong() const {
           *kind_.map_);
       break;
     }
-    // .io.substrait.Extensions.TypeId user_defined = 31;
-    case kUserDefined: {
+    // uint32 user_defined_type_reference = 31;
+    case kUserDefinedTypeReference: {
       total_size += 2 +
-        ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
-          *kind_.user_defined_);
+        ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::UInt32Size(
+          this->_internal_user_defined_type_reference());
       break;
     }
     case KIND_NOT_SET: {
@@ -8571,8 +7719,8 @@ void Type::MergeFrom(const Type& from) {
       _internal_mutable_map()->::io::substrait::Type_Map::MergeFrom(from._internal_map());
       break;
     }
-    case kUserDefined: {
-      _internal_mutable_user_defined()->::io::substrait::Extensions_TypeId::MergeFrom(from._internal_user_defined());
+    case kUserDefinedTypeReference: {
+      _internal_set_user_defined_type_reference(from._internal_user_defined_type_reference());
       break;
     }
     case KIND_NOT_SET: {
@@ -8609,7 +7757,249 @@ void Type::InternalSwap(Type* other) {
 ::PROTOBUF_NAMESPACE_ID::Metadata Type::GetMetadata() const {
   return ::PROTOBUF_NAMESPACE_ID::internal::AssignDescriptors(
       &descriptor_table_type_2eproto_getter, &descriptor_table_type_2eproto_once,
-      file_level_metadata_type_2eproto[25]);
+      file_level_metadata_type_2eproto[23]);
+}
+
+// ===================================================================
+
+class NamedStruct::_Internal {
+ public:
+  static const ::io::substrait::Type_Struct& struct_(const NamedStruct* msg);
+};
+
+const ::io::substrait::Type_Struct&
+NamedStruct::_Internal::struct_(const NamedStruct* msg) {
+  return *msg->struct__;
+}
+NamedStruct::NamedStruct(::PROTOBUF_NAMESPACE_ID::Arena* arena)
+  : ::PROTOBUF_NAMESPACE_ID::Message(arena),
+  names_(arena) {
+  SharedCtor();
+  RegisterArenaDtor(arena);
+  // @@protoc_insertion_point(arena_constructor:io.substrait.NamedStruct)
+}
+NamedStruct::NamedStruct(const NamedStruct& from)
+  : ::PROTOBUF_NAMESPACE_ID::Message(),
+      names_(from.names_) {
+  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
+  if (from._internal_has_struct_()) {
+    struct__ = new ::io::substrait::Type_Struct(*from.struct__);
+  } else {
+    struct__ = nullptr;
+  }
+  // @@protoc_insertion_point(copy_constructor:io.substrait.NamedStruct)
+}
+
+void NamedStruct::SharedCtor() {
+struct__ = nullptr;
+}
+
+NamedStruct::~NamedStruct() {
+  // @@protoc_insertion_point(destructor:io.substrait.NamedStruct)
+  SharedDtor();
+  _internal_metadata_.Delete<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
+}
+
+void NamedStruct::SharedDtor() {
+  GOOGLE_DCHECK(GetArena() == nullptr);
+  if (this != internal_default_instance()) delete struct__;
+}
+
+void NamedStruct::ArenaDtor(void* object) {
+  NamedStruct* _this = reinterpret_cast< NamedStruct* >(object);
+  (void)_this;
+}
+void NamedStruct::RegisterArenaDtor(::PROTOBUF_NAMESPACE_ID::Arena*) {
+}
+void NamedStruct::SetCachedSize(int size) const {
+  _cached_size_.Set(size);
+}
+
+void NamedStruct::Clear() {
+// @@protoc_insertion_point(message_clear_start:io.substrait.NamedStruct)
+  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  names_.Clear();
+  if (GetArena() == nullptr && struct__ != nullptr) {
+    delete struct__;
+  }
+  struct__ = nullptr;
+  _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
+}
+
+const char* NamedStruct::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) {
+#define CHK_(x) if (PROTOBUF_PREDICT_FALSE(!(x))) goto failure
+  while (!ctx->Done(&ptr)) {
+    ::PROTOBUF_NAMESPACE_ID::uint32 tag;
+    ptr = ::PROTOBUF_NAMESPACE_ID::internal::ReadTag(ptr, &tag);
+    switch (tag >> 3) {
+      // repeated string names = 1;
+      case 1:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 10)) {
+          ptr -= 1;
+          do {
+            ptr += 1;
+            auto str = _internal_add_names();
+            ptr = ::PROTOBUF_NAMESPACE_ID::internal::InlineGreedyStringParser(str, ptr, ctx);
+            CHK_(::PROTOBUF_NAMESPACE_ID::internal::VerifyUTF8(str, "io.substrait.NamedStruct.names"));
+            CHK_(ptr);
+            if (!ctx->DataAvailable(ptr)) break;
+          } while (::PROTOBUF_NAMESPACE_ID::internal::ExpectTag<10>(ptr));
+        } else goto handle_unusual;
+        continue;
+      // .io.substrait.Type.Struct struct = 2;
+      case 2:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 18)) {
+          ptr = ctx->ParseMessage(_internal_mutable_struct_(), ptr);
+          CHK_(ptr);
+        } else goto handle_unusual;
+        continue;
+      default: {
+      handle_unusual:
+        if ((tag == 0) || ((tag & 7) == 4)) {
+          CHK_(ptr);
+          ctx->SetLastTag(tag);
+          goto success;
+        }
+        ptr = UnknownFieldParse(tag,
+            _internal_metadata_.mutable_unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(),
+            ptr, ctx);
+        CHK_(ptr != nullptr);
+        continue;
+      }
+    }  // switch
+  }  // while
+success:
+  return ptr;
+failure:
+  ptr = nullptr;
+  goto success;
+#undef CHK_
+}
+
+::PROTOBUF_NAMESPACE_ID::uint8* NamedStruct::_InternalSerialize(
+    ::PROTOBUF_NAMESPACE_ID::uint8* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const {
+  // @@protoc_insertion_point(serialize_to_array_start:io.substrait.NamedStruct)
+  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  // repeated string names = 1;
+  for (int i = 0, n = this->_internal_names_size(); i < n; i++) {
+    const auto& s = this->_internal_names(i);
+    ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::VerifyUtf8String(
+      s.data(), static_cast<int>(s.length()),
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::SERIALIZE,
+      "io.substrait.NamedStruct.names");
+    target = stream->WriteString(1, s, target);
+  }
+
+  // .io.substrait.Type.Struct struct = 2;
+  if (this->has_struct_()) {
+    target = stream->EnsureSpace(target);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
+      InternalWriteMessage(
+        2, _Internal::struct_(this), target, stream);
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormat::InternalSerializeUnknownFieldsToArray(
+        _internal_metadata_.unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(::PROTOBUF_NAMESPACE_ID::UnknownFieldSet::default_instance), target, stream);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:io.substrait.NamedStruct)
+  return target;
+}
+
+size_t NamedStruct::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:io.substrait.NamedStruct)
+  size_t total_size = 0;
+
+  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  // repeated string names = 1;
+  total_size += 1 *
+      ::PROTOBUF_NAMESPACE_ID::internal::FromIntSize(names_.size());
+  for (int i = 0, n = names_.size(); i < n; i++) {
+    total_size += ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::StringSize(
+      names_.Get(i));
+  }
+
+  // .io.substrait.Type.Struct struct = 2;
+  if (this->has_struct_()) {
+    total_size += 1 +
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
+        *struct__);
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    return ::PROTOBUF_NAMESPACE_ID::internal::ComputeUnknownFieldsSize(
+        _internal_metadata_, total_size, &_cached_size_);
+  }
+  int cached_size = ::PROTOBUF_NAMESPACE_ID::internal::ToCachedSize(total_size);
+  SetCachedSize(cached_size);
+  return total_size;
+}
+
+void NamedStruct::MergeFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
+// @@protoc_insertion_point(generalized_merge_from_start:io.substrait.NamedStruct)
+  GOOGLE_DCHECK_NE(&from, this);
+  const NamedStruct* source =
+      ::PROTOBUF_NAMESPACE_ID::DynamicCastToGenerated<NamedStruct>(
+          &from);
+  if (source == nullptr) {
+  // @@protoc_insertion_point(generalized_merge_from_cast_fail:io.substrait.NamedStruct)
+    ::PROTOBUF_NAMESPACE_ID::internal::ReflectionOps::Merge(from, this);
+  } else {
+  // @@protoc_insertion_point(generalized_merge_from_cast_success:io.substrait.NamedStruct)
+    MergeFrom(*source);
+  }
+}
+
+void NamedStruct::MergeFrom(const NamedStruct& from) {
+// @@protoc_insertion_point(class_specific_merge_from_start:io.substrait.NamedStruct)
+  GOOGLE_DCHECK_NE(&from, this);
+  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
+  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  names_.MergeFrom(from.names_);
+  if (from.has_struct_()) {
+    _internal_mutable_struct_()->::io::substrait::Type_Struct::MergeFrom(from._internal_struct_());
+  }
+}
+
+void NamedStruct::CopyFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
+// @@protoc_insertion_point(generalized_copy_from_start:io.substrait.NamedStruct)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+void NamedStruct::CopyFrom(const NamedStruct& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:io.substrait.NamedStruct)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+bool NamedStruct::IsInitialized() const {
+  return true;
+}
+
+void NamedStruct::InternalSwap(NamedStruct* other) {
+  using std::swap;
+  _internal_metadata_.Swap<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(&other->_internal_metadata_);
+  names_.InternalSwap(&other->names_);
+  swap(struct__, other->struct__);
+}
+
+::PROTOBUF_NAMESPACE_ID::Metadata NamedStruct::GetMetadata() const {
+  return ::PROTOBUF_NAMESPACE_ID::internal::AssignDescriptors(
+      &descriptor_table_type_2eproto_getter, &descriptor_table_type_2eproto_once,
+      file_level_metadata_type_2eproto[24]);
 }
 
 // @@protoc_insertion_point(namespace_scope)
@@ -8679,20 +8069,17 @@ template<> PROTOBUF_NOINLINE ::io::substrait::Type_Decimal* Arena::CreateMaybeMe
 template<> PROTOBUF_NOINLINE ::io::substrait::Type_Struct* Arena::CreateMaybeMessage< ::io::substrait::Type_Struct >(Arena* arena) {
   return Arena::CreateMessageInternal< ::io::substrait::Type_Struct >(arena);
 }
-template<> PROTOBUF_NOINLINE ::io::substrait::Type_NamedStruct* Arena::CreateMaybeMessage< ::io::substrait::Type_NamedStruct >(Arena* arena) {
-  return Arena::CreateMessageInternal< ::io::substrait::Type_NamedStruct >(arena);
-}
 template<> PROTOBUF_NOINLINE ::io::substrait::Type_List* Arena::CreateMaybeMessage< ::io::substrait::Type_List >(Arena* arena) {
   return Arena::CreateMessageInternal< ::io::substrait::Type_List >(arena);
 }
 template<> PROTOBUF_NOINLINE ::io::substrait::Type_Map* Arena::CreateMaybeMessage< ::io::substrait::Type_Map >(Arena* arena) {
   return Arena::CreateMessageInternal< ::io::substrait::Type_Map >(arena);
 }
-template<> PROTOBUF_NOINLINE ::io::substrait::Type_Variation* Arena::CreateMaybeMessage< ::io::substrait::Type_Variation >(Arena* arena) {
-  return Arena::CreateMessageInternal< ::io::substrait::Type_Variation >(arena);
-}
 template<> PROTOBUF_NOINLINE ::io::substrait::Type* Arena::CreateMaybeMessage< ::io::substrait::Type >(Arena* arena) {
   return Arena::CreateMessageInternal< ::io::substrait::Type >(arena);
+}
+template<> PROTOBUF_NOINLINE ::io::substrait::NamedStruct* Arena::CreateMaybeMessage< ::io::substrait::NamedStruct >(Arena* arena) {
+  return Arena::CreateMessageInternal< ::io::substrait::NamedStruct >(arena);
 }
 PROTOBUF_NAMESPACE_CLOSE
 

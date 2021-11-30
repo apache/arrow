@@ -22,9 +22,8 @@
 #include <vector>
 
 #include "arrow/buffer.h"
-#include "arrow/compute/exec/exec_plan.h"
 #include "arrow/engine/visibility.h"
-#include "arrow/result.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/optional.h"
 
 namespace arrow {

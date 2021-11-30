@@ -18,6 +18,7 @@
 #include "arrow/engine/substrait/extension_types.h"
 
 #include "arrow/engine/simple_extension_type_internal.h"
+#include "arrow/util/string_view.h"
 
 namespace arrow {
 namespace engine {

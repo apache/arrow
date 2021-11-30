@@ -35,7 +35,6 @@
 #include "type.pb.h"
 #include "parameterized_types.pb.h"
 #include "type_expressions.pb.h"
-#include "extensions.pb.h"
 // @@protoc_insertion_point(includes)
 #include <google/protobuf/port_def.inc>
 #define PROTOBUF_INTERNAL_EXPORT_function_2eproto
@@ -614,7 +613,6 @@ class FunctionSignature_Scalar PROTOBUF_FINAL :
     kArgumentsFieldNumber = 2,
     kNameFieldNumber = 3,
     kImplementationsFieldNumber = 12,
-    kIdFieldNumber = 1,
     kDescriptionFieldNumber = 4,
     kOutputTypeFieldNumber = 9,
     kDeterministicFieldNumber = 7,
@@ -681,24 +679,6 @@ class FunctionSignature_Scalar PROTOBUF_FINAL :
   ::io::substrait::FunctionSignature_Implementation* add_implementations();
   const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::io::substrait::FunctionSignature_Implementation >&
       implementations() const;
-
-  // .io.substrait.Extensions.FunctionId id = 1;
-  bool has_id() const;
-  private:
-  bool _internal_has_id() const;
-  public:
-  void clear_id();
-  const ::io::substrait::Extensions_FunctionId& id() const;
-  ::io::substrait::Extensions_FunctionId* release_id();
-  ::io::substrait::Extensions_FunctionId* mutable_id();
-  void set_allocated_id(::io::substrait::Extensions_FunctionId* id);
-  private:
-  const ::io::substrait::Extensions_FunctionId& _internal_id() const;
-  ::io::substrait::Extensions_FunctionId* _internal_mutable_id();
-  public:
-  void unsafe_arena_set_allocated_id(
-      ::io::substrait::Extensions_FunctionId* id);
-  ::io::substrait::Extensions_FunctionId* unsafe_arena_release_id();
 
   // .io.substrait.FunctionSignature.Description description = 4;
   bool has_description() const;
@@ -807,7 +787,6 @@ class FunctionSignature_Scalar PROTOBUF_FINAL :
   ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::io::substrait::FunctionSignature_Argument > arguments_;
   ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<std::string> name_;
   ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::io::substrait::FunctionSignature_Implementation > implementations_;
-  ::io::substrait::Extensions_FunctionId* id_;
   ::io::substrait::FunctionSignature_Description* description_;
   ::io::substrait::DerivationExpression* output_type_;
   bool deterministic_;
@@ -939,16 +918,15 @@ class FunctionSignature_Aggregate PROTOBUF_FINAL :
 
   enum : int {
     kArgumentsFieldNumber = 2,
-    kNameFieldNumber = 3,
     kImplementationsFieldNumber = 15,
-    kIdFieldNumber = 1,
+    kNameFieldNumber = 3,
     kDescriptionFieldNumber = 4,
     kOutputTypeFieldNumber = 9,
     kIntermediateTypeFieldNumber = 13,
-    kMaxSetFieldNumber = 12,
     kDeterministicFieldNumber = 7,
     kSessionDependentFieldNumber = 8,
     kOrderedFieldNumber = 14,
+    kMaxSetFieldNumber = 12,
     kVariadicFieldNumber = 10,
     kNormalFieldNumber = 11,
   };
@@ -970,30 +948,6 @@ class FunctionSignature_Aggregate PROTOBUF_FINAL :
   const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::io::substrait::FunctionSignature_Argument >&
       arguments() const;
 
-  // repeated string name = 3;
-  int name_size() const;
-  private:
-  int _internal_name_size() const;
-  public:
-  void clear_name();
-  const std::string& name(int index) const;
-  std::string* mutable_name(int index);
-  void set_name(int index, const std::string& value);
-  void set_name(int index, std::string&& value);
-  void set_name(int index, const char* value);
-  void set_name(int index, const char* value, size_t size);
-  std::string* add_name();
-  void add_name(const std::string& value);
-  void add_name(std::string&& value);
-  void add_name(const char* value);
-  void add_name(const char* value, size_t size);
-  const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<std::string>& name() const;
-  ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<std::string>* mutable_name();
-  private:
-  const std::string& _internal_name(int index) const;
-  std::string* _internal_add_name();
-  public:
-
   // repeated .io.substrait.FunctionSignature.Implementation implementations = 15;
   int implementations_size() const;
   private:
@@ -1012,23 +966,19 @@ class FunctionSignature_Aggregate PROTOBUF_FINAL :
   const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::io::substrait::FunctionSignature_Implementation >&
       implementations() const;
 
-  // .io.substrait.Extensions.FunctionId id = 1;
-  bool has_id() const;
+  // string name = 3;
+  void clear_name();
+  const std::string& name() const;
+  template <typename ArgT0 = const std::string&, typename... ArgT>
+  void set_name(ArgT0&& arg0, ArgT... args);
+  std::string* mutable_name();
+  std::string* release_name();
+  void set_allocated_name(std::string* name);
   private:
-  bool _internal_has_id() const;
+  const std::string& _internal_name() const;
+  void _internal_set_name(const std::string& value);
+  std::string* _internal_mutable_name();
   public:
-  void clear_id();
-  const ::io::substrait::Extensions_FunctionId& id() const;
-  ::io::substrait::Extensions_FunctionId* release_id();
-  ::io::substrait::Extensions_FunctionId* mutable_id();
-  void set_allocated_id(::io::substrait::Extensions_FunctionId* id);
-  private:
-  const ::io::substrait::Extensions_FunctionId& _internal_id() const;
-  ::io::substrait::Extensions_FunctionId* _internal_mutable_id();
-  public:
-  void unsafe_arena_set_allocated_id(
-      ::io::substrait::Extensions_FunctionId* id);
-  ::io::substrait::Extensions_FunctionId* unsafe_arena_release_id();
 
   // .io.substrait.FunctionSignature.Description description = 4;
   bool has_description() const;
@@ -1084,15 +1034,6 @@ class FunctionSignature_Aggregate PROTOBUF_FINAL :
       ::io::substrait::Type* intermediate_type);
   ::io::substrait::Type* unsafe_arena_release_intermediate_type();
 
-  // uint64 max_set = 12;
-  void clear_max_set();
-  ::PROTOBUF_NAMESPACE_ID::uint64 max_set() const;
-  void set_max_set(::PROTOBUF_NAMESPACE_ID::uint64 value);
-  private:
-  ::PROTOBUF_NAMESPACE_ID::uint64 _internal_max_set() const;
-  void _internal_set_max_set(::PROTOBUF_NAMESPACE_ID::uint64 value);
-  public:
-
   // bool deterministic = 7;
   void clear_deterministic();
   bool deterministic() const;
@@ -1118,6 +1059,15 @@ class FunctionSignature_Aggregate PROTOBUF_FINAL :
   private:
   bool _internal_ordered() const;
   void _internal_set_ordered(bool value);
+  public:
+
+  // uint64 max_set = 12;
+  void clear_max_set();
+  ::PROTOBUF_NAMESPACE_ID::uint64 max_set() const;
+  void set_max_set(::PROTOBUF_NAMESPACE_ID::uint64 value);
+  private:
+  ::PROTOBUF_NAMESPACE_ID::uint64 _internal_max_set() const;
+  void _internal_set_max_set(::PROTOBUF_NAMESPACE_ID::uint64 value);
   public:
 
   // .io.substrait.FunctionSignature.FinalArgVariadic variadic = 10;
@@ -1171,16 +1121,15 @@ class FunctionSignature_Aggregate PROTOBUF_FINAL :
   typedef void InternalArenaConstructable_;
   typedef void DestructorSkippable_;
   ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::io::substrait::FunctionSignature_Argument > arguments_;
-  ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<std::string> name_;
   ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::io::substrait::FunctionSignature_Implementation > implementations_;
-  ::io::substrait::Extensions_FunctionId* id_;
+  ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr name_;
   ::io::substrait::FunctionSignature_Description* description_;
   ::io::substrait::DerivationExpression* output_type_;
   ::io::substrait::Type* intermediate_type_;
-  ::PROTOBUF_NAMESPACE_ID::uint64 max_set_;
   bool deterministic_;
   bool session_dependent_;
   bool ordered_;
+  ::PROTOBUF_NAMESPACE_ID::uint64 max_set_;
   union FinalVariableBehaviorUnion {
     constexpr FinalVariableBehaviorUnion() : _constinit_{} {}
       ::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized _constinit_;
@@ -1342,7 +1291,6 @@ class FunctionSignature_Window PROTOBUF_FINAL :
     kArgumentsFieldNumber = 2,
     kNameFieldNumber = 3,
     kImplementationsFieldNumber = 15,
-    kIdFieldNumber = 1,
     kDescriptionFieldNumber = 4,
     kIntermediateTypeFieldNumber = 9,
     kOutputTypeFieldNumber = 10,
@@ -1413,24 +1361,6 @@ class FunctionSignature_Window PROTOBUF_FINAL :
   ::io::substrait::FunctionSignature_Implementation* add_implementations();
   const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::io::substrait::FunctionSignature_Implementation >&
       implementations() const;
-
-  // .io.substrait.Extensions.FunctionId id = 1;
-  bool has_id() const;
-  private:
-  bool _internal_has_id() const;
-  public:
-  void clear_id();
-  const ::io::substrait::Extensions_FunctionId& id() const;
-  ::io::substrait::Extensions_FunctionId* release_id();
-  ::io::substrait::Extensions_FunctionId* mutable_id();
-  void set_allocated_id(::io::substrait::Extensions_FunctionId* id);
-  private:
-  const ::io::substrait::Extensions_FunctionId& _internal_id() const;
-  ::io::substrait::Extensions_FunctionId* _internal_mutable_id();
-  public:
-  void unsafe_arena_set_allocated_id(
-      ::io::substrait::Extensions_FunctionId* id);
-  ::io::substrait::Extensions_FunctionId* unsafe_arena_release_id();
 
   // .io.substrait.FunctionSignature.Description description = 4;
   bool has_description() const;
@@ -1584,7 +1514,6 @@ class FunctionSignature_Window PROTOBUF_FINAL :
   ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::io::substrait::FunctionSignature_Argument > arguments_;
   ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<std::string> name_;
   ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::io::substrait::FunctionSignature_Implementation > implementations_;
-  ::io::substrait::Extensions_FunctionId* id_;
   ::io::substrait::FunctionSignature_Description* description_;
   ::io::substrait::DerivationExpression* intermediate_type_;
   ::io::substrait::DerivationExpression* output_type_;
@@ -2810,83 +2739,6 @@ inline void FunctionSignature_FinalArgVariadic::set_consistency(::io::substrait:
 
 // FunctionSignature_Scalar
 
-// .io.substrait.Extensions.FunctionId id = 1;
-inline bool FunctionSignature_Scalar::_internal_has_id() const {
-  return this != internal_default_instance() && id_ != nullptr;
-}
-inline bool FunctionSignature_Scalar::has_id() const {
-  return _internal_has_id();
-}
-inline const ::io::substrait::Extensions_FunctionId& FunctionSignature_Scalar::_internal_id() const {
-  const ::io::substrait::Extensions_FunctionId* p = id_;
-  return p != nullptr ? *p : reinterpret_cast<const ::io::substrait::Extensions_FunctionId&>(
-      ::io::substrait::_Extensions_FunctionId_default_instance_);
-}
-inline const ::io::substrait::Extensions_FunctionId& FunctionSignature_Scalar::id() const {
-  // @@protoc_insertion_point(field_get:io.substrait.FunctionSignature.Scalar.id)
-  return _internal_id();
-}
-inline void FunctionSignature_Scalar::unsafe_arena_set_allocated_id(
-    ::io::substrait::Extensions_FunctionId* id) {
-  if (GetArena() == nullptr) {
-    delete reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(id_);
-  }
-  id_ = id;
-  if (id) {
-    
-  } else {
-    
-  }
-  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:io.substrait.FunctionSignature.Scalar.id)
-}
-inline ::io::substrait::Extensions_FunctionId* FunctionSignature_Scalar::release_id() {
-  
-  ::io::substrait::Extensions_FunctionId* temp = id_;
-  id_ = nullptr;
-  if (GetArena() != nullptr) {
-    temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
-  }
-  return temp;
-}
-inline ::io::substrait::Extensions_FunctionId* FunctionSignature_Scalar::unsafe_arena_release_id() {
-  // @@protoc_insertion_point(field_release:io.substrait.FunctionSignature.Scalar.id)
-  
-  ::io::substrait::Extensions_FunctionId* temp = id_;
-  id_ = nullptr;
-  return temp;
-}
-inline ::io::substrait::Extensions_FunctionId* FunctionSignature_Scalar::_internal_mutable_id() {
-  
-  if (id_ == nullptr) {
-    auto* p = CreateMaybeMessage<::io::substrait::Extensions_FunctionId>(GetArena());
-    id_ = p;
-  }
-  return id_;
-}
-inline ::io::substrait::Extensions_FunctionId* FunctionSignature_Scalar::mutable_id() {
-  // @@protoc_insertion_point(field_mutable:io.substrait.FunctionSignature.Scalar.id)
-  return _internal_mutable_id();
-}
-inline void FunctionSignature_Scalar::set_allocated_id(::io::substrait::Extensions_FunctionId* id) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
-  if (message_arena == nullptr) {
-    delete reinterpret_cast< ::PROTOBUF_NAMESPACE_ID::MessageLite*>(id_);
-  }
-  if (id) {
-    ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(id)->GetArena();
-    if (message_arena != submessage_arena) {
-      id = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
-          message_arena, id, submessage_arena);
-    }
-    
-  } else {
-    
-  }
-  id_ = id;
-  // @@protoc_insertion_point(field_set_allocated:io.substrait.FunctionSignature.Scalar.id)
-}
-
 // repeated .io.substrait.FunctionSignature.Argument arguments = 2;
 inline int FunctionSignature_Scalar::_internal_arguments_size() const {
   return arguments_.size();
@@ -3398,83 +3250,6 @@ inline FunctionSignature_Scalar::FinalVariableBehaviorCase FunctionSignature_Sca
 
 // FunctionSignature_Aggregate
 
-// .io.substrait.Extensions.FunctionId id = 1;
-inline bool FunctionSignature_Aggregate::_internal_has_id() const {
-  return this != internal_default_instance() && id_ != nullptr;
-}
-inline bool FunctionSignature_Aggregate::has_id() const {
-  return _internal_has_id();
-}
-inline const ::io::substrait::Extensions_FunctionId& FunctionSignature_Aggregate::_internal_id() const {
-  const ::io::substrait::Extensions_FunctionId* p = id_;
-  return p != nullptr ? *p : reinterpret_cast<const ::io::substrait::Extensions_FunctionId&>(
-      ::io::substrait::_Extensions_FunctionId_default_instance_);
-}
-inline const ::io::substrait::Extensions_FunctionId& FunctionSignature_Aggregate::id() const {
-  // @@protoc_insertion_point(field_get:io.substrait.FunctionSignature.Aggregate.id)
-  return _internal_id();
-}
-inline void FunctionSignature_Aggregate::unsafe_arena_set_allocated_id(
-    ::io::substrait::Extensions_FunctionId* id) {
-  if (GetArena() == nullptr) {
-    delete reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(id_);
-  }
-  id_ = id;
-  if (id) {
-    
-  } else {
-    
-  }
-  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:io.substrait.FunctionSignature.Aggregate.id)
-}
-inline ::io::substrait::Extensions_FunctionId* FunctionSignature_Aggregate::release_id() {
-  
-  ::io::substrait::Extensions_FunctionId* temp = id_;
-  id_ = nullptr;
-  if (GetArena() != nullptr) {
-    temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
-  }
-  return temp;
-}
-inline ::io::substrait::Extensions_FunctionId* FunctionSignature_Aggregate::unsafe_arena_release_id() {
-  // @@protoc_insertion_point(field_release:io.substrait.FunctionSignature.Aggregate.id)
-  
-  ::io::substrait::Extensions_FunctionId* temp = id_;
-  id_ = nullptr;
-  return temp;
-}
-inline ::io::substrait::Extensions_FunctionId* FunctionSignature_Aggregate::_internal_mutable_id() {
-  
-  if (id_ == nullptr) {
-    auto* p = CreateMaybeMessage<::io::substrait::Extensions_FunctionId>(GetArena());
-    id_ = p;
-  }
-  return id_;
-}
-inline ::io::substrait::Extensions_FunctionId* FunctionSignature_Aggregate::mutable_id() {
-  // @@protoc_insertion_point(field_mutable:io.substrait.FunctionSignature.Aggregate.id)
-  return _internal_mutable_id();
-}
-inline void FunctionSignature_Aggregate::set_allocated_id(::io::substrait::Extensions_FunctionId* id) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
-  if (message_arena == nullptr) {
-    delete reinterpret_cast< ::PROTOBUF_NAMESPACE_ID::MessageLite*>(id_);
-  }
-  if (id) {
-    ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(id)->GetArena();
-    if (message_arena != submessage_arena) {
-      id = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
-          message_arena, id, submessage_arena);
-    }
-    
-  } else {
-    
-  }
-  id_ = id;
-  // @@protoc_insertion_point(field_set_allocated:io.substrait.FunctionSignature.Aggregate.id)
-}
-
 // repeated .io.substrait.FunctionSignature.Argument arguments = 2;
 inline int FunctionSignature_Aggregate::_internal_arguments_size() const {
   return arguments_.size();
@@ -3514,78 +3289,49 @@ FunctionSignature_Aggregate::arguments() const {
   return arguments_;
 }
 
-// repeated string name = 3;
-inline int FunctionSignature_Aggregate::_internal_name_size() const {
-  return name_.size();
-}
-inline int FunctionSignature_Aggregate::name_size() const {
-  return _internal_name_size();
-}
+// string name = 3;
 inline void FunctionSignature_Aggregate::clear_name() {
-  name_.Clear();
+  name_.ClearToEmpty();
 }
-inline std::string* FunctionSignature_Aggregate::add_name() {
-  // @@protoc_insertion_point(field_add_mutable:io.substrait.FunctionSignature.Aggregate.name)
-  return _internal_add_name();
-}
-inline const std::string& FunctionSignature_Aggregate::_internal_name(int index) const {
-  return name_.Get(index);
-}
-inline const std::string& FunctionSignature_Aggregate::name(int index) const {
+inline const std::string& FunctionSignature_Aggregate::name() const {
   // @@protoc_insertion_point(field_get:io.substrait.FunctionSignature.Aggregate.name)
-  return _internal_name(index);
+  return _internal_name();
 }
-inline std::string* FunctionSignature_Aggregate::mutable_name(int index) {
+template <typename ArgT0, typename... ArgT>
+PROTOBUF_ALWAYS_INLINE
+inline void FunctionSignature_Aggregate::set_name(ArgT0&& arg0, ArgT... args) {
+ 
+ name_.Set(::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::EmptyDefault{}, static_cast<ArgT0 &&>(arg0), args..., GetArena());
+  // @@protoc_insertion_point(field_set:io.substrait.FunctionSignature.Aggregate.name)
+}
+inline std::string* FunctionSignature_Aggregate::mutable_name() {
   // @@protoc_insertion_point(field_mutable:io.substrait.FunctionSignature.Aggregate.name)
-  return name_.Mutable(index);
+  return _internal_mutable_name();
 }
-inline void FunctionSignature_Aggregate::set_name(int index, const std::string& value) {
-  // @@protoc_insertion_point(field_set:io.substrait.FunctionSignature.Aggregate.name)
-  name_.Mutable(index)->assign(value);
+inline const std::string& FunctionSignature_Aggregate::_internal_name() const {
+  return name_.Get();
 }
-inline void FunctionSignature_Aggregate::set_name(int index, std::string&& value) {
-  // @@protoc_insertion_point(field_set:io.substrait.FunctionSignature.Aggregate.name)
-  name_.Mutable(index)->assign(std::move(value));
+inline void FunctionSignature_Aggregate::_internal_set_name(const std::string& value) {
+  
+  name_.Set(::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::EmptyDefault{}, value, GetArena());
 }
-inline void FunctionSignature_Aggregate::set_name(int index, const char* value) {
-  GOOGLE_DCHECK(value != nullptr);
-  name_.Mutable(index)->assign(value);
-  // @@protoc_insertion_point(field_set_char:io.substrait.FunctionSignature.Aggregate.name)
+inline std::string* FunctionSignature_Aggregate::_internal_mutable_name() {
+  
+  return name_.Mutable(::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::EmptyDefault{}, GetArena());
 }
-inline void FunctionSignature_Aggregate::set_name(int index, const char* value, size_t size) {
-  name_.Mutable(index)->assign(
-    reinterpret_cast<const char*>(value), size);
-  // @@protoc_insertion_point(field_set_pointer:io.substrait.FunctionSignature.Aggregate.name)
+inline std::string* FunctionSignature_Aggregate::release_name() {
+  // @@protoc_insertion_point(field_release:io.substrait.FunctionSignature.Aggregate.name)
+  return name_.Release(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(), GetArena());
 }
-inline std::string* FunctionSignature_Aggregate::_internal_add_name() {
-  return name_.Add();
-}
-inline void FunctionSignature_Aggregate::add_name(const std::string& value) {
-  name_.Add()->assign(value);
-  // @@protoc_insertion_point(field_add:io.substrait.FunctionSignature.Aggregate.name)
-}
-inline void FunctionSignature_Aggregate::add_name(std::string&& value) {
-  name_.Add(std::move(value));
-  // @@protoc_insertion_point(field_add:io.substrait.FunctionSignature.Aggregate.name)
-}
-inline void FunctionSignature_Aggregate::add_name(const char* value) {
-  GOOGLE_DCHECK(value != nullptr);
-  name_.Add()->assign(value);
-  // @@protoc_insertion_point(field_add_char:io.substrait.FunctionSignature.Aggregate.name)
-}
-inline void FunctionSignature_Aggregate::add_name(const char* value, size_t size) {
-  name_.Add()->assign(reinterpret_cast<const char*>(value), size);
-  // @@protoc_insertion_point(field_add_pointer:io.substrait.FunctionSignature.Aggregate.name)
-}
-inline const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<std::string>&
-FunctionSignature_Aggregate::name() const {
-  // @@protoc_insertion_point(field_list:io.substrait.FunctionSignature.Aggregate.name)
-  return name_;
-}
-inline ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<std::string>*
-FunctionSignature_Aggregate::mutable_name() {
-  // @@protoc_insertion_point(field_mutable_list:io.substrait.FunctionSignature.Aggregate.name)
-  return &name_;
+inline void FunctionSignature_Aggregate::set_allocated_name(std::string* name) {
+  if (name != nullptr) {
+    
+  } else {
+    
+  }
+  name_.SetAllocated(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(), name,
+      GetArena());
+  // @@protoc_insertion_point(field_set_allocated:io.substrait.FunctionSignature.Aggregate.name)
 }
 
 // .io.substrait.FunctionSignature.Description description = 4;
@@ -4102,83 +3848,6 @@ inline FunctionSignature_Aggregate::FinalVariableBehaviorCase FunctionSignature_
 // -------------------------------------------------------------------
 
 // FunctionSignature_Window
-
-// .io.substrait.Extensions.FunctionId id = 1;
-inline bool FunctionSignature_Window::_internal_has_id() const {
-  return this != internal_default_instance() && id_ != nullptr;
-}
-inline bool FunctionSignature_Window::has_id() const {
-  return _internal_has_id();
-}
-inline const ::io::substrait::Extensions_FunctionId& FunctionSignature_Window::_internal_id() const {
-  const ::io::substrait::Extensions_FunctionId* p = id_;
-  return p != nullptr ? *p : reinterpret_cast<const ::io::substrait::Extensions_FunctionId&>(
-      ::io::substrait::_Extensions_FunctionId_default_instance_);
-}
-inline const ::io::substrait::Extensions_FunctionId& FunctionSignature_Window::id() const {
-  // @@protoc_insertion_point(field_get:io.substrait.FunctionSignature.Window.id)
-  return _internal_id();
-}
-inline void FunctionSignature_Window::unsafe_arena_set_allocated_id(
-    ::io::substrait::Extensions_FunctionId* id) {
-  if (GetArena() == nullptr) {
-    delete reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(id_);
-  }
-  id_ = id;
-  if (id) {
-    
-  } else {
-    
-  }
-  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:io.substrait.FunctionSignature.Window.id)
-}
-inline ::io::substrait::Extensions_FunctionId* FunctionSignature_Window::release_id() {
-  
-  ::io::substrait::Extensions_FunctionId* temp = id_;
-  id_ = nullptr;
-  if (GetArena() != nullptr) {
-    temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
-  }
-  return temp;
-}
-inline ::io::substrait::Extensions_FunctionId* FunctionSignature_Window::unsafe_arena_release_id() {
-  // @@protoc_insertion_point(field_release:io.substrait.FunctionSignature.Window.id)
-  
-  ::io::substrait::Extensions_FunctionId* temp = id_;
-  id_ = nullptr;
-  return temp;
-}
-inline ::io::substrait::Extensions_FunctionId* FunctionSignature_Window::_internal_mutable_id() {
-  
-  if (id_ == nullptr) {
-    auto* p = CreateMaybeMessage<::io::substrait::Extensions_FunctionId>(GetArena());
-    id_ = p;
-  }
-  return id_;
-}
-inline ::io::substrait::Extensions_FunctionId* FunctionSignature_Window::mutable_id() {
-  // @@protoc_insertion_point(field_mutable:io.substrait.FunctionSignature.Window.id)
-  return _internal_mutable_id();
-}
-inline void FunctionSignature_Window::set_allocated_id(::io::substrait::Extensions_FunctionId* id) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
-  if (message_arena == nullptr) {
-    delete reinterpret_cast< ::PROTOBUF_NAMESPACE_ID::MessageLite*>(id_);
-  }
-  if (id) {
-    ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(id)->GetArena();
-    if (message_arena != submessage_arena) {
-      id = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
-          message_arena, id, submessage_arena);
-    }
-    
-  } else {
-    
-  }
-  id_ = id;
-  // @@protoc_insertion_point(field_set_allocated:io.substrait.FunctionSignature.Window.id)
-}
 
 // repeated .io.substrait.FunctionSignature.Argument arguments = 2;
 inline int FunctionSignature_Window::_internal_arguments_size() const {
