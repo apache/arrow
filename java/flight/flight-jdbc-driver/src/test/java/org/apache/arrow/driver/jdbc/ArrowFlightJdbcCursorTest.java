@@ -1,24 +1,35 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.arrow.driver.jdbc;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.arrow.driver.jdbc.utils.FlightTestUtils;
-import org.apache.arrow.driver.jdbc.utils.VectorSchemaRootTransformer;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.apache.arrow.vector.BaseIntVector;
-import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.DateDayVector;
 import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.DurationVector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
-import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.IntervalDayVector;
-import org.apache.arrow.vector.NullVector;
 import org.apache.arrow.vector.TimeMilliVector;
 import org.apache.arrow.vector.TimeStampMilliVector;
 import org.apache.arrow.vector.UInt4Vector;
@@ -39,8 +50,8 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.calcite.avatica.util.Cursor;
-import org.junit.Before;
 import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
 
 import com.google.common.collect.ImmutableList;
 
@@ -52,6 +63,11 @@ import static org.junit.Assert.assertTrue;
 public class ArrowFlightJdbcCursorTest {
 
     ArrowFlightJdbcCursor cursor;
+
+    @AfterEach
+    public void cleanUp() {
+        cursor.close();
+    }
 
     @Test
     public void testBinaryVectorNullTrue() throws SQLException {
@@ -71,6 +87,7 @@ public class ArrowFlightJdbcCursorTest {
         List<Cursor.Accessor> accessorList = cursor.createAccessors(null,null,null);
         accessorList.get(0).getBytes();
         assertTrue(cursor.wasNull());
+
     }
 
     @Test
