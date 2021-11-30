@@ -129,7 +129,7 @@ class LZ4Decompressor : public Decompressor {
 
 class LZ4Compressor : public Compressor {
  public:
-  LZ4Compressor(int compression_level)
+  explicit LZ4Compressor(int compression_level)
       : compression_level_(compression_level) {}
 
   ~LZ4Compressor() override {
@@ -252,7 +252,7 @@ class LZ4Compressor : public Compressor {
 
 class Lz4FrameCodec : public Codec {
  public:
-  Lz4FrameCodec(int compression_level)
+  explicit Lz4FrameCodec(int compression_level)
       : compression_level_(compression_level == kUseDefaultCompressionLevel
                                ? kLZ4DefaultCompressionLevel
                                : compression_level),
