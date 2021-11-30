@@ -888,9 +888,13 @@ cdef encoding_enum_from_name(str encoding_name):
         'BYTE_STREAM_SPLIT': ParquetEncoding_BYTE_STREAM_SPLIT,
         'DELTA_BINARY_PACKED': ParquetEncoding_DELTA_BINARY_PACKED,
         'DELTA_BYTE_ARRAY': ParquetEncoding_DELTA_BYTE_ARRAY,
+        'RLE_DICTIONARY': 'dict',
+        'PLAIN_DICTIONARY': 'dict',
     }.get(encoding_name, None)
     if enc is None:
         raise ValueError(f"Unsupported column encoding: {encoding_name!r}")
+    elif enc == 'dict':
+        raise ValueError(f"{encoding_name!r} is already used by default.")
     else:
         return enc
 

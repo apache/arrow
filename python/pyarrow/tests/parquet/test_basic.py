@@ -373,7 +373,8 @@ def test_column_encoding(use_legacy_dataset):
 
     # Try to pass "BYTE_STREAM_SPLIT" column encoding for integer column 'b'.
     # This should throw an error as it is only supports FLOAT and DOUBLE.
-    with pytest.raises(IOError):
+    with pytest.raises(IOError,
+                       match="BYTE_STREAM_SPLIT only supports FLOAT and DOUBLE"):
         _check_roundtrip(mixed_table, expected=mixed_table,
                          use_dictionary=False,
                          column_encoding={'b': "BYTE_STREAM_SPLIT"},
@@ -381,10 +382,18 @@ def test_column_encoding(use_legacy_dataset):
 
     # Try to pass "DELTA_BINARY_PACKED".
     # This should throw an error as it is only supported for reading.
-    with pytest.raises(IOError):
+    with pytest.raises(IOError,
+                       match="Not yet implemented: Selected encoding is not supported."):
         _check_roundtrip(mixed_table, expected=mixed_table,
                          use_dictionary=False,
                          column_encoding={'b': "DELTA_BINARY_PACKED"},
+                         use_legacy_dataset=use_legacy_dataset)
+
+    # Try to pass "RLE_DICTIONARY".
+    with pytest.raises(ValueError):
+        _check_roundtrip(mixed_table, expected=mixed_table,
+                         use_dictionary=False,
+                         column_encoding="RLE_DICTIONARY",
                          use_legacy_dataset=use_legacy_dataset)
 
     # Try to pass unsupported encoding.
@@ -399,14 +408,14 @@ def test_column_encoding(use_legacy_dataset):
     with pytest.raises(ValueError):
         _check_roundtrip(mixed_table, expected=mixed_table,
                          use_dictionary=['b'],
-                         column_encoding={'b': "DELTA_BINARY_PACKED"},
+                         column_encoding={'b': "PLAIN"},
                          use_legacy_dataset=use_legacy_dataset)
 
     # Try to pass column_encoding and use_dictionary=True (default value).
     # This should throw an error.
     with pytest.raises(ValueError):
         _check_roundtrip(mixed_table, expected=mixed_table,
-                         column_encoding={'b': "DELTA_BINARY_PACKED"},
+                         column_encoding={'b': "PLAIN"},
                          use_legacy_dataset=use_legacy_dataset)
 
     # Try to pass column_encoding and use_byte_stream_split on same column.
