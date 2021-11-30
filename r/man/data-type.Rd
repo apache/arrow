@@ -30,6 +30,7 @@
 \alias{null}
 \alias{timestamp}
 \alias{decimal}
+\alias{decimal256}
 \alias{struct}
 \alias{list_of}
 \alias{large_list_of}
@@ -92,6 +93,8 @@ null()
 timestamp(unit = c("s", "ms", "us", "ns"), timezone = "")
 
 decimal(precision, scale)
+
+decimal256(precision, scale)
 
 struct(...)
 
