@@ -23,8 +23,11 @@
 
 #include "arrow/array/util.h"
 #include "arrow/buffer.h"
+#include "arrow/chunked_array.h"
 #include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/type_fwd.h"
+#include "arrow/record_batch.h"
+#include "arrow/table.h"
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/math_constants.h"
 
@@ -35,7 +38,7 @@ namespace internal {
 template <typename T>
 using maybe_make_unsigned =
     typename std::conditional<std::is_integral<T>::value && !std::is_same<T, bool>::value,
-                              std::make_unsigned<T>, std::common_type<T> >::type;
+                              std::make_unsigned<T>, std::common_type<T>>::type;
 
 template <typename T, typename Unsigned = typename maybe_make_unsigned<T>::type>
 constexpr Unsigned to_unsigned(T signed_) {
@@ -160,6 +163,21 @@ int64_t CopyNonNullValues(const Datum& datum, T* out) {
   }
   return n;
 }
+
+//--------------------------------------------------------------------------
+// An internal function to create an empty array, chucked array, record batch and table.
+
+Result<std::shared_ptr<Array>> CreateEmptyArray(std::shared_ptr<DataType> type,
+                                                MemoryPool* memory_pool);
+
+Result<std::shared_ptr<ChunkedArray>> CreateEmptyChunkedArray(
+    std::shared_ptr<DataType> type, MemoryPool* memory_pool);
+
+Result<std::shared_ptr<RecordBatch>> CreateEmptyRecordBatch(
+    std::shared_ptr<Schema> schema, MemoryPool* memory_pool);
+
+Result<std::shared_ptr<Table>> CreateEmptyTable(std::shared_ptr<Schema> schema,
+                                                MemoryPool* memory_pool);
 
 }  // namespace internal
 }  // namespace compute

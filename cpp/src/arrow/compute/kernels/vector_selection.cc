@@ -2170,21 +2170,6 @@ Result<std::shared_ptr<arrow::BooleanArray>> GetDropNullFilter(const Array& valu
   return out_array;
 }
 
-Result<std::shared_ptr<Array>> CreateEmptyArray(std::shared_ptr<DataType> type,
-                                                MemoryPool* memory_pool) {
-  std::unique_ptr<ArrayBuilder> builder;
-  RETURN_NOT_OK(MakeBuilder(memory_pool, type, &builder));
-  RETURN_NOT_OK(builder->Resize(0));
-  return builder->Finish();
-}
-
-Result<std::shared_ptr<ChunkedArray>> CreateEmptyChunkedArray(
-    std::shared_ptr<DataType> type, MemoryPool* memory_pool) {
-  std::vector<std::shared_ptr<Array>> new_chunks(1);  // Hard-coded 1 for now
-  ARROW_ASSIGN_OR_RAISE(new_chunks[0], CreateEmptyArray(type, memory_pool));
-  return std::make_shared<ChunkedArray>(std::move(new_chunks));
-}
-
 Result<Datum> DropNullArray(const std::shared_ptr<Array>& values, ExecContext* ctx) {
   if (values->null_count() == 0) {
     return values;
@@ -2244,13 +2229,7 @@ Result<Datum> DropNullRecordBatch(const std::shared_ptr<RecordBatch>& batch,
   }
   auto drop_null_filter = std::make_shared<BooleanArray>(batch->num_rows(), dst);
   if (drop_null_filter->true_count() == 0) {
-    // Shortcut: construct empty result
-    ArrayVector empty_batch(batch->num_columns());
-    for (int i = 0; i < batch->num_columns(); i++) {
-      ARROW_ASSIGN_OR_RAISE(
-          empty_batch[i], CreateEmptyArray(batch->column(i)->type(), ctx->memory_pool()));
-    }
-    return RecordBatch::Make(batch->schema(), 0, std::move(empty_batch));
+    return CreateEmptyRecordBatch(batch->schema(), ctx->memory_pool());
   }
   return Filter(Datum(batch), Datum(drop_null_filter), FilterOptions::Defaults(), ctx);
 }
@@ -2282,6 +2261,7 @@ Result<Datum> DropNullTable(const std::shared_ptr<Table>& table, ExecContext* ct
       filtered_batches.push_back(filtered_datum.record_batch());
     }
   }
+
   return Table::FromRecordBatches(table->schema(), filtered_batches);
 }
 
