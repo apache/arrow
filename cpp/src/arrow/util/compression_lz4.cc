@@ -252,7 +252,7 @@ class Lz4FrameCodec : public Codec {
       : compression_level_(compression_level == kUseDefaultCompressionLevel
                                ? kLZ4DefaultCompressionLevel
                                : compression_level),
-                               prefs_(DefaultPreferences(compression_level)) {}
+                               prefs_(DefaultPreferences(compression_level_)) {}
 
   int64_t MaxCompressedLen(int64_t input_len,
                            const uint8_t* ARROW_ARG_UNUSED(input)) override {
