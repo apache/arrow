@@ -152,6 +152,7 @@ def test_option_class_equality():
         pc.SplitPatternOptions("pattern"),
         pc.StrftimeOptions(),
         pc.StrptimeOptions("%Y", "s"),
+        pc.StructFieldOptions(indices=[]),
         pc.TakeOptions(),
         pc.TDigestOptions(),
         pc.TrimOptions(" "),
@@ -2219,6 +2220,9 @@ def test_struct_fields_options():
     assert pc.struct_field(arr,
                            indices=[0]) == pa.array([4, 5, 6], type=pa.int64())
     assert pc.struct_field(arr, indices=[]) == arr
+
+    with pytest.raises(TypeError, match="an integer is required"):
+        pc.struct_field(arr, indices=['a'])
 
     # TODO: https://issues.apache.org/jira/browse/ARROW-14853
     # assert pc.struct_field(arr) == arr
