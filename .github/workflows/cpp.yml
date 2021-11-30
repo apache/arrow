@@ -113,6 +113,23 @@ jobs:
           cd cpp/examples/minimal_build
           docker-compose run --rm minimal
 
+  cmake-checks:
+    name: CMake checks
+    runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Run
+        run: |
+          cd cpp
+          cmake --list-presets
+
   macos:
     name: AMD64 MacOS 10.15 C++
     runs-on: macos-latest
