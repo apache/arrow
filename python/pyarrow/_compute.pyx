@@ -967,6 +967,16 @@ class MakeStructOptions(_MakeStructOptions):
         self._set_options(field_names, field_nullability, field_metadata)
 
 
+cdef class _StructFieldOptions(FunctionOptions):
+    def _set_options(self, indices):
+        self.wrapped.reset(new CStructFieldOptions(indices))
+
+
+class StructFieldOptions(_StructFieldOptions):
+    def __init__(self, indices):
+        self._set_options(indices)
+
+
 cdef class _ScalarAggregateOptions(FunctionOptions):
     def _set_options(self, skip_nulls, min_count):
         self.wrapped.reset(new CScalarAggregateOptions(skip_nulls, min_count))
