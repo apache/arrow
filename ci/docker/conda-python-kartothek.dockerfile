@@ -27,6 +27,7 @@ RUN conda install -c conda-forge -q \
         cloudpickle \
         dask \
         decorator \
+        deprecation \
         freezegun \
         msgpack-python \
         prompt-toolkit \
