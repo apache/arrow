@@ -86,8 +86,8 @@ target environment.**
    :caption: Development
 
    developers/contributing
-   developers/cpp/index
    developers/guide/index
+   developers/cpp/index
    developers/python
    developers/archery
    developers/crossbow
