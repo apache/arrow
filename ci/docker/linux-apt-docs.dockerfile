@@ -80,9 +80,9 @@ RUN pip install \
         meson \
         breathe==4.29.0 \
         ipython \
+        pydata-sphinx-theme\
         sphinx \
-        sphinx-tabs\
-        pydata-sphinx-theme
+        sphinx-tabs
 
 COPY c_glib/Gemfile /arrow/c_glib/
 RUN gem install --no-document bundler && \
