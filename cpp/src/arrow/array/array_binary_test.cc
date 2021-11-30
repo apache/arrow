@@ -106,6 +106,18 @@ class TestStringArray : public ::testing::Test {
     AssertZeroPadded(*strings_);
   }
 
+  void TestArrayIndexOperator() {
+    const auto& arr = *strings_;
+    for (int64_t i = 0; i < arr.length(); ++i) {
+      if (valid_bytes_[i]) {
+        ASSERT_TRUE(arr[i].has_value());
+        ASSERT_EQ(expected_[i], arr[i].value());
+      } else {
+        ASSERT_FALSE(arr[i].has_value());
+      }
+    }
+  }
+
   void TestArrayCtors() {
     // ARROW-8863: ArrayData::null_count set to 0 when no validity bitmap
     // provided
@@ -327,6 +339,8 @@ class TestStringArray : public ::testing::Test {
 TYPED_TEST_SUITE(TestStringArray, BaseBinaryArrowTypes);
 
 TYPED_TEST(TestStringArray, TestArrayBasics) { this->TestArrayBasics(); }
+
+TYPED_TEST(TestStringArray, TestArrayIndexOperator) { this->TestArrayIndexOperator(); }
 
 TYPED_TEST(TestStringArray, TestArrayCtors) { this->TestArrayCtors(); }
 

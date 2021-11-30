@@ -54,6 +54,8 @@ class ARROW_EXPORT BooleanArray : public PrimitiveArray {
 
   bool GetView(int64_t i) const { return Value(i); }
 
+  util::optional<bool> operator[](int64_t i) const { return *IteratorType(*this, i); }
+
   /// \brief Return the number of false (0) values among the valid
   /// values. Result is not cached.
   int64_t false_count() const;
@@ -109,6 +111,10 @@ class NumericArray : public PrimitiveArray {
   // For API compatibility with BinaryArray etc.
   value_type GetView(int64_t i) const { return Value(i); }
 
+  util::optional<value_type> operator[](int64_t i) const {
+    return *IteratorType(*this, i);
+  }
+
   IteratorType begin() const { return IteratorType(*this); }
 
   IteratorType end() const { return IteratorType(*this, length()); }
@@ -123,6 +129,7 @@ class NumericArray : public PrimitiveArray {
 class ARROW_EXPORT DayTimeIntervalArray : public PrimitiveArray {
  public:
   using TypeClass = DayTimeIntervalType;
+  using IteratorType = stl::ArrayIterator<DayTimeIntervalArray>;
 
   explicit DayTimeIntervalArray(const std::shared_ptr<ArrayData>& data);
 
@@ -141,6 +148,14 @@ class ARROW_EXPORT DayTimeIntervalArray : public PrimitiveArray {
   // For compatibility with Take kernel.
   TypeClass::DayMilliseconds GetView(int64_t i) const { return GetValue(i); }
 
+  IteratorType begin() const { return IteratorType(*this); }
+
+  IteratorType end() const { return IteratorType(*this, length()); }
+
+  util::optional<TypeClass::DayMilliseconds> operator[](int64_t i) const {
+    return *IteratorType(*this, i);
+  }
+
   int32_t byte_width() const { return sizeof(TypeClass::DayMilliseconds); }
 
   const uint8_t* raw_values() const { return raw_values_ + data_->offset * byte_width(); }
@@ -150,6 +165,7 @@ class ARROW_EXPORT DayTimeIntervalArray : public PrimitiveArray {
 class ARROW_EXPORT MonthDayNanoIntervalArray : public PrimitiveArray {
  public:
   using TypeClass = MonthDayNanoIntervalType;
+  using IteratorType = stl::ArrayIterator<MonthDayNanoIntervalArray>;
 
   explicit MonthDayNanoIntervalArray(const std::shared_ptr<ArrayData>& data);
 
@@ -167,6 +183,14 @@ class ARROW_EXPORT MonthDayNanoIntervalArray : public PrimitiveArray {
 
   // For compatibility with Take kernel.
   TypeClass::MonthDayNanos GetView(int64_t i) const { return GetValue(i); }
+
+  IteratorType begin() const { return IteratorType(*this); }
+
+  IteratorType end() const { return IteratorType(*this, length()); }
+
+  util::optional<TypeClass::MonthDayNanos> operator[](int64_t i) const {
+    return *IteratorType(*this, i);
+  }
 
   int32_t byte_width() const { return sizeof(TypeClass::MonthDayNanos); }
 

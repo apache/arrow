@@ -2162,6 +2162,16 @@ TEST_F(TestFWBinaryArray, ArrayDataVisitorSliced) {
   ARROW_UNUSED(visitor);  // Workaround weird MSVC warning
 }
 
+TEST_F(TestFWBinaryArray, ArrayIndexOperator) {
+  auto type = fixed_size_binary(3);
+  auto arr = ArrayFromJSON(type, R"(["abc", null, "def"])");
+  auto fsba = checked_pointer_cast<FixedSizeBinaryArray>(arr);
+
+  ASSERT_EQ("abc", (*fsba)[0].value());
+  ASSERT_EQ(util::nullopt, (*fsba)[1]);
+  ASSERT_EQ("def", (*fsba)[2].value());
+}
+
 // ----------------------------------------------------------------------
 // AdaptiveInt tests
 
@@ -3345,6 +3355,63 @@ TEST(TestSwapEndianArrayData, InvalidLength) {
     ASSERT_OK_AND_ASSIGN(auto swapped_data, ::arrow::internal::SwapEndianArrayData(data));
     auto swapped = MakeArray(swapped_data);
     ASSERT_RAISES(Invalid, swapped->Validate());
+  }
+}
+
+template <typename PType>
+class TestPrimitiveArray : public ::testing::Test {
+ public:
+  using ElementType = typename PType::T;
+
+  void SetUp() {
+    pool_ = default_memory_pool();
+    GenerateInput();
+  }
+
+  void GenerateInput() {
+    validity_ = std::vector<bool>{true, false, true, true, false, true};
+    values_ = std::vector<ElementType>{0, 1, 1, 0, 1, 1};
+  }
+
+ protected:
+  MemoryPool* pool_;
+  std::vector<bool> validity_;
+  std::vector<ElementType> values_;
+};
+
+template <>
+void TestPrimitiveArray<PDayTimeInterval>::GenerateInput() {
+  validity_ = std::vector<bool>{true, false};
+  values_ = std::vector<DayTimeIntervalType::DayMilliseconds>{{0, 10}, {1, 0}};
+}
+
+template <>
+void TestPrimitiveArray<PMonthDayNanoInterval>::GenerateInput() {
+  validity_ = std::vector<bool>{false, true};
+  values_ =
+      std::vector<MonthDayNanoIntervalType::MonthDayNanos>{{0, 10, 100}, {1, 0, 10}};
+}
+
+TYPED_TEST_SUITE(TestPrimitiveArray, Primitives);
+
+TYPED_TEST(TestPrimitiveArray, IndexOperator) {
+  typename TypeParam::BuilderType builder;
+  ASSERT_OK(builder.Reserve(this->values_.size()));
+  ASSERT_OK(builder.AppendValues(this->values_, this->validity_));
+  ASSERT_OK_AND_ASSIGN(auto array, builder.Finish());
+
+  const auto& carray = checked_cast<typename TypeParam::ArrayType&>(*array);
+
+  ASSERT_EQ(this->values_.size(), carray.length());
+  for (int64_t i = 0; i < carray.length(); ++i) {
+    auto res = carray[i];
+    if (this->validity_[i]) {
+      ASSERT_TRUE(res.has_value());
+      ASSERT_EQ(this->values_[i], res.value());
+    } else {
+      ASSERT_FALSE(res.has_value());
+      ASSERT_EQ(res, util::nullopt);
+    }
   }
 }
 
