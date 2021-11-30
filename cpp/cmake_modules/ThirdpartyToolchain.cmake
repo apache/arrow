@@ -297,7 +297,6 @@ if(ARROW_FLIGHT)
 endif()
 
 if(ARROW_WITH_GRPC)
-  # gRPC requires zlib
   set(ARROW_WITH_ZLIB ON)
 endif()
 
