@@ -3365,29 +3365,29 @@ class TestPrimitiveArray : public ::testing::Test {
 
   void SetUp() {
     pool_ = default_memory_pool();
-    generate_input();
+    GenerateInput();
   }
 
-  void generate_input() {
-    null_tags_ = std::vector<bool>{true, false, true, true, false, true};
-    values_ = std::vector<ElementType>{0, 1, 0, 0, 1, 0};
+  void GenerateInput() {
+    validity_ = std::vector<bool>{true, false, true, true, false, true};
+    values_ = std::vector<ElementType>{0, 1, 1, 0, 1, 1};
   }
 
  protected:
   MemoryPool* pool_;
-  std::vector<bool> null_tags_;
+  std::vector<bool> validity_;
   std::vector<ElementType> values_;
 };
 
 template <>
-void TestPrimitiveArray<PDayTimeInterval>::generate_input() {
-  null_tags_ = std::vector<bool>{true, false};
+void TestPrimitiveArray<PDayTimeInterval>::GenerateInput() {
+  validity_ = std::vector<bool>{true, false};
   values_ = std::vector<DayTimeIntervalType::DayMilliseconds>{{0, 10}, {1, 0}};
 }
 
 template <>
-void TestPrimitiveArray<PMonthDayNanoInterval>::generate_input() {
-  null_tags_ = std::vector<bool>{false, true};
+void TestPrimitiveArray<PMonthDayNanoInterval>::GenerateInput() {
+  validity_ = std::vector<bool>{false, true};
   values_ =
       std::vector<MonthDayNanoIntervalType::MonthDayNanos>{{0, 10, 100}, {1, 0, 10}};
 }
@@ -3397,7 +3397,7 @@ TYPED_TEST_SUITE(TestPrimitiveArray, Primitives);
 TYPED_TEST(TestPrimitiveArray, IndexOperator) {
   typename TypeParam::BuilderType builder;
   ASSERT_OK(builder.Reserve(this->values_.size()));
-  ASSERT_OK(builder.AppendValues(this->values_, this->null_tags_));
+  ASSERT_OK(builder.AppendValues(this->values_, this->validity_));
   ASSERT_OK_AND_ASSIGN(auto array, builder.Finish());
 
   const auto& carray = checked_cast<typename TypeParam::ArrayType&>(*array);
@@ -3405,7 +3405,7 @@ TYPED_TEST(TestPrimitiveArray, IndexOperator) {
   ASSERT_EQ(this->values_.size(), carray.length());
   for (int64_t i = 0; i < carray.length(); ++i) {
     auto res = carray[i];
-    if (res) {
+    if (this->validity_[i]) {
       ASSERT_TRUE(res.has_value());
       ASSERT_EQ(this->values_[i], res.value());
     } else {
