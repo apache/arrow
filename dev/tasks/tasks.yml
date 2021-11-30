@@ -1256,12 +1256,12 @@ tasks:
         GO: 1.15
       run: debian-go
 
-  test-ubuntu-20.10-docs:
+  test-ubuntu-21.04-docs:
     ci: azure
     template: docker-tests/azure.linux.yml
     params:
       env:
-        UBUNTU: "20.10"
+        UBUNTU: "21.04"
       run: ubuntu-docs
 
   test-ubuntu-default-docs:
