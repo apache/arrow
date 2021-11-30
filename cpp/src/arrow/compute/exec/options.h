@@ -173,7 +173,7 @@ class ARROW_EXPORT HashJoinNodeOptions : public ExecNodeOptions {
   static constexpr const char* default_output_prefix_for_right = "";
   HashJoinNodeOptions(
       JoinType in_join_type, std::vector<FieldRef> in_left_keys,
-      std::vector<FieldRef> in_right_keys,
+      std::vector<FieldRef> in_right_keys, Expression filter = literal(true),
       std::string output_prefix_for_left = default_output_prefix_for_left,
       std::string output_prefix_for_right = default_output_prefix_for_right)
       : join_type(in_join_type),
@@ -181,7 +181,8 @@ class ARROW_EXPORT HashJoinNodeOptions : public ExecNodeOptions {
         right_keys(std::move(in_right_keys)),
         output_all(true),
         output_prefix_for_left(std::move(output_prefix_for_left)),
-        output_prefix_for_right(std::move(output_prefix_for_right)) {
+        output_prefix_for_right(std::move(output_prefix_for_right)),
+        filter(std::move(filter)) {
     this->key_cmp.resize(this->left_keys.size());
     for (size_t i = 0; i < this->left_keys.size(); ++i) {
       this->key_cmp[i] = JoinKeyCmp::EQ;
@@ -190,7 +191,7 @@ class ARROW_EXPORT HashJoinNodeOptions : public ExecNodeOptions {
   HashJoinNodeOptions(
       JoinType join_type, std::vector<FieldRef> left_keys,
       std::vector<FieldRef> right_keys, std::vector<FieldRef> left_output,
-      std::vector<FieldRef> right_output,
+      std::vector<FieldRef> right_output, Expression filter = literal(true),
       std::string output_prefix_for_left = default_output_prefix_for_left,
       std::string output_prefix_for_right = default_output_prefix_for_right)
       : join_type(join_type),
@@ -200,7 +201,8 @@ class ARROW_EXPORT HashJoinNodeOptions : public ExecNodeOptions {
         left_output(std::move(left_output)),
         right_output(std::move(right_output)),
         output_prefix_for_left(std::move(output_prefix_for_left)),
-        output_prefix_for_right(std::move(output_prefix_for_right)) {
+        output_prefix_for_right(std::move(output_prefix_for_right)),
+        filter(std::move(filter)) {
     this->key_cmp.resize(this->left_keys.size());
     for (size_t i = 0; i < this->left_keys.size(); ++i) {
       this->key_cmp[i] = JoinKeyCmp::EQ;
@@ -210,6 +212,7 @@ class ARROW_EXPORT HashJoinNodeOptions : public ExecNodeOptions {
       JoinType join_type, std::vector<FieldRef> left_keys,
       std::vector<FieldRef> right_keys, std::vector<FieldRef> left_output,
       std::vector<FieldRef> right_output, std::vector<JoinKeyCmp> key_cmp,
+      Expression filter = literal(true),
       std::string output_prefix_for_left = default_output_prefix_for_left,
       std::string output_prefix_for_right = default_output_prefix_for_right)
       : join_type(join_type),
@@ -220,7 +223,8 @@ class ARROW_EXPORT HashJoinNodeOptions : public ExecNodeOptions {
         right_output(std::move(right_output)),
         key_cmp(std::move(key_cmp)),
         output_prefix_for_left(std::move(output_prefix_for_left)),
-        output_prefix_for_right(std::move(output_prefix_for_right)) {}
+        output_prefix_for_right(std::move(output_prefix_for_right)),
+        filter(std::move(filter)) {}
 
   // type of join (inner, left, semi...)
   JoinType join_type;
@@ -244,6 +248,11 @@ class ARROW_EXPORT HashJoinNodeOptions : public ExecNodeOptions {
   std::string output_prefix_for_left;
   // prefix added to names of output fields coming from right input
   std::string output_prefix_for_right;
+  // residual filter which is applied to matching rows.  Rows that do not match
+  // the filter are not included.  The filter is applied against the
+  // concatenated input schema (left fields then right fields) and can reference
+  // fields that are not included in the output.
+  Expression filter;
 };
 
 /// \brief Make a node which select top_k/bottom_k rows passed through it
