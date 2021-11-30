@@ -73,10 +73,19 @@ struct GcsPath {
 
 class GcsInputStream : public arrow::io::InputStream {
  public:
-  explicit GcsInputStream(gcs::ObjectReadStream stream) : stream_(std::move(stream)) {}
+  explicit GcsInputStream(gcs::ObjectReadStream stream, std::string bucket_name,
+                          std::string object_name, gcs::Generation generation,
+                          gcs::Client client)
+      : stream_(std::move(stream)),
+        bucket_name_(std::move(bucket_name)),
+        object_name_(std::move(object_name)),
+        generation_(generation),
+        client_(std::move(client)) {}
 
   ~GcsInputStream() override = default;
 
+  //@{
+  // @name FileInterface
   Status Close() override {
     stream_.Close();
     return Status::OK();
@@ -90,7 +99,10 @@ class GcsInputStream : public arrow::io::InputStream {
   }
 
   bool closed() const override { return !stream_.IsOpen(); }
+  //@}
 
+  //@{
+  // @name Readable
   Result<int64_t> Read(int64_t nbytes, void* out) override {
     stream_.read(static_cast<char*>(out), nbytes);
     ARROW_GCS_RETURN_NOT_OK(stream_.status());
@@ -104,9 +116,23 @@ class GcsInputStream : public arrow::io::InputStream {
     RETURN_NOT_OK(buffer->Resize(stream_.gcount(), true));
     return buffer;
   }
+  //@}
+
+  //@{
+  // @name InputStream
+  Result<std::shared_ptr<const KeyValueMetadata>> ReadMetadata() override {
+    auto metadata = client_.GetObjectMetadata(bucket_name_, object_name_, generation_);
+    ARROW_GCS_RETURN_NOT_OK(metadata.status());
+    return internal::FromObjectMetadata(*metadata);
+  }
+  //@}
 
  private:
   mutable gcs::ObjectReadStream stream_;
+  std::string bucket_name_;
+  std::string object_name_;
+  gcs::Generation generation_;
+  gcs::Client client_;
 };
 
 class GcsOutputStream : public arrow::io::OutputStream {
@@ -191,7 +217,8 @@ class GcsFileSystem::Impl {
   Result<std::shared_ptr<io::InputStream>> OpenInputStream(const GcsPath& path) {
     auto stream = client_.ReadObject(path.bucket, path.object);
     ARROW_GCS_RETURN_NOT_OK(stream.status());
-    return std::make_shared<GcsInputStream>(std::move(stream));
+    return std::make_shared<GcsInputStream>(std::move(stream), path.bucket, path.object,
+                                            gcs::Generation(), client_);
   }
 
   Result<std::shared_ptr<io::OutputStream>> OpenOutputStream(
