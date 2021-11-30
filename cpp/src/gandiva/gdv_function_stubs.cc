@@ -956,22 +956,28 @@ const char* gdv_mask_first_n_utf8_int32(int64_t context, const char* data,
         utf8proc_iterate(reinterpret_cast<const utf8proc_uint8_t*>(data + bytes_masked),
                          data_len, &utf8_char);
 
+    if (char_len < 0) {
+      gdv_fn_context_set_error_msg(context, utf8proc_errmsg(char_len));
+      *out_len = 0;
+      return nullptr;
+    }
+
     switch (utf8proc_category(utf8_char)) {
       case 1:
         out[out_idx] = 'X';
-        out_idx += 1;
+        out_idx++;
         break;
       case 2:
         out[out_idx] = 'x';
-        out_idx += 1;
+        out_idx++;
         break;
       case 9:
         out[out_idx] = 'n';
-        out_idx += 1;
+        out_idx++;
         break;
       case 10:
         out[out_idx] = 'n';
-        out_idx += 1;
+        out_idx++;
         break;
       default:
         memcpy(out + out_idx, data + bytes_masked, char_len);
@@ -1018,75 +1024,83 @@ const char* gdv_mask_last_n_utf8_int32(int64_t context, const char* data,
     return nullptr;
   }
 
-  int bytes_masked = data_len;
   bool has_multi_byte = false;
-  while (bytes_masked >= data_len - n_to_mask) {
-    unsigned char char_single_byte = data[bytes_masked];
+  for (int i = 0; i < data_len; i++) {
+    unsigned char char_single_byte = data[i];
     if (char_single_byte > 127) {
       // found a multi-byte utf-8 char
       has_multi_byte = true;
       break;
     }
-    out[bytes_masked] = mask_array[char_single_byte];
-    bytes_masked--;
   }
 
+  if (!has_multi_byte) {
+    int start_idx = data_len - n_to_mask;
+    for (int i = start_idx; i < data_len; ++i) {
+      unsigned char char_single_byte = data[i];
+      out[i] = mask_array[char_single_byte];
+    }
+    memcpy(out, data, start_idx);
+    *out_len = data_len;
+    return out;
+  }
+
+  utf8proc_int32_t utf8_char_buffer;
+  int num_of_chars =
+      utf8proc_decompose(reinterpret_cast<const utf8proc_uint8_t*>(data), data_len,
+                         &utf8_char_buffer, data_len, UTF8PROC_STABLE);
   utf8proc_int32_t utf8_char;
-  int chars_masked = bytes_masked;
-  int out_idx = bytes_masked;
-  while (chars_masked >= data_len - n_to_mask) {
+  int chars_counter = 0;
+  int bytes_read = 0;
+  int out_idx = 0;
+  int offset_idx = 0;
+  while (bytes_read < data_len) {
     auto char_len =
-        utf8proc_iterate(reinterpret_cast<const utf8proc_uint8_t*>(data + bytes_masked),
+        utf8proc_iterate(reinterpret_cast<const utf8proc_uint8_t*>(data + bytes_read),
                          data_len, &utf8_char);
 
-    // As it is reading backwards the data string, it must find the correct initial byte
-    // for the multibyte character
-    while (char_len < 0) {
-      bytes_masked--;
-      char_len =
-          utf8proc_iterate(reinterpret_cast<const utf8proc_uint8_t*>(data + bytes_masked),
-                           data_len, &utf8_char);
+    if (char_len < 0) {
+      gdv_fn_context_set_error_msg(context, utf8proc_errmsg(char_len));
+      *out_len = 0;
+      return nullptr;
+    }
+
+    if (chars_counter < (num_of_chars - n_to_mask)) {
+      chars_counter++;
+      out_idx += static_cast<int>(char_len);
+      bytes_read += static_cast<int>(char_len);
+      offset_idx += static_cast<int>(char_len);
+      continue;
     }
 
     switch (utf8proc_category(utf8_char)) {
       case 1:
         out[out_idx] = 'X';
-        out_idx -= 1;
+        out_idx++;
         break;
       case 2:
         out[out_idx] = 'x';
-        out_idx -= 1;
+        out_idx++;
         break;
       case 9:
         out[out_idx] = 'n';
-        out_idx -= 1;
+        out_idx++;
         break;
       case 10:
         out[out_idx] = 'n';
-        out_idx -= 1;
+        out_idx++;
         break;
       default:
-        memcpy(out + char_len, data + bytes_masked, char_len);
-        out_idx -= static_cast<int>(char_len);
+        memcpy(out + out_idx, data + bytes_read, char_len);
+        out_idx += static_cast<int>(char_len);
         break;
     }
-    bytes_masked -= static_cast<int>(char_len);
-    chars_masked--;
+    bytes_read += static_cast<int>(char_len);
+    chars_counter++;
   }
 
-  // Handles multibyte char memcpy
-  if (bytes_masked < data_len && chars_masked >= 0 && has_multi_byte) {
-    memcpy(out + out_idx, data, data_len - n_to_mask - out_idx);
-    // Remove the unused initial bytes as it read the data str backwards
-    memmove(out, out + out_idx, data_len);
-    // Correct the out_len after masking multibyte characters with single byte characters
-    *out_len = static_cast<int32_t>(strlen(out));
-  }
-
-  // Handles single byte char memcpy
-  if (chars_masked <= data_len && chars_masked >= 0 && !has_multi_byte) {
-    memcpy(out, data, data_len - n_to_mask);
-  }
+  memcpy(out, data, offset_idx);
+  *out_len = out_idx;
 
   return out;
 }
