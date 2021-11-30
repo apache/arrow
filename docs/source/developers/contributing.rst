@@ -80,6 +80,9 @@ assign yourself an issue, you will need "Contributor" permissions on the
 Apache Arrow JIRA. To get this role, ask on the mailing list for a project
 maintainer's help.
 
+
+.. _jira-tips:
+
 Tips for using JIRA
 +++++++++++++++++++
 
