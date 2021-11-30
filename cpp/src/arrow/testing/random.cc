@@ -107,7 +107,7 @@ struct GenerateOptions {
 
     for (size_t i = 0; i < n; i++) {
       if (dist(rng)) {
-        BitUtil::SetBit(buffer, i);
+        bit_util::SetBit(buffer, i);
       } else {
         count++;
       }
@@ -458,8 +458,8 @@ std::shared_ptr<Array> GenerateOffsets(SeedType seed, int64_t size,
   options.GenerateBitmap(null_bitmap, size, &null_count);
   // Make sure the first and last entry are non-null
   for (const int64_t offset : std::vector<int64_t>{0, size - 1}) {
-    if (!arrow::BitUtil::GetBit(null_bitmap, offset)) {
-      arrow::BitUtil::SetBit(null_bitmap, offset);
+    if (!arrow::bit_util::GetBit(null_bitmap, offset)) {
+      arrow::bit_util::SetBit(null_bitmap, offset);
       --null_count;
     }
   }
@@ -507,8 +507,8 @@ std::shared_ptr<Array> OffsetsFromLengthsArray(OffsetArrayType* lengths,
   buffers[0] = *AllocateEmptyBitmap(size);
   uint8_t* null_bitmap = buffers[0]->mutable_data();
   // Make sure the first and last entry are non-null
-  arrow::BitUtil::SetBit(null_bitmap, 0);
-  arrow::BitUtil::SetBit(null_bitmap, size - 1);
+  arrow::bit_util::SetBit(null_bitmap, 0);
+  arrow::bit_util::SetBit(null_bitmap, size - 1);
 
   buffers[1] = *AllocateBuffer(sizeof(typename OffsetArrayType::value_type) * size);
   auto data =
@@ -517,7 +517,7 @@ std::shared_ptr<Array> OffsetsFromLengthsArray(OffsetArrayType* lengths,
   int index = 1;
   for (const auto& length : *lengths) {
     if (length.has_value()) {
-      arrow::BitUtil::SetBit(null_bitmap, index);
+      arrow::bit_util::SetBit(null_bitmap, index);
       data[index] = data[index - 1] + *length;
       DCHECK_GE(*length, 0);
     } else {

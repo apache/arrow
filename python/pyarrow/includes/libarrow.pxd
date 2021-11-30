@@ -2097,6 +2097,11 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         vector[c_bool] field_nullability
         vector[shared_ptr[const CKeyValueMetadata]] field_metadata
 
+    cdef cppclass CStructFieldOptions \
+            "arrow::compute::StructFieldOptions"(CFunctionOptions):
+        CStructFieldOptions(vector[int] indices)
+        vector[int] indices
+
     ctypedef enum CSortOrder" arrow::compute::SortOrder":
         CSortOrder_Ascending \
             "arrow::compute::SortOrder::Ascending"

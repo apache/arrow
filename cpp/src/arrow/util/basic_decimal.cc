@@ -122,7 +122,7 @@ static const BasicDecimal128 ScaleMultipliersHalf[] = {
     BasicDecimal128(2710505431213761085LL, 343699775700336640ULL)};
 
 #define BasicDecimal256FromLE(v1, v2, v3, v4) \
-  BasicDecimal256(BitUtil::LittleEndianArray::ToNative<uint64_t, 4>(v1, v2, v3, v4))
+  BasicDecimal256(bit_util::little_endian::ToNative<uint64_t, 4>(v1, v2, v3, v4))
 
 static const BasicDecimal256 ScaleMultipliersDecimal256[] = {
     BasicDecimal256FromLE({1ULL, 0ULL, 0ULL, 0ULL}),
@@ -605,9 +605,9 @@ template <int N>
 inline void MultiplyUnsignedArray(const std::array<uint64_t, N>& lh,
                                   const std::array<uint64_t, N>& rh,
                                   std::array<uint64_t, N>* result) {
-  const auto lh_le = BitUtil::LittleEndianArray::Make(lh);
-  const auto rh_le = BitUtil::LittleEndianArray::Make(rh);
-  auto result_le = BitUtil::LittleEndianArray::Make(result);
+  const auto lh_le = bit_util::little_endian::Make(lh);
+  const auto rh_le = bit_util::little_endian::Make(rh);
+  auto result_le = bit_util::little_endian::Make(result);
 
   for (int j = 0; j < N; ++j) {
     uint64_t carry = 0;
@@ -649,7 +649,7 @@ BasicDecimal128& BasicDecimal128::operator*=(const BasicDecimal128& right) {
 template <size_t N>
 static int64_t FillInArray(const std::array<uint64_t, N>& value_array,
                            uint32_t* result_array) {
-  const auto value_array_le = BitUtil::LittleEndianArray::Make(value_array);
+  const auto value_array_le = bit_util::little_endian::Make(value_array);
   int64_t next_index = 0;
   // 1st loop to find out 1st non-negative value in input
   int64_t i = N - 1;
@@ -786,7 +786,7 @@ static DecimalStatus BuildFromArray(std::array<uint64_t, N>* result_array,
   }
   int64_t next_index = length - 1;
   size_t i = 0;
-  auto result_array_le = BitUtil::LittleEndianArray::Make(result_array);
+  auto result_array_le = bit_util::little_endian::Make(result_array);
   for (; i < N && next_index >= 0; i++) {
     uint64_t lower_bits = array[next_index--];
     result_array_le[i] =
@@ -808,7 +808,7 @@ static DecimalStatus BuildFromArray(BasicDecimal128* value, const uint32_t* arra
   if (status != DecimalStatus::kSuccess) {
     return status;
   }
-  const auto result_array_le = BitUtil::LittleEndianArray::Make(result_array);
+  const auto result_array_le = bit_util::little_endian::Make(result_array);
   *value = {static_cast<int64_t>(result_array_le[1]), result_array_le[0]};
   return DecimalStatus::kSuccess;
 }
@@ -893,7 +893,7 @@ static inline DecimalStatus DecimalDivide(const DecimalClass& dividend,
   // Normalize by shifting both by a multiple of 2 so that
   // the digit guessing is better. The requirement is that
   // divisor_array[0] is greater than 2**31.
-  int64_t normalize_bits = BitUtil::CountLeadingZeros(divisor_array[0]);
+  int64_t normalize_bits = bit_util::CountLeadingZeros(divisor_array[0]);
   ShiftArrayLeft(divisor_array, divisor_length, normalize_bits);
   ShiftArrayLeft(dividend_array, dividend_length, normalize_bits);
 
@@ -1158,9 +1158,9 @@ int32_t BasicDecimal128::CountLeadingBinaryZeros() const {
   DCHECK_GE(*this, BasicDecimal128(0));
 
   if (high_bits_ == 0) {
-    return BitUtil::CountLeadingZeros(low_bits_) + 64;
+    return bit_util::CountLeadingZeros(low_bits_) + 64;
   } else {
-    return BitUtil::CountLeadingZeros(static_cast<uint64_t>(high_bits_));
+    return bit_util::CountLeadingZeros(static_cast<uint64_t>(high_bits_));
   }
 }
 
@@ -1175,7 +1175,7 @@ constexpr int BasicDecimal256::kMaxPrecision;
 constexpr int BasicDecimal256::kMaxScale;
 
 BasicDecimal256& BasicDecimal256::Negate() {
-  auto array_le = BitUtil::LittleEndianArray::Make(&array_);
+  auto array_le = bit_util::little_endian::Make(&array_);
   uint64_t carry = 1;
   for (size_t i = 0; i < array_.size(); ++i) {
     uint64_t& elem = array_le[i];
@@ -1193,8 +1193,8 @@ BasicDecimal256 BasicDecimal256::Abs(const BasicDecimal256& in) {
 }
 
 BasicDecimal256& BasicDecimal256::operator+=(const BasicDecimal256& right) {
-  auto array_le = BitUtil::LittleEndianArray::Make(&array_);
-  const auto right_array_le = BitUtil::LittleEndianArray::Make(right.array_);
+  auto array_le = bit_util::little_endian::Make(&array_);
+  const auto right_array_le = bit_util::little_endian::Make(right.array_);
   uint64_t carry = 0;
   for (size_t i = 0; i < array_.size(); i++) {
     const uint64_t right_value = right_array_le[i];
@@ -1227,7 +1227,7 @@ BasicDecimal256& BasicDecimal256::operator<<=(uint32_t bits) {
     return *this;
   }
   uint32_t in_word_shift = bits % 64;
-  auto array_le = BitUtil::LittleEndianArray::Make(&array_);
+  auto array_le = bit_util::little_endian::Make(&array_);
   for (int i = static_cast<int>(array_.size() - 1); i >= cross_word_shift; i--) {
     // Account for shifts larger then 64 bits
     array_le[i] = array_le[i - cross_word_shift];
@@ -1349,8 +1349,8 @@ BasicDecimal256 operator*(const BasicDecimal256& left, const BasicDecimal256& ri
 }
 
 bool operator<(const BasicDecimal256& left, const BasicDecimal256& right) {
-  const auto lhs_le = BitUtil::LittleEndianArray::Make(left.native_endian_array());
-  const auto rhs_le = BitUtil::LittleEndianArray::Make(right.native_endian_array());
+  const auto lhs_le = bit_util::little_endian::Make(left.native_endian_array());
+  const auto rhs_le = bit_util::little_endian::Make(right.native_endian_array());
   return lhs_le[3] != rhs_le[3]
              ? static_cast<int64_t>(lhs_le[3]) < static_cast<int64_t>(rhs_le[3])
              : lhs_le[2] != rhs_le[2] ? lhs_le[2] < rhs_le[2]

@@ -73,10 +73,19 @@ struct GcsPath {
 
 class GcsInputStream : public arrow::io::InputStream {
  public:
-  explicit GcsInputStream(gcs::ObjectReadStream stream) : stream_(std::move(stream)) {}
+  explicit GcsInputStream(gcs::ObjectReadStream stream, std::string bucket_name,
+                          std::string object_name, gcs::Generation generation,
+                          gcs::Client client)
+      : stream_(std::move(stream)),
+        bucket_name_(std::move(bucket_name)),
+        object_name_(std::move(object_name)),
+        generation_(generation),
+        client_(std::move(client)) {}
 
   ~GcsInputStream() override = default;
 
+  //@{
+  // @name FileInterface
   Status Close() override {
     stream_.Close();
     return Status::OK();
@@ -90,7 +99,10 @@ class GcsInputStream : public arrow::io::InputStream {
   }
 
   bool closed() const override { return !stream_.IsOpen(); }
+  //@}
 
+  //@{
+  // @name Readable
   Result<int64_t> Read(int64_t nbytes, void* out) override {
     stream_.read(static_cast<char*>(out), nbytes);
     ARROW_GCS_RETURN_NOT_OK(stream_.status());
@@ -104,9 +116,23 @@ class GcsInputStream : public arrow::io::InputStream {
     RETURN_NOT_OK(buffer->Resize(stream_.gcount(), true));
     return buffer;
   }
+  //@}
+
+  //@{
+  // @name InputStream
+  Result<std::shared_ptr<const KeyValueMetadata>> ReadMetadata() override {
+    auto metadata = client_.GetObjectMetadata(bucket_name_, object_name_, generation_);
+    ARROW_GCS_RETURN_NOT_OK(metadata.status());
+    return internal::FromObjectMetadata(*metadata);
+  }
+  //@}
 
  private:
   mutable gcs::ObjectReadStream stream_;
+  std::string bucket_name_;
+  std::string object_name_;
+  gcs::Generation generation_;
+  gcs::Client client_;
 };
 
 class GcsOutputStream : public arrow::io::OutputStream {
@@ -182,10 +208,25 @@ class GcsFileSystem::Impl {
     return GetFileInfoImpl(path, std::move(meta).status(), FileType::Directory);
   }
 
+  Status DeleteFile(const GcsPath& p) {
+    if (!p.object.empty() && p.object.back() == '/') {
+      return Status::IOError("The given path (" + p.full_path +
+                             ") is a directory, use DeleteDir");
+    }
+    return internal::ToArrowStatus(client_.DeleteObject(p.bucket, p.object));
+  }
+
+  Status CopyFile(const GcsPath& src, const GcsPath& dest) {
+    auto metadata =
+        client_.RewriteObjectBlocking(src.bucket, src.object, dest.bucket, dest.object);
+    return internal::ToArrowStatus(metadata.status());
+  }
+
   Result<std::shared_ptr<io::InputStream>> OpenInputStream(const GcsPath& path) {
     auto stream = client_.ReadObject(path.bucket, path.object);
     ARROW_GCS_RETURN_NOT_OK(stream.status());
-    return std::make_shared<GcsInputStream>(std::move(stream));
+    return std::make_shared<GcsInputStream>(std::move(stream), path.bucket, path.object,
+                                            gcs::Generation(), client_);
   }
 
   Result<std::shared_ptr<io::OutputStream>> OpenOutputStream(
@@ -266,7 +307,8 @@ Status GcsFileSystem::DeleteRootDirContents() {
 }
 
 Status GcsFileSystem::DeleteFile(const std::string& path) {
-  return Status::NotImplemented("The GCS FileSystem is not fully implemented");
+  ARROW_ASSIGN_OR_RAISE(auto p, GcsPath::FromString(path));
+  return impl_->DeleteFile(p);
 }
 
 Status GcsFileSystem::Move(const std::string& src, const std::string& dest) {
@@ -274,7 +316,9 @@ Status GcsFileSystem::Move(const std::string& src, const std::string& dest) {
 }
 
 Status GcsFileSystem::CopyFile(const std::string& src, const std::string& dest) {
-  return Status::NotImplemented("The GCS FileSystem is not fully implemented");
+  ARROW_ASSIGN_OR_RAISE(auto s, GcsPath::FromString(src));
+  ARROW_ASSIGN_OR_RAISE(auto d, GcsPath::FromString(dest));
+  return impl_->CopyFile(s, d);
 }
 
 Result<std::shared_ptr<io::InputStream>> GcsFileSystem::OpenInputStream(

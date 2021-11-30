@@ -78,7 +78,7 @@ using arrow::StructArray;
 using arrow::Table;
 using arrow::TimestampArray;
 
-using ::arrow::BitUtil::FromBigEndian;
+using ::arrow::bit_util::FromBigEndian;
 using ::arrow::internal::checked_cast;
 using ::arrow::internal::checked_pointer_cast;
 using ::arrow::internal::SafeLeftShift;
@@ -92,7 +92,7 @@ using parquet::schema::Node;
 using parquet::schema::PrimitiveNode;
 using ParquetType = parquet::Type;
 
-namespace BitUtil = arrow::BitUtil;
+namespace bit_util = arrow::bit_util;
 
 namespace parquet {
 namespace arrow {
@@ -332,7 +332,7 @@ std::shared_ptr<Array> TransferZeroCopy(RecordReader* reader,
 Status TransferBool(RecordReader* reader, MemoryPool* pool, Datum* out) {
   int64_t length = reader->values_written();
 
-  const int64_t buffer_size = BitUtil::BytesForBits(length);
+  const int64_t buffer_size = bit_util::BytesForBits(length);
   ARROW_ASSIGN_OR_RAISE(auto data, ::arrow::AllocateBuffer(buffer_size, pool));
 
   // Transfer boolean values to packed bitmap
@@ -342,7 +342,7 @@ Status TransferBool(RecordReader* reader, MemoryPool* pool, Datum* out) {
 
   for (int64_t i = 0; i < length; i++) {
     if (values[i]) {
-      ::arrow::BitUtil::SetBit(data_ptr, i);
+      ::arrow::bit_util::SetBit(data_ptr, i);
     }
   }
 
@@ -612,7 +612,7 @@ static Status DecimalIntegerTransfer(RecordReader* reader, MemoryPool* pool,
   ARROW_ASSIGN_OR_RAISE(auto data, ::arrow::AllocateBuffer(length * type_length, pool));
   uint8_t* out_ptr = data->mutable_data();
 
-  using ::arrow::BitUtil::FromLittleEndian;
+  using ::arrow::bit_util::FromLittleEndian;
 
   for (int64_t i = 0; i < length; ++i, out_ptr += type_length) {
     // sign/zero extend int32_t values, otherwise a no-op

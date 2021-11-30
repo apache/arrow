@@ -50,7 +50,7 @@
 #include "parquet/schema.h"
 #include "parquet/types.h"
 
-namespace BitUtil = arrow::BitUtil;
+namespace bit_util = arrow::bit_util;
 
 using arrow::Status;
 using arrow::VisitNullBitmapInline;
@@ -341,12 +341,12 @@ class PlainEncoder<BooleanType> : public EncoderImpl, virtual public BooleanEnco
 
     const auto& data = checked_cast<const ::arrow::BooleanArray&>(values);
     if (data.null_count() == 0) {
-      PARQUET_THROW_NOT_OK(sink_.Reserve(BitUtil::BytesForBits(data.length())));
+      PARQUET_THROW_NOT_OK(sink_.Reserve(bit_util::BytesForBits(data.length())));
       // no nulls, just dump the data
       ::arrow::internal::CopyBitmap(data.data()->GetValues<uint8_t>(1), data.offset(),
                                     data.length(), sink_.mutable_data(), sink_.length());
     } else {
-      auto n_valid = BitUtil::BytesForBits(data.length() - data.null_count());
+      auto n_valid = bit_util::BytesForBits(data.length() - data.null_count());
       PARQUET_THROW_NOT_OK(sink_.Reserve(n_valid));
       ::arrow::internal::FirstTimeBitmapWriter writer(sink_.mutable_data(),
                                                       sink_.length(), n_valid);
@@ -370,7 +370,7 @@ class PlainEncoder<BooleanType> : public EncoderImpl, virtual public BooleanEnco
   int bits_available_;
   std::shared_ptr<ResizableBuffer> bits_buffer_;
   ::arrow::BufferBuilder sink_;
-  ::arrow::BitUtil::BitWriter bit_writer_;
+  ::arrow::bit_util::BitWriter bit_writer_;
 
   template <typename SequenceType>
   void PutImpl(const SequenceType& src, int num_values);
@@ -524,7 +524,7 @@ class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
   int bit_width() const override {
     if (ARROW_PREDICT_FALSE(num_entries() == 0)) return 0;
     if (ARROW_PREDICT_FALSE(num_entries() == 1)) return 1;
-    return BitUtil::Log2(num_entries());
+    return bit_util::Log2(num_entries());
   }
 
   /// Encode value. Note that this does not actually write any data, just
@@ -1165,7 +1165,7 @@ class PlainBooleanDecoder : public DecoderImpl,
                   typename EncodingTraits<BooleanType>::DictAccumulator* out) override;
 
  private:
-  std::unique_ptr<::arrow::BitUtil::BitReader> bit_reader_;
+  std::unique_ptr<::arrow::bit_util::BitReader> bit_reader_;
 };
 
 PlainBooleanDecoder::PlainBooleanDecoder(const ColumnDescriptor* descr)
@@ -1173,7 +1173,7 @@ PlainBooleanDecoder::PlainBooleanDecoder(const ColumnDescriptor* descr)
 
 void PlainBooleanDecoder::SetData(int num_values, const uint8_t* data, int len) {
   num_values_ = num_values;
-  bit_reader_.reset(new BitUtil::BitReader(data, len));
+  bit_reader_.reset(new bit_util::BitReader(data, len));
 }
 
 int PlainBooleanDecoder::DecodeArrow(
@@ -1936,7 +1936,7 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType>,
         }
       } else {
         for (int64_t i = 0; i < block.length; ++i, ++position) {
-          if (BitUtil::GetBit(valid_bits, valid_bits_offset + position)) {
+          if (bit_util::GetBit(valid_bits, valid_bits_offset + position)) {
             ARROW_RETURN_NOT_OK(visit_valid(position));
           } else {
             ARROW_RETURN_NOT_OK(visit_null());
@@ -2080,13 +2080,13 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
   void SetData(int num_values, const uint8_t* data, int len) override {
     // num_values is equal to page's num_values, including null values in this page
     this->num_values_ = num_values;
-    decoder_ = std::make_shared<::arrow::BitUtil::BitReader>(data, len);
+    decoder_ = std::make_shared<::arrow::bit_util::BitReader>(data, len);
     InitHeader();
   }
 
   // Set BitReader which is already initialized by DeltaLengthByteArrayDecoder or
   // DeltaByteArrayDecoder
-  void SetDecoder(int num_values, std::shared_ptr<::arrow::BitUtil::BitReader> decoder) {
+  void SetDecoder(int num_values, std::shared_ptr<::arrow::bit_util::BitReader> decoder) {
     this->num_values_ = num_values;
     decoder_ = decoder;
     InitHeader();
@@ -2236,7 +2236,7 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
   }
 
   MemoryPool* pool_;
-  std::shared_ptr<::arrow::BitUtil::BitReader> decoder_;
+  std::shared_ptr<::arrow::bit_util::BitReader> decoder_;
   uint32_t values_per_block_;
   uint32_t mini_blocks_per_block_;
   uint32_t values_per_mini_block_;
@@ -2268,11 +2268,11 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
   void SetData(int num_values, const uint8_t* data, int len) override {
     num_values_ = num_values;
     if (len == 0) return;
-    decoder_ = std::make_shared<::arrow::BitUtil::BitReader>(data, len);
+    decoder_ = std::make_shared<::arrow::bit_util::BitReader>(data, len);
     DecodeLengths();
   }
 
-  void SetDecoder(int num_values, std::shared_ptr<::arrow::BitUtil::BitReader> decoder) {
+  void SetDecoder(int num_values, std::shared_ptr<::arrow::bit_util::BitReader> decoder) {
     num_values_ = num_values;
     decoder_ = decoder;
     DecodeLengths();
@@ -2347,7 +2347,7 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
     num_valid_values_ = num_length;
   }
 
-  std::shared_ptr<::arrow::BitUtil::BitReader> decoder_;
+  std::shared_ptr<::arrow::bit_util::BitReader> decoder_;
   DeltaBitPackDecoder<Int32Type> len_decoder_;
   int num_valid_values_;
   uint32_t length_idx_;
@@ -2372,7 +2372,7 @@ class DeltaByteArrayDecoder : public DecoderImpl,
 
   void SetData(int num_values, const uint8_t* data, int len) override {
     num_values_ = num_values;
-    decoder_ = std::make_shared<::arrow::BitUtil::BitReader>(data, len);
+    decoder_ = std::make_shared<::arrow::bit_util::BitReader>(data, len);
     prefix_len_decoder_.SetDecoder(num_values, decoder_);
 
     // get the number of encoded prefix lengths
@@ -2500,7 +2500,7 @@ class DeltaByteArrayDecoder : public DecoderImpl,
     return Status::OK();
   }
 
-  std::shared_ptr<::arrow::BitUtil::BitReader> decoder_;
+  std::shared_ptr<::arrow::bit_util::BitReader> decoder_;
   DeltaBitPackDecoder<Int32Type> prefix_len_decoder_;
   DeltaLengthByteArrayDecoder suffix_decoder_;
   std::string last_value_;

@@ -393,9 +393,9 @@ class Lz4HadoopCodec : public Lz4Codec {
     // Prepend decompressed size in bytes and compressed size in bytes
     // to be compatible with Hadoop Lz4Codec
     const uint32_t decompressed_size =
-        BitUtil::ToBigEndian(static_cast<uint32_t>(input_len));
+        bit_util::ToBigEndian(static_cast<uint32_t>(input_len));
     const uint32_t compressed_size =
-        BitUtil::ToBigEndian(static_cast<uint32_t>(output_len));
+        bit_util::ToBigEndian(static_cast<uint32_t>(output_len));
     SafeStore(output_buffer, decompressed_size);
     SafeStore(output_buffer + sizeof(uint32_t), compressed_size);
 
@@ -437,9 +437,9 @@ class Lz4HadoopCodec : public Lz4Codec {
 
     while (input_len >= kPrefixLength) {
       const uint32_t expected_decompressed_size =
-          BitUtil::FromBigEndian(SafeLoadAs<uint32_t>(input));
+          bit_util::FromBigEndian(SafeLoadAs<uint32_t>(input));
       const uint32_t expected_compressed_size =
-          BitUtil::FromBigEndian(SafeLoadAs<uint32_t>(input + sizeof(uint32_t)));
+          bit_util::FromBigEndian(SafeLoadAs<uint32_t>(input + sizeof(uint32_t)));
       input += kPrefixLength;
       input_len -= kPrefixLength;
 

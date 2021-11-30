@@ -46,6 +46,9 @@ Result<google::cloud::storage::KmsKeyName> ToKmsKeyName(
 Result<google::cloud::storage::WithObjectMetadata> ToObjectMetadata(
     const std::shared_ptr<const KeyValueMetadata>& metadata);
 
+Result<std::shared_ptr<const KeyValueMetadata>> FromObjectMetadata(
+    google::cloud::storage::ObjectMetadata const& m);
+
 }  // namespace internal
 }  // namespace fs
 }  // namespace arrow
