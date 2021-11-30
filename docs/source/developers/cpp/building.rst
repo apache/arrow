@@ -207,6 +207,9 @@ and then ask to compile the build targets:
    automated builds, continuous integration, release scripts, etc. use
    manual configuration instead, as outlined below.
 
+.. seealso::
+   `Official documentation for CMake presets <https://cmake.org/cmake/help/v3.21/manual/cmake-presets.7.html>`_.
+
 
 Manual configuration
 --------------------
