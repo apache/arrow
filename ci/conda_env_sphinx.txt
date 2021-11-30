@@ -21,3 +21,4 @@ doxygen
 ipython
 sphinx=4.2
 pydata-sphinx-theme
+sphinx-tabs
