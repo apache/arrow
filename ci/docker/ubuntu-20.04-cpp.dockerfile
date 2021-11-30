@@ -44,7 +44,7 @@ RUN if [ ${llvm} -gt 10 -o ${clang_tools} -gt 10 ]; then \
       if [ ${clang_tools} -ne ${llvm} -a ${clang_tools} -gt 10 ]; then \
         echo "deb https://apt.llvm.org/focal/ llvm-toolchain-focal-${clang_tools} main" > \
            /etc/apt/sources.list.d/clang-tools.list; \
-      fi && \
+      fi; \
     fi && \
     apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
