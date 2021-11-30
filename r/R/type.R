@@ -152,6 +152,8 @@ DecimalType <- R6Class("DecimalType",
 )
 Decimal128Type <- R6Class("Decimal128Type", inherit = DecimalType)
 
+Decimal256Type <- R6Class("Decimal256Type", inherit = DecimalType)
+
 NestedType <- R6Class("NestedType", inherit = DataType)
 
 #' Apache Arrow data types
@@ -387,6 +389,22 @@ decimal <- function(precision, scale) {
   Decimal128Type__initialize(precision, scale)
 }
 
+#' @rdname data-type
+#' @export
+decimal256 <- function(precision, scale) {
+  if (is.numeric(precision)) {
+    precision <- as.integer(precision)
+  } else {
+    stop('"precision" must be an integer', call. = FALSE)
+  }
+  if (is.numeric(scale)) {
+    scale <- as.integer(scale)
+  } else {
+    stop('"scale" must be an integer', call. = FALSE)
+  }
+  Decimal256Type__initialize(precision, scale)
+}
+
 StructType <- R6Class("StructType",
   inherit = NestedType,
   public = list(
@@ -488,6 +506,7 @@ canonical_type_str <- function(type_str) {
     null = "null",
     timestamp = "timestamp",
     decimal = "decimal128",
+    decimal256 = "decimal256",
     struct = "struct",
     list_of = "list",
     list = "list",
