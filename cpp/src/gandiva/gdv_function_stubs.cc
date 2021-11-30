@@ -1046,9 +1046,9 @@ const char* gdv_mask_last_n_utf8_int32(int64_t context, const char* data,
   }
 
   utf8proc_int32_t utf8_char_buffer;
-  int num_of_chars =
+  int num_of_chars = static_cast<int>(
       utf8proc_decompose(reinterpret_cast<const utf8proc_uint8_t*>(data), data_len,
-                         &utf8_char_buffer, data_len, UTF8PROC_STABLE);
+                         &utf8_char_buffer, data_len, UTF8PROC_STABLE));
   utf8proc_int32_t utf8_char;
   int chars_counter = 0;
   int bytes_read = 0;
