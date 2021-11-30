@@ -184,7 +184,7 @@ public class TestBaseAllocator {
       assertTrue(transferResult.getAllocationFit());
       ArrowBuf buffer2 = transferResult.getTransferredBuffer();
 
-      // reservations from l1 should also be transferred to l2 and during buffer transferring
+      // reservations from l1 should also be transferred to l2 during buffer transferring
       assertEquals(1, l1.getNumCalls());
       assertEquals(1, l1.getNumReleaseCalls());
       assertEquals(1, l2.getNumCalls());
@@ -224,7 +224,7 @@ public class TestBaseAllocator {
       // do transfer, implicitly
       buffer1.close();
 
-      // reservations from l1 should also be transferred to l2 and during buffer transferring
+      // reservations from l1 should also be transferred to l2 during buffer transferring
       assertEquals(1, l1.getNumCalls());
       assertEquals(1, l1.getNumReleaseCalls());
       assertEquals(1, l2.getNumCalls());
