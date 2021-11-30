@@ -20,28 +20,21 @@
 set -e
 
 declare -A archs
-archs=([amd64]=amd64
-       [arm64v8]=arm64
-       [arm32v7]=arm
-       [s390x]=s390x)
+archs=([x86_64]=amd64
+       [arm64]=arm64
+       [aarch64]=arm64)
 
 declare -A platforms
-platforms=([linux]=linux
-           [macos]=darwin)
+platforms=([Linux]=linux
+           [Darwin]=darwin)
 
-arch=${archs[$1]}
-platform=${platforms[$2]}
-version=$3
-prefix=$4
+arch=${archs[$(uname -m)]}
+platform=${platforms[$(uname)]}
+version=$1
+prefix=$2
 
-if [ "$#" -ne 4 ]; then
-  echo "Usage: $0 <architecture> <platform> <version> <prefix>"
-  exit 1
-elif [[ -z ${arch} ]]; then
-  echo "Unexpected architecture: ${1}"
-  exit 1
-elif [[ -z ${platform} ]]; then
-  echo "Unexpected platform: ${2}"
+if [ "$#" -ne 2 ]; then
+  echo "Usage: $0 <version> <prefix>"
   exit 1
 elif [[ ${version} != "latest" ]]; then
   echo "Cannot fetch specific versions of minio, only latest is supported."
