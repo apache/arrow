@@ -109,7 +109,7 @@ The ``"sum"`` aggregation passed to the ``aggregate`` method in the previous
 example is the :func:`hash_sum` compute function. 
 
 Following is a list of all supported grouped aggregation functions.
-You can use them with our without the ``"hash_"`` prefix.
+You can use them with or without the ``"hash_"`` prefix.
 
 .. computefuncs::
   :kind: hash_aggregate
