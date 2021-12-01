@@ -342,6 +342,12 @@ TEST_F(GcsIntegrationTest, GetFileInfoObject) {
   arrow::fs::AssertFileInfo(fs.get(), PreexistingObjectPath(), FileType::File);
 }
 
+TEST_F(GcsIntegrationTest, DeleteRootDirContents) {
+  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+  EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented, HasSubstr("too dangerous"),
+                                  fs->DeleteRootDirContents());
+}
+
 TEST_F(GcsIntegrationTest, DeleteFileSuccess) {
   auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
   ASSERT_OK(fs->DeleteFile(PreexistingObjectPath()));
