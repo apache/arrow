@@ -629,15 +629,15 @@ type Array struct {
 	Children []Array       `json:"children,omitempty"`
 }
 
-func arraysFromJSON(mem memory.Allocator, schema *arrow.Schema, arrs []Array) []array.Interface {
-	o := make([]array.Interface, len(arrs))
+func arraysFromJSON(mem memory.Allocator, schema *arrow.Schema, arrs []Array) []arrow.Array {
+	o := make([]arrow.Array, len(arrs))
 	for i, v := range arrs {
 		o[i] = arrayFromJSON(mem, schema.Field(i).Type, v)
 	}
 	return o
 }
 
-func arraysToJSON(schema *arrow.Schema, arrs []array.Interface) []Array {
+func arraysToJSON(schema *arrow.Schema, arrs []arrow.Array) []Array {
 	o := make([]Array, len(arrs))
 	for i, v := range arrs {
 		o[i] = arrayToJSON(schema.Field(i), v)
@@ -655,7 +655,7 @@ func validsToBitmap(valids []bool, mem memory.Allocator) *memory.Buffer {
 	return buf
 }
 
-func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) array.Interface {
+func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) arrow.Array {
 	switch dt := dt.(type) {
 	case *arrow.NullType:
 		return array.NewNull(arr.Count)
@@ -944,7 +944,7 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) array.Int
 	panic("impossible")
 }
 
-func arrayToJSON(field arrow.Field, arr array.Interface) Array {
+func arrayToJSON(field arrow.Field, arr arrow.Array) Array {
 	switch arr := arr.(type) {
 	case *array.Null:
 		return Array{
@@ -1225,7 +1225,7 @@ func validsFromJSON(vs []int) []bool {
 	return o
 }
 
-func validsToJSON(arr array.Interface) []int {
+func validsToJSON(arr arrow.Array) []int {
 	o := make([]int, arr.Len())
 	for i := range o {
 		if arr.IsValid(i) {

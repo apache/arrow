@@ -66,13 +66,13 @@ func ImportCArrowSchema(out *CArrowSchema) (*arrow.Schema, error) {
 //
 // The underlying buffers will not be copied, but will instead be referenced directly
 // by the resulting array interface object. The passed in ArrowArray will have it's ownership
-// transferred to the resulting array.Interface via ArrowArrayMove. The underlying array.Data
+// transferred to the resulting arrow.Array via ArrowArrayMove. The underlying array.Data
 // object that is owned by the Array will now be the owner of the memory pointer and
 // will call ArrowArrayRelease when it is released and garbage collected via runtime.SetFinalizer.
 //
 // NOTE: The array takes ownership of the underlying memory buffers via ArrowArrayMove,
 // it does not take ownership of the actual arr object itself.
-func ImportCArrayWithType(arr *CArrowArray, dt arrow.DataType) (array.Interface, error) {
+func ImportCArrayWithType(arr *CArrowArray, dt arrow.DataType) (arrow.Array, error) {
 	imp, err := importCArrayAsType(arr, dt)
 	if err != nil {
 		return nil, err
@@ -88,12 +88,12 @@ func ImportCArrayWithType(arr *CArrowArray, dt arrow.DataType) (array.Interface,
 //
 // The Schema will be copied with the information used to populate the returned Field, complete
 // with metadata. The array will reference the same memory that is referred to by the ArrowArray
-// object and take ownership of it as per ImportCArrayWithType. The returned array.Interface will
+// object and take ownership of it as per ImportCArrayWithType. The returned arrow.Array will
 // own the C memory and call ArrowArrayRelease when the array.Data object is cleaned up.
 //
 // NOTE: The array takes ownership of the underlying memory buffers via ArrowArrayMove,
 // it does not take ownership of the actual arr object itself.
-func ImportCArray(arr *CArrowArray, schema *CArrowSchema) (arrow.Field, array.Interface, error) {
+func ImportCArray(arr *CArrowArray, schema *CArrowSchema) (arrow.Field, arrow.Array, error) {
 	field, err := importSchema(schema)
 	if err != nil {
 		return field, nil, err
@@ -122,7 +122,7 @@ func ImportCRecordBatchWithSchema(arr *CArrowArray, sc *arrow.Schema) (arrow.Rec
 
 	// now that we have our fields, we can split them out into the slice of arrays
 	// and construct a record batch from them to return.
-	cols := make([]array.Interface, st.NumField())
+	cols := make([]arrow.Array, st.NumField())
 	for i := 0; i < st.NumField(); i++ {
 		cols[i] = st.Field(i)
 	}
@@ -218,10 +218,10 @@ func ExportArrowRecordBatch(rb arrow.Record, out *CArrowArray, outSchema *CArrow
 }
 
 // ExportArrowArray populates the CArrowArray that is passed in with the pointers to the memory
-// being used by the array.Interface passed in, in order to share with zero-copy across the C
+// being used by the arrow.Array passed in, in order to share with zero-copy across the C
 // Data Interface. See the documentation for ExportArrowRecordBatch for details on how to ensure
 // you do not leak memory and prevent unwanted, undefined or strange behaviors.
-func ExportArrowArray(arr array.Interface, out *CArrowArray, outSchema *CArrowSchema) {
+func ExportArrowArray(arr arrow.Array, out *CArrowArray, outSchema *CArrowSchema) {
 	exportArray(arr, out, outSchema)
 }
 

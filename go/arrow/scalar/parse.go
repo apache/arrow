@@ -25,7 +25,6 @@ import (
 	"time"
 
 	"github.com/apache/arrow/go/v7/arrow"
-	"github.com/apache/arrow/go/v7/arrow/array"
 	"github.com/apache/arrow/go/v7/arrow/float16"
 	"github.com/apache/arrow/go/v7/arrow/memory"
 	"golang.org/x/xerrors"
@@ -402,7 +401,7 @@ func MakeScalarParam(val interface{}, dt arrow.DataType) (Scalar, error) {
 		return NewTime64Scalar(v, dt), nil
 	case arrow.Timestamp:
 		return NewTimestampScalar(v, dt), nil
-	case array.Interface:
+	case arrow.Array:
 		switch dt.ID() {
 		case arrow.LIST:
 			if !arrow.TypeEqual(v.DataType(), dt.(*arrow.ListType).Elem()) {

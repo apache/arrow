@@ -23,7 +23,6 @@ import (
 	"unsafe"
 
 	"github.com/apache/arrow/go/v7/arrow"
-	"github.com/apache/arrow/go/v7/arrow/array"
 )
 
 // #include <stdlib.h>
@@ -52,7 +51,7 @@ func (d dataHandle) releaseData() {
 	if !ok {
 		panic("cgo: invalid datahandle")
 	}
-	arrd.(*array.Data).Release()
+	arrd.(arrow.ArrayData).Release()
 }
 
 //export releaseExportedSchema

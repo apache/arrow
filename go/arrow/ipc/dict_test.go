@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/apache/arrow/go/v7/arrow"
 	"github.com/apache/arrow/go/v7/arrow/array"
 	"github.com/apache/arrow/go/v7/arrow/memory"
 )
@@ -65,7 +66,7 @@ func TestDictMemo(t *testing.T) {
 		t.Fatalf("invalid length: got=%d, want=%d", got, want)
 	}
 
-	var ff array.Interface
+	var ff arrow.Array
 
 	ff = f0
 	if !memo.HasDict(ff) {
@@ -82,7 +83,7 @@ func TestDictMemo(t *testing.T) {
 		t.Fatalf("should not have found f2")
 	}
 
-	fct := func(v array.Interface) array.Interface {
+	fct := func(v arrow.Array) arrow.Array {
 		return v
 	}
 
@@ -95,7 +96,7 @@ func TestDictMemo(t *testing.T) {
 	}
 
 	ff = f0
-	for i, f := range []array.Interface{f0, f1, ff, fct(f0), fct(f1)} {
+	for i, f := range []arrow.Array{f0, f1, ff, fct(f0), fct(f1)} {
 		if !memo.HasDict(f) {
 			t.Fatalf("failed to find dict %d", i)
 		}
@@ -159,15 +160,15 @@ func TestDictMemoPanics(t *testing.T) {
 	defer f1.Release()
 
 	for _, tc := range []struct {
-		vs  []array.Interface
+		vs  []arrow.Array
 		ids []int64
 	}{
 		{
-			vs:  []array.Interface{f0, f1},
+			vs:  []arrow.Array{f0, f1},
 			ids: []int64{0, 0},
 		},
 		{
-			vs:  []array.Interface{f0, f0},
+			vs:  []arrow.Array{f0, f0},
 			ids: []int64{0, 0},
 		},
 	} {

@@ -57,7 +57,7 @@ func WithStartOffset(off int64) FromJSONOption {
 	}
 }
 
-// FromJSON creates an array.Interface from a corresponding JSON stream and defined data type. If the types in the
+// FromJSON creates an arrow.Array from a corresponding JSON stream and defined data type. If the types in the
 // json do not match the type provided, it will return errors. This is *not* the integration test format
 // and should not be used as such. This intended to be used by consumers more similarly to the current exposing of
 // the csv reader/writer. It also returns the input offset in the reader where it finished decoding since buffering

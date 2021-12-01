@@ -302,7 +302,7 @@ func TestArrayApproxEqualFloats(t *testing.T) {
 	}
 }
 
-func arrayOf(mem memory.Allocator, a interface{}, valids []bool) array.Interface {
+func arrayOf(mem memory.Allocator, a interface{}, valids []bool) arrow.Array {
 	if mem == nil {
 		mem = memory.NewGoAllocator()
 	}

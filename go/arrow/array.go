@@ -34,7 +34,7 @@ type ArrayData interface {
 	Reset(DataType, int, []*memory.Buffer, []ArrayData, int, int)
 }
 
-// A type which satisfies array.Interface represents an immutable sequence of values.
+// A type which satisfies arrow.Array represents an immutable sequence of values.
 type Array interface {
 	json.Marshaler
 

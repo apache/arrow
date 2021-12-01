@@ -255,7 +255,7 @@ func importSchema(schema *CArrowSchema) (ret arrow.Field, err error) {
 type cimporter struct {
 	dt       arrow.DataType
 	arr      *CArrowArray
-	data     *array.Data
+	data     arrow.ArrayData
 	parent   *cimporter
 	children []cimporter
 	cbuffers []*C.void
@@ -317,11 +317,11 @@ func (imp *cimporter) doImport(src *CArrowArray) error {
 	imp.initarr()
 	// move the array from the src object passed in to the one referenced by
 	// this importer. That way we can set up a finalizer on the created
-	// *array.Data object so we clean up our Array's memory when garbage collected.
+	// arrow.ArrayData object so we clean up our Array's memory when garbage collected.
 	C.ArrowArrayMove(src, imp.arr)
 	defer func(arr *CArrowArray) {
 		if imp.data != nil {
-			runtime.SetFinalizer(imp.data, func(*array.Data) {
+			runtime.SetFinalizer(imp.data, func(arrow.ArrayData) {
 				defer C.free(unsafe.Pointer(arr))
 				C.ArrowArrayRelease(arr)
 				if C.ArrowArrayIsReleased(arr) != 1 {

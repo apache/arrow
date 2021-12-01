@@ -627,7 +627,7 @@ type ListScalarSuite struct {
 	suite.Suite
 
 	typ arrow.DataType
-	val array.Interface
+	val arrow.Array
 }
 
 func (l *ListScalarSuite) SetupTest() {

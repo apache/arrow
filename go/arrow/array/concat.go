@@ -27,7 +27,7 @@ import (
 	"golang.org/x/xerrors"
 )
 
-// Concatenate creates a new array.Interface which is the concatenation of the
+// Concatenate creates a new arrow.Array which is the concatenation of the
 // passed in arrays. Returns nil if an error is encountered.
 //
 // The passed in arrays still need to be released manually, and will not be
@@ -221,7 +221,7 @@ func concatOffsets(buffers []*memory.Buffer, mem memory.Allocator) (*memory.Buff
 	return out, valuesRanges, nil
 }
 
-// concat is the implementation for actually performing the concatenation of the *array.Data
+// concat is the implementation for actually performing the concatenation of the arrow.ArrayData
 // objects that we can call internally for nested types.
 func concat(data []arrow.ArrayData, mem memory.Allocator) (arrow.ArrayData, error) {
 	out := &Data{refCount: 1, dtype: data[0].DataType(), nulls: 0}
