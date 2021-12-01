@@ -359,5 +359,4 @@ adjusted_mantissa parse_long_mantissa(const char *first, const char* last, parse
 
 } // namespace fast_float
 } // namespace arrow_vendored
-
 #endif
