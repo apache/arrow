@@ -1368,6 +1368,8 @@ TYPED_TEST(TestVarArgsCompareBinary, MinElementWise) {
   this->Assert(MinElementWise, (this->array("[]")), {this->array("[]")});
   this->Assert(MinElementWise, this->array(R"(["1", "2", "3", null])"),
                {this->array(R"(["1", "2", "3", null])")});
+  this->Assert(MinElementWise, this->array(R"(["", ""])"),
+               {this->array(R"(["1", ""])"), this->array(R"(["", "2"])")});
 
   this->Assert(MinElementWise, this->array(R"(["1", "2", "2", "2"])"),
                {this->array(R"(["1", "2", "3", "4"])"), this->scalar(R"("2")")});
@@ -1698,6 +1700,8 @@ TYPED_TEST(TestVarArgsCompareBinary, MaxElementWise) {
   this->Assert(MaxElementWise, (this->array("[]")), {this->array("[]")});
   this->Assert(MaxElementWise, this->array(R"(["1", "2", "3", null])"),
                {this->array(R"(["1", "2", "3", null])")});
+  this->Assert(MaxElementWise, this->array(R"(["1", "2"])"),
+               {this->array(R"(["1", ""])"), this->array(R"(["", "2"])")});
 
   this->Assert(MaxElementWise, this->array(R"(["2", "2", "3", "4"])"),
                {this->array(R"(["1", "2", "3", "4"])"), this->scalar(R"("2")")});

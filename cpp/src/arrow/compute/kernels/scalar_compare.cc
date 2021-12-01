@@ -21,6 +21,7 @@
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernels/common.h"
 #include "arrow/util/bitmap_ops.h"
+#include "arrow/util/optional.h"
 
 namespace arrow {
 
@@ -546,7 +547,7 @@ struct BinaryScalarMinMax {
     RETURN_NOT_OK(builder.Reserve(batch.length));
     RETURN_NOT_OK(builder.ReserveData(final_size));
 
-    std::vector<string_view> valid_cols(batch.values.size());
+    std::vector<util::optional<string_view>> valid_cols(batch.values.size());
     for (size_t row = 0; row < static_cast<size_t>(batch.length); row++) {
       size_t num_valid = 0;
       for (size_t col = 0; col < batch.values.size(); col++) {
@@ -556,7 +557,7 @@ struct BinaryScalarMinMax {
             valid_cols[col] = UnboxScalar<Type>::Unbox(scalar);
             num_valid++;
           } else {
-            valid_cols[col] = string_view();
+            valid_cols[col] = util::nullopt;
           }
         } else {
           const ArrayData& array = *batch[col].array();
@@ -569,29 +570,29 @@ struct BinaryScalarMinMax {
                 string_view(reinterpret_cast<const char*>(data + offsets[row]), length);
             num_valid++;
           } else {
-            valid_cols[col] = string_view();
+            valid_cols[col] = util::nullopt;
           }
         }
       }
 
-      if (num_valid < batch.values.size() && !options.skip_nulls) {
+      if (num_valid == 0 || (num_valid < batch.values.size() && !options.skip_nulls)) {
         // We had some nulls
         builder.UnsafeAppendNull();
         continue;
       }
-      string_view result = valid_cols.front();
+      util::optional<string_view> result = valid_cols.front();
       for (size_t col = 1; col < batch.values.size(); ++col) {
-        string_view value = valid_cols[col];
-        if (value.empty()) {
+        util::optional<string_view> value = valid_cols[col];
+        if (!value) {
           DCHECK(options.skip_nulls);
           continue;
         }
-        result = result.empty() ? value : Op::CallBinary(result, value);
+        result = !result ? *value : Op::CallBinary(*result, *value);
       }
-      if (result.empty()) {
-        builder.UnsafeAppendNull();
+      if (result) {
+        builder.UnsafeAppend(*result);
       } else {
-        builder.UnsafeAppend(result);
+        builder.UnsafeAppendNull();
       }
     }
 
