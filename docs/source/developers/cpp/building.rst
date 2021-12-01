@@ -138,7 +138,7 @@ using ``cmake --list-presets``:
 
 .. code-block:: shell
 
-   $ cmake --list-presets
+   $ cmake --list-presets   # from inside the `cpp` subdirectory
    Available configure presets:
 
      "ninja-debug-minimal"     - Debug build without anything enabled
@@ -166,7 +166,7 @@ You can also create a build from a given preset:
 
 .. code-block:: shell
 
-   $ mkdir build
+   $ mkdir build   # from inside the `cpp` subdirectory
    $ cd build
    $ cmake .. --preset ninja-debug-minimal
       Preset CMake variables:
