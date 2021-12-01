@@ -403,8 +403,7 @@ TEST_F(GcsIntegrationTest, ReadObjectInfo) {
 TEST_F(GcsIntegrationTest, ReadObjectNotFound) {
   auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
 
-  auto result = fs->OpenInputStream(NotFoundObjectPath());
-  EXPECT_EQ(result.status().code(), StatusCode::IOError);
+  ASSERT_RAISES(IOError, fs->OpenInputStream(NotFoundObjectPath()));
 }
 
 TEST_F(GcsIntegrationTest, ReadObjectInfoInvalid) {
@@ -412,13 +411,10 @@ TEST_F(GcsIntegrationTest, ReadObjectInfoInvalid) {
 
   arrow::fs::FileInfo info;
   ASSERT_OK_AND_ASSIGN(info, fs->GetFileInfo(kPreexistingBucket));
-
-  auto result = fs->OpenInputStream(NotFoundObjectPath());
-  EXPECT_EQ(result.status().code(), StatusCode::IOError);
+  ASSERT_RAISES(IOError, fs->OpenInputStream(info));
 
   ASSERT_OK_AND_ASSIGN(info, fs->GetFileInfo(NotFoundObjectPath()));
-  result = fs->OpenInputStream(NotFoundObjectPath());
-  EXPECT_EQ(result.status().code(), StatusCode::IOError);
+  ASSERT_RAISES(IOError, fs->OpenInputStream(info));
 }
 
 TEST_F(GcsIntegrationTest, ReadObjectReadMetadata) {
@@ -646,8 +642,7 @@ TEST_F(GcsIntegrationTest, OpenInputFileInfo) {
 TEST_F(GcsIntegrationTest, OpenInputFileNotFound) {
   auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
 
-  auto result = fs->OpenInputFile(NotFoundObjectPath());
-  EXPECT_EQ(result.status().code(), StatusCode::IOError);
+  ASSERT_RAISES(IOError, fs->OpenInputFile(NotFoundObjectPath()));
 }
 
 TEST_F(GcsIntegrationTest, OpenInputFileInfoInvalid) {
@@ -655,13 +650,10 @@ TEST_F(GcsIntegrationTest, OpenInputFileInfoInvalid) {
 
   arrow::fs::FileInfo info;
   ASSERT_OK_AND_ASSIGN(info, fs->GetFileInfo(kPreexistingBucket));
-
-  auto result = fs->OpenInputFile(NotFoundObjectPath());
-  EXPECT_EQ(result.status().code(), StatusCode::IOError);
+  ASSERT_RAISES(IOError, fs->OpenInputFile(info));
 
   ASSERT_OK_AND_ASSIGN(info, fs->GetFileInfo(NotFoundObjectPath()));
-  result = fs->OpenInputFile(NotFoundObjectPath());
-  EXPECT_EQ(result.status().code(), StatusCode::IOError);
+  ASSERT_RAISES(IOError, fs->OpenInputFile(info));
 }
 
 }  // namespace
