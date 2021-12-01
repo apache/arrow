@@ -373,6 +373,9 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   define_option(ARROW_WITH_BACKTRACE "Build with backtrace support" ON)
 
+  define_option(ARROW_WITH_OPENTELEMETRY
+                "Build libraries with OpenTelemetry support for distributed tracing" OFF)
+
   define_option(ARROW_WITH_BROTLI "Build with Brotli compression" OFF)
   define_option(ARROW_WITH_BZ2 "Build with BZ2 compression" OFF)
   define_option(ARROW_WITH_LZ4 "Build with lz4 compression" OFF)
