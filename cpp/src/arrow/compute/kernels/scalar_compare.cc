@@ -22,6 +22,7 @@
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernels/common.h"
 #include "arrow/util/bitmap_ops.h"
+#include "arrow/util/endian.h"
 #include "arrow/util/optional.h"
 
 namespace arrow {
@@ -502,17 +503,10 @@ struct BinaryScalarMinMax {
         }
       }
     }
-    const size_t num_args = batch.values.size();
-
-    int64_t final_size = CalculateRowSize(options, batch, 0);
-    if (final_size < 0) {
-      output->is_valid = false;
-      return Status::OK();
-    }
     const Scalar& first_scalar = *batch.values.front().scalar();
     string_view result = UnboxScalar<Type>::Unbox(first_scalar);
     bool valid = first_scalar.is_valid;
-    for (size_t i = 1; i < num_args; i++) {
+    for (size_t i = 1; i < batch.values.size(); i++) {
       const Scalar& scalar = *batch[i].scalar();
       if (!scalar.is_valid) {
         DCHECK(options.skip_nulls);
@@ -528,7 +522,6 @@ struct BinaryScalarMinMax {
       uint8_t* buf = output->value->mutable_data();
       buf = std::copy(result.begin(), result.end(), buf);
       output->is_valid = true;
-      DCHECK_GE(final_size, buf - output->value->mutable_data());
     } else {
       output->is_valid = false;
     }
