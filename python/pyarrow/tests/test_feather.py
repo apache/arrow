@@ -637,6 +637,7 @@ def test_v2_compression_options():
     cases = [
         # compression, compression_level
         ('uncompressed', None),
+        ('lz4', None),
         ('lz4', 1),
         ('lz4', 12),
         ('zstd', 1),
