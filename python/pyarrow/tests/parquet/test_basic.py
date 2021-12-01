@@ -374,7 +374,8 @@ def test_column_encoding(use_legacy_dataset):
     # Try to pass "BYTE_STREAM_SPLIT" column encoding for integer column 'b'.
     # This should throw an error as it is only supports FLOAT and DOUBLE.
     with pytest.raises(IOError,
-                       match="BYTE_STREAM_SPLIT only supports FLOAT and DOUBLE"):
+                       match="BYTE_STREAM_SPLIT only supports FLOAT and"
+                             " DOUBLE"):
         _check_roundtrip(mixed_table, expected=mixed_table,
                          use_dictionary=False,
                          column_encoding={'b': "BYTE_STREAM_SPLIT"},
@@ -383,13 +384,16 @@ def test_column_encoding(use_legacy_dataset):
     # Try to pass "DELTA_BINARY_PACKED".
     # This should throw an error as it is only supported for reading.
     with pytest.raises(IOError,
-                       match="Not yet implemented: Selected encoding is not supported."):
+                       match="Not yet implemented: Selected encoding is"
+                             " not supported."):
         _check_roundtrip(mixed_table, expected=mixed_table,
                          use_dictionary=False,
                          column_encoding={'b': "DELTA_BINARY_PACKED"},
                          use_legacy_dataset=use_legacy_dataset)
 
     # Try to pass "RLE_DICTIONARY".
+    # This should throw an error as dictionary encoding is already used by
+    # default and not supported to be specified as "fallback" encoding
     with pytest.raises(ValueError):
         _check_roundtrip(mixed_table, expected=mixed_table,
                          use_dictionary=False,
