@@ -36,6 +36,7 @@ import os
 import sys
 import warnings
 from unittest import mock
+from docutils.parsers.rst import Directive, directives
 
 import pyarrow
 
@@ -463,3 +464,35 @@ def setup(app):
     # This will also rebuild appropriately when the value changes.
     app.add_config_value('cuda_enabled', cuda_enabled, 'env')
     app.add_config_value('flight_enabled', flight_enabled, 'env')
+    app.add_directive('computefuncs', ComputeFunctionsTableDirective)
+
+
+class ComputeFunctionsTableDirective(Directive):
+    has_content = True
+    option_spec = {
+        "kind": directives.unchanged
+    }
+
+    def run(self):
+        from docutils.statemachine import ViewList
+        from docutils import nodes
+        import pyarrow._compute
+
+        result = ViewList()
+        print("OPTIONS", self.options)
+        function_kind = self.options.get('kind', None)
+
+        result.append(".. csv-table::", "<computefuncs>")
+        result.append("   :widths: 30, 70", "<computefuncs>")
+        result.append("   ", "<computefuncs>")
+        funcs_reg = pyarrow._compute.function_registry()
+        for fname in funcs_reg.list_functions():
+            f = funcs_reg.get_function(fname)
+            if not function_kind or f.kind == function_kind:
+                result.append('   "{}", "{}"'.format(fname, f._doc.summary),
+                              "<computefuncs>")
+
+        node = nodes.section()
+        node.document = self.state.document
+        self.state.nested_parse(result, 0, node)
+        return node.children
