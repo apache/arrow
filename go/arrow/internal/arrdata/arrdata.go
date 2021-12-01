@@ -31,7 +31,7 @@ import (
 )
 
 var (
-	Records     = make(map[string][]array.Record)
+	Records     = make(map[string][]arrow.Record)
 	RecordNames []string
 )
 
@@ -56,7 +56,7 @@ func init() {
 	sort.Strings(RecordNames)
 }
 
-func makeNullRecords() []array.Record {
+func makeNullRecords() []arrow.Record {
 	mem := memory.NewGoAllocator()
 
 	meta := arrow.NewMetadata(
@@ -91,7 +91,7 @@ func makeNullRecords() []array.Record {
 		}
 	}()
 
-	recs := make([]array.Record, len(chunks))
+	recs := make([]arrow.Record, len(chunks))
 	for i, chunk := range chunks {
 		recs[i] = array.NewRecord(schema, chunk, -1)
 	}
@@ -99,7 +99,7 @@ func makeNullRecords() []array.Record {
 	return recs
 }
 
-func makePrimitiveRecords() []array.Record {
+func makePrimitiveRecords() []arrow.Record {
 	mem := memory.NewGoAllocator()
 
 	meta := arrow.NewMetadata(
@@ -174,7 +174,7 @@ func makePrimitiveRecords() []array.Record {
 		}
 	}()
 
-	recs := make([]array.Record, len(chunks))
+	recs := make([]arrow.Record, len(chunks))
 	for i, chunk := range chunks {
 		recs[i] = array.NewRecord(schema, chunk, -1)
 	}
@@ -182,7 +182,7 @@ func makePrimitiveRecords() []array.Record {
 	return recs
 }
 
-func makeStructsRecords() []array.Record {
+func makeStructsRecords() []arrow.Record {
 	mem := memory.NewGoAllocator()
 
 	fields := []arrow.Field{
@@ -252,7 +252,7 @@ func makeStructsRecords() []array.Record {
 		}
 	}()
 
-	recs := make([]array.Record, len(chunks))
+	recs := make([]arrow.Record, len(chunks))
 	for i, chunk := range chunks {
 		recs[i] = array.NewRecord(schema, chunk, -1)
 	}
@@ -260,7 +260,7 @@ func makeStructsRecords() []array.Record {
 	return recs
 }
 
-func makeListsRecords() []array.Record {
+func makeListsRecords() []arrow.Record {
 	mem := memory.NewGoAllocator()
 	dtype := arrow.ListOf(arrow.PrimitiveTypes.Int32)
 	schema := arrow.NewSchema([]arrow.Field{
@@ -309,7 +309,7 @@ func makeListsRecords() []array.Record {
 		}
 	}()
 
-	recs := make([]array.Record, len(chunks))
+	recs := make([]arrow.Record, len(chunks))
 	for i, chunk := range chunks {
 		recs[i] = array.NewRecord(schema, chunk, -1)
 	}
@@ -317,7 +317,7 @@ func makeListsRecords() []array.Record {
 	return recs
 }
 
-func makeFixedSizeListsRecords() []array.Record {
+func makeFixedSizeListsRecords() []arrow.Record {
 	mem := memory.NewGoAllocator()
 	const N = 3
 	dtype := arrow.FixedSizeListOf(N, arrow.PrimitiveTypes.Int32)
@@ -359,7 +359,7 @@ func makeFixedSizeListsRecords() []array.Record {
 		}
 	}()
 
-	recs := make([]array.Record, len(chunks))
+	recs := make([]arrow.Record, len(chunks))
 	for i, chunk := range chunks {
 		recs[i] = array.NewRecord(schema, chunk, -1)
 	}
@@ -367,7 +367,7 @@ func makeFixedSizeListsRecords() []array.Record {
 	return recs
 }
 
-func makeStringsRecords() []array.Record {
+func makeStringsRecords() []arrow.Record {
 	mem := memory.NewGoAllocator()
 	schema := arrow.NewSchema([]arrow.Field{
 		{Name: "strings", Type: arrow.BinaryTypes.String},
@@ -398,7 +398,7 @@ func makeStringsRecords() []array.Record {
 		}
 	}()
 
-	recs := make([]array.Record, len(chunks))
+	recs := make([]arrow.Record, len(chunks))
 	for i, chunk := range chunks {
 		recs[i] = array.NewRecord(schema, chunk, -1)
 	}
@@ -422,7 +422,7 @@ var (
 	null nullT
 )
 
-func makeFixedWidthTypesRecords() []array.Record {
+func makeFixedWidthTypesRecords() []arrow.Record {
 	mem := memory.NewGoAllocator()
 	schema := arrow.NewSchema(
 		[]arrow.Field{
@@ -499,7 +499,7 @@ func makeFixedWidthTypesRecords() []array.Record {
 		}
 	}()
 
-	recs := make([]array.Record, len(chunks))
+	recs := make([]arrow.Record, len(chunks))
 	for i, chunk := range chunks {
 		recs[i] = array.NewRecord(schema, chunk, -1)
 	}
@@ -509,7 +509,7 @@ func makeFixedWidthTypesRecords() []array.Record {
 
 type fsb3 string
 
-func makeFixedSizeBinariesRecords() []array.Record {
+func makeFixedSizeBinariesRecords() []arrow.Record {
 	mem := memory.NewGoAllocator()
 	schema := arrow.NewSchema(
 		[]arrow.Field{
@@ -538,7 +538,7 @@ func makeFixedSizeBinariesRecords() []array.Record {
 		}
 	}()
 
-	recs := make([]array.Record, len(chunks))
+	recs := make([]arrow.Record, len(chunks))
 	for i, chunk := range chunks {
 		recs[i] = array.NewRecord(schema, chunk, -1)
 	}
@@ -546,7 +546,7 @@ func makeFixedSizeBinariesRecords() []array.Record {
 	return recs
 }
 
-func makeIntervalsRecords() []array.Record {
+func makeIntervalsRecords() []arrow.Record {
 	mem := memory.NewGoAllocator()
 
 	schema := arrow.NewSchema(
@@ -584,7 +584,7 @@ func makeIntervalsRecords() []array.Record {
 		}
 	}()
 
-	recs := make([]array.Record, len(chunks))
+	recs := make([]arrow.Record, len(chunks))
 	for i, chunk := range chunks {
 		recs[i] = array.NewRecord(schema, chunk, -1)
 	}
@@ -599,7 +599,7 @@ type (
 	duration_ns arrow.Duration
 )
 
-func makeDurationsRecords() []array.Record {
+func makeDurationsRecords() []arrow.Record {
 	mem := memory.NewGoAllocator()
 
 	schema := arrow.NewSchema(
@@ -641,7 +641,7 @@ func makeDurationsRecords() []array.Record {
 		}
 	}()
 
-	recs := make([]array.Record, len(chunks))
+	recs := make([]arrow.Record, len(chunks))
 	for i, chunk := range chunks {
 		recs[i] = array.NewRecord(schema, chunk, -1)
 	}
@@ -653,7 +653,7 @@ var (
 	decimal128Type = &arrow.Decimal128Type{Precision: 10, Scale: 1}
 )
 
-func makeDecimal128sRecords() []array.Record {
+func makeDecimal128sRecords() []arrow.Record {
 	mem := memory.NewGoAllocator()
 	schema := arrow.NewSchema(
 		[]arrow.Field{
@@ -690,7 +690,7 @@ func makeDecimal128sRecords() []array.Record {
 		}
 	}()
 
-	recs := make([]array.Record, len(chunks))
+	recs := make([]arrow.Record, len(chunks))
 	for i, chunk := range chunks {
 		recs[i] = array.NewRecord(schema, chunk, -1)
 	}
@@ -698,7 +698,7 @@ func makeDecimal128sRecords() []array.Record {
 	return recs
 }
 
-func makeMapsRecords() []array.Record {
+func makeMapsRecords() []arrow.Record {
 	mem := memory.NewGoAllocator()
 	dtype := arrow.MapOf(arrow.PrimitiveTypes.Int32, arrow.BinaryTypes.String)
 	dtype.KeysSorted = true
@@ -812,7 +812,7 @@ func makeMapsRecords() []array.Record {
 		}
 	}()
 
-	recs := make([]array.Record, len(chunks))
+	recs := make([]arrow.Record, len(chunks))
 	for i, chunk := range chunks {
 		recs[i] = array.NewRecord(schema, chunk, -1)
 	}
@@ -820,7 +820,7 @@ func makeMapsRecords() []array.Record {
 	return recs
 }
 
-func makeExtensionRecords() []array.Record {
+func makeExtensionRecords() []arrow.Record {
 	mem := memory.NewGoAllocator()
 
 	p1Type := types.NewParametric1Type(6)
@@ -891,7 +891,7 @@ func makeExtensionRecords() []array.Record {
 		}
 	}()
 
-	recs := make([]array.Record, len(chunks))
+	recs := make([]arrow.Record, len(chunks))
 	for i, chunk := range chunks {
 		recs[i] = array.NewRecord(schema, chunk, -1)
 	}

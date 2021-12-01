@@ -181,7 +181,7 @@ func (b *BinaryBuilder) Resize(n int) {
 
 // NewArray creates a Binary array from the memory buffers used by the builder and resets the BinaryBuilder
 // so it can be used to build a new array.
-func (b *BinaryBuilder) NewArray() Interface {
+func (b *BinaryBuilder) NewArray() arrow.Array {
 	return b.NewBinaryArray()
 }
 

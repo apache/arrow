@@ -127,7 +127,7 @@ func (b *FixedSizeBinaryBuilder) Resize(n int) {
 
 // NewArray creates a FixedSizeBinary array from the memory buffers used by the
 // builder and resets the FixedSizeBinaryBuilder so it can be used to build a new array.
-func (b *FixedSizeBinaryBuilder) NewArray() Interface {
+func (b *FixedSizeBinaryBuilder) NewArray() arrow.Array {
 	return b.NewFixedSizeBinaryArray()
 }
 

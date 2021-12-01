@@ -43,7 +43,7 @@ type FileReader struct {
 	memo   dictMemo
 
 	schema *arrow.Schema
-	record array.Record
+	record arrow.Record
 
 	irec int   // current record index. used for the arrio.Reader interface
 	err  error // last error
@@ -246,7 +246,7 @@ func (f *FileReader) Close() error {
 // Record returns the i-th record from the file.
 // The returned value is valid until the next call to Record.
 // Users need to call Retain on that Record to keep it valid for longer.
-func (f *FileReader) Record(i int) (array.Record, error) {
+func (f *FileReader) Record(i int) (arrow.Record, error) {
 	record, err := f.RecordAt(i)
 	if err != nil {
 		return nil, err
@@ -263,7 +263,7 @@ func (f *FileReader) Record(i int) (array.Record, error) {
 // Record returns the i-th record from the file. Ownership is transferred to the
 // caller and must call Release() to free the memory. This method is safe to
 // call concurrently.
-func (f *FileReader) RecordAt(i int) (array.Record, error) {
+func (f *FileReader) RecordAt(i int) (arrow.Record, error) {
 	if i < 0 || i > f.NumRecords() {
 		panic("arrow/ipc: record index out of bounds")
 	}
@@ -299,7 +299,7 @@ func (f *FileReader) RecordAt(i int) (array.Record, error) {
 //
 // The returned record value is valid until the next call to Read.
 // Users need to call Retain on that Record to keep it valid for longer.
-func (f *FileReader) Read() (rec array.Record, err error) {
+func (f *FileReader) Read() (rec arrow.Record, err error) {
 	if f.irec == f.NumRecords() {
 		return nil, io.EOF
 	}
@@ -309,11 +309,11 @@ func (f *FileReader) Read() (rec array.Record, err error) {
 }
 
 // ReadAt reads the i-th record from the underlying stream and an error, if any.
-func (f *FileReader) ReadAt(i int64) (array.Record, error) {
+func (f *FileReader) ReadAt(i int64) (arrow.Record, error) {
 	return f.Record(int(i))
 }
 
-func newRecord(schema *arrow.Schema, meta *memory.Buffer, body ReadAtSeeker, mem memory.Allocator) array.Record {
+func newRecord(schema *arrow.Schema, meta *memory.Buffer, body ReadAtSeeker, mem memory.Allocator) arrow.Record {
 	var (
 		msg   = flatbuf.GetRootAsMessage(meta.Bytes(), 0)
 		md    flatbuf.RecordBatch
@@ -551,7 +551,7 @@ func (ctx *arrayLoaderContext) loadMap(dt *arrow.MapType) array.Interface {
 	sub := ctx.loadChild(dt.ValueType())
 	defer sub.Release()
 
-	data := array.NewData(dt, int(field.Length()), buffers, []*array.Data{sub.Data()}, int(field.NullCount()), 0)
+	data := array.NewData(dt, int(field.Length()), buffers, []arrow.ArrayData{sub.Data()}, int(field.NullCount()), 0)
 	defer data.Release()
 
 	return array.NewMapData(data)
@@ -565,7 +565,7 @@ func (ctx *arrayLoaderContext) loadList(dt *arrow.ListType) array.Interface {
 	sub := ctx.loadChild(dt.Elem())
 	defer sub.Release()
 
-	data := array.NewData(dt, int(field.Length()), buffers, []*array.Data{sub.Data()}, int(field.NullCount()), 0)
+	data := array.NewData(dt, int(field.Length()), buffers, []arrow.ArrayData{sub.Data()}, int(field.NullCount()), 0)
 	defer data.Release()
 
 	return array.NewListData(data)
@@ -578,7 +578,7 @@ func (ctx *arrayLoaderContext) loadFixedSizeList(dt *arrow.FixedSizeListType) ar
 	sub := ctx.loadChild(dt.Elem())
 	defer sub.Release()
 
-	data := array.NewData(dt, int(field.Length()), buffers, []*array.Data{sub.Data()}, int(field.NullCount()), 0)
+	data := array.NewData(dt, int(field.Length()), buffers, []arrow.ArrayData{sub.Data()}, int(field.NullCount()), 0)
 	defer data.Release()
 
 	return array.NewFixedSizeListData(data)
@@ -589,7 +589,7 @@ func (ctx *arrayLoaderContext) loadStruct(dt *arrow.StructType) array.Interface 
 	defer releaseBuffers(buffers)
 
 	arrs := make([]array.Interface, len(dt.Fields()))
-	subs := make([]*array.Data, len(dt.Fields()))
+	subs := make([]arrow.ArrayData, len(dt.Fields()))
 	for i, f := range dt.Fields() {
 		arrs[i] = ctx.loadChild(f.Type)
 		subs[i] = arrs[i].Data()

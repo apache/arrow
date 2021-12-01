@@ -14,6 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build cgo
 // +build cgo
 
 package cdata
@@ -374,7 +375,7 @@ func (imp *cimporter) doImport(src *CArrowArray) error {
 			return err
 		}
 
-		imp.data = array.NewData(dt, int(imp.arr.length), []*memory.Buffer{nulls}, []*array.Data{imp.children[0].data}, int(imp.arr.null_count), int(imp.arr.offset))
+		imp.data = array.NewData(dt, int(imp.arr.length), []*memory.Buffer{nulls}, []arrow.ArrayData{imp.children[0].data}, int(imp.arr.null_count), int(imp.arr.offset))
 	case *arrow.StructType:
 		if err := imp.checkNumBuffers(1); err != nil {
 			return err
@@ -385,7 +386,7 @@ func (imp *cimporter) doImport(src *CArrowArray) error {
 			return err
 		}
 
-		children := make([]*array.Data, len(imp.children))
+		children := make([]arrow.ArrayData, len(imp.children))
 		for i := range imp.children {
 			children[i] = imp.children[i].data
 		}
@@ -433,7 +434,7 @@ func (imp *cimporter) importListLike() error {
 	}
 
 	offsets := imp.importOffsetsBuffer(1)
-	imp.data = array.NewData(imp.dt, int(imp.arr.length), []*memory.Buffer{nulls, offsets}, []*array.Data{imp.children[0].data}, int(imp.arr.null_count), int(imp.arr.offset))
+	imp.data = array.NewData(imp.dt, int(imp.arr.length), []*memory.Buffer{nulls, offsets}, []arrow.ArrayData{imp.children[0].data}, int(imp.arr.null_count), int(imp.arr.offset))
 	return nil
 }
 
@@ -548,7 +549,7 @@ func (n *nativeCRecordBatchReader) getError(errno int) error {
 	return xerrors.Errorf("%w: %s", syscall.Errno(errno), C.GoString(C.stream_get_last_error(n.stream)))
 }
 
-func (n *nativeCRecordBatchReader) Read() (array.Record, error) {
+func (n *nativeCRecordBatchReader) Read() (arrow.Record, error) {
 	if n.schema == nil {
 		var sc CArrowSchema
 		errno := C.stream_get_schema(n.stream, &sc)

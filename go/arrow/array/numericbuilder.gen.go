@@ -139,7 +139,7 @@ func (b *Int64Builder) Resize(n int) {
 
 // NewArray creates a Int64 array from the memory buffers used by the builder and resets the Int64Builder
 // so it can be used to build a new array.
-func (b *Int64Builder) NewArray() Interface {
+func (b *Int64Builder) NewArray() arrow.Array {
 	return b.NewInt64Array()
 }
 
@@ -342,7 +342,7 @@ func (b *Uint64Builder) Resize(n int) {
 
 // NewArray creates a Uint64 array from the memory buffers used by the builder and resets the Uint64Builder
 // so it can be used to build a new array.
-func (b *Uint64Builder) NewArray() Interface {
+func (b *Uint64Builder) NewArray() arrow.Array {
 	return b.NewUint64Array()
 }
 
@@ -545,7 +545,7 @@ func (b *Float64Builder) Resize(n int) {
 
 // NewArray creates a Float64 array from the memory buffers used by the builder and resets the Float64Builder
 // so it can be used to build a new array.
-func (b *Float64Builder) NewArray() Interface {
+func (b *Float64Builder) NewArray() arrow.Array {
 	return b.NewFloat64Array()
 }
 
@@ -748,7 +748,7 @@ func (b *Int32Builder) Resize(n int) {
 
 // NewArray creates a Int32 array from the memory buffers used by the builder and resets the Int32Builder
 // so it can be used to build a new array.
-func (b *Int32Builder) NewArray() Interface {
+func (b *Int32Builder) NewArray() arrow.Array {
 	return b.NewInt32Array()
 }
 
@@ -951,7 +951,7 @@ func (b *Uint32Builder) Resize(n int) {
 
 // NewArray creates a Uint32 array from the memory buffers used by the builder and resets the Uint32Builder
 // so it can be used to build a new array.
-func (b *Uint32Builder) NewArray() Interface {
+func (b *Uint32Builder) NewArray() arrow.Array {
 	return b.NewUint32Array()
 }
 
@@ -1154,7 +1154,7 @@ func (b *Float32Builder) Resize(n int) {
 
 // NewArray creates a Float32 array from the memory buffers used by the builder and resets the Float32Builder
 // so it can be used to build a new array.
-func (b *Float32Builder) NewArray() Interface {
+func (b *Float32Builder) NewArray() arrow.Array {
 	return b.NewFloat32Array()
 }
 
@@ -1357,7 +1357,7 @@ func (b *Int16Builder) Resize(n int) {
 
 // NewArray creates a Int16 array from the memory buffers used by the builder and resets the Int16Builder
 // so it can be used to build a new array.
-func (b *Int16Builder) NewArray() Interface {
+func (b *Int16Builder) NewArray() arrow.Array {
 	return b.NewInt16Array()
 }
 
@@ -1560,7 +1560,7 @@ func (b *Uint16Builder) Resize(n int) {
 
 // NewArray creates a Uint16 array from the memory buffers used by the builder and resets the Uint16Builder
 // so it can be used to build a new array.
-func (b *Uint16Builder) NewArray() Interface {
+func (b *Uint16Builder) NewArray() arrow.Array {
 	return b.NewUint16Array()
 }
 
@@ -1763,7 +1763,7 @@ func (b *Int8Builder) Resize(n int) {
 
 // NewArray creates a Int8 array from the memory buffers used by the builder and resets the Int8Builder
 // so it can be used to build a new array.
-func (b *Int8Builder) NewArray() Interface {
+func (b *Int8Builder) NewArray() arrow.Array {
 	return b.NewInt8Array()
 }
 
@@ -1966,7 +1966,7 @@ func (b *Uint8Builder) Resize(n int) {
 
 // NewArray creates a Uint8 array from the memory buffers used by the builder and resets the Uint8Builder
 // so it can be used to build a new array.
-func (b *Uint8Builder) NewArray() Interface {
+func (b *Uint8Builder) NewArray() arrow.Array {
 	return b.NewUint8Array()
 }
 
@@ -2170,7 +2170,7 @@ func (b *TimestampBuilder) Resize(n int) {
 
 // NewArray creates a Timestamp array from the memory buffers used by the builder and resets the TimestampBuilder
 // so it can be used to build a new array.
-func (b *TimestampBuilder) NewArray() Interface {
+func (b *TimestampBuilder) NewArray() arrow.Array {
 	return b.NewTimestampArray()
 }
 
@@ -2362,7 +2362,7 @@ func (b *Time32Builder) Resize(n int) {
 
 // NewArray creates a Time32 array from the memory buffers used by the builder and resets the Time32Builder
 // so it can be used to build a new array.
-func (b *Time32Builder) NewArray() Interface {
+func (b *Time32Builder) NewArray() arrow.Array {
 	return b.NewTime32Array()
 }
 
@@ -2554,7 +2554,7 @@ func (b *Time64Builder) Resize(n int) {
 
 // NewArray creates a Time64 array from the memory buffers used by the builder and resets the Time64Builder
 // so it can be used to build a new array.
-func (b *Time64Builder) NewArray() Interface {
+func (b *Time64Builder) NewArray() arrow.Array {
 	return b.NewTime64Array()
 }
 
@@ -2745,7 +2745,7 @@ func (b *Date32Builder) Resize(n int) {
 
 // NewArray creates a Date32 array from the memory buffers used by the builder and resets the Date32Builder
 // so it can be used to build a new array.
-func (b *Date32Builder) NewArray() Interface {
+func (b *Date32Builder) NewArray() arrow.Array {
 	return b.NewDate32Array()
 }
 
@@ -2936,7 +2936,7 @@ func (b *Date64Builder) Resize(n int) {
 
 // NewArray creates a Date64 array from the memory buffers used by the builder and resets the Date64Builder
 // so it can be used to build a new array.
-func (b *Date64Builder) NewArray() Interface {
+func (b *Date64Builder) NewArray() arrow.Array {
 	return b.NewDate64Array()
 }
 
@@ -3128,7 +3128,7 @@ func (b *DurationBuilder) Resize(n int) {
 
 // NewArray creates a Duration array from the memory buffers used by the builder and resets the DurationBuilder
 // so it can be used to build a new array.
-func (b *DurationBuilder) NewArray() Interface {
+func (b *DurationBuilder) NewArray() arrow.Array {
 	return b.NewDurationArray()
 }
 

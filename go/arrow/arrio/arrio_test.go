@@ -24,7 +24,6 @@ import (
 	"testing"
 
 	"github.com/apache/arrow/go/v7/arrow"
-	"github.com/apache/arrow/go/v7/arrow/array"
 	"github.com/apache/arrow/go/v7/arrow/arrio"
 	"github.com/apache/arrow/go/v7/arrow/internal/arrdata"
 	"github.com/apache/arrow/go/v7/arrow/ipc"
@@ -38,7 +37,7 @@ const (
 	streamKind
 )
 
-func (k copyKind) write(t *testing.T, f *os.File, mem memory.Allocator, schema *arrow.Schema, recs []array.Record) {
+func (k copyKind) write(t *testing.T, f *os.File, mem memory.Allocator, schema *arrow.Schema, recs []arrow.Record) {
 	t.Helper()
 
 	switch k {
@@ -51,7 +50,7 @@ func (k copyKind) write(t *testing.T, f *os.File, mem memory.Allocator, schema *
 	}
 }
 
-func (k copyKind) check(t *testing.T, f *os.File, mem memory.Allocator, schema *arrow.Schema, recs []array.Record) {
+func (k copyKind) check(t *testing.T, f *os.File, mem memory.Allocator, schema *arrow.Schema, recs []arrow.Record) {
 	t.Helper()
 
 	switch k {

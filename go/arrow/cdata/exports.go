@@ -22,6 +22,7 @@ import (
 	"sync/atomic"
 	"unsafe"
 
+	"github.com/apache/arrow/go/v7/arrow"
 	"github.com/apache/arrow/go/v7/arrow/array"
 )
 
@@ -36,7 +37,7 @@ var (
 
 type dataHandle uintptr
 
-func storeData(d *array.Data) dataHandle {
+func storeData(d arrow.ArrayData) dataHandle {
 	h := atomic.AddUintptr(&handleIdx, 1)
 	if h == 0 {
 		panic("cgo: ran out of space")

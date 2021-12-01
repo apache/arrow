@@ -20,7 +20,6 @@ package tensor
 
 import (
 	"github.com/apache/arrow/go/v7/arrow"
-	"github.com/apache/arrow/go/v7/arrow/array"
 )
 
 // Int8 is an n-dim array of int8s.
@@ -32,7 +31,7 @@ type Int8 struct {
 // NewInt8 returns a new n-dimensional array of int8s.
 // If strides is nil, row-major strides will be inferred.
 // If names is nil, a slice of empty strings will be created.
-func NewInt8(data *array.Data, shape, strides []int64, names []string) *Int8 {
+func NewInt8(data arrow.ArrayData, shape, strides []int64, names []string) *Int8 {
 	tsr := &Int8{tensorBase: *newTensor(arrow.PrimitiveTypes.Int8, data, shape, strides, names)}
 	vals := tsr.data.Buffers()[1]
 	if vals != nil {
@@ -56,7 +55,7 @@ type Int16 struct {
 // NewInt16 returns a new n-dimensional array of int16s.
 // If strides is nil, row-major strides will be inferred.
 // If names is nil, a slice of empty strings will be created.
-func NewInt16(data *array.Data, shape, strides []int64, names []string) *Int16 {
+func NewInt16(data arrow.ArrayData, shape, strides []int64, names []string) *Int16 {
 	tsr := &Int16{tensorBase: *newTensor(arrow.PrimitiveTypes.Int16, data, shape, strides, names)}
 	vals := tsr.data.Buffers()[1]
 	if vals != nil {
@@ -80,7 +79,7 @@ type Int32 struct {
 // NewInt32 returns a new n-dimensional array of int32s.
 // If strides is nil, row-major strides will be inferred.
 // If names is nil, a slice of empty strings will be created.
-func NewInt32(data *array.Data, shape, strides []int64, names []string) *Int32 {
+func NewInt32(data arrow.ArrayData, shape, strides []int64, names []string) *Int32 {
 	tsr := &Int32{tensorBase: *newTensor(arrow.PrimitiveTypes.Int32, data, shape, strides, names)}
 	vals := tsr.data.Buffers()[1]
 	if vals != nil {
@@ -104,7 +103,7 @@ type Int64 struct {
 // NewInt64 returns a new n-dimensional array of int64s.
 // If strides is nil, row-major strides will be inferred.
 // If names is nil, a slice of empty strings will be created.
-func NewInt64(data *array.Data, shape, strides []int64, names []string) *Int64 {
+func NewInt64(data arrow.ArrayData, shape, strides []int64, names []string) *Int64 {
 	tsr := &Int64{tensorBase: *newTensor(arrow.PrimitiveTypes.Int64, data, shape, strides, names)}
 	vals := tsr.data.Buffers()[1]
 	if vals != nil {
@@ -128,7 +127,7 @@ type Uint8 struct {
 // NewUint8 returns a new n-dimensional array of uint8s.
 // If strides is nil, row-major strides will be inferred.
 // If names is nil, a slice of empty strings will be created.
-func NewUint8(data *array.Data, shape, strides []int64, names []string) *Uint8 {
+func NewUint8(data arrow.ArrayData, shape, strides []int64, names []string) *Uint8 {
 	tsr := &Uint8{tensorBase: *newTensor(arrow.PrimitiveTypes.Uint8, data, shape, strides, names)}
 	vals := tsr.data.Buffers()[1]
 	if vals != nil {
@@ -152,7 +151,7 @@ type Uint16 struct {
 // NewUint16 returns a new n-dimensional array of uint16s.
 // If strides is nil, row-major strides will be inferred.
 // If names is nil, a slice of empty strings will be created.
-func NewUint16(data *array.Data, shape, strides []int64, names []string) *Uint16 {
+func NewUint16(data arrow.ArrayData, shape, strides []int64, names []string) *Uint16 {
 	tsr := &Uint16{tensorBase: *newTensor(arrow.PrimitiveTypes.Uint16, data, shape, strides, names)}
 	vals := tsr.data.Buffers()[1]
 	if vals != nil {
@@ -176,7 +175,7 @@ type Uint32 struct {
 // NewUint32 returns a new n-dimensional array of uint32s.
 // If strides is nil, row-major strides will be inferred.
 // If names is nil, a slice of empty strings will be created.
-func NewUint32(data *array.Data, shape, strides []int64, names []string) *Uint32 {
+func NewUint32(data arrow.ArrayData, shape, strides []int64, names []string) *Uint32 {
 	tsr := &Uint32{tensorBase: *newTensor(arrow.PrimitiveTypes.Uint32, data, shape, strides, names)}
 	vals := tsr.data.Buffers()[1]
 	if vals != nil {
@@ -200,7 +199,7 @@ type Uint64 struct {
 // NewUint64 returns a new n-dimensional array of uint64s.
 // If strides is nil, row-major strides will be inferred.
 // If names is nil, a slice of empty strings will be created.
-func NewUint64(data *array.Data, shape, strides []int64, names []string) *Uint64 {
+func NewUint64(data arrow.ArrayData, shape, strides []int64, names []string) *Uint64 {
 	tsr := &Uint64{tensorBase: *newTensor(arrow.PrimitiveTypes.Uint64, data, shape, strides, names)}
 	vals := tsr.data.Buffers()[1]
 	if vals != nil {
@@ -224,7 +223,7 @@ type Float32 struct {
 // NewFloat32 returns a new n-dimensional array of float32s.
 // If strides is nil, row-major strides will be inferred.
 // If names is nil, a slice of empty strings will be created.
-func NewFloat32(data *array.Data, shape, strides []int64, names []string) *Float32 {
+func NewFloat32(data arrow.ArrayData, shape, strides []int64, names []string) *Float32 {
 	tsr := &Float32{tensorBase: *newTensor(arrow.PrimitiveTypes.Float32, data, shape, strides, names)}
 	vals := tsr.data.Buffers()[1]
 	if vals != nil {
@@ -248,7 +247,7 @@ type Float64 struct {
 // NewFloat64 returns a new n-dimensional array of float64s.
 // If strides is nil, row-major strides will be inferred.
 // If names is nil, a slice of empty strings will be created.
-func NewFloat64(data *array.Data, shape, strides []int64, names []string) *Float64 {
+func NewFloat64(data arrow.ArrayData, shape, strides []int64, names []string) *Float64 {
 	tsr := &Float64{tensorBase: *newTensor(arrow.PrimitiveTypes.Float64, data, shape, strides, names)}
 	vals := tsr.data.Buffers()[1]
 	if vals != nil {
@@ -272,7 +271,7 @@ type Date32 struct {
 // NewDate32 returns a new n-dimensional array of date32s.
 // If strides is nil, row-major strides will be inferred.
 // If names is nil, a slice of empty strings will be created.
-func NewDate32(data *array.Data, shape, strides []int64, names []string) *Date32 {
+func NewDate32(data arrow.ArrayData, shape, strides []int64, names []string) *Date32 {
 	tsr := &Date32{tensorBase: *newTensor(arrow.PrimitiveTypes.Date32, data, shape, strides, names)}
 	vals := tsr.data.Buffers()[1]
 	if vals != nil {
@@ -296,7 +295,7 @@ type Date64 struct {
 // NewDate64 returns a new n-dimensional array of date64s.
 // If strides is nil, row-major strides will be inferred.
 // If names is nil, a slice of empty strings will be created.
-func NewDate64(data *array.Data, shape, strides []int64, names []string) *Date64 {
+func NewDate64(data arrow.ArrayData, shape, strides []int64, names []string) *Date64 {
 	tsr := &Date64{tensorBase: *newTensor(arrow.PrimitiveTypes.Date64, data, shape, strides, names)}
 	vals := tsr.data.Buffers()[1]
 	if vals != nil {

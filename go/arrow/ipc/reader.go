@@ -37,7 +37,7 @@ type Reader struct {
 	schema *arrow.Schema
 
 	refCount int64
-	rec      array.Record
+	rec      arrow.Record
 	err      error
 
 	types dictTypeMap
@@ -183,13 +183,13 @@ func (r *Reader) next() bool {
 // Record returns the current record that has been extracted from the
 // underlying stream.
 // It is valid until the next call to Next.
-func (r *Reader) Record() array.Record {
+func (r *Reader) Record() arrow.Record {
 	return r.rec
 }
 
 // Read reads the current record from the underlying stream and an error, if any.
 // When the Reader reaches the end of the underlying stream, it returns (nil, io.EOF).
-func (r *Reader) Read() (array.Record, error) {
+func (r *Reader) Read() (arrow.Record, error) {
 	if r.rec != nil {
 		r.rec.Release()
 		r.rec = nil

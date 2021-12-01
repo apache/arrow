@@ -22,7 +22,6 @@ import (
 	"sync/atomic"
 
 	"github.com/apache/arrow/go/v7/arrow"
-	"github.com/apache/arrow/go/v7/arrow/array"
 	"github.com/apache/arrow/go/v7/arrow/arrio"
 	"github.com/apache/arrow/go/v7/arrow/internal/debug"
 )
@@ -31,7 +30,7 @@ type Reader struct {
 	refs int64
 
 	schema *arrow.Schema
-	recs   []array.Record
+	recs   []arrow.Record
 
 	irec int // current record index. used for the arrio.Reader interface.
 }
@@ -83,7 +82,7 @@ func (r *Reader) Release() {
 func (r *Reader) Schema() *arrow.Schema { return r.schema }
 func (r *Reader) NumRecords() int       { return len(r.recs) }
 
-func (r *Reader) Read() (array.Record, error) {
+func (r *Reader) Read() (arrow.Record, error) {
 	if r.irec == r.NumRecords() {
 		return nil, io.EOF
 	}

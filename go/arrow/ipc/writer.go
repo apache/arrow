@@ -117,7 +117,7 @@ func (w *Writer) Close() error {
 	return nil
 }
 
-func (w *Writer) Write(rec array.Record) error {
+func (w *Writer) Write(rec arrow.Record) error {
 	if !w.started {
 		err := w.start()
 		if err != nil {
@@ -260,7 +260,7 @@ func (w *recordEncoder) compressBodyBuffers(p *Payload) error {
 	return <-errch
 }
 
-func (w *recordEncoder) Encode(p *Payload, rec array.Record) error {
+func (w *recordEncoder) Encode(p *Payload, rec arrow.Record) error {
 
 	// perform depth-first traversal of the row-batch
 	for i, col := range rec.Columns() {

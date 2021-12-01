@@ -14,6 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build cgo
 // +build cgo
 
 package cdata
@@ -110,7 +111,7 @@ func ImportCArray(arr *CArrowArray, schema *CArrowSchema) (arrow.Field, array.In
 //
 // NOTE: The array takes ownership of the underlying memory buffers via ArrowArrayMove,
 // it does not take ownership of the actual arr object itself.
-func ImportCRecordBatchWithSchema(arr *CArrowArray, sc *arrow.Schema) (array.Record, error) {
+func ImportCRecordBatchWithSchema(arr *CArrowArray, sc *arrow.Schema) (arrow.Record, error) {
 	imp, err := importCArrayAsType(arr, arrow.StructOf(sc.Fields()...))
 	if err != nil {
 		return nil, err
@@ -141,7 +142,7 @@ func ImportCRecordBatchWithSchema(arr *CArrowArray, sc *arrow.Schema) (array.Rec
 //
 // NOTE: The array takes ownership of the underlying memory buffers via ArrowArrayMove,
 // it does not take ownership of the actual arr object itself.
-func ImportCRecordBatch(arr *CArrowArray, sc *CArrowSchema) (array.Record, error) {
+func ImportCRecordBatch(arr *CArrowArray, sc *CArrowSchema) (arrow.Record, error) {
 	field, err := importSchema(sc)
 	if err != nil {
 		return nil, err
@@ -197,8 +198,8 @@ func ExportArrowSchema(schema *arrow.Schema, out *CArrowSchema) {
 // The release function on the populated CArrowArray will properly decrease the reference counts,
 // and release the memory if the record has already been released. But since this must be explicitly
 // done, make sure it is released so that you do not create a memory leak.
-func ExportArrowRecordBatch(rb array.Record, out *CArrowArray, outSchema *CArrowSchema) {
-	children := make([]*array.Data, rb.NumCols())
+func ExportArrowRecordBatch(rb arrow.Record, out *CArrowArray, outSchema *CArrowSchema) {
+	children := make([]arrow.ArrayData, rb.NumCols())
 	for i := range rb.Columns() {
 		children[i] = rb.Column(i).Data()
 	}
