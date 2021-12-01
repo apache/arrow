@@ -78,7 +78,7 @@ G_BEGIN_DECLS
  * #GArrowLargeStringDataType is a class for the 64-bit offsets UTF-8
  * encoded string data type.
  *
- * #GArrowTemporalDataType is am abstract class for temporal related data type
+ * #GArrowTemporalDataType is an abstract class for temporal related data type
  * such as #GArrowDate32DataType.
  *
  * #GArrowDate32DataType is a class for the number of days since UNIX
