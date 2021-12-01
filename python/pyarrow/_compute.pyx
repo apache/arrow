@@ -1306,6 +1306,29 @@ class TDigestOptions(_TDigestOptions):
         self._set_options(q, delta, buffer_size, skip_nulls, min_count)
 
 
+cdef class _Utf8NormalizeOptions(FunctionOptions):
+    _form_map = {
+        "NFC": CUtf8NormalizeForm_NFC,
+        "NFKC": CUtf8NormalizeForm_NFKC,
+        "NFD": CUtf8NormalizeForm_NFD,
+        "NFKD": CUtf8NormalizeForm_NFKD,
+    }
+
+    def _set_options(self, form):
+        try:
+            self.wrapped.reset(
+                new CUtf8NormalizeOptions(self._form_map[form])
+            )
+        except KeyError:
+            _raise_invalid_function_option(form,
+                                           "Unicode normalization form")
+
+
+class Utf8NormalizeOptions(_Utf8NormalizeOptions):
+    def __init__(self, form):
+        self._set_options(form)
+
+
 def _group_by(args, keys, aggregations):
     cdef:
         vector[CDatum] c_args

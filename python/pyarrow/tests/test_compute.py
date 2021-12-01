@@ -156,6 +156,7 @@ def test_option_class_equality():
         pc.TakeOptions(),
         pc.TDigestOptions(),
         pc.TrimOptions(" "),
+        pc.Utf8NormalizeOptions("NFKC"),
         pc.VarianceOptions(),
         pc.WeekOptions(week_starts_monday=True, count_from_zero=False,
                        first_week_is_fully_in_year=False),
@@ -2268,3 +2269,13 @@ def test_count_distinct_options():
     assert pc.count_distinct(arr, mode='only_valid').as_py() == 3
     assert pc.count_distinct(arr, mode='only_null').as_py() == 1
     assert pc.count_distinct(arr, mode='all').as_py() == 4
+
+
+def test_utf8_normalize():
+    arr = pa.array(["01²3"])
+    assert pc.utf8_normalize(arr, form="NFC") == arr
+    assert pc.utf8_normalize(arr, form="NFKC") == pa.array(["0123"])
+    with pytest.raises(
+            ValueError,
+            match='"NFZ" is not a valid Unicode normalization form'):
+        pc.utf8_normalize(arr, form="NFZ")

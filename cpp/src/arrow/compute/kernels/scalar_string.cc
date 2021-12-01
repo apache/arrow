@@ -4952,6 +4952,159 @@ const FunctionDoc utf8_reverse_doc(
      "clusters. Hence, it will not correctly reverse grapheme clusters\n"
      "composed of multiple codepoints."),
     {"strings"});
+
+#ifdef ARROW_WITH_UTF8PROC
+
+struct Utf8NormalizeBase {
+  // Pre-size scratch space
+  explicit Utf8NormalizeBase(const Utf8NormalizeOptions& options)
+      : decompose_options_(MakeDecomposeOptions(options.form)), codepoints_(32) {}
+
+  // Try to decompose the given UTF8 string into the codepoints space,
+  // returning the number of codepoints output.
+  Result<int64_t> DecomposeIntoScratch(util::string_view v) {
+    auto decompose = [&]() {
+      return utf8proc_decompose(reinterpret_cast<const utf8proc_uint8_t*>(v.data()),
+                                v.size(),
+                                reinterpret_cast<utf8proc_int32_t*>(codepoints_.data()),
+                                codepoints_.capacity(), decompose_options_);
+    };
+    auto res = decompose();
+    if (res > static_cast<int64_t>(codepoints_.capacity())) {
+      // Codepoints buffer not large enough, reallocate and try again
+      codepoints_.assign(res, 0);
+      res = decompose();
+      DCHECK_EQ(res, static_cast<int64_t>(codepoints_.capacity()));
+    }
+    if (res < 0) {
+      return Status::Invalid("Cannot normalize utf8 string: ", utf8proc_errmsg(res));
+    }
+    return res;
+  }
+
+  Result<int64_t> Decompose(util::string_view v, BufferBuilder* data_builder) {
+    if (::arrow::util::ValidateAscii(v)) {
+      // Fast path: normalization is a no-op
+      RETURN_NOT_OK(data_builder->Append(v.data(), v.size()));
+      return v.size();
+    }
+    // NOTE: we may be able to find more shortcuts using a precomputed table?
+    // Out of 1114112 valid unicode codepoints, 1097203 don't change when
+    // any normalization is applied.  Precomputing a table of such
+    // "no-op" codepoints would help expand the fast path.
+
+    ARROW_ASSIGN_OR_RAISE(const auto n_codepoints, DecomposeIntoScratch(v));
+    // Encode normalized codepoints directly into the output
+    int64_t n_bytes = 0;
+    for (int64_t i = 0; i < n_codepoints; ++i) {
+      n_bytes += ::arrow::util::UTF8EncodedLength(codepoints_[i]);
+    }
+    RETURN_NOT_OK(data_builder->Reserve(n_bytes));
+    uint8_t* out = data_builder->mutable_data() + data_builder->length();
+    for (int64_t i = 0; i < n_codepoints; ++i) {
+      out = ::arrow::util::UTF8Encode(out, codepoints_[i]);
+    }
+    DCHECK_EQ(out - data_builder->mutable_data(), data_builder->length() + n_bytes);
+    data_builder->UnsafeAdvance(n_bytes);
+    return n_bytes;
+  }
+
+ protected:
+  static utf8proc_option_t MakeDecomposeOptions(Utf8NormalizeOptions::Form form) {
+    switch (form) {
+      case Utf8NormalizeOptions::Form::NFKC:
+        return static_cast<utf8proc_option_t>(UTF8PROC_STABLE | UTF8PROC_COMPOSE |
+                                              UTF8PROC_COMPAT);
+      case Utf8NormalizeOptions::Form::NFD:
+        return static_cast<utf8proc_option_t>(UTF8PROC_STABLE | UTF8PROC_DECOMPOSE);
+      case Utf8NormalizeOptions::Form::NFKD:
+        return static_cast<utf8proc_option_t>(UTF8PROC_STABLE | UTF8PROC_DECOMPOSE |
+                                              UTF8PROC_COMPAT);
+      case Utf8NormalizeOptions::Form::NFC:
+      default:
+        return static_cast<utf8proc_option_t>(UTF8PROC_STABLE | UTF8PROC_COMPOSE);
+    }
+  }
+
+  const utf8proc_option_t decompose_options_;
+  // UTF32 scratch space for decomposition
+  std::vector<uint32_t> codepoints_;
+};
+
+template <typename Type>
+struct Utf8NormalizeExec : public Utf8NormalizeBase {
+  using State = OptionsWrapper<Utf8NormalizeOptions>;
+  using ScalarType = typename TypeTraits<Type>::ScalarType;
+  using offset_type = typename Type::offset_type;
+  using OffsetBuilder = TypedBufferBuilder<offset_type>;
+
+  using Utf8NormalizeBase::Utf8NormalizeBase;
+
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    const auto& options = State::Get(ctx);
+    Utf8NormalizeExec exec{options};
+    if (batch[0].kind() == Datum::ARRAY) {
+      return exec.ExecArray(ctx, *batch[0].array(), out);
+    } else {
+      DCHECK_EQ(batch[0].kind(), Datum::SCALAR);
+      return exec.ExecScalar(ctx, *batch[0].scalar(), out);
+    }
+  }
+
+  Status ExecArray(KernelContext* ctx, const ArrayData& array, Datum* out) {
+    BufferBuilder data_builder(ctx->memory_pool());
+
+    const offset_type* in_offsets = array.GetValues<offset_type>(1);
+    if (array.length > 0) {
+      RETURN_NOT_OK(data_builder.Reserve(in_offsets[array.length] - in_offsets[0]));
+    }
+    // Output offsets are preallocated
+    offset_type* out_offsets = out->mutable_array()->GetMutableValues<offset_type>(1);
+
+    int64_t offset = 0;
+    *out_offsets++ = static_cast<offset_type>(offset);
+
+    RETURN_NOT_OK(VisitArrayDataInline<Type>(
+        array,
+        [&](util::string_view v) {
+          ARROW_ASSIGN_OR_RAISE(auto n_bytes, Decompose(v, &data_builder));
+          offset += n_bytes;
+          *out_offsets++ = static_cast<offset_type>(offset);
+          return Status::OK();
+        },
+        [&]() {
+          *out_offsets++ = static_cast<offset_type>(offset);
+          return Status::OK();
+        }));
+
+    ArrayData* output = out->mutable_array();
+    RETURN_NOT_OK(data_builder.Finish(&output->buffers[2]));
+    return Status::OK();
+  }
+
+  Status ExecScalar(KernelContext* ctx, const Scalar& scalar, Datum* out) {
+    if (scalar.is_valid) {
+      const auto& string_scalar = checked_cast<const ScalarType&>(scalar);
+      auto* out_scalar = checked_cast<ScalarType*>(out->scalar().get());
+
+      BufferBuilder data_builder(ctx->memory_pool());
+      RETURN_NOT_OK(Decompose(string_scalar.view(), &data_builder));
+      RETURN_NOT_OK(data_builder.Finish(&out_scalar->value));
+      out_scalar->is_valid = true;
+    }
+    return Status::OK();
+  }
+};
+
+const FunctionDoc utf8_normalize_doc(
+    "Utf8-normalize input",
+    ("For each string in `strings`, return the normal form.\n\n"
+     "The normalization form must be given in the options.\n"
+     "Null inputs emit null."),
+    {"strings"}, "Utf8NormalizeOptions");
+
+#endif  // ARROW_WITH_UTF8PROC
+
 }  // namespace
 
 void RegisterScalarStringAscii(FunctionRegistry* registry) {
@@ -5038,6 +5191,9 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
   AddUnaryStringPredicate<IsSpaceUnicode>("utf8_is_space", registry, &utf8_is_space_doc);
   AddUnaryStringPredicate<IsTitleUnicode>("utf8_is_title", registry, &utf8_is_title_doc);
   AddUnaryStringPredicate<IsUpperUnicode>("utf8_is_upper", registry, &utf8_is_upper_doc);
+
+  MakeUnaryStringBatchKernelWithState<Utf8NormalizeExec>("utf8_normalize", registry,
+                                                         &utf8_normalize_doc);
 #endif
 
   AddBinaryLength(registry);

@@ -930,6 +930,81 @@ TYPED_TEST(TestStringKernels, Utf8Reverse) {
   ASSERT_TRUE(res->array()->buffers[1]->Equals(*malformed_input->data()->buffers[1]));
 }
 
+#ifdef ARROW_WITH_UTF8PROC
+
+TYPED_TEST(TestStringKernels, Utf8Normalize) {
+  Utf8NormalizeOptions nfc_options{Utf8NormalizeOptions::NFC};
+  Utf8NormalizeOptions nfkc_options{Utf8NormalizeOptions::NFKC};
+  Utf8NormalizeOptions nfd_options{Utf8NormalizeOptions::NFD};
+  Utf8NormalizeOptions nfkd_options{Utf8NormalizeOptions::NFKD};
+
+  std::vector<Utf8NormalizeOptions> all_options{nfc_options, nfkc_options, nfd_options,
+                                                nfkd_options};
+  std::vector<Utf8NormalizeOptions> compose_options{nfc_options, nfkc_options};
+  std::vector<Utf8NormalizeOptions> decompose_options{nfd_options, nfkd_options};
+  std::vector<Utf8NormalizeOptions> canonical_options{nfc_options, nfd_options};
+  std::vector<Utf8NormalizeOptions> compatibility_options{nfkc_options, nfkd_options};
+
+  for (const auto& options : all_options) {
+    this->CheckUnary("utf8_normalize", "[]", this->type(), "[]", &options);
+    const char* json_data = R"([null, "", "abc"])";
+    this->CheckUnary("utf8_normalize", json_data, this->type(), json_data, &options);
+  }
+
+  // decomposed: U+0061(LATIN SMALL LETTER A) + U+0301(COMBINING ACUTE ACCENT)
+  // composed: U+00E1(LATIN SMALL LETTER A WITH ACUTE)
+  const char* json_composed = "[\"foo\", \"á\"]";
+  const char* json_decomposed = "[\"foo\", \"a\xcc\x81\"]";
+  for (const auto& options : compose_options) {
+    this->CheckUnary("utf8_normalize", json_decomposed, this->type(), json_composed,
+                     &options);
+    this->CheckUnary("utf8_normalize", json_composed, this->type(), json_composed,
+                     &options);
+  }
+  for (const auto& options : decompose_options) {
+    this->CheckUnary("utf8_normalize", json_composed, this->type(), json_decomposed,
+                     &options);
+    this->CheckUnary("utf8_normalize", json_decomposed, this->type(), json_decomposed,
+                     &options);
+  }
+
+  // canonical: U+00B2(Superscript Two)
+  // compatibility: "2"
+  const char* json_canonical = "[\"01\xc2\xb2!\"]";
+  const char* json_compatibility = "[\"012!\"]";
+  for (const auto& options : canonical_options) {
+    this->CheckUnary("utf8_normalize", json_canonical, this->type(), json_canonical,
+                     &options);
+    this->CheckUnary("utf8_normalize", json_compatibility, this->type(),
+                     json_compatibility, &options);
+  }
+  for (const auto& options : compatibility_options) {
+    this->CheckUnary("utf8_normalize", json_canonical, this->type(), json_compatibility,
+                     &options);
+    this->CheckUnary("utf8_normalize", json_compatibility, this->type(),
+                     json_compatibility, &options);
+  }
+
+  // canonical: U+FDFA(Arabic Ligature Sallallahou Alayhe Wasallam)
+  // compatibility: <18 codepoints>
+  json_canonical = "[\"\xef\xb7\xba\"]";
+  json_compatibility = "[\"صلى الله عليه وسلم\"]";
+  for (const auto& options : canonical_options) {
+    this->CheckUnary("utf8_normalize", json_canonical, this->type(), json_canonical,
+                     &options);
+    this->CheckUnary("utf8_normalize", json_compatibility, this->type(),
+                     json_compatibility, &options);
+  }
+  for (const auto& options : compatibility_options) {
+    this->CheckUnary("utf8_normalize", json_canonical, this->type(), json_compatibility,
+                     &options);
+    this->CheckUnary("utf8_normalize", json_compatibility, this->type(),
+                     json_compatibility, &options);
+  }
+}
+
+#endif
+
 TEST(TestStringKernels, LARGE_MEMORY_TEST(Utf8Upper32bitGrowth)) {
   // 0x7fff * 0xffff is the max a 32 bit string array can hold
   // since the utf8_upper kernel can grow it by 3/2, the max we should accept is is
