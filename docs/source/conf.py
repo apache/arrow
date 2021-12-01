@@ -479,7 +479,6 @@ class ComputeFunctionsTableDirective(Directive):
         import pyarrow._compute
 
         result = ViewList()
-        print("OPTIONS", self.options)
         function_kind = self.options.get('kind', None)
 
         result.append(".. csv-table::", "<computefuncs>")
