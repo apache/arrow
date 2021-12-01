@@ -30,25 +30,25 @@ platforms=([Linux]=linux
 
 arch=$(uname -m)
 platform=$(uname)
+version=$1
+prefix=$2
 
 if [ "$#" -ne 2 ]; then
   echo "Usage: $0 <version> <prefix>"
   exit 1
-elif [[ -z ${archs[$arch]} ]]; then
+elif [ -z ${archs[$arch]} ]; then
   echo "Unsupported architecture: ${arch}"
   exit 0
-elif [[ -z ${archs[$platform]} ]]; then
-  echo "Unexpected platform: ${platform}"
+elif [ -z ${platforms[$platform]} ]; then
+  echo "Unsupported platform: ${platform}"
   exit 0
-elif [[ ${version} != "latest" ]]; then
+elif [ "${version}" != "latest" ]; then
   echo "Cannot fetch specific versions of minio, only latest is supported."
   exit 1
 fi
 
 arch=${archs[$arch]}
 platform=${platforms[$platform]}
-version=$1
-prefix=$2
 
 if [[ ! -x ${prefix}/bin/minio ]]; then
   url="https://dl.min.io/server/minio/release/${platform}-${arch}/minio"
