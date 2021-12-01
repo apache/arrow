@@ -37,7 +37,7 @@ RUN mamba create -n arrow --file arrow/ci/conda_env_unix.txt git && \
 
 # activate the created environment by default
 RUN echo "conda activate arrow" >> ~/.profile
-ENV CONDA_PREFIX=${prefix}/envs/arrow
+ENV CONDA_PREFIX=/opt/conda/envs/arrow
 
 # use login shell to activate arrow environment un the RUN commands
 SHELL ["/bin/bash", "-c", "-l"]

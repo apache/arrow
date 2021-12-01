@@ -31,5 +31,5 @@ if [ "${dask}" = "master" ]; then
 elif [ "${dask}" = "latest" ]; then
   pip install dask
 else
-  pip install dask=${dask}
+  pip install dask==${dask}
 fi
