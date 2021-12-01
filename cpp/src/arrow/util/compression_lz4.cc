@@ -54,7 +54,7 @@ static LZ4F_preferences_t DefaultPreferences() {
   return prefs;
 }
 
-static LZ4F_preferences_t DefaultPreferences(int compression_level) {
+static LZ4F_preferences_t PreferencesWithCompressionLevel(int compression_level) {
   LZ4F_preferences_t prefs = DefaultPreferences();
   prefs.compressionLevel = compression_level;
   return prefs;
@@ -131,8 +131,7 @@ class LZ4Decompressor : public Decompressor {
 
 class LZ4Compressor : public Compressor {
  public:
-  explicit LZ4Compressor(int compression_level)
-      : compression_level_(compression_level) {}
+  explicit LZ4Compressor(int compression_level) : compression_level_(compression_level) {}
 
   ~LZ4Compressor() override {
     if (ctx_ != nullptr) {
@@ -142,7 +141,7 @@ class LZ4Compressor : public Compressor {
 
   Status Init() {
     LZ4F_errorCode_t ret;
-    prefs_ = DefaultPreferences(compression_level_);
+    prefs_ = PreferencesWithCompressionLevel(compression_level_);
     first_time_ = true;
 
     ret = LZ4F_createCompressionContext(&ctx_, LZ4F_VERSION);
@@ -258,7 +257,7 @@ class Lz4FrameCodec : public Codec {
       : compression_level_(compression_level == kUseDefaultCompressionLevel
                                ? kLZ4DefaultCompressionLevel
                                : compression_level),
-                               prefs_(DefaultPreferences(compression_level_)) {}
+        prefs_(PreferencesWithCompressionLevel(compression_level_)) {}
 
   int64_t MaxCompressedLen(int64_t input_len,
                            const uint8_t* ARROW_ARG_UNUSED(input)) override {
