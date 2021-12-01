@@ -503,11 +503,11 @@ struct BinaryScalarMinMax {
         }
       }
     }
-    const Scalar& first_scalar = *batch.values.front().scalar();
+    const auto& first_scalar = *batch.values.front().scalar();
     string_view result = UnboxScalar<Type>::Unbox(first_scalar);
     bool valid = first_scalar.is_valid;
     for (size_t i = 1; i < batch.values.size(); i++) {
-      const Scalar& scalar = *batch[i].scalar();
+      const auto& scalar = *batch[i].scalar();
       if (!scalar.is_valid) {
         DCHECK(options.skip_nulls);
         continue;
@@ -519,8 +519,7 @@ struct BinaryScalarMinMax {
     }
     if (valid) {
       ARROW_ASSIGN_OR_RAISE(output->value, ctx->Allocate(result.size()));
-      uint8_t* buf = output->value->mutable_data();
-      buf = std::copy(result.begin(), result.end(), buf);
+      std::copy(result.begin(), result.end(), output->value->mutable_data());
       output->is_valid = true;
     } else {
       output->is_valid = false;
@@ -609,9 +608,9 @@ struct BinaryScalarMinMax {
       int64_t element_size = 0;
       bool valid = true;
       if (batch[i].is_scalar()) {
-        const Scalar& scalar = *batch[i].scalar();
+        const auto& scalar = *batch[i].scalar();
         valid = scalar.is_valid;
-        element_size = UnboxScalar<Type>::Unbox(scalar).size();
+        element_size = static_cast<int64_t>(UnboxScalar<Type>::Unbox(scalar).size());
       } else {
         const ArrayData& array = *batch[i].array();
         valid = !array.MayHaveNulls() ||
@@ -662,7 +661,7 @@ struct FixedSizeBinaryScalarMinMax {
     string_view result =
         UnboxScalar<FixedSizeBinaryType>::Unbox(*batch.values.front().scalar());
     for (size_t i = 1; i < num_args; i++) {
-      const Scalar& scalar = *batch[i].scalar();
+      const auto& scalar = *batch[i].scalar();
       if (!scalar.is_valid && options.skip_nulls) {
         continue;
       }
@@ -761,7 +760,7 @@ struct FixedSizeBinaryScalarMinMax {
     for (size_t i = 0; i < num_args; i++) {
       bool valid = true;
       if (batch[i].is_scalar()) {
-        const Scalar& scalar = *batch[i].scalar();
+        const auto& scalar = *batch[i].scalar();
         valid = scalar.is_valid;
       } else {
         const ArrayData& array = *batch[i].array();
