@@ -518,12 +518,12 @@ struct BinaryScalarMinMax {
         continue;
       } else {
         string_view value = UnboxScalar<Type>::Unbox(scalar);
-        result = result.empty() ? value : Op::CallBinary(result, value);
+        result = !valid ? value : Op::CallBinary(result, value);
         valid = true;
       }
     }
     if (valid) {
-      ARROW_ASSIGN_OR_RAISE(output->value, ctx->Allocate(final_size));
+      ARROW_ASSIGN_OR_RAISE(output->value, ctx->Allocate(result.size()));
       uint8_t* buf = output->value->mutable_data();
       buf = std::copy(result.begin(), result.end(), buf);
       output->is_valid = true;
