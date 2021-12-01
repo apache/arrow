@@ -584,7 +584,7 @@ else()
     set(ARROW_SNAPPY_BUILD_SHA256_CHECKSUM ${ARROW_SNAPPY_OLD_BUILD_SHA256_CHECKSUM})
   else()
     set_urls(SNAPPY_SOURCE_URL
-             "https://codeload.github.com/google/snappy/tar.gz/master"
+             "https://github.com/pitrou/snappy/archive/64df9f28c8452500506af3361dd079e78f736ad5.tar.gz"
     )
   endif()
 endif()
