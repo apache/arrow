@@ -20,7 +20,9 @@
 #endif
 
 #include <gtest/gtest.h>
+
 #include <cmath>
+
 #include "gandiva/execution_context.h"
 #include "gandiva/precompiled/types.h"
 
@@ -47,13 +49,15 @@ TEST(TestExtendedMathOps, TestFactorial) {
   gandiva::ExecutionContext context;
   auto ctx = reinterpret_cast<int64_t>(&context);
 
-  EXPECT_EQ(factorial_int32(ctx, 1), 1);
-  EXPECT_EQ(factorial_int32(ctx, 2), 2);
-  EXPECT_EQ(factorial_int32(ctx, 3), 6);
-  EXPECT_EQ(factorial_int32(ctx, 5), 120);
-  EXPECT_EQ(factorial_int32(ctx, 7), 5040);
-  EXPECT_EQ(factorial_int32(ctx, 10), 3628800);
-  EXPECT_EQ(factorial_int32(ctx, 20), 2432902008176640000);
+  for (int32_t i = 0; i <= 20; ++i) {
+    int64_t expected_factorial = 1;
+
+    for (int64_t j = 1; j <= i; ++j) {
+      expected_factorial *= j;
+    }
+
+    EXPECT_EQ(factorial_int32(ctx, i), expected_factorial);
+  }
 
   factorial_int32(ctx, 21);
   EXPECT_TRUE(context.get_error().find("overflow") != std::string::npos);
@@ -63,13 +67,15 @@ TEST(TestExtendedMathOps, TestFactorial) {
   EXPECT_TRUE(context.get_error().find("Factorial of negative") != std::string::npos);
   context.Reset();
 
-  EXPECT_EQ(factorial_int64(ctx, 1), 1);
-  EXPECT_EQ(factorial_int64(ctx, 2), 2);
-  EXPECT_EQ(factorial_int64(ctx, 3), 6);
-  EXPECT_EQ(factorial_int64(ctx, 5), 120);
-  EXPECT_EQ(factorial_int64(ctx, 7), 5040);
-  EXPECT_EQ(factorial_int64(ctx, 10), 3628800);
-  EXPECT_EQ(factorial_int64(ctx, 20), 2432902008176640000);
+  for (int64_t i = 0; i <= 20; ++i) {
+    int64_t expected_factorial = 1;
+
+    for (int64_t j = 1; j <= i; ++j) {
+      expected_factorial *= j;
+    }
+
+    EXPECT_EQ(factorial_int64(ctx, i), expected_factorial);
+  }
 
   factorial_int64(ctx, 21);
   EXPECT_TRUE(context.get_error().find("overflow") != std::string::npos);
