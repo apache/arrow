@@ -491,7 +491,7 @@ struct BinaryScalarMinMax {
     if (batch.values.empty()) {
       return Status::OK();
     }
-    BaseBinaryScalar* output = checked_cast<BaseBinaryScalar*>(out->scalar().get());
+    auto output = checked_cast<BaseBinaryScalar*>(out->scalar().get());
     if (!options.skip_nulls) {
       // any nulls in the input will produce a null output
       for (const auto& value : batch.values) {
@@ -835,7 +835,7 @@ std::shared_ptr<ScalarFunction> MakeScalarMinMax(std::string name,
     DCHECK_OK(func->AddKernel(std::move(kernel)));
   }
   for (const auto id : {Type::DECIMAL128, Type::DECIMAL256}) {
-    auto exec = GeneratePhysicalDecimal<ScalarMinMax, Op>(id);
+    auto exec = GeneratePhysicalDecimalToPhysicalDecimal<ScalarMinMax, Op>(id);
     OutputType out_type(ResolveMinOrMaxOutputType);
     ScalarKernel kernel{KernelSignature::Make({InputType{id}}, out_type,
                                               /*is_varargs=*/true),
