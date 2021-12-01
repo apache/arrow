@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <algorithm>
 #include <cmath>
 #include <limits>
 
@@ -85,7 +86,7 @@ struct Minimum {
     return std::min(left, right);
   }
 
-  static string_view CallBinary(string_view left, string_view right) {
+  static string_view Call(string_view left, string_view right) {
     return std::min(left, right);
   }
 
@@ -129,7 +130,7 @@ struct Maximum {
     return std::max(left, right);
   }
 
-  static string_view CallBinary(string_view left, string_view right) {
+  static string_view Call(string_view left, string_view right) {
     return std::max(left, right);
   }
 
@@ -518,7 +519,7 @@ struct BinaryScalarMinMax {
         continue;
       } else {
         string_view value = UnboxScalar<Type>::Unbox(scalar);
-        result = !valid ? value : Op::CallBinary(result, value);
+        result = !valid ? value : Op::Call(result, value);
         valid = true;
       }
     }
@@ -587,7 +588,7 @@ struct BinaryScalarMinMax {
           DCHECK(options.skip_nulls);
           continue;
         }
-        result = !result ? *value : Op::CallBinary(*result, *value);
+        result = !result ? *value : Op::Call(*result, *value);
       }
       if (result) {
         builder.UnsafeAppend(*result);
@@ -674,7 +675,7 @@ struct FixedSizeBinaryScalarMinMax {
       }
       if (scalar.is_valid) {
         string_view value = UnboxScalar<FixedSizeBinaryType>::Unbox(scalar);
-        result = result.empty() ? value : Op::CallBinary(result, value);
+        result = result.empty() ? value : Op::Call(result, value);
       }
     }
     if (!result.empty()) {
@@ -741,7 +742,7 @@ struct FixedSizeBinaryScalarMinMax {
           DCHECK(options.skip_nulls);
           continue;
         }
-        result = result.empty() ? value : Op::CallBinary(result, value);
+        result = result.empty() ? value : Op::Call(result, value);
       }
       if (result.empty()) {
         builder.UnsafeAppendNull();
