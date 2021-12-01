@@ -1614,6 +1614,7 @@ TYPED_TEST(TestStringKernels, SplitWhitespaceAsciiReverse) {
                    &options_max);
 }
 
+#ifdef ARROW_WITH_UTF8PROC
 TYPED_TEST(TestStringKernels, SplitWhitespaceUTF8) {
   SplitOptions options;
   SplitOptions options_max{1};
@@ -1638,6 +1639,7 @@ TYPED_TEST(TestStringKernels, SplitWhitespaceUTF8Reverse) {
                    "[[\"foo\", \"bar\"], [\"foo\xe2\x80\x88  bar\", \"ba\"]]",
                    &options_max);
 }
+#endif
 
 #ifdef ARROW_WITH_RE2
 TYPED_TEST(TestBaseBinaryKernels, SplitRegex) {
