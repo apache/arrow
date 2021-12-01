@@ -75,7 +75,9 @@ RUN wget -q -O - https://deb.nodesource.com/setup_${node}.x | bash - && \
     npm install -g yarn
 
 COPY ci/conda_env_sphinx.txt /arrow/ci/
-RUN pip install -r arrow/ci/conda_env_sphinx.txt meson
+# unable to install sphinx-tabs from conda-forge due to sphinx version pin, see
+# comment in arrow/ci/conda_env_sphinx.txt
+RUN pip install -r arrow/ci/conda_env_sphinx.txt meson sphinx-tabs
 
 COPY c_glib/Gemfile /arrow/c_glib/
 RUN gem install --no-document bundler && \
