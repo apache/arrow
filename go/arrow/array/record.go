@@ -108,6 +108,10 @@ func (rs *simpleRecords) Next() bool {
 	return true
 }
 
+// Record aliases arrow.Record so that existing consumers do not get broken
+// by the migration to arrow.Record.
+//
+// Deprecated: this alias will be removed in v8
 type Record = arrow.Record
 
 // simpleRecord is a basic, non-lazy in-memory record batch.

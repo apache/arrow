@@ -26,18 +26,35 @@ import (
 	"github.com/apache/arrow/go/v7/arrow/internal/debug"
 )
 
+// type aliases to preserve functionality and avoid breaking consumers
+// by the shift to arrow.Table, arrow.Column and arrow.Chunked over array each.
 type (
-	Table   = arrow.Table
-	Column  = arrow.Column
+	// Table aliases arrow.Table
+	//
+	// Deprecated: this alias will be removed in v8
+	Table = arrow.Table
+	// Column aliases arrow.Column
+	//
+	// Deprecated: this alias will be removed in v8
+	Column = arrow.Column
+	// Chunked aliases arrow.Chunked
+	//
+	// Deprecated: this alias will be removed in v8
 	Chunked = arrow.Chunked
 )
 
 var (
-	NewColumn  = arrow.NewColumn
+	// NewColumn aliases the arrow.NewColumn function to avoid breaking consumers.
+	//
+	// Deprecated: this alias will be removed in v8
+	NewColumn = arrow.NewColumn
+	// NewChunked aliases the arrow.NewChunked function to avoid breaking consumers.
+	//
+	// Deprecated: this alias will be removed in v8
 	NewChunked = arrow.NewChunked
 )
 
-// NewColSlice returns a new zero-copy slice of the column with the indicated
+// NewColumnSlice returns a new zero-copy slice of the column with the indicated
 // indices i and j, corresponding to the column's array[i:j].
 // The returned column must be Release()'d after use.
 //
@@ -49,7 +66,7 @@ func NewColumnSlice(col *arrow.Column, i, j int64) *arrow.Column {
 	return arrow.NewColumn(col.Field(), slice)
 }
 
-// NewSlice constructs a zero-copy slice of the chunked array with the indicated
+// NewChunkedSlice constructs a zero-copy slice of the chunked array with the indicated
 // indices i and j, corresponding to array[i:j].
 // The returned chunked array must be Release()'d after use.
 //

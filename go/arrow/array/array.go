@@ -24,6 +24,10 @@ import (
 	"github.com/apache/arrow/go/v7/arrow/internal/debug"
 )
 
+// Interface aliases arrow.Array so that existing users don't get broken by
+// the migration to arrow.Array.
+//
+// Deprecated: This alias will be removed in v8
 type Interface = arrow.Array
 
 type arraymarshal interface {
