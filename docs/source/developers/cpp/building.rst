@@ -197,6 +197,13 @@ and then ask to compile the build targets:
 
    0 directories, 3 files
 
+When creating a build, it is possible to pass custom options besides
+the preset-defined ones, for example:
+
+.. code-block:: shell
+
+   $ cmake .. --preset ninja-debug-minimal -DCMAKE_INSTALL_PREFIX=/usr/local
+
 .. note::
    The CMake presets are provided as a help to get started with Arrow
    development and understand common build configurations.  They are not
@@ -205,7 +212,7 @@ and then ask to compile the build targets:
 
    Instead of relying on CMake presets, it is **highly recommended** that
    automated builds, continuous integration, release scripts, etc. use
-   manual configuration instead, as outlined below.
+   manual configuration, as outlined below.
 
 .. seealso::
    `Official documentation for CMake presets <https://cmake.org/cmake/help/v3.21/manual/cmake-presets.7.html>`_.
