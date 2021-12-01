@@ -4989,7 +4989,7 @@ struct Utf8NormalizeBase {
       return v.size();
     }
     // NOTE: we may be able to find more shortcuts using a precomputed table?
-    // Out of 1114111 valid unicode codepoints, 1097203 don't change when
+    // Out of 1114112 valid unicode codepoints, 1097203 don't change when
     // any normalization is applied.  Precomputing a table of such
     // "no-op" codepoints would help expand the fast path.
 

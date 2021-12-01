@@ -30,10 +30,6 @@
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
-#ifdef ARROW_WITH_UTF8PROC
-#include <utf8proc.h>
-#endif
-
 namespace arrow {
 namespace compute {
 
