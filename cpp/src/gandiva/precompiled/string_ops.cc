@@ -1722,7 +1722,8 @@ gdv_int32 levenshtein(int64_t context, const char* in1, int32_t in1_len, const c
     arr_smaller = in2;
   }
 
-  int* ptr = new int[(len_smaller + 1) * 2];
+  int* ptr =
+      reinterpret_cast<int*>(gdv_fn_context_arena_malloc(context, (len_smaller + 1) * 2));
   if (ptr == nullptr) {
     gdv_fn_context_set_error_msg(context, "String length must be greater than 0");
     return 0;
@@ -1779,13 +1780,7 @@ gdv_int32 levenshtein(int64_t context, const char* in1, int32_t in1_len, const c
     v1 = aux;
   }
   // The results of v1 are now in v0, Levenshtein value is in v0[n]
-  int result = v0[len_smaller];
-
-  // Free used memory
-  delete[] ptr;
-  ptr = nullptr;
-
-  return result;
+  return v0[len_smaller];
 }
 
 // Search for a string within another string
