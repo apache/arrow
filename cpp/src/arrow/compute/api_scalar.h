@@ -30,6 +30,10 @@
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
+#ifdef ARROW_WITH_UTF8PROC
+#include <utf8proc.h>
+#endif
+
 namespace arrow {
 namespace compute {
 
@@ -405,6 +409,18 @@ struct ARROW_EXPORT WeekOptions : public FunctionOptions {
   /// Must the first week be fully in January (true), or is a week that begins on
   /// December 29, 30, or 31 considered to be the first week of the new year (false)?
   bool first_week_is_fully_in_year;
+};
+
+struct ARROW_EXPORT Utf8NormalizeOptions : public FunctionOptions {
+ public:
+  enum Form { NFC, NFKC, NFD, NFKD };
+
+  explicit Utf8NormalizeOptions(Form form = NFC);
+  static Utf8NormalizeOptions Defaults() { return Utf8NormalizeOptions(); }
+  constexpr static char const kTypeName[] = "Utf8NormalizeOptions";
+
+  /// The Unicode normalization form to apply
+  Form form;
 };
 
 /// @}
