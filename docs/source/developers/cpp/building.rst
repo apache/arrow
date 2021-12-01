@@ -291,6 +291,8 @@ option can make full builds significantly faster, but it also increases the
 memory requirements.  Consider turning it on (using ``-DCMAKE_UNITY_BUILD=ON``)
 if memory consumption is not an issue.
 
+.. _cpp_build_optional_components:
+
 Optional Components
 ~~~~~~~~~~~~~~~~~~~
 
