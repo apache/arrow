@@ -463,7 +463,6 @@ if(DEFINED ENV{ARROW_GBENCHMARK_URL})
 else()
   set_urls(GBENCHMARK_SOURCE_URL
            "https://github.com/google/benchmark/archive/${ARROW_GBENCHMARK_BUILD_VERSION}.tar.gz"
-           "https://github.com/ursa-labs/thirdparty/releases/download/latest/gbenchmark-${ARROW_GBENCHMARK_BUILD_VERSION}.tar.gz"
   )
 endif()
 
