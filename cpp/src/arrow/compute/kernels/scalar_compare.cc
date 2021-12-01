@@ -84,7 +84,7 @@ struct Minimum {
     return std::min(left, right);
   }
 
-  static util::string_view CallBinary(util::string_view left, util::string_view right) {
+  static string_view CallBinary(string_view left, string_view right) {
     return std::min(left, right);
   }
 
@@ -128,7 +128,7 @@ struct Maximum {
     return std::max(left, right);
   }
 
-  static util::string_view CallBinary(util::string_view left, util::string_view right) {
+  static string_view CallBinary(string_view left, string_view right) {
     return std::max(left, right);
   }
 
@@ -508,7 +508,7 @@ struct BinaryScalarMinMax {
       return Status::OK();
     }
     const Scalar& first_scalar = *batch.values.front().scalar();
-    util::string_view result = UnboxScalar<Type>::Unbox(first_scalar);
+    string_view result = UnboxScalar<Type>::Unbox(first_scalar);
     bool valid = first_scalar.is_valid;
     for (size_t i = 1; i < num_args; i++) {
       const Scalar& scalar = *batch[i].scalar();
@@ -516,7 +516,7 @@ struct BinaryScalarMinMax {
         DCHECK(options.skip_nulls);
         continue;
       } else {
-        util::string_view value = UnboxScalar<Type>::Unbox(scalar);
+        string_view value = UnboxScalar<Type>::Unbox(scalar);
         result = result.empty() ? value : Op::CallBinary(result, value);
         valid = true;
       }
@@ -546,7 +546,7 @@ struct BinaryScalarMinMax {
     RETURN_NOT_OK(builder.Reserve(batch.length));
     RETURN_NOT_OK(builder.ReserveData(final_size));
 
-    std::vector<util::string_view> valid_cols(batch.values.size());
+    std::vector<string_view> valid_cols(batch.values.size());
     for (size_t row = 0; row < static_cast<size_t>(batch.length); row++) {
       size_t num_valid = 0;
       for (size_t col = 0; col < batch.values.size(); col++) {
@@ -556,7 +556,7 @@ struct BinaryScalarMinMax {
             valid_cols[col] = UnboxScalar<Type>::Unbox(scalar);
             num_valid++;
           } else {
-            valid_cols[col] = util::string_view();
+            valid_cols[col] = string_view();
           }
         } else {
           const ArrayData& array = *batch[col].array();
@@ -565,11 +565,11 @@ struct BinaryScalarMinMax {
             const offset_type* offsets = array.GetValues<offset_type>(1);
             const uint8_t* data = array.GetValues<uint8_t>(2, /*absolute_offset=*/0);
             const int64_t length = offsets[row + 1] - offsets[row];
-            valid_cols[col] = util::string_view(
-                reinterpret_cast<const char*>(data + offsets[row]), length);
+            valid_cols[col] =
+                string_view(reinterpret_cast<const char*>(data + offsets[row]), length);
             num_valid++;
           } else {
-            valid_cols[col] = util::string_view();
+            valid_cols[col] = string_view();
           }
         }
       }
@@ -579,9 +579,9 @@ struct BinaryScalarMinMax {
         builder.UnsafeAppendNull();
         continue;
       }
-      util::string_view result = valid_cols.front();
+      string_view result = valid_cols.front();
       for (size_t col = 1; col < batch.values.size(); ++col) {
-        util::string_view value = valid_cols[col];
+        string_view value = valid_cols[col];
         if (value.empty()) {
           DCHECK(options.skip_nulls);
           continue;
@@ -664,7 +664,7 @@ struct FixedSizeBinaryScalarMinMax {
       output->is_valid = false;
       return Status::OK();
     }
-    util::string_view result =
+    string_view result =
         UnboxScalar<FixedSizeBinaryType>::Unbox(*batch.values.front().scalar());
     for (size_t i = 1; i < num_args; i++) {
       const Scalar& scalar = *batch[i].scalar();
@@ -672,7 +672,7 @@ struct FixedSizeBinaryScalarMinMax {
         continue;
       }
       if (scalar.is_valid) {
-        util::string_view value = UnboxScalar<FixedSizeBinaryType>::Unbox(scalar);
+        string_view value = UnboxScalar<FixedSizeBinaryType>::Unbox(scalar);
         result = result.empty() ? value : Op::CallBinary(result, value);
       }
     }
@@ -702,7 +702,7 @@ struct FixedSizeBinaryScalarMinMax {
     RETURN_NOT_OK(builder.Reserve(batch.length));
     RETURN_NOT_OK(builder.ReserveData(final_size));
 
-    std::vector<util::string_view> valid_cols(batch.values.size());
+    std::vector<string_view> valid_cols(batch.values.size());
     for (size_t row = 0; row < static_cast<size_t>(batch.length); row++) {
       size_t num_valid = 0;
       for (size_t col = 0; col < batch.values.size(); col++) {
@@ -712,18 +712,18 @@ struct FixedSizeBinaryScalarMinMax {
             valid_cols[col] = UnboxScalar<FixedSizeBinaryType>::Unbox(scalar);
             num_valid++;
           } else {
-            valid_cols[col] = util::string_view();
+            valid_cols[col] = string_view();
           }
         } else {
           const ArrayData& array = *batch[col].array();
           if (!array.MayHaveNulls() ||
               BitUtil::GetBit(array.buffers[0]->data(), array.offset + row)) {
             const uint8_t* data = array.GetValues<uint8_t>(1, /*absolute_offset=*/0);
-            valid_cols[col] = util::string_view(
+            valid_cols[col] = string_view(
                 reinterpret_cast<const char*>(data) + row * byte_width, byte_width);
             num_valid++;
           } else {
-            valid_cols[col] = util::string_view();
+            valid_cols[col] = string_view();
           }
         }
       }
@@ -733,9 +733,9 @@ struct FixedSizeBinaryScalarMinMax {
         builder.UnsafeAppendNull();
         continue;
       }
-      util::string_view result = valid_cols.front();
+      string_view result = valid_cols.front();
       for (size_t col = 1; col < batch.values.size(); ++col) {
-        util::string_view value = valid_cols[col];
+        string_view value = valid_cols[col];
         if (value.empty()) {
           DCHECK(options.skip_nulls);
           continue;
