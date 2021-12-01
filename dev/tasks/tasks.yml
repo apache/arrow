@@ -832,7 +832,7 @@ tasks:
       env:
         TEST_DEFAULT: 0
         TEST_{{ target|upper }}: 1
-      artifact: {{ target }}
+      artifact: binaries
 {% endfor %}
 
   verify-rc-jars-amd64:
