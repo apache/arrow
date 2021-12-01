@@ -103,104 +103,7 @@ cdef file_version_from_class(FileVersion file_version_):
     cdef object file_version = file_version_.ToString()
     return file_version
 
-
-cdef class ORCWriteOptions(_Weakrefable):
-    cdef:
-        unique_ptr[WriteOptions] options
-
-    def __cinit__(self):
-        self.options.reset(new WriteOptions())
-
-    def set_stripe_size(self, size):
-        deref(self.options).set_stripe_size(size)
-
-    def get_stripe_size(self):
-        return deref(self.options).stripe_size()
-
-    def set_compression_block_size(self, size):
-        deref(self.options).set_compression_block_size(size)
-
-    def get_compression_block_size(self):
-        return deref(self.options).compression_block_size()
-
-    def set_row_index_stride(self, stride):
-        deref(self.options).set_row_index_stride(stride)
-
-    def get_row_index_stride(self):
-        return deref(self.options).row_index_stride()
-
-    def set_dictionary_key_size_threshold(self, val):
-        deref(self.options).set_dictionary_key_size_threshold(val)
-
-    def get_dictionary_key_size_threshold(self):
-        return deref(self.options).dictionary_key_size_threshold()
-
-    def set_file_version(self, file_version):
-        cdef:
-            uint32_t c_major, c_minor
-            object major, minor
-        major, minor = str(file_version).split('.')
-        c_major = major
-        c_minor = minor
-        deref(self.options).set_file_version(FileVersion(c_major, c_minor))
-
-    def get_file_version(self):
-        return file_version_from_class(deref(self.options).file_version())
-
-    def set_compression(self, comp):
-        deref(self.options).set_compression(
-            compression_kind_from_name(comp))
-
-    def get_compression(self):
-        return compression_kind_from_enum(deref(self.options).compression())
-
-    def set_compression_strategy(self, strategy):
-        deref(self.options).set_compression_strategy(
-            compression_strategy_from_name(strategy))
-
-    def get_compression_strategy(self):
-        return compression_strategy_from_enum(
-            deref(self.options).compression_strategy())
-
-    def get_aligned_bitpacking(self):
-        return deref(self.options).aligned_bitpacking()
-
-    def set_padding_tolerance(self, tolerance):
-        deref(self.options).set_padding_tolerance(tolerance)
-
-    def get_padding_tolerance(self):
-        return deref(self.options).padding_tolerance()
-
-    def get_rle_version(self):
-        return rle_version_from_enum(deref(self.options).rle_version())
-
-    def get_enable_index(self):
-        return deref(self.options).enable_index()
-
-    def get_enable_dictionary(self):
-        return deref(self.options).enable_dictionary()
-
-    def set_columns_use_bloom_filter(self, columns):
-        deref(self.options).set_columns_use_bloom_filter(columns)
-
-    def is_column_use_bloom_filter(self, column):
-        return deref(self.options).is_column_use_bloom_filter(column)
-
-    def get_columns_use_bloom_filter(self):
-        return deref(self.options).columns_use_bloom_filter()
-
-    def set_bloom_filter_fpp(self, fpp):
-        deref(self.options).set_bloom_filter_fpp(fpp)
-
-    def get_bloom_filter_fpp(self):
-        return deref(self.options).bloom_filter_fpp()
-
-    def get_bloom_filter_version(self):
-        return bloom_filter_version_from_enum(
-            deref(self.options).bloom_filter_version())
-
-
-cdef shared_ptr[WriteOptions] _create_writer_options(
+cdef shared_ptr[WriteOptions] _create_write_options(
     file_version=None,
     stripe_size=None,
     compression=None,
@@ -441,11 +344,12 @@ cdef class ORCWriter(_Weakrefable):
              dictionary_key_size_threshold=None,
              bloom_filter_columns=None,
              bloom_filter_fpp=None):
-
+        cdef:
+            shared_ptr[WriteOptions] write_options
         self.sink = sink
         get_writer(sink, &self.rd_handle)
 
-        options = _create_writer_options(
+        write_options = _create_write_options(
             file_version=file_version,
             stripe_size=stripe_size,
             compression=compression,
@@ -460,7 +364,7 @@ cdef class ORCWriter(_Weakrefable):
 
         with nogil:
             self.writer = move(GetResultValue[unique_ptr[ORCFileWriter]](
-                ORCFileWriter.Open(self.rd_handle.get(), deref(options))))
+                ORCFileWriter.Open(self.rd_handle.get(), deref(write_options))))
 
     def write(self, Table table):
         cdef:

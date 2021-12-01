@@ -117,7 +117,7 @@ class ORCFile:
         return self.reader.read(columns=columns)
 
 
-_orc_writer_arg_docs = """file_version : {"0.11", "0.12"}, default "0.12"
+_orc_writer_args_docs = """file_version : {"0.11", "0.12"}, default "0.12"
     Determine which ORC file version to use. Hive 0.11 / ORC v0 is the older
     version as defined `here <https://orc.apache.org/specification/ORCv0/>`
     while Hive 0.12 / ORC v1 is the newer one as defined
@@ -146,7 +146,6 @@ bloom_filter_fpp: double, default 0.05
     Set false positive probability of the bloom filter.
 """
 
-
 class ORCWriter:
     __doc__ = """
     Writer interface for a single ORC file
@@ -158,7 +157,7 @@ class ORCWriter:
         see pyarrow.io.PythonFileInterface, pyarrow.io.BufferOutputStream
         or pyarrow.io.FixedSizeBufferWriter.
     {}
-    """.format(_orc_writer_arg_docs)
+    """.format(_orc_writer_args_docs)
 
     def __init__(self, where, file_version='0.12',
                  stripe_size=67108864,
@@ -267,4 +266,4 @@ write_table.__doc__ = """
         see pyarrow.io.PythonFileInterface, pyarrow.io.BufferOutputStream
         or pyarrow.io.FixedSizeBufferWriter.
     {}
-    """.format(_orc_writer_arg_docs)
+    """.format(_orc_writer_args_docs)
