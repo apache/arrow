@@ -46,7 +46,7 @@ conda info -a
 @rem
 @rem Install mamba to the base environment
 @rem
-conda install -q -y -c conda-forge
+conda install -q -y -c conda-forge mamba
 
 @rem
 @rem Create conda environment for Build and Toolchain jobs
