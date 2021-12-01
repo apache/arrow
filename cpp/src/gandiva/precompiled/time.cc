@@ -111,6 +111,12 @@ DATE_TYPES(EXTRACT_DOY)
 
 DATE_TYPES(EXTRACT_QUARTER)
 
+FORCE_INLINE
+gdv_int64 extractQuarter_utf8(gdv_int64 ctx, const char* in, int32_t len) {
+  auto time = castTIMESTAMP_utf8(ctx, in, len);
+  return extractQuarter_timestamp(time);
+}
+
 #define EXTRACT_MONTH(TYPE)                            \
   FORCE_INLINE                                         \
   gdv_int64 extractMonth##_##TYPE(gdv_##TYPE millis) { \

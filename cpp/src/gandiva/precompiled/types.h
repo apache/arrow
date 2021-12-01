@@ -71,6 +71,8 @@ gdv_int64 extractHour_time32(gdv_int32 millis_in_day);
 gdv_int64 extractMinute_time32(gdv_int32 millis_in_day);
 gdv_int64 extractSecond_time32(gdv_int32 millis_in_day);
 
+gdv_int64 extractQuarter_utf8(gdv_int64 ctx, const char* in, int32_t len);
+
 gdv_int32 hash32(double val, gdv_int32 seed);
 gdv_int32 hash32_buf(const gdv_uint8* buf, int len, gdv_int32 seed);
 gdv_int64 hash64(double val, gdv_int64 seed);
