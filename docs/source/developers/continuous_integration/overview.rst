@@ -18,9 +18,19 @@
 Continuous Integration
 ======================
 
-Arrow CI is fairly complex as it needs to run across different package managers, compilers, with different sofware versions, on different operating systems, and many other potential sources of variation.
+Continunous Integration for Arrow is fairly complex as it needs to run across different combinations of package managers, compilers, versions of multiple sofware libraries,  operating systems, and other potential sources of variation.  In this article, we will give an overview of its main components and the relevant files and directories.
 
-.. figure:: /img/arrow_ci.svg
+Two files central to Arrow CI are:
+
+* `docker-compose.yml` - here we define docker services which can be configured using either enviroment variables, or the default values for these variables
+* `.env` - here we define default values to configure the services in `docker-compose.yml`
+
+There are three important directories in the Arrow project which relate to CI:
+
+* `.github/` - workflows that are via GitHub actions and are triggered by things like pull requests being submitted or merged
+* `dev/` - containing jobs which are run via Archery and Crossbow, typically nightly builds or relating to the release process
+* `ci/` - containing scripts supporting the various builds
+
 
 It can easily be divided into two main categories:
 
