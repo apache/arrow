@@ -379,7 +379,7 @@ TEST(TestCodecMisc, SpecifyCompressionLevel) {
       {Compression::ZSTD, 4, true},       {Compression::LZ4, -10, false},
       {Compression::LZO, -22, false},     {Compression::UNCOMPRESSED, 10, false},
       {Compression::SNAPPY, 16, false},   {Compression::GZIP, -992, false},
-      {Compression::LZ4_FRAMED, 9, true}, {Compression::LZ4_FRAMED, -99, false}};
+      {Compression::LZ4_FRAME, 9, true}};
 
   std::vector<uint8_t> data = MakeRandomData(2000);
   for (const auto& combination : combinations) {
