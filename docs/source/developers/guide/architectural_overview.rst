@@ -37,4 +37,4 @@ For an Architectural Overview of Arrow's libraries please
 refer to:
 
 - PyArrow Architectural Overview
-- R-Arrow Architectural Overview
+- R package Architectural Overview
