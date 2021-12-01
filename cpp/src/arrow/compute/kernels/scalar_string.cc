@@ -5062,18 +5062,18 @@ struct Utf8NormalizeExec : public Utf8NormalizeBase {
     offset_type* out_offsets = out->mutable_array()->GetMutableValues<offset_type>(1);
 
     int64_t offset = 0;
-    *out_offsets++ = offset;
+    *out_offsets++ = static_cast<offset_type>(offset);
 
     RETURN_NOT_OK(VisitArrayDataInline<Type>(
         array,
         [&](util::string_view v) {
           ARROW_ASSIGN_OR_RAISE(auto n_bytes, Decompose(v, &data_builder));
           offset += n_bytes;
-          *out_offsets++ = offset;
+          *out_offsets++ = static_cast<offset_type>(offset);
           return Status::OK();
         },
         [&]() {
-          *out_offsets++ = offset;
+          *out_offsets++ = static_cast<offset_type>(offset);
           return Status::OK();
         }));
 
