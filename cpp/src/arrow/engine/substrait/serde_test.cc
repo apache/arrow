@@ -17,6 +17,9 @@
 
 #include "arrow/engine/substrait/serde.h"
 
+#include <google/protobuf/descriptor.h>
+#include <google/protobuf/util/json_util.h>
+#include <google/protobuf/util/type_resolver_util.h>
 #include <gtest/gtest.h>
 
 #include "arrow/compute/exec/expression_internal.h"
@@ -67,6 +70,80 @@ inline compute::Expression UseBoringRefs(const compute::Expression& expr) {
     arg = UseBoringRefs(arg);
   }
   return compute::Expression{std::move(modified_call)};
+}
+
+google::protobuf::util::TypeResolver* GetGeneratedTypeResolver() {
+  static std::unique_ptr<google::protobuf::util::TypeResolver> type_resolver;
+  if (!type_resolver) {
+    type_resolver.reset(google::protobuf::util::NewTypeResolverForDescriptorPool(
+        /*url_prefix=*/"", google::protobuf::DescriptorPool::generated_pool()));
+  }
+  return type_resolver.get();
+}
+
+std::shared_ptr<Buffer> SubstraitFromJSON(util::string_view json,
+                                          util::string_view type_name) {
+  std::string type_url = "/io.substrait." + type_name.to_string();
+
+  google::protobuf::io::ArrayInputStream json_stream{json.data(),
+                                                     static_cast<int>(json.size())};
+
+  std::string out;
+  google::protobuf::io::StringOutputStream out_stream{&out};
+
+  auto status = google::protobuf::util::JsonToBinaryStream(
+      GetGeneratedTypeResolver(), type_url, &json_stream, &out_stream);
+  DCHECK(status.ok()) << "JsonToBinaryStream returned " << status;
+
+  return Buffer::FromString(std::move(out));
+}
+
+TEST(Substrait, BasicTypeFromJSON) {
+  auto ExpectEq = [](util::string_view json, std::shared_ptr<DataType> expected_type) {
+    ARROW_SCOPED_TRACE(expected_type->ToString());
+
+    auto buf = SubstraitFromJSON(json, "Type");
+    ASSERT_OK_AND_ASSIGN(auto actual, DeserializeType(*buf));
+
+    ASSERT_EQ(*actual, *expected_type);
+  };
+
+  ExpectEq(R"({"bool": {}})", boolean());
+
+  ExpectEq(R"({"i8": {}})", int8());
+  ExpectEq(R"({"i16": {}})", int16());
+  ExpectEq(R"({"i32": {}})", int32());
+  ExpectEq(R"({"i64": {}})", int64());
+
+  ExpectEq(R"({"fp32": {}})", float32());
+  ExpectEq(R"({"fp64": {}})", float64());
+
+  ExpectEq(R"({"string": {}})", utf8());
+  ExpectEq(R"({"binary": {}})", binary());
+
+  ExpectEq(R"({"timestamp": {}})", timestamp(TimeUnit::MICRO));
+  ExpectEq(R"({"date": {}})", date32());
+  ExpectEq(R"({"time": {}})", time64(TimeUnit::MICRO));
+  ExpectEq(R"({"timestamp_tz": {}})", timestamp(TimeUnit::MICRO, "UTC"));
+
+  ExpectEq(R"({"uuid": {}})", uuid());
+
+  ExpectEq(R"({"fixed_char": {"length": 32}})", fixed_char(32));
+  ExpectEq(R"({"varchar": {"length": 1024}})", varchar(1024));
+  ExpectEq(R"({"fixed_binary": {"length": 32}})", fixed_size_binary(32));
+
+  ExpectEq(R"({"decimal": {"precision": 27, "scale": 5}})", decimal128(27, 5));
+
+  ExpectEq(R"({"struct": {
+    "types": [
+      {"i64": {}},
+      {"list": {"type": {"string":{}} }}
+    ]
+  }})",
+           struct_({
+               field("", int64()),
+               field("", list(utf8())),
+           }));
 }
 
 TEST(Substrait, BasicTypeRoundTrip) {
