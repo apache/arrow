@@ -38,15 +38,17 @@ from pyarrow.lib cimport (check_status, _Weakrefable,
                           get_writer)
 from pyarrow.lib import tobytes
 
+
 cdef compression_kind_from_enum(CompressionKind compression_kind_):
     return {
-        _CompressionKind_NONE: 'NONE',
+        _CompressionKind_NONE: 'UNCOMPRESSED',
         _CompressionKind_ZLIB: 'ZLIB',
         _CompressionKind_SNAPPY: 'SNAPPY',
         _CompressionKind_LZO: 'LZO',
         _CompressionKind_LZ4: 'LZ4',
         _CompressionKind_ZSTD: 'ZSTD',
     }.get(compression_kind_, 'UNKNOWN')
+
 
 cdef CompressionKind compression_kind_from_name(name):
     name = name.upper()
@@ -60,8 +62,10 @@ cdef CompressionKind compression_kind_from_name(name):
         return _CompressionKind_LZ4
     elif name == 'ZSTD':
         return _CompressionKind_ZSTD
-    else:
+    elif name == 'UNCOMPRESSED':
         return _CompressionKind_NONE
+    raise ValueError('Unknown CompressionKind: {0}'.format(name))
+
 
 cdef compression_strategy_from_enum(CompressionStrategy compression_strategy_):
     return {
@@ -69,19 +73,23 @@ cdef compression_strategy_from_enum(CompressionStrategy compression_strategy_):
         _CompressionStrategy_COMPRESSION: 'COMPRESSION',
     }.get(compression_strategy_, 'UNKNOWN')
 
+
 cdef CompressionStrategy compression_strategy_from_name(name):
     name = name.upper()
     # SPEED is the default value in the ORC C++ implementaton
     if name == 'COMPRESSION':
         return _CompressionStrategy_COMPRESSION
-    else:
+    elif name == 'SPEED':
         return _CompressionStrategy_SPEED
+    raise ValueError('Unknown CompressionStrategy: {0}'.format(name))
+
 
 cdef rle_version_from_enum(RleVersion rle_version_):
     return {
         _RleVersion_1: '1',
         _RleVersion_2: '2',
     }.get(rle_version_, 'UNKNOWN')
+
 
 cdef bloom_filter_version_from_enum(BloomFilterVersion bloom_filter_version_):
     return {
@@ -90,16 +98,18 @@ cdef bloom_filter_version_from_enum(BloomFilterVersion bloom_filter_version_):
         _BloomFilterVersion_FUTURE: 'FUTURE',
     }.get(bloom_filter_version_, 'UNKNOWN')
 
+
 cdef file_version_from_class(FileVersion file_version_):
     cdef object file_version = file_version_.ToString()
     return file_version
 
-cdef class ORCWriterOptions(_Weakrefable):
+
+cdef class ORCWriteOptions(_Weakrefable):
     cdef:
-        unique_ptr[WriterOptions] options
+        unique_ptr[WriteOptions] options
 
     def __cinit__(self):
-        self.options.reset(new WriterOptions())
+        self.options.reset(new WriteOptions())
 
     def set_stripe_size(self, size):
         deref(self.options).set_stripe_size(size)
@@ -190,7 +200,7 @@ cdef class ORCWriterOptions(_Weakrefable):
             deref(self.options).bloom_filter_version())
 
 
-cdef shared_ptr[WriterOptions] _create_writer_options(
+cdef shared_ptr[WriteOptions] _create_writer_options(
     file_version=None,
     stripe_size=None,
     compression=None,
@@ -204,9 +214,9 @@ cdef shared_ptr[WriterOptions] _create_writer_options(
 ) except *:
     """General writer options"""
     cdef:
-        shared_ptr[WriterOptions] options
+        shared_ptr[WriteOptions] options
 
-    options = make_shared[WriterOptions]()
+    options = make_shared[WriteOptions]()
 
     # file_version
 

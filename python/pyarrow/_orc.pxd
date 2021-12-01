@@ -61,32 +61,31 @@ cdef extern from "arrow/adapters/orc/adapter_options.h" \
         uint32_t minor()
         c_string ToString()
 
-    cdef cppclass WriterOptions" arrow::adapters::orc::WriterOptions":
-        WriterOptions()
-        WriterOptions& set_stripe_size(uint64_t size)
+    cdef cppclass WriteOptions" arrow::adapters::orc::WriteOptions":
+        WriteOptions()
+        WriteOptions& set_stripe_size(uint64_t size)
         uint64_t stripe_size()
-        WriterOptions& set_compression_block_size(uint64_t size)
+        WriteOptions& set_compression_block_size(uint64_t size)
         uint64_t compression_block_size()
-        WriterOptions& set_row_index_stride(uint64_t stride)
+        WriteOptions& set_row_index_stride(uint64_t stride)
         uint64_t row_index_stride()
-        WriterOptions& set_dictionary_key_size_threshold(double val)
+        WriteOptions& set_dictionary_key_size_threshold(double val)
         double dictionary_key_size_threshold()
-        WriterOptions& set_file_version(const FileVersion& version)
+        WriteOptions& set_file_version(const FileVersion& version)
         FileVersion file_version()
-        WriterOptions& set_compression(CompressionKind comp)
+        WriteOptions& set_compression(CompressionKind comp)
         CompressionKind compression()
-        WriterOptions& set_compression_strategy(CompressionStrategy strategy)
+        WriteOptions& set_compression_strategy(CompressionStrategy strategy)
         CompressionStrategy compression_strategy()
         c_bool aligned_bitpacking()
-        WriterOptions& set_padding_tolerance(double tolerance)
+        WriteOptions& set_padding_tolerance(double tolerance)
         double padding_tolerance()
         RleVersion rle_version()
         c_bool enable_index()
         c_bool enable_dictionary()
-        WriterOptions& set_columns_use_bloom_filter(const std_set[uint64_t]& columns)
+        WriteOptions& set_columns_use_bloom_filter(const std_set[uint64_t]& columns)
         c_bool is_column_use_bloom_filter(uint64_t column)
-        std_set[uint64_t] columns_use_bloom_filter()
-        WriterOptions& set_bloom_filter_fpp(double fpp)
+        WriteOptions& set_bloom_filter_fpp(double fpp)
         double bloom_filter_fpp()
         BloomFilterVersion bloom_filter_version()
 
@@ -118,7 +117,7 @@ cdef extern from "arrow/adapters/orc/adapter.h" \
     cdef cppclass ORCFileWriter:
         @staticmethod
         CResult[unique_ptr[ORCFileWriter]] Open(
-            COutputStream* output_stream, const WriterOptions& writer_options)
+            COutputStream* output_stream, const WriteOptions& writer_options)
 
         CStatus Write(const CTable& table)
 

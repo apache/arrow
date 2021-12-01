@@ -124,9 +124,9 @@ _orc_writer_arg_docs = """file_version : {"0.11", "0.12"}, default "0.12"
     `here <https://orc.apache.org/specification/ORCv1/>`.
 stripe_size : int, default 64 * 1024 * 1024
     Size of each ORC stripe.
-compression : string, default 'snappy'
+compression : string, default 'zlib'
     Specify the compression codec.
-    Valid values: {'NONE', 'SNAPPY', 'ZLIB', 'LZ0', 'LZ4', 'ZSTD'}
+    Valid values: {'UNCOMPRESSED', 'SNAPPY', 'ZLIB', 'LZ0', 'LZ4', 'ZSTD'}
 compression_block_size : int, default 64 * 1024
     Specify the size of each compression block.
 compression_strategy : string, default 'speed'
@@ -138,8 +138,8 @@ row_index_stride : int, default 10000
 padding_tolerance : double, default 0.0
     Set the padding tolerance.
 dictionary_key_size_threshold : double, default 0.0
-    Specify if we should write statistics in general (default is True) or only
-    for some columns.
+    Set the dictionary key size threshold. 0 to disable dictionary encoding.
+    1 to always enable dictionary encoding.
 bloom_filter_columns : None, set-like or list-like, default None
     Set columns that use the bloom filter.
 bloom_filter_fpp: double, default 0.05
@@ -162,7 +162,7 @@ class ORCWriter:
 
     def __init__(self, where, file_version='0.12',
                  stripe_size=67108864,
-                 compression='snappy',
+                 compression='zlib',
                  compression_block_size=65536,
                  compression_strategy='speed',
                  row_index_stride=10000,
@@ -239,7 +239,7 @@ def write_table(table, where, file_version='0.12',
             "an error in the future.", FutureWarning, stacklevel=2
         )
         table, where = where, table
-    writer = ORCWriter(
+    with ORCWriter(
         where,
         file_version=file_version,
         stripe_size=stripe_size,
@@ -251,11 +251,11 @@ def write_table(table, where, file_version='0.12',
         dictionary_key_size_threshold=dictionary_key_size_threshold,
         bloom_filter_columns=bloom_filter_columns,
         bloom_filter_fpp=bloom_filter_fpp
-    )
-    writer.write(table)
-    writer.close()
+    ) as writer:
+        writer.write(table)
 
-    write_table.__doc__ = """
+
+write_table.__doc__ = """
     Write a table into an ORC file
 
     Parameters
