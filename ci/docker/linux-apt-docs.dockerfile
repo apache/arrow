@@ -80,7 +80,7 @@ RUN pip install \
         meson \
         breathe==4.29.0 \
         ipython \
-        pydata-sphinx-theme\
+        pydata-sphinx-theme \
         sphinx \
         sphinx-tabs
 
