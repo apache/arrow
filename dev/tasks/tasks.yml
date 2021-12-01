@@ -1256,14 +1256,6 @@ tasks:
         GO: 1.15
       run: debian-go
 
-  test-ubuntu-20.10-docs:
-    ci: azure
-    template: docker-tests/azure.linux.yml
-    params:
-      env:
-        UBUNTU: "20.10"
-      run: ubuntu-docs
-
   test-ubuntu-default-docs:
     ci: azure
     template: docker-tests/azure.linux.yml

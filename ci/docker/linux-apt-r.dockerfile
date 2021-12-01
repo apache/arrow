@@ -34,9 +34,8 @@ RUN apt-get update -y && \
         dirmngr \
         apt-transport-https \
         software-properties-common && \
-    apt-key adv \
-        --keyserver keyserver.ubuntu.com \
-        --recv-keys E298A3A825C0D65DFD57CBB651716619E084DAB9 && \
+    wget -qO- https://cloud.r-project.org/bin/linux/ubuntu/marutter_pubkey.asc | \
+        tee -a /etc/apt/trusted.gpg.d/cran_ubuntu_key.asc && \
     # NOTE: R 3.5 and 3.6 are available in the repos with -cran35 suffix
     # for trusty, xenial, bionic, and eoan (as of May 2020)
     # -cran40 has 4.0 versions for bionic and focal
