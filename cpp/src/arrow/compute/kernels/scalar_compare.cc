@@ -491,6 +491,15 @@ struct BinaryScalarMinMax {
       return Status::OK();
     }
     BaseBinaryScalar* output = checked_cast<BaseBinaryScalar*>(out->scalar().get());
+    if (!options.skip_nulls) {
+      // any nulls in the input will produce a null output
+      for (const auto& value : batch.values) {
+        if (!value.scalar()->is_valid) {
+          output->is_valid = false;
+          return Status::OK();
+        }
+      }
+    }
     const size_t num_args = batch.values.size();
 
     int64_t final_size = CalculateRowSize(options, batch, 0);
@@ -498,23 +507,28 @@ struct BinaryScalarMinMax {
       output->is_valid = false;
       return Status::OK();
     }
-    util::string_view result = UnboxScalar<Type>::Unbox(*batch.values.front().scalar());
+    const Scalar& first_scalar = *batch.values.front().scalar();
+    util::string_view result = UnboxScalar<Type>::Unbox(first_scalar);
+    bool valid = first_scalar.is_valid;
     for (size_t i = 1; i < num_args; i++) {
       const Scalar& scalar = *batch[i].scalar();
-      if (!scalar.is_valid && options.skip_nulls) {
+      if (!scalar.is_valid) {
+        DCHECK(options.skip_nulls);
         continue;
-      }
-      if (scalar.is_valid) {
+      } else {
         util::string_view value = UnboxScalar<Type>::Unbox(scalar);
         result = result.empty() ? value : Op::CallBinary(result, value);
+        valid = true;
       }
     }
-    if (!result.empty()) {
+    if (valid) {
       ARROW_ASSIGN_OR_RAISE(output->value, ctx->Allocate(final_size));
       uint8_t* buf = output->value->mutable_data();
       buf = std::copy(result.begin(), result.end(), buf);
       output->is_valid = true;
       DCHECK_GE(final_size, buf - output->value->mutable_data());
+    } else {
+      output->is_valid = false;
     }
     return Status::OK();
   }
@@ -616,17 +630,15 @@ struct BinaryScalarMinMax {
         }
         return -1;
       }
+      // Conservative estimation of the element size.
       final_size = std::max(final_size, element_size);
     }
     return final_size;
   }
 };
 
-template <typename Type, typename Op>
+template <typename Op>
 struct FixedSizeBinaryScalarMinMax {
-  using BuilderType = typename TypeTraits<Type>::BuilderType;
-  using offset_type = size_t;
-
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     const ElementWiseAggregateOptions& options = MinMaxState::Get(ctx);
     if (std::all_of(batch.values.begin(), batch.values.end(),
@@ -652,14 +664,15 @@ struct FixedSizeBinaryScalarMinMax {
       output->is_valid = false;
       return Status::OK();
     }
-    util::string_view result = UnboxScalar<Type>::Unbox(*batch.values.front().scalar());
+    util::string_view result =
+        UnboxScalar<FixedSizeBinaryType>::Unbox(*batch.values.front().scalar());
     for (size_t i = 1; i < num_args; i++) {
       const Scalar& scalar = *batch[i].scalar();
       if (!scalar.is_valid && options.skip_nulls) {
         continue;
       }
       if (scalar.is_valid) {
-        util::string_view value = UnboxScalar<Type>::Unbox(scalar);
+        util::string_view value = UnboxScalar<FixedSizeBinaryType>::Unbox(scalar);
         result = result.empty() ? value : Op::CallBinary(result, value);
       }
     }
@@ -685,7 +698,7 @@ struct FixedSizeBinaryScalarMinMax {
       auto size = CalculateRowSize(options, batch, i, byte_width);
       if (size > 0) final_size += size;
     }
-    BuilderType builder(batch_type);
+    FixedSizeBinaryBuilder builder(batch_type);
     RETURN_NOT_OK(builder.Reserve(batch.length));
     RETURN_NOT_OK(builder.ReserveData(final_size));
 
@@ -696,7 +709,7 @@ struct FixedSizeBinaryScalarMinMax {
         if (batch[col].is_scalar()) {
           const auto& scalar = *batch[col].scalar();
           if (scalar.is_valid) {
-            valid_cols[col] = UnboxScalar<Type>::Unbox(scalar);
+            valid_cols[col] = UnboxScalar<FixedSizeBinaryType>::Unbox(scalar);
             num_valid++;
           } else {
             valid_cols[col] = util::string_view();
@@ -832,7 +845,7 @@ std::shared_ptr<ScalarFunction> MakeScalarMinMax(std::string name,
   }
   {
     const auto id = Type::FIXED_SIZE_BINARY;
-    auto exec = FixedSizeBinaryScalarMinMax<FixedSizeBinaryType, Op>::Exec;
+    auto exec = FixedSizeBinaryScalarMinMax<Op>::Exec;
     OutputType out_type(ResolveMinOrMaxOutputType);
     ScalarKernel kernel{KernelSignature::Make({InputType{id}}, out_type,
                                               /*is_varargs=*/true),

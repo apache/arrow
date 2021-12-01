@@ -696,13 +696,14 @@ expanded for the purposes of comparison.
 +------------------+------------+---------------------------------------------+---------------------+---------------------------------------+-------+
 | Function names   | Arity      | Input types                                 | Output type         | Options class                         | Notes |
 +==================+============+=============================================+=====================+=======================================+=======+
-| max_element_wise | Varargs    | Numeric and Temporal                        | Numeric or Temporal | :struct:`ElementWiseAggregateOptions` | \(1)  |
+| max_element_wise | Varargs    | Numeric, Temporal, Binary- and String-like  | Numeric or Temporal | :struct:`ElementWiseAggregateOptions` | \(1)  |
 +------------------+------------+---------------------------------------------+---------------------+---------------------------------------+-------+
-| min_element_wise | Varargs    | Numeric and Temporal                        | Numeric or Temporal | :struct:`ElementWiseAggregateOptions` | \(1)  |
+| min_element_wise | Varargs    | Numeric, Temporal, Binary- and String-like  | Numeric or Temporal | :struct:`ElementWiseAggregateOptions` | \(1)  |
 +------------------+------------+---------------------------------------------+---------------------+---------------------------------------+-------+
 
 * \(1) By default, nulls are skipped (but the kernel can be configured to propagate nulls).
   For floating point values, NaN will be taken over null but not over any other value.
+  For binary- and string-like values, only identical type parameters are supported.
 
 Logical functions
 ~~~~~~~~~~~~~~~~~~
