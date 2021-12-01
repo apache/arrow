@@ -46,236 +46,156 @@ const FileVersion& FileVersion::v_0_12() {
   return version;
 }
 
-struct WriterOptionsPrivate {
-  uint64_t stripe_size_;
-  uint64_t compression_block_size_;
-  uint64_t row_index_stride_;
-  CompressionKind compression_;
-  CompressionStrategy compression_strategy_;
-  liborc::MemoryPool* memory_pool_;
-  double padding_tolerance_;
-  std::ostream* error_stream_;
-  FileVersion file_version_;
-  double dictionary_key_size_threshold_;
-  bool enable_index_;
-  std::set<uint64_t> columns_use_bloom_filter_;
-  double bloom_filter_false_positive_prob_;
-  BloomFilterVersion bloom_filter_version_;
-
-  WriterOptionsPrivate() : file_version_(FileVersion::v_0_12()) {
-    stripe_size_ = 64 * 1024 * 1024;      // 64M
-    compression_block_size_ = 64 * 1024;  // 64K
-    row_index_stride_ = 10000;
-    compression_ = CompressionKind_ZLIB;
-    compression_strategy_ = CompressionStrategy_SPEED;
-    memory_pool_ = liborc::getDefaultPool();
-    padding_tolerance_ = 0.0;
-    error_stream_ = &std::cerr;
-    dictionary_key_size_threshold_ = 0.0;
-    enable_index_ = true;
-    bloom_filter_false_positive_prob_ = 0.05;
-    bloom_filter_version_ = UTF8;
-  }
-};
-
-WriterOptions::WriterOptions()
-    : private_bits_(std::unique_ptr<WriterOptionsPrivate>(new WriterOptionsPrivate())) {
+WriteOptions::WriteOptions()
+    : orc_writer_options_(std::make_shared<liborc::WriterOptions>()) {
   // PASS
 }
 
-WriterOptions::WriterOptions(const WriterOptions& rhs)
-    : private_bits_(std::unique_ptr<WriterOptionsPrivate>(
-          new WriterOptionsPrivate(*(rhs.private_bits_.get())))) {
+WriteOptions::WriteOptions(const WriteOptions& rhs)
+    : orc_writer_options_(std::make_shared<liborc::WriterOptions>(
+          *(rhs.orc_writer_options_.get()))) {
   // PASS
 }
 
-WriterOptions::WriterOptions(WriterOptions& rhs) {
-  // swap private_bits with rhs
-  private_bits_.swap(rhs.private_bits_);
+WriteOptions::WriteOptions(WriteOptions& rhs) {
+  // swap orc_writer_options_ with rhs
+  orc_writer_options_.swap(rhs.orc_writer_options_);
 }
 
-WriterOptions& WriterOptions::operator=(const WriterOptions& rhs) {
+WriteOptions& WriteOptions::operator=(const WriteOptions& rhs) {
   if (this != &rhs) {
-    private_bits_.reset(new WriterOptionsPrivate(*(rhs.private_bits_.get())));
+    orc_writer_options_.reset(new liborc::WriterOptions(*(rhs.orc_writer_options_.get())));
   }
   return *this;
 }
 
-WriterOptions::~WriterOptions() {
+WriteOptions::~WriteOptions() {
   // PASS
 }
-RleVersion WriterOptions::rle_version() const {
-  if (private_bits_->file_version_ == FileVersion::v_0_11()) {
-    return RleVersion_1;
-  }
-
-  return RleVersion_2;
+RleVersion WriteOptions::rle_version() const {
+  return static_cast<RleVersion>(orc_writer_options_->getRleVersion());
 }
 
-WriterOptions& WriterOptions::set_stripe_size(uint64_t size) {
-  private_bits_->stripe_size_ = size;
+WriteOptions& WriteOptions::set_stripe_size(uint64_t size) {
+  orc_writer_options_->setStripeSize(size);
   return *this;
 }
 
-uint64_t WriterOptions::stripe_size() const { return private_bits_->stripe_size_; }
+uint64_t WriteOptions::stripe_size() const { return orc_writer_options_->getStripeSize(); }
 
-WriterOptions& WriterOptions::set_compression_block_size(uint64_t size) {
-  private_bits_->compression_block_size_ = size;
+WriteOptions& WriteOptions::set_compression_block_size(uint64_t size) {
+  orc_writer_options_->setCompressionBlockSize(size);
   return *this;
 }
 
-uint64_t WriterOptions::compression_block_size() const {
-  return private_bits_->compression_block_size_;
+uint64_t WriteOptions::compression_block_size() const {
+  return orc_writer_options_->getCompressionBlockSize();
 }
 
-WriterOptions& WriterOptions::set_row_index_stride(uint64_t stride) {
-  private_bits_->row_index_stride_ = stride;
-  private_bits_->enable_index_ = (stride != 0);
+WriteOptions& WriteOptions::set_row_index_stride(uint64_t stride) {
+  orc_writer_options_->setRowIndexStride(stride);
   return *this;
 }
 
-uint64_t WriterOptions::row_index_stride() const {
-  return private_bits_->row_index_stride_;
+uint64_t WriteOptions::row_index_stride() const {
+  return orc_writer_options_->getRowIndexStride();
 }
 
-WriterOptions& WriterOptions::set_dictionary_key_size_threshold(double val) {
-  private_bits_->dictionary_key_size_threshold_ = val;
+WriteOptions& WriteOptions::set_dictionary_key_size_threshold(double val) {
+  orc_writer_options_->setDictionaryKeySizeThreshold(val);
   return *this;
 }
 
-double WriterOptions::dictionary_key_size_threshold() const {
-  return private_bits_->dictionary_key_size_threshold_;
+double WriteOptions::dictionary_key_size_threshold() const {
+  return orc_writer_options_->getDictionaryKeySizeThreshold();
 }
 
-WriterOptions& WriterOptions::set_file_version(const FileVersion& version) {
+WriteOptions& WriteOptions::set_file_version(const FileVersion& version) {
   // Only Hive_0_11 and Hive_0_12 version are supported currently
-  if (version.major() == 0 && (version.minor() == 11 || version.minor() == 12)) {
-    private_bits_->file_version_ = version;
+  uint32_t major = version.major(), minor = version.minor();
+  if (major == 0 && (minor == 11 || minor == 12)) {
+    orc_writer_options_->setFileVersion(liborc::FileVersion(major, minor));
     return *this;
   }
   throw std::logic_error("Unsupported file version specified.");
 }
 
-FileVersion WriterOptions::file_version() const { return private_bits_->file_version_; }
+FileVersion WriteOptions::file_version() const {
+  liborc::FileVersion orc_file_version_ = orc_writer_options_->getFileVersion();
+  return FileVersion(orc_file_version_.getMajor(), orc_file_version_.getMinor());
+}
 
-WriterOptions& WriterOptions::set_compression(CompressionKind comp) {
-  private_bits_->compression_ = comp;
+WriteOptions& WriteOptions::set_compression(CompressionKind comp) {
+  orc_writer_options_->setCompression(static_cast<liborc::CompressionKind>(comp));
   return *this;
 }
 
-CompressionKind WriterOptions::compression() const { return private_bits_->compression_; }
+CompressionKind WriteOptions::compression() const {
+  return static_cast<CompressionKind>(orc_writer_options_->getCompression());
+}
 
-WriterOptions& WriterOptions::set_compression_strategy(CompressionStrategy strategy) {
-  private_bits_->compression_strategy_ = strategy;
+WriteOptions& WriteOptions::set_compression_strategy(CompressionStrategy strategy) {
+  orc_writer_options_->setCompressionStrategy(
+    static_cast<liborc::CompressionStrategy>(strategy));
   return *this;
 }
 
-CompressionStrategy WriterOptions::compression_strategy() const {
-  return private_bits_->compression_strategy_;
+CompressionStrategy WriteOptions::compression_strategy() const {
+  return static_cast<CompressionStrategy>(
+    orc_writer_options_->getCompressionStrategy());
 }
 
-bool WriterOptions::aligned_bitpacking() const {
-  return private_bits_->compression_strategy_ ==
-         CompressionStrategy::CompressionStrategy_SPEED;
+bool WriteOptions::aligned_bitpacking() const {
+  return orc_writer_options_->getAlignedBitpacking();
 }
 
-WriterOptions& WriterOptions::set_padding_tolerance(double tolerance) {
-  private_bits_->padding_tolerance_ = tolerance;
+WriteOptions& WriteOptions::set_padding_tolerance(double tolerance) {
+  orc_writer_options_->setPaddingTolerance(tolerance);
   return *this;
 }
 
-double WriterOptions::padding_tolerance() const {
-  return private_bits_->padding_tolerance_;
+double WriteOptions::padding_tolerance() const {
+  return orc_writer_options_->getPaddingTolerance();
 }
 
-WriterOptions& WriterOptions::set_error_stream(std::ostream& err_stream) {
-  private_bits_->error_stream_ = &err_stream;
+WriteOptions& WriteOptions::set_error_stream(std::ostream& err_stream) {
+  orc_writer_options_->setErrorStream(err_stream);
   return *this;
 }
 
-std::ostream* WriterOptions::error_stream() const { return private_bits_->error_stream_; }
-
-bool WriterOptions::enable_index() const { return private_bits_->enable_index_; }
-
-bool WriterOptions::enable_dictionary() const {
-  return private_bits_->dictionary_key_size_threshold_ > 0.0;
+std::ostream* WriteOptions::error_stream() const {
+  return orc_writer_options_->getErrorStream();
 }
 
-WriterOptions& WriterOptions::set_columns_use_bloom_filter(
+bool WriteOptions::enable_index() const { return orc_writer_options_->getEnableIndex(); }
+
+bool WriteOptions::enable_dictionary() const {
+  return orc_writer_options_->getEnableDictionary();
+}
+
+WriteOptions& WriteOptions::set_columns_use_bloom_filter(
     const std::set<uint64_t>& columns) {
-  private_bits_->columns_use_bloom_filter_ = columns;
+  orc_writer_options_->setColumnsUseBloomFilter(columns);
   return *this;
 }
 
-bool WriterOptions::is_column_use_bloom_filter(uint64_t column) const {
-  return private_bits_->columns_use_bloom_filter_.find(column) !=
-         private_bits_->columns_use_bloom_filter_.end();
+bool WriteOptions::is_column_use_bloom_filter(uint64_t column) const {
+  return orc_writer_options_->isColumnUseBloomFilter(column);
 }
 
-std::set<uint64_t> WriterOptions::columns_use_bloom_filter() const {
-  return private_bits_->columns_use_bloom_filter_;
-}
-
-WriterOptions& WriterOptions::set_bloom_filter_fpp(double fpp) {
-  private_bits_->bloom_filter_false_positive_prob_ = fpp;
+WriteOptions& WriteOptions::set_bloom_filter_fpp(double fpp) {
+  orc_writer_options_->setBloomFilterFPP(fpp);
   return *this;
 }
 
-double WriterOptions::bloom_filter_fpp() const {
-  return private_bits_->bloom_filter_false_positive_prob_;
+double WriteOptions::bloom_filter_fpp() const {
+  return orc_writer_options_->getBloomFilterFPP();
 }
 
 // delibrately not provide setter to write bloom filter version because
 // we only support UTF8 for now.
-BloomFilterVersion WriterOptions::bloom_filter_version() const {
-  return private_bits_->bloom_filter_version_;
-}  // namespace
-
-}  // namespace orc
-}  // namespace adapters
-}  // namespace arrow
-namespace {
-liborc::CompressionKind AdaptCompressionKind(
-    arrow::adapters::orc::CompressionKind arrow_compression_kind) {
-  return static_cast<liborc::CompressionKind>(
-      static_cast<int8_t>(arrow_compression_kind));
-}
-liborc::CompressionStrategy AdaptCompressionStrategy(
-    arrow::adapters::orc::CompressionStrategy arrow_compression_strategy) {
-  return static_cast<liborc::CompressionStrategy>(
-      static_cast<int8_t>(arrow_compression_strategy));
-}
-liborc::FileVersion AdaptFileVersion(
-    arrow::adapters::orc::FileVersion arrow_file_version) {
-  return liborc::FileVersion(arrow_file_version.major(), arrow_file_version.minor());
-}
-}  // namespace
-namespace arrow {
-
-namespace adapters {
-
-namespace orc {
-
-liborc::WriterOptions* AdaptWriterOptions(const WriterOptions& arrow_writer_options) {
-  auto orc_writer_options = new liborc::WriterOptions();
-  orc_writer_options->setStripeSize(arrow_writer_options.stripe_size());
-  orc_writer_options->setCompressionBlockSize(
-      arrow_writer_options.compression_block_size());
-  orc_writer_options->setRowIndexStride(arrow_writer_options.row_index_stride());
-  orc_writer_options->setDictionaryKeySizeThreshold(
-      arrow_writer_options.dictionary_key_size_threshold());
-  orc_writer_options->setFileVersion(
-      AdaptFileVersion(arrow_writer_options.file_version()));
-  orc_writer_options->setCompression(
-      AdaptCompressionKind(arrow_writer_options.compression()));
-  orc_writer_options->setCompressionStrategy(
-      AdaptCompressionStrategy(arrow_writer_options.compression_strategy()));
-  orc_writer_options->setPaddingTolerance(arrow_writer_options.padding_tolerance());
-  orc_writer_options->setErrorStream(*(arrow_writer_options.error_stream()));
-  orc_writer_options->setBloomFilterFPP(arrow_writer_options.bloom_filter_fpp());
-  orc_writer_options->setColumnsUseBloomFilter(
-      arrow_writer_options.columns_use_bloom_filter());
-  return orc_writer_options;
+BloomFilterVersion WriteOptions::bloom_filter_version() const {
+  return static_cast<BloomFilterVersion>(orc_writer_options_->getBloomFilterVersion());
 }
 
 }  // namespace orc

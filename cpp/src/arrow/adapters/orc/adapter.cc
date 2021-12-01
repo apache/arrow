@@ -633,11 +633,10 @@ class ArrowOutputStream : public liborc::OutputStream {
 class ORCFileWriter::Impl {
  public:
   Status Open(arrow::io::OutputStream* output_stream,
-              const WriterOptions& writer_options) {
+              const WriteOptions& write_options) {
     out_stream_ = std::unique_ptr<liborc::OutputStream>(
         checked_cast<liborc::OutputStream*>(new ArrowOutputStream(*output_stream)));
-    orc_options_ =
-        std::unique_ptr<liborc::WriterOptions>(AdaptWriterOptions(writer_options));
+    orc_options_ = write_options.get_orc_writer_options();
     return Status::OK();
   }
 
@@ -676,7 +675,7 @@ class ORCFileWriter::Impl {
  private:
   std::unique_ptr<liborc::Writer> writer_;
   std::unique_ptr<liborc::OutputStream> out_stream_;
-  std::unique_ptr<liborc::WriterOptions> orc_options_;
+  std::shared_ptr<liborc::WriterOptions> orc_options_;
 };
 
 ORCFileWriter::~ORCFileWriter() {}
@@ -684,7 +683,7 @@ ORCFileWriter::~ORCFileWriter() {}
 ORCFileWriter::ORCFileWriter() { impl_.reset(new ORCFileWriter::Impl()); }
 
 Result<std::unique_ptr<ORCFileWriter>> ORCFileWriter::Open(
-    io::OutputStream* output_stream, const WriterOptions& writer_options) {
+    io::OutputStream* output_stream, const WriteOptions& writer_options) {
   std::unique_ptr<ORCFileWriter> result =
       std::unique_ptr<ORCFileWriter>(new ORCFileWriter());
   Status status = result->impl_->Open(output_stream, writer_options);

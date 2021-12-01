@@ -265,11 +265,11 @@ class ARROW_EXPORT ORCFileWriter {
   /// \brief Creates a new ORC writer.
   ///
   /// \param[in] output_stream a pointer to the io::OutputStream to write into
-  /// \param[in] writer_options the ORC writer options for Arrow
+  /// \param[in] write_options the ORC writer options for Arrow
   /// \return the returned writer object
   static Result<std::unique_ptr<ORCFileWriter>> Open(
       io::OutputStream* output_stream,
-      const WriterOptions& writer_options = WriterOptions());
+      const WriteOptions& write_options = WriteOptions());
 
   /// \brief Write a table
   ///

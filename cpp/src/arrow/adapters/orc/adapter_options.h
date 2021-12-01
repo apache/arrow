@@ -33,8 +33,6 @@ namespace adapters {
 namespace orc {
 // Components of ORC Writer Options
 
-struct WriterOptionsPrivate;
-
 enum CompressionKind {
   CompressionKind_NONE = 0,
   CompressionKind_ZLIB = 1,
@@ -96,18 +94,26 @@ class ARROW_EXPORT FileVersion {
 /**
  * Options for creating a Writer.
  */
-class ARROW_EXPORT WriterOptions {
+class ARROW_EXPORT WriteOptions {
  public:
-  WriterOptions();
-  WriterOptions(const WriterOptions&);
-  WriterOptions(WriterOptions&);
-  WriterOptions& operator=(const WriterOptions&);
-  virtual ~WriterOptions();
+  WriteOptions();
+  WriteOptions(const WriteOptions&);
+  WriteOptions(WriteOptions&);
+  WriteOptions& operator=(const WriteOptions&);
+  virtual ~WriteOptions();
+
+  /**
+   * Get the ORC writer options
+   * @return The ORC writer options this WriteOption encapsulates
+   */
+  std::shared_ptr<liborc::WriterOptions> get_orc_writer_options() const {
+    return orc_writer_options_;
+  }
 
   /**
    * Set the strip size.
    */
-  WriterOptions& set_stripe_size(uint64_t size);
+  WriteOptions& set_stripe_size(uint64_t size);
 
   /**
    * Get the strip size.
@@ -118,7 +124,7 @@ class ARROW_EXPORT WriterOptions {
   /**
    * Set the data compression block size.
    */
-  WriterOptions& set_compression_block_size(uint64_t size);
+  WriteOptions& set_compression_block_size(uint64_t size);
 
   /**
    * Get the data compression block size.
@@ -130,7 +136,7 @@ class ARROW_EXPORT WriterOptions {
    * Set row index stride (the number of rows per an entry in the row index). Use value 0
    * to disable row index.
    */
-  WriterOptions& set_row_index_stride(uint64_t stride);
+  WriteOptions& set_row_index_stride(uint64_t stride);
 
   /**
    * Get the row index stride (the number of rows per an entry in the row index).
@@ -143,7 +149,7 @@ class ARROW_EXPORT WriterOptions {
    * 0 to disable dictionary encoding.
    * 1 to always enable dictionary encoding.
    */
-  WriterOptions& set_dictionary_key_size_threshold(double val);
+  WriteOptions& set_dictionary_key_size_threshold(double val);
 
   /**
    * Get the dictionary key size threshold.
@@ -153,7 +159,7 @@ class ARROW_EXPORT WriterOptions {
   /**
    * Set Orc file version
    */
-  WriterOptions& set_file_version(const FileVersion& version);
+  WriteOptions& set_file_version(const FileVersion& version);
 
   /**
    * Get Orc file version
@@ -163,7 +169,7 @@ class ARROW_EXPORT WriterOptions {
   /**
    * Set compression kind.
    */
-  WriterOptions& set_compression(CompressionKind comp);
+  WriteOptions& set_compression(CompressionKind comp);
 
   /**
    * Get the compression kind.
@@ -174,7 +180,7 @@ class ARROW_EXPORT WriterOptions {
   /**
    * Set the compression strategy.
    */
-  WriterOptions& set_compression_strategy(CompressionStrategy strategy);
+  WriteOptions& set_compression_strategy(CompressionStrategy strategy);
 
   /**
    * Get the compression strategy.
@@ -191,7 +197,7 @@ class ARROW_EXPORT WriterOptions {
   /**
    * Set the padding tolerance.
    */
-  WriterOptions& set_padding_tolerance(double tolerance);
+  WriteOptions& set_padding_tolerance(double tolerance);
 
   /**
    * Get the padding tolerance.
@@ -202,7 +208,7 @@ class ARROW_EXPORT WriterOptions {
   /**
    * Set the error stream.
    */
-  WriterOptions& set_error_stream(std::ostream& err_stream);
+  WriteOptions& set_error_stream(std::ostream& err_stream);
 
   /**
    * Get the error stream.
@@ -230,7 +236,7 @@ class ARROW_EXPORT WriterOptions {
   /**
    * Set columns that use BloomFilter
    */
-  WriterOptions& set_columns_use_bloom_filter(const std::set<uint64_t>& columns);
+  WriteOptions& set_columns_use_bloom_filter(const std::set<uint64_t>& columns);
 
   /**
    * Get whether this column uses BloomFilter
@@ -246,7 +252,7 @@ class ARROW_EXPORT WriterOptions {
   /**
    * Set false positive probability of BloomFilter
    */
-  WriterOptions& set_bloom_filter_fpp(double fpp);
+  WriteOptions& set_bloom_filter_fpp(double fpp);
 
   /**
    * Get false positive probability of BloomFilter
@@ -259,10 +265,8 @@ class ARROW_EXPORT WriterOptions {
   BloomFilterVersion bloom_filter_version() const;
 
  private:
-  std::unique_ptr<WriterOptionsPrivate> private_bits_;
+  std::shared_ptr<liborc::WriterOptions> orc_writer_options_;
 };
-
-liborc::WriterOptions* AdaptWriterOptions(const WriterOptions& arrow_writer_options);
 
 }  // namespace orc
 }  // namespace adapters
