@@ -1,0 +1,97 @@
+.. Licensed to the Apache Software Foundation (ASF) under one
+.. or more contributor license agreements.  See the NOTICE file
+.. distributed with this work for additional information
+.. regarding copyright ownership.  The ASF licenses this file
+.. to you under the Apache License, Version 2.0 (the
+.. "License"); you may not use this file except in compliance
+.. with the License.  You may obtain a copy of the License at
+
+..   http://www.apache.org/licenses/LICENSE-2.0
+
+.. Unless required by applicable law or agreed to in writing,
+.. software distributed under the License is distributed on an
+.. "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+.. KIND, either express or implied.  See the License for the
+.. specific language governing permissions and limitations
+.. under the License.
+
+
+.. SCOPE OF THIS SECTION
+.. This section is intended to give some ideas on how to
+.. work and find way around the Arrow library depending
+.. on the type of the problem (simple binding, adding a
+.. new feature, writing a test, …).
+
+
+.. _finding-way-around-arrow:
+
+********************************
+Finding your way around Arrow 🧐
+********************************
+
+You can read through this section to get some ideas on how
+to work around the library on the issue you have.
+
+Depending on the problem you want to solve (adding a simple
+binding, adding a feature, writing a test, …) there are
+different ways to tackle the problem. 
+
+- **For all the cases** you can help yourself with
+  searching for functions via some kind of search tool.
+  In our experience there are two good ways:
+
+  #. Via **GitHub Search** in the Arrow repository (not a forked one)
+     This way is great as GitHub lets you search for function
+     definitions and references also.
+
+  #. **IDE** of your choice.
+
+- **Bindings**
+
+  Binding means that the function in the C++ is connected from 
+  other languages (Python, R, Julia, Ruby, etc.). Once a 
+  function is defined in the C++ we connect it from other languages
+  so that it can be used there also.
+
+.. note::
+	There is much you can learn with checking **Pull Requests**
+	and **unit tests for similar issues**.  
+
+- **Philosophy behind R bindings**
+.. TODO
+
+.. #. New feature
+..   If you are adding a new future in R or Python you can check out
+..   our tutorials (link!) where we are adding a simple feature to Python and R.
+
+- **Adding a fix in Python**
+
+  If you are doing a correction of an existing function, the
+  easiest way is to run Python interactively or run Jupyter
+  Notebook from the Python folder in Arrow and research
+  the issue until you understand what needs to be done.
+
+  After, you can search on GitHub for the function name, to
+  see where the function is defined.
+
+  Also, if there are errors produced, the errors will most
+  likely point you towards the file you need to take a look at.
+
+- **Python - Cython - C++**
+   
+  It is quite likely that you will bump into Cython code when
+  working on Python issues. Less likely is that C++ code would
+  need some correction, but it can happen.
+
+  As mentioned before, the underlying code is written in C++.
+  Python then connects to it via Cython. If you
+  are not familiar with it you can ask for help and remember,
+  **look for similar Pull Requests and JIRA issues!**
+
+- **Adding tests**
+
+  There are some issues where only tests are missing. Here you
+  can search for similar functions and see how the unit tests for
+  those functions are written and how they can apply in your case.
+
+  This also hold true for adding a test for the issue you have solved.
