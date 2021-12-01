@@ -61,7 +61,7 @@ Result<compute::Expression> FromProto(const st::Expression& expr) {
 
       util::optional<compute::Expression> root_expr;
       if (expr.selection().has_expression()) {
-        ARROW_ASSIGN_OR_RAISE(*root_expr, FromProto(expr.selection().expression()));
+        ARROW_ASSIGN_OR_RAISE(root_expr, FromProto(expr.selection().expression()));
       }
 
       const auto& ref = expr.selection().direct_reference();
@@ -529,32 +529,33 @@ Result<std::unique_ptr<st::Expression>> ToProto(const compute::Expression& expr)
   }
 
   if (auto param = expr.parameter()) {
-    /*
-        DCHECK(!param->indices.empty());
-        for (int i : param->indices) {
-        }
+    // Special case of a nested StructField
+    DCHECK(!param->indices.empty());
+    auto out = internal::make_unique<st::Expression>();
 
-        std::unique_ptr<st::ReferenceSegment> ref_segment;
+    for (auto it = param->indices.rbegin(); it != param->indices.rend(); ++it) {
+      auto struct_field =
+          internal::make_unique<st::Expression::ReferenceSegment::StructField>();
+      struct_field->set_field(*it);
 
-        for (auto it = param->indices.rbegin(); it != param->indices.rend(); ++it) {
-          auto struct_field = internal::make_unique<st::ReferenceSegment::StructField>();
+      auto ref_segment = internal::make_unique<st::Expression::ReferenceSegment>();
+      ref_segment->set_allocated_struct_field(struct_field.release());
 
-          if (ref_segment) {
-            struct_field->set_allocated_child(ref_segment.release());
-          }
-          struct_field->set_field(*it);
+      auto selection = internal::make_unique<st::Expression::FieldReference>();
+      selection->set_allocated_direct_reference(ref_segment.release());
 
-          ref_segment = internal::make_unique<st::ReferenceSegment>();
-          ref_segment->set_allocated_struct_field(struct_field.release());
-        }
+      if (out->has_selection()) {
+        selection->set_allocated_expression(out.release());
+        out = internal::make_unique<st::Expression>();
+      } else {
+        selection->set_allocated_root_reference(
+            new st::Expression::FieldReference::RootReference());
+      }
 
-        auto field_ref = internal::make_unique<st::FieldReference>();
-        field_ref->set_allocated_direct_reference(ref_segment.release());
+      out->set_allocated_selection(selection.release());
+    }
 
-        auto out = internal::make_unique<st::Expression>();
-        out->set_allocated_selection(field_ref.release());
-        return std::move(out);
-    */
+    return std::move(out);
   }
 
   auto call = CallNotNull(expr);
@@ -566,30 +567,27 @@ Result<std::unique_ptr<st::Expression>> ToProto(const compute::Expression& expr)
   }
 
   if (call->function_name == "list_element") {
-    /*
-        // catch the special case of calls convertible to a ListElement
-        if (arguments[0]->has_selection() &&
-            arguments[0]->selection().has_direct_reference()) {
-          if (arguments[1]->has_literal() && arguments[1]->literal().has_i32()) {
-            auto list_element =
-       internal::make_unique<st::ReferenceSegment::ListElement>();
+    // catch the special case of calls convertible to a ListElement
+    if (arguments[0]->has_selection() &&
+        arguments[0]->selection().has_direct_reference()) {
+      if (arguments[1]->has_literal() && arguments[1]->literal().has_i32()) {
+        auto list_element =
+            internal::make_unique<st::Expression::ReferenceSegment::ListElement>();
 
-            list_element->set_allocated_child(
-                arguments[0]->mutable_selection()->release_direct_reference());
-            list_element->set_offset(arguments[1]->literal().i32());
+        list_element->set_offset(arguments[1]->literal().i32());
 
-            auto ref_segment = internal::make_unique<st::ReferenceSegment>();
-            ref_segment->set_allocated_list_element(list_element.release());
+        auto ref_segment = internal::make_unique<st::Expression::ReferenceSegment>();
+        ref_segment->set_allocated_list_element(list_element.release());
 
-            auto field_ref = internal::make_unique<st::FieldReference>();
-            field_ref->set_allocated_direct_reference(ref_segment.release());
+        auto field_ref = internal::make_unique<st::Expression::FieldReference>();
+        field_ref->set_allocated_direct_reference(ref_segment.release());
+        field_ref->set_allocated_expression(arguments[0].release());
 
-            auto out = std::move(arguments[0]);  // reuse an emptied st::Expression
-            out->set_allocated_selection(field_ref.release());
-            return std::move(out);
-          }
-        }
-    */
+        auto out = internal::make_unique<st::Expression>();
+        out->set_allocated_selection(field_ref.release());
+        return std::move(out);
+      }
+    }
   }
 
   if (call->function_name == "if_else") {

@@ -35,7 +35,7 @@ namespace {
 
 template <typename TypeMessage>
 Status CheckVariation(const TypeMessage& type) {
-  if (type.type_variation_reference() != 0) return Status::OK();
+  if (type.type_variation_reference() == 0) return Status::OK();
   return Status::NotImplemented("Type variations for ", type.DebugString());
 }
 

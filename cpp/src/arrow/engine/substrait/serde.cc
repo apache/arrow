@@ -55,7 +55,7 @@ Result<Message> ParseFromBuffer(const Buffer& buf) {
   return message;
 }
 
-Result<compute::Declaration> Convert(const st::Rel& relation) {
+Result<compute::Declaration> Convert(const st::PlanRel& relation) {
   return Status::NotImplemented("");
 }
 
@@ -72,7 +72,7 @@ Result<std::vector<compute::Declaration>> ConvertPlan(const Buffer& buf) {
 }
 
 Result<std::shared_ptr<Schema>> DeserializeSchema(const Buffer& buf) {
-  ARROW_ASSIGN_OR_RAISE(auto named_struct, ParseFromBuffer<st::Type::NamedStruct>(buf));
+  ARROW_ASSIGN_OR_RAISE(auto named_struct, ParseFromBuffer<st::NamedStruct>(buf));
   return FromProto(named_struct);
 }
 

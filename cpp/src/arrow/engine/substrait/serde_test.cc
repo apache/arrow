@@ -39,6 +39,7 @@ const std::shared_ptr<Schema> kBoringSchema = schema({
     field("f64", float64()),
     field("date64", date64()),
     field("str", utf8()),
+    field("list_i32", list(int32())),
     field("struct_i32_str", struct_({
                                 field("i32", int32()),
                                 field("str", utf8()),
@@ -199,6 +200,11 @@ TEST(Substrait, CallSpecialCaseRoundTrip) {
                              compute::literal(true),
                              compute::field_ref({"struct_i32_str", 1}),
                              compute::field_ref("str"),
+                         }),
+           compute::call("list_element",
+                         {
+                             compute::field_ref("list_i32"),
+                             compute::literal(3),
                          }),
        }) {
     ARROW_SCOPED_TRACE(expr.ToString());
