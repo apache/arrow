@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,12 +17,29 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set(VCPKG_TARGET_ARCHITECTURE arm64)
-set(VCPKG_CRT_LINKAGE dynamic)
-set(VCPKG_LIBRARY_LINKAGE static)
+set -e
 
-set(VCPKG_CMAKE_SYSTEM_NAME Darwin)
-set(VCPKG_OSX_ARCHITECTURES "x86_64;arm64")
-set(VCPKG_OSX_DEPLOYMENT_TARGET "10.13")
+if [ "$#" -ne 2 ]; then
+  echo "Usage: $0 <version> <prefix>"
+  exit 1
+fi
 
-set(VCPKG_BUILD_TYPE debug)
+version=$1
+prefix=$2
+url="https://github.com/ccache/ccache/archive/v${version}.tar.gz"
+
+mkdir /tmp/ccache
+wget -q ${url} -O - | tar -xzf - --directory /tmp/ccache --strip-components=1
+
+mkdir /tmp/ccache/build
+pushd /tmp/ccache/build
+cmake \
+  -GNinja \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_INSTALL_PREFIX=${prefix} \
+  -DZSTD_FROM_INTERNET=ON \
+  ..
+ninja install
+popd
+
+rm -rf /tmp/ccache

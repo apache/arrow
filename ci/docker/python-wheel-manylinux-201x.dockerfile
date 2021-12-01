@@ -18,56 +18,54 @@
 ARG base
 FROM ${base}
 
-ARG arch_alias
-ARG arch_short_alias
+ARG arch
+ARG arch_short
+ARG manylinux
 
+ENV MANYLINUX_VERSION=${manylinux}
+
+# Install basic dependencies
 RUN yum install -y git flex curl autoconf zip wget
 
 # Install CMake
-ARG cmake=3.19.3
-RUN wget -q https://github.com/Kitware/CMake/releases/download/v${cmake}/cmake-${cmake}-Linux-${arch_alias}.tar.gz -O - | \
-    tar -xzf - --directory /usr/local --strip-components=1
+# AWS SDK doesn't work with CMake=3.22 due to https://gitlab.kitware.com/cmake/cmake/-/issues/22524
+ARG cmake=3.21.4
+COPY ci/scripts/install_cmake.sh arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_cmake.sh ${arch} linux ${cmake} /usr/local
 
 # Install Ninja
 ARG ninja=1.10.2
-RUN mkdir /tmp/ninja && \
-    wget -q https://github.com/ninja-build/ninja/archive/v${ninja}.tar.gz -O - | \
-    tar -xzf - --directory /tmp/ninja --strip-components=1 && \
-    cd /tmp/ninja && \
-    ./configure.py --bootstrap && \
-    mv ninja /usr/local/bin && \
-    rm -rf /tmp/ninja
+COPY ci/scripts/install_ninja.sh arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_ninja.sh ${ninja} /usr/local
 
 # Install ccache
 ARG ccache=4.1
-RUN mkdir /tmp/ccache && \
-    wget -q https://github.com/ccache/ccache/archive/v${ccache}.tar.gz -O - | \
-    tar -xzf - --directory /tmp/ccache --strip-components=1 && \
-    cd /tmp/ccache && \
-    mkdir build && \
-    cd build && \
-    cmake -GNinja -DCMAKE_BUILD_TYPE=Release -DZSTD_FROM_INTERNET=ON .. && \
-    ninja install && \
-    rm -rf /tmp/ccache
+COPY ci/scripts/install_ccache.sh arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_ccache.sh ${ccache} /usr/local
 
-# Install vcpkg
+# Install vcpkg and in case of manylinux2010 install a more recent glibc>2.15
+# for the prebuilt vcpkg binary
 ARG vcpkg
-RUN git clone https://github.com/microsoft/vcpkg /opt/vcpkg && \
-    git -C /opt/vcpkg checkout ${vcpkg} && \
-    /opt/vcpkg/bootstrap-vcpkg.sh -useSystemBinaries -disableMetrics && \
-    ln -s /opt/vcpkg/vcpkg /usr/bin/vcpkg
-
-# Patch ports files as needed
+ARG glibc=2.18
 COPY ci/vcpkg/*.patch \
      ci/vcpkg/*linux*.cmake \
      arrow/ci/vcpkg/
-RUN cd /opt/vcpkg && git apply --ignore-whitespace /arrow/ci/vcpkg/ports.patch
+COPY ci/scripts/install_vcpkg.sh \
+     ci/scripts/install_glibc.sh \
+     arrow/ci/scripts/
+RUN arrow/ci/scripts/install_vcpkg.sh /opt/vcpkg ${vcpkg} && \
+    if [ "${manylinux}" == "2010" ]; then \
+        arrow/ci/scripts/install_glibc.sh ${glibc} /opt/glibc-${glibc} && \
+        patchelf --set-interpreter /opt/glibc-2.18/lib/ld-linux-x86-64.so.2 /opt/vcpkg/vcpkg && \
+        patchelf --set-rpath /opt/glibc-2.18/lib:/usr/lib64 /opt/vcpkg/vcpkg; \
+    fi
+ENV PATH="/opt/vcpkg:${PATH}"
 
 ARG build_type=release
 ENV CMAKE_BUILD_TYPE=${build_type} \
     VCPKG_FORCE_SYSTEM_BINARIES=1 \
     VCPKG_OVERLAY_TRIPLETS=/arrow/ci/vcpkg \
-    VCPKG_DEFAULT_TRIPLET=${arch_short_alias}-linux-static-${build_type} \
+    VCPKG_DEFAULT_TRIPLET=${arch_short}-linux-static-${build_type} \
     VCPKG_FEATURE_FLAGS=-manifests
 
 # Need to install the boost-build prior installing the boost packages, otherwise
@@ -75,8 +73,6 @@ ENV CMAKE_BUILD_TYPE=${build_type} \
 # TODO(kszucs): factor out the package enumeration to a text file and reuse it
 # from the windows image and potentially in a future macos wheel build
 RUN vcpkg install --clean-after-build \
-        boost-build:${arch_short_alias}-linux && \
-    vcpkg install --clean-after-build \
         abseil \
         aws-sdk-cpp[config,cognito-identity,core,identity-management,s3,sts,transfer] \
         boost-filesystem \
@@ -87,6 +83,7 @@ RUN vcpkg install --clean-after-build \
         flatbuffers \
         gflags \
         glog \
+        google-cloud-cpp[core,storage] \
         grpc \
         lz4 \
         openssl \

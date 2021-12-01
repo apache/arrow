@@ -384,7 +384,6 @@ tasks:
     ci: github
     template: python-wheels/github.osx.amd64.yml
     params:
-      vcpkg_version: "2021.04.30"
       python_version: "{{ python_version }}"
       macos_deployment_target: "{{ macos_version }}"
       arrow_s3: "{{ arrow_s3 }}"
@@ -416,7 +415,6 @@ tasks:
     params:
       arch: arm64
       arrow_simd_level: "DEFAULT"
-      vcpkg_version: "2021.04.30"
       python_version: "3.8"
       macos_deployment_target: "11.0"
 
@@ -430,7 +428,6 @@ tasks:
     params:
       arch: arm64
       arrow_simd_level: "DEFAULT"
-      vcpkg_version: "2021.04.30"
       python_version: "{{ python_version }}"
       macos_deployment_target: "11.0"
     artifacts:
@@ -444,7 +441,6 @@ tasks:
       # Universal2 builds for both rosetta and native, but we currently can't
       # configure SIMD for both architectures at the same time
       arrow_simd_level: "NONE"
-      vcpkg_version: "2021.04.30"
       python_version: "{{ python_version }}"
       macos_deployment_target: "10.13"
     artifacts:
