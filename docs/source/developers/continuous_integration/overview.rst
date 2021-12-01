@@ -35,10 +35,10 @@ There are numerous important directories in the Arrow project which relate to CI
 
 Instead of thinking about Arrow CI in terms of files and folders, it may be conceptually simpler to instead divide it into 2 main categories:
 
-* CI jobs which are triggered based on specific actions (pull requests opened, pull requests merged, etc)
-* Builds which are manually triggered on a nightly basis
+* CI jobs which are triggered based on specific actions on GitHub (pull requests opened, pull requests merged, etc)
+* Builds which are manually triggered on a nightly basis or via Archery
 
-Action-triggered builds
+GitHub Actions builds
 -----------------------
 
 The `.yml` files in `.github/worflows` are workflow templates which are run on GitHub in response to specific actions.  The majority of workflows in this directory are Arrow implementation-specific and are run when changes are made which affect code relevant to that language's implementation, but other workflows worth noting are:
@@ -53,10 +53,14 @@ The `.yml` files in `.github/worflows` are workflow templates which are run on G
 * `dev_pr.yml` - runs any time a PR is opened or updated; checks the formatting of the PR title, adds links to the appropriate JIRA ticket if included in the title (or adds a comment requesting the user fix this if not), and adds any relevant GitHub labels
 
 
-Nightly builds
---------------
+Archery/Crossbow builds
+-----------------------
 
-The nightly builds take services defined in `docker-compose.yml` and run them.
+Tasks which can be run via Archery or Crossbow can be found in the `dev/tasks` directory.  This directory contains:
 
+* the file `dev/tasks/tasks.yml` containing the configuration for various tasks which can be run via Archery/Crossbow
+* subdirectories containing different task templates, divided roughly by language or package management system
 
+Most of these tasks are run as part of the nightly builds, though also can be triggered manually by add a comment to a PR which begins with `@github-actions crossbow submit` followed by the name of the task to be run.
 
+For convenience purpose, the tasks in `dev/tasks/tasks.yml` are defined in groups, which makes it simpler for multiple tasks to be submitted to Crossbow at once.  The task definitions here contain information about which service defined in `docker-compose.yml` to run, the CI service to run the task on, and which template file to use as the basis for that task. 
