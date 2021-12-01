@@ -27,7 +27,7 @@ ARG go=1.15
 
 # Install Archery and integration dependencies
 COPY ci/conda_env_archery.txt /arrow/ci/
-RUN conda install -q \
+RUN mamba install -q \
         --file arrow/ci/conda_env_archery.txt \
         "python>=3.7" \
         numpy \
@@ -36,7 +36,7 @@ RUN conda install -q \
         nodejs=${node} \
         yarn \
         openjdk=${jdk} && \
-    conda clean --all --force-pkgs-dirs
+    mamba clean --all --force-pkgs-dirs
 
 # Install Rust with only the needed components
 # (rustfmt is needed for tonic-build to compile the protobuf definitions)

@@ -17,7 +17,6 @@
 
 ARG base
 FROM ${base}
-ARG arch
 
 ARG tz="UTC"
 ENV TZ=${tz}
@@ -92,9 +91,10 @@ COPY r/DESCRIPTION /arrow/r/
 RUN /arrow/ci/scripts/r_deps.sh /arrow
 
 COPY ci/scripts/install_minio.sh /arrow/ci/scripts/
-RUN /arrow/ci/scripts/install_minio.sh ${arch} linux latest /usr/local
+RUN /arrow/ci/scripts/install_minio.sh latest /usr/local
+
 COPY ci/scripts/install_gcs_testbench.sh /arrow/ci/scripts/
-RUN /arrow/ci/scripts/install_gcs_testbench.sh ${arch} default
+RUN /arrow/ci/scripts/install_gcs_testbench.sh default
 
 COPY python/requirements-build.txt /arrow/python/
 RUN pip install -r arrow/python/requirements-build.txt

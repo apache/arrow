@@ -97,6 +97,7 @@ x-hierarchy:
   # service entry, so any new image/service must be listed here.
   - conda:
     - conda-cpp:
+      - conda-integration
       - conda-cpp-hiveserver2
       - conda-cpp-valgrind
       - conda-python:
@@ -108,7 +109,7 @@ x-hierarchy:
         - conda-python-turbodbc
         - conda-python-kartothek
         - conda-python-spark
-    - conda-integration
+
   - debian-cpp:
     - debian-c-glib:
       - debian-ruby
@@ -203,7 +204,6 @@ services:
         - ${REPO}:${ARCH}-conda
       args:
         arch: ${ARCH}
-        prefix: /opt/conda
     volumes:
       - .:/arrow:delegated
 
@@ -259,7 +259,6 @@ services:
       args:
         repo: ${REPO}
         arch: ${ARCH}
-        prefix: /opt/conda
     shm_size: *shm-size
     environment:
       <<: *ccache
