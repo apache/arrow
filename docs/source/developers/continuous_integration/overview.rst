@@ -18,31 +18,45 @@
 Continuous Integration
 ======================
 
-Continunous Integration for Arrow is fairly complex as it needs to run across different combinations of package managers, compilers, versions of multiple sofware libraries,  operating systems, and other potential sources of variation.  In this article, we will give an overview of its main components and the relevant files and directories.
+Continuous Integration for Arrow is fairly complex as it needs to run across different combinations of package managers, compilers, versions of multiple sofware libraries,  operating systems, and other potential sources of variation.  In this article, we will give an overview of its main components and the relevant files and directories.
 
 Two files central to Arrow CI are:
 
-* `docker-compose.yml` - here we define docker services which can be configured using either enviroment variables, or the default values for these variables
+* `docker-compose.yml` - here we define docker services which can be configured using either enviroment variables, or the default values for these variables.
 * `.env` - here we define default values to configure the services in `docker-compose.yml`
 
-There are three important directories in the Arrow project which relate to CI:
+One thing to note is the some of the services defined in `docker-compose.yml` are interdependent.  When running a services locally, you must either manually build its dependencies first, or build it via the use of `archery run ...` which automatically finds and builds dependencies.  For more information on archery, see <link>.
 
-* `.github/` - workflows that are via GitHub actions and are triggered by things like pull requests being submitted or merged
-* `dev/` - containing jobs which are run via Archery and Crossbow, typically nightly builds or relating to the release process
+There are numerous important directories in the Arrow project which relate to CI:
+
+* `.github/worflows` - workflows that are run via GitHub actions and are triggered by things like pull requests being submitted or merged
+* `dev/tasks` - containing jobs which are run via Archery and Crossbow, typically nightly builds or relating to the release process
 * `ci/` - containing scripts supporting the various builds
 
+Instead of thinking about Arrow CI in terms of files and folders, it may be conceptually simpler to instead divide it into 2 main categories:
 
-It can easily be divided into two main categories:
-
-* Action triggered builds
-* Nightly builds
+* CI jobs which are triggered based on specific actions (pull requests opened, pull requests merged, etc)
+* Builds which are manually triggered on a nightly basis
 
 Action-triggered builds
 -----------------------
 
+The `.yml` files in `.github/worflows` are workflow templates which are run on GitHub in response to specific actions.  The majority of workflows in this directory are Arrow implementation-specific and are run when changes are made which affect code relevant to that language's implementation, but other workflows worth noting are:
+
+* `archery.yml` - if changes are made to the Archery tool or tasks which it runs, this workflow runs some validation checks
+* `comment_bot.yml` - triggers certain actions on the basis of text in comments:
+	* `@github-actions crossbow ...` - runs the specified Crossbow command
+	* `@github-actions autotune` - runs a number of stylers/formatters, builds some of the docs, and commits the results
+	* `@github-actions rebase` - rebases the PR onto the master branch
+* `cpp_cron.yml` - runs nightly at midnight and does fuzz testing (https://github.com/google/oss-fuzz)
+* `dev.yml` - runs any time there is activity on a PR, or a PR is merged; it runs the linter and tests that the PR can be merged
+* `dev_pr.yml` - runs any time a PR is opened or updated; checks the formatting of the PR title, adds links to the appropriate JIRA ticket if included in the title (or adds a comment requesting the user fix this if not), and adds any relevant GitHub labels
+
 
 Nightly builds
 --------------
+
+The nightly builds take services defined in `docker-compose.yml` and run them.
 
 
 
