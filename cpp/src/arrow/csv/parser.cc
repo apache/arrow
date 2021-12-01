@@ -156,7 +156,7 @@ class BloomFilter4B : public BaseBloomFilter {
 
 class SSE42Filter {
  public:
-  using WordType = int64_t;
+  using WordType = uint64_t;
 
   explicit SSE42Filter(const ParseOptions& options) : filter_(MakeFilter(options)) {}
 
@@ -310,7 +310,8 @@ class PresizedValueDescWriter : public ValueDescWriter<PresizedValueDescWriter> 
 }  // namespace
 
 class BlockParserImpl {
-#ifdef ARROW_HAVE_SSE4_2
+#if defined(ARROW_HAVE_SSE4_2) && (defined(__x86_64__) || defined(_M_X64))
+  // (the SSE4.2 filter seems to crash on RTools with 32-bit MinGW)
   using BulkFilterType = SSE42Filter;
 #else
   using BulkFilterType = BloomFilter4B;
