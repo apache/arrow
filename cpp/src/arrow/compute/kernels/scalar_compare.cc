@@ -21,8 +21,8 @@
 
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernels/common.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
-#include "arrow/util/endian.h"
 #include "arrow/util/optional.h"
 
 namespace arrow {
@@ -555,7 +555,7 @@ struct BinaryScalarMinMax {
         } else {
           const ArrayData& array = *batch[col].array();
           if (!array.MayHaveNulls() ||
-              BitUtil::GetBit(array.buffers[0]->data(), array.offset + row)) {
+              bit_util::GetBit(array.buffers[0]->data(), array.offset + row)) {
             const offset_type* offsets = array.GetValues<offset_type>(1);
             const uint8_t* data = array.GetValues<uint8_t>(2, /*absolute_offset=*/0);
             const int64_t length = offsets[row + 1] - offsets[row];
@@ -614,7 +614,7 @@ struct BinaryScalarMinMax {
       } else {
         const ArrayData& array = *batch[i].array();
         valid = !array.MayHaveNulls() ||
-                BitUtil::GetBit(array.buffers[0]->data(), array.offset + index);
+                bit_util::GetBit(array.buffers[0]->data(), array.offset + index);
         const offset_type* offsets = array.GetValues<offset_type>(1);
         element_size = offsets[index + 1] - offsets[index];
       }
@@ -711,7 +711,7 @@ struct FixedSizeBinaryScalarMinMax {
         } else {
           const ArrayData& array = *batch[col].array();
           if (!array.MayHaveNulls() ||
-              BitUtil::GetBit(array.buffers[0]->data(), array.offset + row)) {
+              bit_util::GetBit(array.buffers[0]->data(), array.offset + row)) {
             const uint8_t* data = array.GetValues<uint8_t>(1, /*absolute_offset=*/0);
             valid_cols[col] = string_view(
                 reinterpret_cast<const char*>(data) + row * byte_width, byte_width);
@@ -765,7 +765,7 @@ struct FixedSizeBinaryScalarMinMax {
       } else {
         const ArrayData& array = *batch[i].array();
         valid = !array.MayHaveNulls() ||
-                BitUtil::GetBit(array.buffers[0]->data(), array.offset + index);
+                bit_util::GetBit(array.buffers[0]->data(), array.offset + index);
       }
       if (!valid) {
         if (options.skip_nulls) {
