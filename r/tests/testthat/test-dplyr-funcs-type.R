@@ -625,3 +625,128 @@ test_that("bad explicit type conversions with as.*()", {
     )
   )
 })
+
+test_that("structs/nested data frames/tibbles can be created", {
+  df <- tibble(regular_col1 = 1L, regular_col2 = "a")
+
+  compare_dplyr_binding(
+    .input %>%
+      transmute(
+        df_col = tibble(
+          regular_col1 = regular_col1,
+          regular_col2 = regular_col2
+        )
+      ) %>%
+      collect(),
+    df
+  )
+
+  # check auto column naming
+  compare_dplyr_binding(
+    .input %>%
+      transmute(
+        df_col = tibble(regular_col1, regular_col2)
+      ) %>%
+      collect(),
+    df
+  )
+
+  # ...and that other arguments are not supported
+  expect_warning(
+    record_batch(char_col = "a") %>%
+      mutate(df_col = tibble(char_col, .rows = 1L)),
+    ".rows not supported in Arrow"
+  )
+
+  expect_warning(
+    record_batch(char_col = "a") %>%
+      mutate(df_col = tibble(char_col, .name_repair = "universal")),
+    ".name_repair not supported in Arrow"
+  )
+
+  # check that data.frame is mapped too
+  # stringsAsFactors default is TRUE in R 3.6, which is still tested on CI
+  compare_dplyr_binding(
+    .input %>%
+      transmute(
+        df_col = data.frame(regular_col1, regular_col2, stringsAsFactors = FALSE)
+      ) %>%
+      collect() %>%
+      mutate(df_col = as.data.frame(df_col)),
+    df
+  )
+
+  # check with fix.empty.names = FALSE
+  compare_dplyr_binding(
+    .input %>%
+      transmute(
+        df_col = data.frame(regular_col1, fix.empty.names = FALSE)
+      ) %>%
+      collect() %>%
+      mutate(df_col = as.data.frame(df_col)),
+    df
+  )
+
+  # check with check.names = TRUE and FALSE
+  compare_dplyr_binding(
+    .input %>%
+      transmute(
+        df_col = data.frame(regular_col1, regular_col1, check.names = TRUE)
+      ) %>%
+      collect() %>%
+      mutate(df_col = as.data.frame(df_col)),
+    df
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      transmute(
+        df_col = data.frame(regular_col1, regular_col1, check.names = FALSE)
+      ) %>%
+      collect() %>%
+      mutate(df_col = as.data.frame(df_col)),
+    df
+  )
+
+  # ...and that other arguments are not supported
+  expect_warning(
+    record_batch(char_col = "a") %>%
+      mutate(df_col = data.frame(char_col, stringsAsFactors = TRUE)),
+    "stringsAsFactors = TRUE not supported in Arrow"
+  )
+
+  expect_warning(
+    record_batch(char_col = "a") %>%
+      mutate(df_col = data.frame(char_col, row.names = 1L)),
+    "row.names not supported in Arrow"
+  )
+
+  expect_warning(
+    record_batch(char_col = "a") %>%
+      mutate(df_col = data.frame(char_col, check.rows = TRUE)),
+    "check.rows not supported in Arrow"
+  )
+})
+
+test_that("nested structs can be created from scalars and existing data frames", {
+  compare_dplyr_binding(
+    .input %>%
+      transmute(
+        df_col = tibble(b = 3)
+      ) %>%
+      collect(),
+    tibble(a = 1:2)
+  )
+
+  # technically this is handled by Scalar$create() since there is no
+  # call to data.frame or tibble() within a dplyr verb
+  existing_data_frame <- tibble(b = 3)
+  compare_dplyr_binding(
+    .input %>%
+      transmute(
+        df_col = existing_data_frame
+      ) %>%
+      collect(),
+    tibble(a = 1:2)
+  )
+})
