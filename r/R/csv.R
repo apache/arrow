@@ -678,9 +678,6 @@ write_csv_arrow <- function(x,
 
   # default value are considered missing by base R
   if (missing(include_header) && !missing(col_names)) {
-    message(
-      "You have supplied a value for \"col_names\". This will overwrite ",
-      "the value for the \"include_headers\" argument.")
     include_header <- col_names
   }
 
