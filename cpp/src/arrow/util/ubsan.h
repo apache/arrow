@@ -52,36 +52,42 @@ inline T* MakeNonNull(T* maybe_null = NULLPTR) {
   return const_cast<T*>(reinterpret_cast<const T*>(&internal::kNonNullFiller));
 }
 
+// SafeLoadAs with a specific number of bytes
+// The returned bytes whose position is greater than `num_bytes` will be initialized to 0
+template <typename T>
+inline typename std::enable_if<std::is_trivial<T>::value, T>::type SafeLoadAs(
+    const uint8_t* unaligned, uint32_t num_bytes) {
+  typename std::remove_const<T>::type ret = 0;
+  std::memcpy(&ret, unaligned, num_bytes);
+  return ret;
+}
+
+// SafeLoadAs with a length of sizeof(T)
+// The caller needs to ensure that the length of `unaligned` is no less than sizeof(T),
+// otherwise out-of-bounds memory access happens
 template <typename T>
 inline typename std::enable_if<std::is_trivial<T>::value, T>::type SafeLoadAs(
     const uint8_t* unaligned) {
-  typename std::remove_const<T>::type ret;
-  std::memcpy(&ret, unaligned, sizeof(T));
-  return ret;
+  return SafeLoadAs<T>(unaligned, sizeof(T));
 }
 
+// SafeLoad with a specific number of bytes
+// The returned bytes whose position is greater than `num_bytes` will be initialized to 0
 template <typename T>
-inline typename std::enable_if<std::is_trivial<T>::value, T>::type SafeLoadAs(
-    const uint8_t* unaligned, uint32_t length) {
+inline typename std::enable_if<std::is_trivial<T>::value, T>::type SafeLoad(
+    const T* unaligned, size_t length) {
   typename std::remove_const<T>::type ret;
   std::memcpy(&ret, unaligned, length);
   return ret;
 }
 
+// SafeLoad with a length of sizeof(T)
+// The caller needs to ensure that the length of `unaligned` is no less than sizeof(T),
+// otherwise out-of-bounds memory access happens
 template <typename T>
 inline typename std::enable_if<std::is_trivial<T>::value, T>::type SafeLoad(
     const T* unaligned) {
-  typename std::remove_const<T>::type ret;
-  std::memcpy(&ret, unaligned, sizeof(T));
-  return ret;
-}
-
-template <typename T>
-inline typename std::enable_if<std::is_trivial<T>::value, T>::type SafeLoad(
-    const T* unaligned, uint32_t length) {
-  typename std::remove_const<T>::type ret;
-  std::memcpy(&ret, unaligned, length);
-  return ret;
+  return SafeLoad<T>(unaligned, sizeof(T));
 }
 
 template <typename U, typename T>

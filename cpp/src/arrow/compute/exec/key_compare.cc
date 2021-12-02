@@ -277,7 +277,7 @@ void KeyCompare::CompareVarBinaryColumnToRow(
         result_or |= key_left ^ key_right;
       }
       int32_t tail_length = length - j * 8;
-      uint64_t tail_mask = ~0ULL >> (64 - 8 * (tail_length));
+      uint64_t tail_mask = ~0ULL >> (64 - 8 * tail_length);
       uint64_t key_left = util::SafeLoad(key_left_ptr + j, tail_length);
       uint64_t key_right = key_right_ptr[j];
       result_or |= tail_mask & (key_left ^ key_right);
