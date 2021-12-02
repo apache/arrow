@@ -350,6 +350,21 @@ class GcsFileSystem::Impl {
     return internal::ToArrowStatus(client_.DeleteObject(p.bucket, p.object));
   }
 
+  Status Move(const GcsPath& src, const GcsPath& dest) {
+    if (src.full_path.empty() || src.object.empty() ||
+        src.object.back() == internal::kSep) {
+      return Status::IOError(
+          "Moving directories or buckets cannot be implemented in GCS. You provided (" +
+          src.full_path + ") as a source for Move()");
+    }
+    ARROW_ASSIGN_OR_RAISE(auto info, GetFileInfo(dest));
+    if (info.IsDirectory()) {
+      return Status::IOError("Attempting to Move() to an existing directory");
+    }
+    RETURN_NOT_OK(CopyFile(src, dest));
+    return DeleteFile(src);
+  }
+
   Status CopyFile(const GcsPath& src, const GcsPath& dest) {
     auto metadata =
         client_.RewriteObjectBlocking(src.bucket, src.object, dest.bucket, dest.object);
@@ -460,7 +475,9 @@ Status GcsFileSystem::DeleteFile(const std::string& path) {
 }
 
 Status GcsFileSystem::Move(const std::string& src, const std::string& dest) {
-  return Status::NotImplemented("The GCS FileSystem is not fully implemented");
+  ARROW_ASSIGN_OR_RAISE(auto s, GcsPath::FromString(src));
+  ARROW_ASSIGN_OR_RAISE(auto d, GcsPath::FromString(dest));
+  return impl_->Move(s, d);
 }
 
 Status GcsFileSystem::CopyFile(const std::string& src, const std::string& dest) {
