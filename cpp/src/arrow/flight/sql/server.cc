@@ -30,7 +30,7 @@
 #include "arrow/util/checked_cast.h"
 
 #define PROPERTY_TO_OPTIONAL(COMMAND, PROPERTY) \
-  COMMAND.has_##PROPERTY() ? util::make_optional(COMMAND.PROPERTY()) : util::nullopt;
+  COMMAND.has_##PROPERTY() ? util::make_optional(COMMAND.PROPERTY()) : util::nullopt
 
 namespace arrow {
 namespace flight {
@@ -51,12 +51,10 @@ arrow::Result<GetCrossReference> ParseCommandGetCrossReference(
   }
 
   GetCrossReference result;
-  result.pk_catalog = PROPERTY_TO_OPTIONAL(command, pk_catalog);
-  result.pk_schema = PROPERTY_TO_OPTIONAL(command, pk_schema);
-  result.pk_table = command.pk_table();
-  result.fk_catalog = PROPERTY_TO_OPTIONAL(command, fk_catalog);
-  result.fk_schema = PROPERTY_TO_OPTIONAL(command, fk_schema);
-  result.fk_table = command.fk_table();
+  result.pk_table_ref = {PROPERTY_TO_OPTIONAL(command, pk_catalog),
+                         PROPERTY_TO_OPTIONAL(command, pk_db_schema), command.pk_table()};
+  result.fk_table_ref = {PROPERTY_TO_OPTIONAL(command, fk_catalog),
+                         PROPERTY_TO_OPTIONAL(command, fk_db_schema), command.fk_table()};
   return result;
 }
 
@@ -68,9 +66,8 @@ arrow::Result<GetImportedKeys> ParseCommandGetImportedKeys(
   }
 
   GetImportedKeys result;
-  result.catalog = PROPERTY_TO_OPTIONAL(command, catalog);
-  result.schema = PROPERTY_TO_OPTIONAL(command, schema);
-  result.table = command.table();
+  result.table_ref = {PROPERTY_TO_OPTIONAL(command, catalog),
+                      PROPERTY_TO_OPTIONAL(command, db_schema), command.table()};
   return result;
 }
 
@@ -82,9 +79,8 @@ arrow::Result<GetExportedKeys> ParseCommandGetExportedKeys(
   }
 
   GetExportedKeys result;
-  result.catalog = PROPERTY_TO_OPTIONAL(command, catalog);
-  result.schema = PROPERTY_TO_OPTIONAL(command, schema);
-  result.table = command.table();
+  result.table_ref = {PROPERTY_TO_OPTIONAL(command, catalog),
+                      PROPERTY_TO_OPTIONAL(command, db_schema), command.table()};
   return result;
 }
 
@@ -96,9 +92,8 @@ arrow::Result<GetPrimaryKeys> ParseCommandGetPrimaryKeys(
   }
 
   GetPrimaryKeys result;
-  result.catalog = PROPERTY_TO_OPTIONAL(command, catalog);
-  result.schema = PROPERTY_TO_OPTIONAL(command, schema);
-  result.table = command.table();
+  result.table_ref = {PROPERTY_TO_OPTIONAL(command, catalog),
+                      PROPERTY_TO_OPTIONAL(command, db_schema), command.table()};
   return result;
 }
 
@@ -122,15 +117,16 @@ arrow::Result<GetSqlInfo> ParseCommandGetSqlInfo(
   return result;
 }
 
-arrow::Result<GetSchemas> ParseCommandGetSchemas(const google::protobuf::Any& any) {
-  pb::sql::CommandGetSchemas command;
+arrow::Result<GetDbSchemas> ParseCommandGetDbSchemas(const google::protobuf::Any& any) {
+  pb::sql::CommandGetDbSchemas command;
   if (!any.UnpackTo(&command)) {
-    return Status::Invalid("Unable to unpack CommandGetSchemas.");
+    return Status::Invalid("Unable to unpack CommandGetDbSchemas.");
   }
 
-  GetSchemas result;
+  GetDbSchemas result;
   result.catalog = PROPERTY_TO_OPTIONAL(command, catalog);
-  result.schema_filter_pattern = PROPERTY_TO_OPTIONAL(command, schema_filter_pattern);
+  result.db_schema_filter_pattern =
+      PROPERTY_TO_OPTIONAL(command, db_schema_filter_pattern);
   return result;
 }
 
@@ -170,7 +166,8 @@ arrow::Result<GetTables> ParseCommandGetTables(const google::protobuf::Any& any)
 
   GetTables result;
   result.catalog = PROPERTY_TO_OPTIONAL(command, catalog);
-  result.schema_filter_pattern = PROPERTY_TO_OPTIONAL(command, schema_filter_pattern);
+  result.db_schema_filter_pattern =
+      PROPERTY_TO_OPTIONAL(command, db_schema_filter_pattern);
   result.table_name_filter_pattern =
       PROPERTY_TO_OPTIONAL(command, table_name_filter_pattern);
   result.table_types = table_types;
@@ -279,8 +276,8 @@ Status FlightSqlServerBase::GetFlightInfo(const ServerCallContext& context,
   } else if (any.Is<pb::sql::CommandGetCatalogs>()) {
     ARROW_ASSIGN_OR_RAISE(*info, GetFlightInfoCatalogs(context, request));
     return Status::OK();
-  } else if (any.Is<pb::sql::CommandGetSchemas>()) {
-    ARROW_ASSIGN_OR_RAISE(GetSchemas internal_command, ParseCommandGetSchemas(any));
+  } else if (any.Is<pb::sql::CommandGetDbSchemas>()) {
+    ARROW_ASSIGN_OR_RAISE(GetDbSchemas internal_command, ParseCommandGetDbSchemas(any));
     ARROW_ASSIGN_OR_RAISE(*info,
                           GetFlightInfoSchemas(context, internal_command, request));
     return Status::OK();
@@ -347,9 +344,9 @@ Status FlightSqlServerBase::DoGet(const ServerCallContext& context, const Ticket
   } else if (any.Is<pb::sql::CommandGetCatalogs>()) {
     ARROW_ASSIGN_OR_RAISE(*stream, DoGetCatalogs(context));
     return Status::OK();
-  } else if (any.Is<pb::sql::CommandGetSchemas>()) {
-    ARROW_ASSIGN_OR_RAISE(GetSchemas internal_command, ParseCommandGetSchemas(any));
-    ARROW_ASSIGN_OR_RAISE(*stream, DoGetSchemas(context, internal_command));
+  } else if (any.Is<pb::sql::CommandGetDbSchemas>()) {
+    ARROW_ASSIGN_OR_RAISE(GetDbSchemas internal_command, ParseCommandGetDbSchemas(any));
+    ARROW_ASSIGN_OR_RAISE(*stream, DoGetDbSchemas(context, internal_command));
     return Status::OK();
   } else if (any.Is<pb::sql::CommandGetTables>()) {
     ARROW_ASSIGN_OR_RAISE(GetTables command, ParseCommandGetTables(any));
@@ -585,14 +582,14 @@ arrow::Result<std::unique_ptr<FlightDataStream>> FlightSqlServerBase::DoGetSqlIn
 }
 
 arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlServerBase::GetFlightInfoSchemas(
-    const ServerCallContext& context, const GetSchemas& command,
+    const ServerCallContext& context, const GetDbSchemas& command,
     const FlightDescriptor& descriptor) {
   return Status::NotImplemented("GetFlightInfoSchemas not implemented");
 }
 
-arrow::Result<std::unique_ptr<FlightDataStream>> FlightSqlServerBase::DoGetSchemas(
-    const ServerCallContext& context, const GetSchemas& command) {
-  return Status::NotImplemented("DoGetSchemas not implemented");
+arrow::Result<std::unique_ptr<FlightDataStream>> FlightSqlServerBase::DoGetDbSchemas(
+    const ServerCallContext& context, const GetDbSchemas& command) {
+  return Status::NotImplemented("DoGetDbSchemas not implemented");
 }
 
 arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlServerBase::GetFlightInfoTables(
@@ -695,18 +692,18 @@ std::shared_ptr<Schema> SqlSchema::GetCatalogsSchema() {
   return arrow::schema({field("catalog_name", utf8())});
 }
 
-std::shared_ptr<Schema> SqlSchema::GetSchemasSchema() {
+std::shared_ptr<Schema> SqlSchema::GetDbSchemasSchema() {
   return arrow::schema(
-      {field("catalog_name", utf8()), field("schema_name", utf8(), false)});
+      {field("catalog_name", utf8()), field("db_schema_name", utf8(), false)});
 }
 
 std::shared_ptr<Schema> SqlSchema::GetTablesSchema() {
-  return arrow::schema({field("catalog_name", utf8()), field("schema_name", utf8()),
+  return arrow::schema({field("catalog_name", utf8()), field("db_schema_name", utf8()),
                         field("table_name", utf8()), field("table_type", utf8())});
 }
 
 std::shared_ptr<Schema> SqlSchema::GetTablesSchemaWithIncludedSchema() {
-  return arrow::schema({field("catalog_name", utf8()), field("schema_name", utf8()),
+  return arrow::schema({field("catalog_name", utf8()), field("db_schema_name", utf8()),
                         field("table_name", utf8()), field("table_type", utf8()),
                         field("table_schema", binary())});
 }
@@ -716,16 +713,16 @@ std::shared_ptr<Schema> SqlSchema::GetTableTypesSchema() {
 }
 
 std::shared_ptr<Schema> SqlSchema::GetPrimaryKeysSchema() {
-  return arrow::schema({field("catalog_name", utf8()), field("schema_name", utf8()),
+  return arrow::schema({field("catalog_name", utf8()), field("db_schema_name", utf8()),
                         field("table_name", utf8()), field("column_name", utf8()),
                         field("key_sequence", int64()), field("key_name", utf8())});
 }
 
 std::shared_ptr<Schema> GetImportedExportedKeysAndCrossReferenceSchema() {
   return arrow::schema(
-      {field("pk_catalog_name", utf8(), true), field("pk_schema_name", utf8(), true),
+      {field("pk_catalog_name", utf8(), true), field("pk_db_schema_name", utf8(), true),
        field("pk_table_name", utf8(), false), field("pk_column_name", utf8(), false),
-       field("fk_catalog_name", utf8(), true), field("fk_schema_name", utf8(), true),
+       field("fk_catalog_name", utf8(), true), field("fk_db_schema_name", utf8(), true),
        field("fk_table_name", utf8(), false), field("fk_column_name", utf8(), false),
        field("key_sequence", int32(), false), field("fk_key_name", utf8(), true),
        field("pk_key_name", utf8(), true), field("update_rule", uint8(), false),

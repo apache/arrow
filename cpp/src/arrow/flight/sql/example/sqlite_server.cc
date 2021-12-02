@@ -62,8 +62,8 @@ std::string PrepareQueryForGetTables(const GetTables& command) {
     table_query << " and catalog_name='" << command.catalog.value() << "'";
   }
 
-  if (command.schema_filter_pattern.has_value()) {
-    table_query << " and schema_name LIKE '" << command.schema_filter_pattern.value()
+  if (command.db_schema_filter_pattern.has_value()) {
+    table_query << " and schema_name LIKE '" << command.db_schema_filter_pattern.value()
                 << "'";
   }
 
@@ -301,16 +301,16 @@ arrow::Result<std::unique_ptr<FlightDataStream>> SQLiteFlightSqlServer::DoGetCat
 }
 
 arrow::Result<std::unique_ptr<FlightInfo>> SQLiteFlightSqlServer::GetFlightInfoSchemas(
-    const ServerCallContext& context, const GetSchemas& command,
+    const ServerCallContext& context, const GetDbSchemas& command,
     const FlightDescriptor& descriptor) {
-  return GetFlightInfoForCommand(descriptor, SqlSchema::GetSchemasSchema());
+  return GetFlightInfoForCommand(descriptor, SqlSchema::GetDbSchemasSchema());
 }
 
-arrow::Result<std::unique_ptr<FlightDataStream>> SQLiteFlightSqlServer::DoGetSchemas(
-    const ServerCallContext& context, const GetSchemas& command) {
+arrow::Result<std::unique_ptr<FlightDataStream>> SQLiteFlightSqlServer::DoGetDbSchemas(
+    const ServerCallContext& context, const GetDbSchemas& command) {
   // As SQLite doesn't support schemas, this will return an empty record batch.
 
-  const std::shared_ptr<Schema>& schema = SqlSchema::GetSchemasSchema();
+  const std::shared_ptr<Schema>& schema = SqlSchema::GetDbSchemasSchema();
 
   StringBuilder catalog_name_builder;
   ARROW_ASSIGN_OR_RAISE(auto catalog_name, catalog_name_builder.Finish());
@@ -524,15 +524,16 @@ arrow::Result<std::unique_ptr<FlightDataStream>> SQLiteFlightSqlServer::DoGetPri
                  "table_name, type as table_type\n"
                  "FROM sqlite_master) where 1=1 and pk != 0";
 
-  if (command.catalog.has_value()) {
-    table_query << " and catalog_name LIKE '" << command.catalog.value() << "'";
+  const TableRef& table_ref = command.table_ref;
+  if (table_ref.catalog.has_value()) {
+    table_query << " and catalog_name LIKE '" << table_ref.catalog.value() << "'";
   }
 
-  if (command.schema.has_value()) {
-    table_query << " and schema_name LIKE '" << command.schema.value() << "'";
+  if (table_ref.db_schema.has_value()) {
+    table_query << " and schema_name LIKE '" << table_ref.db_schema.value() << "'";
   }
 
-  table_query << " and table_name LIKE '" << command.table << "'";
+  table_query << " and table_name LIKE '" << table_ref.table << "'";
 
   return DoGetSQLiteQuery(db_, table_query.str(), SqlSchema::GetPrimaryKeysSchema());
 }
@@ -579,12 +580,13 @@ SQLiteFlightSqlServer::GetFlightInfoImportedKeys(const ServerCallContext& contex
 
 arrow::Result<std::unique_ptr<FlightDataStream>> SQLiteFlightSqlServer::DoGetImportedKeys(
     const ServerCallContext& context, const GetImportedKeys& command) {
-  std::string filter = "fk_table_name = '" + command.table + "'";
-  if (command.catalog.has_value()) {
-    filter += " AND fk_catalog_name = '" + command.catalog.value() + "'";
+  const TableRef& table_ref = command.table_ref;
+  std::string filter = "fk_table_name = '" + table_ref.table + "'";
+  if (table_ref.catalog.has_value()) {
+    filter += " AND fk_catalog_name = '" + table_ref.catalog.value() + "'";
   }
-  if (command.schema.has_value()) {
-    filter += " AND fk_schema_name = '" + command.schema.value() + "'";
+  if (table_ref.db_schema.has_value()) {
+    filter += " AND fk_schema_name = '" + table_ref.db_schema.value() + "'";
   }
   std::string query = PrepareQueryForGetImportedOrExportedKeys(filter);
 
@@ -600,12 +602,13 @@ SQLiteFlightSqlServer::GetFlightInfoExportedKeys(const ServerCallContext& contex
 
 arrow::Result<std::unique_ptr<FlightDataStream>> SQLiteFlightSqlServer::DoGetExportedKeys(
     const ServerCallContext& context, const GetExportedKeys& command) {
-  std::string filter = "pk_table_name = '" + command.table + "'";
-  if (command.catalog.has_value()) {
-    filter += " AND pk_catalog_name = '" + command.catalog.value() + "'";
+  const TableRef& table_ref = command.table_ref;
+  std::string filter = "pk_table_name = '" + table_ref.table + "'";
+  if (table_ref.catalog.has_value()) {
+    filter += " AND pk_catalog_name = '" + table_ref.catalog.value() + "'";
   }
-  if (command.schema.has_value()) {
-    filter += " AND pk_schema_name = '" + command.schema.value() + "'";
+  if (table_ref.db_schema.has_value()) {
+    filter += " AND pk_schema_name = '" + table_ref.db_schema.value() + "'";
   }
   std::string query = PrepareQueryForGetImportedOrExportedKeys(filter);
 
@@ -622,20 +625,22 @@ SQLiteFlightSqlServer::GetFlightInfoCrossReference(const ServerCallContext& cont
 arrow::Result<std::unique_ptr<FlightDataStream>>
 SQLiteFlightSqlServer::DoGetCrossReference(const ServerCallContext& context,
                                            const GetCrossReference& command) {
-  std::string filter = "pk_table_name = '" + command.pk_table + "'";
-  if (command.pk_catalog.has_value()) {
-    filter += " AND pk_catalog_name = '" + command.pk_catalog.value() + "'";
+  const TableRef& pk_table_ref = command.pk_table_ref;
+  std::string filter = "pk_table_name = '" + pk_table_ref.table + "'";
+  if (pk_table_ref.catalog.has_value()) {
+    filter += " AND pk_catalog_name = '" + pk_table_ref.catalog.value() + "'";
   }
-  if (command.pk_schema.has_value()) {
-    filter += " AND pk_schema_name = '" + command.pk_schema.value() + "'";
+  if (pk_table_ref.db_schema.has_value()) {
+    filter += " AND pk_schema_name = '" + pk_table_ref.db_schema.value() + "'";
   }
 
-  filter += " AND fk_table_name = '" + command.fk_table + "'";
-  if (command.fk_catalog.has_value()) {
-    filter += " AND fk_catalog_name = '" + command.fk_catalog.value() + "'";
+  const TableRef& fk_table_ref = command.fk_table_ref;
+  filter += " AND fk_table_name = '" + fk_table_ref.table + "'";
+  if (fk_table_ref.catalog.has_value()) {
+    filter += " AND fk_catalog_name = '" + fk_table_ref.catalog.value() + "'";
   }
-  if (command.fk_schema.has_value()) {
-    filter += " AND fk_schema_name = '" + command.fk_schema.value() + "'";
+  if (fk_table_ref.db_schema.has_value()) {
+    filter += " AND fk_schema_name = '" + fk_table_ref.db_schema.value() + "'";
   }
   std::string query = PrepareQueryForGetImportedOrExportedKeys(filter);
 

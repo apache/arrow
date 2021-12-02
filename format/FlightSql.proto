@@ -25,10 +25,10 @@ package arrow.flight.protocol.sql;
 /*
  * Represents a metadata request. Used in the command member of FlightDescriptor
  * for the following RPC calls:
- *  - GetSchema: return the schema of the query.
+ *  - GetSchema: return the Arrow schema of the query.
  *  - GetFlightInfo: execute the metadata request.
  *
- * The returned schema will be:
+ * The returned Arrow schema will be:
  * <
  *  info_name: uint32 not null,
  *  value: dense_union<
@@ -120,7 +120,7 @@ enum SqlInfo {
   SQL_DDL_TABLE = 502;
 
   /*
-   * Retrieves a uint32 value representing the enu uint32 ordinal for the case sensitivity of catalog, table and schema names.
+   * Retrieves a uint32 value representing the enu uint32 ordinal for the case sensitivity of catalog, table, schema and table names.
    *
    * The possible values are listed in `arrow.flight.protocol.sql.SqlSupportedCaseSensitivity`.
    */
@@ -516,10 +516,10 @@ enum SqlInfo {
    */
   SQL_MAX_INDEX_LENGTH = 551;
 
-  // Retrieves a uint32 value representing the maximum number of characters allowed in a procedure name.
-  SQL_SCHEMA_NAME_LENGTH = 552;
+  // Retrieves a uint32 value representing the maximum number of characters allowed in a schema name.
+  SQL_DB_SCHEMA_NAME_LENGTH = 552;
 
-  // Retrieves a uint32 value representing the maximum number of bytes allowed in a single row.
+  // Retrieves a uint32 value representing the maximum number of characters allowed in a procedure name.
   SQL_MAX_PROCEDURE_NAME_LENGTH = 553;
 
   // Retrieves a uint32 value representing the maximum number of characters allowed in a catalog name.
@@ -870,10 +870,10 @@ enum SqlSupportsConvert {
 /*
  * Represents a request to retrieve the list of catalogs on a Flight SQL enabled backend.
  * Used in the command member of FlightDescriptor for the following RPC calls:
- *  - GetSchema: return the schema of the query.
+ *  - GetSchema: return the Arrow schema of the query.
  *  - GetFlightInfo: execute the catalog metadata request.
  *
- * The returned schema will be:
+ * The returned Arrow schema will be:
  * <
  *  catalog_name: utf8 not null
  * >
@@ -886,17 +886,17 @@ message CommandGetCatalogs {
 /*
  * Represents a request to retrieve the list of schemas on a Flight SQL enabled backend.
  * Used in the command member of FlightDescriptor for the following RPC calls:
- *  - GetSchema: return the schema of the query.
+ *  - GetSchema: return the Arrow schema of the query.
  *  - GetFlightInfo: execute the catalog metadata request.
  *
- * The returned schema will be:
+ * The returned Arrow schema will be:
  * <
  *  catalog_name: utf8,
- *  schema_name: utf8 not null
+ *  db_schema_name: utf8 not null
  * >
- * The returned data should be ordered by catalog_name, then schema_name.
+ * The returned data should be ordered by catalog_name, then db_schema_name.
  */
-message CommandGetSchemas {
+message CommandGetDbSchemas {
   option (experimental) = true;
 
   /*
@@ -908,30 +908,30 @@ message CommandGetSchemas {
 
   /*
    * Specifies a filter pattern for schemas to search for.
-   * When no schema_filter_pattern is provided, the pattern will not be used to narrow the search.
+   * When no db_schema_filter_pattern is provided, the pattern will not be used to narrow the search.
    * In the pattern string, two special characters can be used to denote matching rules:
    *    - "%" means to match any substring with 0 or more characters.
    *    - "_" means to match any one character.
    */
-  optional string schema_filter_pattern = 2;
+  optional string db_schema_filter_pattern = 2;
 }
 
 /*
  * Represents a request to retrieve the list of tables, and optionally their schemas, on a Flight SQL enabled backend.
  * Used in the command member of FlightDescriptor for the following RPC calls:
- *  - GetSchema: return the schema of the query.
+ *  - GetSchema: return the Arrow schema of the query.
  *  - GetFlightInfo: execute the catalog metadata request.
  *
- * The returned schema will be:
+ * The returned Arrow schema will be:
  * <
  *  catalog_name: utf8,
- *  schema_name: utf8,
+ *  db_schema_name: utf8,
  *  table_name: utf8 not null,
  *  table_type: utf8 not null,
  *  [optional] table_schema: bytes not null (schema of the table as described in Schema.fbs::Schema,
  *                                           it is serialized as an IPC message.)
  * >
- * The returned data should be ordered by catalog_name, schema_name, table_name, then table_type, followed by table_schema if requested.
+ * The returned data should be ordered by catalog_name, db_schema_name, table_name, then table_type, followed by table_schema if requested.
  */
 message CommandGetTables {
   option (experimental) = true;
@@ -945,12 +945,12 @@ message CommandGetTables {
 
   /*
    * Specifies a filter pattern for schemas to search for.
-   * When no schema_filter_pattern is provided, all schemas matching other filters are searched.
+   * When no db_schema_filter_pattern is provided, all schemas matching other filters are searched.
    * In the pattern string, two special characters can be used to denote matching rules:
    *    - "%" means to match any substring with 0 or more characters.
    *    - "_" means to match any one character.
    */
-  optional string schema_filter_pattern = 2;
+  optional string db_schema_filter_pattern = 2;
 
   /*
    * Specifies a filter pattern for tables to search for.
@@ -964,17 +964,17 @@ message CommandGetTables {
   // Specifies a filter of table types which must match.
   repeated string table_types = 4;
 
-  // Specifies if the schema should be returned for found tables.
+  // Specifies if the Arrow schema should be returned for found tables.
   bool include_schema = 5;
 }
 
 /*
  * Represents a request to retrieve the list of table types on a Flight SQL enabled backend.
  * Used in the command member of FlightDescriptor for the following RPC calls:
- *  - GetSchema: return the schema of the query.
+ *  - GetSchema: return the Arrow schema of the query.
  *  - GetFlightInfo: execute the catalog metadata request.
  *
- * The returned schema will be:
+ * The returned Arrow schema will be:
  * <
  *  table_type: utf8 not null
  * >
@@ -987,19 +987,19 @@ message CommandGetTableTypes {
 /*
  * Represents a request to retrieve the primary keys of a table on a Flight SQL enabled backend.
  * Used in the command member of FlightDescriptor for the following RPC calls:
- *  - GetSchema: return the schema of the query.
+ *  - GetSchema: return the Arrow schema of the query.
  *  - GetFlightInfo: execute the catalog metadata request.
  *
- * The returned schema will be:
+ * The returned Arrow schema will be:
  * <
  *  catalog_name: utf8,
- *  schema_name: utf8,
+ *  db_schema_name: utf8,
  *  table_name: utf8 not null,
  *  column_name: utf8 not null,
  *  key_name: utf8,
  *  key_sequence: int not null
  * >
- * The returned data should be ordered by catalog_name, schema_name, table_name, key_name, then key_sequence.
+ * The returned data should be ordered by catalog_name, db_schema_name, table_name, key_name, then key_sequence.
  */
 message CommandGetPrimaryKeys {
   option (experimental) = true;
@@ -1016,7 +1016,7 @@ message CommandGetPrimaryKeys {
    * An empty string retrieves those without a schema.
    * If omitted the schema name should not be used to narrow the search.
    */
-  optional string schema = 2;
+  optional string db_schema = 2;
 
   // Specifies the table to get the primary keys for.
   string table = 3;
@@ -1034,17 +1034,17 @@ enum UpdateDeleteRules {
  * Represents a request to retrieve a description of the foreign key columns that reference the given table's
  * primary key columns (the foreign keys exported by a table) of a table on a Flight SQL enabled backend.
  * Used in the command member of FlightDescriptor for the following RPC calls:
- *  - GetSchema: return the schema of the query.
+ *  - GetSchema: return the Arrow schema of the query.
  *  - GetFlightInfo: execute the catalog metadata request.
  *
- * The returned schema will be:
+ * The returned Arrow schema will be:
  * <
  *  pk_catalog_name: utf8,
- *  pk_schema_name: utf8,
+ *  pk_db_schema_name: utf8,
  *  pk_table_name: utf8 not null,
  *  pk_column_name: utf8 not null,
  *  fk_catalog_name: utf8,
- *  fk_schema_name: utf8,
+ *  fk_db_schema_name: utf8,
  *  fk_table_name: utf8 not null,
  *  fk_column_name: utf8 not null,
  *  key_sequence: int not null,
@@ -1053,7 +1053,7 @@ enum UpdateDeleteRules {
  *  update_rule: uint1 not null,
  *  delete_rule: uint1 not null
  * >
- * The returned data should be ordered by fk_catalog_name, fk_schema_name, fk_table_name, fk_key_name, then key_sequence.
+ * The returned data should be ordered by fk_catalog_name, fk_db_schema_name, fk_table_name, fk_key_name, then key_sequence.
  * update_rule and delete_rule returns a byte that is equivalent to actions declared on UpdateDeleteRules enum.
  */
 message CommandGetExportedKeys {
@@ -1071,7 +1071,7 @@ message CommandGetExportedKeys {
    * An empty string retrieves those without a schema.
    * If omitted the schema name should not be used to narrow the search.
    */
-  optional string schema = 2;
+  optional string db_schema = 2;
 
   // Specifies the foreign key table to get the foreign keys for.
   string table = 3;
@@ -1080,17 +1080,17 @@ message CommandGetExportedKeys {
 /*
  * Represents a request to retrieve the foreign keys of a table on a Flight SQL enabled backend.
  * Used in the command member of FlightDescriptor for the following RPC calls:
- *  - GetSchema: return the schema of the query.
+ *  - GetSchema: return the Arrow schema of the query.
  *  - GetFlightInfo: execute the catalog metadata request.
  *
- * The returned schema will be:
+ * The returned Arrow schema will be:
  * <
  *  pk_catalog_name: utf8,
- *  pk_schema_name: utf8,
+ *  pk_db_schema_name: utf8,
  *  pk_table_name: utf8 not null,
  *  pk_column_name: utf8 not null,
  *  fk_catalog_name: utf8,
- *  fk_schema_name: utf8,
+ *  fk_db_schema_name: utf8,
  *  fk_table_name: utf8 not null,
  *  fk_column_name: utf8 not null,
  *  key_sequence: int not null,
@@ -1099,7 +1099,7 @@ message CommandGetExportedKeys {
  *  update_rule: uint1 not null,
  *  delete_rule: uint1 not null
  * >
- * The returned data should be ordered by pk_catalog_name, pk_schema_name, pk_table_name, pk_key_name, then key_sequence.
+ * The returned data should be ordered by pk_catalog_name, pk_db_schema_name, pk_table_name, pk_key_name, then key_sequence.
  * update_rule and delete_rule returns a byte that is equivalent to actions:
  *    - 0 = CASCADE
  *    - 1 = RESTRICT
@@ -1122,7 +1122,7 @@ message CommandGetImportedKeys {
    * An empty string retrieves those without a schema.
    * If omitted the schema name should not be used to narrow the search.
    */
-  optional string schema = 2;
+  optional string db_schema = 2;
 
   // Specifies the primary key table to get the foreign keys for.
   string table = 3;
@@ -1133,17 +1133,17 @@ message CommandGetImportedKeys {
  * reference the primary key or the columns representing a unique constraint of the parent table (could be the same
  * or a different table) on a Flight SQL enabled backend.
  * Used in the command member of FlightDescriptor for the following RPC calls:
- *  - GetSchema: return the schema of the query.
+ *  - GetSchema: return the Arrow schema of the query.
  *  - GetFlightInfo: execute the catalog metadata request.
  *
- * The returned schema will be:
+ * The returned Arrow schema will be:
  * <
  *  pk_catalog_name: utf8,
- *  pk_schema_name: utf8,
+ *  pk_db_schema_name: utf8,
  *  pk_table_name: utf8 not null,
  *  pk_column_name: utf8 not null,
  *  fk_catalog_name: utf8,
- *  fk_schema_name: utf8,
+ *  fk_db_schema_name: utf8,
  *  fk_table_name: utf8 not null,
  *  fk_column_name: utf8 not null,
  *  key_sequence: int not null,
@@ -1152,7 +1152,7 @@ message CommandGetImportedKeys {
  *  update_rule: uint1 not null,
  *  delete_rule: uint1 not null
  * >
- * The returned data should be ordered by pk_catalog_name, pk_schema_name, pk_table_name, pk_key_name, then key_sequence.
+ * The returned data should be ordered by pk_catalog_name, pk_db_schema_name, pk_table_name, pk_key_name, then key_sequence.
  * update_rule and delete_rule returns a byte that is equivalent to actions:
  *    - 0 = CASCADE
  *    - 1 = RESTRICT
@@ -1175,7 +1175,7 @@ message CommandGetCrossReference {
    * An empty string retrieves those without a schema.
    * If omitted the schema name should not be used to narrow the search.
    */
-  optional string pk_schema = 2;
+  optional string pk_db_schema = 2;
 
   /**
    * The parent table name. It cannot be null.
@@ -1194,7 +1194,7 @@ message CommandGetCrossReference {
    * An empty string retrieves those without a schema.
    * If omitted the schema name should not be used to narrow the search.
    */
-  optional string fk_schema = 5;
+  optional string fk_db_schema = 5;
 
   /**
    * The foreign table name. It cannot be null.
@@ -1253,7 +1253,7 @@ message ActionClosePreparedStatementRequest {
 /*
  * Represents a SQL query. Used in the command member of FlightDescriptor
  * for the following RPC calls:
- *  - GetSchema: return the schema of the query.
+ *  - GetSchema: return the Arrow schema of the query.
  *  - GetFlightInfo: execute the query.
  */
 message CommandStatementQuery {

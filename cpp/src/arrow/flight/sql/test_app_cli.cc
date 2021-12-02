@@ -29,6 +29,7 @@
 #include "arrow/pretty_print.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
+#include "arrow/util/optional.h"
 
 using arrow::Result;
 using arrow::Schema;
@@ -44,6 +45,7 @@ using arrow::flight::FlightStreamReader;
 using arrow::flight::Location;
 using arrow::flight::Ticket;
 using arrow::flight::sql::FlightSqlClient;
+using arrow::flight::sql::TableRef;
 
 DEFINE_string(host, "localhost", "Host to connect to");
 DEFINE_int32(port, 32010, "Port to connect to");
@@ -150,9 +152,9 @@ Status RunMain() {
 
     ARROW_RETURN_NOT_OK(prepared_statement->SetParameters(result));
     ARROW_ASSIGN_OR_RAISE(info, prepared_statement->Execute());
-  } else if (FLAGS_command == "GetSchemas") {
+  } else if (FLAGS_command == "GetDbSchemas") {
     ARROW_ASSIGN_OR_RAISE(
-        info, sql_client.GetSchemas(call_options, &FLAGS_catalog, &FLAGS_schema));
+        info, sql_client.GetDbSchemas(call_options, &FLAGS_catalog, &FLAGS_schema));
   } else if (FLAGS_command == "GetTableTypes") {
     ARROW_ASSIGN_OR_RAISE(info, sql_client.GetTableTypes(call_options));
   } else if (FLAGS_command == "GetTables") {
@@ -160,14 +162,17 @@ Status RunMain() {
         info, sql_client.GetTables(call_options, &FLAGS_catalog, &FLAGS_schema,
                                    &FLAGS_table, false, nullptr));
   } else if (FLAGS_command == "GetExportedKeys") {
-    ARROW_ASSIGN_OR_RAISE(info, sql_client.GetExportedKeys(call_options, &FLAGS_catalog,
-                                                           &FLAGS_schema, FLAGS_table));
+    TableRef table_ref = {arrow::util::make_optional(FLAGS_catalog),
+                          arrow::util::make_optional(FLAGS_schema), FLAGS_table};
+    ARROW_ASSIGN_OR_RAISE(info, sql_client.GetExportedKeys(call_options, table_ref));
   } else if (FLAGS_command == "GetImportedKeys") {
-    ARROW_ASSIGN_OR_RAISE(info, sql_client.GetImportedKeys(call_options, &FLAGS_catalog,
-                                                           &FLAGS_schema, FLAGS_table));
+    TableRef table_ref = {arrow::util::make_optional(FLAGS_catalog),
+                          arrow::util::make_optional(FLAGS_schema), FLAGS_table};
+    ARROW_ASSIGN_OR_RAISE(info, sql_client.GetImportedKeys(call_options, table_ref));
   } else if (FLAGS_command == "GetPrimaryKeys") {
-    ARROW_ASSIGN_OR_RAISE(info, sql_client.GetPrimaryKeys(call_options, &FLAGS_catalog,
-                                                          &FLAGS_schema, FLAGS_table));
+    TableRef table_ref = {arrow::util::make_optional(FLAGS_catalog),
+                          arrow::util::make_optional(FLAGS_schema), FLAGS_table};
+    ARROW_ASSIGN_OR_RAISE(info, sql_client.GetPrimaryKeys(call_options, table_ref));
   } else if (FLAGS_command == "GetSqlInfo") {
     ARROW_ASSIGN_OR_RAISE(info, sql_client.GetSqlInfo(call_options, {}));
   }

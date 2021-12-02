@@ -405,12 +405,12 @@ TEST_F(TestFlightSqlServer, TestCommandGetCatalogs) {
   ASSERT_EQ(0, table->num_rows());
 }
 
-TEST_F(TestFlightSqlServer, TestCommandGetSchemas) {
+TEST_F(TestFlightSqlServer, TestCommandGetDbSchemas) {
   FlightCallOptions options = {};
   std::string* catalog = nullptr;
   std::string* schema_filter_pattern = nullptr;
   ASSERT_OK_AND_ASSIGN(auto flight_info,
-                       sql_client->GetSchemas(options, catalog, schema_filter_pattern));
+                       sql_client->GetDbSchemas(options, catalog, schema_filter_pattern));
 
   ASSERT_OK_AND_ASSIGN(auto stream,
                        sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
@@ -418,7 +418,7 @@ TEST_F(TestFlightSqlServer, TestCommandGetSchemas) {
   std::shared_ptr<Table> table;
   ASSERT_OK(stream->ReadAll(&table));
 
-  const std::shared_ptr<Schema>& expected_schema = SqlSchema::GetSchemasSchema();
+  const std::shared_ptr<Schema>& expected_schema = SqlSchema::GetDbSchemasSchema();
 
   AssertSchemaEqual(expected_schema, table->schema());
   ASSERT_EQ(0, table->num_rows());
@@ -605,11 +605,8 @@ TEST_F(TestFlightSqlServer, TestCommandPreparedStatementUpdate) {
 
 TEST_F(TestFlightSqlServer, TestCommandGetPrimaryKeys) {
   FlightCallOptions options = {};
-  std::string* catalog = nullptr;
-  std::string* schema = nullptr;
-  std::string table_filter = "int%";
-  ASSERT_OK_AND_ASSIGN(auto flight_info, sql_client->GetPrimaryKeys(
-                                             options, catalog, schema, table_filter));
+  TableRef table_ref = {util::nullopt, util::nullopt, "int%"};
+  ASSERT_OK_AND_ASSIGN(auto flight_info, sql_client->GetPrimaryKeys(options, table_ref));
 
   ASSERT_OK_AND_ASSIGN(auto stream,
                        sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
@@ -633,11 +630,8 @@ TEST_F(TestFlightSqlServer, TestCommandGetPrimaryKeys) {
 
 TEST_F(TestFlightSqlServer, TestCommandGetImportedKeys) {
   FlightCallOptions options = {};
-  std::string* catalog = nullptr;
-  std::string* schema = nullptr;
-  std::string table_filter = "intTable";
-  ASSERT_OK_AND_ASSIGN(auto flight_info, sql_client->GetImportedKeys(
-                                             options, catalog, schema, table_filter));
+  TableRef table_ref = {util::nullopt, util::nullopt, "intTable"};
+  ASSERT_OK_AND_ASSIGN(auto flight_info, sql_client->GetImportedKeys(options, table_ref));
 
   ASSERT_OK_AND_ASSIGN(auto stream,
                        sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
@@ -669,11 +663,8 @@ TEST_F(TestFlightSqlServer, TestCommandGetImportedKeys) {
 
 TEST_F(TestFlightSqlServer, TestCommandGetExportedKeys) {
   FlightCallOptions options = {};
-  std::string* catalog = nullptr;
-  std::string* schema = nullptr;
-  std::string table_filter = "foreignTable";
-  ASSERT_OK_AND_ASSIGN(auto flight_info, sql_client->GetExportedKeys(
-                                             options, catalog, schema, table_filter));
+  TableRef table_ref = {util::nullopt, util::nullopt, "foreignTable"};
+  ASSERT_OK_AND_ASSIGN(auto flight_info, sql_client->GetExportedKeys(options, table_ref));
 
   ASSERT_OK_AND_ASSIGN(auto stream,
                        sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
@@ -705,15 +696,10 @@ TEST_F(TestFlightSqlServer, TestCommandGetExportedKeys) {
 
 TEST_F(TestFlightSqlServer, TestCommandGetCrossReference) {
   FlightCallOptions options = {};
-  std::string* pk_catalog = nullptr;
-  std::string* pk_schema = nullptr;
-  std::string pk_table = "foreignTable";
-  std::string* fk_catalog = nullptr;
-  std::string* fk_schema = nullptr;
-  std::string fk_table = "intTable";
+  TableRef pk_table_ref = {util::nullopt, util::nullopt, "foreignTable"};
+  TableRef fk_table_ref = {util::nullopt, util::nullopt, "intTable"};
   ASSERT_OK_AND_ASSIGN(auto flight_info, sql_client->GetCrossReference(
-                                             options, pk_catalog, pk_schema, pk_table,
-                                             fk_catalog, fk_schema, fk_table));
+                                             options, pk_table_ref, fk_table_ref));
 
   ASSERT_OK_AND_ASSIGN(auto stream,
                        sql_client->DoGet({}, flight_info->endpoints()[0].ticket));

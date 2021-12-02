@@ -116,15 +116,15 @@ arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::GetCatalogs(
   return GetFlightInfoForCommand(*this, options, command);
 }
 
-arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::GetSchemas(
+arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::GetDbSchemas(
     const FlightCallOptions& options, const std::string* catalog,
-    const std::string* schema_filter_pattern) {
-  flight_sql_pb::CommandGetSchemas command;
+    const std::string* db_schema_filter_pattern) {
+  flight_sql_pb::CommandGetDbSchemas command;
   if (catalog != NULLPTR) {
     command.set_catalog(*catalog);
   }
-  if (schema_filter_pattern != NULLPTR) {
-    command.set_schema_filter_pattern(*schema_filter_pattern);
+  if (db_schema_filter_pattern != NULLPTR) {
+    command.set_db_schema_filter_pattern(*db_schema_filter_pattern);
   }
 
   return GetFlightInfoForCommand(*this, options, command);
@@ -132,7 +132,7 @@ arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::GetSchemas(
 
 arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::GetTables(
     const FlightCallOptions& options, const std::string* catalog,
-    const std::string* schema_filter_pattern, const std::string* table_filter_pattern,
+    const std::string* db_schema_filter_pattern, const std::string* table_filter_pattern,
     bool include_schema, const std::vector<std::string>* table_types) {
   flight_sql_pb::CommandGetTables command;
 
@@ -140,8 +140,8 @@ arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::GetTables(
     command.set_catalog(*catalog);
   }
 
-  if (schema_filter_pattern != NULLPTR) {
-    command.set_schema_filter_pattern(*schema_filter_pattern);
+  if (db_schema_filter_pattern != NULLPTR) {
+    command.set_db_schema_filter_pattern(*db_schema_filter_pattern);
   }
 
   if (table_filter_pattern != NULLPTR) {
@@ -160,81 +160,76 @@ arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::GetTables(
 }
 
 arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::GetPrimaryKeys(
-    const FlightCallOptions& options, const std::string* catalog,
-    const std::string* schema, const std::string& table) {
+    const FlightCallOptions& options, const TableRef& table_ref) {
   flight_sql_pb::CommandGetPrimaryKeys command;
 
-  if (catalog != NULLPTR) {
-    command.set_catalog(*catalog);
+  if (table_ref.catalog.has_value()) {
+    command.set_catalog(table_ref.catalog.value());
   }
 
-  if (schema != NULLPTR) {
-    command.set_schema(*schema);
+  if (table_ref.db_schema.has_value()) {
+    command.set_db_schema(table_ref.db_schema.value());
   }
 
-  command.set_table(table);
+  command.set_table(table_ref.table);
 
   return GetFlightInfoForCommand(*this, options, command);
 }
 
 arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::GetExportedKeys(
-    const FlightCallOptions& options, const std::string* catalog,
-    const std::string* schema, const std::string& table) {
+    const FlightCallOptions& options, const TableRef& table_ref) {
   flight_sql_pb::CommandGetExportedKeys command;
 
-  if (catalog != NULLPTR) {
-    command.set_catalog(*catalog);
+  if (table_ref.catalog.has_value()) {
+    command.set_catalog(table_ref.catalog.value());
   }
 
-  if (schema != NULLPTR) {
-    command.set_schema(*schema);
+  if (table_ref.db_schema.has_value()) {
+    command.set_db_schema(table_ref.db_schema.value());
   }
 
-  command.set_table(table);
+  command.set_table(table_ref.table);
 
   return GetFlightInfoForCommand(*this, options, command);
 }
 
 arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::GetImportedKeys(
-    const FlightCallOptions& options, const std::string* catalog,
-    const std::string* schema, const std::string& table) {
+    const FlightCallOptions& options, const TableRef& table_ref) {
   flight_sql_pb::CommandGetImportedKeys command;
 
-  if (catalog != NULLPTR) {
-    command.set_catalog(*catalog);
+  if (table_ref.catalog.has_value()) {
+    command.set_catalog(table_ref.catalog.value());
   }
 
-  if (schema != NULLPTR) {
-    command.set_schema(*schema);
+  if (table_ref.db_schema.has_value()) {
+    command.set_db_schema(table_ref.db_schema.value());
   }
 
-  command.set_table(table);
+  command.set_table(table_ref.table);
 
   return GetFlightInfoForCommand(*this, options, command);
 }
 
 arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::GetCrossReference(
-    const FlightCallOptions& options, const std::string* pk_catalog,
-    const std::string* pk_schema, const std::string& pk_table,
-    const std::string* fk_catalog, const std::string* fk_schema,
-    const std::string& fk_table) {
+    const FlightCallOptions& options, const TableRef& pk_table_ref,
+    const TableRef& fk_table_ref) {
   flight_sql_pb::CommandGetCrossReference command;
 
-  if (pk_catalog != NULLPTR) {
-    command.set_pk_catalog(*pk_catalog);
+  if (pk_table_ref.catalog.has_value()) {
+    command.set_pk_catalog(pk_table_ref.catalog.value());
   }
-  if (pk_schema != NULLPTR) {
-    command.set_pk_schema(*pk_schema);
+  if (pk_table_ref.db_schema.has_value()) {
+    command.set_pk_db_schema(pk_table_ref.db_schema.value());
   }
-  command.set_pk_table(pk_table);
+  command.set_pk_table(pk_table_ref.table);
 
-  if (fk_catalog != NULLPTR) {
-    command.set_fk_catalog(*fk_catalog);
+  if (fk_table_ref.catalog.has_value()) {
+    command.set_fk_catalog(fk_table_ref.catalog.value());
   }
-  if (fk_schema != NULLPTR) {
-    command.set_fk_schema(*fk_schema);
+  if (fk_table_ref.db_schema.has_value()) {
+    command.set_fk_db_schema(fk_table_ref.db_schema.value());
   }
-  command.set_fk_table(fk_table);
+  command.set_fk_table(fk_table_ref.table);
 
   return GetFlightInfoForCommand(*this, options, command);
 }

@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "arrow/flight/sql/sql_info_types.h"
+#include "arrow/flight/sql/types.h"
 
 namespace arrow {
 namespace flight {

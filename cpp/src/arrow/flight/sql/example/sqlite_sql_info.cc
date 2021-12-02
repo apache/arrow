@@ -18,7 +18,7 @@
 #include "arrow/flight/sql/example/sqlite_sql_info.h"
 
 #include "arrow/flight/sql/FlightSql.pb.h"
-#include "arrow/flight/sql/sql_info_types.h"
+#include "arrow/flight/sql/types.h"
 
 namespace arrow {
 namespace flight {

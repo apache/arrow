@@ -74,10 +74,10 @@ class SQLiteFlightSqlServer : public FlightSqlServerBase {
   arrow::Result<std::unique_ptr<FlightDataStream>> DoGetCatalogs(
       const ServerCallContext& context) override;
   arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoSchemas(
-      const ServerCallContext& context, const GetSchemas& command,
+      const ServerCallContext& context, const GetDbSchemas& command,
       const FlightDescriptor& descriptor) override;
-  arrow::Result<std::unique_ptr<FlightDataStream>> DoGetSchemas(
-      const ServerCallContext& context, const GetSchemas& command) override;
+  arrow::Result<std::unique_ptr<FlightDataStream>> DoGetDbSchemas(
+      const ServerCallContext& context, const GetDbSchemas& command) override;
   arrow::Result<int64_t> DoPutCommandStatementUpdate(
       const ServerCallContext& context, const StatementUpdate& update) override;
   arrow::Result<ActionCreatePreparedStatementResult> CreatePreparedStatement(

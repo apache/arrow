@@ -135,19 +135,19 @@ TEST_F(TestFlightSqlClient, TestGetCatalogs) {
   ASSERT_OK(sql_client_.GetCatalogs(call_options_));
 }
 
-TEST_F(TestFlightSqlClient, TestGetSchemas) {
+TEST_F(TestFlightSqlClient, TestGetDbSchemas) {
   std::string schema_filter_pattern = "schema_filter_pattern";
   std::string catalog = "catalog";
 
-  pb::sql::CommandGetSchemas command;
+  pb::sql::CommandGetDbSchemas command;
   command.set_catalog(catalog);
-  command.set_schema_filter_pattern(schema_filter_pattern);
+  command.set_db_schema_filter_pattern(schema_filter_pattern);
   FlightDescriptor descriptor = getDescriptor(command);
 
   ON_CALL(sql_client_, GetFlightInfo).WillByDefault(ReturnEmptyFlightInfo);
   EXPECT_CALL(sql_client_, GetFlightInfo(Ref(call_options_), descriptor));
 
-  ASSERT_OK(sql_client_.GetSchemas(call_options_, &catalog, &schema_filter_pattern));
+  ASSERT_OK(sql_client_.GetDbSchemas(call_options_, &catalog, &schema_filter_pattern));
 }
 
 TEST_F(TestFlightSqlClient, TestGetTables) {
@@ -159,7 +159,7 @@ TEST_F(TestFlightSqlClient, TestGetTables) {
 
   pb::sql::CommandGetTables command;
   command.set_catalog(catalog);
-  command.set_schema_filter_pattern(schema_filter_pattern);
+  command.set_db_schema_filter_pattern(schema_filter_pattern);
   command.set_table_name_filter_pattern(table_name_filter_pattern);
   command.set_include_schema(include_schema);
   for (const std::string& table_type : table_types) {
@@ -192,14 +192,15 @@ TEST_F(TestFlightSqlClient, TestGetExported) {
 
   pb::sql::CommandGetExportedKeys command;
   command.set_catalog(catalog);
-  command.set_schema(schema);
+  command.set_db_schema(schema);
   command.set_table(table);
   FlightDescriptor descriptor = getDescriptor(command);
 
   ON_CALL(sql_client_, GetFlightInfo).WillByDefault(ReturnEmptyFlightInfo);
   EXPECT_CALL(sql_client_, GetFlightInfo(Ref(call_options_), descriptor));
 
-  ASSERT_OK(sql_client_.GetExportedKeys(call_options_, &catalog, &schema, table));
+  TableRef table_ref = {util::make_optional(catalog), util::make_optional(schema), table};
+  ASSERT_OK(sql_client_.GetExportedKeys(call_options_, table_ref));
 }
 
 TEST_F(TestFlightSqlClient, TestGetImported) {
@@ -209,14 +210,15 @@ TEST_F(TestFlightSqlClient, TestGetImported) {
 
   pb::sql::CommandGetImportedKeys command;
   command.set_catalog(catalog);
-  command.set_schema(schema);
+  command.set_db_schema(schema);
   command.set_table(table);
   FlightDescriptor descriptor = getDescriptor(command);
 
   ON_CALL(sql_client_, GetFlightInfo).WillByDefault(ReturnEmptyFlightInfo);
   EXPECT_CALL(sql_client_, GetFlightInfo(Ref(call_options_), descriptor));
 
-  ASSERT_OK(sql_client_.GetImportedKeys(call_options_, &catalog, &schema, table));
+  TableRef table_ref = {util::make_optional(catalog), util::make_optional(schema), table};
+  ASSERT_OK(sql_client_.GetImportedKeys(call_options_, table_ref));
 }
 
 TEST_F(TestFlightSqlClient, TestGetPrimary) {
@@ -226,14 +228,15 @@ TEST_F(TestFlightSqlClient, TestGetPrimary) {
 
   pb::sql::CommandGetPrimaryKeys command;
   command.set_catalog(catalog);
-  command.set_schema(schema);
+  command.set_db_schema(schema);
   command.set_table(table);
   FlightDescriptor descriptor = getDescriptor(command);
 
   ON_CALL(sql_client_, GetFlightInfo).WillByDefault(ReturnEmptyFlightInfo);
   EXPECT_CALL(sql_client_, GetFlightInfo(Ref(call_options_), descriptor));
 
-  ASSERT_OK(sql_client_.GetPrimaryKeys(call_options_, &catalog, &schema, table));
+  TableRef table_ref = {util::make_optional(catalog), util::make_optional(schema), table};
+  ASSERT_OK(sql_client_.GetPrimaryKeys(call_options_, table_ref));
 }
 
 TEST_F(TestFlightSqlClient, TestGetCrossReference) {
@@ -246,18 +249,21 @@ TEST_F(TestFlightSqlClient, TestGetCrossReference) {
 
   pb::sql::CommandGetCrossReference command;
   command.set_pk_catalog(pk_catalog);
-  command.set_pk_schema(pk_schema);
+  command.set_pk_db_schema(pk_schema);
   command.set_pk_table(pk_table);
   command.set_fk_catalog(fk_catalog);
-  command.set_fk_schema(fk_schema);
+  command.set_fk_db_schema(fk_schema);
   command.set_fk_table(fk_table);
   FlightDescriptor descriptor = getDescriptor(command);
 
   ON_CALL(sql_client_, GetFlightInfo).WillByDefault(ReturnEmptyFlightInfo);
   EXPECT_CALL(sql_client_, GetFlightInfo(Ref(call_options_), descriptor));
 
-  ASSERT_OK(sql_client_.GetCrossReference(call_options_, &pk_catalog, &pk_schema,
-                                          pk_table, &fk_catalog, &fk_schema, fk_table));
+  TableRef pk_table_ref = {util::make_optional(pk_catalog),
+                           util::make_optional(pk_schema), pk_table};
+  TableRef fk_table_ref = {util::make_optional(fk_catalog),
+                           util::make_optional(fk_schema), fk_table};
+  ASSERT_OK(sql_client_.GetCrossReference(call_options_, pk_table_ref, fk_table_ref));
 }
 
 TEST_F(TestFlightSqlClient, TestExecute) {

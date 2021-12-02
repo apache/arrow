@@ -21,6 +21,7 @@
 #include <string>
 
 #include "arrow/flight/client.h"
+#include "arrow/flight/sql/types.h"
 #include "arrow/flight/types.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
@@ -63,14 +64,14 @@ class ARROW_EXPORT FlightSqlClient {
   arrow::Result<std::unique_ptr<FlightInfo>> GetCatalogs(
       const FlightCallOptions& options);
 
-  /// \brief Request a list of schemas.
-  /// \param[in] options                RPC-layer hints for this call.
-  /// \param[in] catalog                The catalog.
-  /// \param[in] schema_filter_pattern  The schema filter pattern.
+  /// \brief Request a list of database schemas.
+  /// \param[in] options                   RPC-layer hints for this call.
+  /// \param[in] catalog                   The catalog.
+  /// \param[in] db_schema_filter_pattern  The schema filter pattern.
   /// \return The FlightInfo describing where to access the dataset.
-  arrow::Result<std::unique_ptr<FlightInfo>> GetSchemas(
+  arrow::Result<std::unique_ptr<FlightInfo>> GetDbSchemas(
       const FlightCallOptions& options, const std::string* catalog,
-      const std::string* schema_filter_pattern);
+      const std::string* db_schema_filter_pattern);
 
   /// \brief Given a flight ticket and schema, request to be sent the
   /// stream. Returns record batch stream reader
@@ -81,66 +82,52 @@ class ARROW_EXPORT FlightSqlClient {
       const FlightCallOptions& options, const Ticket& ticket);
 
   /// \brief Request a list of tables.
-  /// \param[in] options                  RPC-layer hints for this call.
-  /// \param[in] catalog                  The catalog.
-  /// \param[in] schema_filter_pattern    The schema filter pattern.
-  /// \param[in] table_filter_pattern     The table filter pattern.
-  /// \param[in] include_schema           True to include the schema upon return,
-  ///                                     false to not include the schema.
-  /// \param[in] table_types              The table types to include.
+  /// \param[in] options                   RPC-layer hints for this call.
+  /// \param[in] catalog                   The catalog.
+  /// \param[in] db_schema_filter_pattern  The schema filter pattern.
+  /// \param[in] table_filter_pattern      The table filter pattern.
+  /// \param[in] include_schema            True to include the schema upon return,
+  ///                                      false to not include the schema.
+  /// \param[in] table_types               The table types to include.
   /// \return The FlightInfo describing where to access the dataset.
   arrow::Result<std::unique_ptr<FlightInfo>> GetTables(
       const FlightCallOptions& options, const std::string* catalog,
-      const std::string* schema_filter_pattern, const std::string* table_filter_pattern,
-      bool include_schema, const std::vector<std::string>* table_types);
+      const std::string* db_schema_filter_pattern,
+      const std::string* table_filter_pattern, bool include_schema,
+      const std::vector<std::string>* table_types);
 
   /// \brief Request the primary keys for a table.
   /// \param[in] options          RPC-layer hints for this call.
-  /// \param[in] catalog          The catalog.
-  /// \param[in] schema           The schema.
-  /// \param[in] table            The table.
+  /// \param[in] table_ref        The table reference.
   /// \return The FlightInfo describing where to access the dataset.
   arrow::Result<std::unique_ptr<FlightInfo>> GetPrimaryKeys(
-      const FlightCallOptions& options, const std::string* catalog,
-      const std::string* schema, const std::string& table);
+      const FlightCallOptions& options, const TableRef& table_ref);
 
   /// \brief Retrieves a description about the foreign key columns that reference the
   /// primary key columns of the given table.
   /// \param[in] options          RPC-layer hints for this call.
-  /// \param[in] catalog          The foreign key table catalog.
-  /// \param[in] schema           The foreign key table schema.
-  /// \param[in] table            The foreign key table. Cannot be null.
+  /// \param[in] table_ref        The table reference.
   /// \return The FlightInfo describing where to access the dataset.
   arrow::Result<std::unique_ptr<FlightInfo>> GetExportedKeys(
-      const FlightCallOptions& options, const std::string* catalog,
-      const std::string* schema, const std::string& table);
+      const FlightCallOptions& options, const TableRef& table_ref);
 
   /// \brief Retrieves the foreign key columns for the given table.
   /// \param[in] options          RPC-layer hints for this call.
-  /// \param[in] catalog          The primary key table catalog.
-  /// \param[in] schema           The primary key table schema.
-  /// \param[in] table            The primary key table. Cannot be null.
+  /// \param[in] table_ref        The table reference.
   /// \return The FlightInfo describing where to access the dataset.
   arrow::Result<std::unique_ptr<FlightInfo>> GetImportedKeys(
-      const FlightCallOptions& options, const std::string* catalog,
-      const std::string* schema, const std::string& table);
+      const FlightCallOptions& options, const TableRef& table_ref);
 
   /// \brief Retrieves a description of the foreign key columns in the given foreign key
   ///        table that reference the primary key or the columns representing a unique
   ///        constraint of the parent table (could be the same or a different table).
   /// \param[in] options        RPC-layer hints for this call.
-  /// \param[in] pk_catalog     The catalog of the table that exports the key.
-  /// \param[in] pk_schema      The schema of the table that exports the key.
-  /// \param[in] pk_table       The table that exports the key.
-  /// \param[in] fk_catalog     The catalog of the table that imports the key.
-  /// \param[in] fk_schema      The schema of the table that imports the key.
-  /// \param[in] fk_table       The table that imports the key.
+  /// \param[in] pk_table_ref   The table reference that exports the key.
+  /// \param[in] fk_table_ref   The table reference that imports the key.
   /// \return The FlightInfo describing where to access the dataset.
   arrow::Result<std::unique_ptr<FlightInfo>> GetCrossReference(
-      const FlightCallOptions& options, const std::string* pk_catalog,
-      const std::string* pk_schema, const std::string& pk_table,
-      const std::string* fk_catalog, const std::string* fk_schema,
-      const std::string& fk_table);
+      const FlightCallOptions& options, const TableRef& pk_table_ref,
+      const TableRef& fk_table_ref);
 
   /// \brief Request a list of table types.
   /// \param[in] options          RPC-layer hints for this call.

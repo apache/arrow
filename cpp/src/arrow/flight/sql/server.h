@@ -26,7 +26,7 @@
 
 #include "arrow/flight/server.h"
 #include "arrow/flight/sql/server.h"
-#include "arrow/flight/sql/sql_info_types.h"
+#include "arrow/flight/sql/types.h"
 #include "arrow/util/optional.h"
 
 namespace arrow {
@@ -57,44 +57,34 @@ struct GetSqlInfo {
   std::vector<int32_t> info;
 };
 
-struct GetSchemas {
+struct GetDbSchemas {
   util::optional<std::string> catalog;
-  util::optional<std::string> schema_filter_pattern;
+  util::optional<std::string> db_schema_filter_pattern;
 };
 
 struct GetTables {
   util::optional<std::string> catalog;
-  util::optional<std::string> schema_filter_pattern;
+  util::optional<std::string> db_schema_filter_pattern;
   util::optional<std::string> table_name_filter_pattern;
   std::vector<std::string> table_types;
   bool include_schema;
 };
 
 struct GetPrimaryKeys {
-  util::optional<std::string> catalog;
-  util::optional<std::string> schema;
-  std::string table;
+  TableRef table_ref;
 };
 
 struct GetExportedKeys {
-  util::optional<std::string> catalog;
-  util::optional<std::string> schema;
-  std::string table;
+  TableRef table_ref;
 };
 
 struct GetImportedKeys {
-  util::optional<std::string> catalog;
-  util::optional<std::string> schema;
-  std::string table;
+  TableRef table_ref;
 };
 
 struct GetCrossReference {
-  util::optional<std::string> pk_catalog;
-  util::optional<std::string> pk_schema;
-  std::string pk_table;
-  util::optional<std::string> fk_catalog;
-  util::optional<std::string> fk_schema;
-  std::string fk_table;
+  TableRef pk_table_ref;
+  TableRef fk_table_ref;
 };
 
 struct ActionCreatePreparedStatementRequest {
@@ -218,21 +208,21 @@ class ARROW_EXPORT FlightSqlServerBase : public FlightServerBase {
 
   /// \brief Get a FlightInfo for listing schemas.
   /// \param[in] context      Per-call context.
-  /// \param[in] command      The GetSchemas object which may contain filters for
+  /// \param[in] command      The GetDbSchemas object which may contain filters for
   ///                         catalog and schema name.
   /// \param[in] descriptor   The descriptor identifying the data stream.
   /// \return                 The FlightInfo describing where to access the dataset.
   virtual arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoSchemas(
-      const ServerCallContext& context, const GetSchemas& command,
+      const ServerCallContext& context, const GetDbSchemas& command,
       const FlightDescriptor& descriptor);
 
   /// \brief Get a FlightDataStream containing the list of schemas.
   /// \param[in] context   Per-call context.
-  /// \param[in] command   The GetSchemas object which may contain filters for
+  /// \param[in] command   The GetDbSchemas object which may contain filters for
   ///                      catalog and schema name.
   /// \return              The FlightDataStream containing the results.
-  virtual arrow::Result<std::unique_ptr<FlightDataStream>> DoGetSchemas(
-      const ServerCallContext& context, const GetSchemas& command);
+  virtual arrow::Result<std::unique_ptr<FlightDataStream>> DoGetDbSchemas(
+      const ServerCallContext& context, const GetDbSchemas& command);
 
   ///\brief Get a FlightInfo for listing tables.
   /// \param[in] context      Per-call context.
@@ -408,9 +398,9 @@ class ARROW_EXPORT SqlSchema {
   /// \return The default schema template.
   static std::shared_ptr<Schema> GetCatalogsSchema();
 
-  /// \brief Get the Schema used on GetSchemas response.
+  /// \brief Get the Schema used on GetDbSchemas response.
   /// \return The default schema template.
-  static std::shared_ptr<Schema> GetSchemasSchema();
+  static std::shared_ptr<Schema> GetDbSchemasSchema();
 
   /// \brief Get the Schema used on GetTables response when included schema
   /// flags is set to false.
