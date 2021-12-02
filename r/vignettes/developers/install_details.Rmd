@@ -25,10 +25,10 @@ This sets up the build process for our bundled builds (which is the default on
 linux) and checks for binaries or downloads libarrow from source depending on 
 dependency availability and build configuration.
 
-* `inst/build_arrow_static.sh` - called by `tools/nixlibs.R` when libarrow is 
-being built.  It builds libarrow for a bundled, static build, and
+* `inst/build_arrow_static.sh` - called by `tools/nixlibs.R` when libarrow  
+needs to be built.  It builds libarrow for a bundled, static build, and
 mirrors the steps described in the ["Arrow R Developer Guide" vignette](./setup.html)
-This build script is also what is used to generate the prebuilt binaries.
+This build script is also what is used to generate our prebuilt binaries.
 
 The actions taken by these scripts to resolve dependencies and install the 
 correct components are described below.
