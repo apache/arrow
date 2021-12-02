@@ -79,8 +79,8 @@ Public API design
 * Public APIs should ideally tend to produce readable code.  One example
   is when multiple options are expected to be added over time: it is better
   to try to organize options logically rather than juxtapose them all in
-  a function's signature (see for example the CSV reading APIs in C++ and
-  Python - XXX doc).
+  a function's signature (see for example the CSV reading APIs in
+  :ref:`C++ <cpp-api-csv>` and :ref:`Python <py-api-csv>`).
 
 * Naming is important.  Try to ask yourself if code calling the new API
   would be understandable without having to read the API docs.
@@ -116,9 +116,9 @@ Robustness
 * APIs ingesting potentially untrusted data, such as on-disk file formats,
   should try to avoid crashing or produce silent bugs when invalid or
   corrupt data is fed to them.  This can require a lot of care that is
-  out of the scope of regular code reviews (such as setting up fuzz testing
-  - XXX link to current fuzz setup), but basic checks can still be suggested
-  at the code review stage.
+  out of the scope of regular code reviews (such as setting up
+  :ref:`fuzz testing <cpp-fuzzing>`), but basic checks can still be
+  suggested at the code review stage.
 
 * When calling foreign APIs, especially system functions or APIs dealing with
   input / output, do check for errors and propagate them (if the language
@@ -136,7 +136,9 @@ Performance
 
 * If performance is important, measure it.  Do not satisfy yourself with
   guesses and intuitions (which may be founded on incorrect assumptions
-  about the compiler or the hardware).  XXX link to benchmark docs
+  about the compiler or the hardware).
+
+  .. seealso:: :ref:`Benchmarking Arrow <benchmarks>`
 
 * Try to avoid trying to trick the compiler/interpreter/runtime by writing
   the code in a certain way, unless it's really important.  These tricks
@@ -252,6 +254,3 @@ Social aspects
 * Like any communication, code reviews are governed by the Apache
   `Code of Conduct <https://www.apache.org/foundation/policies/conduct.html>`_.
   This applies to both reviewers and contributors.
-
-
-XXX There may be other things to add here, any suggestions?
