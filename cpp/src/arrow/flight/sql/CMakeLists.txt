@@ -66,27 +66,29 @@ else()
                                       ${ARROW_TEST_LINK_LIBS})
 endif()
 
-add_arrow_test(flight_sql_test
-               SOURCES
-               client_test.cc
-               server_test.cc
-               example/sqlite_sql_info.cc
-               STATIC_LINK_LIBS
-               ${ARROW_FLIGHT_SQL_TEST_LINK_LIBS}
-               LABELS
-               "arrow_flight_sql")
-
 # Build test server for unit tests
 if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
   find_package(SQLite3Alt REQUIRED)
 
-  add_executable(flight_sql_test_server
-                 test_server_cli.cc
-                 example/sqlite_sql_info.cc
-                 example/sqlite_statement.cc
-                 example/sqlite_statement_batch_reader.cc
-                 example/sqlite_server.cc
-                 example/sqlite_tables_schema_batch_reader.cc)
+  set(flight_sql_test_server_SRCS
+      example/sqlite_sql_info.cc
+      example/sqlite_statement.cc
+      example/sqlite_statement_batch_reader.cc
+      example/sqlite_server.cc
+      example/sqlite_tables_schema_batch_reader.cc)
+
+  add_arrow_test(flight_sql_test
+                 SOURCES
+                 client_test.cc
+                 server_test.cc
+                 ${flight_sql_test_server_SRCS}
+                 STATIC_LINK_LIBS
+                 ${ARROW_FLIGHT_SQL_TEST_LINK_LIBS}
+                 ${SQLite3_LIBRARIES}
+                 LABELS
+                 "arrow_flight_sql")
+
+  add_executable(flight_sql_test_server test_server_cli.cc ${flight_sql_test_server_SRCS})
   target_link_libraries(flight_sql_test_server
                         PRIVATE ${ARROW_FLIGHT_SQL_TEST_LINK_LIBS} ${GFLAGS_LIBRARIES}
                                 ${SQLite3_LIBRARIES})
@@ -94,8 +96,4 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
   add_executable(flight_sql_test_app test_app_cli.cc)
   target_link_libraries(flight_sql_test_app PRIVATE ${ARROW_FLIGHT_SQL_TEST_LINK_LIBS}
                                                     ${GFLAGS_LIBRARIES})
-
-  if(ARROW_BUILD_TESTS)
-    add_dependencies(arrow-flight-sql-test flight_sql_test_server)
-  endif()
 endif()

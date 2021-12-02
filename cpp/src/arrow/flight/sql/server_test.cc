@@ -17,8 +17,12 @@
 
 #include "arrow/flight/sql/server.h"
 
+#include <arrow/util/logging.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+
+#include <condition_variable>
+#include <thread>
 
 #include "arrow/flight/api.h"
 #include "arrow/flight/sql/api.h"
@@ -123,24 +127,35 @@ class SqlInfoDenseUnionValidator {
   SqlInfoDenseUnionValidator& operator=(const SqlInfoDenseUnionValidator&) = delete;
 };
 
-std::unique_ptr<TestServer> server;
-std::unique_ptr<FlightSqlClient> sql_client;
+class TestFlightSqlServer : public ::testing::Test {
+ public:
+  std::unique_ptr<FlightSqlClient> sql_client;
 
-class TestFlightSqlServer : public ::testing::Environment {
+  arrow::Result<int64_t> ExecuteCountQuery(const std::string& query) {
+    ARROW_ASSIGN_OR_RAISE(auto flight_info, sql_client->Execute({}, query));
+
+    ARROW_ASSIGN_OR_RAISE(auto stream,
+                          sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
+
+    std::shared_ptr<Table> table;
+    ARROW_RETURN_NOT_OK(stream->ReadAll(&table));
+
+    const std::shared_ptr<Array>& result_array = table->column(0)->chunk(0);
+    ARROW_ASSIGN_OR_RAISE(auto count_scalar, result_array->GetScalar(0));
+
+    return reinterpret_cast<Int64Scalar&>(*count_scalar).value;
+  }
+
  protected:
   void SetUp() override {
-    server.reset(new TestServer("flight_sql_test_server"));
-    server->Start();
-    for (int i = 0; i < 100; i++) {
-      std::this_thread::sleep_for(std::chrono::milliseconds(10));
-      if (server->IsRunning()) {
-        break;
-      }
-    }
-    ASSERT_TRUE(server->IsRunning());
+    unix_sock = std::tmpnam(nullptr);
+    server_thread.reset(new std::thread(RunServer, this));
+
+    std::unique_lock<std::mutex> lk(server_ready_m);
+    server_ready_cv.wait(lk);
 
     std::stringstream ss;
-    ss << "grpc://localhost:" << server->port();
+    ss << "grpc+unix://" << unix_sock;
     std::string uri = ss.str();
 
     std::unique_ptr<FlightClient> client;
@@ -153,12 +168,46 @@ class TestFlightSqlServer : public ::testing::Environment {
 
   void TearDown() override {
     sql_client.reset();
-    server->Stop();
-    server.reset();
+
+    ASSERT_OK(server->Shutdown());
+    server_thread->join();
+    server_thread.reset();
+  }
+
+ private:
+  std::string unix_sock;
+  std::shared_ptr<arrow::flight::sql::example::SQLiteFlightSqlServer> server;
+  std::unique_ptr<std::thread> server_thread;
+  std::condition_variable server_ready_cv;
+  std::mutex server_ready_m;
+
+  Status RunServerInternal() {
+    arrow::flight::Location location;
+    ARROW_CHECK_OK(arrow::flight::Location::ForGrpcUnix(unix_sock, &location));
+    arrow::flight::FlightServerOptions options(location);
+
+    ARROW_ASSIGN_OR_RAISE(server,
+                          arrow::flight::sql::example::SQLiteFlightSqlServer::Create())
+
+    ARROW_CHECK_OK(server->Init(options));
+    // Exit with a clean error code (0) on SIGTERM
+    ARROW_CHECK_OK(server->SetShutdownOnSignals({SIGTERM}));
+
+    server_ready_cv.notify_all();
+    ARROW_CHECK_OK(server->Serve());
+
+    return arrow::Status::OK();
+  }
+
+  static void RunServer(TestFlightSqlServer* server) {
+    arrow::Status st = server->RunServerInternal();
+    if (!st.ok()) {
+      std::cerr << st << std::endl;
+    }
   }
 };
 
-TEST(TestFlightSqlServer, TestCommandStatementQuery) {
+TEST_F(TestFlightSqlServer, TestCommandStatementQuery) {
   ASSERT_OK_AND_ASSIGN(auto flight_info,
                        sql_client->Execute({}, "SELECT * FROM intTable"));
 
@@ -184,7 +233,7 @@ TEST(TestFlightSqlServer, TestCommandStatementQuery) {
   AssertTablesEqual(*expected_table, *table);
 }
 
-TEST(TestFlightSqlServer, TestCommandGetTables) {
+TEST_F(TestFlightSqlServer, TestCommandGetTables) {
   FlightCallOptions options = {};
   std::string* catalog = nullptr;
   std::string* schema_filter_pattern = nullptr;
@@ -216,7 +265,7 @@ TEST(TestFlightSqlServer, TestCommandGetTables) {
   AssertTablesEqual(*expected_table, *table);
 }
 
-TEST(TestFlightSqlServer, TestCommandGetTablesWithTableFilter) {
+TEST_F(TestFlightSqlServer, TestCommandGetTablesWithTableFilter) {
   FlightCallOptions options = {};
   std::string* catalog = nullptr;
   std::string* schema_filter_pattern = nullptr;
@@ -246,7 +295,7 @@ TEST(TestFlightSqlServer, TestCommandGetTablesWithTableFilter) {
   AssertTablesEqual(*expected_table, *table);
 }
 
-TEST(TestFlightSqlServer, TestCommandGetTablesWithTableTypesFilter) {
+TEST_F(TestFlightSqlServer, TestCommandGetTablesWithTableTypesFilter) {
   FlightCallOptions options = {};
   std::string* catalog = nullptr;
   std::string* schema_filter_pattern = nullptr;
@@ -270,7 +319,7 @@ TEST(TestFlightSqlServer, TestCommandGetTablesWithTableTypesFilter) {
   ASSERT_EQ(table->num_rows(), 0);
 }
 
-TEST(TestFlightSqlServer, TestCommandGetTablesWithUnexistenceTableTypeFilter) {
+TEST_F(TestFlightSqlServer, TestCommandGetTablesWithUnexistenceTableTypeFilter) {
   FlightCallOptions options = {};
   std::string* catalog = nullptr;
   std::string* schema_filter_pattern = nullptr;
@@ -301,7 +350,7 @@ TEST(TestFlightSqlServer, TestCommandGetTablesWithUnexistenceTableTypeFilter) {
   AssertTablesEqual(*expected_table, *table);
 }
 
-TEST(TestFlightSqlServer, TestCommandGetTablesWithIncludedSchemas) {
+TEST_F(TestFlightSqlServer, TestCommandGetTablesWithIncludedSchemas) {
   FlightCallOptions options = {};
   std::string* catalog = nullptr;
   std::string* schema_filter_pattern = nullptr;
@@ -341,7 +390,7 @@ TEST(TestFlightSqlServer, TestCommandGetTablesWithIncludedSchemas) {
   AssertTablesEqual(*expected_table, *table);
 }
 
-TEST(TestFlightSqlServer, TestCommandGetCatalogs) {
+TEST_F(TestFlightSqlServer, TestCommandGetCatalogs) {
   ASSERT_OK_AND_ASSIGN(auto flight_info, sql_client->GetCatalogs({}));
 
   ASSERT_OK_AND_ASSIGN(auto stream,
@@ -356,7 +405,7 @@ TEST(TestFlightSqlServer, TestCommandGetCatalogs) {
   ASSERT_EQ(0, table->num_rows());
 }
 
-TEST(TestFlightSqlServer, TestCommandGetSchemas) {
+TEST_F(TestFlightSqlServer, TestCommandGetSchemas) {
   FlightCallOptions options = {};
   std::string* catalog = nullptr;
   std::string* schema_filter_pattern = nullptr;
@@ -375,7 +424,7 @@ TEST(TestFlightSqlServer, TestCommandGetSchemas) {
   ASSERT_EQ(0, table->num_rows());
 }
 
-TEST(TestFlightSqlServer, TestCommandGetTableTypes) {
+TEST_F(TestFlightSqlServer, TestCommandGetTableTypes) {
   ASSERT_OK_AND_ASSIGN(auto flight_info, sql_client->GetTableTypes({}));
 
   ASSERT_OK_AND_ASSIGN(auto stream,
@@ -391,7 +440,7 @@ TEST(TestFlightSqlServer, TestCommandGetTableTypes) {
   AssertTablesEqual(*expected_table, *table);
 }
 
-TEST(TestFlightSqlServer, TestCommandStatementUpdate) {
+TEST_F(TestFlightSqlServer, TestCommandStatementUpdate) {
   int64_t result;
   ASSERT_OK_AND_ASSIGN(result,
                        sql_client->ExecuteUpdate(
@@ -412,7 +461,7 @@ TEST(TestFlightSqlServer, TestCommandStatementUpdate) {
   ASSERT_EQ(3, result);
 }
 
-TEST(TestFlightSqlServer, TestCommandPreparedStatementQuery) {
+TEST_F(TestFlightSqlServer, TestCommandPreparedStatementQuery) {
   ASSERT_OK_AND_ASSIGN(auto prepared_statement,
                        sql_client->Prepare({}, "SELECT * FROM intTable"));
 
@@ -440,7 +489,7 @@ TEST(TestFlightSqlServer, TestCommandPreparedStatementQuery) {
   AssertTablesEqual(*expected_table, *table);
 }
 
-TEST(TestFlightSqlServer, TestCommandPreparedStatementQueryWithParameterBinding) {
+TEST_F(TestFlightSqlServer, TestCommandPreparedStatementQueryWithParameterBinding) {
   ASSERT_OK_AND_ASSIGN(
       auto prepared_statement,
       sql_client->Prepare({}, "SELECT * FROM intTable WHERE keyName LIKE ?"));
@@ -493,22 +542,7 @@ TEST(TestFlightSqlServer, TestCommandPreparedStatementQueryWithParameterBinding)
   AssertTablesEqual(*expected_table, *table);
 }
 
-arrow::Result<int64_t> ExecuteCountQuery(const std::string& query) {
-  ARROW_ASSIGN_OR_RAISE(auto flight_info, sql_client->Execute({}, query));
-
-  ARROW_ASSIGN_OR_RAISE(auto stream,
-                        sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
-
-  std::shared_ptr<Table> table;
-  ARROW_RETURN_NOT_OK(stream->ReadAll(&table));
-
-  const std::shared_ptr<Array>& result_array = table->column(0)->chunk(0);
-  ARROW_ASSIGN_OR_RAISE(auto count_scalar, result_array->GetScalar(0));
-
-  return reinterpret_cast<Int64Scalar&>(*count_scalar).value;
-}
-
-TEST(TestFlightSqlServer, TestCommandPreparedStatementUpdateWithParameterBinding) {
+TEST_F(TestFlightSqlServer, TestCommandPreparedStatementUpdateWithParameterBinding) {
   ASSERT_OK_AND_ASSIGN(
       auto prepared_statement,
       sql_client->Prepare(
@@ -551,7 +585,7 @@ TEST(TestFlightSqlServer, TestCommandPreparedStatementUpdateWithParameterBinding
   ASSERT_OK_AND_EQ(4, ExecuteCountQuery("SELECT COUNT(*) FROM intTable"));
 }
 
-TEST(TestFlightSqlServer, TestCommandPreparedStatementUpdate) {
+TEST_F(TestFlightSqlServer, TestCommandPreparedStatementUpdate) {
   ASSERT_OK_AND_ASSIGN(
       auto prepared_statement,
       sql_client->Prepare(
@@ -569,7 +603,7 @@ TEST(TestFlightSqlServer, TestCommandPreparedStatementUpdate) {
   ASSERT_OK_AND_EQ(4, ExecuteCountQuery("SELECT COUNT(*) FROM intTable"));
 }
 
-TEST(TestFlightSqlServer, TestCommandGetPrimaryKeys) {
+TEST_F(TestFlightSqlServer, TestCommandGetPrimaryKeys) {
   FlightCallOptions options = {};
   std::string* catalog = nullptr;
   std::string* schema = nullptr;
@@ -597,7 +631,7 @@ TEST(TestFlightSqlServer, TestCommandGetPrimaryKeys) {
   AssertTablesEqual(*expected_table, *table);
 }
 
-TEST(TestFlightSqlServer, TestCommandGetImportedKeys) {
+TEST_F(TestFlightSqlServer, TestCommandGetImportedKeys) {
   FlightCallOptions options = {};
   std::string* catalog = nullptr;
   std::string* schema = nullptr;
@@ -633,7 +667,7 @@ TEST(TestFlightSqlServer, TestCommandGetImportedKeys) {
   AssertTablesEqual(*expected_table, *table);
 }
 
-TEST(TestFlightSqlServer, TestCommandGetExportedKeys) {
+TEST_F(TestFlightSqlServer, TestCommandGetExportedKeys) {
   FlightCallOptions options = {};
   std::string* catalog = nullptr;
   std::string* schema = nullptr;
@@ -669,7 +703,7 @@ TEST(TestFlightSqlServer, TestCommandGetExportedKeys) {
   AssertTablesEqual(*expected_table, *table);
 }
 
-TEST(TestFlightSqlServer, TestCommandGetCrossReference) {
+TEST_F(TestFlightSqlServer, TestCommandGetCrossReference) {
   FlightCallOptions options = {};
   std::string* pk_catalog = nullptr;
   std::string* pk_schema = nullptr;
@@ -709,7 +743,7 @@ TEST(TestFlightSqlServer, TestCommandGetCrossReference) {
   AssertTablesEqual(*expected_table, *table);
 }
 
-TEST(TestFlightSqlServer, TestCommandGetSqlInfo) {
+TEST_F(TestFlightSqlServer, TestCommandGetSqlInfo) {
   const auto& sql_info_expected_results = sql::example::GetSqlInfoResultMap();
   std::vector<int> sql_info_ids;
   sql_info_ids.reserve(sql_info_expected_results.size());
@@ -743,7 +777,7 @@ TEST(TestFlightSqlServer, TestCommandGetSqlInfo) {
   }
 }
 
-TEST(TestFlightSqlServer, TestCommandGetSqlInfoNoInfo) {
+TEST_F(TestFlightSqlServer, TestCommandGetSqlInfoNoInfo) {
   FlightCallOptions call_options;
   ASSERT_OK_AND_ASSIGN(auto flight_info, sql_client->GetSqlInfo(call_options, {999999}));
   auto result = sql_client->DoGet(call_options, flight_info->endpoints()[0].ticket);
@@ -753,8 +787,6 @@ TEST(TestFlightSqlServer, TestCommandGetSqlInfoNoInfo) {
   ASSERT_THAT(result.status().message(),
               ::testing::HasSubstr("No information for SQL info number 999999."));
 }
-
-auto env = ::testing::AddGlobalTestEnvironment(new TestFlightSqlServer);
 
 }  // namespace sql
 }  // namespace flight
