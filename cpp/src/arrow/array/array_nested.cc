@@ -708,10 +708,6 @@ DenseUnionArray::DenseUnionArray(std::shared_ptr<DataType> type, int64_t length,
 Result<std::shared_ptr<Array>> DenseUnionArray::Make(
     const Array& type_ids, const Array& value_offsets, ArrayVector children,
     std::vector<std::string> field_names, std::vector<type_code_t> type_codes) {
-  if (value_offsets.length() == 0) {
-    return Status::Invalid("UnionArray offsets must have non-zero length");
-  }
-
   if (value_offsets.type_id() != Type::INT32) {
     return Status::TypeError("UnionArray offsets must be signed int32");
   }
