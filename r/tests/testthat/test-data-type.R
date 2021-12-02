@@ -392,6 +392,7 @@ test_that("decimal type and validation", {
   expect_error(decimal(NA, 2), '"precision" must be an integer')
   expect_error(decimal(4, NA), '"scale" must be an integer')
 
+  # decimal() is just an alias for decimal128() for backwards compatibility
   expect_r6_class(decimal128(4, 2), "Decimal128Type")
   expect_identical(class(decimal(2, 4)), class(decimal128(2, 4)))
 

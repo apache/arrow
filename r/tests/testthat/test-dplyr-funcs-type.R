@@ -232,7 +232,6 @@ test_that("type checks with is() giving Arrow types", {
       f64_is_i64 = is(f64, float64()),
       f64_is_str = is(f64, arrow::string()),
       str_is_i32 = is(str, int32()),
-      str_is_dec = is(str, decimal(3, 2)),
       str_is_dec128 = is(str, decimal128(3, 2)),
       str_is_i64 = is(str, float64()),
       str_is_str = is(str, arrow::string())
@@ -240,11 +239,9 @@ test_that("type checks with is() giving Arrow types", {
       collect() %>%
       t() %>%
       as.vector(),
-    c(
-      TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE, TRUE, FALSE, FALSE, FALSE,
+    c(TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE, TRUE, FALSE, FALSE, FALSE,
       TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, FALSE,
-      FALSE, TRUE
-    )
+      TRUE)
   )
   # with class2=string
   expect_equal(
