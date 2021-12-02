@@ -482,14 +482,20 @@ class ComputeFunctionsTableDirective(Directive):
         function_kind = self.options.get('kind', None)
 
         result.append(".. csv-table::", "<computefuncs>")
-        result.append("   :widths: 30, 70", "<computefuncs>")
+        result.append("   :widths: 20, 60, 20", "<computefuncs>")
         result.append("   ", "<computefuncs>")
         funcs_reg = pyarrow._compute.function_registry()
         for fname in funcs_reg.list_functions():
             f = funcs_reg.get_function(fname)
+            option_class = ""
+            if f._doc.options_class:
+                option_class = ":class:`{}`".format(
+                    f._doc.options_class
+                )
             if not function_kind or f.kind == function_kind:
-                result.append('   "{}", "{}"'.format(fname, f._doc.summary),
-                              "<computefuncs>")
+                result.append('   "{}", "{}", "{}"'.format(
+                    fname, f._doc.summary, option_class
+                ), "<computefuncs>")
 
         node = nodes.section()
         node.document = self.state.document

@@ -498,3 +498,50 @@ Structural Transforms
    make_struct
    replace_with_mask
    struct_field
+
+Compute Options
+---------------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   ScalarAggregateOptions
+   CountOptions
+   TDigestOptions
+   ArraySortOptions
+   AssumeTimezoneOptions
+   CastOptions
+   CountOptions
+   DayOfWeekOptions
+   DictionaryEncodeOptions
+   ElementWiseAggregateOptions
+   ExtractRegexOptions
+   FilterOptions
+   IndexOptions
+   JoinOptions
+   MakeStructOptions
+   MatchSubstringOptions
+   ModeOptions
+   NullOptions
+   PadOptions
+   PartitionNthOptions
+   QuantileOptions
+   ReplaceSliceOptions
+   ReplaceSubstringOptions
+   RoundOptions
+   RoundToMultipleOptions
+   ScalarAggregateOptions
+   SelectKOptions
+   SetLookupOptions
+   SliceOptions
+   SortOptions
+   SplitOptions
+   SplitPatternOptions
+   StrftimeOptions
+   StrptimeOptions
+   StructFieldOptions
+   TakeOptions
+   TDigestOptions
+   TrimOptions
+   VarianceOptions
+   WeekOptions
