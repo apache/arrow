@@ -23,15 +23,25 @@ a more detailed discussion of the code run during the installation process in th
 
 ## Method 1 - Installation with a precompiled libarrow binary
 
+
 As mentioned above, on macOS and Windows, when you run `install.packages("arrow")`, and install arrow from CRAN, you get an R binary package that contains a precompiled version of libarrow, though CRAN does not host binary packages for Linux.  This means that the default behaviour when you run `install.packages()` on Linux is to retrieve the source version of the R package that has to be compiled locally, including building libarrow from source. See method 2 below for details of this.
+
+### Method 1a - Binary R package containing libarrow binary via RSPM/conda
+
+```{r, echo=FALSE, out.width="30%"}
+knitr::include_graphics("./img/r_binary_libarrow_binary.png")
+```
 
 If you want a quicker installation process, and by default a more fully-featured build, you could install arrow from [RStudio's public package manager](https://packagemanager.rstudio.com/client/#/), which hosts binaries for both Windows and Linux.
 
 Similarly, if you use `conda` to manage your R environment, you can `conda install -c conda-forge --strict-channel-priority r-arrow` and you'll get the latest official release of the R package including libarrow.
 
-```{r, echo=FALSE, out.width="30%"}
-knitr::include_graphics("./img/r_binary_libarrow_binary.png")
+### Method 1b - R source package with libarrow binary
+
+```{r, echo=FALSE, out.width="50%"}
+knitr::include_graphics("./img/r_source_libarrow_binary.png")
 ```
+
 Another way of achieving faster installation with all key features enabled is to use our self-hosted libarrow binaries.  You can do this by setting the `NOT_CRAN` environment variable before you call `install.packages()`:
 
 ```{r, eval = FALSE}
@@ -41,13 +51,9 @@ install.packages("arrow")
 
 This installs the source version of the R package, but during the installation process will check for compatible libarrow binaries that we host and use those if available.  If no binary is available or can't be found, then this option falls back onto method 2 below, but results in a more fully-featured build than default.
 
-```{r, echo=FALSE, out.width="30%"}
-knitr::include_graphics("./img/r_source_libarrow_binary.png")
-```
-
 ## Method 2 - Installing an R source package and building libarrow from source
 
-```{r, echo=FALSE, out.width="30%"}
+```{r, echo=FALSE, out.width="50%"}
 knitr::include_graphics("./img/r_source_libarrow_source.png")
 ```
 
@@ -59,7 +65,7 @@ additional ways for things to go wrong, which is why we recommend method 1 above
 However, if you wish to fine-tune or customise your Linux installation, the 
 instructions in this section explain how to do that.
 
-### Configuration for building from source with fully featured installation
+### Basic configuration for building from source with fully featured installation
 
 If you wish to install libarrow from source instead of looking for pre-compiled 
 binaries, you can set the  `LIBARROW_BINARY` variable.
