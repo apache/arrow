@@ -148,7 +148,7 @@ class UnquotedColumnPopulator : public ColumnPopulator {
 
   Status UpdateRowLengths(int32_t* row_lengths) override {
     for (int x = 0; x < casted_array_->length(); x++) {
-      row_lengths[x] += casted_array_->value_length(x) == 0
+      row_lengths[x] += casted_array_->IsNull(x)
                             ? static_cast<int32_t>(null_string_->size())
                             : casted_array_->value_length(x);
     }
