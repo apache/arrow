@@ -1,8 +1,8 @@
 ---
-title: "Installing the Arrow Package"
+title: "Installing the Arrow Package on Linux"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Installing the Arrow Package}
+  %\VignetteIndexEntry{Installing the Arrow Package on Linux}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
