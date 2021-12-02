@@ -340,6 +340,29 @@ when constructing a directory partitioning:
 Directory partitioning also supports providing a full schema rather than inferring
 types from file paths.
 
+Automatic partitioning detection
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If the directory is partitioned using the hive partitioning scheme (see above)
+then pyarrow will be able to automatically recognize the partitioning and include
+the partitioning information as a column in the returned table.  There is no
+need to specify the partitioning:
+
+.. code-block:: python
+
+    dataset = ds.dataset("hive_partitioned", format="parquet")
+
+However, if the directory is partitioned using the directory partitioning scheme
+then pyarrow will not automatically recognize the partitioning (it would not know
+the column names).  If the partitioning keyword is not specified the resulting
+table will not contain the partition columns.  For this reason you should always
+specify the partitioning when reading a dataset using the directory partitioning
+scheme:
+
+.. code-block:: python
+
+    dataset = ds.dataset("directory_partitioned", format="parquet",
+                         partitioning=["year", "month", "day"])
 
 Reading from cloud storage
 --------------------------
