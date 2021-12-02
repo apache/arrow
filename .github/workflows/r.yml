@@ -358,7 +358,7 @@ jobs:
         if: always()
       - name: Dump test logs
         shell: bash
-        run: find check -name 'testthat.Rout*' -exec cat '{}' \; || true
+        run: find r/check -name 'testthat.Rout*' -exec cat '{}' \; || true
         if: always()
       - name: Save the test output
         if: always()
