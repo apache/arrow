@@ -77,7 +77,7 @@ Sys.setenv("LIBARROW_BINARY" = FALSE)
 ```
 
 By default, this is set to `TRUE`, and so libarrow will only be built from 
-source if this environment variable is set to `FALSE` or no compatiable binary 
+source if this environment variable is set to `FALSE` or no compatible binary 
 for your OS can be found.
 
 When compiling libarrow from source, you have the power to really fine-tune 
