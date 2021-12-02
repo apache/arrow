@@ -22,7 +22,8 @@ set -e
 declare -A archs
 archs=([x86_64]=amd64
        [arm64]=arm64
-       [aarch64]=arm64)
+       [aarch64]=arm64
+       [s390x]=s390x)
 
 declare -A platforms
 platforms=([Linux]=linux
