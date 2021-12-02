@@ -44,44 +44,44 @@ search for an issue that is dealing with the documentation
 on JIRA.
 
 .. note::
-	When searching for JIRA issue that deals with documentation
-	try selecting **Components** from **More** tab in JIRA search
-	and there find **Documentation** from the list.
+   When searching for JIRA issue that deals with documentation
+   try selecting **Components** from **More** tab in JIRA search
+   and there find **Documentation** from the list.
 
-	See `Example search. <https://issues.apache.org/jira/browse/ARROW-14280?jql=project%20%3D%20ARROW%20AND%20status%20%3D%20Open%20AND%20resolution%20%3D%20Unresolved%20AND%20component%20%3D%20Documentation%20AND%20assignee%20in%20(EMPTY)%20ORDER%20BY%20priority%20DESC%2C%20updated%20DESC>`_
+   See `Example search. <https://issues.apache.org/jira/issues/jql=project%20%3D%20ARROW%20AND%20status%20%3D%20Open%20AND%20resolution%20%3D%20Unresolved%20AND%20component%20%3D%20Documentation%20AND%20assignee%20in%20(EMPTY)%20ORDER%20BY%20priority%20DESC%2C%20updated%20DESC>`_
 
-.. figure:: jira_doc_1.jpeg
-   :scale: 40 %
-   :alt: selecting Components in JIRA search
+   .. figure:: jira_doc_1.jpeg
+      :scale: 40 %
+      :alt: selecting Components in JIRA search
 
-   First select Components tab in JIRA.
+      First select Components tab in JIRA.
 
-.. figure:: jira_doc_2.jpeg
-   :scale: 40 %
-   :alt: selecting Documentation in JIRA search
+   .. figure:: jira_doc_2.jpeg
+      :scale: 40 %
+      :alt: selecting Documentation in JIRA search
 
-   Then choose Documentation from the Components list.
+      Then choose Documentation from the Components list.
 
 Documentation improvements are also a great way to gain some
 experience with our submission and review process without
 requiring a lot of local development environment setup. 
 
 .. note::
-	Many documentation-only changes can be made directly in the
-	GitHub web interface by clicking the **edit** icon. This
-	will handle making a fork and a pull request for you.
+   Many documentation-only changes can be made directly in the
+   GitHub web interface by clicking the **edit** icon. This
+   will handle making a fork and a pull request for you.
 
-.. figure:: github_edit_1.jpeg
-   :scale: 30 %
-   :alt: click on edit icon in GitHub
+   .. figure:: github_edit_1.jpeg
+      :scale: 30 %
+      :alt: click on edit icon in GitHub
 
-   On the right corner of the file in GitHub click on pen icon.
+      On the right corner of the file in GitHub click on pen icon.
 
-.. figure:: github_edit_2.jpeg
-   :scale: 30 %
-   :alt: edit file in GitHub.
+   .. figure:: github_edit_2.jpeg
+      :scale: 30 %
+      :alt: edit file in GitHub.
 
-   Now you can edit the file in GitHub.
+      Now you can edit the file in GitHub.
 
 You could also build the entire project, make the change locally on
 your branch and make the PR this way. But it is by no means superior
