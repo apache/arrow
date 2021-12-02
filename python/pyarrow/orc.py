@@ -146,6 +146,7 @@ bloom_filter_fpp: double, default 0.05
     Set false positive probability of the bloom filter.
 """
 
+
 class ORCWriter:
     __doc__ = """
     Writer interface for a single ORC file
@@ -223,7 +224,7 @@ class ORCWriter:
 
 def write_table(table, where, file_version='0.12',
                 stripe_size=67108864,
-                compression='snappy',
+                compression='zlib',
                 compression_block_size=65536,
                 compression_strategy='speed',
                 row_index_stride=10000,

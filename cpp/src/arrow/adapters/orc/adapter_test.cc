@@ -231,11 +231,11 @@ arrow::adapters::orc::WriteOptions GenerateRandomWriteOptions(uint64_t num_cols)
   arrow_write_options.set_file_version(arrow::adapters::orc::FileVersion(
       0, arrow::random_single_int<uint32_t, uint32_t>(11, 12)));
   arrow_write_options.set_stripe_size(
-      arrow::random_single_int<uint64_t, uint64_t>(65536ull, 268435455ull));
+      arrow::random_single_int<uint64_t, uint64_t>(4ull, 128ull));
   arrow_write_options.set_compression_block_size(
-      arrow::random_single_int<uint64_t, uint64_t>(1024ull, 524287ull));
+      arrow::random_single_int<uint64_t, uint64_t>(4ull, 128ull));
   arrow_write_options.set_row_index_stride(
-      arrow::random_single_int<uint64_t, uint64_t>(0, 4096ull));
+      arrow::random_single_int<uint64_t, uint64_t>(0, 128ull));
   arrow_write_options.set_compression(static_cast<arrow::adapters::orc::CompressionKind>(
       arrow::random_single_int<uint8_t, uint8_t>(0, 5)));
   arrow_write_options.set_compression_strategy(
@@ -262,10 +262,12 @@ void AssertTableWriteReadEqual(const std::shared_ptr<Table>& input_table,
                                const int64_t max_size = kDefaultSmallMemStreamSize) {
   EXPECT_OK_AND_ASSIGN(auto buffer_output_stream,
                        io::BufferOutputStream::Create(max_size));
+  arrow::adapters::orc::WriteOptions write_options = GenerateRandomWriteOptions(
+    input_table->num_columns());
   EXPECT_OK_AND_ASSIGN(auto writer,
                        adapters::orc::ORCFileWriter::Open(
                            buffer_output_stream.get(),
-                           GenerateRandomWriteOptions(input_table->num_columns())));
+                           write_options));
   ARROW_EXPECT_OK(writer->Write(*input_table));
   ARROW_EXPECT_OK(writer->Close());
   EXPECT_OK_AND_ASSIGN(auto buffer, buffer_output_stream->Finish());
