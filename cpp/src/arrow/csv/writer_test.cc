@@ -37,6 +37,7 @@ struct WriterTestParams {
   std::shared_ptr<Schema> schema;
   std::string batch_data;
   WriteOptions options;
+  bool options_invalid;
   std::string expected_output;
 };
 
@@ -93,22 +94,31 @@ std::vector<WriterTestParams> GenerateTestCases() {
 
   std::string expected_custom_na = std::string(R"(42,"NA")") + "\n" +  // line 1
                                    R"(NA,NA)" + "\n" +                 // line 2
-                                   R"(1337,"""NA""")" + "\n";            // line 3
+                                   R"(1337,"""NA""")" + "\n";          // line 3
+
+  std::string dummy_batch_data = R"([{"a": null}])";
+  auto dummy_schema = schema({field("a", uint8())});
 
   return std::vector<WriterTestParams>{
       {abc_schema, "[]", DefaultTestOptions(/*include_header=*/false, /*null_string=*/""),
-       ""},
+       /*null_string_invalid*/ false, ""},
       {abc_schema, "[]", DefaultTestOptions(/*include_header=*/true, /*null_string=*/""),
-       expected_header},
+       /*null_string_invalid*/ false, expected_header},
       {abc_schema, populated_batch,
        DefaultTestOptions(/*include_header=*/false, /*null_string=*/""),
-       expected_without_header},
+       /*null_string_invalid*/ false, expected_without_header},
       {abc_schema, populated_batch,
        DefaultTestOptions(/*include_header=*/true, /*null_string=*/""),
-       expected_header + expected_without_header},
+       /*null_string_invalid*/ false, expected_header + expected_without_header},
       {schema_custom_na, populated_batch_custom_na,
        DefaultTestOptions(/*include_header=*/false, /*null_string=*/"NA"),
-       expected_custom_na}};
+       /*null_string_invalid*/ false, expected_custom_na},
+      {dummy_schema, dummy_batch_data,
+       DefaultTestOptions(/*include_header=*/false, /*null_string=*/R"("NA")"),
+       /*null_string_invalid*/ true, ""},
+      {dummy_schema, dummy_batch_data,
+       DefaultTestOptions(/*include_header=*/false, /*null_string=*/R"(")"),
+       /*null_string_invalid*/ true, ""}};
 }
 
 class TestWriteCSV : public ::testing::TestWithParam<WriterTestParams> {
@@ -150,23 +160,28 @@ TEST_P(TestWriteCSV, TestWrite) {
   WriteOptions options = GetParam().options;
   std::string csv;
   auto record_batch = RecordBatchFromJSON(GetParam().schema, GetParam().batch_data);
-  ASSERT_OK_AND_ASSIGN(csv, ToCsvString(*record_batch, options));
-  EXPECT_EQ(csv, GetParam().expected_output);
+  // Invalid options should be rejected.
+  if (GetParam().options_invalid) {
+    ASSERT_RAISES(Invalid, ToCsvString(*record_batch, options));
+  } else {
+    ASSERT_OK_AND_ASSIGN(csv, ToCsvString(*record_batch, options));
+    EXPECT_EQ(csv, GetParam().expected_output);
 
-  // Batch size shouldn't matter.
-  options.batch_size /= 2;
-  ASSERT_OK_AND_ASSIGN(csv, ToCsvString(*record_batch, options));
-  EXPECT_EQ(csv, GetParam().expected_output);
+    // Batch size shouldn't matter.
+    options.batch_size /= 2;
+    ASSERT_OK_AND_ASSIGN(csv, ToCsvString(*record_batch, options));
+    EXPECT_EQ(csv, GetParam().expected_output);
 
-  // Table and Record batch should work identically.
-  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Table> table,
-                       Table::FromRecordBatches({record_batch}));
-  ASSERT_OK_AND_ASSIGN(csv, ToCsvString(*table, options));
-  EXPECT_EQ(csv, GetParam().expected_output);
+    // Table and Record batch should work identically.
+    ASSERT_OK_AND_ASSIGN(std::shared_ptr<Table> table,
+                         Table::FromRecordBatches({record_batch}));
+    ASSERT_OK_AND_ASSIGN(csv, ToCsvString(*table, options));
+    EXPECT_EQ(csv, GetParam().expected_output);
 
-  // The writer should work identically.
-  ASSERT_OK_AND_ASSIGN(csv, ToCsvStringUsingWriter(*table, options));
-  EXPECT_EQ(csv, GetParam().expected_output);
+    // The writer should work identically.
+    ASSERT_OK_AND_ASSIGN(csv, ToCsvStringUsingWriter(*table, options));
+    EXPECT_EQ(csv, GetParam().expected_output);
+  }
 }
 
 INSTANTIATE_TEST_SUITE_P(MultiColumnWriteCSVTest, TestWriteCSV,
@@ -176,6 +191,7 @@ INSTANTIATE_TEST_SUITE_P(SingleColumnWriteCSVTest, TestWriteCSV,
                          ::testing::Values(WriterTestParams{
                              schema({field("int64", int64())}),
                              R"([{ "int64": 9999}, {}, { "int64": -15}])", WriteOptions(),
+                             false,
                              R"("int64")"
                              "\n9999\n\n-15\n"}));
 
@@ -188,7 +204,7 @@ INSTANTIATE_TEST_SUITE_P(
             field("tz", timestamp(TimeUnit::SECOND, "America/Phoenix")),
             field("utc", timestamp(TimeUnit::SECOND, "UTC")),
         }),
-        R"([{ "tz": 1456767743, "utc": 1456767743 }])", WriteOptions(),
+        R"([{ "tz": 1456767743, "utc": 1456767743 }])", WriteOptions(), false,
         R"("tz","utc")"
         "\n2016-02-29 10:42:23-0700,2016-02-29 17:42:23Z\n"}));
 #endif
