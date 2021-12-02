@@ -99,6 +99,7 @@ RUN apt-get update -y -q && \
         python3-rados \
         rados-objclass-dev \
         rapidjson-dev \
+        rsync \
         tzdata \
         wget && \
     apt-get clean && \
