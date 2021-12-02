@@ -89,6 +89,17 @@ class ARROW_EXPORT ChunkedArray {
   static Result<std::shared_ptr<ChunkedArray>> Make(
       ArrayVector chunks, std::shared_ptr<DataType> type = NULLPTR);
 
+  /// \brief Create an empty ChunkedArray of a given type
+  ///
+  /// The output ChunkedArray will have one chunk with an empty
+  /// array of the given type.
+  ///
+  /// \param[in] type DataType of the empty ChunkedArray
+  /// \param[in] memory_pool MemoryPool pointer
+  /// \return the resulting ChunkedArray
+  static Result<std::shared_ptr<ChunkedArray>> MakeEmptyChunkedArray(
+      std::shared_ptr<DataType> type, MemoryPool* memory_pool);
+
   /// \return the total length of the chunked array; computed on construction
   int64_t length() const { return length_; }
 

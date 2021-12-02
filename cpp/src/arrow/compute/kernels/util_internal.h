@@ -164,21 +164,6 @@ int64_t CopyNonNullValues(const Datum& datum, T* out) {
   return n;
 }
 
-//--------------------------------------------------------------------------
-// An internal function to create an empty array, chucked array, record batch and table.
-
-Result<std::shared_ptr<Array>> CreateEmptyArray(std::shared_ptr<DataType> type,
-                                                MemoryPool* memory_pool);
-
-Result<std::shared_ptr<ChunkedArray>> CreateEmptyChunkedArray(
-    std::shared_ptr<DataType> type, MemoryPool* memory_pool);
-
-Result<std::shared_ptr<RecordBatch>> CreateEmptyRecordBatch(
-    std::shared_ptr<Schema> schema, MemoryPool* memory_pool);
-
-Result<std::shared_ptr<Table>> CreateEmptyTable(std::shared_ptr<Schema> schema,
-                                                MemoryPool* memory_pool);
-
 }  // namespace internal
 }  // namespace compute
 }  // namespace arrow

@@ -45,6 +45,7 @@
 #include "arrow/util/endian.h"
 #include "arrow/util/logging.h"
 #include "arrow/visitor_inline.h"
+#include "builder_base.h"
 
 namespace arrow {
 
@@ -789,6 +790,14 @@ Result<std::shared_ptr<Array>> MakeArrayFromScalar(const Scalar& scalar, int64_t
     return MakeArrayOfNull(scalar.type, length, pool);
   }
   return RepeatedArrayFactory(pool, scalar, length).Create();
+}
+
+Result<std::shared_ptr<Array>> MakeEmptyArray(std::shared_ptr<DataType> type,
+                                              MemoryPool* memory_pool) {
+  std::unique_ptr<ArrayBuilder> builder;
+  RETURN_NOT_OK(MakeBuilder(memory_pool, type, &builder));
+  RETURN_NOT_OK(builder->Resize(0));
+  return builder->Finish();
 }
 
 namespace internal {

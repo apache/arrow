@@ -2175,7 +2175,7 @@ Result<Datum> DropNullArray(const std::shared_ptr<Array>& values, ExecContext* c
     return values;
   }
   if (values->null_count() == values->length()) {
-    return CreateEmptyArray(values->type(), ctx->memory_pool());
+    return MakeEmptyArray(values->type(), ctx->memory_pool());
   }
   if (values->type()->id() == Type::type::NA) {
     return std::make_shared<NullArray>(0);
@@ -2191,7 +2191,7 @@ Result<Datum> DropNullChunkedArray(const std::shared_ptr<ChunkedArray>& values,
     return values;
   }
   if (values->null_count() == values->length()) {
-    return CreateEmptyChunkedArray(values->type(), ctx->memory_pool());
+    return ChunkedArray::MakeEmptyChunkedArray(values->type(), ctx->memory_pool());
   }
   std::vector<std::shared_ptr<Array>> new_chunks;
   for (const auto& chunk : values->chunks()) {
@@ -2229,7 +2229,7 @@ Result<Datum> DropNullRecordBatch(const std::shared_ptr<RecordBatch>& batch,
   }
   auto drop_null_filter = std::make_shared<BooleanArray>(batch->num_rows(), dst);
   if (drop_null_filter->true_count() == 0) {
-    return CreateEmptyRecordBatch(batch->schema(), ctx->memory_pool());
+    return RecordBatch::MakeEmptyRecordBatch(batch->schema(), ctx->memory_pool());
   }
   return Filter(Datum(batch), Datum(drop_null_filter), FilterOptions::Defaults(), ctx);
 }
