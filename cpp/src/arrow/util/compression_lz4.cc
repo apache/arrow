@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/util/compression.h"
+#include "arrow/util/compression_internal.h"
 
 #include <cstdint>
 #include <cstring>
@@ -38,11 +38,11 @@
 
 namespace arrow {
 namespace util {
+namespace internal {
 
 namespace {
 
 constexpr int kLZ4MinCompressionLevel = 1;
-constexpr int kLZ4DefaultCompressionLevel = 1;
 
 static Status LZ4Error(LZ4F_errorCode_t ret, const char* prefix_msg) {
   return Status::IOError(prefix_msg, LZ4F_getErrorName(ret));
@@ -240,12 +240,10 @@ class LZ4Compressor : public Compressor {
 #undef BEGIN_COMPRESS
 
  protected:
+  int compression_level_;
   LZ4F_compressionContext_t ctx_ = nullptr;
   LZ4F_preferences_t prefs_;
   bool first_time_;
-
- private:
-  int compression_level_;
 };
 
 // ----------------------------------------------------------------------
@@ -255,7 +253,7 @@ class Lz4FrameCodec : public Codec {
  public:
   explicit Lz4FrameCodec(int compression_level)
       : compression_level_(compression_level == kUseDefaultCompressionLevel
-                               ? kLZ4DefaultCompressionLevel
+                               ? kLz4DefaultCompressionLevel
                                : compression_level),
         prefs_(PreferencesWithCompressionLevel(compression_level_)) {}
 
@@ -318,14 +316,12 @@ class Lz4FrameCodec : public Codec {
   Compression::type compression_type() const override { return Compression::LZ4_FRAME; }
   int minimum_compression_level() const override { return kLZ4MinCompressionLevel; }
   int maximum_compression_level() const override { return LZ4F_compressionLevel_max(); }
-  int default_compression_level() const override { return kLZ4DefaultCompressionLevel; }
+  int default_compression_level() const override { return kLz4DefaultCompressionLevel; }
 
   int compression_level() const override { return compression_level_; }
 
- private:
-  const int compression_level_;
-
  protected:
+  const int compression_level_;
   const LZ4F_preferences_t prefs_;
 };
 
@@ -495,8 +491,6 @@ class Lz4HadoopCodec : public Lz4Codec {
 };
 
 }  // namespace
-
-namespace internal {
 
 std::unique_ptr<Codec> MakeLz4FrameCodec(int compression_level) {
   return std::unique_ptr<Codec>(new Lz4FrameCodec(compression_level));

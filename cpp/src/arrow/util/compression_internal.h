@@ -65,10 +65,10 @@ std::unique_ptr<Codec> MakeLz4RawCodec();
 std::unique_ptr<Codec> MakeLz4HadoopRawCodec();
 
 // Lz4 frame format codec.
-constexpr int kLZ4DefaultCompressionLevel = 1;
+constexpr int kLz4DefaultCompressionLevel = 1;
 
 std::unique_ptr<Codec> MakeLz4FrameCodec(
-    int compression_level = kLZ4DefaultCompressionLevel);
+    int compression_level = kLz4DefaultCompressionLevel);
 
 // ZSTD codec.
 
