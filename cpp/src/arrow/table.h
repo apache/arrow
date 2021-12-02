@@ -68,7 +68,7 @@ class ARROW_EXPORT Table {
   /// The output Table will be created from a ChunkedArrayVector
   /// with DataTypes from the schema.
   ///
-  /// \param[in] type Schema of the empty Table
+  /// \param[in] schema Schema of the empty Table
   /// \param[in] memory_pool MemoryPool pointer
   /// \return the resulting Table
   static Result<std::shared_ptr<Table>> MakeEmptyTable(std::shared_ptr<Schema> schema,
