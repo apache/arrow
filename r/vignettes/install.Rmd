@@ -26,6 +26,8 @@ a more detailed discussion of the code run during the installation process in th
 
 As mentioned above, on macOS and Windows, when you run `install.packages("arrow")`, and install arrow from CRAN, you get an R binary package that contains a precompiled version of libarrow, though CRAN does not host binary packages for Linux.  This means that the default behaviour when you run `install.packages()` on Linux is to retrieve the source version of the R package that has to be compiled locally, including building libarrow from source. See method 2 below for details of this.
 
+For a faster installation, we recommend that you instead use one of the methods below for installing arrow with a precompiled libarrow binary.
+
 ### Method 1a - Binary R package containing libarrow binary via RSPM/conda
 
 ```{r, echo=FALSE, out.width="30%"}
