@@ -24,7 +24,7 @@ test_that("codec_is_available", {
 })
 
 test_that("Compression codecs are included in the Windows build", {
-  skip_if(tolower(Sys.info()[["sysname"]]) == "windows")
+  skip_if(tolower(Sys.info()[["sysname"]]) != "windows")
   expect_true(codec_is_available("lz4"))
   expect_true(codec_is_available("zstd"))
   expect_true(codec_is_available("brotli"))
