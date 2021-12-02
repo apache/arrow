@@ -141,24 +141,19 @@ the bundled build script.  All boolean variables are case-insensitive.
 
 | Name | Description | Default |
 | --- | --- | :-: |
-| `ARROW_USE_PKG_CONFIG` | Use `pkg-config` to search for `libarrow` install | `true` |
 | `LIBARROW_BUILD` | Allow building from source | `true` |
 | `LIBARROW_BINARY` | Try to install `libarrow` binary instead of building from source | `true` |
 | `LIBARROW_MINIMAL` | Build with minimal features enabled | (unset) |
 | `NOT_CRAN` | Set `LIBARROW_BINARY=true` and `LIBARROW_MINIMAL=false` | `false` |
 | `ARROW_R_DEV` | More verbose messaging and regenerates some code | `false` |
+| `ARROW_USE_PKG_CONFIG` | Use `pkg-config` to search for `libarrow` install | `true` |
 | `LIBARROW_DEBUG_DIR` | Directory to save source build logs | (unset) |
 | `CMAKE` | Alternative CMake path | (unset) |
 
 See below for more in-depth explanations of these environment variables.
 
-* `ARROW_USE_PKG_CONFIG`: If set to `false`, the configure script won't look for 
-Arrow libraries on your system and instead will look to download/build them.
-  Use this if you have a version mismatch between installed system libraries and
-  the version of the R package you're installing.
 * `LIBARROW_BINARY` : If set to `true`, the script will try to download a binary
-  C++ library built for your operating system.  You may also set it to some other string,  a related "distro-version" that has binaries built that work for your OS.
-  If no binary is found, installation will fall back to building C++  dependencies from source. 
+  C++ library built for your operating system.  You may also set it to some other string,  a related "distro-version" that has binaries built that work for your OS.  See the [distro map](https://raw.githubusercontent.com/ursa-labs/arrow-r-nightly/master/linux/distro-map.csv) for compatible binaries and OSs.  If no binary is found, installation will fall back to building C++  dependencies from source. 
 * `LIBARROW_BUILD` : If set to `false`, the build script
   will not attempt to build the C++ from source. This means you will only get
   a working arrow R package if a prebuilt binary is found.
@@ -179,7 +174,11 @@ Arrow libraries on your system and instead will look to download/build them.
 * `ARROW_R_DEV` : If set to `true`, more verbose messaging will be printed
   in the build script. `arrow::install_arrow(verbose = TRUE)` sets this.
   This variable also is needed if you're modifying C++
-  code in the package: see the developer guide vignette. 
+  code in the package: see the developer guide vignette.
+* `ARROW_USE_PKG_CONFIG`: If set to `false`, the configure script won't look for 
+Arrow libraries on your system and instead will look to download/build them.
+  Use this if you have a version mismatch between installed system libraries and
+  the version of the R package you're installing.
 * `LIBARROW_DEBUG_DIR` : If the C++ library building from source fails (`cmake`),
   there may be messages telling you to check some log file in the build directory.
   However, when the library is built during R package installation,
