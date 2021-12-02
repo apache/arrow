@@ -346,7 +346,8 @@ Automatic partitioning detection
 If the directory is partitioned using the hive partitioning scheme (see above)
 then pyarrow will be able to automatically recognize the partitioning and include
 the partitioning information as a column in the returned table.  There is no
-need to specify the partitioning:
+need to specify the partitioning unless you need to override the inferred data
+types of the partitioning columns:
 
 .. code-block:: python
 
