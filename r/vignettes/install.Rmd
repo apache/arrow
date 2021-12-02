@@ -164,7 +164,8 @@ See below for more in-depth explanations of these environment variables.
   support and additional alternative memory allocators. This will increase the
   source build time but results in a more fully functional library. If set to 
   `true` turns off Parquet, Datasets, compression libraries, and other optional 
-  features.
+  features. This is not commonly used but may be helpful if needing to compile 
+  on a platform that does not support these features, e.g. Solaris.
 * `NOT_CRAN` : If this variable is set to `true`, as the `devtools` package does,
   the build script will set `LIBARROW_BINARY=true` and `LIBARROW_MINIMAL=false`
   unless those environment variables are already set. This provides for a more
