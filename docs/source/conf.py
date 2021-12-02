@@ -70,7 +70,7 @@ extensions = [
     'IPython.sphinxext.ipython_directive',
     'IPython.sphinxext.ipython_console_highlighting',
     'breathe',
-    'sphinx_tabs.tabs'
+    # 'sphinx_tabs.tabs'
 ]
 
 # Show members for classes in .. autosummary
