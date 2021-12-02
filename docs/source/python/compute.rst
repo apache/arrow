@@ -34,7 +34,7 @@ module and can be used directly::
    >>> pc.sum(a)
    <pyarrow.Int64Scalar: 7>
 
-The grouped aggregation functions are instead an exception 
+The grouped aggregation functions raise an exception instead
 and need to be used through the :meth:`pyarrow.Table.group_by` capabilities.
 
 Standard Compute Functions
