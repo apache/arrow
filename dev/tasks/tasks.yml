@@ -113,6 +113,9 @@ groups:
   verify-rc-binaries:
     - verify-rc-binaries-*
 
+  verify-rc-jars:
+    - verify-rc-jars-*
+
   verify-rc-wheels:
     - verify-rc-wheels-*
 
@@ -829,8 +832,17 @@ tasks:
       env:
         TEST_DEFAULT: 0
         TEST_{{ target|upper }}: 1
-      artifact: {{ target }}
+      artifact: binaries
 {% endfor %}
+
+  verify-rc-jars-amd64:
+    ci: github
+    template: verify-rc/github.linux.amd64.yml
+    params:
+      env:
+        TEST_DEFAULT: 0
+        TEST_JARS: 1
+      artifact: jars
 
 {% for platform, arch, runner in [("linux", "amd64", "ubuntu-20.04"),
                                   ("macos", "amd64", "macos-10.15")] %}
