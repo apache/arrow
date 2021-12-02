@@ -57,9 +57,9 @@ class ARROW_EXPORT ElementWiseAggregateOptions : public FunctionOptions {
 enum class RoundMode : int8_t {
   /// Round to nearest integer less than or equal in magnitude (aka "floor")
   DOWN,
-  /// Round to nearest integer greater than or equal in magnitude (aka "ceiling")
+  /// Round to nearest integer greater than or equal in magnitude (aka "ceil")
   UP,
-  /// Get the integral part without fractional digits (aka "truncate")
+  /// Get the integral part without fractional digits (aka "trunc")
   TOWARDS_ZERO,
   /// Round negative values with DOWN rule and positive values with UP rule (aka "away from zero")
   TOWARDS_INFINITY,
