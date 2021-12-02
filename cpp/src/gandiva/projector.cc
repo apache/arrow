@@ -275,14 +275,14 @@ Status Projector::AllocArrayData(const DataTypePtr& type, int64_t num_records,
   std::vector<std::shared_ptr<arrow::Buffer>> buffers;
 
   // The output vector always has a null bitmap.
-  int64_t size = arrow::BitUtil::BytesForBits(num_records);
+  int64_t size = arrow::bit_util::BytesForBits(num_records);
   ARROW_ASSIGN_OR_RAISE(auto bitmap_buffer, arrow::AllocateBuffer(size, pool));
   buffers.push_back(std::move(bitmap_buffer));
 
   // String/Binary vectors have an offsets array.
   auto type_id = type->id();
   if (arrow::is_binary_like(type_id)) {
-    auto offsets_len = arrow::BitUtil::BytesForBits((num_records + 1) * 32);
+    auto offsets_len = arrow::bit_util::BytesForBits((num_records + 1) * 32);
 
     ARROW_ASSIGN_OR_RAISE(auto offsets_buffer, arrow::AllocateBuffer(offsets_len, pool));
     buffers.push_back(std::move(offsets_buffer));
@@ -292,7 +292,7 @@ Status Projector::AllocArrayData(const DataTypePtr& type, int64_t num_records,
   int64_t data_len;
   if (arrow::is_primitive(type_id) || type_id == arrow::Type::DECIMAL) {
     const auto& fw_type = dynamic_cast<const arrow::FixedWidthType&>(*type);
-    data_len = arrow::BitUtil::BytesForBits(num_records * fw_type.bit_width());
+    data_len = arrow::bit_util::BytesForBits(num_records * fw_type.bit_width());
   } else if (arrow::is_binary_like(type_id)) {
     // we don't know the expected size for varlen output vectors.
     data_len = 0;
@@ -327,7 +327,7 @@ Status Projector::ValidateArrayDataCapacity(const arrow::ArrayData& array_data,
   ARROW_RETURN_IF(array_data.buffers.size() < 2,
                   Status::Invalid("ArrayData must have at least 2 buffers"));
 
-  int64_t min_bitmap_len = arrow::BitUtil::BytesForBits(num_records);
+  int64_t min_bitmap_len = arrow::bit_util::BytesForBits(num_records);
   int64_t bitmap_len = array_data.buffers[0]->capacity();
   ARROW_RETURN_IF(
       bitmap_len < min_bitmap_len,
@@ -337,7 +337,7 @@ Status Projector::ValidateArrayDataCapacity(const arrow::ArrayData& array_data,
   auto type_id = field.type()->id();
   if (arrow::is_binary_like(type_id)) {
     // validate size of offsets buffer.
-    int64_t min_offsets_len = arrow::BitUtil::BytesForBits((num_records + 1) * 32);
+    int64_t min_offsets_len = arrow::bit_util::BytesForBits((num_records + 1) * 32);
     int64_t offsets_len = array_data.buffers[1]->capacity();
     ARROW_RETURN_IF(
         offsets_len < min_offsets_len,
@@ -353,7 +353,7 @@ Status Projector::ValidateArrayDataCapacity(const arrow::ArrayData& array_data,
     // verify size of data buffer.
     const auto& fw_type = dynamic_cast<const arrow::FixedWidthType&>(*field.type());
     int64_t min_data_len =
-        arrow::BitUtil::BytesForBits(num_records * fw_type.bit_width());
+        arrow::bit_util::BytesForBits(num_records * fw_type.bit_width());
     int64_t data_len = array_data.buffers[1]->capacity();
     ARROW_RETURN_IF(data_len < min_data_len,
                     Status::Invalid("Data buffer too small for ", field.name()));

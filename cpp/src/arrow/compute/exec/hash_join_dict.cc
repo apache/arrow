@@ -71,13 +71,13 @@ Result<std::shared_ptr<ArrayData>> HashJoinDictUtil::IndexRemapUsingLUT(
   uint8_t* nns = result->buffers[0]->mutable_data();
   int32_t* ids = reinterpret_cast<int32_t*>(result->buffers[1]->mutable_data());
   for (int64_t i = 0; i < batch_length; ++i) {
-    bool is_null = !BitUtil::GetBit(nns, i);
+    bool is_null = !bit_util::GetBit(nns, i);
     if (is_null) {
       ids[i] = kNullId;
     } else {
       ARROW_DCHECK(ids[i] >= 0 && ids[i] < map_array->length);
-      if (!BitUtil::GetBit(map_non_nulls, ids[i])) {
-        BitUtil::ClearBit(nns, i);
+      if (!bit_util::GetBit(map_non_nulls, ids[i])) {
+        bit_util::ClearBit(nns, i);
         ids[i] = kNullId;
       } else {
         ids[i] = map[ids[i]];
@@ -102,7 +102,7 @@ static Result<std::shared_ptr<ArrayData>> ConvertImp(
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> to_nn_buf,
                         AllocateBitmap(batch_length, ctx->memory_pool()));
   uint8_t* to_nn = to_nn_buf->mutable_data();
-  memset(to_nn, 0xff, BitUtil::BytesForBits(batch_length));
+  memset(to_nn, 0xff, bit_util::BytesForBits(batch_length));
 
   if (!is_scalar) {
     const ArrayData& arr = *input.array();
@@ -115,9 +115,9 @@ static Result<std::shared_ptr<ArrayData>> ConvertImp(
       ARROW_DCHECK(static_cast<FROM>(to[i]) == from[i]);
 
       bool is_null = (arr.buffers[0] != NULLPTR) &&
-                     !BitUtil::GetBit(arr.buffers[0]->data(), arr.offset + i);
+                     !bit_util::GetBit(arr.buffers[0]->data(), arr.offset + i);
       if (is_null) {
-        BitUtil::ClearBit(to_nn, i);
+        bit_util::ClearBit(to_nn, i);
       }
     }
 
@@ -138,11 +138,11 @@ static Result<std::shared_ptr<ArrayData>> ConvertImp(
         to[i] = to_value;
       }
 
-      memset(to_nn, 0xff, BitUtil::BytesForBits(batch_length));
+      memset(to_nn, 0xff, bit_util::BytesForBits(batch_length));
       return ArrayData::Make(to_type, batch_length,
                              {std::move(to_nn_buf), std::move(to_buf)});
     } else {
-      memset(to_nn, 0, BitUtil::BytesForBits(batch_length));
+      memset(to_nn, 0, bit_util::BytesForBits(batch_length));
       return ArrayData::Make(to_type, batch_length,
                              {std::move(to_nn_buf), std::move(to_buf)});
     }
@@ -245,7 +245,7 @@ Status HashJoinDictBuild::Init(ExecContext* ctx, std::shared_ptr<Array> dictiona
                         AllocateBuffer(length * sizeof(int32_t), ctx->memory_pool()));
   uint8_t* non_nulls = non_nulls_buf->mutable_data();
   int32_t* ids = reinterpret_cast<int32_t*>(ids_buf->mutable_data());
-  memset(non_nulls, 0xff, BitUtil::BytesForBits(length));
+  memset(non_nulls, 0xff, bit_util::BytesForBits(length));
 
   int32_t num_entries = 0;
   for (int64_t i = 0; i < length; ++i) {
@@ -257,7 +257,7 @@ Status HashJoinDictBuild::Init(ExecContext* ctx, std::shared_ptr<Array> dictiona
     //
     if (internal::KeyEncoder::IsNull(reinterpret_cast<const uint8_t*>(str.data()))) {
       ids[i] = HashJoinDictUtil::kNullId;
-      BitUtil::ClearBit(non_nulls, i);
+      bit_util::ClearBit(non_nulls, i);
       continue;
     }
 
@@ -307,7 +307,7 @@ Result<std::shared_ptr<ArrayData>> HashJoinDictBuild::RemapInputValues(
       AllocateBuffer(batch_length * sizeof(int32_t), ctx->memory_pool()));
   uint8_t* non_nulls = non_nulls_buf->mutable_data();
   int32_t* ids = reinterpret_cast<int32_t*>(ids_buf->mutable_data());
-  memset(non_nulls, 0xff, BitUtil::BytesForBits(batch_length));
+  memset(non_nulls, 0xff, bit_util::BytesForBits(batch_length));
 
   // Populate output buffers (for scalar only the first entry is populated)
   //
@@ -315,7 +315,7 @@ Result<std::shared_ptr<ArrayData>> HashJoinDictBuild::RemapInputValues(
     std::string str = encoder.encoded_row(static_cast<int32_t>(i));
     if (internal::KeyEncoder::IsNull(reinterpret_cast<const uint8_t*>(str.data()))) {
       // Map nulls to nulls
-      BitUtil::ClearBit(non_nulls, i);
+      bit_util::ClearBit(non_nulls, i);
       ids[i] = HashJoinDictUtil::kNullId;
     } else {
       auto iter = hash_table_.find(str);
@@ -330,8 +330,8 @@ Result<std::shared_ptr<ArrayData>> HashJoinDictBuild::RemapInputValues(
   // Generate array of repeated values for scalar input
   //
   if (is_scalar) {
-    if (!BitUtil::GetBit(non_nulls, 0)) {
-      memset(non_nulls, 0, BitUtil::BytesForBits(batch_length));
+    if (!bit_util::GetBit(non_nulls, 0)) {
+      memset(non_nulls, 0, bit_util::BytesForBits(batch_length));
     }
     for (int64_t i = 1; i < batch_length; ++i) {
       ids[i] = ids[0];
@@ -447,7 +447,7 @@ Result<std::shared_ptr<ArrayData>> HashJoinDictProbe::RemapInput(
           reinterpret_cast<int32_t*>(row_ids_arr->buffers[1]->mutable_data());
       const uint8_t* non_nulls = row_ids_arr->buffers[0]->data();
       for (int64_t i = 0; i < batch_length; ++i) {
-        if (!BitUtil::GetBit(non_nulls, i)) {
+        if (!bit_util::GetBit(non_nulls, i)) {
           row_ids[i] = internal::RowEncoder::kRowIdForNulls();
         }
       }

@@ -85,7 +85,7 @@ struct ListParentIndicesArray {
     auto* out_indices = reinterpret_cast<offset_type*>(indices->mutable_data());
     const auto* bitmap = input->GetValues<uint8_t>(0, 0);
     for (int32_t i = 0; i < input->length; i++) {
-      if (!bitmap || BitUtil::GetBit(bitmap, input->offset + i)) {
+      if (!bitmap || bit_util::GetBit(bitmap, input->offset + i)) {
         std::fill(out_indices, out_indices + slot_length,
                   static_cast<int32_t>(base_output_offset + i));
         out_indices += slot_length;

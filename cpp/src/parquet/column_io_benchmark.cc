@@ -98,26 +98,33 @@ static void BM_WriteInt64Column(::benchmark::State& state) {
 BENCHMARK_TEMPLATE(BM_WriteInt64Column, Repetition::REQUIRED)->Arg(1 << 20);
 BENCHMARK_TEMPLATE(BM_WriteInt64Column, Repetition::OPTIONAL)->Arg(1 << 20);
 BENCHMARK_TEMPLATE(BM_WriteInt64Column, Repetition::REPEATED)->Arg(1 << 20);
+
+#ifdef ARROW_WITH_SNAPPY
 BENCHMARK_TEMPLATE(BM_WriteInt64Column, Repetition::REQUIRED, Compression::SNAPPY)
     ->Arg(1 << 20);
 BENCHMARK_TEMPLATE(BM_WriteInt64Column, Repetition::OPTIONAL, Compression::SNAPPY)
     ->Arg(1 << 20);
 BENCHMARK_TEMPLATE(BM_WriteInt64Column, Repetition::REPEATED, Compression::SNAPPY)
     ->Arg(1 << 20);
+#endif
 
+#ifdef ARROW_WITH_LZ4
 BENCHMARK_TEMPLATE(BM_WriteInt64Column, Repetition::REQUIRED, Compression::LZ4)
     ->Arg(1 << 20);
 BENCHMARK_TEMPLATE(BM_WriteInt64Column, Repetition::OPTIONAL, Compression::LZ4)
     ->Arg(1 << 20);
 BENCHMARK_TEMPLATE(BM_WriteInt64Column, Repetition::REPEATED, Compression::LZ4)
     ->Arg(1 << 20);
+#endif
 
+#ifdef ARROW_WITH_ZSTD
 BENCHMARK_TEMPLATE(BM_WriteInt64Column, Repetition::REQUIRED, Compression::ZSTD)
     ->Arg(1 << 20);
 BENCHMARK_TEMPLATE(BM_WriteInt64Column, Repetition::OPTIONAL, Compression::ZSTD)
     ->Arg(1 << 20);
 BENCHMARK_TEMPLATE(BM_WriteInt64Column, Repetition::REPEATED, Compression::ZSTD)
     ->Arg(1 << 20);
+#endif
 
 std::shared_ptr<Int64Reader> BuildReader(std::shared_ptr<Buffer>& buffer,
                                          int64_t num_values, Compression::type codec,
@@ -183,26 +190,32 @@ BENCHMARK_TEMPLATE(BM_ReadInt64Column, Repetition::OPTIONAL)->Apply(ReadColumnSe
 
 BENCHMARK_TEMPLATE(BM_ReadInt64Column, Repetition::REPEATED)->Apply(ReadColumnSetArgs);
 
+#ifdef ARROW_WITH_SNAPPY
 BENCHMARK_TEMPLATE(BM_ReadInt64Column, Repetition::REQUIRED, Compression::SNAPPY)
     ->Apply(ReadColumnSetArgs);
 BENCHMARK_TEMPLATE(BM_ReadInt64Column, Repetition::OPTIONAL, Compression::SNAPPY)
     ->Apply(ReadColumnSetArgs);
 BENCHMARK_TEMPLATE(BM_ReadInt64Column, Repetition::REPEATED, Compression::SNAPPY)
     ->Apply(ReadColumnSetArgs);
+#endif
 
+#ifdef ARROW_WITH_LZ4
 BENCHMARK_TEMPLATE(BM_ReadInt64Column, Repetition::REQUIRED, Compression::LZ4)
     ->Apply(ReadColumnSetArgs);
 BENCHMARK_TEMPLATE(BM_ReadInt64Column, Repetition::OPTIONAL, Compression::LZ4)
     ->Apply(ReadColumnSetArgs);
 BENCHMARK_TEMPLATE(BM_ReadInt64Column, Repetition::REPEATED, Compression::LZ4)
     ->Apply(ReadColumnSetArgs);
+#endif
 
+#ifdef ARROW_WITH_ZSTD
 BENCHMARK_TEMPLATE(BM_ReadInt64Column, Repetition::REQUIRED, Compression::ZSTD)
     ->Apply(ReadColumnSetArgs);
 BENCHMARK_TEMPLATE(BM_ReadInt64Column, Repetition::OPTIONAL, Compression::ZSTD)
     ->Apply(ReadColumnSetArgs);
 BENCHMARK_TEMPLATE(BM_ReadInt64Column, Repetition::REPEATED, Compression::ZSTD)
     ->Apply(ReadColumnSetArgs);
+#endif
 
 static void BM_RleEncoding(::benchmark::State& state) {
   std::vector<int16_t> levels(state.range(0), 0);

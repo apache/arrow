@@ -108,7 +108,11 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-      - name: Run
+      - name: Check CMake presets
+        run: |
+          cd cpp
+          cmake --list-presets
+      - name: Run minimal example
         run: |
           cd cpp/examples/minimal_build
           docker-compose run --rm minimal
@@ -178,7 +182,7 @@ jobs:
           ci/scripts/cpp_test.sh $(pwd) $(pwd)/build
 
   windows:
-    name: AMD64 ${{ matrix.name }} C++
+    name: AMD64 ${{ matrix.name }} C++17
     runs-on: ${{ matrix.os }}
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 45
@@ -197,6 +201,7 @@ jobs:
       ARROW_BUILD_SHARED: ON
       ARROW_BUILD_STATIC: OFF
       ARROW_BUILD_TESTS: ON
+      ARROW_CXXFLAGS: "/std:c++17"
       ARROW_DATASET: ON
       ARROW_FLIGHT: OFF
       ARROW_HDFS: ON
@@ -218,7 +223,7 @@ jobs:
       CMAKE_INSTALL_LIBDIR: bin
       CMAKE_INSTALL_PREFIX: /usr
       CMAKE_UNITY_BUILD: ON
-      NPROC: 2
+      NPROC: 3
     steps:
       - name: Disable Crash Dialogs
         run: |

@@ -60,9 +60,11 @@ from pyarrow._compute import (  # noqa
     SplitPatternOptions,
     StrftimeOptions,
     StrptimeOptions,
+    StructFieldOptions,
     TakeOptions,
     TDigestOptions,
     TrimOptions,
+    Utf8NormalizeOptions,
     VarianceOptions,
     WeekOptions,
     # Functions
@@ -187,7 +189,7 @@ def _make_generic_wrapper(func_name, func, option_class, arity):
             if arity is not Ellipsis and len(args) != arity:
                 raise TypeError(
                     f"{func_name} takes {arity} positional argument(s), "
-                    "but {len(args)} were given"
+                    f"but {len(args)} were given"
                 )
             return func.call(args, None, memory_pool)
     else:
@@ -195,7 +197,7 @@ def _make_generic_wrapper(func_name, func, option_class, arity):
             if arity is not Ellipsis and len(args) != arity:
                 raise TypeError(
                     f"{func_name} takes {arity} positional argument(s), "
-                    "but {len(args)} were given"
+                    f"but {len(args)} were given"
                 )
             options = _handle_options(func_name, option_class, options,
                                       kwargs)

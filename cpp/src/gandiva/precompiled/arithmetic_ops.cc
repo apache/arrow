@@ -125,6 +125,69 @@ NUMERIC_DATE_TYPES(BINARY_RELATIONAL, greater_than_or_equal_to, >=)
 
 #undef BINARY_RELATIONAL
 
+// Returns the greatest or least value from a list of values
+#define COMPARE_TWO_VALUES(NAME, TYPE, OP)                            \
+  FORCE_INLINE                                                        \
+  gdv_##TYPE NAME##_##TYPE##_##TYPE(gdv_##TYPE in1, gdv_##TYPE in2) { \
+    return (in1 OP in2 ? in1 : in2);                                  \
+  }
+
+#define COMPARE_THREE_VALUES(NAME, TYPE, OP)                                 \
+  FORCE_INLINE                                                               \
+  gdv_##TYPE NAME##_##TYPE##_##TYPE##_##TYPE(gdv_##TYPE in1, gdv_##TYPE in2, \
+                                             gdv_##TYPE in3) {               \
+    gdv_##TYPE compared = (in1 OP in2 ? in1 : in2);                          \
+    return (compared OP in3 ? compared : in3);                               \
+  }
+
+#define COMPARE_FOUR_VALUES(NAME, TYPE, OP)                                             \
+  FORCE_INLINE                                                                          \
+  gdv_##TYPE NAME##_##TYPE##_##TYPE##_##TYPE##_##TYPE(gdv_##TYPE in1, gdv_##TYPE in2,   \
+                                                      gdv_##TYPE in3, gdv_##TYPE in4) { \
+    gdv_##TYPE compared = (in1 OP in2 ? in1 : in2);                                     \
+    compared = (compared OP in3 ? compared : in3);                                      \
+    return (compared OP in4 ? compared : in4);                                          \
+  }
+
+#define COMPARE_FIVE_VALUES(NAME, TYPE, OP)                                             \
+  FORCE_INLINE                                                                          \
+  gdv_##TYPE NAME##_##TYPE##_##TYPE##_##TYPE##_##TYPE##_##TYPE(                         \
+      gdv_##TYPE in1, gdv_##TYPE in2, gdv_##TYPE in3, gdv_##TYPE in4, gdv_##TYPE in5) { \
+    gdv_##TYPE compared = (in1 OP in2 ? in1 : in2);                                     \
+    compared = (compared OP in3 ? compared : in3);                                      \
+    compared = (compared OP in4 ? compared : in4);                                      \
+    return (compared OP in5 ? compared : in5);                                          \
+  }
+
+#define COMPARE_SIX_VALUES(NAME, TYPE, OP)                                            \
+  FORCE_INLINE                                                                        \
+  gdv_##TYPE NAME##_##TYPE##_##TYPE##_##TYPE##_##TYPE##_##TYPE##_##TYPE(              \
+      gdv_##TYPE in1, gdv_##TYPE in2, gdv_##TYPE in3, gdv_##TYPE in4, gdv_##TYPE in5, \
+      gdv_##TYPE in6) {                                                               \
+    gdv_##TYPE compared = (in1 OP in2 ? in1 : in2);                                   \
+    compared = (compared OP in3 ? compared : in3);                                    \
+    compared = (compared OP in4 ? compared : in4);                                    \
+    compared = (compared OP in5 ? compared : in5);                                    \
+    return (compared OP in6 ? compared : in6);                                        \
+  }
+
+NUMERIC_DATE_TYPES(COMPARE_TWO_VALUES, greatest, >)
+NUMERIC_DATE_TYPES(COMPARE_TWO_VALUES, least, <)
+NUMERIC_DATE_TYPES(COMPARE_THREE_VALUES, greatest, >)
+NUMERIC_DATE_TYPES(COMPARE_THREE_VALUES, least, <)
+NUMERIC_DATE_TYPES(COMPARE_FOUR_VALUES, greatest, >)
+NUMERIC_DATE_TYPES(COMPARE_FOUR_VALUES, least, <)
+NUMERIC_DATE_TYPES(COMPARE_FIVE_VALUES, greatest, >)
+NUMERIC_DATE_TYPES(COMPARE_FIVE_VALUES, least, <)
+NUMERIC_DATE_TYPES(COMPARE_SIX_VALUES, greatest, >)
+NUMERIC_DATE_TYPES(COMPARE_SIX_VALUES, least, <)
+
+#undef COMPARE_TWO_VALUES
+#undef COMPARE_THREE_VALUES
+#undef COMPARE_FOUR_VALUES
+#undef COMPARE_FIVE_VALUES
+#undef COMPARE_SIX_VALUES
+
 // cast fns : takes one param type, returns another type.
 #define CAST_UNARY(NAME, IN_TYPE, OUT_TYPE)           \
   FORCE_INLINE                                        \

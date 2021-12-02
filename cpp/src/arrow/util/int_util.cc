@@ -656,20 +656,20 @@ Status IntegersInRange(const Datum& datum, CType bound_lower, CType bound_upper)
         // Let the compiler unroll this
         for (int j = 0; j < 8; ++j) {
           block_out_of_bounds |= IsOutOfBoundsMaybeNull(
-              indices_data[i], BitUtil::GetBit(bitmap, offset_position + i));
+              indices_data[i], bit_util::GetBit(bitmap, offset_position + i));
           ++i;
         }
       }
       for (; i < block.length; ++i) {
         block_out_of_bounds |= IsOutOfBoundsMaybeNull(
-            indices_data[i], BitUtil::GetBit(bitmap, offset_position + i));
+            indices_data[i], bit_util::GetBit(bitmap, offset_position + i));
       }
     }
     if (ARROW_PREDICT_FALSE(block_out_of_bounds)) {
       if (indices.GetNullCount() > 0) {
         for (int64_t i = 0; i < block.length; ++i) {
           if (IsOutOfBoundsMaybeNull(indices_data[i],
-                                     BitUtil::GetBit(bitmap, offset_position + i))) {
+                                     bit_util::GetBit(bitmap, offset_position + i))) {
             return GetErrorMessage(indices_data[i]);
           }
         }

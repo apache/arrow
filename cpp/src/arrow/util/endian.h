@@ -59,7 +59,7 @@
 #include "arrow/util/ubsan.h"
 
 namespace arrow {
-namespace BitUtil {
+namespace bit_util {
 
 //
 // Byte-swap 16-bit, 32-bit and 64-bit values
@@ -181,7 +181,7 @@ static inline T FromLittleEndian(T value) {
 #endif
 
 // Handle endianness in *word* granuality (keep individual array element untouched)
-namespace LittleEndianArray {
+namespace little_endian {
 
 namespace detail {
 
@@ -239,7 +239,7 @@ static inline std::array<T, N> FromNative(std::array<T, N> array) {
   return ToNative(array);
 }
 
-}  // namespace LittleEndianArray
+}  // namespace little_endian
 
-}  // namespace BitUtil
+}  // namespace bit_util
 }  // namespace arrow

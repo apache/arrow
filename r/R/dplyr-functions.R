@@ -250,6 +250,60 @@ nse_funcs$is_logical <- function(x, n = NULL) {
   nse_funcs$is.logical(x)
 }
 
+# Create a data frame/tibble/struct column
+nse_funcs$tibble <- function(..., .rows = NULL, .name_repair = NULL) {
+  if (!is.null(.rows)) arrow_not_supported(".rows")
+  if (!is.null(.name_repair)) arrow_not_supported(".name_repair")
+
+  # use dots_list() because this is what tibble() uses to allow the
+  # useful shorthand of tibble(col1, col2) -> tibble(col1 = col1, col2 = col2)
+  # we have a stronger enforcement of unique names for arguments because
+  # it is difficult to replicate the .name_repair semantics and expanding of
+  # unnamed data frame arguments in the same way that the tibble() constructor
+  # does.
+  args <- rlang::dots_list(..., .named = TRUE, .homonyms = "error")
+
+  build_expr(
+    "make_struct",
+    args = unname(args),
+    options = list(field_names = names(args))
+  )
+}
+
+nse_funcs$data.frame <- function(..., row.names = NULL,
+                                 check.rows = NULL, check.names = TRUE, fix.empty.names = TRUE,
+                                 stringsAsFactors = FALSE) {
+  # we need a specific value of stringsAsFactors because the default was
+  # TRUE in R <= 3.6
+  if (!identical(stringsAsFactors, FALSE)) {
+    arrow_not_supported("stringsAsFactors = TRUE")
+  }
+
+  # ignore row.names and check.rows with a warning
+  if (!is.null(row.names)) arrow_not_supported("row.names")
+  if (!is.null(check.rows)) arrow_not_supported("check.rows")
+
+  args <- rlang::dots_list(..., .named = fix.empty.names)
+  if (is.null(names(args))) {
+    names(args) <- rep("", length(args))
+  }
+
+  if (identical(check.names, TRUE)) {
+    if (identical(fix.empty.names, TRUE)) {
+      names(args) <- make.names(names(args), unique = TRUE)
+    } else {
+      name_emtpy <- names(args) == ""
+      names(args)[!name_emtpy] <- make.names(names(args)[!name_emtpy], unique = TRUE)
+    }
+  }
+
+  build_expr(
+    "make_struct",
+    args = unname(args),
+    options = list(field_names = names(args))
+  )
+}
+
 # String functions
 nse_funcs$nchar <- function(x, type = "chars", allowNA = FALSE, keepNA = NA) {
   if (allowNA) {

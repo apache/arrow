@@ -155,7 +155,7 @@ void ASSERT_BYTES_EQ(const uint8_t* left, const std::vector<uint8_t>& right) {
 }
 
 TEST(BitUtilTests, TestIsMultipleOf64) {
-  using BitUtil::IsMultipleOf64;
+  using bit_util::IsMultipleOf64;
   EXPECT_TRUE(IsMultipleOf64(64));
   EXPECT_TRUE(IsMultipleOf64(0));
   EXPECT_TRUE(IsMultipleOf64(128));
@@ -165,7 +165,7 @@ TEST(BitUtilTests, TestIsMultipleOf64) {
 }
 
 TEST(BitUtilTests, TestNextPower2) {
-  using BitUtil::NextPower2;
+  using bit_util::NextPower2;
 
   ASSERT_EQ(8, NextPower2(6));
   ASSERT_EQ(8, NextPower2(8));
@@ -185,7 +185,7 @@ TEST(BitUtilTests, TestNextPower2) {
 }
 
 TEST(BitUtilTests, BytesForBits) {
-  using BitUtil::BytesForBits;
+  using bit_util::BytesForBits;
 
   ASSERT_EQ(BytesForBits(0), 0);
   ASSERT_EQ(BytesForBits(1), 1);
@@ -258,7 +258,7 @@ class TestBitmapUInt64Reader : public ::testing::Test {
       const auto nbits = std::min<int64_t>(64, length - i);
       uint64_t word = reader.NextWord();
       for (int64_t j = 0; j < nbits; ++j) {
-        ASSERT_EQ(word & 1, BitUtil::GetBit(buffer.data(), start_offset + i + j));
+        ASSERT_EQ(word & 1, bit_util::GetBit(buffer.data(), start_offset + i + j));
         word >>= 1;
       }
     }
@@ -492,7 +492,7 @@ TEST_F(TestSetBitRunReader, AllZeros) {
 TEST_F(TestSetBitRunReader, AllOnes) {
   const int64_t kBufferSize = 256;
   ASSERT_OK_AND_ASSIGN(auto buffer, AllocateEmptyBitmap(kBufferSize));
-  BitUtil::SetBitsTo(buffer->mutable_data(), 0, kBufferSize, true);
+  bit_util::SetBitsTo(buffer->mutable_data(), 0, kBufferSize, true);
 
   for (const auto range : BufferTestRanges(*buffer)) {
     if (range.length > 0) {
@@ -509,9 +509,9 @@ TEST_F(TestSetBitRunReader, Small) {
   const int64_t kOnesLength = 64;
   const int64_t kSecondOnesStart = kBufferSize - kOnesLength;
   ASSERT_OK_AND_ASSIGN(auto buffer, AllocateEmptyBitmap(kBufferSize));
-  BitUtil::SetBitsTo(buffer->mutable_data(), 0, kBufferSize, false);
-  BitUtil::SetBitsTo(buffer->mutable_data(), 0, kOnesLength, true);
-  BitUtil::SetBitsTo(buffer->mutable_data(), kSecondOnesStart, kOnesLength, true);
+  bit_util::SetBitsTo(buffer->mutable_data(), 0, kBufferSize, false);
+  bit_util::SetBitsTo(buffer->mutable_data(), 0, kOnesLength, true);
+  bit_util::SetBitsTo(buffer->mutable_data(), kSecondOnesStart, kOnesLength, true);
 
   for (const auto range : BufferTestRanges(*buffer)) {
     std::vector<internal::SetBitRun> expected;
@@ -532,9 +532,9 @@ TEST_F(TestSetBitRunReader, SingleRun) {
   ASSERT_OK_AND_ASSIGN(auto buffer, AllocateEmptyBitmap(kBufferSize));
 
   for (const auto ones_range : BufferTestRanges(*buffer)) {
-    BitUtil::SetBitsTo(buffer->mutable_data(), 0, kBufferSize, false);
-    BitUtil::SetBitsTo(buffer->mutable_data(), ones_range.offset, ones_range.length,
-                       true);
+    bit_util::SetBitsTo(buffer->mutable_data(), 0, kBufferSize, false);
+    bit_util::SetBitsTo(buffer->mutable_data(), ones_range.offset, ones_range.length,
+                        true);
     for (const auto range : BufferTestRanges(*buffer)) {
       std::vector<internal::SetBitRun> expected;
 
@@ -610,7 +610,7 @@ TEST(BitRunReader, NormalOperation) {
 TEST(BitRunReader, AllFirstByteCombos) {
   for (int offset = 0; offset < 8; offset++) {
     for (int64_t x = 0; x < (1 << 8) - 1; x++) {
-      int64_t bits = BitUtil::ToLittleEndian(x);
+      int64_t bits = bit_util::ToLittleEndian(x);
       internal::BitRunReader reader(reinterpret_cast<uint8_t*>(&bits),
                                     /*start_offset=*/offset,
                                     /*length=*/8 - offset);
@@ -1136,7 +1136,7 @@ TYPED_TEST(TestGenerateBits, NormalOperation) {
           }
         }
         // Check the byte following generated contents wasn't clobbered
-        auto byte_after = bitmap[BitUtil::CeilDiv(start_offset + length, 8)];
+        auto byte_after = bitmap[bit_util::CeilDiv(start_offset + length, 8)];
         ASSERT_EQ(byte_after, fill_byte);
       }
     }
@@ -1469,7 +1469,7 @@ static inline int64_t SlowCountBits(const uint8_t* data, int64_t bit_offset,
                                     int64_t length) {
   int64_t count = 0;
   for (int64_t i = bit_offset; i < bit_offset + length; ++i) {
-    if (BitUtil::GetBit(data, i)) {
+    if (bit_util::GetBit(data, i)) {
       ++count;
     }
   }
@@ -1499,7 +1499,7 @@ TEST(BitUtilTests, TestCountSetBits) {
 }
 
 TEST(BitUtilTests, TestSetBitsTo) {
-  using BitUtil::SetBitsTo;
+  using bit_util::SetBitsTo;
   for (const auto fill_byte_int : {0x00, 0xff}) {
     const uint8_t fill_byte = static_cast<uint8_t>(fill_byte_int);
     {
@@ -1536,43 +1536,43 @@ TEST(BitUtilTests, TestSetBitsTo) {
 }
 
 TEST(BitUtilTests, TestSetBitmap) {
-  using BitUtil::SetBitsTo;
+  using bit_util::SetBitsTo;
   for (const auto fill_byte_int : {0xff}) {
     const uint8_t fill_byte = static_cast<uint8_t>(fill_byte_int);
     {
       // test set within a byte
       uint8_t bitmap[] = {fill_byte, fill_byte, fill_byte, fill_byte};
-      BitUtil::SetBitmap(bitmap, 2, 2);
-      BitUtil::ClearBitmap(bitmap, 4, 2);
+      bit_util::SetBitmap(bitmap, 2, 2);
+      bit_util::ClearBitmap(bitmap, 4, 2);
       ASSERT_BYTES_EQ(bitmap, {static_cast<uint8_t>((fill_byte & ~0x3C) | 0xC)});
     }
     {
       // test straddling a single byte boundary
       uint8_t bitmap[] = {fill_byte, fill_byte, fill_byte, fill_byte};
-      BitUtil::SetBitmap(bitmap, 4, 7);
-      BitUtil::ClearBitmap(bitmap, 11, 7);
+      bit_util::SetBitmap(bitmap, 4, 7);
+      bit_util::ClearBitmap(bitmap, 11, 7);
       ASSERT_BYTES_EQ(bitmap, {static_cast<uint8_t>((fill_byte & 0xF) | 0xF0), 0x7,
                                static_cast<uint8_t>(fill_byte & ~0x3)});
     }
     {
       // test byte aligned end
       uint8_t bitmap[] = {fill_byte, fill_byte, fill_byte, fill_byte};
-      BitUtil::SetBitmap(bitmap, 4, 4);
-      BitUtil::ClearBitmap(bitmap, 8, 8);
+      bit_util::SetBitmap(bitmap, 4, 4);
+      bit_util::ClearBitmap(bitmap, 8, 8);
       ASSERT_BYTES_EQ(bitmap,
                       {static_cast<uint8_t>((fill_byte & 0xF) | 0xF0), 0x00, fill_byte});
     }
     {
       // test byte aligned end, multiple bytes
       uint8_t bitmap[] = {fill_byte, fill_byte, fill_byte, fill_byte};
-      BitUtil::ClearBitmap(bitmap, 0, 24);
+      bit_util::ClearBitmap(bitmap, 0, 24);
       uint8_t false_byte = static_cast<uint8_t>(0);
       ASSERT_BYTES_EQ(bitmap, {false_byte, false_byte, false_byte, fill_byte});
     }
     {
       // ASAN test against out of bound access (ARROW-13803)
       uint8_t bitmap[1] = {fill_byte};
-      BitUtil::ClearBitmap(bitmap, 0, 8);
+      bit_util::ClearBitmap(bitmap, 0, 8);
       ASSERT_EQ(bitmap[0], 0);
     }
   }
@@ -1598,7 +1598,7 @@ TEST(BitUtilTests, TestCopyBitmap) {
                            CopyBitmap(default_memory_pool(), src, offset, copy_length));
 
       for (int64_t i = 0; i < copy_length; ++i) {
-        ASSERT_EQ(BitUtil::GetBit(src, i + offset), BitUtil::GetBit(copy->data(), i));
+        ASSERT_EQ(bit_util::GetBit(src, i + offset), bit_util::GetBit(copy->data(), i));
       }
     }
   }
@@ -1630,14 +1630,14 @@ TEST(BitUtilTests, TestCopyBitmapPreAllocated) {
         CopyBitmap(src, offset, copy_length, copy->mutable_data(), dest_offset);
 
         for (int64_t i = 0; i < dest_offset; ++i) {
-          ASSERT_EQ(BitUtil::GetBit(other, i), BitUtil::GetBit(copy->data(), i));
+          ASSERT_EQ(bit_util::GetBit(other, i), bit_util::GetBit(copy->data(), i));
         }
         for (int64_t i = 0; i < copy_length; ++i) {
-          ASSERT_EQ(BitUtil::GetBit(src, i + offset),
-                    BitUtil::GetBit(copy->data(), i + dest_offset));
+          ASSERT_EQ(bit_util::GetBit(src, i + offset),
+                    bit_util::GetBit(copy->data(), i + dest_offset));
         }
         for (int64_t i = dest_offset + copy_length; i < (other_buffer->size() * 8); ++i) {
-          ASSERT_EQ(BitUtil::GetBit(other, i), BitUtil::GetBit(copy->data(), i));
+          ASSERT_EQ(bit_util::GetBit(other, i), bit_util::GetBit(copy->data(), i));
         }
       }
     }
@@ -1670,14 +1670,14 @@ TEST(BitUtilTests, TestCopyAndInvertBitmapPreAllocated) {
         InvertBitmap(src, offset, copy_length, copy->mutable_data(), dest_offset);
 
         for (int64_t i = 0; i < dest_offset; ++i) {
-          ASSERT_EQ(BitUtil::GetBit(other, i), BitUtil::GetBit(copy->data(), i));
+          ASSERT_EQ(bit_util::GetBit(other, i), bit_util::GetBit(copy->data(), i));
         }
         for (int64_t i = 0; i < copy_length; ++i) {
-          ASSERT_EQ(BitUtil::GetBit(src, i + offset),
-                    !BitUtil::GetBit(copy->data(), i + dest_offset));
+          ASSERT_EQ(bit_util::GetBit(src, i + offset),
+                    !bit_util::GetBit(copy->data(), i + dest_offset));
         }
         for (int64_t i = dest_offset + copy_length; i < (other_buffer->size() * 8); ++i) {
-          ASSERT_EQ(BitUtil::GetBit(other, i), BitUtil::GetBit(copy->data(), i));
+          ASSERT_EQ(bit_util::GetBit(other, i), bit_util::GetBit(copy->data(), i));
         }
       }
     }
@@ -1695,7 +1695,7 @@ TEST(BitUtilTests, TestBitmapEquals) {
   std::vector<int64_t> lengths = {srcBufferSize * 8 - 4, srcBufferSize * 8};
   std::vector<int64_t> offsets = {0, 12, 16, 32, 37, 63, 64, 128};
 
-  const auto dstBufferSize = srcBufferSize + BitUtil::BytesForBits(*std::max_element(
+  const auto dstBufferSize = srcBufferSize + bit_util::BytesForBits(*std::max_element(
                                                  offsets.cbegin(), offsets.cend()));
   ASSERT_OK_AND_ASSIGN(auto dst_buffer, AllocateBuffer(dstBufferSize))
   uint8_t* dst = dst_buffer->mutable_data();
@@ -1728,158 +1728,158 @@ TEST(BitUtilTests, TestBitmapEquals) {
 }
 
 TEST(BitUtil, CeilDiv) {
-  EXPECT_EQ(BitUtil::CeilDiv(0, 1), 0);
-  EXPECT_EQ(BitUtil::CeilDiv(1, 1), 1);
-  EXPECT_EQ(BitUtil::CeilDiv(1, 2), 1);
-  EXPECT_EQ(BitUtil::CeilDiv(0, 8), 0);
-  EXPECT_EQ(BitUtil::CeilDiv(1, 8), 1);
-  EXPECT_EQ(BitUtil::CeilDiv(7, 8), 1);
-  EXPECT_EQ(BitUtil::CeilDiv(8, 8), 1);
-  EXPECT_EQ(BitUtil::CeilDiv(9, 8), 2);
-  EXPECT_EQ(BitUtil::CeilDiv(9, 9), 1);
-  EXPECT_EQ(BitUtil::CeilDiv(10000000000, 10), 1000000000);
-  EXPECT_EQ(BitUtil::CeilDiv(10, 10000000000), 1);
-  EXPECT_EQ(BitUtil::CeilDiv(100000000000, 10000000000), 10);
+  EXPECT_EQ(bit_util::CeilDiv(0, 1), 0);
+  EXPECT_EQ(bit_util::CeilDiv(1, 1), 1);
+  EXPECT_EQ(bit_util::CeilDiv(1, 2), 1);
+  EXPECT_EQ(bit_util::CeilDiv(0, 8), 0);
+  EXPECT_EQ(bit_util::CeilDiv(1, 8), 1);
+  EXPECT_EQ(bit_util::CeilDiv(7, 8), 1);
+  EXPECT_EQ(bit_util::CeilDiv(8, 8), 1);
+  EXPECT_EQ(bit_util::CeilDiv(9, 8), 2);
+  EXPECT_EQ(bit_util::CeilDiv(9, 9), 1);
+  EXPECT_EQ(bit_util::CeilDiv(10000000000, 10), 1000000000);
+  EXPECT_EQ(bit_util::CeilDiv(10, 10000000000), 1);
+  EXPECT_EQ(bit_util::CeilDiv(100000000000, 10000000000), 10);
 
   // test overflow
   int64_t value = std::numeric_limits<int64_t>::max() - 1;
   int64_t divisor = std::numeric_limits<int64_t>::max();
-  EXPECT_EQ(BitUtil::CeilDiv(value, divisor), 1);
+  EXPECT_EQ(bit_util::CeilDiv(value, divisor), 1);
 
   value = std::numeric_limits<int64_t>::max();
-  EXPECT_EQ(BitUtil::CeilDiv(value, divisor), 1);
+  EXPECT_EQ(bit_util::CeilDiv(value, divisor), 1);
 }
 
 TEST(BitUtil, RoundUp) {
-  EXPECT_EQ(BitUtil::RoundUp(0, 1), 0);
-  EXPECT_EQ(BitUtil::RoundUp(1, 1), 1);
-  EXPECT_EQ(BitUtil::RoundUp(1, 2), 2);
-  EXPECT_EQ(BitUtil::RoundUp(6, 2), 6);
-  EXPECT_EQ(BitUtil::RoundUp(0, 3), 0);
-  EXPECT_EQ(BitUtil::RoundUp(7, 3), 9);
-  EXPECT_EQ(BitUtil::RoundUp(9, 9), 9);
-  EXPECT_EQ(BitUtil::RoundUp(10000000001, 10), 10000000010);
-  EXPECT_EQ(BitUtil::RoundUp(10, 10000000000), 10000000000);
-  EXPECT_EQ(BitUtil::RoundUp(100000000000, 10000000000), 100000000000);
+  EXPECT_EQ(bit_util::RoundUp(0, 1), 0);
+  EXPECT_EQ(bit_util::RoundUp(1, 1), 1);
+  EXPECT_EQ(bit_util::RoundUp(1, 2), 2);
+  EXPECT_EQ(bit_util::RoundUp(6, 2), 6);
+  EXPECT_EQ(bit_util::RoundUp(0, 3), 0);
+  EXPECT_EQ(bit_util::RoundUp(7, 3), 9);
+  EXPECT_EQ(bit_util::RoundUp(9, 9), 9);
+  EXPECT_EQ(bit_util::RoundUp(10000000001, 10), 10000000010);
+  EXPECT_EQ(bit_util::RoundUp(10, 10000000000), 10000000000);
+  EXPECT_EQ(bit_util::RoundUp(100000000000, 10000000000), 100000000000);
 
   // test overflow
   int64_t value = std::numeric_limits<int64_t>::max() - 1;
   int64_t divisor = std::numeric_limits<int64_t>::max();
-  EXPECT_EQ(BitUtil::RoundUp(value, divisor), divisor);
+  EXPECT_EQ(bit_util::RoundUp(value, divisor), divisor);
 
   value = std::numeric_limits<int64_t>::max();
-  EXPECT_EQ(BitUtil::RoundUp(value, divisor), divisor);
+  EXPECT_EQ(bit_util::RoundUp(value, divisor), divisor);
 }
 
 TEST(BitUtil, RoundDown) {
-  EXPECT_EQ(BitUtil::RoundDown(0, 1), 0);
-  EXPECT_EQ(BitUtil::RoundDown(1, 1), 1);
-  EXPECT_EQ(BitUtil::RoundDown(1, 2), 0);
-  EXPECT_EQ(BitUtil::RoundDown(6, 2), 6);
-  EXPECT_EQ(BitUtil::RoundDown(5, 7), 0);
-  EXPECT_EQ(BitUtil::RoundDown(10, 7), 7);
-  EXPECT_EQ(BitUtil::RoundDown(7, 3), 6);
-  EXPECT_EQ(BitUtil::RoundDown(9, 9), 9);
-  EXPECT_EQ(BitUtil::RoundDown(10000000001, 10), 10000000000);
-  EXPECT_EQ(BitUtil::RoundDown(10, 10000000000), 0);
-  EXPECT_EQ(BitUtil::RoundDown(100000000000, 10000000000), 100000000000);
+  EXPECT_EQ(bit_util::RoundDown(0, 1), 0);
+  EXPECT_EQ(bit_util::RoundDown(1, 1), 1);
+  EXPECT_EQ(bit_util::RoundDown(1, 2), 0);
+  EXPECT_EQ(bit_util::RoundDown(6, 2), 6);
+  EXPECT_EQ(bit_util::RoundDown(5, 7), 0);
+  EXPECT_EQ(bit_util::RoundDown(10, 7), 7);
+  EXPECT_EQ(bit_util::RoundDown(7, 3), 6);
+  EXPECT_EQ(bit_util::RoundDown(9, 9), 9);
+  EXPECT_EQ(bit_util::RoundDown(10000000001, 10), 10000000000);
+  EXPECT_EQ(bit_util::RoundDown(10, 10000000000), 0);
+  EXPECT_EQ(bit_util::RoundDown(100000000000, 10000000000), 100000000000);
 
   for (int i = 0; i < 100; i++) {
     for (int j = 1; j < 100; j++) {
-      EXPECT_EQ(BitUtil::RoundDown(i, j), i - (i % j));
+      EXPECT_EQ(bit_util::RoundDown(i, j), i - (i % j));
     }
   }
 }
 
 TEST(BitUtil, CoveringBytes) {
-  EXPECT_EQ(BitUtil::CoveringBytes(0, 8), 1);
-  EXPECT_EQ(BitUtil::CoveringBytes(0, 9), 2);
-  EXPECT_EQ(BitUtil::CoveringBytes(1, 7), 1);
-  EXPECT_EQ(BitUtil::CoveringBytes(1, 8), 2);
-  EXPECT_EQ(BitUtil::CoveringBytes(2, 19), 3);
-  EXPECT_EQ(BitUtil::CoveringBytes(7, 18), 4);
+  EXPECT_EQ(bit_util::CoveringBytes(0, 8), 1);
+  EXPECT_EQ(bit_util::CoveringBytes(0, 9), 2);
+  EXPECT_EQ(bit_util::CoveringBytes(1, 7), 1);
+  EXPECT_EQ(bit_util::CoveringBytes(1, 8), 2);
+  EXPECT_EQ(bit_util::CoveringBytes(2, 19), 3);
+  EXPECT_EQ(bit_util::CoveringBytes(7, 18), 4);
 }
 
 TEST(BitUtil, TrailingBits) {
-  EXPECT_EQ(BitUtil::TrailingBits(0xFF, 0), 0);
-  EXPECT_EQ(BitUtil::TrailingBits(0xFF, 1), 1);
-  EXPECT_EQ(BitUtil::TrailingBits(0xFF, 64), 0xFF);
-  EXPECT_EQ(BitUtil::TrailingBits(0xFF, 100), 0xFF);
-  EXPECT_EQ(BitUtil::TrailingBits(0, 1), 0);
-  EXPECT_EQ(BitUtil::TrailingBits(0, 64), 0);
-  EXPECT_EQ(BitUtil::TrailingBits(1LL << 63, 0), 0);
-  EXPECT_EQ(BitUtil::TrailingBits(1LL << 63, 63), 0);
-  EXPECT_EQ(BitUtil::TrailingBits(1LL << 63, 64), 1LL << 63);
+  EXPECT_EQ(bit_util::TrailingBits(0xFF, 0), 0);
+  EXPECT_EQ(bit_util::TrailingBits(0xFF, 1), 1);
+  EXPECT_EQ(bit_util::TrailingBits(0xFF, 64), 0xFF);
+  EXPECT_EQ(bit_util::TrailingBits(0xFF, 100), 0xFF);
+  EXPECT_EQ(bit_util::TrailingBits(0, 1), 0);
+  EXPECT_EQ(bit_util::TrailingBits(0, 64), 0);
+  EXPECT_EQ(bit_util::TrailingBits(1LL << 63, 0), 0);
+  EXPECT_EQ(bit_util::TrailingBits(1LL << 63, 63), 0);
+  EXPECT_EQ(bit_util::TrailingBits(1LL << 63, 64), 1LL << 63);
 }
 
 TEST(BitUtil, ByteSwap) {
-  EXPECT_EQ(BitUtil::ByteSwap(static_cast<uint32_t>(0)), 0);
-  EXPECT_EQ(BitUtil::ByteSwap(static_cast<uint32_t>(0x11223344)), 0x44332211);
+  EXPECT_EQ(bit_util::ByteSwap(static_cast<uint32_t>(0)), 0);
+  EXPECT_EQ(bit_util::ByteSwap(static_cast<uint32_t>(0x11223344)), 0x44332211);
 
-  EXPECT_EQ(BitUtil::ByteSwap(static_cast<int32_t>(0)), 0);
-  EXPECT_EQ(BitUtil::ByteSwap(static_cast<int32_t>(0x11223344)), 0x44332211);
+  EXPECT_EQ(bit_util::ByteSwap(static_cast<int32_t>(0)), 0);
+  EXPECT_EQ(bit_util::ByteSwap(static_cast<int32_t>(0x11223344)), 0x44332211);
 
-  EXPECT_EQ(BitUtil::ByteSwap(static_cast<uint64_t>(0)), 0);
-  EXPECT_EQ(BitUtil::ByteSwap(static_cast<uint64_t>(0x1122334455667788)),
+  EXPECT_EQ(bit_util::ByteSwap(static_cast<uint64_t>(0)), 0);
+  EXPECT_EQ(bit_util::ByteSwap(static_cast<uint64_t>(0x1122334455667788)),
             0x8877665544332211);
 
-  EXPECT_EQ(BitUtil::ByteSwap(static_cast<int64_t>(0)), 0);
-  EXPECT_EQ(BitUtil::ByteSwap(static_cast<int64_t>(0x1122334455667788)),
+  EXPECT_EQ(bit_util::ByteSwap(static_cast<int64_t>(0)), 0);
+  EXPECT_EQ(bit_util::ByteSwap(static_cast<int64_t>(0x1122334455667788)),
             0x8877665544332211);
 
-  EXPECT_EQ(BitUtil::ByteSwap(static_cast<int16_t>(0)), 0);
-  EXPECT_EQ(BitUtil::ByteSwap(static_cast<int16_t>(0x1122)), 0x2211);
+  EXPECT_EQ(bit_util::ByteSwap(static_cast<int16_t>(0)), 0);
+  EXPECT_EQ(bit_util::ByteSwap(static_cast<int16_t>(0x1122)), 0x2211);
 
-  EXPECT_EQ(BitUtil::ByteSwap(static_cast<uint16_t>(0)), 0);
-  EXPECT_EQ(BitUtil::ByteSwap(static_cast<uint16_t>(0x1122)), 0x2211);
+  EXPECT_EQ(bit_util::ByteSwap(static_cast<uint16_t>(0)), 0);
+  EXPECT_EQ(bit_util::ByteSwap(static_cast<uint16_t>(0x1122)), 0x2211);
 
-  EXPECT_EQ(BitUtil::ByteSwap(static_cast<int8_t>(0)), 0);
-  EXPECT_EQ(BitUtil::ByteSwap(static_cast<int8_t>(0x11)), 0x11);
+  EXPECT_EQ(bit_util::ByteSwap(static_cast<int8_t>(0)), 0);
+  EXPECT_EQ(bit_util::ByteSwap(static_cast<int8_t>(0x11)), 0x11);
 
-  EXPECT_EQ(BitUtil::ByteSwap(static_cast<uint8_t>(0)), 0);
-  EXPECT_EQ(BitUtil::ByteSwap(static_cast<uint8_t>(0x11)), 0x11);
+  EXPECT_EQ(bit_util::ByteSwap(static_cast<uint8_t>(0)), 0);
+  EXPECT_EQ(bit_util::ByteSwap(static_cast<uint8_t>(0x11)), 0x11);
 
-  EXPECT_EQ(BitUtil::ByteSwap(static_cast<float>(0)), 0);
+  EXPECT_EQ(bit_util::ByteSwap(static_cast<float>(0)), 0);
   uint32_t srci32 = 0xaabbccdd, expectedi32 = 0xddccbbaa;
   float srcf32 = SafeCopy<float>(srci32);
   float expectedf32 = SafeCopy<float>(expectedi32);
-  EXPECT_EQ(BitUtil::ByteSwap(srcf32), expectedf32);
+  EXPECT_EQ(bit_util::ByteSwap(srcf32), expectedf32);
   uint64_t srci64 = 0xaabb11223344ccdd, expectedi64 = 0xddcc44332211bbaa;
   double srcd64 = SafeCopy<double>(srci64);
   double expectedd64 = SafeCopy<double>(expectedi64);
-  EXPECT_EQ(BitUtil::ByteSwap(srcd64), expectedd64);
+  EXPECT_EQ(bit_util::ByteSwap(srcd64), expectedd64);
 }
 
 TEST(BitUtil, Log2) {
-  EXPECT_EQ(BitUtil::Log2(1), 0);
-  EXPECT_EQ(BitUtil::Log2(2), 1);
-  EXPECT_EQ(BitUtil::Log2(3), 2);
-  EXPECT_EQ(BitUtil::Log2(4), 2);
-  EXPECT_EQ(BitUtil::Log2(5), 3);
-  EXPECT_EQ(BitUtil::Log2(8), 3);
-  EXPECT_EQ(BitUtil::Log2(9), 4);
-  EXPECT_EQ(BitUtil::Log2(INT_MAX), 31);
-  EXPECT_EQ(BitUtil::Log2(UINT_MAX), 32);
-  EXPECT_EQ(BitUtil::Log2(ULLONG_MAX), 64);
+  EXPECT_EQ(bit_util::Log2(1), 0);
+  EXPECT_EQ(bit_util::Log2(2), 1);
+  EXPECT_EQ(bit_util::Log2(3), 2);
+  EXPECT_EQ(bit_util::Log2(4), 2);
+  EXPECT_EQ(bit_util::Log2(5), 3);
+  EXPECT_EQ(bit_util::Log2(8), 3);
+  EXPECT_EQ(bit_util::Log2(9), 4);
+  EXPECT_EQ(bit_util::Log2(INT_MAX), 31);
+  EXPECT_EQ(bit_util::Log2(UINT_MAX), 32);
+  EXPECT_EQ(bit_util::Log2(ULLONG_MAX), 64);
 }
 
 TEST(BitUtil, NumRequiredBits) {
-  EXPECT_EQ(BitUtil::NumRequiredBits(0), 0);
-  EXPECT_EQ(BitUtil::NumRequiredBits(1), 1);
-  EXPECT_EQ(BitUtil::NumRequiredBits(2), 2);
-  EXPECT_EQ(BitUtil::NumRequiredBits(3), 2);
-  EXPECT_EQ(BitUtil::NumRequiredBits(4), 3);
-  EXPECT_EQ(BitUtil::NumRequiredBits(5), 3);
-  EXPECT_EQ(BitUtil::NumRequiredBits(7), 3);
-  EXPECT_EQ(BitUtil::NumRequiredBits(8), 4);
-  EXPECT_EQ(BitUtil::NumRequiredBits(9), 4);
-  EXPECT_EQ(BitUtil::NumRequiredBits(UINT_MAX - 1), 32);
-  EXPECT_EQ(BitUtil::NumRequiredBits(UINT_MAX), 32);
-  EXPECT_EQ(BitUtil::NumRequiredBits(static_cast<uint64_t>(UINT_MAX) + 1), 33);
-  EXPECT_EQ(BitUtil::NumRequiredBits(ULLONG_MAX / 2), 63);
-  EXPECT_EQ(BitUtil::NumRequiredBits(ULLONG_MAX / 2 + 1), 64);
-  EXPECT_EQ(BitUtil::NumRequiredBits(ULLONG_MAX - 1), 64);
-  EXPECT_EQ(BitUtil::NumRequiredBits(ULLONG_MAX), 64);
+  EXPECT_EQ(bit_util::NumRequiredBits(0), 0);
+  EXPECT_EQ(bit_util::NumRequiredBits(1), 1);
+  EXPECT_EQ(bit_util::NumRequiredBits(2), 2);
+  EXPECT_EQ(bit_util::NumRequiredBits(3), 2);
+  EXPECT_EQ(bit_util::NumRequiredBits(4), 3);
+  EXPECT_EQ(bit_util::NumRequiredBits(5), 3);
+  EXPECT_EQ(bit_util::NumRequiredBits(7), 3);
+  EXPECT_EQ(bit_util::NumRequiredBits(8), 4);
+  EXPECT_EQ(bit_util::NumRequiredBits(9), 4);
+  EXPECT_EQ(bit_util::NumRequiredBits(UINT_MAX - 1), 32);
+  EXPECT_EQ(bit_util::NumRequiredBits(UINT_MAX), 32);
+  EXPECT_EQ(bit_util::NumRequiredBits(static_cast<uint64_t>(UINT_MAX) + 1), 33);
+  EXPECT_EQ(bit_util::NumRequiredBits(ULLONG_MAX / 2), 63);
+  EXPECT_EQ(bit_util::NumRequiredBits(ULLONG_MAX / 2 + 1), 64);
+  EXPECT_EQ(bit_util::NumRequiredBits(ULLONG_MAX - 1), 64);
+  EXPECT_EQ(bit_util::NumRequiredBits(ULLONG_MAX), 64);
 }
 
 #define U32(x) static_cast<uint32_t>(x)
@@ -1887,63 +1887,63 @@ TEST(BitUtil, NumRequiredBits) {
 #define S64(x) static_cast<int64_t>(x)
 
 TEST(BitUtil, CountLeadingZeros) {
-  EXPECT_EQ(BitUtil::CountLeadingZeros(U32(0)), 32);
-  EXPECT_EQ(BitUtil::CountLeadingZeros(U32(1)), 31);
-  EXPECT_EQ(BitUtil::CountLeadingZeros(U32(2)), 30);
-  EXPECT_EQ(BitUtil::CountLeadingZeros(U32(3)), 30);
-  EXPECT_EQ(BitUtil::CountLeadingZeros(U32(4)), 29);
-  EXPECT_EQ(BitUtil::CountLeadingZeros(U32(7)), 29);
-  EXPECT_EQ(BitUtil::CountLeadingZeros(U32(8)), 28);
-  EXPECT_EQ(BitUtil::CountLeadingZeros(U32(UINT_MAX / 2)), 1);
-  EXPECT_EQ(BitUtil::CountLeadingZeros(U32(UINT_MAX / 2 + 1)), 0);
-  EXPECT_EQ(BitUtil::CountLeadingZeros(U32(UINT_MAX)), 0);
+  EXPECT_EQ(bit_util::CountLeadingZeros(U32(0)), 32);
+  EXPECT_EQ(bit_util::CountLeadingZeros(U32(1)), 31);
+  EXPECT_EQ(bit_util::CountLeadingZeros(U32(2)), 30);
+  EXPECT_EQ(bit_util::CountLeadingZeros(U32(3)), 30);
+  EXPECT_EQ(bit_util::CountLeadingZeros(U32(4)), 29);
+  EXPECT_EQ(bit_util::CountLeadingZeros(U32(7)), 29);
+  EXPECT_EQ(bit_util::CountLeadingZeros(U32(8)), 28);
+  EXPECT_EQ(bit_util::CountLeadingZeros(U32(UINT_MAX / 2)), 1);
+  EXPECT_EQ(bit_util::CountLeadingZeros(U32(UINT_MAX / 2 + 1)), 0);
+  EXPECT_EQ(bit_util::CountLeadingZeros(U32(UINT_MAX)), 0);
 
-  EXPECT_EQ(BitUtil::CountLeadingZeros(U64(0)), 64);
-  EXPECT_EQ(BitUtil::CountLeadingZeros(U64(1)), 63);
-  EXPECT_EQ(BitUtil::CountLeadingZeros(U64(2)), 62);
-  EXPECT_EQ(BitUtil::CountLeadingZeros(U64(3)), 62);
-  EXPECT_EQ(BitUtil::CountLeadingZeros(U64(4)), 61);
-  EXPECT_EQ(BitUtil::CountLeadingZeros(U64(7)), 61);
-  EXPECT_EQ(BitUtil::CountLeadingZeros(U64(8)), 60);
-  EXPECT_EQ(BitUtil::CountLeadingZeros(U64(UINT_MAX)), 32);
-  EXPECT_EQ(BitUtil::CountLeadingZeros(U64(UINT_MAX) + 1), 31);
-  EXPECT_EQ(BitUtil::CountLeadingZeros(U64(ULLONG_MAX / 2)), 1);
-  EXPECT_EQ(BitUtil::CountLeadingZeros(U64(ULLONG_MAX / 2 + 1)), 0);
-  EXPECT_EQ(BitUtil::CountLeadingZeros(U64(ULLONG_MAX)), 0);
+  EXPECT_EQ(bit_util::CountLeadingZeros(U64(0)), 64);
+  EXPECT_EQ(bit_util::CountLeadingZeros(U64(1)), 63);
+  EXPECT_EQ(bit_util::CountLeadingZeros(U64(2)), 62);
+  EXPECT_EQ(bit_util::CountLeadingZeros(U64(3)), 62);
+  EXPECT_EQ(bit_util::CountLeadingZeros(U64(4)), 61);
+  EXPECT_EQ(bit_util::CountLeadingZeros(U64(7)), 61);
+  EXPECT_EQ(bit_util::CountLeadingZeros(U64(8)), 60);
+  EXPECT_EQ(bit_util::CountLeadingZeros(U64(UINT_MAX)), 32);
+  EXPECT_EQ(bit_util::CountLeadingZeros(U64(UINT_MAX) + 1), 31);
+  EXPECT_EQ(bit_util::CountLeadingZeros(U64(ULLONG_MAX / 2)), 1);
+  EXPECT_EQ(bit_util::CountLeadingZeros(U64(ULLONG_MAX / 2 + 1)), 0);
+  EXPECT_EQ(bit_util::CountLeadingZeros(U64(ULLONG_MAX)), 0);
 }
 
 TEST(BitUtil, CountTrailingZeros) {
-  EXPECT_EQ(BitUtil::CountTrailingZeros(U32(0)), 32);
-  EXPECT_EQ(BitUtil::CountTrailingZeros(U32(1) << 31), 31);
-  EXPECT_EQ(BitUtil::CountTrailingZeros(U32(1) << 30), 30);
-  EXPECT_EQ(BitUtil::CountTrailingZeros(U32(1) << 29), 29);
-  EXPECT_EQ(BitUtil::CountTrailingZeros(U32(1) << 28), 28);
-  EXPECT_EQ(BitUtil::CountTrailingZeros(U32(8)), 3);
-  EXPECT_EQ(BitUtil::CountTrailingZeros(U32(4)), 2);
-  EXPECT_EQ(BitUtil::CountTrailingZeros(U32(2)), 1);
-  EXPECT_EQ(BitUtil::CountTrailingZeros(U32(1)), 0);
-  EXPECT_EQ(BitUtil::CountTrailingZeros(U32(ULONG_MAX)), 0);
+  EXPECT_EQ(bit_util::CountTrailingZeros(U32(0)), 32);
+  EXPECT_EQ(bit_util::CountTrailingZeros(U32(1) << 31), 31);
+  EXPECT_EQ(bit_util::CountTrailingZeros(U32(1) << 30), 30);
+  EXPECT_EQ(bit_util::CountTrailingZeros(U32(1) << 29), 29);
+  EXPECT_EQ(bit_util::CountTrailingZeros(U32(1) << 28), 28);
+  EXPECT_EQ(bit_util::CountTrailingZeros(U32(8)), 3);
+  EXPECT_EQ(bit_util::CountTrailingZeros(U32(4)), 2);
+  EXPECT_EQ(bit_util::CountTrailingZeros(U32(2)), 1);
+  EXPECT_EQ(bit_util::CountTrailingZeros(U32(1)), 0);
+  EXPECT_EQ(bit_util::CountTrailingZeros(U32(ULONG_MAX)), 0);
 
-  EXPECT_EQ(BitUtil::CountTrailingZeros(U64(0)), 64);
-  EXPECT_EQ(BitUtil::CountTrailingZeros(U64(1) << 63), 63);
-  EXPECT_EQ(BitUtil::CountTrailingZeros(U64(1) << 62), 62);
-  EXPECT_EQ(BitUtil::CountTrailingZeros(U64(1) << 61), 61);
-  EXPECT_EQ(BitUtil::CountTrailingZeros(U64(1) << 60), 60);
-  EXPECT_EQ(BitUtil::CountTrailingZeros(U64(8)), 3);
-  EXPECT_EQ(BitUtil::CountTrailingZeros(U64(4)), 2);
-  EXPECT_EQ(BitUtil::CountTrailingZeros(U64(2)), 1);
-  EXPECT_EQ(BitUtil::CountTrailingZeros(U64(1)), 0);
-  EXPECT_EQ(BitUtil::CountTrailingZeros(U64(ULLONG_MAX)), 0);
+  EXPECT_EQ(bit_util::CountTrailingZeros(U64(0)), 64);
+  EXPECT_EQ(bit_util::CountTrailingZeros(U64(1) << 63), 63);
+  EXPECT_EQ(bit_util::CountTrailingZeros(U64(1) << 62), 62);
+  EXPECT_EQ(bit_util::CountTrailingZeros(U64(1) << 61), 61);
+  EXPECT_EQ(bit_util::CountTrailingZeros(U64(1) << 60), 60);
+  EXPECT_EQ(bit_util::CountTrailingZeros(U64(8)), 3);
+  EXPECT_EQ(bit_util::CountTrailingZeros(U64(4)), 2);
+  EXPECT_EQ(bit_util::CountTrailingZeros(U64(2)), 1);
+  EXPECT_EQ(bit_util::CountTrailingZeros(U64(1)), 0);
+  EXPECT_EQ(bit_util::CountTrailingZeros(U64(ULLONG_MAX)), 0);
 }
 
 TEST(BitUtil, RoundUpToPowerOf2) {
-  EXPECT_EQ(BitUtil::RoundUpToPowerOf2(S64(7), 8), 8);
-  EXPECT_EQ(BitUtil::RoundUpToPowerOf2(S64(8), 8), 8);
-  EXPECT_EQ(BitUtil::RoundUpToPowerOf2(S64(9), 8), 16);
+  EXPECT_EQ(bit_util::RoundUpToPowerOf2(S64(7), 8), 8);
+  EXPECT_EQ(bit_util::RoundUpToPowerOf2(S64(8), 8), 8);
+  EXPECT_EQ(bit_util::RoundUpToPowerOf2(S64(9), 8), 16);
 
-  EXPECT_EQ(BitUtil::RoundUpToPowerOf2(U64(7), 8), 8);
-  EXPECT_EQ(BitUtil::RoundUpToPowerOf2(U64(8), 8), 8);
-  EXPECT_EQ(BitUtil::RoundUpToPowerOf2(U64(9), 8), 16);
+  EXPECT_EQ(bit_util::RoundUpToPowerOf2(U64(7), 8), 8);
+  EXPECT_EQ(bit_util::RoundUpToPowerOf2(U64(8), 8), 8);
+  EXPECT_EQ(bit_util::RoundUpToPowerOf2(U64(9), 8), 16);
 }
 
 #undef U32
@@ -1951,9 +1951,9 @@ TEST(BitUtil, RoundUpToPowerOf2) {
 #undef S64
 
 static void TestZigZag(int32_t v, std::array<uint8_t, 5> buffer_expect) {
-  uint8_t buffer[BitUtil::BitReader::kMaxVlqByteLength] = {};
-  BitUtil::BitWriter writer(buffer, sizeof(buffer));
-  BitUtil::BitReader reader(buffer, sizeof(buffer));
+  uint8_t buffer[bit_util::BitReader::kMaxVlqByteLength] = {};
+  bit_util::BitWriter writer(buffer, sizeof(buffer));
+  bit_util::BitReader reader(buffer, sizeof(buffer));
   writer.PutZigZagVlqInt(v);
   EXPECT_THAT(buffer, testing::ElementsAreArray(buffer_expect));
   int32_t result;
@@ -1973,9 +1973,9 @@ TEST(BitStreamUtil, ZigZag) {
 }
 
 static void TestZigZag64(int64_t v, std::array<uint8_t, 10> buffer_expect) {
-  uint8_t buffer[BitUtil::BitReader::kMaxVlqByteLengthForInt64] = {};
-  BitUtil::BitWriter writer(buffer, sizeof(buffer));
-  BitUtil::BitReader reader(buffer, sizeof(buffer));
+  uint8_t buffer[bit_util::BitReader::kMaxVlqByteLengthForInt64] = {};
+  bit_util::BitWriter writer(buffer, sizeof(buffer));
+  bit_util::BitReader reader(buffer, sizeof(buffer));
   writer.PutZigZagVlqInt(v);
   EXPECT_THAT(buffer, testing::ElementsAreArray(buffer_expect));
   int64_t result;
@@ -2006,10 +2006,10 @@ TEST(BitUtil, RoundTripLittleEndianTest) {
   uint64_t expected = std::numeric_limits<uint64_t>::max() << 56;
 #endif
 
-  uint64_t little_endian_result = BitUtil::ToLittleEndian(value);
+  uint64_t little_endian_result = bit_util::ToLittleEndian(value);
   ASSERT_EQ(expected, little_endian_result);
 
-  uint64_t from_little_endian = BitUtil::FromLittleEndian(little_endian_result);
+  uint64_t from_little_endian = bit_util::FromLittleEndian(little_endian_result);
   ASSERT_EQ(value, from_little_endian);
 }
 
@@ -2022,10 +2022,10 @@ TEST(BitUtil, RoundTripBigEndianTest) {
   uint64_t expected = value;
 #endif
 
-  uint64_t big_endian_result = BitUtil::ToBigEndian(value);
+  uint64_t big_endian_result = bit_util::ToBigEndian(value);
   ASSERT_EQ(expected, big_endian_result);
 
-  uint64_t from_big_endian = BitUtil::FromBigEndian(big_endian_result);
+  uint64_t from_big_endian = bit_util::FromBigEndian(big_endian_result);
   ASSERT_EQ(value, from_big_endian);
 }
 
@@ -2052,29 +2052,29 @@ TEST(BitUtil, BitsetStack) {
 
 TEST(SpliceWord, SpliceWord) {
   static_assert(
-      BitUtil::PrecedingWordBitmask<uint8_t>(0) == BitUtil::kPrecedingBitmask[0], "");
+      bit_util::PrecedingWordBitmask<uint8_t>(0) == bit_util::kPrecedingBitmask[0], "");
   static_assert(
-      BitUtil::PrecedingWordBitmask<uint8_t>(5) == BitUtil::kPrecedingBitmask[5], "");
-  static_assert(BitUtil::PrecedingWordBitmask<uint8_t>(8) == UINT8_MAX, "");
+      bit_util::PrecedingWordBitmask<uint8_t>(5) == bit_util::kPrecedingBitmask[5], "");
+  static_assert(bit_util::PrecedingWordBitmask<uint8_t>(8) == UINT8_MAX, "");
 
-  static_assert(BitUtil::PrecedingWordBitmask<uint64_t>(0) == uint64_t(0), "");
-  static_assert(BitUtil::PrecedingWordBitmask<uint64_t>(33) == 8589934591, "");
-  static_assert(BitUtil::PrecedingWordBitmask<uint64_t>(64) == UINT64_MAX, "");
-  static_assert(BitUtil::PrecedingWordBitmask<uint64_t>(65) == UINT64_MAX, "");
+  static_assert(bit_util::PrecedingWordBitmask<uint64_t>(0) == uint64_t(0), "");
+  static_assert(bit_util::PrecedingWordBitmask<uint64_t>(33) == 8589934591, "");
+  static_assert(bit_util::PrecedingWordBitmask<uint64_t>(64) == UINT64_MAX, "");
+  static_assert(bit_util::PrecedingWordBitmask<uint64_t>(65) == UINT64_MAX, "");
 
-  ASSERT_EQ(BitUtil::SpliceWord<uint8_t>(0, 0x12, 0xef), 0xef);
-  ASSERT_EQ(BitUtil::SpliceWord<uint8_t>(8, 0x12, 0xef), 0x12);
-  ASSERT_EQ(BitUtil::SpliceWord<uint8_t>(3, 0x12, 0xef), 0xea);
+  ASSERT_EQ(bit_util::SpliceWord<uint8_t>(0, 0x12, 0xef), 0xef);
+  ASSERT_EQ(bit_util::SpliceWord<uint8_t>(8, 0x12, 0xef), 0x12);
+  ASSERT_EQ(bit_util::SpliceWord<uint8_t>(3, 0x12, 0xef), 0xea);
 
-  ASSERT_EQ(BitUtil::SpliceWord<uint32_t>(0, 0x12345678, 0xfedcba98), 0xfedcba98);
-  ASSERT_EQ(BitUtil::SpliceWord<uint32_t>(32, 0x12345678, 0xfedcba98), 0x12345678);
-  ASSERT_EQ(BitUtil::SpliceWord<uint32_t>(24, 0x12345678, 0xfedcba98), 0xfe345678);
+  ASSERT_EQ(bit_util::SpliceWord<uint32_t>(0, 0x12345678, 0xfedcba98), 0xfedcba98);
+  ASSERT_EQ(bit_util::SpliceWord<uint32_t>(32, 0x12345678, 0xfedcba98), 0x12345678);
+  ASSERT_EQ(bit_util::SpliceWord<uint32_t>(24, 0x12345678, 0xfedcba98), 0xfe345678);
 
-  ASSERT_EQ(BitUtil::SpliceWord<uint64_t>(0, 0x0123456789abcdef, 0xfedcba9876543210),
+  ASSERT_EQ(bit_util::SpliceWord<uint64_t>(0, 0x0123456789abcdef, 0xfedcba9876543210),
             0xfedcba9876543210);
-  ASSERT_EQ(BitUtil::SpliceWord<uint64_t>(64, 0x0123456789abcdef, 0xfedcba9876543210),
+  ASSERT_EQ(bit_util::SpliceWord<uint64_t>(64, 0x0123456789abcdef, 0xfedcba9876543210),
             0x0123456789abcdef);
-  ASSERT_EQ(BitUtil::SpliceWord<uint64_t>(48, 0x0123456789abcdef, 0xfedcba9876543210),
+  ASSERT_EQ(bit_util::SpliceWord<uint64_t>(48, 0x0123456789abcdef, 0xfedcba9876543210),
             0xfedc456789abcdef);
 }
 
@@ -2088,16 +2088,16 @@ TEST(Bitmap, ShiftingWordsOptimization) {
 
     for (int seed = 0; seed < 64; ++seed) {
       random_bytes(sizeof(word), seed, bytes);
-      uint64_t native_word = BitUtil::FromLittleEndian(word);
+      uint64_t native_word = bit_util::FromLittleEndian(word);
 
       // bits are accessible through simple bit shifting of the word
       for (size_t i = 0; i < kBitWidth; ++i) {
-        ASSERT_EQ(BitUtil::GetBit(bytes, i), bool((native_word >> i) & 1));
+        ASSERT_EQ(bit_util::GetBit(bytes, i), bool((native_word >> i) & 1));
       }
 
       // bit offset can therefore be accommodated by shifting the word
       for (size_t offset = 0; offset < (kBitWidth * 3) / 4; ++offset) {
-        uint64_t shifted_word = arrow::BitUtil::ToLittleEndian(native_word >> offset);
+        uint64_t shifted_word = arrow::bit_util::ToLittleEndian(native_word >> offset);
         auto shifted_bytes = reinterpret_cast<uint8_t*>(&shifted_word);
         ASSERT_TRUE(
             internal::BitmapEquals(bytes, offset, shifted_bytes, 0, kBitWidth - offset));
@@ -2113,23 +2113,23 @@ TEST(Bitmap, ShiftingWordsOptimization) {
 
     for (int seed = 0; seed < 64; ++seed) {
       random_bytes(sizeof(words), seed, bytes);
-      uint64_t native_words0 = BitUtil::FromLittleEndian(words[0]);
-      uint64_t native_words1 = BitUtil::FromLittleEndian(words[1]);
+      uint64_t native_words0 = bit_util::FromLittleEndian(words[0]);
+      uint64_t native_words1 = bit_util::FromLittleEndian(words[1]);
 
       // bits are accessible through simple bit shifting of a word
       for (size_t i = 0; i < kBitWidth; ++i) {
-        ASSERT_EQ(BitUtil::GetBit(bytes, i), bool((native_words0 >> i) & 1));
+        ASSERT_EQ(bit_util::GetBit(bytes, i), bool((native_words0 >> i) & 1));
       }
       for (size_t i = 0; i < kBitWidth; ++i) {
-        ASSERT_EQ(BitUtil::GetBit(bytes, i + kBitWidth), bool((native_words1 >> i) & 1));
+        ASSERT_EQ(bit_util::GetBit(bytes, i + kBitWidth), bool((native_words1 >> i) & 1));
       }
 
       // bit offset can therefore be accommodated by shifting the word
       for (size_t offset = 1; offset < (kBitWidth * 3) / 4; offset += 3) {
         uint64_t shifted_words[2];
-        shifted_words[0] = arrow::BitUtil::ToLittleEndian(
+        shifted_words[0] = arrow::bit_util::ToLittleEndian(
             native_words0 >> offset | (native_words1 << (kBitWidth - offset)));
-        shifted_words[1] = arrow::BitUtil::ToLittleEndian(native_words1 >> offset);
+        shifted_words[1] = arrow::bit_util::ToLittleEndian(native_words1 >> offset);
         auto shifted_bytes = reinterpret_cast<uint8_t*>(shifted_words);
 
         // from offset to unshifted word boundary

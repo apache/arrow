@@ -37,6 +37,28 @@ namespace gandiva {
 
 #define UNARY_CAST_TO_INT64(type) UNARY_SAFE_NULL_IF_NULL(castBIGINT, {}, type, int64)
 
+#define MULTIPLE_SAFE_NULL_IF_NULL(NAME, ALIASES, TYPE)                                 \
+  NativeFunction(#NAME, std::vector<std::string> ALIASES,                               \
+                 DataTypeVector{TYPE(), TYPE()}, TYPE(), kResultNullIfNull,             \
+                 ARROW_STRINGIFY(NAME##_##TYPE##_##TYPE)),                              \
+      NativeFunction(#NAME, std::vector<std::string> ALIASES,                           \
+                     DataTypeVector{TYPE(), TYPE(), TYPE()}, TYPE(), kResultNullIfNull, \
+                     ARROW_STRINGIFY(NAME##_##TYPE##_##TYPE##_##TYPE)),                 \
+      NativeFunction(#NAME, std::vector<std::string> ALIASES,                           \
+                     DataTypeVector{TYPE(), TYPE(), TYPE(), TYPE()}, TYPE(),            \
+                     kResultNullIfNull,                                                 \
+                     ARROW_STRINGIFY(NAME##_##TYPE##_##TYPE##_##TYPE##_##TYPE)),        \
+      NativeFunction(                                                                   \
+          #NAME, std::vector<std::string> ALIASES,                                      \
+          DataTypeVector{TYPE(), TYPE(), TYPE(), TYPE(), TYPE()}, TYPE(),               \
+          kResultNullIfNull,                                                            \
+          ARROW_STRINGIFY(NAME##_##TYPE##_##TYPE##_##TYPE##_##TYPE##_##TYPE)),          \
+      NativeFunction(                                                                   \
+          #NAME, std::vector<std::string> ALIASES,                                      \
+          DataTypeVector{TYPE(), TYPE(), TYPE(), TYPE(), TYPE(), TYPE()}, TYPE(),       \
+          kResultNullIfNull,                                                            \
+          ARROW_STRINGIFY(NAME##_##TYPE##_##TYPE##_##TYPE##_##TYPE##_##TYPE##_##TYPE))
+
 std::vector<NativeFunction> GetArithmeticFunctionRegistry() {
   static std::vector<NativeFunction> arithmetic_fn_registry_ = {
       UNARY_SAFE_NULL_IF_NULL(not, {}, boolean, boolean),
@@ -122,6 +144,8 @@ std::vector<NativeFunction> GetArithmeticFunctionRegistry() {
       BINARY_RELATIONAL_BOOL_DATE_FN(less_than_or_equal_to, {}),
       BINARY_RELATIONAL_BOOL_DATE_FN(greater_than, {}),
       BINARY_RELATIONAL_BOOL_DATE_FN(greater_than_or_equal_to, {}),
+      BASE_NUMERIC_TYPES(MULTIPLE_SAFE_NULL_IF_NULL, greatest, {}),
+      BASE_NUMERIC_TYPES(MULTIPLE_SAFE_NULL_IF_NULL, least, {}),
 
       // binary representation of integer values
       UNARY_UNSAFE_NULL_IF_NULL(bin, {}, int32, utf8),

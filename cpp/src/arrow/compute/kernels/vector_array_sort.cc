@@ -125,7 +125,7 @@ inline void VisitRawValuesInline(const BooleanArray& values,
     const uint8_t* data = values.data()->GetValues<uint8_t>(1, 0);
     VisitBitBlocksVoid(
         values.null_bitmap(), values.offset(), values.length(),
-        [&](int64_t i) { visitor_not_null(BitUtil::GetBit(data, values.offset() + i)); },
+        [&](int64_t i) { visitor_not_null(bit_util::GetBit(data, values.offset() + i)); },
         [&]() { visitor_null(); });
   } else {
     // Can avoid GetBit() overhead in the no-nulls case

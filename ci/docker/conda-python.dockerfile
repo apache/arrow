@@ -22,12 +22,12 @@ FROM ${repo}:${arch}-conda-cpp
 # install python specific packages
 ARG python=3.6
 COPY ci/conda_env_python.txt /arrow/ci/
-RUN conda install -q \
+RUN mamba install -q \
         --file arrow/ci/conda_env_python.txt \
         $([ "$python" == "3.6" -o "$python" == "3.7" ] && echo "pickle5") \
         python=${python} \
         nomkl && \
-    conda clean --all
+    mamba clean --all
 
 ENV ARROW_PYTHON=ON \
     ARROW_BUILD_STATIC=OFF \
