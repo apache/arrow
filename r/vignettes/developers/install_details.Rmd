@@ -1,6 +1,6 @@
 # How the R package is installed
 
-In order for the `arrow` R package to work, it needs the Arrow C++ library, 
+In order for the arrow R package to work, it needs the Arrow C++ library, 
 also known as libarrow.  There are a number of scripts that are triggered 
 when `R CMD INSTALL .` is run and for Arrow users, these should all just work 
 without configuration and pull in the most complete pieces (e.g. official 
@@ -20,9 +20,10 @@ package.
 
 * `tools/nixlibs.R` - this script is sometimes called by `configure` on Linux
 (or on any non-windows OS with the environment variable
-`FORCE_BUNDLED_BUILD=true`). This sets up the build process for our bundled
-builds (which is the default on linux) and checks for binaries or downloads 
-libarrow from source depending on dependency availability and build configuration.
+`FORCE_BUNDLED_BUILD=true`) if an existing libarrow installation cannot be found.
+This sets up the build process for our bundled builds (which is the default on 
+linux) and checks for binaries or downloads libarrow from source depending on 
+dependency availability and build configuration.
 
 * `inst/build_arrow_static.sh` - called by `tools/nixlibs.R` when libarrow is 
 being built.  It builds libarrow for a bundled, static build, and
@@ -74,10 +75,10 @@ you'll need to install them before installing the R package.
 
 #### Prebuilt binaries
 
-If no Arrow C++ libraries are found on the system, the R package installation 
-script will next attempt to download prebuilt static Arrow C++ libraries
-that match your both your local operating system and `arrow` R package version.
-C++ binaries will only be retrieved if you have set the environment variable
+If libarrow is not found on the system, the R package installation 
+script will next attempt to download prebuilt libarrow binaries
+that match your both your local operating system and arrow R package version.
+The libarrow binaries will only be retrieved if you have set the environment variable
 `LIBARROW_BINARY` or `NOT_CRAN`.
 
 If found, they will be downloaded and bundled when your R package compiles.
@@ -86,9 +87,9 @@ see the [arrow-r-nightly](https://github.com/ursa-labs/arrow-r-nightly/blob/mast
 
 #### Building from source
 
-If no C++ library binary is found, it will attempt to build it locally.
-First, it will also look to see if you are in
-a checkout of the `apache/arrow` git repository and thus have the C++ source there.
-Otherwise, it builds from the C++ files included in the package.
-Depending on your system, building Arrow C++ from source may be slow.  If the
-C++ library is built from source, `inst/build_arrow_static.sh` is executed.
+If no libarrow binary is found, it will attempt to build it locally.
+First, it will also look to see if you are in a checkout of the `apache/arrow` 
+git repository and thus have the libarrow source files there.
+Otherwise, it builds from the source files included in the package.
+Depending on your system, building Arrow C++ from source may be slow. If 
+libarrow is built from source, `inst/build_arrow_static.sh` is executed.
