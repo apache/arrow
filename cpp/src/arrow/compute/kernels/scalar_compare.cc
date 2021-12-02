@@ -530,15 +530,15 @@ struct BinaryScalarMinMax {
   static Status ExecContainingArrays(KernelContext* ctx,
                                      const ElementWiseAggregateOptions& options,
                                      const ExecBatch& batch, Datum* out) {
-    // Presize data to avoid reallocations
-    int64_t final_size = 0;
+    // Presize data to avoid reallocations, using an upper bound estimation of final size.
+    int64_t estimated_final_size = 0;
     for (int64_t i = 0; i < batch.length; i++) {
-      auto size = CalculateRowSize(options, batch, i);
-      if (size > 0) final_size += size;
+      auto size = CalculateRowSizeUpperBound(options, batch, i);
+      if (size > 0) estimated_final_size += size;
     }
     BuilderType builder(ctx->memory_pool());
     RETURN_NOT_OK(builder.Reserve(batch.length));
-    RETURN_NOT_OK(builder.ReserveData(final_size));
+    RETURN_NOT_OK(builder.ReserveData(estimated_final_size));
 
     std::vector<util::optional<string_view>> valid_cols(batch.values.size());
     for (size_t row = 0; row < static_cast<size_t>(batch.length); row++) {
@@ -594,14 +594,15 @@ struct BinaryScalarMinMax {
     *out = *string_array->data();
     out->mutable_array()->type = batch[0].type();
     DCHECK_EQ(batch.length, out->array()->length);
-    DCHECK_GE(final_size,
+    DCHECK_GE(estimated_final_size,
               checked_cast<const ArrayType&>(*string_array).total_values_length());
     return Status::OK();
   }
 
-  // Compute the length of the output for the given position, or -1 if it would be null.
-  static int64_t CalculateRowSize(const ElementWiseAggregateOptions& options,
-                                  const ExecBatch& batch, const int64_t index) {
+  // Compute and upper bound for the length of the output for the given position,
+  // or -1 if it would be null.
+  static int64_t CalculateRowSizeUpperBound(const ElementWiseAggregateOptions& options,
+                                            const ExecBatch& batch, const int64_t index) {
     const auto num_args = batch.values.size();
     int64_t final_size = 0;
     for (size_t i = 0; i < num_args; i++) {
