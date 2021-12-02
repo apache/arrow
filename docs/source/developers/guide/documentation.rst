@@ -48,7 +48,7 @@ on JIRA.
    try selecting **Components** from **More** tab in JIRA search
    and there find **Documentation** from the list.
 
-   See `Example search. <https://issues.apache.org/jira/issues/jql=project%20%3D%20ARROW%20AND%20status%20%3D%20Open%20AND%20resolution%20%3D%20Unresolved%20AND%20component%20%3D%20Documentation%20AND%20assignee%20in%20(EMPTY)%20ORDER%20BY%20priority%20DESC%2C%20updated%20DESC>`_
+   See `Example search. <https://issues.apache.org/jira/issues/?jql=project%20%3D%20ARROW%20AND%20status%20%3D%20Open%20AND%20resolution%20%3D%20Unresolved%20AND%20component%20%3D%20Documentation%20AND%20assignee%20in%20(EMPTY)%20ORDER%20BY%20priority%20DESC%2C%20updated%20DESC>`_
 
    .. figure:: jira_doc_1.jpeg
       :scale: 40 %
