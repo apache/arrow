@@ -993,12 +993,23 @@ tasks:
       image: ubuntu-cpp
 
 {% for debian_version in ["10", "11"] %}
-  test-debian-{{ debian_version }}-cpp:
+  test-debian-{{ debian_version }}-cpp-amd64:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       env:
+        ARCH: "amd64"
         DEBIAN: "{{ debian_version }}"
+      image: debian-cpp
+
+  test-debian-{{ debian_version }}-cpp-i386:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      env:
+        ARCH: "i386"
+        DEBIAN: "{{ debian_version }}"
+      flags: "-e ARROW_S3=OFF -e ARROW_GANDIVA=OFF"
       image: debian-cpp
 {% endfor %}
 
