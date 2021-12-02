@@ -1408,7 +1408,7 @@ struct ScalarTernaryNotNull {
 template <typename OutType, typename ArgType, typename Op>
 using ScalarTernaryEqualTypes = ScalarTernary<OutType, ArgType, ArgType, ArgType, Op>;
 
-// A kernel exec generator for non-null binary kernels where both input types are the
+// A kernel exec generator for non-null ternary kernels where both input types are the
 // same
 template <typename OutType, typename ArgType, typename Op>
 using ScalarTernaryNotNullEqualTypes =
