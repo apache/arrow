@@ -757,8 +757,8 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
         "part-{i}." + format.default_extname
     format : FileFormat or str
         The format in which to write the dataset. Currently supported:
-        "parquet", "ipc"/"arrow"/"feather", and "csv". If a FileSystemDataset is
-        being written and `format` is not specified, it defaults to the
+        "parquet", "ipc"/"arrow"/"feather", and "csv". If a FileSystemDataset
+        is being written and `format` is not specified, it defaults to the
         same format as the specified FileSystemDataset. When writing a
         Table or RecordBatch, this keyword is required.
     partitioning : Partitioning or list[str], optional
