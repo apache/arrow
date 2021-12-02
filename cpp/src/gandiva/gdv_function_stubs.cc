@@ -1036,11 +1036,11 @@ const char* gdv_mask_last_n_utf8_int32(int64_t context, const char* data,
 
   if (!has_multi_byte) {
     int start_idx = data_len - n_to_mask;
+    memcpy(out, data, start_idx);
     for (int i = start_idx; i < data_len; ++i) {
       unsigned char char_single_byte = data[i];
       out[i] = mask_array[char_single_byte];
     }
-    memcpy(out, data, start_idx);
     *out_len = data_len;
     return out;
   }
@@ -1052,9 +1052,7 @@ const char* gdv_mask_last_n_utf8_int32(int64_t context, const char* data,
   utf8proc_int32_t utf8_char;
   int chars_counter = 0;
   int bytes_read = 0;
-  int out_idx = 0;
-  int offset_idx = 0;
-  while (bytes_read < data_len) {
+  while ((bytes_read < data_len) && (chars_counter < (num_of_chars - n_to_mask))) {
     auto char_len =
         utf8proc_iterate(reinterpret_cast<const utf8proc_uint8_t*>(data + bytes_read),
                          data_len, &utf8_char);
@@ -1065,16 +1063,12 @@ const char* gdv_mask_last_n_utf8_int32(int64_t context, const char* data,
       return nullptr;
     }
 
-    if (chars_counter < (num_of_chars - n_to_mask)) {
-      chars_counter++;
-      out_idx += static_cast<int>(char_len);
-      bytes_read += static_cast<int>(char_len);
-      offset_idx += static_cast<int>(char_len);
-      continue;
-    }
-
-    break;
+    chars_counter++;
+    bytes_read += static_cast<int>(char_len);
   }
+
+  int out_idx = bytes_read;
+  int offset_idx = bytes_read;
 
   // Populate the first chars, that are not masked
   memcpy(out, data, offset_idx);
