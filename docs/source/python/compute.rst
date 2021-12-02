@@ -108,6 +108,56 @@ to which the hash aggregation functions can be applied::
 The ``"sum"`` aggregation passed to the ``aggregate`` method in the previous
 example is the :func:`hash_sum` compute function. 
 
+Multiple aggregations can be performed at the same time by providing them
+to the ``aggregate`` method::
+
+   >>> import pyarrow as pa
+   >>> t = pa.table([
+   ...       pa.array(["a", "a", "b", "b", "c"]),
+   ...       pa.array([1, 2, 3, 4, 5]),
+   ... ], names=["keys", "values"])
+   >>> t.group_by("keys").aggregate([
+   ...    ("values", "sum"),
+   ...    ("keys", "count")
+   ... ])
+   pyarrow.Table
+   values_sum: int64
+   keys_count: int64
+   keys: string
+   ----
+   values_sum: [[3,7,5]]
+   keys_count: [[2,2,1]]
+   keys: [["a","b","c"]]
+
+Aggregation options can also be provided for each aggregation function,
+for example we can use :class:`CountOptions` to change how we count
+null values::
+
+   >>> import pyarrow as pa
+   >>> import pyarrow.compute as pc
+   >>> table_with_nulls = pa.table([
+   ...    pa.array(["a", "a", "a"]),
+   ...    pa.array([1, None, None])
+   ... ], names=["keys", "values"])
+   >>> table_with_nulls.group_by(["keys"]).aggregate([
+   ...    ("values", "count", pc.CountOptions(mode="all"))
+   ... ])
+   pyarrow.Table
+   values_count: int64
+   keys: string
+   ----
+   values_count: [[3]]
+   keys: [["a"]]
+   >>> table_with_nulls.group_by(["keys"]).aggregate([
+   ...    ("values", "count", pc.CountOptions(mode="only_valid"))
+   ... ])
+   pyarrow.Table
+   values_count: int64
+   keys: string
+   ----
+   values_count: [[1]]
+   keys: [["a"]]
+
 Following is a list of all supported grouped aggregation functions.
 You can use them with or without the ``"hash_"`` prefix.
 
