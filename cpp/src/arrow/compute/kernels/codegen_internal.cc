@@ -170,7 +170,7 @@ std::shared_ptr<DataType> CommonNumeric(const ValueDescr* begin, size_t count) {
   }
 
   if (max_width_signed <= max_width_unsigned) {
-    max_width_signed = static_cast<int>(BitUtil::NextPower2(max_width_unsigned + 1));
+    max_width_signed = static_cast<int>(bit_util::NextPower2(max_width_unsigned + 1));
   }
 
   if (max_width_signed >= 64) return int64();

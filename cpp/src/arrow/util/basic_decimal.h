@@ -76,7 +76,7 @@ class ARROW_EXPORT BasicDecimal128 {
   ///
   /// Input array is assumed to be in little endianness, with native endian elements.
   BasicDecimal128(LittleEndianArrayTag, const std::array<uint64_t, 2>& array) noexcept
-      : BasicDecimal128(BitUtil::LittleEndianArray::ToNative(array)) {}
+      : BasicDecimal128(bit_util::little_endian::ToNative(array)) {}
 
   /// \brief Empty constructor creates a BasicDecimal128 with a value of 0.
   constexpr BasicDecimal128() noexcept : BasicDecimal128(0, 0) {}
@@ -300,7 +300,7 @@ class ARROW_EXPORT BasicDecimal256 {
   ///
   /// Input array is assumed to be in little endianness, with native endian elements.
   BasicDecimal256(LittleEndianArrayTag, const std::array<uint64_t, 4>& array) noexcept
-      : BasicDecimal256(BitUtil::LittleEndianArray::ToNative(array)) {}
+      : BasicDecimal256(bit_util::little_endian::ToNative(array)) {}
 
   /// \brief Empty constructor creates a BasicDecimal256 with a value of 0.
   constexpr BasicDecimal256() noexcept : array_({0, 0, 0, 0}) {}
@@ -310,12 +310,12 @@ class ARROW_EXPORT BasicDecimal256 {
             typename = typename std::enable_if<
                 std::is_integral<T>::value && (sizeof(T) <= sizeof(uint64_t)), T>::type>
   constexpr BasicDecimal256(T value) noexcept
-      : array_(BitUtil::LittleEndianArray::ToNative<uint64_t, 4>(
+      : array_(bit_util::little_endian::ToNative<uint64_t, 4>(
             {static_cast<uint64_t>(value), extend(value), extend(value),
              extend(value)})) {}
 
   explicit BasicDecimal256(const BasicDecimal128& value) noexcept
-      : array_(BitUtil::LittleEndianArray::ToNative<uint64_t, 4>(
+      : array_(bit_util::little_endian::ToNative<uint64_t, 4>(
             {value.low_bits(), static_cast<uint64_t>(value.high_bits()),
              extend(value.high_bits()), extend(value.high_bits())})) {}
 
@@ -357,7 +357,7 @@ class ARROW_EXPORT BasicDecimal256 {
   /// uint64_t element are in native endian order.
   /// For example, BasicDecimal256(123).little_endian_array() = {123, 0};
   inline const std::array<uint64_t, 4> little_endian_array() const {
-    return BitUtil::LittleEndianArray::FromNative(array_);
+    return bit_util::little_endian::FromNative(array_);
   }
 
   inline const uint8_t* native_endian_bytes() const {
@@ -369,7 +369,7 @@ class ARROW_EXPORT BasicDecimal256 {
   }
 
   /// \brief Get the lowest bits of the two's complement representation of the number.
-  inline uint64_t low_bits() const { return BitUtil::LittleEndianArray::Make(array_)[0]; }
+  inline uint64_t low_bits() const { return bit_util::little_endian::Make(array_)[0]; }
 
   /// \brief Return the raw bytes of the value in native-endian byte order.
   std::array<uint8_t, 32> ToBytes() const;
@@ -400,11 +400,11 @@ class ARROW_EXPORT BasicDecimal256 {
   bool FitsInPrecision(int32_t precision) const;
 
   inline int64_t Sign() const {
-    return 1 | (static_cast<int64_t>(BitUtil::LittleEndianArray::Make(array_)[3]) >> 63);
+    return 1 | (static_cast<int64_t>(bit_util::little_endian::Make(array_)[3]) >> 63);
   }
 
   inline int64_t IsNegative() const {
-    return static_cast<int64_t>(BitUtil::LittleEndianArray::Make(array_)[3]) < 0;
+    return static_cast<int64_t>(bit_util::little_endian::Make(array_)[3]) < 0;
   }
 
   /// \brief Multiply this number by another number. The result is truncated to 256 bits.

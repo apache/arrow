@@ -281,8 +281,10 @@ struct RandomDataTypeConstraints {
 
   void OnlyInt(int int_size, bool allow_nulls) {
     Default();
-    data_type_enabled_mask =
-        int_size == 8 ? kInt8 : int_size == 4 ? kInt4 : int_size == 2 ? kInt2 : kInt1;
+    data_type_enabled_mask = int_size == 8   ? kInt8
+                             : int_size == 4 ? kInt4
+                             : int_size == 2 ? kInt2
+                                             : kInt1;
     if (!allow_nulls) {
       max_null_probability = 0.0;
     }
@@ -459,7 +461,7 @@ void TakeUsingVector(ExecContext* ctx, const std::vector<std::shared_ptr<Array>>
         ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> null_buf,
                              AllocateBitmap(indices.size(), ctx->memory_pool()));
         uint8_t* non_nulls = null_buf->mutable_data();
-        memset(non_nulls, 0xFF, BitUtil::BytesForBits(indices.size()));
+        memset(non_nulls, 0xFF, bit_util::BytesForBits(indices.size()));
         if ((*result)[i]->data()->buffers.size() == 2) {
           (*result)[i] = MakeArray(
               ArrayData::Make((*result)[i]->type(), indices.size(),
@@ -477,7 +479,7 @@ void TakeUsingVector(ExecContext* ctx, const std::vector<std::shared_ptr<Array>>
       if (indices[i] < 0) {
         for (size_t col = 0; col < result->size(); ++col) {
           uint8_t* non_nulls = (*result)[col]->data()->buffers[0]->mutable_data();
-          BitUtil::ClearBit(non_nulls, i);
+          bit_util::ClearBit(non_nulls, i);
         }
       }
     }
@@ -546,7 +548,7 @@ std::vector<bool> NullInKey(const std::vector<JoinKeyCmp>& cmp,
       continue;
     }
     for (size_t j = 0; j < result.size(); ++j) {
-      if (!BitUtil::GetBit(nulls, j)) {
+      if (!bit_util::GetBit(nulls, j)) {
         result[j] = true;
       }
     }
@@ -1105,8 +1107,8 @@ TEST(HashJoin, Random) {
     std::shared_ptr<Table> output_rows_test;
     HashJoinWithExecPlan(rng, parallel, join_options, output_schema,
                          shuffled_input_arrays[0], shuffled_input_arrays[1],
-                         static_cast<int>(BitUtil::CeilDiv(num_rows_l, batch_size)),
-                         static_cast<int>(BitUtil::CeilDiv(num_rows_r, batch_size)),
+                         static_cast<int>(bit_util::CeilDiv(num_rows_l, batch_size)),
+                         static_cast<int>(bit_util::CeilDiv(num_rows_r, batch_size)),
                          &output_rows_test);
 
     // Compare results
@@ -1166,12 +1168,12 @@ void TestHashJoinDictionaryHelper(
     int expected_num_r_no_match,
     // Whether to swap two inputs to the hash join
     bool swap_sides) {
-  int64_t l_length = l_key.is_array()
-                         ? l_key.array()->length
-                         : l_payload.is_array() ? l_payload.array()->length : -1;
-  int64_t r_length = r_key.is_array()
-                         ? r_key.array()->length
-                         : r_payload.is_array() ? r_payload.array()->length : -1;
+  int64_t l_length = l_key.is_array()       ? l_key.array()->length
+                     : l_payload.is_array() ? l_payload.array()->length
+                                            : -1;
+  int64_t r_length = r_key.is_array()       ? r_key.array()->length
+                     : r_payload.is_array() ? r_payload.array()->length
+                                            : -1;
   ARROW_DCHECK(l_length >= 0 && r_length >= 0);
 
   constexpr int batch_multiplicity_for_parallel = 2;

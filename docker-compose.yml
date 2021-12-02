@@ -97,6 +97,7 @@ x-hierarchy:
   # service entry, so any new image/service must be listed here.
   - conda:
     - conda-cpp:
+      - conda-integration
       - conda-cpp-hiveserver2
       - conda-cpp-valgrind
       - conda-python:
@@ -108,7 +109,7 @@ x-hierarchy:
         - conda-python-turbodbc
         - conda-python-kartothek
         - conda-python-spark
-    - conda-integration
+
   - debian-cpp:
     - debian-c-glib:
       - debian-ruby
@@ -203,7 +204,6 @@ services:
         - ${REPO}:${ARCH}-conda
       args:
         arch: ${ARCH}
-        prefix: /opt/conda
     volumes:
       - .:/arrow:delegated
 
@@ -259,7 +259,6 @@ services:
       args:
         repo: ${REPO}
         arch: ${ARCH}
-        prefix: /opt/conda
     shm_size: *shm-size
     environment:
       <<: *ccache
@@ -786,18 +785,18 @@ services:
     image: ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2010-vcpkg-${VCPKG}
     build:
       args:
-        arch_alias: ${ARCH_ALIAS}
-        arch_short_alias: ${ARCH_SHORT_ALIAS}
+        arch: ${ARCH}
+        arch_short: ${ARCH_SHORT}
         base: quay.io/pypa/manylinux2010_${ARCH_ALIAS}:2021-10-11-14ac00e
         vcpkg: ${VCPKG}
         python: ${PYTHON}
+        manylinux: 2010
       context: .
       dockerfile: ci/docker/python-wheel-manylinux-201x.dockerfile
       cache_from:
         - ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2010-vcpkg-${VCPKG}
     environment:
       <<: *ccache
-      MANYLINUX_VERSION: 2010
     volumes:
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}python-wheel-manylinux2010-ccache:/ccache:delegated
@@ -809,18 +808,18 @@ services:
     image: ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2014-vcpkg-${VCPKG}
     build:
       args:
-        arch_alias: ${ARCH_ALIAS}
-        arch_short_alias: ${ARCH_SHORT_ALIAS}
-        base:  quay.io/pypa/manylinux2014_${ARCH_ALIAS}:2021-10-11-14ac00e
+        arch: ${ARCH}
+        arch_short: ${ARCH_SHORT}
+        base: quay.io/pypa/manylinux2014_${ARCH_ALIAS}:2021-10-11-14ac00e
         vcpkg: ${VCPKG}
         python: ${PYTHON}
+        manylinux: 2014
       context: .
       dockerfile: ci/docker/python-wheel-manylinux-201x.dockerfile
       cache_from:
         - ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2014-vcpkg-${VCPKG}
     environment:
       <<: *ccache
-      MANYLINUX_VERSION: 2014
     volumes:
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}python-wheel-manylinux2014-ccache:/ccache:delegated

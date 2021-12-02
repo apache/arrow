@@ -166,14 +166,37 @@ format_aggregation <- function(x) {
 # appropriate combination of (1) aggregations (possibly temporary) and
 # (2) post-aggregation transformations (mutate)
 # The function returns nothing: it assigns into the `ctx` environment
-summarize_eval <- function(name, quosure, ctx, hash, recurse = FALSE) {
+summarize_eval <- function(name, quosure, ctx, hash) {
   expr <- quo_get_expr(quosure)
   ctx$quo_env <- quo_get_env(quosure)
 
   funs_in_expr <- all_funs(expr)
+
   if (length(funs_in_expr) == 0) {
-    # If it is a scalar or field ref, no special handling required
-    ctx$aggregations[[name]] <- arrow_eval_or_stop(quosure, ctx$mask)
+    # This branch only gets called at the top level, where expr is something
+    # that is not a function call (could be a quosure, a symbol, or atomic
+    # value). This needs to evaluate to a scalar or something that can be
+    # converted to one.
+    value <- arrow_eval_or_stop(quosure, ctx$mask)
+
+    if (!inherits(value, "Expression")) {
+      value <- Expression$scalar(value)
+    }
+
+    # We can't support a bare field reference because this is not
+    # an aggregate expression
+    if (!identical(value$field_name, "")) {
+      abort(
+        paste(
+          "Expression", format_expr(quosure),
+          "is not an aggregate expression or is not supported in Arrow"
+        )
+      )
+    }
+
+    # Scalars need to be added to post_mutate because they don't need
+    # to be sent to the query engine as an aggregation
+    ctx$post_mutate[[name]] <- value
     return()
   }
 
@@ -229,18 +252,27 @@ summarize_eval <- function(name, quosure, ctx, hash, recurse = FALSE) {
         )
       )
     )
-    ctx$post_mutate[[name]] <- arrow_eval_or_stop(
+
+    value <- arrow_eval_or_stop(
       as_quosure(expr, ctx$quo_env),
       mutate_mask
     )
+
+    if (!inherits(value, "Expression")) {
+      value <- Expression$scalar(value)
+    }
+
+    ctx$post_mutate[[name]] <- value
     return()
   }
 
   # Backstop for any other odd cases, like fun(x, y) (i.e. no aggregation),
   # or aggregation functions that aren't supported in Arrow (not in agg_funcs)
-  stop(
-    handle_arrow_not_supported(quo_get_expr(quosure), format_expr(quosure)),
-    call. = FALSE
+  abort(
+    paste(
+      "Expression", format_expr(quosure),
+      "is not an aggregate expression or is not supported in Arrow"
+    )
   )
 }
 
@@ -258,16 +290,16 @@ extract_aggregations <- function(expr, ctx) {
   }
   if (funs[1] %in% names(agg_funcs)) {
     inner_agg_exprs <- all_vars(expr) %in% names(ctx$aggregations)
-    if (any(inner_agg_exprs) & !all(inner_agg_exprs)) {
+    if (any(inner_agg_exprs)) {
       # We can't aggregate over a combination of dataset columns and other
       # aggregations (e.g. sum(x - mean(x)))
       # TODO: support in ARROW-13926
-      # TODO: Add "because" arg to explain _why_ it's not supported?
-      # TODO: this message could also say "not supported in summarize()"
-      #       since some of these expressions may be legal elsewhere
-      stop(
-        handle_arrow_not_supported(original_expr, format_expr(original_expr)),
-        call. = FALSE
+      abort(
+        paste(
+          "Aggregate within aggregate expression",
+          format_expr(original_expr),
+          "not supported in Arrow"
+        )
       )
     }
 

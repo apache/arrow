@@ -127,7 +127,7 @@ class BaseListBuilder : public ArrayBuilder {
     const offset_type* offsets = array.GetValues<offset_type>(1);
     const uint8_t* validity = array.MayHaveNulls() ? array.buffers[0]->data() : NULLPTR;
     for (int64_t row = offset; row < offset + length; row++) {
-      if (!validity || BitUtil::GetBit(validity, array.offset + row)) {
+      if (!validity || bit_util::GetBit(validity, array.offset + row)) {
         ARROW_RETURN_NOT_OK(Append());
         int64_t slot_length = offsets[row + 1] - offsets[row];
         ARROW_RETURN_NOT_OK(value_builder_->AppendArraySlice(*array.child_data[0],
@@ -297,7 +297,7 @@ class ARROW_EXPORT MapBuilder : public ArrayBuilder {
     const int32_t* offsets = array.GetValues<int32_t>(1);
     const uint8_t* validity = array.MayHaveNulls() ? array.buffers[0]->data() : NULLPTR;
     for (int64_t row = offset; row < offset + length; row++) {
-      if (!validity || BitUtil::GetBit(validity, array.offset + row)) {
+      if (!validity || bit_util::GetBit(validity, array.offset + row)) {
         ARROW_RETURN_NOT_OK(Append());
         const int64_t slot_length = offsets[row + 1] - offsets[row];
         ARROW_RETURN_NOT_OK(key_builder_->AppendArraySlice(
@@ -413,7 +413,7 @@ class ARROW_EXPORT FixedSizeListBuilder : public ArrayBuilder {
   Status AppendArraySlice(const ArrayData& array, int64_t offset, int64_t length) final {
     const uint8_t* validity = array.MayHaveNulls() ? array.buffers[0]->data() : NULLPTR;
     for (int64_t row = offset; row < offset + length; row++) {
-      if (!validity || BitUtil::GetBit(validity, array.offset + row)) {
+      if (!validity || bit_util::GetBit(validity, array.offset + row)) {
         ARROW_RETURN_NOT_OK(value_builder_->AppendArraySlice(
             *array.child_data[0], list_size_ * (array.offset + row), list_size_));
         ARROW_RETURN_NOT_OK(Append());

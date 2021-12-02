@@ -68,7 +68,6 @@ fi
 : ${UPLOAD_AMAZON_LINUX:=${UPLOAD_DEFAULT}}
 : ${UPLOAD_CENTOS:=${UPLOAD_DEFAULT}}
 : ${UPLOAD_DEBIAN:=${UPLOAD_DEFAULT}}
-: ${UPLOAD_JAVA:=${UPLOAD_DEFAULT}}
 : ${UPLOAD_NUGET:=${UPLOAD_DEFAULT}}
 : ${UPLOAD_PYTHON:=${UPLOAD_DEFAULT}}
 : ${UPLOAD_UBUNTU:=${UPLOAD_DEFAULT}}
@@ -91,9 +90,6 @@ fi
 if [ ${UPLOAD_DEBIAN} -gt 0 ]; then
   rake_tasks+=(apt:rc)
   apt_targets+=(debian)
-fi
-if [ ${UPLOAD_JAVA} -gt 0 ]; then
-  rake_tasks+=(java:rc)
 fi
 if [ ${UPLOAD_NUGET} -gt 0 ]; then
   rake_tasks+=(nuget:rc)

@@ -407,6 +407,18 @@ struct ARROW_EXPORT WeekOptions : public FunctionOptions {
   bool first_week_is_fully_in_year;
 };
 
+struct ARROW_EXPORT Utf8NormalizeOptions : public FunctionOptions {
+ public:
+  enum Form { NFC, NFKC, NFD, NFKD };
+
+  explicit Utf8NormalizeOptions(Form form = NFC);
+  static Utf8NormalizeOptions Defaults() { return Utf8NormalizeOptions(); }
+  constexpr static char const kTypeName[] = "Utf8NormalizeOptions";
+
+  /// The Unicode normalization form to apply
+  Form form;
+};
+
 /// @}
 
 /// \brief Get the absolute value of a value.
