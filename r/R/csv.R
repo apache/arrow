@@ -676,7 +676,7 @@ write_csv_arrow <- function(x,
     )
   }
 
-  # default value are considered missing by base R
+  # default values are considered missing by base R
   if (missing(include_header) && !missing(col_names)) {
     include_header <- col_names
   }
