@@ -21,9 +21,12 @@
 #include <type_traits>
 #include <utility>
 
+#include "arrow/array/util.h"
 #include "arrow/buffer.h"
+#include "arrow/chunked_array.h"
 #include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/type_fwd.h"
+#include "arrow/record_batch.h"
 #include "arrow/table.h"
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/math_constants.h"
