@@ -54,6 +54,17 @@ ARROW_EXPORT
 Result<std::shared_ptr<Array>> MakeArrayFromScalar(
     const Scalar& scalar, int64_t length, MemoryPool* pool = default_memory_pool());
 
+/// \brief Create an empty Array of a given type
+///
+/// The output Array will be of the given type.
+///
+/// \param[in] type DataType of the empty Array
+/// \param[in] memory_pool MemoryPool pointer
+/// \return the resulting Array
+ARROW_EXPORT
+Result<std::shared_ptr<Array>> MakeEmptyArray(std::shared_ptr<DataType> type,
+                                              MemoryPool* memory_pool);
+
 namespace internal {
 
 /// \brief Swap endian of each element in a generic ArrayData

@@ -21,12 +21,9 @@
 #include <type_traits>
 #include <utility>
 
-#include "arrow/array/util.h"
 #include "arrow/buffer.h"
-#include "arrow/chunked_array.h"
 #include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/type_fwd.h"
-#include "arrow/record_batch.h"
 #include "arrow/table.h"
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/math_constants.h"
@@ -163,51 +160,6 @@ int64_t CopyNonNullValues(const Datum& datum, T* out) {
   }
   return n;
 }
-
-//--------------------------------------------------------------------------
-
-/// \brief Create an empty Array of a given type
-///
-/// The output Array will be of the given type.
-///
-/// \param[in] type DataType of the empty Array
-/// \param[in] memory_pool MemoryPool pointer
-/// \return the resulting Array
-Result<std::shared_ptr<Array>> CreateEmptyArray(std::shared_ptr<DataType> type,
-                                                MemoryPool* memory_pool);
-
-/// \brief Create an empty ChunkedArray of a given type
-///
-/// The output ChunkedArray will have one chunk with an empty
-/// array of the given type.
-///
-/// \param[in] type DataType of the empty ChunkedArray
-/// \param[in] memory_pool MemoryPool pointer
-/// \return the resulting ChunkedArray
-Result<std::shared_ptr<ChunkedArray>> CreateEmptyChunkedArray(
-    std::shared_ptr<DataType> type, MemoryPool* memory_pool);
-
-/// \brief Create an empty RecordBatch of a given schema
-///
-/// The output RecordBatch will be created with DataTypes from
-/// the given schema.
-///
-/// \param[in] type Schema of the empty RecordBatch
-/// \param[in] memory_pool MemoryPool pointer
-/// \return the resulting RecordBatch
-Result<std::shared_ptr<RecordBatch>> CreateEmptyRecordBatch(
-    std::shared_ptr<Schema> schema, MemoryPool* memory_pool);
-
-/// \brief Create an empty Table of a given schema
-///
-/// The output Table will be created from a ChunkedArrayVector
-/// with DataTypes from the schema.
-///
-/// \param[in] type Schema of the empty Table
-/// \param[in] memory_pool MemoryPool pointer
-/// \return the resulting Table
-Result<std::shared_ptr<Table>> CreateEmptyTable(std::shared_ptr<Schema> schema,
-                                                MemoryPool* memory_pool);
 
 }  // namespace internal
 }  // namespace compute

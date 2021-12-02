@@ -77,41 +77,6 @@ ArrayKernelExec TrivialScalarUnaryAsArraysExec(ArrayKernelExec exec,
   };
 }
 
-Result<std::shared_ptr<Array>> CreateEmptyArray(std::shared_ptr<DataType> type,
-                                                MemoryPool* memory_pool) {
-  std::unique_ptr<ArrayBuilder> builder;
-  RETURN_NOT_OK(MakeBuilder(memory_pool, type, &builder));
-  RETURN_NOT_OK(builder->Resize(0));
-  return builder->Finish();
-}
-
-Result<std::shared_ptr<ChunkedArray>> CreateEmptyChunkedArray(
-    std::shared_ptr<DataType> type, MemoryPool* memory_pool) {
-  std::vector<std::shared_ptr<Array>> new_chunks(1);
-  ARROW_ASSIGN_OR_RAISE(new_chunks[0], CreateEmptyArray(type, memory_pool));
-  return std::make_shared<ChunkedArray>(std::move(new_chunks));
-}
-
-Result<std::shared_ptr<RecordBatch>> CreateEmptyRecordBatch(
-    std::shared_ptr<Schema> schema, MemoryPool* memory_pool) {
-  ArrayVector empty_batch(schema->num_fields());
-  for (int i = 0; i < schema->num_fields(); i++) {
-    ARROW_ASSIGN_OR_RAISE(empty_batch[i],
-                          CreateEmptyArray(schema->field(i)->type(), memory_pool));
-  }
-  return RecordBatch::Make(schema, 0, empty_batch);
-}
-
-Result<std::shared_ptr<Table>> CreateEmptyTable(std::shared_ptr<Schema> schema,
-                                                MemoryPool* memory_pool) {
-  ChunkedArrayVector empty_table(schema->num_fields());
-  for (int i = 0; i < schema->num_fields(); i++) {
-    ARROW_ASSIGN_OR_RAISE(empty_table[i],
-                          CreateEmptyChunkedArray(schema->field(i)->type(), memory_pool));
-  }
-  return Table::Make(schema, empty_table, 0);
-}
-
 }  // namespace internal
 }  // namespace compute
 }  // namespace arrow

@@ -60,6 +60,17 @@ class ARROW_EXPORT RecordBatch {
       std::shared_ptr<Schema> schema, int64_t num_rows,
       std::vector<std::shared_ptr<ArrayData>> columns);
 
+  /// \brief Create an empty RecordBatch of a given schema
+  ///
+  /// The output RecordBatch will be created with DataTypes from
+  /// the given schema.
+  ///
+  /// \param[in] type Schema of the empty RecordBatch
+  /// \param[in] memory_pool MemoryPool pointer
+  /// \return the resulting RecordBatch
+  static Result<std::shared_ptr<RecordBatch>> MakeEmptyRecordBatch(
+      std::shared_ptr<Schema> schema, MemoryPool* memory_pool);
+
   /// \brief Convert record batch to struct array
   ///
   /// Create a struct array whose child arrays are the record batch's columns.
