@@ -106,7 +106,7 @@ to which the hash aggregation functions can be applied::
    keys: [["a","b","c"]]
 
 The ``"sum"`` aggregation passed to the ``aggregate`` method in the previous
-example is the :func:`hash_sum` compute function. 
+example is the ``hash_sum`` compute function.
 
 Multiple aggregations can be performed at the same time by providing them
 to the ``aggregate`` method::
@@ -161,5 +161,5 @@ null values::
 Following is a list of all supported grouped aggregation functions.
 You can use them with or without the ``"hash_"`` prefix.
 
-.. computefuncs::
+.. arrow-computefuncs::
   :kind: hash_aggregate
