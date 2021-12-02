@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARG base=amd64/ubuntu:20.04
+ARG base=amd64/ubuntu:21.04
 FROM ${base}
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
@@ -29,20 +29,27 @@ RUN echo "debconf debconf/frontend select Noninteractive" | \
 # while debugging package list with docker build.
 ARG clang_tools
 ARG llvm
-RUN if [ "${llvm}" -gt "10" ]; then \
+RUN latest_system_llvm=12 && \
+    if [ ${llvm} -gt ${latest_system_llvm} -o \
+         ${clang_tools} -gt ${latest_system_llvm} ]; then \
       apt-get update -y -q && \
       apt-get install -y -q --no-install-recommends \
           apt-transport-https \
           ca-certificates \
           gnupg \
+          lsb-release \
           wget && \
       wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
-      echo "deb https://apt.llvm.org/hirsute/ llvm-toolchain-hirsute-${llvm} main" > \
-         /etc/apt/sources.list.d/llvm.list && \
-      if [ "${clang_tools}" != "${llvm}" -a "${clang_tools}" -gt 10 ]; then \
-        echo "deb https://apt.llvm.org/hirsute/ llvm-toolchain-hirsute-${clang_tools} main" > \
+      code_name=$(lsb_release --codename --short) && \
+      if [ ${llvm} -gt 10 ]; then \
+        echo "deb https://apt.llvm.org/${code_name}/ llvm-toolchain-${code_name}-${llvm} main" > \
+           /etc/apt/sources.list.d/llvm.list; \
+      fi && \
+      if [ ${clang_tools} -ne ${llvm} -a \
+           ${clang_tools} -gt ${latest_system_llvm} ]; then \
+        echo "deb https://apt.llvm.org/${code_name}/ llvm-toolchain-${code_name}-${clang_tools} main" > \
            /etc/apt/sources.list.d/clang-tools.list; \
-      fi \
+      fi; \
     fi && \
     apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \

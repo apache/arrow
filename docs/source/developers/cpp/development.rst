@@ -105,9 +105,11 @@ following checks:
   subcommand to :ref:`Archery <archery>`. This can also be fixed locally
   by running ``archery lint --cpplint --fix``.
 
-In order to account for variations in the behavior of ``clang-format`` between
-major versions of LLVM, we pin the version of ``clang-format`` used (current
-LLVM 8).
+In order to account for variations in the behavior of ``clang-format``
+between major versions of LLVM, we pin the version of ``clang-format``
+used. You can confirm the current pinned version by finding
+the ``CLANG_TOOLS`` variable value in `.env
+<https://github.com/apache/arrow/blob/master/.env>`_.
 
 Depending on how you installed clang-format, the build system may not be able
 to find it. You can provide an explicit path to your LLVM installation (or the

@@ -1353,9 +1353,9 @@ bool operator<(const BasicDecimal256& left, const BasicDecimal256& right) {
   const auto rhs_le = bit_util::little_endian::Make(right.native_endian_array());
   return lhs_le[3] != rhs_le[3]
              ? static_cast<int64_t>(lhs_le[3]) < static_cast<int64_t>(rhs_le[3])
-             : lhs_le[2] != rhs_le[2] ? lhs_le[2] < rhs_le[2]
-                                      : lhs_le[1] != rhs_le[1] ? lhs_le[1] < rhs_le[1]
-                                                               : lhs_le[0] < rhs_le[0];
+         : lhs_le[2] != rhs_le[2] ? lhs_le[2] < rhs_le[2]
+         : lhs_le[1] != rhs_le[1] ? lhs_le[1] < rhs_le[1]
+                                  : lhs_le[0] < rhs_le[0];
 }
 
 BasicDecimal256 operator-(const BasicDecimal256& operand) {
