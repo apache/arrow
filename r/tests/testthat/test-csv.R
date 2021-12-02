@@ -442,18 +442,6 @@ test_that("write_csv_arrow deals with duplication in include_headers/col_names",
           "arguments. Please supply only one of them")
   )
 
-  # this is tricky since the user only supplied one, but the other one has a
-  # default value
-  expect_message(
-    write_csv_arrow(
-      tbl_no_dates,
-      file = csv_file,
-      col_names = FALSE
-    ),
-    paste("You have supplied a value for \"col_names\". This will overwrite",
-          "the value for the \"include_headers\" argument.")
-  )
-
   written_tbl <- suppressMessages(
     write_csv_arrow(tbl_no_dates, file = csv_file, col_names = FALSE)
   )
