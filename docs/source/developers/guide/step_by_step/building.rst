@@ -51,8 +51,8 @@ Building C++
 Why build C++ from source?
 --------------------------
 
-The core of Arrow is written in C++ and all work done in other
-languages (Python, R, ..) is wrapping-binding-connecting underlying
+The core of Arrow is written in C++ and all bindings in other
+languages (Python, R, ..) are wrapping underlying
 C++ functions. Even if you want to work on PyArrow or R package
 the source code of C++ may have to be edited also.
 
