@@ -45,21 +45,22 @@ void PrintTo(const WriterTestParams& p, std::ostream* os) {
   *os << "WriterTestParams(" << reinterpret_cast<const void*>(&p) << ")";
 }
 
-WriteOptions DefaultTestOptions(bool include_header) {
+WriteOptions DefaultTestOptions(bool include_header, const std::string& null_string) {
   WriteOptions options;
   options.batch_size = 5;
   options.include_header = include_header;
+  options.null_string = null_string;
   return options;
 }
 
 std::vector<WriterTestParams> GenerateTestCases() {
   auto abc_schema = schema({
-      {field("a", uint64())},
-      {field("b\"", utf8())},
-      {field("c ", int32())},
-      {field("d", date32())},
-      {field("e", date64())},
-      {field("f", timestamp(TimeUnit::SECOND))},
+      field("a", uint64()),
+      field("b\"", utf8()),
+      field("c ", int32()),
+      field("d", date32()),
+      field("e", date64()),
+      field("f", timestamp(TimeUnit::SECOND)),
   });
   auto populated_batch = R"([{"a": 1, "c ": -1},
                              { "a": 1, "b\"": "abc\"efg", "c ": 2324},
@@ -69,25 +70,49 @@ std::vector<WriterTestParams> GenerateTestCases() {
                              { "a": 124, "b\"": "a\"\"b\"" },
                              { "d": 0 },
                              { "e": 86400000 },
-                             { "f": 1078016523 }])";
-  std::string expected_without_header = std::string("1,,-1,,,") + "\n" +       // line 1
-                                        R"(1,"abc""efg",2324,,,)" + "\n" +     // line 2
-                                        R"(,"abcd",5467,,,)" + "\n" +          // line 3
-                                        R"(,,,,,)" + "\n" +                    // line 4
-                                        R"(546,"",517,,,)" + "\n" +            // line 5
-                                        R"(124,"a""""b""",,,,)" + "\n" +       // line 6
-                                        R"(,,,1970-01-01,,)" + "\n" +          // line 7
-                                        R"(,,,,1970-01-02,)" + "\n" +          // line 8
-                                        R"(,,,,,2004-02-29 01:02:03)" + "\n";  // line 9
+                             { "f": 1078016523 },
+                             { "b\"": "NA" }])";
+  std::string expected_without_header = std::string("1,,-1,,,") + "\n" +        // line 1
+                                        R"(1,"abc""efg",2324,,,)" + "\n" +      // line 2
+                                        R"(,"abcd",5467,,,)" + "\n" +           // line 3
+                                        R"(,,,,,)" + "\n" +                     // line 4
+                                        R"(546,"",517,,,)" + "\n" +             // line 5
+                                        R"(124,"a""""b""",,,,)" + "\n" +        // line 6
+                                        R"(,,,1970-01-01,,)" + "\n" +           // line 7
+                                        R"(,,,,1970-01-02,)" + "\n" +           // line 8
+                                        R"(,,,,,2004-02-29 01:02:03)" + "\n" +  // line 9
+                                        R"(,"NA",,,,)" + "\n";                  // line 10
+
   std::string expected_header = std::string(R"("a","b""","c ","d","e","f")") + "\n";
 
+  auto schema_custom_na = schema({field("g", uint64()), field("h", utf8())});
+
+  auto populated_batch_custom_na = R"([{"g": 42, "h": "NA"},
+                                        {}])";
+
+  std::string expected_custom_na = std::string(R"(42,"NA")") + "\n" +  // line 1
+                                   R"(NA,NA)" + "\n";                  // line 2
+
+  std::string expected_custom_quoted_na = std::string(R"(42,"NA")") + "\n" +  // line 1
+                                          R"(""NA"",""NA"")" + "\n";          // line 2
+
   return std::vector<WriterTestParams>{
-      {abc_schema, "[]", DefaultTestOptions(/*header=*/false), ""},
-      {abc_schema, "[]", DefaultTestOptions(/*header=*/true), expected_header},
-      {abc_schema, populated_batch, DefaultTestOptions(/*header=*/false),
+      {abc_schema, "[]", DefaultTestOptions(/*include_header=*/false, /*null_string=*/""),
+       ""},
+      {abc_schema, "[]", DefaultTestOptions(/*include_header=*/true, /*null_string=*/""),
+       expected_header},
+      {abc_schema, populated_batch,
+       DefaultTestOptions(/*include_header=*/false, /*null_string=*/""),
        expected_without_header},
-      {abc_schema, populated_batch, DefaultTestOptions(/*header=*/true),
-       expected_header + expected_without_header}};
+      {abc_schema, populated_batch,
+       DefaultTestOptions(/*include_header=*/true, /*null_string=*/""),
+       expected_header + expected_without_header},
+      {schema_custom_na, populated_batch_custom_na,
+       DefaultTestOptions(/*include_header=*/false, /*null_string=*/"NA"),
+       expected_custom_na},
+      {schema_custom_na, populated_batch_custom_na,
+       DefaultTestOptions(/*include_header=*/false, /*null_string=*/R"("NA")"),
+       expected_custom_quoted_na}};
 }
 
 class TestWriteCSV : public ::testing::TestWithParam<WriterTestParams> {
