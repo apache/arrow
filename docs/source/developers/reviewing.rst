@@ -27,9 +27,9 @@ or even decades, while serving potentially millions of users.  We believe
 that being meticulous when reviewing brings greater rewards to the project
 than being lenient and aiming for quick merges.
 
-Code reviews like this leads to better quality code, more people who are
+Code reviews like this lead to better quality code, more people who are
 engaged with and understand the code being changed, and a generally
-healthier project with more room to grow and accomodate emerging needs.
+healthier project with more room to grow and accommodate emerging needs.
 
 
 Guidelines
@@ -42,10 +42,10 @@ Meta
 Committers are expected to have sufficient expertise on their work
 areas to be able to adjust their approach based on any concerns they have.
 
-These guidelines are not listed in a particular order or not intended to be
-used as a checklist.
+These guidelines are not listed in a particular order and are not intended
+to be used as a checklist.
 
-Finally, these guidelines are not currently exhaustive.
+Finally, these guidelines are not exhaustive.
 
 Scope and completeness
 ----------------------
@@ -60,11 +60,12 @@ Scope and completeness
   pushed out of scope and have a follow-up JIRA created should be determined
   in collaboration between the authors and the reviewers.
 
-* When a large functionality is being contributed and it seems desirable
-  to integrate it piecewise, favour functional cohesion when deciding how to
-  divide changes (for example, if a filesystem implementation is being
-  contributed, a first PR may contribute directory metadata operations, a
-  second PR file reading facilities and a third PR file writing facilities).
+* When a large piece of functionality is being contributed and it seems
+  desirable to integrate it piecewise, favour functional cohesion when
+  deciding how to divide changes (for example, if a filesystem implementation
+  is being contributed, a first PR may contribute directory metadata
+  operations, a second PR file reading facilities and a third PR file writing
+  facilities).
 
 Public API design
 -----------------
@@ -163,7 +164,7 @@ in-code docstrings.
   reader what actually *happens* on such an error).
 
 * When reviewing documentation changes (or prose snippets, in general),
-  be mindful about spelling, grammar, expression, concision.  Clear
+  be mindful about spelling, grammar, expression, and concision.  Clear
   communication is essential for effective collaboration with people
   from a wide range of backgrounds, and contributes to better documentation.
 
@@ -173,7 +174,7 @@ in-code docstrings.
 
 * Cross-linking increases the global value of documentation.  Sphinx especially
   has great cross-linking capabilities (including topic references, glossary
-  terms, API references), be sure to make use of them!
+  terms, API references), so be sure to make use of them!
 
 Testing
 -------
@@ -205,8 +206,8 @@ Social aspects
 ==============
 
 * Reviewing is a communication between the contributor and the reviewer.
-  Avoid letting questions or comments unanswered for too long ("too long"
-  is of course very subjective, but two weeks can be a reasonable
+  Avoid letting questions or comments remain unanswered for too long
+  ("too long" is of course very subjective, but two weeks can be a reasonable
   heuristic).  If you cannot allocate time soon, do say it explicitly.
   If you don't have the answer to a question, do say it explicitly.
   Saying *"I don't have time immediately but I will come back later,
@@ -220,7 +221,7 @@ Social aspects
   handle).
 
 * If the contributor has stopped giving feedback or updating their PR,
-  perhaps they're not interested anymore, but perhaps also they're stuck
+  perhaps they're not interested any more, but perhaps also they're stuck
   on some issue and feel unable to push their contribution any further.
   Don't hesitate to ask (*"I see this PR hasn't seen any updates recently,
   are you stuck on something? Do you need any help?"*).
@@ -237,7 +238,7 @@ Social aspects
   to the project.
 
 * Some contributors may respond *"I will fix it later, can we merge anyway?"*
-  when a problem is pointed out of them.  Unfortunately, whether the fix will
+  when a problem is pointed out to them.  Unfortunately, whether the fix will
   really be contributed soon in a later PR is difficult to predict or enforce.
   If the contributor has previously demonstrated that they are reliable,
   it may be acceptable to do as suggested.  Otherwise, it is better to
@@ -249,7 +250,7 @@ Social aspects
 
 * Ideally, contributing code should be a rewarding process.  Of course,
   it will not always be, but we should strive to reduce contributor
-  frustration all the while keeping the above issues in mind.
+  frustration while keeping the above issues in mind.
 
 * Like any communication, code reviews are governed by the Apache
   `Code of Conduct <https://www.apache.org/foundation/policies/conduct.html>`_.
