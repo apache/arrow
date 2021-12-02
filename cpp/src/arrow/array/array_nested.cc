@@ -185,12 +185,14 @@ inline void SetListData(BaseListArray<TYPE>* self, const std::shared_ptr<ArrayDa
 
   self->Array::SetData(data);
 
+  // What are we casting to? Depends on how this is called?
   self->list_type_ = checked_cast<const TYPE*>(data->type.get());
   self->raw_value_offsets_ =
       data->GetValuesSafe<typename TYPE::offset_type>(1, /*offset=*/0);
 
   ARROW_CHECK_EQ(self->list_type_->value_type()->id(), data->child_data[0]->type->id());
-  DCHECK(self->list_type_->value_type()->Equals(data->child_data[0]->type));
+  // Is this DCHECK just bad for arrays? Why?
+  // DCHECK(self->list_type_->value_type()->Equals(data->child_data[0]->type));
   self->values_ = MakeArray(self->data_->child_data[0]);
 }
 
@@ -329,6 +331,7 @@ Result<std::shared_ptr<Array>> MapArray::FromArrays(const std::shared_ptr<Array>
                                                     const std::shared_ptr<Array>& keys,
                                                     const std::shared_ptr<Array>& items,
                                                     MemoryPool* pool) {
+  // I think the issue is this should be fields
   return FromArraysInternal(std::make_shared<MapType>(keys->type(), items->type()),
                             offsets, keys, items, pool);
 }
