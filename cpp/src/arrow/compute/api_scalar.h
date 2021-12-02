@@ -61,7 +61,8 @@ enum class RoundMode : int8_t {
   UP,
   /// Get the integral part without fractional digits (aka "trunc")
   TOWARDS_ZERO,
-  /// Round negative values with DOWN rule and positive values with UP rule (aka "away from zero")
+  /// Round negative values with DOWN rule
+  /// and positive values with UP rule (aka "away from zero")
   TOWARDS_INFINITY,
   /// Round ties with DOWN rule (also called "round half towards negative infinity")
   HALF_DOWN,
