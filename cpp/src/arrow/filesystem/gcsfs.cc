@@ -385,7 +385,9 @@ Status GcsFileSystem::DeleteDirContents(const std::string& path) {
 }
 
 Status GcsFileSystem::DeleteRootDirContents() {
-  return Status::NotImplemented("The GCS FileSystem is not fully implemented");
+  return Status::NotImplemented(
+      std::string(__func__) +
+      " is not implemented as it is too dangerous to delete all the buckets");
 }
 
 Status GcsFileSystem::DeleteFile(const std::string& path) {
