@@ -308,8 +308,7 @@ class CSVWriterImpl : public ipc::RecordBatchWriter {
     RETURN_NOT_OK(options.Validate());
     // Reject null string values that contain quotes.
     if (CountEscapes(options.null_string) != 0) {
-      return Status::Invalid("CSV null value string cannot contain quotes.",
-                             options.null_string);
+      return Status::Invalid("Null string cannot contain quotes.");
     }
 
     ASSIGN_OR_RAISE(std::shared_ptr<Buffer> null_string,
