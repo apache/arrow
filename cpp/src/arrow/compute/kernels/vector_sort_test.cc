@@ -38,6 +38,8 @@
 #include "arrow/testing/util.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/logging.h"
+#include "arrow/compute/kernels/vector_sort_internal.h"
+
 
 namespace arrow {
 
@@ -1950,10 +1952,16 @@ TEST_F(TestNestedValuesComparator, Table) {
 }
 
 TEST_F(TestNestedValuesComparator, StructArray) {
-  auto expected = ArrayFromJSON(
-    struct_({field("a", int32()), field("b", utf8())}),
-    R"([{"a": 4, "b": null}, {"a": null, "b": "foo"}])"
+  std::shared_ptr<StructArray> expected = std::dynamic_pointer_cast<StructArray>(
+    ArrayFromJSON(
+      struct_({field("a", int32()), field("b", utf8())}),
+      R"([{"a": 4, "b": "bar"}, {"a": 3, "b": "foo"}])"
+    )
   );
+
+  auto c = internal::NestedValuesComparator();
+  ASSERT_OK(c.Prepare(*expected));
+  ASSERT_EQ(c.Compare(*expected, 0, 0, 0, 1), 1);
 }
 
 }  // namespace compute
