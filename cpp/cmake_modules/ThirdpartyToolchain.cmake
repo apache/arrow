@@ -2157,12 +2157,7 @@ macro(build_lz4)
 endmacro()
 
 if(ARROW_WITH_LZ4)
-  set(ARROW_LZ4_REQUIRED_VERSION "1.8.0")
-  resolve_dependency(Lz4
-                     PC_PACKAGE_NAMES
-                     liblz4
-                     REQUIRED_VERSION
-                     ${ARROW_LZ4_REQUIRED_VERSION})
+  resolve_dependency(Lz4 PC_PACKAGE_NAMES liblz4)
 
   # TODO: Don't use global includes but rather target_include_directories
   get_target_property(LZ4_INCLUDE_DIR LZ4::lz4 INTERFACE_INCLUDE_DIRECTORIES)
