@@ -178,7 +178,7 @@ Result<std::shared_ptr<Buffer>> AllocateDataBuffer(KernelContext* ctx, int64_t l
   if (bit_width == 1) {
     return ctx->AllocateBitmap(length);
   } else {
-    int64_t buffer_size = BitUtil::BytesForBits(length * bit_width);
+    int64_t buffer_size = bit_util::BytesForBits(length * bit_width);
     return ctx->Allocate(buffer_size);
   }
 }
@@ -405,7 +405,7 @@ class NullPropagator {
     output_->null_count = output_->length;
 
     if (bitmap_preallocated_) {
-      BitUtil::SetBitsTo(bitmap_, output_->offset, output_->length, false);
+      bit_util::SetBitsTo(bitmap_, output_->offset, output_->length, false);
       return Status::OK();
     }
 
@@ -420,7 +420,7 @@ class NullPropagator {
     }
 
     RETURN_NOT_OK(EnsureAllocated());
-    BitUtil::SetBitsTo(bitmap_, output_->offset, output_->length, false);
+    bit_util::SetBitsTo(bitmap_, output_->offset, output_->length, false);
     return Status::OK();
   }
 
@@ -450,7 +450,7 @@ class NullPropagator {
       output_->buffers[0] = arr_bitmap;
     } else if (arr.offset % 8 == 0) {
       output_->buffers[0] =
-          SliceBuffer(arr_bitmap, arr.offset / 8, BitUtil::BytesForBits(arr.length));
+          SliceBuffer(arr_bitmap, arr.offset / 8, bit_util::BytesForBits(arr.length));
     } else {
       RETURN_NOT_OK(EnsureAllocated());
       CopyBitmap(arr_bitmap->data(), arr.offset, arr.length, bitmap_,
@@ -512,7 +512,7 @@ class NullPropagator {
       // No arrays with nulls case
       output_->null_count = 0;
       if (bitmap_preallocated_) {
-        BitUtil::SetBitsTo(bitmap_, output_->offset, output_->length, true);
+        bit_util::SetBitsTo(bitmap_, output_->offset, output_->length, true);
       }
       return Status::OK();
     }

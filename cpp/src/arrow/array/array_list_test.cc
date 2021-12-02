@@ -245,7 +245,7 @@ class TestListArray : public TestBuilder {
     AssertArraysEqual(expected3, *list3);
 
     // Check that the last offset bit is zero
-    ASSERT_FALSE(BitUtil::GetBit(list3->null_bitmap()->data(), length + 1));
+    ASSERT_FALSE(bit_util::GetBit(list3->null_bitmap()->data(), length + 1));
 
     ArrayType expected4(list_type, length, offsets2->data()->buffers[1], values,
                         offsets4->data()->buffers[0], 1);
@@ -425,9 +425,9 @@ class TestListArray : public TestBuilder {
     ASSERT_EQ(2, array_data->buffers.size());
     auto null_bitmap_buffer = array_data->buffers[0];
     ASSERT_NE(nullptr, null_bitmap_buffer);
-    BitUtil::ClearBit(null_bitmap_buffer->mutable_data(), 1);
-    BitUtil::ClearBit(null_bitmap_buffer->mutable_data(), 3);
-    BitUtil::ClearBit(null_bitmap_buffer->mutable_data(), 4);
+    bit_util::ClearBit(null_bitmap_buffer->mutable_data(), 1);
+    bit_util::ClearBit(null_bitmap_buffer->mutable_data(), 3);
+    bit_util::ClearBit(null_bitmap_buffer->mutable_data(), 4);
     array_data->null_count += 3;
     auto list_array = std::dynamic_pointer_cast<ArrayType>(MakeArray(array_data));
     ASSERT_OK(list_array->ValidateFull());
@@ -811,7 +811,7 @@ TEST_F(TestMapArray, FromArrays) {
   AssertArraysEqual(expected3, *map3);
 
   // Check that the last offset bit is zero
-  ASSERT_FALSE(BitUtil::GetBit(map3->null_bitmap()->data(), length + 1));
+  ASSERT_FALSE(bit_util::GetBit(map3->null_bitmap()->data(), length + 1));
 
   MapArray expected4(map_type, length, offsets2->data()->buffers[1], keys, items,
                      offsets4->data()->buffers[0], 1);

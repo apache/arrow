@@ -113,6 +113,9 @@ groups:
   verify-rc-binaries:
     - verify-rc-binaries-*
 
+  verify-rc-jars:
+    - verify-rc-jars-*
+
   verify-rc-wheels:
     - verify-rc-wheels-*
 
@@ -384,7 +387,6 @@ tasks:
     ci: github
     template: python-wheels/github.osx.amd64.yml
     params:
-      vcpkg_version: "2021.04.30"
       python_version: "{{ python_version }}"
       macos_deployment_target: "{{ macos_version }}"
       arrow_s3: "{{ arrow_s3 }}"
@@ -416,7 +418,6 @@ tasks:
     params:
       arch: arm64
       arrow_simd_level: "DEFAULT"
-      vcpkg_version: "2021.04.30"
       python_version: "3.8"
       macos_deployment_target: "11.0"
 
@@ -430,7 +431,6 @@ tasks:
     params:
       arch: arm64
       arrow_simd_level: "DEFAULT"
-      vcpkg_version: "2021.04.30"
       python_version: "{{ python_version }}"
       macos_deployment_target: "11.0"
     artifacts:
@@ -444,7 +444,6 @@ tasks:
       # Universal2 builds for both rosetta and native, but we currently can't
       # configure SIMD for both architectures at the same time
       arrow_simd_level: "NONE"
-      vcpkg_version: "2021.04.30"
       python_version: "{{ python_version }}"
       macos_deployment_target: "10.13"
     artifacts:
@@ -833,8 +832,17 @@ tasks:
       env:
         TEST_DEFAULT: 0
         TEST_{{ target|upper }}: 1
-      artifact: {{ target }}
+      artifact: binaries
 {% endfor %}
+
+  verify-rc-jars-amd64:
+    ci: github
+    template: verify-rc/github.linux.amd64.yml
+    params:
+      env:
+        TEST_DEFAULT: 0
+        TEST_JARS: 1
+      artifact: jars
 
 {% for platform, arch, runner in [("linux", "amd64", "ubuntu-20.04"),
                                   ("macos", "amd64", "macos-10.15")] %}
@@ -1190,7 +1198,6 @@ tasks:
     params:
       env:
         UBUNTU: 21.04
-        CLANG_TOOLS: 9 # can remove this when >=9 is the default
         R_PRUNE_DEPS: TRUE
       flags: '-e ARROW_SOURCE_HOME="/arrow" -e FORCE_BUNDLED_BUILD=TRUE -e LIBARROW_BUILD=TRUE'
       image: ubuntu-r-only-r
@@ -1202,7 +1209,6 @@ tasks:
     params:
       env:
         UBUNTU: 21.04
-        CLANG_TOOLS: 9 # can remove this when >=9 is the default
         GCC_VERSION: 11
       # S3 support is not buildable with gcc11 right now
       flags: '-e ARROW_SOURCE_HOME="/arrow" -e FORCE_BUNDLED_BUILD=TRUE -e LIBARROW_BUILD=TRUE -e ARROW_S3=OFF'
@@ -1255,14 +1261,6 @@ tasks:
         DEBIAN: 11
         GO: 1.15
       run: debian-go
-
-  test-ubuntu-20.10-docs:
-    ci: azure
-    template: docker-tests/azure.linux.yml
-    params:
-      env:
-        UBUNTU: "20.10"
-      run: ubuntu-docs
 
   test-ubuntu-default-docs:
     ci: azure

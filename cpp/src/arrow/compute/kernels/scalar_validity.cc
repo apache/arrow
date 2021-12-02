@@ -47,16 +47,17 @@ struct IsValidOperator {
       // and set the offset to the remaining bit offset.
       out->offset = arr.offset % 8;
       out->buffers[1] =
-          arr.offset == 0 ? arr.buffers[0]
-                          : SliceBuffer(arr.buffers[0], arr.offset / 8,
-                                        BitUtil::BytesForBits(out->length + out->offset));
+          arr.offset == 0
+              ? arr.buffers[0]
+              : SliceBuffer(arr.buffers[0], arr.offset / 8,
+                            bit_util::BytesForBits(out->length + out->offset));
       return Status::OK();
     }
 
     // Input has no nulls => output is entirely true.
     ARROW_ASSIGN_OR_RAISE(out->buffers[1],
                           ctx->AllocateBitmap(out->length + out->offset));
-    BitUtil::SetBitsTo(out->buffers[1]->mutable_data(), out->offset, out->length, true);
+    bit_util::SetBitsTo(out->buffers[1]->mutable_data(), out->offset, out->length, true);
     return Status::OK();
   }
 };
@@ -110,7 +111,7 @@ struct IsNullOperator {
     const T* data = arr.GetValues<T>(1);
     for (int64_t i = 0; i < arr.length; ++i) {
       if (std::isnan(data[i])) {
-        BitUtil::SetBit(out_bitmap, i + out_offset);
+        bit_util::SetBit(out_bitmap, i + out_offset);
       }
     }
   }
@@ -125,7 +126,7 @@ struct IsNullOperator {
                    out->offset);
     } else {
       // Input has no nulls => output is entirely false.
-      BitUtil::SetBitsTo(out_bitmap, out->offset, out->length, false);
+      bit_util::SetBitsTo(out_bitmap, out->offset, out->length, false);
     }
 
     if (is_floating(arr.type->id()) && options.nan_is_null) {
@@ -183,8 +184,8 @@ Status ConstBoolExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     return Status::OK();
   }
   ArrayData* array = out->mutable_array();
-  BitUtil::SetBitsTo(array->buffers[1]->mutable_data(), array->offset, array->length,
-                     kConstant);
+  bit_util::SetBitsTo(array->buffers[1]->mutable_data(), array->offset, array->length,
+                      kConstant);
   return Status::OK();
 }
 
@@ -271,8 +272,8 @@ Status IsNullExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     } else {
       // Data is preallocated
       ArrayData* out_arr = out->mutable_array();
-      BitUtil::SetBitsTo(out_arr->buffers[1]->mutable_data(), out_arr->offset,
-                         out_arr->length, true);
+      bit_util::SetBitsTo(out_arr->buffers[1]->mutable_data(), out_arr->offset,
+                          out_arr->length, true);
     }
     return Status::OK();
   } else {

@@ -26,7 +26,16 @@ SOURCE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 CPP_BUILD_SUPPORT=$SOURCE_DIR/../cpp/build-support
 
 # Run clang-format
-: ${CLANG_FORMAT:=$(. "${SOURCE_DIR}/../.env" && echo clang-format-${CLANG_TOOLS})}
+if [ -z "${CLANG_FORMAT:-}" ]; then
+  CLANG_TOOLS=$(. "${SOURCE_DIR}/../.env" && echo ${CLANG_TOOLS})
+  if type clang-format-${CLANG_TOOLS} >/dev/null 2>&1; then
+    CLANG_FORMAT=clang-format-${CLANG_TOOLS}
+  elif type brew >/dev/null 2>&1; then
+    CLANG_FORMAT=$(brew --prefix llvm@${CLANG_TOOLS})/bin/clang-format
+  else
+    CLANG_FORMAT=clang-format
+  fi
+fi
 $CPP_BUILD_SUPPORT/run_clang_format.py \
     --clang_format_binary=$CLANG_FORMAT \
     --exclude_glob=$CPP_BUILD_SUPPORT/lint_exclusions.txt \

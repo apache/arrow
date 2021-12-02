@@ -276,7 +276,7 @@ grpc::Status FlightDataSerialize(const FlightPayload& msg, ByteBuffer* out,
 
         // Write padding if not multiple of 8
         const auto remainder = static_cast<int>(
-            BitUtil::RoundUpToMultipleOf8(buffer->size()) - buffer->size());
+            bit_util::RoundUpToMultipleOf8(buffer->size()) - buffer->size());
         if (remainder) {
           slices.push_back(grpc::Slice(kPaddingBytes, remainder));
         }

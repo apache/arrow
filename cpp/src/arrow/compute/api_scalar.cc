@@ -173,6 +173,30 @@ struct EnumTraits<compute::RoundMode>
     return "<INVALID>";
   }
 };
+
+template <>
+struct EnumTraits<compute::Utf8NormalizeOptions::Form>
+    : BasicEnumTraits<compute::Utf8NormalizeOptions::Form,
+                      compute::Utf8NormalizeOptions::Form::NFC,
+                      compute::Utf8NormalizeOptions::Form::NFKC,
+                      compute::Utf8NormalizeOptions::Form::NFD,
+                      compute::Utf8NormalizeOptions::Form::NFKD> {
+  static std::string name() { return "Utf8NormalizeOptions::Form"; }
+  static std::string value_name(compute::Utf8NormalizeOptions::Form value) {
+    switch (value) {
+      case compute::Utf8NormalizeOptions::Form::NFC:
+        return "NFC";
+      case compute::Utf8NormalizeOptions::Form::NFKC:
+        return "NFKC";
+      case compute::Utf8NormalizeOptions::Form::NFD:
+        return "NFD";
+      case compute::Utf8NormalizeOptions::Form::NFKD:
+        return "NFKD";
+    }
+    return "<INVALID>";
+  }
+};
+
 }  // namespace internal
 
 namespace compute {
@@ -250,6 +274,8 @@ static auto kStructFieldOptionsType = GetFunctionOptionsType<StructFieldOptions>
     DataMember("indices", &StructFieldOptions::indices));
 static auto kTrimOptionsType = GetFunctionOptionsType<TrimOptions>(
     DataMember("characters", &TrimOptions::characters));
+static auto kUtf8NormalizeOptionsType = GetFunctionOptionsType<Utf8NormalizeOptions>(
+    DataMember("form", &Utf8NormalizeOptions::form));
 static auto kWeekOptionsType = GetFunctionOptionsType<WeekOptions>(
     DataMember("week_starts_monday", &WeekOptions::week_starts_monday),
     DataMember("count_from_zero", &WeekOptions::count_from_zero),
@@ -429,6 +455,10 @@ TrimOptions::TrimOptions(std::string characters)
 TrimOptions::TrimOptions() : TrimOptions("") {}
 constexpr char TrimOptions::kTypeName[];
 
+Utf8NormalizeOptions::Utf8NormalizeOptions(Form form)
+    : FunctionOptions(internal::kUtf8NormalizeOptionsType), form(form) {}
+constexpr char Utf8NormalizeOptions::kTypeName[];
+
 WeekOptions::WeekOptions(bool week_starts_monday, bool count_from_zero,
                          bool first_week_is_fully_in_year)
     : FunctionOptions(internal::kWeekOptionsType),
@@ -461,6 +491,7 @@ void RegisterScalarOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kStrptimeOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kStructFieldOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kTrimOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kUtf8NormalizeOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kWeekOptionsType));
 }
 }  // namespace internal

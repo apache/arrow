@@ -1221,7 +1221,7 @@ class SortIndicesMetaFunction : public MetaFunction {
 
     auto out_type = uint64();
     auto length = chunked_array.length();
-    auto buffer_size = BitUtil::BytesForBits(
+    auto buffer_size = bit_util::BytesForBits(
         length * std::static_pointer_cast<UInt64Type>(out_type)->bit_width());
     std::vector<std::shared_ptr<Buffer>> buffers(2);
     ARROW_ASSIGN_OR_RAISE(buffers[1],
@@ -1251,7 +1251,7 @@ class SortIndicesMetaFunction : public MetaFunction {
 
     auto out_type = uint64();
     auto length = batch.num_rows();
-    auto buffer_size = BitUtil::BytesForBits(
+    auto buffer_size = bit_util::BytesForBits(
         length * std::static_pointer_cast<UInt64Type>(out_type)->bit_width());
     BufferVector buffers(2);
     ARROW_ASSIGN_OR_RAISE(buffers[1],
@@ -1291,7 +1291,7 @@ class SortIndicesMetaFunction : public MetaFunction {
 
     auto out_type = uint64();
     auto length = table.num_rows();
-    auto buffer_size = BitUtil::BytesForBits(
+    auto buffer_size = bit_util::BytesForBits(
         length * std::static_pointer_cast<UInt64Type>(out_type)->bit_width());
     std::vector<std::shared_ptr<Buffer>> buffers(2);
     ARROW_ASSIGN_OR_RAISE(buffers[1],

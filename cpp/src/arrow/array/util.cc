@@ -119,7 +119,7 @@ class ArrayDataEndianSwapper {
     // NOTE: data_->length not trusted (see warning above)
     int64_t length = in_buffer->size() / sizeof(T);
     for (int64_t i = 0; i < length; i++) {
-      out_data[i] = BitUtil::ByteSwap(in_data[i]);
+      out_data[i] = bit_util::ByteSwap(in_data[i]);
     }
     return std::move(out_buffer);
   }
@@ -158,12 +158,12 @@ class ArrayDataEndianSwapper {
       uint64_t tmp;
       auto idx = i * 2;
 #if ARROW_LITTLE_ENDIAN
-      tmp = BitUtil::FromBigEndian(data[idx]);
-      new_data[idx] = BitUtil::FromBigEndian(data[idx + 1]);
+      tmp = bit_util::FromBigEndian(data[idx]);
+      new_data[idx] = bit_util::FromBigEndian(data[idx + 1]);
       new_data[idx + 1] = tmp;
 #else
-      tmp = BitUtil::FromLittleEndian(data[idx]);
-      new_data[idx] = BitUtil::FromLittleEndian(data[idx + 1]);
+      tmp = bit_util::FromLittleEndian(data[idx]);
+      new_data[idx] = bit_util::FromLittleEndian(data[idx + 1]);
       new_data[idx + 1] = tmp;
 #endif
     }
@@ -181,18 +181,18 @@ class ArrayDataEndianSwapper {
       uint64_t tmp0, tmp1, tmp2;
       auto idx = i * 4;
 #if ARROW_LITTLE_ENDIAN
-      tmp0 = BitUtil::FromBigEndian(data[idx]);
-      tmp1 = BitUtil::FromBigEndian(data[idx + 1]);
-      tmp2 = BitUtil::FromBigEndian(data[idx + 2]);
-      new_data[idx] = BitUtil::FromBigEndian(data[idx + 3]);
+      tmp0 = bit_util::FromBigEndian(data[idx]);
+      tmp1 = bit_util::FromBigEndian(data[idx + 1]);
+      tmp2 = bit_util::FromBigEndian(data[idx + 2]);
+      new_data[idx] = bit_util::FromBigEndian(data[idx + 3]);
       new_data[idx + 1] = tmp2;
       new_data[idx + 2] = tmp1;
       new_data[idx + 3] = tmp0;
 #else
-      tmp0 = BitUtil::FromLittleEndian(data[idx]);
-      tmp1 = BitUtil::FromLittleEndian(data[idx + 1]);
-      tmp2 = BitUtil::FromLittleEndian(data[idx + 2]);
-      new_data[idx] = BitUtil::FromLittleEndian(data[idx + 3]);
+      tmp0 = bit_util::FromLittleEndian(data[idx]);
+      tmp1 = bit_util::FromLittleEndian(data[idx + 1]);
+      tmp2 = bit_util::FromLittleEndian(data[idx + 2]);
+      new_data[idx] = bit_util::FromLittleEndian(data[idx + 3]);
       new_data[idx + 1] = tmp2;
       new_data[idx + 2] = tmp1;
       new_data[idx + 3] = tmp0;
@@ -217,13 +217,13 @@ class ArrayDataEndianSwapper {
     for (int64_t i = 0; i < length; i++) {
       MonthDayNanos tmp = data[i];
 #if ARROW_LITTLE_ENDIAN
-      tmp.months = BitUtil::FromBigEndian(tmp.months);
-      tmp.days = BitUtil::FromBigEndian(tmp.days);
-      tmp.nanoseconds = BitUtil::FromBigEndian(tmp.nanoseconds);
+      tmp.months = bit_util::FromBigEndian(tmp.months);
+      tmp.days = bit_util::FromBigEndian(tmp.days);
+      tmp.nanoseconds = bit_util::FromBigEndian(tmp.nanoseconds);
 #else
-      tmp.months = BitUtil::FromLittleEndian(tmp.months);
-      tmp.days = BitUtil::FromLittleEndian(tmp.days);
-      tmp.nanoseconds = BitUtil::FromLittleEndian(tmp.nanoseconds);
+      tmp.months = bit_util::FromLittleEndian(tmp.months);
+      tmp.days = bit_util::FromLittleEndian(tmp.days);
+      tmp.nanoseconds = bit_util::FromLittleEndian(tmp.nanoseconds);
 #endif
       new_data[i] = tmp;
     }
@@ -324,7 +324,7 @@ class NullArrayFactory {
  public:
   struct GetBufferLength {
     GetBufferLength(const std::shared_ptr<DataType>& type, int64_t length)
-        : type_(*type), length_(length), buffer_length_(BitUtil::BytesForBits(length)) {}
+        : type_(*type), length_(length), buffer_length_(bit_util::BytesForBits(length)) {}
 
     Result<int64_t> Finish() && {
       RETURN_NOT_OK(VisitTypeInline(type_, this));
@@ -550,8 +550,8 @@ class RepeatedArrayFactory {
 
   Status Visit(const BooleanType&) {
     ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateBitmap(length_, pool_));
-    BitUtil::SetBitsTo(buffer->mutable_data(), 0, length_,
-                       checked_cast<const BooleanScalar&>(scalar_).value);
+    bit_util::SetBitsTo(buffer->mutable_data(), 0, length_,
+                        checked_cast<const BooleanScalar&>(scalar_).value);
     out_ = std::make_shared<BooleanArray>(length_, buffer);
     return Status::OK();
   }

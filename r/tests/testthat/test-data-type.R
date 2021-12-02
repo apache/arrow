@@ -390,8 +390,8 @@ test_that("decimal type and validation", {
   expect_error(decimal(4))
   expect_error(decimal(4, "two"), '"scale" must be an integer')
   expect_error(decimal(NA, 2), '"precision" must be an integer')
-  expect_error(decimal(0, 2), "Invalid: Decimal precision out of range: 0")
-  expect_error(decimal(100, 2), "Invalid: Decimal precision out of range: 100")
+  expect_error(decimal(0, 2), "Invalid: Decimal precision out of range [1, 38]: 0", fixed = TRUE)
+  expect_error(decimal(100, 2), "Invalid: Decimal precision out of range [1, 38]: 100", fixed = TRUE)
   expect_error(decimal(4, NA), '"scale" must be an integer')
 
   expect_r6_class(decimal(4, 2), "Decimal128Type")

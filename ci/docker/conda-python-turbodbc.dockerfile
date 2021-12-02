@@ -30,12 +30,12 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     rm -rf /var/lib/apt/lists/*
 
 # install turbodbc dependencies from conda-forge
-RUN conda install -c conda-forge -q \
+RUN mamba install -c conda-forge -q \
         pybind11 \
         pytest-cov \
         mock \
         unixodbc && \
-    conda clean --all
+    mamba clean --all
 
 RUN service postgresql start && \
     sudo -u postgres psql -U postgres -c \

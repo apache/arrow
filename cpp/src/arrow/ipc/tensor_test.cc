@@ -153,9 +153,9 @@ class TestSparseTensorRoundTrip : public BaseTensorTest {
     const auto& sparse_index =
         checked_cast<const SparseCOOIndex&>(*sparse_tensor.sparse_index());
     const int64_t indices_length =
-        BitUtil::RoundUpToMultipleOf8(index_elem_size * sparse_index.indices()->size());
+        bit_util::RoundUpToMultipleOf8(index_elem_size * sparse_index.indices()->size());
     const int64_t data_length =
-        BitUtil::RoundUpToMultipleOf8(elem_size * sparse_tensor.non_zero_length());
+        bit_util::RoundUpToMultipleOf8(elem_size * sparse_tensor.non_zero_length());
     const int64_t expected_body_length = indices_length + data_length;
     ASSERT_EQ(expected_body_length, body_length);
 
@@ -194,11 +194,11 @@ class TestSparseTensorRoundTrip : public BaseTensorTest {
     const auto& sparse_index =
         checked_cast<const SparseIndexType&>(*sparse_tensor.sparse_index());
     const int64_t indptr_length =
-        BitUtil::RoundUpToMultipleOf8(index_elem_size * sparse_index.indptr()->size());
+        bit_util::RoundUpToMultipleOf8(index_elem_size * sparse_index.indptr()->size());
     const int64_t indices_length =
-        BitUtil::RoundUpToMultipleOf8(index_elem_size * sparse_index.indices()->size());
+        bit_util::RoundUpToMultipleOf8(index_elem_size * sparse_index.indices()->size());
     const int64_t data_length =
-        BitUtil::RoundUpToMultipleOf8(elem_size * sparse_tensor.non_zero_length());
+        bit_util::RoundUpToMultipleOf8(elem_size * sparse_tensor.non_zero_length());
     const int64_t expected_body_length = indptr_length + indices_length + data_length;
     ASSERT_EQ(expected_body_length, body_length);
 
@@ -240,15 +240,15 @@ class TestSparseTensorRoundTrip : public BaseTensorTest {
     int64_t indices_length = 0;
 
     for (int64_t i = 0; i < ndim - 1; ++i) {
-      indptr_length += BitUtil::RoundUpToMultipleOf8(index_elem_size *
-                                                     sparse_index.indptr()[i]->size());
+      indptr_length += bit_util::RoundUpToMultipleOf8(index_elem_size *
+                                                      sparse_index.indptr()[i]->size());
     }
     for (int64_t i = 0; i < ndim; ++i) {
-      indices_length += BitUtil::RoundUpToMultipleOf8(index_elem_size *
-                                                      sparse_index.indices()[i]->size());
+      indices_length += bit_util::RoundUpToMultipleOf8(index_elem_size *
+                                                       sparse_index.indices()[i]->size());
     }
     const int64_t data_length =
-        BitUtil::RoundUpToMultipleOf8(elem_size * sparse_tensor.non_zero_length());
+        bit_util::RoundUpToMultipleOf8(elem_size * sparse_tensor.non_zero_length());
     const int64_t expected_body_length = indptr_length + indices_length + data_length;
     ASSERT_EQ(expected_body_length, body_length);
 
@@ -264,11 +264,11 @@ class TestSparseTensorRoundTrip : public BaseTensorTest {
     int64_t out_indptr_length = 0;
     int64_t out_indices_length = 0;
     for (int i = 0; i < ndim - 1; ++i) {
-      out_indptr_length += BitUtil::RoundUpToMultipleOf8(
+      out_indptr_length += bit_util::RoundUpToMultipleOf8(
           index_elem_size * resulted_sparse_index.indptr()[i]->size());
     }
     for (int i = 0; i < ndim; ++i) {
-      out_indices_length += BitUtil::RoundUpToMultipleOf8(
+      out_indices_length += bit_util::RoundUpToMultipleOf8(
           index_elem_size * resulted_sparse_index.indices()[i]->size());
     }
 

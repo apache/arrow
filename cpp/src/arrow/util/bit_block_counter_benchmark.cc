@@ -77,7 +77,7 @@ struct UnaryBitBlockBenchmark {
         } else if (block.popcount > 0) {
           // Some but not all not-null
           for (int64_t i = 0; i < block.length; ++i) {
-            if (BitUtil::GetBit(bitmap, position + i)) {
+            if (bit_util::GetBit(bitmap, position + i)) {
               result += int8_arr.Value(position + i);
             }
           }
@@ -165,8 +165,8 @@ struct BinaryBitBlockBenchmark {
         } else if (block.popcount > 0) {
           // Some but not all not-null
           for (int64_t i = 0; i < block.length; ++i) {
-            if (BitUtil::GetBit(left_bitmap, position + i) &&
-                BitUtil::GetBit(right_bitmap, position + i)) {
+            if (bit_util::GetBit(left_bitmap, position + i) &&
+                bit_util::GetBit(right_bitmap, position + i)) {
               result += left_int8->Value(position + i) + right_int8->Value(position + i);
             }
           }

@@ -38,14 +38,14 @@ case $# in
      VERSION="$2"
      RC_NUMBER="$3"
      case $ARTIFACT in
-       source|binaries|wheels) ;;
+       source|binaries|wheels|jars) ;;
        *) echo "Invalid argument: '${ARTIFACT}', valid options are \
-'source', 'binaries', or 'wheels'"
+'source', 'binaries', 'wheels', or 'jars'"
           exit 1
           ;;
      esac
      ;;
-  *) echo "Usage: $0 source|binaries X.Y.Z RC_NUMBER"
+  *) echo "Usage: $0 source|binaries|wheels|jars X.Y.Z RC_NUMBER"
      exit 1
      ;;
 esac
@@ -127,7 +127,9 @@ verify_dir_artifact_signatures() {
     if [ -f $base_artifact.sha256 ]; then
       ${sha256_verify} $base_artifact.sha256 || exit 1
     fi
-    ${sha512_verify} $base_artifact.sha512 || exit 1
+    if [ -f $base_artifact.sha512 ]; then
+      ${sha512_verify} $base_artifact.sha512 || exit 1
+    fi
     popd
   done
 }
@@ -729,6 +731,17 @@ test_wheels() {
   popd
 }
 
+test_jars() {
+  local download_dir=jars
+  mkdir -p ${download_dir}
+
+  ${PYTHON:-python} $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER \
+         --dest=${download_dir} \
+         --package_type=jars
+
+  verify_dir_artifact_signatures ${download_dir}
+}
+
 # By default test all functionalities.
 # To deactivate one test, deactivate the test and all of its dependents
 # To explicitly select one test, set TEST_DEFAULT=0 TEST_X=1
@@ -737,16 +750,24 @@ test_wheels() {
 # system Node installation, which may be too old.
 : ${INSTALL_NODE:=1}
 
-if [ "${ARTIFACT}" == "source" ]; then
-  : ${TEST_SOURCE:=1}
-elif [ "${ARTIFACT}" == "wheels" ]; then
-  TEST_WHEELS=1
-else
-  TEST_BINARY_DISTRIBUTIONS=1
-fi
+case "${ARTIFACT}" in
+  source)
+    : ${TEST_SOURCE:=1}
+    ;;
+  binaires)
+    TEST_BINARY_DISTRIBUTIONS=1
+    ;;
+  wheels)
+    TEST_WHEELS=1
+    ;;
+  jars)
+    TEST_JARS=1
+    ;;
+esac
 : ${TEST_SOURCE:=0}
-: ${TEST_WHEELS:=0}
 : ${TEST_BINARY_DISTRIBUTIONS:=0}
+: ${TEST_WHEELS:=0}
+: ${TEST_JARS:=0}
 
 : ${TEST_DEFAULT:=1}
 : ${TEST_JAVA:=${TEST_DEFAULT}}
@@ -781,17 +802,28 @@ TEST_JS=$((${TEST_JS} + ${TEST_INTEGRATION_JS}))
 TEST_GO=$((${TEST_GO} + ${TEST_INTEGRATION_GO}))
 TEST_INTEGRATION=$((${TEST_INTEGRATION} + ${TEST_INTEGRATION_CPP} + ${TEST_INTEGRATION_JAVA} + ${TEST_INTEGRATION_JS} + ${TEST_INTEGRATION_GO}))
 
-if [ "${ARTIFACT}" == "source" ]; then
-  NEED_MINICONDA=$((${TEST_CPP} + ${TEST_INTEGRATION}))
-elif [ "${ARTIFACT}" == "wheels" ]; then
-  NEED_MINICONDA=$((${TEST_WHEELS}))
-else
-  if [ -z "${PYTHON:-}" ]; then
-    NEED_MINICONDA=$((${TEST_BINARY}))
-  else
-    NEED_MINICONDA=0
-  fi
-fi
+case "${ARTIFACT}" in
+  source)
+    NEED_MINICONDA=$((${TEST_CPP} + ${TEST_INTEGRATION}))
+    ;;
+  binaries)
+    if [ -z "${PYTHON:-}" ]; then
+      NEED_MINICONDA=$((${TEST_BINARY}))
+    else
+      NEED_MINICONDA=0
+    fi
+    ;;
+  wheels)
+    NEED_MINICONDA=$((${TEST_WHEELS}))
+    ;;
+  jars)
+    if [ -z "${PYTHON:-}" ]; then
+      NEED_MINICONDA=1
+    else
+      NEED_MINICONDA=0
+    fi
+    ;;
+esac
 
 : ${TEST_ARCHIVE:=apache-arrow-${VERSION}.tar.gz}
 case "${TEST_ARCHIVE}" in
@@ -812,32 +844,40 @@ if [ ${NEED_MINICONDA} -gt 0 ]; then
   setup_miniconda
 fi
 
-if [ "${ARTIFACT}" == "source" ]; then
-  dist_name="apache-arrow-${VERSION}"
-  if [ ${TEST_SOURCE} -gt 0 ]; then
+case "${ARTIFACT}" in
+  source)
+    dist_name="apache-arrow-${VERSION}"
+    if [ ${TEST_SOURCE} -gt 0 ]; then
+      import_gpg_keys
+      if [ ! -d "${dist_name}" ]; then
+        fetch_archive ${dist_name}
+        tar xf ${dist_name}.tar.gz
+      fi
+    else
+      mkdir -p ${dist_name}
+      if [ ! -f ${TEST_ARCHIVE} ]; then
+        echo "${TEST_ARCHIVE} not found"
+        exit 1
+      fi
+      tar xf ${TEST_ARCHIVE} -C ${dist_name} --strip-components=1
+    fi
+    pushd ${dist_name}
+    test_source_distribution
+    popd
+    ;;
+  binaries)
     import_gpg_keys
-    if [ ! -d "${dist_name}" ]; then
-      fetch_archive ${dist_name}
-      tar xf ${dist_name}.tar.gz
-    fi
-  else
-    mkdir -p ${dist_name}
-    if [ ! -f ${TEST_ARCHIVE} ]; then
-      echo "${TEST_ARCHIVE} not found"
-      exit 1
-    fi
-    tar xf ${TEST_ARCHIVE} -C ${dist_name} --strip-components=1
-  fi
-  pushd ${dist_name}
-  test_source_distribution
-  popd
-elif [ "${ARTIFACT}" == "wheels" ]; then
-  import_gpg_keys
-  test_wheels
-else
-  import_gpg_keys
-  test_binary_distribution
-fi
+    test_binary_distribution
+    ;;
+  wheels)
+    import_gpg_keys
+    test_wheels
+    ;;
+  jars)
+    import_gpg_keys
+    test_jars
+    ;;
+esac
 
 TEST_SUCCESS=yes
 echo 'Release candidate looks good!'
