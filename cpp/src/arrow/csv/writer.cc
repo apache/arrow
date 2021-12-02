@@ -137,13 +137,6 @@ char* EscapeReverse(arrow::util::string_view s, char* out_end) {
   return out_end;
 }
 
-Result<std::shared_ptr<arrow::Buffer>> EscapeStringToBuffer(arrow::util::string_view s) {
-  auto new_length = static_cast<int64_t>(s.length() + CountEscapes(s));
-  ASSIGN_OR_RAISE(std::shared_ptr<arrow::Buffer> out, AllocateBuffer(new_length));
-  EscapeReverse(s, reinterpret_cast<char*>(out->mutable_data()) + new_length - 1);
-  return out;
-}
-
 // Populator for non-string types.  This populator relies on compute Cast functionality to
 // String if it doesn't exist it will be an error.  it also assumes the resulting string
 // from a cast does not require quoting or escaping.
@@ -313,8 +306,18 @@ class CSVWriterImpl : public ipc::RecordBatchWriter {
       io::OutputStream* sink, std::shared_ptr<io::OutputStream> owned_sink,
       std::shared_ptr<Schema> schema, const WriteOptions& options) {
     RETURN_NOT_OK(options.Validate());
+    // Reject null string values that contain quotes.
+    if (CountEscapes(options.null_string) != 0) {
+      return Status::Invalid("CSV null value string cannot contain quotes.",
+                             options.null_string);
+    }
+
+    ASSIGN_OR_RAISE(std::shared_ptr<Buffer> null_string,
+                    arrow::AllocateBuffer(options.null_string.length()));
+    memcpy(null_string->mutable_data(), options.null_string.data(),
+           options.null_string.length());
+
     std::vector<std::unique_ptr<ColumnPopulator>> populators(schema->num_fields());
-    ASSIGN_OR_RAISE(auto null_string, EscapeStringToBuffer(options.null_string));
     for (int col = 0; col < schema->num_fields(); col++) {
       char end_char = col < schema->num_fields() - 1 ? ',' : '\n';
       ASSIGN_OR_RAISE(populators[col],

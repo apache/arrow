@@ -180,7 +180,7 @@ struct ARROW_EXPORT WriteOptions {
   /// This number can impact performance.
   int32_t batch_size = 1024;
 
-  /// \brief The string to write for null values. Any quotes are escaped.
+  /// \brief The string to write for null values. Quotes are not allowed in this string.
   std::string null_string;
 
   /// \brief IO context for writing.

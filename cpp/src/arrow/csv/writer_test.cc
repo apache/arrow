@@ -88,13 +88,12 @@ std::vector<WriterTestParams> GenerateTestCases() {
   auto schema_custom_na = schema({field("g", uint64()), field("h", utf8())});
 
   auto populated_batch_custom_na = R"([{"g": 42, "h": "NA"},
-                                        {}])";
+                                                  { },
+                                                  {"g": 1337, "h": "\"NA\""}])";
 
   std::string expected_custom_na = std::string(R"(42,"NA")") + "\n" +  // line 1
-                                   R"(NA,NA)" + "\n";                  // line 2
-
-  std::string expected_custom_quoted_na = std::string(R"(42,"NA")") + "\n" +  // line 1
-                                          R"(""NA"",""NA"")" + "\n";          // line 2
+                                   R"(NA,NA)" + "\n" +                 // line 2
+                                   R"(1337,"""NA""")" + "\n";            // line 3
 
   return std::vector<WriterTestParams>{
       {abc_schema, "[]", DefaultTestOptions(/*include_header=*/false, /*null_string=*/""),
@@ -109,10 +108,7 @@ std::vector<WriterTestParams> GenerateTestCases() {
        expected_header + expected_without_header},
       {schema_custom_na, populated_batch_custom_na,
        DefaultTestOptions(/*include_header=*/false, /*null_string=*/"NA"),
-       expected_custom_na},
-      {schema_custom_na, populated_batch_custom_na,
-       DefaultTestOptions(/*include_header=*/false, /*null_string=*/R"("NA")"),
-       expected_custom_quoted_na}};
+       expected_custom_na}};
 }
 
 class TestWriteCSV : public ::testing::TestWithParam<WriterTestParams> {
