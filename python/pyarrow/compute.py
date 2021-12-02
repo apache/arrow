@@ -64,6 +64,7 @@ from pyarrow._compute import (  # noqa
     TakeOptions,
     TDigestOptions,
     TrimOptions,
+    Utf8NormalizeOptions,
     VarianceOptions,
     WeekOptions,
     # Functions

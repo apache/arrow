@@ -21,6 +21,12 @@ FROM ${arch}/node:${node}
 
 ENV NODE_NO_WARNINGS=1
 
+# install rsync for copying the generated documentation
+RUN apt-get update -y -q && \
+    apt-get install -y -q --no-install-recommends rsync && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
 # TODO(kszucs):
 # 1. add the files required to install the dependencies to .dockerignore
 # 2. copy these files to their appropriate path

@@ -78,6 +78,9 @@ G_BEGIN_DECLS
  * #GArrowLargeStringDataType is a class for the 64-bit offsets UTF-8
  * encoded string data type.
  *
+ * #GArrowTemporalDataType is an abstract class for temporal related data type
+ * such as #GArrowDate32DataType.
+ *
  * #GArrowDate32DataType is a class for the number of days since UNIX
  * epoch in the 32-bit signed integer data type.
  *
@@ -975,9 +978,24 @@ garrow_large_string_data_type_new(void)
 }
 
 
+G_DEFINE_ABSTRACT_TYPE(GArrowTemporalDataType,
+                       garrow_temporal_data_type,
+                       GARROW_TYPE_FIXED_WIDTH_DATA_TYPE)
+
+static void
+garrow_temporal_data_type_init(GArrowTemporalDataType *object)
+{
+}
+
+static void
+garrow_temporal_data_type_class_init(GArrowTemporalDataTypeClass *klass)
+{
+}
+
+
 G_DEFINE_TYPE(GArrowDate32DataType,
               garrow_date32_data_type,
-              GARROW_TYPE_DATA_TYPE)
+              GARROW_TYPE_TEMPORAL_DATA_TYPE)
 
 static void
 garrow_date32_data_type_init(GArrowDate32DataType *object)
@@ -1012,7 +1030,7 @@ garrow_date32_data_type_new(void)
 
 G_DEFINE_TYPE(GArrowDate64DataType,
               garrow_date64_data_type,
-              GARROW_TYPE_DATA_TYPE)
+              GARROW_TYPE_TEMPORAL_DATA_TYPE)
 
 static void
 garrow_date64_data_type_init(GArrowDate64DataType *object)
@@ -1047,7 +1065,7 @@ garrow_date64_data_type_new(void)
 
 G_DEFINE_TYPE(GArrowTimestampDataType,
               garrow_timestamp_data_type,
-              GARROW_TYPE_DATA_TYPE)
+              GARROW_TYPE_TEMPORAL_DATA_TYPE)
 
 static void
 garrow_timestamp_data_type_init(GArrowTimestampDataType *object)
@@ -1102,7 +1120,7 @@ garrow_timestamp_data_type_get_unit(GArrowTimestampDataType *timestamp_data_type
 
 G_DEFINE_ABSTRACT_TYPE(GArrowTimeDataType,
                        garrow_time_data_type,
-                       GARROW_TYPE_DATA_TYPE)
+                       GARROW_TYPE_TEMPORAL_DATA_TYPE)
 
 static void
 garrow_time_data_type_init(GArrowTimeDataType *object)

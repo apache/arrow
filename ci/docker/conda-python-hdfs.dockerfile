@@ -22,11 +22,11 @@ FROM ${repo}:${arch}-conda-python-${python}
 
 ARG jdk=8
 ARG maven=3.5
-RUN conda install -q \
+RUN mamba install -q \
         maven=${maven} \
         openjdk=${jdk} \
         pandas && \
-    conda clean --all
+    mamba clean --all
 
 # installing libhdfs (JNI)
 ARG hdfs=3.2.1
