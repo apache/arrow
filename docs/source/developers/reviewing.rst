@@ -27,7 +27,7 @@ or even decades, while serving potentially millions of users.  We believe
 that being meticulous when reviewing brings greater rewards to the project
 than being lenient and aiming for quick merges.
 
-Code review like this leads to better quality code, more people who are
+Code reviews like this leads to better quality code, more people who are
 engaged with and understand the code being changed, and a generally
 healthier project with more room to grow and accomodate emerging needs.
 
