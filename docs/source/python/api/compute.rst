@@ -505,12 +505,10 @@ Compute Options
 .. autosummary::
    :toctree: ../generated/
 
-   ScalarAggregateOptions
-   CountOptions
-   TDigestOptions
    ArraySortOptions
    AssumeTimezoneOptions
    CastOptions
+   CountOptions
    CountOptions
    DayOfWeekOptions
    DictionaryEncodeOptions
@@ -531,6 +529,7 @@ Compute Options
    RoundOptions
    RoundToMultipleOptions
    ScalarAggregateOptions
+   ScalarAggregateOptions
    SelectKOptions
    SetLookupOptions
    SliceOptions
@@ -541,6 +540,7 @@ Compute Options
    StrptimeOptions
    StructFieldOptions
    TakeOptions
+   TDigestOptions
    TDigestOptions
    TrimOptions
    VarianceOptions
