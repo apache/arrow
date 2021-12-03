@@ -36,7 +36,7 @@ namespace arrow {
 MapBuilder::MapBuilder(MemoryPool* pool, const std::shared_ptr<ArrayBuilder>& key_builder,
                        std::shared_ptr<ArrayBuilder> const& item_builder,
                        const std::shared_ptr<DataType>& type)
-    : ArrayBuilder(pool), key_builder_(key_builder), item_builder_(item_builder) {
+    : ArrayBuilder(pool), key_builder_(key_builder), item_builder_(item_builder), type_(type) {
   auto map_type = internal::checked_cast<const MapType*>(type.get());
   keys_sorted_ = map_type->keys_sorted();
 
@@ -57,7 +57,7 @@ MapBuilder::MapBuilder(MemoryPool* pool, const std::shared_ptr<ArrayBuilder>& ke
 MapBuilder::MapBuilder(MemoryPool* pool,
                        const std::shared_ptr<ArrayBuilder>& struct_builder,
                        const std::shared_ptr<DataType>& type)
-    : ArrayBuilder(pool) {
+    : ArrayBuilder(pool), type_(type) {
   auto map_type = internal::checked_cast<const MapType*>(type.get());
   keys_sorted_ = map_type->keys_sorted();
   key_builder_ = struct_builder->child_builder(0);
@@ -83,6 +83,7 @@ Status MapBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   RETURN_NOT_OK(AdjustStructBuilderLength());
   RETURN_NOT_OK(list_builder_->FinishInternal(out));
   (*out)->type = type();
+  // (*out)->type = std::make_shared<MapType>(key_builder_->type(), item_builder_->type());
   ArrayBuilder::Reset();
   return Status::OK();
 }

@@ -330,7 +330,7 @@ class ARROW_EXPORT MapBuilder : public ArrayBuilder {
   ArrayBuilder* value_builder() const { return list_builder_->value_builder(); }
 
   std::shared_ptr<DataType> type() const override {
-    return map(key_builder_->type(), item_builder_->type(), keys_sorted_);
+    return type_;
   }
 
   Status ValidateOverflow(int64_t new_elements) {
@@ -345,6 +345,9 @@ class ARROW_EXPORT MapBuilder : public ArrayBuilder {
   std::shared_ptr<ListBuilder> list_builder_;
   std::shared_ptr<ArrayBuilder> key_builder_;
   std::shared_ptr<ArrayBuilder> item_builder_;
+
+ private:
+  std::shared_ptr<DataType> type_;
 };
 
 // ----------------------------------------------------------------------
