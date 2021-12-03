@@ -225,18 +225,13 @@ class SQLiteFlightSqlServer::Impl {
 
   ~Impl() { sqlite3_close(db_); }
 
-  std::string GenerateString() {
+  std::string GenerateRandomString() {
     uint32_t length = 16;
-    // Character set used to generate random string
-    const std::string charset =
-        "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
-    std::uniform_int_distribution<uint32_t> dist(0, static_cast<int>(charset.size() - 1));
-    std::string ret(length, 'x');
-
-    for (uint32_t i = 0; i < length; i++) {
-      ret[i] = charset[dist(gen_)];
-    }
+    std::uniform_int_distribution<char> dist('0', 'z');
+    std::string ret(length, 0);
+    auto get_random_char = [&]() { return dist(gen_); };
+    std::generate_n(ret.begin(), length, get_random_char);
     return ret;
   }
 
@@ -368,7 +363,7 @@ class SQLiteFlightSqlServer::Impl {
       const ActionCreatePreparedStatementRequest& request) {
     std::shared_ptr<SqliteStatement> statement;
     ARROW_ASSIGN_OR_RAISE(statement, SqliteStatement::Create(db_, request.query));
-    const std::string handle = GenerateString();
+    const std::string handle = GenerateRandomString();
     prepared_statements_[handle] = statement;
 
     ARROW_ASSIGN_OR_RAISE(auto dataset_schema, statement->GetSchema());
