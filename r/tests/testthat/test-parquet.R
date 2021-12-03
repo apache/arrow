@@ -311,3 +311,7 @@ test_that("ParquetFileWrite chunk_size defaults", {
       expect_error(reader$ReadRowGroup(2), "Some index in row_group_indices")
     })
 })
+
+test_that("ParquetFileWrite chunk_size calculation doesn't have integer overflow issues (ARROW-14894)", {
+  expect_equal(calculate_chunk_size(31869547, 108, 2.5e8, 200), 2451504)
+})
