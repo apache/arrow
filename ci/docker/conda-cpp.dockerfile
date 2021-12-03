@@ -24,10 +24,12 @@ RUN /arrow/ci/scripts/install_minio.sh latest /opt/conda
 
 # install the required conda packages into the test environment
 COPY ci/conda_env_cpp.txt \
+     ci/conda_env_cpp_linux.txt \
      ci/conda_env_gandiva.txt \
      /arrow/ci/
 RUN mamba install \
         --file arrow/ci/conda_env_cpp.txt \
+        --file arrow/ci/conda_env_cpp_linux.txt \
         --file arrow/ci/conda_env_gandiva.txt \
         compilers \
         doxygen \
