@@ -71,6 +71,7 @@ enum RVectorType {
   DATE_INT,
   DATE_DBL,
   TIME,
+  DURATION,
   POSIXCT,
   POSIXLT,
   BINARY,
@@ -107,9 +108,11 @@ RVectorType GetVectorType(SEXP x) {
         return INT64;
       } else if (Rf_inherits(x, "POSIXct")) {
         return POSIXCT;
-      } else if (Rf_inherits(x, "difftime")) {
+      } else if (Rf_inherits(x, "hms")) {
         return TIME;
-      } else {
+      } else if (Rf_inherits(x, "difftime")) {
+        return DURATION;
+      }  else {
         return FLOAT64;
       }
     }
@@ -587,7 +590,7 @@ class RPrimitiveConverter<T, enable_if_t<is_time_type<T>::value>>
   Status Extend(SEXP x, int64_t size, int64_t offset = 0) override {
     RETURN_NOT_OK(this->Reserve(size - offset));
     auto rtype = GetVectorType(x);
-    if (rtype != TIME) {
+    if (rtype != TIME && rtype != DURATION) {
       return Status::Invalid("Invalid conversion to time");
     }
 
