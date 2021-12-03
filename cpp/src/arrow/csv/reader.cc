@@ -981,9 +981,13 @@ class SerialTableReader : public BaseTableReader {
 
     // Since we're converting serially, no need to readahead more than one block
     int32_t block_queue_size = 1;
-    ARROW_ASSIGN_OR_RAISE(auto rh_it,
-                          MakeReadaheadIterator(std::move(istream_it), block_queue_size));
-    buffer_iterator_ = CSVBufferIterator::Make(std::move(rh_it));
+    if (read_options_.use_read_ahead) {
+      ARROW_ASSIGN_OR_RAISE(auto rh_it,
+                            MakeReadaheadIterator(std::move(istream_it), block_queue_size));
+      buffer_iterator_ = CSVBufferIterator::Make(std::move(rh_it));
+    } else {
+      buffer_iterator_ = CSVBufferIterator::Make(std::move(istream_it));
+    }
     return Status::OK();
   }
 
