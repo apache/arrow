@@ -148,14 +148,14 @@ class TestFlightSqlServer : public ::testing::Test {
 
  protected:
   void SetUp() override {
-    unix_sock = std::tmpnam(nullptr);
-    server_thread.reset(new std::thread(RunServer, this));
+    port = GetListenPort();
+    server_thread.reset(new std::thread([&]() { RunServer(); }));
 
     std::unique_lock<std::mutex> lk(server_ready_m);
     server_ready_cv.wait(lk);
 
     std::stringstream ss;
-    ss << "grpc+unix://" << unix_sock;
+    ss << "grpc://localhost:" << port;
     std::string uri = ss.str();
 
     std::unique_ptr<FlightClient> client;
@@ -175,25 +175,25 @@ class TestFlightSqlServer : public ::testing::Test {
   }
 
  private:
-  std::string unix_sock;
+  int port;
   std::shared_ptr<arrow::flight::sql::example::SQLiteFlightSqlServer> server;
   std::unique_ptr<std::thread> server_thread;
   std::condition_variable server_ready_cv;
   std::mutex server_ready_m;
 
-  static void RunServer(TestFlightSqlServer* fixture) {
+  void RunServer() {
     arrow::flight::Location location;
-    ARROW_CHECK_OK(arrow::flight::Location::ForGrpcUnix(fixture->unix_sock, &location));
+    ARROW_CHECK_OK(arrow::flight::Location::ForGrpcTcp("localhost", port, &location));
     arrow::flight::FlightServerOptions options(location);
 
-    ARROW_CHECK_OK(example::SQLiteFlightSqlServer::Create().Value(&fixture->server));
+    ARROW_CHECK_OK(example::SQLiteFlightSqlServer::Create().Value(&server));
 
-    ARROW_CHECK_OK(fixture->server->Init(options));
+    ARROW_CHECK_OK(server->Init(options));
     // Exit with a clean error code (0) on SIGTERM
-    ARROW_CHECK_OK(fixture->server->SetShutdownOnSignals({SIGTERM}));
+    ARROW_CHECK_OK(server->SetShutdownOnSignals({SIGTERM}));
 
-    fixture->server_ready_cv.notify_all();
-    ARROW_CHECK_OK(fixture->server->Serve());
+    server_ready_cv.notify_all();
+    ARROW_CHECK_OK(server->Serve());
   }
 };
 
