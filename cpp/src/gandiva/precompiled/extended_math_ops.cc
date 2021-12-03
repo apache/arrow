@@ -227,6 +227,49 @@ gdv_int32 round_int32(gdv_int32 num) { return num; }
 FORCE_INLINE
 gdv_int64 round_int64(gdv_int64 num) { return num; }
 
+// Lookup table to make the factorial function to execute faster
+// It is used because the range of values for the function is limited to [0!-20!]
+static const int64_t kFactorialLookupTable[] = {1,
+                                                1,
+                                                2,
+                                                6,
+                                                24,
+                                                120,
+                                                720,
+                                                5040,
+                                                40320,
+                                                362880,
+                                                3628800,
+                                                39916800,
+                                                479001600,
+                                                6227020800,
+                                                87178291200,
+                                                1307674368000,
+                                                20922789888000,
+                                                355687428096000,
+                                                6402373705728000,
+                                                121645100408832000,
+                                                2432902008176640000};
+
+#define FACTORIAL(IN_TYPE)                                                          \
+  FORCE_INLINE                                                                      \
+  gdv_int64 factorial_##IN_TYPE(gdv_int64 ctx, gdv_##IN_TYPE value) {               \
+    if (value < 0) {                                                                \
+      gdv_fn_context_set_error_msg(ctx, "Factorial of negative number not exist!"); \
+      return 0;                                                                     \
+    }                                                                               \
+    /* For numbers greater than 20 causes an overflow. */                           \
+    if (value > 20) {                                                               \
+      gdv_fn_context_set_error_msg(ctx, "Numbers greater than 20 cause overflow!"); \
+      return 0;                                                                     \
+    }                                                                               \
+                                                                                    \
+    return kFactorialLookupTable[static_cast<int32_t>(value)];                      \
+  }
+
+FACTORIAL(int32)
+FACTORIAL(int64)
+
 // rounds the number to the nearest integer
 #define ROUND_DECIMAL(TYPE)                                                 \
   FORCE_INLINE                                                              \

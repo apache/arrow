@@ -342,6 +342,9 @@ gdv_float64 least_float64_float64_float64_float64_float64_float64(
     gdv_float64 in1, gdv_float64 in2, gdv_float64 in3, gdv_float64 in4, gdv_float64 in5,
     gdv_float64 in6);
 
+gdv_int64 factorial_int32(gdv_int64 context, gdv_int32 value);
+gdv_int64 factorial_int64(gdv_int64 context, gdv_int64 value);
+
 gdv_float64 power_float64_float64(gdv_float64, gdv_float64);
 
 gdv_float64 log_int32_int32(gdv_int64 context, gdv_int32 base, gdv_int32 value);
