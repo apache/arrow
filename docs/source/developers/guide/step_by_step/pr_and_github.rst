@@ -28,10 +28,10 @@
 Lifecycle of a Pull Request 🙀 
 ******************************
 
-:ref:`As mentioned before<set-up>`, Arrow project uses git for
+:ref:`As mentioned before<set-up>`, the Arrow project uses git for
 version control and a workflow based on Pull Requests. That means
 that you contribute the changes to the code by creating a branch
-in Git, make changes to the code, push the changes to you ``origin``
+in Git, make changes to the code, push the changes to your ``origin``
 which is your fork of the Arrow repository on GitHub and then you
 create a **Pull Request** against the official Arrow repository
 which is saved in your set up as ``upstream``.
@@ -112,7 +112,7 @@ If all is set, you can make the Pull Request!
 
 5. Go to ``https://github.com/YOU/arrow`` where you will see a box with
    the name of the branch that you pushed and next to it a green button
-   **Compare & Pull Request**. Clicking on it you should add a title and
+   **Compare & Pull Request**. After clicking on it, you should add a title and
    description of the Pull Request. Underneath you can check once again
    the changes you have made.
 
