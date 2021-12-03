@@ -31,25 +31,34 @@
 
 .. _build-arrow:
 
-*********************************
-Building Arrow's libraries 🏋🏿‍♀️
-*********************************
+************************************
+Building the Arrow's libraries 🏋🏿‍♀️
+************************************
 
-If you decide to contribute to Arrow you will meet the topic of
-compiling source code and use of CMake. You may have some
-experience with it or not. If not, it is good to read through
-this part so you understand what is happening in the process of
-building Arrow better.
+The Arrow project contains good number of libraries that enable
+work in many languages. Most libraries (C++, C#, Go, Java,
+JavaScript, Julia, and Rust) already contain distinct implementations
+of Arrow. 
+
+It is different for C (Glib), MATLAB, Python, R, and Ruby as they
+are built on top of the C++ library. In this section we will be
+dealing with this second part of the libraries plus some of C++.
+
+In this case, if you decide to contribute to Arrow you will meet
+the topic of compiling the source code and use of CMake. You may
+have some experience with it or not. If not, it is good to read
+through this part so you understand what is happening in the process
+of building Arrow better.
 
 If you feel comfortable with compiling then feel free to proceed
 to the :ref:`C++ <building-arrow-cpp>`, :ref:`PyArrow <build_pyarrow>` or
 `R package build section <https://arrow.apache.org/docs/r/articles/developing.html>`_.
 
-Building C++
-============
+Building Arrow C++
+==================
 
-Why build C++ from source?
---------------------------
+Why build Arrow C++ from source?
+--------------------------------
 
 The core of Arrow is written in C++ and all bindings in other
 languages (Python, R, ..) are wrapping underlying
@@ -59,10 +68,11 @@ the source code of C++ may have to be edited also.
 About CMake
 -----------
 
-CMake is a cross platform build system generator and it uses make
-for the actual build. In the compiling process of Arrow what will
-most probably be needed is some tweaking of the flags that are added
-to cmake in the compiling process of Arrow.
+CMake is a cross platform build system generator and it defers
+to another program such as ``make`` or ``ninja`` for the actual build.
+In the compiling process of Arrow what will most probably be needed
+is some tweaking of the flags that are added to CMake in the compiling
+process of Arrow.
 
 
 Optional flags and why might we use them
@@ -90,15 +100,15 @@ be found :ref:`here <building-arrow-cpp>`.
 Building PyArrow
 ================
 
-After building C++ part of Arrow you have to build PyArrow on top of it
-also. The reason is the same, so you can edit the code and run tests on
-the edited code you have locally.
+After building Arrow C++ part of Arrow you have to build PyArrow on top
+of it also. The reason is the same, so you can edit the code and run
+tests on the edited code you have locally.
 
 **Why do we have to do builds separately?**
 
-So Arrow C++ libraries are not bundled with the Python extension. This
-is recommended for development as it allows the C++ libraries to be re-built
-separately.
+As mentioned in the beginning of this page, Python part of the Arrow
+project is built on top of C++. In order to make changes in Python part
+of Arrow as well as C++ part of Arrow, we need to build them separately.
 
 We hope this introduction was enough to help you start with the building
 process.
