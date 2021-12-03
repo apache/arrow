@@ -264,12 +264,10 @@ void AssertTableWriteReadEqual(const std::shared_ptr<Table>& input_table,
                                const int64_t max_size = kDefaultSmallMemStreamSize) {
   EXPECT_OK_AND_ASSIGN(auto buffer_output_stream,
                        io::BufferOutputStream::Create(max_size));
-  arrow::adapters::orc::WriteOptions write_options = GenerateRandomWriteOptions(
-    input_table->num_columns());
-  EXPECT_OK_AND_ASSIGN(auto writer,
-                       adapters::orc::ORCFileWriter::Open(
-                           buffer_output_stream.get(),
-                           write_options));
+  arrow::adapters::orc::WriteOptions write_options =
+      GenerateRandomWriteOptions(input_table->num_columns());
+  EXPECT_OK_AND_ASSIGN(auto writer, adapters::orc::ORCFileWriter::Open(
+                                        buffer_output_stream.get(), write_options));
   ARROW_EXPECT_OK(writer->Write(*input_table));
   ARROW_EXPECT_OK(writer->Close());
   EXPECT_OK_AND_ASSIGN(auto buffer, buffer_output_stream->Finish());

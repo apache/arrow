@@ -52,8 +52,9 @@ WriteOptions::WriteOptions()
 }
 
 WriteOptions::WriteOptions(const WriteOptions& rhs)
-    : orc_writer_options_(std::make_shared<liborc::WriterOptions>(
-          *(rhs.orc_writer_options_.get()))), batch_size_(rhs.batch_size_) {
+    : orc_writer_options_(
+          std::make_shared<liborc::WriterOptions>(*(rhs.orc_writer_options_.get()))),
+      batch_size_(rhs.batch_size_) {
   // PASS
 }
 
@@ -66,7 +67,7 @@ WriteOptions::WriteOptions(WriteOptions& rhs) {
 WriteOptions& WriteOptions::operator=(const WriteOptions& rhs) {
   if (this != &rhs) {
     orc_writer_options_.reset(
-      new liborc::WriterOptions(*(rhs.orc_writer_options_.get())));
+        new liborc::WriterOptions(*(rhs.orc_writer_options_.get())));
     batch_size_ = rhs.batch_size_;
   }
   return *this;
@@ -81,9 +82,7 @@ WriteOptions& WriteOptions::set_batch_size(uint64_t size) {
   return *this;
 }
 
-uint64_t WriteOptions::batch_size() const {
-  return batch_size_;
-}
+uint64_t WriteOptions::batch_size() const { return batch_size_; }
 
 RleVersion WriteOptions::rle_version() const {
   return static_cast<RleVersion>(orc_writer_options_->getRleVersion());
@@ -151,13 +150,12 @@ CompressionKind WriteOptions::compression() const {
 
 WriteOptions& WriteOptions::set_compression_strategy(CompressionStrategy strategy) {
   orc_writer_options_->setCompressionStrategy(
-    static_cast<liborc::CompressionStrategy>(strategy));
+      static_cast<liborc::CompressionStrategy>(strategy));
   return *this;
 }
 
 CompressionStrategy WriteOptions::compression_strategy() const {
-  return static_cast<CompressionStrategy>(
-    orc_writer_options_->getCompressionStrategy());
+  return static_cast<CompressionStrategy>(orc_writer_options_->getCompressionStrategy());
 }
 
 bool WriteOptions::aligned_bitpacking() const {

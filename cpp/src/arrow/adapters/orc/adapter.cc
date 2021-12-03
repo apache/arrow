@@ -631,8 +631,7 @@ class ArrowOutputStream : public liborc::OutputStream {
 
 class ORCFileWriter::Impl {
  public:
-  Status Open(arrow::io::OutputStream* output_stream,
-              const WriteOptions& write_options) {
+  Status Open(arrow::io::OutputStream* output_stream, const WriteOptions& write_options) {
     out_stream_ = std::unique_ptr<liborc::OutputStream>(
         checked_cast<liborc::OutputStream*>(new ArrowOutputStream(*output_stream)));
     batch_size_ = write_options.batch_size();
