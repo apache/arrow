@@ -30,6 +30,7 @@
 #include "arrow/array/array_base.h"
 #include "arrow/array/array_dict.h"
 #include "arrow/array/array_primitive.h"
+#include "arrow/array/builder_base.h"
 #include "arrow/array/concatenate.h"
 #include "arrow/buffer.h"
 #include "arrow/buffer_builder.h"
@@ -45,7 +46,6 @@
 #include "arrow/util/endian.h"
 #include "arrow/util/logging.h"
 #include "arrow/visitor_inline.h"
-#include "builder_base.h"
 
 namespace arrow {
 
