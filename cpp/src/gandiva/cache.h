@@ -27,7 +27,7 @@
 namespace gandiva {
 
 GANDIVA_EXPORT
-int GetCapacity();
+size_t GetCapacity();
 
 GANDIVA_EXPORT
 void LogCacheSize(size_t capacity);
@@ -39,7 +39,7 @@ class Cache {
 
   Cache() : Cache(GetCapacity()) {}
 
-  ValueType GetModule(KeyType cache_key) {
+  ValueType GetObjectCode(KeyType& cache_key) {
     arrow::util::optional<ValueCacheObject<ValueType>> result;
     mtx_.lock();
     result = cache_.get(cache_key);
@@ -47,9 +47,9 @@ class Cache {
     return result != arrow::util::nullopt ? (*result).module : nullptr;
   }
 
-  void PutModule(KeyType cache_key, ValueCacheObject<ValueType> valueCacheObject) {
+  void PutObjectCode(KeyType& cache_key, ValueCacheObject<ValueType>& object_code) {
     mtx_.lock();
-    cache_.insert(cache_key, valueCacheObject);
+    cache_.insert(cache_key, object_code);
     mtx_.unlock();
   }
 
