@@ -56,11 +56,9 @@ you with the necessary steps.
       packages follow
       :ref:`Python unit testing section <python-unit-testing>`.
 
-      What we normally do is run the test we are working on
-      only. Once we are finished with our work and then 
-      we run other tests also.
+      During the development process, it can be more efficient to only run the tests relevant to the code which you are working on.  However, you should run all of the tests once you have finished your development work.
 
-      To run a specific unit test use this command in 
+      To run a specific unit test, use this command in 
       the terminal from the ``arrow/python`` folder:
 
       .. code-block::
@@ -79,16 +77,16 @@ you with the necessary steps.
 
          python -m pytest pyarrow
 
-      If the tests start failing try to recompile
+      If the tests start failing, try to recompile
       PyArrow or C++.
       
       .. note::
 
          **Recompiling Cython**
 
-         If you change only the .py file you do not need to
-         recompile PyArrow. But you have to that if you make
-         changes in .pyx or .pxd files.
+         If you only make changes to `.py` files, you do not need to
+         recompile PyArrow. However, you should recompile it if you make
+         changes in `.pyx` or `.pxd` files.
         
          To do that run this command again:
 
@@ -100,8 +98,8 @@ you with the necessary steps.
 		
          **Recompiling C++**
 
-         Similarly you will need to recompile C++ if you have
-         done some changes in C++ files. In this case
+         Similarly, you will need to recompile the C++ code if you have
+         made changes to any C++ files. In this case,
          re-run the cmake commands again. 
 
    .. tab:: R tests
