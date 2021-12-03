@@ -60,19 +60,18 @@ Building Arrow C++
 Why build Arrow C++ from source?
 --------------------------------
 
-The core of Arrow is written in C++ and all bindings in other
-languages (Python, R, ..) are wrapping underlying
-C++ functions. Even if you want to work on PyArrow or R package
-the source code of C++ may have to be edited also.
+For Arrow C++ implementation and its bindings (Python and R for example)
+these bindings are wrapping the underlying C++ functions. Even if you
+want to work on PyArrow or R package the source code of C++ may have to
+be edited also.
 
 About CMake
 -----------
 
 CMake is a cross platform build system generator and it defers
 to another program such as ``make`` or ``ninja`` for the actual build.
-In the compiling process of Arrow what will most probably be needed
-is some tweaking of the flags that are added to CMake in the compiling
-process of Arrow.
+If running into errors with the build process, the first thing to try is
+to tweak some CMake flags for compiling Arrow.
 
 
 Optional flags and why might we use them
