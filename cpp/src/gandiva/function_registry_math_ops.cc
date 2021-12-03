@@ -50,6 +50,15 @@ namespace gandiva {
 #define BINARY_SAFE_NULL_NEVER_BOOL_FN(name, ALIASES) \
   NUMERIC_BOOL_DATE_TYPES(BINARY_SAFE_NULL_NEVER_BOOL, name, ALIASES)
 
+#define BINARY_SYMMETRIC_SAFE_NULL_NEVER_FN(name, ALIASES) \
+  BINARY_SAFE_NULL_NEVER(name, ALIASES, int32),            \
+      BINARY_SAFE_NULL_NEVER(name, ALIASES, int64),        \
+      BINARY_SAFE_NULL_NEVER(name, ALIASES, uint32),       \
+      BINARY_SAFE_NULL_NEVER(name, ALIASES, uint64),       \
+      BINARY_SAFE_NULL_NEVER(name, ALIASES, float32),      \
+      BINARY_SAFE_NULL_NEVER(name, ALIASES, float64),      \
+      BINARY_SAFE_NULL_NEVER(name, ALIASES, boolean)
+
 std::vector<NativeFunction> GetMathOpsFunctionRegistry() {
   static std::vector<NativeFunction> math_fn_registry_ = {
       MATH_UNARY_OPS(cbrt, {}), MATH_UNARY_OPS(exp, {}), MATH_UNARY_OPS(log, {}),
@@ -86,6 +95,7 @@ std::vector<NativeFunction> GetMathOpsFunctionRegistry() {
       BINARY_GENERIC_SAFE_NULL_IF_NULL(round, {}, decimal128, int32, decimal128),
       BINARY_GENERIC_SAFE_NULL_IF_NULL(truncate, {"trunc"}, decimal128, int32,
                                        decimal128),
+      BINARY_SYMMETRIC_SAFE_NULL_NEVER_FN(nvl, {}),
 
       NativeFunction("truncate", {"trunc"}, DataTypeVector{int64(), int32()}, int64(),
                      kResultNullIfNull, "truncate_int64_int32"),
