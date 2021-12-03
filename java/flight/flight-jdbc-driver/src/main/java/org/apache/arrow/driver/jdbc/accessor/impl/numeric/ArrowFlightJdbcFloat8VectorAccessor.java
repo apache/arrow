@@ -23,6 +23,7 @@ import java.nio.ByteBuffer;
 import java.util.function.IntSupplier;
 
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
+import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorFactory;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.holders.NullableFloat8Holder;
 
@@ -37,12 +38,14 @@ public class ArrowFlightJdbcFloat8VectorAccessor extends ArrowFlightJdbcAccessor
   /**
    * Instantiate a accessor for the {@link Float8Vector}.
    *
-   * @param vector an instance of a Float8Vector.
+   * @param vector             an instance of a Float8Vector.
    * @param currentRowSupplier the supplier to track the lines.
+   * @param setCursorWasNull   the consumer to set if value was null.
    */
   public ArrowFlightJdbcFloat8VectorAccessor(Float8Vector vector,
-                                      IntSupplier currentRowSupplier) {
-    super(currentRowSupplier);
+                                             IntSupplier currentRowSupplier,
+                                             ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
+    super(currentRowSupplier, setCursorWasNull);
     this.holder = new NullableFloat8Holder();
     this.vector = vector;
   }
@@ -57,6 +60,7 @@ public class ArrowFlightJdbcFloat8VectorAccessor extends ArrowFlightJdbcAccessor
     vector.get(getCurrentRow(), holder);
 
     this.wasNull = holder.isSet == 0;
+    this.wasNullConsumer.setWasNull(this.wasNull);
     if (this.wasNull) {
       return 0;
     }
@@ -115,7 +119,8 @@ public class ArrowFlightJdbcFloat8VectorAccessor extends ArrowFlightJdbcAccessor
 
   @Override
   public BigDecimal getBigDecimal(int scale) {
-    final BigDecimal value = BigDecimal.valueOf(this.getDouble()).setScale(scale, RoundingMode.HALF_UP);
+    final BigDecimal value =
+        BigDecimal.valueOf(this.getDouble()).setScale(scale, RoundingMode.HALF_UP);
     return this.wasNull ? null : value;
   }
 

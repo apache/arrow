@@ -49,10 +49,15 @@ public class ArrowFlightJdbcDenseUnionVectorAccessorTest {
 
   private DenseUnionVector vector;
 
-  private final AccessorTestUtils.AccessorSupplier<ArrowFlightJdbcDenseUnionVectorAccessor> accessorSupplier =
-      (vector, getCurrentRow) -> new ArrowFlightJdbcDenseUnionVectorAccessor((DenseUnionVector) vector, getCurrentRow);
+  private final AccessorTestUtils.AccessorSupplier<ArrowFlightJdbcDenseUnionVectorAccessor>
+      accessorSupplier =
+          (vector, getCurrentRow) -> new ArrowFlightJdbcDenseUnionVectorAccessor(
+              (DenseUnionVector) vector, getCurrentRow, (boolean wasNull) -> {
+            //No Operation
+          });
 
-  private final AccessorTestUtils.AccessorIterator<ArrowFlightJdbcDenseUnionVectorAccessor> accessorIterator =
+  private final AccessorTestUtils.AccessorIterator<ArrowFlightJdbcDenseUnionVectorAccessor>
+      accessorIterator =
       new AccessorTestUtils.AccessorIterator<>(collector, accessorSupplier);
 
   @Before
@@ -61,8 +66,10 @@ public class ArrowFlightJdbcDenseUnionVectorAccessorTest {
     this.vector.allocateNew();
 
     // write some data
-    byte bigIntTypeId = this.vector.registerNewTypeId(Field.nullable("", Types.MinorType.BIGINT.getType()));
-    byte float8TypeId = this.vector.registerNewTypeId(Field.nullable("", Types.MinorType.FLOAT8.getType()));
+    byte bigIntTypeId =
+        this.vector.registerNewTypeId(Field.nullable("", Types.MinorType.BIGINT.getType()));
+    byte float8TypeId =
+        this.vector.registerNewTypeId(Field.nullable("", Types.MinorType.FLOAT8.getType()));
     byte timestampMilliTypeId =
         this.vector.registerNewTypeId(Field.nullable("", Types.MinorType.TIMESTAMPMILLI.getType()));
 
@@ -114,6 +121,7 @@ public class ArrowFlightJdbcDenseUnionVectorAccessorTest {
     vector.reset();
     vector.setValueCount(5);
 
-    accessorIterator.assertAccessorGetter(vector, AbstractArrowFlightJdbcUnionVectorAccessor::getObject, equalTo(null));
+    accessorIterator.assertAccessorGetter(vector,
+        AbstractArrowFlightJdbcUnionVectorAccessor::getObject, equalTo(null));
   }
 }

@@ -104,7 +104,9 @@ public class ArrowFlightJdbcMapVectorAccessorTest {
   @Test
   public void testShouldGetObjectReturnValidMap() {
     AccessorTestUtils.Cursor cursor = new AccessorTestUtils.Cursor(vector.getValueCount());
-    ArrowFlightJdbcMapVectorAccessor accessor = new ArrowFlightJdbcMapVectorAccessor(vector, cursor::getCurrentRow);
+    ArrowFlightJdbcMapVectorAccessor accessor =
+        new ArrowFlightJdbcMapVectorAccessor(vector, cursor::getCurrentRow, (boolean wasNull) -> {
+        });
 
     Map<Object, Object> expected = new JsonStringHashMap<>();
     expected.put(1, 11);
@@ -132,7 +134,9 @@ public class ArrowFlightJdbcMapVectorAccessorTest {
   @Test
   public void testShouldGetObjectReturnNull() {
     vector.setNull(0);
-    ArrowFlightJdbcMapVectorAccessor accessor = new ArrowFlightJdbcMapVectorAccessor(vector, () -> 0);
+    ArrowFlightJdbcMapVectorAccessor accessor =
+        new ArrowFlightJdbcMapVectorAccessor(vector, () -> 0, (boolean wasNull) -> {
+        });
 
     Assert.assertNull(accessor.getObject());
     Assert.assertTrue(accessor.wasNull());
@@ -141,7 +145,9 @@ public class ArrowFlightJdbcMapVectorAccessorTest {
   @Test
   public void testShouldGetArrayReturnValidArray() throws SQLException {
     AccessorTestUtils.Cursor cursor = new AccessorTestUtils.Cursor(vector.getValueCount());
-    ArrowFlightJdbcMapVectorAccessor accessor = new ArrowFlightJdbcMapVectorAccessor(vector, cursor::getCurrentRow);
+    ArrowFlightJdbcMapVectorAccessor accessor =
+        new ArrowFlightJdbcMapVectorAccessor(vector, cursor::getCurrentRow, (boolean wasNull) -> {
+        });
 
     Array array = accessor.getArray();
     Assert.assertNotNull(array);
@@ -205,7 +211,9 @@ public class ArrowFlightJdbcMapVectorAccessorTest {
     vector.setNull(0);
     ((StructVector) vector.getDataVector()).setNull(0);
 
-    ArrowFlightJdbcMapVectorAccessor accessor = new ArrowFlightJdbcMapVectorAccessor(vector, () -> 0);
+    ArrowFlightJdbcMapVectorAccessor accessor =
+        new ArrowFlightJdbcMapVectorAccessor(vector, () -> 0, (boolean wasNull) -> {
+        });
 
     Assert.assertNull(accessor.getArray());
     Assert.assertTrue(accessor.wasNull());

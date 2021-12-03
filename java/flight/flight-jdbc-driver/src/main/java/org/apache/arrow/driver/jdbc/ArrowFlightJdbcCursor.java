@@ -59,15 +59,17 @@ public class ArrowFlightJdbcCursor extends AbstractCursor {
                                         ArrayImpl.Factory factory) {
     final List<FieldVector> fieldVectors = root.getFieldVectors();
 
-    return IntStream.range(0, fieldVectors.size()).mapToObj(root::getVector).map(this::createAccessor)
+    return IntStream.range(0, fieldVectors.size()).mapToObj(root::getVector)
+        .map(this::createAccessor)
         .collect(Collectors.toCollection(() -> new ArrayList<>(fieldVectors.size())));
   }
 
   private Accessor createAccessor(FieldVector vector) {
-    return ArrowFlightJdbcAccessorFactory.createAccessor(vector, this::getCurrentRow, (boolean wasNull)->{
-      // AbstractCursor creates a boolean array of length 1 to hold the wasNull value
-      this.wasNull[0]=wasNull;
-    });
+    return ArrowFlightJdbcAccessorFactory.createAccessor(vector, this::getCurrentRow,
+        (boolean wasNull) -> {
+          // AbstractCursor creates a boolean array of length 1 to hold the wasNull value
+          this.wasNull[0] = wasNull;
+        });
   }
 
   /**

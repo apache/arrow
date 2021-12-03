@@ -23,6 +23,7 @@ import java.util.function.IntSupplier;
 
 import org.apache.arrow.driver.jdbc.ArrowFlightJdbcArray;
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
+import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorFactory;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.LargeListVector;
@@ -33,8 +34,9 @@ import org.apache.arrow.vector.complex.ListVector;
  */
 public abstract class AbstractArrowFlightJdbcListVectorAccessor extends ArrowFlightJdbcAccessor {
 
-  protected AbstractArrowFlightJdbcListVectorAccessor(IntSupplier currentRowSupplier) {
-    super(currentRowSupplier);
+  protected AbstractArrowFlightJdbcListVectorAccessor(IntSupplier currentRowSupplier,
+                                                      ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
+    super(currentRowSupplier, setCursorWasNull);
   }
 
   @Override
@@ -54,6 +56,7 @@ public abstract class AbstractArrowFlightJdbcListVectorAccessor extends ArrowFli
     FieldVector dataVector = getDataVector();
 
     this.wasNull = dataVector.isNull(index);
+    this.wasNullConsumer.setWasNull(this.wasNull);
     if (this.wasNull) {
       return null;
     }

@@ -53,19 +53,22 @@ public class ArrowFlightJdbcArrayTest {
 
   @Test
   public void testShouldGetBaseTypeNameReturnCorrectTypeName() {
-    ArrowFlightJdbcArray arrowFlightJdbcArray = new ArrowFlightJdbcArray(dataVector, 0, dataVector.getValueCount());
+    ArrowFlightJdbcArray arrowFlightJdbcArray =
+        new ArrowFlightJdbcArray(dataVector, 0, dataVector.getValueCount());
     Assert.assertEquals("INTEGER", arrowFlightJdbcArray.getBaseTypeName());
   }
 
   @Test
   public void testShouldGetBaseTypeReturnCorrectType() {
-    ArrowFlightJdbcArray arrowFlightJdbcArray = new ArrowFlightJdbcArray(dataVector, 0, dataVector.getValueCount());
+    ArrowFlightJdbcArray arrowFlightJdbcArray =
+        new ArrowFlightJdbcArray(dataVector, 0, dataVector.getValueCount());
     Assert.assertEquals(Types.INTEGER, arrowFlightJdbcArray.getBaseType());
   }
 
   @Test
   public void testShouldGetArrayReturnValidArray() throws SQLException {
-    ArrowFlightJdbcArray arrowFlightJdbcArray = new ArrowFlightJdbcArray(dataVector, 0, dataVector.getValueCount());
+    ArrowFlightJdbcArray arrowFlightJdbcArray =
+        new ArrowFlightJdbcArray(dataVector, 0, dataVector.getValueCount());
     Object[] array = (Object[]) arrowFlightJdbcArray.getArray();
 
     Object[] expected = new Object[dataVector.getValueCount()];
@@ -77,7 +80,8 @@ public class ArrowFlightJdbcArrayTest {
 
   @Test
   public void testShouldGetArrayReturnValidArrayWithOffsets() throws SQLException {
-    ArrowFlightJdbcArray arrowFlightJdbcArray = new ArrowFlightJdbcArray(dataVector, 0, dataVector.getValueCount());
+    ArrowFlightJdbcArray arrowFlightJdbcArray =
+        new ArrowFlightJdbcArray(dataVector, 0, dataVector.getValueCount());
     Object[] array = (Object[]) arrowFlightJdbcArray.getArray(1, 5);
 
     Object[] expected = new Object[5];
@@ -88,28 +92,33 @@ public class ArrowFlightJdbcArrayTest {
   }
 
   @Test(expected = ArrayIndexOutOfBoundsException.class)
-  public void testShouldGetArrayWithOffsetsThrowArrayIndexOutOfBoundsException() throws SQLException {
-    ArrowFlightJdbcArray arrowFlightJdbcArray = new ArrowFlightJdbcArray(dataVector, 0, dataVector.getValueCount());
+  public void testShouldGetArrayWithOffsetsThrowArrayIndexOutOfBoundsException()
+      throws SQLException {
+    ArrowFlightJdbcArray arrowFlightJdbcArray =
+        new ArrowFlightJdbcArray(dataVector, 0, dataVector.getValueCount());
     arrowFlightJdbcArray.getArray(0, dataVector.getValueCount() + 1);
   }
 
   @Test(expected = SQLFeatureNotSupportedException.class)
   public void testShouldGetArrayWithMapNotBeSupported() throws SQLException {
-    ArrowFlightJdbcArray arrowFlightJdbcArray = new ArrowFlightJdbcArray(dataVector, 0, dataVector.getValueCount());
+    ArrowFlightJdbcArray arrowFlightJdbcArray =
+        new ArrowFlightJdbcArray(dataVector, 0, dataVector.getValueCount());
     HashMap<String, Class<?>> map = new HashMap<>();
     arrowFlightJdbcArray.getArray(map);
   }
 
   @Test(expected = SQLFeatureNotSupportedException.class)
   public void testShouldGetArrayWithOffsetsAndMapNotBeSupported() throws SQLException {
-    ArrowFlightJdbcArray arrowFlightJdbcArray = new ArrowFlightJdbcArray(dataVector, 0, dataVector.getValueCount());
+    ArrowFlightJdbcArray arrowFlightJdbcArray =
+        new ArrowFlightJdbcArray(dataVector, 0, dataVector.getValueCount());
     HashMap<String, Class<?>> map = new HashMap<>();
     arrowFlightJdbcArray.getArray(0, 5, map);
   }
 
   @Test
   public void testShouldGetResultSetReturnValidResultSet() throws SQLException {
-    ArrowFlightJdbcArray arrowFlightJdbcArray = new ArrowFlightJdbcArray(dataVector, 0, dataVector.getValueCount());
+    ArrowFlightJdbcArray arrowFlightJdbcArray =
+        new ArrowFlightJdbcArray(dataVector, 0, dataVector.getValueCount());
     try (ResultSet resultSet = arrowFlightJdbcArray.getResultSet()) {
       int count = 0;
       while (resultSet.next()) {
@@ -121,7 +130,8 @@ public class ArrowFlightJdbcArrayTest {
 
   @Test
   public void testShouldGetResultSetReturnValidResultSetWithOffsets() throws SQLException {
-    ArrowFlightJdbcArray arrowFlightJdbcArray = new ArrowFlightJdbcArray(dataVector, 0, dataVector.getValueCount());
+    ArrowFlightJdbcArray arrowFlightJdbcArray =
+        new ArrowFlightJdbcArray(dataVector, 0, dataVector.getValueCount());
     try (ResultSet resultSet = arrowFlightJdbcArray.getResultSet(3, 5)) {
       int count = 0;
       while (resultSet.next()) {
@@ -134,14 +144,16 @@ public class ArrowFlightJdbcArrayTest {
 
   @Test(expected = SQLFeatureNotSupportedException.class)
   public void testShouldGetResultSetWithMapNotBeSupported() throws SQLException {
-    ArrowFlightJdbcArray arrowFlightJdbcArray = new ArrowFlightJdbcArray(dataVector, 0, dataVector.getValueCount());
+    ArrowFlightJdbcArray arrowFlightJdbcArray =
+        new ArrowFlightJdbcArray(dataVector, 0, dataVector.getValueCount());
     HashMap<String, Class<?>> map = new HashMap<>();
     arrowFlightJdbcArray.getResultSet(map);
   }
 
   @Test(expected = SQLFeatureNotSupportedException.class)
   public void testShouldGetResultSetWithOffsetsAndMapNotBeSupported() throws SQLException {
-    ArrowFlightJdbcArray arrowFlightJdbcArray = new ArrowFlightJdbcArray(dataVector, 0, dataVector.getValueCount());
+    ArrowFlightJdbcArray arrowFlightJdbcArray =
+        new ArrowFlightJdbcArray(dataVector, 0, dataVector.getValueCount());
     HashMap<String, Class<?>> map = new HashMap<>();
     arrowFlightJdbcArray.getResultSet(0, 5, map);
   }

@@ -28,6 +28,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.IntSupplier;
 
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
+import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorFactory;
 import org.apache.arrow.driver.jdbc.utils.DateTimeUtils;
 import org.apache.arrow.vector.DateDayVector;
 import org.apache.arrow.vector.DateMilliVector;
@@ -47,9 +48,11 @@ public class ArrowFlightJdbcDateVectorAccessor extends ArrowFlightJdbcAccessor {
    *
    * @param vector             an instance of a DateDayVector.
    * @param currentRowSupplier the supplier to track the lines.
+   * @param setCursorWasNull   the consumer to set if value was null.
    */
-  public ArrowFlightJdbcDateVectorAccessor(DateDayVector vector, IntSupplier currentRowSupplier) {
-    super(currentRowSupplier);
+  public ArrowFlightJdbcDateVectorAccessor(DateDayVector vector, IntSupplier currentRowSupplier,
+                                           ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
+    super(currentRowSupplier, setCursorWasNull);
     this.holder = new Holder();
     this.getter = createGetter(vector);
     this.timeUnit = getTimeUnitForVector(vector);
@@ -61,8 +64,9 @@ public class ArrowFlightJdbcDateVectorAccessor extends ArrowFlightJdbcAccessor {
    * @param vector             an instance of a DateMilliVector.
    * @param currentRowSupplier the supplier to track the lines.
    */
-  public ArrowFlightJdbcDateVectorAccessor(DateMilliVector vector, IntSupplier currentRowSupplier) {
-    super(currentRowSupplier);
+  public ArrowFlightJdbcDateVectorAccessor(DateMilliVector vector, IntSupplier currentRowSupplier,
+                                           ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
+    super(currentRowSupplier, setCursorWasNull);
     this.holder = new Holder();
     this.getter = createGetter(vector);
     this.timeUnit = getTimeUnitForVector(vector);
@@ -82,6 +86,7 @@ public class ArrowFlightJdbcDateVectorAccessor extends ArrowFlightJdbcAccessor {
   public Date getDate(Calendar calendar) {
     getter.get(getCurrentRow(), holder);
     this.wasNull = holder.isSet == 0;
+    this.wasNullConsumer.setWasNull(this.wasNull);
     if (this.wasNull) {
       return null;
     }

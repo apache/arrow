@@ -60,10 +60,12 @@ public class ArrowFlightStatementExecuteUpdateTest {
   private static final long LARGE_UPDATE_SAMPLE_QUERY_AFFECTED_COLS = (long) Integer.MAX_VALUE + 1;
   private static final String REGULAR_QUERY_SAMPLE = "SELECT * FROM NOT_UPDATE_QUERY";
   private static final Schema REGULAR_QUERY_SCHEMA =
-      new Schema(Collections.singletonList(Field.nullable("placeholder", MinorType.VARCHAR.getType())));
+      new Schema(
+          Collections.singletonList(Field.nullable("placeholder", MinorType.VARCHAR.getType())));
   private static final MockFlightSqlProducer PRODUCER = new MockFlightSqlProducer();
   @ClassRule
-  public static final FlightServerTestRule SERVER_TEST_RULE = FlightServerTestRule.createNewTestRule(PRODUCER);
+  public static final FlightServerTestRule SERVER_TEST_RULE =
+      FlightServerTestRule.createNewTestRule(PRODUCER);
   @Rule
   public final ErrorCollector collector = new ErrorCollector();
   public Connection connection;
@@ -78,7 +80,8 @@ public class ArrowFlightStatementExecuteUpdateTest {
         REGULAR_QUERY_SCHEMA,
         Collections.singletonList(listener -> {
           try (final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
-               final VectorSchemaRoot root = VectorSchemaRoot.create(REGULAR_QUERY_SCHEMA, allocator)) {
+               final VectorSchemaRoot root = VectorSchemaRoot.create(REGULAR_QUERY_SCHEMA,
+                   allocator)) {
             listener.start(root);
             listener.putNext();
           } catch (final Throwable throwable) {
@@ -106,19 +109,23 @@ public class ArrowFlightStatementExecuteUpdateTest {
   }
 
   @Test
-  public void testExecuteUpdateShouldReturnNumColsAffectedForNumRowsFittingInt() throws SQLException {
-    collector.checkThat(statement.executeUpdate(UPDATE_SAMPLE_QUERY), is(UPDATE_SAMPLE_QUERY_AFFECTED_COLS));
+  public void testExecuteUpdateShouldReturnNumColsAffectedForNumRowsFittingInt()
+      throws SQLException {
+    collector.checkThat(statement.executeUpdate(UPDATE_SAMPLE_QUERY),
+        is(UPDATE_SAMPLE_QUERY_AFFECTED_COLS));
   }
 
   @Test
-  public void testExecuteUpdateShouldReturnSaturatedNumColsAffectedIfDoesNotFitInInt() throws SQLException {
+  public void testExecuteUpdateShouldReturnSaturatedNumColsAffectedIfDoesNotFitInInt()
+      throws SQLException {
     final long result = statement.executeUpdate(LARGE_UPDATE_SAMPLE_QUERY);
     final long expectedRowCountRaw = LARGE_UPDATE_SAMPLE_QUERY_AFFECTED_COLS;
     collector.checkThat(
         result,
         is(allOf(
             not(equalTo(expectedRowCountRaw)),
-            equalTo((long) AvaticaUtils.toSaturatedInt(expectedRowCountRaw))))); // Because of long-to-integer overflow.
+            equalTo((long) AvaticaUtils.toSaturatedInt(
+                expectedRowCountRaw))))); // Because of long-to-integer overflow.
   }
 
   @Test
@@ -128,21 +135,24 @@ public class ArrowFlightStatementExecuteUpdateTest {
         is(LARGE_UPDATE_SAMPLE_QUERY_AFFECTED_COLS));
   }
 
-  @Test(expected = SQLFeatureNotSupportedException.class) // TODO Implement `Statement#executeUpdate(String, int)`
+  @Test(expected = SQLFeatureNotSupportedException.class)
+  // TODO Implement `Statement#executeUpdate(String, int)`
   public void testExecuteUpdateUnsupportedWithDriverFlag() throws SQLException {
     collector.checkThat(
         statement.executeUpdate(UPDATE_SAMPLE_QUERY, Statement.RETURN_GENERATED_KEYS),
         is(UPDATE_SAMPLE_QUERY_AFFECTED_COLS));
   }
 
-  @Test(expected = SQLFeatureNotSupportedException.class) // TODO Implement `Statement#executeUpdate(String, int[])`
+  @Test(expected = SQLFeatureNotSupportedException.class)
+  // TODO Implement `Statement#executeUpdate(String, int[])`
   public void testExecuteUpdateUnsupportedWithArrayOfInts() throws SQLException {
     collector.checkThat(
         statement.executeUpdate(UPDATE_SAMPLE_QUERY, new int[0]),
         is(UPDATE_SAMPLE_QUERY_AFFECTED_COLS));
   }
 
-  @Test(expected = SQLFeatureNotSupportedException.class) // TODO Implement `Statement#executeUpdate(String, String[])`
+  @Test(expected = SQLFeatureNotSupportedException.class)
+  // TODO Implement `Statement#executeUpdate(String, String[])`
   public void testExecuteUpdateUnsupportedWithArraysOfStrings() throws SQLException {
     collector.checkThat(
         statement.executeUpdate(UPDATE_SAMPLE_QUERY, new String[0]),
@@ -151,8 +161,10 @@ public class ArrowFlightStatementExecuteUpdateTest {
 
   @Test
   public void testExecuteShouldExecuteUpdateQueryAutomatically() throws SQLException {
-    collector.checkThat(statement.execute(UPDATE_SAMPLE_QUERY), is(false)); // Meaning there was an update query.
-    collector.checkThat(statement.execute(REGULAR_QUERY_SAMPLE), is(true)); // Meaning there was a select query.
+    collector.checkThat(statement.execute(UPDATE_SAMPLE_QUERY),
+        is(false)); // Meaning there was an update query.
+    collector.checkThat(statement.execute(REGULAR_QUERY_SAMPLE),
+        is(true)); // Meaning there was a select query.
   }
 
   @Test

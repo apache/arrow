@@ -36,15 +36,19 @@ public class ArrowFlightJdbcUnionVectorAccessor extends AbstractArrowFlightJdbcU
    *
    * @param vector             an instance of a UnionVector.
    * @param currentRowSupplier the supplier to track the rows.
+   * @param setCursorWasNull   the consumer to set if value was null.
    */
-  public ArrowFlightJdbcUnionVectorAccessor(UnionVector vector, IntSupplier currentRowSupplier) {
-    super(currentRowSupplier);
+  public ArrowFlightJdbcUnionVectorAccessor(UnionVector vector, IntSupplier currentRowSupplier,
+                                            ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
+    super(currentRowSupplier, setCursorWasNull);
     this.vector = vector;
   }
 
   @Override
   protected ArrowFlightJdbcAccessor createAccessorForVector(ValueVector vector) {
-    return ArrowFlightJdbcAccessorFactory.createAccessor(vector, this::getCurrentRow);
+    return ArrowFlightJdbcAccessorFactory.createAccessor(vector, this::getCurrentRow,
+        (boolean wasNull) -> {
+        });
   }
 
   @Override

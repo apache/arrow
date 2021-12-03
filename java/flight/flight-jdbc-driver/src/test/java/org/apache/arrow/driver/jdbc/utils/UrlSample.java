@@ -21,8 +21,9 @@ import org.apache.arrow.util.Preconditions;
 
 /**
  * Class for storing sample JDBC URLs. Used for testing.
- * @deprecated not updatable to match dinamic server allocation.
+ *
  * @see org.apache.arrow.driver.jdbc.utils.BaseProperty
+ * @deprecated not updatable to match dinamic server allocation.
  */
 @Deprecated
 public enum UrlSample {
@@ -52,8 +53,8 @@ public enum UrlSample {
    * Gets the host name.
    *
    * @return the host.
-   * @deprecated outdated.
    * @see BaseProperty#getEntry
+   * @deprecated outdated.
    */
   @Deprecated
   public final String getHost() {
@@ -64,8 +65,8 @@ public enum UrlSample {
    * Gets the port number.
    *
    * @return the port.
-   * @deprecated outdated.
    * @see BaseProperty#getEntry
+   * @deprecated outdated.
    */
   @Deprecated
   public final int getPort() {

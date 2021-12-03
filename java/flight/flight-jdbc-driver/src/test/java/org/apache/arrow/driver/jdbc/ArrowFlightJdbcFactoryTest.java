@@ -21,10 +21,10 @@ import java.lang.reflect.Constructor;
 import java.sql.Connection;
 import java.util.Properties;
 
+import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty;
 import org.apache.arrow.driver.jdbc.utils.FlightTestUtils;
 import org.apache.arrow.driver.jdbc.utils.PropertiesSample;
 import org.apache.arrow.driver.jdbc.utils.UrlSample;
-import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty;
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.FlightProducer;
 import org.apache.arrow.flight.FlightServer;
@@ -87,11 +87,11 @@ public class ArrowFlightJdbcFactoryTest {
 
   @Test
   public void testShouldBeAbleToEstablishAConnectionSuccessfully()
-          throws Exception {
+      throws Exception {
     UnregisteredDriver driver = new ArrowFlightJdbcDriver();
     Constructor<ArrowFlightJdbcFactory> constructor =
-            ArrowFlightJdbcFactory.class
-                    .getConstructor();
+        ArrowFlightJdbcFactory.class
+            .getConstructor();
     constructor.setAccessible(true);
     ArrowFlightJdbcFactory factory = constructor.newInstance();
 
@@ -101,9 +101,9 @@ public class ArrowFlightJdbcFactoryTest {
         ArrowFlightConnectionProperty.PORT.camelName(), 32010));
 
     try (Connection connection = factory.newConnection(driver,
-            constructor.newInstance(),
-            "jdbc:arrow-flight://localhost:32010",
-            properties)) {
+        constructor.newInstance(),
+        "jdbc:arrow-flight://localhost:32010",
+        properties)) {
       assert connection.isValid(300);
     }
   }
@@ -111,26 +111,24 @@ public class ArrowFlightJdbcFactoryTest {
   /**
    * Validate the user's credential on a FlightServer.
    *
-   * @param username
-   *          flight server username.
-   * @param password
-   *          flight server password.
+   * @param username flight server username.
+   * @param password flight server password.
    * @return the result of validation.
    */
   private CallHeaderAuthenticator.AuthResult validate(final String username,
                                                       final String password) {
     if (Strings.isNullOrEmpty(username)) {
       throw CallStatus.UNAUTHENTICATED
-              .withDescription("Credentials not supplied.").toRuntimeException();
+          .withDescription("Credentials not supplied.").toRuntimeException();
     }
     final String identity;
     if (testUtils.getUsername1().equals(username) &&
-            testUtils.getPassword1().equals(password)) {
+        testUtils.getPassword1().equals(password)) {
       identity = testUtils.getUsername1();
     } else {
       throw CallStatus.UNAUTHENTICATED
-              .withDescription("Username or password is invalid.")
-              .toRuntimeException();
+          .withDescription("Username or password is invalid.")
+          .toRuntimeException();
     }
     return () -> identity;
   }

@@ -54,7 +54,8 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
   }
 
   @Override
-  public ArrowFlightConnection connect(final String url, final Properties info) throws SQLException {
+  public ArrowFlightConnection connect(final String url, final Properties info)
+      throws SQLException {
     final Properties properties = new Properties(info);
     properties.putAll(info);
 
@@ -91,7 +92,8 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
       }
 
       try (Reader reader = new BufferedReader(new InputStreamReader(
-          this.getClass().getResourceAsStream("/properties/flight.properties"), StandardCharsets.UTF_8))) {
+          this.getClass().getResourceAsStream("/properties/flight.properties"),
+          StandardCharsets.UTF_8))) {
         final Properties properties = new Properties();
         properties.load(reader);
 
@@ -232,7 +234,8 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
 
     final String extraParams = uri.getRawQuery(); // optional params
 
-    final List<NameValuePair> keyValuePairs = URLEncodedUtils.parse(extraParams, StandardCharsets.UTF_8);
+    final List<NameValuePair> keyValuePairs =
+        URLEncodedUtils.parse(extraParams, StandardCharsets.UTF_8);
     keyValuePairs.forEach(p -> resultMap.put(p.getName(), p.getValue()));
 
     return resultMap;

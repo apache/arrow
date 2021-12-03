@@ -59,7 +59,8 @@ import org.mockito.junit.MockitoJUnitRunner;
 public class ArrowFlightJdbcVarCharVectorAccessorTest {
 
   private ArrowFlightJdbcVarCharVectorAccessor accessor;
-  private final SimpleDateFormat dateTimeFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX");
+  private final SimpleDateFormat dateTimeFormat =
+      new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX");
   private final SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm:ss.SSSXXX");
 
   @ClassRule
@@ -77,7 +78,9 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
   @Before
   public void setUp() {
     IntSupplier currentRowSupplier = () -> 0;
-    accessor = new ArrowFlightJdbcVarCharVectorAccessor(getter, currentRowSupplier);
+    accessor =
+        new ArrowFlightJdbcVarCharVectorAccessor(getter, currentRowSupplier, (boolean wasNull) -> {
+        });
   }
 
   @Test
@@ -486,7 +489,8 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
     Calendar calendar = Calendar.getInstance();
     calendar.setTime(result);
 
-    collector.checkThat(dateTimeFormat.format(calendar.getTime()), equalTo("2021-07-02T00:00:00.000Z"));
+    collector.checkThat(dateTimeFormat.format(calendar.getTime()),
+        equalTo("2021-07-02T00:00:00.000Z"));
   }
 
   @Test
@@ -500,7 +504,8 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
     calendar = Calendar.getInstance(TimeZone.getTimeZone("Etc/UTC"));
     calendar.setTime(result);
 
-    collector.checkThat(dateTimeFormat.format(calendar.getTime()), equalTo("2021-07-02T03:00:00.000Z"));
+    collector.checkThat(dateTimeFormat.format(calendar.getTime()),
+        equalTo("2021-07-02T03:00:00.000Z"));
   }
 
   @Test
@@ -558,7 +563,8 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
     Calendar calendar = Calendar.getInstance();
     calendar.setTime(result);
 
-    collector.checkThat(dateTimeFormat.format(calendar.getTime()), equalTo("2021-07-02T02:30:00.000Z"));
+    collector.checkThat(dateTimeFormat.format(calendar.getTime()),
+        equalTo("2021-07-02T02:30:00.000Z"));
   }
 
   @Test
@@ -572,7 +578,8 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
     calendar = Calendar.getInstance(TimeZone.getTimeZone("Etc/UTC"));
     calendar.setTime(result);
 
-    collector.checkThat(dateTimeFormat.format(calendar.getTime()), equalTo("2021-07-02T05:30:00.000Z"));
+    collector.checkThat(dateTimeFormat.format(calendar.getTime()),
+        equalTo("2021-07-02T05:30:00.000Z"));
   }
 
   private void assertGetBoolean(Text value, boolean expectedResult) throws SQLException {
@@ -626,7 +633,8 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
     try (InputStream result = accessor.getAsciiStream()) {
       byte[] resultBytes = toByteArray(result);
 
-      collector.checkThat(new String(resultBytes, StandardCharsets.UTF_8), equalTo(value.toString()));
+      collector.checkThat(new String(resultBytes, StandardCharsets.UTF_8),
+          equalTo(value.toString()));
     }
   }
 
@@ -646,7 +654,9 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
   public void testShouldGetTimeStampBeConsistentWithTimeStampAccessor() throws Exception {
     try (TimeStampVector timeStampVector = rootAllocatorTestRule.createTimeStampMilliVector()) {
       ArrowFlightJdbcTimeStampVectorAccessor timeStampVectorAccessor =
-          new ArrowFlightJdbcTimeStampVectorAccessor(timeStampVector, () -> 0);
+          new ArrowFlightJdbcTimeStampVectorAccessor(timeStampVector, () -> 0,
+              (boolean wasNull) -> {
+              });
 
       Text value = new Text(timeStampVectorAccessor.getString());
       when(getter.get(0)).thenReturn(value);
@@ -660,7 +670,8 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
   public void testShouldGetTimeBeConsistentWithTimeAccessor() throws Exception {
     try (TimeMilliVector timeVector = rootAllocatorTestRule.createTimeMilliVector()) {
       ArrowFlightJdbcTimeVectorAccessor timeVectorAccessor =
-          new ArrowFlightJdbcTimeVectorAccessor(timeVector, () -> 0);
+          new ArrowFlightJdbcTimeVectorAccessor(timeVector, () -> 0, (boolean wasNull) -> {
+          });
 
       Text value = new Text(timeVectorAccessor.getString());
       when(getter.get(0)).thenReturn(value);
@@ -674,7 +685,8 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
   public void testShouldGetDateBeConsistentWithDateAccessor() throws Exception {
     try (DateMilliVector dateVector = rootAllocatorTestRule.createDateMilliVector()) {
       ArrowFlightJdbcDateVectorAccessor dateVectorAccessor =
-          new ArrowFlightJdbcDateVectorAccessor(dateVector, () -> 0);
+          new ArrowFlightJdbcDateVectorAccessor(dateVector, () -> 0, (boolean wasNull) -> {
+          });
 
       Text value = new Text(dateVectorAccessor.getString());
       when(getter.get(0)).thenReturn(value);

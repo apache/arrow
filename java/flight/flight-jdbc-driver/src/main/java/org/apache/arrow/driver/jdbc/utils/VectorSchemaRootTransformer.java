@@ -67,11 +67,12 @@ public interface VectorSchemaRootTransformer {
      * Add task to transform a vector to a new vector renaming it.
      * This also adds transformedVectorName to the transformed {@link VectorSchemaRoot} schema.
      *
-     * @param originalVectorName Name of the original vector to be transformed.
-     * @param transformedVectorName  Name of the vector that is the result of the transformation.
+     * @param originalVectorName    Name of the original vector to be transformed.
+     * @param transformedVectorName Name of the vector that is the result of the transformation.
      * @return a VectorSchemaRoot instance with a task to rename a field vector.
      */
-    public Builder renameFieldVector(final String originalVectorName, final String transformedVectorName) {
+    public Builder renameFieldVector(final String originalVectorName,
+                                     final String transformedVectorName) {
       tasks.add((originalRoot, transformedRoot) -> {
         final FieldVector originalVector = originalRoot.getVector(originalVectorName);
         final FieldVector transformedVector = transformedRoot.getVector(transformedVectorName);
@@ -84,9 +85,11 @@ public interface VectorSchemaRootTransformer {
         }
 
         if (originalVector instanceof BaseVariableWidthVector) {
-          ((BaseVariableWidthVector) originalVector).transferTo(((BaseVariableWidthVector) transformedVector));
+          ((BaseVariableWidthVector) originalVector).transferTo(
+              ((BaseVariableWidthVector) transformedVector));
         } else if (originalVector instanceof BaseFixedWidthVector) {
-          ((BaseFixedWidthVector) originalVector).transferTo(((BaseFixedWidthVector) transformedVector));
+          ((BaseFixedWidthVector) originalVector).transferTo(
+              ((BaseFixedWidthVector) transformedVector));
         } else {
           throw new IllegalStateException(String.format(
               "Can not transfer vector of type %s", originalVector.getClass()));
@@ -107,7 +110,7 @@ public interface VectorSchemaRootTransformer {
      * Adds an empty field to the transformed {@link VectorSchemaRoot} schema.
      *
      * @param fieldName Name of the field to be added.
-     * @param fieldType  Type of the field to be added.
+     * @param fieldType Type of the field to be added.
      * @return a VectorSchemaRoot instance with the current tasks.
      */
     public Builder addEmptyField(final String fieldName, final Types.MinorType fieldType) {
@@ -120,7 +123,7 @@ public interface VectorSchemaRootTransformer {
      * Adds an empty field to the transformed {@link VectorSchemaRoot} schema.
      *
      * @param fieldName Name of the field to be added.
-     * @param fieldType  Type of the field to be added.
+     * @param fieldType Type of the field to be added.
      * @return a VectorSchemaRoot instance with the current tasks.
      */
     public Builder addEmptyField(final String fieldName, final ArrowType fieldType) {

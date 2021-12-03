@@ -46,10 +46,14 @@ public class ArrowFlightJdbcDurationVectorAccessorTest {
 
   private DurationVector vector;
 
-  private final AccessorTestUtils.AccessorSupplier<ArrowFlightJdbcDurationVectorAccessor> accessorSupplier =
-      (vector, getCurrentRow) -> new ArrowFlightJdbcDurationVectorAccessor((DurationVector) vector, getCurrentRow);
+  private final AccessorTestUtils.AccessorSupplier<ArrowFlightJdbcDurationVectorAccessor>
+      accessorSupplier =
+          (vector, getCurrentRow) -> new ArrowFlightJdbcDurationVectorAccessor((DurationVector) vector,
+              getCurrentRow, (boolean wasNull) -> {
+          });
 
-  private final AccessorTestUtils.AccessorIterator<ArrowFlightJdbcDurationVectorAccessor> accessorIterator =
+  private final AccessorTestUtils.AccessorIterator<ArrowFlightJdbcDurationVectorAccessor>
+      accessorIterator =
       new AccessorTestUtils.AccessorIterator<>(collector, accessorSupplier);
 
   @Before

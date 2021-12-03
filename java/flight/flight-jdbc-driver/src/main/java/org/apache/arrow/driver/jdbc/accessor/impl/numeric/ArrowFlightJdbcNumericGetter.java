@@ -61,7 +61,6 @@ class ArrowFlightJdbcNumericGetter {
    * a specific getter.
    *
    * @param vector an instance of the {@link BaseIntVector}
-   *
    * @return a getter.
    */
   static Getter createGetter(BaseIntVector vector) {
@@ -90,7 +89,6 @@ class ArrowFlightJdbcNumericGetter {
    * Create a specific getter for {@link UInt1Vector}.
    *
    * @param vector an instance of the {@link UInt1Vector}
-   *
    * @return a getter.
    */
   private static Getter createGetter(UInt1Vector vector) {
@@ -108,7 +106,6 @@ class ArrowFlightJdbcNumericGetter {
    * Create a specific getter for {@link UInt2Vector}.
    *
    * @param vector an instance of the {@link UInt2Vector}
-   *
    * @return a getter.
    */
   private static Getter createGetter(UInt2Vector vector) {
@@ -125,7 +122,6 @@ class ArrowFlightJdbcNumericGetter {
    * Create a specific getter for {@link UInt4Vector}.
    *
    * @param vector an instance of the {@link UInt4Vector}
-   *
    * @return a getter.
    */
   private static Getter createGetter(UInt4Vector vector) {
@@ -142,7 +138,6 @@ class ArrowFlightJdbcNumericGetter {
    * Create a specific getter for {@link UInt8Vector}.
    *
    * @param vector an instance of the {@link UInt8Vector}
-   *
    * @return a getter.
    */
   private static Getter createGetter(UInt8Vector vector) {
@@ -159,7 +154,6 @@ class ArrowFlightJdbcNumericGetter {
    * Create a specific getter for {@link TinyIntVector}.
    *
    * @param vector an instance of the {@link TinyIntVector}
-   *
    * @return a getter.
    */
   private static Getter createGetter(TinyIntVector vector) {
@@ -176,7 +170,6 @@ class ArrowFlightJdbcNumericGetter {
    * Create a specific getter for {@link SmallIntVector}.
    *
    * @param vector an instance of the {@link SmallIntVector}
-   *
    * @return a getter.
    */
   private static Getter createGetter(SmallIntVector vector) {
@@ -193,7 +186,6 @@ class ArrowFlightJdbcNumericGetter {
    * Create a specific getter for {@link IntVector}.
    *
    * @param vector an instance of the {@link IntVector}
-   *
    * @return a getter.
    */
   private static Getter createGetter(IntVector vector) {
@@ -210,7 +202,6 @@ class ArrowFlightJdbcNumericGetter {
    * Create a specific getter for {@link BigIntVector}.
    *
    * @param vector an instance of the {@link BigIntVector}
-   *
    * @return a getter.
    */
   private static Getter createGetter(BigIntVector vector) {

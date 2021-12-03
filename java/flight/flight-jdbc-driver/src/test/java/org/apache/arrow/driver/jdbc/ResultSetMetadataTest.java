@@ -54,7 +54,8 @@ public class ResultSetMetadataTest {
     connection = rule.getConnection();
 
     try (Statement statement = connection.createStatement();
-         ResultSet resultSet = statement.executeQuery(CoreMockedSqlProducers.LEGACY_METADATA_SQL_CMD)) {
+         ResultSet resultSet = statement.executeQuery(
+             CoreMockedSqlProducers.LEGACY_METADATA_SQL_CMD)) {
       metadata = resultSet.getMetaData();
     }
   }

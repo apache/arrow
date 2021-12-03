@@ -109,7 +109,8 @@ public class ArrowFlightJdbcArray implements Array {
     }
 
     checkBoundaries(index, count);
-    return getArrayNoBoundCheck(this.dataVector, LargeMemoryUtil.checkedCastToInt(this.startOffset + index), count);
+    return getArrayNoBoundCheck(this.dataVector,
+        LargeMemoryUtil.checkedCastToInt(this.startOffset + index), count);
   }
 
   @Override
@@ -131,10 +132,12 @@ public class ArrowFlightJdbcArray implements Array {
     return getResultSet(index, count, null);
   }
 
-  private static ResultSet getResultSetNoBoundariesCheck(ValueVector dataVector, long start, long count)
+  private static ResultSet getResultSetNoBoundariesCheck(ValueVector dataVector, long start,
+                                                         long count)
       throws SQLException {
     TransferPair transferPair = dataVector.getTransferPair(dataVector.getAllocator());
-    transferPair.splitAndTransfer(LargeMemoryUtil.checkedCastToInt(start), LargeMemoryUtil.checkedCastToInt(count));
+    transferPair.splitAndTransfer(LargeMemoryUtil.checkedCastToInt(start),
+        LargeMemoryUtil.checkedCastToInt(count));
     FieldVector vectorSlice = (FieldVector) transferPair.getTo();
 
     VectorSchemaRoot vectorSchemaRoot = VectorSchemaRoot.of(vectorSlice);
@@ -142,7 +145,8 @@ public class ArrowFlightJdbcArray implements Array {
   }
 
   @Override
-  public ResultSet getResultSet(long index, int count, Map<String, Class<?>> map) throws SQLException {
+  public ResultSet getResultSet(long index, int count, Map<String, Class<?>> map)
+      throws SQLException {
     if (map != null) {
       throw new SQLFeatureNotSupportedException();
     }

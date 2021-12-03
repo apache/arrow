@@ -41,7 +41,8 @@ public class ArrowFlightJdbcDataSource implements DataSource {
   /**
    * Instantiates a new DataSource.
    */
-  protected ArrowFlightJdbcDataSource(final Properties properties, final ArrowFlightConnectionConfigImpl config) {
+  protected ArrowFlightJdbcDataSource(final Properties properties,
+                                      final ArrowFlightConnectionConfigImpl config) {
     this.properties = Preconditions.checkNotNull(properties);
     this.config = Preconditions.checkNotNull(config);
   }
@@ -80,7 +81,8 @@ public class ArrowFlightJdbcDataSource implements DataSource {
    * @return a new data source.
    */
   public static ArrowFlightJdbcDataSource createNewDataSource(final Properties properties) {
-    return new ArrowFlightJdbcDataSource(properties, new ArrowFlightConnectionConfigImpl(properties));
+    return new ArrowFlightJdbcDataSource(properties,
+        new ArrowFlightConnectionConfigImpl(properties));
   }
 
   @Override
@@ -89,7 +91,8 @@ public class ArrowFlightJdbcDataSource implements DataSource {
   }
 
   @Override
-  public ArrowFlightConnection getConnection(final String username, final String password) throws SQLException {
+  public ArrowFlightConnection getConnection(final String username, final String password)
+      throws SQLException {
     final Properties properties = getProperties(username, password);
     return new ArrowFlightJdbcDriver().connect(config.url(), properties);
   }

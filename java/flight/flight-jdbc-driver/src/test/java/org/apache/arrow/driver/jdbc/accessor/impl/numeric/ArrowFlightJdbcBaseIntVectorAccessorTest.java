@@ -23,6 +23,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.function.Supplier;
 
+import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorFactory;
 import org.apache.arrow.driver.jdbc.utils.AccessorTestUtils;
 import org.apache.arrow.driver.jdbc.utils.RootAllocatorTestRule;
 import org.apache.arrow.vector.BaseIntVector;
@@ -56,38 +57,54 @@ public class ArrowFlightJdbcBaseIntVectorAccessorTest {
   private BaseIntVector vector;
   private final Supplier<BaseIntVector> vectorSupplier;
 
-  private final AccessorTestUtils.AccessorSupplier<ArrowFlightJdbcBaseIntVectorAccessor> accessorSupplier =
-      (vector, getCurrentRow) -> {
+  private final AccessorTestUtils.AccessorSupplier<ArrowFlightJdbcBaseIntVectorAccessor>
+      accessorSupplier = (vector, getCurrentRow) -> {
+        ArrowFlightJdbcAccessorFactory.WasNullConsumer noOpWasNullConsumer = (boolean wasNull) -> {
+        };
         if (vector instanceof UInt1Vector) {
-          return new ArrowFlightJdbcBaseIntVectorAccessor((UInt1Vector) vector, getCurrentRow);
+          return new ArrowFlightJdbcBaseIntVectorAccessor((UInt1Vector) vector, getCurrentRow,
+              noOpWasNullConsumer);
         } else if (vector instanceof UInt2Vector) {
-          return new ArrowFlightJdbcBaseIntVectorAccessor((UInt2Vector) vector, getCurrentRow);
-        } else if (vector instanceof UInt4Vector) {
-          return new ArrowFlightJdbcBaseIntVectorAccessor((UInt4Vector) vector, getCurrentRow);
-        } else if (vector instanceof UInt8Vector) {
-          return new ArrowFlightJdbcBaseIntVectorAccessor((UInt8Vector) vector, getCurrentRow);
-        } else if (vector instanceof TinyIntVector) {
-          return new ArrowFlightJdbcBaseIntVectorAccessor((TinyIntVector) vector, getCurrentRow);
-        } else if (vector instanceof SmallIntVector) {
-          return new ArrowFlightJdbcBaseIntVectorAccessor((SmallIntVector) vector, getCurrentRow);
-        } else if (vector instanceof IntVector) {
-          return new ArrowFlightJdbcBaseIntVectorAccessor((IntVector) vector, getCurrentRow);
-        } else if (vector instanceof BigIntVector) {
-          return new ArrowFlightJdbcBaseIntVectorAccessor((BigIntVector) vector, getCurrentRow);
+          return new ArrowFlightJdbcBaseIntVectorAccessor((UInt2Vector) vector, getCurrentRow,
+              noOpWasNullConsumer);
+        } else {
+          if (vector instanceof UInt4Vector) {
+            return new ArrowFlightJdbcBaseIntVectorAccessor((UInt4Vector) vector, getCurrentRow,
+                noOpWasNullConsumer);
+          } else if (vector instanceof UInt8Vector) {
+            return new ArrowFlightJdbcBaseIntVectorAccessor((UInt8Vector) vector, getCurrentRow,
+                noOpWasNullConsumer);
+          } else if (vector instanceof TinyIntVector) {
+            return new ArrowFlightJdbcBaseIntVectorAccessor((TinyIntVector) vector, getCurrentRow,
+                noOpWasNullConsumer);
+          } else if (vector instanceof SmallIntVector) {
+            return new ArrowFlightJdbcBaseIntVectorAccessor((SmallIntVector) vector, getCurrentRow,
+                noOpWasNullConsumer);
+          } else if (vector instanceof IntVector) {
+            return new ArrowFlightJdbcBaseIntVectorAccessor((IntVector) vector, getCurrentRow,
+                noOpWasNullConsumer);
+          } else if (vector instanceof BigIntVector) {
+            return new ArrowFlightJdbcBaseIntVectorAccessor((BigIntVector) vector, getCurrentRow,
+                noOpWasNullConsumer);
+          }
         }
         throw new UnsupportedOperationException();
       };
 
-  private final AccessorTestUtils.AccessorIterator<ArrowFlightJdbcBaseIntVectorAccessor> accessorIterator =
+  private final AccessorTestUtils.AccessorIterator<ArrowFlightJdbcBaseIntVectorAccessor>
+      accessorIterator =
       new AccessorTestUtils.AccessorIterator<>(collector, accessorSupplier);
 
   @Parameterized.Parameters(name = "{1}")
   public static Collection<Object[]> data() {
     return Arrays.asList(new Object[][] {
         {(Supplier<BaseIntVector>) () -> rootAllocatorTestRule.createIntVector(), "IntVector"},
-        {(Supplier<BaseIntVector>) () -> rootAllocatorTestRule.createSmallIntVector(), "SmallIntVector"},
-        {(Supplier<BaseIntVector>) () -> rootAllocatorTestRule.createTinyIntVector(), "TinyIntVector"},
-        {(Supplier<BaseIntVector>) () -> rootAllocatorTestRule.createBigIntVector(), "BigIntVector"},
+        {(Supplier<BaseIntVector>) () -> rootAllocatorTestRule.createSmallIntVector(),
+            "SmallIntVector"},
+        {(Supplier<BaseIntVector>) () -> rootAllocatorTestRule.createTinyIntVector(),
+            "TinyIntVector"},
+        {(Supplier<BaseIntVector>) () -> rootAllocatorTestRule.createBigIntVector(),
+            "BigIntVector"},
         {(Supplier<BaseIntVector>) () -> rootAllocatorTestRule.createUInt1Vector(), "UInt1Vector"},
         {(Supplier<BaseIntVector>) () -> rootAllocatorTestRule.createUInt2Vector(), "UInt2Vector"},
         {(Supplier<BaseIntVector>) () -> rootAllocatorTestRule.createUInt4Vector(), "UInt4Vector"},
@@ -95,7 +112,8 @@ public class ArrowFlightJdbcBaseIntVectorAccessorTest {
     });
   }
 
-  public ArrowFlightJdbcBaseIntVectorAccessorTest(Supplier<BaseIntVector> vectorSupplier, String vectorType) {
+  public ArrowFlightJdbcBaseIntVectorAccessorTest(Supplier<BaseIntVector> vectorSupplier,
+                                                  String vectorType) {
     this.vectorSupplier = vectorSupplier;
   }
 
@@ -147,7 +165,8 @@ public class ArrowFlightJdbcBaseIntVectorAccessorTest {
 
   @Test
   public void testShouldGetObjectClass() throws Exception {
-    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcBaseIntVectorAccessor::getObjectClass,
+    accessorIterator.assertAccessorGetter(vector,
+        ArrowFlightJdbcBaseIntVectorAccessor::getObjectClass,
         equalTo(Long.class));
   }
 }

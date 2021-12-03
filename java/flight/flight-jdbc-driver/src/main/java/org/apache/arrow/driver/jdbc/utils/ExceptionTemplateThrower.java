@@ -39,6 +39,6 @@ public final class ExceptionTemplateThrower {
    */
   public static UnsupportedOperationException getOperationNotSupported(final Class<?> type) {
     return new UnsupportedOperationException(
-            format("Operation not supported for type: %s.", type.getName()));
+        format("Operation not supported for type: %s.", type.getName()));
   }
 }

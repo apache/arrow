@@ -32,7 +32,8 @@ import org.apache.calcite.avatica.Meta.StatementHandle;
 /**
  * Arrow Flight JBCS's implementation {@link PreparedStatement}.
  */
-public class ArrowFlightPreparedStatement extends AvaticaPreparedStatement implements ArrowFlightInfoStatement {
+public class ArrowFlightPreparedStatement extends AvaticaPreparedStatement
+    implements ArrowFlightInfoStatement {
 
   private final ArrowFlightSqlClientHandler.PreparedStatement preparedStatement;
 
@@ -40,7 +41,8 @@ public class ArrowFlightPreparedStatement extends AvaticaPreparedStatement imple
                                        final ArrowFlightSqlClientHandler.PreparedStatement preparedStatement,
                                        final StatementHandle handle,
                                        final Signature signature, final int resultSetType,
-                                       final int resultSetConcurrency, final int resultSetHoldability)
+                                       final int resultSetConcurrency,
+                                       final int resultSetHoldability)
       throws SQLException {
     super(connection, handle, signature, resultSetType, resultSetConcurrency, resultSetHoldability);
     this.preparedStatement = Preconditions.checkNotNull(preparedStatement);
@@ -58,12 +60,13 @@ public class ArrowFlightPreparedStatement extends AvaticaPreparedStatement imple
    * @return a new {@link PreparedStatement}.
    * @throws SQLException on error.
    */
-  static ArrowFlightPreparedStatement createNewPreparedStatement(final ArrowFlightConnection connection,
-                                                                 final StatementHandle statementHandle,
-                                                                 final Signature signature,
-                                                                 final int resultSetType,
-                                                                 final int resultSetConcurrency,
-                                                                 final int resultSetHoldability) throws SQLException {
+  static ArrowFlightPreparedStatement createNewPreparedStatement(
+      final ArrowFlightConnection connection,
+      final StatementHandle statementHandle,
+      final Signature signature,
+      final int resultSetType,
+      final int resultSetConcurrency,
+      final int resultSetHoldability) throws SQLException {
     return new ArrowFlightPreparedStatement(
         connection, connection.getClientHandler().prepare(signature.sql), statementHandle,
         signature, resultSetType, resultSetConcurrency, resultSetHoldability);

@@ -93,17 +93,21 @@ public final class ConnectionWrapperTest {
     collector.checkThat(
         collector.checkSucceeds(() -> connectionWrapper.unwrap(AvaticaConnection.class)),
         is(sameInstance(underlyingConnection)));
-    collector.checkThrows(ClassCastException.class, () -> connectionWrapper.unwrap(ArrowFlightConnection.class));
-    collector.checkThrows(ClassCastException.class, () -> connectionWrapper.unwrap(ConnectionWrapper.class));
+    collector.checkThrows(ClassCastException.class,
+        () -> connectionWrapper.unwrap(ArrowFlightConnection.class));
+    collector.checkThrows(ClassCastException.class,
+        () -> connectionWrapper.unwrap(ConnectionWrapper.class));
   }
 
   @Test
-  public void testCreateStatementShouldCreateStatementFromUnderlyingConnection() throws SQLException {
+  public void testCreateStatementShouldCreateStatementFromUnderlyingConnection()
+      throws SQLException {
     collector.checkThat(
         connectionWrapper.createStatement(),
         is(sameInstance(verify(underlyingConnection, times(1)).createStatement())));
     collector.checkThat(
-        connectionWrapper.createStatement(RESULT_SET_TYPE, RESULT_SET_CONCURRENCY, RESULT_SET_HOLDABILITY),
+        connectionWrapper.createStatement(RESULT_SET_TYPE, RESULT_SET_CONCURRENCY,
+            RESULT_SET_HOLDABILITY),
         is(verify(underlyingConnection, times(1))
             .createStatement(RESULT_SET_TYPE, RESULT_SET_CONCURRENCY, RESULT_SET_HOLDABILITY)));
     collector.checkThat(
@@ -113,7 +117,8 @@ public final class ConnectionWrapperTest {
   }
 
   @Test
-  public void testPrepareStatementShouldPrepareStatementFromUnderlyingConnection() throws SQLException {
+  public void testPrepareStatementShouldPrepareStatementFromUnderlyingConnection()
+      throws SQLException {
     collector.checkThat(
         connectionWrapper.prepareStatement(PLACEHOLDER_QUERY),
         is(sameInstance(
@@ -129,7 +134,8 @@ public final class ConnectionWrapperTest {
                 .prepareStatement(PLACEHOLDER_QUERY, COLUMN_NAMES)),
             nullValue())));
     collector.checkThat(
-        connectionWrapper.prepareStatement(PLACEHOLDER_QUERY, RESULT_SET_TYPE, RESULT_SET_CONCURRENCY),
+        connectionWrapper.prepareStatement(PLACEHOLDER_QUERY, RESULT_SET_TYPE,
+            RESULT_SET_CONCURRENCY),
         is(allOf(sameInstance(verify(underlyingConnection, times(1))
                 .prepareStatement(PLACEHOLDER_QUERY, RESULT_SET_TYPE, RESULT_SET_CONCURRENCY)),
             nullValue())));
@@ -215,7 +221,8 @@ public final class ConnectionWrapperTest {
 
   @Test
   public void testSetIsReadOnlyShouldGetStatusFromUnderlyingConnection() throws SQLException {
-    collector.checkThat(connectionWrapper.isReadOnly(), is(verify(underlyingConnection).isReadOnly()));
+    collector.checkThat(connectionWrapper.isReadOnly(),
+        is(verify(underlyingConnection).isReadOnly()));
   }
 
   @Test
@@ -308,7 +315,8 @@ public final class ConnectionWrapperTest {
   }
 
   @Test
-  public void testReleaseSavepointShouldReleaseSavepointFromUnderlyingConnection() throws SQLException {
+  public void testReleaseSavepointShouldReleaseSavepointFromUnderlyingConnection()
+      throws SQLException {
     connectionWrapper.releaseSavepoint(null);
     verify(underlyingConnection, times(1)).releaseSavepoint(null);
   }
@@ -353,7 +361,8 @@ public final class ConnectionWrapperTest {
   }
 
   @Test
-  public void testSetClientInfoShouldSetClientInfoInUnderlyingConnection() throws SQLClientInfoException {
+  public void testSetClientInfoShouldSetClientInfoInUnderlyingConnection()
+      throws SQLClientInfoException {
     connectionWrapper.setClientInfo(null);
     verify(underlyingConnection, times(1)).setClientInfo(null);
   }
@@ -418,13 +427,15 @@ public final class ConnectionWrapperTest {
   }
 
   @Test
-  public void testSetNetworkTimeoutShouldSetNetworkTimeoutInUnderlyingConnection() throws SQLException {
+  public void testSetNetworkTimeoutShouldSetNetworkTimeoutInUnderlyingConnection()
+      throws SQLException {
     connectionWrapper.setNetworkTimeout(null, TIMEOUT);
     verify(underlyingConnection, times(1)).setNetworkTimeout(null, TIMEOUT);
   }
 
   @Test
-  public void testGetNetworkTimeoutShouldGetNetworkTimeoutFromUnderlyingConnection() throws SQLException {
+  public void testGetNetworkTimeoutShouldGetNetworkTimeoutFromUnderlyingConnection()
+      throws SQLException {
     collector.checkThat(
         connectionWrapper.getNetworkTimeout(),
         is(equalTo(verify(underlyingConnection, times(1)).getNetworkTimeout())));

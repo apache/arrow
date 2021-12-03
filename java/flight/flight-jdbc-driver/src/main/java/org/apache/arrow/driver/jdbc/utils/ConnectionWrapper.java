@@ -163,14 +163,14 @@ public class ConnectionWrapper implements Connection {
 
   @Override
   public PreparedStatement prepareStatement(final String sqlQuery, final int resultSetTypeId,
-                                                  final int resultSetConcurrencyId)
+                                            final int resultSetConcurrencyId)
       throws SQLException {
     return realConnection.prepareStatement(sqlQuery, resultSetTypeId, resultSetConcurrencyId);
   }
 
   @Override
   public CallableStatement prepareCall(final String query, final int resultSetTypeId,
-                                             final int resultSetConcurrencyId)
+                                       final int resultSetConcurrencyId)
       throws SQLException {
     return realConnection.prepareCall(query, resultSetTypeId, resultSetConcurrencyId);
   }
@@ -217,25 +217,28 @@ public class ConnectionWrapper implements Connection {
 
   @Override
   public Statement createStatement(final int resultSetType,
-                                         final int resultSetConcurrency,
-                                         final int resultSetHoldability) throws SQLException {
-    return realConnection.createStatement(resultSetType, resultSetConcurrency, resultSetHoldability);
+                                   final int resultSetConcurrency,
+                                   final int resultSetHoldability) throws SQLException {
+    return realConnection.createStatement(resultSetType, resultSetConcurrency,
+        resultSetHoldability);
   }
 
   @Override
   public PreparedStatement prepareStatement(final String sqlQuery,
-                                                  final int resultSetType,
-                                                  final int resultSetConcurrency,
-                                                  final int resultSetHoldability) throws SQLException {
-    return realConnection.prepareStatement(sqlQuery, resultSetType, resultSetConcurrency, resultSetHoldability);
+                                            final int resultSetType,
+                                            final int resultSetConcurrency,
+                                            final int resultSetHoldability) throws SQLException {
+    return realConnection.prepareStatement(sqlQuery, resultSetType, resultSetConcurrency,
+        resultSetHoldability);
   }
 
   @Override
   public CallableStatement prepareCall(final String sqlQuery,
-                                             final int resultSetType,
-                                             final int resultSetConcurrency,
-                                             final int resultSetHoldability) throws SQLException {
-    return realConnection.prepareCall(sqlQuery, resultSetType, resultSetConcurrency, resultSetHoldability);
+                                       final int resultSetType,
+                                       final int resultSetConcurrency,
+                                       final int resultSetHoldability) throws SQLException {
+    return realConnection.prepareCall(sqlQuery, resultSetType, resultSetConcurrency,
+        resultSetHoldability);
   }
 
   @Override
@@ -308,7 +311,8 @@ public class ConnectionWrapper implements Connection {
   }
 
   @Override
-  public Struct createStruct(final String typeName, final Object... attributes) throws SQLException {
+  public Struct createStruct(final String typeName, final Object... attributes)
+      throws SQLException {
     return realConnection.createStruct(typeName, attributes);
   }
 
@@ -328,7 +332,8 @@ public class ConnectionWrapper implements Connection {
   }
 
   @Override
-  public void setNetworkTimeout(final Executor executor, final int timeoutInMillis) throws SQLException {
+  public void setNetworkTimeout(final Executor executor, final int timeoutInMillis)
+      throws SQLException {
     realConnection.setNetworkTimeout(executor, timeoutInMillis);
   }
 

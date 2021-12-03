@@ -24,6 +24,7 @@ import java.util.function.IntSupplier;
 import java.util.stream.Collectors;
 
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
+import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorFactory;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.calcite.avatica.util.StructImpl;
 
@@ -34,8 +35,9 @@ public class ArrowFlightJdbcStructVectorAccessor extends ArrowFlightJdbcAccessor
 
   private final StructVector vector;
 
-  public ArrowFlightJdbcStructVectorAccessor(StructVector vector, IntSupplier currentRowSupplier) {
-    super(currentRowSupplier);
+  public ArrowFlightJdbcStructVectorAccessor(StructVector vector, IntSupplier currentRowSupplier,
+                                             ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
+    super(currentRowSupplier, setCursorWasNull);
     this.vector = vector;
   }
 
@@ -48,6 +50,7 @@ public class ArrowFlightJdbcStructVectorAccessor extends ArrowFlightJdbcAccessor
   public Object getObject() {
     Map<String, ?> object = vector.getObject(getCurrentRow());
     this.wasNull = object == null;
+    this.wasNullConsumer.setWasNull(this.wasNull);
 
     return object;
   }
@@ -57,6 +60,7 @@ public class ArrowFlightJdbcStructVectorAccessor extends ArrowFlightJdbcAccessor
     int currentRow = getCurrentRow();
 
     this.wasNull = vector.isNull(currentRow);
+    this.wasNullConsumer.setWasNull(this.wasNull);
     if (this.wasNull) {
       return null;
     }

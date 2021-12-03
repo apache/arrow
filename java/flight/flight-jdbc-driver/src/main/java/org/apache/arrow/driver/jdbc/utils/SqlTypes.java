@@ -131,7 +131,8 @@ public class SqlTypes {
       case Decimal:
         return Types.DECIMAL;
       case FloatingPoint:
-        final FloatingPointPrecision floatingPointPrecision = ((ArrowType.FloatingPoint) arrowType).getPrecision();
+        final FloatingPointPrecision floatingPointPrecision =
+            ((ArrowType.FloatingPoint) arrowType).getPrecision();
         switch (floatingPointPrecision) {
           case DOUBLE:
             return Types.DOUBLE;

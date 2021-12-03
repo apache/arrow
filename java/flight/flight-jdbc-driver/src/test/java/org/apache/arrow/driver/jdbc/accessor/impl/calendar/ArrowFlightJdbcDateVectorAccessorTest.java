@@ -63,28 +63,36 @@ public class ArrowFlightJdbcDateVectorAccessorTest {
   private BaseFixedWidthVector vector;
   private final Supplier<BaseFixedWidthVector> vectorSupplier;
 
-  private final AccessorTestUtils.AccessorSupplier<ArrowFlightJdbcDateVectorAccessor> accessorSupplier =
-      (vector, getCurrentRow) -> {
+  private final AccessorTestUtils.AccessorSupplier<ArrowFlightJdbcDateVectorAccessor>
+      accessorSupplier = (vector, getCurrentRow) -> {
         if (vector instanceof DateDayVector) {
-          return new ArrowFlightJdbcDateVectorAccessor((DateDayVector) vector, getCurrentRow);
+          return new ArrowFlightJdbcDateVectorAccessor((DateDayVector) vector, getCurrentRow,
+              (boolean wasNull) -> {
+              });
         } else if (vector instanceof DateMilliVector) {
-          return new ArrowFlightJdbcDateVectorAccessor((DateMilliVector) vector, getCurrentRow);
+          return new ArrowFlightJdbcDateVectorAccessor((DateMilliVector) vector, getCurrentRow,
+              (boolean wasNull) -> {
+              });
         }
         return null;
       };
 
-  private final AccessorTestUtils.AccessorIterator<ArrowFlightJdbcDateVectorAccessor> accessorIterator =
+  private final AccessorTestUtils.AccessorIterator<ArrowFlightJdbcDateVectorAccessor>
+      accessorIterator =
       new AccessorTestUtils.AccessorIterator<>(collector, accessorSupplier);
 
   @Parameterized.Parameters(name = "{1}")
   public static Collection<Object[]> data() {
     return Arrays.asList(new Object[][] {
-        {(Supplier<DateDayVector>) () -> rootAllocatorTestRule.createDateDayVector(), "DateDayVector"},
-        {(Supplier<DateMilliVector>) () -> rootAllocatorTestRule.createDateMilliVector(), "DateMilliVector"},
+        {(Supplier<DateDayVector>) () -> rootAllocatorTestRule.createDateDayVector(),
+            "DateDayVector"},
+        {(Supplier<DateMilliVector>) () -> rootAllocatorTestRule.createDateMilliVector(),
+            "DateMilliVector"},
     });
   }
 
-  public ArrowFlightJdbcDateVectorAccessorTest(Supplier<BaseFixedWidthVector> vectorSupplier, String vectorType) {
+  public ArrowFlightJdbcDateVectorAccessorTest(Supplier<BaseFixedWidthVector> vectorSupplier,
+                                               String vectorType) {
     this.vectorSupplier = vectorSupplier;
   }
 
@@ -182,7 +190,8 @@ public class ArrowFlightJdbcDateVectorAccessorTest {
   @Test
   public void testShouldGetObjectClass() throws Exception {
     accessorIterator
-        .assertAccessorGetter(vector, ArrowFlightJdbcDateVectorAccessor::getObjectClass, equalTo(Date.class));
+        .assertAccessorGetter(vector, ArrowFlightJdbcDateVectorAccessor::getObjectClass,
+            equalTo(Date.class));
   }
 
   @Test
@@ -197,10 +206,12 @@ public class ArrowFlightJdbcDateVectorAccessorTest {
   }
 
   private void assertGetStringIsConsistentWithVarCharAccessor(Calendar calendar) throws Exception {
-    try (VarCharVector varCharVector = new VarCharVector("", rootAllocatorTestRule.getRootAllocator())) {
+    try (VarCharVector varCharVector = new VarCharVector("",
+        rootAllocatorTestRule.getRootAllocator())) {
       varCharVector.allocateNew(1);
       ArrowFlightJdbcVarCharVectorAccessor varCharVectorAccessor =
-          new ArrowFlightJdbcVarCharVectorAccessor(varCharVector, () -> 0);
+          new ArrowFlightJdbcVarCharVectorAccessor(varCharVector, () -> 0, (boolean wasNull) -> {
+          });
 
       accessorIterator.iterate(vector, (accessor, currentRow) -> {
         final String string = accessor.getString();

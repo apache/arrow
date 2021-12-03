@@ -71,10 +71,14 @@ public class ArrowFlightJdbcTimeStampVectorAccessorTest {
   private TimeStampVector vector;
   private final Supplier<TimeStampVector> vectorSupplier;
 
-  private final AccessorTestUtils.AccessorSupplier<ArrowFlightJdbcTimeStampVectorAccessor> accessorSupplier =
-      (vector, getCurrentRow) -> new ArrowFlightJdbcTimeStampVectorAccessor((TimeStampVector) vector, getCurrentRow);
+  private final AccessorTestUtils.AccessorSupplier<ArrowFlightJdbcTimeStampVectorAccessor>
+      accessorSupplier =
+          (vector, getCurrentRow) -> new ArrowFlightJdbcTimeStampVectorAccessor(
+              (TimeStampVector) vector, getCurrentRow, (boolean wasNull) -> {
+          });
 
-  private final AccessorTestUtils.AccessorIterator<ArrowFlightJdbcTimeStampVectorAccessor> accessorIterator =
+  private final AccessorTestUtils.AccessorIterator<ArrowFlightJdbcTimeStampVectorAccessor>
+      accessorIterator =
       new AccessorTestUtils.AccessorIterator<>(collector, accessorSupplier);
 
   @Parameterized.Parameters(name = "{1} - TimeZone: {2}")
@@ -86,34 +90,42 @@ public class ArrowFlightJdbcTimeStampVectorAccessorTest {
         {(Supplier<TimeStampVector>) () -> rootAllocatorTestRule.createTimeStampNanoTZVector("UTC"),
             "TimeStampNanoTZVector",
             "UTC"},
-        {(Supplier<TimeStampVector>) () -> rootAllocatorTestRule.createTimeStampNanoTZVector(AMERICA_VANCOUVER),
+        {(Supplier<TimeStampVector>) () -> rootAllocatorTestRule.createTimeStampNanoTZVector(
+            AMERICA_VANCOUVER),
             "TimeStampNanoTZVector",
             AMERICA_VANCOUVER},
-        {(Supplier<TimeStampVector>) () -> rootAllocatorTestRule.createTimeStampNanoTZVector(ASIA_BANGKOK),
+        {(Supplier<TimeStampVector>) () -> rootAllocatorTestRule.createTimeStampNanoTZVector(
+            ASIA_BANGKOK),
             "TimeStampNanoTZVector",
             ASIA_BANGKOK},
         {(Supplier<TimeStampVector>) () -> rootAllocatorTestRule.createTimeStampMicroVector(),
             "TimeStampMicroVector",
             null},
-        {(Supplier<TimeStampVector>) () -> rootAllocatorTestRule.createTimeStampMicroTZVector("UTC"),
+        {(Supplier<TimeStampVector>) () -> rootAllocatorTestRule.createTimeStampMicroTZVector(
+            "UTC"),
             "TimeStampMicroTZVector",
             "UTC"},
-        {(Supplier<TimeStampVector>) () -> rootAllocatorTestRule.createTimeStampMicroTZVector(AMERICA_VANCOUVER),
+        {(Supplier<TimeStampVector>) () -> rootAllocatorTestRule.createTimeStampMicroTZVector(
+            AMERICA_VANCOUVER),
             "TimeStampMicroTZVector",
             AMERICA_VANCOUVER},
-        {(Supplier<TimeStampVector>) () -> rootAllocatorTestRule.createTimeStampMicroTZVector(ASIA_BANGKOK),
+        {(Supplier<TimeStampVector>) () -> rootAllocatorTestRule.createTimeStampMicroTZVector(
+            ASIA_BANGKOK),
             "TimeStampMicroTZVector",
             ASIA_BANGKOK},
         {(Supplier<TimeStampVector>) () -> rootAllocatorTestRule.createTimeStampMilliVector(),
             "TimeStampMilliVector",
             null},
-        {(Supplier<TimeStampVector>) () -> rootAllocatorTestRule.createTimeStampMilliTZVector("UTC"),
+        {(Supplier<TimeStampVector>) () -> rootAllocatorTestRule.createTimeStampMilliTZVector(
+            "UTC"),
             "TimeStampMilliTZVector",
             "UTC"},
-        {(Supplier<TimeStampVector>) () -> rootAllocatorTestRule.createTimeStampMilliTZVector(AMERICA_VANCOUVER),
+        {(Supplier<TimeStampVector>) () -> rootAllocatorTestRule.createTimeStampMilliTZVector(
+            AMERICA_VANCOUVER),
             "TimeStampMilliTZVector",
             AMERICA_VANCOUVER},
-        {(Supplier<TimeStampVector>) () -> rootAllocatorTestRule.createTimeStampMilliTZVector(ASIA_BANGKOK),
+        {(Supplier<TimeStampVector>) () -> rootAllocatorTestRule.createTimeStampMilliTZVector(
+            ASIA_BANGKOK),
             "TimeStampMilliTZVector",
             ASIA_BANGKOK},
         {(Supplier<TimeStampVector>) () -> rootAllocatorTestRule.createTimeStampSecVector(),
@@ -122,16 +134,19 @@ public class ArrowFlightJdbcTimeStampVectorAccessorTest {
         {(Supplier<TimeStampVector>) () -> rootAllocatorTestRule.createTimeStampSecTZVector("UTC"),
             "TimeStampSecTZVector",
             "UTC"},
-        {(Supplier<TimeStampVector>) () -> rootAllocatorTestRule.createTimeStampSecTZVector(AMERICA_VANCOUVER),
+        {(Supplier<TimeStampVector>) () -> rootAllocatorTestRule.createTimeStampSecTZVector(
+            AMERICA_VANCOUVER),
             "TimeStampSecTZVector",
             AMERICA_VANCOUVER},
-        {(Supplier<TimeStampVector>) () -> rootAllocatorTestRule.createTimeStampSecTZVector(ASIA_BANGKOK),
+        {(Supplier<TimeStampVector>) () -> rootAllocatorTestRule.createTimeStampSecTZVector(
+            ASIA_BANGKOK),
             "TimeStampSecTZVector",
             ASIA_BANGKOK}
     });
   }
 
-  public ArrowFlightJdbcTimeStampVectorAccessorTest(Supplier<TimeStampVector> vectorSupplier, String vectorType,
+  public ArrowFlightJdbcTimeStampVectorAccessorTest(Supplier<TimeStampVector> vectorSupplier,
+                                                    String vectorType,
                                                     String timeZone) {
     this.vectorSupplier = vectorSupplier;
     this.timeZone = timeZone;
@@ -263,7 +278,8 @@ public class ArrowFlightJdbcTimeStampVectorAccessorTest {
 
   @Test
   public void testShouldGetObjectClass() throws Exception {
-    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcTimeStampVectorAccessor::getObjectClass,
+    accessorIterator.assertAccessorGetter(vector,
+        ArrowFlightJdbcTimeStampVectorAccessor::getObjectClass,
         equalTo(Timestamp.class));
   }
 
@@ -275,17 +291,20 @@ public class ArrowFlightJdbcTimeStampVectorAccessorTest {
   @Test
   public void testShouldGetStringBeConsistentWithVarCharAccessorWithCalendar() throws Exception {
     // Ignore for TimeStamp vectors with TZ, as VarChar accessor won't consider their TZ
-    Assume.assumeTrue(vector instanceof TimeStampNanoVector || vector instanceof TimeStampMicroVector ||
-        vector instanceof TimeStampMilliVector || vector instanceof TimeStampSecVector);
+    Assume.assumeTrue(
+        vector instanceof TimeStampNanoVector || vector instanceof TimeStampMicroVector ||
+            vector instanceof TimeStampMilliVector || vector instanceof TimeStampSecVector);
     Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone(AMERICA_VANCOUVER));
     assertGetStringIsConsistentWithVarCharAccessor(calendar);
   }
 
   private void assertGetStringIsConsistentWithVarCharAccessor(Calendar calendar) throws Exception {
-    try (VarCharVector varCharVector = new VarCharVector("", rootAllocatorTestRule.getRootAllocator())) {
+    try (VarCharVector varCharVector = new VarCharVector("",
+        rootAllocatorTestRule.getRootAllocator())) {
       varCharVector.allocateNew(1);
       ArrowFlightJdbcVarCharVectorAccessor varCharVectorAccessor =
-          new ArrowFlightJdbcVarCharVectorAccessor(varCharVector, () -> 0);
+          new ArrowFlightJdbcVarCharVectorAccessor(varCharVector, () -> 0, (boolean wasNull) -> {
+          });
 
       accessorIterator.iterate(vector, (accessor, currentRow) -> {
         final String string = accessor.getString();

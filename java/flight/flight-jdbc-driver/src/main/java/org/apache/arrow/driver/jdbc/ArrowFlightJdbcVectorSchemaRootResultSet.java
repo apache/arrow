@@ -58,7 +58,8 @@ public class ArrowFlightJdbcVectorSchemaRootResultSet extends AvaticaResultSet {
   ArrowFlightJdbcVectorSchemaRootResultSet(final AvaticaStatement statement, final QueryState state,
                                            final Signature signature,
                                            final ResultSetMetaData resultSetMetaData,
-                                           final TimeZone timeZone, final Frame firstFrame) throws SQLException {
+                                           final TimeZone timeZone, final Frame firstFrame)
+      throws SQLException {
     super(statement, state, signature, resultSetMetaData, timeZone, firstFrame);
   }
 
@@ -68,7 +69,8 @@ public class ArrowFlightJdbcVectorSchemaRootResultSet extends AvaticaResultSet {
    * @param vectorSchemaRoot root from which the ResultSet will access.
    * @return a ResultSet which accesses the given VectorSchemaRoot
    */
-  public static ArrowFlightJdbcVectorSchemaRootResultSet fromVectorSchemaRoot(final VectorSchemaRoot vectorSchemaRoot)
+  public static ArrowFlightJdbcVectorSchemaRootResultSet fromVectorSchemaRoot(
+      final VectorSchemaRoot vectorSchemaRoot)
       throws SQLException {
     // Similar to how org.apache.calcite.avatica.util.ArrayFactoryImpl does
 
@@ -77,16 +79,19 @@ public class ArrowFlightJdbcVectorSchemaRootResultSet extends AvaticaResultSet {
 
     final Meta.Signature signature = ArrowFlightMetaImpl.newSignature(null);
 
-    final AvaticaResultSetMetaData resultSetMetaData = new AvaticaResultSetMetaData(null, null, signature);
+    final AvaticaResultSetMetaData resultSetMetaData =
+        new AvaticaResultSetMetaData(null, null, signature);
     final ArrowFlightJdbcVectorSchemaRootResultSet
-        resultSet = new ArrowFlightJdbcVectorSchemaRootResultSet(null, state, signature, resultSetMetaData,
-        timeZone, null);
+        resultSet =
+        new ArrowFlightJdbcVectorSchemaRootResultSet(null, state, signature, resultSetMetaData,
+            timeZone, null);
 
     resultSet.execute(vectorSchemaRoot);
     return resultSet;
   }
 
-  private static List<ColumnMetaData> convertArrowFieldsToColumnMetaDataList(final List<Field> fields) {
+  private static List<ColumnMetaData> convertArrowFieldsToColumnMetaDataList(
+      final List<Field> fields) {
     return Stream.iterate(0, Math::incrementExact).limit(fields.size())
         .map(index -> {
           final Field field = fields.get(index);

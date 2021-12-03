@@ -70,7 +70,8 @@ public class ArrowFlightJdbcConnectionPoolDataSourceTest {
   }
 
   @Test
-  public void testShouldInnerConnectionIsClosedReturnTrueIfPooledConnectionCloses() throws Exception {
+  public void testShouldInnerConnectionIsClosedReturnTrueIfPooledConnectionCloses()
+      throws Exception {
     PooledConnection pooledConnection = dataSource.getPooledConnection();
     Connection connection = pooledConnection.getConnection();
     Assert.assertFalse(connection.isClosed());
@@ -96,7 +97,8 @@ public class ArrowFlightJdbcConnectionPoolDataSourceTest {
 
     Assert.assertSame(pooledConnection, pooledConnection2);
     Assert.assertNotSame(connection, connection2);
-    Assert.assertSame(connection.unwrap(ArrowFlightConnection.class), connection2.unwrap(ArrowFlightConnection.class));
+    Assert.assertSame(connection.unwrap(ArrowFlightConnection.class),
+        connection2.unwrap(ArrowFlightConnection.class));
   }
 
   @Test

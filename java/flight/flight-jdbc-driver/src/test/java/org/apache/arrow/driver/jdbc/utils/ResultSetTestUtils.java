@@ -75,7 +75,8 @@ public final class ResultSetTestUtils {
    */
   @SuppressWarnings("unchecked")
   public static <T> void testData(final ResultSet resultSet, final List<String> columnNames,
-                                  final List<List<T>> expectedResults, final ErrorCollector collector)
+                                  final List<List<T>> expectedResults,
+                                  final ErrorCollector collector)
       throws SQLException {
     testData(
         resultSet,
@@ -108,7 +109,8 @@ public final class ResultSetTestUtils {
    */
   @SuppressWarnings("unchecked")
   public static <T> void testData(final ResultSet resultSet, final int[] columnIndices,
-                                  final List<List<T>> expectedResults, final ErrorCollector collector)
+                                  final List<List<T>> expectedResults,
+                                  final ErrorCollector collector)
       throws SQLException {
     testData(
         resultSet,
@@ -139,8 +141,10 @@ public final class ResultSetTestUtils {
    * @param <T>             the type to be found in the expected results for the {@code resultSet}.
    * @throws SQLException if querying the {@code ResultSet} fails at some point unexpectedly.
    */
-  public static <T> void testData(final ResultSet resultSet, final Function<ResultSet, List<T>> dataConsumer,
-                                  final List<List<T>> expectedResults, final ErrorCollector collector)
+  public static <T> void testData(final ResultSet resultSet,
+                                  final Function<ResultSet, List<T>> dataConsumer,
+                                  final List<List<T>> expectedResults,
+                                  final ErrorCollector collector)
       throws SQLException {
     final List<List<T>> actualResults = new ArrayList<>();
     while (resultSet.next()) {
@@ -201,7 +205,8 @@ public final class ResultSetTestUtils {
    * @param <T>             the type to be found in the expected results for the {@code resultSet}.
    * @throws SQLException if querying the {@code ResultSet} fails at some point unexpectedly.
    */
-  public <T> void testData(final ResultSet resultSet, final Function<ResultSet, List<T>> dataConsumer,
+  public <T> void testData(final ResultSet resultSet,
+                           final Function<ResultSet, List<T>> dataConsumer,
                            final List<List<T>> expectedResults) throws SQLException {
     testData(resultSet, dataConsumer, expectedResults, collector);
   }

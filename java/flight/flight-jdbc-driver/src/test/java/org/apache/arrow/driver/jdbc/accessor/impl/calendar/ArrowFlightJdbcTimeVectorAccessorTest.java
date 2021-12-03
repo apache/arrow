@@ -31,6 +31,7 @@ import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
+import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorFactory;
 import org.apache.arrow.driver.jdbc.accessor.impl.text.ArrowFlightJdbcVarCharVectorAccessor;
 import org.apache.arrow.driver.jdbc.utils.AccessorTestUtils;
 import org.apache.arrow.driver.jdbc.utils.RootAllocatorTestRule;
@@ -65,34 +66,46 @@ public class ArrowFlightJdbcTimeVectorAccessorTest {
   private BaseFixedWidthVector vector;
   private final Supplier<BaseFixedWidthVector> vectorSupplier;
 
-  private final AccessorTestUtils.AccessorSupplier<ArrowFlightJdbcTimeVectorAccessor> accessorSupplier =
-      (vector, getCurrentRow) -> {
+  private final AccessorTestUtils.AccessorSupplier<ArrowFlightJdbcTimeVectorAccessor>
+      accessorSupplier = (vector, getCurrentRow) -> {
+        ArrowFlightJdbcAccessorFactory.WasNullConsumer noOpWasNullConsumer = (boolean wasNull) -> {
+        };
         if (vector instanceof TimeNanoVector) {
-          return new ArrowFlightJdbcTimeVectorAccessor((TimeNanoVector) vector, getCurrentRow);
+          return new ArrowFlightJdbcTimeVectorAccessor((TimeNanoVector) vector, getCurrentRow,
+              noOpWasNullConsumer);
         } else if (vector instanceof TimeMicroVector) {
-          return new ArrowFlightJdbcTimeVectorAccessor((TimeMicroVector) vector, getCurrentRow);
+          return new ArrowFlightJdbcTimeVectorAccessor((TimeMicroVector) vector, getCurrentRow,
+              noOpWasNullConsumer);
         } else if (vector instanceof TimeMilliVector) {
-          return new ArrowFlightJdbcTimeVectorAccessor((TimeMilliVector) vector, getCurrentRow);
+          return new ArrowFlightJdbcTimeVectorAccessor((TimeMilliVector) vector, getCurrentRow,
+              noOpWasNullConsumer);
         } else if (vector instanceof TimeSecVector) {
-          return new ArrowFlightJdbcTimeVectorAccessor((TimeSecVector) vector, getCurrentRow);
+          return new ArrowFlightJdbcTimeVectorAccessor((TimeSecVector) vector, getCurrentRow,
+              noOpWasNullConsumer);
         }
         return null;
       };
 
-  private final AccessorTestUtils.AccessorIterator<ArrowFlightJdbcTimeVectorAccessor> accessorIterator =
+  private final AccessorTestUtils.AccessorIterator<ArrowFlightJdbcTimeVectorAccessor>
+      accessorIterator =
       new AccessorTestUtils.AccessorIterator<>(collector, accessorSupplier);
 
   @Parameterized.Parameters(name = "{1}")
   public static Collection<Object[]> data() {
     return Arrays.asList(new Object[][] {
-        {(Supplier<TimeNanoVector>) () -> rootAllocatorTestRule.createTimeNanoVector(), "TimeNanoVector"},
-        {(Supplier<TimeMicroVector>) () -> rootAllocatorTestRule.createTimeMicroVector(), "TimeMicroVector"},
-        {(Supplier<TimeMilliVector>) () -> rootAllocatorTestRule.createTimeMilliVector(), "TimeMilliVector"},
-        {(Supplier<TimeSecVector>) () -> rootAllocatorTestRule.createTimeSecVector(), "TimeSecVector"}
+        {(Supplier<TimeNanoVector>) () -> rootAllocatorTestRule.createTimeNanoVector(),
+            "TimeNanoVector"},
+        {(Supplier<TimeMicroVector>) () -> rootAllocatorTestRule.createTimeMicroVector(),
+            "TimeMicroVector"},
+        {(Supplier<TimeMilliVector>) () -> rootAllocatorTestRule.createTimeMilliVector(),
+            "TimeMilliVector"},
+        {(Supplier<TimeSecVector>) () -> rootAllocatorTestRule.createTimeSecVector(),
+            "TimeSecVector"}
     });
   }
 
-  public ArrowFlightJdbcTimeVectorAccessorTest(Supplier<BaseFixedWidthVector> vectorSupplier, String vectorType) {
+  public ArrowFlightJdbcTimeVectorAccessorTest(Supplier<BaseFixedWidthVector> vectorSupplier,
+                                               String vectorType) {
     this.vectorSupplier = vectorSupplier;
   }
 
@@ -138,10 +151,11 @@ public class ArrowFlightJdbcTimeVectorAccessorTest {
 
   @Test
   public void testShouldGetTimeReturnValidTimeWithoutCalendar() throws Exception {
-    accessorIterator.assertAccessorGetter(vector, accessor -> accessor.getTime(null), (accessor, currentRow) -> {
-      Timestamp expectedTimestamp = getTimestampForVector(currentRow);
-      return is(new Time(expectedTimestamp.getTime()));
-    });
+    accessorIterator.assertAccessorGetter(vector, accessor -> accessor.getTime(null),
+        (accessor, currentRow) -> {
+          Timestamp expectedTimestamp = getTimestampForVector(currentRow);
+          return is(new Time(expectedTimestamp.getTime()));
+        });
   }
 
   @Test
@@ -201,10 +215,12 @@ public class ArrowFlightJdbcTimeVectorAccessorTest {
   }
 
   private void assertGetStringIsConsistentWithVarCharAccessor(Calendar calendar) throws Exception {
-    try (VarCharVector varCharVector = new VarCharVector("", rootAllocatorTestRule.getRootAllocator())) {
+    try (VarCharVector varCharVector = new VarCharVector("",
+        rootAllocatorTestRule.getRootAllocator())) {
       varCharVector.allocateNew(1);
       ArrowFlightJdbcVarCharVectorAccessor varCharVectorAccessor =
-          new ArrowFlightJdbcVarCharVectorAccessor(varCharVector, () -> 0);
+          new ArrowFlightJdbcVarCharVectorAccessor(varCharVector, () -> 0, (boolean wasNull) -> {
+          });
 
       accessorIterator.iterate(vector, (accessor, currentRow) -> {
         final String string = accessor.getString();

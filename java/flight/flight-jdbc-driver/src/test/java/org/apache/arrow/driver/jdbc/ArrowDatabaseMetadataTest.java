@@ -172,11 +172,16 @@ public class ArrowDatabaseMetadataTest {
   private static final String EXPECTED_DATABASE_PRODUCT_VERSION = "v0.0.1-alpha";
   private static final String EXPECTED_IDENTIFIER_QUOTE_STRING = "\"";
   private static final boolean EXPECTED_IS_READ_ONLY = true;
-  private static final String EXPECTED_SQL_KEYWORDS = "ADD, ADD CONSTRAINT, ALTER, ALTER TABLE, ANY, USER, TABLE";
-  private static final String EXPECTED_NUMERIC_FUNCTIONS = "ABS(), ACOS(), ASIN(), ATAN(), CEIL(), CEILING(), COT()";
-  private static final String EXPECTED_STRING_FUNCTIONS = "ASCII, CHAR, CHARINDEX, CONCAT, CONCAT_WS, FORMAT, LEFT";
-  private static final String EXPECTED_SYSTEM_FUNCTIONS = "CAST, CONVERT, CHOOSE, ISNULL, IS_NUMERIC, IIF, TRY_CAST";
-  private static final String EXPECTED_TIME_DATE_FUNCTIONS = "GETDATE(), DATEPART(), DATEADD(), DATEDIFF()";
+  private static final String EXPECTED_SQL_KEYWORDS =
+      "ADD, ADD CONSTRAINT, ALTER, ALTER TABLE, ANY, USER, TABLE";
+  private static final String EXPECTED_NUMERIC_FUNCTIONS =
+      "ABS(), ACOS(), ASIN(), ATAN(), CEIL(), CEILING(), COT()";
+  private static final String EXPECTED_STRING_FUNCTIONS =
+      "ASCII, CHAR, CHARINDEX, CONCAT, CONCAT_WS, FORMAT, LEFT";
+  private static final String EXPECTED_SYSTEM_FUNCTIONS =
+      "CAST, CONVERT, CHOOSE, ISNULL, IS_NUMERIC, IIF, TRY_CAST";
+  private static final String EXPECTED_TIME_DATE_FUNCTIONS =
+      "GETDATE(), DATEPART(), DATEADD(), DATEDIFF()";
   private static final String EXPECTED_SEARCH_STRING_ESCAPE = "\\";
   private static final String EXPECTED_EXTRA_NAME_CHARACTERS = "";
   private static final boolean EXPECTED_SUPPORTS_COLUMN_ALIASING = true;
@@ -401,7 +406,8 @@ public class ArrowDatabaseMetadataTest {
     final Message commandGetSchemas = CommandGetSchemas.getDefaultInstance();
     final Consumer<ServerStreamListener> commandGetSchemasResultProducer = listener -> {
       try (final BufferAllocator allocator = new RootAllocator();
-           final VectorSchemaRoot root = VectorSchemaRoot.create(Schemas.GET_SCHEMAS_SCHEMA, allocator)) {
+           final VectorSchemaRoot root = VectorSchemaRoot.create(Schemas.GET_SCHEMAS_SCHEMA,
+               allocator)) {
         final VarCharVector catalogName = (VarCharVector) root.getVector("catalog_name");
         final VarCharVector schemaName = (VarCharVector) root.getVector("schema_name");
         range(0, ROW_COUNT)
@@ -418,60 +424,69 @@ public class ArrowDatabaseMetadataTest {
     };
     FLIGHT_SQL_PRODUCER.addCatalogQuery(commandGetSchemas, commandGetSchemasResultProducer);
 
-    final Message commandGetExportedKeys = CommandGetExportedKeys.newBuilder().setTable(TARGET_TABLE).build();
-    final Message commandGetImportedKeys = CommandGetImportedKeys.newBuilder().setTable(TARGET_TABLE).build();
+    final Message commandGetExportedKeys =
+        CommandGetExportedKeys.newBuilder().setTable(TARGET_TABLE).build();
+    final Message commandGetImportedKeys =
+        CommandGetImportedKeys.newBuilder().setTable(TARGET_TABLE).build();
     final Message commandGetCrossReference = CommandGetCrossReference.newBuilder()
         .setPkTable(TARGET_TABLE)
         .setFkTable(TARGET_FOREIGN_TABLE)
         .build();
-    final Consumer<ServerStreamListener> commandGetExportedAndImportedKeysResultProducer = listener -> {
-      try (final BufferAllocator allocator = new RootAllocator();
-           final VectorSchemaRoot root = VectorSchemaRoot.create(Schemas.GET_IMPORTED_KEYS_SCHEMA,
-               allocator)) {
-        final VarCharVector pkCatalogName = (VarCharVector) root.getVector("pk_catalog_name");
-        final VarCharVector pkSchemaName = (VarCharVector) root.getVector("pk_schema_name");
-        final VarCharVector pkTableName = (VarCharVector) root.getVector("pk_table_name");
-        final VarCharVector pkColumnName = (VarCharVector) root.getVector("pk_column_name");
-        final VarCharVector fkCatalogName = (VarCharVector) root.getVector("fk_catalog_name");
-        final VarCharVector fkSchemaName = (VarCharVector) root.getVector("fk_schema_name");
-        final VarCharVector fkTableName = (VarCharVector) root.getVector("fk_table_name");
-        final VarCharVector fkColumnName = (VarCharVector) root.getVector("fk_column_name");
-        final IntVector keySequence = (IntVector) root.getVector("key_sequence");
-        final VarCharVector fkKeyName = (VarCharVector) root.getVector("fk_key_name");
-        final VarCharVector pkKeyName = (VarCharVector) root.getVector("pk_key_name");
-        final UInt1Vector updateRule = (UInt1Vector) root.getVector("update_rule");
-        final UInt1Vector deleteRule = (UInt1Vector) root.getVector("delete_rule");
-        range(0, ROW_COUNT)
-            .peek(i -> pkCatalogName.setSafe(i, new Text(format("pk_catalog_name #%d", i))))
-            .peek(i -> pkSchemaName.setSafe(i, new Text(format("pk_schema_name #%d", i))))
-            .peek(i -> pkTableName.setSafe(i, new Text(format("pk_table_name #%d", i))))
-            .peek(i -> pkColumnName.setSafe(i, new Text(format("pk_column_name #%d", i))))
-            .peek(i -> fkCatalogName.setSafe(i, new Text(format("fk_catalog_name #%d", i))))
-            .peek(i -> fkSchemaName.setSafe(i, new Text(format("fk_schema_name #%d", i))))
-            .peek(i -> fkTableName.setSafe(i, new Text(format("fk_table_name #%d", i))))
-            .peek(i -> fkColumnName.setSafe(i, new Text(format("fk_column_name #%d", i))))
-            .peek(i -> keySequence.setSafe(i, i))
-            .peek(i -> fkKeyName.setSafe(i, new Text(format("fk_key_name #%d", i))))
-            .peek(i -> pkKeyName.setSafe(i, new Text(format("pk_key_name #%d", i))))
-            .peek(i -> updateRule.setSafe(i, i))
-            .forEach(i -> deleteRule.setSafe(i, i));
-        root.setRowCount(ROW_COUNT);
-        listener.start(root);
-        listener.putNext();
-      } catch (final Throwable throwable) {
-        listener.error(throwable);
-      } finally {
-        listener.completed();
-      }
-    };
-    FLIGHT_SQL_PRODUCER.addCatalogQuery(commandGetExportedKeys, commandGetExportedAndImportedKeysResultProducer);
-    FLIGHT_SQL_PRODUCER.addCatalogQuery(commandGetImportedKeys, commandGetExportedAndImportedKeysResultProducer);
-    FLIGHT_SQL_PRODUCER.addCatalogQuery(commandGetCrossReference, commandGetExportedAndImportedKeysResultProducer);
+    final Consumer<ServerStreamListener> commandGetExportedAndImportedKeysResultProducer =
+        listener -> {
+          try (final BufferAllocator allocator = new RootAllocator();
+               final VectorSchemaRoot root = VectorSchemaRoot.create(
+                   Schemas.GET_IMPORTED_KEYS_SCHEMA,
+                   allocator)) {
+            final VarCharVector pkCatalogName = (VarCharVector) root.getVector("pk_catalog_name");
+            final VarCharVector pkSchemaName = (VarCharVector) root.getVector("pk_schema_name");
+            final VarCharVector pkTableName = (VarCharVector) root.getVector("pk_table_name");
+            final VarCharVector pkColumnName = (VarCharVector) root.getVector("pk_column_name");
+            final VarCharVector fkCatalogName = (VarCharVector) root.getVector("fk_catalog_name");
+            final VarCharVector fkSchemaName = (VarCharVector) root.getVector("fk_schema_name");
+            final VarCharVector fkTableName = (VarCharVector) root.getVector("fk_table_name");
+            final VarCharVector fkColumnName = (VarCharVector) root.getVector("fk_column_name");
+            final IntVector keySequence = (IntVector) root.getVector("key_sequence");
+            final VarCharVector fkKeyName = (VarCharVector) root.getVector("fk_key_name");
+            final VarCharVector pkKeyName = (VarCharVector) root.getVector("pk_key_name");
+            final UInt1Vector updateRule = (UInt1Vector) root.getVector("update_rule");
+            final UInt1Vector deleteRule = (UInt1Vector) root.getVector("delete_rule");
+            range(0, ROW_COUNT)
+                .peek(i -> pkCatalogName.setSafe(i, new Text(format("pk_catalog_name #%d", i))))
+                .peek(i -> pkSchemaName.setSafe(i, new Text(format("pk_schema_name #%d", i))))
+                .peek(i -> pkTableName.setSafe(i, new Text(format("pk_table_name #%d", i))))
+                .peek(i -> pkColumnName.setSafe(i, new Text(format("pk_column_name #%d", i))))
+                .peek(i -> fkCatalogName.setSafe(i, new Text(format("fk_catalog_name #%d", i))))
+                .peek(i -> fkSchemaName.setSafe(i, new Text(format("fk_schema_name #%d", i))))
+                .peek(i -> fkTableName.setSafe(i, new Text(format("fk_table_name #%d", i))))
+                .peek(i -> fkColumnName.setSafe(i, new Text(format("fk_column_name #%d", i))))
+                .peek(i -> keySequence.setSafe(i, i))
+                .peek(i -> fkKeyName.setSafe(i, new Text(format("fk_key_name #%d", i))))
+                .peek(i -> pkKeyName.setSafe(i, new Text(format("pk_key_name #%d", i))))
+                .peek(i -> updateRule.setSafe(i, i))
+                .forEach(i -> deleteRule.setSafe(i, i));
+            root.setRowCount(ROW_COUNT);
+            listener.start(root);
+            listener.putNext();
+          } catch (final Throwable throwable) {
+            listener.error(throwable);
+          } finally {
+            listener.completed();
+          }
+        };
+    FLIGHT_SQL_PRODUCER.addCatalogQuery(commandGetExportedKeys,
+        commandGetExportedAndImportedKeysResultProducer);
+    FLIGHT_SQL_PRODUCER.addCatalogQuery(commandGetImportedKeys,
+        commandGetExportedAndImportedKeysResultProducer);
+    FLIGHT_SQL_PRODUCER.addCatalogQuery(commandGetCrossReference,
+        commandGetExportedAndImportedKeysResultProducer);
 
-    final Message commandGetPrimaryKeys = CommandGetPrimaryKeys.newBuilder().setTable(TARGET_TABLE).build();
+    final Message commandGetPrimaryKeys =
+        CommandGetPrimaryKeys.newBuilder().setTable(TARGET_TABLE).build();
     final Consumer<ServerStreamListener> commandGetPrimaryKeysResultProducer = listener -> {
       try (final BufferAllocator allocator = new RootAllocator();
-           final VectorSchemaRoot root = VectorSchemaRoot.create(Schemas.GET_PRIMARY_KEYS_SCHEMA, allocator)) {
+           final VectorSchemaRoot root = VectorSchemaRoot.create(Schemas.GET_PRIMARY_KEYS_SCHEMA,
+               allocator)) {
         final VarCharVector catalogName = (VarCharVector) root.getVector("catalog_name");
         final VarCharVector schemaName = (VarCharVector) root.getVector("schema_name");
         final VarCharVector tableName = (VarCharVector) root.getVector("table_name");
@@ -599,7 +614,8 @@ public class ArrowDatabaseMetadataTest {
   @Test
   public void testGetCatalogsCanBeAccessedByNames() throws SQLException {
     try (final ResultSet resultSet = connection.getMetaData().getCatalogs()) {
-      resultSetTestUtils.testData(resultSet, singletonList("TABLE_CAT"), EXPECTED_GET_CATALOGS_RESULTS);
+      resultSetTestUtils.testData(resultSet, singletonList("TABLE_CAT"),
+          EXPECTED_GET_CATALOGS_RESULTS);
     }
   }
 
@@ -613,7 +629,8 @@ public class ArrowDatabaseMetadataTest {
   @Test
   public void testTableTypesCanBeAccessedByNames() throws SQLException {
     try (final ResultSet resultSet = connection.getMetaData().getTableTypes()) {
-      resultSetTestUtils.testData(resultSet, singletonList("TABLE_TYPE"), EXPECTED_GET_TABLE_TYPES_RESULTS);
+      resultSetTestUtils.testData(resultSet, singletonList("TABLE_TYPE"),
+          EXPECTED_GET_TABLE_TYPES_RESULTS);
     }
   }
 
@@ -662,31 +679,37 @@ public class ArrowDatabaseMetadataTest {
 
   @Test
   public void testGetExportedKeysCanBeAccessedByIndices() throws SQLException {
-    try (final ResultSet resultSet = connection.getMetaData().getExportedKeys(null, null, TARGET_TABLE)) {
+    try (final ResultSet resultSet = connection.getMetaData()
+        .getExportedKeys(null, null, TARGET_TABLE)) {
       resultSetTestUtils.testData(resultSet, EXPECTED_GET_EXPORTED_AND_IMPORTED_KEYS_RESULTS);
     }
   }
 
   @Test
   public void testGetExportedKeysCanBeAccessedByNames() throws SQLException {
-    try (final ResultSet resultSet = connection.getMetaData().getExportedKeys(null, null, TARGET_TABLE)) {
+    try (final ResultSet resultSet = connection.getMetaData()
+        .getExportedKeys(null, null, TARGET_TABLE)) {
       resultSetTestUtils.testData(
-          resultSet, FIELDS_GET_IMPORTED_EXPORTED_KEYS, EXPECTED_GET_EXPORTED_AND_IMPORTED_KEYS_RESULTS);
+          resultSet, FIELDS_GET_IMPORTED_EXPORTED_KEYS,
+          EXPECTED_GET_EXPORTED_AND_IMPORTED_KEYS_RESULTS);
     }
   }
 
   @Test
   public void testGetImportedKeysCanBeAccessedByIndices() throws SQLException {
-    try (final ResultSet resultSet = connection.getMetaData().getImportedKeys(null, null, TARGET_TABLE)) {
+    try (final ResultSet resultSet = connection.getMetaData()
+        .getImportedKeys(null, null, TARGET_TABLE)) {
       resultSetTestUtils.testData(resultSet, EXPECTED_GET_EXPORTED_AND_IMPORTED_KEYS_RESULTS);
     }
   }
 
   @Test
   public void testGetImportedKeysCanBeAccessedByNames() throws SQLException {
-    try (final ResultSet resultSet = connection.getMetaData().getImportedKeys(null, null, TARGET_TABLE)) {
+    try (final ResultSet resultSet = connection.getMetaData()
+        .getImportedKeys(null, null, TARGET_TABLE)) {
       resultSetTestUtils.testData(
-          resultSet, FIELDS_GET_IMPORTED_EXPORTED_KEYS, EXPECTED_GET_EXPORTED_AND_IMPORTED_KEYS_RESULTS);
+          resultSet, FIELDS_GET_IMPORTED_EXPORTED_KEYS,
+          EXPECTED_GET_EXPORTED_AND_IMPORTED_KEYS_RESULTS);
     }
   }
 
@@ -709,14 +732,16 @@ public class ArrowDatabaseMetadataTest {
 
   @Test
   public void testPrimaryKeysCanBeAccessedByIndices() throws SQLException {
-    try (final ResultSet resultSet = connection.getMetaData().getPrimaryKeys(null, null, TARGET_TABLE)) {
+    try (final ResultSet resultSet = connection.getMetaData()
+        .getPrimaryKeys(null, null, TARGET_TABLE)) {
       resultSetTestUtils.testData(resultSet, EXPECTED_PRIMARY_KEYS_RESULTS);
     }
   }
 
   @Test
   public void testPrimaryKeysCanBeAccessedByNames() throws SQLException {
-    try (final ResultSet resultSet = connection.getMetaData().getPrimaryKeys(null, null, TARGET_TABLE)) {
+    try (final ResultSet resultSet = connection.getMetaData()
+        .getPrimaryKeys(null, null, TARGET_TABLE)) {
       resultSetTestUtils.testData(
           resultSet,
           ImmutableList.of(
@@ -756,7 +781,8 @@ public class ArrowDatabaseMetadataTest {
   public void testGetSqlInfo() throws SQLException {
     final DatabaseMetaData metaData = connection.getMetaData();
     collector.checkThat(metaData.getDatabaseProductName(), is(EXPECTED_DATABASE_PRODUCT_NAME));
-    collector.checkThat(metaData.getDatabaseProductVersion(), is(EXPECTED_DATABASE_PRODUCT_VERSION));
+    collector.checkThat(metaData.getDatabaseProductVersion(),
+        is(EXPECTED_DATABASE_PRODUCT_VERSION));
     collector.checkThat(metaData.getIdentifierQuoteString(), is(EXPECTED_IDENTIFIER_QUOTE_STRING));
     collector.checkThat(metaData.isReadOnly(), is(EXPECTED_IS_READ_ONLY));
     collector.checkThat(metaData.getSQLKeywords(), is(EXPECTED_SQL_KEYWORDS));
@@ -769,20 +795,29 @@ public class ArrowDatabaseMetadataTest {
     collector.checkThat(metaData.supportsConvert(), is(EXPECTED_SQL_SUPPORTS_CONVERT));
     collector.checkThat(metaData.supportsConvert(BIT, INTEGER), is(EXPECTED_SQL_SUPPORTS_CONVERT));
     collector.checkThat(metaData.supportsConvert(BIT, BIGINT), is(EXPECTED_SQL_SUPPORTS_CONVERT));
-    collector.checkThat(metaData.supportsConvert(BIGINT, INTEGER), is(EXPECTED_INVALID_SQL_SUPPORTS_CONVERT));
-    collector.checkThat(metaData.supportsConvert(JAVA_OBJECT, INTEGER), is(EXPECTED_INVALID_SQL_SUPPORTS_CONVERT));
-    collector.checkThat(metaData.supportsTableCorrelationNames(), is(EXPECTED_SUPPORTS_TABLE_CORRELATION_NAMES));
-    collector.checkThat(metaData.supportsExpressionsInOrderBy(), is(EXPECTED_EXPRESSIONS_IN_ORDER_BY));
-    collector.checkThat(metaData.supportsOrderByUnrelated(), is(EXPECTED_SUPPORTS_ORDER_BY_UNRELATED));
+    collector.checkThat(metaData.supportsConvert(BIGINT, INTEGER),
+        is(EXPECTED_INVALID_SQL_SUPPORTS_CONVERT));
+    collector.checkThat(metaData.supportsConvert(JAVA_OBJECT, INTEGER),
+        is(EXPECTED_INVALID_SQL_SUPPORTS_CONVERT));
+    collector.checkThat(metaData.supportsTableCorrelationNames(),
+        is(EXPECTED_SUPPORTS_TABLE_CORRELATION_NAMES));
+    collector.checkThat(metaData.supportsExpressionsInOrderBy(),
+        is(EXPECTED_EXPRESSIONS_IN_ORDER_BY));
+    collector.checkThat(metaData.supportsOrderByUnrelated(),
+        is(EXPECTED_SUPPORTS_ORDER_BY_UNRELATED));
     collector.checkThat(metaData.supportsGroupBy(), is(EXPECTED_SUPPORTS_GROUP_BY));
-    collector.checkThat(metaData.supportsGroupByUnrelated(), is(EXPECTED_SUPPORTS_GROUP_BY_UNRELATED));
-    collector.checkThat(metaData.supportsLikeEscapeClause(), is(EXPECTED_SUPPORTS_LIKE_ESCAPE_CLAUSE));
+    collector.checkThat(metaData.supportsGroupByUnrelated(),
+        is(EXPECTED_SUPPORTS_GROUP_BY_UNRELATED));
+    collector.checkThat(metaData.supportsLikeEscapeClause(),
+        is(EXPECTED_SUPPORTS_LIKE_ESCAPE_CLAUSE));
     collector.checkThat(metaData.supportsNonNullableColumns(), is(EXPECTED_NON_NULLABLE_COLUMNS));
     collector.checkThat(metaData.supportsMinimumSQLGrammar(), is(EXPECTED_MINIMUM_SQL_GRAMMAR));
     collector.checkThat(metaData.supportsCoreSQLGrammar(), is(EXPECTED_CORE_SQL_GRAMMAR));
     collector.checkThat(metaData.supportsExtendedSQLGrammar(), is(EXPECTED_EXTEND_SQL_GRAMMAR));
-    collector.checkThat(metaData.supportsANSI92EntryLevelSQL(), is(EXPECTED_ANSI92_ENTRY_LEVEL_SQL));
-    collector.checkThat(metaData.supportsANSI92IntermediateSQL(), is(EXPECTED_ANSI92_INTERMEDIATE_SQL));
+    collector.checkThat(metaData.supportsANSI92EntryLevelSQL(),
+        is(EXPECTED_ANSI92_ENTRY_LEVEL_SQL));
+    collector.checkThat(metaData.supportsANSI92IntermediateSQL(),
+        is(EXPECTED_ANSI92_INTERMEDIATE_SQL));
     collector.checkThat(metaData.supportsANSI92FullSQL(), is(EXPECTED_ANSI92_FULL_SQL));
     collector.checkThat(metaData.supportsOuterJoins(), is(EXPECTED_SUPPORTS_OUTER_JOINS));
     collector.checkThat(metaData.supportsFullOuterJoins(), is(EXPECTED_SUPPORTS_FULL_OUTER_JOINS));
@@ -791,22 +826,32 @@ public class ArrowDatabaseMetadataTest {
     collector.checkThat(metaData.getProcedureTerm(), is(EXPECTED_PROCEDURE_TERM));
     collector.checkThat(metaData.getCatalogTerm(), is(EXPECTED_CATALOG_TERM));
     collector.checkThat(metaData.isCatalogAtStart(), is(EXPECTED_CATALOG_AT_START));
-    collector.checkThat(metaData.supportsSchemasInProcedureCalls(), is(EXPECTED_SCHEMAS_IN_PROCEDURE_CALLS));
-    collector.checkThat(metaData.supportsSchemasInIndexDefinitions(), is(EXPECTED_SCHEMAS_IN_INDEX_DEFINITIONS));
-    collector.checkThat(metaData.supportsCatalogsInIndexDefinitions(), is(EXPECTED_CATALOGS_IN_INDEX_DEFINITIONS));
+    collector.checkThat(metaData.supportsSchemasInProcedureCalls(),
+        is(EXPECTED_SCHEMAS_IN_PROCEDURE_CALLS));
+    collector.checkThat(metaData.supportsSchemasInIndexDefinitions(),
+        is(EXPECTED_SCHEMAS_IN_INDEX_DEFINITIONS));
+    collector.checkThat(metaData.supportsCatalogsInIndexDefinitions(),
+        is(EXPECTED_CATALOGS_IN_INDEX_DEFINITIONS));
     collector.checkThat(metaData.supportsPositionedDelete(), is(EXPECTED_POSITIONED_DELETE));
     collector.checkThat(metaData.supportsPositionedUpdate(), is(EXPECTED_POSITIONED_UPDATE));
-    collector.checkThat(metaData.supportsResultSetType(ResultSet.TYPE_FORWARD_ONLY), is(EXPECTED_TYPE_FORWARD_ONLY));
-    collector.checkThat(metaData.supportsSelectForUpdate(), is(EXPECTED_SELECT_FOR_UPDATE_SUPPORTED));
-    collector.checkThat(metaData.supportsStoredProcedures(), is(EXPECTED_STORED_PROCEDURES_SUPPORTED));
-    collector.checkThat(metaData.supportsSubqueriesInComparisons(), is(EXPECTED_SUBQUERIES_IN_COMPARISON));
+    collector.checkThat(metaData.supportsResultSetType(ResultSet.TYPE_FORWARD_ONLY),
+        is(EXPECTED_TYPE_FORWARD_ONLY));
+    collector.checkThat(metaData.supportsSelectForUpdate(),
+        is(EXPECTED_SELECT_FOR_UPDATE_SUPPORTED));
+    collector.checkThat(metaData.supportsStoredProcedures(),
+        is(EXPECTED_STORED_PROCEDURES_SUPPORTED));
+    collector.checkThat(metaData.supportsSubqueriesInComparisons(),
+        is(EXPECTED_SUBQUERIES_IN_COMPARISON));
     collector.checkThat(metaData.supportsSubqueriesInExists(), is(EXPECTED_SUBQUERIES_IN_EXISTS));
     collector.checkThat(metaData.supportsSubqueriesInIns(), is(EXPECTED_SUBQUERIES_IN_INS));
-    collector.checkThat(metaData.supportsSubqueriesInQuantifieds(), is(EXPECTED_SUBQUERIES_IN_QUANTIFIEDS));
-    collector.checkThat(metaData.supportsCorrelatedSubqueries(), is(EXPECTED_CORRELATED_SUBQUERIES_SUPPORTED));
+    collector.checkThat(metaData.supportsSubqueriesInQuantifieds(),
+        is(EXPECTED_SUBQUERIES_IN_QUANTIFIEDS));
+    collector.checkThat(metaData.supportsCorrelatedSubqueries(),
+        is(EXPECTED_CORRELATED_SUBQUERIES_SUPPORTED));
     collector.checkThat(metaData.supportsUnion(), is(EXPECTED_SUPPORTS_UNION));
     collector.checkThat(metaData.supportsUnionAll(), is(EXPECTED_SUPPORTS_UNION_ALL));
-    collector.checkThat(metaData.getMaxBinaryLiteralLength(), is(EXPECTED_MAX_BINARY_LITERAL_LENGTH));
+    collector.checkThat(metaData.getMaxBinaryLiteralLength(),
+        is(EXPECTED_MAX_BINARY_LITERAL_LENGTH));
     collector.checkThat(metaData.getMaxCharLiteralLength(), is(EXPECTED_MAX_CHAR_LITERAL_LENGTH));
     collector.checkThat(metaData.getMaxColumnsInGroupBy(), is(EXPECTED_MAX_COLUMNS_IN_GROUP_BY));
     collector.checkThat(metaData.getMaxColumnsInIndex(), is(EXPECTED_MAX_COLUMNS_IN_INDEX));
@@ -816,20 +861,24 @@ public class ArrowDatabaseMetadataTest {
     collector.checkThat(metaData.getMaxCursorNameLength(), is(EXPECTED_MAX_CURSOR_NAME_LENGTH));
     collector.checkThat(metaData.getMaxIndexLength(), is(EXPECTED_MAX_INDEX_LENGTH));
     collector.checkThat(metaData.getMaxSchemaNameLength(), is(EXPECTED_SCHEMA_NAME_LENGTH));
-    collector.checkThat(metaData.getMaxProcedureNameLength(), is(EXPECTED_MAX_PROCEDURE_NAME_LENGTH));
+    collector.checkThat(metaData.getMaxProcedureNameLength(),
+        is(EXPECTED_MAX_PROCEDURE_NAME_LENGTH));
     collector.checkThat(metaData.getMaxCatalogNameLength(), is(EXPECTED_MAX_CATALOG_NAME_LENGTH));
     collector.checkThat(metaData.getMaxRowSize(), is(EXPECTED_MAX_ROW_SIZE));
-    collector.checkThat(metaData.doesMaxRowSizeIncludeBlobs(), is(EXPECTED_MAX_ROW_SIZE_INCLUDES_BLOBS));
+    collector.checkThat(metaData.doesMaxRowSizeIncludeBlobs(),
+        is(EXPECTED_MAX_ROW_SIZE_INCLUDES_BLOBS));
     collector.checkThat(metaData.getMaxStatementLength(), is(EXPECTED_MAX_STATEMENT_LENGTH));
     collector.checkThat(metaData.getMaxStatements(), is(EXPECTED_MAX_STATEMENTS));
     collector.checkThat(metaData.getMaxTableNameLength(), is(EXPECTED_MAX_TABLE_NAME_LENGTH));
     collector.checkThat(metaData.getMaxTablesInSelect(), is(EXPECTED_MAX_TABLES_IN_SELECT));
     collector.checkThat(metaData.getMaxUserNameLength(), is(EXPECTED_MAX_USERNAME_LENGTH));
-    collector.checkThat(metaData.getDefaultTransactionIsolation(), is(EXPECTED_DEFAULT_TRANSACTION_ISOLATION));
+    collector.checkThat(metaData.getDefaultTransactionIsolation(),
+        is(EXPECTED_DEFAULT_TRANSACTION_ISOLATION));
     collector.checkThat(metaData.supportsTransactions(), is(EXPECTED_TRANSACTIONS_SUPPORTED));
     collector.checkThat(metaData.supportsBatchUpdates(), is(EXPECTED_BATCH_UPDATES_SUPPORTED));
     collector.checkThat(metaData.supportsSavepoints(), is(EXPECTED_SAVEPOINTS_SUPPORTED));
-    collector.checkThat(metaData.supportsNamedParameters(), is(EXPECTED_NAMED_PARAMETERS_SUPPORTED));
+    collector.checkThat(metaData.supportsNamedParameters(),
+        is(EXPECTED_NAMED_PARAMETERS_SUPPORTED));
     collector.checkThat(metaData.locatorsUpdateCopy(), is(EXPECTED_LOCATORS_UPDATE_COPY));
 
     collector.checkThat(metaData.supportsResultSetType(ResultSet.TYPE_SCROLL_INSENSITIVE),
@@ -842,13 +891,17 @@ public class ArrowDatabaseMetadataTest {
         is(EXPECTED_CATALOGS_IN_PRIVILEGE_DEFINITIONS));
     collector.checkThat(metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_NONE),
         is(EXPECTED_TRANSACTION_NONE));
-    collector.checkThat(metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_READ_COMMITTED),
+    collector.checkThat(
+        metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_READ_COMMITTED),
         is(EXPECTED_TRANSACTION_READ_COMMITTED));
-    collector.checkThat(metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_READ_UNCOMMITTED),
+    collector.checkThat(
+        metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_READ_UNCOMMITTED),
         is(EXPECTED_TRANSACTION_READ_UNCOMMITTED));
-    collector.checkThat(metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_REPEATABLE_READ),
+    collector.checkThat(
+        metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_REPEATABLE_READ),
         is(EXPECTED_TRANSACTION_REPEATABLE_READ));
-    collector.checkThat(metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_SERIALIZABLE),
+    collector.checkThat(
+        metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_SERIALIZABLE),
         is(EXPECTED_TRANSACTION_SERIALIZABLE));
     collector.checkThat(metaData.dataDefinitionCausesTransactionCommit(),
         is(EXPECTED_DATA_DEFINITION_CAUSES_TRANSACTION_COMMIT));
@@ -863,7 +916,8 @@ public class ArrowDatabaseMetadataTest {
 
     collector.checkThrows(SQLException.class,
         () -> metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_SERIALIZABLE + 1));
-    collector.checkThrows(SQLException.class, () -> metaData.supportsResultSetType(ResultSet.HOLD_CURSORS_OVER_COMMIT));
+    collector.checkThrows(SQLException.class,
+        () -> metaData.supportsResultSetType(ResultSet.HOLD_CURSORS_OVER_COMMIT));
   }
 
   @Test
@@ -923,52 +977,56 @@ public class ArrowDatabaseMetadataTest {
 
   @Test
   public void testGetProcedureColumns() throws SQLException {
-    try (ResultSet resultSet = connection.getMetaData().getProcedureColumns(null, null, null, null)) {
+    try (ResultSet resultSet = connection.getMetaData()
+        .getProcedureColumns(null, null, null, null)) {
       // Maps ordinal index to column name according to JDBC documentation
-      final Map<Integer, String> expectedGetProcedureColumnsSchema = new HashMap<Integer, String>() {
-        {
-          put(1, "PROCEDURE_CAT");
-          put(2, "PROCEDURE_SCHEM");
-          put(3, "PROCEDURE_NAME");
-          put(4, "COLUMN_NAME");
-          put(5, "COLUMN_TYPE");
-          put(6, "DATA_TYPE");
-          put(7, "TYPE_NAME");
-          put(8, "PRECISION");
-          put(9, "LENGTH");
-          put(10, "SCALE");
-          put(11, "RADIX");
-          put(12, "NULLABLE");
-          put(13, "REMARKS");
-          put(14, "COLUMN_DEF");
-          put(15, "SQL_DATA_TYPE");
-          put(16, "SQL_DATETIME_SUB");
-          put(17, "CHAR_OCTET_LENGTH");
-          put(18, "ORDINAL_POSITION");
-          put(19, "IS_NULLABLE");
-          put(20, "SPECIFIC_NAME");
-        }
-      };
+      final Map<Integer, String> expectedGetProcedureColumnsSchema =
+          new HashMap<Integer, String>() {
+            {
+              put(1, "PROCEDURE_CAT");
+              put(2, "PROCEDURE_SCHEM");
+              put(3, "PROCEDURE_NAME");
+              put(4, "COLUMN_NAME");
+              put(5, "COLUMN_TYPE");
+              put(6, "DATA_TYPE");
+              put(7, "TYPE_NAME");
+              put(8, "PRECISION");
+              put(9, "LENGTH");
+              put(10, "SCALE");
+              put(11, "RADIX");
+              put(12, "NULLABLE");
+              put(13, "REMARKS");
+              put(14, "COLUMN_DEF");
+              put(15, "SQL_DATA_TYPE");
+              put(16, "SQL_DATETIME_SUB");
+              put(17, "CHAR_OCTET_LENGTH");
+              put(18, "ORDINAL_POSITION");
+              put(19, "IS_NULLABLE");
+              put(20, "SPECIFIC_NAME");
+            }
+          };
       testEmptyResultSet(resultSet, expectedGetProcedureColumnsSchema);
     }
   }
 
   @Test
   public void testGetColumnPrivileges() throws SQLException {
-    try (ResultSet resultSet = connection.getMetaData().getColumnPrivileges(null, null, null, null)) {
+    try (ResultSet resultSet = connection.getMetaData()
+        .getColumnPrivileges(null, null, null, null)) {
       // Maps ordinal index to column name according to JDBC documentation
-      final Map<Integer, String> expectedGetColumnPrivilegesSchema = new HashMap<Integer, String>() {
-        {
-          put(1, "TABLE_CAT");
-          put(2, "TABLE_SCHEM");
-          put(3, "TABLE_NAME");
-          put(4, "COLUMN_NAME");
-          put(5, "GRANTOR");
-          put(6, "GRANTEE");
-          put(7, "PRIVILEGE");
-          put(8, "IS_GRANTABLE");
-        }
-      };
+      final Map<Integer, String> expectedGetColumnPrivilegesSchema =
+          new HashMap<Integer, String>() {
+            {
+              put(1, "TABLE_CAT");
+              put(2, "TABLE_SCHEM");
+              put(3, "TABLE_NAME");
+              put(4, "COLUMN_NAME");
+              put(5, "GRANTOR");
+              put(6, "GRANTEE");
+              put(7, "PRIVILEGE");
+              put(8, "IS_GRANTABLE");
+            }
+          };
       testEmptyResultSet(resultSet, expectedGetColumnPrivilegesSchema);
     }
   }
@@ -994,20 +1052,22 @@ public class ArrowDatabaseMetadataTest {
 
   @Test
   public void testGetBestRowIdentifier() throws SQLException {
-    try (ResultSet resultSet = connection.getMetaData().getBestRowIdentifier(null, null, null, 0, true)) {
+    try (ResultSet resultSet = connection.getMetaData()
+        .getBestRowIdentifier(null, null, null, 0, true)) {
       // Maps ordinal index to column name according to JDBC documentation
-      final Map<Integer, String> expectedGetBestRowIdentifierSchema = new HashMap<Integer, String>() {
-        {
-          put(1, "SCOPE");
-          put(2, "COLUMN_NAME");
-          put(3, "DATA_TYPE");
-          put(4, "TYPE_NAME");
-          put(5, "COLUMN_SIZE");
-          put(6, "BUFFER_LENGTH");
-          put(7, "DECIMAL_DIGITS");
-          put(8, "PSEUDO_COLUMN");
-        }
-      };
+      final Map<Integer, String> expectedGetBestRowIdentifierSchema =
+          new HashMap<Integer, String>() {
+            {
+              put(1, "SCOPE");
+              put(2, "COLUMN_NAME");
+              put(3, "DATA_TYPE");
+              put(4, "TYPE_NAME");
+              put(5, "COLUMN_SIZE");
+              put(6, "BUFFER_LENGTH");
+              put(7, "DECIMAL_DIGITS");
+              put(8, "PSEUDO_COLUMN");
+            }
+          };
       testEmptyResultSet(resultSet, expectedGetBestRowIdentifierSchema);
     }
   }
@@ -1064,7 +1124,8 @@ public class ArrowDatabaseMetadataTest {
 
   @Test
   public void testGetIndexInfo() throws SQLException {
-    try (ResultSet resultSet = connection.getMetaData().getIndexInfo(null, null, null, false, true)) {
+    try (ResultSet resultSet = connection.getMetaData()
+        .getIndexInfo(null, null, null, false, true)) {
       // Maps ordinal index to column name according to JDBC documentation
       final Map<Integer, String> expectedGetIndexInfoSchema = new HashMap<Integer, String>() {
         {
@@ -1177,14 +1238,15 @@ public class ArrowDatabaseMetadataTest {
   public void testGetClientInfoProperties() throws SQLException {
     try (ResultSet resultSet = connection.getMetaData().getClientInfoProperties()) {
       // Maps ordinal index to column name according to JDBC documentation
-      final Map<Integer, String> expectedGetClientInfoPropertiesSchema = new HashMap<Integer, String>() {
-        {
-          put(1, "NAME");
-          put(2, "MAX_LEN");
-          put(3, "DEFAULT_VALUE");
-          put(4, "DESCRIPTION");
-        }
-      };
+      final Map<Integer, String> expectedGetClientInfoPropertiesSchema =
+          new HashMap<Integer, String>() {
+            {
+              put(1, "NAME");
+              put(2, "MAX_LEN");
+              put(3, "DEFAULT_VALUE");
+              put(4, "DESCRIPTION");
+            }
+          };
       testEmptyResultSet(resultSet, expectedGetClientInfoPropertiesSchema);
     }
   }
@@ -1209,7 +1271,8 @@ public class ArrowDatabaseMetadataTest {
 
   @Test
   public void testGetFunctionColumns() throws SQLException {
-    try (ResultSet resultSet = connection.getMetaData().getFunctionColumns(null, null, null, null)) {
+    try (
+        ResultSet resultSet = connection.getMetaData().getFunctionColumns(null, null, null, null)) {
       // Maps ordinal index to column name according to JDBC documentation
       final Map<Integer, String> expectedGetFunctionColumnsSchema = new HashMap<Integer, String>() {
         {
@@ -1260,7 +1323,8 @@ public class ArrowDatabaseMetadataTest {
     }
   }
 
-  private void testEmptyResultSet(final ResultSet resultSet, final Map<Integer, String> expectedResultSetSchema)
+  private void testEmptyResultSet(final ResultSet resultSet,
+                                  final Map<Integer, String> expectedResultSetSchema)
       throws SQLException {
     Assert.assertFalse(resultSet.next());
     final ResultSetMetaData resultSetMetaData = resultSet.getMetaData();
@@ -1297,9 +1361,11 @@ public class ArrowDatabaseMetadataTest {
     Assert.assertEquals(Integer.valueOf(ArrowDatabaseMetadata.COLUMN_SIZE_TIME),
         ArrowDatabaseMetadata.getColumnSize(new ArrowType.Time(TimeUnit.SECOND, Integer.SIZE)));
     Assert.assertEquals(Integer.valueOf(ArrowDatabaseMetadata.COLUMN_SIZE_TIME_MILLISECONDS),
-        ArrowDatabaseMetadata.getColumnSize(new ArrowType.Time(TimeUnit.MILLISECOND, Integer.SIZE)));
+        ArrowDatabaseMetadata.getColumnSize(
+            new ArrowType.Time(TimeUnit.MILLISECOND, Integer.SIZE)));
     Assert.assertEquals(Integer.valueOf(ArrowDatabaseMetadata.COLUMN_SIZE_TIME_MICROSECONDS),
-        ArrowDatabaseMetadata.getColumnSize(new ArrowType.Time(TimeUnit.MICROSECOND, Integer.SIZE)));
+        ArrowDatabaseMetadata.getColumnSize(
+            new ArrowType.Time(TimeUnit.MICROSECOND, Integer.SIZE)));
     Assert.assertEquals(Integer.valueOf(ArrowDatabaseMetadata.COLUMN_SIZE_TIME_NANOSECONDS),
         ArrowDatabaseMetadata.getColumnSize(new ArrowType.Time(TimeUnit.NANOSECOND, Integer.SIZE)));
 
@@ -1318,20 +1384,25 @@ public class ArrowDatabaseMetadataTest {
     Assert.assertEquals(Integer.valueOf(ArrowDatabaseMetadata.NO_DECIMAL_DIGITS),
         ArrowDatabaseMetadata.getDecimalDigits(new ArrowType.Timestamp(TimeUnit.SECOND, null)));
     Assert.assertEquals(Integer.valueOf(ArrowDatabaseMetadata.DECIMAL_DIGITS_TIME_MILLISECONDS),
-        ArrowDatabaseMetadata.getDecimalDigits(new ArrowType.Timestamp(TimeUnit.MILLISECOND, null)));
+        ArrowDatabaseMetadata.getDecimalDigits(
+            new ArrowType.Timestamp(TimeUnit.MILLISECOND, null)));
     Assert.assertEquals(Integer.valueOf(ArrowDatabaseMetadata.DECIMAL_DIGITS_TIME_MICROSECONDS),
-        ArrowDatabaseMetadata.getDecimalDigits(new ArrowType.Timestamp(TimeUnit.MICROSECOND, null)));
+        ArrowDatabaseMetadata.getDecimalDigits(
+            new ArrowType.Timestamp(TimeUnit.MICROSECOND, null)));
     Assert.assertEquals(Integer.valueOf(ArrowDatabaseMetadata.DECIMAL_DIGITS_TIME_NANOSECONDS),
         ArrowDatabaseMetadata.getDecimalDigits(new ArrowType.Timestamp(TimeUnit.NANOSECOND, null)));
 
     Assert.assertEquals(Integer.valueOf(ArrowDatabaseMetadata.NO_DECIMAL_DIGITS),
         ArrowDatabaseMetadata.getDecimalDigits(new ArrowType.Time(TimeUnit.SECOND, Integer.SIZE)));
     Assert.assertEquals(Integer.valueOf(ArrowDatabaseMetadata.DECIMAL_DIGITS_TIME_MILLISECONDS),
-        ArrowDatabaseMetadata.getDecimalDigits(new ArrowType.Time(TimeUnit.MILLISECOND, Integer.SIZE)));
+        ArrowDatabaseMetadata.getDecimalDigits(
+            new ArrowType.Time(TimeUnit.MILLISECOND, Integer.SIZE)));
     Assert.assertEquals(Integer.valueOf(ArrowDatabaseMetadata.DECIMAL_DIGITS_TIME_MICROSECONDS),
-        ArrowDatabaseMetadata.getDecimalDigits(new ArrowType.Time(TimeUnit.MICROSECOND, Integer.SIZE)));
+        ArrowDatabaseMetadata.getDecimalDigits(
+            new ArrowType.Time(TimeUnit.MICROSECOND, Integer.SIZE)));
     Assert.assertEquals(Integer.valueOf(ArrowDatabaseMetadata.DECIMAL_DIGITS_TIME_NANOSECONDS),
-        ArrowDatabaseMetadata.getDecimalDigits(new ArrowType.Time(TimeUnit.NANOSECOND, Integer.SIZE)));
+        ArrowDatabaseMetadata.getDecimalDigits(
+            new ArrowType.Time(TimeUnit.NANOSECOND, Integer.SIZE)));
 
     Assert.assertEquals(Integer.valueOf(ArrowDatabaseMetadata.NO_DECIMAL_DIGITS),
         ArrowDatabaseMetadata.getDecimalDigits(new ArrowType.Date(DateUnit.DAY)));

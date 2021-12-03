@@ -22,6 +22,7 @@ import java.nio.ByteBuffer;
 import java.util.function.IntSupplier;
 
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
+import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorFactory;
 import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.holders.NullableBitHolder;
 
@@ -32,16 +33,18 @@ public class ArrowFlightJdbcBitVectorAccessor extends ArrowFlightJdbcAccessor {
 
   private final BitVector vector;
   private final NullableBitHolder holder;
-  private static final int BYTES_T0_ALLOCATE = 1 ;
+  private static final int BYTES_T0_ALLOCATE = 1;
 
   /**
    * Constructor for the BitVectorAccessor.
    *
-   * @param vector an instance of a {@link BitVector}.
+   * @param vector             an instance of a {@link BitVector}.
    * @param currentRowSupplier a supplier to check which row is being accessed.
+   * @param setCursorWasNull   the consumer to set if value was null.
    */
-  public ArrowFlightJdbcBitVectorAccessor(BitVector vector, IntSupplier currentRowSupplier) {
-    super(currentRowSupplier);
+  public ArrowFlightJdbcBitVectorAccessor(BitVector vector, IntSupplier currentRowSupplier,
+                                          ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
+    super(currentRowSupplier, setCursorWasNull);
     this.vector = vector;
     this.holder = new NullableBitHolder();
   }
@@ -82,6 +85,7 @@ public class ArrowFlightJdbcBitVectorAccessor extends ArrowFlightJdbcAccessor {
     vector.get(getCurrentRow(), holder);
 
     this.wasNull = holder.isSet == 0;
+    this.wasNullConsumer.setWasNull(this.wasNull);
     if (this.wasNull) {
       return 0;
     }

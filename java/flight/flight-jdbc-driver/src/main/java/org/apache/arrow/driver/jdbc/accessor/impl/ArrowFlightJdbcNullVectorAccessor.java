@@ -18,14 +18,16 @@
 package org.apache.arrow.driver.jdbc.accessor.impl;
 
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
+import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorFactory;
 import org.apache.arrow.vector.NullVector;
 
 /**
  * Accessor for the Arrow type {@link NullVector}.
  */
 public class ArrowFlightJdbcNullVectorAccessor extends ArrowFlightJdbcAccessor {
-  public ArrowFlightJdbcNullVectorAccessor() {
-    super(null);
+  public ArrowFlightJdbcNullVectorAccessor(
+      ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
+    super(null, setCursorWasNull);
   }
 
   @Override

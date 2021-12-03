@@ -37,7 +37,8 @@ public class ArrowFlightJdbcAccessorTest {
   static class MockedArrowFlightJdbcAccessor extends ArrowFlightJdbcAccessor {
 
     protected MockedArrowFlightJdbcAccessor() {
-      super(() -> 0);
+      super(() -> 0, (boolean wasNull) -> {
+      });
     }
 
     @Override
