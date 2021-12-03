@@ -328,16 +328,12 @@ public class BitVectorHelper {
                                             final BufferAllocator allocator) {
     final int valueCount = fieldNode.getLength();
     ArrowBuf newBuffer = null;
-    /* either all NULLs or all non-NULLs */
-    if (sourceValidityBuffer == null && (fieldNode.getNullCount() == 0 ||
-        fieldNode.getNullCount() == valueCount)) {
+    boolean isValidityBufferNull = sourceValidityBuffer == null || sourceValidityBuffer.memoryAddress() == 0;
+    // create a new validity buffer iff all values are not null AND the original validity buffer
+    // is null
+    if (isValidityBufferNull && fieldNode.getNullCount() == 0) {
       newBuffer = allocator.buffer(getValidityBufferSize(valueCount));
       newBuffer.setZero(0, newBuffer.capacity());
-      if (fieldNode.getNullCount() != 0) {
-        /* all NULLs */
-        return newBuffer;
-      }
-      /* all non-NULLs */
       int fullBytesCount = valueCount / 8;
       newBuffer.setOne(0, fullBytesCount);
       int remainder = valueCount % 8;
