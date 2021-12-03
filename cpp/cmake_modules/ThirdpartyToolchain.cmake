@@ -1977,8 +1977,7 @@ macro(build_benchmark)
 endmacro()
 
 if(ARROW_BUILD_BENCHMARKS)
-  # ArgsProduct() is available since 1.5.2
-  set(BENCHMARK_REQUIRED_VERSION 1.5.2)
+  set(BENCHMARK_REQUIRED_VERSION 1.6.0)
   resolve_dependency(benchmark
                      REQUIRED_VERSION
                      ${BENCHMARK_REQUIRED_VERSION}
