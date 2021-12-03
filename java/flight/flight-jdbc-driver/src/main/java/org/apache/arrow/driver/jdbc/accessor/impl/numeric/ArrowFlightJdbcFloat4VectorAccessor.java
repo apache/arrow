@@ -23,6 +23,7 @@ import java.nio.ByteBuffer;
 import java.util.function.IntSupplier;
 
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
+import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorFactory;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.holders.NullableFloat4Holder;
 
@@ -37,12 +38,14 @@ public class ArrowFlightJdbcFloat4VectorAccessor extends ArrowFlightJdbcAccessor
   /**
    * Instantiate a accessor for the {@link Float4Vector}.
    *
-   * @param vector an instance of a Float4Vector.
+   * @param vector             an instance of a Float4Vector.
    * @param currentRowSupplier the supplier to track the lines.
+   * @param setCursorWasNull   the consumer to set if value was null.
    */
   public ArrowFlightJdbcFloat4VectorAccessor(Float4Vector vector,
-                                             IntSupplier currentRowSupplier) {
-    super(currentRowSupplier);
+                                             IntSupplier currentRowSupplier,
+                                             ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
+    super(currentRowSupplier, setCursorWasNull);
     this.holder = new NullableFloat4Holder();
     this.vector = vector;
   }
@@ -89,6 +92,7 @@ public class ArrowFlightJdbcFloat4VectorAccessor extends ArrowFlightJdbcAccessor
     vector.get(getCurrentRow(), holder);
 
     this.wasNull = holder.isSet == 0;
+    this.wasNullConsumer.setWasNull(this.wasNull);
     if (this.wasNull) {
       return 0;
     }
@@ -116,12 +120,14 @@ public class ArrowFlightJdbcFloat4VectorAccessor extends ArrowFlightJdbcAccessor
   @Override
   public byte[] getBytes() {
     final float value = this.getFloat();
-    return this.wasNull ? null : ByteBuffer.allocate(Float4Vector.TYPE_WIDTH).putFloat(value).array();
+    return this.wasNull ? null :
+        ByteBuffer.allocate(Float4Vector.TYPE_WIDTH).putFloat(value).array();
   }
 
   @Override
   public BigDecimal getBigDecimal(int scale) {
-    final BigDecimal value = BigDecimal.valueOf(this.getFloat()).setScale(scale, RoundingMode.HALF_UP);
+    final BigDecimal value =
+        BigDecimal.valueOf(this.getFloat()).setScale(scale, RoundingMode.HALF_UP);
     return this.wasNull ? null : value;
   }
 

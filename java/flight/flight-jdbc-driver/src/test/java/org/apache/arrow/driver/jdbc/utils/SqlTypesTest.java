@@ -48,14 +48,18 @@ public class SqlTypesTest {
     assertEquals(Types.LONGVARCHAR, getSqlTypeIdFromArrowType(new ArrowType.LargeUtf8()));
 
     assertEquals(Types.DATE, getSqlTypeIdFromArrowType(new ArrowType.Date(DateUnit.MILLISECOND)));
-    assertEquals(Types.TIME, getSqlTypeIdFromArrowType(new ArrowType.Time(TimeUnit.MILLISECOND, 32)));
-    assertEquals(Types.TIMESTAMP, getSqlTypeIdFromArrowType(new ArrowType.Timestamp(TimeUnit.MILLISECOND, "")));
+    assertEquals(Types.TIME,
+        getSqlTypeIdFromArrowType(new ArrowType.Time(TimeUnit.MILLISECOND, 32)));
+    assertEquals(Types.TIMESTAMP,
+        getSqlTypeIdFromArrowType(new ArrowType.Timestamp(TimeUnit.MILLISECOND, "")));
 
     assertEquals(Types.BOOLEAN, getSqlTypeIdFromArrowType(new ArrowType.Bool()));
 
     assertEquals(Types.DECIMAL, getSqlTypeIdFromArrowType(new ArrowType.Decimal(0, 0, 64)));
-    assertEquals(Types.DOUBLE, getSqlTypeIdFromArrowType(new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE)));
-    assertEquals(Types.FLOAT, getSqlTypeIdFromArrowType(new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE)));
+    assertEquals(Types.DOUBLE,
+        getSqlTypeIdFromArrowType(new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE)));
+    assertEquals(Types.FLOAT,
+        getSqlTypeIdFromArrowType(new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE)));
 
     assertEquals(Types.ARRAY, getSqlTypeIdFromArrowType(new ArrowType.List()));
     assertEquals(Types.ARRAY, getSqlTypeIdFromArrowType(new ArrowType.LargeList()));
@@ -63,9 +67,12 @@ public class SqlTypesTest {
 
     assertEquals(Types.STRUCT, getSqlTypeIdFromArrowType(new ArrowType.Struct()));
 
-    assertEquals(Types.JAVA_OBJECT, getSqlTypeIdFromArrowType(new ArrowType.Duration(TimeUnit.MILLISECOND)));
-    assertEquals(Types.JAVA_OBJECT, getSqlTypeIdFromArrowType(new ArrowType.Interval(IntervalUnit.DAY_TIME)));
-    assertEquals(Types.JAVA_OBJECT, getSqlTypeIdFromArrowType(new ArrowType.Union(UnionMode.Dense, null)));
+    assertEquals(Types.JAVA_OBJECT,
+        getSqlTypeIdFromArrowType(new ArrowType.Duration(TimeUnit.MILLISECOND)));
+    assertEquals(Types.JAVA_OBJECT,
+        getSqlTypeIdFromArrowType(new ArrowType.Interval(IntervalUnit.DAY_TIME)));
+    assertEquals(Types.JAVA_OBJECT,
+        getSqlTypeIdFromArrowType(new ArrowType.Union(UnionMode.Dense, null)));
     assertEquals(Types.JAVA_OBJECT, getSqlTypeIdFromArrowType(new ArrowType.Map(true)));
 
     assertEquals(Types.NULL, getSqlTypeIdFromArrowType(new ArrowType.Null()));
@@ -87,13 +94,16 @@ public class SqlTypesTest {
 
     assertEquals("DATE", getSqlTypeNameFromArrowType(new ArrowType.Date(DateUnit.MILLISECOND)));
     assertEquals("TIME", getSqlTypeNameFromArrowType(new ArrowType.Time(TimeUnit.MILLISECOND, 32)));
-    assertEquals("TIMESTAMP", getSqlTypeNameFromArrowType(new ArrowType.Timestamp(TimeUnit.MILLISECOND, "")));
+    assertEquals("TIMESTAMP",
+        getSqlTypeNameFromArrowType(new ArrowType.Timestamp(TimeUnit.MILLISECOND, "")));
 
     assertEquals("BOOLEAN", getSqlTypeNameFromArrowType(new ArrowType.Bool()));
 
     assertEquals("DECIMAL", getSqlTypeNameFromArrowType(new ArrowType.Decimal(0, 0, 64)));
-    assertEquals("DOUBLE", getSqlTypeNameFromArrowType(new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE)));
-    assertEquals("FLOAT", getSqlTypeNameFromArrowType(new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE)));
+    assertEquals("DOUBLE",
+        getSqlTypeNameFromArrowType(new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE)));
+    assertEquals("FLOAT",
+        getSqlTypeNameFromArrowType(new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE)));
 
     assertEquals("ARRAY", getSqlTypeNameFromArrowType(new ArrowType.List()));
     assertEquals("ARRAY", getSqlTypeNameFromArrowType(new ArrowType.LargeList()));
@@ -101,9 +111,12 @@ public class SqlTypesTest {
 
     assertEquals("STRUCT", getSqlTypeNameFromArrowType(new ArrowType.Struct()));
 
-    assertEquals("JAVA_OBJECT", getSqlTypeNameFromArrowType(new ArrowType.Duration(TimeUnit.MILLISECOND)));
-    assertEquals("JAVA_OBJECT", getSqlTypeNameFromArrowType(new ArrowType.Interval(IntervalUnit.DAY_TIME)));
-    assertEquals("JAVA_OBJECT", getSqlTypeNameFromArrowType(new ArrowType.Union(UnionMode.Dense, null)));
+    assertEquals("JAVA_OBJECT",
+        getSqlTypeNameFromArrowType(new ArrowType.Duration(TimeUnit.MILLISECOND)));
+    assertEquals("JAVA_OBJECT",
+        getSqlTypeNameFromArrowType(new ArrowType.Interval(IntervalUnit.DAY_TIME)));
+    assertEquals("JAVA_OBJECT",
+        getSqlTypeNameFromArrowType(new ArrowType.Union(UnionMode.Dense, null)));
     assertEquals("JAVA_OBJECT", getSqlTypeNameFromArrowType(new ArrowType.Map(true)));
 
     assertEquals("NULL", getSqlTypeNameFromArrowType(new ArrowType.Null()));

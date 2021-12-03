@@ -56,10 +56,14 @@ public class ArrowFlightJdbcStructVectorAccessorTest {
 
   private StructVector vector;
 
-  private final AccessorTestUtils.AccessorSupplier<ArrowFlightJdbcStructVectorAccessor> accessorSupplier =
-      (vector, getCurrentRow) -> new ArrowFlightJdbcStructVectorAccessor((StructVector) vector, getCurrentRow);
+  private final AccessorTestUtils.AccessorSupplier<ArrowFlightJdbcStructVectorAccessor>
+      accessorSupplier =
+          (vector, getCurrentRow) -> new ArrowFlightJdbcStructVectorAccessor((StructVector) vector,
+              getCurrentRow, (boolean wasNull) -> {
+          });
 
-  private final AccessorTestUtils.AccessorIterator<ArrowFlightJdbcStructVectorAccessor> accessorIterator =
+  private final AccessorTestUtils.AccessorIterator<ArrowFlightJdbcStructVectorAccessor>
+      accessorIterator =
       new AccessorTestUtils.AccessorIterator<>(collector, accessorSupplier);
 
   @Before
@@ -70,9 +74,11 @@ public class ArrowFlightJdbcStructVectorAccessorTest {
     vector = new StructVector("", rootAllocatorTestRule.getRootAllocator(), type, null);
     vector.allocateNew();
 
-    IntVector intVector = vector.addOrGet("int", FieldType.nullable(Types.MinorType.INT.getType()), IntVector.class);
+    IntVector intVector =
+        vector.addOrGet("int", FieldType.nullable(Types.MinorType.INT.getType()), IntVector.class);
     Float8Vector float8Vector =
-        vector.addOrGet("float8", FieldType.nullable(Types.MinorType.FLOAT8.getType()), Float8Vector.class);
+        vector.addOrGet("float8", FieldType.nullable(Types.MinorType.FLOAT8.getType()),
+            Float8Vector.class);
 
     intVector.setSafe(0, 100);
     float8Vector.setSafe(0, 100.05);
@@ -91,7 +97,8 @@ public class ArrowFlightJdbcStructVectorAccessorTest {
 
   @Test
   public void testShouldGetObjectClassReturnMapClass() throws Exception {
-    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcStructVectorAccessor::getObjectClass,
+    accessorIterator.assertAccessorGetter(vector,
+        ArrowFlightJdbcStructVectorAccessor::getObjectClass,
         (accessor, currentRow) -> equalTo(Map.class));
   }
 
@@ -140,13 +147,15 @@ public class ArrowFlightJdbcStructVectorAccessorTest {
 
   @Test
   public void testShouldGetObjectWorkWithNestedComplexData() {
-    try (StructVector rootVector = StructVector.empty("", rootAllocatorTestRule.getRootAllocator())) {
+    try (StructVector rootVector = StructVector.empty("",
+        rootAllocatorTestRule.getRootAllocator())) {
       StructVector structVector = rootVector.addOrGetStruct("struct");
 
       FieldType intFieldType = FieldType.nullable(Types.MinorType.INT.getType());
       IntVector intVector = structVector.addOrGet("int", intFieldType, IntVector.class);
       FieldType float8FieldType = FieldType.nullable(Types.MinorType.FLOAT8.getType());
-      Float8Vector float8Vector = structVector.addOrGet("float8", float8FieldType, Float8Vector.class);
+      Float8Vector float8Vector =
+          structVector.addOrGet("float8", float8FieldType, Float8Vector.class);
 
       ListVector listVector = rootVector.addOrGetList("list");
       UnionListWriter listWriter = listVector.getWriter();
@@ -188,7 +197,9 @@ public class ArrowFlightJdbcStructVectorAccessorTest {
       expected.put("list", nestedList);
       expected.put("union", true);
 
-      ArrowFlightJdbcStructVectorAccessor accessor = new ArrowFlightJdbcStructVectorAccessor(rootVector, () -> 0);
+      ArrowFlightJdbcStructVectorAccessor accessor =
+          new ArrowFlightJdbcStructVectorAccessor(rootVector, () -> 0, (boolean wasNull) -> {
+          });
 
       Assert.assertEquals(accessor.getObject(), expected);
       Assert.assertEquals(accessor.getString(), expected.toString());

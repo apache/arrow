@@ -26,6 +26,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.function.Supplier;
 
+import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorFactory;
 import org.apache.arrow.driver.jdbc.utils.AccessorTestUtils;
 import org.apache.arrow.driver.jdbc.utils.RootAllocatorTestRule;
 import org.apache.arrow.vector.IntervalDayVector;
@@ -52,12 +53,16 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
   private final Supplier<ValueVector> vectorSupplier;
   private ValueVector vector;
 
-  private final AccessorTestUtils.AccessorSupplier<ArrowFlightJdbcIntervalVectorAccessor> accessorSupplier =
-      (vector, getCurrentRow) -> {
+  private final AccessorTestUtils.AccessorSupplier<ArrowFlightJdbcIntervalVectorAccessor>
+      accessorSupplier = (vector, getCurrentRow) -> {
+        ArrowFlightJdbcAccessorFactory.WasNullConsumer noOpWasNullConsumer = (boolean wasNull) -> {
+        };
         if (vector instanceof IntervalDayVector) {
-          return new ArrowFlightJdbcIntervalVectorAccessor((IntervalDayVector) vector, getCurrentRow);
+          return new ArrowFlightJdbcIntervalVectorAccessor((IntervalDayVector) vector,
+              getCurrentRow, noOpWasNullConsumer);
         } else if (vector instanceof IntervalYearVector) {
-          return new ArrowFlightJdbcIntervalVectorAccessor((IntervalYearVector) vector, getCurrentRow);
+          return new ArrowFlightJdbcIntervalVectorAccessor((IntervalYearVector) vector,
+              getCurrentRow, noOpWasNullConsumer);
         }
         return null;
       };
@@ -69,7 +74,8 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
   public static Collection<Object[]> data() {
     return Arrays.asList(new Object[][] {
         {(Supplier<ValueVector>) () -> {
-          IntervalDayVector vector = new IntervalDayVector("", rootAllocatorTestRule.getRootAllocator());
+          IntervalDayVector vector =
+              new IntervalDayVector("", rootAllocatorTestRule.getRootAllocator());
 
           int valueCount = 10;
           vector.setValueCount(valueCount);
@@ -79,7 +85,8 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
           return vector;
         }, "IntervalDayVector"},
         {(Supplier<ValueVector>) () -> {
-          IntervalYearVector vector = new IntervalYearVector("", rootAllocatorTestRule.getRootAllocator());
+          IntervalYearVector vector =
+              new IntervalYearVector("", rootAllocatorTestRule.getRootAllocator());
 
           int valueCount = 10;
           vector.setValueCount(valueCount);
@@ -91,7 +98,8 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
     });
   }
 
-  public ArrowFlightJdbcIntervalVectorAccessorTest(Supplier<ValueVector> vectorSupplier, String vectorType) {
+  public ArrowFlightJdbcIntervalVectorAccessorTest(Supplier<ValueVector> vectorSupplier,
+                                                   String vectorType) {
     this.vectorSupplier = vectorSupplier;
   }
 
@@ -150,7 +158,8 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
   @Test
   public void testShouldGetObjectClassReturnCorrectClass() throws Exception {
     Class<?> expectedObjectClass = getExpectedObjectClassForVector(vector);
-    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcIntervalVectorAccessor::getObjectClass,
+    accessorIterator.assertAccessorGetter(vector,
+        ArrowFlightJdbcIntervalVectorAccessor::getObjectClass,
         (accessor, currentRow) -> equalTo(expectedObjectClass));
   }
 

@@ -103,7 +103,8 @@ public class AccessorTestUtils {
       return result;
     }
 
-    public <R> void assertAccessorGetter(ValueVector vector, Function<T, R> getter, MatcherGetter<T, R> matcherGetter)
+    public <R> void assertAccessorGetter(ValueVector vector, Function<T, R> getter,
+                                         MatcherGetter<T, R> matcherGetter)
         throws Exception {
       iterate(vector, (accessor, currentRow) -> {
         R object = getter.apply(accessor);
@@ -120,12 +121,14 @@ public class AccessorTestUtils {
       assertAccessorGetter(vector, getter, (accessor, currentRow) -> matcherGetter.apply(accessor));
     }
 
-    public <R> void assertAccessorGetter(ValueVector vector, Function<T, R> getter, Supplier<Matcher<R>> matcherGetter)
+    public <R> void assertAccessorGetter(ValueVector vector, Function<T, R> getter,
+                                         Supplier<Matcher<R>> matcherGetter)
         throws Exception {
       assertAccessorGetter(vector, getter, (accessor, currentRow) -> matcherGetter.get());
     }
 
-    public <R> void assertAccessorGetter(ValueVector vector, Function<T, R> getter, Matcher<R> matcher)
+    public <R> void assertAccessorGetter(ValueVector vector, Function<T, R> getter,
+                                         Matcher<R> matcher)
         throws Exception {
       assertAccessorGetter(vector, getter, (accessor, currentRow) -> matcher);
     }

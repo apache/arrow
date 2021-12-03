@@ -66,8 +66,8 @@ public final class ClientAuthenticationUtils {
                                                      final CallOption... options) {
 
     return getAuthenticate(client,
-            new CredentialCallOption(new BasicAuthCredentialWriter(username, password)),
-            factory, options);
+        new CredentialCallOption(new BasicAuthCredentialWriter(username, password)),
+        factory, options);
   }
 
   private static CredentialCallOption getAuthenticate(final FlightClient client,
@@ -91,16 +91,17 @@ public final class ClientAuthenticationUtils {
    * @throws GeneralSecurityException on error.
    * @throws IOException              on error.
    */
-  public static InputStream getCertificateStream(final String keyStorePath, final String keyStorePass)
-          throws GeneralSecurityException, IOException {
+  public static InputStream getCertificateStream(final String keyStorePath,
+                                                 final String keyStorePass)
+      throws GeneralSecurityException, IOException {
     Preconditions.checkNotNull(keyStorePath, "KeyStore path cannot be null!");
     Preconditions.checkNotNull(keyStorePass, "KeyStorePass cannot be null!");
     final KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
 
     try (final InputStream keyStoreStream = Files
-            .newInputStream(Paths.get(Preconditions.checkNotNull(keyStorePath)))) {
+        .newInputStream(Paths.get(Preconditions.checkNotNull(keyStorePath)))) {
       keyStore.load(keyStoreStream,
-              Preconditions.checkNotNull(keyStorePass).toCharArray());
+          Preconditions.checkNotNull(keyStorePass).toCharArray());
     }
 
     final Enumeration<String> aliases = keyStore.aliases();
@@ -116,7 +117,7 @@ public final class ClientAuthenticationUtils {
   }
 
   private static InputStream toInputStream(final Certificate certificate)
-          throws IOException {
+      throws IOException {
 
     try (final StringWriter writer = new StringWriter();
          final JcaPEMWriter pemWriter = new JcaPEMWriter(writer)) {
@@ -124,7 +125,7 @@ public final class ClientAuthenticationUtils {
       pemWriter.writeObject(certificate);
       pemWriter.flush();
       return new ByteArrayInputStream(
-              writer.toString().getBytes(StandardCharsets.UTF_8));
+          writer.toString().getBytes(StandardCharsets.UTF_8));
     }
   }
 }

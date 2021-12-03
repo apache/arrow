@@ -151,7 +151,8 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
    * @return a new prepared statement.
    */
   public PreparedStatement prepare(final String query) {
-    final FlightSqlClient.PreparedStatement preparedStatement = sqlClient.prepare(query, getOptions());
+    final FlightSqlClient.PreparedStatement preparedStatement =
+        sqlClient.prepare(query, getOptions());
     return new PreparedStatement() {
       @Override
       public FlightInfo executeQuery() throws SQLException {
@@ -309,7 +310,8 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
    */
   public FlightInfo getCrossReference(String pkCatalog, String pkSchema, String pkTable,
                                       String fkCatalog, String fkSchema, String fkTable) {
-    return sqlClient.getCrossReference(pkCatalog, pkSchema, pkTable, fkCatalog, fkSchema, fkTable, getOptions());
+    return sqlClient.getCrossReference(pkCatalog, pkSchema, pkTable, fkCatalog, fkSchema, fkTable,
+        getOptions());
   }
 
   /**
@@ -431,7 +433,8 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
      * @param factories the factories to add.
      * @return this instance.
      */
-    public Builder withMiddlewareFactories(final Collection<FlightClientMiddleware.Factory> factories) {
+    public Builder withMiddlewareFactories(
+        final Collection<FlightClientMiddleware.Factory> factories) {
       this.middlewareFactories.addAll(factories);
       return this;
     }
@@ -467,7 +470,8 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
       try {
         ClientIncomingAuthHeaderMiddleware.Factory authFactory = null;
         if (username != null) {
-          authFactory = new ClientIncomingAuthHeaderMiddleware.Factory(new ClientBearerHeaderHandler());
+          authFactory =
+              new ClientIncomingAuthHeaderMiddleware.Factory(new ClientBearerHeaderHandler());
           withMiddlewareFactories(authFactory);
         }
         final FlightClient.Builder clientBuilder = FlightClient.builder().allocator(allocator);
@@ -486,7 +490,8 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
         }
         final FlightClient client = clientBuilder.build();
         if (authFactory != null) {
-          options.add(ClientAuthenticationUtils.getAuthenticate(client, username, password, authFactory));
+          options.add(
+              ClientAuthenticationUtils.getAuthenticate(client, username, password, authFactory));
         }
         return ArrowFlightSqlClientHandler.createNewHandler(client, options);
       } catch (final IllegalArgumentException | GeneralSecurityException | IOException e) {

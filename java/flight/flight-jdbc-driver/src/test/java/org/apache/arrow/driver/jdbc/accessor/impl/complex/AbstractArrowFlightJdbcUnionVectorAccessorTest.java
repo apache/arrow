@@ -26,7 +26,6 @@ import java.util.Map;
 
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.ArrowFlightJdbcNullVectorAccessor;
-import org.apache.arrow.driver.jdbc.accessor.impl.complex.AbstractArrowFlightJdbcUnionVectorAccessor;
 import org.apache.arrow.vector.NullVector;
 import org.apache.arrow.vector.ValueVector;
 import org.junit.Before;
@@ -42,12 +41,14 @@ public class AbstractArrowFlightJdbcUnionVectorAccessorTest {
   private static class AbstractArrowFlightJdbcUnionVectorAccessorMock
       extends AbstractArrowFlightJdbcUnionVectorAccessor {
     protected AbstractArrowFlightJdbcUnionVectorAccessorMock() {
-      super(() -> 0);
+      super(() -> 0, (boolean wasNull) -> {
+      });
     }
 
     @Override
     protected ArrowFlightJdbcAccessor createAccessorForVector(ValueVector vector) {
-      return new ArrowFlightJdbcNullVectorAccessor();
+      return new ArrowFlightJdbcNullVectorAccessor((boolean wasNull) -> {
+      });
     }
 
     @Override

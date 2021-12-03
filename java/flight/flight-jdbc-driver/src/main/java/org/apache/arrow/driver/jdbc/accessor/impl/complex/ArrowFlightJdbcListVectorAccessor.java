@@ -20,6 +20,7 @@ package org.apache.arrow.driver.jdbc.accessor.impl.complex;
 import java.util.List;
 import java.util.function.IntSupplier;
 
+import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorFactory;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.complex.BaseRepeatedValueVector;
 import org.apache.arrow.vector.complex.ListVector;
@@ -31,8 +32,9 @@ public class ArrowFlightJdbcListVectorAccessor extends AbstractArrowFlightJdbcLi
 
   private final ListVector vector;
 
-  public ArrowFlightJdbcListVectorAccessor(ListVector vector, IntSupplier currentRowSupplier) {
-    super(currentRowSupplier);
+  public ArrowFlightJdbcListVectorAccessor(ListVector vector, IntSupplier currentRowSupplier,
+                                           ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
+    super(currentRowSupplier, setCursorWasNull);
     this.vector = vector;
   }
 
@@ -43,7 +45,8 @@ public class ArrowFlightJdbcListVectorAccessor extends AbstractArrowFlightJdbcLi
 
   @Override
   protected long getEndOffset(int index) {
-    return vector.getOffsetBuffer().getInt((long) (index + 1) * BaseRepeatedValueVector.OFFSET_WIDTH);
+    return vector.getOffsetBuffer()
+        .getInt((long) (index + 1) * BaseRepeatedValueVector.OFFSET_WIDTH);
   }
 
   @Override
@@ -55,6 +58,7 @@ public class ArrowFlightJdbcListVectorAccessor extends AbstractArrowFlightJdbcLi
   public Object getObject() {
     List<?> object = vector.getObject(getCurrentRow());
     this.wasNull = object == null;
+    this.wasNullConsumer.setWasNull(this.wasNull);
 
     return object;
   }

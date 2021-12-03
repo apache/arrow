@@ -29,14 +29,15 @@ import org.apache.arrow.util.Preconditions;
 
 /**
  * {@link Properties} wrapper used for testing. Uses sample values.
- * @deprecated not updatable to match dinamic server allocation.
+ *
  * @see FlightServerTestRule
+ * @deprecated not updatable to match dinamic server allocation.
  */
 @Deprecated
 public enum PropertiesSample {
   CONFORMING(UrlSample.CONFORMING, "user", "flight", "password",
       "flight123"), UNSUPPORTED(UrlSample.UNSUPPORTED, "user", "", "password",
-          "");
+      "");
 
   private final Properties properties = new Properties();
 
@@ -47,8 +48,8 @@ public enum PropertiesSample {
   /**
    * Returns default properties.
    *
-   * @deprecated not updatable to match dinamic server allocation.
    * @see FlightServerTestRule#getProperties
+   * @deprecated not updatable to match dinamic server allocation.
    */
   @Deprecated
   public final Properties getProperties() {
@@ -56,7 +57,7 @@ public enum PropertiesSample {
   }
 
   private void loadProperties(UrlSample url,
-      @Nullable Object... properties) {
+                              @Nullable Object... properties) {
 
     this.properties.put("host", url.getHost());
     this.properties.put("port", url.getPort());

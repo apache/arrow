@@ -81,17 +81,24 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
   public static FlightServerTestRule createNewTestRule(final FlightSqlProducer producer) {
     final Map<ConnectionProperty, Object> configs = new HashMap<>();
     configs.put(ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.HOST, "localhost");
-    configs.put(ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.PORT, FreePortFinder.findFreeLocalPort());
-    configs.put(ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.USER, "flight-test-user");
-    configs.put(ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.PASSWORD, "flight-test-password");
+    configs.put(ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.PORT,
+        FreePortFinder.findFreeLocalPort());
+    configs.put(ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.USER,
+        "flight-test-user");
+    configs.put(ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.PASSWORD,
+        "flight-test-password");
 
     final Properties properties = new Properties();
-    configs.forEach((key, value) -> properties.put(key.camelName(), value == null ? key.defaultValue() : value));
+    configs.forEach((key, value) -> properties.put(key.camelName(),
+        value == null ? key.defaultValue() : value));
     final FlightServerTestRule rule = new FlightServerTestRule(
-        properties, new ArrowFlightConnectionConfigImpl(properties), new RootAllocator(Long.MAX_VALUE), producer);
+        properties, new ArrowFlightConnectionConfigImpl(properties),
+        new RootAllocator(Long.MAX_VALUE), producer);
     rule.validCredentials.put(
-        properties.getProperty(ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.USER.camelName()),
-        properties.getProperty(ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.PASSWORD.camelName()));
+        properties.getProperty(
+            ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.USER.camelName()),
+        properties.getProperty(
+            ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.PASSWORD.camelName()));
     return rule;
   }
 
@@ -139,7 +146,8 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
     };
   }
 
-  private FlightServer getStartServer(Function<Location, FlightServer> newServerFromLocation, int retries)
+  private FlightServer getStartServer(Function<Location, FlightServer> newServerFromLocation,
+                                      int retries)
       throws IOException {
 
     final Deque<ReflectiveOperationException> exceptions = new ArrayDeque<>();
@@ -157,7 +165,8 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
       }
     }
 
-    exceptions.forEach(e -> LOGGER.error("Failed to start a new " + FlightServer.class.getName() + ".", e));
+    exceptions.forEach(
+        e -> LOGGER.error("Failed to start a new " + FlightServer.class.getName() + ".", e));
     throw new IOException(exceptions.pop().getCause());
   }
 

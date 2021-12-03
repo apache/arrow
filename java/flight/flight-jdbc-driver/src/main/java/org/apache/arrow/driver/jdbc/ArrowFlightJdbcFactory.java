@@ -91,10 +91,12 @@ public class ArrowFlightJdbcFactory implements AvaticaFactory {
                                                                final QueryState state,
                                                                final Meta.Signature signature,
                                                                final TimeZone timeZone,
-                                                               final Meta.Frame frame) throws SQLException {
+                                                               final Meta.Frame frame)
+      throws SQLException {
     final ResultSetMetaData metaData = newResultSetMetaData(statement, signature);
 
-    return new ArrowFlightJdbcFlightStreamResultSet(statement, state, signature, metaData, timeZone, frame);
+    return new ArrowFlightJdbcFlightStreamResultSet(statement, state, signature, metaData, timeZone,
+        frame);
   }
 
   @Override

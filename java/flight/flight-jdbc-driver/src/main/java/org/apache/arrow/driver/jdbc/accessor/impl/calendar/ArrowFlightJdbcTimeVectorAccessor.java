@@ -28,6 +28,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.IntSupplier;
 
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
+import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorFactory;
 import org.apache.arrow.driver.jdbc.utils.DateTimeUtils;
 import org.apache.arrow.vector.TimeMicroVector;
 import org.apache.arrow.vector.TimeMilliVector;
@@ -50,9 +51,11 @@ public class ArrowFlightJdbcTimeVectorAccessor extends ArrowFlightJdbcAccessor {
    *
    * @param vector             an instance of a TimeNanoVector.
    * @param currentRowSupplier the supplier to track the lines.
+   * @param setCursorWasNull   the consumer to set if value was null.
    */
-  public ArrowFlightJdbcTimeVectorAccessor(TimeNanoVector vector, IntSupplier currentRowSupplier) {
-    super(currentRowSupplier);
+  public ArrowFlightJdbcTimeVectorAccessor(TimeNanoVector vector, IntSupplier currentRowSupplier,
+                                           ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
+    super(currentRowSupplier, setCursorWasNull);
     this.holder = new Holder();
     this.getter = createGetter(vector);
     this.timeUnit = getTimeUnitForVector(vector);
@@ -63,9 +66,11 @@ public class ArrowFlightJdbcTimeVectorAccessor extends ArrowFlightJdbcAccessor {
    *
    * @param vector             an instance of a TimeMicroVector.
    * @param currentRowSupplier the supplier to track the lines.
+   * @param setCursorWasNull   the consumer to set if value was null.
    */
-  public ArrowFlightJdbcTimeVectorAccessor(TimeMicroVector vector, IntSupplier currentRowSupplier) {
-    super(currentRowSupplier);
+  public ArrowFlightJdbcTimeVectorAccessor(TimeMicroVector vector, IntSupplier currentRowSupplier,
+                                           ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
+    super(currentRowSupplier, setCursorWasNull);
     this.holder = new Holder();
     this.getter = createGetter(vector);
     this.timeUnit = getTimeUnitForVector(vector);
@@ -77,8 +82,9 @@ public class ArrowFlightJdbcTimeVectorAccessor extends ArrowFlightJdbcAccessor {
    * @param vector             an instance of a TimeMilliVector.
    * @param currentRowSupplier the supplier to track the lines.
    */
-  public ArrowFlightJdbcTimeVectorAccessor(TimeMilliVector vector, IntSupplier currentRowSupplier) {
-    super(currentRowSupplier);
+  public ArrowFlightJdbcTimeVectorAccessor(TimeMilliVector vector, IntSupplier currentRowSupplier,
+                                           ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
+    super(currentRowSupplier, setCursorWasNull);
     this.holder = new Holder();
     this.getter = createGetter(vector);
     this.timeUnit = getTimeUnitForVector(vector);
@@ -90,8 +96,9 @@ public class ArrowFlightJdbcTimeVectorAccessor extends ArrowFlightJdbcAccessor {
    * @param vector             an instance of a TimeSecVector.
    * @param currentRowSupplier the supplier to track the lines.
    */
-  public ArrowFlightJdbcTimeVectorAccessor(TimeSecVector vector, IntSupplier currentRowSupplier) {
-    super(currentRowSupplier);
+  public ArrowFlightJdbcTimeVectorAccessor(TimeSecVector vector, IntSupplier currentRowSupplier,
+                                           ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
+    super(currentRowSupplier, setCursorWasNull);
     this.holder = new Holder();
     this.getter = createGetter(vector);
     this.timeUnit = getTimeUnitForVector(vector);
@@ -111,6 +118,7 @@ public class ArrowFlightJdbcTimeVectorAccessor extends ArrowFlightJdbcAccessor {
   public Time getTime(Calendar calendar) {
     getter.get(getCurrentRow(), holder);
     this.wasNull = holder.isSet == 0;
+    this.wasNullConsumer.setWasNull(this.wasNull);
     if (this.wasNull) {
       return null;
     }

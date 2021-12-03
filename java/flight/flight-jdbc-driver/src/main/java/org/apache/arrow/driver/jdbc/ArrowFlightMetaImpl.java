@@ -115,21 +115,25 @@ public class ArrowFlightMetaImpl extends MetaImpl {
   @Override
   public ExecuteResult prepareAndExecute(final StatementHandle statementHandle,
                                          final String query, final long maxRowCount,
-                                         final PrepareCallback prepareCallback) throws NoSuchStatementException {
+                                         final PrepareCallback prepareCallback)
+      throws NoSuchStatementException {
     return prepareAndExecute(
         statementHandle, query, maxRowCount, -1 /* Not used */, prepareCallback);
   }
 
   @Override
   public ExecuteResult prepareAndExecute(final StatementHandle handle,
-                                         final String query, final long maxRowCount, final int maxRowsInFirstFrame,
-                                         final PrepareCallback callback) throws NoSuchStatementException {
+                                         final String query, final long maxRowCount,
+                                         final int maxRowsInFirstFrame,
+                                         final PrepareCallback callback)
+      throws NoSuchStatementException {
     try {
       final PreparedStatement preparedStatement =
           ((ArrowFlightConnection) connection).getClientHandler().prepare(query);
       final StatementType statementType = preparedStatement.getType();
       final Signature signature = newSignature(query);
-      final long updateCount = statementType.equals(StatementType.UPDATE) ? preparedStatement.executeUpdate() : -1;
+      final long updateCount =
+          statementType.equals(StatementType.UPDATE) ? preparedStatement.executeUpdate() : -1;
       synchronized (callback.getMonitor()) {
         callback.clear();
         callback.assign(signature, null, updateCount);

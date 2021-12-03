@@ -29,6 +29,7 @@ import java.util.Calendar;
 import java.util.function.IntSupplier;
 
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
+import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorFactory;
 import org.apache.arrow.driver.jdbc.utils.DateTimeUtils;
 import org.apache.arrow.vector.LargeVarCharVector;
 import org.apache.arrow.vector.VarCharVector;
@@ -50,18 +51,21 @@ public class ArrowFlightJdbcVarCharVectorAccessor extends ArrowFlightJdbcAccesso
   private final Getter getter;
 
   public ArrowFlightJdbcVarCharVectorAccessor(VarCharVector vector,
-                                              IntSupplier currentRowSupplier) {
-    this(vector::getObject, currentRowSupplier);
+                                              IntSupplier currentRowSupplier,
+                                              ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
+    this(vector::getObject, currentRowSupplier, setCursorWasNull);
   }
 
   public ArrowFlightJdbcVarCharVectorAccessor(LargeVarCharVector vector,
-                                              IntSupplier currentRowSupplier) {
-    this(vector::getObject, currentRowSupplier);
+                                              IntSupplier currentRowSupplier,
+                                              ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
+    this(vector::getObject, currentRowSupplier, setCursorWasNull);
   }
 
   ArrowFlightJdbcVarCharVectorAccessor(Getter getter,
-                                       IntSupplier currentRowSupplier) {
-    super(currentRowSupplier);
+                                       IntSupplier currentRowSupplier,
+                                       ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
+    super(currentRowSupplier, setCursorWasNull);
     this.getter = getter;
   }
 
@@ -73,6 +77,7 @@ public class ArrowFlightJdbcVarCharVectorAccessor extends ArrowFlightJdbcAccesso
   private Text getText() {
     final Text text = this.getter.get(getCurrentRow());
     this.wasNull = text == null;
+    this.wasNullConsumer.setWasNull(this.wasNull);
     return text;
   }
 

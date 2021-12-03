@@ -42,7 +42,8 @@ import org.apache.calcite.avatica.QueryState;
  * {@link ResultSet} implementation for Arrow Flight used to access the results of multiple {@link FlightStream}
  * objects.
  */
-public final class ArrowFlightJdbcFlightStreamResultSet extends ArrowFlightJdbcVectorSchemaRootResultSet {
+public final class ArrowFlightJdbcFlightStreamResultSet
+    extends ArrowFlightJdbcVectorSchemaRootResultSet {
 
   private final ArrowFlightConnection connection;
   private FlightStream currentFlightStream;
@@ -90,9 +91,11 @@ public final class ArrowFlightJdbcFlightStreamResultSet extends ArrowFlightJdbcV
 
     final Meta.Signature signature = ArrowFlightMetaImpl.newSignature(null);
 
-    final AvaticaResultSetMetaData resultSetMetaData = new AvaticaResultSetMetaData(null, null, signature);
+    final AvaticaResultSetMetaData resultSetMetaData =
+        new AvaticaResultSetMetaData(null, null, signature);
     final ArrowFlightJdbcFlightStreamResultSet resultSet =
-        new ArrowFlightJdbcFlightStreamResultSet(connection, state, signature, resultSetMetaData, timeZone, null);
+        new ArrowFlightJdbcFlightStreamResultSet(connection, state, signature, resultSetMetaData,
+            timeZone, null);
 
     resultSet.transformer = transformer;
 

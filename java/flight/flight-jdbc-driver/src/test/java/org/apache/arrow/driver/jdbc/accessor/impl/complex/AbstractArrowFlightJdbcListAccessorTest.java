@@ -26,6 +26,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.function.Supplier;
 
+import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorFactory;
 import org.apache.arrow.driver.jdbc.utils.AccessorTestUtils;
 import org.apache.arrow.driver.jdbc.utils.RootAllocatorTestRule;
 import org.apache.arrow.vector.ValueVector;
@@ -54,31 +55,40 @@ public class AbstractArrowFlightJdbcListAccessorTest {
   private final Supplier<ValueVector> vectorSupplier;
   private ValueVector vector;
 
-  private final AccessorTestUtils.AccessorSupplier<AbstractArrowFlightJdbcListVectorAccessor> accessorSupplier =
-      (vector, getCurrentRow) -> {
+  private final AccessorTestUtils.AccessorSupplier<AbstractArrowFlightJdbcListVectorAccessor>
+      accessorSupplier = (vector, getCurrentRow) -> {
+        ArrowFlightJdbcAccessorFactory.WasNullConsumer noOpWasNullConsumer = (boolean wasNull) -> {
+        };
         if (vector instanceof ListVector) {
-          return new ArrowFlightJdbcListVectorAccessor((ListVector) vector, getCurrentRow);
+          return new ArrowFlightJdbcListVectorAccessor((ListVector) vector, getCurrentRow,
+              noOpWasNullConsumer);
         } else if (vector instanceof LargeListVector) {
-          return new ArrowFlightJdbcLargeListVectorAccessor((LargeListVector) vector, getCurrentRow);
+          return new ArrowFlightJdbcLargeListVectorAccessor((LargeListVector) vector, getCurrentRow,
+              noOpWasNullConsumer);
         } else if (vector instanceof FixedSizeListVector) {
-          return new ArrowFlightJdbcFixedSizeListVectorAccessor((FixedSizeListVector) vector, getCurrentRow);
+          return new ArrowFlightJdbcFixedSizeListVectorAccessor((FixedSizeListVector) vector,
+              getCurrentRow, noOpWasNullConsumer);
         }
         return null;
       };
 
-  final AccessorTestUtils.AccessorIterator<AbstractArrowFlightJdbcListVectorAccessor> accessorIterator =
+  final AccessorTestUtils.AccessorIterator<AbstractArrowFlightJdbcListVectorAccessor>
+      accessorIterator =
       new AccessorTestUtils.AccessorIterator<>(collector, accessorSupplier);
 
   @Parameterized.Parameters(name = "{1}")
   public static Collection<Object[]> data() {
     return Arrays.asList(new Object[][] {
         {(Supplier<ValueVector>) () -> rootAllocatorTestRule.createListVector(), "ListVector"},
-        {(Supplier<ValueVector>) () -> rootAllocatorTestRule.createLargeListVector(), "LargeListVector"},
-        {(Supplier<ValueVector>) () -> rootAllocatorTestRule.createFixedSizeListVector(), "FixedSizeListVector"},
+        {(Supplier<ValueVector>) () -> rootAllocatorTestRule.createLargeListVector(),
+            "LargeListVector"},
+        {(Supplier<ValueVector>) () -> rootAllocatorTestRule.createFixedSizeListVector(),
+            "FixedSizeListVector"},
     });
   }
 
-  public AbstractArrowFlightJdbcListAccessorTest(Supplier<ValueVector> vectorSupplier, String vectorType) {
+  public AbstractArrowFlightJdbcListAccessorTest(Supplier<ValueVector> vectorSupplier,
+                                                 String vectorType) {
     this.vectorSupplier = vectorSupplier;
   }
 
@@ -94,13 +104,15 @@ public class AbstractArrowFlightJdbcListAccessorTest {
 
   @Test
   public void testShouldGetObjectClassReturnCorrectClass() throws Exception {
-    accessorIterator.assertAccessorGetter(vector, AbstractArrowFlightJdbcListVectorAccessor::getObjectClass,
+    accessorIterator.assertAccessorGetter(vector,
+        AbstractArrowFlightJdbcListVectorAccessor::getObjectClass,
         (accessor, currentRow) -> equalTo(List.class));
   }
 
   @Test
   public void testShouldGetObjectReturnValidList() throws Exception {
-    accessorIterator.assertAccessorGetter(vector, AbstractArrowFlightJdbcListVectorAccessor::getObject,
+    accessorIterator.assertAccessorGetter(vector,
+        AbstractArrowFlightJdbcListVectorAccessor::getObject,
         (accessor, currentRow) -> equalTo(
             Arrays.asList(0, (currentRow), (currentRow) * 2, (currentRow) * 3, (currentRow) * 4)));
   }
@@ -111,7 +123,8 @@ public class AbstractArrowFlightJdbcListAccessorTest {
     vector.allocateNewSafe();
     vector.setValueCount(5);
 
-    accessorIterator.assertAccessorGetter(vector, AbstractArrowFlightJdbcListVectorAccessor::getObject,
+    accessorIterator.assertAccessorGetter(vector,
+        AbstractArrowFlightJdbcListVectorAccessor::getObject,
         (accessor, currentRow) -> CoreMatchers.nullValue());
   }
 
@@ -134,7 +147,8 @@ public class AbstractArrowFlightJdbcListAccessorTest {
     vector.allocateNewSafe();
     vector.setValueCount(5);
 
-    accessorIterator.assertAccessorGetter(vector, AbstractArrowFlightJdbcListVectorAccessor::getArray,
+    accessorIterator.assertAccessorGetter(vector,
+        AbstractArrowFlightJdbcListVectorAccessor::getArray,
         CoreMatchers.nullValue());
   }
 

@@ -69,7 +69,8 @@ public class ArrowFlightStatementExecuteTest {
   private static final long SAMPLE_LARGE_UPDATE_COUNT = Long.MAX_VALUE;
   private static final MockFlightSqlProducer PRODUCER = new MockFlightSqlProducer();
   @ClassRule
-  public static final FlightServerTestRule SERVER_TEST_RULE = FlightServerTestRule.createNewTestRule(PRODUCER);
+  public static final FlightServerTestRule SERVER_TEST_RULE =
+      FlightServerTestRule.createNewTestRule(PRODUCER);
   @Rule
   public final ErrorCollector collector = new ErrorCollector();
   private Connection connection;
@@ -82,7 +83,8 @@ public class ArrowFlightStatementExecuteTest {
         SAMPLE_QUERY_SCHEMA,
         Collections.singletonList(listener -> {
           try (final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
-               final VectorSchemaRoot root = VectorSchemaRoot.create(SAMPLE_QUERY_SCHEMA, allocator)) {
+               final VectorSchemaRoot root = VectorSchemaRoot.create(SAMPLE_QUERY_SCHEMA,
+                   allocator)) {
             final UInt1Vector vector = (UInt1Vector) root.getVector(VECTOR_NAME);
             IntStream.range(0, SAMPLE_QUERY_ROWS).forEach(index -> vector.setSafe(index, index));
             vector.setValueCount(SAMPLE_QUERY_ROWS);
@@ -117,7 +119,8 @@ public class ArrowFlightStatementExecuteTest {
 
   @Test
   public void testExecuteShouldRunSelectQuery() throws SQLException {
-    collector.checkThat(statement.execute(SAMPLE_QUERY_CMD), is(true)); // Means this is a SELECT query.
+    collector.checkThat(statement.execute(SAMPLE_QUERY_CMD),
+        is(true)); // Means this is a SELECT query.
     final Set<Byte> numbers =
         IntStream.range(0, SAMPLE_QUERY_ROWS).boxed()
             .map(Integer::byteValue)
@@ -139,7 +142,8 @@ public class ArrowFlightStatementExecuteTest {
 
   @Test
   public void testExecuteShouldRunUpdateQueryForSmallUpdate() throws SQLException {
-    collector.checkThat(statement.execute(SAMPLE_UPDATE_QUERY), is(false)); // Means this is an UPDATE query.
+    collector.checkThat(statement.execute(SAMPLE_UPDATE_QUERY),
+        is(false)); // Means this is an UPDATE query.
     collector.checkThat(
         (long) statement.getUpdateCount(),
         is(allOf(equalTo(statement.getLargeUpdateCount()), equalTo(SAMPLE_UPDATE_COUNT))));
@@ -154,7 +158,8 @@ public class ArrowFlightStatementExecuteTest {
     collector.checkThat(updateCountLarge, is(equalTo(SAMPLE_LARGE_UPDATE_COUNT)));
     collector.checkThat(
         updateCountSmall,
-        is(allOf(equalTo((long) AvaticaUtils.toSaturatedInt(updateCountLarge)), not(equalTo(updateCountLarge)))));
+        is(allOf(equalTo((long) AvaticaUtils.toSaturatedInt(updateCountLarge)),
+            not(equalTo(updateCountLarge)))));
     collector.checkThat(statement.getResultSet(), is(nullValue()));
   }
 

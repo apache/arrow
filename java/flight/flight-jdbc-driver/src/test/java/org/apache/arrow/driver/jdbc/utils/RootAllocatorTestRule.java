@@ -557,8 +557,10 @@ public class RootAllocatorTestRule implements TestRule, AutoCloseable {
         new BigDecimal("-17014118346046923173168234152654115451231545157303715884105727"),
         new BigDecimal("1701411834604692315815656534152654115451231545157303715884105727"),
         new BigDecimal("30560141183460469231581565634152654115451231545157303715884105727"),
-        new BigDecimal("57896044618658097711785492504343953926634992332820282019728792003956564819967"),
-        new BigDecimal("-56896044618658097711785492504343953926634992332820282019728792003956564819967")
+        new BigDecimal(
+            "57896044618658097711785492504343953926634992332820282019728792003956564819967"),
+        new BigDecimal(
+            "-56896044618658097711785492504343953926634992332820282019728792003956564819967")
     };
 
     Decimal256Vector result = new Decimal256Vector("ID", this.getRootAllocator(), 77, 0);
@@ -585,7 +587,8 @@ public class RootAllocatorTestRule implements TestRule, AutoCloseable {
   }
 
   public TimeStampNanoTZVector createTimeStampNanoTZVector(String timeZone) {
-    TimeStampNanoTZVector valueVector = new TimeStampNanoTZVector("", this.getRootAllocator(), timeZone);
+    TimeStampNanoTZVector valueVector =
+        new TimeStampNanoTZVector("", this.getRootAllocator(), timeZone);
     valueVector.allocateNew(2);
     valueVector.setSafe(0, TimeUnit.MILLISECONDS.toNanos(1625702400000L));
     valueVector.setSafe(1, TimeUnit.MILLISECONDS.toNanos(1625788800000L));
@@ -605,7 +608,8 @@ public class RootAllocatorTestRule implements TestRule, AutoCloseable {
   }
 
   public TimeStampMicroTZVector createTimeStampMicroTZVector(String timeZone) {
-    TimeStampMicroTZVector valueVector = new TimeStampMicroTZVector("", this.getRootAllocator(), timeZone);
+    TimeStampMicroTZVector valueVector =
+        new TimeStampMicroTZVector("", this.getRootAllocator(), timeZone);
     valueVector.allocateNew(2);
     valueVector.setSafe(0, TimeUnit.MILLISECONDS.toMicros(1625702400000L));
     valueVector.setSafe(1, TimeUnit.MILLISECONDS.toMicros(1625788800000L));
@@ -625,7 +629,8 @@ public class RootAllocatorTestRule implements TestRule, AutoCloseable {
   }
 
   public TimeStampMilliTZVector createTimeStampMilliTZVector(String timeZone) {
-    TimeStampMilliTZVector valueVector = new TimeStampMilliTZVector("", this.getRootAllocator(), timeZone);
+    TimeStampMilliTZVector valueVector =
+        new TimeStampMilliTZVector("", this.getRootAllocator(), timeZone);
     valueVector.allocateNew(2);
     valueVector.setSafe(0, 1625702400000L);
     valueVector.setSafe(1, 1625788800000L);
@@ -645,7 +650,8 @@ public class RootAllocatorTestRule implements TestRule, AutoCloseable {
   }
 
   public TimeStampSecTZVector createTimeStampSecTZVector(String timeZone) {
-    TimeStampSecTZVector valueVector = new TimeStampSecTZVector("", this.getRootAllocator(), timeZone);
+    TimeStampSecTZVector valueVector =
+        new TimeStampSecTZVector("", this.getRootAllocator(), timeZone);
     valueVector.allocateNew(2);
     valueVector.setSafe(0, TimeUnit.MILLISECONDS.toSeconds(1625702400000L));
     valueVector.setSafe(1, TimeUnit.MILLISECONDS.toSeconds(1625788800000L));

@@ -25,6 +25,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.function.IntSupplier;
 
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
+import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorFactory;
 import org.apache.arrow.vector.FixedSizeBinaryVector;
 import org.apache.arrow.vector.LargeVarBinaryVector;
 import org.apache.arrow.vector.VarBinaryVector;
@@ -41,20 +42,27 @@ public class ArrowFlightJdbcBinaryVectorAccessor extends ArrowFlightJdbcAccessor
 
   private final ByteArrayGetter getter;
 
-  public ArrowFlightJdbcBinaryVectorAccessor(FixedSizeBinaryVector vector, IntSupplier currentRowSupplier) {
-    this(vector::get, currentRowSupplier);
+  public ArrowFlightJdbcBinaryVectorAccessor(FixedSizeBinaryVector vector,
+                                             IntSupplier currentRowSupplier,
+                                             ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
+    this(vector::get, currentRowSupplier, setCursorWasNull);
   }
 
-  public ArrowFlightJdbcBinaryVectorAccessor(VarBinaryVector vector, IntSupplier currentRowSupplier) {
-    this(vector::get, currentRowSupplier);
+  public ArrowFlightJdbcBinaryVectorAccessor(VarBinaryVector vector, IntSupplier currentRowSupplier,
+                                             ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
+    this(vector::get, currentRowSupplier, setCursorWasNull);
   }
 
-  public ArrowFlightJdbcBinaryVectorAccessor(LargeVarBinaryVector vector, IntSupplier currentRowSupplier) {
-    this(vector::get, currentRowSupplier);
+  public ArrowFlightJdbcBinaryVectorAccessor(LargeVarBinaryVector vector,
+                                             IntSupplier currentRowSupplier,
+                                             ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
+    this(vector::get, currentRowSupplier, setCursorWasNull);
   }
 
-  private ArrowFlightJdbcBinaryVectorAccessor(ByteArrayGetter getter, IntSupplier currentRowSupplier) {
-    super(currentRowSupplier);
+  private ArrowFlightJdbcBinaryVectorAccessor(ByteArrayGetter getter,
+                                              IntSupplier currentRowSupplier,
+                                              ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
+    super(currentRowSupplier, setCursorWasNull);
     this.getter = getter;
   }
 
@@ -62,6 +70,7 @@ public class ArrowFlightJdbcBinaryVectorAccessor extends ArrowFlightJdbcAccessor
   public byte[] getBytes() {
     byte[] bytes = getter.get(getCurrentRow());
     this.wasNull = bytes == null;
+    this.wasNullConsumer.setWasNull(this.wasNull);
 
     return bytes;
   }

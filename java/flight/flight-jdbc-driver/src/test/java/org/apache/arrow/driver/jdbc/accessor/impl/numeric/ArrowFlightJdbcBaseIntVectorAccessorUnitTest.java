@@ -19,6 +19,7 @@ package org.apache.arrow.driver.jdbc.accessor.impl.numeric;
 
 import static org.hamcrest.CoreMatchers.equalTo;
 
+import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorFactory;
 import org.apache.arrow.driver.jdbc.utils.AccessorTestUtils;
 import org.apache.arrow.driver.jdbc.utils.RootAllocatorTestRule;
 import org.apache.arrow.util.AutoCloseables;
@@ -55,29 +56,40 @@ public class ArrowFlightJdbcBaseIntVectorAccessorUnitTest {
   @Rule
   public final ErrorCollector collector = new ErrorCollector();
 
-  private final AccessorTestUtils.AccessorSupplier<ArrowFlightJdbcBaseIntVectorAccessor> accessorSupplier =
-      (vector, getCurrentRow) -> {
+  private final AccessorTestUtils.AccessorSupplier<ArrowFlightJdbcBaseIntVectorAccessor>
+      accessorSupplier = (vector, getCurrentRow) -> {
+        ArrowFlightJdbcAccessorFactory.WasNullConsumer noOpWasNullConsumer = (boolean wasNull) -> {
+        };
         if (vector instanceof UInt1Vector) {
-          return new ArrowFlightJdbcBaseIntVectorAccessor((UInt1Vector) vector, getCurrentRow);
+          return new ArrowFlightJdbcBaseIntVectorAccessor((UInt1Vector) vector, getCurrentRow,
+              noOpWasNullConsumer);
         } else if (vector instanceof UInt2Vector) {
-          return new ArrowFlightJdbcBaseIntVectorAccessor((UInt2Vector) vector, getCurrentRow);
+          return new ArrowFlightJdbcBaseIntVectorAccessor((UInt2Vector) vector, getCurrentRow,
+              noOpWasNullConsumer);
         } else if (vector instanceof UInt4Vector) {
-          return new ArrowFlightJdbcBaseIntVectorAccessor((UInt4Vector) vector, getCurrentRow);
+          return new ArrowFlightJdbcBaseIntVectorAccessor((UInt4Vector) vector, getCurrentRow,
+              noOpWasNullConsumer);
         } else if (vector instanceof UInt8Vector) {
-          return new ArrowFlightJdbcBaseIntVectorAccessor((UInt8Vector) vector, getCurrentRow);
+          return new ArrowFlightJdbcBaseIntVectorAccessor((UInt8Vector) vector, getCurrentRow,
+              noOpWasNullConsumer);
         } else if (vector instanceof TinyIntVector) {
-          return new ArrowFlightJdbcBaseIntVectorAccessor((TinyIntVector) vector, getCurrentRow);
+          return new ArrowFlightJdbcBaseIntVectorAccessor((TinyIntVector) vector, getCurrentRow,
+              noOpWasNullConsumer);
         } else if (vector instanceof SmallIntVector) {
-          return new ArrowFlightJdbcBaseIntVectorAccessor((SmallIntVector) vector, getCurrentRow);
+          return new ArrowFlightJdbcBaseIntVectorAccessor((SmallIntVector) vector, getCurrentRow,
+              noOpWasNullConsumer);
         } else if (vector instanceof IntVector) {
-          return new ArrowFlightJdbcBaseIntVectorAccessor((IntVector) vector, getCurrentRow);
+          return new ArrowFlightJdbcBaseIntVectorAccessor((IntVector) vector, getCurrentRow,
+              noOpWasNullConsumer);
         } else if (vector instanceof BigIntVector) {
-          return new ArrowFlightJdbcBaseIntVectorAccessor((BigIntVector) vector, getCurrentRow);
+          return new ArrowFlightJdbcBaseIntVectorAccessor((BigIntVector) vector, getCurrentRow,
+              noOpWasNullConsumer);
         }
         return null;
       };
 
-  private final AccessorTestUtils.AccessorIterator<ArrowFlightJdbcBaseIntVectorAccessor> accessorIterator =
+  private final AccessorTestUtils.AccessorIterator<ArrowFlightJdbcBaseIntVectorAccessor>
+      accessorIterator =
       new AccessorTestUtils.AccessorIterator<>(collector, accessorSupplier);
 
   @BeforeClass
@@ -114,12 +126,14 @@ public class ArrowFlightJdbcBaseIntVectorAccessorUnitTest {
   @AfterClass
   public static void tearDown() throws Exception {
     AutoCloseables.close(
-        bigIntVector, intVector, smallIntVector, tinyIntVector, int4Vector, int8Vector, intVectorWithNull, rule);
+        bigIntVector, intVector, smallIntVector, tinyIntVector, int4Vector, int8Vector,
+        intVectorWithNull, rule);
   }
 
   @Test
   public void testShouldGetStringFromUnsignedValue() throws Exception {
-    accessorIterator.assertAccessorGetter(int8Vector, ArrowFlightJdbcBaseIntVectorAccessor::getString,
+    accessorIterator.assertAccessorGetter(int8Vector,
+        ArrowFlightJdbcBaseIntVectorAccessor::getString,
         equalTo("18446744073709551615"));
   }
 
@@ -128,67 +142,78 @@ public class ArrowFlightJdbcBaseIntVectorAccessorUnitTest {
     byte[] value = new byte[] {(byte) 0xaa, (byte) 0xbb, (byte) 0xcc, (byte) 0xdd};
 
     accessorIterator
-        .assertAccessorGetter(intVector, ArrowFlightJdbcBaseIntVectorAccessor::getBytes, CoreMatchers.is(value));
+        .assertAccessorGetter(intVector, ArrowFlightJdbcBaseIntVectorAccessor::getBytes,
+            CoreMatchers.is(value));
   }
 
   @Test
   public void testShouldGetBytesFromIntVectorWithNull() throws Exception {
-    accessorIterator.assertAccessorGetter(intVectorWithNull, ArrowFlightJdbcBaseIntVectorAccessor::getBytes,
+    accessorIterator.assertAccessorGetter(intVectorWithNull,
+        ArrowFlightJdbcBaseIntVectorAccessor::getBytes,
         CoreMatchers.nullValue());
   }
 
   @Test
   public void testShouldGetStringFromIntVectorWithNull() throws Exception {
-    accessorIterator.assertAccessorGetter(intVectorWithNull, ArrowFlightJdbcBaseIntVectorAccessor::getString,
+    accessorIterator.assertAccessorGetter(intVectorWithNull,
+        ArrowFlightJdbcBaseIntVectorAccessor::getString,
         CoreMatchers.nullValue());
   }
 
   @Test
   public void testShouldGetObjectFromInt() throws Exception {
-    accessorIterator.assertAccessorGetter(intVector, ArrowFlightJdbcBaseIntVectorAccessor::getObject,
+    accessorIterator.assertAccessorGetter(intVector,
+        ArrowFlightJdbcBaseIntVectorAccessor::getObject,
         equalTo(0xAABBCCDD));
   }
 
   @Test
   public void testShouldGetObjectFromTinyInt() throws Exception {
-    accessorIterator.assertAccessorGetter(tinyIntVector, ArrowFlightJdbcBaseIntVectorAccessor::getObject,
+    accessorIterator.assertAccessorGetter(tinyIntVector,
+        ArrowFlightJdbcBaseIntVectorAccessor::getObject,
         equalTo((byte) 0xAA));
   }
 
   @Test
   public void testShouldGetObjectFromSmallInt() throws Exception {
-    accessorIterator.assertAccessorGetter(smallIntVector, ArrowFlightJdbcBaseIntVectorAccessor::getObject,
+    accessorIterator.assertAccessorGetter(smallIntVector,
+        ArrowFlightJdbcBaseIntVectorAccessor::getObject,
         equalTo((short) 0xAABB));
   }
 
   @Test
   public void testShouldGetObjectFromBigInt() throws Exception {
-    accessorIterator.assertAccessorGetter(bigIntVector, ArrowFlightJdbcBaseIntVectorAccessor::getObject,
+    accessorIterator.assertAccessorGetter(bigIntVector,
+        ArrowFlightJdbcBaseIntVectorAccessor::getObject,
         equalTo(0xAABBCCDDEEFFAABBL));
   }
 
   @Test
   public void testShouldGetObjectFromUnsignedInt() throws Exception {
-    accessorIterator.assertAccessorGetter(int4Vector, ArrowFlightJdbcBaseIntVectorAccessor::getObject,
+    accessorIterator.assertAccessorGetter(int4Vector,
+        ArrowFlightJdbcBaseIntVectorAccessor::getObject,
         equalTo(0x80000001));
   }
 
   @Test
   public void testShouldGetObjectFromIntVectorWithNull() throws Exception {
-    accessorIterator.assertAccessorGetter(intVectorWithNull, ArrowFlightJdbcBaseIntVectorAccessor::getObject,
+    accessorIterator.assertAccessorGetter(intVectorWithNull,
+        ArrowFlightJdbcBaseIntVectorAccessor::getObject,
         CoreMatchers.nullValue());
   }
 
   @Test
   public void testShouldGetBigDecimalFromIntVectorWithNull() throws Exception {
-    accessorIterator.assertAccessorGetter(intVectorWithNull, ArrowFlightJdbcBaseIntVectorAccessor::getBigDecimal,
+    accessorIterator.assertAccessorGetter(intVectorWithNull,
+        ArrowFlightJdbcBaseIntVectorAccessor::getBigDecimal,
         CoreMatchers.nullValue());
   }
 
   @Test
   public void testShouldGetBigDecimalWithScaleFromIntVectorWithNull() throws Exception {
     accessorIterator
-        .assertAccessorGetter(intVectorWithNull, accessor -> accessor.getBigDecimal(2), CoreMatchers.nullValue());
+        .assertAccessorGetter(intVectorWithNull, accessor -> accessor.getBigDecimal(2),
+            CoreMatchers.nullValue());
   }
 
   @Test
@@ -196,7 +221,8 @@ public class ArrowFlightJdbcBaseIntVectorAccessorUnitTest {
     byte[] value = new byte[] {(byte) 0xaa, (byte) 0xbb};
 
     accessorIterator
-        .assertAccessorGetter(smallIntVector, ArrowFlightJdbcBaseIntVectorAccessor::getBytes, CoreMatchers.is(value));
+        .assertAccessorGetter(smallIntVector, ArrowFlightJdbcBaseIntVectorAccessor::getBytes,
+            CoreMatchers.is(value));
   }
 
   @Test
@@ -204,16 +230,19 @@ public class ArrowFlightJdbcBaseIntVectorAccessorUnitTest {
     byte[] value = new byte[] {(byte) 0xaa};
 
     accessorIterator
-        .assertAccessorGetter(tinyIntVector, ArrowFlightJdbcBaseIntVectorAccessor::getBytes, CoreMatchers.is(value));
+        .assertAccessorGetter(tinyIntVector, ArrowFlightJdbcBaseIntVectorAccessor::getBytes,
+            CoreMatchers.is(value));
   }
 
   @Test
   public void testShouldGetBytesFromBigIntVector() throws Exception {
     byte[] value =
-        new byte[] {(byte) 0xaa, (byte) 0xbb, (byte) 0xcc, (byte) 0xdd, (byte) 0xee, (byte) 0xff, (byte) 0xaa,
+        new byte[] {(byte) 0xaa, (byte) 0xbb, (byte) 0xcc, (byte) 0xdd, (byte) 0xee, (byte) 0xff,
+            (byte) 0xaa,
             (byte) 0xbb};
 
     accessorIterator
-        .assertAccessorGetter(bigIntVector, ArrowFlightJdbcBaseIntVectorAccessor::getBytes, CoreMatchers.is(value));
+        .assertAccessorGetter(bigIntVector, ArrowFlightJdbcBaseIntVectorAccessor::getBytes,
+            CoreMatchers.is(value));
   }
 }

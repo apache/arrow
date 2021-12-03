@@ -39,9 +39,13 @@ public class ArrowFlightJdbcBitVectorAccessorTest {
 
   @Rule
   public final ErrorCollector collector = new ErrorCollector();
-  private final AccessorTestUtils.AccessorSupplier<ArrowFlightJdbcBitVectorAccessor> accessorSupplier =
-      (vector, getCurrentRow) -> new ArrowFlightJdbcBitVectorAccessor((BitVector) vector, getCurrentRow);
-  private final AccessorTestUtils.AccessorIterator<ArrowFlightJdbcBitVectorAccessor> accessorIterator =
+  private final AccessorTestUtils.AccessorSupplier<ArrowFlightJdbcBitVectorAccessor>
+      accessorSupplier =
+          (vector, getCurrentRow) -> new ArrowFlightJdbcBitVectorAccessor((BitVector) vector,
+              getCurrentRow, (boolean wasNull) -> {
+          });
+  private final AccessorTestUtils.AccessorIterator<ArrowFlightJdbcBitVectorAccessor>
+      accessorIterator =
       new AccessorTestUtils.AccessorIterator<>(collector, accessorSupplier);
   private BitVector vector;
   private BitVector vectorWithNull;
@@ -60,7 +64,8 @@ public class ArrowFlightJdbcBitVectorAccessorTest {
     this.vectorWithNull.close();
   }
 
-  private <T> void iterate(final Function<ArrowFlightJdbcBitVectorAccessor, T> function, final T result,
+  private <T> void iterate(final Function<ArrowFlightJdbcBitVectorAccessor, T> function,
+                           final T result,
                            final T resultIfFalse, final BitVector vector) throws Exception {
     accessorIterator.assertAccessorGetter(vector, function,
         ((accessor, currentRow) -> is(arrayToAssert[currentRow] ? result : resultIfFalse))
@@ -120,7 +125,8 @@ public class ArrowFlightJdbcBitVectorAccessorTest {
 
   @Test
   public void testShouldGetBigDecimalMethodFromBitVector() throws Exception {
-    iterate(ArrowFlightJdbcBitVectorAccessor::getBigDecimal, BigDecimal.ONE, BigDecimal.ZERO, vector);
+    iterate(ArrowFlightJdbcBitVectorAccessor::getBigDecimal, BigDecimal.ONE, BigDecimal.ZERO,
+        vector);
   }
 
   @Test

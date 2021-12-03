@@ -22,7 +22,9 @@ import org.junit.jupiter.api.Test;
 
 public class ArrowFlightJdbcNullVectorAccessorTest {
 
-  ArrowFlightJdbcNullVectorAccessor accessor = new ArrowFlightJdbcNullVectorAccessor();
+  ArrowFlightJdbcNullVectorAccessor accessor =
+      new ArrowFlightJdbcNullVectorAccessor((boolean wasNull) -> {
+      });
 
   @Test
   void testShouldWasNullReturnTrue() {

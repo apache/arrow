@@ -84,7 +84,8 @@ public class ResultSetTest {
   @Test
   public void testShouldRunSelectQuery() throws Exception {
     try (Statement statement = connection.createStatement();
-         ResultSet resultSet = statement.executeQuery(CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD)) {
+         ResultSet resultSet = statement.executeQuery(
+             CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD)) {
       CoreMockedSqlProducers.assertLegacyRegularSqlResultSet(resultSet, collector);
     }
   }
@@ -92,7 +93,8 @@ public class ResultSetTest {
   @Test
   public void testShouldExecuteQueryNotBlockIfClosedBeforeEnd() throws Exception {
     try (Statement statement = connection.createStatement();
-         ResultSet resultSet = statement.executeQuery(CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD)) {
+         ResultSet resultSet = statement.executeQuery(
+             CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD)) {
 
       for (int i = 0; i < 7500; i++) {
         assertTrue(resultSet.next());
@@ -109,7 +111,8 @@ public class ResultSetTest {
   @Test
   public void testShouldRunSelectQuerySettingMaxRowLimit() throws Exception {
     try (Statement statement = connection.createStatement();
-         ResultSet resultSet = statement.executeQuery(CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD)) {
+         ResultSet resultSet = statement.executeQuery(
+             CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD)) {
 
       final int maxRowsLimit = 3;
       statement.setMaxRows(maxRowsLimit);
@@ -152,7 +155,8 @@ public class ResultSetTest {
   @Test
   public void testShouldRunSelectQuerySettingLargeMaxRowLimit() throws Exception {
     try (Statement statement = connection.createStatement();
-         ResultSet resultSet = statement.executeQuery(CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD)) {
+         ResultSet resultSet = statement.executeQuery(
+             CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD)) {
 
       final long maxRowsLimit = 3;
       statement.setLargeMaxRows(maxRowsLimit);
@@ -173,10 +177,12 @@ public class ResultSetTest {
   }
 
   @Test
-  public void testColumnCountShouldRemainConsistentForResultSetThroughoutEntireDuration() throws SQLException {
+  public void testColumnCountShouldRemainConsistentForResultSetThroughoutEntireDuration()
+      throws SQLException {
     final Set<Integer> counts = new HashSet<>();
     try (final Statement statement = connection.createStatement();
-         final ResultSet resultSet = statement.executeQuery(CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD)) {
+         final ResultSet resultSet = statement.executeQuery(
+             CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD)) {
       while (resultSet.next()) {
         counts.add(resultSet.getMetaData().getColumnCount());
       }
@@ -229,9 +235,11 @@ public class ResultSetTest {
    * @throws Exception If the connection fails to be established.
    */
   @Test
-  public void testShouldNotCloseStatementWhenIsNotCloseOnCompletionWithMaxRowsLimit() throws Exception {
+  public void testShouldNotCloseStatementWhenIsNotCloseOnCompletionWithMaxRowsLimit()
+      throws Exception {
     try (Statement statement = connection.createStatement();
-         ResultSet resultSet = statement.executeQuery(CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD)) {
+         ResultSet resultSet = statement.executeQuery(
+             CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD)) {
 
       final long maxRowsLimit = 3;
       statement.setLargeMaxRows(maxRowsLimit);
@@ -246,7 +254,8 @@ public class ResultSetTest {
   @Test
   public void testShouldCancelQueryUponCancelAfterQueryingResultSet() throws SQLException {
     try (final Statement statement = connection.createStatement();
-         final ResultSet resultSet = statement.executeQuery(CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD)) {
+         final ResultSet resultSet = statement.executeQuery(
+             CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD)) {
       final int column = RANDOM.nextInt(resultSet.getMetaData().getColumnCount()) + 1;
       collector.checkThat(resultSet.isClosed(), is(false));
       collector.checkThat(resultSet.next(), is(true));
@@ -266,7 +275,8 @@ public class ResultSetTest {
       final CountDownLatch latch = new CountDownLatch(1);
       final Set<Exception> exceptions = synchronizedSet(new HashSet<>(1));
       final Thread thread = new Thread(() -> {
-        try (final ResultSet resultSet = statement.executeQuery(CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD)) {
+        try (final ResultSet resultSet = statement.executeQuery(
+            CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD)) {
           final int cachedColumnCount = resultSet.getMetaData().getColumnCount();
           Thread.sleep(300);
           while (resultSet.next()) {

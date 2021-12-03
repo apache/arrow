@@ -46,8 +46,8 @@ import com.google.common.collect.ImmutableList;
 /**
  * Utility class for running tests against a FlightServer.
  *
- * @deprecated this class doesn't follow best practices
  * @see FlightServerTestRule#apply
+ * @deprecated this class doesn't follow best practices
  */
 @Deprecated
 public final class FlightTestUtils {
@@ -99,8 +99,9 @@ public final class FlightTestUtils {
   /**
    * Return a a FlightServer (actually anything that is startable)
    * that has been started bound to a random port.
-   * @deprecated this approach is unnecessarily verbose and allows for little to no reuse.
+   *
    * @see FlightServerTestRule
+   * @deprecated this approach is unnecessarily verbose and allows for little to no reuse.
    */
   @Deprecated
   public <T> T getStartedServer(Function<Location, T> newServerFromLocation) throws IOException {
@@ -145,8 +146,8 @@ public final class FlightTestUtils {
       public void listFlights(CallContext context, Criteria criteria,
                               StreamListener<FlightInfo> listener) {
         if (!context.peerIdentity().equals(username1)) {
-            listener.onError(new IllegalArgumentException("Invalid username"));
-            return;
+          listener.onError(new IllegalArgumentException("Invalid username"));
+          return;
         }
         listener.onCompleted();
       }
@@ -158,7 +159,7 @@ public final class FlightTestUtils {
           return;
         }
         final Schema pojoSchema = new Schema(ImmutableList.of(Field.nullable("a",
-                Types.MinorType.BIGINT.getType())));
+            Types.MinorType.BIGINT.getType())));
         try (VectorSchemaRoot root = VectorSchemaRoot.create(pojoSchema, allocator)) {
           listener.start(root);
           root.allocateNew();
@@ -187,8 +188,9 @@ public final class FlightTestUtils {
    */
   public static List<CertKeyPair> exampleTlsCerts() throws URISyntaxException {
     final Path root = getFlightTestDataRoot();
-    return Arrays.asList(new CertKeyPair(root.resolve("cert0.pem").toFile(), root.resolve("cert0.pkcs1").toFile()),
-            new CertKeyPair(root.resolve("cert1.pem").toFile(), root.resolve("cert1.pkcs1").toFile()));
+    return Arrays.asList(
+        new CertKeyPair(root.resolve("cert0.pem").toFile(), root.resolve("cert0.pkcs1").toFile()),
+        new CertKeyPair(root.resolve("cert1.pem").toFile(), root.resolve("cert1.pkcs1").toFile()));
   }
 
   public static class CertKeyPair {

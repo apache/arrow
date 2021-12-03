@@ -36,7 +36,8 @@ import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl;
  */
 public class ArrowFlightJdbcConnectionPoolDataSource extends ArrowFlightJdbcDataSource
     implements ConnectionPoolDataSource, ConnectionEventListener, AutoCloseable {
-  private final Map<Properties, Queue<ArrowFlightJdbcPooledConnection>> pool = new ConcurrentHashMap<>();
+  private final Map<Properties, Queue<ArrowFlightJdbcPooledConnection>> pool =
+      new ConcurrentHashMap<>();
 
   /**
    * Instantiates a new DataSource.
@@ -55,8 +56,10 @@ public class ArrowFlightJdbcConnectionPoolDataSource extends ArrowFlightJdbcData
    * @param properties the properties.
    * @return a new data source.
    */
-  public static ArrowFlightJdbcConnectionPoolDataSource createNewDataSource(final Properties properties) {
-    return new ArrowFlightJdbcConnectionPoolDataSource(properties, new ArrowFlightConnectionConfigImpl(properties));
+  public static ArrowFlightJdbcConnectionPoolDataSource createNewDataSource(
+      final Properties properties) {
+    return new ArrowFlightJdbcConnectionPoolDataSource(properties,
+        new ArrowFlightConnectionConfigImpl(properties));
   }
 
   @Override
@@ -66,7 +69,8 @@ public class ArrowFlightJdbcConnectionPoolDataSource extends ArrowFlightJdbcData
   }
 
   @Override
-  public PooledConnection getPooledConnection(final String username, final String password) throws SQLException {
+  public PooledConnection getPooledConnection(final String username, final String password)
+      throws SQLException {
     final Properties properties = getProperties(username, password);
     Queue<ArrowFlightJdbcPooledConnection> objectPool =
         pool.computeIfAbsent(properties, s -> new ConcurrentLinkedQueue<>());
@@ -79,7 +83,8 @@ public class ArrowFlightJdbcConnectionPoolDataSource extends ArrowFlightJdbcData
     return pooledConnection;
   }
 
-  private ArrowFlightJdbcPooledConnection createPooledConnection(final ArrowFlightConnectionConfigImpl config)
+  private ArrowFlightJdbcPooledConnection createPooledConnection(
+      final ArrowFlightConnectionConfigImpl config)
       throws SQLException {
     ArrowFlightJdbcPooledConnection pooledConnection =
         new ArrowFlightJdbcPooledConnection(getConnection(config.getUser(), config.getPassword()));

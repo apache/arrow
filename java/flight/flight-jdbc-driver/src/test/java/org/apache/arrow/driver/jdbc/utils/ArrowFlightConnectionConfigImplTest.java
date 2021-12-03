@@ -70,17 +70,20 @@ public final class ArrowFlightConnectionConfigImplTest {
 
   @Test
   public void testGetProperty() {
-    collector.checkThat(arrowFlightConnectionConfigFunction.apply(arrowFlightConnectionConfig), is(value));
+    collector.checkThat(arrowFlightConnectionConfigFunction.apply(arrowFlightConnectionConfig),
+        is(value));
   }
 
   @Parameters(name = "<{0}> as <{1}>")
   public static List<Object[]> provideParameters() {
-    return asList(new Object[][]{
-        {HOST, "host", (Function<ArrowFlightConnectionConfigImpl, ?>) ArrowFlightConnectionConfigImpl::getHost},
+    return asList(new Object[][] {
+        {HOST, "host",
+            (Function<ArrowFlightConnectionConfigImpl, ?>) ArrowFlightConnectionConfigImpl::getHost},
         {PORT,
             RANDOM.nextInt(Short.toUnsignedInt(Short.MAX_VALUE)),
             (Function<ArrowFlightConnectionConfigImpl, ?>) ArrowFlightConnectionConfigImpl::getPort},
-        {USER, "user", (Function<ArrowFlightConnectionConfigImpl, ?>) ArrowFlightConnectionConfigImpl::getUser},
+        {USER, "user",
+            (Function<ArrowFlightConnectionConfigImpl, ?>) ArrowFlightConnectionConfigImpl::getUser},
         {PASSWORD, "password",
             (Function<ArrowFlightConnectionConfigImpl, ?>) ArrowFlightConnectionConfigImpl::getPassword},
         {USE_TLS, RANDOM.nextBoolean(),

@@ -22,6 +22,7 @@ import java.time.Period;
 import java.util.function.IntSupplier;
 
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
+import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorFactory;
 import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.IntervalDayVector;
 import org.apache.arrow.vector.IntervalYearVector;
@@ -48,9 +49,12 @@ public class ArrowFlightJdbcIntervalVectorAccessor extends ArrowFlightJdbcAccess
    *
    * @param vector             an instance of a IntervalDayVector.
    * @param currentRowSupplier the supplier to track the rows.
+   * @param setCursorWasNull   the consumer to set if value was null.
    */
-  public ArrowFlightJdbcIntervalVectorAccessor(IntervalDayVector vector, IntSupplier currentRowSupplier) {
-    super(currentRowSupplier);
+  public ArrowFlightJdbcIntervalVectorAccessor(IntervalDayVector vector,
+                                               IntSupplier currentRowSupplier,
+                                               ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
+    super(currentRowSupplier, setCursorWasNull);
     this.vector = vector;
     this.stringBuilderGetter = vector::getAsStringBuilder;
     this.objectClass = Duration.class;
@@ -61,9 +65,12 @@ public class ArrowFlightJdbcIntervalVectorAccessor extends ArrowFlightJdbcAccess
    *
    * @param vector             an instance of a IntervalYearVector.
    * @param currentRowSupplier the supplier to track the rows.
+   * @param setCursorWasNull   the consumer to set if value was null.
    */
-  public ArrowFlightJdbcIntervalVectorAccessor(IntervalYearVector vector, IntSupplier currentRowSupplier) {
-    super(currentRowSupplier);
+  public ArrowFlightJdbcIntervalVectorAccessor(IntervalYearVector vector,
+                                               IntSupplier currentRowSupplier,
+                                               ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
+    super(currentRowSupplier, setCursorWasNull);
     this.vector = vector;
     this.stringBuilderGetter = vector::getAsStringBuilder;
     this.objectClass = Period.class;
@@ -73,6 +80,7 @@ public class ArrowFlightJdbcIntervalVectorAccessor extends ArrowFlightJdbcAccess
   public Object getObject() {
     Object object = this.vector.getObject(getCurrentRow());
     this.wasNull = object == null;
+    this.wasNullConsumer.setWasNull(this.wasNull);
 
     return object;
   }
@@ -87,6 +95,7 @@ public class ArrowFlightJdbcIntervalVectorAccessor extends ArrowFlightJdbcAccess
     StringBuilder stringBuilder = this.stringBuilderGetter.get(getCurrentRow());
 
     this.wasNull = stringBuilder == null;
+    this.wasNullConsumer.setWasNull(this.wasNull);
     if (this.wasNull) {
       return null;
     }

@@ -22,6 +22,7 @@ import java.math.RoundingMode;
 import java.util.function.IntSupplier;
 
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
+import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorFactory;
 import org.apache.arrow.vector.Decimal256Vector;
 import org.apache.arrow.vector.DecimalVector;
 
@@ -40,13 +41,16 @@ public class ArrowFlightJdbcDecimalVectorAccessor extends ArrowFlightJdbcAccesso
     BigDecimal getObject(int index);
   }
 
-  public ArrowFlightJdbcDecimalVectorAccessor(DecimalVector vector, IntSupplier currentRowSupplier) {
-    super(currentRowSupplier);
+  public ArrowFlightJdbcDecimalVectorAccessor(DecimalVector vector, IntSupplier currentRowSupplier,
+                                              ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
+    super(currentRowSupplier, setCursorWasNull);
     this.getter = vector::getObject;
   }
 
-  public ArrowFlightJdbcDecimalVectorAccessor(Decimal256Vector vector, IntSupplier currentRowSupplier) {
-    super(currentRowSupplier);
+  public ArrowFlightJdbcDecimalVectorAccessor(Decimal256Vector vector,
+                                              IntSupplier currentRowSupplier,
+                                              ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
+    super(currentRowSupplier, setCursorWasNull);
     this.getter = vector::getObject;
   }
 
@@ -59,6 +63,7 @@ public class ArrowFlightJdbcDecimalVectorAccessor extends ArrowFlightJdbcAccesso
   public BigDecimal getBigDecimal() {
     final BigDecimal value = getter.getObject(getCurrentRow());
     this.wasNull = value == null;
+    this.wasNullConsumer.setWasNull(this.wasNull);
     return value;
   }
 

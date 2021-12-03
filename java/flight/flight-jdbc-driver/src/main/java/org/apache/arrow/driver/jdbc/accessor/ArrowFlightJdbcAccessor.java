@@ -46,9 +46,12 @@ public abstract class ArrowFlightJdbcAccessor implements Accessor {
 
   // All the derived accessor classes should alter this as they encounter null Values
   protected boolean wasNull;
+  protected ArrowFlightJdbcAccessorFactory.WasNullConsumer wasNullConsumer;
 
-  protected ArrowFlightJdbcAccessor(final IntSupplier currentRowSupplier) {
+  protected ArrowFlightJdbcAccessor(final IntSupplier currentRowSupplier,
+                                    ArrowFlightJdbcAccessorFactory.WasNullConsumer wasNullConsumer) {
     this.currentRowSupplier = currentRowSupplier;
+    this.wasNullConsumer = wasNullConsumer;
   }
 
   protected int getCurrentRow() {

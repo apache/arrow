@@ -27,7 +27,8 @@ import org.apache.arrow.vector.complex.DenseUnionVector;
 /**
  * Accessor for the Arrow type {@link DenseUnionVector}.
  */
-public class ArrowFlightJdbcDenseUnionVectorAccessor extends AbstractArrowFlightJdbcUnionVectorAccessor {
+public class ArrowFlightJdbcDenseUnionVectorAccessor
+    extends AbstractArrowFlightJdbcUnionVectorAccessor {
 
   private final DenseUnionVector vector;
 
@@ -36,15 +37,20 @@ public class ArrowFlightJdbcDenseUnionVectorAccessor extends AbstractArrowFlight
    *
    * @param vector             an instance of a DenseUnionVector.
    * @param currentRowSupplier the supplier to track the rows.
+   * @param setCursorWasNull   the consumer to set if value was null.
    */
-  public ArrowFlightJdbcDenseUnionVectorAccessor(DenseUnionVector vector, IntSupplier currentRowSupplier) {
-    super(currentRowSupplier);
+  public ArrowFlightJdbcDenseUnionVectorAccessor(DenseUnionVector vector,
+                                                 IntSupplier currentRowSupplier,
+                                                 ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
+    super(currentRowSupplier, setCursorWasNull);
     this.vector = vector;
   }
 
   @Override
   protected ArrowFlightJdbcAccessor createAccessorForVector(ValueVector vector) {
-    return ArrowFlightJdbcAccessorFactory.createAccessor(vector, () -> this.vector.getOffset(this.getCurrentRow()));
+    return ArrowFlightJdbcAccessorFactory.createAccessor(vector,
+        () -> this.vector.getOffset(this.getCurrentRow()), (boolean wasNull) -> {
+        });
   }
 
   @Override

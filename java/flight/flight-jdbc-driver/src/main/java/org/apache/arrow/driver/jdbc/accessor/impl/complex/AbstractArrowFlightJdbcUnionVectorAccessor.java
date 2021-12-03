@@ -36,6 +36,7 @@ import java.util.Map;
 import java.util.function.IntSupplier;
 
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
+import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorFactory;
 import org.apache.arrow.driver.jdbc.accessor.impl.ArrowFlightJdbcNullVectorAccessor;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.complex.DenseUnionVector;
@@ -52,10 +53,14 @@ public abstract class AbstractArrowFlightJdbcUnionVectorAccessor extends ArrowFl
    */
   private final ArrowFlightJdbcAccessor[] accessors = new ArrowFlightJdbcAccessor[128];
 
-  private final ArrowFlightJdbcNullVectorAccessor nullAccessor = new ArrowFlightJdbcNullVectorAccessor();
+  private final ArrowFlightJdbcNullVectorAccessor nullAccessor =
+      new ArrowFlightJdbcNullVectorAccessor((boolean wasNull) -> {
+      });
 
-  protected AbstractArrowFlightJdbcUnionVectorAccessor(IntSupplier currentRowSupplier) {
-    super(currentRowSupplier);
+  protected AbstractArrowFlightJdbcUnionVectorAccessor(
+      IntSupplier currentRowSupplier,
+      ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
+    super(currentRowSupplier, setCursorWasNull);
   }
 
   protected abstract ArrowFlightJdbcAccessor createAccessorForVector(ValueVector vector);

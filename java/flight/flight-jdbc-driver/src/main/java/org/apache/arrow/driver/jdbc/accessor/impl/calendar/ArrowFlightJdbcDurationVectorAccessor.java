@@ -21,6 +21,7 @@ import java.time.Duration;
 import java.util.function.IntSupplier;
 
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
+import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorFactory;
 import org.apache.arrow.vector.DurationVector;
 
 /**
@@ -30,8 +31,10 @@ public class ArrowFlightJdbcDurationVectorAccessor extends ArrowFlightJdbcAccess
 
   private final DurationVector vector;
 
-  public ArrowFlightJdbcDurationVectorAccessor(DurationVector vector, IntSupplier currentRowSupplier) {
-    super(currentRowSupplier);
+  public ArrowFlightJdbcDurationVectorAccessor(DurationVector vector,
+                                               IntSupplier currentRowSupplier,
+                                               ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
+    super(currentRowSupplier, setCursorWasNull);
     this.vector = vector;
   }
 
@@ -44,6 +47,7 @@ public class ArrowFlightJdbcDurationVectorAccessor extends ArrowFlightJdbcAccess
   public Object getObject() {
     Duration duration = vector.getObject(getCurrentRow());
     this.wasNull = duration == null;
+    this.wasNullConsumer.setWasNull(this.wasNull);
 
     return duration;
   }

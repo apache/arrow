@@ -132,7 +132,8 @@ public final class CoreMockedSqlProducers {
             ((UInt4Vector) root.getVector("Age"))
                 .setSafe(indexOnBatch, (int) Short.MAX_VALUE + 1 + i + resultsOffset);
             ((Float8Vector) root.getVector("Salary"))
-                .setSafe(indexOnBatch, Math.scalb((double) (i + resultsOffset) / 2, i + resultsOffset));
+                .setSafe(indexOnBatch,
+                    Math.scalb((double) (i + resultsOffset) / 2, i + resultsOffset));
             ((DateDayVector) root.getVector("Hire Date"))
                 .setSafe(indexOnBatch, i + resultsOffset);
             ((TimeStampMilliVector) root.getVector("Last Sale"))
@@ -192,7 +193,8 @@ public final class CoreMockedSqlProducers {
         listener.completed();
       }
     };
-    producer.addSelectQuery(LEGACY_METADATA_SQL_CMD, metadataSchema, Collections.singletonList(formula));
+    producer.addSelectQuery(LEGACY_METADATA_SQL_CMD, metadataSchema,
+        Collections.singletonList(formula));
   }
 
   private static void addLegacyCancellationSqlCmdSupport(final MockFlightSqlProducer producer) {
@@ -215,7 +217,8 @@ public final class CoreMockedSqlProducers {
    * @param collector the {@link ErrorCollector} to use.
    * @throws SQLException on error.
    */
-  public static void assertLegacyRegularSqlResultSet(final ResultSet resultSet, final ErrorCollector collector)
+  public static void assertLegacyRegularSqlResultSet(final ResultSet resultSet,
+                                                     final ErrorCollector collector)
       throws SQLException {
     final int expectedRowCount = 50_000;
 

@@ -30,10 +30,10 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Properties;
 
+import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty;
 import org.apache.arrow.driver.jdbc.utils.FlightTestUtils;
 import org.apache.arrow.driver.jdbc.utils.PropertiesSample;
 import org.apache.arrow.driver.jdbc.utils.UrlSample;
-import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty;
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.FlightProducer;
 import org.apache.arrow.flight.FlightServer;
@@ -100,8 +100,7 @@ public class ArrowFlightJdbcDriverTest {
    * Tests whether the {@link ArrowFlightJdbcDriver} is registered in the
    * {@link DriverManager}.
    *
-   * @throws SQLException
-   *           If an error occurs. (This is not supposed to happen.)
+   * @throws SQLException If an error occurs. (This is not supposed to happen.)
    */
   @Test
   public void testDriverIsRegisteredInDriverManager() throws Exception {
@@ -113,8 +112,7 @@ public class ArrowFlightJdbcDriverTest {
    * Tests whether the {@link ArrowFlightJdbcDriver} fails when provided with an
    * unsupported URL prefix.
    *
-   * @throws SQLException
-   *           If the test passes.
+   * @throws SQLException If the test passes.
    */
   @Test(expected = SQLException.class)
   public void testShouldDeclineUrlWithUnsupportedPrefix() throws Exception {
@@ -128,8 +126,7 @@ public class ArrowFlightJdbcDriverTest {
    * Tests whether the {@link ArrowFlightJdbcDriver} can establish a successful
    * connection to the Arrow Flight client.
    *
-   * @throws Exception
-   *           If the connection fails to be established.
+   * @throws Exception If the connection fails to be established.
    */
   @Test
   public void testShouldConnectWhenProvidedWithValidUrl() throws Exception {
@@ -148,7 +145,6 @@ public class ArrowFlightJdbcDriverTest {
   /**
    * Tests whether an exception is thrown upon attempting to connect to a
    * malformed URI.
-   *
    */
   @Test(expected = SQLException.class)
   public void testShouldThrowExceptionWhenAttemptingToConnectToMalformedUrl() throws SQLException {
@@ -162,8 +158,7 @@ public class ArrowFlightJdbcDriverTest {
    * Tests whether an exception is thrown upon attempting to connect to a
    * malformed URI.
    *
-   * @throws Exception
-   *           If an error occurs.
+   * @throws Exception If an error occurs.
    */
   @Test(expected = SQLException.class)
   public void testShouldThrowExceptionWhenAttemptingToConnectToUrlNoPrefix() throws SQLException {
@@ -177,8 +172,7 @@ public class ArrowFlightJdbcDriverTest {
    * Tests whether an exception is thrown upon attempting to connect to a
    * malformed URI.
    *
-   * @throws Exception
-   *           If an error occurs.
+   * @throws Exception If an error occurs.
    */
   @Test(expected = SQLException.class)
   @Ignore // TODO Rework this test.
@@ -195,8 +189,7 @@ public class ArrowFlightJdbcDriverTest {
    * Tests whether an exception is thrown upon attempting to connect to a
    * malformed URI.
    *
-   * @throws Exception
-   *           If an error occurs.
+   * @throws Exception If an error occurs.
    */
   @Test(expected = SQLException.class)
   @Ignore // TODO Rework this test.
@@ -213,8 +206,7 @@ public class ArrowFlightJdbcDriverTest {
    * Tests whether {@code ArrowFlightJdbcDriverTest#getUrlsArgs} returns the
    * correct URL parameters.
    *
-   * @throws Exception
-   *           If an error occurs.
+   * @throws Exception If an error occurs.
    */
   @SuppressWarnings("unchecked")
   @Test
@@ -250,8 +242,7 @@ public class ArrowFlightJdbcDriverTest {
    * Tests whether an exception is thrown upon attempting to connect to a
    * malformed URI.
    *
-   * @throws Exception
-   *           If an error occurs.
+   * @throws Exception If an error occurs.
    */
   @SuppressWarnings("unchecked")
   @Test(expected = SQLException.class)
@@ -342,10 +333,8 @@ public class ArrowFlightJdbcDriverTest {
   /**
    * Validate the user's credential on a FlightServer.
    *
-   * @param username
-   *          flight server username.
-   * @param password
-   *          flight server password.
+   * @param username flight server username.
+   * @param password flight server password.
    * @return the result of validation.
    */
   private CallHeaderAuthenticator.AuthResult validate(final String username,
