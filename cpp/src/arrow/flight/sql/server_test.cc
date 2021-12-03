@@ -181,29 +181,19 @@ class TestFlightSqlServer : public ::testing::Test {
   std::condition_variable server_ready_cv;
   std::mutex server_ready_m;
 
-  Status RunServerInternal() {
+  static void RunServer(TestFlightSqlServer* fixture) {
     arrow::flight::Location location;
-    ARROW_CHECK_OK(arrow::flight::Location::ForGrpcUnix(unix_sock, &location));
+    ARROW_CHECK_OK(arrow::flight::Location::ForGrpcUnix(fixture->unix_sock, &location));
     arrow::flight::FlightServerOptions options(location);
 
-    ARROW_ASSIGN_OR_RAISE(server,
-                          arrow::flight::sql::example::SQLiteFlightSqlServer::Create())
+    ARROW_CHECK_OK(example::SQLiteFlightSqlServer::Create().Value(&fixture->server));
 
-    ARROW_CHECK_OK(server->Init(options));
+    ARROW_CHECK_OK(fixture->server->Init(options));
     // Exit with a clean error code (0) on SIGTERM
-    ARROW_CHECK_OK(server->SetShutdownOnSignals({SIGTERM}));
+    ARROW_CHECK_OK(fixture->server->SetShutdownOnSignals({SIGTERM}));
 
-    server_ready_cv.notify_all();
-    ARROW_CHECK_OK(server->Serve());
-
-    return arrow::Status::OK();
-  }
-
-  static void RunServer(TestFlightSqlServer* server) {
-    arrow::Status st = server->RunServerInternal();
-    if (!st.ok()) {
-      std::cerr << st << std::endl;
-    }
+    fixture->server_ready_cv.notify_all();
+    ARROW_CHECK_OK(fixture->server->Serve());
   }
 };
 

@@ -70,7 +70,7 @@ endif()
 if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
   find_package(SQLite3Alt REQUIRED)
 
-  set(flight_sql_test_server_SRCS
+  set(ARROW_FLIGHT_SQL_TEST_SERVER_SRCS
       example/sqlite_sql_info.cc
       example/sqlite_statement.cc
       example/sqlite_statement_batch_reader.cc
@@ -81,14 +81,15 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
                  SOURCES
                  client_test.cc
                  server_test.cc
-                 ${flight_sql_test_server_SRCS}
+                 ${ARROW_FLIGHT_SQL_TEST_SERVER_SRCS}
                  STATIC_LINK_LIBS
                  ${ARROW_FLIGHT_SQL_TEST_LINK_LIBS}
                  ${SQLite3_LIBRARIES}
                  LABELS
                  "arrow_flight_sql")
 
-  add_executable(flight_sql_test_server test_server_cli.cc ${flight_sql_test_server_SRCS})
+  add_executable(flight_sql_test_server test_server_cli.cc
+                                        ${ARROW_FLIGHT_SQL_TEST_SERVER_SRCS})
   target_link_libraries(flight_sql_test_server
                         PRIVATE ${ARROW_FLIGHT_SQL_TEST_LINK_LIBS} ${GFLAGS_LIBRARIES}
                                 ${SQLite3_LIBRARIES})
