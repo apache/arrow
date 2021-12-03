@@ -144,44 +144,44 @@ std::vector<WriterTestParams> GenerateTestCases() {
       {abc_schema, "[]",
        DefaultTestOptions(/*include_header=*/false, /*null_string=*/"",
                           QuoteStyle::Needed),
-       /*null_string_invalid*/ false, "", util::nullopt},
+       /*expect_invalid_options*/ false, "", util::nullopt},
       {abc_schema, "[]",
        DefaultTestOptions(/*include_header=*/true, /*null_string=*/"",
                           QuoteStyle::Needed),
-       /*null_string_invalid*/ false, expected_header, util::nullopt},
+       /*expect_invalid_options*/ false, expected_header, util::nullopt},
       {abc_schema, populated_batch,
        DefaultTestOptions(/*include_header=*/false, /*null_string=*/"",
                           QuoteStyle::Needed),
-       /*null_string_invalid*/ false, expected_without_header, util::nullopt},
+       /*expect_invalid_options*/ false, expected_without_header, util::nullopt},
       {abc_schema, populated_batch,
        DefaultTestOptions(/*include_header=*/true, /*null_string=*/"",
                           QuoteStyle::Needed),
-       /*null_string_invalid*/ false, expected_header + expected_without_header,
+       /*expect_invalid_options*/ false, expected_header + expected_without_header,
        util::nullopt},
       {schema_custom_na, populated_batch_custom_na,
        DefaultTestOptions(/*include_header=*/false, /*null_string=*/"NA",
                           QuoteStyle::Needed),
-       /*null_string_invalid*/ false, expected_custom_na, util::nullopt},
+       /*expect_invalid_options*/ false, expected_custom_na, util::nullopt},
       {dummy_schema, dummy_batch_data,
        DefaultTestOptions(/*include_header=*/false, /*null_string=*/R"("NA")",
                           QuoteStyle::Needed),
-       /*null_string_invalid*/ true, /*expected_output*/ "", util::nullopt},
+       /*expect_invalid_options*/ true, /*expected_output*/ "", util::nullopt},
       {dummy_schema, dummy_batch_data,
        DefaultTestOptions(/*include_header=*/false, /*null_string=*/R"(")",
                           QuoteStyle::Needed),
-       /*null_string_invalid*/ true, /*expected_output*/ "", util::nullopt},
+       /*expect_invalid_options*/ true, /*expected_output*/ "", util::nullopt},
       {abc_schema, populated_batch,
        DefaultTestOptions(/*include_header=*/false, /*null_string=*/"",
                           QuoteStyle::AllValid),
-       /*null_string_invalid*/ false, expected_quote_style_all_valid, util::nullopt},
+       /*expect_invalid_options*/ false, expected_quote_style_all_valid, util::nullopt},
       {abc_schema, populated_batch_quote_style_none,
        DefaultTestOptions(/*include_header=*/false, /*null_string=*/"", QuoteStyle::None),
-       /*null_string_invalid*/ false, expected_quote_style_none, util::nullopt},
+       /*expect_invalid_options*/ false, expected_quote_style_none, util::nullopt},
       {abc_schema, populated_batch,
        DefaultTestOptions(/*include_header=*/false, /*null_string=*/"", QuoteStyle::None),
-       /*null_string_invalid*/ false,
+       /*expect_invalid_options*/ false,
        /*expected_output*/ "",
-       /*invalid_string*/
+       /*expect_invalid_string*/
        "Invalid: CSV values may not contain quotes if quote style is \"None\". See "
        "RFC4180. Invalid value: abc\"efg"}};
 }
@@ -263,7 +263,8 @@ INSTANTIATE_TEST_SUITE_P(SingleColumnWriteCSVTest, TestWriteCSV,
                              R"([{ "int64": 9999}, {}, { "int64": -15}])", WriteOptions(),
                              false,
                              R"("int64")"
-                             "\n9999\n\n-15\n"}));
+                             "\n9999\n\n-15\n",
+                             util::nullopt}));
 
 #ifndef _WIN32
 // TODO(ARROW-13168):
@@ -276,7 +277,8 @@ INSTANTIATE_TEST_SUITE_P(
         }),
         R"([{ "tz": 1456767743, "utc": 1456767743 }])", WriteOptions(), false,
         R"("tz","utc")"
-        "\n2016-02-29 10:42:23-0700,2016-02-29 17:42:23Z\n"}));
+        "\n2016-02-29 10:42:23-0700,2016-02-29 17:42:23Z\n",
+        util::nullopt}));
 #endif
 
 }  // namespace csv
