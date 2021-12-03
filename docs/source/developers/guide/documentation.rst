@@ -37,11 +37,8 @@ If you are an Arrow user and you found some docs to be
 incomplete or inaccurate, share your hard-earned knowledge
 with the rest of the community.
 
-If you haven't come across an error in the documentation
-it is hard to find one and going through the docs in search
-for corrections is not a good way to go. In this case you can
-search for an issue that is dealing with the documentation
-on JIRA.
+If you didn't come across something to improve in the
+documentation itself, you can search for an issue on JIRA.
 
 .. note::
    When searching for JIRA issue that deals with documentation
