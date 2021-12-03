@@ -22,6 +22,7 @@ import static java.util.Collections.singletonList;
 import static java.util.stream.IntStream.range;
 import static org.apache.arrow.flight.sql.impl.FlightSql.ActionCreatePreparedStatementResult;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetCrossReference;
+import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetDbSchemas;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetExportedKeys;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetImportedKeys;
 import static org.apache.arrow.vector.complex.MapVector.DATA_VECTOR_NAME;
@@ -52,7 +53,6 @@ import org.apache.arrow.flight.sql.impl.FlightSql.ActionClosePreparedStatementRe
 import org.apache.arrow.flight.sql.impl.FlightSql.ActionCreatePreparedStatementRequest;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetCatalogs;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetPrimaryKeys;
-import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetSchemas;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetSqlInfo;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetTableTypes;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetTables;
@@ -101,9 +101,9 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
     } else if (command.is(CommandGetCatalogs.class)) {
       return getFlightInfoCatalogs(
           FlightSqlUtils.unpackOrThrow(command, CommandGetCatalogs.class), context, descriptor);
-    } else if (command.is(CommandGetSchemas.class)) {
+    } else if (command.is(CommandGetDbSchemas.class)) {
       return getFlightInfoSchemas(
-          FlightSqlUtils.unpackOrThrow(command, CommandGetSchemas.class), context, descriptor);
+          FlightSqlUtils.unpackOrThrow(command, CommandGetDbSchemas.class), context, descriptor);
     } else if (command.is(CommandGetTables.class)) {
       return getFlightInfoTables(
           FlightSqlUtils.unpackOrThrow(command, CommandGetTables.class), context, descriptor);
@@ -146,7 +146,7 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
           FlightSqlUtils.unpackOrThrow(command, CommandStatementQuery.class), context, descriptor);
     } else if (command.is(CommandGetCatalogs.class)) {
       return new SchemaResult(Schemas.GET_CATALOGS_SCHEMA);
-    } else if (command.is(CommandGetSchemas.class)) {
+    } else if (command.is(CommandGetDbSchemas.class)) {
       return new SchemaResult(Schemas.GET_SCHEMAS_SCHEMA);
     } else if (command.is(CommandGetTables.class)) {
       return new SchemaResult(Schemas.GET_TABLES_SCHEMA);
@@ -195,8 +195,8 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
           FlightSqlUtils.unpackOrThrow(command, CommandPreparedStatementQuery.class), context, listener);
     } else if (command.is(CommandGetCatalogs.class)) {
       getStreamCatalogs(context, listener);
-    } else if (command.is(CommandGetSchemas.class)) {
-      getStreamSchemas(FlightSqlUtils.unpackOrThrow(command, CommandGetSchemas.class), context, listener);
+    } else if (command.is(CommandGetDbSchemas.class)) {
+      getStreamSchemas(FlightSqlUtils.unpackOrThrow(command, CommandGetDbSchemas.class), context, listener);
     } else if (command.is(CommandGetTables.class)) {
       getStreamTables(FlightSqlUtils.unpackOrThrow(command, CommandGetTables.class), context, listener);
     } else if (command.is(CommandGetTableTypes.class)) {
@@ -441,14 +441,14 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
 
   /**
    * Returns the available schemas by returning a stream of
-   * {@link CommandGetSchemas} objects in {@link Result} objects.
+   * {@link CommandGetDbSchemas} objects in {@link Result} objects.
    *
    * @param request    request filter parameters.
    * @param context    Per-call context.
    * @param descriptor The descriptor identifying the data stream.
    * @return Metadata about the stream.
    */
-  FlightInfo getFlightInfoSchemas(CommandGetSchemas request, CallContext context,
+  FlightInfo getFlightInfoSchemas(CommandGetDbSchemas request, CallContext context,
                                   FlightDescriptor descriptor);
 
   /**
@@ -458,7 +458,7 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
    * @param context  Per-call context.
    * @param listener An interface for sending data back to the client.
    */
-  void getStreamSchemas(CommandGetSchemas command, CallContext context, ServerStreamListener listener);
+  void getStreamSchemas(CommandGetDbSchemas command, CallContext context, ServerStreamListener listener);
 
   /**
    * Returns the available tables by returning a stream of

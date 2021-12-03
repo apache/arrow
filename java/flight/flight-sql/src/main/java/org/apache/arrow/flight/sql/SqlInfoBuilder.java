@@ -561,13 +561,13 @@ public class SqlInfoBuilder {
   }
 
   /**
-   * Sets a value for {@link SqlInfo#SQL_SCHEMA_NAME_LENGTH} in the builder.
+   * Sets a value for {@link SqlInfo#SQL_DB_SCHEMA_NAME_LENGTH} in the builder.
    *
-   * @param value the value for {@link SqlInfo#SQL_SCHEMA_NAME_LENGTH} to be set.
+   * @param value the value for {@link SqlInfo#SQL_DB_SCHEMA_NAME_LENGTH} to be set.
    * @return the SqlInfoBuilder itself.
    */
-  public SqlInfoBuilder withSqlSchemaNameLength(final long value) {
-    return withBitIntProvider(SqlInfo.SQL_SCHEMA_NAME_LENGTH_VALUE, value);
+  public SqlInfoBuilder withSqlDbSchemaNameLength(final long value) {
+    return withBitIntProvider(SqlInfo.SQL_DB_SCHEMA_NAME_LENGTH_VALUE, value);
   }
 
   /**

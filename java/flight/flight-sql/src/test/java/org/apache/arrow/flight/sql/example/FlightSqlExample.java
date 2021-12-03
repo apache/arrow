@@ -26,6 +26,12 @@ import static java.util.Objects.isNull;
 import static java.util.UUID.randomUUID;
 import static org.apache.arrow.adapter.jdbc.JdbcToArrow.sqlToArrowVectorIterator;
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowUtils.jdbcToArrowSchema;
+import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetCrossReference;
+import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetDbSchemas;
+import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetExportedKeys;
+import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetImportedKeys;
+import static org.apache.arrow.flight.sql.impl.FlightSql.DoPutUpdateResult;
+import static org.apache.arrow.flight.sql.impl.FlightSql.TicketStatementQuery;
 import static org.apache.arrow.util.Preconditions.checkState;
 import static org.slf4j.LoggerFactory.getLogger;
 
@@ -85,13 +91,11 @@ import org.apache.arrow.flight.SchemaResult;
 import org.apache.arrow.flight.Ticket;
 import org.apache.arrow.flight.sql.FlightSqlProducer;
 import org.apache.arrow.flight.sql.SqlInfoBuilder;
-import org.apache.arrow.flight.sql.impl.FlightSql;
 import org.apache.arrow.flight.sql.impl.FlightSql.ActionClosePreparedStatementRequest;
 import org.apache.arrow.flight.sql.impl.FlightSql.ActionCreatePreparedStatementRequest;
 import org.apache.arrow.flight.sql.impl.FlightSql.ActionCreatePreparedStatementResult;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetCatalogs;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetPrimaryKeys;
-import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetSchemas;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetSqlInfo;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetTableTypes;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetTables;
@@ -595,7 +599,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
       statementLoadingCache.put(handle, statementContext);
       final ResultSet resultSet = statement.executeQuery(query);
 
-      FlightSql.TicketStatementQuery ticket = FlightSql.TicketStatementQuery.newBuilder()
+      TicketStatementQuery ticket = TicketStatementQuery.newBuilder()
           .setStatementHandle(handle)
           .build();
       return getFlightInfoForSchema(ticket, descriptor,
@@ -705,8 +709,8 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
            final Statement statement = connection.createStatement()) {
         final int result = statement.executeUpdate(query);
 
-        final FlightSql.DoPutUpdateResult build =
-            FlightSql.DoPutUpdateResult.newBuilder().setRecordCount(result).build();
+        final DoPutUpdateResult build =
+            DoPutUpdateResult.newBuilder().setRecordCount(result).build();
 
         try (final ArrowBuf buffer = rootAllocator.buffer(build.getSerializedSize())) {
           buffer.writeBytes(build.toByteArray());
@@ -745,8 +749,8 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
             recordCount = Arrays.stream(recordCount1).sum();
           }
 
-          final FlightSql.DoPutUpdateResult build =
-              FlightSql.DoPutUpdateResult.newBuilder().setRecordCount(recordCount).build();
+          final DoPutUpdateResult build =
+              DoPutUpdateResult.newBuilder().setRecordCount(recordCount).build();
 
           try (final ArrowBuf buffer = rootAllocator.buffer(build.getSerializedSize())) {
             buffer.writeBytes(build.toByteArray());
@@ -1307,16 +1311,16 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   }
 
   @Override
-  public FlightInfo getFlightInfoSchemas(final CommandGetSchemas request, final CallContext context,
+  public FlightInfo getFlightInfoSchemas(final CommandGetDbSchemas request, final CallContext context,
                                          final FlightDescriptor descriptor) {
     return getFlightInfoForSchema(request, descriptor, Schemas.GET_SCHEMAS_SCHEMA);
   }
 
   @Override
-  public void getStreamSchemas(final CommandGetSchemas command, final CallContext context,
+  public void getStreamSchemas(final CommandGetDbSchemas command, final CallContext context,
                                final ServerStreamListener listener) {
     final String catalog = command.hasCatalog() ? command.getCatalog() : null;
-    final String schemaFilterPattern = command.hasSchemaFilterPattern() ? command.getSchemaFilterPattern() : null;
+    final String schemaFilterPattern = command.hasDbSchemaFilterPattern() ? command.getDbSchemaFilterPattern() : null;
     try (final Connection connection = dataSource.getConnection();
          final ResultSet schemas = connection.getMetaData().getSchemas(catalog, schemaFilterPattern);
          final VectorSchemaRoot vectorSchemaRoot = getSchemasRoot(schemas, rootAllocator)) {
@@ -1341,7 +1345,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
                               final ServerStreamListener listener) {
     final String catalog = command.hasCatalog() ? command.getCatalog() : null;
     final String schemaFilterPattern =
-        command.hasSchemaFilterPattern() ? command.getSchemaFilterPattern() : null;
+        command.hasDbSchemaFilterPattern() ? command.getDbSchemaFilterPattern() : null;
     final String tableFilterPattern =
         command.hasTableNameFilterPattern() ? command.getTableNameFilterPattern() : null;
 
@@ -1398,7 +1402,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
                                    final ServerStreamListener listener) {
 
     final String catalog = command.hasCatalog() ? command.getCatalog() : null;
-    final String schema = command.hasSchema() ? command.getSchema() : null;
+    final String schema = command.hasDbSchema() ? command.getDbSchema() : null;
     final String table = command.getTable();
 
     try (Connection connection = DriverManager.getConnection(DATABASE_URI)) {
@@ -1443,16 +1447,16 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   }
 
   @Override
-  public FlightInfo getFlightInfoExportedKeys(final FlightSql.CommandGetExportedKeys request, final CallContext context,
+  public FlightInfo getFlightInfoExportedKeys(final CommandGetExportedKeys request, final CallContext context,
                                               final FlightDescriptor descriptor) {
     return getFlightInfoForSchema(request, descriptor, Schemas.GET_EXPORTED_KEYS_SCHEMA);
   }
 
   @Override
-  public void getStreamExportedKeys(final FlightSql.CommandGetExportedKeys command, final CallContext context,
+  public void getStreamExportedKeys(final CommandGetExportedKeys command, final CallContext context,
                                     final ServerStreamListener listener) {
     String catalog = command.hasCatalog() ? command.getCatalog() : null;
-    String schema = command.hasSchema() ? command.getSchema() : null;
+    String schema = command.hasDbSchema() ? command.getDbSchema() : null;
     String table = command.getTable();
 
     try (Connection connection = DriverManager.getConnection(DATABASE_URI);
@@ -1468,16 +1472,16 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   }
 
   @Override
-  public FlightInfo getFlightInfoImportedKeys(final FlightSql.CommandGetImportedKeys request, final CallContext context,
+  public FlightInfo getFlightInfoImportedKeys(final CommandGetImportedKeys request, final CallContext context,
                                               final FlightDescriptor descriptor) {
     return getFlightInfoForSchema(request, descriptor, Schemas.GET_IMPORTED_KEYS_SCHEMA);
   }
 
   @Override
-  public void getStreamImportedKeys(final FlightSql.CommandGetImportedKeys command, final CallContext context,
+  public void getStreamImportedKeys(final CommandGetImportedKeys command, final CallContext context,
                                     final ServerStreamListener listener) {
     String catalog = command.hasCatalog() ? command.getCatalog() : null;
-    String schema = command.hasSchema() ? command.getSchema() : null;
+    String schema = command.hasDbSchema() ? command.getDbSchema() : null;
     String table = command.getTable();
 
     try (Connection connection = DriverManager.getConnection(DATABASE_URI);
@@ -1493,18 +1497,18 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   }
 
   @Override
-  public FlightInfo getFlightInfoCrossReference(FlightSql.CommandGetCrossReference request, CallContext context,
+  public FlightInfo getFlightInfoCrossReference(CommandGetCrossReference request, CallContext context,
                                                 FlightDescriptor descriptor) {
     return getFlightInfoForSchema(request, descriptor, Schemas.GET_CROSS_REFERENCE_SCHEMA);
   }
 
   @Override
-  public void getStreamCrossReference(FlightSql.CommandGetCrossReference command, CallContext context,
+  public void getStreamCrossReference(CommandGetCrossReference command, CallContext context,
                                       ServerStreamListener listener) {
     final String pkCatalog = command.hasPkCatalog() ? command.getPkCatalog() : null;
-    final String pkSchema = command.hasPkSchema() ? command.getPkSchema() : null;
+    final String pkSchema = command.hasPkDbSchema() ? command.getPkDbSchema() : null;
     final String fkCatalog = command.hasFkCatalog() ? command.getFkCatalog() : null;
-    final String fkSchema = command.hasFkSchema() ? command.getFkSchema() : null;
+    final String fkSchema = command.hasFkDbSchema() ? command.getFkDbSchema() : null;
     final String pkTable = command.getPkTable();
     final String fkTable = command.getFkTable();
 
@@ -1565,7 +1569,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   }
 
   @Override
-  public void getStreamStatement(final FlightSql.TicketStatementQuery ticketStatementQuery, final CallContext context,
+  public void getStreamStatement(final TicketStatementQuery ticketStatementQuery, final CallContext context,
                                  final ServerStreamListener listener) {
     final ByteString handle = ticketStatementQuery.getStatementHandle();
     final StatementContext<Statement> statementContext =

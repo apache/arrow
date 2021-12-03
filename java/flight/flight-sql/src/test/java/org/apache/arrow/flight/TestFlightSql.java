@@ -44,6 +44,7 @@ import org.apache.arrow.flight.sql.FlightSqlProducer;
 import org.apache.arrow.flight.sql.example.FlightSqlExample;
 import org.apache.arrow.flight.sql.impl.FlightSql;
 import org.apache.arrow.flight.sql.impl.FlightSql.SqlSupportedCaseSensitivity;
+import org.apache.arrow.flight.sql.util.TableRef;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.FieldVector;
@@ -435,7 +436,7 @@ public class TestFlightSql {
 
   @Test
   public void testGetPrimaryKey() {
-    final FlightInfo flightInfo = sqlClient.getPrimaryKeys(null, null, "INTTABLE");
+    final FlightInfo flightInfo = sqlClient.getPrimaryKeys(TableRef.of(null, null, "INTTABLE"));
     final FlightStream stream = sqlClient.getStream(flightInfo.getEndpoints().get(0).getTicket());
 
     final List<List<String>> results = getResults(stream);
@@ -505,7 +506,7 @@ public class TestFlightSql {
   public void testGetCommandExportedKeys() {
     final FlightStream stream =
         sqlClient.getStream(
-            sqlClient.getExportedKeys(null, null, "FOREIGNTABLE")
+            sqlClient.getExportedKeys(TableRef.of(null, null, "FOREIGNTABLE"))
                 .getEndpoints().get(0).getTicket());
 
     final List<List<String>> results = getResults(stream);
@@ -535,7 +536,7 @@ public class TestFlightSql {
   public void testGetCommandImportedKeys() {
     final FlightStream stream =
         sqlClient.getStream(
-            sqlClient.getImportedKeys(null, null, "INTTABLE")
+            sqlClient.getImportedKeys(TableRef.of(null, null, "INTTABLE"))
                 .getEndpoints().get(0).getTicket());
 
     final List<List<String>> results = getResults(stream);
@@ -563,8 +564,8 @@ public class TestFlightSql {
 
   @Test
   public void testGetCommandCrossReference() {
-    final FlightInfo flightInfo = sqlClient.getCrossReference(null, null,
-        "FOREIGNTABLE", null, null, "INTTABLE");
+    final FlightInfo flightInfo = sqlClient.getCrossReference(TableRef.of(null, null,
+        "FOREIGNTABLE"), TableRef.of(null, null, "INTTABLE"));
     final FlightStream stream = sqlClient.getStream(flightInfo.getEndpoints().get(0).getTicket());
 
     final List<List<String>> results = getResults(stream);

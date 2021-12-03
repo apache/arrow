@@ -20,16 +20,19 @@ package org.apache.arrow.flight.sql;
 import static org.apache.arrow.flight.sql.impl.FlightSql.ActionClosePreparedStatementRequest;
 import static org.apache.arrow.flight.sql.impl.FlightSql.ActionCreatePreparedStatementRequest;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetCatalogs;
+import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetCrossReference;
+import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetDbSchemas;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetExportedKeys;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetImportedKeys;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetPrimaryKeys;
-import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetSchemas;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetSqlInfo;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetTableTypes;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetTables;
+import static org.apache.arrow.flight.sql.impl.FlightSql.CommandPreparedStatementUpdate;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementQuery;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementUpdate;
 import static org.apache.arrow.flight.sql.impl.FlightSql.DoPutUpdateResult;
+import static org.apache.arrow.flight.sql.impl.FlightSql.SqlInfo;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -55,9 +58,9 @@ import org.apache.arrow.flight.Result;
 import org.apache.arrow.flight.SchemaResult;
 import org.apache.arrow.flight.SyncPutListener;
 import org.apache.arrow.flight.Ticket;
-import org.apache.arrow.flight.sql.impl.FlightSql;
 import org.apache.arrow.flight.sql.impl.FlightSql.ActionCreatePreparedStatementResult;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandPreparedStatementQuery;
+import org.apache.arrow.flight.sql.util.TableRef;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.Preconditions;
@@ -137,20 +140,20 @@ public class FlightSqlClient implements AutoCloseable {
   /**
    * Request a list of schemas.
    *
-   * @param catalog             The catalog.
-   * @param schemaFilterPattern The schema filter pattern.
-   * @param options             RPC-layer hints for this call.
+   * @param catalog               The catalog.
+   * @param dbSchemaFilterPattern The schema filter pattern.
+   * @param options               RPC-layer hints for this call.
    * @return a FlightInfo object representing the stream(s) to fetch.
    */
-  public FlightInfo getSchemas(final String catalog, final String schemaFilterPattern, final CallOption... options) {
-    final CommandGetSchemas.Builder builder = CommandGetSchemas.newBuilder();
+  public FlightInfo getSchemas(final String catalog, final String dbSchemaFilterPattern, final CallOption... options) {
+    final CommandGetDbSchemas.Builder builder = CommandGetDbSchemas.newBuilder();
 
     if (catalog != null) {
       builder.setCatalog(catalog);
     }
 
-    if (schemaFilterPattern != null) {
-      builder.setSchemaFilterPattern(schemaFilterPattern);
+    if (dbSchemaFilterPattern != null) {
+      builder.setDbSchemaFilterPattern(dbSchemaFilterPattern);
     }
 
     final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(builder.build()).toByteArray());
@@ -183,7 +186,7 @@ public class FlightSqlClient implements AutoCloseable {
    * @param info The set of metadata to retrieve. None to retrieve all metadata.
    * @return a FlightInfo object representing the stream(s) to fetch.
    */
-  public FlightInfo getSqlInfo(final FlightSql.SqlInfo... info) {
+  public FlightInfo getSqlInfo(final SqlInfo... info) {
     return getSqlInfo(info, new CallOption[0]);
   }
 
@@ -194,8 +197,8 @@ public class FlightSqlClient implements AutoCloseable {
    * @param options RPC-layer hints for this call.
    * @return a FlightInfo object representing the stream(s) to fetch.
    */
-  public FlightInfo getSqlInfo(final FlightSql.SqlInfo[] info, final CallOption... options) {
-    final int[] infoNumbers = Arrays.stream(info).mapToInt(FlightSql.SqlInfo::getNumber).toArray();
+  public FlightInfo getSqlInfo(final SqlInfo[] info, final CallOption... options) {
+    final int[] infoNumbers = Arrays.stream(info).mapToInt(SqlInfo::getNumber).toArray();
     return getSqlInfo(infoNumbers, options);
   }
 
@@ -231,15 +234,15 @@ public class FlightSqlClient implements AutoCloseable {
   /**
    * Request a list of tables.
    *
-   * @param catalog             The catalog.
-   * @param schemaFilterPattern The schema filter pattern.
-   * @param tableFilterPattern  The table filter pattern.
-   * @param tableTypes          The table types to include.
-   * @param includeSchema       True to include the schema upon return, false to not include the schema.
-   * @param options             RPC-layer hints for this call.
+   * @param catalog               The catalog.
+   * @param dbSchemaFilterPattern The schema filter pattern.
+   * @param tableFilterPattern    The table filter pattern.
+   * @param tableTypes            The table types to include.
+   * @param includeSchema         True to include the schema upon return, false to not include the schema.
+   * @param options               RPC-layer hints for this call.
    * @return a FlightInfo object representing the stream(s) to fetch.
    */
-  public FlightInfo getTables(final String catalog, final String schemaFilterPattern,
+  public FlightInfo getTables(final String catalog, final String dbSchemaFilterPattern,
                               final String tableFilterPattern, final List<String> tableTypes,
                               final boolean includeSchema, final CallOption... options) {
     final CommandGetTables.Builder builder = CommandGetTables.newBuilder();
@@ -248,8 +251,8 @@ public class FlightSqlClient implements AutoCloseable {
       builder.setCatalog(catalog);
     }
 
-    if (schemaFilterPattern != null) {
-      builder.setSchemaFilterPattern(schemaFilterPattern);
+    if (dbSchemaFilterPattern != null) {
+      builder.setDbSchemaFilterPattern(dbSchemaFilterPattern);
     }
 
     if (tableFilterPattern != null) {
@@ -268,26 +271,23 @@ public class FlightSqlClient implements AutoCloseable {
   /**
    * Request the primary keys for a table.
    *
-   * @param catalog The catalog.
-   * @param schema  The schema.
-   * @param table   The table.
-   * @param options RPC-layer hints for this call.
+   * @param tableRef  An object which hold info about catalog, dbSchema and table.
+   * @param options   RPC-layer hints for this call.
    * @return a FlightInfo object representing the stream(s) to fetch.
    */
-  public FlightInfo getPrimaryKeys(final String catalog, final String schema,
-                                   final String table, final CallOption... options) {
+  public FlightInfo getPrimaryKeys(final TableRef tableRef, final CallOption... options) {
     final CommandGetPrimaryKeys.Builder builder = CommandGetPrimaryKeys.newBuilder();
 
-    if (catalog != null) {
-      builder.setCatalog(catalog);
+    if (tableRef.getCatalog() != null) {
+      builder.setCatalog(tableRef.getCatalog());
     }
 
-    if (schema != null) {
-      builder.setSchema(schema);
+    if (tableRef.getDbSchema() != null) {
+      builder.setDbSchema(tableRef.getDbSchema());
     }
 
-    Objects.requireNonNull(table);
-    builder.setTable(table).build();
+    Objects.requireNonNull(tableRef.getTable());
+    builder.setTable(tableRef.getTable()).build();
 
     final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(builder.build()).toByteArray());
     return client.getInfo(descriptor, options);
@@ -296,27 +296,25 @@ public class FlightSqlClient implements AutoCloseable {
   /**
    * Retrieves a description about the foreign key columns that reference the primary key columns of the given table.
    *
-   * @param catalog The foreign key table catalog.
-   * @param schema  The foreign key table schema.
-   * @param table   The foreign key table. Cannot be null.
-   * @param options RPC-layer hints for this call.
+   * @param tableRef  An object which hold info about catalog, dbSchema and table.
+   * @param options   RPC-layer hints for this call.
    * @return a FlightInfo object representing the stream(s) to fetch.
    */
-  public FlightInfo getExportedKeys(String catalog, String schema, String table, final CallOption... options) {
-    Objects.requireNonNull(table, "Table cannot be null.");
+  public FlightInfo getExportedKeys(final TableRef tableRef, final CallOption... options) {
+    Objects.requireNonNull(tableRef.getTable(), "Table cannot be null.");
 
     final CommandGetExportedKeys.Builder builder = CommandGetExportedKeys.newBuilder();
 
-    if (catalog != null) {
-      builder.setCatalog(catalog);
+    if (tableRef.getCatalog() != null) {
+      builder.setCatalog(tableRef.getCatalog());
     }
 
-    if (schema != null) {
-      builder.setSchema(schema);
+    if (tableRef.getDbSchema() != null) {
+      builder.setDbSchema(tableRef.getDbSchema());
     }
 
-    Objects.requireNonNull(table);
-    builder.setTable(table).build();
+    Objects.requireNonNull(tableRef.getTable());
+    builder.setTable(tableRef.getTable()).build();
 
     final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(builder.build()).toByteArray());
     return client.getInfo(descriptor, options);
@@ -325,28 +323,26 @@ public class FlightSqlClient implements AutoCloseable {
   /**
    * Retrieves the foreign key columns for the given table.
    *
-   * @param catalog The primary key table catalog.
-   * @param schema  The primary key table schema.
-   * @param table   The primary key table. Cannot be null.
-   * @param options RPC-layer hints for this call.
+   * @param tableRef  An object which hold info about catalog, dbSchema and table.
+   * @param options   RPC-layer hints for this call.
    * @return a FlightInfo object representing the stream(s) to fetch.
    */
-  public FlightInfo getImportedKeys(final String catalog, final String schema, final String table,
+  public FlightInfo getImportedKeys(final TableRef tableRef,
                                     final CallOption... options) {
-    Objects.requireNonNull(table, "Table cannot be null.");
+    Objects.requireNonNull(tableRef.getTable(), "Table cannot be null.");
 
     final CommandGetImportedKeys.Builder builder = CommandGetImportedKeys.newBuilder();
 
-    if (catalog != null) {
-      builder.setCatalog(catalog);
+    if (tableRef.getCatalog() != null) {
+      builder.setCatalog(tableRef.getCatalog());
     }
 
-    if (schema != null) {
-      builder.setSchema(schema);
+    if (tableRef.getDbSchema() != null) {
+      builder.setDbSchema(tableRef.getDbSchema());
     }
 
-    Objects.requireNonNull(table);
-    builder.setTable(table).build();
+    Objects.requireNonNull(tableRef.getTable());
+    builder.setTable(tableRef.getTable()).build();
 
     final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(builder.build()).toByteArray());
     return client.getInfo(descriptor, options);
@@ -356,41 +352,36 @@ public class FlightSqlClient implements AutoCloseable {
    * Retrieves a description of the foreign key columns that reference the given table's
    * primary key columns (the foreign keys exported by a table).
    *
-   * @param pkCatalog     The catalog name where the parent table is.
-   * @param pkSchema      The Schema name where the parent table is.
-   * @param pkTable       The parent table name. It cannot be null.
-   * @param fkCatalog     The catalog name where the foreign table is.
-   * @param fkSchema      The schema name where the foreign table is.
-   * @param fkTable       The foreign table name. It cannot be null.
+   * @param pkTableRef    An object which hold info about catalog, dbSchema and table from a primary table.
+   * @param fkTableRef    An object which hold info about catalog, dbSchema and table from a foreign table.
    * @param options       RPC-layer hints for this call.
    * @return a FlightInfo object representing the stream(s) to fetch.
    */
-  public FlightInfo getCrossReference(final String pkCatalog, final String pkSchema, final String pkTable,
-                                      final String fkCatalog, final String fkSchema ,
-                                      final String fkTable, final CallOption... options) {
-    Objects.requireNonNull(pkTable, "Parent Table cannot be null.");
-    Objects.requireNonNull(fkTable, "Foreign Table cannot be null.");
+  public FlightInfo getCrossReference(final TableRef pkTableRef,
+                                      final TableRef fkTableRef, final CallOption... options) {
+    Objects.requireNonNull(pkTableRef.getTable(), "Parent Table cannot be null.");
+    Objects.requireNonNull(fkTableRef.getTable(), "Foreign Table cannot be null.");
 
-    final FlightSql.CommandGetCrossReference.Builder builder = FlightSql.CommandGetCrossReference.newBuilder();
+    final CommandGetCrossReference.Builder builder = CommandGetCrossReference.newBuilder();
 
-    if (pkCatalog != null) {
-      builder.setPkCatalog(pkCatalog);
+    if (pkTableRef.getCatalog() != null) {
+      builder.setPkCatalog(pkTableRef.getCatalog());
     }
 
-    if (pkSchema != null) {
-      builder.setPkSchema(pkSchema);
+    if (pkTableRef.getDbSchema() != null) {
+      builder.setPkDbSchema(pkTableRef.getDbSchema());
     }
 
-    if (fkCatalog != null) {
-      builder.setFkCatalog(fkCatalog);
+    if (fkTableRef.getCatalog() != null) {
+      builder.setFkCatalog(fkTableRef.getCatalog());
     }
 
-    if (fkSchema != null) {
-      builder.setPkSchema(fkSchema );
+    if (fkTableRef.getDbSchema() != null) {
+      builder.setFkDbSchema(fkTableRef.getDbSchema());
     }
 
-    builder.setPkTable(pkTable);
-    builder.setFkTable(fkTable);
+    builder.setPkTable(pkTableRef.getTable());
+    builder.setFkTable(fkTableRef.getTable());
 
     final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(builder.build()).toByteArray());
     return client.getInfo(descriptor, options);
@@ -575,7 +566,7 @@ public class FlightSqlClient implements AutoCloseable {
     public long executeUpdate(final CallOption... options) {
       checkOpen();
       final FlightDescriptor descriptor = FlightDescriptor
-          .command(Any.pack(FlightSql.CommandPreparedStatementUpdate.newBuilder()
+          .command(Any.pack(CommandPreparedStatementUpdate.newBuilder()
                   .setPreparedStatementHandle(preparedStatementResult.getPreparedStatementHandle())
                   .build())
               .toByteArray());
@@ -588,8 +579,8 @@ public class FlightSqlClient implements AutoCloseable {
       try {
         final PutResult read = putListener.read();
         try (final ArrowBuf metadata = read.getApplicationMetadata()) {
-          final FlightSql.DoPutUpdateResult doPutUpdateResult =
-              FlightSql.DoPutUpdateResult.parseFrom(metadata.nioBuffer());
+          final DoPutUpdateResult doPutUpdateResult =
+              DoPutUpdateResult.parseFrom(metadata.nioBuffer());
           return doPutUpdateResult.getRecordCount();
         }
       } catch (final InterruptedException | ExecutionException e) {

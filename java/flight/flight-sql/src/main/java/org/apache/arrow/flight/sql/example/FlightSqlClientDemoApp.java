@@ -26,6 +26,7 @@ import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.flight.Location;
 import org.apache.arrow.flight.sql.FlightSqlClient;
+import org.apache.arrow.flight.sql.util.TableRef;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.VectorSchemaRoot;
@@ -208,19 +209,20 @@ public class FlightSqlClientDemoApp implements AutoCloseable {
 
   private void exampleGetTables(final String catalog, final String schema, final String table) throws Exception {
     // For now, this won't filter by table types.
-    printFlightInfoResults(flightSqlClient.getTables(catalog, schema, table, null, false, getCallOptions()));
+    printFlightInfoResults(flightSqlClient.getTables(
+        catalog, schema, table, null, false, getCallOptions()));
   }
 
   private void exampleGetExportedKeys(final String catalog, final String schema, final String table) throws Exception {
-    printFlightInfoResults(flightSqlClient.getExportedKeys(catalog, schema, table, getCallOptions()));
+    printFlightInfoResults(flightSqlClient.getExportedKeys(TableRef.of(catalog, schema, table), getCallOptions()));
   }
 
   private void exampleGetImportedKeys(final String catalog, final String schema, final String table) throws Exception {
-    printFlightInfoResults(flightSqlClient.getImportedKeys(catalog, schema, table, getCallOptions()));
+    printFlightInfoResults(flightSqlClient.getImportedKeys(TableRef.of(catalog, schema, table), getCallOptions()));
   }
 
   private void exampleGetPrimaryKeys(final String catalog, final String schema, final String table) throws Exception {
-    printFlightInfoResults(flightSqlClient.getPrimaryKeys(catalog, schema, table, getCallOptions()));
+    printFlightInfoResults(flightSqlClient.getPrimaryKeys(TableRef.of(catalog, schema, table), getCallOptions()));
   }
 
   private void printFlightInfoResults(final FlightInfo flightInfo) throws Exception {
