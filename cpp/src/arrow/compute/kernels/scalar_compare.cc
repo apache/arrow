@@ -643,29 +643,25 @@ struct FixedSizeBinaryScalarMinMax {
 
     const auto batch_type = batch[0].type();
     const auto binary_type = checked_cast<const FixedSizeBinaryType*>(batch_type.get());
-    int64_t final_size = CalculateRowSize(options, batch, 0, binary_type->byte_width());
-    if (final_size < 0) {
-      output->is_valid = false;
-      return Status::OK();
-    }
     string_view result =
         UnboxScalar<FixedSizeBinaryType>::Unbox(*batch.values.front().scalar());
     for (size_t i = 1; i < num_args; i++) {
       const auto& scalar = *batch[i].scalar();
-      if (!scalar.is_valid && options.skip_nulls) {
-        continue;
-      }
       if (scalar.is_valid) {
         string_view value = UnboxScalar<FixedSizeBinaryType>::Unbox(scalar);
         result = result.empty() ? value : Op::Call(result, value);
+      } else if (options.skip_nulls) {
+        continue;
+      } else {
+        result = string_view();
       }
     }
     if (!result.empty()) {
-      ARROW_ASSIGN_OR_RAISE(output->value, ctx->Allocate(final_size));
+      ARROW_ASSIGN_OR_RAISE(output->value, ctx->Allocate(binary_type->byte_width()));
       uint8_t* buf = output->value->mutable_data();
       buf = std::copy(result.begin(), result.end(), buf);
       output->is_valid = true;
-      DCHECK_GE(final_size, buf - output->value->mutable_data());
+      DCHECK_EQ(binary_type->byte_width(), buf - output->value->mutable_data());
     }
     return Status::OK();
   }
@@ -676,15 +672,11 @@ struct FixedSizeBinaryScalarMinMax {
     const auto batch_type = batch[0].type();
     const auto binary_type = checked_cast<const FixedSizeBinaryType*>(batch_type.get());
     int32_t byte_width = binary_type->byte_width();
-    // Presize data to avoid reallocations
-    int64_t final_size = 0;
-    for (int64_t i = 0; i < batch.length; i++) {
-      auto size = CalculateRowSize(options, batch, i, byte_width);
-      if (size > 0) final_size += size;
-    }
+    // Presize data to avoid reallocations.
+    int64_t estimated_final_size = batch.length * byte_width;
     FixedSizeBinaryBuilder builder(batch_type);
     RETURN_NOT_OK(builder.Reserve(batch.length));
-    RETURN_NOT_OK(builder.ReserveData(final_size));
+    RETURN_NOT_OK(builder.ReserveData(estimated_final_size));
 
     std::vector<string_view> valid_cols(batch.values.size());
     for (int64_t row = 0; row < batch.length; row++) {
@@ -729,33 +721,6 @@ struct FixedSizeBinaryScalarMinMax {
     out->mutable_array()->type = batch[0].type();
     DCHECK_EQ(batch.length, out->array()->length);
     return Status::OK();
-  }
-
-  // Compute the length of the output for the given position, or -1 if it would be null.
-  static int64_t CalculateRowSize(const ElementWiseAggregateOptions& options,
-                                  const ExecBatch& batch, const int64_t index,
-                                  int32_t byte_width) {
-    const auto num_args = batch.values.size();
-    int32_t final_size = 0;
-    for (size_t i = 0; i < num_args; i++) {
-      bool valid = true;
-      if (batch[i].is_scalar()) {
-        const auto& scalar = *batch[i].scalar();
-        valid = scalar.is_valid;
-      } else {
-        const auto& array = *batch[i].array();
-        valid = !array.MayHaveNulls() ||
-                bit_util::GetBit(array.buffers[0]->data(), array.offset + index);
-      }
-      if (!valid) {
-        if (options.skip_nulls) {
-          continue;
-        }
-        return -1;
-      }
-      final_size = std::max(final_size, byte_width);
-    }
-    return final_size;
   }
 };
 
