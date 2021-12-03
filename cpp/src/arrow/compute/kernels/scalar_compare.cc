@@ -540,17 +540,20 @@ struct BinaryScalarMinMax {
     RETURN_NOT_OK(builder.Reserve(batch.length));
     RETURN_NOT_OK(builder.ReserveData(estimated_final_size));
 
-    std::vector<util::optional<string_view>> valid_cols(batch.values.size());
-    for (size_t row = 0; row < static_cast<size_t>(batch.length); row++) {
-      size_t num_valid = 0;
+    for (int64_t row = 0; row < batch.length; row++) {
+      util::optional<string_view> result;
+      auto visit_value = [&](string_view value) {
+        result = !result ? value : Op::Call(*result, value);
+      };
+
       for (size_t col = 0; col < batch.values.size(); col++) {
         if (batch[col].is_scalar()) {
           const auto& scalar = *batch[col].scalar();
           if (scalar.is_valid) {
-            valid_cols[col] = UnboxScalar<Type>::Unbox(scalar);
-            num_valid++;
-          } else {
-            valid_cols[col] = util::nullopt;
+            visit_value(UnboxScalar<Type>::Unbox(scalar));
+          } else if (!options.skip_nulls) {
+            result = util::nullopt;
+            break;
           }
         } else {
           const auto& array = *batch[col].array();
@@ -559,29 +562,15 @@ struct BinaryScalarMinMax {
             const auto offsets = array.GetValues<offset_type>(1);
             const auto data = array.GetValues<uint8_t>(2, /*absolute_offset=*/0);
             const int64_t length = offsets[row + 1] - offsets[row];
-            valid_cols[col] =
-                string_view(reinterpret_cast<const char*>(data + offsets[row]), length);
-            num_valid++;
-          } else {
-            valid_cols[col] = util::nullopt;
+            visit_value(
+                string_view(reinterpret_cast<const char*>(data + offsets[row]), length));
+          } else if (!options.skip_nulls) {
+            result = util::nullopt;
+            break;
           }
         }
       }
 
-      if (num_valid == 0 || (num_valid < batch.values.size() && !options.skip_nulls)) {
-        // We had some nulls
-        builder.UnsafeAppendNull();
-        continue;
-      }
-      auto result = valid_cols.front();
-      for (size_t col = 1; col < batch.values.size(); ++col) {
-        const auto value = valid_cols[col];
-        if (!value) {
-          DCHECK(options.skip_nulls);
-          continue;
-        }
-        result = !result ? *value : Op::Call(*result, *value);
-      }
       if (result) {
         builder.UnsafeAppend(*result);
       } else {
@@ -698,45 +687,35 @@ struct FixedSizeBinaryScalarMinMax {
     RETURN_NOT_OK(builder.ReserveData(final_size));
 
     std::vector<string_view> valid_cols(batch.values.size());
-    for (size_t row = 0; row < static_cast<size_t>(batch.length); row++) {
-      size_t num_valid = 0;
+    for (int64_t row = 0; row < batch.length; row++) {
+      string_view result;
+      auto visit_value = [&](string_view value) {
+        result = result.empty() ? value : Op::Call(result, value);
+      };
+
       for (size_t col = 0; col < batch.values.size(); col++) {
         if (batch[col].is_scalar()) {
           const auto& scalar = *batch[col].scalar();
           if (scalar.is_valid) {
-            valid_cols[col] = UnboxScalar<FixedSizeBinaryType>::Unbox(scalar);
-            num_valid++;
-          } else {
-            valid_cols[col] = string_view();
+            visit_value(UnboxScalar<FixedSizeBinaryType>::Unbox(scalar));
+          } else if (!options.skip_nulls) {
+            result = string_view();
+            break;
           }
         } else {
           const auto& array = *batch[col].array();
           if (!array.MayHaveNulls() ||
               bit_util::GetBit(array.buffers[0]->data(), array.offset + row)) {
             const auto data = array.GetValues<uint8_t>(1, /*absolute_offset=*/0);
-            valid_cols[col] = string_view(
-                reinterpret_cast<const char*>(data) + row * byte_width, byte_width);
-            num_valid++;
-          } else {
-            valid_cols[col] = string_view();
+            visit_value(string_view(
+                reinterpret_cast<const char*>(data) + row * byte_width, byte_width));
+          } else if (!options.skip_nulls) {
+            result = string_view();
+            break;
           }
         }
       }
 
-      if (num_valid < batch.values.size() && !options.skip_nulls) {
-        // We had some nulls
-        builder.UnsafeAppendNull();
-        continue;
-      }
-      auto result = valid_cols.front();
-      for (size_t col = 1; col < batch.values.size(); ++col) {
-        const auto value = valid_cols[col];
-        if (value.empty()) {
-          DCHECK(options.skip_nulls);
-          continue;
-        }
-        result = result.empty() ? value : Op::Call(result, value);
-      }
       if (result.empty()) {
         builder.UnsafeAppendNull();
       } else {
