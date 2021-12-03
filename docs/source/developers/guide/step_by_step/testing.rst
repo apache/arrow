@@ -30,9 +30,22 @@
 Testing 🧪
 ***********
 
-In Arrow we always add a unit test to the code we are
-contributing. Therefore you will also need to add one when
-you finish with your work.
+In Arrow we use unit tests to ensure code quality, to help
+others understand our code better and to make the process
+of review easier.
+
+Adding a new unit tests is needed when adding a new feature,
+a binding or a bug fix. 
+
+It can also happen your work will involve adding a unit test
+to a code already written, modifying a unit test or even making
+more than one unit test for the changes in the code.
+
+It is also possible to make changes that do not require adding
+a unit test like :ref:`documentation`.
+
+If you do need to work with unit tests, this section will help
+you with the necessary steps.
 
 .. tabs::
 
