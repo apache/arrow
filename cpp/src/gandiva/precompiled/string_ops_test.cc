@@ -1764,6 +1764,9 @@ TEST(TestStringOps, TestSplitPart) {
   gdv_int32 out_len = 0;
   const char* out_str;
 
+  out_str = split_part(ctx_ptr, "abc::def", 8, ":", 1, 2, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+
   out_str = split_part(ctx_ptr, "A,B,C", 5, ",", 1, 0, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "");
   EXPECT_THAT(

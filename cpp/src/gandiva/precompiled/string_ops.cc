@@ -2040,16 +2040,7 @@ const char* split_part(gdv_int64 context, const char* text, gdv_int32 text_len,
         }
 
         *out_len = end_pos - i;
-        char* out_str =
-            reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
-        if (out_str == nullptr) {
-          gdv_fn_context_set_error_msg(context,
-                                       "Could not allocate memory for output string");
-          *out_len = 0;
-          return "";
-        }
-        memcpy(out_str, text + i, *out_len);
-        return out_str;
+        return text + i;
       } else {
         i = match_pos;
         match_no++;
