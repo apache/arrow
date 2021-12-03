@@ -715,7 +715,7 @@ Result<ValueDescr> ResolveMinOrMaxOutputType(KernelContext*,
     auto type = args[i].type;
     if (*type != *first_type) {
       return Status::NotImplemented(
-          "Different decimal types not implemented for {min, max}_element_wise");
+          "Different input types not supported for {min, max}_element_wise");
     }
   }
   return ValueDescr(first_type, GetBroadcastShape(args));
