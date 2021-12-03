@@ -1162,15 +1162,14 @@ class TestVarArgsCompareNumeric : public TestVarArgsCompare<T> {};
 template <typename T>
 class TestVarArgsCompareDecimal : public TestVarArgsCompare<T> {
  protected:
-  static std::shared_ptr<DataType> type_singleton() {
-    return std::make_shared<T>(/*precision=*/38, /*scale=*/2);
+  Datum scalar(const std::string& value, int32_t precision = 38, int32_t scale = 2) {
+    return ScalarFromJSON(std::make_shared<T>(/*precision=*/precision, /*scale=*/scale),
+                          value);
   }
 
-  Datum scalar(const std::string& value) {
-    return ScalarFromJSON(type_singleton(), value);
+  Datum array(const std::string& value) {
+    return ArrayFromJSON(std::make_shared<T>(/*precision=*/38, /*scale=*/2), value);
   }
-
-  Datum array(const std::string& value) { return ArrayFromJSON(type_singleton(), value); }
 };
 
 template <typename T>
@@ -1340,6 +1339,13 @@ TYPED_TEST(TestVarArgsCompareDecimal, MinElementWise) {
   this->Assert(
       MinElementWise, this->array(R"([null, null, null, null])"),
       {this->array(R"(["1.00", "2.00", "3.00", "4.00"])"), this->scalar("null")});
+
+  // Test error handling
+  auto result =
+      MinElementWise({this->scalar(R"("3.1415")", /*precision=*/38, /*scale=*/4),
+                      this->scalar(R"("2.14")", /*precision=*/38, /*scale=*/2)},
+                     this->element_wise_aggregate_options_, nullptr);
+  ASSERT_FALSE(result.ok());
 }
 
 TYPED_TEST(TestVarArgsCompareFloating, MinElementWise) {
@@ -1646,6 +1652,12 @@ TYPED_TEST(TestVarArgsCompareFixedSizeBinary, MinElementWise) {
                this->array(R"(["abc", "abc", "abc", null, null])", /*byte_width=*/3),
                {this->array(R"(["abc", "abc", "abd", null, "abc"])", /*byte_width=*/3),
                 this->array(R"(["abc", "abd", "abc", "abc", null])", /*byte_width=*/3)});
+
+  // Test error handling
+  auto result = MinElementWise({this->scalar(R"("abc")", /*byte_width=*/3),
+                                this->scalar(R"("abcd")", /*byte_width=*/4)},
+                               this->element_wise_aggregate_options_, nullptr);
+  ASSERT_FALSE(result.ok());
 }
 
 TYPED_TEST(TestVarArgsCompareNumeric, MaxElementWise) {
@@ -1765,6 +1777,13 @@ TYPED_TEST(TestVarArgsCompareDecimal, MaxElementWise) {
   this->Assert(
       MaxElementWise, this->array(R"([null, null, null, null])"),
       {this->array(R"(["1.00", "2.00", "3.00", "4.00"])"), this->scalar("null")});
+
+  // Test error handling
+  auto result =
+      MaxElementWise({this->scalar(R"("3.1415")", /*precision=*/38, /*scale=*/4),
+                      this->scalar(R"("2.14")", /*precision=*/38, /*scale=*/2)},
+                     this->element_wise_aggregate_options_, nullptr);
+  ASSERT_FALSE(result.ok());
 }
 
 TYPED_TEST(TestVarArgsCompareFloating, MaxElementWise) {
@@ -2071,6 +2090,12 @@ TYPED_TEST(TestVarArgsCompareFixedSizeBinary, MaxElementWise) {
                this->array(R"(["abc", "abd", "abd", null, null])", /*byte_width=*/3),
                {this->array(R"(["abc", "abc", "abd", null, "abc"])", /*byte_width=*/3),
                 this->array(R"(["abc", "abd", "abc", "abc", null])", /*byte_width=*/3)});
+
+  // Test error handling
+  auto result = MaxElementWise({this->scalar(R"("abc")", /*byte_width=*/3),
+                                this->scalar(R"("abcd")", /*byte_width=*/4)},
+                               this->element_wise_aggregate_options_, nullptr);
+  ASSERT_FALSE(result.ok());
 }
 
 TEST(TestMaxElementWiseMinElementWise, CommonTemporal) {
