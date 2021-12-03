@@ -121,7 +121,10 @@ struct SumImpl : public ScalarAggregator {
   ScalarAggregateOptions options;
 };
 
+template <typename ArrowType>
 struct NullSumImpl : public ScalarAggregator {
+  using ScalarType = typename TypeTraits<ArrowType>::ScalarType;
+
   explicit NullSumImpl(const ScalarAggregateOptions& options_) : options(options_) {}
 
   Status Consume(KernelContext*, const ExecBatch& batch) override {
@@ -141,9 +144,9 @@ struct NullSumImpl : public ScalarAggregator {
   Status Finalize(KernelContext*, Datum* out) override {
     if ((options.skip_nulls || this->is_empty) && options.min_count == 0) {
       // Return 0 if the remaining data is empty
-      out->value = std::make_shared<Int64Scalar>(0);
+      out->value = std::make_shared<ScalarType>(0);
     } else {
-      out->value = MakeNullScalar(null());
+      out->value = MakeNullScalar(TypeTraits<ArrowType>::type_singleton());
     }
     return Status::OK();
   }
@@ -195,20 +198,6 @@ struct MeanImpl : public SumImpl<ArrowType, SimdLevel> {
   using SumImpl<ArrowType, SimdLevel>::options;
 };
 
-struct NullMeanImpl : public NullSumImpl {
-  explicit NullMeanImpl(const ScalarAggregateOptions& options_) : NullSumImpl(options_) {}
-
-  Status Finalize(KernelContext*, Datum* out) override {
-    if ((options.skip_nulls || this->is_empty) && options.min_count == 0) {
-      // Return 0 if the remaining data is empty
-      out->value = std::make_shared<DoubleScalar>(0);
-    } else {
-      out->value = MakeNullScalar(float64());
-    }
-    return Status::OK();
-  }
-};
-
 template <template <typename> class KernelClass>
 struct SumLikeInit {
   std::unique_ptr<KernelState> state;
@@ -246,7 +235,7 @@ struct SumLikeInit {
   }
 
   virtual Status Visit(const NullType&) {
-    state.reset(new NullSumImpl(options));
+    state.reset(new NullSumImpl<Int64Type>(options));
     return Status::OK();
   }
 
@@ -263,7 +252,7 @@ struct MeanKernelInit : public SumLikeInit<KernelClass> {
       : SumLikeInit<KernelClass>(ctx, type, options) {}
 
   Status Visit(const NullType&) override {
-    this->state.reset(new NullMeanImpl(this->options));
+    this->state.reset(new NullSumImpl<DoubleType>(this->options));
     return Status::OK();
   }
 };

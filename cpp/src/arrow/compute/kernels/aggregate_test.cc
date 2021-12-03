@@ -591,9 +591,9 @@ TEST(TestDecimalSumKernel, ScalarAggregateOptions) {
   }
 }
 
-TEST(TestSumKernel, Null) {
+TEST(TestNullSumKernel, Basics) {
   auto ty = null();
-  Datum null_result = std::make_shared<NullScalar>();
+  Datum null_result = std::make_shared<Int64Scalar>();
   Datum zero_result = std::make_shared<Int64Scalar>(0);
 
   EXPECT_THAT(Sum(ScalarFromJSON(ty, "null")), ResultWith(null_result));
@@ -1380,7 +1380,7 @@ TEST(TestDecimalMeanKernel, ScalarAggregateOptions) {
   }
 }
 
-TEST(TestMeanKernel, Null) {
+TEST(TestNullMeanKernel, Basics) {
   auto ty = null();
   Datum null_result = std::make_shared<DoubleScalar>();
   Datum zero_result = std::make_shared<DoubleScalar>(0);
