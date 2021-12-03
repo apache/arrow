@@ -44,37 +44,46 @@ there is no issue about it created. In that case you need to create an issue you
 
 Secondly we will show a way to find good first issues.
 
-How to create a JIRA issue
+
+Creating a JIRA account
 ==========================
 
 First thing you need to do is to make an account on the ASF JIRA following
-`this link <https://issues.apache.org/jira/secure/Signup!default.jspa>`_. You will have to
-select your language and choose an avatar. If the registration is successful you will see:
+`this link <https://issues.apache.org/jira/secure/Signup!default.jspa>`_. You will be asked
+to select a language and choose an avatar if you wish. If the registration is successful
+you will see:
 
-.. figure:: jira_1.jpeg
+.. figure:: jira_new_account.jpeg
    :scale: 70 %
    :alt: creating an ASF JIRA account
 
    The window you get after creating an account on the ASF JIRA.
 
-Here you can click **Create an issue** and select **Apache Arrow project** and **Type** of
-the issue (Bug, Feature, …).
 
-.. figure:: jira_2.jpeg
+How to create a JIRA issue
+==========================
+
+After creating an account you can click **Create an issue** and select **Apache Arrow project**
+and **Type** of the issue (Bug, Feature, …).
+
+.. figure:: jira_create_issue.jpeg
    :scale: 70 %
    :alt: creating JIRA issue
 
    The window to create a JIRA issue.
 
-You are ready to create the issue! Add a title and a description following the :ref:`tips for using JIRA <jira-tips> and you are ready to go!
+If you are already in JIRA dashboard click the red ``create`` button in the top to do the same.
+
+You are ready to create the issue! Add a title and a description following the
+:ref:`tips for using JIRA <jira-tips>` and you are ready to go!
 
 .. seealso::
 	:ref:`Tips for using JIRA <jira-tips>`
 
 You don’t need any special permissions on JIRA to be able to create issues.
 Once you are more involved in the project and want to do more on JIRA, for example assigning
-yourself an issue, you will need “Contributor” permissions. To get this role, ask on the
-mailing list or in the comment of the JIRA issue you created.
+yourself an issue, you will need **“Contributor” permissions**. To get this role, ask on the
+:ref:`mailing_list` or in the comment of the JIRA issue you created.
 
 When the ticket is created you can start a discussion about it in the JIRA comments section.
 
@@ -93,7 +102,7 @@ fix them. Once you dig into the code you may find that the issue is not easy at 
 happen as the label is set when making a triage and the problem could be harder then expected.
 Don't hesitate to write that in the comments.
 
-.. figure:: jira_3.jpeg
+.. figure:: jira_good_first_issue.jpeg
    :scale: 45 %
    :alt: finding good first JIRA issue
 

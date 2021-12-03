@@ -112,7 +112,7 @@ When to use GitHub?
 .. _mailing_list:
 
 Mailing List
-~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~
 
 You can subscribe to the **user** or **development** mailing list and browse for
 previous topics or ask questions. Whereas discussion on GitHub and JIRA
