@@ -190,7 +190,7 @@ inline void SetListData(BaseListArray<TYPE>* self, const std::shared_ptr<ArrayDa
       data->GetValuesSafe<typename TYPE::offset_type>(1, /*offset=*/0);
 
   ARROW_CHECK_EQ(self->list_type_->value_type()->id(), data->child_data[0]->type->id());
-  // DCHECK(self->list_type_->value_type()->Equals(data->child_data[0]->type));
+  DCHECK(self->list_type_->value_type()->Equals(data->child_data[0]->type));
   self->values_ = MakeArray(self->data_->child_data[0]);
 }
 

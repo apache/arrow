@@ -329,9 +329,7 @@ class ARROW_EXPORT MapBuilder : public ArrayBuilder {
   /// the Map to be built as a list of struct values.
   ArrayBuilder* value_builder() const { return list_builder_->value_builder(); }
 
-  std::shared_ptr<DataType> type() const override {
-    return type_;
-  }
+  std::shared_ptr<DataType> type() const override { return type_; }
 
   Status ValidateOverflow(int64_t new_elements) {
     return list_builder_->ValidateOverflow(new_elements);
