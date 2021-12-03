@@ -36,7 +36,7 @@ which is your fork of the Arrow repository on GitHub and then you
 create a **Pull Request** against the official Arrow repository
 which is saved in your set up as ``upstream``.
 
-You should have git set up by now, have your source code,
+You should have git set up by now, have cloned the repository,
 have successfully built Arrow and have an JIRA issue to work on.
 
 **Before making changes to the code, you should create a new
@@ -45,7 +45,7 @@ branch in Git.**
 1. Update/sync the code from your ``upstream``
    in the master branch. Run it in the shell from ``arrow`` directory.
 
-   .. code-block:: shell
+   .. code:: console
 
       $ git checkout master
       $ git fetch upstream
@@ -53,14 +53,20 @@ branch in Git.**
 
 2. Create a new branch
 
-   .. code-block:: shell
+   .. code:: console
 
       $ git checkout -b <branch-name>
+
+   or (does the same thing)
+   
+   .. code:: console
+
+      $ git switch --create <branch-name>
 
 Now you can make changes to the code. To see the changes
 made in the library use this two commands:
 
-.. code-block:: shell
+.. code:: console
 
    $ git status # to see what files are changed
    $ git diff # to see code change per file
@@ -73,7 +79,7 @@ and linters and then go ahead and commit the changes.
 
 3. Add and commit the changes
 
-   .. code-block:: shell
+   .. code:: console
          
       $ git add <filenames>
       $ git commit -m '<message>'
@@ -81,13 +87,13 @@ and linters and then go ahead and commit the changes.
    Or you can add and commit in one step, if all the files changed
    are to be committed
    
-   .. code-block:: shell      
+   .. code:: console      
 
       $ git commit -a -m '<message>'
 
 4. Then push your work to your Arrow fork
 
-   .. code-block:: shell  
+   .. code:: console  
 
       $ git push origin <branch-name>
 
