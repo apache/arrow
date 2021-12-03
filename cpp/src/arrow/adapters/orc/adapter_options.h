@@ -111,12 +111,23 @@ class ARROW_EXPORT WriteOptions {
   }
 
   /**
-   * Set the strip size.
+   * Set the batch size.
+   */
+  WriteOptions& set_batch_size(uint64_t size);
+
+  /**
+   * Get the batch size.
+   * @return if not set, return default value.
+   */
+  uint64_t batch_size() const;
+
+  /**
+   * Set the stripe size.
    */
   WriteOptions& set_stripe_size(uint64_t size);
 
   /**
-   * Get the strip size.
+   * Get the stripe size.
    * @return if not set, return default value.
    */
   uint64_t stripe_size() const;
@@ -266,6 +277,7 @@ class ARROW_EXPORT WriteOptions {
 
  private:
   std::shared_ptr<liborc::WriterOptions> orc_writer_options_;
+  uint64_t batch_size_;
 };
 
 }  // namespace orc

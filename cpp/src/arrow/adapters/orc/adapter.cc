@@ -635,7 +635,7 @@ class ORCFileWriter::Impl {
               const WriteOptions& write_options) {
     out_stream_ = std::unique_ptr<liborc::OutputStream>(
         checked_cast<liborc::OutputStream*>(new ArrowOutputStream(*output_stream)));
-    stripe_size_ = write_options.stripe_size();
+    batch_size_ = write_options.batch_size();
     orc_options_ = write_options.get_orc_writer_options();
     return Status::OK();
   }
@@ -650,19 +650,19 @@ class ORCFileWriter::Impl {
     std::vector<int64_t> arrow_index_offset(num_cols_, 0);
     std::vector<int> arrow_chunk_offset(num_cols_, 0);
     std::unique_ptr<liborc::ColumnVectorBatch> batch =
-        writer_->createRowBatch(stripe_size_);
+        writer_->createRowBatch(batch_size_);
     liborc::StructVectorBatch* root =
         internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
     while (num_rows > 0) {
       for (int i = 0; i < num_cols_; i++) {
         RETURN_NOT_OK(adapters::orc::WriteBatch(
-            *(table.column(i)), stripe_size_, &(arrow_chunk_offset[i]),
+            *(table.column(i)), batch_size_, &(arrow_chunk_offset[i]),
             &(arrow_index_offset[i]), (root->fields)[i]));
       }
       root->numElements = (root->fields)[0]->numElements;
       writer_->add(*batch);
       batch->clear();
-      num_rows -= stripe_size_;
+      num_rows -= batch_size_;
     }
     return Status::OK();
   }
@@ -676,7 +676,7 @@ class ORCFileWriter::Impl {
   std::unique_ptr<liborc::Writer> writer_;
   std::unique_ptr<liborc::OutputStream> out_stream_;
   std::shared_ptr<liborc::WriterOptions> orc_options_;
-  uint64_t stripe_size_;
+  uint64_t batch_size_;
 };
 
 ORCFileWriter::~ORCFileWriter() {}

@@ -105,6 +105,7 @@ cdef file_version_from_class(FileVersion file_version_):
 
 cdef shared_ptr[WriteOptions] _create_write_options(
     file_version=None,
+    batch_size=None,
     stripe_size=None,
     compression=None,
     compression_block_size=None,
@@ -120,6 +121,15 @@ cdef shared_ptr[WriteOptions] _create_write_options(
         shared_ptr[WriteOptions] options
 
     options = make_shared[WriteOptions]()
+
+    # batch_size
+
+    if batch_size is not None:
+        if isinstance(batch_size, int) and batch_size > 0:
+            deref(options).set_batch_size(batch_size)
+        else:
+            raise ValueError("Invalid ORC writer batch size: {0}"
+                             .format(batch_size))
 
     # file_version
 
@@ -335,6 +345,7 @@ cdef class ORCWriter(_Weakrefable):
         shared_ptr[COutputStream] rd_handle
 
     def open(self, object sink, file_version=None,
+             batch_size=None,
              stripe_size=None,
              compression=None,
              compression_block_size=None,
@@ -351,6 +362,7 @@ cdef class ORCWriter(_Weakrefable):
 
         write_options = _create_write_options(
             file_version=file_version,
+            batch_size=batch_size,
             stripe_size=stripe_size,
             compression=compression,
             compression_block_size=compression_block_size,

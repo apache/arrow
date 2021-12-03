@@ -122,6 +122,8 @@ _orc_writer_args_docs = """file_version : {"0.11", "0.12"}, default "0.12"
     version as defined `here <https://orc.apache.org/specification/ORCv0/>`
     while Hive 0.12 / ORC v1 is the newer one as defined
     `here <https://orc.apache.org/specification/ORCv1/>`.
+batch_size : int, default 1024
+    Number of rows the ORC writer writes at a time.
 stripe_size : int, default 64 * 1024 * 1024
     Size of each ORC stripe.
 compression : string, default 'zlib'
@@ -161,6 +163,7 @@ class ORCWriter:
     """.format(_orc_writer_args_docs)
 
     def __init__(self, where, file_version='0.12',
+                 batch_size=1024,
                  stripe_size=67108864,
                  compression='zlib',
                  compression_block_size=65536,
@@ -176,6 +179,7 @@ class ORCWriter:
         self.writer.open(
             where,
             file_version=file_version,
+            batch_size=batch_size,
             stripe_size=stripe_size,
             compression=compression,
             compression_block_size=compression_block_size,
@@ -223,6 +227,7 @@ class ORCWriter:
 
 
 def write_table(table, where, file_version='0.12',
+                batch_size=1024,
                 stripe_size=67108864,
                 compression='zlib',
                 compression_block_size=65536,
@@ -242,6 +247,7 @@ def write_table(table, where, file_version='0.12',
     with ORCWriter(
         where,
         file_version=file_version,
+        batch_size=batch_size,
         stripe_size=stripe_size,
         compression=compression,
         compression_block_size=compression_block_size,

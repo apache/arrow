@@ -228,6 +228,8 @@ std::shared_ptr<Table> GenerateRandomTable(const std::shared_ptr<Schema>& schema
 
 arrow::adapters::orc::WriteOptions GenerateRandomWriteOptions(uint64_t num_cols) {
   auto arrow_write_options = arrow::adapters::orc::WriteOptions();
+  arrow_write_options.set_batch_size(
+      arrow::random_single_int<uint64_t, uint64_t>(4ull, 8ull));
   arrow_write_options.set_file_version(arrow::adapters::orc::FileVersion(
       0, arrow::random_single_int<uint32_t, uint32_t>(11, 12)));
   arrow_write_options.set_stripe_size(

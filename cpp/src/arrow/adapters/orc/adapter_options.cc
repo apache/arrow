@@ -47,24 +47,26 @@ const FileVersion& FileVersion::v_0_12() {
 }
 
 WriteOptions::WriteOptions()
-    : orc_writer_options_(std::make_shared<liborc::WriterOptions>()) {
+    : orc_writer_options_(std::make_shared<liborc::WriterOptions>()), batch_size_(1024) {
   // PASS
 }
 
 WriteOptions::WriteOptions(const WriteOptions& rhs)
     : orc_writer_options_(std::make_shared<liborc::WriterOptions>(
-          *(rhs.orc_writer_options_.get()))) {
+          *(rhs.orc_writer_options_.get()))), batch_size_(rhs.batch_size_) {
   // PASS
 }
 
 WriteOptions::WriteOptions(WriteOptions& rhs) {
   // swap orc_writer_options_ with rhs
   orc_writer_options_.swap(rhs.orc_writer_options_);
+  batch_size_ = rhs.batch_size_;
 }
 
 WriteOptions& WriteOptions::operator=(const WriteOptions& rhs) {
   if (this != &rhs) {
     orc_writer_options_.reset(new liborc::WriterOptions(*(rhs.orc_writer_options_.get())));
+    batch_size_ = rhs.batch_size_;
   }
   return *this;
 }
@@ -72,6 +74,16 @@ WriteOptions& WriteOptions::operator=(const WriteOptions& rhs) {
 WriteOptions::~WriteOptions() {
   // PASS
 }
+
+WriteOptions& WriteOptions::set_batch_size(uint64_t size) {
+  batch_size_ = size;
+  return *this;
+}
+
+uint64_t WriteOptions::batch_size() const {
+  return batch_size_;
+}
+
 RleVersion WriteOptions::rle_version() const {
   return static_cast<RleVersion>(orc_writer_options_->getRleVersion());
 }

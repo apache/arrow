@@ -63,6 +63,8 @@ cdef extern from "arrow/adapters/orc/adapter_options.h" \
 
     cdef cppclass WriteOptions" arrow::adapters::orc::WriteOptions":
         WriteOptions()
+        WriteOptions& set_batch_size(uint64_t size)
+        uint64_t batch_size()
         WriteOptions& set_stripe_size(uint64_t size)
         uint64_t stripe_size()
         WriteOptions& set_compression_block_size(uint64_t size)
