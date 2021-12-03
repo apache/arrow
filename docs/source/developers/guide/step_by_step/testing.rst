@@ -61,21 +61,21 @@ you with the necessary steps.
       To run a specific unit test, use this command in 
       the terminal from the ``arrow/python`` folder:
 
-      .. code-block::
+      .. code:: console
 
-         python -m pytest pyarrow/tests/test_file.py -k test_your_unit_test
+         $ python -m pytest pyarrow/tests/test_file.py -k test_your_unit_test
 
       Run all the tests from one file:
 
-      .. code-block::
+      .. code:: console
 
-         python -m pytest pyarrow/tests/test_file.py
+         $ python -m pytest pyarrow/tests/test_file.py
 
       Run all the tests:
 
-      .. code-block::
+      .. code:: console
 
-         python -m pytest pyarrow
+         $ python -m pytest pyarrow
 
       If the tests start failing, try to recompile
       PyArrow or C++.
@@ -90,9 +90,9 @@ you with the necessary steps.
         
          To do that run this command again:
 
-         .. code-block::
+         .. code:: console
 
-            python setup.py build_ext --inplace
+            $ python setup.py build_ext --inplace
 
       .. note::
 		
