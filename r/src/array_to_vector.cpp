@@ -1245,7 +1245,7 @@ std::shared_ptr<Converter> Converter::Make(
       break;
   }
 
-  cpp11::stop("cannot handle Array of type ", type->name().c_str());
+  cpp11::stop("cannot handle Array of type <%s>", type->name().c_str());
 }
 
 std::shared_ptr<ChunkedArray> to_chunks(const std::shared_ptr<Array>& array) {
