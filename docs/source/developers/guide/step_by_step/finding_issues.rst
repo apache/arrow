@@ -31,18 +31,17 @@
 Finding good first issues 🔎
 ****************************
 
-You have successfully built Arrow library, congrats!
+You have successfully built the Arrow library; congrats!
 
-The next step is finding something to work on. As was mentioned before,
+The next step is finding something to work on. As mentioned before,
 you might already have a bug to fix in mind, or a new feature that you want to implement.
 Or you still need an issue to work on and you need some help with finding one.
 
-For both cases JIRA is the issue tracker we use.
+For both cases, JIRA is the issue tracker that we use.
 
-First we will explain how to use JIRA if you have a fix or a feature to work on but
-there is no issue about it created. In that case you need to create an issue yourself.
+First we will explain how to use JIRA if you have a fix or a feature to work on that doesn't yet have a JIRA ticket open, in which case you will need to create a JIRA ticket yourself.
 
-Secondly we will show a way to find good first issues.
+Secondly, we will show you a way to find good first issues to work on.
 
 
 Creating a JIRA account
@@ -90,16 +89,16 @@ When the ticket is created you can start a discussion about it in the JIRA comme
 How we use JIRA to find an issue
 ================================
 
-To make it easier to find issues that are suited for a new contributor we added labels
-like “good-first-issue” or “beginner”.
+To make it easier for you to find issues that are well-suited for new contributors, we have added labels
+like “good-first-issue” or “beginner” to some JIRA tickets.
 
 .. seealso::
 	Search for good first/second issues with labels like in the `link here
 	<https://issues.apache.org/jira/browse/ARROW-14659?filter=-4&jql=project%20%3D%20ARROW%20AND%20status%20%3D%20Open%20AND%20labels%20in%20(Beginner%2C%20beginner%2C%20beginners%2C%20beginnner%2C%20beginner-friendly%2C%20good-first-issue%2C%20good-second-issue%2C%20GoodForNewContributors%2C%20newbie%2C%20easyfix%2C%20documentation)%20order%20by%20created%20DESC>`_
 
 The issues labeled as good first issues should take no more than two days or a weekend to
-fix them. Once you dig into the code you may find that the issue is not easy at all - it can
-happen as the label is set when making a triage and the problem could be harder then expected.
+fix them. Once you dig into the code you may find that the issue is not easy at all - this can
+happen as the problem could be harder than the person who triaged the ticket expected it to be.
 Don't hesitate to write that in the comments.
 
 .. figure:: jira_good_first_issue.jpeg
@@ -109,11 +108,11 @@ Don't hesitate to write that in the comments.
    Example of the list of good first issues.
 
 .. note::
-	When you find a JIRA issue you would work on, please mention your interest in the comment
-	section of that issue. That way we will know you are working on it.
+	When you find a JIRA issue you would like to work on, please mention your interest in the comment
+	section of that issue; that way we will know you are working on it.
 
-Also do not hesitate to ask questions in the comment section of the issue.
+Also, do not hesitate to ask questions in the comment section of the issue.
 You can get some pointers about where to start and similar issues already solved.
 
-**Do not forget to create a new branch once you created or chose an issue you will be
+**Do not forget to create a new branch once you have created or chosen an issue you will be
 working on!** Follow the instructions in the next section: :ref:`pr_and_github`
