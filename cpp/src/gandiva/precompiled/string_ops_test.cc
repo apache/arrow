@@ -995,6 +995,59 @@ TEST(TestStringOps, TestReverse) {
   ctx.Reset();
 }
 
+TEST(TestStringOps, TestLevenshtein) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+
+  EXPECT_EQ(levenshtein(ctx_ptr, "kitten", 6, "sitting", 7), 3);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(levenshtein(ctx_ptr, "book", 4, "back", 4), 2);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(levenshtein(ctx_ptr, "", 0, "a", 1), 1);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(levenshtein(ctx_ptr, "test", 4, "task", 4), 2);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(levenshtein(ctx_ptr, "cat", 3, "coat", 4), 1);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(levenshtein(ctx_ptr, "coat", 4, "coat", 4), 0);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(levenshtein(ctx_ptr, "AAAA", 4, "aAAa", 4), 2);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(levenshtein(ctx_ptr, "color", 5, "colour", 6), 1);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(levenshtein(ctx_ptr, "Test String1", 12, "Test String2", 12), 1);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(levenshtein(ctx_ptr, "TEST STRING1", 12, "test string2", 12), 11);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(levenshtein(ctx_ptr, "", 0, "Test String2", 12), 12);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(levenshtein(ctx_ptr, nullptr, 0, "Test String2", 12), 12);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(levenshtein(ctx_ptr, "Test String2", 12, nullptr, 0), 12);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(levenshtein(ctx_ptr, nullptr, 0, nullptr, 0), 0);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(levenshtein(ctx_ptr, "book", -5, "back", 4), 0);
+  EXPECT_TRUE(ctx.has_error());
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("String length must be greater than 0"));
+  ctx.Reset();
+}
+
 TEST(TestStringOps, TestQuote) {
   gandiva::ExecutionContext ctx;
   uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);

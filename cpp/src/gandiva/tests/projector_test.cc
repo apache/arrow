@@ -983,6 +983,49 @@ TEST_F(TestProjector, TestConcat) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_concat, outputs.at(0));
 }
 
+TEST_F(TestProjector, TestLevenshtein) {
+  // schema for input fields
+  auto f0 = field("f0", arrow::utf8());
+  auto f1 = field("f1", arrow::utf8());
+  auto schema = arrow::schema({f0, f1});
+
+  // output fields
+  auto field_lev = field("levenshtein", arrow::int32());
+
+  // Build expression
+  auto lev_expr = TreeExprBuilder::MakeExpression("levenshtein", {f0, f1}, field_lev);
+
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, {lev_expr}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Create a row-batch with some sample data
+  int num_records = 10;
+  auto array0 =
+      MakeArrowArrayUtf8({"cat", "task", "", "a", "a", "Test String1", "TEST STRING1",
+                          "Test String1", "", ""},
+                         {true, true, true, true, true, true, true, true, true, true});
+  auto array1 =
+      MakeArrowArrayUtf8({"coat", "test", "a", "", "abbbbbbbbbb", "Test String2",
+                          "test string2", "", "Test String2", ""},
+                         {true, true, true, true, true, true, true, true, true, true});
+  // expected output
+  auto exp_lev =
+      MakeArrowArrayInt32({1, 2, 1, 1, 10, 1, 11, 12, 12, 0},
+                          {true, true, true, true, true, true, true, true, true, true});
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp_lev, outputs.at(0));
+}
+
 TEST_F(TestProjector, TestQuote) {
   // schema for input fields
   auto field0 = field("f0", arrow::utf8());

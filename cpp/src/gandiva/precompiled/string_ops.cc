@@ -1684,6 +1684,105 @@ const char* convert_toUTF8(int64_t context, const char* value, int32_t value_len
   return value;
 }
 
+// Calculate the levenshtein distance between two string values
+FORCE_INLINE
+gdv_int32 levenshtein(int64_t context, const char* in1, int32_t in1_len, const char* in2,
+                      int32_t in2_len) {
+  if (in1_len < 0 || in2_len < 0) {
+    gdv_fn_context_set_error_msg(context, "String length must be greater than 0");
+    return 0;
+  }
+
+  // Check input size 0
+  if (in1_len == 0) {
+    return in2_len;
+  }
+  if (in2_len == 0) {
+    return in1_len;
+  }
+
+  // arr_larger and arr_smaller is one pointer for entrys
+  const char* arr_larger;
+  const char* arr_smaller;
+  // len_larger and len_smaller is one copy from lengths
+  int len_larger;
+  int len_smaller;
+
+  if (in1_len < in2_len) {
+    len_larger = in2_len;
+    arr_larger = in2;
+
+    len_smaller = in1_len;
+    arr_smaller = in1;
+  } else {
+    len_larger = in1_len;
+    arr_larger = in1;
+
+    len_smaller = in2_len;
+    arr_smaller = in2;
+  }
+
+  int* ptr =
+      reinterpret_cast<int*>(gdv_fn_context_arena_malloc(context, (len_smaller + 1) * 2));
+  if (ptr == nullptr) {
+    gdv_fn_context_set_error_msg(context, "String length must be greater than 0");
+    return 0;
+  }
+
+  // MEMORY ADRESS MALLOC
+  // v0 -> (0, ..., &ptr[in2_len])
+  // v1 -> (in2_len+1, ..., &ptr[in2_len * 2])
+  int* v0;
+  int* v1;
+  int* aux;
+  v0 = &ptr[0];
+  v1 = &ptr[len_smaller + 1];
+
+  // Initializate v0
+  for (int i = 0; i <= len_smaller; i++) {
+    v0[i] = i;
+  }
+
+  // Initialize interactive mode
+  for (int i = 0; i < len_larger; i++) {
+    // The first element to V1 is [i + 1]
+    // For edit distance you can delete (i+1) chars from in1 to match empty in2 position
+    v1[0] = i + 1;
+
+    for (int j = 0; j < len_smaller; j++) {
+      // Calculate costs to modify
+      int deletionCost = v0[j + 1] + 1;
+      int insertionCost = v1[j] + 1;
+      int substitutionCost = v0[j] + 1;
+
+      if (arr_larger[i] == arr_smaller[j]) {
+        substitutionCost = v0[j];
+      }
+
+      // Catch the minor cost
+      int min;
+      min = deletionCost;
+
+      if (min > substitutionCost) {
+        min = substitutionCost;
+      }
+      if (min > insertionCost) {
+        min = insertionCost;
+      }
+
+      // Set the minor cost to v1
+      v1[j + 1] = min;
+    }
+
+    // Swaping v0 and v1
+    aux = v0;
+    v0 = v1;
+    v1 = aux;
+  }
+  // The results of v1 are now in v0, Levenshtein value is in v0[n]
+  return v0[len_smaller];
+}
+
 // Search for a string within another string
 // Same as "locate(substr, str)", except for the reverse order of the arguments.
 FORCE_INLINE
