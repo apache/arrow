@@ -187,10 +187,11 @@ class ARROW_EXPORT Array {
   Status ValidateFull() const;
 
  protected:
-  Array() : null_bitmap_data_(NULLPTR) {}
+  Array() = default;
+  ARROW_DEFAULT_MOVE_AND_ASSIGN(Array);
 
   std::shared_ptr<ArrayData> data_;
-  const uint8_t* null_bitmap_data_;
+  const uint8_t* null_bitmap_data_ = NULLPTR;
 
   /// Protected method for constructors
   void SetData(const std::shared_ptr<ArrayData>& data) {

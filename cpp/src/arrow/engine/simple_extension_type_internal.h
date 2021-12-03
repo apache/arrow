@@ -58,6 +58,8 @@ class SimpleExtensionType : public ExtensionType {
 
   std::string extension_name() const override { return kExtensionName.to_string(); }
 
+  std::string ToString() const override { return "extension<" + this->Serialize() + ">"; }
+
   struct ExtensionEqualsImpl {
     ExtensionEqualsImpl(const Params& l, const Params& r) : left_(l), right_(r) {
       kProperties.ForEach(*this);

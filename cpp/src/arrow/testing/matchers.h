@@ -27,6 +27,7 @@
 #include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/future.h"
+#include "arrow/util/unreachable.h"
 
 namespace arrow {
 
@@ -196,8 +197,14 @@ class ErrorMatcher {
                   message_matcher_->MatchAndExplain(status.message(), &value_listener);
         }
 
-        *listener << "whose value " << testing::PrintToString(status.ToString())
-                  << (match ? " matches" : " doesn't match");
+        if (match) {
+          *listener << "whose error matches";
+        } else if (status.ok()) {
+          *listener << "whose value doesn't match";
+        } else {
+          *listener << "whose error doesn't match";
+        }
+
         testing::internal::PrintIfNotEmpty(value_listener.str(), listener->stream());
         return match;
       }
@@ -307,6 +314,8 @@ class DataEqMatcher {
                       << expected_.schema()->ToString();
             return false;
           }
+        } else {
+          Unreachable();
         }
 
         const bool match = boxed == expected_;

@@ -52,6 +52,22 @@ const std::shared_ptr<Schema> kBoringSchema = schema({
     field("ts_ns", timestamp(TimeUnit::NANO)),
 });
 
+std::shared_ptr<DataType> StripFieldNames(std::shared_ptr<DataType> type) {
+  if (type->id() == Type::STRUCT) {
+    FieldVector fields(type->num_fields());
+    for (size_t i = 0; i < fields.size(); ++i) {
+      fields[i] = type->field(i)->WithName("");
+    }
+    return struct_(std::move(fields));
+  }
+
+  if (type->id() == Type::LIST) {
+    return list(type->field(0)->WithName(""));
+  }
+
+  return type;
+}
+
 // map to an index-only field reference
 inline FieldRef BoringRef(FieldRef ref) {
   auto path = *ref.FindOne(*kBoringSchema);
@@ -81,8 +97,8 @@ google::protobuf::util::TypeResolver* GetGeneratedTypeResolver() {
   return type_resolver.get();
 }
 
-std::shared_ptr<Buffer> SubstraitFromJSON(util::string_view json,
-                                          util::string_view type_name) {
+std::shared_ptr<Buffer> SubstraitFromJSON(util::string_view type_name,
+                                          util::string_view json) {
   std::string type_url = "/io.substrait." + type_name.to_string();
 
   google::protobuf::io::ArrayInputStream json_stream{json.data(),
@@ -98,14 +114,35 @@ std::shared_ptr<Buffer> SubstraitFromJSON(util::string_view json,
   return Buffer::FromString(std::move(out));
 }
 
-TEST(Substrait, BasicTypeFromJSON) {
+std::string SubstraitToJSON(util::string_view type_name, const Buffer& buf) {
+  std::string type_url = "/io.substrait." + type_name.to_string();
+
+  google::protobuf::io::ArrayInputStream buf_stream{buf.data(),
+                                                    static_cast<int>(buf.size())};
+
+  std::string out;
+  google::protobuf::io::StringOutputStream out_stream{&out};
+
+  auto status = google::protobuf::util::BinaryToJsonStream(
+      GetGeneratedTypeResolver(), type_url, &buf_stream, &out_stream);
+  DCHECK(status.ok()) << "BinaryToJsonStream returned " << status;
+
+  return out;
+}
+
+TEST(Substrait, SupportedTypes) {
   auto ExpectEq = [](util::string_view json, std::shared_ptr<DataType> expected_type) {
-    ARROW_SCOPED_TRACE(expected_type->ToString());
+    ARROW_SCOPED_TRACE(json);
 
-    auto buf = SubstraitFromJSON(json, "Type");
-    ASSERT_OK_AND_ASSIGN(auto actual, DeserializeType(*buf));
+    auto buf = SubstraitFromJSON("Type", json);
+    ASSERT_OK_AND_ASSIGN(auto type, DeserializeType(*buf));
 
-    ASSERT_EQ(*actual, *expected_type);
+    EXPECT_EQ(*type, *expected_type);
+
+    ASSERT_OK_AND_ASSIGN(auto serialized, SerializeType(*type));
+    ASSERT_OK_AND_ASSIGN(auto roundtripped, DeserializeType(*serialized));
+
+    EXPECT_EQ(*roundtripped, *expected_type);
   };
 
   ExpectEq(R"({"bool": {}})", boolean());
@@ -146,42 +183,19 @@ TEST(Substrait, BasicTypeFromJSON) {
            }));
 }
 
-TEST(Substrait, BasicTypeRoundTrip) {
-  for (auto type : {
-           boolean(),
-
-           int8(),
-           int16(),
-           int32(),
-           int64(),
-
-           float32(),
-           float64(),
-
-           date32(),
-           timestamp(TimeUnit::MICRO),
-           timestamp(TimeUnit::MICRO, "UTC"),
-           time64(TimeUnit::MICRO),
-
-           decimal128(27, 5),
-
-           struct_({
-               field("", int64()),
-               field("", list(utf8())),
-           }),
-
-           uuid(),
-           fixed_char(32),
-           varchar(1024),
+TEST(Substrait, NoEquivalentArrowType) {
+  for (util::string_view json : {
+           R"({"interval_year": {}})",
+           R"({"interval_day": {}})",
+           R"({"user_defined_type_reference": 99})",
        }) {
-    ARROW_SCOPED_TRACE(type->ToString());
-    ASSERT_OK_AND_ASSIGN(auto serialized, SerializeType(*type));
-    ASSERT_OK_AND_ASSIGN(auto roundtripped, DeserializeType(*serialized));
-    EXPECT_EQ(*roundtripped, *type);
+    ARROW_SCOPED_TRACE(json);
+    auto buf = SubstraitFromJSON("Type", json);
+    ASSERT_THAT(DeserializeType(*buf), Raises(StatusCode::NotImplemented));
   }
 }
 
-TEST(Substrait, UnsupportedTypes) {
+TEST(Substrait, NoEquivalentSubstraitType) {
   for (auto type : {
            uint8(),
            uint16(),
@@ -221,23 +235,115 @@ TEST(Substrait, UnsupportedTypes) {
   }
 }
 
-TEST(Substrait, BasicLiteralRoundTrip) {
-  for (Datum datum : {
-           Datum(true),
+TEST(Substrait, SupportedLiterals) {
+  auto ExpectEq = [](util::string_view json, Datum expected_value) {
+    ARROW_SCOPED_TRACE(json);
 
-           Datum(int8_t(34)),
-           Datum(int16_t(34)),
-           Datum(int32_t(34)),
-           Datum(int64_t(34)),
+    auto buf = SubstraitFromJSON("Expression", "{\"literal\":" + json.to_string() + "}");
+    ASSERT_OK_AND_ASSIGN(auto expr, DeserializeExpression(*buf));
 
-           Datum(3.5F),
-           Datum(7.125),
-       }) {
-    ARROW_SCOPED_TRACE(datum.scalar()->ToString());
-    ASSERT_OK_AND_ASSIGN(auto serialized, SerializeExpression(compute::literal(datum)));
+    ASSERT_TRUE(expr.literal());
+    ASSERT_THAT(*expr.literal(), DataEq(expected_value));
+
+    ASSERT_OK_AND_ASSIGN(auto serialized, SerializeExpression(expr));
     ASSERT_OK_AND_ASSIGN(auto roundtripped, DeserializeExpression(*serialized));
+
     ASSERT_TRUE(roundtripped.literal());
-    EXPECT_THAT(*roundtripped.literal(), DataEq(datum));
+    ASSERT_THAT(*roundtripped.literal(), DataEq(expected_value));
+  };
+
+  ExpectEq(R"({"boolean": true})", Datum(true));
+
+  ExpectEq(R"({"i8": 34})", Datum(int8_t(34)));
+  ExpectEq(R"({"i16": 34})", Datum(int16_t(34)));
+  ExpectEq(R"({"i32": 34})", Datum(int32_t(34)));
+  ExpectEq(R"({"i64": "34"})", Datum(int64_t(34)));
+
+  ExpectEq(R"({"fp32": 3.5})", Datum(3.5F));
+  ExpectEq(R"({"fp64": 7.125})", Datum(7.125));
+
+  ExpectEq(R"({"string": "hello world"})", Datum("hello world"));
+
+  ExpectEq(R"({"binary": "enp6"})", BinaryScalar(Buffer::FromString("zzz")));
+
+  ExpectEq(R"({"timestamp": "579"})", TimestampScalar(579, TimeUnit::MICRO));
+
+  /*
+    constexpr int64_t kDayFiveOfEpoch = 24 * 60 * 60 * 1000 * 5;
+    static_assert(kDayFiveOfEpoch == 432000000, "until c++ gets string interpolation");
+    ExpectEq(R"({"date": "432000000"})", TimestampScalar(kDayFiveOfEpoch,
+    TimeUnit::MICRO));
+  */
+
+  ExpectEq(R"({"time": "64"})", Time64Scalar(64, TimeUnit::MICRO));
+
+  ExpectEq(R"({"fixed_char": "zzz"})",
+           ExtensionScalar(
+               FixedSizeBinaryScalar(Buffer::FromString("zzz"), fixed_size_binary(3)),
+               fixed_char(3)));
+
+  ExpectEq(R"({"var_char": {"value": "zzz", "length": 1024}})",
+           ExtensionScalar(StringScalar("zzz"), varchar(1024)));
+
+  ExpectEq(R"({"fixed_binary": "enp6"})",
+           FixedSizeBinaryScalar(Buffer::FromString("zzz"), fixed_size_binary(3)));
+
+  ExpectEq(
+      R"({"decimal": {"value": "0gKWSQAAAAAAAAAAAAAAAA==", "precision": 27, "scale": 5}})",
+      Decimal128Scalar(Decimal128("123456789.0"), decimal128(27, 5)));
+
+  ExpectEq(R"({"timestamp_tz": "579"})", TimestampScalar(579, TimeUnit::MICRO, "UTC"));
+
+  // special case for empty lists
+  ExpectEq(R"({"list": {"element_type": {"i32": {}}, "values": []}})",
+           ScalarFromJSON(list(int32()), "[]"));
+
+  ExpectEq(R"({"struct": {
+    "fields": [
+      {"i64": "32"},
+      {"list": {"values": [
+        {"string": "hello"},
+        {"string": "world"}
+      ]}}
+    ]
+  }})",
+           ScalarFromJSON(struct_({
+                              field("", int64()),
+                              field("", list(utf8())),
+                          }),
+                          R"([32, ["hello", "world"]])"));
+
+  // check null scalars:
+  for (const auto& field : kBoringSchema->fields()) {
+    auto maybe_type_buf = SerializeType(*field->type());
+    if (!maybe_type_buf.ok()) continue;
+
+    ExpectEq("{\"null\": " + SubstraitToJSON("Type", **maybe_type_buf) + "}",
+             MakeNullScalar(field->type()));
+  }
+}
+
+TEST(Substrait, CannotDeserializeLiteral) {
+  // Invalid: missing List.element_type
+  EXPECT_THAT(DeserializeExpression(*SubstraitFromJSON(
+                  "Expression", R"({"literal": {"list": {"values": []}}})")),
+              Raises(StatusCode::Invalid));
+
+  // Invalid: required null literal
+  EXPECT_THAT(DeserializeExpression(*SubstraitFromJSON(
+                  "Expression",
+                  R"({"literal": {"null": {"bool": {"nullability": "REQUIRED"}}}})")),
+              Raises(StatusCode::Invalid));
+
+  // no equivalent arrow scalar
+  for (util::string_view json : {
+           R"({"interval_year_to_month": {"years": 3, "months": 2}})",
+           R"({"interval_day_to_second": {"days": 3, "seconds": 2}})",
+           // FIXME no way to specify scalars of user_defined_type_reference
+       }) {
+    ARROW_SCOPED_TRACE(json);
+    auto buf = SubstraitFromJSON("Expression", "{\"literal\": " + json.to_string() + "}");
+    ASSERT_THAT(DeserializeExpression(*buf), Raises(StatusCode::NotImplemented));
   }
 }
 

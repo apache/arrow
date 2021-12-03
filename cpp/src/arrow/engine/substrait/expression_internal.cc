@@ -122,6 +122,13 @@ Result<compute::Expression> FromProto(const st::Expression& expr) {
 }
 
 Result<Datum> FromProto(const st::Expression::Literal& lit) {
+  if (lit.nullable()) {
+    // FIXME not sure how this field should be interpreted and there's no way to round
+    // trip it through arrow
+    return Status::Invalid(
+        "Nullable Literals - Literal.nullable must be left at the default");
+  }
+
   switch (lit.literal_type_case()) {
     case st::Expression::Literal::kBoolean:
       return Datum(lit.boolean());
@@ -143,43 +150,40 @@ Result<Datum> FromProto(const st::Expression::Literal& lit) {
     case st::Expression::Literal::kString:
       return Datum(lit.string());
     case st::Expression::Literal::kBinary:
-      return Datum(std::make_shared<BinaryScalar>(Buffer::FromString(lit.binary())));
+      return Datum(BinaryScalar(Buffer::FromString(lit.binary())));
 
     case st::Expression::Literal::kTimestamp:
-      return Datum(std::make_shared<TimestampScalar>(
-          static_cast<int64_t>(lit.timestamp()), TimeUnit::MICRO));
+      return Datum(
+          TimestampScalar(static_cast<int64_t>(lit.timestamp()), TimeUnit::MICRO));
 
     case st::Expression::Literal::kTimestampTz:
-      return Datum(std::make_shared<TimestampScalar>(
-          static_cast<int64_t>(lit.timestamp_tz()), TimeUnit::MICRO,
-          TimestampTzTimezoneString()));
+      return Datum(TimestampScalar(static_cast<int64_t>(lit.timestamp_tz()),
+                                   TimeUnit::MICRO, TimestampTzTimezoneString()));
 
     case st::Expression::Literal::kDate:
-      return Datum(std::make_shared<Date32Scalar>(static_cast<int32_t>(lit.date())));
+      return Datum(Date32Scalar(static_cast<int32_t>(lit.date())));
     case st::Expression::Literal::kTime:
-      return Datum(std::make_shared<Time64Scalar>(static_cast<int64_t>(lit.time()),
-                                                  TimeUnit::MICRO));
+      return Datum(Time64Scalar(static_cast<int64_t>(lit.time()), TimeUnit::MICRO));
 
     case st::Expression::Literal::kIntervalYearToMonth:
     case st::Expression::Literal::kIntervalDayToSecond:
       break;
 
     case st::Expression::Literal::kUuid:
-      return Datum(std::make_shared<ExtensionScalar>(
-          FixedSizeBinaryScalarFromBytes(lit.uuid()), uuid()));
+      return Datum(ExtensionScalar(FixedSizeBinaryScalarFromBytes(lit.uuid()), uuid()));
 
     case st::Expression::Literal::kFixedChar:
-      return Datum(std::make_shared<ExtensionScalar>(
-          FixedSizeBinaryScalarFromBytes(lit.fixed_char()),
-          fixed_char(static_cast<int32_t>(lit.fixed_char().size()))));
+      return Datum(
+          ExtensionScalar(FixedSizeBinaryScalarFromBytes(lit.fixed_char()),
+                          fixed_char(static_cast<int32_t>(lit.fixed_char().size()))));
 
     case st::Expression::Literal::kVarChar:
-      return Datum(std::make_shared<ExtensionScalar>(
-          std::make_shared<StringScalar>(lit.var_char().value()),
-          varchar(static_cast<int32_t>(lit.var_char().length()))));
+      return Datum(
+          ExtensionScalar(StringScalar(lit.var_char().value()),
+                          varchar(static_cast<int32_t>(lit.var_char().length()))));
 
     case st::Expression::Literal::kFixedBinary:
-      return Datum(FixedSizeBinaryScalarFromBytes(lit.fixed_char()));
+      return Datum(FixedSizeBinaryScalarFromBytes(lit.fixed_binary()));
 
     case st::Expression::Literal::kDecimal: {
       if (lit.decimal().value().size() != sizeof(Decimal128)) {
@@ -195,7 +199,7 @@ Result<Datum> FromProto(const st::Expression::Literal& lit) {
                    value.mutable_native_endian_bytes() + sizeof(Decimal128));
 #endif
       auto type = decimal128(lit.decimal().precision(), lit.decimal().scale());
-      return Datum(std::make_shared<Decimal128Scalar>(value, std::move(type)));
+      return Datum(Decimal128Scalar(value, std::move(type)));
     }
 
     case st::Expression::Literal::kStruct: {
@@ -206,7 +210,7 @@ Result<Datum> FromProto(const st::Expression::Literal& lit) {
       for (size_t i = 0; i < fields.size(); ++i) {
         ARROW_ASSIGN_OR_RAISE(auto field, FromProto(struct_.fields(i)));
         DCHECK(field.is_scalar());
-        fields.push_back(field.scalar());
+        fields[i] = field.scalar();
       }
       ARROW_ASSIGN_OR_RAISE(
           auto scalar, StructScalar::Make(std::move(fields), std::move(field_names)));
@@ -230,7 +234,7 @@ Result<Datum> FromProto(const st::Expression::Literal& lit) {
       for (size_t i = 0; i < values.size(); ++i) {
         ARROW_ASSIGN_OR_RAISE(auto value, FromProto(list.values(i)));
         DCHECK(value.is_scalar());
-        values.push_back(value.scalar());
+        values[i] = value.scalar();
         if (element_type) {
           if (!value.type()->Equals(*element_type)) {
             return Status::Invalid(list.DebugString(),
@@ -244,7 +248,7 @@ Result<Datum> FromProto(const st::Expression::Literal& lit) {
       ARROW_ASSIGN_OR_RAISE(auto builder, MakeBuilder(element_type));
       RETURN_NOT_OK(builder->AppendScalars(values));
       ARROW_ASSIGN_OR_RAISE(auto arr, builder->Finish());
-      return Datum(std::make_shared<ListScalar>(std::move(arr)));
+      return Datum(ListScalar(std::move(arr)));
     }
 
     case st::Expression::Literal::kMap: {
@@ -280,8 +284,8 @@ Result<Datum> FromProto(const st::Expression::Literal& lit) {
         DCHECK(key.is_scalar());
         DCHECK(value.is_scalar());
 
-        keys.push_back(key.scalar());
-        values.push_back(value.scalar());
+        keys[i] = key.scalar();
+        values[i] = value.scalar();
 
         if (key_type) {
           if (!key.type()->Equals(*key_type)) {
@@ -341,14 +345,14 @@ struct ToProtoImpl {
   template <typename Arg, typename PrimitiveScalar>
   Status Primitive(void (st::Expression::Literal::*set)(Arg),
                    const PrimitiveScalar& primitive_scalar) {
-    (type_->*set)(static_cast<Arg>(primitive_scalar.value));
+    (lit_->*set)(static_cast<Arg>(primitive_scalar.value));
     return Status::OK();
   }
 
   template <typename ScalarWithBufferValue>
   Status FromBuffer(void (st::Expression::Literal::*set)(std::string&&),
                     const ScalarWithBufferValue& scalar_with_buffer) {
-    (type_->*set)(util::string_view{*scalar_with_buffer.value}.to_string());
+    (lit_->*set)(scalar_with_buffer.value->ToString());
     return Status::OK();
   }
 
@@ -403,13 +407,33 @@ struct ToProtoImpl {
   Status Visit(const MonthIntervalScalar& s) { return NotImplemented(s); }
   Status Visit(const DayTimeIntervalScalar& s) { return NotImplemented(s); }
 
-  Status Visit(const Decimal128Scalar& s) { return NotImplemented(s); }
+  Status Visit(const Decimal128Scalar& s) {
+    auto decimal = internal::make_unique<Lit::Decimal>();
+
+    auto decimal_type = internal::checked_cast<const Decimal128Type*>(s.type.get());
+    decimal->set_precision(decimal_type->precision());
+    decimal->set_scale(decimal_type->scale());
+
+    decimal->set_value(reinterpret_cast<const char*>(s.value.native_endian_bytes()),
+                       sizeof(Decimal128));
+#if !ARROW_LITTLE_ENDIAN
+    std::reverse(decimal->mutable_value()->begin(), decimal->mutable_value()->end());
+#endif
+    lit_->set_allocated_decimal(decimal.release());
+    return Status::OK();
+  }
+
   Status Visit(const Decimal256Scalar& s) { return NotImplemented(s); }
 
   Status Visit(const ListScalar& s) {
-    type_->set_allocated_list(new Lit::List());
+    lit_->set_allocated_list(new Lit::List());
 
-    auto values = type_->mutable_list()->mutable_values();
+    ARROW_ASSIGN_OR_RAISE(
+        auto element_type,
+        ToProto(*internal::checked_cast<const ListType&>(*s.type).value_type()));
+    lit_->mutable_list()->set_allocated_element_type(element_type.release());
+
+    auto values = lit_->mutable_list()->mutable_values();
     values->Reserve(static_cast<int>(s.value->length()));
 
     for (int64_t i = 0; i < s.value->length(); ++i) {
@@ -421,9 +445,9 @@ struct ToProtoImpl {
   }
 
   Status Visit(const StructScalar& s) {
-    type_->set_allocated_struct_(new Lit::Struct());
+    lit_->set_allocated_struct_(new Lit::Struct());
 
-    auto fields = type_->mutable_struct_()->mutable_fields();
+    auto fields = lit_->mutable_struct_()->mutable_fields();
     fields->Reserve(static_cast<int>(s.value.size()));
 
     for (Datum field : s.value) {
@@ -438,11 +462,11 @@ struct ToProtoImpl {
   Status Visit(const DictionaryScalar& s) { return NotImplemented(s); }
 
   Status Visit(const MapScalar& s) {
-    type_->set_allocated_map(new Lit::Map());
+    lit_->set_allocated_map(new Lit::Map());
 
     const auto& kv_arr = internal::checked_cast<const StructArray&>(*s.value);
 
-    auto key_values = type_->mutable_map()->mutable_key_values();
+    auto key_values = lit_->mutable_map()->mutable_key_values();
     key_values->Reserve(static_cast<int>(kv_arr.length()));
 
     for (int64_t i = 0; i < s.value->length(); ++i) {
@@ -468,13 +492,18 @@ struct ToProtoImpl {
     }
 
     if (UnwrapFixedChar(*s.type)) {
-      return FromBuffer(&Lit::set_uuid,
+      return FromBuffer(&Lit::set_fixed_char,
                         internal::checked_cast<const FixedSizeBinaryScalar&>(*s.value));
     }
 
-    if (UnwrapVarChar(*s.type)) {
-      return FromBuffer(&Lit::set_uuid,
-                        internal::checked_cast<const StringScalar&>(*s.value));
+    if (auto length = UnwrapVarChar(*s.type)) {
+      auto var_char = internal::make_unique<Lit::VarChar>();
+      var_char->set_length(*length);
+      var_char->set_value(
+          internal::checked_cast<const StringScalar&>(*s.value).value->ToString());
+
+      lit_->set_allocated_var_char(var_char.release());
+      return Status::OK();
     }
 
     return NotImplemented(s);
@@ -494,7 +523,7 @@ struct ToProtoImpl {
 
   Status operator()(const Scalar& scalar) { return VisitScalarInline(scalar, this); }
 
-  st::Expression::Literal* type_;
+  st::Expression::Literal* lit_;
 };
 }  // namespace
 

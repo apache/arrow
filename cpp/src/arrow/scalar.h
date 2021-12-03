@@ -533,6 +533,11 @@ struct ARROW_EXPORT ExtensionScalar : public Scalar {
   ExtensionScalar(std::shared_ptr<Scalar> storage, std::shared_ptr<DataType> type)
       : Scalar(std::move(type), true), value(std::move(storage)) {}
 
+  template <typename Storage,
+            typename = enable_if_t<std::is_base_of<Scalar, Storage>::value>>
+  ExtensionScalar(Storage&& storage, std::shared_ptr<DataType> type)
+      : ExtensionScalar(std::make_shared<Storage>(std::move(storage)), std::move(type)) {}
+
   std::shared_ptr<Scalar> value;
 };
 
