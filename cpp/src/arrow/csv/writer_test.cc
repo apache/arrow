@@ -29,6 +29,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
+#include "arrow/util/optional.h"
 
 namespace arrow {
 namespace csv {
@@ -37,8 +38,11 @@ struct WriterTestParams {
   std::shared_ptr<Schema> schema;
   std::string batch_data;
   WriteOptions options;
-  bool options_invalid;
+  // When set, expect the test to fail just from the supplied WriteOptions alone.
+  bool expect_invalid_options;
   std::string expected_output;
+  // When set, expect the test to fail with this string.
+  util::optional<std::string> expect_invalid_string;
 };
 
 // Avoid Valgrind failures with GTest trying to represent a WriterTestParams
@@ -46,15 +50,18 @@ void PrintTo(const WriterTestParams& p, std::ostream* os) {
   *os << "WriterTestParams(" << reinterpret_cast<const void*>(&p) << ")";
 }
 
-WriteOptions DefaultTestOptions(bool include_header, const std::string& null_string) {
+WriteOptions DefaultTestOptions(bool include_header, const std::string& null_string,
+                                QuoteStyle quote_style) {
   WriteOptions options;
   options.batch_size = 5;
   options.include_header = include_header;
   options.null_string = null_string;
+  options.quote_style = quote_style;
   return options;
 }
 
 std::vector<WriterTestParams> GenerateTestCases() {
+  // Schema to test various types.
   auto abc_schema = schema({
       field("a", uint64()),
       field("b\"", utf8()),
@@ -73,6 +80,8 @@ std::vector<WriterTestParams> GenerateTestCases() {
                              { "e": 86400000 },
                              { "f": 1078016523 },
                              { "b\"": "NA" }])";
+  std::string expected_header = std::string(R"("a","b""","c ","d","e","f")") + "\n";
+  // Expected output without header when using default QuoteStyle::Needed.
   std::string expected_without_header = std::string("1,,-1,,,") + "\n" +        // line 1
                                         R"(1,"abc""efg",2324,,,)" + "\n" +      // line 2
                                         R"(,"abcd",5467,,,)" + "\n" +           // line 3
@@ -83,42 +92,98 @@ std::vector<WriterTestParams> GenerateTestCases() {
                                         R"(,,,,1970-01-02,)" + "\n" +           // line 8
                                         R"(,,,,,2004-02-29 01:02:03)" + "\n" +  // line 9
                                         R"(,"NA",,,,)" + "\n";                  // line 10
+  // Expected output without header when using QuoteStyle::AllValid.
+  std::string expected_quote_style_all_valid =
+      std::string(R"("1",,"-1",,,)") + "\n" +   // line 1
+      R"("1","abc""efg","2324",,,)" + "\n" +    // line 2
+      R"(,"abcd","5467",,,)" + "\n" +           // line 3
+      R"(,,,,,)" + "\n" +                       // line 4
+      R"("546","","517",,,)" + "\n" +           // line 5
+      R"("124","a""""b""",,,,)" + "\n" +        // line 6
+      R"(,,,"1970-01-01",,)" + "\n" +           // line 7
+      R"(,,,,"1970-01-02",)" + "\n" +           // line 8
+      R"(,,,,,"2004-02-29 01:02:03")" + "\n" +  // line 9
+      R"(,"NA",,,,)" + "\n";                    // line 10
 
-  std::string expected_header = std::string(R"("a","b""","c ","d","e","f")") + "\n";
+  // Batch when testing QuoteStyle::None. The values may not contain any quotes for this
+  // style according to RFC4180.
+  auto populated_batch_quote_style_none = R"([{"a": 1, "c ": -1},
+                             { "a": 1, "b\"": "abcefg", "c ": 2324},
+                             { "b\"": "abcd", "c ": 5467},
+                             { },
+                             { "a": 546, "b\"": "", "c ": 517 },
+                             { "a": 124, "b\"": "ab" },
+                             { "d": 0 },
+                             { "e": 86400000 },
+                             { "f": 1078016523 }])";
+  // Expected output for QuoteStyle::None
+  std::string expected_quote_style_none = std::string("1,,-1,,,") + "\n" +       // line 1
+                                          R"(1,abcefg,2324,,,)" + "\n" +         // line 2
+                                          R"(,abcd,5467,,,)" + "\n" +            // line 3
+                                          R"(,,,,,)" + "\n" +                    // line 4
+                                          R"(546,,517,,,)" + "\n" +              // line 5
+                                          R"(124,ab,,,,)" + "\n" +               // line 6
+                                          R"(,,,1970-01-01,,)" + "\n" +          // line 7
+                                          R"(,,,,1970-01-02,)" + "\n" +          // line 8
+                                          R"(,,,,,2004-02-29 01:02:03)" + "\n";  // line 9
 
+  // Schema and data to test custom null value string.
   auto schema_custom_na = schema({field("g", uint64()), field("h", utf8())});
-
   auto populated_batch_custom_na = R"([{"g": 42, "h": "NA"},
                                                   { },
                                                   {"g": 1337, "h": "\"NA\""}])";
-
   std::string expected_custom_na = std::string(R"(42,"NA")") + "\n" +  // line 1
                                    R"(NA,NA)" + "\n" +                 // line 2
                                    R"(1337,"""NA""")" + "\n";          // line 3
 
-  std::string dummy_batch_data = R"([{"a": null}])";
+  // Dummy schema and data for testing invalid options.
   auto dummy_schema = schema({field("a", uint8())});
+  std::string dummy_batch_data = R"([{"a": null}])";
 
   return std::vector<WriterTestParams>{
-      {abc_schema, "[]", DefaultTestOptions(/*include_header=*/false, /*null_string=*/""),
-       /*null_string_invalid*/ false, ""},
-      {abc_schema, "[]", DefaultTestOptions(/*include_header=*/true, /*null_string=*/""),
-       /*null_string_invalid*/ false, expected_header},
+      {abc_schema, "[]",
+       DefaultTestOptions(/*include_header=*/false, /*null_string=*/"",
+                          QuoteStyle::Needed),
+       /*null_string_invalid*/ false, "", util::nullopt},
+      {abc_schema, "[]",
+       DefaultTestOptions(/*include_header=*/true, /*null_string=*/"",
+                          QuoteStyle::Needed),
+       /*null_string_invalid*/ false, expected_header, util::nullopt},
       {abc_schema, populated_batch,
-       DefaultTestOptions(/*include_header=*/false, /*null_string=*/""),
-       /*null_string_invalid*/ false, expected_without_header},
+       DefaultTestOptions(/*include_header=*/false, /*null_string=*/"",
+                          QuoteStyle::Needed),
+       /*null_string_invalid*/ false, expected_without_header, util::nullopt},
       {abc_schema, populated_batch,
-       DefaultTestOptions(/*include_header=*/true, /*null_string=*/""),
-       /*null_string_invalid*/ false, expected_header + expected_without_header},
+       DefaultTestOptions(/*include_header=*/true, /*null_string=*/"",
+                          QuoteStyle::Needed),
+       /*null_string_invalid*/ false, expected_header + expected_without_header,
+       util::nullopt},
       {schema_custom_na, populated_batch_custom_na,
-       DefaultTestOptions(/*include_header=*/false, /*null_string=*/"NA"),
-       /*null_string_invalid*/ false, expected_custom_na},
+       DefaultTestOptions(/*include_header=*/false, /*null_string=*/"NA",
+                          QuoteStyle::Needed),
+       /*null_string_invalid*/ false, expected_custom_na, util::nullopt},
       {dummy_schema, dummy_batch_data,
-       DefaultTestOptions(/*include_header=*/false, /*null_string=*/R"("NA")"),
-       /*null_string_invalid*/ true, ""},
+       DefaultTestOptions(/*include_header=*/false, /*null_string=*/R"("NA")",
+                          QuoteStyle::Needed),
+       /*null_string_invalid*/ true, /*expected_output*/ "", util::nullopt},
       {dummy_schema, dummy_batch_data,
-       DefaultTestOptions(/*include_header=*/false, /*null_string=*/R"(")"),
-       /*null_string_invalid*/ true, ""}};
+       DefaultTestOptions(/*include_header=*/false, /*null_string=*/R"(")",
+                          QuoteStyle::Needed),
+       /*null_string_invalid*/ true, /*expected_output*/ "", util::nullopt},
+      {abc_schema, populated_batch,
+       DefaultTestOptions(/*include_header=*/false, /*null_string=*/"",
+                          QuoteStyle::AllValid),
+       /*null_string_invalid*/ false, expected_quote_style_all_valid, util::nullopt},
+      {abc_schema, populated_batch_quote_style_none,
+       DefaultTestOptions(/*include_header=*/false, /*null_string=*/"", QuoteStyle::None),
+       /*null_string_invalid*/ false, expected_quote_style_none, util::nullopt},
+      {abc_schema, populated_batch,
+       DefaultTestOptions(/*include_header=*/false, /*null_string=*/"", QuoteStyle::None),
+       /*null_string_invalid*/ false,
+       /*expected_output*/ "",
+       /*invalid_string*/
+       "Invalid: CSV values may not contain quotes if quote style is \"None\". See "
+       "RFC4180. Invalid value: abc\"efg"}};
 }
 
 class TestWriteCSV : public ::testing::TestWithParam<WriterTestParams> {
@@ -160,9 +225,14 @@ TEST_P(TestWriteCSV, TestWrite) {
   WriteOptions options = GetParam().options;
   std::string csv;
   auto record_batch = RecordBatchFromJSON(GetParam().schema, GetParam().batch_data);
-  // Invalid options should be rejected.
-  if (GetParam().options_invalid) {
+  if (GetParam().expect_invalid_options) {
+    // If invalid options are expected, they should be rejected.
     ASSERT_RAISES(Invalid, ToCsvString(*record_batch, options));
+  } else if (GetParam().expect_invalid_string) {
+    // If the invalid string options is set, expect the function to fail with invalid
+    // status and check if the expected message matches.
+    ASSERT_RAISES_WITH_MESSAGE(Invalid, *GetParam().expect_invalid_string,
+                               ToCsvString(*record_batch, options));
   } else {
     ASSERT_OK_AND_ASSIGN(csv, ToCsvString(*record_batch, options));
     EXPECT_EQ(csv, GetParam().expected_output);

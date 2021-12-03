@@ -170,6 +170,18 @@ struct ARROW_EXPORT ReadOptions {
   Status Validate() const;
 };
 
+/// \brief Quote style for CSV writing
+enum class ARROW_EXPORT QuoteStyle {
+  /// Only enclose values in quotes which need them, because their CSV rendering can
+  /// contain quotes itself (e.g. strings or binary values)
+  Needed,
+  /// Enclose all valid values in quotes. Nulls are not quoted.
+  AllValid,
+  /// Do not enclose any values in quotes. Prevents values from containing quotes
+  /// (following RFC4180) and causes an error to return when attempting to write.
+  None
+};
+
 struct ARROW_EXPORT WriteOptions {
   /// Whether to write an initial header line with column names
   bool include_header = true;
@@ -185,6 +197,9 @@ struct ARROW_EXPORT WriteOptions {
 
   /// \brief IO context for writing.
   io::IOContext io_context;
+
+  /// \brief Quote style
+  QuoteStyle quote_style = QuoteStyle::Needed;
 
   /// Create write options with default values
   static WriteOptions Defaults();
