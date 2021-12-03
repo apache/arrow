@@ -226,8 +226,17 @@ public class TestBitVectorHelper {
   @Test
   public void testLoadValidityBuffer() {
     try (RootAllocator allocator = new RootAllocator(1024)) {
-      // should allocate memory if input are all not-null and input validity buffer is null
-      ArrowFieldNode fieldNode = new ArrowFieldNode(1024, 0);
+      // if the input validity buffer is all null, we should allocate new memory
+      ArrowFieldNode fieldNode = new ArrowFieldNode(1024, 1024);
+      try (ArrowBuf buf = BitVectorHelper.loadValidityBuffer(fieldNode, null, allocator)) {
+        assertEquals(128, allocator.getAllocatedMemory());
+        for (int i = 0; i < 128; i++) {
+          assertEquals(0, buf.getByte(i));
+        }
+      }
+
+      // should also allocate memory if input validity buffer is all not-null
+      fieldNode = new ArrowFieldNode(1024, 0);
       try (ArrowBuf buf = BitVectorHelper.loadValidityBuffer(fieldNode, null, allocator)) {
         assertEquals(128, allocator.getAllocatedMemory());
         for (int i = 0; i < 128; i++) {
@@ -236,7 +245,14 @@ public class TestBitVectorHelper {
       }
 
       // should not allocate memory if input validity buffer is not null, even if all values are
-      // not null
+      // null
+      fieldNode = new ArrowFieldNode(1024, 1024);
+      try (ArrowBuf src = allocator.buffer(128);
+           ArrowBuf dst = BitVectorHelper.loadValidityBuffer(fieldNode, src, allocator)) {
+        assertEquals(128, allocator.getAllocatedMemory());
+      }
+
+      // ... similarly if all values are not null
       fieldNode = new ArrowFieldNode(1024, 0);
       try (ArrowBuf src = allocator.buffer(128);
            ArrowBuf dst = BitVectorHelper.loadValidityBuffer(fieldNode, src, allocator)) {
