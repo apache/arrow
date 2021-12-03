@@ -46,7 +46,12 @@ For other Linux distributions, to get the relevant URL, you can visit
 [the RSPM site](https://packagemanager.rstudio.com/client/#/repos/1/overview),
 click on 'binary', and select your preferred distribution.
 
-Similarly, if you use `conda` to manage your R environment, you can `conda install -c conda-forge --strict-channel-priority r-arrow` and you'll get the latest official release of the R package including libarrow.
+Similarly, if you use `conda` to manage your R environment, you can get the 
+latest official release of the R package including libarrow via:
+
+```shell
+conda install -c conda-forge --strict-channel-priority r-arrow
+```
 
 ### Method 1b - R source package with libarrow binary
 
