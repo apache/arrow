@@ -73,10 +73,16 @@ to another program such as ``make`` or ``ninja`` for the actual build.
 If running into errors with the build process, the first thing to try is
 to tweak some CMake flags for compiling Arrow.
 
+.. TODO
+.. CMake presets
+.. Ex: "We now have CMake Presets which are useful starting points."
+.. https://github.com/apache/arrow/blob/master/docs/source/developers/cpp/building.rst#cmake-presets
+
 
 Optional flags and why might we use them
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 .. TODO short description of the use of flags
+.. R and Python have specific lists of flags in their respective building docs that can be referenced.
 
 .. seealso::
 	Full list of optional flags: :ref:`cpp_build_optional_components`
