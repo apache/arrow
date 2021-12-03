@@ -72,7 +72,7 @@ Overview
   in a :class:`ExecFactoryRegistry`.
 
 :class:`ExecNodeOptions`
-  Heterogenous parameters for factories of :class:`ExecNode` are bundled in an
+  Heterogeneous parameters for factories of :class:`ExecNode` are bundled in an
   :class:`ExecNodeOptions`.
 
 :struct:`Declaration`
