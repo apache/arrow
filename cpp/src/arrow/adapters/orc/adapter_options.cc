@@ -65,7 +65,8 @@ WriteOptions::WriteOptions(WriteOptions& rhs) {
 
 WriteOptions& WriteOptions::operator=(const WriteOptions& rhs) {
   if (this != &rhs) {
-    orc_writer_options_.reset(new liborc::WriterOptions(*(rhs.orc_writer_options_.get())));
+    orc_writer_options_.reset(
+      new liborc::WriterOptions(*(rhs.orc_writer_options_.get())));
     batch_size_ = rhs.batch_size_;
   }
   return *this;
@@ -93,7 +94,9 @@ WriteOptions& WriteOptions::set_stripe_size(uint64_t size) {
   return *this;
 }
 
-uint64_t WriteOptions::stripe_size() const { return orc_writer_options_->getStripeSize(); }
+uint64_t WriteOptions::stripe_size() const {
+  return orc_writer_options_->getStripeSize();
+}
 
 WriteOptions& WriteOptions::set_compression_block_size(uint64_t size) {
   orc_writer_options_->setCompressionBlockSize(size);
