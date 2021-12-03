@@ -905,6 +905,7 @@ class Converter_Timestamp : public Converter_Time<value_type, TimestampType> {
   }
 };
 
+template <typename Type>
 class Converter_Decimal : public Converter {
  public:
   explicit Converter_Decimal(const std::shared_ptr<ChunkedArray>& chunked_array)
@@ -919,8 +920,9 @@ class Converter_Decimal : public Converter {
 
   Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
                            R_xlen_t start, R_xlen_t n, size_t chunk_index) const {
+    using DecimalArray = typename TypeTraits<Type>::ArrayType;
     auto p_data = REAL(data) + start;
-    const auto& decimals_arr = checked_cast<const arrow::Decimal128Array&>(*array);
+    const auto& decimals_arr = checked_cast<const arrow::DecimalArray&>(*array);
 
     auto ingest_one = [&](R_xlen_t i) {
       p_data[i] = std::stod(decimals_arr.FormatValue(i).c_str());
@@ -1217,7 +1219,10 @@ std::shared_ptr<Converter> Converter::Make(
       }
 
     case Type::DECIMAL:
-      return std::make_shared<arrow::r::Converter_Decimal>(chunked_array);
+      return std::make_shared<arrow::r::Converter_Decimal<Decimal128Type>>(chunked_array);
+
+    case Type::DECIMAL256:
+      return std::make_shared<arrow::r::Converter_Decimal<Decimal256Type>>(chunked_array);
 
       // nested
     case Type::STRUCT:
