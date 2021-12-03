@@ -213,8 +213,8 @@ Result<std::shared_ptr<DatasetFactory>> FileSystemDatasetFactory::Make(
   // TODO Partitioning support. Dictionary support should be done before that. See
   // ARROW-12481.
   std::string internal_path;
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::fs::FileSystem> filesystem,
-                        arrow::fs::FileSystemFromUri(uri, &internal_path))
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<fs::FileSystem> filesystem,
+                        fs::FileSystemFromUri(uri, &internal_path))
   ARROW_ASSIGN_OR_RAISE(arrow::fs::FileInfo file_info,
                         filesystem->GetFileInfo(internal_path));
   if (file_info.IsDirectory()) {
