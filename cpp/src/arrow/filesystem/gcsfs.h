@@ -37,6 +37,9 @@ struct ARROW_EXPORT GcsOptions {
   std::string endpoint_override;
   std::string scheme;
 
+  /// Limits the number of concurrent operations, such as Object deletes.
+  int maximum_concurrent_operations = 64;
+
   bool Equals(const GcsOptions& other) const;
 };
 
