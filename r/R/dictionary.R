@@ -38,10 +38,10 @@ DictionaryType <- R6Class("DictionaryType",
     code = function() {
       details <- list()
       if (self$index_type != int32()) {
-        details$index_type <- code_carefully(self$index_type, "Problem getting code for index type.")
+        details$index_type <- self$index_type$code()
       }
       if (self$value_type != utf8()) {
-        details$value_type <- code_carefully(self$value_type, "Problem getting code for value type.")
+        details$value_type <- self$value_type$code()
       }
       if (isTRUE(self$ordered)) {
         details$ordered <- TRUE

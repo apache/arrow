@@ -41,10 +41,7 @@ DataType <- R6Class("DataType",
       DataType__fields(self)
     },
     export_to_c = function(ptr) ExportType(self, ptr),
-    code = function() abort(c(
-      paste0("Unsupported type: <", self$ToString(), ">."),
-      i = "The arrow package currently has no function to make these."
-    ), call = call("code"))
+    code = function() call("stop", paste0("Unsupported type: <", self$ToString(), ">."))
   ),
   active = list(
     id = function() DataType__id(self),
@@ -58,12 +55,6 @@ DataType$import_from_c <- ImportType
 
 INTEGER_TYPES <- as.character(outer(c("uint", "int"), c(8, 16, 32, 64), paste0))
 FLOAT_TYPES <- c("float16", "float32", "float64", "halffloat", "float", "double")
-
-code_carefully <- function(type, msg) {
-  withCallingHandlers(type$code(), error = function(cnd) {
-    abort(msg, call = call("code"), parent = cnd)
-  })
-}
 
 #' infer the arrow Array type from an R vector
 #'
@@ -546,10 +537,7 @@ StructType <- R6Class("StructType",
     code = function() {
       field_names <- StructType__field_names(self)
       codes <- map(field_names, function(name) {
-        code_carefully(
-          self$GetFieldByName(name)$type,
-          msg = paste0('Problem getting code for field "', name, '".')
-        )
+        self$GetFieldByName(name)$type$code()
       })
       codes <- set_names(codes, field_names)
       call2("struct", !!!codes)
@@ -564,15 +552,11 @@ StructType$create <- function(...) struct__(.fields(list(...)))
 #' @export
 struct <- StructType$create
 
-code_value_type <- function(list_type) {
-  code_carefully(list_type$value_type, msg = "Problem getting code for value type.")
-}
-
 ListType <- R6Class("ListType",
   inherit = NestedType,
   public = list(
     code = function() {
-      call2("list_of", code_value_type(self))
+      call("list_of", self$value_type$code())
     }
   ),
   active = list(
@@ -589,7 +573,7 @@ LargeListType <- R6Class("LargeListType",
   inherit = NestedType,
   public = list(
     code = function() {
-      call2("large_list_of", code_value_type(self))
+      call2("large_list_of", self$value_type$code())
     }
   ),
   active = list(
@@ -608,8 +592,7 @@ FixedSizeListType <- R6Class("FixedSizeListType",
   inherit = NestedType,
   public = list(
     code = function() {
-      value_code <- code_value_type(self)
-      call2("fixed_size_list_of", value_code, list_size = self$list_size)
+      call2("fixed_size_list_of",  self$value_type$code(), list_size = self$list_size)
     }
   ),
   active = list(
