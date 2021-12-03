@@ -36,6 +36,16 @@ knitr::include_graphics("./img/r_binary_libarrow_binary.png")
 
 If you want a quicker installation process, and by default a more fully-featured build, you could install arrow from [RStudio's public package manager](https://packagemanager.rstudio.com/client/#/), which hosts binaries for both Windows and Linux.
 
+For example, if you are using Ubuntu 20.04 (Focal):
+
+```{r, eval = FALSE}
+install.packages("arrow", repos = "https://packagemanager.rstudio.com/all/__linux__/focal/latest")
+```
+
+For other Linux distributions, to get the relevant URL, you can visit 
+[the RSPM site](https://packagemanager.rstudio.com/client/#/repos/1/overview),
+click on 'binary', and select your preferred distribution.
+
 Similarly, if you use `conda` to manage your R environment, you can `conda install -c conda-forge --strict-channel-priority r-arrow` and you'll get the latest official release of the R package including libarrow.
 
 ### Method 1b - R source package with libarrow binary
