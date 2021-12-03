@@ -531,11 +531,7 @@ struct BinaryScalarMinMax {
                                      const ElementWiseAggregateOptions& options,
                                      const ExecBatch& batch, Datum* out) {
     // Presize data to avoid reallocations, using an upper bound estimation of final size.
-    int64_t estimated_final_size = 0;
-    for (int64_t i = 0; i < batch.length; i++) {
-      auto size = CalculateRowSizeUpperBound(options, batch, i);
-      if (size > 0) estimated_final_size += size;
-    }
+    int64_t estimated_final_size = CalculateOutputSizeUpperBound(batch);
     BuilderType builder(ctx->memory_pool());
     RETURN_NOT_OK(builder.Reserve(batch.length));
     RETURN_NOT_OK(builder.ReserveData(estimated_final_size));
@@ -583,41 +579,26 @@ struct BinaryScalarMinMax {
     *out = *string_array->data();
     out->mutable_array()->type = batch[0].type();
     DCHECK_EQ(batch.length, out->array()->length);
-    DCHECK_GE(estimated_final_size,
-              checked_cast<const ArrayType&>(*string_array).total_values_length());
     return Status::OK();
   }
 
-  // Compute and upper bound for the length of the output for the given position,
-  // or -1 if it would be null.
-  static int64_t CalculateRowSizeUpperBound(const ElementWiseAggregateOptions& options,
-                                            const ExecBatch& batch, const int64_t index) {
-    const auto num_args = batch.values.size();
-    int64_t final_size = 0;
-    for (size_t i = 0; i < num_args; i++) {
-      int64_t element_size = 0;
-      bool valid = true;
-      if (batch[i].is_scalar()) {
-        const auto& scalar = *batch[i].scalar();
-        valid = scalar.is_valid;
-        element_size = static_cast<int64_t>(UnboxScalar<Type>::Unbox(scalar).size());
-      } else {
-        const auto& array = *batch[i].array();
-        valid = !array.MayHaveNulls() ||
-                bit_util::GetBit(array.buffers[0]->data(), array.offset + index);
-        const auto offsets = array.GetValues<offset_type>(1);
-        element_size = offsets[index + 1] - offsets[index];
-      }
-      if (!valid) {
-        if (options.skip_nulls) {
-          continue;
+  // Compute an upper bound for the length of the output batch.
+  static int64_t CalculateOutputSizeUpperBound(const ExecBatch& batch) {
+    int64_t estimated_final_size = 0;
+    for (size_t col = 0; col < batch.values.size(); col++) {
+      const auto& datum = batch[col];
+      if (datum.is_scalar()) {
+        const auto& scalar = checked_cast<const BaseBinaryScalar&>(*datum.scalar());
+        if (scalar.is_valid) {
+          estimated_final_size = std::max(estimated_final_size, scalar.value->size());
         }
-        return -1;
+      } else {
+        DCHECK(datum.is_array());
+        estimated_final_size =
+            std::max(estimated_final_size, datum.array()->buffers[2]->size());
       }
-      // Conservative estimation of the element size.
-      final_size = std::max(final_size, element_size);
     }
-    return final_size;
+    return estimated_final_size;
   }
 };
 
