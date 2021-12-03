@@ -912,11 +912,6 @@ TEST_F(TestMapArray, FromArraysEquality) {
                        MapArray::FromArrays(other_map_type, offsets2, keys2, items2));
   ASSERT_TRUE(array1->Equals(array7));
   ASSERT_TRUE(array1->RangeEquals(array7, 0, 5, 0));
-
-  MapArray* map_ptr = internal::checked_cast<MapArray*>(array7.get());
-  ASSERT_EQ(map_ptr->type()->field(0).get()->name(), "some_entries");
-  ASSERT_EQ(map_ptr->type()->field(0).get()->type()->field(0).get()->name(), "some_key");
-  ASSERT_EQ(map_ptr->type()->field(0).get()->type()->field(1).get()->name(), "some_value");
 }
 
 namespace {
