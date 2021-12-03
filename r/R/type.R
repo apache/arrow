@@ -178,16 +178,10 @@ Time32 <- R6Class("Time32",
   inherit = TimeType,
   public = list(
     code = function() {
-      unit <- self$unit()
-      unit <- if (unit == TimeUnit$MILLI) {
+      unit <- if (self$unit() == TimeUnit$MILLI) {
         "ms"
-      } else if (unit == TimeUnit$SECOND) {
-        "s"
       } else {
-        abort(c(
-          "Invalid unit.",
-          i = 'The `Time32` type only supports "ms" (TimeUnit$MILLI) and "s" (TimeUnit$SECOND).'
-        ), call = call("code"))
+        "s"
       }
       call2("time32", unit = unit)
     }
@@ -197,16 +191,10 @@ Time64 <- R6Class("Time64",
   inherit = TimeType,
   public = list(
     code = function() {
-      unit <- self$unit()
-      unit <- if (unit == TimeUnit$NANO) {
+      unit <- if (self$unit() == TimeUnit$NANO) {
         "ns"
-      } else if (unit == TimeUnit$MICRO) {
-        "us"
       } else {
-        abort(c(
-          "Invalid unit.",
-          i = 'The `Time64` type only supports "ns" (TimeUnit$NANO) and "s" (TimeUnit$MICRO).'
-        ), call = call("code"))
+        "us"
       }
       call2("time64", unit = unit)
     }
