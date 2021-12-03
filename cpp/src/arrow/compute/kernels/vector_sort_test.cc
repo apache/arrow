@@ -1557,7 +1557,7 @@ TEST_F(TestTableSortIndices, DuplicateSortKeys) {
   AssertSortIndices(table, options, "[3, 0, 4, 5, 6, 7, 1, 2]");
 }
 
-TEST_F(TestTableSortIndices, HeterogeneousChunking) {
+TEST_F(TestTableSortIndices, HeterogenousChunking) {
   auto schema = ::arrow::schema({
       {field("a", float32())},
       {field("b", float64())},
@@ -1859,7 +1859,7 @@ TEST_P(TestTableSortIndicesRandom, Sort) {
 
   SortOptions options(sort_keys);
 
-  // Test with different, Heterogeneous table chunkings
+  // Test with different, heterogenous table chunkings
   for (const int64_t max_num_chunks : {1, 3, 15}) {
     ARROW_SCOPED_TRACE("Table sorting: max chunks per column = ", max_num_chunks);
     std::uniform_int_distribution<int64_t> num_chunk_dist(1 + max_num_chunks / 2,
