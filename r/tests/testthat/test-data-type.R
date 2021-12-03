@@ -299,16 +299,16 @@ test_that("duration types work as expected", {
   expect_equal(x$bit_width, 64L)
   expect_equal(x$unit(), unclass(TimeUnit$MICRO))
 
-  x <- duration(TimeUnit$NANO)
+  x <- duration(TimeUnit$SECOND)
   expect_equal(x$id, Type$DURATION)
   expect_equal(x$name, "duration")
-  expect_equal(x$ToString(), "duration[ns]")
+  expect_equal(x$ToString(), "duration[s]")
   expect_true(x == x)
   expect_false(x == null())
   expect_equal(x$num_fields, 0L)
   expect_equal(x$fields(), list())
   expect_equal(x$bit_width, 64L)
-  expect_equal(x$unit(), unclass(TimeUnit$NANO))
+  expect_equal(x$unit(), unclass(TimeUnit$SECOND))
 })
 
 test_that("time type unit validation", {
