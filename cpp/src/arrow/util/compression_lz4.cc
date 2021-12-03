@@ -42,7 +42,7 @@ namespace internal {
 
 namespace {
 
-constexpr int kLZ4MinCompressionLevel = 1;
+constexpr int kLz4MinCompressionLevel = 1;
 
 static Status LZ4Error(LZ4F_errorCode_t ret, const char* prefix_msg) {
   return Status::IOError(prefix_msg, LZ4F_getErrorName(ret));
@@ -314,8 +314,12 @@ class Lz4FrameCodec : public Codec {
   }
 
   Compression::type compression_type() const override { return Compression::LZ4_FRAME; }
-  int minimum_compression_level() const override { return kLZ4MinCompressionLevel; }
+  int minimum_compression_level() const override { return kLz4MinCompressionLevel; }
+#if (defined(LZ4_VERSION_NUMBER) && LZ4_VERSION_NUMBER < 10800)
+  int maximum_compression_level() const override { return 12; }
+#else
   int maximum_compression_level() const override { return LZ4F_compressionLevel_max(); }
+#endif
   int default_compression_level() const override { return kLz4DefaultCompressionLevel; }
 
   int compression_level() const override { return compression_level_; }
