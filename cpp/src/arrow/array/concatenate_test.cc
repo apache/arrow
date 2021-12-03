@@ -385,6 +385,7 @@ TEST_F(ConcatenateTest, UnionType) {
 }
 
 TEST_F(ConcatenateTest, DenseUnionTypeOverflow) {
+  // Offset overflow
   auto type_ids = ArrayFromJSON(int8(), "[0]");
   auto offsets = ArrayFromJSON(int32(), "[2147483646]");
   auto child_array = ArrayFromJSON(uint8(), "[0, 1]");
@@ -392,6 +393,17 @@ TEST_F(ConcatenateTest, DenseUnionTypeOverflow) {
                        DenseUnionArray::Make(*type_ids, *offsets, {child_array}));
   ArrayVector arrays({array, array});
   ASSERT_RAISES(Invalid, Concatenate(arrays, default_memory_pool()));
+
+  // Length overflow
+  auto type_ids_ok = ArrayFromJSON(int8(), "[0]");
+  auto offsets_ok = ArrayFromJSON(int32(), "[0]");
+  auto child_array_overflow =
+      this->rng_.ArrayOf(null(), std::numeric_limits<int32_t>::max() - 1, 0.0);
+  ASSERT_OK_AND_ASSIGN(
+      auto array_overflow,
+      DenseUnionArray::Make(*type_ids_ok, *offsets_ok, {child_array_overflow}));
+  ArrayVector arrays_overflow({array_overflow, array_overflow});
+  ASSERT_RAISES(Invalid, Concatenate(arrays_overflow, default_memory_pool()));
 }
 
 TEST_F(ConcatenateTest, DenseUnionType) {

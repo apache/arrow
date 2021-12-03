@@ -417,12 +417,16 @@ class ConcatenateImpl {
 
         // Increment the offsets in the offset map for the next iteration.
         for (int j = 0; j < u.num_fields(); j++) {
-          int32_t length;
-          if (internal::AddWithOverflow(offset_map[j], in_[i]->child_data[j]->length,
-                                        &length)) {
+          int64_t length;
+          if (internal::AddWithOverflow(static_cast<int64_t>(offset_map[j]),
+                                        in_[i]->child_data[j]->length, &length)) {
             return Status::Invalid("Offset value overflow when concatenating arrays");
           }
-          offset_map[j] = length;
+          // Make sure we can safely downcast to int32_t.
+          if (length > std::numeric_limits<int32_t>::max()) {
+            return Status::Invalid("Length overflow when concatenating arrays");
+          }
+          offset_map[j] = static_cast<int32_t>(length);
         }
       }
 
