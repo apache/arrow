@@ -756,12 +756,10 @@ TEST_F(TestFlightSqlServer, TestCommandGetSqlInfo) {
 TEST_F(TestFlightSqlServer, TestCommandGetSqlInfoNoInfo) {
   FlightCallOptions call_options;
   ASSERT_OK_AND_ASSIGN(auto flight_info, sql_client->GetSqlInfo(call_options, {999999}));
-  auto result = sql_client->DoGet(call_options, flight_info->endpoints()[0].ticket);
 
-  ASSERT_FALSE(result.ok());
-  ASSERT_TRUE(result.status().IsKeyError());
-  ASSERT_THAT(result.status().message(),
-              ::testing::HasSubstr("No information for SQL info number 999999."));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      KeyError, ::testing::HasSubstr("No information for SQL info number 999999."),
+      sql_client->DoGet(call_options, flight_info->endpoints()[0].ticket));
 }
 
 }  // namespace sql
