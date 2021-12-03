@@ -19,9 +19,6 @@
 
 #include <sqlite3.h>
 
-#include <boost/uuid/uuid.hpp>
-#include <boost/uuid/uuid_generators.hpp>
-#include <map>
 #include <memory>
 #include <string>
 
@@ -133,13 +130,10 @@ class SQLiteFlightSqlServer : public FlightSqlServerBase {
       const ServerCallContext& context, const GetPrimaryKeys& command) override;
 
  private:
-  sqlite3* db_;
-  boost::uuids::random_generator uuid_generator_;
-  std::map<boost::uuids::uuid, std::shared_ptr<SqliteStatement>> prepared_statements_;
+  class Impl;
+  std::shared_ptr<Impl> impl_;
 
-  /// SQLiteFlightSqlServer
-  /// \param db   The db parameter from SQLite. The Server it is taking the ownership.
-  explicit SQLiteFlightSqlServer(sqlite3* db);
+  explicit SQLiteFlightSqlServer(std::shared_ptr<Impl> impl);
 };
 
 }  // namespace example

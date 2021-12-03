@@ -101,7 +101,8 @@ struct ActionCreatePreparedStatementResult {
   std::string prepared_statement_handle;
 };
 
-/// \brief A utility function to create a ticket for a statement query.
+/// \brief A utility function to create a ticket (a opaque binary token that the server
+///        uses to identify this query) for a statement query.
 ///        Intended for Flight SQL server implementations.
 /// \param[in] statement_handle      The statement handle that will originate the ticket.
 /// \return                          The parsed ticket as an string.

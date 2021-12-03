@@ -869,6 +869,7 @@ enum SqlSupportsConvert {
 
 /*
  * Represents a request to retrieve the list of catalogs on a Flight SQL enabled backend.
+ * The definition of a catalog depends on vendor/implementation. It is usually the database itself
  * Used in the command member of FlightDescriptor for the following RPC calls:
  *  - GetSchema: return the Arrow schema of the query.
  *  - GetFlightInfo: execute the catalog metadata request.
@@ -884,7 +885,8 @@ message CommandGetCatalogs {
 }
 
 /*
- * Represents a request to retrieve the list of schemas on a Flight SQL enabled backend.
+ * Represents a request to retrieve the list of database schemas on a Flight SQL enabled backend.
+ * The definition of a database schema depends on vendor/implementation. It is usually a collection of tables.
  * Used in the command member of FlightDescriptor for the following RPC calls:
  *  - GetSchema: return the Arrow schema of the query.
  *  - GetFlightInfo: execute the catalog metadata request.
@@ -970,6 +972,7 @@ message CommandGetTables {
 
 /*
  * Represents a request to retrieve the list of table types on a Flight SQL enabled backend.
+ * The table types depend on vendor/implementation. It is usually used to separate tables from views or system tables.
  * Used in the command member of FlightDescriptor for the following RPC calls:
  *  - GetSchema: return the Arrow schema of the query.
  *  - GetFlightInfo: execute the catalog metadata request.
@@ -1265,7 +1268,7 @@ message CommandStatementQuery {
 
 /**
  * Represents a ticket resulting from GetFlightInfo with a CommandStatementQuery.
- * This should be treated as an opaque value, that is, clients should not attempt to parse this.
+ * This should be used only once and treated as an opaque value, that is, clients should not attempt to parse this.
  */
 message TicketStatementQuery {
   option (experimental) = true;
