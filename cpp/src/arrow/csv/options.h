@@ -183,6 +183,9 @@ struct ARROW_EXPORT WriteOptions {
   /// \brief IO context for writing.
   io::IOContext io_context;
 
+  /// End of line character to use
+  std::string eol = "\n";
+
   /// Create write options with default values
   static WriteOptions Defaults();
 
