@@ -25,13 +25,19 @@
 namespace arrow {
 namespace internal {
 
-bool StringToFloat(const char* s, size_t length, float* out) {
-  const auto res = ::arrow_vendored::fast_float::from_chars(s, s + length, *out);
+bool StringToFloat(const char* s, size_t length, char decimal_point, float* out) {
+  ::arrow_vendored::fast_float::parse_options options{
+      ::arrow_vendored::fast_float::chars_format::general, decimal_point};
+  const auto res =
+      ::arrow_vendored::fast_float::from_chars_advanced(s, s + length, *out, options);
   return res.ec == std::errc() && res.ptr == s + length;
 }
 
-bool StringToFloat(const char* s, size_t length, double* out) {
-  const auto res = ::arrow_vendored::fast_float::from_chars(s, s + length, *out);
+bool StringToFloat(const char* s, size_t length, char decimal_point, double* out) {
+  ::arrow_vendored::fast_float::parse_options options{
+      ::arrow_vendored::fast_float::chars_format::general, decimal_point};
+  const auto res =
+      ::arrow_vendored::fast_float::from_chars_advanced(s, s + length, *out, options);
   return res.ec == std::errc() && res.ptr == s + length;
 }
 

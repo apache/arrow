@@ -17,7 +17,6 @@
 
 ARG arch=amd64
 FROM ${arch}/debian:10
-ARG arch
 
 ENV DEBIAN_FRONTEND noninteractive
 
@@ -73,7 +72,7 @@ RUN apt-get update -y -q && \
     rm -rf /var/lib/apt/lists/*
 
 COPY ci/scripts/install_minio.sh /arrow/ci/scripts/
-RUN /arrow/ci/scripts/install_minio.sh ${arch} linux latest /usr/local
+RUN /arrow/ci/scripts/install_minio.sh latest /usr/local
 
 ENV ARROW_BUILD_TESTS=ON \
     ARROW_DATASET=ON \

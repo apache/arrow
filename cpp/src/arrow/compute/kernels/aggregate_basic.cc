@@ -259,7 +259,7 @@ Result<std::unique_ptr<KernelState>> SumInit(KernelContext* ctx,
 
 Result<std::unique_ptr<KernelState>> MeanInit(KernelContext* ctx,
                                               const KernelInitArgs& args) {
-  SumLikeInit<MeanImplDefault> visitor(
+  MeanKernelInit<MeanImplDefault> visitor(
       ctx, args.inputs[0].type,
       static_cast<const ScalarAggregateOptions&>(*args.options));
   return visitor.Create();
@@ -929,6 +929,7 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   AddArrayScalarAggKernels(SumInit, SignedIntTypes(), int64(), func.get());
   AddArrayScalarAggKernels(SumInit, UnsignedIntTypes(), uint64(), func.get());
   AddArrayScalarAggKernels(SumInit, FloatingPointTypes(), float64(), func.get());
+  AddArrayScalarAggKernels(SumInit, {null()}, int64(), func.get());
   // Add the SIMD variants for sum
 #if defined(ARROW_HAVE_RUNTIME_AVX2) || defined(ARROW_HAVE_RUNTIME_AVX512)
   auto cpu_info = arrow::internal::CpuInfo::GetInstance();
@@ -955,6 +956,7 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   AddAggKernel(
       KernelSignature::Make({InputType(Type::DECIMAL256)}, OutputType(ScalarFirstType)),
       MeanInit, func.get(), SimdLevel::NONE);
+  AddArrayScalarAggKernels(MeanInit, {null()}, float64(), func.get());
   // Add the SIMD variants for mean
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
   if (cpu_info->IsSupported(arrow::internal::CpuInfo::AVX2)) {

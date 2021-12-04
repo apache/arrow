@@ -17,7 +17,6 @@
 
 ARG base=amd64/ubuntu:20.04
 FROM ${base}
-ARG arch
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
@@ -38,9 +37,10 @@ RUN apt-get update -y -q && \
     rm -rf /var/lib/apt/lists*
 
 COPY ci/scripts/install_minio.sh /arrow/ci/scripts/
-RUN /arrow/ci/scripts/install_minio.sh ${arch} linux latest /usr/local
+RUN /arrow/ci/scripts/install_minio.sh latest /usr/local
+
 COPY ci/scripts/install_gcs_testbench.sh /arrow/ci/scripts/
-RUN /arrow/ci/scripts/install_gcs_testbench.sh ${arch} default
+RUN /arrow/ci/scripts/install_gcs_testbench.sh default
 
 ENV ARROW_BUILD_TESTS=ON \
     ARROW_DATASET=ON \

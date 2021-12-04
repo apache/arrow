@@ -60,8 +60,8 @@ FunctionSignature ExpressionRegistry::FunctionSignatureIterator::operator*() {
   return *func_sig_it_;
 }
 
-ExpressionRegistry::func_sig_iterator_type ExpressionRegistry::FunctionSignatureIterator::
-operator++(int increment) {
+ExpressionRegistry::func_sig_iterator_type
+ExpressionRegistry::FunctionSignatureIterator::operator++(int increment) {
   ++func_sig_it_;
   // point func_sig_it_ to first signature of next nativefunction if func_sig_it_ is
   // pointing to end

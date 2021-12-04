@@ -93,7 +93,7 @@ data will be as quick as possible
 
 Saving and loading back data in arrow is usually done through
 :ref:`Parquet <parquet>`, :ref:`IPC format <ipc>` (:ref:`feather`), 
-:ref:`CSV <csv>` or :ref:`Line-Delimited JSON <json>` formats.
+:ref:`CSV <py-csv>` or :ref:`Line-Delimited JSON <json>` formats.
 
 Performing Computations
 -----------------------

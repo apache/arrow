@@ -49,10 +49,10 @@ using VectorType = __m512i;
 #define VectorSet _mm512_set1_epi32
 #define VectorLoad _mm512_stream_load_si512
 #define VectorLoadAsm(SRC, DST) \
-  asm volatile("vmovaps %[src], %[dst]" : [ dst ] "=v"(DST) : [ src ] "m"(SRC) :)
+  asm volatile("vmovaps %[src], %[dst]" : [dst] "=v"(DST) : [src] "m"(SRC) :)
 #define VectorStreamLoad _mm512_stream_load_si512
 #define VectorStreamLoadAsm(SRC, DST) \
-  asm volatile("vmovntdqa %[src], %[dst]" : [ dst ] "=v"(DST) : [ src ] "m"(SRC) :)
+  asm volatile("vmovntdqa %[src], %[dst]" : [dst] "=v"(DST) : [src] "m"(SRC) :)
 #define VectorStreamWrite _mm512_stream_si512
 
 #else
@@ -63,10 +63,10 @@ using VectorType = __m256i;
 #define VectorSet _mm256_set1_epi32
 #define VectorLoad _mm256_stream_load_si256
 #define VectorLoadAsm(SRC, DST) \
-  asm volatile("vmovaps %[src], %[dst]" : [ dst ] "=v"(DST) : [ src ] "m"(SRC) :)
+  asm volatile("vmovaps %[src], %[dst]" : [dst] "=v"(DST) : [src] "m"(SRC) :)
 #define VectorStreamLoad _mm256_stream_load_si256
 #define VectorStreamLoadAsm(SRC, DST) \
-  asm volatile("vmovntdqa %[src], %[dst]" : [ dst ] "=v"(DST) : [ src ] "m"(SRC) :)
+  asm volatile("vmovntdqa %[src], %[dst]" : [dst] "=v"(DST) : [src] "m"(SRC) :)
 #define VectorStreamWrite _mm256_stream_si256
 
 #else  // ARROW_HAVE_AVX2 not set
@@ -75,10 +75,10 @@ using VectorType = __m128i;
 #define VectorSet _mm_set1_epi32
 #define VectorLoad _mm_stream_load_si128
 #define VectorLoadAsm(SRC, DST) \
-  asm volatile("movaps %[src], %[dst]" : [ dst ] "=x"(DST) : [ src ] "m"(SRC) :)
+  asm volatile("movaps %[src], %[dst]" : [dst] "=x"(DST) : [src] "m"(SRC) :)
 #define VectorStreamLoad _mm_stream_load_si128
 #define VectorStreamLoadAsm(SRC, DST) \
-  asm volatile("movntdqa %[src], %[dst]" : [ dst ] "=x"(DST) : [ src ] "m"(SRC) :)
+  asm volatile("movntdqa %[src], %[dst]" : [dst] "=x"(DST) : [src] "m"(SRC) :)
 #define VectorStreamWrite _mm_stream_si128
 
 #endif  // ARROW_HAVE_AVX2
@@ -164,14 +164,14 @@ using VectorTypeDual = uint8x16x2_t;
 
 static void armv8_stream_load_pair(VectorType* src, VectorType* dst) {
   asm volatile("LDNP %[reg1], %[reg2], [%[from]]\n\t"
-               : [ reg1 ] "+r"(*dst), [ reg2 ] "+r"(*(dst + 1))
-               : [ from ] "r"(src));
+               : [reg1] "+r"(*dst), [reg2] "+r"(*(dst + 1))
+               : [from] "r"(src));
 }
 
 static void armv8_stream_store_pair(VectorType* src, VectorType* dst) {
   asm volatile("STNP %[reg1], %[reg2], [%[to]]\n\t"
-               : [ to ] "+r"(dst)
-               : [ reg1 ] "r"(*src), [ reg2 ] "r"(*(src + 1))
+               : [to] "+r"(dst)
+               : [reg1] "r"(*src), [reg2] "r"(*(src + 1))
                : "memory");
 }
 
@@ -179,7 +179,7 @@ static void armv8_stream_ldst_pair(VectorType* src, VectorType* dst) {
   asm volatile(
       "LDNP q1, q2, [%[from]]\n\t"
       "STNP q1, q2, [%[to]]\n\t"
-      : [ from ] "+r"(src), [ to ] "+r"(dst)
+      : [from] "+r"(src), [to] "+r"(dst)
       :
       : "memory", "v0", "v1", "v2", "v3");
 }
