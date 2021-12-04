@@ -69,10 +69,10 @@ class ARROW_EXPORT Table {
   /// with DataTypes from the schema.
   ///
   /// \param[in] schema Schema of the empty Table
-  /// \param[in] memory_pool MemoryPool pointer
+  /// \param[in] pool MemoryPool pointer
   /// \return the resulting Table
-  static Result<std::shared_ptr<Table>> MakeEmptyTable(std::shared_ptr<Schema> schema,
-                                                       MemoryPool* memory_pool);
+  static Result<std::shared_ptr<Table>> MakeEmpty(
+      std::shared_ptr<Schema> schema, MemoryPool* pool = default_memory_pool());
 
   /// \brief Construct a Table from a RecordBatchReader.
   ///

@@ -95,10 +95,10 @@ class ARROW_EXPORT ChunkedArray {
   /// array of the given type.
   ///
   /// \param[in] type DataType of the empty ChunkedArray
-  /// \param[in] memory_pool MemoryPool pointer
+  /// \param[in] pool MemoryPool pointer
   /// \return the resulting ChunkedArray
-  static Result<std::shared_ptr<ChunkedArray>> MakeEmptyChunkedArray(
-      std::shared_ptr<DataType> type, MemoryPool* memory_pool);
+  static Result<std::shared_ptr<ChunkedArray>> MakeEmpty(
+      std::shared_ptr<DataType> type, MemoryPool* pool = default_memory_pool());
 
   /// \return the total length of the chunked array; computed on construction
   int64_t length() const { return length_; }

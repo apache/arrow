@@ -188,7 +188,7 @@ std::shared_ptr<RecordBatch> RecordBatch::Make(
                                              std::move(columns));
 }
 
-Result<std::shared_ptr<RecordBatch>> RecordBatch::MakeEmptyRecordBatch(
+Result<std::shared_ptr<RecordBatch>> RecordBatch::MakeEmpty(
     std::shared_ptr<Schema> schema, MemoryPool* memory_pool) {
   ArrayVector empty_batch(schema->num_fields());
   for (int i = 0; i < schema->num_fields(); i++) {

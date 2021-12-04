@@ -83,7 +83,7 @@ Result<std::shared_ptr<ChunkedArray>> ChunkedArray::Make(ArrayVector chunks,
   return std::make_shared<ChunkedArray>(std::move(chunks), std::move(type));
 }
 
-Result<std::shared_ptr<ChunkedArray>> ChunkedArray::MakeEmptyChunkedArray(
+Result<std::shared_ptr<ChunkedArray>> ChunkedArray::MakeEmpty(
     std::shared_ptr<DataType> type, MemoryPool* memory_pool) {
   std::vector<std::shared_ptr<Array>> new_chunks(1);
   ARROW_ASSIGN_OR_RAISE(new_chunks[0], MakeEmptyArray(type, memory_pool));

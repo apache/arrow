@@ -66,10 +66,10 @@ class ARROW_EXPORT RecordBatch {
   /// the given schema.
   ///
   /// \param[in] schema Schema of the empty RecordBatch
-  /// \param[in] memory_pool MemoryPool pointer
+  /// \param[in] pool MemoryPool pointer
   /// \return the resulting RecordBatch
-  static Result<std::shared_ptr<RecordBatch>> MakeEmptyRecordBatch(
-      std::shared_ptr<Schema> schema, MemoryPool* memory_pool);
+  static Result<std::shared_ptr<RecordBatch>> MakeEmpty(
+      std::shared_ptr<Schema> schema, MemoryPool* pool = default_memory_pool());
 
   /// \brief Convert record batch to struct array
   ///
