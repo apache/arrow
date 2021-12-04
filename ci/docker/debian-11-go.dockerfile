@@ -17,7 +17,7 @@
 
 ARG arch=amd64
 ARG go=1.15
-FROM ${arch}/golang:${go}-buster
+FROM ${arch}/golang:${go}-bullseye
 
 
 # TODO(kszucs):
