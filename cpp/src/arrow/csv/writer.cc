@@ -160,8 +160,8 @@ class UnquotedColumnPopulator : public ColumnPopulator {
     VisitArrayDataInline<StringType>(
         *casted_array_->data(),
         [&](arrow::util::string_view s) {
-          int32_t next_column_offset =
-              s.length() + /*end_chars(, or eol)*/ end_chars_.size();
+          int32_t next_column_offset = static_cast<int32_t>(
+              s.length() + /*end_chars(, or eol)*/ end_chars_.size());
           memcpy((output + *offsets - next_column_offset), s.data(), s.length());
           memcpy((output + *offsets - end_chars_.size()), end_chars_.c_str(),
                  end_chars_.size());
@@ -170,8 +170,8 @@ class UnquotedColumnPopulator : public ColumnPopulator {
         },
         [&]() {
           // For nulls, the configured null value string is copied into the output.
-          int32_t next_column_offset = static_cast<int32_t>(null_string_->size()) +
-                                       /*end_chars(, or eol)*/ end_chars_.size();
+          int32_t next_column_offset = static_cast<int32_t>(
+              null_string_->size() + /*end_chars(, or eol)*/ end_chars_.size());
           memcpy((output + *offsets - next_column_offset), null_string_->data(),
                  null_string_->size());
           memcpy((output + *offsets - end_chars_.size()), end_chars_.c_str(),
@@ -241,8 +241,8 @@ class QuotedColumnPopulator : public ColumnPopulator {
         },
         [&]() {
           // For nulls, the configured null value string is copied into the output.
-          int32_t next_column_offset = static_cast<int32_t>(null_string_->size()) +
-                                       /*end_chars(, or eol)*/ end_chars_.size();
+          int32_t next_column_offset = static_cast<int32_t>(
+              null_string_->size() + /*end_chars(, or eol)*/ end_chars_.size());
           memcpy((output + *offsets - next_column_offset), null_string_->data(),
                  null_string_->size());
           memcpy((output + *offsets - end_chars_.size()), end_chars_.c_str(),
@@ -433,7 +433,8 @@ class CSVWriterImpl : public ipc::RecordBatchWriter {
     }
     // Calculate cumulative offsets for each row (including delimiters).
     // ',' * num_columns - 1(last column doesn't have ,) + eol
-    int32_t delimiters_length = batch.num_columns() - 1 + options_.eol.size();
+    int32_t delimiters_length =
+        static_cast<int32_t>(batch.num_columns() - 1 + options_.eol.size());
     offsets_[0] += delimiters_length;
     for (int64_t row = 1; row < batch.num_rows(); row++) {
       offsets_[row] += offsets_[row - 1] + /*delimiter lengths*/ delimiters_length;
