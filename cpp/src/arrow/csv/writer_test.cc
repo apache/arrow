@@ -46,12 +46,27 @@ void PrintTo(const WriterTestParams& p, std::ostream* os) {
   *os << "WriterTestParams(" << reinterpret_cast<const void*>(&p) << ")";
 }
 
-WriteOptions DefaultTestOptions(bool include_header, const std::string& null_string) {
+WriteOptions DefaultTestOptions(bool include_header, const std::string& null_string,
+                                const std::string eol = "\n") {
   WriteOptions options;
   options.batch_size = 5;
   options.include_header = include_header;
   options.null_string = null_string;
+  options.eol = eol;
   return options;
+}
+
+std::string UtilGetExpectedWithEOL(std::string eol) {
+  return std::string("1,,-1,,,") + eol +        // line 1
+         R"(1,"abc""efg",2324,,,)" + eol +      // line 2
+         R"(,"abcd",5467,,,)" + eol +           // line 3
+         R"(,,,,,)" + eol +                     // line 4
+         R"(546,"",517,,,)" + eol +             // line 5
+         R"(124,"a""""b""",,,,)" + eol +        // line 6
+         R"(,,,1970-01-01,,)" + eol +           // line 7
+         R"(,,,,1970-01-02,)" + eol +           // line 8
+         R"(,,,,,2004-02-29 01:02:03)" + eol +  // line 9
+         R"(,"NA",,,,)" + eol;                  // line 10
 }
 
 std::vector<WriterTestParams> GenerateTestCases() {
@@ -73,16 +88,10 @@ std::vector<WriterTestParams> GenerateTestCases() {
                              { "e": 86400000 },
                              { "f": 1078016523 },
                              { "b\"": "NA" }])";
-  std::string expected_without_header = std::string("1,,-1,,,") + "\n" +        // line 1
-                                        R"(1,"abc""efg",2324,,,)" + "\n" +      // line 2
-                                        R"(,"abcd",5467,,,)" + "\n" +           // line 3
-                                        R"(,,,,,)" + "\n" +                     // line 4
-                                        R"(546,"",517,,,)" + "\n" +             // line 5
-                                        R"(124,"a""""b""",,,,)" + "\n" +        // line 6
-                                        R"(,,,1970-01-01,,)" + "\n" +           // line 7
-                                        R"(,,,,1970-01-02,)" + "\n" +           // line 8
-                                        R"(,,,,,2004-02-29 01:02:03)" + "\n" +  // line 9
-                                        R"(,"NA",,,,)" + "\n";                  // line 10
+
+  std::string expected_without_header = UtilGetExpectedWithEOL("\n");
+
+  std::string expected_with_custom_eol = UtilGetExpectedWithEOL("_EOL_");
 
   std::string expected_header = std::string(R"("a","b""","c ","d","e","f")") + "\n";
 
@@ -107,6 +116,9 @@ std::vector<WriterTestParams> GenerateTestCases() {
       {abc_schema, populated_batch,
        DefaultTestOptions(/*include_header=*/false, /*null_string=*/""),
        /*null_string_invalid*/ false, expected_without_header},
+      {abc_schema, populated_batch,
+       DefaultTestOptions(/*include_header=*/false, /*null_string=*/"",  /*eol=*/"_EOL_"),
+       /*null_string_invalid*/ false, expected_with_custom_eol},
       {abc_schema, populated_batch,
        DefaultTestOptions(/*include_header=*/true, /*null_string=*/""),
        /*null_string_invalid*/ false, expected_header + expected_without_header},
