@@ -92,6 +92,219 @@ class ARROW_EXPORT FileVersion {
 };
 
 /**
+ * Options for creating a Reader.
+ */
+class ARROW_EXPORT ReadOptions {
+ public:
+  ReadOptions();
+  ReadOptions(const ReadOptions&);
+  ReadOptions(ReadOptions&);
+  ReadOptions& operator=(const ReadOptions&);
+  virtual ~ReadOptions();
+
+  /**
+   * Set the stream to use for printing warning or error messages.
+   */
+  ReadOptions& set_error_stream(std::ostream& stream);
+
+  /**
+   * Set a serialized copy of the file tail to be used when opening the file.
+   *
+   * When one process opens the file and other processes need to read
+   * the rows, we want to enable clients to just read the tail once.
+   * By passing the string returned by Reader.serialized_file_tail(), to
+   * this function, the second reader will not need to read the file tail
+   * from disk.
+   *
+   * @param serialization the bytes of the serialized tail to use
+   */
+  ReadOptions& set_serialized_file_tail(const std::string& serialization);
+
+  /**
+   * Set the location of the tail as defined by the logical length of the
+   * file.
+   */
+  ReadOptions& set_tail_location(uint64_t offset);
+
+  /**
+   * Get the stream to write warnings or errors to.
+   */
+  std::ostream* error_stream() const;
+
+  /**
+   * Get the serialized file tail that the user passed in.
+   */
+  std::string serialized_file_tail() const;
+
+  /**
+   * Get the desired tail location.
+   * @return if not set, return the maximum long.
+   */
+  uint64_t tail_location() const;
+};
+
+/**
+ * Options for creating a RowReader.
+ */
+class RowReaderOptions {
+ public:
+  RowReaderOptions();
+  RowReaderOptions(const RowReaderOptions&);
+  RowReaderOptions(RowReaderOptions&);
+  RowReaderOptions& operator=(const RowReaderOptions&);
+  virtual ~RowReaderOptions();
+
+  /**
+   * For files that have structs as the top-level object, select the fields
+   * to read. The first field is 0, the second 1, and so on. By default,
+   * all columns are read. This option clears any previous setting of
+   * the selected columns.
+   * @param include a list of fields to read
+   * @return this
+   */
+  RowReaderOptions& include(const std::list<uint64_t>& include);
+
+  /**
+   * For files that have structs as the top-level object, select the fields
+   * to read by name. By default, all columns are read. This option clears
+   * any previous setting of the selected columns.
+   * @param include a list of fields to read
+   * @return this
+   */
+  RowReaderOptions& include(const std::list<std::string>& include);
+
+  /**
+   * Selects which type ids to read. The root type is always 0 and the
+   * rest of the types are labeled in a preorder traversal of the tree.
+   * The parent types are automatically selected, but the children are not.
+   *
+   * This option clears any previous setting of the selected columns or
+   * types.
+   * @param types a list of the type ids to read
+   * @return this
+   */
+  RowReaderOptions& include_types(const std::list<uint64_t>& types);
+
+  /**
+   * Set the section of the file to process.
+   * @param offset the starting byte offset
+   * @param length the number of bytes to read
+   * @return this
+   */
+  RowReaderOptions& range(uint64_t offset, uint64_t length);
+
+  /**
+   * For Hive 0.11 (and 0.12) decimals, the precision was unlimited
+   * and thus may overflow the 38 digits that is supported. If one
+   * of the Hive 0.11 decimals is too large, the reader may either convert
+   * the value to NULL or throw an exception. That choice is controlled
+   * by this setting.
+   *
+   * Defaults to true.
+   *
+   * @param should_throw should the reader throw a ParseError?
+   * @return returns *this
+   */
+  RowReaderOptions& throw_on_hive11_decimal_overflow(bool should_throw);
+
+  /**
+   * For Hive 0.11 (and 0.12) written decimals, which have unlimited
+   * scale and precision, the reader forces the scale to a consistent
+   * number that is configured. This setting changes the scale that is
+   * forced upon these old decimals. See also throwOnHive11DecimalOverflow.
+   *
+   * Defaults to 6.
+   *
+   * @param forced_scale the scale that will be forced on Hive 0.11 decimals
+   * @return returns *this
+   */
+  RowReaderOptions& forced_scale_on_hive11_decimal(int32_t forced_scale);
+
+  /**
+   * Set enable encoding block mode.
+   * By enable encoding block mode, Row Reader will not decode
+   * dictionary encoded string vector, but instead return an index array with
+   * reference to corresponding dictionary.
+   */
+  RowReaderOptions& set_enable_lazy_decoding(bool enable);
+
+  /**
+   * Set search argument for predicate push down
+   */
+  RowReaderOptions& searchArgument(std::unique_ptr<SearchArgument> sargs);
+
+  /**
+   * Should enable encoding block mode
+   */
+  bool get_enable_lazy_decoding() const;
+
+  /**
+   * Were the field ids set?
+   */
+  bool get_indexes_set() const;
+
+  /**
+   * Were the type ids set?
+   */
+  bool get_type_ids_set() const;
+
+  /**
+   * Get the list of selected field or type ids to read.
+   */
+  const std::list<uint64_t>& getInclude() const;
+
+  /**
+   * Were the include names set?
+   */
+  bool getNamesSet() const;
+
+  /**
+   * Get the list of selected columns to read. All children of the selected
+   * columns are also selected.
+   */
+  const std::list<std::string>& getIncludeNames() const;
+
+  /**
+   * Get the start of the range for the data being processed.
+   * @return if not set, return 0
+   */
+  uint64_t getOffset() const;
+
+  /**
+   * Get the end of the range for the data being processed.
+   * @return if not set, return the maximum long
+   */
+  uint64_t getLength() const;
+
+  /**
+   * Should the reader throw a ParseError when a Hive 0.11 decimal is
+   * larger than the supported 38 digits of precision? Otherwise, the
+   * data item is replaced by a NULL.
+   */
+  bool getThrowOnHive11DecimalOverflow() const;
+
+  /**
+   * What scale should all Hive 0.11 decimals be normalized to?
+   */
+  int32_t getForcedScaleOnHive11Decimal() const;
+
+  /**
+   * Get search argument for predicate push down
+   */
+  std::shared_ptr<SearchArgument> getSearchArgument() const;
+
+  /**
+   * Set desired timezone to return data of timestamp type
+   */
+  RowReaderOptions& setTimezoneName(const std::string& zoneName);
+
+  /**
+   * Get desired timezone to return data of timestamp type
+   */
+  const std::string& getTimezoneName() const;
+};
+
+/**
  * Options for creating a Writer.
  */
 class ARROW_EXPORT WriteOptions {
@@ -144,8 +357,8 @@ class ARROW_EXPORT WriteOptions {
   uint64_t compression_block_size() const;
 
   /**
-   * Set row index stride (the number of rows per an entry in the row index). Use value 0
-   * to disable row index.
+   * Set row index stride (the number of rows per an entry in the row index). Use value
+   * 0 to disable row index.
    */
   WriteOptions& set_row_index_stride(uint64_t stride);
 
