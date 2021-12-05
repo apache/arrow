@@ -87,7 +87,8 @@ constexpr int64_t kQuoteDelimiterCount = kQuoteCount + /*end_char*/ 1;
 // populators (it populates data backwards).
 class ColumnPopulator {
  public:
-  ColumnPopulator(MemoryPool* pool, char end_char) : end_char_(end_char), pool_(pool) {}
+  ColumnPopulator(MemoryPool* pool, char end_char, std::shared_ptr<Buffer> null_string)
+      : end_char_(end_char), null_string_(std::move(null_string)), pool_(pool) {}
 
   virtual ~ColumnPopulator() = default;
 
@@ -117,6 +118,7 @@ class ColumnPopulator {
   virtual Status UpdateRowLengths(int32_t* row_lengths) = 0;
   std::shared_ptr<StringArray> casted_array_;
   const char end_char_;
+  std::shared_ptr<Buffer> null_string_;
 
  private:
   MemoryPool* const pool_;
@@ -140,12 +142,15 @@ char* EscapeReverse(arrow::util::string_view s, char* out_end) {
 // from a cast does not require quoting or escaping.
 class UnquotedColumnPopulator : public ColumnPopulator {
  public:
-  explicit UnquotedColumnPopulator(MemoryPool* memory_pool, char end_char)
-      : ColumnPopulator(memory_pool, end_char) {}
+  explicit UnquotedColumnPopulator(MemoryPool* memory_pool, char end_char,
+                                   std::shared_ptr<Buffer> null_string_)
+      : ColumnPopulator(memory_pool, end_char, std::move(null_string_)) {}
 
   Status UpdateRowLengths(int32_t* row_lengths) override {
     for (int x = 0; x < casted_array_->length(); x++) {
-      row_lengths[x] += casted_array_->value_length(x);
+      row_lengths[x] += casted_array_->IsNull(x)
+                            ? static_cast<int32_t>(null_string_->size())
+                            : casted_array_->value_length(x);
     }
     return Status::OK();
   }
@@ -154,16 +159,20 @@ class UnquotedColumnPopulator : public ColumnPopulator {
     VisitArrayDataInline<StringType>(
         *casted_array_->data(),
         [&](arrow::util::string_view s) {
-          int64_t next_column_offset = s.length() + /*end_char*/ 1;
+          int32_t next_column_offset = static_cast<int32_t>(s.length()) + /*end_char*/ 1;
           memcpy((output + *offsets - next_column_offset), s.data(), s.length());
           *(output + *offsets - 1) = end_char_;
-          *offsets -= static_cast<int32_t>(next_column_offset);
+          *offsets -= next_column_offset;
           offsets++;
         },
         [&]() {
-          // Nulls are empty (unquoted) to distinguish with empty string.
+          // For nulls, the configured null value string is copied into the output.
+          int32_t next_column_offset =
+              static_cast<int32_t>(null_string_->size()) + /*end_char*/ 1;
+          memcpy((output + *offsets - next_column_offset), null_string_->data(),
+                 null_string_->size());
           *(output + *offsets - 1) = end_char_;
-          *offsets -= 1;
+          *offsets -= next_column_offset;
           offsets++;
         });
   }
@@ -175,8 +184,9 @@ class UnquotedColumnPopulator : public ColumnPopulator {
 // a quote character (") and escaping is done my adding another quote.
 class QuotedColumnPopulator : public ColumnPopulator {
  public:
-  QuotedColumnPopulator(MemoryPool* pool, char end_char)
-      : ColumnPopulator(pool, end_char) {}
+  QuotedColumnPopulator(MemoryPool* pool, char end_char,
+                        std::shared_ptr<Buffer> null_string)
+      : ColumnPopulator(pool, end_char, std::move(null_string)) {}
 
   Status UpdateRowLengths(int32_t* row_lengths) override {
     const StringArray& input = *casted_array_;
@@ -194,6 +204,7 @@ class QuotedColumnPopulator : public ColumnPopulator {
         },
         [&]() {
           row_needs_escaping_[row_number] = false;
+          row_lengths[row_number] += static_cast<int32_t>(null_string_->size());
           row_number++;
         });
     return Status::OK();
@@ -225,9 +236,13 @@ class QuotedColumnPopulator : public ColumnPopulator {
           needs_escaping++;
         },
         [&]() {
-          // Nulls are empty (unquoted) to distinguish with empty string.
+          // For nulls, the configured null value string is copied into the output.
+          int32_t next_column_offset =
+              static_cast<int32_t>(null_string_->size()) + /*end_char*/ 1;
+          memcpy((output + *offsets - next_column_offset), null_string_->data(),
+                 null_string_->size());
           *(output + *offsets - 1) = end_char_;
-          *offsets -= 1;
+          *offsets -= next_column_offset;
           offsets++;
           needs_escaping++;
         });
@@ -246,7 +261,7 @@ struct PopulatorFactory {
                   std::is_same<FixedSizeBinaryType, TypeClass>::value,
               Status>
   Visit(const TypeClass& type) {
-    populator = new QuotedColumnPopulator(pool, end_char);
+    populator = new QuotedColumnPopulator(pool, end_char, null_string);
     return Status::OK();
   }
 
@@ -267,18 +282,20 @@ struct PopulatorFactory {
                   is_null_type<TypeClass>::value || is_temporal_type<TypeClass>::value,
               Status>
   Visit(const TypeClass& type) {
-    populator = new UnquotedColumnPopulator(pool, end_char);
+    populator = new UnquotedColumnPopulator(pool, end_char, null_string);
     return Status::OK();
   }
 
   char end_char;
+  std::shared_ptr<Buffer> null_string;
   MemoryPool* pool;
   ColumnPopulator* populator;
 };
 
-Result<std::unique_ptr<ColumnPopulator>> MakePopulator(const Field& field, char end_char,
-                                                       MemoryPool* pool) {
-  PopulatorFactory factory{end_char, pool, nullptr};
+Result<std::unique_ptr<ColumnPopulator>> MakePopulator(
+    const Field& field, char end_char, std::shared_ptr<Buffer> null_string,
+    MemoryPool* pool) {
+  PopulatorFactory factory{end_char, std::move(null_string), pool, nullptr};
   RETURN_NOT_OK(VisitTypeInline(*field.type(), &factory));
   return std::unique_ptr<ColumnPopulator>(factory.populator);
 }
@@ -289,11 +306,22 @@ class CSVWriterImpl : public ipc::RecordBatchWriter {
       io::OutputStream* sink, std::shared_ptr<io::OutputStream> owned_sink,
       std::shared_ptr<Schema> schema, const WriteOptions& options) {
     RETURN_NOT_OK(options.Validate());
+    // Reject null string values that contain quotes.
+    if (CountEscapes(options.null_string) != 0) {
+      return Status::Invalid("Null string cannot contain quotes.");
+    }
+
+    ASSIGN_OR_RAISE(std::shared_ptr<Buffer> null_string,
+                    arrow::AllocateBuffer(options.null_string.length()));
+    memcpy(null_string->mutable_data(), options.null_string.data(),
+           options.null_string.length());
+
     std::vector<std::unique_ptr<ColumnPopulator>> populators(schema->num_fields());
     for (int col = 0; col < schema->num_fields(); col++) {
       char end_char = col < schema->num_fields() - 1 ? ',' : '\n';
-      ASSIGN_OR_RAISE(populators[col], MakePopulator(*schema->field(col), end_char,
-                                                     options.io_context.pool()));
+      ASSIGN_OR_RAISE(populators[col],
+                      MakePopulator(*schema->field(col), end_char, null_string,
+                                    options.io_context.pool()));
     }
     auto writer = std::make_shared<CSVWriterImpl>(
         sink, std::move(owned_sink), std::move(schema), std::move(populators), options);

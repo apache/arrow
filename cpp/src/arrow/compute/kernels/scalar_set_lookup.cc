@@ -342,8 +342,8 @@ struct IsInVisitor {
     const auto& state = checked_cast<const SetLookupState<NullType>&>(*ctx->state());
     ArrayData* output = out->mutable_array();
     // skip_nulls is honored for consistency with other types
-    BitUtil::SetBitsTo(output->buffers[1]->mutable_data(), output->offset, output->length,
-                       state.value_set_has_null);
+    bit_util::SetBitsTo(output->buffers[1]->mutable_data(), output->offset,
+                        output->length, state.value_set_has_null);
     return Status::OK();
   }
 

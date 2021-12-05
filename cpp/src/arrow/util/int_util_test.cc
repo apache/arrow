@@ -411,7 +411,7 @@ TEST(CheckIndexBounds, Batching) {
 
   int16_t* values = index_data->GetMutableValues<int16_t>(1);
   uint8_t* bitmap = index_data->buffers[0]->mutable_data();
-  BitUtil::SetBitsTo(bitmap, 0, length, true);
+  bit_util::SetBitsTo(bitmap, 0, length, true);
 
   ASSERT_OK(CheckIndexBounds(*index_data, 1));
 
@@ -420,14 +420,14 @@ TEST(CheckIndexBounds, Batching) {
   ASSERT_RAISES(IndexError, CheckIndexBounds(*index_data, 1));
 
   // Make that value null
-  BitUtil::ClearBit(bitmap, 99);
+  bit_util::ClearBit(bitmap, 99);
   ASSERT_OK(CheckIndexBounds(*index_data, 1));
 
   values[199] = 1;
   ASSERT_RAISES(IndexError, CheckIndexBounds(*index_data, 1));
 
   // Make that value null
-  BitUtil::ClearBit(bitmap, 199);
+  bit_util::ClearBit(bitmap, 199);
   ASSERT_OK(CheckIndexBounds(*index_data, 1));
 }
 
@@ -513,7 +513,7 @@ TEST(CheckIntegersInRange, Batching) {
 
   int16_t* values = index_data->GetMutableValues<int16_t>(1);
   uint8_t* bitmap = index_data->buffers[0]->mutable_data();
-  BitUtil::SetBitsTo(bitmap, 0, length, true);
+  bit_util::SetBitsTo(bitmap, 0, length, true);
 
   auto zero = std::make_shared<Int16Scalar>(0);
   auto one = std::make_shared<Int16Scalar>(1);
@@ -529,14 +529,14 @@ TEST(CheckIntegersInRange, Batching) {
   ASSERT_RAISES(Invalid, CheckIntegersInRange(*index_data, *zero, *one));
 
   // Make that value null
-  BitUtil::ClearBit(bitmap, 99);
+  bit_util::ClearBit(bitmap, 99);
   ASSERT_OK(CheckIntegersInRange(*index_data, *zero, *one));
 
   values[199] = 2;
   ASSERT_RAISES(Invalid, CheckIntegersInRange(*index_data, *zero, *one));
 
   // Make that value null
-  BitUtil::ClearBit(bitmap, 199);
+  bit_util::ClearBit(bitmap, 199);
   ASSERT_OK(CheckIntegersInRange(*index_data, *zero, *one));
 }
 

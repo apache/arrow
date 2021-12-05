@@ -23,5 +23,5 @@ FROM ${repo}:${arch}-conda-python-${python}
 ARG pandas=latest
 ARG numpy=latest
 COPY ci/scripts/install_pandas.sh /arrow/ci/scripts/
-RUN conda uninstall -q -y numpy && \
+RUN mamba uninstall -q -y numpy && \
     /arrow/ci/scripts/install_pandas.sh ${pandas} ${numpy}

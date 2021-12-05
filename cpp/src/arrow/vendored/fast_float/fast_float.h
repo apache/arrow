@@ -18,6 +18,17 @@ struct from_chars_result {
   std::errc ec;
 };
 
+struct parse_options {
+  constexpr explicit parse_options(chars_format fmt = chars_format::general,
+                         char dot = '.')
+    : format(fmt), decimal_point(dot) {}
+
+  /** Which number formats are accepted */
+  chars_format format;
+  /** The character used as decimal point */
+  char decimal_point;
+};
+
 /**
  * This function parses the character sequence [first,last) for a number. It parses floating-point numbers expecting
  * a locale-indepent format equivalent to what is used by std::strtod in the default ("C") locale.
@@ -40,6 +51,13 @@ struct from_chars_result {
 template<typename T>
 from_chars_result from_chars(const char *first, const char *last,
                              T &value, chars_format fmt = chars_format::general)  noexcept;
+
+/**
+ * Like from_chars, but accepts an `options` argument to govern number parsing.
+ */
+template<typename T>
+from_chars_result from_chars_advanced(const char *first, const char *last,
+                                      T &value, parse_options options)  noexcept;
 
 }
 } // namespace arrow_vendored

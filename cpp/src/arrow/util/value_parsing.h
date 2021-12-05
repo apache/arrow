@@ -93,7 +93,7 @@ template <>
 struct StringConverter<BooleanType> {
   using value_type = bool;
 
-  static bool Convert(const BooleanType&, const char* s, size_t length, value_type* out) {
+  bool Convert(const BooleanType&, const char* s, size_t length, value_type* out) {
     if (length == 1) {
       // "0" or "1"?
       if (s[0] == '0') {
@@ -129,27 +129,37 @@ struct StringConverter<BooleanType> {
 // - https://github.com/achan001/dtoa-fast
 
 ARROW_EXPORT
-bool StringToFloat(const char* s, size_t length, float* out);
+bool StringToFloat(const char* s, size_t length, char decimal_point, float* out);
 
 ARROW_EXPORT
-bool StringToFloat(const char* s, size_t length, double* out);
+bool StringToFloat(const char* s, size_t length, char decimal_point, double* out);
 
 template <>
 struct StringConverter<FloatType> {
   using value_type = float;
 
-  static bool Convert(const FloatType&, const char* s, size_t length, value_type* out) {
-    return ARROW_PREDICT_TRUE(StringToFloat(s, length, out));
+  explicit StringConverter(char decimal_point = '.') : decimal_point(decimal_point) {}
+
+  bool Convert(const FloatType&, const char* s, size_t length, value_type* out) {
+    return ARROW_PREDICT_TRUE(StringToFloat(s, length, decimal_point, out));
   }
+
+ private:
+  const char decimal_point;
 };
 
 template <>
 struct StringConverter<DoubleType> {
   using value_type = double;
 
-  static bool Convert(const DoubleType&, const char* s, size_t length, value_type* out) {
-    return ARROW_PREDICT_TRUE(StringToFloat(s, length, out));
+  explicit StringConverter(char decimal_point = '.') : decimal_point(decimal_point) {}
+
+  bool Convert(const DoubleType&, const char* s, size_t length, value_type* out) {
+    return ARROW_PREDICT_TRUE(StringToFloat(s, length, decimal_point, out));
   }
+
+ private:
+  const char decimal_point;
 };
 
 // NOTE: HalfFloatType would require a half<->float conversion library
@@ -302,7 +312,7 @@ template <class ARROW_TYPE>
 struct StringToUnsignedIntConverterMixin {
   using value_type = typename ARROW_TYPE::c_type;
 
-  static bool Convert(const ARROW_TYPE&, const char* s, size_t length, value_type* out) {
+  bool Convert(const ARROW_TYPE&, const char* s, size_t length, value_type* out) {
     if (ARROW_PREDICT_FALSE(length == 0)) {
       return false;
     }
@@ -350,7 +360,7 @@ struct StringToSignedIntConverterMixin {
   using value_type = typename ARROW_TYPE::c_type;
   using unsigned_type = typename std::make_unsigned<value_type>::type;
 
-  static bool Convert(const ARROW_TYPE&, const char* s, size_t length, value_type* out) {
+  bool Convert(const ARROW_TYPE&, const char* s, size_t length, value_type* out) {
     static constexpr auto max_positive =
         static_cast<unsigned_type>(std::numeric_limits<value_type>::max());
     // Assuming two's complement
@@ -806,8 +816,7 @@ template <>
 struct StringConverter<TimestampType> {
   using value_type = int64_t;
 
-  static bool Convert(const TimestampType& type, const char* s, size_t length,
-                      value_type* out) {
+  bool Convert(const TimestampType& type, const char* s, size_t length, value_type* out) {
     return ParseTimestampISO8601(s, length, type.unit(), out);
   }
 };
@@ -827,8 +836,7 @@ struct StringConverter<DATE_TYPE, enable_if_date<DATE_TYPE>> {
                                 arrow_vendored::date::days,
                                 std::chrono::milliseconds>::type;
 
-  static bool Convert(const DATE_TYPE& type, const char* s, size_t length,
-                      value_type* out) {
+  bool Convert(const DATE_TYPE& type, const char* s, size_t length, value_type* out) {
     if (ARROW_PREDICT_FALSE(length != 10)) {
       return false;
     }
@@ -860,8 +868,7 @@ struct StringConverter<TIME_TYPE, enable_if_time<TIME_TYPE>> {
   // We allow the following formats for unit == NANO:
   // - "hh:mm:ss.s{7,9}"
 
-  static bool Convert(const TIME_TYPE& type, const char* s, size_t length,
-                      value_type* out) {
+  bool Convert(const TIME_TYPE& type, const char* s, size_t length, value_type* out) {
     const auto unit = type.unit();
     std::chrono::seconds since_midnight;
 
@@ -906,14 +913,14 @@ struct StringConverter<TIME_TYPE, enable_if_time<TIME_TYPE>> {
 template <typename T>
 bool ParseValue(const T& type, const char* s, size_t length,
                 typename StringConverter<T>::value_type* out) {
-  return StringConverter<T>::Convert(type, s, length, out);
+  return StringConverter<T>{}.Convert(type, s, length, out);
 }
 
 template <typename T>
 enable_if_parameter_free<T, bool> ParseValue(
     const char* s, size_t length, typename StringConverter<T>::value_type* out) {
   static T type;
-  return StringConverter<T>::Convert(type, s, length, out);
+  return StringConverter<T>{}.Convert(type, s, length, out);
 }
 
 }  // namespace internal

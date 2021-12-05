@@ -1141,7 +1141,7 @@ TEST(TestDictionary, FromArrays) {
     if (checked_cast<const IntegerType&>(*index_ty).is_signed()) {
       // Invalid index is masked by null, so it's OK
       auto indices3 = ArrayFromJSON(index_ty, "[1, 2, -1, null, 2, 0]");
-      BitUtil::ClearBit(indices3->data()->buffers[0]->mutable_data(), 2);
+      bit_util::ClearBit(indices3->data()->buffers[0]->mutable_data(), 2);
       ASSERT_OK_AND_ASSIGN(auto arr3,
                            DictionaryArray::FromArrays(dict_type, indices3, dict));
     }

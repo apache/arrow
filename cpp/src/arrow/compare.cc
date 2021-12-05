@@ -202,8 +202,8 @@ class RangeDataEqualsImpl {
       if (length <= 8) {
         // Avoid the BitmapUInt64Reader overhead for very small runs
         for (int64_t j = i; j < i + length; ++j) {
-          if (BitUtil::GetBit(left_bits, left_start_idx_ + left_.offset + j) !=
-              BitUtil::GetBit(right_bits, right_start_idx_ + right_.offset + j)) {
+          if (bit_util::GetBit(left_bits, left_start_idx_ + left_.offset + j) !=
+              bit_util::GetBit(right_bits, right_start_idx_ + right_.offset + j)) {
             return false;
           }
         }

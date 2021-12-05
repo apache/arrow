@@ -424,13 +424,13 @@ Status ScalarQuantile(KernelContext* ctx, const QuantileOptions& options,
   auto out_type = IsDataPoint(options) ? scalar.type : float64();
   ARROW_ASSIGN_OR_RAISE(
       output->buffers[1],
-      ctx->Allocate(output->length * BitUtil::BytesForBits(GetBitWidth(*out_type))));
+      ctx->Allocate(output->length * bit_util::BytesForBits(GetBitWidth(*out_type))));
 
   if (!scalar.is_valid || options.min_count > 1) {
     output->null_count = output->length;
     ARROW_ASSIGN_OR_RAISE(output->buffers[0], ctx->AllocateBitmap(output->length));
-    BitUtil::SetBitsTo(output->buffers[0]->mutable_data(), /*offset=*/0, output->length,
-                       false);
+    bit_util::SetBitsTo(output->buffers[0]->mutable_data(), /*offset=*/0, output->length,
+                        false);
     if (IsDataPoint(options)) {
       CType* out_buffer = output->template GetMutableValues<CType>(1);
       std::fill(out_buffer, out_buffer + output->length, CType(0));

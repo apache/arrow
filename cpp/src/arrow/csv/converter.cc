@@ -195,18 +195,34 @@ struct BinaryValueDecoder : public ValueDecoder {
 // Value decoder for integers, floats and temporals
 //
 
+template <typename T, typename Enable = void>
+struct StringConverterFromOptions {
+  static internal::StringConverter<T> Make(const ConvertOptions&) {
+    return internal::StringConverter<T>{};
+  }
+};
+
+template <typename T>
+struct StringConverterFromOptions<T, enable_if_floating_point<T>> {
+  static internal::StringConverter<T> Make(const ConvertOptions& options) {
+    return internal::StringConverter<T>{options.decimal_point};
+  }
+};
+
 template <typename T>
 struct NumericValueDecoder : public ValueDecoder {
   using value_type = typename T::c_type;
 
-  explicit NumericValueDecoder(const std::shared_ptr<DataType>& type,
-                               const ConvertOptions& options)
-      : ValueDecoder(type, options), concrete_type_(checked_cast<const T&>(*type)) {}
+  NumericValueDecoder(const std::shared_ptr<DataType>& type,
+                      const ConvertOptions& options)
+      : ValueDecoder(type, options),
+        concrete_type_(checked_cast<const T&>(*type)),
+        string_converter_(StringConverterFromOptions<T>::Make(options)) {}
 
   Status Decode(const uint8_t* data, uint32_t size, bool quoted, value_type* out) {
     // XXX should quoted values be allowed at all?
     TrimWhiteSpace(&data, &size);
-    if (ARROW_PREDICT_FALSE(!internal::ParseValue<T>(
+    if (ARROW_PREDICT_FALSE(!string_converter_.Convert(
             concrete_type_, reinterpret_cast<const char*>(data), size, out))) {
       return GenericConversionError(type_, data, size);
     }
@@ -215,6 +231,7 @@ struct NumericValueDecoder : public ValueDecoder {
 
  protected:
   const T& concrete_type_;
+  internal::StringConverter<T> string_converter_;
 };
 
 //
@@ -292,8 +309,7 @@ struct DecimalValueDecoder : public ValueDecoder {
 };
 
 //
-// Value decoder wrapper for floating-point and decimals
-// with a non-default decimal point
+// Value decoder wrapper for decimals with a non-default decimal point
 //
 
 template <typename WrappedDecoder>
@@ -686,8 +702,8 @@ Result<std::shared_ptr<Converter>> Converter::Make(const std::shared_ptr<DataTyp
     NUMERIC_CONVERTER_CASE(Type::UINT16, UInt16Type)
     NUMERIC_CONVERTER_CASE(Type::UINT32, UInt32Type)
     NUMERIC_CONVERTER_CASE(Type::UINT64, UInt64Type)
-    REAL_CONVERTER_CASE(Type::FLOAT, FloatType, NumericValueDecoder<FloatType>)
-    REAL_CONVERTER_CASE(Type::DOUBLE, DoubleType, NumericValueDecoder<DoubleType>)
+    NUMERIC_CONVERTER_CASE(Type::FLOAT, FloatType)
+    NUMERIC_CONVERTER_CASE(Type::DOUBLE, DoubleType)
     REAL_CONVERTER_CASE(Type::DECIMAL, Decimal128Type, DecimalValueDecoder)
     NUMERIC_CONVERTER_CASE(Type::DATE32, Date32Type)
     NUMERIC_CONVERTER_CASE(Type::DATE64, Date64Type)
@@ -774,8 +790,8 @@ Result<std::shared_ptr<DictionaryConverter>> DictionaryConverter::Make(
     CONVERTER_CASE(Type::INT64, Int64Type, NumericValueDecoder<Int64Type>)
     CONVERTER_CASE(Type::UINT32, UInt32Type, NumericValueDecoder<UInt32Type>)
     CONVERTER_CASE(Type::UINT64, UInt64Type, NumericValueDecoder<UInt64Type>)
-    REAL_CONVERTER_CASE(Type::FLOAT, FloatType, NumericValueDecoder<FloatType>)
-    REAL_CONVERTER_CASE(Type::DOUBLE, DoubleType, NumericValueDecoder<DoubleType>)
+    CONVERTER_CASE(Type::FLOAT, FloatType, NumericValueDecoder<FloatType>)
+    CONVERTER_CASE(Type::DOUBLE, DoubleType, NumericValueDecoder<DoubleType>)
     REAL_CONVERTER_CASE(Type::DECIMAL, Decimal128Type, DecimalValueDecoder)
     CONVERTER_CASE(Type::FIXED_SIZE_BINARY, FixedSizeBinaryType,
                    FixedSizeBinaryValueDecoder)
