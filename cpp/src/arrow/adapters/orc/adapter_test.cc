@@ -411,6 +411,7 @@ class TestORCWriteOptions : public ::testing::Test {
  public:
   TestORCWriteOptions() { arrow_write_options = arrow::adapters::orc::WriteOptions(); }
   void SetWriteOptions() {
+    arrow_write_options.set_batch_size(2048);
     arrow_write_options.set_file_version(arrow::adapters::orc::FileVersion(0, 11));
     arrow_write_options.set_stripe_size(1024);
     arrow_write_options.set_compression_block_size(1024 * 1024);
@@ -423,16 +424,16 @@ class TestORCWriteOptions : public ::testing::Test {
     arrow_write_options.set_dictionary_key_size_threshold(0.1);
     arrow_write_options.set_bloom_filter_fpp(0.1);
     arrow_write_options.set_columns_use_bloom_filter({0, 2});
-    orc_writer_options = arrow_write_options.get_orc_writer_options();
   }
 
  protected:
   arrow::adapters::orc::WriteOptions arrow_write_options;
-  std::shared_ptr<liborc::WriterOptions> orc_writer_options;
 };
 
 TEST_F(TestORCWriteOptions, DefaultOptions) {
-  orc_writer_options = arrow_write_options.get_orc_writer_options();
+  ASSERT_EQ(arrow_write_options.batch_size(), 1024);
+  std::shared_ptr<liborc::WriterOptions> orc_writer_options =
+      arrow_write_options.get_orc_writer_options();
   ASSERT_EQ(orc_writer_options->getFileVersion(), liborc::FileVersion(0, 12));
   ASSERT_EQ(orc_writer_options->getStripeSize(), 64 * 1024 * 1024);
   ASSERT_EQ(orc_writer_options->getCompressionBlockSize(), 64 * 1024);
@@ -451,6 +452,9 @@ TEST_F(TestORCWriteOptions, DefaultOptions) {
 
 TEST_F(TestORCWriteOptions, ModifiedOptions) {
   SetWriteOptions();
+  ASSERT_EQ(arrow_write_options.batch_size(), 2048);
+  std::shared_ptr<liborc::WriterOptions> orc_writer_options =
+      arrow_write_options.get_orc_writer_options();
   ASSERT_EQ(orc_writer_options->getFileVersion(), liborc::FileVersion(0, 11));
   ASSERT_EQ(orc_writer_options->getStripeSize(), 1024);
   ASSERT_EQ(orc_writer_options->getCompressionBlockSize(), 1024 * 1024);
