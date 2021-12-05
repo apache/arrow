@@ -60,12 +60,15 @@ void PrintTo(const WriterTestParams& p, std::ostream* os) {
 WriteOptions DefaultTestOptions(bool include_header = false,
                                 const std::string& null_string = "",
                                 QuotingStyle quoting_style = QuotingStyle::Needed,
+                                bool include_header, const std::string& null_string,
+                                bool escaping = true, char escape_char = '"',
                                 const std::string& eol = "\n") {
   WriteOptions options;
   options.batch_size = 5;
   options.include_header = include_header;
   options.null_string = null_string;
-  options.eol = eol;
+  options.escaping = escaping;
+  options.escape_char = escape_char;
   options.quoting_style = quoting_style;
   return options;
 }
@@ -300,6 +303,22 @@ INSTANTIATE_TEST_SUITE_P(SingleColumnWriteCSVTest, TestWriteCSV,
                              R"("int64")"
                              "\n9999\n\n-15\n",
                              Status::OK())));
+
+INSTANTIATE_TEST_SUITE_P(BackslashEscapeWriteCSVTest, TestWriteCSV,
+                         ::testing::Values(WriterTestParams{
+                             schema({field("string\"", utf8())}),
+                             R"([{ "string\"": "abc\"def"}])",
+                             DefaultTestOptions(true, "", true, '\\'), false,
+                             R"("string\"")"
+                             "\n\"abc\\\"def\"\n"}));
+
+INSTANTIATE_TEST_SUITE_P(NoEscapingWriteCSVTest, TestWriteCSV,
+                         ::testing::Values(WriterTestParams{
+                             schema({field("string", utf8())}),
+                             R"([{ "string": "abc\"def"}])",
+                             DefaultTestOptions(true, "", false), false,
+                             R"("string")"
+                             "\n\"abc\"def\"\n"}));
 
 #ifndef _WIN32
 // TODO(ARROW-13168):

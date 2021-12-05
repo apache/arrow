@@ -132,13 +132,14 @@ class ColumnPopulator {
 
 // Copies the contents of to out properly escaping any necessary characters.
 // Returns the position prior to last copied character (out_end is decremented).
-char* EscapeReverse(arrow::util::string_view s, char* out_end) {
+char* EscapeReverse(arrow::util::string_view s, char* out_end, bool escaping,
+                    char escape_char) {
   for (const char* val = s.data() + s.length() - 1; val >= s.data(); val--, out_end--) {
-    if (*val == '"') {
-      *out_end = *val;
-      out_end--;
-    }
     *out_end = *val;
+    if (escaping && *val == '"') {
+      out_end--;
+      *out_end = escape_char;
+    }
   }
   return out_end;
 }
@@ -233,9 +234,11 @@ class UnquotedColumnPopulator : public ColumnPopulator {
 // a quote character (") and escaping is done my adding another quote.
 class QuotedColumnPopulator : public ColumnPopulator {
  public:
-  QuotedColumnPopulator(MemoryPool* pool, std::string end_chars,
+  QuotedColumnPopulator(MemoryPool* pool, std::string end_chars, bool escaping, char escape_char,
                         std::shared_ptr<Buffer> null_string)
-      : ColumnPopulator(pool, std::move(end_chars), std::move(null_string)) {}
+      : ColumnPopulator(pool, std::move(end_chars), std::move(null_string)),
+        escaping_(escaping),
+        escape_char_(escape_char) {}
 
   Status UpdateRowLengths(int32_t* row_lengths) override {
     const StringArray& input = *casted_array_;
@@ -244,12 +247,17 @@ class QuotedColumnPopulator : public ColumnPopulator {
     VisitArrayDataInline<StringType>(
         *input.data(),
         [&](arrow::util::string_view s) {
-          // Each quote in the value string needs to be escaped.
-          int64_t escaped_count = CountQuotes(s);
-          // TODO: Maybe use 64 bit row lengths or safe cast?
-          row_needs_escaping_[row_number] = escaped_count > 0;
-          row_lengths[row_number] += static_cast<int32_t>(s.length()) +
-                                     static_cast<int32_t>(escaped_count + kQuoteCount);
+          if (escaping_) {
+            int64_t escaped_count = CountQuotes(s);
+            // TODO: Maybe use 64 bit row lengths or safe cast?
+            row_needs_escaping_[row_number] = escaped_count > 0;
+            row_lengths[row_number] += static_cast<int32_t>(s.length()) +
+                                       static_cast<int32_t>(escaped_count + kQuoteCount);
+          } else {
+            row_needs_escaping_[row_number] = false;
+            row_lengths[row_number] +=
+                static_cast<int32_t>(s.length()) + static_cast<int32_t>(kQuoteCount);
+          }
           row_number++;
         },
         [&]() {
@@ -272,11 +280,12 @@ class QuotedColumnPopulator : public ColumnPopulator {
             next_column_offset = static_cast<int32_t>(s.length() + kQuoteDelimiterCount);
             memcpy(row_end - next_column_offset + /*quote_offset=*/1, s.data(),
                    s.length());
+
           } else {
             // Adjust row_end by 2 + end_chars_.size(): 1 quote char, end_chars_.size()
             // and 1 to position at the first position to write to.
             next_column_offset = static_cast<int32_t>(
-                row_end - EscapeReverse(s, row_end - 2 - end_chars_.size()));
+                row_end - EscapeReverse(s, row_end - 2 - end_chars_.size(), escaping_, escape_char_));
           }
           *(row_end - next_column_offset) = '"';
           *(row_end - end_chars_.size() - 1) = '"';
@@ -306,6 +315,8 @@ class QuotedColumnPopulator : public ColumnPopulator {
   // at some point we should change this to use memory_pool
   // backed allocator.
   std::vector<bool> row_needs_escaping_;
+  bool escaping_;
+  char escape_char_;
 };
 
 struct PopulatorFactory {
@@ -327,7 +338,7 @@ struct PopulatorFactory {
         // quoted.
       case QuotingStyle::Needed:
       case QuotingStyle::AllValid:
-        populator = new QuotedColumnPopulator(pool, end_chars, null_string);
+        populator = new QuotedColumnPopulator(pool, end_chars, escaping, escape_char, null_string);
         break;
     }
     return Status::OK();
@@ -368,6 +379,8 @@ struct PopulatorFactory {
   }
 
   const std::string end_chars;
+  bool escaping;
+  char escape_char;
   std::shared_ptr<Buffer> null_string;
   const QuotingStyle quoting_style;
   MemoryPool* pool;
@@ -375,10 +388,11 @@ struct PopulatorFactory {
 };
 
 Result<std::unique_ptr<ColumnPopulator>> MakePopulator(
-    const Field& field, std::string end_chars, std::shared_ptr<Buffer> null_string,
+    const Field& field, std::string end_chars, bool escaping, char escape_char,
+    std::shared_ptr<Buffer> null_string,
     QuotingStyle quoting_style, MemoryPool* pool) {
-  PopulatorFactory factory{std::move(end_chars), std::move(null_string), quoting_style,
-                           pool, nullptr};
+  PopulatorFactory factory{std::move(end_chars), escaping, escape_char, std::move(null_string), quoting_style, pool,
+                           nullptr};
 
   RETURN_NOT_OK(VisitTypeInline(*field.type(), &factory));
   return std::unique_ptr<ColumnPopulator>(factory.populator);
@@ -405,7 +419,8 @@ class CSVWriterImpl : public ipc::RecordBatchWriter {
       const std::string& end_chars =
           col < schema->num_fields() - 1 ? kStrComma : options.eol;
       ASSIGN_OR_RAISE(populators[col],
-                      MakePopulator(*schema->field(col), end_chars, null_string,
+                      MakePopulator(*schema->field(col), end_chars, 
+                                    options.escaping, options.escape_char, null_string,
                                     options.quoting_style, options.io_context.pool()));
     }
     auto writer = std::make_shared<CSVWriterImpl>(
@@ -490,7 +505,8 @@ class CSVWriterImpl : public ipc::RecordBatchWriter {
     for (int col = schema_->num_fields() - 1; col >= 0; col--) {
       *next-- = ',';
       *next-- = '"';
-      next = EscapeReverse(schema_->field(col)->name(), next);
+      next = EscapeReverse(schema_->field(col)->name(), next, options_.escaping,
+                           options_.escape_char);
       *next-- = '"';
     }
     memcpy(data_buffer_->mutable_data() + data_buffer_->size() - options_.eol.size(),
