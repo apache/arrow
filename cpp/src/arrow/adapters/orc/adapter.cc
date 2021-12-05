@@ -214,7 +214,20 @@ class ORCFileReader::Impl {
 
   int64_t NumberOfStripes() { return stripes_.size(); }
 
-  int64_t NumberOfRows() { return reader_->getNumberOfRows(); }
+  int64_t NumberOfRows() { return static_cast<int64_t>(reader_->getNumberOfRows()); }
+
+  FileVersion FileVersion() {
+    liborc::FileVersion orc_file_version = reader_->getFormatVersion();
+    return FileVersion(orc_file_version.getMajor(), orc_file_version.getMinor());
+  }
+
+  CompressionKind Compression() {
+    return static_cast<CompressionKind>(reader_->getCompression());
+  }
+
+  uint64_t CompressionSize() { return reader_->CompressionSize(); }
+
+  uint64_t RowIndexStride() { return reader_->RowIndexStride(); }
 
   Status ReadSchema(std::shared_ptr<Schema>* out) {
     const liborc::Type& type = reader_->getType();
@@ -591,6 +604,14 @@ int64_t ORCFileReader::NumberOfStripes() { return impl_->NumberOfStripes(); }
 
 int64_t ORCFileReader::NumberOfRows() { return impl_->NumberOfRows(); }
 
+FileVersion ORCFileReader::FileVersion() { return impl_->FileVersion(); }
+
+CompressionKind ORCFileReader::Compression() { return impl_->Compression(); }
+
+uint64_t ORCFileReader::CompressionSize() { return impl_->CompressionSize(); }
+
+uint64_t ORCFileReader::RowIndexStride() { return impl_->RowIndexStride(); }
+
 namespace {
 
 class ArrowOutputStream : public liborc::OutputStream {
@@ -634,8 +655,8 @@ class ORCFileWriter::Impl {
   Status Open(arrow::io::OutputStream* output_stream, const WriteOptions& write_options) {
     out_stream_ = std::unique_ptr<liborc::OutputStream>(
         checked_cast<liborc::OutputStream*>(new ArrowOutputStream(*output_stream)));
-    batch_size_ = write_options.batch_size();
-    orc_options_ = write_options.get_orc_writer_options();
+    batch_size_ = write_options.GetBatchSize();
+    orc_options_ = write_options.GetOrcWriterOptions();
     return Status::OK();
   }
 

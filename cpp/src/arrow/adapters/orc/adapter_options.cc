@@ -77,54 +77,54 @@ WriteOptions::~WriteOptions() {
   // PASS
 }
 
-WriteOptions& WriteOptions::set_batch_size(uint64_t size) {
+WriteOptions& WriteOptions::SetBatchSize(uint64_t size) {
   batch_size_ = size;
   return *this;
 }
 
-uint64_t WriteOptions::batch_size() const { return batch_size_; }
+uint64_t WriteOptions::GetBatchSize() const { return batch_size_; }
 
-RleVersion WriteOptions::rle_version() const {
+RleVersion WriteOptions::GetRleVersion() const {
   return static_cast<RleVersion>(orc_writer_options_->getRleVersion());
 }
 
-WriteOptions& WriteOptions::set_stripe_size(uint64_t size) {
+WriteOptions& WriteOptions::SetStripeSize(uint64_t size) {
   orc_writer_options_->setStripeSize(size);
   return *this;
 }
 
-uint64_t WriteOptions::stripe_size() const {
+uint64_t WriteOptions::GetStripeSize() const {
   return orc_writer_options_->getStripeSize();
 }
 
-WriteOptions& WriteOptions::set_compression_block_size(uint64_t size) {
+WriteOptions& WriteOptions::SetCompressionBlockSize(uint64_t size) {
   orc_writer_options_->setCompressionBlockSize(size);
   return *this;
 }
 
-uint64_t WriteOptions::compression_block_size() const {
+uint64_t WriteOptions::GetCompressionBlockSize() const {
   return orc_writer_options_->getCompressionBlockSize();
 }
 
-WriteOptions& WriteOptions::set_row_index_stride(uint64_t stride) {
+WriteOptions& WriteOptions::SetRowIndexStride(uint64_t stride) {
   orc_writer_options_->setRowIndexStride(stride);
   return *this;
 }
 
-uint64_t WriteOptions::row_index_stride() const {
+uint64_t WriteOptions::GetRowIndexStride() const {
   return orc_writer_options_->getRowIndexStride();
 }
 
-WriteOptions& WriteOptions::set_dictionary_key_size_threshold(double val) {
+WriteOptions& WriteOptions::SetDictionaryKeySizeThreshold(double val) {
   orc_writer_options_->setDictionaryKeySizeThreshold(val);
   return *this;
 }
 
-double WriteOptions::dictionary_key_size_threshold() const {
+double WriteOptions::GetDictionaryKeySizeThreshold() const {
   return orc_writer_options_->getDictionaryKeySizeThreshold();
 }
 
-WriteOptions& WriteOptions::set_file_version(const FileVersion& version) {
+WriteOptions& WriteOptions::SetFileVersion(const FileVersion& version) {
   // Only Hive_0_11 and Hive_0_12 version are supported currently
   uint32_t major = version.major(), minor = version.minor();
   if (major == 0 && (minor == 11 || minor == 12)) {
@@ -134,80 +134,81 @@ WriteOptions& WriteOptions::set_file_version(const FileVersion& version) {
   throw std::logic_error("Unsupported file version specified.");
 }
 
-FileVersion WriteOptions::file_version() const {
+FileVersion WriteOptions::GetFileVersion() const {
   liborc::FileVersion orc_file_version_ = orc_writer_options_->getFileVersion();
   return FileVersion(orc_file_version_.getMajor(), orc_file_version_.getMinor());
 }
 
-WriteOptions& WriteOptions::set_compression(CompressionKind comp) {
+WriteOptions& WriteOptions::SetCompression(CompressionKind comp) {
   orc_writer_options_->setCompression(static_cast<liborc::CompressionKind>(comp));
   return *this;
 }
 
-CompressionKind WriteOptions::compression() const {
+CompressionKind WriteOptions::GetCompression() const {
   return static_cast<CompressionKind>(orc_writer_options_->getCompression());
 }
 
-WriteOptions& WriteOptions::set_compression_strategy(CompressionStrategy strategy) {
+WriteOptions& WriteOptions::SetCompressionStrategy(CompressionStrategy strategy) {
   orc_writer_options_->setCompressionStrategy(
       static_cast<liborc::CompressionStrategy>(strategy));
   return *this;
 }
 
-CompressionStrategy WriteOptions::compression_strategy() const {
+CompressionStrategy WriteOptions::GetCompressionStrategy() const {
   return static_cast<CompressionStrategy>(orc_writer_options_->getCompressionStrategy());
 }
 
-bool WriteOptions::aligned_bitpacking() const {
+bool WriteOptions::GetAlignedBitpacking() const {
   return orc_writer_options_->getAlignedBitpacking();
 }
 
-WriteOptions& WriteOptions::set_padding_tolerance(double tolerance) {
+WriteOptions& WriteOptions::SetPaddingTolerance(double tolerance) {
   orc_writer_options_->setPaddingTolerance(tolerance);
   return *this;
 }
 
-double WriteOptions::padding_tolerance() const {
+double WriteOptions::GetPaddingTolerance() const {
   return orc_writer_options_->getPaddingTolerance();
 }
 
-WriteOptions& WriteOptions::set_error_stream(std::ostream& err_stream) {
+WriteOptions& WriteOptions::SetErrorStream(std::ostream& err_stream) {
   orc_writer_options_->setErrorStream(err_stream);
   return *this;
 }
 
-std::ostream* WriteOptions::error_stream() const {
+std::ostream* WriteOptions::GetErrorStream() const {
   return orc_writer_options_->getErrorStream();
 }
 
-bool WriteOptions::enable_index() const { return orc_writer_options_->getEnableIndex(); }
+bool WriteOptions::GetEnableIndex() const {
+  return orc_writer_options_->getEnableIndex();
+}
 
-bool WriteOptions::enable_dictionary() const {
+bool WriteOptions::GetEnableDictionary() const {
   return orc_writer_options_->getEnableDictionary();
 }
 
-WriteOptions& WriteOptions::set_columns_use_bloom_filter(
-    const std::set<uint64_t>& columns) {
+WriteOptions& WriteOptions::SetColumnsUseBloomFilter(const std::set<uint64_t>& columns) {
   orc_writer_options_->setColumnsUseBloomFilter(columns);
   return *this;
 }
 
-bool WriteOptions::is_column_use_bloom_filter(uint64_t column) const {
+bool WriteOptions::IsColumnUseBloomFilter(uint64_t column) const {
   return orc_writer_options_->isColumnUseBloomFilter(column);
 }
 
-WriteOptions& WriteOptions::set_bloom_filter_fpp(double fpp) {
+WriteOptions& WriteOptions::SetBloomFilterFpp(double fpp) {
   orc_writer_options_->setBloomFilterFPP(fpp);
   return *this;
 }
 
-double WriteOptions::bloom_filter_fpp() const {
+double WriteOptions::GetBloomFilterFpp() const {
   return orc_writer_options_->getBloomFilterFPP();
 }
 
 // delibrately not provide setter to write bloom filter version because
 // we only support UTF8 for now.
-BloomFilterVersion WriteOptions::bloom_filter_version() const {
+BloomFilterVersion WriteOptions::GetBloomFilterVersion() const {
   return static_cast<BloomFilterVersion>(orc_writer_options_->getBloomFilterVersion());
 }
 

@@ -228,34 +228,33 @@ std::shared_ptr<Table> GenerateRandomTable(const std::shared_ptr<Schema>& schema
 
 arrow::adapters::orc::WriteOptions GenerateRandomWriteOptions(uint64_t num_cols) {
   auto arrow_write_options = arrow::adapters::orc::WriteOptions();
-  arrow_write_options.set_batch_size(
+  arrow_write_options.SetBatchSize(
       arrow::random_single_int<uint64_t, uint64_t>(4ull, 8ull));
-  arrow_write_options.set_file_version(arrow::adapters::orc::FileVersion(
+  arrow_write_options.SetFileVersion(arrow::adapters::orc::FileVersion(
       0, arrow::random_single_int<uint32_t, uint32_t>(11, 12)));
-  arrow_write_options.set_stripe_size(
+  arrow_write_options.SetStripeSize(
       arrow::random_single_int<uint64_t, uint64_t>(4ull, 128ull));
-  arrow_write_options.set_compression_block_size(
+  arrow_write_options.SetCompressionBlockSize(
       arrow::random_single_int<uint64_t, uint64_t>(4ull, 128ull));
-  arrow_write_options.set_row_index_stride(
+  arrow_write_options.SetRowIndexStride(
       arrow::random_single_int<uint64_t, uint64_t>(0, 128ull));
-  arrow_write_options.set_compression(static_cast<arrow::adapters::orc::CompressionKind>(
+  arrow_write_options.SetCompression(static_cast<arrow::adapters::orc::CompressionKind>(
       arrow::random_single_int<uint8_t, uint8_t>(0, 5)));
-  arrow_write_options.set_compression_strategy(
+  arrow_write_options.SetCompressionStrategy(
       static_cast<arrow::adapters::orc::CompressionStrategy>(
           arrow::random_single_int<uint8_t, uint8_t>(0, 1)));
-  arrow_write_options.set_padding_tolerance(
+  arrow_write_options.SetPaddingTolerance(
       arrow::random_single_real<double, double>(0, 1));
-  arrow_write_options.set_dictionary_key_size_threshold(
+  arrow_write_options.SetDictionaryKeySizeThreshold(
       arrow::random_single_real<double, double>(0, 1));
-  arrow_write_options.set_bloom_filter_fpp(
-      arrow::random_single_real<double, double>(0, 1));
+  arrow_write_options.SetBloomFilterFpp(arrow::random_single_real<double, double>(0, 1));
   std::set<uint64_t> bloom_filter_cols;
   for (uint64_t i = 0; i < num_cols; i++) {
     if (arrow::random_single_int<uint8_t, uint8_t>(0, 1) == 1) {
       bloom_filter_cols.insert(i);
     }
   }
-  arrow_write_options.set_columns_use_bloom_filter(bloom_filter_cols);
+  arrow_write_options.SetColumnsUseBloomFilter(bloom_filter_cols);
   return arrow_write_options;
 }
 
@@ -274,6 +273,10 @@ void AssertTableWriteReadEqual(const std::shared_ptr<Table>& input_table,
   std::shared_ptr<io::RandomAccessFile> in_stream(new io::BufferReader(buffer));
   EXPECT_OK_AND_ASSIGN(
       auto reader, adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool()));
+  ASSERT_EQ(reader->FileVersion(), write_options.GetFileVersion());
+  ASSERT_EQ(reader->Compression(), write_options.GetCompression());
+  ASSERT_EQ(reader->CompressionSize(), write_options.GetCompressionSize());
+  ASSERT_EQ(reader->RowIndexStride(), write_options.GetRowIndexStride());
   EXPECT_OK_AND_ASSIGN(auto actual_output_table, reader->Read());
   AssertTablesEqual(*expected_output_table, *actual_output_table, false, false);
 }
@@ -411,19 +414,19 @@ class TestORCWriteOptions : public ::testing::Test {
  public:
   TestORCWriteOptions() { arrow_write_options = arrow::adapters::orc::WriteOptions(); }
   void SetWriteOptions() {
-    arrow_write_options.set_batch_size(2048);
-    arrow_write_options.set_file_version(arrow::adapters::orc::FileVersion(0, 11));
-    arrow_write_options.set_stripe_size(1024);
-    arrow_write_options.set_compression_block_size(1024 * 1024);
-    arrow_write_options.set_row_index_stride(0);
-    arrow_write_options.set_compression(
+    arrow_write_options.SetBatchSize(2048);
+    arrow_write_options.SetFileVersion(arrow::adapters::orc::FileVersion(0, 11));
+    arrow_write_options.SetStripeSize(1024);
+    arrow_write_options.SetCompressionBlockSize(1024 * 1024);
+    arrow_write_options.SetRowIndexStride(0);
+    arrow_write_options.SetCompression(
         arrow::adapters::orc::CompressionKind::CompressionKind_LZO);
-    arrow_write_options.set_compression_strategy(
+    arrow_write_options.SetCompressionStrategy(
         arrow::adapters::orc::CompressionStrategy::CompressionStrategy_COMPRESSION);
-    arrow_write_options.set_padding_tolerance(0.05);
-    arrow_write_options.set_dictionary_key_size_threshold(0.1);
-    arrow_write_options.set_bloom_filter_fpp(0.1);
-    arrow_write_options.set_columns_use_bloom_filter({0, 2});
+    arrow_write_options.SetPaddingTolerance(0.05);
+    arrow_write_options.SetDictionaryKeySizeThreshold(0.1);
+    arrow_write_options.SetBloomFilterFpp(0.1);
+    arrow_write_options.SetColumnsUseBloomFilter({0, 2});
   }
 
  protected:
@@ -431,9 +434,9 @@ class TestORCWriteOptions : public ::testing::Test {
 };
 
 TEST_F(TestORCWriteOptions, DefaultOptions) {
-  ASSERT_EQ(arrow_write_options.batch_size(), 1024);
+  ASSERT_EQ(arrow_write_options.GetBatchSize(), 1024);
   std::shared_ptr<liborc::WriterOptions> orc_writer_options =
-      arrow_write_options.get_orc_writer_options();
+      arrow_write_options.GetOrcWriterOptions();
   ASSERT_EQ(orc_writer_options->getFileVersion(), liborc::FileVersion(0, 12));
   ASSERT_EQ(orc_writer_options->getStripeSize(), 64 * 1024 * 1024);
   ASSERT_EQ(orc_writer_options->getCompressionBlockSize(), 64 * 1024);
@@ -452,9 +455,9 @@ TEST_F(TestORCWriteOptions, DefaultOptions) {
 
 TEST_F(TestORCWriteOptions, ModifiedOptions) {
   SetWriteOptions();
-  ASSERT_EQ(arrow_write_options.batch_size(), 2048);
+  ASSERT_EQ(arrow_write_options.GetBatchSize(), 2048);
   std::shared_ptr<liborc::WriterOptions> orc_writer_options =
-      arrow_write_options.get_orc_writer_options();
+      arrow_write_options.GetOrcWriterOptions();
   ASSERT_EQ(orc_writer_options->getFileVersion(), liborc::FileVersion(0, 11));
   ASSERT_EQ(orc_writer_options->getStripeSize(), 1024);
   ASSERT_EQ(orc_writer_options->getCompressionBlockSize(), 1024 * 1024);

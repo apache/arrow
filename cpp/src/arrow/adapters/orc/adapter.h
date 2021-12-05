@@ -59,11 +59,6 @@ class ARROW_EXPORT ORCFileReader {
   static Result<std::unique_ptr<ORCFileReader>> Open(
       const std::shared_ptr<io::RandomAccessFile>& file, MemoryPool* pool);
 
-  /// \brief Return the metadata read from the ORC file
-  ///
-  /// \return A KeyValueMetadata object containing the ORC metadata
-  Result<std::shared_ptr<const KeyValueMetadata>> ReadMetadata();
-
   /// \brief Return the schema read from the ORC file
   ///
   /// \param[out] out the returned Schema object
@@ -250,6 +245,32 @@ class ARROW_EXPORT ORCFileReader {
 
   /// \brief The number of rows in the file
   int64_t NumberOfRows();
+
+  /// \brief Get the format version of the file.
+  ///         Currently known values are 0.11 and 0.12.
+  ///
+  /// \return The FileVersion of the ORC file.
+  FileVersion FileVersion();
+
+  /// \brief Get the compression kind of the file.
+  ///
+  /// \return The kind of compression in the ORC file.
+  CompressionKind Compression();
+
+  /// \brief Get the buffer size for the compression.
+  ///
+  /// \return Number of bytes to buffer for the compression codec.
+  uint64_t CompressionSize();
+
+  /// \brief Get the number of rows per an entry in the row index.
+  /// \return the number of rows per an entry in the row index or 0 if there
+  ///          is no row index.
+  uint64_t RowIndexStride();
+
+  /// \brief Return the metadata read from the ORC file
+  ///
+  /// \return A KeyValueMetadata object containing the ORC metadata
+  Result<std::shared_ptr<const KeyValueMetadata>> ReadMetadata();
 
  private:
   class Impl;

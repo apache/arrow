@@ -106,174 +106,174 @@ class ARROW_EXPORT WriteOptions {
    * Get the ORC writer options
    * @return The ORC writer options this WriteOption encapsulates
    */
-  std::shared_ptr<liborc::WriterOptions> get_orc_writer_options() const {
+  std::shared_ptr<liborc::WriterOptions> GetOrcWriterOptions() const {
     return orc_writer_options_;
   }
 
   /**
    * Set the batch size.
    */
-  WriteOptions& set_batch_size(uint64_t size);
+  WriteOptions& SetBatchSize(uint64_t size);
 
   /**
    * Get the batch size.
    * @return if not set, return default value.
    */
-  uint64_t batch_size() const;
+  uint64_t GetBatchSize() const;
 
   /**
    * Set the stripe size.
    */
-  WriteOptions& set_stripe_size(uint64_t size);
+  WriteOptions& SetStripeSize(uint64_t size);
 
   /**
    * Get the stripe size.
    * @return if not set, return default value.
    */
-  uint64_t stripe_size() const;
+  uint64_t GetStripeSize() const;
 
   /**
    * Set the data compression block size.
    */
-  WriteOptions& set_compression_block_size(uint64_t size);
+  WriteOptions& SetCompressionBlockSize(uint64_t size);
 
   /**
    * Get the data compression block size.
    * @return if not set, return default value.
    */
-  uint64_t compression_block_size() const;
+  uint64_t GetCompressionBlockSize() const;
 
   /**
    * Set row index stride (the number of rows per an entry in the row index). Use value 0
    * to disable row index.
    */
-  WriteOptions& set_row_index_stride(uint64_t stride);
+  WriteOptions& SetRowIndexStride(uint64_t stride);
 
   /**
    * Get the row index stride (the number of rows per an entry in the row index).
    * @return if not set, return default value.
    */
-  uint64_t row_index_stride() const;
+  uint64_t GetRowIndexStride() const;
 
   /**
    * Set the dictionary key size threshold.
    * 0 to disable dictionary encoding.
    * 1 to always enable dictionary encoding.
    */
-  WriteOptions& set_dictionary_key_size_threshold(double val);
+  WriteOptions& SetDictionaryKeySizeThreshold(double val);
 
   /**
    * Get the dictionary key size threshold.
    */
-  double dictionary_key_size_threshold() const;
+  double GetDictionaryKeySizeThreshold() const;
 
   /**
    * Set Orc file version
    */
-  WriteOptions& set_file_version(const FileVersion& version);
+  WriteOptions& SetFileVersion(const FileVersion& version);
 
   /**
    * Get Orc file version
    */
-  FileVersion file_version() const;
+  FileVersion GetFileVersion() const;
 
   /**
    * Set compression kind.
    */
-  WriteOptions& set_compression(CompressionKind comp);
+  WriteOptions& SetCompression(CompressionKind comp);
 
   /**
    * Get the compression kind.
    * @return if not set, return default value which is ZLIB.
    */
-  CompressionKind compression() const;
+  CompressionKind GetCompression() const;
 
   /**
    * Set the compression strategy.
    */
-  WriteOptions& set_compression_strategy(CompressionStrategy strategy);
+  WriteOptions& SetCompressionStrategy(CompressionStrategy strategy);
 
   /**
    * Get the compression strategy.
    * @return if not set, return default value which is speed.
    */
-  CompressionStrategy compression_strategy() const;
+  CompressionStrategy GetCompressionStrategy() const;
 
   /**
    * Get if the bitpacking should be aligned.
    * @return true if should be aligned, return false otherwise
    */
-  bool aligned_bitpacking() const;
+  bool GetAlignedBitpacking() const;
 
   /**
    * Set the padding tolerance.
    */
-  WriteOptions& set_padding_tolerance(double tolerance);
+  WriteOptions& SetPaddingTolerance(double tolerance);
 
   /**
    * Get the padding tolerance.
    * @return if not set, return default value which is zero.
    */
-  double padding_tolerance() const;
+  double GetPaddingTolerance() const;
 
   /**
    * Set the error stream.
    */
-  WriteOptions& set_error_stream(std::ostream& err_stream);
+  WriteOptions& SetErrorStream(std::ostream& err_stream);
 
   /**
    * Get the error stream.
    * @return if not set, return std::err.
    */
-  std::ostream* error_stream() const;
+  std::ostream* GetErrorStream() const;
 
   /**
    * Get the RLE version.
    */
-  RleVersion rle_version() const;
+  RleVersion GetRleVersion() const;
 
   /**
    * Get whether or not to write row group index
    * @return if not set, the default is false
    */
-  bool enable_index() const;
+  bool GetEnableIndex() const;
 
   /**
    * Get whether or not to enable dictionary encoding
    * @return if not set, the default is false
    */
-  bool enable_dictionary() const;
+  bool GetEnableDictionary() const;
 
   /**
    * Set columns that use BloomFilter
    */
-  WriteOptions& set_columns_use_bloom_filter(const std::set<uint64_t>& columns);
+  WriteOptions& SetColumnsUseBloomFilter(const std::set<uint64_t>& columns);
 
   /**
    * Get whether this column uses BloomFilter
    */
-  bool is_column_use_bloom_filter(uint64_t column) const;
+  bool IsColumnUseBloomFilter(uint64_t column) const;
 
   /**
    * Get columns that use BloomFilter
    * @return The set of columns that use BloomFilter
    */
-  std::set<uint64_t> columns_use_bloom_filter() const;
+  std::set<uint64_t> GetColumnsUseBloomFilter() const;
 
   /**
    * Set false positive probability of BloomFilter
    */
-  WriteOptions& set_bloom_filter_fpp(double fpp);
+  WriteOptions& SetBloomFilterFpp(double fpp);
 
   /**
    * Get false positive probability of BloomFilter
    */
-  double bloom_filter_fpp() const;
+  double GetBloomFilterFpp() const;
 
   /**
    * Get version of BloomFilter
    */
-  BloomFilterVersion bloom_filter_version() const;
+  BloomFilterVersion GetBloomFilterVersion() const;
 
  private:
   std::shared_ptr<liborc::WriterOptions> orc_writer_options_;
