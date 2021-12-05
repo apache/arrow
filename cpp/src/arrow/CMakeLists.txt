@@ -287,6 +287,10 @@ if(ARROW_WITH_LZ4)
   list(APPEND ARROW_SRCS util/compression_lz4.cc)
 endif()
 
+if(ARROW_WITH_OPENTELEMETRY)
+  list(APPEND ARROW_SRCS util/tracing_internal.cc)
+endif()
+
 if(ARROW_WITH_SNAPPY)
   add_definitions(-DARROW_WITH_SNAPPY)
   list(APPEND ARROW_SRCS util/compression_snappy.cc)

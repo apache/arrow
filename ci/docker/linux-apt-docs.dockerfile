@@ -27,9 +27,8 @@ RUN apt-get update -y && \
         dirmngr \
         apt-transport-https \
         software-properties-common && \
-    apt-key adv \
-        --keyserver keyserver.ubuntu.com \
-        --recv-keys E298A3A825C0D65DFD57CBB651716619E084DAB9 && \
+    wget -qO- https://cloud.r-project.org/bin/linux/ubuntu/marutter_pubkey.asc | \
+        tee -a /etc/apt/trusted.gpg.d/cran_ubuntu_key.asc && \
     add-apt-repository 'deb https://cloud.r-project.org/bin/linux/ubuntu '$(lsb_release -cs)'-cran40/' && \
     apt-get install -y --no-install-recommends \
         autoconf-archive \
@@ -75,14 +74,13 @@ RUN wget -q -O - https://deb.nodesource.com/setup_${node}.x | bash - && \
     rm -rf /var/lib/apt/lists/* && \
     npm install -g yarn
 
-# ARROW-13353: breathe >= 4.29.1 tries to parse template arguments,
-# but Sphinx can't parse constructs like `typename...`.
 RUN pip install \
-        meson \
-        breathe==4.29.0 \
+        breathe \
         ipython \
-        sphinx \
-        pydata-sphinx-theme
+        meson \
+        pydata-sphinx-theme \
+        sphinx-tabs \
+        sphinx>=4.2
 
 COPY c_glib/Gemfile /arrow/c_glib/
 RUN gem install --no-document bundler && \
@@ -107,4 +105,4 @@ ENV ARROW_FLIGHT=ON \
     ARROW_BUILD_TESTS=OFF \
     ARROW_BUILD_UTILITIES=OFF \
     ARROW_USE_GLOG=OFF \
-    CMAKE_UNITY_BUILD=ON \
+    CMAKE_UNITY_BUILD=ON

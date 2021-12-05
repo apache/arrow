@@ -1632,6 +1632,7 @@ class ARROW_EXPORT FieldRef {
 
   bool Equals(const FieldRef& other) const { return impl_ == other.impl_; }
   bool operator==(const FieldRef& other) const { return Equals(other); }
+  bool operator!=(const FieldRef& other) const { return !(*this == other); }
 
   std::string ToString() const;
 

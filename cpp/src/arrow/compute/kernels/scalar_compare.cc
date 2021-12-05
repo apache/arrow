@@ -420,7 +420,7 @@ struct ScalarMinMax {
           [&](OutValue value) {
             auto u = out_it();
             if (!output->buffers[0] ||
-                BitUtil::GetBit(output->buffers[0]->data(), index)) {
+                bit_util::GetBit(output->buffers[0]->data(), index)) {
               writer.Write(Op::template Call<OutValue, OutValue, OutValue>(u, value));
             } else {
               writer.Write(value);

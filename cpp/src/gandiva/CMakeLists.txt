@@ -79,6 +79,7 @@ set(SRC_FILES
     function_registry_timestamp_arithmetic.cc
     function_signature.cc
     gdv_function_stubs.cc
+    gandiva_object_cache.cc
     hash_utils.cc
     llvm_generator.cc
     llvm_types.cc

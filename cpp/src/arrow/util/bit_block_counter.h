@@ -35,7 +35,7 @@ namespace internal {
 namespace detail {
 
 inline uint64_t LoadWord(const uint8_t* bytes) {
-  return BitUtil::ToLittleEndian(util::SafeLoadAs<uint64_t>(bytes));
+  return bit_util::ToLittleEndian(util::SafeLoadAs<uint64_t>(bytes));
 }
 
 inline uint64_t ShiftWord(uint64_t current, uint64_t next, int64_t shift) {
@@ -132,10 +132,10 @@ class ARROW_EXPORT BitBlockCounter {
       if (bits_remaining_ < kFourWordsBits) {
         return GetBlockSlow(kFourWordsBits);
       }
-      total_popcount += BitUtil::PopCount(LoadWord(bitmap_));
-      total_popcount += BitUtil::PopCount(LoadWord(bitmap_ + 8));
-      total_popcount += BitUtil::PopCount(LoadWord(bitmap_ + 16));
-      total_popcount += BitUtil::PopCount(LoadWord(bitmap_ + 24));
+      total_popcount += bit_util::PopCount(LoadWord(bitmap_));
+      total_popcount += bit_util::PopCount(LoadWord(bitmap_ + 8));
+      total_popcount += bit_util::PopCount(LoadWord(bitmap_ + 16));
+      total_popcount += bit_util::PopCount(LoadWord(bitmap_ + 24));
     } else {
       // When the offset is > 0, we need there to be a word beyond the last
       // aligned word in the bitmap for the bit shifting logic.
@@ -144,18 +144,18 @@ class ARROW_EXPORT BitBlockCounter {
       }
       auto current = LoadWord(bitmap_);
       auto next = LoadWord(bitmap_ + 8);
-      total_popcount += BitUtil::PopCount(ShiftWord(current, next, offset_));
+      total_popcount += bit_util::PopCount(ShiftWord(current, next, offset_));
       current = next;
       next = LoadWord(bitmap_ + 16);
-      total_popcount += BitUtil::PopCount(ShiftWord(current, next, offset_));
+      total_popcount += bit_util::PopCount(ShiftWord(current, next, offset_));
       current = next;
       next = LoadWord(bitmap_ + 24);
-      total_popcount += BitUtil::PopCount(ShiftWord(current, next, offset_));
+      total_popcount += bit_util::PopCount(ShiftWord(current, next, offset_));
       current = next;
       next = LoadWord(bitmap_ + 32);
-      total_popcount += BitUtil::PopCount(ShiftWord(current, next, offset_));
+      total_popcount += bit_util::PopCount(ShiftWord(current, next, offset_));
     }
-    bitmap_ += BitUtil::BytesForBits(kFourWordsBits);
+    bitmap_ += bit_util::BytesForBits(kFourWordsBits);
     bits_remaining_ -= kFourWordsBits;
     return {256, static_cast<int16_t>(total_popcount)};
   }
@@ -177,15 +177,15 @@ class ARROW_EXPORT BitBlockCounter {
       if (bits_remaining_ < kWordBits) {
         return GetBlockSlow(kWordBits);
       }
-      popcount = BitUtil::PopCount(LoadWord(bitmap_));
+      popcount = bit_util::PopCount(LoadWord(bitmap_));
     } else {
       // When the offset is > 0, we need there to be a word beyond the last
       // aligned word in the bitmap for the bit shifting logic.
       if (bits_remaining_ < 2 * kWordBits - offset_) {
         return GetBlockSlow(kWordBits);
       }
-      popcount =
-          BitUtil::PopCount(ShiftWord(LoadWord(bitmap_), LoadWord(bitmap_ + 8), offset_));
+      popcount = bit_util::PopCount(
+          ShiftWord(LoadWord(bitmap_), LoadWord(bitmap_ + 8), offset_));
     }
     bitmap_ += kWordBits / 8;
     bits_remaining_ -= kWordBits;
@@ -305,8 +305,8 @@ class ARROW_EXPORT BinaryBitBlockCounter {
           static_cast<int16_t>(std::min(bits_remaining_, kWordBits));
       int16_t popcount = 0;
       for (int64_t i = 0; i < run_length; ++i) {
-        if (Op<bool>::Call(BitUtil::GetBit(left_bitmap_, left_offset_ + i),
-                           BitUtil::GetBit(right_bitmap_, right_offset_ + i))) {
+        if (Op<bool>::Call(bit_util::GetBit(left_bitmap_, left_offset_ + i),
+                           bit_util::GetBit(right_bitmap_, right_offset_ + i))) {
           ++popcount;
         }
       }
@@ -320,14 +320,14 @@ class ARROW_EXPORT BinaryBitBlockCounter {
 
     int64_t popcount = 0;
     if (left_offset_ == 0 && right_offset_ == 0) {
-      popcount = BitUtil::PopCount(
+      popcount = bit_util::PopCount(
           Op<uint64_t>::Call(LoadWord(left_bitmap_), LoadWord(right_bitmap_)));
     } else {
       auto left_word =
           ShiftWord(LoadWord(left_bitmap_), LoadWord(left_bitmap_ + 8), left_offset_);
       auto right_word =
           ShiftWord(LoadWord(right_bitmap_), LoadWord(right_bitmap_ + 8), right_offset_);
-      popcount = BitUtil::PopCount(Op<uint64_t>::Call(left_word, right_word));
+      popcount = bit_util::PopCount(Op<uint64_t>::Call(left_word, right_word));
     }
     left_bitmap_ += kWordBits / 8;
     right_bitmap_ += kWordBits / 8;
@@ -448,7 +448,7 @@ static Status VisitBitBlocks(const std::shared_ptr<Buffer>& bitmap_buf, int64_t 
       }
     } else {
       for (int64_t i = 0; i < block.length; ++i, ++position) {
-        if (BitUtil::GetBit(bitmap, offset + position)) {
+        if (bit_util::GetBit(bitmap, offset + position)) {
           ARROW_RETURN_NOT_OK(visit_not_null(position));
         } else {
           ARROW_RETURN_NOT_OK(visit_null());
@@ -481,7 +481,7 @@ static void VisitBitBlocksVoid(const std::shared_ptr<Buffer>& bitmap_buf, int64_
       }
     } else {
       for (int64_t i = 0; i < block.length; ++i, ++position) {
-        if (BitUtil::GetBit(bitmap, offset + position)) {
+        if (bit_util::GetBit(bitmap, offset + position)) {
           visit_not_null(position);
         } else {
           visit_null();
@@ -527,8 +527,8 @@ static Status VisitTwoBitBlocks(const std::shared_ptr<Buffer>& left_bitmap_buf,
       }
     } else {
       for (int64_t i = 0; i < block.length; ++i, ++position) {
-        if (BitUtil::GetBit(left_bitmap, left_offset + position) &&
-            BitUtil::GetBit(right_bitmap, right_offset + position)) {
+        if (bit_util::GetBit(left_bitmap, left_offset + position) &&
+            bit_util::GetBit(right_bitmap, right_offset + position)) {
           ARROW_RETURN_NOT_OK(visit_not_null(position));
         } else {
           ARROW_RETURN_NOT_OK(visit_null());
@@ -575,8 +575,8 @@ static void VisitTwoBitBlocksVoid(const std::shared_ptr<Buffer>& left_bitmap_buf
       }
     } else {
       for (int64_t i = 0; i < block.length; ++i, ++position) {
-        if (BitUtil::GetBit(left_bitmap, left_offset + position) &&
-            BitUtil::GetBit(right_bitmap, right_offset + position)) {
+        if (bit_util::GetBit(left_bitmap, left_offset + position) &&
+            bit_util::GetBit(right_bitmap, right_offset + position)) {
           visit_not_null(position);
         } else {
           visit_null();

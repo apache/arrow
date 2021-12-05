@@ -16,7 +16,7 @@
 # under the License.
 
 aws-sdk-cpp
-benchmark>=1.5.4
+benchmark>=1.6.0
 boost-cpp>=1.68.0
 brotli
 bzip2

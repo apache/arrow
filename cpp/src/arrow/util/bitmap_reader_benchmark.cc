@@ -31,7 +31,7 @@
 #include "benchmark/benchmark.h"
 
 namespace arrow {
-namespace BitUtil {
+namespace bit_util {
 
 using internal::BitBlockCount;
 using internal::BitBlockCounter;
@@ -109,5 +109,5 @@ static void BitmapWordReaderBench(benchmark::State& state) {
 BENCHMARK(BitBlockCounterBench)->Arg(kBufferSize);
 BENCHMARK(BitmapWordReaderBench)->Arg(kBufferSize);
 
-}  // namespace BitUtil
+}  // namespace bit_util
 }  // namespace arrow

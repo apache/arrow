@@ -705,16 +705,30 @@ test_that("Expressions on aggregations", {
     tbl
   )
 
-  # Aggregate on an aggregate (trivial but dplyr allows)
-  skip("Aggregate on an aggregate not supported")
-  compare_dplyr_binding(
-    .input %>%
-      group_by(some_grouping) %>%
-      summarize(
-        any_lgl = any(any(lgl))
-      ) %>%
-      collect(),
-    tbl
+  # Aggregates on aggregates are not supported
+  expect_warning(
+    record_batch(tbl) %>% summarise(any(any(lgl))),
+    paste(
+      "Aggregate within aggregate expression",
+      "any\\(any\\(lgl\\)\\) not supported in Arrow"
+    )
+  )
+
+  # Check aggregates on aggeregates with more complex calls
+  expect_warning(
+    record_batch(tbl) %>% summarise(any(any(!lgl))),
+    paste(
+      "Aggregate within aggregate expression",
+      "any\\(any\\(!lgl\\)\\) not supported in Arrow"
+    )
+
+  )
+  expect_warning(
+    record_batch(tbl) %>% summarise(!any(any(lgl))),
+    paste(
+      "Aggregate within aggregate expression",
+      "any\\(any\\(lgl\\)\\) not supported in Arrow"
+    )
   )
 })
 
@@ -738,7 +752,10 @@ test_that("Not (yet) supported: implicit join", {
       ) %>%
       collect(),
     tbl,
-    warning = "Expression sum\\(\\(dbl - mean\\(dbl\\)\\)\\^2\\) not supported in Arrow; pulling data into R"
+    warning = paste(
+      "Aggregate within aggregate expression sum\\(\\(dbl - mean\\(dbl\\)\\)\\^2\\)",
+      "not supported in Arrow; pulling data into R"
+    )
   )
   compare_dplyr_binding(
     .input %>%
@@ -748,7 +765,10 @@ test_that("Not (yet) supported: implicit join", {
       ) %>%
       collect(),
     tbl,
-    warning = "Expression sum\\(dbl - mean\\(dbl\\)\\) not supported in Arrow; pulling data into R"
+    warning = paste(
+      "Aggregate within aggregate expression sum\\(dbl - mean\\(dbl\\)\\)",
+      "not supported in Arrow; pulling data into R"
+    )
   )
   compare_dplyr_binding(
     .input %>%
@@ -758,7 +778,10 @@ test_that("Not (yet) supported: implicit join", {
       ) %>%
       collect(),
     tbl,
-    warning = "Expression sum\\(\\(dbl - mean\\(dbl\\)\\)\\^2\\) not supported in Arrow; pulling data into R"
+    warning = paste(
+      "Aggregate within aggregate expression sum\\(\\(dbl - mean\\(dbl\\)\\)\\^2\\)",
+      "not supported in Arrow; pulling data into R"
+    )
   )
 
   compare_dplyr_binding(
@@ -769,7 +792,24 @@ test_that("Not (yet) supported: implicit join", {
       ) %>%
       collect(),
     tbl,
-    warning = "Expression dbl - mean\\(dbl\\) not supported in Arrow; pulling data into R"
+    warning = paste(
+      "Expression dbl - mean\\(dbl\\) is not an aggregate expression",
+      "or is not supported in Arrow; pulling data into R"
+    )
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      group_by(some_grouping) %>%
+      summarize(
+        dbl
+      ) %>%
+      collect(),
+    tbl,
+    warning = paste(
+      "Expression dbl is not an aggregate expression",
+      "or is not supported in Arrow; pulling data into R"
+    )
   )
 
   # This one could possibly be supported--in mutate()
@@ -781,7 +821,10 @@ test_that("Not (yet) supported: implicit join", {
       ) %>%
       collect(),
     tbl,
-    warning = "Expression dbl - int not supported in Arrow; pulling data into R"
+    warning = paste(
+      "Expression dbl - int is not an aggregate expression",
+      "or is not supported in Arrow; pulling data into R"
+    )
   )
 })
 
@@ -894,5 +937,49 @@ test_that("summarise() passes through type information for temporary columns", {
       y = c(2, 3, 5),
       z = c(8, 13, 21)
     )
+  )
+})
+
+test_that("summarise() can handle scalars and literal values", {
+  some_scalar_value <- 2L
+
+  compare_dplyr_binding(
+    .input %>% summarise(y = 1L) %>% collect(),
+    tbl
+  )
+
+  compare_dplyr_binding(
+    .input %>% summarise(y = some_scalar_value) %>% collect(),
+    tbl
+  )
+
+  compare_dplyr_binding(
+    .input %>% summarise(y = !! some_scalar_value) %>% collect(),
+    tbl
+  )
+
+  expect_identical(
+    record_batch(tbl) %>% summarise(y = 1L) %>% collect(),
+    tibble(y = 1L)
+  )
+
+  expect_identical(
+    record_batch(tbl) %>% summarise(y = Expression$scalar(1L)) %>% collect(),
+    tibble(y = 1L)
+  )
+
+  expect_identical(
+    record_batch(tbl) %>% summarise(y = Scalar$create(1L)) %>% collect(),
+    tibble(y = 1L)
+  )
+
+  expect_identical(
+    record_batch(tbl) %>% summarise(y = some_scalar_value) %>% collect(),
+    tibble(y = 2L)
+  )
+
+  expect_identical(
+    record_batch(tbl) %>% summarise(y = !! some_scalar_value) %>% collect(),
+    tibble(y = 2L)
   )
 })

@@ -43,7 +43,7 @@ popd
 pushd "${ARROW_DIR}"
 git checkout "${release_tag}"
 
-UBUNTU=20.10 archery docker run \
+archery docker run \
   -v "${ARROW_SITE_DIR}/docs:/build/docs" \
   -e ARROW_DOCS_VERSION="${version}" \
   ubuntu-docs

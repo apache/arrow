@@ -29,8 +29,7 @@ dask=$1
 if [ "${dask}" = "master" ]; then
   pip install https://github.com/dask/dask/archive/main.tar.gz#egg=dask[dataframe]
 elif [ "${dask}" = "latest" ]; then
-  conda install -q dask
+  pip install dask
 else
-  conda install -q dask=${dask}
+  pip install dask==${dask}
 fi
-conda clean --all

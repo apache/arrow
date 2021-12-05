@@ -40,7 +40,11 @@ using arrow::int64;
 
 class TestProjector : public ::testing::Test {
  public:
-  void SetUp() { pool_ = arrow::default_memory_pool(); }
+  void SetUp() {
+    pool_ = arrow::default_memory_pool();
+    // Setup arrow log severity threshold to debug level.
+    arrow::util::ArrowLog::StartArrowLog("", arrow::util::ArrowLogLevel::ARROW_DEBUG);
+  }
 
  protected:
   arrow::MemoryPool* pool_;
@@ -66,14 +70,16 @@ TEST_F(TestProjector, TestProjectCache) {
   std::shared_ptr<Projector> projector;
   auto status = Projector::Make(schema, {sum_expr, sub_expr}, configuration, &projector);
   ASSERT_OK(status);
+  EXPECT_FALSE(projector->GetBuiltFromCache());
 
   // everything is same, should return the same projector.
   auto schema_same = arrow::schema({field0, field1});
   std::shared_ptr<Projector> cached_projector;
   status = Projector::Make(schema_same, {sum_expr, sub_expr}, configuration,
                            &cached_projector);
+
   ASSERT_OK(status);
-  EXPECT_EQ(cached_projector, projector);
+  EXPECT_TRUE(cached_projector->GetBuiltFromCache());
 
   // schema is different should return a new projector.
   auto field2 = field("f2", int32());
@@ -82,19 +88,19 @@ TEST_F(TestProjector, TestProjectCache) {
   status = Projector::Make(different_schema, {sum_expr, sub_expr}, configuration,
                            &should_be_new_projector);
   ASSERT_OK(status);
-  EXPECT_NE(cached_projector, should_be_new_projector);
+  EXPECT_FALSE(should_be_new_projector->GetBuiltFromCache());
 
   // expression list is different should return a new projector.
   std::shared_ptr<Projector> should_be_new_projector1;
   status = Projector::Make(schema, {sum_expr}, configuration, &should_be_new_projector1);
   ASSERT_OK(status);
-  EXPECT_NE(cached_projector, should_be_new_projector1);
+  EXPECT_FALSE(should_be_new_projector1->GetBuiltFromCache());
 
   // another instance of the same configuration, should return the same projector.
   status = Projector::Make(schema, {sum_expr, sub_expr}, TestConfiguration(),
                            &cached_projector);
   ASSERT_OK(status);
-  EXPECT_EQ(cached_projector, projector);
+  EXPECT_TRUE(cached_projector->GetBuiltFromCache());
 }
 
 TEST_F(TestProjector, TestProjectCacheFieldNames) {
@@ -197,13 +203,14 @@ TEST_F(TestProjector, TestProjectCacheDecimalCast) {
   auto expr0 = TreeExprBuilder::MakeExpression("castDECIMAL", {field_float64}, res_31_13);
   std::shared_ptr<Projector> projector0;
   ASSERT_OK(Projector::Make(schema, {expr0}, TestConfiguration(), &projector0));
+  EXPECT_FALSE(projector0->GetBuiltFromCache());
 
   // if the output scale is different, the cache can't be used.
   auto res_31_14 = field("result", arrow::decimal(31, 14));
   auto expr1 = TreeExprBuilder::MakeExpression("castDECIMAL", {field_float64}, res_31_14);
   std::shared_ptr<Projector> projector1;
   ASSERT_OK(Projector::Make(schema, {expr1}, TestConfiguration(), &projector1));
-  EXPECT_NE(projector0.get(), projector1.get());
+  EXPECT_FALSE(projector1->GetBuiltFromCache());
 
   // if the output scale/precision are same, should get a cache hit.
   auto res_31_13_alt = field("result", arrow::decimal(31, 13));
@@ -211,7 +218,40 @@ TEST_F(TestProjector, TestProjectCacheDecimalCast) {
       TreeExprBuilder::MakeExpression("castDECIMAL", {field_float64}, res_31_13_alt);
   std::shared_ptr<Projector> projector2;
   ASSERT_OK(Projector::Make(schema, {expr2}, TestConfiguration(), &projector2));
-  EXPECT_EQ(projector0.get(), projector2.get());
+  EXPECT_TRUE(projector2->GetBuiltFromCache());
+}
+
+TEST_F(TestProjector, TestFactorial) {
+  // schema for input fields
+  auto field0 = field("f0", arrow::int64());
+  auto schema = arrow::schema({field0});
+
+  // output fields
+  auto field_fac = field("fact", arrow::int64());
+
+  // Build expression
+  auto fac_expr = TreeExprBuilder::MakeExpression("factorial", {field0}, field_fac);
+
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, {fac_expr}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok());
+
+  // Create a row-batch with some sample data
+  int num_records = 4;
+  auto array0 = MakeArrowArrayInt64({1, 2, 3, 4}, {true, true, true, true});
+  // expected output
+  auto exp_fac = MakeArrowArrayInt64({1, 2, 6, 24}, {true, true, true, true});
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok());
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp_fac, outputs.at(0));
 }
 
 TEST_F(TestProjector, TestIntSumSub) {
@@ -604,8 +644,8 @@ TEST_F(TestProjector, TestZeroCopy) {
   auto exp = MakeArrowArrayFloat32({1, 2, 3, 0}, {true, true, true, false});
 
   // allocate output buffers
-  int64_t bitmap_sz = arrow::BitUtil::BytesForBits(num_records);
-  int64_t bitmap_capacity = arrow::BitUtil::RoundUpToMultipleOf64(bitmap_sz);
+  int64_t bitmap_sz = arrow::bit_util::BytesForBits(num_records);
+  int64_t bitmap_capacity = arrow::bit_util::RoundUpToMultipleOf64(bitmap_sz);
   std::vector<uint8_t> bitmap(bitmap_capacity);
   std::shared_ptr<arrow::MutableBuffer> bitmap_buf =
       std::make_shared<arrow::MutableBuffer>(&bitmap[0], bitmap_capacity);
@@ -651,7 +691,7 @@ TEST_F(TestProjector, TestZeroCopyNegative) {
   auto exp = MakeArrowArrayFloat32({1, 2, 3, 0}, {true, true, true, false});
 
   // allocate output buffers
-  int64_t bitmap_sz = arrow::BitUtil::BytesForBits(num_records);
+  int64_t bitmap_sz = arrow::bit_util::BytesForBits(num_records);
   std::unique_ptr<uint8_t[]> bitmap(new uint8_t[bitmap_sz]);
   std::shared_ptr<arrow::MutableBuffer> bitmap_buf =
       std::make_shared<arrow::MutableBuffer>(bitmap.get(), bitmap_sz);
@@ -850,6 +890,60 @@ TEST_F(TestProjector, TestPmod) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_pmod, outputs.at(0));
 }
 
+TEST_F(TestProjector, TestGreatestLeast) {
+  // schema for input fields
+  auto f0 = field("f0", int32());
+  auto f1 = field("f1", int32());
+  auto f2 = field("f2", int32());
+  auto schema = arrow::schema({f0, f1, f2});
+
+  // output fields
+  auto field_greatest = field("greatest", int32());
+  auto field_least = field("least", int32());
+
+  // Build expression
+  auto greatest_expr =
+      TreeExprBuilder::MakeExpression("greatest", {f0, f1, f2}, field_greatest);
+
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, {greatest_expr}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Create a row-batch with some sample data
+  int num_records = 4;
+  auto a0 = MakeArrowArrayInt32({10, 20, 30, 40}, {true, true, true, true});
+  auto a1 = MakeArrowArrayInt32({2, 8, 50, 25}, {true, true, true, true});
+  auto a2 = MakeArrowArrayInt32({526, 32, 9, -5}, {true, true, true, true});
+  // expected output
+  auto exp_greatest = MakeArrowArrayInt32({526, 32, 50, 40}, {true, true, true, true});
+  auto exp_least = MakeArrowArrayInt32({2, 8, 9, -5}, {true, true, true, true});
+
+  // GREATEST
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {a0, a1, a2});
+  // Evaluate expression
+  arrow::ArrayVector outputs_grt;
+  status = projector->Evaluate(*in_batch, pool_, &outputs_grt);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp_greatest, outputs_grt.at(0));
+
+  // LEAST
+  // Reproduce the same test now for the least operator
+  auto least_expr = TreeExprBuilder::MakeExpression("least", {f0, f1, f2}, field_least);
+  status = Projector::Make(schema, {least_expr}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Evaluate expression
+  arrow::ArrayVector outputs_lst;
+  status = projector->Evaluate(*in_batch, pool_, &outputs_lst);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp_least, outputs_lst.at(0));
+}
+
 TEST_F(TestProjector, TestConcat) {
   // schema for input fields
   auto field0 = field("f0", arrow::utf8());
@@ -887,6 +981,49 @@ TEST_F(TestProjector, TestConcat) {
 
   // Validate results
   EXPECT_ARROW_ARRAY_EQUALS(exp_concat, outputs.at(0));
+}
+
+TEST_F(TestProjector, TestLevenshtein) {
+  // schema for input fields
+  auto f0 = field("f0", arrow::utf8());
+  auto f1 = field("f1", arrow::utf8());
+  auto schema = arrow::schema({f0, f1});
+
+  // output fields
+  auto field_lev = field("levenshtein", arrow::int32());
+
+  // Build expression
+  auto lev_expr = TreeExprBuilder::MakeExpression("levenshtein", {f0, f1}, field_lev);
+
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, {lev_expr}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Create a row-batch with some sample data
+  int num_records = 10;
+  auto array0 =
+      MakeArrowArrayUtf8({"cat", "task", "", "a", "a", "Test String1", "TEST STRING1",
+                          "Test String1", "", ""},
+                         {true, true, true, true, true, true, true, true, true, true});
+  auto array1 =
+      MakeArrowArrayUtf8({"coat", "test", "a", "", "abbbbbbbbbb", "Test String2",
+                          "test string2", "", "Test String2", ""},
+                         {true, true, true, true, true, true, true, true, true, true});
+  // expected output
+  auto exp_lev =
+      MakeArrowArrayInt32({1, 2, 1, 1, 10, 1, 11, 12, 12, 0},
+                          {true, true, true, true, true, true, true, true, true, true});
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp_lev, outputs.at(0));
 }
 
 TEST_F(TestProjector, TestQuote) {

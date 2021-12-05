@@ -75,7 +75,7 @@ Status CleanListOffsets(const Array& offsets, MemoryPool* pool,
     // we have N + 1 offsets)
     ARROW_ASSIGN_OR_RAISE(
         auto clean_valid_bits,
-        offsets.null_bitmap()->CopySlice(0, BitUtil::BytesForBits(num_offsets - 1)));
+        offsets.null_bitmap()->CopySlice(0, bit_util::BytesForBits(num_offsets - 1)));
     *validity_buf_out = clean_valid_bits;
 
     const offset_type* raw_offsets = typed_offsets.raw_values();
