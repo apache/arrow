@@ -216,18 +216,18 @@ class ORCFileReader::Impl {
 
   int64_t NumberOfRows() { return static_cast<int64_t>(reader_->getNumberOfRows()); }
 
-  FileVersion FileVersion() {
+  FileVersion GetFileVersion() {
     liborc::FileVersion orc_file_version = reader_->getFormatVersion();
     return FileVersion(orc_file_version.getMajor(), orc_file_version.getMinor());
   }
 
-  CompressionKind Compression() {
+  CompressionKind GetCompression() {
     return static_cast<CompressionKind>(reader_->getCompression());
   }
 
-  uint64_t CompressionSize() { return reader_->CompressionSize(); }
+  uint64_t GetCompressionSize() { return reader_->getCompressionSize(); }
 
-  uint64_t RowIndexStride() { return reader_->RowIndexStride(); }
+  uint64_t GetRowIndexStride() { return reader_->getRowIndexStride(); }
 
   Status ReadSchema(std::shared_ptr<Schema>* out) {
     const liborc::Type& type = reader_->getType();
@@ -604,13 +604,13 @@ int64_t ORCFileReader::NumberOfStripes() { return impl_->NumberOfStripes(); }
 
 int64_t ORCFileReader::NumberOfRows() { return impl_->NumberOfRows(); }
 
-FileVersion ORCFileReader::FileVersion() { return impl_->FileVersion(); }
+FileVersion ORCFileReader::GetFileVersion() { return impl_->GetFileVersion(); }
 
-CompressionKind ORCFileReader::Compression() { return impl_->Compression(); }
+CompressionKind ORCFileReader::GetCompression() { return impl_->GetCompression(); }
 
-uint64_t ORCFileReader::CompressionSize() { return impl_->CompressionSize(); }
+uint64_t ORCFileReader::GetCompressionSize() { return impl_->GetCompressionSize(); }
 
-uint64_t ORCFileReader::RowIndexStride() { return impl_->RowIndexStride(); }
+uint64_t ORCFileReader::GetRowIndexStride() { return impl_->GetRowIndexStride(); }
 
 namespace {
 

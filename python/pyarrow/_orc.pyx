@@ -126,7 +126,7 @@ cdef shared_ptr[WriteOptions] _create_write_options(
 
     if batch_size is not None:
         if isinstance(batch_size, int) and batch_size > 0:
-            deref(options).set_batch_size(batch_size)
+            deref(options).SetBatchSize(batch_size)
         else:
             raise ValueError("Invalid ORC writer batch size: {0}"
                              .format(batch_size))
@@ -135,9 +135,9 @@ cdef shared_ptr[WriteOptions] _create_write_options(
 
     if file_version is not None:
         if str(file_version) == "0.12":
-            deref(options).set_file_version(FileVersion(0, 12))
+            deref(options).SetFileVersion(FileVersion(0, 12))
         elif str(file_version) == "0.11":
-            deref(options).set_file_version(FileVersion(0, 11))
+            deref(options).SetFileVersion(FileVersion(0, 11))
         else:
             raise ValueError("Unsupported ORC file version: {0}"
                              .format(file_version))
@@ -146,7 +146,7 @@ cdef shared_ptr[WriteOptions] _create_write_options(
 
     if stripe_size is not None:
         if isinstance(stripe_size, int) and stripe_size > 0:
-            deref(options).set_stripe_size(stripe_size)
+            deref(options).SetStripeSize(stripe_size)
         else:
             raise ValueError("Invalid ORC stripe size: {0}"
                              .format(stripe_size))
@@ -155,7 +155,7 @@ cdef shared_ptr[WriteOptions] _create_write_options(
 
     if compression is not None:
         if isinstance(compression, basestring):
-            deref(options).set_compression(
+            deref(options).SetCompression(
                 compression_kind_from_name(compression))
         else:
             raise ValueError("Unsupported ORC compression kind: {0}"
@@ -165,7 +165,7 @@ cdef shared_ptr[WriteOptions] _create_write_options(
 
     if compression_block_size is not None:
         if isinstance(compression_block_size, int) and compression_block_size > 0:
-            deref(options).set_compression_block_size(compression_block_size)
+            deref(options).SetCompressionBlockSize(compression_block_size)
         else:
             raise ValueError("Invalid ORC compression block size: {0}"
                              .format(compression_block_size))
@@ -174,7 +174,7 @@ cdef shared_ptr[WriteOptions] _create_write_options(
 
     if compression_strategy is not None:
         if isinstance(compression, basestring):
-            deref(options).set_compression_strategy(
+            deref(options).SetCompressionStrategy(
                 compression_strategy_from_name(compression_strategy))
         else:
             raise ValueError("Unsupported ORC compression strategy: {0}"
@@ -184,7 +184,7 @@ cdef shared_ptr[WriteOptions] _create_write_options(
 
     if row_index_stride is not None:
         if isinstance(row_index_stride, int) and row_index_stride > 0:
-            deref(options).set_row_index_stride(row_index_stride)
+            deref(options).SetRowIndexStride(row_index_stride)
         else:
             raise ValueError("Invalid ORC row index stride: {0}"
                              .format(row_index_stride))
@@ -194,7 +194,7 @@ cdef shared_ptr[WriteOptions] _create_write_options(
     if padding_tolerance is not None:
         try:
             padding_tolerance = float(padding_tolerance)
-            deref(options).set_padding_tolerance(padding_tolerance)
+            deref(options).SetPaddingTolerance(padding_tolerance)
         except Exception:
             raise ValueError("Invalid ORC padding tolerance: {0}"
                              .format(padding_tolerance))
@@ -205,7 +205,7 @@ cdef shared_ptr[WriteOptions] _create_write_options(
         try:
             dictionary_key_size_threshold = float(
                 dictionary_key_size_threshold)
-            deref(options).set_dictionary_key_size_threshold(
+            deref(options).SetDictionaryKeySizeThreshold(
                 dictionary_key_size_threshold)
         except Exception:
             raise ValueError("Invalid ORC dictionary key size threshold: {0}"
@@ -218,7 +218,7 @@ cdef shared_ptr[WriteOptions] _create_write_options(
             bloom_filter_columns = set(bloom_filter_columns)
             for col in bloom_filter_columns:
                 assert isinstance(col, int) and col >= 0
-            deref(options).set_columns_use_bloom_filter(
+            deref(options).SetColumnsUseBloomFilter(
                 bloom_filter_columns)
         except Exception:
             raise ValueError("Invalid ORC BloomFilter columns: {0}"
@@ -230,11 +230,11 @@ cdef shared_ptr[WriteOptions] _create_write_options(
         try:
             bloom_filter_fpp = float(bloom_filter_fpp)
             assert bloom_filter_fpp >= 0 and bloom_filter_fpp <= 1
-            deref(options).set_bloom_filter_fpp(
+            deref(options).SetBloomFilterFpp(
                 bloom_filter_fpp)
         except Exception:
             raise ValueError("Invalid ORC BloomFilter false positive rate: {0}"
-                             .format(dictionary_key_size_threshold))
+                             .format(bloom_filter_fpp))
 
     return options
 
@@ -299,6 +299,18 @@ cdef class ORCReader(_Weakrefable):
 
     def nstripes(self):
         return deref(self.reader).NumberOfStripes()
+
+    def file_version(self):
+        return file_version_from_class(deref(self.reader).GetFileVersion())
+
+    def compression(self):
+        return compression_kind_from_enum(deref(self.reader).GetCompression())
+
+    def compression_size(self):
+        return deref(self.reader).GetCompressionSize()
+
+    def row_index_stride(self):
+        return deref(self.reader).GetRowIndexStride()
 
     def read_stripe(self, n, columns=None):
         cdef:

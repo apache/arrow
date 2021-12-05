@@ -181,6 +181,10 @@ def test_orcfile_readwrite():
     orc_file = orc.ORCFile(buffer_reader)
     output_table = orc_file.read()
     assert table.equals(output_table)
+    # Check for default WriteOptions
+    assert orc_file.compression == 'zlib'
+    assert orc_file.file_version == '0.12'
+    assert orc_file.row_index_stride == 10000
 
     # deprecated keyword order
     buffer_output_stream = pa.BufferOutputStream()
@@ -190,6 +194,53 @@ def test_orcfile_readwrite():
     orc_file = orc.ORCFile(buffer_reader)
     output_table = orc_file.read()
     assert table.equals(output_table)
+    # Check for default WriteOptions
+    assert orc_file.compression == 'zlib'
+    assert orc_file.file_version == '0.12'
+    assert orc_file.row_index_stride == 10000
+
+
+def test_orcfile_readwrite_with_writeoptions():
+    from pyarrow import orc
+
+    buffer_output_stream = pa.BufferOutputStream()
+    a = pa.array([1, None, 3, None])
+    b = pa.array([None, "Arrow", None, "ORC"])
+    table = pa.table({"int64": a, "utf8": b})
+    orc.write_table(
+        table,
+        buffer_output_stream,
+        compression='snappy',
+        file_version='0.11',
+        row_index_stride=5000
+    )
+    buffer_reader = pa.BufferReader(buffer_output_stream.getvalue())
+    orc_file = orc.ORCFile(buffer_reader)
+    output_table = orc_file.read()
+    assert table.equals(output_table)
+    # Check for default WriteOptions
+    assert orc_file.compression == 'snappy'
+    assert orc_file.file_version == '0.11'
+    assert orc_file.row_index_stride == 5000
+
+    # deprecated keyword order
+    buffer_output_stream = pa.BufferOutputStream()
+    with pytest.warns(FutureWarning):
+        orc.write_table(
+            buffer_output_stream,
+            table,
+            compression='uncompressed',
+            file_version='0.11',
+            row_index_stride=20000
+        )
+    buffer_reader = pa.BufferReader(buffer_output_stream.getvalue())
+    orc_file = orc.ORCFile(buffer_reader)
+    output_table = orc_file.read()
+    assert table.equals(output_table)
+    # Check for default WriteOptions
+    assert orc_file.compression == 'uncompressed'
+    assert orc_file.file_version == '0.11'
+    assert orc_file.row_index_stride == 20000
 
 
 def test_column_selection(tempdir):

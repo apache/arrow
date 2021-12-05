@@ -54,9 +54,25 @@ class ORCFile:
         return self.reader.nrows()
 
     @property
-    def nstripes(self):
-        """The number of stripes in the file"""
-        return self.reader.nstripes()
+    def file_version(self):
+        """Format version of the ORC file, must be 0.11 or 0.12"""
+        return self.reader.file_version()
+
+    @property
+    def compression(self):
+        """Compression codec of the file"""
+        return self.reader.compression()
+
+    @property
+    def compression_size(self):
+        """Number of bytes to buffer for the compression codec in the file"""
+        return self.reader.compression_size()
+
+    @property
+    def row_index_stride(self):
+        """Number of rows per an entry in the row index or 0
+           if there is no row index"""
+        return self.reader.row_index_stride()
 
     def _select_names(self, columns=None):
         if columns is None:

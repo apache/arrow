@@ -250,22 +250,22 @@ class ARROW_EXPORT ORCFileReader {
   ///         Currently known values are 0.11 and 0.12.
   ///
   /// \return The FileVersion of the ORC file.
-  FileVersion FileVersion();
+  FileVersion GetFileVersion();
 
   /// \brief Get the compression kind of the file.
   ///
   /// \return The kind of compression in the ORC file.
-  CompressionKind Compression();
+  CompressionKind GetCompression();
 
   /// \brief Get the buffer size for the compression.
   ///
   /// \return Number of bytes to buffer for the compression codec.
-  uint64_t CompressionSize();
+  uint64_t GetCompressionSize();
 
   /// \brief Get the number of rows per an entry in the row index.
   /// \return the number of rows per an entry in the row index or 0 if there
   ///          is no row index.
-  uint64_t RowIndexStride();
+  uint64_t GetRowIndexStride();
 
   /// \brief Return the metadata read from the ORC file
   ///

@@ -63,33 +63,33 @@ cdef extern from "arrow/adapters/orc/adapter_options.h" \
 
     cdef cppclass WriteOptions" arrow::adapters::orc::WriteOptions":
         WriteOptions()
-        WriteOptions& set_batch_size(uint64_t size)
-        uint64_t batch_size()
-        WriteOptions& set_stripe_size(uint64_t size)
-        uint64_t stripe_size()
-        WriteOptions& set_compression_block_size(uint64_t size)
-        uint64_t compression_block_size()
-        WriteOptions& set_row_index_stride(uint64_t stride)
-        uint64_t row_index_stride()
-        WriteOptions& set_dictionary_key_size_threshold(double val)
-        double dictionary_key_size_threshold()
-        WriteOptions& set_file_version(const FileVersion& version)
-        FileVersion file_version()
-        WriteOptions& set_compression(CompressionKind comp)
-        CompressionKind compression()
-        WriteOptions& set_compression_strategy(CompressionStrategy strategy)
-        CompressionStrategy compression_strategy()
-        c_bool aligned_bitpacking()
-        WriteOptions& set_padding_tolerance(double tolerance)
-        double padding_tolerance()
-        RleVersion rle_version()
-        c_bool enable_index()
-        c_bool enable_dictionary()
-        WriteOptions& set_columns_use_bloom_filter(const std_set[uint64_t]& columns)
-        c_bool is_column_use_bloom_filter(uint64_t column)
-        WriteOptions& set_bloom_filter_fpp(double fpp)
-        double bloom_filter_fpp()
-        BloomFilterVersion bloom_filter_version()
+        WriteOptions& SetBatchSize(uint64_t size)
+        uint64_t GetBatchSize()
+        WriteOptions& SetStripeSize(uint64_t size)
+        uint64_t GetStripeSize()
+        WriteOptions& SetCompressionBlockSize(uint64_t size)
+        uint64_t GetCompressionBlockSize()
+        WriteOptions& SetRowIndexStride(uint64_t stride)
+        uint64_t GetRowIndexStride()
+        WriteOptions& SetDictionaryKeySizeThreshold(double val)
+        double GetDictionaryKeySizeThreshold()
+        WriteOptions& SetFileVersion(const FileVersion& version)
+        FileVersion GetFileVersion()
+        WriteOptions& SetCompression(CompressionKind comp)
+        CompressionKind GetCompression()
+        WriteOptions& SetCompressionStrategy(CompressionStrategy strategy)
+        CompressionStrategy GetCompressionStrategy()
+        c_bool GetAlignedBitpacking()
+        WriteOptions& SetPaddingTolerance(double tolerance)
+        double GetPaddingTolerance()
+        RleVersion GetRleVersion()
+        c_bool GetEnableIndex()
+        c_bool GetEnableDictionary()
+        WriteOptions& SetColumnsUseBloomFilter(const std_set[uint64_t]& columns)
+        c_bool IsColumnUseBloomFilter(uint64_t column)
+        WriteOptions& SetBloomFilterFpp(double fpp)
+        double GetBloomFilterFpp()
+        BloomFilterVersion GetBloomFilterVersion()
 
 
 cdef extern from "arrow/adapters/orc/adapter.h" \
@@ -115,6 +115,14 @@ cdef extern from "arrow/adapters/orc/adapter.h" \
         int64_t NumberOfStripes()
 
         int64_t NumberOfRows()
+
+        FileVersion GetFileVersion()
+
+        CompressionKind GetCompression()
+
+        uint64_t GetCompressionSize()
+
+        uint64_t GetRowIndexStride()
 
     cdef cppclass ORCFileWriter:
         @staticmethod

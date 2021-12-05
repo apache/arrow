@@ -273,10 +273,9 @@ void AssertTableWriteReadEqual(const std::shared_ptr<Table>& input_table,
   std::shared_ptr<io::RandomAccessFile> in_stream(new io::BufferReader(buffer));
   EXPECT_OK_AND_ASSIGN(
       auto reader, adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool()));
-  ASSERT_EQ(reader->FileVersion(), write_options.GetFileVersion());
-  ASSERT_EQ(reader->Compression(), write_options.GetCompression());
-  ASSERT_EQ(reader->CompressionSize(), write_options.GetCompressionSize());
-  ASSERT_EQ(reader->RowIndexStride(), write_options.GetRowIndexStride());
+  ASSERT_EQ(reader->GetFileVersion(), write_options.GetFileVersion());
+  ASSERT_EQ(reader->GetCompression(), write_options.GetCompression());
+  ASSERT_EQ(reader->GetRowIndexStride(), write_options.GetRowIndexStride());
   EXPECT_OK_AND_ASSIGN(auto actual_output_table, reader->Read());
   AssertTablesEqual(*expected_output_table, *actual_output_table, false, false);
 }
