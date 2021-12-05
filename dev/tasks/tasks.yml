@@ -1265,13 +1265,13 @@ tasks:
     ci: github
     template: r/github.linux.revdepcheck.yml
 
-  test-debian-11-go-1.15:
+  test-debian-11-go-1.16:
     ci: azure
     template: docker-tests/azure.linux.yml
     params:
       env:
         DEBIAN: 11
-        GO: 1.15
+        GO: 1.16
       image: debian-go
 
   test-ubuntu-default-docs:
