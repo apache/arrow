@@ -68,6 +68,7 @@ add_arrow_test(utility-test
                test_common.cc
                time_test.cc
                trie_test.cc
+               ubsan_test.cc
                uri_test.cc
                utf8_util_test.cc
                value_parsing_test.cc
