@@ -182,7 +182,7 @@ def test_orcfile_readwrite():
     output_table = orc_file.read()
     assert table.equals(output_table)
     # Check for default WriteOptions
-    assert orc_file.compression == 'zlib'
+    assert orc_file.compression == 'ZLIB'
     assert orc_file.file_version == '0.12'
     assert orc_file.row_index_stride == 10000
 
@@ -195,7 +195,7 @@ def test_orcfile_readwrite():
     output_table = orc_file.read()
     assert table.equals(output_table)
     # Check for default WriteOptions
-    assert orc_file.compression == 'zlib'
+    assert orc_file.compression == 'ZLIB'
     assert orc_file.file_version == '0.12'
     assert orc_file.row_index_stride == 10000
 
@@ -219,7 +219,7 @@ def test_orcfile_readwrite_with_writeoptions():
     output_table = orc_file.read()
     assert table.equals(output_table)
     # Check for default WriteOptions
-    assert orc_file.compression == 'snappy'
+    assert orc_file.compression == 'SNAPPY'
     assert orc_file.file_version == '0.11'
     assert orc_file.row_index_stride == 5000
 
@@ -238,7 +238,7 @@ def test_orcfile_readwrite_with_writeoptions():
     output_table = orc_file.read()
     assert table.equals(output_table)
     # Check for default WriteOptions
-    assert orc_file.compression == 'uncompressed'
+    assert orc_file.compression == 'UNCOMPRESSED'
     assert orc_file.file_version == '0.11'
     assert orc_file.row_index_stride == 20000
 
