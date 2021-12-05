@@ -322,6 +322,16 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   std::shared_ptr<Array> FixedSizeBinary(int64_t size, int32_t byte_width,
                                          double null_probability = 0);
 
+  // /// \brief Generate a random StructArray
+  // ///
+  // /// \param[in] children Vector of Arrays containing the data for each child
+  // /// \param[in] size The size of the generated list array
+  // /// \param[in] null_probability the probability of a list value being null
+  // ///
+  // /// \return a generated Array
+  // std::shared_ptr<Array> Struct(const ArrayVector& children, int64_t size,
+  //                               double null_probability);
+
   /// \brief Generate a random ListArray
   ///
   /// \param[in] values The underlying values array
@@ -459,6 +469,22 @@ void rand_day_millis(int64_t N, std::vector<DayTimeIntervalType::DayMilliseconds
 ARROW_TESTING_EXPORT
 void rand_month_day_nanos(int64_t N,
                           std::vector<MonthDayNanoIntervalType::MonthDayNanos>* out);
+
+template <typename T, typename U>
+U random_single_int(T lower, T upper) {
+  const int random_seed = 0;
+  std::default_random_engine gen(random_seed);
+  std::uniform_int_distribution<T> d(lower, upper);
+  return static_cast<U>(d(gen));
+}
+
+template <typename T, typename U>
+U random_single_real(T min_value, T max_value) {
+  const int random_seed = 0;
+  std::default_random_engine gen(random_seed);
+  ::arrow::random::uniform_real_distribution<T> d(min_value, max_value);
+  return static_cast<U>(d(gen));
+}
 
 template <typename T, typename U>
 void randint(int64_t N, T lower, T upper, std::vector<U>* out) {

@@ -92,8 +92,7 @@ namespace orc {
 
 namespace {
 
-// The following are required by ORC to be uint64_t
-constexpr uint64_t kOrcWriterBatchSize = 128 * 1024;
+// The following is required by ORC to be uint64_t
 constexpr uint64_t kOrcNaturalWriteSize = 128 * 1024;
 
 using internal::checked_cast;
@@ -632,37 +631,37 @@ class ArrowOutputStream : public liborc::OutputStream {
 
 class ORCFileWriter::Impl {
  public:
-  Status Open(arrow::io::OutputStream* output_stream) {
+  Status Open(arrow::io::OutputStream* output_stream, const WriteOptions& write_options) {
     out_stream_ = std::unique_ptr<liborc::OutputStream>(
         checked_cast<liborc::OutputStream*>(new ArrowOutputStream(*output_stream)));
+    batch_size_ = write_options.batch_size();
+    orc_options_ = write_options.get_orc_writer_options();
     return Status::OK();
   }
 
   Status Write(const Table& table) {
-    std::unique_ptr<liborc::WriterOptions> orc_options =
-        std::unique_ptr<liborc::WriterOptions>(new liborc::WriterOptions());
     ARROW_ASSIGN_OR_RAISE(auto orc_schema, GetOrcType(*(table.schema())));
     ORC_CATCH_NOT_OK(
-        writer_ = liborc::createWriter(*orc_schema, out_stream_.get(), *orc_options))
+        writer_ = liborc::createWriter(*orc_schema, out_stream_.get(), *orc_options_))
 
     int64_t num_rows = table.num_rows();
     const int num_cols_ = table.num_columns();
     std::vector<int64_t> arrow_index_offset(num_cols_, 0);
     std::vector<int> arrow_chunk_offset(num_cols_, 0);
     std::unique_ptr<liborc::ColumnVectorBatch> batch =
-        writer_->createRowBatch(kOrcWriterBatchSize);
+        writer_->createRowBatch(batch_size_);
     liborc::StructVectorBatch* root =
         internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
     while (num_rows > 0) {
       for (int i = 0; i < num_cols_; i++) {
         RETURN_NOT_OK(adapters::orc::WriteBatch(
-            *(table.column(i)), kOrcWriterBatchSize, &(arrow_chunk_offset[i]),
+            *(table.column(i)), batch_size_, &(arrow_chunk_offset[i]),
             &(arrow_index_offset[i]), (root->fields)[i]));
       }
       root->numElements = (root->fields)[0]->numElements;
       writer_->add(*batch);
       batch->clear();
-      num_rows -= kOrcWriterBatchSize;
+      num_rows -= batch_size_;
     }
     return Status::OK();
   }
@@ -675,6 +674,8 @@ class ORCFileWriter::Impl {
  private:
   std::unique_ptr<liborc::Writer> writer_;
   std::unique_ptr<liborc::OutputStream> out_stream_;
+  std::shared_ptr<liborc::WriterOptions> orc_options_;
+  uint64_t batch_size_;
 };
 
 ORCFileWriter::~ORCFileWriter() {}
@@ -682,10 +683,10 @@ ORCFileWriter::~ORCFileWriter() {}
 ORCFileWriter::ORCFileWriter() { impl_.reset(new ORCFileWriter::Impl()); }
 
 Result<std::unique_ptr<ORCFileWriter>> ORCFileWriter::Open(
-    io::OutputStream* output_stream) {
+    io::OutputStream* output_stream, const WriteOptions& writer_options) {
   std::unique_ptr<ORCFileWriter> result =
       std::unique_ptr<ORCFileWriter>(new ORCFileWriter());
-  Status status = result->impl_->Open(output_stream);
+  Status status = result->impl_->Open(output_stream, writer_options);
   RETURN_NOT_OK(status);
   return std::move(result);
 }

@@ -21,6 +21,7 @@
 #include <memory>
 #include <vector>
 
+#include "arrow/adapters/orc/adapter_options.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
@@ -264,8 +265,11 @@ class ARROW_EXPORT ORCFileWriter {
   /// \brief Creates a new ORC writer.
   ///
   /// \param[in] output_stream a pointer to the io::OutputStream to write into
+  /// \param[in] write_options the ORC writer options for Arrow
   /// \return the returned writer object
-  static Result<std::unique_ptr<ORCFileWriter>> Open(io::OutputStream* output_stream);
+  static Result<std::unique_ptr<ORCFileWriter>> Open(
+      io::OutputStream* output_stream,
+      const WriteOptions& write_options = WriteOptions());
 
   /// \brief Write a table
   ///

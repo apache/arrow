@@ -507,7 +507,11 @@ if(ARROW_JSON)
 endif()
 
 if(ARROW_ORC)
-  list(APPEND ARROW_SRCS adapters/orc/adapter.cc adapters/orc/adapter_util.cc)
+  list(APPEND
+       ARROW_SRCS
+       adapters/orc/adapter.cc
+       adapters/orc/adapter_options.cc
+       adapters/orc/adapter_util.cc)
 endif()
 
 if(CXX_LINKER_SUPPORTS_VERSION_SCRIPT)

@@ -117,8 +117,40 @@ class ORCFile:
         return self.reader.read(columns=columns)
 
 
+_orc_writer_args_docs = """file_version : {"0.11", "0.12"}, default "0.12"
+    Determine which ORC file version to use. Hive 0.11 / ORC v0 is the older
+    version as defined `here <https://orc.apache.org/specification/ORCv0/>`
+    while Hive 0.12 / ORC v1 is the newer one as defined
+    `here <https://orc.apache.org/specification/ORCv1/>`.
+batch_size : int, default 1024
+    Number of rows the ORC writer writes at a time.
+stripe_size : int, default 64 * 1024 * 1024
+    Size of each ORC stripe.
+compression : string, default 'zlib'
+    Specify the compression codec.
+    Valid values: {'UNCOMPRESSED', 'SNAPPY', 'ZLIB', 'LZ0', 'LZ4', 'ZSTD'}
+compression_block_size : int, default 64 * 1024
+    Specify the size of each compression block.
+compression_strategy : string, default 'speed'
+    Specify the compression strategy i.e. speed vs size reduction.
+    Valid values: {'SPEED', 'COMPRESSION'}
+row_index_stride : int, default 10000
+    Specify the row index stride i.e. the number of rows per
+    an entry in the row index.
+padding_tolerance : double, default 0.0
+    Set the padding tolerance.
+dictionary_key_size_threshold : double, default 0.0
+    Set the dictionary key size threshold. 0 to disable dictionary encoding.
+    1 to always enable dictionary encoding.
+bloom_filter_columns : None, set-like or list-like, default None
+    Set columns that use the bloom filter.
+bloom_filter_fpp: double, default 0.05
+    Set false positive probability of the bloom filter.
+"""
+
+
 class ORCWriter:
-    """
+    __doc__ = """
     Writer interface for a single ORC file
 
     Parameters
@@ -127,11 +159,50 @@ class ORCWriter:
         Writable target. For passing Python file objects or byte buffers,
         see pyarrow.io.PythonFileInterface, pyarrow.io.BufferOutputStream
         or pyarrow.io.FixedSizeBufferWriter.
-    """
+    {}
+    """.format(_orc_writer_args_docs)
 
-    def __init__(self, where):
+    def __init__(self, where, file_version='0.12',
+                 batch_size=1024,
+                 stripe_size=67108864,
+                 compression='zlib',
+                 compression_block_size=65536,
+                 compression_strategy='speed',
+                 row_index_stride=10000,
+                 padding_tolerance=0.0,
+                 dictionary_key_size_threshold=0.0,
+                 bloom_filter_columns=None,
+                 bloom_filter_fpp=0.05,
+                 ):
+
         self.writer = _orc.ORCWriter()
-        self.writer.open(where)
+        self.writer.open(
+            where,
+            file_version=file_version,
+            batch_size=batch_size,
+            stripe_size=stripe_size,
+            compression=compression,
+            compression_block_size=compression_block_size,
+            compression_strategy=compression_strategy,
+            row_index_stride=row_index_stride,
+            padding_tolerance=padding_tolerance,
+            dictionary_key_size_threshold=dictionary_key_size_threshold,
+            bloom_filter_columns=bloom_filter_columns,
+            bloom_filter_fpp=bloom_filter_fpp
+        )
+        self.is_open = True
+
+    def __del__(self):
+        if getattr(self, 'is_open', False):
+            self.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args, **kwargs):
+        self.close()
+        # return false since we want to propagate exceptions
+        return False
 
     def write(self, table):
         """
@@ -143,17 +214,54 @@ class ORCWriter:
         schema : pyarrow.lib.Table
             The table to be written into the ORC file
         """
+        assert self.is_open
         self.writer.write(table)
 
     def close(self):
         """
         Close the ORC file
         """
-        self.writer.close()
+        if self.is_open:
+            self.writer.close()
+            self.is_open = False
 
 
-def write_table(table, where):
-    """
+def write_table(table, where, file_version='0.12',
+                batch_size=1024,
+                stripe_size=67108864,
+                compression='zlib',
+                compression_block_size=65536,
+                compression_strategy='speed',
+                row_index_stride=10000,
+                padding_tolerance=0.0,
+                dictionary_key_size_threshold=0.0,
+                bloom_filter_columns=None,
+                bloom_filter_fpp=0.05):
+    if isinstance(where, Table):
+        warnings.warn(
+            "The order of the arguments has changed. Pass as "
+            "'write_table(table, where)' instead. The old order will raise "
+            "an error in the future.", FutureWarning, stacklevel=2
+        )
+        table, where = where, table
+    with ORCWriter(
+        where,
+        file_version=file_version,
+        batch_size=batch_size,
+        stripe_size=stripe_size,
+        compression=compression,
+        compression_block_size=compression_block_size,
+        compression_strategy=compression_strategy,
+        row_index_stride=row_index_stride,
+        padding_tolerance=padding_tolerance,
+        dictionary_key_size_threshold=dictionary_key_size_threshold,
+        bloom_filter_columns=bloom_filter_columns,
+        bloom_filter_fpp=bloom_filter_fpp
+    ) as writer:
+        writer.write(table)
+
+
+write_table.__doc__ = """
     Write a table into an ORC file
 
     Parameters
@@ -164,14 +272,5 @@ def write_table(table, where):
         Writable target. For passing Python file objects or byte buffers,
         see pyarrow.io.PythonFileInterface, pyarrow.io.BufferOutputStream
         or pyarrow.io.FixedSizeBufferWriter.
-    """
-    if isinstance(where, Table):
-        warnings.warn(
-            "The order of the arguments has changed. Pass as "
-            "'write_table(table, where)' instead. The old order will raise "
-            "an error in the future.", FutureWarning, stacklevel=2
-        )
-        table, where = where, table
-    writer = ORCWriter(where)
-    writer.write(table)
-    writer.close()
+    {}
+    """.format(_orc_writer_args_docs)
