@@ -379,7 +379,7 @@ test_that("time mapping work as expected (ARROW-13624)", {
   expect_equal(df, tbl, ignore_attr = "tzone")
 })
 
-test_that("read_csv_arrow() deals with BOM (bite-order-marks) correctly", {
+test_that("read_csv_arrow() deals with BOMs (bite-order-marks) correctly", {
   writeLines('\xef\xbb\xbfa,b\n1,2\n', con = csv_file)
 
   expect_equal(
