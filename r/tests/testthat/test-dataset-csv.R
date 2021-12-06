@@ -289,7 +289,7 @@ test_that("Column names inferred from schema for headerless CSVs (ARROW-14063)",
   expect_equal(ds %>% collect(), tbl)
 })
 
-test_that("read_csv_arrow() deals with BOM (bite-order-marks) correctly", {
+test_that("open_dataset() deals with BOMs (bite-order-marks) correctly", {
   writeLines('\xef\xbb\xbfa,b\n1,2\n', con = csv_file)
 
   expect_equal(
