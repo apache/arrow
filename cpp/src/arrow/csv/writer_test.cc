@@ -51,12 +51,12 @@ void PrintTo(const WriterTestParams& p, std::ostream* os) {
 }
 
 WriteOptions DefaultTestOptions(bool include_header, const std::string& null_string,
-                                QuotingStyle quote_style) {
+                                QuotingStyle quoting_style) {
   WriteOptions options;
   options.batch_size = 5;
   options.include_header = include_header;
   options.null_string = null_string;
-  options.quoting_style = quote_style;
+  options.quoting_style = quoting_style;
   return options;
 }
 
@@ -85,7 +85,7 @@ std::vector<WriterTestParams> GenerateTestCases() {
                              { "f": 1078016523 },
                              { "b\"": "NA" }])";
   std::string expected_header = std::string(R"("a","b""","c ","d","e","f")") + "\n";
-  // Expected output without header when using default QuoteStyle::Needed.
+  // Expected output without header when using default QuotingStyle::Needed.
   std::string expected_without_header = std::string("1,,-1,,,") + "\n" +        // line 1
                                         R"(1,"abc""efg",2324,,,)" + "\n" +      // line 2
                                         R"(,"abcd",5467,,,)" + "\n" +           // line 3
@@ -96,8 +96,8 @@ std::vector<WriterTestParams> GenerateTestCases() {
                                         R"(,,,,1970-01-02,)" + "\n" +           // line 8
                                         R"(,,,,,2004-02-29 01:02:03)" + "\n" +  // line 9
                                         R"(,"NA",,,,)" + "\n";                  // line 10
-  // Expected output without header when using QuoteStyle::AllValid.
-  std::string expected_quote_style_all_valid =
+  // Expected output without header when using QuotingStyle::AllValid.
+  std::string expected_quoting_style_all_valid =
       std::string(R"("1",,"-1",,,)") + "\n" +   // line 1
       R"("1","abc""efg","2324",,,)" + "\n" +    // line 2
       R"(,"abcd","5467",,,)" + "\n" +           // line 3
@@ -109,9 +109,9 @@ std::vector<WriterTestParams> GenerateTestCases() {
       R"(,,,,,"2004-02-29 01:02:03")" + "\n" +  // line 9
       R"(,"NA",,,,)" + "\n";                    // line 10
 
-  // Batch when testing QuoteStyle::None. The values may not contain any quotes for this
+  // Batch when testing QuotingStyle::None. The values may not contain any quotes for this
   // style according to RFC4180.
-  auto populated_batch_quote_style_none = R"([{"a": 1, "c ": -1},
+  auto populated_batch_quoting_style_none = R"([{"a": 1, "c ": -1},
                              { "a": 1, "b\"": "abcefg", "c ": 2324},
                              { "b\"": "abcd", "c ": 5467},
                              { },
@@ -120,16 +120,17 @@ std::vector<WriterTestParams> GenerateTestCases() {
                              { "d": 0 },
                              { "e": 86400000 },
                              { "f": 1078016523 }])";
-  // Expected output for QuoteStyle::None
-  std::string expected_quote_style_none = std::string("1,,-1,,,") + "\n" +       // line 1
-                                          R"(1,abcefg,2324,,,)" + "\n" +         // line 2
-                                          R"(,abcd,5467,,,)" + "\n" +            // line 3
-                                          R"(,,,,,)" + "\n" +                    // line 4
-                                          R"(546,,517,,,)" + "\n" +              // line 5
-                                          R"(124,ab,,,,)" + "\n" +               // line 6
-                                          R"(,,,1970-01-01,,)" + "\n" +          // line 7
-                                          R"(,,,,1970-01-02,)" + "\n" +          // line 8
-                                          R"(,,,,,2004-02-29 01:02:03)" + "\n";  // line 9
+  // Expected output for QuotingStyle::None
+  std::string expected_quoting_style_none = std::string("1,,-1,,,") + "\n" +  // line 1
+                                            R"(1,abcefg,2324,,,)" + "\n" +    // line 2
+                                            R"(,abcd,5467,,,)" + "\n" +       // line 3
+                                            R"(,,,,,)" + "\n" +               // line 4
+                                            R"(546,,517,,,)" + "\n" +         // line 5
+                                            R"(124,ab,,,,)" + "\n" +          // line 6
+                                            R"(,,,1970-01-01,,)" + "\n" +     // line 7
+                                            R"(,,,,1970-01-02,)" + "\n" +     // line 8
+                                            R"(,,,,,2004-02-29 01:02:03)" +
+                                            "\n";  // line 9
 
   // Schema and data to test custom null value string.
   auto schema_custom_na = schema({field("g", uint64()), field("h", utf8())});
@@ -141,26 +142,23 @@ std::vector<WriterTestParams> GenerateTestCases() {
                                    R"(1337,"""NA""")" + "\n";          // line 3
 
   // Schema/expected message and test params generation for rejecting structural
-  // characters when quote style is None
+  // characters when quoting style is None
   auto schema_custom_reject_structural = schema({field("a", utf8())});
   auto reject_structural_fail_msg = [&](const char* value) {
     return std::string(
-               "Invalid: CSV values may not contain structural characters if quote style "
+               "Invalid: CSV values may not contain structural characters if quoting "
+               "style "
                "is \"None\". See RFC4180. Invalid value: ") +
            value;
   };
   auto reject_structural_params = [&](const char* json_val, const char* error_val) {
-    return WriterTestParams{
-        schema_custom_reject_structural,
-        std::string(R"([{"a": ")") + json_val + R"("}])",
-        DefaultTestOptions(/*include_header=*/false,
-                           /*null_string=*/"", QuotingStyle::None),
-        /*expect_invalid_options*/ false,
-        /*expected_output*/ "",
-        std::string(
-            "Invalid: CSV values may not contain structural characters if quote style "
-            "is \"None\". See RFC4180. Invalid value: ") +
-            error_val};
+    return WriterTestParams{schema_custom_reject_structural,
+                            std::string(R"([{"a": ")") + json_val + R"("}])",
+                            DefaultTestOptions(/*include_header=*/false,
+                                               /*null_string=*/"", QuotingStyle::None),
+                            /*expect_invalid_options*/ false,
+                            /*expected_output*/ "",
+                            reject_structural_fail_msg(error_val)};
   };
 
   return std::vector<WriterTestParams>{
@@ -196,11 +194,11 @@ std::vector<WriterTestParams> GenerateTestCases() {
       {abc_schema, populated_batch,
        DefaultTestOptions(/*include_header=*/false, /*null_string=*/"",
                           QuotingStyle::AllValid),
-       /*expect_invalid_options*/ false, expected_quote_style_all_valid, util::nullopt},
-      {abc_schema, populated_batch_quote_style_none,
+       /*expect_invalid_options*/ false, expected_quoting_style_all_valid, util::nullopt},
+      {abc_schema, populated_batch_quoting_style_none,
        DefaultTestOptions(/*include_header=*/false, /*null_string=*/"",
                           QuotingStyle::None),
-       /*expect_invalid_options*/ false, expected_quote_style_none, util::nullopt},
+       /*expect_invalid_options*/ false, expected_quoting_style_none, util::nullopt},
       {abc_schema, populated_batch,
        DefaultTestOptions(/*include_header=*/false, /*null_string=*/"",
                           QuotingStyle::None),

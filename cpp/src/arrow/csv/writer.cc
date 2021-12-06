@@ -225,8 +225,8 @@ class UnquotedColumnPopulator : public ColumnPopulator {
   static Status CheckStringHasNoStructuralChars(const util::string_view& s) {
     if (CountStructuralChars(s) > 0) {
       return Status::Invalid(
-          "CSV values may not contain structural characters if quote style is \"None\". "
-          "See RFC4180. Invalid value: ",
+          "CSV values may not contain structural characters if quoting style is "
+          "\"None\". See RFC4180. Invalid value: ",
           s);
     }
     return Status::OK();
@@ -322,7 +322,7 @@ struct PopulatorFactory {
                   std::is_same<FixedSizeBinaryType, TypeClass>::value,
               Status>
   Visit(const TypeClass& type) {
-    // Determine what ColumnPopulator to use based on desired CSV quote style.
+    // Determine what ColumnPopulator to use based on desired CSV quoting style.
     switch (quoting_style) {
       case QuotingStyle::None:
         // In unquoted output we must reject values with quotes. Since these types can
@@ -358,11 +358,11 @@ struct PopulatorFactory {
                   is_null_type<TypeClass>::value || is_temporal_type<TypeClass>::value,
               Status>
   Visit(const TypeClass& type) {
-    // Determine what ColumnPopulator to use based on desired CSV quote style.
+    // Determine what ColumnPopulator to use based on desired CSV quoting style.
     switch (quoting_style) {
         // These types are assumed not to produce any quotes, so we do not need to check
-        // and reject for potential quotes in the casted values in case the QuoteStyle is
-        // None.
+        // and reject for potential quotes in the casted values in case the QuotingStyle
+        // is None.
       case QuotingStyle::None:
       case QuotingStyle::Needed:
         populator = new UnquotedColumnPopulator(pool, end_char, null_string,
