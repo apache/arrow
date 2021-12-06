@@ -46,6 +46,8 @@ namespace gandiva {
 
 std::vector<NativeFunction> GetDateTimeFunctionRegistry() {
   static std::vector<NativeFunction> date_time_fn_registry_ = {
+      UNARY_SAFE_NULL_NEVER_BOOL(isnull, {}, day_time_interval),
+      UNARY_SAFE_NULL_NEVER_BOOL(isnull, {}, month_interval),
       DATE_EXTRACTION_TRUNCATION_FNS(EXTRACT_SAFE_NULL_IF_NULL, extract),
       DATE_EXTRACTION_TRUNCATION_FNS(TRUNCATE_SAFE_NULL_IF_NULL, date_trunc_),
 

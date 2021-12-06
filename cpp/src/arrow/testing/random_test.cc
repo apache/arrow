@@ -66,9 +66,6 @@ TEST_P(RandomArrayTest, GenerateBatch) {
 
 TEST_P(RandomArrayTest, GenerateZeroLengthArray) {
   auto field = GetField();
-  if (field->type()->id() == Type::type::DENSE_UNION) {
-    GTEST_SKIP() << "Cannot generate zero-length dense union arrays";
-  }
   auto array = GenerateArray(*field, 0, 0xDEADBEEF);
   AssertTypeEqual(field->type(), array->type());
   ASSERT_EQ(0, array->length());

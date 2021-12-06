@@ -114,6 +114,30 @@ gdv_int64 timestampaddMonth_timestamp_int64(gdv_timestamp, gdv_int64);
 gdv_int64 timestampaddQuarter_timestamp_int64(gdv_timestamp, gdv_int64);
 gdv_int64 timestampaddYear_timestamp_int64(gdv_timestamp, gdv_int64);
 
+gdv_boolean isnull_day_time_interval(gdv_day_time_interval in, gdv_boolean is_valid);
+
+gdv_boolean istrue_boolean(gdv_boolean in);
+gdv_boolean isfalse_boolean(gdv_boolean in);
+gdv_boolean istrue_int32(gdv_int32 in);
+gdv_boolean istrue_int64(gdv_int64 in);
+gdv_boolean istrue_uint32(gdv_uint32 in);
+gdv_boolean istrue_uint64(gdv_uint64 in);
+gdv_boolean isfalse_int32(gdv_int32 in);
+gdv_boolean isfalse_int64(gdv_int64 in);
+gdv_boolean isfalse_uint32(gdv_uint32 in);
+gdv_boolean isfalse_uint64(gdv_uint64 in);
+
+gdv_int32 nvl_int32_int32(gdv_int32 in, gdv_boolean is_valid_in, gdv_int32 replace,
+                          gdv_boolean is_valid_value);
+gdv_int64 nvl_int64_int64(gdv_int64 in, gdv_boolean is_valid_in, gdv_int64 replace,
+                          gdv_boolean is_valid_value);
+gdv_float32 nvl_float32_float32(gdv_float32 in, gdv_boolean is_valid_in,
+                                gdv_float32 replace, gdv_boolean is_valid_value);
+gdv_float64 nvl_float64_float64(gdv_float64 in, gdv_boolean is_valid_in,
+                                gdv_float64 replace, gdv_boolean is_valid_value);
+gdv_boolean nvl_boolean_boolean(gdv_boolean in, gdv_boolean is_valid_in,
+                                gdv_boolean replace, gdv_boolean is_valid_value);
+
 gdv_int64 date_add_int32_timestamp(gdv_int32, gdv_timestamp);
 gdv_int64 add_int64_timestamp(gdv_int64, gdv_timestamp);
 gdv_int64 add_int32_timestamp(gdv_int32, gdv_timestamp);
@@ -342,6 +366,9 @@ gdv_float64 least_float64_float64_float64_float64_float64_float64(
     gdv_float64 in1, gdv_float64 in2, gdv_float64 in3, gdv_float64 in4, gdv_float64 in5,
     gdv_float64 in6);
 
+gdv_int64 factorial_int32(gdv_int64 context, gdv_int32 value);
+gdv_int64 factorial_int64(gdv_int64 context, gdv_int64 value);
+
 gdv_float64 power_float64_float64(gdv_float64, gdv_float64);
 
 gdv_float64 log_int32_int32(gdv_int64 context, gdv_int32 base, gdv_int32 value);
@@ -508,6 +535,9 @@ const char* castVARBINARY_utf8_int64(gdv_int64 context, const char* data,
 const char* castVARBINARY_binary_int64(gdv_int64 context, const char* data,
                                        gdv_int32 data_len, int64_t out_len,
                                        int32_t* out_length);
+
+gdv_int32 levenshtein(int64_t context, const char* in1, int32_t in1_len, const char* in2,
+                      int32_t in2_len);
 
 const char* reverse_utf8(gdv_int64 context, const char* data, gdv_int32 data_len,
                          int32_t* out_len);

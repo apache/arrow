@@ -17,6 +17,8 @@
 
 .. highlight:: console
 
+.. _cpp-fuzzing:
+
 =================
 Fuzzing Arrow C++
 =================

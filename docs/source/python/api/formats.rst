@@ -18,7 +18,7 @@
 Tabular File Formats
 ====================
 
-.. _api.csv:
+.. _py-api-csv:
 
 CSV Files
 ---------

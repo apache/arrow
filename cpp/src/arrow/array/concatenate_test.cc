@@ -364,25 +364,169 @@ TEST_F(ConcatenateTest, DictionaryTypeNullSlots) {
   AssertArraysEqual(*expected, *concat_actual);
 }
 
-TEST_F(ConcatenateTest, DISABLED_UnionType) {
+TEST_F(ConcatenateTest, UnionType) {
   // sparse mode
   Check([this](int32_t size, double null_probability, std::shared_ptr<Array>* out) {
-    auto foo = this->GeneratePrimitive<Int8Type>(size, null_probability);
-    auto bar = this->GeneratePrimitive<DoubleType>(size, null_probability);
-    auto baz = this->GeneratePrimitive<BooleanType>(size, null_probability);
-    auto type_ids = rng_.Numeric<Int8Type>(size, 0, 2, null_probability);
-    ASSERT_OK_AND_ASSIGN(*out, SparseUnionArray::Make(*type_ids, {foo, bar, baz}));
+    *out = rng_.ArrayOf(sparse_union({
+                            field("a", float64()),
+                            field("b", boolean()),
+                        }),
+                        size, null_probability);
   });
   // dense mode
   Check([this](int32_t size, double null_probability, std::shared_ptr<Array>* out) {
-    auto foo = this->GeneratePrimitive<Int8Type>(size, null_probability);
-    auto bar = this->GeneratePrimitive<DoubleType>(size, null_probability);
-    auto baz = this->GeneratePrimitive<BooleanType>(size, null_probability);
-    auto type_ids = rng_.Numeric<Int8Type>(size, 0, 2, null_probability);
-    auto value_offsets = rng_.Numeric<Int32Type>(size, 0, size, 0);
-    ASSERT_OK_AND_ASSIGN(
-        *out, DenseUnionArray::Make(*type_ids, *value_offsets, {foo, bar, baz}));
+    *out = rng_.ArrayOf(dense_union({
+                            field("a", uint32()),
+                            field("b", boolean()),
+                            field("c", int8()),
+                        }),
+                        size, null_probability);
   });
+}
+
+TEST_F(ConcatenateTest, DenseUnionTypeOverflow) {
+  // Offset overflow
+  auto type_ids = ArrayFromJSON(int8(), "[0]");
+  auto offsets = ArrayFromJSON(int32(), "[2147483646]");
+  auto child_array = ArrayFromJSON(uint8(), "[0, 1]");
+  ASSERT_OK_AND_ASSIGN(auto array,
+                       DenseUnionArray::Make(*type_ids, *offsets, {child_array}));
+  ArrayVector arrays({array, array});
+  ASSERT_RAISES(Invalid, Concatenate(arrays, default_memory_pool()));
+
+  // Length overflow
+  auto type_ids_ok = ArrayFromJSON(int8(), "[0]");
+  auto offsets_ok = ArrayFromJSON(int32(), "[0]");
+  auto child_array_overflow =
+      this->rng_.ArrayOf(null(), std::numeric_limits<int32_t>::max() - 1, 0.0);
+  ASSERT_OK_AND_ASSIGN(
+      auto array_overflow,
+      DenseUnionArray::Make(*type_ids_ok, *offsets_ok, {child_array_overflow}));
+  ArrayVector arrays_overflow({array_overflow, array_overflow});
+  ASSERT_RAISES(Invalid, Concatenate(arrays_overflow, default_memory_pool()));
+}
+
+TEST_F(ConcatenateTest, DenseUnionType) {
+  auto array = ArrayFromJSON(dense_union({field("", boolean()), field("", int8())}), R"([
+    [0, true],
+    [0, true],
+    [1, 1],
+    [1, 2],
+    [0, false],
+    [1, 3]
+  ])");
+  ASSERT_OK(array->ValidateFull());
+
+  // Test concatenation of an unsliced array.
+  ASSERT_OK_AND_ASSIGN(auto concat_arrays,
+                       Concatenate({array, array}, default_memory_pool()));
+  ASSERT_OK(concat_arrays->ValidateFull());
+  AssertArraysEqual(
+      *ArrayFromJSON(dense_union({field("", boolean()), field("", int8())}), R"([
+    [0, true],
+    [0, true],
+    [1, 1],
+    [1, 2],
+    [0, false],
+    [1, 3],
+    [0, true],
+    [0, true],
+    [1, 1],
+    [1, 2],
+    [0, false],
+    [1, 3]
+  ])"),
+      *concat_arrays);
+
+  // Test concatenation of a sliced array with an unsliced array.
+  ASSERT_OK_AND_ASSIGN(auto concat_sliced_arrays,
+                       Concatenate({array->Slice(1, 4), array}, default_memory_pool()));
+  ASSERT_OK(concat_sliced_arrays->ValidateFull());
+  AssertArraysEqual(
+      *ArrayFromJSON(dense_union({field("", boolean()), field("", int8())}), R"([
+    [0, true],
+    [1, 1],
+    [1, 2],
+    [0, false],
+    [0, true],
+    [0, true],
+    [1, 1],
+    [1, 2],
+    [0, false],
+    [1, 3]
+  ])"),
+      *concat_sliced_arrays);
+
+  // Test concatenation of an unsliced array, but whose children are sliced.
+  auto type_ids = ArrayFromJSON(int8(), "[1, 1, 0, 0, 0]");
+  auto offsets = ArrayFromJSON(int32(), "[0, 1, 0, 1, 2]");
+  auto child_one =
+      ArrayFromJSON(boolean(), "[false, true, true, true, false, false, false]");
+  auto child_two = ArrayFromJSON(int8(), "[0, 1, 1, 0, 0, 0, 0]");
+  ASSERT_OK_AND_ASSIGN(
+      auto array_sliced_children,
+      DenseUnionArray::Make(*type_ids, *offsets,
+                            {child_one->Slice(1, 3), child_two->Slice(1, 2)}));
+  ASSERT_OK(array_sliced_children->ValidateFull());
+  ASSERT_OK_AND_ASSIGN(
+      auto concat_sliced_children,
+      Concatenate({array_sliced_children, array_sliced_children}, default_memory_pool()));
+  ASSERT_OK(concat_sliced_children->ValidateFull());
+  AssertArraysEqual(
+      *ArrayFromJSON(dense_union({field("0", boolean()), field("1", int8())}), R"([
+    [1, 1],
+    [1, 1],
+    [0, true],
+    [0, true],
+    [0, true],
+    [1, 1],
+    [1, 1],
+    [0, true],
+    [0, true],
+    [0, true]
+  ])"),
+      *concat_sliced_children);
+
+  // Test concatenation of a sliced array, whose children also have an offset.
+  ASSERT_OK_AND_ASSIGN(auto concat_sliced_array_sliced_children,
+                       Concatenate({array_sliced_children->Slice(1, 1),
+                                    array_sliced_children->Slice(2, 3)},
+                                   default_memory_pool()));
+  ASSERT_OK(concat_sliced_array_sliced_children->ValidateFull());
+  AssertArraysEqual(
+      *ArrayFromJSON(dense_union({field("0", boolean()), field("1", int8())}), R"([
+    [1, 1],
+    [0, true],
+    [0, true],
+    [0, true]
+  ])"),
+      *concat_sliced_array_sliced_children);
+
+  // Test concatenation of dense union array with types codes other than 0..n
+  auto array_type_codes =
+      ArrayFromJSON(dense_union({field("", int32()), field("", utf8())}, {2, 5}), R"([
+    [2, 42],
+    [5, "Hello world!"],
+    [2, 42]
+  ])");
+  ASSERT_OK(array_type_codes->ValidateFull());
+  ASSERT_OK_AND_ASSIGN(
+      auto concat_array_type_codes,
+      Concatenate({array_type_codes, array_type_codes, array_type_codes->Slice(1, 1)},
+                  default_memory_pool()));
+  ASSERT_OK(concat_array_type_codes->ValidateFull());
+  AssertArraysEqual(
+      *ArrayFromJSON(dense_union({field("", int32()), field("", utf8())}, {2, 5}),
+                     R"([
+    [2, 42],
+    [5, "Hello world!"],
+    [2, 42],
+    [2, 42],
+    [5, "Hello world!"],
+    [2, 42],
+    [5, "Hello world!"]
+  ])"),
+      *concat_array_type_codes);
 }
 
 TEST_F(ConcatenateTest, OffsetOverflow) {

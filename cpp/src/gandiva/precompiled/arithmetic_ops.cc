@@ -232,6 +232,20 @@ NUMERIC_TYPES(VALIDITY_OP, isnumeric, +)
 
 #undef VALIDITY_OP
 
+#define IS_TRUE_OR_FALSE_BOOL(NAME, TYPE, OP) \
+  FORCE_INLINE                                \
+  gdv_##TYPE NAME##_boolean(gdv_##TYPE in) { return OP in; }
+
+IS_TRUE_OR_FALSE_BOOL(istrue, boolean, +)
+IS_TRUE_OR_FALSE_BOOL(isfalse, boolean, !)
+
+#define IS_TRUE_OR_FALSE_NUMERIC(NAME, TYPE, OP) \
+  FORCE_INLINE                                   \
+  gdv_boolean NAME##_##TYPE(gdv_##TYPE in) { return OP(in != 0 ? true : false); }
+
+NUMERIC_TYPES(IS_TRUE_OR_FALSE_NUMERIC, istrue, +)
+NUMERIC_TYPES(IS_TRUE_OR_FALSE_NUMERIC, isfalse, !)
+
 #define NUMERIC_FUNCTION(INNER) \
   INNER(int8)                   \
   INNER(int16)                  \
@@ -254,6 +268,17 @@ NUMERIC_TYPES(VALIDITY_OP, isnumeric, +)
   NUMERIC_FUNCTION(INNER)                 \
   DATE_FUNCTION(INNER)                    \
   INNER(boolean)
+
+#define NVL(TYPE)                                                                  \
+  FORCE_INLINE                                                                     \
+  gdv_##TYPE nvl_##TYPE##_##TYPE(gdv_##TYPE in, gdv_boolean is_valid_in,           \
+                                 gdv_##TYPE replace, gdv_boolean is_valid_value) { \
+    return (is_valid_in ? in : replace);                                           \
+  }
+
+NUMERIC_BOOL_DATE_FUNCTION(NVL)
+
+#undef NVL
 
 FORCE_INLINE
 gdv_boolean not_boolean(gdv_boolean in) { return !in; }

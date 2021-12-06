@@ -18,108 +18,17 @@
 #include "gandiva/projector.h"
 
 #include <memory>
-#include <thread>
 #include <utility>
 #include <vector>
 
-#include "arrow/util/hash_util.h"
 #include "arrow/util/logging.h"
-
 #include "gandiva/cache.h"
 #include "gandiva/expr_validator.h"
+#include "gandiva/expression_cache_key.h"
+#include "gandiva/gandiva_object_cache.h"
 #include "gandiva/llvm_generator.h"
 
 namespace gandiva {
-
-class ProjectorCacheKey {
- public:
-  ProjectorCacheKey(SchemaPtr schema, std::shared_ptr<Configuration> configuration,
-                    ExpressionVector expression_vector, SelectionVector::Mode mode)
-      : schema_(schema), configuration_(configuration), mode_(mode), uniqifier_(0) {
-    static const int kSeedValue = 4;
-    size_t result = kSeedValue;
-    for (auto& expr : expression_vector) {
-      std::string expr_as_string = expr->ToString();
-      expressions_as_strings_.push_back(expr_as_string);
-      arrow::internal::hash_combine(result, expr_as_string);
-      UpdateUniqifier(expr_as_string);
-    }
-    arrow::internal::hash_combine(result, static_cast<size_t>(mode));
-    arrow::internal::hash_combine(result, configuration->Hash());
-    arrow::internal::hash_combine(result, schema_->ToString());
-    arrow::internal::hash_combine(result, uniqifier_);
-    hash_code_ = result;
-  }
-
-  std::size_t Hash() const { return hash_code_; }
-
-  bool operator==(const ProjectorCacheKey& other) const {
-    // arrow schema does not overload equality operators.
-    if (!(schema_->Equals(*other.schema().get(), true))) {
-      return false;
-    }
-
-    if (*configuration_ != *other.configuration_) {
-      return false;
-    }
-
-    if (expressions_as_strings_ != other.expressions_as_strings_) {
-      return false;
-    }
-
-    if (mode_ != other.mode_) {
-      return false;
-    }
-
-    if (uniqifier_ != other.uniqifier_) {
-      return false;
-    }
-    return true;
-  }
-
-  bool operator!=(const ProjectorCacheKey& other) const { return !(*this == other); }
-
-  SchemaPtr schema() const { return schema_; }
-
-  std::string ToString() const {
-    std::stringstream ss;
-    // indent, window, indent_size, null_rep and skip new lines.
-    arrow::PrettyPrintOptions options{0, 10, 2, "null", true};
-    DCHECK_OK(PrettyPrint(*schema_.get(), options, &ss));
-
-    ss << "Expressions: [";
-    bool first = true;
-    for (auto& expr : expressions_as_strings_) {
-      if (first) {
-        first = false;
-      } else {
-        ss << ", ";
-      }
-
-      ss << expr;
-    }
-    ss << "]";
-    return ss.str();
-  }
-
- private:
-  void UpdateUniqifier(const std::string& expr) {
-    if (uniqifier_ == 0) {
-      // caching of expressions with re2 patterns causes lock contention. So, use
-      // multiple instances to reduce contention.
-      if (expr.find(" like(") != std::string::npos) {
-        uniqifier_ = std::hash<std::thread::id>()(std::this_thread::get_id()) % 16;
-      }
-    }
-  }
-
-  const SchemaPtr schema_;
-  const std::shared_ptr<Configuration> configuration_;
-  SelectionVector::Mode mode_;
-  std::vector<std::string> expressions_as_strings_;
-  size_t hash_code_;
-  uint32_t uniqifier_;
-};
 
 Projector::Projector(std::unique_ptr<LLVMGenerator> llvm_generator, SchemaPtr schema,
                      const FieldVector& output_fields,
@@ -153,14 +62,22 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
   ARROW_RETURN_IF(configuration == nullptr,
                   Status::Invalid("Configuration cannot be null"));
 
-  // see if equivalent projector was already built
-  static Cache<ProjectorCacheKey, std::shared_ptr<Projector>> cache;
-  ProjectorCacheKey cache_key(schema, configuration, exprs, selection_vector_mode);
-  std::shared_ptr<Projector> cached_projector = cache.GetModule(cache_key);
-  if (cached_projector != nullptr) {
-    *projector = cached_projector;
-    return Status::OK();
+  std::shared_ptr<Cache<ExpressionCacheKey, std::shared_ptr<llvm::MemoryBuffer>>> cache =
+      LLVMGenerator::GetCache();
+
+  ExpressionCacheKey cache_key(schema, configuration, exprs, selection_vector_mode);
+
+  bool llvm_flag = false;
+
+  std::shared_ptr<llvm::MemoryBuffer> prev_cached_obj;
+  prev_cached_obj = cache->GetObjectCode(cache_key);
+
+  // Verify if previous projector obj code was cached
+  if (prev_cached_obj != nullptr) {
+    llvm_flag = true;
   }
+
+  GandivaObjectCache obj_cache(cache, cache_key);
 
   // Build LLVM generator, and generate code for the specified expressions
   std::unique_ptr<LLVMGenerator> llvm_gen;
@@ -174,13 +91,10 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
     ARROW_RETURN_NOT_OK(expr_validator.Validate(expr));
   }
 
-  // Start measuring build time
-  auto begin = std::chrono::high_resolution_clock::now();
+  // Set the object cache for LLVM
+  llvm_gen->SetLLVMObjectCache(obj_cache);
+
   ARROW_RETURN_NOT_OK(llvm_gen->Build(exprs, selection_vector_mode));
-  // Stop measuring time and calculate the elapsed time
-  auto end = std::chrono::high_resolution_clock::now();
-  auto elapsed =
-      std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();
 
   // save the output field types. Used for validation at Evaluate() time.
   std::vector<FieldPtr> output_fields;
@@ -192,8 +106,7 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
   // Instantiate the projector with the completely built llvm generator
   *projector = std::shared_ptr<Projector>(
       new Projector(std::move(llvm_gen), schema, output_fields, configuration));
-  ValueCacheObject<std::shared_ptr<Projector>> value_cache(*projector, elapsed);
-  cache.PutModule(cache_key, value_cache);
+  projector->get()->SetBuiltFromCache(llvm_flag);
 
   return Status::OK();
 }
@@ -365,5 +278,9 @@ Status Projector::ValidateArrayDataCapacity(const arrow::ArrayData& array_data,
 }
 
 std::string Projector::DumpIR() { return llvm_generator_->DumpIR(); }
+
+void Projector::SetBuiltFromCache(bool flag) { built_from_cache_ = flag; }
+
+bool Projector::GetBuiltFromCache() { return built_from_cache_; }
 
 }  // namespace gandiva

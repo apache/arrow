@@ -29,6 +29,7 @@
 #include "gandiva/dex.h"
 #include "gandiva/expr_decomposer.h"
 #include "gandiva/expression.h"
+#include "gandiva/gandiva_object_cache.h"
 #include "gandiva/lvalue.h"
 
 namespace gandiva {
@@ -50,6 +51,15 @@ Status LLVMGenerator::Make(std::shared_ptr<Configuration> config,
   return Status::OK();
 }
 
+std::shared_ptr<Cache<ExpressionCacheKey, std::shared_ptr<llvm::MemoryBuffer>>>
+LLVMGenerator::GetCache() {
+  static std::shared_ptr<Cache<ExpressionCacheKey, std::shared_ptr<llvm::MemoryBuffer>>>
+      shared_cache = std::make_shared<
+          Cache<ExpressionCacheKey, std::shared_ptr<llvm::MemoryBuffer>>>();
+
+  return shared_cache;
+}
+
 Status LLVMGenerator::Add(const ExpressionPtr expr, const FieldDescriptorPtr output) {
   int idx = static_cast<int>(compiled_exprs_.size());
   // decompose the expression to separate out value and validities.
@@ -68,9 +78,15 @@ Status LLVMGenerator::Add(const ExpressionPtr expr, const FieldDescriptorPtr out
   return Status::OK();
 }
 
-/// Build and optimise module for projection expression.
+void LLVMGenerator::SetLLVMObjectCache(GandivaObjectCache& object_cache) {
+  engine_->SetLLVMObjectCache(object_cache);
+}
+
+/// \brief Build the code for the expression trees for default mode with a LLVM
+/// ObjectCache. Each element in the vector represents an expression tree
 Status LLVMGenerator::Build(const ExpressionVector& exprs, SelectionVector::Mode mode) {
   selection_vector_mode_ = mode;
+
   for (auto& expr : exprs) {
     auto output = annotator_.AddOutputFieldDescriptor(expr->result());
     ARROW_RETURN_NOT_OK(Add(expr, output));
@@ -87,6 +103,12 @@ Status LLVMGenerator::Build(const ExpressionVector& exprs, SelectionVector::Mode
   }
 
   return Status::OK();
+}
+
+/// \brief Build the code for the expression trees for default mode. Each
+/// element in the vector represents an expression tree
+Status LLVMGenerator::Build(const ExpressionVector& exprs) {
+  return Build(exprs, SelectionVector::Mode::MODE_NONE);
 }
 
 /// Execute the compiled module against the provided vectors.
