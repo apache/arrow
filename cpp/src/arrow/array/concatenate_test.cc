@@ -435,16 +435,18 @@ TEST_F(ConcatenateTest, DenseUnionType) {
                        Concatenate(sliced_arrays, default_memory_pool()));
   ASSERT_OK(concat_sliced_arrays->ValidateFull());
 
-  auto type_ids_sliced = ArrayFromJSON(int8(), "[0, 1, 1, 0, 0, 0, 1, 1, 0, 1]");
-  auto offsets_sliced = ArrayFromJSON(int32(), "[1, 0, 1, 2, 3, 4, 3, 4, 5, 5]");
-  auto child_one_sliced =
-      ArrayFromJSON(boolean(), "[true, true, false, true, true, false]");
-  auto child_two_sliced = ArrayFromJSON(int8(), "[1, 2, 3, 1, 2, 3]");
-  ASSERT_OK_AND_ASSIGN(auto expected_sliced,
-                       DenseUnionArray::Make(*type_ids_sliced, *offsets_sliced,
-                                             {child_one_sliced, child_two_sliced}));
-  ASSERT_OK(expected_sliced->ValidateFull());
-  AssertArraysEqual(*expected_sliced, *concat_sliced_arrays);
+  AssertArraysEqual(*ArrayFromJSON(dense_union({field("", boolean()), field("", int8())}), R"([
+    [0, true],
+    [1, 1],
+    [1, 2],
+    [0, true],
+    [0, false],
+    [0, true],
+    [1, 3],
+    [1, 1],
+    [0, true],
+    [1, 3]
+  ])"), *concat_sliced_arrays);
 }
 
 TEST_F(ConcatenateTest, OffsetOverflow) {
