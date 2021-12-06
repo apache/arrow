@@ -41,11 +41,12 @@ JavaScript, Julia, and Rust) already contain distinct implementations
 of Arrow. 
 
 It is different for C (Glib), MATLAB, Python, R, and Ruby as they
-are built on top of the C++ library. In this section we will be
+are built on top of the C++ library. In this section of the guide
+we will try to make a friendly introduction to the build
 dealing with this second part of the libraries plus some of C++.
 
-In this case, if you decide to contribute to Arrow you will meet
-the topic of compiling the source code and use of CMake. You may
+In this case, if you decide to contribute to Arrow, you will probably
+meet the topic of compiling the source code and use of CMake. You may
 have some experience with it or not. If not, it is good to read
 through this part so you understand what is happening in the process
 of building Arrow better.
@@ -65,68 +66,83 @@ these bindings are wrapping the underlying C++ functions. Even if you
 want to work on PyArrow or R package the source code of C++ may have to
 be edited also.
 
+Detailed instructions on building C++ library from source can
+be found :ref:`here <building-arrow-cpp>`.
+
 About CMake
 -----------
 
 CMake is a cross platform build system generator and it defers
 to another program such as ``make`` or ``ninja`` for the actual build.
-If running into errors with the build process, the first thing to try is
-to tweak some CMake flags for compiling Arrow.
+If running into errors with the build process, the first thing to do is
+to look at the error message thoroughly and check the building documentation
+for any similar error advice. Also changing the CMake flags for compiling
+Arrow could be useful.
 
-.. TODO
-.. CMake presets
-.. Ex: "We now have CMake Presets which are useful starting points."
-.. https://github.com/apache/arrow/blob/master/docs/source/developers/cpp/building.rst#cmake-presets
+CMake presets
+-------------
 
+You could also try to build with CMake presets which are a collection of
+build and test recipes for Arrow's CMake. They are a very useful
+starting points.
 
-Optional flags and why might we use them
+More detailed information about CMake presets can be found in
+the :ref:`cmake_presets` section.
+
+Optional flags and environment variables
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-.. TODO short description of the use of flags
-.. R and Python have specific lists of flags in their respective building docs that can be referenced.
+
+Flags used in the CMake build are used to include additional components
+and to handle third-party dependencies.
+The build for C++ library can be minimal with no use of flags or can
+be changed with adding optional components from the
+:ref:`list <cpp_build_optional_components>`.
 
 .. seealso::
 	Full list of optional flags: :ref:`cpp_build_optional_components`
 
-.. Environment variables useful for developers
-.. ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-.. TODO short description of the use of env vars
+R and Python have specific lists of flags in their respective builds
+that need to be included. You can find the links at the end
+of this section.
+
+In general on Python side the options are set with CMake flags and
+paths with environment variables. In R the environment variables are used
+for all things connected to the build, also for setting CMake flags.
 
 Building from source vs. using binaries
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Using binaries is a fast and simple way of working with the latest
-Arrow version. But you do not have the possibility to add or change
+Using binaries is a fast and simple way of working with the last release
+of Arrow. But you do not have the possibility to add or change
 the code and as a contributor you will need to.
 
-Detailed instructions on building C++ library from source can
-be found :ref:`here <building-arrow-cpp>`.
+**Note:** every language has it's own way of dealing with binaries.
+To get more information navigate to the section of the language you are
+interested to find more information.
 
-.. _build-pyarrow:
+.. tabs::
 
-Building PyArrow
-================
+   .. tab:: Building Pyarrow
 
-After building Arrow C++ part of Arrow you have to build PyArrow on top
-of it also. The reason is the same, so you can edit the code and run
-tests on the edited code you have locally.
+      After building Arrow C++ part of Arrow you have to build PyArrow on top
+      of it also. The reason is the same, so you can edit the code and run
+      tests on the edited code you have locally.
 
-**Why do we have to do builds separately?**
+      **Why do we have to do builds separately?**
 
-As mentioned in the beginning of this page, Python part of the Arrow
-project is built on top of C++. In order to make changes in Python part
-of Arrow as well as C++ part of Arrow, we need to build them separately.
+      As mentioned in the beginning of this page, Python part of the Arrow
+      project is built on top of C++. In order to make changes in Python part
+      of Arrow as well as C++ part of Arrow, we need to build them separately.
 
-We hope this introduction was enough to help you start with the building
-process.
+      We hope this introduction was enough to help you start with the building
+      process.
 
-.. seealso::
-	Follow the instructions to build PyArrow together with the C++ library
+      .. seealso::
+         Follow the instructions to build PyArrow together with the C++ library
 
-	- :ref:`build_pyarrow`
-	Or
+         - :ref:`build_pyarrow`
+         Or
 
-	- :ref:`build_pyarrow_win`
+         - :ref:`build_pyarrow_win`
 
-.. _build-rapackage:
+   .. tab:: Building R package
 
-Building R package
-==================

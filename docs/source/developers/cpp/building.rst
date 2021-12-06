@@ -129,6 +129,8 @@ repository and navigated to the ``cpp`` subdirectory:
    $ git clone https://github.com/apache/arrow.git
    $ cd arrow/cpp
 
+.. _cmake_presets:
+
 CMake presets
 -------------
 
