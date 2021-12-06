@@ -47,7 +47,7 @@ quietly <- !env_is("ARROW_R_DEV", "true")
 
 # Default is build from source, not download a binary
 build_ok <- !env_is("LIBARROW_BUILD", "false")
-binary_ok <- env_is("LIBARROW_BINARY", "true")
+binary_ok <- env_is("LIBARROW_BINARY", "true") || env_is("NOT_CRAN", "true")
 
 # Check if we're doing an offline build.
 # (Note that cmake will still be downloaded if necessary
@@ -77,7 +77,7 @@ download_binary <- function(os = identify_os()) {
         cat("**** If installation fails, retry after installing those system requirements\n")
       }
     } else {
-      cat(sprintf("*** No C++ binaries found for %s\n", os))
+      cat(sprintf("*** No Arrow binary found for version %s on %s\n", VERSION, os))
       libfile <- NULL
     }
   } else {
