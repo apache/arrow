@@ -40,9 +40,9 @@ work in many languages. Most libraries (C++, C#, Go, Java,
 JavaScript, Julia, and Rust) already contain distinct implementations
 of Arrow. 
 
-It is different for C (Glib), MATLAB, Python, R, and Ruby as they
+This is different for C (Glib), MATLAB, Python, R, and Ruby as they
 are built on top of the C++ library. In this section of the guide
-we will try to make a friendly introduction to the build
+we will try to make a friendly introduction to the build,
 dealing with some of these libraries as well has how they work with
 the C++ library.
 
@@ -52,7 +52,10 @@ may or may not have experience with. If not, this section of the
 guide will help you better understand CMake and the process
 of building Arrow's C++ code.
 
-If you feel comfortable with compiling then feel free to proceed
+This content is intended to help explain the concepts related to 
+and tools required for building Arrow's C++ library from source.
+If you are looking for the specific required steps, or already feel comfortable 
+with compiling Arrow's C++ library, then feel free to proceed
 to the :ref:`C++ <building-arrow-cpp>`, :ref:`PyArrow <build_pyarrow>` or
 `R package build section <https://arrow.apache.org/docs/r/articles/developing.html>`_.
 
@@ -64,7 +67,7 @@ Why build Arrow C++ from source?
 
 For Arrow implementations which are built on top of the C++ implementation
 (e.g. Python and R), wrappers and interfaces have been written to the
-underlying C++ functions. If you want to work on PyArrow or R package,
+underlying C++ functions. If you want to work on PyArrow or the R package,
 you may need to edit the source code of the C++ library too.
 
 Detailed instructions on building C++ library from source can
@@ -81,7 +84,7 @@ documentation for any similar error advice. Also changing the CMake flags
 for compiling Arrow could be useful.
 
 CMake presets
--------------
+^^^^^^^^^^^^^^^^^^^
 
 You could also try to build with CMake presets which are a collection of
 build and test recipes for Arrow's CMake. They are a very useful
@@ -106,7 +109,7 @@ R and Python have specific lists of flags in their respective builds
 that need to be included. You can find the links at the end
 of this section.
 
-In general on Python side the options are set with CMake flags and
+In general on Python side, the options are set with CMake flags and
 paths with environment variables. In R the environment variables are used
 for all things connected to the build, also for setting CMake flags.
 
@@ -116,7 +119,7 @@ Using binaries is a fast and simple way of working with the last release
 of Arrow. However, if you use these it means that you will be unable to
 make changes to the Arrow C++ library.
 
-**Note:** every language has it's own way of dealing with binaries.
+**Note:** every language has its own way of dealing with binaries.
 To get more information navigate to the section of the language you are
 interested to find more information.
 
