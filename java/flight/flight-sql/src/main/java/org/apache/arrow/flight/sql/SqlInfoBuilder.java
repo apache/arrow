@@ -37,6 +37,7 @@ import org.apache.arrow.flight.sql.impl.FlightSql.SqlSupportedElementActions;
 import org.apache.arrow.flight.sql.impl.FlightSql.SqlSupportedGroupBy;
 import org.apache.arrow.flight.sql.impl.FlightSql.SqlSupportedPositionedCommands;
 import org.apache.arrow.flight.sql.impl.FlightSql.SqlSupportedResultSetType;
+import org.apache.arrow.flight.sql.impl.FlightSql.SqlSupportedSubqueries;
 import org.apache.arrow.flight.sql.impl.FlightSql.SqlSupportedUnions;
 import org.apache.arrow.flight.sql.impl.FlightSql.SqlTransactionIsolationLevel;
 import org.apache.arrow.flight.sql.impl.FlightSql.SupportedAnsi92SqlGrammarLevel;
@@ -723,11 +724,11 @@ public class SqlInfoBuilder {
   /**
    * Sets a value for {@link SqlInfo#SQL_SUPPORTED_SUBQUERIES} in the builder.
    *
-   * @param value the value for {@link SqlInfo#SQL_SUPPORTED_SUBQUERIES} to be set.
+   * @param values the value for {@link SqlInfo#SQL_SUPPORTED_SUBQUERIES} to be set.
    * @return the SqlInfoBuilder itself.
    */
-  public SqlInfoBuilder withSqlSubQueriesSupported(final int value) {
-    return withIntProvider(SqlInfo.SQL_SUPPORTED_SUBQUERIES_VALUE, value);
+  public SqlInfoBuilder withSqlSubQueriesSupported(final SqlSupportedSubqueries... values) {
+    return withEnumProvider(SqlInfo.SQL_SUPPORTED_SUBQUERIES_VALUE, values);
   }
 
   /**
