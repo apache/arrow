@@ -51,12 +51,12 @@ void PrintTo(const WriterTestParams& p, std::ostream* os) {
 }
 
 WriteOptions DefaultTestOptions(bool include_header, const std::string& null_string,
-                                QuoteStyle quote_style) {
+                                QuotingStyle quote_style) {
   WriteOptions options;
   options.batch_size = 5;
   options.include_header = include_header;
   options.null_string = null_string;
-  options.quote_style = quote_style;
+  options.quoting_style = quote_style;
   return options;
 }
 
@@ -143,42 +143,44 @@ std::vector<WriterTestParams> GenerateTestCases() {
   return std::vector<WriterTestParams>{
       {abc_schema, "[]",
        DefaultTestOptions(/*include_header=*/false, /*null_string=*/"",
-                          QuoteStyle::Needed),
+                          QuotingStyle::Needed),
        /*expect_invalid_options*/ false, "", util::nullopt},
       {abc_schema, "[]",
        DefaultTestOptions(/*include_header=*/true, /*null_string=*/"",
-                          QuoteStyle::Needed),
+                          QuotingStyle::Needed),
        /*expect_invalid_options*/ false, expected_header, util::nullopt},
       {abc_schema, populated_batch,
        DefaultTestOptions(/*include_header=*/false, /*null_string=*/"",
-                          QuoteStyle::Needed),
+                          QuotingStyle::Needed),
        /*expect_invalid_options*/ false, expected_without_header, util::nullopt},
       {abc_schema, populated_batch,
        DefaultTestOptions(/*include_header=*/true, /*null_string=*/"",
-                          QuoteStyle::Needed),
+                          QuotingStyle::Needed),
        /*expect_invalid_options*/ false, expected_header + expected_without_header,
        util::nullopt},
       {schema_custom_na, populated_batch_custom_na,
        DefaultTestOptions(/*include_header=*/false, /*null_string=*/"NA",
-                          QuoteStyle::Needed),
+                          QuotingStyle::Needed),
        /*expect_invalid_options*/ false, expected_custom_na, util::nullopt},
       {dummy_schema, dummy_batch_data,
        DefaultTestOptions(/*include_header=*/false, /*null_string=*/R"("NA")",
-                          QuoteStyle::Needed),
+                          QuotingStyle::Needed),
        /*expect_invalid_options*/ true, /*expected_output*/ "", util::nullopt},
       {dummy_schema, dummy_batch_data,
        DefaultTestOptions(/*include_header=*/false, /*null_string=*/R"(")",
-                          QuoteStyle::Needed),
+                          QuotingStyle::Needed),
        /*expect_invalid_options*/ true, /*expected_output*/ "", util::nullopt},
       {abc_schema, populated_batch,
        DefaultTestOptions(/*include_header=*/false, /*null_string=*/"",
-                          QuoteStyle::AllValid),
+                          QuotingStyle::AllValid),
        /*expect_invalid_options*/ false, expected_quote_style_all_valid, util::nullopt},
       {abc_schema, populated_batch_quote_style_none,
-       DefaultTestOptions(/*include_header=*/false, /*null_string=*/"", QuoteStyle::None),
+       DefaultTestOptions(/*include_header=*/false, /*null_string=*/"",
+                          QuotingStyle::None),
        /*expect_invalid_options*/ false, expected_quote_style_none, util::nullopt},
       {abc_schema, populated_batch,
-       DefaultTestOptions(/*include_header=*/false, /*null_string=*/"", QuoteStyle::None),
+       DefaultTestOptions(/*include_header=*/false, /*null_string=*/"",
+                          QuotingStyle::None),
        /*expect_invalid_options*/ false,
        /*expected_output*/ "",
        /*expect_invalid_string*/

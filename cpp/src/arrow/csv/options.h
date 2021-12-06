@@ -170,8 +170,8 @@ struct ARROW_EXPORT ReadOptions {
   Status Validate() const;
 };
 
-/// \brief Quote style for CSV writing
-enum class ARROW_EXPORT QuoteStyle {
+/// \brief Quoting style for CSV writing
+enum class ARROW_EXPORT QuotingStyle {
   /// Only enclose values in quotes which need them, because their CSV rendering can
   /// contain quotes itself (e.g. strings or binary values)
   Needed,
@@ -198,8 +198,8 @@ struct ARROW_EXPORT WriteOptions {
   /// \brief IO context for writing.
   io::IOContext io_context;
 
-  /// \brief Quote style
-  QuoteStyle quote_style = QuoteStyle::Needed;
+  /// \brief Quoting style
+  QuotingStyle quoting_style = QuotingStyle::Needed;
 
   /// Create write options with default values
   static WriteOptions Defaults();

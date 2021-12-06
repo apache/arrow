@@ -305,8 +305,8 @@ struct PopulatorFactory {
               Status>
   Visit(const TypeClass& type) {
     // Determine what ColumnPopulator to use based on desired CSV quote style.
-    switch (quote_style) {
-      case QuoteStyle::None:
+    switch (quoting_style) {
+      case QuotingStyle::None:
         // In unquoted output we must reject values with quotes. Since these types can
         // produce quotes in their output rendering, we must check them and reject if
         // quotes appear, hence reject_values_with_quotes is set to true.
@@ -315,8 +315,8 @@ struct PopulatorFactory {
         break;
         // Quoting is needed for strings/binary, or when all valid values need to be
         // quoted.
-      case QuoteStyle::Needed:
-      case QuoteStyle::AllValid:
+      case QuotingStyle::Needed:
+      case QuotingStyle::AllValid:
         populator = new QuotedColumnPopulator(pool, end_char, null_string);
         break;
     }
@@ -341,16 +341,16 @@ struct PopulatorFactory {
               Status>
   Visit(const TypeClass& type) {
     // Determine what ColumnPopulator to use based on desired CSV quote style.
-    switch (quote_style) {
+    switch (quoting_style) {
         // These types are assumed not to produce any quotes, so we do not need to check
         // and reject for potential quotes in the casted values in case the QuoteStyle is
         // None.
-      case QuoteStyle::None:
-      case QuoteStyle::Needed:
+      case QuotingStyle::None:
+      case QuotingStyle::Needed:
         populator = new UnquotedColumnPopulator(pool, end_char, null_string,
                                                 /*reject_values_with_quotes=*/false);
         break;
-      case QuoteStyle::AllValid:
+      case QuotingStyle::AllValid:
         populator = new QuotedColumnPopulator(pool, end_char, null_string);
         break;
     }
@@ -359,15 +359,16 @@ struct PopulatorFactory {
 
   char end_char;
   std::shared_ptr<Buffer> null_string;
-  QuoteStyle quote_style;
+  QuotingStyle quoting_style;
   MemoryPool* pool;
   ColumnPopulator* populator;
 };
 
 Result<std::unique_ptr<ColumnPopulator>> MakePopulator(
     const Field& field, char end_char, std::shared_ptr<Buffer> null_string,
-    QuoteStyle quote_style, MemoryPool* pool) {
-  PopulatorFactory factory{end_char, std::move(null_string), quote_style, pool, nullptr};
+    QuotingStyle quoting_style, MemoryPool* pool) {
+  PopulatorFactory factory{end_char, std::move(null_string), quoting_style, pool,
+                           nullptr};
 
   RETURN_NOT_OK(VisitTypeInline(*field.type(), &factory));
   return std::unique_ptr<ColumnPopulator>(factory.populator);
@@ -394,7 +395,7 @@ class CSVWriterImpl : public ipc::RecordBatchWriter {
       char end_char = col < schema->num_fields() - 1 ? ',' : '\n';
       ASSIGN_OR_RAISE(populators[col],
                       MakePopulator(*schema->field(col), end_char, null_string,
-                                    options.quote_style, options.io_context.pool()));
+                                    options.quoting_style, options.io_context.pool()));
     }
     auto writer = std::make_shared<CSVWriterImpl>(
         sink, std::move(owned_sink), std::move(schema), std::move(populators), options);
