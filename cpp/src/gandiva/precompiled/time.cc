@@ -248,7 +248,7 @@ static const int WEEK_LEN[] = {6, 6, 7, 9, 8, 6, 8};
 
 #define NEXT_DAY_FUNC(TYPE)                                                             \
   FORCE_INLINE                                                                          \
-  gdv_date64 next_day_from_##TYPE(gdv_int64 context, gdv_date64 millis, const char* in, \
+  gdv_date64 next_day_from_##TYPE(gdv_int64 context, gdv_##TYPE millis, const char* in, \
                                   int32_t in_len) {                                     \
     EpochTimePoint tp(millis);                                                          \
     const auto& day_without_hours_and_sec = tp.ClearTimeOfDay();                        \

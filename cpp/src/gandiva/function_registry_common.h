@@ -185,10 +185,10 @@ typedef std::unordered_map<const FunctionSignature*, const NativeFunction*, KeyH
   NativeFunction(#NAME, std::vector<std::string> ALIASES, DataTypeVector{TYPE()}, \
                  date64(), kResultNullIfNull, ARROW_STRINGIFY(NAME##_from_##TYPE))
 
-#define NEXT_DAY_SAFE_NULL_IF_NULL(NAME, ALIASES, TYPE)    \
-  NativeFunction(#NAME, std::vector<std::string> ALIASES,  \
-                 DataTypeVector{TYPE(), utf8()}, date64(), \
-                 ARROW_STRINGIFY(NAME##_from_##TYPE),      \
+#define NEXT_DAY_SAFE_NULL_IF_NULL(NAME, ALIASES, TYPE)                       \
+  NativeFunction(#NAME, std::vector<std::string> ALIASES,                     \
+                 DataTypeVector{TYPE(), utf8()}, date64(), kResultNullIfNull, \
+                 ARROW_STRINGIFY(NAME##_from_##TYPE),                         \
                  NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors)
 
 // Hash32 functions that :
