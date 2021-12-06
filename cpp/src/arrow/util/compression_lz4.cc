@@ -359,7 +359,12 @@ class Lz4Codec : public Codec {
   Result<int64_t> Compress(int64_t input_len, const uint8_t* input,
                            int64_t output_buffer_len, uint8_t* output_buffer) override {
     int64_t output_len;
-    if (compression_level_ < LZ4HC_CLEVEL_MIN) {
+#ifdef LZ4HC_CLEVEL_MIN
+    constexpr int min_hc_clevel = LZ4HC_CLEVEL_MIN;
+#else // For older versions of the lz4 library
+    constexpr int min_hc_clevel = 3;
+#endif
+    if (compression_level_ < min_hc_clevel) {
       output_len = LZ4_compress_default(
           reinterpret_cast<const char*>(input), reinterpret_cast<char*>(output_buffer),
           static_cast<int>(input_len), static_cast<int>(output_buffer_len));
