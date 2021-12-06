@@ -1026,7 +1026,9 @@ macro(build_snappy)
   )
 
 
-  set(SNAPPY_PATCH_COMMAND "git" "--git-dir=." "apply" "--verbose" "--whitespace=fix" "${CMAKE_SOURCE_DIR}/build-support/snappy-UBSAN.patch")
+  set(SNAPPY_PATCH_COMMAND
+      "git" "--git-dir=." "apply" "--verbose" "--whitespace=fix" "${CMAKE_SOURCE_DIR}/build-support/snappy-UBSAN.patch"
+  )
 
   set(SNAPPY_CMAKE_ARGS
       ${EP_COMMON_CMAKE_ARGS}
