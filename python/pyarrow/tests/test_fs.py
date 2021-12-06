@@ -1011,7 +1011,6 @@ def test_open_output_stream(fs, pathfn, compression, buffer_size,
         ('gzip', 256, gzip.compress, gzip.decompress),
     ]
 )
-@pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_open_append_stream(fs, pathfn, compression, buffer_size, compressor,
                             decompressor, allow_append_to_file):
     p = pathfn('open-append-stream')
@@ -1579,7 +1578,6 @@ def test_py_open_output_stream():
         f.write(b"data")
 
 
-@pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_py_open_append_stream():
     fs = PyFileSystem(DummyHandler())
 
