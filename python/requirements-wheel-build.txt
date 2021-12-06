@@ -1,16 +1,5 @@
 cython>=0.29.11
-setuptools>=58
+oldest-supported-numpy
 setuptools_scm
+setuptools>=58
 wheel
-numpy==1.19.4; platform_system == "Linux"   and platform_machine == "aarch64" and python_version <= "3.9"
-numpy==1.21.3; platform_system == "Linux"   and platform_machine == "aarch64" and python_version >  "3.9"
-numpy==1.16.6; platform_system == "Linux"   and platform_machine != "aarch64" and python_version <  "3.9"
-numpy==1.19.4; platform_system == "Linux"   and platform_machine != "aarch64" and python_version == "3.9"
-numpy==1.21.3; platform_system == "Linux"   and platform_machine != "aarch64" and python_version >  "3.9"
-numpy==1.21.3; platform_system == "Darwin"  and platform_machine == "arm64"
-numpy==1.16.6; platform_system == "Darwin"  and platform_machine != "arm64"   and python_version <  "3.8"
-numpy==1.19.4; platform_system == "Darwin"  and platform_machine != "arm64"   and python_version >= "3.8" and python_version <= "3.9"
-numpy==1.21.3; platform_system == "Darwin"  and platform_machine != "arm64"   and python_version >  "3.9"
-numpy==1.16.6; platform_system == "Windows"                                   and python_version <  "3.9"
-numpy==1.19.4; platform_system == "Windows"                                   and python_version == "3.9"
-numpy==1.21.3; platform_system == "Windows"                                   and python_version >  "3.9"
