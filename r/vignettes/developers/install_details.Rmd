@@ -1,14 +1,20 @@
-# How the R package is installed
-
-In order for the arrow R package to work, it needs the Arrow C++ library, 
-also known as libarrow.  There are a number of scripts that are triggered 
-when `R CMD INSTALL .` is run and for Arrow users, these should all just work 
-without configuration and pull in the most complete pieces (e.g. official 
-binaries that we host).
+# How the R package is installed - advanced
 
 This documented is intended specifically for arrow _developers_ who wish to know 
 more about these scripts.  If you are an arrow _user_ looking for help with 
 installing arrow, please see [the installation guide](../install.html)
+
+In order for the arrow R package to work, it needs the Arrow C++ library, 
+also known as libarrow.  There are a number of different ways you can install libarrow:
+
+* as part of the R package installation process
+* a system package
+* a library you've built yourself outside of the context of installing the R package
+
+There are a number of scripts that are triggered 
+when `R CMD INSTALL .` is run and for Arrow users, these should all just work 
+without configuration and pull in the most complete pieces (e.g. official 
+binaries that we host).
 
 An overview of these scripts is shown below:
 
@@ -26,7 +32,7 @@ linux) and checks for binaries or downloads libarrow from source depending on
 dependency availability and build configuration.
 
 * `tools/winlibs.R` - this script is sometimes called by `configure.win` on Windows
-when environment variable `ARROW_HOME=true`.  It looks for an existing libarrow
+when environment variable `ARROW_HOME` is not set.  It looks for an existing libarrow
 installation, and if it can't find one downloads an appropriate libarrow binary.
 
 * `inst/build_arrow_static.sh` - called by `tools/nixlibs.R` when libarrow  
@@ -36,16 +42,6 @@ This build script is also what is used to generate our prebuilt binaries.
 
 The actions taken by these scripts to resolve dependencies and install the 
 correct components are described below.
-
-There are a number of different ways you can install libarrow:
-
-* as part of the R package installation process
-* a system package
-* a library you've built yourself outside of the context of installing the R package
-
-When you install the R package, it will attempt to detect any existing 
-installation of libarrow, and if none are found, it will install a copy.  The 
-following section explains how this process works.
 
 ## How the R package finds libarrow
 
@@ -59,11 +55,18 @@ knitr::include_graphics("../img/install_diagram_windows.png")
 
 ### Linux
 
+#### libarrow dependencies on Linux
+
+You'll need to install `libparquet-dev` on Debian and Ubuntu, or `parquet-devel` on CentOS.
+This will also automatically install libarrow as a dependency.
+
 The diagram below shows how the R package finds a libarrow installation on non-Windows systems.
 
 ```{r, echo=FALSE, out.width="70%"}
 knitr::include_graphics("../img/install_diagram.png")
 ```
+
+More information about these steps can be found below.
 
 #### Using pkg-config
 
@@ -116,8 +119,3 @@ package unless you have a specific reason to do so.
 This setup is much more common for arrow developers, who may be needing to make
 changes to both the R package and libarrow source code.  See 
 the [developer setup docs](./setup.html) for more information.
-
-# libarrow dependencies
-
-You'll need to install `libparquet-dev` on Debian and Ubuntu, or `parquet-devel` on CentOS.
-This will also automatically install libarrow as a dependency.
