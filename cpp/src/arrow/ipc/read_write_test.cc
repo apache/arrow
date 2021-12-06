@@ -1749,9 +1749,9 @@ TEST_F(TestWriteRecordBatch, CompressionRatio) {
   int64_t length = 500;
   int dict_size = 50;
   std::shared_ptr<Array> dict =
-    rg.String(dict_size, /*min_length=*/5, /*max_length=*/5, /*null_probability=*/0);
+      rg.String(dict_size, /*min_length=*/5, /*max_length=*/5, /*null_probability=*/0);
   std::shared_ptr<Array> indices =
-    rg.Int32(length, /*min=*/0, /*max=*/dict_size - 1, /*null_probability=*/0.1);
+      rg.Int32(length, /*min=*/0, /*max=*/dict_size - 1, /*null_probability=*/0.1);
   auto dict_type = dictionary(int32(), utf8());
   auto dict_field = field("f1", dict_type);
   ASSERT_OK_AND_ASSIGN(auto dict_array,
@@ -1759,7 +1759,7 @@ TEST_F(TestWriteRecordBatch, CompressionRatio) {
 
   auto schema = ::arrow::schema({field("f0", utf8()), dict_field});
   batches[2] =
-    RecordBatch::Make(schema, length, {rg.String(500, 0, 10, 0.1), dict_array});
+      RecordBatch::Make(schema, length, {rg.String(500, 0, 10, 0.1), dict_array});
 
   for (size_t i = 0; i < batches.size(); ++i) {
     // without compression
