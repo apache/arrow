@@ -288,3 +288,12 @@ test_that("Column names inferred from schema for headerless CSVs (ARROW-14063)",
   ds <- open_dataset(headerless_csv_dir, format = "csv", schema = schema(int = int32(), dbl = float64()))
   expect_equal(ds %>% collect(), tbl)
 })
+
+test_that("read_csv_arrow() deals with BOM (bite-order-marks) correctly", {
+  writeLines('\xef\xbb\xbfa,b\n1,2\n', con = csv_file)
+
+  expect_equal(
+    open_dataset(csv_file, format = "csv") %>% collect(),
+    tibble(a = 1, b = 2)
+  )
+})
