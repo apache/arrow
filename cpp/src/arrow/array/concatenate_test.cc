@@ -367,20 +367,20 @@ TEST_F(ConcatenateTest, DictionaryTypeNullSlots) {
 TEST_F(ConcatenateTest, UnionType) {
   // sparse mode
   Check([this](int32_t size, double null_probability, std::shared_ptr<Array>* out) {
-    auto foo = this->GeneratePrimitive<Int8Type>(size, 0);
-    auto bar = this->GeneratePrimitive<DoubleType>(size, null_probability);
-    auto baz = this->GeneratePrimitive<BooleanType>(size, null_probability);
-    auto type_ids = rng_.Numeric<Int8Type>(size, 0, 2, 0);
-    ASSERT_OK_AND_ASSIGN(*out, SparseUnionArray::Make(*type_ids, {foo, bar, baz}));
+    *out = rng_.ArrayOf(sparse_union({
+                            field("a", float64()),
+                            field("b", boolean()),
+                        }),
+                        size, null_probability);
   });
   // dense mode
-  Check([this](int32_t size, double null_probabilities, std::shared_ptr<Array>* out) {
+  Check([this](int32_t size, double null_probability, std::shared_ptr<Array>* out) {
     *out = rng_.ArrayOf(dense_union({
                             field("a", uint32()),
                             field("b", boolean()),
                             field("c", int8()),
                         }),
-                        size, null_probabilities);
+                        size, null_probability);
   });
 }
 
