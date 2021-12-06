@@ -280,7 +280,6 @@ class QuotedColumnPopulator : public ColumnPopulator {
             next_column_offset = static_cast<int32_t>(s.length() + kQuoteDelimiterCount);
             memcpy(row_end - next_column_offset + /*quote_offset=*/1, s.data(),
                    s.length());
-
           } else {
             // Adjust row_end by 2 + end_chars_.size(): 1 quote char, end_chars_.size()
             // and 1 to position at the first position to write to.
