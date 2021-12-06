@@ -410,6 +410,8 @@ decimal256 <- function(precision, scale) {
   Decimal256Type__initialize(precision, scale)
 }
 
+#' @rdname data-type
+#' @export
 decimal <- decimal128
 
 StructType <- R6Class("StructType",
