@@ -58,7 +58,7 @@ struct IpcPayload {
   std::shared_ptr<Buffer> metadata;
   std::vector<std::shared_ptr<Buffer>> body_buffers;
   int64_t body_length = 0; // serialized body length (maybe compressed)
-  int64_t initial_body_length = 0; // initial uncompressed body_length
+  int64_t raw_body_length = 0; // initial uncompressed body_length
 };
 
 struct WriteStats {
@@ -79,15 +79,15 @@ struct WriteStats {
 
   /// initial and serialized (may be compressed) body lengths for record batches
   /// these values show the total sizes of all record batch body lengths
-  int64_t initial_body_length = 0;
+  int64_t raw_body_length = 0;
   int64_t serialized_body_length = 0;
 
   /// compression ratio for the body of all record batches serialized
   /// this is equivalent to:
-  ///    initial_body_length / serialized_body_length
+  ///    serialized_body_length / raw_body_length
   /// if it is 1, it means there is no compression
-  /// if it is > 1, compression reduced the body length with some space savings
-  /// if it is < 1, compression increased the body length
+  /// if it is < 1, compression reduced the body length with some space savings
+  /// if it is > 1, compression increased the body length
   float comp_ratio = 1;
 };
 

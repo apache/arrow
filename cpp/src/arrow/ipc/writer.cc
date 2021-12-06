@@ -226,13 +226,13 @@ class RecordBatchSerializer {
     }
 
     // calculate initial body length using all buffer sizes
-    int64_t init_size = 0;
+    int64_t raw_size = 0;
     for (const auto& buf: out_->body_buffers) {
       if (buf) {
-        init_size += buf->size();
+        raw_size += buf->size();
       }
     }
-    out_->initial_body_length = init_size;
+    out_->raw_body_length = raw_size;
 
     if (options_.codec != nullptr) {
       RETURN_NOT_OK(CompressBodyBuffers());
@@ -1009,10 +1009,10 @@ class ARROW_EXPORT IpcFormatWriter : public RecordBatchWriter {
     RETURN_NOT_OK(WritePayload(payload));
     ++stats_.num_record_batches;
 
-    stats_.initial_body_length += payload.initial_body_length;
+    stats_.raw_body_length += payload.raw_body_length;
     stats_.serialized_body_length += payload.body_length;
-    if (options_.codec != nullptr && stats_.serialized_body_length != 0) {
-      stats_.comp_ratio = static_cast<float>(stats_.initial_body_length) / static_cast<float>(stats_.serialized_body_length);
+    if (options_.codec != nullptr && stats_.raw_body_length != 0) {
+      stats_.comp_ratio = static_cast<double>(stats_.serialized_body_length) / static_cast<double>(stats_.raw_body_length);
     }
 
     return Status::OK();

@@ -25,6 +25,7 @@
 
 #include <flatbuffers/flatbuffers.h>
 #include <gtest/gtest.h>
+#include <arrow/device.h>
 
 #include "arrow/array.h"
 #include "arrow/array/builder_primitive.h"
@@ -1725,6 +1726,52 @@ TEST(TestIpcFileFormat, FooterMetaData) {
 
   ASSERT_OK_AND_ASSIGN(auto out_metadata, helper.ReadFooterMetadata());
   ASSERT_TRUE(out_metadata->Equals(*metadata));
+}
+
+TEST_F(TestWriteRecordBatch, CompressionRatio) {
+  // ARROW-8823: Calculating the compression ratio
+  FileWriterHelper helper;
+  IpcWriteOptions write_options1 = IpcWriteOptions::Defaults();
+  IpcWriteOptions write_options2 = IpcWriteOptions::Defaults();
+  ASSERT_OK_AND_ASSIGN(write_options2.codec, util::Codec::Create(Compression::LZ4_FRAME));
+
+  // pre-computed compression ratios for record batches with Compression::LZ4_FRAME
+  std::vector<float> comp_ratios{1.0f, 0.64f, 0.79924363f};
+
+  std::vector<std::shared_ptr<RecordBatch>> batches(3);
+  // empty record batch
+  ASSERT_OK(MakeIntBatchSized(0, &batches[0]));
+  // record batch with int values
+  ASSERT_OK(MakeIntBatchSized(2000, &batches[1], 100));
+
+  // record batch with DictionaryArray
+  random::RandomArrayGenerator rg(/*seed=*/0);
+  int64_t length = 500;
+  int dict_size = 50;
+  std::shared_ptr<Array> dict = rg.String(dict_size, /*min_length=*/5, /*max_length=*/5, /*null_probability=*/0);
+  std::shared_ptr<Array> indices = rg.Int32(length, /*min=*/0, /*max=*/dict_size - 1, /*null_probability=*/0.1);
+  auto dict_type = dictionary(int32(), utf8());
+  auto dict_field = field("f1", dict_type);
+  ASSERT_OK_AND_ASSIGN(auto dict_array,
+                       DictionaryArray::FromArrays(dict_type, indices, dict));
+
+  auto schema = ::arrow::schema({field("f0", utf8()), dict_field});
+  batches[2] =
+    RecordBatch::Make(schema, length, {rg.String(500, 0, 10, 0.1), dict_array});
+
+  for(size_t i = 0; i < batches.size(); ++i) {
+    // without compression
+    ASSERT_OK(helper.Init(batches[i]->schema(), write_options1));
+    ASSERT_OK(helper.WriteBatch(batches[i]));
+    ASSERT_OK(helper.Finish());
+    ASSERT_FLOAT_EQ(helper.writer_->stats().comp_ratio, 1);
+
+    // with compression
+    ASSERT_OK(helper.Init(batches[i]->schema(), write_options2));
+    ASSERT_OK(helper.WriteBatch(batches[i]));
+    ASSERT_OK(helper.Finish());
+    ASSERT_FLOAT_EQ(helper.writer_->stats().comp_ratio, comp_ratios[i]);
+  }
 }
 
 // This test uses uninitialized memory
