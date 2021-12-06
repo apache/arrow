@@ -111,14 +111,7 @@ Result<std::pair<std::shared_ptr<DataType>, bool>> FromProto(const st::Type& typ
       return FromProtoImpl<TimestampType>(type.timestamp_tz(), TimeUnit::MICRO,
                                           TimestampTzTimezoneString());
     case st::Type::kDate:
-      // FIXME
-      // Substrait uses uint32_t to store dates, and further restricts the allowed
-      // range of dates to [1000-01-01..9999-12-31]. Does this mean the value should
-      // be interpreted as an offset from 1000-01-01 instead of the epoch? Or should
-      // the value be signed instead?
-      // Furthermore, simple_logical_types.md states that the equivalent arrow type
-      // is Date64 (which measures milliseconds rather than days). Is that incorrect?
-      return FromProtoImpl<Date32Type>(type.date());
+      return FromProtoImpl<Date64Type>(type.date());
 
     case st::Type::kTime:
       return FromProtoImpl<Time64Type>(type.time(), TimeUnit::MICRO);
@@ -270,8 +263,8 @@ struct ToProtoImpl {
     return Status::OK();
   }
 
-  Status Visit(const Date32Type& t) { return SetWith(&st::Type::set_allocated_date); }
-  Status Visit(const Date64Type& t) { return NotImplemented(t); }
+  Status Visit(const Date32Type& t) { return NotImplemented(t); }
+  Status Visit(const Date64Type& t) { return SetWith(&st::Type::set_allocated_date); }
 
   Status Visit(const TimestampType& t) {
     if (t.unit() != TimeUnit::MICRO) return NotImplemented(t);

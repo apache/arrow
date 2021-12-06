@@ -161,7 +161,7 @@ Result<Datum> FromProto(const st::Expression::Literal& lit) {
                                    TimeUnit::MICRO, TimestampTzTimezoneString()));
 
     case st::Expression::Literal::kDate:
-      return Datum(Date32Scalar(static_cast<int32_t>(lit.date())));
+      return Datum(Date64Scalar(static_cast<int64_t>(lit.date())));
     case st::Expression::Literal::kTime:
       return Datum(Time64Scalar(static_cast<int64_t>(lit.time()), TimeUnit::MICRO));
 
@@ -379,8 +379,8 @@ struct ToProtoImpl {
     return FromBuffer(&Lit::set_fixed_binary, s);
   }
 
-  Status Visit(const Date32Scalar& s) { return Primitive(&Lit::set_date, s); }
-  Status Visit(const Date64Scalar& s) { return NotImplemented(s); }
+  Status Visit(const Date32Scalar& s) { return NotImplemented(s); }
+  Status Visit(const Date64Scalar& s) { return Primitive(&Lit::set_date, s); }
 
   Status Visit(const TimestampScalar& s) {
     const auto& t = internal::checked_cast<const TimestampType&>(*s.type);
