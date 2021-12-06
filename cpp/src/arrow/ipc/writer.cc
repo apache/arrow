@@ -227,7 +227,7 @@ class RecordBatchSerializer {
 
     // calculate initial body length using all buffer sizes
     int64_t raw_size = 0;
-    for (const auto& buf: out_->body_buffers) {
+    for (const auto& buf : out_->body_buffers) {
       if (buf) {
         raw_size += buf->size();
       }
