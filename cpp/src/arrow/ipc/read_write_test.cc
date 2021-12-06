@@ -1735,9 +1735,6 @@ TEST_F(TestWriteRecordBatch, CompressionRatio) {
   ASSERT_OK_AND_ASSIGN(options_compressed.codec,
                        util::Codec::Create(Compression::LZ4_FRAME));
 
-  // pre-computed total raw sizes for the record batches
-  std::vector<int64_t> raw_sizes{0, 61000, 6346};
-
   std::vector<std::shared_ptr<RecordBatch>> batches(3);
   // empty record batch
   ASSERT_OK(MakeIntBatchSized(0, &batches[0]));
@@ -1775,8 +1772,8 @@ TEST_F(TestWriteRecordBatch, CompressionRatio) {
     ASSERT_OK(helper.Init(batches[i]->schema(), options_compressed));
     ASSERT_OK(helper.WriteBatch(batches[i]));
     ASSERT_OK(helper.Finish());
-    ASSERT_EQ(helper.writer_->stats().total_raw_body_size, raw_sizes[i]);
-    ASSERT_LE(helper.writer_->stats().total_serialized_body_size, raw_sizes[i]);
+    ASSERT_GE(helper.writer_->stats().total_raw_body_size,
+              helper.writer_->stats().total_serialized_body_size);
   }
 }
 
