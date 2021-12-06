@@ -29,9 +29,8 @@
 Helping with documentation
 **************************
 
-
-A great way to contribute to the project is to improve
-documentation. 
+**A great way to contribute to the project is to improve
+documentation.**
 
 If you are an Arrow user and you found some docs to be
 incomplete or inaccurate, share your hard-earned knowledge
@@ -47,13 +46,13 @@ documentation itself, you can search for an issue on JIRA.
 
    See `Example search. <https://issues.apache.org/jira/issues/?jql=project%20%3D%20ARROW%20AND%20status%20%3D%20Open%20AND%20resolution%20%3D%20Unresolved%20AND%20component%20%3D%20Documentation%20AND%20assignee%20in%20(EMPTY)%20ORDER%20BY%20priority%20DESC%2C%20updated%20DESC>`_
 
-   .. figure:: jira_doc_1.jpeg
+   .. figure:: jira_search_component.jpeg
       :scale: 40 %
       :alt: selecting Components in JIRA search
 
       First select Components tab in JIRA.
 
-   .. figure:: jira_doc_2.jpeg
+   .. figure:: jira_search_documentation.jpeg
       :scale: 40 %
       :alt: selecting Documentation in JIRA search
 
@@ -65,16 +64,17 @@ requiring a lot of local development environment setup.
 
 .. note::
    Many documentation-only changes can be made directly in the
-   GitHub web interface by clicking the **edit** icon. This
+   GitHub web interface by clicking the **Edit this page**
+   on the right top corner of the documentations page. This
    will handle making a fork and a pull request for you.
 
-   .. figure:: github_edit_1.jpeg
-      :scale: 30 %
-      :alt: click on edit icon in GitHub
+   .. figure:: edit_page.jpeg
+      :scale: 20 %
+      :alt: click on edit this page
 
       On the right corner of the file in GitHub click on pen icon.
 
-   .. figure:: github_edit_2.jpeg
+   .. figure:: github_edit_page.jpeg
       :scale: 30 %
       :alt: edit file in GitHub.
 
@@ -86,3 +86,20 @@ to simply editing via GitHub.
 
 If you wish to build the documentation also, follow detailed instructions
 on :ref:`building-docs`.
+
+Where to find the correct file to change?
+-----------------------------------------
+
+Most of the documentation is located in the ``docs/source`` of the Arrow
+library. Source folder includes:
+
+- **C++ documentation** section: ``docs/source/cpp``.
+- **Development** section: ``docs/source/developers``.
+- **Specificatons and protocols** section: ``docs/source/format``.
+- Other language documentation: **C (GLib), Java, JavaScript** and **Python**
+  in folders named by the language, for example: ``docs/source/c_glib``.
+- The documentation for the **R language** is located in the ``r/sub-directory``.
+
+**Cookbooks** have their own repository `<https://github.com/apache/arrow-cookbook>`_
+and can be separately cloned and built.
+
