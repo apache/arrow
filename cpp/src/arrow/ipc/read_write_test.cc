@@ -25,7 +25,6 @@
 
 #include <flatbuffers/flatbuffers.h>
 #include <gtest/gtest.h>
-#include <arrow/device.h>
 
 #include "arrow/array.h"
 #include "arrow/array/builder_primitive.h"
