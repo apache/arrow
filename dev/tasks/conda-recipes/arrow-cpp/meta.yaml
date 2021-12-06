@@ -73,6 +73,7 @@ outputs:
         - c-ares
         - gflags
         - glog
+        - google-cloud-cpp >=1.34.0
         - grpc-cpp
         - libprotobuf
         - clangdev 10  # [not (osx and arm64)]
