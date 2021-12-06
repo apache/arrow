@@ -91,7 +91,7 @@ RUN (if "%python%"=="3.6" setx PYTHON_VERSION 3.6.8) & \
     (if "%python%"=="3.8" setx PYTHON_VERSION 3.8.10) & \
     (if "%python%"=="3.9" setx PYTHON_VERSION 3.9.9) & \
     (if "%python%"=="3.10" setx PYTHON_VERSION 3.10.0)
-RUN choco install -r -y --no-progress --force python3 --version=%PYTHON_VERSION%
+RUN choco install -r -y --no-progress python3 --version=%PYTHON_VERSION%
 RUN python -m pip install -U pip
 
 COPY python/requirements-wheel-build.txt arrow/python/
