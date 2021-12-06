@@ -1730,12 +1730,12 @@ TEST(TestIpcFileFormat, FooterMetaData) {
 TEST_F(TestWriteRecordBatch, CompressionRatio) {
   // ARROW-8823: Calculating the compression ratio
   FileWriterHelper helper;
-  IpcWriteOptions write_options1 = IpcWriteOptions::Defaults();
-  IpcWriteOptions write_options2 = IpcWriteOptions::Defaults();
-  ASSERT_OK_AND_ASSIGN(write_options2.codec, util::Codec::Create(Compression::LZ4_FRAME));
+  IpcWriteOptions options_uncompressed = IpcWriteOptions::Defaults();
+  IpcWriteOptions options_compressed = IpcWriteOptions::Defaults();
+  ASSERT_OK_AND_ASSIGN(options_compressed.codec, util::Codec::Create(Compression::LZ4_FRAME));
 
-  // pre-computed compression ratios for record batches with Compression::LZ4_FRAME
-  std::vector<float> comp_ratios{1.0f, 0.64f, 0.79924363f};
+  // pre-computed total raw sizes for the record batches
+  std::vector<int64_t> raw_sizes{0, 61000, 6346};
 
   std::vector<std::shared_ptr<RecordBatch>> batches(3);
   // empty record batch
@@ -1760,16 +1760,17 @@ TEST_F(TestWriteRecordBatch, CompressionRatio) {
 
   for(size_t i = 0; i < batches.size(); ++i) {
     // without compression
-    ASSERT_OK(helper.Init(batches[i]->schema(), write_options1));
+    ASSERT_OK(helper.Init(batches[i]->schema(), options_uncompressed));
     ASSERT_OK(helper.WriteBatch(batches[i]));
     ASSERT_OK(helper.Finish());
-    ASSERT_FLOAT_EQ(helper.writer_->stats().comp_ratio, 1);
+    ASSERT_LE(helper.writer_->stats().total_raw_body_size, helper.writer_->stats().total_serialized_body_size);
 
     // with compression
-    ASSERT_OK(helper.Init(batches[i]->schema(), write_options2));
+    ASSERT_OK(helper.Init(batches[i]->schema(), options_compressed));
     ASSERT_OK(helper.WriteBatch(batches[i]));
     ASSERT_OK(helper.Finish());
-    ASSERT_FLOAT_EQ(helper.writer_->stats().comp_ratio, comp_ratios[i]);
+    ASSERT_EQ(helper.writer_->stats().total_raw_body_size, raw_sizes[i]);
+    ASSERT_LE(helper.writer_->stats().total_serialized_body_size, raw_sizes[i]);
   }
 }
 

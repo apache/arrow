@@ -1012,11 +1012,8 @@ class ARROW_EXPORT IpcFormatWriter : public RecordBatchWriter {
     RETURN_NOT_OK(WritePayload(payload));
     ++stats_.num_record_batches;
 
-    stats_.raw_body_length += payload.raw_body_length;
-    stats_.serialized_body_length += payload.body_length;
-    if (options_.codec != nullptr && stats_.raw_body_length != 0) {
-      stats_.comp_ratio = static_cast<double>(stats_.serialized_body_length) / static_cast<double>(stats_.raw_body_length);
-    }
+    stats_.total_raw_body_size += payload.raw_body_length;
+    stats_.total_serialized_body_size += payload.body_length;
 
     return Status::OK();
   }

@@ -77,18 +77,10 @@ struct WriteStats {
   /// an existing dictionary with an unrelated new dictionary).
   int64_t num_replaced_dictionaries = 0;
 
-  /// initial and serialized (may be compressed) body lengths for record batches
+  /// initial and serialized (may be compressed) body sizes in bytes for record batches
   /// these values show the total sizes of all record batch body lengths
-  int64_t raw_body_length = 0;
-  int64_t serialized_body_length = 0;
-
-  /// compression ratio for the body of all record batches serialized
-  /// this is equivalent to:
-  ///    serialized_body_length / raw_body_length
-  /// if it is 1, it means there is no compression
-  /// if it is < 1, compression reduced the body length with some space savings
-  /// if it is > 1, compression increased the body length
-  float comp_ratio = 1;
+  int64_t total_raw_body_size = 0;
+  int64_t total_serialized_body_size = 0;
 };
 
 /// \class RecordBatchWriter
