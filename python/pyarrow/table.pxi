@@ -2439,6 +2439,13 @@ def _from_pydict(cls, mapping, schema, metadata):
 class TableGroupBy:
     """
     A grouping of columns in a table on which to perform aggregations.
+
+    Parameters
+    ----------
+    table : pyarrow.Table
+        Input table to execute the aggregation on.
+    keys : str or list[str]
+        Name of the grouped columns.
     """
 
     def __init__(self, table, keys):

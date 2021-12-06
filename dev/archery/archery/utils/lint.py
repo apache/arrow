@@ -246,7 +246,7 @@ def python_numpydoc(symbols=None, allow_rules=None, disallow_rules=None):
         'pyarrow.csv',
         'pyarrow.dataset',
         'pyarrow.feather',
-        'pyarrow.flight',
+        # 'pyarrow.flight',
         'pyarrow.fs',
         'pyarrow.gandiva',
         'pyarrow.ipc',
