@@ -28,6 +28,7 @@
 #include "arrow/datum.h"
 #include "arrow/result.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/optional.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -418,6 +419,29 @@ struct ARROW_EXPORT Utf8NormalizeOptions : public FunctionOptions {
 
   /// The Unicode normalization form to apply
   Form form;
+};
+
+class ARROW_EXPORT RandomOptions : public FunctionOptions {
+ public:
+  enum Initializer { SystemRandom, Seed };
+
+  static RandomOptions FromSystemRandom(int64_t length) {
+    return RandomOptions{SystemRandom, length, 0};
+  }
+  static RandomOptions FromSeed(int64_t length, int64_t seed) {
+    return RandomOptions{Seed, length, seed};
+  }
+
+  RandomOptions(Initializer initializer, int64_t length, int64_t seed);
+  // Default constructor creates an invalid options struct, but is required for Python
+  RandomOptions();
+  constexpr static char const kTypeName[] = "RandomOptions";
+  static RandomOptions Defaults() { return RandomOptions(); }
+
+  Initializer initializer;
+  int64_t length;  // negative means invalid
+  /// The seed value used to initialize the random number generation.
+  int64_t seed;
 };
 
 /// @}

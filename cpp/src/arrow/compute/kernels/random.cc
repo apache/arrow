@@ -18,6 +18,8 @@
 #include <memory>
 #include <random>
 
+#include "arrow/builder.h"
+#include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/compute/kernels/common.h"
 #include "arrow/compute/registry.h"
@@ -33,11 +35,28 @@ double generate_uniform(random::pcg64& rng) {
   return (rng() >> 11) * (1.0 / 9007199254740992.0);
 }
 
+using RandomState = OptionsWrapper<RandomOptions>;
+
 Status ExecRandom(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   static thread_local std::random_device rd;
-  static thread_local random::pcg64 gen(rd());
-  double value = generate_uniform(gen);
-  BoxScalar<DoubleType>::Box(value, out->scalar().get());
+  static thread_local random::pcg64 gen;
+  const RandomOptions& options = RandomState::Get(ctx);
+  DoubleBuilder builder(ctx->memory_pool());
+  if (options.length < 0) {
+    return Status::Invalid("Negative number of elements");
+  }
+  RETURN_NOT_OK(builder.Reserve(options.length));
+  if (options.initializer == RandomOptions::Seed) {
+    gen.seed(options.seed);
+  } else {
+    gen.seed(rd());
+  }
+  for (int i = 0; i < options.length; ++i) {
+    builder.UnsafeAppend(generate_uniform(gen));
+  }
+  std::shared_ptr<Array> double_array;
+  RETURN_NOT_OK(builder.Finish(&double_array));
+  *out = *double_array->data();
   return Status::OK();
 }
 
@@ -49,9 +68,15 @@ const FunctionDoc random_doc{
 }  // namespace
 
 void RegisterRandom(FunctionRegistry* registry) {
-  auto random_func =
-      std::make_shared<ScalarFunction>("random", Arity::Nullary(), &random_doc);
-  DCHECK_OK(random_func->AddKernel({}, float64(), ExecRandom));
+  static auto random_options = RandomOptions::Defaults();
+
+  auto random_func = std::make_shared<ScalarFunction>("random", Arity::Nullary(),
+                                                      &random_doc, &random_options);
+  ScalarKernel kernel{
+      {}, ValueDescr(float64(), ValueDescr::Shape::ARRAY), ExecRandom, RandomState::Init};
+  kernel.null_handling = NullHandling::OUTPUT_NOT_NULL;
+  kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
+  DCHECK_OK(random_func->AddKernel(kernel));
   DCHECK_OK(registry->AddFunction(std::move(random_func)));
 }
 

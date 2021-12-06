@@ -21,28 +21,55 @@
 
 #include "arrow/compute/api.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/checked_cast.h"
 
 namespace arrow {
 namespace compute {
+namespace {
 
-TEST(TestRandom, Basic) {
-  const int kCount = 100000;
+void TestRandomWithOptions(const RandomOptions& random_options) {
+  using arrow::internal::checked_cast;
   double sum = 0;
   double square_sum = 0;
-  for (int i = 0; i < kCount; ++i) {
-    ASSERT_OK_AND_ASSIGN(Datum result, CallFunction("random", {}));
-    const auto& result_scalar = result.scalar_as<DoubleScalar>();
-    ASSERT_GE(result_scalar.value, 0);
-    ASSERT_LT(result_scalar.value, 1);
-    sum += result_scalar.value;
-    square_sum += result_scalar.value * result_scalar.value;
+  ASSERT_OK_AND_ASSIGN(Datum result, CallFunction("random", {}, &random_options));
+  auto result_array = result.make_array();
+  ASSERT_EQ(result_array->length(), random_options.length);
+  for (int i = 0; i < random_options.length; ++i) {
+    ASSERT_OK_AND_ASSIGN(auto result_scalar, result_array->GetScalar(i));
+    const auto& double_scalar = checked_cast<const DoubleScalar&>(*result_scalar);
+    ASSERT_GE(double_scalar.value, 0);
+    ASSERT_LT(double_scalar.value, 1);
+    sum += double_scalar.value;
+    square_sum += double_scalar.value * double_scalar.value;
   }
 
   // verify E(X), E(X^2) is near theory
   const double E_X = 0.5;
   const double E_X2 = 1.0 / 12 + E_X * E_X;
-  ASSERT_NEAR(sum / kCount, E_X, std::abs(E_X) * 0.02);
-  ASSERT_NEAR(square_sum / kCount, E_X2, E_X2 * 0.02);
+  ASSERT_NEAR(sum / random_options.length, E_X, std::abs(E_X) * 0.02);
+  ASSERT_NEAR(square_sum / random_options.length, E_X2, E_X2 * 0.02);
+}
+
+}  // namespace
+
+TEST(TestRandom, Seed) {
+  const int kCount = 100000;
+  auto random_options = RandomOptions::FromSeed(/*length=*/kCount, /*seed=*/0);
+  TestRandomWithOptions(random_options);
+}
+
+TEST(TestRandom, SystemRandom) {
+  const int kCount = 100000;
+  auto random_options = RandomOptions::FromSystemRandom(/*length=*/kCount);
+  TestRandomWithOptions(random_options);
+}
+
+TEST(TestRandom, SeedIsDeterministic) {
+  const int kCount = 100;
+  auto random_options = RandomOptions::FromSeed(/*length=*/kCount, /*seed=*/0);
+  ASSERT_OK_AND_ASSIGN(Datum first_call, CallFunction("random", {}, &random_options));
+  ASSERT_OK_AND_ASSIGN(Datum second_call, CallFunction("random", {}, &random_options));
+  AssertDatumsEqual(first_call, second_call);
 }
 
 }  // namespace compute

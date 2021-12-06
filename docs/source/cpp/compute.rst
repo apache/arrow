@@ -1663,10 +1663,13 @@ replaced, based on the remaining inputs.
 Random number generation
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-This function generates an uniformly-distributed double-precision number between 0 and 1.
+This function generates an array of uniformly-distributed double-precision numbers
+between 0 and 1. The options provide the length of the output and the algorithm for
+generating the random numbers, using either a seed or a system-provided, platform-specific
+random generator.
 
-+--------------------+------------+---------------+
-| Function name      | Arity      | Output type   |
-+====================+============+===============+
-| random             | Nullary    | Double        |
-+--------------------+------------+---------------+
++--------------------+------------+---------------+-------------------------+
+| Function name      | Arity      | Output type   | Options class           |
++====================+============+===============+=========================+
+| random             | Nullary    | Double        | :struct:`RandomOptions` |
++--------------------+------------+---------------+-------------------------+
