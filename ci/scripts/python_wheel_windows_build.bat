@@ -81,7 +81,7 @@ cmake ^
     -DCMAKE_UNITY_BUILD=%CMAKE_UNITY_BUILD% ^
     -DMSVC_LINK_VERBOSE=ON ^
     -DVCPKG_MANIFEST_MODE=OFF ^
-    -DVCPKG_TARGET_TRIPLET=x64-windows-static-md-%CMAKE_BUILD_TYPE% ^
+    -DVCPKG_TARGET_TRIPLET=amd64-windows-static-md-%CMAKE_BUILD_TYPE% ^
     -G "%CMAKE_GENERATOR%" ^
     C:\arrow\cpp || exit /B
 cmake --build . --config %CMAKE_BUILD_TYPE% --target install || exit /B
