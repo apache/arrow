@@ -914,7 +914,7 @@ services:
 
   ##############################  Integration #################################
 
-  conda-python-numpydoc:
+  conda-python-docs:
     # Usage:
     #   archery docker run conda-python-numpydoc
     #
@@ -926,6 +926,7 @@ services:
       <<: *ccache
       LC_ALL: "C.UTF-8"
       LANG: "C.UTF-8"
+      BUILD_DOCS_PYTHON: "ON"
     volumes: *conda-volumes
     command:
       ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
@@ -959,7 +960,7 @@ services:
     shm_size: *shm-size
     environment:
       <<: *ccache
-      BUILD_DOCS_PYTHON: "ON"
+      BUILD_DOCS_PYTHON: "OFF"
     volumes: *conda-volumes
     command:
       ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
