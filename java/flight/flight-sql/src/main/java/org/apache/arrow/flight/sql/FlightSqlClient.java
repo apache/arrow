@@ -17,6 +17,7 @@
 
 package org.apache.arrow.flight.sql;
 
+import static org.apache.arrow.flight.sql.impl.FlightSql.*;
 import static org.apache.arrow.flight.sql.impl.FlightSql.ActionClosePreparedStatementRequest;
 import static org.apache.arrow.flight.sql.impl.FlightSql.ActionCreatePreparedStatementRequest;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetCatalogs;
@@ -227,6 +228,36 @@ public class FlightSqlClient implements AutoCloseable {
   public FlightInfo getSqlInfo(final Iterable<Integer> info, final CallOption... options) {
     final CommandGetSqlInfo.Builder builder = CommandGetSqlInfo.newBuilder();
     builder.addAllInfo(info);
+    final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(builder.build()).toByteArray());
+    return client.getInfo(descriptor, options);
+  }
+
+  /**
+   * Request the information about the data types supported related to
+   * a filter data type.
+   *
+   * @param dataType  the data type to be used as filter.
+   * @param options   RPC-layer hints for this call.
+   * @return a FlightInfo object representing the stream(s) to fetch.
+   */
+  public FlightInfo getTypeInfo(final int dataType, final CallOption... options) {
+    final CommandGetTypeInfo.Builder builder = CommandGetTypeInfo.newBuilder();
+
+    builder.setDataType(dataType);
+
+    final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(builder.build()).toByteArray());
+    return client.getInfo(descriptor, options);
+  }
+
+  /**
+   * Request the information about all the data types supported.
+   *
+   * @param options   RPC-layer hints for this call.
+   * @return a FlightInfo object representing the stream(s) to fetch.
+   */
+  public FlightInfo getTypeInfo(final CallOption... options) {
+    final CommandGetTypeInfo.Builder builder = CommandGetTypeInfo.newBuilder();
+
     final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(builder.build()).toByteArray());
     return client.getInfo(descriptor, options);
   }
