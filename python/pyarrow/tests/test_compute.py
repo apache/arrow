@@ -151,6 +151,9 @@ def test_option_class_equality():
         pc.ReplaceSliceOptions(0, 1, "a"),
         pc.ReplaceSubstringOptions("a", "b"),
         pc.RoundOptions(2, "towards_infinity"),
+        pc.RoundTemporalOptions(1, "second", week_starts_monday=True,
+                                change_on_boundary=False,
+                                ambiguous="raise", nonexistent="raise"),
         pc.RoundToMultipleOptions(100, "towards_infinity"),
         pc.ScalarAggregateOptions(),
         pc.SelectKOptions(0, sort_keys=[("b", "ascending")]),
@@ -1897,6 +1900,44 @@ def test_assume_timezone():
     result = pc.assume_timezone(
         ambiguous_array, options=options_ambiguous_latest)
     result.equals(pa.array(expected))
+
+
+def test_round_temporal():
+    timestamps = pd.to_datetime(["2019-11-30T02:10:10.123456789"])
+
+    timezones = ["UTC", "US/Central", "Asia/Kolkata",
+                 "Etc/GMT-4", "Etc/GMT+4", "Australia/Broken_Hill"]
+
+    frequencies = [
+        # ("2ns", 2, "nanosecond"),
+        # ("3us", 3, "microsecond"),
+        # ("4L", 4, "millisecond"),
+        ("5s", 5, "second"),
+        ("6min", 6, "minute"),
+        # ("7H", 7, "hour"),
+        # ("8D", 8, "day"),
+
+        # ("9W", 9, "week"),
+        # ("10MS", 10, "month"),
+        # ("11QS", 11, "quarter"),
+        # ("12AS", 12, "year"),
+        # ("12YS", 12, "year"),
+    ]
+
+    for timezone in timezones:
+        ts = pd.to_datetime(timestamps).tz_localize(
+            "UTC").tz_convert(timezone).to_series()
+        ta = pa.array(timestamps, pa.timestamp("ns", tz=timezone))
+
+        for frequency, multiple, unit in frequencies:
+            options = pc.RoundTemporalOptions(multiple, unit,
+                                              week_starts_monday=True,
+                                              change_on_boundary=False,
+                                              ambiguous="raise",
+                                              nonexistent="raise")
+            result = pc.round_temporal(ta, options=options)
+            expected = pa.array(ts.dt.floor(frequency))
+            assert result.equals(expected)
 
 
 def test_count():

@@ -90,6 +90,52 @@ class ARROW_EXPORT RoundOptions : public FunctionOptions {
   RoundMode round_mode;
 };
 
+enum class CalendarUnit : int8_t {
+  NANOSECOND,
+  MICROSECOND,
+  MILLISECOND,
+  SECOND,
+  MINUTE,
+  HOUR,
+  DAY,
+  WEEK,
+  MONTH,
+  BIMONTH,
+  QUARTER,
+  SEASON,
+  HALFYEAR,
+  YEAR
+};
+
+class ARROW_EXPORT RoundTemporalOptions : public FunctionOptions {
+ public:
+  enum Ambiguous { AMBIGUOUS_RAISE, AMBIGUOUS_EARLIEST, AMBIGUOUS_LATEST };
+  enum Nonexistent { NONEXISTENT_RAISE, NONEXISTENT_EARLIEST, NONEXISTENT_LATEST };
+
+  explicit RoundTemporalOptions(int multiple = 1,
+                                CalendarUnit unit = CalendarUnit::DAY,
+                                bool week_starts_monday = true,
+                                bool change_on_boundary = false,
+                                Ambiguous ambiguous = AMBIGUOUS_RAISE,
+                                Nonexistent nonexistent = NONEXISTENT_RAISE);
+  constexpr static char const kTypeName[] = "RoundTemporalOptions";
+  static RoundTemporalOptions Defaults() { return RoundTemporalOptions(); }
+
+  /// Number of units to round to
+  int multiple;
+  /// The unit used for rounding of time
+  CalendarUnit unit;
+  /// What day does the week start with (Monday=true, Sunday=false)
+  bool week_starts_monday;
+  /// If true timestamps on the boundary are rounded up to the next boundary.
+  /// If false nothing on the boundary is rounded up at all.
+  bool change_on_boundary;
+  /// How to interpret ambiguous local times (due to DST shifts)
+  Ambiguous ambiguous;
+  /// How to interpret non-existent local times (due to DST shifts)
+  Nonexistent nonexistent;
+};
+
 class ARROW_EXPORT RoundToMultipleOptions : public FunctionOptions {
  public:
   explicit RoundToMultipleOptions(double multiple = 1.0,
@@ -779,6 +825,19 @@ Result<Datum> Round(const Datum& arg, RoundOptions options = RoundOptions::Defau
 ARROW_EXPORT
 Result<Datum> RoundToMultiple(
     const Datum& arg, RoundToMultipleOptions options = RoundToMultipleOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
+
+/// \brief Round a temporal value to a given frequency
+///
+/// If argument is null the result will be null.
+///
+/// \param[in] arg the temporal value to round
+/// \param[in] options temporal rounding options, optional
+/// \param[in] ctx the function execution context, optional
+/// \return the element-wise rounded value
+ARROW_EXPORT
+Result<Datum> RoundTemporal(
+    const Datum& arg, RoundTemporalOptions options = RoundTemporalOptions::Defaults(),
     ExecContext* ctx = NULLPTR);
 
 /// \brief Compare a numeric array with a scalar.

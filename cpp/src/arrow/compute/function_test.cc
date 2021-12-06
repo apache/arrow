@@ -61,6 +61,13 @@ TEST(FunctionOptions, Equality) {
   options.emplace_back(new RoundOptions());
   options.emplace_back(
       new RoundOptions(/*ndigits=*/2, /*round_mode=*/RoundMode::TOWARDS_INFINITY));
+  options.emplace_back(new RoundTemporalOptions());
+  options.emplace_back(new RoundTemporalOptions(
+      /*multiple=*/2,
+      /*unit=*/CalendarUnit::WEEK, /*week_starts_monday=*/true,
+      /*change_on_boundary=*/true,
+      /*ambiguous=*/RoundTemporalOptions::Ambiguous::AMBIGUOUS_RAISE,
+      /*nonexistent=*/RoundTemporalOptions::Nonexistent::NONEXISTENT_RAISE));
   options.emplace_back(new RoundToMultipleOptions());
   options.emplace_back(new RoundToMultipleOptions(
       /*multiple=*/100, /*round_mode=*/RoundMode::TOWARDS_INFINITY));

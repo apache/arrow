@@ -776,6 +776,75 @@ class RoundOptions(_RoundOptions):
         self._set_options(ndigits, round_mode)
 
 
+cdef CCalendarUnit unwrap_round_unit(unit) except *:
+    if unit == "nanosecond":
+        return CCalendarUnit_NANOSECOND
+    elif unit == "microsecond":
+        return CCalendarUnit_MICROSECOND
+    elif unit == "millisecond":
+        return CCalendarUnit_MILLISECOND
+    elif unit == "second":
+        return CCalendarUnit_SECOND
+    elif unit == "minute":
+        return CCalendarUnit_MINUTE
+    elif unit == "hour":
+        return CCalendarUnit_HOUR
+    elif unit == "day":
+        return CCalendarUnit_DAY
+    elif unit == "week":
+        return CCalendarUnit_WEEK
+    elif unit == "month":
+        return CCalendarUnit_MONTH
+    elif unit == "bimonth":
+        return CCalendarUnit_BIMONTH
+    elif unit == "quarter":
+        return CCalendarUnit_QUARTER
+    elif unit == "season":
+        return CCalendarUnit_SEASON
+    elif unit == "halfyear":
+        return CCalendarUnit_HALFYEAR
+    elif unit == "year":
+        return CCalendarUnit_YEAR
+    _raise_invalid_function_option(unit, "Calendar unit")
+
+
+cdef class _RoundTemporalOptions(FunctionOptions):
+    _ambiguous_map = {
+        "raise": CRoundTemporalAmbiguous_AMBIGUOUS_RAISE,
+        "earliest": CRoundTemporalAmbiguous_AMBIGUOUS_EARLIEST,
+        "latest": CRoundTemporalAmbiguous_AMBIGUOUS_LATEST,
+    }
+    _nonexistent_map = {
+        "raise": CRoundTemporalNonexistent_NONEXISTENT_RAISE,
+        "earliest": CRoundTemporalNonexistent_NONEXISTENT_EARLIEST,
+        "latest": CRoundTemporalNonexistent_NONEXISTENT_LATEST,
+    }
+
+    def _set_options(
+        self, multiple, unit, week_starts_monday, change_on_boundary,
+            ambiguous, nonexistent):
+        if ambiguous not in self._ambiguous_map:
+            _raise_invalid_function_option(ambiguous,
+                                           "'ambiguous' timestamp handling")
+        if nonexistent not in self._nonexistent_map:
+            _raise_invalid_function_option(nonexistent,
+                                           "'nonexistent' timestamp handling")
+        self.wrapped.reset(
+            new CRoundTemporalOptions(
+                multiple, unwrap_round_unit(unit), week_starts_monday,
+                change_on_boundary, self._ambiguous_map[ambiguous],
+                self._nonexistent_map[nonexistent])
+        )
+
+
+class RoundTemporalOptions(_RoundTemporalOptions):
+    def __init__(
+        self, multiple=1, unit="second", *, week_starts_monday=True,
+            change_on_boundary=False, ambiguous="raise", nonexistent="raise"):
+        self._set_options(multiple, unit, week_starts_monday,
+                          change_on_boundary, ambiguous, nonexistent)
+
+
 cdef class _RoundToMultipleOptions(FunctionOptions):
     def _set_options(self, multiple, round_mode):
         self.wrapped.reset(
@@ -785,7 +854,7 @@ cdef class _RoundToMultipleOptions(FunctionOptions):
 
 
 class RoundToMultipleOptions(_RoundToMultipleOptions):
-    def __init__(self, multiple=1.0, round_mode="half_to_even"):
+    def __init__(self, multiple=1, round_mode="half_to_even"):
         self._set_options(multiple, round_mode)
 
 

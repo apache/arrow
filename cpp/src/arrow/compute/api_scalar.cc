@@ -118,6 +118,7 @@ struct EnumTraits<compute::AssumeTimezoneOptions::Ambiguous>
     return "<INVALID>";
   }
 };
+
 template <>
 struct EnumTraits<compute::AssumeTimezoneOptions::Nonexistent>
     : BasicEnumTraits<compute::AssumeTimezoneOptions::Nonexistent,
@@ -169,6 +170,91 @@ struct EnumTraits<compute::RoundMode>
         return "HALF_TO_EVEN";
       case compute::RoundMode::HALF_TO_ODD:
         return "HALF_TO_ODD";
+    }
+    return "<INVALID>";
+  }
+};
+
+template <>
+struct EnumTraits<compute::RoundTemporalOptions::Nonexistent>
+    : BasicEnumTraits<compute::RoundTemporalOptions::Nonexistent,
+                      compute::RoundTemporalOptions::Nonexistent::NONEXISTENT_RAISE,
+                      compute::RoundTemporalOptions::Nonexistent::NONEXISTENT_EARLIEST,
+                      compute::RoundTemporalOptions::Nonexistent::NONEXISTENT_LATEST> {
+  static std::string name() { return "RoundTemporalOptions::Nonexistent"; }
+  static std::string value_name(compute::RoundTemporalOptions::Nonexistent value) {
+    switch (value) {
+      case compute::RoundTemporalOptions::Nonexistent::NONEXISTENT_RAISE:
+        return "NONEXISTENT_RAISE";
+      case compute::RoundTemporalOptions::Nonexistent::NONEXISTENT_EARLIEST:
+        return "NONEXISTENT_EARLIEST";
+      case compute::RoundTemporalOptions::Nonexistent::NONEXISTENT_LATEST:
+        return "NONEXISTENT_LATEST";
+    }
+    return "<INVALID>";
+  }
+};
+template <>
+struct EnumTraits<compute::RoundTemporalOptions::Ambiguous>
+    : BasicEnumTraits<compute::RoundTemporalOptions::Ambiguous,
+                      compute::RoundTemporalOptions::Ambiguous::AMBIGUOUS_RAISE,
+                      compute::RoundTemporalOptions::Ambiguous::AMBIGUOUS_EARLIEST,
+                      compute::RoundTemporalOptions::Ambiguous::AMBIGUOUS_LATEST> {
+  static std::string name() { return "AssumeTimezoneOptions::Ambiguous"; }
+  static std::string value_name(compute::RoundTemporalOptions::Ambiguous value) {
+    switch (value) {
+      case compute::RoundTemporalOptions::Ambiguous::AMBIGUOUS_RAISE:
+        return "AMBIGUOUS_RAISE";
+      case compute::RoundTemporalOptions::Ambiguous::AMBIGUOUS_EARLIEST:
+        return "AMBIGUOUS_EARLIEST";
+      case compute::RoundTemporalOptions::Ambiguous::AMBIGUOUS_LATEST:
+        return "AMBIGUOUS_LATEST";
+    }
+    return "<INVALID>";
+  }
+};
+
+template <>
+struct EnumTraits<compute::CalendarUnit>
+    : BasicEnumTraits<compute::CalendarUnit, compute::CalendarUnit::NANOSECOND,
+                      compute::CalendarUnit::MICROSECOND,
+                      compute::CalendarUnit::MILLISECOND, compute::CalendarUnit::SECOND,
+                      compute::CalendarUnit::MINUTE, compute::CalendarUnit::HOUR,
+                      compute::CalendarUnit::DAY, compute::CalendarUnit::WEEK,
+                      compute::CalendarUnit::MONTH, compute::CalendarUnit::BIMONTH,
+                      compute::CalendarUnit::QUARTER, compute::CalendarUnit::SEASON,
+                      compute::CalendarUnit::HALFYEAR, compute::CalendarUnit::YEAR> {
+  static std::string name() { return "compute::CalendarUnit"; }
+  static std::string value_name(compute::CalendarUnit value) {
+    switch (value) {
+      case compute::CalendarUnit::NANOSECOND:
+        return "NANOSECOND";
+      case compute::CalendarUnit::MICROSECOND:
+        return "MICROSECOND";
+      case compute::CalendarUnit::MILLISECOND:
+        return "MILLISECOND";
+      case compute::CalendarUnit::SECOND:
+        return "SECOND";
+      case compute::CalendarUnit::MINUTE:
+        return "MINUTE";
+      case compute::CalendarUnit::HOUR:
+        return "HOUR";
+      case compute::CalendarUnit::DAY:
+        return "DAY";
+      case compute::CalendarUnit::WEEK:
+        return "WEEK";
+      case compute::CalendarUnit::MONTH:
+        return "DAY";
+      case compute::CalendarUnit::BIMONTH:
+        return "MONTH";
+      case compute::CalendarUnit::QUARTER:
+        return "QUARTER";
+      case compute::CalendarUnit::SEASON:
+        return "SEASON";
+      case compute::CalendarUnit::HALFYEAR:
+        return "HALFYEAR";
+      case compute::CalendarUnit::YEAR:
+        return "YEAR";
     }
     return "<INVALID>";
   }
@@ -266,6 +352,13 @@ static auto kReplaceSubstringOptionsType =
 static auto kRoundOptionsType = GetFunctionOptionsType<RoundOptions>(
     DataMember("ndigits", &RoundOptions::ndigits),
     DataMember("round_mode", &RoundOptions::round_mode));
+static auto kRoundTemporalOptionsType = GetFunctionOptionsType<RoundTemporalOptions>(
+    DataMember("multiple", &RoundTemporalOptions::multiple),
+    DataMember("unit", &RoundTemporalOptions::unit),
+    DataMember("week_starts_monday", &RoundTemporalOptions::week_starts_monday),
+    DataMember("change_on_boundary", &RoundTemporalOptions::change_on_boundary),
+    DataMember("ambiguous", &RoundTemporalOptions::ambiguous),
+    DataMember("nonexistent", &RoundTemporalOptions::nonexistent));
 static auto kRoundToMultipleOptionsType = GetFunctionOptionsType<RoundToMultipleOptions>(
     DataMember("multiple", &RoundToMultipleOptions::multiple),
     DataMember("round_mode", &RoundToMultipleOptions::round_mode));
@@ -412,6 +505,19 @@ RoundOptions::RoundOptions(int64_t ndigits, RoundMode round_mode)
 }
 constexpr char RoundOptions::kTypeName[];
 
+RoundTemporalOptions::RoundTemporalOptions(int multiple, CalendarUnit unit,
+                                           bool week_starts_monday,
+                                           bool change_on_boundary, Ambiguous ambiguous,
+                                           Nonexistent nonexistent)
+    : FunctionOptions(internal::kRoundTemporalOptionsType),
+      multiple(std::move(multiple)),
+      unit(unit),
+      week_starts_monday(week_starts_monday),
+      change_on_boundary(change_on_boundary),
+      ambiguous(ambiguous),
+      nonexistent(nonexistent) {}
+constexpr char RoundTemporalOptions::kTypeName[];
+
 RoundToMultipleOptions::RoundToMultipleOptions(double multiple, RoundMode round_mode)
     : RoundToMultipleOptions(std::make_shared<DoubleScalar>(multiple), round_mode) {}
 RoundToMultipleOptions::RoundToMultipleOptions(std::shared_ptr<Scalar> multiple,
@@ -511,6 +617,7 @@ void RegisterScalarOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kReplaceSliceOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kReplaceSubstringOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kRoundOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kRoundTemporalOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kRoundToMultipleOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kSetLookupOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kSliceOptionsType));
@@ -709,6 +816,11 @@ Result<Datum> AssumeTimezone(const Datum& arg, AssumeTimezoneOptions options,
 
 Result<Datum> DayOfWeek(const Datum& arg, DayOfWeekOptions options, ExecContext* ctx) {
   return CallFunction("day_of_week", {arg}, &options, ctx);
+}
+
+Result<Datum> RoundTemporal(const Datum& arg, RoundTemporalOptions options,
+                            ExecContext* ctx) {
+  return CallFunction("round_temporal", {arg}, &options, ctx);
 }
 
 Result<Datum> Strftime(const Datum& arg, StrftimeOptions options, ExecContext* ctx) {

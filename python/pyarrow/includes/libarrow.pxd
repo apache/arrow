@@ -1892,6 +1892,68 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         int64_t ndigits
         CRoundMode round_mode
 
+    ctypedef enum CCalendarUnit \
+            "arrow::compute::CalendarUnit":
+        CCalendarUnit_NANOSECOND \
+            "arrow::compute::CalendarUnit::NANOSECOND"
+        CCalendarUnit_MICROSECOND \
+            "arrow::compute::CalendarUnit::MICROSECOND"
+        CCalendarUnit_MILLISECOND \
+            "arrow::compute::CalendarUnit::MILLISECOND"
+        CCalendarUnit_SECOND \
+            "arrow::compute::CalendarUnit::SECOND"
+        CCalendarUnit_MINUTE \
+            "arrow::compute::CalendarUnit::MINUTE"
+        CCalendarUnit_HOUR \
+            "arrow::compute::CalendarUnit::HOUR"
+        CCalendarUnit_DAY \
+            "arrow::compute::CalendarUnit::DAY"
+        CCalendarUnit_WEEK \
+            "arrow::compute::CalendarUnit::WEEK"
+        CCalendarUnit_MONTH \
+            "arrow::compute::CalendarUnit::MONTH"
+        CCalendarUnit_BIMONTH \
+            "arrow::compute::CalendarUnit::BIMONTH"
+        CCalendarUnit_QUARTER \
+            "arrow::compute::CalendarUnit::QUARTER"
+        CCalendarUnit_SEASON \
+            "arrow::compute::CalendarUnit::SEASON"
+        CCalendarUnit_HALFYEAR \
+            "arrow::compute::CalendarUnit::HALFYEAR"
+        CCalendarUnit_YEAR \
+            "arrow::compute::CalendarUnit::YEAR"
+
+    cdef enum CRoundTemporalAmbiguous \
+            "arrow::compute::RoundTemporalOptions::Ambiguous":
+        CRoundTemporalAmbiguous_AMBIGUOUS_RAISE \
+            "arrow::compute::RoundTemporalOptions::AMBIGUOUS_RAISE"
+        CRoundTemporalAmbiguous_AMBIGUOUS_EARLIEST \
+            "arrow::compute::RoundTemporalOptions::AMBIGUOUS_EARLIEST"
+        CRoundTemporalAmbiguous_AMBIGUOUS_LATEST \
+            "arrow::compute::RoundTemporalOptions::AMBIGUOUS_LATEST"
+
+    cdef enum CRoundTemporalNonexistent \
+            "arrow::compute::RoundTemporalOptions::Nonexistent":
+        CRoundTemporalNonexistent_NONEXISTENT_RAISE \
+            "arrow::compute::RoundTemporalOptions::NONEXISTENT_RAISE"
+        CRoundTemporalNonexistent_NONEXISTENT_EARLIEST \
+            "arrow::compute::RoundTemporalOptions::NONEXISTENT_EARLIEST"
+        CRoundTemporalNonexistent_NONEXISTENT_LATEST \
+            "arrow::compute::RoundTemporalOptions::NONEXISTENT_LATEST"
+
+    cdef cppclass CRoundTemporalOptions \
+            "arrow::compute::RoundTemporalOptions"(CFunctionOptions):
+        CRoundTemporalOptions(
+            int multiple, CCalendarUnit unit, c_bool week_starts_monday,
+            c_bool change_on_boundary, CRoundTemporalAmbiguous ambiguous,
+            CRoundTemporalNonexistent nonexistent)
+        int multiple
+        CCalendarUnit unit
+        c_bool week_starts_monday
+        c_bool change_on_boundary
+        CRoundTemporalAmbiguous ambiguous
+        CRoundTemporalNonexistent nonexistent
+
     cdef cppclass CRoundToMultipleOptions \
             "arrow::compute::RoundToMultipleOptions"(CFunctionOptions):
         CRoundToMultipleOptions(double multiple, CRoundMode round_mode)

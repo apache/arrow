@@ -1324,6 +1324,109 @@ TEST_F(ScalarTemporalTest, TestTemporalDifferenceZoned) {
   }
 }
 
+TEST_F(ScalarTemporalTest, TestTemporalRounding) {
+  auto unit = timestamp(TimeUnit::NANO, "Australia/Broken_Hill");
+  const char* times = R"(["2019-11-30T02:10:10.123456789", null])";
+
+  const char* times_floor_nanoseconds = R"(["2019-11-30T02:10:10.123456789", null])";
+  const char* times_floor_microseconds = R"(["2019-11-30T02:10:10.123456", null])";
+  const char* times_floor_milliseconds = R"(["2019-11-30T02:10:10.123", null])";
+  const char* times_floor_seconds = R"(["2019-11-30T02:10:10", null])";
+  const char* times_floor_minutes = R"(["2019-11-30T02:10:00", null])";
+  const char* times_floor_hours = R"(["2019-11-30T02:00:00", null])";
+  const char* times_floor_days = R"(["2019-11-30T00:00:00", null])";
+  const char* times_floor_weeks = R"(["2019-11-28T00:00:00", null])";
+  const char* times_floor_months = R"(["2019-11-01T00:00:00", null])";
+  const char* times_floor_bimonths = R"(["2019-10-01T00:00:00", null])";
+  const char* times_floor_quarters = R"(["2019-09-01T00:00:00", null])";
+  const char* times_floor_seasons = R"(["2019-09-01T00:00:00", null])";
+  const char* times_floor_halfyears = R"(["2019-06-01T00:00:00", null])";
+  const char* times_floor_years = R"(["2019-01-01T00:00:00", null])";
+
+  auto options_nanoseconds = RoundTemporalOptions(1, CalendarUnit::NANOSECOND);
+  auto options_microseconds = RoundTemporalOptions(1, CalendarUnit::MICROSECOND);
+  auto options_milliseconds = RoundTemporalOptions(1, CalendarUnit::MILLISECOND);
+  auto options_seconds = RoundTemporalOptions(1, CalendarUnit::SECOND);
+  auto options_minutes = RoundTemporalOptions(1, CalendarUnit::MINUTE);
+  auto options_hours = RoundTemporalOptions(1, CalendarUnit::HOUR);
+  auto options_days = RoundTemporalOptions(1, CalendarUnit::DAY);
+  auto options_weeks = RoundTemporalOptions(1, CalendarUnit::WEEK);
+  auto options_months = RoundTemporalOptions(1, CalendarUnit::MONTH);
+  auto options_bimonths = RoundTemporalOptions(1, CalendarUnit::BIMONTH);
+  auto options_quarters = RoundTemporalOptions(1, CalendarUnit::QUARTER);
+  auto options_seasons = RoundTemporalOptions(1, CalendarUnit::SEASON);
+  auto options_halfyears = RoundTemporalOptions(1, CalendarUnit::HALFYEAR);
+  auto options_years = RoundTemporalOptions(1, CalendarUnit::YEAR);
+
+//  CheckScalarUnary("round_temporal", unit, times, unit, times_floor_nanoseconds,
+//                   &options_nanoseconds);
+//  CheckScalarUnary("round_temporal", unit, times, unit, times_floor_microseconds,
+//                   &options_microseconds);
+//  CheckScalarUnary("round_temporal", unit, times, unit, times_floor_milliseconds,
+//                   &options_milliseconds);
+  CheckScalarUnary("round_temporal", unit, times, unit, times_floor_seconds,
+                   &options_seconds);
+  CheckScalarUnary("round_temporal", unit, times, unit, times_floor_minutes,
+                   &options_minutes);
+  CheckScalarUnary("round_temporal", unit, times, unit, times_floor_hours,
+                   &options_hours);
+  CheckScalarUnary("round_temporal", unit, times, unit, times_floor_days, &options_days);
+  CheckScalarUnary("round_temporal", unit, times, unit, times_floor_weeks,
+                   &options_weeks);
+  CheckScalarUnary("round_temporal", unit, times, unit, times_floor_months,
+                   &options_months);
+  CheckScalarUnary("round_temporal", unit, times, unit, times_floor_bimonths,
+                   &options_bimonths);
+  CheckScalarUnary("round_temporal", unit, times, unit, times_floor_quarters,
+                   &options_quarters);
+  CheckScalarUnary("round_temporal", unit, times, unit, times_floor_seasons,
+                   &options_seasons);
+  CheckScalarUnary("round_temporal", unit, times, unit, times_floor_halfyears,
+                   &options_halfyears);
+  CheckScalarUnary("round_temporal", unit, times, unit, times_floor_years,
+                   &options_years);
+
+    const char* times_floor_4_days = R"(["2019-11-30", null])";
+    auto options_4_days = RoundTemporalOptions(
+        /*multiple=*/4,
+        /*unit=*/CalendarUnit::DAY, /*week_starts_monday=*/false,
+        /*change_on_boundary=*/true,
+        /*ambiguous=*/RoundTemporalOptions::Ambiguous::AMBIGUOUS_RAISE,
+        /*nonexistent=*/RoundTemporalOptions::Nonexistent::NONEXISTENT_RAISE);
+    CheckScalarUnary("round_temporal", unit, times, unit, times_floor_4_days,
+    &options_4_days);
+
+//    const char* times_floor_3_weeks = R"(["2019-11-29", null])";
+//    auto options_3_weeks = RoundTemporalOptions(
+//        /*multiple=*/3,
+//        /*unit=*/CalendarUnit::WEEK, /*week_starts_monday=*/false,
+//        /*change_on_boundary=*/true,
+//        /*ambiguous=*/RoundTemporalOptions::Ambiguous::AMBIGUOUS_RAISE,
+//        /*nonexistent=*/RoundTemporalOptions::Nonexistent::NONEXISTENT_RAISE);
+//    CheckScalarUnary("round_temporal", unit, times, unit, times_floor_3_weeks,
+//    &options_3_weeks);
+//
+//    const char* times_floor_5_seconds = R"(["2019-11-30T02:10:09",
+//    null])"; auto options_5_seconds = RoundTemporalOptions(
+//        /*multiple=*/3,
+//        /*unit=*/CalendarUnit::SECOND, /*week_starts_monday=*/true,
+//        /*change_on_boundary=*/true,
+//        /*ambiguous=*/RoundTemporalOptions::Ambiguous::AMBIGUOUS_RAISE,
+//        /*nonexistent=*/RoundTemporalOptions::Nonexistent::NONEXISTENT_RAISE);
+//    CheckScalarUnary("round_temporal", unit, times, unit, times_floor_5_seconds,
+//    &options_5_seconds);
+//
+//    const char* times_floor_2_hours = R"(["2019-11-30T02:00:00", null])";
+//    auto options_2_hours = RoundTemporalOptions(
+//        /*multiple=*/2,
+//        /*unit=*/CalendarUnit::HOUR, /*week_starts_monday=*/false,
+//        /*change_on_boundary=*/true,
+//        /*ambiguous=*/RoundTemporalOptions::Ambiguous::AMBIGUOUS_RAISE,
+//        /*nonexistent=*/RoundTemporalOptions::Nonexistent::NONEXISTENT_RAISE);
+//    CheckScalarUnary("round_temporal", unit, times, unit, times_floor_2_hours,
+//    &options_2_hours);
+}
+
 #endif  // !_WIN32
 
 }  // namespace compute
