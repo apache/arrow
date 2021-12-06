@@ -57,7 +57,7 @@ void KeyCompare::NullUpdateColumnToRow(uint32_t id_col, uint32_t num_rows_to_com
       uint32_t irow_left = use_selection ? sel_left_maybe_null[i] : i;
       uint32_t irow_right = left_to_right_map[irow_left];
       int64_t bitid = irow_right * null_mask_num_bytes * 8 + id_col;
-      match_bytevector[i] &= (BitUtil::GetBit(null_masks, bitid) ? 0 : 0xff);
+      match_bytevector[i] &= (bit_util::GetBit(null_masks, bitid) ? 0 : 0xff);
     }
   } else if (!rows.has_any_nulls(ctx)) {
     // Remove rows from the result for which the column value on left side is null
@@ -66,7 +66,7 @@ void KeyCompare::NullUpdateColumnToRow(uint32_t id_col, uint32_t num_rows_to_com
     for (uint32_t i = num_processed; i < num_rows_to_compare; ++i) {
       uint32_t irow_left = use_selection ? sel_left_maybe_null[i] : i;
       match_bytevector[i] &=
-          BitUtil::GetBit(non_nulls, irow_left + col.bit_offset(0)) ? 0xff : 0;
+          bit_util::GetBit(non_nulls, irow_left + col.bit_offset(0)) ? 0xff : 0;
     }
   } else {
     const uint8_t* null_masks = rows.null_masks();
@@ -77,9 +77,9 @@ void KeyCompare::NullUpdateColumnToRow(uint32_t id_col, uint32_t num_rows_to_com
       uint32_t irow_left = use_selection ? sel_left_maybe_null[i] : i;
       uint32_t irow_right = left_to_right_map[irow_left];
       int64_t bitid_right = irow_right * null_mask_num_bytes * 8 + id_col;
-      int right_null = BitUtil::GetBit(null_masks, bitid_right) ? 0xff : 0;
+      int right_null = bit_util::GetBit(null_masks, bitid_right) ? 0xff : 0;
       int left_null =
-          BitUtil::GetBit(non_nulls, irow_left + col.bit_offset(0)) ? 0 : 0xff;
+          bit_util::GetBit(non_nulls, irow_left + col.bit_offset(0)) ? 0 : 0xff;
       match_bytevector[i] |= left_null & right_null;
       match_bytevector[i] &= ~(left_null ^ right_null);
     }
@@ -140,7 +140,8 @@ void KeyCompare::CompareBinaryColumnToRow(
         left_to_right_map, ctx, col, rows, match_bytevector,
         [bit_offset](const uint8_t* left_base, const uint8_t* right_base,
                      uint32_t irow_left, uint32_t offset_right) {
-          uint8_t left = BitUtil::GetBit(left_base, irow_left + bit_offset) ? 0xff : 0x00;
+          uint8_t left =
+              bit_util::GetBit(left_base, irow_left + bit_offset) ? 0xff : 0x00;
           uint8_t right = right_base[offset_right];
           return left == right ? 0xff : 0;
         });
@@ -200,7 +201,7 @@ void KeyCompare::CompareBinaryColumnToRow(
 
           // Non-zero length guarantees no underflow
           int32_t num_loops_less_one =
-              static_cast<int32_t>(BitUtil::CeilDiv(length, 8)) - 1;
+              static_cast<int32_t>(bit_util::CeilDiv(length, 8)) - 1;
 
           uint64_t tail_mask = ~0ULL >> (64 - 8 * (length - num_loops_less_one * 8));
 
@@ -271,7 +272,7 @@ void KeyCompare::CompareVarBinaryColumnToRow(
     if (length > 0) {
       int32_t j;
       // length can be zero
-      for (j = 0; j < static_cast<int32_t>(BitUtil::CeilDiv(length, 8)) - 1; ++j) {
+      for (j = 0; j < static_cast<int32_t>(bit_util::CeilDiv(length, 8)) - 1; ++j) {
         uint64_t key_left = util::SafeLoad(key_left_ptr + j);
         uint64_t key_right = key_right_ptr[j];
         result_or |= key_left ^ key_right;
@@ -296,7 +297,7 @@ void KeyCompare::AndByteVectors(KeyEncoder::KeyEncoderContext* ctx, uint32_t num
   }
 #endif
 
-  for (uint32_t i = num_processed / 8; i < BitUtil::CeilDiv(num_elements, 8); ++i) {
+  for (uint32_t i = num_processed / 8; i < bit_util::CeilDiv(num_elements, 8); ++i) {
     uint64_t* a = reinterpret_cast<uint64_t*>(bytevector_A);
     const uint64_t* b = reinterpret_cast<const uint64_t*>(bytevector_B);
     a[i] &= b[i];
@@ -403,19 +404,19 @@ void KeyCompare::CompareColumnsToRows(uint32_t num_rows_to_compare,
     }
   }
 
-  util::BitUtil::bytes_to_bits(ctx->hardware_flags, num_rows_to_compare,
-                               match_bytevector_A, match_bitvector);
+  util::bit_util::bytes_to_bits(ctx->hardware_flags, num_rows_to_compare,
+                                match_bytevector_A, match_bitvector);
   if (sel_left_maybe_null) {
     int out_num_rows_int;
-    util::BitUtil::bits_filter_indexes(0, ctx->hardware_flags, num_rows_to_compare,
-                                       match_bitvector, sel_left_maybe_null,
-                                       &out_num_rows_int, out_sel_left_maybe_same);
+    util::bit_util::bits_filter_indexes(0, ctx->hardware_flags, num_rows_to_compare,
+                                        match_bitvector, sel_left_maybe_null,
+                                        &out_num_rows_int, out_sel_left_maybe_same);
     *out_num_rows = out_num_rows_int;
   } else {
     int out_num_rows_int;
-    util::BitUtil::bits_to_indexes(0, ctx->hardware_flags, num_rows_to_compare,
-                                   match_bitvector, &out_num_rows_int,
-                                   out_sel_left_maybe_same);
+    util::bit_util::bits_to_indexes(0, ctx->hardware_flags, num_rows_to_compare,
+                                    match_bitvector, &out_num_rows_int,
+                                    out_sel_left_maybe_same);
     *out_num_rows = out_num_rows_int;
   }
 }

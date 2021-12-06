@@ -451,6 +451,10 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      kResultNullIfNull, "gdv_fn_castVARBINARY_float64_int64",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
+      NativeFunction("levenshtein", {}, DataTypeVector{utf8(), utf8()}, int32(),
+                     kResultNullIfNull, "levenshtein",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
       NativeFunction("to_hex", {"hex"}, DataTypeVector{binary()}, utf8(),
                      kResultNullIfNull, "to_hex_binary", NativeFunction::kNeedsContext),
 

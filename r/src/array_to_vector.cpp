@@ -1218,7 +1218,7 @@ std::shared_ptr<Converter> Converter::Make(
         return std::make_shared<arrow::r::Converter_Int64>(chunked_array);
       }
 
-    case Type::DECIMAL:
+    case Type::DECIMAL128:
       return std::make_shared<arrow::r::Converter_Decimal<Decimal128Type>>(chunked_array);
 
     case Type::DECIMAL256:

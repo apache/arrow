@@ -20,6 +20,7 @@
 # arrow 6.0.1.9000
 
 * Added `decimal256()`.
+* Added `decimal128()` (identical to `decimal()`) as the name is more explicit and updated docs to encourage its use. 
 
 # arrow 6.0.1
 

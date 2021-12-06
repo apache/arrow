@@ -1119,7 +1119,7 @@ std::shared_ptr<Array> MakeSimpleArray(SEXP x) {
   auto first_na = std::find_if(p_vec_start, p_vec_end, is_NA<value_type>);
   if (first_na < p_vec_end) {
     auto null_bitmap =
-        ValueOrStop(AllocateBuffer(BitUtil::BytesForBits(n), gc_memory_pool()));
+        ValueOrStop(AllocateBuffer(bit_util::BytesForBits(n), gc_memory_pool()));
     internal::FirstTimeBitmapWriter bitmap_writer(null_bitmap->mutable_data(), 0, n);
 
     // first loop to clear all the bits before the first NA
@@ -1237,7 +1237,7 @@ bool vector_from_r_memory_impl(SEXP x, const std::shared_ptr<DataType>& type,
 
     if (first_na < p_x_end) {
       auto null_bitmap =
-          ValueOrStop(AllocateBuffer(BitUtil::BytesForBits(n), gc_memory_pool()));
+          ValueOrStop(AllocateBuffer(bit_util::BytesForBits(n), gc_memory_pool()));
       internal::FirstTimeBitmapWriter bitmap_writer(null_bitmap->mutable_data(), 0, n);
 
       // first loop to clear all the bits before the first NA

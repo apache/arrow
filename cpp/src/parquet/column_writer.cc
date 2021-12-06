@@ -60,12 +60,12 @@ using arrow::ArrayData;
 using arrow::Datum;
 using arrow::Result;
 using arrow::Status;
-using arrow::BitUtil::BitWriter;
+using arrow::bit_util::BitWriter;
 using arrow::internal::checked_cast;
 using arrow::internal::checked_pointer_cast;
 using arrow::util::RleEncoder;
 
-namespace BitUtil = arrow::BitUtil;
+namespace bit_util = arrow::bit_util;
 
 namespace parquet {
 
@@ -106,9 +106,9 @@ struct ValueBufferSlicer {
 
   Status Visit(const ::arrow::BooleanArray& array) {
     auto data = array.data();
-    if (BitUtil::IsMultipleOf8(data->offset)) {
-      buffer_ = SliceBuffer(data->buffers[1], BitUtil::BytesForBits(data->offset),
-                            BitUtil::BytesForBits(data->length));
+    if (bit_util::IsMultipleOf8(data->offset)) {
+      buffer_ = SliceBuffer(data->buffers[1], bit_util::BytesForBits(data->offset),
+                            bit_util::BytesForBits(data->length));
       return Status::OK();
     }
     PARQUET_ASSIGN_OR_THROW(buffer_,
@@ -168,7 +168,7 @@ LevelEncoder::~LevelEncoder() {}
 
 void LevelEncoder::Init(Encoding::type encoding, int16_t max_level,
                         int num_buffered_values, uint8_t* data, int data_size) {
-  bit_width_ = BitUtil::Log2(max_level + 1);
+  bit_width_ = bit_util::Log2(max_level + 1);
   encoding_ = encoding;
   switch (encoding) {
     case Encoding::RLE: {
@@ -177,7 +177,7 @@ void LevelEncoder::Init(Encoding::type encoding, int16_t max_level,
     }
     case Encoding::BIT_PACKED: {
       int num_bytes =
-          static_cast<int>(BitUtil::BytesForBits(num_buffered_values * bit_width_));
+          static_cast<int>(bit_util::BytesForBits(num_buffered_values * bit_width_));
       bit_packed_encoder_.reset(new BitWriter(data, num_bytes));
       break;
     }
@@ -188,7 +188,7 @@ void LevelEncoder::Init(Encoding::type encoding, int16_t max_level,
 
 int LevelEncoder::MaxBufferSize(Encoding::type encoding, int16_t max_level,
                                 int num_buffered_values) {
-  int bit_width = BitUtil::Log2(max_level + 1);
+  int bit_width = bit_util::Log2(max_level + 1);
   int num_bytes = 0;
   switch (encoding) {
     case Encoding::RLE: {
@@ -200,7 +200,7 @@ int LevelEncoder::MaxBufferSize(Encoding::type encoding, int16_t max_level,
     }
     case Encoding::BIT_PACKED: {
       num_bytes =
-          static_cast<int>(BitUtil::BytesForBits(num_buffered_values * bit_width));
+          static_cast<int>(bit_util::BytesForBits(num_buffered_values * bit_width));
       break;
     }
     default:
@@ -1130,7 +1130,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
       ARROW_ASSIGN_OR_RAISE(
           bits_buffer_,
           ::arrow::AllocateResizableBuffer(
-              BitUtil::BytesForBits(properties_->write_batch_size()), ctx->memory_pool));
+              bit_util::BytesForBits(properties_->write_batch_size()), ctx->memory_pool));
       bits_buffer_->ZeroPadding();
     }
 
@@ -1290,7 +1290,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
     }
     // Shrink to fit possible causes another allocation, and would only be necessary
     // on the last batch.
-    int64_t new_bitmap_size = BitUtil::BytesForBits(batch_size);
+    int64_t new_bitmap_size = bit_util::BytesForBits(batch_size);
     if (new_bitmap_size != bits_buffer_->size()) {
       PARQUET_THROW_NOT_OK(
           bits_buffer_->Resize(new_bitmap_size, /*shrink_to_fit=*/false));
@@ -2026,13 +2026,13 @@ struct SerializeFunctor<ParquetType, ArrowType, ::arrow::enable_if_decimal<Arrow
     static_assert(byte_width == 16 || byte_width == 32,
                   "only 16 and 32 byte Decimals supported");
     if (byte_width == 32) {
-      *scratch++ = ::arrow::BitUtil::ToBigEndian(u64_in[3]);
-      *scratch++ = ::arrow::BitUtil::ToBigEndian(u64_in[2]);
-      *scratch++ = ::arrow::BitUtil::ToBigEndian(u64_in[1]);
-      *scratch++ = ::arrow::BitUtil::ToBigEndian(u64_in[0]);
+      *scratch++ = ::arrow::bit_util::ToBigEndian(u64_in[3]);
+      *scratch++ = ::arrow::bit_util::ToBigEndian(u64_in[2]);
+      *scratch++ = ::arrow::bit_util::ToBigEndian(u64_in[1]);
+      *scratch++ = ::arrow::bit_util::ToBigEndian(u64_in[0]);
     } else {
-      *scratch++ = ::arrow::BitUtil::ToBigEndian(u64_in[1]);
-      *scratch++ = ::arrow::BitUtil::ToBigEndian(u64_in[0]);
+      *scratch++ = ::arrow::bit_util::ToBigEndian(u64_in[1]);
+      *scratch++ = ::arrow::bit_util::ToBigEndian(u64_in[0]);
     }
     return FixedLenByteArray(out);
   }

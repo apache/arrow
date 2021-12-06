@@ -61,15 +61,16 @@ enum class RoundMode : int8_t {
   UP,
   /// Get the integral part without fractional digits (aka "trunc")
   TOWARDS_ZERO,
-  /// Round negative values with DOWN rule and positive values with UP rule
+  /// Round negative values with DOWN rule
+  /// and positive values with UP rule (aka "away from zero")
   TOWARDS_INFINITY,
-  /// Round ties with DOWN rule
+  /// Round ties with DOWN rule (also called "round half towards negative infinity")
   HALF_DOWN,
-  /// Round ties with UP rule
+  /// Round ties with UP rule (also called "round half towards positive infinity")
   HALF_UP,
-  /// Round ties with TOWARDS_ZERO rule
+  /// Round ties with TOWARDS_ZERO rule (also called "round half away from infinity")
   HALF_TOWARDS_ZERO,
-  /// Round ties with TOWARDS_INFINITY rule
+  /// Round ties with TOWARDS_INFINITY rule (also called "round half away from zero")
   HALF_TOWARDS_INFINITY,
   /// Round ties to nearest even integer
   HALF_TO_EVEN,
@@ -405,6 +406,18 @@ struct ARROW_EXPORT WeekOptions : public FunctionOptions {
   /// Must the first week be fully in January (true), or is a week that begins on
   /// December 29, 30, or 31 considered to be the first week of the new year (false)?
   bool first_week_is_fully_in_year;
+};
+
+struct ARROW_EXPORT Utf8NormalizeOptions : public FunctionOptions {
+ public:
+  enum Form { NFC, NFKC, NFD, NFKD };
+
+  explicit Utf8NormalizeOptions(Form form = NFC);
+  static Utf8NormalizeOptions Defaults() { return Utf8NormalizeOptions(); }
+  constexpr static char const kTypeName[] = "Utf8NormalizeOptions";
+
+  /// The Unicode normalization form to apply
+  Form form;
 };
 
 /// @}

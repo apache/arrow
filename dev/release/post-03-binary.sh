@@ -49,7 +49,6 @@ fi
 : ${DEPLOY_AMAZON_LINUX:=${DEPLOY_DEFAULT}}
 : ${DEPLOY_CENTOS:=${DEPLOY_DEFAULT}}
 : ${DEPLOY_DEBIAN:=${DEPLOY_DEFAULT}}
-: ${DEPLOY_JAVA:=${DEPLOY_DEFAULT}}
 : ${DEPLOY_NUGET:=${DEPLOY_DEFAULT}}
 : ${DEPLOY_PYTHON:=${DEPLOY_DEFAULT}}
 : ${DEPLOY_UBUNTU:=${DEPLOY_DEFAULT}}
@@ -72,9 +71,6 @@ fi
 if [ ${DEPLOY_DEBIAN} -gt 0 ]; then
   rake_tasks+=(apt:release)
   apt_targets+=(debian)
-fi
-if [ ${DEPLOY_JAVA} -gt 0 ]; then
-  rake_tasks+=(java:release)
 fi
 if [ ${DEPLOY_NUGET} -gt 0 ]; then
   rake_tasks+=(nuget:release)

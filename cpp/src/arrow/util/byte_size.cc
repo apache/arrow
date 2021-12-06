@@ -122,8 +122,8 @@ struct GetByteRangesArray {
     if (buffer) {
       uint64_t data_start = reinterpret_cast<uint64_t>(buffer->data());
       RETURN_NOT_OK(range_starts->Append(data_start));
-      RETURN_NOT_OK(range_offsets->Append(BitUtil::RoundDown(offset, 8) / 8));
-      RETURN_NOT_OK(range_lengths->Append(BitUtil::CoveringBytes(offset, length)));
+      RETURN_NOT_OK(range_offsets->Append(bit_util::RoundDown(offset, 8) / 8));
+      RETURN_NOT_OK(range_lengths->Append(bit_util::CoveringBytes(offset, length)));
     }
     return Status::OK();
   }
@@ -131,10 +131,10 @@ struct GetByteRangesArray {
   Status VisitFixedWidthArray(const Buffer& buffer, const FixedWidthType& type) const {
     uint64_t data_start = reinterpret_cast<uint64_t>(buffer.data());
     uint64_t offset_bits = offset * type.bit_width();
-    uint64_t offset_bytes = BitUtil::RoundDown(static_cast<int64_t>(offset_bits), 8) / 8;
+    uint64_t offset_bytes = bit_util::RoundDown(static_cast<int64_t>(offset_bits), 8) / 8;
     uint64_t end_byte =
-        BitUtil::RoundUp(static_cast<int64_t>(offset_bits + (length * type.bit_width())),
-                         8) /
+        bit_util::RoundUp(static_cast<int64_t>(offset_bits + (length * type.bit_width())),
+                          8) /
         8;
     uint64_t length_bytes = (end_byte - offset_bytes);
     RETURN_NOT_OK(range_starts->Append(data_start));

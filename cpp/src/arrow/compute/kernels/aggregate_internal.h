@@ -153,7 +153,7 @@ enable_if_t<std::is_floating_point<SumType>::value, SumType> SumArray(
   // number of inputs to accumulate before merging with another block
   constexpr int kBlockSize = 16;  // same as numpy
   // levels (tree depth) = ceil(log2(len)) + 1, a bit larger than necessary
-  const int levels = BitUtil::Log2(static_cast<uint64_t>(data_size)) + 1;
+  const int levels = bit_util::Log2(static_cast<uint64_t>(data_size)) + 1;
   // temporary summation per level
   std::vector<SumType> sum(levels);
   // whether two summations are ready and should be reduced to upper level

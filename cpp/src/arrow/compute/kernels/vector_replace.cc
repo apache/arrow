@@ -58,13 +58,13 @@ Status ReplaceWithScalarMask(KernelContext* ctx, const ArrayData& array,
       arrow::internal::CopyBitmap(in_data.buffers[0]->data(), in_data.offset,
                                   array.length, out_bitmap, out_offset);
     } else {
-      BitUtil::SetBitsTo(out_bitmap, out_offset, array.length, true);
+      bit_util::SetBitsTo(out_bitmap, out_offset, array.length, true);
     }
   } else {
     const Scalar& in_data = *source.scalar();
     Functor::CopyData(*array.type, out_values, out_offset, in_data, /*in_offset=*/0,
                       array.length);
-    BitUtil::SetBitsTo(out_bitmap, out_offset, array.length, in_data.is_valid);
+    bit_util::SetBitsTo(out_bitmap, out_offset, array.length, in_data.is_valid);
   }
   return Status::OK();
 }
@@ -80,8 +80,9 @@ struct CopyArrayBitmap {
   }
 
   void SetBit(uint8_t* out_bitmap, int64_t out_offset, int64_t offset) const {
-    BitUtil::SetBitTo(out_bitmap, out_offset,
-                      in_bitmap ? BitUtil::GetBit(in_bitmap, in_offset + offset) : true);
+    bit_util::SetBitTo(
+        out_bitmap, out_offset,
+        in_bitmap ? bit_util::GetBit(in_bitmap, in_offset + offset) : true);
   }
 };
 
@@ -90,11 +91,11 @@ struct CopyScalarBitmap {
 
   void CopyBitmap(uint8_t* out_bitmap, int64_t out_offset, int64_t offset,
                   int64_t length) const {
-    BitUtil::SetBitsTo(out_bitmap, out_offset, length, is_valid);
+    bit_util::SetBitsTo(out_bitmap, out_offset, length, is_valid);
   }
 
   void SetBit(uint8_t* out_bitmap, int64_t out_offset, int64_t offset) const {
-    BitUtil::SetBitTo(out_bitmap, out_offset, is_valid);
+    bit_util::SetBitTo(out_bitmap, out_offset, is_valid);
   }
 };
 
@@ -123,14 +124,14 @@ void ReplaceWithArrayMaskImpl(const ArrayData& array, const ArrayData& mask,
         copy_bitmap.CopyBitmap(out_bitmap, out_offset + write_offset, replacements_offset,
                                block.length);
       } else if (out_bitmap) {
-        BitUtil::SetBitsTo(out_bitmap, out_offset + write_offset, block.length, true);
+        bit_util::SetBitsTo(out_bitmap, out_offset + write_offset, block.length, true);
       }
       replacements_offset += block.length;
     } else if (block.popcount) {
       for (int64_t i = 0; i < block.length; ++i) {
-        if (BitUtil::GetBit(mask_values, write_offset + mask.offset + i) &&
+        if (bit_util::GetBit(mask_values, write_offset + mask.offset + i) &&
             (!mask_bitmap ||
-             BitUtil::GetBit(mask_bitmap, write_offset + mask.offset + i))) {
+             bit_util::GetBit(mask_bitmap, write_offset + mask.offset + i))) {
           Functor::CopyData(*array.type, out_values, out_offset + write_offset + i,
                             replacements, replacements_offset, /*length=*/1);
           copy_bitmap.SetBit(out_bitmap, out_offset + write_offset + i,
@@ -175,11 +176,11 @@ Status ReplaceWithArrayMask(KernelContext* ctx, const ArrayData& array,
                                   out_bitmap, out_offset);
     } else {
       // Array has no bitmap but mask/replacements do, generate an all-valid bitmap
-      BitUtil::SetBitsTo(out_bitmap, out_offset, array.length, true);
+      bit_util::SetBitsTo(out_bitmap, out_offset, array.length, true);
     }
   } else {
-    BitUtil::SetBitsTo(output->buffers[0]->mutable_data(), out_offset, array.length,
-                       true);
+    bit_util::SetBitsTo(output->buffers[0]->mutable_data(), out_offset, array.length,
+                        true);
     output->null_count = 0;
   }
 
@@ -252,7 +253,7 @@ struct ReplaceWithMask<Type, enable_if_boolean<Type>> {
   }
   static void CopyData(const DataType&, uint8_t* out, const int64_t out_offset,
                        const Scalar& in, const int64_t in_offset, const int64_t length) {
-    BitUtil::SetBitsTo(
+    bit_util::SetBitsTo(
         out, out_offset, length,
         in.is_valid ? checked_cast<const BooleanScalar&>(in).value : false);
   }
@@ -384,7 +385,7 @@ struct ReplaceWithMask<Type, enable_if_base_binary<Type>> {
             const ArrayData& source = replace ? *replacements.array() : array;
             const int64_t offset = replace ? replacements_offset++ : source_offset;
             if (!source.MayHaveNulls() ||
-                BitUtil::GetBit(source.buffers[0]->data(), source.offset + offset)) {
+                bit_util::GetBit(source.buffers[0]->data(), source.offset + offset)) {
               const uint8_t* data = source.buffers[2]->data();
               const offset_type* offsets = source.GetValues<offset_type>(1);
               const offset_type offset0 = offsets[offset];
