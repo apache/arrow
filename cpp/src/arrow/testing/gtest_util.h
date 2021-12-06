@@ -527,6 +527,28 @@ class ARROW_TESTING_EXPORT GatingTask {
   std::shared_ptr<Impl> impl_;
 };
 
+template <typename T>
+void PrintTo(const std::shared_ptr<T>& ptr, std::ostream* os) {
+  if (ptr) {
+    *os << "{";
+    ::testing::internal::UniversalPrint(*ptr, os);
+    *os << "}";
+  } else {
+    *os << "nullptr";
+  }
+}
+
+template <typename T>
+void PrintTo(const std::unique_ptr<T>& ptr, std::ostream* os) {
+  if (ptr) {
+    *os << "{";
+    ::testing::internal::UniversalPrint(*ptr, os);
+    *os << "}";
+  } else {
+    *os << "nullptr";
+  }
+}
+
 }  // namespace arrow
 
 namespace nonstd {

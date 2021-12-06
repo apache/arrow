@@ -275,6 +275,9 @@ ErrorMatcher Raises(StatusCode code, const MessageMatcher& message_matcher) {
 
 class DataEqMatcher {
  public:
+  // TODO(bkietz) support EqualOptions, ApproxEquals, etc
+  // Probably it's better to use something like config-through-key_value_metadata
+  // as with the random generators to decouple this from EqualOptions etc.
   explicit DataEqMatcher(Datum expected) : expected_(std::move(expected)) {}
 
   template <typename Data>
@@ -318,11 +321,18 @@ class DataEqMatcher {
           Unreachable();
         }
 
-        const bool match = boxed == expected_;
-        *listener << "whose value ";
-        if (listener->IsInterested()) PrintTo(boxed, listener->stream());
-        *listener << (match ? " matches" : " doesn't match");
-        return match;
+        if (boxed == expected_) {
+          *listener << "whose value matches";
+          return true;
+        }
+
+        if (listener->IsInterested() && boxed.kind() == Datum::ARRAY) {
+          *listener << "whose value differs from the expected value by "
+                    << boxed.make_array()->Diff(*expected_.make_array());
+        } else {
+          *listener << "whose value doesn't match";
+        }
+        return false;
       }
 
       Datum expected_;
@@ -335,9 +345,65 @@ class DataEqMatcher {
   Datum expected_;
 };
 
+/// Constructs a datum against which arguments are matched
 template <typename Data>
 DataEqMatcher DataEq(Data&& dat) {
   return DataEqMatcher(Datum(std::forward<Data>(dat)));
 }
+
+/// Constructs an array with ArrayFromJSON against which arguments are matched
+inline DataEqMatcher DataEqArray(const std::shared_ptr<DataType>& type,
+                                 util::string_view json) {
+  return DataEq(ArrayFromJSON(type, json));
+}
+
+/// Constructs an array from a vector of optionals against which arguments are matched
+template <
+    typename T, typename ArrayType = typename TypeTraits<T>::ArrayType,
+    typename BuilderType = typename TypeTraits<T>::BuilderType,
+    typename ValueType = typename stl::detail::DefaultValueAccessor<ArrayType>::ValueType>
+DataEqMatcher DataEqArray(T type, const std::vector<util::optional<ValueType>>& values) {
+  BuilderType builder(std::make_shared<T>(std::move(type)), default_memory_pool());
+  DCHECK_OK(builder.Reserve(static_cast<int64_t>(values.size())));
+
+  // pseudo constexpr:
+  static const bool need_safe_append = !is_fixed_width(T::type_id);
+
+  for (auto value : values) {
+    if (value) {
+      if (need_safe_append) {
+        builder.UnsafeAppend(*value);
+      } else {
+        DCHECK_OK(builder.Append(*value));
+      }
+    } else {
+      builder.UnsafeAppendNull();
+    }
+  }
+
+  return DataEq(builder.Finish().ValueOrDie());
+}
+
+/// Constructs a scalar with ScalarFromJSON against which arguments are matched
+inline DataEqMatcher DataEqScalar(const std::shared_ptr<DataType>& type,
+                                  util::string_view json) {
+  return DataEq(ScalarFromJSON(type, json));
+}
+
+/// Constructs a scalar against which arguments are matched
+template <typename T, typename ScalarType = typename TypeTraits<T>::ScalarType,
+          typename ValueType = typename ScalarType::ValueType>
+DataEqMatcher DataEqScalar(T type, util::optional<ValueType> value) {
+  ScalarType expected(std::make_shared<T>(std::move(type)));
+
+  if (value) {
+    expected.is_valid = true;
+    expected.value = std::move(*value);
+  }
+
+  return DataEq(std::move(expected));
+}
+
+// HasType, HasSchema matchers
 
 }  // namespace arrow
