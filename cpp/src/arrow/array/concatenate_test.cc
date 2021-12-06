@@ -407,46 +407,100 @@ TEST_F(ConcatenateTest, DenseUnionTypeOverflow) {
 }
 
 TEST_F(ConcatenateTest, DenseUnionType) {
-  auto type_ids = ArrayFromJSON(int8(), "[0, 0, 1, 1, 0, 1]");
-  auto offsets = ArrayFromJSON(int32(), "[0, 1, 0, 1, 2, 2]");
-  auto child_one = ArrayFromJSON(boolean(), "[true, true, false]");
-  auto child_two = ArrayFromJSON(int8(), "[1, 2, 3]");
-  ASSERT_OK_AND_ASSIGN(
-      auto array, DenseUnionArray::Make(*type_ids, *offsets, {child_one, child_two}));
-  ASSERT_OK(array->ValidateFull());
-
-  ArrayVector arrays({array, array});
-  ASSERT_OK_AND_ASSIGN(auto concat_arrays, Concatenate(arrays, default_memory_pool()));
-  ASSERT_OK(concat_arrays->ValidateFull());
-
-  auto type_ids_expected = ArrayFromJSON(int8(), "[0, 0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 1]");
-  auto offsets_expected = ArrayFromJSON(int32(), "[0, 1, 0, 1, 2, 2, 3, 4, 3, 4, 5, 5]");
-  auto child_one_expected =
-      ArrayFromJSON(boolean(), "[true, true, false, true, true, false]");
-  auto child_two_expected = ArrayFromJSON(int8(), "[1, 2, 3, 1, 2, 3]");
-  ASSERT_OK_AND_ASSIGN(auto expected,
-                       DenseUnionArray::Make(*type_ids_expected, *offsets_expected,
-                                             {child_one_expected, child_two_expected}));
-  ASSERT_OK(expected->ValidateFull());
-  AssertArraysEqual(*expected, *concat_arrays);
-
-  ArrayVector sliced_arrays({array->Slice(1, 4), array});
-  ASSERT_OK_AND_ASSIGN(auto concat_sliced_arrays,
-                       Concatenate(sliced_arrays, default_memory_pool()));
-  ASSERT_OK(concat_sliced_arrays->ValidateFull());
-
-  AssertArraysEqual(*ArrayFromJSON(dense_union({field("", boolean()), field("", int8())}), R"([
+  auto array = ArrayFromJSON(dense_union({field("", boolean()), field("", int8())}), R"([
+    [0, true],
     [0, true],
     [1, 1],
     [1, 2],
+    [0, false],
+    [1, 3]
+  ])");
+  ASSERT_OK(array->ValidateFull());
+
+  // Test concatenation of an unsliced array.
+  ASSERT_OK_AND_ASSIGN(auto concat_arrays,
+                       Concatenate({array, array}, default_memory_pool()));
+  ASSERT_OK(concat_arrays->ValidateFull());
+  AssertArraysEqual(
+      *ArrayFromJSON(dense_union({field("", boolean()), field("", int8())}), R"([
     [0, true],
+    [0, true],
+    [1, 1],
+    [1, 2],
+    [0, false],
+    [1, 3],
+    [0, true],
+    [0, true],
+    [1, 1],
+    [1, 2],
+    [0, false],
+    [1, 3]
+  ])"),
+      *concat_arrays);
+
+  // Test concatenation of a sliced array with an unsliced array.
+  ASSERT_OK_AND_ASSIGN(auto concat_sliced_arrays,
+                       Concatenate({array->Slice(1, 4), array}, default_memory_pool()));
+  ASSERT_OK(concat_sliced_arrays->ValidateFull());
+  AssertArraysEqual(
+      *ArrayFromJSON(dense_union({field("", boolean()), field("", int8())}), R"([
+    [0, true],
+    [1, 1],
+    [1, 2],
     [0, false],
     [0, true],
-    [1, 3],
+    [0, true],
+    [1, 1],
+    [1, 2],
+    [0, false],
+    [1, 3]
+  ])"),
+      *concat_sliced_arrays);
+
+  // Test concatenation of an unsliced array, but whose children are sliced.
+  auto type_ids = ArrayFromJSON(int8(), "[1, 1, 0, 0, 0]");
+  auto offsets = ArrayFromJSON(int32(), "[0, 1, 0, 1, 2]");
+  auto child_one =
+      ArrayFromJSON(boolean(), "[false, true, true, true, false, false, false]");
+  auto child_two = ArrayFromJSON(int8(), "[0, 1, 1, 0, 0, 0, 0]");
+  ASSERT_OK_AND_ASSIGN(
+      auto array_sliced_children,
+      DenseUnionArray::Make(*type_ids, *offsets,
+                            {child_one->Slice(1, 3), child_two->Slice(1, 2)}));
+  ASSERT_OK(array_sliced_children->ValidateFull());
+  ASSERT_OK_AND_ASSIGN(
+      auto concat_sliced_children,
+      Concatenate({array_sliced_children, array_sliced_children}, default_memory_pool()));
+  ASSERT_OK(concat_sliced_children->ValidateFull());
+  AssertArraysEqual(
+      *ArrayFromJSON(dense_union({field("0", boolean()), field("1", int8())}), R"([
+    [1, 1],
     [1, 1],
     [0, true],
-    [1, 3]
-  ])"), *concat_sliced_arrays);
+    [0, true],
+    [0, true],
+    [1, 1],
+    [1, 1],
+    [0, true],
+    [0, true],
+    [0, true]
+  ])"),
+      *concat_sliced_children);
+
+  // Test concatenation of a sliced array, whose children also have an offset.
+  ASSERT_OK_AND_ASSIGN(auto concat_sliced_array_sliced_children,
+                       Concatenate({array_sliced_children->Slice(1, 1),
+                                    array_sliced_children->Slice(2, 3)},
+                                   default_memory_pool()));
+  ASSERT_OK(concat_sliced_array_sliced_children->ValidateFull());
+  AssertArraysEqual(
+      *ArrayFromJSON(dense_union({field("0", boolean()), field("1", int8())}), R"([
+    [1, 1],
+    [0, true],
+    [0, true],
+    [0, true]
+  ])"),
+      *concat_sliced_array_sliced_children);
 }
 
 TEST_F(ConcatenateTest, OffsetOverflow) {
