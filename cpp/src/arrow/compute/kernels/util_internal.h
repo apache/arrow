@@ -44,7 +44,7 @@ constexpr Unsigned to_unsigned(T signed_) {
 }
 
 // An internal data structure for unpacking a primitive argument to pass to a
-// kernel implementation
+// kernel implementation 
 struct PrimitiveArg {
   const uint8_t* is_valid;
   // If the bit_width is a multiple of 8 (i.e. not boolean), then "data" should
