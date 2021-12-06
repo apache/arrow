@@ -379,7 +379,8 @@ def test_compression_level(use_legacy_dataset):
                      compression_level={'a': 2, 'b': 3},
                      use_legacy_dataset=use_legacy_dataset)
 
-    # Check if both LZ4 compressors are working (level < 3 -> fast, level >= 3 -> HC)
+    # Check if both LZ4 compressors are working
+    # (level < 3 -> fast, level >= 3 -> HC)
     _check_roundtrip(table, expected=table, compression="lz4",
                      compression_level=1,
                      use_legacy_dataset=use_legacy_dataset)

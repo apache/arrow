@@ -364,9 +364,9 @@ class Lz4Codec : public Codec {
           reinterpret_cast<const char*>(input), reinterpret_cast<char*>(output_buffer),
           static_cast<int>(input_len), static_cast<int>(output_buffer_len));
     } else {
-        output_len = LZ4_compress_HC(
-            reinterpret_cast<const char*>(input), reinterpret_cast<char*>(output_buffer),
-            static_cast<int>(input_len), static_cast<int>(output_buffer_len),
+      output_len = LZ4_compress_HC(
+          reinterpret_cast<const char*>(input), reinterpret_cast<char*>(output_buffer),
+          static_cast<int>(input_len), static_cast<int>(output_buffer_len),
 			    compression_level_);
     }
     if (output_len == 0) {
