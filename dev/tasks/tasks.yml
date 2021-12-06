@@ -1283,10 +1283,8 @@ tasks:
         cd build
         sudo chown -R ${USER}: .
         tar cvzf docs.tar.gz docs
-      run: >-
-        -e ARROW_DOCS_VERSION={{ "{{ arrow.no_rc_version }}" }}
-        -v $PWD/build/:/build/
-        ubuntu-docs
+      run: |
+        -v $PWD/build/:/build/ ubuntu-docs
     artifacts:
       - docs.tar.gz
 
