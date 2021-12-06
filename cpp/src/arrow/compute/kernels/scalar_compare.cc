@@ -754,7 +754,7 @@ std::shared_ptr<ScalarFunction> MakeScalarMinMax(std::string name,
     DCHECK_OK(func->AddKernel(std::move(kernel)));
   }
   for (const auto id : {Type::DECIMAL128, Type::DECIMAL256}) {
-    auto exec = GeneratePhysicalDecimalToPhysicalDecimal<ScalarMinMax, Op>(id);
+    auto exec = GenerateDecimalToDecimal<ScalarMinMax, Op>(id);
     OutputType out_type(ResolveMinOrMaxOutputType);
     ScalarKernel kernel{KernelSignature::Make({InputType{id}}, out_type,
                                               /*is_varargs=*/true),

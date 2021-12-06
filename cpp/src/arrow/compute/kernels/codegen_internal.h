@@ -1169,8 +1169,9 @@ ArrayKernelExec GeneratePhysicalNumeric(detail::GetTypeId get_id) {
   }
 }
 
+// Generate a kernel given a templated functor for decimal types
 template <template <typename... Args> class Generator, typename... Args>
-ArrayKernelExec GeneratePhysicalDecimalToPhysicalDecimal(detail::GetTypeId get_id) {
+ArrayKernelExec GenerateDecimalToDecimal(detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::DECIMAL128:
       return Generator<Decimal128Type, Args...>::Exec;
