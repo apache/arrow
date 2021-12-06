@@ -29,18 +29,29 @@
 namespace arrow {
 namespace engine {
 
-// uuid, fixed_char, and varchar are provided as first-class types by substrait
-// but do not appear in the arrow type system. The following arrow::ExtensionTypes
-// are provided to wrap them.
+// uuid, fixed_char, varchar, interval_year, and interval_day are provided as first-class
+// types by substrait but do not appear in the arrow type system. The following
+// arrow::ExtensionTypes are provided to wrap them.
 
+/// fixed_size_binary(16) for storing Universally Unique IDentifiers
 ARROW_ENGINE_EXPORT
 std::shared_ptr<DataType> uuid();
 
+/// fixed_size_binary(length) constrained to contain only valid UTF-8
 ARROW_ENGINE_EXPORT
 std::shared_ptr<DataType> fixed_char(int32_t length);
 
+/// utf8() constrained to be shorter than `length`
 ARROW_ENGINE_EXPORT
 std::shared_ptr<DataType> varchar(int32_t length);
+
+/// fixed_size_list(int32(), 2) storing a number of [years, months]
+ARROW_ENGINE_EXPORT
+std::shared_ptr<DataType> interval_year();
+
+/// fixed_size_list(int32(), 2) storing a number of [days, seconds]
+ARROW_ENGINE_EXPORT
+std::shared_ptr<DataType> interval_day();
 
 /// Return true if t is Uuid, otherwise false
 ARROW_ENGINE_EXPORT
@@ -53,6 +64,14 @@ util::optional<int32_t> UnwrapFixedChar(const DataType&);
 /// Return Varchar (max) length if t is VarChar, otherwise nullopt
 ARROW_ENGINE_EXPORT
 util::optional<int32_t> UnwrapVarChar(const DataType& t);
+
+/// Return true if t is IntervalYear, otherwise false
+ARROW_ENGINE_EXPORT
+bool UnwrapIntervalYear(const DataType&);
+
+/// Return true if t is IntervalDay, otherwise false
+ARROW_ENGINE_EXPORT
+bool UnwrapIntervalDay(const DataType&);
 
 }  // namespace engine
 }  // namespace arrow

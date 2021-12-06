@@ -65,6 +65,30 @@ using VarCharType =
                         decltype(kVarCharExtensionParamsProperties),
                         kVarCharExtensionParamsProperties, VarCharGetStorage>;
 
+constexpr util::string_view kIntervalYearExtensionName = "interval_year";
+struct IntervalYearExtensionParams {};
+std::shared_ptr<DataType> IntervalYearGetStorage(const IntervalYearExtensionParams&) {
+  return fixed_size_list(int32(), 2);
+}
+static auto kIntervalYearExtensionParamsProperties = internal::MakeProperties();
+
+using IntervalYearType =
+    SimpleExtensionType<kIntervalYearExtensionName, IntervalYearExtensionParams,
+                        decltype(kIntervalYearExtensionParamsProperties),
+                        kIntervalYearExtensionParamsProperties, IntervalYearGetStorage>;
+
+constexpr util::string_view kIntervalDayExtensionName = "interval_day";
+struct IntervalDayExtensionParams {};
+std::shared_ptr<DataType> IntervalDayGetStorage(const IntervalDayExtensionParams&) {
+  return fixed_size_list(int32(), 2);
+}
+static auto kIntervalDayExtensionParamsProperties = internal::MakeProperties();
+
+using IntervalDayType =
+    SimpleExtensionType<kIntervalDayExtensionName, IntervalDayExtensionParams,
+                        decltype(kIntervalDayExtensionParamsProperties),
+                        kIntervalDayExtensionParamsProperties, IntervalDayGetStorage>;
+
 }  // namespace
 
 std::shared_ptr<DataType> uuid() { return UuidType::Make({}); }
@@ -74,6 +98,10 @@ std::shared_ptr<DataType> fixed_char(int32_t length) {
 }
 
 std::shared_ptr<DataType> varchar(int32_t length) { return VarCharType::Make({length}); }
+
+std::shared_ptr<DataType> interval_year() { return IntervalYearType::Make({}); }
+
+std::shared_ptr<DataType> interval_day() { return IntervalDayType::Make({}); }
 
 bool UnwrapUuid(const DataType& t) {
   if (auto params = UuidType::GetIf(t)) {
@@ -94,6 +122,20 @@ util::optional<int32_t> UnwrapVarChar(const DataType& t) {
     return params->length;
   }
   return util::nullopt;
+}
+
+bool UnwrapIntervalYear(const DataType& t) {
+  if (auto params = IntervalYearType::GetIf(t)) {
+    return true;
+  }
+  return false;
+}
+
+bool UnwrapIntervalDay(const DataType& t) {
+  if (auto params = IntervalDayType::GetIf(t)) {
+    return true;
+  }
+  return false;
 }
 
 }  // namespace engine

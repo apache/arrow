@@ -166,8 +166,22 @@ Result<Datum> FromProto(const st::Expression::Literal& lit) {
       return Datum(Time64Scalar(static_cast<int64_t>(lit.time()), TimeUnit::MICRO));
 
     case st::Expression::Literal::kIntervalYearToMonth:
-    case st::Expression::Literal::kIntervalDayToSecond:
-      break;
+    case st::Expression::Literal::kIntervalDayToSecond: {
+      Int32Builder builder;
+      std::shared_ptr<DataType> type;
+      if (lit.has_interval_year_to_month()) {
+        RETURN_NOT_OK(builder.Append(lit.interval_year_to_month().years()));
+        RETURN_NOT_OK(builder.Append(lit.interval_year_to_month().months()));
+        type = interval_year();
+      } else {
+        RETURN_NOT_OK(builder.Append(lit.interval_day_to_second().days()));
+        RETURN_NOT_OK(builder.Append(lit.interval_day_to_second().seconds()));
+        type = interval_day();
+      }
+      ARROW_ASSIGN_OR_RAISE(auto array, builder.Finish());
+      return Datum(
+          ExtensionScalar(FixedSizeListScalar(std::move(array)), std::move(type)));
+    }
 
     case st::Expression::Literal::kUuid:
       return Datum(ExtensionScalar(FixedSizeBinaryScalarFromBytes(lit.uuid()), uuid()));
@@ -503,6 +517,31 @@ struct ToProtoImpl {
           internal::checked_cast<const StringScalar&>(*s.value).value->ToString());
 
       lit_->set_allocated_var_char(var_char.release());
+      return Status::OK();
+    }
+
+    auto GetPairOfInts = [&] {
+      const auto& array =
+          *internal::checked_cast<const FixedSizeListScalar&>(*s.value).value;
+      auto ints = internal::checked_cast<const Int32Array&>(array).raw_values();
+      return std::make_pair(ints[0], ints[1]);
+    };
+
+    if (UnwrapIntervalYear(*s.type)) {
+      auto interval_year = internal::make_unique<Lit::IntervalYearToMonth>();
+      interval_year->set_years(GetPairOfInts().first);
+      interval_year->set_months(GetPairOfInts().second);
+
+      lit_->set_allocated_interval_year_to_month(interval_year.release());
+      return Status::OK();
+    }
+
+    if (UnwrapIntervalDay(*s.type)) {
+      auto interval_day = internal::make_unique<Lit::IntervalDayToSecond>();
+      interval_day->set_days(GetPairOfInts().first);
+      interval_day->set_seconds(GetPairOfInts().second);
+
+      lit_->set_allocated_interval_day_to_second(interval_day.release());
       return Status::OK();
     }
 

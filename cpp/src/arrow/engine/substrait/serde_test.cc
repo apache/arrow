@@ -26,6 +26,7 @@
 #include "arrow/engine/substrait/extension_types.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
+#include "arrow/util/key_value_metadata.h"
 
 namespace arrow {
 namespace engine {
@@ -162,6 +163,8 @@ TEST(Substrait, SupportedTypes) {
   ExpectEq(R"({"date": {}})", date64());
   ExpectEq(R"({"time": {}})", time64(TimeUnit::MICRO));
   ExpectEq(R"({"timestamp_tz": {}})", timestamp(TimeUnit::MICRO, "UTC"));
+  ExpectEq(R"({"interval_year": {}})", interval_year());
+  ExpectEq(R"({"interval_day": {}})", interval_day());
 
   ExpectEq(R"({"uuid": {}})", uuid());
 
@@ -183,10 +186,65 @@ TEST(Substrait, SupportedTypes) {
            }));
 }
 
+TEST(Substrait, NamedStruct) {
+  auto buf = SubstraitFromJSON("NamedStruct", R"({
+    "struct": {
+      "types": [
+        {"i64": {}},
+        {"list": {"type": {"string":{}} }},
+        {"struct": {
+          "types": [
+            {"fp32": {}},
+            {"string": {}}
+          ]
+        }},
+        {"list": {"type": {"string":{}} }},
+      ]
+    },
+    "names": ["a", "b", "c", "d", "e", "f"]
+  })");
+  ASSERT_OK_AND_ASSIGN(auto schema, DeserializeSchema(*buf));
+  Schema expected_schema({
+      field("a", int64()),
+      field("b", list(utf8())),
+      field("c", struct_({
+                     field("d", float32()),
+                     field("e", utf8()),
+                 })),
+      field("f", list(utf8())),
+  });
+  EXPECT_EQ(*schema, expected_schema);
+
+  ASSERT_OK_AND_ASSIGN(auto serialized, SerializeSchema(*schema));
+  ASSERT_OK_AND_ASSIGN(auto roundtripped, DeserializeSchema(*serialized));
+  EXPECT_EQ(*roundtripped, expected_schema);
+
+  // too few names
+  buf = SubstraitFromJSON("NamedStruct", R"({
+    "struct": {"types": [{"i32": {}}, {"i32": {}}, {"i32": {}}]},
+    "names": []
+  })");
+  EXPECT_THAT(DeserializeSchema(*buf), Raises(StatusCode::Invalid));
+
+  // too many names
+  buf = SubstraitFromJSON("NamedStruct", R"({
+    "struct": {"types": []},
+    "names": ["a", "b", "c"]
+  })");
+  EXPECT_THAT(DeserializeSchema(*buf), Raises(StatusCode::Invalid));
+
+  // no schema metadata allowed
+  EXPECT_THAT(SerializeSchema(Schema({}, key_value_metadata({{"ext", "yes"}}))),
+              Raises(StatusCode::Invalid));
+
+  // no schema metadata allowed
+  EXPECT_THAT(SerializeSchema(
+                  Schema({field("a", int32(), key_value_metadata({{"ext", "yes"}}))})),
+              Raises(StatusCode::Invalid));
+}
+
 TEST(Substrait, NoEquivalentArrowType) {
   for (util::string_view json : {
-           R"({"interval_year": {}})",
-           R"({"interval_day": {}})",
            R"({"user_defined_type_reference": 99})",
        }) {
     ARROW_SCOPED_TRACE(json);
@@ -197,6 +255,8 @@ TEST(Substrait, NoEquivalentArrowType) {
 
 TEST(Substrait, NoEquivalentSubstraitType) {
   for (auto type : {
+           null(),
+
            uint8(),
            uint16(),
            uint32(),
@@ -274,6 +334,14 @@ TEST(Substrait, SupportedLiterals) {
 
   ExpectEq(R"({"time": "64"})", Time64Scalar(64, TimeUnit::MICRO));
 
+  ExpectEq(R"({"interval_year_to_month": {"years": 34, "months": 3}})",
+           ExtensionScalar(FixedSizeListScalar(ArrayFromJSON(int32(), "[34, 3]")),
+                           interval_year()));
+
+  ExpectEq(R"({"interval_day_to_second": {"days": 34, "seconds": 3}})",
+           ExtensionScalar(FixedSizeListScalar(ArrayFromJSON(int32(), "[34, 3]")),
+                           interval_day()));
+
   ExpectEq(R"({"fixed_char": "zzz"})",
            ExtensionScalar(
                FixedSizeBinaryScalar(Buffer::FromString("zzz"), fixed_size_binary(3)),
@@ -311,12 +379,22 @@ TEST(Substrait, SupportedLiterals) {
                           R"([32, ["hello", "world"]])"));
 
   // check null scalars:
-  for (const auto& field : kBoringSchema->fields()) {
-    auto maybe_type_buf = SerializeType(*field->type());
-    if (!maybe_type_buf.ok()) continue;
+  for (auto type : {
+           boolean(),
 
-    ExpectEq("{\"null\": " + SubstraitToJSON("Type", **maybe_type_buf) + "}",
-             MakeNullScalar(field->type()));
+           int8(),
+           int64(),
+
+           timestamp(TimeUnit::MICRO),
+           interval_year(),
+
+           struct_({
+               field("", int64()),
+               field("", list(utf8())),
+           }),
+       }) {
+    ASSERT_OK_AND_ASSIGN(auto buf, SerializeType(*type));
+    ExpectEq("{\"null\": " + SubstraitToJSON("Type", *buf) + "}", MakeNullScalar(type));
   }
 }
 
@@ -333,15 +411,7 @@ TEST(Substrait, CannotDeserializeLiteral) {
               Raises(StatusCode::Invalid));
 
   // no equivalent arrow scalar
-  for (util::string_view json : {
-           R"({"interval_year_to_month": {"years": 3, "months": 2}})",
-           R"({"interval_day_to_second": {"days": 3, "seconds": 2}})",
-           // FIXME no way to specify scalars of user_defined_type_reference
-       }) {
-    ARROW_SCOPED_TRACE(json);
-    auto buf = SubstraitFromJSON("Expression", "{\"literal\": " + json.to_string() + "}");
-    ASSERT_THAT(DeserializeExpression(*buf), Raises(StatusCode::NotImplemented));
-  }
+  // FIXME no way to specify scalars of user_defined_type_reference
 }
 
 TEST(Substrait, FieldRefRoundTrip) {

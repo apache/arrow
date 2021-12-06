@@ -64,17 +64,28 @@ Result<std::pair<std::shared_ptr<DataType>, bool>> FromProtoImpl(
       IsNullable(type));
 }
 
-template <typename Types, typename Names = const std::string*>
-Result<FieldVector> FieldsFromProto(
-    int size, const Types& types,
-    const Names* names = static_cast<const Names*>(nullptr)) {
+template <typename Types, typename NextName>
+Result<FieldVector> FieldsFromProto(int size, const Types& types,
+                                    const NextName& next_name) {
   FieldVector fields(size);
   for (int i = 0; i < size; ++i) {
-    ARROW_ASSIGN_OR_RAISE(auto type_nullable, FromProto(types[i]));
+    std::string name = next_name();
+    std::shared_ptr<DataType> type;
+    bool nullable;
 
-    std::string name = names ? std::move((*names)[i]) : "";
-    fields[i] =
-        field(std::move(name), std::move(type_nullable.first), type_nullable.second);
+    if (types[i].has_struct_()) {
+      const auto& struct_ = types[i].struct_();
+
+      ARROW_ASSIGN_OR_RAISE(
+          type, FieldsFromProto(struct_.types_size(), struct_.types(), next_name)
+                    .Map(arrow::struct_));
+
+      nullable = IsNullable(struct_);
+    } else {
+      ARROW_ASSIGN_OR_RAISE(std::tie(type, nullable), FromProto(types[i]));
+    }
+
+    fields[i] = field(std::move(name), std::move(type), nullable);
   }
   return fields;
 }
@@ -117,37 +128,18 @@ Result<std::pair<std::shared_ptr<DataType>, bool>> FromProto(const st::Type& typ
       return FromProtoImpl<Time64Type>(type.time(), TimeUnit::MICRO);
 
     case st::Type::kIntervalYear:
-      // FIXME
-      // None of MonthIntervalType, DayTimeIntervalType, MonthDayNanoIntervalType
-      // corresponds; none has a year field. Lossy conversion to MonthIntervalType
-      // would be possible...
-      break;
+      return FromProtoImpl(type.interval_year(), interval_year);
 
     case st::Type::kIntervalDay:
-      // FIXME
-      // Documentation is inconsistent; the precision of the sub-day interval is
-      // described as microsecond in simple_logical_types.md but IntervalDayToSecond has
-      // the field `int32 seconds`. At microsecond precision it's minimally necessary to
-      // store all values in the range `[0,24*60*60*1000_000)` in order to express all
-      // possible sub-day intervals, but this is not possible for 32 bit integers.
-      //
-      // Possible fixes: amend that field to `int64 milliseconds`, then this type can be
-      //                 converted to MonthDayNanoIntervalType (months will always be
-      //                 0).
-      //               : amend documentation to claim only second precision, then this
-      //                 type can be converted to DayTimeIntervalType (milliseconds %
-      //                 1000 will always be 0).
-      break;
+      return FromProtoImpl(type.interval_day(), interval_day);
 
     case st::Type::kUuid:
       return FromProtoImpl(type.uuid(), uuid);
 
     case st::Type::kFixedChar:
-      // need extension type to mark utf-8 constraint
       return FromProtoImpl(type.fixed_char(), fixed_char, type.fixed_char().length());
 
     case st::Type::kVarchar:
-      // need extension type to hold type.varchar().length() constraint
       return FromProtoImpl(type.varchar(), varchar, type.varchar().length());
 
     case st::Type::kFixedBinary:
@@ -163,7 +155,8 @@ Result<std::pair<std::shared_ptr<DataType>, bool>> FromProto(const st::Type& typ
       const auto& struct_ = type.struct_();
 
       ARROW_ASSIGN_OR_RAISE(auto fields,
-                            FieldsFromProto(struct_.types_size(), struct_.types()));
+                            FieldsFromProto(struct_.types_size(), struct_.types(),
+                                            /*next_name=*/[] { return ""; }));
 
       return FromProtoImpl<StructType>(struct_, std::move(fields));
     }
@@ -212,27 +205,6 @@ Result<std::pair<std::shared_ptr<DataType>, bool>> FromProto(const st::Type& typ
 
   return Status::NotImplemented("conversion to arrow::DataType from ",
                                 type.DebugString());
-}
-
-Result<std::shared_ptr<Schema>> FromProto(const st::NamedStruct& named_struct) {
-  if (named_struct.has_struct_()) {
-    return Status::Invalid("While converting ", named_struct.DebugString(),
-                           " no anonymous struct type was provided to which to names "
-                           "could be attached.");
-  }
-  const auto& struct_ = named_struct.struct_();
-  RETURN_NOT_OK(CheckVariation(struct_));
-
-  if (struct_.types_size() != named_struct.names_size()) {
-    return Status::Invalid("While converting ", named_struct.DebugString(), " received ",
-                           struct_.types_size(), " types but ", named_struct.names_size(),
-                           " names.");
-  }
-
-  ARROW_ASSIGN_OR_RAISE(
-      auto fields,
-      FieldsFromProto(struct_.types_size(), struct_.types(), &named_struct.names()));
-  return schema(std::move(fields));
 }
 
 namespace {
@@ -297,6 +269,7 @@ struct ToProtoImpl {
   Status Visit(const Decimal256Type& t) { return NotImplemented(t); }
 
   Status Visit(const ListType& t) {
+    // FIXME assert default field name; custom ones won't roundtrip
     ARROW_ASSIGN_OR_RAISE(auto type,
                           ToProto(*t.value_type(), t.value_field()->nullable()));
     SetWithThen(&st::Type::set_allocated_list)->set_allocated_type(type.release());
@@ -309,9 +282,6 @@ struct ToProtoImpl {
     types->Reserve(t.num_fields());
 
     for (const auto& field : t.fields()) {
-      if (field->name() != "") {
-        return Status::Invalid("substrait::Type::Struct does not support named fields");
-      }
       if (field->metadata() != nullptr) {
         return Status::Invalid("substrait::Type::Struct does not support field metadata");
       }
@@ -326,6 +296,7 @@ struct ToProtoImpl {
   Status Visit(const DictionaryType& t) { return NotImplemented(t); }
 
   Status Visit(const MapType& t) {
+    // FIXME assert default field names; custom ones won't roundtrip
     auto map = SetWithThen(&st::Type::set_allocated_map);
 
     ARROW_ASSIGN_OR_RAISE(auto key, ToProto(*t.key_type()));
@@ -351,6 +322,14 @@ struct ToProtoImpl {
     if (auto length = UnwrapVarChar(t)) {
       SetWithThen(&st::Type::set_allocated_varchar)->set_length(*length);
       return Status::OK();
+    }
+
+    if (UnwrapIntervalYear(t)) {
+      return SetWith(&st::Type::set_allocated_interval_year);
+    }
+
+    if (UnwrapIntervalDay(t)) {
+      return SetWith(&st::Type::set_allocated_interval_day);
     }
 
     return NotImplemented(t);
@@ -396,18 +375,63 @@ Result<std::unique_ptr<st::Type>> ToProto(const DataType& type, bool nullable) {
   return std::move(out);
 }
 
+namespace {
+void ToProtoGetDepthFirstNames(const FieldVector& fields,
+                               google::protobuf::RepeatedPtrField<std::string>* names) {
+  for (const auto& field : fields) {
+    *names->Add() = field->name();
+
+    if (field->type()->id() == Type::STRUCT) {
+      ToProtoGetDepthFirstNames(field->type()->fields(), names);
+    }
+  }
+}
+}  // namespace
+
+Result<std::shared_ptr<Schema>> FromProto(const st::NamedStruct& named_struct) {
+  if (!named_struct.has_struct_()) {
+    return Status::Invalid("While converting ", named_struct.DebugString(),
+                           " no anonymous struct type was provided to which to names "
+                           "could be attached.");
+  }
+  const auto& struct_ = named_struct.struct_();
+  RETURN_NOT_OK(CheckVariation(struct_));
+
+  int requested_names_count = 0;
+  ARROW_ASSIGN_OR_RAISE(auto fields,
+                        FieldsFromProto(struct_.types_size(), struct_.types(),
+                                        /*next_name=*/[&] {
+                                          int i = requested_names_count++;
+                                          return i < named_struct.names_size()
+                                                     ? named_struct.names().Get(i)
+                                                     : "";
+                                        }));
+
+  if (requested_names_count != named_struct.names_size()) {
+    return Status::Invalid("While converting ", named_struct.DebugString(), " received ",
+                           named_struct.names_size(), " names but ",
+                           requested_names_count, " struct fields");
+  }
+
+  return schema(std::move(fields));
+}
+
 Result<std::unique_ptr<st::NamedStruct>> ToProto(const Schema& schema) {
+  if (schema.metadata()) {
+    return Status::Invalid("substrait::NamedStruct does not support schema metadata");
+  }
+
   auto named_struct = internal::make_unique<st::NamedStruct>();
+
   auto names = named_struct->mutable_names();
   names->Reserve(schema.num_fields());
+  ToProtoGetDepthFirstNames(schema.fields(), names);
 
   auto struct_ = internal::make_unique<st::Type::Struct>();
   auto types = struct_->mutable_types();
   types->Reserve(schema.num_fields());
 
   for (const auto& field : schema.fields()) {
-    *names->Add() = field->name();
-
     if (field->metadata() != nullptr) {
       return Status::Invalid("substrait::NamedStruct does not support field metadata");
     }
