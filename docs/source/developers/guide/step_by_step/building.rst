@@ -31,11 +31,11 @@
 
 .. _build-arrow:
 
-************************************
-Building the Arrow's libraries 🏋🏿‍♀️
-************************************
+**********************************
+Building the Arrow libraries 🏋🏿‍♀️
+**********************************
 
-The Arrow project contains good number of libraries that enable
+The Arrow project contains a number of libraries that enable
 work in many languages. Most libraries (C++, C#, Go, Java,
 JavaScript, Julia, and Rust) already contain distinct implementations
 of Arrow. 
@@ -43,13 +43,14 @@ of Arrow.
 It is different for C (Glib), MATLAB, Python, R, and Ruby as they
 are built on top of the C++ library. In this section of the guide
 we will try to make a friendly introduction to the build
-dealing with this second part of the libraries plus some of C++.
+dealing with some of these libraries as well has how they work with
+the C++ library.
 
-In this case, if you decide to contribute to Arrow, you will probably
-meet the topic of compiling the source code and use of CMake. You may
-have some experience with it or not. If not, it is good to read
-through this part so you understand what is happening in the process
-of building Arrow better.
+If you decide to contribute to Arrow you might need to compile the
+C++ source code. This is done using a tool called CMake, which you
+may or may not have experience with. If not, this section of the
+guide will help you better understand CMake and the process
+of building Arrow's C++ code.
 
 If you feel comfortable with compiling then feel free to proceed
 to the :ref:`C++ <building-arrow-cpp>`, :ref:`PyArrow <build_pyarrow>` or
@@ -61,10 +62,10 @@ Building Arrow C++
 Why build Arrow C++ from source?
 --------------------------------
 
-For Arrow C++ implementation and its bindings (Python and R for example)
-these bindings are wrapping the underlying C++ functions. Even if you
-want to work on PyArrow or R package the source code of C++ may have to
-be edited also.
+For Arrow implementations which are built on top of the C++ implementation
+(e.g. Python and R), wrappers and interfaces have been written to the
+underlying C++ functions. If you want to work on PyArrow or R package,
+you may need to edit the source code of the C++ library too.
 
 Detailed instructions on building C++ library from source can
 be found :ref:`here <building-arrow-cpp>`.
@@ -72,12 +73,12 @@ be found :ref:`here <building-arrow-cpp>`.
 About CMake
 -----------
 
-CMake is a cross platform build system generator and it defers
+CMake is a cross-platform build system generator and it defers
 to another program such as ``make`` or ``ninja`` for the actual build.
-If running into errors with the build process, the first thing to do is
-to look at the error message thoroughly and check the building documentation
-for any similar error advice. Also changing the CMake flags for compiling
-Arrow could be useful.
+If you are running into errors with the build process, the first thing to
+do is to look at the error message thoroughly and check the building
+documentation for any similar error advice. Also changing the CMake flags
+for compiling Arrow could be useful.
 
 CMake presets
 -------------
@@ -112,8 +113,8 @@ for all things connected to the build, also for setting CMake flags.
 Building from source vs. using binaries
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Using binaries is a fast and simple way of working with the last release
-of Arrow. But you do not have the possibility to add or change
-the code and as a contributor you will need to.
+of Arrow. However, if you use these it means that you will be unable to
+make changes to the Arrow C++ library.
 
 **Note:** every language has it's own way of dealing with binaries.
 To get more information navigate to the section of the language you are
@@ -123,15 +124,16 @@ interested to find more information.
 
    .. tab:: Building Pyarrow
 
-      After building Arrow C++ part of Arrow you have to build PyArrow on top
-      of it also. The reason is the same, so you can edit the code and run
+      After building the Arrow C++ library, you need to build PyArrow on top
+      of it also. The reason is the same; so you can edit the code and run
       tests on the edited code you have locally.
 
       **Why do we have to do builds separately?**
 
-      As mentioned in the beginning of this page, Python part of the Arrow
-      project is built on top of C++. In order to make changes in Python part
-      of Arrow as well as C++ part of Arrow, we need to build them separately.
+      As mentioned at the beginning of this page, the Python part of the Arrow
+      project is built on top of the C++ library. In order to make changes in
+      the Python part of Arrow as well as the C++ part of Arrow, you need to
+      build them separately..
 
       We hope this introduction was enough to help you start with the building
       process.
@@ -144,5 +146,5 @@ interested to find more information.
 
          - :ref:`build_pyarrow_win`
 
-   .. tab:: Building R package
+   .. tab:: Building the R package
 
