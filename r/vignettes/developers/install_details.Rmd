@@ -8,7 +8,7 @@ binaries that we host).
 
 This documented is intended specifically for arrow _developers_ who wish to know 
 more about these scripts.  If you are an arrow _user_ looking for help with 
-installing arrow, please see [the installation guide](../install.html)
+installing arrow, please see [the installation guide](../install.html).
 
 An overview of these scripts is shown below:
 
