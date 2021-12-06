@@ -77,6 +77,24 @@ int64_t CountQuotes(util::string_view s) {
   return static_cast<int64_t>(std::count(s.begin(), s.end(), '"'));
 }
 
+// Counts the number of CSV structural characters in s.
+int64_t CountStructuralChars(util::string_view s) {
+  int64_t result = 0;
+  for (const auto c : s) {
+    switch (c) {
+      case '"':
+      case '\n':
+      case '\r':
+      case ',':
+        result++;
+        break;
+      default:
+        break;
+    }
+  }
+  return result;
+}
+
 // Matching quote pair character length.
 constexpr int64_t kQuoteCount = 2;
 constexpr int64_t kQuoteDelimiterCount = kQuoteCount + /*end_char*/ 1;
@@ -192,7 +210,7 @@ class UnquotedColumnPopulator : public ColumnPopulator {
       return VisitArrayDataInline<StringType>(
           *casted_array_->data(),
           [&](arrow::util::string_view s) {
-            ARROW_RETURN_NOT_OK(CheckStringHasNoQuotes(s));
+            ARROW_RETURN_NOT_OK(CheckStringHasNoStructuralChars(s));
             return valid_function(s);
           },
           null_function);
@@ -204,11 +222,11 @@ class UnquotedColumnPopulator : public ColumnPopulator {
   }
 
  private:
-  static Status CheckStringHasNoQuotes(const util::string_view& s) {
-    if (CountQuotes(s) > 0) {
+  static Status CheckStringHasNoStructuralChars(const util::string_view& s) {
+    if (CountStructuralChars(s) > 0) {
       return Status::Invalid(
-          "CSV values may not contain quotes if quote style is \"None\". See "
-          "RFC4180. Invalid value: ",
+          "CSV values may not contain structural characters if quote style is \"None\". "
+          "See RFC4180. Invalid value: ",
           s);
     }
     return Status::OK();

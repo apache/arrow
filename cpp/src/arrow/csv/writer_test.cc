@@ -61,6 +61,10 @@ WriteOptions DefaultTestOptions(bool include_header, const std::string& null_str
 }
 
 std::vector<WriterTestParams> GenerateTestCases() {
+  // Dummy schema and data for testing invalid options.
+  auto dummy_schema = schema({field("a", uint8())});
+  std::string dummy_batch_data = R"([{"a": null}])";
+
   // Schema to test various types.
   auto abc_schema = schema({
       field("a", uint64()),
@@ -136,9 +140,28 @@ std::vector<WriterTestParams> GenerateTestCases() {
                                    R"(NA,NA)" + "\n" +                 // line 2
                                    R"(1337,"""NA""")" + "\n";          // line 3
 
-  // Dummy schema and data for testing invalid options.
-  auto dummy_schema = schema({field("a", uint8())});
-  std::string dummy_batch_data = R"([{"a": null}])";
+  // Schema/expected message and test params generation for rejecting structural
+  // characters when quote style is None
+  auto schema_custom_reject_structural = schema({field("a", utf8())});
+  auto reject_structural_fail_msg = [&](const char* value) {
+    return std::string(
+               "Invalid: CSV values may not contain structural characters if quote style "
+               "is \"None\". See RFC4180. Invalid value: ") +
+           value;
+  };
+  auto reject_structural_params = [&](const char* json_val, const char* error_val) {
+    return WriterTestParams{
+        schema_custom_reject_structural,
+        std::string(R"([{"a": ")") + json_val + R"("}])",
+        DefaultTestOptions(/*include_header=*/false,
+                           /*null_string=*/"", QuotingStyle::None),
+        /*expect_invalid_options*/ false,
+        /*expected_output*/ "",
+        std::string(
+            "Invalid: CSV values may not contain structural characters if quote style "
+            "is \"None\". See RFC4180. Invalid value: ") +
+            error_val};
+  };
 
   return std::vector<WriterTestParams>{
       {abc_schema, "[]",
@@ -182,10 +205,11 @@ std::vector<WriterTestParams> GenerateTestCases() {
        DefaultTestOptions(/*include_header=*/false, /*null_string=*/"",
                           QuotingStyle::None),
        /*expect_invalid_options*/ false,
-       /*expected_output*/ "",
-       /*expect_invalid_string*/
-       "Invalid: CSV values may not contain quotes if quote style is \"None\". See "
-       "RFC4180. Invalid value: abc\"efg"}};
+       /*expected_output*/ "", reject_structural_fail_msg("abc\"efg")},
+      reject_structural_params("hi\\nbye", "hi\nbye"),
+      reject_structural_params(",xyz", ",xyz"),
+      reject_structural_params("a\\\"sdf", "a\"sdf"),
+      reject_structural_params("foo\\r", "foo\r")};
 }
 
 class TestWriteCSV : public ::testing::TestWithParam<WriterTestParams> {

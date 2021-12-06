@@ -177,8 +177,9 @@ enum class ARROW_EXPORT QuotingStyle {
   Needed,
   /// Enclose all valid values in quotes. Nulls are not quoted.
   AllValid,
-  /// Do not enclose any values in quotes. Prevents values from containing quotes
-  /// (following RFC4180) and causes an error to return when attempting to write.
+  /// Do not enclose any values in quotes. Prevents values from containing quotes ("),
+  /// cell delimiters (,) or line endings (\r, \n), (following RFC4180). If values
+  /// contain these characters, an error is caused when attempting to write.
   None
 };
 
