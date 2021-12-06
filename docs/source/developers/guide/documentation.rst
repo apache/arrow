@@ -40,9 +40,9 @@ If you didn't come across something to improve in the
 documentation itself, you can search for an issue on JIRA.
 
 .. note::
-   When searching for JIRA issue that deals with documentation
-   try selecting **Components** from **More** tab in JIRA search
-   and there find **Documentation** from the list.
+   When searching for JIRA issue that deals with documentation,
+   try selecting **Components** from the **More** tab in JIRA search
+   and select **Documentation** from the list.
 
    See `Example search. <https://issues.apache.org/jira/issues/?jql=project%20%3D%20ARROW%20AND%20status%20%3D%20Open%20AND%20resolution%20%3D%20Unresolved%20AND%20component%20%3D%20Documentation%20AND%20assignee%20in%20(EMPTY)%20ORDER%20BY%20priority%20DESC%2C%20updated%20DESC>`_
 
@@ -84,7 +84,7 @@ You could also build the entire project, make the change locally on
 your branch and make the PR this way. But it is by no means superior
 to simply editing via GitHub.
 
-If you wish to build the documentation also, follow detailed instructions
+If you wish to build the documentation locally, follow detailed instructions
 on :ref:`building-docs`.
 
 Where to find the correct file to change?
@@ -98,7 +98,7 @@ library. Source folder includes:
 - **Specificatons and protocols** section: ``docs/source/format``.
 - Other language documentation: **C (GLib), Java, JavaScript** and **Python**
   in folders named by the language, for example: ``docs/source/c_glib``.
-- The documentation for the **R language** is located in the ``r/sub-directory``.
+- The documentation for the **R language** is located in the ``r/`` sub-directory.
 
   - In the ``R/vignettes`` you can find the **Articles**, for example
     `Working with Cloud Storage (S3) <https://arrow.apache.org/docs/r/articles/fs.html>`_.
