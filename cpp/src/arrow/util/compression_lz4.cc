@@ -335,8 +335,6 @@ class Lz4FrameCodec : public Codec {
 
 class Lz4Codec : public Codec {
  public:
-  Lz4Codec() : compression_level_(kUseDefaultCompressionLevel) {}
-
   explicit Lz4Codec(int compression_level)
       : compression_level_(compression_level == kUseDefaultCompressionLevel
                                ? kLz4DefaultCompressionLevel
@@ -407,6 +405,8 @@ class Lz4Codec : public Codec {
 
 class Lz4HadoopCodec : public Lz4Codec {
  public:
+  Lz4HadoopCodec() : Lz4Codec(kUseDefaultCompressionLevel) {}
+
   Result<int64_t> Decompress(int64_t input_len, const uint8_t* input,
                              int64_t output_buffer_len, uint8_t* output_buffer) override {
     const int64_t decompressed_size =
