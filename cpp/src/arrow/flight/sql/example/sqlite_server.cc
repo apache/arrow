@@ -20,9 +20,9 @@
 #include <sqlite3.h>
 
 #include <boost/algorithm/string.hpp>
-#include <boost/lexical_cast.hpp>
 #include <map>
 #include <random>
+#include <sstream>
 
 #include "arrow/api.h"
 #include "arrow/flight/sql/example/sqlite_sql_info.h"
