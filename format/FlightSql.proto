@@ -963,7 +963,11 @@ message CommandGetTables {
    */
   optional string table_name_filter_pattern = 3;
 
-  // Specifies a filter of table types which must match.
+  /*
+   * Specifies a filter of table types which must match.
+   * The table types depend on vendor/implementation. It is usually used to separate tables from views or system tables.
+   * TABLE, VIEW, and SYSTEM TABLE are commonly supported.
+   */
   repeated string table_types = 4;
 
   // Specifies if the Arrow schema should be returned for found tables.
@@ -973,6 +977,7 @@ message CommandGetTables {
 /*
  * Represents a request to retrieve the list of table types on a Flight SQL enabled backend.
  * The table types depend on vendor/implementation. It is usually used to separate tables from views or system tables.
+ * TABLE, VIEW, and SYSTEM TABLE are commonly supported.
  * Used in the command member of FlightDescriptor for the following RPC calls:
  *  - GetSchema: return the Arrow schema of the query.
  *  - GetFlightInfo: execute the catalog metadata request.
