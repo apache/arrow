@@ -673,7 +673,7 @@ TEST_F(TestArray, TestMakeEmptyArray) {
                                        utf8(),
                                        large_utf8(),
                                        list(utf8()),
-                                       list(int64()),  // ARROW-9071
+                                       list(int64()),
                                        large_list(large_utf8()),
                                        fixed_size_list(utf8(), 3),
                                        fixed_size_list(int64(), 4),

@@ -58,8 +58,8 @@ Result<std::shared_ptr<Array>> MakeArrayFromScalar(
 ///
 /// The output Array will be of the given type.
 ///
-/// \param[in] type DataType of the empty Array
-/// \param[in] pool MemoryPool pointer
+/// \param[in] type the data type of the empty Array
+/// \param[in] pool the memory pool to allocate memory from
 /// \return the resulting Array
 ARROW_EXPORT
 Result<std::shared_ptr<Array>> MakeEmptyArray(std::shared_ptr<DataType> type,

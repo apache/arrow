@@ -73,6 +73,7 @@ TEST_F(TestChunkedArray, MakeEmpty) {
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<ChunkedArray> empty,
                        ChunkedArray::MakeEmpty(int64()));
   AssertTypeEqual(*int64(), *empty->type());
+  ASSERT_OK(empty->ValidateFull());
   ASSERT_EQ(empty->length(), 0);
 }
 

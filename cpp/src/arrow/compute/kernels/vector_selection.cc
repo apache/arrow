@@ -30,6 +30,7 @@
 #include "arrow/compute/kernels/util_internal.h"
 #include "arrow/extension_type.h"
 #include "arrow/result.h"
+#include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/util/bit_block_counter.h"
 #include "arrow/util/bit_run_reader.h"

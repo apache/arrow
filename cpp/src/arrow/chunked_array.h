@@ -94,8 +94,8 @@ class ARROW_EXPORT ChunkedArray {
   /// The output ChunkedArray will have one chunk with an empty
   /// array of the given type.
   ///
-  /// \param[in] type DataType of the empty ChunkedArray
-  /// \param[in] pool MemoryPool pointer
+  /// \param[in] type the data type of the empty ChunkedArray
+  /// \param[in] pool the memory pool to allocate memory from
   /// \return the resulting ChunkedArray
   static Result<std::shared_ptr<ChunkedArray>> MakeEmpty(
       std::shared_ptr<DataType> type, MemoryPool* pool = default_memory_pool());

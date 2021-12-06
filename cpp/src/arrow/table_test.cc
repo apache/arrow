@@ -191,6 +191,7 @@ TEST_F(TestTable, MakeEmpty) {
 
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<Table> empty, Table::MakeEmpty(schema));
   AssertSchemaEqual(*schema, *empty->schema());
+  ASSERT_OK(empty->ValidateFull());
   ASSERT_EQ(empty->num_rows(), 0);
 }
 

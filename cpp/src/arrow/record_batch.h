@@ -65,8 +65,8 @@ class ARROW_EXPORT RecordBatch {
   /// The output RecordBatch will be created with DataTypes from
   /// the given schema.
   ///
-  /// \param[in] schema Schema of the empty RecordBatch
-  /// \param[in] pool MemoryPool pointer
+  /// \param[in] schema the schema of the empty RecordBatch
+  /// \param[in] pool the memory pool to allocate memory from
   /// \return the resulting RecordBatch
   static Result<std::shared_ptr<RecordBatch>> MakeEmpty(
       std::shared_ptr<Schema> schema, MemoryPool* pool = default_memory_pool());
