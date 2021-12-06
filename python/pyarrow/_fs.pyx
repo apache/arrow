@@ -680,10 +680,16 @@ cdef class FileSystem(_Weakrefable):
     def open_append_stream(self, path, compression='detect',
                            buffer_size=None, metadata=None):
         """
+        Open an output stream for appending.
 
         If the target doesn't exist, a new empty file is created.
-        Note: This cannot be supported by all filesystem kinds, it will remain
-              unimplemented for filesystems which don't support it
+
+        .. note::
+            Some filesystem implementations do not support efficient
+            appending to an existing file, in which case this method will
+            raise NotImplementedError.
+            Consider writing to multiple files (using e.g. the dataset layer)
+            instead.
 
         Parameters
         ----------
