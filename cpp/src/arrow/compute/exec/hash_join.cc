@@ -191,8 +191,8 @@ class HashJoinBasicImpl : public HashJoinImpl {
       bool no_match = hash_table_empty_;
       for (int icol = 0; icol < num_cols; ++icol) {
         bool is_null = non_null_bit_vectors[icol] &&
-                       !BitUtil::GetBit(non_null_bit_vectors[icol],
-                                        non_null_bit_vector_offsets[icol] + irow);
+                       !bit_util::GetBit(non_null_bit_vectors[icol],
+                                         non_null_bit_vector_offsets[icol] + irow);
         if (key_cmp_[icol] == JoinKeyCmp::EQ && is_null) {
           no_match = true;
           break;
@@ -378,8 +378,8 @@ class HashJoinBasicImpl : public HashJoinImpl {
       bool passed = false;
       for (; static_cast<size_t>(irow) < num_rows && match_left[irow] == curr_left;
            irow++) {
-        bool is_valid = !validity || BitUtil::GetBit(validity, irow);
-        bool is_cmp_true = BitUtil::GetBit(comparisons, irow);
+        bool is_valid = !validity || bit_util::GetBit(validity, irow);
+        bool is_cmp_true = bit_util::GetBit(comparisons, irow);
         // We treat a null comparison result as false, like in SQL
         if (is_valid && is_cmp_true) {
           match_left[match_idx] = match_left[irow];
@@ -516,9 +516,9 @@ class HashJoinBasicImpl : public HashJoinImpl {
         ARROW_DCHECK(batch[i].is_scalar());
         if (!batch[i].scalar_as<arrow::internal::PrimitiveScalarBase>().is_valid) {
           if (nn_bit_vector_all_nulls->empty()) {
-            nn_bit_vector_all_nulls->resize(BitUtil::BytesForBits(batch.length));
+            nn_bit_vector_all_nulls->resize(bit_util::BytesForBits(batch.length));
             memset(nn_bit_vector_all_nulls->data(), 0,
-                   BitUtil::BytesForBits(batch.length));
+                   bit_util::BytesForBits(batch.length));
           }
           nn = nn_bit_vector_all_nulls->data();
         }
@@ -579,7 +579,7 @@ class HashJoinBasicImpl : public HashJoinImpl {
 
     for (auto i : local_state.match_right) {
       // Mark row in hash table as having a match
-      BitUtil::SetBit(local_state.has_match.data(), i);
+      bit_util::SetBit(local_state.has_match.data(), i);
     }
 
     RETURN_NOT_OK(ProbeBatch_OutputAll(thread_index, local_state.exec_batch_keys,
@@ -723,7 +723,7 @@ class HashJoinBasicImpl : public HashJoinImpl {
         join_type_ != JoinType::RIGHT_OUTER && join_type_ != JoinType::FULL_OUTER) {
       return 0;
     }
-    return BitUtil::CeilDiv(hash_table_keys_.num_rows(), hash_table_scan_unit_);
+    return bit_util::CeilDiv(hash_table_keys_.num_rows(), hash_table_scan_unit_);
   }
 
   Status ScanHashTable_exec_task(size_t thread_index, int64_t task_id) {
@@ -747,7 +747,7 @@ class HashJoinBasicImpl : public HashJoinImpl {
 
     bool match_search_value = (join_type_ == JoinType::RIGHT_SEMI);
     for (int32_t row_id = start_row_id; row_id < end_row_id; ++row_id) {
-      if (BitUtil::GetBit(has_match_.data(), row_id) == match_search_value) {
+      if (bit_util::GetBit(has_match_.data(), row_id) == match_search_value) {
         id_right.push_back(row_id);
       }
     }
@@ -821,8 +821,8 @@ class HashJoinBasicImpl : public HashJoinImpl {
     }
     if (!hash_table_empty_) {
       int32_t num_rows = hash_table_keys_.num_rows();
-      local_state->has_match.resize(BitUtil::BytesForBits(num_rows));
-      memset(local_state->has_match.data(), 0, BitUtil::BytesForBits(num_rows));
+      local_state->has_match.resize(bit_util::BytesForBits(num_rows));
+      memset(local_state->has_match.data(), 0, bit_util::BytesForBits(num_rows));
     }
     local_state->is_has_match_initialized = true;
   }
@@ -833,8 +833,8 @@ class HashJoinBasicImpl : public HashJoinImpl {
     }
 
     int32_t num_rows = hash_table_keys_.num_rows();
-    has_match_.resize(BitUtil::BytesForBits(num_rows));
-    memset(has_match_.data(), 0, BitUtil::BytesForBits(num_rows));
+    has_match_.resize(bit_util::BytesForBits(num_rows));
+    memset(has_match_.data(), 0, bit_util::BytesForBits(num_rows));
 
     for (size_t tid = 0; tid < local_states_.size(); ++tid) {
       if (!local_states_[tid].is_initialized) {

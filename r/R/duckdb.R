@@ -59,7 +59,7 @@ to_duckdb <- function(.data,
   .data <- as_adq(.data)
   duckdb::duckdb_register_arrow(con, table_name, .data)
 
-  tbl <- tbl(con, table_name)
+  tbl <- dplyr::tbl(con, table_name)
   groups <- dplyr::groups(.data)
   if (length(groups)) {
     tbl <- dplyr::group_by(tbl, groups)

@@ -45,7 +45,7 @@ using arrow::default_memory_pool;
 using arrow::MemoryPool;
 using arrow::internal::checked_cast;
 
-namespace BitUtil = arrow::BitUtil;
+namespace bit_util = arrow::bit_util;
 
 namespace parquet {
 
@@ -54,7 +54,7 @@ namespace test {
 TEST(VectorBooleanTest, TestEncodeDecode) {
   // PARQUET-454
   int nvalues = 10000;
-  int nbytes = static_cast<int>(BitUtil::BytesForBits(nvalues));
+  int nbytes = static_cast<int>(bit_util::BytesForBits(nvalues));
 
   std::vector<bool> draws;
   ::arrow::random_is_valid(nvalues, 0.5 /* null prob */, &draws, 0 /* seed */);
@@ -78,7 +78,7 @@ TEST(VectorBooleanTest, TestEncodeDecode) {
   ASSERT_EQ(nvalues, values_decoded);
 
   for (int i = 0; i < nvalues; ++i) {
-    ASSERT_EQ(draws[i], ::arrow::BitUtil::GetBit(decode_data, i)) << i;
+    ASSERT_EQ(draws[i], ::arrow::bit_util::GetBit(decode_data, i)) << i;
   }
 }
 
@@ -133,7 +133,7 @@ template <typename T>
 void VerifyResultsSpaced(T* result, T* expected, int num_values,
                          const uint8_t* valid_bits, int64_t valid_bits_offset) {
   for (auto i = 0; i < num_values; ++i) {
-    if (BitUtil::GetBit(valid_bits, valid_bits_offset + i)) {
+    if (bit_util::GetBit(valid_bits, valid_bits_offset + i)) {
       ASSERT_EQ(expected[i], result[i]) << i;
     }
   }
@@ -150,7 +150,7 @@ template <>
 void VerifyResultsSpaced<FLBA>(FLBA* result, FLBA* expected, int num_values,
                                const uint8_t* valid_bits, int64_t valid_bits_offset) {
   for (auto i = 0; i < num_values; ++i) {
-    if (BitUtil::GetBit(valid_bits, valid_bits_offset + i)) {
+    if (bit_util::GetBit(valid_bits, valid_bits_offset + i)) {
       ASSERT_EQ(0, memcmp(expected[i].ptr, result[i].ptr, flba_length)) << i;
     }
   }
@@ -280,7 +280,7 @@ class TestPlainEncoding : public TestEncodingBase<Type> {
     auto decoder = MakeTypedDecoder<Type>(Encoding::PLAIN, descr_.get());
     int null_count = 0;
     for (auto i = 0; i < num_values_; i++) {
-      if (!BitUtil::GetBit(valid_bits, valid_bits_offset + i)) {
+      if (!bit_util::GetBit(valid_bits, valid_bits_offset + i)) {
         null_count++;
       }
     }
@@ -338,7 +338,8 @@ class TestDictionaryEncoding : public TestEncodingBase<Type> {
   static constexpr int TYPE = Type::type_num;
 
   void CheckRoundtrip() {
-    std::vector<uint8_t> valid_bits(::arrow::BitUtil::BytesForBits(num_values_) + 1, 255);
+    std::vector<uint8_t> valid_bits(::arrow::bit_util::BytesForBits(num_values_) + 1,
+                                    255);
 
     auto base_encoder = MakeEncoder(Type::type_num, Encoding::PLAIN, true, descr_.get());
     auto encoder =
@@ -1058,7 +1059,7 @@ class TestByteStreamSplitEncoding : public TestEncodingBase<Type> {
     }
 
     {
-      std::vector<uint8_t> valid_bits(::arrow::BitUtil::BytesForBits(num_values_), 0);
+      std::vector<uint8_t> valid_bits(::arrow::bit_util::BytesForBits(num_values_), 0);
       std::vector<c_type> expected_filtered_output;
       const int every_nth = 5;
       expected_filtered_output.reserve((num_values_ + every_nth - 1) / every_nth);
@@ -1124,7 +1125,7 @@ template <typename c_type>
 static std::vector<c_type> ToLittleEndian(const std::vector<c_type>& input) {
   std::vector<c_type> data(input.size());
   std::transform(input.begin(), input.end(), data.begin(), [](const c_type& value) {
-    return ::arrow::BitUtil::ToLittleEndian(value);
+    return ::arrow::bit_util::ToLittleEndian(value);
   });
   return data;
 }

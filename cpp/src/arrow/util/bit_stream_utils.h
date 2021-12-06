@@ -31,7 +31,7 @@
 #include "arrow/util/ubsan.h"
 
 namespace arrow {
-namespace BitUtil {
+namespace bit_util {
 
 /// Utility class to write bit/byte streams.  This class can write data to either be
 /// bit packed or byte aligned (and a single stream that has a mix of both).
@@ -53,7 +53,7 @@ class BitWriter {
   /// The number of current bytes written, including the current byte (i.e. may include a
   /// fraction of a byte). Includes buffered values.
   int bytes_written() const {
-    return byte_offset_ + static_cast<int>(BitUtil::BytesForBits(bit_offset_));
+    return byte_offset_ + static_cast<int>(bit_util::BytesForBits(bit_offset_));
   }
   uint8_t* buffer() const { return buffer_; }
   int buffer_len() const { return max_bytes_; }
@@ -119,7 +119,7 @@ class BitReader {
       : buffer_(buffer), max_bytes_(buffer_len), byte_offset_(0), bit_offset_(0) {
     int num_bytes = std::min(8, max_bytes_ - byte_offset_);
     memcpy(&buffered_values_, buffer_ + byte_offset_, num_bytes);
-    buffered_values_ = arrow::BitUtil::FromLittleEndian(buffered_values_);
+    buffered_values_ = arrow::bit_util::FromLittleEndian(buffered_values_);
   }
 
   BitReader()
@@ -136,7 +136,7 @@ class BitReader {
     bit_offset_ = 0;
     int num_bytes = std::min(8, max_bytes_ - byte_offset_);
     memcpy(&buffered_values_, buffer_ + byte_offset_, num_bytes);
-    buffered_values_ = arrow::BitUtil::FromLittleEndian(buffered_values_);
+    buffered_values_ = arrow::bit_util::FromLittleEndian(buffered_values_);
   }
 
   /// Gets the next value from the buffer.  Returns true if 'v' could be read or false if
@@ -181,7 +181,7 @@ class BitReader {
   /// byte (i.e., there may be an additional fraction of a byte).
   int bytes_left() {
     return max_bytes_ -
-           (byte_offset_ + static_cast<int>(BitUtil::BytesForBits(bit_offset_)));
+           (byte_offset_ + static_cast<int>(bit_util::BytesForBits(bit_offset_)));
   }
 
   /// Maximum byte length of a vlq encoded int
@@ -215,7 +215,7 @@ inline bool BitWriter::PutValue(uint64_t v, int num_bits) {
 
   if (ARROW_PREDICT_FALSE(bit_offset_ >= 64)) {
     // Flush buffered_values_ and write out bits of v that did not fit
-    buffered_values_ = arrow::BitUtil::ToLittleEndian(buffered_values_);
+    buffered_values_ = arrow::bit_util::ToLittleEndian(buffered_values_);
     memcpy(buffer_ + byte_offset_, &buffered_values_, 8);
     buffered_values_ = 0;
     byte_offset_ += 8;
@@ -227,9 +227,9 @@ inline bool BitWriter::PutValue(uint64_t v, int num_bits) {
 }
 
 inline void BitWriter::Flush(bool align) {
-  int num_bytes = static_cast<int>(BitUtil::BytesForBits(bit_offset_));
+  int num_bytes = static_cast<int>(bit_util::BytesForBits(bit_offset_));
   DCHECK_LE(byte_offset_ + num_bytes, max_bytes_);
-  auto buffered_values = arrow::BitUtil::ToLittleEndian(buffered_values_);
+  auto buffered_values = arrow::bit_util::ToLittleEndian(buffered_values_);
   memcpy(buffer_ + byte_offset_, &buffered_values, num_bytes);
 
   if (align) {
@@ -252,7 +252,7 @@ template <typename T>
 inline bool BitWriter::PutAligned(T val, int num_bytes) {
   uint8_t* ptr = GetNextBytePtr(num_bytes);
   if (ptr == NULL) return false;
-  val = arrow::BitUtil::ToLittleEndian(val);
+  val = arrow::bit_util::ToLittleEndian(val);
   memcpy(ptr, &val, num_bytes);
   return true;
 }
@@ -266,7 +266,7 @@ inline void ResetBufferedValues_(const uint8_t* buffer, int byte_offset,
   } else {
     memcpy(buffered_values, buffer + byte_offset, bytes_remaining);
   }
-  *buffered_values = arrow::BitUtil::FromLittleEndian(*buffered_values);
+  *buffered_values = arrow::bit_util::FromLittleEndian(*buffered_values);
 }
 
 template <typename T>
@@ -276,7 +276,7 @@ inline void GetValue_(int num_bits, T* v, int max_bytes, const uint8_t* buffer,
 #pragma warning(push)
 #pragma warning(disable : 4800)
 #endif
-  *v = static_cast<T>(BitUtil::TrailingBits(*buffered_values, *bit_offset + num_bits) >>
+  *v = static_cast<T>(bit_util::TrailingBits(*buffered_values, *bit_offset + num_bits) >>
                       *bit_offset);
 #ifdef _MSC_VER
 #pragma warning(pop)
@@ -296,7 +296,7 @@ inline void GetValue_(int num_bits, T* v, int max_bytes, const uint8_t* buffer,
       // if shift exponent(num_bits - *bit_offset) is not less than sizeof(T), *v will not
       // change and the following code may cause a runtime error that the shift exponent
       // is too large
-      *v = *v | static_cast<T>(BitUtil::TrailingBits(*buffered_values, *bit_offset)
+      *v = *v | static_cast<T>(bit_util::TrailingBits(*buffered_values, *bit_offset)
                                << (num_bits - *bit_offset));
     }
 #ifdef _MSC_VER
@@ -403,7 +403,7 @@ inline bool BitReader::GetAligned(int num_bytes, T* v) {
     return false;
   }
 
-  int bytes_read = static_cast<int>(BitUtil::BytesForBits(bit_offset_));
+  int bytes_read = static_cast<int>(bit_util::BytesForBits(bit_offset_));
   if (ARROW_PREDICT_FALSE(byte_offset_ + bytes_read + num_bytes > max_bytes_)) {
     return false;
   }
@@ -411,7 +411,7 @@ inline bool BitReader::GetAligned(int num_bytes, T* v) {
   // Advance byte_offset to next unread byte and read num_bytes
   byte_offset_ += bytes_read;
   memcpy(v, buffer_ + byte_offset_, num_bytes);
-  *v = arrow::BitUtil::FromLittleEndian(*v);
+  *v = arrow::bit_util::FromLittleEndian(*v);
   byte_offset_ += num_bytes;
 
   bit_offset_ = 0;
@@ -422,7 +422,7 @@ inline bool BitReader::GetAligned(int num_bytes, T* v) {
 
 inline bool BitReader::Advance(int64_t num_bits) {
   int64_t bits_required = bit_offset_ + num_bits;
-  int64_t bytes_required = BitUtil::BytesForBits(bits_required);
+  int64_t bytes_required = bit_util::BytesForBits(bits_required);
   if (ARROW_PREDICT_FALSE(bytes_required > max_bytes_ - byte_offset_)) {
     return false;
   }
@@ -519,5 +519,5 @@ inline bool BitReader::GetZigZagVlqInt(int64_t* v) {
   return true;
 }
 
-}  // namespace BitUtil
+}  // namespace bit_util
 }  // namespace arrow

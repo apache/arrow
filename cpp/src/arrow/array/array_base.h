@@ -57,7 +57,7 @@ class ARROW_EXPORT Array {
   /// \brief Return true if value at index is null. Does not boundscheck
   bool IsNull(int64_t i) const {
     return null_bitmap_data_ != NULLPTR
-               ? !BitUtil::GetBit(null_bitmap_data_, i + data_->offset)
+               ? !bit_util::GetBit(null_bitmap_data_, i + data_->offset)
                : data_->null_count == data_->length;
   }
 
@@ -65,7 +65,7 @@ class ARROW_EXPORT Array {
   /// boundscheck
   bool IsValid(int64_t i) const {
     return null_bitmap_data_ != NULLPTR
-               ? BitUtil::GetBit(null_bitmap_data_, i + data_->offset)
+               ? bit_util::GetBit(null_bitmap_data_, i + data_->offset)
                : data_->null_count != data_->length;
   }
 

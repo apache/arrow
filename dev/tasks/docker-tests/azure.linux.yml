@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+{% import 'macros.jinja' as macros with context %}
+
 jobs:
 - job: linux
   pool:
@@ -49,5 +51,16 @@ jobs:
   - script: pip install -e arrow/dev/archery[docker]
     displayName: Setup Archery
 
-  - script: archery docker run -e SETUPTOOLS_SCM_PRETEND_VERSION="{{ arrow.no_rc_version }}" {{ run }}
+  - script: |
+      archery docker run -e SETUPTOOLS_SCM_PRETEND_VERSION="{{ arrow.no_rc_version }}" {{ run }}
     displayName: Execute Docker Build
+
+  {% if post_script is defined %}
+  - script: |
+      {{ post_script|indent(6) }}
+    displayName: Post Script
+  {% endif %}
+
+  {% if artifacts is defined %}
+  {{ macros.azure_upload_releases(artifacts) }}
+  {% endif %}

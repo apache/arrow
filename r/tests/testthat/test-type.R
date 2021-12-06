@@ -157,8 +157,12 @@ test_that("Type strings are correctly canonicalized", {
     sub("^([^([<]+).*$", "\\1", timestamp()$ToString())
   )
   expect_equal(
-    canonical_type_str("decimal"),
+    canonical_type_str("decimal128"),
     sub("^([^([<]+).*$", "\\1", decimal(3, 2)$ToString())
+  )
+  expect_equal(
+    canonical_type_str("decimal128"),
+    sub("^([^([<]+).*$", "\\1", decimal128(3, 2)$ToString())
   )
   expect_equal(
     canonical_type_str("struct"),

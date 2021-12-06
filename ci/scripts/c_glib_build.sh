@@ -21,8 +21,11 @@ set -ex
 
 source_dir=${1}/c_glib
 build_dir=${2}/c_glib
-: ${ARROW_GLIB_GTK_DOC:=false}
+build_root=${2}
+
 : ${ARROW_GLIB_DEVELOPMENT_MODE:=false}
+: ${BUILD_DOCS_C_GLIB:=OFF}
+with_gtk_doc=$([ "${BUILD_DOCS_C_GLIB}" == "ON" ] && echo "true" || echo "false")
 
 export PKG_CONFIG_PATH=${ARROW_HOME}/lib/pkgconfig
 
@@ -35,7 +38,7 @@ mkdir -p ${build_dir}
 meson --prefix=$ARROW_HOME \
       --libdir=lib \
       -Ddevelopment_mode=${ARROW_GLIB_DEVELOPMENT_MODE} \
-      -Dgtk_doc=${ARROW_GLIB_GTK_DOC} \
+      -Dgtk_doc=${with_gtk_doc} \
       ${build_dir} \
       ${source_dir}
 
@@ -43,3 +46,8 @@ pushd ${build_dir}
 ninja
 ninja install
 popd
+
+if [ "${BUILD_DOCS_C_GLIB}" == "ON" ]; then
+  mkdir -p ${build_root}/docs/c_glib
+  rsync -a ${ARROW_HOME}/share/gtk-doc/html/ ${build_root}/docs/c_glib
+fi

@@ -104,10 +104,10 @@ TEST_F(TestSelectionVector, TestInt16PopulateFromBitMap) {
   int bitmap_size = RoundUpNumi64(max_slots) * 8;
   std::vector<uint8_t> bitmap(bitmap_size);
 
-  arrow::BitUtil::SetBit(&bitmap[0], 0);
-  arrow::BitUtil::SetBit(&bitmap[0], 5);
-  arrow::BitUtil::SetBit(&bitmap[0], 121);
-  arrow::BitUtil::SetBit(&bitmap[0], 220);
+  arrow::bit_util::SetBit(&bitmap[0], 0);
+  arrow::bit_util::SetBit(&bitmap[0], 5);
+  arrow::bit_util::SetBit(&bitmap[0], 121);
+  arrow::bit_util::SetBit(&bitmap[0], 220);
 
   status = selection->PopulateFromBitMap(&bitmap[0], bitmap_size, max_slots - 1);
   EXPECT_EQ(status.ok(), true) << status.message();
@@ -128,9 +128,9 @@ TEST_F(TestSelectionVector, TestInt16PopulateFromBitMapNegative) {
   int bitmap_size = 16;
   std::vector<uint8_t> bitmap(bitmap_size);
 
-  arrow::BitUtil::SetBit(&bitmap[0], 0);
-  arrow::BitUtil::SetBit(&bitmap[0], 1);
-  arrow::BitUtil::SetBit(&bitmap[0], 2);
+  arrow::bit_util::SetBit(&bitmap[0], 0);
+  arrow::bit_util::SetBit(&bitmap[0], 1);
+  arrow::bit_util::SetBit(&bitmap[0], 2);
 
   // The bitmap has three set bits, whereas the selection vector has capacity for only 2.
   status = selection->PopulateFromBitMap(&bitmap[0], bitmap_size, 2);
@@ -175,10 +175,10 @@ TEST_F(TestSelectionVector, TestInt32PopulateFromBitMap) {
   int bitmap_size = RoundUpNumi64(max_slots) * 8;
   std::vector<uint8_t> bitmap(bitmap_size);
 
-  arrow::BitUtil::SetBit(&bitmap[0], 0);
-  arrow::BitUtil::SetBit(&bitmap[0], 5);
-  arrow::BitUtil::SetBit(&bitmap[0], 121);
-  arrow::BitUtil::SetBit(&bitmap[0], 220);
+  arrow::bit_util::SetBit(&bitmap[0], 0);
+  arrow::bit_util::SetBit(&bitmap[0], 5);
+  arrow::bit_util::SetBit(&bitmap[0], 121);
+  arrow::bit_util::SetBit(&bitmap[0], 220);
 
   status = selection->PopulateFromBitMap(&bitmap[0], bitmap_size, max_slots - 1);
   EXPECT_EQ(status.ok(), true) << status.message();
@@ -240,10 +240,10 @@ TEST_F(TestSelectionVector, TestInt64PopulateFromBitMap) {
   int bitmap_size = RoundUpNumi64(max_slots) * 8;
   std::vector<uint8_t> bitmap(bitmap_size);
 
-  arrow::BitUtil::SetBit(&bitmap[0], 0);
-  arrow::BitUtil::SetBit(&bitmap[0], 5);
-  arrow::BitUtil::SetBit(&bitmap[0], 121);
-  arrow::BitUtil::SetBit(&bitmap[0], 220);
+  arrow::bit_util::SetBit(&bitmap[0], 0);
+  arrow::bit_util::SetBit(&bitmap[0], 5);
+  arrow::bit_util::SetBit(&bitmap[0], 121);
+  arrow::bit_util::SetBit(&bitmap[0], 220);
 
   status = selection->PopulateFromBitMap(&bitmap[0], bitmap_size, max_slots - 1);
   EXPECT_EQ(status.ok(), true) << status.message();

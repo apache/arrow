@@ -152,9 +152,11 @@ def test_option_class_equality():
         pc.SplitPatternOptions("pattern"),
         pc.StrftimeOptions(),
         pc.StrptimeOptions("%Y", "s"),
+        pc.StructFieldOptions(indices=[]),
         pc.TakeOptions(),
         pc.TDigestOptions(),
         pc.TrimOptions(" "),
+        pc.Utf8NormalizeOptions("NFKC"),
         pc.VarianceOptions(),
         pc.WeekOptions(week_starts_monday=True, count_from_zero=False,
                        first_week_is_fully_in_year=False),
@@ -2208,6 +2210,25 @@ def test_make_struct():
         pc.make_struct(field_names=['one', 'two'])
 
 
+def test_struct_fields_options():
+    a = pa.array([4, 5, 6], type=pa.int64())
+    b = pa.array(["bar", None, ""])
+    c = pa.StructArray.from_arrays([a, b], ["a", "b"])
+    arr = pa.StructArray.from_arrays([a, c], ["a", "c"])
+
+    assert pc.struct_field(arr,
+                           indices=[1, 1]) == pa.array(["bar", None, ""])
+    assert pc.struct_field(arr,
+                           indices=[0]) == pa.array([4, 5, 6], type=pa.int64())
+    assert pc.struct_field(arr, indices=[]) == arr
+
+    with pytest.raises(TypeError, match="an integer is required"):
+        pc.struct_field(arr, indices=['a'])
+
+    # TODO: https://issues.apache.org/jira/browse/ARROW-14853
+    # assert pc.struct_field(arr) == arr
+
+
 def test_case_when():
     assert pc.case_when(pc.make_struct([True, False, None],
                                        [False, True, None]),
@@ -2248,3 +2269,13 @@ def test_count_distinct_options():
     assert pc.count_distinct(arr, mode='only_valid').as_py() == 3
     assert pc.count_distinct(arr, mode='only_null').as_py() == 1
     assert pc.count_distinct(arr, mode='all').as_py() == 4
+
+
+def test_utf8_normalize():
+    arr = pa.array(["01²3"])
+    assert pc.utf8_normalize(arr, form="NFC") == arr
+    assert pc.utf8_normalize(arr, form="NFKC") == pa.array(["0123"])
+    with pytest.raises(
+            ValueError,
+            match='"NFZ" is not a valid Unicode normalization form'):
+        pc.utf8_normalize(arr, form="NFZ")

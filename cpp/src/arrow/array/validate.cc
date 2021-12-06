@@ -385,7 +385,7 @@ struct ValidateArrayImpl {
       int64_t min_buffer_size = -1;
       switch (spec.kind) {
         case DataTypeLayout::BITMAP:
-          min_buffer_size = BitUtil::BytesForBits(length_plus_offset);
+          min_buffer_size = bit_util::BytesForBits(length_plus_offset);
           break;
         case DataTypeLayout::FIXED_WIDTH:
           if (MultiplyWithOverflow(length_plus_offset, spec.byte_width,
