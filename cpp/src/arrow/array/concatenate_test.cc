@@ -501,6 +501,32 @@ TEST_F(ConcatenateTest, DenseUnionType) {
     [0, true]
   ])"),
       *concat_sliced_array_sliced_children);
+
+  // Test concatenation of dense union array with types codes other than 0..n
+  auto array_type_codes =
+      ArrayFromJSON(dense_union({field("", int32()), field("", utf8())}, {2, 5}), R"([
+    [2, 42],
+    [5, "Hello world!"],
+    [2, 42]
+  ])");
+  ASSERT_OK(array_type_codes->ValidateFull());
+  ASSERT_OK_AND_ASSIGN(
+      auto concat_array_type_codes,
+      Concatenate({array_type_codes, array_type_codes, array_type_codes->Slice(1, 1)},
+                  default_memory_pool()));
+  ASSERT_OK(concat_array_type_codes->ValidateFull());
+  AssertArraysEqual(
+      *ArrayFromJSON(dense_union({field("", int32()), field("", utf8())}, {2, 5}),
+                     R"([
+    [2, 42],
+    [5, "Hello world!"],
+    [2, 42],
+    [2, 42],
+    [5, "Hello world!"],
+    [2, 42],
+    [5, "Hello world!"]
+  ])"),
+      *concat_array_type_codes);
 }
 
 TEST_F(ConcatenateTest, OffsetOverflow) {

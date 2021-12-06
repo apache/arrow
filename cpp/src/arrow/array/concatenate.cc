@@ -408,8 +408,8 @@ class ConcatenateImpl {
         // offset to the concatenated offsets buffer.
         for (auto j = 0; j < in_[i]->length; j++) {
           int32_t offset;
-          if (internal::AddWithOverflow(offset_map[type_ids[j]], offset_values[j],
-                                        &offset)) {
+          if (internal::AddWithOverflow(offset_map[u.child_ids()[type_ids[j]]],
+                                        offset_values[j], &offset)) {
             return Status::Invalid("Offset value overflow when concatenating arrays");
           }
           RETURN_NOT_OK(builder.Append(offset));
