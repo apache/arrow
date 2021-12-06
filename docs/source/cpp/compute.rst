@@ -1659,3 +1659,14 @@ replaced, based on the remaining inputs.
   results in a corresponding null in the output.
 
   Also see: :ref:`if_else <cpp-compute-scalar-selections>`.
+
+Random number generation
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+This function generates an uniformly-distributed double-precision number between 0 and 1.
+
++--------------------+------------+---------------+
+| Function name      | Arity      | Output type   |
++====================+============+===============+
+| random             | Nullary    | Double        |
++--------------------+------------+---------------+

@@ -20,6 +20,7 @@
 
 add_arrow_compute_test(scalar_test
                        SOURCES
+                       scalar_random_test.cc
                        scalar_arithmetic_test.cc
                        scalar_boolean_test.cc
                        scalar_cast_test.cc

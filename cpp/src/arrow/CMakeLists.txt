@@ -407,6 +407,7 @@ if(ARROW_COMPUTE)
        compute/kernels/aggregate_var_std.cc
        compute/kernels/codegen_internal.cc
        compute/kernels/hash_aggregate.cc
+       compute/kernels/random.cc
        compute/kernels/row_encoder.cc
        compute/kernels/scalar_arithmetic.cc
        compute/kernels/scalar_boolean.cc

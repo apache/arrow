@@ -188,6 +188,9 @@ static std::unique_ptr<FunctionRegistry> CreateBuiltInRegistry() {
   RegisterScalarAggregateTDigest(registry.get());
   RegisterScalarAggregateVariance(registry.get());
 
+  // Random generator function
+  RegisterRandom(registry.get());
+
   RegisterAggregateOptions(registry.get());
 
   return registry;
