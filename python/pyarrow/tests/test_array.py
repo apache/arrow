@@ -908,6 +908,7 @@ def test_list_from_arrays(list_array_type, list_type_factory):
 
 
 def test_map_labelled():
+    #  ARROW-13735
     t = pa.map_(pa.field("name", "string", nullable=False), "int64")
     arr = pa.array([[('a', 1), ('b', 2)], [('c', 3)]], type=t)
     assert arr.type.key_field == pa.field("name", pa.utf8(), nullable=False)
