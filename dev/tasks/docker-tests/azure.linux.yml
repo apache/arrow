@@ -53,9 +53,11 @@ jobs:
 
   - script: |
       archery docker run \
-        -e ARROW_DOCS_VERSION="{{ arrow.no_rc_version }}"
+        -e ARROW_DOCS_VERSION="{{ arrow.no_rc_version }}" \
         -e SETUPTOOLS_SCM_PRETEND_VERSION="{{ arrow.no_rc_version }}" \
-        {{ run }}
+        {{ flags|default("") }} \
+        {{ image }} \
+        {{ command|default("") }}
     displayName: Execute Docker Build
 
   {% if post_script is defined %}
