@@ -109,7 +109,7 @@ x-hierarchy:
         - conda-python-turbodbc
         - conda-python-kartothek
         - conda-python-spark
-        - conda-python-numpydoc
+        - conda-python-docs
   - debian-cpp:
     - debian-c-glib:
       - debian-ruby
@@ -916,7 +916,7 @@ services:
 
   conda-python-docs:
     # Usage:
-    #   archery docker run conda-python-numpydoc
+    #   archery docker run conda-python-docs
     #
     # Only a single rule is enabled for now to check undocumented arguments.
     # We should extend the list of enabled rules after adding this build to
