@@ -66,6 +66,7 @@ RUN apt-get update -y -q && \
         protobuf-compiler \
         python3-pip \
         rapidjson-dev \
+        rsync \
         tzdata \
         zlib1g-dev && \
     apt-get clean && \

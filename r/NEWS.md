@@ -23,6 +23,7 @@
   * `file` identical to `sink`
   * `col_names` identical to `include_header`
   * other arguments are currently unsupported, but the function errors with a meaningful message.
+* Added `decimal128()` (identical to `decimal()`) as the name is more explicit and updated docs to encourage its use. 
 
 # arrow 6.0.1
 

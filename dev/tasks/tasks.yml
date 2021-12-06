@@ -60,6 +60,7 @@ groups:
     - python-sdist
     - ubuntu-*
     - wheel-*
+    - test-ubuntu-default-docs
 
 {############################# Testing tasks #################################}
 
@@ -1277,7 +1278,14 @@ tasks:
     ci: azure
     template: docker-tests/azure.linux.yml
     params:
-      run: ubuntu-docs
+      artifacts: "build/docs.tar.gz"
+      post_script: |
+        cd build
+        sudo chown -R ${USER}: .
+        tar cvzf docs.tar.gz docs
+      run: "-v $PWD/build/:/build/ ubuntu-docs"
+    artifacts:
+      - docs.tar.gz
 
   ############################## Fuzz tests #################################
 

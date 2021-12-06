@@ -119,6 +119,9 @@ class GANDIVA_EXPORT Projector {
 
   std::string DumpIR();
 
+  void SetBuiltFromCache(bool flag);
+  bool GetBuiltFromCache();
+
  private:
   Projector(std::unique_ptr<LLVMGenerator> llvm_generator, SchemaPtr schema,
             const FieldVector& output_fields, std::shared_ptr<Configuration>);
@@ -138,6 +141,7 @@ class GANDIVA_EXPORT Projector {
   SchemaPtr schema_;
   FieldVector output_fields_;
   std::shared_ptr<Configuration> configuration_;
+  bool built_from_cache_;
 };
 
 }  // namespace gandiva
