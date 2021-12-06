@@ -202,10 +202,10 @@ SqlInfoResultMap GetSqlInfoResultMap() {
                                                "WITHOUT"}))},
       {SqlInfoOptions::SqlInfo::SQL_NUMERIC_FUNCTIONS,
        SqlInfoResult(std::vector<std::string>(
-           {"acos",    "acosh", "asin", "asinh",   "atan", "atan2", "atanh", "ceil",
-            "ceiling", "cos",   "cosh", "degrees", "exp",  "floor", "ln",    "log",
-            "log",     "log10", "log2", "mod",     "pi",   "pow",   "power", "radians",
-            "sin",     "sinh",  "sqrt", "tan",     "tanh", "trunc"}))},
+           {"ACOS",    "ACOSH", "ASIN", "ASINH",   "ATAN", "ATAN2", "ATANH", "CEIL",
+            "CEILING", "COS",   "COSH", "DEGREES", "EXP",  "FLOOR", "LN",    "LOG",
+            "LOG",     "LOG10", "LOG2", "MOD",     "PI",   "POW",   "POWER", "RADIANS",
+            "SIN",     "SINH",  "SQRT", "TAN",     "TANH", "TRUNC"}))},
       {SqlInfoOptions::SqlInfo::SQL_STRING_FUNCTIONS,
        SqlInfoResult(
            std::vector<std::string>({"SUBSTR", "TRIM", "LTRIM", "RTRIM", "LENGTH",
