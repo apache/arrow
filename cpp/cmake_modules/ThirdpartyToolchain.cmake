@@ -1025,6 +1025,9 @@ macro(build_snappy)
       "${SNAPPY_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}${SNAPPY_STATIC_LIB_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}"
   )
 
+
+  set(SNAPPY_PATCH_COMMAND "git" "--git-dir=." "apply" "--verbose" "--whitespace=fix" "${CMAKE_SOURCE_DIR}/build-support/snappy-UBSAN.patch")
+
   set(SNAPPY_CMAKE_ARGS
       ${EP_COMMON_CMAKE_ARGS}
       -DCMAKE_INSTALL_LIBDIR=lib
@@ -1039,6 +1042,7 @@ macro(build_snappy)
                       URL ${SNAPPY_SOURCE_URL}
                       URL_HASH "SHA256=${ARROW_SNAPPY_BUILD_SHA256_CHECKSUM}"
                       CMAKE_ARGS ${SNAPPY_CMAKE_ARGS}
+                      PATCH_COMMAND ${SNAPPY_PATCH_COMMAND}
                       BUILD_BYPRODUCTS "${SNAPPY_STATIC_LIB}")
 
   file(MAKE_DIRECTORY "${SNAPPY_PREFIX}/include")
