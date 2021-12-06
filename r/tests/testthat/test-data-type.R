@@ -489,69 +489,67 @@ test_that("DataType to C-interface", {
 })
 
 test_that("DataType$code()", {
-  expect_identical(int8()$code(), call("int8"))
-  expect_identical(uint8()$code(), call("uint8"))
-  expect_identical(int16()$code(), call("int16"))
-  expect_identical(uint16()$code(), call("uint16"))
-  expect_identical(int32()$code(), call("int32"))
-  expect_identical(uint32()$code(), call("uint32"))
-  expect_identical(int64()$code(), call("int64"))
-  expect_identical(uint64()$code(), call("uint64"))
+  expect_code_roundtrip(int8())
+  expect_code_roundtrip(uint8())
+  expect_code_roundtrip(int16())
+  expect_code_roundtrip(uint16())
+  expect_code_roundtrip(int32())
+  expect_code_roundtrip(uint32())
+  expect_code_roundtrip(int64())
+  expect_code_roundtrip(uint64())
 
-  expect_identical(float16()$code(), call("halffloat"))
-  expect_identical(float32()$code(), call("float"))
-  expect_identical(float64()$code(), call("float64"))
+  expect_code_roundtrip(float16())
+  expect_code_roundtrip(float32())
+  expect_code_roundtrip(float64())
 
-  expect_identical(null()$code(), call("null"))
+  expect_code_roundtrip(null())
 
-  expect_identical(boolean()$code(), call("bool"))
-  expect_identical(utf8()$code(), call("utf8"))
-  expect_identical(large_utf8()$code(), call("large_utf8"))
+  expect_code_roundtrip(boolean())
+  expect_code_roundtrip(utf8())
+  expect_code_roundtrip(large_utf8())
 
-  expect_identical(binary()$code(), call("binary"))
-  expect_identical(large_binary()$code(), call("large_binary"))
-  expect_identical(fixed_size_binary(byte_width = 91)$code(), call("fixed_size_binary", byte_width = 91L))
+  expect_code_roundtrip(binary())
+  expect_code_roundtrip(large_binary())
+  expect_code_roundtrip(fixed_size_binary(byte_width = 91))
 
-  expect_identical(date32()$code(), call("date32"))
-  expect_identical(date64()$code(), call("date64"))
+  expect_code_roundtrip(date32())
+  expect_code_roundtrip(date64())
 
-  expect_identical(time32()$code(), call("time32", unit = "ms"))
-  expect_identical(time32(unit = "ms")$code(), call("time32", unit = "ms"))
-  expect_identical(time32(unit = "s")$code(), call("time32", unit = "s"))
+  expect_code_roundtrip(time32())
+  expect_code_roundtrip(time32(unit = "ms"))
+  expect_code_roundtrip(time32(unit = "s"))
 
-  expect_identical(time64()$code(), call("time64", unit = "ns"))
-  expect_identical(time64(unit = "ns")$code(), call("time64", unit = "ns"))
-  expect_identical(time64(unit = "us")$code(), call("time64", unit = "us"))
+  expect_code_roundtrip(time64())
+  expect_code_roundtrip(time64(unit = "ns"))
+  expect_code_roundtrip(time64(unit = "us"))
 
-  expect_identical(timestamp()$code(), call("timestamp", unit = "s"))
-  expect_identical(timestamp(unit = "s")$code(), call("timestamp", unit = "s"))
-  expect_identical(timestamp(unit = "ms")$code(), call("timestamp", unit = "ms"))
-  expect_identical(timestamp(unit = "ns")$code(), call("timestamp", unit = "ns"))
-  expect_identical(timestamp(unit = "us")$code(), call("timestamp", unit = "us"))
+  expect_code_roundtrip(timestamp())
+  expect_code_roundtrip(timestamp(unit = "s"))
+  expect_code_roundtrip(timestamp(unit = "ms"))
+  expect_code_roundtrip(timestamp(unit = "ns"))
+  expect_code_roundtrip(timestamp(unit = "us"))
 
-  expect_identical(timestamp(unit = "s", timezone = "CET")$code(), call("timestamp", unit = "s", timezone = "CET"))
-  expect_identical(timestamp(unit = "ms", timezone = "CET")$code(), call("timestamp", unit = "ms", timezone = "CET"))
-  expect_identical(timestamp(unit = "ns", timezone = "CET")$code(), call("timestamp", unit = "ns", timezone = "CET"))
-  expect_identical(timestamp(unit = "us", timezone = "CET")$code(), call("timestamp", unit = "us", timezone = "CET"))
+  expect_code_roundtrip(timestamp(unit = "s", timezone = "CET"))
+  expect_code_roundtrip(timestamp(unit = "ms", timezone = "CET"))
+  expect_code_roundtrip(timestamp(unit = "ns", timezone = "CET"))
+  expect_code_roundtrip(timestamp(unit = "us", timezone = "CET"))
 
-  expect_identical(decimal(precision = 3, scale = 5)$code(), call("decimal", precision = 3L, scale = 5L))
+  expect_code_roundtrip(decimal(precision = 3, scale = 5))
 
-  expect_identical(
-    struct(a = int32(), b = struct(c = list_of(utf8())), d = float64())$code(),
-    quote(struct(a = int32(), b = struct(c = list_of(utf8())), d = float64()))
+  expect_code_roundtrip(
+    struct(a = int32(), b = struct(c = list_of(utf8())), d = float64())
   )
 
-  expect_identical(list_of(int32())$code(), quote(list_of(int32())))
-  expect_identical(large_list_of(int32())$code(), quote(large_list_of(int32())))
-  expect_identical(
-    fixed_size_list_of(int32(), list_size = 7L)$code(),
-    quote(fixed_size_list_of(int32(), list_size = 7L))
+  expect_code_roundtrip(list_of(int32()))
+  expect_code_roundtrip(large_list_of(int32()))
+  expect_code_roundtrip(
+    fixed_size_list_of(int32(), list_size = 7L)
   )
 
-  expect_identical(dictionary()$code(), quote(dictionary()))
-  expect_identical(dictionary(index_type = int8())$code(), quote(dictionary(index_type = int8())))
-  expect_identical(dictionary(index_type = int8(), value_type = large_utf8())$code(), quote(dictionary(index_type = int8(), value_type = large_utf8())))
-  expect_identical(dictionary(index_type = int8(), ordered = TRUE)$code(), quote(dictionary(index_type = int8(), ordered = TRUE)))
+  expect_code_roundtrip(dictionary())
+  expect_code_roundtrip(dictionary(index_type = int8()))
+  expect_code_roundtrip(dictionary(index_type = int8(), value_type = large_utf8()))
+  expect_code_roundtrip(dictionary(index_type = int8(), ordered = TRUE))
 
   skip("until rlang 1.0")
   expect_snapshot({

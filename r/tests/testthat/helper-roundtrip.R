@@ -42,3 +42,7 @@ expect_array_roundtrip <- function(x, type, as = NULL) {
   }
   invisible(a)
 }
+
+expect_code_roundtrip <- function(x) {
+  expect_true(eval(x$code())$Equals(x))
+}
