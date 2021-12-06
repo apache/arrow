@@ -453,7 +453,8 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     return new VectorSchemaRoot(singletonList(dataVector));
   }
 
-  private static VectorSchemaRoot getTypeInfoRoot(CommandGetTypeInfo request, ResultSet typeInfo, final BufferAllocator allocator)
+  private static VectorSchemaRoot getTypeInfoRoot(CommandGetTypeInfo request, ResultSet typeInfo,
+                                                  final BufferAllocator allocator)
       throws SQLException {
     Objects.requireNonNull(allocator, "BufferAllocator cannot be null.");
 
