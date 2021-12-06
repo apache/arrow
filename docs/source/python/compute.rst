@@ -36,6 +36,7 @@ module and can be used directly::
 
 The grouped aggregation functions raise an exception instead
 and need to be used through the :meth:`pyarrow.Table.group_by` capabilities.
+See :ref:`py-grouped-aggrs` for more details.
 
 Standard Compute Functions
 ==========================
@@ -83,6 +84,8 @@ you can refer to :ref:`api.compute` reference.
 .. seealso::
 
    :ref:`Available compute functions (C++ documentation) <compute-function-list>`.
+
+.. _py-grouped-aggrs:
 
 Grouped Aggregations
 ====================
