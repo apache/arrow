@@ -48,7 +48,7 @@ quietly <- !env_is("ARROW_R_DEV", "true")
 # Default is build from source, not download a binary
 build_ok <- !env_is("LIBARROW_BUILD", "false")
 # For LIBARROW_BINARY we support "true" or the name of the OS to use to
-# locate the appropriate binary (e.g., ubuntu-18.04). When NOT_CRAN=true, the
+# locate the appropriate binary (e.g., 'ubuntu-18.04'). When NOT_CRAN=true, the
 # configure script sets LIBARROW_BINARY=true.
 binary_ok <- !env_is("LIBARROW_BINARY", "false") || env_is("LIBARROW_BINARY", "")
 
