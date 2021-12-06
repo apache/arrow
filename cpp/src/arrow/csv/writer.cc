@@ -231,7 +231,8 @@ class UnquotedColumnPopulator : public ColumnPopulator {
 // Strings need special handling to ensure they are escaped properly.
 // This class handles escaping assuming that all strings will be quoted
 // and that the only character within the string that needs to escaped is
-// a quote character (") and escaping is done my adding another quote.
+// a quote character ("). Escaping is done by adding the specified escape character
+// if escaping is enabled.
 class QuotedColumnPopulator : public ColumnPopulator {
  public:
   QuotedColumnPopulator(MemoryPool* pool, std::string end_chars, bool escaping, char escape_char,
