@@ -61,8 +61,8 @@ Get the source code
 Fork the repository
 -------------------
 
-The Arrow GitHub repository contains both the Arrow C++ library and
-the various bindings to it (libraries in Python, R, Rust, Java, etc.).
+The Arrow GitHub repository contains both the Arrow C++ library plus
+libraries for other languages such as Go, Java, Matlab, Python, R, etc.
 The first step to contributing is to create a fork of the repository
 in your own GitHub account.
 
@@ -77,7 +77,7 @@ in your own GitHub account.
       The icon to fork the Apache Arrow repository on GitHub.
 
 3. Choose to fork the repository to your username so the fork will be
-   created at ``https://github.com/YOU/arrow``.
+   created at ``https://github.com/<your username>/arrow``.
 
 Clone the repository
 --------------------
