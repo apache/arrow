@@ -31,6 +31,7 @@
 \alias{timestamp}
 \alias{decimal128}
 \alias{decimal}
+\alias{decimal256}
 \alias{struct}
 \alias{list_of}
 \alias{large_list_of}
@@ -96,6 +97,8 @@ decimal128(precision, scale)
 
 decimal(precision, scale)
 
+decimal256(precision, scale)
+
 struct(...)
 
 list_of(type)
@@ -115,7 +118,8 @@ take any of those four values.}
 
 \item{precision}{For \code{decimal()}, \code{decimal128()} the number of significant
 digits the arrow \code{decimal} type can represent. The maximum precision for
-\code{decimal()} and \code{decimal128()} is 38 significant digits.}
+\code{decimal()} and \code{decimal128()} is 38 significant digits, while for
+\code{decimal256()} it is 76 digits.}
 
 \item{scale}{For \code{decimal()} and \code{decimal128()}, the number of digits after
 the decimal point. It can be negative.}
@@ -175,6 +179,10 @@ and power of 10.
 \code{decimal()} is identical to \code{decimal128()}, defined for backward compatibility.
 Use \code{decimal128()} as the name  is more informative and \code{decimal()} might be
 deprecated in the future.
+
+\code{decimal256()} creates a \code{decimal256} type, which allows for higher maximum
+precision. For most use cases, the maximum precision offered by \code{decimal128}
+is sufficient, and it will result in a more compact and more efficient encoding.
 }
 \examples{
 \dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
