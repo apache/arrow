@@ -252,6 +252,11 @@ class ARROW_EXPORT ORCFileReader {
   /// \return The FileVersion of the ORC file.
   FileVersion GetFileVersion();
 
+  /// \brief Get the software instance and version that wrote this file.
+  ///
+  /// \return a user-facing string that specifies the software version
+  std::string GetSoftwareVersion();
+
   /// \brief Get the compression kind of the file.
   ///
   /// \return The kind of compression in the ORC file.
@@ -266,6 +271,59 @@ class ARROW_EXPORT ORCFileReader {
   /// \return the number of rows per an entry in the row index or 0 if there
   ///          is no row index.
   uint64_t GetRowIndexStride();
+
+  /// \brief Get ID of writer that generated the file.
+  ///
+  /// \return UNKNOWN_WRITER if the writer ID is undefined
+  WriterId GetWriterId();
+
+  /// \brief Get the writer id value when getWriterId() returns an unknown writer.
+  ///
+  /// \return the integer value of the writer ID.
+  uint32_t GetWriterIdValue();
+
+  /// \brief Get the version of the writer.
+  ///
+  /// \return the version of the writer.
+
+  WriterVersion GetWriterVersion();
+
+  /// \brief Get the number of stripe statistics in the file.
+  ///
+  /// \return the number of stripe statistics
+  uint64_t GetNumberOfStripeStatistics();
+
+  /// \brief Get the length of the data stripes in the file.
+  ///
+  /// \return return the number of bytes in stripes
+  uint64_t GetContentLength();
+
+  /// \brief Get the length of the file stripe statistics.
+  ///
+  /// \return the number of compressed bytes in the file stripe statistics
+  uint64_t GetStripeStatisticsLength();
+
+  /// \brief Get the length of the file footer.
+  ///
+  /// \return the number of compressed bytes in the file footer
+  uint64_t GetFileFooterLength();
+
+  /// \brief Get the length of the file postscript.
+  ///
+  /// \return the number of bytes in the file postscript
+  uint64_t GetFilePostscriptLength();
+
+  /// \brief Get the total length of the file.
+  ///
+  /// \return the number of bytes in the file
+  uint64_t GetFileLength();
+
+  /// \brief Get the serialized file tail.
+  ///         Usefull if another reader of the same file wants to avoid re-reading
+  ///         the file tail. See ReadOptions.SetSerializedFileTail().
+  ///
+  /// \return a string of bytes with the file tail
+  std::string GetSerializedFileTail();
 
   /// \brief Return the metadata read from the ORC file
   ///

@@ -54,9 +54,19 @@ class ORCFile:
         return self.reader.nrows()
 
     @property
+    def nstripes(self):
+        """The number of stripes in the file"""
+        return self.reader.nstripes()
+
+    @property
     def file_version(self):
         """Format version of the ORC file, must be 0.11 or 0.12"""
         return self.reader.file_version()
+
+    @property
+    def software_version(self):
+        """Software instance and version that wrote this file"""
+        return self.reader.software_version()
 
     @property
     def compression(self):
@@ -69,10 +79,52 @@ class ORCFile:
         return self.reader.compression_size()
 
     @property
+    def writer(self):
+        """Name of the writer that wrote this file.
+        If the writer is unknown then its Writer ID
+        (a number) is returned"""
+        return self.reader.writer()
+
+    @property
+    def writer_version(self):
+        """Version of the writer"""
+        return self.reader.writer_version()
+
+    @property
     def row_index_stride(self):
         """Number of rows per an entry in the row index or 0
-           if there is no row index"""
+        if there is no row index"""
         return self.reader.row_index_stride()
+
+    @property
+    def nstripe_statistics(self):
+        """Number of stripe statistics"""
+        return self.reader.nstripe_statistics()
+
+    @property
+    def content_length(self):
+        """Length of the data stripes in the file in bytes"""
+        return self.reader.content_length()
+
+    @property
+    def stripe_statistics_length(self):
+        """The number of compressed bytes in the file stripe statistics"""
+        return self.reader.stripe_statistics_length()
+
+    @property
+    def file_footer_length(self):
+        """The number of compressed bytes in the file footer"""
+        return self.reader.file_footer_length()
+
+    @property
+    def file_postscript_length(self):
+        """The number of bytes in the file postscript"""
+        return self.reader.file_postscript_length()
+
+    @property
+    def file_length(self):
+        """The number of bytes in the file"""
+        return self.reader.file_length()
 
     def _select_names(self, columns=None):
         if columns is None:
@@ -167,16 +219,16 @@ bloom_filter_fpp: double, default 0.05
 
 class ORCWriter:
     __doc__ = """
-    Writer interface for a single ORC file
+Writer interface for a single ORC file
 
-    Parameters
-    ----------
-    where : str or pyarrow.io.NativeFile
-        Writable target. For passing Python file objects or byte buffers,
-        see pyarrow.io.PythonFileInterface, pyarrow.io.BufferOutputStream
-        or pyarrow.io.FixedSizeBufferWriter.
-    {}
-    """.format(_orc_writer_args_docs)
+Parameters
+----------
+where : str or pyarrow.io.NativeFile
+    Writable target. For passing Python file objects or byte buffers,
+    see pyarrow.io.PythonFileInterface, pyarrow.io.BufferOutputStream
+    or pyarrow.io.FixedSizeBufferWriter.
+{}
+""".format(_orc_writer_args_docs)
 
     def __init__(self, where, file_version='0.12',
                  batch_size=1024,
@@ -278,15 +330,15 @@ def write_table(table, where, file_version='0.12',
 
 
 write_table.__doc__ = """
-    Write a table into an ORC file
+Write a table into an ORC file
 
-    Parameters
-    ----------
-    table : pyarrow.lib.Table
-        The table to be written into the ORC file
-    where : str or pyarrow.io.NativeFile
-        Writable target. For passing Python file objects or byte buffers,
-        see pyarrow.io.PythonFileInterface, pyarrow.io.BufferOutputStream
-        or pyarrow.io.FixedSizeBufferWriter.
-    {}
-    """.format(_orc_writer_args_docs)
+Parameters
+----------
+table : pyarrow.lib.Table
+    The table to be written into the ORC file
+where : str or pyarrow.io.NativeFile
+    Writable target. For passing Python file objects or byte buffers,
+    see pyarrow.io.PythonFileInterface, pyarrow.io.BufferOutputStream
+    or pyarrow.io.FixedSizeBufferWriter.
+{}
+""".format(_orc_writer_args_docs)

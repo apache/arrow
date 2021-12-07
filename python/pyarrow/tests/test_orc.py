@@ -243,6 +243,35 @@ def test_orcfile_readwrite_with_writeoptions():
     assert orc_file.row_index_stride == 20000
 
 
+def test_orcfile_readwrite_with_bad_writeoptions():
+    from pyarrow import orc
+    buffer_output_stream = pa.BufferOutputStream()
+    a = pa.array([1, None, 3, None])
+    table = pa.table({"int64": a})
+
+    # batch_size must be a positive integer
+    with pytest.raises(ValueError):
+        orc.write_table(
+            buffer_output_stream,
+            table,
+            batch_size=0,
+        )
+
+    with pytest.raises(ValueError):
+        orc.write_table(
+            buffer_output_stream,
+            table,
+            batch_size=-100,
+        )
+
+    with pytest.raises(ValueError):
+        orc.write_table(
+            buffer_output_stream,
+            table,
+            batch_size=1024.23,
+        )
+
+
 def test_column_selection(tempdir):
     from pyarrow import orc
 

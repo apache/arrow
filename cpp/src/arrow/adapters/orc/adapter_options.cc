@@ -18,6 +18,7 @@
 #include "arrow/adapters/orc/adapter_options.h"
 
 #include "arrow/adapters/orc/adapter.h"
+#include "arrow/adapters/orc/adapter_common.h"
 #include "orc/Common.hh"
 #include "orc/Int128.hh"
 #include "orc/Writer.hh"

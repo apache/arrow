@@ -15,14 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/adapters/orc/adapter.h"
-
 #include <gtest/gtest.h>
 
 #include <orc/OrcFile.hh>
 #include <string>
 
-#include "arrow/adapters/orc/adapter_util.h"
+#include "arrow/adapters/orc/adapter.h"
 #include "arrow/array.h"
 #include "arrow/buffer.h"
 #include "arrow/buffer_builder.h"

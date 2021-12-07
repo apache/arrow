@@ -20,6 +20,7 @@
 #include <set>
 #include <sstream>
 
+#include "arrow/adapters/orc/adapter_common.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/util/visibility.h"
 #include "orc/OrcFile.hh"
@@ -32,64 +33,6 @@ namespace adapters {
 
 namespace orc {
 // Components of ORC Writer Options
-
-enum CompressionKind {
-  CompressionKind_NONE = 0,
-  CompressionKind_ZLIB = 1,
-  CompressionKind_SNAPPY = 2,
-  CompressionKind_LZO = 3,
-  CompressionKind_LZ4 = 4,
-  CompressionKind_ZSTD = 5,
-  CompressionKind_MAX = INT32_MAX
-};
-
-enum CompressionStrategy {
-  CompressionStrategy_SPEED = 0,
-  CompressionStrategy_COMPRESSION
-};
-
-enum RleVersion { RleVersion_1 = 0, RleVersion_2 = 1 };
-
-enum BloomFilterVersion {
-  // Include both the BLOOM_FILTER and BLOOM_FILTER_UTF8 streams to support
-  // both old and new readers.
-  ORIGINAL = 0,
-  // Only include the BLOOM_FILTER_UTF8 streams that consistently use UTF8.
-  // See ORC-101
-  UTF8 = 1,
-  FUTURE = INT32_MAX
-};
-
-class ARROW_EXPORT FileVersion {
- private:
-  uint32_t major_version;
-  uint32_t minor_version;
-
- public:
-  static const FileVersion& v_0_11();
-  static const FileVersion& v_0_12();
-
-  FileVersion(uint32_t major, uint32_t minor)
-      : major_version(major), minor_version(minor) {}
-
-  /**
-   * Get major version
-   */
-  uint32_t major() const { return this->major_version; }
-
-  /**
-   * Get minor version
-   */
-  uint32_t minor() const { return this->minor_version; }
-
-  bool operator==(const FileVersion& right) const {
-    return this->major_version == right.major() && this->minor_version == right.minor();
-  }
-
-  bool operator!=(const FileVersion& right) const { return !(*this == right); }
-
-  std::string ToString() const;
-};
 
 /**
  * Options for creating a Writer.

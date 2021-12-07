@@ -225,9 +225,35 @@ class ORCFileReader::Impl {
     return static_cast<CompressionKind>(reader_->getCompression());
   }
 
+  std::string GetSoftwareVersion() { return reader_->getSoftwareVersion(); }
+
   uint64_t GetCompressionSize() { return reader_->getCompressionSize(); }
 
   uint64_t GetRowIndexStride() { return reader_->getRowIndexStride(); }
+
+  WriterId GetWriterId() { return static_cast<WriterId>(reader_->getWriterId()); }
+
+  uint32_t GetWriterIdValue() { return reader_->getWriterIdValue(); }
+
+  WriterVersion GetWriterVersion() {
+    return static_cast<WriterVersion>(reader_->getWriterVersion());
+  }
+
+  uint64_t GetNumberOfStripeStatistics() {
+    return reader_->getNumberOfStripeStatistics();
+  }
+
+  uint64_t GetContentLength() { return reader_->getContentLength(); }
+
+  uint64_t GetStripeStatisticsLength() { return reader_->getStripeStatisticsLength(); }
+
+  uint64_t GetFileFooterLength() { return reader_->getFileFooterLength(); }
+
+  uint64_t GetFilePostscriptLength() { return reader_->getFilePostscriptLength(); }
+
+  uint64_t GetFileLength() { return reader_->getFileLength(); }
+
+  std::string GetSerializedFileTail() { return reader_->getSerializedFileTail(); }
 
   Status ReadSchema(std::shared_ptr<Schema>* out) {
     const liborc::Type& type = reader_->getType();
@@ -606,11 +632,41 @@ int64_t ORCFileReader::NumberOfRows() { return impl_->NumberOfRows(); }
 
 FileVersion ORCFileReader::GetFileVersion() { return impl_->GetFileVersion(); }
 
+std::string ORCFileReader::GetSoftwareVersion() { return impl_->GetSoftwareVersion(); }
+
 CompressionKind ORCFileReader::GetCompression() { return impl_->GetCompression(); }
 
 uint64_t ORCFileReader::GetCompressionSize() { return impl_->GetCompressionSize(); }
 
 uint64_t ORCFileReader::GetRowIndexStride() { return impl_->GetRowIndexStride(); }
+
+WriterId ORCFileReader::GetWriterId() { return impl_->GetWriterId(); }
+
+uint32_t ORCFileReader::GetWriterIdValue() { return impl_->GetWriterIdValue(); }
+
+WriterVersion ORCFileReader::GetWriterVersion() { return impl_->GetWriterVersion(); }
+
+uint64_t ORCFileReader::GetNumberOfStripeStatistics() {
+  return impl_->GetNumberOfStripeStatistics();
+}
+
+uint64_t ORCFileReader::GetContentLength() { return impl_->GetContentLength(); }
+
+uint64_t ORCFileReader::GetStripeStatisticsLength() {
+  return impl_->GetStripeStatisticsLength();
+}
+
+uint64_t ORCFileReader::GetFileFooterLength() { return impl_->GetFileFooterLength(); }
+
+uint64_t ORCFileReader::GetFilePostscriptLength() {
+  return impl_->GetFilePostscriptLength();
+}
+
+uint64_t ORCFileReader::GetFileLength() { return impl_->GetFileLength(); }
+
+std::string ORCFileReader::GetSerializedFileTail() {
+  return impl_->GetSerializedFileTail();
+}
 
 namespace {
 

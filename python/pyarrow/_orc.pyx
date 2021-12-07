@@ -36,7 +36,7 @@ from pyarrow.lib cimport (check_status, _Weakrefable,
                           pyarrow_unwrap_table,
                           get_reader,
                           get_writer)
-from pyarrow.lib import tobytes
+from pyarrow.lib import frombytes, tobytes
 
 
 cdef compression_kind_from_enum(CompressionKind compression_kind_):
@@ -50,7 +50,7 @@ cdef compression_kind_from_enum(CompressionKind compression_kind_):
     }.get(compression_kind_, 'UNKNOWN')
 
 
-cdef CompressionKind compression_kind_from_name(name):
+cdef CompressionKind compression_kind_from_name(name) except *:
     name = name.upper()
     if name == 'ZLIB':
         return _CompressionKind_ZLIB
@@ -74,7 +74,7 @@ cdef compression_strategy_from_enum(CompressionStrategy compression_strategy_):
     }.get(compression_strategy_, 'UNKNOWN')
 
 
-cdef CompressionStrategy compression_strategy_from_name(name):
+cdef CompressionStrategy compression_strategy_from_name(name) except *:
     name = name.upper()
     # SPEED is the default value in the ORC C++ implementaton
     if name == 'COMPRESSION':
@@ -101,7 +101,33 @@ cdef bloom_filter_version_from_enum(BloomFilterVersion bloom_filter_version_):
 
 cdef file_version_from_class(FileVersion file_version_):
     cdef object file_version = file_version_.ToString()
-    return file_version
+    return frombytes(file_version)
+
+
+cdef writer_id_from_enum(WriterId writer_id_):
+    return {
+        _WriterId_ORC_JAVA_WRITER: 'ORC_JAVA',
+        _WriterId_ORC_CPP_WRITER: 'ORC_CPP',
+        _WriterId_PRESTO_WRITER: 'PRESTO',
+        _WriterId_SCRITCHLEY_GO: 'SCRITCHLEY_GO',
+        _WriterId_TRINO_WRITER: 'TRINO',
+    }.get(writer_id_, 'UNKNOWN')
+
+
+cdef writer_version_from_enum(WriterVersion writer_version_):
+    return {
+        _WriterVersion_ORIGINAL: 'ORIGINAL',
+        _WriterVersion_HIVE_8732: 'HIVE_8732',
+        _WriterVersion_HIVE_4243: 'HIVE_4243',
+        _WriterVersion_HIVE_12055: 'HIVE_12055',
+        _WriterVersion_HIVE_13083: 'HIVE_13083',
+        _WriterVersion_ORC_101: 'ORC_101',
+        _WriterVersion_ORC_135: 'ORC_135',
+        _WriterVersion_ORC_517: 'ORC_517',
+        _WriterVersion_ORC_203: 'ORC_203',
+        _WriterVersion_ORC_14: 'ORC_14',
+    }.get(writer_version_, 'UNKNOWN')
+
 
 cdef shared_ptr[WriteOptions] _create_write_options(
     file_version=None,
@@ -303,6 +329,9 @@ cdef class ORCReader(_Weakrefable):
     def file_version(self):
         return file_version_from_class(deref(self.reader).GetFileVersion())
 
+    def software_version(self):
+        return frombytes(deref(self.reader).GetSoftwareVersion())
+
     def compression(self):
         return compression_kind_from_enum(deref(self.reader).GetCompression())
 
@@ -311,6 +340,37 @@ cdef class ORCReader(_Weakrefable):
 
     def row_index_stride(self):
         return deref(self.reader).GetRowIndexStride()
+
+    def writer(self):
+        writer_name = writer_id_from_enum(deref(self.reader).GetWriterId())
+        if writer_name == 'UNKNOWN':
+            return deref(self.reader).GetWriterIdValue()
+        else:
+            return writer_name
+
+    def writer_version(self):
+        return writer_version_from_enum(deref(self.reader).GetWriterVersion())
+
+    def nstripe_statistics(self):
+        return deref(self.reader).GetNumberOfStripeStatistics()
+
+    def content_length(self):
+        return deref(self.reader).GetContentLength()
+
+    def stripe_statistics_length(self):
+        return deref(self.reader).GetStripeStatisticsLength()
+
+    def file_footer_length(self):
+        return deref(self.reader).GetFileFooterLength()
+
+    def file_postscript_length(self):
+        return deref(self.reader).GetFilePostscriptLength()
+
+    def file_length(self):
+        return deref(self.reader).GetFileLength()
+
+    def serialized_file_tail(self):
+        return frombytes(deref(self.reader).GetSerializedFileTail())
 
     def read_stripe(self, n, columns=None):
         cdef:
@@ -349,6 +409,7 @@ cdef class ORCReader(_Weakrefable):
                 sp_table = GetResultValue(deref(self.reader).Read(c_names))
 
         return pyarrow_wrap_table(sp_table)
+
 
 cdef class ORCWriter(_Weakrefable):
     cdef:
