@@ -531,7 +531,7 @@ struct BinaryScalarMinMax {
   static Status ExecContainingArrays(KernelContext* ctx,
                                      const ElementWiseAggregateOptions& options,
                                      const ExecBatch& batch, Datum* out) {
-    // Presize data to avoid reallocations, using an upper bound estimation of final size.
+    // Presize data to avoid reallocations, using an estimation of final size.
     int64_t estimated_final_size = EstimateOutputSize(batch);
     BuilderType builder(ctx->memory_pool());
     RETURN_NOT_OK(builder.Reserve(batch.length));
@@ -569,9 +569,9 @@ struct BinaryScalarMinMax {
       }
 
       if (result) {
-        builder.Append(*result);
+        RETURN_NOT_OK(builder.Append(*result));
       } else {
-        builder.AppendNull();
+        builder.UnsafeAppendNull();
       }
     }
 
@@ -583,7 +583,7 @@ struct BinaryScalarMinMax {
     return Status::OK();
   }
 
-  // Compute an upper bound for the length of the output batch.
+  // Compute an estimation for the length of the output batch.
   static int64_t EstimateOutputSize(const ExecBatch& batch) {
     int64_t estimated_final_size = 0;
     for (size_t col = 0; col < batch.values.size(); col++) {
