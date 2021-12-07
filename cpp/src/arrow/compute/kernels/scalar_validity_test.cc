@@ -241,8 +241,8 @@ TYPED_TEST(TestFloatingPointValidityKernels, IsInf) { this->TestIsInf(); }
 TYPED_TEST(TestFloatingPointValidityKernels, IsNan) { this->TestIsNan(); }
 
 TEST(TestValidityKernels, NonZero) {
-  CheckScalarUnary("nonzero", int32(), "[null, 50, 0, 10]", 
-                   uint32(), "[1, 3]");
+  ASSERT_OK_AND_ASSIGN(auto actual, CallFunction("nonzero", {ArrayFromJSON(uint32(), "[null, 50, 0, 10]")}));
+  AssertArraysEqual(*actual.make_array(), *ArrayFromJSON(uint32(), "[1, 3]"));
 }
 
 }  // namespace compute
