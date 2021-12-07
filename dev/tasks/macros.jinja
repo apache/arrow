@@ -33,7 +33,6 @@ on:
       git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
       git -C arrow checkout FETCH_HEAD
       git -C arrow submodule update --init --recursive
-      git -C arrow fetch --depth=1 origin +refs/tags/*:refs/tags/*
 {% endmacro %}
 
 {%- macro github_login_dockerhub() -%}
