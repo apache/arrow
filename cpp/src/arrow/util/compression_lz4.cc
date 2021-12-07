@@ -22,8 +22,8 @@
 #include <memory>
 
 #include <lz4.h>
-#include <lz4hc.h>
 #include <lz4frame.h>
+#include <lz4hc.h>
 
 #include "arrow/result.h"
 #include "arrow/status.h"
@@ -361,7 +361,7 @@ class Lz4Codec : public Codec {
     int64_t output_len;
 #ifdef LZ4HC_CLEVEL_MIN
     constexpr int min_hc_clevel = LZ4HC_CLEVEL_MIN;
-#else // For older versions of the lz4 library
+#else  // For older versions of the lz4 library
     constexpr int min_hc_clevel = 3;
 #endif
     if (compression_level_ < min_hc_clevel) {
