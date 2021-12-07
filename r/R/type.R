@@ -150,7 +150,10 @@ DecimalType <- R6Class("DecimalType",
     scale = function() DecimalType__scale(self)
   )
 )
+
 Decimal128Type <- R6Class("Decimal128Type", inherit = DecimalType)
+
+Decimal256Type <- R6Class("Decimal256Type", inherit = DecimalType)
 
 NestedType <- R6Class("NestedType", inherit = DataType)
 
@@ -201,6 +204,10 @@ NestedType <- R6Class("NestedType", inherit = DataType)
 #' Use `decimal128()` as the name  is more informative and `decimal()` might be
 #' deprecated in the future.
 #'
+#' `decimal256()` creates a `decimal256` type, which allows for higher maximum
+#' precision. For most use cases, the maximum precision offered by `decimal128`
+#' is sufficient, and it will result in a more compact and more efficient encoding.
+#'
 #' @param unit For time/timestamp types, the time unit. `time32()` can take
 #' either "s" or "ms", while `time64()` can be "us" or "ns". `timestamp()` can
 #' take any of those four values.
@@ -209,7 +216,8 @@ NestedType <- R6Class("NestedType", inherit = DataType)
 #' @param list_size list size for `FixedSizeList` type.
 #' @param precision For `decimal()`, `decimal128()` the number of significant
 #'    digits the arrow `decimal` type can represent. The maximum precision for
-#'    `decimal()` and `decimal128()` is 38 significant digits.
+#'    `decimal()` and `decimal128()` is 38 significant digits, while for
+#'    `decimal256()` it is 76 digits.
 #' @param scale For `decimal()` and `decimal128()`, the number of digits after
 #'    the decimal point. It can be negative.
 #' @param type For `list_of()`, a data type to make a list-of-type
@@ -378,22 +386,38 @@ timestamp <- function(unit = c("s", "ms", "us", "ns"), timezone = "") {
 #' @rdname data-type
 #' @export
 decimal128 <- function(precision, scale) {
-  if (is.numeric(precision)) {
-    precision <- as.integer(precision)
-  } else {
-    stop('"precision" must be an integer', call. = FALSE)
-  }
-  if (is.numeric(scale)) {
-    scale <- as.integer(scale)
-  } else {
-    stop('"scale" must be an integer', call. = FALSE)
-  }
-  Decimal128Type__initialize(precision, scale)
+  args <- check_decimal_args(precision, scale)
+  Decimal128Type__initialize(args$precision, args$scale)
 }
 
 #' @rdname data-type
 #' @export
 decimal <- decimal128
+
+#' @rdname data-type
+#' @export
+decimal256 <- function(precision, scale) {
+  args <- check_decimal_args(precision, scale)
+  Decimal256Type_initialize(args$precision, args$scale)
+}
+
+check_decimal_args <- function(precision, scale) {
+  if (is.numeric(precision)) {
+    precision <- vec_cast(precision, to = integer())
+    vec_assert(precision, size = 1L)
+  } else {
+    stop('`precision` must be an integer', call. = FALSE)
+  }
+
+  if (is.numeric(scale)) {
+    scale <- vec_cast(scale, to = integer())
+    vec_assert(scale, size = 1L)
+  } else {
+    stop('`scale` must be an integer', call. = FALSE)
+  }
+
+  list(precision = precision, scale = scale)
+}
 
 StructType <- R6Class("StructType",
   inherit = NestedType,
@@ -496,6 +520,7 @@ canonical_type_str <- function(type_str) {
     null = "null",
     timestamp = "timestamp",
     decimal128 = "decimal128",
+    decimal256 = "decimal256",
     struct = "struct",
     list_of = "list",
     list = "list",
