@@ -493,7 +493,8 @@ Status GcsFileSystem::DeleteDir(const std::string& path) {
 }
 
 Status GcsFileSystem::DeleteDirContents(const std::string& path) {
-  return Status::NotImplemented("The GCS FileSystem is not fully implemented");
+  ARROW_ASSIGN_OR_RAISE(auto p, GcsPath::FromString(path));
+  return impl_->DeleteDirContents(p, io_context());
 }
 
 Status GcsFileSystem::DeleteRootDirContents() {
