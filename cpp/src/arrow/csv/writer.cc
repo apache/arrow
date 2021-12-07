@@ -324,7 +324,8 @@ class CSVWriterImpl : public ipc::RecordBatchWriter {
 
     std::vector<std::unique_ptr<ColumnPopulator>> populators(schema->num_fields());
     for (int col = 0; col < schema->num_fields(); col++) {
-      const std::string& end_chars = col < schema->num_fields() - 1 ? str_comma : options.eol;
+      const std::string& end_chars =
+          col < schema->num_fields() - 1 ? str_comma : options.eol;
       ASSIGN_OR_RAISE(populators[col],
                       MakePopulator(*schema->field(col), end_chars, null_string,
                                     options.io_context.pool()));
