@@ -30,22 +30,7 @@
 Testing 🧪
 ***********
 
-In Arrow we use unit tests to ensure code quality, to help
-others understand our code better and to make the process
-of review easier.
-
-Adding a new unit tests is needed when adding a new feature,
-a binding or a bug fix. 
-
-It can also happen your work will involve adding a unit test
-to a code already written, modifying a unit test or even making
-more than one unit test for the changes in the code.
-
-It is also possible to make changes that do not require adding
-a unit test like :ref:`documentation`.
-
-If you do need to work with unit tests, this section will help
-you with the necessary steps.
+In this section we outline steps needed for unit testing in Arrow.
 
 .. tabs::
 
@@ -55,8 +40,6 @@ you with the necessary steps.
       unit tests in Python. For more info about the required
       packages follow
       :ref:`Python unit testing section <python-unit-testing>`.
-
-      During the development process, it can be more efficient to only run the tests relevant to the code which you are working on.  However, you should run all of the tests once you have finished your development work.
 
       To run a specific unit test, use this command in 
       the terminal from the ``arrow/python`` folder:
