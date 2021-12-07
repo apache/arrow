@@ -112,7 +112,8 @@ automatically sets `LIBARROW_MINIMAL` to `FALSE` and `LIBARROW_BINARY` to `TRUE`
 
 Building libarrow from source requires more time and resources than installing 
 a binary.  We recommend that you set the environment variable `ARROW_R_DEV` to 
-`TRUE` for more verbose output during the installation process.
+`TRUE` for more verbose output during the installation process if anything goes 
+wrong.
 
 ```{r, eval = FALSE}
 Sys.setenv("ARROW_R_DEV" = TRUE)
