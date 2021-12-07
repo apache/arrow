@@ -211,24 +211,26 @@ struct NonZeroVisitor {
      using T = typename GetViewType<Type>::T;
      uint32_t index = 0;
 
-     VisitArrayDataInline<Type>(
+     return VisitArrayDataInline<Type>(
         this->array,
         [&](T v) {
-          if(v != 0)
+          if(v != 0) {
+            RETURN_NOT_OK(this->builder->Reserve(1));
             this->builder->UnsafeAppend(index);
+          }
           ++index;
+          return Status::OK();
         },
         [&]() {
           ++index;
+          return Status::OK();
         });
-     return Status::OK();
    }
 };
 
 Status NonZeroExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   std::shared_ptr<ArrayData> array = batch[0].array();
   UInt32Builder builder;
-  //RETURN_NOT_OK(builder.Reserve(array->length));
 
   NonZeroVisitor visitor(&builder, *array.get());
   RETURN_NOT_OK(VisitTypeInline(*(array->type), &visitor));
