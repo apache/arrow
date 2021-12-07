@@ -100,6 +100,22 @@ library. Source folder includes:
   in folders named by the language, for example: ``docs/source/c_glib``.
 - The documentation for the **R language** is located in the ``r/sub-directory``.
 
+  - In the ``R/vignettes`` you can find the **Articles**, for example
+    `Working with Cloud Storage (S3) <https://arrow.apache.org/docs/r/articles/fs.html>`_.
+  - In the ``r/R`` you can edit reference documentation for example 
+    in the ``r/R/dataset.R`` you can find the ``docstrings`` for the
+    `open_dataset <https://arrow.apache.org/docs/r/reference/open_dataset.html>`_.
+
+- **Reference documentation**
+
+  To edit `API reference documentation for Python <https://arrow.apache.org/docs/python/api.html>`_,
+  you will need to edit the ``docstring`` of the ``pyarrow`` package itself.
+  For example, to edit
+  `pyarrow.Array <https://arrow.apache.org/docs/python/generated/pyarrow.Array.html#pyarrow.Array>`_
+  you will need to edit ``docstrings`` in `arrow/pyarrow/array.pxi <https://github.com/apache/arrow/blob/bc223c688add2f4f06be0c3569192178f1ca1091/python/pyarrow/array.pxi#L790-L796>`_.
+
+  It is similar for C++.
+
 **Cookbooks** have their own repository `<https://github.com/apache/arrow-cookbook>`_
 and can be separately cloned and built.
 
