@@ -233,7 +233,7 @@ class UnquotedColumnPopulator : public ColumnPopulator {
   }
 
   // Whether to reject values with quotes when populating.
-  bool reject_values_with_quotes_;
+  const bool reject_values_with_quotes_;
 };
 
 // Strings need special handling to ensure they are escaped properly.
@@ -377,7 +377,7 @@ struct PopulatorFactory {
 
   char end_char;
   std::shared_ptr<Buffer> null_string;
-  QuotingStyle quoting_style;
+  const QuotingStyle quoting_style;
   MemoryPool* pool;
   ColumnPopulator* populator;
 };
