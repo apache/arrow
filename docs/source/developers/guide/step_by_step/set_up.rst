@@ -86,8 +86,8 @@ Next you need to clone the repository (this is where the command line
 comes in). It is *highly recommended* to clone the repository using
 the command line or a Git client. Cloning it in an IDE might create
 unnecessary headaches - for example, cloning it in RStudio assumes the
-whole repository is an R project and will create a ``.Rproj`` file
-in the root directory.
+whole repository is an RStudio project and will create a ``.Rproj``
+file in the root directory.
 
 .. code:: console
 
