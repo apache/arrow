@@ -1,7 +1,6 @@
 breathe
 ipython
 numpydoc
-meson
 pydata-sphinx-theme
 sphinx-tabs
 sphinx>=4.2
