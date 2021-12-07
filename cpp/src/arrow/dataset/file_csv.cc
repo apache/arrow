@@ -86,12 +86,13 @@ Result<std::unordered_set<std::string>> GetColumnNames(
 
   RETURN_NOT_OK(
       parser.VisitLastRow([&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
-        // Handle BOM (ARROW-14644)
+        // Skip BOM when reading column names (ARROW-14644)
         ARROW_ASSIGN_OR_RAISE(auto data2, util::SkipUTF8BOM(data, size));
         int64_t offset = data2 - data;
         DCHECK_GE(offset, 0);
-        uint32_t new_size = size - offset;
-        util::string_view view{reinterpret_cast<const char*>(data2), new_size};
+        size = size - offset;
+
+        util::string_view view{reinterpret_cast<const char*>(data2), size};
         if (column_names.emplace(std::string(view)).second) {
           return Status::OK();
         }
