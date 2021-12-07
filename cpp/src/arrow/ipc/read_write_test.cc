@@ -1727,8 +1727,8 @@ TEST(TestIpcFileFormat, FooterMetaData) {
   ASSERT_TRUE(out_metadata->Equals(*metadata));
 }
 
-TEST_F(TestWriteRecordBatch, CompressionRatio) {
-  // ARROW-8823: Calculating the compression ratio
+TEST_F(TestWriteRecordBatch, RawAndSerializedSizes) {
+  // ARROW-8823: Recording total raw and serialized record batch sizes in WriteStats
   FileWriterHelper helper;
   IpcWriteOptions options_uncompressed = IpcWriteOptions::Defaults();
 
