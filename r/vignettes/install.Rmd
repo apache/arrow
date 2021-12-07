@@ -331,11 +331,6 @@ something other than the RSPM binary mirror URLs).
 * Create the environment variable `ARROW_THIRDPARTY_DEPENDENCY_DIR` on the offline computer, pointing to the copied directory.
 * Install the arrow package as usual.
 
-# libarrow dependencies on Linux
-
-You'll need to install `libparquet-dev` on Debian and Ubuntu, or `parquet-devel` on CentOS.
-This will also automatically install libarrow as a dependency.
-
 # Installing with S3 support
 
 The arrow package allows you to work with data in AWS S3 or in other cloud

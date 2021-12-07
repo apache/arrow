@@ -66,7 +66,7 @@ knitr::include_graphics("./install_diagram_windows.png")
 The diagram below shows how the R package finds a libarrow installation on non-Windows systems.
 
 ```{r, echo=FALSE, out.width="70%"}
-knitr::include_graphics("./install_diagram.png")
+knitr::include_graphics("./install_nix.png")
 ```
 
 More information about these steps can be found below.
