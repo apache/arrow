@@ -1,20 +1,28 @@
-# How the R package is installed - advanced
+---
+title: "How the R package is installed - advanced"
+---
 
-This documented is intended specifically for arrow _developers_ who wish to know 
+This document is intended specifically for arrow _developers_ who wish to know 
 more about these scripts.  If you are an arrow _user_ looking for help with 
 installing arrow, please see [the installation guide](../install.html)
 
-In order for the arrow R package to work, it needs the Arrow C++ library, 
-also known as libarrow.  There are a number of different ways you can install libarrow:
+The arrow R package requires that Arrow C++ library (also known as libarrow) to 
+be installed in order to work properly.  There are a number of different ways 
+in which libarrow could be installed:
 
 * as part of the R package installation process
 * a system package
 * a library you've built yourself outside of the context of installing the R package
 
+Below, we discuss each of these setups in turn.
+
+# Installing libarrow during R package installation
+
 There are a number of scripts that are triggered 
 when `R CMD INSTALL .` is run and for Arrow users, these should all just work 
 without configuration and pull in the most complete pieces (e.g. official 
-binaries that we host).
+binaries that we host).  One of the jobs of these scripts is to work out
+if libarrow is installed, and if not, install it.
 
 An overview of these scripts is shown below:
 
@@ -54,11 +62,6 @@ knitr::include_graphics("../img/install_diagram_windows.png")
 ```
 
 ### Linux
-
-#### libarrow dependencies on Linux
-
-You'll need to install `libparquet-dev` on Debian and Ubuntu, or `parquet-devel` on CentOS.
-This will also automatically install libarrow as a dependency.
 
 The diagram below shows how the R package finds a libarrow installation on non-Windows systems.
 
@@ -100,7 +103,7 @@ Otherwise, it builds from the source files included in the package.
 Depending on your system, building libarrow from source may be slow. If 
 libarrow is built from source, `inst/build_arrow_static.sh` is executed.
 
-## Using the R package with libarrow installed as a system package
+# Using the R package with libarrow installed as a system package
 
 If you are authorized to install system packages and you're installing a CRAN release,
 you may want to use the official Apache Arrow release packages corresponding to 
@@ -114,7 +117,7 @@ including Debian, Ubuntu, and CentOS.
 Generally, we do not recommend this method of working with libarrow with the R 
 package unless you have a specific reason to do so. 
 
-## Using the R package with an existing libarrow build
+# Using the R package with an existing libarrow build
 
 This setup is much more common for arrow developers, who may be needing to make
 changes to both the R package and libarrow source code.  See 
