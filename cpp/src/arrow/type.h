@@ -714,9 +714,11 @@ class ARROW_EXPORT FixedSizeBinaryType : public FixedWidthType, public Parametri
 /// \brief Base type class for (fixed-size) decimal data
 class ARROW_EXPORT DecimalType : public FixedSizeBinaryType {
  public:
-  explicit DecimalType(Type::type type_id, int32_t byte_width, int32_t precision,
+  explicit DecimalType(Type::type override_type_id, int32_t byte_width, int32_t precision,
                        int32_t scale)
-      : FixedSizeBinaryType(byte_width, type_id), precision_(precision), scale_(scale) {}
+      : FixedSizeBinaryType(byte_width, override_type_id),
+        precision_(precision),
+        scale_(scale) {}
 
   /// Constructs concrete decimal types
   static Result<std::shared_ptr<DataType>> Make(Type::type type_id, int32_t precision,
@@ -1594,8 +1596,9 @@ class ARROW_EXPORT FieldRef {
 
   /// Construct a by-name FieldRef. Multiple fields may match a by-name FieldRef:
   /// [f for f in schema.fields where f.name == self.name]
-  FieldRef(std::string name) : impl_(std::move(name)) {}    // NOLINT runtime/explicit
-  FieldRef(const char* name) : impl_(std::string(name)) {}  // NOLINT runtime/explicit
+  FieldRef(std::string name) : impl_(std::move(name)) {}  // NOLINT runtime/explicit
+  FieldRef(_In_z_ const char* name)
+      : impl_(std::string(name)) {}  // NOLINT runtime/explicit
 
   /// Equivalent to a single index string of indices.
   FieldRef(int index) : impl_(FieldPath({index})) {}  // NOLINT runtime/explicit

@@ -104,7 +104,7 @@ class ParquetException : public std::exception {
 
   explicit ParquetException(std::string msg) : msg_(std::move(msg)) {}
 
-  explicit ParquetException(const char* msg, const std::exception&) : msg_(msg) {}
+  explicit ParquetException(_In_z_ const char* msg, const std::exception&) : msg_(msg) {}
 
   ParquetException(const ParquetException&) = default;
   ParquetException& operator=(const ParquetException&) = default;

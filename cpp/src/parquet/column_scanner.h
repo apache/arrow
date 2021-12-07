@@ -197,7 +197,8 @@ class PARQUET_TEMPLATE_CLASS_EXPORT TypedScanner : public Scanner {
   // The ownership of this object is expressed through the reader_ variable in the base
   TypedColumnReader<DType>* typed_reader_;
 
-  inline void FormatValue(void* val, char* buffer, int bufsize, int width);
+  inline void FormatValue(void* val, _Out_writes_opt_(bufsize) char* buffer, int bufsize,
+                          int width);
 
   T* values_;
 };

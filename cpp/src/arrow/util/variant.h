@@ -144,11 +144,11 @@ struct VariantImpl<Variant<T...>> : VariantStorage<T...> {
   void copy_to(...) const {}
 
   template <typename R, typename Visitor>
-  [[noreturn]] R visit_const(Visitor&& visitor) const {
+  [[noreturn]] R visit_const(Visitor&&) const {
     std::terminate();
   }
   template <typename R, typename Visitor>
-  [[noreturn]] R visit_mutable(Visitor&& visitor) {
+  [[noreturn]] R visit_mutable(Visitor&&) {
     std::terminate();
   }
 };

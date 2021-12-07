@@ -98,6 +98,17 @@
 #endif  // ifndef NULLPTR
 
 // ----------------------------------------------------------------------
+// microsoft source-code annotation language
+
+#ifndef _In_z_
+#define _In_z_
+#endif
+
+#ifndef _Out_writes_opt_
+#define _Out_writes_opt_(size)
+#endif
+
+// ----------------------------------------------------------------------
 
 // clang-format off
 // [[deprecated]] is only available in C++14, use this for the time being
