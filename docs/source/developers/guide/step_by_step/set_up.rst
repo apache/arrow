@@ -118,7 +118,3 @@ Should give you a result similar to this:
 If you did everything correctly, you should now have a copy of the code
 in the ``arrow`` directory and two remotes that refer to your own GitHub
 fork (``origin``) and the official Arrow repository (``upstream``).
-
-Note that in the official documentation for Arrow the folder is sometimes
-shown to be cloned into the repository folder. That is not mandatory and
-is just the way most developers working on Arrow are organized.
