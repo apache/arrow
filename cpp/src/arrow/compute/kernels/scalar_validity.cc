@@ -216,12 +216,9 @@ struct NonZeroVisitor {
         [&](T v) {
           if(v != 0)
             this->builder->UnsafeAppend(index);
-          else
-            this->builder->UnsafeAppendNull();
           ++index;
         },
         [&]() {
-          this->builder->UnsafeAppendNull();
           ++index;
         });
      return Status::OK();
@@ -231,7 +228,7 @@ struct NonZeroVisitor {
 Status NonZeroExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   std::shared_ptr<ArrayData> array = batch[0].array();
   UInt32Builder builder;
-  RETURN_NOT_OK(builder.Reserve(array->length));
+  //RETURN_NOT_OK(builder.Reserve(array->length));
 
   NonZeroVisitor visitor(&builder, *array.get());
   RETURN_NOT_OK(VisitTypeInline(*(array->type), &visitor));
@@ -249,7 +246,7 @@ std::shared_ptr<ScalarFunction> MakeNonZeroFunction(std::string name,
   for (const auto& ty : IntTypes()) {
     ScalarKernel kernel;
     kernel.exec = NonZeroExec;
-    kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
+    kernel.null_handling = NullHandling::OUTPUT_NOT_NULL;
     kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
     kernel.signature = KernelSignature::Make({InputType(ty->id())}, uint32());
     DCHECK_OK(func->AddKernel(kernel));
