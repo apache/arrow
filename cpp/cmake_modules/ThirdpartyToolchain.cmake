@@ -626,7 +626,7 @@ else()
     find_program(patch "patch")
     if(patch)
       set(SNAPPY_PATCH_COMMAND "patch" "snappy.cc"
-                              "${CMAKE_SOURCE_DIR}/build-support/snappy-UBSAN.patch")
+                               "${CMAKE_SOURCE_DIR}/build-support/snappy-UBSAN.patch")
     endif()
   endif()
 endif()
