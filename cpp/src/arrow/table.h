@@ -63,6 +63,16 @@ class ARROW_EXPORT Table {
                                      const std::vector<std::shared_ptr<Array>>& arrays,
                                      int64_t num_rows = -1);
 
+  /// \brief Create an empty Table of a given schema
+  ///
+  /// The output Table will be created with a single empty chunk per column.
+  ///
+  /// \param[in] schema the schema of the empty Table
+  /// \param[in] pool the memory pool to allocate memory from
+  /// \return the resulting Table
+  static Result<std::shared_ptr<Table>> MakeEmpty(
+      std::shared_ptr<Schema> schema, MemoryPool* pool = default_memory_pool());
+
   /// \brief Construct a Table from a RecordBatchReader.
   ///
   /// \param[in] reader the arrow::Schema for each batch
