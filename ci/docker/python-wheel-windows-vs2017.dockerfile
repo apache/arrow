@@ -20,7 +20,8 @@
 FROM abrarov/msvc-2017:2.11.0
 
 # Install CMake and Ninja
-RUN choco install --no-progress -r -y cmake --installargs 'ADD_CMAKE_TO_PATH=System' && \
+ARG cmake=3.21.4
+RUN choco install --no-progress -r -y cmake --version=%cmake% --installargs 'ADD_CMAKE_TO_PATH=System' && \
     choco install --no-progress -r -y gzip wget ninja
 
 # Add unix tools to path
