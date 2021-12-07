@@ -80,6 +80,8 @@ navbar:
             href: articles/developers/workflow.html
           - text: Debugging
             href: articles/developers/debugging.html
+          - text: Package Installation Details
+            href: articles/developers/install_details.html
 reference:
   - title: Multi-file datasets
     contents:
