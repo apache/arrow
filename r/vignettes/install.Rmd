@@ -96,7 +96,7 @@ for your OS can be found.
 
 When compiling libarrow from source, you have the power to really fine-tune 
 which features to install.  You can set the environment variable 
-`LIBARROW_MINIMAL` to enable a more full-featured build including S3 support 
+`LIBARROW_MINIMAL` to `FALSE` to enable a more full-featured build including S3 support 
 and alternative memory allocators.
 
 ```{r, eval = FALSE}
