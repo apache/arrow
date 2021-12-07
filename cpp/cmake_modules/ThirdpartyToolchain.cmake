@@ -1026,9 +1026,11 @@ macro(build_snappy)
   )
 
   # This can be removed when https://github.com/google/snappy/pull/148 is released
-  set(SNAPPY_PATCH_COMMAND
-      "patch" "snappy.cc" "${CMAKE_SOURCE_DIR}/build-support/snappy-UBSAN.patch"
-  )
+  # Some platforms don't have patch, but this is probably ok to skip
+  find_program(patch "patch")
+  IF(patch)
+    set(SNAPPY_PATCH_COMMAND "patch" "snappy.cc" "${CMAKE_SOURCE_DIR}/build-support/snappy-UBSAN.patch")
+  ENDIF()
 
   set(SNAPPY_CMAKE_ARGS
       ${EP_COMMON_CMAKE_ARGS}
