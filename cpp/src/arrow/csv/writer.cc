@@ -80,6 +80,7 @@ int64_t CountEscapes(util::string_view s) {
 // Matching quote pair character length.
 constexpr int64_t kQuoteCount = 2;
 constexpr int64_t kQuoteDelimiterCount = kQuoteCount + /*end_char*/ 1;
+static const std::string& str_comma = ",";
 
 // Interface for generating CSV data per column.
 // The intended usage is to iteratively call UpdateRowLengths for a column and
@@ -87,7 +88,7 @@ constexpr int64_t kQuoteDelimiterCount = kQuoteCount + /*end_char*/ 1;
 // populators (it populates data backwards).
 class ColumnPopulator {
  public:
-  ColumnPopulator(MemoryPool* pool, std::string end_chars,
+  ColumnPopulator(MemoryPool* pool, const std::string& end_chars,
                   std::shared_ptr<Buffer> null_string)
       : end_chars_(end_chars), null_string_(std::move(null_string)), pool_(pool) {}
 
@@ -143,7 +144,7 @@ char* EscapeReverse(arrow::util::string_view s, char* out_end) {
 // from a cast does not require quoting or escaping.
 class UnquotedColumnPopulator : public ColumnPopulator {
  public:
-  explicit UnquotedColumnPopulator(MemoryPool* memory_pool, std::string& end_chars,
+  explicit UnquotedColumnPopulator(MemoryPool* memory_pool, const std::string& end_chars,
                                    std::shared_ptr<Buffer> null_string_)
       : ColumnPopulator(memory_pool, end_chars, std::move(null_string_)) {}
 
@@ -160,18 +161,18 @@ class UnquotedColumnPopulator : public ColumnPopulator {
     VisitArrayDataInline<StringType>(
         *casted_array_->data(),
         [&](arrow::util::string_view s) {
-          int32_t next_column_offset = static_cast<int32_t>(
-              s.length() + /*end_chars(, or eol)*/ end_chars_.size());
+          int32_t next_column_offset =
+              static_cast<int32_t>(s.length() + end_chars_.size());
           memcpy((output + *offsets - next_column_offset), s.data(), s.length());
           memcpy((output + *offsets - end_chars_.size()), end_chars_.c_str(),
                  end_chars_.size());
-          *offsets -= static_cast<int32_t>(next_column_offset);
+          *offsets -= next_column_offset;
           offsets++;
         },
         [&]() {
           // For nulls, the configured null value string is copied into the output.
-          int32_t next_column_offset = static_cast<int32_t>(
-              null_string_->size() + /*end_chars(, or eol)*/ end_chars_.size());
+          int32_t next_column_offset =
+              static_cast<int32_t>(null_string_->size() + end_chars_.size());
           memcpy((output + *offsets - next_column_offset), null_string_->data(),
                  null_string_->size());
           memcpy((output + *offsets - end_chars_.size()), end_chars_.c_str(),
@@ -298,7 +299,7 @@ struct PopulatorFactory {
 };
 
 Result<std::unique_ptr<ColumnPopulator>> MakePopulator(
-    const Field& field, std::string& end_chars, std::shared_ptr<Buffer> null_string,
+    const Field& field, const std::string& end_chars, std::shared_ptr<Buffer> null_string,
     MemoryPool* pool) {
   PopulatorFactory factory{end_chars, std::move(null_string), pool, nullptr};
   RETURN_NOT_OK(VisitTypeInline(*field.type(), &factory));
@@ -323,7 +324,7 @@ class CSVWriterImpl : public ipc::RecordBatchWriter {
 
     std::vector<std::unique_ptr<ColumnPopulator>> populators(schema->num_fields());
     for (int col = 0; col < schema->num_fields(); col++) {
-      std::string end_chars = col < schema->num_fields() - 1 ? "," : options.eol;
+      const std::string& end_chars = col < schema->num_fields() - 1 ? str_comma : options.eol;
       ASSIGN_OR_RAISE(populators[col],
                       MakePopulator(*schema->field(col), end_chars, null_string,
                                     options.io_context.pool()));
@@ -437,7 +438,7 @@ class CSVWriterImpl : public ipc::RecordBatchWriter {
         static_cast<int32_t>(batch.num_columns() - 1 + options_.eol.size());
     offsets_[0] += delimiters_length;
     for (int64_t row = 1; row < batch.num_rows(); row++) {
-      offsets_[row] += offsets_[row - 1] + /*delimiter lengths*/ delimiters_length;
+      offsets_[row] += offsets_[row - 1] + delimiters_length;
     }
     // Resize the target buffer to required size. We assume batch to batch sizes
     // should be pretty close so don't shrink the buffer to avoid allocation churn.

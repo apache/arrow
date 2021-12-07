@@ -47,7 +47,7 @@ void PrintTo(const WriterTestParams& p, std::ostream* os) {
 }
 
 WriteOptions DefaultTestOptions(bool include_header, const std::string& null_string,
-                                const std::string eol = "\n") {
+                                const std::string& eol = "\n") {
   WriteOptions options;
   options.batch_size = 5;
   options.include_header = include_header;
@@ -56,7 +56,7 @@ WriteOptions DefaultTestOptions(bool include_header, const std::string& null_str
   return options;
 }
 
-std::string UtilGetExpectedWithEOL(std::string eol) {
+std::string UtilGetExpectedWithEOL(const std::string& eol) {
   return std::string("1,,-1,,,") + eol +        // line 1
          R"(1,"abc""efg",2324,,,)" + eol +      // line 2
          R"(,"abcd",5467,,,)" + eol +           // line 3
@@ -117,7 +117,7 @@ std::vector<WriterTestParams> GenerateTestCases() {
        DefaultTestOptions(/*include_header=*/false, /*null_string=*/""),
        /*null_string_invalid*/ false, expected_without_header},
       {abc_schema, populated_batch,
-       DefaultTestOptions(/*include_header=*/false, /*null_string=*/"",  /*eol=*/"_EOL_"),
+       DefaultTestOptions(/*include_header=*/false, /*null_string=*/"", /*eol=*/"_EOL_"),
        /*null_string_invalid*/ false, expected_with_custom_eol},
       {abc_schema, populated_batch,
        DefaultTestOptions(/*include_header=*/true, /*null_string=*/""),
