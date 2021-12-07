@@ -21,6 +21,7 @@ library(dplyr, warn.conflicts = FALSE)
 
 csv_dir <- make_temp_dir()
 tsv_dir <- make_temp_dir()
+csv_file <- tempfile()
 
 test_that("Setup (putting data in the dirs)", {
   dir.create(file.path(csv_dir, 5))
