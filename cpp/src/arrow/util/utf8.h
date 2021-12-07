@@ -320,6 +320,19 @@ static inline bool Utf8Is4ByteStart(const uint8_t codeunit) {
   return (codeunit & 0xF8) == 0xF0;  // upper five bits should be 11110
 }
 
+/// Return the number of bytes required to UTF8-encode the given codepoint
+static inline int32_t UTF8EncodedLength(uint32_t codepoint) {
+  if (codepoint < 0x80) {
+    return 1;
+  } else if (codepoint < 0x800) {
+    return 2;
+  } else if (codepoint < 0x10000) {
+    return 3;
+  } else {
+    return 4;
+  }
+}
+
 static inline uint8_t* UTF8Encode(uint8_t* str, uint32_t codepoint) {
   if (codepoint < 0x80) {
     *str++ = codepoint;

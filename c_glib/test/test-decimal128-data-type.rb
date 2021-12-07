@@ -48,7 +48,7 @@ class TestDecimal128DataType < Test::Unit::TestCase
 
   def test_invalid_precision
     message =
-      "[decimal128-data-type][new]: Invalid: Decimal precision out of range: 39"
+      "[decimal128-data-type][new]: Invalid: Decimal precision out of range [1, 38]: 39"
     assert_raise(Arrow::Error::Invalid.new(message)) do
       Arrow::Decimal128DataType.new(39, 1)
     end

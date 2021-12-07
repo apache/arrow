@@ -17,6 +17,7 @@
     "benchmark",
     "boost-filesystem",
     "boost-multiprecision",
+    "boost-process",
     "boost-system",
     "brotli",
     "bzip2",
@@ -25,6 +26,14 @@
     "flatbuffers",
     "gflags",
     "glog",
+    {
+      "name":"google-cloud-cpp",
+      "version>=": "1.32.1",
+      "default-features": false,
+      "features": [
+        "storage"
+      ]
+    },
     "grpc",
     "gtest",
     "lz4",

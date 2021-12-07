@@ -49,7 +49,7 @@ Result<std::shared_ptr<ResizableBuffer>> KernelContext::Allocate(int64_t nbytes)
 }
 
 Result<std::shared_ptr<ResizableBuffer>> KernelContext::AllocateBitmap(int64_t num_bits) {
-  const int64_t nbytes = BitUtil::BytesForBits(num_bits);
+  const int64_t nbytes = bit_util::BytesForBits(num_bits);
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ResizableBuffer> result,
                         AllocateResizableBuffer(nbytes, exec_ctx_->memory_pool()));
   // Since bitmaps are typically written bit by bit, we could leak uninitialized bits.

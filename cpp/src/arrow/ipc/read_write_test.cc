@@ -133,14 +133,14 @@ TEST_P(TestMessage, SerializeTo) {
     int64_t output_length = 0;
     ASSERT_OK_AND_ASSIGN(auto stream, io::BufferOutputStream::Create(1 << 10));
     ASSERT_OK(message->SerializeTo(stream.get(), options_, &output_length));
-    ASSERT_EQ(BitUtil::RoundUp(metadata->size() + prefix_size, alignment) + body_length,
+    ASSERT_EQ(bit_util::RoundUp(metadata->size() + prefix_size, alignment) + body_length,
               output_length);
     ASSERT_OK_AND_EQ(output_length, stream->Tell());
     ASSERT_OK_AND_ASSIGN(auto buffer, stream->Finish());
     // chech whether length is written in little endian
     auto buffer_ptr = buffer.get()->data();
     ASSERT_EQ(output_length - body_length - prefix_size,
-              BitUtil::FromLittleEndian(*(uint32_t*)(buffer_ptr + 4)));
+              bit_util::FromLittleEndian(*(uint32_t*)(buffer_ptr + 4)));
   };
 
   CheckWithAlignment(8);
@@ -2642,7 +2642,7 @@ void GetReadRecordBatchReadRanges(
   // read magic and footer length IO
   auto file_end_size = magic_size + sizeof(int32_t);
   auto footer_length_offset = buffer->size() - file_end_size;
-  auto footer_length = BitUtil::FromLittleEndian(
+  auto footer_length = bit_util::FromLittleEndian(
       util::SafeLoadAs<int32_t>(buffer->data() + footer_length_offset));
   ASSERT_EQ(read_ranges[0].length, file_end_size);
   // read footer IO

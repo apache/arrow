@@ -1566,7 +1566,7 @@ class ArrayReader {
     data_->null_count = 0;
     for (int64_t i = 0; i < length; ++i) {
       if (is_valid_[i]) {
-        BitUtil::SetBit(bitmap, i);
+        bit_util::SetBit(bitmap, i);
       } else {
         ++data_->null_count;
       }

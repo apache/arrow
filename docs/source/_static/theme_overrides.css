@@ -96,7 +96,6 @@ Details: min(15vh, 110px) for the logo size, 8rem for search box etc*/
 /* Styling to get the version dropdown and search box side-by-side on wide screens */
 
 #version-search-wrapper {
-  overflow: hidden;
   width: inherit;
   display: flex;
   flex-wrap: wrap;

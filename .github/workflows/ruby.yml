@@ -58,7 +58,7 @@ jobs:
     name: AMD64 Ubuntu ${{ matrix.ubuntu }} GLib & Ruby
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    timeout-minutes: 40
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:

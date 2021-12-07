@@ -34,31 +34,6 @@ namespace gandiva {
 
 class LLVMGenerator;
 
-class FilterCacheKey {
- public:
-  FilterCacheKey(SchemaPtr schema, std::shared_ptr<Configuration> configuration,
-                 Expression& expression);
-
-  std::size_t Hash() const { return hash_code_; }
-
-  bool operator==(const FilterCacheKey& other) const;
-
-  bool operator!=(const FilterCacheKey& other) const { return !(*this == other); }
-
-  SchemaPtr schema() const { return schema_; }
-
-  std::string ToString() const;
-
- private:
-  void UpdateUniqifier(const std::string& expr);
-
-  const SchemaPtr schema_;
-  const std::shared_ptr<Configuration> configuration_;
-  std::string expression_as_string_;
-  size_t hash_code_;
-  uint32_t uniqifier_;
-};
-
 /// \brief filter records based on a condition.
 ///
 /// A filter is built for a specific schema and condition. Once the filter is built, it
@@ -103,10 +78,14 @@ class GANDIVA_EXPORT Filter {
 
   std::string DumpIR();
 
+  void SetBuiltFromCache(bool flag);
+  bool GetBuiltFromCache();
+
  private:
   std::unique_ptr<LLVMGenerator> llvm_generator_;
   SchemaPtr schema_;
   std::shared_ptr<Configuration> configuration_;
+  bool built_from_cache_;
 };
 
 }  // namespace gandiva

@@ -18,73 +18,17 @@
 #include "gandiva/filter.h"
 
 #include <memory>
-#include <thread>
 #include <utility>
-#include <vector>
-
-#include "arrow/util/hash_util.h"
 
 #include "gandiva/bitmap_accumulator.h"
 #include "gandiva/cache.h"
 #include "gandiva/condition.h"
 #include "gandiva/expr_validator.h"
+#include "gandiva/expression_cache_key.h"
 #include "gandiva/llvm_generator.h"
 #include "gandiva/selection_vector_impl.h"
 
 namespace gandiva {
-
-FilterCacheKey::FilterCacheKey(SchemaPtr schema,
-                               std::shared_ptr<Configuration> configuration,
-                               Expression& expression)
-    : schema_(schema), configuration_(configuration), uniqifier_(0) {
-  static const int kSeedValue = 4;
-  size_t result = kSeedValue;
-  expression_as_string_ = expression.ToString();
-  UpdateUniqifier(expression_as_string_);
-  arrow::internal::hash_combine(result, expression_as_string_);
-  arrow::internal::hash_combine(result, configuration);
-  arrow::internal::hash_combine(result, schema_->ToString());
-  arrow::internal::hash_combine(result, uniqifier_);
-  hash_code_ = result;
-}
-
-bool FilterCacheKey::operator==(const FilterCacheKey& other) const {
-  // arrow schema does not overload equality operators.
-  if (!(schema_->Equals(*other.schema().get(), true))) {
-    return false;
-  }
-
-  if (configuration_ != other.configuration_) {
-    return false;
-  }
-
-  if (expression_as_string_ != other.expression_as_string_) {
-    return false;
-  }
-
-  if (uniqifier_ != other.uniqifier_) {
-    return false;
-  }
-  return true;
-}
-
-std::string FilterCacheKey::ToString() const {
-  std::stringstream ss;
-  // indent, window, indent_size, null_rep and skip new lines.
-  arrow::PrettyPrintOptions options{0, 10, 2, "null", true};
-  DCHECK_OK(PrettyPrint(*schema_.get(), options, &ss));
-
-  ss << "Condition: [" << expression_as_string_ << "]";
-  return ss.str();
-}
-
-void FilterCacheKey::UpdateUniqifier(const std::string& expr) {
-  // caching of expressions with re2 patterns causes lock contention. So, use
-  // multiple instances to reduce contention.
-  if (expr.find(" like(") != std::string::npos) {
-    uniqifier_ = std::hash<std::thread::id>()(std::this_thread::get_id()) % 16;
-  }
-}
 
 Filter::Filter(std::unique_ptr<LLVMGenerator> llvm_generator, SchemaPtr schema,
                std::shared_ptr<Configuration> configuration)
@@ -102,13 +46,24 @@ Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
   ARROW_RETURN_IF(configuration == nullptr,
                   Status::Invalid("Configuration cannot be null"));
 
-  static Cache<FilterCacheKey, std::shared_ptr<Filter>> cache;
-  FilterCacheKey cache_key(schema, configuration, *(condition.get()));
-  auto cachedFilter = cache.GetModule(cache_key);
-  if (cachedFilter != nullptr) {
-    *filter = cachedFilter;
-    return Status::OK();
+  std::shared_ptr<Cache<ExpressionCacheKey, std::shared_ptr<llvm::MemoryBuffer>>> cache =
+      LLVMGenerator::GetCache();
+
+  Condition conditionToKey = *(condition.get());
+
+  ExpressionCacheKey cache_key(schema, configuration, conditionToKey);
+
+  bool is_cached = false;
+
+  std::shared_ptr<llvm::MemoryBuffer> prev_cached_obj;
+  prev_cached_obj = cache->GetObjectCode(cache_key);
+
+  // Verify if previous filter obj code was cached
+  if (prev_cached_obj != nullptr) {
+    is_cached = true;
   }
+
+  GandivaObjectCache obj_cache(cache, cache_key);
 
   // Build LLVM generator, and generate code for the specified expression
   std::unique_ptr<LLVMGenerator> llvm_gen;
@@ -119,18 +74,17 @@ Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
   ExprValidator expr_validator(llvm_gen->types(), schema);
   ARROW_RETURN_NOT_OK(expr_validator.Validate(condition));
 
-  // Start measuring build time
-  auto begin = std::chrono::high_resolution_clock::now();
-  ARROW_RETURN_NOT_OK(llvm_gen->Build({condition}, SelectionVector::Mode::MODE_NONE));
-  // Stop measuring time and calculate the elapsed time
-  auto end = std::chrono::high_resolution_clock::now();
-  auto elapsed =
-      std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();
+  // Set the object cache for LLVM
+  llvm_gen->SetLLVMObjectCache(obj_cache);
+
+  ARROW_RETURN_NOT_OK(llvm_gen->Build(
+      {condition},
+      SelectionVector::Mode::MODE_NONE));  // to use when caching only the obj code
 
   // Instantiate the filter with the completely built llvm generator
   *filter = std::make_shared<Filter>(std::move(llvm_gen), schema, configuration);
-  ValueCacheObject<std::shared_ptr<Filter>> value_cache(*filter, elapsed);
-  cache.PutModule(cache_key, value_cache);
+
+  filter->get()->SetBuiltFromCache(is_cached);
 
   return Status::OK();
 }
@@ -167,5 +121,9 @@ Status Filter::Evaluate(const arrow::RecordBatch& batch,
 }
 
 std::string Filter::DumpIR() { return llvm_generator_->DumpIR(); }
+
+void Filter::SetBuiltFromCache(bool flag) { built_from_cache_ = flag; }
+
+bool Filter::GetBuiltFromCache() { return built_from_cache_; }
 
 }  // namespace gandiva
