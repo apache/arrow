@@ -302,7 +302,6 @@ INSTANTIATE_TEST_SUITE_P(SingleColumnWriteCSVTest, TestWriteCSV,
                          ::testing::Values(WriterTestParams(
                              schema({field("int64", int64())}),
                              R"([{ "int64": 9999}, {}, { "int64": -15}])", WriteOptions(),
-                             false,
                              R"("int64")"
                              "\n9999\n\n-15\n",
                              Status::OK())));
@@ -311,21 +310,25 @@ INSTANTIATE_TEST_SUITE_P(BackslashEscapeWriteCSVTest, TestWriteCSV,
                          ::testing::Values(WriterTestParams{
                              schema({field("string\"", utf8())}),
                              R"([{ "string\"": "abc\"def"}])",
-                             DefaultTestOptions(true, "", true, '\\'),
+                             DefaultTestOptions(true, "", QuotingStyle::Needed, true,
+                                                '\\'),
                              R"("string\"")"
-                             "\n\"abc\\\"def\"\n"}));
+                             "\n\"abc\\\"def\"\n",
+                         }));
 
-INSTANTIATE_TEST_SUITE_P(EscapeFailureInDataWriteCSVTest, TestWriteCSV,
-                         ::testing::Values(WriterTestParams{
-                             schema({field("string", utf8())}),
-                             R"([{ "string": "abc\"def"}])",
-                             DefaultTestOptions(true, "", false), ""}));
+INSTANTIATE_TEST_SUITE_P(
+    EscapeFailureInDataWriteCSVTest, TestWriteCSV,
+    ::testing::Values(WriterTestParams{
+        schema({field("string", utf8())}), R"([{ "string": "abc\"def"}])",
+        DefaultTestOptions(true, "", QuotingStyle::Needed, false), "",
+        Status::Invalid("Need to escape in CSV data, but escaping is disabled.")}));
 
-INSTANTIATE_TEST_SUITE_P(EscapeFailureInHeaderWriteCSVTest, TestWriteCSV,
-                         ::testing::Values(WriterTestParams{
-                             schema({field("string\"", utf8())}),
-                             R"([{ "string\"": "abcdef"}])",
-                             DefaultTestOptions(true, "", false), ""}));
+INSTANTIATE_TEST_SUITE_P(
+    EscapeFailureInHeaderWriteCSVTest, TestWriteCSV,
+    ::testing::Values(WriterTestParams{
+        schema({field("string\"", utf8())}), R"([{ "string\"": "abcdef"}])",
+        DefaultTestOptions(true, "", QuotingStyle::Needed, false), "",
+        Status::Invalid("Need to escape in CSV header, but escaping is disabled.")}));
 
 #ifndef _WIN32
 // TODO(ARROW-13168):

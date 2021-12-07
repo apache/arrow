@@ -248,7 +248,7 @@ class QuotedColumnPopulator : public ColumnPopulator {
     return VisitArrayDataInline<StringType>(
         *input.data(),
         [&](arrow::util::string_view s) {
-          int64_t escaped_count = CountEscapes(s);
+          int64_t escaped_count = CountQuotes(s);
           if (escaping_) {
             // TODO: Maybe use 64 bit row lengths or safe cast?
             row_needs_escaping_[row_number] = escaped_count > 0;
@@ -343,6 +343,7 @@ struct PopulatorFactory {
         // quoted.
       case QuotingStyle::Needed:
       case QuotingStyle::AllValid:
+            new QuotedColumnPopulator(pool, end_chars, escaping, escape_char, null_string);
         populator = new QuotedColumnPopulator(pool, end_chars, escaping, escape_char, null_string);
         break;
     }
@@ -377,7 +378,8 @@ struct PopulatorFactory {
                                                 /*reject_values_with_quotes=*/false);
         break;
       case QuotingStyle::AllValid:
-        populator = new QuotedColumnPopulator(pool, end_chars, null_string);
+        populator =
+            new QuotedColumnPopulator(pool, end_chars, escaping, escape_char, null_string);
         break;
     }
     return Status::OK();
@@ -494,7 +496,7 @@ class CSVWriterImpl : public ipc::RecordBatchWriter {
     int64_t header_length = 0;
     for (int col = 0; col < schema_->num_fields(); col++) {
       const std::string& col_name = schema_->field(col)->name();
-      int64_t escaped_count = CountEscapes(col_name);
+      int64_t escaped_count = CountQuotes(col_name);
       if (!options_.escaping && escaped_count > 0) {
         return Status::Invalid("Need to escape in CSV header, but escaping is disabled.");
       }
