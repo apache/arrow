@@ -1768,6 +1768,10 @@ TEST_F(TestWriteRecordBatch, CompressionRatio) {
     ASSERT_LE(helper.writer_->stats().total_raw_body_size,
               helper.writer_->stats().total_serialized_body_size);
 
+    if (!util::Codec::IsAvailable(Compression::LZ4_FRAME)) {
+      continue;
+    }
+
     // with compression
     ASSERT_OK(helper.Init(batches[i]->schema(), options_compressed));
     ASSERT_OK(helper.WriteBatch(batches[i]));
