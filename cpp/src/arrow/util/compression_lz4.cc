@@ -372,7 +372,7 @@ class Lz4Codec : public Codec {
       output_len = LZ4_compress_HC(
           reinterpret_cast<const char*>(input), reinterpret_cast<char*>(output_buffer),
           static_cast<int>(input_len), static_cast<int>(output_buffer_len),
-			    compression_level_);
+          compression_level_);
     }
     if (output_len == 0) {
       return Status::IOError("Lz4 compression failure.");
