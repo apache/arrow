@@ -39,6 +39,7 @@ import org.apache.arrow.flight.auth2.ClientBearerHeaderHandler;
 import org.apache.arrow.flight.auth2.ClientIncomingAuthHeaderMiddleware;
 import org.apache.arrow.flight.sql.FlightSqlClient;
 import org.apache.arrow.flight.sql.impl.FlightSql.SqlInfo;
+import org.apache.arrow.flight.sql.util.TableRef;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.Preconditions;
@@ -199,7 +200,7 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
    * @return a {@code FlightStream} of results.
    */
   public FlightInfo getImportedKeys(final String catalog, final String schema, final String table) {
-    return sqlClient.getImportedKeys(catalog, schema, table, getOptions());
+    return sqlClient.getImportedKeys(TableRef.of(catalog, schema, table), getOptions());
   }
 
   /**
@@ -215,7 +216,7 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
    * @return a {@code FlightStream} of results.
    */
   public FlightInfo getExportedKeys(final String catalog, final String schema, final String table) {
-    return sqlClient.getExportedKeys(catalog, schema, table, getOptions());
+    return sqlClient.getExportedKeys(TableRef.of(catalog, schema, table), getOptions());
   }
 
   /**
@@ -286,7 +287,7 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
    * @return a {@code FlightStream} of results.
    */
   public FlightInfo getPrimaryKeys(final String catalog, final String schema, final String table) {
-    return sqlClient.getPrimaryKeys(catalog, schema, table, getOptions());
+    return sqlClient.getPrimaryKeys(TableRef.of(catalog, schema, table), getOptions());
   }
 
   /**
@@ -310,7 +311,8 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
    */
   public FlightInfo getCrossReference(String pkCatalog, String pkSchema, String pkTable,
                                       String fkCatalog, String fkSchema, String fkTable) {
-    return sqlClient.getCrossReference(pkCatalog, pkSchema, pkTable, fkCatalog, fkSchema, fkTable,
+    return sqlClient.getCrossReference(TableRef.of(pkCatalog, pkSchema, pkTable),
+        TableRef.of(fkCatalog, fkSchema, fkTable),
         getOptions());
   }
 

@@ -595,7 +595,7 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
 
   @Override
   public int getMaxSchemaNameLength() throws SQLException {
-    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_SCHEMA_NAME_LENGTH, Long.class).intValue();
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_DB_SCHEMA_NAME_LENGTH, Long.class).intValue();
   }
 
   @Override
@@ -1187,7 +1187,6 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
   }
 
   static String sqlToRegexLike(final String sqlPattern) {
-    final char escapeChar = (char) 0;
     final int len = sqlPattern.length();
     final StringBuilder javaPattern = new StringBuilder(len + len);
 
@@ -1199,13 +1198,6 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
       }
 
       switch (currentChar) {
-        case escapeChar:
-          final char nextChar = sqlPattern.charAt(i + 1);
-          if ((nextChar == '_') || (nextChar == '%') || (nextChar == escapeChar)) {
-            javaPattern.append(nextChar);
-            i++;
-          }
-          break;
         case '_':
           javaPattern.append('.');
           break;
