@@ -52,10 +52,10 @@ import org.apache.arrow.flight.FlightProducer.ServerStreamListener;
 import org.apache.arrow.flight.sql.FlightSqlProducer.Schemas;
 import org.apache.arrow.flight.sql.impl.FlightSql;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetCatalogs;
+import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetDbSchemas;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetExportedKeys;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetImportedKeys;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetPrimaryKeys;
-import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetSchemas;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetTableTypes;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetTables;
 import org.apache.arrow.memory.BufferAllocator;
@@ -403,7 +403,7 @@ public class ArrowDatabaseMetadataTest {
     FLIGHT_SQL_PRODUCER.addCatalogQuery(commandGetTablesWithSchema,
         commandGetTablesWithSchemaResultProducer);
 
-    final Message commandGetSchemas = CommandGetSchemas.getDefaultInstance();
+    final Message commandGetDbSchemas = CommandGetDbSchemas.getDefaultInstance();
     final Consumer<ServerStreamListener> commandGetSchemasResultProducer = listener -> {
       try (final BufferAllocator allocator = new RootAllocator();
            final VectorSchemaRoot root = VectorSchemaRoot.create(Schemas.GET_SCHEMAS_SCHEMA,
@@ -422,7 +422,7 @@ public class ArrowDatabaseMetadataTest {
         listener.completed();
       }
     };
-    FLIGHT_SQL_PRODUCER.addCatalogQuery(commandGetSchemas, commandGetSchemasResultProducer);
+    FLIGHT_SQL_PRODUCER.addCatalogQuery(commandGetDbSchemas, commandGetSchemasResultProducer);
 
     final Message commandGetExportedKeys =
         CommandGetExportedKeys.newBuilder().setTable(TARGET_TABLE).build();
@@ -568,7 +568,7 @@ public class ArrowDatabaseMetadataTest {
         .withSqlMaxConnections(EXPECTED_MAX_CONNECTIONS)
         .withSqlMaxCursorNameLength(EXPECTED_MAX_CURSOR_NAME_LENGTH)
         .withSqlMaxIndexLength(EXPECTED_MAX_INDEX_LENGTH)
-        .withSqlSchemaNameLength(EXPECTED_SCHEMA_NAME_LENGTH)
+        .withSqlDbSchemaNameLength(EXPECTED_SCHEMA_NAME_LENGTH)
         .withSqlMaxProcedureNameLength(EXPECTED_MAX_PROCEDURE_NAME_LENGTH)
         .withSqlMaxCatalogNameLength(EXPECTED_MAX_CATALOG_NAME_LENGTH)
         .withSqlMaxRowSize(EXPECTED_MAX_ROW_SIZE)
@@ -765,10 +765,9 @@ public class ArrowDatabaseMetadataTest {
 
   @Test
   public void testGetColumnsCanByIndicesFilteringColumnNames() throws SQLException {
-    char escapeChar = (char) 0;
     try (
         final ResultSet resultSet = connection.getMetaData()
-            .getColumns(null, null, null, "column" + escapeChar + "_1")) {
+            .getColumns(null, null, null, "column_1")) {
       resultSetTestUtils.testData(resultSet, EXPECTED_GET_COLUMNS_RESULTS
           .stream()
           .filter(insideList -> Objects.equals(insideList.get(3), "column_1"))

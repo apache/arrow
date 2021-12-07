@@ -56,10 +56,10 @@ import org.apache.arrow.flight.sql.impl.FlightSql.ActionCreatePreparedStatementR
 import org.apache.arrow.flight.sql.impl.FlightSql.ActionCreatePreparedStatementResult;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetCatalogs;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetCrossReference;
+import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetDbSchemas;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetExportedKeys;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetImportedKeys;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetPrimaryKeys;
-import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetSchemas;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetSqlInfo;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetTableTypes;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetTables;
@@ -378,14 +378,14 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
   }
 
   @Override
-  public FlightInfo getFlightInfoSchemas(final CommandGetSchemas commandGetSchemas,
+  public FlightInfo getFlightInfoSchemas(final CommandGetDbSchemas commandGetSchemas,
                                          final CallContext callContext,
                                          final FlightDescriptor flightDescriptor) {
     return getFlightInfo(commandGetSchemas, Schemas.GET_SCHEMAS_SCHEMA, flightDescriptor);
   }
 
   @Override
-  public void getStreamSchemas(final CommandGetSchemas commandGetSchemas,
+  public void getStreamSchemas(final CommandGetDbSchemas commandGetSchemas,
                                final CallContext callContext,
                                final ServerStreamListener serverStreamListener) {
     getStreamCatalogFunctions(commandGetSchemas, serverStreamListener);
