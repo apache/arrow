@@ -89,6 +89,11 @@ cdef class FileFormat(_Weakrefable):
 
     cdef _set_default_fragment_scan_options(self, FragmentScanOptions options)
 
+    # Return a WrittenFile after a file was written.
+    # May be overriden by subclasses, e.g. to add metadata.
+    cdef WrittenFile _finish_write(self, path, base_dir,
+                                   CFileWriter* file_writer)
+
 
 cdef class FileWriteOptions(_Weakrefable):
 
@@ -156,11 +161,9 @@ cdef class PartitioningFactory(_Weakrefable):
 
 cdef class WrittenFile(_Weakrefable):
 
-    """The full path to the created file"""
+    # The full path to the created file
     cdef public str path
-    """
-    If the file is a parquet file this will contain the parquet metadata.
-    This metadata will have the file path attribute set to the path of
-    the written file.
-    """
+    # Optional Parquet metadata
+    # This metadata will have the file path attribute set to the path of
+    # the written file.
     cdef public object metadata

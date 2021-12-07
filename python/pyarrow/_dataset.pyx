@@ -70,12 +70,7 @@ def _get_orc_fileformat():
     return _orc_fileformat
 
 
-_parquet_imported = False
-_parquet_fileformat = None
-_parquet_filefragment = None
-_parquet_filewriteoption = None
-_parquet_fragmentscanoptions = None
-_parquet_filesystemdatasetwritevisitor = None
+_dataset_pq = False
 
 
 def _get_parquet_classes():
@@ -83,34 +78,17 @@ def _get_parquet_classes():
     Import Parquet class files on first usage (to avoid circular import issue
     when `pyarrow._dataset_parquet` would be imported first)
     """
-    global _parquet_fileformat
-    global _parquet_filefragment
-    global _parquet_filewriteoption
-    global _parquet_fragmentscanoptions
-    global _parquet_filesystemdatasetwritevisitor
-    global _parquet_imported
-    if not _parquet_imported:
+    global _dataset_pq
+    if _dataset_pq is False:
         try:
-            from pyarrow._dataset_parquet import (
-                ParquetFileFormat,
-                ParquetFileFragment,
-                ParquetWriteOption,
-                ParquetFragmentScanOptions,
-                _filesystemdataset_parquet_write_visitor
-            )
-            _parquet_fileformat = ParquetFileFormat
-            _parquet_filefragment = ParquetFileFragment
-            _parquet_filewriteoption = ParquetWriteOption
-            _parquet_fragmentscanoptions = ParquetFragmentScanOptions
-            _parquet_filesystemdatasetwritevisitor = _filesystemdataset_parquet_write_visitor
-        except ImportError as e:
-            _parquet_fileformat = None
-            _parquet_filefragment = None
-            _parquet_fragmentscanoptions = None
-            _parquet_filewriteoption = None
-            _parquet_filesystemdatasetwritevisitor = None
-        finally:
-            _parquet_imported = True
+            import pyarrow._dataset_parquet as _dataset_pq
+        except ImportError:
+            _dataset_pq = None
+
+
+def _get_parquet_symbol(name):
+    _get_parquet_classes()
+    return _dataset_pq and getattr(_dataset_pq, name)
 
 
 def _get_parquet_fileformat():
@@ -118,9 +96,7 @@ def _get_parquet_fileformat():
     Import ParquetFileFormat on first usage (to avoid circular import issue
     when `pyarrow._dataset_parquet` would be imported first)
     """
-    global _parquet_fileformat
-    _get_parquet_classes()
-    return _parquet_fileformat
+    return _get_parquet_symbol('ParquetFileFormat')
 
 
 def _get_parquet_filefragment():
@@ -128,19 +104,15 @@ def _get_parquet_filefragment():
     Import ParquetFileFragment on first usage (to avoid circular import issue
     when `pyarrow._dataset_parquet` would be imported first)
     """
-    global _parquet_filefragment
-    _get_parquet_classes()
-    return _parquet_filefragment
+    return _get_parquet_symbol('ParquetFileFragment')
 
 
-def _get_parquet_filewriteoption():
+def _get_parquet_filewriteoptions():
     """
-    Import ParquetFileWriteOption on first usage (to avoid circular import issue
+    Import ParquetFileWriteOptions on first usage (to avoid circular import issue
     when `pyarrow._dataset_parquet` would be imported first)
     """
-    global _parquet_filewriteoption
-    _get_parquet_classes()
-    return _parquet_filewriteoption
+    return _get_parquet_symbol('ParquetFileWriteOptions')
 
 
 def _get_parquet_fragmentscanoptions():
@@ -148,9 +120,7 @@ def _get_parquet_fragmentscanoptions():
     Import ParquetFragmentScanOptions on first usage (to avoid circular import
     issue when `pyarrow._dataset_parquet` would be imported first)
     """
-    global _parquet_fragmentscanoptions
-    _get_parquet_classes()
-    return _parquet_fragmentscanoptions
+    return _get_parquet_symbol('ParquetFragmentScanOptions')
 
 
 cdef CFileSource _make_file_source(object file, FileSystem filesystem=None):
@@ -898,7 +868,7 @@ cdef class FileWriteOptions(_Weakrefable):
         classes = {
             'csv': CsvFileWriteOptions,
             'ipc': IpcFileWriteOptions,
-            'parquet': _get_parquet_filewriteoption(),
+            'parquet': _get_parquet_filewriteoptions(),
         }
 
         class_ = classes.get(type_name, None)
@@ -944,6 +914,11 @@ cdef class FileFormat(_Weakrefable):
         cdef FileFormat self = class_.__new__(class_)
         self.init(sp)
         return self
+
+    cdef WrittenFile _finish_write(self, path, base_dir,
+                                   CFileWriter* file_writer):
+        parquet_metadata = None
+        return WrittenFile(path, parquet_metadata)
 
     cdef inline shared_ptr[CFileFormat] unwrap(self):
         return self.wrapped
@@ -1017,8 +992,8 @@ cdef class Fragment(_Weakrefable):
         type_name = frombytes(sp.get().type_name())
 
         classes = {
-            # IpcFileFormat and CsvFileFormat do not have corresponding
-            # subclasses of FileFragment
+            # IpcFileFormat, CsvFileFormat and OrcFileFormat do not have
+            # corresponding subclasses of FileFragment
             'ipc': FileFragment,
             'csv': FileFragment,
             'parquet': _get_parquet_filefragment(),
@@ -1027,6 +1002,7 @@ cdef class Fragment(_Weakrefable):
         class_ = classes.get(type_name, None)
         if class_ is None:
             class_ = Fragment
+        print("class =", class_)
 
         cdef Fragment self = class_.__new__(class_)
         self.init(sp)
@@ -2632,6 +2608,7 @@ cdef class WrittenFile(_Weakrefable):
         self.path = path
         self.metadata = metadata
 
+
 cdef void _filesystemdataset_write_visitor(
         dict visit_args,
         CFileWriter* file_writer):
@@ -2640,10 +2617,13 @@ cdef void _filesystemdataset_write_visitor(
         str base_dir
         WrittenFile written_file
         object parquet_metadata
+        FileFormat file_format
 
     parquet_metadata = None
     path = frombytes(deref(file_writer).destination().path)
-    written_file = WrittenFile(path, parquet_metadata)
+    base_dir = frombytes(visit_args['base_dir'])
+    file_format = FileFormat.wrap(file_writer.format())
+    written_file = file_format._finish_write(path, base_dir, file_writer)
     visit_args['file_visitor'](written_file)
 
 
@@ -2691,13 +2671,8 @@ def _filesystemdataset_write(
                       'file_visitor': file_visitor}
         # Need to use post_finish because parquet metadata is not available
         # until after Finish has been called
-        if _parquet_filesystemdatasetwritevisitor:
-            c_options.writer_post_finish = BindFunction[cb_writer_finish_internal](
-                # &_parquet_filesystemdatasetwritevisitor, visit_args)
-                &_filesystemdataset_write_visitor, visit_args)
-        else:
-            c_options.writer_post_finish = BindFunction[cb_writer_finish_internal](
-                &_filesystemdataset_write_visitor, visit_args)
+        c_options.writer_post_finish = BindFunction[cb_writer_finish_internal](
+            &_filesystemdataset_write_visitor, visit_args)
 
     c_scanner = data.unwrap()
     with nogil:

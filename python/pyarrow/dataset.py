@@ -40,7 +40,6 @@ from pyarrow._dataset import (  # noqa
     InMemoryDataset,
     Partitioning,
     PartitioningFactory,
-    RowGroupInfo,
     Scanner,
     TaggedRecordBatch,
     UnionDataset,
@@ -68,10 +67,15 @@ _parquet_msg = (
 )
 
 try:
-    from pyarrow._dataset_parquet import (
+    from pyarrow._dataset_parquet import (  # noqa
         ParquetDatasetFactory,
         ParquetFactoryOptions,
-        ParquetFileFormat
+        ParquetFileFormat,
+        ParquetFileFragment,
+        ParquetFileWriteOptions,
+        ParquetFragmentScanOptions,
+        ParquetReadOptions,
+        RowGroupInfo,
     )
     _parquet_available = True
 except ImportError:

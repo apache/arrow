@@ -29,6 +29,7 @@ from pyarrow.lib cimport *
 from pyarrow.lib import frombytes, tobytes
 from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_dataset cimport *
+from pyarrow.includes.libarrow_dataset_parquet cimport *
 from pyarrow._fs cimport FileSystem
 from pyarrow.util import _is_path_like, _stringify_path
 
@@ -55,6 +56,9 @@ from pyarrow._parquet cimport (
 
 
 cdef Expression _true = Expression._scalar(True)
+
+
+ctypedef CParquetFileWriter* _CParquetFileWriterPtr
 
 
 cdef class ParquetFileFormat(FileFormat):
@@ -140,6 +144,24 @@ cdef class ParquetFileFormat(FileFormat):
     cdef void init(self, const shared_ptr[CFileFormat]& sp):
         FileFormat.init(self, sp)
         self.parquet_format = <CParquetFileFormat*> sp.get()
+
+    cdef WrittenFile _finish_write(self, path, base_dir,
+                                   CFileWriter* file_writer):
+        cdef:
+            FileMetaData parquet_metadata
+            CParquetFileWriter* parquet_file_writer
+
+        parquet_metadata = None
+        parquet_file_writer = dynamic_cast[_CParquetFileWriterPtr](file_writer)
+        with nogil:
+            metadata = deref(
+                deref(parquet_file_writer).parquet_writer()).metadata()
+        if metadata:
+            parquet_metadata = FileMetaData()
+            parquet_metadata.init(metadata)
+            parquet_metadata.set_file_path(os.path.relpath(path, base_dir))
+
+        return WrittenFile(path, parquet_metadata)
 
     @property
     def read_options(self):
@@ -799,31 +821,3 @@ cdef class ParquetDatasetFactory(DatasetFactory):
     cdef init(self, shared_ptr[CDatasetFactory]& sp):
         DatasetFactory.init(self, sp)
         self.parquet_factory = <CParquetDatasetFactory*> sp.get()
-
-
-ctypedef CParquetFileWriter* _CParquetFileWriterPtr
-
-cdef void _filesystemdataset_parquet_write_visitor(
-        dict visit_args,
-        CFileWriter* file_writer):
-    cdef:
-        str path
-        str base_dir
-        WrittenFile written_file
-        FileMetaData parquet_metadata
-        CParquetFileWriter* parquet_file_writer
-
-    parquet_metadata = None
-    path = frombytes(deref(file_writer).destination().path)
-    if deref(deref(file_writer).format()).type_name() == b"parquet":
-        parquet_file_writer = dynamic_cast[_CParquetFileWriterPtr](file_writer)
-        with nogil:
-            metadata = deref(
-                deref(parquet_file_writer).parquet_writer()).metadata()
-        if metadata:
-            base_dir = frombytes(visit_args['base_dir'])
-            parquet_metadata = FileMetaData()
-            parquet_metadata.init(metadata)
-            parquet_metadata.set_file_path(os.path.relpath(path, base_dir))
-    written_file = WrittenFile(path, parquet_metadata)
-    visit_args['file_visitor'](written_file)
