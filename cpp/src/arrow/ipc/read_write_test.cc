@@ -1731,9 +1731,6 @@ TEST_F(TestWriteRecordBatch, CompressionRatio) {
   // ARROW-8823: Calculating the compression ratio
   FileWriterHelper helper;
   IpcWriteOptions options_uncompressed = IpcWriteOptions::Defaults();
-  IpcWriteOptions options_compressed = IpcWriteOptions::Defaults();
-  ASSERT_OK_AND_ASSIGN(options_compressed.codec,
-                       util::Codec::Create(Compression::LZ4_FRAME));
 
   std::vector<std::shared_ptr<RecordBatch>> batches(3);
   // empty record batch
@@ -1771,6 +1768,10 @@ TEST_F(TestWriteRecordBatch, CompressionRatio) {
     if (!util::Codec::IsAvailable(Compression::LZ4_FRAME)) {
       continue;
     }
+
+    IpcWriteOptions options_compressed = IpcWriteOptions::Defaults();
+    ASSERT_OK_AND_ASSIGN(options_compressed.codec,
+                         util::Codec::Create(Compression::LZ4_FRAME));
 
     // with compression
     ASSERT_OK(helper.Init(batches[i]->schema(), options_compressed));
