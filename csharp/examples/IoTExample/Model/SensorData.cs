@@ -17,16 +17,16 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace IoTExample.Model
+namespace IoTExample
 {
     public class SensorData
     {
         //Subject-id, Activity Label, Timestamp, x, y, z
-        public int subjectId { get; set; }
-        public string activityLabel { get; set; }
-        public long timestamp { get; set; }
-        public double x_Axis { get; set; }
-        public double y_Axis { get; set; }
-        public double z_Axis { get; set; }
+        public int? subjectId { get; set; }
+        public string? activityLabel { get; set; }
+        public long? timestamp { get; set; }
+        public double? x_Axis { get; set; }
+        public double? y_Axis { get; set; }
+        public double? z_Axis { get; set; }
     }
 }

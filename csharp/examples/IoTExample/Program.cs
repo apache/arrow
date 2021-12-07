@@ -17,27 +17,29 @@ using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Diagnostics;
 using System.Collections.Generic;
-using IoTExample.Model;
+using Apache.Arrow;
+using Apache.Arrow.Ipc;
+using Apache.Arrow.Memory;
 
 namespace IoTExample
 {
     class Program
     {
         public static int concurrencyLevel = 1;
-        public static int inputs = 1_000_000_000;
-        public static int capacity = 100_000;
+        public static int totalInputs = 1_000_000_000;
+        public static int queueCapacity = 1_000_000;
+        // Use a specific memory pool from which arrays will be allocated (optional)
+        static NativeMemoryAllocator memoryAllocator;
+
 
         // A Real-time C# memory-based smartwatch and smartphone IoT data analytics platform,
         // which leverages Apache Arrow as the unified data store.
         public static async Task Main(string[] args)
         {
-            SampleDataset sd = new SampleDataset(inputs, capacity);
-            Dictionary<string, List<object>> results = new Dictionary<string, List<object>>();
+            memoryAllocator = new NativeMemoryAllocator(alignment: 64);
 
-            Stopwatch stopwatch = new Stopwatch();
-            stopwatch.Start();
+            SampleDataset sd = new SampleDataset(totalInputs, queueCapacity, memoryAllocator);
 
             Console.WriteLine("Producing data...");
             Task t1 = Task.Run(() => sd.Produce());
@@ -48,11 +50,19 @@ namespace IoTExample
             // Wait for all tasks to complete
             Task.WaitAll(t1, t2);
 
-            stopwatch.Stop();
-            Console.WriteLine($"Elapsed Milliseconds is: {stopwatch.ElapsedMilliseconds}");
+            // Data analytics in real time
+            // Your business logics go here
 
-            TimeSpan ts = stopwatch.Elapsed;
-            Console.WriteLine($"Total Runtime is: {ts.Minutes} min {ts.Seconds} sec");
+            Console.WriteLine("Reading arrow files...");
+            var stream = File.OpenWrite(@"c:\temp\data\");
+            var reader = new ArrowFileReader(stream, true);
+
+            var recordBatch = reader.ReadNextRecordBatch();
+
+            Console.WriteLine(recordBatch.Column(0).Data.NullCount);
+
         }
+
     }
+
 }
