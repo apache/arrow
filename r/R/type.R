@@ -398,20 +398,20 @@ decimal <- decimal128
 #' @export
 decimal256 <- function(precision, scale) {
   args <- check_decimal_args(precision, scale)
-  Decimal256Type_initialize(args$precision, args$scale)
+  Decimal256Type__initialize(args$precision, args$scale)
 }
 
 check_decimal_args <- function(precision, scale) {
   if (is.numeric(precision)) {
     precision <- vec_cast(precision, to = integer())
-    vec_assert(precision, size = 1L)
+    vctrs::vec_assert(precision, size = 1L)
   } else {
     stop('`precision` must be an integer', call. = FALSE)
   }
 
   if (is.numeric(scale)) {
     scale <- vec_cast(scale, to = integer())
-    vec_assert(scale, size = 1L)
+    vctrs::vec_assert(scale, size = 1L)
   } else {
     stop('`scale` must be an integer', call. = FALSE)
   }

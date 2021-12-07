@@ -401,6 +401,7 @@ test_that("decimal type and validation", {
   expect_error(decimal128(NA, 2), '`precision` must be an integer')
   expect_error(decimal128(4, NA), '`scale` must be an integer')
   expect_error(decimal128(3:4, NA), "`precision` must have size 1. not size 2")
+  expect_error(decimal128(4, 2:3), "`scale` must have size 1. not size 2")
 
   expect_r6_class(decimal256(4, 2), "Decimal256Type")
 
@@ -408,6 +409,8 @@ test_that("decimal type and validation", {
   expect_error(decimal256(4, "two"), '`scale` must be an integer')
   expect_error(decimal256(NA, 2), '`precision` must be an integer')
   expect_error(decimal256(4, NA), '`scale` must be an integer')
+  expect_error(decimal256(3:4, NA), "`precision` must have size 1. not size 2")
+  expect_error(decimal256(4, 2:3), "`scale` must have size 1. not size 2")
 })
 
 test_that("Binary", {
