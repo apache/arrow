@@ -203,22 +203,7 @@ write_parquet <- function(x,
 
   # determine an approximate chunk size
   if (is.null(chunk_size)) {
-    num_cells <- x$num_rows * x$num_columns
-    target_cells_per_group <- getOption("arrow.parquet_cells_per_group", 2.5e8)
-
-    if (num_cells < target_cells_per_group) {
-      # If the total number of cells is less than the default 250 million, we want one group
-      num_chunks <- 1
-    } else {
-      # no more than the default 250 million cells (rows * cols) per group
-      # and we use floor, then ceiling to ensure that these are whole numbers
-      num_chunks <- floor(num_cells / target_cells_per_group)
-    }
-
-    # but there are no more than 200 chunks
-    num_chunks <- min(num_chunks, getOption("arrow.parquet_max_chunks", 200))
-
-    chunk_size <- ceiling(x$num_rows / num_chunks)
+    chunk_size <- calculate_chunk_size(x$num_rows, x$num_columns)
   }
 
   writer$WriteTable(x, chunk_size = chunk_size)
@@ -607,4 +592,29 @@ ParquetArrowReaderProperties <- R6Class("ParquetArrowReaderProperties",
 
 ParquetArrowReaderProperties$create <- function(use_threads = option_use_threads()) {
   parquet___arrow___ArrowReaderProperties__Make(isTRUE(use_threads))
+}
+
+calculate_chunk_size <- function(rows,  columns,
+  target_cells_per_group = getOption("arrow.parquet_cells_per_group", 2.5e8),
+  max_chunks = getOption("arrow.parquet_max_chunks", 200)
+  ) {
+
+  # Ensure is a float to prevent integer overflow issues
+  num_cells <- as.numeric(rows) * as.numeric(columns)
+
+  if (num_cells < target_cells_per_group) {
+    # If the total number of cells is less than the default 250 million, we want one group
+    num_chunks <- 1
+  } else {
+    # no more than the default 250 million cells (rows * cols) per group
+    # and we use floor, then ceiling to ensure that these are whole numbers
+    num_chunks <- floor(num_cells / target_cells_per_group)
+  }
+
+  # but there are no more than 200 chunks
+  num_chunks <- min(num_chunks, max_chunks)
+
+  chunk_size <- ceiling(rows / num_chunks)
+
+  chunk_size
 }
