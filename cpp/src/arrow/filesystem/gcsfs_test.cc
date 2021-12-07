@@ -65,9 +65,10 @@ culpa qui officia deserunt mollit anim id est laborum.
 class GcsIntegrationTest : public ::testing::Test {
  public:
   ~GcsIntegrationTest() override {
+    // Brutal shutdown, kill the full process group because the GCS testbench may launch
+    // additional children.
+    group_.terminate();
     if (server_process_.valid()) {
-      // Brutal shutdown
-      server_process_.terminate();
       server_process_.wait();
     }
   }
@@ -81,7 +82,7 @@ class GcsIntegrationTest : public ::testing::Test {
     ASSERT_THAT(exe_path, Not(IsEmpty()));
 
     server_process_ = bp::child(boost::this_process::environment(), exe_path, "-m",
-                                "testbench", "--port", port_);
+                                "testbench", "--port", port_, group_);
 
     // Create a bucket and a small file in the testbench. This makes it easier to
     // bootstrap GcsFileSystem and its tests.
@@ -141,6 +142,7 @@ class GcsIntegrationTest : public ::testing::Test {
   std::mt19937_64 generator_;
   std::string port_;
   bp::child server_process_;
+  bp::group group_;
 };
 
 TEST(GcsFileSystem, OptionsCompare) {
