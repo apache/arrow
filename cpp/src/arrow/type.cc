@@ -805,7 +805,7 @@ Result<std::shared_ptr<StructType>> StructType::RemoveField(int i) const {
 Result<std::shared_ptr<StructType>> StructType::SetField(
     int i, const std::shared_ptr<Field>& field) const {
   if (i < 0 || i > this->num_fields()) {
-    return Status::Invalid("Invalid column index to add field.");
+    return Status::Invalid("Invalid column index to set field.");
   }
   return std::make_shared<StructType>(
       internal::ReplaceVectorElement(children_, i, field));
@@ -1544,7 +1544,7 @@ Result<std::shared_ptr<Schema>> Schema::AddField(
 Result<std::shared_ptr<Schema>> Schema::SetField(
     int i, const std::shared_ptr<Field>& field) const {
   if (i < 0 || i > this->num_fields()) {
-    return Status::Invalid("Invalid column index to add field.");
+    return Status::Invalid("Invalid column index to set field.");
   }
 
   return std::make_shared<Schema>(
