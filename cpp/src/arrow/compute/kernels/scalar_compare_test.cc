@@ -1502,11 +1502,23 @@ TYPED_TEST(TestVarArgsCompareFixedSizeBinary, MinElementWise) {
                {this->array(R"(["abc", null, "abd", null, "abc"])"), this->scalar("null"),
                 this->scalar(R"("abc")")});
 
+  this->Assert(MinElementWise, this->scalar(R"("")", /*byte_width=*/0),
+               {this->scalar(R"("")", /*byte_width=*/0)});
+  this->Assert(MinElementWise, this->scalar("null", /*byte_width=*/0),
+               {this->scalar("null", /*byte_width=*/0)});
+  this->Assert(
+      MinElementWise, this->scalar(R"("")", /*byte_width=*/0),
+      {this->scalar("null", /*byte_width=*/0), this->scalar(R"("")", /*byte_width=*/0)});
+
   // Test null handling
   this->element_wise_aggregate_options_.skip_nulls = false;
   this->Assert(MinElementWise, this->array(R"(["abc", "abc", "abc", null, null])"),
                {this->array(R"(["abc", "abc", "abd", null, "abc"])"),
                 this->array(R"(["abc", "abd", "abc", "abc", null])")});
+
+  this->Assert(
+      MinElementWise, this->scalar("null", /*byte_width=*/0),
+      {this->scalar("null", /*byte_width=*/0), this->scalar(R"("")", /*byte_width=*/0)});
 
   // Test error handling
   auto result = MinElementWise({this->scalar(R"("abc")", /*byte_width=*/3),
@@ -1795,11 +1807,23 @@ TYPED_TEST(TestVarArgsCompareFixedSizeBinary, MaxElementWise) {
                {this->array(R"(["abc", null, "abd", null, "abc"])"), this->scalar("null"),
                 this->scalar(R"("abc")")});
 
+  this->Assert(MaxElementWise, this->scalar(R"("")", /*byte_width=*/0),
+               {this->scalar(R"("")", /*byte_width=*/0)});
+  this->Assert(MaxElementWise, this->scalar("null", /*byte_width=*/0),
+               {this->scalar("null", /*byte_width=*/0)});
+  this->Assert(
+      MaxElementWise, this->scalar(R"("")", /*byte_width=*/0),
+      {this->scalar("null", /*byte_width=*/0), this->scalar(R"("")", /*byte_width=*/0)});
+
   // Test null handling
   this->element_wise_aggregate_options_.skip_nulls = false;
   this->Assert(MaxElementWise, this->array(R"(["abc", "abd", "abd", null, null])"),
                {this->array(R"(["abc", "abc", "abd", null, "abc"])"),
                 this->array(R"(["abc", "abd", "abc", "abc", null])")});
+
+  this->Assert(
+      MaxElementWise, this->scalar("null", /*byte_width=*/0),
+      {this->scalar("null", /*byte_width=*/0), this->scalar(R"("")", /*byte_width=*/0)});
 
   // Test error handling
   auto result = MaxElementWise({this->scalar(R"("abc")", /*byte_width=*/3),
