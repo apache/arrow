@@ -57,8 +57,8 @@ struct IpcPayload {
   MessageType type = MessageType::NONE;
   std::shared_ptr<Buffer> metadata;
   std::vector<std::shared_ptr<Buffer>> body_buffers;
-  int64_t body_length = 0;      // serialized body length (maybe compressed)
-  int64_t raw_body_length = 0;  // initial uncompressed body_length
+  int64_t body_length = 0;      // serialized body length (padded, maybe compressed)
+  int64_t raw_body_length = 0;  // initial uncompressed body length
 };
 
 struct WriteStats {
@@ -77,8 +77,9 @@ struct WriteStats {
   /// an existing dictionary with an unrelated new dictionary).
   int64_t num_replaced_dictionaries = 0;
 
-  /// initial and serialized (may be compressed) body sizes in bytes for record batches
-  /// these values show the total sizes of all record batch body lengths
+  /// Total size in bytes of record batches emitted.
+  /// The "raw" size counts the original buffer sizes, while the "serialized" size
+  /// includes padding and (optionally) compression.
   int64_t total_raw_body_size = 0;
   int64_t total_serialized_body_size = 0;
 };
