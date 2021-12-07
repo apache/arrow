@@ -72,7 +72,12 @@ class GANDIVA_EXPORT LiteralNode : public Node {
       return ss.str();
     }
 
-    ss << gandiva::ToString(holder_);
+    if (return_type()->id() == arrow::Type::STRING ||
+        return_type()->id() == arrow::Type::LARGE_STRING) {
+      ss << "'" << gandiva::ToString(holder_) << "'";
+    } else {
+      ss << gandiva::ToString(holder_);
+    }
     // The default formatter prints in decimal can cause a loss in precision. so,
     // print in hex. Can't use hexfloat since gcc 4.9 doesn't support it.
     if (return_type()->id() == arrow::Type::DOUBLE) {
