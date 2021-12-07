@@ -184,6 +184,31 @@ class SSE42Filter {
   const BulkFilterType filter_;
 };
 
+#elif defined ARROW_HAVE_NEON
+
+// NEON filter: 8 bytes at a time, comparing with all special chars
+
+class NeonFilter {
+ public:
+  using WordType = uint8x8_t;
+
+  explicit NeonFilter(const ParseOptions& options)
+      : delim_(vdup_n_u8(options.delimiter)),
+        quote_(vdup_n_u8(options.quoting ? options.quote_char : '\n')),
+        escape_(vdup_n_u8(options.escaping ? options.escape_char : '\n')) {}
+
+  bool Matches(WordType w) {
+    const uint8x8_t v = vceq_u8(w, vdup_n_u8('\r')) | vceq_u8(w, vdup_n_u8('\n')) |
+                        vceq_u8(w, delim_) | vceq_u8(w, quote_) | vceq_u8(w, escape_);
+    uint64_t r;
+    vst1_u64(&r, vreinterpret_u64_u8(v));
+    return r != 0;
+  }
+
+ private:
+  const uint8x8_t delim_, quote_, escape_;
+};
+
 #endif
 
 // A helper class allocating the buffer for parsed values and writing into it
@@ -313,6 +338,8 @@ class BlockParserImpl {
 #if defined(ARROW_HAVE_SSE4_2) && (defined(__x86_64__) || defined(_M_X64))
   // (the SSE4.2 filter seems to crash on RTools with 32-bit MinGW)
   using BulkFilterType = SSE42Filter;
+#elif defined(ARROW_HAVE_NEON)
+  using BulkFilterType = NeonFilter;
 #else
   using BulkFilterType = BloomFilter4B;
 #endif
