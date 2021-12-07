@@ -1599,6 +1599,28 @@ TEST(TestStructType, TestFieldsDifferOnlyInMetadata) {
   ASSERT_NE(s0.metadata_fingerprint(), s1.metadata_fingerprint());
 }
 
+TEST(TestStructType, FieldModifierMethods) {
+  auto f0 = field("f0", int32());
+  auto f1 = field("f1", utf8());
+
+  std::vector<std::shared_ptr<Field>> fields = {f0, f1};
+
+  StructType struct_type(fields);
+
+  ASSERT_OK_AND_ASSIGN(auto new_struct, struct_type.AddField(1, field("f2", int8())));
+  ASSERT_EQ(3, new_struct->num_fields());
+  ASSERT_EQ(1, new_struct->GetFieldIndex("f2"));
+
+  ASSERT_OK_AND_ASSIGN(new_struct, new_struct->RemoveField(1));
+  ASSERT_EQ(2, new_struct->num_fields());
+  ASSERT_EQ(-1, new_struct->GetFieldIndex("f2"));  // No f2 after removal
+
+  ASSERT_OK_AND_ASSIGN(new_struct, new_struct->SetField(1, field("f2", int8())));
+  ASSERT_EQ(2, new_struct->num_fields());
+  ASSERT_EQ(1, new_struct->GetFieldIndex("f2"));
+  ASSERT_EQ(int8(), new_struct->GetFieldByName("f2")->type());
+}
+
 TEST(TestUnionType, Basics) {
   auto f0_type = int32();
   auto f0 = field("f0", f0_type);

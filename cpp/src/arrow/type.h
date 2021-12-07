@@ -996,6 +996,12 @@ class ARROW_EXPORT StructType : public NestedType {
   /// \brief Return the indices of all fields having this name in sorted order
   std::vector<int> GetAllFieldIndices(const std::string& name) const;
 
+  Result<std::shared_ptr<StructType>> AddField(int i,
+                                               const std::shared_ptr<Field>& field) const;
+  Result<std::shared_ptr<StructType>> RemoveField(int i) const;
+  Result<std::shared_ptr<StructType>> SetField(int i,
+                                               const std::shared_ptr<Field>& field) const;
+
  private:
   std::string ComputeFingerprint() const override;
 
