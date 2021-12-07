@@ -185,7 +185,7 @@ class CppBenchmarkRunner(BenchmarkRunner):
             yield suite
 
         if not suite_found:
-            raise ValueError("No benchmark matches the filter")
+            raise ValueError("No benchmark matches the suite/benchmark filter")
 
     @staticmethod
     def from_rev_or_path(src, root, rev_or_path, cmake_conf, **kwargs):
