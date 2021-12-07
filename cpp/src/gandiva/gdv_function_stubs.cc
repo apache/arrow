@@ -1049,6 +1049,13 @@ const char* gdv_mask_last_n_utf8_int32(int64_t context, const char* data,
   int num_of_chars = static_cast<int>(
       utf8proc_decompose(reinterpret_cast<const utf8proc_uint8_t*>(data), data_len,
                          &utf8_char_buffer, 4, UTF8PROC_STABLE));
+
+  if (num_of_chars < 0) {
+    gdv_fn_context_set_error_msg(context, utf8proc_errmsg(num_of_chars));
+    *out_len = 0;
+    return nullptr;
+  }
+
   utf8proc_int32_t utf8_char;
   int chars_counter = 0;
   int bytes_read = 0;
@@ -1056,13 +1063,6 @@ const char* gdv_mask_last_n_utf8_int32(int64_t context, const char* data,
     auto char_len =
         utf8proc_iterate(reinterpret_cast<const utf8proc_uint8_t*>(data + bytes_read),
                          data_len, &utf8_char);
-
-    if (char_len < 0) {
-      gdv_fn_context_set_error_msg(context, utf8proc_errmsg(char_len));
-      *out_len = 0;
-      return nullptr;
-    }
-
     chars_counter++;
     bytes_read += static_cast<int>(char_len);
   }
@@ -1077,13 +1077,6 @@ const char* gdv_mask_last_n_utf8_int32(int64_t context, const char* data,
     auto char_len =
         utf8proc_iterate(reinterpret_cast<const utf8proc_uint8_t*>(data + bytes_read),
                          data_len, &utf8_char);
-
-    if (char_len < 0) {
-      gdv_fn_context_set_error_msg(context, utf8proc_errmsg(char_len));
-      *out_len = 0;
-      return nullptr;
-    }
-
     switch (utf8proc_category(utf8_char)) {
       case 1:
         out[out_idx] = 'X';
@@ -1107,7 +1100,6 @@ const char* gdv_mask_last_n_utf8_int32(int64_t context, const char* data,
         break;
     }
     bytes_read += static_cast<int>(char_len);
-    chars_counter++;
   }
 
   *out_len = out_idx;
