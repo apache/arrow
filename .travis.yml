@@ -160,7 +160,6 @@ jobs:
           -e Protobuf_SOURCE=BUNDLED
           -e gRPC_SOURCE=BUNDLED
           "
-        
 
   allow_failures:
     - name: "Go on ARM"

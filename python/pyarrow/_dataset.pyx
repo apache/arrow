@@ -1002,7 +1002,6 @@ cdef class Fragment(_Weakrefable):
         class_ = classes.get(type_name, None)
         if class_ is None:
             class_ = Fragment
-        print("class =", class_)
 
         cdef Fragment self = class_.__new__(class_)
         self.init(sp)

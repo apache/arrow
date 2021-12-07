@@ -282,7 +282,6 @@ def test_filesystem_dataset(mockfs):
     fragments = [file_format.make_fragment(path, mockfs, part)
                  for path, part in zip(paths, partitions)]
     root_partition = ds.field('level') == ds.scalar(1337)
-    print(fragments)
 
     dataset_from_fragments = ds.FileSystemDataset(
         fragments, schema=schema, format=file_format,
