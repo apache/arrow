@@ -240,5 +240,10 @@ TYPED_TEST(TestFloatingPointValidityKernels, IsInf) { this->TestIsInf(); }
 
 TYPED_TEST(TestFloatingPointValidityKernels, IsNan) { this->TestIsNan(); }
 
+TEST(TestValidityKernels, NonZero) {
+  CheckScalarUnary("nonzero", int32(), "[null, 50, 0, null]", uint32(),
+                   "[null, 1, null, null]");
+}
+
 }  // namespace compute
 }  // namespace arrow

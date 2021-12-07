@@ -17,6 +17,8 @@
 
 #include <cmath>
 
+#include "arrow/array/builder_primitive.h"
+
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernels/common.h"
 
@@ -73,6 +75,13 @@ struct IsInfOperator {
   template <typename OutType, typename InType>
   static constexpr OutType Call(KernelContext*, const InType& value, Status*) {
     return std::isinf(value);
+  }
+};
+
+struct NonZeroOperator {
+  template <typename OutType, typename InType>
+  static constexpr OutType Call(KernelContext*, const InType& value, Status*) {
+    return value != 0;
   }
 };
 
@@ -187,6 +196,73 @@ Status ConstBoolExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   bit_util::SetBitsTo(array->buffers[1]->mutable_data(), array->offset, array->length,
                       kConstant);
   return Status::OK();
+}
+
+struct NonZeroVisitor {
+   UInt32Builder *builder;
+   const ArrayData& array;
+
+   NonZeroVisitor(UInt32Builder *builder, const ArrayData& array)
+   : builder(builder), array(array) {}
+
+  Status Visit(const DataType& type) {
+    return Status::TypeError("Unsupported type for nonzero: ", type.ToString());
+  }
+
+   template <typename Type> 
+   enable_if_t<has_c_type<Type>::value && 
+              !std::is_same<Type, MonthDayNanoIntervalType>::value &&
+              !std::is_same<Type, DayTimeIntervalType>::value, 
+              Status>
+   Visit(const Type&) {
+     using T = typename GetViewType<Type>::T;
+     uint32_t index = 0;
+
+     VisitArrayDataInline<Type>(
+        this->array,
+        [&](T v) {
+          if(v != 0)
+            this->builder->UnsafeAppend(index);
+          else
+            this->builder->UnsafeAppendNull();
+          ++index;
+        },
+        [&]() {
+          this->builder->UnsafeAppendNull();
+          ++index;
+        });
+     return Status::OK();
+   }
+};
+
+Status NonZeroExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  std::shared_ptr<ArrayData> array = batch[0].array();
+  UInt32Builder builder;
+  RETURN_NOT_OK(builder.Reserve(array->length));
+
+  NonZeroVisitor visitor(&builder, *array.get());
+  RETURN_NOT_OK(VisitTypeInline(*(array->type), &visitor));
+
+  std::shared_ptr<ArrayData> out_data;
+  RETURN_NOT_OK(builder.FinishInternal(&out_data));
+  out->value = std::move(out_data);
+  return Status::OK();
+}
+
+std::shared_ptr<ScalarFunction> MakeNonZeroFunction(std::string name,
+                                                    const FunctionDoc* doc) {
+  auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), doc);
+      
+  for (const auto& ty : IntTypes()) {
+    ScalarKernel kernel;
+    kernel.exec = NonZeroExec;
+    kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
+    kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
+    kernel.signature = KernelSignature::Make({InputType(ty->id())}, uint32());
+    DCHECK_OK(func->AddKernel(kernel));
+  }
+
+  return func;
 }
 
 std::shared_ptr<ScalarFunction> MakeIsFiniteFunction(std::string name,
@@ -307,6 +383,10 @@ const FunctionDoc is_nan_doc("Return true if NaN",
                              ("For each input value, emit true iff the value is NaN."),
                              {"values"});
 
+const FunctionDoc nonzero_doc{"Compare to zero or false",
+                                ("TBD?"),
+                                {"values"}};
+
 }  // namespace
 
 void RegisterScalarValidity(FunctionRegistry* registry) {
@@ -321,6 +401,8 @@ void RegisterScalarValidity(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(MakeIsFiniteFunction("is_finite", &is_finite_doc)));
   DCHECK_OK(registry->AddFunction(MakeIsInfFunction("is_inf", &is_inf_doc)));
   DCHECK_OK(registry->AddFunction(MakeIsNanFunction("is_nan", &is_nan_doc)));
+
+  DCHECK_OK(registry->AddFunction(MakeNonZeroFunction("nonzero", &nonzero_doc)));
 }
 
 }  // namespace internal
