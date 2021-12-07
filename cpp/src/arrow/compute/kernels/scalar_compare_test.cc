@@ -1300,6 +1300,8 @@ TYPED_TEST(TestVarArgsCompareDecimal, MinElementWise) {
                {this->scalar("null"), this->scalar(R"("2.14")")});
   this->Assert(MinElementWise, this->scalar(R"("3.14")"),
                {this->scalar(R"("3.14")"), this->scalar("null")});
+  this->Assert(MinElementWise, this->scalar("null"),
+               {this->scalar("null"), this->scalar("null")});
 
   this->Assert(MinElementWise, this->array(R"(["1.00", "2.00", "2.00", "2.00"])"),
                {this->array(R"(["1.00", "12.01", "3.00", "4.00"])"),
@@ -1310,13 +1312,15 @@ TYPED_TEST(TestVarArgsCompareDecimal, MinElementWise) {
   this->Assert(MinElementWise, this->array(R"(["1.00", "2.00", "2.00", "2.00"])"),
                {this->array(R"(["1.00", null, "3.00", "4.00"])"),
                 this->array(R"(["2.00", "2.00", "2.00", "2.00"])")});
+  this->Assert(MinElementWise, this->array(R"([null, null, null, null])"),
+               {this->array(R"([null, null, null, null])"),
+                this->array(R"([null, null, null, null])")});
 
   this->Assert(
       MinElementWise, this->array(R"(["1.00", "2.00", "2.00", "2.00"])"),
       {this->array(R"(["1.00", null, "3.00", "4.00"])"), this->scalar(R"("2.00")")});
-  this->Assert(
-      MinElementWise, this->array(R"(["1.00", "2.00", "3.00", "4.00"])"),
-      {this->array(R"(["1.00", "2.00", "3.00", "4.00"])"), this->scalar("null")});
+  this->Assert(MinElementWise, this->array(R"([null, "2.00", "3.00", "4.00"])"),
+               {this->array(R"([null, "2.00", "3.00", "4.00"])"), this->scalar("null")});
 
   // Test null handling
   this->element_wise_aggregate_options_.skip_nulls = false;
@@ -1345,7 +1349,7 @@ TYPED_TEST(TestVarArgsCompareDecimal, MinElementWise) {
       MinElementWise({this->scalar(R"("3.1415")", /*precision=*/38, /*scale=*/4),
                       this->scalar(R"("2.14")", /*precision=*/38, /*scale=*/2)},
                      this->element_wise_aggregate_options_, nullptr);
-  ASSERT_FALSE(result.ok());
+  ASSERT_TRUE(result.status().IsNotImplemented());
 }
 
 TYPED_TEST(TestVarArgsCompareFloating, MinElementWise) {
@@ -1508,7 +1512,7 @@ TYPED_TEST(TestVarArgsCompareFixedSizeBinary, MinElementWise) {
   auto result = MinElementWise({this->scalar(R"("abc")", /*byte_width=*/3),
                                 this->scalar(R"("abcd")", /*byte_width=*/4)},
                                this->element_wise_aggregate_options_, nullptr);
-  ASSERT_FALSE(result.ok());
+  ASSERT_TRUE(result.status().IsNotImplemented());
 }
 
 TYPED_TEST(TestVarArgsCompareNumeric, MaxElementWise) {
@@ -1589,6 +1593,8 @@ TYPED_TEST(TestVarArgsCompareDecimal, MaxElementWise) {
                {this->scalar("null"), this->scalar(R"("2.14")")});
   this->Assert(MaxElementWise, this->scalar(R"("3.14")"),
                {this->scalar(R"("3.14")"), this->scalar("null")});
+  this->Assert(MaxElementWise, this->scalar("null"),
+               {this->scalar("null"), this->scalar("null")});
 
   this->Assert(MaxElementWise, this->array(R"(["2.00", "12.01", "3.00", "4.00"])"),
                {this->array(R"(["1.00", "12.01", "3.00", "4.00"])"),
@@ -1599,13 +1605,15 @@ TYPED_TEST(TestVarArgsCompareDecimal, MaxElementWise) {
   this->Assert(MaxElementWise, this->array(R"(["2.00", "2.00", "3.00", "4.00"])"),
                {this->array(R"(["1.00", null, "3.00", "4.00"])"),
                 this->array(R"(["2.00", "2.00", "2.00", "2.00"])")});
+  this->Assert(MaxElementWise, this->array(R"([null, null, null, null])"),
+               {this->array(R"([null, null, null, null])"),
+                this->array(R"([null, null, null, null])")});
 
   this->Assert(
       MaxElementWise, this->array(R"(["2.00", "2.00", "3.00", "4.00"])"),
       {this->array(R"(["1.00", null, "3.00", "4.00"])"), this->scalar(R"("2.00")")});
-  this->Assert(
-      MaxElementWise, this->array(R"(["1.00", "2.00", "3.00", "4.00"])"),
-      {this->array(R"(["1.00", "2.00", "3.00", "4.00"])"), this->scalar("null")});
+  this->Assert(MaxElementWise, this->array(R"([null, "2.00", "3.00", "4.00"])"),
+               {this->array(R"([null, "2.00", "3.00", "4.00"])"), this->scalar("null")});
 
   // Test null handling
   this->element_wise_aggregate_options_.skip_nulls = false;
@@ -1634,7 +1642,7 @@ TYPED_TEST(TestVarArgsCompareDecimal, MaxElementWise) {
       MaxElementWise({this->scalar(R"("3.1415")", /*precision=*/38, /*scale=*/4),
                       this->scalar(R"("2.14")", /*precision=*/38, /*scale=*/2)},
                      this->element_wise_aggregate_options_, nullptr);
-  ASSERT_FALSE(result.ok());
+  ASSERT_TRUE(result.status().IsNotImplemented());
 }
 
 TYPED_TEST(TestVarArgsCompareFloating, MaxElementWise) {
@@ -1797,7 +1805,7 @@ TYPED_TEST(TestVarArgsCompareFixedSizeBinary, MaxElementWise) {
   auto result = MaxElementWise({this->scalar(R"("abc")", /*byte_width=*/3),
                                 this->scalar(R"("abcd")", /*byte_width=*/4)},
                                this->element_wise_aggregate_options_, nullptr);
-  ASSERT_FALSE(result.ok());
+  ASSERT_TRUE(result.status().IsNotImplemented());
 }
 
 TEST(TestMaxElementWiseMinElementWise, CommonTemporal) {
