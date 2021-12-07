@@ -531,7 +531,7 @@ struct BinaryScalarMinMax {
                                      const ElementWiseAggregateOptions& options,
                                      const ExecBatch& batch, Datum* out) {
     // Presize data to avoid reallocations, using an upper bound estimation of final size.
-    int64_t estimated_final_size = CalculateOutputSizeUpperBound(batch);
+    int64_t estimated_final_size = EstimateOutputSize(batch);
     BuilderType builder(ctx->memory_pool());
     RETURN_NOT_OK(builder.Reserve(batch.length));
     RETURN_NOT_OK(builder.ReserveData(estimated_final_size));
@@ -568,9 +568,9 @@ struct BinaryScalarMinMax {
       }
 
       if (result) {
-        builder.UnsafeAppend(*result);
+        builder.Append(*result);
       } else {
-        builder.UnsafeAppendNull();
+        builder.AppendNull();
       }
     }
 
@@ -583,7 +583,7 @@ struct BinaryScalarMinMax {
   }
 
   // Compute an upper bound for the length of the output batch.
-  static int64_t CalculateOutputSizeUpperBound(const ExecBatch& batch) {
+  static int64_t EstimateOutputSize(const ExecBatch& batch) {
     int64_t estimated_final_size = 0;
     for (size_t col = 0; col < batch.values.size(); col++) {
       const auto& datum = batch[col];
@@ -594,8 +594,10 @@ struct BinaryScalarMinMax {
         }
       } else {
         DCHECK(datum.is_array());
-        estimated_final_size =
-            std::max(estimated_final_size, datum.array()->buffers[2]->size());
+        const ArrayData& array = *datum.array();
+        const auto offsets = array.GetValues<offset_type>(1);
+        int64_t estimated_current_size = offsets[array.length] - offsets[0];
+        estimated_final_size = std::max(estimated_final_size, estimated_current_size);
       }
     }
     return estimated_final_size;
