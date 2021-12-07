@@ -105,7 +105,7 @@ duration_types = st.builds(
     pa.duration,
     st.sampled_from(['s', 'ms', 'us', 'ns'])
 )
-interval_types = st.sampled_from(
+interval_types = st.just(
     pa.month_day_nano_interval()
 )
 temporal_types = st.one_of(
