@@ -1025,9 +1025,9 @@ macro(build_snappy)
       "${SNAPPY_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}${SNAPPY_STATIC_LIB_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}"
   )
 
-
+  # This can be removed when https://github.com/google/snappy/pull/148 is released
   set(SNAPPY_PATCH_COMMAND
-      "git" "--git-dir=." "apply" "--verbose" "--whitespace=fix" "${CMAKE_SOURCE_DIR}/build-support/snappy-UBSAN.patch"
+      "patch" "snappy.cc" "${CMAKE_SOURCE_DIR}/build-support/snappy-UBSAN.patch"
   )
 
   set(SNAPPY_CMAKE_ARGS
