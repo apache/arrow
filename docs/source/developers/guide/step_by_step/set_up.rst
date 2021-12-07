@@ -86,12 +86,12 @@ Next you need to clone the repository (this is where the command line
 comes in). It is *highly recommended* to clone the repository using
 the command line or a Git client. Cloning it in an IDE might create
 unnecessary headaches - for example, cloning it in RStudio assumes the
-whole repository is an R project and will create the ``.Rproj`` file
+whole repository is an R project and will create a ``.Rproj`` file
 in the root directory.
 
 .. code:: console
 
-   $ git clone https://github.com/YOU/arrow.git
+   $ git clone https://github.com/<your username>/arrow.git
    $ cd arrow
    $ git remote add upstream https://github.com/apache/arrow
 
@@ -116,7 +116,7 @@ Should give you a result similar to this:
    upstream	https://github.com/apache/arrow (push)
 
 If you did everything correctly, you should now have a copy of the code
-in the Arrow directory and two remotes that refer to your own GitHub
+in the ``arrow`` directory and two remotes that refer to your own GitHub
 fork (``origin``) and the official Arrow repository (``upstream``).
 
 Note that in the official documentation for Arrow the folder is sometimes
