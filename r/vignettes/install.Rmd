@@ -331,7 +331,23 @@ something other than the RSPM binary mirror URLs).
 * Create the environment variable `ARROW_THIRDPARTY_DEPENDENCY_DIR` on the offline computer, pointing to the copied directory.
 * Install the arrow package as usual.
 
-# Installing with S3 support
+# Installing libarrow dependencies
+
+When you install libarrow, its dependencies will be automatically downloaded.  
+The environment variable `ARROW_DEPENDENCY_SOURCE` controls whether the libarrow
+installation also downloads or installs all dependencies (when set to `BUNDLED`), 
+uses only system-installed dependencies (when set to `SYSTEM`) or checks 
+system-installed dependencies first and only installs dependencies which aren't 
+already present (when set to `AUTO`).
+
+These dependencies vary by platform; however, if you wish to install these 
+yourself prior to libarrow installation, we recommend that you take a look at 
+the [docker file for whichever of our CI builds](https://github.com/apache/arrow/tree/master/ci/docker)
+(the ones ending in "cpp" are for building Arrow's C++ libaries aka libarrow) 
+corresponds most closely to your setup.  This will contain the most up-to-date 
+information about dependencies and minimum versions.
+
+## Dependencies for S3 support
 
 The arrow package allows you to work with data in AWS S3 or in other cloud
 storage system that emulate S3. However, support for working with S3 is not
