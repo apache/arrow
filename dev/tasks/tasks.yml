@@ -1279,8 +1279,7 @@ tasks:
     template: docker-tests/azure.linux.yml
     params:
       artifacts: "build/docs.tar.gz"
-      flags: |
-        -v $PWD/build/:/build/
+      flags: "-v $PWD/build/:/build/"
       image: ubuntu-docs
       post_script: |
         cd build
