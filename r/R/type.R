@@ -200,7 +200,9 @@ NestedType <- R6Class("NestedType", inherit = DataType)
 #' negative, `scale` causes the number to be expressed using scientific notation
 #' and power of 10.
 #'
-#' `decimal()` is identical to `decimal128()`, defined for backward compatibility.
+#' `decimal()` creates either a `decimal128` or a `decimal256` depending on the
+#' `precision`. If the `precision` is greater than 38 a `decimal256` is returned,
+#' otherwise a `decimal128`.
 #' Use `decimal128()` as the name  is more informative and `decimal()` might be
 #' deprecated in the future.
 #'
@@ -214,12 +216,13 @@ NestedType <- R6Class("NestedType", inherit = DataType)
 #' @param timezone For `timestamp()`, an optional time zone string.
 #' @param byte_width byte width for `FixedSizeBinary` type.
 #' @param list_size list size for `FixedSizeList` type.
-#' @param precision For `decimal()`, `decimal128()` the number of significant
-#'    digits the arrow `decimal` type can represent. The maximum precision for
-#'    `decimal()` and `decimal128()` is 38 significant digits, while for
-#'    `decimal256()` it is 76 digits.
-#' @param scale For `decimal()` and `decimal128()`, the number of digits after
-#'    the decimal point. It can be negative.
+#' @param precision For `decimal()`, `decimal128()`, and `decimal256()` the
+#'    number of significant digits the arrow `decimal` type can represent. The
+#'    maximum precision for `decimal128()` is 38 significant digits, while for
+#'    `decimal256()` it is 76 digits. `decimal()` will use it to choose which
+#'    type of decimal to return.
+#' @param scale For `decimal()`, `decimal128()`, and `decimal256()` the number
+#'    of digits after the decimal point. It can be negative.
 #' @param type For `list_of()`, a data type to make a list-of-type
 #' @param ... For `struct()`, a named list of types to define the struct columns
 #'
@@ -392,7 +395,15 @@ decimal128 <- function(precision, scale) {
 
 #' @rdname data-type
 #' @export
-decimal <- decimal128
+decimal <- function(precision, scale) {
+  args <- check_decimal_args(precision, scale)
+
+  if (args$precision > 38) {
+    decimal256(args$precision, args$scale)
+  } else {
+    decimal128(args$precision, args$scale)
+  }
+}
 
 #' @rdname data-type
 #' @export

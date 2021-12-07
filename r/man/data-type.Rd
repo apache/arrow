@@ -116,13 +116,14 @@ take any of those four values.}
 
 \item{timezone}{For \code{timestamp()}, an optional time zone string.}
 
-\item{precision}{For \code{decimal()}, \code{decimal128()} the number of significant
-digits the arrow \code{decimal} type can represent. The maximum precision for
-\code{decimal()} and \code{decimal128()} is 38 significant digits, while for
-\code{decimal256()} it is 76 digits.}
+\item{precision}{For \code{decimal()}, \code{decimal128()}, and \code{decimal256()} the
+number of significant digits the arrow \code{decimal} type can represent. The
+maximum precision for \code{decimal128()} is 38 significant digits, while for
+\code{decimal256()} it is 76 digits. \code{decimal()} will use it to choose which
+type of decimal to return.}
 
-\item{scale}{For \code{decimal()} and \code{decimal128()}, the number of digits after
-the decimal point. It can be negative.}
+\item{scale}{For \code{decimal()}, \code{decimal128()}, and \code{decimal256()} the number
+of digits after the decimal point. It can be negative.}
 
 \item{...}{For \code{struct()}, a named list of types to define the struct columns}
 
@@ -176,7 +177,9 @@ The \code{scale} can be thought of as an argument that controls rounding. When
 negative, \code{scale} causes the number to be expressed using scientific notation
 and power of 10.
 
-\code{decimal()} is identical to \code{decimal128()}, defined for backward compatibility.
+\code{decimal()} creates either a \code{decimal128} or a \code{decimal256} depending on the
+\code{precision}. If the \code{precision} is greater than 38 a \code{decimal256} is returned,
+otherwise a \code{decimal128}.
 Use \code{decimal128()} as the name  is more informative and \code{decimal()} might be
 deprecated in the future.
 
