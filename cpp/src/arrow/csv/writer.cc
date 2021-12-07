@@ -245,28 +245,33 @@ class QuotedColumnPopulator : public ColumnPopulator {
     const StringArray& input = *casted_array_;
     int row_number = 0;
     row_needs_escaping_.resize(casted_array_->length());
-    VisitArrayDataInline<StringType>(
+    return VisitArrayDataInline<StringType>(
         *input.data(),
         [&](arrow::util::string_view s) {
+          int64_t escaped_count = CountEscapes(s);
           if (escaping_) {
-            int64_t escaped_count = CountQuotes(s);
             // TODO: Maybe use 64 bit row lengths or safe cast?
             row_needs_escaping_[row_number] = escaped_count > 0;
             row_lengths[row_number] += static_cast<int32_t>(s.length()) +
                                        static_cast<int32_t>(escaped_count + kQuoteCount);
           } else {
+            if (escaped_count > 0) {
+              return Status::Invalid(
+                  "Need to escape in CSV data, but escaping is disabled.");
+            }
             row_needs_escaping_[row_number] = false;
             row_lengths[row_number] +=
                 static_cast<int32_t>(s.length()) + static_cast<int32_t>(kQuoteCount);
           }
           row_number++;
+          return Status::OK();
         },
         [&]() {
           row_needs_escaping_[row_number] = false;
           row_lengths[row_number] += static_cast<int32_t>(null_string_->size());
           row_number++;
+          return Status::OK();
         });
-    return Status::OK();
   }
 
   Status PopulateColumns(char* output, int32_t* offsets) const override {
@@ -315,8 +320,8 @@ class QuotedColumnPopulator : public ColumnPopulator {
   // at some point we should change this to use memory_pool
   // backed allocator.
   std::vector<bool> row_needs_escaping_;
-  bool escaping_;
-  char escape_char_;
+  const bool escaping_;
+  const char escape_char_;
 };
 
 struct PopulatorFactory {
@@ -485,12 +490,16 @@ class CSVWriterImpl : public ipc::RecordBatchWriter {
     return Status::OK();
   }
 
-  int64_t CalculateHeaderSize() const {
+  Result<int64_t> CalculateHeaderSize() const {
     int64_t header_length = 0;
     for (int col = 0; col < schema_->num_fields(); col++) {
       const std::string& col_name = schema_->field(col)->name();
+      int64_t escaped_count = CountEscapes(col_name);
+      if (!options_.escaping && escaped_count > 0) {
+        return Status::Invalid("Need to escape in CSV header, but escaping is disabled.");
+      }
       header_length += col_name.size();
-      header_length += CountQuotes(col_name);
+      header_length += escaped_count;
     }
     // header_length + ([quotes + ','] * schema_->num_fields()) + (eol - ',')
     return header_length + (kQuoteDelimiterCount * schema_->num_fields()) +
@@ -499,7 +508,9 @@ class CSVWriterImpl : public ipc::RecordBatchWriter {
 
   Status WriteHeader() {
     // Only called once, as part of initialization
-    RETURN_NOT_OK(data_buffer_->Resize(CalculateHeaderSize(), /*shrink_to_fit=*/false));
+    int64_t header_size;
+    ASSIGN_OR_RAISE(header_size, CalculateHeaderSize());
+    RETURN_NOT_OK(data_buffer_->Resize(header_size, /*shrink_to_fit=*/false));
     char* next = reinterpret_cast<char*>(data_buffer_->mutable_data() +
                                          data_buffer_->size() - options_.eol.size());
     for (int col = schema_->num_fields() - 1; col >= 0; col--) {
