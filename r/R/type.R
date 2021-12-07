@@ -184,7 +184,7 @@ NestedType <- R6Class("NestedType", inherit = DataType)
 #' `bit64::integer64` object) by setting `options(arrow.int64_downcast =
 #' FALSE)`.
 #'
-#' `decimal128()` creates a `decimal128` type. Arrow decimals are fixed-point
+#' `decimal128()` creates a `Decimal128Type`. Arrow decimals are fixed-point
 #' decimal numbers encoded as a scalar integer. The `precision` is the number of
 #' significant digits that the decimal type can represent; the `scale` is the
 #' number of digits after the decimal point. For example, the number 1234.567
@@ -200,15 +200,16 @@ NestedType <- R6Class("NestedType", inherit = DataType)
 #' negative, `scale` causes the number to be expressed using scientific notation
 #' and power of 10.
 #'
-#' `decimal()` creates either a `decimal128` or a `decimal256` depending on the
-#' `precision`. If the `precision` is greater than 38 a `decimal256` is returned,
-#' otherwise a `decimal128`.
-#' Use `decimal128()` as the name  is more informative and `decimal()` might be
-#' deprecated in the future.
-#'
-#' `decimal256()` creates a `decimal256` type, which allows for higher maximum
-#' precision. For most use cases, the maximum precision offered by `decimal128`
+#' `decimal256()` creates a `Decimal256Type`, which allows for higher maximum
+#' precision. For most use cases, the maximum precision offered by `Decimal128Type`
 #' is sufficient, and it will result in a more compact and more efficient encoding.
+#'
+#' #' `decimal()` creates either a `Decimal128Type` or a `Decimal256Type`
+#' depending on the `precision` value. If the `precision` is greater than 38 a
+#' `Decimal256Type` is returned, otherwise a `Decimal128Type`.
+#'
+#' Use `decimal128()` or `decimal256()` as the names are more informative than
+#' `decimal()`.
 #'
 #' @param unit For time/timestamp types, the time unit. `time32()` can take
 #' either "s" or "ms", while `time64()` can be "us" or "ns". `timestamp()` can

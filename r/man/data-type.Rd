@@ -161,7 +161,7 @@ are translated to R objects, \code{uint32} and \code{uint64} are converted to \c
 types, this conversion can be disabled (so that \code{int64} always yields a
 \code{bit64::integer64} object) by setting \code{options(arrow.int64_downcast = FALSE)}.
 
-\code{decimal128()} creates a \code{decimal128} type. Arrow decimals are fixed-point
+\code{decimal128()} creates a \code{Decimal128Type}. Arrow decimals are fixed-point
 decimal numbers encoded as a scalar integer. The \code{precision} is the number of
 significant digits that the decimal type can represent; the \code{scale} is the
 number of digits after the decimal point. For example, the number 1234.567
@@ -177,15 +177,16 @@ The \code{scale} can be thought of as an argument that controls rounding. When
 negative, \code{scale} causes the number to be expressed using scientific notation
 and power of 10.
 
-\code{decimal()} creates either a \code{decimal128} or a \code{decimal256} depending on the
-\code{precision}. If the \code{precision} is greater than 38 a \code{decimal256} is returned,
-otherwise a \code{decimal128}.
-Use \code{decimal128()} as the name  is more informative and \code{decimal()} might be
-deprecated in the future.
-
-\code{decimal256()} creates a \code{decimal256} type, which allows for higher maximum
-precision. For most use cases, the maximum precision offered by \code{decimal128}
+\code{decimal256()} creates a \code{Decimal256Type}, which allows for higher maximum
+precision. For most use cases, the maximum precision offered by \code{Decimal128Type}
 is sufficient, and it will result in a more compact and more efficient encoding.
+
+#' \code{decimal()} creates either a \code{Decimal128Type} or a \code{Decimal256Type}
+depending on the \code{precision}. If the \code{precision} is greater than 38 a
+\code{Decimal256Type} is returned, otherwise a \code{Decimal128Type}.
+
+Use \code{decimal128()} or \code{decimal256()} as the names are more informative than
+\code{decimal()}.
 }
 \examples{
 \dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}

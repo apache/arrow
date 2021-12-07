@@ -386,15 +386,18 @@ test_that("DictionaryType validation", {
 
 test_that("decimal type and validation", {
   expect_r6_class(decimal(4, 2), "Decimal128Type")
+  expect_r6_class(decimal(39, 2), "Decimal256Type")
 
   expect_error(decimal("four"), '`precision` must be an integer')
   expect_error(decimal(4, "two"), '`scale` must be an integer')
   expect_error(decimal(NA, 2), '`precision` must be an integer')
   expect_error(decimal(4, NA), '`scale` must be an integer')
 
-  # decimal() is just an alias for decimal128() for backwards compatibility
+  # decimal() creates either decimal128 or decimal256 based on precision
+  expect_identical(class(decimal(38, 2)), class(decimal128(38, 2)))
+  expect_identical(class(decimal(39, 2)), class(decimal256(38, 2)))
+
   expect_r6_class(decimal128(4, 2), "Decimal128Type")
-  expect_identical(class(decimal(2, 4)), class(decimal128(2, 4)))
 
   expect_error(decimal128("four"), '`precision` must be an integer')
   expect_error(decimal128(4, "two"), '`scale` must be an integer')
