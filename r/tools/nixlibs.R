@@ -80,7 +80,7 @@ download_binary <- function(os = identify_os()) {
         cat("**** If installation fails, retry after installing those system requirements\n")
       }
     } else {
-      cat(sprintf("*** No Arrow C++ binary found for version %s on %s\n", VERSION, os))
+      cat(sprintf("*** No libarrow binary found for version %s on %s\n", VERSION, os))
       libfile <- NULL
     }
   } else {
