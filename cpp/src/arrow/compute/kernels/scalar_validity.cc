@@ -78,13 +78,6 @@ struct IsInfOperator {
   }
 };
 
-struct NonZeroOperator {
-  template <typename OutType, typename InType>
-  static constexpr OutType Call(KernelContext*, const InType& value, Status*) {
-    return value != 0;
-  }
-};
-
 using NanOptionsState = OptionsWrapper<NullOptions>;
 
 struct IsNullOperator {
