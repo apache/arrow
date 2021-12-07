@@ -454,12 +454,32 @@ test_that("Creating UnionDataset", {
 
 test_that("map_batches", {
   ds <- open_dataset(dataset_dir, partitioning = "part")
+
+  # summarise returns arrow_dplyr_query
   expect_equal(
     ds %>%
       filter(int > 5) %>%
       select(int, lgl) %>%
       map_batches(~ summarize(., min_int = min(int))),
     tibble(min_int = c(6L, 101L))
+  )
+
+  # $num_rows returns integer vector
+  expect_equal(
+    ds %>%
+      filter(int > 5) %>%
+      select(int, lgl) %>%
+      map_batches(~ .$num_rows),
+    list(5, 10)
+  )
+
+  # $Take returns RecordBatch
+  expect_equal(
+    ds %>%
+      filter(int > 5) %>%
+      select(int, lgl) %>%
+      map_batches(~ .$Take(0)),
+    tibble(int=c(6, 101), lgl=c(TRUE, TRUE))
   )
 })
 

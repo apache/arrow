@@ -195,9 +195,11 @@ map_batches <- function(X, FUN, ..., .data.frame = TRUE) {
   .f <- as_mapper(FUN, ...)
   res <- map(batches, FUN, ...)
 
-  if (.data.frame) {
+  if (.data.frame & inherits(res[[1]], "arrow_dplyr_query")) {
     res <- dplyr::bind_rows(map(res, collect))
-  } 
+  } else if (.data.frame & inherits(res[[1]], "RecordBatch")) {
+     res <- dplyr::bind_rows(map(res, as.data.frame))
+  }
 
   res
 }
