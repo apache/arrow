@@ -620,6 +620,14 @@ else()
              "https://github.com/google/snappy/archive/${ARROW_SNAPPY_BUILD_VERSION}.tar.gz"
              "https://github.com/ursa-labs/thirdparty/releases/download/latest/snappy-${ARROW_SNAPPY_BUILD_VERSION}.tar.gz"
     )
+
+    # This can be removed when https://github.com/google/snappy/pull/148 is released
+    # Some platforms don't have patch, but this is probably ok to skip
+    find_program(patch "patch")
+    if(patch)
+      set(SNAPPY_PATCH_COMMAND "patch" "snappy.cc"
+                              "${CMAKE_SOURCE_DIR}/build-support/snappy-UBSAN.patch")
+    endif()
   endif()
 endif()
 
@@ -1024,14 +1032,6 @@ macro(build_snappy)
   set(SNAPPY_STATIC_LIB
       "${SNAPPY_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}${SNAPPY_STATIC_LIB_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}"
   )
-
-  # This can be removed when https://github.com/google/snappy/pull/148 is released
-  # Some platforms don't have patch, but this is probably ok to skip
-  find_program(patch "patch")
-  if(patch)
-    set(SNAPPY_PATCH_COMMAND "patch" "snappy.cc"
-                             "${CMAKE_SOURCE_DIR}/build-support/snappy-UBSAN.patch")
-  endif()
 
   set(SNAPPY_CMAKE_ARGS
       ${EP_COMMON_CMAKE_ARGS}
