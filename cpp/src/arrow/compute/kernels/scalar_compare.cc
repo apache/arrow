@@ -472,7 +472,7 @@ struct ScalarMinMax {
   }
 };
 
-template <typename Type, typename Op>
+template <typename Op>
 Status ExecBinaryMinMaxScalar(KernelContext* ctx,
                               const ElementWiseAggregateOptions& options,
                               const ExecBatch& batch, Datum* out) {
@@ -490,7 +490,7 @@ Status ExecBinaryMinMaxScalar(KernelContext* ctx,
     }
   }
   const auto& first_scalar = *batch.values.front().scalar();
-  string_view result = UnboxScalar<Type>::Unbox(first_scalar);
+  string_view result = checked_cast<const BaseBinaryScalar&>(first_scalar).view();
   bool valid = first_scalar.is_valid;
   for (size_t i = 1; i < batch.values.size(); i++) {
     const auto& scalar = *batch[i].scalar();
@@ -498,7 +498,7 @@ Status ExecBinaryMinMaxScalar(KernelContext* ctx,
       DCHECK(options.skip_nulls);
       continue;
     } else {
-      string_view value = UnboxScalar<Type>::Unbox(scalar);
+      string_view value = checked_cast<const BaseBinaryScalar&>(scalar).view();
       result = !valid ? value : Op::Call(result, value);
       valid = true;
     }
@@ -523,7 +523,7 @@ struct BinaryScalarMinMax {
     const ElementWiseAggregateOptions& options = MinMaxState::Get(ctx);
     if (std::all_of(batch.values.begin(), batch.values.end(),
                     [](const Datum& d) { return d.is_scalar(); })) {
-      return ExecBinaryMinMaxScalar<Type, Op>(ctx, options, batch, out);
+      return ExecBinaryMinMaxScalar<Op>(ctx, options, batch, out);
     }
     return ExecContainingArrays(ctx, options, batch, out);
   }
@@ -611,7 +611,7 @@ struct FixedSizeBinaryScalarMinMax {
     const ElementWiseAggregateOptions& options = MinMaxState::Get(ctx);
     if (std::all_of(batch.values.begin(), batch.values.end(),
                     [](const Datum& d) { return d.is_scalar(); })) {
-      return ExecBinaryMinMaxScalar<FixedSizeBinaryType, Op>(ctx, options, batch, out);
+      return ExecBinaryMinMaxScalar<Op>(ctx, options, batch, out);
     }
     return ExecContainingArrays(ctx, options, batch, out);
   }
