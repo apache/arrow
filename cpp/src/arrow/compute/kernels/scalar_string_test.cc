@@ -137,6 +137,11 @@ TYPED_TEST(TestBaseBinaryKernels, BinaryLength) {
                    this->offset_type(), "[3, 4, 2]");
 }
 
+TYPED_TEST(TestBinaryKernels, BinaryReverse) {
+  this->CheckUnary("binary_reverse", this->MakeArray({"abc123", "\x01", "", "\x01\xfe"}),
+                   this->MakeArray({"321cba", "\x01", "", "\xfe\x01"}));
+}
+
 // The NonUtf8XXX tests use kernels that do not accept invalid UTF-8 when
 // processing [Large]StringType data. These tests use invalid UTF-8 inputs.
 TYPED_TEST(TestBinaryKernels, NonUtf8) {
