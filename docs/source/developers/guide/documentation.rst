@@ -103,14 +103,14 @@ library. Source folder includes:
   - In the ``R/vignettes`` you can find the **Articles**, for example
     `Working with Cloud Storage (S3) <https://arrow.apache.org/docs/r/articles/fs.html>`_.
   - In the ``r/R`` you can edit reference documentation for example 
-    in the ``r/R/dataset.R`` you can find the ``docstrings`` for the
+    in the ``r/R/dataset.R`` you can find the docstrings for the
     `open_dataset <https://arrow.apache.org/docs/r/reference/open_dataset.html>`_.
 
 - **Reference documentation**
 
   To edit `API reference documentation for Python <https://arrow.apache.org/docs/python/api.html>`_,
-  you will need to edit the ``docstring`` of the ``pyarrow`` package itself.
-  For example, to edit
+  you will need to edit the docstrings of the functions and methods located in
+  the ``pyarrow`` package itself. For example, to edit
   `pyarrow.Array <https://arrow.apache.org/docs/python/generated/pyarrow.Array.html#pyarrow.Array>`_
   you will need to edit ``docstrings`` in `arrow/pyarrow/array.pxi <https://github.com/apache/arrow/blob/bc223c688add2f4f06be0c3569192178f1ca1091/python/pyarrow/array.pxi#L790-L796>`_.
 
