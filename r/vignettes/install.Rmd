@@ -104,7 +104,7 @@ Sys.setenv("LIBARROW_MINIMAL" = FALSE)
 ```
 
 By default this variable is unset; if set to `TRUE` a trimmed-down version of 
-arrow is installed.
+arrow is installed with many features disabled.
 
 Note that in this guide, you will have seen us mention the environment variable 
 `NOT_CRAN` - this is a convenience variable, which when set to `TRUE`, 
