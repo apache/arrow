@@ -39,7 +39,7 @@ function(build_arrow)
     # The shared library is located in the "bin" directory. 
     set(ARROW_SHARED_LIBRARY_DIR "${ARROW_PREFIX}/bin")
   else()
-    # On Linux and Mac, the link time suffix and runtime suffixes are consistent, (.so and .dylib).
+    # On Linux and macOS, the link time suffix and runtime suffixes are consistent, (.so and .dylib).
     set(ARROW_LINK_SUFFIX ${CMAKE_SHARED_LIBRARY_SUFFIX})
     # The shared library is located in the "lib" directory.
     set(ARROW_SHARED_LIBRARY_DIR "${ARROW_PREFIX}/lib")
@@ -309,10 +309,23 @@ set(arrow_matlab_sources
 list(TRANSFORM arrow_matlab_sources PREPEND ${CPP_SOURCE_DIR}/arrow/matlab/)
 
 add_library(arrow_matlab SHARED ${arrow_matlab_sources})
-# Declare a dependency on the MEX shared library (libmex.so).
+
+# Declare a dependency on arrow_shared (libarrow.so/dylib/dll).
+target_link_libraries(arrow_matlab arrow_shared)
+
+# On macOS, rpaths for linking imported targets are not automatically added to linked libraries
+if(APPLE)
+  get_property(ARROW_SHARED_IMPORTED_LOCATION 
+              TARGET arrow_shared 
+              PROPERTY IMPORTED_LOCATION)
+  get_filename_component(ARROW_SHARED_LIBRARY_DIR ${ARROW_SHARED_IMPORTED_LOCATION} DIRECTORY)
+  target_link_options(arrow_matlab PUBLIC -Wl,-rpath,${ARROW_SHARED_LIBRARY_DIR})
+endif()
+
+# Declare a dependency on the MEX shared library (libmex.so/dylib/dll).
 target_link_libraries(arrow_matlab ${Matlab_MX_LIBRARY})
 target_link_libraries(arrow_matlab ${Matlab_MEX_LIBRARY})
-target_link_libraries(arrow_matlab arrow_shared)
+
 # Include the MATLAB MEX headers.
 target_include_directories(arrow_matlab PRIVATE ${Matlab_INCLUDE_DIRS})
 target_include_directories(arrow_matlab PRIVATE ${CPP_SOURCE_DIR})
