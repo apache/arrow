@@ -159,8 +159,7 @@ else
         pkg-config --version >/dev/null 2>&1
         if [ $? -ne 0 ]; then
           export ARROW_DEPENDENCY_SOURCE=BUNDLED
-          echo "**** Warning: ARROW_DEPENDENCY_SOURCE set to 'AUTO' but pkg-config not installed"
-          echo "**** ARROW_DEPENDENCY_SOURCE has been set to 'BUNDLED'"
+          echo "**** pkg-config not installed, setting ARROW_DEPENDENCY_SOURCE=BUNDLED"
         fi
       fi
 
