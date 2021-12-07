@@ -473,6 +473,47 @@ struct ScalarMinMax {
 };
 
 template <typename Type, typename Op>
+Status ExecBinaryMinMaxScalar(KernelContext* ctx,
+                              const ElementWiseAggregateOptions& options,
+                              const ExecBatch& batch, Datum* out) {
+  if (batch.values.empty()) {
+    return Status::OK();
+  }
+  auto output = checked_cast<BaseBinaryScalar*>(out->scalar().get());
+  if (!options.skip_nulls) {
+    // any nulls in the input will produce a null output
+    for (const auto& value : batch.values) {
+      if (!value.scalar()->is_valid) {
+        output->is_valid = false;
+        return Status::OK();
+      }
+    }
+  }
+  const auto& first_scalar = *batch.values.front().scalar();
+  string_view result = UnboxScalar<Type>::Unbox(first_scalar);
+  bool valid = first_scalar.is_valid;
+  for (size_t i = 1; i < batch.values.size(); i++) {
+    const auto& scalar = *batch[i].scalar();
+    if (!scalar.is_valid) {
+      DCHECK(options.skip_nulls);
+      continue;
+    } else {
+      string_view value = UnboxScalar<Type>::Unbox(scalar);
+      result = !valid ? value : Op::Call(result, value);
+      valid = true;
+    }
+  }
+  if (valid) {
+    ARROW_ASSIGN_OR_RAISE(output->value, ctx->Allocate(result.size()));
+    std::copy(result.begin(), result.end(), output->value->mutable_data());
+    output->is_valid = true;
+  } else {
+    output->is_valid = false;
+  }
+  return Status::OK();
+}
+
+template <typename Type, typename Op>
 struct BinaryScalarMinMax {
   using ArrayType = typename TypeTraits<Type>::ArrayType;
   using BuilderType = typename TypeTraits<Type>::BuilderType;
@@ -482,49 +523,9 @@ struct BinaryScalarMinMax {
     const ElementWiseAggregateOptions& options = MinMaxState::Get(ctx);
     if (std::all_of(batch.values.begin(), batch.values.end(),
                     [](const Datum& d) { return d.is_scalar(); })) {
-      return ExecOnlyScalar(ctx, options, batch, out);
+      return ExecBinaryMinMaxScalar<Type, Op>(ctx, options, batch, out);
     }
     return ExecContainingArrays(ctx, options, batch, out);
-  }
-
-  static Status ExecOnlyScalar(KernelContext* ctx,
-                               const ElementWiseAggregateOptions& options,
-                               const ExecBatch& batch, Datum* out) {
-    if (batch.values.empty()) {
-      return Status::OK();
-    }
-    auto output = checked_cast<BaseBinaryScalar*>(out->scalar().get());
-    if (!options.skip_nulls) {
-      // any nulls in the input will produce a null output
-      for (const auto& value : batch.values) {
-        if (!value.scalar()->is_valid) {
-          output->is_valid = false;
-          return Status::OK();
-        }
-      }
-    }
-    const auto& first_scalar = *batch.values.front().scalar();
-    string_view result = UnboxScalar<Type>::Unbox(first_scalar);
-    bool valid = first_scalar.is_valid;
-    for (size_t i = 1; i < batch.values.size(); i++) {
-      const auto& scalar = *batch[i].scalar();
-      if (!scalar.is_valid) {
-        DCHECK(options.skip_nulls);
-        continue;
-      } else {
-        string_view value = UnboxScalar<Type>::Unbox(scalar);
-        result = !valid ? value : Op::Call(result, value);
-        valid = true;
-      }
-    }
-    if (valid) {
-      ARROW_ASSIGN_OR_RAISE(output->value, ctx->Allocate(result.size()));
-      std::copy(result.begin(), result.end(), output->value->mutable_data());
-      output->is_valid = true;
-    } else {
-      output->is_valid = false;
-    }
-    return Status::OK();
   }
 
   static Status ExecContainingArrays(KernelContext* ctx,
@@ -610,43 +611,9 @@ struct FixedSizeBinaryScalarMinMax {
     const ElementWiseAggregateOptions& options = MinMaxState::Get(ctx);
     if (std::all_of(batch.values.begin(), batch.values.end(),
                     [](const Datum& d) { return d.is_scalar(); })) {
-      return ExecOnlyScalar(ctx, options, batch, out);
+      return ExecBinaryMinMaxScalar<FixedSizeBinaryType, Op>(ctx, options, batch, out);
     }
     return ExecContainingArrays(ctx, options, batch, out);
-  }
-
-  static Status ExecOnlyScalar(KernelContext* ctx,
-                               const ElementWiseAggregateOptions& options,
-                               const ExecBatch& batch, Datum* out) {
-    if (batch.values.empty()) {
-      return Status::OK();
-    }
-    auto output = checked_cast<BaseBinaryScalar*>(out->scalar().get());
-    const size_t num_args = batch.values.size();
-
-    const auto batch_type = batch[0].type();
-    const auto binary_type = checked_cast<const FixedSizeBinaryType*>(batch_type.get());
-    string_view result =
-        UnboxScalar<FixedSizeBinaryType>::Unbox(*batch.values.front().scalar());
-    for (size_t i = 1; i < num_args; i++) {
-      const auto& scalar = *batch[i].scalar();
-      if (scalar.is_valid) {
-        string_view value = UnboxScalar<FixedSizeBinaryType>::Unbox(scalar);
-        result = result.empty() ? value : Op::Call(result, value);
-      } else if (options.skip_nulls) {
-        continue;
-      } else {
-        result = string_view();
-      }
-    }
-    if (!result.empty()) {
-      ARROW_ASSIGN_OR_RAISE(output->value, ctx->Allocate(binary_type->byte_width()));
-      uint8_t* buf = output->value->mutable_data();
-      buf = std::copy(result.begin(), result.end(), buf);
-      output->is_valid = true;
-      DCHECK_EQ(binary_type->byte_width(), buf - output->value->mutable_data());
-    }
-    return Status::OK();
   }
 
   static Status ExecContainingArrays(KernelContext* ctx,
