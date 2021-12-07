@@ -774,3 +774,45 @@ def bottom_k_unstable(values, k, sort_keys=None, *, memory_pool=None):
         sort_keys = map(lambda key_name: (key_name, "ascending"), sort_keys)
     options = SelectKOptions(k, sort_keys)
     return call_function("select_k_unstable", [values], options, memory_pool)
+
+
+def tutorial_min_max(values, skip_nulls=True):
+    """
+    Compute the minimum-1 and maximum+1 values of a numeric array.
+
+    Null values are ignored by default. This can be changed through
+    ScalarAggregateOptions.
+
+    This is a made-up feature for the tutorial purposes.
+
+    Parameters
+    ----------
+    values : Array
+
+    Returns
+    -------
+    result : StructScalar of min-1 and max+1
+
+    Examples
+    --------
+    >>> import pyarrow.compute as pc
+    >>> data = [4, 5, 6, None, 1]
+    >>> pc.tutorial_min_max(data)
+    <pyarrow.StructScalar: [('min-', 0), ('max+', 7)]>
+    """
+
+    options = ScalarAggregateOptions(skip_nulls=skip_nulls)
+    min_max = call_function("min_max", [values], options)
+
+    if min_max[0].as_py() is not None:
+        min_t = min_max[0].as_py()-1
+        max_t = min_max[1].as_py()+1
+    else:
+        min_t = min_max[0].as_py()
+        max_t = min_max[1].as_py()
+
+    ty = pa.struct([
+        pa.field('min-', pa.int64()),
+        pa.field('max+', pa.int64()),
+    ])
+    return pa.scalar([('min-', min_t), ('max+', max_t)], type=ty)

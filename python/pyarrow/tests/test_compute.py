@@ -2279,3 +2279,12 @@ def test_utf8_normalize():
             ValueError,
             match='"NFZ" is not a valid Unicode normalization form'):
         pc.utf8_normalize(arr, form="NFZ")
+
+
+def test_tutorial_min_max():
+    arr = [4, 5, 6, None, 1]
+    l1 = {'min-': 0, 'max+': 7}
+    l2 = {'min-': None, 'max+': None}
+    assert pc.tutorial_min_max(arr).as_py() == l1
+    assert pc.tutorial_min_max(arr,
+                               skip_nulls=False).as_py() == l2
