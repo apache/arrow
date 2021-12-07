@@ -15,7 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/testing/gtest_util.h"
 #include "benchmark/benchmark.h"
 
 #include "arrow/api.h"
@@ -58,7 +57,7 @@ struct BenchmarkSettings {
 
 class JoinBenchmark {
  public:
-  JoinBenchmark(BenchmarkSettings& settings) {
+  explicit JoinBenchmark(BenchmarkSettings& settings) {
     bool is_parallel = settings.num_threads != 1;
 
     SchemaBuilder l_schema_builder, r_schema_builder;
