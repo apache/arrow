@@ -185,17 +185,21 @@ ScanTask <- R6Class("ScanTask",
 #' `data.frame`? Default `TRUE`
 #' @export
 map_batches <- function(X, FUN, ..., .data.frame = TRUE) {
-  if (.data.frame) {
-    lapply <- map_dfr
-  }
   scanner <- Scanner$create(ensure_group_vars(X))
   FUN <- as_mapper(FUN)
-  lapply(scanner$ScanBatches(), function(batch) {
-    # TODO: wrap batch in arrow_dplyr_query with X$selected_columns,
-    # X$temp_columns, and X$group_by_vars
-    # if X is arrow_dplyr_query, if some other arg (.dplyr?) == TRUE
-    FUN(batch, ...)
-  })
+
+  #   # TODO: wrap batch in arrow_dplyr_query with X$selected_columns,
+  #   # X$temp_columns, and X$group_by_vars
+  #   # if X is arrow_dplyr_query, if some other arg (.dplyr?) == TRUE
+  batches <- scanner$ScanBatches()
+  .f <- as_mapper(FUN, ...)
+  res <- map(batches, FUN, ...)
+
+  if (.data.frame) {
+    res <- dplyr::bind_rows(map(res, collect))
+  } 
+
+  res
 }
 
 #' @usage NULL
