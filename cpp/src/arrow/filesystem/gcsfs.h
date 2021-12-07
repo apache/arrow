@@ -40,10 +40,10 @@ struct ARROW_EXPORT GcsOptions {
   bool Equals(const GcsOptions& other) const;
 };
 
-/// - TODO(ARROW-1231) - review this documentation before closing the bug.
+// - TODO(ARROW-1231) - review this documentation before closing the bug.
 /// \brief GCS-backed FileSystem implementation.
 ///
-/// GCS (Google Cloud Storage - https://cloud.google.com/storage) is an scalable object
+/// GCS (Google Cloud Storage - https://cloud.google.com/storage) is a scalable object
 /// storage system for any amount of data. The main abstractions in GCS are buckets and
 /// objects. A bucket is a namespace for objects, buckets can store any number of objects,
 /// tens of millions and even billions is not uncommon.  Each object contains a single
@@ -54,12 +54,12 @@ struct ARROW_EXPORT GcsOptions {
 ///
 /// GCS buckets are in a global namespace, if a Google Cloud customer creates a bucket
 /// named `foo` no other customer can create a bucket with the same name. Note that a
-/// principal (a user or service account) may only list the buckets they have entitled to,
+/// principal (a user or service account) may only list the buckets they are entitled to,
 /// and then only within a project. It is not possible to list "all" the buckets.
 ///
 /// Within each bucket objects are in flat namespace. GCS does not have folders or
 /// directories. However, following some conventions it is possible to emulate
-/// directories. To this end this class:
+/// directories. To this end, this class:
 ///
 /// - All buckets are treated as directories at the "root"
 /// - Creating a root directory results in a new bucket being created, this may be slower
@@ -67,9 +67,9 @@ struct ARROW_EXPORT GcsOptions {
 /// - Any object with a name ending with a slash (`/`) character is treated as a
 ///   directory.
 /// - The class creates marker objects for a directory, using a trailing slash in the
-///   marker names. For debugging purposes, the metadata and contents of these marker
-///   objects indicate that they are markers created by this class. The class does
-///   not rely on this annotations.
+///   marker names. For debugging purposes, the metadata of these marker objects indicate
+///   that they are markers created by this class. The class does not rely on this
+///   annotation.
 /// - GCS can list all the objects with a given prefix, this is used to emulate listing
 ///   of directories.
 /// - In object lists GCS can summarize all the objects with a common prefix as a single

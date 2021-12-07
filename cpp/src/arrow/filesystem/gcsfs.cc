@@ -291,7 +291,7 @@ class GcsFileSystem::Impl {
     // Make the name canonical.
     const auto canonical = internal::EnsureTrailingSlash(name);
     return client_
-        .InsertObject(bucket, canonical, "arrow gcsfs directory " + canonical,
+        .InsertObject(bucket, canonical, std::string(),
                       gcs::WithObjectMetadata(gcs::ObjectMetadata().upsert_metadata(
                           "arrow/gcsfs", "directory")))
         .status();
@@ -299,6 +299,7 @@ class GcsFileSystem::Impl {
 
   google::cloud::Status CreateDirMarkerRecursive(const std::string& bucket,
                                                  const std::string& object) {
+    using GcsCode = google::cloud::StatusCode;
     auto get_parent = [](std::string const& path) {
       return std::move(internal::GetAbstractPathParent(path).first);
     };
@@ -307,9 +308,19 @@ class GcsFileSystem::Impl {
     // does not exist.  In the common case, where `a/b/` may already exist, it is more
     // efficient to just create `a/b/c/` and then find out that `a/b/` was already there.
     // In the case where none exists, it does not matter which order we follow.
-    for (auto parent = object; !parent.empty(); parent = get_parent(parent)) {
-      auto status = CreateDirMarker(bucket, parent);
-      if (status.code() == google::cloud::StatusCode::kAlreadyExists) {
+    auto status = CreateDirMarker(bucket, object);
+    if (status.code() == GcsCode::kAlreadyExists) return {};
+    if (status.code() == GcsCode::kNotFound) {
+      // Missing bucket, create it first ...
+      status = client_.CreateBucket(bucket, gcs::BucketMetadata()).status();
+      if (status.code() != GcsCode::kOk && status.code() != GcsCode::kAlreadyExists) {
+        return status;
+      }
+    }
+
+    for (auto parent = get_parent(object); !parent.empty(); parent = get_parent(parent)) {
+      status = CreateDirMarker(bucket, parent);
+      if (status.code() == GcsCode::kAlreadyExists) {
         break;
       }
       if (!status.ok()) {
@@ -328,11 +339,6 @@ class GcsFileSystem::Impl {
   }
 
   Status CreateDirRecursive(const GcsPath& p) {
-    auto status = client_.CreateBucket(p.bucket, gcs::BucketMetadata()).status();
-    using GcsCode = google::cloud::StatusCode;
-    if (status.code() != GcsCode::kOk && status.code() != GcsCode::kAlreadyExists) {
-      return internal::ToArrowStatus(status);
-    }
     return internal::ToArrowStatus(CreateDirMarkerRecursive(p.bucket, p.object));
   }
 
