@@ -53,12 +53,12 @@ except ImportError:
 
 def tobytes(o):
     """
-    Return with the byte representation of the string-like input object.
+    Encode a unicode or bytes string to bytes.
 
     Parameters
     ----------
-    o : bytes-like
-        Input object.
+    o : str or bytes
+        Input string.
     """
     if isinstance(o, str):
         return o.encode('utf8')
@@ -68,14 +68,14 @@ def tobytes(o):
 
 def frombytes(o, *, safe=False):
     """
-    Return with the unicode string representation of a bytes-like object.
+    Decode the given bytestring to unicode.
 
     Parameters
     ----------
     o : bytes-like
         Input object.
     safe : bool, default False
-        Raise on encoding errors.
+        If true, raise on encoding errors.
     """
     if safe:
         return o.decode('utf8', errors='replace')
