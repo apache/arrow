@@ -23,7 +23,7 @@ Arrow Flight RPC
 ================
 
 Arrow Flight is an RPC framework for efficient transfer of Flight data
-over the network. See :doc:`../format/Flight` for full details on
+over the network. See :ref:`arrow:flight-rpc` for full details on
 the protocol, or :doc:`./api/flight` for API docs.
 
 Writing a Flight Service

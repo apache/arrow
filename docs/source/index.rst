@@ -42,14 +42,12 @@ target environment.**
    :caption: Supported Environments
 
    C/GLib <c_glib/index>
-   C++ <cpp/index>
    C# <https://github.com/apache/arrow/blob/master/csharp/README.md>
    Go <https://pkg.go.dev/github.com/apache/arrow/go>
    Java <java/index>
    JavaScript <js/index>
    Julia <https://github.com/apache/arrow/blob/master/julia/Arrow/README.md>
    MATLAB <https://github.com/apache/arrow/blob/master/matlab/README.md>
-   Python <python/index>
    R <r/index>
    Ruby <https://github.com/apache/arrow/blob/master/ruby/README.md>
    Rust <https://docs.rs/crate/arrow/>
@@ -65,34 +63,10 @@ target environment.**
    Python <https://arrow.apache.org/cookbook/py/>
    R <https://arrow.apache.org/cookbook/r/>
 
-.. _toc.columnar:
 
 .. toctree::
    :maxdepth: 2
-   :caption: Specifications and Protocols
+   :hidden:
 
-   format/Versioning
-   format/Columnar
-   format/Flight
-   format/FlightSql
-   format/Integration
-   format/CDataInterface
-   format/CStreamInterface
-   format/Other
-
-.. _toc.development:
-
-.. toctree::
-   :maxdepth: 2
-   :caption: Development
-
-   developers/contributing
-   developers/guide/index
-   developers/reviewing
-   developers/cpp/index
-   developers/java/index
-   developers/python
-   developers/continuous_integration/index
-   developers/benchmarks
-   developers/documentation
-   developers/computeir
+   format/index
+   developers/index

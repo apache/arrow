@@ -83,7 +83,7 @@ you can refer to :ref:`api.compute` reference.
 
 .. seealso::
 
-   :ref:`Available compute functions (C++ documentation) <compute-function-list>`.
+   :ref:`Available compute functions (C++ documentation) <cpp:compute-function-list>`.
 
 .. _py-grouped-aggrs:
 

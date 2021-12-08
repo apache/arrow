@@ -26,6 +26,7 @@
 SPHINXOPTS    = -j8
 
 SPHINXBUILD   = sphinx-build
+SPHINXAUTOBUILD   = sphinx-autobuild
 PAPER         =
 BUILDDIR      = _build
 SOURCEDIR     = source
@@ -81,6 +82,36 @@ html:
 	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html
 	@echo
 	@echo "Build finished. The HTML pages are in $(BUILDDIR)/html."
+
+.PHONY: html-live
+html-live:
+	$(SPHINXAUTOBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html
+	@echo
+	@echo "Build finished. The HTML pages are in $(BUILDDIR)/html."
+
+.PHONY: python
+python:
+	$(SPHINXBUILD) -b html $(SPHINXOPTS) source/python $(BUILDDIR)/html/python
+	@echo
+	@echo "Build finished. The HTML pages are in $(BUILDDIR)/html/python."
+
+.PHONY: python-live
+python-live:
+	$(SPHINXAUTOBUILD) -b html $(SPHINXOPTS) source/python $(BUILDDIR)/html/python
+	@echo
+	@echo "Build finished. The HTML pages are in $(BUILDDIR)/html/python."
+
+.PHONY: cpp
+cpp:
+	$(SPHINXBUILD) -b html $(SPHINXOPTS) source/cpp $(BUILDDIR)/html/cpp
+	@echo
+	@echo "Build finished. The HTML pages are in $(BUILDDIR)/html/cpp."
+
+.PHONY: cpp-live
+cpp-live:
+	$(SPHINXAUTOBUILD) -b html $(SPHINXOPTS) source/cpp $(BUILDDIR)/html/cpp
+	@echo
+	@echo "Build finished. The HTML pages are in $(BUILDDIR)/html/cpp."
 
 .PHONY: dirhtml
 dirhtml:

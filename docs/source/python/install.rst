@@ -60,7 +60,7 @@ need to install the `Visual C++ Redistributable for Visual Studio 2015
 Installing from source
 ----------------------
 
-See :ref:`python-development`.
+See :ref:`arrow:python-development`.
 
 Installing Nightly Packages
 ---------------------------

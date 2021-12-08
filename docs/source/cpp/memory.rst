@@ -86,7 +86,7 @@ overloads::
    memcpy(buffer_data, "hello world", 11);
 
 Allocating a buffer this way ensures it is 64-bytes aligned and padded
-as recommended by the :doc:`Arrow memory specification <../format/Layout>`.
+as recommended by the :ref:`Arrow memory specification <arrow:format_columnar>`.
 
 Building a Buffer
 -----------------
