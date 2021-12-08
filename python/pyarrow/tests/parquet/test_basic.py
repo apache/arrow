@@ -379,13 +379,23 @@ def test_compression_level(use_legacy_dataset):
                      compression_level={'a': 2, 'b': 3},
                      use_legacy_dataset=use_legacy_dataset)
 
+    # Check if both LZ4 compressors are working
+    # (level < 3 -> fast, level >= 3 -> HC)
+    _check_roundtrip(table, expected=table, compression="lz4",
+                     compression_level=1,
+                     use_legacy_dataset=use_legacy_dataset)
+
+    _check_roundtrip(table, expected=table, compression="lz4",
+                     compression_level=9,
+                     use_legacy_dataset=use_legacy_dataset)
+
     # Check that specifying a compression level for a codec which does allow
     # specifying one, results into an error.
-    # Uncompressed, snappy, lz4 and lzo do not support specifying a compression
+    # Uncompressed, snappy and lzo do not support specifying a compression
     # level.
     # GZIP (zlib) allows for specifying a compression level but as of up
     # to version 1.2.11 the valid range is [-1, 9].
-    invalid_combinations = [("snappy", 4), ("lz4", 5), ("gzip", -1337),
+    invalid_combinations = [("snappy", 4), ("gzip", -1337),
                             ("None", 444), ("lzo", 14)]
     buf = io.BytesIO()
     for (codec, level) in invalid_combinations:

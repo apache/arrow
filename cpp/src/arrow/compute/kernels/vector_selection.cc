@@ -19,7 +19,6 @@
 #include <cstring>
 #include <limits>
 
-#include "arrow/array/array_base.h"
 #include "arrow/array/array_binary.h"
 #include "arrow/array/array_dict.h"
 #include "arrow/array/array_nested.h"
@@ -38,7 +37,6 @@
 #include "arrow/util/bit_block_counter.h"
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_util.h"
-#include "arrow/util/bitmap.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/bitmap_reader.h"
 #include "arrow/util/int_util.h"
@@ -2170,27 +2168,12 @@ Result<std::shared_ptr<arrow::BooleanArray>> GetDropNullFilter(const Array& valu
   return out_array;
 }
 
-Result<std::shared_ptr<Array>> CreateEmptyArray(std::shared_ptr<DataType> type,
-                                                MemoryPool* memory_pool) {
-  std::unique_ptr<ArrayBuilder> builder;
-  RETURN_NOT_OK(MakeBuilder(memory_pool, type, &builder));
-  RETURN_NOT_OK(builder->Resize(0));
-  return builder->Finish();
-}
-
-Result<std::shared_ptr<ChunkedArray>> CreateEmptyChunkedArray(
-    std::shared_ptr<DataType> type, MemoryPool* memory_pool) {
-  std::vector<std::shared_ptr<Array>> new_chunks(1);  // Hard-coded 1 for now
-  ARROW_ASSIGN_OR_RAISE(new_chunks[0], CreateEmptyArray(type, memory_pool));
-  return std::make_shared<ChunkedArray>(std::move(new_chunks));
-}
-
 Result<Datum> DropNullArray(const std::shared_ptr<Array>& values, ExecContext* ctx) {
   if (values->null_count() == 0) {
     return values;
   }
   if (values->null_count() == values->length()) {
-    return CreateEmptyArray(values->type(), ctx->memory_pool());
+    return MakeEmptyArray(values->type(), ctx->memory_pool());
   }
   if (values->type()->id() == Type::type::NA) {
     return std::make_shared<NullArray>(0);
@@ -2206,7 +2189,7 @@ Result<Datum> DropNullChunkedArray(const std::shared_ptr<ChunkedArray>& values,
     return values;
   }
   if (values->null_count() == values->length()) {
-    return CreateEmptyChunkedArray(values->type(), ctx->memory_pool());
+    return ChunkedArray::MakeEmpty(values->type(), ctx->memory_pool());
   }
   std::vector<std::shared_ptr<Array>> new_chunks;
   for (const auto& chunk : values->chunks()) {
@@ -2244,13 +2227,7 @@ Result<Datum> DropNullRecordBatch(const std::shared_ptr<RecordBatch>& batch,
   }
   auto drop_null_filter = std::make_shared<BooleanArray>(batch->num_rows(), dst);
   if (drop_null_filter->true_count() == 0) {
-    // Shortcut: construct empty result
-    ArrayVector empty_batch(batch->num_columns());
-    for (int i = 0; i < batch->num_columns(); i++) {
-      ARROW_ASSIGN_OR_RAISE(
-          empty_batch[i], CreateEmptyArray(batch->column(i)->type(), ctx->memory_pool()));
-    }
-    return RecordBatch::Make(batch->schema(), 0, std::move(empty_batch));
+    return RecordBatch::MakeEmpty(batch->schema(), ctx->memory_pool());
   }
   return Filter(Datum(batch), Datum(drop_null_filter), FilterOptions::Defaults(), ctx);
 }
@@ -2282,6 +2259,7 @@ Result<Datum> DropNullTable(const std::shared_ptr<Table>& table, ExecContext* ct
       filtered_batches.push_back(filtered_datum.record_batch());
     }
   }
+
   return Table::FromRecordBatches(table->schema(), filtered_batches);
 }
 

@@ -225,6 +225,15 @@ class RecordBatchSerializer {
       RETURN_NOT_OK(VisitArray(*batch.column(i)));
     }
 
+    // calculate initial body length using all buffer sizes
+    int64_t raw_size = 0;
+    for (const auto& buf : out_->body_buffers) {
+      if (buf) {
+        raw_size += buf->size();
+      }
+    }
+    out_->raw_body_length = raw_size;
+
     if (options_.codec != nullptr) {
       RETURN_NOT_OK(CompressBodyBuffers());
     }
@@ -821,6 +830,7 @@ class SparseTensorSerializer {
 
     int64_t offset = buffer_start_offset_;
     buffer_meta_.reserve(out_->body_buffers.size());
+    int64_t raw_size = 0;
 
     for (size_t i = 0; i < out_->body_buffers.size(); ++i) {
       const Buffer* buffer = out_->body_buffers[i].get();
@@ -828,10 +838,12 @@ class SparseTensorSerializer {
       int64_t padding = bit_util::RoundUpToMultipleOf8(size) - size;
       buffer_meta_.push_back({offset, size + padding});
       offset += size + padding;
+      raw_size += size;
     }
 
     out_->body_length = offset - buffer_start_offset_;
     DCHECK(bit_util::IsMultipleOf8(out_->body_length));
+    out_->raw_body_length = raw_size;
 
     return SerializeMetadata(sparse_tensor);
   }
@@ -999,6 +1011,10 @@ class ARROW_EXPORT IpcFormatWriter : public RecordBatchWriter {
     RETURN_NOT_OK(GetRecordBatchPayload(batch, options_, &payload));
     RETURN_NOT_OK(WritePayload(payload));
     ++stats_.num_record_batches;
+
+    stats_.total_raw_body_size += payload.raw_body_length;
+    stats_.total_serialized_body_size += payload.body_length;
+
     return Status::OK();
   }
 

@@ -198,6 +198,7 @@ html_theme = 'pydata_sphinx_theme'
 html_theme_options = {
     "show_toc_level": 2,
     "google_analytics_id": "UA-107500873-1",
+    "use_edit_page_button": True,
 }
 
 html_context = {
@@ -205,6 +206,10 @@ html_context = {
     "switcher_template_url": "https://arrow.apache.org/docs/{version}",
     # for local testing
     # "switcher_template_url": "http://0.0.0.0:8000/docs/{version}",
+    "github_user": "apache",
+    "github_repo": "arrow",
+    "github_version": "master",
+    "doc_path": "docs/source",
 }
 
 # Add any paths that contain custom themes here, relative to this directory.

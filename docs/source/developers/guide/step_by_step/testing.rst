@@ -29,3 +29,62 @@
 ***********
 Testing 🧪
 ***********
+
+In this section we outline steps needed for unit testing in Arrow.
+
+.. tabs::
+
+   .. tab:: Pytest
+
+      We use `pytest <https://docs.pytest.org/en/latest/>`_ for
+      unit tests in Python. For more info about the required
+      packages follow
+      :ref:`Python unit testing section <python-unit-testing>`.
+
+      To run a specific unit test, use this command in 
+      the terminal from the ``arrow/python`` folder:
+
+      .. code:: console
+
+         $ python -m pytest pyarrow/tests/test_file.py -k test_your_unit_test
+
+      Run all the tests from one file:
+
+      .. code:: console
+
+         $ python -m pytest pyarrow/tests/test_file.py
+
+      Run all the tests:
+
+      .. code:: console
+
+         $ python -m pytest pyarrow
+
+      If the tests start failing, try to recompile
+      PyArrow or C++.
+      
+      .. note::
+
+         **Recompiling Cython**
+
+         If you only make changes to `.py` files, you do not need to
+         recompile PyArrow. However, you should recompile it if you make
+         changes in `.pyx` or `.pxd` files.
+        
+         To do that run this command again:
+
+         .. code:: console
+
+            $ python setup.py build_ext --inplace
+
+      .. note::
+		
+         **Recompiling C++**
+
+         Similarly, you will need to recompile the C++ code if you have
+         made changes to any C++ files. In this case,
+         re-run the cmake commands again. 
+
+   .. tab:: R tests
+
+      .. TODO

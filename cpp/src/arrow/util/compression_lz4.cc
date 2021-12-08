@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/util/compression.h"
+#include "arrow/util/compression_internal.h"
 
 #include <cstdint>
 #include <cstring>
@@ -23,6 +23,7 @@
 
 #include <lz4.h>
 #include <lz4frame.h>
+#include <lz4hc.h>
 
 #include "arrow/result.h"
 #include "arrow/status.h"
@@ -38,8 +39,11 @@
 
 namespace arrow {
 namespace util {
+namespace internal {
 
 namespace {
+
+constexpr int kLz4MinCompressionLevel = 1;
 
 static Status LZ4Error(LZ4F_errorCode_t ret, const char* prefix_msg) {
   return Status::IOError(prefix_msg, LZ4F_getErrorName(ret));
@@ -48,6 +52,12 @@ static Status LZ4Error(LZ4F_errorCode_t ret, const char* prefix_msg) {
 static LZ4F_preferences_t DefaultPreferences() {
   LZ4F_preferences_t prefs;
   memset(&prefs, 0, sizeof(prefs));
+  return prefs;
+}
+
+static LZ4F_preferences_t PreferencesWithCompressionLevel(int compression_level) {
+  LZ4F_preferences_t prefs = DefaultPreferences();
+  prefs.compressionLevel = compression_level;
   return prefs;
 }
 
@@ -122,7 +132,7 @@ class LZ4Decompressor : public Decompressor {
 
 class LZ4Compressor : public Compressor {
  public:
-  LZ4Compressor() {}
+  explicit LZ4Compressor(int compression_level) : compression_level_(compression_level) {}
 
   ~LZ4Compressor() override {
     if (ctx_ != nullptr) {
@@ -132,7 +142,7 @@ class LZ4Compressor : public Compressor {
 
   Status Init() {
     LZ4F_errorCode_t ret;
-    prefs_ = DefaultPreferences();
+    prefs_ = PreferencesWithCompressionLevel(compression_level_);
     first_time_ = true;
 
     ret = LZ4F_createCompressionContext(&ctx_, LZ4F_VERSION);
@@ -231,6 +241,7 @@ class LZ4Compressor : public Compressor {
 #undef BEGIN_COMPRESS
 
  protected:
+  int compression_level_;
   LZ4F_compressionContext_t ctx_ = nullptr;
   LZ4F_preferences_t prefs_;
   bool first_time_;
@@ -241,7 +252,11 @@ class LZ4Compressor : public Compressor {
 
 class Lz4FrameCodec : public Codec {
  public:
-  Lz4FrameCodec() : prefs_(DefaultPreferences()) {}
+  explicit Lz4FrameCodec(int compression_level)
+      : compression_level_(compression_level == kUseDefaultCompressionLevel
+                               ? kLz4DefaultCompressionLevel
+                               : compression_level),
+        prefs_(PreferencesWithCompressionLevel(compression_level_)) {}
 
   int64_t MaxCompressedLen(int64_t input_len,
                            const uint8_t* ARROW_ARG_UNUSED(input)) override {
@@ -288,7 +303,7 @@ class Lz4FrameCodec : public Codec {
   }
 
   Result<std::shared_ptr<Compressor>> MakeCompressor() override {
-    auto ptr = std::make_shared<LZ4Compressor>();
+    auto ptr = std::make_shared<LZ4Compressor>(compression_level_);
     RETURN_NOT_OK(ptr->Init());
     return ptr;
   }
@@ -300,11 +315,18 @@ class Lz4FrameCodec : public Codec {
   }
 
   Compression::type compression_type() const override { return Compression::LZ4_FRAME; }
-  int minimum_compression_level() const override { return kUseDefaultCompressionLevel; }
-  int maximum_compression_level() const override { return kUseDefaultCompressionLevel; }
-  int default_compression_level() const override { return kUseDefaultCompressionLevel; }
+  int minimum_compression_level() const override { return kLz4MinCompressionLevel; }
+#if (defined(LZ4_VERSION_NUMBER) && LZ4_VERSION_NUMBER < 10800)
+  int maximum_compression_level() const override { return 12; }
+#else
+  int maximum_compression_level() const override { return LZ4F_compressionLevel_max(); }
+#endif
+  int default_compression_level() const override { return kLz4DefaultCompressionLevel; }
+
+  int compression_level() const override { return compression_level_; }
 
  protected:
+  const int compression_level_;
   const LZ4F_preferences_t prefs_;
 };
 
@@ -313,6 +335,11 @@ class Lz4FrameCodec : public Codec {
 
 class Lz4Codec : public Codec {
  public:
+  explicit Lz4Codec(int compression_level)
+      : compression_level_(compression_level == kUseDefaultCompressionLevel
+                               ? kLz4DefaultCompressionLevel
+                               : compression_level) {}
+
   Result<int64_t> Decompress(int64_t input_len, const uint8_t* input,
                              int64_t output_buffer_len, uint8_t* output_buffer) override {
     int64_t decompressed_size = LZ4_decompress_safe(
@@ -331,9 +358,22 @@ class Lz4Codec : public Codec {
 
   Result<int64_t> Compress(int64_t input_len, const uint8_t* input,
                            int64_t output_buffer_len, uint8_t* output_buffer) override {
-    int64_t output_len = LZ4_compress_default(
-        reinterpret_cast<const char*>(input), reinterpret_cast<char*>(output_buffer),
-        static_cast<int>(input_len), static_cast<int>(output_buffer_len));
+    int64_t output_len;
+#ifdef LZ4HC_CLEVEL_MIN
+    constexpr int min_hc_clevel = LZ4HC_CLEVEL_MIN;
+#else  // For older versions of the lz4 library
+    constexpr int min_hc_clevel = 3;
+#endif
+    if (compression_level_ < min_hc_clevel) {
+      output_len = LZ4_compress_default(
+          reinterpret_cast<const char*>(input), reinterpret_cast<char*>(output_buffer),
+          static_cast<int>(input_len), static_cast<int>(output_buffer_len));
+    } else {
+      output_len = LZ4_compress_HC(
+          reinterpret_cast<const char*>(input), reinterpret_cast<char*>(output_buffer),
+          static_cast<int>(input_len), static_cast<int>(output_buffer_len),
+          compression_level_);
+    }
     if (output_len == 0) {
       return Status::IOError("Lz4 compression failure.");
     }
@@ -353,9 +393,16 @@ class Lz4Codec : public Codec {
   }
 
   Compression::type compression_type() const override { return Compression::LZ4; }
-  int minimum_compression_level() const override { return kUseDefaultCompressionLevel; }
-  int maximum_compression_level() const override { return kUseDefaultCompressionLevel; }
-  int default_compression_level() const override { return kUseDefaultCompressionLevel; }
+  int minimum_compression_level() const override { return kLz4MinCompressionLevel; }
+#if (defined(LZ4_VERSION_NUMBER) && LZ4_VERSION_NUMBER < 10800)
+  int maximum_compression_level() const override { return 12; }
+#else
+  int maximum_compression_level() const override { return LZ4F_compressionLevel_max(); }
+#endif
+  int default_compression_level() const override { return kLz4DefaultCompressionLevel; }
+
+ protected:
+  int compression_level_;
 };
 
 // ----------------------------------------------------------------------
@@ -363,6 +410,8 @@ class Lz4Codec : public Codec {
 
 class Lz4HadoopCodec : public Lz4Codec {
  public:
+  Lz4HadoopCodec() : Lz4Codec(kUseDefaultCompressionLevel) {}
+
   Result<int64_t> Decompress(int64_t input_len, const uint8_t* input,
                              int64_t output_buffer_len, uint8_t* output_buffer) override {
     const int64_t decompressed_size =
@@ -471,22 +520,24 @@ class Lz4HadoopCodec : public Lz4Codec {
       return kNotHadoop;
     }
   }
+
+  int minimum_compression_level() const override { return kUseDefaultCompressionLevel; }
+  int maximum_compression_level() const override { return kUseDefaultCompressionLevel; }
+  int default_compression_level() const override { return kUseDefaultCompressionLevel; }
 };
 
 }  // namespace
 
-namespace internal {
-
-std::unique_ptr<Codec> MakeLz4FrameCodec() {
-  return std::unique_ptr<Codec>(new Lz4FrameCodec());
+std::unique_ptr<Codec> MakeLz4FrameCodec(int compression_level) {
+  return std::unique_ptr<Codec>(new Lz4FrameCodec(compression_level));
 }
 
 std::unique_ptr<Codec> MakeLz4HadoopRawCodec() {
   return std::unique_ptr<Codec>(new Lz4HadoopCodec());
 }
 
-std::unique_ptr<Codec> MakeLz4RawCodec() {
-  return std::unique_ptr<Codec>(new Lz4Codec());
+std::unique_ptr<Codec> MakeLz4RawCodec(int compression_level) {
+  return std::unique_ptr<Codec>(new Lz4Codec(compression_level));
 }
 
 }  // namespace internal

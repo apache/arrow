@@ -273,7 +273,6 @@ if(PARQUET_REQUIRE_ENCRYPTION)
 endif()
 
 if(ARROW_WITH_OPENTELEMETRY)
-  set(ARROW_WITH_GRPC ON)
   set(ARROW_WITH_PROTOBUF ON)
 endif()
 
@@ -3977,11 +3976,21 @@ macro(build_opentelemetry)
   set(_OPENTELEMETRY_DEPENDENCIES "opentelemetry_dependencies")
   list(APPEND ARROW_BUNDLED_STATIC_LIBS ${OPENTELEMETRY_LIBRARIES})
   list(APPEND OPENTELEMETRY_PREFIX_PATH_LIST ${NLOHMANN_JSON_PREFIX})
+
+  get_target_property(OPENTELEMETRY_PROTOBUF_INCLUDE_DIR ${ARROW_PROTOBUF_LIBPROTOBUF}
+                      INTERFACE_INCLUDE_DIRECTORIES)
+  get_target_property(OPENTELEMETRY_PROTOBUF_LIBRARY ${ARROW_PROTOBUF_LIBPROTOBUF}
+                      IMPORTED_LOCATION)
+  get_target_property(OPENTELEMETRY_PROTOC_EXECUTABLE ${ARROW_PROTOBUF_PROTOC}
+                      IMPORTED_LOCATION)
   list(APPEND
        OPENTELEMETRY_CMAKE_ARGS
        -DWITH_OTLP=ON
        -DWITH_OTLP_HTTP=ON
-       -DWITH_OTLP_GRPC=OFF)
+       -DWITH_OTLP_GRPC=OFF
+       "-DProtobuf_INCLUDE_DIR=${OPENTELEMETRY_PROTOBUF_INCLUDE_DIR}"
+       "-DProtobuf_LIBRARY=${OPENTELEMETRY_PROTOBUF_INCLUDE_DIR}"
+       "-DProtobuf_PROTOC_EXECUTABLE=${OPENTELEMETRY_PROTOC_EXECUTABLE}")
 
   # OpenTelemetry with OTLP enabled requires Protobuf definitions from a
   # submodule. This submodule path is hardcoded into their CMake definitions,
@@ -4000,14 +4009,8 @@ macro(build_opentelemetry)
                       INSTALL_COMMAND ""
                       EXCLUDE_FROM_ALL OFF)
 
-  add_dependencies(opentelemetry_dependencies nlohmann_json_ep opentelemetry_proto_ep)
-  if(gRPC_SOURCE STREQUAL "BUNDLED")
-    # TODO: opentelemetry-cpp::proto doesn't declare a dependency on gRPC, so
-    # even if we provide the location of gRPC, it'll fail to compile.
-    message(FATAL_ERROR "ARROW_WITH_OPENTELEMETRY cannot be configured with gRPC_SOURCE=BUNDLED. "
-                        "See https://github.com/open-telemetry/opentelemetry-cpp/issues/1045"
-    )
-  endif()
+  add_dependencies(opentelemetry_dependencies nlohmann_json_ep opentelemetry_proto_ep
+                   ${ARROW_PROTOBUF_LIBPROTOBUF})
 
   set(OPENTELEMETRY_PREFIX_PATH_LIST_SEP_CHAR "|")
   # JOIN is CMake >=3.12 only
