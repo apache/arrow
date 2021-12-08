@@ -44,16 +44,11 @@ refresh_translation_cache <- function() {
 # nse_funcs is a list of functions that operated on (and return) Expressions
 # These will be the basis for a data_mask inside dplyr methods
 # and will be added to .cache at package load time
-# Start with mappings from R function name spellings
-nse_funcs <- as.environment(lapply(set_names(names(.array_function_map)), function(operator) {
-  force(operator)
-  function(...) build_expr(operator, ...)
-}))
+nse_funcs <- new.env(parent = emptyenv())
 
 # agg_funcs is a list of functions with a different signature than nse_funcs;
 # described below
 agg_funcs <- new.env(parent = emptyenv())
-
 
 translation_registry <- function() {
   nse_funcs
@@ -62,6 +57,43 @@ translation_registry <- function() {
 translation_registry_agg <- function() {
   agg_funcs
 }
+
+register_translation <- function(fun_name, fun, registry = translation_registry()) {
+  name <- gsub("^.*?::", "", fun_name)
+  namespace <- gsub("::.*$", "", fun_name)
+
+  previous_fun <- if (name %in% names(fun)) registry[[name]] else NULL
+
+  if (is.null(fun)) {
+    rm(list = name, envir = registry)
+  } else {
+    message(sprintf("Registering '%s'", name))
+    registry[[name]] <- fun
+  }
+
+  invisible(previous_fun)
+}
+
+register_translation_agg <- function(fun_name, fun, registry = translation_registry_agg()) {
+  register_translation(fun_name, fun, registry = registry)
+}
+
+# Start with mappings from R function name spellings
+register_array_function_map <- function() {
+  # use a function to generate the binding so that `operator` persists
+  # beyond execution time (another option would be to use quasiquotation
+  # and unquote `operator` directly into the function expression)
+  array_function_map_factory <- function(operator) {
+    force(operator)
+    function(...) build_expr(operator, ...)
+  }
+
+  for (name in names(.array_function_map)) {
+    register_translation(name, array_function_map_factory(name))
+  }
+}
+
+register_array_function_map() # TEMP
 
 # Now add functions to that list where the mapping from R to Arrow isn't 1:1
 # Each of these functions should have the same signature as the R function
