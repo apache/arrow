@@ -61,10 +61,10 @@ register_translation <- function(fun_name, fun, registry = translation_registry(
   name <- gsub("^.*?::", "", fun_name)
   namespace <- gsub("::.*$", "", fun_name)
 
-  previous_fun <- if (name %in% names(fun)) registry[[name]] else NULL
+  previous_fun <- if (name %in% names(registry)) registry[[name]] else NULL
 
-  if (is.null(fun)) {
-    rm(list = name, envir = registry)
+  if (is.null(fun) && !is.null(previous_fun)) {
+    rm(list = name, envir = registry, inherits = FALSE)
   } else {
     registry[[name]] <- fun
   }
