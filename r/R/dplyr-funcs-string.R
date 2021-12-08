@@ -124,26 +124,15 @@ stop_if_locale_provided <- function(locale) {
   }
 }
 
+
+# Split up into several register functions by category to satisfy the linter
 register_string_translations <- function() {
+  register_string_join_translations()
+  register_string_regex_translations()
+  register_string_other_translations()
+}
 
-  register_translation("nchar", function(x, type = "chars", allowNA = FALSE, keepNA = NA) {
-    if (allowNA) {
-      arrow_not_supported("allowNA = TRUE")
-    }
-    if (is.na(keepNA)) {
-      keepNA <- !identical(type, "width")
-    }
-    if (!keepNA) {
-      # TODO: I think there is a fill_null kernel we could use, set null to 2
-      arrow_not_supported("keepNA = TRUE")
-    }
-    if (identical(type, "bytes")) {
-      Expression$create("binary_length", x)
-    } else {
-      Expression$create("utf8_length", x)
-    }
-  })
-
+register_string_join_translations <- function() {
 
   arrow_string_join_function <- function(null_handling, null_replacement = NULL) {
     # the `binary_join_element_wise` Arrow C++ compute kernel takes the separator
@@ -199,7 +188,201 @@ register_string_translations <- function() {
     )
     arrow_string_join_function(NullHandlingBehavior$EMIT_NULL)(..., sep)
   })
+}
 
+register_string_regex_translations <- function() {
+
+  register_translation("grepl", function(pattern, x, ignore.case = FALSE, fixed = FALSE) {
+    arrow_fun <- ifelse(fixed, "match_substring", "match_substring_regex")
+    Expression$create(
+      arrow_fun,
+      x,
+      options = list(pattern = pattern, ignore_case = ignore.case)
+    )
+  })
+
+  register_translation("str_detect", function(string, pattern, negate = FALSE) {
+    opts <- get_stringr_pattern_options(enexpr(pattern))
+    out <- call_translation("grepl",
+                            pattern = opts$pattern,
+                            x = string,
+                            ignore.case = opts$ignore_case,
+                            fixed = opts$fixed
+    )
+    if (negate) {
+      out <- !out
+    }
+    out
+  })
+
+  register_translation("str_like", function(string, pattern, ignore_case = TRUE) {
+    Expression$create(
+      "match_like",
+      string,
+      options = list(pattern = pattern, ignore_case = ignore_case)
+    )
+  })
+
+  register_translation("str_count", function(string, pattern) {
+    opts <- get_stringr_pattern_options(enexpr(pattern))
+    if (!is.string(pattern)) {
+      arrow_not_supported("`pattern` must be a length 1 character vector; other values")
+    }
+    arrow_fun <- ifelse(opts$fixed, "count_substring", "count_substring_regex")
+    Expression$create(
+      arrow_fun,
+      string,
+      options = list(pattern = opts$pattern, ignore_case = opts$ignore_case)
+    )
+  })
+
+  register_translation("startsWith", function(x, prefix) {
+    Expression$create(
+      "starts_with",
+      x,
+      options = list(pattern = prefix)
+    )
+  })
+
+  register_translation("endsWith", function(x, suffix) {
+    Expression$create(
+      "ends_with",
+      x,
+      options = list(pattern = suffix)
+    )
+  })
+
+  register_translation("str_starts", function(string, pattern, negate = FALSE) {
+    opts <- get_stringr_pattern_options(enexpr(pattern))
+    if (opts$fixed) {
+      out <- call_translation("startsWith", x = string, prefix = opts$pattern)
+    } else {
+      out <- call_translation("grepl", pattern = paste0("^", opts$pattern), x = string, fixed = FALSE)
+    }
+
+    if (negate) {
+      out <- !out
+    }
+    out
+  })
+
+  register_translation("str_ends", function(string, pattern, negate = FALSE) {
+    opts <- get_stringr_pattern_options(enexpr(pattern))
+    if (opts$fixed) {
+      out <- call_translation("endsWith", x = string, suffix = opts$pattern)
+    } else {
+      out <- call_translation("grepl", pattern = paste0(opts$pattern, "$"), x = string, fixed = FALSE)
+    }
+
+    if (negate) {
+      out <- !out
+    }
+    out
+  })
+
+  # Encapsulate some common logic for sub/gsub/str_replace/str_replace_all
+  arrow_r_string_replace_function <- function(max_replacements) {
+    function(pattern, replacement, x, ignore.case = FALSE, fixed = FALSE) {
+      Expression$create(
+        ifelse(fixed && !ignore.case, "replace_substring", "replace_substring_regex"),
+        x,
+        options = list(
+          pattern = format_string_pattern(pattern, ignore.case, fixed),
+          replacement = format_string_replacement(replacement, ignore.case, fixed),
+          max_replacements = max_replacements
+        )
+      )
+    }
+  }
+
+  arrow_stringr_string_replace_function <- function(max_replacements) {
+    force(max_replacements)
+    function(string, pattern, replacement) {
+      opts <- get_stringr_pattern_options(enexpr(pattern))
+      arrow_r_string_replace_function(max_replacements)(
+        pattern = opts$pattern,
+        replacement = replacement,
+        x = string,
+        ignore.case = opts$ignore_case,
+        fixed = opts$fixed
+      )
+    }
+  }
+
+  register_translation("sub", arrow_r_string_replace_function(1L))
+  register_translation("gsub", arrow_r_string_replace_function(-1L))
+  register_translation("str_replace", arrow_stringr_string_replace_function(1L))
+  register_translation("str_replace_all", arrow_stringr_string_replace_function(-1L))
+
+  register_translation("strsplit", function(x, split, fixed = FALSE, perl = FALSE,
+                                            useBytes = FALSE) {
+    assert_that(is.string(split))
+
+    arrow_fun <- ifelse(fixed, "split_pattern", "split_pattern_regex")
+    # warn when the user specifies both fixed = TRUE and perl = TRUE, for
+    # consistency with the behavior of base::strsplit()
+    if (fixed && perl) {
+      warning("Argument 'perl = TRUE' will be ignored", call. = FALSE)
+    }
+    # since split is not a regex, proceed without any warnings or errors regardless
+    # of the value of perl, for consistency with the behavior of base::strsplit()
+    Expression$create(
+      arrow_fun,
+      x,
+      options = list(pattern = split, reverse = FALSE, max_splits = -1L)
+    )
+  })
+
+  register_translation("str_split", function(string, pattern, n = Inf, simplify = FALSE) {
+    opts <- get_stringr_pattern_options(enexpr(pattern))
+    arrow_fun <- ifelse(opts$fixed, "split_pattern", "split_pattern_regex")
+    if (opts$ignore_case) {
+      arrow_not_supported("Case-insensitive string splitting")
+    }
+    if (n == 0) {
+      arrow_not_supported("Splitting strings into zero parts")
+    }
+    if (identical(n, Inf)) {
+      n <- 0L
+    }
+    if (simplify) {
+      warning("Argument 'simplify = TRUE' will be ignored", call. = FALSE)
+    }
+    # The max_splits option in the Arrow C++ library controls the maximum number
+    # of places at which the string is split, whereas the argument n to
+    # str_split() controls the maximum number of pieces to return. So we must
+    # subtract 1 from n to get max_splits.
+    Expression$create(
+      arrow_fun,
+      string,
+      options = list(
+        pattern = opts$pattern,
+        reverse = FALSE,
+        max_splits = n - 1L
+      )
+    )
+  })
+}
+
+register_string_other_translations <- function() {
+
+  register_translation("nchar", function(x, type = "chars", allowNA = FALSE, keepNA = NA) {
+    if (allowNA) {
+      arrow_not_supported("allowNA = TRUE")
+    }
+    if (is.na(keepNA)) {
+      keepNA <- !identical(type, "width")
+    }
+    if (!keepNA) {
+      # TODO: I think there is a fill_null kernel we could use, set null to 2
+      arrow_not_supported("keepNA = TRUE")
+    }
+    if (identical(type, "bytes")) {
+      Expression$create("binary_length", x)
+    } else {
+      Expression$create("utf8_length", x)
+    }
+  })
 
   register_translation("str_to_lower", function(string, locale = "en") {
     stop_if_locale_provided(locale)
@@ -219,9 +402,9 @@ register_string_translations <- function() {
   register_translation("str_trim", function(string, side = c("both", "left", "right")) {
     side <- match.arg(side)
     trim_fun <- switch(side,
-                       left = "utf8_ltrim_whitespace",
-                       right = "utf8_rtrim_whitespace",
-                       both = "utf8_trim_whitespace"
+      left = "utf8_ltrim_whitespace",
+      right = "utf8_rtrim_whitespace",
+      both = "utf8_trim_whitespace"
     )
     Expression$create(trim_fun, string)
   })
@@ -298,120 +481,6 @@ register_string_translations <- function() {
     )
   })
 
-  register_translation("grepl", function(pattern, x, ignore.case = FALSE, fixed = FALSE) {
-    arrow_fun <- ifelse(fixed, "match_substring", "match_substring_regex")
-    Expression$create(
-      arrow_fun,
-      x,
-      options = list(pattern = pattern, ignore_case = ignore.case)
-    )
-  })
-
-  register_translation("str_detect", function(string, pattern, negate = FALSE) {
-    opts <- get_stringr_pattern_options(enexpr(pattern))
-    out <- call_translation("grepl",
-      pattern = opts$pattern,
-      x = string,
-      ignore.case = opts$ignore_case,
-      fixed = opts$fixed
-    )
-    if (negate) {
-      out <- !out
-    }
-    out
-  })
-
-  register_translation("str_like", function(string, pattern, ignore_case = TRUE) {
-    Expression$create(
-      "match_like",
-      string,
-      options = list(pattern = pattern, ignore_case = ignore_case)
-    )
-  })
-
-  # Encapsulate some common logic for sub/gsub/str_replace/str_replace_all
-  arrow_r_string_replace_function <- function(max_replacements) {
-    function(pattern, replacement, x, ignore.case = FALSE, fixed = FALSE) {
-      Expression$create(
-        ifelse(fixed && !ignore.case, "replace_substring", "replace_substring_regex"),
-        x,
-        options = list(
-          pattern = format_string_pattern(pattern, ignore.case, fixed),
-          replacement = format_string_replacement(replacement, ignore.case, fixed),
-          max_replacements = max_replacements
-        )
-      )
-    }
-  }
-
-  arrow_stringr_string_replace_function <- function(max_replacements) {
-    force(max_replacements)
-    function(string, pattern, replacement) {
-      opts <- get_stringr_pattern_options(enexpr(pattern))
-      arrow_r_string_replace_function(max_replacements)(
-        pattern = opts$pattern,
-        replacement = replacement,
-        x = string,
-        ignore.case = opts$ignore_case,
-        fixed = opts$fixed
-      )
-    }
-  }
-
-  register_translation("sub", arrow_r_string_replace_function(1L))
-  register_translation("gsub", arrow_r_string_replace_function(-1L))
-  register_translation("str_replace", arrow_stringr_string_replace_function(1L))
-  register_translation("str_replace_all", arrow_stringr_string_replace_function(-1L))
-
-  register_translation("strsplit", function(x, split, fixed = FALSE, perl = FALSE,
-                                 useBytes = FALSE) {
-    assert_that(is.string(split))
-
-    arrow_fun <- ifelse(fixed, "split_pattern", "split_pattern_regex")
-    # warn when the user specifies both fixed = TRUE and perl = TRUE, for
-    # consistency with the behavior of base::strsplit()
-    if (fixed && perl) {
-      warning("Argument 'perl = TRUE' will be ignored", call. = FALSE)
-    }
-    # since split is not a regex, proceed without any warnings or errors regardless
-    # of the value of perl, for consistency with the behavior of base::strsplit()
-    Expression$create(
-      arrow_fun,
-      x,
-      options = list(pattern = split, reverse = FALSE, max_splits = -1L)
-    )
-  })
-
-  register_translation("str_split", function(string, pattern, n = Inf, simplify = FALSE) {
-    opts <- get_stringr_pattern_options(enexpr(pattern))
-    arrow_fun <- ifelse(opts$fixed, "split_pattern", "split_pattern_regex")
-    if (opts$ignore_case) {
-      arrow_not_supported("Case-insensitive string splitting")
-    }
-    if (n == 0) {
-      arrow_not_supported("Splitting strings into zero parts")
-    }
-    if (identical(n, Inf)) {
-      n <- 0L
-    }
-    if (simplify) {
-      warning("Argument 'simplify = TRUE' will be ignored", call. = FALSE)
-    }
-    # The max_splits option in the Arrow C++ library controls the maximum number
-    # of places at which the string is split, whereas the argument n to
-    # str_split() controls the maximum number of pieces to return. So we must
-    # subtract 1 from n to get max_splits.
-    Expression$create(
-      arrow_fun,
-      string,
-      options = list(
-        pattern = opts$pattern,
-        reverse = FALSE,
-        max_splits = n - 1L
-      )
-    )
-  })
-
 
   register_translation("str_pad", function(string, width, side = c("left", "right", "both"), pad = " ") {
     assert_that(is_integerish(width))
@@ -430,63 +499,6 @@ register_string_translations <- function() {
       pad_func,
       string,
       options = list(width = width, padding = pad)
-    )
-  })
-
-  register_translation("startsWith", function(x, prefix) {
-    Expression$create(
-      "starts_with",
-      x,
-      options = list(pattern = prefix)
-    )
-  })
-
-  register_translation("endsWith", function(x, suffix) {
-    Expression$create(
-      "ends_with",
-      x,
-      options = list(pattern = suffix)
-    )
-  })
-
-  register_translation("str_starts", function(string, pattern, negate = FALSE) {
-    opts <- get_stringr_pattern_options(enexpr(pattern))
-    if (opts$fixed) {
-      out <- call_translation("startsWith", x = string, prefix = opts$pattern)
-    } else {
-      out <- call_translation("grepl", pattern = paste0("^", opts$pattern), x = string, fixed = FALSE)
-    }
-
-    if (negate) {
-      out <- !out
-    }
-    out
-  })
-
-  register_translation("str_ends", function(string, pattern, negate = FALSE) {
-    opts <- get_stringr_pattern_options(enexpr(pattern))
-    if (opts$fixed) {
-      out <- call_translation("endsWith", x = string, suffix = opts$pattern)
-    } else {
-      out <- call_translation("grepl", pattern = paste0(opts$pattern, "$"), x = string, fixed = FALSE)
-    }
-
-    if (negate) {
-      out <- !out
-    }
-    out
-  })
-
-  register_translation("str_count", function(string, pattern) {
-    opts <- get_stringr_pattern_options(enexpr(pattern))
-    if (!is.string(pattern)) {
-      arrow_not_supported("`pattern` must be a length 1 character vector; other values")
-    }
-    arrow_fun <- ifelse(opts$fixed, "count_substring", "count_substring_regex")
-    Expression$create(
-      arrow_fun,
-      string,
-      options = list(pattern = opts$pattern, ignore_case = opts$ignore_case)
     )
   })
 }
