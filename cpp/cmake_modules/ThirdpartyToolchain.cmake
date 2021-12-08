@@ -3918,6 +3918,7 @@ macro(build_opentelemetry)
       common
       http_client_curl
       ostream_span_exporter
+      otlp_http_client
       otlp_http_exporter
       otlp_recordable
       proto
@@ -3934,6 +3935,7 @@ macro(build_opentelemetry)
                                      "${OPENTELEMETRY_INCLUDE_DIR}")
   endforeach()
   foreach(_OPENTELEMETRY_LIB ${_OPENTELEMETRY_LIBS})
+    # N.B. OTel targets and libraries don't follow any consistent naming scheme
     if(_OPENTELEMETRY_LIB STREQUAL "http_client_curl")
       set(_OPENTELEMETRY_STATIC_LIBRARY
           "${OPENTELEMETRY_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}${_OPENTELEMETRY_LIB}${CMAKE_STATIC_LIBRARY_SUFFIX}"
@@ -3941,6 +3943,10 @@ macro(build_opentelemetry)
     elseif(_OPENTELEMETRY_LIB STREQUAL "ostream_span_exporter")
       set(_OPENTELEMETRY_STATIC_LIBRARY
           "${OPENTELEMETRY_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}opentelemetry_exporter_ostream_span${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      )
+    elseif(_OPENTELEMETRY_LIB STREQUAL "otlp_http_client")
+      set(_OPENTELEMETRY_STATIC_LIBRARY
+          "${OPENTELEMETRY_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}opentelemetry_exporter_otlp_http_client${CMAKE_STATIC_LIBRARY_SUFFIX}"
       )
     elseif(_OPENTELEMETRY_LIB STREQUAL "otlp_http_exporter")
       set(_OPENTELEMETRY_STATIC_LIBRARY
@@ -4082,9 +4088,13 @@ macro(build_opentelemetry)
                         PROPERTIES INTERFACE_LINK_LIBRARIES
                                    "opentelemetry-cpp::trace;opentelemetry-cpp::resources;opentelemetry-cpp::proto"
   )
+  set_target_properties(opentelemetry-cpp::otlp_http_client
+                        PROPERTIES INTERFACE_LINK_LIBRARIES
+                                   "opentelemetry-cpp::sdk;opentelemetry-cpp::proto;opentelemetry-cpp::http_client_curl;nlohmann_json::nlohmann_json"
+  )
   set_target_properties(opentelemetry-cpp::otlp_http_exporter
                         PROPERTIES INTERFACE_LINK_LIBRARIES
-                                   "opentelemetry-cpp::otlp_recordable;opentelemetry-cpp::http_client_curl;nlohmann_json::nlohmann_json"
+                                   "opentelemetry-cpp::otlp_recordable;opentelemetry-cpp::otlp_http_client"
   )
 
   foreach(_OPENTELEMETRY_LIB ${_OPENTELEMETRY_LIBS})
