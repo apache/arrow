@@ -231,7 +231,7 @@ class UnquotedColumnPopulator : public ColumnPopulator {
 // a quote character (") and escaping is done my adding another quote.
 class QuotedColumnPopulator : public ColumnPopulator {
  public:
-  QuotedColumnPopulator(MemoryPool* pool, std::string& end_chars,
+  QuotedColumnPopulator(MemoryPool* pool, const std::string& end_chars,
                         std::shared_ptr<Buffer> null_string)
       : ColumnPopulator(pool, end_chars, std::move(null_string)) {}
 
@@ -285,8 +285,8 @@ class QuotedColumnPopulator : public ColumnPopulator {
         },
         [&]() {
           // For nulls, the configured null value string is copied into the output.
-          int32_t next_column_offset = static_cast<int32_t>(
-              null_string_->size() + /*end_chars(, or eol)*/ end_chars_.size());
+          int32_t next_column_offset =
+              static_cast<int32_t>(null_string_->size() + end_chars_.size());
           memcpy((output + *offsets - next_column_offset), null_string_->data(),
                  null_string_->size());
           memcpy((output + *offsets - end_chars_.size()), end_chars_.c_str(),
