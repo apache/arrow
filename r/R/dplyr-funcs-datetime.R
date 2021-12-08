@@ -44,7 +44,7 @@ register_datetime_translations <- function() {
     }
     # Arrow's strftime prints in timezone of the timestamp. To match R's strftime behavior we first
     # cast the timestamp to desired timezone. This is a metadata only change.
-    if (nse_funcs$is.POSIXct(x)) {
+    if (call_translation("is.POSIXct", x)) {
       ts <- Expression$create("cast", x, options = list(to_type = timestamp(x$type()$unit(), tz)))
     } else {
       ts <- x

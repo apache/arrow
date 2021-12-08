@@ -114,7 +114,7 @@ test_that("errors in strptime", {
   # Error when tz is passed
   x <- Expression$field_ref("x")
   expect_error(
-    nse_funcs$strptime(x, tz = "PDT"),
+    call_translation("strptime", x, tz = "PDT"),
     "Time zone argument not supported in Arrow"
   )
 })
