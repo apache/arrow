@@ -815,181 +815,194 @@ register_string_translations <- function() {
 
 register_string_translations() # TEMP
 
-nse_funcs$strptime <- function(x, format = "%Y-%m-%d %H:%M:%S", tz = NULL, unit = "ms") {
-  # Arrow uses unit for time parsing, strptime() does not.
-  # Arrow has no default option for strptime (format, unit),
-  # we suggest following format = "%Y-%m-%d %H:%M:%S", unit = MILLI/1L/"ms",
-  # (ARROW-12809)
 
-  # ParseTimestampStrptime currently ignores the timezone information (ARROW-12820).
-  # Stop if tz is provided.
-  if (is.character(tz)) {
-    arrow_not_supported("Time zone argument")
+register_datetime_translations <- function() {
+
+  nse_funcs$strptime <- function(x, format = "%Y-%m-%d %H:%M:%S", tz = NULL, unit = "ms") {
+    # Arrow uses unit for time parsing, strptime() does not.
+    # Arrow has no default option for strptime (format, unit),
+    # we suggest following format = "%Y-%m-%d %H:%M:%S", unit = MILLI/1L/"ms",
+    # (ARROW-12809)
+
+    # ParseTimestampStrptime currently ignores the timezone information (ARROW-12820).
+    # Stop if tz is provided.
+    if (is.character(tz)) {
+      arrow_not_supported("Time zone argument")
+    }
+
+    unit <- make_valid_time_unit(unit, c(valid_time64_units, valid_time32_units))
+
+    Expression$create("strptime", x, options = list(format = format, unit = unit))
   }
 
-  unit <- make_valid_time_unit(unit, c(valid_time64_units, valid_time32_units))
-
-  Expression$create("strptime", x, options = list(format = format, unit = unit))
-}
-
-nse_funcs$strftime <- function(x, format = "", tz = "", usetz = FALSE) {
-  if (usetz) {
-    format <- paste(format, "%Z")
+  nse_funcs$strftime <- function(x, format = "", tz = "", usetz = FALSE) {
+    if (usetz) {
+      format <- paste(format, "%Z")
+    }
+    if (tz == "") {
+      tz <- Sys.timezone()
+    }
+    # Arrow's strftime prints in timezone of the timestamp. To match R's strftime behavior we first
+    # cast the timestamp to desired timezone. This is a metadata only change.
+    if (nse_funcs$is.POSIXct(x)) {
+      ts <- Expression$create("cast", x, options = list(to_type = timestamp(x$type()$unit(), tz)))
+    } else {
+      ts <- x
+    }
+    Expression$create("strftime", ts, options = list(format = format, locale = Sys.getlocale("LC_TIME")))
   }
-  if (tz == "") {
-    tz <- Sys.timezone()
-  }
-  # Arrow's strftime prints in timezone of the timestamp. To match R's strftime behavior we first
-  # cast the timestamp to desired timezone. This is a metadata only change.
-  if (nse_funcs$is.POSIXct(x)) {
-    ts <- Expression$create("cast", x, options = list(to_type = timestamp(x$type()$unit(), tz)))
-  } else {
-    ts <- x
-  }
-  Expression$create("strftime", ts, options = list(format = format, locale = Sys.getlocale("LC_TIME")))
-}
 
-nse_funcs$format_ISO8601 <- function(x, usetz = FALSE, precision = NULL, ...) {
-  ISO8601_precision_map <-
-    list(
-      y = "%Y",
-      ym = "%Y-%m",
-      ymd = "%Y-%m-%d",
-      ymdh = "%Y-%m-%dT%H",
-      ymdhm = "%Y-%m-%dT%H:%M",
-      ymdhms = "%Y-%m-%dT%H:%M:%S"
-    )
-
-  if (is.null(precision)) {
-    precision <- "ymdhms"
-  }
-  if (!precision %in% names(ISO8601_precision_map)) {
-    abort(
-      paste(
-        "`precision` must be one of the following values:",
-        paste(names(ISO8601_precision_map), collapse = ", "),
-        "\nValue supplied was: ",
-        precision
+  nse_funcs$format_ISO8601 <- function(x, usetz = FALSE, precision = NULL, ...) {
+    ISO8601_precision_map <-
+      list(
+        y = "%Y",
+        ym = "%Y-%m",
+        ymd = "%Y-%m-%d",
+        ymdh = "%Y-%m-%dT%H",
+        ymdhm = "%Y-%m-%dT%H:%M",
+        ymdhms = "%Y-%m-%dT%H:%M:%S"
       )
+
+    if (is.null(precision)) {
+      precision <- "ymdhms"
+    }
+    if (!precision %in% names(ISO8601_precision_map)) {
+      abort(
+        paste(
+          "`precision` must be one of the following values:",
+          paste(names(ISO8601_precision_map), collapse = ", "),
+          "\nValue supplied was: ",
+          precision
+        )
+      )
+    }
+    format <- ISO8601_precision_map[[precision]]
+    if (usetz) {
+      format <- paste0(format, "%z")
+    }
+    Expression$create("strftime", x, options = list(format = format, locale = "C"))
+  }
+
+  nse_funcs$second <- function(x) {
+    Expression$create("add", Expression$create("second", x), Expression$create("subsecond", x))
+  }
+
+  nse_funcs$wday <- function(x,
+                             label = FALSE,
+                             abbr = TRUE,
+                             week_start = getOption("lubridate.week.start", 7),
+                             locale = Sys.getlocale("LC_TIME")) {
+    if (label) {
+      if (abbr) {
+        format <- "%a"
+      } else {
+        format <- "%A"
+      }
+      return(Expression$create("strftime", x, options = list(format = format, locale = locale)))
+    }
+
+    Expression$create("day_of_week", x, options = list(count_from_zero = FALSE, week_start = week_start))
+  }
+
+  nse_funcs$month <- function(x, label = FALSE, abbr = TRUE, locale = Sys.getlocale("LC_TIME")) {
+    if (label) {
+      if (abbr) {
+        format <- "%b"
+      } else {
+        format <- "%B"
+      }
+      return(Expression$create("strftime", x, options = list(format = format, locale = locale)))
+    }
+
+    Expression$create("month", x)
+  }
+
+  nse_funcs$is.Date <- function(x) {
+    inherits(x, "Date") ||
+      (inherits(x, "Expression") && x$type_id() %in% Type[c("DATE32", "DATE64")])
+  }
+
+  nse_funcs$is.instant <- nse_funcs$is.timepoint <- function(x) {
+    inherits(x, c("POSIXt", "POSIXct", "POSIXlt", "Date")) ||
+      (inherits(x, "Expression") && x$type_id() %in% Type[c("TIMESTAMP", "DATE32", "DATE64")])
+  }
+
+  nse_funcs$is.POSIXct <- function(x) {
+    inherits(x, "POSIXct") ||
+      (inherits(x, "Expression") && x$type_id() %in% Type[c("TIMESTAMP")])
+  }
+}
+
+register_datetime_translations() # TEMP
+
+register_math_translations <- function() {
+
+  nse_funcs$log <- nse_funcs$logb <- function(x, base = exp(1)) {
+    # like other binary functions, either `x` or `base` can be Expression or double(1)
+    if (is.numeric(x) && length(x) == 1) {
+      x <- Expression$scalar(x)
+    } else if (!inherits(x, "Expression")) {
+      arrow_not_supported("x must be a column or a length-1 numeric; other values")
+    }
+
+    # handle `base` differently because we use the simpler ln, log2, and log10
+    # functions for specific scalar base values
+    if (inherits(base, "Expression")) {
+      return(Expression$create("logb_checked", x, base))
+    }
+
+    if (!is.numeric(base) || length(base) != 1) {
+      arrow_not_supported("base must be a column or a length-1 numeric; other values")
+    }
+
+    if (base == exp(1)) {
+      return(Expression$create("ln_checked", x))
+    }
+
+    if (base == 2) {
+      return(Expression$create("log2_checked", x))
+    }
+
+    if (base == 10) {
+      return(Expression$create("log10_checked", x))
+    }
+
+    Expression$create("logb_checked", x, Expression$scalar(base))
+  }
+
+
+  nse_funcs$pmin <- function(..., na.rm = FALSE) {
+    build_expr(
+      "min_element_wise",
+      ...,
+      options = list(skip_nulls = na.rm)
     )
   }
-  format <- ISO8601_precision_map[[precision]]
-  if (usetz) {
-    format <- paste0(format, "%z")
-  }
-  Expression$create("strftime", x, options = list(format = format, locale = "C"))
-}
 
-nse_funcs$second <- function(x) {
-  Expression$create("add", Expression$create("second", x), Expression$create("subsecond", x))
-}
-
-nse_funcs$wday <- function(x,
-                           label = FALSE,
-                           abbr = TRUE,
-                           week_start = getOption("lubridate.week.start", 7),
-                           locale = Sys.getlocale("LC_TIME")) {
-  if (label) {
-    if (abbr) {
-      format <- "%a"
-    } else {
-      format <- "%A"
-    }
-    return(Expression$create("strftime", x, options = list(format = format, locale = locale)))
+  nse_funcs$pmax <- function(..., na.rm = FALSE) {
+    build_expr(
+      "max_element_wise",
+      ...,
+      options = list(skip_nulls = na.rm)
+    )
   }
 
-  Expression$create("day_of_week", x, options = list(count_from_zero = FALSE, week_start = week_start))
-}
-
-nse_funcs$month <- function(x, label = FALSE, abbr = TRUE, locale = Sys.getlocale("LC_TIME")) {
-  if (label) {
-    if (abbr) {
-      format <- "%b"
-    } else {
-      format <- "%B"
-    }
-    return(Expression$create("strftime", x, options = list(format = format, locale = locale)))
+  nse_funcs$trunc <- function(x, ...) {
+    # accepts and ignores ... for consistency with base::trunc()
+    build_expr("trunc", x)
   }
 
-  Expression$create("month", x)
-}
-
-nse_funcs$is.Date <- function(x) {
-  inherits(x, "Date") ||
-    (inherits(x, "Expression") && x$type_id() %in% Type[c("DATE32", "DATE64")])
-}
-
-nse_funcs$is.instant <- nse_funcs$is.timepoint <- function(x) {
-  inherits(x, c("POSIXt", "POSIXct", "POSIXlt", "Date")) ||
-    (inherits(x, "Expression") && x$type_id() %in% Type[c("TIMESTAMP", "DATE32", "DATE64")])
-}
-
-nse_funcs$is.POSIXct <- function(x) {
-  inherits(x, "POSIXct") ||
-    (inherits(x, "Expression") && x$type_id() %in% Type[c("TIMESTAMP")])
-}
-
-nse_funcs$log <- nse_funcs$logb <- function(x, base = exp(1)) {
-  # like other binary functions, either `x` or `base` can be Expression or double(1)
-  if (is.numeric(x) && length(x) == 1) {
-    x <- Expression$scalar(x)
-  } else if (!inherits(x, "Expression")) {
-    arrow_not_supported("x must be a column or a length-1 numeric; other values")
+  nse_funcs$round <- function(x, digits = 0) {
+    build_expr(
+      "round",
+      x,
+      options = list(ndigits = digits, round_mode = RoundMode$HALF_TO_EVEN)
+    )
   }
 
-  # handle `base` differently because we use the simpler ln, log2, and log10
-  # functions for specific scalar base values
-  if (inherits(base, "Expression")) {
-    return(Expression$create("logb_checked", x, base))
-  }
-
-  if (!is.numeric(base) || length(base) != 1) {
-    arrow_not_supported("base must be a column or a length-1 numeric; other values")
-  }
-
-  if (base == exp(1)) {
-    return(Expression$create("ln_checked", x))
-  }
-
-  if (base == 2) {
-    return(Expression$create("log2_checked", x))
-  }
-
-  if (base == 10) {
-    return(Expression$create("log10_checked", x))
-  }
-
-  Expression$create("logb_checked", x, Expression$scalar(base))
 }
 
-nse_funcs$pmin <- function(..., na.rm = FALSE) {
-  build_expr(
-    "min_element_wise",
-    ...,
-    options = list(skip_nulls = na.rm)
-  )
-}
-
-nse_funcs$pmax <- function(..., na.rm = FALSE) {
-  build_expr(
-    "max_element_wise",
-    ...,
-    options = list(skip_nulls = na.rm)
-  )
-}
-
-nse_funcs$trunc <- function(x, ...) {
-  # accepts and ignores ... for consistency with base::trunc()
-  build_expr("trunc", x)
-}
-
-nse_funcs$round <- function(x, digits = 0) {
-  build_expr(
-    "round",
-    x,
-    options = list(ndigits = digits, round_mode = RoundMode$HALF_TO_EVEN)
-  )
-}
+register_math_translations()
 
 nse_funcs$coalesce <- function(...) {
   args <- list2(...)
