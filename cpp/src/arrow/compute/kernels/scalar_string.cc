@@ -3032,15 +3032,13 @@ using BinaryReverse = StringTransformExec<Type, BinaryReverseTransform>;
 const FunctionDoc binary_reverse_doc(
     "Reverse binary input",
     ("For each binary string in `strings`, return a reversed version.\n\n"
-     "This function reverses the binary data at a byte-level.\n\n"
-     "Applying `binary_reverse` to strings using specific encodings with\n"
-     "multiple bytes per code point (e.g. UTF8) may produce invalid strings."),
+     "This function reverses the binary data at a byte-level."),
     {"strings"});
 
 void AddBinaryReverse(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>("binary_reverse", Arity::Unary(),
                                                &binary_reverse_doc);
-  for (const auto& ty : BaseBinaryTypes()) {
+  for (const auto& ty : BinaryTypes()) {
     DCHECK_OK(func->AddKernel({ty}, ty, GenerateVarBinaryToVarBinary<BinaryReverse>(ty)));
   }
   DCHECK_OK(registry->AddFunction(std::move(func)));

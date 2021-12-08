@@ -851,7 +851,7 @@ String transforms
 +-------------------------+--------+-----------------------------------------+------------------------+-----------------------------------+-------+
 | binary_replace_slice    | Unary  | String-like                             | Binary- or String-like | :struct:`ReplaceSliceOptions`     | \(5)  |
 +-------------------------+--------+-----------------------------------------+------------------------+-----------------------------------+-------+
-| binary_reverse          | Unary  | Binary- or String-like                  | Binary- or String-like |                                   | \(11) |
+| binary_reverse          | Unary  | Binary                                  | Binary                 |                                   | \(11) |
 +-------------------------+--------+-----------------------------------------+------------------------+-----------------------------------+-------+
 | replace_substring       | Unary  | String-like                             | String-like            | :struct:`ReplaceSubstringOptions` | \(6)  |
 +-------------------------+--------+-----------------------------------------+------------------------+-----------------------------------+-------+
@@ -913,10 +913,7 @@ String transforms
   If the input is not valid UTF8, then the output is undefined (but the size of output
   buffers will be preserved).
 
-* \(11) Performs a byte-level reverse. Does not take encoding into consideration.
-  Applying `binary_reverse` to strings using specific encodings with multiple bytes
-  per code point (e.g. UTF8) will produce invalid strings. Use e.g. `utf8_reverse`
-  instead.
+* \(11) Performs a byte-level reverse. Does not make any assumptions about encoding.
 
 String padding
 ~~~~~~~~~~~~~~
