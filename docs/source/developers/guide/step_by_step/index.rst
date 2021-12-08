@@ -27,6 +27,6 @@ Steps in making your first PR
    set_up
    building
    finding_issues
-   finding_your_way_around
+   arrow_codebase
    testing
    pr_and_github
