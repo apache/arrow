@@ -52,7 +52,7 @@ branch in Git.**
       $ git pull --ff-only upstream master # save the changes from upstream/master
 
    Note: ``--ff-only`` applies changes only if they can be fast-forwarded
-   without conficts or creating merge commits.
+   without conflicts or creating merge commits.
 
 2. Create a new branch
 
