@@ -56,6 +56,11 @@ a username and password each time you execute a git command.
    Some IDEs allow you to manage a git repository, but may implicitly run
    unwanted operations when doing so (such as creating project files).
 
+   For example, cloning it in RStudio assumes the whole repository is an
+   RStudio project and will create a ``.Rproj`` file in the root directory.
+   For this reason it is *highly recommended* to clone the repository using
+   the command line or a Git client.
+   
 Get the source code
 ===================
 
@@ -83,12 +88,7 @@ in your own GitHub account.
 Clone the repository
 --------------------
 
-Next you need to clone the repository (this is where the command line
-comes in). It is *highly recommended* to clone the repository using
-the command line or a Git client. Cloning it in an IDE might create
-unnecessary headaches - for example, cloning it in RStudio assumes the
-whole repository is an RStudio project and will create a ``.Rproj``
-file in the root directory.
+Next you need to clone the repository.
 
 .. code:: console
 
@@ -111,7 +111,7 @@ Should give you a result similar to this:
 
 .. code:: console
 
-   origin	https://github.com/<your username>arrow.git (fetch)
+   origin	https://github.com/<your username>/arrow.git (fetch)
    origin	https://github.com/<your username>/arrow.git (push)
    upstream	https://github.com/apache/arrow (fetch)
    upstream	https://github.com/apache/arrow (push)
