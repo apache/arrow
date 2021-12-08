@@ -241,9 +241,10 @@ TEST_P(TestWriteCSV, TestWrite) {
   WriteOptions options = GetParam().options;
   std::string csv;
   auto record_batch = RecordBatchFromJSON(GetParam().schema, GetParam().batch_data);
-  if (GetParam().expected_status != Status::OK()) {
+  if (!GetParam().expected_status.ok()) {
     // If an error status is expected, check if the expected status matches.
-    EXPECT_EQ(ToCsvString(*record_batch, options), GetParam().expected_status);
+    EXPECT_TRUE(
+        ToCsvString(*record_batch, options).status().Equals(GetParam().expected_status));
   } else {
     ASSERT_OK_AND_ASSIGN(csv, ToCsvString(*record_batch, options));
     EXPECT_EQ(csv, GetParam().expected_output);
