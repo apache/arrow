@@ -21,7 +21,6 @@ library(dplyr, warn.conflicts = FALSE)
 
 csv_dir <- make_temp_dir()
 tsv_dir <- make_temp_dir()
-csv_file <- tempfile()
 
 test_that("Setup (putting data in the dirs)", {
   dir.create(file.path(csv_dir, 5))
@@ -291,10 +290,12 @@ test_that("Column names inferred from schema for headerless CSVs (ARROW-14063)",
 })
 
 test_that("open_dataset() deals with BOMs (byte-order-marks) correctly", {
-  writeLines("\xef\xbb\xbfa,b\n1,2\n", con = csv_file)
+  temp_dir <- make_temp_dir()
+  writeLines("\xef\xbb\xbfa,b\n1,2\n", con = file.path(temp_dir, "file1.csv"))
+  writeLines("\xef\xbb\xbfa,b\n3,4\n", con = file.path(temp_dir, "file2.csv"))
 
   expect_equal(
-    open_dataset(csv_file, format = "csv") %>% collect(),
-    tibble(a = 1, b = 2)
+    open_dataset(temp_dir, format = "csv") %>% collect(),
+    tibble(a = c(1, 3), b = c(2, 4))
   )
 })
