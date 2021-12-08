@@ -50,10 +50,11 @@ and `authenticate with GitHub <https://docs.github.com/en/get-started/quickstart
 as this will allow you to interact with GitHub without typing
 a username and password each time you execute a git command.
 
-**The Terminal**
+.. note::
 
-You might be able to get away without using the command-line for
-most tasks, but for some it seems to be the most straightforward way.
+   This guide assumes you are comfortable working from the command line.
+   Some IDEs allow you to manage a git repository, but may implicitly run
+   unwanted operations when doing so (such as creating project files).
 
 Get the source code
 ===================
