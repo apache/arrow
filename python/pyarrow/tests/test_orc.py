@@ -271,6 +271,190 @@ def test_orcfile_readwrite_with_bad_writeoptions():
             batch_size=1024.23,
         )
 
+    # file_version must be 0.11 or 0.12
+    with pytest.raises(ValueError):
+        orc.write_table(
+            buffer_output_stream,
+            table,
+            file_version=0.13,
+        )
+
+    with pytest.raises(ValueError):
+        orc.write_table(
+            buffer_output_stream,
+            table,
+            file_version='1.1',
+        )
+
+    # stripe_size must be a positive integer
+    with pytest.raises(ValueError):
+        orc.write_table(
+            buffer_output_stream,
+            table,
+            stripe_size=0,
+        )
+
+    with pytest.raises(ValueError):
+        orc.write_table(
+            buffer_output_stream,
+            table,
+            stripe_size=-400,
+        )
+
+    with pytest.raises(ValueError):
+        orc.write_table(
+            buffer_output_stream,
+            table,
+            stripe_size=4096.73,
+        )
+
+    # compression must be among the given options
+    with pytest.raises(TypeError):
+        orc.write_table(
+            buffer_output_stream,
+            table,
+            compression=0,
+        )
+
+    with pytest.raises(ValueError):
+        orc.write_table(
+            buffer_output_stream,
+            table,
+            compression='none',
+        )
+    with pytest.raises(ValueError):
+        orc.write_table(
+            buffer_output_stream,
+            table,
+            compression='zlid',
+        )
+
+    # compression_block_size must be a positive integer
+    with pytest.raises(ValueError):
+        orc.write_table(
+            buffer_output_stream,
+            table,
+            compression_block_size=0,
+        )
+
+    with pytest.raises(ValueError):
+        orc.write_table(
+            buffer_output_stream,
+            table,
+            compression_block_size=-200,
+        )
+
+    with pytest.raises(ValueError):
+        orc.write_table(
+            buffer_output_stream,
+            table,
+            compression_block_size=1096.73,
+        )
+
+    # compression_strategy must be among the given options
+    with pytest.raises(TypeError):
+        orc.write_table(
+            buffer_output_stream,
+            table,
+            compression_strategy=0,
+        )
+
+    with pytest.raises(ValueError):
+        orc.write_table(
+            buffer_output_stream,
+            table,
+            compression_strategy='no',
+        )
+    with pytest.raises(ValueError):
+        orc.write_table(
+            buffer_output_stream,
+            table,
+            compression_strategy='large',
+        )
+
+    # row_index_stride must be a positive integer
+    with pytest.raises(ValueError):
+        orc.write_table(
+            buffer_output_stream,
+            table,
+            row_index_stride=0,
+        )
+
+    with pytest.raises(ValueError):
+        orc.write_table(
+            buffer_output_stream,
+            table,
+            row_index_stride=-800,
+        )
+
+    with pytest.raises(ValueError):
+        orc.write_table(
+            buffer_output_stream,
+            table,
+            row_index_stride=3096.29,
+        )
+
+    # padding_tolerance must be possible to cast to float
+    with pytest.raises(ValueError):
+        orc.write_table(
+            buffer_output_stream,
+            table,
+            padding_tolerance='cat',
+        )
+
+    # dictionary_key_size_threshold must be possible to cast to float
+    with pytest.raises(ValueError):
+        orc.write_table(
+            buffer_output_stream,
+            table,
+            dictionary_key_size_threshold='arrow',
+        )
+
+    # bloom_filter_columns must be convertible to a set containing
+    # nonnegative integers
+    with pytest.raises(ValueError):
+        orc.write_table(
+            buffer_output_stream,
+            table,
+            bloom_filter_columns="string",
+        )
+
+    with pytest.raises(ValueError):
+        orc.write_table(
+            buffer_output_stream,
+            table,
+            bloom_filter_columns=[0, 1.4],
+        )
+
+    with pytest.raises(ValueError):
+        orc.write_table(
+            buffer_output_stream,
+            table,
+            bloom_filter_columns={0, 2, -1},
+        )
+
+    # bloom_filter_fpp must be convertible to a float between 0.0 and 1.0
+    with pytest.raises(ValueError):
+        orc.write_table(
+            buffer_output_stream,
+            table,
+            dictionary_key_size_threshold='arrow',
+        )
+
+    with pytest.raises(ValueError):
+        orc.write_table(
+            buffer_output_stream,
+            table,
+            dictionary_key_size_threshold=1.1,
+        )
+
+    with pytest.raises(ValueError):
+        orc.write_table(
+            buffer_output_stream,
+            table,
+            dictionary_key_size_threshold=-0.1,
+        )
+
 
 def test_column_selection(tempdir):
     from pyarrow import orc

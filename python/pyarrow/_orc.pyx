@@ -51,6 +51,8 @@ cdef compression_kind_from_enum(CompressionKind compression_kind_):
 
 
 cdef CompressionKind compression_kind_from_name(name) except *:
+    if not isinstance(name, str):
+        raise TypeError('compression must be a string')
     name = name.upper()
     if name == 'ZLIB':
         return _CompressionKind_ZLIB
@@ -75,6 +77,8 @@ cdef compression_strategy_from_enum(CompressionStrategy compression_strategy_):
 
 
 cdef CompressionStrategy compression_strategy_from_name(name) except *:
+    if not isinstance(name, str):
+        raise TypeError('compression strategy must be a string')
     name = name.upper()
     # SPEED is the default value in the ORC C++ implementaton
     if name == 'COMPRESSION':
