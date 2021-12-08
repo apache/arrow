@@ -195,7 +195,7 @@ Array$create <- function(x, type = NULL) {
         tryCatch(
           vec_to_Array(x, NULL)$cast(type),
           error = function(cnd2) {
-            signalCondition(cnd2)
+            signalCondition(cnd)
           }
                  )
       } else {
