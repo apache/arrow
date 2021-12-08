@@ -2169,6 +2169,5 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc("gdv_mask_last_n_utf8_int32",
                                   types->i8_ptr_type() /*return_type*/, mask_args,
                                   reinterpret_cast<void*>(gdv_mask_last_n_utf8_int32));
-
 }
 }  // namespace gandiva
