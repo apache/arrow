@@ -21,21 +21,16 @@ NULL
 
 # This environment is an internal cache for things including data mask functions
 # We'll populate it at package load time.
-.cache <- NULL
-init_env <- function() {
-  .cache <<- new.env(hash = TRUE)
-}
-init_env()
+.cache <- new.env(parent = emptyenv())
 
 # nse_funcs is a list of functions that operated on (and return) Expressions
 # These will be the basis for a data_mask inside dplyr methods
 # and will be added to .cache at package load time
-
 # Start with mappings from R function name spellings
-nse_funcs <- lapply(set_names(names(.array_function_map)), function(operator) {
+nse_funcs <- as.environment(lapply(set_names(names(.array_function_map)), function(operator) {
   force(operator)
   function(...) build_expr(operator, ...)
-})
+}))
 
 # Now add functions to that list where the mapping from R to Arrow isn't 1:1
 # Each of these functions should have the same signature as the R function
@@ -1014,7 +1009,7 @@ nse_funcs$case_when <- function(...) {
 # For group-by aggregation, `hash_` gets prepended to the function name.
 # So to see a list of available hash aggregation functions,
 # you can use list_compute_functions("^hash_")
-agg_funcs <- list()
+agg_funcs <- new.env(parent = emptyenv())
 agg_funcs$sum <- function(..., na.rm = FALSE) {
   list(
     fun = "sum",

@@ -69,7 +69,7 @@
       }),
       paste0("arrow_", all_arrow_funs)
     )
-    .cache$functions <- c(nse_funcs, arrow_funcs)
+    .cache$functions <- c(as.list(nse_funcs), arrow_funcs)
   }
 
   if (tolower(Sys.info()[["sysname"]]) == "windows") {
