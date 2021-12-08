@@ -28,7 +28,7 @@
 Lifecycle of a Pull Request 🙀 
 ******************************
 
-:ref:`As mentioned before<set-up>`, the Arrow project uses git for
+:ref:`As mentioned before<set-up>`, the Arrow project uses Git for
 version control and a workflow based on Pull Requests. That means
 that you contribute the changes to the code by creating a branch
 in Git, make changes to the code, push the changes to your ``origin``
@@ -36,7 +36,7 @@ which is your fork of the Arrow repository on GitHub and then you
 create a **Pull Request** against the official Arrow repository
 which is saved in your set up as ``upstream``.
 
-You should have git set up by now, have cloned the repository,
+You should have Git set up by now, have cloned the repository,
 have successfully built Arrow and have an JIRA issue to work on.
 
 **Before making changes to the code, you should create a new
@@ -47,9 +47,12 @@ branch in Git.**
 
    .. code:: console
 
-      $ git checkout master
-      $ git fetch upstream
-      $ git pull --ff-only upstream master
+      $ git checkout master # select the main Arrow branch
+      $ git fetch upstream # check for changes in upstream/master
+      $ git pull --ff-only upstream master # save the changes from upstream/master
+
+   Note: ``--ff-only`` applies changes only if they can be fast-forwarded
+   without creating new commits.
 
 2. Create a new branch
 
@@ -84,7 +87,7 @@ and linters and then go ahead and commit the changes.
       $ git add <filenames>
       $ git commit -m '<message>'
 
-   Or you can add and commit in one step, if all the files changed
+   Alternatively, you can add and commit in one step, if all the files changed
    are to be committed
    
    .. code:: console      
@@ -99,9 +102,9 @@ and linters and then go ahead and commit the changes.
 
 .. note::
 
-   Your work is now still under your watchful eye so no problem if you
-   see any error you would like to correct. You can make an additional
-   commit to correct. Also Git has lots of ways to
+   Your work is now still under your watchful eye so it's not a problem
+   if you see any errors you would like to correct. You can make an
+   additional commit to correct, and Git has lots of ways to
    amend, delete, revise, etc. See https://git-scm.com/docs for more
    information.
 
@@ -110,11 +113,11 @@ and linters and then go ahead and commit the changes.
 
 If all is set, you can make the Pull Request!
 
-5. Go to ``https://github.com/YOU/arrow`` where you will see a box with
+5. Go to ``https://github.com/<your username>arrow`` where you will see a box with
    the name of the branch that you pushed and next to it a green button
-   **Compare & Pull Request**. After clicking on it, you should add a title and
-   description of the Pull Request. Underneath you can check once again
-   the changes you have made.
+   **Compare & Pull Request**. After clicking on it, you should add a
+   title and description of the Pull Request. Underneath you can check
+   once again the changes you have made.
 
    .. seealso::
       
