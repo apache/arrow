@@ -121,7 +121,7 @@ test_that("paste, paste0, and str_c", {
   # sep is literal NA
   # errors in paste() (consistent with base::paste())
   expect_error(
-    nse_funcs$paste(x, y, sep = NA_character_),
+    call_translation("paste", x, y, sep = NA_character_),
     "Invalid separator"
   )
   # emits null in str_c() (consistent with stringr::str_c())
@@ -156,25 +156,25 @@ test_that("paste, paste0, and str_c", {
 
   # collapse argument not supported
   expect_error(
-    nse_funcs$paste(x, y, collapse = ""),
+    call_translation("paste", x, y, collapse = ""),
     "collapse"
   )
   expect_error(
-    nse_funcs$paste0(x, y, collapse = ""),
+    call_translation("paste0", x, y, collapse = ""),
     "collapse"
   )
   expect_error(
-    nse_funcs$str_c(x, y, collapse = ""),
+    call_translation("str_c", x, y, collapse = ""),
     "collapse"
   )
 
   # literal vectors of length != 1 not supported
   expect_error(
-    nse_funcs$paste(x, character(0), y),
+    call_translation("paste", x, character(0), y),
     "Literal vectors of length != 1 not supported in string concatenation"
   )
   expect_error(
-    nse_funcs$paste(x, c(",", ";"), y),
+    call_translation("paste", x, c(",", ";"), y),
     "Literal vectors of length != 1 not supported in string concatenation"
   )
 })
@@ -501,7 +501,7 @@ test_that("str_to_lower, str_to_upper, and str_to_title", {
 
   # Error checking a single function because they all use the same code path.
   expect_error(
-    nse_funcs$str_to_lower("Apache Arrow", locale = "sp"),
+    call_translation("str_to_lower", "Apache Arrow", locale = "sp"),
     "Providing a value for 'locale' other than the default ('en') is not supported in Arrow",
     fixed = TRUE
   )
@@ -565,27 +565,27 @@ test_that("errors and warnings in string splitting", {
 
   x <- Expression$field_ref("x")
   expect_error(
-    nse_funcs$str_split(x, fixed("and", ignore_case = TRUE)),
+    call_translation("str_split", x, fixed("and", ignore_case = TRUE)),
     "Case-insensitive string splitting not supported in Arrow"
   )
   expect_error(
-    nse_funcs$str_split(x, coll("and.?")),
+    call_translation("str_split", x, coll("and.?")),
     "Pattern modifier `coll()` not supported in Arrow",
     fixed = TRUE
   )
   expect_error(
-    nse_funcs$str_split(x, boundary(type = "word")),
+    call_translation("str_split", x, boundary(type = "word")),
     "Pattern modifier `boundary()` not supported in Arrow",
     fixed = TRUE
   )
   expect_error(
-    nse_funcs$str_split(x, "and", n = 0),
+    call_translation("str_split", x, "and", n = 0),
     "Splitting strings into zero parts not supported in Arrow"
   )
 
   # This condition generates a warning
   expect_warning(
-    nse_funcs$str_split(x, fixed("and"), simplify = TRUE),
+    call_translation("str_split", x, fixed("and"), simplify = TRUE),
     "Argument 'simplify = TRUE' will be ignored"
   )
 })
@@ -594,19 +594,19 @@ test_that("errors and warnings in string detection and replacement", {
   x <- Expression$field_ref("x")
 
   expect_error(
-    nse_funcs$str_detect(x, boundary(type = "character")),
+    call_translation("str_detect", x, boundary(type = "character")),
     "Pattern modifier `boundary()` not supported in Arrow",
     fixed = TRUE
   )
   expect_error(
-    nse_funcs$str_replace_all(x, coll("o", locale = "en"), "ó"),
+    call_translation("str_replace_all", x, coll("o", locale = "en"), "ó"),
     "Pattern modifier `coll()` not supported in Arrow",
     fixed = TRUE
   )
 
   # This condition generates a warning
   expect_warning(
-    nse_funcs$str_replace_all(x, regex("o", multiline = TRUE), "u"),
+    call_translation("str_replace_all", x, regex("o", multiline = TRUE), "u"),
     "Ignoring pattern modifier argument not supported in Arrow: \"multiline\""
   )
 })
@@ -937,18 +937,19 @@ test_that("substr", {
   )
 
   expect_error(
-    nse_funcs$substr("Apache Arrow", c(1, 2), 3),
+    call_translation("substr", "Apache Arrow", c(1, 2), 3),
     "`start` must be length 1 - other lengths are not supported in Arrow"
   )
 
   expect_error(
-    nse_funcs$substr("Apache Arrow", 1, c(2, 3)),
+    call_translation("substr", "Apache Arrow", 1, c(2, 3)),
     "`stop` must be length 1 - other lengths are not supported in Arrow"
   )
 })
 
 test_that("substring", {
-  # nse_funcs$substring just calls nse_funcs$substr, tested extensively above
+  # translation for substring just calls call_translation("substr", ...),
+  # tested extensively above
   df <- tibble(x = "Apache Arrow")
 
   compare_dplyr_binding(
@@ -1033,12 +1034,12 @@ test_that("str_sub", {
   )
 
   expect_error(
-    nse_funcs$str_sub("Apache Arrow", c(1, 2), 3),
+    call_translation("str_sub", "Apache Arrow", c(1, 2), 3),
     "`start` must be length 1 - other lengths are not supported in Arrow"
   )
 
   expect_error(
-    nse_funcs$str_sub("Apache Arrow", 1, c(2, 3)),
+    call_translation("str_sub", "Apache Arrow", 1, c(2, 3)),
     "`end` must be length 1 - other lengths are not supported in Arrow"
   )
 })
@@ -1167,7 +1168,7 @@ test_that("str_count", {
     df
   )
 
-  # nse_funcs$str_count() is not vectorised over pattern
+  # call_translation("str_count", ) is not vectorised over pattern
   compare_dplyr_binding(
     .input %>%
       mutate(let_count = str_count(cities, pattern = c("a", "b", "e", "g", "p", "n", "s"))) %>%
