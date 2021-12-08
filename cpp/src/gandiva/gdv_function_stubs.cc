@@ -1106,25 +1106,6 @@ const char* gdv_mask_last_n_utf8_int32(int64_t context, const char* data,
 
   return out;
 }
-
-GANDIVA_EXPORT
-int32_t gdv_fn_instr_utf8(const char* string, int32_t string_len, const char* substring,
-                          int32_t substring_len) {
-  if (substring_len == 0) {
-    return 1;
-  }
-
-  if (string_len < substring_len) {
-    return 0;
-  }
-
-  for (int i = 0; i < string_len - substring_len; i++) {
-    if (string[i] == substring[0] && memcmp(string + i, substring, substring_len) == 0) {
-      return (i + 1);
-    }
-  }
-  return 0;
-}
 }
 
 namespace gandiva {
@@ -2189,15 +2170,5 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
                                   types->i8_ptr_type() /*return_type*/, mask_args,
                                   reinterpret_cast<void*>(gdv_mask_last_n_utf8_int32));
 
-  // gd_fn_instr_utf8
-  args = {
-      types->i8_ptr_type(),  // string
-      types->i32_type(),     // string_length
-      types->i8_ptr_type(),  // substring
-      types->i32_type(),     // substring_length
-  };
-
-  engine->AddGlobalMappingForFunc("gdv_fn_instr_utf8", types->i32_type() /*return_type*/,
-                                  args, reinterpret_cast<void*>(gdv_fn_instr_utf8));
 }
 }  // namespace gandiva
