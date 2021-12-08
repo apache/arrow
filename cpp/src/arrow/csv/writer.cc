@@ -192,7 +192,7 @@ class UnquotedColumnPopulator : public ColumnPopulator {
       return VisitArrayDataInline<StringType>(
           *casted_array_->data(),
           [&](arrow::util::string_view s) {
-            ARROW_RETURN_NOT_OK(CheckStringHasNoStructuralChars(s));
+            RETURN_NOT_OK(CheckStringHasNoStructuralChars(s));
             return valid_function(s);
           },
           null_function);
@@ -545,6 +545,18 @@ Status WriteCSV(const RecordBatch& batch, const WriteOptions& options,
                 arrow::io::OutputStream* output) {
   ASSIGN_OR_RAISE(auto writer, MakeCSVWriter(output, batch.schema(), options));
   RETURN_NOT_OK(writer->WriteRecordBatch(batch));
+  return writer->Close();
+}
+
+Status WriteCSV(const std::shared_ptr<RecordBatchReader>& reader,
+                const WriteOptions& options, arrow::io::OutputStream* output) {
+  ASSIGN_OR_RAISE(auto writer, MakeCSVWriter(output, reader->schema(), options));
+  std::shared_ptr<RecordBatch> batch;
+  while (true) {
+    ASSIGN_OR_RAISE(batch, reader->Next());
+    if (batch == nullptr) break;
+    RETURN_NOT_OK(writer->WriteRecordBatch(*batch));
+  }
   return writer->Close();
 }
 

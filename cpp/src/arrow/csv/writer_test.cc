@@ -259,6 +259,12 @@ TEST_P(TestWriteCSV, TestWrite) {
     ASSERT_OK_AND_ASSIGN(csv, ToCsvString(*table, options));
     EXPECT_EQ(csv, GetParam().expected_output);
 
+    // RecordBatchReader should work identically.
+    ASSERT_OK_AND_ASSIGN(std::shared_ptr<RecordBatchReader> reader,
+                         RecordBatchReader::Make({record_batch}));
+    ASSERT_OK_AND_ASSIGN(csv, ToCsvString(reader, options));
+    EXPECT_EQ(csv, GetParam().expected_output);
+
     // The writer should work identically.
     ASSERT_OK_AND_ASSIGN(csv, ToCsvStringUsingWriter(*table, options));
     EXPECT_EQ(csv, GetParam().expected_output);
