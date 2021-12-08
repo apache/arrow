@@ -101,7 +101,8 @@ x-hierarchy:
       - conda-cpp-hiveserver2
       - conda-cpp-valgrind
       - conda-python:
-        - conda-python-pandas
+        - conda-python-pandas:
+          - conda-python-docs
         - conda-python-dask
         - conda-python-hdfs
         - conda-python-jpype
@@ -109,7 +110,6 @@ x-hierarchy:
         - conda-python-turbodbc
         - conda-python-kartothek
         - conda-python-spark
-
   - debian-cpp:
     - debian-c-glib:
       - debian-ruby
@@ -940,12 +940,32 @@ services:
     shm_size: *shm-size
     environment:
       <<: *ccache
-      BUILD_DOCS_PYTHON: "ON"
     volumes: *conda-volumes
     command:
       ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/python_build.sh /arrow /build &&
         /arrow/ci/scripts/python_test.sh /arrow"]
+
+  conda-python-docs:
+    # Usage:
+    #   archery docker run conda-python-docs
+    #
+    # Only a single rule is enabled for now to check undocumented arguments.
+    # We should extend the list of enabled rules after adding this build to
+    # the CI pipeline.
+    image: ${REPO}:${ARCH}-conda-python-${PYTHON}-pandas-${PANDAS}
+    environment:
+      <<: *ccache
+      LC_ALL: "C.UTF-8"
+      LANG: "C.UTF-8"
+      BUILD_DOCS_CPP: "ON"
+      BUILD_DOCS_PYTHON: "ON"
+    volumes: *conda-volumes
+    command:
+      ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/python_build.sh /arrow /build &&
+        pip install -e /arrow/dev/archery[numpydoc] &&
+        archery numpydoc --allow-rule PR01"]
 
   conda-python-dask:
     # Possible $DASK parameters:
