@@ -106,11 +106,13 @@ class ARROW_EXPORT ChunkedArray {
   /// \return the total number of nulls among all chunks
   int64_t null_count() const { return null_count_; }
 
+  /// \return the total number of chunks in the chunked array
   int num_chunks() const { return static_cast<int>(chunks_.size()); }
 
   /// \return chunk a particular chunk from the chunked array
   std::shared_ptr<Array> chunk(int i) const { return chunks_[i]; }
 
+  /// \return an ArrayVector of chunks
   const ArrayVector& chunks() const { return chunks_; }
 
   /// \brief Construct a zero-copy slice of the chunked array with the
@@ -139,6 +141,7 @@ class ARROW_EXPORT ChunkedArray {
   /// there are zero chunks
   Result<std::shared_ptr<ChunkedArray>> View(const std::shared_ptr<DataType>& type) const;
 
+  /// \brief Return the type of the chunked array
   const std::shared_ptr<DataType>& type() const { return type_; }
 
   /// \brief Return a Scalar containing the value of this array at index
