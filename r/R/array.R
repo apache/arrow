@@ -187,20 +187,23 @@ Array$create <- function(x, type = NULL) {
     }
     return(out)
   }
+
+  if (is.null(type)) {
+    return(vec_to_Array(x, type))
+  }
+
+  # a type is given, this needs more care
   tryCatch(
     vec_to_Array(x, type),
     error = function(cnd) {
-      if (!is.null(type)) {
-        # try again and then cast
-        tryCatch(
-          vec_to_Array(x, NULL)$cast(type),
-          error = function(cnd2) {
-            signalCondition(cnd)
-          }
-                 )
-      } else {
-        signalCondition(cnd)
-      }
+      tryCatch(
+        vec_to_Array(x, NULL)$cast(type),
+        error = function(cnd2) {
+          # the casting approach failed,
+          # so just rethrow the original error
+          stop(conditionMessage(cnd), call. = FALSE)
+        }
+      )
     }
   )
 
