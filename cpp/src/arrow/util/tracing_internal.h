@@ -28,6 +28,7 @@
 #pragma warning(disable : 4522)
 #endif
 #include <opentelemetry/trace/provider.h>
+#include <opentelemetry/trace/scope.h>
 #ifdef _MSC_VER
 #pragma warning(pop)
 #endif
