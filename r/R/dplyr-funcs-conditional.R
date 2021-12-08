@@ -51,10 +51,10 @@ register_conditional_translations <- function() {
 
   if_else_translation <- function(condition, true, false, missing = NULL) {
     if (!is.null(missing)) {
-      return(nse_funcs$if_else(
-        nse_funcs$is.na(condition),
+      return(if_else_translation(
+        call_translation("is.na", (condition)),
         missing,
-        nse_funcs$if_else(condition, true, false)
+        if_else_translation(condition, true, false)
       ))
     }
 
@@ -84,7 +84,7 @@ register_conditional_translations <- function() {
       }
       query[[i]] <- arrow_eval(f[[2]], mask)
       value[[i]] <- arrow_eval(f[[3]], mask)
-      if (!nse_funcs$is.logical(query[[i]])) {
+      if (!call_translation("is.logical", query[[i]])) {
         abort("Left side of each formula in case_when() must be a logical expression")
       }
       if (inherits(value[[i]], "try-error")) {

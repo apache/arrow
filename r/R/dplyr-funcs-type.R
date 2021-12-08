@@ -42,13 +42,13 @@ register_type_translations <- function() {
     if (is.string(class2)) {
       switch(class2,
              # for R data types, pass off to is.*() functions
-             character = nse_funcs$is.character(object),
-             numeric = nse_funcs$is.numeric(object),
-             integer = nse_funcs$is.integer(object),
-             integer64 = nse_funcs$is.integer64(object),
-             logical = nse_funcs$is.logical(object),
-             factor = nse_funcs$is.factor(object),
-             list = nse_funcs$is.list(object),
+             character = call_translation("is.character", object),
+             numeric = call_translation("is.numeric", object),
+             integer = call_translation("is.integer", object),
+             integer64 = call_translation("is.integer64", object),
+             logical = call_translation("is.logical", object),
+             factor = call_translation("is.factor", object),
+             list = call_translation("is.list", object),
              # for Arrow data types, compare class2 with object$type()$ToString(),
              # but first strip off any parameters to only compare the top-level data
              # type,  and canonicalize class2
@@ -80,13 +80,13 @@ register_type_translations <- function() {
   register_translation("is.finite", function(x) {
     is_fin <- Expression$create("is_finite", x)
     # for compatibility with base::is.finite(), return FALSE for NA_real_
-    is_fin & !nse_funcs$is.na(is_fin)
+    is_fin & !call_translation("is.na", is_fin)
   })
 
   register_translation("is.infinite", function(x) {
     is_inf <- Expression$create("is_inf", x)
     # for compatibility with base::is.infinite(), return FALSE for NA_real_
-    is_inf & !nse_funcs$is.na(is_inf)
+    is_inf & !call_translation("is.na", is_inf)
   })
 
   # as.* type casting functions
@@ -165,23 +165,23 @@ register_type_translations <- function() {
   # rlang::is_* type functions
   register_translation("is_character", function(x, n = NULL) {
     assert_that(is.null(n))
-    nse_funcs$is.character(x)
+    call_translation("is.character", x)
   })
   register_translation("is_double", function(x, n = NULL, finite = NULL) {
     assert_that(is.null(n) && is.null(finite))
-    nse_funcs$is.double(x)
+    call_translation("is.double", x)
   })
   register_translation("is_integer", function(x, n = NULL) {
     assert_that(is.null(n))
-    nse_funcs$is.integer(x)
+    call_translation("is.integer", x)
   })
   register_translation("is_list", function(x, n = NULL) {
     assert_that(is.null(n))
-    nse_funcs$is.list(x)
+    call_translation("is.list", x)
   })
   register_translation("is_logical", function(x, n = NULL) {
     assert_that(is.null(n))
-    nse_funcs$is.logical(x)
+    call_translation("is.logical", x)
   })
 
   # Create a data frame/tibble/struct column

@@ -159,7 +159,7 @@ register_string_translations <- function() {
           )
           Expression$scalar(as.character(arg))
         } else {
-          nse_funcs$as.character(arg)
+          call_translation("as.character", arg)
         }
       })
       Expression$create(
@@ -259,7 +259,7 @@ register_string_translations <- function() {
   })
 
   register_translation("substring", function(text, first, last) {
-    nse_funcs$substr(x = text, start = first, stop = last)
+    call_translation("substr", x = text, start = first, stop = last)
   })
 
   register_translation("str_sub", function(string, start = 1L, end = -1L) {
@@ -309,7 +309,7 @@ register_string_translations <- function() {
 
   register_translation("str_detect", function(string, pattern, negate = FALSE) {
     opts <- get_stringr_pattern_options(enexpr(pattern))
-    out <- nse_funcs$grepl(
+    out <- call_translation("grepl",
       pattern = opts$pattern,
       x = string,
       ignore.case = opts$ignore_case,
@@ -452,9 +452,9 @@ register_string_translations <- function() {
   register_translation("str_starts", function(string, pattern, negate = FALSE) {
     opts <- get_stringr_pattern_options(enexpr(pattern))
     if (opts$fixed) {
-      out <- nse_funcs$startsWith(x = string, prefix = opts$pattern)
+      out <- call_translation("startsWith", x = string, prefix = opts$pattern)
     } else {
-      out <- nse_funcs$grepl(pattern = paste0("^", opts$pattern), x = string, fixed = FALSE)
+      out <- call_translation("grepl", pattern = paste0("^", opts$pattern), x = string, fixed = FALSE)
     }
 
     if (negate) {
@@ -466,9 +466,9 @@ register_string_translations <- function() {
   register_translation("str_ends", function(string, pattern, negate = FALSE) {
     opts <- get_stringr_pattern_options(enexpr(pattern))
     if (opts$fixed) {
-      out <- nse_funcs$endsWith(x = string, suffix = opts$pattern)
+      out <- call_translation("endsWith", x = string, suffix = opts$pattern)
     } else {
-      out <- nse_funcs$grepl(pattern = paste0(opts$pattern, "$"), x = string, fixed = FALSE)
+      out <- call_translation("grepl", pattern = paste0(opts$pattern, "$"), x = string, fixed = FALSE)
     }
 
     if (negate) {
