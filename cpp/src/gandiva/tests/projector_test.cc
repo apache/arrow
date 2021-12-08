@@ -2138,4 +2138,66 @@ TEST_F(TestProjector, TestToHex) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
   EXPECT_ARROW_ARRAY_EQUALS(exp_numerical, outputs.at(1));
 }
+TEST_F(TestProjector, TestAesEncryptDecrypt) {
+  auto field0 = field("f0", arrow::utf8());
+  auto field1 = field("f1", arrow::utf8());
+  auto schema = arrow::schema({field0, field1});
+
+  auto cypher_res = field("cypher", arrow::utf8());
+  auto plain_res = field("plain", arrow::utf8());
+
+  auto encrypt_expr =
+      TreeExprBuilder::MakeExpression("aes_encrypt", {field0, field1}, cypher_res);
+  auto decrypt_expr =
+      TreeExprBuilder::MakeExpression("aes_decrypt", {field0, field1}, plain_res);
+
+  std::shared_ptr<Projector> projector_en;
+  auto status =
+      Projector::Make(schema, {encrypt_expr}, TestConfiguration(), &projector_en);
+  ASSERT_OK(status);
+
+  int num_records = 4;
+
+  const char* key_32_bytes = "12345678abcdefgh12345678abcdefgh";
+  const char* key_64_bytes =
+      "12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh";
+  const char* key_128_bytes =
+      "12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12"
+      "345678abcdefgh12345678abcdefgh12345678abcdefgh";
+  const char* key_256_bytes =
+      "12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12"
+      "345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh1234"
+      "5678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh123456"
+      "78abcdefgh";
+
+  auto array_data = MakeArrowArrayUtf8({"abc", "some words", "to be encrypted", "hyah\n"},
+                                       {true, true, true, true});
+  auto array_key =
+      MakeArrowArrayUtf8({key_32_bytes, key_64_bytes, key_128_bytes, key_256_bytes},
+                         {true, true, true, true});
+
+  auto array_holder_en = MakeArrowArrayUtf8({"", "", "", ""}, {true, true, true, true});
+
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_data, array_key});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs_en;
+  status = projector_en->Evaluate(*in_batch, pool_, &outputs_en);
+  EXPECT_TRUE(status.ok());
+
+  std::shared_ptr<Projector> projector_de;
+  status = Projector::Make(schema, {decrypt_expr}, TestConfiguration(), &projector_de);
+  ASSERT_OK(status);
+
+  array_holder_en = outputs_en.at(0);
+
+  auto in_batch_de =
+      arrow::RecordBatch::Make(schema, num_records, {array_holder_en, array_key});
+
+  arrow::ArrayVector outputs_de;
+  status = projector_de->Evaluate(*in_batch_de, pool_, &outputs_de);
+  EXPECT_TRUE(status.ok());
+  EXPECT_ARROW_ARRAY_EQUALS(array_data, outputs_de.at(0));
+}
+
 }  // namespace gandiva
