@@ -15,12 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <algorithm>
 #include <cmath>
 #include <limits>
 
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernels/common.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
+#include "arrow/util/optional.h"
 
 namespace arrow {
 
@@ -78,6 +81,16 @@ struct Minimum {
     return std::min(left, right);
   }
 
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_decimal_value<T> Call(Arg0 left, Arg1 right) {
+    static_assert(std::is_same<T, Arg0>::value && std::is_same<Arg0, Arg1>::value, "");
+    return std::min(left, right);
+  }
+
+  static string_view Call(string_view left, string_view right) {
+    return std::min(left, right);
+  }
+
   template <typename T>
   static constexpr enable_if_t<std::is_same<float, T>::value, T> antiextreme() {
     return std::nanf("");
@@ -91,6 +104,11 @@ struct Minimum {
   template <typename T>
   static constexpr enable_if_integer_value<T> antiextreme() {
     return std::numeric_limits<T>::max();
+  }
+
+  template <typename T>
+  static constexpr enable_if_decimal_value<T> antiextreme() {
+    return T::GetMaxSentinel();
   }
 };
 
@@ -107,6 +125,16 @@ struct Maximum {
     return std::max(left, right);
   }
 
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_decimal_value<T> Call(Arg0 left, Arg1 right) {
+    static_assert(std::is_same<T, Arg0>::value && std::is_same<Arg0, Arg1>::value, "");
+    return std::max(left, right);
+  }
+
+  static string_view Call(string_view left, string_view right) {
+    return std::max(left, right);
+  }
+
   template <typename T>
   static constexpr enable_if_t<std::is_same<float, T>::value, T> antiextreme() {
     return std::nanf("");
@@ -120,6 +148,11 @@ struct Maximum {
   template <typename T>
   static constexpr enable_if_integer_value<T> antiextreme() {
     return std::numeric_limits<T>::min();
+  }
+
+  template <typename T>
+  static constexpr enable_if_decimal_value<T> antiextreme() {
+    return T::GetMinSentinel();
   }
 };
 
@@ -440,6 +473,224 @@ struct ScalarMinMax {
 };
 
 template <typename Op>
+Status ExecBinaryMinMaxScalar(KernelContext* ctx,
+                              const ElementWiseAggregateOptions& options,
+                              const ExecBatch& batch, Datum* out) {
+  if (batch.values.empty()) {
+    return Status::OK();
+  }
+  auto output = checked_cast<BaseBinaryScalar*>(out->scalar().get());
+  if (!options.skip_nulls) {
+    // any nulls in the input will produce a null output
+    for (const auto& value : batch.values) {
+      if (!value.scalar()->is_valid) {
+        output->is_valid = false;
+        return Status::OK();
+      }
+    }
+  }
+  const auto& first_scalar = *batch.values.front().scalar();
+  string_view result = checked_cast<const BaseBinaryScalar&>(first_scalar).view();
+  bool valid = first_scalar.is_valid;
+  for (size_t i = 1; i < batch.values.size(); i++) {
+    const auto& scalar = *batch[i].scalar();
+    if (!scalar.is_valid) {
+      DCHECK(options.skip_nulls);
+      continue;
+    } else {
+      string_view value = checked_cast<const BaseBinaryScalar&>(scalar).view();
+      result = !valid ? value : Op::Call(result, value);
+      valid = true;
+    }
+  }
+  if (valid) {
+    ARROW_ASSIGN_OR_RAISE(output->value, ctx->Allocate(result.size()));
+    std::copy(result.begin(), result.end(), output->value->mutable_data());
+    output->is_valid = true;
+  } else {
+    output->is_valid = false;
+  }
+  return Status::OK();
+}
+
+template <typename Type, typename Op>
+struct BinaryScalarMinMax {
+  using ArrayType = typename TypeTraits<Type>::ArrayType;
+  using BuilderType = typename TypeTraits<Type>::BuilderType;
+  using offset_type = typename Type::offset_type;
+
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    const ElementWiseAggregateOptions& options = MinMaxState::Get(ctx);
+    if (std::all_of(batch.values.begin(), batch.values.end(),
+                    [](const Datum& d) { return d.is_scalar(); })) {
+      return ExecBinaryMinMaxScalar<Op>(ctx, options, batch, out);
+    }
+    return ExecContainingArrays(ctx, options, batch, out);
+  }
+
+  static Status ExecContainingArrays(KernelContext* ctx,
+                                     const ElementWiseAggregateOptions& options,
+                                     const ExecBatch& batch, Datum* out) {
+    // Presize data to avoid reallocations, using an estimation of final size.
+    int64_t estimated_final_size = EstimateOutputSize(batch);
+    BuilderType builder(ctx->memory_pool());
+    RETURN_NOT_OK(builder.Reserve(batch.length));
+    RETURN_NOT_OK(builder.ReserveData(estimated_final_size));
+
+    for (int64_t row = 0; row < batch.length; row++) {
+      util::optional<string_view> result;
+      auto visit_value = [&](string_view value) {
+        result = !result ? value : Op::Call(*result, value);
+      };
+
+      for (size_t col = 0; col < batch.values.size(); col++) {
+        if (batch[col].is_scalar()) {
+          const auto& scalar = *batch[col].scalar();
+          if (scalar.is_valid) {
+            visit_value(UnboxScalar<Type>::Unbox(scalar));
+          } else if (!options.skip_nulls) {
+            result = util::nullopt;
+            break;
+          }
+        } else {
+          const auto& array = *batch[col].array();
+          if (!array.MayHaveNulls() ||
+              bit_util::GetBit(array.buffers[0]->data(), array.offset + row)) {
+            const auto offsets = array.GetValues<offset_type>(1);
+            const auto data = array.GetValues<uint8_t>(2, /*absolute_offset=*/0);
+            const int64_t length = offsets[row + 1] - offsets[row];
+            visit_value(
+                string_view(reinterpret_cast<const char*>(data + offsets[row]), length));
+          } else if (!options.skip_nulls) {
+            result = util::nullopt;
+            break;
+          }
+        }
+      }
+
+      if (result) {
+        RETURN_NOT_OK(builder.Append(*result));
+      } else {
+        builder.UnsafeAppendNull();
+      }
+    }
+
+    std::shared_ptr<Array> string_array;
+    RETURN_NOT_OK(builder.Finish(&string_array));
+    *out = *string_array->data();
+    out->mutable_array()->type = batch[0].type();
+    DCHECK_EQ(batch.length, out->array()->length);
+    return Status::OK();
+  }
+
+  // Compute an estimation for the length of the output batch.
+  static int64_t EstimateOutputSize(const ExecBatch& batch) {
+    int64_t estimated_final_size = 0;
+    for (size_t col = 0; col < batch.values.size(); col++) {
+      const auto& datum = batch[col];
+      if (datum.is_scalar()) {
+        const auto& scalar = checked_cast<const BaseBinaryScalar&>(*datum.scalar());
+        if (scalar.is_valid) {
+          estimated_final_size = std::max(estimated_final_size, scalar.value->size());
+        }
+      } else {
+        DCHECK(datum.is_array());
+        const ArrayData& array = *datum.array();
+        const auto offsets = array.GetValues<offset_type>(1);
+        int64_t estimated_current_size = offsets[array.length] - offsets[0];
+        estimated_final_size = std::max(estimated_final_size, estimated_current_size);
+      }
+    }
+    return estimated_final_size;
+  }
+};
+
+template <typename Op>
+struct FixedSizeBinaryScalarMinMax {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    const ElementWiseAggregateOptions& options = MinMaxState::Get(ctx);
+    if (std::all_of(batch.values.begin(), batch.values.end(),
+                    [](const Datum& d) { return d.is_scalar(); })) {
+      return ExecBinaryMinMaxScalar<Op>(ctx, options, batch, out);
+    }
+    return ExecContainingArrays(ctx, options, batch, out);
+  }
+
+  static Status ExecContainingArrays(KernelContext* ctx,
+                                     const ElementWiseAggregateOptions& options,
+                                     const ExecBatch& batch, Datum* out) {
+    const auto batch_type = batch[0].type();
+    const auto binary_type = checked_cast<const FixedSizeBinaryType*>(batch_type.get());
+    int32_t byte_width = binary_type->byte_width();
+    // Presize data to avoid reallocations.
+    int64_t estimated_final_size = batch.length * byte_width;
+    FixedSizeBinaryBuilder builder(batch_type);
+    RETURN_NOT_OK(builder.Reserve(batch.length));
+    RETURN_NOT_OK(builder.ReserveData(estimated_final_size));
+
+    std::vector<string_view> valid_cols(batch.values.size());
+    for (int64_t row = 0; row < batch.length; row++) {
+      string_view result;
+      auto visit_value = [&](string_view value) {
+        result = result.empty() ? value : Op::Call(result, value);
+      };
+
+      for (size_t col = 0; col < batch.values.size(); col++) {
+        if (batch[col].is_scalar()) {
+          const auto& scalar = *batch[col].scalar();
+          if (scalar.is_valid) {
+            visit_value(UnboxScalar<FixedSizeBinaryType>::Unbox(scalar));
+          } else if (!options.skip_nulls) {
+            result = string_view();
+            break;
+          }
+        } else {
+          const auto& array = *batch[col].array();
+          if (!array.MayHaveNulls() ||
+              bit_util::GetBit(array.buffers[0]->data(), array.offset + row)) {
+            const auto data = array.GetValues<uint8_t>(1, /*absolute_offset=*/0);
+            visit_value(string_view(
+                reinterpret_cast<const char*>(data) + row * byte_width, byte_width));
+          } else if (!options.skip_nulls) {
+            result = string_view();
+            break;
+          }
+        }
+      }
+
+      if (result.empty()) {
+        builder.UnsafeAppendNull();
+      } else {
+        builder.UnsafeAppend(result);
+      }
+    }
+
+    std::shared_ptr<Array> string_array;
+    RETURN_NOT_OK(builder.Finish(&string_array));
+    *out = *string_array->data();
+    out->mutable_array()->type = batch[0].type();
+    DCHECK_EQ(batch.length, out->array()->length);
+    return Status::OK();
+  }
+};
+
+Result<ValueDescr> ResolveMinOrMaxOutputType(KernelContext*,
+                                             const std::vector<ValueDescr>& args) {
+  if (args.empty()) {
+    return null();
+  }
+  auto first_type = args[0].type;
+  for (size_t i = 1; i < args.size(); ++i) {
+    auto type = args[i].type;
+    if (*type != *first_type) {
+      return Status::NotImplemented(
+          "Different input types not supported for {min, max}_element_wise");
+    }
+  }
+  return ValueDescr(first_type, GetBroadcastShape(args));
+}
+
+template <typename Op>
 std::shared_ptr<ScalarFunction> MakeScalarMinMax(std::string name,
                                                  const FunctionDoc* doc) {
   static auto default_element_wise_aggregate_options =
@@ -461,6 +712,35 @@ std::shared_ptr<ScalarFunction> MakeScalarMinMax(std::string name,
                         MinMaxState::Init};
     kernel.null_handling = NullHandling::type::COMPUTED_NO_PREALLOCATE;
     kernel.mem_allocation = MemAllocation::type::PREALLOCATE;
+    DCHECK_OK(func->AddKernel(std::move(kernel)));
+  }
+  for (const auto& ty : BaseBinaryTypes()) {
+    auto exec = GenerateTypeAgnosticVarBinaryBase<BinaryScalarMinMax, Op>(ty);
+    ScalarKernel kernel{KernelSignature::Make({ty}, ty, /*is_varargs=*/true), exec,
+                        MinMaxState::Init};
+    kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
+    kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
+    DCHECK_OK(func->AddKernel(std::move(kernel)));
+  }
+  for (const auto id : {Type::DECIMAL128, Type::DECIMAL256}) {
+    auto exec = GenerateDecimalToDecimal<ScalarMinMax, Op>(id);
+    OutputType out_type(ResolveMinOrMaxOutputType);
+    ScalarKernel kernel{KernelSignature::Make({InputType{id}}, out_type,
+                                              /*is_varargs=*/true),
+                        exec, MinMaxState::Init};
+    kernel.null_handling = NullHandling::type::COMPUTED_NO_PREALLOCATE;
+    kernel.mem_allocation = MemAllocation::type::PREALLOCATE;
+    DCHECK_OK(func->AddKernel(std::move(kernel)));
+  }
+  {
+    const auto id = Type::FIXED_SIZE_BINARY;
+    auto exec = FixedSizeBinaryScalarMinMax<Op>::Exec;
+    OutputType out_type(ResolveMinOrMaxOutputType);
+    ScalarKernel kernel{KernelSignature::Make({InputType{id}}, out_type,
+                                              /*is_varargs=*/true),
+                        exec, MinMaxState::Init};
+    kernel.null_handling = NullHandling::type::COMPUTED_NO_PREALLOCATE;
+    kernel.mem_allocation = MemAllocation::type::NO_PREALLOCATE;
     DCHECK_OK(func->AddKernel(std::move(kernel)));
   }
   return func;
