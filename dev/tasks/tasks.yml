@@ -964,7 +964,7 @@ tasks:
     ci: azure
     template: docker-tests/azure.linux.yml
     params:
-      run: conda-cpp-valgrind
+      image: conda-cpp-valgrind
 
 {% for ubuntu_version in ["18.04", "20.04"] %}
   test-ubuntu-{{ ubuntu_version }}-cpp:
@@ -1091,7 +1091,7 @@ tasks:
     params:
       env:
         DEBIAN: 11
-      run: debian-python
+      image: debian-python
 
   test-ubuntu-18.04-python-3:
     ci: azure
@@ -1099,7 +1099,7 @@ tasks:
     params:
       env:
         UBUNTU: 18.04
-      run: ubuntu-python
+      image: ubuntu-python
 
   test-fedora-33-python-3:
     ci: azure
@@ -1107,7 +1107,7 @@ tasks:
     params:
       env:
         FEDORA: 33
-      run: fedora-python
+      image: fedora-python
 
   test-r-linux-valgrind:
     ci: azure
@@ -1116,7 +1116,7 @@ tasks:
       env:
         ARROW_R_DEV: "TRUE"
         UBUNTU: 18.04
-      run: ubuntu-r-valgrind
+      image: ubuntu-r-valgrind
 
   test-r-linux-rchk:
     ci: github
@@ -1251,7 +1251,7 @@ tasks:
       env:
         UBUNTU: 18.04
         R_PRUNE_DEPS: TRUE
-      run: ubuntu-r-sanitizer
+      image: ubuntu-r-sanitizer
 
   test-fedora-r-clang-sanitizer:
     ci: azure
@@ -1259,7 +1259,7 @@ tasks:
     params:
       env:
         R_PRUNE_DEPS: TRUE
-      run: fedora-r-clang-sanitizer
+      image: fedora-r-clang-sanitizer
 
   revdep-r-check:
     ci: github
@@ -1272,18 +1272,19 @@ tasks:
       env:
         DEBIAN: 11
         GO: 1.15
-      run: debian-go
+      image: debian-go
 
   test-ubuntu-default-docs:
     ci: azure
     template: docker-tests/azure.linux.yml
     params:
       artifacts: "build/docs.tar.gz"
+      flags: "-v $PWD/build/:/build/"
+      image: ubuntu-docs
       post_script: |
         cd build
         sudo chown -R ${USER}: .
         tar cvzf docs.tar.gz docs
-      run: "-v $PWD/build/:/build/ ubuntu-docs"
     artifacts:
       - docs.tar.gz
 
