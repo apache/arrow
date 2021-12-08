@@ -1946,22 +1946,66 @@ TEST_F(TestNestedValuesComparator, Table) {
                                      {"a": 3,    "b": null},
                                      {"a": null, "b": null},
                                      {"a": 2,    "b": 5},
-                                     {"a": 1,    "b": 5},
-                                     {"a": 3,    "b": 5}
+                                     {"a": 5,    "b": 2},
+                                     {"a": 3,    "b": 2}
                                     ])"});
+
+  auto c = internal::NestedValuesComparator();
+  ASSERT_OK(c.Prepare(*table));
+
+  ASSERT_EQ(c.Compare(*table, 0, 0, 0, 1), -1);
+  ASSERT_EQ(c.Compare(*table, 0, 0, 2, 3), 1);
+  ASSERT_EQ(c.Compare(*table, 1, 0, 2, 3), 0);
+  ASSERT_EQ(c.Compare(*table, 0, 0, 1, 2), -1);
+  ASSERT_EQ(c.Compare(*table, 0, 0, 0, 2), -1);
+  ASSERT_EQ(c.Compare(*table, 0, 0, 5, 6), 1);
+  ASSERT_EQ(c.Compare(*table, 1, 0, 5, 6), 0);
+  ASSERT_EQ(c.Compare(*table, 0, 0, 5, 1), 1);
+  ASSERT_EQ(c.Compare(*table, 1, 0, 5, 4), -1);
 }
 
 TEST_F(TestNestedValuesComparator, StructArray) {
   std::shared_ptr<StructArray> expected = std::dynamic_pointer_cast<StructArray>(
     ArrayFromJSON(
-      struct_({field("a", int32()), field("b", utf8())}),
-      R"([{"a": 4, "b": "bar"}, {"a": 3, "b": "foo"}])"
+      struct_({field("a", int32()), field("b", utf8()), field("c", int32())}),
+      R"([{"a": 4, "b": "bar", "c": 4}, {"a": 3, "b": "foo", "c": 4}])"
     )
   );
 
   auto c = internal::NestedValuesComparator();
   ASSERT_OK(c.Prepare(*expected));
   ASSERT_EQ(c.Compare(*expected, 0, 0, 0, 1), 1);
+  ASSERT_EQ(c.Compare(*expected, 1, 0, 0, 1), -1);
+  ASSERT_EQ(c.Compare(*expected, 2, 0, 0, 1), 0);
+}
+
+TEST_F(TestNestedValuesComparator, RecordBatch) {
+  auto schema = ::arrow::schema({
+      {field("a", uint8())},
+      {field("b", uint32())},
+  });
+
+  auto batch = RecordBatchFromJSON(schema, {R"([{"a": null, "b": 5},
+                                     {"a": 1,    "b": 3},
+                                     {"a": 3,    "b": null},
+                                     {"a": null, "b": null},
+                                     {"a": 2,    "b": 5},
+                                     {"a": 5,    "b": 2},
+                                     {"a": 3,    "b": 2}
+                                    ])"});
+
+  auto c = internal::NestedValuesComparator();
+  ASSERT_OK(c.Prepare(*batch));
+
+  ASSERT_EQ(c.Compare(*batch, 0, 0, 0, 1), -1);
+  ASSERT_EQ(c.Compare(*batch, 0, 0, 2, 3), 1);
+  ASSERT_EQ(c.Compare(*batch, 1, 0, 2, 3), 0);
+  ASSERT_EQ(c.Compare(*batch, 0, 0, 1, 2), -1);
+  ASSERT_EQ(c.Compare(*batch, 0, 0, 0, 2), -1);
+  ASSERT_EQ(c.Compare(*batch, 0, 0, 5, 6), 1);
+  ASSERT_EQ(c.Compare(*batch, 1, 0, 5, 6), 0);
+  ASSERT_EQ(c.Compare(*batch, 0, 0, 5, 1), 1);
+  ASSERT_EQ(c.Compare(*batch, 1, 0, 5, 4), -1);
 }
 
 }  // namespace compute

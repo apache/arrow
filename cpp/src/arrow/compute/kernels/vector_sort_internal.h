@@ -25,6 +25,7 @@
 #include "arrow/array.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/kernels/chunked_internal.h"
+#include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 
@@ -454,15 +455,65 @@ Result<ArraySortFunc> GetArraySorter(const DataType& type);
 
 class NestedValuesComparator {
   public:
-    int Compare(const StructArray &array, uint64_t field_index, uint64_t offset, 
+    // StructArray Compare overload
+    int Compare(StructArray const &array, uint64_t field_index, uint64_t offset, 
                 uint64_t leftrowidx, uint64_t rightrowidx) {
       std::shared_ptr<Array> field = array.field(field_index);
       return comparators_[field_index]->Compare(*field, offset, 
                                                 leftrowidx, rightrowidx);
     }
 
+    // StructArray Prepare overload
     Status Prepare(StructArray const &array) {
       auto fields = array.fields();
+      for(auto field = fields.begin(); field != fields.end(); field++) {
+        std::shared_ptr<DataType> physical_type = GetPhysicalType((*field)->type());
+        NestedComparatorFactory comparator_factory = NestedComparatorFactory();
+        std::shared_ptr<NestedValueComparator> current_field_comparator;
+        ARROW_ASSIGN_OR_RAISE(
+          current_field_comparator,
+          NestedComparatorFactory().MakeFieldComparator(*physical_type)
+        );
+        comparators_.push_back(current_field_comparator);
+      }
+      return Status::OK();
+    }
+
+    // Table Compare overload
+    int Compare(Table const &table, uint64_t field_index, uint64_t offset, 
+                uint64_t leftrowidx, uint64_t rightrowidx) {
+      std::shared_ptr<ChunkedArray> field = table.column(field_index);
+      return comparators_[field_index]->Compare(*field, offset, 
+                                                leftrowidx, rightrowidx);
+    }
+
+    // Table Prepare overload
+    Status Prepare(Table const &array) {
+      auto fields = array.columns();
+      for(auto field = fields.cbegin(); field != fields.cend(); field++) {
+        std::shared_ptr<DataType> physical_type = GetPhysicalType((*field)->type());
+        NestedComparatorFactory comparator_factory = NestedComparatorFactory();
+        std::shared_ptr<NestedValueComparator> current_field_comparator;
+        ARROW_ASSIGN_OR_RAISE(
+          current_field_comparator,
+          NestedComparatorFactory().MakeFieldComparator(*physical_type)
+        );
+        comparators_.push_back(current_field_comparator);
+      }
+      return Status::OK();
+    }
+
+    // RecordBatch Compare overload
+    int Compare(RecordBatch const &batch, uint64_t field_index, uint64_t offset, 
+                uint64_t leftrowidx, uint64_t rightrowidx) {
+      std::shared_ptr<Array> field = batch.column(field_index);
+      return comparators_[field_index]->Compare(*field, offset, 
+                                                leftrowidx, rightrowidx);
+    }
+
+    // RecordBatch Prepare overload
+    Status Prepare(RecordBatch const &batch) {
+      auto fields = batch.columns();
       for(auto field = fields.begin(); field != fields.end(); field++) {
         std::shared_ptr<DataType> physical_type = GetPhysicalType((*field)->type());
         NestedComparatorFactory comparator_factory = NestedComparatorFactory();
@@ -480,6 +531,10 @@ class NestedValuesComparator {
     struct NestedValueComparator {
       virtual int Compare(Array const &array, uint64_t offset, 
                           uint64_t leftidx, uint64_t rightidx) = 0;
+
+      virtual int Compare(ChunkedArray const &array, uint64_t offset, 
+                          uint64_t leftidx, uint64_t rightidx) = 0;
+
       virtual ~NestedValueComparator() = default;
     };
 
@@ -496,6 +551,39 @@ class NestedValuesComparator {
         if (left_value == right_value)
           return 0;
         else if (left_value < right_value)
+          return -1;
+        else
+          return 1;
+      }
+
+      virtual int Compare(ChunkedArray const &chunked_array, uint64_t offset, 
+                          uint64_t leftidx, uint64_t rightidx) {
+        decltype(GetView::LogicalValue(checked_cast<const FieldArrayType&>(chunked_array.chunk(0)).GetView(0))) l_value, r_value;
+
+        int n_chunks = chunked_array.num_chunks();
+        for(int i = 0; i < n_chunks; i++) {
+          auto chunk = chunked_array.chunk(i);
+          if(leftidx < chunk->length()) {
+            const FieldArrayType& values = checked_cast<const FieldArrayType&>(*chunk);
+            l_value = GetView::LogicalValue(values.GetView(leftidx));
+            break;
+          }
+          leftidx -= chunk->length();
+        }
+
+        for(int i = 0; i < n_chunks; i++) {
+          auto chunk = chunked_array.chunk(i);
+          if(rightidx < chunk->length()) {
+            const FieldArrayType& values = checked_cast<const FieldArrayType&>(*chunk);
+            r_value = GetView::LogicalValue(values.GetView(rightidx));
+            break;
+          }
+          rightidx -= chunk->length();
+        }
+
+        if (l_value == r_value)
+          return 0;
+        else if (l_value < r_value)
           return -1;
         else
           return 1;
