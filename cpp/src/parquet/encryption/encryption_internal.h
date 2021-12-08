@@ -88,8 +88,9 @@ class AesDecryptor {
   explicit AesDecryptor(ParquetCipher::type alg_id, int key_len, bool metadata,
                         bool contains_length = true);
 
-  static AesDecryptor* Make(ParquetCipher::type alg_id, int key_len, bool metadata,
-                            std::vector<AesDecryptor*>* all_decryptors);
+  static std::shared_ptr<AesDecryptor> Make(ParquetCipher::type alg_id, int key_len,
+                            bool metadata,
+                            std::vector<std::weak_ptr<AesDecryptor>>* all_decryptors);
 
   ~AesDecryptor();
   void WipeOut();
@@ -105,7 +106,7 @@ class AesDecryptor {
  private:
   // PIMPL Idiom
   class AesDecryptorImpl;
-  std::unique_ptr<AesDecryptorImpl> impl_;
+  std::shared_ptr<AesDecryptorImpl> impl_;
 };
 
 std::string CreateModuleAad(const std::string& file_aad, int8_t module_type,
