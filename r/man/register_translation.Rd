@@ -12,18 +12,18 @@ register_translation(fun_name, fun, registry = translation_registry())
 may be used in the future to allow these types of function calls.}
 
 \item{fun}{A function or \code{NULL} to un-register a previous function.
-This function must accept \link{Expression} objects as arguments and return
-\link{Expression} objects instead of regular R objects.}
+This function must accept \code{Expression} objects as arguments and return
+\code{Expression} objects instead of regular R objects.}
 
-\item{registry}{An \code{\link[=environment]{environment()}} in which the functions should be
+\item{registry}{An \code{environment()} in which the functions should be
 assigned.}
 
 \item{agg_fun}{An aggregate function or \code{NULL} to un-register a previous
-aggregate function. This function must accept \link{Expression} objects as
-arguments and return a \code{\link[=list]{list()}} with components:
+aggregate function. This function must accept \code{Expression} objects as
+arguments and return a \code{list()} with components:
 \itemize{
 \item \code{fun}: string function name
-\item \code{data}: \link{Expression} (these are all currently a single field)
+\item \code{data}: \code{Expression} (these are all currently a single field)
 \item \code{options}: list of function options, as passed to call_function
 }}
 }
@@ -32,7 +32,7 @@ The previously registered function or \code{NULL} if no previously
 registered function existed.
 }
 \description{
-The \code{\link[=register_translation]{register_translation()}} and \code{\link[=register_translation_agg]{register_translation_agg()}} functions
+The \code{register_translation()} and \code{register_translation_agg()} functions
 are used to populate a list of functions that operate on (and return)
 Expressions. These are the basis for the \code{.data} mask inside dplyr methods.
 }

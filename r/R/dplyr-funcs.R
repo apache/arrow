@@ -22,7 +22,7 @@ NULL
 
 #' Register compute translations
 #'
-#' The [register_translation()] and [register_translation_agg()] functions
+#' The `register_translation()` and `register_translation_agg()` functions
 #' are used to populate a list of functions that operate on (and return)
 #' Expressions. These are the basis for the `.data` mask inside dplyr methods.
 #'
@@ -42,20 +42,21 @@ NULL
 #'   `"package::function"`. The package name is currently not used but
 #'   may be used in the future to allow these types of function calls.
 #' @param fun A function or `NULL` to un-register a previous function.
-#'   This function must accept [Expression] objects as arguments and return
-#'   [Expression] objects instead of regular R objects.
+#'   This function must accept `Expression` objects as arguments and return
+#'   `Expression` objects instead of regular R objects.
 #' @param agg_fun An aggregate function or `NULL` to un-register a previous
-#'   aggregate function. This function must accept [Expression] objects as
-#'   arguments and return a [list()] with components:
+#'   aggregate function. This function must accept `Expression` objects as
+#'   arguments and return a `list()` with components:
 #'   - `fun`: string function name
-#'   - `data`: [Expression] (these are all currently a single field)
+#'   - `data`: `Expression` (these are all currently a single field)
 #'   - `options`: list of function options, as passed to call_function
-#' @param registry An [environment()] in which the functions should be
+#' @param registry An `environment()` in which the functions should be
 #'   assigned.
 #'
 #' @return The previously registered function or `NULL` if no previously
 #'   registered function existed.
 #' @keywords internal
+#'
 register_translation <- function(fun_name, fun, registry = translation_registry()) {
   name <- gsub("^.*?::", "", fun_name)
   namespace <- gsub("::.*$", "", fun_name)
