@@ -87,20 +87,6 @@ register_translation_agg <- function(fun_name, fun, registry = translation_regis
   register_translation(fun_name, fun, registry = registry)
 }
 
-# Start with mappings from R function name spellings
-register_array_function_map_translations <- function() {
-  # use a function to generate the binding so that `operator` persists
-  # beyond execution time (another option would be to use quasiquotation
-  # and unquote `operator` directly into the function expression)
-  array_function_map_factory <- function(operator) {
-    force(operator)
-    function(...) build_expr(operator, ...)
-  }
-
-  for (name in names(.array_function_map)) {
-    register_translation(name, array_function_map_factory(name))
-  }
-}
 
 # Now add functions to that list where the mapping from R to Arrow isn't 1:1
 # Each of these functions should have the same signature as the R function
