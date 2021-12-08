@@ -469,7 +469,7 @@ test_that("map_batches", {
     ds %>%
       filter(int > 5) %>%
       select(int, lgl) %>%
-      map_batches(~ .$num_rows),
+      map_batches(~ .$num_rows, .data.frame = FALSE),
     list(5, 10)
   )
 

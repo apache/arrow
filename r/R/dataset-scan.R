@@ -174,8 +174,6 @@ ScanTask <- R6Class("ScanTask",
 #' a `data.frame` for further aggregation, even if you couldn't fit the whole
 #' `Dataset` result in memory.
 #'
-#' This is experimental and not recommended for production use.
-#'
 #' @param X A `Dataset` or `arrow_dplyr_query` object, as returned by the
 #' `dplyr` methods on `Dataset`.
 #' @param FUN A function or `purrr`-style lambda expression to apply to each
@@ -197,7 +195,7 @@ map_batches <- function(X, FUN, ..., .data.frame = TRUE) {
 
   if (.data.frame & inherits(res[[1]], "arrow_dplyr_query")) {
     res <- dplyr::bind_rows(map(res, collect))
-  } else if (.data.frame & inherits(res[[1]], "RecordBatch")) {
+  } else if (.data.frame) {
      res <- dplyr::bind_rows(map(res, as.data.frame))
   }
 
