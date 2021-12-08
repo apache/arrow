@@ -47,8 +47,6 @@ create_translation_cache <- function() {
   register_string_translations()
   register_type_translations()
 
-  message(paste0('"', names(nse_funcs), '"', collapse = "\n"))
-
   # We only create the cache for nse_funcs and not agg_funcs
   .cache$functions <- c(as.list(nse_funcs), arrow_funcs)
 }
@@ -79,7 +77,6 @@ register_translation <- function(fun_name, fun, registry = translation_registry(
   if (is.null(fun)) {
     rm(list = name, envir = registry)
   } else {
-    message(sprintf("Registering '%s'", name))
     registry[[name]] <- fun
   }
 
