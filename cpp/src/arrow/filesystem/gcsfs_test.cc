@@ -416,6 +416,32 @@ TEST_F(GcsIntegrationTest, DeleteFileDirectoryFails) {
   ASSERT_RAISES(IOError, fs->DeleteFile(path));
 }
 
+TEST_F(GcsIntegrationTest, MoveFileSuccess) {
+  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+  const auto destination_path = PreexistingBucketPath() + "move-destination";
+  ASSERT_OK(fs->Move(PreexistingObjectPath(), destination_path));
+  arrow::fs::AssertFileInfo(fs.get(), destination_path, FileType::File);
+  arrow::fs::AssertFileInfo(fs.get(), PreexistingObjectPath(), FileType::NotFound);
+}
+
+TEST_F(GcsIntegrationTest, MoveFileCannotRenameBuckets) {
+  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+  ASSERT_RAISES(IOError, fs->Move(PreexistingBucketPath(), "another-bucket/"));
+}
+
+TEST_F(GcsIntegrationTest, MoveFileCannotRenameDirectories) {
+  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+  ASSERT_RAISES(IOError, fs->Move(PreexistingBucketPath() + "folder/",
+                                  PreexistingBucketPath() + "new-name"));
+}
+
+TEST_F(GcsIntegrationTest, MoveFileCannotRenameToDirectory) {
+  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+  ASSERT_OK(fs->CreateDir(PreexistingBucketPath() + "destination/", false));
+  ASSERT_RAISES(IOError, fs->Move(PreexistingObjectPath(),
+                                  PreexistingBucketPath() + "destination/"));
+}
+
 TEST_F(GcsIntegrationTest, CopyFileSuccess) {
   auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
   const auto destination_path = PreexistingBucketPath() + "copy-destination";
