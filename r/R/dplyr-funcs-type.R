@@ -148,7 +148,7 @@ register_type_translations <- function() {
     )])
   }
   nse_funcs$is.integer64 <- function(x) {
-    is.integer64(x) || (inherits(x, "Expression") && x$type_id() == Type["INT64"])
+    inherits(x, "integer64") || (inherits(x, "Expression") && x$type_id() == Type["INT64"])
   }
   nse_funcs$is.logical <- function(x) {
     is.logical(x) || (inherits(x, "Expression") && x$type_id() == Type["BOOL"])
