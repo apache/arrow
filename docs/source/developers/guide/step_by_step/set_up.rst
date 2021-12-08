@@ -31,15 +31,15 @@ Set up
 Install and setup Git
 =====================
 
-The Arrow project is developed using `git <https://git-scm.com/>`_
+The Arrow project is developed using `Git <https://git-scm.com/>`_
 for version control which is easily available for all common
 operating systems.
 
-You can follow the instructions to install git from GitHub
+You can follow the instructions to install Git from GitHub
 where Arrow repository is hosted, following
 `the quickstart instructions <https://docs.github.com/en/get-started/quickstart/set-up-git>`_.
 
-When git is set up do not forget to configure your name and email
+When Git is set up do not forget to configure your name and email
 
 .. code:: console
 
@@ -110,8 +110,8 @@ Should give you a result similar to this:
 
 .. code:: console
 
-   origin	https://github.com/YOU/arrow.git (fetch)
-   origin	https://github.com/YOU/arrow.git (push)
+   origin	https://github.com/<your username>arrow.git (fetch)
+   origin	https://github.com/<your username>/arrow.git (push)
    upstream	https://github.com/apache/arrow (fetch)
    upstream	https://github.com/apache/arrow (push)
 
