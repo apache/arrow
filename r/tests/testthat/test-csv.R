@@ -447,5 +447,13 @@ test_that("write_csv_arrow deals with duplication in include_headers/col_names",
   )
   expect_true(file.exists(csv_file))
   expect_identical(tbl_no_dates, written_tbl)
+})
 
+test_that("read_csv_arrow() deals with BOMs (byte-order-marks) correctly", {
+  writeLines("\xef\xbb\xbfa,b\n1,2\n", con = csv_file)
+
+  expect_equal(
+    read_csv_arrow(csv_file),
+    tibble(a = 1, b = 2)
+  )
 })

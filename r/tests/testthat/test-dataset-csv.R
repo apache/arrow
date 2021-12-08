@@ -288,3 +288,14 @@ test_that("Column names inferred from schema for headerless CSVs (ARROW-14063)",
   ds <- open_dataset(headerless_csv_dir, format = "csv", schema = schema(int = int32(), dbl = float64()))
   expect_equal(ds %>% collect(), tbl)
 })
+
+test_that("open_dataset() deals with BOMs (byte-order-marks) correctly", {
+  temp_dir <- make_temp_dir()
+  writeLines("\xef\xbb\xbfa,b\n1,2\n", con = file.path(temp_dir, "file1.csv"))
+  writeLines("\xef\xbb\xbfa,b\n3,4\n", con = file.path(temp_dir, "file2.csv"))
+
+  expect_equal(
+    open_dataset(temp_dir, format = "csv") %>% collect(),
+    tibble(a = c(1, 3), b = c(2, 4))
+  )
+})
