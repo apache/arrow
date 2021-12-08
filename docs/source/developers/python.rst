@@ -139,17 +139,7 @@ First, let's clone the Arrow git repository:
 
 .. code-block:: shell
 
-   mkdir repos
-   cd repos
    git clone https://github.com/apache/arrow.git
-
-You should now see
-
-.. code-block:: console
-
-   $ ls -l
-   total 8
-   drwxrwxr-x 12 wesm wesm 4096 Apr 15 19:19 arrow/
 
 Pull in the test data and setup the environment variables:
 
