@@ -548,6 +548,18 @@ Status WriteCSV(const RecordBatch& batch, const WriteOptions& options,
   return writer->Close();
 }
 
+Status WriteCSV(const std::shared_ptr<RecordBatchReader>& reader,
+                const WriteOptions& options, arrow::io::OutputStream* output) {
+  ASSIGN_OR_RAISE(auto writer, MakeCSVWriter(output, reader->schema(), options));
+  std::shared_ptr<RecordBatch> batch;
+  while (true) {
+    ARROW_ASSIGN_OR_RAISE(batch, reader->Next());
+    if (batch == nullptr) break;
+    RETURN_NOT_OK(writer->WriteRecordBatch(*batch));
+  }
+  return writer->Close();
+}
+
 ARROW_EXPORT
 Result<std::shared_ptr<ipc::RecordBatchWriter>> MakeCSVWriter(
     std::shared_ptr<io::OutputStream> sink, const std::shared_ptr<Schema>& schema,

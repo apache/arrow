@@ -45,6 +45,12 @@ ARROW_EXPORT Status WriteCSV(const Table& table, const WriteOptions& options,
 /// Experimental
 ARROW_EXPORT Status WriteCSV(const RecordBatch& batch, const WriteOptions& options,
                              arrow::io::OutputStream* output);
+/// \brief Converts batches read through a RecordBatchReader
+/// to CSV and writes the results to output.
+/// Experimental
+ARROW_EXPORT Status WriteCSV(const std::shared_ptr<RecordBatchReader>& reader,
+                             const WriteOptions& options,
+                             arrow::io::OutputStream* output);
 
 /// \brief Create a new CSV writer. User is responsible for closing the
 /// actual OutputStream.
