@@ -90,6 +90,8 @@ Collate:
     'dplyr-distinct.R'
     'dplyr-eval.R'
     'dplyr-filter.R'
+    'dplyr-funcs-conditional.R'
+    'dplyr-funcs-string.R'
     'expression.R'
     'dplyr-funcs.R'
     'dplyr-group-by.R'
