@@ -192,7 +192,12 @@ Array$create <- function(x, type = NULL) {
     error = function(cnd) {
       if (!is.null(type)) {
         # try again and then cast
-        vec_to_Array(x, NULL)$cast(type)
+        tryCatch(
+          vec_to_Array(x, NULL)$cast(type),
+          error = function(cnd2) {
+            signalCondition(cnd2)
+          }
+                 )
       } else {
         signalCondition(cnd)
       }
