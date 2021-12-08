@@ -53,7 +53,7 @@ a username and password each time you execute a git command.
 .. note::
 
    This guide assumes you are comfortable working from the command line.
-   Some IDEs allow you to manage a git repository, but may implicitly run
+   Some IDEs allow you to manage a Git repository, but may implicitly run
    unwanted operations when doing so (such as creating project files).
 
    For example, cloning it in RStudio assumes the whole repository is an
