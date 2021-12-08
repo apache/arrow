@@ -126,7 +126,7 @@ stop_if_locale_provided <- function(locale) {
 
 register_string_translations <- function() {
 
-  nse_funcs$nchar <- function(x, type = "chars", allowNA = FALSE, keepNA = NA) {
+  register_translation("nchar", function(x, type = "chars", allowNA = FALSE, keepNA = NA) {
     if (allowNA) {
       arrow_not_supported("allowNA = TRUE")
     }
@@ -142,7 +142,7 @@ register_string_translations <- function() {
     } else {
       Expression$create("utf8_length", x)
     }
-  }
+  })
 
 
   arrow_string_join_function <- function(null_handling, null_replacement = NULL) {
@@ -173,7 +173,7 @@ register_string_translations <- function() {
     }
   }
 
-  nse_funcs$paste <- function(..., sep = " ", collapse = NULL, recycle0 = FALSE) {
+  register_translation("paste", function(..., sep = " ", collapse = NULL, recycle0 = FALSE) {
     assert_that(
       is.null(collapse),
       msg = "paste() with the collapse argument is not yet supported in Arrow"
@@ -182,41 +182,41 @@ register_string_translations <- function() {
       assert_that(!is.na(sep), msg = "Invalid separator")
     }
     arrow_string_join_function(NullHandlingBehavior$REPLACE, "NA")(..., sep)
-  }
+  })
 
-  nse_funcs$paste0 <- function(..., collapse = NULL, recycle0 = FALSE) {
+  register_translation("paste0", function(..., collapse = NULL, recycle0 = FALSE) {
     assert_that(
       is.null(collapse),
       msg = "paste0() with the collapse argument is not yet supported in Arrow"
     )
     arrow_string_join_function(NullHandlingBehavior$REPLACE, "NA")(..., "")
-  }
+  })
 
-  nse_funcs$str_c <- function(..., sep = "", collapse = NULL) {
+  register_translation("str_c", function(..., sep = "", collapse = NULL) {
     assert_that(
       is.null(collapse),
       msg = "str_c() with the collapse argument is not yet supported in Arrow"
     )
     arrow_string_join_function(NullHandlingBehavior$EMIT_NULL)(..., sep)
-  }
+  })
 
 
-  nse_funcs$str_to_lower <- function(string, locale = "en") {
+  register_translation("str_to_lower", function(string, locale = "en") {
     stop_if_locale_provided(locale)
     Expression$create("utf8_lower", string)
-  }
+  })
 
-  nse_funcs$str_to_upper <- function(string, locale = "en") {
+  register_translation("str_to_upper", function(string, locale = "en") {
     stop_if_locale_provided(locale)
     Expression$create("utf8_upper", string)
-  }
+  })
 
-  nse_funcs$str_to_title <- function(string, locale = "en") {
+  register_translation("str_to_title", function(string, locale = "en") {
     stop_if_locale_provided(locale)
     Expression$create("utf8_title", string)
-  }
+  })
 
-  nse_funcs$str_trim <- function(string, side = c("both", "left", "right")) {
+  register_translation("str_trim", function(string, side = c("both", "left", "right")) {
     side <- match.arg(side)
     trim_fun <- switch(side,
                        left = "utf8_ltrim_whitespace",
@@ -224,9 +224,9 @@ register_string_translations <- function() {
                        both = "utf8_trim_whitespace"
     )
     Expression$create(trim_fun, string)
-  }
+  })
 
-  nse_funcs$substr <- function(x, start, stop) {
+  register_translation("substr", function(x, start, stop) {
     assert_that(
       length(start) == 1,
       msg = "`start` must be length 1 - other lengths are not supported in Arrow"
@@ -256,13 +256,13 @@ register_string_translations <- function() {
       # which effectively cancels out the difference in indexing between R & C++
       options = list(start = start - 1L, stop = stop)
     )
-  }
+  })
 
-  nse_funcs$substring <- function(text, first, last) {
+  register_translation("substring", function(text, first, last) {
     nse_funcs$substr(x = text, start = first, stop = last)
-  }
+  })
 
-  nse_funcs$str_sub <- function(string, start = 1L, end = -1L) {
+  register_translation("str_sub", function(string, start = 1L, end = -1L) {
     assert_that(
       length(start) == 1,
       msg = "`start` must be length 1 - other lengths are not supported in Arrow"
@@ -296,18 +296,18 @@ register_string_translations <- function() {
       string,
       options = list(start = start, stop = end)
     )
-  }
+  })
 
-  nse_funcs$grepl <- function(pattern, x, ignore.case = FALSE, fixed = FALSE) {
+  register_translation("grepl", function(pattern, x, ignore.case = FALSE, fixed = FALSE) {
     arrow_fun <- ifelse(fixed, "match_substring", "match_substring_regex")
     Expression$create(
       arrow_fun,
       x,
       options = list(pattern = pattern, ignore_case = ignore.case)
     )
-  }
+  })
 
-  nse_funcs$str_detect <- function(string, pattern, negate = FALSE) {
+  register_translation("str_detect", function(string, pattern, negate = FALSE) {
     opts <- get_stringr_pattern_options(enexpr(pattern))
     out <- nse_funcs$grepl(
       pattern = opts$pattern,
@@ -319,15 +319,15 @@ register_string_translations <- function() {
       out <- !out
     }
     out
-  }
+  })
 
-  nse_funcs$str_like <- function(string, pattern, ignore_case = TRUE) {
+  register_translation("str_like", function(string, pattern, ignore_case = TRUE) {
     Expression$create(
       "match_like",
       string,
       options = list(pattern = pattern, ignore_case = ignore_case)
     )
-  }
+  })
 
   # Encapsulate some common logic for sub/gsub/str_replace/str_replace_all
   arrow_r_string_replace_function <- function(max_replacements) {
@@ -345,6 +345,7 @@ register_string_translations <- function() {
   }
 
   arrow_stringr_string_replace_function <- function(max_replacements) {
+    force(max_replacements)
     function(string, pattern, replacement) {
       opts <- get_stringr_pattern_options(enexpr(pattern))
       arrow_r_string_replace_function(max_replacements)(
@@ -357,15 +358,12 @@ register_string_translations <- function() {
     }
   }
 
-  nse_funcs$sub <- arrow_r_string_replace_function(1L)
-  nse_funcs$gsub <- arrow_r_string_replace_function(-1L)
-  nse_funcs$str_replace <- arrow_stringr_string_replace_function(1L)
-  nse_funcs$str_replace_all <- arrow_stringr_string_replace_function(-1L)
+  register_translation("sub", arrow_r_string_replace_function(1L))
+  register_translation("gsub", arrow_r_string_replace_function(-1L))
+  register_translation("str_replace", arrow_stringr_string_replace_function(1L))
+  register_translation("str_replace_all", arrow_stringr_string_replace_function(-1L))
 
-  nse_funcs$strsplit <- function(x,
-                                 split,
-                                 fixed = FALSE,
-                                 perl = FALSE,
+  register_translation("strsplit", function(x, split, fixed = FALSE, perl = FALSE,
                                  useBytes = FALSE) {
     assert_that(is.string(split))
 
@@ -382,9 +380,9 @@ register_string_translations <- function() {
       x,
       options = list(pattern = split, reverse = FALSE, max_splits = -1L)
     )
-  }
+  })
 
-  nse_funcs$str_split <- function(string, pattern, n = Inf, simplify = FALSE) {
+  register_translation("str_split", function(string, pattern, n = Inf, simplify = FALSE) {
     opts <- get_stringr_pattern_options(enexpr(pattern))
     arrow_fun <- ifelse(opts$fixed, "split_pattern", "split_pattern_regex")
     if (opts$ignore_case) {
@@ -412,10 +410,10 @@ register_string_translations <- function() {
         max_splits = n - 1L
       )
     )
-  }
+  })
 
 
-  nse_funcs$str_pad <- function(string, width, side = c("left", "right", "both"), pad = " ") {
+  register_translation("str_pad", function(string, width, side = c("left", "right", "both"), pad = " ") {
     assert_that(is_integerish(width))
     side <- match.arg(side)
     assert_that(is.string(pad))
@@ -433,25 +431,25 @@ register_string_translations <- function() {
       string,
       options = list(width = width, padding = pad)
     )
-  }
+  })
 
-  nse_funcs$startsWith <- function(x, prefix) {
+  register_translation("startsWith", function(x, prefix) {
     Expression$create(
       "starts_with",
       x,
       options = list(pattern = prefix)
     )
-  }
+  })
 
-  nse_funcs$endsWith <- function(x, suffix) {
+  register_translation("endsWith", function(x, suffix) {
     Expression$create(
       "ends_with",
       x,
       options = list(pattern = suffix)
     )
-  }
+  })
 
-  nse_funcs$str_starts <- function(string, pattern, negate = FALSE) {
+  register_translation("str_starts", function(string, pattern, negate = FALSE) {
     opts <- get_stringr_pattern_options(enexpr(pattern))
     if (opts$fixed) {
       out <- nse_funcs$startsWith(x = string, prefix = opts$pattern)
@@ -463,9 +461,9 @@ register_string_translations <- function() {
       out <- !out
     }
     out
-  }
+  })
 
-  nse_funcs$str_ends <- function(string, pattern, negate = FALSE) {
+  register_translation("str_ends", function(string, pattern, negate = FALSE) {
     opts <- get_stringr_pattern_options(enexpr(pattern))
     if (opts$fixed) {
       out <- nse_funcs$endsWith(x = string, suffix = opts$pattern)
@@ -477,9 +475,9 @@ register_string_translations <- function() {
       out <- !out
     }
     out
-  }
+  })
 
-  nse_funcs$str_count <- function(string, pattern) {
+  register_translation("str_count", function(string, pattern) {
     opts <- get_stringr_pattern_options(enexpr(pattern))
     if (!is.string(pattern)) {
       arrow_not_supported("`pattern` must be a length 1 character vector; other values")
@@ -490,5 +488,5 @@ register_string_translations <- function() {
       string,
       options = list(pattern = opts$pattern, ignore_case = opts$ignore_case)
     )
-  }
+  })
 }
