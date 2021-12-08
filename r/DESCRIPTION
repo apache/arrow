@@ -92,6 +92,7 @@ Collate:
     'dplyr-filter.R'
     'dplyr-funcs-conditional.R'
     'dplyr-funcs-datetime.R'
+    'dplyr-funcs-math.R'
     'dplyr-funcs-string.R'
     'dplyr-funcs-type.R'
     'expression.R'
