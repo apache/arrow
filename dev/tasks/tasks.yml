@@ -1146,14 +1146,14 @@ tasks:
     ci: github
     template: r/github.devdocs.yml
 
-  test-r-depsource-auto:
+  test-r-depsource-bundled:
       ci: azure
       template: r/azure.linux.yml
       params:
         r_org: rocker
         r_image: r-base
         r_tag: latest
-        flags: '-e ARROW_DEPENDENCY_SOURCE=AUTO'
+        flags: '-e ARROW_DEPENDENCY_SOURCE=BUNDLED'
 
   test-r-depsource-system:
     ci: github

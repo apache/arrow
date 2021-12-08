@@ -153,15 +153,13 @@ else
       fi
 
       if [ "${ARROW_DEPENDENCY_SOURCE}" = "" ]; then
-        # TODO: BUNDLED is still default for now, but we plan to change it to AUTO
-        ARROW_DEPENDENCY_SOURCE=BUNDLED; export ARROW_DEPENDENCY_SOURCE
+        ARROW_DEPENDENCY_SOURCE=AUTO; export ARROW_DEPENDENCY_SOURCE
       fi
       if [ "${ARROW_DEPENDENCY_SOURCE}" = "AUTO" ]; then
         pkg-config --version >/dev/null 2>&1
         if [ $? -ne 0 ]; then
           export ARROW_DEPENDENCY_SOURCE=BUNDLED
-          echo "**** Warning: ARROW_DEPENDENCY_SOURCE set to 'AUTO' but pkg-config not installed"
-          echo "**** ARROW_DEPENDENCY_SOURCE has been set to 'BUNDLED'"
+          echo "**** pkg-config not installed, setting ARROW_DEPENDENCY_SOURCE=BUNDLED"
         fi
       fi
 
