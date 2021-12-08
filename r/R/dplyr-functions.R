@@ -1102,107 +1102,7 @@ register_conditional_translations() # TEMP
 # For group-by aggregation, `hash_` gets prepended to the function name.
 # So to see a list of available hash aggregation functions,
 # you can use list_compute_functions("^hash_")
-agg_funcs$sum <- function(..., na.rm = FALSE) {
-  list(
-    fun = "sum",
-    data = ensure_one_arg(list2(...), "sum"),
-    options = list(skip_nulls = na.rm, min_count = 0L)
-  )
-}
-agg_funcs$any <- function(..., na.rm = FALSE) {
-  list(
-    fun = "any",
-    data = ensure_one_arg(list2(...), "any"),
-    options = list(skip_nulls = na.rm, min_count = 0L)
-  )
-}
-agg_funcs$all <- function(..., na.rm = FALSE) {
-  list(
-    fun = "all",
-    data = ensure_one_arg(list2(...), "all"),
-    options = list(skip_nulls = na.rm, min_count = 0L)
-  )
-}
-agg_funcs$mean <- function(x, na.rm = FALSE) {
-  list(
-    fun = "mean",
-    data = x,
-    options = list(skip_nulls = na.rm, min_count = 0L)
-  )
-}
-agg_funcs$sd <- function(x, na.rm = FALSE, ddof = 1) {
-  list(
-    fun = "stddev",
-    data = x,
-    options = list(skip_nulls = na.rm, min_count = 0L, ddof = ddof)
-  )
-}
-agg_funcs$var <- function(x, na.rm = FALSE, ddof = 1) {
-  list(
-    fun = "variance",
-    data = x,
-    options = list(skip_nulls = na.rm, min_count = 0L, ddof = ddof)
-  )
-}
-agg_funcs$quantile <- function(x, probs, na.rm = FALSE) {
-  if (length(probs) != 1) {
-    arrow_not_supported("quantile() with length(probs) != 1")
-  }
-  # TODO: Bind to the Arrow function that returns an exact quantile and remove
-  # this warning (ARROW-14021)
-  warn(
-    "quantile() currently returns an approximate quantile in Arrow",
-    .frequency = ifelse(is_interactive(), "once", "always"),
-    .frequency_id = "arrow.quantile.approximate"
-  )
-  list(
-    fun = "tdigest",
-    data = x,
-    options = list(skip_nulls = na.rm, q = probs)
-  )
-}
-agg_funcs$median <- function(x, na.rm = FALSE) {
-  # TODO: Bind to the Arrow function that returns an exact median and remove
-  # this warning (ARROW-14021)
-  warn(
-    "median() currently returns an approximate median in Arrow",
-    .frequency = ifelse(is_interactive(), "once", "always"),
-    .frequency_id = "arrow.median.approximate"
-  )
-  list(
-    fun = "approximate_median",
-    data = x,
-    options = list(skip_nulls = na.rm)
-  )
-}
-agg_funcs$n_distinct <- function(..., na.rm = FALSE) {
-  list(
-    fun = "count_distinct",
-    data = ensure_one_arg(list2(...), "n_distinct"),
-    options = list(na.rm = na.rm)
-  )
-}
-agg_funcs$n <- function() {
-  list(
-    fun = "sum",
-    data = Expression$scalar(1L),
-    options = list()
-  )
-}
-agg_funcs$min <- function(..., na.rm = FALSE) {
-  list(
-    fun = "min",
-    data = ensure_one_arg(list2(...), "min"),
-    options = list(skip_nulls = na.rm, min_count = 0L)
-  )
-}
-agg_funcs$max <- function(..., na.rm = FALSE) {
-  list(
-    fun = "max",
-    data = ensure_one_arg(list2(...), "max"),
-    options = list(skip_nulls = na.rm, min_count = 0L)
-  )
-}
+
 
 ensure_one_arg <- function(args, fun) {
   if (length(args) == 0) {
@@ -1233,3 +1133,110 @@ agg_fun_output_type <- function(fun, input_type, hash) {
     input_type
   }
 }
+
+register_aggregate_translations <- function() {
+
+  agg_funcs$sum <- function(..., na.rm = FALSE) {
+    list(
+      fun = "sum",
+      data = ensure_one_arg(list2(...), "sum"),
+      options = list(skip_nulls = na.rm, min_count = 0L)
+    )
+  }
+  agg_funcs$any <- function(..., na.rm = FALSE) {
+    list(
+      fun = "any",
+      data = ensure_one_arg(list2(...), "any"),
+      options = list(skip_nulls = na.rm, min_count = 0L)
+    )
+  }
+  agg_funcs$all <- function(..., na.rm = FALSE) {
+    list(
+      fun = "all",
+      data = ensure_one_arg(list2(...), "all"),
+      options = list(skip_nulls = na.rm, min_count = 0L)
+    )
+  }
+  agg_funcs$mean <- function(x, na.rm = FALSE) {
+    list(
+      fun = "mean",
+      data = x,
+      options = list(skip_nulls = na.rm, min_count = 0L)
+    )
+  }
+  agg_funcs$sd <- function(x, na.rm = FALSE, ddof = 1) {
+    list(
+      fun = "stddev",
+      data = x,
+      options = list(skip_nulls = na.rm, min_count = 0L, ddof = ddof)
+    )
+  }
+  agg_funcs$var <- function(x, na.rm = FALSE, ddof = 1) {
+    list(
+      fun = "variance",
+      data = x,
+      options = list(skip_nulls = na.rm, min_count = 0L, ddof = ddof)
+    )
+  }
+  agg_funcs$quantile <- function(x, probs, na.rm = FALSE) {
+    if (length(probs) != 1) {
+      arrow_not_supported("quantile() with length(probs) != 1")
+    }
+    # TODO: Bind to the Arrow function that returns an exact quantile and remove
+    # this warning (ARROW-14021)
+    warn(
+      "quantile() currently returns an approximate quantile in Arrow",
+      .frequency = ifelse(is_interactive(), "once", "always"),
+      .frequency_id = "arrow.quantile.approximate"
+    )
+    list(
+      fun = "tdigest",
+      data = x,
+      options = list(skip_nulls = na.rm, q = probs)
+    )
+  }
+  agg_funcs$median <- function(x, na.rm = FALSE) {
+    # TODO: Bind to the Arrow function that returns an exact median and remove
+    # this warning (ARROW-14021)
+    warn(
+      "median() currently returns an approximate median in Arrow",
+      .frequency = ifelse(is_interactive(), "once", "always"),
+      .frequency_id = "arrow.median.approximate"
+    )
+    list(
+      fun = "approximate_median",
+      data = x,
+      options = list(skip_nulls = na.rm)
+    )
+  }
+  agg_funcs$n_distinct <- function(..., na.rm = FALSE) {
+    list(
+      fun = "count_distinct",
+      data = ensure_one_arg(list2(...), "n_distinct"),
+      options = list(na.rm = na.rm)
+    )
+  }
+  agg_funcs$n <- function() {
+    list(
+      fun = "sum",
+      data = Expression$scalar(1L),
+      options = list()
+    )
+  }
+  agg_funcs$min <- function(..., na.rm = FALSE) {
+    list(
+      fun = "min",
+      data = ensure_one_arg(list2(...), "min"),
+      options = list(skip_nulls = na.rm, min_count = 0L)
+    )
+  }
+  agg_funcs$max <- function(..., na.rm = FALSE) {
+    list(
+      fun = "max",
+      data = ensure_one_arg(list2(...), "max"),
+      options = list(skip_nulls = na.rm, min_count = 0L)
+    )
+  }
+}
+
+register_aggregate_translations() # TEMP
