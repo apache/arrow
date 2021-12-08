@@ -17,7 +17,7 @@
 
 register_conditional_translations <- function() {
 
-  nse_funcs$coalesce <- function(...) {
+  register_translation("coalesce", function(...) {
     args <- list2(...)
     if (length(args) < 1) {
       abort("At least one argument must be supplied to coalesce()")
@@ -47,9 +47,9 @@ register_conditional_translations <- function() {
       }
     })
     Expression$create("coalesce", args = args)
-  }
+  })
 
-  nse_funcs$if_else <- function(condition, true, false, missing = NULL) {
+  if_else_translation <- function(condition, true, false, missing = NULL) {
     if (!is.null(missing)) {
       return(nse_funcs$if_else(
         nse_funcs$is.na(condition),
@@ -61,12 +61,14 @@ register_conditional_translations <- function() {
     build_expr("if_else", condition, true, false)
   }
 
-  # Although base R ifelse allows `yes` and `no` to be different classes
-  nse_funcs$ifelse <- function(test, yes, no) {
-    nse_funcs$if_else(condition = test, true = yes, false = no)
-  }
+  register_translation("if_else", if_else_translation)
 
-  nse_funcs$case_when <- function(...) {
+  # Although base R ifelse allows `yes` and `no` to be different classes
+  register_translation("ifelse", function(test, yes, no) {
+    if_else_translation(condition = test, true = yes, false = no)
+  })
+
+  register_translation("case_when", function(...) {
     formulas <- list2(...)
     n <- length(formulas)
     if (n == 0) {
@@ -100,5 +102,5 @@ register_conditional_translations <- function() {
         value
       )
     )
-  }
+  })
 }
