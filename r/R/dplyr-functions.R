@@ -815,35 +815,6 @@ register_string_translations <- function() {
 
 register_string_translations() # TEMP
 
-nse_funcs$pmin <- function(..., na.rm = FALSE) {
-  build_expr(
-    "min_element_wise",
-    ...,
-    options = list(skip_nulls = na.rm)
-  )
-}
-
-nse_funcs$pmax <- function(..., na.rm = FALSE) {
-  build_expr(
-    "max_element_wise",
-    ...,
-    options = list(skip_nulls = na.rm)
-  )
-}
-
-nse_funcs$trunc <- function(x, ...) {
-  # accepts and ignores ... for consistency with base::trunc()
-  build_expr("trunc", x)
-}
-
-nse_funcs$round <- function(x, digits = 0) {
-  build_expr(
-    "round",
-    x,
-    options = list(ndigits = digits, round_mode = RoundMode$HALF_TO_EVEN)
-  )
-}
-
 nse_funcs$strptime <- function(x, format = "%Y-%m-%d %H:%M:%S", tz = NULL, unit = "ms") {
   # Arrow uses unit for time parsing, strptime() does not.
   # Arrow has no default option for strptime (format, unit),
@@ -989,6 +960,35 @@ nse_funcs$log <- nse_funcs$logb <- function(x, base = exp(1)) {
   }
 
   Expression$create("logb_checked", x, Expression$scalar(base))
+}
+
+nse_funcs$pmin <- function(..., na.rm = FALSE) {
+  build_expr(
+    "min_element_wise",
+    ...,
+    options = list(skip_nulls = na.rm)
+  )
+}
+
+nse_funcs$pmax <- function(..., na.rm = FALSE) {
+  build_expr(
+    "max_element_wise",
+    ...,
+    options = list(skip_nulls = na.rm)
+  )
+}
+
+nse_funcs$trunc <- function(x, ...) {
+  # accepts and ignores ... for consistency with base::trunc()
+  build_expr("trunc", x)
+}
+
+nse_funcs$round <- function(x, digits = 0) {
+  build_expr(
+    "round",
+    x,
+    options = list(ndigits = digits, round_mode = RoundMode$HALF_TO_EVEN)
+  )
 }
 
 nse_funcs$coalesce <- function(...) {
