@@ -59,7 +59,7 @@
   # Create the .cache$functions list at package load time.
   # We can't do this at build time because list_compute_functions() may error
   # if arrow_available() is FALSE
-  refresh_translation_cache()
+  create_translation_cache()
 
   if (tolower(Sys.info()[["sysname"]]) == "windows") {
     # Disable multithreading on Windows

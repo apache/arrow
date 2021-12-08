@@ -23,11 +23,11 @@ NULL
 .cache <- new.env(parent = emptyenv())
 
 # Called in .onLoad()
-refresh_translation_cache <- function() {
+create_translation_cache <- function() {
   arrow_funcs <- list()
 
+  # Register all available Arrow Compute functions, namespaced as arrow_fun.
   if (arrow_available()) {
-    # include all available Arrow Compute functions, namespaced as arrow_fun.
     all_arrow_funs <- list_compute_functions()
     arrow_funcs <- set_names(
       lapply(all_arrow_funs, function(fun) {
@@ -38,6 +38,18 @@ refresh_translation_cache <- function() {
     )
   }
 
+  # Register translations into nse_funcs and agg_funcs
+  register_array_function_map_translations()
+  register_aggregate_translations()
+  register_conditional_translations()
+  register_datetime_translations()
+  register_math_translations()
+  register_string_translations()
+  register_type_translations()
+
+  message(paste0('"', names(nse_funcs), '"', collapse = "\n"))
+
+  # We only create the cache for nse_funcs and not agg_funcs
   .cache$functions <- c(as.list(nse_funcs), arrow_funcs)
 }
 
@@ -92,8 +104,6 @@ register_array_function_map_translations <- function() {
     register_translation(name, array_function_map_factory(name))
   }
 }
-
-register_array_function_map_translations() # TEMP
 
 # Now add functions to that list where the mapping from R to Arrow isn't 1:1
 # Each of these functions should have the same signature as the R function
@@ -332,8 +342,6 @@ register_type_translations <- function() {
     )
   }
 }
-
-register_type_translations() # TEMP
 
 # String function helpers
 
@@ -813,9 +821,6 @@ register_string_translations <- function() {
   }
 }
 
-register_string_translations() # TEMP
-
-
 register_datetime_translations <- function() {
 
   nse_funcs$strptime <- function(x, format = "%Y-%m-%d %H:%M:%S", tz = NULL, unit = "ms") {
@@ -933,8 +938,6 @@ register_datetime_translations <- function() {
   }
 }
 
-register_datetime_translations() # TEMP
-
 register_math_translations <- function() {
 
   nse_funcs$log <- nse_funcs$logb <- function(x, base = exp(1)) {
@@ -1001,8 +1004,6 @@ register_math_translations <- function() {
   }
 
 }
-
-register_math_translations() # TEMP
 
 register_conditional_translations <- function() {
 
@@ -1091,8 +1092,6 @@ register_conditional_translations <- function() {
     )
   }
 }
-
-register_conditional_translations() # TEMP
 
 # Aggregation functions
 # These all return a list of:
@@ -1238,5 +1237,3 @@ register_aggregate_translations <- function() {
     )
   }
 }
-
-register_aggregate_translations() # TEMP
