@@ -91,7 +91,7 @@ Collate:
     'dplyr-eval.R'
     'dplyr-filter.R'
     'expression.R'
-    'dplyr-functions.R'
+    'dplyr-funcs.R'
     'dplyr-group-by.R'
     'dplyr-join.R'
     'dplyr-mutate.R'
