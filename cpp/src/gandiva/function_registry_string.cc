@@ -480,7 +480,6 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
 
       NativeFunction("aes_decrypt", {}, DataTypeVector{utf8(), utf8()}, utf8(),
                      kResultNullIfNull, "gdv_fn_aes_decrypt",
-                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors)};
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
       NativeFunction("mask_first_n", {}, DataTypeVector{utf8(), int32()}, utf8(),
