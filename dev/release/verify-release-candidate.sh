@@ -55,7 +55,6 @@ set -x
 set -o pipefail
 
 SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
-ARROW_DIR="$(dirname $(dirname ${SOURCE_DIR}))"
 
 detect_cuda() {
   if ! (which nvcc && which nvidia-smi) > /dev/null; then
@@ -533,16 +532,34 @@ test_integration() {
               $INTEGRATION_TEST_ARGS
 }
 
-clone_testing_repositories() {
-  # Clone testing repositories if not cloned already
-  if [ ! -d "arrow-testing" ]; then
-    git clone https://github.com/apache/arrow-testing.git
+ensure_source_directory() {
+  dist_name="apache-arrow-${VERSION}"
+  if [ $((${TEST_SOURCE} + ${TEST_WHEELS})) -gt 0 ]; then
+    import_gpg_keys
+    if [ ! -d "${dist_name}" ]; then
+      fetch_archive ${dist_name}
+      tar xf ${dist_name}.tar.gz
+    fi
+  else
+    mkdir -p ${dist_name}
+    if [ ! -f ${TEST_ARCHIVE} ]; then
+      echo "${TEST_ARCHIVE} not found"
+      exit 1
+    fi
+    tar xf ${TEST_ARCHIVE} -C ${dist_name} --strip-components=1
   fi
-  if [ ! -d "parquet-testing" ]; then
-    git clone https://github.com/apache/parquet-testing.git
+  # clone testing repositories
+  pushd ${dist_name}
+  if [ ! -d "testing/data" ]; then
+    git clone https://github.com/apache/arrow-testing.git testing
   fi
-  export ARROW_TEST_DATA=$PWD/arrow-testing/data
-  export PARQUET_TEST_DATA=$PWD/parquet-testing/data
+  if [ ! -d "cpp/submodules/parquet-testing/data" ]; then
+    git clone https://github.com/apache/parquet-testing.git cpp/submodules/parquet-testing
+  fi
+  export ARROW_DIR=$PWD
+  export ARROW_TEST_DATA=$PWD/testing/data
+  export PARQUET_TEST_DATA=$PWD/cpp/submodules/parquet-testing/data
+  popd
 }
 
 test_source_distribution() {
@@ -556,8 +573,6 @@ test_source_distribution() {
   else
     NPROC=$(nproc)
   fi
-
-  clone_testing_repositories
 
   if [ ${TEST_JAVA} -gt 0 ]; then
     test_package_java
@@ -702,8 +717,6 @@ test_macos_wheels() {
 }
 
 test_wheels() {
-  clone_testing_repositories
-
   local download_dir=binaries
   mkdir -p ${download_dir}
 
@@ -846,22 +859,8 @@ fi
 
 case "${ARTIFACT}" in
   source)
-    dist_name="apache-arrow-${VERSION}"
-    if [ ${TEST_SOURCE} -gt 0 ]; then
-      import_gpg_keys
-      if [ ! -d "${dist_name}" ]; then
-        fetch_archive ${dist_name}
-        tar xf ${dist_name}.tar.gz
-      fi
-    else
-      mkdir -p ${dist_name}
-      if [ ! -f ${TEST_ARCHIVE} ]; then
-        echo "${TEST_ARCHIVE} not found"
-        exit 1
-      fi
-      tar xf ${TEST_ARCHIVE} -C ${dist_name} --strip-components=1
-    fi
-    pushd ${dist_name}
+    ensure_source_directory
+    pushd ${ARROW_DIR}
     test_source_distribution
     popd
     ;;
@@ -870,7 +869,7 @@ case "${ARTIFACT}" in
     test_binary_distribution
     ;;
   wheels)
-    import_gpg_keys
+    ensure_source_directory
     test_wheels
     ;;
   jars)
