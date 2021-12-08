@@ -81,7 +81,7 @@ of adding a basic feature.
    appropriate :ref:`communication` channel.
 
    See a short description about the building process of 
-   :ref:`PyArrow or R-Arrow<build-arrow>` or go straight to detailed
+   :ref:`PyArrow or the R package<build-arrow>` or go straight to detailed
    instructions on how to build one of Arrow libraries in the
    `documentation <https://arrow.apache.org/docs/>`_ .
  

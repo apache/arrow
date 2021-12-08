@@ -131,6 +131,8 @@ repository and navigated to the ``cpp`` subdirectory:
    $ git clone https://github.com/apache/arrow.git
    $ cd arrow/cpp
 
+.. _cmake_presets:
+
 CMake presets
 -------------
 
@@ -292,6 +294,8 @@ The CMake
 option can make full builds significantly faster, but it also increases the
 memory requirements.  Consider turning it on (using ``-DCMAKE_UNITY_BUILD=ON``)
 if memory consumption is not an issue.
+
+.. _cpp_build_optional_components:
 
 Optional Components
 ~~~~~~~~~~~~~~~~~~~

@@ -106,6 +106,8 @@ Benchmarking
 
 For running the benchmarks, see :ref:`python-benchmarks`.
 
+.. _build_pyarrow:
+
 Building on Linux and MacOS
 =============================
 
@@ -420,6 +422,8 @@ debugging a C++ unittest, for example:
    No source file named src/arrow/python/arrow_to_pandas.cc.
    Make breakpoint pending on future shared library load? (y or [n]) y
    Breakpoint 1 (src/arrow/python/arrow_to_pandas.cc:1874) pending.
+
+.. _build_pyarrow_win:
 
 Building on Windows
 ===================
