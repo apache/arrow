@@ -600,12 +600,15 @@ if (!file.exists(paste0(dst_dir, "/include/arrow/api.h"))) {
     # (2) Find source and build it
     src_dir <- find_local_source()
     if (!is.null(src_dir)) {
-      cat("*** Building C++ libraries\n")
+      cat("*** Building libarrow\n")
+      cat("*** For a faster installation, set the environment variable LIBARROW_BINARY=true before installing\n")
+      cat("*** Not all features are enabled by default.")
+      cat("    For a fully-featured installation, set the environment variable LIBARROW_MINIMAL=false before installing\n")
       build_libarrow(src_dir, dst_dir)
     } else {
-      cat("*** Proceeding without C++ dependencies\n")
+      cat("*** Proceeding without libarrow\n")
     }
   } else {
-    cat("*** Proceeding without C++ dependencies\n")
+    cat("*** Proceeding without libarrow\n")
   }
 }
