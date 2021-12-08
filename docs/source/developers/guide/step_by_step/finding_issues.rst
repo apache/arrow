@@ -94,7 +94,7 @@ like “good-first-issue” or “beginner” to some JIRA tickets.
 
 .. seealso::
 	Search for good first/second issues with labels like in the `link here
-	<https://issues.apache.org/jira/browse/ARROW-14659?filter=-4&jql=project%20%3D%20ARROW%20AND%20status%20%3D%20Open%20AND%20labels%20in%20(Beginner%2C%20beginner%2C%20beginners%2C%20beginnner%2C%20beginner-friendly%2C%20good-first-issue%2C%20good-second-issue%2C%20GoodForNewContributors%2C%20newbie%2C%20easyfix%2C%20documentation)%20order%20by%20created%20DESC>`_
+	<https://issues.apache.org/jira/issues/?filter=-4&jql=project%20%3D%20ARROW%20AND%20status%20%3D%20Open%20AND%20labels%20in%20(Beginner%2C%20beginner%2C%20beginners%2C%20beginnner%2C%20beginner-friendly%2C%20good-first-issue%2C%20good-second-issue%2C%20GoodForNewContributors%2C%20newbie%2C%20easyfix%2C%20documentation)%20order%20by%20created%20DESC>`_
 
 The issues labeled as good first issues should take no more than two days or a weekend to
 fix them. Once you dig into the code you may find that the issue is not easy at all - this can
