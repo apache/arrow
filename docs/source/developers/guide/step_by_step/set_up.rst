@@ -88,11 +88,16 @@ in your own GitHub account.
 Clone the repository
 --------------------
 
-Next you need to clone the repository.
+Next you need to clone the repository
 
 .. code:: console
 
    $ git clone https://github.com/<your username>/arrow.git
+
+and add Apache Arrow repository as a remote called ``upstream``.
+
+.. code:: console
+
    $ cd arrow
    $ git remote add upstream https://github.com/apache/arrow
 
