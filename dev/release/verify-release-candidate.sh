@@ -717,7 +717,6 @@ test_macos_wheels() {
 }
 
 test_wheels() {
-
   local download_dir=binaries
   mkdir -p ${download_dir}
 
