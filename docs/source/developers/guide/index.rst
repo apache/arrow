@@ -89,7 +89,7 @@ of adding a basic feature.
    
    Run the tests from a terminal for Python
 
-   .. code-block::
+   .. code-block:: console
 
       $ pytest pyarrow
 

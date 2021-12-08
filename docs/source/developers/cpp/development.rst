@@ -15,6 +15,8 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
+.. highlight:: console
+
 ======================
 Development Guidelines
 ======================
@@ -120,9 +122,9 @@ invoking CMake.
 To make linting more reproducible for everyone, we provide a ``docker-compose``
 target that is executable from the root of the repository:
 
-.. code-block:: shell
+.. code-block::
 
-   docker-compose run ubuntu-lint
+   $ docker-compose run ubuntu-lint
 
 Cleaning includes with include-what-you-use (IWYU)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

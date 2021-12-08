@@ -118,7 +118,7 @@ Xcode Command Line Tools (``xcode-select --install``) are sufficient.
 On Linux, for this guide, we require a minimum of gcc 4.8, or clang 3.7 or
 higher. You can check your version by running
 
-.. code-block:: shell
+.. code-block:: console
 
    $ gcc --version
 
@@ -143,7 +143,7 @@ First, let's clone the Arrow git repository:
 
 You should now see
 
-.. code-block:: shell
+.. code-block:: console
 
    $ ls -l
    total 8
@@ -222,7 +222,7 @@ may need.
 On Debian/Ubuntu, you need the following minimal set of dependencies. All other
 dependencies will be automatically built by Arrow's third-party toolchain.
 
-.. code-block:: shell
+.. code-block:: console
 
    $ sudo apt-get install libjemalloc-dev libboost-dev \
                           libboost-filesystem-dev \
@@ -237,7 +237,7 @@ If you are building Arrow for Python 3, install ``python3-dev`` instead of ``pyt
 
 On Arch Linux, you can get these dependencies via pacman.
 
-.. code-block:: shell
+.. code-block:: console
 
    $ sudo pacman -S jemalloc boost
 
