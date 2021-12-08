@@ -72,8 +72,8 @@ RecordBatchIterator RecordBatchSliceIterator(const RecordBatch& batch,
   return RecordBatchIterator(std::move(functor));
 }
 
-// Counts the number of characters that need escaping in s.
-int64_t CountEscapes(util::string_view s) {
+// Counts the number of quotes in s.
+int64_t CountQuotes(util::string_view s) {
   return static_cast<int64_t>(std::count(s.begin(), s.end(), '"'));
 }
 
@@ -108,11 +108,13 @@ class ColumnPopulator {
 
   // Places string data onto each row in output and updates the corresponding row
   // row pointers in preparation for calls to other (preceding) ColumnPopulators.
+  // Implementations may apply certain checks e.g. for illegal values, which in case of
+  // failure causes this function to return an error Status.
   // Args:
   //   output: character buffer to write to.
   //   offsets: an array of end of row column within the the output buffer (values are
   //   one past the end of the position to write to).
-  virtual void PopulateColumns(char* output, int32_t* offsets) const = 0;
+  virtual Status PopulateColumns(char* output, int32_t* offsets) const = 0;
 
  protected:
   virtual Status UpdateRowLengths(int32_t* row_lengths) = 0;
@@ -137,14 +139,18 @@ char* EscapeReverse(arrow::util::string_view s, char* out_end) {
   return out_end;
 }
 
-// Populator for non-string types.  This populator relies on compute Cast functionality to
-// String if it doesn't exist it will be an error.  it also assumes the resulting string
-// from a cast does not require quoting or escaping.
+// Populator used for non-string/binary types, or when unquoted strings/binary types are
+// desired. It assumes the strings in the casted array do not require quoting or escaping.
+// This is enforced by setting reject_values_with_quotes to true, in which case a check
+// for quotes is applied and will cause populating the columns to fail. This guarantees
+// compliance with RFC4180 section 2.5.
 class UnquotedColumnPopulator : public ColumnPopulator {
  public:
   explicit UnquotedColumnPopulator(MemoryPool* memory_pool, char end_char,
-                                   std::shared_ptr<Buffer> null_string_)
-      : ColumnPopulator(memory_pool, end_char, std::move(null_string_)) {}
+                                   std::shared_ptr<Buffer> null_string_,
+                                   bool reject_values_with_quotes)
+      : ColumnPopulator(memory_pool, end_char, std::move(null_string_)),
+        reject_values_with_quotes_(reject_values_with_quotes) {}
 
   Status UpdateRowLengths(int32_t* row_lengths) override {
     for (int x = 0; x < casted_array_->length(); x++) {
@@ -155,27 +161,64 @@ class UnquotedColumnPopulator : public ColumnPopulator {
     return Status::OK();
   }
 
-  void PopulateColumns(char* output, int32_t* offsets) const override {
-    VisitArrayDataInline<StringType>(
-        *casted_array_->data(),
-        [&](arrow::util::string_view s) {
-          int32_t next_column_offset = static_cast<int32_t>(s.length()) + /*end_char*/ 1;
-          memcpy((output + *offsets - next_column_offset), s.data(), s.length());
-          *(output + *offsets - 1) = end_char_;
-          *offsets -= next_column_offset;
-          offsets++;
-        },
-        [&]() {
-          // For nulls, the configured null value string is copied into the output.
-          int32_t next_column_offset =
-              static_cast<int32_t>(null_string_->size()) + /*end_char*/ 1;
-          memcpy((output + *offsets - next_column_offset), null_string_->data(),
-                 null_string_->size());
-          *(output + *offsets - 1) = end_char_;
-          *offsets -= next_column_offset;
-          offsets++;
-        });
+  Status PopulateColumns(char* output, int32_t* offsets) const override {
+    // Function applied to valid values cast to string.
+    auto valid_function = [&](arrow::util::string_view s) {
+      int32_t next_column_offset = static_cast<int32_t>(s.length()) + /*end_char*/ 1;
+      memcpy((output + *offsets - next_column_offset), s.data(), s.length());
+      *(output + *offsets - 1) = end_char_;
+      *offsets -= next_column_offset;
+      offsets++;
+      return Status::OK();
+    };
+
+    // Function applied to null values cast to string.
+    auto null_function = [&]() {
+      // For nulls, the configured null value string is copied into the output.
+      int32_t next_column_offset =
+          static_cast<int32_t>(null_string_->size()) + /*end_char*/ 1;
+      memcpy((output + *offsets - next_column_offset), null_string_->data(),
+             null_string_->size());
+      *(output + *offsets - 1) = end_char_;
+      *offsets -= next_column_offset;
+      offsets++;
+      return Status::OK();
+    };
+
+    if (reject_values_with_quotes_) {
+      // When using this UnquotedColumnPopulator on values that, after casting, could
+      // produce quotes, we need to return an error in accord with RFC4180. We need to
+      // precede valid_func with a check.
+      return VisitArrayDataInline<StringType>(
+          *casted_array_->data(),
+          [&](arrow::util::string_view s) {
+            ARROW_RETURN_NOT_OK(CheckStringHasNoStructuralChars(s));
+            return valid_function(s);
+          },
+          null_function);
+    } else {
+      // Populate without checking and rejecting values with quotes.
+      return VisitArrayDataInline<StringType>(*casted_array_->data(), valid_function,
+                                              null_function);
+    }
   }
+
+ private:
+  // Returns an error status if s has any structural characters.
+  static Status CheckStringHasNoStructuralChars(const util::string_view& s) {
+    if (std::any_of(s.begin(), s.end(), [](const char& c) {
+          return c == '\n' || c == '\r' || c == ',' || c == '"';
+        })) {
+      return Status::Invalid(
+          "CSV values may not contain structural characters if quoting style is "
+          "\"None\". See RFC4180. Invalid value: ",
+          s);
+    }
+    return Status::OK();
+  }
+
+  // Whether to reject values with quotes when populating.
+  const bool reject_values_with_quotes_;
 };
 
 // Strings need special handling to ensure they are escaped properly.
@@ -195,7 +238,8 @@ class QuotedColumnPopulator : public ColumnPopulator {
     VisitArrayDataInline<StringType>(
         *input.data(),
         [&](arrow::util::string_view s) {
-          int64_t escaped_count = CountEscapes(s);
+          // Each quote in the value string needs to be escaped.
+          int64_t escaped_count = CountQuotes(s);
           // TODO: Maybe use 64 bit row lengths or safe cast?
           row_needs_escaping_[row_number] = escaped_count > 0;
           row_lengths[row_number] += static_cast<int32_t>(s.length()) +
@@ -210,7 +254,7 @@ class QuotedColumnPopulator : public ColumnPopulator {
     return Status::OK();
   }
 
-  void PopulateColumns(char* output, int32_t* offsets) const override {
+  Status PopulateColumns(char* output, int32_t* offsets) const override {
     auto needs_escaping = row_needs_escaping_.begin();
     VisitArrayDataInline<StringType>(
         *(casted_array_->data()),
@@ -246,6 +290,8 @@ class QuotedColumnPopulator : public ColumnPopulator {
           offsets++;
           needs_escaping++;
         });
+
+    return Status::OK();
   }
 
  private:
@@ -261,7 +307,22 @@ struct PopulatorFactory {
                   std::is_same<FixedSizeBinaryType, TypeClass>::value,
               Status>
   Visit(const TypeClass& type) {
-    populator = new QuotedColumnPopulator(pool, end_char, null_string);
+    // Determine what ColumnPopulator to use based on desired CSV quoting style.
+    switch (quoting_style) {
+      case QuotingStyle::None:
+        // In unquoted output we must reject values with quotes. Since these types can
+        // produce quotes in their output rendering, we must check them and reject if
+        // quotes appear, hence reject_values_with_quotes is set to true.
+        populator = new UnquotedColumnPopulator(pool, end_char, null_string,
+                                                /*reject_values_with_quotes=*/true);
+        break;
+        // Quoting is needed for strings/binary, or when all valid values need to be
+        // quoted.
+      case QuotingStyle::Needed:
+      case QuotingStyle::AllValid:
+        populator = new QuotedColumnPopulator(pool, end_char, null_string);
+        break;
+    }
     return Status::OK();
   }
 
@@ -282,20 +343,36 @@ struct PopulatorFactory {
                   is_null_type<TypeClass>::value || is_temporal_type<TypeClass>::value,
               Status>
   Visit(const TypeClass& type) {
-    populator = new UnquotedColumnPopulator(pool, end_char, null_string);
+    // Determine what ColumnPopulator to use based on desired CSV quoting style.
+    switch (quoting_style) {
+        // These types are assumed not to produce any quotes, so we do not need to check
+        // and reject for potential quotes in the casted values in case the QuotingStyle
+        // is None.
+      case QuotingStyle::None:
+      case QuotingStyle::Needed:
+        populator = new UnquotedColumnPopulator(pool, end_char, null_string,
+                                                /*reject_values_with_quotes=*/false);
+        break;
+      case QuotingStyle::AllValid:
+        populator = new QuotedColumnPopulator(pool, end_char, null_string);
+        break;
+    }
     return Status::OK();
   }
 
   char end_char;
   std::shared_ptr<Buffer> null_string;
+  const QuotingStyle quoting_style;
   MemoryPool* pool;
   ColumnPopulator* populator;
 };
 
 Result<std::unique_ptr<ColumnPopulator>> MakePopulator(
     const Field& field, char end_char, std::shared_ptr<Buffer> null_string,
-    MemoryPool* pool) {
-  PopulatorFactory factory{end_char, std::move(null_string), pool, nullptr};
+    QuotingStyle quoting_style, MemoryPool* pool) {
+  PopulatorFactory factory{end_char, std::move(null_string), quoting_style, pool,
+                           nullptr};
+
   RETURN_NOT_OK(VisitTypeInline(*field.type(), &factory));
   return std::unique_ptr<ColumnPopulator>(factory.populator);
 }
@@ -307,7 +384,7 @@ class CSVWriterImpl : public ipc::RecordBatchWriter {
       std::shared_ptr<Schema> schema, const WriteOptions& options) {
     RETURN_NOT_OK(options.Validate());
     // Reject null string values that contain quotes.
-    if (CountEscapes(options.null_string) != 0) {
+    if (CountQuotes(options.null_string) != 0) {
       return Status::Invalid("Null string cannot contain quotes.");
     }
 
@@ -321,7 +398,7 @@ class CSVWriterImpl : public ipc::RecordBatchWriter {
       char end_char = col < schema->num_fields() - 1 ? ',' : '\n';
       ASSIGN_OR_RAISE(populators[col],
                       MakePopulator(*schema->field(col), end_char, null_string,
-                                    options.io_context.pool()));
+                                    options.quoting_style, options.io_context.pool()));
     }
     auto writer = std::make_shared<CSVWriterImpl>(
         sink, std::move(owned_sink), std::move(schema), std::move(populators), options);
@@ -390,7 +467,7 @@ class CSVWriterImpl : public ipc::RecordBatchWriter {
     for (int col = 0; col < schema_->num_fields(); col++) {
       const std::string& col_name = schema_->field(col)->name();
       header_length += col_name.size();
-      header_length += CountEscapes(col_name);
+      header_length += CountQuotes(col_name);
     }
     return header_length + (kQuoteDelimiterCount * schema_->num_fields());
   }
@@ -435,9 +512,10 @@ class CSVWriterImpl : public ipc::RecordBatchWriter {
     // Use the offsets to populate contents.
     for (auto populator = column_populators_.rbegin();
          populator != column_populators_.rend(); populator++) {
-      (*populator)
-          ->PopulateColumns(reinterpret_cast<char*>(data_buffer_->mutable_data()),
-                            offsets_.data());
+      RETURN_NOT_OK(
+          (*populator)
+              ->PopulateColumns(reinterpret_cast<char*>(data_buffer_->mutable_data()),
+                                offsets_.data()));
     }
     DCHECK_EQ(0, offsets_[0]);
     return Status::OK();

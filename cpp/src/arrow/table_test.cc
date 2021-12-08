@@ -15,12 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <cstdint>
-#include <memory>
-#include <vector>
+#include "arrow/table.h"
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+
+#include <cstdint>
+#include <memory>
+#include <vector>
 
 #include "arrow/array/array_base.h"
 #include "arrow/array/data.h"
@@ -28,7 +30,6 @@
 #include "arrow/chunked_array.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
-#include "arrow/table.h"
 #include "arrow/testing/gtest_common.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
@@ -178,6 +179,20 @@ TEST_F(TestTable, Equals) {
   other = Table::Make(other_schema, columns_);
   ASSERT_TRUE(table_->Equals(*other));
   ASSERT_FALSE(table_->Equals(*other, /*check_metadata=*/true));
+}
+
+TEST_F(TestTable, MakeEmpty) {
+  auto f0 = field("f0", int32());
+  auto f1 = field("f1", uint8());
+  auto f2 = field("f2", int16());
+
+  std::vector<std::shared_ptr<Field>> fields = {f0, f1, f2};
+  auto schema = ::arrow::schema({f0, f1, f2});
+
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Table> empty, Table::MakeEmpty(schema));
+  AssertSchemaEqual(*schema, *empty->schema());
+  ASSERT_OK(empty->ValidateFull());
+  ASSERT_EQ(empty->num_rows(), 0);
 }
 
 TEST_F(TestTable, FromRecordBatches) {

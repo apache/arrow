@@ -266,6 +266,16 @@ std::shared_ptr<Table> Table::Make(std::shared_ptr<Schema> schema,
   return std::make_shared<SimpleTable>(std::move(schema), arrays, num_rows);
 }
 
+Result<std::shared_ptr<Table>> Table::MakeEmpty(std::shared_ptr<Schema> schema,
+                                                MemoryPool* memory_pool) {
+  ChunkedArrayVector empty_table(schema->num_fields());
+  for (int i = 0; i < schema->num_fields(); i++) {
+    ARROW_ASSIGN_OR_RAISE(empty_table[i],
+                          ChunkedArray::MakeEmpty(schema->field(i)->type(), memory_pool));
+  }
+  return Table::Make(schema, empty_table, 0);
+}
+
 Result<std::shared_ptr<Table>> Table::FromRecordBatchReader(RecordBatchReader* reader) {
   std::shared_ptr<Table> table = nullptr;
   RETURN_NOT_OK(reader->ReadAll(&table));

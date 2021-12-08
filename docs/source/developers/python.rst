@@ -46,6 +46,8 @@ Some of the issues can be automatically fixed by passing the ``--fix`` option:
 
    archery lint --python --fix
 
+.. _python-unit-testing:
+
 Unit Testing
 ============
 
