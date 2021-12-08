@@ -28,7 +28,7 @@
 Set up
 ******
 
-Install and setup Git
+Install and set up Git
 =====================
 
 The Arrow project is developed using `Git <https://git-scm.com/>`_
