@@ -31,6 +31,7 @@
 #include "arrow/datum.h"
 #include "arrow/util/cpu_info.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/tracing_internal.h"
 
 namespace arrow {
 
@@ -203,6 +204,11 @@ Result<Datum> Function::Execute(const std::vector<Datum>& args,
     ExecContext default_ctx;
     return Execute(args, options, &default_ctx);
   }
+
+#ifdef ARROW_WITH_OPENTELEMETRY
+  auto span = arrow::internal::tracing::GetTracer()->StartSpan("Function::Execute", {{"function", name()}});
+  auto scope = opentelemetry::trace::Scope(span);
+#endif
 
   // type-check Datum arguments here. Really we'd like to avoid this as much as
   // possible

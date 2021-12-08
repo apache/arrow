@@ -32,6 +32,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/thread_pool.h"
+#include "arrow/util/tracing_internal.h"
 
 namespace arrow {
 
@@ -379,6 +380,10 @@ class GroupByNode : public ExecNode {
 
     // Execute aggregate kernels
     for (size_t i = 0; i < agg_kernels_.size(); ++i) {
+#ifdef ARROW_WITH_OPENTELEMETRY
+      auto span = arrow::internal::tracing::GetTracer()->StartSpan("GroupByNode::Consume", {{"function", aggs_[i].function}});
+      auto scope = opentelemetry::trace::Scope(span);
+#endif
       KernelContext kernel_ctx{ctx_};
       kernel_ctx.SetState(state->agg_states[i].get());
 
@@ -406,6 +411,10 @@ class GroupByNode : public ExecNode {
       state->grouper.reset();
 
       for (size_t i = 0; i < agg_kernels_.size(); ++i) {
+#ifdef ARROW_WITH_OPENTELEMETRY
+      auto span = arrow::internal::tracing::GetTracer()->StartSpan("GroupByNode::Merge", {{"function", aggs_[i].function}});
+      auto scope = opentelemetry::trace::Scope(span);
+#endif
         KernelContext batch_ctx{ctx_};
         DCHECK(state0->agg_states[i]);
         batch_ctx.SetState(state0->agg_states[i].get());
@@ -429,6 +438,10 @@ class GroupByNode : public ExecNode {
 
     // Aggregate fields come before key fields to match the behavior of GroupBy function
     for (size_t i = 0; i < agg_kernels_.size(); ++i) {
+#ifdef ARROW_WITH_OPENTELEMETRY
+      auto span = arrow::internal::tracing::GetTracer()->StartSpan("GroupByNode::Finalize", {{"function", aggs_[i].function}});
+      auto scope = opentelemetry::trace::Scope(span);
+#endif
       KernelContext batch_ctx{ctx_};
       batch_ctx.SetState(state->agg_states[i].get());
       RETURN_NOT_OK(agg_kernels_[i]->finalize(&batch_ctx, &out_data.values[i]));

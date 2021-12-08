@@ -104,9 +104,10 @@ class FlushLog {
   explicit FlushLog(nostd::shared_ptr<sdktrace::TracerProvider> provider)
       : provider_(std::move(provider)) {}
   ~FlushLog() {
-    if (provider_) {
-      provider_->ForceFlush(std::chrono::microseconds(1000000));
-    }
+    // TODO: ForceFlush apparently sends data that OTLP connector can't handle
+    // if (provider_) {
+    //   provider_->ForceFlush(std::chrono::microseconds(1000000));
+    // }
   }
   nostd::shared_ptr<sdktrace::TracerProvider> provider_;
 };
