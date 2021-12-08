@@ -74,7 +74,7 @@ RUN wget -q -O - https://deb.nodesource.com/setup_${node}.x | bash - && \
     rm -rf /var/lib/apt/lists/* && \
     npm install -g yarn
 
-RUN pip install -r /arrow/docs/requirements.txt meson
+RUN pip install -r docs/requirements.txt meson
 
 COPY c_glib/Gemfile /arrow/c_glib/
 RUN gem install --no-document bundler && \
