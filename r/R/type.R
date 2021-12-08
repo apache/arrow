@@ -389,6 +389,18 @@ timestamp <- function(unit = c("s", "ms", "us", "ns"), timezone = "") {
 
 #' @rdname data-type
 #' @export
+decimal <- function(precision, scale) {
+  args <- check_decimal_args(precision, scale)
+
+  if (args$precision > 38) {
+    decimal256(args$precision, args$scale)
+  } else {
+    decimal128(args$precision, args$scale)
+  }
+}
+
+#' @rdname data-type
+#' @export
 decimal128 <- function(precision, scale) {
   args <- check_decimal_args(precision, scale)
   Decimal128Type__initialize(args$precision, args$scale)
@@ -399,18 +411,6 @@ decimal128 <- function(precision, scale) {
 decimal256 <- function(precision, scale) {
   args <- check_decimal_args(precision, scale)
   Decimal256Type__initialize(args$precision, args$scale)
-}
-
-#' @rdname data-type
-#' @export
-decimal <- function(precision, scale) {
-  args <- check_decimal_args(precision, scale)
-
-  if (args$precision > 38) {
-    decimal256(args$precision, args$scale)
-  } else {
-    decimal128(args$precision, args$scale)
-  }
 }
 
 check_decimal_args <- function(precision, scale) {
