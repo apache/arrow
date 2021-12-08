@@ -187,7 +187,18 @@ Array$create <- function(x, type = NULL) {
     }
     return(out)
   }
-  vec_to_Array(x, type)
+  tryCatch(
+    vec_to_Array(x, type),
+    error = function(cnd) {
+      if (!is.null(type)) {
+        # try again and then cast
+        vec_to_Array(x, NULL)$cast(type)
+      } else {
+        signalCondition(cnd)
+      }
+    }
+  )
+
 }
 #' @include arrowExports.R
 Array$import_from_c <- ImportArray
