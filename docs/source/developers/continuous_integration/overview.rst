@@ -18,14 +18,14 @@
 Continuous Integration
 ======================
 
-Continuous Integration for Arrow is fairly complex as it needs to run across different combinations of package managers, compilers, versions of multiple sofware libraries,  operating systems, and other potential sources of variation.  In this article, we will give an overview of its main components and the relevant files and directories.
+Continuous Integration for Arrow is fairly complex as it needs to run across different combinations of package managers, compilers, versions of multiple sofware libraries, operating systems, and other potential sources of variation.  In this article, we will give an overview of its main components and the relevant files and directories.
 
 Two files central to Arrow CI are:
 
 * `docker-compose.yml` - here we define docker services which can be configured using either enviroment variables, or the default values for these variables.
 * `.env` - here we define default values to configure the services in `docker-compose.yml`
 
-One thing to note is the some of the services defined in `docker-compose.yml` are interdependent.  When running a services locally, you must either manually build its dependencies first, or build it via the use of `archery run ...` which automatically finds and builds dependencies.  For more information on archery, see <link>.
+One thing to note is the some of the services defined in `docker-compose.yml` are interdependent.  When running services locally, you must either manually build its dependencies first, or build it via the use of `archery run ...` which automatically finds and builds dependencies.  For more information on archery, see <link>.
 
 There are numerous important directories in the Arrow project which relate to CI:
 
