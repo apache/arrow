@@ -17,7 +17,8 @@
 
 register_datetime_translations <- function() {
 
-  nse_funcs$strptime <- function(x, format = "%Y-%m-%d %H:%M:%S", tz = NULL, unit = "ms") {
+  register_translation("strptime", function(x, format = "%Y-%m-%d %H:%M:%S", tz = NULL,
+                                            unit = "ms") {
     # Arrow uses unit for time parsing, strptime() does not.
     # Arrow has no default option for strptime (format, unit),
     # we suggest following format = "%Y-%m-%d %H:%M:%S", unit = MILLI/1L/"ms",
@@ -32,9 +33,9 @@ register_datetime_translations <- function() {
     unit <- make_valid_time_unit(unit, c(valid_time64_units, valid_time32_units))
 
     Expression$create("strptime", x, options = list(format = format, unit = unit))
-  }
+  })
 
-  nse_funcs$strftime <- function(x, format = "", tz = "", usetz = FALSE) {
+  register_translation("strftime", function(x, format = "", tz = "", usetz = FALSE) {
     if (usetz) {
       format <- paste(format, "%Z")
     }
@@ -49,9 +50,9 @@ register_datetime_translations <- function() {
       ts <- x
     }
     Expression$create("strftime", ts, options = list(format = format, locale = Sys.getlocale("LC_TIME")))
-  }
+  })
 
-  nse_funcs$format_ISO8601 <- function(x, usetz = FALSE, precision = NULL, ...) {
+  register_translation("format_ISO8601", function(x, usetz = FALSE, precision = NULL, ...) {
     ISO8601_precision_map <-
       list(
         y = "%Y",
@@ -80,17 +81,15 @@ register_datetime_translations <- function() {
       format <- paste0(format, "%z")
     }
     Expression$create("strftime", x, options = list(format = format, locale = "C"))
-  }
+  })
 
-  nse_funcs$second <- function(x) {
+  register_translation("second", function(x) {
     Expression$create("add", Expression$create("second", x), Expression$create("subsecond", x))
-  }
+  })
 
-  nse_funcs$wday <- function(x,
-                             label = FALSE,
-                             abbr = TRUE,
-                             week_start = getOption("lubridate.week.start", 7),
-                             locale = Sys.getlocale("LC_TIME")) {
+  register_translation("wday", function(x, label = FALSE, abbr = TRUE,
+                                        week_start = getOption("lubridate.week.start", 7),
+                                        locale = Sys.getlocale("LC_TIME")) {
     if (label) {
       if (abbr) {
         format <- "%a"
@@ -101,9 +100,9 @@ register_datetime_translations <- function() {
     }
 
     Expression$create("day_of_week", x, options = list(count_from_zero = FALSE, week_start = week_start))
-  }
+  })
 
-  nse_funcs$month <- function(x, label = FALSE, abbr = TRUE, locale = Sys.getlocale("LC_TIME")) {
+  register_translation("month", function(x, label = FALSE, abbr = TRUE, locale = Sys.getlocale("LC_TIME")) {
     if (label) {
       if (abbr) {
         format <- "%b"
@@ -114,20 +113,22 @@ register_datetime_translations <- function() {
     }
 
     Expression$create("month", x)
-  }
+  })
 
-  nse_funcs$is.Date <- function(x) {
+  register_translation("is.Date", function(x) {
     inherits(x, "Date") ||
       (inherits(x, "Expression") && x$type_id() %in% Type[c("DATE32", "DATE64")])
-  }
+  })
 
-  nse_funcs$is.instant <- nse_funcs$is.timepoint <- function(x) {
+  is_instant_translation <- function(x) {
     inherits(x, c("POSIXt", "POSIXct", "POSIXlt", "Date")) ||
       (inherits(x, "Expression") && x$type_id() %in% Type[c("TIMESTAMP", "DATE32", "DATE64")])
   }
+  register_translation("is.instant", is_instant_translation)
+  register_translation("is.timepoint", is_instant_translation)
 
-  nse_funcs$is.POSIXct <- function(x) {
+  register_translation("is.POSIXct", function(x) {
     inherits(x, "POSIXct") ||
       (inherits(x, "Expression") && x$type_id() %in% Type[c("TIMESTAMP")])
-  }
+  })
 }
