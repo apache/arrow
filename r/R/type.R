@@ -396,6 +396,13 @@ decimal128 <- function(precision, scale) {
 
 #' @rdname data-type
 #' @export
+decimal256 <- function(precision, scale) {
+  args <- check_decimal_args(precision, scale)
+  Decimal256Type__initialize(args$precision, args$scale)
+}
+
+#' @rdname data-type
+#' @export
 decimal <- function(precision, scale) {
   args <- check_decimal_args(precision, scale)
 
@@ -404,13 +411,6 @@ decimal <- function(precision, scale) {
   } else {
     decimal128(args$precision, args$scale)
   }
-}
-
-#' @rdname data-type
-#' @export
-decimal256 <- function(precision, scale) {
-  args <- check_decimal_args(precision, scale)
-  Decimal256Type__initialize(args$precision, args$scale)
 }
 
 check_decimal_args <- function(precision, scale) {
