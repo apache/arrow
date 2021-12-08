@@ -63,4 +63,4 @@ Tasks which can be run via Archery or Crossbow can be found in the `dev/tasks` d
 
 Most of these tasks are run as part of the nightly builds, though also can be triggered manually by add a comment to a PR which begins with `@github-actions crossbow submit` followed by the name of the task to be run.
 
-For convenience purpose, the tasks in `dev/tasks/tasks.yml` are defined in groups, which makes it simpler for multiple tasks to be submitted to Crossbow at once.  The task definitions here contain information about which service defined in `docker-compose.yml` to run, the CI service to run the task on, and which template file to use as the basis for that task. 
+For convenience purpose, the tasks in `dev/tasks/tasks.yml` are defined in groups, which makes it simpler for multiple tasks to be submitted to Crossbow at once.  The task definitions here contain information about which service defined in `docker-compose.yml` to run, the CI service to run the task on, and which template file to use as the basis for that task.
