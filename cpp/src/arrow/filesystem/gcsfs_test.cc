@@ -84,18 +84,26 @@ class GcsIntegrationTest : public ::testing::Test {
     if (const auto* env = std::getenv("PYTHON")) {
       names = {env};
     }
+    auto error = std::string(
+        "Cloud not start GCS emulator."
+        " Used the following list of python interpreter names:");
     for (const auto& interpreter : names) {
       auto exe_path = bp::search_path(interpreter);
-      if (exe_path.empty()) continue;
+      error += " " + interpreter;
+      if (exe_path.empty()) {
+        error += " (exe not found)";
+        continue;
+      }
 
       server_process_ = bp::child(boost::this_process::environment(), exe_path, "-m",
                                   "testbench", "--port", port_, group_);
       if (server_process_.valid() && server_process_.running()) break;
+      error += " (failed to start)";
       server_process_.terminate();
       server_process_.wait();
     }
-    ASSERT_TRUE(server_process_.valid());
-    ASSERT_TRUE(server_process_.running());
+    ASSERT_TRUE(server_process_.valid()) << error;
+    ASSERT_TRUE(server_process_.running()) << error;
 
     // Create a bucket and a small file in the testbench. This makes it easier to
     // bootstrap GcsFileSystem and its tests.
