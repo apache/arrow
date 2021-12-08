@@ -137,11 +137,6 @@ TYPED_TEST(TestBaseBinaryKernels, BinaryLength) {
                    this->offset_type(), "[3, 4, 2]");
 }
 
-TYPED_TEST(TestBinaryKernels, BinaryReverse) {
-  this->CheckUnary("binary_reverse", this->MakeArray({"abc123", "\x01", "", "\x01\xfe"}),
-                   this->MakeArray({"321cba", "\x01", "", "\xfe\x01"}));
-}
-
 // The NonUtf8XXX tests use kernels that do not accept invalid UTF-8 when
 // processing [Large]StringType data. These tests use invalid UTF-8 inputs.
 TYPED_TEST(TestBinaryKernels, NonUtf8) {
@@ -396,6 +391,23 @@ TYPED_TEST(TestBinaryKernels, NonUtf8WithNullRegex) {
   }
 }
 #endif
+
+TYPED_TEST(TestBinaryKernels, BinaryReverse) {
+  this->CheckUnary(
+      "binary_reverse",
+      this->template MakeArray<std::string>(
+          {{"abc123", 6}, {"\x00\x00\x42\xfe\xff", 5}, {"\xf0", 1}, {"", 0}}),
+      this->template MakeArray<std::string>(
+          {{"321cba", 6}, {"\xff\xfe\x42\x00\x00", 5}, {"\xf0", 1}, {"", 0}}));
+}
+
+TYPED_TEST(TestBaseBinaryKernels, BinaryReverse) {
+  this->CheckUnary("binary_reverse",
+                   this->template MakeArray<std::string>(
+                       {{"abc123", 6}, {"01.23", 5}, {"q", 1}, {"", 0}}),
+                   this->template MakeArray<std::string>(
+                       {{"321cba", 6}, {"32.10", 5}, {"q", 1}, {"", 0}}));
+}
 
 TYPED_TEST(TestBaseBinaryKernels, BinaryReplaceSlice) {
   ReplaceSliceOptions options{0, 1, "XX"};
