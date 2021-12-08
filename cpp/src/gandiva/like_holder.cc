@@ -62,10 +62,6 @@ const FunctionNode LikeHolder::TryOptimize(const FunctionNode& node) {
   return node;
 }
 
-static bool IsArrowStringLiteral(arrow::Type::type type) {
-  return type == arrow::Type::STRING || type == arrow::Type::BINARY;
-}
-
 Status LikeHolder::Make(const FunctionNode& node, std::shared_ptr<LikeHolder>* holder) {
   ARROW_RETURN_IF(node.children().size() != 2 && node.children().size() != 3,
                   Status::Invalid("'like' function requires two or three parameters"));
