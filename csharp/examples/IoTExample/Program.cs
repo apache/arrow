@@ -15,52 +15,55 @@
 
 using System;
 using System.IO;
-using System.Threading;
 using System.Threading.Tasks;
-using System.Collections.Generic;
-using Apache.Arrow;
 using Apache.Arrow.Ipc;
-using Apache.Arrow.Memory;
 
 namespace IoTExample
 {
     class Program
     {
         public static int concurrencyLevel = 1;
-        public static int totalInputs = 1_000_000_000;
+        public static int totalInputs = 10_000_000;
         public static int queueCapacity = 1_000_000;
-        // Use a specific memory pool from which arrays will be allocated (optional)
-        static NativeMemoryAllocator memoryAllocator;
 
-
-        // A Real-time C# memory-based smartwatch and smartphone IoT data analytics platform,
-        // which leverages Apache Arrow as the unified data store.
         public static async Task Main(string[] args)
         {
-            memoryAllocator = new NativeMemoryAllocator(alignment: 64);
+            SampleDataset sd = new SampleDataset(totalInputs, queueCapacity);
 
-            SampleDataset sd = new SampleDataset(totalInputs, queueCapacity, memoryAllocator);
-
-            Console.WriteLine("Producing data...");
+            Console.WriteLine("Receiving IoT data...");
             Task t1 = Task.Run(() => sd.Produce());
 
-            Console.WriteLine("Consuming data...");
+            Console.WriteLine("Transforming data...");
             Task t2 = Task.Run(() => sd.Consume());
 
             // Wait for all tasks to complete
             Task.WaitAll(t1, t2);
 
-            // Data analytics in real time
-            // Your business logics go here
+            var success = await sd.PersistData();
+
+            if (!success)
+                return;
 
             Console.WriteLine("Reading arrow files...");
-            var stream = File.OpenWrite(@"c:\temp\data\");
-            var reader = new ArrowFileReader(stream, true);
+            var stream = File.OpenRead(@"c:\temp\data\iotbigdata.arrow");
+            var reader = new ArrowFileReader(stream);
+            int totalSubject = 0;
+            var count = await reader.RecordBatchCountAsync();
 
-            var recordBatch = reader.ReadNextRecordBatch();
+            for (int i = 0; i < count; i++)
+            {
+                var recordBatch = await reader.ReadRecordBatchAsync(i);
 
-            Console.WriteLine(recordBatch.Column(0).Data.NullCount);
+                for (int j = 0; j < recordBatch.ColumnCount; j++)
+                {
+                    Console.WriteLine($"Record count in recordBatch {i} column {j} is: " + recordBatch.Column(j).Data.Length);
+                    Console.WriteLine($"Null count in recordBatch {i} column {j} is: " + recordBatch.Column(j).Data.NullCount);
+                }
 
+                totalSubject += recordBatch.Column("SubjectId").Length;
+            }
+
+            Console.WriteLine(totalSubject);
         }
 
     }

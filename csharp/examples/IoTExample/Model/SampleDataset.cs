@@ -15,9 +15,8 @@
 
 using System;
 using System.IO;
-using System.Diagnostics;
-using System.Threading;
 using System.Threading.Tasks;
+using System.Diagnostics;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using Apache.Arrow;
@@ -29,32 +28,22 @@ namespace IoTExample
     public class SampleDataset
     {
         private int _size;
-        private int _inputs;
-        private int _capacity;
-        private NativeMemoryAllocator _memoryAllocator;
-        private BlockingCollection<SensorData> _rows;
+        private readonly int _inputs;
+        private readonly int _capacity;
+        private readonly BlockingCollection<SensorData> _rows;
 
-        public bool isFull;
-        public List<int> colSubjectId;
-        public List<string> colActivityLabel;
-        public List<long> colTimestamp;
-        public Dictionary<string, string> activityLabel;
+        private readonly List<int> _colSubjectId;
+        private readonly List<string> _colActivityLabel;
+        private readonly List<long> _colTimestamp;
+        private readonly List<double> _colXAxis;
+        private readonly List<double> _colYAxis;
+        private readonly List<double> _colZAxis;
 
-        public int threshold = 1_000_000;
-        public bool foundPreviousValue;
+        private readonly int _threshold = 1_000_000;
+        private readonly List<RecordBatch> _recordBatches;
+        private readonly MemoryAllocator _memoryAllocator;
 
-        public SampleDataset(int inputs, int capacity, NativeMemoryAllocator memoryAllocator)
-        {
-            _inputs = inputs;
-            _capacity = capacity;
-            _memoryAllocator = memoryAllocator;
-            _rows = new BlockingCollection<SensorData>(_capacity);
-
-            colSubjectId = new List<int>(capacity);
-            colActivityLabel = new List<string>();
-            colTimestamp = new List<long>();
-
-            activityLabel = new Dictionary<string, string>()
+        public Dictionary<string, string> activityLabel = new Dictionary<string, string>()
             {
                 {"walking", "A"},
                 {"jogging", "B"},
@@ -75,6 +64,22 @@ namespace IoTExample
                 {"clapping", "R"},
                 {"folding", "S"},
             };
+
+        public SampleDataset(int inputs, int capacity)
+        {
+            _inputs = inputs;
+            _capacity = capacity;
+            _rows = new BlockingCollection<SensorData>(_capacity);
+
+            _colSubjectId = new List<int>(capacity);
+            _colActivityLabel = new List<string>();
+            _colTimestamp = new List<long>();
+            _colXAxis = new List<double>();
+            _colYAxis = new List<double>();
+            _colZAxis = new List<double>();
+
+            _recordBatches = new List<RecordBatch>();
+            _memoryAllocator = new NativeMemoryAllocator(alignment: 64);
         }
 
         public void Produce()
@@ -95,7 +100,6 @@ namespace IoTExample
 
                 // generate missing values
                 if (rand.Next(10_000) == 9_999)
-                    //if (rand.Next(10) == 9)
                 {
                     label = null;
                 }
@@ -105,9 +109,9 @@ namespace IoTExample
                     subjectId = rand.Next(1000, 2001),
                     activityLabel = label,
                     timestamp = unixTime++,
-                    //x_Axis = rand.NextDouble(),
-                    //y_Axis = rand.NextDouble(),
-                    //z_Axis = rand.NextDouble(),
+                    x_Axis = rand.NextDouble(),
+                    y_Axis = rand.NextDouble(),
+                    z_Axis = rand.NextDouble(),
                 }); 
 
                 if (success)
@@ -124,9 +128,9 @@ namespace IoTExample
             _rows.CompleteAdding();
         }
 
-        public void Consume()
+        public async void Consume()
         {
-            while (!_rows.IsCompleted && !isFull)
+            while (!_rows.IsCompleted)
             {
                 if (!_rows.TryTake(out SensorData item, 3000))
                 {
@@ -137,63 +141,61 @@ namespace IoTExample
                     //Console.WriteLine($"Dequeue Task 1");
                     if (item != null && item.subjectId != null)
                     {
-                        if (colActivityLabel.Count >= threshold)
-                        {
-                            // Build a record batch using the Fluent API
-                            var recordBatch = new RecordBatch.Builder(_memoryAllocator)
-                                .Append("Subject Id", false, col => col.Int32(array => array.AppendRange(colSubjectId)))
-                                .Append("Activity Label", false, col => col.String(array => array.AppendRange(colActivityLabel)))
-                                .Append("Timestamp", false, col => col.Int64(array => array.AppendRange(colTimestamp)))
-                                //.Append("X Axis", false, col => col.Int32(array => array.AppendRange()))
-                                //.Append("Y Axis", false, col => col.Int32(array => array.AppendRange()))
-                                //.Append("Z Axis", false, col => col.Int32(array => array.AppendRange()))
-                                .Build();
-
-                            PersistData(recordBatch);
-
-                            colSubjectId.Clear();
-                            colActivityLabel.Clear();
-                            colTimestamp.Clear();
-                        }
-
-                        colSubjectId.Add((int)item.subjectId);
-
-                        // handle missing values
-                        if (item.activityLabel == null)
-                        {
-                            // lookup for the nearest previous value
-                            for (int i = colActivityLabel.Count - 1; i >= 0; i--)
-                            {
-                                if (colSubjectId[i] == item.subjectId)
-                                {
-                                    item.activityLabel = colActivityLabel[i];
-
-                                    break;
-                                }
-                            }
-                        }
-
-                        colActivityLabel.Add(item.activityLabel);
-                        colTimestamp.Add((long)item.timestamp);
-                        //_cols["x_Axis"].Add(item.x_Axis);
-                        //_cols["y_Axis"].Add(item.y_Axis);
-                        //_cols["z_Axis"].Add(item.z_Axis);
+                        _colSubjectId.Add((int)item.subjectId);
+                        _colActivityLabel.Add(item.activityLabel);
+                        _colTimestamp.Add((long)item.timestamp);
+                        _colXAxis.Add((double)item.x_Axis);
+                        _colYAxis.Add((double)item.y_Axis);
+                        _colZAxis.Add((double)item.z_Axis);
                     }
+                }
+
+                if (_colSubjectId.Count == _threshold)
+                {
+                    // Build a record batch using the Fluent API
+                    var recordBatch = new RecordBatch.Builder(_memoryAllocator)
+                        .Append("SubjectId", false, col => col.Int32(array => array.AppendRange(_colSubjectId)))
+                        .Append("ActivityLabel", false, col => col.String(array => array.AppendRange(_colActivityLabel)))
+                        .Append("Timestamp", false, col => col.Int64(array => array.AppendRange(_colTimestamp)))
+                        .Append("XAxis", false, col => col.Double(array => array.AppendRange(_colXAxis)))
+                        .Append("YAxis", false, col => col.Double(array => array.AppendRange(_colYAxis)))
+                        .Append("ZAxis", false, col => col.Double(array => array.AppendRange(_colZAxis)))
+                        .Build();
+
+                    _recordBatches.Add(recordBatch);
+
+                    _colSubjectId.Clear();
+                    _colActivityLabel.Clear();
+                    _colTimestamp.Clear();
+                    _colXAxis.Clear();
+                    _colYAxis.Clear();
+                    _colZAxis.Clear();
                 }
             }
         }
 
-        public async void PersistData(RecordBatch recordBatch)
+        public async Task<bool> PersistData()
         {
-            // Write record batch to a file
             string time = DateTime.Now.ToString("yyyyMMdd_HHmmss");
             Stopwatch stopwatch = new Stopwatch();
             stopwatch.Start();
 
-            using (var stream = File.OpenWrite(@"c:\temp\data\" + time + ".arrow"))
-            using (var writer = new ArrowFileWriter(stream, recordBatch.Schema))
+            Schema schema = _recordBatches[0].Schema;
+            // Write record batch to a file
+            using (var stream = File.OpenWrite(@"c:\temp\data\iotbigdata.arrow"))
+            using (var writer = new ArrowFileWriter(stream, schema))
             {
-                await writer.WriteRecordBatchAsync(recordBatch);
+                foreach (RecordBatch recordBatch in _recordBatches)
+                {
+                    try
+                    {
+                        await writer.WriteRecordBatchAsync(recordBatch);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine(ex.ToString());
+                    }
+                }
                 await writer.WriteEndAsync();
             }
 
@@ -202,6 +204,7 @@ namespace IoTExample
             Console.WriteLine($"Checkpoint time is: {ts.Minutes} min {ts.Seconds} sec");
             Console.WriteLine("Checkpointing is done!");
 
+            return true;
         }
     }
 
