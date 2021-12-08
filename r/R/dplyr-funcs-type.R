@@ -17,17 +17,17 @@
 
 register_type_translations <- function() {
 
-  nse_funcs$cast <- function(x, target_type, safe = TRUE, ...) {
+  register_translation("cast", function(x, target_type, safe = TRUE, ...) {
     opts <- cast_options(safe, ...)
     opts$to_type <- as_type(target_type)
     Expression$create("cast", x, options = opts)
-  }
+  })
 
-  nse_funcs$is.na <- function(x) {
+  register_translation("is.na", function(x) {
     build_expr("is_null", x, options = list(nan_is_null = TRUE))
-  }
+  })
 
-  nse_funcs$is.nan <- function(x) {
+  register_translation("is.nan", function(x) {
     if (is.double(x) || (inherits(x, "Expression") &&
                          x$type_id() %in% TYPES_WITH_NAN)) {
       # TODO: if an option is added to the is_nan kernel to treat NA as NaN,
@@ -36,9 +36,9 @@ register_type_translations <- function() {
     } else {
       Expression$scalar(FALSE)
     }
-  }
+  })
 
-  nse_funcs$is <- function(object, class2) {
+  register_translation("is", function(object, class2) {
     if (is.string(class2)) {
       switch(class2,
              # for R data types, pass off to is.*() functions
@@ -60,9 +60,9 @@ register_type_translations <- function() {
     } else {
       stop("Second argument to is() is not a string or DataType", call. = FALSE)
     }
-  }
+  })
 
-  nse_funcs$dictionary_encode <- function(x,
+  register_translation("dictionary_encode", function(x,
                                           null_encoding_behavior = c("mask", "encode")) {
     behavior <- toupper(match.arg(null_encoding_behavior))
     null_encoding_behavior <- NullEncodingBehavior[[behavior]]
@@ -71,33 +71,33 @@ register_type_translations <- function() {
       x,
       options = list(null_encoding_behavior = null_encoding_behavior)
     )
-  }
+  })
 
-  nse_funcs$between <- function(x, left, right) {
+  register_translation("between", function(x, left, right) {
     x >= left & x <= right
-  }
+  })
 
-  nse_funcs$is.finite <- function(x) {
+  register_translation("is.finite", function(x) {
     is_fin <- Expression$create("is_finite", x)
     # for compatibility with base::is.finite(), return FALSE for NA_real_
     is_fin & !nse_funcs$is.na(is_fin)
-  }
+  })
 
-  nse_funcs$is.infinite <- function(x) {
+  register_translation("is.infinite", function(x) {
     is_inf <- Expression$create("is_inf", x)
     # for compatibility with base::is.infinite(), return FALSE for NA_real_
     is_inf & !nse_funcs$is.na(is_inf)
-  }
+  })
 
   # as.* type casting functions
   # as.factor() is mapped in expression.R
-  nse_funcs$as.character <- function(x) {
+  register_translation("as.character", function(x) {
     Expression$create("cast", x, options = cast_options(to_type = string()))
-  }
-  nse_funcs$as.double <- function(x) {
+  })
+  register_translation("as.double", function(x) {
     Expression$create("cast", x, options = cast_options(to_type = float64()))
-  }
-  nse_funcs$as.integer <- function(x) {
+  })
+  register_translation("as.integer", function(x) {
     Expression$create(
       "cast",
       x,
@@ -107,8 +107,8 @@ register_type_translations <- function() {
         allow_decimal_truncate = TRUE
       )
     )
-  }
-  nse_funcs$as.integer64 <- function(x) {
+  })
+  register_translation("as.integer64", function(x) {
     Expression$create(
       "cast",
       x,
@@ -118,74 +118,74 @@ register_type_translations <- function() {
         allow_decimal_truncate = TRUE
       )
     )
-  }
-  nse_funcs$as.logical <- function(x) {
+  })
+  register_translation("as.logical", function(x) {
     Expression$create("cast", x, options = cast_options(to_type = boolean()))
-  }
-  nse_funcs$as.numeric <- function(x) {
+  })
+  register_translation("as.numeric", function(x) {
     Expression$create("cast", x, options = cast_options(to_type = float64()))
-  }
+  })
 
   # is.* type functions
-  nse_funcs$is.character <- function(x) {
+  register_translation("is.character", function(x) {
     is.character(x) || (inherits(x, "Expression") &&
                           x$type_id() %in% Type[c("STRING", "LARGE_STRING")])
-  }
-  nse_funcs$is.numeric <- function(x) {
+  })
+  register_translation("is.numeric", function(x) {
     is.numeric(x) || (inherits(x, "Expression") && x$type_id() %in% Type[c(
       "UINT8", "INT8", "UINT16", "INT16", "UINT32", "INT32",
       "UINT64", "INT64", "HALF_FLOAT", "FLOAT", "DOUBLE",
       "DECIMAL128", "DECIMAL256"
     )])
-  }
-  nse_funcs$is.double <- function(x) {
+  })
+  register_translation("is.double", function(x) {
     is.double(x) || (inherits(x, "Expression") && x$type_id() == Type["DOUBLE"])
-  }
-  nse_funcs$is.integer <- function(x) {
+  })
+  register_translation("is.integer", function(x) {
     is.integer(x) || (inherits(x, "Expression") && x$type_id() %in% Type[c(
       "UINT8", "INT8", "UINT16", "INT16", "UINT32", "INT32",
       "UINT64", "INT64"
     )])
-  }
-  nse_funcs$is.integer64 <- function(x) {
+  })
+  register_translation("is.integer64", function(x) {
     inherits(x, "integer64") || (inherits(x, "Expression") && x$type_id() == Type["INT64"])
-  }
-  nse_funcs$is.logical <- function(x) {
+  })
+  register_translation("is.logical", function(x) {
     is.logical(x) || (inherits(x, "Expression") && x$type_id() == Type["BOOL"])
-  }
-  nse_funcs$is.factor <- function(x) {
+  })
+  register_translation("is.factor", function(x) {
     is.factor(x) || (inherits(x, "Expression") && x$type_id() == Type["DICTIONARY"])
-  }
-  nse_funcs$is.list <- function(x) {
+  })
+  register_translation("is.list", function(x) {
     is.list(x) || (inherits(x, "Expression") && x$type_id() %in% Type[c(
       "LIST", "FIXED_SIZE_LIST", "LARGE_LIST"
     )])
-  }
+  })
 
   # rlang::is_* type functions
-  nse_funcs$is_character <- function(x, n = NULL) {
+  register_translation("is_character", function(x, n = NULL) {
     assert_that(is.null(n))
     nse_funcs$is.character(x)
-  }
-  nse_funcs$is_double <- function(x, n = NULL, finite = NULL) {
+  })
+  register_translation("is_double", function(x, n = NULL, finite = NULL) {
     assert_that(is.null(n) && is.null(finite))
     nse_funcs$is.double(x)
-  }
-  nse_funcs$is_integer <- function(x, n = NULL) {
+  })
+  register_translation("is_integer", function(x, n = NULL) {
     assert_that(is.null(n))
     nse_funcs$is.integer(x)
-  }
-  nse_funcs$is_list <- function(x, n = NULL) {
+  })
+  register_translation("is_list", function(x, n = NULL) {
     assert_that(is.null(n))
     nse_funcs$is.list(x)
-  }
-  nse_funcs$is_logical <- function(x, n = NULL) {
+  })
+  register_translation("is_logical", function(x, n = NULL) {
     assert_that(is.null(n))
     nse_funcs$is.logical(x)
-  }
+  })
 
   # Create a data frame/tibble/struct column
-  nse_funcs$tibble <- function(..., .rows = NULL, .name_repair = NULL) {
+  register_translation("tibble", function(..., .rows = NULL, .name_repair = NULL) {
     if (!is.null(.rows)) arrow_not_supported(".rows")
     if (!is.null(.name_repair)) arrow_not_supported(".name_repair")
 
@@ -202,9 +202,9 @@ register_type_translations <- function() {
       args = unname(args),
       options = list(field_names = names(args))
     )
-  }
+  })
 
-  nse_funcs$data.frame <- function(..., row.names = NULL,
+  register_translation("data.frame", function(..., row.names = NULL,
                                    check.rows = NULL, check.names = TRUE, fix.empty.names = TRUE,
                                    stringsAsFactors = FALSE) {
     # we need a specific value of stringsAsFactors because the default was
@@ -236,5 +236,5 @@ register_type_translations <- function() {
       args = unname(args),
       options = list(field_names = names(args))
     )
-  }
+  })
 }
