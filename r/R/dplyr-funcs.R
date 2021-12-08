@@ -84,10 +84,13 @@ translation_registry_agg <- function() {
   agg_funcs
 }
 
-# Supports a few functions that used nse_funcs$fun_name() to call
-# previously-defined translations.
+# Supports functions and tests that call previously-defined translations.
 call_translation <- function(fun_name, ...) {
   nse_funcs[[fun_name]](...)
+}
+
+call_translation_agg <- function(fun_name, ...) {
+  agg_funcs[[fun_name]](...)
 }
 
 # Called in .onLoad()
