@@ -1005,7 +1005,7 @@ cdef class Array(_PandasConvertible):
         type_format = object.__repr__(self)
         return '{0}\n{1}'.format(type_format, str(self))
 
-    def to_string(self, *, int indent=0, int top_level_indent=0, int window=10,
+    def to_string(self, *, int indent=2, int top_level_indent=0, int window=10,
                   c_bool skip_new_lines=False):
         """
         Render a "pretty-printed" string representation of the Array.
@@ -1014,7 +1014,7 @@ cdef class Array(_PandasConvertible):
         ----------
         indent : int
             How much to indent the internal items in the string to 
-            the right, by default ``0``.
+            the right, by default ``2``.
         top_level_indent : int
             How much to indent right the entire content of the array,
             by default ``0``. 
@@ -1033,8 +1033,7 @@ cdef class Array(_PandasConvertible):
         with nogil:
             options = PrettyPrintOptions(top_level_indent, window)
             options.skip_new_lines = skip_new_lines
-            if indent is not 0:
-                options.indent_size = indent
+            options.indent_size = indent
             check_status(
                 PrettyPrint(
                     deref(self.ap),

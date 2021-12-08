@@ -112,7 +112,7 @@ def test_indented_string_format():
     arr = pa.array(['', None, 'foo'])
     result = arr.to_string(indent=1)
     expected = '[\n "",\n null,\n "foo"\n]'
-         
+
     assert result == expected
 
 
