@@ -1,0 +1,224 @@
+
+register_type_translations <- function() {
+
+  nse_funcs$cast <- function(x, target_type, safe = TRUE, ...) {
+    opts <- cast_options(safe, ...)
+    opts$to_type <- as_type(target_type)
+    Expression$create("cast", x, options = opts)
+  }
+
+  nse_funcs$is.na <- function(x) {
+    build_expr("is_null", x, options = list(nan_is_null = TRUE))
+  }
+
+  nse_funcs$is.nan <- function(x) {
+    if (is.double(x) || (inherits(x, "Expression") &&
+                         x$type_id() %in% TYPES_WITH_NAN)) {
+      # TODO: if an option is added to the is_nan kernel to treat NA as NaN,
+      # use that to simplify the code here (ARROW-13366)
+      build_expr("is_nan", x) & build_expr("is_valid", x)
+    } else {
+      Expression$scalar(FALSE)
+    }
+  }
+
+  nse_funcs$is <- function(object, class2) {
+    if (is.string(class2)) {
+      switch(class2,
+             # for R data types, pass off to is.*() functions
+             character = nse_funcs$is.character(object),
+             numeric = nse_funcs$is.numeric(object),
+             integer = nse_funcs$is.integer(object),
+             integer64 = nse_funcs$is.integer64(object),
+             logical = nse_funcs$is.logical(object),
+             factor = nse_funcs$is.factor(object),
+             list = nse_funcs$is.list(object),
+             # for Arrow data types, compare class2 with object$type()$ToString(),
+             # but first strip off any parameters to only compare the top-level data
+             # type,  and canonicalize class2
+             sub("^([^([<]+).*$", "\\1", object$type()$ToString()) ==
+               canonical_type_str(class2)
+      )
+    } else if (inherits(class2, "DataType")) {
+      object$type() == as_type(class2)
+    } else {
+      stop("Second argument to is() is not a string or DataType", call. = FALSE)
+    }
+  }
+
+  nse_funcs$dictionary_encode <- function(x,
+                                          null_encoding_behavior = c("mask", "encode")) {
+    behavior <- toupper(match.arg(null_encoding_behavior))
+    null_encoding_behavior <- NullEncodingBehavior[[behavior]]
+    Expression$create(
+      "dictionary_encode",
+      x,
+      options = list(null_encoding_behavior = null_encoding_behavior)
+    )
+  }
+
+  nse_funcs$between <- function(x, left, right) {
+    x >= left & x <= right
+  }
+
+  nse_funcs$is.finite <- function(x) {
+    is_fin <- Expression$create("is_finite", x)
+    # for compatibility with base::is.finite(), return FALSE for NA_real_
+    is_fin & !nse_funcs$is.na(is_fin)
+  }
+
+  nse_funcs$is.infinite <- function(x) {
+    is_inf <- Expression$create("is_inf", x)
+    # for compatibility with base::is.infinite(), return FALSE for NA_real_
+    is_inf & !nse_funcs$is.na(is_inf)
+  }
+
+  # as.* type casting functions
+  # as.factor() is mapped in expression.R
+  nse_funcs$as.character <- function(x) {
+    Expression$create("cast", x, options = cast_options(to_type = string()))
+  }
+  nse_funcs$as.double <- function(x) {
+    Expression$create("cast", x, options = cast_options(to_type = float64()))
+  }
+  nse_funcs$as.integer <- function(x) {
+    Expression$create(
+      "cast",
+      x,
+      options = cast_options(
+        to_type = int32(),
+        allow_float_truncate = TRUE,
+        allow_decimal_truncate = TRUE
+      )
+    )
+  }
+  nse_funcs$as.integer64 <- function(x) {
+    Expression$create(
+      "cast",
+      x,
+      options = cast_options(
+        to_type = int64(),
+        allow_float_truncate = TRUE,
+        allow_decimal_truncate = TRUE
+      )
+    )
+  }
+  nse_funcs$as.logical <- function(x) {
+    Expression$create("cast", x, options = cast_options(to_type = boolean()))
+  }
+  nse_funcs$as.numeric <- function(x) {
+    Expression$create("cast", x, options = cast_options(to_type = float64()))
+  }
+
+  # is.* type functions
+  nse_funcs$is.character <- function(x) {
+    is.character(x) || (inherits(x, "Expression") &&
+                          x$type_id() %in% Type[c("STRING", "LARGE_STRING")])
+  }
+  nse_funcs$is.numeric <- function(x) {
+    is.numeric(x) || (inherits(x, "Expression") && x$type_id() %in% Type[c(
+      "UINT8", "INT8", "UINT16", "INT16", "UINT32", "INT32",
+      "UINT64", "INT64", "HALF_FLOAT", "FLOAT", "DOUBLE",
+      "DECIMAL128", "DECIMAL256"
+    )])
+  }
+  nse_funcs$is.double <- function(x) {
+    is.double(x) || (inherits(x, "Expression") && x$type_id() == Type["DOUBLE"])
+  }
+  nse_funcs$is.integer <- function(x) {
+    is.integer(x) || (inherits(x, "Expression") && x$type_id() %in% Type[c(
+      "UINT8", "INT8", "UINT16", "INT16", "UINT32", "INT32",
+      "UINT64", "INT64"
+    )])
+  }
+  nse_funcs$is.integer64 <- function(x) {
+    is.integer64(x) || (inherits(x, "Expression") && x$type_id() == Type["INT64"])
+  }
+  nse_funcs$is.logical <- function(x) {
+    is.logical(x) || (inherits(x, "Expression") && x$type_id() == Type["BOOL"])
+  }
+  nse_funcs$is.factor <- function(x) {
+    is.factor(x) || (inherits(x, "Expression") && x$type_id() == Type["DICTIONARY"])
+  }
+  nse_funcs$is.list <- function(x) {
+    is.list(x) || (inherits(x, "Expression") && x$type_id() %in% Type[c(
+      "LIST", "FIXED_SIZE_LIST", "LARGE_LIST"
+    )])
+  }
+
+  # rlang::is_* type functions
+  nse_funcs$is_character <- function(x, n = NULL) {
+    assert_that(is.null(n))
+    nse_funcs$is.character(x)
+  }
+  nse_funcs$is_double <- function(x, n = NULL, finite = NULL) {
+    assert_that(is.null(n) && is.null(finite))
+    nse_funcs$is.double(x)
+  }
+  nse_funcs$is_integer <- function(x, n = NULL) {
+    assert_that(is.null(n))
+    nse_funcs$is.integer(x)
+  }
+  nse_funcs$is_list <- function(x, n = NULL) {
+    assert_that(is.null(n))
+    nse_funcs$is.list(x)
+  }
+  nse_funcs$is_logical <- function(x, n = NULL) {
+    assert_that(is.null(n))
+    nse_funcs$is.logical(x)
+  }
+
+  # Create a data frame/tibble/struct column
+  nse_funcs$tibble <- function(..., .rows = NULL, .name_repair = NULL) {
+    if (!is.null(.rows)) arrow_not_supported(".rows")
+    if (!is.null(.name_repair)) arrow_not_supported(".name_repair")
+
+    # use dots_list() because this is what tibble() uses to allow the
+    # useful shorthand of tibble(col1, col2) -> tibble(col1 = col1, col2 = col2)
+    # we have a stronger enforcement of unique names for arguments because
+    # it is difficult to replicate the .name_repair semantics and expanding of
+    # unnamed data frame arguments in the same way that the tibble() constructor
+    # does.
+    args <- rlang::dots_list(..., .named = TRUE, .homonyms = "error")
+
+    build_expr(
+      "make_struct",
+      args = unname(args),
+      options = list(field_names = names(args))
+    )
+  }
+
+  nse_funcs$data.frame <- function(..., row.names = NULL,
+                                   check.rows = NULL, check.names = TRUE, fix.empty.names = TRUE,
+                                   stringsAsFactors = FALSE) {
+    # we need a specific value of stringsAsFactors because the default was
+    # TRUE in R <= 3.6
+    if (!identical(stringsAsFactors, FALSE)) {
+      arrow_not_supported("stringsAsFactors = TRUE")
+    }
+
+    # ignore row.names and check.rows with a warning
+    if (!is.null(row.names)) arrow_not_supported("row.names")
+    if (!is.null(check.rows)) arrow_not_supported("check.rows")
+
+    args <- rlang::dots_list(..., .named = fix.empty.names)
+    if (is.null(names(args))) {
+      names(args) <- rep("", length(args))
+    }
+
+    if (identical(check.names, TRUE)) {
+      if (identical(fix.empty.names, TRUE)) {
+        names(args) <- make.names(names(args), unique = TRUE)
+      } else {
+        name_emtpy <- names(args) == ""
+        names(args)[!name_emtpy] <- make.names(names(args)[!name_emtpy], unique = TRUE)
+      }
+    }
+
+    build_expr(
+      "make_struct",
+      args = unname(args),
+      options = list(field_names = names(args))
+    )
+  }
+}
