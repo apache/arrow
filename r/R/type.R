@@ -205,7 +205,7 @@ NestedType <- R6Class("NestedType", inherit = DataType)
 #' is sufficient, and it will result in a more compact and more efficient encoding.
 #'
 #' #' `decimal()` creates either a `Decimal128Type` or a `Decimal256Type`
-#' depending on the `precision` value. If the `precision` is greater than 38 a
+#' depending on the `precision` value. If `precision` is greater than 38 a
 #' `Decimal256Type` is returned, otherwise a `Decimal128Type`.
 #'
 #' Use `decimal128()` or `decimal256()` as the names are more informative than
@@ -418,14 +418,14 @@ check_decimal_args <- function(precision, scale) {
     precision <- vec_cast(precision, to = integer())
     vctrs::vec_assert(precision, size = 1L)
   } else {
-    stop('`precision` must be an integer', call. = FALSE)
+    stop("`precision` must be an integer", call. = FALSE)
   }
 
   if (is.numeric(scale)) {
     scale <- vec_cast(scale, to = integer())
     vctrs::vec_assert(scale, size = 1L)
   } else {
-    stop('`scale` must be an integer', call. = FALSE)
+    stop("`scale` must be an integer", call. = FALSE)
   }
 
   list(precision = precision, scale = scale)
