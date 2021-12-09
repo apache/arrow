@@ -160,7 +160,7 @@ test_that("Pointer wrapper accepts double-casted pointers", {
   exportable$export_to_c(external_pointer_addr_double(ptr))
 
   # make sure exportable is released and deleted
-  expect_equal(DataType$import_from_c(ptr), int32())
+  expect_equal(DataType$import_from_c(external_pointer_addr_double(ptr)), int32())
   delete_arrow_schema(ptr)
 })
 
@@ -170,7 +170,7 @@ test_that("Pointer wrapper accepts integer64-casted pointers", {
   exportable$export_to_c(external_pointer_addr_integer64(ptr))
 
   # make sure exportable is released and deleted
-  expect_equal(DataType$import_from_c(ptr), int32())
+  expect_equal(DataType$import_from_c(external_pointer_addr_integer64(ptr)), int32())
   delete_arrow_schema(ptr)
 })
 
@@ -180,7 +180,7 @@ test_that("Pointer wrapper accepts raw representation of pointers", {
   exportable$export_to_c(external_pointer_addr_raw(ptr))
 
   # make sure exportable is released and deleted
-  expect_equal(DataType$import_from_c(ptr), int32())
+  expect_equal(DataType$import_from_c(external_pointer_addr_raw(ptr)), int32())
   delete_arrow_schema(ptr)
 })
 
@@ -190,7 +190,7 @@ test_that("Pointer wrapper accepts character representation of pointers", {
   exportable$export_to_c(external_pointer_addr_character(ptr))
 
   # make sure exportable is released and deleted
-  expect_equal(DataType$import_from_c(ptr), int32())
+  expect_equal(DataType$import_from_c(external_pointer_addr_character(ptr)), int32())
   delete_arrow_schema(ptr)
 })
 
