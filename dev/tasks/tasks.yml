@@ -43,7 +43,6 @@ groups:
 
   linux-arm64:
     - almalinux-*-arm64
-    - centos-*-arm64
     - debian-*-arm64
     - ubuntu-*-arm64
 
