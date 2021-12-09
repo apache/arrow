@@ -460,8 +460,7 @@ test_that("map_batches", {
     ds %>%
       filter(int > 5) %>%
       select(int, lgl) %>%
-      map_batches(~ summarize(., min_int = min(int))) %>%
-      arrange(min_int),
+      map_batches(~ summarize(., min_int = min(int))),
     tibble(min_int = c(6L, 101L))
   )
 
@@ -471,7 +470,7 @@ test_that("map_batches", {
       filter(int > 5) %>%
       select(int, lgl) %>%
       map_batches(~ .$num_rows, .data.frame = FALSE),
-    list(5, 10) # TODO: Don't test order
+    list(5, 10)
   )
 
   # $Take returns RecordBatch
@@ -479,8 +478,7 @@ test_that("map_batches", {
     ds %>%
       filter(int > 5) %>%
       select(int, lgl) %>%
-      map_batches(~ .$Take(0)) %>%
-      arrange(int),
+      map_batches(~ .$Take(0)),
     tibble(int=c(6, 101), lgl=c(TRUE, TRUE))
   )
 })
