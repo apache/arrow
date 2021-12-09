@@ -295,7 +295,7 @@ test_that("open_dataset() deals with BOMs (byte-order-marks) correctly", {
   writeLines("\xef\xbb\xbfa,b\n3,4\n", con = file.path(temp_dir, "file2.csv"))
 
   expect_equal(
-    open_dataset(temp_dir, format = "csv") %>% collect(),
+    open_dataset(temp_dir, format = "csv") %>% collect() %>% arrange(b),
     tibble(a = c(1, 3), b = c(2, 4))
   )
 })
