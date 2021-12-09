@@ -28,6 +28,7 @@
 #include "arrow/record_batch.h"
 #include "arrow/result_internal.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/matchers.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/optional.h"
@@ -241,9 +242,12 @@ TEST_P(TestWriteCSV, TestWrite) {
   WriteOptions options = GetParam().options;
   std::string csv;
   auto record_batch = RecordBatchFromJSON(GetParam().schema, GetParam().batch_data);
-  if (GetParam().expected_status != Status::OK()) {
-    // If an error status is expected, check if the expected status matches.
-    EXPECT_EQ(ToCsvString(*record_batch, options), GetParam().expected_status);
+  if (!GetParam().expected_status.ok()) {
+    // If an error status is expected, check if the expected status code and message
+    // matches.
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr(GetParam().expected_status.message()),
+        ToCsvString(*record_batch, options));
   } else {
     ASSERT_OK_AND_ASSIGN(csv, ToCsvString(*record_batch, options));
     EXPECT_EQ(csv, GetParam().expected_output);
