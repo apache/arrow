@@ -1012,7 +1012,7 @@ cdef class Array(_PandasConvertible):
 
         Parameters
         ----------
-        indent : int
+        indent : int, default 2
             How much to indent the internal items in the string to 
             the right, by default ``2``.
         top_level_indent : int
