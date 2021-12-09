@@ -113,6 +113,8 @@ a_and_b
 
 Now you have a single `Array` in R.
 
+## How this works
+
 "Send", however, isn't the correct word. Internally, we're passing pointers to
 the data between the R and Python interpreters running together in the same
 process, without copying anything. Nothing is being sent: we're sharing and
