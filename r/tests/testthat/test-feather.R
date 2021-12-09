@@ -235,8 +235,8 @@ test_that("Error messages are shown when the compression algorithm lz4 is not fo
   msg <- paste0(
     ".*",
     "you will need to reinstall arrow with additional features enabled.\nSet one of ",
-    "these environment variables before installing:\n\n \\* LIBARROW_MINIMAL=false ",
-    "\\(for all optional features, including 'lz4'\\)\n \\* ARROW_WITH_LZ4=ON \\(for just 'lz4'\\)",
+    "these environment variables before installing:\n\n \\* Sys.setenv(LIBARROW_MINIMAL = \"false\") ",
+    "\\(for all optional features, including 'lz4'\\)\n \\* Sys.setenv(ARROW_WITH_LZ4 = \"ON\") \\(for just 'lz4'\\)",
     "\n\nSee https://arrow.apache.org/docs/r/articles/install.html for details"
   )
 
