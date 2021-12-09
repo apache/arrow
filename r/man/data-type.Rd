@@ -182,7 +182,7 @@ precision. For most use cases, the maximum precision offered by \code{Decimal128
 is sufficient, and it will result in a more compact and more efficient encoding.
 
 #' \code{decimal()} creates either a \code{Decimal128Type} or a \code{Decimal256Type}
-depending on the \code{precision} value. If \code{precision} is greater than 38 a
+depending on the value for \code{precision}. If \code{precision} is greater than 38 a
 \code{Decimal256Type} is returned, otherwise a \code{Decimal128Type}.
 
 Use \code{decimal128()} or \code{decimal256()} as the names are more informative than

@@ -205,7 +205,7 @@ NestedType <- R6Class("NestedType", inherit = DataType)
 #' is sufficient, and it will result in a more compact and more efficient encoding.
 #'
 #' #' `decimal()` creates either a `Decimal128Type` or a `Decimal256Type`
-#' depending on the `precision` value. If `precision` is greater than 38 a
+#' depending on the value for `precision`. If `precision` is greater than 38 a
 #' `Decimal256Type` is returned, otherwise a `Decimal128Type`.
 #'
 #' Use `decimal128()` or `decimal256()` as the names are more informative than
