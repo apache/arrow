@@ -69,7 +69,7 @@ struct Pointer {
 
       const char* input_chars = CHAR(char0);
       char* endptr;
-      uint64_t ptr_value = strtoll(input_chars, &endptr, 0);
+      uint64_t ptr_value = strtoull(input_chars, &endptr, 0);
       if (endptr != (input_chars + strlen(input_chars))) {
         cpp11::stop("Can't parse '%s' as a 64-bit integer address", input_chars);
       }

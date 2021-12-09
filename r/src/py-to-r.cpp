@@ -32,10 +32,7 @@ double external_pointer_addr_double(SEXP external_pointer) {
 std::string external_pointer_addr_character(SEXP external_pointer) {
   void* ptr_void = R_ExternalPtrAddr(external_pointer);
   uint64_t ptr_int64 = reinterpret_cast<uintptr_t>(ptr_void);
-  char ptr_chars[128];
-  memset(ptr_chars, 0, 128);
-  int nchar = sprintf(ptr_chars, "%llu", ptr_int64);
-  return std::string(ptr_chars, nchar);
+  return std::to_string(ptr_int64);
 }
 
 // [[arrow::export]]
