@@ -600,10 +600,12 @@ if (!file.exists(paste0(dst_dir, "/include/arrow/api.h"))) {
     # (2) Find source and build it
     src_dir <- find_local_source()
     if (!is.null(src_dir)) {
-      cat("*** Building libarrow\n")
-      cat("*** For a faster installation, set the environment variable LIBARROW_BINARY=true before installing\n")
-      cat("*** Not all features are enabled by default.")
-      cat("    For a fully-featured installation, set the environment variable LIBARROW_MINIMAL=false before installing\n")
+      cat(paste0(
+      "*** Building libarrow from source\n",
+      "    For a faster more complete installation, set the environment variable NOT_CRAN=true before installing\n",
+      "    See install vignette for details:\n",
+      "    https://cran.r-project.org/web/packages/arrow/vignettes/install.html\n"
+      ))
       build_libarrow(src_dir, dst_dir)
     } else {
       cat("*** Proceeding without libarrow\n")
