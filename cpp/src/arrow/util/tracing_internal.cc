@@ -25,12 +25,12 @@
 #pragma warning(push)
 #pragma warning(disable : 4522)
 #endif
+#include <opentelemetry/exporters/ostream/span_exporter.h>
 #include <opentelemetry/exporters/otlp/otlp_http_exporter.h>
 #include <opentelemetry/sdk/trace/batch_span_processor.h>
 #include <opentelemetry/sdk/trace/recordable.h>
 #include <opentelemetry/sdk/trace/span_data.h>
 #include <opentelemetry/sdk/trace/tracer_provider.h>
-#include <opentelemetry/trace/noop.h>
 #include <opentelemetry/trace/provider.h>
 #ifdef _MSC_VER
 #pragma warning(pop)
@@ -68,15 +68,12 @@ std::unique_ptr<sdktrace::SpanExporter> InitializeExporter() {
   auto maybe_env_var = arrow::internal::GetEnvVar(kTracingBackendEnvVar);
   if (maybe_env_var.ok()) {
     auto env_var = maybe_env_var.ValueOrDie();
-    if (env_var == "otlp_http") {
-#ifdef ARROW_WITH_OPENTELEMETRY
+    if (env_var == "ostream") {
+      return arrow::internal::make_unique<otel::exporter::trace::OStreamSpanExporter>();
+    } else if (env_var == "otlp_http") {
       namespace otlp = opentelemetry::exporter::otlp;
       otlp::OtlpHttpExporterOptions opts;
       return arrow::internal::make_unique<otlp::OtlpHttpExporter>(opts);
-#else
-      ARROW_LOG(WARNING) << "Requested " << kTracingBackendEnvVar << "=" < < < < env_var
-          " but Arrow was not built with ARROW_WITH_OPENTELEMETRY";
-#endif
     } else if (!env_var.empty()) {
       ARROW_LOG(WARNING) << "Requested unknown backend " << kTracingBackendEnvVar << "="
                          << env_var;
