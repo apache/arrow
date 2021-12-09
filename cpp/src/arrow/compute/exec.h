@@ -29,6 +29,7 @@
 
 #include "arrow/array/data.h"
 #include "arrow/compute/exec/expression.h"
+#include "arrow/compute/memory_resources.h"
 #include "arrow/datum.h"
 #include "arrow/memory_pool.h"
 #include "arrow/result.h"
@@ -62,7 +63,8 @@ class ARROW_EXPORT ExecContext {
   // If no function registry passed, the default is used.
   explicit ExecContext(MemoryPool* pool = default_memory_pool(),
                        ::arrow::internal::Executor* executor = NULLPTR,
-                       FunctionRegistry* func_registry = NULLPTR);
+                       FunctionRegistry* func_registry = NULLPTR,
+                       MemoryResources* memory_resources = NULLPTR);
 
   /// \brief The MemoryPool used for allocations, default is
   /// default_memory_pool().
@@ -77,6 +79,11 @@ class ARROW_EXPORT ExecContext {
   /// selecting kernels for execution. Defaults to the library-global function
   /// registry provided by GetFunctionRegistry.
   FunctionRegistry* func_registry() const { return func_registry_; }
+
+  /// \brief The MemoryResources for looking up memory resources by memory level
+  /// and getting data holders to enable out of core processing. Defaults to the
+  /// instance provided by GetMemoryResources.
+  MemoryResources* memory_resources() const { return memory_resources_; }
 
   // \brief Set maximum length unit of work for kernel execution. Larger
   // contiguous array inputs will be split into smaller chunks, and, if
@@ -124,6 +131,7 @@ class ARROW_EXPORT ExecContext {
   int64_t exec_chunksize_ = std::numeric_limits<int64_t>::max();
   bool preallocate_contiguous_ = true;
   bool use_threads_ = true;
+  MemoryResources* memory_resources_;
 };
 
 ARROW_EXPORT ExecContext* default_exec_context();

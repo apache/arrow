@@ -277,6 +277,26 @@ struct OrderBySinkNode final : public SinkNode {
   void InputReceived(ExecNode* input, ExecBatch batch) override {
     DCHECK_EQ(input, inputs_[0]);
 
+    auto resources = plan()->exec_context()->memory_resources();
+    auto resource = resources->memory_resource(MemoryLevel::kCpuLevel);
+    if (ErrorIfNotOk(resource.status())) {
+      StopProducing();
+      if (input_counter_.Cancel()) {
+        finished_.MarkFinished(resource.status());
+      }
+      return;
+    }
+
+    auto memory_resource = resource.ValueUnsafe();
+    auto memory_used = memory_resource->memory_used();
+    if (memory_used >= memory_resource->memory_limit()) {
+      StopProducing();
+      if (input_counter_.Cancel()) {
+        finished_.MarkFinished(Status::Invalid("Not enough memory resources"));
+      }
+      return;
+    }
+
     auto maybe_batch = batch.ToRecordBatch(inputs_[0]->output_schema(),
                                            plan()->exec_context()->memory_pool());
     if (ErrorIfNotOk(maybe_batch.status())) {

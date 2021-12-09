@@ -400,6 +400,7 @@ if(ARROW_COMPUTE)
        compute/function_internal.cc
        compute/kernel.cc
        compute/registry.cc
+       compute/memory_resources.cc
        compute/kernels/aggregate_basic.cc
        compute/kernels/aggregate_mode.cc
        compute/kernels/aggregate_quantile.cc
