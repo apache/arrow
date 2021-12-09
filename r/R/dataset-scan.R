@@ -183,13 +183,15 @@ ScanTask <- R6Class("ScanTask",
 #' `data.frame`? Default `TRUE`
 #' @export
 map_batches <- function(X, FUN, ..., .data.frame = TRUE) {
-  scanner <- Scanner$create(ensure_group_vars(X))
+  # TODO: possibly refactor do_exec_plan to return a RecordBatchReader
+  plan <- ExecPlan$create()
+  final_node <- plan$Build(X)
+  reader <- plan$Run(final_node)
   FUN <- as_mapper(FUN)
 
   #   # TODO: wrap batch in arrow_dplyr_query with X$selected_columns,
   #   # X$temp_columns, and X$group_by_vars
   #   # if X is arrow_dplyr_query, if some other arg (.dplyr?) == TRUE
-  reader <- scanner$ToRecordBatchReader()
   batch <- reader$read_next_batch()
   res <- list()
   while (!is.null(batch)) {
