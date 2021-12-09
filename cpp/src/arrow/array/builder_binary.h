@@ -51,10 +51,12 @@ class BaseBinaryBuilder : public ArrayBuilder {
   using offset_type = typename TypeClass::offset_type;
 
   explicit BaseBinaryBuilder(MemoryPool* pool = default_memory_pool())
-      : ArrayBuilder(pool), offsets_builder_(pool), value_data_builder_(pool) {}
+      : ArrayBuilder(pool), offsets_builder_(pool),
+        value_data_builder_(pool), type_(binary()) {}
 
   BaseBinaryBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool)
-      : BaseBinaryBuilder(pool) {}
+      : ArrayBuilder(pool), offsets_builder_(pool),
+        value_data_builder_(pool), type_(type) {}
 
   Status Append(const uint8_t* value, offset_type length) {
     ARROW_RETURN_NOT_OK(Reserve(1));
@@ -377,9 +379,12 @@ class BaseBinaryBuilder : public ArrayBuilder {
     return std::numeric_limits<offset_type>::max() - 1;
   }
 
+  std::shared_ptr<DataType> type() const override { return type_; }
+
  protected:
   TypedBufferBuilder<offset_type> offsets_builder_;
   TypedBufferBuilder<uint8_t> value_data_builder_;
+  std::shared_ptr<DataType> type_;
 
   Status AppendNextOffset() {
     const int64_t num_bytes = value_data_builder_.length();
@@ -396,52 +401,62 @@ class BaseBinaryBuilder : public ArrayBuilder {
 /// \brief Builder class for variable-length binary data
 class ARROW_EXPORT BinaryBuilder : public BaseBinaryBuilder<BinaryType> {
  public:
-  using BaseBinaryBuilder::BaseBinaryBuilder;
+  explicit BinaryBuilder(MemoryPool* pool = default_memory_pool())
+      : BaseBinaryBuilder(binary(), pool) {}
+
+  BinaryBuilder(const std::shared_ptr<DataType> &type, MemoryPool *pool)
+      : BaseBinaryBuilder(type, pool) {}
 
   /// \cond FALSE
   using ArrayBuilder::Finish;
   /// \endcond
 
   Status Finish(std::shared_ptr<BinaryArray>* out) { return FinishTyped(out); }
-
-  std::shared_ptr<DataType> type() const override { return binary(); }
 };
 
 /// \class StringBuilder
 /// \brief Builder class for UTF8 strings
 class ARROW_EXPORT StringBuilder : public BinaryBuilder {
  public:
-  using BinaryBuilder::BinaryBuilder;
+  explicit StringBuilder(MemoryPool* pool = default_memory_pool())
+      : BinaryBuilder(utf8(), pool) {}
+
+  StringBuilder(const std::shared_ptr<DataType> &type, MemoryPool *pool)
+      : BinaryBuilder(type, pool) {}
 
   /// \cond FALSE
   using ArrayBuilder::Finish;
   /// \endcond
 
   Status Finish(std::shared_ptr<StringArray>* out) { return FinishTyped(out); }
-
-  std::shared_ptr<DataType> type() const override { return utf8(); }
 };
 
 /// \class LargeBinaryBuilder
 /// \brief Builder class for large variable-length binary data
 class ARROW_EXPORT LargeBinaryBuilder : public BaseBinaryBuilder<LargeBinaryType> {
  public:
-  using BaseBinaryBuilder::BaseBinaryBuilder;
+  explicit LargeBinaryBuilder(MemoryPool* pool = default_memory_pool())
+      : BaseBinaryBuilder(large_binary(), pool) {}
+
+  LargeBinaryBuilder(const std::shared_ptr<DataType> &type, MemoryPool *pool)
+      : BaseBinaryBuilder(type, pool) {}
 
   /// \cond FALSE
   using ArrayBuilder::Finish;
   /// \endcond
 
   Status Finish(std::shared_ptr<LargeBinaryArray>* out) { return FinishTyped(out); }
-
-  std::shared_ptr<DataType> type() const override { return large_binary(); }
 };
 
 /// \class LargeStringBuilder
 /// \brief Builder class for large UTF8 strings
 class ARROW_EXPORT LargeStringBuilder : public LargeBinaryBuilder {
  public:
-  using LargeBinaryBuilder::LargeBinaryBuilder;
+  explicit LargeStringBuilder(MemoryPool* pool = default_memory_pool())
+     : LargeBinaryBuilder(large_utf8(), pool) {}
+
+  LargeStringBuilder(const std::shared_ptr<DataType> &type, MemoryPool *pool)
+     : LargeBinaryBuilder(type, pool) {}
 
   /// \cond FALSE
   using ArrayBuilder::Finish;
