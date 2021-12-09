@@ -129,6 +129,6 @@ Collate:
 Config/Needs/website:
     pkgdown
 Config/Needs/dev:
-    r-lib/roxygen2
-    r-lib/lintr
+    r-lib/roxygen2,
+    r-lib/lintr,
     r-lib/styler
