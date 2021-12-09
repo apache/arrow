@@ -37,13 +37,13 @@ create a **Pull Request** against the official Arrow repository
 which is saved in your set up as ``upstream``.
 
 You should have Git set up by now, have cloned the repository,
-have successfully built Arrow and have an JIRA issue to work on.
+have successfully built Arrow and have a JIRA issue to work on.
 
 **Before making changes to the code, you should create a new
 branch in Git.**
 
 1. Update/sync the code from your ``upstream``
-   in the master branch. Run it in the shell from ``arrow`` directory.
+   in the master branch. Run it in the shell from the ``arrow`` directory.
 
    .. code:: console
 
@@ -52,7 +52,7 @@ branch in Git.**
       $ git pull --ff-only upstream master # save the changes from upstream/master
 
    Note: ``--ff-only`` applies changes only if they can be fast-forwarded
-   without creating new commits.
+   without conficts or creating merge commits.
 
 2. Create a new branch
 
@@ -85,14 +85,14 @@ and linters and then go ahead and commit the changes.
    .. code:: console
          
       $ git add <filenames>
-      $ git commit -m '<message>'
+      $ git commit -m "<message>"
 
    Alternatively, you can add and commit in one step, if all the files changed
-   are to be committed
+   are to be committed (-a to add all, -m for message)
    
    .. code:: console      
 
-      $ git commit -a -m '<message>'
+      $ git commit -am "<message>"
 
 4. Then push your work to your Arrow fork
 
@@ -174,14 +174,14 @@ You can resolve a conversion in a Pull Request review by clicking
 conversation will be collapsed and marked as resolved which will make it
 easier for you to organize what is done and what still needs to be addressed.
 
-After getting a review
-----------------------
+Updating your Pull Request
+--------------------------
 
 The procedure after getting reviews is similar to creating the initial Pull Request.
 You need to update your code locally, make a commit, update the branch to sync
 it with upstream (or origin if there were commits from other developers or if you 
 committed suggestions from the GitHub) and push your code to origin. It will
-automatically be updated in you Pull Request also.
+automatically be updated in your Pull Request as well.
 
 .. seealso::
 
