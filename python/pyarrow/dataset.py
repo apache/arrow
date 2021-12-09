@@ -736,7 +736,8 @@ def _ensure_write_partitioning(part, schema, flavor):
 def write_dataset(data, base_dir, basename_template=None, format=None,
                   partitioning=None, partitioning_flavor=None, schema=None,
                   filesystem=None, file_options=None, use_threads=True,
-                  max_partitions=None, max_open_files=None, max_rows_per_file=None,
+                  max_partitions=None, max_open_files=None,
+                  max_rows_per_file=None,
                   file_visitor=None, existing_data_behavior='error'):
     """
     Write a dataset to a given format and partitioning.
@@ -856,7 +857,7 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
 
     if max_partitions is None:
         max_partitions = 1024
-    
+
     if max_open_files is None:
         max_open_files = 1024
 
