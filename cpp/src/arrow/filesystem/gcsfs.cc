@@ -354,10 +354,7 @@ class GcsFileSystem::Impl {
 
   Status DeleteDirContents(const GcsPath& p, const io::IOContext& io_context) {
     // Deleting large directories can be fairly slow, we need to parallelize the
-    // operation. This uses `std::async()` to run multiple delete operations in parallel.
-    // A simple form of flow control limits the number of operations running in
-    // parallel.
-
+    // operation.
     auto async_delete =
         [&p, this](const google::cloud::StatusOr<gcs::ObjectMetadata>& o) -> Status {
       if (!o) return internal::ToArrowStatus(o.status());
@@ -370,7 +367,7 @@ class GcsFileSystem::Impl {
     std::vector<Future<>> submitted;
     // This iterates over all the objects, and schedules parallel deletes.
     auto prefix = p.object.empty() ? gcs::Prefix() : gcs::Prefix(p.object);
-    for (auto& o : client_.ListObjects(p.bucket, prefix)) {
+    for (const auto& o : client_.ListObjects(p.bucket, prefix)) {
       submitted.push_back(DeferNotOk(io_context.executor()->Submit(async_delete, o)));
     }
 
