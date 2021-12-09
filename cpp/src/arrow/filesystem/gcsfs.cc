@@ -359,36 +359,22 @@ class GcsFileSystem::Impl {
     // parallel.
 
     auto async_delete =
-        [&p](gcs::Client& client,
-             google::cloud::StatusOr<gcs::ObjectMetadata> o) -> google::cloud::Status {
-      if (!o) return std::move(o).status();
+        [&p, this](const google::cloud::StatusOr<gcs::ObjectMetadata>& o) -> Status {
+      if (!o) return internal::ToArrowStatus(o.status());
       // The list includes the directory, skip it. DeleteDir() takes care of it.
       if (o->bucket() == p.bucket && o->name() == p.object) return {};
-      return client.DeleteObject(o->bucket(), o->name(),
-                                 gcs::Generation(o->generation()));
+      return internal::ToArrowStatus(
+          client_.DeleteObject(o->bucket(), o->name(), gcs::Generation(o->generation())));
     };
 
-    using Future = arrow::Future<google::cloud::Status>;
-    std::vector<Result<Future>> submitted;
+    std::vector<Future<>> submitted;
     // This iterates over all the objects, and schedules parallel deletes.
     auto prefix = p.object.empty() ? gcs::Prefix() : gcs::Prefix(p.object);
     for (auto& o : client_.ListObjects(p.bucket, prefix)) {
-      submitted.push_back(
-          io_context.executor()->Submit(async_delete, std::ref(client_), std::move(o)));
+      submitted.push_back(DeferNotOk(io_context.executor()->Submit(async_delete, o)));
     }
 
-    std::vector<Status> results(submitted.size());
-    std::transform(submitted.begin(), submitted.end(), results.begin(),
-                   [](Result<Future>& r) {
-                     if (!r.ok()) return r.status();
-                     auto f = r.MoveValueUnsafe().MoveResult();
-                     if (!f.ok()) return f.status();
-                     return internal::ToArrowStatus(f.MoveValueUnsafe());
-                   });
-    for (auto& r : results) {
-      if (!r.ok()) return r;
-    }
-    return {};
+    return AllFinished(submitted).status();
   }
 
   Status DeleteFile(const GcsPath& p) {
