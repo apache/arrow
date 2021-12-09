@@ -17,6 +17,8 @@
 
 #include "arrow/util/async_util.h"
 
+#include <thread>
+
 #include <gtest/gtest.h>
 
 #include "arrow/result.h"
@@ -170,6 +172,23 @@ TYPED_TEST(TypedTestAsyncTaskGroup, AddAfterFailed) {
   }));
   ASSERT_RAISES(Invalid, task_group.AddTask([] { return Future<>::Make(); }));
   ASSERT_FINISHES_AND_RAISES(Invalid, task_group.End());
+}
+
+TYPED_TEST(TypedTestAsyncTaskGroup, Stress) {
+  constexpr int NTASKS = 100;
+  TypeParam task_group;
+  std::vector<std::thread> threads;
+  for (int i = 0; i < NTASKS; i++) {
+    ASSERT_OK(task_group.AddTask([&threads] {
+      Future<> fut = Future<>::Make();
+      threads.emplace_back([fut]() mutable { fut.MarkFinished(); });
+      return fut;
+    }));
+  }
+  ASSERT_FINISHES_OK(task_group.End());
+  for (auto& thread : threads) {
+    thread.join();
+  }
 }
 
 TEST(StandardAsyncTaskGroup, TaskFinishesAfterError) {

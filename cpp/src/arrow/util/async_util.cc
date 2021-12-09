@@ -156,17 +156,19 @@ bool SerializedAsyncTaskGroup::TryDrainUnlocked() {
     return true;
   }
   Future<> next_fut = maybe_next_fut.MoveValueUnsafe();
-  if (next_fut.is_finished()) {
+  if (!next_fut.TryAddCallback([this] {
+        return [this](const Status& st) {
+          util::Mutex::Guard guard = mutex_.Lock();
+          processing_ = Future<>();
+          err_ &= st;
+          ConsumeAsMuchAsPossibleUnlocked(std::move(guard));
+        };
+      })) {
+    // Didn't add callback, future already finished
     err_ &= next_fut.status();
     return true;
   }
   processing_ = std::move(next_fut);
-  processing_.AddCallback([this](const Status& st) {
-    util::Mutex::Guard guard = mutex_.Lock();
-    processing_ = Future<>();
-    err_ &= st;
-    ConsumeAsMuchAsPossibleUnlocked(std::move(guard));
-  });
   return false;
 }
 
