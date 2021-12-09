@@ -59,7 +59,7 @@ struct Pointer {
   Pointer() : ptr_(new T()) {}
   explicit Pointer(SEXP x) {
     if (TYPEOF(x) == EXTPTRSXP) {
-      ptr_ = (T*) R_ExternalPtrAddr(x);
+      ptr_ = (T*)R_ExternalPtrAddr(x);
     } else if (TYPEOF(x) == STRSXP && Rf_length(x) == 1) {
       // User passed an character representation of the pointer address
       SEXP char0 = STRING_ELT(x, 0);
@@ -94,9 +94,7 @@ struct Pointer {
     }
   }
 
-  inline operator SEXP() const {
-    return R_MakeExternalPtr(ptr_, R_NilValue, R_NilValue);
-  }
+  inline operator SEXP() const { return R_MakeExternalPtr(ptr_, R_NilValue, R_NilValue); }
 
   inline operator T*() const { return ptr_; }
 
