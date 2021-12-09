@@ -190,11 +190,15 @@ class SSE42Filter {
 
 #elif defined(ARROW_HAVE_NEON)
 
-// NEON filter: 8 bytes at a time, comparing with all special chars
+// NEON filter: 8 bytes at a time, comparing with all special chars.
+// We could filter 16 bytes at a time but that actually decreases performance,
+// because the filter matches too often on mid-sized cell values.
 
 template <typename SpecializedOptions>
 class NeonFilter {
  public:
+  // NOTE we cannot use xsimd as it doesn't expose the 64-bit Neon types,
+  // only 128-bit.
   using WordType = uint8x8_t;
 
   explicit NeonFilter(const ParseOptions& options)
