@@ -19,7 +19,7 @@
 register_type_translations <- function() {
   register_type_cast_translations()
   register_type_inspect_translations()
-  register_type_inspect_elementwise_translations()
+  register_type_elementwise_translations()
 }
 
 register_type_cast_translations <- function() {
@@ -81,19 +81,19 @@ register_type_cast_translations <- function() {
   register_translation("is", function(object, class2) {
     if (is.string(class2)) {
       switch(class2,
-             # for R data types, pass off to is.*() functions
-             character = call_translation("is.character", object),
-             numeric = call_translation("is.numeric", object),
-             integer = call_translation("is.integer", object),
-             integer64 = call_translation("is.integer64", object),
-             logical = call_translation("is.logical", object),
-             factor = call_translation("is.factor", object),
-             list = call_translation("is.list", object),
-             # for Arrow data types, compare class2 with object$type()$ToString(),
-             # but first strip off any parameters to only compare the top-level data
-             # type,  and canonicalize class2
-             sub("^([^([<]+).*$", "\\1", object$type()$ToString()) ==
-               canonical_type_str(class2)
+        # for R data types, pass off to is.*() functions
+        character = call_translation("is.character", object),
+        numeric = call_translation("is.numeric", object),
+        integer = call_translation("is.integer", object),
+        integer64 = call_translation("is.integer64", object),
+        logical = call_translation("is.logical", object),
+        factor = call_translation("is.factor", object),
+        list = call_translation("is.list", object),
+        # for Arrow data types, compare class2 with object$type()$ToString(),
+        # but first strip off any parameters to only compare the top-level data
+        # type,  and canonicalize class2
+        sub("^([^([<]+).*$", "\\1", object$type()$ToString()) ==
+          canonical_type_str(class2)
       )
     } else if (inherits(class2, "DataType")) {
       object$type() == as_type(class2)
@@ -217,7 +217,7 @@ register_type_inspect_translations <- function() {
   })
 }
 
-register_type_inspect_elementwise_translations <- function() {
+register_type_elementwise_translations <- function() {
 
   register_translation("is.na", function(x) {
     build_expr("is_null", x, options = list(nan_is_null = TRUE))
