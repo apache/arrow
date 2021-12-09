@@ -126,3 +126,9 @@ Collate:
     'reexports-tidyselect.R'
     'schema.R'
     'util.R'
+Config/Needs/website:
+    pkgdown
+Config/Needs/dev:
+    r-lib/roxygen2
+    r-lib/lintr
+    r-lib/styler
