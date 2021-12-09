@@ -56,6 +56,7 @@ import java.util.stream.Collectors;
 import org.apache.arrow.driver.jdbc.utils.SqlTypes;
 import org.apache.arrow.driver.jdbc.utils.VectorSchemaRootTransformer;
 import org.apache.arrow.flight.FlightInfo;
+import org.apache.arrow.flight.sql.FlightSqlColumnMetadata;
 import org.apache.arrow.flight.sql.FlightSqlProducer.Schemas;
 import org.apache.arrow.flight.sql.impl.FlightSql.SqlInfo;
 import org.apache.arrow.flight.sql.impl.FlightSql.SqlOuterJoinsSupportLevel;
@@ -456,19 +457,13 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
 
     switch (type) {
       case ResultSet.TYPE_FORWARD_ONLY:
-        return doesBitmaskTranslateToEnum(
-            SqlSupportedResultSetType.forNumber(
-                SqlSupportedResultSetType.SQL_RESULT_SET_TYPE_FORWARD_ONLY_VALUE),
+        return doesBitmaskTranslateToEnum(SqlSupportedResultSetType.SQL_RESULT_SET_TYPE_FORWARD_ONLY,
             bitmask);
       case ResultSet.TYPE_SCROLL_INSENSITIVE:
-        return doesBitmaskTranslateToEnum(
-            SqlSupportedResultSetType.forNumber(
-                SqlSupportedResultSetType.SQL_RESULT_SET_TYPE_SCROLL_INSENSITIVE_VALUE),
+        return doesBitmaskTranslateToEnum(SqlSupportedResultSetType.SQL_RESULT_SET_TYPE_SCROLL_INSENSITIVE,
             bitmask);
       case ResultSet.TYPE_SCROLL_SENSITIVE:
-        return doesBitmaskTranslateToEnum(
-            SqlSupportedResultSetType.forNumber(
-                SqlSupportedResultSetType.SQL_RESULT_SET_TYPE_SCROLL_SENSITIVE_VALUE),
+        return doesBitmaskTranslateToEnum(SqlSupportedResultSetType.SQL_RESULT_SET_TYPE_SCROLL_SENSITIVE,
             bitmask);
       default:
         throw new SQLException(
@@ -595,7 +590,8 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
 
   @Override
   public int getMaxSchemaNameLength() throws SQLException {
-    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_DB_SCHEMA_NAME_LENGTH, Long.class).intValue();
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_DB_SCHEMA_NAME_LENGTH,
+        Long.class).intValue();
   }
 
   @Override
@@ -667,28 +663,18 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
 
     switch (level) {
       case Connection.TRANSACTION_NONE:
-        return doesBitmaskTranslateToEnum(
-            SqlTransactionIsolationLevel.forNumber(
-                SqlTransactionIsolationLevel.SQL_TRANSACTION_NONE_VALUE), bitmask);
+        return doesBitmaskTranslateToEnum(SqlTransactionIsolationLevel.SQL_TRANSACTION_NONE, bitmask);
       case Connection.TRANSACTION_READ_COMMITTED:
-        return doesBitmaskTranslateToEnum(
-            SqlTransactionIsolationLevel.forNumber(
-                SqlTransactionIsolationLevel.SQL_TRANSACTION_READ_COMMITTED_VALUE),
+        return doesBitmaskTranslateToEnum(SqlTransactionIsolationLevel.SQL_TRANSACTION_READ_COMMITTED,
             bitmask);
       case Connection.TRANSACTION_READ_UNCOMMITTED:
-        return doesBitmaskTranslateToEnum(
-            SqlTransactionIsolationLevel.forNumber(
-                SqlTransactionIsolationLevel.SQL_TRANSACTION_READ_UNCOMMITTED_VALUE),
+        return doesBitmaskTranslateToEnum(SqlTransactionIsolationLevel.SQL_TRANSACTION_READ_UNCOMMITTED,
             bitmask);
       case Connection.TRANSACTION_REPEATABLE_READ:
-        return doesBitmaskTranslateToEnum(
-            SqlTransactionIsolationLevel.forNumber(
-                SqlTransactionIsolationLevel.SQL_TRANSACTION_REPEATABLE_READ_VALUE),
+        return doesBitmaskTranslateToEnum(SqlTransactionIsolationLevel.SQL_TRANSACTION_REPEATABLE_READ,
             bitmask);
       case Connection.TRANSACTION_SERIALIZABLE:
-        return doesBitmaskTranslateToEnum(
-            SqlTransactionIsolationLevel.forNumber(
-                SqlTransactionIsolationLevel.SQL_TRANSACTION_SERIALIZABLE_VALUE),
+        return doesBitmaskTranslateToEnum(SqlTransactionIsolationLevel.SQL_TRANSACTION_SERIALIZABLE,
             bitmask);
       default:
         throw new SQLException(
@@ -1027,13 +1013,14 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
         (VarCharVector) currentRoot.getVector("IS_GENERATEDCOLUMN");
 
     for (int i = 0; i < tableColumnsSize; i++, ordinalIndex++) {
-      final String columnName = tableColumns.get(i).getName();
+      final Field field = tableColumns.get(i);
+      final FlightSqlColumnMetadata columnMetadata = new FlightSqlColumnMetadata(field.getMetadata());
+      final String columnName = field.getName();
 
       if (columnNamePattern != null && !columnNamePattern.matcher(columnName).matches()) {
         continue;
       }
-
-      final ArrowType fieldType = tableColumns.get(i).getType();
+      final ArrowType fieldType = field.getType();
 
       if (catalogName != null) {
         tableCatVector.setSafe(insertIndex, catalogName);
@@ -1064,24 +1051,36 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
       } else if (fieldType instanceof ArrowType.FloatingPoint) {
         numPrecRadixVector.setSafe(insertIndex, BASE10_RADIX);
       }
-      final Integer decimalDigits = getDecimalDigits(fieldType);
+
+      Integer decimalDigits = columnMetadata.getScale();
+      if (decimalDigits == null) {
+        decimalDigits = getDecimalDigits(fieldType);
+      }
       if (decimalDigits != null) {
         decimalDigitsVector.setSafe(insertIndex, decimalDigits);
       }
 
-      final Integer columnSize = getColumnSize(fieldType);
+      Integer columnSize = columnMetadata.getPrecision();
+      if (columnSize == null) {
+        columnSize = getColumnSize(fieldType);
+      }
       if (columnSize != null) {
         columnSizeVector.setSafe(insertIndex, columnSize);
       }
 
-      nullableVector.setSafe(insertIndex, tableColumns.get(i).isNullable() ? 1 : 0);
+      nullableVector.setSafe(insertIndex, field.isNullable() ? 1 : 0);
 
-      isNullableVector.setSafe(insertIndex,
-          tableColumns.get(i).isNullable() ? "YES".getBytes(CHARSET) : "NO".getBytes(CHARSET));
+      isNullableVector.setSafe(insertIndex, booleanToYesOrNo(field.isNullable()));
+
+      Boolean autoIncrement = columnMetadata.isAutoIncrement();
+      if (autoIncrement != null) {
+        isAutoincrementVector.setSafe(insertIndex, booleanToYesOrNo(autoIncrement));
+      } else {
+        isAutoincrementVector.setSafe(insertIndex, EMPTY_BYTE_ARRAY);
+      }
 
       // Fields also don't hold information about IS_AUTOINCREMENT and IS_GENERATEDCOLUMN,
       // so we're setting an empty string (as bytes), which means it couldn't be determined.
-      isAutoincrementVector.setSafe(insertIndex, EMPTY_BYTE_ARRAY);
       isGeneratedColumnVector.setSafe(insertIndex, EMPTY_BYTE_ARRAY);
 
       ordinalPositionVector.setSafe(insertIndex, ordinalIndex);
@@ -1089,6 +1088,10 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
       insertIndex++;
     }
     return insertIndex;
+  }
+
+  private static byte[] booleanToYesOrNo(boolean autoIncrement) {
+    return autoIncrement ? "YES".getBytes(CHARSET) : "NO".getBytes(CHARSET);
   }
 
   static Integer getDecimalDigits(final ArrowType fieldType) {

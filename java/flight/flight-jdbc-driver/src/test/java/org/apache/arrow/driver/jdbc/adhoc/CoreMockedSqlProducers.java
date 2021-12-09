@@ -32,6 +32,7 @@ import java.util.function.Consumer;
 import java.util.stream.IntStream;
 
 import org.apache.arrow.flight.FlightProducer.ServerStreamListener;
+import org.apache.arrow.flight.sql.FlightSqlColumnMetadata;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BigIntVector;
@@ -167,17 +168,47 @@ public final class CoreMockedSqlProducers {
         new Field(
             "integer0",
             new FieldType(true, new ArrowType.Int(64, true),
-                null),
+                null, new FlightSqlColumnMetadata.Builder()
+                .catalogName("CATALOG_NAME_1")
+                .schemaName("SCHEMA_NAME_1")
+                .tableName("TABLE_NAME_1")
+                .precision(10)
+                .scale(0)
+                .isAutoIncrement(true)
+                .isCaseSensitive(false)
+                .isReadOnly(true)
+                .isSearchable(true)
+                .build().getMetadataMap()),
             null),
         new Field(
             "string1",
             new FieldType(true, new ArrowType.Utf8(),
-                null),
+                null, new FlightSqlColumnMetadata.Builder()
+                .catalogName("CATALOG_NAME_2")
+                .schemaName("SCHEMA_NAME_2")
+                .tableName("TABLE_NAME_2")
+                .precision(65535)
+                .scale(0)
+                .isAutoIncrement(false)
+                .isCaseSensitive(true)
+                .isReadOnly(false)
+                .isSearchable(true)
+                .build().getMetadataMap()),
             null),
         new Field(
             "float2",
             new FieldType(true, new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE),
-                null),
+                null, new FlightSqlColumnMetadata.Builder()
+                .catalogName("CATALOG_NAME_3")
+                .schemaName("SCHEMA_NAME_3")
+                .tableName("TABLE_NAME_3")
+                .precision(15)
+                .scale(20)
+                .isAutoIncrement(false)
+                .isCaseSensitive(false)
+                .isReadOnly(false)
+                .isSearchable(true)
+                .build().getMetadataMap()),
             null)));
     final Consumer<ServerStreamListener> formula = listener -> {
       try (final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
