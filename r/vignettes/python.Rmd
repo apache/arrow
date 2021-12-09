@@ -62,8 +62,8 @@ a
 ## ]
 ```
 
-`a` is now an `Array` object in our R session, even though we created it in Python.
-We can apply R methods on it:
+`a` is now an `Array` object in our R session, even though you created it in Python.
+You can apply R methods on it:
 
 ```r
 a[a > 1]
@@ -76,10 +76,10 @@ a[a > 1]
 ## ]
 ```
 
-We can send data both ways. One reason we might want to use `pyarrow` in R is
+You can send data both ways. One reason you might want to use `pyarrow` in R is
 to take advantage of functionality that is better supported in Python than in R.
 For example, `pyarrow` has a `concat_arrays` function, but as of 0.17, this
-function is not implemented in the `arrow` R package. We can use `reticulate`
+function is not implemented in the `arrow` R package. You can use `reticulate`
 to use it efficiently.
 
 ```r
@@ -101,7 +101,7 @@ a_and_b
 ## ]
 ```
 
-Now we have a single `Array` in R.
+Now you have a single `Array` in R.
 
 "Send", however, isn't the correct word. Internally, we're passing pointers to
 the data between the R and Python interpreters running together in the same
