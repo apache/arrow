@@ -189,9 +189,9 @@ map_batches <- function(X, FUN, ..., .data.frame = TRUE) {
   reader <- plan$Run(final_node)
   FUN <- as_mapper(FUN)
 
-  #   # TODO: wrap batch in arrow_dplyr_query with X$selected_columns,
-  #   # X$temp_columns, and X$group_by_vars
-  #   # if X is arrow_dplyr_query, if some other arg (.dplyr?) == TRUE
+  # TODO: wrap batch in arrow_dplyr_query with X$selected_columns,
+  # X$temp_columns, and X$group_by_vars
+  # if X is arrow_dplyr_query, if some other arg (.dplyr?) == TRUE
   batch <- reader$read_next_batch()
   res <- list()
   while (!is.null(batch)) {
