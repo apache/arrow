@@ -39,6 +39,10 @@ if(OpenMP_CXX_FOUND)
                       "arrow-compute"
                       EXTRA_LINK_LIBS
                       OpenMP::OpenMP_CXX)
+  if(MSVC)
+    target_compile_options(arrow-compute-hash-join-benchmark
+                           PRIVATE "-openmp:experimental -openmp:llvm")
+  endif()
 endif()
 
 add_arrow_compute_test(ir_test
