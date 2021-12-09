@@ -60,6 +60,10 @@ struct Pointer {
   explicit Pointer(SEXP x) {
     if (TYPEOF(x) == EXTPTRSXP) {
       ptr_ = (T*) R_ExternalPtrAddr(x);
+    } else if (Rf_inherits(x, "integer64")) {
+      memcpy(&ptr_, REAL(x), sizeof(T*));
+    } else if (TYPEOF(x) == RAWSXP && Rf_length(x) == sizeof(T*)) {
+      memcpy(&ptr_, RAW(x), sizeof(T*));
     } else if (TYPEOF(x) == REALSXP) {
       ptr_ = reinterpret_cast<T*>(static_cast<uintptr_t>(REAL(x)[0]));
     } else {

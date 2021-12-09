@@ -1364,6 +1364,18 @@ parquet___arrow___FileReader__GetSchema <- function(reader) {
   .Call(`_arrow_parquet___arrow___FileReader__GetSchema`, reader)
 }
 
+external_pointer_addr_double <- function(external_pointer) {
+  .Call(`_arrow_external_pointer_addr_double`, external_pointer)
+}
+
+external_pointer_addr_integer64 <- function(external_pointer) {
+  .Call(`_arrow_external_pointer_addr_integer64`, external_pointer)
+}
+
+external_pointer_addr_raw <- function(external_pointer) {
+  .Call(`_arrow_external_pointer_addr_raw`, external_pointer)
+}
+
 allocate_arrow_schema <- function() {
   .Call(`_arrow_allocate_arrow_schema`)
 }
