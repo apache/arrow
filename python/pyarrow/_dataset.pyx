@@ -87,40 +87,12 @@ def _get_parquet_classes():
 
 
 def _get_parquet_symbol(name):
+    """
+    Get a symbol from pyarrow.parquet if the latter is importable, otherwise
+    return None.
+    """
     _get_parquet_classes()
     return _dataset_pq and getattr(_dataset_pq, name)
-
-
-def _get_parquet_fileformat():
-    """
-    Import ParquetFileFormat on first usage (to avoid circular import issue
-    when `pyarrow._dataset_parquet` would be imported first)
-    """
-    return _get_parquet_symbol('ParquetFileFormat')
-
-
-def _get_parquet_filefragment():
-    """
-    Import ParquetFileFragment on first usage (to avoid circular import issue
-    when `pyarrow._dataset_parquet` would be imported first)
-    """
-    return _get_parquet_symbol('ParquetFileFragment')
-
-
-def _get_parquet_filewriteoptions():
-    """
-    Import ParquetFileWriteOptions on first usage (to avoid circular import issue
-    when `pyarrow._dataset_parquet` would be imported first)
-    """
-    return _get_parquet_symbol('ParquetFileWriteOptions')
-
-
-def _get_parquet_fragmentscanoptions():
-    """
-    Import ParquetFragmentScanOptions on first usage (to avoid circular import
-    issue when `pyarrow._dataset_parquet` would be imported first)
-    """
-    return _get_parquet_symbol('ParquetFragmentScanOptions')
 
 
 cdef CFileSource _make_file_source(object file, FileSystem filesystem=None):
@@ -868,7 +840,7 @@ cdef class FileWriteOptions(_Weakrefable):
         classes = {
             'csv': CsvFileWriteOptions,
             'ipc': IpcFileWriteOptions,
-            'parquet': _get_parquet_filewriteoptions(),
+            'parquet': _get_parquet_symbol('ParquetFileWriteOptions'),
         }
 
         class_ = classes.get(type_name, None)
@@ -903,7 +875,7 @@ cdef class FileFormat(_Weakrefable):
         classes = {
             'ipc': IpcFileFormat,
             'csv': CsvFileFormat,
-            'parquet': _get_parquet_fileformat(),
+            'parquet': _get_parquet_symbol('ParquetFileFormat'),
             'orc': _get_orc_fileformat(),
         }
 
@@ -996,7 +968,7 @@ cdef class Fragment(_Weakrefable):
             # corresponding subclasses of FileFragment
             'ipc': FileFragment,
             'csv': FileFragment,
-            'parquet': _get_parquet_filefragment(),
+            'parquet': _get_parquet_symbol('ParquetFileFragment'),
         }
 
         class_ = classes.get(type_name, None)
@@ -1233,7 +1205,7 @@ cdef class FragmentScanOptions(_Weakrefable):
 
         classes = {
             'csv': CsvFragmentScanOptions,
-            'parquet': _get_parquet_fragmentscanoptions(),
+            'parquet': _get_parquet_symbol('ParquetFragmentScanOptions'),
         }
 
         class_ = classes.get(type_name, None)
