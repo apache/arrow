@@ -48,7 +48,6 @@ The `.yml` files in `.github/worflows` are workflow templates which are run on G
 	* `@github-actions crossbow ...` - runs the specified Crossbow command
 	* `@github-actions autotune` - runs a number of stylers/formatters, builds some of the docs, and commits the results
 	* `@github-actions rebase` - rebases the PR onto the master branch
-* `cpp_cron.yml` - runs nightly at midnight and does fuzz testing (https://github.com/google/oss-fuzz)
 * `dev.yml` - runs any time there is activity on a PR, or a PR is merged; it runs the linter and tests that the PR can be merged
 * `dev_pr.yml` - runs any time a PR is opened or updated; checks the formatting of the PR title, adds links to the appropriate JIRA ticket if included in the title (or adds a comment requesting the user fix this if not), and adds any relevant GitHub labels
 
