@@ -31,33 +31,33 @@ There are numerous important directories in the Arrow project which relate to CI
 
 * `.github/worflows` - workflows that are run via GitHub actions and are triggered by things like pull requests being submitted or merged
 * `dev/tasks` - containing on-demand jobs triggered/submitted via `archery crossbow submit ...`, typically nightly builds or relating to the release process
-* `ci/` - containing scripts supporting the various builds
+* `ci/` - containing scripts, dockerfiles, and any supplemental files, e.g. patch files, conda environment files, vcpkg triplet files.
 
 Instead of thinking about Arrow CI in terms of files and folders, it may be conceptually simpler to instead divide it into 2 main categories:
 
 * CI jobs which are triggered based on specific actions on GitHub (pull requests opened, pull requests merged, etc)
-* Builds which are manually triggered on a nightly basis or via Archery
+* On-demand builds which are manually triggered on a nightly basis or via Archery
 
 GitHub Actions builds
 -----------------------
 
-The `.yml` files in `.github/worflows` are workflow templates which are run on GitHub in response to specific actions.  The majority of workflows in this directory are Arrow implementation-specific and are run when changes are made which affect code relevant to that language's implementation, but other workflows worth noting are:
+The `.yml` files in `.github/worflows` are workflows which are run on GitHub in response to specific actions.  The majority of workflows in this directory are Arrow implementation-specific and are run when changes are made which affect code relevant to that language's implementation, but other workflows worth noting are:
 
-* `archery.yml` - if changes are made to the Archery tool or tasks which it runs, this workflow runs some validation checks
-* `comment_bot.yml` - triggers certain actions on the basis of text in comments:
-	* `@github-actions crossbow ...` - runs the specified Crossbow command
+* `archery.yml` - if changes are made to the Archery tool or tasks which it runs, this workflow runs the necessary validation checks
+* `comment_bot.yml` - triggers certain actions by listening on github pull request comments for the following strings:
+	* `@github-actions crossbow submit ...` - runs the specified Crossbow command
 	* `@github-actions autotune` - runs a number of stylers/formatters, builds some of the docs, and commits the results
 	* `@github-actions rebase` - rebases the PR onto the master branch
 * `dev.yml` - runs any time there is activity on a PR, or a PR is merged; it runs the linter and tests that the PR can be merged
 * `dev_pr.yml` - runs any time a PR is opened or updated; checks the formatting of the PR title, adds links to the appropriate JIRA ticket if included in the title (or adds a comment requesting the user fix this if not), and adds any relevant GitHub labels
 
 
-Archery/Crossbow builds
+Crossbow builds
 -----------------------
 
-Tasks which can be run via Archery or Crossbow can be found in the `dev/tasks` directory.  This directory contains:
+Tasks which can be run via Crossbow can be found in the `dev/tasks` directory.  This directory contains:
 
-* the file `dev/tasks/tasks.yml` containing the configuration for various tasks which can be run via Archery/Crossbow
+* the file `dev/tasks/tasks.yml` containing the configuration for various tasks which can be run via Crossbow
 * subdirectories containing different task templates, divided roughly by language or package management system
 
 Most of these tasks are run as part of the nightly builds, though also can be triggered manually by add a comment to a PR which begins with `@github-actions crossbow submit` followed by the name of the task to be run.
