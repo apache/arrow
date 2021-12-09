@@ -61,7 +61,10 @@ struct SourceNode : ExecNode {
   [[noreturn]] static void NoInputs() {
     Unreachable("no inputs; this should never be called");
   }
-  [[noreturn]] void InputReceived(ExecNode*, ExecBatch) override { NoInputs(); }
+  [[noreturn]] void InputReceived(ExecNode*,
+                                  std::function<Result<ExecBatch>()>) override {
+    NoInputs();
+  }
   [[noreturn]] void ErrorReceived(ExecNode*, Status) override { NoInputs(); }
   [[noreturn]] void InputFinished(ExecNode*, int) override { NoInputs(); }
 
@@ -107,19 +110,19 @@ struct SourceNode : ExecNode {
                 ExecBatch batch = std::move(*maybe_batch);
 
                 if (executor) {
-                  auto status =
-                      task_group_.AddTask([this, executor, batch]() -> Result<Future<>> {
-                        return executor->Submit([=]() {
-                          outputs_[0]->InputReceived(this, std::move(batch));
-                          return Status::OK();
-                        });
-                      });
+                  auto status = task_group_.AddTask([this, executor,
+                                                     batch]() -> Result<Future<>> {
+                    return executor->Submit([=]() {
+                      outputs_[0]->InputReceived(this, IdentityTask(std::move(batch)));
+                      return Status::OK();
+                    });
+                  });
                   if (!status.ok()) {
                     outputs_[0]->ErrorReceived(this, std::move(status));
                     return Break(total_batches);
                   }
                 } else {
-                  outputs_[0]->InputReceived(this, std::move(batch));
+                  outputs_[0]->InputReceived(this, IdentityTask(std::move(batch)));
                 }
                 return Continue();
               },

@@ -98,7 +98,8 @@ class ExampleNode : public cp::ExecNode {
   void StopProducing(ExecNode* output) override { inputs_[0]->StopProducing(this); }
   void StopProducing() override { inputs_[0]->StopProducing(); }
 
-  void InputReceived(ExecNode* input, cp::ExecBatch batch) override {}
+  void InputReceived(ExecNode* input,
+                     std::function<arrow::Result<cp::ExecBatch>()> task) override {}
   void ErrorReceived(ExecNode* input, arrow::Status error) override {}
   void InputFinished(ExecNode* input, int total_batches) override {}
 

@@ -175,18 +175,21 @@ class ScalarAggregateNode : public ExecNode {
     return Status::OK();
   }
 
-  void InputReceived(ExecNode* input, ExecBatch batch) override {
+  void InputReceived(ExecNode* input, std::function<Result<ExecBatch>()> task) override {
     DCHECK_EQ(input, inputs_[0]);
 
     auto thread_index = get_thread_index_();
-
-    if (ErrorIfNotOk(DoConsume(std::move(batch), thread_index))) return;
+    auto prev = task();
+    if (!prev.ok()) {
+      ErrorIfNotOk(prev.status());
+      return;
+    }
+    if (ErrorIfNotOk(DoConsume(prev.MoveValueUnsafe(), thread_index))) return;
 
     if (input_counter_.Increment()) {
       ErrorIfNotOk(Finish());
     }
   }
-
   void ErrorReceived(ExecNode* input, Status error) override {
     DCHECK_EQ(input, inputs_[0]);
     outputs_[0]->ErrorReceived(this, std::move(error));
@@ -235,17 +238,18 @@ class ScalarAggregateNode : public ExecNode {
 
  private:
   Status Finish() {
-    ExecBatch batch{{}, 1};
-    batch.values.resize(kernels_.size());
-
-    for (size_t i = 0; i < kernels_.size(); ++i) {
-      KernelContext ctx{plan()->exec_context()};
-      ARROW_ASSIGN_OR_RAISE(auto merged, ScalarAggregateKernel::MergeAll(
-                                             kernels_[i], &ctx, std::move(states_[i])));
-      RETURN_NOT_OK(kernels_[i]->finalize(&ctx, &batch.values[i]));
-    }
-
-    outputs_[0]->InputReceived(this, std::move(batch));
+    auto task = [this]() -> Result<ExecBatch> {
+      ExecBatch batch{{}, 1};
+      batch.values.resize(kernels_.size());
+      for (size_t i = 0; i < kernels_.size(); ++i) {
+        KernelContext ctx{plan()->exec_context()};
+        ARROW_ASSIGN_OR_RAISE(auto merged, ScalarAggregateKernel::MergeAll(
+                                               kernels_[i], &ctx, std::move(states_[i])));
+        RETURN_NOT_OK(kernels_[i]->finalize(&ctx, &batch.values[i]));
+      }
+      return batch;
+    };
+    outputs_[0]->InputReceived(this, std::move(task));
     finished_.MarkFinished();
     return Status::OK();
   }
@@ -452,8 +456,12 @@ class GroupByNode : public ExecNode {
     // bail if StopProducing was called
     if (finished_.is_finished()) return;
 
-    int64_t batch_size = output_batch_size();
-    outputs_[0]->InputReceived(this, out_data_.Slice(batch_size * n, batch_size));
+    auto task = [n, this]() -> Result<ExecBatch> {
+      int64_t batch_size = output_batch_size();
+      return out_data_.Slice(batch_size * n, batch_size);
+    };
+
+    outputs_[0]->InputReceived(this, std::move(task));
 
     if (output_counter_.Increment()) {
       finished_.MarkFinished();
@@ -483,13 +491,18 @@ class GroupByNode : public ExecNode {
     return Status::OK();
   }
 
-  void InputReceived(ExecNode* input, ExecBatch batch) override {
+  void InputReceived(ExecNode* input, std::function<Result<ExecBatch>()> task) override {
     // bail if StopProducing was called
     if (finished_.is_finished()) return;
 
     DCHECK_EQ(input, inputs_[0]);
 
-    if (ErrorIfNotOk(Consume(std::move(batch)))) return;
+    auto prev = task();
+    if (!prev.ok()) {
+      ErrorIfNotOk(prev.status());
+      return;
+    }
+    if (ErrorIfNotOk(Consume(prev.MoveValueUnsafe()))) return;
 
     if (input_counter_.Increment()) {
       ErrorIfNotOk(OutputResult());

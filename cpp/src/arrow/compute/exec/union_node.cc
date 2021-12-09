@@ -74,13 +74,18 @@ class UnionNode : public ExecNode {
     return plan->EmplaceNode<UnionNode>(plan, std::move(inputs));
   }
 
-  void InputReceived(ExecNode* input, ExecBatch batch) override {
+  void InputReceived(ExecNode* input, std::function<Result<ExecBatch>()> task) override {
     ARROW_DCHECK(std::find(inputs_.begin(), inputs_.end(), input) != inputs_.end());
 
     if (finished_.is_finished()) {
       return;
     }
-    outputs_[0]->InputReceived(this, std::move(batch));
+    auto batch = task();
+    if (!batch.ok()) {
+      ErrorIfNotOk(batch.status());
+      return;
+    }
+    outputs_[0]->InputReceived(this, IdentityTask(batch.MoveValueUnsafe()));
     if (batch_count_.Increment()) {
       finished_.MarkFinished();
     }

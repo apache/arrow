@@ -350,29 +350,26 @@ void MapNode::StopProducing() {
 
 Future<> MapNode::finished() { return finished_; }
 
-void MapNode::SubmitTask(std::function<Result<ExecBatch>(ExecBatch)> map_fn,
-                         ExecBatch batch) {
+void MapNode::SubmitTask(std::function<Result<ExecBatch>()> map_fn) {
   Status status;
   // This will be true if the node is stopped early due to an error or manual
   // cancellation
   if (input_counter_.Completed()) {
     return;
   }
-  auto task = [this, map_fn, batch]() {
-    auto guarantee = batch.guarantee;
-    auto output_batch = map_fn(std::move(batch));
+  auto task_wrapper = [this, map_fn]() {
+    auto output_batch = map_fn();
     if (ErrorIfNotOk(output_batch.status())) {
       return output_batch.status();
     }
-    output_batch->guarantee = guarantee;
-    outputs_[0]->InputReceived(this, output_batch.MoveValueUnsafe());
+    outputs_[0]->InputReceived(this, IdentityTask(output_batch.MoveValueUnsafe()));
     return Status::OK();
   };
 
   if (executor_) {
-    status = task_group_.AddTask([this, task]() -> Result<Future<>> {
-      return this->executor_->Submit(this->stop_source_.token(), [this, task]() {
-        auto status = task();
+    status = task_group_.AddTask([this, task_wrapper]() -> Result<Future<>> {
+      return this->executor_->Submit(this->stop_source_.token(), [this, task_wrapper]() {
+        auto status = task_wrapper();
         if (this->input_counter_.Increment()) {
           this->Finish(status);
         }
@@ -380,7 +377,7 @@ void MapNode::SubmitTask(std::function<Result<ExecBatch>(ExecBatch)> map_fn,
       });
     });
   } else {
-    status = task();
+    status = task_wrapper();
     if (input_counter_.Increment()) {
       this->Finish(status);
     }

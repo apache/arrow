@@ -484,7 +484,7 @@ class HashJoinNode : public ExecNode {
 
   const char* kind_name() const override { return "HashJoinNode"; }
 
-  void InputReceived(ExecNode* input, ExecBatch batch) override {
+  void InputReceived(ExecNode* input, std::function<Result<ExecBatch>()> task) override {
     ARROW_DCHECK(std::find(inputs_.begin(), inputs_.end(), input) != inputs_.end());
 
     if (complete_.load()) {
@@ -494,7 +494,13 @@ class HashJoinNode : public ExecNode {
     size_t thread_index = thread_indexer_();
     int side = (input == inputs_[0]) ? 0 : 1;
     {
-      Status status = impl_->InputReceived(thread_index, side, std::move(batch));
+      auto batch = task();
+      if (!batch.ok()) {
+        StopProducing();
+        ErrorIfNotOk(batch.status());
+        return;
+      }
+      Status status = impl_->InputReceived(thread_index, side, batch.MoveValueUnsafe());
       if (!status.ok()) {
         StopProducing();
         ErrorIfNotOk(status);
@@ -573,7 +579,7 @@ class HashJoinNode : public ExecNode {
 
  private:
   void OutputBatchCallback(ExecBatch batch) {
-    outputs_[0]->InputReceived(this, std::move(batch));
+    outputs_[0]->InputReceived(this, IdentityTask(batch));
   }
 
   void FinishedCallback(int64_t total_num_batches) {

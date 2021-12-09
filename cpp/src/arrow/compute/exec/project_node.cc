@@ -85,13 +85,18 @@ class ProjectNode : public MapNode {
       ARROW_ASSIGN_OR_RAISE(values[i], ExecuteScalarExpression(simplified_expr, target,
                                                                plan()->exec_context()));
     }
-    return ExecBatch{std::move(values), target.length};
+    auto result = ExecBatch{std::move(values), target.length};
+    result.guarantee = target.guarantee;
+    return result;
   }
 
-  void InputReceived(ExecNode* input, ExecBatch batch) override {
+  void InputReceived(ExecNode* input, std::function<Result<ExecBatch>()> task) override {
     DCHECK_EQ(input, inputs_[0]);
-    auto func = [this](ExecBatch batch) { return DoProject(std::move(batch)); };
-    this->SubmitTask(std::move(func), std::move(batch));
+    auto func = [this, task]() -> Result<ExecBatch> {
+      ARROW_ASSIGN_OR_RAISE(auto batch, task());
+      return DoProject(std::move(batch));
+    };
+    this->SubmitTask(std::move(func));
   }
 
  protected:

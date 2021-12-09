@@ -134,8 +134,9 @@ class ARROW_EXPORT ExecNode {
   /// - these are allowed to call back into PauseProducing(), ResumeProducing()
   ///   and StopProducing()
 
-  /// Transfer input batch to ExecNode
-  virtual void InputReceived(ExecNode* input, ExecBatch batch) = 0;
+  /// Transfer the input task to ExecNode
+  virtual void InputReceived(ExecNode* input,
+                             std::function<Result<ExecBatch>()> task) = 0;
 
   /// Signal error to ExecNode
   virtual void ErrorReceived(ExecNode* input, Status error) = 0;
@@ -226,6 +227,10 @@ class ARROW_EXPORT ExecNode {
   std::string ToString() const;
 
  protected:
+  static inline std::function<Result<ExecBatch>()> IdentityTask(ExecBatch batch) {
+    return [batch]() -> Result<ExecBatch> { return batch; };
+  }
+
   ExecNode(ExecPlan* plan, NodeVector inputs, std::vector<std::string> input_labels,
            std::shared_ptr<Schema> output_schema, int num_outputs);
 
@@ -277,7 +282,7 @@ class MapNode : public ExecNode {
   Future<> finished() override;
 
  protected:
-  void SubmitTask(std::function<Result<ExecBatch>(ExecBatch)> map_fn, ExecBatch batch);
+  void SubmitTask(std::function<Result<ExecBatch>()> map_fn);
 
   void Finish(Status finish_st = Status::OK());
 

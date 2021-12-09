@@ -95,10 +95,15 @@ class SinkNode : public ExecNode {
 
   Future<> finished() override { return finished_; }
 
-  void InputReceived(ExecNode* input, ExecBatch batch) override {
+  void InputReceived(ExecNode* input, std::function<Result<ExecBatch>()> task) override {
     DCHECK_EQ(input, inputs_[0]);
 
-    bool did_push = producer_.Push(std::move(batch));
+    auto batch = task();
+    if (!batch.ok()) {
+      ErrorIfNotOk(batch.status());
+      return;
+    }
+    bool did_push = producer_.Push(batch.MoveValueUnsafe());
     if (!did_push) return;  // producer_ was Closed already
 
     if (input_counter_.Increment()) {
@@ -179,7 +184,7 @@ class ConsumingSinkNode : public ExecNode {
 
   Future<> finished() override { return finished_; }
 
-  void InputReceived(ExecNode* input, ExecBatch batch) override {
+  void InputReceived(ExecNode* input, std::function<Result<ExecBatch>()> task) override {
     DCHECK_EQ(input, inputs_[0]);
 
     // This can happen if an error was received and the source hasn't yet stopped.  Since
@@ -188,7 +193,12 @@ class ConsumingSinkNode : public ExecNode {
       return;
     }
 
-    Status consumption_status = consumer_->Consume(std::move(batch));
+    auto batch = task();
+    if (!batch.ok()) {
+      ErrorIfNotOk(batch.status());
+      return;
+    }
+    Status consumption_status = consumer_->Consume(batch.MoveValueUnsafe());
     if (!consumption_status.ok()) {
       if (input_counter_.Cancel()) {
         Finish(std::move(consumption_status));
@@ -274,11 +284,15 @@ struct OrderBySinkNode final : public SinkNode {
                                               sink_options.backpressure);
   }
 
-  void InputReceived(ExecNode* input, ExecBatch batch) override {
+  void InputReceived(ExecNode* input, std::function<Result<ExecBatch>()> task) override {
     DCHECK_EQ(input, inputs_[0]);
-
-    auto maybe_batch = batch.ToRecordBatch(inputs_[0]->output_schema(),
-                                           plan()->exec_context()->memory_pool());
+    auto batch = task();
+    if (!batch.ok()) {
+      ErrorIfNotOk(batch.status());
+      return;
+    }
+    auto maybe_batch = batch.ValueUnsafe().ToRecordBatch(
+        inputs_[0]->output_schema(), plan()->exec_context()->memory_pool());
     if (ErrorIfNotOk(maybe_batch.status())) {
       StopProducing();
       if (input_counter_.Cancel()) {

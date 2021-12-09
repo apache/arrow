@@ -95,8 +95,14 @@ through unchanged::
     class PassthruNode : public ExecNode {
      public:
       // InputReceived is the main entry point for ExecNodes. It is invoked
-      // by an input of this node to push a batch here for processing.
-      void InputReceived(ExecNode* input, ExecBatch batch) override {
+      // by an input of this node to push a task here for processing.
+      // For non-terminating nodes (e.g. filter/project/etc.): the node can wrap
+      // its own work with the task (using function composition/fusing) and then
+      // call InputReceived on the downstream node.
+      // A "terminating node" (e.g. sink node / pipeline breaker) could then submit
+      // the task to a scheduler.
+      void InputReceived(ExecNode* input,
+                         std::function<Result<ExecBatch>()> task) override {
         // Since this is a passthru node we simply push the batch to our
         // only output here.
         outputs_[0]->InputReceived(this, batch);
