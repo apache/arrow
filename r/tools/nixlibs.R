@@ -602,7 +602,7 @@ if (!file.exists(paste0(dst_dir, "/include/arrow/api.h"))) {
     if (!is.null(src_dir)) {
       cat(paste0(
       "*** Building libarrow from source\n",
-      "    For a faster more complete installation, set the environment variable NOT_CRAN=true before installing\n",
+      "    For a faster, more complete installation, set the environment variable NOT_CRAN=true before installing\n",
       "    See install vignette for details:\n",
       "    https://cran.r-project.org/web/packages/arrow/vignettes/install.html\n"
       ))
