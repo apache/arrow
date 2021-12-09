@@ -26,7 +26,9 @@ Q: What scripts are run when a PR is merged?
 
 (e.g. the dev PR)
 
+Q: What is Archery? What is Crossbow?
 
+(brief description and link to docs)
 
 High-level overview:
 
