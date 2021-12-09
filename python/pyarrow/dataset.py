@@ -736,8 +736,8 @@ def _ensure_write_partitioning(part, schema, flavor):
 def write_dataset(data, base_dir, basename_template=None, format=None,
                   partitioning=None, partitioning_flavor=None, schema=None,
                   filesystem=None, file_options=None, use_threads=True,
-                  max_partitions=None, file_visitor=None,
-                  existing_data_behavior='error'):
+                  max_partitions=None, max_open_files=None, max_rows_per_file=None,
+                  file_visitor=None, existing_data_behavior='error'):
     """
     Write a dataset to a given format and partitioning.
 
@@ -780,6 +780,10 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
         used determined by the number of available CPU cores.
     max_partitions : int, default 1024
         Maximum number of partitions any batch may be written into.
+    max_open_files : int, default 1024
+        Maximum number of number of files can be opened
+    max_rows_per_file : int, default 0
+        Maximum number of rows per file
     file_visitor : Function
         If set, this function will be called with a WrittenFile instance
         for each file created during the call.  This object will have both
@@ -852,6 +856,12 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
 
     if max_partitions is None:
         max_partitions = 1024
+    
+    if max_open_files is None:
+        max_open_files = 1024
+
+    if max_rows_per_file is None:
+        max_rows_per_file = 0
 
     # at this point data is a Scanner or a Dataset, anything else
     # was converted to one of those two. So we can grab the schema
@@ -877,5 +887,6 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
 
     _filesystemdataset_write(
         scanner, base_dir, basename_template, filesystem, partitioning,
-        file_options, max_partitions, file_visitor, existing_data_behavior
+        file_options, max_partitions, file_visitor, existing_data_behavior,
+        max_open_files, max_rows_per_file
     )

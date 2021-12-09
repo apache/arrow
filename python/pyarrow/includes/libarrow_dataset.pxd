@@ -287,6 +287,8 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         function[cb_writer_finish_internal] writer_pre_finish
         function[cb_writer_finish_internal] writer_post_finish
         ExistingDataBehavior existing_data_behavior
+        uint32_t max_open_files
+        uint64_t max_rows_per_file
 
     cdef cppclass CFileSystemDataset \
             "arrow::dataset::FileSystemDataset"(CDataset):

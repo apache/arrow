@@ -3365,7 +3365,9 @@ def _filesystemdataset_write(
     FileWriteOptions file_options not None,
     int max_partitions,
     object file_visitor,
-    str existing_data_behavior not None
+    str existing_data_behavior not None,
+    int max_open_files,
+    int max_rows_per_file
 ):
     """
     CFileSystemDataset.Write wrapper
@@ -3381,6 +3383,8 @@ def _filesystemdataset_write(
     c_options.base_dir = tobytes(_stringify_path(base_dir))
     c_options.partitioning = partitioning.unwrap()
     c_options.max_partitions = max_partitions
+    c_options.max_open_files = max_open_files
+    c_options.max_rows_per_file = max_rows_per_file
     c_options.basename_template = tobytes(basename_template)
     if existing_data_behavior == 'error':
         c_options.existing_data_behavior = ExistingDataBehavior_ERROR
