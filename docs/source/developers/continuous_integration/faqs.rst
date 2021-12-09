@@ -28,9 +28,6 @@ Q: What scripts are run when a PR is merged?
 
 
 
-Q: What is the cpp_cron workflow, when does it run, and why does it exist?
-https://github.com/apache/arrow/blob/master/.github/workflows/cpp_cron.yml
-
 High-level overview:
 
     Possibly add diagram: https://lucid.app/lucidchart/ea221ae9-afc5-4453-8939-970e08759127/edit?shared=true&page=0_0#
