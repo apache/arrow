@@ -2020,6 +2020,22 @@ cdef class Expression(_Weakrefable):
         return (<Expression> Expression._scalar(expr))
 
     @staticmethod
+    def _call_function(str function_name, arguments, options=None):
+        cdef:
+            vector[CExpression] c_arguments
+            shared_ptr[CFunctionOptions] c_options=(
+                <shared_ptr[CFunctionOptions]> nullptr)
+
+        for argument in arguments:
+            c_arguments.push_back((<Expression> argument).expr)
+
+        # if options is not None:
+        #     c_options = make_shared[CFunctionOptions](options.get_options())
+
+        return Expression.wrap(CMakeCallExpression(
+            tobytes(function_name), move(c_arguments), c_options))
+
+    @staticmethod
     cdef Expression _call(str function_name, list arguments,
                           shared_ptr[CFunctionOptions] options=(
                               <shared_ptr[CFunctionOptions]> nullptr)):

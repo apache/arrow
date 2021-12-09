@@ -89,6 +89,20 @@ from pyarrow import _compute_docstrings
 from pyarrow.vendored import docscrape
 
 
+ds = None
+
+
+def has_dataset_module():
+    global ds
+
+    if ds is None:
+        try:
+            import pyarrow.dataset as ds
+        except ImportError:
+            ds = False
+    return ds
+
+
 def _get_arg_names(func):
     return func._doc.arg_names
 
@@ -227,6 +241,9 @@ def _make_generic_wrapper(func_name, func, options_class, arity):
                     f"{func_name} takes {arity} positional argument(s), "
                     f"but {len(args)} were given"
                 )
+            if has_dataset_module():
+                if isinstance(args[0], ds.Expression):
+                    return ds.Expression._call_function(func_name, args)
             return func.call(args, None, memory_pool)
     else:
         def wrapper(*args, memory_pool=None, options=None, **kwargs):
@@ -240,6 +257,11 @@ def _make_generic_wrapper(func_name, func, options_class, arity):
                 args = args[:arity]
             else:
                 option_args = ()
+            if has_dataset_module():
+                if isinstance(args[0], ds.Expression):
+                    return ds.Expression._call_function(
+                        func_name, args, options
+                    )
             options = _handle_options(func_name, options_class, options,
                                       option_args, kwargs)
             return func.call(args, options, memory_pool)
