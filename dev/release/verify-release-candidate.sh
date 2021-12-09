@@ -190,9 +190,7 @@ test_yum() {
   for target in "almalinux:8" \
                 "arm64v8/almalinux:8" \
                 "amazonlinux:2" \
-                "centos:7" \
-                "centos:8" \
-                "arm64v8/centos:8"; do
+                "centos:7"; do
     case "${target}" in
       arm64v8/*)
         if [ "$(arch)" = "aarch64" -o -e /usr/bin/qemu-aarch64-static ]; then
