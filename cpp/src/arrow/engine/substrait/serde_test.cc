@@ -140,13 +140,16 @@ TEST(Substrait, SupportedTypes) {
 
     EXPECT_EQ(*type, *expected_type);
 
-    ASSERT_OK_AND_ASSIGN(auto serialized, SerializeType(*type));
+    ExtensionSet set;
+    ASSERT_OK_AND_ASSIGN(auto serialized, SerializeType(*type, &set));
     ASSERT_OK_AND_ASSIGN(auto roundtripped, DeserializeType(*serialized));
 
     EXPECT_EQ(*roundtripped, *expected_type);
   };
 
   ExpectEq(R"({"bool": {}})", boolean());
+
+  ExpectEq(R"({"user_defined_type_reference": 0})", null());
 
   ExpectEq(R"({"i8": {}})", int8());
   ExpectEq(R"({"i16": {}})", int16());
@@ -255,8 +258,6 @@ TEST(Substrait, NoEquivalentArrowType) {
 
 TEST(Substrait, NoEquivalentSubstraitType) {
   for (auto type : {
-           null(),
-
            uint8(),
            uint16(),
            uint32(),
@@ -291,7 +292,8 @@ TEST(Substrait, NoEquivalentSubstraitType) {
            month_day_nano_interval(),
        }) {
     ARROW_SCOPED_TRACE(type->ToString());
-    EXPECT_THAT(SerializeType(*type), Raises(StatusCode::NotImplemented));
+    ExtensionSet set;
+    EXPECT_THAT(SerializeType(*type, &set), Raises(StatusCode::NotImplemented));
   }
 }
 
@@ -393,7 +395,8 @@ TEST(Substrait, SupportedLiterals) {
                field("", list(utf8())),
            }),
        }) {
-    ASSERT_OK_AND_ASSIGN(auto buf, SerializeType(*type));
+    ExtensionSet set;
+    ASSERT_OK_AND_ASSIGN(auto buf, SerializeType(*type, &set));
     ExpectEq("{\"null\": " + SubstraitToJSON("Type", *buf) + "}", MakeNullScalar(type));
   }
 }
@@ -451,6 +454,7 @@ TEST(Substrait, CallSpecialCaseRoundTrip) {
                              compute::field_ref({"struct_i32_str", 1}),
                              compute::field_ref("str"),
                          }),
+
            compute::call("list_element",
                          {
                              compute::field_ref("list_i32"),

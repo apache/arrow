@@ -442,9 +442,11 @@ struct ToProtoImpl {
   Status Visit(const ListScalar& s) {
     lit_->set_allocated_list(new Lit::List());
 
+    const auto& list_type = internal::checked_cast<const ListType&>(*s.type);
+    ExtensionSet ext_set;
     ARROW_ASSIGN_OR_RAISE(
         auto element_type,
-        ToProto(*internal::checked_cast<const ListType&>(*s.type).value_type()));
+        ToProto(*list_type.value_type(), list_type.value_field()->nullable(), &ext_set));
     lit_->mutable_list()->set_allocated_element_type(element_type.release());
 
     auto values = lit_->mutable_list()->mutable_values();
@@ -577,7 +579,8 @@ Result<std::unique_ptr<st::Expression::Literal>> ToProto(const Datum& datum) {
   if (datum.scalar()->is_valid) {
     RETURN_NOT_OK((ToProtoImpl{out.get()})(*datum.scalar()));
   } else {
-    ARROW_ASSIGN_OR_RAISE(auto type, ToProto(*datum.type()));
+    ExtensionSet ext_set;
+    ARROW_ASSIGN_OR_RAISE(auto type, ToProto(*datum.type(), /*nullable=*/true, &ext_set));
     out->set_allocated_null(type.release());
   }
 

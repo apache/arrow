@@ -21,6 +21,7 @@
 
 #include <utility>
 
+#include "arrow/engine/substrait/extension_types.h"
 #include "arrow/engine/visibility.h"
 #include "arrow/type_fwd.h"
 
@@ -35,7 +36,7 @@ ARROW_ENGINE_EXPORT
 Result<std::pair<std::shared_ptr<DataType>, bool>> FromProto(const st::Type&);
 
 ARROW_ENGINE_EXPORT
-Result<std::unique_ptr<st::Type>> ToProto(const DataType&, bool nullable = true);
+Result<std::unique_ptr<st::Type>> ToProto(const DataType&, bool nullable, ExtensionSet*);
 
 ARROW_ENGINE_EXPORT
 Result<std::shared_ptr<Schema>> FromProto(const st::NamedStruct&);

@@ -88,8 +88,9 @@ Result<std::shared_ptr<DataType>> DeserializeType(const Buffer& buf) {
   return std::move(type_nullable.first);
 }
 
-Result<std::shared_ptr<Buffer>> SerializeType(const DataType& type) {
-  ARROW_ASSIGN_OR_RAISE(auto st_type, ToProto(type));
+Result<std::shared_ptr<Buffer>> SerializeType(const DataType& type,
+                                              ExtensionSet* ext_set) {
+  ARROW_ASSIGN_OR_RAISE(auto st_type, ToProto(type, /*nullable=*/true, ext_set));
   std::string serialized = st_type->SerializeAsString();
   return Buffer::FromString(std::move(serialized));
 }

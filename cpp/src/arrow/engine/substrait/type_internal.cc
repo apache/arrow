@@ -208,8 +208,14 @@ Result<std::pair<std::shared_ptr<DataType>, bool>> FromProto(const st::Type& typ
 }
 
 namespace {
+
 struct ToProtoImpl {
-  Status Visit(const NullType& t) { return NotImplemented(t); }
+  Status Visit(const NullType& t) {
+    auto id = *default_extension_id_registry()->GetTypeVariation(null());
+    auto anchor = ext_set_->EncodeTypeVariation(id, null());
+    type_->set_user_defined_type_reference(anchor);
+    return Status::OK();
+  }
 
   Status Visit(const BooleanType& t) { return SetWith(&st::Type::set_allocated_bool_); }
 
@@ -270,8 +276,8 @@ struct ToProtoImpl {
 
   Status Visit(const ListType& t) {
     // FIXME assert default field name; custom ones won't roundtrip
-    ARROW_ASSIGN_OR_RAISE(auto type,
-                          ToProto(*t.value_type(), t.value_field()->nullable()));
+    ARROW_ASSIGN_OR_RAISE(
+        auto type, ToProto(*t.value_type(), t.value_field()->nullable(), ext_set_));
     SetWithThen(&st::Type::set_allocated_list)->set_allocated_type(type.release());
     return Status::OK();
   }
@@ -285,7 +291,8 @@ struct ToProtoImpl {
       if (field->metadata() != nullptr) {
         return Status::Invalid("substrait::Type::Struct does not support field metadata");
       }
-      ARROW_ASSIGN_OR_RAISE(auto type, ToProto(*field->type(), field->nullable()));
+      ARROW_ASSIGN_OR_RAISE(auto type,
+                            ToProto(*field->type(), field->nullable(), ext_set_));
       types->AddAllocated(type.release());
     }
     return Status::OK();
@@ -299,11 +306,11 @@ struct ToProtoImpl {
     // FIXME assert default field names; custom ones won't roundtrip
     auto map = SetWithThen(&st::Type::set_allocated_map);
 
-    ARROW_ASSIGN_OR_RAISE(auto key, ToProto(*t.key_type()));
+    ARROW_ASSIGN_OR_RAISE(auto key, ToProto(*t.key_type(), /*nullable=*/false, ext_set_));
     map->set_allocated_key(key.release());
 
-    ARROW_ASSIGN_OR_RAISE(auto value,
-                          ToProto(*t.value_type(), t.value_field()->nullable()));
+    ARROW_ASSIGN_OR_RAISE(
+        auto value, ToProto(*t.value_type(), t.value_field()->nullable(), ext_set_));
     map->set_allocated_value(value.release());
 
     return Status::OK();
@@ -366,12 +373,14 @@ struct ToProtoImpl {
 
   st::Type* type_;
   bool nullable_;
+  ExtensionSet* ext_set_;
 };
 }  // namespace
 
-Result<std::unique_ptr<st::Type>> ToProto(const DataType& type, bool nullable) {
+Result<std::unique_ptr<st::Type>> ToProto(const DataType& type, bool nullable,
+                                          ExtensionSet* ext_set) {
   auto out = internal::make_unique<st::Type>();
-  RETURN_NOT_OK((ToProtoImpl{out.get(), nullable})(type));
+  RETURN_NOT_OK((ToProtoImpl{out.get(), nullable, ext_set})(type));
   return std::move(out);
 }
 
@@ -436,7 +445,9 @@ Result<std::unique_ptr<st::NamedStruct>> ToProto(const Schema& schema) {
       return Status::Invalid("substrait::NamedStruct does not support field metadata");
     }
 
-    ARROW_ASSIGN_OR_RAISE(auto type, ToProto(*field->type(), field->nullable()));
+    ExtensionSet ext_set;
+    ARROW_ASSIGN_OR_RAISE(auto type,
+                          ToProto(*field->type(), field->nullable(), &ext_set));
     types->AddAllocated(type.release());
   }
 

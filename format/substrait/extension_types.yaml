@@ -1,0 +1,121 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+# substrait::{ExtensionTypeVariation, ExtensionType}s
+# for wrapping types which appear in the arrow type system but
+# are not first-class in substrait. These include:
+# - null
+# - unsigned integers
+# - half-precision floating point numbers
+# - 32 bit times and dates
+# - timestamps with units other than microseconds
+# - timestamps with timezones other than UTC
+# - 256 bit decimals
+# - sparse and dense unions
+# - dictionary encoded types
+# - durations
+# - string and binary with 64 bit offsets
+# - list with 64 bit offsets
+# - interval<months: i32>
+# - interval<days: i32, millis: i32>
+# - interval<months: i32, days: i32, nanos: i64>
+# - arrow::ExtensionTypes
+
+# FIXME these extension types are not parameterizable, which means among
+# other things that we can't declare dictionary type here at all since
+# we'd have to declare a different dictionary type for all encoded types
+# (but that is an infinite space). Similarly, do we need to declare a
+# timestamp variation for all possible timezone strings?
+#
+# Ultimately these declarations are a promise which needs to be backed by
+# equivalent serde in c++. For example, consider u8: when serializing to
+# substrait, we need to wrap instances of arrow::uint8 into the type
+# variation listed below. It would be ideal if we could SinglePointOfTruth
+# this correspondence; either generating c++ from the YAML or YAML from the
+# c++.
+#
+# At present (AFAICT) it's not valid to make this user extensible because
+# even if a user adds their custom scalar function to the registry *and*
+# defines the mapping from that scalar function to a substrait::ExtensionFunction
+# the corresponding YAML doesn't exist at any URI and so it can't be used in
+# substrait. Perhaps we could still help that case by providing a tool to
+# generate YAML from functions; that'd simplify the lives of people trying to
+# write arrow::compute::Functions to "define the function and if you want to
+# reference it from substrait generate this YAML and put it at some URI".
+#
+# In any case for the foreseeable future generation would be far too brittle;
+# URIs will not be accessed by anything but humans and the YAML is effectively
+# structured documentation. Thus extenders should pass the URI in the same way
+# they pass a description string; it's opaque to anything in arrow.
+#
+# We'll need a global mapping which contains:
+#  arrow::uint8 <-> {
+#   uri: "https://github.com/apache/arrow/blob//format/substrait/extension_types.yaml",
+#   name: "u8"
+#  }
+#
+# And additionally convenient builders for subsets of that mapping during serde:
+#  arrow::uint8 <-> reference to anchor
+#
+# Worth noting: it's valid to have multiple ExtensionFunctions with the same name,
+# as long as all impls' mangled ("compound") names are unique.
+# Also worth noting: Options may only be enumerations. This will get strange with
+# functions like is_in, where we'll have to require that one argument is a literal
+# list or something.
+
+type_variations:
+  - parent: i8
+    name: u8
+    description: an unsigned 8 bit integer
+    functions: SEPARATE
+  - parent: i16
+    name: u16
+    description: an unsigned 16 bit integer
+    functions: SEPARATE
+  - parent: i32
+    name: u32
+    description: an unsigned 32 bit integer
+    functions: SEPARATE
+  - parent: i32
+    name: u32
+    description: an unsigned 32 bit integer
+    functions: SEPARATE
+  - parent: i64
+    name: u64
+    description: an unsigned 64 bit integer
+    functions: SEPARATE
+
+  - parent: i16
+    name: fp16
+    description: a 16 bit floating point number
+    functions: SEPARATE
+
+types:
+  - name: "null"
+    structure: {}
+  - name: interval_month
+    structure:
+      months: i32
+  - name: interval_day_milli
+    structure:
+      days: i32
+      millis: i32
+  - name: interval_month_day_nano
+    structure:
+      months: i32
+      days: i32
+      nanos: i64
