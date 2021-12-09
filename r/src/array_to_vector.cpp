@@ -920,7 +920,6 @@ class Converter_Decimal : public Converter {
 
   Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
                            R_xlen_t start, R_xlen_t n, size_t chunk_index) const {
-    //using DecimalArray = typename TypeTraits<Type>::ArrayType;
     auto p_data = REAL(data) + start;
     const auto& decimals_arr = checked_cast<const arrow::DecimalArray&>(*array);
 
