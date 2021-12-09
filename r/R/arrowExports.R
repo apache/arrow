@@ -1368,6 +1368,10 @@ external_pointer_addr_double <- function(external_pointer) {
   .Call(`_arrow_external_pointer_addr_double`, external_pointer)
 }
 
+external_pointer_addr_character <- function(external_pointer) {
+  .Call(`_arrow_external_pointer_addr_character`, external_pointer)
+}
+
 external_pointer_addr_integer64 <- function(external_pointer) {
   .Call(`_arrow_external_pointer_addr_integer64`, external_pointer)
 }

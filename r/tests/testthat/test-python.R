@@ -184,9 +184,29 @@ test_that("Pointer wrapper accepts raw representation of pointers", {
   delete_arrow_schema(ptr)
 })
 
+test_that("Pointer wrapper accepts character representation of pointers", {
+  ptr <- allocate_arrow_schema()
+  exportable <- int32()
+  exportable$export_to_c(external_pointer_addr_character(ptr))
+
+  # make sure exportable is released and deleted
+  expect_equal(DataType$import_from_c(ptr), int32())
+  delete_arrow_schema(ptr)
+})
+
 test_that("Pointer wrapper errors for unknown object", {
   expect_error(
     DataType$import_from_c(integer()),
     "Can't convert input object to pointer"
+  )
+
+  expect_error(
+    DataType$import_from_c(NA_character_),
+    "Can't convert NA_character_ to pointer"
+  )
+
+  expect_error(
+    DataType$import_from_c("this is not an integer"),
+    "Can't parse 'this is not an integer'"
   )
 })

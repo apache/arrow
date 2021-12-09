@@ -60,6 +60,21 @@ struct Pointer {
   explicit Pointer(SEXP x) {
     if (TYPEOF(x) == EXTPTRSXP) {
       ptr_ = (T*) R_ExternalPtrAddr(x);
+    } else if (TYPEOF(x) == STRSXP && Rf_length(x) == 1) {
+      // User passed an character representation of the pointer address
+      SEXP char0 = STRING_ELT(x, 0);
+      if (char0 == NA_STRING) {
+        cpp11::stop("Can't convert NA_character_ to pointer");
+      }
+
+      const char* input_chars = CHAR(char0);
+      char* endptr;
+      uint64_t ptr_value = strtoll(input_chars, &endptr, 0);
+      if (endptr != (input_chars + strlen(input_chars))) {
+        cpp11::stop("Can't parse '%s' as a 64-bit integer address", input_chars);
+      }
+
+      ptr_ = reinterpret_cast<T*>(static_cast<uintptr_t>(ptr_value));
     } else if (Rf_inherits(x, "integer64") && Rf_length(x) == 1) {
       // User passed an integer64(1) of the pointer address
       // an integer64 is a REALSXP under the hood, with the bytes

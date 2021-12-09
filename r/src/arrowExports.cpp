@@ -5388,6 +5388,21 @@ END_CPP11
   
 // py-to-r.cpp
   #if defined(ARROW_R_WITH_ARROW)
+  std::string external_pointer_addr_character(SEXP external_pointer);
+extern "C" SEXP _arrow_external_pointer_addr_character(SEXP external_pointer_sexp){
+BEGIN_CPP11
+	arrow::r::Input<SEXP>::type external_pointer(external_pointer_sexp);
+	return cpp11::as_sexp(external_pointer_addr_character(external_pointer));
+END_CPP11
+}
+  #else
+  extern "C" SEXP _arrow_external_pointer_addr_character(SEXP external_pointer_sexp){
+  	Rf_error("Cannot call external_pointer_addr_character(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+  }
+  #endif
+  
+// py-to-r.cpp
+  #if defined(ARROW_R_WITH_ARROW)
   cpp11::doubles external_pointer_addr_integer64(SEXP external_pointer);
 extern "C" SEXP _arrow_external_pointer_addr_integer64(SEXP external_pointer_sexp){
 BEGIN_CPP11
@@ -7558,6 +7573,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_parquet___arrow___WriteTable", (DL_FUNC) &_arrow_parquet___arrow___WriteTable, 4}, 
 		{ "_arrow_parquet___arrow___FileReader__GetSchema", (DL_FUNC) &_arrow_parquet___arrow___FileReader__GetSchema, 1}, 
 		{ "_arrow_external_pointer_addr_double", (DL_FUNC) &_arrow_external_pointer_addr_double, 1}, 
+		{ "_arrow_external_pointer_addr_character", (DL_FUNC) &_arrow_external_pointer_addr_character, 1}, 
 		{ "_arrow_external_pointer_addr_integer64", (DL_FUNC) &_arrow_external_pointer_addr_integer64, 1}, 
 		{ "_arrow_external_pointer_addr_raw", (DL_FUNC) &_arrow_external_pointer_addr_raw, 1}, 
 		{ "_arrow_allocate_arrow_schema", (DL_FUNC) &_arrow_allocate_arrow_schema, 0}, 
