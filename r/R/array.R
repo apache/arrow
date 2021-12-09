@@ -199,8 +199,11 @@ Array$create <- function(x, type = NULL) {
       attempt <- try(vec_to_Array(x, NULL)$cast(type), silent = TRUE)
       abort(
         c(conditionMessage(cnd),
-          i = if (!inherits(attempt, "try-error")) "You might want to try casting manually with `Array$create(...)$cast(...)`.")
+          i = if (!inherits(attempt, "try-error")) {
+            "You might want to try casting manually with `Array$create(...)$cast(...)`."
+          }
         )
+      )
     }
   )
 }
