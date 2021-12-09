@@ -33,7 +33,7 @@
 namespace arrow {
 namespace csv {
 // This implementation is intentionally light on configurability to minimize the size of
-// the initial PR. Aditional features can be added as there is demand and interest to
+// the initial PR. Additional features can be added as there is demand and interest to
 // implement them.
 //
 // The algorithm used here at a high level is to break RecordBatches/Tables into slices
@@ -80,7 +80,7 @@ int64_t CountQuotes(util::string_view s) {
 // Matching quote pair character length.
 constexpr int64_t kQuoteCount = 2;
 constexpr int64_t kQuoteDelimiterCount = kQuoteCount + /*end_char*/ 1;
-static const std::string& str_comma = ",";
+constexpr char const* kStrComma = ",";
 
 // Interface for generating CSV data per column.
 // The intended usage is to iteratively call UpdateRowLengths for a column and
@@ -88,9 +88,11 @@ static const std::string& str_comma = ",";
 // populators (it populates data backwards).
 class ColumnPopulator {
  public:
-  ColumnPopulator(MemoryPool* pool, const std::string& end_chars,
+  ColumnPopulator(MemoryPool* pool, const std::string end_chars,
                   std::shared_ptr<Buffer> null_string)
-      : end_chars_(end_chars), null_string_(std::move(null_string)), pool_(pool) {}
+      : end_chars_(std::move(end_chars)),
+        null_string_(std::move(null_string)),
+        pool_(pool) {}
 
   virtual ~ColumnPopulator() = default;
 
@@ -148,10 +150,10 @@ char* EscapeReverse(arrow::util::string_view s, char* out_end) {
 // compliance with RFC4180 section 2.5.
 class UnquotedColumnPopulator : public ColumnPopulator {
  public:
-  explicit UnquotedColumnPopulator(MemoryPool* memory_pool, const std::string& end_chars,
+  explicit UnquotedColumnPopulator(MemoryPool* memory_pool, const std::string end_chars,
                                    std::shared_ptr<Buffer> null_string_,
                                    bool reject_values_with_quotes)
-      : ColumnPopulator(memory_pool, end_chars, std::move(null_string_)),
+      : ColumnPopulator(memory_pool, std::move(end_chars), std::move(null_string_)),
         reject_values_with_quotes_(reject_values_with_quotes) {}
 
   Status UpdateRowLengths(int32_t* row_lengths) override {
@@ -231,9 +233,9 @@ class UnquotedColumnPopulator : public ColumnPopulator {
 // a quote character (") and escaping is done my adding another quote.
 class QuotedColumnPopulator : public ColumnPopulator {
  public:
-  QuotedColumnPopulator(MemoryPool* pool, const std::string& end_chars,
+  QuotedColumnPopulator(MemoryPool* pool, const std::string end_chars,
                         std::shared_ptr<Buffer> null_string)
-      : ColumnPopulator(pool, end_chars, std::move(null_string)) {}
+      : ColumnPopulator(pool, std::move(end_chars), std::move(null_string)) {}
 
   Status UpdateRowLengths(int32_t* row_lengths) override {
     const StringArray& input = *casted_array_;
@@ -365,7 +367,7 @@ struct PopulatorFactory {
     return Status::OK();
   }
 
-  std::string end_chars;
+  const std::string end_chars;
   std::shared_ptr<Buffer> null_string;
   const QuotingStyle quoting_style;
   MemoryPool* pool;
@@ -373,10 +375,10 @@ struct PopulatorFactory {
 };
 
 Result<std::unique_ptr<ColumnPopulator>> MakePopulator(
-    const Field& field, const std::string& end_chars, std::shared_ptr<Buffer> null_string,
+    const Field& field, const std::string end_chars, std::shared_ptr<Buffer> null_string,
     QuotingStyle quoting_style, MemoryPool* pool) {
-  PopulatorFactory factory{end_chars, std::move(null_string), quoting_style, pool,
-                           nullptr};
+  PopulatorFactory factory{std::move(end_chars), std::move(null_string), quoting_style,
+                           pool, nullptr};
 
   RETURN_NOT_OK(VisitTypeInline(*field.type(), &factory));
   return std::unique_ptr<ColumnPopulator>(factory.populator);
@@ -401,7 +403,7 @@ class CSVWriterImpl : public ipc::RecordBatchWriter {
     std::vector<std::unique_ptr<ColumnPopulator>> populators(schema->num_fields());
     for (int col = 0; col < schema->num_fields(); col++) {
       const std::string& end_chars =
-          col < schema->num_fields() - 1 ? str_comma : options.eol;
+          col < schema->num_fields() - 1 ? kStrComma : options.eol;
       ASSIGN_OR_RAISE(populators[col],
                       MakePopulator(*schema->field(col), end_chars, null_string,
                                     options.quoting_style, options.io_context.pool()));
