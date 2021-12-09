@@ -27,7 +27,7 @@ collect.arrow_dplyr_query <- function(x, as_data_frame = TRUE, ...) {
   }
 
   # See query-engine.R for ExecPlan/Nodes
-  tab <- do_exec_plan(x)
+  tab <- do_exec_plan(x)$read_table()
   if (as_data_frame) {
     df <- as.data.frame(tab)
     tab$invalidate()
