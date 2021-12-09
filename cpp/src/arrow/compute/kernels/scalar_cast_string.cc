@@ -58,7 +58,7 @@ struct NumericToStringCastFunctor {
 
   static Status Convert(KernelContext* ctx, const ArrayData& input, ArrayData* output) {
     FormatterType formatter(input.type);
-    BuilderType builder(utf8(), ctx->memory_pool());
+    BuilderType builder(ctx->memory_pool());
     RETURN_NOT_OK(VisitArrayDataInline<I>(
         input,
         [&](value_type v) {
@@ -91,7 +91,7 @@ struct TemporalToStringCastFunctor {
 
   static Status Convert(KernelContext* ctx, const ArrayData& input, ArrayData* output) {
     FormatterType formatter(input.type);
-    BuilderType builder(utf8(), ctx->memory_pool());
+    BuilderType builder(ctx->memory_pool());
     RETURN_NOT_OK(VisitArrayDataInline<I>(
         input,
         [&](value_type v) {
@@ -122,7 +122,7 @@ struct TemporalToStringCastFunctor<O, TimestampType> {
   static Status Convert(KernelContext* ctx, const ArrayData& input, ArrayData* output) {
     const auto& timezone = GetInputTimezone(*input.type);
     const auto& ty = checked_cast<const TimestampType&>(*input.type);
-    BuilderType builder(utf8(), ctx->memory_pool());
+    BuilderType builder(ctx->memory_pool());
 
     // Preallocate
     int64_t string_length = 19;  // YYYY-MM-DD HH:MM:SS

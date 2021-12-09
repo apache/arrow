@@ -50,14 +50,6 @@ class BaseBinaryBuilder : public ArrayBuilder {
   using TypeClass = TYPE;
   using offset_type = typename TypeClass::offset_type;
 
-  explicit BaseBinaryBuilder(MemoryPool* pool = default_memory_pool())
-      : ArrayBuilder(pool), offsets_builder_(pool),
-        value_data_builder_(pool), type_(binary()) {}
-
-  BaseBinaryBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool)
-      : ArrayBuilder(pool), offsets_builder_(pool),
-        value_data_builder_(pool), type_(type) {}
-
   Status Append(const uint8_t* value, offset_type length) {
     ARROW_RETURN_NOT_OK(Reserve(1));
     ARROW_RETURN_NOT_OK(AppendNextOffset());
@@ -385,6 +377,10 @@ class BaseBinaryBuilder : public ArrayBuilder {
   TypedBufferBuilder<offset_type> offsets_builder_;
   TypedBufferBuilder<uint8_t> value_data_builder_;
   std::shared_ptr<DataType> type_;
+
+  BaseBinaryBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool)
+      : ArrayBuilder(pool), offsets_builder_(pool),
+        value_data_builder_(pool), type_(type) {}
 
   Status AppendNextOffset() {
     const int64_t num_bytes = value_data_builder_.length();
