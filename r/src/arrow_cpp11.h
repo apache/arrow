@@ -61,7 +61,7 @@ struct Pointer {
     if (TYPEOF(x) == EXTPTRSXP) {
       ptr_ = (T*)R_ExternalPtrAddr(x);
     } else if (TYPEOF(x) == STRSXP && Rf_length(x) == 1) {
-      // User passed an character representation of the pointer address
+      // User passed a character representation of the pointer address
       SEXP char0 = STRING_ELT(x, 0);
       if (char0 == NA_STRING) {
         cpp11::stop("Can't convert NA_character_ to pointer");
