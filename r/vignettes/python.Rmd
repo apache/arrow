@@ -54,7 +54,7 @@ use_virtualenv("arrow-env")
 pa <- import("pyarrow")
 ```
 
-The pyarrow package includes support for sharing Arrow `Array` and `RecordBatch`
+The arrow R package include support for sharing Arrow `Array` and `RecordBatch`
 objects in-process between R and Python. For example, let's create an `Array`
 in pyarrow.
 
