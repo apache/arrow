@@ -25,6 +25,3 @@ This lets you aggregate on each chunk and pull the intermediate results into
 a \code{data.frame} for further aggregation, even if you couldn't fit the whole
 \code{Dataset} result in memory.
 }
-\details{
-This is experimental and not recommended for production use.
-}
