@@ -19,14 +19,13 @@
 
 #include <google/cloud/storage/client.h>
 #include <algorithm>
-#include <future>
-#include <numeric>
 
 #include "arrow/buffer.h"
 #include "arrow/filesystem/gcsfs_internal.h"
 #include "arrow/filesystem/path_util.h"
 #include "arrow/result.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/thread_pool.h"
 
 #define ARROW_GCS_RETURN_NOT_OK(expr) \
   if (!expr.ok()) return internal::ToArrowStatus(expr)
@@ -345,74 +344,51 @@ class GcsFileSystem::Impl {
     return internal::ToArrowStatus(CreateDirMarkerRecursive(p.bucket, p.object));
   }
 
-  Status DeleteDir(const GcsPath& p) {
-    RETURN_NOT_OK(DeleteDirContents(p));
+  Status DeleteDir(const GcsPath& p, const io::IOContext& io_context) {
+    RETURN_NOT_OK(DeleteDirContents(p, io_context));
     if (!p.object.empty()) {
       return internal::ToArrowStatus(client_.DeleteObject(p.bucket, p.object));
     }
     return internal::ToArrowStatus(client_.DeleteBucket(p.bucket));
   }
 
-  Status DeleteDirContents(const GcsPath& p) {
+  Status DeleteDirContents(const GcsPath& p, const io::IOContext& io_context) {
     // Deleting large directories can be fairly slow, we need to parallelize the
     // operation. This uses `std::async()` to run multiple delete operations in parallel.
     // A simple form of flow control limits the number of operations running in
     // parallel.
 
-    // Keep the first error. The iteration stops when one or more errors are detected,
-    // but because multiple operations may be running in parallel we may receive more
-    // than one failure.
-    google::cloud::Status status;
-    auto keep_errors = [](google::cloud::Status a, google::cloud::Status b) {
-      return a.ok() ? std::move(a) : std::move(b);
+    auto async_delete =
+        [&p](gcs::Client& client,
+             google::cloud::StatusOr<gcs::ObjectMetadata> o) -> google::cloud::Status {
+      if (!o) return std::move(o).status();
+      // The list includes the directory, skip it. DeleteDir() takes care of it.
+      if (o->bucket() == p.bucket && o->name() == p.object) return {};
+      return client.DeleteObject(o->bucket(), o->name(),
+                                 gcs::Generation(o->generation()));
     };
 
-    using Future = std::future<google::cloud::Status>;
-    std::vector<Future> pending;
-    // Limit the number of operations in parallel. If the limit is reached it blocks until
-    // at least 1/2 of the operations have completed. Preserve the error status.
-    auto flow_control = [&] {
-      const auto hwm = static_cast<std::size_t>(options_.maximum_concurrent_operations);
-      const auto lwm = hwm / 2;
-      if (pending.size() < hwm) return;
-      while (pending.size() > lwm && status.ok()) {
-        // Move any futures that are ready to the end of the vector.
-        auto end = std::partition(pending.begin(), pending.end(), [](Future& f) {
-          return f.wait_for(std::chrono::milliseconds(1)) != std::future_status::ready;
-        });
-        // From the ready futures, discover if any finished with an error status
-        status = std::accumulate(end, pending.end(), std::move(status),
-                                 [&](google::cloud::Status s, Future& f) {
-                                   return keep_errors(std::move(s), f.get());
-                                 });
-        pending.erase(end, pending.end());
-      }
-    };
-
-    auto async_delete = [](gcs::Client& client, gcs::ObjectMetadata const& o) {
-      return client.DeleteObject(o.bucket(), o.name(), gcs::Generation(o.generation()));
-    };
-
+    using Future = arrow::Future<google::cloud::Status>;
+    std::vector<Result<Future>> submitted;
     // This iterates over all the objects, and schedules parallel deletes.
     auto prefix = p.object.empty() ? gcs::Prefix() : gcs::Prefix(p.object);
     for (auto& o : client_.ListObjects(p.bucket, prefix)) {
-      if (!status.ok()) break;
-      if (!o) {
-        status = std::move(o).status();
-        break;
-      }
-      // The list includes the directory, skip it. DeleteDir() takes care of it.
-      if (o->bucket() == p.bucket && o->name() == p.object) continue;
-      pending.push_back(
-          std::async(std::launch::async, async_delete, std::ref(client_), *std::move(o)));
-      flow_control();
+      submitted.push_back(
+          io_context.executor()->Submit(async_delete, std::ref(client_), std::move(o)));
     }
-    // Wait for any pending operations and return the first error.
-    return internal::ToArrowStatus(
-        std::accumulate(pending.begin(), pending.end(), std::move(status),
-                        [&](google::cloud::Status s, Future& f) {
-                          return keep_errors(std::move(s), f.get());
-                        }));
+
+    std::vector<Status> results(submitted.size());
+    std::transform(submitted.begin(), submitted.end(), results.begin(),
+                   [](Result<Future>& r) {
+                     if (!r.ok()) return r.status();
+                     auto f = r.MoveValueUnsafe().MoveResult();
+                     if (!f.ok()) return f.status();
+                     return internal::ToArrowStatus(f.MoveValueUnsafe());
+                   });
+    for (auto& r : results) {
+      if (!r.ok()) return r;
+    }
+    return {};
   }
 
   Status DeleteFile(const GcsPath& p) {
@@ -531,7 +507,7 @@ Status GcsFileSystem::CreateDir(const std::string& path, bool recursive) {
 
 Status GcsFileSystem::DeleteDir(const std::string& path) {
   ARROW_ASSIGN_OR_RAISE(auto p, GcsPath::FromString(path));
-  return impl_->DeleteDir(p);
+  return impl_->DeleteDir(p, io_context());
 }
 
 Status GcsFileSystem::DeleteDirContents(const std::string& path) {
