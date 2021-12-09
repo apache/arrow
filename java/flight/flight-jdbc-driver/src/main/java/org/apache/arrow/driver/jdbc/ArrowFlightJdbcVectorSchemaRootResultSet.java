@@ -24,12 +24,14 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.TimeZone;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.apache.arrow.driver.jdbc.utils.SqlTypes;
+import org.apache.arrow.flight.sql.FlightSqlColumnMetadata;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.types.pojo.ArrowType;
@@ -102,6 +104,8 @@ public class ArrowFlightJdbcVectorSchemaRootResultSet extends AvaticaResultSet {
           builder.setColumnName(field.getName());
           builder.setLabel(field.getName());
 
+          setOnColumnMetaDataBuilder(builder, field.getMetadata());
+
           builder.setType(Common.AvaticaType.newBuilder()
               .setId(SqlTypes.getSqlTypeIdFromArrowType(field.getType()))
               .setName(fieldTypeId.name())
@@ -109,6 +113,49 @@ public class ArrowFlightJdbcVectorSchemaRootResultSet extends AvaticaResultSet {
 
           return ColumnMetaData.fromProto(builder.build());
         }).collect(Collectors.toList());
+  }
+
+  private static void setOnColumnMetaDataBuilder(Common.ColumnMetaData.Builder builder,
+                                                 Map<String, String> metadataMap) {
+    FlightSqlColumnMetadata columnMetadata = new FlightSqlColumnMetadata(metadataMap);
+    String catalogName = columnMetadata.getCatalogName();
+    if (catalogName != null) {
+      builder.setCatalogName(catalogName);
+    }
+    String schemaName = columnMetadata.getSchemaName();
+    if (schemaName != null) {
+      builder.setSchemaName(schemaName);
+    }
+    String tableName = columnMetadata.getTableName();
+    if (tableName != null) {
+      builder.setTableName(tableName);
+    }
+
+    Integer precision = columnMetadata.getPrecision();
+    if (precision != null) {
+      builder.setPrecision(precision);
+    }
+    Integer scale = columnMetadata.getScale();
+    if (scale != null) {
+      builder.setScale(scale);
+    }
+
+    Boolean isAutoIncrement = columnMetadata.isAutoIncrement();
+    if (isAutoIncrement != null) {
+      builder.setAutoIncrement(isAutoIncrement);
+    }
+    Boolean caseSensitive = columnMetadata.isCaseSensitive();
+    if (caseSensitive != null) {
+      builder.setCaseSensitive(caseSensitive);
+    }
+    Boolean readOnly = columnMetadata.isReadOnly();
+    if (readOnly != null) {
+      builder.setReadOnly(readOnly);
+    }
+    Boolean searchable = columnMetadata.isSearchable();
+    if (searchable != null) {
+      builder.setSearchable(searchable);
+    }
   }
 
   @Override

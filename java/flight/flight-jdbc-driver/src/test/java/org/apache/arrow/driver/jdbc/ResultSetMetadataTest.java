@@ -159,6 +159,68 @@ public class ResultSetMetadataTest {
     collector.checkThat(thirdColumn, equalTo(Types.FLOAT));
   }
 
+  @Test
+  public void testShouldGetPrecision() throws SQLException {
+    collector.checkThat(metadata.getPrecision(1), equalTo(10));
+    collector.checkThat(metadata.getPrecision(2), equalTo(65535));
+    collector.checkThat(metadata.getPrecision(3), equalTo(15));
+  }
+
+  @Test
+  public void testShouldGetScale() throws SQLException {
+    collector.checkThat(metadata.getScale(1), equalTo(0));
+    collector.checkThat(metadata.getScale(2), equalTo(0));
+    collector.checkThat(metadata.getScale(3), equalTo(20));
+  }
+
+  @Test
+  public void testShouldGetCatalogName() throws SQLException {
+    collector.checkThat(metadata.getCatalogName(1), equalTo("CATALOG_NAME_1"));
+    collector.checkThat(metadata.getCatalogName(2), equalTo("CATALOG_NAME_2"));
+    collector.checkThat(metadata.getCatalogName(3), equalTo("CATALOG_NAME_3"));
+  }
+
+  @Test
+  public void testShouldGetSchemaName() throws SQLException {
+    collector.checkThat(metadata.getSchemaName(1), equalTo("SCHEMA_NAME_1"));
+    collector.checkThat(metadata.getSchemaName(2), equalTo("SCHEMA_NAME_2"));
+    collector.checkThat(metadata.getSchemaName(3), equalTo("SCHEMA_NAME_3"));
+  }
+
+  @Test
+  public void testShouldGetTableName() throws SQLException {
+    collector.checkThat(metadata.getTableName(1), equalTo("TABLE_NAME_1"));
+    collector.checkThat(metadata.getTableName(2), equalTo("TABLE_NAME_2"));
+    collector.checkThat(metadata.getTableName(3), equalTo("TABLE_NAME_3"));
+  }
+
+  @Test
+  public void testShouldIsAutoIncrement() throws SQLException {
+    collector.checkThat(metadata.isAutoIncrement(1), equalTo(true));
+    collector.checkThat(metadata.isAutoIncrement(2), equalTo(false));
+    collector.checkThat(metadata.isAutoIncrement(3), equalTo(false));
+  }
+
+  @Test
+  public void testShouldIsCaseSensitive() throws SQLException {
+    collector.checkThat(metadata.isCaseSensitive(1), equalTo(false));
+    collector.checkThat(metadata.isCaseSensitive(2), equalTo(true));
+    collector.checkThat(metadata.isCaseSensitive(3), equalTo(false));
+  }
+
+  @Test
+  public void testShouldIsReadonly() throws SQLException {
+    collector.checkThat(metadata.isReadOnly(1), equalTo(true));
+    collector.checkThat(metadata.isReadOnly(2), equalTo(false));
+    collector.checkThat(metadata.isReadOnly(3), equalTo(false));
+  }
+
+  @Test
+  public void testShouldIsSearchable() throws SQLException {
+    collector.checkThat(metadata.isSearchable(1), equalTo(true));
+    collector.checkThat(metadata.isSearchable(2), equalTo(true));
+    collector.checkThat(metadata.isSearchable(3), equalTo(true));
+  }
 
   /**
    * Test if {@link ResultSetMetaData#getColumnTypeName(int)} passing an column index that does not exist.
