@@ -1015,7 +1015,7 @@ cdef class Array(_PandasConvertible):
         indent : int, default 2
             How much to indent the internal items in the string to 
             the right, by default ``2``.
-        top_level_indent : int
+        top_level_indent : int, default 0
             How much to indent right the entire content of the array,
             by default ``0``. 
         window : int
