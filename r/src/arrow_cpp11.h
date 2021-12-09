@@ -60,11 +60,19 @@ struct Pointer {
   explicit Pointer(SEXP x) {
     if (TYPEOF(x) == EXTPTRSXP) {
       ptr_ = (T*) R_ExternalPtrAddr(x);
-    } else if (Rf_inherits(x, "integer64")) {
-      memcpy(&ptr_, REAL(x), sizeof(T*));
+    } else if (Rf_inherits(x, "integer64") && Rf_length(x) == 1) {
+      // User passed an integer64(1) of the pointer address
+      // an integer64 is a REALSXP under the hood, with the bytes
+      // of each double reinterpreted as an int64.
+      uint64_t ptr_value;
+      memcpy(&ptr_value, REAL(x), sizeof(uint64_t));
+      ptr_ = reinterpret_cast<T*>(static_cast<uintptr_t>(ptr_value));
     } else if (TYPEOF(x) == RAWSXP && Rf_length(x) == sizeof(T*)) {
+      // User passed a raw(<pointer size>) with the literal bytes of the
+      // pointer.
       memcpy(&ptr_, RAW(x), sizeof(T*));
-    } else if (TYPEOF(x) == REALSXP) {
+    } else if (TYPEOF(x) == REALSXP && Rf_length(x) == 1) {
+      // User passed a double(1) of the static-casted pointer address.
       ptr_ = reinterpret_cast<T*>(static_cast<uintptr_t>(REAL(x)[0]));
     } else {
       cpp11::stop("Can't convert input object to pointer");
