@@ -30,7 +30,7 @@ One thing to note is the some of the services defined in `docker-compose.yml` ar
 There are numerous important directories in the Arrow project which relate to CI:
 
 * `.github/worflows` - workflows that are run via GitHub actions and are triggered by things like pull requests being submitted or merged
-* `dev/tasks` - containing jobs which are run via Archery and Crossbow, typically nightly builds or relating to the release process
+* `dev/tasks` - containing on-demand jobs triggered/submitted via `archery crossbow submit ...`, typically nightly builds or relating to the release process
 * `ci/` - containing scripts supporting the various builds
 
 Instead of thinking about Arrow CI in terms of files and folders, it may be conceptually simpler to instead divide it into 2 main categories:
