@@ -104,43 +104,46 @@ class BaseBloomFilter {
   // If the bit is set in the filter, the given character *may* be part
   // of the matched characters.  If the bit is unset in the filter,
   // the the given character *cannot* be part of the matched characters.
-  FilterType CharFilter(uint8_t c) {
+  FilterType CharFilter(uint8_t c) const {
     return static_cast<FilterType>(1) << (c & kCharMask);
   }
 
-  FilterType MatchChar(uint8_t c) { return CharFilter(c) & filter_; }
+  FilterType MatchChar(uint8_t c) const { return CharFilter(c) & filter_; }
 
   const FilterType filter_;
 };
 
+template <typename SpecializedOptions>
 class BloomFilter1B : public BaseBloomFilter {
  public:
   using WordType = uint8_t;
 
   using BaseBloomFilter::BaseBloomFilter;
 
-  bool Matches(uint8_t c) { return (CharFilter(c) & filter_) != 0; }
+  bool Matches(uint8_t c) const { return (CharFilter(c) & filter_) != 0; }
 };
 
+template <typename SpecializedOptions>
 class BloomFilter2B : public BaseBloomFilter {
  public:
   using WordType = uint16_t;
 
   using BaseBloomFilter::BaseBloomFilter;
 
-  bool Matches(uint16_t w) {
+  bool Matches(uint16_t w) const {
     return (MatchChar(static_cast<uint8_t>(w >> 8)) |
             MatchChar(static_cast<uint8_t>(w))) != 0;
   }
 };
 
+template <typename SpecializedOptions>
 class BloomFilter4B : public BaseBloomFilter {
  public:
   using WordType = uint32_t;
 
   using BaseBloomFilter::BaseBloomFilter;
 
-  bool Matches(uint32_t w) {
+  bool Matches(uint32_t w) const {
     return (MatchChar(static_cast<uint8_t>(w >> 24)) |
             MatchChar(static_cast<uint8_t>(w >> 16)) |
             MatchChar(static_cast<uint8_t>(w >> 8)) |
@@ -148,19 +151,20 @@ class BloomFilter4B : public BaseBloomFilter {
   }
 };
 
-#ifdef ARROW_HAVE_SSE4_2
+#if defined(ARROW_HAVE_SSE4_2)
 
 // SSE4.2 filter: 8 bytes at a time, using packed compare instruction
 
 // NOTE: on SVE, could use svmatch[_u8] for similar functionality.
 
+template <typename SpecializedOptions>
 class SSE42Filter {
  public:
   using WordType = uint64_t;
 
   explicit SSE42Filter(const ParseOptions& options) : filter_(MakeFilter(options)) {}
 
-  bool Matches(WordType w) {
+  bool Matches(WordType w) const {
     // Look up every byte in `w` in the SIMD filter.
     return _mm_cmpistrc(_mm_set1_epi64x(w), filter_,
                         _SIDD_UBYTE_OPS | _SIDD_CMP_EQUAL_ANY);
@@ -182,6 +186,44 @@ class SSE42Filter {
   }
 
   const BulkFilterType filter_;
+};
+
+#elif defined(ARROW_HAVE_NEON)
+
+// NEON filter: 8 bytes at a time, comparing with all special chars.
+// We could filter 16 bytes at a time but that actually decreases performance,
+// because the filter matches too often on mid-sized cell values.
+
+template <typename SpecializedOptions>
+class NeonFilter {
+ public:
+  // NOTE we cannot use xsimd as it doesn't expose the 64-bit Neon types,
+  // only 128-bit.
+  using WordType = uint8x8_t;
+
+  explicit NeonFilter(const ParseOptions& options)
+      : delim_(vdup_n_u8(options.delimiter)),
+        quote_(vdup_n_u8(options.quoting ? options.quote_char : '\n')),
+        escape_(vdup_n_u8(options.escaping ? options.escape_char : '\n')) {}
+
+  bool Matches(WordType w) const {
+    uint8x8_t v;
+    v = vceq_u8(w, vdup_n_u8('\r'));
+    v = vorr_u8(v, vceq_u8(w, vdup_n_u8('\n')));
+    v = vorr_u8(v, vceq_u8(w, delim_));
+    if (SpecializedOptions::quoting) {
+      v = vorr_u8(v, vceq_u8(w, quote_));
+    }
+    if (SpecializedOptions::escaping) {
+      v = vorr_u8(v, vceq_u8(w, escape_));
+    }
+    uint64_t r;
+    vst1_u64(&r, vreinterpret_u64_u8(v));
+    return r != 0;
+  }
+
+ private:
+  const uint8x8_t delim_, quote_, escape_;
 };
 
 #endif
@@ -312,9 +354,14 @@ class PresizedValueDescWriter : public ValueDescWriter<PresizedValueDescWriter> 
 class BlockParserImpl {
 #if defined(ARROW_HAVE_SSE4_2) && (defined(__x86_64__) || defined(_M_X64))
   // (the SSE4.2 filter seems to crash on RTools with 32-bit MinGW)
-  using BulkFilterType = SSE42Filter;
+  template <typename SpecializedOptions>
+  using BulkFilterType = SSE42Filter<SpecializedOptions>;
+#elif defined(ARROW_HAVE_NEON)
+  template <typename SpecializedOptions>
+  using BulkFilterType = NeonFilter<SpecializedOptions>;
 #else
-  using BulkFilterType = BloomFilter4B;
+  template <typename SpecializedOptions>
+  using BulkFilterType = BloomFilter4B<SpecializedOptions>;
 #endif
 
  public:
@@ -324,7 +371,6 @@ class BlockParserImpl {
         options_(std::move(options)),
         first_row_(first_row),
         max_num_rows_(max_num_rows),
-        bulk_filter_(options_),
         batch_(num_cols) {}
 
   const DataBatch& parsed_batch() const { return batch_; }
@@ -371,7 +417,8 @@ class BlockParserImpl {
             typename DataWriter>
   Status ParseLine(ValueDescWriter* values_writer, DataWriter* parsed_writer,
                    const char* data, const char* data_end, bool is_final,
-                   const char** out_data) {
+                   const char** out_data,
+                   const BulkFilterType<SpecializedOptions>& bulk_filter) {
     int32_t num_cols = 0;
     char c;
     const auto start = data;
@@ -429,7 +476,7 @@ class BlockParserImpl {
   InField:
     // Inside a non-quoted part of a field
     if (UseBulkFilter) {
-      const char* bulk_end = BulkFilter(parsed_writer, data, data_end);
+      const char* bulk_end = BulkFilter(parsed_writer, data, data_end, bulk_filter);
       if (ARROW_PREDICT_FALSE(bulk_end == nullptr)) {
         goto AbortLine;
       }
@@ -470,7 +517,7 @@ class BlockParserImpl {
   InQuotedField:
     // Inside a quoted part of a field
     if (UseBulkFilter) {
-      const char* bulk_end = BulkFilter(parsed_writer, data, data_end);
+      const char* bulk_end = BulkFilter(parsed_writer, data, data_end, bulk_filter);
       if (ARROW_PREDICT_FALSE(bulk_end == nullptr)) {
         goto AbortLine;
       }
@@ -554,11 +601,11 @@ class BlockParserImpl {
     return Status::OK();
   }
 
-  template <typename DataWriter>
-  const char* BulkFilter(DataWriter* data_writer, const char* data,
-                         const char* data_end) {
+  template <typename DataWriter, typename SpecializedBulkFilter>
+  const char* BulkFilter(DataWriter* data_writer, const char* data, const char* data_end,
+                         const SpecializedBulkFilter& bulk_filter) {
     while (true) {
-      using WordType = BulkFilterType::WordType;
+      using WordType = typename SpecializedBulkFilter::WordType;
 
       if (ARROW_PREDICT_FALSE(static_cast<size_t>(data_end - data) < sizeof(WordType))) {
         if (ARROW_PREDICT_FALSE(data == data_end)) {
@@ -568,7 +615,7 @@ class BlockParserImpl {
       }
       WordType word;
       memcpy(&word, data, sizeof(WordType));
-      if (bulk_filter_.Matches(word)) {
+      if (bulk_filter.Matches(word)) {
         return data;
       }
       // No special chars
@@ -580,16 +627,17 @@ class BlockParserImpl {
   template <typename SpecializedOptions, typename ValueDescWriter, typename DataWriter>
   Status ParseChunk(ValueDescWriter* values_writer, DataWriter* parsed_writer,
                     const char* data, const char* data_end, bool is_final,
-                    int32_t rows_in_chunk, const char** out_data,
-                    bool* finished_parsing) {
+                    int32_t rows_in_chunk, const char** out_data, bool* finished_parsing,
+                    const BulkFilterType<SpecializedOptions>& bulk_filter) {
     const int32_t start_num_rows = batch_.num_rows_;
     const int32_t num_rows_deadline = batch_.num_rows_ + rows_in_chunk;
 
     if (use_bulk_filter_) {
       while (data < data_end && batch_.num_rows_ < num_rows_deadline) {
         const char* line_end = data;
-        RETURN_NOT_OK((ParseLine<SpecializedOptions, true>(
-            values_writer, parsed_writer, data, data_end, is_final, &line_end)));
+        RETURN_NOT_OK((ParseLine<SpecializedOptions, true>(values_writer, parsed_writer,
+                                                           data, data_end, is_final,
+                                                           &line_end, bulk_filter)));
         if (line_end == data) {
           // Cannot parse any further
           *finished_parsing = true;
@@ -600,8 +648,9 @@ class BlockParserImpl {
     } else {
       while (data < data_end && batch_.num_rows_ < num_rows_deadline) {
         const char* line_end = data;
-        RETURN_NOT_OK((ParseLine<SpecializedOptions, false>(
-            values_writer, parsed_writer, data, data_end, is_final, &line_end)));
+        RETURN_NOT_OK((ParseLine<SpecializedOptions, false>(values_writer, parsed_writer,
+                                                            data, data_end, is_final,
+                                                            &line_end, bulk_filter)));
         if (line_end == data) {
           // Cannot parse any further
           *finished_parsing = true;
@@ -635,6 +684,8 @@ class BlockParserImpl {
   template <typename SpecializedOptions>
   Status ParseSpecialized(const std::vector<util::string_view>& views, bool is_final,
                           uint32_t* out_size) {
+    BulkFilterType<SpecializedOptions> bulk_filter(options_);
+
     batch_ = DataBatch{batch_.num_cols_};
     values_size_ = 0;
 
@@ -661,9 +712,9 @@ class BlockParserImpl {
         ResizableValueDescWriter values_writer(pool_);
         values_writer.Start(parsed_writer);
 
-        RETURN_NOT_OK(ParseChunk<SpecializedOptions>(&values_writer, &parsed_writer, data,
-                                                     data_end, is_final, rows_in_chunk,
-                                                     &data, &finished_parsing));
+        RETURN_NOT_OK(ParseChunk<SpecializedOptions>(
+            &values_writer, &parsed_writer, data, data_end, is_final, rows_in_chunk,
+            &data, &finished_parsing, bulk_filter));
         if (batch_.num_cols_ == -1) {
           return ParseError("Empty CSV file or block: cannot infer number of columns");
         }
@@ -686,9 +737,9 @@ class BlockParserImpl {
         PresizedValueDescWriter values_writer(pool_, rows_in_chunk, batch_.num_cols_);
         values_writer.Start(parsed_writer);
 
-        RETURN_NOT_OK(ParseChunk<SpecializedOptions>(&values_writer, &parsed_writer, data,
-                                                     data_end, is_final, rows_in_chunk,
-                                                     &data, &finished_parsing));
+        RETURN_NOT_OK(ParseChunk<SpecializedOptions>(
+            &values_writer, &parsed_writer, data, data_end, is_final, rows_in_chunk,
+            &data, &finished_parsing, bulk_filter));
       }
       DCHECK_GE(data, view.data());
       DCHECK_LE(data, data_end);
@@ -754,7 +805,6 @@ class BlockParserImpl {
   // The maximum number of rows to parse from a block
   int32_t max_num_rows_;
 
-  BulkFilterType bulk_filter_;
   bool use_bulk_filter_ = false;
 
   // Unparsed data size
