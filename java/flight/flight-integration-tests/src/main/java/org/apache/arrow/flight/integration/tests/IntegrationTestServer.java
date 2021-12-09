@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.flight.example.integration;
+package org.apache.arrow.flight.integration.tests;
 
 import org.apache.arrow.flight.FlightServer;
 import org.apache.arrow.flight.Location;

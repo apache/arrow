@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/flight/test_integration.h"
+#include "arrow/flight/integration_tests/test_integration.h"
 #include "arrow/flight/client_middleware.h"
 #include "arrow/flight/server_middleware.h"
 #include "arrow/flight/test_util.h"
@@ -30,6 +30,7 @@
 
 namespace arrow {
 namespace flight {
+namespace integration_tests {
 
 /// \brief The server for the basic auth integration test.
 class AuthBasicProtoServer : public FlightServerBase {
@@ -113,9 +114,11 @@ class AuthBasicProtoScenario : public Scenario {
 class TestServerMiddleware : public ServerMiddleware {
  public:
   explicit TestServerMiddleware(std::string received) : received_(received) {}
+
   void SendingHeaders(AddCallHeaders* outgoing_headers) override {
     outgoing_headers->AddHeader("x-middleware", received_);
   }
+
   void CallCompleted(const Status& status) override {}
 
   std::string name() const override { return "GrpcTrailersMiddleware"; }
@@ -266,5 +269,6 @@ Status GetScenario(const std::string& scenario_name, std::shared_ptr<Scenario>* 
   return Status::KeyError("Scenario not found: ", scenario_name);
 }
 
+}  // namespace integration_tests
 }  // namespace flight
 }  // namespace arrow

@@ -41,7 +41,7 @@
 #include "arrow/util/logging.h"
 
 #include "arrow/flight/api.h"
-#include "arrow/flight/test_integration.h"
+#include "arrow/flight/integration_tests/test_integration.h"
 #include "arrow/flight/test_util.h"
 
 DEFINE_string(host, "localhost", "Server port to connect to");
@@ -51,6 +51,7 @@ DEFINE_string(scenario, "", "Integration test scenario to run");
 
 namespace arrow {
 namespace flight {
+namespace integration_tests {
 
 /// \brief Helper to read all batches from a JsonReader
 Status ReadBatches(std::unique_ptr<testing::IntegrationJsonReader>& reader,
@@ -133,7 +134,7 @@ Status ConsumeFlightLocation(
   return Status::OK();
 }
 
-class IntegrationTestScenario : public flight::Scenario {
+class IntegrationTestScenario : public Scenario {
  public:
   Status MakeServer(std::unique_ptr<FlightServerBase>* server,
                     FlightServerOptions* options) override {
@@ -201,12 +202,13 @@ class IntegrationTestScenario : public flight::Scenario {
   }
 };
 
+}  // namespace integration_tests
 }  // namespace flight
 }  // namespace arrow
 
 constexpr int kRetries = 3;
 
-arrow::Status RunScenario(arrow::flight::Scenario* scenario) {
+arrow::Status RunScenario(arrow::flight::integration_tests::Scenario* scenario) {
   auto options = arrow::flight::FlightClientOptions::Defaults();
   std::unique_ptr<arrow::flight::FlightClient> client;
 
@@ -222,11 +224,13 @@ int main(int argc, char** argv) {
 
   gflags::SetUsageMessage("Integration testing client for Flight.");
   gflags::ParseCommandLineFlags(&argc, &argv, true);
-  std::shared_ptr<arrow::flight::Scenario> scenario;
+  std::shared_ptr<arrow::flight::integration_tests::Scenario> scenario;
   if (!FLAGS_scenario.empty()) {
-    ARROW_CHECK_OK(arrow::flight::GetScenario(FLAGS_scenario, &scenario));
+    ARROW_CHECK_OK(
+        arrow::flight::integration_tests::GetScenario(FLAGS_scenario, &scenario));
   } else {
-    scenario = std::make_shared<arrow::flight::IntegrationTestScenario>();
+    scenario =
+        std::make_shared<arrow::flight::integration_tests::IntegrationTestScenario>();
   }
 
   // ARROW-11908: retry a few times in case a client is slow to bring up the server
