@@ -15,7 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# Split up into several register functions by category to satisfy the linter
 register_type_translations <- function() {
+  register_type_cast_translations()
+  register_type_inspect_translations()
+  register_type_inspect_elementwise_translations()
+}
+
+register_type_cast_translations <- function() {
 
   register_translation("cast", function(x, target_type, safe = TRUE, ...) {
     opts <- cast_options(safe, ...)
@@ -23,47 +30,8 @@ register_type_translations <- function() {
     Expression$create("cast", x, options = opts)
   })
 
-  register_translation("is.na", function(x) {
-    build_expr("is_null", x, options = list(nan_is_null = TRUE))
-  })
-
-  register_translation("is.nan", function(x) {
-    if (is.double(x) || (inherits(x, "Expression") &&
-                         x$type_id() %in% TYPES_WITH_NAN)) {
-      # TODO: if an option is added to the is_nan kernel to treat NA as NaN,
-      # use that to simplify the code here (ARROW-13366)
-      build_expr("is_nan", x) & build_expr("is_valid", x)
-    } else {
-      Expression$scalar(FALSE)
-    }
-  })
-
-  register_translation("is", function(object, class2) {
-    if (is.string(class2)) {
-      switch(class2,
-             # for R data types, pass off to is.*() functions
-             character = call_translation("is.character", object),
-             numeric = call_translation("is.numeric", object),
-             integer = call_translation("is.integer", object),
-             integer64 = call_translation("is.integer64", object),
-             logical = call_translation("is.logical", object),
-             factor = call_translation("is.factor", object),
-             list = call_translation("is.list", object),
-             # for Arrow data types, compare class2 with object$type()$ToString(),
-             # but first strip off any parameters to only compare the top-level data
-             # type,  and canonicalize class2
-             sub("^([^([<]+).*$", "\\1", object$type()$ToString()) ==
-               canonical_type_str(class2)
-      )
-    } else if (inherits(class2, "DataType")) {
-      object$type() == as_type(class2)
-    } else {
-      stop("Second argument to is() is not a string or DataType", call. = FALSE)
-    }
-  })
-
   register_translation("dictionary_encode", function(x,
-                                          null_encoding_behavior = c("mask", "encode")) {
+                                                     null_encoding_behavior = c("mask", "encode")) {
     behavior <- toupper(match.arg(null_encoding_behavior))
     null_encoding_behavior <- NullEncodingBehavior[[behavior]]
     Expression$create(
@@ -71,22 +39,6 @@ register_type_translations <- function() {
       x,
       options = list(null_encoding_behavior = null_encoding_behavior)
     )
-  })
-
-  register_translation("between", function(x, left, right) {
-    x >= left & x <= right
-  })
-
-  register_translation("is.finite", function(x) {
-    is_fin <- Expression$create("is_finite", x)
-    # for compatibility with base::is.finite(), return FALSE for NA_real_
-    is_fin & !call_translation("is.na", is_fin)
-  })
-
-  register_translation("is.infinite", function(x) {
-    is_inf <- Expression$create("is_inf", x)
-    # for compatibility with base::is.infinite(), return FALSE for NA_real_
-    is_inf & !call_translation("is.na", is_inf)
   })
 
   # as.* type casting functions
@@ -126,6 +78,86 @@ register_type_translations <- function() {
     Expression$create("cast", x, options = cast_options(to_type = float64()))
   })
 
+  register_translation("is", function(object, class2) {
+    if (is.string(class2)) {
+      switch(class2,
+             # for R data types, pass off to is.*() functions
+             character = call_translation("is.character", object),
+             numeric = call_translation("is.numeric", object),
+             integer = call_translation("is.integer", object),
+             integer64 = call_translation("is.integer64", object),
+             logical = call_translation("is.logical", object),
+             factor = call_translation("is.factor", object),
+             list = call_translation("is.list", object),
+             # for Arrow data types, compare class2 with object$type()$ToString(),
+             # but first strip off any parameters to only compare the top-level data
+             # type,  and canonicalize class2
+             sub("^([^([<]+).*$", "\\1", object$type()$ToString()) ==
+               canonical_type_str(class2)
+      )
+    } else if (inherits(class2, "DataType")) {
+      object$type() == as_type(class2)
+    } else {
+      stop("Second argument to is() is not a string or DataType", call. = FALSE)
+    }
+  })
+
+  # Create a data frame/tibble/struct column
+  register_translation("tibble", function(..., .rows = NULL, .name_repair = NULL) {
+    if (!is.null(.rows)) arrow_not_supported(".rows")
+    if (!is.null(.name_repair)) arrow_not_supported(".name_repair")
+
+    # use dots_list() because this is what tibble() uses to allow the
+    # useful shorthand of tibble(col1, col2) -> tibble(col1 = col1, col2 = col2)
+    # we have a stronger enforcement of unique names for arguments because
+    # it is difficult to replicate the .name_repair semantics and expanding of
+    # unnamed data frame arguments in the same way that the tibble() constructor
+    # does.
+    args <- rlang::dots_list(..., .named = TRUE, .homonyms = "error")
+
+    build_expr(
+      "make_struct",
+      args = unname(args),
+      options = list(field_names = names(args))
+    )
+  })
+
+  register_translation("data.frame", function(..., row.names = NULL,
+                                              check.rows = NULL, check.names = TRUE, fix.empty.names = TRUE,
+                                              stringsAsFactors = FALSE) {
+    # we need a specific value of stringsAsFactors because the default was
+    # TRUE in R <= 3.6
+    if (!identical(stringsAsFactors, FALSE)) {
+      arrow_not_supported("stringsAsFactors = TRUE")
+    }
+
+    # ignore row.names and check.rows with a warning
+    if (!is.null(row.names)) arrow_not_supported("row.names")
+    if (!is.null(check.rows)) arrow_not_supported("check.rows")
+
+    args <- rlang::dots_list(..., .named = fix.empty.names)
+    if (is.null(names(args))) {
+      names(args) <- rep("", length(args))
+    }
+
+    if (identical(check.names, TRUE)) {
+      if (identical(fix.empty.names, TRUE)) {
+        names(args) <- make.names(names(args), unique = TRUE)
+      } else {
+        name_emtpy <- names(args) == ""
+        names(args)[!name_emtpy] <- make.names(names(args)[!name_emtpy], unique = TRUE)
+      }
+    }
+
+    build_expr(
+      "make_struct",
+      args = unname(args),
+      options = list(field_names = names(args))
+    )
+  })
+}
+
+register_type_inspect_translations <- function() {
   # is.* type functions
   register_translation("is.character", function(x) {
     is.character(x) || (inherits(x, "Expression") &&
@@ -183,58 +215,38 @@ register_type_translations <- function() {
     assert_that(is.null(n))
     call_translation("is.logical", x)
   })
+}
 
-  # Create a data frame/tibble/struct column
-  register_translation("tibble", function(..., .rows = NULL, .name_repair = NULL) {
-    if (!is.null(.rows)) arrow_not_supported(".rows")
-    if (!is.null(.name_repair)) arrow_not_supported(".name_repair")
+register_type_inspect_elementwise_translations <- function() {
 
-    # use dots_list() because this is what tibble() uses to allow the
-    # useful shorthand of tibble(col1, col2) -> tibble(col1 = col1, col2 = col2)
-    # we have a stronger enforcement of unique names for arguments because
-    # it is difficult to replicate the .name_repair semantics and expanding of
-    # unnamed data frame arguments in the same way that the tibble() constructor
-    # does.
-    args <- rlang::dots_list(..., .named = TRUE, .homonyms = "error")
-
-    build_expr(
-      "make_struct",
-      args = unname(args),
-      options = list(field_names = names(args))
-    )
+  register_translation("is.na", function(x) {
+    build_expr("is_null", x, options = list(nan_is_null = TRUE))
   })
 
-  register_translation("data.frame", function(..., row.names = NULL,
-                                   check.rows = NULL, check.names = TRUE, fix.empty.names = TRUE,
-                                   stringsAsFactors = FALSE) {
-    # we need a specific value of stringsAsFactors because the default was
-    # TRUE in R <= 3.6
-    if (!identical(stringsAsFactors, FALSE)) {
-      arrow_not_supported("stringsAsFactors = TRUE")
+  register_translation("is.nan", function(x) {
+    if (is.double(x) || (inherits(x, "Expression") &&
+                         x$type_id() %in% TYPES_WITH_NAN)) {
+      # TODO: if an option is added to the is_nan kernel to treat NA as NaN,
+      # use that to simplify the code here (ARROW-13366)
+      build_expr("is_nan", x) & build_expr("is_valid", x)
+    } else {
+      Expression$scalar(FALSE)
     }
+  })
 
-    # ignore row.names and check.rows with a warning
-    if (!is.null(row.names)) arrow_not_supported("row.names")
-    if (!is.null(check.rows)) arrow_not_supported("check.rows")
+  register_translation("between", function(x, left, right) {
+    x >= left & x <= right
+  })
 
-    args <- rlang::dots_list(..., .named = fix.empty.names)
-    if (is.null(names(args))) {
-      names(args) <- rep("", length(args))
-    }
+  register_translation("is.finite", function(x) {
+    is_fin <- Expression$create("is_finite", x)
+    # for compatibility with base::is.finite(), return FALSE for NA_real_
+    is_fin & !call_translation("is.na", is_fin)
+  })
 
-    if (identical(check.names, TRUE)) {
-      if (identical(fix.empty.names, TRUE)) {
-        names(args) <- make.names(names(args), unique = TRUE)
-      } else {
-        name_emtpy <- names(args) == ""
-        names(args)[!name_emtpy] <- make.names(names(args)[!name_emtpy], unique = TRUE)
-      }
-    }
-
-    build_expr(
-      "make_struct",
-      args = unname(args),
-      options = list(field_names = names(args))
-    )
+  register_translation("is.infinite", function(x) {
+    is_inf <- Expression$create("is_inf", x)
+    # for compatibility with base::is.infinite(), return FALSE for NA_real_
+    is_inf & !call_translation("is.na", is_inf)
   })
 }
