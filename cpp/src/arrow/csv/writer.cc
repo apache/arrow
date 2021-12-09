@@ -88,7 +88,7 @@ constexpr char const* kStrComma = ",";
 // populators (it populates data backwards).
 class ColumnPopulator {
  public:
-  ColumnPopulator(MemoryPool* pool, const std::string end_chars,
+  ColumnPopulator(MemoryPool* pool, std::string end_chars,
                   std::shared_ptr<Buffer> null_string)
       : end_chars_(std::move(end_chars)),
         null_string_(std::move(null_string)),
@@ -150,7 +150,7 @@ char* EscapeReverse(arrow::util::string_view s, char* out_end) {
 // compliance with RFC4180 section 2.5.
 class UnquotedColumnPopulator : public ColumnPopulator {
  public:
-  explicit UnquotedColumnPopulator(MemoryPool* memory_pool, const std::string end_chars,
+  explicit UnquotedColumnPopulator(MemoryPool* memory_pool, std::string end_chars,
                                    std::shared_ptr<Buffer> null_string_,
                                    bool reject_values_with_quotes)
       : ColumnPopulator(memory_pool, std::move(end_chars), std::move(null_string_)),
@@ -233,7 +233,7 @@ class UnquotedColumnPopulator : public ColumnPopulator {
 // a quote character (") and escaping is done my adding another quote.
 class QuotedColumnPopulator : public ColumnPopulator {
  public:
-  QuotedColumnPopulator(MemoryPool* pool, const std::string end_chars,
+  QuotedColumnPopulator(MemoryPool* pool, std::string end_chars,
                         std::shared_ptr<Buffer> null_string)
       : ColumnPopulator(pool, std::move(end_chars), std::move(null_string)) {}
 
@@ -375,7 +375,7 @@ struct PopulatorFactory {
 };
 
 Result<std::unique_ptr<ColumnPopulator>> MakePopulator(
-    const Field& field, const std::string end_chars, std::shared_ptr<Buffer> null_string,
+    const Field& field, std::string end_chars, std::shared_ptr<Buffer> null_string,
     QuotingStyle quoting_style, MemoryPool* pool) {
   PopulatorFactory factory{std::move(end_chars), std::move(null_string), quoting_style,
                            pool, nullptr};
