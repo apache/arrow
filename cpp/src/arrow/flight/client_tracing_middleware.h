@@ -15,15 +15,20 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// Middleware implementation for propagating OpenTelemetry spans.
+
 #pragma once
 
-#include "arrow/flight/client.h"
-#include "arrow/flight/client_auth.h"
+#include <memory>
+
 #include "arrow/flight/client_middleware.h"
-#include "arrow/flight/client_tracing_middleware.h"
-#include "arrow/flight/middleware.h"
-#include "arrow/flight/server.h"
-#include "arrow/flight/server_auth.h"
-#include "arrow/flight/server_middleware.h"
-#include "arrow/flight/server_tracing_middleware.h"
-#include "arrow/flight/types.h"
+
+namespace arrow {
+namespace flight {
+
+/// \brief Returns a ClientMiddlewareFactory that handles sending OpenTelemetry spans.
+ARROW_FLIGHT_EXPORT std::shared_ptr<ClientMiddlewareFactory>
+MakeTracingClientMiddlewareFactory();
+
+}  // namespace flight
+}  // namespace arrow

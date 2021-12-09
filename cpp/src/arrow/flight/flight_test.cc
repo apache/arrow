@@ -27,10 +27,13 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <vector>
 
 #include "arrow/flight/api.h"
+#include "arrow/flight/client_tracing_middleware.h"
+#include "arrow/flight/server_tracing_middleware.h"
 #include "arrow/ipc/test_common.h"
 #include "arrow/status.h"
 #include "arrow/testing/generator.h"
@@ -54,6 +57,26 @@
 #include "arrow/flight/serialization_internal.h"
 #include "arrow/flight/test_definitions.h"
 #include "arrow/flight/test_util.h"
+// OTel includes must come after any gRPC includes, and
+// client_header_internal.h includes gRPC. See:
+// https://github.com/open-telemetry/opentelemetry-cpp/blob/main/examples/otlp/README.md
+//
+// > gRPC internally uses a different version of Abseil than
+// > OpenTelemetry C++ SDK.
+// > ...
+// > ...in case if you run into conflict between Abseil library and
+// > OpenTelemetry C++ absl::variant implementation, please include
+// > either grpcpp/grpcpp.h or
+// > opentelemetry/exporters/otlp/otlp_grpc_exporter.h BEFORE any
+// > other API headers. This approach efficiently avoids the conflict
+// > between the two different versions of Abseil.
+#include "arrow/util/tracing_internal.h"
+#ifdef ARROW_WITH_OPENTELEMETRY
+#include <opentelemetry/context/propagation/global_propagator.h>
+#include <opentelemetry/context/propagation/text_map_propagator.h>
+#include <opentelemetry/sdk/trace/tracer_provider.h>
+#include <opentelemetry/trace/propagation/http_trace_context.h>
+#endif
 
 namespace arrow {
 namespace flight {
@@ -441,21 +464,21 @@ static thread_local std::string current_span_id = "";
 
 // A server middleware that stores the current span ID, in an
 // emulation of OpenTracing style distributed tracing.
-class TracingServerMiddleware : public ServerMiddleware {
+class TracingTestServerMiddleware : public ServerMiddleware {
  public:
-  explicit TracingServerMiddleware(const std::string& current_span_id)
+  explicit TracingTestServerMiddleware(const std::string& current_span_id)
       : span_id(current_span_id) {}
   void SendingHeaders(AddCallHeaders* outgoing_headers) override {}
   void CallCompleted(const Status& status) override {}
 
-  std::string name() const override { return "TracingServerMiddleware"; }
+  std::string name() const override { return "TracingTestServerMiddleware"; }
 
   std::string span_id;
 };
 
-class TracingServerMiddlewareFactory : public ServerMiddlewareFactory {
+class TracingTestServerMiddlewareFactory : public ServerMiddlewareFactory {
  public:
-  TracingServerMiddlewareFactory() {}
+  TracingTestServerMiddlewareFactory() {}
 
   Status StartCall(const CallInfo& info, const CallHeaders& incoming_headers,
                    std::shared_ptr<ServerMiddleware>* middleware) override {
@@ -463,7 +486,7 @@ class TracingServerMiddlewareFactory : public ServerMiddlewareFactory {
         incoming_headers.equal_range("x-tracing-span-id");
     if (iter_pair.first != iter_pair.second) {
       const std::string_view& value = (*iter_pair.first).second;
-      *middleware = std::make_shared<TracingServerMiddleware>(std::string(value));
+      *middleware = std::make_shared<TracingTestServerMiddleware>(std::string(value));
     }
     return Status::OK();
   }
@@ -627,10 +650,10 @@ class ReportContextTestServer : public FlightServerBase {
                   std::unique_ptr<ResultStream>* result) override {
     std::shared_ptr<Buffer> buf;
     const ServerMiddleware* middleware = context.GetMiddleware("tracing");
-    if (middleware == nullptr || middleware->name() != "TracingServerMiddleware") {
+    if (middleware == nullptr || middleware->name() != "TracingTestServerMiddleware") {
       buf = Buffer::FromString("");
     } else {
-      buf = Buffer::FromString(((const TracingServerMiddleware*)middleware)->span_id);
+      buf = Buffer::FromString(((const TracingTestServerMiddleware*)middleware)->span_id);
     }
     *result = std::make_unique<SimpleResultStream>(std::vector<Result>{Result{buf}});
     return Status::OK();
@@ -658,10 +681,10 @@ class PropagatingTestServer : public FlightServerBase {
   Status DoAction(const ServerCallContext& context, const Action& action,
                   std::unique_ptr<ResultStream>* result) override {
     const ServerMiddleware* middleware = context.GetMiddleware("tracing");
-    if (middleware == nullptr || middleware->name() != "TracingServerMiddleware") {
+    if (middleware == nullptr || middleware->name() != "TracingTestServerMiddleware") {
       current_span_id = "";
     } else {
-      current_span_id = ((const TracingServerMiddleware*)middleware)->span_id;
+      current_span_id = ((const TracingTestServerMiddleware*)middleware)->span_id;
     }
 
     return client_->DoAction(action).Value(result);
@@ -728,7 +751,7 @@ class TestCountingServerMiddleware : public ::testing::Test {
 class TestPropagatingMiddleware : public ::testing::Test {
  public:
   void SetUp() {
-    server_middleware_ = std::make_shared<TracingServerMiddlewareFactory>();
+    server_middleware_ = std::make_shared<TracingTestServerMiddlewareFactory>();
     second_client_middleware_ = std::make_shared<PropagatingClientMiddlewareFactory>();
     client_middleware_ = std::make_shared<PropagatingClientMiddlewareFactory>();
 
@@ -782,7 +805,7 @@ class TestPropagatingMiddleware : public ::testing::Test {
   std::unique_ptr<FlightClient> client_;
   std::unique_ptr<FlightServerBase> first_server_;
   std::unique_ptr<FlightServerBase> second_server_;
-  std::shared_ptr<TracingServerMiddlewareFactory> server_middleware_;
+  std::shared_ptr<TracingTestServerMiddlewareFactory> server_middleware_;
   std::shared_ptr<PropagatingClientMiddlewareFactory> second_client_middleware_;
   std::shared_ptr<PropagatingClientMiddlewareFactory> client_middleware_;
 };
@@ -1527,6 +1550,140 @@ TEST_F(TestCancel, DoExchange) {
                                   do_exchange_result.reader->ToTable(options.stop_token));
   ARROW_UNUSED(do_exchange_result.writer->Close());
 }
+
+class TracingTestServer : public FlightServerBase {
+ public:
+  Status DoAction(const ServerCallContext& call_context, const Action&,
+                  std::unique_ptr<ResultStream>* result) override {
+    std::vector<Result> results;
+    auto* middleware =
+        reinterpret_cast<TracingServerMiddleware*>(call_context.GetMiddleware("tracing"));
+    if (!middleware) return Status::Invalid("Could not find middleware");
+#ifdef ARROW_WITH_OPENTELEMETRY
+    // Ensure the trace context is present (but the value is random so
+    // we cannot assert any particular value)
+    EXPECT_FALSE(middleware->GetTraceContext().empty());
+    auto span = arrow::internal::tracing::GetTracer()->GetCurrentSpan();
+    const auto context = span->GetContext();
+    {
+      const auto& span_id = context.span_id();
+      ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateBuffer(span_id.Id().size()));
+      std::memcpy(buffer->mutable_data(), span_id.Id().data(), span_id.Id().size());
+      results.push_back({std::move(buffer)});
+    }
+    {
+      const auto& trace_id = context.trace_id();
+      ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateBuffer(trace_id.Id().size()));
+      std::memcpy(buffer->mutable_data(), trace_id.Id().data(), trace_id.Id().size());
+      results.push_back({std::move(buffer)});
+    }
+#else
+    // Ensure the trace context is not present (as OpenTelemetry is not enabled)
+    EXPECT_TRUE(middleware->GetTraceContext().empty());
+#endif
+    *result = std::make_unique<SimpleResultStream>(std::move(results));
+    return Status::OK();
+  }
+};
+
+class TestTracing : public ::testing::Test {
+ public:
+  void SetUp() {
+#ifdef ARROW_WITH_OPENTELEMETRY
+    // The default tracer always generates no-op spans which have no
+    // span/trace ID. Set up a different tracer. Note, this needs to
+    // be run before Arrow uses OTel as GetTracer() gets a tracer once
+    // and keeps it in a static.
+    std::vector<std::unique_ptr<opentelemetry::sdk::trace::SpanProcessor>> processors;
+    auto provider =
+        opentelemetry::nostd::shared_ptr<opentelemetry::sdk::trace::TracerProvider>(
+            new opentelemetry::sdk::trace::TracerProvider(std::move(processors)));
+    opentelemetry::trace::Provider::SetTracerProvider(std::move(provider));
+
+    opentelemetry::context::propagation::GlobalTextMapPropagator::SetGlobalPropagator(
+        opentelemetry::nostd::shared_ptr<
+            opentelemetry::context::propagation::TextMapPropagator>(
+            new opentelemetry::trace::propagation::HttpTraceContext()));
+#endif
+
+    ASSERT_OK(MakeServer<TracingTestServer>(
+        &server_, &client_,
+        [](FlightServerOptions* options) {
+          options->middleware.emplace_back("tracing",
+                                           MakeTracingServerMiddlewareFactory());
+          return Status::OK();
+        },
+        [](FlightClientOptions* options) {
+          options->middleware.push_back(MakeTracingClientMiddlewareFactory());
+          return Status::OK();
+        }));
+  }
+  void TearDown() { ASSERT_OK(server_->Shutdown()); }
+
+ protected:
+  std::unique_ptr<FlightClient> client_;
+  std::unique_ptr<FlightServerBase> server_;
+};
+
+#ifdef ARROW_WITH_OPENTELEMETRY
+// Must define it ourselves to avoid a linker error
+constexpr size_t kSpanIdSize = opentelemetry::trace::SpanId::kSize;
+constexpr size_t kTraceIdSize = opentelemetry::trace::TraceId::kSize;
+
+TEST_F(TestTracing, NoParentTrace) {
+  ASSERT_OK_AND_ASSIGN(auto results, client_->DoAction(Action{}));
+
+  ASSERT_OK_AND_ASSIGN(auto result, results->Next());
+  ASSERT_NE(result, nullptr);
+  ASSERT_NE(result->body, nullptr);
+  // Span ID should be a valid span ID, i.e. the server must have started a span
+  ASSERT_EQ(result->body->size(), kSpanIdSize);
+  opentelemetry::trace::SpanId span_id({result->body->data(), kSpanIdSize});
+  ASSERT_TRUE(span_id.IsValid());
+
+  ASSERT_OK_AND_ASSIGN(result, results->Next());
+  ASSERT_NE(result, nullptr);
+  ASSERT_NE(result->body, nullptr);
+  ASSERT_EQ(result->body->size(), kTraceIdSize);
+  opentelemetry::trace::TraceId trace_id({result->body->data(), kTraceIdSize});
+  ASSERT_TRUE(trace_id.IsValid());
+}
+TEST_F(TestTracing, WithParentTrace) {
+  auto* tracer = arrow::internal::tracing::GetTracer();
+  auto span = tracer->StartSpan("test");
+  auto scope = tracer->WithActiveSpan(span);
+
+  auto span_context = span->GetContext();
+  auto current_trace_id = span_context.trace_id().Id();
+
+  ASSERT_OK_AND_ASSIGN(auto results, client_->DoAction(Action{}));
+
+  ASSERT_OK_AND_ASSIGN(auto result, results->Next());
+  ASSERT_NE(result, nullptr);
+  ASSERT_NE(result->body, nullptr);
+  ASSERT_EQ(result->body->size(), kSpanIdSize);
+  opentelemetry::trace::SpanId span_id({result->body->data(), kSpanIdSize});
+  ASSERT_TRUE(span_id.IsValid());
+
+  ASSERT_OK_AND_ASSIGN(result, results->Next());
+  ASSERT_NE(result, nullptr);
+  ASSERT_NE(result->body, nullptr);
+  ASSERT_EQ(result->body->size(), kTraceIdSize);
+  opentelemetry::trace::TraceId trace_id({result->body->data(), kTraceIdSize});
+  // The server span should have the same trace ID as the client span.
+  ASSERT_EQ(std::string_view(reinterpret_cast<const char*>(trace_id.Id().data()),
+                             trace_id.Id().size()),
+            std::string_view(reinterpret_cast<const char*>(current_trace_id.data()),
+                             current_trace_id.size()));
+}
+#else
+TEST_F(TestTracing, NoOp) {
+  // The middleware should not cause any trouble when OTel is not enabled.
+  ASSERT_OK_AND_ASSIGN(auto results, client_->DoAction(Action{}));
+  ASSERT_OK_AND_ASSIGN(auto result, results->Next());
+  ASSERT_EQ(result, nullptr);
+}
+#endif
 
 }  // namespace flight
 }  // namespace arrow
