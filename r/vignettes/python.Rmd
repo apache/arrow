@@ -108,6 +108,15 @@ the data between the R and Python interpreters running together in the same
 process, without copying anything. Nothing is being sent: we're sharing and
 accessing the same internal Arrow memory buffers.
 
+## Arrow object types
+
+For more information about Arrow object types see the Internals section of
+the Arrow vignette by calling:
+
+```r
+vignette("arrow", package = "arrow")
+```
+
 ## Troubleshooting
 
 If you get an error like
