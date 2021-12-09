@@ -189,9 +189,13 @@ map_batches <- function(X, FUN, ..., .data.frame = TRUE) {
   #   # TODO: wrap batch in arrow_dplyr_query with X$selected_columns,
   #   # X$temp_columns, and X$group_by_vars
   #   # if X is arrow_dplyr_query, if some other arg (.dplyr?) == TRUE
-  batches <- scanner$ScanBatches()
-  .f <- as_mapper(FUN, ...)
-  res <- map(batches, FUN, ...)
+  reader <- scanner$ToRecordBatchReader()
+  batch <- reader$read_next_batch()
+  res <- list()
+  while (!is.null(batch)) {
+    res <- append(res, list(FUN(batch, ...)))
+    batch <- reader$read_next_batch()
+  }
 
   if (.data.frame & inherits(res[[1]], "arrow_dplyr_query")) {
     res <- dplyr::bind_rows(map(res, collect))

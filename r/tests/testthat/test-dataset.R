@@ -455,7 +455,7 @@ test_that("Creating UnionDataset", {
 test_that("map_batches", {
   ds <- open_dataset(dataset_dir, partitioning = "part")
 
-  # summarise returns arrow_dplyr_query
+  # summarize returns arrow_dplyr_query
   expect_equal(
     ds %>%
       filter(int > 5) %>%
