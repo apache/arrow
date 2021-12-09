@@ -473,8 +473,7 @@ class GcsFileSystem::Impl {
 };
 
 bool GcsOptions::Equals(const GcsOptions& other) const {
-  return endpoint_override == other.endpoint_override && scheme == other.scheme &&
-         maximum_concurrent_operations == other.maximum_concurrent_operations;
+  return endpoint_override == other.endpoint_override && scheme == other.scheme;
 }
 
 std::string GcsFileSystem::type_name() const { return "gcs"; }
