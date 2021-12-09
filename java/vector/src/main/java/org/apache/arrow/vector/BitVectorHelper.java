@@ -328,10 +328,13 @@ public class BitVectorHelper {
                                             final BufferAllocator allocator) {
     final int valueCount = fieldNode.getLength();
     ArrowBuf newBuffer = null;
+
+    // Create a new validity buffer iff both of the following are true:
+    //   - validity buffer is not present, that is, it is either null or empty (in the case of
+    //     IPC for instance).
+    //   - values are either all NULLs or all non-NULLs
     boolean isValidityBufferNull = sourceValidityBuffer == null ||
-        sourceValidityBuffer.memoryAddress() == 0;
-    // create a new validity buffer iff all values are not null AND values
-    // are either all NULLs or all non-NULLs
+        sourceValidityBuffer.capacity() == 0;
     if (isValidityBufferNull &&
         (fieldNode.getNullCount() == 0 || fieldNode.getNullCount() == valueCount)) {
       newBuffer = allocator.buffer(getValidityBufferSize(valueCount));
