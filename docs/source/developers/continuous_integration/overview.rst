@@ -63,7 +63,7 @@ On-demand builds
 Tasks which can be run via Crossbow can be found in the `dev/tasks` directory.  This directory contains:
 
 * the file `dev/tasks/tasks.yml` containing the configuration for various tasks which can be run via Crossbow
-* subdirectories containing different task templates, divided roughly by language or package management system
+* subdirectories containing different task templates (specified using `jinja2 syntax <https://jinja2docs.readthedocs.io/en/stable/>`_), divided roughly by language or package management system.
 
 Most of these tasks are run as part of the nightly builds, though also can be triggered manually by add a comment to a PR which begins with `@github-actions crossbow submit` followed by the name of the task to be run.
 
