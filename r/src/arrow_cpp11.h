@@ -57,11 +57,16 @@ namespace r {
 template <typename T>
 struct Pointer {
   Pointer() : ptr_(new T()) {}
-  explicit Pointer(SEXP x)
-      : ptr_(reinterpret_cast<T*>(static_cast<uintptr_t>(REAL(x)[0]))) {}
+  explicit Pointer(SEXP x) {
+    if (TYPEOF(x) == EXTPTRSXP) {
+      ptr_ = (T*) R_ExternalPtrAddr(x);
+    } else {
+      ptr_ = reinterpret_cast<T*>(static_cast<uintptr_t>(REAL(x)[0]));
+    }
+  }
 
   inline operator SEXP() const {
-    return Rf_ScalarReal(static_cast<double>(reinterpret_cast<uintptr_t>(ptr_)));
+    return R_MakeExternalPtr(ptr_, R_NilValue, R_NilValue);
   }
 
   inline operator T*() const { return ptr_; }
