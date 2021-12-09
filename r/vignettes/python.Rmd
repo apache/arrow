@@ -28,6 +28,11 @@ add `nightly = TRUE`:
 install_pyarrow("arrow-env", nightly = TRUE)
 ```
 
+A virtualenv or a virtual environment is a specific Python installation
+created for one project or purpose. It is a good practice to use
+specific environments in Python so that updating a package doesn't
+impact packages in other projects.
+
 `install_pyarrow()` also works with `conda` environments
 (`conda_create()` instead of `virtualenv_create()`).
 
