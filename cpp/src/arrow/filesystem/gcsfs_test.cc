@@ -431,6 +431,8 @@ TEST_F(GcsIntegrationTest, DeleteDirSuccess) {
   }
 
   ASSERT_OK(fs->DeleteDir(PreexistingBucketPath() + kTestFolders[0]));
+  arrow::fs::AssertFileInfo(fs.get(), PreexistingBucketPath(), FileType::Directory);
+  arrow::fs::AssertFileInfo(fs.get(), PreexistingObjectPath(), FileType::File);
 
   for (auto const* f : kTestFolders) {
     const auto folder = PreexistingBucketPath() + f;
