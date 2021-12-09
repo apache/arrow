@@ -29,7 +29,7 @@
 .. documentation.
 
 
-.. _build-arrow:
+.. _build-arrow-guide:
 
 ************************************
 Building the Arrow libraries 🏋🏿‍♀️
