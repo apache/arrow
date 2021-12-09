@@ -20,10 +20,12 @@ Continuous Integration
 
 Continuous Integration for Arrow is fairly complex as it needs to run across different combinations of package managers, compilers, versions of multiple sofware libraries, operating systems, and other potential sources of variation.  In this article, we will give an overview of its main components and the relevant files and directories.
 
-Two files central to Arrow CI are:
+Some files central to Arrow CI are:
 
 * `docker-compose.yml` - here we define docker services which can be configured using either enviroment variables, or the default values for these variables.
 * `.env` - here we define default values to configure the services in `docker-compose.yml`
+* `.travis.yml` - here we define workflows which run on Travis
+* `appveyor.yml` - here we define workflows that run on Appveyor
 
 One thing to note is the some of the services defined in `docker-compose.yml` are interdependent.  When running services locally, you must either manually build its dependencies first, or build it via the use of `archery run ...` which automatically finds and builds dependencies.  For more information on archery, see <link>.
 
@@ -38,7 +40,7 @@ Instead of thinking about Arrow CI in terms of files and folders, it may be conc
 * CI jobs which are triggered based on specific actions on GitHub (pull requests opened, pull requests merged, etc)
 * On-demand builds which are manually triggered on a nightly basis or via Archery
 
-GitHub Actions builds
+Action-triggered builds
 -----------------------
 
 The `.yml` files in `.github/worflows` are workflows which are run on GitHub in response to specific actions.  The majority of workflows in this directory are Arrow implementation-specific and are run when changes are made which affect code relevant to that language's implementation, but other workflows worth noting are:
@@ -51,8 +53,11 @@ The `.yml` files in `.github/worflows` are workflows which are run on GitHub in 
 * `dev.yml` - runs any time there is activity on a PR, or a PR is merged; it runs the linter and tests that the PR can be merged
 * `dev_pr.yml` - runs any time a PR is opened or updated; checks the formatting of the PR title, adds links to the appropriate JIRA ticket if included in the title (or adds a comment requesting the user fix this if not), and adds any relevant GitHub labels
 
+There are two other files which define action-triggered builds:
+* `.travis.yml` - runs on all commits and is used to test on architectures such as ARM and S390x
+* `appveyor.yml` - runs on commits related to Python or C++ (why???)
 
-Crossbow builds
+On-demand builds
 -----------------------
 
 Tasks which can be run via Crossbow can be found in the `dev/tasks` directory.  This directory contains:
