@@ -243,7 +243,8 @@ TEST_P(TestWriteCSV, TestWrite) {
   std::string csv;
   auto record_batch = RecordBatchFromJSON(GetParam().schema, GetParam().batch_data);
   if (!GetParam().expected_status.ok()) {
-    // If an error status is expected, check if the expected status code matches.
+    // If an error status is expected, check if the expected status code and message
+    // matches.
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         Invalid, ::testing::HasSubstr(GetParam().expected_status.message()),
         ToCsvString(*record_batch, options));
