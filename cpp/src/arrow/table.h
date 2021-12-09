@@ -218,6 +218,15 @@ class ARROW_EXPORT Table {
   Result<std::shared_ptr<Table>> CombineChunks(
       MemoryPool* pool = default_memory_pool()) const;
 
+  /// \brief Make a new record batch by combining the chunks this table has.
+  ///
+  /// All the underlying chunks in the ChunkedArray of each column are
+  /// concatenated into a single chunk.
+  ///
+  /// \param[in] pool The pool for buffer allocations
+  Result<std::shared_ptr<RecordBatch>> CombineChunksToBatch(
+      MemoryPool* pool = default_memory_pool()) const;
+
  protected:
   Table();
 
