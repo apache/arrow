@@ -11,6 +11,7 @@ The arrow package provides [reticulate](https://rstudio.github.io/reticulate/) m
 R and Python in the same process. This document provides a brief overview.
 
 Why you might want to use `pyarrow`?
+
 * To use some Python functionality that is not yet implemented in R, for example, the `concat_arrays` function.
 * To transfer Python objects into R, for example, a Pandas dataframe into an R Arrow Array. 
 
