@@ -165,6 +165,7 @@ class CppBenchmarkRunner(BenchmarkRunner):
         """ Returns all suite for a runner. """
         suite_matcher = regex_filter(self.suite_filter)
 
+        suite_found = False
         suite_and_binaries = self.suites_binaries
         for suite_name in suite_and_binaries:
             if not suite_matcher(suite_name):
@@ -180,7 +181,11 @@ class CppBenchmarkRunner(BenchmarkRunner):
                              .format(suite_name))
                 continue
 
+            suite_found = True
             yield suite
+
+        if not suite_found:
+            raise ValueError("No benchmark matches the suite/benchmark filter")
 
     @staticmethod
     def from_rev_or_path(src, root, rev_or_path, cmake_conf, **kwargs):
