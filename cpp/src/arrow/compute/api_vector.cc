@@ -42,6 +42,7 @@ namespace internal {
 
 using compute::DictionaryEncodeOptions;
 using compute::FilterOptions;
+using compute::MonotonicityOrder;
 using compute::NullPlacement;
 
 template <>
@@ -84,6 +85,25 @@ struct EnumTraits<NullPlacement>
         return "AtStart";
       case NullPlacement::AtEnd:
         return "AtEnd";
+    }
+    return "<INVALID>";
+  }
+};
+template <>
+struct EnumTraits<MonotonicityOrder>
+    : BasicEnumTraits<MonotonicityOrder, MonotonicityOrder::Increasing,
+                      MonotonicityOrder::Decreasing> {
+  static std::string name() { return "MonotonicityOrder"; }
+  static std::string value_name(MonotonicityOrder value) {
+    switch (value) {
+      case MonotonicityOrder::Increasing:
+        return "INCREASING";
+      case MonotonicityOrder::StrictlyIncreasing:
+        return "STRICTLY_INCREASING";
+      case MonotonicityOrder::Decreasing:
+        return "DECREASING";
+      case MonotonicityOrder::StrictlyDecreasing:
+        return "STRICTLY_DECREASING";
     }
     return "<INVALID>";
   }
@@ -135,6 +155,9 @@ static auto kPartitionNthOptionsType = GetFunctionOptionsType<PartitionNthOption
 static auto kSelectKOptionsType = GetFunctionOptionsType<SelectKOptions>(
     DataMember("k", &SelectKOptions::k),
     DataMember("sort_keys", &SelectKOptions::sort_keys));
+static auto kIsMonotonicOptionsType = GetFunctionOptionsType<IsMonotonicOptions>(
+    DataMember("order", &IsMonotonicOptions::order));
+
 }  // namespace
 }  // namespace internal
 
@@ -176,6 +199,10 @@ SelectKOptions::SelectKOptions(int64_t k, std::vector<SortKey> sort_keys)
       sort_keys(std::move(sort_keys)) {}
 constexpr char SelectKOptions::kTypeName[];
 
+IsMonotonicOptions::IsMonotonicOptions(MonotonicityOrder order)
+    : FunctionOptions(internal::kIsMonotonicOptionsType), order(order) {}
+constexpr char IsMonotonicOptions::kTypeName[];
+
 namespace internal {
 void RegisterVectorOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kFilterOptionsType));
@@ -185,6 +212,7 @@ void RegisterVectorOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kSortOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kPartitionNthOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kSelectKOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kIsMonotonicOptionsType));
 }
 }  // namespace internal
 
@@ -278,6 +306,11 @@ const int32_t kCountsFieldIndex = 1;
 Result<std::shared_ptr<StructArray>> ValueCounts(const Datum& value, ExecContext* ctx) {
   ARROW_ASSIGN_OR_RAISE(Datum result, CallFunction("value_counts", {value}, ctx));
   return checked_pointer_cast<StructArray>(result.make_array());
+}
+
+Result<Datum> IsMonotonic(const Datum& value, const IsMonotonicOptions& options,
+                          ExecContext* ctx) {
+  return CallFunction("is_monotonic", {value}, &options, ctx);
 }
 
 // ----------------------------------------------------------------------

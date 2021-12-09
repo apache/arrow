@@ -188,6 +188,42 @@ class ARROW_EXPORT PartitionNthOptions : public FunctionOptions {
   NullPlacement null_placement;
 };
 
+/// Defines the order used to determine monotonicity.
+enum class MonotonicityOrder {
+  /// Check if elements are monotonically increasing (>=).
+  Increasing,
+  /// Check if elements are strictly monotonically increasing (>).
+  StrictlyIncreasing,
+  /// Check if elements are monotonically descreasing (<=).
+  Decreasing,
+  /// Check if elements are strictly monotonically descreasing (<).
+  StrictlyDecreasing,
+};
+
+/// \brief Options for IsMonotonic
+class ARROW_EXPORT IsMonotonicOptions : public FunctionOptions {
+ public:
+  explicit IsMonotonicOptions(MonotonicityOrder order = MonotonicityOrder::Increasing);
+  constexpr static char const kTypeName[] = "IsMonotonicOptions";
+  static IsMonotonicOptions Increasing() {
+    return IsMonotonicOptions(MonotonicityOrder::Increasing);
+  }
+  static IsMonotonicOptions StrictlyIncreasing() {
+    return IsMonotonicOptions(MonotonicityOrder::StrictlyIncreasing);
+  }
+  static IsMonotonicOptions Decreasing() {
+    return IsMonotonicOptions(MonotonicityOrder::Decreasing);
+  }
+  static IsMonotonicOptions StrictlyDecreasing() {
+    return IsMonotonicOptions(MonotonicityOrder::StrictlyDecreasing);
+  }
+  static IsMonotonicOptions Defaults() { return Increasing(); }
+
+  // Defines the order used to determine monotonicity.
+  MonotonicityOrder order;
+  // todo(mb): add option to define how nulls are handled
+};
+
 /// @}
 
 /// \brief Filter with a boolean selection filter
@@ -492,6 +528,20 @@ ARROW_EXPORT
 Result<Datum> DictionaryEncode(
     const Datum& data,
     const DictionaryEncodeOptions& options = DictionaryEncodeOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
+
+/// \brief Returns if the array contains monotonically increasing/decreasing
+/// values.
+///
+/// \param[in] data input data.
+/// \param[in] options see IsMonotonicOptions for more information.
+/// \param[in] ctx the function execution context, optional.
+/// \return resulting datum.
+///
+/// \since x.0.0 \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> IsMonotonic(
+    const Datum& data, const IsMonotonicOptions& options = IsMonotonicOptions::Defaults(),
     ExecContext* ctx = NULLPTR);
 
 // ----------------------------------------------------------------------

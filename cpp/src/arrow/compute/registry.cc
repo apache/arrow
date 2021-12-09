@@ -173,6 +173,7 @@ static std::unique_ptr<FunctionRegistry> CreateBuiltInRegistry() {
   // Vector functions
   RegisterVectorArraySort(registry.get());
   RegisterVectorHash(registry.get());
+  RegisterVectorIsMonotonic(registry.get());
   RegisterVectorNested(registry.get());
   RegisterVectorReplace(registry.get());
   RegisterVectorSelection(registry.get());

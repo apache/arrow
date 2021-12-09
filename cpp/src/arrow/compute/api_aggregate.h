@@ -394,7 +394,6 @@ Result<Datum> Index(const Datum& value, const IndexOptions& options,
                     ExecContext* ctx = NULLPTR);
 
 namespace internal {
-
 /// Internal use only: streaming group identifier.
 /// Consumes batches of keys and yields batches of the group ids.
 class ARROW_EXPORT Grouper {
