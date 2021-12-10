@@ -379,8 +379,10 @@ class BaseBinaryBuilder : public ArrayBuilder {
   std::shared_ptr<DataType> type_;
 
   BaseBinaryBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool)
-      : ArrayBuilder(pool), offsets_builder_(pool),
-        value_data_builder_(pool), type_(type) {}
+      : ArrayBuilder(pool),
+        offsets_builder_(pool),
+        value_data_builder_(pool),
+        type_(type) {}
 
   Status AppendNextOffset() {
     const int64_t num_bytes = value_data_builder_.length();
@@ -400,7 +402,7 @@ class ARROW_EXPORT BinaryBuilder : public BaseBinaryBuilder<BinaryType> {
   explicit BinaryBuilder(MemoryPool* pool = default_memory_pool())
       : BaseBinaryBuilder(binary(), pool) {}
 
-  BinaryBuilder(const std::shared_ptr<DataType> &type, MemoryPool *pool)
+  BinaryBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool)
       : BaseBinaryBuilder(type, pool) {}
 
   /// \cond FALSE
@@ -417,7 +419,7 @@ class ARROW_EXPORT StringBuilder : public BinaryBuilder {
   explicit StringBuilder(MemoryPool* pool = default_memory_pool())
       : BinaryBuilder(utf8(), pool) {}
 
-  StringBuilder(const std::shared_ptr<DataType> &type, MemoryPool *pool)
+  StringBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool)
       : BinaryBuilder(type, pool) {}
 
   /// \cond FALSE
@@ -434,7 +436,7 @@ class ARROW_EXPORT LargeBinaryBuilder : public BaseBinaryBuilder<LargeBinaryType
   explicit LargeBinaryBuilder(MemoryPool* pool = default_memory_pool())
       : BaseBinaryBuilder(large_binary(), pool) {}
 
-  LargeBinaryBuilder(const std::shared_ptr<DataType> &type, MemoryPool *pool)
+  LargeBinaryBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool)
       : BaseBinaryBuilder(type, pool) {}
 
   /// \cond FALSE
@@ -449,10 +451,10 @@ class ARROW_EXPORT LargeBinaryBuilder : public BaseBinaryBuilder<LargeBinaryType
 class ARROW_EXPORT LargeStringBuilder : public LargeBinaryBuilder {
  public:
   explicit LargeStringBuilder(MemoryPool* pool = default_memory_pool())
-     : LargeBinaryBuilder(large_utf8(), pool) {}
+      : LargeBinaryBuilder(large_utf8(), pool) {}
 
-  LargeStringBuilder(const std::shared_ptr<DataType> &type, MemoryPool *pool)
-     : LargeBinaryBuilder(type, pool) {}
+  LargeStringBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool)
+      : LargeBinaryBuilder(type, pool) {}
 
   /// \cond FALSE
   using ArrayBuilder::Finish;
