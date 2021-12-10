@@ -35,6 +35,54 @@ Finding your way around Arrow
 .. TODO: description about Arrow repo: language-specific
 .. subdirectories and what code lives where in the subdirectories
 
+The Apache Arrow repository includes implementations for
+most of the libraries for which Arrow is available.
+
+Languages like GLib (``c_glib/``), C++ (``cpp/``), C# (``csharp/``),
+Go (``go/``), Java (``java/``), JavaScript (``js/``),
+Julia (``julia/``), MATLAB (``matlab/``, Python (``python/``),
+R (``r/``) and Ruby (``ruby/``) have their own subdirectories in
+the main folder as written here.
+
+Rust has it's own repository available `here <https://github.com/apache/arrow-rs>`_.
+
+In the **language-specific subdirectories** you can find the code
+connected to that language. For example:
+
+- The ``python/`` folder includes ``pyarrow/`` folder which contains
+  the code for the pyarrow package and requirements files that you
+  need when building pyarrow.
+
+  The ``pyarrow/`` includes all pyarrow modules, for example
+  ``compute.py`` for the ``pyarrow.compute`` module. The ``pyarrow/``
+  includes Python and Cython code.
+
+  The ``pyarrow/`` also includes ``test/`` folder where all the tests
+  for the pyarrow modules are located.
+
+- The ``R/`` folder holds the code and the documentation for the R package.
+
+  The documentation can be found in ``vignettes/`` and in ``R/`` folder
+  you can find the reference documentation.
+
+  The ``R/`` folder also includes tests for the R package
+  in ``tests/`` and ``extra-tests/``.
+
+Other subdirectories included in the arrow repository are:
+
+- ``ci/`` contains code connected to the CI work.
+- ``dev/`` contains scripts useful to developers when packaging,
+  testing, or committing to Arrow.
+- ``docs/`` contains most of the documentation. Read more on
+  :ref:`documentation`.
+- ``format/`` contains the Arrow Protocol files.
+
+Other files included in Arrow are connected to either GitHub,
+CI builds, docker or Archery.
+
+Bindings, features, fixes and tests
+===================================
+
 You can read through this section to get some ideas on how
 to work around the library on the issue you have.
 
@@ -52,8 +100,7 @@ In our experience there are two good ways:
 
 #. **IDE** of your choice.
 
-Bindings, features, fixes and tests
-===================================
+**Binding**
 
 Binding means that the function in the C++ is connected from 
 other languages (C (Glib), MATLAB, Python, R or Ruby). Once a 
