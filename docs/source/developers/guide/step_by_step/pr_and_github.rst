@@ -96,7 +96,7 @@ and linters and then go ahead and commit the changes.
 
 4. Then push your work to your Arrow fork
 
-   .. code:: console  
+   .. code:: console
 
       $ git push origin <branch-name>
 
@@ -179,9 +179,40 @@ Updating your Pull Request
 
 The procedure after getting reviews is similar to creating the initial Pull Request.
 You need to update your code locally, make a commit, update the branch to sync
-it with upstream (or origin if there were commits from other developers or if you 
-committed suggestions from the GitHub) and push your code to origin. It will
-automatically be updated in your Pull Request as well.
+it with upstream and push your code to origin. It will automatically be updated
+in your Pull Request as well.
+
+The steps of the updating the Pull Request would then be as follows:
+
+1. Updating the code locally and making a commit as before:
+
+   .. code:: console
+
+      $ git commit -am "<message>" #if all changed files are to be committed
+
+2. **Important!** In case there are commits from other developers on the Pull
+   Request branch or if you committed suggestions from the GitHub you need
+   to update you code with ``origin`` before rebasing! To do this run:
+
+   .. code:: console
+
+      $ git pull origin <branch-name>
+
+   Here we merge the new commits with our local branch and we do not rebase.
+
+3. Now we have to update the branch to sync with upstream master Arrow branch.
+   This way the Pull Request will be able to get merged. We use rebase in this
+   case.
+
+   .. code:: console
+
+      $ git pull upstream master --rebase
+
+4. Now you can push the changes by running:
+
+   .. code:: console
+
+         $ git push origin <branch-name>
 
 .. seealso::
 
