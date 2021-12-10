@@ -32,9 +32,6 @@ Working on the Arrow codebase 🧐
 Finding your way around Arrow
 =============================
 
-.. TODO: description about Arrow repo: language-specific
-.. subdirectories and what code lives where in the subdirectories
-
 The Apache Arrow repository includes implementations for
 most of the libraries for which Arrow is available.
 

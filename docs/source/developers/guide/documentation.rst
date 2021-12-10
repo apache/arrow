@@ -100,7 +100,7 @@ library. Source folder includes:
   in folders named by the language, for example: ``docs/source/c_glib``.
 - The documentation for the **R language** is located in the ``r/`` sub-directory.
 
-  - In the ``R/vignettes`` you can find the **Articles**, for example
+  - In the ``r/vignettes`` you can find the **Articles**, for example
     `Working with Cloud Storage (S3) <https://arrow.apache.org/docs/r/articles/fs.html>`_.
   - In the ``r/R`` you can edit reference documentation for example 
     in the ``r/R/dataset.R`` you can find the docstrings for the
