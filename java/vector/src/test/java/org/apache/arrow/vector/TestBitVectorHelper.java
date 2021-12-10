@@ -263,10 +263,12 @@ public class TestBitVectorHelper {
       int numNulls = 100;
       fieldNode = new ArrowFieldNode(1024, numNulls);
       try (ArrowBuf src = allocator.buffer(128)) {
+        src.setZero(0, src.capacity());
         for (int i = 0; i < numNulls; i++) {
           BitVectorHelper.setBit(src, i);
         }
         try (ArrowBuf dst = BitVectorHelper.loadValidityBuffer(fieldNode, src, allocator)) {
+          assertEquals(src.memoryAddress(), dst.memoryAddress());
           assertEquals(128, allocator.getAllocatedMemory());
           for (int i = 0; i < 1024; i++) {
             assertEquals(BitVectorHelper.get(src, i), BitVectorHelper.get(dst, i));
