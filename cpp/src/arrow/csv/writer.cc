@@ -510,8 +510,7 @@ class CSVWriterImpl : public ipc::RecordBatchWriter {
 
   Status WriteHeader() {
     // Only called once, as part of initialization
-    int64_t header_size;
-    ASSIGN_OR_RAISE(header_size, CalculateHeaderSize());
+    ASSIGN_OR_RAISE(int64_t header_size, CalculateHeaderSize());
     RETURN_NOT_OK(data_buffer_->Resize(header_size, /*shrink_to_fit=*/false));
     char* next = reinterpret_cast<char*>(data_buffer_->mutable_data() +
                                          data_buffer_->size() - options_.eol.size());

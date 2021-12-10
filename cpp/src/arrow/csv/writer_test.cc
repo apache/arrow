@@ -50,8 +50,6 @@ struct WriterTestParams {
   WriteOptions options;
   util::optional<std::string> expected_output;
   Status expected_status;
-  bool options_invalid;
-  bool escaping_invalid;
 };
 
 // Avoid Valgrind failures with GTest trying to represent a WriterTestParams
