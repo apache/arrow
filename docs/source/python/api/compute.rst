@@ -247,6 +247,7 @@ String Transforms
    binary_length
    binary_repeat
    binary_replace_slice
+   binary_reverse
    replace_substring
    replace_substring_regex
    utf8_capitalize
