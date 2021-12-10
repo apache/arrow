@@ -42,7 +42,7 @@ namespace internal {
 
 using compute::DictionaryEncodeOptions;
 using compute::FilterOptions;
-using compute::MonotonicityOrder;
+using compute::IsMonotonicOptions;
 using compute::NullPlacement;
 
 template <>
@@ -90,20 +90,20 @@ struct EnumTraits<NullPlacement>
   }
 };
 template <>
-struct EnumTraits<MonotonicityOrder>
-    : BasicEnumTraits<MonotonicityOrder, MonotonicityOrder::Increasing,
-                      MonotonicityOrder::Decreasing> {
-  static std::string name() { return "MonotonicityOrder"; }
-  static std::string value_name(MonotonicityOrder value) {
+struct EnumTraits<IsMonotonicOptions::NullHandling>
+    : BasicEnumTraits<IsMonotonicOptions::NullHandling,
+                      IsMonotonicOptions::NullHandling::IGNORE,
+                      IsMonotonicOptions::NullHandling::MIN_INF,
+                      IsMonotonicOptions::NullHandling::INF> {
+  static std::string name() { return "IsMonotonicOptions::NullHandling"; }
+  static std::string value_name(IsMonotonicOptions::NullHandling value) {
     switch (value) {
-      case MonotonicityOrder::Increasing:
-        return "INCREASING";
-      case MonotonicityOrder::StrictlyIncreasing:
-        return "STRICTLY_INCREASING";
-      case MonotonicityOrder::Decreasing:
-        return "DECREASING";
-      case MonotonicityOrder::StrictlyDecreasing:
-        return "STRICTLY_DECREASING";
+      case IsMonotonicOptions::NullHandling::IGNORE:
+        return "IGNORE";
+      case IsMonotonicOptions::NullHandling::MIN_INF:
+        return "MIN_INF";
+      case IsMonotonicOptions::NullHandling::INF:
+        return "INF";
     }
     return "<INVALID>";
   }
@@ -156,7 +156,8 @@ static auto kSelectKOptionsType = GetFunctionOptionsType<SelectKOptions>(
     DataMember("k", &SelectKOptions::k),
     DataMember("sort_keys", &SelectKOptions::sort_keys));
 static auto kIsMonotonicOptionsType = GetFunctionOptionsType<IsMonotonicOptions>(
-    DataMember("order", &IsMonotonicOptions::order));
+    DataMember("null_handling", &IsMonotonicOptions::null_handling),
+    DataMember("equal_options", &IsMonotonicOptions::equal_options));
 
 }  // namespace
 }  // namespace internal
@@ -199,8 +200,11 @@ SelectKOptions::SelectKOptions(int64_t k, std::vector<SortKey> sort_keys)
       sort_keys(std::move(sort_keys)) {}
 constexpr char SelectKOptions::kTypeName[];
 
-IsMonotonicOptions::IsMonotonicOptions(MonotonicityOrder order)
-    : FunctionOptions(internal::kIsMonotonicOptionsType), order(order) {}
+IsMonotonicOptions::IsMonotonicOptions(IsMonotonicOptions::NullHandling null_handling,
+                                       EqualOptions equal_options)
+    : FunctionOptions(internal::kIsMonotonicOptionsType),
+      null_handling(null_handling),
+      equal_options(equal_options) {}
 constexpr char IsMonotonicOptions::kTypeName[];
 
 namespace internal {

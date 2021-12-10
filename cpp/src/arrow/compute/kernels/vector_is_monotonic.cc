@@ -21,9 +21,6 @@
 #include "arrow/compute/registry.h"
 #include "arrow/util/optional.h"
 
-#include <algorithm>
-#include <iostream>
-
 namespace arrow {
 namespace compute {
 namespace internal {
@@ -34,16 +31,36 @@ namespace {
 
 using IsMonotonicState = OptionsWrapper<IsMonotonicOptions>;
 
+Status IsMonotonicOutput(bool increasing, bool strictly_increasing, bool decreasing,
+                         bool strictly_decreasing, Datum* out) {
+  ARROW_ASSIGN_OR_RAISE(
+      *out,
+      StructScalar::Make(
+          {std::make_shared<Scalar>(BooleanScalar(increasing)),
+           std::make_shared<Scalar>(BooleanScalar(strictly_increasing)),
+           std::make_shared<Scalar>(BooleanScalar(decreasing)),
+           std::make_shared<Scalar>(BooleanScalar(strictly_decreasing))},
+          {"increasing", "strictly_increasing", "decreasing", "strictly_decreasing"}));
+  return Status::OK();
+}
+
+// todo(mb): floats
 template <typename Type>
 Status IsMonotonic(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  using ArrayType = typename TypeTraits<Type>::ArrayType;
+  using CType = typename TypeTraits<Type>::CType;
   // Not sure if this can fail.
-  MonotonicityOrder order = IsMonotonicState::Get(ctx).order;
+  IsMonotonicOptions::NullHandling null_handling =
+      IsMonotonicState::Get(ctx).null_handling;
+  EqualOptions equal_options = IsMonotonicState::Get(ctx).equal_options;
 
   // Check batch size
   if (batch.values.size() != 1) {
     return Status::Invalid("IsMonotonic expects a single datum (array) as input");
   }
-  // Made sure there is at least one input datum.
+
+  // Safety:
+  // - Made sure there is at least one input datum.
   Datum input = batch[0];
 
   // Validate input datum type
@@ -55,16 +72,20 @@ Status IsMonotonic(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
 
   // Made sure that the input datum is an array.
   const std::shared_ptr<ArrayData>& array_data = input.array();
-  typename TypeTraits<Type>::ArrayType array(array_data);
+  ArrayType array(array_data);
 
-  // Initial output for early-exists.
-  *out = Datum(false);
-
-  // Return early if there is just zero elements or one element in the array.
-  if (array.length() <= 1) {
-    *out = Datum(true);
-    return Status::OK();
+  // Return early if there are zero elements or one element in the array.
+  // And return early if there are only nulls.
+  if (array.length() <= 1 || array.null_count() == array.length()) {
+    return IsMonotonicOutput(true, true, true, true, out);
   }
+
+  // Set null value based on option.
+  auto null_value = IsMonotonicOptions::NullHandling::MIN_INF
+                        ? std::numeric_limits<CType>::min()
+                        : std::numeric_limits<CType>::max();
+
+  bool inc = true, s_inc = true, dec = true, s_dec = true;
 
   // Safety:
   // - Made sure that the length is at least 2 above.
@@ -72,42 +93,59 @@ Status IsMonotonic(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     auto current = *a;
     auto next = *b;
 
-    switch (order) {
-      case MonotonicityOrder::Increasing: {
-        if (!(next >= current)) {
-          return Status::OK();
-        }
-        break;
+    // Handle nulls
+    if (!current.has_value() || !next.has_value()) {
+      if (null_handling == IsMonotonicOptions::NullHandling::IGNORE) {
+        // Skip this iteration.
+        continue;
+      } else {
+        current = current.value_or(null_value);
+        next = next.value_or(null_value);
       }
-      case MonotonicityOrder::StrictlyIncreasing: {
-        if (!(next > current)) {
-          return Status::OK();
-        }
-        break;
+    }
+
+    // Check if increasing.
+    if (inc) {
+      if (!(next >= current)) {
+        inc = false;
+        // Can't be strictly increasing if not increasing.
+        s_inc = false;
       }
-      case MonotonicityOrder::Decreasing: {
-        if (!(next <= current)) {
-          return Status::OK();
-        }
-        break;
+    }
+    // Check if strictly increasing.
+    if (s_inc) {
+      if (!(next > current)) {
+        s_inc = false;
       }
-      case MonotonicityOrder::StrictlyDecreasing: {
-        if (!(next < current)) {
-          return Status::OK();
-        }
-        break;
+    }
+    // Check if decreasing.
+    if (dec) {
+      if (!(next <= current)) {
+        dec = false;
+        // Can't be strictly decreasing if not decreasing.
+        s_dec = false;
       }
+    }
+    // Check if strictly decreasing.
+    if (s_dec) {
+      if (!(next < current)) {
+        s_dec = false;
+      }
+    }
+
+    // Early exit if all failed:
+    if (!inc && !s_inc && !dec && !s_dec) {
+      break;
     }
   }
 
-  // At this point the for loop did not early-exit.
-  *out = Datum(true);
-
-  return Status::OK();
+  // Output
+  return IsMonotonicOutput(inc, s_inc, dec, s_dec, out);
 }
 
 }  // namespace
 
+// todo(mb): update
 const FunctionDoc is_monotonic_doc{
     "Returns if the array contains monotonically increasing/decreasing"
     "values",
@@ -121,7 +159,12 @@ const FunctionDoc is_monotonic_doc{
 
 template <typename Type>
 Status AddIsMonotonicKernel(VectorFunction* func) {
-  static const ValueDescr output_type = ValueDescr::Scalar(boolean());
+  static const ValueDescr output_type = ValueDescr::Scalar(struct_({
+      field("increasing", boolean()),
+      field("strictly_increasing", boolean()),
+      field("decreasing", boolean()),
+      field("strictly_decreasing", boolean()),
+  }));
   VectorKernel is_monotonic_base;
   is_monotonic_base.init = IsMonotonicState::Init;
   is_monotonic_base.can_execute_chunkwise = false;
@@ -138,6 +181,7 @@ void RegisterVectorIsMonotonic(FunctionRegistry* registry) {
 
   DCHECK_OK(AddIsMonotonicKernel<Int8Type>(func.get()));
   DCHECK_OK(AddIsMonotonicKernel<Int16Type>(func.get()));
+  // todo(mb): add other types
 
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }

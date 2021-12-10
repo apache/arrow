@@ -188,40 +188,27 @@ class ARROW_EXPORT PartitionNthOptions : public FunctionOptions {
   NullPlacement null_placement;
 };
 
-/// Defines the order used to determine monotonicity.
-enum class MonotonicityOrder {
-  /// Check if elements are monotonically increasing (>=).
-  Increasing,
-  /// Check if elements are strictly monotonically increasing (>).
-  StrictlyIncreasing,
-  /// Check if elements are monotonically descreasing (<=).
-  Decreasing,
-  /// Check if elements are strictly monotonically descreasing (<).
-  StrictlyDecreasing,
-};
-
 /// \brief Options for IsMonotonic
 class ARROW_EXPORT IsMonotonicOptions : public FunctionOptions {
  public:
-  explicit IsMonotonicOptions(MonotonicityOrder order = MonotonicityOrder::Increasing);
-  constexpr static char const kTypeName[] = "IsMonotonicOptions";
-  static IsMonotonicOptions Increasing() {
-    return IsMonotonicOptions(MonotonicityOrder::Increasing);
-  }
-  static IsMonotonicOptions StrictlyIncreasing() {
-    return IsMonotonicOptions(MonotonicityOrder::StrictlyIncreasing);
-  }
-  static IsMonotonicOptions Decreasing() {
-    return IsMonotonicOptions(MonotonicityOrder::Decreasing);
-  }
-  static IsMonotonicOptions StrictlyDecreasing() {
-    return IsMonotonicOptions(MonotonicityOrder::StrictlyDecreasing);
-  }
-  static IsMonotonicOptions Defaults() { return Increasing(); }
+  enum NullHandling {
+    // Ignore nulls.
+    IGNORE,
+    // Use min value of element type as the value of nulls.
+    MIN_INF,
+    // Use max value of element type as the value of nulls.
+    INF,
+  };
 
-  // Defines the order used to determine monotonicity.
-  MonotonicityOrder order;
-  // todo(mb): add option to define how nulls are handled
+  explicit IsMonotonicOptions(NullHandling null_handling = IGNORE,
+                              EqualOptions equal_options = EqualOptions::Defaults());
+  constexpr static char const kTypeName[] = "IsMonotonicOptions";
+  static IsMonotonicOptions Defaults() { return IsMonotonicOptions(); }
+
+  // Define how nulls are handled.
+  NullHandling null_handling;
+  // Options for equality comparisons. Used for floats.
+  EqualOptions equal_options;
 };
 
 /// @}
@@ -530,13 +517,21 @@ Result<Datum> DictionaryEncode(
     const DictionaryEncodeOptions& options = DictionaryEncodeOptions::Defaults(),
     ExecContext* ctx = NULLPTR);
 
-/// \brief Returns if the array contains monotonically increasing/decreasing
-/// values.
+/// \brief Returns information about the monotonicity of the elements in an
+/// array with well-ordered elements.
+///
+/// Returns a struct scalar with type
+/// struct<
+///   increasing: boolean,
+///   strictly_increasing: boolean,
+///   decreasing: boolean,
+///   strictly_decreasing: boolean
+/// >
 ///
 /// \param[in] data input data.
 /// \param[in] options see IsMonotonicOptions for more information.
 /// \param[in] ctx the function execution context, optional.
-/// \return resulting datum.
+/// \return resulting datum as a struct scalar.
 ///
 /// \since x.0.0 \note API not yet finalized
 ARROW_EXPORT
