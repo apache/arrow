@@ -690,7 +690,8 @@ class ClientBuilder {
 
   Aws::Client::ClientConfiguration* mutable_config() { return &client_config_; }
 
-  Result<std::shared_ptr<S3Client>> BuildClient() {
+  Result<std::shared_ptr<S3Client>> BuildClient(
+      util::optional<io::IOContext> io_context = util::nullopt) {
     credentials_provider_ = options_.credentials_provider;
     if (!options_.region.empty()) {
       client_config_.region = ToAwsString(options_.region);
@@ -740,6 +741,11 @@ class ClientBuilder {
     }
     if (!options_.proxy_options.password.empty()) {
       client_config_.proxyPassword = ToAwsString(options_.proxy_options.password);
+    }
+
+    if (io_context) {
+      // TODO: Once ARROW-15035 is done we can get rid of the "at least 25" fallback
+      client_config_.maxConnections = std::max(io_context->executor()->GetCapacity(), 25);
     }
 
     auto client = std::make_shared<S3Client>(
@@ -1617,7 +1623,7 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
   explicit Impl(S3Options options, io::IOContext io_context)
       : builder_(std::move(options)), io_context_(io_context) {}
 
-  Status Init() { return builder_.BuildClient().Value(&client_); }
+  Status Init() { return builder_.BuildClient(io_context_).Value(&client_); }
 
   const S3Options& options() const { return builder_.options(); }
 
