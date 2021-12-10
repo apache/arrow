@@ -33,7 +33,7 @@
 namespace arrow {
 namespace csv {
 // This implementation is intentionally light on configurability to minimize the size of
-// the initial PR. Aditional features can be added as there is demand and interest to
+// the initial PR. Additional features can be added as there is demand and interest to
 // implement them.
 //
 // The algorithm used here at a high level is to break RecordBatches/Tables into slices
@@ -80,6 +80,7 @@ int64_t CountQuotes(util::string_view s) {
 // Matching quote pair character length.
 constexpr int64_t kQuoteCount = 2;
 constexpr int64_t kQuoteDelimiterCount = kQuoteCount + /*end_char*/ 1;
+constexpr const char* kStrComma = ",";
 
 // Interface for generating CSV data per column.
 // The intended usage is to iteratively call UpdateRowLengths for a column and
@@ -87,8 +88,11 @@ constexpr int64_t kQuoteDelimiterCount = kQuoteCount + /*end_char*/ 1;
 // populators (it populates data backwards).
 class ColumnPopulator {
  public:
-  ColumnPopulator(MemoryPool* pool, char end_char, std::shared_ptr<Buffer> null_string)
-      : end_char_(end_char), null_string_(std::move(null_string)), pool_(pool) {}
+  ColumnPopulator(MemoryPool* pool, std::string end_chars,
+                  std::shared_ptr<Buffer> null_string)
+      : end_chars_(std::move(end_chars)),
+        null_string_(std::move(null_string)),
+        pool_(pool) {}
 
   virtual ~ColumnPopulator() = default;
 
@@ -119,7 +123,7 @@ class ColumnPopulator {
  protected:
   virtual Status UpdateRowLengths(int32_t* row_lengths) = 0;
   std::shared_ptr<StringArray> casted_array_;
-  const char end_char_;
+  const std::string end_chars_;
   std::shared_ptr<Buffer> null_string_;
 
  private:
@@ -146,10 +150,10 @@ char* EscapeReverse(arrow::util::string_view s, char* out_end) {
 // compliance with RFC4180 section 2.5.
 class UnquotedColumnPopulator : public ColumnPopulator {
  public:
-  explicit UnquotedColumnPopulator(MemoryPool* memory_pool, char end_char,
+  explicit UnquotedColumnPopulator(MemoryPool* memory_pool, std::string end_chars,
                                    std::shared_ptr<Buffer> null_string_,
                                    bool reject_values_with_quotes)
-      : ColumnPopulator(memory_pool, end_char, std::move(null_string_)),
+      : ColumnPopulator(memory_pool, std::move(end_chars), std::move(null_string_)),
         reject_values_with_quotes_(reject_values_with_quotes) {}
 
   Status UpdateRowLengths(int32_t* row_lengths) override {
@@ -164,9 +168,10 @@ class UnquotedColumnPopulator : public ColumnPopulator {
   Status PopulateColumns(char* output, int32_t* offsets) const override {
     // Function applied to valid values cast to string.
     auto valid_function = [&](arrow::util::string_view s) {
-      int32_t next_column_offset = static_cast<int32_t>(s.length()) + /*end_char*/ 1;
+      int32_t next_column_offset = static_cast<int32_t>(s.length() + end_chars_.size());
       memcpy((output + *offsets - next_column_offset), s.data(), s.length());
-      *(output + *offsets - 1) = end_char_;
+      memcpy((output + *offsets - end_chars_.size()), end_chars_.c_str(),
+             end_chars_.size());
       *offsets -= next_column_offset;
       offsets++;
       return Status::OK();
@@ -176,10 +181,11 @@ class UnquotedColumnPopulator : public ColumnPopulator {
     auto null_function = [&]() {
       // For nulls, the configured null value string is copied into the output.
       int32_t next_column_offset =
-          static_cast<int32_t>(null_string_->size()) + /*end_char*/ 1;
+          static_cast<int32_t>(null_string_->size() + end_chars_.size());
       memcpy((output + *offsets - next_column_offset), null_string_->data(),
              null_string_->size());
-      *(output + *offsets - 1) = end_char_;
+      memcpy((output + *offsets - end_chars_.size()), end_chars_.c_str(),
+             end_chars_.size());
       *offsets -= next_column_offset;
       offsets++;
       return Status::OK();
@@ -227,9 +233,9 @@ class UnquotedColumnPopulator : public ColumnPopulator {
 // a quote character (") and escaping is done my adding another quote.
 class QuotedColumnPopulator : public ColumnPopulator {
  public:
-  QuotedColumnPopulator(MemoryPool* pool, char end_char,
+  QuotedColumnPopulator(MemoryPool* pool, std::string end_chars,
                         std::shared_ptr<Buffer> null_string)
-      : ColumnPopulator(pool, end_char, std::move(null_string)) {}
+      : ColumnPopulator(pool, std::move(end_chars), std::move(null_string)) {}
 
   Status UpdateRowLengths(int32_t* row_lengths) override {
     const StringArray& input = *casted_array_;
@@ -267,14 +273,14 @@ class QuotedColumnPopulator : public ColumnPopulator {
             memcpy(row_end - next_column_offset + /*quote_offset=*/1, s.data(),
                    s.length());
           } else {
-            // Adjust row_end by 3: 1 quote char, 1 end char and 1 to position at the
-            // first position to write to.
-            next_column_offset =
-                static_cast<int32_t>(row_end - EscapeReverse(s, row_end - 3));
+            // Adjust row_end by 2 + end_chars_.size(): 1 quote char, end_chars_.size()
+            // and 1 to position at the first position to write to.
+            next_column_offset = static_cast<int32_t>(
+                row_end - EscapeReverse(s, row_end - 2 - end_chars_.size()));
           }
           *(row_end - next_column_offset) = '"';
-          *(row_end - 2) = '"';
-          *(row_end - 1) = end_char_;
+          *(row_end - end_chars_.size() - 1) = '"';
+          memcpy(row_end - end_chars_.size(), end_chars_.data(), end_chars_.length());
           *offsets -= next_column_offset;
           offsets++;
           needs_escaping++;
@@ -282,10 +288,11 @@ class QuotedColumnPopulator : public ColumnPopulator {
         [&]() {
           // For nulls, the configured null value string is copied into the output.
           int32_t next_column_offset =
-              static_cast<int32_t>(null_string_->size()) + /*end_char*/ 1;
+              static_cast<int32_t>(null_string_->size() + end_chars_.size());
           memcpy((output + *offsets - next_column_offset), null_string_->data(),
                  null_string_->size());
-          *(output + *offsets - 1) = end_char_;
+          memcpy((output + *offsets - end_chars_.size()), end_chars_.c_str(),
+                 end_chars_.size());
           *offsets -= next_column_offset;
           offsets++;
           needs_escaping++;
@@ -313,14 +320,14 @@ struct PopulatorFactory {
         // In unquoted output we must reject values with quotes. Since these types can
         // produce quotes in their output rendering, we must check them and reject if
         // quotes appear, hence reject_values_with_quotes is set to true.
-        populator = new UnquotedColumnPopulator(pool, end_char, null_string,
+        populator = new UnquotedColumnPopulator(pool, end_chars, null_string,
                                                 /*reject_values_with_quotes=*/true);
         break;
         // Quoting is needed for strings/binary, or when all valid values need to be
         // quoted.
       case QuotingStyle::Needed:
       case QuotingStyle::AllValid:
-        populator = new QuotedColumnPopulator(pool, end_char, null_string);
+        populator = new QuotedColumnPopulator(pool, end_chars, null_string);
         break;
     }
     return Status::OK();
@@ -350,17 +357,17 @@ struct PopulatorFactory {
         // is None.
       case QuotingStyle::None:
       case QuotingStyle::Needed:
-        populator = new UnquotedColumnPopulator(pool, end_char, null_string,
+        populator = new UnquotedColumnPopulator(pool, end_chars, null_string,
                                                 /*reject_values_with_quotes=*/false);
         break;
       case QuotingStyle::AllValid:
-        populator = new QuotedColumnPopulator(pool, end_char, null_string);
+        populator = new QuotedColumnPopulator(pool, end_chars, null_string);
         break;
     }
     return Status::OK();
   }
 
-  char end_char;
+  const std::string end_chars;
   std::shared_ptr<Buffer> null_string;
   const QuotingStyle quoting_style;
   MemoryPool* pool;
@@ -368,10 +375,10 @@ struct PopulatorFactory {
 };
 
 Result<std::unique_ptr<ColumnPopulator>> MakePopulator(
-    const Field& field, char end_char, std::shared_ptr<Buffer> null_string,
+    const Field& field, std::string end_chars, std::shared_ptr<Buffer> null_string,
     QuotingStyle quoting_style, MemoryPool* pool) {
-  PopulatorFactory factory{end_char, std::move(null_string), quoting_style, pool,
-                           nullptr};
+  PopulatorFactory factory{std::move(end_chars), std::move(null_string), quoting_style,
+                           pool, nullptr};
 
   RETURN_NOT_OK(VisitTypeInline(*field.type(), &factory));
   return std::unique_ptr<ColumnPopulator>(factory.populator);
@@ -395,9 +402,10 @@ class CSVWriterImpl : public ipc::RecordBatchWriter {
 
     std::vector<std::unique_ptr<ColumnPopulator>> populators(schema->num_fields());
     for (int col = 0; col < schema->num_fields(); col++) {
-      char end_char = col < schema->num_fields() - 1 ? ',' : '\n';
+      const std::string& end_chars =
+          col < schema->num_fields() - 1 ? kStrComma : options.eol;
       ASSIGN_OR_RAISE(populators[col],
-                      MakePopulator(*schema->field(col), end_char, null_string,
+                      MakePopulator(*schema->field(col), end_chars, null_string,
                                     options.quoting_style, options.io_context.pool()));
     }
     auto writer = std::make_shared<CSVWriterImpl>(
@@ -469,21 +477,24 @@ class CSVWriterImpl : public ipc::RecordBatchWriter {
       header_length += col_name.size();
       header_length += CountQuotes(col_name);
     }
-    return header_length + (kQuoteDelimiterCount * schema_->num_fields());
+    // header_length + ([quotes + ','] * schema_->num_fields()) + (eol - ',')
+    return header_length + (kQuoteDelimiterCount * schema_->num_fields()) +
+           (options_.eol.size() - 1);
   }
 
   Status WriteHeader() {
     // Only called once, as part of initialization
     RETURN_NOT_OK(data_buffer_->Resize(CalculateHeaderSize(), /*shrink_to_fit=*/false));
-    char* next =
-        reinterpret_cast<char*>(data_buffer_->mutable_data() + data_buffer_->size() - 1);
+    char* next = reinterpret_cast<char*>(data_buffer_->mutable_data() +
+                                         data_buffer_->size() - options_.eol.size());
     for (int col = schema_->num_fields() - 1; col >= 0; col--) {
       *next-- = ',';
       *next-- = '"';
       next = EscapeReverse(schema_->field(col)->name(), next);
       *next-- = '"';
     }
-    *(data_buffer_->mutable_data() + data_buffer_->size() - 1) = '\n';
+    memcpy(data_buffer_->mutable_data() + data_buffer_->size() - options_.eol.size(),
+           options_.eol.data(), options_.eol.size());
     DCHECK_EQ(reinterpret_cast<uint8_t*>(next + 1), data_buffer_->data());
     return sink_->Write(data_buffer_);
   }
@@ -500,10 +511,13 @@ class CSVWriterImpl : public ipc::RecordBatchWriter {
       RETURN_NOT_OK(
           column_populators_[col]->UpdateRowLengths(*batch.column(col), offsets_.data()));
     }
-    // Calculate cumulalative offsets for each row (including delimiters).
-    offsets_[0] += batch.num_columns();
+    // Calculate cumulative offsets for each row (including delimiters).
+    // ',' * num_columns - 1(last column doesn't have ,) + eol
+    int32_t delimiters_length =
+        static_cast<int32_t>(batch.num_columns() - 1 + options_.eol.size());
+    offsets_[0] += delimiters_length;
     for (int64_t row = 1; row < batch.num_rows(); row++) {
-      offsets_[row] += offsets_[row - 1] + /*delimiter lengths*/ batch.num_columns();
+      offsets_[row] += offsets_[row - 1] + delimiters_length;
     }
     // Resize the target buffer to required size. We assume batch to batch sizes
     // should be pretty close so don't shrink the buffer to avoid allocation churn.

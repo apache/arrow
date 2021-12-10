@@ -200,6 +200,9 @@ struct ARROW_EXPORT WriteOptions {
   /// \brief IO context for writing.
   io::IOContext io_context;
 
+  /// \brief The end of line character to use for ending rows
+  std::string eol = "\n";
+
   /// \brief Quoting style
   QuotingStyle quoting_style = QuotingStyle::Needed;
 
