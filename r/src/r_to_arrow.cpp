@@ -607,6 +607,7 @@ class RPrimitiveConverter<T, enable_if_t<is_time_type<T>::value>>
   Status Extend(SEXP x, int64_t size, int64_t offset = 0) override {
     RETURN_NOT_OK(this->Reserve(size - offset));
     auto rtype = GetVectorType(x);
+    // This probably also not accept duration
     if (rtype != TIME && rtype != DURATION) {
       return Status::Invalid("Invalid conversion to time");
     }
