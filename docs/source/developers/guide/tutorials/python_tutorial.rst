@@ -48,7 +48,7 @@ Set up
 Lets setup the Arrow repository. We presume here that Git is
 already installed. Otherwise please see the :ref:`set-up` section.
 
-Once the `Apache Arrow repository <https://github.com/apache/arrow>`_.
+Once the `Apache Arrow repository <https://github.com/apache/arrow>`_
 is forked we will clone it and add the link of the main repository
 to our upstream.
 
@@ -62,15 +62,15 @@ Building PyArrow
 ----------------
 
 Script for building PyArrow differs depending on the Operating
-System you are using. For this reason in this tutorial we will
-only refer to the instructions for the building process.
+System you are using. For this reason we will only refer to
+the instructions for the building process in this tutorial.
 
 .. seealso::
 
-   For the introduction to the building process refer to the
+   For the **introduction** to the building process refer to the
    :ref:`build-arrow-guide` section.
 
-   For the instructions on how to build PyArrow refer to the
+   For the **instructions** on how to build PyArrow refer to the
    :ref:`build_pyarrow` section.
 
 Create a JIRA issue for the new feature
@@ -81,18 +81,19 @@ We will add a new feature that imitates an existing function
 interval bigger for 1 in both directions. Note that this is a
 made-up function for the purpose of this guide.
 
-See the example of the ``pc.min_max`` on
+See the example of the ``pc.min_max`` in
 `this link <https://arrow.apache.org/cookbook/py/data.html#computing-mean-min-max-values-of-an-array>`_.
 
-Lets create a JIRA issue. With a JIRA account created we will
-navigate to the `Apache Arrow JIRA dashboard <https://issues.apache.org/jira/projects/ARROW>`_
-and click on the red **Create** button.
+First we need to create a JIRA issue as it doesn't exist yet.
+With a JIRA account created we will navigate to the
+`Apache Arrow JIRA dashboard <https://issues.apache.org/jira/projects/ARROW>`_
+and click on the **Create** button.
 
 .. figure:: python_tutorial_jira_title.jpeg
    :scale: 70 %
    :alt: JIRA dashboard with a window for creating a new issue.
 
-   Creating a JIRA issue, adding title and components.
+   Creating a JIRA issue, adding title (summary) and components.
 
 .. figure:: python_tutorial_jira_description.jpeg
    :scale: 70 %
@@ -109,7 +110,7 @@ We will also add some comments to start a conversation.
 
    Adding a comment to the JIRA ticket we created.
 
-We have successfully created a new JIRA issue.
+We have successfully created a new JIRA issue with index ARROW-14977.
 
 .. figure:: python_tutorial_jira_issue.jpeg
    :scale: 50 %
@@ -167,7 +168,7 @@ with ``_compute.py`` the functions from C++ get wrapped into Python.
 We will define the new feature at the end of the ``compute.py`` file. 
 
 Lets run some code in the Python console from ``arrow/python``
-folder in order to learn more about ``pc.min_max``. 
+directory in order to learn more about ``pc.min_max``.
 
 .. code:: console
 
@@ -179,7 +180,7 @@ folder in order to learn more about ``pc.min_max``.
    Type "help", "copyright", "credits" or "license" for more information.
    
 We have entered into Python console from the shell and we can
-do some more research
+do some research:
 
 .. code-block:: python
 
@@ -242,6 +243,16 @@ interval. To do that we have to do some research on
 ``test_struct_duplicate_fields`` we can see an example of how the
 ``StructScalar`` is created. We could again run the Python console
 and try creating one ourselves.
+
+.. code-block:: python
+
+   >>> import pyarrow as pa
+   >>> ty = pa.struct([
+   ...      pa.field('min-', pa.int64()),
+   ...      pa.field('max+', pa.int64()),
+   ...    ])
+   >>> pa.scalar([('min-', 3), ('max+', 9)], type=ty)
+   <pyarrow.StructScalar: [('min-', 3), ('max+', 9)]>
 
 With the new gained knowledge about ``StructScalar`` and additional
 options for the ``pc.min_max`` function we can finish the work.
@@ -341,18 +352,19 @@ With the unit test added we can run the pytest from the shell.
 Check styling
 -------------
 
-At the end we also need to check the styling. In Arrow we use Archery
+At the end we also need to check the styling. In Arrow we use a
+utility called `Archery <https://arrow.apache.org/docs/developers/archery.html>`_
 to check if code is in line with PEP 8 style guide.
 
 .. code:: console
    
-   $ archery lint --python --fix # run from arrow/python                                       
+   $ archery lint --python --fix
    INFO:archery:Running Python formatter (autopep8)
    INFO:archery:Running Python linter (flake8)
    /Users/alenkafrim/repos/arrow/python/pyarrow/tests/test_compute.py:2288:80: E501 line too long (88 > 79 characters)
 
-
-Make the necessary corrections and run it again.
+We get a warning that one line is too long. Lets
+make the necessary corrections and run it again.
 
 .. code:: console
 
@@ -421,12 +433,12 @@ of the Arrow library in the shell.
    +
    ...
 
-Everything seems fine. Now we can make the commit (save our changes
+Everything looks OK. Now we can make the commit (save our changes
 to the branch history):
 
 .. code:: console
 
-   $ git commit -a -m "Adding a new compute feature for tutorial purposes"
+   $ git commit -am "Adding a new compute feature for tutorial purposes"
    [ARROW-14977 170ef85be] Adding a new compute feature for tutorial purposes
     2 files changed, 51 insertions(+)
    
@@ -457,7 +469,13 @@ check the history of commits
        Signed-off-by: Sutou Kouhei <kou@clear-code.com>
    ...
 
-and push our work to forked Arrow repository on GitHub called ``origin``.
+if necessary we should rebase to upstream master:
+
+.. code:: console
+
+   $ git pull upstream master --rebase
+
+and push our work to the forked Arrow repository on GitHub called ``origin``.
 
 .. code:: console
 
@@ -481,7 +499,7 @@ to create a Pull Request. On the GitHub Arrow
 page (main or forked) we will see a yellow notice
 bar with a note that we made recent pushes to the branch
 ARROW-14977. That’s great, now we can make the Pull Request
-by clicking on the button **Compare & pull request**. 
+by clicking on **Compare & pull request**. 
 
 .. figure:: python_tutorial_github_pr_notice.jpeg
    :scale: 50 %
