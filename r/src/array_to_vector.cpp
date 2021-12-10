@@ -888,9 +888,9 @@ class Converter_Time : public Converter {
 
 template <typename value_type, typename unit_type = TimeType>
 class Converter_Duration : public Converter {
-public:
+ public:
   explicit Converter_Duration(const std::shared_ptr<ChunkedArray>& chunked_array)
-    : Converter(chunked_array) {}
+      : Converter(chunked_array) {}
 
   SEXP Allocate(R_xlen_t n) const {
     cpp11::writable::doubles data(n);
@@ -923,20 +923,20 @@ public:
     return IngestSome(array, n, ingest_one, null_one);
   }
 
-private:
+ private:
   int TimeUnit_multiplier(const std::shared_ptr<Array>& array) const {
     // difftime is always "seconds", so multiply based on the Array's TimeUnit
     switch (static_cast<unit_type*>(array->type().get())->unit()) {
-    case TimeUnit::SECOND:
-      return 1;
-    case TimeUnit::MILLI:
-      return 1000;
-    case TimeUnit::MICRO:
-      return 1000000;
-    case TimeUnit::NANO:
-      return 1000000000;
-    default:
-      return 0;
+      case TimeUnit::SECOND:
+        return 1;
+      case TimeUnit::MILLI:
+        return 1000;
+      case TimeUnit::MICRO:
+        return 1000000;
+      case TimeUnit::NANO:
+        return 1000000000;
+      default:
+        return 0;
     }
   }
 };

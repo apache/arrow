@@ -112,7 +112,7 @@ RVectorType GetVectorType(SEXP x) {
         return TIME;
       } else if (Rf_inherits(x, "difftime")) {
         return DURATION;
-      }  else {
+      } else {
         return FLOAT64;
       }
     }
@@ -837,7 +837,8 @@ class RPrimitiveConverter<T, enable_if_t<is_duration_type<T>::value>>
 
       ARROW_ASSIGN_OR_RAISE(int difftime_multiplier, get_difftime_unit_multiplier(x));
 
-      int64_t multiplier = get_TimeUnit_multiplier(this->primitive_type_->unit()) * difftime_multiplier;
+      int64_t multiplier =
+          get_TimeUnit_multiplier(this->primitive_type_->unit()) * difftime_multiplier;
 
       auto append_value = [this, multiplier](double value) {
         auto converted = static_cast<typename T::c_type>(value * multiplier);
