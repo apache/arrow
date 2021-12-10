@@ -15,7 +15,9 @@
 
 using Apache.Arrow.Ipc;
 using Apache.Arrow.Memory;
+using Apache.Arrow.Types;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 using Xunit;
@@ -154,6 +156,42 @@ namespace Apache.Arrow.Tests
                 RecordBatch readBatch3 = await reader.ReadRecordBatchAsync(0);
                 ArrowReaderVerifier.CompareBatches(originalBatch1, readBatch3);
             }
+        }
+
+        [Fact]
+        public async Task TestReadMultipleRecordBatchAsyncVerifyMagic()
+        {
+            var memoryAllocator = new NativeMemoryAllocator(alignment: 64);
+            var stream1 = File.OpenWrite(@"c:\temp\data\test.arrow");
+            
+            Schema schema = new Schema
+            (new List<Field>
+            {
+                new Field("Column A", StringType.Default, false)
+            },
+            default
+            );
+
+            List<string> rows = new List<string>();
+            rows.Add("11");
+            rows.Add("22");
+            rows.Add(null);
+
+            ArrowFileWriter writer = new ArrowFileWriter(stream1, schema);
+
+            var recordBatch1 = new RecordBatch.Builder(memoryAllocator)
+                .Append("Column A", false, col => col.String(array => array.AppendRange(rows)))
+                .Build();
+            writer.WriteRecordBatch(recordBatch1);
+            writer.WriteEnd();
+            stream1.Close();
+
+            var stream2 = File.OpenRead(@"c:\temp\data\test.arrow");
+            
+            ArrowFileReader reader = new ArrowFileReader(stream2);
+            RecordBatch newReadBatch1 = await reader.ReadRecordBatchAsync(0);
+            //RecordBatch readBatch2 = reader.ReadNextRecordBatch();
+            ArrowReaderVerifier.CompareBatches(recordBatch1, newReadBatch1);
         }
     }
 }
