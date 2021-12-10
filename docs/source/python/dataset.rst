@@ -514,7 +514,7 @@ batches with, at most, 10,000 rows unless the ``batch_size`` is set to a smaller
 The default batch size is one million rows and this is typically a good default but
 you may want to customize it if you are reading a large number of columns.
 
-A Note on Transactions & ACID Guarantees
+A note on transactions & ACID guarantees
 ----------------------------------------
 
 The dataset API offers no transaction support or any ACID guarantees.  This affects

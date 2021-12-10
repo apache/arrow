@@ -409,7 +409,7 @@ filesystems.
 
 .. _cpp-dataset-full-example:
 
-A Note on Transactions & ACID Guarantees
+A note on transactions & ACID guarantees
 ----------------------------------------
 
 The dataset API offers no transaction support or any ACID guarantees.  This affects
