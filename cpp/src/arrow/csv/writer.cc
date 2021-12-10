@@ -80,7 +80,7 @@ int64_t CountQuotes(util::string_view s) {
 // Matching quote pair character length.
 constexpr int64_t kQuoteCount = 2;
 constexpr int64_t kQuoteDelimiterCount = kQuoteCount + /*end_char*/ 1;
-constexpr char const* kStrComma = ",";
+constexpr const char* kStrComma = ",";
 
 // Interface for generating CSV data per column.
 // The intended usage is to iteratively call UpdateRowLengths for a column and
