@@ -2326,5 +2326,4 @@ TEST(TestStringOps, TestSoundex) {
   auto out2 = soundex_utf8(ctx_ptr, "Smythe", 6, &out_len);
   EXPECT_EQ(std::string(out, out_len), std::string(out2, out_len));
 }
-
 }  // namespace gandiva

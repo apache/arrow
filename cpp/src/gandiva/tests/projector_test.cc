@@ -2200,4 +2200,49 @@ TEST_F(TestProjector, TestAesEncryptDecrypt) {
   EXPECT_ARROW_ARRAY_EQUALS(array_data, outputs_de.at(0));
 }
 
+TEST_F(TestProjector, TestMaskFirstMaskLastN) {
+  // schema for input fields
+  auto field0 = field("f0", arrow::utf8());
+  auto field1 = field("f1", int32());
+  auto schema = arrow::schema({field0, field1});
+
+  // output fields
+  auto res_mask_first_n = field("output", arrow::utf8());
+  auto res_mask_last_n = field("output", arrow::utf8());
+
+  // Build expression
+  auto expr_mask_first_n =
+      TreeExprBuilder::MakeExpression("mask_first_n", {field0, field1}, res_mask_first_n);
+  auto expr_mask_last_n =
+      TreeExprBuilder::MakeExpression("mask_last_n", {field0, field1}, res_mask_last_n);
+
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, {expr_mask_first_n, expr_mask_last_n},
+                                TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok());
+
+  // Create a row-batch with some sample data
+  int num_records = 4;
+  auto array0 = MakeArrowArrayUtf8({"aB-6", "ABcd-123456", "A#-c$%6", "A#-c$%6"},
+                                   {true, true, true, true});
+  auto array1 = MakeArrowArrayInt32({3, 6, 7, -2}, {true, true, true, true});
+  // expected output
+  auto exp_mask_first_n = MakeArrowArrayUtf8(
+      {"xX-6", "XXxx-n23456", "X#-x$%n", "A#-c$%6"}, {true, true, true, true});
+  auto exp_mask_last_n = MakeArrowArrayUtf8({"aX-n", "ABcd-nnnnnn", "X#-x$%n", "A#-c$%6"},
+                                            {true, true, true, true});
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok());
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp_mask_first_n, outputs.at(0));
+  EXPECT_ARROW_ARRAY_EQUALS(exp_mask_last_n, outputs.at(1));
+}
+
 }  // namespace gandiva
