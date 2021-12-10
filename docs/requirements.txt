@@ -1,3 +1,7 @@
+#
+# Note: keep this file in sync with conda_env_sphinx.txt !
+#
+
 breathe
 ipython
 numpydoc
