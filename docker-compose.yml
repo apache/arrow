@@ -1714,7 +1714,7 @@ services:
     command: >
       /bin/bash -c "
         /arrow/dev/release/setup-rhel-rebuilds.sh &&
-        /arrow/dev/release/verify-release-candidate.sh source ${VERSION} ${RC}"
+        /arrow/dev/release/verify-release-candidate.sh source $${VERIFY_VERSION} $${VERIFY_RC}"
 
   ubuntu-verify-rc-source:
     # Usage:
@@ -1729,6 +1729,4 @@ services:
     command: >
       /bin/bash -c "
         DEBIAN_FRONTEND=noninteractive /arrow/dev/release/setup-ubuntu.sh &&
-        export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64 &&
-        export PATH=$PATH:$JAVA_HOME/bin &&
-        /arrow/dev/release/verify-release-candidate.sh source ${VERSION} ${RC}"
+        /arrow/dev/release/verify-release-candidate.sh source $${VERIFY_VERSION} $${VERIFY_RC}"

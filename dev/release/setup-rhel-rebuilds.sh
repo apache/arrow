@@ -21,8 +21,6 @@
 # verification Red Hat Enterprise Linux 8 clones in particular
 # on AlmaLinux 8 and Rocky Linux 8
 
-dnf -y update
-dnf clean all
 dnf -y install \
   'dnf-command(config-manager)'
 dnf config-manager --set-enabled powertools
@@ -31,25 +29,24 @@ dnf -y module disable ruby
 dnf -y module enable ruby:2.7
 dnf -y groupinstall "Development Tools"
 dnf -y install \
-  epel-release \
-  ninja-build \
-  libcurl-devel \
-  python3-pip \
-  python3-devel \
   cmake \
   git \
-  ncurses-devel \
   gobject-introspection-devel \
   java-1.8.0-openjdk-devel \
+  libcurl-devel \
   libcurl-devel \
   llvm-devel \
   llvm-toolset \
   maven \
   ncurses-devel \
+  ncurses-devel \
+  ninja-build \
   ninja-build \
   openssl-devel \
-  python3-pip \
   python3-devel \
+  python3-devel \
+  python3-pip \
+  python3-pip \
   ruby-devel \
-  wget 
+  wget
 alternatives --set python /usr/bin/python3
