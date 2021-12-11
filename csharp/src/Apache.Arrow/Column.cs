@@ -62,7 +62,7 @@ namespace Apache.Arrow
         {
             for (int i = 0; i < Data.ArrayCount; i++)
             {
-                if (Data.Array(i).Data.DataType != Field.DataType)
+                if (Data.Array(i).Data.DataType.TypeId != Field.DataType.TypeId)
                 {
                     return false;
                 }

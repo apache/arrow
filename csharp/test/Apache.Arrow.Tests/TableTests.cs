@@ -49,6 +49,13 @@ namespace Apache.Arrow.Tests
             Table table = MakeTableWithOneColumnOfTwoIntArrays(10);
             Assert.Equal(20, table.RowCount);
             Assert.Equal(1, table.ColumnCount);
+
+            RecordBatch recordBatch = TestData.CreateSampleRecordBatch(length: 1);
+            IList<RecordBatch> recordBatches = new List<RecordBatch> { recordBatch, recordBatch };
+
+            Table table1 = Table.TableFromRecordBatches(recordBatch.Schema, recordBatches);
+            Assert.Equal(2, table1.RowCount);
+            Assert.Equal(19, table1.ColumnCount);
         }
 
         [Fact]
