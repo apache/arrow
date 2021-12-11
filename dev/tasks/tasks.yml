@@ -888,7 +888,7 @@ tasks:
         -e INSTALL_NODE=0
         -e TEST_DEFAULT=0
         -e TEST_{{ target|upper }}=1
-      image: {{ distribution }}-verify-source
+      image: {{ distribution }}-verify-rc-source
   {% endfor %}
 {% endfor %}
 
