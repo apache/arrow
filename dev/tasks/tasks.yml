@@ -43,7 +43,6 @@ groups:
 
   linux-arm64:
     - almalinux-*-arm64
-    - centos-*-arm64
     - debian-*-arm64
     - ubuntu-*-arm64
 
@@ -570,9 +569,8 @@ tasks:
 
 {% for target in ["almalinux-8",
                   "amazon-linux-2",
-                  "centos-7",
-                  "centos-8"] %}
-  {% set is_rhel8_based = (target == "almalinux-8" or target == "centos-8") %}
+                  "centos-7"] %}
+  {% set is_rhel8_based = (target == "almalinux-8") %}
   {% for architecture in ["amd64", "arm64"] %}
     {% if not (target in ["amazon-linux-2", "centos-7"] and architecture == "arm64") %}
   {{ target }}-{{ architecture }}:

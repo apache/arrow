@@ -435,7 +435,7 @@ class BinaryTask
                                     mtime: Time.rfc2822(last_modified))
                   end
                 else
-                  respond.read
+                  response.body
                 end
               end
             end
@@ -463,10 +463,12 @@ class BinaryTask
     end
 
     def copy(source, destination)
-      uri = build_api_url("copy/arrow/#{source}",
+      url = build_api_url("copy/arrow/#{source}",
                           "to" => "/arrow/#{destination}")
-      with_read_timeout(300) do
-        request(:post, {}, uri)
+      with_retry(3, url) do
+        with_read_timeout(300) do
+          request(:post, {}, url)
+        end
       end
     end
 
@@ -630,7 +632,6 @@ class BinaryTask
     def initialize(api_key:,
                    destination:,
                    distribution:,
-                   list: nil,
                    pattern: nil,
                    prefix: nil,
                    rc: nil,
@@ -638,7 +639,6 @@ class BinaryTask
       @api_key = api_key
       @destination = destination
       @distribution = distribution
-      @list = list
       @pattern = pattern
       @prefix = prefix
       @rc = rc
@@ -657,13 +657,7 @@ class BinaryTask
           progress_reporter.advance
         end
         files = client_pool.pull do |client|
-          if @list
-            list_output_path = "#{@destination}/#{@list}"
-            client.download(@list, list_output_path)
-            File.readlines(list_output_path, chomp: true)
-          else
-            client.files
-          end
+          client.files
         end
         files.each do |path|
           output_path = "#{@destination}/#{path}"
@@ -941,7 +935,6 @@ class BinaryTask
   def download_distribution(distribution,
                             destination,
                             target,
-                            list: nil,
                             pattern: nil,
                             prefix: nil)
     mkdir_p(destination, verbose: verbose?) unless File.exist?(destination)
@@ -954,7 +947,6 @@ class BinaryTask
       api_key: artifactory_api_key,
       destination: destination,
       distribution: distribution,
-      list: list,
       pattern: pattern,
       prefix: prefix,
       staging: staging?,
@@ -1438,37 +1430,12 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
     directory apt_release_repositories_dir
 
     namespace :apt do
-      namespace :release do
-        desc "Download RC APT repositories"
-        task :download => apt_release_repositories_dir do
-          apt_distributions.each do |distribution|
-            distribution_dir = "#{apt_release_repositories_dir}/#{distribution}"
-            download_distribution(distribution,
-                                  distribution_dir,
-                                  :rc,
-                                  list: uploaded_files_name)
-          end
-        end
-
-        desc "Upload release APT repositories"
-        task :upload => apt_release_repositories_dir do
-          apt_distributions.each do |distribution|
-            distribution_dir = "#{apt_release_repositories_dir}/#{distribution}"
-            uploader = ArtifactoryUploader.new(api_key: artifactory_api_key,
-                                               distribution: distribution,
-                                               source: distribution_dir,
-                                               staging: staging?)
-            uploader.upload
-          end
+      task :release do
+        apt_distributions.each do |distribution|
+          release_distribution(distribution,
+                               list: uploaded_files_name)
         end
       end
-
-      desc "Release APT repositories"
-      apt_release_tasks = [
-        "apt:release:download",
-        "apt:release:upload",
-      ]
-      task :release => apt_release_tasks
     end
   end
 
@@ -1491,7 +1458,6 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
       ["almalinux", "8"],
       ["amazon-linux", "2"],
       ["centos", "7"],
-      ["centos", "8"],
     ]
   end
 
@@ -1802,40 +1768,27 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
     directory yum_release_repositories_dir
 
     namespace :yum do
-      namespace :release do
-        desc "Download RC Yum repositories"
-        task :download => yum_release_repositories_dir do
-          yum_distributions.each do |distribution|
-            distribution_dir = "#{yum_release_repositories_dir}/#{distribution}"
-            download_distribution(distribution,
-                                  distribution_dir,
-                                  :rc,
-                                  list: uploaded_files_name)
-          end
-        end
+      desc "Release Yum packages"
+      task :release => yum_release_repositories_dir do
+        yum_distributions.each do |distribution|
+          release_distribution(distribution,
+                               list: uploaded_files_name)
 
-        desc "Upload release Yum repositories"
-        task :upload => yum_release_repositories_dir do
-          yum_distributions.each do |distribution|
-            distribution_dir = "#{yum_release_repositories_dir}/#{distribution}"
-            uploader =
-              ArtifactoryUploader.new(api_key: artifactory_api_key,
-                                      distribution: distribution,
-                                      source: distribution_dir,
-                                      staging: staging?,
-                                      sync: true,
-                                      sync_pattern: /\/repodata\//)
-            uploader.upload
-          end
+          # Remove old repodata
+          distribution_dir = "#{yum_release_repositories_dir}/#{distribution}"
+          download_distribution(distribution,
+                                distribution_dir,
+                                :rc,
+                                pattern: /\/repodata\//)
+          uploader = ArtifactoryUploader.new(api_key: artifactory_api_key,
+                                             distribution: distribution,
+                                             source: distribution_dir,
+                                             staging: staging?,
+                                             sync: true,
+                                             sync_pattern: /\/repodata\//)
+          uploader.upload
         end
       end
-
-      desc "Release Yum packages"
-      yum_release_tasks = [
-        "yum:release:download",
-        "yum:release:upload",
-      ]
-      task :release => yum_release_tasks
     end
   end
 
