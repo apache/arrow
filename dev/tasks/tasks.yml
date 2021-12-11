@@ -845,8 +845,7 @@ tasks:
         TEST_JARS: 1
       artifact: jars
 
-{% for platform, arch, runner in [("linux", "amd64", "ubuntu-20.04"),
-                                  ("macos", "amd64", "macos-10.15")] %}
+{% for platform, arch, runner in [("macos", "amd64", "macos-10.15")] %}
   {% for target in ["cpp",
                     "csharp",
                     "go",
@@ -866,6 +865,30 @@ tasks:
         TEST_{{ target|upper }}: 1
       artifact: "source"
       github_runner: "{{ runner }}"
+  {% endfor %}
+{% endfor %}
+
+{% for distribution, version in [("almalinux", "8"),
+                                 ("ubuntu", "18.04"),
+                                 ("ubuntu", "20.04")] %}
+  {% for target in ["cpp",
+                    "csharp",
+                    "go",
+                    "integration",
+                    "java",
+                    "js",
+                    "python",
+                    "ruby"] %}
+
+  verify-rc-source-{{ target }}-linux-{{ distribution }}-{{ version }}-amd64:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      flags: >-
+        -e INSTALL_NODE=0
+        -e TEST_DEFAULT=0
+        -e TEST_{{ target|upper }}=1
+      image: {{ distribution }}-verify-source
   {% endfor %}
 {% endfor %}
 
