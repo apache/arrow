@@ -876,7 +876,6 @@ tasks:
                     "go",
                     "integration",
                     "java",
-                    "js",
                     "python",
                     "ruby"] %}
 
