@@ -471,7 +471,7 @@ test_ruby() {
 }
 
 test_go() {
-  local VERSION=1.15.14
+  local VERSION=1.16
 
   local ARCH="$(uname -m)"
   if [ "$ARCH" == "x86_64" ]; then
