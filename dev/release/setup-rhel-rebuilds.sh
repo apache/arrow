@@ -25,6 +25,8 @@ dnf -y install \
   'dnf-command(config-manager)'
 dnf config-manager --set-enabled powertools
 dnf -y update
+dnf -y module disable nodejs
+dnf -y module enable nodejs:16
 dnf -y module disable ruby
 dnf -y module enable ruby:2.7
 dnf -y groupinstall "Development Tools"
@@ -42,6 +44,7 @@ dnf -y install \
   ncurses-devel \
   ninja-build \
   ninja-build \
+  nodejs \
   openssl-devel \
   python3-devel \
   python3-devel \
@@ -50,4 +53,5 @@ dnf -y install \
   ruby-devel \
   wget \
   which
+npm install -g yarn
 alternatives --set python /usr/bin/python3
