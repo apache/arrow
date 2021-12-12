@@ -107,6 +107,5 @@ the verification process in a container, for example
 % VERSION=6.0.1 RC=1 archery docker run ubuntu-verify-rc-source
 ```
 
-this is still experimental and make need to be run several times to
-succeed. To improve software quality, you are encouraged to verify
+To improve software quality, you are encouraged to verify
 on a variety of platforms.
