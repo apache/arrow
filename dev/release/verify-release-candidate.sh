@@ -762,7 +762,14 @@ test_jars() {
 
 # Install NodeJS locally for running the JavaScript tests rather than using the
 # system Node installation, which may be too old.
-: ${INSTALL_NODE:=1}
+node_major_version=$(node --version 2>&1 | \grep -o '^v[0-9]*' | sed -e 's/^v//g')
+lts_node_major_version=16
+if [ -n "${node_major_version}" -a \
+     "${node_major_version}" -ge ${lts_node_major_version} ]; then
+  : ${INSTALL_NODE:=0}
+else
+  : ${INSTALL_NODE:=1}
+fi
 
 case "${ARTIFACT}" in
   source)
