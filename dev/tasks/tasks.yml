@@ -876,6 +876,7 @@ tasks:
                     "go",
                     "integration",
                     "java",
+                    "js",
                     "python",
                     "ruby"] %}
 
@@ -884,26 +885,10 @@ tasks:
     template: docker-tests/github.linux.yml
     params:
       flags: >-
-        -e INSTALL_NODE=0
         -e TEST_DEFAULT=0
         -e TEST_{{ target|upper }}=1
       image: {{ distribution }}-verify-rc-source
   {% endfor %}
-{% endfor %}
-
-{% for distribution, version in [("almalinux", "8"),
-                                 ("ubuntu", "18.04"),
-                                 ("ubuntu", "20.04")] %}
-
-  verify-rc-source-js-linux-{{ distribution }}-{{ version }}-amd64:
-    ci: github
-    template: docker-tests/github.linux.yml
-    params:
-      flags: >-
-        -e INSTALL_NODE=1
-        -e TEST_DEFAULT=0
-        -e TEST_JS=1
-      image: {{ distribution }}-verify-rc-source
 {% endfor %}
 
 {% for platform, arch, runner in [("macos", "arm64", "self-hosted")] %}
