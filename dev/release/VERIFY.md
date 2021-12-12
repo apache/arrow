@@ -103,8 +103,8 @@ It is also possible to use
 the verification process in a container, for example
 
 ```console
-% VERSION=6.0.1 RC=1 archery docker run almalinux-verify-rc-source
-% VERSION=6.0.1 RC=1 archery docker run ubuntu-verify-rc-source
+% archery docker run -e VERIFY_VERSION=6.0.1 -e VERIFY_RC=1 almalinux-verify-rc-source
+% archery docker run -e VERIFY_VERSION=6.0.1 -e VERIFY_RC=1 ubuntu-verify-rc-source
 ```
 
 To improve software quality, you are encouraged to verify
