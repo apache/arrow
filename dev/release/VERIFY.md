@@ -77,16 +77,16 @@ You need to set `PKG_CONFIG_PATH` to find libffi on macOS:
 
 ### C++, C#, C GLib, Go, Java, JavaScript, Python, Ruby
 
-Example scripts to install the dependencies to run the verification 
-script for verifying the source on Ubuntu 20.04, Rocky Linux 8 and 
-AlmaLinux 8 are in this folder and named `setup-ubuntu.sh` and 
-`setup-rhel-rebuilds.sh`. These can be adapted to different 
-situations. Go and JavaScript are installed by the verification 
-script in the testing environment. Verifying the apt and yum binaries 
-additionally requires installation of Docker. 
+Example scripts to install the dependencies to run the verification
+script for verifying the source on Ubuntu 20.04, Rocky Linux 8 and
+AlmaLinux 8 are in this folder and named `setup-ubuntu.sh` and
+`setup-rhel-rebuilds.sh`. These can be adapted to different
+situations. Go and JavaScript are installed by the verification
+script in the testing environment. Verifying the apt and yum binaries
+additionally requires installation of Docker.
 
-When verifying the source, by default the verification script will try 
-to verify all implementations and bindings. Should one of the 
+When verifying the source, by default the verification script will try
+to verify all implementations and bindings. Should one of the
 verification tests fail, the script will exit before running the other
 tests. It can be helpful to repeat the failed test to see if it will
 complete, since failures can occur for problems such as slow or failed
@@ -98,7 +98,7 @@ specific verification tests by setting environment variables, for example
 % TEST_YUM=1 dev/release/verify-release-candidate.sh binaries 6.0.0 3
 ```
 
-It is also possible to use 
+It is also possible to use
 [Archery](https://arrow.apache.org/docs/developers/archery.html) to run
 the verification process in a container, for example
 
@@ -108,5 +108,5 @@ the verification process in a container, for example
 ```
 
 this is still experimental and make need to be run several times to
-succeed. To improve software quality, you are encouraged to verify 
+succeed. To improve software quality, you are encouraged to verify
 on a variety of platforms.
