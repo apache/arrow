@@ -34,22 +34,20 @@ using IsMonotonicState = OptionsWrapper<IsMonotonicOptions>;
 Status IsMonotonicOutput(bool increasing, bool strictly_increasing, bool decreasing,
                          bool strictly_decreasing, Datum* out) {
   ARROW_ASSIGN_OR_RAISE(
-      *out,
-      StructScalar::Make(
-          {std::make_shared<Scalar>(BooleanScalar(increasing)),
-           std::make_shared<Scalar>(BooleanScalar(strictly_increasing)),
-           std::make_shared<Scalar>(BooleanScalar(decreasing)),
-           std::make_shared<Scalar>(BooleanScalar(strictly_decreasing))},
-          {"increasing", "strictly_increasing", "decreasing", "strictly_decreasing"}));
+      *out, StructScalar::Make({std::make_shared<BooleanScalar>(increasing),
+                                std::make_shared<BooleanScalar>(strictly_increasing),
+                                std::make_shared<BooleanScalar>(decreasing),
+                                std::make_shared<BooleanScalar>(strictly_decreasing)},
+                               {"increasing", "strictly_increasing", "decreasing",
+                                "strictly_decreasing"}));
   return Status::OK();
 }
 
-// todo(mb): floats
 template <typename Type>
 Status IsMonotonic(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   using ArrayType = typename TypeTraits<Type>::ArrayType;
   using CType = typename TypeTraits<Type>::CType;
-  // Not sure if this can fail.
+
   IsMonotonicOptions::NullHandling null_handling =
       IsMonotonicState::Get(ctx).null_handling;
   EqualOptions equal_options = IsMonotonicState::Get(ctx).equal_options;
@@ -63,96 +61,111 @@ Status IsMonotonic(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   // - Made sure there is at least one input datum.
   Datum input = batch[0];
 
-  // Validate input datum type
-  // - how much is handled by the type stuff in the registry?
-  // I think this is unreachable (at least when invoked through the compute registry)
+  // Validate input datum type (useful for direct invocation only).
   if (!input.is_array()) {
     return Status::Invalid("IsMonotonic expects array datum as input");
   }
 
-  // Made sure that the input datum is an array.
+  // Safety:
+  // - Made sure that the input datum is an array.
   const std::shared_ptr<ArrayData>& array_data = input.array();
   ArrayType array(array_data);
 
   // Return early if there are zero elements or one element in the array.
   // And return early if there are only nulls.
   if (array.length() <= 1 || array.null_count() == array.length()) {
-    return IsMonotonicOutput(true, true, true, true, out);
+    // It is strictly increasing if there are zero or one elements or when nulls are
+    // ignored.
+    bool strictly =
+        array.length() <= 1 || null_handling == IsMonotonicOptions::NullHandling::IGNORE;
+    return IsMonotonicOutput(true, strictly, true, strictly, out);
   }
 
   // Set null value based on option.
-  auto null_value = IsMonotonicOptions::NullHandling::MIN_INF
-                        ? std::numeric_limits<CType>::min()
-                        : std::numeric_limits<CType>::max();
+  const CType null_value = null_handling == IsMonotonicOptions::NullHandling::MIN
+                               ? std::numeric_limits<CType>::min()
+                               : std::numeric_limits<CType>::max();
 
-  bool inc = true, s_inc = true, dec = true, s_dec = true;
+  bool increasing = true, strictly_increasing = true, decreasing = true,
+       strictly_decreasing = true;
 
   // Safety:
   // - Made sure that the length is at least 2 above.
-  for (auto a = array.begin(), b = ++array.begin(); b != array.end(); ++a, ++b) {
+  for (auto a = array.begin(), b = ++array.begin(); b != array.end();) {
     auto current = *a;
     auto next = *b;
 
-    // Handle nulls
-    if (!current.has_value() || !next.has_value()) {
-      if (null_handling == IsMonotonicOptions::NullHandling::IGNORE) {
-        // Skip this iteration.
+    // Handle nulls.
+    if (null_handling == IsMonotonicOptions::NullHandling::IGNORE) {
+      // Forward both iterators to search for a non-null value. The loop exit
+      // condition prevents reading past the end.
+      if (!current.has_value()) {
+        ++a;
+        ++b;
         continue;
-      } else {
-        current = current.value_or(null_value);
-        next = next.value_or(null_value);
       }
+      // Once we have a value for current we should also make sure that next has a value.
+      // The loop exit condition prevents reading past the end.
+      if (!next.has_value()) {
+        ++b;
+        continue;
+      }
+    } else {
+      // Based on the function options set null values to min/max.
+      current = current.value_or(null_value);
+      next = next.value_or(null_value);
     }
 
-    // Check if increasing.
-    if (inc) {
+    if (increasing) {
       if (!(next >= current)) {
-        inc = false;
+        increasing = false;
         // Can't be strictly increasing if not increasing.
-        s_inc = false;
+        strictly_increasing = false;
       }
     }
-    // Check if strictly increasing.
-    if (s_inc) {
+    if (strictly_increasing) {
       if (!(next > current)) {
-        s_inc = false;
+        strictly_increasing = false;
       }
     }
-    // Check if decreasing.
-    if (dec) {
+    if (decreasing) {
       if (!(next <= current)) {
-        dec = false;
+        decreasing = false;
         // Can't be strictly decreasing if not decreasing.
-        s_dec = false;
+        strictly_decreasing = false;
       }
     }
     // Check if strictly decreasing.
-    if (s_dec) {
+    if (strictly_decreasing) {
       if (!(next < current)) {
-        s_dec = false;
+        strictly_decreasing = false;
       }
     }
 
     // Early exit if all failed:
-    if (!inc && !s_inc && !dec && !s_dec) {
+    if (!increasing && !strictly_increasing && !decreasing && !strictly_decreasing) {
       break;
+    } else {
+      ++a;
+      ++b;
     }
   }
 
   // Output
-  return IsMonotonicOutput(inc, s_inc, dec, s_dec, out);
+  return IsMonotonicOutput(increasing, strictly_increasing, decreasing,
+                           strictly_decreasing, out);
 }
 
 }  // namespace
 
-// todo(mb): update
 const FunctionDoc is_monotonic_doc{
-    "Returns if the array contains monotonically increasing/decreasing"
-    "values",
-    ("Returns a BooleanScalar(true) only if all the elements of the input array \n"
-     "are in ascending/descending order.\n"
-     "The options define the order that is used to determine the monotonicity.\n"
-     "Always returns BooleanScalar.\n"
+    "Returns whether the array contains monotonically (strictly)"
+    "increasing/decreasing values",
+    ("Returns a StructScalar indicating whether the values in the array are \n"
+     "increasing, strictly increasing, decreasing and/or strictly decreasing.\n"
+     "Output type is struct<increasing: boolean, strictly_increasing: boolean,\n"
+     "decreasing: boolean, strictly_decreasing: boolean>.\n"
+     "Null values are ignored by default.\n"
      "Implemented for arrays with well-ordered element types."),
     {"array"},
     "IsMonotonicOptions"};
@@ -168,8 +181,8 @@ Status AddIsMonotonicKernel(VectorFunction* func) {
   VectorKernel is_monotonic_base;
   is_monotonic_base.init = IsMonotonicState::Init;
   is_monotonic_base.can_execute_chunkwise = false;
-  is_monotonic_base.signature =
-      KernelSignature::Make({TypeTraits<Type>::type_singleton()}, output_type);
+  is_monotonic_base.signature = KernelSignature::Make(
+      {InputType::Array(TypeTraits<Type>::type_singleton())}, output_type);
   is_monotonic_base.exec = IsMonotonic<Type>;
   return func->AddKernel(is_monotonic_base);
 }
@@ -179,9 +192,35 @@ void RegisterVectorIsMonotonic(FunctionRegistry* registry) {
   auto func = std::make_shared<VectorFunction>("is_monotonic", Arity::Unary(),
                                                &is_monotonic_doc, &default_options);
 
+  DCHECK_OK(AddIsMonotonicKernel<BooleanType>(func.get()));
+
+  // Signed and unsigned integer types
   DCHECK_OK(AddIsMonotonicKernel<Int8Type>(func.get()));
+  DCHECK_OK(AddIsMonotonicKernel<UInt8Type>(func.get()));
   DCHECK_OK(AddIsMonotonicKernel<Int16Type>(func.get()));
-  // todo(mb): add other types
+  DCHECK_OK(AddIsMonotonicKernel<UInt16Type>(func.get()));
+  DCHECK_OK(AddIsMonotonicKernel<Int32Type>(func.get()));
+  DCHECK_OK(AddIsMonotonicKernel<UInt32Type>(func.get()));
+  DCHECK_OK(AddIsMonotonicKernel<Int64Type>(func.get()));
+  DCHECK_OK(AddIsMonotonicKernel<UInt64Type>(func.get()));
+
+  // Floating point types
+  // DCHECK_OK(AddIsMonotonicKernel<HalfFloatType>(func.get()));
+  DCHECK_OK(AddIsMonotonicKernel<FloatType>(func.get()));
+  DCHECK_OK(AddIsMonotonicKernel<DoubleType>(func.get()));
+
+  // Temportal types
+  // DCHECK_OK(AddIsMonotonicKernel<Time32Type>(func.get()));
+  // DCHECK_OK(AddIsMonotonicKernel<Time64Type>(func.get()));
+  DCHECK_OK(AddIsMonotonicKernel<Date32Type>(func.get()));
+  DCHECK_OK(AddIsMonotonicKernel<Date64Type>(func.get()));
+  // DCHECK_OK(AddIsMonotonicKernel<DayTimeIntervalType>(func.get()));
+  // DCHECK_OK(AddIsMonotonicKernel<MonthDayNanoIntervalType>(func.get()));
+  DCHECK_OK(AddIsMonotonicKernel<MonthIntervalType>(func.get()));
+
+  // Decimal types
+  // DCHECK_OK(AddIsMonotonicKernel<Decimal128Type>(func.get()));
+  // DCHECK_OK(AddIsMonotonicKernel<Decimal256Type>(func.get()));
 
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }

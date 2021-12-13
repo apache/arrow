@@ -29,9 +29,9 @@
 namespace arrow {
 namespace compute {
 
-void CheckIsMonotonic(Datum input, bool increasing, bool strictly_increasing,
-                      bool decreasing, bool strictly_decreasing,
-                      IsMonotonicOptions options = IsMonotonicOptions::Defaults()) {
+void Check(Datum input, bool increasing, bool strictly_increasing, bool decreasing,
+           bool strictly_decreasing,
+           const IsMonotonicOptions options = IsMonotonicOptions::Defaults()) {
   ASSERT_OK_AND_ASSIGN(Datum out, CallFunction("is_monotonic", {input}, &options));
   const StructScalar& output = out.scalar_as<StructScalar>();
 
@@ -46,55 +46,123 @@ void CheckIsMonotonic(Datum input, bool increasing, bool strictly_increasing,
 }
 
 TEST(TestIsMonotonicKernel, VectorFunction) {
+  const IsMonotonicOptions min(IsMonotonicOptions::NullHandling::MIN);
+  const IsMonotonicOptions max(IsMonotonicOptions::NullHandling::MAX);
+
   // Primitive arrays
-
   // These tests should early exit (based on length).
-  CheckIsMonotonic(ArrayFromJSON(int8(), "[]"), true, true, true, true);
-  // CheckIsMonotonic(ArrayFromJSON(int8(), "[null]"), true, true, true, true);
-  // CheckIsMonotonic(ArrayFromJSON(int8(), "[0]"), true, true, true, true);
+  Check(ArrayFromJSON(int8(), "[]"), true, true, true, true);
+  Check(ArrayFromJSON(int8(), "[null]"), true, true, true, true);
+  Check(ArrayFromJSON(int8(), "[null]"), true, true, true, true, min);
+  Check(ArrayFromJSON(int8(), "[null]"), true, true, true, true, max);
+  Check(ArrayFromJSON(int8(), "[0]"), true, true, true, true);
 
-  // // Both monotonic increasing and decreasing when all values are the same.
-  // CheckIsMonotonic(ArrayFromJSON(int8(), "[0, 0, 0, 0]"), true, false, true, false);
+  // Both monotonic increasing and decreasing when all values are the same.
+  Check(ArrayFromJSON(int8(), "[0, 0, 0, 0]"), true, false, true, false);
 
-  // CheckIsMonotonic(ArrayFromJSON(int8(), "[null, 0, 0, 0]"), true, false, false,
-  // false); CheckIsMonotonic(ArrayFromJSON(int8(), "[0, 0, 0, null]"), false, false,
-  // true, false); CheckIsMonotonic(ArrayFromJSON(int8(), "[0, null, 0, 0]"), false,
-  // false, false, false); CheckIsMonotonic(ArrayFromJSON(int8(), "[null, null, null]"),
-  // true, false, true, false);
+  Check(ArrayFromJSON(int8(), "[null, 0, 0, 0]"), true, false, true, false);
+  Check(ArrayFromJSON(int8(), "[null, 0, 0, 0]"), true, false, false, false, min);
+  Check(ArrayFromJSON(int8(), "[null, 0, 0, 0]"), false, false, true, false, max);
 
-  // // Monotonic (strictly) increasing
-  // CheckIsMonotonic(ArrayFromJSON(int8(), "[1, 1, 3, 4]"), true, false, false, false);
-  // CheckIsMonotonic(ArrayFromJSON(int8(), "[null, 1, 1, 4]"), true, false, false,
-  // false); CheckIsMonotonic(ArrayFromJSON(int8(), "[1, 1, null, 4]"), false, false,
-  // false, false); CheckIsMonotonic(ArrayFromJSON(int8(), "[1, 1, 3, null]"), false,
-  // false, false, false);
+  Check(ArrayFromJSON(int8(), "[0, 0, 0, null]"), true, false, true, false);
+  Check(ArrayFromJSON(int8(), "[0, 0, 0, null]"), false, false, true, false, min);
+  Check(ArrayFromJSON(int8(), "[0, 0, 0, null]"), true, false, false, false, max);
 
-  // CheckIsMonotonic(ArrayFromJSON(int8(), "[-1, 2, 3, 4]"), true, true, false, false);
-  // CheckIsMonotonic(ArrayFromJSON(int8(), "[null, 2, 3, 4]"), true, true, false, false);
-  // CheckIsMonotonic(ArrayFromJSON(int8(), "[null, null, 3, 4]"), true, false, false,
-  //                  false);
-  // CheckIsMonotonic(ArrayFromJSON(int8(), "[1, null, 3, 4]"), false, false, false,
-  // false); CheckIsMonotonic(ArrayFromJSON(int8(), "[1, 2, 3, null]"), false, false,
-  // false, false); CheckIsMonotonic(ArrayFromJSON(int8(), "[1, 2, 1, 2]"), false, false,
-  // false, false);
+  Check(ArrayFromJSON(int8(), "[0, null, 0, 0]"), true, false, true, false);
+  Check(ArrayFromJSON(int8(), "[0, null, 0, 0]"), false, false, false, false, min);
+  Check(ArrayFromJSON(int8(), "[0, null, 0, 0]"), false, false, false, false, max);
 
-  // // Monotonic (strictly) decreasing
-  // CheckIsMonotonic(ArrayFromJSON(int8(), "[4, 4, 2, 1]"), false, false, true, false);
-  // CheckIsMonotonic(ArrayFromJSON(int8(), "[4, 4, 2, null]"), false, false, true,
-  // false); CheckIsMonotonic(ArrayFromJSON(int8(), "[4, 4, null, 1]"), false, false,
-  // false, false); CheckIsMonotonic(ArrayFromJSON(int8(), "[null, 4, 2, 1]"), false,
-  // false, false, false);
+  Check(ArrayFromJSON(int8(), "[null, null, null]"), true, true, true, true);
+  Check(ArrayFromJSON(int8(), "[null, null, null]"), true, false, true, false, min);
+  Check(ArrayFromJSON(int8(), "[null, null, null]"), true, false, true, false, max);
 
-  // CheckIsMonotonic(ArrayFromJSON(int8(), "[4, 3, 2, 1]"), false, false, true, true);
-  // CheckIsMonotonic(ArrayFromJSON(int8(), "[4, 3, 2, null]"), false, false, true, true);
-  // CheckIsMonotonic(ArrayFromJSON(int8(), "[4, 3, null, null]"), false, false, true,
-  //                  false);
-  // CheckIsMonotonic(ArrayFromJSON(int8(), "[4, null, 2, 1]"), false, false, false,
-  // false); CheckIsMonotonic(ArrayFromJSON(int8(), "[null, 3, 2, 1]"), false, false,
-  // false, false); CheckIsMonotonic(ArrayFromJSON(int8(), "[null, null, 2, 1]"), false,
-  // false, false,
-  //                  false);
-  // CheckIsMonotonic(ArrayFromJSON(int8(), "[4, 3, 4, 3]"), false, false, false, false);
+  // Monotonic (strictly) increasing
+  Check(ArrayFromJSON(int8(), "[1, 1, 3, 4]"), true, false, false, false);
+
+  Check(ArrayFromJSON(int8(), "[null, 1, 1, 4]"), true, false, false, false);
+  Check(ArrayFromJSON(int8(), "[null, 1, 1, 4]"), true, false, false, false, min);
+  Check(ArrayFromJSON(int8(), "[null, 1, 1, 4]"), false, false, false, false, max);
+
+  Check(ArrayFromJSON(int8(), "[1, 1, null, 4]"), true, false, false, false);
+  Check(ArrayFromJSON(int8(), "[1, 1, null, 4]"), false, false, false, false, min);
+  Check(ArrayFromJSON(int8(), "[1, 1, null, 4]"), false, false, false, false, max);
+
+  Check(ArrayFromJSON(int8(), "[1, 1, 3, null]"), true, false, false, false);
+  Check(ArrayFromJSON(int8(), "[1, 1, 3, null]"), false, false, false, false, min);
+  Check(ArrayFromJSON(int8(), "[1, 1, 3, null]"), true, false, false, false, max);
+
+  Check(ArrayFromJSON(int8(), "[-1, 2, 3, 4]"), true, true, false, false);
+  Check(ArrayFromJSON(int8(), "[-1, 2, 3, 4, 4]"), true, false, false, false);
+  Check(ArrayFromJSON(int8(), "[-1, 2, 3, 4, 5]"), true, true, false, false);
+
+  Check(ArrayFromJSON(int8(), "[null, 2, 3, 4]"), true, true, false, false);
+  Check(ArrayFromJSON(int8(), "[null, 2, 3, 4]"), true, true, false, false, min);
+  Check(ArrayFromJSON(int8(), "[null, 2, 3, 4]"), false, false, false, false, max);
+
+  Check(ArrayFromJSON(int8(), "[null, null, 3, 4]"), true, true, false, false);
+  Check(ArrayFromJSON(int8(), "[null, null, 3, 4]"), true, false, false, false, min);
+  Check(ArrayFromJSON(int8(), "[null, null, 3, 4]"), false, false, false, false, max);
+
+  Check(ArrayFromJSON(int8(), "[1, null, 3, 4]"), true, true, false, false);
+  Check(ArrayFromJSON(int8(), "[1, null, 3, 4]"), false, false, false, false, min);
+  Check(ArrayFromJSON(int8(), "[1, null, 3, 4]"), false, false, false, false, max);
+
+  Check(ArrayFromJSON(int8(), "[1, 2, 3, null]"), true, true, false, false);
+  Check(ArrayFromJSON(int8(), "[1, 2, 3, null]"), false, false, false, false, min);
+  Check(ArrayFromJSON(int8(), "[1, 2, 3, null]"), true, true, false, false, max);
+
+  Check(ArrayFromJSON(int8(), "[1, 2, 1, 2]"), false, false, false, false);
+
+  // Monotonic (strictly) decreasing
+  Check(ArrayFromJSON(int8(), "[4, 4, 2, 1]"), false, false, true, false);
+
+  Check(ArrayFromJSON(int8(), "[4, 4, 2, null]"), false, false, true, false);
+  Check(ArrayFromJSON(int8(), "[4, 4, 2, null]"), false, false, true, false, min);
+  Check(ArrayFromJSON(int8(), "[4, 4, 2, null]"), false, false, false, false, max);
+
+  Check(ArrayFromJSON(int8(), "[4, 4, null, 1]"), false, false, true, false);
+  Check(ArrayFromJSON(int8(), "[4, 4, null, 1]"), false, false, false, false, min);
+  Check(ArrayFromJSON(int8(), "[4, 4, null, 1]"), false, false, false, false, max);
+
+  Check(ArrayFromJSON(int8(), "[null, 4, 2, 1]"), false, false, true, true);
+  Check(ArrayFromJSON(int8(), "[null, 4, 2, 1]"), false, false, false, false, min);
+  Check(ArrayFromJSON(int8(), "[null, 4, 2, 1]"), false, false, true, true, max);
+
+  Check(ArrayFromJSON(int8(), "[4, 3, 2, 1]"), false, false, true, true);
+  Check(ArrayFromJSON(int8(), "[5, 4, 3, 2, 1]"), false, false, true, true);
+  Check(ArrayFromJSON(int8(), "[5, 4, 3, 2, 2]"), false, false, true, false);
+
+  Check(ArrayFromJSON(int8(), "[4, 3, 2, null]"), false, false, true, true);
+  Check(ArrayFromJSON(int8(), "[4, 3, 2, null]"), false, false, true, true, min);
+  Check(ArrayFromJSON(int8(), "[4, 3, 2, null]"), false, false, false, false, max);
+
+  Check(ArrayFromJSON(int8(), "[4, 3, null, null]"), false, false, true, true);
+  Check(ArrayFromJSON(int8(), "[4, 3, null, null]"), false, false, true, false, min);
+  Check(ArrayFromJSON(int8(), "[4, 3, null, null]"), false, false, false, false, max);
+
+  Check(ArrayFromJSON(int8(), "[4, null, 2, 1]"), false, false, true, true);
+  Check(ArrayFromJSON(int8(), "[4, null, 2, 1]"), false, false, false, false, min);
+  Check(ArrayFromJSON(int8(), "[4, null, 2, 1]"), false, false, false, false, max);
+
+  Check(ArrayFromJSON(int8(), "[null, 3, 2, 1]"), false, false, true, true);
+  Check(ArrayFromJSON(int8(), "[null, 3, 2, 1]"), false, false, false, false, min);
+  Check(ArrayFromJSON(int8(), "[null, 3, 2, 1]"), false, false, true, true, max);
+
+  Check(ArrayFromJSON(int8(), "[null, null, 2, 1]"), false, false, true, true);
+  Check(ArrayFromJSON(int8(), "[null, null, 2, 1]"), false, false, false, false, min);
+  Check(ArrayFromJSON(int8(), "[null, null, 2, 1]"), false, false, true, false, max);
+
+  Check(ArrayFromJSON(int8(), "[4, 3, 4, 3]"), false, false, false, false);
+
+  // Other types
+  // Boolean
+  Check(ArrayFromJSON(boolean(), "[true, true, false]"), false, false, true, false);
+  Check(ArrayFromJSON(boolean(), "[true, false]"), false, false, true, true);
+  // Floating point
+  // todo(mb)
+  // Temporal
+  Check(ArrayFromJSON(date32(), "[1, 2, 3, 4, 4]"), true, false, false, false);
+  Check(ArrayFromJSON(date64(), "[0, 0, 3, 4, 4]"), true, false, false, false);
 }
 
 }  // namespace compute

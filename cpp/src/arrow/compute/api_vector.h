@@ -195,9 +195,9 @@ class ARROW_EXPORT IsMonotonicOptions : public FunctionOptions {
     // Ignore nulls.
     IGNORE,
     // Use min value of element type as the value of nulls.
-    MIN_INF,
+    MIN,
     // Use max value of element type as the value of nulls.
-    INF,
+    MAX,
   };
 
   explicit IsMonotonicOptions(NullHandling null_handling = IGNORE,
