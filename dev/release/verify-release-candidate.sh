@@ -764,9 +764,9 @@ test_jars() {
 # system Node installation, which may be too old.
 node_major_version=$( \
   node --version 2>&1 | \grep -o '^v[0-9]*' | sed -e 's/^v//g' || :)
-lts_node_major_version=16
+required_node_major_version=14
 if [ -n "${node_major_version}" -a \
-     "${node_major_version}" -ge ${lts_node_major_version} ]; then
+     "${node_major_version}" -ge ${required_node_major_version} ]; then
   : ${INSTALL_NODE:=0}
 else
   : ${INSTALL_NODE:=1}
