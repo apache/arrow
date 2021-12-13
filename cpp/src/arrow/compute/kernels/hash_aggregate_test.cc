@@ -2485,7 +2485,7 @@ TEST(GroupBy, Product) {
                                         }),
                                         R"([
     [-3.25, 1,    null, 1],
-    [0.0,   8,    0.0,  2],
+    [-0.0,  8,    -0.0, 2],
     [null,  9,    null, 3],
     [3.0,   null, null, null]
   ])"),
@@ -2569,7 +2569,7 @@ TEST(GroupBy, SumMeanProductKeepNulls) {
                                         }),
                                         R"([
     [null,   null,   null,       null,       null, null, 1],
-    [-0.125, -0.125, -0.0416667, -0.0416667, 0.0,  0.0,  2],
+    [-0.125, -0.125, -0.0416667, -0.0416667, -0.0, -0.0, 2],
     [null,   null,   null,       null,       null, null, 3],
     [4.75,   null,   2.375,      null,       3.0,  null, null]
   ])"),

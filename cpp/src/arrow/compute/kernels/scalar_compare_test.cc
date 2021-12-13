@@ -1126,8 +1126,6 @@ class TestVarArgsCompare : public TestBase {
   using VarArgsFunction = std::function<Result<Datum>(
       const std::vector<Datum>&, ElementWiseAggregateOptions, ExecContext*)>;
 
-  void SetUp() override { equal_options_ = equal_options_.nans_equal(true); }
-
   Datum scalar(const std::string& value) {
     return ScalarFromJSON(type_singleton(), value);
   }
@@ -1149,10 +1147,9 @@ class TestVarArgsCompare : public TestBase {
 
   void Assert(VarArgsFunction func, Datum expected, const std::vector<Datum>& args) {
     auto actual = Eval(func, args);
-    AssertDatumsApproxEqual(expected, actual, /*verbose=*/true, equal_options_);
+    AssertDatumsApproxEqual(expected, actual, /*verbose=*/true);
   }
 
-  EqualOptions equal_options_ = EqualOptions::Defaults();
   ElementWiseAggregateOptions element_wise_aggregate_options_;
 };
 
@@ -1367,8 +1364,13 @@ TYPED_TEST(TestVarArgsCompareFloating, MinElementWise) {
     }
     this->Assert(MinElementWise, this->array("[" + expected + "]"), args);
   };
+  Check("0.0", {"0.0", "0.0"});
+  Check("-0.0", {"-0.0", "-0.0"});
+  // XXX implementation detail: as signed zeros are equal, we're allowed
+  // to return either value.
+  Check("0.0", {"-0.0", "0.0"});
   Check("-0.0", {"0.0", "-0.0"});
-  Check("-0.0", {"1.0", "-0.0", "0.0"});
+  Check("0.0", {"1.0", "-0.0", "0.0"});
   Check("-1.0", {"-1.0", "-0.0"});
   Check("0", {"0", "NaN"});
   Check("0", {"NaN", "0"});
@@ -1672,9 +1674,14 @@ TYPED_TEST(TestVarArgsCompareFloating, MaxElementWise) {
     }
     this->Assert(MaxElementWise, this->array("[" + expected + "]"), args);
   };
-  Check("0.0", {"0.0", "-0.0"});
-  Check("1.0", {"1.0", "-0.0", "0.0"});
-  Check("-0.0", {"-1.0", "-0.0"});
+  Check("0.0", {"0.0", "0.0"});
+  Check("-0.0", {"-0.0", "-0.0"});
+  // XXX implementation detail: as signed zeros are equal, we're allowed
+  // to return either value.
+  Check("0.0", {"-0.0", "0.0"});
+  Check("-0.0", {"0.0", "-0.0"});
+  Check("0.0", {"-1.0", "-0.0", "0.0"});
+  Check("1.0", {"1.0", "-0.0"});
   Check("0", {"0", "NaN"});
   Check("0", {"NaN", "0"});
   Check("Inf", {"Inf", "NaN"});

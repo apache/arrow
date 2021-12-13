@@ -63,56 +63,77 @@ namespace {
 
 // TODO also handle HALF_FLOAT NaNs
 
-enum FloatingEqualityFlags : int8_t { Approximate = 1, NansEqual = 2 };
+template <bool Approximate, bool NansEqual, bool SignedZerosEqual>
+struct FloatingEqualityFlags {
+  static constexpr bool approximate = Approximate;
+  static constexpr bool nans_equal = NansEqual;
+  static constexpr bool signed_zeros_equal = SignedZerosEqual;
+};
 
-template <typename T, int8_t Flags>
+template <typename T, typename Flags>
 struct FloatingEquality {
-  bool operator()(T x, T y) { return x == y; }
-};
-
-template <typename T>
-struct FloatingEquality<T, NansEqual> {
-  bool operator()(T x, T y) { return (x == y) || (std::isnan(x) && std::isnan(y)); }
-};
-
-template <typename T>
-struct FloatingEquality<T, Approximate> {
   explicit FloatingEquality(const EqualOptions& options)
       : epsilon(static_cast<T>(options.atol())) {}
 
-  bool operator()(T x, T y) { return (fabs(x - y) <= epsilon) || (x == y); }
-
-  const T epsilon;
-};
-
-template <typename T>
-struct FloatingEquality<T, Approximate | NansEqual> {
-  explicit FloatingEquality(const EqualOptions& options)
-      : epsilon(static_cast<T>(options.atol())) {}
-
-  bool operator()(T x, T y) {
-    return (fabs(x - y) <= epsilon) || (x == y) || (std::isnan(x) && std::isnan(y));
+  bool operator()(T x, T y) const {
+    if (x == y) {
+      return Flags::signed_zeros_equal || (std::signbit(x) == std::signbit(y));
+    }
+    if (Flags::nans_equal && std::isnan(x) && std::isnan(y)) {
+      return true;
+    }
+    if (Flags::approximate && (fabs(x - y) <= epsilon)) {
+      return true;
+    }
+    return false;
   }
 
   const T epsilon;
 };
 
 template <typename T, typename Visitor>
-void VisitFloatingEquality(const EqualOptions& options, bool floating_approximate,
-                           Visitor&& visit) {
-  if (options.nans_equal()) {
-    if (floating_approximate) {
-      visit(FloatingEquality<T, NansEqual | Approximate>{options});
+struct FloatingEqualityDispatcher {
+  const EqualOptions& options;
+  bool floating_approximate;
+  Visitor&& visit;
+
+  template <bool Approximate, bool NansEqual>
+  void DispatchL3() {
+    if (options.signed_zeros_equal()) {
+      visit(FloatingEquality<T, FloatingEqualityFlags<Approximate, NansEqual, true>>{
+          options});
     } else {
-      visit(FloatingEquality<T, NansEqual>{});
-    }
-  } else {
-    if (floating_approximate) {
-      visit(FloatingEquality<T, Approximate>{options});
-    } else {
-      visit(FloatingEquality<T, 0>{});
+      visit(FloatingEquality<T, FloatingEqualityFlags<Approximate, NansEqual, false>>{
+          options});
     }
   }
+
+  template <bool Approximate>
+  void DispatchL2() {
+    if (options.nans_equal()) {
+      DispatchL3<Approximate, true>();
+    } else {
+      DispatchL3<Approximate, false>();
+    }
+  }
+
+  void Dispatch() {
+    if (floating_approximate) {
+      DispatchL2<true>();
+    } else {
+      DispatchL2<false>();
+    }
+  }
+};
+
+// Call `visit(equality_func)` where `equality_func` has the signature `bool(T, T)`
+// and returns true if the two values compare equal.
+template <typename T, typename Visitor>
+void VisitFloatingEquality(const EqualOptions& options, bool floating_approximate,
+                           Visitor&& visit) {
+  FloatingEqualityDispatcher<T, Visitor>{options, floating_approximate,
+                                         std::forward<Visitor>(visit)}
+      .Dispatch();
 }
 
 inline bool IdentityImpliesEqualityNansNotEqual(const DataType& type) {
@@ -1016,6 +1037,33 @@ bool IntegerTensorEquals(const Tensor& left, const Tensor& right) {
   return are_equal;
 }
 
+template <typename T>
+struct StridedFloatTensorLastDimEquality {
+  int64_t n_values;
+  const uint8_t* left_data;
+  const uint8_t* right_data;
+  int64_t left_offset;
+  int64_t right_offset;
+  int64_t left_stride;
+  int64_t right_stride;
+  bool result;
+
+  template <typename EqualityFunc>
+  void operator()(EqualityFunc&& eq) {
+    for (int64_t i = 0; i < n_values; ++i) {
+      T left_value =
+          *reinterpret_cast<const T*>(left_data + left_offset + i * left_stride);
+      T right_value =
+          *reinterpret_cast<const T*>(right_data + right_offset + i * right_stride);
+      if (!eq(left_value, right_value)) {
+        result = false;
+        return;
+      }
+    }
+    result = true;
+  }
+};
+
 template <typename DataType>
 bool StridedFloatTensorContentEquals(const int dim_index, int64_t left_offset,
                                      int64_t right_offset, const Tensor& left,
@@ -1028,32 +1076,15 @@ bool StridedFloatTensorContentEquals(const int dim_index, int64_t left_offset,
   const auto left_stride = left.strides()[dim_index];
   const auto right_stride = right.strides()[dim_index];
   if (dim_index == left.ndim() - 1) {
-    auto left_data = left.raw_data();
-    auto right_data = right.raw_data();
-    if (opts.nans_equal()) {
-      for (int64_t i = 0; i < n; ++i) {
-        c_type left_value =
-            *reinterpret_cast<const c_type*>(left_data + left_offset + i * left_stride);
-        c_type right_value = *reinterpret_cast<const c_type*>(right_data + right_offset +
-                                                              i * right_stride);
-        if (left_value != right_value &&
-            !(std::isnan(left_value) && std::isnan(right_value))) {
-          return false;
-        }
-      }
-    } else {
-      for (int64_t i = 0; i < n; ++i) {
-        c_type left_value =
-            *reinterpret_cast<const c_type*>(left_data + left_offset + i * left_stride);
-        c_type right_value = *reinterpret_cast<const c_type*>(right_data + right_offset +
-                                                              i * right_stride);
-        if (left_value != right_value) {
-          return false;
-        }
-      }
-    }
-    return true;
+    // Leaf dimension, compare values
+    StridedFloatTensorLastDimEquality<c_type> visitor{
+        n,           left.raw_data(), right.raw_data(), left_offset, right_offset,
+        left_stride, right_stride,    /*result=*/false};
+    VisitFloatingEquality<c_type>(opts, /*floating_approximate=*/false, visitor);
+    return visitor.result;
   }
+
+  // Outer dimension, recurse into inner
   for (int64_t i = 0; i < n; ++i) {
     if (!StridedFloatTensorContentEquals<DataType>(dim_index + 1, left_offset,
                                                    right_offset, left, right, opts)) {

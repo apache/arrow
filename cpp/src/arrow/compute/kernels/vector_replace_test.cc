@@ -39,8 +39,6 @@ class TestReplaceKernel : public ::testing::Test {
   using ReplaceFunction = std::function<Result<Datum>(const Datum&, const Datum&,
                                                       const Datum&, ExecContext*)>;
 
-  void SetUp() override { equal_options_ = equal_options_.nans_equal(true); }
-
   Datum mask_scalar(bool value) { return Datum(std::make_shared<BooleanScalar>(value)); }
 
   Datum null_mask_scalar() {
@@ -80,8 +78,7 @@ class TestReplaceKernel : public ::testing::Test {
     ASSERT_TRUE(actual.is_array());
     ASSERT_OK(actual.make_array()->ValidateFull());
 
-    AssertArraysApproxEqual(*expected, *actual.make_array(), /*verbose=*/true,
-                            equal_options_);
+    AssertArraysApproxEqual(*expected, *actual.make_array(), /*verbose=*/true);
   }
 
   std::shared_ptr<Array> NaiveImpl(
@@ -114,8 +111,6 @@ class TestReplaceKernel : public ::testing::Test {
     EXPECT_OK_AND_ASSIGN(auto expected, builder->Finish());
     return expected;
   }
-
-  EqualOptions equal_options_ = EqualOptions::Defaults();
 };
 
 template <typename T>
