@@ -1134,7 +1134,6 @@ tasks:
       env:
         ARROW_R_DEV: "TRUE"
         UBUNTU: 18.04
-        ARROW_SOURCE_HOME: "/arrow"
       image: ubuntu-r-valgrind
 
   test-r-linux-rchk:
@@ -1270,7 +1269,6 @@ tasks:
       env:
         UBUNTU: 18.04
         R_PRUNE_DEPS: TRUE
-        ARROW_SOURCE_HOME: "/arrow"
       image: ubuntu-r-sanitizer
 
   test-fedora-r-clang-sanitizer:
@@ -1279,7 +1277,6 @@ tasks:
     params:
       env:
         R_PRUNE_DEPS: TRUE
-        ARROW_SOURCE_HOME: "/arrow"
       image: fedora-r-clang-sanitizer
 
   revdep-r-check:
