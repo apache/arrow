@@ -1039,7 +1039,8 @@ class ParquetPartitions:
         Record a partition value at a particular level, returning the distinct
         code for that value at that level.
 
-        Example:
+        Examples
+        --------
 
         partitions.get_index(1, 'foo', 'a') returns 0
         partitions.get_index(1, 'foo', 'b') returns 1

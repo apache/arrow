@@ -1304,8 +1304,8 @@ cdef class Table(_PandasConvertible):
     """
     A collection of top-level named, equal length Arrow arrays.
 
-    Warning
-    -------
+    Warnings
+    --------
     Do not call this class's constructor directly, use one of the ``from_*``
     methods instead.
     """
@@ -2664,8 +2664,8 @@ list[tuple(str, str, FunctionOptions)]
         Table
             Results of the aggregation functions.
 
-        Example
-        -------
+        Examples
+        --------
         >>> t = pa.table([
         ...       pa.array(["a", "a", "b", "b", "c"]),
         ...       pa.array([1, 2, 3, 4, 5]),
