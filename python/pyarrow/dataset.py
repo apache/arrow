@@ -731,8 +731,8 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
 
     Parameters
     ----------
-    data : Dataset, Table/RecordBatch, RecordBatchReader, list of
-           Table/RecordBatch, or iterable of RecordBatch
+    data : Dataset, Table/RecordBatch, RecordBatchReader, list of \
+Table/RecordBatch, or iterable of RecordBatch
         The data to write. This can be a Dataset instance or
         in-memory Arrow data. If an iterable is given, the schema must
         also be given.
