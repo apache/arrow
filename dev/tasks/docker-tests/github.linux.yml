@@ -21,7 +21,8 @@
 
 jobs:
   test:
-    name: Docker Test
+    name: |
+      Docker Test {{ flags|default("") }} {{ image }} {{ command|default("") }}
     runs-on: ubuntu-latest
   {% if env is defined %}
     env:
