@@ -1593,6 +1593,85 @@ def test_partitioning_factory_segment_encoding():
         inferred_schema = factory.inspect()
 
 
+def test_partitioning_factory_hive_segment_encoding_key_encoded():
+    mockfs = fs._MockFileSystem()
+    format = ds.IpcFileFormat()
+    schema = pa.schema([("i64", pa.int64())])
+    table = pa.table([pa.array(range(10))], schema=schema)
+    partition_schema = pa.schema(
+        [("test'; date", pa.timestamp("s")), ("test';[ string'", pa.string())])
+    string_partition_schema = pa.schema(
+        [("test'; date", pa.string()), ("test';[ string'", pa.string())])
+    full_schema = pa.schema(list(schema) + list(partition_schema))
+
+    partition_schema_en = pa.schema(
+        [("test%27%3B%20date", pa.timestamp("s")),
+         ("test%27%3B%5B%20string%27", pa.string())])
+    string_partition_schema_en = pa.schema(
+        [("test%27%3B%20date", pa.string()),
+         ("test%27%3B%5B%20string%27", pa.string())])
+
+    directory = ("hive/test%27%3B%20date=2021-05-04 00%3A00%3A00/"
+                 "test%27%3B%5B%20string%27=%24")
+    mockfs.create_dir(directory)
+    with mockfs.open_output_stream(directory + "/0.feather") as sink:
+        with pa.ipc.new_file(sink, schema) as writer:
+            writer.write_table(table)
+            writer.close()
+
+    # Hive
+    selector = fs.FileSelector("hive", recursive=True)
+    options = ds.FileSystemFactoryOptions("hive")
+    options.partitioning_factory = ds.HivePartitioning.discover(
+        schema=partition_schema)
+    factory = ds.FileSystemDatasetFactory(mockfs, selector, format, options)
+    inferred_schema = factory.inspect()
+    assert inferred_schema == full_schema
+    actual = factory.finish().to_table(columns={
+        "date_int": ds.field("test'; date").cast(pa.int64()),
+    })
+    assert actual[0][0].as_py() == 1620086400
+
+    options.partitioning_factory = ds.HivePartitioning.discover(
+        segment_encoding="uri")
+    factory = ds.FileSystemDatasetFactory(mockfs, selector, format, options)
+    fragments = list(factory.finish().get_fragments())
+    assert fragments[0].partition_expression.equals(
+        (ds.field("test'; date") == "2021-05-04 00:00:00") &
+        (ds.field("test';[ string'") == "$"))
+
+    options.partitioning = ds.HivePartitioning(
+        string_partition_schema, segment_encoding="uri")
+    factory = ds.FileSystemDatasetFactory(mockfs, selector, format, options)
+    fragments = list(factory.finish().get_fragments())
+    assert fragments[0].partition_expression.equals(
+        (ds.field("test'; date") == "2021-05-04 00:00:00") &
+        (ds.field("test';[ string'") == "$"))
+
+    options.partitioning_factory = ds.HivePartitioning.discover(
+        segment_encoding="none")
+    factory = ds.FileSystemDatasetFactory(mockfs, selector, format, options)
+    fragments = list(factory.finish().get_fragments())
+    assert fragments[0].partition_expression.equals(
+        (ds.field("test%27%3B%20date") == "2021-05-04 00%3A00%3A00") &
+        (ds.field("test%27%3B%5B%20string%27") == "%24"))
+
+    options.partitioning = ds.HivePartitioning(
+        string_partition_schema_en, segment_encoding="none")
+    factory = ds.FileSystemDatasetFactory(mockfs, selector, format, options)
+    fragments = list(factory.finish().get_fragments())
+    assert fragments[0].partition_expression.equals(
+        (ds.field("test%27%3B%20date") == "2021-05-04 00%3A00%3A00") &
+        (ds.field("test%27%3B%5B%20string%27") == "%24"))
+
+    options.partitioning_factory = ds.HivePartitioning.discover(
+        schema=partition_schema_en, segment_encoding="none")
+    factory = ds.FileSystemDatasetFactory(mockfs, selector, format, options)
+    with pytest.raises(pa.ArrowInvalid,
+                       match="Could not cast segments for partition field"):
+        inferred_schema = factory.inspect()
+
+
 def test_dictionary_partitioning_outer_nulls_raises(tempdir):
     table = pa.table({'a': ['x', 'y', None], 'b': ['x', 'y', 'z']})
     part = ds.partitioning(

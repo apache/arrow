@@ -580,19 +580,22 @@ Result<util::optional<KeyValuePartitioning::Key>> HivePartitioning::ParseKey(
   // Static method, so we have no better place for it
   util::InitializeUTF8();
 
-  auto name = segment.substr(0, name_end);
+  std::string name;
   std::string value;
   switch (options.segment_encoding) {
     case SegmentEncoding::None: {
+      name = segment.substr(0, name_end);
       value = segment.substr(name_end + 1);
-      if (ARROW_PREDICT_FALSE(!util::ValidateUTF8(value))) {
-        return Status::Invalid("Partition segment was not valid UTF-8: ", value);
+      if (ARROW_PREDICT_FALSE(!util::ValidateUTF8(segment))) {
+        return Status::Invalid("Partition segment was not valid UTF-8: ", segment);
       }
       break;
     }
     case SegmentEncoding::Uri: {
       auto raw_value = util::string_view(segment).substr(name_end + 1);
       ARROW_ASSIGN_OR_RAISE(value, SafeUriUnescape(raw_value));
+      auto raw_key = util::string_view(segment).substr(0, name_end);
+      ARROW_ASSIGN_OR_RAISE(name, SafeUriUnescape(raw_key));
       break;
     }
     default:
