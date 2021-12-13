@@ -860,7 +860,6 @@ tasks:
     template: verify-rc/github.{{ platform }}.{{ arch }}.yml
     params:
       env:
-        INSTALL_NODE: 0
         TEST_DEFAULT: 0
         TEST_{{ target|upper }}: 1
       artifact: "source"
@@ -907,7 +906,6 @@ tasks:
       env:
         ARROW_FLIGHT: 0
         ARROW_GANDIVA: 0
-        INSTALL_NODE: 0
         TEST_DEFAULT: 0
         TEST_INTEGRATION_JAVA: 0
         TEST_{{ target|upper }}: 1
