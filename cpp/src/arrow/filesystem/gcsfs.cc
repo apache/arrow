@@ -267,6 +267,18 @@ google::cloud::Options AsGoogleCloudOptions(const GcsOptions& o) {
   return options;
 }
 
+class GcsCredentialsProvider {
+ public:
+  explicit GcsCredentialsProvider(std::shared_ptr<google::cloud::Credentials> credentials)
+      : credentials_(std::move(credentials)) {}
+  ~GcsCredentialsProvider() = default;
+
+  std::shared_ptr<google::cloud::Credentials> credentials() const { return credentials_; }
+
+ private:
+  std::shared_ptr<google::cloud::Credentials> credentials_;
+};
+
 class GcsFileSystem::Impl {
  public:
   explicit Impl(GcsOptions o)
@@ -456,7 +468,48 @@ class GcsFileSystem::Impl {
 };
 
 bool GcsOptions::Equals(const GcsOptions& other) const {
-  return endpoint_override == other.endpoint_override && scheme == other.scheme;
+  return credentials == other.credentials &&
+         endpoint_override == other.endpoint_override && scheme == other.scheme;
+}
+
+GcsOptions GcsOptions::Defaults() {
+  return GcsOptions{std::make_shared<GcsCredentialsProvider>(
+                        google::cloud::MakeGoogleDefaultCredentials()),
+                    {},
+                    "https"};
+}
+
+GcsOptions GcsOptions::Anonymous() {
+  return GcsOptions{
+      std::make_shared<GcsCredentialsProvider>(google::cloud::MakeInsecureCredentials()),
+      {},
+      "http"};
+}
+
+GcsOptions GcsOptions::AccessToken(const std::string& access_token,
+                                   std::chrono::system_clock::time_point expiration) {
+  return GcsOptions{
+      std::make_shared<GcsCredentialsProvider>(
+          google::cloud::MakeAccessTokenCredentials(access_token, expiration)),
+      {},
+      "https"};
+}
+
+GcsOptions GcsOptions::ImpersonateServiceAccount(
+    const GcsCredentialsProvider& base_credentials,
+    const std::string& target_service_account) {
+  return GcsOptions{std::make_shared<GcsCredentialsProvider>(
+                        google::cloud::MakeImpersonateServiceAccountCredentials(
+                            base_credentials.credentials(), target_service_account)),
+                    {},
+                    "https"};
+}
+
+GcsOptions GcsOptions::ServiceAccountCredentials(const std::string& json_object) {
+  return GcsOptions{std::make_shared<GcsCredentialsProvider>(
+                        google::cloud::MakeServiceAccountCredentials(json_object)),
+                    {},
+                    "https"};
 }
 
 std::string GcsFileSystem::type_name() const { return "gcs"; }
