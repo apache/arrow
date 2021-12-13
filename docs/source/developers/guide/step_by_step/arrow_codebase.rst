@@ -50,9 +50,7 @@ connected to that language. For example:
   the code for the pyarrow package and requirements files that you
   need when building pyarrow.
 
-  The ``pyarrow/`` includes all pyarrow modules, for example
-  ``compute.py`` for the ``pyarrow.compute`` module. The ``pyarrow/``
-  includes Python and Cython code.
+  The ``pyarrow/`` includes Python and Cython code.
 
   The ``pyarrow/`` also includes ``test/`` folder where all the tests
   for the pyarrow modules are located.
@@ -67,7 +65,7 @@ connected to that language. For example:
 
 Other subdirectories included in the arrow repository are:
 
-- ``ci/`` contains code connected to the CI work.
+- ``ci/`` contains code connected to the continuous integration work.
 - ``dev/`` contains scripts useful to developers when packaging,
   testing, or committing to Arrow.
 - ``docs/`` contains most of the documentation. Read more on
@@ -75,7 +73,7 @@ Other subdirectories included in the arrow repository are:
 - ``format/`` contains the Arrow Protocol files.
 
 Other files included in Arrow are connected to either GitHub,
-CI builds, docker or Archery.
+CI builds or Docker.
 
 Bindings, features, fixes and tests
 ===================================
