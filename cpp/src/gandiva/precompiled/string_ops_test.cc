@@ -2326,4 +2326,126 @@ TEST(TestStringOps, TestSoundex) {
   auto out2 = soundex_utf8(ctx_ptr, "Smythe", 6, &out_len);
   EXPECT_EQ(std::string(out, out_len), std::string(out2, out_len));
 }
+
+TEST(TestStringOps, TestInstr) {
+  std::string s1 = "hello world!";
+  auto s1_len = static_cast<int32_t>(s1.size());
+  std::string s2 = "world";
+  auto s2_len = static_cast<int32_t>(s2.size());
+
+  auto result = instr_utf8(s1.c_str(), s1_len, s2.c_str(), s2_len);
+  EXPECT_EQ(result, 7);
+
+  s1 = "apple banana mango";
+  s1_len = static_cast<int32_t>(s1.size());
+  s2 = "apple";
+  s2_len = static_cast<int32_t>(s2.size());
+
+  result = instr_utf8(s1.c_str(), s1_len, s2.c_str(), s2_len);
+  EXPECT_EQ(result, 1);
+
+  s1 = "";
+  s1_len = static_cast<int32_t>(s1.size());
+  s2 = "mango";
+  s2_len = static_cast<int32_t>(s2.size());
+
+  result = instr_utf8(s1.c_str(), s1_len, s2.c_str(), s2_len);
+  EXPECT_EQ(result, 0);
+
+  s1 = "open the door";
+  s1_len = static_cast<int32_t>(s1.size());
+  s2 = "";
+  s2_len = static_cast<int32_t>(s2.size());
+
+  result = instr_utf8(s1.c_str(), s1_len, s2.c_str(), s2_len);
+  EXPECT_EQ(result, 1);
+
+  s1 = "";
+  s1_len = static_cast<int32_t>(s1.size());
+  s2 = "";
+  s2_len = static_cast<int32_t>(s2.size());
+
+  result = instr_utf8(s1.c_str(), s1_len, s2.c_str(), s2_len);
+  EXPECT_EQ(result, 1);
+
+  s1 = "hi john";
+  s1_len = static_cast<int32_t>(s1.size());
+  s2 = "johny";
+  s2_len = static_cast<int32_t>(s2.size());
+
+  result = instr_utf8(s1.c_str(), s1_len, s2.c_str(), s2_len);
+  EXPECT_EQ(result, 0);
+
+  s1 = "cool";
+  s1_len = static_cast<int32_t>(s1.size());
+  s2 = "cooler";
+  s2_len = static_cast<int32_t>(s2.size());
+
+  result = instr_utf8(s1.c_str(), s1_len, s2.c_str(), s2_len);
+  EXPECT_EQ(result, 0);
+
+  s1 = "Hello";
+  s1_len = static_cast<int32_t>(s1.size());
+  s2 = "Hello";
+  s2_len = static_cast<int32_t>(s2.size());
+
+  result = instr_utf8(s1.c_str(), s1_len, s2.c_str(), s2_len);
+  EXPECT_EQ(result, 1);
+
+  s1 = "Hello";
+  s1_len = static_cast<int32_t>(s1.size());
+  s2 = "Hell";
+  s2_len = static_cast<int32_t>(s2.size());
+
+  result = instr_utf8(s1.c_str(), s1_len, s2.c_str(), s2_len);
+  EXPECT_EQ(result, 1);
+
+  s1 = "Hello";
+  s1_len = static_cast<int32_t>(s1.size());
+  s2 = "Hell0";
+  s2_len = static_cast<int32_t>(s2.size());
+
+  result = instr_utf8(s1.c_str(), s1_len, s2.c_str(), s2_len);
+  EXPECT_EQ(result, 0);
+
+  s1 = "Hello";
+  s1_len = static_cast<int32_t>(s1.size());
+  s2 = "H3ll";
+  s2_len = static_cast<int32_t>(s2.size());
+
+  result = instr_utf8(s1.c_str(), s1_len, s2.c_str(), s2_len);
+  EXPECT_EQ(result, 0);
+
+  s1 = "wow";
+  s1_len = static_cast<int32_t>(s1.size());
+  s2 = "wou";
+  s2_len = static_cast<int32_t>(s2.size());
+
+  result = instr_utf8(s1.c_str(), s1_len, s2.c_str(), s2_len);
+  EXPECT_EQ(result, 0);
+
+  s1 = "alphabetic";
+  s1_len = static_cast<int32_t>(s1.size());
+  s2 = "alpha";
+  s2_len = static_cast<int32_t>(s2.size());
+
+  result = instr_utf8(s1.c_str(), s1_len, s2.c_str(), s2_len);
+  EXPECT_EQ(result, 1);
+
+  s1 = "alphabetic";
+  s1_len = static_cast<int32_t>(s1.size());
+  s2 = "bet";
+  s2_len = static_cast<int32_t>(s2.size());
+
+  result = instr_utf8(s1.c_str(), s1_len, s2.c_str(), s2_len);
+  EXPECT_EQ(result, 6);
+
+  s1 = "kaleidoscope";
+  s1_len = static_cast<int32_t>(s1.size());
+  s2 = "scope";
+  s2_len = static_cast<int32_t>(s2.size());
+
+  result = instr_utf8(s1.c_str(), s1_len, s2.c_str(), s2_len);
+  EXPECT_EQ(result, 8);
+}
 }  // namespace gandiva
