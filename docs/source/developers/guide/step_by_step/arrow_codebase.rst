@@ -41,7 +41,7 @@ Julia (``julia/``), MATLAB (``matlab/``, Python (``python/``),
 R (``r/``) and Ruby (``ruby/``) have their own subdirectories in
 the main folder as written here.
 
-Rust has it's own repository available `here <https://github.com/apache/arrow-rs>`_.
+Rust has its own repository available `here <https://github.com/apache/arrow-rs>`_.
 
 In the **language-specific subdirectories** you can find the code
 connected to that language. For example:
@@ -97,7 +97,7 @@ In our experience there are two good ways:
 
 **Binding**
 
-Binding means that the function in the C++ is connected from 
+Binding means that the function in the C++ implementation is connected from 
 other languages (C (Glib), MATLAB, Python, R or Ruby). Once a 
 function is defined in the C++ we connect it from other languages
 so that it can be used there also.
@@ -114,7 +114,7 @@ so that it can be used there also.
 
       If you are doing a correction of an existing function, the
       easiest way is to run Python interactively or run Jupyter
-      Notebook from the Python folder in Arrow and research
+      Notebook and research
       the issue until you understand what needs to be done.
 
       After, you can search on GitHub for the function name, to
