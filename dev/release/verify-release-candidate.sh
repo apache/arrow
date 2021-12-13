@@ -25,6 +25,7 @@
 # - gcc >= 4.8
 # - Node.js >= 11.12 (best way is to use nvm)
 # - Go >= 1.15
+# - Docker
 #
 # If using a non-system Boost, set BOOST_ROOT and add Boost libraries to
 # LD_LIBRARY_PATH.
@@ -468,7 +469,7 @@ test_ruby() {
 }
 
 test_go() {
-  local VERSION=1.15.14
+  local VERSION=1.16.12
 
   local ARCH="$(uname -m)"
   if [ "$ARCH" == "x86_64" ]; then
@@ -759,7 +760,15 @@ test_jars() {
 
 # Install NodeJS locally for running the JavaScript tests rather than using the
 # system Node installation, which may be too old.
-: ${INSTALL_NODE:=1}
+node_major_version=$( \
+  node --version 2>&1 | \grep -o '^v[0-9]*' | sed -e 's/^v//g' || :)
+required_node_major_version=14
+if [ -n "${node_major_version}" -a \
+     "${node_major_version}" -ge ${required_node_major_version} ]; then
+  : ${INSTALL_NODE:=0}
+else
+  : ${INSTALL_NODE:=1}
+fi
 
 case "${ARTIFACT}" in
   source)
