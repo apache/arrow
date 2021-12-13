@@ -28,8 +28,8 @@
 Additional information and resources
 ************************************
 
-On this page we will list resources interesting for a contributor
-that is not yet acquainted with different parts of Apache Arrow.
+On this page we will list resources that may be relevant or useful for 
+contributors who want to learn more about different parts of Apache Arrow.
 
 .. Annotation Glossary
 .. -------------------
