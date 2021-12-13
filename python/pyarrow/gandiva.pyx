@@ -34,7 +34,7 @@ from pyarrow.lib cimport (Array, DataType, Field, MemoryPool, RecordBatch,
 from pyarrow.lib import frombytes
 
 from pyarrow.includes.libgandiva cimport (
-    CCondition, CExpression,
+    CCondition, CGandivaExpression,
     CNode, CProjector, CFilter,
     CSelectionVector,
     CSelectionVector_Mode,
@@ -107,9 +107,9 @@ cdef class Node(_Weakrefable):
 
 cdef class Expression(_Weakrefable):
     cdef:
-        shared_ptr[CExpression] expression
+        shared_ptr[CGandivaExpression] expression
 
-    cdef void init(self, shared_ptr[CExpression] expression):
+    cdef void init(self, shared_ptr[CGandivaExpression] expression):
         self.expression = expression
 
     def __str__(self):
@@ -293,7 +293,7 @@ cdef class TreeExprBuilder(_Weakrefable):
         return Node.create(r)
 
     def make_expression(self, Node root_node, Field return_field):
-        cdef shared_ptr[CExpression] r = TreeExprBuilder_MakeExpression(
+        cdef shared_ptr[CGandivaExpression] r = TreeExprBuilder_MakeExpression(
             root_node.node, return_field.sp_field)
         cdef Expression expression = Expression()
         expression.init(r)
@@ -472,7 +472,7 @@ cpdef make_projector(Schema schema, children, MemoryPool pool,
     """
     cdef:
         Expression child
-        c_vector[shared_ptr[CExpression]] c_children
+        c_vector[shared_ptr[CGandivaExpression]] c_children
         shared_ptr[CProjector] result
 
     for child in children:
