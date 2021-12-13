@@ -100,10 +100,7 @@ enum class CalendarUnit : int8_t {
   DAY,
   WEEK,
   MONTH,
-  BIMONTH,
-  QUARTER,
   SEASON,
-  HALFYEAR,
   YEAR
 };
 
@@ -112,8 +109,7 @@ class ARROW_EXPORT RoundTemporalOptions : public FunctionOptions {
   enum Ambiguous { AMBIGUOUS_RAISE, AMBIGUOUS_EARLIEST, AMBIGUOUS_LATEST };
   enum Nonexistent { NONEXISTENT_RAISE, NONEXISTENT_EARLIEST, NONEXISTENT_LATEST };
 
-  explicit RoundTemporalOptions(int multiple = 1,
-                                CalendarUnit unit = CalendarUnit::DAY,
+  explicit RoundTemporalOptions(int multiple = 1, CalendarUnit unit = CalendarUnit::DAY,
                                 bool week_starts_monday = true,
                                 bool change_on_boundary = false,
                                 Ambiguous ambiguous = AMBIGUOUS_RAISE,
@@ -827,6 +823,38 @@ Result<Datum> RoundToMultiple(
     const Datum& arg, RoundToMultipleOptions options = RoundToMultipleOptions::Defaults(),
     ExecContext* ctx = NULLPTR);
 
+/// \brief Ceil a temporal value to a given frequency
+///
+/// If argument is null the result will be null.
+///
+/// \param[in] arg the temporal value to ceil
+/// \param[in] options temporal rounding options, optional
+/// \param[in] ctx the function execution context, optional
+/// \return the element-wise rounded value
+///
+/// \since 7.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> CeilTemporal(
+    const Datum& arg, RoundTemporalOptions options = RoundTemporalOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
+
+/// \brief Floor a temporal value to a given frequency
+///
+/// If argument is null the result will be null.
+///
+/// \param[in] arg the temporal value to floor
+/// \param[in] options temporal rounding options, optional
+/// \param[in] ctx the function execution context, optional
+/// \return the element-wise rounded value
+///
+/// \since 7.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> FloorTemporal(
+    const Datum& arg, RoundTemporalOptions options = RoundTemporalOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
+
 /// \brief Round a temporal value to a given frequency
 ///
 /// If argument is null the result will be null.
@@ -835,6 +863,9 @@ Result<Datum> RoundToMultiple(
 /// \param[in] options temporal rounding options, optional
 /// \param[in] ctx the function execution context, optional
 /// \return the element-wise rounded value
+///
+/// \since 7.0.0
+/// \note API not yet finalized
 ARROW_EXPORT
 Result<Datum> RoundTemporal(
     const Datum& arg, RoundTemporalOptions options = RoundTemporalOptions::Defaults(),

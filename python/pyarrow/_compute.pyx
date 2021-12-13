@@ -795,14 +795,8 @@ cdef CCalendarUnit unwrap_round_unit(unit) except *:
         return CCalendarUnit_WEEK
     elif unit == "month":
         return CCalendarUnit_MONTH
-    elif unit == "bimonth":
-        return CCalendarUnit_BIMONTH
-    elif unit == "quarter":
-        return CCalendarUnit_QUARTER
     elif unit == "season":
         return CCalendarUnit_SEASON
-    elif unit == "halfyear":
-        return CCalendarUnit_HALFYEAR
     elif unit == "year":
         return CCalendarUnit_YEAR
     _raise_invalid_function_option(unit, "Calendar unit")

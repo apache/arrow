@@ -37,12 +37,15 @@ namespace internal {
 
 namespace {
 
+using arrow_vendored::date::ceil;
 using arrow_vendored::date::days;
 using arrow_vendored::date::floor;
 using arrow_vendored::date::hh_mm_ss;
 using arrow_vendored::date::local_days;
 using arrow_vendored::date::local_time;
 using arrow_vendored::date::locate_zone;
+using arrow_vendored::date::months;
+using arrow_vendored::date::round;
 using arrow_vendored::date::sys_days;
 using arrow_vendored::date::sys_time;
 using arrow_vendored::date::trunc;
@@ -60,6 +63,8 @@ using arrow_vendored::date::literals::sun;
 using arrow_vendored::date::literals::thu;
 using arrow_vendored::date::literals::wed;
 using internal::applicator::SimpleUnary;
+using std::chrono::hours;
+using std::chrono::minutes;
 
 using DayOfWeekState = OptionsWrapper<DayOfWeekOptions>;
 using WeekState = OptionsWrapper<WeekOptions>;
@@ -368,7 +373,7 @@ struct Hour {
   template <typename T, typename Arg0>
   T Call(KernelContext*, Arg0 arg, Status*) const {
     const auto t = localizer_.template ConvertTimePoint<Duration>(arg);
-    return static_cast<T>((t - floor<days>(t)) / std::chrono::hours(1));
+    return static_cast<T>((t - floor<days>(t)) / hours(1));
   }
 
   Localizer localizer_;
@@ -385,7 +390,7 @@ struct Minute {
   template <typename T, typename Arg0>
   T Call(KernelContext*, Arg0 arg, Status*) const {
     const auto t = localizer_.template ConvertTimePoint<Duration>(arg);
-    return static_cast<T>((t - floor<std::chrono::hours>(t)) / std::chrono::minutes(1));
+    return static_cast<T>((t - floor<hours>(t)) / std::chrono::minutes(1));
   }
 
   Localizer localizer_;
@@ -475,6 +480,235 @@ Result<ValueDescr> ResolveRoundTemporalOutput(KernelContext* ctx,
   return ValueDescr(std::move(type));
 }
 
+template <typename Duration, typename Unit>
+Duration ceil_multiple(const int64_t arg, const int multiple) {
+  auto c = ceil<Unit>(Duration{arg});
+  if (multiple == 1) {
+    return std::chrono::duration_cast<Duration>(c);
+  } else {
+    auto t = std::chrono::duration_cast<Duration>(Unit{c / Unit{multiple}} * multiple);
+    return t >= c ? t : t + std::chrono::duration_cast<Duration>(Unit{multiple});
+  }
+}
+
+template <typename Duration, typename Unit>
+Duration floor_multiple(const int64_t arg, const int multiple) {
+  if (multiple == 1) {
+    auto f = floor<Unit>(Duration{arg});
+    return std::chrono::duration_cast<Duration>(f);
+  } else {
+    auto f = floor<Unit>(Duration{arg});
+    auto tmp =
+        arg > 0
+            ? std::chrono::duration_cast<Duration>(Unit{f / Unit{multiple}} * multiple)
+            : std::chrono::duration_cast<Duration>(
+                  Unit{(f - Unit{multiple - 1}) / Unit{multiple}} * multiple);
+
+    return tmp;
+  }
+}
+
+template <typename Duration, typename Unit>
+Duration round_multiple(const int64_t arg, const int multiple) {
+  if (multiple == 1) {
+    auto r = round<Unit>(Duration{arg});
+    return std::chrono::duration_cast<Duration>(r);
+  } else {
+    auto f = std::chrono::duration_cast<Duration>(Unit{Duration{arg} / Unit{multiple}} *
+                                                  multiple);
+    auto u = std::chrono::duration_cast<Duration>(Unit{multiple});
+    return Duration{arg} < f + u / 2 ? f : f + u;
+  }
+}
+
+int32_t get_total_months(year_month_day ymd, int multiple) {
+  int32_t total_months = (static_cast<int32_t>(ymd.year()) * 12 +
+                          static_cast<int32_t>(static_cast<uint32_t>(ymd.month())) - 1) /
+                         multiple * multiple;
+  return total_months;
+}
+
+template <typename Duration, typename Localizer>
+struct CeilTemporal {
+  explicit CeilTemporal(const RoundTemporalOptions* options, Localizer&& localizer)
+      : localizer_(std::move(localizer)), options(*options) {}
+
+  template <typename T, typename Arg0>
+  T Call(KernelContext*, Arg0 arg, Status*) const {
+    using std::chrono::duration_cast;
+    Duration t;
+    switch (options.unit) {
+      case compute::CalendarUnit::NANOSECOND:
+        t = ceil_multiple<Duration, std::chrono::nanoseconds>(arg, options.multiple);
+        break;
+      case compute::CalendarUnit::MICROSECOND:
+        t = ceil_multiple<Duration, std::chrono::microseconds>(arg, options.multiple);
+        break;
+      case compute::CalendarUnit::MILLISECOND:
+        t = ceil_multiple<Duration, std::chrono::milliseconds>(arg, options.multiple);
+        break;
+      case compute::CalendarUnit::SECOND:
+        t = ceil_multiple<Duration, std::chrono::seconds>(arg, options.multiple);
+        break;
+      case compute::CalendarUnit::MINUTE:
+        t = ceil_multiple<Duration, std::chrono::minutes>(arg, options.multiple);
+        break;
+      case compute::CalendarUnit::HOUR:
+        t = ceil_multiple<Duration, std::chrono::hours>(arg, options.multiple);
+        break;
+      case compute::CalendarUnit::DAY:
+        t = ceil_multiple<Duration, days>(arg, options.multiple);
+        break;
+      case compute::CalendarUnit::WEEK: {
+        auto sd =
+            sys_days{floor<days>(ceil_multiple<Duration, weeks>(arg, options.multiple))};
+        if (options.week_starts_monday) {
+          sd -= arrow_vendored::date::Sunday - weekday{sd};
+        } else {
+          sd -= arrow_vendored::date::Monday - weekday{sd};
+        }
+        t = duration_cast<Duration>(sd.time_since_epoch());
+        break;
+      }
+      case compute::CalendarUnit::MONTH: {
+        auto ymd = year_month_day{
+            floor<days>(localizer_.template ConvertTimePoint<Duration>(arg))};
+        int32_t total_months = get_total_months(ymd, options.multiple);
+
+        if (sys_days{ymd}.time_since_epoch() > Duration{t}) {
+          total_months += options.multiple;
+        }
+        auto month =
+            arrow_vendored::date::month { static_cast<uint32_t>(total_months % 12) + 1 };
+        t = sys_days { arrow_vendored::date::year { total_months / 12 } / month / 1 }
+                .time_since_epoch();
+        break;
+      }
+      case compute::CalendarUnit::SEASON: {
+        auto ymd = year_month_day{
+            ceil<days>(localizer_.template ConvertTimePoint<Duration>(arg))};
+        int32_t total_months = get_total_months(ymd, options.multiple * 3);
+
+        if (sys_days{ymd}.time_since_epoch() > Duration{t}) {
+          total_months += options.multiple * 3;
+        }
+        auto month = arrow_vendored::date::month{
+            season_lookup_table[static_cast<uint32_t>(total_months % 12)] };
+        t = sys_days { arrow_vendored::date::year { total_months / 12 } / month / 1 }
+                .time_since_epoch();
+        break;
+      }
+      case compute::CalendarUnit::YEAR: {
+        auto ymd = year_month_day{
+            floor<days>(localizer_.template ConvertTimePoint<Duration>(arg))};
+
+        arrow_vendored::date::year year;
+        if (options.multiple == 1) {
+          year = ymd.year();
+        } else {
+          year = arrow_vendored::date::year{static_cast<const int32_t>(ymd.year()) /
+                                            options.multiple * options.multiple};
+        }
+        if (ymd > sys_days{year / jan / 1}) {
+          year = year + years{options.multiple};
+        }
+
+        t = sys_days{year / jan / 1}.time_since_epoch();
+        break;
+      }
+    }
+    return static_cast<T>(t.count());
+  }
+
+  std::array<uint32_t, 12> season_lookup_table{{12, 12, 3, 3, 3, 6, 6, 6, 9, 9, 9, 12}};
+  Localizer localizer_;
+  RoundTemporalOptions options;
+};
+
+template <typename Duration, typename Localizer>
+struct FloorTemporal {
+  explicit FloorTemporal(const RoundTemporalOptions* options, Localizer&& localizer)
+      : localizer_(std::move(localizer)), options(*options) {}
+
+  template <typename T, typename Arg0>
+  T Call(KernelContext*, Arg0 arg, Status*) const {
+    using std::chrono::duration_cast;
+    Duration t;
+    switch (options.unit) {
+      case compute::CalendarUnit::NANOSECOND:
+        t = floor_multiple<Duration, std::chrono::nanoseconds>(arg, options.multiple);
+        break;
+      case compute::CalendarUnit::MICROSECOND:
+        t = floor_multiple<Duration, std::chrono::microseconds>(arg, options.multiple);
+        break;
+      case compute::CalendarUnit::MILLISECOND:
+        t = floor_multiple<Duration, std::chrono::milliseconds>(arg, options.multiple);
+        break;
+      case compute::CalendarUnit::SECOND:
+        t = floor_multiple<Duration, std::chrono::seconds>(arg, options.multiple);
+        break;
+      case compute::CalendarUnit::MINUTE:
+        t = floor_multiple<Duration, std::chrono::minutes>(arg, options.multiple);
+        break;
+      case compute::CalendarUnit::HOUR:
+        t = floor_multiple<Duration, std::chrono::hours>(arg, options.multiple);
+        break;
+      case compute::CalendarUnit::DAY:
+        t = floor_multiple<Duration, days>(arg, options.multiple);
+        break;
+      case compute::CalendarUnit::WEEK: {
+        auto sd =
+            sys_days{floor<days>(floor_multiple<Duration, weeks>(arg, options.multiple))};
+        if (options.week_starts_monday) {
+          sd -= arrow_vendored::date::Sunday - weekday{sd};
+        } else {
+          sd -= arrow_vendored::date::Monday - weekday{sd};
+        }
+        t = duration_cast<Duration>(sd.time_since_epoch());
+        break;
+      }
+      case compute::CalendarUnit::MONTH: {
+        auto ymd = year_month_day{
+            floor<days>(localizer_.template ConvertTimePoint<Duration>(arg))};
+        int32_t total_months = get_total_months(ymd, options.multiple);
+        auto month =
+            arrow_vendored::date::month{ static_cast<uint32_t>(total_months % 12) + 1 };
+        t = sys_days { arrow_vendored::date::year { total_months / 12 } / month / 1 }
+                .time_since_epoch();
+        break;
+      }
+      case compute::CalendarUnit::SEASON: {
+        auto ymd = year_month_day{
+            floor<days>(localizer_.template ConvertTimePoint<Duration>(arg))};
+        int32_t total_months = get_total_months(ymd, options.multiple * 3);
+        auto month = arrow_vendored::date::month{
+            season_lookup_table[static_cast<uint32_t>(total_months % 12)] };
+        t = sys_days { arrow_vendored::date::year { total_months / 12} / month / 1 }
+                .time_since_epoch();
+        break;
+      }
+      case compute::CalendarUnit::YEAR: {
+        auto ymd = year_month_day{
+            ceil<days>(localizer_.template ConvertTimePoint<Duration>(arg))};
+        arrow_vendored::date::year year;
+        if (options.multiple == 1) {
+          year = ymd.year();
+        } else {
+          year = arrow_vendored::date::year{static_cast<const int32_t>(ymd.year()) /
+                                            options.multiple * options.multiple};
+        }
+        t = sys_days{year / jan / 1}.time_since_epoch();
+        break;
+      }
+    }
+    return static_cast<T>(t.count());
+  }
+
+  std::array<uint32_t, 12> season_lookup_table{{12, 12, 3, 3, 3, 6, 6, 6, 9, 9, 9, 12}};
+  Localizer localizer_;
+  RoundTemporalOptions options;
+};
+
 template <typename Duration, typename Localizer>
 struct RoundTemporal {
   explicit RoundTemporal(const RoundTemporalOptions* options, Localizer&& localizer)
@@ -485,98 +719,88 @@ struct RoundTemporal {
     using std::chrono::duration_cast;
     Duration t;
     switch (options.unit) {
-      case compute::CalendarUnit::NANOSECOND: {
-        auto u = std::chrono::duration<double, std::nano>(options.multiple);
-        t = duration_cast<Duration>(std::floor<int>(Duration{arg} / u) * u);
+      case compute::CalendarUnit::NANOSECOND:
+        t = round_multiple<Duration, std::chrono::nanoseconds>(arg, options.multiple);
         break;
-      }
-      case compute::CalendarUnit::MICROSECOND: {
-        auto u = std::chrono::duration<double, std::micro>(options.multiple);
-        t = duration_cast<Duration>(std::floor<int>(Duration{arg} / u) * u);
+      case compute::CalendarUnit::MICROSECOND:
+        t = round_multiple<Duration, std::chrono::microseconds>(arg, options.multiple);
         break;
-      }
-      case compute::CalendarUnit::MILLISECOND: {
-        auto u = std::chrono::duration<double, std::milli>(options.multiple);
-        t = duration_cast<Duration>(std::floor<int>(Duration{arg} / u) * u);
+      case compute::CalendarUnit::MILLISECOND:
+        t = round_multiple<Duration, std::chrono::milliseconds>(arg, options.multiple);
         break;
-      }
-      case compute::CalendarUnit::SECOND: {
-        auto u = std::chrono::duration<double>(options.multiple);
-        t = duration_cast<Duration>(std::floor<int>(Duration{arg} / u) * u);
+      case compute::CalendarUnit::SECOND:
+        t = round_multiple<Duration, std::chrono::seconds>(arg, options.multiple);
         break;
-      }
-      case compute::CalendarUnit::MINUTE: {
-        auto u = std::chrono::duration<double, std::ratio<60>>(options.multiple);
-        t = duration_cast<Duration>(std::floor<int>(Duration{arg} / u) * u);
+      case compute::CalendarUnit::MINUTE:
+        t = round_multiple<Duration, std::chrono::minutes>(arg, options.multiple);
         break;
-      }
-      case compute::CalendarUnit::HOUR: {
-        auto u = std::chrono::duration<double, std::ratio<3600>>(options.multiple);
-        t = duration_cast<Duration>(std::floor<int>(Duration{arg} / u) * u);
+      case compute::CalendarUnit::HOUR:
+        t = round_multiple<Duration, std::chrono::hours>(arg, options.multiple);
         break;
-      }
-      case compute::CalendarUnit::DAY: {
-        t = duration_cast<Duration>(
-            sys_days(year_month_day{floor<days>(
-                         localizer_.template ConvertTimePoint<Duration>(arg))})
-                .time_since_epoch());
+      case compute::CalendarUnit::DAY:
+        t = round_multiple<Duration, days>(arg, options.multiple);
         break;
-      }
-      case compute::CalendarUnit::WEEK:
+      case compute::CalendarUnit::WEEK: {
+        auto sd =
+            sys_days{floor<days>(round_multiple<Duration, weeks>(arg, options.multiple))};
         if (options.week_starts_monday) {
-          t = duration_cast<Duration>(floor<weeks>(Duration{arg}));
+          sd -= arrow_vendored::date::Sunday - weekday{sd};
         } else {
-          auto sd = sys_days(year_month_day{
-              floor<days>(localizer_.template ConvertTimePoint<Duration>(arg))});
-          t = duration_cast<Duration>(
-              (sd - (arrow_vendored::date::Sunday - weekday{sd})).time_since_epoch());
+          sd -= arrow_vendored::date::Monday - weekday{sd};
         }
+        t = duration_cast<Duration>(sd.time_since_epoch());
         break;
+      }
       case compute::CalendarUnit::MONTH: {
         auto ymd = year_month_day{
             floor<days>(localizer_.template ConvertTimePoint<Duration>(arg))};
-        t = sys_days{ymd.year() / ymd.month() / 1}.time_since_epoch();
-        break;
-      }
-      case compute::CalendarUnit::BIMONTH: {
-        auto ymd = year_month_day{
-            floor<days>(localizer_.template ConvertTimePoint<Duration>(arg))};
-        auto month = static_cast<const uint32_t>(ymd.month()) / 2 * 2;
-        t = sys_days{ymd.year() / month / 1}.time_since_epoch();
-        break;
-      }
-      case compute::CalendarUnit::QUARTER: {
-        auto ymd = year_month_day{
-            floor<days>(localizer_.template ConvertTimePoint<Duration>(arg))};
-        auto month = static_cast<const uint32_t>(ymd.month()) / 3 * 3;
-        t = sys_days{ymd.year() / month / 1}.time_since_epoch();
+        int32_t total_months = get_total_months(ymd, options.multiple);
+
+        if (sys_days{ymd}.time_since_epoch() > Duration{t}) {
+          total_months += options.multiple;
+        }
+
+        auto month =
+            arrow_vendored::date::month { static_cast<uint32_t>(total_months % 12) + 1 };
+        t = sys_days { arrow_vendored::date::year { total_months / 12 } / month / 1 }
+                .time_since_epoch();
         break;
       }
       case compute::CalendarUnit::SEASON: {
         auto ymd = year_month_day{
             floor<days>(localizer_.template ConvertTimePoint<Duration>(arg))};
-        auto month = season_lookup_table[static_cast<const uint32_t>(ymd.month())];
-        t = sys_days{ymd.year() / month / 1}.time_since_epoch();
-        break;
-      }
-      case compute::CalendarUnit::HALFYEAR: {
-        auto ymd = year_month_day{
-            floor<days>(localizer_.template ConvertTimePoint<Duration>(arg))};
-        auto month = static_cast<const uint32_t>(ymd.month()) / 6 * 6;
+        int32_t total_months = get_total_months(ymd, options.multiple);
+        auto month = arrow_vendored::date::month{
+            season_lookup_table[static_cast<uint32_t>(total_months % 12)]};
         t = sys_days{ymd.year() / month / 1}.time_since_epoch();
         break;
       }
       case compute::CalendarUnit::YEAR: {
         auto ymd = year_month_day{
             floor<days>(localizer_.template ConvertTimePoint<Duration>(arg))};
-        t = sys_days{ymd.year() / jan / 1}.time_since_epoch();
+
+        arrow_vendored::date::year year;
+        if (options.multiple == 1) {
+          year = ymd.year();
+        } else {
+          year = arrow_vendored::date::year{static_cast<const int32_t>(ymd.year()) /
+                                            options.multiple * options.multiple};
+        }
+        auto year_c = ymd.year() + years{options.multiple};
+        auto f = sys_days{ymd.year() / jan / 1};
+        auto c = sys_days{year_c / jan / 1};
+
+        if (sys_days{ymd} - f > c - sys_days{ymd}) {
+          year = year_c;
+        }
+        t = sys_days{year / jan / 1}.time_since_epoch();
         break;
       }
     }
     return static_cast<T>(t.count());
   }
 
-  std::array<int, 13> season_lookup_table{{-1, 12, 12, 3, 3, 3, 6, 6, 6, 9, 9, 9, 12}};
+  std::array<uint32_t, 12> season_lookup_table{{12, 12, 3, 3, 3, 6, 6, 6, 9, 9, 9, 12}};
   Localizer localizer_;
   RoundTemporalOptions options;
 };
@@ -1119,8 +1343,27 @@ const FunctionDoc assume_timezone_doc{
     "AssumeTimezoneOptions",
     /*options_required=*/true};
 
+const FunctionDoc floor_temporal_doc{
+    "Round temporal values down to nearest multiple of specified time unit",
+    ("Null values emit null.\n"
+     "An error is returned if the values have a defined timezone but it\n"
+     "cannot be found in the timezone database."),
+    {"timestamps"},
+    "RoundTemporalOptions"};
+const FunctionDoc ceil_temporal_doc{
+    "Round temporal values up to nearest multiple of specified time unit",
+    ("Null values emit null.\n"
+     "An error is returned if the values have a defined timezone but it\n"
+     "cannot be found in the timezone database."),
+    {"timestamps"},
+    "RoundTemporalOptions"};
 const FunctionDoc round_temporal_doc{
-    "TODO", "TODO", {"timestamps"}, "RoundTemporalOptions"};
+    "Round temporal values to the nearest multiple of specified time unit",
+    ("Null values emit null.\n"
+     "An error is returned if the values have a defined timezone but it\n"
+     "cannot be found in the timezone database."),
+    {"timestamps"},
+    "RoundTemporalOptions"};
 
 }  // namespace
 
@@ -1258,7 +1501,22 @@ void RegisterScalarTemporalUnary(FunctionRegistry* registry) {
                           &assume_timezone_doc, nullptr, AssumeTimezoneState::Init);
   DCHECK_OK(registry->AddFunction(std::move(assume_timezone)));
 
+  // Temporal rounding functions
   static const auto default_round_temporal_options = RoundTemporalOptions::Defaults();
+  auto floor_temporal =
+      UnaryTemporalFactory<FloorTemporal, TemporalComponentExtractWithOptions,
+                           TimestampType>::Make<WithDates, WithTimes,
+                                                WithTimestamps>(
+          "floor_temporal", OutputType::Resolver(ResolveRoundTemporalOutput),
+          &floor_temporal_doc, &default_round_temporal_options, RoundTemporalState::Init);
+  DCHECK_OK(registry->AddFunction(std::move(floor_temporal)));
+  auto ceil_temporal =
+      UnaryTemporalFactory<CeilTemporal, TemporalComponentExtractWithOptions,
+                           TimestampType>::Make<WithDates, WithTimes,
+                                                WithTimestamps>(
+          "ceil_temporal", OutputType::Resolver(ResolveRoundTemporalOutput),
+          &ceil_temporal_doc, &default_round_temporal_options, RoundTemporalState::Init);
+  DCHECK_OK(registry->AddFunction(std::move(ceil_temporal)));
   auto round_temporal =
       UnaryTemporalFactory<RoundTemporal, TemporalComponentExtractWithOptions,
                            TimestampType>::Make<WithDates, WithTimes,

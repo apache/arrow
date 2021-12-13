@@ -221,9 +221,8 @@ struct EnumTraits<compute::CalendarUnit>
                       compute::CalendarUnit::MILLISECOND, compute::CalendarUnit::SECOND,
                       compute::CalendarUnit::MINUTE, compute::CalendarUnit::HOUR,
                       compute::CalendarUnit::DAY, compute::CalendarUnit::WEEK,
-                      compute::CalendarUnit::MONTH, compute::CalendarUnit::BIMONTH,
-                      compute::CalendarUnit::QUARTER, compute::CalendarUnit::SEASON,
-                      compute::CalendarUnit::HALFYEAR, compute::CalendarUnit::YEAR> {
+                      compute::CalendarUnit::MONTH, compute::CalendarUnit::SEASON,
+                      compute::CalendarUnit::YEAR> {
   static std::string name() { return "compute::CalendarUnit"; }
   static std::string value_name(compute::CalendarUnit value) {
     switch (value) {
@@ -244,15 +243,9 @@ struct EnumTraits<compute::CalendarUnit>
       case compute::CalendarUnit::WEEK:
         return "WEEK";
       case compute::CalendarUnit::MONTH:
-        return "DAY";
-      case compute::CalendarUnit::BIMONTH:
         return "MONTH";
-      case compute::CalendarUnit::QUARTER:
-        return "QUARTER";
       case compute::CalendarUnit::SEASON:
         return "SEASON";
-      case compute::CalendarUnit::HALFYEAR:
-        return "HALFYEAR";
       case compute::CalendarUnit::YEAR:
         return "YEAR";
     }
@@ -816,6 +809,16 @@ Result<Datum> AssumeTimezone(const Datum& arg, AssumeTimezoneOptions options,
 
 Result<Datum> DayOfWeek(const Datum& arg, DayOfWeekOptions options, ExecContext* ctx) {
   return CallFunction("day_of_week", {arg}, &options, ctx);
+}
+
+Result<Datum> CeilTemporal(const Datum& arg, RoundTemporalOptions options,
+                           ExecContext* ctx) {
+  return CallFunction("ceil_temporal", {arg}, &options, ctx);
+}
+
+Result<Datum> FloorTemporal(const Datum& arg, RoundTemporalOptions options,
+                            ExecContext* ctx) {
+  return CallFunction("floor_temporal", {arg}, &options, ctx);
 }
 
 Result<Datum> RoundTemporal(const Datum& arg, RoundTemporalOptions options,

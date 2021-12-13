@@ -1247,15 +1247,21 @@ number of input and output types.  The type to cast to can be passed in a
 :struct:`CastOptions` instance.  As an alternative, the same service is
 provided by a concrete function :func:`~arrow::compute::Cast`.
 
-+-----------------+------------+--------------------+------------------+------------------------------+-------+
-| Function name   | Arity      | Input types        | Output type      | Options class                | Notes |
-+=================+============+====================+==================+==============================+=======+
-| cast            | Unary      | Many               | Variable         | :struct:`CastOptions`        |       |
-+-----------------+------------+--------------------+------------------+------------------------------+-------+
-| strftime        | Unary      | Temporal           | String           | :struct:`StrftimeOptions`    | \(1)  |
-+-----------------+------------+--------------------+------------------+------------------------------+-------+
-| strptime        | Unary      | String-like        | Timestamp        | :struct:`StrptimeOptions`    |       |
-+-----------------+------------+--------------------+------------------+------------------------------+-------+
++-----------------+------------+--------------------+------------------+--------------------------------+-------+
+| Function name   | Arity      | Input types        | Output type      | Options class                  | Notes |
++=================+============+====================+==================+================================+=======+
+| ceil_temporal   | Unary      | Temporal           | Temporal         | :struct:`RoundTemporalOptions` |       |
++-----------------+------------+--------------------+------------------+--------------------------------+-------+
+| floor_temporal  | Unary      | Temporal           | Temporal         | :struct:`RoundTemporalOptions` |       |
++-----------------+------------+--------------------+------------------+--------------------------------+-------+
+| round_temporal  | Unary      | Temporal           | Temporal         | :struct:`RoundTemporalOptions` |       |
++-----------------+------------+--------------------+------------------+--------------------------------+-------+
+| cast            | Unary      | Many               | Variable         | :struct:`CastOptions`          |       |
++-----------------+------------+--------------------+------------------+--------------------------------+-------+
+| strftime        | Unary      | Temporal           | String           | :struct:`StrftimeOptions`      | \(1)  |
++-----------------+------------+--------------------+------------------+--------------------------------+-------+
+| strptime        | Unary      | String-like        | Timestamp        | :struct:`StrptimeOptions`      |       |
++-----------------+------------+--------------------+------------------+--------------------------------+-------+
 
 The conversions available with ``cast`` are listed below.  In all cases, a
 null input value is converted into a null output value.

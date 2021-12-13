@@ -1902,41 +1902,61 @@ def test_assume_timezone():
     result.equals(pa.array(expected))
 
 
-def test_round_temporal():
-    timestamps = pd.to_datetime(["2019-11-30T02:10:10.123456789"])
+units = (
+    "nanosecond",
+    "microsecond",
+    "millisecond",
+    "second",
+    "minute",
+    "hour",
+    "day",
+)
+unit_shorthand = {
+    "nanosecond": "ns",
+    "microsecond": "us",
+    "millisecond": "L",
+    "second": "s",
+    "minute": "min",
+    "hour": "H",
+    "day": "D"
+}
 
-    timezones = ["UTC", "US/Central", "Asia/Kolkata",
-                 "Etc/GMT-4", "Etc/GMT+4", "Australia/Broken_Hill"]
 
-    frequencies = [
-        # ("2ns", 2, "nanosecond"),
-        # ("3us", 3, "microsecond"),
-        # ("4L", 4, "millisecond"),
-        ("5s", 5, "second"),
-        ("6min", 6, "minute"),
-        # ("7H", 7, "hour"),
-        # ("8D", 8, "day"),
+@pytest.mark.parametrize('unit', units)
+def test_round_temporal(unit):
+    # timezones = ["UTC", "US/Central", "Asia/Kolkata",
+    #              "Etc/GMT-4", "Etc/GMT+4", "Australia/Broken_Hill"]
+    # timezones = ["UTC", "Etc/GMT+4"]
+    timezones = ["UTC"]
 
-        # ("9W", 9, "week"),
-        # ("10MS", 10, "month"),
-        # ("11QS", 11, "quarter"),
-        # ("12AS", 12, "year"),
-        # ("12YS", 12, "year"),
-    ]
+    values = (1, 2, 3, 4, 5, 6, 7, 10, 15, 24, 60, 250, 500, 750)
 
-    for timezone in timezones:
-        ts = pd.to_datetime(timestamps).tz_localize(
-            "UTC").tz_convert(timezone).to_series()
-        ta = pa.array(timestamps, pa.timestamp("ns", tz=timezone))
+    for tz in timezones:
+        ts = pd.Series((
+            # pd.Timestamp("1910-01-03T02:10:10.12345671", tz=tz, unit="ns"),
+            # pd.Timestamp("1950-07-18T12:41:12.12345678", tz=tz, unit="ns"),
+            pd.Timestamp("2019-11-30T02:11:21.12345672", tz=tz, unit="ns")
+        ))
+        ta = pa.array(ts)
 
-        for frequency, multiple, unit in frequencies:
-            options = pc.RoundTemporalOptions(multiple, unit,
+        for value in values:
+            frequency = str(value) + unit_shorthand[unit]
+            options = pc.RoundTemporalOptions(value, unit,
                                               week_starts_monday=True,
                                               change_on_boundary=False,
                                               ambiguous="raise",
                                               nonexistent="raise")
-            result = pc.round_temporal(ta, options=options)
+
+            result = pc.ceil_temporal(ta, options=options)
+            expected = pa.array(ts.dt.ceil(frequency))
+            assert result.equals(expected)
+
+            result = pc.floor_temporal(ta, options=options)
             expected = pa.array(ts.dt.floor(frequency))
+            assert result.equals(expected)
+
+            result = pc.round_temporal(ta, options=options)
+            expected = pa.array(ts.dt.round(frequency))
             assert result.equals(expected)
 
 

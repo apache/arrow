@@ -37,6 +37,10 @@ namespace compute {
 
 class ScalarTemporalTest : public ::testing::Test {
  public:
+  std::vector<std::string> timezones = {
+      "UTC",        "Australia/Broken_Hill", "Pacific/Marquesas",
+      "US/Central", "Asia/Kolkata",          "Etc/GMT-4",
+      "Etc/GMT+4"};
   const char* date32s =
       R"([0, 11016, -25932, 23148, 18262, 18261, 18260, 14609, 14610, 14612,
           14613, 13149, 13148, 14241, 14242, 15340, null])";
@@ -1324,24 +1328,274 @@ TEST_F(ScalarTemporalTest, TestTemporalDifferenceZoned) {
   }
 }
 
-TEST_F(ScalarTemporalTest, TestTemporalRounding) {
-  auto unit = timestamp(TimeUnit::NANO, "Australia/Broken_Hill");
-  const char* times = R"(["2019-11-30T02:10:10.123456789", null])";
+TEST_F(ScalarTemporalTest, TestCeilTemporal) {
+  std::string op = "ceil_temporal";
 
-  const char* times_floor_nanoseconds = R"(["2019-11-30T02:10:10.123456789", null])";
-  const char* times_floor_microseconds = R"(["2019-11-30T02:10:10.123456", null])";
-  const char* times_floor_milliseconds = R"(["2019-11-30T02:10:10.123", null])";
-  const char* times_floor_seconds = R"(["2019-11-30T02:10:10", null])";
-  const char* times_floor_minutes = R"(["2019-11-30T02:10:00", null])";
-  const char* times_floor_hours = R"(["2019-11-30T02:00:00", null])";
-  const char* times_floor_days = R"(["2019-11-30T00:00:00", null])";
-  const char* times_floor_weeks = R"(["2019-11-28T00:00:00", null])";
-  const char* times_floor_months = R"(["2019-11-01T00:00:00", null])";
-  const char* times_floor_bimonths = R"(["2019-10-01T00:00:00", null])";
-  const char* times_floor_quarters = R"(["2019-09-01T00:00:00", null])";
-  const char* times_floor_seasons = R"(["2019-09-01T00:00:00", null])";
-  const char* times_floor_halfyears = R"(["2019-06-01T00:00:00", null])";
-  const char* times_floor_years = R"(["2019-01-01T00:00:00", null])";
+  const char* times = R"(["2019-11-29T02:10:10.123456789", null])";
+  const char* times_nanoseconds = R"(["2019-11-29T02:10:10.123456789", null])";
+  const char* times_microseconds = R"(["2019-11-29T02:10:10.123457", null])";
+  const char* times_milliseconds = R"(["2019-11-29T02:10:10.124", null])";
+  const char* times_seconds = R"(["2019-11-29T02:10:11", null])";
+  const char* times_minutes = R"(["2019-11-29T02:11:00", null])";
+  const char* times_hours = R"(["2019-11-29T03:00:00", null])";
+  const char* times_days = R"(["2019-11-30T00:00:00", null])";
+  const char* times_weeks = R"(["2019-12-02T00:00:00", null])";
+  const char* times_weeks_sunday = R"(["2019-12-01T00:00:00", null])";
+  const char* times_months = R"(["2019-12-01T00:00:00", null])";
+  const char* times_seasons = R"(["2019-12-01T00:00:00", null])";
+  const char* times_years = R"(["2020-01-01T00:00:00", null])";
+
+  auto options_nanoseconds = RoundTemporalOptions(1, CalendarUnit::NANOSECOND);
+  auto options_microseconds = RoundTemporalOptions(1, CalendarUnit::MICROSECOND);
+  auto options_milliseconds = RoundTemporalOptions(1, CalendarUnit::MILLISECOND);
+  auto options_seconds = RoundTemporalOptions(1, CalendarUnit::SECOND);
+  auto options_minutes = RoundTemporalOptions(1, CalendarUnit::MINUTE);
+  auto options_hours = RoundTemporalOptions(1, CalendarUnit::HOUR);
+  auto options_days = RoundTemporalOptions(1, CalendarUnit::DAY);
+  auto options_weeks = RoundTemporalOptions(1, CalendarUnit::WEEK);
+  auto options_weeks_sunday = RoundTemporalOptions(1, CalendarUnit::WEEK, false);
+  auto options_months = RoundTemporalOptions(1, CalendarUnit::MONTH);
+  auto options_seasons = RoundTemporalOptions(1, CalendarUnit::SEASON);
+  auto options_years = RoundTemporalOptions(1, CalendarUnit::YEAR);
+
+  for (auto timezone : timezones) {
+    auto unit = timestamp(TimeUnit::NANO, timezone);
+    CheckScalarUnary(op, unit, times, unit, times_nanoseconds, &options_nanoseconds);
+    CheckScalarUnary(op, unit, times, unit, times_microseconds, &options_microseconds);
+    CheckScalarUnary(op, unit, times, unit, times_milliseconds, &options_milliseconds);
+    CheckScalarUnary(op, unit, times, unit, times_seconds, &options_seconds);
+    CheckScalarUnary(op, unit, times, unit, times_minutes, &options_minutes);
+    CheckScalarUnary(op, unit, times, unit, times_hours, &options_hours);
+    CheckScalarUnary(op, unit, times, unit, times_days, &options_days);
+    CheckScalarUnary(op, unit, times, unit, times_weeks, &options_weeks);
+    CheckScalarUnary(op, unit, times, unit, times_weeks_sunday, &options_weeks_sunday);
+    CheckScalarUnary(op, unit, times, unit, times_months, &options_months);
+    //    CheckScalarUnary(op, unit, times, unit, times_seasons, &options_seasons);
+    CheckScalarUnary(op, unit, times, unit, times_years, &options_years);
+
+    const char* times_15_nanoseconds = R"(["2019-11-29T02:10:10.123456800", null])";
+    const char* times_15_microseconds = R"(["2019-11-29T02:10:10.123470", null])";
+    const char* times_15_milliseconds = R"(["2019-11-29T02:10:10.125", null])";
+    const char* times_15_seconds = R"(["2019-11-29T02:10:15", null])";
+    const char* times_15_minutes = R"(["2019-11-29T02:15:00", null])";
+    const char* times_15_hours = R"(["2019-11-29T09:00:00", null])";
+    const char* times_15_days = R"(["2019-12-10T00:00:00", null])";
+
+    const char* times_15_weeks = R"(["2020-01-06T00:00:00", null])";    // TODO: check
+    const char* times_15_months = R"(["2020-01-01T00:00:00", null])";   // TODO: check
+    const char* times_15_seasons = R"(["2021-03-01T00:00:00", null])";  // TODO: check
+    const char* times_15_years = R"(["2025-01-01T00:00:00", null])";
+
+    auto options_15_nanoseconds = RoundTemporalOptions(15, CalendarUnit::NANOSECOND);
+    auto options_15_microseconds = RoundTemporalOptions(15, CalendarUnit::MICROSECOND);
+    auto options_15_milliseconds = RoundTemporalOptions(15, CalendarUnit::MILLISECOND);
+    auto options_15_seconds = RoundTemporalOptions(15, CalendarUnit::SECOND);
+    auto options_15_minutes = RoundTemporalOptions(15, CalendarUnit::MINUTE);
+    auto options_15_hours = RoundTemporalOptions(15, CalendarUnit::HOUR);
+    auto options_15_days = RoundTemporalOptions(15, CalendarUnit::DAY);
+    auto options_15_weeks = RoundTemporalOptions(15, CalendarUnit::WEEK);
+    auto options_15_months = RoundTemporalOptions(15, CalendarUnit::MONTH);
+    auto options_15_seasons = RoundTemporalOptions(15, CalendarUnit::SEASON);
+    auto options_15_years = RoundTemporalOptions(15, CalendarUnit::YEAR);
+
+    CheckScalarUnary(op, unit, times, unit, times_15_nanoseconds,
+                     &options_15_nanoseconds);
+    CheckScalarUnary(op, unit, times, unit, times_15_microseconds,
+                     &options_15_microseconds);
+    CheckScalarUnary(op, unit, times, unit, times_15_milliseconds,
+                     &options_15_milliseconds);
+    CheckScalarUnary(op, unit, times, unit, times_15_seconds, &options_15_seconds);
+    CheckScalarUnary(op, unit, times, unit, times_15_minutes, &options_15_minutes);
+    CheckScalarUnary(op, unit, times, unit, times_15_hours, &options_15_hours);
+    CheckScalarUnary(op, unit, times, unit, times_15_days, &options_15_days);
+    CheckScalarUnary(op, unit, times, unit, times_15_weeks, &options_15_weeks);
+    CheckScalarUnary(op, unit, times, unit, times_15_months, &options_15_months);
+    CheckScalarUnary(op, unit, times, unit, times_15_seasons, &options_15_seasons);
+    CheckScalarUnary(op, unit, times, unit, times_15_years, &options_15_years);
+
+    const char* times_floor_3_weeks_monday = R"(["2019-12-16", null])";
+    auto options_3_weeks_monday = RoundTemporalOptions(
+        /*multiple=*/3,
+        /*unit=*/CalendarUnit::WEEK, /*week_starts_monday=*/true,
+        /*change_on_boundary=*/true,
+        /*ambiguous=*/RoundTemporalOptions::Ambiguous::AMBIGUOUS_RAISE,
+        /*nonexistent=*/RoundTemporalOptions::Nonexistent::NONEXISTENT_RAISE);
+    CheckScalarUnary("ceil_temporal", unit, times, unit, times_floor_3_weeks_monday,
+                     &options_3_weeks_monday);
+
+    const char* times_floor_3_weeks = R"(["2019-12-15", null])";
+    auto options_3_weeks = RoundTemporalOptions(
+        /*multiple=*/3,
+        /*unit=*/CalendarUnit::WEEK, /*week_starts_monday=*/false,
+        /*change_on_boundary=*/true,
+        /*ambiguous=*/RoundTemporalOptions::Ambiguous::AMBIGUOUS_RAISE,
+        /*nonexistent=*/RoundTemporalOptions::Nonexistent::NONEXISTENT_RAISE);
+    CheckScalarUnary("ceil_temporal", unit, times, unit, times_floor_3_weeks,
+                     &options_3_weeks);
+
+    const char* times_ceil_1_weeks_monday = R"(["2019-12-02", null])";
+    auto options_1_weeks_monday = RoundTemporalOptions(
+        /*multiple=*/1,
+        /*unit=*/CalendarUnit::WEEK, /*week_starts_monday=*/true,
+        /*change_on_boundary=*/true,
+        /*ambiguous=*/RoundTemporalOptions::Ambiguous::AMBIGUOUS_RAISE,
+        /*nonexistent=*/RoundTemporalOptions::Nonexistent::NONEXISTENT_RAISE);
+    CheckScalarUnary("ceil_temporal", unit, times, unit, times_ceil_1_weeks_monday,
+                     &options_1_weeks_monday);
+
+    const char* times_ceil_1_weeks = R"(["2019-12-01", null])";
+    auto options_1_weeks = RoundTemporalOptions(
+        /*multiple=*/1,
+        /*unit=*/CalendarUnit::WEEK, /*week_starts_monday=*/false,
+        /*change_on_boundary=*/true,
+        /*ambiguous=*/RoundTemporalOptions::Ambiguous::AMBIGUOUS_RAISE,
+        /*nonexistent=*/RoundTemporalOptions::Nonexistent::NONEXISTENT_RAISE);
+    CheckScalarUnary("ceil_temporal", unit, times, unit, times_ceil_1_weeks,
+                     &options_1_weeks);
+  }
+}
+
+TEST_F(ScalarTemporalTest, TestFloorTemporal) {
+  std::string op = "floor_temporal";
+
+  const char* times = R"(["2019-11-29T02:10:10.123456789", null])";
+  const char* times_nanoseconds = R"(["2019-11-29T02:10:10.123456789", null])";
+  const char* times_microseconds = R"(["2019-11-29T02:10:10.123456", null])";
+  const char* times_milliseconds = R"(["2019-11-29T02:10:10.123", null])";
+  const char* times_seconds = R"(["2019-11-29T02:10:10", null])";
+  const char* times_minutes = R"(["2019-11-29T02:10:00", null])";
+  const char* times_hours = R"(["2019-11-29T02:00:00", null])";
+  const char* times_days = R"(["2019-11-29T00:00:00", null])";
+  const char* times_weeks = R"(["2019-11-25T00:00:00", null])";
+  const char* times_weeks_sunday = R"(["2019-11-24T00:00:00", null])";
+  const char* times_months = R"(["2019-11-01T00:00:00", null])";
+  const char* times_seasons = R"(["2019-09-01T00:00:00", null])";
+  const char* times_years = R"(["2019-01-01T00:00:00", null])";
+
+  auto options_nanoseconds = RoundTemporalOptions(1, CalendarUnit::NANOSECOND);
+  auto options_microseconds = RoundTemporalOptions(1, CalendarUnit::MICROSECOND);
+  auto options_milliseconds = RoundTemporalOptions(1, CalendarUnit::MILLISECOND);
+  auto options_seconds = RoundTemporalOptions(1, CalendarUnit::SECOND);
+  auto options_minutes = RoundTemporalOptions(1, CalendarUnit::MINUTE);
+  auto options_hours = RoundTemporalOptions(1, CalendarUnit::HOUR);
+  auto options_days = RoundTemporalOptions(1, CalendarUnit::DAY);
+  auto options_weeks = RoundTemporalOptions(1, CalendarUnit::WEEK);
+  auto options_weeks_sunday = RoundTemporalOptions(1, CalendarUnit::WEEK, false);
+  auto options_months = RoundTemporalOptions(1, CalendarUnit::MONTH);
+  auto options_seasons = RoundTemporalOptions(1, CalendarUnit::SEASON);
+  auto options_years = RoundTemporalOptions(1, CalendarUnit::YEAR);
+
+  for (auto timezone : timezones) {
+    auto unit = timestamp(TimeUnit::NANO, timezone);
+    CheckScalarUnary(op, unit, times, unit, times_nanoseconds, &options_nanoseconds);
+    CheckScalarUnary(op, unit, times, unit, times_microseconds, &options_microseconds);
+    CheckScalarUnary(op, unit, times, unit, times_milliseconds, &options_milliseconds);
+    CheckScalarUnary(op, unit, times, unit, times_seconds, &options_seconds);
+    CheckScalarUnary(op, unit, times, unit, times_minutes, &options_minutes);
+    CheckScalarUnary(op, unit, times, unit, times_hours, &options_hours);
+    CheckScalarUnary(op, unit, times, unit, times_days, &options_days);
+    CheckScalarUnary(op, unit, times, unit, times_weeks, &options_weeks);
+    CheckScalarUnary(op, unit, times, unit, times_weeks_sunday, &options_weeks_sunday);
+    CheckScalarUnary(op, unit, times, unit, times_months, &options_months);
+    CheckScalarUnary(op, unit, times, unit, times_seasons, &options_seasons);
+    CheckScalarUnary(op, unit, times, unit, times_years, &options_years);
+
+    const char* times_15_nanoseconds = R"(["2019-11-29T02:10:10.123456785", null])";
+    const char* times_15_microseconds = R"(["2019-11-29T02:10:10.123455", null])";
+    const char* times_15_milliseconds = R"(["2019-11-29T02:10:10.110", null])";
+    const char* times_15_seconds = R"(["2019-11-29T02:10:00", null])";
+    const char* times_15_minutes = R"(["2019-11-29T02:00:00", null])";
+    const char* times_15_hours = R"(["2019-11-28T18:00:00", null])";
+    const char* times_15_days = R"(["2019-11-25T00:00:00", null])";
+    const char* times_15_weeks = R"(["2019-09-23T00:00:00", null])";    // TODO: check
+    const char* times_15_months = R"(["2018-10-01T00:00:00", null])";   // TODO: check
+    const char* times_15_seasons = R"(["2017-06-01T00:00:00", null])";  // TODO: check
+    const char* times_15_years = R"(["2010-01-01T00:00:00", null])";
+
+    auto options_15_nanoseconds = RoundTemporalOptions(15, CalendarUnit::NANOSECOND);
+    auto options_15_microseconds = RoundTemporalOptions(15, CalendarUnit::MICROSECOND);
+    auto options_15_milliseconds = RoundTemporalOptions(15, CalendarUnit::MILLISECOND);
+    auto options_15_seconds = RoundTemporalOptions(15, CalendarUnit::SECOND);
+    auto options_15_minutes = RoundTemporalOptions(15, CalendarUnit::MINUTE);
+    auto options_15_hours = RoundTemporalOptions(15, CalendarUnit::HOUR);
+    auto options_15_days = RoundTemporalOptions(15, CalendarUnit::DAY);
+    auto options_15_weeks = RoundTemporalOptions(15, CalendarUnit::WEEK);
+    auto options_15_months = RoundTemporalOptions(15, CalendarUnit::MONTH);
+    auto options_15_seasons = RoundTemporalOptions(15, CalendarUnit::SEASON);
+    auto options_15_years = RoundTemporalOptions(15, CalendarUnit::YEAR);
+
+    CheckScalarUnary(op, unit, times, unit, times_15_nanoseconds,
+                     &options_15_nanoseconds);
+    CheckScalarUnary(op, unit, times, unit, times_15_microseconds,
+                     &options_15_microseconds);
+    CheckScalarUnary(op, unit, times, unit, times_15_milliseconds,
+                     &options_15_milliseconds);
+    CheckScalarUnary(op, unit, times, unit, times_15_seconds, &options_15_seconds);
+    CheckScalarUnary(op, unit, times, unit, times_15_minutes, &options_15_minutes);
+    CheckScalarUnary(op, unit, times, unit, times_15_hours, &options_15_hours);
+    CheckScalarUnary(op, unit, times, unit, times_15_days, &options_15_days);
+    CheckScalarUnary(op, unit, times, unit, times_15_weeks, &options_15_weeks);
+    CheckScalarUnary(op, unit, times, unit, times_15_months, &options_15_months);
+    //    CheckScalarUnary(op, unit, times, unit, times_15_seasons, &options_15_seasons);
+    CheckScalarUnary(op, unit, times, unit, times_15_years, &options_15_years);
+
+    const char* times_floor_3_weeks_monday = R"(["2019-11-25", null])";
+    auto options_3_weeks_monday = RoundTemporalOptions(
+        /*multiple=*/3,
+        /*unit=*/CalendarUnit::WEEK, /*week_starts_monday=*/true,
+        /*change_on_boundary=*/true,
+        /*ambiguous=*/RoundTemporalOptions::Ambiguous::AMBIGUOUS_RAISE,
+        /*nonexistent=*/RoundTemporalOptions::Nonexistent::NONEXISTENT_RAISE);
+    CheckScalarUnary("floor_temporal", unit, times, unit, times_floor_3_weeks_monday,
+                     &options_3_weeks_monday);
+
+    const char* times_floor_3_weeks = R"(["2019-11-24", null])";
+    auto options_3_weeks = RoundTemporalOptions(
+        /*multiple=*/3,
+        /*unit=*/CalendarUnit::WEEK, /*week_starts_monday=*/false,
+        /*change_on_boundary=*/true,
+        /*ambiguous=*/RoundTemporalOptions::Ambiguous::AMBIGUOUS_RAISE,
+        /*nonexistent=*/RoundTemporalOptions::Nonexistent::NONEXISTENT_RAISE);
+    CheckScalarUnary("floor_temporal", unit, times, unit, times_floor_3_weeks,
+                     &options_3_weeks);
+
+    const char* times_floor_1_weeks_monday = R"(["2019-11-25", null])";
+    auto options_1_weeks_monday = RoundTemporalOptions(
+        /*multiple=*/1,
+        /*unit=*/CalendarUnit::WEEK, /*week_starts_monday=*/true,
+        /*change_on_boundary=*/true,
+        /*ambiguous=*/RoundTemporalOptions::Ambiguous::AMBIGUOUS_RAISE,
+        /*nonexistent=*/RoundTemporalOptions::Nonexistent::NONEXISTENT_RAISE);
+    CheckScalarUnary("floor_temporal", unit, times, unit, times_floor_1_weeks_monday,
+                     &options_1_weeks_monday);
+
+    const char* times_floor_1_weeks = R"(["2019-11-24", null])";
+    auto options_1_weeks = RoundTemporalOptions(
+        /*multiple=*/1,
+        /*unit=*/CalendarUnit::WEEK, /*week_starts_monday=*/false,
+        /*change_on_boundary=*/true,
+        /*ambiguous=*/RoundTemporalOptions::Ambiguous::AMBIGUOUS_RAISE,
+        /*nonexistent=*/RoundTemporalOptions::Nonexistent::NONEXISTENT_RAISE);
+    CheckScalarUnary("floor_temporal", unit, times, unit, times_floor_1_weeks,
+                     &options_1_weeks);
+  }
+}
+
+TEST_F(ScalarTemporalTest, TestRoundTemporal) {
+  std::string op = "round_temporal";
+
+  const char* times = R"(["2019-11-29T02:10:10.123456789", null])";
+  const char* times_nanoseconds = R"(["2019-11-29T02:10:10.123456789", null])";
+  const char* times_microseconds = R"(["2019-11-29T02:10:10.123457", null])";
+  const char* times_milliseconds = R"(["2019-11-29T02:10:10.123", null])";
+  const char* times_seconds = R"(["2019-11-29T02:10:10", null])";
+  const char* times_minutes = R"(["2019-11-29T02:10:00", null])";
+  const char* times_hours = R"(["2019-11-29T02:00:00", null])";
+  const char* times_days = R"(["2019-11-29T00:00:00", null])";
+  const char* times_weeks = R"(["2019-11-25T00:00:00", null])";
+  const char* times_months = R"(["2019-12-01T00:00:00", null])";
+  const char* times_seasons = R"(["2019-12-01T00:00:00", null])";
+  const char* times_years = R"(["2020-01-01T00:00:00", null])";
 
   auto options_nanoseconds = RoundTemporalOptions(1, CalendarUnit::NANOSECOND);
   auto options_microseconds = RoundTemporalOptions(1, CalendarUnit::MICROSECOND);
@@ -1352,79 +1606,105 @@ TEST_F(ScalarTemporalTest, TestTemporalRounding) {
   auto options_days = RoundTemporalOptions(1, CalendarUnit::DAY);
   auto options_weeks = RoundTemporalOptions(1, CalendarUnit::WEEK);
   auto options_months = RoundTemporalOptions(1, CalendarUnit::MONTH);
-  auto options_bimonths = RoundTemporalOptions(1, CalendarUnit::BIMONTH);
-  auto options_quarters = RoundTemporalOptions(1, CalendarUnit::QUARTER);
   auto options_seasons = RoundTemporalOptions(1, CalendarUnit::SEASON);
-  auto options_halfyears = RoundTemporalOptions(1, CalendarUnit::HALFYEAR);
   auto options_years = RoundTemporalOptions(1, CalendarUnit::YEAR);
 
-//  CheckScalarUnary("round_temporal", unit, times, unit, times_floor_nanoseconds,
-//                   &options_nanoseconds);
-//  CheckScalarUnary("round_temporal", unit, times, unit, times_floor_microseconds,
-//                   &options_microseconds);
-//  CheckScalarUnary("round_temporal", unit, times, unit, times_floor_milliseconds,
-//                   &options_milliseconds);
-  CheckScalarUnary("round_temporal", unit, times, unit, times_floor_seconds,
-                   &options_seconds);
-  CheckScalarUnary("round_temporal", unit, times, unit, times_floor_minutes,
-                   &options_minutes);
-  CheckScalarUnary("round_temporal", unit, times, unit, times_floor_hours,
-                   &options_hours);
-  CheckScalarUnary("round_temporal", unit, times, unit, times_floor_days, &options_days);
-  CheckScalarUnary("round_temporal", unit, times, unit, times_floor_weeks,
-                   &options_weeks);
-  CheckScalarUnary("round_temporal", unit, times, unit, times_floor_months,
-                   &options_months);
-  CheckScalarUnary("round_temporal", unit, times, unit, times_floor_bimonths,
-                   &options_bimonths);
-  CheckScalarUnary("round_temporal", unit, times, unit, times_floor_quarters,
-                   &options_quarters);
-  CheckScalarUnary("round_temporal", unit, times, unit, times_floor_seasons,
-                   &options_seasons);
-  CheckScalarUnary("round_temporal", unit, times, unit, times_floor_halfyears,
-                   &options_halfyears);
-  CheckScalarUnary("round_temporal", unit, times, unit, times_floor_years,
-                   &options_years);
+  for (auto timezone : timezones) {
+    auto unit = timestamp(TimeUnit::NANO, timezone);
+    CheckScalarUnary(op, unit, times, unit, times_nanoseconds, &options_nanoseconds);
+    CheckScalarUnary(op, unit, times, unit, times_microseconds, &options_microseconds);
+    CheckScalarUnary(op, unit, times, unit, times_milliseconds, &options_milliseconds);
+    CheckScalarUnary(op, unit, times, unit, times_seconds, &options_seconds);
+    CheckScalarUnary(op, unit, times, unit, times_minutes, &options_minutes);
+    CheckScalarUnary(op, unit, times, unit, times_hours, &options_hours);
+    CheckScalarUnary(op, unit, times, unit, times_days, &options_days);
+    CheckScalarUnary(op, unit, times, unit, times_weeks, &options_weeks);
+    CheckScalarUnary(op, unit, times, unit, times_months, &options_months);
+    //    CheckScalarUnary(op, unit, times, unit, times_seasons, &options_seasons);
+    CheckScalarUnary(op, unit, times, unit, times_years, &options_years);
 
-    const char* times_floor_4_days = R"(["2019-11-30", null])";
-    auto options_4_days = RoundTemporalOptions(
-        /*multiple=*/4,
-        /*unit=*/CalendarUnit::DAY, /*week_starts_monday=*/false,
+    const char* times_15_nanoseconds = R"(["2019-11-29T02:10:10.123456785", null])";
+    const char* times_15_microseconds = R"(["2019-11-29T02:10:10.123455", null])";
+    const char* times_15_milliseconds = R"(["2019-11-29T02:10:10.125", null])";
+    const char* times_15_seconds = R"(["2019-11-29T02:10:15", null])";
+    const char* times_15_minutes = R"(["2019-11-29T02:15:00", null])";
+    const char* times_15_hours = R"(["2019-11-29T09:00:00", null])";
+    const char* times_15_days = R"(["2019-11-25T00:00:00", null])";
+    const char* times_15_weeks = R"(["2020-01-06T00:00:00", null])";
+    const char* times_15_months = R"(["2018-10-01T00:00:00", null])";
+    const char* times_15_seasons = R"(["2019-09-01T00:00:00", null])";
+    const char* times_15_years = R"(["2010-01-01T00:00:00", null])";
+
+    auto options_15_nanoseconds = RoundTemporalOptions(15, CalendarUnit::NANOSECOND);
+    auto options_15_microseconds = RoundTemporalOptions(15, CalendarUnit::MICROSECOND);
+    auto options_15_milliseconds = RoundTemporalOptions(15, CalendarUnit::MILLISECOND);
+    auto options_15_seconds = RoundTemporalOptions(15, CalendarUnit::SECOND);
+    auto options_15_minutes = RoundTemporalOptions(15, CalendarUnit::MINUTE);
+    auto options_15_hours = RoundTemporalOptions(15, CalendarUnit::HOUR);
+    auto options_15_days = RoundTemporalOptions(15, CalendarUnit::DAY);
+    auto options_15_weeks = RoundTemporalOptions(15, CalendarUnit::WEEK);
+    auto options_15_months = RoundTemporalOptions(15, CalendarUnit::MONTH);
+    auto options_15_seasons = RoundTemporalOptions(15, CalendarUnit::SEASON);
+    auto options_15_years = RoundTemporalOptions(15, CalendarUnit::YEAR);
+
+    CheckScalarUnary(op, unit, times, unit, times_15_nanoseconds,
+                     &options_15_nanoseconds);
+    CheckScalarUnary(op, unit, times, unit, times_15_microseconds,
+                     &options_15_microseconds);
+    CheckScalarUnary(op, unit, times, unit, times_15_milliseconds,
+                     &options_15_milliseconds);
+    CheckScalarUnary(op, unit, times, unit, times_15_seconds, &options_15_seconds);
+    CheckScalarUnary(op, unit, times, unit, times_15_minutes, &options_15_minutes);
+    CheckScalarUnary(op, unit, times, unit, times_15_hours, &options_15_hours);
+    CheckScalarUnary(op, unit, times, unit, times_15_days, &options_15_days);
+    CheckScalarUnary(op, unit, times, unit, times_15_weeks,
+                     &options_15_weeks);  // TODO: check
+    // CheckScalarUnary(op, unit, times, unit, times_15_months, &options_15_months);
+    // TODO: check
+    // CheckScalarUnary(op, unit, times, unit, times_15_seasons, &options_15_seasons);
+    // TODO: check
+    CheckScalarUnary(op, unit, times, unit, times_15_years, &options_15_years);
+
+    const char* times_round_3_weeks_monday = R"(["2019-11-25", null])";
+    auto options_3_weeks_monday = RoundTemporalOptions(
+        /*multiple=*/3,
+        /*unit=*/CalendarUnit::WEEK, /*week_starts_monday=*/true,
         /*change_on_boundary=*/true,
         /*ambiguous=*/RoundTemporalOptions::Ambiguous::AMBIGUOUS_RAISE,
         /*nonexistent=*/RoundTemporalOptions::Nonexistent::NONEXISTENT_RAISE);
-    CheckScalarUnary("round_temporal", unit, times, unit, times_floor_4_days,
-    &options_4_days);
+    CheckScalarUnary("round_temporal", unit, times, unit, times_round_3_weeks_monday,
+                     &options_3_weeks_monday);
 
-//    const char* times_floor_3_weeks = R"(["2019-11-29", null])";
-//    auto options_3_weeks = RoundTemporalOptions(
-//        /*multiple=*/3,
-//        /*unit=*/CalendarUnit::WEEK, /*week_starts_monday=*/false,
-//        /*change_on_boundary=*/true,
-//        /*ambiguous=*/RoundTemporalOptions::Ambiguous::AMBIGUOUS_RAISE,
-//        /*nonexistent=*/RoundTemporalOptions::Nonexistent::NONEXISTENT_RAISE);
-//    CheckScalarUnary("round_temporal", unit, times, unit, times_floor_3_weeks,
-//    &options_3_weeks);
-//
-//    const char* times_floor_5_seconds = R"(["2019-11-30T02:10:09",
-//    null])"; auto options_5_seconds = RoundTemporalOptions(
-//        /*multiple=*/3,
-//        /*unit=*/CalendarUnit::SECOND, /*week_starts_monday=*/true,
-//        /*change_on_boundary=*/true,
-//        /*ambiguous=*/RoundTemporalOptions::Ambiguous::AMBIGUOUS_RAISE,
-//        /*nonexistent=*/RoundTemporalOptions::Nonexistent::NONEXISTENT_RAISE);
-//    CheckScalarUnary("round_temporal", unit, times, unit, times_floor_5_seconds,
-//    &options_5_seconds);
-//
-//    const char* times_floor_2_hours = R"(["2019-11-30T02:00:00", null])";
-//    auto options_2_hours = RoundTemporalOptions(
-//        /*multiple=*/2,
-//        /*unit=*/CalendarUnit::HOUR, /*week_starts_monday=*/false,
-//        /*change_on_boundary=*/true,
-//        /*ambiguous=*/RoundTemporalOptions::Ambiguous::AMBIGUOUS_RAISE,
-//        /*nonexistent=*/RoundTemporalOptions::Nonexistent::NONEXISTENT_RAISE);
-//    CheckScalarUnary("round_temporal", unit, times, unit, times_floor_2_hours,
-//    &options_2_hours);
+    const char* times_round_3_weeks = R"(["2019-11-24", null])";
+    auto options_3_weeks = RoundTemporalOptions(
+        /*multiple=*/3,
+        /*unit=*/CalendarUnit::WEEK, /*week_starts_monday=*/false,
+        /*change_on_boundary=*/true,
+        /*ambiguous=*/RoundTemporalOptions::Ambiguous::AMBIGUOUS_RAISE,
+        /*nonexistent=*/RoundTemporalOptions::Nonexistent::NONEXISTENT_RAISE);
+    CheckScalarUnary("round_temporal", unit, times, unit, times_round_3_weeks,
+                     &options_3_weeks);
+
+    const char* times_round_1_weeks_monday = R"(["2019-11-25", null])";
+    auto options_1_weeks_monday = RoundTemporalOptions(
+        /*multiple=*/1,
+        /*unit=*/CalendarUnit::WEEK, /*week_starts_monday=*/true,
+        /*change_on_boundary=*/true,
+        /*ambiguous=*/RoundTemporalOptions::Ambiguous::AMBIGUOUS_RAISE,
+        /*nonexistent=*/RoundTemporalOptions::Nonexistent::NONEXISTENT_RAISE);
+    CheckScalarUnary("round_temporal", unit, times, unit, times_round_1_weeks_monday,
+                     &options_1_weeks_monday);
+
+    const char* times_round_1_weeks = R"(["2019-11-24", null])";
+    auto options_1_weeks = RoundTemporalOptions(
+        /*multiple=*/1,
+        /*unit=*/CalendarUnit::WEEK, /*week_starts_monday=*/false,
+        /*change_on_boundary=*/true,
+        /*ambiguous=*/RoundTemporalOptions::Ambiguous::AMBIGUOUS_RAISE,
+        /*nonexistent=*/RoundTemporalOptions::Nonexistent::NONEXISTENT_RAISE);
+    CheckScalarUnary("round_temporal", unit, times, unit, times_round_1_weeks,
+                     &options_1_weeks);
+  }
 }
 
 #endif  // !_WIN32
