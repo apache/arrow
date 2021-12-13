@@ -4109,6 +4109,10 @@ macro(build_opentelemetry)
   foreach(_OPENTELEMETRY_LIB ${_OPENTELEMETRY_LIBS})
     add_dependencies(opentelemetry-cpp::${_OPENTELEMETRY_LIB} opentelemetry_ep)
   endforeach()
+
+  # Work around https://gitlab.kitware.com/cmake/cmake/issues/15052
+  file(MAKE_DIRECTORY ${OPENTELEMETRY_INCLUDE_DIR})
+
 endmacro()
 
 if(ARROW_WITH_OPENTELEMETRY)
