@@ -71,7 +71,7 @@ test building and installing the R package.  This is advantageous as you can use
 existing utility scripts and install it onto a container which already has R on 
 it.
 
-These workflows are also parameterised, which means you can specify different 
+These workflows are also parameterized, which means you can specify different 
 options (or just use the defaults, which can be found in `.env`)
 
 ### Example - The manual way
