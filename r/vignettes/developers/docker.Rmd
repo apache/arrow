@@ -63,9 +63,37 @@ docker ps
 sudo docker ps -a
 ```
 
-## Using Archery
+## Running existing jobs from docker-compose.yml
+
+There are a number of workflows outlined in the file `docker-compose.yml` in the
+arrow repo root directory.  For example, you can use the workflow called `r` to 
+test building and installing the R package.  This is advantageous as you can use 
+existing utility scripts and install it onto a container which already has R on 
+it.
+
+These workflows are also parameterised, which means you can specify different 
+options (or just use the defaults, which can be found in `.env`)
+
+### Example - The manual way
+
+If you wanted to run [RHub's latest `ubuntu-gcc-release` image](https://hub.docker.com/r/rhub/ubuntu-gcc-release), you could 
+run:
+
+```shell 
+R_ORG=rhub R_IMAGE=ubuntu-gcc-release R_TAG=latest docker-compose build r
+R_ORG=rhub R_IMAGE=ubuntu-gcc-release R_TAG=latest docker-compose run r
+```
+
+### Example - Using Archery
 
 Alternatively, you may prefer to use the [Archery tool to run docker images](https://arrow.apache.org/docs/developers/docker.html).
 This has the advantage of making it simpler to build some of the existing Arrow 
 CI jobs which have hierarchical dependencies, and so for example, you could 
 build the R package on a container which already has the C++ code pre-built.
+
+For example, to run the `r` workflow discussed above, you could run:
+
+```shell
+R_ORG=rhub R_IMAGE=ubuntu-gcc-release R_TAG=latest archery docker run r
+```
+
