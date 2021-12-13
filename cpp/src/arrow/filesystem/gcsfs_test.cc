@@ -476,6 +476,41 @@ TEST_F(GcsIntegrationTest, DeleteDirSuccess) {
   }
 }
 
+TEST_F(GcsIntegrationTest, DeleteDirContentsSuccess) {
+  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+  const char* const kTestFolders[] = {
+      "a/", "a/0/", "a/0/0/", "a/1/", "a/2/",
+  };
+  for (auto const* f : kTestFolders) {
+    const auto folder = PreexistingBucketPath() + f;
+    ASSERT_OK(fs->CreateDir(folder, true));
+    for (int i = 0; i != 64; ++i) {
+      const auto filename = folder + "test-file-" + std::to_string(i);
+      ASSERT_OK_AND_ASSIGN(auto w, fs->OpenOutputStream(filename, {}));
+      ASSERT_OK(w->Write(filename.data(), filename.size()));
+      ASSERT_OK(w->Close());
+    }
+  }
+
+  const auto folder = PreexistingBucketPath() + kTestFolders[0];
+  ASSERT_OK(fs->DeleteDirContents(folder));
+  arrow::fs::AssertFileInfo(fs.get(), folder, FileType::Directory);
+  arrow::fs::AssertFileInfo(fs.get(), PreexistingBucketPath(), FileType::Directory);
+  arrow::fs::AssertFileInfo(fs.get(), PreexistingObjectPath(), FileType::File);
+
+  for (auto const* f : kTestFolders) {
+    const auto subfolder = PreexistingBucketPath() + f;
+    if (subfolder == folder) {
+      continue;
+    }
+    arrow::fs::AssertFileInfo(fs.get(), subfolder, FileType::NotFound);
+    for (int i = 0; i != 64; ++i) {
+      const auto filename = subfolder + "test-file-" + std::to_string(i);
+      arrow::fs::AssertFileInfo(fs.get(), filename, FileType::NotFound);
+    }
+  }
+}
+
 TEST_F(GcsIntegrationTest, DeleteRootDirContents) {
   auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
   EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented, HasSubstr("too dangerous"),
