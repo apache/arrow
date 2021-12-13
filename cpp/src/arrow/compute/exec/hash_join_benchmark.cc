@@ -23,13 +23,8 @@
 #include "arrow/compute/exec/test_util.h"
 #include "arrow/compute/exec/util.h"
 #include "arrow/compute/kernels/row_encoder.h"
-#include "arrow/compute/kernels/test_util.h"
-#include "arrow/testing/gtest_util.h"
-#include "arrow/testing/matchers.h"
 #include "arrow/testing/random.h"
-#include "arrow/util/checked_cast.h"
 #include "arrow/util/make_unique.h"
-#include "arrow/util/pcg_random.h"
 #include "arrow/util/thread_pool.h"
 
 #include <cstdint>
@@ -93,8 +88,8 @@ class JoinBenchmark {
       auto r_field =
           field(r_name, settings.key_types[i], key_value_metadata(build_metadata));
 
-      DCHECK_OK(l_schema_builder.AddField(std::move(l_field)));
-      DCHECK_OK(r_schema_builder.AddField(std::move(r_field)));
+      DCHECK_OK(l_schema_builder.AddField(l_field));
+      DCHECK_OK(r_schema_builder.AddField(r_field));
 
       left_keys.push_back(FieldRef(l_name));
       right_keys.push_back(FieldRef(r_name));
@@ -151,11 +146,11 @@ class JoinBenchmark {
       auto start = std::chrono::high_resolution_clock::now();
       int tid = omp_get_thread_num();
 #pragma omp for nowait
-      for (auto batch : r_batches_.batches)
-        DCHECK_OK(join_->InputReceived(tid, 1 /* side */, batch));
+      for (auto it = r_batches_.batches.begin(); it != r_batches_.batches.end(); ++it)
+        DCHECK_OK(join_->InputReceived(tid, 1 /* side */, *it));
 #pragma omp for nowait
-      for (auto batch : l_batches_.batches)
-        DCHECK_OK(join_->InputReceived(tid, 0 /* side */, batch));
+      for (auto it = l_batches_.batches.begin(); it != l_batches_.batches.end(); ++it)
+        DCHECK_OK(join_->InputReceived(tid, 0 /* side */, *it));
 
 #pragma omp barrier
 
@@ -171,7 +166,6 @@ class JoinBenchmark {
     stats_.total_nanoseconds = nanos;
   }
 
-  ThreadIndexer thread_indexer_;
   BatchesWithSchema l_batches_;
   BatchesWithSchema r_batches_;
   std::unique_ptr<HashJoinSchema> schema_mgr_;
@@ -204,7 +198,7 @@ static void BM_HashJoinBasic_KeyTypes(benchmark::State& st,
   BenchmarkSettings settings;
   settings.num_build_batches = static_cast<int>(st.range(0));
   settings.num_probe_batches = settings.num_build_batches;
-  settings.key_types = key_types;
+  settings.key_types = std::move(key_types);
 
   HashJoinBasicBenchmarkImpl(st, settings);
 }
@@ -218,7 +212,7 @@ static void BM_HashJoinBasic_Selectivity(benchmark::State& st,
 
   settings.num_build_batches = static_cast<int>(st.range(1));
   settings.num_probe_batches = settings.num_build_batches;
-  settings.key_types = key_types;
+  settings.key_types = std::move(key_types);
 
   HashJoinBasicBenchmarkImpl(st, settings);
 }
@@ -309,7 +303,7 @@ BENCHMARK_CAPTURE(BM_HashJoinBasic_KeyTypes, "{int64,int64,int64,int64}",
 BENCHMARK_CAPTURE(BM_HashJoinBasic_KeyTypes, "{utf8}", {utf8()})
     ->ArgNames(keytypes_argnames)
     ->RangeMultiplier(4)
-    ->Range(1, 256);
+    ->Range(1, 64);
 BENCHMARK_CAPTURE(BM_HashJoinBasic_KeyTypes, "{fixed_size_binary(4)}",
                   {fixed_size_binary(4)})
     ->ArgNames(keytypes_argnames)
@@ -337,66 +331,60 @@ BENCHMARK_CAPTURE(BM_HashJoinBasic_KeyTypes, "{fixed_size_binary(32)}",
     ->Range(1, 4 * 1024);
 
 std::vector<std::string> selectivity_argnames = {"Selectivity", "HashTable krows"};
+std::vector<std::vector<int64_t>> selectivity_args = {
+    benchmark::CreateDenseRange(0, 100, 20), benchmark::CreateRange(1, 4 * 1024, 8)};
+
 BENCHMARK_CAPTURE(BM_HashJoinBasic_Selectivity, "{int32}", {int32()})
     ->ArgNames(selectivity_argnames)
-    ->ArgsProduct({benchmark::CreateDenseRange(0, 100, 10),
-                   benchmark::CreateRange(1, 4 * 1024, 8)});
+    ->ArgsProduct(selectivity_args);
 BENCHMARK_CAPTURE(BM_HashJoinBasic_Selectivity, "{int64}", {int64()})
     ->ArgNames(selectivity_argnames)
-    ->ArgsProduct({benchmark::CreateDenseRange(0, 100, 10),
-                   benchmark::CreateRange(1, 4 * 1024, 8)});
+    ->ArgsProduct(selectivity_args);
 
 // Joins on UTF8 are currently really slow, so anything above 512 doesn't finished within
 // a reasonable amount of time.
 BENCHMARK_CAPTURE(BM_HashJoinBasic_Selectivity, "{utf8}", {utf8()})
     ->ArgNames(selectivity_argnames)
-    ->ArgsProduct({benchmark::CreateDenseRange(0, 100, 10),
-                   benchmark::CreateRange(1, 512, 8)});
+    ->ArgsProduct({benchmark::CreateDenseRange(0, 100, 20),
+                   benchmark::CreateRange(1, 64, 8)});
 
 BENCHMARK_CAPTURE(BM_HashJoinBasic_Selectivity, "{fixed_size_binary(16)}",
                   {fixed_size_binary(16)})
     ->ArgNames(selectivity_argnames)
-    ->ArgsProduct({benchmark::CreateDenseRange(0, 100, 10),
-                   benchmark::CreateRange(1, 4 * 1024, 8)});
+    ->ArgsProduct(selectivity_args);
 BENCHMARK_CAPTURE(BM_HashJoinBasic_Selectivity, "{fixed_size_binary(32)}",
                   {fixed_size_binary(32)})
     ->ArgNames(selectivity_argnames)
-    ->ArgsProduct({benchmark::CreateDenseRange(0, 100, 10),
-                   benchmark::CreateRange(1, 4 * 1024, 8)});
+    ->ArgsProduct(selectivity_args);
 
 std::vector<std::string> jointype_argnames = {"Selectivity", "HashTable krows"};
+std::vector<std::vector<int64_t>> jointype_args = {
+    benchmark::CreateDenseRange(0, 100, 20), benchmark::CreateRange(1, 4 * 1024, 8)};
+
 BENCHMARK_CAPTURE(BM_HashJoinBasic_JoinType, "Inner", JoinType::INNER)
     ->ArgNames(jointype_argnames)
-    ->ArgsProduct({benchmark::CreateDenseRange(0, 100, 10),
-                   benchmark::CreateRange(1, 4 * 1024, 8)});
+    ->ArgsProduct(jointype_args);
 BENCHMARK_CAPTURE(BM_HashJoinBasic_JoinType, "Left Semi", JoinType::LEFT_SEMI)
     ->ArgNames(jointype_argnames)
-    ->ArgsProduct({benchmark::CreateDenseRange(0, 100, 10),
-                   benchmark::CreateRange(1, 4 * 1024, 8)});
+    ->ArgsProduct(jointype_args);
 BENCHMARK_CAPTURE(BM_HashJoinBasic_JoinType, "Right Semi", JoinType::RIGHT_SEMI)
     ->ArgNames(jointype_argnames)
-    ->ArgsProduct({benchmark::CreateDenseRange(0, 100, 10),
-                   benchmark::CreateRange(1, 4 * 1024, 8)});
+    ->ArgsProduct(jointype_args);
 BENCHMARK_CAPTURE(BM_HashJoinBasic_JoinType, "Left Anti", JoinType::LEFT_ANTI)
     ->ArgNames(jointype_argnames)
-    ->ArgsProduct({benchmark::CreateDenseRange(0, 100, 10),
-                   benchmark::CreateRange(1, 4 * 1024, 8)});
+    ->ArgsProduct(jointype_args);
 BENCHMARK_CAPTURE(BM_HashJoinBasic_JoinType, "Right Anti", JoinType::RIGHT_ANTI)
     ->ArgNames(jointype_argnames)
-    ->ArgsProduct({benchmark::CreateDenseRange(0, 100, 10),
-                   benchmark::CreateRange(1, 4 * 1024, 8)});
+    ->ArgsProduct(jointype_args);
 BENCHMARK_CAPTURE(BM_HashJoinBasic_JoinType, "Left Outer", JoinType::LEFT_OUTER)
     ->ArgNames(jointype_argnames)
-    ->ArgsProduct({benchmark::CreateDenseRange(0, 100, 10),
-                   benchmark::CreateRange(1, 4 * 1024, 8)});
+    ->ArgsProduct(jointype_args);
 BENCHMARK_CAPTURE(BM_HashJoinBasic_JoinType, "Right Outer", JoinType::RIGHT_OUTER)
     ->ArgNames(jointype_argnames)
-    ->ArgsProduct({benchmark::CreateDenseRange(0, 100, 10),
-                   benchmark::CreateRange(1, 4 * 1024, 8)});
+    ->ArgsProduct(jointype_args);
 BENCHMARK_CAPTURE(BM_HashJoinBasic_JoinType, "Full Outer", JoinType::FULL_OUTER)
     ->ArgNames(jointype_argnames)
-    ->ArgsProduct({benchmark::CreateDenseRange(0, 100, 10),
-                   benchmark::CreateRange(1, 4 * 1024, 8)});
+    ->ArgsProduct(jointype_args);
 
 BENCHMARK(BM_HashJoinBasic_MatchesPerRow)
     ->ArgNames({"MatchesPerRow", "HashTable krows"})

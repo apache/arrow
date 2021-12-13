@@ -74,6 +74,11 @@ def string_numeric_sort_key(val):
     except:
         return str(val)
 
+def construct_name(argname, argvalue):
+    if not argname:
+        return argvalue
+    return '%s: %s' % (argname, argvalue)
+
 def plot_1d(test, argname, ax, label=None):
     x_axis = test.args[argname]
     y_axis = test.times
@@ -92,7 +97,7 @@ def plot_2d(test, sorted_argnames, ax, title):
         filtered_test = Test()
         filtered_test.times = [test.times[i] for i in indices]
         filtered_test.args[sorted_argnames[1]] = [test.args[sorted_argnames[1]][i] for i in indices]
-        plot_1d(filtered_test, sorted_argnames[1], ax, '%s: %s' % (sorted_argnames[0], line))
+        plot_1d(filtered_test, sorted_argnames[1], ax, construct_name(sorted_argnames[0], line))
 
 def plot_3d(test, sorted_argnames):
     assert len(sorted_argnames) == 3
@@ -109,7 +114,7 @@ def plot_3d(test, sorted_argnames):
         filtered_test.times = [test.times[i] for i in indices]
         filtered_test.args[sorted_argnames[1]] = [test.args[sorted_argnames[1]][i] for i in indices]
         filtered_test.args[sorted_argnames[2]] = [test.args[sorted_argnames[2]][i] for i in indices]
-        plot_2d(filtered_test, sorted_argnames[1:], ax, '%s: %s' % (sorted_argnames[0], graph))
+        plot_2d(filtered_test, sorted_argnames[1:], ax, construct_name(sorted_argnames[0], graph))
 
 def main():
     if len(sys.argv) != 2:

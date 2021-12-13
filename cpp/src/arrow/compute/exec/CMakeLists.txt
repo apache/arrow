@@ -32,8 +32,8 @@ add_arrow_compute_test(util_test PREFIX "arrow-compute")
 
 add_arrow_benchmark(expression_benchmark PREFIX "arrow-compute")
 
-find_package(OpenMP)
-if(OpenMP_CXX_FOUND)
+if(ARROW_BUILD_OPENMP_BENCHMARKS)
+  find_package(OpenMP REQUIRED)
   add_arrow_benchmark(hash_join_benchmark
                       PREFIX
                       "arrow-compute"
