@@ -97,3 +97,9 @@ For example, to run the `r` workflow discussed above, you could run:
 R_ORG=rhub R_IMAGE=ubuntu-gcc-release R_TAG=latest archery docker run r
 ```
 
+## Troubleshooting
+
+Sometimes when working with a local repo and mounting it in a Docker containing, 
+build artifacts in the `r/src` folder lead to segfaults or similar errors when
+you try to build arrow.  If this happens, run `make clean` in the `r` directory
+to remove these files, and try again.
