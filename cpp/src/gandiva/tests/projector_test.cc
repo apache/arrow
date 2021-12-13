@@ -2410,7 +2410,6 @@ TEST_F(TestProjector, TestInstr) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_sum, outputs.at(0));
 }
 
-
 TEST_F(TestProjector, TestNextDay) {
   // schema for input fields
   auto field0 = field("f0", arrow::date64());
@@ -2421,8 +2420,8 @@ TEST_F(TestProjector, TestNextDay) {
   auto field_next_day = field("nextday", arrow::date64());
 
   // Build expression
-  auto next_day_exp = TreeExprBuilder::MakeExpression("next_day", {field0, field1},
-                                                      field_next_day);
+  auto next_day_exp =
+      TreeExprBuilder::MakeExpression("next_day", {field0, field1}, field_next_day);
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
