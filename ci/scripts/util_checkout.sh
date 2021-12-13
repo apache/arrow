@@ -19,6 +19,8 @@
 
 # this script is github actions specific to check out the submodules and tags
 
+set -ex
+
 # TODO(kszucs): remove it once the "submodules: recursive" feature is released
 auth_header="$(git config --local --get http.https://github.com/.extraheader)"
 git submodule sync --recursive
