@@ -60,7 +60,6 @@ void PrintTo(const WriterTestParams& p, std::ostream* os) {
 WriteOptions DefaultTestOptions(bool include_header = false,
                                 const std::string& null_string = "",
                                 QuotingStyle quoting_style = QuotingStyle::Needed,
-                                bool include_header, const std::string& null_string,
                                 bool escaping = true, char escape_char = '"',
                                 const std::string& eol = "\n") {
   WriteOptions options;
@@ -70,6 +69,7 @@ WriteOptions DefaultTestOptions(bool include_header = false,
   options.escaping = escaping;
   options.escape_char = escape_char;
   options.quoting_style = quoting_style;
+  options.eol = eol;
   return options;
 }
 
@@ -189,7 +189,7 @@ std::vector<WriterTestParams> GenerateTestCases() {
       {abc_schema, populated_batch, DefaultTestOptions(), expected_without_header},
       {abc_schema, populated_batch,
        DefaultTestOptions(/*include_header=*/false, /*null_string=*/"",
-                          QuotingStyle::Needed, "_EOL_"),
+                          QuotingStyle::Needed, true, '\"', "_EOL_"),
        expected_with_custom_eol},
       {abc_schema, populated_batch, DefaultTestOptions(/*include_header=*/true),
        expected_header + expected_without_header},

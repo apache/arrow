@@ -235,8 +235,8 @@ class UnquotedColumnPopulator : public ColumnPopulator {
 // if escaping is enabled.
 class QuotedColumnPopulator : public ColumnPopulator {
  public:
-  QuotedColumnPopulator(MemoryPool* pool, std::string end_chars, bool escaping, char escape_char,
-                        std::shared_ptr<Buffer> null_string)
+  QuotedColumnPopulator(MemoryPool* pool, std::string end_chars, bool escaping,
+                        char escape_char, std::shared_ptr<Buffer> null_string)
       : ColumnPopulator(pool, std::move(end_chars), std::move(null_string)),
         escaping_(escaping),
         escape_char_(escape_char) {}
@@ -290,7 +290,8 @@ class QuotedColumnPopulator : public ColumnPopulator {
             // Adjust row_end by 2 + end_chars_.size(): 1 quote char, end_chars_.size()
             // and 1 to position at the first position to write to.
             next_column_offset = static_cast<int32_t>(
-                row_end - EscapeReverse(s, row_end - 2 - end_chars_.size(), escaping_, escape_char_));
+                row_end - EscapeReverse(s, row_end - 2 - end_chars_.size(), escaping_,
+                                        escape_char_));
           }
           *(row_end - next_column_offset) = '"';
           *(row_end - end_chars_.size() - 1) = '"';
@@ -343,8 +344,9 @@ struct PopulatorFactory {
         // quoted.
       case QuotingStyle::Needed:
       case QuotingStyle::AllValid:
-            new QuotedColumnPopulator(pool, end_chars, escaping, escape_char, null_string);
-        populator = new QuotedColumnPopulator(pool, end_chars, escaping, escape_char, null_string);
+        new QuotedColumnPopulator(pool, end_chars, escaping, escape_char, null_string);
+        populator = new QuotedColumnPopulator(pool, end_chars, escaping, escape_char,
+                                              null_string);
         break;
     }
     return Status::OK();
@@ -378,8 +380,8 @@ struct PopulatorFactory {
                                                 /*reject_values_with_quotes=*/false);
         break;
       case QuotingStyle::AllValid:
-        populator =
-            new QuotedColumnPopulator(pool, end_chars, escaping, escape_char, null_string);
+        populator = new QuotedColumnPopulator(pool, end_chars, escaping, escape_char,
+                                              null_string);
         break;
     }
     return Status::OK();
@@ -396,10 +398,10 @@ struct PopulatorFactory {
 
 Result<std::unique_ptr<ColumnPopulator>> MakePopulator(
     const Field& field, std::string end_chars, bool escaping, char escape_char,
-    std::shared_ptr<Buffer> null_string,
-    QuotingStyle quoting_style, MemoryPool* pool) {
-  PopulatorFactory factory{std::move(end_chars), escaping, escape_char, std::move(null_string), quoting_style, pool,
-                           nullptr};
+    std::shared_ptr<Buffer> null_string, QuotingStyle quoting_style, MemoryPool* pool) {
+  PopulatorFactory factory{
+      std::move(end_chars), escaping, escape_char, std::move(null_string),
+      quoting_style,        pool,     nullptr};
 
   RETURN_NOT_OK(VisitTypeInline(*field.type(), &factory));
   return std::unique_ptr<ColumnPopulator>(factory.populator);
@@ -426,8 +428,8 @@ class CSVWriterImpl : public ipc::RecordBatchWriter {
       const std::string& end_chars =
           col < schema->num_fields() - 1 ? kStrComma : options.eol;
       ASSIGN_OR_RAISE(populators[col],
-                      MakePopulator(*schema->field(col), end_chars, 
-                                    options.escaping, options.escape_char, null_string,
+                      MakePopulator(*schema->field(col), end_chars, options.escaping,
+                                    options.escape_char, null_string,
                                     options.quoting_style, options.io_context.pool()));
     }
     auto writer = std::make_shared<CSVWriterImpl>(
