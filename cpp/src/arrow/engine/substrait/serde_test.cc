@@ -135,14 +135,14 @@ TEST(Substrait, SupportedTypes) {
   auto ExpectEq = [](util::string_view json, std::shared_ptr<DataType> expected_type) {
     ARROW_SCOPED_TRACE(json);
 
+    ExtensionSet ext_set;
     auto buf = SubstraitFromJSON("Type", json);
-    ASSERT_OK_AND_ASSIGN(auto type, DeserializeType(*buf));
+    ASSERT_OK_AND_ASSIGN(auto type, DeserializeType(*buf, ext_set));
 
     EXPECT_EQ(*type, *expected_type);
 
-    ExtensionSet set;
-    ASSERT_OK_AND_ASSIGN(auto serialized, SerializeType(*type, &set));
-    ASSERT_OK_AND_ASSIGN(auto roundtripped, DeserializeType(*serialized));
+    ASSERT_OK_AND_ASSIGN(auto serialized, SerializeType(*type, &ext_set));
+    ASSERT_OK_AND_ASSIGN(auto roundtripped, DeserializeType(*serialized, ext_set));
 
     EXPECT_EQ(*roundtripped, *expected_type);
   };
@@ -252,7 +252,8 @@ TEST(Substrait, NoEquivalentArrowType) {
        }) {
     ARROW_SCOPED_TRACE(json);
     auto buf = SubstraitFromJSON("Type", json);
-    ASSERT_THAT(DeserializeType(*buf), Raises(StatusCode::NotImplemented));
+    ExtensionSet ext_set;
+    ASSERT_THAT(DeserializeType(*buf, ext_set), Raises(StatusCode::NotImplemented));
   }
 }
 

@@ -129,6 +129,8 @@ Result<Datum> FromProto(const st::Expression::Literal& lit) {
         "Nullable Literals - Literal.nullable must be left at the default");
   }
 
+  ExtensionSet ext_set;
+
   switch (lit.literal_type_case()) {
     case st::Expression::Literal::kBoolean:
       return Datum(lit.boolean());
@@ -241,7 +243,7 @@ Result<Datum> FromProto(const st::Expression::Literal& lit) {
       std::shared_ptr<DataType> element_type;
       if (list.has_element_type()) {
         ARROW_ASSIGN_OR_RAISE(std::tie(element_type, std::ignore),
-                              FromProto(list.element_type()));
+                              FromProto(list.element_type(), ext_set));
       }
 
       ScalarVector values(list.values_size());
@@ -275,11 +277,12 @@ Result<Datum> FromProto(const st::Expression::Literal& lit) {
 
       std::shared_ptr<DataType> key_type, value_type;
       if (map.has_key_type()) {
-        ARROW_ASSIGN_OR_RAISE(std::tie(key_type, std::ignore), FromProto(map.key_type()));
+        ARROW_ASSIGN_OR_RAISE(std::tie(key_type, std::ignore),
+                              FromProto(map.key_type(), ext_set));
       }
       if (map.has_value_type()) {
         ARROW_ASSIGN_OR_RAISE(std::tie(value_type, std::ignore),
-                              FromProto(map.value_type()));
+                              FromProto(map.value_type(), ext_set));
       }
 
       ScalarVector keys(map.key_values_size()), values(map.key_values_size());
@@ -334,7 +337,7 @@ Result<Datum> FromProto(const st::Expression::Literal& lit) {
     }
 
     case st::Expression::Literal::kNull: {
-      ARROW_ASSIGN_OR_RAISE(auto type_nullable, FromProto(lit.null()));
+      ARROW_ASSIGN_OR_RAISE(auto type_nullable, FromProto(lit.null(), ext_set));
       if (!type_nullable.second) {
         return Status::Invalid("Null literal ", lit.DebugString(),
                                " is of non-nullable type");

@@ -82,9 +82,10 @@ Result<std::shared_ptr<Buffer>> SerializeSchema(const Schema& schema) {
   return Buffer::FromString(std::move(serialized));
 }
 
-Result<std::shared_ptr<DataType>> DeserializeType(const Buffer& buf) {
+Result<std::shared_ptr<DataType>> DeserializeType(const Buffer& buf,
+                                                  const ExtensionSet& ext_set) {
   ARROW_ASSIGN_OR_RAISE(auto type, ParseFromBuffer<st::Type>(buf));
-  ARROW_ASSIGN_OR_RAISE(auto type_nullable, FromProto(type));
+  ARROW_ASSIGN_OR_RAISE(auto type_nullable, FromProto(type, ext_set));
   return std::move(type_nullable.first);
 }
 

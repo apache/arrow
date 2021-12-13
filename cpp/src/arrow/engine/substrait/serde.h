@@ -34,7 +34,7 @@ namespace engine {
 ARROW_ENGINE_EXPORT Result<std::vector<compute::Declaration>> ConvertPlan(const Buffer&);
 
 ARROW_ENGINE_EXPORT
-Result<std::shared_ptr<DataType>> DeserializeType(const Buffer&);
+Result<std::shared_ptr<DataType>> DeserializeType(const Buffer&, const ExtensionSet&);
 
 ARROW_ENGINE_EXPORT
 Result<std::shared_ptr<Buffer>> SerializeType(const DataType&, ExtensionSet*);

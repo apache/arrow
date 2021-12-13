@@ -66,7 +66,8 @@ Result<std::pair<std::shared_ptr<DataType>, bool>> FromProtoImpl(
 
 template <typename Types, typename NextName>
 Result<FieldVector> FieldsFromProto(int size, const Types& types,
-                                    const NextName& next_name) {
+                                    const NextName& next_name,
+                                    const ExtensionSet& ext_set) {
   FieldVector fields(size);
   for (int i = 0; i < size; ++i) {
     std::string name = next_name();
@@ -77,12 +78,12 @@ Result<FieldVector> FieldsFromProto(int size, const Types& types,
       const auto& struct_ = types[i].struct_();
 
       ARROW_ASSIGN_OR_RAISE(
-          type, FieldsFromProto(struct_.types_size(), struct_.types(), next_name)
+          type, FieldsFromProto(struct_.types_size(), struct_.types(), next_name, ext_set)
                     .Map(arrow::struct_));
 
       nullable = IsNullable(struct_);
     } else {
-      ARROW_ASSIGN_OR_RAISE(std::tie(type, nullable), FromProto(types[i]));
+      ARROW_ASSIGN_OR_RAISE(std::tie(type, nullable), FromProto(types[i], ext_set));
     }
 
     fields[i] = field(std::move(name), std::move(type), nullable);
@@ -92,7 +93,8 @@ Result<FieldVector> FieldsFromProto(int size, const Types& types,
 
 }  // namespace
 
-Result<std::pair<std::shared_ptr<DataType>, bool>> FromProto(const st::Type& type) {
+Result<std::pair<std::shared_ptr<DataType>, bool>> FromProto(
+    const st::Type& type, const ExtensionSet& ext_set) {
   switch (type.kind_case()) {
     case st::Type::kBool:
       return FromProtoImpl<BooleanType>(type.bool_());
@@ -154,9 +156,9 @@ Result<std::pair<std::shared_ptr<DataType>, bool>> FromProto(const st::Type& typ
     case st::Type::kStruct: {
       const auto& struct_ = type.struct_();
 
-      ARROW_ASSIGN_OR_RAISE(auto fields,
-                            FieldsFromProto(struct_.types_size(), struct_.types(),
-                                            /*next_name=*/[] { return ""; }));
+      ARROW_ASSIGN_OR_RAISE(auto fields, FieldsFromProto(
+                                             struct_.types_size(), struct_.types(),
+                                             /*next_name=*/[] { return ""; }, ext_set));
 
       return FromProtoImpl<StructType>(struct_, std::move(fields));
     }
@@ -170,7 +172,7 @@ Result<std::pair<std::shared_ptr<DataType>, bool>> FromProto(const st::Type& typ
             list.DebugString());
       }
 
-      ARROW_ASSIGN_OR_RAISE(auto type_nullable, FromProto(list.type()));
+      ARROW_ASSIGN_OR_RAISE(auto type_nullable, FromProto(list.type(), ext_set));
       return FromProtoImpl<ListType>(
           list, field("item", std::move(type_nullable.first), type_nullable.second));
     }
@@ -185,8 +187,8 @@ Result<std::pair<std::shared_ptr<DataType>, bool>> FromProto(const st::Type& typ
                                missing, " type in ", map.DebugString());
       }
 
-      ARROW_ASSIGN_OR_RAISE(auto key_nullable, FromProto(map.key()));
-      ARROW_ASSIGN_OR_RAISE(auto value_nullable, FromProto(map.value()));
+      ARROW_ASSIGN_OR_RAISE(auto key_nullable, FromProto(map.key(), ext_set));
+      ARROW_ASSIGN_OR_RAISE(auto value_nullable, FromProto(map.value(), ext_set));
 
       if (key_nullable.second) {
         return Status::Invalid(
@@ -197,6 +199,11 @@ Result<std::pair<std::shared_ptr<DataType>, bool>> FromProto(const st::Type& typ
       return FromProtoImpl<MapType>(
           map, std::move(key_nullable.first),
           field("value", std::move(value_nullable.first), value_nullable.second));
+    }
+
+    case st::Type::kUserDefinedTypeReference: {
+      auto anchor = type.user_defined_type_reference();
+      return std::make_pair(ext_set.type_variations()[anchor], true);
     }
 
     default:
@@ -406,15 +413,18 @@ Result<std::shared_ptr<Schema>> FromProto(const st::NamedStruct& named_struct) {
   const auto& struct_ = named_struct.struct_();
   RETURN_NOT_OK(CheckVariation(struct_));
 
+  ExtensionSet ext_set;
   int requested_names_count = 0;
-  ARROW_ASSIGN_OR_RAISE(auto fields,
-                        FieldsFromProto(struct_.types_size(), struct_.types(),
-                                        /*next_name=*/[&] {
-                                          int i = requested_names_count++;
-                                          return i < named_struct.names_size()
-                                                     ? named_struct.names().Get(i)
-                                                     : "";
-                                        }));
+  ARROW_ASSIGN_OR_RAISE(auto fields, FieldsFromProto(
+                                         struct_.types_size(), struct_.types(),
+                                         /*next_name=*/
+                                         [&] {
+                                           int i = requested_names_count++;
+                                           return i < named_struct.names_size()
+                                                      ? named_struct.names().Get(i)
+                                                      : "";
+                                         },
+                                         ext_set));
 
   if (requested_names_count != named_struct.names_size()) {
     return Status::Invalid("While converting ", named_struct.DebugString(), " received ",

@@ -33,7 +33,8 @@ namespace arrow {
 namespace engine {
 
 ARROW_ENGINE_EXPORT
-Result<std::pair<std::shared_ptr<DataType>, bool>> FromProto(const st::Type&);
+Result<std::pair<std::shared_ptr<DataType>, bool>> FromProto(const st::Type&,
+                                                             const ExtensionSet&);
 
 ARROW_ENGINE_EXPORT
 Result<std::unique_ptr<st::Type>> ToProto(const DataType&, bool nullable, ExtensionSet*);
