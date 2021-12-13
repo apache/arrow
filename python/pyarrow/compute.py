@@ -72,7 +72,9 @@ from pyarrow._compute import (  # noqa
     function_registry,
     get_function,
     list_functions,
-    _group_by
+    _group_by,
+    # Expressions
+    Expression,
 )
 
 import inspect

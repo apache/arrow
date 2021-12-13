@@ -23,7 +23,6 @@ from pyarrow.util import _is_iterable, _stringify_path, _is_path_like
 from pyarrow._dataset import (  # noqa
     CsvFileFormat,
     CsvFragmentScanOptions,
-    Expression,
     Dataset,
     DatasetFactory,
     DirectoryPartitioning,
@@ -47,6 +46,8 @@ from pyarrow._dataset import (  # noqa
     _get_partition_keys,
     _filesystemdataset_write,
 )
+from pyarrow.compute import Expression
+
 
 _orc_available = False
 _orc_msg = (

@@ -25,7 +25,6 @@ from pyarrow.lib cimport *
 from pyarrow._fs cimport FileSystem
 
 
-cdef CExpression _bind(Expression filter, Schema schema) except *
 cdef CFileSource _make_file_source(object file, FileSystem filesystem=*)
 
 
@@ -41,26 +40,6 @@ cdef class DatasetFactory(_Weakrefable):
     cdef wrap(const shared_ptr[CDatasetFactory]& sp)
 
     cdef inline shared_ptr[CDatasetFactory] unwrap(self) nogil
-
-
-cdef class Expression(_Weakrefable):
-
-    cdef:
-        CExpression expr
-
-    cdef void init(self, const CExpression& sp)
-
-    @staticmethod
-    cdef wrap(const CExpression& sp)
-
-    cdef inline CExpression unwrap(self)
-
-    @staticmethod
-    cdef Expression _expr_or_scalar(object expr)
-
-    @staticmethod
-    cdef Expression _call(str function_name, list arguments,
-                          shared_ptr[CFunctionOptions] options=*)
 
 
 cdef class FragmentScanOptions(_Weakrefable):
