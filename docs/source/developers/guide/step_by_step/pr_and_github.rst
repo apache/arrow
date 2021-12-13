@@ -113,7 +113,7 @@ and linters and then go ahead and commit the changes.
 
 If all is set, you can make the pull request!
 
-5. Go to ``https://github.com/<your username>arrow`` where you will see a box with
+5. Go to ``https://github.com/<your username>/arrow`` where you will see a box with
    the name of the branch that you pushed and next to it a green button
    **Compare & pull request**. After clicking on it, you should add a
    title and description of the pull request. Underneath you can check
