@@ -45,6 +45,10 @@ test_that("type() infers from R type", {
     time32(unit = TimeUnit$SECOND)
   )
   expect_equal(
+    type(as.difftime(123, units = "days")),
+    duration(unit = TimeUnit$SECOND)
+  )
+  expect_equal(
     type(bit64::integer64()),
     int64()
   )

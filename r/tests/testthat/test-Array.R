@@ -303,10 +303,16 @@ test_that("array supports integer64", {
   expect_true(as.vector(is.na(all_na)))
 })
 
-test_that("array supports difftime", {
+test_that("array supports hms difftime", {
   time <- hms::hms(56, 34, 12)
   expect_array_roundtrip(c(time, time), time32("s"))
   expect_array_roundtrip(vctrs::vec_c(NA, time), time32("s"))
+})
+
+test_that("array supports difftime", {
+  time <- as.difftime(1234, units = "secs")
+  expect_array_roundtrip(c(time, time), duration("s"))
+  expect_array_roundtrip(vctrs::vec_c(NA, time), duration("s"))
 })
 
 test_that("support for NaN (ARROW-3615)", {
