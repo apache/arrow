@@ -60,7 +60,7 @@ There are two other files which define action-triggered builds:
 On-demand builds
 -----------------------
 
-Tasks which can be run via Crossbow can be found in the `dev/tasks` directory.  This directory contains:
+Crossbow is a subcomponent of Archery and can be used to manually trigger builds.  The tasks which can be run on Crossbow can be found in the `dev/tasks` directory.  This directory contains:
 
 * the file `dev/tasks/tasks.yml` containing the configuration for various tasks which can be run via Crossbow
 * subdirectories containing different task templates (specified using `jinja2 syntax <https://jinja2docs.readthedocs.io/en/stable/>`_), divided roughly by language or package management system.
