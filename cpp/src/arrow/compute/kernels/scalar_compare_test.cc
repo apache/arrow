@@ -1147,10 +1147,15 @@ class TestVarArgsCompare : public TestBase {
 
   void Assert(VarArgsFunction func, Datum expected, const std::vector<Datum>& args) {
     auto actual = Eval(func, args);
-    AssertDatumsApproxEqual(expected, actual, /*verbose=*/true);
+    AssertDatumsApproxEqual(expected, actual, /*verbose=*/true, equal_options_);
+  }
+
+  void SetSignedZerosEqual(bool v) {
+    equal_options_ = equal_options_.signed_zeros_equal(v);
   }
 
   ElementWiseAggregateOptions element_wise_aggregate_options_;
+  EqualOptions equal_options_ = EqualOptions::Defaults().nans_equal(true);
 };
 
 template <typename T>
@@ -1367,9 +1372,10 @@ TYPED_TEST(TestVarArgsCompareFloating, MinElementWise) {
   Check("0.0", {"0.0", "0.0"});
   Check("-0.0", {"-0.0", "-0.0"});
   // XXX implementation detail: as signed zeros are equal, we're allowed
-  // to return either value.
+  // to return either value if both are present.
+  this->SetSignedZerosEqual(true);
   Check("0.0", {"-0.0", "0.0"});
-  Check("-0.0", {"0.0", "-0.0"});
+  Check("0.0", {"0.0", "-0.0"});
   Check("0.0", {"1.0", "-0.0", "0.0"});
   Check("-1.0", {"-1.0", "-0.0"});
   Check("0", {"0", "NaN"});
@@ -1677,9 +1683,10 @@ TYPED_TEST(TestVarArgsCompareFloating, MaxElementWise) {
   Check("0.0", {"0.0", "0.0"});
   Check("-0.0", {"-0.0", "-0.0"});
   // XXX implementation detail: as signed zeros are equal, we're allowed
-  // to return either value.
+  // to return either value if both are present.
+  this->SetSignedZerosEqual(true);
   Check("0.0", {"-0.0", "0.0"});
-  Check("-0.0", {"0.0", "-0.0"});
+  Check("0.0", {"0.0", "-0.0"});
   Check("0.0", {"-1.0", "-0.0", "0.0"});
   Check("1.0", {"1.0", "-0.0"});
   Check("0", {"0", "NaN"});
