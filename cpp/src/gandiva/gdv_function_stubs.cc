@@ -19,9 +19,9 @@
 
 #include <utf8proc.h>
 
+#include <boost/crc.hpp>
 #include <string>
 #include <vector>
-#include <boost/crc.hpp>
 #include "arrow/util/base64.h"
 #include "arrow/util/double_conversion.h"
 #include "arrow/util/formatting.h"
