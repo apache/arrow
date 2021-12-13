@@ -26,7 +26,9 @@ build_dir=${2}
 
 pushd ${source_dir}
 
-${R_BIN} CMD INSTALL ${INSTALL_ARGS} .
+# build first so that any stray compiled files in r/src are ignored
+${R_BIN} CMD build .
+${R_BIN} CMD INSTALL ${INSTALL_ARGS} arrow*.tar.gz
 
 if [ "${BUILD_DOCS_R}" == "ON" ]; then
   ${R_BIN} -e "pkgdown::build_site(install = FALSE)"
