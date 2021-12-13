@@ -1704,7 +1704,7 @@ services:
   almalinux-verify-rc-source:
     # Usage:
     #   docker-compose build almalinux-verify-rc-source
-    #   docker-compose run almalinux-verify-rc-source
+    #   docker-compose run -e VERIFY_VERSION=6.0.1 -e VERIFY_RC=1 almalinux-verify-rc-source
     # Parameters:
     #   ALMALINUX: 8
     image: almalinux:${ALMALINUX}
@@ -1719,9 +1719,9 @@ services:
   ubuntu-verify-rc-source:
     # Usage:
     #   docker-compose build ubuntu-verify-rc-source
-    #   docker-compose run ubuntu-verify-rc-source
+    #   docker-compose run -e VERIFY_VERSION=6.0.1 -e VERIFY_RC=1 ubuntu-verify-rc-source
     # Parameters:
-    #   UBUNTU: 20.04
+    #   UBUNTU: 18.04, 20.04
     image: ubuntu:${UBUNTU}
     volumes:
       - .:/arrow:delegated
