@@ -106,7 +106,7 @@
 
 .array_function_map <- c(.unary_function_map, .binary_function_map)
 
-register_array_function_map_translations <- function() {
+register_array_function_map_bindings <- function() {
   # use a function to generate the binding so that `operator` persists
   # beyond execution time (another option would be to use quasiquotation
   # and unquote `operator` directly into the function expression)
@@ -116,7 +116,7 @@ register_array_function_map_translations <- function() {
   }
 
   for (name in names(.array_function_map)) {
-    register_translation(name, array_function_map_factory(name))
+    register_binding(name, array_function_map_factory(name))
   }
 }
 

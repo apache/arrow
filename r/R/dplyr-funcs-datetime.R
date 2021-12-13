@@ -15,9 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
-register_datetime_translations <- function() {
+register_datetime_bindings <- function() {
 
-  register_translation("strptime", function(x, format = "%Y-%m-%d %H:%M:%S", tz = NULL,
+  register_binding("strptime", function(x, format = "%Y-%m-%d %H:%M:%S", tz = NULL,
                                             unit = "ms") {
     # Arrow uses unit for time parsing, strptime() does not.
     # Arrow has no default option for strptime (format, unit),
@@ -35,7 +35,7 @@ register_datetime_translations <- function() {
     Expression$create("strptime", x, options = list(format = format, unit = unit))
   })
 
-  register_translation("strftime", function(x, format = "", tz = "", usetz = FALSE) {
+  register_binding("strftime", function(x, format = "", tz = "", usetz = FALSE) {
     if (usetz) {
       format <- paste(format, "%Z")
     }
@@ -44,7 +44,7 @@ register_datetime_translations <- function() {
     }
     # Arrow's strftime prints in timezone of the timestamp. To match R's strftime behavior we first
     # cast the timestamp to desired timezone. This is a metadata only change.
-    if (call_translation("is.POSIXct", x)) {
+    if (call_binding("is.POSIXct", x)) {
       ts <- Expression$create("cast", x, options = list(to_type = timestamp(x$type()$unit(), tz)))
     } else {
       ts <- x
@@ -52,7 +52,7 @@ register_datetime_translations <- function() {
     Expression$create("strftime", ts, options = list(format = format, locale = Sys.getlocale("LC_TIME")))
   })
 
-  register_translation("format_ISO8601", function(x, usetz = FALSE, precision = NULL, ...) {
+  register_binding("format_ISO8601", function(x, usetz = FALSE, precision = NULL, ...) {
     ISO8601_precision_map <-
       list(
         y = "%Y",
@@ -83,11 +83,11 @@ register_datetime_translations <- function() {
     Expression$create("strftime", x, options = list(format = format, locale = "C"))
   })
 
-  register_translation("second", function(x) {
+  register_binding("second", function(x) {
     Expression$create("add", Expression$create("second", x), Expression$create("subsecond", x))
   })
 
-  register_translation("wday", function(x, label = FALSE, abbr = TRUE,
+  register_binding("wday", function(x, label = FALSE, abbr = TRUE,
                                         week_start = getOption("lubridate.week.start", 7),
                                         locale = Sys.getlocale("LC_TIME")) {
     if (label) {
@@ -102,7 +102,7 @@ register_datetime_translations <- function() {
     Expression$create("day_of_week", x, options = list(count_from_zero = FALSE, week_start = week_start))
   })
 
-  register_translation("month", function(x, label = FALSE, abbr = TRUE, locale = Sys.getlocale("LC_TIME")) {
+  register_binding("month", function(x, label = FALSE, abbr = TRUE, locale = Sys.getlocale("LC_TIME")) {
     if (label) {
       if (abbr) {
         format <- "%b"
@@ -115,19 +115,19 @@ register_datetime_translations <- function() {
     Expression$create("month", x)
   })
 
-  register_translation("is.Date", function(x) {
+  register_binding("is.Date", function(x) {
     inherits(x, "Date") ||
       (inherits(x, "Expression") && x$type_id() %in% Type[c("DATE32", "DATE64")])
   })
 
-  is_instant_translation <- function(x) {
+  is_instant_binding <- function(x) {
     inherits(x, c("POSIXt", "POSIXct", "POSIXlt", "Date")) ||
       (inherits(x, "Expression") && x$type_id() %in% Type[c("TIMESTAMP", "DATE32", "DATE64")])
   }
-  register_translation("is.instant", is_instant_translation)
-  register_translation("is.timepoint", is_instant_translation)
+  register_binding("is.instant", is_instant_binding)
+  register_binding("is.timepoint", is_instant_binding)
 
-  register_translation("is.POSIXct", function(x) {
+  register_binding("is.POSIXct", function(x) {
     inherits(x, "POSIXct") ||
       (inherits(x, "Expression") && x$type_id() %in% Type[c("TIMESTAMP")])
   })

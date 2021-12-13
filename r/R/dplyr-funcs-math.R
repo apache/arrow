@@ -15,9 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
-register_math_translations <- function() {
+register_math_bindings <- function() {
 
-  log_translation <- function(x, base = exp(1)) {
+  log_binding <- function(x, base = exp(1)) {
     # like other binary functions, either `x` or `base` can be Expression or double(1)
     if (is.numeric(x) && length(x) == 1) {
       x <- Expression$scalar(x)
@@ -50,10 +50,10 @@ register_math_translations <- function() {
     Expression$create("logb_checked", x, Expression$scalar(base))
   }
 
-  register_translation("log", log_translation)
-  register_translation("logb", log_translation)
+  register_binding("log", log_binding)
+  register_binding("logb", log_binding)
 
-  register_translation("pmin", function(..., na.rm = FALSE) {
+  register_binding("pmin", function(..., na.rm = FALSE) {
     build_expr(
       "min_element_wise",
       ...,
@@ -61,7 +61,7 @@ register_math_translations <- function() {
     )
   })
 
-  register_translation("pmax", function(..., na.rm = FALSE) {
+  register_binding("pmax", function(..., na.rm = FALSE) {
     build_expr(
       "max_element_wise",
       ...,
@@ -69,12 +69,12 @@ register_math_translations <- function() {
     )
   })
 
-  register_translation("trunc", function(x, ...) {
+  register_binding("trunc", function(x, ...) {
     # accepts and ignores ... for consistency with base::trunc()
     build_expr("trunc", x)
   })
 
-  register_translation("round", function(x, digits = 0) {
+  register_binding("round", function(x, digits = 0) {
     build_expr(
       "round",
       x,

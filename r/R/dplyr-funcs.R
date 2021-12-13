@@ -22,7 +22,7 @@ NULL
 
 #' Register compute translations
 #'
-#' The `register_translation()` and `register_translation_agg()` functions
+#' The `register_binding()` and `register_binding_agg()` functions
 #' are used to populate a list of functions that operate on (and return)
 #' Expressions. These are the basis for the `.data` mask inside dplyr methods.
 #'
@@ -57,7 +57,7 @@ NULL
 #'   registered function existed.
 #' @keywords internal
 #'
-register_translation <- function(fun_name, fun, registry = translation_registry()) {
+register_binding <- function(fun_name, fun, registry = translation_registry()) {
   name <- gsub("^.*?::", "", fun_name)
   namespace <- gsub("::.*$", "", fun_name)
 
@@ -72,8 +72,8 @@ register_translation <- function(fun_name, fun, registry = translation_registry(
   invisible(previous_fun)
 }
 
-register_translation_agg <- function(fun_name, agg_fun, registry = translation_registry_agg()) {
-  register_translation(fun_name, agg_fun, registry = registry)
+register_binding_agg <- function(fun_name, agg_fun, registry = translation_registry_agg()) {
+  register_binding(fun_name, agg_fun, registry = registry)
 }
 
 translation_registry <- function() {
@@ -85,16 +85,16 @@ translation_registry_agg <- function() {
 }
 
 # Supports functions and tests that call previously-defined translations.
-call_translation <- function(fun_name, ...) {
+call_binding <- function(fun_name, ...) {
   nse_funcs[[fun_name]](...)
 }
 
-call_translation_agg <- function(fun_name, ...) {
+call_binding_agg <- function(fun_name, ...) {
   agg_funcs[[fun_name]](...)
 }
 
 # Called in .onLoad()
-create_translation_cache <- function() {
+create_binding_cache <- function() {
   arrow_funcs <- list()
 
   # Register all available Arrow Compute functions, namespaced as arrow_fun.
@@ -110,13 +110,13 @@ create_translation_cache <- function() {
   }
 
   # Register translations into nse_funcs and agg_funcs
-  register_array_function_map_translations()
-  register_aggregate_translations()
-  register_conditional_translations()
-  register_datetime_translations()
-  register_math_translations()
-  register_string_translations()
-  register_type_translations()
+  register_array_function_map_bindings()
+  register_aggregate_bindings()
+  register_conditional_bindings()
+  register_datetime_bindings()
+  register_math_bindings()
+  register_string_bindings()
+  register_type_bindings()
 
   # We only create the cache for nse_funcs and not agg_funcs
   .cache$functions <- c(as.list(nse_funcs), arrow_funcs)

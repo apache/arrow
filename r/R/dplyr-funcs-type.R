@@ -16,21 +16,21 @@
 # under the License.
 
 # Split up into several register functions by category to satisfy the linter
-register_type_translations <- function() {
-  register_type_cast_translations()
-  register_type_inspect_translations()
-  register_type_elementwise_translations()
+register_type_bindings <- function() {
+  register_type_cast_bindings()
+  register_type_inspect_bindings()
+  register_type_elementwise_bindings()
 }
 
-register_type_cast_translations <- function() {
+register_type_cast_bindings <- function() {
 
-  register_translation("cast", function(x, target_type, safe = TRUE, ...) {
+  register_binding("cast", function(x, target_type, safe = TRUE, ...) {
     opts <- cast_options(safe, ...)
     opts$to_type <- as_type(target_type)
     Expression$create("cast", x, options = opts)
   })
 
-  register_translation("dictionary_encode", function(x,
+  register_binding("dictionary_encode", function(x,
                                                      null_encoding_behavior = c("mask", "encode")) {
     behavior <- toupper(match.arg(null_encoding_behavior))
     null_encoding_behavior <- NullEncodingBehavior[[behavior]]
@@ -43,13 +43,13 @@ register_type_cast_translations <- function() {
 
   # as.* type casting functions
   # as.factor() is mapped in expression.R
-  register_translation("as.character", function(x) {
+  register_binding("as.character", function(x) {
     Expression$create("cast", x, options = cast_options(to_type = string()))
   })
-  register_translation("as.double", function(x) {
+  register_binding("as.double", function(x) {
     Expression$create("cast", x, options = cast_options(to_type = float64()))
   })
-  register_translation("as.integer", function(x) {
+  register_binding("as.integer", function(x) {
     Expression$create(
       "cast",
       x,
@@ -60,7 +60,7 @@ register_type_cast_translations <- function() {
       )
     )
   })
-  register_translation("as.integer64", function(x) {
+  register_binding("as.integer64", function(x) {
     Expression$create(
       "cast",
       x,
@@ -71,24 +71,24 @@ register_type_cast_translations <- function() {
       )
     )
   })
-  register_translation("as.logical", function(x) {
+  register_binding("as.logical", function(x) {
     Expression$create("cast", x, options = cast_options(to_type = boolean()))
   })
-  register_translation("as.numeric", function(x) {
+  register_binding("as.numeric", function(x) {
     Expression$create("cast", x, options = cast_options(to_type = float64()))
   })
 
-  register_translation("is", function(object, class2) {
+  register_binding("is", function(object, class2) {
     if (is.string(class2)) {
       switch(class2,
         # for R data types, pass off to is.*() functions
-        character = call_translation("is.character", object),
-        numeric = call_translation("is.numeric", object),
-        integer = call_translation("is.integer", object),
-        integer64 = call_translation("is.integer64", object),
-        logical = call_translation("is.logical", object),
-        factor = call_translation("is.factor", object),
-        list = call_translation("is.list", object),
+        character = call_binding("is.character", object),
+        numeric = call_binding("is.numeric", object),
+        integer = call_binding("is.integer", object),
+        integer64 = call_binding("is.integer64", object),
+        logical = call_binding("is.logical", object),
+        factor = call_binding("is.factor", object),
+        list = call_binding("is.list", object),
         # for Arrow data types, compare class2 with object$type()$ToString(),
         # but first strip off any parameters to only compare the top-level data
         # type,  and canonicalize class2
@@ -103,7 +103,7 @@ register_type_cast_translations <- function() {
   })
 
   # Create a data frame/tibble/struct column
-  register_translation("tibble", function(..., .rows = NULL, .name_repair = NULL) {
+  register_binding("tibble", function(..., .rows = NULL, .name_repair = NULL) {
     if (!is.null(.rows)) arrow_not_supported(".rows")
     if (!is.null(.name_repair)) arrow_not_supported(".name_repair")
 
@@ -122,7 +122,7 @@ register_type_cast_translations <- function() {
     )
   })
 
-  register_translation("data.frame", function(..., row.names = NULL,
+  register_binding("data.frame", function(..., row.names = NULL,
                                               check.rows = NULL, check.names = TRUE, fix.empty.names = TRUE,
                                               stringsAsFactors = FALSE) {
     # we need a specific value of stringsAsFactors because the default was
@@ -157,73 +157,73 @@ register_type_cast_translations <- function() {
   })
 }
 
-register_type_inspect_translations <- function() {
+register_type_inspect_bindings <- function() {
   # is.* type functions
-  register_translation("is.character", function(x) {
+  register_binding("is.character", function(x) {
     is.character(x) || (inherits(x, "Expression") &&
                           x$type_id() %in% Type[c("STRING", "LARGE_STRING")])
   })
-  register_translation("is.numeric", function(x) {
+  register_binding("is.numeric", function(x) {
     is.numeric(x) || (inherits(x, "Expression") && x$type_id() %in% Type[c(
       "UINT8", "INT8", "UINT16", "INT16", "UINT32", "INT32",
       "UINT64", "INT64", "HALF_FLOAT", "FLOAT", "DOUBLE",
       "DECIMAL128", "DECIMAL256"
     )])
   })
-  register_translation("is.double", function(x) {
+  register_binding("is.double", function(x) {
     is.double(x) || (inherits(x, "Expression") && x$type_id() == Type["DOUBLE"])
   })
-  register_translation("is.integer", function(x) {
+  register_binding("is.integer", function(x) {
     is.integer(x) || (inherits(x, "Expression") && x$type_id() %in% Type[c(
       "UINT8", "INT8", "UINT16", "INT16", "UINT32", "INT32",
       "UINT64", "INT64"
     )])
   })
-  register_translation("is.integer64", function(x) {
+  register_binding("is.integer64", function(x) {
     inherits(x, "integer64") || (inherits(x, "Expression") && x$type_id() == Type["INT64"])
   })
-  register_translation("is.logical", function(x) {
+  register_binding("is.logical", function(x) {
     is.logical(x) || (inherits(x, "Expression") && x$type_id() == Type["BOOL"])
   })
-  register_translation("is.factor", function(x) {
+  register_binding("is.factor", function(x) {
     is.factor(x) || (inherits(x, "Expression") && x$type_id() == Type["DICTIONARY"])
   })
-  register_translation("is.list", function(x) {
+  register_binding("is.list", function(x) {
     is.list(x) || (inherits(x, "Expression") && x$type_id() %in% Type[c(
       "LIST", "FIXED_SIZE_LIST", "LARGE_LIST"
     )])
   })
 
   # rlang::is_* type functions
-  register_translation("is_character", function(x, n = NULL) {
+  register_binding("is_character", function(x, n = NULL) {
     assert_that(is.null(n))
-    call_translation("is.character", x)
+    call_binding("is.character", x)
   })
-  register_translation("is_double", function(x, n = NULL, finite = NULL) {
+  register_binding("is_double", function(x, n = NULL, finite = NULL) {
     assert_that(is.null(n) && is.null(finite))
-    call_translation("is.double", x)
+    call_binding("is.double", x)
   })
-  register_translation("is_integer", function(x, n = NULL) {
+  register_binding("is_integer", function(x, n = NULL) {
     assert_that(is.null(n))
-    call_translation("is.integer", x)
+    call_binding("is.integer", x)
   })
-  register_translation("is_list", function(x, n = NULL) {
+  register_binding("is_list", function(x, n = NULL) {
     assert_that(is.null(n))
-    call_translation("is.list", x)
+    call_binding("is.list", x)
   })
-  register_translation("is_logical", function(x, n = NULL) {
+  register_binding("is_logical", function(x, n = NULL) {
     assert_that(is.null(n))
-    call_translation("is.logical", x)
+    call_binding("is.logical", x)
   })
 }
 
-register_type_elementwise_translations <- function() {
+register_type_elementwise_bindings <- function() {
 
-  register_translation("is.na", function(x) {
+  register_binding("is.na", function(x) {
     build_expr("is_null", x, options = list(nan_is_null = TRUE))
   })
 
-  register_translation("is.nan", function(x) {
+  register_binding("is.nan", function(x) {
     if (is.double(x) || (inherits(x, "Expression") &&
                          x$type_id() %in% TYPES_WITH_NAN)) {
       # TODO: if an option is added to the is_nan kernel to treat NA as NaN,
@@ -234,19 +234,19 @@ register_type_elementwise_translations <- function() {
     }
   })
 
-  register_translation("between", function(x, left, right) {
+  register_binding("between", function(x, left, right) {
     x >= left & x <= right
   })
 
-  register_translation("is.finite", function(x) {
+  register_binding("is.finite", function(x) {
     is_fin <- Expression$create("is_finite", x)
     # for compatibility with base::is.finite(), return FALSE for NA_real_
-    is_fin & !call_translation("is.na", is_fin)
+    is_fin & !call_binding("is.na", is_fin)
   })
 
-  register_translation("is.infinite", function(x) {
+  register_binding("is.infinite", function(x) {
     is_inf <- Expression$create("is_inf", x)
     # for compatibility with base::is.infinite(), return FALSE for NA_real_
-    is_inf & !call_translation("is.na", is_inf)
+    is_inf & !call_binding("is.na", is_inf)
   })
 }

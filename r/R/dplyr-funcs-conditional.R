@@ -15,9 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
-register_conditional_translations <- function() {
+register_conditional_bindings <- function() {
 
-  register_translation("coalesce", function(...) {
+  register_binding("coalesce", function(...) {
     args <- list2(...)
     if (length(args) < 1) {
       abort("At least one argument must be supplied to coalesce()")
@@ -49,26 +49,26 @@ register_conditional_translations <- function() {
     Expression$create("coalesce", args = args)
   })
 
-  if_else_translation <- function(condition, true, false, missing = NULL) {
+  if_else_binding <- function(condition, true, false, missing = NULL) {
     if (!is.null(missing)) {
-      return(if_else_translation(
-        call_translation("is.na", (condition)),
+      return(if_else_binding(
+        call_binding("is.na", (condition)),
         missing,
-        if_else_translation(condition, true, false)
+        if_else_binding(condition, true, false)
       ))
     }
 
     build_expr("if_else", condition, true, false)
   }
 
-  register_translation("if_else", if_else_translation)
+  register_binding("if_else", if_else_binding)
 
   # Although base R ifelse allows `yes` and `no` to be different classes
-  register_translation("ifelse", function(test, yes, no) {
-    if_else_translation(condition = test, true = yes, false = no)
+  register_binding("ifelse", function(test, yes, no) {
+    if_else_binding(condition = test, true = yes, false = no)
   })
 
-  register_translation("case_when", function(...) {
+  register_binding("case_when", function(...) {
     formulas <- list2(...)
     n <- length(formulas)
     if (n == 0) {
@@ -84,7 +84,7 @@ register_conditional_translations <- function() {
       }
       query[[i]] <- arrow_eval(f[[2]], mask)
       value[[i]] <- arrow_eval(f[[3]], mask)
-      if (!call_translation("is.logical", query[[i]])) {
+      if (!call_binding("is.logical", query[[i]])) {
         abort("Left side of each formula in case_when() must be a logical expression")
       }
       if (inherits(value[[i]], "try-error")) {

@@ -407,7 +407,7 @@ test_that("coalesce()", {
 
   # no arguments
   expect_error(
-    call_translation("coalesce"),
+    call_binding("coalesce"),
     "At least one argument must be supplied to coalesce()",
     fixed = TRUE
   )
