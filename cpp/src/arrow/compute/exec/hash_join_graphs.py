@@ -31,8 +31,16 @@ class Test:
         self.args = {}
 
     def get_argnames_by_cardinality_increasing(self):
-        key = lambda x: len(set(self.args[x]))
-        return sorted(self.args.keys(), key=key)
+        key_cardinality = lambda x: len(set(self.args[x]))
+        def key_strings_first(x):
+            try:
+                as_float = float(self.args[x][0])
+                return True
+            except:
+                return False
+        by_cardinality = sorted(self.args.keys(), key=key_cardinality)
+        strings_first = sorted(by_cardinality, key=key_strings_first)
+        return strings_first
 
 def organize_tests(filename):
     tests = {}
@@ -41,12 +49,15 @@ def organize_tests(filename):
         for idx, row in enumerate(df['benchmarks']):
             test_name = row['name']
             test_name_split = test_name.split('/')
+            if test_name_split[-1] == 'process_time':
+                test_name_split = test_name_split[:-1]
+                
             base_name = test_name_split[0]
             args = test_name_split[1:]
             if base_name not in tests.keys():
                 tests[base_name] = Test()
 
-            tests[base_name].times.append(row['ns/row'])
+            tests[base_name].times.append(row['rows/sec'])
             
             if len(args) > 3:
                 raise('Test can have at most 3 parameters! Found', len(args), 'in test', test_name)
@@ -70,7 +81,7 @@ def organize_tests(filename):
 
 def string_numeric_sort_key(val):
     try:
-        return int(val)
+        return float(val)
     except:
         return str(val)
 
@@ -85,7 +96,7 @@ def plot_1d(test, argname, ax, label=None):
     ax.plot(x_axis, y_axis, label=label)
     ax.legend()
     ax.set_xlabel(argname)
-    ax.set_ylabel('ns/row')
+    ax.set_ylabel('rows/sec')
 
 def plot_2d(test, sorted_argnames, ax, title):
     assert len(sorted_argnames) == 2
@@ -119,7 +130,7 @@ def plot_3d(test, sorted_argnames):
 def main():
     if len(sys.argv) != 2:
         print('Usage: hash_join_graphs.py <data>.json')
-        print('This script expects there to be a counter called ns/row as a field of every test in the JSON file.')
+        print('This script expects there to be a counter called rows/sec as a field of every test in the JSON file.')
         return
 
     tests = organize_tests(sys.argv[1])
@@ -140,6 +151,7 @@ def main():
             ax = plt.subplot()
             plot_2d(test, sorted_argnames, ax, test_name)
         else:
+            fig.suptitle(test_name)
             ax = plt.subplot()
             plot_1d(test, sorted_argnames[0], ax)
         fig.set_size_inches(16, 9)

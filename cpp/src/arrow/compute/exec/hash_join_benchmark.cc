@@ -140,10 +140,8 @@ class JoinBenchmark {
   }
 
   void RunJoin() {
-    double nanos = 0;
-#pragma omp parallel reduction(+ : nanos)
+#pragma omp parallel
     {
-      auto start = std::chrono::high_resolution_clock::now();
       int tid = omp_get_thread_num();
 #pragma omp for nowait
       for (auto it = r_batches_.batches.begin(); it != r_batches_.batches.end(); ++it)
@@ -159,11 +157,7 @@ class JoinBenchmark {
 
 #pragma omp single nowait
       { DCHECK_OK(join_->InputFinished(tid, /* side */ 0)); }
-      std::chrono::duration<double, std::nano> elapsed =
-          std::chrono::high_resolution_clock::now() - start;
-      nanos += elapsed.count();
     }
-    stats_.total_nanoseconds = nanos;
   }
 
   BatchesWithSchema l_batches_;
@@ -173,7 +167,6 @@ class JoinBenchmark {
   std::unique_ptr<ExecContext> ctx_;
 
   struct {
-    double total_nanoseconds;
     uint64_t num_probe_rows;
   } stats_;
 };
@@ -181,14 +174,12 @@ class JoinBenchmark {
 static void HashJoinBasicBenchmarkImpl(benchmark::State& st,
                                        BenchmarkSettings& settings) {
   JoinBenchmark bm(settings);
-  double total_nanos = 0;
   uint64_t total_rows = 0;
   for (auto _ : st) {
     bm.RunJoin();
-    total_nanos += bm.stats_.total_nanoseconds;
     total_rows += bm.stats_.num_probe_rows;
   }
-  st.counters["ns/row"] = total_nanos / total_rows;
+  st.counters["rows/sec"] = benchmark::Counter(total_rows, benchmark::Counter::kIsRate);
 }
 
 template <typename... Args>
@@ -399,12 +390,14 @@ BENCHMARK(BM_HashJoinBasic_PayloadSize)
 BENCHMARK(BM_HashJoinBasic_ProbeParallelism)
     ->ArgNames({"Threads", "HashTable krows"})
     ->ArgsProduct({benchmark::CreateDenseRange(1, 16, 1),
-                   benchmark::CreateRange(1, 4 * 1024, 8)});
+                   benchmark::CreateRange(1, 4 * 1024, 8)})
+    ->MeasureProcessCPUTime();
 
 BENCHMARK(BM_HashJoinBasic_BuildParallelism)
     ->ArgNames({"Threads", "HashTable krows"})
     ->ArgsProduct({benchmark::CreateDenseRange(1, 16, 1),
-                   benchmark::CreateRange(1, 4 * 1024, 8)});
+                   benchmark::CreateRange(1, 4 * 1024, 8)})
+    ->MeasureProcessCPUTime();
 
 BENCHMARK(BM_HashJoinBasic_NullPercentage)
     ->ArgNames({"NullPercentage"})
