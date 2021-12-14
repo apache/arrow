@@ -30,7 +30,7 @@ Components:
 * `docker run` - command to run the container
 * `-it` - run with an interactive terminal so you can run commands on the containers
 * `-e ARROW_DEPENDENCY_SOURCE=AUTO` - set the environment variable `ARROW_DEPENDENCY_SOURCE` to the value `AUTO`
-* `-v $(pwd):/arrow` - mount the current directory at `/arrow` in the container
+* `-v $(pwd):/arrow` - mount the current directory at `/arrow` in the container (this command should be run in the root directory of a checkout of the arrow repo)
 * `apache/arrow-dev` - the DockerHub repo to get this container from
 * `r-rhub-ubuntu-gcc-release-latest` - the image tag
 
