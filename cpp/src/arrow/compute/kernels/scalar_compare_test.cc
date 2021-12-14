@@ -2158,12 +2158,36 @@ TYPED_TEST(TestNumericBetweenKernel, SimpleBetweenArrayScalarScalar) {
 
   Datum zero(std::make_shared<ScalarType>(CType(0)));
   Datum four(std::make_shared<ScalarType>(CType(4)));
+  Datum null(std::make_shared<ScalarType>());
   ValidateBetween<TypeParam>("[]", zero, four, "[]");
   ValidateBetween<TypeParam>("[null]", zero, four, "[null]");
-  ValidateBetween<TypeParam>("[0,0,1,1,2,2]", zero, four, "[0,0,1,1,1,1]");
-  ValidateBetween<TypeParam>("[0,1,2,3,4,5]", zero, four, "[0,1,1,1,0,0]");
-  ValidateBetween<TypeParam>("[5,4,3,2,1,0]", zero, four, "[0,0,1,1,1,0]");
-  ValidateBetween<TypeParam>("[null,0,1,1]", zero, four, "[null,0,1,1]");
+  ValidateBetween<TypeParam>("[0,0,1,1,2,2]", zero, four, "[1,1,1,1,1,1]");
+  ValidateBetween<TypeParam>("[0,1,2,3,4,5]", zero, four, "[1,1,1,1,1,0]");
+  ValidateBetween<TypeParam>("[5,4,3,2,1,0]", zero, four, "[0,1,1,1,1,1]");
+  ValidateBetween<TypeParam>("[null,0,1,1]", zero, four, "[null,1,1,1]");
+  ValidateBetween<TypeParam>("[5,4,3,2,1,0]", null, four,
+      "[null,null,null,null,null,null]");
+  ValidateBetween<TypeParam>("[5,4,3,2,1,0]", zero, null, 
+      "[null,null,null,null,null,null]");
+}
+
+TYPED_TEST(TestNumericBetweenKernel, SimpleBetweenArrayArrayArray) {
+  ValidateBetween<TypeParam>(
+      "[]", ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"),
+      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"), "[]");
+  ValidateBetween<TypeParam>(
+      "[null]", ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null]"),
+      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null]"), "[null]");
+  ValidateBetween<TypeParam>(
+      "[1,1,2,2,2]",
+      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,0,1,3,3]"),
+      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[10,10,2,5,5]"),
+      "[true,true,true,false,false]");
+  ValidateBetween<TypeParam>(
+      "[1,1,2,2,2,2]",
+      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,0,1,null,3,3]"),
+      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[10,10,2,2,5,5]"),
+      "[true,true,true,null,false,false]");
 }
 
 TEST(TestSimpleBetweenKernel, SimpleStringTest) {
@@ -2178,49 +2202,10 @@ TEST(TestSimpleBetweenKernel, SimpleStringTest) {
                               R"([false, false, true, true])");
   ValidateBetween<StringType>(R"(["a", "aaaa", "fff", "zzzz"])", l, r,
                               R"([false, false, true, false])");
+  ValidateBetween<StringType>(R"(["abc", "baa", "fff", "zzz"])", l, r,
+                              R"([true, true, true, true])");
   ValidateBetween<StringType>(R"(["abd", null, null, "zzx"])", l, r,
                               R"([true, null, null, true])");
-}
-
-TEST(TestSimpleBetweenKernel, SimpleTimestampTest) {
-  using ScalarType = typename TypeTraits<TimestampType>::ScalarType;
-  auto checkTimestampArray = [](std::shared_ptr<DataType> type, const char* input_str,
-                                const Datum& lhs, const Datum& rhs,
-                                const char* expected_str) {
-    auto value = ArrayFromJSON(type, input_str);
-    auto expected = ArrayFromJSON(boolean(), expected_str);
-    ValidateBetween<TimestampType>(value, lhs, rhs, expected);
-  };
-  auto unit = TimeUnit::SECOND;
-  auto l = Datum(std::make_shared<ScalarType>(923184000, timestamp(unit)));
-  auto r = Datum(std::make_shared<ScalarType>(1602032602, timestamp(unit)));
-  checkTimestampArray(timestamp(unit), "[]", l, r, "[]");
-  checkTimestampArray(timestamp(unit), "[null]", l, r, "[null]");
-  checkTimestampArray(timestamp(unit), R"(["1970-01-01","2000-02-29","1900-02-28"])", l,
-                      r, "[false,true,false]");
-  checkTimestampArray(timestamp(unit), R"(["1970-01-01","2000-02-29","2004-02-28"])", l,
-                      r, "[false,true,true]");
-  checkTimestampArray(timestamp(unit), R"(["2018-01-01","1999-04-04","1900-02-28"])", l,
-                      r, "[true,false,false]");
-}
-
-TYPED_TEST(TestNumericBetweenKernel, SimpleBetweenArrayArrayArray) {
-  ValidateBetween<TypeParam>(
-      "[]", ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"),
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"), "[]");
-  ValidateBetween<TypeParam>(
-      "[null]", ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null]"),
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null]"), "[null]");
-  ValidateBetween<TypeParam>(
-      "[1,1,2,2,2]",
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,0,1,3,3]"),
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[10,10,2,5,5]"),
-      "[true,true,false,false,false]");
-  ValidateBetween<TypeParam>(
-      "[1,1,2,2,2,2]",
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,0,1,null,3,3]"),
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[10,10,2,2,5,5]"),
-      "[true,true,false,null,false,false]");
 }
 
 TEST(TestSimpleBetweenKernel, StringArrayArrayArrayTest) {
@@ -2234,43 +2219,31 @@ TEST(TestSimpleBetweenKernel, StringArrayArrayArrayTest) {
       R"(["x","a","f"])",
       ArrayFromJSON(TypeTraits<StringType>::type_singleton(), R"(["w","a","e"])"),
       ArrayFromJSON(TypeTraits<StringType>::type_singleton(), R"(["z","a","g"])"),
-      "[true, false, true]");
+      "[true, true, true]");
   ValidateBetween<StringType>(
       R"(["block","bit","binary"])",
       ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
                     R"(["bit","nibble","ternary"])"),
       ArrayFromJSON(TypeTraits<StringType>::type_singleton(), R"(["word","d","xyz"])"),
       "[true, false, false]");
-  ValidateBetween<StringType>(R"(["Ayumi","アユミ","王梦莹"])",
+  ValidateBetween<StringType>(R"(["よしもと","の","ち"])",
                               ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
-                                            R"(["たなか","あゆみ","歩美"])"),
+                                            R"(["は","へ","あ"])"),
                               ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
-                                            R"(["李平之","田中","たなか"])"),
-                              "[false, true, false]");
-}
-
-TEST(TestSimpleBetweenKernel, TimestampArrayArrayArrayTest) {
-  auto checkTimestampArray = [](std::shared_ptr<DataType> type, const char* input_str,
-                                const char* lhs, const char* rhs,
-                                const char* expected_str) {
-    auto value = ArrayFromJSON(type, input_str);
-    auto left = ArrayFromJSON(type, lhs);
-    auto right = ArrayFromJSON(type, rhs);
-    auto expected = ArrayFromJSON(boolean(), expected_str);
-    ValidateBetween<TimestampType>(value, left, right, expected);
-  };
-  auto unit = TimeUnit::SECOND;
-  checkTimestampArray(timestamp(unit), R"(["1970-01-01","2000-02-29","1900-02-28"])",
-                      R"(["1970-01-01","2000-02-26","1900-02-28"])",
-                      R"(["1970-01-01","2000-03-15","1900-02-28"])",
-                      "[false,true,false]");
-  checkTimestampArray(timestamp(unit), R"(["1970-01-01","2000-02-29","2004-02-28"])",
-                      R"(["1970-05-01","2000-01-26","1900-02-27"])",
-                      R"(["1970-01-01","2000-03-15","2020-02-28"])", "[false,true,true]");
-  checkTimestampArray(timestamp(unit), R"(["2018-01-01","1999-04-04","1900-02-28"])",
-                      R"(["1970-05-01","2000-01-26","1900-02-27"])",
-                      R"(["2019-01-01","2000-03-15","1900-02-28"])",
-                      "[true,false,false]");
+                                            R"(["な","を","ち"])"),
+                              "[false, false, true]");
+  ValidateBetween<StringType>(R"(["A","ア","王"])",
+                              ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
+                                            R"(["た","あ","歩"])"),
+                              ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
+                                            R"(["李","田",null])"),
+                              "[false, true, null]");
+  ValidateBetween<StringType>(R"(["Б",null,"Я"])",
+                              ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
+                                            R"(["А","Ж","Щ"])"),
+                              ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
+                                            R"(["Д","Л","Ф"])"),
+                              "[true, null, false]");
 }
 
 }  // namespace compute
