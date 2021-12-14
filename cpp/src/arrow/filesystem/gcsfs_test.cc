@@ -99,7 +99,7 @@ class GcsTestbench : public ::testing::Environment {
     error_ = std::move(error);
   }
 
-  ~GcsTestbench() {
+  ~GcsTestbench() override {
     // Brutal shutdown, kill the full process group because the GCS testbench may launch
     // additional children.
     group_.terminate();
@@ -209,9 +209,7 @@ class GcsIntegrationTest : public ::testing::Test {
       result.contents.push_back(arrow::fs::Dir(folder));
       for (int i = 0; i != 64; ++i) {
         const auto filename = folder + "test-file-" + std::to_string(i);
-        ARROW_ASSIGN_OR_RAISE(auto w, fs->OpenOutputStream(filename, {}));
-        RETURN_NOT_OK(w->Write(filename.data(), filename.size()));
-        RETURN_NOT_OK(w->Close());
+        CreateFile(fs.get(), filename, filename);
         result.contents.push_back(arrow::fs::File(filename));
       }
     }

@@ -312,10 +312,11 @@ class GcsFileSystem::Impl {
       }
       auto info = FileInfo(path, FileType::File);
       info.set_size(static_cast<int64_t>(o->size()));
+      info.set_mtime(o->updated());
       result.push_back(std::move(info));
     }
     if (!found_directory && !select.allow_not_found) {
-      return Status::IOError("no such file or directory " + select.base_dir);
+      return Status::IOError("No such file or directory '", select.base_dir, "'");
     }
     return result;
   }
