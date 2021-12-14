@@ -62,16 +62,31 @@ static inline Result<std::shared_ptr<ipc::RecordBatchFileReader>> OpenReader(
 static inline Future<std::shared_ptr<ipc::RecordBatchFileReader>> OpenReaderAsync(
     const FileSource& source,
     const ipc::IpcReadOptions& options = default_read_options()) {
+#ifdef ARROW_WITH_OPENTELEMETRY
+  auto tracer = arrow::internal::tracing::GetTracer();
+  auto span = tracer->StartSpan("arrow::dataset::IpcFileFormat::OpenReaderAsync");
+#endif
   ARROW_ASSIGN_OR_RAISE(auto input, source.Open());
   auto path = source.path();
   return ipc::RecordBatchFileReader::OpenAsync(std::move(input), options)
-      .Then([](const std::shared_ptr<ipc::RecordBatchFileReader>& reader)
-                -> Result<std::shared_ptr<ipc::RecordBatchFileReader>> { return reader; },
-            [path](const Status& status)
-                -> Result<std::shared_ptr<ipc::RecordBatchFileReader>> {
-              return status.WithMessage("Could not open IPC input source '", path,
-                                        "': ", status.message());
-            });
+      .Then(
+          [=](const std::shared_ptr<ipc::RecordBatchFileReader>& reader)
+              -> Result<std::shared_ptr<ipc::RecordBatchFileReader>> {
+#ifdef ARROW_WITH_OPENTELEMETRY
+            span->SetStatus(opentelemetry::trace::StatusCode::kOk);
+            span->End();
+#endif
+            return reader;
+          },
+          [=](const Status& status)
+              -> Result<std::shared_ptr<ipc::RecordBatchFileReader>> {
+#ifdef ARROW_WITH_OPENTELEMETRY
+            arrow::internal::tracing::MarkSpan(status, span.get());
+            span->End();
+#endif
+            return status.WithMessage("Could not open IPC input source '", path,
+                                      "': ", status.message());
+          });
 }
 
 static inline Result<std::vector<int>> GetIncludedFields(
@@ -121,6 +136,10 @@ Result<std::shared_ptr<Schema>> IpcFileFormat::Inspect(const FileSource& source)
 Result<RecordBatchGenerator> IpcFileFormat::ScanBatchesAsync(
     const std::shared_ptr<ScanOptions>& options,
     const std::shared_ptr<FileFragment>& file) const {
+#ifdef ARROW_WITH_OPENTELEMETRY
+  auto tracer = arrow::internal::tracing::GetTracer();
+  auto parent_span = tracer->GetCurrentSpan();
+#endif
   auto self = shared_from_this();
   auto source = file->source();
   auto open_reader = OpenReaderAsync(source);
@@ -151,6 +170,13 @@ Result<RecordBatchGenerator> IpcFileFormat::ScanBatchesAsync(
       ARROW_ASSIGN_OR_RAISE(generator, reader->GetRecordBatchGenerator(
                                            /*coalesce=*/false, options->io_context));
     }
+#ifdef ARROW_WITH_OPENTELEMETRY
+    opentelemetry::trace::StartSpanOptions span_options;
+    span_options.parent = parent_span->GetContext();
+    generator = arrow::internal::tracing::WrapAsyncGenerator(
+        std::move(generator), std::move(span_options),
+        "arrow::dataset::IpcFileFormat::ScanBatchesAsync::Next");
+#endif
     auto batch_generator = MakeReadaheadGenerator(std::move(generator), readahead_level);
     return MakeChunkedBatchGenerator(std::move(batch_generator), options->batch_size);
   };

@@ -35,10 +35,12 @@
 #include "arrow/dataset/plan.h"
 #include "arrow/table.h"
 #include "arrow/util/async_generator.h"
+#include "arrow/util/config.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/task_group.h"
 #include "arrow/util/thread_pool.h"
+#include "arrow/util/tracing_internal.h"
 
 namespace arrow {
 
@@ -126,6 +128,18 @@ class AsyncScanner : public Scanner, public std::enable_shared_from_this<AsyncSc
 Result<EnumeratedRecordBatchGenerator> FragmentToBatches(
     const Enumerated<std::shared_ptr<Fragment>>& fragment,
     const std::shared_ptr<ScanOptions>& options) {
+#ifdef ARROW_WITH_OPENTELEMETRY
+  auto tracer = arrow::internal::tracing::GetTracer();
+  auto span = tracer->StartSpan(
+      "arrow::dataset::FragmentToBatches",
+      {
+          {"arrow.dataset.fragment", fragment.value->ToString()},
+          {"arrow.dataset.fragment.index", fragment.index},
+          {"arrow.dataset.fragment.last", fragment.last},
+          {"arrow.dataset.fragment.type_name", fragment.value->type_name()},
+      });
+  auto scope = tracer->WithActiveSpan(span);
+#endif
   ARROW_ASSIGN_OR_RAISE(auto batch_gen, fragment.value->ScanBatchesAsync(options));
   ArrayVector columns;
   for (const auto& field : options->dataset_schema->fields()) {
@@ -134,6 +148,10 @@ Result<EnumeratedRecordBatchGenerator> FragmentToBatches(
                           MakeArrayOfNull(field->type(), /*length=*/0, options->pool));
     columns.push_back(std::move(array));
   }
+#ifdef ARROW_WITH_OPENTELEMETRY
+  batch_gen =
+      arrow::internal::tracing::TieSpanToAsyncGenerator(std::move(batch_gen), span);
+#endif
   batch_gen = MakeDefaultIfEmptyGenerator(
       std::move(batch_gen),
       RecordBatch::Make(options->dataset_schema, /*num_rows=*/0, std::move(columns)));
