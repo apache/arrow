@@ -948,7 +948,7 @@ test_that("substr", {
 })
 
 test_that("substring", {
-  # translation for substring just calls call_binding("substr", ...),
+  # binding for substring just calls call_binding("substr", ...),
   # tested extensively above
   df <- tibble(x = "Apache Arrow")
 

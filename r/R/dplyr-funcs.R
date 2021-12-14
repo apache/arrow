@@ -20,20 +20,20 @@
 NULL
 
 
-#' Register compute translations
+#' Register compute bindings
 #'
 #' The `register_binding()` and `register_binding_agg()` functions
 #' are used to populate a list of functions that operate on (and return)
 #' Expressions. These are the basis for the `.data` mask inside dplyr methods.
 #'
-#' @section Writing translations:
+#' @section Writing bindings:
 #' When to use `build_expr()` vs. `Expression$create()`?
 #'
 #' Use `build_expr()` if you need to
 #' - map R function names to Arrow C++ functions
 #' - wrap R inputs (vectors) as Array/Scalar
 #'
-#' `Expression$create()` is lower level. Most of the translations use it
+#' `Expression$create()` is lower level. Most of the bindings use it
 #' because they manage the preparation of the user-provided inputs
 #' and don't need or don't want to the automatic conversion of R objects
 #' to [Scalar].
@@ -53,11 +53,11 @@ NULL
 #' @param registry An `environment()` in which the functions should be
 #'   assigned.
 #'
-#' @return The previously registered function or `NULL` if no previously
+#' @return The previously registered binding or `NULL` if no previously
 #'   registered function existed.
 #' @keywords internal
 #'
-register_binding <- function(fun_name, fun, registry = translation_registry()) {
+register_binding <- function(fun_name, fun, registry = binding_registry()) {
   name <- gsub("^.*?::", "", fun_name)
   namespace <- gsub("::.*$", "", fun_name)
 
@@ -72,19 +72,19 @@ register_binding <- function(fun_name, fun, registry = translation_registry()) {
   invisible(previous_fun)
 }
 
-register_binding_agg <- function(fun_name, agg_fun, registry = translation_registry_agg()) {
+register_binding_agg <- function(fun_name, agg_fun, registry = binding_registry_agg()) {
   register_binding(fun_name, agg_fun, registry = registry)
 }
 
-translation_registry <- function() {
+binding_registry <- function() {
   nse_funcs
 }
 
-translation_registry_agg <- function() {
+binding_registry_agg <- function() {
   agg_funcs
 }
 
-# Supports functions and tests that call previously-defined translations.
+# Supports functions and tests that call previously-defined bindings
 call_binding <- function(fun_name, ...) {
   nse_funcs[[fun_name]](...)
 }
@@ -109,7 +109,7 @@ create_binding_cache <- function() {
     )
   }
 
-  # Register translations into nse_funcs and agg_funcs
+  # Register bindings into nse_funcs and agg_funcs
   register_array_function_map_bindings()
   register_aggregate_bindings()
   register_conditional_bindings()

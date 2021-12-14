@@ -2,9 +2,9 @@
 % Please edit documentation in R/dplyr-funcs.R
 \name{register_binding}
 \alias{register_binding}
-\title{Register compute translations}
+\title{Register compute bindings}
 \usage{
-register_binding(fun_name, fun, registry = translation_registry())
+register_binding(fun_name, fun, registry = binding_registry())
 }
 \arguments{
 \item{fun_name}{A function name in the form \code{"function"} or
@@ -28,7 +28,7 @@ arguments and return a \code{list()} with components:
 }}
 }
 \value{
-The previously registered function or \code{NULL} if no previously
+The previously registered binding or \code{NULL} if no previously
 registered function existed.
 }
 \description{
@@ -36,7 +36,7 @@ The \code{register_binding()} and \code{register_binding_agg()} functions
 are used to populate a list of functions that operate on (and return)
 Expressions. These are the basis for the \code{.data} mask inside dplyr methods.
 }
-\section{Writing translations}{
+\section{Writing bindings}{
 
 When to use \code{build_expr()} vs. \code{Expression$create()}?
 
@@ -46,7 +46,7 @@ Use \code{build_expr()} if you need to
 \item wrap R inputs (vectors) as Array/Scalar
 }
 
-\code{Expression$create()} is lower level. Most of the translations use it
+\code{Expression$create()} is lower level. Most of the bindings use it
 because they manage the preparation of the user-provided inputs
 and don't need or don't want to the automatic conversion of R objects
 to \link{Scalar}.
