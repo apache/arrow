@@ -312,7 +312,10 @@ class GcsFileSystem::Impl {
       }
       auto info = FileInfo(path, FileType::File);
       info.set_size(static_cast<int64_t>(o->size()));
-      info.set_mtime(o->updated());
+      // An object has multiple "time" attributes, including the time when its data was
+      // created, and the time when its metadata was last updated. We use the object
+      // creation time because the data for an object cannot be changed once created.
+      info.set_mtime(o->time_created());
       result.push_back(std::move(info));
     }
     if (!found_directory && !select.allow_not_found) {
