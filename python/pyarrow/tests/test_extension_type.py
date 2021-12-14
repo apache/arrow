@@ -78,7 +78,7 @@ class MyListType(pa.PyExtensionType):
 
 class AnnotatedType(pa.PyExtensionType):
     """
-    Generic extension type that can store any storate type.
+    Generic extension type that can store any storage type.
     """
 
     def __init__(self, storage_type, annotation):
