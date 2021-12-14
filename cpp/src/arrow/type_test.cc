@@ -1619,6 +1619,16 @@ TEST(TestStructType, FieldModifierMethods) {
   ASSERT_EQ(2, new_struct->num_fields());
   ASSERT_EQ(1, new_struct->GetFieldIndex("f2"));
   ASSERT_EQ(int8(), new_struct->GetFieldByName("f2")->type());
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                  testing::HasSubstr("Invalid column index to add field"),
+                                  new_struct->AddField(5, field("f5", int8())));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, testing::HasSubstr("Invalid column index to remove field"),
+      new_struct->RemoveField(-1));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                  testing::HasSubstr("Invalid column index to set field"),
+                                  new_struct->SetField(2, field("f5", int8())));
 }
 
 TEST(TestUnionType, Basics) {
