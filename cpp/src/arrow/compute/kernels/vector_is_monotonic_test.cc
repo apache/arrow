@@ -158,8 +158,19 @@ TEST(TestIsMonotonicKernel, VectorFunction) {
   // Boolean
   Check(ArrayFromJSON(boolean(), "[true, true, false]"), false, false, true, false);
   Check(ArrayFromJSON(boolean(), "[true, false]"), false, false, true, true);
+
   // Floating point
-  // todo(mb)
+  const IsMonotonicOptions approx(IsMonotonicOptions::NullHandling::IGNORE, true);
+  const IsMonotonicOptions approx_large(IsMonotonicOptions::NullHandling::IGNORE, true,
+                                        1);
+
+  Check(ArrayFromJSON(float32(), "[NaN]"), false, false, false, false);
+  Check(ArrayFromJSON(float32(), "[NaN, NaN]"), false, false, false, false);
+  Check(ArrayFromJSON(float32(), "[NaN, NaN, NaN]"), false, false, false, false);
+
+  Check(ArrayFromJSON(float32(), "[1, 2, 3, 4]"), true, true, false, false);
+  Check(ArrayFromJSON(float64(), "[1, 2, 3, 4]"), true, true, false, false);
+
   // Temporal
   Check(ArrayFromJSON(date32(), "[1, 2, 3, 4, 4]"), true, false, false, false);
   Check(ArrayFromJSON(date64(), "[0, 0, 3, 4, 4]"), true, false, false, false);

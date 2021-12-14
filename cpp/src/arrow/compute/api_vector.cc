@@ -91,10 +91,9 @@ struct EnumTraits<NullPlacement>
 };
 template <>
 struct EnumTraits<IsMonotonicOptions::NullHandling>
-    : BasicEnumTraits<IsMonotonicOptions::NullHandling,
-                      IsMonotonicOptions::NullHandling::IGNORE,
-                      IsMonotonicOptions::NullHandling::MIN,
-                      IsMonotonicOptions::NullHandling::MAX> {
+    : BasicEnumTraits<
+          IsMonotonicOptions::NullHandling, IsMonotonicOptions::NullHandling::IGNORE,
+          IsMonotonicOptions::NullHandling::MIN, IsMonotonicOptions::NullHandling::MAX> {
   static std::string name() { return "IsMonotonicOptions::NullHandling"; }
   static std::string value_name(IsMonotonicOptions::NullHandling value) {
     switch (value) {
@@ -157,7 +156,8 @@ static auto kSelectKOptionsType = GetFunctionOptionsType<SelectKOptions>(
     DataMember("sort_keys", &SelectKOptions::sort_keys));
 static auto kIsMonotonicOptionsType = GetFunctionOptionsType<IsMonotonicOptions>(
     DataMember("null_handling", &IsMonotonicOptions::null_handling),
-    DataMember("equal_options", &IsMonotonicOptions::equal_options));
+    DataMember("floating_approximate", &IsMonotonicOptions::floating_approximate),
+    DataMember("epsilon", &IsMonotonicOptions::epsilon));
 
 }  // namespace
 }  // namespace internal
@@ -201,10 +201,12 @@ SelectKOptions::SelectKOptions(int64_t k, std::vector<SortKey> sort_keys)
 constexpr char SelectKOptions::kTypeName[];
 
 IsMonotonicOptions::IsMonotonicOptions(IsMonotonicOptions::NullHandling null_handling,
-                                       EqualOptions equal_options)
+                                       bool floating_approximate,
+                                       double epsilon)
     : FunctionOptions(internal::kIsMonotonicOptionsType),
       null_handling(null_handling),
-      equal_options(equal_options) {}
+      floating_approximate(floating_approximate),
+      epsilon(epsilon) {}
 constexpr char IsMonotonicOptions::kTypeName[];
 
 namespace internal {

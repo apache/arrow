@@ -205,8 +205,6 @@ static inline std::string GenericToString(const std::vector<SortKey>& value) {
   return ss.str();
 }
 
-static inline std::string GenericToString(EqualOptions value) { return value.ToString(); }
-
 template <typename T>
 static inline bool GenericEquals(const T& left, const T& right) {
   return left == right;
@@ -368,12 +366,6 @@ static inline Result<std::shared_ptr<Scalar>> GenericToScalar(const Datum& value
   }
 }
 
-static inline Result<std::shared_ptr<Scalar>> GenericToScalar(const EqualOptions& value) {
-  ARROW_ASSIGN_OR_RAISE(auto nans_equal, GenericToScalar(value.nans_equal()));
-  ARROW_ASSIGN_OR_RAISE(auto atol, GenericToScalar(value.atol()));
-  return StructScalar::Make({nans_equal, atol}, {"nans_equal", "atol"});
-}
-
 template <typename T>
 static inline enable_if_primitive_ctype<typename CTypeTraits<T>::ArrowType, Result<T>>
 GenericFromScalar(const std::shared_ptr<Scalar>& value) {
@@ -492,21 +484,6 @@ GenericFromScalar(const std::shared_ptr<Scalar>& value) {
     result.push_back(std::move(v));
   }
   return result;
-}
-
-template <typename T>
-static inline enable_if_same_result<T, EqualOptions> GenericFromScalar(
-    const std::shared_ptr<Scalar>& value) {
-  if (value->type->id() != Type::STRUCT) {
-    return Status::Invalid("Expected type STRUCT but got ", value->type->id());
-  }
-  if (!value->is_valid) return Status::Invalid("Got null scalar");
-  const auto& holder = checked_cast<const StructScalar&>(*value);
-  ARROW_ASSIGN_OR_RAISE(auto nans_equal_holder, holder.field("nans_equal"));
-  ARROW_ASSIGN_OR_RAISE(auto atol_holder, holder.field("atol"));
-  ARROW_ASSIGN_OR_RAISE(auto nans_equal, GenericFromScalar<bool>(nans_equal_holder));
-  ARROW_ASSIGN_OR_RAISE(auto atol, GenericFromScalar<double>(atol_holder));
-  return EqualOptions().nans_equal(nans_equal).atol(atol);
 }
 
 template <typename Options>

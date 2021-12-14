@@ -22,7 +22,6 @@
 #include <cstdint>
 #include <iosfwd>
 
-#include "arrow/util/compare.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
@@ -37,7 +36,7 @@ struct Scalar;
 static constexpr double kDefaultAbsoluteTolerance = 1E-5;
 
 /// A container of options for equality comparisons
-class EqualOptions : public util::EqualityComparable<EqualOptions> {
+class EqualOptions {
  public:
   /// Whether or not NaNs are considered equal.
   bool nans_equal() const { return nans_equal_; }
@@ -71,15 +70,6 @@ class EqualOptions : public util::EqualityComparable<EqualOptions> {
     res.diff_sink_ = diff_sink;
     return res;
   }
-
-  /// \brief Return a string representation of this EqualOptions suitable for printing.
-  std::string ToString() const;
-
-  using util::EqualityComparable<EqualOptions>::Equals;
-  using util::EqualityComparable<EqualOptions>::operator==;
-  using util::EqualityComparable<EqualOptions>::operator!=;
-  /// \brief Return true if both EqualOptions are the same.
-  bool Equals(const EqualOptions& other) const;
 
   static EqualOptions Defaults() { return {}; }
 

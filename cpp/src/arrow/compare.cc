@@ -24,7 +24,6 @@
 #include <cstdint>
 #include <cstring>
 #include <memory>
-#include <sstream>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -59,22 +58,6 @@ using internal::OptionalBitmapEquals;
 
 // ----------------------------------------------------------------------
 // Public method implementations
-
-bool EqualOptions::Equals(const EqualOptions& other) const {
-  return nans_equal_ == other.nans_equal() && atol_ == other.atol() &&
-         diff_sink_ == other.diff_sink();
-}
-
-std::string EqualOptions::ToString() const {
-  std::stringstream ss;
-  if (nans_equal_) {
-    ss << "NaNs EQUAL ";
-  } else {
-    ss << "NaNs NOT EQUAL ";
-  }
-  ss << "atol: " << atol_;
-  return ss.str();
-}
 
 namespace {
 

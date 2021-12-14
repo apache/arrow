@@ -194,21 +194,25 @@ class ARROW_EXPORT IsMonotonicOptions : public FunctionOptions {
   enum NullHandling {
     /// Ignore nulls.
     IGNORE,
-    // Use min value of element type as the value of nulls.
+    /// Use min value of element type as the value of nulls.
     MIN,
-    // Use max value of element type as the value of nulls.
+    /// Use max value of element type as the value of nulls.
     MAX,
   };
 
   explicit IsMonotonicOptions(NullHandling null_handling = IGNORE,
-                              EqualOptions equal_options = EqualOptions::Defaults());
+                              bool floating_approximate = false,
+                              double epsilon = kDefaultAbsoluteTolerance);
   constexpr static char const kTypeName[] = "IsMonotonicOptions";
   static IsMonotonicOptions Defaults() { return IsMonotonicOptions(); }
 
-  // Define how nulls are handled.
-  NullHandling null_handling;
-  // Options for equality comparisons. Used for floats.
-  EqualOptions equal_options;
+  /// Define how nulls are handled.
+  NullHandling null_handling = IGNORE;
+  /// Whether or not to use approximate floating point number comparisons.
+  bool floating_approximate = false;
+  /// Epsilon (error bound) value used when approximately comparing floating points
+  /// numbers.
+  double epsilon = kDefaultAbsoluteTolerance;
 };
 
 /// @}

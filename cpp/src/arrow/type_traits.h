@@ -542,6 +542,9 @@ using is_floating_type = std::is_base_of<FloatingPointType, T>;
 template <typename T, typename R = void>
 using enable_if_floating_point = enable_if_t<is_floating_type<T>::value, R>;
 
+template <typename T, typename R = void>
+using enable_if_not_floating_point = enable_if_t<!is_floating_type<T>::value, R>;
+
 // Half floats are special in that they behave physically like an unsigned
 // integer.
 template <typename T>

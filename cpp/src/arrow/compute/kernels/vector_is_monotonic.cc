@@ -43,14 +43,100 @@ Status IsMonotonicOutput(bool increasing, bool strictly_increasing, bool decreas
   return Status::OK();
 }
 
-template <typename Type>
-Status IsMonotonic(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  using ArrayType = typename TypeTraits<Type>::ArrayType;
-  using CType = typename TypeTraits<Type>::CType;
+template <typename DataType>
+enable_if_floating_point<DataType> IsMonotonicCheck(
+    const typename DataType::c_type& current, const typename DataType::c_type& next,
+    bool* increasing, bool* strictly_increasing, bool* decreasing,
+    bool* strictly_decreasing, const IsMonotonicOptions& options) {
+  // Short circuit for NaNs.
+  // https://en.wikipedia.org/wiki/NaN#Comparison_with_NaN
+  if (std::isnan(current) || std::isnan(next)) {
+    *increasing = false;
+    *strictly_increasing = false;
+    *decreasing = false;
+    *strictly_decreasing = false;
+  } else {
+    if (*increasing || *decreasing) {
+      bool equal =
+          // Equal if exactly equal.
+          current == next ||
+          // Or if approximately equal within some error bound (epsilon).
+          (options.floating_approximate &&
+           (fabs(current - next) <=
+            static_cast<typename DataType::c_type>(options.epsilon)));
+      if (*increasing) {
+        if (!(equal || next > current)) {
+          *increasing = false;
+          *strictly_increasing = false;
+        }
+      }
+      if (*decreasing) {
+        if (!(equal || next < current)) {
+          *decreasing = false;
+          *strictly_decreasing = false;
+        }
+      }
+    }
+    if (*strictly_increasing) {
+      if (!(next > current)) {
+        *strictly_increasing = false;
+      }
+    }
+    if (*strictly_decreasing) {
+      if (!(next < current)) {
+        *strictly_decreasing = false;
+      }
+    }
+  }
+}
 
-  IsMonotonicOptions::NullHandling null_handling =
-      IsMonotonicState::Get(ctx).null_handling;
-  EqualOptions equal_options = IsMonotonicState::Get(ctx).equal_options;
+template <typename DataType>
+enable_if_not_floating_point<DataType> IsMonotonicCheck(
+    const typename DataType::c_type& current, const typename DataType::c_type& next,
+    bool* increasing, bool* strictly_increasing, bool* decreasing,
+    bool* strictly_decreasing, const IsMonotonicOptions& options) {
+  if (*increasing) {
+    if (!(next >= current)) {
+      *increasing = false;
+      *strictly_increasing = false;
+    }
+  }
+  if (*strictly_increasing) {
+    if (!(next > current)) {
+      *strictly_increasing = false;
+    }
+  }
+  if (*decreasing) {
+    if (!(next <= current)) {
+      *decreasing = false;
+      *strictly_decreasing = false;
+    }
+  }
+  if (*strictly_decreasing) {
+    if (!(next < current)) {
+      *strictly_decreasing = false;
+    }
+  }
+}
+
+template <typename DataType>
+enable_if_floating_point<DataType, bool> isnan(
+    const util::optional<typename DataType::c_type>& opt) {
+  return opt.has_value() && std::isnan(opt.value());
+}
+
+template <typename DataType>
+enable_if_not_floating_point<DataType, bool> isnan(
+    const util::optional<typename DataType::c_type>& opt) {
+  return false;
+}
+
+template <typename DataType>
+Status IsMonotonic(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  using ArrayType = typename TypeTraits<DataType>::ArrayType;
+  using CType = typename TypeTraits<DataType>::CType;
+
+  auto options = IsMonotonicState::Get(ctx);
 
   // Check batch size
   if (batch.values.size() != 1) {
@@ -71,18 +157,22 @@ Status IsMonotonic(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   const std::shared_ptr<ArrayData>& array_data = input.array();
   ArrayType array(array_data);
 
-  // Return early if there are zero elements or one element in the array.
+  // Return early if there are NaNs, zero elements or one element in the array.
   // And return early if there are only nulls.
   if (array.length() <= 1 || array.null_count() == array.length()) {
-    // It is strictly increasing if there are zero or one elements or when nulls are
-    // ignored.
-    bool strictly =
-        array.length() <= 1 || null_handling == IsMonotonicOptions::NullHandling::IGNORE;
-    return IsMonotonicOutput(true, strictly, true, strictly, out);
+    if (std::any_of(array.begin(), array.end(), isnan<DataType>)) {
+      return IsMonotonicOutput(false, false, false, false, out);
+    } else {
+      // It is strictly increasing if there are zero or one elements or when nulls are
+      // ignored.
+      bool strictly = array.length() <= 1 ||
+                      options.null_handling == IsMonotonicOptions::NullHandling::IGNORE;
+      return IsMonotonicOutput(true, strictly, true, strictly, out);
+    }
   }
 
   // Set null value based on option.
-  const CType null_value = null_handling == IsMonotonicOptions::NullHandling::MIN
+  const CType null_value = options.null_handling == IsMonotonicOptions::NullHandling::MIN
                                ? std::numeric_limits<CType>::min()
                                : std::numeric_limits<CType>::max();
 
@@ -96,7 +186,7 @@ Status IsMonotonic(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     auto next = *b;
 
     // Handle nulls.
-    if (null_handling == IsMonotonicOptions::NullHandling::IGNORE) {
+    if (options.null_handling == IsMonotonicOptions::NullHandling::IGNORE) {
       // Forward both iterators to search for a non-null value. The loop exit
       // condition prevents reading past the end.
       if (!current.has_value()) {
@@ -104,8 +194,8 @@ Status IsMonotonic(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
         ++b;
         continue;
       }
-      // Once we have a value for current we should also make sure that next has a value.
-      // The loop exit condition prevents reading past the end.
+      // Once we have a value for current we should also make sure that next has a
+      // value. The loop exit condition prevents reading past the end.
       if (!next.has_value()) {
         ++b;
         continue;
@@ -116,31 +206,9 @@ Status IsMonotonic(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
       next = next.value_or(null_value);
     }
 
-    if (increasing) {
-      if (!(next >= current)) {
-        increasing = false;
-        // Can't be strictly increasing if not increasing.
-        strictly_increasing = false;
-      }
-    }
-    if (strictly_increasing) {
-      if (!(next > current)) {
-        strictly_increasing = false;
-      }
-    }
-    if (decreasing) {
-      if (!(next <= current)) {
-        decreasing = false;
-        // Can't be strictly decreasing if not decreasing.
-        strictly_decreasing = false;
-      }
-    }
-    // Check if strictly decreasing.
-    if (strictly_decreasing) {
-      if (!(next < current)) {
-        strictly_decreasing = false;
-      }
-    }
+    IsMonotonicCheck<DataType>(current.value(), next.value(), &increasing,
+                               &strictly_increasing, &decreasing, &strictly_decreasing,
+                               options);
 
     // Early exit if all failed:
     if (!increasing && !strictly_increasing && !decreasing && !strictly_decreasing) {
