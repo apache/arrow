@@ -548,10 +548,41 @@ TEST(TimestampConversion, Basics) {
                                            {"2018-11-13 17:11:10\n1900-02-28 12:34:56\n"},
                                            {{1542129070, -2203932304LL}});
 
+  // Zone offsets are not accepted
+  AssertConversionError(type,
+                        {"1970-01-01T00Z\n2000-02-29T00-0200\n"
+                         "3989-07-14T00+03:14\n1900-02-28 00-04:59\n"},
+                        {0});
+
   type = timestamp(TimeUnit::NANO);
   AssertConversion<TimestampType, int64_t>(
       type, {"1970-01-01\n2000-02-29\n1900-02-28\n"},
       {{0, 951782400000000000LL, -2203977600000000000LL}});
+}
+
+TEST(TimestampConversion, WithZoneOffset) {
+  auto type = timestamp(TimeUnit::SECOND, "UTC");
+
+  AssertConversion<TimestampType, int64_t>(
+      type,
+      {"1970-01-01T00Z\n2000-02-29T00-0200\n"
+       "3989-07-14T00+03:14\n1900-02-28 00-04:59\n"},
+      {{0, 951782400 + 7200, 63730281600LL - 11640, -2203977600LL + 17940}});
+
+  type = timestamp(TimeUnit::NANO, "UTC");
+  AssertConversion<TimestampType, int64_t>(
+      type,
+      {"1970-01-01T00Z\n"
+       "2000-02-29T00:00:00.123456789+0117\n"
+       "1900-02-28 00:00:00.123456789-01:00\n"},
+      {{0, 951782400000000000LL + 123456789LL - 4620000000000LL,
+        -2203977600000000000LL + 123456789LL + 3600000000000LL}});
+
+  // Local times are not accepted
+  AssertConversionError(type,
+                        {"1970-01-01T00\n2000-02-29T00\n"
+                         "3989-07-14T00\n1900-02-28 00\n"},
+                        {0});
 }
 
 TEST(TimestampConversion, Nulls) {
@@ -591,6 +622,48 @@ TEST(TimestampConversion, UserDefinedParsers) {
   AssertConversion<TimestampType, int64_t>(type, {"01/02/1970,1970-01-03\n"},
                                            {{86400000}, {172800000}}, options);
 }
+
+#ifndef _WIN32
+TEST(TimestampConversion, UserDefinedParsersWithZone) {
+  auto options = ConvertOptions::Defaults();
+  auto type = timestamp(TimeUnit::SECOND, "America/Phoenix");
+
+  // Test a single parser
+  options.timestamp_parsers = {TimestampParser::MakeStrptime("%m/%d/%Y %z")};
+  AssertConversion<TimestampType, int64_t>(type, {"01/02/1970 +0000,01/03/1970 +0000\n"},
+                                           {{86400}, {172800}}, options);
+
+  // Test multiple parsers
+  options.timestamp_parsers.push_back(TimestampParser::MakeISO8601());
+  AssertConversion<TimestampType, int64_t>(
+      type, {"01/02/1970 +0000,1970-01-03T00:00:00+0000\n"}, {{86400}, {172800}},
+      options);
+
+  // Test errors
+  options.timestamp_parsers = {TimestampParser::MakeStrptime("%m/%d/%Y")};
+  AssertConversionError(type, {"01/02/1970,01/03/1970\n"}, {0, 1}, options);
+  options.timestamp_parsers.push_back(TimestampParser::MakeISO8601());
+  AssertConversionError(type, {"01/02/1970,1970-01-03T00:00:00+0000\n"}, {0}, options);
+}
+#else
+// Windows uses the vendored musl strptime which doesn't support %z.
+TEST(TimestampConversion, UserDefinedParsersWithZone) {
+  auto options = ConvertOptions::Defaults();
+  auto type = timestamp(TimeUnit::SECOND, "America/Phoenix");
+
+  options.timestamp_parsers = {TimestampParser::MakeStrptime("%m/%d/%Y %z")};
+  AssertConversionError(type, {"01/02/1970 +0000,01/03/1970 +0000\n"}, {0, 1}, options);
+
+  options.timestamp_parsers.push_back(TimestampParser::MakeISO8601());
+  AssertConversionError(type, {"01/02/1970 +0000,1970-01-03T00:00:00+0000\n"}, {0},
+                        options);
+
+  options.timestamp_parsers = {TimestampParser::MakeStrptime("%m/%d/%Y")};
+  AssertConversionError(type, {"01/02/1970,01/03/1970\n"}, {0, 1}, options);
+  options.timestamp_parsers.push_back(TimestampParser::MakeISO8601());
+  AssertConversionError(type, {"01/02/1970,1970-01-03T00:00:00+0000\n"}, {0}, options);
+}
+#endif
 
 Decimal128 Dec128(util::string_view value) {
   Decimal128 dec;

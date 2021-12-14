@@ -4,10 +4,6 @@ test_SET_STRING_ELT <- function(s) {
   invisible(.Call(`_arrow_test_SET_STRING_ELT`, s))
 }
 
-test_same_Array <- function(x, y) {
-  .Call(`_arrow_test_same_Array`, x, y)
-}
-
 is_arrow_altrep <- function(x) {
   .Call(`_arrow_is_arrow_altrep`, x)
 }
@@ -146,6 +142,10 @@ ListArray__raw_value_offsets <- function(array) {
 
 LargeListArray__raw_value_offsets <- function(array) {
   .Call(`_arrow_LargeListArray__raw_value_offsets`, array)
+}
+
+Array__Same <- function(x, y) {
+  .Call(`_arrow_Array__Same`, x, y)
 }
 
 Array__as_vector <- function(array) {
@@ -604,8 +604,8 @@ dataset___ScanTask__get_batches <- function(scan_task) {
   .Call(`_arrow_dataset___ScanTask__get_batches`, scan_task)
 }
 
-dataset___Dataset__Write <- function(file_write_options, filesystem, base_dir, partitioning, basename_template, scanner, existing_data_behavior) {
-  invisible(.Call(`_arrow_dataset___Dataset__Write`, file_write_options, filesystem, base_dir, partitioning, basename_template, scanner, existing_data_behavior))
+dataset___Dataset__Write <- function(file_write_options, filesystem, base_dir, partitioning, basename_template, scanner, existing_data_behavior, max_partitions) {
+  invisible(.Call(`_arrow_dataset___Dataset__Write`, file_write_options, filesystem, base_dir, partitioning, basename_template, scanner, existing_data_behavior, max_partitions))
 }
 
 dataset___Scanner__TakeRows <- function(scanner, indices) {
@@ -712,6 +712,10 @@ Time64__initialize <- function(unit) {
   .Call(`_arrow_Time64__initialize`, unit)
 }
 
+Duration__initialize <- function(unit) {
+  .Call(`_arrow_Duration__initialize`, unit)
+}
+
 list__ <- function(x) {
   .Call(`_arrow_list__`, x)
 }
@@ -766,6 +770,10 @@ DateType__unit <- function(type) {
 
 TimeType__unit <- function(type) {
   .Call(`_arrow_TimeType__unit`, type)
+}
+
+DurationType__unit <- function(type) {
+  .Call(`_arrow_DurationType__unit`, type)
 }
 
 DecimalType__precision <- function(type) {
@@ -1060,8 +1068,8 @@ fs___CopyFiles <- function(source_fs, source_sel, destination_fs, destination_ba
   invisible(.Call(`_arrow_fs___CopyFiles`, source_fs, source_sel, destination_fs, destination_base_dir, chunk_size, use_threads))
 }
 
-fs___S3FileSystem__create <- function(anonymous, access_key, secret_key, session_token, role_arn, session_name, external_id, load_frequency, region, endpoint_override, scheme, background_writes) {
-  .Call(`_arrow_fs___S3FileSystem__create`, anonymous, access_key, secret_key, session_token, role_arn, session_name, external_id, load_frequency, region, endpoint_override, scheme, background_writes)
+fs___S3FileSystem__create <- function(anonymous, access_key, secret_key, session_token, role_arn, session_name, external_id, load_frequency, region, endpoint_override, scheme, proxy_options, background_writes) {
+  .Call(`_arrow_fs___S3FileSystem__create`, anonymous, access_key, secret_key, session_token, role_arn, session_name, external_id, load_frequency, region, endpoint_override, scheme, proxy_options, background_writes)
 }
 
 fs___S3FileSystem__region <- function(fs) {
@@ -1440,8 +1448,8 @@ Table__from_dots <- function(lst, schema_sxp, use_threads) {
   .Call(`_arrow_Table__from_dots`, lst, schema_sxp, use_threads)
 }
 
-vec_to_arrow <- function(x, s_type) {
-  .Call(`_arrow_vec_to_arrow`, x, s_type)
+vec_to_Array <- function(x, s_type) {
+  .Call(`_arrow_vec_to_Array`, x, s_type)
 }
 
 DictionaryArray__FromArrays <- function(type, indices, dict) {
@@ -1799,3 +1807,4 @@ SetIOThreadPoolCapacity <- function(threads) {
 Array__infer_type <- function(x) {
   .Call(`_arrow_Array__infer_type`, x)
 }
+

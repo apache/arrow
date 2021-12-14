@@ -207,25 +207,25 @@ the input to a single output value.
 +--------------------+-------+------------------+------------------------+----------------------------------+-------+
 | max                | Unary | Non-nested types | Scalar Input type      | :struct:`ScalarAggregateOptions` |       |
 +--------------------+-------+------------------+------------------------+----------------------------------+-------+
-| mean               | Unary | Numeric          | Scalar Decimal/Float64 | :struct:`ScalarAggregateOptions` |       |
+| mean               | Unary | Numeric          | Scalar Decimal/Float64 | :struct:`ScalarAggregateOptions` | \(4)  |
 +--------------------+-------+------------------+------------------------+----------------------------------+-------+
 | min                | Unary | Non-nested types | Scalar Input type      | :struct:`ScalarAggregateOptions` |       |
 +--------------------+-------+------------------+------------------------+----------------------------------+-------+
-| min_max            | Unary | Non-nested types | Scalar Struct          | :struct:`ScalarAggregateOptions` | \(4)  |
+| min_max            | Unary | Non-nested types | Scalar Struct          | :struct:`ScalarAggregateOptions` | \(5)  |
 +--------------------+-------+------------------+------------------------+----------------------------------+-------+
-| mode               | Unary | Numeric          | Struct                 | :struct:`ModeOptions`            | \(5)  |
+| mode               | Unary | Numeric          | Struct                 | :struct:`ModeOptions`            | \(6)  |
 +--------------------+-------+------------------+------------------------+----------------------------------+-------+
-| product            | Unary | Numeric          | Scalar Numeric         | :struct:`ScalarAggregateOptions` | \(6)  |
+| product            | Unary | Numeric          | Scalar Numeric         | :struct:`ScalarAggregateOptions` | \(7)  |
 +--------------------+-------+------------------+------------------------+----------------------------------+-------+
-| quantile           | Unary | Numeric          | Scalar Numeric         | :struct:`QuantileOptions`        | \(7)  |
+| quantile           | Unary | Numeric          | Scalar Numeric         | :struct:`QuantileOptions`        | \(8)  |
 +--------------------+-------+------------------+------------------------+----------------------------------+-------+
-| stddev             | Unary | Numeric          | Scalar Float64         | :struct:`VarianceOptions`        | \(8)  |
+| stddev             | Unary | Numeric          | Scalar Float64         | :struct:`VarianceOptions`        | \(9)  |
 +--------------------+-------+------------------+------------------------+----------------------------------+-------+
-| sum                | Unary | Numeric          | Scalar Numeric         | :struct:`ScalarAggregateOptions` | \(6)  |
+| sum                | Unary | Numeric          | Scalar Numeric         | :struct:`ScalarAggregateOptions` | \(7)  |
 +--------------------+-------+------------------+------------------------+----------------------------------+-------+
-| tdigest            | Unary | Numeric          | Float64                | :struct:`TDigestOptions`         | \(9)  |
+| tdigest            | Unary | Numeric          | Float64                | :struct:`TDigestOptions`         | \(10) |
 +--------------------+-------+------------------+------------------------+----------------------------------+-------+
-| variance           | Unary | Numeric          | Scalar Float64         | :struct:`VarianceOptions`        | \(8)  |
+| variance           | Unary | Numeric          | Scalar Float64         | :struct:`VarianceOptions`        | \(9)  |
 +--------------------+-------+------------------+------------------------+----------------------------------+-------+
 
 * \(1) If null values are taken into account, by setting the
@@ -238,26 +238,29 @@ the input to a single output value.
 * \(3) Returns -1 if the value is not found. The index of a null value
   is always -1, regardless of whether there are nulls in the input.
 
-* \(4) Output is a ``{"min": input type, "max": input type}`` Struct.
+* \(4) For decimal inputs, the resulting decimal will have the same
+  precision and scale. The result is rounded away from zero.
+
+* \(5) Output is a ``{"min": input type, "max": input type}`` Struct.
 
   Of the interval types, only the month interval is supported, as the day-time
   and month-day-nano types are not sortable.
 
-* \(5) Output is an array of ``{"mode": input type, "count": Int64}`` Struct.
+* \(6) Output is an array of ``{"mode": input type, "count": Int64}`` Struct.
   It contains the *N* most common elements in the input, in descending
   order, where *N* is given in :member:`ModeOptions::n`.
   If two values have the same count, the smallest one comes first.
   Note that the output can have less than *N* elements if the input has
   less than *N* distinct values.
 
-* \(6) Output is Int64, UInt64, Float64, or Decimal128/256, depending on the
+* \(7) Output is Int64, UInt64, Float64, or Decimal128/256, depending on the
   input type.
 
-* \(7) Output is Float64 or input type, depending on QuantileOptions.
+* \(8) Output is Float64 or input type, depending on QuantileOptions.
 
-* \(8) Decimal arguments are cast to Float64 first.
+* \(9) Decimal arguments are cast to Float64 first.
 
-* \(9) tdigest/t-digest computes approximate quantiles, and so only needs a
+* \(10) tdigest/t-digest computes approximate quantiles, and so only needs a
   fixed amount of memory. See the `reference implementation
   <https://github.com/tdunning/t-digest>`_ for details.
 
@@ -326,21 +329,21 @@ equivalents above and reflects how they are implemented internally.
 +-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
 | hash_max                | Unary | Non-nested, non-binary/string-like | Input type             | :struct:`ScalarAggregateOptions` |       |
 +-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
-| hash_mean               | Unary | Numeric                            | Decimal/Float64        | :struct:`ScalarAggregateOptions` |       |
+| hash_mean               | Unary | Numeric                            | Decimal/Float64        | :struct:`ScalarAggregateOptions` | \(3)  |
 +-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
 | hash_min                | Unary | Non-nested, non-binary/string-like | Input type             | :struct:`ScalarAggregateOptions` |       |
 +-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
-| hash_min_max            | Unary | Non-nested, non-binary/string-like | Struct                 | :struct:`ScalarAggregateOptions` | \(3)  |
+| hash_min_max            | Unary | Non-nested types                   | Struct                 | :struct:`ScalarAggregateOptions` | \(4)  |
 +-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
-| hash_product            | Unary | Numeric                            | Numeric                | :struct:`ScalarAggregateOptions` | \(4)  |
+| hash_product            | Unary | Numeric                            | Numeric                | :struct:`ScalarAggregateOptions` | \(5)  |
 +-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
-| hash_stddev             | Unary | Numeric                            | Float64                | :struct:`VarianceOptions`        | \(5)  |
+| hash_stddev             | Unary | Numeric                            | Float64                | :struct:`VarianceOptions`        | \(6)  |
 +-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
-| hash_sum                | Unary | Numeric                            | Numeric                | :struct:`ScalarAggregateOptions` | \(4)  |
+| hash_sum                | Unary | Numeric                            | Numeric                | :struct:`ScalarAggregateOptions` | \(5)  |
 +-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
-| hash_tdigest            | Unary | Numeric                            | FixedSizeList[Float64] | :struct:`TDigestOptions`         | \(6)  |
+| hash_tdigest            | Unary | Numeric                            | FixedSizeList[Float64] | :struct:`TDigestOptions`         | \(7)  |
 +-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
-| hash_variance           | Unary | Numeric                            | Float64                | :struct:`VarianceOptions`        | \(5)  |
+| hash_variance           | Unary | Numeric                            | Float64                | :struct:`VarianceOptions`        | \(6)  |
 +-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
 
 * \(1) If null values are taken into account, by setting the
@@ -353,17 +356,20 @@ equivalents above and reflects how they are implemented internally.
   are emitted. This never affects the grouping keys, only group values
   (i.e. you may get a group where the key is null).
 
-* \(3) Output is a ``{"min": input type, "max": input type}`` Struct array.
+* \(3) For decimal inputs, the resulting decimal will have the same
+  precision and scale. The result is rounded away from zero.
+
+* \(4) Output is a ``{"min": input type, "max": input type}`` Struct array.
 
   Of the interval types, only the month interval is supported, as the day-time
   and month-day-nano types are not sortable.
 
-* \(4) Output is Int64, UInt64, Float64, or Decimal128/256, depending on the
+* \(5) Output is Int64, UInt64, Float64, or Decimal128/256, depending on the
   input type.
 
-* \(5) Decimal arguments are cast to Float64 first.
+* \(6) Decimal arguments are cast to Float64 first.
 
-* \(6) T-digest computes approximate quantiles, and so only needs a
+* \(7) T-digest computes approximate quantiles, and so only needs a
   fixed amount of memory. See the `reference implementation
   <https://github.com/tdunning/t-digest>`_ for details.
 
@@ -690,13 +696,14 @@ expanded for the purposes of comparison.
 +------------------+------------+---------------------------------------------+---------------------+---------------------------------------+-------+
 | Function names   | Arity      | Input types                                 | Output type         | Options class                         | Notes |
 +==================+============+=============================================+=====================+=======================================+=======+
-| max_element_wise | Varargs    | Numeric and Temporal                        | Numeric or Temporal | :struct:`ElementWiseAggregateOptions` | \(1)  |
+| max_element_wise | Varargs    | Numeric, Temporal, Binary- and String-like  | Numeric or Temporal | :struct:`ElementWiseAggregateOptions` | \(1)  |
 +------------------+------------+---------------------------------------------+---------------------+---------------------------------------+-------+
-| min_element_wise | Varargs    | Numeric and Temporal                        | Numeric or Temporal | :struct:`ElementWiseAggregateOptions` | \(1)  |
+| min_element_wise | Varargs    | Numeric, Temporal, Binary- and String-like  | Numeric or Temporal | :struct:`ElementWiseAggregateOptions` | \(1)  |
 +------------------+------------+---------------------------------------------+---------------------+---------------------------------------+-------+
 
 * \(1) By default, nulls are skipped (but the kernel can be configured to propagate nulls).
   For floating point values, NaN will be taken over null but not over any other value.
+  For binary- and string-like values, only identical type parameters are supported.
 
 Logical functions
 ~~~~~~~~~~~~~~~~~~
@@ -845,25 +852,27 @@ String transforms
 +-------------------------+--------+-----------------------------------------+------------------------+-----------------------------------+-------+
 | binary_replace_slice    | Unary  | String-like                             | Binary- or String-like | :struct:`ReplaceSliceOptions`     | \(5)  |
 +-------------------------+--------+-----------------------------------------+------------------------+-----------------------------------+-------+
-| replace_substring       | Unary  | String-like                             | String-like            | :struct:`ReplaceSubstringOptions` | \(6)  |
+| binary_reverse          | Unary  | Binary                                  | Binary                 |                                   | \(6)  |
 +-------------------------+--------+-----------------------------------------+------------------------+-----------------------------------+-------+
-| replace_substring_regex | Unary  | String-like                             | String-like            | :struct:`ReplaceSubstringOptions` | \(7)  |
+| replace_substring       | Unary  | String-like                             | String-like            | :struct:`ReplaceSubstringOptions` | \(7)  |
 +-------------------------+--------+-----------------------------------------+------------------------+-----------------------------------+-------+
-| utf8_capitalize         | Unary  | String-like                             | String-like            |                                   | \(8)  |
+| replace_substring_regex | Unary  | String-like                             | String-like            | :struct:`ReplaceSubstringOptions` | \(8)  |
 +-------------------------+--------+-----------------------------------------+------------------------+-----------------------------------+-------+
-| utf8_length             | Unary  | String-like                             | Int32 or Int64         |                                   | \(9)  |
+| utf8_capitalize         | Unary  | String-like                             | String-like            |                                   | \(9)  |
 +-------------------------+--------+-----------------------------------------+------------------------+-----------------------------------+-------+
-| utf8_lower              | Unary  | String-like                             | String-like            |                                   | \(8)  |
+| utf8_length             | Unary  | String-like                             | Int32 or Int64         |                                   | \(10) |
 +-------------------------+--------+-----------------------------------------+------------------------+-----------------------------------+-------+
-| utf8_replace_slice      | Unary  | String-like                             | String-like            | :struct:`ReplaceSliceOptions`     | \(6)  |
+| utf8_lower              | Unary  | String-like                             | String-like            |                                   | \(9)  |
 +-------------------------+--------+-----------------------------------------+------------------------+-----------------------------------+-------+
-| utf8_reverse            | Unary  | String-like                             | String-like            |                                   | \(10) |
+| utf8_replace_slice      | Unary  | String-like                             | String-like            | :struct:`ReplaceSliceOptions`     | \(7)  |
 +-------------------------+--------+-----------------------------------------+------------------------+-----------------------------------+-------+
-| utf8_swapcase           | Unary  | String-like                             | String-like            |                                   | \(8)  |
+| utf8_reverse            | Unary  | String-like                             | String-like            |                                   | \(11) |
 +-------------------------+--------+-----------------------------------------+------------------------+-----------------------------------+-------+
-| utf8_title              | Unary  | String-like                             | String-like            |                                   | \(8)  |
+| utf8_swapcase           | Unary  | String-like                             | String-like            |                                   | \(9)  |
 +-------------------------+--------+-----------------------------------------+------------------------+-----------------------------------+-------+
-| utf8_upper              | Unary  | String-like                             | String-like            |                                   | \(8)  |
+| utf8_title              | Unary  | String-like                             | String-like            |                                   | \(9)  |
++-------------------------+--------+-----------------------------------------+------------------------+-----------------------------------+-------+
+| utf8_upper              | Unary  | String-like                             | String-like            |                                   | \(9)  |
 +-------------------------+--------+-----------------------------------------+------------------------+-----------------------------------+-------+
 
 * \(1) Each ASCII character in the input is converted to lowercase or
@@ -882,26 +891,28 @@ String transforms
   :member:`ReplaceSubstringOptions::replacement`. The binary kernel measures the
   slice in bytes, while the UTF8 kernel measures the slice in codeunits.
 
-* \(6) Replace non-overlapping substrings that match to
+* \(6) Perform a byte-level reverse.
+
+* \(7) Replace non-overlapping substrings that match to
   :member:`ReplaceSubstringOptions::pattern` by
   :member:`ReplaceSubstringOptions::replacement`. If
   :member:`ReplaceSubstringOptions::max_replacements` != -1, it determines the
   maximum number of replacements made, counting from the left.
 
-* \(7) Replace non-overlapping substrings that match to the regular expression
+* \(8) Replace non-overlapping substrings that match to the regular expression
   :member:`ReplaceSubstringOptions::pattern` by
   :member:`ReplaceSubstringOptions::replacement`, using the Google RE2 library. If
   :member:`ReplaceSubstringOptions::max_replacements` != -1, it determines the
   maximum number of replacements made, counting from the left. Note that if the
   pattern contains groups, backreferencing can be used.
 
-* \(8) Each UTF8-encoded character in the input is converted to lowercase or
+* \(9) Each UTF8-encoded character in the input is converted to lowercase or
   uppercase.
 
-* \(9) Output is the number of characters (not bytes) of each input element.
+* \(10) Output is the number of characters (not bytes) of each input element.
   Output type is Int32 for String, Int64 for LargeString.
 
-* \(10) Each UTF8-encoded code unit is written in reverse order to the output.
+* \(11) Each UTF8-encoded code unit is written in reverse order to the output.
   If the input is not valid UTF8, then the output is undefined (but the size of output
   buffers will be preserved).
 
@@ -1587,15 +1598,17 @@ in the respective option classes.
 Structural transforms
 ~~~~~~~~~~~~~~~~~~~~~
 
-+---------------------+------------+-------------------------------------+------------------+--------+
-| Function name       | Arity      | Input types                         | Output type      | Notes  |
-+=====================+============+=====================================+==================+========+
-| list_element        | Binary     | List-like (Arg 0), Integral (Arg 1) | List value type  | \(1)   |
-+---------------------+------------+-------------------------------------+------------------+--------+
-| list_flatten        | Unary      | List-like                           | List value type  | \(2)   |
-+---------------------+------------+-------------------------------------+------------------+--------+
-| list_parent_indices | Unary      | List-like                           | Int32 or Int64   | \(3)   |
-+---------------------+------------+-------------------------------------+------------------+--------+
++---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
+| Function name       | Arity      | Input types                         | Output type      | Options class                | Notes  |
++=====================+============+=====================================+==================+==============================+========+
+| list_element        | Binary     | List-like (Arg 0), Integral (Arg 1) | List value type  |                              | \(1)   |
++---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
+| list_flatten        | Unary      | List-like                           | List value type  |                              | \(2)   |
++---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
+| list_parent_indices | Unary      | List-like                           | Int32 or Int64   |                              | \(3)   |
++---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
+| struct_field        | Unary      | Struct or Union                     | Computed         | :struct:`StructFieldOptions` | \(4)   |
++---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
 
 * \(1) Output is an array of the same length as the input list array. The
   output values are the values at the specified index of each child list.
@@ -1608,6 +1621,29 @@ Structural transforms
   in the list array is appended to the output.  Nulls in the parent list array
   are discarded.  Output type is Int32 for List and FixedSizeList, Int64 for
   LargeList.
+
+* \(4) Extract a child value based on a sequence of indices passed in
+  the options. The validity bitmap of the result will be the
+  intersection of all intermediate validity bitmaps. For example, for
+  an array with type ``struct<a: int32, b: struct<c: int64, d:
+  float64>>``:
+
+  * An empty sequence of indices yields the original value unchanged.
+  * The index ``0`` yields an array of type ``int32`` whose validity
+    bitmap is the intersection of the bitmap for the outermost struct
+    and the bitmap for the child ``a``.
+  * The index ``1, 1`` yields an array of type ``float64`` whose
+    validity bitmap is the intersection of the bitmaps for the
+    outermost struct, for struct ``b``, and for the child ``d``.
+
+  For unions, a validity bitmap is synthesized based on the type
+  codes. Also, the index is always the child index and not a type code.
+  Hence for array with type ``sparse_union<2: int32, 7: utf8>``:
+
+  * The index ``0`` yields an array of type ``int32``, which is valid
+    at an index *n* if and only if the child array ``a`` is valid at
+    index *n* and the type code at index *n* is 2.
+  * The indices ``2`` and ``7`` are invalid.
 
 These functions create a copy of the first input with some elements
 replaced, based on the remaining inputs.

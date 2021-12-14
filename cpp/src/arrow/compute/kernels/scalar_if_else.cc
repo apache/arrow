@@ -108,8 +108,8 @@ Status PromoteNullsVisitor(KernelContext* ctx, const Datum& cond_d, const Datum&
     if (AllocateNullBitmap::value) {  // NullHandling::COMPUTED_NO_PREALLOCATE
       output->buffers[0] = nullptr;
     } else {  // NullHandling::COMPUTED_PREALLOCATE
-      BitUtil::SetBitmap(output->buffers[0]->mutable_data(), output->offset,
-                         output->length);
+      bit_util::SetBitmap(output->buffers[0]->mutable_data(), output->offset,
+                          output->length);
     }
     return Status::OK();
   }
@@ -276,7 +276,7 @@ void RunIfElseLoop(const ArrayData& cond, const HandleBlock& handle_block) {
       handle_block(data_offset, word_len);
     } else if (word != pickNone) {
       for (int64_t i = 0; i < word_len; ++i) {
-        if (BitUtil::GetBit(cond_data, bit_offset + i) != invert) {
+        if (bit_util::GetBit(cond_data, bit_offset + i) != invert) {
           handle_block(data_offset + i, 1);
         }
       }
@@ -298,7 +298,7 @@ void RunIfElseLoop(const ArrayData& cond, const HandleBlock& handle_block) {
       handle_block(data_offset, 8);
     } else if (byte != pickNoneByte) {
       for (int i = 0; i < valid_bits; ++i) {
-        if (BitUtil::GetBit(cond_data, bit_offset + i) != invert) {
+        if (bit_util::GetBit(cond_data, bit_offset + i) != invert) {
           handle_block(data_offset + i, 1);
         }
       }
@@ -332,8 +332,8 @@ Status RunIfElseScalar(const BooleanScalar& cond, const Datum& left, const Datum
   const std::shared_ptr<ArrayData>& out_array = out->array();
   if (!cond.is_valid) {
     // cond is null; output is all null --> clear validity buffer
-    BitUtil::ClearBitmap(out_array->buffers[0]->mutable_data(), out_array->offset,
-                         out_array->length);
+    bit_util::ClearBitmap(out_array->buffers[0]->mutable_data(), out_array->offset,
+                          out_array->length);
     return Status::OK();
   }
 
@@ -347,8 +347,8 @@ Status RunIfElseScalar(const BooleanScalar& cond, const Datum& left, const Datum
           valid_array->buffers[0]->data(), valid_array->offset, valid_array->length,
           out_array->buffers[0]->mutable_data(), out_array->offset);
     } else {  // validity buffer is nullptr --> set all bits
-      BitUtil::SetBitmap(out_array->buffers[0]->mutable_data(), out_array->offset,
-                         out_array->length);
+      bit_util::SetBitmap(out_array->buffers[0]->mutable_data(), out_array->offset,
+                          out_array->length);
     }
     copy_array_data(*valid_array, out_array.get());
     return Status::OK();
@@ -357,12 +357,12 @@ Status RunIfElseScalar(const BooleanScalar& cond, const Datum& left, const Datum
     // valid data is a scalar that needs to be broadcasted
     const auto& valid_scalar = *valid_data.scalar();
     if (valid_scalar.is_valid) {  // if the scalar is non-null, broadcast
-      BitUtil::SetBitmap(out_array->buffers[0]->mutable_data(), out_array->offset,
-                         out_array->length);
+      bit_util::SetBitmap(out_array->buffers[0]->mutable_data(), out_array->offset,
+                          out_array->length);
       broadcast_scalar(*valid_data.scalar(), out_array.get());
     } else {  // scalar is null, clear the output validity buffer
-      BitUtil::ClearBitmap(out_array->buffers[0]->mutable_data(), out_array->offset,
-                           out_array->length);
+      bit_util::ClearBitmap(out_array->buffers[0]->mutable_data(), out_array->offset,
+                            out_array->length);
     }
     return Status::OK();
   }
@@ -375,7 +375,9 @@ struct IfElseFunctor {};
 // internal::GenerateTypeAgnosticPrimitive forwards types to the corresponding unsigned
 // int type
 template <typename Type>
-struct IfElseFunctor<Type, enable_if_number<Type>> {
+struct IfElseFunctor<Type,
+                     enable_if_t<is_number_type<Type>::value ||
+                                 std::is_same<Type, MonthDayNanoIntervalType>::value>> {
   using T = typename TypeTraits<Type>::CType;
   // A - Array, S - Scalar, X = Array/Scalar
 
@@ -494,8 +496,8 @@ struct IfElseFunctor<Type, enable_if_boolean<Type>> {
         /*BroadcastScalar*/
         [&](const Scalar& scalar, ArrayData* out_array) {
           bool scalar_data = internal::UnboxScalar<Type>::Unbox(scalar);
-          BitUtil::SetBitsTo(out_array->buffers[1]->mutable_data(), out_array->offset,
-                             out_array->length, scalar_data);
+          bit_util::SetBitsTo(out_array->buffers[1]->mutable_data(), out_array->offset,
+                              out_array->length, scalar_data);
         });
   }
 
@@ -574,7 +576,7 @@ struct IfElseFunctor<Type, enable_if_boolean<Type>> {
     if (left_data) {
       if (right_data) {
         // out_buf = ones
-        BitUtil::SetBitmap(out_buf->mutable_data(), out->offset, cond.length);
+        bit_util::SetBitmap(out_buf->mutable_data(), out->offset, cond.length);
       } else {
         // out_buf = cond
         arrow::internal::CopyBitmap(cond.buffers[1]->data(), cond.offset, cond.length,
@@ -587,7 +589,7 @@ struct IfElseFunctor<Type, enable_if_boolean<Type>> {
                                       out_buf->mutable_data(), out->offset);
       } else {
         // out_buf = zeros
-        BitUtil::ClearBitmap(out_buf->mutable_data(), out->offset, cond.length);
+        bit_util::ClearBitmap(out_buf->mutable_data(), out->offset, cond.length);
       }
     }
 
@@ -777,15 +779,15 @@ struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
       const auto* out_valid = output.buffers[0]->data();
 
       for (int64_t i = 0; i < cond.length; i++) {
-        if (BitUtil::GetBit(out_valid, i)) {
-          BitUtil::GetBit(cond_data, cond.offset + i) ? handle_left(i) : handle_right(i);
+        if (bit_util::GetBit(out_valid, i)) {
+          bit_util::GetBit(cond_data, cond.offset + i) ? handle_left(i) : handle_right(i);
         } else {
           handle_null();
         }
       }
     } else {  // output is all valid (no nulls)
       for (int64_t i = 0; i < cond.length; i++) {
-        BitUtil::GetBit(cond_data, cond.offset + i) ? handle_left(i) : handle_right(i);
+        bit_util::GetBit(cond_data, cond.offset + i) ? handle_left(i) : handle_right(i);
       }
     }
   }
@@ -1043,7 +1045,7 @@ struct NestedIfElseExec {
         if (run.length == 0) break;
         if (run.set) {
           for (int j = 0; j < run.length; j++) {
-            if (BitUtil::GetBit(cond_data, cond.offset + position + j)) {
+            if (bit_util::GetBit(cond_data, cond.offset + position + j)) {
               RETURN_NOT_OK(handle_left(raw_builder.get(), position + j, 1));
             } else {
               RETURN_NOT_OK(handle_right(raw_builder.get(), position + j, 1));
@@ -1285,7 +1287,7 @@ struct CopyFixedWidth<BooleanType> {
   static void CopyScalar(const Scalar& scalar, const int64_t length,
                          uint8_t* raw_out_values, const int64_t out_offset) {
     const bool value = UnboxScalar<BooleanType>::Unbox(scalar);
-    BitUtil::SetBitsTo(raw_out_values, out_offset, length, value);
+    bit_util::SetBitsTo(raw_out_values, out_offset, length, value);
   }
   static void CopyArray(const DataType&, const uint8_t* in_values,
                         const int64_t in_offset, const int64_t length,
@@ -1295,7 +1297,8 @@ struct CopyFixedWidth<BooleanType> {
 };
 
 template <typename Type>
-struct CopyFixedWidth<Type, enable_if_number<Type>> {
+struct CopyFixedWidth<
+    Type, enable_if_t<is_number_type<Type>::value || is_interval_type<Type>::value>> {
   using CType = typename TypeTraits<Type>::CType;
   static void CopyScalar(const Scalar& scalar, const int64_t length,
                          uint8_t* raw_out_values, const int64_t out_offset) {
@@ -1348,7 +1351,7 @@ void CopyValues(const Datum& in_values, const int64_t in_offset, const int64_t l
   if (in_values.is_scalar()) {
     const auto& scalar = *in_values.scalar();
     if (out_valid) {
-      BitUtil::SetBitsTo(out_valid, out_offset, length, scalar.is_valid);
+      bit_util::SetBitsTo(out_valid, out_offset, length, scalar.is_valid);
     }
     CopyFixedWidth<Type>::CopyScalar(scalar, length, out_values, out_offset);
   } else {
@@ -1357,15 +1360,15 @@ void CopyValues(const Datum& in_values, const int64_t in_offset, const int64_t l
       if (array.MayHaveNulls()) {
         if (length == 1) {
           // CopyBitmap is slow for short runs
-          BitUtil::SetBitTo(
+          bit_util::SetBitTo(
               out_valid, out_offset,
-              BitUtil::GetBit(array.buffers[0]->data(), array.offset + in_offset));
+              bit_util::GetBit(array.buffers[0]->data(), array.offset + in_offset));
         } else {
           arrow::internal::CopyBitmap(array.buffers[0]->data(), array.offset + in_offset,
                                       length, out_valid, out_offset);
         }
       } else {
-        BitUtil::SetBitsTo(out_valid, out_offset, length, true);
+        bit_util::SetBitsTo(out_valid, out_offset, length, true);
       }
     }
     CopyFixedWidth<Type>::CopyArray(*array.type, array.buffers[1]->data(),
@@ -1383,8 +1386,8 @@ void CopyOneArrayValue(const DataType& type, const uint8_t* in_valid,
                        uint8_t* out_valid, uint8_t* out_values,
                        const int64_t out_offset) {
   if (out_valid) {
-    BitUtil::SetBitTo(out_valid, out_offset,
-                      !in_valid || BitUtil::GetBit(in_valid, in_offset));
+    bit_util::SetBitTo(out_valid, out_offset,
+                       !in_valid || bit_util::GetBit(in_valid, in_offset));
   }
   CopyFixedWidth<Type>::CopyArray(type, in_values, in_offset, /*length=*/1, out_values,
                                   out_offset);
@@ -1394,7 +1397,7 @@ template <typename Type>
 void CopyOneScalarValue(const Scalar& scalar, uint8_t* out_valid, uint8_t* out_values,
                         const int64_t out_offset) {
   if (out_valid) {
-    BitUtil::SetBitTo(out_valid, out_offset, scalar.is_valid);
+    bit_util::SetBitTo(out_valid, out_offset, scalar.is_valid);
   }
   CopyFixedWidth<Type>::CopyScalar(scalar, /*length=*/1, out_values, out_offset);
 }
@@ -1439,13 +1442,30 @@ struct CaseWhenFunction : ScalarFunction {
       }
     }
 
-    if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
+    // TODO(ARROW-14105): also apply casts to dictionary indices/values
+    if (is_dictionary((*values)[1].type->id()) &&
+        std::all_of(values->begin() + 2, values->end(), [&](const ValueDescr& descr) {
+          return descr.type->Equals(*(*values)[1].type);
+        })) {
+      auto kernel = DispatchExactImpl(this, *values);
+      DCHECK(kernel);
+      return kernel;
+    }
 
     EnsureDictionaryDecoded(values);
-    if (auto type = CommonNumeric(values->data() + 1, values->size() - 1)) {
-      for (auto it = values->begin() + 1; it != values->end(); it++) {
-        it->type = type;
-      }
+    ValueDescr* first_arg = &(*values)[1];
+    const size_t num_args = values->size() - 1;
+    if (auto type = CommonNumeric(first_arg, num_args)) {
+      ReplaceTypes(type, first_arg, num_args);
+    }
+    if (auto type = CommonBinary(first_arg, num_args)) {
+      ReplaceTypes(type, first_arg, num_args);
+    }
+    if (auto type = CommonTemporal(first_arg, num_args)) {
+      ReplaceTypes(type, first_arg, num_args);
+    }
+    if (HasDecimal(*values)) {
+      RETURN_NOT_OK(CastDecimalArgs(first_arg, num_args));
     }
     if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
     return arrow::compute::detail::NoMatchingKernel(this, *values);
@@ -1519,7 +1539,7 @@ Status ExecArrayCaseWhen(KernelContext* ctx, const ExecBatch& batch, Datum* out)
                      out_values, out_offset);
   } else {
     // There's no 'else' argument, so we should have an all-null validity bitmap
-    BitUtil::SetBitsTo(out_valid, out_offset, batch.length, false);
+    bit_util::SetBitsTo(out_valid, out_offset, batch.length, false);
   }
 
   // Allocate a temporary bitmap to determine which elements still need setting.
@@ -1544,14 +1564,14 @@ Status ExecArrayCaseWhen(KernelContext* ctx, const ExecBatch& batch, Datum* out)
         if (block.AllSet()) {
           CopyValues<Type>(values_datum, offset, block.length, out_valid, out_values,
                            out_offset + offset);
-          BitUtil::SetBitsTo(mask, offset, block.length, false);
+          bit_util::SetBitsTo(mask, offset, block.length, false);
         } else if (block.popcount) {
           for (int64_t j = 0; j < block.length; ++j) {
-            if (BitUtil::GetBit(mask, offset + j) &&
-                BitUtil::GetBit(cond_values, cond_offset + offset + j)) {
+            if (bit_util::GetBit(mask, offset + j) &&
+                bit_util::GetBit(cond_values, cond_offset + offset + j)) {
               CopyValues<Type>(values_datum, offset + j, /*length=*/1, out_valid,
                                out_values, out_offset + offset + j);
-              BitUtil::SetBitTo(mask, offset + j, false);
+              bit_util::SetBitTo(mask, offset + j, false);
             }
           }
         }
@@ -1569,15 +1589,15 @@ Status ExecArrayCaseWhen(KernelContext* ctx, const ExecBatch& batch, Datum* out)
         if (word == std::numeric_limits<uint64_t>::max()) {
           CopyValues<Type>(values_datum, offset, block_length, out_valid, out_values,
                            out_offset + offset);
-          BitUtil::SetBitsTo(mask, offset, block_length, false);
+          bit_util::SetBitsTo(mask, offset, block_length, false);
         } else if (word) {
           for (int64_t j = 0; j < block_length; ++j) {
-            if (BitUtil::GetBit(mask, offset + j) &&
-                BitUtil::GetBit(cond_valid, cond_offset + offset + j) &&
-                BitUtil::GetBit(cond_values, cond_offset + offset + j)) {
+            if (bit_util::GetBit(mask, offset + j) &&
+                bit_util::GetBit(cond_valid, cond_offset + offset + j) &&
+                bit_util::GetBit(cond_values, cond_offset + offset + j)) {
               CopyValues<Type>(values_datum, offset + j, /*length=*/1, out_valid,
                                out_values, out_offset + offset + j);
-              BitUtil::SetBitTo(mask, offset + j, false);
+              bit_util::SetBitTo(mask, offset + j, false);
             }
           }
         }
@@ -1589,21 +1609,21 @@ Status ExecArrayCaseWhen(KernelContext* ctx, const ExecBatch& batch, Datum* out)
     BitBlockCounter counter(mask, /*offset=*/0, batch.length);
     int64_t offset = 0;
     auto bit_width = checked_cast<const FixedWidthType&>(*out->type()).bit_width();
-    auto byte_width = BitUtil::BytesForBits(bit_width);
+    auto byte_width = bit_util::BytesForBits(bit_width);
     while (offset < batch.length) {
       const auto block = counter.NextWord();
       if (block.AllSet()) {
         if (bit_width == 1) {
-          BitUtil::SetBitsTo(out_values, out_offset + offset, block.length, false);
+          bit_util::SetBitsTo(out_values, out_offset + offset, block.length, false);
         } else {
           std::memset(out_values + (out_offset + offset) * byte_width, 0x00,
                       byte_width * block.length);
         }
       } else if (!block.NoneSet()) {
         for (int64_t j = 0; j < block.length; ++j) {
-          if (BitUtil::GetBit(out_valid, out_offset + offset + j)) continue;
+          if (bit_util::GetBit(out_valid, out_offset + offset + j)) continue;
           if (bit_width == 1) {
-            BitUtil::ClearBit(out_values, out_offset + offset + j);
+            bit_util::ClearBit(out_values, out_offset + offset + j);
           } else {
             std::memset(out_values + (out_offset + offset + j) * byte_width, 0x00,
                         byte_width);
@@ -1691,10 +1711,10 @@ static Status ExecVarWidthArrayCaseWhenImpl(
          arg++) {
       const ArrayData& cond_array = *conds_array.child_data[arg];
       if ((!cond_array.buffers[0] ||
-           BitUtil::GetBit(cond_array.buffers[0]->data(),
-                           conds_array.offset + cond_array.offset + row)) &&
-          BitUtil::GetBit(cond_array.buffers[1]->data(),
-                          conds_array.offset + cond_array.offset + row)) {
+           bit_util::GetBit(cond_array.buffers[0]->data(),
+                            conds_array.offset + cond_array.offset + row)) &&
+          bit_util::GetBit(cond_array.buffers[1]->data(),
+                           conds_array.offset + cond_array.offset + row)) {
         selected = arg + 1;
         break;
       }
@@ -1714,7 +1734,7 @@ static Status ExecVarWidthArrayCaseWhenImpl(
     } else {
       const auto& array = source.array();
       if (!array->buffers[0] ||
-          BitUtil::GetBit(array->buffers[0]->data(), array->offset + row)) {
+          bit_util::GetBit(array->buffers[0]->data(), array->offset + row)) {
         RETURN_NOT_OK(raw_builder->AppendArraySlice(*array, row, /*length=*/1));
       } else {
         RETURN_NOT_OK(raw_builder->AppendNull());
@@ -1934,9 +1954,20 @@ struct CoalesceFunction : ScalarFunction {
   Result<const Kernel*> DispatchBest(std::vector<ValueDescr>* values) const override {
     RETURN_NOT_OK(CheckArity(*values));
     using arrow::compute::detail::DispatchExactImpl;
+
+    // TODO(ARROW-14105): also apply casts to dictionary indices/values
+    if (is_dictionary((*values)[0].type->id()) &&
+        std::all_of(values->begin() + 1, values->end(), [&](const ValueDescr& descr) {
+          return descr.type->Equals(*(*values)[0].type);
+        })) {
+      auto kernel = DispatchExactImpl(this, *values);
+      DCHECK(kernel);
+      return kernel;
+    }
+
     // Do not DispatchExact here since we want to rescale decimals if necessary
     EnsureDictionaryDecoded(values);
-    if (auto type = CommonNumeric(*values)) {
+    if (auto type = CommonNumeric(values->data(), values->size())) {
       ReplaceTypes(type, values);
     }
     if (auto type = CommonBinary(values->data(), values->size())) {
@@ -1990,7 +2021,7 @@ void InitializeNullSlots(const DataType& type, uint8_t* out_valid, uint8_t* out_
   BitRunReader bit_reader(out_valid, out_offset, length);
   int64_t offset = 0;
   const auto bit_width = checked_cast<const FixedWidthType&>(type).bit_width();
-  const auto byte_width = BitUtil::BytesForBits(bit_width);
+  const auto byte_width = bit_util::BytesForBits(bit_width);
   while (true) {
     const auto run = bit_reader.NextRun();
     if (run.length == 0) {
@@ -1998,7 +2029,7 @@ void InitializeNullSlots(const DataType& type, uint8_t* out_valid, uint8_t* out_
     }
     if (!run.set) {
       if (bit_width == 1) {
-        BitUtil::SetBitsTo(out_values, out_offset + offset, run.length, false);
+        bit_util::SetBitsTo(out_values, out_offset + offset, run.length, false);
       } else {
         std::memset(out_values + (out_offset + offset) * byte_width, 0,
                     byte_width * run.length);
@@ -2018,7 +2049,7 @@ Status ExecArrayCoalesce(KernelContext* ctx, const ExecBatch& batch, Datum* out)
   uint8_t* out_valid = output->buffers[0]->mutable_data();
 
   // Clear output validity buffer - no values are set initially
-  BitUtil::SetBitsTo(out_valid, out_offset, batch.length, false);
+  bit_util::SetBitsTo(out_valid, out_offset, batch.length, false);
   uint8_t* out_values = output->buffers[1]->mutable_data();
 
   for (const auto& datum : batch.values) {
@@ -2067,8 +2098,8 @@ Status ExecArrayCoalesce(KernelContext* ctx, const ExecBatch& batch, Datum* out)
                              out_offset + offset);
           } else if (block.popcount) {
             for (int64_t j = 0; j < block.length; ++j) {
-              if (!BitUtil::GetBit(out_valid, out_offset + offset + j) &&
-                  BitUtil::GetBit(in_valid, in_offset + offset + j)) {
+              if (!bit_util::GetBit(out_valid, out_offset + offset + j) &&
+                  bit_util::GetBit(in_valid, in_offset + offset + j)) {
                 // This version lets us avoid calling MayHaveNulls() on every iteration
                 // (which does an atomic load and can add up)
                 CopyOneArrayValue<Type>(type, in_valid, in_values, in_offset + offset + j,
@@ -2143,7 +2174,7 @@ Status ExecArrayScalarCoalesce(KernelContext* ctx, Datum left, Datum right,
   }
 
   if (right_scalar.is_valid || !left_valid) {
-    BitUtil::SetBitsTo(out_valid, out_offset, length, true);
+    bit_util::SetBitsTo(out_valid, out_offset, length, true);
   } else {
     arrow::internal::CopyBitmap(left_valid, left_arr.offset, length, out_valid,
                                 out_offset);
@@ -2216,7 +2247,7 @@ Status ExecBinaryCoalesce(KernelContext* ctx, Datum left, Datum right, int64_t l
   DCHECK_EQ(offset, length);
 
   if (right_null_count == 0) {
-    BitUtil::SetBitsTo(out_valid, out_offset, length, true);
+    bit_util::SetBitsTo(out_valid, out_offset, length, true);
   } else {
     arrow::internal::BitmapOr(left_valid, left_arr.offset, right_valid, right_arr.offset,
                               length, out_offset, out_valid);
@@ -2244,7 +2275,7 @@ static Status ExecVarWidthCoalesceImpl(KernelContext* ctx, const ExecBatch& batc
   }
   ArrayData* output = out->mutable_array();
   std::unique_ptr<ArrayBuilder> raw_builder;
-  RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), out->type(), &raw_builder));
+  RETURN_NOT_OK(MakeBuilderExactIndex(ctx->memory_pool(), out->type(), &raw_builder));
   RETURN_NOT_OK(raw_builder->Reserve(batch.length));
   RETURN_NOT_OK(reserve_data(raw_builder.get()));
 
@@ -2260,7 +2291,7 @@ static Status ExecVarWidthCoalesceImpl(KernelContext* ctx, const ExecBatch& batc
       } else {
         const ArrayData& source = *datum.array();
         if (!source.MayHaveNulls() ||
-            BitUtil::GetBit(source.buffers[0]->data(), source.offset + i)) {
+            bit_util::GetBit(source.buffers[0]->data(), source.offset + i)) {
           RETURN_NOT_OK(raw_builder->AppendArraySlice(source, i, /*length=*/1));
           set = true;
           break;
@@ -2388,7 +2419,8 @@ struct CoalesceFunctor<Type, enable_if_base_binary<Type>> {
 
 template <typename Type>
 struct CoalesceFunctor<
-    Type, enable_if_t<is_nested_type<Type>::value && !is_union_type<Type>::value>> {
+    Type, enable_if_t<(is_nested_type<Type>::value || is_dictionary_type<Type>::value) &&
+                      !is_union_type<Type>::value>> {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     RETURN_NOT_OK(CheckIdenticalTypes(&batch.values[0], batch.values.size()));
     for (const auto& datum : batch.values) {
@@ -2422,7 +2454,7 @@ struct CoalesceFunctor<Type, enable_if_union<Type>> {
   static Status ExecArray(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     ArrayData* output = out->mutable_array();
     std::unique_ptr<ArrayBuilder> raw_builder;
-    RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), out->type(), &raw_builder));
+    RETURN_NOT_OK(MakeBuilderExactIndex(ctx->memory_pool(), out->type(), &raw_builder));
     RETURN_NOT_OK(raw_builder->Reserve(batch.length));
 
     const UnionType& type = checked_cast<const UnionType&>(*out->type());
@@ -2444,8 +2476,8 @@ struct CoalesceFunctor<Type, enable_if_union<Type>> {
             const int child_id = type.child_ids()[type_id];
             const ArrayData& child = *source.child_data[child_id];
             if (!child.MayHaveNulls() ||
-                BitUtil::GetBit(child.buffers[0]->data(),
-                                source.offset + child.offset + i)) {
+                bit_util::GetBit(child.buffers[0]->data(),
+                                 source.offset + child.offset + i)) {
               RETURN_NOT_OK(raw_builder->AppendArraySlice(source, i, /*length=*/1));
               set = true;
               break;
@@ -2456,7 +2488,7 @@ struct CoalesceFunctor<Type, enable_if_union<Type>> {
             const int child_id = type.child_ids()[type_id];
             const ArrayData& child = *source.child_data[child_id];
             if (!child.MayHaveNulls() ||
-                BitUtil::GetBit(child.buffers[0]->data(), child.offset + offset)) {
+                bit_util::GetBit(child.buffers[0]->data(), child.offset + offset)) {
               RETURN_NOT_OK(raw_builder->AppendArraySlice(source, i, /*length=*/1));
               set = true;
               break;
@@ -2525,8 +2557,8 @@ Status ExecArrayChoose(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
                   [](const Datum& d) { return d.null_count() > 0; })) {
     out_valid = output->buffers[0]->mutable_data();
   } else {
-    BitUtil::SetBitsTo(output->buffers[0]->mutable_data(), out_offset, batch.length,
-                       true);
+    bit_util::SetBitsTo(output->buffers[0]->mutable_data(), out_offset, batch.length,
+                        true);
   }
   uint8_t* out_values = output->buffers[1]->mutable_data();
   int64_t row = 0;
@@ -2545,7 +2577,7 @@ Status ExecArrayChoose(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
         // Index is null, but we should still initialize the output with some value
         const auto& source = batch.values[1];
         CopyOneValue<Type>(source, row, out_valid, out_values, out_offset + row);
-        BitUtil::ClearBit(out_valid, out_offset + row);
+        bit_util::ClearBit(out_valid, out_offset + row);
         row++;
         return Status::OK();
       });
@@ -2652,7 +2684,7 @@ struct ChooseFunctor<Type, enable_if_base_binary<Type>> {
     }
     const ArrayData& source = *datum.array();
     if (!source.MayHaveNulls() ||
-        BitUtil::GetBit(source.buffers[0]->data(), source.offset + row)) {
+        bit_util::GetBit(source.buffers[0]->data(), source.offset + row)) {
       const uint8_t* data = source.buffers[2]->data();
       const offset_type* offsets = source.GetValues<offset_type>(1);
       const offset_type offset0 = offsets[row];
@@ -2767,31 +2799,34 @@ const FunctionDoc if_else_doc{"Choose values based on a condition",
 
 const FunctionDoc case_when_doc{
     "Choose values based on multiple conditions",
-    ("`cond` must be a struct of Boolean values. `cases` can be a mix "
-     "of scalar and array arguments (of any type, but all must be the "
-     "same type or castable to a common type), with either exactly one "
-     "datum per child of `cond`, or one more `cases` than children of "
+    ("`cond` must be a struct of Boolean values. `cases` can be a mix\n"
+     "of scalar and array arguments (of any type, but all must be the\n"
+     "same type or castable to a common type), with either exactly one\n"
+     "datum per child of `cond`, or one more `cases` than children of\n"
      "`cond` (in which case we have an \"else\" value).\n"
-     "Each row of the output will be the corresponding value of the "
-     "first datum in `cases` for which the corresponding child of `cond` "
-     "is true, or otherwise the \"else\" value (if given), or null. "
+     "\n"
+     "Each row of the output will be the corresponding value of the\n"
+     "first datum in `cases` for which the corresponding child of `cond`\n"
+     "is true, or otherwise the \"else\" value (if given), or null.\n"
+     "\n"
      "Essentially, this implements a switch-case or if-else, if-else... "
      "statement."),
     {"cond", "*cases"}};
 
 const FunctionDoc coalesce_doc{
-    "Select the first non-null value in each slot",
-    ("Each row of the output will be the value from the first corresponding input "
-     "for which the value is not null. If all inputs are null in a row, the output "
+    "Select the first non-null value",
+    ("Each row of the output will be the value from the first corresponding input\n"
+     "for which the value is not null. If all inputs are null in a row, the output\n"
      "will be null."),
     {"*values"}};
 
 const FunctionDoc choose_doc{
-    "Given indices and arrays, choose the value from the corresponding array for each "
-    "index",
-    ("For each row, the value of the first argument is used as a 0-based index into the "
-     "rest of the arguments (i.e. index 0 selects the second argument). The output value "
-     "is the corresponding value of the selected argument.\n"
+    "Choose values from several arrays",
+    ("For each row, the value of the first argument is used as a 0-based index\n"
+     "into the list of `values` arrays (i.e. index 0 selects the first of the\n"
+     "`values` arrays). The output value is the corresponding value of the\n"
+     "selected argument.\n"
+     "\n"
      "If an index is null, the output will be null."),
     {"indices", "*values"}};
 }  // namespace
@@ -2858,6 +2893,7 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
     AddCoalesceKernel(func, Type::STRUCT, CoalesceFunctor<StructType>::Exec);
     AddCoalesceKernel(func, Type::DENSE_UNION, CoalesceFunctor<DenseUnionType>::Exec);
     AddCoalesceKernel(func, Type::SPARSE_UNION, CoalesceFunctor<SparseUnionType>::Exec);
+    AddCoalesceKernel(func, Type::DICTIONARY, CoalesceFunctor<DictionaryType>::Exec);
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
   {

@@ -57,6 +57,7 @@
 namespace arrow {
 
 using internal::checked_cast;
+using internal::checked_pointer_cast;
 using internal::GetByteWidth;
 using internal::TemporaryDir;
 
@@ -132,14 +133,14 @@ TEST_P(TestMessage, SerializeTo) {
     int64_t output_length = 0;
     ASSERT_OK_AND_ASSIGN(auto stream, io::BufferOutputStream::Create(1 << 10));
     ASSERT_OK(message->SerializeTo(stream.get(), options_, &output_length));
-    ASSERT_EQ(BitUtil::RoundUp(metadata->size() + prefix_size, alignment) + body_length,
+    ASSERT_EQ(bit_util::RoundUp(metadata->size() + prefix_size, alignment) + body_length,
               output_length);
     ASSERT_OK_AND_EQ(output_length, stream->Tell());
     ASSERT_OK_AND_ASSIGN(auto buffer, stream->Finish());
     // chech whether length is written in little endian
     auto buffer_ptr = buffer.get()->data();
     ASSERT_EQ(output_length - body_length - prefix_size,
-              BitUtil::FromLittleEndian(*(uint32_t*)(buffer_ptr + 4)));
+              bit_util::FromLittleEndian(*(uint32_t*)(buffer_ptr + 4)));
   };
 
   CheckWithAlignment(8);
@@ -468,7 +469,7 @@ class IpcTestFixture : public io::MemoryMapFixture, public ExtensionTypesMixin {
     std::vector<std::shared_ptr<Field>> fields = {f0};
     auto schema = std::make_shared<Schema>(fields);
 
-    auto batch = RecordBatch::Make(schema, 0, {array});
+    auto batch = RecordBatch::Make(schema, array->length(), {array});
     CheckRoundtrip(*batch, options, IpcReadOptions::Defaults(), buffer_size);
   }
 
@@ -485,15 +486,15 @@ TEST(MetadataVersion, ForwardsCompatCheck) {
 
 class TestWriteRecordBatch : public ::testing::Test, public IpcTestFixture {
  public:
-  void SetUp() { IpcTestFixture::SetUp(); }
-  void TearDown() { IpcTestFixture::TearDown(); }
+  void SetUp() override { IpcTestFixture::SetUp(); }
+  void TearDown() override { IpcTestFixture::TearDown(); }
 };
 
 class TestIpcRoundTrip : public ::testing::TestWithParam<MakeRecordBatch*>,
                          public IpcTestFixture {
  public:
-  void SetUp() { IpcTestFixture::SetUp(); }
-  void TearDown() { IpcTestFixture::TearDown(); }
+  void SetUp() override { IpcTestFixture::SetUp(); }
+  void TearDown() override { IpcTestFixture::TearDown(); }
 
   void TestMetadataVersion(MetadataVersion expected_version) {
     std::shared_ptr<RecordBatch> batch;
@@ -604,6 +605,81 @@ TEST_P(TestIpcRoundTrip, ZeroLengthArrays) {
 
   CheckRoundtrip(bin_array);
   CheckRoundtrip(bin_array2);
+}
+
+TEST_F(TestIpcRoundTrip, SparseUnionOfStructsWithReusedBuffers) {
+  auto storage_type = struct_({
+      field("i", int32()),
+      field("f", float32()),
+      field("s", utf8()),
+  });
+  auto storage = checked_pointer_cast<StructArray>(ArrayFromJSON(storage_type,
+                                                                 R"([
+    {"i": 0, "f": 0.0, "s": "a"},
+    {"i": 1, "f": 0.5, "s": "b"},
+    {"i": 2, "f": 1.5, "s": "c"},
+    {"i": 3, "f": 3.0, "s": "d"}
+  ])"));
+
+  ASSERT_OK_AND_ASSIGN(
+      auto m01, StructArray::Make({storage->field(0), storage->field(1)},
+                                  {storage_type->field(0), storage_type->field(1)}));
+
+  ASSERT_OK_AND_ASSIGN(
+      auto m12, StructArray::Make({storage->field(1), storage->field(2)},
+                                  {storage_type->field(1), storage_type->field(2)}));
+
+  ASSERT_OK_AND_ASSIGN(
+      auto m20, StructArray::Make({storage->field(2), storage->field(0)},
+                                  {storage_type->field(2), storage_type->field(0)}));
+
+  auto ids = ArrayFromJSON(int8(), "[1, 12, 20, 1]");
+
+  ASSERT_OK_AND_ASSIGN(
+      auto sparse,
+      SparseUnionArray::Make(*ids, {m01, m12, m20}, {"m01", "m12", "m20"}, {01, 12, 20}));
+
+  auto expected = ArrayFromJSON(sparse_union(
+                                    {
+                                        field("m01", m01->type()),
+                                        field("m12", m12->type()),
+                                        field("m20", m20->type()),
+                                    },
+                                    {01, 12, 20}),
+                                R"([
+    [1,  {"i": 0,   "f": 0.0}],
+    [12, {"f": 0.5, "s": "b"}],
+    [20, {"s": "c", "i": 2  }],
+    [1,  {"i": 3,   "f": 3.0}]
+  ])");
+
+  AssertArraysEqual(*expected, *sparse, /*verbose=*/true);
+
+  DictionaryMemo ignored;
+  ASSERT_OK_AND_ASSIGN(
+      auto roundtripped_batch,
+      DoStandardRoundTrip(*RecordBatch::Make(schema({field("", sparse->type())}),
+                                             sparse->length(), {sparse}),
+                          IpcWriteOptions::Defaults(), &ignored));
+
+  auto roundtripped =
+      checked_pointer_cast<SparseUnionArray>(roundtripped_batch->column(0));
+  AssertArraysEqual(*expected, *roundtripped, /*verbose=*/true);
+
+  auto roundtripped_m01 = checked_pointer_cast<StructArray>(roundtripped->field(0));
+  auto roundtripped_m12 = checked_pointer_cast<StructArray>(roundtripped->field(1));
+  auto roundtripped_m20 = checked_pointer_cast<StructArray>(roundtripped->field(2));
+
+  // The IPC writer does not take advantage of reusable buffers
+
+  ASSERT_NE(roundtripped_m01->field(0)->data()->buffers,
+            roundtripped_m20->field(1)->data()->buffers);
+
+  ASSERT_NE(roundtripped_m01->field(1)->data()->buffers,
+            roundtripped_m12->field(0)->data()->buffers);
+
+  ASSERT_NE(roundtripped_m12->field(1)->data()->buffers,
+            roundtripped_m20->field(0)->data()->buffers);
 }
 
 TEST_F(TestWriteRecordBatch, WriteWithCompression) {
@@ -1651,6 +1727,61 @@ TEST(TestIpcFileFormat, FooterMetaData) {
   ASSERT_TRUE(out_metadata->Equals(*metadata));
 }
 
+TEST_F(TestWriteRecordBatch, RawAndSerializedSizes) {
+  // ARROW-8823: Recording total raw and serialized record batch sizes in WriteStats
+  FileWriterHelper helper;
+  IpcWriteOptions options_uncompressed = IpcWriteOptions::Defaults();
+
+  std::vector<std::shared_ptr<RecordBatch>> batches(3);
+  // empty record batch
+  ASSERT_OK(MakeIntBatchSized(0, &batches[0]));
+  // record batch with int values
+  ASSERT_OK(MakeIntBatchSized(2000, &batches[1], 100));
+
+  // record batch with DictionaryArray
+  random::RandomArrayGenerator rg(/*seed=*/0);
+  int64_t length = 500;
+  int dict_size = 50;
+  std::shared_ptr<Array> dict =
+      rg.String(dict_size, /*min_length=*/5, /*max_length=*/5, /*null_probability=*/0);
+  std::shared_ptr<Array> indices =
+      rg.Int32(length, /*min=*/0, /*max=*/dict_size - 1, /*null_probability=*/0.1);
+  auto dict_type = dictionary(int32(), utf8());
+  auto dict_field = field("f1", dict_type);
+  ASSERT_OK_AND_ASSIGN(auto dict_array,
+                       DictionaryArray::FromArrays(dict_type, indices, dict));
+
+  auto schema = ::arrow::schema({field("f0", utf8()), dict_field});
+  batches[2] =
+      RecordBatch::Make(schema, length, {rg.String(500, 0, 10, 0.1), dict_array});
+
+  for (size_t i = 0; i < batches.size(); ++i) {
+    // without compression
+    ASSERT_OK(helper.Init(batches[i]->schema(), options_uncompressed));
+    ASSERT_OK(helper.WriteBatch(batches[i]));
+    ASSERT_OK(helper.Finish());
+    // padding can make serialized data slightly larger than the raw data size
+    // when no compression is used
+    ASSERT_LE(helper.writer_->stats().total_raw_body_size,
+              helper.writer_->stats().total_serialized_body_size);
+
+    if (!util::Codec::IsAvailable(Compression::LZ4_FRAME)) {
+      continue;
+    }
+
+    IpcWriteOptions options_compressed = IpcWriteOptions::Defaults();
+    ASSERT_OK_AND_ASSIGN(options_compressed.codec,
+                         util::Codec::Create(Compression::LZ4_FRAME));
+
+    // with compression
+    ASSERT_OK(helper.Init(batches[i]->schema(), options_compressed));
+    ASSERT_OK(helper.WriteBatch(batches[i]));
+    ASSERT_OK(helper.Finish());
+    ASSERT_GE(helper.writer_->stats().total_raw_body_size,
+              helper.writer_->stats().total_serialized_body_size);
+  }
+}
+
 // This test uses uninitialized memory
 
 #if !(defined(ARROW_VALGRIND) || defined(ADDRESS_SANITIZER))
@@ -2566,7 +2697,7 @@ void GetReadRecordBatchReadRanges(
   // read magic and footer length IO
   auto file_end_size = magic_size + sizeof(int32_t);
   auto footer_length_offset = buffer->size() - file_end_size;
-  auto footer_length = BitUtil::FromLittleEndian(
+  auto footer_length = bit_util::FromLittleEndian(
       util::SafeLoadAs<int32_t>(buffer->data() + footer_length_offset));
   ASSERT_EQ(read_ranges[0].length, file_end_size);
   // read footer IO

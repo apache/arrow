@@ -132,10 +132,40 @@ jobs:
         DOCKER_IMAGE_ID: debian-java
         JDK: 11
 
+    - name: "Python on s390x"
+      os: linux
+      arch: s390x
+      env:
+        <<: *global_env
+        ARCH: s390x
+        ARROW_CI_MODULES: "PYTHON"
+        DOCKER_IMAGE_ID: ubuntu-python
+        # Can't enable ARROW_MIMALLOC because of failures in memory pool tests.
+        # Can't enable ARROW_S3 because compiler is killed while compiling
+        # aws-sdk-cpp.
+        DOCKER_RUN_ARGS: >-
+          "
+          -e ARROW_BUILD_STATIC=OFF
+          -e ARROW_FLIGHT=ON
+          -e ARROW_GCS=OFF
+          -e ARROW_MIMALLOC=OFF
+          -e ARROW_ORC=OFF
+          -e ARROW_PARQUET=OFF
+          -e ARROW_PYTHON=ON
+          -e ARROW_S3=OFF
+          -e CMAKE_UNITY_BUILD=ON
+          -e CPP_MAKE_PARALLELISM=2
+          -e PARQUET_BUILD_EXAMPLES=OFF
+          -e PARQUET_BUILD_EXECUTABLES=OFF
+          -e Protobuf_SOURCE=BUNDLED
+          -e gRPC_SOURCE=BUNDLED
+          "
+
   allow_failures:
     - name: "Go on ARM"
     - name: "Go on s390x"
     - name: "Java on s390x"
+    - name: "Python on s390x"
 
 before_install:
   - eval "$(python ci/detect-changes.py)"

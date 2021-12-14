@@ -1488,31 +1488,37 @@ struct MatchSubstring<Type, PlainEndsWithMatcher> {
 const FunctionDoc match_substring_doc(
     "Match strings against literal pattern",
     ("For each string in `strings`, emit true iff it contains a given pattern.\n"
-     "Null inputs emit null.  The pattern must be given in MatchSubstringOptions. "
+     "Null inputs emit null.\n"
+     "The pattern must be given in MatchSubstringOptions.\n"
      "If ignore_case is set, only simple case folding is performed."),
     {"strings"}, "MatchSubstringOptions");
 
 const FunctionDoc starts_with_doc(
     "Check if strings start with a literal pattern",
     ("For each string in `strings`, emit true iff it starts with a given pattern.\n"
-     "Null inputs emit null.  The pattern must be given in MatchSubstringOptions. "
-     "If ignore_case is set, only simple case folding is performed."),
+     "The pattern must be given in MatchSubstringOptions.\n"
+     "If ignore_case is set, only simple case folding is performed.\n"
+     "\n"
+     "Null inputs emit null."),
     {"strings"}, "MatchSubstringOptions");
 
 const FunctionDoc ends_with_doc(
     "Check if strings end with a literal pattern",
     ("For each string in `strings`, emit true iff it ends with a given pattern.\n"
-     "Null inputs emit null.  The pattern must be given in MatchSubstringOptions. "
-     "If ignore_case is set, only simple case folding is performed."),
+     "The pattern must be given in MatchSubstringOptions.\n"
+     "If ignore_case is set, only simple case folding is performed.\n"
+     "\n"
+     "Null inputs emit null."),
     {"strings"}, "MatchSubstringOptions");
 
 #ifdef ARROW_WITH_RE2
 const FunctionDoc match_substring_regex_doc(
     "Match strings against regex pattern",
-    ("For each string in `strings`, emit true iff it matches a given pattern at any "
-     "position.\n"
-     "Null inputs emit null.  The pattern must be given in MatchSubstringOptions. "
-     "If ignore_case is set, only simple case folding is performed."),
+    ("For each string in `strings`, emit true iff it matches a given pattern\n"
+     "at any position. The pattern must be given in MatchSubstringOptions.\n"
+     "If ignore_case is set, only simple case folding is performed.\n"
+     "\n"
+     "Null inputs emit null."),
     {"strings"}, "MatchSubstringOptions");
 
 // SQL LIKE match
@@ -1619,10 +1625,10 @@ struct MatchLike {
 
 const FunctionDoc match_like_doc(
     "Match strings against SQL-style LIKE pattern",
-    ("For each string in `strings`, emit true iff it fully matches a given pattern "
-     "at any position. That is, '%' will match any number of characters, '_' will "
-     "match exactly one character, and any other character matches itself. To "
-     "match a literal '%', '_', or '\\', precede the character with a backslash.\n"
+    ("For each string in `strings`, emit true iff it matches a given pattern\n"
+     "at any position. '%' will match any number of characters, '_' will\n"
+     "match exactly one character, and any other character matches itself.\n"
+     "To match a literal '%', '_', or '\\', precede the character with a backslash.\n"
      "Null inputs emit null.  The pattern must be given in MatchSubstringOptions."),
     {"strings"}, "MatchSubstringOptions");
 
@@ -1746,8 +1752,8 @@ struct FindSubstringExec {
 
 const FunctionDoc find_substring_doc(
     "Find first occurrence of substring",
-    ("For each string in `strings`, emit the index of the first occurrence of the given "
-     "pattern, or -1 if not found.\n"
+    ("For each string in `strings`, emit the index in bytes of the first occurrence\n"
+     "of the given literal pattern, or -1 if not found.\n"
      "Null inputs emit null. The pattern must be given in MatchSubstringOptions."),
     {"strings"}, "MatchSubstringOptions");
 
@@ -1765,8 +1771,8 @@ struct FindSubstringRegexExec {
 
 const FunctionDoc find_substring_regex_doc(
     "Find location of first match of regex pattern",
-    ("For each string in `strings`, emit the index of the first match of the given "
-     "pattern, or -1 if not found.\n"
+    ("For each string in `strings`, emit the index in bytes of the first occurrence\n"
+     "of the given literal pattern, or -1 if not found.\n"
      "Null inputs emit null. The pattern must be given in MatchSubstringOptions."),
     {"strings"}, "MatchSubstringOptions");
 #endif
@@ -1905,16 +1911,16 @@ struct CountSubstringExec {
 
 const FunctionDoc count_substring_doc(
     "Count occurrences of substring",
-    ("For each string in `strings`, emit the number of occurrences of the given "
-     "pattern.\n"
+    ("For each string in `strings`, emit the number of occurrences of the given\n"
+     "literal pattern.\n"
      "Null inputs emit null. The pattern must be given in MatchSubstringOptions."),
     {"strings"}, "MatchSubstringOptions");
 
 #ifdef ARROW_WITH_RE2
 const FunctionDoc count_substring_regex_doc(
     "Count occurrences of substring",
-    ("For each string in `strings`, emit the number of occurrences of the given "
-     "regex pattern.\n"
+    ("For each string in `strings`, emit the number of occurrences of the given\n"
+     "regular expression pattern.\n"
      "Null inputs emit null. The pattern must be given in MatchSubstringOptions."),
     {"strings"}, "MatchSubstringOptions");
 #endif
@@ -2132,12 +2138,13 @@ template <typename Type>
 using SliceCodeunits = StringTransformExec<Type, SliceCodeunitsTransform>;
 
 const FunctionDoc utf8_slice_codeunits_doc(
-    "Slice string ",
-    ("For each string in `strings`, slice into a substring defined by\n"
-     "`start`, `stop`, `step`) as given by `SliceOptions` where `start` is inclusive\n"
-     "and `stop` is exclusive and are measured in codeunits. If step is negative, the\n"
-     "string will be advanced in reversed order. A `step` of zero is considered an\n"
-     "error.\n"
+    "Slice string",
+    ("For each string in `strings`, emit the substring defined by\n"
+     "(`start`, `stop`, `step`) as given by `SliceOptions` where `start` is\n"
+     "inclusive and `stop` is exclusive. All three values are measured in\n"
+     "UTF8 codeunits.\n"
+     "If `step` is negative, the string will be advanced in reversed order.\n"
+     "An error is raised if `step` is zero.\n"
      "Null inputs emit null."),
     {"strings"}, "SliceOptions");
 
@@ -2173,7 +2180,7 @@ struct CharacterPredicateUnicode {
   }
 
   static inline bool PredicateCharacterAny(uint32_t) {
-    return true;  // default condition make sure there is at least 1 charachter
+    return true;  // default condition make sure there is at least 1 character
   }
 };
 
@@ -2196,7 +2203,7 @@ struct CharacterPredicateAscii {
   }
 
   static inline bool PredicateCharacterAny(uint8_t) {
-    return true;  // default condition make sure there is at least 1 charachter
+    return true;  // default condition make sure there is at least 1 character
   }
 };
 
@@ -3009,6 +3016,34 @@ void AddBinaryRepeat(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
+struct BinaryReverseTransform : public StringTransformBase {
+  int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
+                    uint8_t* output) {
+    for (int64_t i = 0; i < input_string_ncodeunits; i++) {
+      output[input_string_ncodeunits - i - 1] = input[i];
+    }
+    return input_string_ncodeunits;
+  }
+};
+
+template <typename Type>
+using BinaryReverse = StringTransformExec<Type, BinaryReverseTransform>;
+
+const FunctionDoc binary_reverse_doc(
+    "Reverse binary input",
+    ("For each binary string in `strings`, return a reversed version.\n\n"
+     "This function reverses the binary data at a byte-level."),
+    {"strings"});
+
+void AddBinaryReverse(FunctionRegistry* registry) {
+  auto func = std::make_shared<ScalarFunction>("binary_reverse", Arity::Unary(),
+                                               &binary_reverse_doc);
+  for (const auto& ty : BinaryTypes()) {
+    DCHECK_OK(func->AddKernel({ty}, ty, GenerateVarBinaryToVarBinary<BinaryReverse>(ty)));
+  }
+  DCHECK_OK(registry->AddFunction(std::move(func)));
+}
+
 // ----------------------------------------------------------------------
 // Replace substring (plain, regex)
 
@@ -3195,11 +3230,12 @@ template <typename Type>
 using ReplaceSubstringPlain = ReplaceSubstring<Type, PlainSubstringReplacer>;
 
 const FunctionDoc replace_substring_doc(
-    "Replace non-overlapping substrings that match pattern by replacement",
+    "Replace matching non-overlapping substrings with replacement",
     ("For each string in `strings`, replace non-overlapping substrings that match\n"
-     "`pattern` by `replacement`. If `max_replacements != -1`, it determines the\n"
-     "maximum amount of replacements made, counting from the left. Null values emit\n"
-     "null."),
+     "the given literal `pattern` with the given `replacement`.\n"
+     "If `max_replacements` is given and not equal to -1, it limits the\n"
+     "maximum amount replacements per input, counted from the left.\n"
+     "Null values emit null."),
     {"strings"}, "ReplaceSubstringOptions");
 
 #ifdef ARROW_WITH_RE2
@@ -3207,12 +3243,12 @@ template <typename Type>
 using ReplaceSubstringRegex = ReplaceSubstring<Type, RegexSubstringReplacer<Type>>;
 
 const FunctionDoc replace_substring_regex_doc(
-    "Replace non-overlapping substrings that match regex `pattern` by `replacement`",
-    ("For each string in `strings`, replace non-overlapping substrings that match the\n"
-     "regular expression `pattern` by `replacement` using the Google RE2 library.\n"
-     "If `max_replacements != -1`, it determines the maximum amount of replacements\n"
-     "made, counting from the left. Note that if the pattern contains groups,\n"
-     "backreferencing macan be used. Null values emit null."),
+    "Replace matching non-overlapping substrings with replacement",
+    ("For each string in `strings`, replace non-overlapping substrings that match\n"
+     "the given regular expression `pattern` with the given `replacement`.\n"
+     "If `max_replacements` is given and not equal to -1, it limits the\n"
+     "maximum amount replacements per input, counted from the left.\n"
+     "Null values emit null."),
     {"strings"}, "ReplaceSubstringOptions");
 #endif
 
@@ -3359,18 +3395,18 @@ template <typename Type>
 using Utf8ReplaceSlice = StringTransformExecWithState<Type, Utf8ReplaceSliceTransform>;
 
 const FunctionDoc binary_replace_slice_doc(
-    "Replace a slice of a binary string with `replacement`",
-    ("For each string in `strings`, replace a slice of the string defined by `start`"
-     "and `stop` with `replacement`. `start` is inclusive and `stop` is exclusive, "
-     "and both are measured in bytes.\n"
+    "Replace a slice of a binary string",
+    ("For each string in `strings`, replace a slice of the string defined by `start`\n"
+     "and `stop` indices with the given `replacement`. `start` is inclusive\n"
+     "and `stop` is exclusive, and both are measured in bytes.\n"
      "Null values emit null."),
     {"strings"}, "ReplaceSliceOptions");
 
 const FunctionDoc utf8_replace_slice_doc(
-    "Replace a slice of a string with `replacement`",
-    ("For each string in `strings`, replace a slice of the string defined by `start`"
-     "and `stop` with `replacement`. `start` is inclusive and `stop` is exclusive, "
-     "and both are measured in codeunits.\n"
+    "Replace a slice of a string",
+    ("For each string in `strings`, replace a slice of the string defined by `start`\n"
+     "and `stop` indices with the given `replacement`. `start` is inclusive\n"
+     "and `stop` is exclusive, and both are measured in UTF8 characters.\n"
      "Null values emit null."),
     {"strings"}, "ReplaceSliceOptions");
 
@@ -3625,11 +3661,24 @@ struct StrptimeExec {
 
 Result<ValueDescr> ResolveStrptimeOutput(KernelContext* ctx,
                                          const std::vector<ValueDescr>&) {
-  if (ctx->state()) {
-    return ::arrow::timestamp(StrptimeState::Get(ctx).unit);
+  if (!ctx->state()) {
+    return Status::Invalid("strptime does not provide default StrptimeOptions");
   }
-
-  return Status::Invalid("strptime does not provide default StrptimeOptions");
+  const StrptimeOptions& options = StrptimeState::Get(ctx);
+  // Check for use of %z or %Z
+  size_t cur = 0;
+  std::string zone = "";
+  while (cur < options.format.size() - 1) {
+    if (options.format[cur] == '%') {
+      if (options.format[cur + 1] == 'z') {
+        zone = "UTC";
+        break;
+      }
+      cur++;
+    }
+    cur++;
+  }
+  return ::arrow::timestamp(options.unit, zone);
 }
 
 // ----------------------------------------------------------------------
@@ -3978,28 +4027,28 @@ const FunctionDoc utf8_rpad_doc(
     {"strings"}, "PadOptions");
 
 const FunctionDoc ascii_center_doc(
-    utf8_center_doc.description + "",
+    utf8_center_doc.summary,
     ("For each string in `strings`, emit a centered string by padding both sides \n"
      "with the given ASCII character.\nNull values emit null."),
     {"strings"}, "PadOptions");
 
 const FunctionDoc ascii_lpad_doc(
-    utf8_lpad_doc.description + "",
+    utf8_lpad_doc.summary,
     ("For each string in `strings`, emit a right-aligned string by prepending \n"
      "the given ASCII character.\nNull values emit null."),
     {"strings"}, "PadOptions");
 
 const FunctionDoc ascii_rpad_doc(
-    utf8_rpad_doc.description + "",
+    utf8_rpad_doc.summary,
     ("For each string in `strings`, emit a left-aligned string by appending \n"
      "the given ASCII character.\nNull values emit null."),
     {"strings"}, "PadOptions");
 
 const FunctionDoc utf8_trim_whitespace_doc(
     "Trim leading and trailing whitespace characters",
-    ("For each string in `strings`, emit a string with leading and trailing whitespace\n"
-     "characters removed, where whitespace characters are defined by the Unicode\n"
-     "standard.  Null values emit null."),
+    ("For each string in `strings`, emit a string with leading and trailing\n"
+     "whitespace characters removed, where whitespace characters are defined\n"
+     "by the Unicode standard.  Null values emit null."),
     {"strings"});
 
 const FunctionDoc utf8_ltrim_whitespace_doc(
@@ -4038,45 +4087,45 @@ const FunctionDoc ascii_rtrim_whitespace_doc(
     {"strings"});
 
 const FunctionDoc utf8_trim_doc(
-    "Trim leading and trailing characters present in the `characters` arguments",
-    ("For each string in `strings`, emit a string with leading and trailing\n"
-     "characters removed that are present in the `characters` argument.  Null values\n"
-     "emit null."),
+    "Trim leading and trailing characters",
+    ("For each string in `strings`, remove any leading or trailing characters\n"
+     "from the `characters` option (as given in TrimOptions).\n"
+     "Null values emit null."),
     {"strings"}, "TrimOptions");
 
 const FunctionDoc utf8_ltrim_doc(
-    "Trim leading characters present in the `characters` arguments",
-    ("For each string in `strings`, emit a string with leading\n"
-     "characters removed that are present in the `characters` argument.  Null values\n"
-     "emit null."),
+    "Trim leading characters",
+    ("For each string in `strings`, remove any leading characters\n"
+     "from the `characters` option (as given in TrimOptions).\n"
+     "Null values emit null."),
     {"strings"}, "TrimOptions");
 
 const FunctionDoc utf8_rtrim_doc(
-    "Trim trailing characters present in the `characters` arguments",
-    ("For each string in `strings`, emit a string with leading "
-     "characters removed that are present in the `characters` argument.  Null values\n"
-     "emit null."),
+    "Trim trailing characters",
+    ("For each string in `strings`, remove any trailing characters\n"
+     "from the `characters` option (as given in TrimOptions).\n"
+     "Null values emit null."),
     {"strings"}, "TrimOptions");
 
 const FunctionDoc ascii_trim_doc(
-    utf8_trim_doc.summary + "",
+    utf8_trim_doc.summary,
     utf8_trim_doc.description +
-        ("\nBoth the input string as the `characters` argument are interepreted as\n"
-         "ASCII characters, to trim non-ASCII characters, use `utf8_trim`."),
+        ("\nBoth the `strings` and the `characters` are interpreted as\n"
+         "ASCII; to trim non-ASCII characters, use `utf8_trim`."),
     {"strings"}, "TrimOptions");
 
 const FunctionDoc ascii_ltrim_doc(
-    utf8_ltrim_doc.summary + "",
+    utf8_ltrim_doc.summary,
     utf8_ltrim_doc.description +
-        ("\nBoth the input string as the `characters` argument are interepreted as\n"
-         "ASCII characters, to trim non-ASCII characters, use `utf8_trim`."),
+        ("\nBoth the `strings` and the `characters` are interpreted as\n"
+         "ASCII; to trim non-ASCII characters, use `utf8_ltrim`."),
     {"strings"}, "TrimOptions");
 
 const FunctionDoc ascii_rtrim_doc(
-    utf8_rtrim_doc.summary + "",
+    utf8_rtrim_doc.summary,
     utf8_rtrim_doc.description +
-        ("\nBoth the input string as the `characters` argument are interepreted as\n"
-         "ASCII characters, to trim non-ASCII characters, use `utf8_trim`."),
+        ("\nBoth the `strings` and the `characters` are interpreted as\n"
+         "ASCII; to trim non-ASCII characters, use `utf8_rtrim`."),
     {"strings"}, "TrimOptions");
 
 const FunctionDoc strptime_doc(
@@ -4089,13 +4138,15 @@ const FunctionDoc strptime_doc(
 
 const FunctionDoc binary_length_doc(
     "Compute string lengths",
-    ("For each string in `strings`, emit the number of bytes.  Null values emit null."),
+    ("For each string in `strings`, emit its length of bytes.\n"
+     "Null values emit null."),
     {"strings"});
 
-const FunctionDoc utf8_length_doc("Compute UTF8 string lengths",
-                                  ("For each string in `strings`, emit the number of "
-                                   "UTF8 characters.  Null values emit null."),
-                                  {"strings"});
+const FunctionDoc utf8_length_doc(
+    "Compute UTF8 string lengths",
+    ("For each string in `strings`, emit its length in UTF8 characters.\n"
+     "Null values emit null."),
+    {"strings"});
 
 void AddStrptime(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>("strptime", Arity::Unary(), &strptime_doc);
@@ -4493,7 +4544,7 @@ struct BinaryJoinElementWise {
         } else {
           const ArrayData& array = *batch[col].array();
           if (!array.MayHaveNulls() ||
-              BitUtil::GetBit(array.buffers[0]->data(), array.offset + row)) {
+              bit_util::GetBit(array.buffers[0]->data(), array.offset + row)) {
             const offset_type* offsets = array.GetValues<offset_type>(1);
             const uint8_t* data = array.GetValues<uint8_t>(2, /*absolute_offset=*/0);
             const int64_t length = offsets[row + 1] - offsets[row];
@@ -4573,7 +4624,7 @@ struct BinaryJoinElementWise {
       } else {
         const ArrayData& array = *batch[i].array();
         valid = !array.MayHaveNulls() ||
-                BitUtil::GetBit(array.buffers[0]->data(), array.offset + index);
+                bit_util::GetBit(array.buffers[0]->data(), array.offset + index);
         const offset_type* offsets = array.GetValues<offset_type>(1);
         element_size = offsets[index + 1] - offsets[index];
       }
@@ -4604,17 +4655,18 @@ struct BinaryJoinElementWise {
 };
 
 const FunctionDoc binary_join_doc(
-    "Join a list of strings together with a `separator` to form a single string",
-    ("Insert `separator` between `list` elements, and concatenate them.\n"
-     "Any null input and any null `list` element emits a null output.\n"),
-    {"list", "separator"});
+    "Join a list of strings together with a separator",
+    ("Concatenate the strings in `list`. The `separator` is inserted\n"
+     "between each given string.\n"
+     "Any null input and any null `list` element emits a null output."),
+    {"strings", "separator"});
 
 const FunctionDoc binary_join_element_wise_doc(
-    "Join string arguments into one, using the last argument as the separator",
-    ("Insert the last argument of `strings` between the rest of the elements, "
-     "and concatenate them.\n"
-     "Any null separator element emits a null output. Null elements either "
-     "emit a null (the default), are skipped, or replaced with a given string.\n"),
+    "Join string arguments together, with the last argument as separator",
+    ("Concatenate the `strings` except for the last one. The last argument\n"
+     "in `strings` is inserted between each given string.\n"
+     "Any null separator element emits a null output. Null elements either\n"
+     "emit a null (the default), are skipped, or replaced with a given string."),
     {"*strings"}, "JoinOptions");
 
 const JoinOptions* GetDefaultJoinOptions() {
@@ -4824,7 +4876,7 @@ const auto ascii_is_title_doc = StringPredicateDoc(
     ("For each string in `strings`, emit true iff the string is title-cased,\n"
      "i.e. it has at least one cased character, each uppercase character\n"
      "follows an uncased character, and each lowercase character follows\n"
-     "an uppercase character.\n"));
+     "an uppercase character."));
 
 const auto utf8_is_alnum_doc =
     StringClassifyDoc("alphanumeric", "alphanumeric Unicode characters", true);
@@ -4849,7 +4901,7 @@ const auto utf8_is_title_doc = StringPredicateDoc(
     ("For each string in `strings`, emit true iff the string is title-cased,\n"
      "i.e. it has at least one cased character, each uppercase character\n"
      "follows an uncased character, and each lowercase character follows\n"
-     "an uppercase character.\n"));
+     "an uppercase character."));
 
 const FunctionDoc ascii_upper_doc(
     "Transform ASCII input to uppercase",
@@ -4866,8 +4918,7 @@ const FunctionDoc ascii_lower_doc(
     {"strings"});
 
 const FunctionDoc ascii_swapcase_doc(
-    "Transform ASCII input lowercase characters to uppercase and uppercase characters to "
-    "lowercase",
+    "Transform ASCII input by inverting casing",
     ("For each string in `strings`, return a string with opposite casing.\n\n"
      "This function assumes the input is fully ASCII.  If it may contain\n"
      "non-ASCII characters, use \"utf8_swapcase\" instead."),
@@ -4929,6 +4980,159 @@ const FunctionDoc utf8_reverse_doc(
      "clusters. Hence, it will not correctly reverse grapheme clusters\n"
      "composed of multiple codepoints."),
     {"strings"});
+
+#ifdef ARROW_WITH_UTF8PROC
+
+struct Utf8NormalizeBase {
+  // Pre-size scratch space
+  explicit Utf8NormalizeBase(const Utf8NormalizeOptions& options)
+      : decompose_options_(MakeDecomposeOptions(options.form)), codepoints_(32) {}
+
+  // Try to decompose the given UTF8 string into the codepoints space,
+  // returning the number of codepoints output.
+  Result<int64_t> DecomposeIntoScratch(util::string_view v) {
+    auto decompose = [&]() {
+      return utf8proc_decompose(reinterpret_cast<const utf8proc_uint8_t*>(v.data()),
+                                v.size(),
+                                reinterpret_cast<utf8proc_int32_t*>(codepoints_.data()),
+                                codepoints_.capacity(), decompose_options_);
+    };
+    auto res = decompose();
+    if (res > static_cast<int64_t>(codepoints_.capacity())) {
+      // Codepoints buffer not large enough, reallocate and try again
+      codepoints_.assign(res, 0);
+      res = decompose();
+      DCHECK_EQ(res, static_cast<int64_t>(codepoints_.capacity()));
+    }
+    if (res < 0) {
+      return Status::Invalid("Cannot normalize utf8 string: ", utf8proc_errmsg(res));
+    }
+    return res;
+  }
+
+  Result<int64_t> Decompose(util::string_view v, BufferBuilder* data_builder) {
+    if (::arrow::util::ValidateAscii(v)) {
+      // Fast path: normalization is a no-op
+      RETURN_NOT_OK(data_builder->Append(v.data(), v.size()));
+      return v.size();
+    }
+    // NOTE: we may be able to find more shortcuts using a precomputed table?
+    // Out of 1114112 valid unicode codepoints, 1097203 don't change when
+    // any normalization is applied.  Precomputing a table of such
+    // "no-op" codepoints would help expand the fast path.
+
+    ARROW_ASSIGN_OR_RAISE(const auto n_codepoints, DecomposeIntoScratch(v));
+    // Encode normalized codepoints directly into the output
+    int64_t n_bytes = 0;
+    for (int64_t i = 0; i < n_codepoints; ++i) {
+      n_bytes += ::arrow::util::UTF8EncodedLength(codepoints_[i]);
+    }
+    RETURN_NOT_OK(data_builder->Reserve(n_bytes));
+    uint8_t* out = data_builder->mutable_data() + data_builder->length();
+    for (int64_t i = 0; i < n_codepoints; ++i) {
+      out = ::arrow::util::UTF8Encode(out, codepoints_[i]);
+    }
+    DCHECK_EQ(out - data_builder->mutable_data(), data_builder->length() + n_bytes);
+    data_builder->UnsafeAdvance(n_bytes);
+    return n_bytes;
+  }
+
+ protected:
+  static utf8proc_option_t MakeDecomposeOptions(Utf8NormalizeOptions::Form form) {
+    switch (form) {
+      case Utf8NormalizeOptions::Form::NFKC:
+        return static_cast<utf8proc_option_t>(UTF8PROC_STABLE | UTF8PROC_COMPOSE |
+                                              UTF8PROC_COMPAT);
+      case Utf8NormalizeOptions::Form::NFD:
+        return static_cast<utf8proc_option_t>(UTF8PROC_STABLE | UTF8PROC_DECOMPOSE);
+      case Utf8NormalizeOptions::Form::NFKD:
+        return static_cast<utf8proc_option_t>(UTF8PROC_STABLE | UTF8PROC_DECOMPOSE |
+                                              UTF8PROC_COMPAT);
+      case Utf8NormalizeOptions::Form::NFC:
+      default:
+        return static_cast<utf8proc_option_t>(UTF8PROC_STABLE | UTF8PROC_COMPOSE);
+    }
+  }
+
+  const utf8proc_option_t decompose_options_;
+  // UTF32 scratch space for decomposition
+  std::vector<uint32_t> codepoints_;
+};
+
+template <typename Type>
+struct Utf8NormalizeExec : public Utf8NormalizeBase {
+  using State = OptionsWrapper<Utf8NormalizeOptions>;
+  using ScalarType = typename TypeTraits<Type>::ScalarType;
+  using offset_type = typename Type::offset_type;
+  using OffsetBuilder = TypedBufferBuilder<offset_type>;
+
+  using Utf8NormalizeBase::Utf8NormalizeBase;
+
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    const auto& options = State::Get(ctx);
+    Utf8NormalizeExec exec{options};
+    if (batch[0].kind() == Datum::ARRAY) {
+      return exec.ExecArray(ctx, *batch[0].array(), out);
+    } else {
+      DCHECK_EQ(batch[0].kind(), Datum::SCALAR);
+      return exec.ExecScalar(ctx, *batch[0].scalar(), out);
+    }
+  }
+
+  Status ExecArray(KernelContext* ctx, const ArrayData& array, Datum* out) {
+    BufferBuilder data_builder(ctx->memory_pool());
+
+    const offset_type* in_offsets = array.GetValues<offset_type>(1);
+    if (array.length > 0) {
+      RETURN_NOT_OK(data_builder.Reserve(in_offsets[array.length] - in_offsets[0]));
+    }
+    // Output offsets are preallocated
+    offset_type* out_offsets = out->mutable_array()->GetMutableValues<offset_type>(1);
+
+    int64_t offset = 0;
+    *out_offsets++ = static_cast<offset_type>(offset);
+
+    RETURN_NOT_OK(VisitArrayDataInline<Type>(
+        array,
+        [&](util::string_view v) {
+          ARROW_ASSIGN_OR_RAISE(auto n_bytes, Decompose(v, &data_builder));
+          offset += n_bytes;
+          *out_offsets++ = static_cast<offset_type>(offset);
+          return Status::OK();
+        },
+        [&]() {
+          *out_offsets++ = static_cast<offset_type>(offset);
+          return Status::OK();
+        }));
+
+    ArrayData* output = out->mutable_array();
+    RETURN_NOT_OK(data_builder.Finish(&output->buffers[2]));
+    return Status::OK();
+  }
+
+  Status ExecScalar(KernelContext* ctx, const Scalar& scalar, Datum* out) {
+    if (scalar.is_valid) {
+      const auto& string_scalar = checked_cast<const ScalarType&>(scalar);
+      auto* out_scalar = checked_cast<ScalarType*>(out->scalar().get());
+
+      BufferBuilder data_builder(ctx->memory_pool());
+      RETURN_NOT_OK(Decompose(string_scalar.view(), &data_builder));
+      RETURN_NOT_OK(data_builder.Finish(&out_scalar->value));
+      out_scalar->is_valid = true;
+    }
+    return Status::OK();
+  }
+};
+
+const FunctionDoc utf8_normalize_doc(
+    "Utf8-normalize input",
+    ("For each string in `strings`, return the normal form.\n\n"
+     "The normalization form must be given in the options.\n"
+     "Null inputs emit null."),
+    {"strings"}, "Utf8NormalizeOptions");
+
+#endif  // ARROW_WITH_UTF8PROC
+
 }  // namespace
 
 void RegisterScalarStringAscii(FunctionRegistry* registry) {
@@ -5015,6 +5219,9 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
   AddUnaryStringPredicate<IsSpaceUnicode>("utf8_is_space", registry, &utf8_is_space_doc);
   AddUnaryStringPredicate<IsTitleUnicode>("utf8_is_title", registry, &utf8_is_title_doc);
   AddUnaryStringPredicate<IsUpperUnicode>("utf8_is_upper", registry, &utf8_is_upper_doc);
+
+  MakeUnaryStringBatchKernelWithState<Utf8NormalizeExec>("utf8_normalize", registry,
+                                                         &utf8_normalize_doc);
 #endif
 
   AddBinaryLength(registry);
@@ -5032,6 +5239,7 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
   AddStrptime(registry);
   AddBinaryJoin(registry);
   AddBinaryRepeat(registry);
+  AddBinaryReverse(registry);
 }
 
 }  // namespace internal

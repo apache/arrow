@@ -40,6 +40,17 @@
 #define ALTREP_CLASS_SERIALIZED_CLASS(x) ATTRIB(x)
 #define ALTREP_SERIALIZED_CLASS_PKGSYM(x) CADR(x)
 
+#if (R_VERSION < R_Version(3, 5, 0))
+#define LOGICAL_RO(x) ((const int*)LOGICAL(x))
+#define INTEGER_RO(x) ((const int*)INTEGER(x))
+#define REAL_RO(x) ((const double*)REAL(x))
+#define COMPLEX_RO(x) ((const Rcomplex*)COMPLEX(x))
+#define STRING_PTR_RO(x) ((const SEXP*)STRING_PTR(x))
+#define RAW_RO(x) ((const Rbyte*)RAW(x))
+#define DATAPTR_RO(x) ((const void*)STRING_PTR(x))
+#define DATAPTR(x) (void*)STRING_PTR(x)
+#endif
+
 namespace arrow {
 namespace r {
 
@@ -101,8 +112,14 @@ inline R_xlen_t r_string_size(SEXP s) {
 inline SEXP utf8_strings(SEXP x) {
   return cpp11::unwind_protect([x] {
     R_xlen_t n = XLENGTH(x);
-    for (R_xlen_t i = 0; i < n; i++) {
-      SEXP s = STRING_ELT(x, i);
+
+    // if `x` is an altrep of some sort, this will
+    // materialize upfront. That's usually better because
+    // the loop touches all strings
+    const SEXP* p_x = STRING_PTR_RO(x);
+
+    for (R_xlen_t i = 0; i < n; i++, ++p_x) {
+      SEXP s = *p_x;
       if (s != NA_STRING && !IS_UTF8(s) && !IS_ASCII(s)) {
         SET_STRING_ELT(x, i, Rf_mkCharCE(Rf_translateCharUTF8(s), CE_UTF8));
       }

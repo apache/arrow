@@ -24,8 +24,8 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/apache/arrow/go/arrow"
-	format "github.com/apache/arrow/go/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v7/arrow"
+	format "github.com/apache/arrow/go/v7/parquet/internal/gen-go/parquet"
 )
 
 const (

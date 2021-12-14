@@ -1553,8 +1553,77 @@ TEST(Cast, TimestampToString) {
     CheckCast(
         ArrayFromJSON(timestamp(TimeUnit::SECOND), "[-30610224000, -5364662400]"),
         ArrayFromJSON(string_type, R"(["1000-01-01 00:00:00", "1800-01-01 00:00:00"])"));
+
+    CheckCast(
+        ArrayFromJSON(timestamp(TimeUnit::MILLI), "[-30610224000000, -5364662400000]"),
+        ArrayFromJSON(string_type,
+                      R"(["1000-01-01 00:00:00.000", "1800-01-01 00:00:00.000"])"));
+
+    CheckCast(
+        ArrayFromJSON(timestamp(TimeUnit::MICRO),
+                      "[-30610224000000000, -5364662400000000]"),
+        ArrayFromJSON(string_type,
+                      R"(["1000-01-01 00:00:00.000000", "1800-01-01 00:00:00.000000"])"));
+
+    CheckCast(
+        ArrayFromJSON(timestamp(TimeUnit::NANO),
+                      "[-596933876543210988, 349837323456789012]"),
+        ArrayFromJSON(
+            string_type,
+            R"(["1951-02-01 01:02:03.456789012", "1981-02-01 01:02:03.456789012"])"));
   }
 }
+
+#ifndef _WIN32
+TEST(Cast, TimestampWithZoneToString) {
+  for (auto string_type : {utf8(), large_utf8()}) {
+    CheckCast(
+        ArrayFromJSON(timestamp(TimeUnit::SECOND, "UTC"), "[-30610224000, -5364662400]"),
+        ArrayFromJSON(string_type,
+                      R"(["1000-01-01 00:00:00Z", "1800-01-01 00:00:00Z"])"));
+
+    CheckCast(
+        ArrayFromJSON(timestamp(TimeUnit::SECOND, "America/Phoenix"),
+                      "[-34226955, 1456767743]"),
+        ArrayFromJSON(string_type,
+                      R"(["1968-11-30 13:30:45-0700", "2016-02-29 10:42:23-0700"])"));
+
+    CheckCast(ArrayFromJSON(timestamp(TimeUnit::MILLI, "America/Phoenix"),
+                            "[-34226955877, 1456767743456]"),
+              ArrayFromJSON(
+                  string_type,
+                  R"(["1968-11-30 13:30:44.123-0700", "2016-02-29 10:42:23.456-0700"])"));
+
+    CheckCast(
+        ArrayFromJSON(timestamp(TimeUnit::MICRO, "America/Phoenix"),
+                      "[-34226955877000, 1456767743456789]"),
+        ArrayFromJSON(
+            string_type,
+            R"(["1968-11-30 13:30:44.123000-0700", "2016-02-29 10:42:23.456789-0700"])"));
+
+    CheckCast(
+        ArrayFromJSON(timestamp(TimeUnit::NANO, "America/Phoenix"),
+                      "[-34226955876543211, 1456767743456789246]"),
+        ArrayFromJSON(
+            string_type,
+            R"(["1968-11-30 13:30:44.123456789-0700", "2016-02-29 10:42:23.456789246-0700"])"));
+  }
+}
+#else
+// TODO(ARROW-13168): we lack tzdb on Windows
+TEST(Cast, TimestampWithZoneToString) {
+  for (auto string_type : {utf8(), large_utf8()}) {
+    ASSERT_RAISES(NotImplemented, Cast(ArrayFromJSON(timestamp(TimeUnit::SECOND, "UTC"),
+                                                     "[-34226955, 1456767743]"),
+                                       CastOptions::Safe(string_type)));
+
+    ASSERT_RAISES(NotImplemented,
+                  Cast(ArrayFromJSON(timestamp(TimeUnit::SECOND, "America/Phoenix"),
+                                     "[-34226955, 1456767743]"),
+                       CastOptions::Safe(string_type)));
+  }
+}
+#endif
 
 TEST(Cast, DateToDate) {
   auto day_32 = ArrayFromJSON(date32(), "[0, null, 100, 1, 10]");
@@ -1876,7 +1945,37 @@ TEST(Cast, StringToTimestamp) {
       }
     }
 
-    // NOTE: timestamp parsing is tested comprehensively in parsing-util-test.cc
+    auto zoned = ArrayFromJSON(string_type,
+                               R"(["2020-02-29T00:00:00Z", "2020-03-02T10:11:12+0102"])");
+    auto mixed = ArrayFromJSON(string_type,
+                               R"(["2020-03-02T10:11:12+0102", "2020-02-29T00:00:00"])");
+
+    // Timestamp with zone offset should not parse as naive
+    CheckCastFails(zoned, CastOptions::Safe(timestamp(TimeUnit::SECOND)));
+
+    // Mixed zoned/unzoned should not parse as naive
+    CheckCastFails(mixed, CastOptions::Safe(timestamp(TimeUnit::SECOND)));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr("expected no zone offset"),
+        Cast(mixed, CastOptions::Safe(timestamp(TimeUnit::SECOND))));
+
+    // ...or as timestamp with timezone
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr("expected a zone offset"),
+        Cast(mixed, CastOptions::Safe(timestamp(TimeUnit::SECOND, "UTC"))));
+
+    // Unzoned should not parse as timestamp with timezone
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr("expected a zone offset"),
+        Cast(strings, CastOptions::Safe(timestamp(TimeUnit::SECOND, "UTC"))));
+
+    // Timestamp with zone offset can parse as any time zone (since they're unambiguous)
+    CheckCast(zoned, ArrayFromJSON(timestamp(TimeUnit::SECOND, "UTC"),
+                                   "[1582934400, 1583140152]"));
+    CheckCast(zoned, ArrayFromJSON(timestamp(TimeUnit::SECOND, "America/Phoenix"),
+                                   "[1582934400, 1583140152]"));
+
+    // NOTE: timestamp parsing is tested comprehensively in value_parsing_test.cc
   }
 }
 

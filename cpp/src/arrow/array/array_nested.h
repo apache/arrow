@@ -464,6 +464,14 @@ class ARROW_EXPORT SparseUnionArray : public UnionArray {
     return internal::checked_cast<const SparseUnionType*>(union_type_);
   }
 
+  /// \brief Get one of the child arrays, adjusting its null bitmap
+  /// where the union array type code does not match.
+  ///
+  /// \param[in] index Which child array to get (i.e. the physical index, not the type
+  /// code) \param[in] pool The pool to allocate null bitmaps from, if necessary
+  Result<std::shared_ptr<Array>> GetFlattenedField(
+      int index, MemoryPool* pool = default_memory_pool()) const;
+
  protected:
   void SetData(std::shared_ptr<ArrayData> data);
 };

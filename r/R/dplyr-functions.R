@@ -77,12 +77,6 @@ nse_funcs$coalesce <- function(...) {
       arg <- Expression$scalar(arg)
     }
 
-    # coalesce doesn't yet support factors/dictionaries
-    # TODO: remove this after ARROW-14167 is merged
-    if (nse_funcs$is.factor(arg)) {
-      warning("Dictionaries (in R: factors) are currently converted to strings (characters) in coalesce", call. = FALSE)
-    }
-
     if (last_arg && arg$type_id() %in% TYPES_WITH_NAN) {
       # store the NA_real_ in the same type as arg to avoid avoid casting
       # smaller float types to larger float types
@@ -207,7 +201,7 @@ nse_funcs$is.numeric <- function(x) {
   is.numeric(x) || (inherits(x, "Expression") && x$type_id() %in% Type[c(
     "UINT8", "INT8", "UINT16", "INT16", "UINT32", "INT32",
     "UINT64", "INT64", "HALF_FLOAT", "FLOAT", "DOUBLE",
-    "DECIMAL", "DECIMAL256"
+    "DECIMAL128", "DECIMAL256"
   )])
 }
 nse_funcs$is.double <- function(x) {
@@ -254,6 +248,60 @@ nse_funcs$is_list <- function(x, n = NULL) {
 nse_funcs$is_logical <- function(x, n = NULL) {
   assert_that(is.null(n))
   nse_funcs$is.logical(x)
+}
+
+# Create a data frame/tibble/struct column
+nse_funcs$tibble <- function(..., .rows = NULL, .name_repair = NULL) {
+  if (!is.null(.rows)) arrow_not_supported(".rows")
+  if (!is.null(.name_repair)) arrow_not_supported(".name_repair")
+
+  # use dots_list() because this is what tibble() uses to allow the
+  # useful shorthand of tibble(col1, col2) -> tibble(col1 = col1, col2 = col2)
+  # we have a stronger enforcement of unique names for arguments because
+  # it is difficult to replicate the .name_repair semantics and expanding of
+  # unnamed data frame arguments in the same way that the tibble() constructor
+  # does.
+  args <- rlang::dots_list(..., .named = TRUE, .homonyms = "error")
+
+  build_expr(
+    "make_struct",
+    args = unname(args),
+    options = list(field_names = names(args))
+  )
+}
+
+nse_funcs$data.frame <- function(..., row.names = NULL,
+                                 check.rows = NULL, check.names = TRUE, fix.empty.names = TRUE,
+                                 stringsAsFactors = FALSE) {
+  # we need a specific value of stringsAsFactors because the default was
+  # TRUE in R <= 3.6
+  if (!identical(stringsAsFactors, FALSE)) {
+    arrow_not_supported("stringsAsFactors = TRUE")
+  }
+
+  # ignore row.names and check.rows with a warning
+  if (!is.null(row.names)) arrow_not_supported("row.names")
+  if (!is.null(check.rows)) arrow_not_supported("check.rows")
+
+  args <- rlang::dots_list(..., .named = fix.empty.names)
+  if (is.null(names(args))) {
+    names(args) <- rep("", length(args))
+  }
+
+  if (identical(check.names, TRUE)) {
+    if (identical(fix.empty.names, TRUE)) {
+      names(args) <- make.names(names(args), unique = TRUE)
+    } else {
+      name_emtpy <- names(args) == ""
+      names(args)[!name_emtpy] <- make.names(names(args)[!name_emtpy], unique = TRUE)
+    }
+  }
+
+  build_expr(
+    "make_struct",
+    args = unname(args),
+    options = list(field_names = names(args))
+  )
 }
 
 # String functions
@@ -844,6 +892,19 @@ nse_funcs$wday <- function(x,
   Expression$create("day_of_week", x, options = list(count_from_zero = FALSE, week_start = week_start))
 }
 
+nse_funcs$month <- function(x, label = FALSE, abbr = TRUE, locale = Sys.getlocale("LC_TIME")) {
+  if (label) {
+    if (abbr) {
+      format <- "%b"
+    } else {
+      format <- "%B"
+    }
+    return(Expression$create("strftime", x, options = list(format = format, locale = locale)))
+  }
+
+  Expression$create("month", x)
+}
+
 nse_funcs$is.Date <- function(x) {
   inherits(x, "Date") ||
     (inherits(x, "Expression") && x$type_id() %in% Type[c("DATE32", "DATE64")])
@@ -899,17 +960,6 @@ nse_funcs$if_else <- function(condition, true, false, missing = NULL) {
       missing,
       nse_funcs$if_else(condition, true, false)
     ))
-  }
-
-  # if_else doesn't yet support factors/dictionaries
-  # TODO: remove this after ARROW-13358 is merged
-  warn_types <- nse_funcs$is.factor(true) | nse_funcs$is.factor(false)
-  if (warn_types) {
-    warning(
-      "Dictionaries (in R: factors) are currently converted to strings (characters) ",
-      "in if_else and ifelse",
-      call. = FALSE
-    )
   }
 
   build_expr("if_else", condition, true, false)

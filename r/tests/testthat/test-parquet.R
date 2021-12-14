@@ -272,3 +272,53 @@ test_that("Error is created when parquet reads a feather file", {
     "Parquet magic bytes not found in footer"
   )
 })
+
+test_that("ParquetFileWrite chunk_size defaults", {
+  tab <- Table$create(x = 1:101)
+  tf <- tempfile()
+  on.exit(unlink(tf))
+
+  # we can alter our default cells per group
+  withr::with_options(
+    list(
+      arrow.parquet_cells_per_group = 25
+    ), {
+      # this will be 4 chunks
+      write_parquet(tab, tf)
+      reader <- ParquetFileReader$create(tf)
+
+      expect_true(reader$ReadRowGroup(0) == Table$create(x = 1:26))
+      expect_true(reader$ReadRowGroup(3) == Table$create(x = 79:101))
+      expect_error(reader$ReadRowGroup(4), "Some index in row_group_indices")
+    })
+
+  # but we always have no more than max_chunks (even if cells_per_group is low!)
+  # use a new tempfile so that windows doesn't complain about the file being over-written
+  tf <- tempfile()
+  on.exit(unlink(tf))
+
+  withr::with_options(
+    list(
+      arrow.parquet_cells_per_group = 25,
+      arrow.parquet_max_chunks = 2
+    ), {
+      # this will be 4 chunks
+      write_parquet(tab, tf)
+      reader <- ParquetFileReader$create(tf)
+
+      expect_true(reader$ReadRowGroup(0) == Table$create(x = 1:51))
+      expect_true(reader$ReadRowGroup(1) == Table$create(x = 52:101))
+      expect_error(reader$ReadRowGroup(2), "Some index in row_group_indices")
+    })
+})
+
+test_that("ParquetFileWrite chunk_size calculation doesn't have integer overflow issues (ARROW-14894)", {
+  expect_equal(calculate_chunk_size(31869547, 108, 2.5e8, 200), 2451504)
+
+  # we can set the target cells per group, and it rounds appropriately
+  expect_equal(calculate_chunk_size(100, 1, 25), 25)
+  expect_equal(calculate_chunk_size(101, 1, 25), 26)
+
+  # but our max_chunks is respected
+  expect_equal(calculate_chunk_size(101, 1, 25, 2), 51)
+})

@@ -116,14 +116,22 @@ Status SerializedAsyncTaskGroup::AddTask(std::function<Result<Future<>>()> task)
   return err_;
 }
 
-Future<> SerializedAsyncTaskGroup::End() {
-  util::Mutex::Guard guard = mutex_.Lock();
+Future<> SerializedAsyncTaskGroup::EndUnlocked(util::Mutex::Guard&& guard) {
   ended_ = true;
   if (!processing_.is_valid()) {
     guard.Unlock();
     on_finished_.MarkFinished(err_);
   }
   return on_finished_;
+}
+
+Future<> SerializedAsyncTaskGroup::End() { return EndUnlocked(mutex_.Lock()); }
+
+Future<> SerializedAsyncTaskGroup::Abort(Status err) {
+  util::Mutex::Guard guard = mutex_.Lock();
+  err_ = std::move(err);
+  tasks_ = std::queue<std::function<Result<Future<>>()>>();
+  return EndUnlocked(std::move(guard));
 }
 
 void SerializedAsyncTaskGroup::ConsumeAsMuchAsPossibleUnlocked(
@@ -148,17 +156,19 @@ bool SerializedAsyncTaskGroup::TryDrainUnlocked() {
     return true;
   }
   Future<> next_fut = maybe_next_fut.MoveValueUnsafe();
-  if (next_fut.is_finished()) {
+  if (!next_fut.TryAddCallback([this] {
+        return [this](const Status& st) {
+          util::Mutex::Guard guard = mutex_.Lock();
+          processing_ = Future<>();
+          err_ &= st;
+          ConsumeAsMuchAsPossibleUnlocked(std::move(guard));
+        };
+      })) {
+    // Didn't add callback, future already finished
     err_ &= next_fut.status();
     return true;
   }
   processing_ = std::move(next_fut);
-  processing_.AddCallback([this](const Status& st) {
-    util::Mutex::Guard guard = mutex_.Lock();
-    processing_ = Future<>();
-    err_ &= st;
-    ConsumeAsMuchAsPossibleUnlocked(std::move(guard));
-  });
   return false;
 }
 

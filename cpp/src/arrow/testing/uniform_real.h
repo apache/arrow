@@ -39,7 +39,7 @@ namespace detail {
 template <typename RealType, typename Rng>
 RealType generate_canonical(Rng& rng) {
   const size_t b = std::numeric_limits<RealType>::digits;
-  const size_t log2R = 63 - ::arrow::BitUtil::CountLeadingZeros(
+  const size_t log2R = 63 - ::arrow::bit_util::CountLeadingZeros(
                                 static_cast<uint64_t>(Rng::max() - Rng::min()) + 1);
   const size_t k = b / log2R + (b % log2R != 0) + (b == 0);
   const RealType r = static_cast<RealType>(Rng::max() - Rng::min()) + 1;

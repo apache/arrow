@@ -90,7 +90,12 @@ using parquet::test::ParquetTestException;
 class TestDecryptionConfiguration
     : public testing::TestWithParam<std::tuple<int, const char*>> {
  public:
-  void SetUp() { CreateDecryptionConfigurations(); }
+  void SetUp() {
+#ifndef ARROW_WITH_SNAPPY
+    GTEST_SKIP() << "Test requires Snappy compression";
+#endif
+    CreateDecryptionConfigurations();
+  }
 
  protected:
   FileDecryptor decryptor_;

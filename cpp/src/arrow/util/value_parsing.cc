@@ -25,13 +25,19 @@
 namespace arrow {
 namespace internal {
 
-bool StringToFloat(const char* s, size_t length, float* out) {
-  const auto res = ::arrow_vendored::fast_float::from_chars(s, s + length, *out);
+bool StringToFloat(const char* s, size_t length, char decimal_point, float* out) {
+  ::arrow_vendored::fast_float::parse_options options{
+      ::arrow_vendored::fast_float::chars_format::general, decimal_point};
+  const auto res =
+      ::arrow_vendored::fast_float::from_chars_advanced(s, s + length, *out, options);
   return res.ec == std::errc() && res.ptr == s + length;
 }
 
-bool StringToFloat(const char* s, size_t length, double* out) {
-  const auto res = ::arrow_vendored::fast_float::from_chars(s, s + length, *out);
+bool StringToFloat(const char* s, size_t length, char decimal_point, double* out) {
+  ::arrow_vendored::fast_float::parse_options options{
+      ::arrow_vendored::fast_float::chars_format::general, decimal_point};
+  const auto res =
+      ::arrow_vendored::fast_float::from_chars_advanced(s, s + length, *out, options);
   return res.ec == std::errc() && res.ptr == s + length;
 }
 
@@ -42,10 +48,27 @@ namespace {
 
 class StrptimeTimestampParser : public TimestampParser {
  public:
-  explicit StrptimeTimestampParser(std::string format) : format_(std::move(format)) {}
+  explicit StrptimeTimestampParser(std::string format)
+      : format_(std::move(format)), have_zone_offset_(false) {
+    // Check for use of %z
+    size_t cur = 0;
+    while (cur < format_.size()) {
+      if (format_[cur] == '%') {
+        if (cur + 1 < format_.size() && format_[cur + 1] == 'z') {
+          have_zone_offset_ = true;
+          break;
+        }
+        cur++;
+      }
+      cur++;
+    }
+  }
 
-  bool operator()(const char* s, size_t length, TimeUnit::type out_unit,
-                  int64_t* out) const override {
+  bool operator()(const char* s, size_t length, TimeUnit::type out_unit, int64_t* out,
+                  bool* out_zone_offset_present = NULLPTR) const override {
+    if (out_zone_offset_present) {
+      *out_zone_offset_present = have_zone_offset_;
+    }
     return ParseTimestampStrptime(s, length, format_.c_str(),
                                   /*ignore_time_in_day=*/false,
                                   /*allow_trailing_chars=*/false, out_unit, out);
@@ -57,15 +80,16 @@ class StrptimeTimestampParser : public TimestampParser {
 
  private:
   std::string format_;
+  bool have_zone_offset_;
 };
 
 class ISO8601Parser : public TimestampParser {
  public:
   ISO8601Parser() {}
 
-  bool operator()(const char* s, size_t length, TimeUnit::type out_unit,
-                  int64_t* out) const override {
-    return ParseTimestampISO8601(s, length, out_unit, out);
+  bool operator()(const char* s, size_t length, TimeUnit::type out_unit, int64_t* out,
+                  bool* out_zone_offset_present = NULLPTR) const override {
+    return ParseTimestampISO8601(s, length, out_unit, out, out_zone_offset_present);
   }
 
   const char* kind() const override { return "iso8601"; }

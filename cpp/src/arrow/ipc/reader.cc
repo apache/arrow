@@ -160,7 +160,7 @@ class ArrayLoader {
       return Status::Invalid("Negative length for reading buffer ", buffer_index_);
     }
     // This construct permits overriding GetBuffer at compile time
-    if (!BitUtil::IsMultipleOf8(offset)) {
+    if (!bit_util::IsMultipleOf8(offset)) {
       return Status::Invalid("Buffer ", buffer_index_,
                              " did not start on 8-byte aligned offset: ", offset);
     }
@@ -412,7 +412,7 @@ Result<std::shared_ptr<Buffer>> DecompressBuffer(const std::shared_ptr<Buffer>& 
 
   const uint8_t* data = buf->data();
   int64_t compressed_size = buf->size() - sizeof(int64_t);
-  int64_t uncompressed_size = BitUtil::FromLittleEndian(util::SafeLoadAs<int64_t>(data));
+  int64_t uncompressed_size = bit_util::FromLittleEndian(util::SafeLoadAs<int64_t>(data));
 
   ARROW_ASSIGN_OR_RAISE(auto uncompressed,
                         AllocateBuffer(uncompressed_size, options.memory_pool));
@@ -971,9 +971,9 @@ static inline FileBlock FileBlockFromFlatbuffer(const flatbuf::Block* block) {
 static Result<std::unique_ptr<Message>> ReadMessageFromBlock(
     const FileBlock& block, io::RandomAccessFile* file,
     const FieldsLoaderFunction& fields_loader) {
-  if (!BitUtil::IsMultipleOf8(block.offset) ||
-      !BitUtil::IsMultipleOf8(block.metadata_length) ||
-      !BitUtil::IsMultipleOf8(block.body_length)) {
+  if (!bit_util::IsMultipleOf8(block.offset) ||
+      !bit_util::IsMultipleOf8(block.metadata_length) ||
+      !bit_util::IsMultipleOf8(block.body_length)) {
     return Status::Invalid("Unaligned block in IPC file");
   }
 
@@ -987,9 +987,9 @@ static Result<std::unique_ptr<Message>> ReadMessageFromBlock(
 
 static Future<std::shared_ptr<Message>> ReadMessageFromBlockAsync(
     const FileBlock& block, io::RandomAccessFile* file, const io::IOContext& io_context) {
-  if (!BitUtil::IsMultipleOf8(block.offset) ||
-      !BitUtil::IsMultipleOf8(block.metadata_length) ||
-      !BitUtil::IsMultipleOf8(block.body_length)) {
+  if (!bit_util::IsMultipleOf8(block.offset) ||
+      !bit_util::IsMultipleOf8(block.metadata_length) ||
+      !bit_util::IsMultipleOf8(block.body_length)) {
     return Status::Invalid("Unaligned block in IPC file");
   }
 
@@ -1280,7 +1280,7 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
             return Status::Invalid("Not an Arrow file");
           }
 
-          int32_t footer_length = BitUtil::FromLittleEndian(
+          int32_t footer_length = bit_util::FromLittleEndian(
               *reinterpret_cast<const int32_t*>(buffer->data()));
 
           if (footer_length <= 0 ||
@@ -1841,7 +1841,7 @@ Status ReadSparseTensorMetadata(const Buffer& metadata,
   *out_fb_sparse_tensor = sparse_tensor;
 
   auto buffer = sparse_tensor->data();
-  if (!BitUtil::IsMultipleOf8(buffer->offset())) {
+  if (!bit_util::IsMultipleOf8(buffer->offset())) {
     return Status::Invalid(
         "Buffer of sparse index data did not start on 8-byte aligned offset: ",
         buffer->offset());

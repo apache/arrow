@@ -283,7 +283,7 @@ class ReaderV1 : public Reader {
 
     // If there are nulls, the null bitmask is first
     if (meta->null_count() > 0) {
-      int64_t null_bitmap_size = GetOutputLength(BitUtil::BytesForBits(meta->length()));
+      int64_t null_bitmap_size = GetOutputLength(bit_util::BytesForBits(meta->length()));
       buffers.push_back(SliceBuffer(buffer, offset, null_bitmap_size));
       offset += null_bitmap_size;
     } else {
@@ -560,7 +560,7 @@ struct ArrayWriterV1 {
           prim_values.values()->data() + (prim_values.offset() * fw_type.bit_width() / 8);
       int64_t bit_offset = (prim_values.offset() * fw_type.bit_width()) % 8;
       return WriteBuffer(buffer,
-                         BitUtil::BytesForBits(values.length() * fw_type.bit_width()),
+                         bit_util::BytesForBits(values.length() * fw_type.bit_width()),
                          bit_offset);
     } else {
       return Status::OK();
@@ -608,7 +608,8 @@ struct ArrayWriterV1 {
     // Write the null bitmask
     if (values.null_count() > 0) {
       RETURN_NOT_OK(WriteBuffer(values.null_bitmap_data(),
-                                BitUtil::BytesForBits(values.length()), values.offset()));
+                                bit_util::BytesForBits(values.length()),
+                                values.offset()));
     }
     // Write data buffer(s)
     return VisitTypeInline(*values.type(), this);

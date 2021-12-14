@@ -1169,6 +1169,20 @@ ArrayKernelExec GeneratePhysicalNumeric(detail::GetTypeId get_id) {
   }
 }
 
+// Generate a kernel given a templated functor for decimal types
+template <template <typename... Args> class Generator, typename... Args>
+ArrayKernelExec GenerateDecimalToDecimal(detail::GetTypeId get_id) {
+  switch (get_id.id) {
+    case Type::DECIMAL128:
+      return Generator<Decimal128Type, Args...>::Exec;
+    case Type::DECIMAL256:
+      return Generator<Decimal256Type, Args...>::Exec;
+    default:
+      DCHECK(false);
+      return ExecFail;
+  }
+}
+
 // Generate a kernel given a templated functor for integer types
 //
 // See "Numeric" above for description of the generator functor
@@ -1225,6 +1239,8 @@ ArrayKernelExec GenerateTypeAgnosticPrimitive(detail::GetTypeId get_id) {
     case Type::DURATION:
     case Type::INTERVAL_DAY_TIME:
       return Generator<UInt64Type, Args...>::Exec;
+    case Type::INTERVAL_MONTH_DAY_NANO:
+      return Generator<MonthDayNanoIntervalType, Args...>::Exec;
     default:
       DCHECK(false);
       return ExecFail;

@@ -2097,6 +2097,11 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         vector[c_bool] field_nullability
         vector[shared_ptr[const CKeyValueMetadata]] field_metadata
 
+    cdef cppclass CStructFieldOptions \
+            "arrow::compute::StructFieldOptions"(CFunctionOptions):
+        CStructFieldOptions(vector[int] indices)
+        vector[int] indices
+
     ctypedef enum CSortOrder" arrow::compute::SortOrder":
         CSortOrder_Ascending \
             "arrow::compute::SortOrder::Ascending"
@@ -2166,6 +2171,18 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         c_bool skip_nulls
         uint32_t min_count
 
+    cdef enum CUtf8NormalizeForm \
+            "arrow::compute::Utf8NormalizeOptions::Form":
+        CUtf8NormalizeForm_NFC "arrow::compute::Utf8NormalizeOptions::NFC"
+        CUtf8NormalizeForm_NFKC "arrow::compute::Utf8NormalizeOptions::NFKC"
+        CUtf8NormalizeForm_NFD "arrow::compute::Utf8NormalizeOptions::NFD"
+        CUtf8NormalizeForm_NFKD "arrow::compute::Utf8NormalizeOptions::NFKD"
+
+    cdef cppclass CUtf8NormalizeOptions \
+            "arrow::compute::Utf8NormalizeOptions"(CFunctionOptions):
+        CUtf8NormalizeOptions(CUtf8NormalizeForm form)
+        CUtf8NormalizeForm form
+
     cdef enum DatumType" arrow::Datum::type":
         DatumType_NONE" arrow::Datum::NONE"
         DatumType_SCALAR" arrow::Datum::SCALAR"
@@ -2216,6 +2233,17 @@ cdef extern from * namespace "arrow::compute":
     CResult[unique_ptr[CFunctionOptions]] DeserializeFunctionOptions \
         " arrow::compute::internal::DeserializeFunctionOptions"(
             const CBuffer& buffer)
+
+
+cdef extern from "arrow/compute/api_aggregate.h" namespace \
+        "arrow::compute::internal" nogil:
+    cdef cppclass CAggregate "arrow::compute::internal::Aggregate":
+        c_string function
+        const CFunctionOptions* options
+
+    CResult[CDatum] GroupBy(const vector[CDatum]& arguments,
+                            const vector[CDatum]& keys,
+                            const vector[CAggregate]& aggregates)
 
 
 cdef extern from "arrow/python/api.h" namespace "arrow::py":

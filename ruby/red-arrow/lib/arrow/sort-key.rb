@@ -29,25 +29,26 @@ module Arrow
       #
       #   @return [Arrow::SortKey] The given sort key itself.
       #
-      # @overload resolve(name)
+      # @overload resolve(target)
       #
-      #   Creates a new suitable sort key from column name with
-      #   leading order mark. See {#initialize} for details about
+      #   Creates a new suitable sort key from column name or dot path
+      #   with leading order mark. See {#initialize} for details about
       #   order mark.
       #
       #   @return [Arrow::SortKey] A new suitable sort key.
       #
-      # @overload resolve(name, order)
+      # @overload resolve(target, order)
       #
-      #   Creates a new suitable sort key from column name without
-      #   leading order mark and order. See {#initialize} for details.
+      #   Creates a new suitable sort key from column name or dot path
+      #   without leading order mark and order. See {#initialize} for
+      #   details.
       #
       #   @return [Arrow::SortKey] A new suitable sort key.
       #
       # @since 4.0.0
-      def resolve(name, order=nil)
-        return name if name.is_a?(self)
-        new(name, order)
+      def resolve(target, order=nil)
+        return target if target.is_a?(self)
+        new(target, order)
       end
 
       # @api private
@@ -65,47 +66,49 @@ module Arrow
     private :initialize_raw
     # Creates a new {Arrow::SortKey}.
     #
-    # @overload initialize(name)
+    # @overload initialize(target)
     #
-    #   @param name [Symbol, String] The name of the sort column.
+    #   @param target [Symbol, String] The name or dot path of the
+    #     sort column.
     #
-    #     If `name` is a String, the first character may be processed
-    #     as the "leading order mark". If the first character is `"+"`
-    #     or `"-"`, they are processed as a leading order mark. If the
-    #     first character is processed as a leading order mark, the
-    #     first character is removed from sort column name and
-    #     corresponding order is used. `"+"` uses ascending order and
-    #     `"-"` uses ascending order.
+    #     If `target` is a String, the first character may be
+    #     processed as the "leading order mark". If the first
+    #     character is `"+"` or `"-"`, they are processed as a leading
+    #     order mark. If the first character is processed as a leading
+    #     order mark, the first character is removed from sort column
+    #     target and corresponding order is used. `"+"` uses ascending
+    #     order and `"-"` uses ascending order.
     #
-    #     If `name` is not a String nor `name` doesn't start with the
-    #     leading order mark, sort column name is `name` as-is and
+    #     If `target` is not a String nor `target` doesn't start with the
+    #     leading order mark, sort column target is `target` as-is and
     #     ascending order is used.
     #
     #   @example String without the leading order mark
     #     key = Arrow::SortKey.new("count")
-    #     key.name  # => "count"
-    #     key.order # => Arrow::SortOrder::ASCENDING
+    #     key.target # => "count"
+    #     key.order  # => Arrow::SortOrder::ASCENDING
     #
     #   @example String with the "+" leading order mark
     #     key = Arrow::SortKey.new("+count")
-    #     key.name  # => "count"
-    #     key.order # => Arrow::SortOrder::ASCENDING
+    #     key.target # => "count"
+    #     key.order  # => Arrow::SortOrder::ASCENDING
     #
     #   @example String with the "-" leading order mark
     #     key = Arrow::SortKey.new("-count")
-    #     key.name  # => "count"
-    #     key.order # => Arrow::SortOrder::DESCENDING
+    #     key.target # => "count"
+    #     key.order  # => Arrow::SortOrder::DESCENDING
     #
     #   @example Symbol that starts with "-"
     #     key = Arrow::SortKey.new(:"-count")
-    #     key.name  # => "-count"
-    #     key.order # => Arrow::SortOrder::ASCENDING
+    #     key.target # => "-count"
+    #     key.order  # => Arrow::SortOrder::ASCENDING
     #
-    # @overload initialize(name, order)
+    # @overload initialize(target, order)
     #
-    #   @param name [Symbol, String] The name of the sort column.
+    #   @param target [Symbol, String] The name or dot path of the
+    #     sort column.
     #
-    #     No leading order mark processing. The given `name` is used
+    #     No leading order mark processing. The given `target` is used
     #     as-is.
     #
     #   @param order [Symbol, String, Arrow::SortOrder] How to order
@@ -117,29 +120,29 @@ module Arrow
     #
     #   @example No leading order mark processing
     #     key = Arrow::SortKey.new("-count", :ascending)
-    #     key.name  # => "-count"
-    #     key.order # => Arrow::SortOrder::ASCENDING
+    #     key.target # => "-count"
+    #     key.order  # => Arrow::SortOrder::ASCENDING
     #
-    #   @example Order by abbreviated name with Symbol
+    #   @example Order by abbreviated target with Symbol
     #     key = Arrow::SortKey.new("count", :desc)
-    #     key.name  # => "count"
-    #     key.order # => Arrow::SortOrder::DESCENDING
+    #     key.target # => "count"
+    #     key.order  # => Arrow::SortOrder::DESCENDING
     #
     #   @example Order by String
     #     key = Arrow::SortKey.new("count", "descending")
-    #     key.name  # => "count"
-    #     key.order # => Arrow::SortOrder::DESCENDING
+    #     key.target # => "count"
+    #     key.order  # => Arrow::SortOrder::DESCENDING
     #
     #   @example Order by Arrow::SortOrder
     #     key = Arrow::SortKey.new("count", Arrow::SortOrder::DESCENDING)
-    #     key.name  # => "count"
-    #     key.order # => Arrow::SortOrder::DESCENDING
+    #     key.target # => "count"
+    #     key.order  # => Arrow::SortOrder::DESCENDING
     #
     # @since 4.0.0
-    def initialize(name, order=nil)
-      name, order = normalize_name(name, order)
+    def initialize(target, order=nil)
+      target, order = normalize_target(target, order)
       order = normalize_order(order) || :ascending
-      initialize_raw(name, order)
+      initialize_raw(target, order)
     end
 
     # @return [String] The string representation of this sort key. You
@@ -154,28 +157,31 @@ module Arrow
     # @since 4.0.0
     def to_s
       if order == SortOrder::ASCENDING
-        "+#{name}"
+        "+#{target}"
       else
-        "-#{name}"
+        "-#{target}"
       end
     end
 
+    # For backward compatibility
+    alias_method :name, :target
+
     private
-    def normalize_name(name, order)
-      case name
+    def normalize_target(target, order)
+      case target
       when Symbol
-        return name.to_s, order
+        return target.to_s, order
       when String
-        return name, order if order
-        if name.start_with?("-")
-          return name[1..-1], order || :descending
-        elsif name.start_with?("+")
-          return name[1..-1], order || :ascending
+        return target, order if order
+        if target.start_with?("-")
+          return target[1..-1], order || :descending
+        elsif target.start_with?("+")
+          return target[1..-1], order || :ascending
         else
-          return name, order
+          return target, order
         end
       else
-        return name, order
+        return target, order
       end
     end
 

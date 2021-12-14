@@ -283,4 +283,9 @@ cpp11::writable::integers LargeListArray__raw_value_offsets(
   return cpp11::writable::integers(offsets, offsets + array->length());
 }
 
+// [[arrow::export]]
+bool Array__Same(const std::shared_ptr<arrow::Array>& x,
+                 const std::shared_ptr<arrow::Array>& y) {
+  return x.get() == y.get();
+}
 #endif

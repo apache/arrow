@@ -32,9 +32,18 @@ import org.junit.Test;
 /**
  * Test cases for {@link VariableWidthOutOfPlaceVectorSorter}.
  */
-public class TestVariableWidthOutOfPlaceVectorSorter {
+public class TestVariableWidthOutOfPlaceVectorSorter extends TestOutOfPlaceVectorSorter {
 
   private BufferAllocator allocator;
+
+  public TestVariableWidthOutOfPlaceVectorSorter(boolean generalSorter) {
+    super(generalSorter);
+  }
+
+  <V extends BaseVariableWidthVector> OutOfPlaceVectorSorter<V> getSorter() {
+    return generalSorter ? new GeneralOutOfPlaceVectorSorter<>() : new VariableWidthOutOfPlaceVectorSorter<V>();
+  }
+
 
   @Before
   public void prepare() {
@@ -65,7 +74,7 @@ public class TestVariableWidthOutOfPlaceVectorSorter {
       vec.set(9, "yes".getBytes());
 
       // sort the vector
-      VariableWidthOutOfPlaceVectorSorter sorter = new VariableWidthOutOfPlaceVectorSorter();
+      OutOfPlaceVectorSorter<BaseVariableWidthVector> sorter = getSorter();
       VectorValueComparator<BaseVariableWidthVector> comparator =
               DefaultVectorComparators.createDefaultComparator(vec);
 

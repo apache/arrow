@@ -967,6 +967,16 @@ class MakeStructOptions(_MakeStructOptions):
         self._set_options(field_names, field_nullability, field_metadata)
 
 
+cdef class _StructFieldOptions(FunctionOptions):
+    def _set_options(self, indices):
+        self.wrapped.reset(new CStructFieldOptions(indices))
+
+
+class StructFieldOptions(_StructFieldOptions):
+    def __init__(self, indices):
+        self._set_options(indices)
+
+
 cdef class _ScalarAggregateOptions(FunctionOptions):
     def _set_options(self, skip_nulls, min_count):
         self.wrapped.reset(new CScalarAggregateOptions(skip_nulls, min_count))
@@ -1294,3 +1304,53 @@ class TDigestOptions(_TDigestOptions):
         if not isinstance(q, (list, tuple, np.ndarray)):
             q = [q]
         self._set_options(q, delta, buffer_size, skip_nulls, min_count)
+
+
+cdef class _Utf8NormalizeOptions(FunctionOptions):
+    _form_map = {
+        "NFC": CUtf8NormalizeForm_NFC,
+        "NFKC": CUtf8NormalizeForm_NFKC,
+        "NFD": CUtf8NormalizeForm_NFD,
+        "NFKD": CUtf8NormalizeForm_NFKD,
+    }
+
+    def _set_options(self, form):
+        try:
+            self.wrapped.reset(
+                new CUtf8NormalizeOptions(self._form_map[form])
+            )
+        except KeyError:
+            _raise_invalid_function_option(form,
+                                           "Unicode normalization form")
+
+
+class Utf8NormalizeOptions(_Utf8NormalizeOptions):
+    def __init__(self, form):
+        self._set_options(form)
+
+
+def _group_by(args, keys, aggregations):
+    cdef:
+        vector[CDatum] c_args
+        vector[CDatum] c_keys
+        vector[CAggregate] c_aggregations
+        CDatum result
+        CAggregate c_aggr
+
+    _pack_compute_args(args, &c_args)
+    _pack_compute_args(keys, &c_keys)
+
+    for aggr_func_name, aggr_opts in aggregations:
+        c_aggr.function = tobytes(aggr_func_name)
+        if aggr_opts is not None:
+            c_aggr.options = (<FunctionOptions?>aggr_opts).get_options()
+        else:
+            c_aggr.options = NULL
+        c_aggregations.push_back(c_aggr)
+
+    with nogil:
+        result = GetResultValue(
+            GroupBy(c_args, c_keys, c_aggregations)
+        )
+
+    return wrap_datum(result)

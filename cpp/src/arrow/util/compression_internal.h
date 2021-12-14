@@ -58,14 +58,20 @@ std::unique_ptr<Codec> MakeGZipCodec(int compression_level = kGZipDefaultCompres
 // Snappy
 std::unique_ptr<Codec> MakeSnappyCodec();
 
+// Lz4 Codecs
+constexpr int kLz4DefaultCompressionLevel = 1;
+
+// Lz4 frame format codec.
+
+std::unique_ptr<Codec> MakeLz4FrameCodec(
+    int compression_level = kLz4DefaultCompressionLevel);
+
 // Lz4 "raw" format codec.
-std::unique_ptr<Codec> MakeLz4RawCodec();
+std::unique_ptr<Codec> MakeLz4RawCodec(
+    int compression_level = kLz4DefaultCompressionLevel);
 
 // Lz4 "Hadoop" format codec (== Lz4 raw codec prefixed with lengths header)
 std::unique_ptr<Codec> MakeLz4HadoopRawCodec();
-
-// Lz4 frame format codec.
-std::unique_ptr<Codec> MakeLz4FrameCodec();
 
 // ZSTD codec.
 

@@ -21,12 +21,13 @@ import (
 	"runtime"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"unsafe"
 )
 
 type CheckedAllocator struct {
 	mem Allocator
-	sz  int
+	sz  int64
 
 	allocs sync.Map
 }
@@ -35,10 +36,10 @@ func NewCheckedAllocator(mem Allocator) *CheckedAllocator {
 	return &CheckedAllocator{mem: mem}
 }
 
-func (a *CheckedAllocator) CurrentAlloc() int { return a.sz }
+func (a *CheckedAllocator) CurrentAlloc() int { return int(atomic.LoadInt64(&a.sz)) }
 
 func (a *CheckedAllocator) Allocate(size int) []byte {
-	a.sz += size
+	atomic.AddInt64(&a.sz, int64(size))
 	out := a.mem.Allocate(size)
 	if size == 0 {
 		return out
@@ -52,7 +53,7 @@ func (a *CheckedAllocator) Allocate(size int) []byte {
 }
 
 func (a *CheckedAllocator) Reallocate(size int, b []byte) []byte {
-	a.sz += size - len(b)
+	atomic.AddInt64(&a.sz, int64(size-len(b)))
 
 	oldptr := uintptr(unsafe.Pointer(&b[0]))
 	out := a.mem.Reallocate(size, b)
@@ -69,7 +70,7 @@ func (a *CheckedAllocator) Reallocate(size int, b []byte) []byte {
 }
 
 func (a *CheckedAllocator) Free(b []byte) {
-	a.sz -= len(b)
+	atomic.AddInt64(&a.sz, int64(len(b)*-1))
 	defer a.mem.Free(b)
 
 	if len(b) == 0 {
@@ -127,7 +128,7 @@ func (a *CheckedAllocator) AssertSize(t TestingT, sz int) {
 		return true
 	})
 
-	if a.sz != sz {
+	if int(atomic.LoadInt64(&a.sz)) != sz {
 		t.Helper()
 		t.Errorf("invalid memory size exp=%d, got=%d", sz, a.sz)
 	}
@@ -139,13 +140,15 @@ type CheckedAllocatorScope struct {
 }
 
 func NewCheckedAllocatorScope(alloc *CheckedAllocator) *CheckedAllocatorScope {
-	return &CheckedAllocatorScope{alloc: alloc, sz: alloc.sz}
+	sz := atomic.LoadInt64(&alloc.sz)
+	return &CheckedAllocatorScope{alloc: alloc, sz: int(sz)}
 }
 
 func (c *CheckedAllocatorScope) CheckSize(t TestingT) {
-	if c.sz != c.alloc.sz {
+	sz := int(atomic.LoadInt64(&c.alloc.sz))
+	if c.sz != sz {
 		t.Helper()
-		t.Errorf("invalid memory size exp=%d, got=%d", c.sz, c.alloc.sz)
+		t.Errorf("invalid memory size exp=%d, got=%d", c.sz, sz)
 	}
 }
 

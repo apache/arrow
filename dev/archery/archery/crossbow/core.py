@@ -1079,11 +1079,11 @@ class Config(dict):
         config_tasks = dict(self['tasks'])
         valid_groups = set(config_groups.keys())
         valid_tasks = set(config_tasks.keys())
-        group_whitelist = list(groups or [])
-        task_whitelist = list(tasks or [])
+        group_allowlist = list(groups or [])
+        task_allowlist = list(tasks or [])
 
         # validate that the passed groups are defined in the config
-        requested_groups = set(group_whitelist)
+        requested_groups = set(group_allowlist)
         invalid_groups = requested_groups - valid_groups
         if invalid_groups:
             msg = 'Invalid group(s) {!r}. Must be one of {!r}'.format(
@@ -1091,13 +1091,9 @@ class Config(dict):
             )
             raise CrossbowError(msg)
 
-        # merge the tasks defined in the selected groups
-        task_patterns = [list(config_groups[name]) for name in group_whitelist]
-        task_patterns = set(sum(task_patterns, task_whitelist))
-
         # treat the task names as glob patterns to select tasks more easily
         requested_tasks = set()
-        for pattern in task_patterns:
+        for pattern in task_allowlist:
             matches = fnmatch.filter(valid_tasks, pattern)
             if len(matches):
                 requested_tasks.update(matches)
@@ -1105,6 +1101,37 @@ class Config(dict):
                 raise CrossbowError(
                     "Unable to match any tasks for `{}`".format(pattern)
                 )
+
+        requested_group_tasks = set()
+        for group in group_allowlist:
+            # separate the patterns from the blocklist patterns
+            task_patterns = list(config_groups[group])
+            task_blocklist_patterns = [
+                x.strip("~") for x in task_patterns if x.startswith("~")]
+            task_patterns = [x for x in task_patterns if not x.startswith("~")]
+
+            # treat the task names as glob patterns to select tasks more easily
+            for pattern in task_patterns:
+                matches = fnmatch.filter(valid_tasks, pattern)
+                if len(matches):
+                    requested_group_tasks.update(matches)
+                else:
+                    raise CrossbowError(
+                        "Unable to match any tasks for `{}`".format(pattern)
+                    )
+
+            # remove any tasks that are negated with ~task-name
+            for block_pattern in task_blocklist_patterns:
+                matches = fnmatch.filter(valid_tasks, block_pattern)
+                if len(matches):
+                    requested_group_tasks = requested_group_tasks.difference(
+                        matches)
+                else:
+                    raise CrossbowError(
+                        "Unable to match any tasks for `{}`".format(pattern)
+                    )
+
+        requested_tasks = requested_tasks.union(requested_group_tasks)
 
         # validate that the passed and matched tasks are defined in the config
         invalid_tasks = requested_tasks - valid_tasks
@@ -1119,9 +1146,11 @@ class Config(dict):
         }
 
     def validate(self):
-        # validate that the task groups are properly referening the tasks
+        # validate that the task groups are properly refering to the tasks
         for group_name, group in self['groups'].items():
             for pattern in group:
+                # remove the negation character for blocklisted tasks
+                pattern = pattern.strip("~")
                 tasks = self.select(tasks=[pattern])
                 if not tasks:
                     raise CrossbowError(

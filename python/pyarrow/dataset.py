@@ -38,16 +38,8 @@ from pyarrow._dataset import (  # noqa
     IpcFileFormat,
     IpcFileWriteOptions,
     InMemoryDataset,
-    ParquetDatasetFactory,
-    ParquetFactoryOptions,
-    ParquetFileFormat,
-    ParquetFileFragment,
-    ParquetFileWriteOptions,
-    ParquetFragmentScanOptions,
-    ParquetReadOptions,
     Partitioning,
     PartitioningFactory,
-    RowGroupInfo,
     Scanner,
     TaggedRecordBatch,
     UnionDataset,
@@ -68,10 +60,34 @@ try:
 except ImportError:
     pass
 
+_parquet_available = False
+_parquet_msg = (
+    "The pyarrow installation is not built with support for the Parquet file "
+    "format."
+)
+
+try:
+    from pyarrow._dataset_parquet import (  # noqa
+        ParquetDatasetFactory,
+        ParquetFactoryOptions,
+        ParquetFileFormat,
+        ParquetFileFragment,
+        ParquetFileWriteOptions,
+        ParquetFragmentScanOptions,
+        ParquetReadOptions,
+        RowGroupInfo,
+    )
+    _parquet_available = True
+except ImportError:
+    pass
+
 
 def __getattr__(name):
     if name == "OrcFileFormat" and not _orc_available:
         raise ImportError(_orc_msg)
+
+    if name == "ParquetFileFormat" and not _parquet_available:
+        raise ImportError(_parquet_msg)
 
     raise AttributeError(
         "module 'pyarrow.dataset' has no attribute '{0}'".format(name)
@@ -267,6 +283,8 @@ def _ensure_format(obj):
     if isinstance(obj, FileFormat):
         return obj
     elif obj == "parquet":
+        if not _parquet_available:
+            raise ValueError(_parquet_msg)
         return ParquetFileFormat()
     elif obj in {"ipc", "arrow", "feather"}:
         return IpcFileFormat()
@@ -568,8 +586,8 @@ or tables, iterable of batches, RecordBatchReader, or URI
         Optionally provide the Schema for the Dataset, in which case it will
         not be inferred from the source.
     format : FileFormat or str
-        Currently "parquet" and "ipc"/"arrow"/"feather" are supported. For
-        Feather, only version 2 files are supported.
+        Currently "parquet", "ipc"/"arrow"/"feather", "csv", and "orc" are
+        supported. For Feather, only version 2 files are supported.
     filesystem : FileSystem or URI string, default None
         If a single path is given as source and filesystem is None, then the
         filesystem will be inferred from the path.
@@ -757,10 +775,10 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
         "part-{i}." + format.default_extname
     format : FileFormat or str
         The format in which to write the dataset. Currently supported:
-        "parquet", "ipc"/"feather". If a FileSystemDataset is being written
-        and `format` is not specified, it defaults to the same format as the
-        specified FileSystemDataset. When writing a Table or RecordBatch, this
-        keyword is required.
+        "parquet", "ipc"/"arrow"/"feather", and "csv". If a FileSystemDataset
+        is being written and `format` is not specified, it defaults to the
+        same format as the specified FileSystemDataset. When writing a
+        Table or RecordBatch, this keyword is required.
     partitioning : Partitioning or list[str], optional
         The partitioning scheme specified with the ``partitioning()``
         function or a list of field names. When providing a list of

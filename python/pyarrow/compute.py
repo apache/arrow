@@ -60,9 +60,11 @@ from pyarrow._compute import (  # noqa
     SplitPatternOptions,
     StrftimeOptions,
     StrptimeOptions,
+    StructFieldOptions,
     TakeOptions,
     TDigestOptions,
     TrimOptions,
+    Utf8NormalizeOptions,
     VarianceOptions,
     WeekOptions,
     # Functions
@@ -70,6 +72,7 @@ from pyarrow._compute import (  # noqa
     function_registry,
     get_function,
     list_functions,
+    _group_by
 )
 
 import inspect
@@ -180,12 +183,22 @@ def _handle_options(name, option_class, options, kwargs):
     return options
 
 
-def _make_generic_wrapper(func_name, func, option_class):
+def _make_generic_wrapper(func_name, func, option_class, arity):
     if option_class is None:
         def wrapper(*args, memory_pool=None):
+            if arity is not Ellipsis and len(args) != arity:
+                raise TypeError(
+                    f"{func_name} takes {arity} positional argument(s), "
+                    f"but {len(args)} were given"
+                )
             return func.call(args, None, memory_pool)
     else:
         def wrapper(*args, memory_pool=None, options=None, **kwargs):
+            if arity is not Ellipsis and len(args) != arity:
+                raise TypeError(
+                    f"{func_name} takes {arity} positional argument(s), "
+                    f"but {len(args)} were given"
+                )
             options = _handle_options(func_name, option_class, options,
                                       kwargs)
             return func.call(args, options, memory_pool)
@@ -221,7 +234,7 @@ def _wrap_function(name, func):
     else:
         var_arg_names = []
 
-    wrapper = _make_generic_wrapper(name, func, option_class)
+    wrapper = _make_generic_wrapper(name, func, option_class, arity=func.arity)
     wrapper.__signature__ = _make_signature(arg_names, var_arg_names,
                                             option_class)
     return _decorate_compute_function(wrapper, name, func, option_class)
@@ -244,6 +257,10 @@ def _make_global_functions():
     for cpp_name in reg.list_functions():
         name = rewrites.get(cpp_name, cpp_name)
         func = reg.get_function(cpp_name)
+        if func.kind == "hash_aggregate":
+            # Hash aggregate functions are not callable,
+            # so let's not expose them at module level.
+            continue
         assert name not in g, name
         g[cpp_name] = g[name] = _wrap_function(name, func)
 
