@@ -234,6 +234,53 @@ class ARROW_EXPORT RecordBatchReader {
     return batch;
   }
 
+  class RecordBatchReaderIterator {
+   public:
+    RecordBatchReaderIterator() : batch_(RecordBatchEnd()) {}
+
+    explicit RecordBatchReaderIterator(RecordBatchReader* reader)
+        : batch_(RecordBatchEnd()), reader_(reader) {
+      Next();
+    }
+
+    bool operator!=(const RecordBatchReaderIterator& other) const {
+      return batch_ != other.batch_;
+    }
+
+    Result<std::shared_ptr<RecordBatch>> operator*() {
+      ARROW_RETURN_NOT_OK(batch_.status());
+
+      auto batch = std::move(batch_);
+      batch_ = RecordBatchEnd();
+      return batch;
+    }
+
+    RecordBatchReaderIterator& operator++() {
+      Next();
+      return *this;
+    }
+
+   private:
+    std::shared_ptr<RecordBatch> RecordBatchEnd() {
+      return std::shared_ptr<RecordBatch>(NULLPTR);
+    }
+
+    void Next() {
+      if (!batch_.ok()) {
+        batch_ = RecordBatchEnd();
+        return;
+      }
+      batch_ = reader_->Next();
+    }
+
+    Result<std::shared_ptr<RecordBatch>> batch_;
+    RecordBatchReader* reader_;
+  };
+
+  RecordBatchReaderIterator begin() { return RecordBatchReaderIterator(this); }
+
+  RecordBatchReaderIterator end() { return RecordBatchReaderIterator(); }
+
   /// \brief Consume entire stream as a vector of record batches
   Status ReadAll(RecordBatchVector* batches);
 
