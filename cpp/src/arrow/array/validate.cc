@@ -419,7 +419,8 @@ struct ValidateArrayImpl {
   }
 
   Status ValidateNulls(const DataType& type) {
-    if (type.storage_id() != Type::NA && data.null_count > 0 && data.buffers[0] == nullptr) {
+    if (type.storage_id() != Type::NA && data.null_count > 0 &&
+        data.buffers[0] == nullptr) {
       return Status::Invalid("Array of type ", type.ToString(), " has ", data.null_count,
                              " nulls but no null bitmap");
     }
