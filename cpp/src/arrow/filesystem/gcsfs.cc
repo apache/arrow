@@ -32,6 +32,13 @@
 
 namespace arrow {
 namespace fs {
+struct GcsCredentials {
+  explicit GcsCredentials(std::shared_ptr<google::cloud::Credentials> c)
+      : credentials(std::move(c)) {}
+
+  std::shared_ptr<google::cloud::Credentials> credentials;
+};
+
 namespace {
 
 namespace gcs = google::cloud::storage;
@@ -247,8 +254,6 @@ class GcsRandomAccessFile : public arrow::io::RandomAccessFile {
   std::shared_ptr<io::InputStream> stream_;
 };
 
-}  // namespace
-
 google::cloud::Options AsGoogleCloudOptions(const GcsOptions& o) {
   auto options = google::cloud::Options{};
   std::string scheme = o.scheme;
@@ -264,8 +269,13 @@ google::cloud::Options AsGoogleCloudOptions(const GcsOptions& o) {
   if (!o.endpoint_override.empty()) {
     options.set<gcs::RestEndpointOption>(scheme + "://" + o.endpoint_override);
   }
+  if (o.credentials && o.credentials->credentials) {
+    options.set<google::cloud::UnifiedCredentialsOption>(o.credentials->credentials);
+  }
   return options;
 }
+
+}  // namespace
 
 class GcsFileSystem::Impl {
  public:
@@ -456,7 +466,47 @@ class GcsFileSystem::Impl {
 };
 
 bool GcsOptions::Equals(const GcsOptions& other) const {
-  return endpoint_override == other.endpoint_override && scheme == other.scheme;
+  return credentials == other.credentials &&
+         endpoint_override == other.endpoint_override && scheme == other.scheme;
+}
+
+GcsOptions GcsOptions::Defaults() {
+  return GcsOptions{
+      std::make_shared<GcsCredentials>(google::cloud::MakeGoogleDefaultCredentials()),
+      {},
+      "https"};
+}
+
+GcsOptions GcsOptions::Anonymous() {
+  return GcsOptions{
+      std::make_shared<GcsCredentials>(google::cloud::MakeInsecureCredentials()),
+      {},
+      "http"};
+}
+
+GcsOptions GcsOptions::FromAccessToken(const std::string& access_token,
+                                       std::chrono::system_clock::time_point expiration) {
+  return GcsOptions{
+      std::make_shared<GcsCredentials>(
+          google::cloud::MakeAccessTokenCredentials(access_token, expiration)),
+      {},
+      "https"};
+}
+
+GcsOptions GcsOptions::FromImpersonatedServiceAccount(
+    const GcsCredentials& base_credentials, const std::string& target_service_account) {
+  return GcsOptions{std::make_shared<GcsCredentials>(
+                        google::cloud::MakeImpersonateServiceAccountCredentials(
+                            base_credentials.credentials, target_service_account)),
+                    {},
+                    "https"};
+}
+
+GcsOptions GcsOptions::FromServiceAccountCredentials(const std::string& json_object) {
+  return GcsOptions{std::make_shared<GcsCredentials>(
+                        google::cloud::MakeServiceAccountCredentials(json_object)),
+                    {},
+                    "https"};
 }
 
 std::string GcsFileSystem::type_name() const { return "gcs"; }
