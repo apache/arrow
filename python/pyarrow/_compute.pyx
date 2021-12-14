@@ -24,7 +24,6 @@ from cython.operator cimport dereference as deref
 
 from collections import namedtuple
 
-import pyarrow as pa
 from pyarrow.lib import frombytes, tobytes, ordered_dict
 from pyarrow.lib cimport *
 from pyarrow.includes.libarrow cimport *
@@ -1519,8 +1518,8 @@ cdef class Expression(_Weakrefable):
             shared_ptr[CFunctionOptions] c_options
             CDatum c_values
 
-        if not isinstance(values, pa.Array):
-            values = pa.array(values)
+        if not isinstance(values, Array):
+            values = lib.array(values)
 
         c_values = CDatum(pyarrow_unwrap_array(values))
         c_options.reset(new CSetLookupOptions(c_values, True))
@@ -1538,20 +1537,22 @@ cdef class Expression(_Weakrefable):
         if isinstance(value, Scalar):
             scalar = value
         else:
-            scalar = pa.scalar(value)
+            scalar = lib.scalar(value)
 
         return Expression.wrap(CMakeScalarExpression(scalar.unwrap()))
 
 
 _deserialize = Expression._deserialize
-cdef Expression _true = Expression._scalar(True)
+cdef CExpression _true = CMakeScalarExpression(
+    <shared_ptr[CScalar]> make_shared[CBooleanScalar](True)
+)
 
 
 cdef CExpression _bind(Expression filter, Schema schema) except *:
     assert schema is not None
 
     if filter is None:
-        return _true.unwrap()
+        return _true
 
     return GetResultValue(filter.unwrap().Bind(
         deref(pyarrow_unwrap_schema(schema).get())))

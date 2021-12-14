@@ -945,6 +945,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CNullScalar()
 
     cdef cppclass CBooleanScalar" arrow::BooleanScalar"(CScalar):
+        CBooleanScalar(c_bool value)
         c_bool value
 
     cdef cppclass CInt8Scalar" arrow::Int8Scalar"(CScalar):
