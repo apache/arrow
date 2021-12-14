@@ -46,6 +46,8 @@ Some of the issues can be automatically fixed by passing the ``--fix`` option:
 
    archery lint --python --fix
 
+.. _python-unit-testing:
+
 Unit Testing
 ============
 
@@ -104,6 +106,8 @@ Benchmarking
 
 For running the benchmarks, see :ref:`python-benchmarks`.
 
+.. _build_pyarrow:
+
 Building on Linux and MacOS
 =============================
 
@@ -116,7 +120,7 @@ Xcode Command Line Tools (``xcode-select --install``) are sufficient.
 On Linux, for this guide, we require a minimum of gcc 4.8, or clang 3.7 or
 higher. You can check your version by running
 
-.. code-block:: shell
+.. code-block:: console
 
    $ gcc --version
 
@@ -135,17 +139,7 @@ First, let's clone the Arrow git repository:
 
 .. code-block:: shell
 
-   mkdir repos
-   cd repos
    git clone https://github.com/apache/arrow.git
-
-You should now see
-
-.. code-block:: shell
-
-   $ ls -l
-   total 8
-   drwxrwxr-x 12 wesm wesm 4096 Apr 15 19:19 arrow/
 
 Pull in the test data and setup the environment variables:
 
@@ -220,7 +214,7 @@ may need.
 On Debian/Ubuntu, you need the following minimal set of dependencies. All other
 dependencies will be automatically built by Arrow's third-party toolchain.
 
-.. code-block:: shell
+.. code-block:: console
 
    $ sudo apt-get install libjemalloc-dev libboost-dev \
                           libboost-filesystem-dev \
@@ -235,7 +229,7 @@ If you are building Arrow for Python 3, install ``python3-dev`` instead of ``pyt
 
 On Arch Linux, you can get these dependencies via pacman.
 
-.. code-block:: shell
+.. code-block:: console
 
    $ sudo pacman -S jemalloc boost
 
@@ -418,6 +412,8 @@ debugging a C++ unittest, for example:
    No source file named src/arrow/python/arrow_to_pandas.cc.
    Make breakpoint pending on future shared library load? (y or [n]) y
    Breakpoint 1 (src/arrow/python/arrow_to_pandas.cc:1874) pending.
+
+.. _build_pyarrow_win:
 
 Building on Windows
 ===================

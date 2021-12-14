@@ -36,6 +36,7 @@ import os
 import sys
 import warnings
 from unittest import mock
+from docutils.parsers.rst import Directive, directives
 
 import pyarrow
 
@@ -198,6 +199,7 @@ html_theme = 'pydata_sphinx_theme'
 html_theme_options = {
     "show_toc_level": 2,
     "google_analytics_id": "UA-107500873-1",
+    "use_edit_page_button": True,
 }
 
 html_context = {
@@ -205,6 +207,10 @@ html_context = {
     "switcher_template_url": "https://arrow.apache.org/docs/{version}",
     # for local testing
     # "switcher_template_url": "http://0.0.0.0:8000/docs/{version}",
+    "github_user": "apache",
+    "github_repo": "arrow",
+    "github_version": "master",
+    "doc_path": "docs/source",
 }
 
 # Add any paths that contain custom themes here, relative to this directory.
@@ -463,3 +469,49 @@ def setup(app):
     # This will also rebuild appropriately when the value changes.
     app.add_config_value('cuda_enabled', cuda_enabled, 'env')
     app.add_config_value('flight_enabled', flight_enabled, 'env')
+    app.add_directive('arrow-computefuncs', ComputeFunctionsTableDirective)
+
+
+class ComputeFunctionsTableDirective(Directive):
+    """Generate a table of Arrow compute functions.
+
+    .. arrow-computefuncs::
+        :kind: hash_aggregate
+
+    The generated table will include function name,
+    description and option class reference.
+
+    The functions listed in the table can be restricted
+    with the :kind: option.
+    """
+    has_content = True
+    option_spec = {
+        "kind": directives.unchanged
+    }
+
+    def run(self):
+        from docutils.statemachine import ViewList
+        from docutils import nodes
+        import pyarrow.compute as pc
+
+        result = ViewList()
+        function_kind = self.options.get('kind', None)
+
+        result.append(".. csv-table::", "<computefuncs>")
+        result.append("   :widths: 20, 60, 20", "<computefuncs>")
+        result.append("   ", "<computefuncs>")
+        for fname in pc.list_functions():
+            func = pc.get_function(fname)
+            option_class = ""
+            if func._doc.options_class:
+                option_class = f":class:`{func._doc.options_class}`"
+            if not function_kind or func.kind == function_kind:
+                result.append(
+                    f'   "{fname}", "{func._doc.summary}", "{option_class}"',
+                    "<computefuncs>"
+                )
+
+        node = nodes.section()
+        node.document = self.state.document
+        self.state.nested_parse(result, 0, node)
+        return node.children

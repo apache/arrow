@@ -15,6 +15,8 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
+.. highlight:: console
+
 .. _contributing:
 
 ****************************
@@ -77,6 +79,9 @@ Once you are more involved in the project and want to do more on JIRA, such as
 assign yourself an issue, you will need "Contributor" permissions on the
 Apache Arrow JIRA. To get this role, ask on the mailing list for a project
 maintainer's help.
+
+
+.. _jira-tips:
 
 Tips for using JIRA
 +++++++++++++++++++

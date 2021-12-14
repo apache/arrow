@@ -145,9 +145,7 @@ void ValidateBooleanAgg(const std::string& json,
   SCOPED_TRACE(json);
   auto array = ArrayFromJSON(boolean(), json);
   ASSERT_OK_AND_ASSIGN(Datum result, Op(array, options, nullptr));
-
-  auto equal_options = EqualOptions::Defaults().nans_equal(true);
-  AssertScalarsEqual(*expected, *result.scalar(), /*verbose=*/true, equal_options);
+  AssertScalarsEqual(*expected, *result.scalar(), /*verbose=*/true);
 }
 
 TEST(TestBooleanAggregation, Sum) {
@@ -306,8 +304,7 @@ TEST(TestBooleanAggregation, Mean) {
   ASSERT_OK_AND_ASSIGN(
       auto result, Mean(MakeNullScalar(boolean()),
                         ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0)));
-  AssertDatumsApproxEqual(result, ScalarFromJSON(float64(), "NaN"), /*detailed=*/true,
-                          EqualOptions::Defaults().nans_equal(true));
+  AssertDatumsApproxEqual(result, ScalarFromJSON(float64(), "NaN"), /*detailed=*/true);
   EXPECT_THAT(Mean(MakeNullScalar(boolean()),
                    ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/0)),
               ResultWith(ScalarFromJSON(float64(), "null")));
@@ -1065,8 +1062,7 @@ template <typename ArrowType>
 void ValidateMean(const Array& input, Datum expected,
                   const ScalarAggregateOptions& options) {
   ASSERT_OK_AND_ASSIGN(Datum result, Mean(input, options, nullptr));
-  auto equal_options = EqualOptions::Defaults().nans_equal(true);
-  AssertDatumsApproxEqual(expected, result, /*verbose=*/true, equal_options);
+  AssertDatumsApproxEqual(expected, result, /*verbose=*/true);
 }
 
 template <typename ArrowType>

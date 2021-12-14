@@ -28,6 +28,7 @@
 !ci/**
 !c_glib/Gemfile
 !dev/archery/setup.py
+!docs/requirements*.txt
 !python/requirements*.txt
 !python/manylinux1/**
 !python/manylinux2010/**

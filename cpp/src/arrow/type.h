@@ -2038,6 +2038,8 @@ const std::vector<std::shared_ptr<DataType>>& NumericTypes();
 ARROW_EXPORT
 const std::vector<std::shared_ptr<DataType>>& BaseBinaryTypes();
 ARROW_EXPORT
+const std::vector<std::shared_ptr<DataType>>& BinaryTypes();
+ARROW_EXPORT
 const std::vector<std::shared_ptr<DataType>>& StringTypes();
 // Temporal types including time and timestamps for each unit
 ARROW_EXPORT

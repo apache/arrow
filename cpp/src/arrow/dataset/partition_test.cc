@@ -656,6 +656,53 @@ TEST_F(TestPartitioning, UrlEncodedHive) {
       partitioning_->Parse({"/date=\xAF/time=\xBF/str=\xCF"}));
 }
 
+TEST_F(TestPartitioning, UrlEncodedHiveWithKeyEncoded) {
+  HivePartitioningFactoryOptions options;
+  auto ts = timestamp(TimeUnit::type::SECOND);
+  options.schema =
+      schema({field("test'; date", ts), field("test'; time", ts), field("str", utf8())});
+  options.null_fallback = "$";
+  factory_ = HivePartitioning::MakeFactory(options);
+
+  AssertInspect({"/test%27%3B%20date=2021-05-04 00:00:00/test%27%3B%20time=2021-05-04 "
+                 "07:27:00/str=$",
+                 "/test%27%3B%20date=2021-05-04 00:00:00/test%27%3B%20time=2021-05-04 "
+                 "07:27:00/str=%E3%81%8F%E3%81%BE",
+                 "/test%27%3B%20date=2021-05-04 "
+                 "00%3A00%3A00/test%27%3B%20time=2021-05-04 07%3A27%3A00/str=%24"},
+                options.schema->fields());
+
+  auto date = std::make_shared<TimestampScalar>(1620086400, ts);
+  auto time = std::make_shared<TimestampScalar>(1620113220, ts);
+  partitioning_ = std::make_shared<HivePartitioning>(options.schema, ArrayVector(),
+                                                     options.AsHivePartitioningOptions());
+  AssertParse(
+      "/test%27%3B%20date=2021-05-04 00:00:00/test%27%3B%20time=2021-05-04 "
+      "07:27:00/str=$",
+      and_({equal(field_ref("test'; date"), literal(date)),
+            equal(field_ref("test'; time"), literal(time)), is_null(field_ref("str"))}));
+  AssertParse(
+      "/test%27%3B%20date=2021-05-04 00:00:00/test%27%3B%20time=2021-05-04 "
+      "07:27:00/str=%E3%81%8F%E3%81%BE",
+      and_({equal(field_ref("test'; date"), literal(date)),
+            equal(field_ref("test'; time"), literal(time)),
+            equal(field_ref("str"), literal("\xE3\x81\x8F\xE3\x81\xBE"))}));
+  // URL-encoded null fallback value
+  AssertParse(
+      "/test%27%3B%20date=2021-05-04 00%3A00%3A00/test%27%3B%20time=2021-05-04 "
+      "07%3A27%3A00/str=%24",
+      and_({equal(field_ref("test'; date"), literal(date)),
+            equal(field_ref("test'; time"), literal(time)), is_null(field_ref("str"))}));
+
+  // Invalid UTF-8
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("was not valid UTF-8"),
+      factory_->Inspect({"/%AF=2021-05-04/time=2021-05-04 07%3A27%3A00/str=%24"}));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("was not valid UTF-8"),
+      partitioning_->Parse({"/%AF=2021-05-04/%BF=2021-05-04 07%3A27%3A00/str=%24"}));
+}
+
 TEST_F(TestPartitioning, EtlThenHive) {
   FieldVector etl_fields{field("year", int16()), field("month", int8()),
                          field("day", int8()), field("hour", int8())};

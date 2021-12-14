@@ -38,16 +38,8 @@ from pyarrow._dataset import (  # noqa
     IpcFileFormat,
     IpcFileWriteOptions,
     InMemoryDataset,
-    ParquetDatasetFactory,
-    ParquetFactoryOptions,
-    ParquetFileFormat,
-    ParquetFileFragment,
-    ParquetFileWriteOptions,
-    ParquetFragmentScanOptions,
-    ParquetReadOptions,
     Partitioning,
     PartitioningFactory,
-    RowGroupInfo,
     Scanner,
     TaggedRecordBatch,
     UnionDataset,
@@ -68,10 +60,34 @@ try:
 except ImportError:
     pass
 
+_parquet_available = False
+_parquet_msg = (
+    "The pyarrow installation is not built with support for the Parquet file "
+    "format."
+)
+
+try:
+    from pyarrow._dataset_parquet import (  # noqa
+        ParquetDatasetFactory,
+        ParquetFactoryOptions,
+        ParquetFileFormat,
+        ParquetFileFragment,
+        ParquetFileWriteOptions,
+        ParquetFragmentScanOptions,
+        ParquetReadOptions,
+        RowGroupInfo,
+    )
+    _parquet_available = True
+except ImportError:
+    pass
+
 
 def __getattr__(name):
     if name == "OrcFileFormat" and not _orc_available:
         raise ImportError(_orc_msg)
+
+    if name == "ParquetFileFormat" and not _parquet_available:
+        raise ImportError(_parquet_msg)
 
     raise AttributeError(
         "module 'pyarrow.dataset' has no attribute '{0}'".format(name)
@@ -267,6 +283,8 @@ def _ensure_format(obj):
     if isinstance(obj, FileFormat):
         return obj
     elif obj == "parquet":
+        if not _parquet_available:
+            raise ValueError(_parquet_msg)
         return ParquetFileFormat()
     elif obj in {"ipc", "arrow", "feather"}:
         return IpcFileFormat()

@@ -21,7 +21,8 @@
 
 jobs:
   test:
-    name: Docker Test
+    name: |
+      Docker Test {{ flags|default("") }} {{ image }} {{ command|default("") }}
     runs-on: ubuntu-latest
   {% if env is defined %}
     env:
@@ -39,7 +40,14 @@ jobs:
 
       - name: Execute Docker Build
         shell: bash
-        run: archery docker run -e SETUPTOOLS_SCM_PRETEND_VERSION="{{ arrow.no_rc_version }}" {{ flags|default("") }} {{ image }} {{ command|default("") }}
+        run: |
+          archery docker run \
+            -e SETUPTOOLS_SCM_PRETEND_VERSION="{{ arrow.no_rc_version }}" \
+            -e VERIFY_VERSION="{{ release|default("") }}" \
+            -e VERIFY_RC="{{ rc|default("") }}" \
+            {{ flags|default("") }} \
+            {{ image }} \
+            {{ command|default("") }}
 
     {% if '-r' in image %}
       - name: Dump R install logs

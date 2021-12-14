@@ -3016,6 +3016,34 @@ void AddBinaryRepeat(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
+struct BinaryReverseTransform : public StringTransformBase {
+  int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
+                    uint8_t* output) {
+    for (int64_t i = 0; i < input_string_ncodeunits; i++) {
+      output[input_string_ncodeunits - i - 1] = input[i];
+    }
+    return input_string_ncodeunits;
+  }
+};
+
+template <typename Type>
+using BinaryReverse = StringTransformExec<Type, BinaryReverseTransform>;
+
+const FunctionDoc binary_reverse_doc(
+    "Reverse binary input",
+    ("For each binary string in `strings`, return a reversed version.\n\n"
+     "This function reverses the binary data at a byte-level."),
+    {"strings"});
+
+void AddBinaryReverse(FunctionRegistry* registry) {
+  auto func = std::make_shared<ScalarFunction>("binary_reverse", Arity::Unary(),
+                                               &binary_reverse_doc);
+  for (const auto& ty : BinaryTypes()) {
+    DCHECK_OK(func->AddKernel({ty}, ty, GenerateVarBinaryToVarBinary<BinaryReverse>(ty)));
+  }
+  DCHECK_OK(registry->AddFunction(std::move(func)));
+}
+
 // ----------------------------------------------------------------------
 // Replace substring (plain, regex)
 
@@ -5211,6 +5239,7 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
   AddStrptime(registry);
   AddBinaryJoin(registry);
   AddBinaryRepeat(registry);
+  AddBinaryReverse(registry);
 }
 
 }  // namespace internal

@@ -15,6 +15,8 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
+.. highlight:: console
+
 .. _cpp-fuzzing:
 
 =================
@@ -52,7 +54,7 @@ infrastructure can derive new inputs for testing.  A script is provided
 to automate that task.  Assuming the fuzzing executables can be found in
 ``build/debug``, the seed corpus can be generated thusly:
 
-.. code-block:: shell
+.. code-block::
 
    $ ./build-support/fuzzing/generate_corpuses.sh build/debug
 
@@ -81,7 +83,7 @@ Assuming you are in a subdirectory inside ``cpp``, the following command
 would allow you to build the fuzz targets with debug information and the
 various sanitizer checks enabled.
 
-.. code-block:: shell
+.. code-block::
 
    $ cmake .. -GNinja \
        -DCMAKE_BUILD_TYPE=Debug \
@@ -93,7 +95,7 @@ Then, assuming you have downloaded the crashing data file (let's call it
 ``testcase-arrow-ipc-file-fuzz-123465``), you can reproduce the crash
 by running the affected fuzz target on that file:
 
-.. code-block:: shell
+.. code-block::
 
    $ build/debug/arrow-ipc-file-fuzz testcase-arrow-ipc-file-fuzz-123465
 

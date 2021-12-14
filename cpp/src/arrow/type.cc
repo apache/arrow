@@ -2400,6 +2400,11 @@ const std::vector<std::shared_ptr<DataType>>& BaseBinaryTypes() {
   return g_base_binary_types;
 }
 
+const std::vector<std::shared_ptr<DataType>>& BinaryTypes() {
+  static DataTypeVector types = {binary(), large_binary()};
+  return types;
+}
+
 const std::vector<std::shared_ptr<DataType>>& StringTypes() {
   static DataTypeVector types = {utf8(), large_utf8()};
   return types;

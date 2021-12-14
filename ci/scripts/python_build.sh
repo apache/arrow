@@ -20,8 +20,10 @@
 set -ex
 
 arrow_dir=${1}
+build_dir=${2}
+
 source_dir=${arrow_dir}/python
-build_dir=${2}/python
+python_build_dir=${build_dir}/python
 
 : ${BUILD_DOCS_PYTHON:=OFF}
 
@@ -46,11 +48,11 @@ export LD_LIBRARY_PATH=${ARROW_HOME}/lib:${LD_LIBRARY_PATH}
 
 pushd ${source_dir}
 
-relative_build_dir=$(realpath --relative-to=. $build_dir)
+relative_build_dir=$(realpath --relative-to=. $python_build_dir)
 
 # not nice, but prevents mutating the mounted the source directory for docker
 ${PYTHON:-python} \
-  setup.py build --build-base $build_dir \
+  setup.py build --build-base $python_build_dir \
            install --single-version-externally-managed \
                    --record $relative_build_dir/record.txt
 

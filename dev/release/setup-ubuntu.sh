@@ -15,12 +15,24 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM centos:8
+# A script to install dependencies required for release
+# verification on Ubuntu 20.04
 
-ARG DEBUG
-
-RUN \
-  quiet=$([ "${DEBUG}" = "yes" ] || echo "--quiet") && \
-  dnf install --enablerepo=powertools -y ${quiet} \
-    rpmdevtools && \
-  dnf clean ${quiet} all
+apt-get update
+apt-get -y install \
+  build-essential \
+  clang \
+  cmake \
+  curl \
+  git \
+  libgirepository1.0-dev \
+  libglib2.0-dev \
+  libssl-dev \
+  llvm-dev \
+  maven \
+  ninja-build \
+  openjdk-11-jdk \
+  pkg-config \
+  python3-pip \
+  ruby-dev \
+  wget

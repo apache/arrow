@@ -18,12 +18,14 @@
 #include "arrow/filesystem/gcsfs.h"
 
 #include <google/cloud/storage/client.h>
+#include <algorithm>
 
 #include "arrow/buffer.h"
 #include "arrow/filesystem/gcsfs_internal.h"
 #include "arrow/filesystem/path_util.h"
 #include "arrow/result.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/thread_pool.h"
 
 #define ARROW_GCS_RETURN_NOT_OK(expr) \
   if (!expr.ok()) return internal::ToArrowStatus(expr)
@@ -34,7 +36,6 @@ namespace {
 
 namespace gcs = google::cloud::storage;
 
-auto constexpr kSep = '/';
 // Change the default upload buffer size. In general, sending larger buffers is more
 // efficient with GCS, as each buffer requires a roundtrip to the service. With formatted
 // output (when using `operator<<`), keeping a larger buffer in memory before uploading
@@ -49,18 +50,17 @@ struct GcsPath {
   std::string object;
 
   static Result<GcsPath> FromString(const std::string& s) {
-    const auto src = internal::RemoveTrailingSlash(s);
-    auto const first_sep = src.find_first_of(kSep);
+    auto const first_sep = s.find_first_of(internal::kSep);
     if (first_sep == 0) {
       return Status::Invalid("Path cannot start with a separator ('", s, "')");
     }
     if (first_sep == std::string::npos) {
-      return GcsPath{std::string(src), std::string(src), ""};
+      return GcsPath{s, internal::RemoveTrailingSlash(s).to_string(), ""};
     }
     GcsPath path;
-    path.full_path = std::string(src);
-    path.bucket = std::string(src.substr(0, first_sep));
-    path.object = std::string(src.substr(first_sep + 1));
+    path.full_path = s;
+    path.bucket = s.substr(0, first_sep);
+    path.object = s.substr(first_sep + 1);
     return path;
   }
 
@@ -275,12 +275,103 @@ class GcsFileSystem::Impl {
   const GcsOptions& options() const { return options_; }
 
   Result<FileInfo> GetFileInfo(const GcsPath& path) {
-    if (!path.object.empty()) {
-      auto meta = client_.GetObjectMetadata(path.bucket, path.object);
-      return GetFileInfoImpl(path, std::move(meta).status(), FileType::File);
+    if (path.object.empty()) {
+      auto meta = client_.GetBucketMetadata(path.bucket);
+      return GetFileInfoImpl(path, std::move(meta).status(), FileType::Directory);
     }
-    auto meta = client_.GetBucketMetadata(path.bucket);
-    return GetFileInfoImpl(path, std::move(meta).status(), FileType::Directory);
+    auto meta = client_.GetObjectMetadata(path.bucket, path.object);
+    return GetFileInfoImpl(
+        path, std::move(meta).status(),
+        path.object.back() == '/' ? FileType::Directory : FileType::File);
+  }
+
+  // GCS does not have directories or folders. But folders can be emulated (with some
+  // limitations) using marker objects.  That and listing with prefixes creates the
+  // illusion of folders.
+  google::cloud::Status CreateDirMarker(const std::string& bucket,
+                                        util::string_view name) {
+    // Make the name canonical.
+    const auto canonical = internal::EnsureTrailingSlash(name);
+    return client_
+        .InsertObject(bucket, canonical, std::string(),
+                      gcs::WithObjectMetadata(gcs::ObjectMetadata().upsert_metadata(
+                          "arrow/gcsfs", "directory")))
+        .status();
+  }
+
+  google::cloud::Status CreateDirMarkerRecursive(const std::string& bucket,
+                                                 const std::string& object) {
+    using GcsCode = google::cloud::StatusCode;
+    auto get_parent = [](std::string const& path) {
+      return std::move(internal::GetAbstractPathParent(path).first);
+    };
+    // Maybe counterintuitively we create the markers from the most nested and up. Because
+    // GCS does not have directories creating `a/b/c` will succeed, even if `a/` or `a/b/`
+    // does not exist.  In the common case, where `a/b/` may already exist, it is more
+    // efficient to just create `a/b/c/` and then find out that `a/b/` was already there.
+    // In the case where none exists, it does not matter which order we follow.
+    auto status = CreateDirMarker(bucket, object);
+    if (status.code() == GcsCode::kAlreadyExists) return {};
+    if (status.code() == GcsCode::kNotFound) {
+      // Missing bucket, create it first ...
+      status = client_.CreateBucket(bucket, gcs::BucketMetadata()).status();
+      if (status.code() != GcsCode::kOk && status.code() != GcsCode::kAlreadyExists) {
+        return status;
+      }
+    }
+
+    for (auto parent = get_parent(object); !parent.empty(); parent = get_parent(parent)) {
+      status = CreateDirMarker(bucket, parent);
+      if (status.code() == GcsCode::kAlreadyExists) {
+        break;
+      }
+      if (!status.ok()) {
+        return status;
+      }
+    }
+    return {};
+  }
+
+  Status CreateDir(const GcsPath& p) {
+    if (p.object.empty()) {
+      return internal::ToArrowStatus(
+          client_.CreateBucket(p.bucket, gcs::BucketMetadata()).status());
+    }
+    return internal::ToArrowStatus(CreateDirMarker(p.bucket, p.object));
+  }
+
+  Status CreateDirRecursive(const GcsPath& p) {
+    return internal::ToArrowStatus(CreateDirMarkerRecursive(p.bucket, p.object));
+  }
+
+  Status DeleteDir(const GcsPath& p, const io::IOContext& io_context) {
+    RETURN_NOT_OK(DeleteDirContents(p, io_context));
+    if (!p.object.empty()) {
+      return internal::ToArrowStatus(client_.DeleteObject(p.bucket, p.object));
+    }
+    return internal::ToArrowStatus(client_.DeleteBucket(p.bucket));
+  }
+
+  Status DeleteDirContents(const GcsPath& p, const io::IOContext& io_context) {
+    // Deleting large directories can be fairly slow, we need to parallelize the
+    // operation.
+    auto async_delete =
+        [&p, this](const google::cloud::StatusOr<gcs::ObjectMetadata>& o) -> Status {
+      if (!o) return internal::ToArrowStatus(o.status());
+      // The list includes the directory, skip it. DeleteDir() takes care of it.
+      if (o->bucket() == p.bucket && o->name() == p.object) return {};
+      return internal::ToArrowStatus(
+          client_.DeleteObject(o->bucket(), o->name(), gcs::Generation(o->generation())));
+    };
+
+    std::vector<Future<>> submitted;
+    // This iterates over all the objects, and schedules parallel deletes.
+    auto prefix = p.object.empty() ? gcs::Prefix() : gcs::Prefix(p.object);
+    for (const auto& o : client_.ListObjects(p.bucket, prefix)) {
+      submitted.push_back(DeferNotOk(io_context.executor()->Submit(async_delete, o)));
+    }
+
+    return AllFinished(submitted).status();
   }
 
   Status DeleteFile(const GcsPath& p) {
@@ -289,6 +380,21 @@ class GcsFileSystem::Impl {
                              ") is a directory, use DeleteDir");
     }
     return internal::ToArrowStatus(client_.DeleteObject(p.bucket, p.object));
+  }
+
+  Status Move(const GcsPath& src, const GcsPath& dest) {
+    if (src.full_path.empty() || src.object.empty() ||
+        src.object.back() == internal::kSep) {
+      return Status::IOError(
+          "Moving directories or buckets cannot be implemented in GCS. You provided (" +
+          src.full_path + ") as a source for Move()");
+    }
+    ARROW_ASSIGN_OR_RAISE(auto info, GetFileInfo(dest));
+    if (info.IsDirectory()) {
+      return Status::IOError("Attempting to Move() to an existing directory");
+    }
+    RETURN_NOT_OK(CopyFile(src, dest));
+    return DeleteFile(src);
   }
 
   Status CopyFile(const GcsPath& src, const GcsPath& dest) {
@@ -332,12 +438,15 @@ class GcsFileSystem::Impl {
   static Result<FileInfo> GetFileInfoImpl(const GcsPath& path,
                                           const google::cloud::Status& status,
                                           FileType type) {
+    const auto& canonical = type == FileType::Directory
+                                ? internal::EnsureTrailingSlash(path.full_path)
+                                : path.full_path;
     if (status.ok()) {
-      return FileInfo(path.full_path, type);
+      return FileInfo(canonical, type);
     }
     using ::google::cloud::StatusCode;
     if (status.code() == StatusCode::kNotFound) {
-      return FileInfo(path.full_path, FileType::NotFound);
+      return FileInfo(canonical, FileType::NotFound);
     }
     return internal::ToArrowStatus(status);
   }
@@ -373,15 +482,19 @@ Result<FileInfoVector> GcsFileSystem::GetFileInfo(const FileSelector& select) {
 }
 
 Status GcsFileSystem::CreateDir(const std::string& path, bool recursive) {
-  return Status::NotImplemented("The GCS FileSystem is not fully implemented");
+  ARROW_ASSIGN_OR_RAISE(auto p, GcsPath::FromString(path));
+  if (!recursive) return impl_->CreateDir(p);
+  return impl_->CreateDirRecursive(p);
 }
 
 Status GcsFileSystem::DeleteDir(const std::string& path) {
-  return Status::NotImplemented("The GCS FileSystem is not fully implemented");
+  ARROW_ASSIGN_OR_RAISE(auto p, GcsPath::FromString(path));
+  return impl_->DeleteDir(p, io_context());
 }
 
 Status GcsFileSystem::DeleteDirContents(const std::string& path) {
-  return Status::NotImplemented("The GCS FileSystem is not fully implemented");
+  ARROW_ASSIGN_OR_RAISE(auto p, GcsPath::FromString(path));
+  return impl_->DeleteDirContents(p, io_context());
 }
 
 Status GcsFileSystem::DeleteRootDirContents() {
@@ -396,7 +509,9 @@ Status GcsFileSystem::DeleteFile(const std::string& path) {
 }
 
 Status GcsFileSystem::Move(const std::string& src, const std::string& dest) {
-  return Status::NotImplemented("The GCS FileSystem is not fully implemented");
+  ARROW_ASSIGN_OR_RAISE(auto s, GcsPath::FromString(src));
+  ARROW_ASSIGN_OR_RAISE(auto d, GcsPath::FromString(dest));
+  return impl_->Move(s, d);
 }
 
 Status GcsFileSystem::CopyFile(const std::string& src, const std::string& dest) {

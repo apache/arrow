@@ -938,7 +938,11 @@ void HashJoinWithExecPlan(Random64Bit& rng, bool parallel,
 
 TEST(HashJoin, Random) {
   Random64Bit rng(42);
-  int num_tests = 100;
+#if defined(THREAD_SANITIZER)
+  const int num_tests = 15;
+#else
+  const int num_tests = 100;
+#endif
   for (int test_id = 0; test_id < num_tests; ++test_id) {
     bool parallel = (rng.from_range(0, 1) == 1);
     auto exec_ctx = arrow::internal::make_unique<ExecContext>(

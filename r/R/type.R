@@ -133,6 +133,13 @@ TimeType <- R6Class("TimeType",
 Time32 <- R6Class("Time32", inherit = TimeType)
 Time64 <- R6Class("Time64", inherit = TimeType)
 
+DurationType <- R6Class("DurationType",
+  inherit = FixedWidthType,
+  public = list(
+    unit = function() DurationType__unit(self)
+  )
+)
+
 Null <- R6Class("Null", inherit = DataType)
 
 Timestamp <- R6Class("Timestamp",
@@ -334,6 +341,13 @@ valid_time64_units <- c(
   "us" = TimeUnit$MICRO
 )
 
+valid_duration_units <- c(
+  "s" = TimeUnit$SECOND,
+  "ms" = TimeUnit$MILLI,
+  "us" = TimeUnit$MICRO,
+  "ns" = TimeUnit$NANO
+)
+
 make_valid_time_unit <- function(unit, valid_units) {
   if (is.character(unit)) {
     unit <- valid_units[match.arg(unit, choices = names(valid_units))]
@@ -358,6 +372,16 @@ time64 <- function(unit = c("ns", "us")) {
   }
   unit <- make_valid_time_unit(unit, valid_time64_units)
   Time64__initialize(unit)
+}
+
+#' @rdname data-type
+#' @export
+duration <- function(unit = c("s", "ms", "us", "ns")) {
+  if (is.character(unit)) {
+    unit <- match.arg(unit)
+  }
+  unit <- make_valid_time_unit(unit, valid_duration_units)
+  Duration__initialize(unit)
 }
 
 #' @rdname data-type
@@ -503,6 +527,7 @@ canonical_type_str <- function(type_str) {
     large_list = "large_list",
     fixed_size_list_of = "fixed_size_list",
     fixed_size_list = "fixed_size_list",
+    duration = "duration",
     stop("Unrecognized string representation of data type", call. = FALSE)
   )
 }

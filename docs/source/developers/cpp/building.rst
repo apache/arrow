@@ -15,6 +15,8 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
+.. highlight:: console
+
 .. _building-arrow-cpp:
 
 ==================
@@ -124,10 +126,12 @@ Building
 All the instructions below assume that you have cloned the Arrow git
 repository and navigated to the ``cpp`` subdirectory:
 
-.. code-block:: shell
+.. code-block::
 
    $ git clone https://github.com/apache/arrow.git
    $ cd arrow/cpp
+
+.. _cmake_presets:
 
 CMake presets
 -------------
@@ -136,7 +140,7 @@ Using CMake version 3.21.0 or higher, some presets for various build
 configurations are provided.  You can get a list of the available presets
 using ``cmake --list-presets``:
 
-.. code-block:: shell
+.. code-block::
 
    $ cmake --list-presets   # from inside the `cpp` subdirectory
    Available configure presets:
@@ -149,7 +153,7 @@ using ``cmake --list-presets``:
 You can inspect the specific options enabled by a given preset using
 ``cmake -N --preset <preset name>``:
 
-.. code-block:: shell
+.. code-block::
 
    $ cmake --preset -N ninja-debug-minimal
    Preset CMake variables:
@@ -164,7 +168,7 @@ You can inspect the specific options enabled by a given preset using
 
 You can also create a build from a given preset:
 
-.. code-block:: shell
+.. code-block::
 
    $ mkdir build   # from inside the `cpp` subdirectory
    $ cd build
@@ -184,7 +188,7 @@ You can also create a build from a given preset:
 
 and then ask to compile the build targets:
 
-.. code-block:: shell
+.. code-block::
 
    $ cmake --build .
    [142/142] Creating library symlink debug/libarrow.so.700 debug/libarrow.so
@@ -200,7 +204,7 @@ and then ask to compile the build targets:
 When creating a build, it is possible to pass custom options besides
 the preset-defined ones, for example:
 
-.. code-block:: shell
+.. code-block::
 
    $ cmake .. --preset ninja-debug-minimal -DCMAKE_INSTALL_PREFIX=/usr/local
 
@@ -243,7 +247,7 @@ You can also run default build with flag ``-DARROW_EXTRA_ERROR_CONTEXT=ON``, see
 
 Minimal release build (1GB of RAM for building or more recommended):
 
-.. code-block:: shell
+.. code-block::
 
    $ mkdir build-release
    $ cd build-release
@@ -252,7 +256,7 @@ Minimal release build (1GB of RAM for building or more recommended):
 
 Minimal debug build with unit tests (4GB of RAM for building or more recommended):
 
-.. code-block:: shell
+.. code-block::
 
    $ git submodule update --init --recursive
    $ export ARROW_TEST_DATA=$PWD/../testing/data
@@ -270,7 +274,7 @@ On some Linux distributions, running the test suite might require setting an
 explicit locale. If you see any locale-related errors, try setting the
 environment variable (which requires the `locales` package or equivalent):
 
-.. code-block:: shell
+.. code-block::
 
    $ export LC_ALL="en_US.UTF-8"
 
@@ -290,6 +294,8 @@ The CMake
 option can make full builds significantly faster, but it also increases the
 memory requirements.  Consider turning it on (using ``-DCMAKE_UNITY_BUILD=ON``)
 if memory consumption is not an issue.
+
+.. _cpp_build_optional_components:
 
 Optional Components
 ~~~~~~~~~~~~~~~~~~~
@@ -510,7 +516,7 @@ of each dependency to a directory of your choosing. It will print a list of
 bash-style environment variable statements at the end to use for your build
 script.
 
-.. code-block:: shell
+.. code-block::
 
    # Download tarballs into $HOME/arrow-thirdparty
    $ ./thirdparty/download_dependencies.sh $HOME/arrow-thirdparty

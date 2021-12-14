@@ -26,6 +26,7 @@
 #include <vector>
 
 #include "arrow/array/array_base.h"
+#include "arrow/array/builder_primitive.h"
 #include "arrow/array/data.h"
 #include "arrow/array/util.h"
 #include "arrow/buffer.h"
@@ -349,7 +350,90 @@ class ConcatenateImpl {
   }
 
   Status Visit(const UnionType& u) {
-    return Status::NotImplemented("concatenation of ", u);
+    // This implementation assumes that all input arrays are valid union arrays
+    // with same number of variants.
+
+    // Concatenate the type buffers.
+    ARROW_ASSIGN_OR_RAISE(auto type_buffers, Buffers(1, sizeof(int8_t)));
+    RETURN_NOT_OK(ConcatenateBuffers(type_buffers, pool_).Value(&out_->buffers[1]));
+
+    // Concatenate the child data. For sparse unions the child data is sliced
+    // based on the offset and length of the array data. For dense unions the
+    // child data is not sliced because this makes constructing the concatenated
+    // offsets buffer more simple. We could however choose to modify this and
+    // slice the child arrays and reflect this in the concatenated offsets
+    // buffer.
+    switch (u.mode()) {
+      case UnionMode::SPARSE: {
+        for (int i = 0; i < u.num_fields(); i++) {
+          ARROW_ASSIGN_OR_RAISE(auto child_data, ChildData(i));
+          RETURN_NOT_OK(
+              ConcatenateImpl(child_data, pool_).Concatenate(&out_->child_data[i]));
+        }
+        break;
+      }
+      case UnionMode::DENSE: {
+        for (int i = 0; i < u.num_fields(); i++) {
+          ArrayDataVector child_data(in_.size());
+          for (size_t j = 0; j < in_.size(); j++) {
+            child_data[j] = in_[j]->child_data[i];
+          }
+          RETURN_NOT_OK(
+              ConcatenateImpl(child_data, pool_).Concatenate(&out_->child_data[i]));
+        }
+        break;
+      }
+    }
+
+    // Concatenate offsets buffers for dense union arrays.
+    if (u.mode() == UnionMode::DENSE) {
+      // The number of offset values is equal to the number of type_ids in the
+      // concatenated type buffers.
+      TypedBufferBuilder<int32_t> builder;
+      RETURN_NOT_OK(builder.Reserve(out_->length));
+
+      // Initialize a vector for child array lengths. These are updated during
+      // iteration over the input arrays to track the concatenated child array
+      // lengths. These lengths are used as offsets for the concatenated offsets
+      // buffer.
+      std::vector<int32_t> offset_map(u.num_fields());
+
+      // Iterate over all input arrays.
+      for (size_t i = 0; i < in_.size(); i++) {
+        // Get sliced type ids and offsets.
+        auto type_ids = in_[i]->GetValues<int8_t>(1);
+        auto offset_values = in_[i]->GetValues<int32_t>(2);
+
+        // Iterate over all elements in the type buffer and append the updated
+        // offset to the concatenated offsets buffer.
+        for (auto j = 0; j < in_[i]->length; j++) {
+          int32_t offset;
+          if (internal::AddWithOverflow(offset_map[u.child_ids()[type_ids[j]]],
+                                        offset_values[j], &offset)) {
+            return Status::Invalid("Offset value overflow when concatenating arrays");
+          }
+          RETURN_NOT_OK(builder.Append(offset));
+        }
+
+        // Increment the offsets in the offset map for the next iteration.
+        for (int j = 0; j < u.num_fields(); j++) {
+          int64_t length;
+          if (internal::AddWithOverflow(static_cast<int64_t>(offset_map[j]),
+                                        in_[i]->child_data[j]->length, &length)) {
+            return Status::Invalid("Offset value overflow when concatenating arrays");
+          }
+          // Make sure we can safely downcast to int32_t.
+          if (length > std::numeric_limits<int32_t>::max()) {
+            return Status::Invalid("Length overflow when concatenating arrays");
+          }
+          offset_map[j] = static_cast<int32_t>(length);
+        }
+      }
+
+      ARROW_ASSIGN_OR_RAISE(out_->buffers[2], builder.Finish());
+    }
+
+    return Status::OK();
   }
 
   Status Visit(const ExtensionType& e) {

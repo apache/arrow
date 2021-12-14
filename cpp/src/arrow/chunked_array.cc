@@ -25,6 +25,7 @@
 
 #include "arrow/array/array_base.h"
 #include "arrow/array/array_nested.h"
+#include "arrow/array/util.h"
 #include "arrow/array/validate.h"
 #include "arrow/pretty_print.h"
 #include "arrow/status.h"
@@ -80,6 +81,13 @@ Result<std::shared_ptr<ChunkedArray>> ChunkedArray::Make(ArrayVector chunks,
     }
   }
   return std::make_shared<ChunkedArray>(std::move(chunks), std::move(type));
+}
+
+Result<std::shared_ptr<ChunkedArray>> ChunkedArray::MakeEmpty(
+    std::shared_ptr<DataType> type, MemoryPool* memory_pool) {
+  std::vector<std::shared_ptr<Array>> new_chunks(1);
+  ARROW_ASSIGN_OR_RAISE(new_chunks[0], MakeEmptyArray(type, memory_pool));
+  return std::make_shared<ChunkedArray>(std::move(new_chunks));
 }
 
 bool ChunkedArray::Equals(const ChunkedArray& other) const {

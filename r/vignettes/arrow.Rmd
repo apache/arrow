@@ -135,7 +135,8 @@ In the tables, entries with a `-` are not currently implemented.
 | data.frame               | struct     |
 | list^3^                  | list       |
 | bit64::integer64         | int64      |
-| difftime                 | time32     |
+| hms::hms                 | time32     |
+| difftime                 | duration   |
 | vctrs::vctrs_unspecified | null       |
 
 

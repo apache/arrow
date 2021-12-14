@@ -273,7 +273,6 @@ if(PARQUET_REQUIRE_ENCRYPTION)
 endif()
 
 if(ARROW_WITH_OPENTELEMETRY)
-  set(ARROW_WITH_GRPC ON)
   set(ARROW_WITH_PROTOBUF ON)
 endif()
 
@@ -621,6 +620,14 @@ else()
              "https://github.com/google/snappy/archive/${ARROW_SNAPPY_BUILD_VERSION}.tar.gz"
              "https://github.com/ursa-labs/thirdparty/releases/download/latest/snappy-${ARROW_SNAPPY_BUILD_VERSION}.tar.gz"
     )
+
+    # This can be removed when https://github.com/google/snappy/pull/148 is released
+    # Some platforms don't have patch, but this is probably ok to skip
+    find_program(patch "patch")
+    if(patch)
+      set(SNAPPY_PATCH_COMMAND "patch" "snappy.cc"
+                               "${CMAKE_SOURCE_DIR}/build-support/snappy-UBSAN.patch")
+    endif()
   endif()
 endif()
 
@@ -1040,6 +1047,7 @@ macro(build_snappy)
                       URL ${SNAPPY_SOURCE_URL}
                       URL_HASH "SHA256=${ARROW_SNAPPY_BUILD_SHA256_CHECKSUM}"
                       CMAKE_ARGS ${SNAPPY_CMAKE_ARGS}
+                      PATCH_COMMAND ${SNAPPY_PATCH_COMMAND}
                       BUILD_BYPRODUCTS "${SNAPPY_STATIC_LIB}")
 
   file(MAKE_DIRECTORY "${SNAPPY_PREFIX}/include")
@@ -3919,6 +3927,7 @@ macro(build_opentelemetry)
       common
       http_client_curl
       ostream_span_exporter
+      otlp_http_client
       otlp_http_exporter
       otlp_recordable
       proto
@@ -3935,6 +3944,7 @@ macro(build_opentelemetry)
                                      "${OPENTELEMETRY_INCLUDE_DIR}")
   endforeach()
   foreach(_OPENTELEMETRY_LIB ${_OPENTELEMETRY_LIBS})
+    # N.B. OTel targets and libraries don't follow any consistent naming scheme
     if(_OPENTELEMETRY_LIB STREQUAL "http_client_curl")
       set(_OPENTELEMETRY_STATIC_LIBRARY
           "${OPENTELEMETRY_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}${_OPENTELEMETRY_LIB}${CMAKE_STATIC_LIBRARY_SUFFIX}"
@@ -3942,6 +3952,10 @@ macro(build_opentelemetry)
     elseif(_OPENTELEMETRY_LIB STREQUAL "ostream_span_exporter")
       set(_OPENTELEMETRY_STATIC_LIBRARY
           "${OPENTELEMETRY_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}opentelemetry_exporter_ostream_span${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      )
+    elseif(_OPENTELEMETRY_LIB STREQUAL "otlp_http_client")
+      set(_OPENTELEMETRY_STATIC_LIBRARY
+          "${OPENTELEMETRY_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}opentelemetry_exporter_otlp_http_client${CMAKE_STATIC_LIBRARY_SUFFIX}"
       )
     elseif(_OPENTELEMETRY_LIB STREQUAL "otlp_http_exporter")
       set(_OPENTELEMETRY_STATIC_LIBRARY
@@ -3977,11 +3991,21 @@ macro(build_opentelemetry)
   set(_OPENTELEMETRY_DEPENDENCIES "opentelemetry_dependencies")
   list(APPEND ARROW_BUNDLED_STATIC_LIBS ${OPENTELEMETRY_LIBRARIES})
   list(APPEND OPENTELEMETRY_PREFIX_PATH_LIST ${NLOHMANN_JSON_PREFIX})
+
+  get_target_property(OPENTELEMETRY_PROTOBUF_INCLUDE_DIR ${ARROW_PROTOBUF_LIBPROTOBUF}
+                      INTERFACE_INCLUDE_DIRECTORIES)
+  get_target_property(OPENTELEMETRY_PROTOBUF_LIBRARY ${ARROW_PROTOBUF_LIBPROTOBUF}
+                      IMPORTED_LOCATION)
+  get_target_property(OPENTELEMETRY_PROTOC_EXECUTABLE ${ARROW_PROTOBUF_PROTOC}
+                      IMPORTED_LOCATION)
   list(APPEND
        OPENTELEMETRY_CMAKE_ARGS
        -DWITH_OTLP=ON
        -DWITH_OTLP_HTTP=ON
-       -DWITH_OTLP_GRPC=OFF)
+       -DWITH_OTLP_GRPC=OFF
+       "-DProtobuf_INCLUDE_DIR=${OPENTELEMETRY_PROTOBUF_INCLUDE_DIR}"
+       "-DProtobuf_LIBRARY=${OPENTELEMETRY_PROTOBUF_INCLUDE_DIR}"
+       "-DProtobuf_PROTOC_EXECUTABLE=${OPENTELEMETRY_PROTOC_EXECUTABLE}")
 
   # OpenTelemetry with OTLP enabled requires Protobuf definitions from a
   # submodule. This submodule path is hardcoded into their CMake definitions,
@@ -4000,14 +4024,8 @@ macro(build_opentelemetry)
                       INSTALL_COMMAND ""
                       EXCLUDE_FROM_ALL OFF)
 
-  add_dependencies(opentelemetry_dependencies nlohmann_json_ep opentelemetry_proto_ep)
-  if(gRPC_SOURCE STREQUAL "BUNDLED")
-    # TODO: opentelemetry-cpp::proto doesn't declare a dependency on gRPC, so
-    # even if we provide the location of gRPC, it'll fail to compile.
-    message(FATAL_ERROR "ARROW_WITH_OPENTELEMETRY cannot be configured with gRPC_SOURCE=BUNDLED. "
-                        "See https://github.com/open-telemetry/opentelemetry-cpp/issues/1045"
-    )
-  endif()
+  add_dependencies(opentelemetry_dependencies nlohmann_json_ep opentelemetry_proto_ep
+                   ${ARROW_PROTOBUF_LIBPROTOBUF})
 
   set(OPENTELEMETRY_PREFIX_PATH_LIST_SEP_CHAR "|")
   # JOIN is CMake >=3.12 only
@@ -4079,14 +4097,22 @@ macro(build_opentelemetry)
                         PROPERTIES INTERFACE_LINK_LIBRARIES
                                    "opentelemetry-cpp::trace;opentelemetry-cpp::resources;opentelemetry-cpp::proto"
   )
+  set_target_properties(opentelemetry-cpp::otlp_http_client
+                        PROPERTIES INTERFACE_LINK_LIBRARIES
+                                   "opentelemetry-cpp::sdk;opentelemetry-cpp::proto;opentelemetry-cpp::http_client_curl;nlohmann_json::nlohmann_json"
+  )
   set_target_properties(opentelemetry-cpp::otlp_http_exporter
                         PROPERTIES INTERFACE_LINK_LIBRARIES
-                                   "opentelemetry-cpp::otlp_recordable;opentelemetry-cpp::http_client_curl;nlohmann_json::nlohmann_json"
+                                   "opentelemetry-cpp::otlp_recordable;opentelemetry-cpp::otlp_http_client"
   )
 
   foreach(_OPENTELEMETRY_LIB ${_OPENTELEMETRY_LIBS})
     add_dependencies(opentelemetry-cpp::${_OPENTELEMETRY_LIB} opentelemetry_ep)
   endforeach()
+
+  # Work around https://gitlab.kitware.com/cmake/cmake/issues/15052
+  file(MAKE_DIRECTORY ${OPENTELEMETRY_INCLUDE_DIR})
+
 endmacro()
 
 if(ARROW_WITH_OPENTELEMETRY)

@@ -17,13 +17,14 @@
 
 #include "arrow/dataset/dataset_writer.h"
 
-#include <list>
+#include <deque>
 #include <mutex>
 #include <unordered_map>
 
 #include "arrow/filesystem/path_util.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
+#include "arrow/table.h"
 #include "arrow/util/future.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/map.h"
@@ -83,128 +84,155 @@ class Throttle {
   std::mutex mutex_;
 };
 
+struct DatasetWriterState {
+  DatasetWriterState(uint64_t rows_in_flight, uint64_t max_open_files,
+                     uint64_t max_rows_staged)
+      : rows_in_flight_throttle(rows_in_flight),
+        open_files_throttle(max_open_files),
+        staged_rows_count(0),
+        max_rows_staged(max_rows_staged) {}
+
+  bool StagingFull() const { return staged_rows_count.load() >= max_rows_staged; }
+
+  // Throttle for how many rows the dataset writer will allow to be in process memory
+  // When this is exceeded the dataset writer will pause / apply backpressure
+  Throttle rows_in_flight_throttle;
+  // Control for how many files the dataset writer will open.  When this is exceeded
+  // the dataset writer will pause and it will also close the largest open file.
+  Throttle open_files_throttle;
+  // Control for how many rows the dataset writer will allow to be staged.  A row is
+  // staged if it is waiting for more rows to reach minimum_batch_size.  If this is
+  // exceeded then the largest staged batch is unstaged (no backpressure is applied)
+  std::atomic<uint64_t> staged_rows_count;
+  // If too many rows get staged we will end up with poor performance and, if more rows
+  // are staged than max_rows_queued we will end up with deadlock.  To avoid this, once
+  // we have too many staged rows we just ignore min_rows_per_group
+  const uint64_t max_rows_staged;
+  // Mutex to guard access to the file visitors in the writer options
+  std::mutex visitors_mutex;
+};
+
 class DatasetWriterFileQueue : public util::AsyncDestroyable {
  public:
   explicit DatasetWriterFileQueue(const Future<std::shared_ptr<FileWriter>>& writer_fut,
                                   const FileSystemDatasetWriteOptions& options,
-                                  std::mutex* visitors_mutex)
-      : options_(options), visitors_mutex_(visitors_mutex) {
-    running_task_ = Future<>::Make();
-    writer_fut.AddCallback(
-        [this](const Result<std::shared_ptr<FileWriter>>& maybe_writer) {
-          if (maybe_writer.ok()) {
-            writer_ = *maybe_writer;
-            Flush();
-          } else {
-            Abort(maybe_writer.status());
-          }
-        });
+                                  DatasetWriterState* writer_state)
+      : options_(options), writer_state_(writer_state) {
+    // If this AddTask call fails (e.g. we're given an already failing future) then we
+    // will get the error later when we try and write to it.
+    ARROW_UNUSED(file_tasks_.AddTask([this, writer_fut] {
+      return writer_fut.Then(
+          [this](const std::shared_ptr<FileWriter>& writer) { writer_ = writer; });
+    }));
   }
 
-  Future<uint64_t> Push(std::shared_ptr<RecordBatch> batch) {
-    std::unique_lock<std::mutex> lk(mutex);
-    write_queue_.push_back(std::move(batch));
-    Future<uint64_t> write_future = Future<uint64_t>::Make();
-    write_futures_.push_back(write_future);
-    if (!running_task_.is_valid()) {
-      running_task_ = Future<>::Make();
-      FlushUnlocked(std::move(lk));
+  Result<std::shared_ptr<RecordBatch>> PopStagedBatch() {
+    std::vector<std::shared_ptr<RecordBatch>> batches_to_write;
+    uint64_t num_rows = 0;
+    while (!staged_batches_.empty()) {
+      std::shared_ptr<RecordBatch> next = std::move(staged_batches_.front());
+      staged_batches_.pop_front();
+      if (num_rows + next->num_rows() <= options_.max_rows_per_group) {
+        num_rows += next->num_rows();
+        batches_to_write.push_back(std::move(next));
+        if (num_rows == options_.max_rows_per_group) {
+          break;
+        }
+      } else {
+        uint64_t remaining = options_.max_rows_per_group - num_rows;
+        std::shared_ptr<RecordBatch> next_partial =
+            next->Slice(0, static_cast<int64_t>(remaining));
+        batches_to_write.push_back(std::move(next_partial));
+        std::shared_ptr<RecordBatch> next_remainder =
+            next->Slice(static_cast<int64_t>(remaining));
+        staged_batches_.push_front(std::move(next_remainder));
+        break;
+      }
     }
-    return write_future;
+    DCHECK_GT(batches_to_write.size(), 0);
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Table> table,
+                          Table::FromRecordBatches(batches_to_write));
+    return table->CombineChunksToBatch();
+  }
+
+  Status ScheduleBatch(std::shared_ptr<RecordBatch> batch) {
+    struct WriteTask {
+      Future<> operator()() { return self->WriteNext(std::move(batch)); }
+      DatasetWriterFileQueue* self;
+      std::shared_ptr<RecordBatch> batch;
+    };
+    return file_tasks_.AddTask(WriteTask{this, std::move(batch)});
+  }
+
+  Result<int64_t> PopAndDeliverStagedBatch() {
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<RecordBatch> next_batch, PopStagedBatch());
+    int64_t rows_popped = next_batch->num_rows();
+    rows_currently_staged_ -= next_batch->num_rows();
+    ARROW_RETURN_NOT_OK(ScheduleBatch(std::move(next_batch)));
+    return rows_popped;
+  }
+
+  // Stage batches, popping and delivering batches if enough data has arrived
+  Status Push(std::shared_ptr<RecordBatch> batch) {
+    uint64_t delta_staged = batch->num_rows();
+    rows_currently_staged_ += delta_staged;
+    staged_batches_.push_back(std::move(batch));
+    while (!staged_batches_.empty() &&
+           (writer_state_->StagingFull() ||
+            rows_currently_staged_ >= options_.min_rows_per_group)) {
+      ARROW_ASSIGN_OR_RAISE(int64_t rows_popped, PopAndDeliverStagedBatch());
+      delta_staged -= rows_popped;
+    }
+    // Note, delta_staged may be negative if we were able to deliver some data
+    writer_state_->staged_rows_count += delta_staged;
+    return Status::OK();
   }
 
   Future<> DoDestroy() override {
-    std::lock_guard<std::mutex> lg(mutex);
-    if (!running_task_.is_valid()) {
-      RETURN_NOT_OK(DoFinish());
-      return Future<>::MakeFinished();
+    writer_state_->staged_rows_count -= rows_currently_staged_;
+    while (!staged_batches_.empty()) {
+      RETURN_NOT_OK(PopAndDeliverStagedBatch());
     }
-    return running_task_.Then([this] { return DoFinish(); });
+    return file_tasks_.End().Then([this] { return DoFinish(); });
   }
 
  private:
-  Future<uint64_t> WriteNext() {
+  Future<> WriteNext(std::shared_ptr<RecordBatch> next) {
+    struct WriteTask {
+      Status operator()() {
+        int64_t rows_to_release = batch->num_rows();
+        Status status = self->writer_->Write(batch);
+        self->writer_state_->rows_in_flight_throttle.Release(rows_to_release);
+        return status;
+      }
+      DatasetWriterFileQueue* self;
+      std::shared_ptr<RecordBatch> batch;
+    };
     // May want to prototype / measure someday pushing the async write down further
     return DeferNotOk(
-        io::default_io_context().executor()->Submit([this]() -> Result<uint64_t> {
-          DCHECK(running_task_.is_valid());
-          std::unique_lock<std::mutex> lk(mutex);
-          const std::shared_ptr<RecordBatch>& to_write = write_queue_.front();
-          Future<uint64_t> on_complete = write_futures_.front();
-          uint64_t rows_to_write = to_write->num_rows();
-          lk.unlock();
-          Status status = writer_->Write(to_write);
-          lk.lock();
-          write_queue_.pop_front();
-          write_futures_.pop_front();
-          lk.unlock();
-          if (!status.ok()) {
-            on_complete.MarkFinished(status);
-          } else {
-            on_complete.MarkFinished(rows_to_write);
-          }
-          return rows_to_write;
-        }));
+        io::default_io_context().executor()->Submit(WriteTask{this, std::move(next)}));
   }
 
   Status DoFinish() {
     {
-      std::lock_guard<std::mutex> lg(*visitors_mutex_);
+      std::lock_guard<std::mutex> lg(writer_state_->visitors_mutex);
       RETURN_NOT_OK(options_.writer_pre_finish(writer_.get()));
     }
     RETURN_NOT_OK(writer_->Finish());
     {
-      std::lock_guard<std::mutex> lg(*visitors_mutex_);
+      std::lock_guard<std::mutex> lg(writer_state_->visitors_mutex);
       return options_.writer_post_finish(writer_.get());
     }
   }
 
-  void Abort(Status err) {
-    std::vector<Future<uint64_t>> futures_to_abort;
-    Future<> old_running_task = running_task_;
-    {
-      std::lock_guard<std::mutex> lg(mutex);
-      write_queue_.clear();
-      futures_to_abort =
-          std::vector<Future<uint64_t>>(write_futures_.begin(), write_futures_.end());
-      write_futures_.clear();
-      running_task_ = Future<>();
-    }
-    for (auto& fut : futures_to_abort) {
-      fut.MarkFinished(err);
-    }
-    old_running_task.MarkFinished(std::move(err));
-  }
-
-  void Flush() {
-    std::unique_lock<std::mutex> lk(mutex);
-    FlushUnlocked(std::move(lk));
-  }
-
-  void FlushUnlocked(std::unique_lock<std::mutex> lk) {
-    if (write_queue_.empty()) {
-      Future<> old_running_task = running_task_;
-      running_task_ = Future<>();
-      lk.unlock();
-      old_running_task.MarkFinished();
-      return;
-    }
-    WriteNext().AddCallback([this](const Result<uint64_t>& res) {
-      if (res.ok()) {
-        Flush();
-      } else {
-        Abort(res.status());
-      }
-    });
-  }
-
   const FileSystemDatasetWriteOptions& options_;
-  std::mutex* visitors_mutex_;
+  DatasetWriterState* writer_state_;
   std::shared_ptr<FileWriter> writer_;
-  std::mutex mutex;
-  std::list<std::shared_ptr<RecordBatch>> write_queue_;
-  std::list<Future<uint64_t>> write_futures_;
-  Future<> running_task_;
+  // Batches are accumulated here until they are large enough to write out at which
+  // point they are merged together and added to write_queue_
+  std::deque<std::shared_ptr<RecordBatch>> staged_batches_;
+  uint64_t rows_currently_staged_ = 0;
+  util::SerializedAsyncTaskGroup file_tasks_;
 };
 
 struct WriteTask {
@@ -216,12 +244,11 @@ class DatasetWriterDirectoryQueue : public util::AsyncDestroyable {
  public:
   DatasetWriterDirectoryQueue(std::string directory, std::shared_ptr<Schema> schema,
                               const FileSystemDatasetWriteOptions& write_options,
-                              Throttle* open_files_throttle, std::mutex* visitors_mutex)
+                              DatasetWriterState* writer_state)
       : directory_(std::move(directory)),
         schema_(std::move(schema)),
         write_options_(write_options),
-        open_files_throttle_(open_files_throttle),
-        visitors_mutex_(visitors_mutex) {}
+        writer_state_(writer_state) {}
 
   Result<std::shared_ptr<RecordBatch>> NextWritableChunk(
       std::shared_ptr<RecordBatch> batch, std::shared_ptr<RecordBatch>* remainder,
@@ -243,13 +270,13 @@ class DatasetWriterDirectoryQueue : public util::AsyncDestroyable {
     return to_queue;
   }
 
-  Future<WriteTask> StartWrite(const std::shared_ptr<RecordBatch>& batch) {
+  Status StartWrite(const std::shared_ptr<RecordBatch>& batch) {
     rows_written_ += batch->num_rows();
     WriteTask task{current_filename_, static_cast<uint64_t>(batch->num_rows())};
     if (!latest_open_file_) {
       ARROW_ASSIGN_OR_RAISE(latest_open_file_, OpenFileQueue(current_filename_));
     }
-    return latest_open_file_->Push(batch).Then([task] { return task; });
+    return latest_open_file_->Push(batch);
   }
 
   Result<std::string> GetNextFilename() {
@@ -288,9 +315,9 @@ class DatasetWriterDirectoryQueue : public util::AsyncDestroyable {
               io_executor->Submit([this, filename]() { return OpenWriter(filename); }));
         });
     auto file_queue = util::MakeSharedAsync<DatasetWriterFileQueue>(
-        file_writer_fut, write_options_, visitors_mutex_);
-    RETURN_NOT_OK(task_group_.AddTask(
-        file_queue->on_closed().Then([this] { open_files_throttle_->Release(1); })));
+        file_writer_fut, write_options_, writer_state_);
+    RETURN_NOT_OK(task_group_.AddTask(file_queue->on_closed().Then(
+        [this] { writer_state_->open_files_throttle.Release(1); })));
     return file_queue;
   }
 
@@ -311,11 +338,11 @@ class DatasetWriterDirectoryQueue : public util::AsyncDestroyable {
   static Result<std::unique_ptr<DatasetWriterDirectoryQueue,
                                 util::DestroyingDeleter<DatasetWriterDirectoryQueue>>>
   Make(util::AsyncTaskGroup* task_group,
-       const FileSystemDatasetWriteOptions& write_options, Throttle* open_files_throttle,
-       std::shared_ptr<Schema> schema, std::string dir, std::mutex* visitors_mutex) {
+       const FileSystemDatasetWriteOptions& write_options,
+       DatasetWriterState* writer_state, std::shared_ptr<Schema> schema,
+       std::string dir) {
     auto dir_queue = util::MakeUniqueAsync<DatasetWriterDirectoryQueue>(
-        std::move(dir), std::move(schema), write_options, open_files_throttle,
-        visitors_mutex);
+        std::move(dir), std::move(schema), write_options, writer_state);
     RETURN_NOT_OK(task_group->AddTask(dir_queue->on_closed()));
     dir_queue->PrepareDirectory();
     ARROW_ASSIGN_OR_RAISE(dir_queue->current_filename_, dir_queue->GetNextFilename());
@@ -333,8 +360,7 @@ class DatasetWriterDirectoryQueue : public util::AsyncDestroyable {
   std::string directory_;
   std::shared_ptr<Schema> schema_;
   const FileSystemDatasetWriteOptions& write_options_;
-  Throttle* open_files_throttle_;
-  std::mutex* visitors_mutex_;
+  DatasetWriterState* writer_state_;
   Future<> init_future_;
   std::string current_filename_;
   std::shared_ptr<DatasetWriterFileQueue> latest_open_file_;
@@ -354,6 +380,22 @@ Status ValidateBasenameTemplate(util::string_view basename_template) {
   if (next_token_start != util::string_view::npos) {
     return Status::Invalid("basename_template contained '", kIntegerToken,
                            "' more than once");
+  }
+  return Status::OK();
+}
+
+Status ValidateOptions(const FileSystemDatasetWriteOptions& options) {
+  ARROW_RETURN_NOT_OK(ValidateBasenameTemplate(options.basename_template));
+  if (options.max_rows_per_group <= 0) {
+    return Status::Invalid("max_rows_per_group must be a positive number");
+  }
+  if (options.max_rows_per_group < options.min_rows_per_group) {
+    return Status::Invalid("max_rows_per_group must be less than min_rows_per_group");
+  }
+  if (options.max_rows_per_file > 0 &&
+      options.max_rows_per_file < options.max_rows_per_group) {
+    return Status::Invalid(
+        "max_rows_per_group must be less than or equal to max_rows_per_file");
   }
   return Status::OK();
 }
@@ -378,14 +420,21 @@ Status EnsureDestinationValid(const FileSystemDatasetWriteOptions& options) {
   return Status::OK();
 }
 
+// Rule of thumb for the max rows to stage.  It will grow with max_rows_queued until
+// max_rows_queued starts to get too large and then it caps out at 8 million rows.
+// Feel free to replace with something more meaningful, this is just a random heuristic.
+uint64_t CalculateMaxRowsStaged(uint64_t max_rows_queued) {
+  return std::min(static_cast<uint64_t>(1 << 23), max_rows_queued / 4);
+}
+
 }  // namespace
 
 class DatasetWriter::DatasetWriterImpl : public util::AsyncDestroyable {
  public:
   DatasetWriterImpl(FileSystemDatasetWriteOptions write_options, uint64_t max_rows_queued)
       : write_options_(std::move(write_options)),
-        rows_in_flight_throttle_(max_rows_queued),
-        open_files_throttle_(write_options_.max_open_files) {}
+        writer_state_(max_rows_queued, write_options_.max_open_files,
+                      CalculateMaxRowsStaged(max_rows_queued)) {}
 
   Future<> WriteRecordBatch(std::shared_ptr<RecordBatch> batch,
                             const std::string& directory) {
@@ -423,11 +472,9 @@ class DatasetWriter::DatasetWriterImpl : public util::AsyncDestroyable {
         ::arrow::internal::GetOrInsertGenerated(
             &directory_queues_, directory, [this, &batch](const std::string& dir) {
               return DatasetWriterDirectoryQueue::Make(
-                  &task_group_, write_options_, &open_files_throttle_, batch->schema(),
-                  dir, &visitors_mutex_);
+                  &task_group_, write_options_, &writer_state_, batch->schema(), dir);
             }));
     std::shared_ptr<DatasetWriterDirectoryQueue> dir_queue = dir_queue_itr->second;
-    std::vector<Future<WriteTask>> scheduled_writes;
     Future<> backpressure;
     while (batch) {
       // Keep opening new files until batch is done.
@@ -436,34 +483,25 @@ class DatasetWriter::DatasetWriterImpl : public util::AsyncDestroyable {
       ARROW_ASSIGN_OR_RAISE(auto next_chunk, dir_queue->NextWritableChunk(
                                                  batch, &remainder, &will_open_file));
 
-      backpressure = rows_in_flight_throttle_.Acquire(next_chunk->num_rows());
+      backpressure =
+          writer_state_.rows_in_flight_throttle.Acquire(next_chunk->num_rows());
       if (!backpressure.is_finished()) {
         break;
       }
       if (will_open_file) {
-        backpressure = open_files_throttle_.Acquire(1);
+        backpressure = writer_state_.open_files_throttle.Acquire(1);
         if (!backpressure.is_finished()) {
           RETURN_NOT_OK(CloseLargestFile());
           break;
         }
       }
-      scheduled_writes.push_back(dir_queue->StartWrite(next_chunk));
+      RETURN_NOT_OK(dir_queue->StartWrite(next_chunk));
       batch = std::move(remainder);
       if (batch) {
         RETURN_NOT_OK(dir_queue->FinishCurrentFile());
       }
     }
 
-    for (auto& scheduled_write : scheduled_writes) {
-      RETURN_NOT_OK(task_group_.AddTask(scheduled_write.Then(
-          [this](const WriteTask& write) {
-            rows_in_flight_throttle_.Release(write.num_rows);
-          },
-          [this](const Status& err) { SetError(err); })));
-      // The previously added callback could run immediately and set err_ so we check
-      // it each time through the loop
-      RETURN_NOT_OK(CheckError());
-    }
     if (batch) {
       return backpressure.Then(
           [this, batch, directory] { return DoWriteRecordBatch(batch, directory); });
@@ -488,13 +526,10 @@ class DatasetWriter::DatasetWriterImpl : public util::AsyncDestroyable {
 
   util::AsyncTaskGroup task_group_;
   FileSystemDatasetWriteOptions write_options_;
-  Throttle rows_in_flight_throttle_;
-  Throttle open_files_throttle_;
+  DatasetWriterState writer_state_;
   std::unordered_map<std::string, std::shared_ptr<DatasetWriterDirectoryQueue>>
       directory_queues_;
   std::mutex mutex_;
-  // A mutex to guard access to the visitor callbacks
-  std::mutex visitors_mutex_;
   Status err_;
 };
 
@@ -505,7 +540,7 @@ DatasetWriter::DatasetWriter(FileSystemDatasetWriteOptions write_options,
 
 Result<std::unique_ptr<DatasetWriter>> DatasetWriter::Make(
     FileSystemDatasetWriteOptions write_options, uint64_t max_rows_queued) {
-  RETURN_NOT_OK(ValidateBasenameTemplate(write_options.basename_template));
+  RETURN_NOT_OK(ValidateOptions(write_options));
   RETURN_NOT_OK(EnsureDestinationValid(write_options));
   return std::unique_ptr<DatasetWriter>(
       new DatasetWriter(std::move(write_options), max_rows_queued));
