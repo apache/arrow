@@ -166,8 +166,8 @@ struct ARROW_EXPORT ReadOptions {
   /// Create read options with default values
   static ReadOptions Defaults();
 
-  /// weather to use an IO thread to read ahead
-  bool use_read_ahead = false;
+  /// Weather to use an IO thread to read ahead while other blocks are decoding
+  bool use_readahead = true;
 
   /// \brief Test that all set options are valid
   Status Validate() const;

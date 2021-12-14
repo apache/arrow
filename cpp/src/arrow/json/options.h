@@ -65,8 +65,8 @@ struct ARROW_EXPORT ReadOptions {
   /// Block size we request from the IO layer; also determines the size of
   /// chunks when use_threads is true
   int32_t block_size = 1 << 20;  // 1 MB
-  /// weather we will use a separate thread for read ahead
-  bool use_read_ahead = true;
+  /// Weather to use an IO thread to read ahead while other blocks are decoding
+  bool use_readahead = true;
 
   /// Create read options with default values
   static ReadOptions Defaults();
