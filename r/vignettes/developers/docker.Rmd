@@ -21,6 +21,8 @@ Arrow devs and you can find them on [the DockerHub repo](https://hub.docker.com/
 
 The code below shows an example command you could use to run a Docker container.
 
+This should be run in the root directory of a checkout of the arrow repo.
+
 ```shell
 docker run -it -e ARROW_DEPENDENCY_SOURCE=AUTO -v $(pwd):/arrow apache/arrow-dev:r-rhub-ubuntu-gcc-release-latest
 ```
@@ -30,7 +32,7 @@ Components:
 * `docker run` - command to run the container
 * `-it` - run with an interactive terminal so you can run commands on the containers
 * `-e ARROW_DEPENDENCY_SOURCE=AUTO` - set the environment variable `ARROW_DEPENDENCY_SOURCE` to the value `AUTO`
-* `-v $(pwd):/arrow` - mount the current directory at `/arrow` in the container (this command should be run in the root directory of a checkout of the arrow repo)
+* `-v $(pwd):/arrow` - mount the current directory at `/arrow` in the container
 * `apache/arrow-dev` - the DockerHub repo to get this container from
 * `r-rhub-ubuntu-gcc-release-latest` - the image tag
 
