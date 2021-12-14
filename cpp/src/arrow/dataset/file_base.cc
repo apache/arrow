@@ -42,6 +42,7 @@
 #include "arrow/util/map.h"
 #include "arrow/util/string.h"
 #include "arrow/util/task_group.h"
+#include "arrow/util/tracing_internal.h"
 #include "arrow/util/variant.h"
 
 namespace arrow {
@@ -111,6 +112,63 @@ Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(
   return std::shared_ptr<FileFragment>(
       new FileFragment(std::move(source), shared_from_this(),
                        std::move(partition_expression), std::move(physical_schema)));
+}
+
+// The following implementation of ScanBatchesAsync is both ugly and terribly inefficient.
+// Each of the formats should provide their own efficient implementation.  However, this
+// is a reasonable starting point or implementation for a dummy/mock format.
+Result<RecordBatchGenerator> FileFormat::ScanBatchesAsync(
+    const std::shared_ptr<ScanOptions>& scan_options,
+    const std::shared_ptr<FileFragment>& file) const {
+  ARROW_ASSIGN_OR_RAISE(auto scan_task_it, ScanFile(scan_options, file));
+  struct State {
+    State(std::shared_ptr<ScanOptions> scan_options, ScanTaskIterator scan_task_it)
+        : scan_options(std::move(scan_options)),
+          scan_task_it(std::move(scan_task_it)),
+          current_rb_it(),
+          finished(false) {}
+
+    std::shared_ptr<ScanOptions> scan_options;
+    ScanTaskIterator scan_task_it;
+    RecordBatchIterator current_rb_it;
+    bool finished;
+  };
+  struct Generator {
+    Future<std::shared_ptr<RecordBatch>> operator()() {
+      while (!state->finished) {
+        if (!state->current_rb_it) {
+          RETURN_NOT_OK(PumpScanTask());
+          if (state->finished) {
+            return AsyncGeneratorEnd<std::shared_ptr<RecordBatch>>();
+          }
+        }
+        ARROW_ASSIGN_OR_RAISE(auto next_batch, state->current_rb_it.Next());
+        if (IsIterationEnd(next_batch)) {
+          state->current_rb_it = RecordBatchIterator();
+        } else {
+          return Future<std::shared_ptr<RecordBatch>>::MakeFinished(next_batch);
+        }
+      }
+      return AsyncGeneratorEnd<std::shared_ptr<RecordBatch>>();
+    }
+    Status PumpScanTask() {
+      ARROW_ASSIGN_OR_RAISE(auto next_task, state->scan_task_it.Next());
+      if (IsIterationEnd(next_task)) {
+        state->finished = true;
+      } else {
+        ARROW_ASSIGN_OR_RAISE(state->current_rb_it, next_task->Execute());
+      }
+      return Status::OK();
+    }
+    std::shared_ptr<State> state;
+  };
+  RecordBatchGenerator generator =
+      Generator{std::make_shared<State>(scan_options, std::move(scan_task_it))};
+#ifdef ARROW_WITH_OPENTELEMETRY
+  generator = arrow::internal::tracing::WrapAsyncGenerator(
+      std::move(generator), "arrow::dataset::FileFormat::ScanBatchesAsync::Next");
+#endif
+  return generator;
 }
 
 Result<std::shared_ptr<Schema>> FileFragment::ReadPhysicalSchemaImpl() {
