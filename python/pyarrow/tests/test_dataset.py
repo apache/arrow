@@ -3621,48 +3621,6 @@ def test_write_dataset_existing_data(tempdir):
     assert not extra_file.exists()
 
 
-def test_write_dataset_max_open_files(tempdir):
-    # TODO: INCOMPLETE TEST CASE WIP
-    directory = tempdir / 'ds'
-    print("Directory : ", directory)
-    max_open_files = 2
-    import os
-    record_batch_1 = pa.record_batch(data=[[1, 2, 3, 4]], names=['c1'])
-    record_batch_2 = pa.record_batch(data=[[5, 6, 7, 8]], names=['c2'])
-    record_batch_3 = pa.record_batch(data=[[9, 10, 11, 12]], names=['c3'])
-    # record_batch_4 = pa.record_batch(data=[[13, 14, 15, 16]], names=['c3'])
-
-    consumer_gate = threading.Event()
-
-    # A filesystem that blocks all writes so that we can build
-    # up backpressure.  The writes are released at the end of
-    # the test.
-    class GatingFs(ProxyHandler):
-        def open_output_stream(self, path, metadata):
-            # Block until the end of the test
-            consumer_gate.wait()
-            return self._fs.open_output_stream(path, metadata=metadata)
-
-    gating_fs = fs.PyFileSystem(GatingFs(fs.LocalFileSystem()))
-
-    ds.write_dataset(data=record_batch_1, base_dir=directory / "part0",
-                     max_open_files=max_open_files, format="arrow",
-                     file_system=gating_fs)
-    ds.write_dataset(data=record_batch_2, base_dir=directory / "part1",
-                     max_open_files=max_open_files, format="arrow",
-                     file_system=gating_fs)
-    ds.write_dataset(data=record_batch_3, base_dir=directory / "part0",
-                     max_open_files=max_open_files, format="arrow",
-                     file_system=gating_fs)
-    ds.write_dataset(data=record_batch_3, base_dir=directory / "part2",
-                     max_open_files=max_open_files, format="arrow",
-                     file_system=gating_fs)
-
-    # First write is ok
-    print("Files in the DIR")
-    print(os.listdir(directory))
-
-
 def test_write_dataset_max_rows_per_file(tempdir):
     from pyarrow import feather
     directory = tempdir / 'ds'
