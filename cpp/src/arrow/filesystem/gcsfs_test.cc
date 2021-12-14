@@ -250,6 +250,34 @@ class GcsIntegrationTest : public ::testing::Test {
   std::string bucket_name_;
 };
 
+class TestGCSFSGeneric : public GcsIntegrationTest, public GenericFileSystemTest {
+ public:
+  void SetUp() override {
+    GcsIntegrationTest::SetUp();
+    auto bucket_name = RandomBucketName();
+    gcs_fs_ = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+    ASSERT_OK(gcs_fs_->CreateDir(bucket_name, true));
+    fs_ = std::make_shared<SubTreeFileSystem>(bucket_name, gcs_fs_);
+  }
+
+ protected:
+  std::shared_ptr<FileSystem> GetEmptyFileSystem() override { return fs_; }
+
+  bool have_implicit_directories() const override { return true; }
+  bool allow_write_file_over_dir() const override { return true; }
+  bool allow_read_dir_as_file() const override { return true; }
+  bool allow_move_dir() const override { return false; }
+  bool allow_append_to_file() const override { return false; }
+  bool have_directory_mtimes() const override { return false; }
+  bool have_flaky_directory_tree_deletion() const override { return false; }
+  bool have_file_metadata() const override { return true; }
+
+  std::shared_ptr<GcsFileSystem> gcs_fs_;
+  std::shared_ptr<FileSystem> fs_;
+};
+
+GENERIC_FS_TEST_FUNCTIONS(TestGCSFSGeneric);
+
 TEST(GcsFileSystem, OptionsCompare) {
   auto a = GcsOptions::Anonymous();
   auto b = a;
