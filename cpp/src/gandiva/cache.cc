@@ -22,7 +22,7 @@ namespace gandiva {
 
 static const size_t DEFAULT_CACHE_SIZE = 256 * 1024 * 1024;  // 256 MiB
 
-size_t GetCapacity() {
+int GetCapacity() {
   size_t capacity;
   const char* env_cache_size = std::getenv("GANDIVA_CACHE_SIZE_BYTES");
   if (env_cache_size != nullptr) {

@@ -141,7 +141,6 @@ class GANDIVA_EXPORT Projector {
   SchemaPtr schema_;
   FieldVector output_fields_;
   std::shared_ptr<Configuration> configuration_;
-  bool built_from_cache_;
 };
 
 }  // namespace gandiva

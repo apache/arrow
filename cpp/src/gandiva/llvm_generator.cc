@@ -29,7 +29,6 @@
 #include "gandiva/dex.h"
 #include "gandiva/expr_decomposer.h"
 #include "gandiva/expression.h"
-#include "gandiva/gandiva_object_cache.h"
 #include "gandiva/lvalue.h"
 
 namespace gandiva {
@@ -51,15 +50,6 @@ Status LLVMGenerator::Make(std::shared_ptr<Configuration> config,
   return Status::OK();
 }
 
-std::shared_ptr<Cache<ExpressionCacheKey, std::shared_ptr<llvm::MemoryBuffer>>>
-LLVMGenerator::GetCache() {
-  static std::shared_ptr<Cache<ExpressionCacheKey, std::shared_ptr<llvm::MemoryBuffer>>>
-      shared_cache = std::make_shared<
-          Cache<ExpressionCacheKey, std::shared_ptr<llvm::MemoryBuffer>>>();
-
-  return shared_cache;
-}
-
 Status LLVMGenerator::Add(const ExpressionPtr expr, const FieldDescriptorPtr output) {
   int idx = static_cast<int>(compiled_exprs_.size());
   // decompose the expression to separate out value and validities.
@@ -76,10 +66,6 @@ Status LLVMGenerator::Add(const ExpressionPtr expr, const FieldDescriptorPtr out
 
   compiled_exprs_.push_back(std::move(compiled_expr));
   return Status::OK();
-}
-
-void LLVMGenerator::SetLLVMObjectCache(GandivaObjectCache& object_cache) {
-  engine_->SetLLVMObjectCache(object_cache);
 }
 
 /// \brief Build the code for the expression trees for default mode with a LLVM
