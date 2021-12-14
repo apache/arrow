@@ -580,66 +580,27 @@ TEST_F(GcsIntegrationTest, CreateDirRecursiveBucketAndFolder) {
 
 TEST_F(GcsIntegrationTest, DeleteDirSuccess) {
   auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
-  const char* const kTestFolders[] = {
-      "a/", "a/0/", "a/0/0/", "a/1/", "a/2/",
-  };
-  for (auto const* f : kTestFolders) {
-    const auto folder = PreexistingBucketPath() + f;
-    ASSERT_OK(fs->CreateDir(folder, true));
-    for (int i = 0; i != 64; ++i) {
-      const auto filename = folder + "test-file-" + std::to_string(i);
-      ASSERT_OK_AND_ASSIGN(auto w, fs->OpenOutputStream(filename, {}));
-      ASSERT_OK(w->Write(filename.data(), filename.size()));
-      ASSERT_OK(w->Close());
-    }
-  }
+  ASSERT_OK_AND_ASSIGN(auto hierarchy, CreateHierarchy(fs));
 
-  ASSERT_OK(fs->DeleteDir(PreexistingBucketPath() + kTestFolders[0]));
+  ASSERT_OK(fs->DeleteDir(hierarchy.base_dir));
   arrow::fs::AssertFileInfo(fs.get(), PreexistingBucketPath(), FileType::Directory);
   arrow::fs::AssertFileInfo(fs.get(), PreexistingObjectPath(), FileType::File);
-
-  for (auto const* f : kTestFolders) {
-    const auto folder = PreexistingBucketPath() + f;
-    arrow::fs::AssertFileInfo(fs.get(), folder, FileType::NotFound);
-    for (int i = 0; i != 64; ++i) {
-      const auto filename = folder + "test-file-" + std::to_string(i);
-      arrow::fs::AssertFileInfo(fs.get(), filename, FileType::NotFound);
-    }
+  for (auto const& info : hierarchy.contents) {
+    arrow::fs::AssertFileInfo(fs.get(), info.path(), FileType::NotFound);
   }
 }
 
 TEST_F(GcsIntegrationTest, DeleteDirContentsSuccess) {
   auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
-  const char* const kTestFolders[] = {
-      "a/", "a/0/", "a/0/0/", "a/1/", "a/2/",
-  };
-  for (auto const* f : kTestFolders) {
-    const auto folder = PreexistingBucketPath() + f;
-    ASSERT_OK(fs->CreateDir(folder, true));
-    for (int i = 0; i != 64; ++i) {
-      const auto filename = folder + "test-file-" + std::to_string(i);
-      ASSERT_OK_AND_ASSIGN(auto w, fs->OpenOutputStream(filename, {}));
-      ASSERT_OK(w->Write(filename.data(), filename.size()));
-      ASSERT_OK(w->Close());
-    }
-  }
+  ASSERT_OK_AND_ASSIGN(auto hierarchy, CreateHierarchy(fs));
 
-  const auto folder = PreexistingBucketPath() + kTestFolders[0];
-  ASSERT_OK(fs->DeleteDirContents(folder));
-  arrow::fs::AssertFileInfo(fs.get(), folder, FileType::Directory);
+  ASSERT_OK(fs->DeleteDirContents(hierarchy.base_dir));
+  arrow::fs::AssertFileInfo(fs.get(), hierarchy.base_dir, FileType::Directory);
   arrow::fs::AssertFileInfo(fs.get(), PreexistingBucketPath(), FileType::Directory);
   arrow::fs::AssertFileInfo(fs.get(), PreexistingObjectPath(), FileType::File);
-
-  for (auto const* f : kTestFolders) {
-    const auto subfolder = PreexistingBucketPath() + f;
-    if (subfolder == folder) {
-      continue;
-    }
-    arrow::fs::AssertFileInfo(fs.get(), subfolder, FileType::NotFound);
-    for (int i = 0; i != 64; ++i) {
-      const auto filename = subfolder + "test-file-" + std::to_string(i);
-      arrow::fs::AssertFileInfo(fs.get(), filename, FileType::NotFound);
-    }
+  for (auto const& info : hierarchy.contents) {
+    if (info.path() == hierarchy.base_dir) continue;
+    arrow::fs::AssertFileInfo(fs.get(), info.path(), FileType::NotFound);
   }
 }
 
