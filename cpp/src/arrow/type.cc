@@ -787,6 +787,30 @@ std::vector<std::shared_ptr<Field>> StructType::GetAllFieldsByName(
   return result;
 }
 
+Result<std::shared_ptr<StructType>> StructType::AddField(
+    int i, const std::shared_ptr<Field>& field) const {
+  if (i < 0 || i > this->num_fields()) {
+    return Status::Invalid("Invalid column index to add field.");
+  }
+  return std::make_shared<StructType>(internal::AddVectorElement(children_, i, field));
+}
+
+Result<std::shared_ptr<StructType>> StructType::RemoveField(int i) const {
+  if (i < 0 || i >= this->num_fields()) {
+    return Status::Invalid("Invalid column index to remove field.");
+  }
+  return std::make_shared<StructType>(internal::DeleteVectorElement(children_, i));
+}
+
+Result<std::shared_ptr<StructType>> StructType::SetField(
+    int i, const std::shared_ptr<Field>& field) const {
+  if (i < 0 || i >= this->num_fields()) {
+    return Status::Invalid("Invalid column index to set field.");
+  }
+  return std::make_shared<StructType>(
+      internal::ReplaceVectorElement(children_, i, field));
+}
+
 Result<std::shared_ptr<DataType>> DecimalType::Make(Type::type type_id, int32_t precision,
                                                     int32_t scale) {
   if (type_id == Type::DECIMAL128) {
@@ -1520,7 +1544,7 @@ Result<std::shared_ptr<Schema>> Schema::AddField(
 Result<std::shared_ptr<Schema>> Schema::SetField(
     int i, const std::shared_ptr<Field>& field) const {
   if (i < 0 || i > this->num_fields()) {
-    return Status::Invalid("Invalid column index to add field.");
+    return Status::Invalid("Invalid column index to set field.");
   }
 
   return std::make_shared<Schema>(
