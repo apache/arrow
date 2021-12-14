@@ -388,11 +388,11 @@ def test_count_substring():
 
         result = pc.count_substring(arr, "ab")
         expected = pa.array([1, 1, 2, 0, 0, None], type=offset)
-        assert expected.equals(result)
+        assert expected == result
 
         result = pc.count_substring(arr, "ab", ignore_case=True)
         expected = pa.array([1, 1, 2, 0, 1, None], type=offset)
-        assert expected.equals(result)
+        assert expected == result
 
 
 def test_count_substring_regex():
@@ -487,6 +487,10 @@ def test_trim():
     result = pc.utf8_trim(arr, characters=' f\u3000')
     expected = pa.array(["oo", None, "oo bar \t"])
     assert expected.equals(result)
+    # Positional option
+    result = pc.utf8_trim(arr, ' f\u3000')
+    expected = pa.array(["oo", None, "oo bar \t"])
+    assert expected.equals(result)
 
 
 def test_slice_compatibility():
@@ -499,6 +503,9 @@ def test_slice_compatibility():
                 result = pc.utf8_slice_codeunits(
                     arr, start=start, stop=stop, step=step)
                 assert expected.equals(result)
+                # Positional options
+                assert pc.utf8_slice_codeunits(arr,
+                                               start, stop, step) == result
 
 
 def test_split_pattern():
@@ -507,11 +514,11 @@ def test_split_pattern():
     expected = pa.array([["-foo", "bar--"], ["", "foo", "b"]])
     assert expected.equals(result)
 
-    result = pc.split_pattern(arr, pattern="---", max_splits=1)
+    result = pc.split_pattern(arr, "---", max_splits=1)
     expected = pa.array([["-foo", "bar--"], ["", "foo---b"]])
     assert expected.equals(result)
 
-    result = pc.split_pattern(arr, pattern="---", max_splits=1, reverse=True)
+    result = pc.split_pattern(arr, "---", max_splits=1, reverse=True)
     expected = pa.array([["-foo", "bar--"], ["---foo", "b"]])
     assert expected.equals(result)
 
@@ -552,7 +559,7 @@ def test_split_pattern_regex():
     expected = pa.array([["", "foo", "bar", ""], ["", "foo", "b"]])
     assert expected.equals(result)
 
-    result = pc.split_pattern_regex(arr, pattern="-+", max_splits=1)
+    result = pc.split_pattern_regex(arr, "-+", max_splits=1)
     expected = pa.array([["", "foo---bar--"], ["", "foo---b"]])
     assert expected.equals(result)
 
@@ -662,16 +669,16 @@ def test_generated_docstrings():
         ----------
         array : Array-like
             Argument to compute function
-        memory_pool : pyarrow.MemoryPool, optional
-            If not passed, will allocate memory from the default memory pool.
-        options : pyarrow.compute.ScalarAggregateOptions, optional
-            Parameters altering compute function semantics.
         skip_nulls : optional
             Parameter for ScalarAggregateOptions constructor. Either `options`
             or `skip_nulls` can be passed, but not both at the same time.
         min_count : optional
             Parameter for ScalarAggregateOptions constructor. Either `options`
             or `min_count` can be passed, but not both at the same time.
+        options : pyarrow.compute.ScalarAggregateOptions, optional
+            Parameters altering compute function semantics.
+        memory_pool : pyarrow.MemoryPool, optional
+            If not passed, will allocate memory from the default memory pool.
         """)
     assert pc.add.__doc__ == textwrap.dedent("""\
         Add the arguments element-wise.
@@ -697,15 +704,16 @@ def test_generated_signatures():
     sig = inspect.signature(pc.add)
     assert str(sig) == "(x, y, /, *, memory_pool=None)"
     sig = inspect.signature(pc.min_max)
-    assert str(sig) == ("(array, /, *, memory_pool=None, "
-                        "options=None, skip_nulls=True, min_count=1)")
+    assert str(sig) == ("(array, /, *, skip_nulls=True, min_count=1, "
+                        "options=None, memory_pool=None)")
     sig = inspect.signature(pc.quantile)
-    assert str(sig) == ("(array, /, *, memory_pool=None, "
-                        "options=None, q=0.5, interpolation='linear', "
-                        "skip_nulls=True, min_count=0)")
+    assert str(sig) == ("(array, /, q=0.5, *, interpolation='linear', "
+                        "skip_nulls=True, min_count=0, "
+                        "options=None, memory_pool=None)")
     sig = inspect.signature(pc.binary_join_element_wise)
-    assert str(sig) == ("(*strings, memory_pool=None, options=None, "
-                        "null_handling='emit_null', null_replacement='')")
+    assert str(sig) == ("(*strings, null_handling='emit_null', "
+                        "null_replacement='', options=None, "
+                        "memory_pool=None)")
 
 
 # We use isprintable to find about codepoints that Python doesn't know, but
@@ -840,11 +848,17 @@ def test_pad():
     assert pc.ascii_center(arr, width=3).tolist() == [None, ' a ', 'abcd']
     assert pc.ascii_lpad(arr, width=3).tolist() == [None, '  a', 'abcd']
     assert pc.ascii_rpad(arr, width=3).tolist() == [None, 'a  ', 'abcd']
+    assert pc.ascii_center(arr, 3).tolist() == [None, ' a ', 'abcd']
+    assert pc.ascii_lpad(arr, 3).tolist() == [None, '  a', 'abcd']
+    assert pc.ascii_rpad(arr, 3).tolist() == [None, 'a  ', 'abcd']
 
     arr = pa.array([None, 'á', 'abcd'])
     assert pc.utf8_center(arr, width=3).tolist() == [None, ' á ', 'abcd']
     assert pc.utf8_lpad(arr, width=3).tolist() == [None, '  á', 'abcd']
     assert pc.utf8_rpad(arr, width=3).tolist() == [None, 'á  ', 'abcd']
+    assert pc.utf8_center(arr, 3).tolist() == [None, ' á ', 'abcd']
+    assert pc.utf8_lpad(arr, 3).tolist() == [None, '  á', 'abcd']
+    assert pc.utf8_rpad(arr, 3).tolist() == [None, 'á  ', 'abcd']
 
 
 @pytest.mark.pandas
@@ -859,6 +873,8 @@ def test_replace_slice():
             actual = pc.binary_replace_slice(
                 arr, start=start, stop=stop, replacement='XX')
             assert actual.tolist() == expected.tolist()
+            # Positional options
+            assert pc.binary_replace_slice(arr, start, stop, 'XX') == actual
 
     arr = pa.array([None, '', 'π', 'πb', 'πbθ', 'πbθd', 'πbθde'])
     series = arr.to_pandas()
@@ -871,22 +887,37 @@ def test_replace_slice():
 
 
 def test_replace_plain():
-    ar = pa.array(['foo', 'food', None])
-    ar = pc.replace_substring(ar, pattern='foo', replacement='bar')
-    assert ar.tolist() == ['bar', 'bard', None]
+    data = pa.array(['foozfoo', 'food', None])
+    ar = pc.replace_substring(data, pattern='foo', replacement='bar')
+    assert ar.tolist() == ['barzbar', 'bard', None]
+    ar = pc.replace_substring(data, 'foo', 'bar')
+    assert ar.tolist() == ['barzbar', 'bard', None]
+
+    ar = pc.replace_substring(data, pattern='foo', replacement='bar',
+                              max_replacements=1)
+    assert ar.tolist() == ['barzfoo', 'bard', None]
+    ar = pc.replace_substring(data, 'foo', 'bar', max_replacements=1)
+    assert ar.tolist() == ['barzfoo', 'bard', None]
 
 
 def test_replace_regex():
-    ar = pa.array(['foo', 'mood', None])
-    ar = pc.replace_substring_regex(ar, pattern='(.)oo', replacement=r'\100')
-    assert ar.tolist() == ['f00', 'm00d', None]
+    data = pa.array(['foo', 'mood', None])
+    expected = ['f00', 'm00d', None]
+    ar = pc.replace_substring_regex(data, pattern='(.)oo', replacement=r'\100')
+    assert ar.tolist() == expected
+    ar = pc.replace_substring_regex(data, '(.)oo', replacement=r'\100')
+    assert ar.tolist() == expected
+    ar = pc.replace_substring_regex(data, '(.)oo', r'\100')
+    assert ar.tolist() == expected
 
 
 def test_extract_regex():
     ar = pa.array(['a1', 'zb2z'])
+    expected = [{'letter': 'a', 'digit': '1'}, {'letter': 'b', 'digit': '2'}]
     struct = pc.extract_regex(ar, pattern=r'(?P<letter>[ab])(?P<digit>\d)')
-    assert struct.tolist() == [{'letter': 'a', 'digit': '1'}, {
-        'letter': 'b', 'digit': '2'}]
+    assert struct.tolist() == expected
+    struct = pc.extract_regex(ar, r'(?P<letter>[ab])(?P<digit>\d)')
+    assert struct.tolist() == expected
 
 
 def test_binary_join():
@@ -1406,6 +1437,9 @@ def test_round():
         options = pc.RoundOptions(ndigits, "half_towards_infinity")
         result = pc.round(values, options=options)
         np.testing.assert_allclose(result, pa.array(expected), equal_nan=True)
+        assert pc.round(values, ndigits,
+                        round_mode="half_towards_infinity") == result
+        assert pc.round(values, ndigits, "half_towards_infinity") == result
 
 
 def test_round_to_multiple():
@@ -1421,6 +1455,8 @@ def test_round_to_multiple():
         options = pc.RoundToMultipleOptions(multiple, "half_towards_infinity")
         result = pc.round_to_multiple(values, options=options)
         np.testing.assert_allclose(result, pa.array(expected), equal_nan=True)
+        assert pc.round_to_multiple(values, multiple,
+                                    "half_towards_infinity") == result
 
     with pytest.raises(pa.ArrowInvalid, match="multiple must be positive"):
         pc.round_to_multiple(values, multiple=-2)
@@ -1574,6 +1610,8 @@ def test_strptime():
     expected = pa.array([datetime(2020, 5, 1), None, datetime(1900, 12, 13)],
                         type=pa.timestamp('s'))
     assert got == expected
+    # Positional format
+    assert pc.strptime(arr, '%m/%d/%Y', unit='s') == got
 
 
 # TODO: We should test on windows once ARROW-13168 is resolved.
@@ -1647,6 +1685,8 @@ def test_strftime():
     tsa = pa.array(ts, type=pa.timestamp("s"))
     result = pc.strftime(tsa, options=pc.StrftimeOptions(fmt))
     expected = pa.array(_fix_timestamp(ts.strftime(fmt)))
+    # Positional format
+    assert pc.strftime(tsa, fmt) == result
 
     assert result.equals(expected)
     with pytest.raises(pa.ArrowInvalid,
@@ -1789,6 +1829,8 @@ def test_assume_timezone():
         expected = timestamps.tz_localize(timezone)
         result = pc.assume_timezone(ta, options=options)
         assert result.equals(pa.array(expected))
+        result = pc.assume_timezone(ta, timezone)  # Positional option
+        assert result.equals(pa.array(expected))
 
         ta_zoned = pa.array(timestamps, type=pa.timestamp("ns", timezone))
         with pytest.raises(pa.ArrowInvalid, match="already have a timezone:"):
@@ -1854,6 +1896,11 @@ def test_count():
     assert pc.count(arr, mode='only_valid').as_py() == 3
     assert pc.count(arr, mode='only_null').as_py() == 2
     assert pc.count(arr, mode='all').as_py() == 5
+    assert pc.count(arr, 'all').as_py() == 5
+
+    with pytest.raises(ValueError,
+                       match='"something else" is not a valid count mode'):
+        pc.count(arr, 'something else')
 
 
 def test_index():
@@ -1897,6 +1944,8 @@ def test_partition_nth():
     pivot = 10
     indices = pc.partition_nth_indices(data, pivot=pivot)
     check_partition_nth(data, indices, pivot, "at_end")
+    # Positional pivot argument
+    assert pc.partition_nth_indices(data, pivot) == indices
 
 
 def test_partition_nth_null_placement():
@@ -1944,6 +1993,11 @@ def test_select_k_array():
         arr, options=pc.SelectKOptions(k=2, sort_keys=[("dummy", "ascending")])
     )
     validate_select_k(result, arr, "ascending")
+
+    # Position options
+    assert pc.select_k_unstable(arr, 2,
+                                sort_keys=[("dummy", "ascending")]) == result
+    assert pc.select_k_unstable(arr, 2, [("dummy", "ascending")]) == result
 
 
 def test_select_k_table():
@@ -2003,6 +2057,9 @@ def test_array_sort_indices():
     result = pc.array_sort_indices(arr, order="descending",
                                    null_placement="at_start")
     assert result.to_pylist() == [2, 1, 0, 3]
+    result = pc.array_sort_indices(arr, "descending",
+                                   null_placement="at_start")
+    assert result.to_pylist() == [2, 1, 0, 3]
 
     with pytest.raises(ValueError, match="not a valid sort order"):
         pc.array_sort_indices(arr, order="nonscending")
@@ -2017,6 +2074,10 @@ def test_sort_indices_array():
     result = pc.sort_indices(arr, sort_keys=[("dummy", "descending")])
     assert result.to_pylist() == [1, 0, 3, 2]
     result = pc.sort_indices(arr, sort_keys=[("dummy", "descending")],
+                             null_placement="at_start")
+    assert result.to_pylist() == [2, 1, 0, 3]
+    # Positional `sort_keys`
+    result = pc.sort_indices(arr, [("dummy", "descending")],
                              null_placement="at_start")
     assert result.to_pylist() == [2, 1, 0, 3]
     # Using SortOptions
@@ -2046,6 +2107,12 @@ def test_sort_indices_table():
     assert result.to_pylist() == [1, 0, 3, 2]
     result = pc.sort_indices(
         table, sort_keys=[("a", "descending"), ("b", "ascending")],
+        null_placement="at_start"
+    )
+    assert result.to_pylist() == [2, 1, 0, 3]
+    # Positional `sort_keys`
+    result = pc.sort_indices(
+        table, [("a", "descending"), ("b", "ascending")],
         null_placement="at_start"
     )
     assert result.to_pylist() == [2, 1, 0, 3]
@@ -2092,6 +2159,10 @@ def test_index_in():
     result = pc.index_in(arr, value_set=pa.array([1, 3]), skip_nulls=True)
     assert result.to_pylist() == [0, None, None, 0, None, 1]
 
+    # Positional value_set
+    result = pc.index_in(arr, pa.array([1, 3]), skip_nulls=True)
+    assert result.to_pylist() == [0, None, None, 0, None, 1]
+
 
 def test_quantile():
     arr = pa.array([1, 2, 3, 4])
@@ -2126,6 +2197,10 @@ def test_quantile():
     result = pc.quantile(arr, q=[0.25, 0.5, 0.75], interpolation='linear')
     assert result.to_pylist() == [1.25, 1.5, 1.75]
 
+    # Positional `q`
+    result = pc.quantile(arr, [0.25, 0.5, 0.75], interpolation='linear')
+    assert result.to_pylist() == [1.25, 1.5, 1.75]
+
     with pytest.raises(ValueError, match="Quantile must be between 0 and 1"):
         pc.quantile(arr, q=1.1)
     with pytest.raises(ValueError, match="not a valid quantile interpolation"):
@@ -2146,7 +2221,7 @@ def test_tdigest():
     assert result.to_pylist() == [1, 2.5, 4]
 
     arr = pa.chunked_array([pa.array([1, 2]), pa.array([3, 4])])
-    result = pc.tdigest(arr, q=[0, 0.5, 1])
+    result = pc.tdigest(arr, [0, 0.5, 1])  # positional `q`
     assert result.to_pylist() == [1, 2.5, 4]
 
 
@@ -2218,9 +2293,9 @@ def test_struct_fields_options():
 
     assert pc.struct_field(arr,
                            indices=[1, 1]) == pa.array(["bar", None, ""])
-    assert pc.struct_field(arr,
-                           indices=[0]) == pa.array([4, 5, 6], type=pa.int64())
-    assert pc.struct_field(arr, indices=[]) == arr
+    assert pc.struct_field(arr, [1, 1]) == pa.array(["bar", None, ""])
+    assert pc.struct_field(arr, [0]) == pa.array([4, 5, 6], type=pa.int64())
+    assert pc.struct_field(arr, []) == arr
 
     with pytest.raises(TypeError, match="an integer is required"):
         pc.struct_field(arr, indices=['a'])
@@ -2258,9 +2333,7 @@ def test_count_distinct():
     seed = datetime.now()
     samples = [seed.replace(year=y) for y in range(1992, 2092)]
     arr = pa.array(samples, pa.timestamp("ns"))
-    result = pa.compute.count_distinct(arr)
-    expected = pa.scalar(len(samples), type=pa.int64())
-    assert result.equals(expected)
+    assert pc.count_distinct(arr) == pa.scalar(len(samples), type=pa.int64())
 
 
 def test_count_distinct_options():
@@ -2269,12 +2342,15 @@ def test_count_distinct_options():
     assert pc.count_distinct(arr, mode='only_valid').as_py() == 3
     assert pc.count_distinct(arr, mode='only_null').as_py() == 1
     assert pc.count_distinct(arr, mode='all').as_py() == 4
+    assert pc.count_distinct(arr, 'all').as_py() == 4
 
 
 def test_utf8_normalize():
     arr = pa.array(["01²3"])
     assert pc.utf8_normalize(arr, form="NFC") == arr
     assert pc.utf8_normalize(arr, form="NFKC") == pa.array(["0123"])
+    assert pc.utf8_normalize(arr, "NFD") == arr
+    assert pc.utf8_normalize(arr, "NFKD") == pa.array(["0123"])
     with pytest.raises(
             ValueError,
             match='"NFZ" is not a valid Unicode normalization form'):
