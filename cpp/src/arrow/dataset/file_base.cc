@@ -41,6 +41,7 @@
 #include "arrow/util/map.h"
 #include "arrow/util/string.h"
 #include "arrow/util/task_group.h"
+#include "arrow/util/tracing_internal.h"
 #include "arrow/util/variant.h"
 
 namespace arrow {
@@ -159,7 +160,13 @@ Result<RecordBatchGenerator> FileFormat::ScanBatchesAsync(
     }
     std::shared_ptr<State> state;
   };
-  return Generator{std::make_shared<State>(scan_options, std::move(scan_task_it))};
+  RecordBatchGenerator generator =
+      Generator{std::make_shared<State>(scan_options, std::move(scan_task_it))};
+#ifdef ARROW_WITH_OPENTELEMETRY
+  generator = arrow::internal::tracing::WrapAsyncGenerator(
+      std::move(generator), "arrow::dataset::FileFormat::ScanBatchesAsync::Next");
+#endif
+  return generator;
 }
 
 Result<std::shared_ptr<Schema>> FileFragment::ReadPhysicalSchemaImpl() {
