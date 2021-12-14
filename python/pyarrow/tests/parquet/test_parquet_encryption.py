@@ -456,40 +456,6 @@ def test_encrypted_parquet_kms_configuration():
 
 
 @pytest.mark.parquet
-def test_encrypted_parquet_write_read_uniform_ctr(tempdir, data_table):
-    """Write an encrypted parquet, with uniform encryption
-    and GCM_CTR encryption algorithm,
-    verify it's encrypted, and then read it."""
-    path = tempdir / PARQUET_NAME
-
-    # Encrypt the file with the footer key
-    encryption_config = pq.EncryptionConfiguration(
-        footer_key=FOOTER_KEY_NAME,
-        column_keys={},
-        uniform_encryption=True,
-        encryption_algorithm="AES_GCM_CTR_V1")
-
-    kms_connection_config = pq.KmsConnectionConfig(
-        custom_kms_conf={FOOTER_KEY_NAME: FOOTER_KEY.decode("UTF-8")}
-    )
-
-    def kms_factory(kms_connection_configuration):
-        return InMemoryKmsClient(kms_connection_configuration)
-
-    crypto_factory = pq.CryptoFactory(kms_factory)
-    # Write with encryption properties
-    write_encrypted_parquet(path, data_table, encryption_config,
-                            kms_connection_config, crypto_factory)
-    verify_file_encrypted(path)
-
-    # Read with decryption properties
-    decryption_config = pq.DecryptionConfiguration()
-    result_table = read_encrypted_parquet(
-        path, decryption_config, kms_connection_config, crypto_factory)
-    assert data_table.equals(result_table)
-
-
-@pytest.mark.parquet
 @pytest.mark.xfail(reason="Plaintext footer - reading plaintext column subset"
                    " reads encrypted columns too")
 def test_encrypted_parquet_write_read_plain_footer_single_wrapping(
@@ -544,7 +510,6 @@ def test_encrypted_parquet_write_external(tempdir, data_table):
     encryption_config = pq.EncryptionConfiguration(
         footer_key=FOOTER_KEY_NAME,
         column_keys={},
-        uniform_encryption=True,
         internal_key_material=False)
 
     kms_connection_config = pq.KmsConnectionConfig(

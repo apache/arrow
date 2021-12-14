@@ -710,8 +710,6 @@ encryption properties) includes the following options:
 
 * ``footer_key``, ID of the master key for footer encryption/signing.
 * ``column_keys``, list of columns to encrypt, with master key IDs.
-* ``uniform_encryption``, whether to encrypt the footer and all columns with the same
-  encryption key.
 * ``encryption_algorithm``, the Parquet encryption algorithm.
   Can be ``AES_GCM_V1`` (default), or ``AES_GCM_CTR_V1``.
 * ``plaintext_footer``, whether to write the file footer in plain text (otherwise it is encrypted).
