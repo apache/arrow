@@ -3625,6 +3625,7 @@ def test_write_dataset_max_rows_per_file(tempdir):
     from pyarrow import feather
     directory = tempdir / 'ds'
     max_rows_per_file = 10
+    max_rows_per_group = 10
     num_of_columns = 2
     records_per_row = 35
 
@@ -3643,7 +3644,8 @@ def test_write_dataset_max_rows_per_file(tempdir):
     record_batch_1 = pa.record_batch(data=data, names=column_names)
 
     ds.write_dataset(record_batch_1, directory, format="arrow",
-                     max_rows_per_file=max_rows_per_file)
+                     max_rows_per_file=max_rows_per_file,
+                     max_rows_per_group=max_rows_per_group)
 
     files_in_dir = os.listdir(directory)
 
@@ -3665,6 +3667,72 @@ def test_write_dataset_max_rows_per_file(tempdir):
 
     # test whether the generated files have the expected number of rows
     assert expected_row_combination == result_row_combination
+
+
+def test_write_dataset_max_open_files(tempdir):
+    # TODO: INCOMPLETE TEST CASE WIP
+    directory = tempdir / 'ds'
+    print("Directory : ", directory)
+    
+    record_batch_1 = pa.record_batch(data=[[1, 2, 3, 4, 0], 
+                                     ['a', 'b', 'c', 'd', 'e']], 
+                                     names=['c1', 'c2'])
+    record_batch_2 = pa.record_batch(data=[[5, 6, 7, 8, 0], 
+                                     ['a', 'b', 'c', 'd', 'e']], 
+                                     names=['c1', 'c2'])
+    record_batch_3 = pa.record_batch(data=[[9, 10, 11, 12, 0], 
+                                     ['a', 'b', 'c', 'd', 'e']], 
+                                     names=['c1', 'c2'])
+    record_batch_4 = pa.record_batch(data=[[13, 14, 15, 16, 0], 
+                                     ['a', 'b', 'c', 'd', 'e']], 
+                                     names=['c1', 'c2'])
+
+    table = pa.Table.from_batches([record_batch_1, record_batch_2, 
+                      record_batch_3, record_batch_4])
+
+    partitioning = ds.partitioning(
+        pa.schema([("c2", pa.string())]), flavor="hive")
+
+    data_source_1 = directory / "default"
+
+    ds.write_dataset(data=table, base_dir=data_source_1, 
+                     partitioning=partitioning, format="parquet")
+    
+    def get_num_of_files_generated(base_directory):
+        file_dirs = os.listdir(base_directory)
+        number_of_files = 0
+        for _, file_dir in enumerate(file_dirs):
+            sub_dir_path = base_directory / file_dir
+            number_of_files += len(os.listdir(sub_dir_path))
+        return number_of_files
+
+    def get_compare_pair(data_source, record_batch):
+        num_of_files_generated = get_num_of_files_generated(base_directory=data_source)
+        number_of_unique_rows = len(pa.compute.unique(record_batch[0]))
+        return num_of_files_generated, number_of_unique_rows
+
+    # CASE 1: when max_open_files=default & max_open_files >= number of partitions
+    #         the number of unique rows must be equal to 
+    #         the number of files generated
+    num_of_files_generated, number_of_unique_rows \
+                            = get_compare_pair(data_source_1, record_batch_1)
+    assert num_of_files_generated == number_of_unique_rows
+
+    # CASE 2: when max_open_files > 0 & max_open_files < number of partitions
+    #         the number of unique rows must be equal to 
+    #         the number of files generated
+
+    data_source_2 = directory / "max_1"
+
+    max_open_files = 3
+
+    ds.write_dataset(data=table, base_dir=data_source_2, 
+                     partitioning=partitioning, format="parquet", 
+                     max_open_files=max_open_files)
+
+    num_of_files_generated, number_of_unique_rows \
+                            = get_compare_pair(data_source_2, record_batch_1)
+    assert num_of_files_generated > number_of_unique_rows
 
 
 @pytest.mark.parquet
