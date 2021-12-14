@@ -886,7 +886,7 @@ class Converter_Time : public Converter {
   }
 };
 
-template <typename value_type, typename unit_type = TimeType>
+template <typename value_type, typename unit_type = DurationType>
 class Converter_Duration : public Converter {
  public:
   explicit Converter_Duration(const std::shared_ptr<ChunkedArray>& chunked_array)
