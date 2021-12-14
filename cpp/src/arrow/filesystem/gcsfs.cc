@@ -295,6 +295,45 @@ class GcsFileSystem::Impl {
         path.object.back() == '/' ? FileType::Directory : FileType::File);
   }
 
+  Result<FileInfoVector> GetFileInfo(const FileSelector& select) {
+    ARROW_ASSIGN_OR_RAISE(auto p, GcsPath::FromString(select.base_dir));
+    auto prefix = p.object.empty() ? gcs::Prefix() : gcs::Prefix(p.object);
+    auto delimiter = select.recursive ? gcs::Delimiter() : gcs::Delimiter("/");
+    bool found_directory = false;
+    FileInfoVector result;
+    for (auto const& o : client_.ListObjects(p.bucket, prefix, delimiter)) {
+      if (!o.ok()) {
+        if (select.allow_not_found &&
+            o.status().code() == google::cloud::StatusCode::kNotFound) {
+          continue;
+        }
+        return internal::ToArrowStatus(o.status());
+      }
+      found_directory = true;
+      // Skip the directory itself from the results
+      if (o->name() == p.object) {
+        continue;
+      }
+      auto path = internal::ConcatAbstractPath(o->bucket(), o->name());
+      if (o->name().back() == '/') {
+        result.push_back(
+            FileInfo(internal::EnsureTrailingSlash(path), FileType::Directory));
+        continue;
+      }
+      auto info = FileInfo(path, FileType::File);
+      info.set_size(static_cast<int64_t>(o->size()));
+      // An object has multiple "time" attributes, including the time when its data was
+      // created, and the time when its metadata was last updated. We use the object
+      // creation time because the data for an object cannot be changed once created.
+      info.set_mtime(o->time_created());
+      result.push_back(std::move(info));
+    }
+    if (!found_directory && !select.allow_not_found) {
+      return Status::IOError("No such file or directory '", select.base_dir, "'");
+    }
+    return result;
+  }
+
   // GCS does not have directories or folders. But folders can be emulated (with some
   // limitations) using marker objects.  That and listing with prefixes creates the
   // illusion of folders.
@@ -528,7 +567,7 @@ Result<FileInfo> GcsFileSystem::GetFileInfo(const std::string& path) {
 }
 
 Result<FileInfoVector> GcsFileSystem::GetFileInfo(const FileSelector& select) {
-  return Status::NotImplemented("The GCS FileSystem is not fully implemented");
+  return impl_->GetFileInfo(select);
 }
 
 Status GcsFileSystem::CreateDir(const std::string& path, bool recursive) {

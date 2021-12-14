@@ -39,6 +39,11 @@
 
 namespace arrow {
 namespace fs {
+/// Custom comparison for FileInfo, we need this to use complex googletest matchers.
+inline bool operator==(const FileInfo& a, const FileInfo& b) {
+  return a.path() == b.path() && a.type() == b.type();
+}
+
 namespace {
 
 namespace bp = boost::process;
@@ -51,6 +56,7 @@ using ::testing::Not;
 using ::testing::NotNull;
 using ::testing::Pair;
 using ::testing::UnorderedElementsAre;
+using ::testing::UnorderedElementsAreArray;
 
 auto const* kLoremIpsum = R"""(
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor
@@ -93,7 +99,7 @@ class GcsTestbench : public ::testing::Environment {
     error_ = std::move(error);
   }
 
-  ~GcsTestbench() {
+  ~GcsTestbench() override {
     // Brutal shutdown, kill the full process group because the GCS testbench may launch
     // additional children.
     group_.terminate();
@@ -185,6 +191,29 @@ class GcsIntegrationTest : public ::testing::Test {
   std::string RandomBucketName() { return RandomChars(32); }
 
   std::string RandomFolderName() { return RandomChars(32) + "/"; }
+
+  struct Hierarchy {
+    std::string base_dir;
+    std::vector<FileInfo> contents;
+  };
+
+  Result<Hierarchy> CreateHierarchy(std::shared_ptr<arrow::fs::FileSystem> fs) {
+    const char* const kTestFolders[] = {
+        "a/", "a/0/", "a/0/0/", "a/1/", "a/2/",
+    };
+    auto result = Hierarchy{PreexistingBucketPath() + "a/", {}};
+    for (auto const* f : kTestFolders) {
+      const auto folder = PreexistingBucketPath() + f;
+      RETURN_NOT_OK(fs->CreateDir(folder, true));
+      result.contents.push_back(arrow::fs::Dir(folder));
+      for (int i = 0; i != 64; ++i) {
+        const auto filename = folder + "test-file-" + std::to_string(i);
+        CreateFile(fs.get(), filename, filename);
+        result.contents.push_back(arrow::fs::File(filename));
+      }
+    }
+    return result;
+  }
 
  private:
   std::string RandomChars(std::size_t count) {
@@ -443,6 +472,63 @@ TEST_F(GcsIntegrationTest, GetFileInfoBucket) {
 TEST_F(GcsIntegrationTest, GetFileInfoObject) {
   auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
   arrow::fs::AssertFileInfo(fs.get(), PreexistingObjectPath(), FileType::File);
+}
+
+TEST_F(GcsIntegrationTest, GetFileInfoSelectorRecursive) {
+  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+  ASSERT_OK_AND_ASSIGN(auto hierarchy, CreateHierarchy(fs));
+  std::vector<arrow::fs::FileInfo> expected;
+  std::copy_if(
+      hierarchy.contents.begin(), hierarchy.contents.end(), std::back_inserter(expected),
+      [&](const arrow::fs::FileInfo& info) { return hierarchy.base_dir != info.path(); });
+
+  auto selector = FileSelector();
+  selector.base_dir = hierarchy.base_dir;
+  selector.allow_not_found = false;
+  selector.recursive = true;
+  ASSERT_OK_AND_ASSIGN(auto results, fs->GetFileInfo(selector));
+  EXPECT_THAT(results, UnorderedElementsAreArray(expected.begin(), expected.end()));
+}
+
+TEST_F(GcsIntegrationTest, GetFileInfoSelectorNonRecursive) {
+  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+  ASSERT_OK_AND_ASSIGN(auto hierarchy, CreateHierarchy(fs));
+  std::vector<arrow::fs::FileInfo> expected;
+  std::copy_if(hierarchy.contents.begin(), hierarchy.contents.end(),
+               std::back_inserter(expected), [&](const arrow::fs::FileInfo& info) {
+                 if (info.path() == hierarchy.base_dir) return false;
+                 return internal::EnsureTrailingSlash(
+                            internal::GetAbstractPathParent(info.path()).first) ==
+                        hierarchy.base_dir;
+               });
+
+  auto selector = FileSelector();
+  selector.base_dir = hierarchy.base_dir;
+  selector.allow_not_found = false;
+  selector.recursive = false;
+  ASSERT_OK_AND_ASSIGN(auto results, fs->GetFileInfo(selector));
+  EXPECT_THAT(results, UnorderedElementsAreArray(expected.begin(), expected.end()));
+}
+
+TEST_F(GcsIntegrationTest, GetFileInfoSelectorNotFoundTrue) {
+  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+
+  auto selector = FileSelector();
+  selector.base_dir = NotFoundObjectPath() + "/";
+  selector.allow_not_found = true;
+  selector.recursive = true;
+  ASSERT_OK_AND_ASSIGN(auto results, fs->GetFileInfo(selector));
+  EXPECT_THAT(results, IsEmpty());
+}
+
+TEST_F(GcsIntegrationTest, GetFileInfoSelectorNotFoundFalse) {
+  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+
+  auto selector = FileSelector();
+  selector.base_dir = NotFoundObjectPath() + "/";
+  selector.allow_not_found = false;
+  selector.recursive = false;
+  ASSERT_RAISES(IOError, fs->GetFileInfo(selector));
 }
 
 TEST_F(GcsIntegrationTest, CreateDirSuccessBucketOnly) {
