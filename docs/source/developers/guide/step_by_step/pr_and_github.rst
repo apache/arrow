@@ -129,7 +129,7 @@ Reviews and merge of the pull request
 =====================================
 
 When the pull request is submitted it waits to get reviewed. One of
-great things about Open Source is your work gets lots of feedback and
+great things about open source is that your work can get lots of feedback and
 so it gets perfected. Do not be discouraged by the time it takes for
 the PR to get merged due to reviews and corrections. It is a process
 that supports quality and with it you can learn a lot.
@@ -182,7 +182,7 @@ You need to update your code locally, make a commit, update the branch to sync
 it with upstream and push your code to origin. It will automatically be updated
 in your pull request as well.
 
-The steps of the updating the pull request would then be as follows:
+The steps for updating the pull request would then be as follows:
 
 1. Updating the code locally and making a commit as before:
 
