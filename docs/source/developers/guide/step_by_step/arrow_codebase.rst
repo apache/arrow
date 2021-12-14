@@ -65,12 +65,18 @@ connected to that language. For example:
 
 Other subdirectories included in the arrow repository are:
 
-- ``ci/`` contains code connected to the continuous integration work.
+- ``ci/`` contains scripts used by the various continuous
+  integration (CI) jobs.
 - ``dev/`` contains scripts useful to developers when packaging,
-  testing, or committing to Arrow.
+  testing, or committing to Arrow, as well as definitions for
+  on-demand continuous integration (CI) tasks.
+- ``.github/`` contains workflows run on GitHub continuous
+  integration (CI), triggered by certain actions such as opening a PR.
 - ``docs/`` contains most of the documentation. Read more on
   :ref:`documentation`.
-- ``format/`` contains the Arrow Protocol files.
+- ``format/`` contains binary protocol definitions for the
+  Arrow columnar format and other parts of the project,
+  like the Flight RPC framework.
 
 Other files included in Arrow are connected to either GitHub,
 CI builds or Docker.
