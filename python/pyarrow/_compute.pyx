@@ -1363,9 +1363,9 @@ cdef class Expression(_Weakrefable):
 
     To create an expression:
 
-    - Use the factory function ``pyarrow.dataset.scalar()`` to create a
+    - Use the factory function ``pyarrow.compute.scalar()`` to create a
       scalar (not necessary when combined, see example below).
-    - Use the factory function ``pyarrow.dataset.field()`` to reference
+    - Use the factory function ``pyarrow.compute.field()`` to reference
       a field (column in table).
     - Compare fields and scalars with ``<``, ``<=``, ``==``, ``>=``, ``>``.
     - Combine expressions using python operators ``&`` (logical and),
@@ -1373,18 +1373,18 @@ cdef class Expression(_Weakrefable):
       Note: python keywords ``and``, ``or`` and ``not`` cannot be used
       to combine expressions.
     - Check whether the expression is contained in a list of values with
-      the ``pyarrow.dataset.Expression.isin()`` member function.
+      the ``pyarrow.compute.Expression.isin()`` member function.
 
     Examples
     --------
 
-    >>> import pyarrow.dataset as ds
-    >>> (ds.field("a") < ds.scalar(3)) | (ds.field("b") > 7)
-    <pyarrow.dataset.Expression ((a < 3:int64) or (b > 7:int64))>
+    >>> import pyarrow.compute as pc
+    >>> (pc.field("a") < pc.scalar(3)) | (pc.field("b") > 7)
+    <pyarrow.compute.Expression ((a < 3:int64) or (b > 7:int64))>
     >>> ds.field('a') != 3
-    <pyarrow.dataset.Expression (a != 3)>
+    <pyarrow.compute.Expression (a != 3)>
     >>> ds.field('a').isin([1, 2, 3])
-    <pyarrow.dataset.Expression (a is in [
+    <pyarrow.compute.Expression (a is in [
       1,
       2,
       3
@@ -1414,7 +1414,7 @@ cdef class Expression(_Weakrefable):
         return frombytes(self.expr.ToString())
 
     def __repr__(self):
-        return "<pyarrow.dataset.{0} {1}>".format(
+        return "<pyarrow.compute.{0} {1}>".format(
             self.__class__.__name__, str(self)
         )
 

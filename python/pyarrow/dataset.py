@@ -46,7 +46,8 @@ from pyarrow._dataset import (  # noqa
     _get_partition_keys,
     _filesystemdataset_write,
 )
-from pyarrow.compute import Expression
+# keep Expression functionality exposed here for backwards compatibility
+from pyarrow.compute import Expression, scalar, field  # noqa
 
 
 _orc_available = False
@@ -93,40 +94,6 @@ def __getattr__(name):
     raise AttributeError(
         "module 'pyarrow.dataset' has no attribute '{0}'".format(name)
     )
-
-
-def field(name):
-    """Reference a named column of the dataset.
-
-    Stores only the field's name. Type and other information is known only when
-    the expression is bound to a dataset having an explicit scheme.
-
-    Parameters
-    ----------
-    name : string
-        The name of the field the expression references to.
-
-    Returns
-    -------
-    field_expr : Expression
-    """
-    return Expression._field(name)
-
-
-def scalar(value):
-    """Expression representing a scalar value.
-
-    Parameters
-    ----------
-    value : bool, int, float or string
-        Python value of the scalar. Note that only a subset of types are
-        currently supported.
-
-    Returns
-    -------
-    scalar_expr : Expression
-    """
-    return Expression._scalar(value)
 
 
 def partitioning(schema=None, field_names=None, flavor=None,
