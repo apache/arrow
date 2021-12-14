@@ -663,23 +663,23 @@ def test_parquet_scan_options():
     opts1 = ds.ParquetFragmentScanOptions()
     opts2 = ds.ParquetFragmentScanOptions(buffer_size=4096)
     opts3 = ds.ParquetFragmentScanOptions(
-        buffer_size=2**13, use_buffered_stream=True)
-    opts4 = ds.ParquetFragmentScanOptions(buffer_size=2**13, pre_buffer=True)
+        buffer_size=2 ** 13, use_buffered_stream=True)
+    opts4 = ds.ParquetFragmentScanOptions(buffer_size=2 ** 13, pre_buffer=True)
 
     assert opts1.use_buffered_stream is False
-    assert opts1.buffer_size == 2**13
+    assert opts1.buffer_size == 2 ** 13
     assert opts1.pre_buffer is False
 
     assert opts2.use_buffered_stream is False
-    assert opts2.buffer_size == 2**12
+    assert opts2.buffer_size == 2 ** 12
     assert opts2.pre_buffer is False
 
     assert opts3.use_buffered_stream is True
-    assert opts3.buffer_size == 2**13
+    assert opts3.buffer_size == 2 ** 13
     assert opts3.pre_buffer is False
 
     assert opts4.use_buffered_stream is False
-    assert opts4.buffer_size == 2**13
+    assert opts4.buffer_size == 2 ** 13
     assert opts4.pre_buffer is True
 
     assert opts1 == opts1
@@ -697,7 +697,7 @@ def test_file_format_pickling():
         ds.CsvFileFormat(read_options=pa.csv.ReadOptions(
             skip_rows=3, column_names=['foo'])),
         ds.CsvFileFormat(read_options=pa.csv.ReadOptions(
-            skip_rows=3, block_size=2**20)),
+            skip_rows=3, block_size=2 ** 20)),
         ds.ParquetFileFormat(),
         ds.ParquetFileFormat(dictionary_columns={'a'}),
         ds.ParquetFileFormat(use_buffered_stream=True),
@@ -722,7 +722,7 @@ def test_fragment_scan_options_pickling():
         ds.CsvFragmentScanOptions(
             convert_options=pa.csv.ConvertOptions(strings_can_be_null=True)),
         ds.CsvFragmentScanOptions(
-            read_options=pa.csv.ReadOptions(block_size=2**16)),
+            read_options=pa.csv.ReadOptions(block_size=2 ** 16)),
         ds.ParquetFragmentScanOptions(buffer_size=4096),
         ds.ParquetFragmentScanOptions(pre_buffer=True),
     ]
@@ -1193,8 +1193,11 @@ def test_parquet_fragment_statistics(tempdir):
 
     import datetime
     def dt_s(x): return datetime.datetime(1970, 1, 1, 0, 0, x)
-    def dt_ms(x): return datetime.datetime(1970, 1, 1, 0, 0, 0, x*1000)
+
+    def dt_ms(x): return datetime.datetime(1970, 1, 1, 0, 0, 0, x * 1000)
+
     def dt_us(x): return datetime.datetime(1970, 1, 1, 0, 0, 0, x)
+
     date = datetime.date
     time = datetime.time
 
@@ -1498,8 +1501,8 @@ def test_partitioning_factory_segment_encoding():
         [("date", pa.string()), ("string", pa.string())])
     full_schema = pa.schema(list(schema) + list(partition_schema))
     for directory in [
-            "directory/2021-05-04 00%3A00%3A00/%24",
-            "hive/date=2021-05-04 00%3A00%3A00/string=%24",
+        "directory/2021-05-04 00%3A00%3A00/%24",
+        "hive/date=2021-05-04 00%3A00%3A00/string=%24",
     ]:
         mockfs.create_dir(directory)
         with mockfs.open_output_stream(directory + "/0.feather") as sink:
@@ -2040,7 +2043,7 @@ def _create_partitioned_dataset(basedir):
     for i in range(3):
         part = path / "part={}".format(i)
         part.mkdir()
-        pq.write_table(table.slice(3*i, 3), part / "test.parquet")
+        pq.write_table(table.slice(3 * i, 3), part / "test.parquet")
 
     full_table = table.append_column(
         "part", pa.array(np.repeat([0, 1, 2], 3), type=pa.int32()))
@@ -2157,7 +2160,7 @@ def test_open_dataset_non_existing_file():
     ([None, 2, 3], [None, 2, 3]),
 ])
 def test_partition_discovery(
-    tempdir, partitioning, null_fallback, infer_dictionary, partition_keys
+        tempdir, partitioning, null_fallback, infer_dictionary, partition_keys
 ):
     # ARROW-9288 / ARROW-9476
     import pyarrow.parquet as pq
@@ -2207,6 +2210,7 @@ def test_partition_discovery(
             return pa.dictionary(pa.int32(), value_type)
         else:
             return pa.string() if isinstance(key, str) else pa.int32()
+
     expected_schema = table.schema.append(
         pa.field("part1", expected_type(part_keys1[0]))
     ).append(
@@ -2722,7 +2726,7 @@ def test_orc_format_not_supported():
         # catch AttributeError for Python 3.6
         # ORC is not available, test error message
         with pytest.raises(
-            ValueError, match="not built with support for the ORC file"
+                ValueError, match="not built with support for the ORC file"
         ):
             ds.dataset(".", format="orc")
 
@@ -2801,7 +2805,7 @@ def test_csv_fragment_options(tempdir, dataset_reader):
                                                  strings_can_be_null=True)
     options = ds.CsvFragmentScanOptions(
         convert_options=convert_options,
-        read_options=pa.csv.ReadOptions(block_size=2**16))
+        read_options=pa.csv.ReadOptions(block_size=2 ** 16))
     result = dataset_reader.to_table(dataset, fragment_scan_options=options)
     assert result.equals(pa.table({'col0': pa.array(['foo', 'spam', None])}))
 
@@ -2920,7 +2924,7 @@ def test_parquet_dataset_factory_order(tempdir):
     # 10 files.  Put the row groups in the correct order in _metadata
     for i in range(10):
         table = pa.table(
-            {'f1': list(range(i*10, (i+1)*10))})
+            {'f1': list(range(i * 10, (i + 1) * 10))})
         table_path = tempdir / f'{i}.parquet'
         pq.write_table(table, table_path, metadata_collector=metadatas)
         metadatas[-1].set_file_path(f'{i}.parquet')
@@ -3226,7 +3230,7 @@ def test_write_to_dataset_given_null_just_works(tempdir):
 
     path = str(tempdir / 'test_dataset')
     pq.write_to_dataset(table, path, partition_cols=[
-                        'part'], use_legacy_dataset=False)
+        'part'], use_legacy_dataset=False)
 
     actual_table = pq.read_table(tempdir / 'test_dataset')
     # column.equals can handle the difference in chunking but not the fact
@@ -3252,7 +3256,7 @@ def test_legacy_write_to_dataset_drops_null(tempdir):
 
     path = str(tempdir / 'test_dataset')
     pq.write_to_dataset(table, path, partition_cols=[
-                        'part'], use_legacy_dataset=True)
+        'part'], use_legacy_dataset=True)
 
     actual = pq.read_table(tempdir / 'test_dataset')
     assert actual == expected
@@ -3417,6 +3421,7 @@ def test_write_dataset_with_backpressure(tempdir):
             # Block until the end of the test
             consumer_gate.wait()
             return self._fs.open_output_stream(path, metadata=metadata)
+
     gating_fs = fs.PyFileSystem(GatingFs(fs.LocalFileSystem()))
 
     schema = pa.schema([pa.field('data', pa.int32())])
@@ -3543,6 +3548,94 @@ def test_write_dataset_existing_data(tempdir):
     assert not extra_file.exists()
 
 
+def test_write_dataset_max_open_files(tempdir):
+    # TODO: INCOMPLETE TEST CASE WIP
+    directory = tempdir / 'ds'
+    print("Directory : ", directory)
+    max_open_files = 2
+    import os
+    record_batch_1 = pa.record_batch(data=[[1, 2, 3, 4]], names=['c1'])
+    record_batch_2 = pa.record_batch(data=[[5, 6, 7, 8]], names=['c2'])
+    record_batch_3 = pa.record_batch(data=[[9, 10, 11, 12]], names=['c3'])
+    # record_batch_4 = pa.record_batch(data=[[13, 14, 15, 16]], names=['c3'])
+
+    consumer_gate = threading.Event()
+
+    # A filesystem that blocks all writes so that we can build
+    # up backpressure.  The writes are released at the end of
+    # the test.
+    class GatingFs(ProxyHandler):
+        def open_output_stream(self, path, metadata):
+            # Block until the end of the test
+            consumer_gate.wait()
+            return self._fs.open_output_stream(path, metadata=metadata)
+
+    gating_fs = fs.PyFileSystem(GatingFs(fs.LocalFileSystem()))
+
+    ds.write_dataset(data=record_batch_1, base_dir=directory / "part0",
+                     max_open_files=max_open_files, format="arrow",
+                     file_system=gating_fs)
+    ds.write_dataset(data=record_batch_2, base_dir=directory / "part1",
+                     max_open_files=max_open_files, format="arrow",
+                     file_system=gating_fs)
+    ds.write_dataset(data=record_batch_3, base_dir=directory / "part0",
+                     max_open_files=max_open_files, format="arrow",
+                     file_system=gating_fs)
+    ds.write_dataset(data=record_batch_3, base_dir=directory / "part2",
+                     max_open_files=max_open_files, format="arrow",
+                     file_system=gating_fs)
+
+    # First write is ok
+    print("Files in the DIR")
+    print(os.listdir(directory))
+
+
+def test_write_dataset_max_rows_per_file(tempdir):
+    from pyarrow import feather
+    directory = tempdir / 'ds'
+    max_rows_per_file = 10
+    num_of_columns = 2
+    records_per_row = 35
+
+    def generate_random_int_array(size=4, min=1, max=10):
+        return np.random.randint(min, max, size)
+
+    data = []
+    column_names = []
+
+    for i in range(num_of_columns):
+        data.append(generate_random_int_array(size=records_per_row,
+                                              min=1,
+                                              max=records_per_row))
+        column_names.append("c" + str(i))
+
+    record_batch_1 = pa.record_batch(data=data, names=column_names)
+
+    ds.write_dataset(record_batch_1, directory, format="arrow",
+                     max_rows_per_file=max_rows_per_file)
+
+    files_in_dir = os.listdir(directory)
+
+    # number of partitions with max_rows and the partition with the remainder
+    expected_partitions = len(data[0]) // max_rows_per_file + 1
+    expected_row_combination = [max_rows_per_file
+                                for i in range(expected_partitions - 1)] \
+        + [len(data[0]) - ((expected_partitions - 1) * max_rows_per_file)]
+
+    # test whether the expected amount of files are written
+    assert len(files_in_dir) == expected_partitions
+
+    # compute the number of rows per each file written
+    result_row_combination = []
+    for _, f_file in enumerate(files_in_dir):
+        f_path = directory / str(f_file)
+        feather_df = feather.read_feather(f_path)
+        result_row_combination.append(feather_df.shape[0])
+
+    # test whether the generated files have the expected number of rows
+    assert expected_row_combination == result_row_combination
+
+
 @pytest.mark.parquet
 @pytest.mark.pandas
 def test_write_dataset_partitioned_dict(tempdir):
@@ -3657,7 +3750,7 @@ def test_write_table_multiple_fragments(tempdir):
         pa.array(range(10)), pa.array(np.random.randn(10)),
         pa.array(np.repeat(['a', 'b'], 5))
     ], names=["f1", "f2", "part"])
-    table = pa.concat_tables([table]*2)
+    table = pa.concat_tables([table] * 2)
 
     # Table with multiple batches written as single Fragment by default
     base_dir = tempdir / 'single'
@@ -3684,7 +3777,7 @@ def test_write_table_multiple_fragments(tempdir):
     assert set(base_dir.rglob("*")) == set(
         [base_dir / "part-0.feather"])
     assert ds.dataset(base_dir, format="ipc").to_table().equals(
-        pa.concat_tables([table]*2)
+        pa.concat_tables([table] * 2)
     )
 
 
@@ -3847,7 +3940,7 @@ def test_write_dataset_parquet_file_visitor(tempdir):
 
 def test_partition_dataset_parquet_file_visitor(tempdir):
     f1_vals = [item for chunk in range(4) for item in [chunk] * 10]
-    f2_vals = [item*10 for chunk in range(4) for item in [chunk] * 10]
+    f2_vals = [item * 10 for chunk in range(4) for item in [chunk] * 10]
     table = pa.table({'f1': f1_vals, 'f2': f2_vals,
                       'part': np.repeat(['a', 'b'], 20)})
 
