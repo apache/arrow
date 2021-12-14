@@ -55,13 +55,7 @@ connected to that language. For example:
   The ``pyarrow/`` also includes ``test/`` folder where all the tests
   for the pyarrow modules are located.
 
-- The ``R/`` folder holds the code and the documentation for the R package.
-
-  The documentation can be found in ``vignettes/`` and in ``R/`` folder
-  you can find the reference documentation.
-
-  The ``R/`` folder also includes tests for the R package
-  in ``tests/`` and ``extra-tests/``.
+- The ``r/`` directory contains the R package.
 
 Other subdirectories included in the arrow repository are:
 
@@ -78,8 +72,6 @@ Other subdirectories included in the arrow repository are:
   Arrow columnar format and other parts of the project,
   like the Flight RPC framework.
 
-Other files included in Arrow are connected to either GitHub,
-CI builds or Docker.
 
 Bindings, features, fixes and tests
 ===================================
@@ -101,16 +93,15 @@ In our experience there are two good ways:
 
 #. **IDE** of your choice.
 
-**Binding**
+**Bindings**
 
-Binding means that the function in the C++ implementation is connected from 
-other languages (C (Glib), MATLAB, Python, R or Ruby). Once a 
-function is defined in the C++ we connect it from other languages
-so that it can be used there also.
+The term "binding" is used to refer to a function in the C++ implementation which 
+can be called from a function in another language.  After a function is defined in
+ C++ we must create the binding manually to use it in that implementation.
 
 .. note::
-	There is much you can learn with checking **Pull Requests**
-	and **unit tests for similar issues**.  
+	There is much you can learn by checking **Pull Requests**
+	and **unit tests** for similar issues.  
 
 .. tabs::
 
@@ -118,7 +109,7 @@ so that it can be used there also.
 
       **Adding a fix in Python**
 
-      If you are doing a correction of an existing function, the
+      If you are updating an existing function, the
       easiest way is to run Python interactively or run Jupyter
       Notebook and research
       the issue until you understand what needs to be done.
@@ -132,8 +123,8 @@ so that it can be used there also.
       **Python - Cython - C++**
        
       It is quite likely that you will bump into Cython code when
-      working on Python issues. Less likely is that C++ code would
-      need some correction, but it can happen.
+      working on Python issues. It's less likely is that the C++ code 
+      needs updating, though it can happen.
 
       As mentioned before, the underlying code is written in C++.
       Python then connects to it via Cython. If you
@@ -146,7 +137,7 @@ so that it can be used there also.
       can search for similar functions and see how the unit tests for
       those functions are written and how they can apply in your case.
 
-      This also hold true for adding a test for the issue you have solved.
+      This also holds true for adding a test for the issue you have solved.
 
    .. tab:: R package
 
