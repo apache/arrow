@@ -27,7 +27,7 @@ namespace arrow {
 namespace fs {
 class GcsFileSystem;
 struct GcsOptions;
-class GcsCredentialsProvider;
+struct GcsCredentials;
 namespace internal {
 // TODO(ARROW-1231) - remove, and provide a public API (static GcsFileSystem::Make()).
 std::shared_ptr<GcsFileSystem> MakeGcsFileSystemForTest(const GcsOptions& options);
@@ -35,7 +35,7 @@ std::shared_ptr<GcsFileSystem> MakeGcsFileSystemForTest(const GcsOptions& option
 
 /// Options for the GcsFileSystem implementation.
 struct ARROW_EXPORT GcsOptions {
-  std::shared_ptr<GcsCredentialsProvider> credentials;
+  std::shared_ptr<GcsCredentials> credentials;
 
   std::string endpoint_override;
   std::string scheme;
@@ -64,17 +64,16 @@ struct ARROW_EXPORT GcsOptions {
   /// These credentials are useful when using an out-of-band mechanism to fetch access
   /// tokens. Note that access tokens are time limited, you will need to manually refresh
   /// the tokens created by the out-of-band mechanism.
-  static GcsOptions AccessToken(const std::string& access_token,
-                                std::chrono::system_clock::time_point expiration);
+  static GcsOptions FromAccessToken(const std::string& access_token,
+                                    std::chrono::system_clock::time_point expiration);
 
   /// \brief Initialize with service account impersonation
   ///
   /// Service account impersonation allows one principal (a user or service account) to
   /// impersonate a service account. It requires that the calling principal has the
   /// necessary permissions *on* the service account.
-  static GcsOptions ImpersonateServiceAccount(
-      const GcsCredentialsProvider& base_credentials,
-      const std::string& target_service_account);
+  static GcsOptions FromImpersonatedServiceAccount(
+      const GcsCredentials& base_credentials, const std::string& target_service_account);
 
   /// Creates service account credentials from a JSON object in string form.
   ///
@@ -94,7 +93,7 @@ struct ARROW_EXPORT GcsOptions {
   /// obtained from a Cloud Secret Manager or a similar service.
   ///
   /// [aip/4112]: https://google.aip.dev/auth/4112
-  static GcsOptions ServiceAccountCredentials(const std::string& json_object);
+  static GcsOptions FromServiceAccountCredentials(const std::string& json_object);
 };
 
 // - TODO(ARROW-1231) - review this documentation before closing the bug.

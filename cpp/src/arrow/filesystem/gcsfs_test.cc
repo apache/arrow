@@ -217,18 +217,18 @@ TEST(GcsFileSystem, OptionsAnonymous) {
 }
 
 TEST(GcsFileSystem, OptionsAccessToken) {
-  auto a =
-      GcsOptions::AccessToken("invalid-access-token-test-only",
-                              std::chrono::system_clock::now() + std::chrono::minutes(5));
+  auto a = GcsOptions::FromAccessToken(
+      "invalid-access-token-test-only",
+      std::chrono::system_clock::now() + std::chrono::minutes(5));
   EXPECT_THAT(a.credentials, NotNull());
   EXPECT_EQ(a.scheme, "https");
 }
 
 TEST(GcsFileSystem, OptionsImpersonateServiceAccount) {
-  auto base =
-      GcsOptions::AccessToken("invalid-access-token-test-only",
-                              std::chrono::system_clock::now() + std::chrono::minutes(5));
-  auto a = GcsOptions::ImpersonateServiceAccount(
+  auto base = GcsOptions::FromAccessToken(
+      "invalid-access-token-test-only",
+      std::chrono::system_clock::now() + std::chrono::minutes(5));
+  auto a = GcsOptions::FromImpersonatedServiceAccount(
       *base.credentials, "invalid-sa-test-only@my-project.iam.gserviceaccount.com");
   EXPECT_THAT(a.credentials, NotNull());
   EXPECT_EQ(a.scheme, "https");
@@ -252,7 +252,7 @@ TEST(GcsFileSystem, OptionsServiceAccountCredentials) {
       "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/foo-email%40foo-project.iam.gserviceaccount.com"
   })""";
 
-  auto a = GcsOptions::ServiceAccountCredentials(kJsonKeyfileContents);
+  auto a = GcsOptions::FromServiceAccountCredentials(kJsonKeyfileContents);
   EXPECT_THAT(a.credentials, NotNull());
   EXPECT_EQ(a.scheme, "https");
 }
