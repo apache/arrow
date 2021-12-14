@@ -231,9 +231,11 @@ TEST(SerialReaderTests, InvalidRowsSkipped) {
   TestInvalidRowsSkipped(MakeSerialFactory(), /*async=*/false);
 }
 TEST(SerialReaderTests, StressNoReadAhead) {
-  StressTableReader(MakeSerialFactory(false)); }
+  StressTableReader(MakeSerialFactory(false));
+}
 TEST(SerialReaderTests, StressInvalidNoReadAhead) {
-  StressInvalidTableReader(MakeSerialFactory(false)); }
+  StressInvalidTableReader(MakeSerialFactory(false));
+}
 
 Result<TableReaderFactory> MakeAsyncFactory(
     std::shared_ptr<internal::ThreadPool> thread_pool = nullptr) {
