@@ -192,7 +192,7 @@ class ARROW_EXPORT PartitionNthOptions : public FunctionOptions {
 class ARROW_EXPORT IsMonotonicOptions : public FunctionOptions {
  public:
   enum NullHandling {
-    // Ignore nulls.
+    /// Ignore nulls.
     IGNORE,
     // Use min value of element type as the value of nulls.
     MIN,
