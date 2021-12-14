@@ -209,7 +209,7 @@ def _make_signature(arg_names, var_arg_names, option_class):
     from inspect import Parameter
     params = []
     for name in arg_names:
-        params.append(Parameter(name, Parameter.POSITIONAL_OR_KEYWORD))
+        params.append(Parameter(name, Parameter.POSITIONAL_ONLY))
     for name in var_arg_names:
         params.append(Parameter(name, Parameter.VAR_POSITIONAL))
     params.append(Parameter("memory_pool", Parameter.KEYWORD_ONLY,
