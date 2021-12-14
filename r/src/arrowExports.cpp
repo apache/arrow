@@ -3020,10 +3020,10 @@ extern "C" SEXP _arrow_TimeType__unit(SEXP type_sexp){
 
 // datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
-arrow::TimeUnit::type DurationType__unit(const std::shared_ptr<arrow::TimeType>& type);
+arrow::TimeUnit::type DurationType__unit(const std::shared_ptr<arrow::DurationType>& type);
 extern "C" SEXP _arrow_DurationType__unit(SEXP type_sexp){
 BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<arrow::TimeType>&>::type type(type_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::DurationType>&>::type type(type_sexp);
 	return cpp11::as_sexp(DurationType__unit(type));
 END_CPP11
 }
