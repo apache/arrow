@@ -145,7 +145,7 @@ interested to find more information.
          Follow the instructions to build PyArrow together with the C++ library
 
          - :ref:`build_pyarrow`
-
+ 
          Or
 
          - :ref:`build_pyarrow_win`
