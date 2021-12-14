@@ -97,7 +97,7 @@ In our experience there are two good ways:
 
 The term "binding" is used to refer to a function in the C++ implementation which 
 can be called from a function in another language.  After a function is defined in
- C++ we must create the binding manually to use it in that implementation.
+C++ we must create the binding manually to use it in that implementation.
 
 .. note::
 	There is much you can learn by checking **Pull Requests**

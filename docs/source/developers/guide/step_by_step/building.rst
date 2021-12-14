@@ -31,9 +31,9 @@
 
 .. _build-arrow:
 
-**********************************
+************************************
 Building the Arrow libraries 🏋🏿‍♀️
-**********************************
+************************************
 
 The Arrow project contains a number of libraries that enable
 work in many languages. Most libraries (C++, C#, Go, Java,
@@ -145,6 +145,7 @@ interested to find more information.
          Follow the instructions to build PyArrow together with the C++ library
 
          - :ref:`build_pyarrow`
+
          Or
 
          - :ref:`build_pyarrow_win`
