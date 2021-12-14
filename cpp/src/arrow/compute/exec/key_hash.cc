@@ -134,9 +134,9 @@ inline uint32_t Hashing::helper_tail(uint32_t offset, uint64_t mask, const uint8
 
 // Process tail data with a specific `keys_length`
 inline uint32_t Hashing::helper_tail(uint32_t offset, uint64_t mask, const uint8_t* keys,
-                                     uint32_t acc, uint32_t keys_length) {
+                                     uint32_t acc, uint32_t key_length) {
   uint64_t v = 0;
-  std::memcpy(&v, keys + offset, keys_length);
+  std::memcpy(&v, keys + offset, key_length);
   v &= mask;
   uint32_t x1 = static_cast<uint32_t>(v);
   uint32_t x2 = static_cast<uint32_t>(v >> 32);
