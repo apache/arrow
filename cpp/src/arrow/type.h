@@ -170,6 +170,9 @@ class ARROW_EXPORT DataType : public detail::Fingerprintable {
   /// \brief Return the type category
   Type::type id() const { return id_; }
 
+  /// \brief Return the type category of the storage type
+  virtual Type::type storage_id() const { return id_; }
+
  protected:
   // Dummy version that returns a null string (indicating not implemented).
   // Subclasses should override for fast equality checks.

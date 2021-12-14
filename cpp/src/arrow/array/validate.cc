@@ -99,16 +99,6 @@ struct BoundsChecker {
   }
 };
 
-bool IsNullType(const DataType& type) {
-  if (type.id() == Type::NA) {
-    return true;
-  } else if (type.id() == Type::EXTENSION) {
-    const auto& ext_type = static_cast<const ExtensionType&>(type);
-    return ext_type.storage_type()->id() == Type::NA;
-  }
-  return false;
-}
-
 struct ValidateArrayImpl {
   const ArrayData& data;
   const bool full_validation;
@@ -429,7 +419,7 @@ struct ValidateArrayImpl {
   }
 
   Status ValidateNulls(const DataType& type) {
-    if (!IsNullType(type) && data.null_count > 0 && data.buffers[0] == nullptr) {
+    if (type.storage_id() != Type::NA && data.null_count > 0 && data.buffers[0] == nullptr) {
       return Status::Invalid("Array of type ", type.ToString(), " has ", data.null_count,
                              " nulls but no null bitmap");
     }
@@ -447,7 +437,7 @@ struct ValidateArrayImpl {
           // Do not call GetNullCount() as it would also set the `null_count` member
           actual_null_count = data.length - CountSetBits(data.buffers[0]->data(),
                                                          data.offset, data.length);
-        } else if (IsNullType(*data.type)) {
+        } else if (data.type->storage_id() == Type::NA) {
           actual_null_count = data.length;
         } else {
           actual_null_count = 0;
