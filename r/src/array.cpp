@@ -38,6 +38,8 @@ const char* r6_class_name<arrow::Array>::get(const std::shared_ptr<arrow::Array>
       return "LargeListArray";
     case arrow::Type::FIXED_SIZE_LIST:
       return "FixedSizeListArray";
+    case arrow::Type::MAP:
+      return "MapArray";
 
     default:
       return "Array";
@@ -282,6 +284,18 @@ cpp11::writable::integers LargeListArray__raw_value_offsets(
     const std::shared_ptr<arrow::LargeListArray>& array) {
   auto offsets = array->raw_value_offsets();
   return cpp11::writable::integers(offsets, offsets + array->length());
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Array> MapArray__keys(
+    const std::shared_ptr<arrow::MapArray>& array) {
+  return array->keys();
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Array> MapArray__items(
+    const std::shared_ptr<arrow::MapArray>& array) {
+  return array->items();
 }
 
 // [[arrow::export]]

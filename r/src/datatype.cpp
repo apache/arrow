@@ -93,6 +93,9 @@ const char* r6_class_name<arrow::DataType>::get(
       return "LargeListType";
     case Type::FIXED_SIZE_LIST:
       return "FixedSizeListType";
+    
+    case Type::MAP:
+      return "MapType";
 
     case Type::STRUCT:
       return "StructType";
@@ -279,6 +282,21 @@ std::shared_ptr<arrow::DataType> fixed_size_list__(SEXP x, int list_size) {
 }
 
 // [[arrow::export]]
+std::shared_ptr<arrow::DataType> map__(SEXP key, SEXP item, bool keys_sorted = false) {
+  if (Rf_inherits(key, "DataType") && Rf_inherits(item, "DataType")) {
+    auto key_type = cpp11::as_cpp<std::shared_ptr<arrow::DataType>>(key);
+    auto item_type = cpp11::as_cpp<std::shared_ptr<arrow::DataType>>(item);
+    return arrow::map(key_type, item_type, keys_sorted);
+  } else if (Rf_inherits(key, "DataType") && Rf_inherits(item, "Field")) {
+    auto key_type = cpp11::as_cpp<std::shared_ptr<arrow::DataType>>(key);
+    auto item_field = cpp11::as_cpp<std::shared_ptr<arrow::Field>>(item);
+    return arrow::map(key_type, item_field, keys_sorted);
+  } else {
+    cpp11::stop("incompatible");
+  }
+}
+
+// [[arrow::export]]
 std::shared_ptr<arrow::DataType> struct__(
     const std::vector<std::shared_ptr<arrow::Field>>& fields) {
   return arrow::struct_(fields);
@@ -453,6 +471,36 @@ std::shared_ptr<arrow::DataType> FixedSizeListType__value_type(
 // [[arrow::export]]
 int FixedSizeListType__list_size(const std::shared_ptr<arrow::FixedSizeListType>& type) {
   return type->list_size();
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Field> MapType__key_field(
+    const std::shared_ptr<arrow::MapType>& type) {
+  return type->key_field();
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Field> MapType__item_field(
+    const std::shared_ptr<arrow::MapType>& type) {
+  return type->item_field();
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::DataType> MapType__key_type(
+    const std::shared_ptr<arrow::MapType>& type) {
+  return type->key_type();
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::DataType> MapType__item_type(
+    const std::shared_ptr<arrow::MapType>& type) {
+  return type->item_type();
+}
+
+// [[arrow::export]]
+bool MapType__keys_sorted(
+    const std::shared_ptr<arrow::MapType>& type) {
+  return type->keys_sorted();
 }
 
 #endif

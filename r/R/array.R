@@ -352,3 +352,12 @@ is.Array <- function(x, type = NULL) { # nolint
   }
   is_it
 }
+
+
+MapArray <- R6Class("MapArray",
+  inherit = ListArray,
+  public = list(
+    keys = function() MapArray__keys(self),
+    items = function() MapArray__items(self)
+  )
+)
