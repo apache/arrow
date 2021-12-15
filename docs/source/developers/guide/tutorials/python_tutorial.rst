@@ -318,12 +318,12 @@ and run the pytest.
 .. code-block:: python
 
    def test_tutorial_min_max():
-    arr = [4, 5, 6, None, 1]
-    l1 = {'min-': 0, 'max+': 7}
-    l2 = {'min-': None, 'max+': None}
-    assert pc.tutorial_min_max(arr).as_py() == l1
-    assert pc.tutorial_min_max(arr,
-                               skip_nulls=False).as_py() == l2
+       arr = [4, 5, 6, None, 1]
+       l1 = {'min-': 0, 'max+': 7}
+       l2 = {'min-': None, 'max+': None}
+       assert pc.tutorial_min_max(arr).as_py() == l1
+       assert pc.tutorial_min_max(arr,
+                                  skip_nulls=False).as_py() == l2
 
 With the unit test added we can run the pytest from the shell.
 
