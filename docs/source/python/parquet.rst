@@ -632,29 +632,21 @@ Reading an encrypted Parquet file:
                                  decryption_properties=decryption_properties)
 
 
-In order to create the encryption and decryption properties, a ``CryptoFactory``
-should be created and initialized with KMS Client details, as described below.
+In order to create the encryption and decryption properties, a
+:class:`~pyarrow.parquet.CryptoFactory` should be created and initialized with
+KMS Client details, as described below.
 
 
 KMS Client
 ~~~~~~~~~~
 
-The master encryption keys should be kept and managed in a production-grade KMS
-system, deployed in user's organization. Using Parquet encryption requires
-implementation of a client class for the KMS server.
-Any KmsClient implementation should implement the following informal interface:
+The master encryption keys should be kept and managed in a production-grade
+Key Management System (KMS), deployed in the user's organization. Using Parquet
+encryption requires implementation of a client class for the KMS server.
+Any KmsClient implementation should implement the informal interface
+defined by :class:`~pyarrow.parquet.KmsClient` as following:
 
 .. code-block:: python
-
-   class KmsClient:
-      def wrap_key(self, key_bytes, master_key_identifier):
-         """Wrap a key - encrypt it with the master key."""
-            raise NotImplementedError()
-
-      def unwrap_key(self, wrapped_key, master_key_identifier):
-         """Unwrap a key - decrypt it with the master key."""
-         raise NotImplementedError()
-
 
 
    class MyKmsClient(pq.KmsClient):
@@ -676,7 +668,8 @@ Any KmsClient implementation should implement the following informal interface:
 
 The concrete implementation will be loaded at runtime by a factory method
 provided by the user. This factory method will be used to initialize the
-``CryptoFactory`` for creating file encryption and decryption properties.
+:class:`~pyarrow.parquet.CryptoFactory` for creating file encryption and
+decryption properties.
 For example, in order to use the ``MyKmsClient`` defined above:
 
 .. code-block:: python
@@ -699,9 +692,9 @@ above.
 KMS connection configuration
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Configuration of connection to KMS (``kms_connection_config`` used when
-creating file encryption and decryption properties) includes the following
-options:
+Configuration of connection to KMS (:class:`~pyarrow.parquet.KmsConnectionConfig`
+used when creating file encryption and decryption properties) includes the
+following options:
 
 * ``kms_instance_url``, URL of the KMS instance.
 * ``kms_instance_id``, ID of the KMS instance that will be used for encryption
@@ -712,7 +705,7 @@ options:
 Encryption configuration
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-Encryption configuration (``encryption_config`` used when creating file
+:class:`~pyarrow.parquet.EncryptionConfiguration` (used when creating file
 encryption properties) includes the following options:
 
 * ``footer_key``, ID of the master key for footer encryption/signing.
@@ -727,7 +720,7 @@ encryption properties) includes the following options:
   with master keys. If set to ``false``, single wrapping is used - where DEKs are
   encrypted directly with master keys.
 * ``cache_lifetime``, lifetime of cached entities (key encryption keys,
-  local wrapping keys, KMS client objects)
+  local wrapping keys, KMS client objects). Type - ``datetime.timedelta``
 * ``internal_key_material``, whether to store key material inside Parquet file footers;
   this mode doesn’t produce additional files. If set to ``false``, key material is
   stored in separate files in the same folder, which enables key rotation for
@@ -742,7 +735,7 @@ encryption properties) includes the following options:
    by Parquet). The KEKs are encrypted with MEKs in KMS; the result and the
    KEK itself are cached in the process memory. Users interested in regular
    envelope encryption, can switch to it by setting the ``double_wrapping``
-   parameter of EncryptionConfiguration to false.
+   parameter of :class:`~pyarrow.parquet.EncryptionConfiguration` to false.
 
 An example encryption configuration:
 
@@ -758,7 +751,7 @@ An example encryption configuration:
 Decryption configuration
 ~~~~~~~~~~~~~~~~~~~~~~~~
    
-Decryption configuration (``decryption_config`` used when creating file
+:class:`~pyarrow.parquet.DecryptionConfiguration` (used when creating file
 decryption properties) is optional and it includes the following options:
 
 * ``cache_lifetime``, lifetime of cached entities (key encryption keys, local

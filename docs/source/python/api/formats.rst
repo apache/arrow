@@ -88,6 +88,11 @@ Parquet Files
    write_metadata
    write_table
    write_to_dataset
+   CryptoFactory
+   KmsClient
+   KmsConnectionConfig
+   EncryptionConfiguration
+   DecryptionConfiguration
 
 .. _api.orc:
 
