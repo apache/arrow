@@ -97,19 +97,21 @@ class ARROW_ENGINE_EXPORT ExtensionIdRegistry {
     util::string_view uri, name;
 
     bool empty() const { return uri.empty() && name.empty(); }
-
-    bool operator==(Id other) const { return uri == other.uri && name == other.name; }
-    bool operator!=(Id other) const { return !(*this == other); }
   };
 
-  virtual util::optional<Id> GetTypeVariation(const std::shared_ptr<DataType>&) const = 0;
-  virtual std::shared_ptr<DataType> GetTypeVariation(Id) const = 0;
-  virtual Status RegisterTypeVariation(Id, const std::shared_ptr<DataType>&) = 0;
-
-  virtual util::optional<Id> GetType(const std::shared_ptr<DataType>&) const = 0;
-  virtual std::shared_ptr<DataType> GetType(Id) const = 0;
-  virtual Status RegisterType(Id, const std::shared_ptr<DataType>&) = 0;
+  struct TypeRecord {
+    Id id;
+    const std::shared_ptr<DataType>& type;
+    bool is_variation;
+  };
+  virtual util::optional<TypeRecord> GetType(const DataType&) const = 0;
+  virtual util::optional<TypeRecord> GetType(Id, bool is_variation) const = 0;
+  virtual Status RegisterType(Id, std::shared_ptr<DataType>, bool is_variation) = 0;
 };
+
+constexpr util::string_view kArrowExtTypesUri =
+    "https://github.com/apache/arrow/blob/master/format/substrait/"
+    "extension_types.yaml";
 
 ARROW_ENGINE_EXPORT ExtensionIdRegistry* default_extension_id_registry();
 
@@ -125,36 +127,39 @@ class ARROW_ENGINE_EXPORT ExtensionSet {
   /// Construct an ExtensionSet with explicit extension ids for efficient referencing
   /// during deserialization. Note that input vectors need not be densely packed; an empty
   /// (default constructed) Id may be used as a placeholder to indicate an unused
-  /// _anchor/_reference.
+  /// _anchor/_reference. This factory will be used to wrap the extensions declared in a
+  /// substrait::Plan before deserializing the plan's relations.
   static Result<ExtensionSet> Make(
-      std::vector<util::string_view> uris, std::vector<Id> type_variation_ids,
-      std::vector<Id> type_ids, ExtensionIdRegistry* = default_extension_id_registry());
+      std::vector<std::string> uris, std::vector<Id> type_ids,
+      std::vector<bool> type_is_variation,
+      ExtensionIdRegistry* = default_extension_id_registry());
 
   ~ExtensionSet();
 
   // index in these vectors == value of _anchor/_reference fields
   /// FIXME this assumes that _anchor/_references won't be huge, which is not guaranteed.
   /// Could it be?
-  const std::vector<util::string_view>& uris() const { return uris_; }
-
-  const DataTypeVector& type_variations() const { return type_variations_; }
-  const std::vector<Id>& type_variation_ids() const { return type_variation_ids_; }
+  const std::vector<std::string>& uris() const { return uris_; }
 
   const DataTypeVector& types() const { return types_; }
   const std::vector<Id>& type_ids() const { return type_ids_; }
+  bool type_is_variation(uint32_t i) const { return type_is_variation_[i]; }
 
-  /// Encode a type as a substrait::ExtensionTypeVariation.
-  /// Returns an integer usable for Type.*.type_variation_reference.
-  uint32_t EncodeTypeVariation(Id, const std::shared_ptr<DataType>&);
+  /// Encode a type as a substrait::ExtensionType or a substrait::ExtensionTypeVariation.
+  /// Returns an integer usable for Type.user_defined_type_reference. This method will be
+  /// invoked during serialization when non substrait-core types are encountered.
+  uint32_t EncodeType(Id, const std::shared_ptr<DataType>&, bool is_variation);
+  uint32_t EncodeType(ExtensionIdRegistry::TypeRecord rec) {
+    return EncodeType(rec.id, rec.type, rec.is_variation);
+  }
 
-  /// Encode a type as a substrait::ExtensionType.
-  /// Returns an integer usable for Type.user_defined_type_reference.
-  uint32_t EncodeType(Id, const std::shared_ptr<DataType>&);
+  // FIXME need type_internal.h::{AddExtensionSetToPlan, GetExtensionSetFromPlan} or so
 
  private:
-  DataTypeVector type_variations_, types_;
-  std::vector<ExtensionIdRegistry::Id> type_variation_ids_, type_ids_;
-  std::vector<util::string_view> uris_;
+  DataTypeVector types_;
+  std::vector<Id> type_ids_;
+  std::vector<std::string> uris_;
+  std::vector<bool> type_is_variation_;
 
   // pimpl pattern to hide lookup details
   struct Impl;

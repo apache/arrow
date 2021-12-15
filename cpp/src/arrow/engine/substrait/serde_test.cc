@@ -28,6 +28,8 @@
 #include "arrow/testing/matchers.h"
 #include "arrow/util/key_value_metadata.h"
 
+using testing::HasSubstr;
+
 namespace arrow {
 namespace engine {
 
@@ -135,21 +137,21 @@ TEST(Substrait, SupportedTypes) {
   auto ExpectEq = [](util::string_view json, std::shared_ptr<DataType> expected_type) {
     ARROW_SCOPED_TRACE(json);
 
-    ExtensionSet ext_set;
+    ExtensionSet empty;
     auto buf = SubstraitFromJSON("Type", json);
-    ASSERT_OK_AND_ASSIGN(auto type, DeserializeType(*buf, ext_set));
+    ASSERT_OK_AND_ASSIGN(auto type, DeserializeType(*buf, empty));
 
     EXPECT_EQ(*type, *expected_type);
 
-    ASSERT_OK_AND_ASSIGN(auto serialized, SerializeType(*type, &ext_set));
-    ASSERT_OK_AND_ASSIGN(auto roundtripped, DeserializeType(*serialized, ext_set));
+    ASSERT_OK_AND_ASSIGN(auto serialized, SerializeType(*type, &empty));
+    EXPECT_EQ(empty.types().size(), 0);
+
+    ASSERT_OK_AND_ASSIGN(auto roundtripped, DeserializeType(*serialized, empty));
 
     EXPECT_EQ(*roundtripped, *expected_type);
   };
 
   ExpectEq(R"({"bool": {}})", boolean());
-
-  ExpectEq(R"({"user_defined_type_reference": 0})", null());
 
   ExpectEq(R"({"i8": {}})", int8());
   ExpectEq(R"({"i16": {}})", int16());
@@ -187,6 +189,37 @@ TEST(Substrait, SupportedTypes) {
                field("", int64()),
                field("", list(utf8())),
            }));
+}
+
+TEST(Substrait, SupportedExtensionTypes) {
+  ExtensionSet ext_set;
+
+  for (auto expected_type : {
+           null(),
+           uint8(),
+           uint16(),
+           uint32(),
+           uint64(),
+       }) {
+    auto anchor = ext_set.types().size();
+
+    auto rec = default_extension_id_registry()->GetType(*expected_type);
+    EXPECT_TRUE(rec.has_value());
+
+    EXPECT_EQ(ext_set.EncodeType(*rec), anchor);
+    auto buf = SubstraitFromJSON(
+        "Type", "{\"user_defined_type_reference\": " + std::to_string(anchor) + "}");
+
+    ASSERT_OK_AND_ASSIGN(auto type, DeserializeType(*buf, ext_set));
+    EXPECT_EQ(*type, *expected_type);
+
+    auto size = ext_set.types().size();
+    ASSERT_OK_AND_ASSIGN(auto serialized, SerializeType(*type, &ext_set));
+    EXPECT_EQ(ext_set.types().size(), size) << "was already added to the set above";
+
+    ASSERT_OK_AND_ASSIGN(auto roundtripped, DeserializeType(*serialized, ext_set));
+    EXPECT_EQ(*roundtripped, *expected_type);
+  }
 }
 
 TEST(Substrait, NamedStruct) {
@@ -247,25 +280,15 @@ TEST(Substrait, NamedStruct) {
 }
 
 TEST(Substrait, NoEquivalentArrowType) {
-  for (util::string_view json : {
-           R"({"user_defined_type_reference": 99})",
-       }) {
-    ARROW_SCOPED_TRACE(json);
-    auto buf = SubstraitFromJSON("Type", json);
-    ExtensionSet ext_set;
-    ASSERT_THAT(DeserializeType(*buf, ext_set), Raises(StatusCode::NotImplemented));
-  }
+  auto buf = SubstraitFromJSON("Type", R"({"user_defined_type_reference": 99})");
+  ExtensionSet empty;
+  ASSERT_THAT(
+      DeserializeType(*buf, empty),
+      Raises(StatusCode::Invalid, HasSubstr("did not have a corresponding anchor")));
 }
 
 TEST(Substrait, NoEquivalentSubstraitType) {
   for (auto type : {
-           uint8(),
-           uint16(),
-           uint32(),
-           uint64(),
-
-           float16(),
-
            date32(),
            timestamp(TimeUnit::SECOND),
            timestamp(TimeUnit::NANO),
@@ -273,8 +296,6 @@ TEST(Substrait, NoEquivalentSubstraitType) {
            time32(TimeUnit::SECOND),
            time32(TimeUnit::MILLI),
            time64(TimeUnit::NANO),
-           month_interval(),
-           day_time_interval(),
 
            decimal256(76, 67),
 
@@ -289,8 +310,6 @@ TEST(Substrait, NoEquivalentSubstraitType) {
            large_utf8(),
            large_binary(),
            large_list(utf8()),
-
-           month_day_nano_interval(),
        }) {
     ARROW_SCOPED_TRACE(type->ToString());
     ExtensionSet set;

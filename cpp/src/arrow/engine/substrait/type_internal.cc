@@ -202,8 +202,13 @@ Result<std::pair<std::shared_ptr<DataType>, bool>> FromProto(
     }
 
     case st::Type::kUserDefinedTypeReference: {
-      auto anchor = type.user_defined_type_reference();
-      return std::make_pair(ext_set.type_variations()[anchor], true);
+      uint32_t anchor = type.user_defined_type_reference();
+      if (anchor >= ext_set.types().size() || ext_set.types()[anchor] == nullptr) {
+        return Status::Invalid(
+            "User defined type reference ", anchor,
+            " did not have a corresponding anchor in the extension set");
+      }
+      return std::make_pair(ext_set.types()[anchor], true);
     }
 
     default:
@@ -217,12 +222,7 @@ Result<std::pair<std::shared_ptr<DataType>, bool>> FromProto(
 namespace {
 
 struct ToProtoImpl {
-  Status Visit(const NullType& t) {
-    auto id = *default_extension_id_registry()->GetTypeVariation(null());
-    auto anchor = ext_set_->EncodeTypeVariation(id, null());
-    type_->set_user_defined_type_reference(anchor);
-    return Status::OK();
-  }
+  Status Visit(const NullType& t) { return EncodeUserDefined(t); }
 
   Status Visit(const BooleanType& t) { return SetWith(&st::Type::set_allocated_bool_); }
 
@@ -231,12 +231,12 @@ struct ToProtoImpl {
   Status Visit(const Int32Type& t) { return SetWith(&st::Type::set_allocated_i32); }
   Status Visit(const Int64Type& t) { return SetWith(&st::Type::set_allocated_i64); }
 
-  Status Visit(const UInt8Type& t) { return NotImplemented(t); }
-  Status Visit(const UInt16Type& t) { return NotImplemented(t); }
-  Status Visit(const UInt32Type& t) { return NotImplemented(t); }
-  Status Visit(const UInt64Type& t) { return NotImplemented(t); }
+  Status Visit(const UInt8Type& t) { return EncodeUserDefined(t); }
+  Status Visit(const UInt16Type& t) { return EncodeUserDefined(t); }
+  Status Visit(const UInt32Type& t) { return EncodeUserDefined(t); }
+  Status Visit(const UInt64Type& t) { return EncodeUserDefined(t); }
 
-  Status Visit(const HalfFloatType& t) { return NotImplemented(t); }
+  Status Visit(const HalfFloatType& t) { return EncodeUserDefined(t); }
   Status Visit(const FloatType& t) { return SetWith(&st::Type::set_allocated_fp32); }
   Status Visit(const DoubleType& t) { return SetWith(&st::Type::set_allocated_fp64); }
 
@@ -270,8 +270,8 @@ struct ToProtoImpl {
     return SetWith(&st::Type::set_allocated_time);
   }
 
-  Status Visit(const MonthIntervalType& t) { return NotImplemented(t); }
-  Status Visit(const DayTimeIntervalType& t) { return NotImplemented(t); }
+  Status Visit(const MonthIntervalType& t) { return EncodeUserDefined(t); }
+  Status Visit(const DayTimeIntervalType& t) { return EncodeUserDefined(t); }
 
   Status Visit(const Decimal128Type& t) {
     auto dec = SetWithThen(&st::Type::set_allocated_decimal);
@@ -354,7 +354,7 @@ struct ToProtoImpl {
   Status Visit(const LargeStringType& t) { return NotImplemented(t); }
   Status Visit(const LargeBinaryType& t) { return NotImplemented(t); }
   Status Visit(const LargeListType& t) { return NotImplemented(t); }
-  Status Visit(const MonthDayNanoIntervalType& t) { return NotImplemented(t); }
+  Status Visit(const MonthDayNanoIntervalType& t) { return EncodeUserDefined(t); }
 
   template <typename Sub>
   Sub* SetWithThen(void (st::Type::*set_allocated_sub)(Sub*)) {
@@ -370,6 +370,13 @@ struct ToProtoImpl {
   template <typename Sub>
   Status SetWith(void (st::Type::*set_allocated_sub)(Sub*)) {
     return SetWithThen(set_allocated_sub), Status::OK();
+  }
+
+  template <typename T>
+  Status EncodeUserDefined(const T& t) {
+    static auto rec = default_extension_id_registry()->GetType(t);
+    type_->set_user_defined_type_reference(ext_set_->EncodeType(*rec));
+    return Status::OK();
   }
 
   Status NotImplemented(const DataType& t) {

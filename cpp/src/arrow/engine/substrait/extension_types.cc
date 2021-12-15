@@ -143,68 +143,76 @@ bool UnwrapIntervalDay(const DataType& t) {
   return false;
 }
 
+namespace {
+
+struct TypePtrHashEq {
+  template <typename Ptr>
+  size_t operator()(const Ptr& type) const {
+    return type->Hash();
+  }
+
+  template <typename Ptr>
+  bool operator()(const Ptr& l, const Ptr& r) const {
+    return *l == *r;
+  }
+};
+
+struct IdHashEq {
+  using Id = ExtensionSet::Id;
+
+  size_t operator()(Id id) const {
+    constexpr internal::StringViewHash hash = {};
+    auto out = hash(id.uri);
+    internal::hash_combine(out, hash(id.name));
+    return out;
+  }
+
+  bool operator()(Id l, Id r) const { return l.uri == r.uri && l.name == r.name; }
+};
+
+}  // namespace
+
 struct ExtensionSet::Impl {
-  struct IdHash {
-    size_t operator()(Id id) const {
-      internal::StringViewHash hash;
-      auto out = hash(id.uri);
-      internal::hash_combine(out, hash(id.name));
-      return out;
-    }
-  };
-
-  using IdToIndexMap = std::unordered_map<Id, uint32_t, IdHash>;
-
   void AddUri(util::string_view uri, ExtensionSet* self) {
-    if (uris_.insert(uri).second) {
-      self->uris_.push_back(uri);
-    }
+    if (uris_.find(uri) != uris_.end()) return;
+
+    self->uris_.push_back(uri.to_string());
+    uris_.insert(self->uris_.back());  // lookup helper's keys should reference memory
+                                       // owned by this ExtensionSet
   }
 
   Status CheckHasUri(util::string_view uri) {
-    if (uris_.count(uri) == 0) {
-      return Status::Invalid(
-          "Uri ", uri,
-          " was referenced by an extension but was not declared in the ExtensionSet.");
-    }
-    return Status::OK();
+    if (uris_.find(uri) != uris_.end()) return Status::OK();
+
+    return Status::Invalid(
+        "Uri ", uri,
+        " was referenced by an extension but was not declared in the ExtensionSet.");
   }
 
-  enum { kType, kTypeVariation };
-
-  template <int kTypeOrTypeVariation>
-  uint32_t EncodeTypeOrTypeVariation(Id id, const std::shared_ptr<DataType>& type,
-                                     ExtensionSet* self) {
+  uint32_t EncodeType(Id id, const std::shared_ptr<DataType>& type, bool is_variation,
+                      ExtensionSet* self) {
     AddUri(id.uri, self);
-
-    auto map = (kTypeOrTypeVariation == kType ? &types_ : &type_variations_);
-
-    auto ids =
-        (kTypeOrTypeVariation == kType ? &self->type_ids_ : &self->type_variation_ids_);
-
-    auto types =
-        (kTypeOrTypeVariation == kType ? &self->types_ : &self->type_variations_);
-
-    auto it_success = map->emplace(id, static_cast<uint32_t>(map->size()));
+    auto it_success = types_.emplace(id, static_cast<uint32_t>(types_.size()));
 
     if (it_success.second) {
-      DCHECK_EQ(ids->size(), types->size());
-      ids->push_back(id);
-      types->push_back(type);
+      DCHECK_EQ(self->type_ids_.size(), self->types_.size());
+      self->type_ids_.push_back(id);
+      self->types_.push_back(type);
+      self->type_is_variation_.push_back(is_variation);
     }
 
     return it_success.first->second;
   }
 
   std::unordered_set<util::string_view, internal::StringViewHash> uris_;
-  IdToIndexMap type_variations_, types_;
+  std::unordered_map<Id, uint32_t, IdHashEq, IdHashEq> types_;
 };
 
 ExtensionSet::ExtensionSet() : impl_(new Impl()) {}
 
-Result<ExtensionSet> ExtensionSet::Make(std::vector<util::string_view> uris,
-                                        std::vector<Id> type_variation_ids,
+Result<ExtensionSet> ExtensionSet::Make(std::vector<std::string> uris,
                                         std::vector<Id> type_ids,
+                                        std::vector<bool> type_is_variation,
                                         ExtensionIdRegistry* registry) {
   ExtensionSet set;
 
@@ -214,91 +222,110 @@ Result<ExtensionSet> ExtensionSet::Make(std::vector<util::string_view> uris,
   }
   set.uris_ = std::move(uris);
 
-  set.types_.resize(type_ids.size());
-  set.type_variations_.resize(type_variation_ids.size());
-
-  uint32_t anchor = 0;
-  for (Id id : type_variation_ids) {
-    auto i = anchor++;
-    if (id.empty()) continue;
-    RETURN_NOT_OK(set.impl_->CheckHasUri(id.uri));
-
-    auto type = registry->GetTypeVariation(id);
-    if (type == nullptr) {
-      return Status::Invalid("Type variation not found");
-    }
-    set.types_[i] = std::move(type);
+  if (type_ids.size() != type_is_variation.size()) {
+    return Status::Invalid("Received ", type_ids.size(), " type ids but a ",
+                           type_is_variation.size(), "-long is_variation vector");
   }
+  set.types_.resize(type_ids.size());
 
-  anchor = 0;
-  for (Id id : type_ids) {
-    auto i = anchor++;
-    if (id.empty()) continue;
-    RETURN_NOT_OK(set.impl_->CheckHasUri(id.uri));
+  for (size_t i = 0; i < type_ids.size(); ++i) {
+    if (type_ids[i].empty()) continue;
+    RETURN_NOT_OK(set.impl_->CheckHasUri(type_ids[i].uri));
 
-    auto type = registry->GetType(id);
-    if (type == nullptr) {
-      return Status::Invalid("Type not found");
+    if (auto rec = registry->GetType(type_ids[i], type_is_variation[i])) {
+      set.types_[i] = rec->type;
+      type_ids[i] = rec->id;  // use Id which references memory owned by the registry
+      continue;
     }
-    set.types_[i] = std::move(type);
+    return Status::Invalid("Type not found");
   }
 
   set.type_ids_ = std::move(type_ids);
-  set.type_variation_ids_ = std::move(type_variation_ids);
+  set.type_is_variation_ = std::move(type_is_variation);
 
   return std::move(set);
 }
 
 ExtensionSet::~ExtensionSet() = default;
 
-uint32_t ExtensionSet::EncodeTypeVariation(Id id, const std::shared_ptr<DataType>& type) {
-  return impl_->EncodeTypeOrTypeVariation<Impl::kTypeVariation>(id, type, this);
-}
-
-uint32_t ExtensionSet::EncodeType(Id id, const std::shared_ptr<DataType>& type) {
-  return impl_->EncodeTypeOrTypeVariation<Impl::kType>(id, type, this);
+uint32_t ExtensionSet::EncodeType(Id id, const std::shared_ptr<DataType>& type,
+                                  bool is_variation) {
+  return impl_->EncodeType(id, type, is_variation, this);
 }
 
 ExtensionIdRegistry* default_extension_id_registry() {
-  static struct : ExtensionIdRegistry {
-    struct TypeHashEq {
-      size_t operator()(const std::shared_ptr<DataType>& type) const {
-        return type->Hash();
+  static struct Impl : ExtensionIdRegistry {
+    Impl() {
+      struct TypeName {
+        std::shared_ptr<DataType> type;
+        util::string_view name;
+      };
+      for (TypeName e : {
+               TypeName{null(), "null"},
+               TypeName{uint8(), "u8"},
+               TypeName{uint16(), "u16"},
+               TypeName{uint32(), "u32"},
+               TypeName{uint64(), "u64"},
+           }) {
+        DCHECK_OK(RegisterType({kArrowExtTypesUri, e.name}, std::move(e.type),
+                               /*is_variation=*/true));
       }
-      bool operator()(const std::shared_ptr<DataType>& l,
-                      const std::shared_ptr<DataType>& r) const {
-        return *l == *r;
+    }
+    util::optional<TypeRecord> GetType(const DataType& type) const override {
+      auto it = type_to_index_.find(&type);
+      if (it == type_to_index_.end()) return {};
+
+      int index = it->second;
+      return TypeRecord{ids_[index], types_[index], type_is_variation_[index]};
+    }
+
+    util::optional<TypeRecord> GetType(Id id, bool is_variation) const override {
+      auto* id_to_index = is_variation ? &variation_id_to_index_ : &id_to_index_;
+      auto it = id_to_index->find(id);
+      if (it == id_to_index->end()) return {};
+
+      int index = it->second;
+      return TypeRecord{ids_[index], types_[index], type_is_variation_[index]};
+    }
+
+    Status RegisterType(Id id, std::shared_ptr<DataType> type,
+                        bool is_variation) override {
+      DCHECK_EQ(ids_.size(), types_.size());
+      DCHECK_EQ(ids_.size(), type_is_variation_.size());
+
+      Id copied_id{*uris_.emplace(id.uri.to_string()).first,
+                   *names_.emplace(id.name.to_string()).first};
+
+      size_t index = ids_.size();
+
+      auto* id_to_index = is_variation ? &variation_id_to_index_ : &id_to_index_;
+      auto it_success = id_to_index->emplace(copied_id, index);
+
+      if (!it_success.second) {
+        return Status::Invalid("Type id was already registered");
       }
-    };
 
-    util::optional<Id> GetTypeVariation(
-        const std::shared_ptr<DataType>& type) const override {
-      auto it = type_variations_.find(type);
-      if (it == type_variations_.end()) return {};
-      return it->second;
-    }
-    std::shared_ptr<DataType> GetTypeVariation(Id) const override { return nullptr; }
-    Status RegisterTypeVariation(Id id, const std::shared_ptr<DataType>& type) override {
-      if (type_variations_.emplace(type, id).second) return Status::OK();
-      return Status::Invalid("TypeVariation id was already registered");
+      if (!type_to_index_.emplace(type.get(), index).second) {
+        id_to_index->erase(it_success.first);
+        return Status::Invalid("Type was already registered");
+      }
+
+      ids_.push_back(copied_id);
+      types_.push_back(std::move(type));
+      type_is_variation_.push_back(is_variation);
+      return Status::OK();
     }
 
-    util::optional<Id> GetType(const std::shared_ptr<DataType>&) const override {
-      return {};
-    }
-    std::shared_ptr<DataType> GetType(Id) const override { return nullptr; }
-    Status RegisterType(Id, const std::shared_ptr<DataType>&) override {
-      return Status::NotImplemented("FIXME");
-    }
+    // owning storage of uris, names, types
+    std::unordered_set<std::string> uris_, names_;
+    DataTypeVector types_;
+    std::vector<bool> type_is_variation_;
 
-    std::unordered_map<std::shared_ptr<DataType>, Id, TypeHashEq, TypeHashEq>
-        type_variations_, types_;
+    // non-owning lookup helpers
+    std::vector<Id> ids_;
+    std::unordered_map<Id, int, IdHashEq, IdHashEq> id_to_index_, variation_id_to_index_;
+    std::unordered_map<const DataType*, int, TypePtrHashEq, TypePtrHashEq> type_to_index_;
   } impl_;
-
-  constexpr util::string_view kArrowExtTypesUrl =
-      "https://github.com/apache/arrow/blob/master/format/substrait/extension_types.yaml";
-
-  DCHECK_OK(impl_.RegisterTypeVariation({kArrowExtTypesUrl, "null"}, null()));
 
   return &impl_;
 }
