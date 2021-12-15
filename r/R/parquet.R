@@ -26,7 +26,7 @@
 #'
 #' @return A [arrow::Table][Table], or a `data.frame` if `as_data_frame` is
 #' `TRUE` (the default).
-#' @examplesIf arrow_with_parquet()
+#' @examplesIf arrow_with_parquet() && !getFromNamespace("on_linux_dev", "arrow")()
 #' tf <- tempfile()
 #' on.exit(unlink(tf))
 #' write_parquet(mtcars, tf)
