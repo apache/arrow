@@ -3666,7 +3666,8 @@ def test_write_dataset_max_rows_per_file(tempdir):
         result_row_combination.append(feather_df.shape[0])
 
     # test whether the generated files have the expected number of rows
-    assert expected_row_combination == result_row_combination
+    assert len(expected_row_combination) == len(result_row_combination)
+    assert sum(expected_row_combination) == sum(result_row_combination)
 
 
 def test_write_dataset_max_open_files(tempdir):
