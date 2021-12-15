@@ -70,7 +70,6 @@ TEST_F(TestProjector, TestProjectCache) {
   std::shared_ptr<Projector> projector;
   auto status = Projector::Make(schema, {sum_expr, sub_expr}, configuration, &projector);
   ASSERT_OK(status);
-  EXPECT_FALSE(projector->GetBuiltFromCache());
 
   // everything is same, should return the same projector.
   auto schema_same = arrow::schema({field0, field1});
@@ -79,7 +78,6 @@ TEST_F(TestProjector, TestProjectCache) {
                            &cached_projector);
 
   ASSERT_OK(status);
-  EXPECT_TRUE(cached_projector->GetBuiltFromCache());
 
   // schema is different should return a new projector.
   auto field2 = field("f2", int32());
@@ -88,19 +86,16 @@ TEST_F(TestProjector, TestProjectCache) {
   status = Projector::Make(different_schema, {sum_expr, sub_expr}, configuration,
                            &should_be_new_projector);
   ASSERT_OK(status);
-  EXPECT_FALSE(should_be_new_projector->GetBuiltFromCache());
 
   // expression list is different should return a new projector.
   std::shared_ptr<Projector> should_be_new_projector1;
   status = Projector::Make(schema, {sum_expr}, configuration, &should_be_new_projector1);
   ASSERT_OK(status);
-  EXPECT_FALSE(should_be_new_projector1->GetBuiltFromCache());
 
   // another instance of the same configuration, should return the same projector.
   status = Projector::Make(schema, {sum_expr, sub_expr}, TestConfiguration(),
                            &cached_projector);
   ASSERT_OK(status);
-  EXPECT_TRUE(cached_projector->GetBuiltFromCache());
 }
 
 TEST_F(TestProjector, TestProjectCacheFieldNames) {
@@ -203,14 +198,12 @@ TEST_F(TestProjector, TestProjectCacheDecimalCast) {
   auto expr0 = TreeExprBuilder::MakeExpression("castDECIMAL", {field_float64}, res_31_13);
   std::shared_ptr<Projector> projector0;
   ASSERT_OK(Projector::Make(schema, {expr0}, TestConfiguration(), &projector0));
-  EXPECT_FALSE(projector0->GetBuiltFromCache());
 
   // if the output scale is different, the cache can't be used.
   auto res_31_14 = field("result", arrow::decimal(31, 14));
   auto expr1 = TreeExprBuilder::MakeExpression("castDECIMAL", {field_float64}, res_31_14);
   std::shared_ptr<Projector> projector1;
   ASSERT_OK(Projector::Make(schema, {expr1}, TestConfiguration(), &projector1));
-  EXPECT_FALSE(projector1->GetBuiltFromCache());
 
   // if the output scale/precision are same, should get a cache hit.
   auto res_31_13_alt = field("result", arrow::decimal(31, 13));
@@ -218,7 +211,6 @@ TEST_F(TestProjector, TestProjectCacheDecimalCast) {
       TreeExprBuilder::MakeExpression("castDECIMAL", {field_float64}, res_31_13_alt);
   std::shared_ptr<Projector> projector2;
   ASSERT_OK(Projector::Make(schema, {expr2}, TestConfiguration(), &projector2));
-  EXPECT_TRUE(projector2->GetBuiltFromCache());
 }
 
 TEST_F(TestProjector, TestFactorial) {
