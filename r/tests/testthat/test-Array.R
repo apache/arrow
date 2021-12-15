@@ -51,7 +51,7 @@ test_that("binary Array", {
   expect_array_roundtrip(bin, fixed_size_binary(byte_width = 10))
 
   # degenerate cases
-  skip_on_valgrind() # valgrind errors on these tests ARROW-12638
+  skip_on_linux_devel() # valgrind errors on these tests ARROW-12638
   bin <- vctrs::new_vctr(
     list(1:10),
     class = "arrow_binary"

@@ -153,6 +153,9 @@ arrow_with_dataset <- function() {
 #' @rdname arrow_available
 #' @export
 arrow_with_parquet <- function() {
+  # https://github.com/google/snappy/pull/148/files
+  skip_on_linux_devel()
+
   tryCatch(.Call(`_parquet_available`), error = function(e) {
     return(FALSE)
   })
