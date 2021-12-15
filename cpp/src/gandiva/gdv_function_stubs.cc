@@ -611,6 +611,68 @@ int32_t gdv_fn_cast_intervalyear_utf8_int32(int64_t context_ptr, int64_t holder_
   auto* holder = reinterpret_cast<gandiva::IntervalYearsHolder*>(holder_ptr);
   return (*holder)(context, data, data_len, in1_validity, out_valid);
 }
+
+GANDIVA_EXPORT
+const char* translate_utf8_utf8_utf8(int64_t context, const char* in, int32_t in_len,
+                                     const char* from, int32_t from_len, const char* to,
+                                     int32_t to_len, int32_t* out_len) {
+  if (in_len <= 0) {
+    *out_len = 0;
+    return nullptr;
+  }
+
+  if (from_len <= 0) {
+    *out_len = in_len;
+    return in;
+  }
+
+  std::map<char, char> subs_list;
+  std::string translated(in, in_len);
+  int start_compare;
+
+  if (to_len > 0) {
+    start_compare = 0;
+  } else {
+    start_compare = -1;
+  }
+
+  const char empty = '\0';
+
+  for (int in_for = 0; in_for < in_len; in_for++) {
+    if (subs_list.find(in[in_for]) != subs_list.end()) {
+      continue;
+    } else {
+      for (int from_for = 0; from_for < from_len; from_for++) {
+        if (in[in_for] != from[from_for]) {
+          continue;
+        } else if (start_compare == -1 || start_compare == to_len) {
+          subs_list.insert(std::pair<char, char>(in[in_for], empty));
+        } else {
+          subs_list.insert(std::pair<char, char>(in[in_for], to[start_compare]));
+          start_compare++;
+        }
+      }
+    }
+  }
+  std::map<char, char>::iterator it = subs_list.begin();
+
+  while (it != subs_list.end()) {
+    if (it->second == empty) {
+      translated.erase(std::remove(translated.begin(), translated.end(), it->first),
+                       translated.end());
+    } else {
+      replace(translated.begin(), translated.end(), it->first, it->second);
+    }
+    it++;
+  }
+
+  *out_len = translated.length();
+  char* result =
+      reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, translated.length()));
+  strcpy(result, translated.c_str());
+
+  return &result[0];
+}
 }
 
 namespace gandiva {
@@ -962,5 +1024,21 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc(
       "gdv_fn_cast_intervalyear_utf8_int32", types->i32_type() /*return_type*/, args,
       reinterpret_cast<void*>(gdv_fn_cast_intervalyear_utf8_int32));
+
+  // translate_utf8_utf8_utf8
+  args = {
+      types->i64_type(),     // context
+      types->i8_ptr_type(),  // const char*
+      types->i32_type(),     // value_length
+      types->i8_ptr_type(),  // const char*
+      types->i32_type(),     // value_length
+      types->i8_ptr_type(),  // const char*
+      types->i32_type(),     // value_length
+      types->i32_ptr_type()  // out_length
+  };
+
+  engine->AddGlobalMappingForFunc("translate_utf8_utf8_utf8",
+                                  types->i8_ptr_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(translate_utf8_utf8_utf8));
 }
 }  // namespace gandiva
