@@ -425,14 +425,13 @@ in order to spot any error we might have made.
    +    """
    +    Compute the minimum-1 and maximum-1 values of a numeric array.
    +
-   +    Null values are ignored by default. This can be changed through
-   +    ScalarAggregateOptions.
-   +
    +    This is a made-up feature for the tutorial purposes.
    +
    +    Parameters
    +    ----------
    +    values : Array
+   +    skip_nulls : bool, default True
+   +        If True, ignore nulls in the input.
    +
    +    Returns
    +    -------
