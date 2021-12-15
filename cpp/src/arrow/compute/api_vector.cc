@@ -91,18 +91,19 @@ struct EnumTraits<NullPlacement>
 };
 template <>
 struct EnumTraits<IsMonotonicOptions::NullHandling>
-    : BasicEnumTraits<
-          IsMonotonicOptions::NullHandling, IsMonotonicOptions::NullHandling::IGNORE,
-          IsMonotonicOptions::NullHandling::MIN, IsMonotonicOptions::NullHandling::MAX> {
+    : BasicEnumTraits<IsMonotonicOptions::NullHandling,
+                      IsMonotonicOptions::NullHandling::IGNORE_NULLS,
+                      IsMonotonicOptions::NullHandling::USE_MIN_VALUE,
+                      IsMonotonicOptions::NullHandling::USE_MAX_VALUE> {
   static std::string name() { return "IsMonotonicOptions::NullHandling"; }
   static std::string value_name(IsMonotonicOptions::NullHandling value) {
     switch (value) {
-      case IsMonotonicOptions::NullHandling::IGNORE:
-        return "IGNORE";
-      case IsMonotonicOptions::NullHandling::MIN:
-        return "MIN";
-      case IsMonotonicOptions::NullHandling::MAX:
-        return "MAX";
+      case IsMonotonicOptions::NullHandling::IGNORE_NULLS:
+        return "IGNORE_NULLS";
+      case IsMonotonicOptions::NullHandling::USE_MIN_VALUE:
+        return "USE_MIN_VALUE";
+      case IsMonotonicOptions::NullHandling::USE_MAX_VALUE:
+        return "USE_MAX_VALUE";
     }
     return "<INVALID>";
   }

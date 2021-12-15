@@ -183,16 +183,18 @@ Status IsMonotonic(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     } else {
       // It is strictly increasing if there are zero or one elements or when nulls are
       // ignored.
-      bool strictly = array.length() <= 1 ||
-                      options.null_handling == IsMonotonicOptions::NullHandling::IGNORE;
+      bool strictly =
+          array.length() <= 1 ||
+          options.null_handling == IsMonotonicOptions::NullHandling::IGNORE_NULLS;
       return IsMonotonicOutput(true, strictly, true, strictly, out);
     }
   }
 
   // Set null value based on option.
-  const CType null_value = options.null_handling == IsMonotonicOptions::NullHandling::MIN
-                               ? min<DataType>()
-                               : max<DataType>();
+  const CType null_value =
+      options.null_handling == IsMonotonicOptions::NullHandling::USE_MIN_VALUE
+          ? min<DataType>()
+          : max<DataType>();
 
   bool increasing = true, strictly_increasing = true, decreasing = true,
        strictly_decreasing = true;
@@ -204,7 +206,7 @@ Status IsMonotonic(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     auto next = *b;
 
     // Handle nulls.
-    if (options.null_handling == IsMonotonicOptions::NullHandling::IGNORE) {
+    if (options.null_handling == IsMonotonicOptions::NullHandling::IGNORE_NULLS) {
       // Forward both iterators to search for a non-null value. The loop exit
       // condition prevents reading past the end.
       if (!current.has_value()) {

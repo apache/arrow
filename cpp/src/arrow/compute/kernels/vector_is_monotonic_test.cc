@@ -46,8 +46,8 @@ void Check(Datum input, bool increasing, bool strictly_increasing, bool decreasi
 }
 
 TEST(TestIsMonotonicKernel, VectorFunction) {
-  const IsMonotonicOptions min(IsMonotonicOptions::NullHandling::MIN);
-  const IsMonotonicOptions max(IsMonotonicOptions::NullHandling::MAX);
+  const IsMonotonicOptions min(IsMonotonicOptions::NullHandling::USE_MIN_VALUE);
+  const IsMonotonicOptions max(IsMonotonicOptions::NullHandling::USE_MAX_VALUE);
 
   // Primitive arrays
   // These tests should early exit (based on length).
@@ -160,7 +160,8 @@ TEST(TestIsMonotonicKernel, VectorFunction) {
   Check(ArrayFromJSON(boolean(), "[true, false]"), false, false, true, true);
 
   // Floating point
-  const IsMonotonicOptions approx(IsMonotonicOptions::NullHandling::IGNORE, true, 1e-1);
+  const IsMonotonicOptions approx(IsMonotonicOptions::NullHandling::IGNORE_NULLS, true,
+                                  1e-1);
 
   Check(ArrayFromJSON(float32(), "[NaN]"), false, false, false, false);
   Check(ArrayFromJSON(float32(), "[NaN, NaN]"), false, false, false, false);
