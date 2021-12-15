@@ -317,7 +317,8 @@ arrow::TimeUnit::type TimeType__unit(const std::shared_ptr<arrow::TimeType>& typ
 }
 
 // [[arrow::export]]
-arrow::TimeUnit::type DurationType__unit(const std::shared_ptr<arrow::TimeType>& type) {
+arrow::TimeUnit::type DurationType__unit(
+    const std::shared_ptr<arrow::DurationType>& type) {
   return type->unit();
 }
 
