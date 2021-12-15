@@ -35,7 +35,7 @@ int GetCapacity() {
   } else {
     capacity = DEFAULT_CACHE_SIZE;
   }
-  return capacity;
+  return static_cast<int>(capacity);
 }
 
 void LogCacheSize(size_t capacity) {
