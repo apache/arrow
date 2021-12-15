@@ -146,7 +146,7 @@ class GreedyDualSizeCache {
     //  for correctness.
     // evict item from the beginning of the set. This set is ordered from the
     // lower priority value to the higher priority value.
-    typename std::set<PriorityItem>::iterator i = priority_set_.begin();
+    std::set<PriorityItem>::iterator i = priority_set_.begin();
     // update the inflation cost related to the evicted item
     inflation_ = (*i).actual_priority;
     size_t size_to_decrease = map_.find((*i).cache_key)->second.first.size;
