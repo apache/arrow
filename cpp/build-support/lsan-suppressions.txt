@@ -19,3 +19,10 @@
 leak:*__new_exitfn*
 # Leak at shutdown in OpenSSL
 leak:CRYPTO_zalloc
+
+# OpenTelemetry. These seem like false positives and go away if the
+# CPU thread pool is manually shut down before exit.
+# Note that ASan has trouble backtracing these and may not be able to
+# without LSAN_OPTIONS=fast_unwind_on_malloc=0:malloc_context_size=100
+leak:opentelemetry::v1::context::ThreadLocalContextStorage::GetStack
+leak:opentelemetry::v1::context::ThreadLocalContextStorage::Stack::Resize
