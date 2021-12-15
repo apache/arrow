@@ -201,12 +201,13 @@ class GcsIntegrationTest : public ::testing::Test {
     const char* const kTestFolders[] = {
         "a/", "a/0/", "a/0/0/", "a/1/", "a/2/",
     };
+    constexpr auto kFilesPerFolder = 4;
     auto result = Hierarchy{PreexistingBucketPath() + "a/", {}};
     for (auto const* f : kTestFolders) {
       const auto folder = PreexistingBucketPath() + f;
       RETURN_NOT_OK(fs->CreateDir(folder, true));
       result.contents.push_back(arrow::fs::Dir(folder));
-      for (int i = 0; i != 64; ++i) {
+      for (int i = 0; i != kFilesPerFolder; ++i) {
         const auto filename = folder + "test-file-" + std::to_string(i);
         CreateFile(fs.get(), filename, filename);
         result.contents.push_back(arrow::fs::File(filename));
