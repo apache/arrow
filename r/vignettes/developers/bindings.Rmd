@@ -94,6 +94,12 @@ deal of extra work.
 As `starts_with()` has an options class associated with it, we’ll need to make 
 sure that it’s linked up with this in the R code.
 
+In case you're wondering about the difference between arguments in R and options
+in Arrow, in R, arguments to functions can include the actual data to be 
+analysed as well as options governing how the function works, whereas in the 
+C++ compute functions, the arguments are the data to be analysed and the 
+options are for specifying how exactly the function works.
+
 So let's get started.
 
 ### Step 1 - add unit tests
@@ -118,7 +124,7 @@ test_that("startsWith", {
     df
   )
 
-}
+})
 ```
 
 ### Step 2 - hook up the compute function with options class if necessary
