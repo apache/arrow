@@ -90,8 +90,7 @@ target environment.**
    developers/reviewing
    developers/cpp/index
    developers/python
-   developers/archery
-   developers/crossbow
+   developers/continuous_integration
    developers/docker
    developers/benchmarks
    developers/documentation

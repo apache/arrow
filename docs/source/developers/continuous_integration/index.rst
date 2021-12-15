@@ -15,12 +15,15 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
+
+**********************
 Continuous Integration
-======================
+**********************
 
 .. toctree::
    :maxdepth: 2
 
    overview
+   docker
    archery
    crossbow

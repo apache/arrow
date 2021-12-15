@@ -16,6 +16,7 @@
 .. under the License.
 
 .. highlight:: console
+.. _crossbow:
 
 Packaging and Testing with Crossbow
 ===================================

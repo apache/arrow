@@ -27,7 +27,7 @@ Some files central to Arrow CI are:
 - ``.travis.yml`` - here we define workflows which run on Travis
 - ``appveyor.yml`` - here we define workflows that run on Appveyor
 
-We use docker in order to have portable and reproducible Linux builds, as well as running Windows builds in Windows containers.
+We use :ref:`Docker<docker-builds>` in order to have portable and reproducible Linux builds, as well as running Windows builds in Windows containers.  We use :ref:`Archery<Archery>` and :ref:`Crossbow<Crossbow>` to help co-ordinate the various CI tasks.
 
 One thing to note is the some of the services defined in ``docker-compose.yml`` are interdependent.  When running services locally, you must either manually build its dependencies first, or build it via the use of ``archery run ...`` which automatically finds and builds dependencies. 
 
