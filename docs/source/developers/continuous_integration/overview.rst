@@ -22,20 +22,20 @@ Continuous Integration for Arrow is fairly complex as it needs to run across dif
 
 Some files central to Arrow CI are:
 
-* `docker-compose.yml` - here we define docker services which can be configured using either enviroment variables, or the default values for these variables.
-* `.env` - here we define default values to configure the services in `docker-compose.yml`
-* `.travis.yml` - here we define workflows which run on Travis
-* `appveyor.yml` - here we define workflows that run on Appveyor
+* ``docker-compose.yml`` - here we define docker services which can be configured using either enviroment variables, or the default values for these variables.
+* ``.env`` - here we define default values to configure the services in ``docker-compose.yml``
+* ``.travis.yml`` - here we define workflows which run on Travis
+* ``appveyor.yml`` - here we define workflows that run on Appveyor
 
 We use docker in order to have portable and reproducible Linux builds, as well as running Windows builds in Windows containers.
 
-One thing to note is the some of the services defined in `docker-compose.yml` are interdependent.  When running services locally, you must either manually build its dependencies first, or build it via the use of `archery run ...` which automatically finds and builds dependencies.  For more information on archery, see <link>.
+One thing to note is the some of the services defined in ``docker-compose.yml`` are interdependent.  When running services locally, you must either manually build its dependencies first, or build it via the use of ``archery run ...`` which automatically finds and builds dependencies. 
 
 There are numerous important directories in the Arrow project which relate to CI:
 
-* `.github/worflows` - workflows that are run via GitHub actions and are triggered by things like pull requests being submitted or merged
-* `dev/tasks` - containing on-demand jobs triggered/submitted via `archery crossbow submit ...`, typically nightly builds or relating to the release process
-* `ci/` - containing scripts, dockerfiles, and any supplemental files, e.g. patch files, conda environment files, vcpkg triplet files.
+* ``.github/worflows`` - workflows that are run via GitHub actions and are triggered by things like pull requests being submitted or merged
+* ``dev/tasks`` - containing on-demand jobs triggered/submitted via ``archery crossbow submit ...``, typically nightly builds or relating to the release process
+* ``ci/`` - containing scripts, dockerfiles, and any supplemental files, e.g. patch files, conda environment files, vcpkg triplet files.
 
 Instead of thinking about Arrow CI in terms of files and folders, it may be conceptually simpler to instead divide it into 2 main categories:
 
@@ -45,28 +45,28 @@ Instead of thinking about Arrow CI in terms of files and folders, it may be conc
 Action-triggered builds
 -----------------------
 
-The `.yml` files in `.github/worflows` are workflows which are run on GitHub in response to specific actions.  The majority of workflows in this directory are Arrow implementation-specific and are run when changes are made which affect code relevant to that language's implementation, but other workflows worth noting are:
+The ``.yml`` files in ``.github/worflows`` are workflows which are run on GitHub in response to specific actions.  The majority of workflows in this directory are Arrow implementation-specific and are run when changes are made which affect code relevant to that language's implementation, but other workflows worth noting are:
 
-* `archery.yml` - if changes are made to the Archery tool or tasks which it runs, this workflow runs the necessary validation checks
-* `comment_bot.yml` - triggers certain actions by listening on github pull request comments for the following strings:
-	* `@github-actions crossbow submit ...` - runs the specified Crossbow command
-	* `@github-actions autotune` - runs a number of stylers/formatters, builds some of the docs, and commits the results
-	* `@github-actions rebase` - rebases the PR onto the master branch
-* `dev.yml` - runs any time there is activity on a PR, or a PR is merged; it runs the linter and tests that the PR can be merged
-* `dev_pr.yml` - runs any time a PR is opened or updated; checks the formatting of the PR title, adds links to the appropriate JIRA ticket if included in the title (or adds a comment requesting the user fix this if not), and adds any relevant GitHub labels
+* ``archery.yml`` - if changes are made to the Archery tool or tasks which it runs, this workflow runs the necessary validation checks
+* ``comment_bot.yml`` - triggers certain actions by listening on github pull request comments for the following strings:
+	* ``@github-actions crossbow submit ...`` - runs the specified Crossbow command
+	* ``@github-actions autotune`` - runs a number of stylers/formatters, builds some of the docs, and commits the results
+	* ``@github-actions rebase`` - rebases the PR onto the master branch
+* ``dev.yml`` - runs any time there is activity on a PR, or a PR is merged; it runs the linter and tests that the PR can be merged
+* ``dev_pr.yml`` - runs any time a PR is opened or updated; checks the formatting of the PR title, adds links to the appropriate JIRA ticket if included in the title (or adds a comment requesting the user fix this if not), and adds any relevant GitHub labels
 
 There are two other files which define action-triggered builds:
-* `.travis.yml` - runs on all commits and is used to test on architectures such as ARM and S390x
-* `appveyor.yml` - runs on commits related to Python or C++ (why???)
+* ``.travis.yml`` - runs on all commits and is used to test on architectures such as ARM and S390x
+* ``appveyor.yml`` - runs on commits related to Python or C++ 
 
 On-demand builds
 -----------------------
 
-Crossbow is a subcomponent of Archery and can be used to manually trigger builds.  The tasks which can be run on Crossbow can be found in the `dev/tasks` directory.  This directory contains:
+Crossbow is a subcomponent of Archery and can be used to manually trigger builds.  The tasks which can be run on Crossbow can be found in the ``dev/tasks`` directory.  This directory contains:
 
-* the file `dev/tasks/tasks.yml` containing the configuration for various tasks which can be run via Crossbow
-* subdirectories containing different task templates (specified using `jinja2 syntax <https://jinja2docs.readthedocs.io/en/stable/>`_), divided roughly by language or package management system.
+* the file ``dev/tasks/tasks.yml`` containing the configuration for various tasks which can be run via Crossbow
+* subdirectories containing different task templates (specified using ``jinja2 syntax <https://jinja2docs.readthedocs.io/en/stable/>``_), divided roughly by language or package management system.
 
-Most of these tasks are run as part of the nightly builds, though also can be triggered manually by add a comment to a PR which begins with `@github-actions crossbow submit` followed by the name of the task to be run.
+Most of these tasks are run as part of the nightly builds, though also can be triggered manually by add a comment to a PR which begins with ``@github-actions crossbow submit`` followed by the name of the task to be run.
 
-For convenience purpose, the tasks in `dev/tasks/tasks.yml` are defined in groups, which makes it simpler for multiple tasks to be submitted to Crossbow at once.  The task definitions here contain information about which service defined in `docker-compose.yml` to run, the CI service to run the task on, and which template file to use as the basis for that task.
+For convenience purpose, the tasks in ``dev/tasks/tasks.yml`` are defined in groups, which makes it simpler for multiple tasks to be submitted to Crossbow at once.  The task definitions here contain information about which service defined in ``docker-compose.yml`` to run, the CI service to run the task on, and which template file to use as the basis for that task.
