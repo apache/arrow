@@ -1425,7 +1425,7 @@ cdef ParquetCipher cipher_from_name(name):
     elif name == 'AES_GCM_CTR_V1':
         return ParquetCipher_AES_GCM_CTR_V1
     else:
-        raise ValueError('Invalid value for algorithm: {0}'.format(name))
+        raise ValueError(f'Invalid cipher name: {name!r}')
 
 
 cdef cipher_to_name(ParquetCipher cipher):
