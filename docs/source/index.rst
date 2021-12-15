@@ -91,7 +91,6 @@ target environment.**
    developers/cpp/index
    developers/python
    developers/continuous_integration
-   developers/docker
    developers/benchmarks
    developers/documentation
    developers/computeir
