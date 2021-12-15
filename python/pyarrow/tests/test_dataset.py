@@ -3643,7 +3643,7 @@ def test_write_dataset_max_rows_per_file(tempdir):
 
     record_batch_1 = pa.record_batch(data=data, names=column_names)
 
-    ds.write_dataset(record_batch_1, directory, format="arrow",
+    ds.write_dataset(record_batch_1, directory, format="parquet",
                      max_rows_per_file=max_rows_per_file,
                      max_rows_per_group=max_rows_per_group)
 
@@ -3662,8 +3662,10 @@ def test_write_dataset_max_rows_per_file(tempdir):
     result_row_combination = []
     for _, f_file in enumerate(files_in_dir):
         f_path = directory / str(f_file)
-        feather_df = feather.read_feather(f_path)
-        result_row_combination.append(feather_df.shape[0])
+        dataset = dataset = ds.dataset(
+        f_path, format="parquet",
+        partitioning=ds.HivePartitioning.discover(infer_dictionary=True))
+        result_row_combination.append(dataset.to_table().shape[0])
 
     # test whether the generated files have the expected number of rows
     assert len(expected_row_combination) == len(result_row_combination)
