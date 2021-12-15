@@ -35,7 +35,6 @@ namespace csv {
 //  - For binary types all non-null data is quoted (and quotes within data are escaped
 //  with an additional quote).
 //    Null values are empty and unquoted.
-//  - LF (\n) is always used as a line ending.
 
 /// \brief Converts table to a CSV and writes the results to output.
 /// Experimental

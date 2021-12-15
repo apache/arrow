@@ -215,6 +215,57 @@ test_that("URI-decoding with hive partitioning", {
   )
 })
 
+test_that("URI-decoding with hive partitioning with key encoded", {
+  root <- make_temp_dir()
+  fmt <- FileFormat$create("feather")
+  fs <- LocalFileSystem$create()
+  selector <- FileSelector$create(root, recursive = TRUE)
+  dir1 <- file.path(root, "test%20key=2021-05-04 00%3A00%3A00", "test%20key1=%24")
+  dir.create(dir1, recursive = TRUE)
+  write_feather(df1, file.path(dir1, "data.feather"))
+
+  partitioning <- hive_partition(
+    `test key` = timestamp(unit = "s"), `test key1` = utf8(), segment_encoding = "uri"
+  )
+  factory <- FileSystemDatasetFactory$create(
+    fs, selector, NULL, fmt,
+    partitioning = partitioning
+  )
+  schm <- factory$Inspect()
+  ds <- factory$Finish(schm)
+  expect_scan_result(ds, schm)
+
+  # segment encoding for both key and values
+  partitioning_factory <- hive_partition(segment_encoding = "uri")
+  factory <- FileSystemDatasetFactory$create(
+    fs, selector, NULL, fmt, partitioning_factory
+  )
+  schm <- factory$Inspect()
+  ds <- factory$Finish(schm)
+  expect_equal(
+    ds %>%
+      filter(`test key` == "2021-05-04 00:00:00", `test key1` == "$") %>%
+      select(int) %>%
+      collect(),
+    df1 %>% select(int) %>% collect()
+  )
+
+  # no segment encoding
+  partitioning_factory <- hive_partition(segment_encoding = "none")
+  factory <- FileSystemDatasetFactory$create(
+    fs, selector, NULL, fmt, partitioning_factory
+  )
+  schm <- factory$Inspect()
+  ds <- factory$Finish(schm)
+  expect_equal(
+    ds %>%
+      filter(`test%20key` == "2021-05-04 00%3A00%3A00", `test%20key1` == "%24") %>%
+      select(int) %>%
+      collect(),
+    df1 %>% select(int) %>% collect()
+  )
+})
+
 # Everything else below here is using parquet files
 skip_if_not_available("parquet")
 

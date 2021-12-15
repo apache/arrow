@@ -419,7 +419,8 @@ struct ValidateArrayImpl {
   }
 
   Status ValidateNulls(const DataType& type) {
-    if (type.id() != Type::NA && data.null_count > 0 && data.buffers[0] == nullptr) {
+    if (type.storage_id() != Type::NA && data.null_count > 0 &&
+        data.buffers[0] == nullptr) {
       return Status::Invalid("Array of type ", type.ToString(), " has ", data.null_count,
                              " nulls but no null bitmap");
     }
@@ -437,7 +438,7 @@ struct ValidateArrayImpl {
           // Do not call GetNullCount() as it would also set the `null_count` member
           actual_null_count = data.length - CountSetBits(data.buffers[0]->data(),
                                                          data.offset, data.length);
-        } else if (data.type->id() == Type::NA) {
+        } else if (data.type->storage_id() == Type::NA) {
           actual_null_count = data.length;
         } else {
           actual_null_count = 0;

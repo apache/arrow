@@ -74,13 +74,8 @@ RUN wget -q -O - https://deb.nodesource.com/setup_${node}.x | bash - && \
     rm -rf /var/lib/apt/lists/* && \
     npm install -g yarn
 
-RUN pip install \
-        breathe \
-        ipython \
-        meson \
-        pydata-sphinx-theme \
-        sphinx-tabs \
-        sphinx>=4.2
+COPY docs/requirements.txt /arrow/docs/
+RUN pip install -r arrow/docs/requirements.txt meson
 
 COPY c_glib/Gemfile /arrow/c_glib/
 RUN gem install --no-document bundler && \

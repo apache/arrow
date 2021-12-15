@@ -194,6 +194,8 @@ direct questions, such as:
 
 If you ask these questions and do not get an answer, it is OK to ask again.
 
+.. _pull_request_and_review:
+
 Pull request and review
 +++++++++++++++++++++++
 
@@ -242,6 +244,8 @@ will see a message that says ``@user closed this in $COMMIT``. In the commit
 message of that commit, the merge tool adds the pull request description, a
 link back to the pull request, and attribution to the contributor and any
 co-authors.
+
+.. _git_conventions:
 
 Local git conventions
 +++++++++++++++++++++

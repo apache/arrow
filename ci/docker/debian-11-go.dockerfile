@@ -16,8 +16,8 @@
 # under the License.
 
 ARG arch=amd64
-ARG go=1.15
-FROM ${arch}/golang:${go}-buster
+ARG go=1.16
+FROM ${arch}/golang:${go}-bullseye
 
 
 # TODO(kszucs):

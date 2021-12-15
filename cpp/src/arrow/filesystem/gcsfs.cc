@@ -18,18 +18,27 @@
 #include "arrow/filesystem/gcsfs.h"
 
 #include <google/cloud/storage/client.h>
+#include <algorithm>
 
 #include "arrow/buffer.h"
 #include "arrow/filesystem/gcsfs_internal.h"
 #include "arrow/filesystem/path_util.h"
 #include "arrow/result.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/thread_pool.h"
 
 #define ARROW_GCS_RETURN_NOT_OK(expr) \
   if (!expr.ok()) return internal::ToArrowStatus(expr)
 
 namespace arrow {
 namespace fs {
+struct GcsCredentials {
+  explicit GcsCredentials(std::shared_ptr<google::cloud::Credentials> c)
+      : credentials(std::move(c)) {}
+
+  std::shared_ptr<google::cloud::Credentials> credentials;
+};
+
 namespace {
 
 namespace gcs = google::cloud::storage;
@@ -245,8 +254,6 @@ class GcsRandomAccessFile : public arrow::io::RandomAccessFile {
   std::shared_ptr<io::InputStream> stream_;
 };
 
-}  // namespace
-
 google::cloud::Options AsGoogleCloudOptions(const GcsOptions& o) {
   auto options = google::cloud::Options{};
   std::string scheme = o.scheme;
@@ -262,8 +269,13 @@ google::cloud::Options AsGoogleCloudOptions(const GcsOptions& o) {
   if (!o.endpoint_override.empty()) {
     options.set<gcs::RestEndpointOption>(scheme + "://" + o.endpoint_override);
   }
+  if (o.credentials && o.credentials->credentials) {
+    options.set<google::cloud::UnifiedCredentialsOption>(o.credentials->credentials);
+  }
   return options;
 }
+
+}  // namespace
 
 class GcsFileSystem::Impl {
  public:
@@ -275,12 +287,46 @@ class GcsFileSystem::Impl {
   Result<FileInfo> GetFileInfo(const GcsPath& path) {
     if (path.object.empty()) {
       auto meta = client_.GetBucketMetadata(path.bucket);
-      return GetFileInfoImpl(path, std::move(meta).status(), FileType::Directory);
+      return GetFileInfoDirectory(path, std::move(meta).status());
     }
     auto meta = client_.GetObjectMetadata(path.bucket, path.object);
-    return GetFileInfoImpl(
-        path, std::move(meta).status(),
-        path.object.back() == '/' ? FileType::Directory : FileType::File);
+    if (path.object.back() == '/') {
+      return GetFileInfoDirectory(path, std::move(meta).status());
+    }
+    return GetFileInfoFile(path, meta);
+  }
+
+  Result<FileInfoVector> GetFileInfo(const FileSelector& select) {
+    ARROW_ASSIGN_OR_RAISE(auto p, GcsPath::FromString(select.base_dir));
+    auto prefix = p.object.empty() ? gcs::Prefix() : gcs::Prefix(p.object);
+    auto delimiter = select.recursive ? gcs::Delimiter() : gcs::Delimiter("/");
+    bool found_directory = false;
+    FileInfoVector result;
+    for (auto const& o : client_.ListObjects(p.bucket, prefix, delimiter)) {
+      if (!o.ok()) {
+        if (select.allow_not_found &&
+            o.status().code() == google::cloud::StatusCode::kNotFound) {
+          continue;
+        }
+        return internal::ToArrowStatus(o.status());
+      }
+      found_directory = true;
+      // Skip the directory itself from the results
+      if (o->name() == p.object) {
+        continue;
+      }
+      auto path = internal::ConcatAbstractPath(o->bucket(), o->name());
+      if (o->name().back() == '/') {
+        result.push_back(
+            FileInfo(internal::EnsureTrailingSlash(path), FileType::Directory));
+        continue;
+      }
+      result.push_back(ToFileInfo(path, *o));
+    }
+    if (!found_directory && !select.allow_not_found) {
+      return Status::IOError("No such file or directory '", select.base_dir, "'");
+    }
+    return result;
   }
 
   // GCS does not have directories or folders. But folders can be emulated (with some
@@ -340,6 +386,36 @@ class GcsFileSystem::Impl {
 
   Status CreateDirRecursive(const GcsPath& p) {
     return internal::ToArrowStatus(CreateDirMarkerRecursive(p.bucket, p.object));
+  }
+
+  Status DeleteDir(const GcsPath& p, const io::IOContext& io_context) {
+    RETURN_NOT_OK(DeleteDirContents(p, io_context));
+    if (!p.object.empty()) {
+      return internal::ToArrowStatus(client_.DeleteObject(p.bucket, p.object));
+    }
+    return internal::ToArrowStatus(client_.DeleteBucket(p.bucket));
+  }
+
+  Status DeleteDirContents(const GcsPath& p, const io::IOContext& io_context) {
+    // Deleting large directories can be fairly slow, we need to parallelize the
+    // operation.
+    auto async_delete =
+        [&p, this](const google::cloud::StatusOr<gcs::ObjectMetadata>& o) -> Status {
+      if (!o) return internal::ToArrowStatus(o.status());
+      // The list includes the directory, skip it. DeleteDir() takes care of it.
+      if (o->bucket() == p.bucket && o->name() == p.object) return {};
+      return internal::ToArrowStatus(
+          client_.DeleteObject(o->bucket(), o->name(), gcs::Generation(o->generation())));
+    };
+
+    std::vector<Future<>> submitted;
+    // This iterates over all the objects, and schedules parallel deletes.
+    auto prefix = p.object.empty() ? gcs::Prefix() : gcs::Prefix(p.object);
+    for (const auto& o : client_.ListObjects(p.bucket, prefix)) {
+      submitted.push_back(DeferNotOk(io_context.executor()->Submit(async_delete, o)));
+    }
+
+    return AllFinished(submitted).status();
   }
 
   Status DeleteFile(const GcsPath& p) {
@@ -403,20 +479,40 @@ class GcsFileSystem::Impl {
   }
 
  private:
-  static Result<FileInfo> GetFileInfoImpl(const GcsPath& path,
-                                          const google::cloud::Status& status,
-                                          FileType type) {
-    const auto& canonical = type == FileType::Directory
-                                ? internal::EnsureTrailingSlash(path.full_path)
-                                : path.full_path;
-    if (status.ok()) {
-      return FileInfo(canonical, type);
-    }
+  static Result<FileInfo> GetFileInfoDirectory(const GcsPath& path,
+                                               const google::cloud::Status& status) {
     using ::google::cloud::StatusCode;
+    auto canonical = internal::EnsureTrailingSlash(path.full_path);
+    if (status.ok()) {
+      return FileInfo(canonical, FileType::Directory);
+    }
     if (status.code() == StatusCode::kNotFound) {
       return FileInfo(canonical, FileType::NotFound);
     }
     return internal::ToArrowStatus(status);
+  }
+
+  static Result<FileInfo> GetFileInfoFile(
+      const GcsPath& path, const google::cloud::StatusOr<gcs::ObjectMetadata>& meta) {
+    if (meta.ok()) {
+      return ToFileInfo(path.full_path, *meta);
+    }
+    using ::google::cloud::StatusCode;
+    if (meta.status().code() == StatusCode::kNotFound) {
+      return FileInfo(path.full_path, FileType::NotFound);
+    }
+    return internal::ToArrowStatus(meta.status());
+  }
+
+  static FileInfo ToFileInfo(const std::string& full_path,
+                             const gcs::ObjectMetadata& meta) {
+    auto info = FileInfo(full_path, FileType::File);
+    info.set_size(static_cast<int64_t>(meta.size()));
+    // An object has multiple "time" attributes, including the time when its data was
+    // created, and the time when its metadata was last updated. We use the object
+    // creation time because the data for an object cannot be changed once created.
+    info.set_mtime(meta.time_created());
+    return info;
   }
 
   GcsOptions options_;
@@ -424,7 +520,47 @@ class GcsFileSystem::Impl {
 };
 
 bool GcsOptions::Equals(const GcsOptions& other) const {
-  return endpoint_override == other.endpoint_override && scheme == other.scheme;
+  return credentials == other.credentials &&
+         endpoint_override == other.endpoint_override && scheme == other.scheme;
+}
+
+GcsOptions GcsOptions::Defaults() {
+  return GcsOptions{
+      std::make_shared<GcsCredentials>(google::cloud::MakeGoogleDefaultCredentials()),
+      {},
+      "https"};
+}
+
+GcsOptions GcsOptions::Anonymous() {
+  return GcsOptions{
+      std::make_shared<GcsCredentials>(google::cloud::MakeInsecureCredentials()),
+      {},
+      "http"};
+}
+
+GcsOptions GcsOptions::FromAccessToken(const std::string& access_token,
+                                       std::chrono::system_clock::time_point expiration) {
+  return GcsOptions{
+      std::make_shared<GcsCredentials>(
+          google::cloud::MakeAccessTokenCredentials(access_token, expiration)),
+      {},
+      "https"};
+}
+
+GcsOptions GcsOptions::FromImpersonatedServiceAccount(
+    const GcsCredentials& base_credentials, const std::string& target_service_account) {
+  return GcsOptions{std::make_shared<GcsCredentials>(
+                        google::cloud::MakeImpersonateServiceAccountCredentials(
+                            base_credentials.credentials, target_service_account)),
+                    {},
+                    "https"};
+}
+
+GcsOptions GcsOptions::FromServiceAccountCredentials(const std::string& json_object) {
+  return GcsOptions{std::make_shared<GcsCredentials>(
+                        google::cloud::MakeServiceAccountCredentials(json_object)),
+                    {},
+                    "https"};
 }
 
 std::string GcsFileSystem::type_name() const { return "gcs"; }
@@ -446,7 +582,7 @@ Result<FileInfo> GcsFileSystem::GetFileInfo(const std::string& path) {
 }
 
 Result<FileInfoVector> GcsFileSystem::GetFileInfo(const FileSelector& select) {
-  return Status::NotImplemented("The GCS FileSystem is not fully implemented");
+  return impl_->GetFileInfo(select);
 }
 
 Status GcsFileSystem::CreateDir(const std::string& path, bool recursive) {
@@ -456,11 +592,13 @@ Status GcsFileSystem::CreateDir(const std::string& path, bool recursive) {
 }
 
 Status GcsFileSystem::DeleteDir(const std::string& path) {
-  return Status::NotImplemented("The GCS FileSystem is not fully implemented");
+  ARROW_ASSIGN_OR_RAISE(auto p, GcsPath::FromString(path));
+  return impl_->DeleteDir(p, io_context());
 }
 
 Status GcsFileSystem::DeleteDirContents(const std::string& path) {
-  return Status::NotImplemented("The GCS FileSystem is not fully implemented");
+  ARROW_ASSIGN_OR_RAISE(auto p, GcsPath::FromString(path));
+  return impl_->DeleteDirContents(p, io_context());
 }
 
 Status GcsFileSystem::DeleteRootDirContents() {

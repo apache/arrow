@@ -2094,7 +2094,9 @@ Parameters
 table : pyarrow.Table
 where : string or pyarrow.NativeFile
 row_group_size : int
-    The number of rows per rowgroup
+    Maximum size of each written row group. If None, the
+    row group size will be the minimum of the Table size
+    and 64 * 1024 * 1024.
 {}
 **kwargs : optional
     Additional options for ParquetWriter

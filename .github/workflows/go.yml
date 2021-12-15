@@ -50,7 +50,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: [1.15]
+        go: [1.16]
     env:
       GO: ${{ matrix.go }}
     steps:
@@ -83,7 +83,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: [1.15]
+        go: [1.16]
     env:
       GO: ${{ matrix.go }}
     steps:
@@ -117,7 +117,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: [1.15]
+        go: [1.16]
     env:
       GO: ${{ matrix.go }}
     steps:
@@ -150,7 +150,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: [1.15]
+        go: [1.16]
     steps:
       - name: Install go
         uses: actions/setup-go@v1
@@ -178,7 +178,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: [1.15]
+        go: [1.16]
     steps:
       - name: Install go
         uses: actions/setup-go@v1
@@ -206,7 +206,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: [1.15]
+        go: [1.16]
     env:
       ARROW_GO_TESTCGO: "1"
     steps:
@@ -238,7 +238,7 @@ jobs:
     timeout-minutes: 60
     strategy:
       fail-fast: false
-      matrix:        
+      matrix:
         mingw-n-bits:
           #- 32 runtime handling for CGO needs 64-bit currently
           - 64

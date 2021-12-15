@@ -28,6 +28,7 @@
 #include "arrow/record_batch.h"
 #include "arrow/result_internal.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/matchers.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/optional.h"
@@ -58,13 +59,28 @@ void PrintTo(const WriterTestParams& p, std::ostream* os) {
 
 WriteOptions DefaultTestOptions(bool include_header = false,
                                 const std::string& null_string = "",
-                                QuotingStyle quoting_style = QuotingStyle::Needed) {
+                                QuotingStyle quoting_style = QuotingStyle::Needed,
+                                const std::string& eol = "\n") {
   WriteOptions options;
   options.batch_size = 5;
   options.include_header = include_header;
   options.null_string = null_string;
+  options.eol = eol;
   options.quoting_style = quoting_style;
   return options;
+}
+
+std::string UtilGetExpectedWithEOL(const std::string& eol) {
+  return std::string("1,,-1,,,") + eol +        // line 1
+         R"(1,"abc""efg",2324,,,)" + eol +      // line 2
+         R"(,"abcd",5467,,,)" + eol +           // line 3
+         R"(,,,,,)" + eol +                     // line 4
+         R"(546,"",517,,,)" + eol +             // line 5
+         R"(124,"a""""b""",,,,)" + eol +        // line 6
+         R"(,,,1970-01-01,,)" + eol +           // line 7
+         R"(,,,,1970-01-02,)" + eol +           // line 8
+         R"(,,,,,2004-02-29 01:02:03)" + eol +  // line 9
+         R"(,"NA",,,,)" + eol;                  // line 10
 }
 
 std::vector<WriterTestParams> GenerateTestCases() {
@@ -91,18 +107,14 @@ std::vector<WriterTestParams> GenerateTestCases() {
                              { "e": 86400000 },
                              { "f": 1078016523 },
                              { "b\"": "NA" }])";
+
   std::string expected_header = std::string(R"("a","b""","c ","d","e","f")") + "\n";
+
   // Expected output without header when using default QuotingStyle::Needed.
-  std::string expected_without_header = std::string("1,,-1,,,") + "\n" +        // line 1
-                                        R"(1,"abc""efg",2324,,,)" + "\n" +      // line 2
-                                        R"(,"abcd",5467,,,)" + "\n" +           // line 3
-                                        R"(,,,,,)" + "\n" +                     // line 4
-                                        R"(546,"",517,,,)" + "\n" +             // line 5
-                                        R"(124,"a""""b""",,,,)" + "\n" +        // line 6
-                                        R"(,,,1970-01-01,,)" + "\n" +           // line 7
-                                        R"(,,,,1970-01-02,)" + "\n" +           // line 8
-                                        R"(,,,,,2004-02-29 01:02:03)" + "\n" +  // line 9
-                                        R"(,"NA",,,,)" + "\n";                  // line 10
+  std::string expected_without_header = UtilGetExpectedWithEOL("\n");
+
+  std::string expected_with_custom_eol = UtilGetExpectedWithEOL("_EOL_");
+
   // Expected output without header when using QuotingStyle::AllValid.
   std::string expected_quoting_style_all_valid =
       std::string(R"("1",,"-1",,,)") + "\n" +   // line 1
@@ -172,6 +184,10 @@ std::vector<WriterTestParams> GenerateTestCases() {
       {abc_schema, "[]", DefaultTestOptions(), ""},
       {abc_schema, "[]", DefaultTestOptions(/*include_header=*/true), expected_header},
       {abc_schema, populated_batch, DefaultTestOptions(), expected_without_header},
+      {abc_schema, populated_batch,
+       DefaultTestOptions(/*include_header=*/false, /*null_string=*/"",
+                          QuotingStyle::Needed, "_EOL_"),
+       expected_with_custom_eol},
       {abc_schema, populated_batch, DefaultTestOptions(/*include_header=*/true),
        expected_header + expected_without_header},
       {schema_custom_na, populated_batch_custom_na,
@@ -241,9 +257,12 @@ TEST_P(TestWriteCSV, TestWrite) {
   WriteOptions options = GetParam().options;
   std::string csv;
   auto record_batch = RecordBatchFromJSON(GetParam().schema, GetParam().batch_data);
-  if (GetParam().expected_status != Status::OK()) {
-    // If an error status is expected, check if the expected status matches.
-    EXPECT_EQ(ToCsvString(*record_batch, options), GetParam().expected_status);
+  if (!GetParam().expected_status.ok()) {
+    // If an error status is expected, check if the expected status code and message
+    // matches.
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr(GetParam().expected_status.message()),
+        ToCsvString(*record_batch, options));
   } else {
     ASSERT_OK_AND_ASSIGN(csv, ToCsvString(*record_batch, options));
     EXPECT_EQ(csv, GetParam().expected_output);

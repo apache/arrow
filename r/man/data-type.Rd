@@ -27,6 +27,7 @@
 \alias{date64}
 \alias{time32}
 \alias{time64}
+\alias{duration}
 \alias{null}
 \alias{timestamp}
 \alias{decimal128}
@@ -87,6 +88,8 @@ date64()
 time32(unit = c("ms", "s"))
 
 time64(unit = c("ns", "us"))
+
+duration(unit = c("s", "ms", "us", "ns"))
 
 null()
 

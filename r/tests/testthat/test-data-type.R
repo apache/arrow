@@ -287,6 +287,30 @@ test_that("time64 types work as expected", {
   expect_equal(x$unit(), unclass(TimeUnit$NANO))
 })
 
+test_that("duration types work as expected", {
+  x <- duration(TimeUnit$MICRO)
+  expect_equal(x$id, Type$DURATION)
+  expect_equal(x$name, "duration")
+  expect_equal(x$ToString(), "duration[us]")
+  expect_true(x == x)
+  expect_false(x == null())
+  expect_equal(x$num_fields, 0L)
+  expect_equal(x$fields(), list())
+  expect_equal(x$bit_width, 64L)
+  expect_equal(x$unit(), unclass(TimeUnit$MICRO))
+
+  x <- duration(TimeUnit$SECOND)
+  expect_equal(x$id, Type$DURATION)
+  expect_equal(x$name, "duration")
+  expect_equal(x$ToString(), "duration[s]")
+  expect_true(x == x)
+  expect_false(x == null())
+  expect_equal(x$num_fields, 0L)
+  expect_equal(x$fields(), list())
+  expect_equal(x$bit_width, 64L)
+  expect_equal(x$unit(), unclass(TimeUnit$SECOND))
+})
+
 test_that("time type unit validation", {
   expect_equal(time32(TimeUnit$SECOND), time32("s"))
   expect_equal(time32(TimeUnit$MILLI), time32("ms"))
@@ -301,6 +325,13 @@ test_that("time type unit validation", {
   expect_error(time64(4), '"unit" should be one of 3 or 2')
   expect_error(time64(NULL), '"unit" should be one of "ns" or "us"')
   expect_match_arg_error(time64("years"))
+
+  expect_equal(duration(TimeUnit$NANO), duration("n"))
+  expect_equal(duration(TimeUnit$MICRO), duration("us"))
+  expect_equal(duration(), duration(TimeUnit$SECOND))
+  expect_error(duration(4), '"unit" should be one of 0, 1, 2, or 3')
+  expect_error(duration(NULL), '"unit" should be one of "s", "ms", "us", or "ns"')
+  expect_match_arg_error(duration("years"))
 })
 
 test_that("timestamp type input validation", {

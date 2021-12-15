@@ -695,12 +695,12 @@ def test_generated_signatures():
     # The self-documentation provided by signatures should show acceptable
     # options and their default values.
     sig = inspect.signature(pc.add)
-    assert str(sig) == "(x, y, *, memory_pool=None)"
+    assert str(sig) == "(x, y, /, *, memory_pool=None)"
     sig = inspect.signature(pc.min_max)
-    assert str(sig) == ("(array, *, memory_pool=None, "
+    assert str(sig) == ("(array, /, *, memory_pool=None, "
                         "options=None, skip_nulls=True, min_count=1)")
     sig = inspect.signature(pc.quantile)
-    assert str(sig) == ("(array, *, memory_pool=None, "
+    assert str(sig) == ("(array, /, *, memory_pool=None, "
                         "options=None, q=0.5, interpolation='linear', "
                         "skip_nulls=True, min_count=0)")
     sig = inspect.signature(pc.binary_join_element_wise)

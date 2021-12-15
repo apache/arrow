@@ -54,9 +54,9 @@ Apache Arrow release files.
 distribution=$(. /etc/os-release && echo "${ID}")
 if [ "${distribution}" = "rhel" ]; then
   # We use distribution version explicitly for RHEL because we can't
-  # use symbolic link on Artifactory. CentOS uses 7 and 8 but RHEL uses
-  # 7Server and 8Server for $releasever. If we can use symbolic link
-  # on Artifactory we can use $releasever directly.
+  # use symbolic link on Artifactory. CentOS and AlmaLinux uses 7 and
+  # 8 but RHEL uses 7Server and 8Server for $releasever. If we can use
+  # symbolic link on Artifactory we can use $releasever directly.
   distribution_version=$(. /etc/os-release && echo "${VERSION_ID}")
   sed -i'' -e "s/\\\$releasever/${distribution_version}/g" Apache-Arrow.repo
 fi
@@ -82,12 +82,14 @@ rm -rf $RPM_BUILD_ROOT
 %post
 if grep -q 'Amazon Linux release 2' /etc/system-release 2>/dev/null; then
   %{yum_repository_enable apache-arrow-amazon-linux}
+elif grep -q 'Red Hat Enterprise Linux Server release 7' /etc/system-release 2>/dev/null; then
+  %{yum_repository_enable apache-arrow-rhel7}
 elif grep -q 'Red Hat Enterprise Linux' /etc/system-release 2>/dev/null; then
   %{yum_repository_enable apache-arrow-rhel}
-elif grep -q 'AlmaLinux' /etc/system-release 2>/dev/null; then
-  %{yum_repository_enable apache-arrow-almalinux}
-else
+elif grep -q 'CentOS' /etc/system-release 2>/dev/null; then
   %{yum_repository_enable apache-arrow-centos}
+else
+  %{yum_repository_enable apache-arrow-almalinux}
 fi
 
 %changelog

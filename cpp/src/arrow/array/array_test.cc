@@ -1737,27 +1737,52 @@ void CheckApproxEquals() {
   std::shared_ptr<DataType> type = TypeTraits<TYPE>::type_singleton();
 
   ArrayFromVector<TYPE>(type, {true, false}, {0.5, 1.0}, &a);
-  ArrayFromVector<TYPE>(type, {true, false}, {0.5000001f, 1.0000001f}, &b);
+  ArrayFromVector<TYPE>(type, {true, false}, {0.5000001f, 2.0}, &b);
   ASSERT_TRUE(a->ApproxEquals(b));
   ASSERT_TRUE(b->ApproxEquals(a));
-  ASSERT_TRUE(a->ApproxEquals(b, EqualOptions().nans_equal(true)));
-  ASSERT_TRUE(b->ApproxEquals(a, EqualOptions().nans_equal(true)));
+  for (bool nans_equal : {false, true}) {
+    for (bool signed_zeros_equal : {false, true}) {
+      auto opts =
+          EqualOptions().nans_equal(nans_equal).signed_zeros_equal(signed_zeros_equal);
+      ASSERT_TRUE(a->ApproxEquals(b, opts));
+      ASSERT_TRUE(b->ApproxEquals(a, opts));
+    }
+  }
 
-  ArrayFromVector<TYPE>(type, {true, false}, {0.5001f, 1.000001f}, &b);
+  // Default tolerance too small
+  ArrayFromVector<TYPE>(type, {true, false}, {0.5001f, 2.0}, &b);
   ASSERT_FALSE(a->ApproxEquals(b));
   ASSERT_FALSE(b->ApproxEquals(a));
-  ASSERT_FALSE(a->ApproxEquals(b, EqualOptions().nans_equal(true)));
-  ASSERT_FALSE(b->ApproxEquals(a, EqualOptions().nans_equal(true)));
   ASSERT_TRUE(a->ApproxEquals(b, EqualOptions().atol(1e-3)));
   ASSERT_TRUE(b->ApproxEquals(a, EqualOptions().atol(1e-3)));
-  ASSERT_TRUE(a->ApproxEquals(b, EqualOptions().atol(1e-3).nans_equal(true)));
-  ASSERT_TRUE(b->ApproxEquals(a, EqualOptions().atol(1e-3).nans_equal(true)));
+  for (bool nans_equal : {false, true}) {
+    for (bool signed_zeros_equal : {false, true}) {
+      auto opts =
+          EqualOptions().nans_equal(nans_equal).signed_zeros_equal(signed_zeros_equal);
+      ASSERT_FALSE(a->ApproxEquals(b, opts));
+      ASSERT_FALSE(b->ApproxEquals(a, opts));
+      ASSERT_TRUE(a->ApproxEquals(b, opts.atol(1e-3)));
+      ASSERT_TRUE(b->ApproxEquals(a, opts.atol(1e-3)));
+    }
+  }
 
-  ArrayFromVector<TYPE>(type, {true, false}, {0.5, 1.25}, &b);
-  ASSERT_TRUE(a->ApproxEquals(b));
-  ASSERT_TRUE(b->ApproxEquals(a));
-  ASSERT_TRUE(a->ApproxEquals(b, EqualOptions().nans_equal(true)));
-  ASSERT_TRUE(b->ApproxEquals(a, EqualOptions().nans_equal(true)));
+  // Values on other sides of 0
+  ArrayFromVector<TYPE>(type, {true, false}, {-0.0001f, 1.0}, &a);
+  ArrayFromVector<TYPE>(type, {true, false}, {0.0001f, 2.0}, &b);
+  ASSERT_FALSE(a->ApproxEquals(b));
+  ASSERT_FALSE(b->ApproxEquals(a));
+  ASSERT_TRUE(a->ApproxEquals(b, EqualOptions().atol(1e-3)));
+  ASSERT_TRUE(b->ApproxEquals(a, EqualOptions().atol(1e-3)));
+  for (bool nans_equal : {false, true}) {
+    for (bool signed_zeros_equal : {false, true}) {
+      auto opts =
+          EqualOptions().nans_equal(nans_equal).signed_zeros_equal(signed_zeros_equal);
+      ASSERT_FALSE(a->ApproxEquals(b, opts));
+      ASSERT_FALSE(b->ApproxEquals(a, opts));
+      ASSERT_TRUE(a->ApproxEquals(b, opts.atol(1e-3)));
+      ASSERT_TRUE(b->ApproxEquals(a, opts.atol(1e-3)));
+    }
+  }
 
   // Mismatching validity
   ArrayFromVector<TYPE>(type, {true, false}, {0.5, 1.0}, &a);
@@ -1932,6 +1957,47 @@ void CheckFloatingInfinityEquality() {
   }
 }
 
+template <typename TYPE>
+void CheckFloatingZeroEquality() {
+  std::shared_ptr<Array> a, b;
+  std::shared_ptr<DataType> type = TypeTraits<TYPE>::type_singleton();
+
+  ArrayFromVector<TYPE>(type, {true, false}, {0.0, 1.0}, &a);
+  ArrayFromVector<TYPE>(type, {true, false}, {0.0, 1.0}, &b);
+  ASSERT_TRUE(a->Equals(b));
+  ASSERT_TRUE(b->Equals(a));
+  for (auto nans_equal : {false, true}) {
+    for (auto signed_zeros_equal : {false, true}) {
+      auto opts =
+          EqualOptions().nans_equal(nans_equal).signed_zeros_equal(signed_zeros_equal);
+      ASSERT_TRUE(a->Equals(b, opts));
+      ASSERT_TRUE(b->Equals(a, opts));
+      ASSERT_TRUE(a->RangeEquals(b, 0, 2, 0, opts));
+      ASSERT_TRUE(b->RangeEquals(a, 0, 2, 0, opts));
+      ASSERT_TRUE(a->RangeEquals(b, 1, 2, 1, opts));
+      ASSERT_TRUE(b->RangeEquals(a, 1, 2, 1, opts));
+    }
+  }
+
+  ArrayFromVector<TYPE>(type, {true, false}, {0.0, 1.0}, &a);
+  ArrayFromVector<TYPE>(type, {true, false}, {-0.0, 1.0}, &b);
+  for (auto nans_equal : {false, true}) {
+    auto opts = EqualOptions().nans_equal(nans_equal);
+    ASSERT_TRUE(a->Equals(b, opts));
+    ASSERT_TRUE(b->Equals(a, opts));
+    ASSERT_FALSE(a->Equals(b, opts.signed_zeros_equal(false)));
+    ASSERT_FALSE(b->Equals(a, opts.signed_zeros_equal(false)));
+    ASSERT_TRUE(a->RangeEquals(b, 0, 2, 0));
+    ASSERT_TRUE(b->RangeEquals(a, 0, 2, 0));
+    ASSERT_FALSE(a->RangeEquals(b, 0, 2, 0, opts.signed_zeros_equal(false)));
+    ASSERT_FALSE(b->RangeEquals(a, 0, 2, 0, opts.signed_zeros_equal(false)));
+    ASSERT_TRUE(a->RangeEquals(b, 1, 2, 1));
+    ASSERT_TRUE(b->RangeEquals(a, 1, 2, 1));
+    ASSERT_TRUE(a->RangeEquals(b, 1, 2, 1, opts.signed_zeros_equal(false)));
+    ASSERT_TRUE(b->RangeEquals(a, 1, 2, 1, opts.signed_zeros_equal(false)));
+  }
+}
+
 TEST(TestPrimitiveAdHoc, FloatingApproxEquals) {
   CheckApproxEquals<FloatType>();
   CheckApproxEquals<DoubleType>();
@@ -1950,6 +2016,11 @@ TEST(TestPrimitiveAdHoc, FloatingNanEquality) {
 TEST(TestPrimitiveAdHoc, FloatingInfinityEquality) {
   CheckFloatingInfinityEquality<FloatType>();
   CheckFloatingInfinityEquality<DoubleType>();
+}
+
+TEST(TestPrimitiveAdHoc, FloatingZeroEquality) {
+  CheckFloatingZeroEquality<FloatType>();
+  CheckFloatingZeroEquality<DoubleType>();
 }
 
 // ----------------------------------------------------------------------

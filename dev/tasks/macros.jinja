@@ -33,9 +33,6 @@ on:
       git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
       git -C arrow checkout FETCH_HEAD
       git -C arrow submodule update --init --recursive
-  - name: Fetch Submodules and Tags
-    shell: bash
-    run: cd arrow && ci/scripts/util_checkout.sh
 {% endmacro %}
 
 {%- macro github_login_dockerhub() -%}

@@ -179,7 +179,7 @@ enum class ARROW_EXPORT QuotingStyle {
   /// interpret all values as strings if schema is inferred.
   AllValid,
   /// Do not enclose any values in quotes. Prevents values from containing quotes ("),
-  /// cell delimiters (,) or line endings (\r, \n), (following RFC4180). If values
+  /// cell delimiters (,) or line endings (\\r, \\n), (following RFC4180). If values
   /// contain these characters, an error is caused when attempting to write.
   None
 };
@@ -199,6 +199,9 @@ struct ARROW_EXPORT WriteOptions {
 
   /// \brief IO context for writing.
   io::IOContext io_context;
+
+  /// \brief The end of line character to use for ending rows
+  std::string eol = "\n";
 
   /// \brief Quoting style
   QuotingStyle quoting_style = QuotingStyle::Needed;

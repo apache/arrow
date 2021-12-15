@@ -27,6 +27,7 @@ namespace arrow {
 namespace fs {
 class GcsFileSystem;
 struct GcsOptions;
+struct GcsCredentials;
 namespace internal {
 // TODO(ARROW-1231) - remove, and provide a public API (static GcsFileSystem::Make()).
 std::shared_ptr<GcsFileSystem> MakeGcsFileSystemForTest(const GcsOptions& options);
@@ -34,10 +35,65 @@ std::shared_ptr<GcsFileSystem> MakeGcsFileSystemForTest(const GcsOptions& option
 
 /// Options for the GcsFileSystem implementation.
 struct ARROW_EXPORT GcsOptions {
+  std::shared_ptr<GcsCredentials> credentials;
+
   std::string endpoint_override;
   std::string scheme;
 
   bool Equals(const GcsOptions& other) const;
+
+  /// \brief Initialize with Google Default Credentials
+  ///
+  /// Create options configured to use [Application Default Credentials][aip/4110]. The
+  /// details of this mechanism are too involved to describe here, but suffice is to say
+  /// that applications can override any defaults using an environment variable
+  /// (`GOOGLE_APPLICATION_CREDENTIALS`), and that the defaults work with most Google
+  /// Cloud Platform deployment environments (GCE, GKE, Cloud Run, etc.), and that have
+  /// the same behavior as the `gcloud` CLI tool on your workstation.
+  ///
+  /// \see https://cloud.google.com/docs/authentication
+  ///
+  /// [aip/4110]: https://google.aip.dev/auth/4110
+  static GcsOptions Defaults();
+
+  /// \brief Initialize with anonymous credentials
+  static GcsOptions Anonymous();
+
+  /// \brief Initialize with access token
+  ///
+  /// These credentials are useful when using an out-of-band mechanism to fetch access
+  /// tokens. Note that access tokens are time limited, you will need to manually refresh
+  /// the tokens created by the out-of-band mechanism.
+  static GcsOptions FromAccessToken(const std::string& access_token,
+                                    std::chrono::system_clock::time_point expiration);
+
+  /// \brief Initialize with service account impersonation
+  ///
+  /// Service account impersonation allows one principal (a user or service account) to
+  /// impersonate a service account. It requires that the calling principal has the
+  /// necessary permissions *on* the service account.
+  static GcsOptions FromImpersonatedServiceAccount(
+      const GcsCredentials& base_credentials, const std::string& target_service_account);
+
+  /// Creates service account credentials from a JSON object in string form.
+  ///
+  /// The @p json_object  is expected to be in the format described by [aip/4112]. Such an
+  /// object contains the identity of a service account, as well as a private key that can
+  /// be used to sign tokens, showing the caller was holding the private key.
+  ///
+  /// In GCP one can create several "keys" for each service account, and these keys are
+  /// downloaded as a JSON "key file". The contents of such a file are in the format
+  /// required by this function. Remember that key files and their contents should be
+  /// treated as any other secret with security implications, think of them as passwords
+  /// (because they are!), don't store them or output them where unauthorized persons may
+  /// read them.
+  ///
+  /// Most applications should probably use default credentials, maybe pointing them to a
+  /// file with these contents. Using this function may be useful when the json object is
+  /// obtained from a Cloud Secret Manager or a similar service.
+  ///
+  /// [aip/4112]: https://google.aip.dev/auth/4112
+  static GcsOptions FromServiceAccountCredentials(const std::string& json_object);
 };
 
 // - TODO(ARROW-1231) - review this documentation before closing the bug.

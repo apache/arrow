@@ -578,6 +578,14 @@ Result<std::shared_ptr<Table>> Table::CombineChunks(MemoryPool* pool) const {
   return Table::Make(schema(), std::move(compacted_columns), num_rows_);
 }
 
+Result<std::shared_ptr<RecordBatch>> Table::CombineChunksToBatch(MemoryPool* pool) const {
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Table> combined, CombineChunks(pool));
+  std::vector<std::shared_ptr<Array>> arrays;
+  for (const auto& column : combined->columns()) {
+    arrays.push_back(column->chunk(0));
+  }
+  return RecordBatch::Make(schema_, num_rows_, std::move(arrays));
+}
 // ----------------------------------------------------------------------
 // Convert a table to a sequence of record batches
 
