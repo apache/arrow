@@ -334,6 +334,25 @@ altogether if they do not match the filter:
    :linenos:
    :lineno-match:
 
+Partitioning performance considerations
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Partitioning datasets can improve performance when reading datasets, but have several 
+potential costs when reading and writing:
+
+#. Can significantly increase the number of files to write. The number of partitions is a
+   floor for the number of files in a dataset. If you partition a dataset by date with a 
+   year of data, you will have at least 365 files. If you further partition by another
+   dimension with 1,000 unique values, you will have 365,000 files. This can make it slower
+   to write and increase the size of the overall dataset because each file has some fixed
+   overhead. For example, each file in parquet dataset contains the schema.
+#. Multiple partitioning columns can produce deeply nested folder structures which are slow
+   to navigate because they require many recusive "list directory" calls to discover files.
+   These operations may be particularly expensive if you are using an object store 
+   filesystem such as S3. One workaround is to combine multiple columns into one for
+   partitioning. For example, instead of a schema like /year/month/day/ use /YYYY-MM-DD/.
+ 
+
 Different partitioning schemes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
