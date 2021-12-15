@@ -325,7 +325,8 @@ and run the pytest.
        assert pc.tutorial_min_max(arr,
                                   skip_nulls=False).as_py() == l2
 
-With the unit test added we can run the pytest from the shell.
+With the unit test added we can run the pytest from the shell. To run
+a specific unit test, pass in the test name to the ``-k`` parameter.
 
 .. code:: console
 
