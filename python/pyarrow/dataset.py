@@ -804,7 +804,7 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
         Maximum number of number of files can be opened
     max_rows_per_file : int, default 0
         Maximum number of rows per file
-    min_rows_per_group: int, default 0
+    min_rows_per_group : int, default 0
         Minimum number of rows per group. When the value is greater than 0,
         the dataset writer will batch incoming data and only write the row
         groups to the disk when sufficient rows have accumulated.
