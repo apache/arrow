@@ -74,7 +74,7 @@ made in the library use this two commands:
    $ git status # to see what files are changed
    $ git diff # to see code change per file
 
-Creating a pull request 🙀
+Creating a pull request 
 ==========================
 
 Once you are satisfied with the changes, run the :ref:`tests <testing>`
