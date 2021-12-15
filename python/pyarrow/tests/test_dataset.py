@@ -3622,7 +3622,6 @@ def test_write_dataset_existing_data(tempdir):
 
 
 def test_write_dataset_max_rows_per_file(tempdir):
-    from pyarrow import feather
     directory = tempdir / 'ds'
     max_rows_per_file = 10
     max_rows_per_group = 10
@@ -3663,8 +3662,8 @@ def test_write_dataset_max_rows_per_file(tempdir):
     for _, f_file in enumerate(files_in_dir):
         f_path = directory / str(f_file)
         dataset = dataset = ds.dataset(
-        f_path, format="parquet",
-        partitioning=ds.HivePartitioning.discover(infer_dictionary=True))
+            f_path, format="parquet",
+            partitioning=ds.HivePartitioning.discover(infer_dictionary=True))
         result_row_combination.append(dataset.to_table().shape[0])
 
     # test whether the generated files have the expected number of rows
