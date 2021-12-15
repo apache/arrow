@@ -36,11 +36,11 @@ namespace arrow {
 MapBuilder::MapBuilder(MemoryPool* pool, const std::shared_ptr<ArrayBuilder>& key_builder,
                        std::shared_ptr<ArrayBuilder> const& item_builder,
                        const std::shared_ptr<DataType>& type)
-    : ArrayBuilder(pool),
-      key_builder_(key_builder),
-      item_builder_(item_builder),
-      type_(type) {
+    : ArrayBuilder(pool), key_builder_(key_builder), item_builder_(item_builder) {
   auto map_type = internal::checked_cast<const MapType*>(type.get());
+  entries_name_ = map_type->field(0)->name();
+  key_name_ = map_type->key_field()->name();
+  item_name_ = map_type->item_field()->name();
   keys_sorted_ = map_type->keys_sorted();
 
   std::vector<std::shared_ptr<ArrayBuilder>> child_builders{key_builder, item_builder};
@@ -60,8 +60,11 @@ MapBuilder::MapBuilder(MemoryPool* pool, const std::shared_ptr<ArrayBuilder>& ke
 MapBuilder::MapBuilder(MemoryPool* pool,
                        const std::shared_ptr<ArrayBuilder>& struct_builder,
                        const std::shared_ptr<DataType>& type)
-    : ArrayBuilder(pool), type_(type) {
+    : ArrayBuilder(pool) {
   auto map_type = internal::checked_cast<const MapType*>(type.get());
+  entries_name_ = map_type->field(0)->name();
+  key_name_ = map_type->key_field()->name();
+  item_name_ = map_type->item_field()->name();
   keys_sorted_ = map_type->keys_sorted();
   key_builder_ = struct_builder->child_builder(0);
   item_builder_ = struct_builder->child_builder(1);
