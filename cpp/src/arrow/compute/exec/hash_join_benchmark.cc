@@ -372,8 +372,7 @@ BENCHMARK_CAPTURE(BM_HashJoinBasic_JoinType, "Full Outer", JoinType::FULL_OUTER)
 
 BENCHMARK(BM_HashJoinBasic_MatchesPerRow)
     ->ArgNames({"Matches Per Row", "HashTable krows"})
-    ->ArgsProduct({benchmark::CreateRange(1, 16, 2),
-                   hashtable_krows});
+    ->ArgsProduct({benchmark::CreateRange(1, 16, 2), hashtable_krows});
 
 BENCHMARK(BM_HashJoinBasic_PayloadSize)
     ->ArgNames({"Payload Size", "Matches Per Row", "HashTable krows"})
@@ -382,14 +381,12 @@ BENCHMARK(BM_HashJoinBasic_PayloadSize)
 
 BENCHMARK(BM_HashJoinBasic_ProbeParallelism)
     ->ArgNames({"Threads", "HashTable krows"})
-    ->ArgsProduct({benchmark::CreateDenseRange(1, 16, 1),
-                   hashtable_krows})
+    ->ArgsProduct({benchmark::CreateDenseRange(1, 16, 1), hashtable_krows})
     ->MeasureProcessCPUTime();
 
 BENCHMARK(BM_HashJoinBasic_BuildParallelism)
     ->ArgNames({"Threads", "HashTable krows"})
-    ->ArgsProduct({benchmark::CreateDenseRange(1, 16, 1),
-                   hashtable_krows})
+    ->ArgsProduct({benchmark::CreateDenseRange(1, 16, 1), hashtable_krows})
     ->MeasureProcessCPUTime();
 
 BENCHMARK(BM_HashJoinBasic_NullPercentage)
