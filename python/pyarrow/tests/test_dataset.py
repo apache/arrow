@@ -3621,6 +3621,40 @@ def test_write_dataset_existing_data(tempdir):
     assert not extra_file.exists()
 
 
+def _generate_random_int_array(size=4, min=1, max=10):
+    return np.random.randint(min, max, size)
+
+
+def _generate_data_and_columns(num_of_columns, records_per_row,
+                               unique_records=None):
+    data = []
+    column_names = []
+    if unique_records is None:
+        unique_records = records_per_row
+    for i in range(num_of_columns):
+        data.append(_generate_random_int_array(size=records_per_row,
+                                               min=1,
+                                               max=unique_records))
+        column_names.append("c" + str(i))
+    return data, column_names
+
+
+def _get_num_of_files_generated(base_directory):
+    file_dirs = os.listdir(base_directory)
+    number_of_files = 0
+    for _, file_dir in enumerate(file_dirs):
+        sub_dir_path = base_directory / file_dir
+        number_of_files += len(os.listdir(sub_dir_path))
+    return number_of_files
+
+
+def _get_compare_pair(data_source, record_batch):
+    num_of_files_generated = _get_num_of_files_generated(
+        base_directory=data_source)
+    number_of_unique_rows = len(pa.compute.unique(record_batch[0]))
+    return num_of_files_generated, number_of_unique_rows
+
+
 def test_write_dataset_max_rows_per_file(tempdir):
     directory = tempdir / 'ds'
     max_rows_per_file = 10
@@ -3628,25 +3662,18 @@ def test_write_dataset_max_rows_per_file(tempdir):
     num_of_columns = 2
     records_per_row = 35
 
-    def generate_random_int_array(size=4, min=1, max=10):
-        return np.random.randint(min, max, size)
+    data, column_names = _generate_data_and_columns(num_of_columns,
+                                                    records_per_row)
 
-    data = []
-    column_names = []
+    record_batch = pa.record_batch(data=data, names=column_names)
 
-    for i in range(num_of_columns):
-        data.append(generate_random_int_array(size=records_per_row,
-                                              min=1,
-                                              max=records_per_row))
-        column_names.append("c" + str(i))
+    sub_directory = directory / 'onewrite'
 
-    record_batch_1 = pa.record_batch(data=data, names=column_names)
-
-    ds.write_dataset(record_batch_1, directory, format="parquet",
+    ds.write_dataset(record_batch, sub_directory, format="parquet",
                      max_rows_per_file=max_rows_per_file,
                      max_rows_per_group=max_rows_per_group)
 
-    files_in_dir = os.listdir(directory)
+    files_in_dir = os.listdir(sub_directory)
 
     # number of partitions with max_rows and the partition with the remainder
     expected_partitions = len(data[0]) // max_rows_per_file + 1
@@ -3660,15 +3687,83 @@ def test_write_dataset_max_rows_per_file(tempdir):
     # compute the number of rows per each file written
     result_row_combination = []
     for _, f_file in enumerate(files_in_dir):
-        f_path = directory / str(f_file)
-        dataset = dataset = ds.dataset(
-            f_path, format="parquet",
-            partitioning=ds.HivePartitioning.discover(infer_dictionary=True))
+        f_path = sub_directory / str(f_file)
+        dataset = ds.dataset(f_path, format="parquet")
         result_row_combination.append(dataset.to_table().shape[0])
 
     # test whether the generated files have the expected number of rows
     assert len(expected_row_combination) == len(result_row_combination)
     assert sum(expected_row_combination) == sum(result_row_combination)
+
+
+def test_write_dataset_min_rows_per_group(tempdir):
+    directory = tempdir / 'ds'
+    min_rows_per_group = 10
+    max_rows_per_group = 20
+    num_of_columns = 2
+    records_per_row = 49
+    unique_records = 5
+
+    data, column_names = _generate_data_and_columns(num_of_columns,
+                                                    records_per_row,
+                                                    unique_records)
+
+    record_batch = pa.record_batch(data=data, names=column_names)
+
+    data_source = directory / "min_rows_group"
+
+    ds.write_dataset(data=record_batch, base_dir=data_source,
+                     min_rows_per_group=min_rows_per_group,
+                     max_rows_per_group=max_rows_per_group,
+                     format="parquet")
+
+    files_in_dir = os.listdir(data_source)
+    batched_data = []
+    for _, f_file in enumerate(files_in_dir):
+        f_path = data_source / str(f_file)
+        dataset = ds.dataset(f_path, format="parquet")
+        table = dataset.to_table()
+        batches = table.to_batches()
+        for batch in batches:
+            batched_data.append(batch.num_rows)
+
+    assert batched_data[0] > min_rows_per_group and \
+        batched_data[0] <= max_rows_per_group
+    assert batched_data[1] > min_rows_per_group and \
+        batched_data[1] <= max_rows_per_group
+    assert batched_data[2] <= max_rows_per_group
+
+
+def test_write_dataset_max_rows_per_group(tempdir):
+    directory = tempdir / 'ds'
+    max_rows_per_group = 18
+    num_of_columns = 2
+    records_per_row = 30
+    unique_records = 5
+
+    data, column_names = _generate_data_and_columns(num_of_columns,
+                                                    records_per_row,
+                                                    unique_records)
+
+    record_batch = pa.record_batch(data=data, names=column_names)
+
+    data_source = directory / "max_rows_group"
+
+    ds.write_dataset(data=record_batch, base_dir=data_source,
+                     max_rows_per_group=max_rows_per_group,
+                     format="parquet")
+
+    files_in_dir = os.listdir(data_source)
+    batched_data = []
+    for _, f_file in enumerate(files_in_dir):
+        f_path = data_source / str(f_file)
+        dataset = ds.dataset(f_path, format="parquet")
+        table = dataset.to_table()
+        batches = table.to_batches()
+        for batch in batches:
+            batched_data.append(batch.num_rows)
+
+    assert batched_data == [18, 12]
 
 
 def test_write_dataset_max_open_files(tempdir):
@@ -3700,25 +3795,11 @@ def test_write_dataset_max_open_files(tempdir):
     ds.write_dataset(data=table, base_dir=data_source_1,
                      partitioning=partitioning, format="parquet")
 
-    def get_num_of_files_generated(base_directory):
-        file_dirs = os.listdir(base_directory)
-        number_of_files = 0
-        for _, file_dir in enumerate(file_dirs):
-            sub_dir_path = base_directory / file_dir
-            number_of_files += len(os.listdir(sub_dir_path))
-        return number_of_files
-
-    def get_compare_pair(data_source, record_batch):
-        num_of_files_generated = get_num_of_files_generated(
-            base_directory=data_source)
-        number_of_unique_rows = len(pa.compute.unique(record_batch[0]))
-        return num_of_files_generated, number_of_unique_rows
-
     # CASE 1: when max_open_files=default & max_open_files >= num_of_partitions
     #         the number of unique rows must be equal to
     #         the number of files generated
     num_of_files_generated, number_of_unique_rows \
-        = get_compare_pair(data_source_1, record_batch_1)
+        = _get_compare_pair(data_source_1, record_batch_1)
     assert num_of_files_generated == number_of_unique_rows
 
     # CASE 2: when max_open_files > 0 & max_open_files < num_of_partitions
@@ -3734,7 +3815,7 @@ def test_write_dataset_max_open_files(tempdir):
                      max_open_files=max_open_files)
 
     num_of_files_generated, number_of_unique_rows \
-        = get_compare_pair(data_source_2, record_batch_1)
+        = _get_compare_pair(data_source_2, record_batch_1)
     assert num_of_files_generated > number_of_unique_rows
 
 
