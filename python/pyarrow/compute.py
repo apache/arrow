@@ -780,14 +780,13 @@ def tutorial_min_max(values, skip_nulls=True):
     """
     Compute the minimum-1 and maximum+1 values of a numeric array.
 
-    Null values are ignored by default. This can be changed through
-    ScalarAggregateOptions.
-
     This is a made-up feature for the tutorial purposes.
 
     Parameters
     ----------
     values : Array
+    skip_nulls : bool, default True
+        If True, ignore nulls in the input.
 
     Returns
     -------
