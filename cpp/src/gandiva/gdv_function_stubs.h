@@ -55,6 +55,9 @@ using gdv_month_interval = int32_t;
 #endif
 #endif
 
+GANDIVA_EXPORT
+int64_t gdv_fn_crc_32_utf8(int64_t ctx, const char* input, int32_t input_len);
+
 bool gdv_fn_like_utf8_utf8(int64_t ptr, const char* data, int data_len,
                            const char* pattern, int pattern_len);
 
