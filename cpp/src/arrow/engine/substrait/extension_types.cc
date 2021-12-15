@@ -208,13 +208,15 @@ struct ExtensionSet::Impl {
   std::unordered_map<Id, uint32_t, IdHashEq, IdHashEq> types_;
 };
 
-ExtensionSet::ExtensionSet() : impl_(new Impl()) {}
+ExtensionSet::ExtensionSet(ExtensionIdRegistry* registry)
+    : registry_(registry), impl_(new Impl()) {}
 
 Result<ExtensionSet> ExtensionSet::Make(std::vector<std::string> uris,
                                         std::vector<Id> type_ids,
                                         std::vector<bool> type_is_variation,
                                         ExtensionIdRegistry* registry) {
   ExtensionSet set;
+  set.registry_ = registry;
 
   for (auto uri : uris) {
     if (uri.empty()) continue;
@@ -251,6 +253,13 @@ ExtensionSet::~ExtensionSet() = default;
 uint32_t ExtensionSet::EncodeType(Id id, const std::shared_ptr<DataType>& type,
                                   bool is_variation) {
   return impl_->EncodeType(id, type, is_variation, this);
+}
+
+Result<uint32_t> ExtensionSet::EncodeType(const DataType& type) {
+  if (auto rec = registry_->GetType(type)) {
+    return EncodeType(rec->id, rec->type, rec->is_variation);
+  }
+  return Status::KeyError("type ", type.ToString(), " not found in the registry");
 }
 
 ExtensionIdRegistry* default_extension_id_registry() {

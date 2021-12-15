@@ -121,7 +121,7 @@ class ARROW_ENGINE_EXPORT ExtensionSet {
   using Id = ExtensionIdRegistry::Id;
 
   /// Construct an empty ExtensionSet to be populated during serialization.
-  ExtensionSet();
+  explicit ExtensionSet(ExtensionIdRegistry* = default_extension_id_registry());
   ARROW_DEFAULT_MOVE_AND_ASSIGN(ExtensionSet);
 
   /// Construct an ExtensionSet with explicit extension ids for efficient referencing
@@ -149,13 +149,15 @@ class ARROW_ENGINE_EXPORT ExtensionSet {
   /// Returns an integer usable for Type.user_defined_type_reference. This method will be
   /// invoked during serialization when non substrait-core types are encountered.
   uint32_t EncodeType(Id, const std::shared_ptr<DataType>&, bool is_variation);
-  uint32_t EncodeType(ExtensionIdRegistry::TypeRecord rec) {
-    return EncodeType(rec.id, rec.type, rec.is_variation);
-  }
+
+  /// Encode a type, looking it up first in this set's ExtensionIdRegistry.
+  /// If no type is found, an error will be raised.
+  Result<uint32_t> EncodeType(const DataType& type);
 
   // FIXME need type_internal.h::{AddExtensionSetToPlan, GetExtensionSetFromPlan} or so
 
  private:
+  ExtensionIdRegistry* registry_;
   DataTypeVector types_;
   std::vector<Id> type_ids_;
   std::vector<std::string> uris_;

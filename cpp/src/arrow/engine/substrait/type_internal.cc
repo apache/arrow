@@ -374,8 +374,8 @@ struct ToProtoImpl {
 
   template <typename T>
   Status EncodeUserDefined(const T& t) {
-    static auto rec = default_extension_id_registry()->GetType(t);
-    type_->set_user_defined_type_reference(ext_set_->EncodeType(*rec));
+    ARROW_ASSIGN_OR_RAISE(auto anchor, ext_set_->EncodeType(t));
+    type_->set_user_defined_type_reference(anchor);
     return Status::OK();
   }
 

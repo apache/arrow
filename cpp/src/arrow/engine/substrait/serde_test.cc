@@ -28,6 +28,7 @@
 #include "arrow/testing/matchers.h"
 #include "arrow/util/key_value_metadata.h"
 
+using testing::Eq;
 using testing::HasSubstr;
 
 namespace arrow {
@@ -203,10 +204,7 @@ TEST(Substrait, SupportedExtensionTypes) {
        }) {
     auto anchor = ext_set.types().size();
 
-    auto rec = default_extension_id_registry()->GetType(*expected_type);
-    EXPECT_TRUE(rec.has_value());
-
-    EXPECT_EQ(ext_set.EncodeType(*rec), anchor);
+    EXPECT_THAT(ext_set.EncodeType(*expected_type), ResultWith(Eq(anchor)));
     auto buf = SubstraitFromJSON(
         "Type", "{\"user_defined_type_reference\": " + std::to_string(anchor) + "}");
 
