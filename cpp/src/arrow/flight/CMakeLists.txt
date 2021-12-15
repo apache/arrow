@@ -202,7 +202,6 @@ if(ARROW_TESTING)
                 OUTPUTS
                 ARROW_FLIGHT_TESTING_LIBRARIES
                 SOURCES
-                integration_tests/test_integration.cc
                 test_util.cc
                 DEPENDENCIES
                 GTest::gtest

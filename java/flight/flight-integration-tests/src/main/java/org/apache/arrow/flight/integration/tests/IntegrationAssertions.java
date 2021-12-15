@@ -64,6 +64,15 @@ final class IntegrationAssertions {
   }
 
   /**
+   * Assert that the value is true, using the given message as an error otherwise.
+   */
+  static void assertTrue(String message, boolean value) {
+    if (!value) {
+      throw new AssertionError("Expected true: " + message);
+    }
+  }
+
+  /**
    * An interface used with {@link #assertThrows(Class, AssertThrows)}.
    */
   @FunctionalInterface

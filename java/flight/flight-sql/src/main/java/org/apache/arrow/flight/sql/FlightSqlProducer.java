@@ -62,7 +62,6 @@ import org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementQuery;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementUpdate;
 import org.apache.arrow.flight.sql.impl.FlightSql.DoPutUpdateResult;
 import org.apache.arrow.flight.sql.impl.FlightSql.TicketStatementQuery;
-import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.UnionMode;
 import org.apache.arrow.vector.types.pojo.ArrowType;
@@ -595,13 +594,13 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
   final class Schemas {
     public static final Schema GET_TABLES_SCHEMA = new Schema(asList(
         Field.nullable("catalog_name", VARCHAR.getType()),
-        Field.nullable("schema_name", VARCHAR.getType()),
+        Field.nullable("db_schema_name", VARCHAR.getType()),
         Field.notNullable("table_name", VARCHAR.getType()),
         Field.notNullable("table_type", VARCHAR.getType()),
         Field.notNullable("table_schema", MinorType.VARBINARY.getType())));
     public static final Schema GET_TABLES_SCHEMA_NO_SCHEMA = new Schema(asList(
         Field.nullable("catalog_name", VARCHAR.getType()),
-        Field.nullable("schema_name", VARCHAR.getType()),
+        Field.nullable("db_schema_name", VARCHAR.getType()),
         Field.notNullable("table_name", VARCHAR.getType()),
         Field.notNullable("table_type", VARCHAR.getType())));
     public static final Schema GET_CATALOGS_SCHEMA = new Schema(
@@ -611,15 +610,15 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
     public static final Schema GET_SCHEMAS_SCHEMA =
         new Schema(asList(
             Field.nullable("catalog_name", VARCHAR.getType()),
-            Field.notNullable("schema_name", VARCHAR.getType())));
+            Field.notNullable("db_schema_name", VARCHAR.getType())));
     private static final Schema GET_IMPORTED_EXPORTED_AND_CROSS_REFERENCE_KEYS_SCHEMA =
         new Schema(asList(
             Field.nullable("pk_catalog_name", VARCHAR.getType()),
-            Field.nullable("pk_schema_name", VARCHAR.getType()),
+            Field.nullable("pk_db_schema_name", VARCHAR.getType()),
             Field.notNullable("pk_table_name", VARCHAR.getType()),
             Field.notNullable("pk_column_name", VARCHAR.getType()),
             Field.nullable("fk_catalog_name", VARCHAR.getType()),
-            Field.nullable("fk_schema_name", VARCHAR.getType()),
+            Field.nullable("fk_db_schema_name", VARCHAR.getType()),
             Field.notNullable("fk_table_name", VARCHAR.getType()),
             Field.notNullable("fk_column_name", VARCHAR.getType()),
             Field.notNullable("key_sequence", INT.getType()),
@@ -631,32 +630,32 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
     public static final Schema GET_EXPORTED_KEYS_SCHEMA = GET_IMPORTED_EXPORTED_AND_CROSS_REFERENCE_KEYS_SCHEMA;
     public static final Schema GET_CROSS_REFERENCE_SCHEMA = GET_IMPORTED_EXPORTED_AND_CROSS_REFERENCE_KEYS_SCHEMA;
     private static final List<Field> GET_SQL_INFO_DENSE_UNION_SCHEMA_FIELDS = asList(
-        Field.nullable("string_value", VARCHAR.getType()),
-        Field.nullable("bool_value", BIT.getType()),
-        Field.nullable("bigint_value", BIGINT.getType()),
-        Field.nullable("int32_bitmask", INT.getType()),
+        Field.notNullable("string_value", VARCHAR.getType()),
+        Field.notNullable("bool_value", BIT.getType()),
+        Field.notNullable("bigint_value", BIGINT.getType()),
+        Field.notNullable("int32_bitmask", INT.getType()),
         new Field(
-            "string_list", FieldType.nullable(LIST.getType()),
-            singletonList(Field.nullable(ListVector.DATA_VECTOR_NAME, VARCHAR.getType()))),
+            "string_list", FieldType.notNullable(LIST.getType()),
+            singletonList(Field.nullable("item", VARCHAR.getType()))),
         new Field(
-            "int32_to_int32_list_map", FieldType.nullable(new ArrowType.Map(false)),
+            "int32_to_int32_list_map", FieldType.notNullable(new ArrowType.Map(false)),
             singletonList(new Field(DATA_VECTOR_NAME, new FieldType(false, STRUCT.getType(), null),
                 ImmutableList.of(
                     Field.notNullable(KEY_NAME, INT.getType()),
                     new Field(
                         VALUE_NAME, FieldType.nullable(LIST.getType()),
-                        singletonList(Field.nullable(ListVector.DATA_VECTOR_NAME, INT.getType()))))))));
+                        singletonList(Field.nullable("item", INT.getType()))))))));
     public static final Schema GET_SQL_INFO_SCHEMA =
         new Schema(asList(
             Field.notNullable("info_name", UINT4.getType()),
             new Field("value",
-                FieldType.nullable(
+                FieldType.notNullable(
                     new Union(UnionMode.Dense, range(0, GET_SQL_INFO_DENSE_UNION_SCHEMA_FIELDS.size()).toArray())),
                 GET_SQL_INFO_DENSE_UNION_SCHEMA_FIELDS)));
     public static final Schema GET_PRIMARY_KEYS_SCHEMA =
         new Schema(asList(
             Field.nullable("catalog_name", VARCHAR.getType()),
-            Field.nullable("schema_name", VARCHAR.getType()),
+            Field.nullable("db_schema_name", VARCHAR.getType()),
             Field.notNullable("table_name", VARCHAR.getType()),
             Field.notNullable("column_name", VARCHAR.getType()),
             Field.notNullable("key_sequence", INT.getType()),

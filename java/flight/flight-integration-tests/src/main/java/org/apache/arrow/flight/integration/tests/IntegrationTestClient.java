@@ -91,7 +91,7 @@ class IntegrationTestClient {
 
     final Location defaultLocation = Location.forGrpcInsecure(host, port);
     try (final BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
-        final FlightClient client = FlightClient.builder(allocator, defaultLocation).build()) {
+         final FlightClient client = FlightClient.builder(allocator, defaultLocation).build()) {
 
       if (cmd.hasOption("scenario")) {
         Scenarios.getScenario(cmd.getOptionValue("scenario")).client(allocator, defaultLocation, client);
@@ -109,7 +109,7 @@ class IntegrationTestClient {
     // 1. Read data from JSON and upload to server.
     FlightDescriptor descriptor = FlightDescriptor.path(inputPath);
     try (JsonFileReader reader = new JsonFileReader(new File(inputPath), allocator);
-        VectorSchemaRoot root = VectorSchemaRoot.create(reader.start(), allocator)) {
+         VectorSchemaRoot root = VectorSchemaRoot.create(reader.start(), allocator)) {
       FlightClient.ClientStreamListener stream = client.startPut(descriptor, root, reader,
           new AsyncPutListener() {
             int counter = 0;
@@ -157,10 +157,10 @@ class IntegrationTestClient {
       for (Location location : locations) {
         System.out.println("Verifying location " + location.getUri());
         try (FlightClient readClient = FlightClient.builder(allocator, location).build();
-            FlightStream stream = readClient.getStream(endpoint.getTicket());
-            VectorSchemaRoot root = stream.getRoot();
-            VectorSchemaRoot downloadedRoot = VectorSchemaRoot.create(root.getSchema(), allocator);
-            JsonFileReader reader = new JsonFileReader(new File(inputPath), allocator)) {
+             FlightStream stream = readClient.getStream(endpoint.getTicket());
+             VectorSchemaRoot root = stream.getRoot();
+             VectorSchemaRoot downloadedRoot = VectorSchemaRoot.create(root.getSchema(), allocator);
+             JsonFileReader reader = new JsonFileReader(new File(inputPath), allocator)) {
           VectorLoader loader = new VectorLoader(downloadedRoot);
           VectorUnloader unloader = new VectorUnloader(root);
 

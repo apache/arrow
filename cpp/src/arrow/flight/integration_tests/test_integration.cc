@@ -18,10 +18,14 @@
 #include "arrow/flight/integration_tests/test_integration.h"
 #include "arrow/flight/client_middleware.h"
 #include "arrow/flight/server_middleware.h"
+#include "arrow/flight/sql/client.h"
+#include "arrow/flight/sql/server.h"
 #include "arrow/flight/test_util.h"
 #include "arrow/flight/types.h"
 #include "arrow/ipc/dictionary.h"
 
+#include <arrow/testing/gtest_util.h>
+#include <arrow/testing/json_integration.h>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -258,12 +262,399 @@ class MiddlewareScenario : public Scenario {
   std::shared_ptr<TestClientMiddlewareFactory> client_middleware_;
 };
 
+std::shared_ptr<Schema> GetQuerySchema() {
+  return arrow::schema({arrow::field("id", int64())});
+}
+
+template <typename T>
+arrow::Status AssertEq(const T& expected, const T& actual) {
+  if (expected != actual) {
+    return Status::Invalid("Expected \"", expected, "\", got \'", actual, "\"");
+  }
+  return Status::OK();
+}
+
+/// \brief The server used for testing Flight SQL, this implements a static Flight SQL server which only asserts
+/// that commands called during integration tests are being parsed correctly and returns the expected schemas to be
+/// validated on client.
+class FlightSqlScenarioServer : public sql::FlightSqlServerBase {
+ public:
+  arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoStatement(
+      const ServerCallContext& context, const sql::StatementQuery& command,
+      const FlightDescriptor& descriptor) override {
+    ARROW_RETURN_NOT_OK(AssertEq<std::string>("SELECT STATEMENT", command.query));
+
+    ARROW_ASSIGN_OR_RAISE(auto handle,
+                          sql::CreateStatementQueryTicket("SELECT STATEMENT HANDLE"));
+
+    std::vector<FlightEndpoint> endpoints{FlightEndpoint{{handle}, {}}};
+    ARROW_ASSIGN_OR_RAISE(
+        auto result, FlightInfo::Make(*GetQuerySchema(), descriptor, endpoints, -1, -1))
+
+    return std::unique_ptr<FlightInfo>(new FlightInfo(result));
+  }
+
+  arrow::Result<std::unique_ptr<FlightDataStream>> DoGetStatement(
+      const ServerCallContext& context,
+      const sql::StatementQueryTicket& command) override {
+    return DoGetForTestCase(GetQuerySchema());
+  }
+
+  arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoPreparedStatement(
+      const ServerCallContext& context, const sql::PreparedStatementQuery& command,
+      const FlightDescriptor& descriptor) override {
+    ARROW_RETURN_NOT_OK(AssertEq<std::string>("SELECT PREPARED STATEMENT HANDLE",
+                                              command.prepared_statement_handle));
+
+    return GetFlightInfoForCommand(descriptor, GetQuerySchema());
+  }
+
+  arrow::Result<std::unique_ptr<FlightDataStream>> DoGetPreparedStatement(
+      const ServerCallContext& context,
+      const sql::PreparedStatementQuery& command) override {
+    return DoGetForTestCase(GetQuerySchema());
+  }
+
+  arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoCatalogs(
+      const ServerCallContext& context, const FlightDescriptor& descriptor) override {
+    return GetFlightInfoForCommand(descriptor, sql::SqlSchema::GetCatalogsSchema());
+  }
+
+  arrow::Result<std::unique_ptr<FlightDataStream>> DoGetCatalogs(
+      const ServerCallContext& context) override {
+    return DoGetForTestCase(sql::SqlSchema::GetCatalogsSchema());
+  }
+
+  arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoSqlInfo(
+      const ServerCallContext& context, const sql::GetSqlInfo& command,
+      const FlightDescriptor& descriptor) override {
+    ARROW_RETURN_NOT_OK(AssertEq<int>(2, command.info.size()));
+    ARROW_RETURN_NOT_OK(AssertEq<int>(
+        sql::SqlInfoOptions::SqlInfo::FLIGHT_SQL_SERVER_NAME, command.info[0]));
+    ARROW_RETURN_NOT_OK(AssertEq<int>(
+        sql::SqlInfoOptions::SqlInfo::FLIGHT_SQL_SERVER_READ_ONLY, command.info[1]));
+
+    return GetFlightInfoForCommand(descriptor, sql::SqlSchema::GetSqlInfoSchema());
+  }
+
+  arrow::Result<std::unique_ptr<FlightDataStream>> DoGetSqlInfo(
+      const ServerCallContext& context, const sql::GetSqlInfo& command) override {
+    return DoGetForTestCase(sql::SqlSchema::GetSqlInfoSchema());
+  }
+
+  arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoSchemas(
+      const ServerCallContext& context, const sql::GetDbSchemas& command,
+      const FlightDescriptor& descriptor) override {
+    ARROW_RETURN_NOT_OK(AssertEq<std::string>("catalog", command.catalog.value()));
+    ARROW_RETURN_NOT_OK(AssertEq<std::string>("db_schema_filter_pattern",
+                                              command.db_schema_filter_pattern.value()));
+
+    return GetFlightInfoForCommand(descriptor, sql::SqlSchema::GetDbSchemasSchema());
+  }
+
+  arrow::Result<std::unique_ptr<FlightDataStream>> DoGetDbSchemas(
+      const ServerCallContext& context, const sql::GetDbSchemas& command) override {
+    return DoGetForTestCase(sql::SqlSchema::GetDbSchemasSchema());
+  }
+
+  arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoTables(
+      const ServerCallContext& context, const sql::GetTables& command,
+      const FlightDescriptor& descriptor) override {
+    ARROW_RETURN_NOT_OK(AssertEq<std::string>("catalog", command.catalog.value()));
+    ARROW_RETURN_NOT_OK(AssertEq<std::string>("db_schema_filter_pattern",
+                                              command.db_schema_filter_pattern.value()));
+    ARROW_RETURN_NOT_OK(AssertEq<std::string>("table_filter_pattern",
+                                              command.table_name_filter_pattern.value()));
+    ARROW_RETURN_NOT_OK(AssertEq<int>(2, command.table_types.size()));
+    ARROW_RETURN_NOT_OK(AssertEq<std::string>("table", command.table_types[0]));
+    ARROW_RETURN_NOT_OK(AssertEq<std::string>("view", command.table_types[1]));
+    ARROW_RETURN_NOT_OK(AssertEq<bool>(true, command.include_schema));
+
+    return GetFlightInfoForCommand(descriptor,
+                                   sql::SqlSchema::GetTablesSchemaWithIncludedSchema());
+  }
+
+  arrow::Result<std::unique_ptr<FlightDataStream>> DoGetTables(
+      const ServerCallContext& context, const sql::GetTables& command) override {
+    return DoGetForTestCase(sql::SqlSchema::GetTablesSchemaWithIncludedSchema());
+  }
+
+  arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoTableTypes(
+      const ServerCallContext& context, const FlightDescriptor& descriptor) override {
+    return GetFlightInfoForCommand(descriptor, sql::SqlSchema::GetTableTypesSchema());
+  }
+
+  arrow::Result<std::unique_ptr<FlightDataStream>> DoGetTableTypes(
+      const ServerCallContext& context) override {
+    return DoGetForTestCase(sql::SqlSchema::GetTableTypesSchema());
+  }
+
+  arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoPrimaryKeys(
+      const ServerCallContext& context, const sql::GetPrimaryKeys& command,
+      const FlightDescriptor& descriptor) override {
+    ARROW_RETURN_NOT_OK(
+        AssertEq<std::string>("catalog", command.table_ref.catalog.value()));
+    ARROW_RETURN_NOT_OK(
+        AssertEq<std::string>("db_schema", command.table_ref.db_schema.value()));
+    ARROW_RETURN_NOT_OK(AssertEq<std::string>("table", command.table_ref.table));
+
+    return GetFlightInfoForCommand(descriptor, sql::SqlSchema::GetPrimaryKeysSchema());
+  }
+
+  arrow::Result<std::unique_ptr<FlightDataStream>> DoGetPrimaryKeys(
+      const ServerCallContext& context, const sql::GetPrimaryKeys& command) override {
+    return DoGetForTestCase(sql::SqlSchema::GetPrimaryKeysSchema());
+  }
+
+  arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoExportedKeys(
+      const ServerCallContext& context, const sql::GetExportedKeys& command,
+      const FlightDescriptor& descriptor) override {
+    ARROW_RETURN_NOT_OK(
+        AssertEq<std::string>("catalog", command.table_ref.catalog.value()));
+    ARROW_RETURN_NOT_OK(
+        AssertEq<std::string>("db_schema", command.table_ref.db_schema.value()));
+    ARROW_RETURN_NOT_OK(AssertEq<std::string>("table", command.table_ref.table));
+
+    return GetFlightInfoForCommand(descriptor, sql::SqlSchema::GetExportedKeysSchema());
+  }
+
+  arrow::Result<std::unique_ptr<FlightDataStream>> DoGetExportedKeys(
+      const ServerCallContext& context, const sql::GetExportedKeys& command) override {
+    return DoGetForTestCase(sql::SqlSchema::GetExportedKeysSchema());
+  }
+
+  arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoImportedKeys(
+      const ServerCallContext& context, const sql::GetImportedKeys& command,
+      const FlightDescriptor& descriptor) override {
+    ARROW_RETURN_NOT_OK(
+        AssertEq<std::string>("catalog", command.table_ref.catalog.value()));
+    ARROW_RETURN_NOT_OK(
+        AssertEq<std::string>("db_schema", command.table_ref.db_schema.value()));
+    ARROW_RETURN_NOT_OK(AssertEq<std::string>("table", command.table_ref.table));
+
+    return GetFlightInfoForCommand(descriptor, sql::SqlSchema::GetImportedKeysSchema());
+  }
+
+  arrow::Result<std::unique_ptr<FlightDataStream>> DoGetImportedKeys(
+      const ServerCallContext& context, const sql::GetImportedKeys& command) override {
+    return DoGetForTestCase(sql::SqlSchema::GetImportedKeysSchema());
+  }
+
+  arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoCrossReference(
+      const ServerCallContext& context, const sql::GetCrossReference& command,
+      const FlightDescriptor& descriptor) override {
+    ARROW_RETURN_NOT_OK(
+        AssertEq<std::string>("pk_catalog", command.pk_table_ref.catalog.value()));
+    ARROW_RETURN_NOT_OK(
+        AssertEq<std::string>("pk_db_schema", command.pk_table_ref.db_schema.value()));
+    ARROW_RETURN_NOT_OK(AssertEq<std::string>("pk_table", command.pk_table_ref.table));
+    ARROW_RETURN_NOT_OK(
+        AssertEq<std::string>("fk_catalog", command.fk_table_ref.catalog.value()));
+    ARROW_RETURN_NOT_OK(
+        AssertEq<std::string>("fk_db_schema", command.fk_table_ref.db_schema.value()));
+    ARROW_RETURN_NOT_OK(AssertEq<std::string>("fk_table", command.fk_table_ref.table));
+
+    return GetFlightInfoForCommand(descriptor, sql::SqlSchema::GetTableTypesSchema());
+  }
+
+  arrow::Result<std::unique_ptr<FlightDataStream>> DoGetCrossReference(
+      const ServerCallContext& context, const sql::GetCrossReference& command) override {
+    return DoGetForTestCase(sql::SqlSchema::GetCrossReferenceSchema());
+  }
+
+  arrow::Result<int64_t> DoPutCommandStatementUpdate(
+      const ServerCallContext& context, const sql::StatementUpdate& command) override {
+    ARROW_RETURN_NOT_OK(AssertEq<std::string>("UPDATE STATEMENT", command.query));
+
+    return 10000;
+  }
+
+  arrow::Result<sql::ActionCreatePreparedStatementResult> CreatePreparedStatement(
+      const ServerCallContext& context,
+      const sql::ActionCreatePreparedStatementRequest& request) override {
+    ARROW_RETURN_NOT_OK(
+        AssertEq<bool>(true, request.query == "SELECT PREPARED STATEMENT" ||
+                                 request.query == "UPDATE PREPARED STATEMENT"));
+
+    sql::ActionCreatePreparedStatementResult result;
+    result.prepared_statement_handle = request.query + " HANDLE";
+
+    return result;
+  }
+
+  Status ClosePreparedStatement(
+      const ServerCallContext& context,
+      const sql::ActionClosePreparedStatementRequest& request) override {
+    return Status::OK();
+  }
+
+  Status DoPutPreparedStatementQuery(const ServerCallContext& context,
+                                     const sql::PreparedStatementQuery& command,
+                                     FlightMessageReader* reader,
+                                     FlightMetadataWriter* writer) override {
+    return Status::NotImplemented("Not implemented");
+  }
+
+  arrow::Result<int64_t> DoPutPreparedStatementUpdate(
+      const ServerCallContext& context, const sql::PreparedStatementUpdate& command,
+      FlightMessageReader* reader) override {
+    ARROW_RETURN_NOT_OK(AssertEq<std::string>("UPDATE PREPARED STATEMENT HANDLE",
+                                              command.prepared_statement_handle));
+
+    return 20000;
+  }
+
+ private:
+  arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoForCommand(
+      const FlightDescriptor& descriptor, const std::shared_ptr<Schema>& schema) {
+    std::vector<FlightEndpoint> endpoints{FlightEndpoint{{descriptor.cmd}, {}}};
+    ARROW_ASSIGN_OR_RAISE(auto result,
+                          FlightInfo::Make(*schema, descriptor, endpoints, -1, -1))
+
+    return std::unique_ptr<FlightInfo>(new FlightInfo(result));
+  }
+
+  arrow::Result<std::unique_ptr<FlightDataStream>> DoGetForTestCase(
+      std::shared_ptr<Schema> schema) {
+    ARROW_ASSIGN_OR_RAISE(auto reader2, RecordBatchReader::Make({}, schema));
+    return std::unique_ptr<FlightDataStream>(new RecordBatchStream(reader2));
+  }
+};
+
+/// \brief Integration test scenario for validating Flight SQL specs across multiple
+/// implementations. This should ensure that RPC objects are being built and parsed
+/// correctly for multiple languages and that the Arrow schemas are returned as expected.
+class FlightSqlScenario : public Scenario {
+  Status MakeServer(std::unique_ptr<FlightServerBase>* server,
+                    FlightServerOptions* options) override {
+    server->reset(new FlightSqlScenarioServer());
+    return Status::OK();
+  }
+
+  Status MakeClient(FlightClientOptions* options) override { return Status::OK(); }
+
+  Status Validate(std::shared_ptr<Schema> expectedSchema,
+                  arrow::Result<std::unique_ptr<FlightInfo>> flightInfo,
+                  sql::FlightSqlClient* sql_client) {
+    FlightCallOptions call_options;
+
+    ARROW_ASSIGN_OR_RAISE(auto flight_info, flightInfo);
+    ARROW_ASSIGN_OR_RAISE(
+        auto reader, sql_client->DoGet(call_options, flight_info->endpoints()[0].ticket));
+
+    ARROW_ASSIGN_OR_RAISE(auto actual_schema, reader->GetSchema());
+
+    AssertSchemaEqual(expectedSchema, actual_schema);
+
+    return Status::OK();
+  }
+
+  Status RunClient(std::unique_ptr<FlightClient> client) override {
+    sql::FlightSqlClient sql_client(std::move(client));
+
+    ARROW_RETURN_NOT_OK(ValidateMetadataRetrieval(&sql_client));
+
+    ARROW_RETURN_NOT_OK(ValidateStatementExecution(&sql_client));
+
+    ARROW_RETURN_NOT_OK(ValidatePreparedStatementExecution(&sql_client));
+
+    return Status::OK();
+  }
+
+  Status ValidateMetadataRetrieval(sql::FlightSqlClient* sql_client) {
+    FlightCallOptions options;
+
+    std::string catalog = "catalog";
+    std::string db_schema_filter_pattern = "db_schema_filter_pattern";
+    std::string table_filter_pattern = "table_filter_pattern";
+    std::string table = "table";
+    std::string db_schema = "db_schema";
+    std::vector<std::string> table_types = {"table", "view"};
+
+    sql::TableRef table_ref = {catalog, db_schema, table};
+    sql::TableRef pk_table_ref = {"pk_catalog", "pk_db_schema", "pk_table"};
+    sql::TableRef fk_table_ref = {"fk_catalog", "fk_db_schema", "fk_table"};
+
+    ARROW_RETURN_NOT_OK(Validate(sql::SqlSchema::GetCatalogsSchema(),
+                                 sql_client->GetCatalogs(options), sql_client));
+    ARROW_RETURN_NOT_OK(
+        Validate(sql::SqlSchema::GetDbSchemasSchema(),
+                 sql_client->GetDbSchemas(options, &catalog, &db_schema_filter_pattern),
+                 sql_client));
+    ARROW_RETURN_NOT_OK(
+        Validate(sql::SqlSchema::GetTablesSchemaWithIncludedSchema(),
+                 sql_client->GetTables(options, &catalog, &db_schema_filter_pattern,
+                                       &table_filter_pattern, true, &table_types),
+                 sql_client));
+    ARROW_RETURN_NOT_OK(Validate(sql::SqlSchema::GetTableTypesSchema(),
+                                 sql_client->GetTableTypes(options), sql_client));
+    ARROW_RETURN_NOT_OK(Validate(sql::SqlSchema::GetPrimaryKeysSchema(),
+                                 sql_client->GetPrimaryKeys(options, table_ref),
+                                 sql_client));
+    ARROW_RETURN_NOT_OK(Validate(sql::SqlSchema::GetExportedKeysSchema(),
+                                 sql_client->GetExportedKeys(options, table_ref),
+                                 sql_client));
+    ARROW_RETURN_NOT_OK(Validate(sql::SqlSchema::GetImportedKeysSchema(),
+                                 sql_client->GetImportedKeys(options, table_ref),
+                                 sql_client));
+    ARROW_RETURN_NOT_OK(Validate(
+        sql::SqlSchema::GetCrossReferenceSchema(),
+        sql_client->GetCrossReference(options, pk_table_ref, fk_table_ref), sql_client));
+    ARROW_RETURN_NOT_OK(Validate(
+        sql::SqlSchema::GetSqlInfoSchema(),
+        sql_client->GetSqlInfo(
+            options, {sql::SqlInfoOptions::SqlInfo::FLIGHT_SQL_SERVER_NAME,
+                      sql::SqlInfoOptions::SqlInfo::FLIGHT_SQL_SERVER_READ_ONLY}),
+        sql_client));
+
+    return Status::OK();
+  }
+
+  Status ValidateStatementExecution(sql::FlightSqlClient* sql_client) {
+    FlightCallOptions options;
+
+    ARROW_RETURN_NOT_OK(Validate(
+            GetQuerySchema(), sql_client->Execute(options, "SELECT STATEMENT"), sql_client));
+    ARROW_ASSIGN_OR_RAISE(auto update_statement_result,
+                          sql_client->ExecuteUpdate(options, "UPDATE STATEMENT"));
+    if (update_statement_result != 10000L) {
+      return Status::Invalid("Expected 'UPDATE STATEMENT' return 10000, got ",
+                             update_statement_result);
+    }
+
+    return Status::OK();
+  }
+
+  Status ValidatePreparedStatementExecution(sql::FlightSqlClient* sql_client) {
+    FlightCallOptions options;
+
+    ARROW_ASSIGN_OR_RAISE(auto select_prepared_statement,
+                          sql_client->Prepare(options, "SELECT PREPARED STATEMENT"));
+    ARROW_RETURN_NOT_OK(
+            Validate(GetQuerySchema(), select_prepared_statement->Execute(), sql_client));
+
+    ARROW_ASSIGN_OR_RAISE(auto update_prepared_statement,
+                          sql_client->Prepare(options, "UPDATE PREPARED STATEMENT"));
+    ARROW_ASSIGN_OR_RAISE(auto update_prepared_statement_result,
+                          update_prepared_statement->ExecuteUpdate());
+    if (update_prepared_statement_result != 20000L) {
+      return Status::Invalid("Expected 'UPDATE STATEMENT' return 20000, got ",
+                             update_prepared_statement_result);
+    }
+
+    return Status::OK();
+  }
+};
+
 Status GetScenario(const std::string& scenario_name, std::shared_ptr<Scenario>* out) {
   if (scenario_name == "auth:basic_proto") {
     *out = std::make_shared<AuthBasicProtoScenario>();
     return Status::OK();
   } else if (scenario_name == "middleware") {
     *out = std::make_shared<MiddlewareScenario>();
+    return Status::OK();
+  } else if (scenario_name == "flight_sql") {
+    *out = std::make_shared<FlightSqlScenario>();
     return Status::OK();
   }
   return Status::KeyError("Scenario not found: ", scenario_name);

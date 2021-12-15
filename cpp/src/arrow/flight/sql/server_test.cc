@@ -609,7 +609,7 @@ TEST_F(TestFlightSqlServer, TestCommandGetPrimaryKeys) {
   const auto key_name = ArrayFromJSON(utf8(), R"([null])");
   const auto table_name = ArrayFromJSON(utf8(), R"(["intTable"])");
   const auto column_name = ArrayFromJSON(utf8(), R"(["id"])");
-  const auto key_sequence = ArrayFromJSON(int64(), R"([1])");
+  const auto key_sequence = ArrayFromJSON(int32(), R"([1])");
 
   const std::shared_ptr<Table>& expected_table = Table::Make(
       SqlSchema::GetPrimaryKeysSchema(),

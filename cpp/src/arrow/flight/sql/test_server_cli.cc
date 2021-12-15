@@ -17,10 +17,10 @@
 
 #include <gflags/gflags.h>
 
+#include <csignal>
 #include <iostream>
 #include <memory>
 #include <string>
-#include <csignal>
 
 #include "arrow/flight/server.h"
 #include "arrow/flight/sql/example/sqlite_server.h"

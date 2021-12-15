@@ -689,7 +689,7 @@ arrow::Result<int64_t> FlightSqlServerBase::DoPutCommandStatementUpdate(
 }
 
 std::shared_ptr<Schema> SqlSchema::GetCatalogsSchema() {
-  return arrow::schema({field("catalog_name", utf8())});
+  return arrow::schema({field("catalog_name", utf8(), false)});
 }
 
 std::shared_ptr<Schema> SqlSchema::GetDbSchemasSchema() {
@@ -699,23 +699,26 @@ std::shared_ptr<Schema> SqlSchema::GetDbSchemasSchema() {
 
 std::shared_ptr<Schema> SqlSchema::GetTablesSchema() {
   return arrow::schema({field("catalog_name", utf8()), field("db_schema_name", utf8()),
-                        field("table_name", utf8()), field("table_type", utf8())});
+                        field("table_name", utf8(), false),
+                        field("table_type", utf8(), false)});
 }
 
 std::shared_ptr<Schema> SqlSchema::GetTablesSchemaWithIncludedSchema() {
   return arrow::schema({field("catalog_name", utf8()), field("db_schema_name", utf8()),
-                        field("table_name", utf8()), field("table_type", utf8()),
-                        field("table_schema", binary())});
+                        field("table_name", utf8(), false),
+                        field("table_type", utf8(), false),
+                        field("table_schema", binary(), false)});
 }
 
 std::shared_ptr<Schema> SqlSchema::GetTableTypesSchema() {
-  return arrow::schema({field("table_type", utf8())});
+  return arrow::schema({field("table_type", utf8(), false)});
 }
 
 std::shared_ptr<Schema> SqlSchema::GetPrimaryKeysSchema() {
-  return arrow::schema({field("catalog_name", utf8()), field("db_schema_name", utf8()),
-                        field("table_name", utf8()), field("column_name", utf8()),
-                        field("key_sequence", int64()), field("key_name", utf8())});
+  return arrow::schema(
+      {field("catalog_name", utf8()), field("db_schema_name", utf8()),
+       field("table_name", utf8(), false), field("column_name", utf8(), false),
+       field("key_sequence", int32(), false), field("key_name", utf8())});
 }
 
 std::shared_ptr<Schema> GetImportedExportedKeysAndCrossReferenceSchema() {
@@ -742,7 +745,7 @@ std::shared_ptr<Schema> SqlSchema::GetCrossReferenceSchema() {
 }
 
 std::shared_ptr<Schema> SqlSchema::GetSqlInfoSchema() {
-  return arrow::schema({field("name", uint32(), false),
+  return arrow::schema({field("info_name", uint32(), false),
                         field("value",
                               dense_union({field("string_value", utf8(), false),
                                            field("bool_value", boolean(), false),

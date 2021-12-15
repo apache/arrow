@@ -356,7 +356,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
       throws SQLException {
     final VarCharVector catalogs = new VarCharVector("catalog_name", allocator);
     final VarCharVector schemas =
-        new VarCharVector("schema_name", FieldType.notNullable(MinorType.VARCHAR.getType()), allocator);
+        new VarCharVector("db_schema_name", FieldType.notNullable(MinorType.VARCHAR.getType()), allocator);
     final List<FieldVector> vectors = ImmutableList.of(catalogs, schemas);
     vectors.forEach(FieldVector::allocateNew);
     final Map<FieldVector, String> vectorToColumnName = ImmutableMap.of(
@@ -449,7 +449,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
      */
     Objects.requireNonNull(allocator, "BufferAllocator cannot be null.");
     final VarCharVector catalogNameVector = new VarCharVector("catalog_name", allocator);
-    final VarCharVector schemaNameVector = new VarCharVector("schema_name", allocator);
+    final VarCharVector schemaNameVector = new VarCharVector("db_schema_name", allocator);
     final VarCharVector tableNameVector =
         new VarCharVector("table_name", FieldType.notNullable(MinorType.VARCHAR.getType()), allocator);
     final VarCharVector tableTypeVector =
@@ -1409,7 +1409,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
       final ResultSet primaryKeys = connection.getMetaData().getPrimaryKeys(catalog, schema, table);
 
       final VarCharVector catalogNameVector = new VarCharVector("catalog_name", rootAllocator);
-      final VarCharVector schemaNameVector = new VarCharVector("schema_name", rootAllocator);
+      final VarCharVector schemaNameVector = new VarCharVector("db_schema_name", rootAllocator);
       final VarCharVector tableNameVector = new VarCharVector("table_name", rootAllocator);
       final VarCharVector columnNameVector = new VarCharVector("column_name", rootAllocator);
       final IntVector keySequenceVector = new IntVector("key_sequence", rootAllocator);
@@ -1527,11 +1527,11 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
 
   private VectorSchemaRoot createVectors(ResultSet keys) throws SQLException {
     final VarCharVector pkCatalogNameVector = new VarCharVector("pk_catalog_name", rootAllocator);
-    final VarCharVector pkSchemaNameVector = new VarCharVector("pk_schema_name", rootAllocator);
+    final VarCharVector pkSchemaNameVector = new VarCharVector("pk_db_schema_name", rootAllocator);
     final VarCharVector pkTableNameVector = new VarCharVector("pk_table_name", rootAllocator);
     final VarCharVector pkColumnNameVector = new VarCharVector("pk_column_name", rootAllocator);
     final VarCharVector fkCatalogNameVector = new VarCharVector("fk_catalog_name", rootAllocator);
-    final VarCharVector fkSchemaNameVector = new VarCharVector("fk_schema_name", rootAllocator);
+    final VarCharVector fkSchemaNameVector = new VarCharVector("fk_db_schema_name", rootAllocator);
     final VarCharVector fkTableNameVector = new VarCharVector("fk_table_name", rootAllocator);
     final VarCharVector fkColumnNameVector = new VarCharVector("fk_column_name", rootAllocator);
     final IntVector keySequenceVector = new IntVector("key_sequence", rootAllocator);

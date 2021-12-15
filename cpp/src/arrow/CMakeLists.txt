@@ -730,13 +730,14 @@ endif()
 
 if(ARROW_FLIGHT)
   add_subdirectory(flight)
-  if(ARROW_BUILD_INTEGRATION)
-    add_subdirectory(flight/integration_tests)
-  endif()
 endif()
 
 if(ARROW_FLIGHT_SQL)
   add_subdirectory(flight/sql)
+endif()
+
+if(ARROW_FLIGHT AND ARROW_BUILD_INTEGRATION)
+  add_subdirectory(flight/integration_tests)
 endif()
 
 if(ARROW_HIVESERVER2)

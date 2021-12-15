@@ -41,6 +41,7 @@ final class Scenarios {
     scenarios = new TreeMap<>();
     scenarios.put("auth:basic_proto", AuthBasicProtoScenario::new);
     scenarios.put("middleware", MiddlewareScenario::new);
+    scenarios.put("flight_sql", FlightSqlScenario::new);
   }
 
   private static Scenarios getInstance() {
