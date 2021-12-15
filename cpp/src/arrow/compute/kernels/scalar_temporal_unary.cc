@@ -62,7 +62,10 @@ using arrow_vendored::date::literals::mon;
 using arrow_vendored::date::literals::sun;
 using arrow_vendored::date::literals::thu;
 using arrow_vendored::date::literals::wed;
+using arrow_vendored::date::Monday;
+using arrow_vendored::date::Sunday;
 using internal::applicator::SimpleUnary;
+using std::chrono::duration_cast;
 using std::chrono::hours;
 using std::chrono::minutes;
 
@@ -481,49 +484,51 @@ Result<ValueDescr> ResolveRoundTemporalOutput(KernelContext* ctx,
 }
 
 template <typename Duration, typename Unit>
-Duration ceil_multiple(const int64_t arg, const int multiple) {
-  auto c = ceil<Unit>(Duration{arg});
+Duration CeilMultiple(const int64_t arg, const int multiple) {
+  auto ceiled = ceil<Unit>(Duration{arg});
   if (multiple == 1) {
-    return std::chrono::duration_cast<Duration>(c);
+    return duration_cast<Duration>(ceiled);
   } else {
-    auto t = std::chrono::duration_cast<Duration>(Unit{c / Unit{multiple}} * multiple);
-    return t >= c ? t : t + std::chrono::duration_cast<Duration>(Unit{multiple});
+    auto t = duration_cast<Duration>(Unit{ceiled / Unit{multiple}} * multiple);
+    return t >= ceiled ? t : t + duration_cast<Duration>(Unit{multiple});
   }
 }
 
 template <typename Duration, typename Unit>
-Duration floor_multiple(const int64_t arg, const int multiple) {
+Duration FloorMultiple(const int64_t arg, const int multiple) {
+  auto floored = floor<Unit>(Duration{arg});
   if (multiple == 1) {
-    auto f = floor<Unit>(Duration{arg});
-    return std::chrono::duration_cast<Duration>(f);
+    return duration_cast<Duration>(floored);
   } else {
-    auto f = floor<Unit>(Duration{arg});
-    auto tmp =
-        arg > 0
-            ? std::chrono::duration_cast<Duration>(Unit{f / Unit{multiple}} * multiple)
-            : std::chrono::duration_cast<Duration>(
-                  Unit{(f - Unit{multiple - 1}) / Unit{multiple}} * multiple);
-
-    return tmp;
+    auto t = duration_cast<Duration>(Unit{floored / Unit{multiple}} * multiple);
+    return arg > 0
+               ? t
+               : duration_cast<Duration>(
+                     Unit{(floored - Unit{multiple - 1}) / Unit{multiple}} * multiple);
   }
 }
 
 template <typename Duration, typename Unit>
-Duration round_multiple(const int64_t arg, const int multiple) {
+Duration RoundMultiple(const int64_t arg, const int multiple) {
   if (multiple == 1) {
-    auto r = round<Unit>(Duration{arg});
-    return std::chrono::duration_cast<Duration>(r);
+    auto rounded = round<Unit>(Duration{arg});
+    return duration_cast<Duration>(rounded);
   } else {
-    auto f = std::chrono::duration_cast<Duration>(Unit{Duration{arg} / Unit{multiple}} *
-                                                  multiple);
-    auto u = std::chrono::duration_cast<Duration>(Unit{multiple});
-    return Duration{arg} < f + u / 2 ? f : f + u;
+    auto unit = duration_cast<Duration>(Unit{multiple});
+    Duration floored;
+    if (arg >= 0) {
+      floored = duration_cast<Duration>(Unit{Duration{arg} / Unit{multiple}} * multiple);
+    } else {
+      floored = duration_cast<Duration>(
+          Unit{(Duration{arg} - unit + Duration{1}) / Unit{multiple}} * multiple);
+    }
+    return Duration{arg} <= floored + unit / 2 ? floored : floored + unit;
   }
 }
 
-int32_t get_total_months(year_month_day ymd, int multiple) {
+int32_t GetTotalMonths(year_month_day ymd, int multiple) {
   int32_t total_months = (static_cast<int32_t>(ymd.year()) * 12 +
-                          static_cast<int32_t>(static_cast<uint32_t>(ymd.month())) - 1) /
+                          static_cast<int32_t>(static_cast<uint32_t>(ymd.month()))) /
                          multiple * multiple;
   return total_months;
 }
@@ -535,37 +540,36 @@ struct CeilTemporal {
 
   template <typename T, typename Arg0>
   T Call(KernelContext*, Arg0 arg, Status*) const {
-    using std::chrono::duration_cast;
     Duration t;
     switch (options.unit) {
       case compute::CalendarUnit::NANOSECOND:
-        t = ceil_multiple<Duration, std::chrono::nanoseconds>(arg, options.multiple);
+        t = CeilMultiple<Duration, std::chrono::nanoseconds>(arg, options.multiple);
         break;
       case compute::CalendarUnit::MICROSECOND:
-        t = ceil_multiple<Duration, std::chrono::microseconds>(arg, options.multiple);
+        t = CeilMultiple<Duration, std::chrono::microseconds>(arg, options.multiple);
         break;
       case compute::CalendarUnit::MILLISECOND:
-        t = ceil_multiple<Duration, std::chrono::milliseconds>(arg, options.multiple);
+        t = CeilMultiple<Duration, std::chrono::milliseconds>(arg, options.multiple);
         break;
       case compute::CalendarUnit::SECOND:
-        t = ceil_multiple<Duration, std::chrono::seconds>(arg, options.multiple);
+        t = CeilMultiple<Duration, std::chrono::seconds>(arg, options.multiple);
         break;
       case compute::CalendarUnit::MINUTE:
-        t = ceil_multiple<Duration, std::chrono::minutes>(arg, options.multiple);
+        t = CeilMultiple<Duration, std::chrono::minutes>(arg, options.multiple);
         break;
       case compute::CalendarUnit::HOUR:
-        t = ceil_multiple<Duration, std::chrono::hours>(arg, options.multiple);
+        t = CeilMultiple<Duration, std::chrono::hours>(arg, options.multiple);
         break;
       case compute::CalendarUnit::DAY:
-        t = ceil_multiple<Duration, days>(arg, options.multiple);
+        t = CeilMultiple<Duration, days>(arg, options.multiple);
         break;
       case compute::CalendarUnit::WEEK: {
         auto sd =
-            sys_days{floor<days>(ceil_multiple<Duration, weeks>(arg, options.multiple))};
+            sys_days{floor<days>(CeilMultiple<Duration, weeks>(arg, options.multiple))};
         if (options.week_starts_monday) {
-          sd -= arrow_vendored::date::Sunday - weekday{sd};
+          sd -= Sunday - weekday{sd};
         } else {
-          sd -= arrow_vendored::date::Monday - weekday{sd};
+          sd -= Monday - weekday{sd};
         }
         t = duration_cast<Duration>(sd.time_since_epoch());
         break;
@@ -573,46 +577,32 @@ struct CeilTemporal {
       case compute::CalendarUnit::MONTH: {
         auto ymd = year_month_day{
             floor<days>(localizer_.template ConvertTimePoint<Duration>(arg))};
-        int32_t total_months = get_total_months(ymd, options.multiple);
-
-        if (sys_days{ymd}.time_since_epoch() > Duration{t}) {
-          total_months += options.multiple;
-        }
+        int32_t total_months = GetTotalMonths(ymd, options.multiple) + 1;
         auto month =
-            arrow_vendored::date::month { static_cast<uint32_t>(total_months % 12) + 1 };
-        t = sys_days { arrow_vendored::date::year { total_months / 12 } / month / 1 }
+            arrow_vendored::date::month{static_cast<uint32_t>(total_months % 12)};
+        t = sys_days{arrow_vendored::date::year{total_months / 12} / month / 1}
                 .time_since_epoch();
         break;
       }
       case compute::CalendarUnit::SEASON: {
         auto ymd = year_month_day{
-            ceil<days>(localizer_.template ConvertTimePoint<Duration>(arg))};
-        int32_t total_months = get_total_months(ymd, options.multiple * 3);
-
-        if (sys_days{ymd}.time_since_epoch() > Duration{t}) {
-          total_months += options.multiple * 3;
-        }
+            floor<days>(localizer_.template ConvertTimePoint<Duration>(arg))};
+        int32_t total_months = GetTotalMonths(ymd, options.multiple * 3);
         auto month = arrow_vendored::date::month{
-            season_lookup_table[static_cast<uint32_t>(total_months % 12)] };
-        t = sys_days { arrow_vendored::date::year { total_months / 12 } / month / 1 }
+            season_lookup_table[static_cast<uint32_t>(total_months % 12)]};
+        t = sys_days{arrow_vendored::date::year{total_months / 12} / month / 1}
                 .time_since_epoch();
         break;
       }
       case compute::CalendarUnit::YEAR: {
         auto ymd = year_month_day{
             floor<days>(localizer_.template ConvertTimePoint<Duration>(arg))};
-
-        arrow_vendored::date::year year;
-        if (options.multiple == 1) {
-          year = ymd.year();
-        } else {
-          year = arrow_vendored::date::year{static_cast<const int32_t>(ymd.year()) /
+        auto year = ymd.year();
+        if (options.multiple != 1) {
+          year = arrow_vendored::date::year{static_cast<const int32_t>(year) /
                                             options.multiple * options.multiple};
         }
-        if (ymd > sys_days{year / jan / 1}) {
-          year = year + years{options.multiple};
-        }
-
+        year = year + years{options.multiple};
         t = sys_days{year / jan / 1}.time_since_epoch();
         break;
       }
@@ -620,7 +610,9 @@ struct CeilTemporal {
     return static_cast<T>(t.count());
   }
 
-  std::array<uint32_t, 12> season_lookup_table{{12, 12, 3, 3, 3, 6, 6, 6, 9, 9, 9, 12}};
+  //  std::array<uint32_t, 12> season_lookup_table{{12, 12, 3, 3, 3, 6, 6, 6, 9, 9, 9,
+  //  12}};
+  std::array<uint32_t, 12> season_lookup_table{{3, 3, 6, 6, 6, 9, 9, 9, 12, 12, 12, 3}};
   Localizer localizer_;
   RoundTemporalOptions options;
 };
@@ -632,37 +624,36 @@ struct FloorTemporal {
 
   template <typename T, typename Arg0>
   T Call(KernelContext*, Arg0 arg, Status*) const {
-    using std::chrono::duration_cast;
     Duration t;
     switch (options.unit) {
       case compute::CalendarUnit::NANOSECOND:
-        t = floor_multiple<Duration, std::chrono::nanoseconds>(arg, options.multiple);
+        t = FloorMultiple<Duration, std::chrono::nanoseconds>(arg, options.multiple);
         break;
       case compute::CalendarUnit::MICROSECOND:
-        t = floor_multiple<Duration, std::chrono::microseconds>(arg, options.multiple);
+        t = FloorMultiple<Duration, std::chrono::microseconds>(arg, options.multiple);
         break;
       case compute::CalendarUnit::MILLISECOND:
-        t = floor_multiple<Duration, std::chrono::milliseconds>(arg, options.multiple);
+        t = FloorMultiple<Duration, std::chrono::milliseconds>(arg, options.multiple);
         break;
       case compute::CalendarUnit::SECOND:
-        t = floor_multiple<Duration, std::chrono::seconds>(arg, options.multiple);
+        t = FloorMultiple<Duration, std::chrono::seconds>(arg, options.multiple);
         break;
       case compute::CalendarUnit::MINUTE:
-        t = floor_multiple<Duration, std::chrono::minutes>(arg, options.multiple);
+        t = FloorMultiple<Duration, std::chrono::minutes>(arg, options.multiple);
         break;
       case compute::CalendarUnit::HOUR:
-        t = floor_multiple<Duration, std::chrono::hours>(arg, options.multiple);
+        t = FloorMultiple<Duration, std::chrono::hours>(arg, options.multiple);
         break;
       case compute::CalendarUnit::DAY:
-        t = floor_multiple<Duration, days>(arg, options.multiple);
+        t = FloorMultiple<Duration, days>(arg, options.multiple);
         break;
       case compute::CalendarUnit::WEEK: {
         auto sd =
-            sys_days{floor<days>(floor_multiple<Duration, weeks>(arg, options.multiple))};
+            sys_days{floor<days>(FloorMultiple<Duration, weeks>(arg, options.multiple))};
         if (options.week_starts_monday) {
-          sd -= arrow_vendored::date::Sunday - weekday{sd};
+          sd -= Sunday - weekday{sd};
         } else {
-          sd -= arrow_vendored::date::Monday - weekday{sd};
+          sd -= Monday - weekday{sd};
         }
         t = duration_cast<Duration>(sd.time_since_epoch());
         break;
@@ -670,31 +661,29 @@ struct FloorTemporal {
       case compute::CalendarUnit::MONTH: {
         auto ymd = year_month_day{
             floor<days>(localizer_.template ConvertTimePoint<Duration>(arg))};
-        int32_t total_months = get_total_months(ymd, options.multiple);
+        int32_t total_months = GetTotalMonths(ymd, options.multiple);
         auto month =
-            arrow_vendored::date::month{ static_cast<uint32_t>(total_months % 12) + 1 };
-        t = sys_days { arrow_vendored::date::year { total_months / 12 } / month / 1 }
+            arrow_vendored::date::month{static_cast<uint32_t>(total_months % 12)};
+        t = sys_days{arrow_vendored::date::year{total_months / 12} / month / 1}
                 .time_since_epoch();
         break;
       }
       case compute::CalendarUnit::SEASON: {
         auto ymd = year_month_day{
             floor<days>(localizer_.template ConvertTimePoint<Duration>(arg))};
-        int32_t total_months = get_total_months(ymd, options.multiple * 3);
+        int32_t total_months = GetTotalMonths(ymd, options.multiple * 3);
         auto month = arrow_vendored::date::month{
-            season_lookup_table[static_cast<uint32_t>(total_months % 12)] };
-        t = sys_days { arrow_vendored::date::year { total_months / 12} / month / 1 }
+            season_lookup_table[static_cast<uint32_t>(total_months % 12)]};
+        t = sys_days{arrow_vendored::date::year{total_months / 12} / month / 1}
                 .time_since_epoch();
         break;
       }
       case compute::CalendarUnit::YEAR: {
         auto ymd = year_month_day{
-            ceil<days>(localizer_.template ConvertTimePoint<Duration>(arg))};
-        arrow_vendored::date::year year;
-        if (options.multiple == 1) {
-          year = ymd.year();
-        } else {
-          year = arrow_vendored::date::year{static_cast<const int32_t>(ymd.year()) /
+            floor<days>(localizer_.template ConvertTimePoint<Duration>(arg))};
+        auto year = ymd.year();
+        if (options.multiple != 1) {
+          year = arrow_vendored::date::year{static_cast<const int32_t>(year) /
                                             options.multiple * options.multiple};
         }
         t = sys_days{year / jan / 1}.time_since_epoch();
@@ -716,37 +705,36 @@ struct RoundTemporal {
 
   template <typename T, typename Arg0>
   T Call(KernelContext*, Arg0 arg, Status*) const {
-    using std::chrono::duration_cast;
     Duration t;
     switch (options.unit) {
       case compute::CalendarUnit::NANOSECOND:
-        t = round_multiple<Duration, std::chrono::nanoseconds>(arg, options.multiple);
+        t = RoundMultiple<Duration, std::chrono::nanoseconds>(arg, options.multiple);
         break;
       case compute::CalendarUnit::MICROSECOND:
-        t = round_multiple<Duration, std::chrono::microseconds>(arg, options.multiple);
+        t = RoundMultiple<Duration, std::chrono::microseconds>(arg, options.multiple);
         break;
       case compute::CalendarUnit::MILLISECOND:
-        t = round_multiple<Duration, std::chrono::milliseconds>(arg, options.multiple);
+        t = RoundMultiple<Duration, std::chrono::milliseconds>(arg, options.multiple);
         break;
       case compute::CalendarUnit::SECOND:
-        t = round_multiple<Duration, std::chrono::seconds>(arg, options.multiple);
+        t = RoundMultiple<Duration, std::chrono::seconds>(arg, options.multiple);
         break;
       case compute::CalendarUnit::MINUTE:
-        t = round_multiple<Duration, std::chrono::minutes>(arg, options.multiple);
+        t = RoundMultiple<Duration, std::chrono::minutes>(arg, options.multiple);
         break;
       case compute::CalendarUnit::HOUR:
-        t = round_multiple<Duration, std::chrono::hours>(arg, options.multiple);
+        t = RoundMultiple<Duration, std::chrono::hours>(arg, options.multiple);
         break;
       case compute::CalendarUnit::DAY:
-        t = round_multiple<Duration, days>(arg, options.multiple);
+        t = RoundMultiple<Duration, days>(arg, options.multiple);
         break;
       case compute::CalendarUnit::WEEK: {
         auto sd =
-            sys_days{floor<days>(round_multiple<Duration, weeks>(arg, options.multiple))};
+            sys_days{floor<days>(RoundMultiple<Duration, weeks>(arg, options.multiple))};
         if (options.week_starts_monday) {
-          sd -= arrow_vendored::date::Sunday - weekday{sd};
+          sd -= Sunday - weekday{sd};
         } else {
-          sd -= arrow_vendored::date::Monday - weekday{sd};
+          sd -= Monday - weekday{sd};
         }
         t = duration_cast<Duration>(sd.time_since_epoch());
         break;
@@ -754,22 +742,28 @@ struct RoundTemporal {
       case compute::CalendarUnit::MONTH: {
         auto ymd = year_month_day{
             floor<days>(localizer_.template ConvertTimePoint<Duration>(arg))};
-        int32_t total_months = get_total_months(ymd, options.multiple);
+        int32_t total_months = GetTotalMonths(ymd, options.multiple);
 
-        if (sys_days{ymd}.time_since_epoch() > Duration{t}) {
-          total_months += options.multiple;
+        auto month_1 =
+            arrow_vendored::date::month{static_cast<uint32_t>((total_months) % 12)};
+        auto month_2 =
+            arrow_vendored::date::month{static_cast<uint32_t>((total_months + 1) % 12)};
+        auto year_1 = arrow_vendored::date::year{total_months / 12};
+        auto year_2 = arrow_vendored::date::year{(total_months + 1) / 12};
+        auto f = sys_days{year_1 / month_1 / 1};
+        auto c = sys_days{year_2 / month_2 / 1};
+
+        if (sys_days{ymd} - f > c - sys_days{ymd}) {
+          t = c.time_since_epoch();
+        } else {
+          t = f.time_since_epoch();
         }
-
-        auto month =
-            arrow_vendored::date::month { static_cast<uint32_t>(total_months % 12) + 1 };
-        t = sys_days { arrow_vendored::date::year { total_months / 12 } / month / 1 }
-                .time_since_epoch();
         break;
       }
       case compute::CalendarUnit::SEASON: {
         auto ymd = year_month_day{
             floor<days>(localizer_.template ConvertTimePoint<Duration>(arg))};
-        int32_t total_months = get_total_months(ymd, options.multiple);
+        int32_t total_months = GetTotalMonths(ymd, options.multiple);
         auto month = arrow_vendored::date::month{
             season_lookup_table[static_cast<uint32_t>(total_months % 12)]};
         t = sys_days{ymd.year() / month / 1}.time_since_epoch();
@@ -778,22 +772,19 @@ struct RoundTemporal {
       case compute::CalendarUnit::YEAR: {
         auto ymd = year_month_day{
             floor<days>(localizer_.template ConvertTimePoint<Duration>(arg))};
-
-        arrow_vendored::date::year year;
-        if (options.multiple == 1) {
-          year = ymd.year();
-        } else {
-          year = arrow_vendored::date::year{static_cast<const int32_t>(ymd.year()) /
+        auto year = ymd.year();
+        if (options.multiple != 1) {
+          year = arrow_vendored::date::year{static_cast<const int32_t>(year) /
                                             options.multiple * options.multiple};
         }
-        auto year_c = ymd.year() + years{options.multiple};
-        auto f = sys_days{ymd.year() / jan / 1};
-        auto c = sys_days{year_c / jan / 1};
+        auto f = sys_days{year / jan / 1};
+        auto c = sys_days{(year + years{options.multiple}) / jan / 1};
 
         if (sys_days{ymd} - f > c - sys_days{ymd}) {
-          year = year_c;
+          t = c.time_since_epoch();
+        } else {
+          t = f.time_since_epoch();
         }
-        t = sys_days{year / jan / 1}.time_since_epoch();
         break;
       }
     }
