@@ -238,11 +238,11 @@ again and try:
    <pyarrow.StructScalar: [('min', 1), ('max', 6)]>
 
 It’s working. Now we must correct the limits to get the corrected
-interval. To do that we have to do some research on 
-``pyarrow.StructScalar``. In ``test_scalar.py`` under the
-``test_struct_duplicate_fields`` we can see an example of how the
-``StructScalar`` is created. We could again run the Python console
-and try creating one ourselves.
+interval. To do that we have to do some research on ``pyarrow.StructScalar``.
+In `test_scalars.py <https://github.com/apache/arrow/blob/994074d2e7ff073301e0959dbc5bb595a1e2a41b/python/pyarrow/tests/test_scalars.py#L547-L553>`_
+under the ``test_struct_duplicate_fields`` we can see an example
+of how the ``StructScalar`` is created. We could again run the
+Python console and try creating one ourselves.
 
 .. code-block:: python
 
@@ -253,6 +253,11 @@ and try creating one ourselves.
    ...    ])
    >>> pa.scalar([('min-', 3), ('max+', 9)], type=ty)
    <pyarrow.StructScalar: [('min-', 3), ('max+', 9)]>
+
+.. note::
+
+   In cases where we don't yet have good documentation, unit tests
+   can be a good place to look for code examples
 
 With the new gained knowledge about ``StructScalar`` and additional
 options for the ``pc.min_max`` function we can finish the work.
