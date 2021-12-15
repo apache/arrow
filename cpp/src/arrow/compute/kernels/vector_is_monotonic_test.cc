@@ -17,7 +17,7 @@
 
 #include <gtest/gtest.h>
 
-#include "arrow/compute/api_vector.cc"
+#include "arrow/compute/api_vector.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/kernels/test_util.h"
 #include "arrow/datum.h"
@@ -160,16 +160,45 @@ TEST(TestIsMonotonicKernel, VectorFunction) {
   Check(ArrayFromJSON(boolean(), "[true, false]"), false, false, true, true);
 
   // Floating point
-  const IsMonotonicOptions approx(IsMonotonicOptions::NullHandling::IGNORE, true);
-  const IsMonotonicOptions approx_large(IsMonotonicOptions::NullHandling::IGNORE, true,
-                                        1);
+  const IsMonotonicOptions approx(IsMonotonicOptions::NullHandling::IGNORE, true, 1e-1);
 
   Check(ArrayFromJSON(float32(), "[NaN]"), false, false, false, false);
   Check(ArrayFromJSON(float32(), "[NaN, NaN]"), false, false, false, false);
   Check(ArrayFromJSON(float32(), "[NaN, NaN, NaN]"), false, false, false, false);
+  Check(ArrayFromJSON(float32(), "[NaN, 1, 2, 3]"), false, false, false, false);
+
+  Check(ArrayFromJSON(float32(), "[-Inf, 0, Inf]"), true, true, false, false);
+  Check(ArrayFromJSON(float32(), "[-Inf, -Inf, Inf]"), true, false, false, false);
+  Check(ArrayFromJSON(float32(), "[Inf, 0, -Inf]"), false, false, true, true);
+  Check(ArrayFromJSON(float32(), "[Inf, Inf, -Inf]"), false, false, true, false);
+
+  Check(ArrayFromJSON(float64(), "[-Inf, Inf, null]"), false, false, false, false, min);
+  Check(ArrayFromJSON(float64(), "[-Inf, Inf, null]"), true, false, false, false, max);
+  Check(ArrayFromJSON(float64(), "[Inf, -Inf, null]"), false, false, true, false, min);
+  Check(ArrayFromJSON(float64(), "[Inf, -Inf, null]"), false, false, false, false, max);
+
+  Check(ArrayFromJSON(float32(), "[-Inf, null, Inf]"), true, false, false, false, min);
+  Check(ArrayFromJSON(float32(), "[-Inf, null, Inf]"), true, false, false, false, max);
+  Check(ArrayFromJSON(float32(), "[Inf, null, -Inf]"), false, false, true, false, min);
+  Check(ArrayFromJSON(float32(), "[Inf, null, -Inf]"), false, false, true, false, max);
+
+  Check(ArrayFromJSON(float32(), "[-Inf, 0, null, Inf]"), false, false, false, false,
+        min);
+  Check(ArrayFromJSON(float32(), "[-Inf, 0, null, Inf]"), true, false, false, false, max);
+  Check(ArrayFromJSON(float32(), "[Inf, 0, null, -Inf]"), false, false, true, false, min);
+  Check(ArrayFromJSON(float32(), "[Inf, 0, null, -Inf]"), false, false, false, false,
+        max);
+
+  Check(ArrayFromJSON(float32(), "[1, 1.01, 1.02, 1.03, 1.04]"), true, true, false,
+        false);
+  Check(ArrayFromJSON(float32(), "[1, 1.01, 1.02, 1.03, 1.04]"), true, false, true, false,
+        approx);
+  Check(ArrayFromJSON(float32(), "[1, 1.01, 1.02, 1.03, 2]"), true, true, false, false);
+  Check(ArrayFromJSON(float32(), "[1, 1.01, 1.02, 1.03, 2]"), true, false, false, false,
+        approx);
 
   Check(ArrayFromJSON(float32(), "[1, 2, 3, 4]"), true, true, false, false);
-  Check(ArrayFromJSON(float64(), "[1, 2, 3, 4]"), true, true, false, false);
+  Check(ArrayFromJSON(float64(), "[4, 3, 2, 1]"), false, false, true, true);
 
   // Temporal
   Check(ArrayFromJSON(date32(), "[1, 2, 3, 4, 4]"), true, false, false, false);

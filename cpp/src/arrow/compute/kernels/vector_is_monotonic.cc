@@ -56,34 +56,32 @@ enable_if_floating_point<DataType> IsMonotonicCheck(
     *decreasing = false;
     *strictly_decreasing = false;
   } else {
-    if (*increasing || *decreasing) {
-      bool equal =
-          // Equal if exactly equal.
-          current == next ||
-          // Or if approximately equal within some error bound (epsilon).
-          (options.floating_approximate &&
-           (fabs(current - next) <=
-            static_cast<typename DataType::c_type>(options.epsilon)));
-      if (*increasing) {
-        if (!(equal || next > current)) {
-          *increasing = false;
-          *strictly_increasing = false;
-        }
+    bool equal =
+        // Approximately equal within some error bound (epsilon).
+        (options.floating_approximate &&
+         (fabs(current - next) <=
+          static_cast<typename DataType::c_type>(options.epsilon))) ||
+        // Or exactly equal.
+        current == next;
+    if (*increasing) {
+      if (!(equal || next > current)) {
+        *increasing = false;
+        *strictly_increasing = false;
       }
-      if (*decreasing) {
-        if (!(equal || next < current)) {
-          *decreasing = false;
-          *strictly_decreasing = false;
-        }
+    }
+    if (*decreasing) {
+      if (!(equal || next < current)) {
+        *decreasing = false;
+        *strictly_decreasing = false;
       }
     }
     if (*strictly_increasing) {
-      if (!(next > current)) {
+      if (equal || !(next > current)) {
         *strictly_increasing = false;
       }
     }
     if (*strictly_decreasing) {
-      if (!(next < current)) {
+      if (equal || !(next < current)) {
         *strictly_decreasing = false;
       }
     }
@@ -132,6 +130,26 @@ enable_if_not_floating_point<DataType, bool> isnan(
 }
 
 template <typename DataType>
+constexpr enable_if_floating_point<DataType, typename DataType::c_type> min() {
+  return -std::numeric_limits<typename DataType::c_type>::infinity();
+}
+
+template <typename DataType>
+constexpr enable_if_floating_point<DataType, typename DataType::c_type> max() {
+  return std::numeric_limits<typename DataType::c_type>::infinity();
+}
+
+template <typename DataType>
+constexpr enable_if_not_floating_point<DataType, typename DataType::c_type> min() {
+  return std::numeric_limits<typename DataType::c_type>::min();
+}
+
+template <typename DataType>
+constexpr enable_if_not_floating_point<DataType, typename DataType::c_type> max() {
+  return std::numeric_limits<typename DataType::c_type>::max();
+}
+
+template <typename DataType>
 Status IsMonotonic(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   using ArrayType = typename TypeTraits<DataType>::ArrayType;
   using CType = typename TypeTraits<DataType>::CType;
@@ -173,8 +191,8 @@ Status IsMonotonic(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
 
   // Set null value based on option.
   const CType null_value = options.null_handling == IsMonotonicOptions::NullHandling::MIN
-                               ? std::numeric_limits<CType>::min()
-                               : std::numeric_limits<CType>::max();
+                               ? min<DataType>()
+                               : max<DataType>();
 
   bool increasing = true, strictly_increasing = true, decreasing = true,
        strictly_decreasing = true;

@@ -201,8 +201,7 @@ SelectKOptions::SelectKOptions(int64_t k, std::vector<SortKey> sort_keys)
 constexpr char SelectKOptions::kTypeName[];
 
 IsMonotonicOptions::IsMonotonicOptions(IsMonotonicOptions::NullHandling null_handling,
-                                       bool floating_approximate,
-                                       double epsilon)
+                                       bool floating_approximate, double epsilon)
     : FunctionOptions(internal::kIsMonotonicOptionsType),
       null_handling(null_handling),
       floating_approximate(floating_approximate),
