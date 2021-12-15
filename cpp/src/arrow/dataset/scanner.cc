@@ -168,10 +168,16 @@ Result<EnumeratedRecordBatchGenerator> FragmentToBatches(
 Result<AsyncGenerator<EnumeratedRecordBatchGenerator>> FragmentsToBatches(
     FragmentGenerator fragment_gen, const std::shared_ptr<ScanOptions>& options) {
   auto enumerated_fragment_gen = MakeEnumeratedGenerator(std::move(fragment_gen));
-  return MakeMappedGenerator(std::move(enumerated_fragment_gen),
-                             [=](const Enumerated<std::shared_ptr<Fragment>>& fragment) {
-                               return FragmentToBatches(fragment, options);
-                             });
+  auto batch_gen_gen =
+      MakeMappedGenerator(std::move(enumerated_fragment_gen),
+                          [=](const Enumerated<std::shared_ptr<Fragment>>& fragment) {
+                            return FragmentToBatches(fragment, options);
+                          });
+#ifdef ARROW_WITH_OPENTELEMETRY
+  batch_gen_gen = arrow::internal::tracing::PropagateSpanThroughAsyncGenerator(
+      std::move(batch_gen_gen));
+#endif
+  return batch_gen_gen;
 }
 
 const FieldVector kAugmentedFields{
