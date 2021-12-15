@@ -60,11 +60,13 @@ namespace {
 
 namespace sdktrace = opentelemetry::sdk::trace;
 
-// Custom JSON stdout exporter. Leverages the OTLP HTTP exporter's
-// utilities to log the same format that would be sent to OTLP.
-class OtlpStdoutExporter final : public sdktrace::SpanExporter {
+// Custom JSON exporter. Leverages the OTLP HTTP exporter's utilities
+// to log the same format that would be sent to OTLP.
+class OtlpOStreamExporter final : public sdktrace::SpanExporter {
  public:
-  OtlpStdoutExporter() { protobuf_json_options_.add_whitespace = false; }
+  OtlpOStreamExporter(std::basic_ostream<char>* out) : out_(out) {
+    protobuf_json_options_.add_whitespace = false;
+  }
 
   std::unique_ptr<sdktrace::Recordable> MakeRecordable() noexcept override {
     // The header for the Recordable definition is not installed, work around that
@@ -82,7 +84,7 @@ class OtlpStdoutExporter final : public sdktrace::SpanExporter {
       if (ARROW_PREDICT_FALSE(!status.ok())) {
         return otel::sdk::common::ExportResult::kFailure;
       }
-      std::cout << output << std::endl;
+      (*out_) << output << std::endl;
     }
 
     return otel::sdk::common::ExportResult::kSuccess;
@@ -93,6 +95,7 @@ class OtlpStdoutExporter final : public sdktrace::SpanExporter {
   }
 
  private:
+  std::basic_ostream<char>* out_;
   opentelemetry::exporter::otlp::OtlpHttpExporter exporter_;
   google::protobuf::util::JsonPrintOptions protobuf_json_options_;
 };
@@ -119,7 +122,9 @@ std::unique_ptr<sdktrace::SpanExporter> InitializeExporter() {
       otlp::OtlpHttpExporterOptions opts;
       return arrow::internal::make_unique<otlp::OtlpHttpExporter>(opts);
     } else if (env_var == "arrow_otlp_stdout") {
-      return arrow::internal::make_unique<OtlpStdoutExporter>();
+      return arrow::internal::make_unique<OtlpOStreamExporter>(&std::cout);
+    } else if (env_var == "arrow_otlp_stderr") {
+      return arrow::internal::make_unique<OtlpOStreamExporter>(&std::cerr);
     } else if (!env_var.empty()) {
       ARROW_LOG(WARNING) << "Requested unknown backend " << kTracingBackendEnvVar << "="
                          << env_var;
