@@ -47,7 +47,7 @@ Dataset, or arrow data query object, the Arrow implementation of `mutate()` is
 used and under the hood, translates the dplyr code into Arrow C++ code.
 
 When using `dplyr::mutate()` or `dplyr::filter()`, you may want to use functions
-from other packages, e.g. 
+from other packages.  The example below uses `stringr::str_detect()`.
 
 ```{r}
 library(dplyr)
