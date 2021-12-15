@@ -158,6 +158,22 @@ TYPED_TEST(TypedTestAsyncTaskGroup, Error) {
   ASSERT_FINISHES_AND_RAISES(Invalid, task_group.End());
 }
 
+TYPED_TEST(TypedTestAsyncTaskGroup, ErrorWhileNotEmpty) {
+  TypeParam task_group;
+  Future<> pending_task = Future<>::Make();
+  Future<> will_fail_task = Future<>::Make();
+  Future<> after_fail_task = Future<>::Make();
+  ASSERT_OK(task_group.AddTask([pending_task] { return pending_task; }));
+  ASSERT_OK(task_group.AddTask([will_fail_task] { return will_fail_task; }));
+  ASSERT_OK(task_group.AddTask([after_fail_task] { return after_fail_task; }));
+  Future<> end = task_group.End();
+  AssertNotFinished(end);
+  pending_task.MarkFinished();
+  will_fail_task.MarkFinished(Status::Invalid("XYZ"));
+  after_fail_task.MarkFinished();
+  ASSERT_FINISHES_AND_RAISES(Invalid, end);
+}
+
 TYPED_TEST(TypedTestAsyncTaskGroup, TaskFactoryFails) {
   TypeParam task_group;
   ASSERT_RAISES(Invalid, task_group.AddTask([] { return Status::Invalid("XYZ"); }));

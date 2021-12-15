@@ -368,7 +368,10 @@ struct ARROW_DS_EXPORT FileSystemDatasetWriteOptions {
   /// open. If an attempt is made to open too many files then the least recently used file
   /// will be closed.  If this setting is set too low you may end up fragmenting your data
   /// into many small files.
-  uint32_t max_open_files = 1024;
+  ///
+  /// The default is 900 which also allows some # of files to be open by the scanner
+  /// before hitting the default Linux limit of 1024
+  uint32_t max_open_files = 900;
 
   /// If greater than 0 then this will limit how many rows are placed in any single file.
   /// Otherwise there will be no limit and one file will be created in each output
