@@ -142,7 +142,6 @@ x-hierarchy:
   - ubuntu-r-sanitizer
   - ubuntu-r-valgrind
   - ubuntu-verify-rc-source
-
   - fedora-r-clang-sanitizer
   - r
   - r-revdepcheck
