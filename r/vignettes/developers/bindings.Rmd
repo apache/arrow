@@ -1,3 +1,13 @@
+---
+title: "Writing Bindings"
+---
+
+```{r, include=FALSE}
+library(arrow, warn.conflicts = FALSE)
+library(dplyr, warn.conflicts = FALSE)
+```
+
+
 When writing bindings between C++ compute functions and R functions, the aim is 
 to expose the C++ functionality via existing R functions.  The syntax and 
 functionality should (usually) exactly match that of the existing R functions 
@@ -6,6 +16,28 @@ or base R syntax, or call existing S3 methods on objects, whilst taking
 advantage of the speed and functionality of the underlying arrow package.
 
 # Implementing bindings for S3 generics
+
+If a function is an S3 generic method, you may be able to define a version of it for 
+Arrow objects.  There are two base classes which have been defined in the
+R package so that S3 methods don't have to be defined repeatedly for objects with
+similar behaviour:
+
+* ArrowTabular - for RecordBatch and Table objects
+* ArrowDatum - for Scalar, Array, and ChunkedArray objects
+
+What this means is that any function defined for the base class will work with 
+the child class.  For example, the function `dim()` may be defined as:
+
+```{r, eval = FALSE}
+dim.ArrowTabular <- function(x) c(x$num_rows, x$num_columns)
+```
+
+This implements `dim()` for both RecordBatch and Table objects.
+
+```{r}
+arrow_table(x = c(1, 2, 3), y = c(4, 5, 6)) %>%
+  dim()
+```
 
 # Implementing bindings to work within dplyr pipelines
 
@@ -53,6 +85,8 @@ and want to bind it to the (base) R function `startsWith()`.
 
 First, let's take a look at the docs for both of those functions.
 
+### Examining the R function
+
 First, here’s the docs for R’s `startsWith()` (also available at https://stat.ethz.ch/R-manual/R-devel/library/base/html/startsWith.html)
 
 ```{r, echo=FALSE, out.width="50%"}
@@ -62,6 +96,8 @@ knitr::include_graphics("./startswithdocs.png")
 It takes 2 parameters; `x` - the input, and `prefix` - the characters to check 
 if `x` starts with.
 
+### Examining the C++ function
+
 Now, let’s go to 
 [the compute function documentation](https://arrow.apache.org/docs/cpp/compute.html#containment-tests)
 and look for the Arrow C++ library’s `starts_with()` function:
@@ -69,6 +105,7 @@ and look for the Arrow C++ library’s `starts_with()` function:
 ```{r, echo=FALSE, out.width="50%"}
 knitr::include_graphics("./starts_with_docs.png")
 ```
+
 We can see that `starts_with()` is a unary function, which means that it takes a
 single data input. The data input must be a string-like class, and the returned 
 value is boolean, both of which match up to R’s `startsWith()`.
@@ -83,6 +120,8 @@ knitr::include_graphics("./matchsubstringoptions.png")
 Options classes allow the user to control the behaviour of the function.  In 
 this case, there are two possible options which can be supplied - `pattern` and 
 `ignore_case`, which are described in the docs shown above.
+
+### Comparing the R and C++ functions
 
 What conclusions can be drawn from what we’ve seen so far?
 
@@ -170,7 +209,7 @@ as calling the R version of the function.  In this case, the function will need
 adding to the `nse_funcs` list in `arrow/r/R/dplyr-functions.R`.  Here is how 
 this might look for `startsWith()`:
 
-```{r}
+```{r, eval = FALSE}
 nse_funcs$startsWith <- function(x, prefix) {
   Expression$create(
     "starts_with",
@@ -185,7 +224,11 @@ This might be useful if you want to experiment with a compute function while
 you’re writing bindings for it, e.g.
 
 ```{r}
-call_function("starts_with", Array$create(c("Apache", "Arrow", "R", "package")), options = list(pattern = "A"))
+call_function(
+  "starts_with",
+  Array$create(c("Apache", "Arrow", "R", "package")),
+  options = list(pattern = "A")
+)
 ```
 
 ### Step 5 - Run your tests.
