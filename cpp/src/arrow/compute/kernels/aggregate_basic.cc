@@ -894,7 +894,8 @@ const FunctionDoc index_doc{"Find the index of the first occurrence of a given v
                             ("-1 is returned if the value is not found in the array.\n"
                              "The search value is specified in IndexOptions."),
                             {"array"},
-                            "IndexOptions"};
+                            "IndexOptions",
+                            /*options_required=*/true};
 
 }  // namespace
 

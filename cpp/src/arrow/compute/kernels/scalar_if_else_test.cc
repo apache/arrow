@@ -766,7 +766,7 @@ TEST_F(TestIfElseKernel, ParameterizedTypes) {
   // match)
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       NotImplemented,
-      ::testing::HasSubstr("Function if_else has no kernel matching input types "
+      ::testing::HasSubstr("Function 'if_else' has no kernel matching input types "
                            "(array[bool], array[timestamp[ms, tz=America/New_York]], "
                            "array[timestamp[s, tz=America/Phoenix]]"),
       CallFunction("if_else",

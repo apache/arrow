@@ -2024,7 +2024,8 @@ TYPED_TEST(TestStringKernels, SliceCodeunitsBasic) {
   auto input = ArrayFromJSON(this->type(), R"(["𝑓öõḍš"])");
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid,
-      testing::HasSubstr("Attempted to initialize KernelState from null FunctionOptions"),
+      testing::HasSubstr(
+          "Function 'utf8_slice_codeunits' cannot be called without options"),
       CallFunction("utf8_slice_codeunits", {input}));
 
   SliceOptions options_invalid{2, 4, 0};

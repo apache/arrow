@@ -987,7 +987,8 @@ const FunctionDoc assume_timezone_doc{
      "\"timezone-aware\" timestamps. An error is returned if the timestamps\n"
      "already have a defined timezone."),
     {"timestamps"},
-    "AssumeTimezoneOptions"};
+    "AssumeTimezoneOptions",
+    /*options_required=*/true};
 
 }  // namespace
 

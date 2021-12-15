@@ -529,7 +529,7 @@ const FunctionDoc partition_nth_indices_doc(
      "\n"
      "The pivot index `N` must be given in PartitionNthOptions.\n"
      "The handling of nulls and NaNs can also be changed in PartitionNthOptions."),
-    {"array"}, "PartitionNthOptions");
+    {"array"}, "PartitionNthOptions", /*options_required=*/true);
 
 }  // namespace
 

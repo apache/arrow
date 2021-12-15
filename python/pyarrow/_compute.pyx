@@ -194,7 +194,8 @@ cdef class HashAggregateKernel(Kernel):
 
 FunctionDoc = namedtuple(
     "FunctionDoc",
-    ("summary", "description", "arg_names", "options_class"))
+    ("summary", "description", "arg_names", "options_class",
+     "options_required"))
 
 
 cdef class Function(_Weakrefable):
@@ -297,7 +298,8 @@ cdef class Function(_Weakrefable):
         return FunctionDoc(frombytes(c_doc.summary),
                            frombytes(c_doc.description),
                            [frombytes(s) for s in c_doc.arg_names],
-                           frombytes(c_doc.options_class))
+                           frombytes(c_doc.options_class),
+                           c_doc.options_required)
 
     @property
     def num_kernels(self):
@@ -958,7 +960,7 @@ cdef class _MakeStructOptions(FunctionOptions):
 
 
 class MakeStructOptions(_MakeStructOptions):
-    def __init__(self, field_names, *, field_nullability=None,
+    def __init__(self, field_names=(), *, field_nullability=None,
                  field_metadata=None):
         if field_nullability is None:
             field_nullability = [True] * len(field_names)
@@ -1243,7 +1245,7 @@ cdef class _SortOptions(FunctionOptions):
 
 
 class SortOptions(_SortOptions):
-    def __init__(self, sort_keys, *, null_placement="at_end"):
+    def __init__(self, sort_keys=(), *, null_placement="at_end"):
         self._set_options(sort_keys, null_placement)
 
 
