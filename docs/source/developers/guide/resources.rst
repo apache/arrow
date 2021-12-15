@@ -67,6 +67,7 @@ Other resources
 
 - `Tidyverse: Make a reprex <https://www.tidyverse.org/help/#reprex>`_
 - `Craft Minimal Bug Reports by Matthew Rocklin <https://matthewrocklin.com/blog/work/2018/02/28/minimal-bug-reports>`_
+.. - Blog post walking through writing an R binding (not yet written)
 
 Recommended books for learning languages
 ----------------------------------------
