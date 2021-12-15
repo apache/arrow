@@ -78,7 +78,7 @@ Create a JIRA issue for the new feature
 
 We will add a new feature that imitates an existing function
 ``min_max`` from the ``arrow.compute`` module but makes the
-interval bigger for 1 in both directions. Note that this is a
+interval bigger by 1 in both directions. Note that this is a
 made-up function for the purpose of this guide.
 
 See the example of the ``pc.min_max`` in
@@ -206,7 +206,7 @@ where we first test the call to the "min_max" function from C++:
 
    def tutorial_min_max(values, skip_nulls=True):
        """
-       Add docstings
+       Add docstrings
 
        Parameters
        ----------
@@ -443,7 +443,7 @@ to the branch history):
     2 files changed, 51 insertions(+)
    
 
-check the history of commits
+We can use ``git log` to check the history of commits:
 
 .. code:: console
 
@@ -469,13 +469,15 @@ check the history of commits
        Signed-off-by: Sutou Kouhei <kou@clear-code.com>
    ...
 
-if necessary we should rebase to upstream master:
+If we would started the branch some time ago, we may need to rebase to
+upstream master to make sure there are no merge conflicts:
 
 .. code:: console
 
    $ git pull upstream master --rebase
 
-and push our work to the forked Arrow repository on GitHub called ``origin``.
+And now we can push our work to the forked Arrow repository on GitHub
+called ``origin``.
 
 .. code:: console
 
