@@ -268,29 +268,26 @@ static void BM_HashJoinBasic_NullPercentage(benchmark::State& st) {
   HashJoinBasicBenchmarkImpl(st, settings);
 }
 
+std::vector<int64_t> hashtable_krows = benchmark::CreateRange(1, 4096, 8);
+
 std::vector<std::string> keytypes_argnames = {"Hashtable krows"};
 BENCHMARK_CAPTURE(BM_HashJoinBasic_KeyTypes, "{int32}", {int32()})
     ->ArgNames(keytypes_argnames)
-    ->RangeMultiplier(4)
-    ->Range(1, 4 * 1024);
+    ->ArgsProduct({hashtable_krows});
 BENCHMARK_CAPTURE(BM_HashJoinBasic_KeyTypes, "{int64}", {int64()})
     ->ArgNames(keytypes_argnames)
-    ->RangeMultiplier(4)
-    ->Range(1, 4 * 1024);
+    ->ArgsProduct({hashtable_krows});
 BENCHMARK_CAPTURE(BM_HashJoinBasic_KeyTypes, "{int64,int64}", {int64(), int64()})
     ->ArgNames(keytypes_argnames)
-    ->RangeMultiplier(4)
-    ->Range(1, 4 * 1024);
+    ->ArgsProduct({hashtable_krows});
 BENCHMARK_CAPTURE(BM_HashJoinBasic_KeyTypes, "{int64,int64,int64}",
                   {int64(), int64(), int64()})
     ->ArgNames(keytypes_argnames)
-    ->RangeMultiplier(4)
-    ->Range(1, 4 * 1024);
+    ->ArgsProduct({hashtable_krows});
 BENCHMARK_CAPTURE(BM_HashJoinBasic_KeyTypes, "{int64,int64,int64,int64}",
                   {int64(), int64(), int64(), int64()})
     ->ArgNames(keytypes_argnames)
-    ->RangeMultiplier(4)
-    ->Range(1, 4 * 1024);
+    ->ArgsProduct({hashtable_krows});
 BENCHMARK_CAPTURE(BM_HashJoinBasic_KeyTypes, "{utf8}", {utf8()})
     ->ArgNames(keytypes_argnames)
     ->RangeMultiplier(4)
@@ -298,32 +295,28 @@ BENCHMARK_CAPTURE(BM_HashJoinBasic_KeyTypes, "{utf8}", {utf8()})
 BENCHMARK_CAPTURE(BM_HashJoinBasic_KeyTypes, "{fixed_size_binary(4)}",
                   {fixed_size_binary(4)})
     ->ArgNames(keytypes_argnames)
-    ->RangeMultiplier(4)
-    ->Range(1, 4 * 1024);
+    ->ArgsProduct({hashtable_krows});
 BENCHMARK_CAPTURE(BM_HashJoinBasic_KeyTypes, "{fixed_size_binary(8)}",
                   {fixed_size_binary(8)})
     ->ArgNames(keytypes_argnames)
     ->RangeMultiplier(4)
-    ->Range(1, 4 * 1024);
+    ->ArgsProduct({hashtable_krows});
 BENCHMARK_CAPTURE(BM_HashJoinBasic_KeyTypes, "{fixed_size_binary(16)}",
                   {fixed_size_binary(16)})
     ->ArgNames(keytypes_argnames)
-    ->RangeMultiplier(4)
-    ->Range(1, 4 * 1024);
+    ->ArgsProduct({hashtable_krows});
 BENCHMARK_CAPTURE(BM_HashJoinBasic_KeyTypes, "{fixed_size_binary(24)}",
                   {fixed_size_binary(24)})
     ->ArgNames(keytypes_argnames)
-    ->RangeMultiplier(4)
-    ->Range(1, 4 * 1024);
+    ->ArgsProduct({hashtable_krows});
 BENCHMARK_CAPTURE(BM_HashJoinBasic_KeyTypes, "{fixed_size_binary(32)}",
                   {fixed_size_binary(32)})
     ->ArgNames(keytypes_argnames)
-    ->RangeMultiplier(4)
-    ->Range(1, 4 * 1024);
+    ->ArgsProduct({hashtable_krows});
 
 std::vector<std::string> selectivity_argnames = {"Selectivity", "HashTable krows"};
 std::vector<std::vector<int64_t>> selectivity_args = {
-    benchmark::CreateDenseRange(0, 100, 20), benchmark::CreateRange(1, 4 * 1024, 8)};
+    benchmark::CreateDenseRange(0, 100, 20), hashtable_krows};
 
 BENCHMARK_CAPTURE(BM_HashJoinBasic_Selectivity, "{int32}", {int32()})
     ->ArgNames(selectivity_argnames)
@@ -332,7 +325,7 @@ BENCHMARK_CAPTURE(BM_HashJoinBasic_Selectivity, "{int64}", {int64()})
     ->ArgNames(selectivity_argnames)
     ->ArgsProduct(selectivity_args);
 
-// Joins on UTF8 are currently really slow, so anything above 512 doesn't finished within
+// Joins on UTF8 are currently really slow, so anything above 64 doesn't finished within
 // a reasonable amount of time.
 BENCHMARK_CAPTURE(BM_HashJoinBasic_Selectivity, "{utf8}", {utf8()})
     ->ArgNames(selectivity_argnames)
@@ -350,7 +343,7 @@ BENCHMARK_CAPTURE(BM_HashJoinBasic_Selectivity, "{fixed_size_binary(32)}",
 
 std::vector<std::string> jointype_argnames = {"Selectivity", "HashTable krows"};
 std::vector<std::vector<int64_t>> jointype_args = {
-    benchmark::CreateDenseRange(0, 100, 20), benchmark::CreateRange(1, 4 * 1024, 8)};
+    benchmark::CreateDenseRange(0, 100, 20), hashtable_krows};
 
 BENCHMARK_CAPTURE(BM_HashJoinBasic_JoinType, "Inner", JoinType::INNER)
     ->ArgNames(jointype_argnames)
@@ -378,29 +371,29 @@ BENCHMARK_CAPTURE(BM_HashJoinBasic_JoinType, "Full Outer", JoinType::FULL_OUTER)
     ->ArgsProduct(jointype_args);
 
 BENCHMARK(BM_HashJoinBasic_MatchesPerRow)
-    ->ArgNames({"MatchesPerRow", "HashTable krows"})
+    ->ArgNames({"Matches Per Row", "HashTable krows"})
     ->ArgsProduct({benchmark::CreateRange(1, 16, 2),
-                   benchmark::CreateRange(1, 4 * 1024, 8)});
+                   hashtable_krows});
 
 BENCHMARK(BM_HashJoinBasic_PayloadSize)
-    ->ArgNames({"Payload Size", "MatchesPerRow", "HashTable krows"})
+    ->ArgNames({"Payload Size", "Matches Per Row", "HashTable krows"})
     ->ArgsProduct({benchmark::CreateRange(1, 128, 4), benchmark::CreateRange(1, 16, 2),
-                   benchmark::CreateRange(1, 4 * 1024, 8)});
+                   hashtable_krows});
 
 BENCHMARK(BM_HashJoinBasic_ProbeParallelism)
     ->ArgNames({"Threads", "HashTable krows"})
     ->ArgsProduct({benchmark::CreateDenseRange(1, 16, 1),
-                   benchmark::CreateRange(1, 4 * 1024, 8)})
+                   hashtable_krows})
     ->MeasureProcessCPUTime();
 
 BENCHMARK(BM_HashJoinBasic_BuildParallelism)
     ->ArgNames({"Threads", "HashTable krows"})
     ->ArgsProduct({benchmark::CreateDenseRange(1, 16, 1),
-                   benchmark::CreateRange(1, 4 * 1024, 8)})
+                   hashtable_krows})
     ->MeasureProcessCPUTime();
 
 BENCHMARK(BM_HashJoinBasic_NullPercentage)
-    ->ArgNames({"NullPercentage"})
+    ->ArgNames({"Null Percentage"})
     ->DenseRange(0, 100, 10);
 }  // namespace compute
 }  // namespace arrow

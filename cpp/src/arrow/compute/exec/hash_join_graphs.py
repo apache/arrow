@@ -17,6 +17,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
+'''
+This script takes a JSON file from a google benchmark run that measures rows/sec and generates graphs
+for each benchmark.
+'''
+
 import math
 import sys
 import json
@@ -68,11 +73,11 @@ def organize_tests(filename):
 
             for arg in args:
                 arg_name = ''
-                arg_value = arg
+                arg_value = arg.strip('\"')
                 if ':' in arg:
                     arg_split = arg.split(':')
                     arg_name = arg_split[0]
-                    arg_value = arg_split[1]
+                    arg_value = arg_split[1].strip('\"')
                 if arg_name not in tests[base_name].args.keys():
                     tests[base_name].args[arg_name] = [arg_value]
                 else:
