@@ -389,8 +389,9 @@ Done. Now lets make the Pull Request!
 Creating a Pull Request
 -----------------------
 
-First lets check again the changes made to the local copy
-of the Arrow library in the shell.
+First let's review our changes in the shell using
+``git status`` to see which files have been changed and to
+commit only the ones we are working on.
 
 .. code:: console
 
@@ -403,7 +404,12 @@ of the Arrow library in the shell.
       modified:   python/pyarrow/tests/test_compute.py
 
    no changes added to commit (use "git add" and/or "git commit -a")
-   
+
+And ``git diff`` to see the changes in the files
+in order to spot any error we might have made.
+
+.. code:: console
+
    $ git diff
    diff --git a/python/pyarrow/compute.py b/python/pyarrow/compute.py
    index 9dac606c3..e8fc775d8 100644
@@ -455,7 +461,7 @@ to the branch history):
     2 files changed, 51 insertions(+)
    
 
-We can use ``git log` to check the history of commits:
+We can use ``git log`` to check the history of commits:
 
 .. code:: console
 
