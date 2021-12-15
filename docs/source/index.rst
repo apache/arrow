@@ -77,7 +77,7 @@ target environment.**
    format/Integration
    format/CDataInterface
    format/CStreamInterface
-   format/Other   
+   format/Other
 
 .. _toc.development:
 
@@ -90,7 +90,7 @@ target environment.**
    developers/reviewing
    developers/cpp/index
    developers/python
-   developers/continuous_integration
+   developers/continuous_integration/index
    developers/benchmarks
    developers/documentation
    developers/computeir
