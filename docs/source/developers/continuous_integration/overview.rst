@@ -72,26 +72,3 @@ Crossbow is a subcomponent of Archery and can be used to manually trigger builds
 Most of these tasks are run as part of the nightly builds, though also can be triggered manually by add a comment to a PR which begins with ``@github-actions crossbow submit`` followed by the name of the task to be run.
 
 For convenience purpose, the tasks in ``dev/tasks/tasks.yml`` are defined in groups, which makes it simpler for multiple tasks to be submitted to Crossbow at once.  The task definitions here contain information about which service defined in ``docker-compose.yml`` to run, the CI service to run the task on, and which template file to use as the basis for that task.
-
-Frequently Asked Questions
---------------------------
-
-
-Q: What scripts are run when I make changes to an open PR?
-
-
-Q: What scripts are run when a PR is merged?
-
-(e.g. the dev PR)
-
-Q: What is Archery? What is Crossbow?
-
-(brief description and link to docs)
-
-High-level overview:
-
-    Possibly add diagram: https://lucid.app/lucidchart/ea221ae9-afc5-4453-8939-970e08759127/edit?shared=true&page=0_0#
-    Short description of each component
-
-
-
