@@ -19,9 +19,8 @@ Continuous Integration
 ======================
 
 .. toctree::
-   :maxdepth: 3
+   :maxdepth: 2
 
    overview
    archery
    crossbow
-   faqs
