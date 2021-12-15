@@ -64,7 +64,7 @@ namespace sdktrace = opentelemetry::sdk::trace;
 // to log the same format that would be sent to OTLP.
 class OtlpOStreamExporter final : public sdktrace::SpanExporter {
  public:
-  OtlpOStreamExporter(std::basic_ostream<char>* out) : out_(out) {
+  explicit OtlpOStreamExporter(std::basic_ostream<char>* out) : out_(out) {
     protobuf_json_options_.add_whitespace = false;
   }
 
