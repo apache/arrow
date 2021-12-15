@@ -287,12 +287,13 @@ class GcsFileSystem::Impl {
   Result<FileInfo> GetFileInfo(const GcsPath& path) {
     if (path.object.empty()) {
       auto meta = client_.GetBucketMetadata(path.bucket);
-      return GetFileInfoImpl(path, std::move(meta).status(), FileType::Directory);
+      return GetFileInfoDirectory(path, std::move(meta).status());
     }
     auto meta = client_.GetObjectMetadata(path.bucket, path.object);
-    return GetFileInfoImpl(
-        path, std::move(meta).status(),
-        path.object.back() == '/' ? FileType::Directory : FileType::File);
+    if (path.object.back() == '/') {
+      return GetFileInfoDirectory(path, std::move(meta).status());
+    }
+    return GetFileInfoFile(path, meta);
   }
 
   Result<FileInfoVector> GetFileInfo(const FileSelector& select) {
@@ -320,13 +321,7 @@ class GcsFileSystem::Impl {
             FileInfo(internal::EnsureTrailingSlash(path), FileType::Directory));
         continue;
       }
-      auto info = FileInfo(path, FileType::File);
-      info.set_size(static_cast<int64_t>(o->size()));
-      // An object has multiple "time" attributes, including the time when its data was
-      // created, and the time when its metadata was last updated. We use the object
-      // creation time because the data for an object cannot be changed once created.
-      info.set_mtime(o->time_created());
-      result.push_back(std::move(info));
+      result.push_back(ToFileInfo(path, *o));
     }
     if (!found_directory && !select.allow_not_found) {
       return Status::IOError("No such file or directory '", select.base_dir, "'");
@@ -484,20 +479,40 @@ class GcsFileSystem::Impl {
   }
 
  private:
-  static Result<FileInfo> GetFileInfoImpl(const GcsPath& path,
-                                          const google::cloud::Status& status,
-                                          FileType type) {
-    const auto& canonical = type == FileType::Directory
-                                ? internal::EnsureTrailingSlash(path.full_path)
-                                : path.full_path;
-    if (status.ok()) {
-      return FileInfo(canonical, type);
-    }
+  static Result<FileInfo> GetFileInfoDirectory(const GcsPath& path,
+                                               const google::cloud::Status& status) {
     using ::google::cloud::StatusCode;
+    auto canonical = internal::EnsureTrailingSlash(path.full_path);
+    if (status.ok()) {
+      return FileInfo(canonical, FileType::Directory);
+    }
     if (status.code() == StatusCode::kNotFound) {
       return FileInfo(canonical, FileType::NotFound);
     }
     return internal::ToArrowStatus(status);
+  }
+
+  static Result<FileInfo> GetFileInfoFile(
+      const GcsPath& path, const google::cloud::StatusOr<gcs::ObjectMetadata>& meta) {
+    if (meta.ok()) {
+      return ToFileInfo(path.full_path, *meta);
+    }
+    using ::google::cloud::StatusCode;
+    if (meta.status().code() == StatusCode::kNotFound) {
+      return FileInfo(path.full_path, FileType::NotFound);
+    }
+    return internal::ToArrowStatus(meta.status());
+  }
+
+  static FileInfo ToFileInfo(const std::string& full_path,
+                             const gcs::ObjectMetadata& meta) {
+    auto info = FileInfo(full_path, FileType::File);
+    info.set_size(static_cast<int64_t>(meta.size()));
+    // An object has multiple "time" attributes, including the time when its data was
+    // created, and the time when its metadata was last updated. We use the object
+    // creation time because the data for an object cannot be changed once created.
+    info.set_mtime(meta.time_created());
+    return info;
   }
 
   GcsOptions options_;

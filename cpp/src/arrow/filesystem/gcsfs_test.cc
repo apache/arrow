@@ -471,7 +471,11 @@ TEST_F(GcsIntegrationTest, GetFileInfoBucket) {
 
 TEST_F(GcsIntegrationTest, GetFileInfoObject) {
   auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
-  arrow::fs::AssertFileInfo(fs.get(), PreexistingObjectPath(), FileType::File);
+  auto object =
+      GcsClient().GetObjectMetadata(PreexistingBucketName(), PreexistingObjectName());
+  ASSERT_TRUE(object.ok()) << "status=" << object.status();
+  arrow::fs::AssertFileInfo(fs.get(), PreexistingObjectPath(), FileType::File,
+                            object->time_created(), static_cast<int64_t>(object->size()));
 }
 
 TEST_F(GcsIntegrationTest, GetFileInfoSelectorRecursive) {
