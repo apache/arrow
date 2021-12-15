@@ -75,7 +75,7 @@ struct ARROW_EXPORT IpcWriteOptions {
   /// If false, a changed dictionary for a given field will emit a full
   /// dictionary replacement.
   /// If true, a changed dictionary will be compared against the previous
-  /// version. If possible, a dictionary delta will be omitted, otherwise
+  /// version. If possible, a dictionary delta will be emitted, otherwise
   /// a full dictionary replacement.
   ///
   /// Default is false to maximize stream compatibility.

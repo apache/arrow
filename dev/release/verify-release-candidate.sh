@@ -25,6 +25,7 @@
 # - gcc >= 4.8
 # - Node.js >= 11.12 (best way is to use nvm)
 # - Go >= 1.15
+# - Docker
 #
 # If using a non-system Boost, set BOOST_ROOT and add Boost libraries to
 # LD_LIBRARY_PATH.
@@ -38,14 +39,14 @@ case $# in
      VERSION="$2"
      RC_NUMBER="$3"
      case $ARTIFACT in
-       source|binaries|wheels) ;;
+       source|binaries|wheels|jars) ;;
        *) echo "Invalid argument: '${ARTIFACT}', valid options are \
-'source', 'binaries', or 'wheels'"
+'source', 'binaries', 'wheels', or 'jars'"
           exit 1
           ;;
      esac
      ;;
-  *) echo "Usage: $0 source|binaries X.Y.Z RC_NUMBER"
+  *) echo "Usage: $0 source|binaries|wheels|jars X.Y.Z RC_NUMBER"
      exit 1
      ;;
 esac
@@ -55,7 +56,6 @@ set -x
 set -o pipefail
 
 SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
-ARROW_DIR="$(dirname $(dirname ${SOURCE_DIR}))"
 
 detect_cuda() {
   if ! (which nvcc && which nvidia-smi) > /dev/null; then
@@ -127,7 +127,9 @@ verify_dir_artifact_signatures() {
     if [ -f $base_artifact.sha256 ]; then
       ${sha256_verify} $base_artifact.sha256 || exit 1
     fi
-    ${sha512_verify} $base_artifact.sha512 || exit 1
+    if [ -f $base_artifact.sha512 ]; then
+      ${sha512_verify} $base_artifact.sha512 || exit 1
+    fi
     popd
   done
 }
@@ -189,9 +191,7 @@ test_yum() {
   for target in "almalinux:8" \
                 "arm64v8/almalinux:8" \
                 "amazonlinux:2" \
-                "centos:7" \
-                "centos:8" \
-                "arm64v8/centos:8"; do
+                "centos:7"; do
     case "${target}" in
       arm64v8/*)
         if [ "$(arch)" = "aarch64" -o -e /usr/bin/qemu-aarch64-static ]; then
@@ -469,7 +469,7 @@ test_ruby() {
 }
 
 test_go() {
-  local VERSION=1.15.14
+  local VERSION=1.16.12
 
   local ARCH="$(uname -m)"
   if [ "$ARCH" == "x86_64" ]; then
@@ -531,16 +531,34 @@ test_integration() {
               $INTEGRATION_TEST_ARGS
 }
 
-clone_testing_repositories() {
-  # Clone testing repositories if not cloned already
-  if [ ! -d "arrow-testing" ]; then
-    git clone https://github.com/apache/arrow-testing.git
+ensure_source_directory() {
+  dist_name="apache-arrow-${VERSION}"
+  if [ $((${TEST_SOURCE} + ${TEST_WHEELS})) -gt 0 ]; then
+    import_gpg_keys
+    if [ ! -d "${dist_name}" ]; then
+      fetch_archive ${dist_name}
+      tar xf ${dist_name}.tar.gz
+    fi
+  else
+    mkdir -p ${dist_name}
+    if [ ! -f ${TEST_ARCHIVE} ]; then
+      echo "${TEST_ARCHIVE} not found"
+      exit 1
+    fi
+    tar xf ${TEST_ARCHIVE} -C ${dist_name} --strip-components=1
   fi
-  if [ ! -d "parquet-testing" ]; then
-    git clone https://github.com/apache/parquet-testing.git
+  # clone testing repositories
+  pushd ${dist_name}
+  if [ ! -d "testing/data" ]; then
+    git clone https://github.com/apache/arrow-testing.git testing
   fi
-  export ARROW_TEST_DATA=$PWD/arrow-testing/data
-  export PARQUET_TEST_DATA=$PWD/parquet-testing/data
+  if [ ! -d "cpp/submodules/parquet-testing/data" ]; then
+    git clone https://github.com/apache/parquet-testing.git cpp/submodules/parquet-testing
+  fi
+  export ARROW_DIR=$PWD
+  export ARROW_TEST_DATA=$PWD/testing/data
+  export PARQUET_TEST_DATA=$PWD/cpp/submodules/parquet-testing/data
+  popd
 }
 
 test_source_distribution() {
@@ -554,8 +572,6 @@ test_source_distribution() {
   else
     NPROC=$(nproc)
   fi
-
-  clone_testing_repositories
 
   if [ ${TEST_JAVA} -gt 0 ]; then
     test_package_java
@@ -700,8 +716,6 @@ test_macos_wheels() {
 }
 
 test_wheels() {
-  clone_testing_repositories
-
   local download_dir=binaries
   mkdir -p ${download_dir}
 
@@ -729,24 +743,51 @@ test_wheels() {
   popd
 }
 
+test_jars() {
+  local download_dir=jars
+  mkdir -p ${download_dir}
+
+  ${PYTHON:-python} $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER \
+         --dest=${download_dir} \
+         --package_type=jars
+
+  verify_dir_artifact_signatures ${download_dir}
+}
+
 # By default test all functionalities.
 # To deactivate one test, deactivate the test and all of its dependents
 # To explicitly select one test, set TEST_DEFAULT=0 TEST_X=1
 
 # Install NodeJS locally for running the JavaScript tests rather than using the
 # system Node installation, which may be too old.
-: ${INSTALL_NODE:=1}
-
-if [ "${ARTIFACT}" == "source" ]; then
-  : ${TEST_SOURCE:=1}
-elif [ "${ARTIFACT}" == "wheels" ]; then
-  TEST_WHEELS=1
+node_major_version=$( \
+  node --version 2>&1 | \grep -o '^v[0-9]*' | sed -e 's/^v//g' || :)
+required_node_major_version=14
+if [ -n "${node_major_version}" -a \
+     "${node_major_version}" -ge ${required_node_major_version} ]; then
+  : ${INSTALL_NODE:=0}
 else
-  TEST_BINARY_DISTRIBUTIONS=1
+  : ${INSTALL_NODE:=1}
 fi
+
+case "${ARTIFACT}" in
+  source)
+    : ${TEST_SOURCE:=1}
+    ;;
+  binaires)
+    TEST_BINARY_DISTRIBUTIONS=1
+    ;;
+  wheels)
+    TEST_WHEELS=1
+    ;;
+  jars)
+    TEST_JARS=1
+    ;;
+esac
 : ${TEST_SOURCE:=0}
-: ${TEST_WHEELS:=0}
 : ${TEST_BINARY_DISTRIBUTIONS:=0}
+: ${TEST_WHEELS:=0}
+: ${TEST_JARS:=0}
 
 : ${TEST_DEFAULT:=1}
 : ${TEST_JAVA:=${TEST_DEFAULT}}
@@ -781,17 +822,28 @@ TEST_JS=$((${TEST_JS} + ${TEST_INTEGRATION_JS}))
 TEST_GO=$((${TEST_GO} + ${TEST_INTEGRATION_GO}))
 TEST_INTEGRATION=$((${TEST_INTEGRATION} + ${TEST_INTEGRATION_CPP} + ${TEST_INTEGRATION_JAVA} + ${TEST_INTEGRATION_JS} + ${TEST_INTEGRATION_GO}))
 
-if [ "${ARTIFACT}" == "source" ]; then
-  NEED_MINICONDA=$((${TEST_CPP} + ${TEST_INTEGRATION}))
-elif [ "${ARTIFACT}" == "wheels" ]; then
-  NEED_MINICONDA=$((${TEST_WHEELS}))
-else
-  if [ -z "${PYTHON:-}" ]; then
-    NEED_MINICONDA=$((${TEST_BINARY}))
-  else
-    NEED_MINICONDA=0
-  fi
-fi
+case "${ARTIFACT}" in
+  source)
+    NEED_MINICONDA=$((${TEST_CPP} + ${TEST_INTEGRATION}))
+    ;;
+  binaries)
+    if [ -z "${PYTHON:-}" ]; then
+      NEED_MINICONDA=$((${TEST_BINARY}))
+    else
+      NEED_MINICONDA=0
+    fi
+    ;;
+  wheels)
+    NEED_MINICONDA=$((${TEST_WHEELS}))
+    ;;
+  jars)
+    if [ -z "${PYTHON:-}" ]; then
+      NEED_MINICONDA=1
+    else
+      NEED_MINICONDA=0
+    fi
+    ;;
+esac
 
 : ${TEST_ARCHIVE:=apache-arrow-${VERSION}.tar.gz}
 case "${TEST_ARCHIVE}" in
@@ -812,32 +864,26 @@ if [ ${NEED_MINICONDA} -gt 0 ]; then
   setup_miniconda
 fi
 
-if [ "${ARTIFACT}" == "source" ]; then
-  dist_name="apache-arrow-${VERSION}"
-  if [ ${TEST_SOURCE} -gt 0 ]; then
+case "${ARTIFACT}" in
+  source)
+    ensure_source_directory
+    pushd ${ARROW_DIR}
+    test_source_distribution
+    popd
+    ;;
+  binaries)
     import_gpg_keys
-    if [ ! -d "${dist_name}" ]; then
-      fetch_archive ${dist_name}
-      tar xf ${dist_name}.tar.gz
-    fi
-  else
-    mkdir -p ${dist_name}
-    if [ ! -f ${TEST_ARCHIVE} ]; then
-      echo "${TEST_ARCHIVE} not found"
-      exit 1
-    fi
-    tar xf ${TEST_ARCHIVE} -C ${dist_name} --strip-components=1
-  fi
-  pushd ${dist_name}
-  test_source_distribution
-  popd
-elif [ "${ARTIFACT}" == "wheels" ]; then
-  import_gpg_keys
-  test_wheels
-else
-  import_gpg_keys
-  test_binary_distribution
-fi
+    test_binary_distribution
+    ;;
+  wheels)
+    ensure_source_directory
+    test_wheels
+    ;;
+  jars)
+    import_gpg_keys
+    test_jars
+    ;;
+esac
 
 TEST_SUCCESS=yes
 echo 'Release candidate looks good!'

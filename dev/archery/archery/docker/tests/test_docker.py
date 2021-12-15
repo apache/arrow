@@ -145,7 +145,7 @@ services:
       context: .
       dockerfile: ci/docker/conda-cpp.dockerfile
       args:
-        python: 3.6
+        python: 3.8
   conda-python-pandas:
     image: org/conda-python-pandas
     build:
@@ -176,7 +176,7 @@ services:
 
 arrow_compose_env = {
     'UBUNTU': '20.04',  # overridden below
-    'PYTHON': '3.6',
+    'PYTHON': '3.8',
     'PANDAS': 'latest',
     'DASK': 'latest',  # overridden below
 }
@@ -313,7 +313,7 @@ def test_compose_pull_params(arrow_compose_path):
         "pull --ignore-pull-failures conda-python",
     ]
     compose = DockerCompose(arrow_compose_path, params=dict(UBUNTU='18.04'))
-    expected_env = PartialEnv(PYTHON='3.6', PANDAS='latest')
+    expected_env = PartialEnv(PYTHON='3.8', PANDAS='latest')
     with assert_compose_calls(compose, expected_calls, env=expected_env):
         compose.clear_pull_memory()
         compose.pull('conda-python-pandas', pull_leaf=False)
@@ -392,7 +392,7 @@ def test_compose_build_params(arrow_compose_path):
         "build --no-cache conda-python-pandas",
     ]
     compose = DockerCompose(arrow_compose_path, params=dict(UBUNTU='18.04'))
-    expected_env = PartialEnv(PYTHON='3.6', PANDAS='latest')
+    expected_env = PartialEnv(PYTHON='3.8', PANDAS='latest')
     with assert_compose_calls(compose, expected_calls, env=expected_env):
         compose.build('conda-python-pandas', use_cache=False)
 
@@ -408,21 +408,21 @@ def test_compose_run(arrow_compose_path):
     expected_calls = [
         format_run("conda-python")
     ]
-    expected_env = PartialEnv(PYTHON='3.6')
-    with assert_compose_calls(compose, expected_calls, env=expected_env):
-        compose.run('conda-python')
-
-    compose = DockerCompose(arrow_compose_path, params=dict(PYTHON='3.8'))
     expected_env = PartialEnv(PYTHON='3.8')
     with assert_compose_calls(compose, expected_calls, env=expected_env):
         compose.run('conda-python')
 
-    compose = DockerCompose(arrow_compose_path, params=dict(PYTHON='3.8'))
+    compose = DockerCompose(arrow_compose_path, params=dict(PYTHON='3.9'))
+    expected_env = PartialEnv(PYTHON='3.9')
+    with assert_compose_calls(compose, expected_calls, env=expected_env):
+        compose.run('conda-python')
+
+    compose = DockerCompose(arrow_compose_path, params=dict(PYTHON='3.9'))
     for command in ["bash", "echo 1"]:
         expected_calls = [
             format_run(["conda-python", command]),
         ]
-        expected_env = PartialEnv(PYTHON='3.8')
+        expected_env = PartialEnv(PYTHON='3.9')
         with assert_compose_calls(compose, expected_calls, env=expected_env):
             compose.run('conda-python', command)
 
@@ -433,7 +433,7 @@ def test_compose_run(arrow_compose_path):
         )
     ]
     compose = DockerCompose(arrow_compose_path)
-    expected_env = PartialEnv(PYTHON='3.6')
+    expected_env = PartialEnv(PYTHON='3.8')
     with assert_compose_calls(compose, expected_calls, env=expected_env):
         env = collections.OrderedDict([
             ("CONTAINER_ENV_VAR_A", "a"),
@@ -468,8 +468,8 @@ def test_compose_run_with_resource_limits(arrow_compose_path):
 
 
 def test_compose_push(arrow_compose_path):
-    compose = DockerCompose(arrow_compose_path, params=dict(PYTHON='3.8'))
-    expected_env = PartialEnv(PYTHON="3.8")
+    compose = DockerCompose(arrow_compose_path, params=dict(PYTHON='3.9'))
+    expected_env = PartialEnv(PYTHON="3.9")
     expected_calls = [
         mock.call(["docker", "login", "-u", "user", "-p", "pass"], check=True),
     ]

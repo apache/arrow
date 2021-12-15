@@ -33,9 +33,9 @@ namespace arrow {
 class Array;
 class ChunkedArray;
 
-namespace BitUtil {
+namespace bit_util {
 class BitReader;
-}  // namespace BitUtil
+}  // namespace bit_util
 
 namespace util {
 class RleDecoder;
@@ -75,7 +75,7 @@ class PARQUET_EXPORT LevelDecoder {
   int num_values_remaining_;
   Encoding::type encoding_;
   std::unique_ptr<::arrow::util::RleDecoder> rle_decoder_;
-  std::unique_ptr<::arrow::BitUtil::BitReader> bit_packed_decoder_;
+  std::unique_ptr<::arrow::bit_util::BitReader> bit_packed_decoder_;
   int16_t max_level_;
 };
 

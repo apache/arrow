@@ -106,13 +106,13 @@ TEST_F(TestBitBlockCounter, OneWordWithOffsets) {
     ASSERT_EQ(block.popcount, 64);
 
     // Add a false value to the next word
-    BitUtil::SetBitTo(buf_->mutable_data(), kWordSize + offset, false);
+    bit_util::SetBitTo(buf_->mutable_data(), kWordSize + offset, false);
     block = counter_->NextWord();
     ASSERT_EQ(block.length, 64);
     ASSERT_EQ(block.popcount, 63);
 
     // Set the next word to all false
-    BitUtil::SetBitsTo(buf_->mutable_data(), 2 * kWordSize + offset, kWordSize, false);
+    bit_util::SetBitsTo(buf_->mutable_data(), 2 * kWordSize + offset, kWordSize, false);
 
     block = counter_->NextWord();
     ASSERT_EQ(block.length, 64);
@@ -150,17 +150,17 @@ TEST_F(TestBitBlockCounter, FourWordsWithOffsets) {
     ASSERT_EQ(block.popcount, block.length);
 
     // Add some false values to the next 3 shifted words
-    BitUtil::SetBitTo(buf_->mutable_data(), 4 * kWordSize + offset, false);
-    BitUtil::SetBitTo(buf_->mutable_data(), 5 * kWordSize + offset, false);
-    BitUtil::SetBitTo(buf_->mutable_data(), 6 * kWordSize + offset, false);
+    bit_util::SetBitTo(buf_->mutable_data(), 4 * kWordSize + offset, false);
+    bit_util::SetBitTo(buf_->mutable_data(), 5 * kWordSize + offset, false);
+    bit_util::SetBitTo(buf_->mutable_data(), 6 * kWordSize + offset, false);
     block = counter_->NextFourWords();
 
     ASSERT_EQ(block.length, 4 * kWordSize);
     ASSERT_EQ(block.popcount, 253);
 
     // Set the next two words to all false
-    BitUtil::SetBitsTo(buf_->mutable_data(), 8 * kWordSize + offset, 2 * kWordSize,
-                       false);
+    bit_util::SetBitsTo(buf_->mutable_data(), 8 * kWordSize + offset, 2 * kWordSize,
+                        false);
 
     // Block is half set
     block = counter_->NextFourWords();
@@ -224,8 +224,8 @@ void CheckBinaryBitBlockOp(NextWordFunc&& get_next_word) {
       int expected_popcount = 0;
       for (int j = 0; j < block.length; ++j) {
         expected_popcount += static_cast<int>(
-            Op<bool>::Call(BitUtil::GetBit(left->data(), position + left_offset + j),
-                           BitUtil::GetBit(right->data(), position + right_offset + j)));
+            Op<bool>::Call(bit_util::GetBit(left->data(), position + left_offset + j),
+                           bit_util::GetBit(right->data(), position + right_offset + j)));
       }
       ASSERT_EQ(block.popcount, expected_popcount);
       position += block.length;

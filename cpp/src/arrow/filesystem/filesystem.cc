@@ -239,9 +239,7 @@ Result<std::shared_ptr<io::OutputStream>> FileSystem::OpenOutputStream(
 
 Result<std::shared_ptr<io::OutputStream>> FileSystem::OpenAppendStream(
     const std::string& path) {
-  ARROW_SUPPRESS_DEPRECATION_WARNING
   return OpenAppendStream(path, std::shared_ptr<const KeyValueMetadata>{});
-  ARROW_UNSUPPRESS_DEPRECATION_WARNING
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -469,9 +467,7 @@ Result<std::shared_ptr<io::OutputStream>> SubTreeFileSystem::OpenAppendStream(
     const std::string& path, const std::shared_ptr<const KeyValueMetadata>& metadata) {
   auto s = path;
   RETURN_NOT_OK(PrependBaseNonEmpty(&s));
-  ARROW_SUPPRESS_DEPRECATION_WARNING
   return base_fs_->OpenAppendStream(s, metadata);
-  ARROW_UNSUPPRESS_DEPRECATION_WARNING
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -578,9 +574,7 @@ Result<std::shared_ptr<io::OutputStream>> SlowFileSystem::OpenOutputStream(
 Result<std::shared_ptr<io::OutputStream>> SlowFileSystem::OpenAppendStream(
     const std::string& path, const std::shared_ptr<const KeyValueMetadata>& metadata) {
   latencies_->Sleep();
-  ARROW_SUPPRESS_DEPRECATION_WARNING
   return base_fs_->OpenAppendStream(path, metadata);
-  ARROW_UNSUPPRESS_DEPRECATION_WARNING
 }
 
 Status CopyFiles(const std::vector<FileLocator>& sources,

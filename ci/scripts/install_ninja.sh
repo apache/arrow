@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,4 +17,24 @@
 # specific language governing permissions and limitations
 # under the License.
 
-arm64v8/centos:8
+set -e
+
+if [ "$#" -ne 2 ]; then
+  echo "Usage: $0 <version> <prefix>"
+  exit 1
+fi
+
+version=$1
+prefix=$2
+
+url="https://github.com/ninja-build/ninja/archive/v${version}.tar.gz"
+
+mkdir /tmp/ninja
+wget -q ${url} -O - | tar -xzf - --directory /tmp/ninja --strip-components=1
+
+pushd /tmp/ninja
+./configure.py --bootstrap
+mv ninja ${prefix}/bin
+popd
+
+rm -rf /tmp/ninja

@@ -18,4 +18,3 @@
 # under the License.
 
 rm -f src/Makevars
-

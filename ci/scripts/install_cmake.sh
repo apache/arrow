@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,12 +17,26 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM centos:8
+set -e
 
-ARG DEBUG
+declare -A archs
+archs=([amd64]=x86_64
+       [arm64v8]=aarch64)
 
-RUN \
-  quiet=$([ "${DEBUG}" = "yes" ] || echo "--quiet") && \
-  dnf install --enablerepo=powertools -y ${quiet} \
-    rpmdevtools && \
-  dnf clean ${quiet} all
+declare -A platforms
+platforms=([linux]=linux
+           [macos]=macos
+           [windows]=windows)
+
+if [ "$#" -ne 4 ]; then
+  echo "Usage: $0 <architecture> <platform> <version> <prefix>"
+  exit 1
+fi
+
+arch=${archs[$1]}
+platform=${platforms[$2]}
+version=$3
+prefix=$4
+
+url="https://github.com/Kitware/CMake/releases/download/v${version}/cmake-${version}-${platform}-${arch}.tar.gz"
+wget -q ${url} -O - | tar -xzf - --directory ${prefix} --strip-components=1

@@ -94,9 +94,9 @@ Docker container.
 
 .. code-block:: shell
 
-  archery docker run ubuntu-docs
+  archery docker run -v "${PWD}/docs:/build/docs" ubuntu-docs
 
-The final output is located under ``docs/_build/html``.
+The final output is located under the ``${PWD}/docs`` directory.
 
 .. seealso::
 

@@ -154,6 +154,16 @@ typedef std::unordered_map<const FunctionSignature*, const NativeFunction*, KeyH
                  DataTypeVector{TYPE(), TYPE()}, boolean(), kResultNullNever, \
                  ARROW_STRINGIFY(NAME##_##TYPE##_##TYPE))
 
+// Binary functions that :
+// - NULL handling is of type NULL_NEVER
+//
+// The pre-compiled fn name includes the base name & input type names,
+// eg. nvl_int32_int32
+#define BINARY_SAFE_NULL_NEVER(NAME, ALIASES, TYPE)                        \
+  NativeFunction(#NAME, std::vector<std::string> ALIASES,                  \
+                 DataTypeVector{TYPE(), TYPE()}, TYPE(), kResultNullNever, \
+                 ARROW_STRINGIFY(NAME##_##TYPE##_##TYPE))
+
 // Extract functions (used with data/time types) that :
 // - NULL handling is of type NULL_IF_NULL
 //

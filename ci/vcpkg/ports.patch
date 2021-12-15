@@ -1,63 +1,245 @@
-diff --git a/ports/aws-c-common/portfile.cmake b/ports/aws-c-common/portfile.cmake
-index f3704ef05b..3af543058d 100644
---- a/ports/aws-c-common/portfile.cmake
-+++ b/ports/aws-c-common/portfile.cmake
-@@ -1,8 +1,8 @@
- vcpkg_from_github(
-     OUT_SOURCE_PATH SOURCE_PATH
-     REPO awslabs/aws-c-common
--    REF 4a21a1c0757083a16497fea27886f5f20ccdf334 # v0.4.56
--    SHA512 68898a8ac15d5490f45676eabfbe0df9e45370a74c543a28909fd0d85fed48dfcf4bcd6ea2d01d1a036dd352e2e4e0b08c48c63ab2a2b477fe150b46a827136e
-+    REF 13adef72b7813ec878817c6d50a7a3f241015d8a # v0.4.57
-+    SHA512 28256522ac6af544d7464e3e7dcd4dc802ae2b09728bf8f167f86a6487bb756d0cad5eb4a2480610b2967b9c24c4a7f70621894517aa2828ffdeb0479453803b
-     HEAD_REF master
+diff --git a/ports/aws-c-auth/vcpkg.json b/ports/aws-c-auth/vcpkg.json
+index dc8f75e8..be703324 100644
+--- a/ports/aws-c-auth/vcpkg.json
++++ b/ports/aws-c-auth/vcpkg.json
+@@ -4,7 +4,7 @@
+   "port-version": 1,
+   "description": "C99 library implementation of AWS client-side authentication: standard credentials providers and signing.",
+   "homepage": "https://github.com/awslabs/aws-c-auth",
+-  "supports": "!arm & !uwp",
++  "supports": "!uwp",
+   "dependencies": [
+     "aws-c-common",
+     "aws-c-http",
+diff --git a/ports/aws-c-cal/vcpkg.json b/ports/aws-c-cal/vcpkg.json
+index 48c7406c..40e284dd 100644
+--- a/ports/aws-c-cal/vcpkg.json
++++ b/ports/aws-c-cal/vcpkg.json
+@@ -4,7 +4,7 @@
+   "port-version": 1,
+   "description": "C99 wrapper for cryptography primitives.",
+   "homepage": "https://github.com/awslabs/aws-c-cal",
+-  "supports": "!arm & !uwp",
++  "supports": "!uwp",
+   "dependencies": [
+     "aws-c-common",
+     {
+diff --git a/ports/aws-c-common/vcpkg.json b/ports/aws-c-common/vcpkg.json
+index 67d58320..3c8e96f7 100644
+--- a/ports/aws-c-common/vcpkg.json
++++ b/ports/aws-c-common/vcpkg.json
+@@ -4,7 +4,7 @@
+   "port-version": 1,
+   "description": "AWS common library for C",
+   "homepage": "https://github.com/awslabs/aws-c-common",
+-  "supports": "!arm & !uwp",
++  "supports": "!uwp",
+   "dependencies": [
+     "openssl",
+     {
+diff --git a/ports/aws-c-compression/vcpkg.json b/ports/aws-c-compression/vcpkg.json
+index 8b62d038..7aa75eda 100644
+--- a/ports/aws-c-compression/vcpkg.json
++++ b/ports/aws-c-compression/vcpkg.json
+@@ -4,7 +4,7 @@
+   "port-version": 1,
+   "description": "C99 implementation of huffman encoding/decoding",
+   "homepage": "https://github.com/awslabs/aws-c-compression",
+-  "supports": "!arm & !uwp",
++  "supports": "!uwp",
+   "dependencies": [
+     "aws-c-common",
+     {
+diff --git a/ports/aws-c-event-stream/vcpkg.json b/ports/aws-c-event-stream/vcpkg.json
+index 7018ea0b..df3f85af 100644
+--- a/ports/aws-c-event-stream/vcpkg.json
++++ b/ports/aws-c-event-stream/vcpkg.json
+@@ -4,7 +4,7 @@
+   "port-version": 1,
+   "description": "C99 implementation of the vnd.amazon.event-stream content-type.",
+   "homepage": "https://github.com/awslabs/aws-c-event-stream",
+-  "supports": "!arm & !uwp",
++  "supports": "!uwp",
+   "dependencies": [
+     "aws-c-cal",
+     "aws-c-common",
+diff --git a/ports/aws-c-http/vcpkg.json b/ports/aws-c-http/vcpkg.json
+index f7cf6547..20ee8be7 100644
+--- a/ports/aws-c-http/vcpkg.json
++++ b/ports/aws-c-http/vcpkg.json
+@@ -4,7 +4,7 @@
+   "port-version": 1,
+   "description": "C99 implementation of the HTTP/1.1 and HTTP/2 specifications",
+   "homepage": "https://github.com/awslabs/aws-c-http",
+-  "supports": "!arm & !uwp",
++  "supports": "!uwp",
+   "dependencies": [
+     "aws-c-cal",
+     "aws-c-common",
+diff --git a/ports/aws-c-io/vcpkg.json b/ports/aws-c-io/vcpkg.json
+index 60a1fb93..b695deb5 100644
+--- a/ports/aws-c-io/vcpkg.json
++++ b/ports/aws-c-io/vcpkg.json
+@@ -4,7 +4,7 @@
+   "port-version": 1,
+   "description": "Handles all IO and TLS work for application protocols.",
+   "homepage": "https://github.com/awslabs/aws-c-io",
+-  "supports": "!arm & !uwp",
++  "supports": "!uwp",
+   "dependencies": [
+     "aws-c-cal",
+     "aws-c-common",
+diff --git a/ports/aws-c-mqtt/vcpkg.json b/ports/aws-c-mqtt/vcpkg.json
+index de7e464e..3f459a79 100644
+--- a/ports/aws-c-mqtt/vcpkg.json
++++ b/ports/aws-c-mqtt/vcpkg.json
+@@ -4,7 +4,7 @@
+   "port-version": 1,
+   "description": "C99 implementation of the MQTT 3.1.1 specification.",
+   "homepage": "https://github.com/awslabs/aws-c-mqtt",
+-  "supports": "!arm & !uwp",
++  "supports": "!uwp",
+   "dependencies": [
+     {
+       "name": "s2n",
+diff --git a/ports/aws-c-s3/vcpkg.json b/ports/aws-c-s3/vcpkg.json
+index 31dba925..902c07f9 100644
+--- a/ports/aws-c-s3/vcpkg.json
++++ b/ports/aws-c-s3/vcpkg.json
+@@ -4,7 +4,7 @@
+   "port-version": 1,
+   "description": "C99 library implementation for communicating with the S3 service, designed for maximizing throughput on high bandwidth EC2 instances.",
+   "homepage": "https://github.com/awslabs/aws-c-s3",
+-  "supports": "!arm & !uwp",
++  "supports": "!uwp",
+   "dependencies": [
+     "aws-c-auth",
+     "aws-c-cal",
+diff --git a/ports/aws-checksums/vcpkg.json b/ports/aws-checksums/vcpkg.json
+index 3cdea453..1cbed512 100644
+--- a/ports/aws-checksums/vcpkg.json
++++ b/ports/aws-checksums/vcpkg.json
+@@ -4,7 +4,6 @@
+   "port-version": 2,
+   "description": "Cross-Platform HW accelerated CRC32c and CRC32 with fallback to efficient SW implementations.",
+   "homepage": "https://github.com/awslabs/aws-checksums",
+-  "supports": "!arm",
+   "dependencies": [
+     "aws-c-common",
+     {
+diff --git a/ports/aws-crt-cpp/vcpkg.json b/ports/aws-crt-cpp/vcpkg.json
+index 3b8cfafd..38c37ec9 100644
+--- a/ports/aws-crt-cpp/vcpkg.json
++++ b/ports/aws-crt-cpp/vcpkg.json
+@@ -4,7 +4,7 @@
+   "port-version": 2,
+   "description": "Cross-Platform HW accelerated CRC32c and CRC32 with fallback to efficient SW implementations.",
+   "homepage": "https://github.com/awslabs/aws-crt-cpp",
+-  "supports": "!arm & !uwp",
++  "supports": "!uwp",
+   "dependencies": [
+     "aws-c-auth",
+     "aws-c-cal",
+diff --git a/ports/aws-sdk-cpp/fix-find-crypto.patch b/ports/aws-sdk-cpp/fix-find-crypto.patch
+new file mode 100644
+index 00000000..4566cc66
+--- /dev/null
++++ b/ports/aws-sdk-cpp/fix-find-crypto.patch
+@@ -0,0 +1,20 @@
++diff --git a/cmake/setup_cmake_find_module.cmake b/cmake/setup_cmake_find_module.cmake
++index f5f147a0f..4561b8c39 100644
++--- a/cmake/setup_cmake_find_module.cmake
+++++ b/cmake/setup_cmake_find_module.cmake
++@@ -30,15 +30,6 @@ file(WRITE
++     "set(AWSSDK_INSTALL_BINDIR ${BINARY_DIRECTORY})\n"
++     "set(AWSSDK_INSTALL_INCLUDEDIR ${INCLUDE_DIRECTORY})\n"
++     "set(AWSSDK_INSTALL_ARCHIVEDIR ${ARCHIVE_DIRECTORY})\n"
++-    "if (NOT LibCrypto_INCLUDE_DIR)\n"
++-    "    set(LibCrypto_INCLUDE_DIR ${OPENSSL_INCLUDE_DIR} CACHE INTERNAL \"The OpenSSL include directory\")\n"
++-    "endif()\n"
++-    "if (NOT LibCrypto_STATIC_LIBRARY)\n"
++-    "    set(LibCrypto_STATIC_LIBRARY ${OPENSSL_CRYPTO_LIBRARY} CACHE INTERNAL \"The OpenSSL crypto static library\")\n"
++-    "endif()\n"
++-    "if (NOT LibCrypto_SHARED_LIBRARY)\n"
++-    "    set(LibCrypto_SHARED_LIBRARY ${OPENSSL_CRYPTO_LIBRARY} CACHE INTERNAL \"The OpenSSL crypto shared library\")\n"
++-    "endif()\n"
++     )
++ 
++ if (NOT SIMPLE_INSTALL)
+diff --git a/ports/aws-sdk-cpp/portfile.cmake b/ports/aws-sdk-cpp/portfile.cmake
+index 2d6bba4d..0ac47887 100644
+--- a/ports/aws-sdk-cpp/portfile.cmake
++++ b/ports/aws-sdk-cpp/portfile.cmake
+@@ -8,6 +8,7 @@ vcpkg_from_github(
      PATCHES
-         disable-error-4068.patch # This patch fixes dependency port compilation failure
+         patch-relocatable-rpath.patch
+         fix-aws-root.patch
++        fix-find-crypto.patch
+ )
+ 
+ string(COMPARE EQUAL "${VCPKG_CRT_LINKAGE}" "dynamic" FORCE_SHARED_CRT)
+diff --git a/ports/aws-sdk-cpp/vcpkg.json b/ports/aws-sdk-cpp/vcpkg.json
+index 3836e2b6..cd88ef07 100644
+--- a/ports/aws-sdk-cpp/vcpkg.json
++++ b/ports/aws-sdk-cpp/vcpkg.json
+@@ -5,7 +5,7 @@
+   "port-version": 5,
+   "description": "AWS SDK for C++",
+   "homepage": "https://github.com/aws/aws-sdk-cpp",
+-  "supports": "!arm & !uwp",
++  "supports": "!uwp",
+   "dependencies": [
+     "aws-crt-cpp",
+     {
 diff --git a/ports/curl/portfile.cmake b/ports/curl/portfile.cmake
-index be66d452be..a5ce325e9d 100644
+index ce8b7570..8255ba24 100644
 --- a/ports/curl/portfile.cmake
 +++ b/ports/curl/portfile.cmake
-@@ -94,6 +94,8 @@ vcpkg_configure_cmake(
+@@ -92,6 +92,10 @@ vcpkg_cmake_configure(
          -DCMAKE_DISABLE_FIND_PACKAGE_Perl=ON
          -DENABLE_DEBUG=ON
          -DCURL_CA_FALLBACK=ON
 +        -DCURL_CA_PATH=none
 +        -DCURL_CA_BUNDLE=none
-     OPTIONS_DEBUG
-         ${EXTRA_ARGS_DEBUG}
++    OPTIONS_DEBUG
++        ${EXTRA_ARGS_DEBUG}
      OPTIONS_RELEASE
+         ${OPTIONS_RELEASE}
+     OPTIONS_DEBUG
 diff --git a/ports/snappy/portfile.cmake b/ports/snappy/portfile.cmake
-index 75dd133027..84345c7caa 100644
+index 45b8c706..b409d8a7 100644
 --- a/ports/snappy/portfile.cmake
 +++ b/ports/snappy/portfile.cmake
 @@ -4,6 +4,7 @@ vcpkg_from_github(
-     REF 537f4ad6240e586970fe554614542e9717df7902 # 1.1.8
-     SHA512 555d3b69a6759592736cbaae8f41654f0cf14e8be693b5dde37640191e53daec189f895872557b173e905d10681ef502f3e6ed8566811add963ffef96ce4016d
+     REF 1.1.9
+     SHA512 f1f8a90f5f7f23310423574b1d8c9acb84c66ea620f3999d1060395205e5760883476837aba02f0aa913af60819e34c625d8308c18a5d7a9c4e190f35968b024
      HEAD_REF master
 +    PATCHES "snappy-disable-bmi.patch"
  )
-
- vcpkg_configure_cmake(
+ 
+ vcpkg_cmake_configure(
 diff --git a/ports/snappy/snappy-disable-bmi.patch b/ports/snappy/snappy-disable-bmi.patch
 new file mode 100644
-index 0000000000..2cbb1533a8
+index 00000000..a57ce0c2
 --- /dev/null
 +++ b/ports/snappy/snappy-disable-bmi.patch
-@@ -0,0 +1,17 @@
-+--- snappy.cc  2020-06-27 17:38:49.718993748 -0500
-++++ snappy.cc  2020-06-27 17:37:57.543268213 -0500
-+@@ -717,14 +717,10 @@
-+ static inline uint32 ExtractLowBytes(uint32 v, int n) {
+@@ -0,0 +1,19 @@
++diff --git a/snappy.cc b/snappy.cc
++index 79dc0e8..f3153ea 100644
++--- a/snappy.cc
+++++ b/snappy.cc
++@@ -965,14 +965,10 @@ static inline void Report(const char *algorithm, size_t compressed_size,
++ static inline uint32_t ExtractLowBytes(uint32_t v, int n) {
 +   assert(n >= 0);
 +   assert(n <= 4);
 +-#if SNAPPY_HAVE_BMI2
 +-  return _bzhi_u32(v, 8 * n);
 +-#else
-+   // This needs to be wider than uint32 otherwise `mask << 32` will be
++   // This needs to be wider than uint32_t otherwise `mask << 32` will be
 +   // undefined.
-+   uint64 mask = 0xffffffff;
++   uint64_t mask = 0xffffffff;
 +   return v & ~(mask << (8 * n));
 +-#endif
 + }
-+
-+ static inline bool LeftShiftOverflows(uint8 value, uint32 shift) {
++ 
++ static inline bool LeftShiftOverflows(uint8_t value, uint32_t shift) {

@@ -47,6 +47,12 @@ else
   ARROW_DEFAULT_PARAM="OFF"
 fi
 
+# Snappy 1.1.9 is patched to implement https://github.com/google/snappy/pull/148 but some platforms don't have
+# patch available, so disable snappy in those cases. If the snappy version is bumped, we should remove this.
+if [ ! $(command -v patch) ]; then
+  ARROW_WITH_SNAPPY=OFF
+fi
+
 mkdir -p "${BUILD_DIR}"
 pushd "${BUILD_DIR}"
 ${CMAKE} -DARROW_BOOST_USE_SHARED=OFF \

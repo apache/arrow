@@ -26,9 +26,9 @@ Windows. Read the comments in `verify-release-candidate.bat` for instructions.
 
 ## Linux and macOS
 
-We've provided a convenience script for verifying the C++, Python, C
-GLib, Java and JavaScript builds on Linux and macOS. Read the comments in
-`verify-release-candidate.sh` for instructions.
+We've provided a convenience script for verifying the C++, C#, C GLib, Go,
+Java, JavaScript, Ruby and Python builds on Linux and macOS. Read the script
+`verify-release-candidate.sh` for further information.
 
 ### C GLib
 
@@ -47,7 +47,7 @@ You can install them by the followings on Debian GNU/Linux and Ubuntu:
 % sudo gem install gobject-introspection test-unit
 ```
 
-You can install them by the followings on CentOS:
+You can install them by the followings on CentOS 7:
 
 ```console
 % sudo yum install -y gobject-introspection-devel
@@ -74,3 +74,38 @@ You need to set `PKG_CONFIG_PATH` to find libffi on macOS:
 ```console
 % export PKG_CONFIG_PATH=$(brew --prefix libffi)/lib/pkgconfig:$PKG_CONFIG_PATH
 ```
+
+### C++, C#, C GLib, Go, Java, JavaScript, Python, Ruby
+
+Example scripts to install the dependencies to run the verification
+script for verifying the source on Ubuntu 20.04, Rocky Linux 8 and
+AlmaLinux 8 are in this folder and named `setup-ubuntu.sh` and
+`setup-rhel-rebuilds.sh`. These can be adapted to different
+situations. Go and JavaScript are installed by the verification
+script in the testing environment. Verifying the apt and yum binaries
+additionally requires installation of Docker.
+
+When verifying the source, by default the verification script will try
+to verify all implementations and bindings. Should one of the
+verification tests fail, the script will exit before running the other
+tests. It can be helpful to repeat the failed test to see if it will
+complete, since failures can occur for problems such as slow or failed
+download of a dependency from the internet. It is possible to run
+specific verification tests by setting environment variables, for example
+
+```console
+% TEST_DEFAULT=0 TEST_GO=1 dev/release/verify-release-candidate.sh source 6.0.0 3
+% TEST_YUM=1 dev/release/verify-release-candidate.sh binaries 6.0.0 3
+```
+
+It is also possible to use
+[Archery](https://arrow.apache.org/docs/developers/archery.html) to run
+the verification process in a container, for example
+
+```console
+% archery docker run -e VERIFY_VERSION=6.0.1 -e VERIFY_RC=1 almalinux-verify-rc-source
+% archery docker run -e VERIFY_VERSION=6.0.1 -e VERIFY_RC=1 ubuntu-verify-rc-source
+```
+
+To improve software quality, you are encouraged to verify
+on a variety of platforms.

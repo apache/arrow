@@ -712,6 +712,10 @@ Time64__initialize <- function(unit) {
   .Call(`_arrow_Time64__initialize`, unit)
 }
 
+Duration__initialize <- function(unit) {
+  .Call(`_arrow_Duration__initialize`, unit)
+}
+
 list__ <- function(x) {
   .Call(`_arrow_list__`, x)
 }
@@ -766,6 +770,10 @@ DateType__unit <- function(type) {
 
 TimeType__unit <- function(type) {
   .Call(`_arrow_TimeType__unit`, type)
+}
+
+DurationType__unit <- function(type) {
+  .Call(`_arrow_DurationType__unit`, type)
 }
 
 DecimalType__precision <- function(type) {

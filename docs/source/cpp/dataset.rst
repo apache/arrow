@@ -409,6 +409,26 @@ filesystems.
 
 .. _cpp-dataset-full-example:
 
+A note on transactions & ACID guarantees
+----------------------------------------
+
+The dataset API offers no transaction support or any ACID guarantees.  This affects
+both reading and writing.  Concurrent reads are fine.  Concurrent writes or writes
+concurring with reads may have unexpected behavior.  Various approaches can be used
+to avoid operating on the same files such as using a unique basename template for
+each writer, a temporary directory for new files, or separate storage of the file
+list instead of relying on directory discovery.
+
+Unexpectedly killing the process while a write is in progress can leave the system
+in an inconsistent state.  Write calls generally return as soon as the bytes to be
+written have been completely delivered to the OS page cache.  Even though a write
+operation has been completed it is possible for part of the file to be lost if
+there is a sudden power loss immediately after the write call.
+
+Most file formats have magic numbers which are written at the end.  This means a
+partial file write can safely be detected and discarded.  The CSV file format does
+not have any such concept and a partially written CSV file may be detected as valid.
+
 Full Example
 ------------
 

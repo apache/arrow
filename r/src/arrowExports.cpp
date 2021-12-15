@@ -2793,6 +2793,21 @@ extern "C" SEXP _arrow_Time64__initialize(SEXP unit_sexp){
 
 // datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::DataType> Duration__initialize(arrow::TimeUnit::type unit);
+extern "C" SEXP _arrow_Duration__initialize(SEXP unit_sexp){
+BEGIN_CPP11
+	arrow::r::Input<arrow::TimeUnit::type>::type unit(unit_sexp);
+	return cpp11::as_sexp(Duration__initialize(unit));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_Duration__initialize(SEXP unit_sexp){
+	Rf_error("Cannot call Duration__initialize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// datatype.cpp
+#if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> list__(SEXP x);
 extern "C" SEXP _arrow_list__(SEXP x_sexp){
 BEGIN_CPP11
@@ -3000,6 +3015,21 @@ END_CPP11
 #else
 extern "C" SEXP _arrow_TimeType__unit(SEXP type_sexp){
 	Rf_error("Cannot call TimeType__unit(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// datatype.cpp
+#if defined(ARROW_R_WITH_ARROW)
+arrow::TimeUnit::type DurationType__unit(const std::shared_ptr<arrow::TimeType>& type);
+extern "C" SEXP _arrow_DurationType__unit(SEXP type_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::TimeType>&>::type type(type_sexp);
+	return cpp11::as_sexp(DurationType__unit(type));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_DurationType__unit(SEXP type_sexp){
+	Rf_error("Cannot call DurationType__unit(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -7349,6 +7379,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_Timestamp__initialize", (DL_FUNC) &_arrow_Timestamp__initialize, 2}, 
 		{ "_arrow_Time32__initialize", (DL_FUNC) &_arrow_Time32__initialize, 1}, 
 		{ "_arrow_Time64__initialize", (DL_FUNC) &_arrow_Time64__initialize, 1}, 
+		{ "_arrow_Duration__initialize", (DL_FUNC) &_arrow_Duration__initialize, 1}, 
 		{ "_arrow_list__", (DL_FUNC) &_arrow_list__, 1}, 
 		{ "_arrow_large_list__", (DL_FUNC) &_arrow_large_list__, 1}, 
 		{ "_arrow_fixed_size_list__", (DL_FUNC) &_arrow_fixed_size_list__, 2}, 
@@ -7363,6 +7394,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_FixedWidthType__bit_width", (DL_FUNC) &_arrow_FixedWidthType__bit_width, 1}, 
 		{ "_arrow_DateType__unit", (DL_FUNC) &_arrow_DateType__unit, 1}, 
 		{ "_arrow_TimeType__unit", (DL_FUNC) &_arrow_TimeType__unit, 1}, 
+		{ "_arrow_DurationType__unit", (DL_FUNC) &_arrow_DurationType__unit, 1}, 
 		{ "_arrow_DecimalType__precision", (DL_FUNC) &_arrow_DecimalType__precision, 1}, 
 		{ "_arrow_DecimalType__scale", (DL_FUNC) &_arrow_DecimalType__scale, 1}, 
 		{ "_arrow_TimestampType__timezone", (DL_FUNC) &_arrow_TimestampType__timezone, 1}, 

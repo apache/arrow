@@ -71,6 +71,7 @@ enum RVectorType {
   DATE_INT,
   DATE_DBL,
   TIME,
+  DURATION,
   POSIXCT,
   POSIXLT,
   BINARY,
@@ -107,8 +108,10 @@ RVectorType GetVectorType(SEXP x) {
         return INT64;
       } else if (Rf_inherits(x, "POSIXct")) {
         return POSIXCT;
-      } else if (Rf_inherits(x, "difftime")) {
+      } else if (Rf_inherits(x, "hms")) {
         return TIME;
+      } else if (Rf_inherits(x, "difftime")) {
+        return DURATION;
       } else {
         return FLOAT64;
       }
@@ -580,6 +583,23 @@ int64_t get_TimeUnit_multiplier(TimeUnit::type unit) {
   }
 }
 
+Result<int> get_difftime_unit_multiplier(SEXP x) {
+  std::string unit(CHAR(STRING_ELT(Rf_getAttrib(x, symbols::units), 0)));
+  if (unit == "secs") {
+    return 1;
+  } else if (unit == "mins") {
+    return 60;
+  } else if (unit == "hours") {
+    return 3600;
+  } else if (unit == "days") {
+    return 86400;
+  } else if (unit == "weeks") {
+    return 604800;
+  } else {
+    return Status::Invalid("unknown difftime unit");
+  }
+}
+
 template <typename T>
 class RPrimitiveConverter<T, enable_if_t<is_time_type<T>::value>>
     : public PrimitiveConverter<T, RConverter> {
@@ -592,21 +612,7 @@ class RPrimitiveConverter<T, enable_if_t<is_time_type<T>::value>>
     }
 
     // multiplier to get the number of seconds from the value stored in the R vector
-    int difftime_multiplier;
-    std::string unit(CHAR(STRING_ELT(Rf_getAttrib(x, symbols::units), 0)));
-    if (unit == "secs") {
-      difftime_multiplier = 1;
-    } else if (unit == "mins") {
-      difftime_multiplier = 60;
-    } else if (unit == "hours") {
-      difftime_multiplier = 3600;
-    } else if (unit == "days") {
-      difftime_multiplier = 86400;
-    } else if (unit == "weeks") {
-      difftime_multiplier = 604800;
-    } else {
-      return Status::Invalid("unknown difftime unit");
-    }
+    ARROW_ASSIGN_OR_RAISE(int difftime_multiplier, get_difftime_unit_multiplier(x));
 
     // then multiply the seconds by this to match the time unit
     auto multiplier =
@@ -822,7 +828,38 @@ class RPrimitiveConverter<T, enable_if_t<is_duration_type<T>::value>>
     : public PrimitiveConverter<T, RConverter> {
  public:
   Status Extend(SEXP x, int64_t size, int64_t offset = 0) override {
-    // TODO: look in lubridate
+    auto rtype = GetVectorType(x);
+
+    // only handle <difftime> R objects
+    if (rtype == DURATION) {
+      RETURN_NOT_OK(this->Reserve(size - offset));
+
+      ARROW_ASSIGN_OR_RAISE(int difftime_multiplier, get_difftime_unit_multiplier(x));
+
+      int64_t multiplier =
+          get_TimeUnit_multiplier(this->primitive_type_->unit()) * difftime_multiplier;
+
+      auto append_value = [this, multiplier](double value) {
+        auto converted = static_cast<typename T::c_type>(value * multiplier);
+        this->primitive_builder_->UnsafeAppend(converted);
+        return Status::OK();
+      };
+      auto append_null = [this]() {
+        this->primitive_builder_->UnsafeAppendNull();
+        return Status::OK();
+      };
+
+      if (ALTREP(x)) {
+        return VisitVector(RVectorIterator_ALTREP<double>(x, offset), size, append_null,
+                           append_value);
+      } else {
+        return VisitVector(RVectorIterator<double>(x, offset), size, append_null,
+                           append_value);
+      }
+
+      return Status::OK();
+    }
+
     return Status::NotImplemented("Extend");
   }
 };
@@ -1119,7 +1156,7 @@ std::shared_ptr<Array> MakeSimpleArray(SEXP x) {
   auto first_na = std::find_if(p_vec_start, p_vec_end, is_NA<value_type>);
   if (first_na < p_vec_end) {
     auto null_bitmap =
-        ValueOrStop(AllocateBuffer(BitUtil::BytesForBits(n), gc_memory_pool()));
+        ValueOrStop(AllocateBuffer(bit_util::BytesForBits(n), gc_memory_pool()));
     internal::FirstTimeBitmapWriter bitmap_writer(null_bitmap->mutable_data(), 0, n);
 
     // first loop to clear all the bits before the first NA
@@ -1237,7 +1274,7 @@ bool vector_from_r_memory_impl(SEXP x, const std::shared_ptr<DataType>& type,
 
     if (first_na < p_x_end) {
       auto null_bitmap =
-          ValueOrStop(AllocateBuffer(BitUtil::BytesForBits(n), gc_memory_pool()));
+          ValueOrStop(AllocateBuffer(bit_util::BytesForBits(n), gc_memory_pool()));
       internal::FirstTimeBitmapWriter bitmap_writer(null_bitmap->mutable_data(), 0, n);
 
       // first loop to clear all the bits before the first NA

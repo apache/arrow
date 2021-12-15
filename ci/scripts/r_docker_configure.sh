@@ -69,11 +69,25 @@ if [ "$ARROW_S3" == "ON" ] || [ "$ARROW_R_DEV" == "TRUE" ]; then
 
   # The Dockerfile should have put this file here
   if [ -f "/arrow/ci/scripts/install_minio.sh" ] && [ "`which wget`" ]; then
-    /arrow/ci/scripts/install_minio.sh amd64 linux latest /usr/local
+    /arrow/ci/scripts/install_minio.sh latest /usr/local
   fi
 
   if [ -f "/arrow/ci/scripts/install_gcs_testbench.sh" ] && [ "`which pip`" ]; then
-    /arrow/ci/scripts/install_gcs_testbench.sh amd64 default
+    /arrow/ci/scripts/install_gcs_testbench.sh default
+  fi
+fi
+
+# Install patch if it doesn't already exist
+if [ ! $(command -v patch) ]; then
+  if [ "`which dnf`" ]; then
+    dnf install -y patch
+  elif [ "`which yum`" ]; then
+    yum install -y patch
+  elif [ "`which zypper`" ]; then
+    zypper install -y patch
+  else
+    apt-get update
+    apt-get install -y patch
   fi
 fi
 

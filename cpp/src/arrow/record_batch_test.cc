@@ -317,4 +317,19 @@ TEST_F(TestRecordBatch, FromStructArrayInvalidNullCount) {
   ASSERT_RAISES(Invalid, RecordBatch::FromStructArray(struct_array));
 }
 
+TEST_F(TestRecordBatch, MakeEmpty) {
+  auto f0 = field("f0", int32());
+  auto f1 = field("f1", uint8());
+  auto f2 = field("f2", int16());
+
+  std::vector<std::shared_ptr<Field>> fields = {f0, f1, f2};
+  auto schema = ::arrow::schema({f0, f1, f2});
+
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<RecordBatch> empty,
+                       RecordBatch::MakeEmpty(schema));
+  AssertSchemaEqual(*schema, *empty->schema());
+  ASSERT_OK(empty->ValidateFull());
+  ASSERT_EQ(empty->num_rows(), 0);
+}
+
 }  // namespace arrow

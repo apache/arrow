@@ -91,7 +91,7 @@ Result<ScanTaskIterator> InMemoryFragment::Scan(std::shared_ptr<ScanOptions> opt
   auto fn = [=](std::shared_ptr<RecordBatch> batch) -> std::shared_ptr<ScanTask> {
     RecordBatchVector batches;
 
-    auto n_batches = BitUtil::CeilDiv(batch->num_rows(), batch_size);
+    auto n_batches = bit_util::CeilDiv(batch->num_rows(), batch_size);
     for (int i = 0; i < n_batches; i++) {
       batches.push_back(batch->Slice(batch_size * i, batch_size));
     }

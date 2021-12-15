@@ -22,7 +22,6 @@ from libcpp.unordered_map cimport unordered_map
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_fs cimport *
-from pyarrow._parquet cimport *
 
 
 cdef extern from "arrow/api.h" namespace "arrow" nogil:
@@ -240,10 +239,6 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         const shared_ptr[CFileWriteOptions]& options() const
         const CFileLocator& destination() const
 
-    cdef cppclass CParquetFileWriter \
-            "arrow::dataset::ParquetFileWriter"(CFileWriter):
-        const shared_ptr[FileWriter]& parquet_writer() const
-
     cdef cppclass CFileFormat "arrow::dataset::FileFormat":
         shared_ptr[CFragmentScanOptions] default_fragment_scan_options
         c_string type_name() const
@@ -258,23 +253,6 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             CFragment):
         const CFileSource& source() const
         const shared_ptr[CFileFormat]& format() const
-
-    cdef cppclass CParquetFileWriteOptions \
-            "arrow::dataset::ParquetFileWriteOptions"(CFileWriteOptions):
-        shared_ptr[WriterProperties] writer_properties
-        shared_ptr[ArrowWriterProperties] arrow_writer_properties
-
-    cdef cppclass CParquetFileFragment "arrow::dataset::ParquetFileFragment"(
-            CFileFragment):
-        const vector[int]& row_groups() const
-        shared_ptr[CFileMetaData] metadata() const
-        CResult[vector[shared_ptr[CFragment]]] SplitByRowGroup(
-            CExpression predicate)
-        CResult[shared_ptr[CFragment]] SubsetWithFilter "Subset"(
-            CExpression predicate)
-        CResult[shared_ptr[CFragment]] SubsetWithIds "Subset"(
-            vector[int] row_group_ids)
-        CStatus EnsureCompleteMetadata()
 
     cdef cppclass CFileSystemDatasetWriteOptions \
             "arrow::dataset::FileSystemDatasetWriteOptions":
@@ -308,26 +286,6 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         const shared_ptr[CFileFormat]& format() const
         const shared_ptr[CFileSystem]& filesystem() const
         const shared_ptr[CPartitioning]& partitioning() const
-
-    cdef cppclass CParquetFileFormatReaderOptions \
-            "arrow::dataset::ParquetFileFormat::ReaderOptions":
-        unordered_set[c_string] dict_columns
-        TimeUnit coerce_int96_timestamp_unit
-
-    cdef cppclass CParquetFileFormat "arrow::dataset::ParquetFileFormat"(
-            CFileFormat):
-        CParquetFileFormatReaderOptions reader_options
-        CResult[shared_ptr[CFileFragment]] MakeFragment(
-            CFileSource source,
-            CExpression partition_expression,
-            shared_ptr[CSchema] physical_schema,
-            vector[int] row_groups)
-
-    cdef cppclass CParquetFragmentScanOptions \
-            "arrow::dataset::ParquetFragmentScanOptions"(CFragmentScanOptions):
-        shared_ptr[CReaderProperties] reader_properties
-        shared_ptr[ArrowReaderProperties] arrow_reader_properties
-        c_bool enable_parallel_column_conversion
 
     cdef cppclass CIpcFileWriteOptions \
             "arrow::dataset::IpcFileWriteOptions"(CFileWriteOptions):
@@ -450,29 +408,4 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             CFileSelector,
             shared_ptr[CFileFormat] format,
             CFileSystemFactoryOptions options
-        )
-
-    cdef cppclass CParquetFactoryOptions \
-            "arrow::dataset::ParquetFactoryOptions":
-        CPartitioningOrFactory partitioning
-        c_string partition_base_dir
-        c_bool validate_column_chunk_paths
-
-    cdef cppclass CParquetDatasetFactory \
-            "arrow::dataset::ParquetDatasetFactory"(CDatasetFactory):
-        @staticmethod
-        CResult[shared_ptr[CDatasetFactory]] MakeFromMetaDataPath "Make"(
-            const c_string& metadata_path,
-            shared_ptr[CFileSystem] filesystem,
-            shared_ptr[CParquetFileFormat] format,
-            CParquetFactoryOptions options
-        )
-
-        @staticmethod
-        CResult[shared_ptr[CDatasetFactory]] MakeFromMetaDataSource "Make"(
-            const CFileSource& metadata_path,
-            const c_string& base_path,
-            shared_ptr[CFileSystem] filesystem,
-            shared_ptr[CParquetFileFormat] format,
-            CParquetFactoryOptions options
         )

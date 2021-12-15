@@ -51,10 +51,16 @@ jobs:
       fail-fast: false
       matrix:
         name:
+          - conda-python-docs
           - conda-python-3.8-nopandas
           - conda-python-3.6-pandas-0.23
           - conda-python-3.7-pandas-latest
         include:
+          - name: conda-python-docs
+            cache: conda-python-3.9
+            image: conda-python-docs
+            title: AMD64 Conda Python 3.9 Sphinx & Numpydoc
+            python: 3.9
           - name: conda-python-3.8-nopandas
             cache: conda-python-3.8
             image: conda-python

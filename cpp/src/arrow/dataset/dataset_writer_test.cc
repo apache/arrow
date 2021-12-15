@@ -45,6 +45,20 @@ class DatasetWriterTestFixture : public testing::Test {
     std::string filename;
     uint64_t start;
     uint64_t num_rows;
+    int num_record_batches;
+
+    ExpectedFile(std::string filename, uint64_t start, uint64_t num_rows)
+        : filename(std::move(filename)),
+          start(start),
+          num_rows(num_rows),
+          num_record_batches(1) {}
+
+    ExpectedFile(std::string filename, uint64_t start, uint64_t num_rows,
+                 int num_record_batches)
+        : filename(std::move(filename)),
+          start(start),
+          num_rows(num_rows),
+          num_record_batches(num_record_batches) {}
   };
 
   void SetUp() override {
@@ -108,12 +122,13 @@ class DatasetWriterTestFixture : public testing::Test {
         << "The file " << expected_path << " was not in the list of files visited";
   }
 
-  std::shared_ptr<RecordBatch> ReadAsBatch(util::string_view data) {
+  std::shared_ptr<RecordBatch> ReadAsBatch(util::string_view data, int* num_batches) {
     std::shared_ptr<io::RandomAccessFile> in_stream =
         std::make_shared<io::BufferReader>(data);
     EXPECT_OK_AND_ASSIGN(std::shared_ptr<ipc::RecordBatchFileReader> reader,
-                         ipc::RecordBatchFileReader::Open(std::move(in_stream)));
+                         ipc::RecordBatchFileReader::Open(in_stream));
     RecordBatchVector batches;
+    *num_batches = reader->num_record_batches();
     for (int i = 0; i < reader->num_record_batches(); i++) {
       EXPECT_OK_AND_ASSIGN(std::shared_ptr<RecordBatch> next_batch,
                            reader->ReadRecordBatch(i));
@@ -145,8 +160,10 @@ class DatasetWriterTestFixture : public testing::Test {
     for (const auto& expected_file : expected_files) {
       util::optional<MockFileInfo> written_file = FindFile(expected_file.filename);
       AssertFileCreated(written_file, expected_file.filename);
+      int num_batches = 0;
       AssertBatchesEqual(*MakeBatch(expected_file.start, expected_file.num_rows),
-                         *ReadAsBatch(written_file->data));
+                         *ReadAsBatch(written_file->data, &num_batches));
+      ASSERT_EQ(expected_file.num_record_batches, num_batches);
     }
   }
 
@@ -190,6 +207,7 @@ TEST_F(DatasetWriterTestFixture, Basic) {
 
 TEST_F(DatasetWriterTestFixture, MaxRowsOneWrite) {
   write_options_.max_rows_per_file = 10;
+  write_options_.max_rows_per_group = 10;
   EXPECT_OK_AND_ASSIGN(auto dataset_writer, DatasetWriter::Make(write_options_));
   Future<> queue_fut = dataset_writer->WriteRecordBatch(MakeBatch(35), "");
   AssertFinished(queue_fut);
@@ -202,6 +220,7 @@ TEST_F(DatasetWriterTestFixture, MaxRowsOneWrite) {
 
 TEST_F(DatasetWriterTestFixture, MaxRowsManyWrites) {
   write_options_.max_rows_per_file = 10;
+  write_options_.max_rows_per_group = 10;
   EXPECT_OK_AND_ASSIGN(auto dataset_writer, DatasetWriter::Make(write_options_));
   ASSERT_FINISHES_OK(dataset_writer->WriteRecordBatch(MakeBatch(3), ""));
   ASSERT_FINISHES_OK(dataset_writer->WriteRecordBatch(MakeBatch(3), ""));
@@ -210,7 +229,67 @@ TEST_F(DatasetWriterTestFixture, MaxRowsManyWrites) {
   ASSERT_FINISHES_OK(dataset_writer->WriteRecordBatch(MakeBatch(3), ""));
   ASSERT_FINISHES_OK(dataset_writer->WriteRecordBatch(MakeBatch(3), ""));
   ASSERT_FINISHES_OK(dataset_writer->Finish());
-  AssertCreatedData({{"testdir/chunk-0.arrow", 0, 10}, {"testdir/chunk-1.arrow", 10, 8}});
+  AssertCreatedData(
+      {{"testdir/chunk-0.arrow", 0, 10, 4}, {"testdir/chunk-1.arrow", 10, 8, 3}});
+}
+
+TEST_F(DatasetWriterTestFixture, MinRowGroup) {
+  write_options_.min_rows_per_group = 20;
+  EXPECT_OK_AND_ASSIGN(auto dataset_writer, DatasetWriter::Make(write_options_));
+  // Test hitting the limit exactly and inexactly
+  ASSERT_FINISHES_OK(dataset_writer->WriteRecordBatch(MakeBatch(5), ""));
+  ASSERT_FINISHES_OK(dataset_writer->WriteRecordBatch(MakeBatch(5), ""));
+  ASSERT_FINISHES_OK(dataset_writer->WriteRecordBatch(MakeBatch(5), ""));
+  ASSERT_FINISHES_OK(dataset_writer->WriteRecordBatch(MakeBatch(5), ""));
+  ASSERT_FINISHES_OK(dataset_writer->WriteRecordBatch(MakeBatch(5), ""));
+  ASSERT_FINISHES_OK(dataset_writer->WriteRecordBatch(MakeBatch(5), ""));
+  ASSERT_FINISHES_OK(dataset_writer->WriteRecordBatch(MakeBatch(4), ""));
+  ASSERT_FINISHES_OK(dataset_writer->WriteRecordBatch(MakeBatch(4), ""));
+  ASSERT_FINISHES_OK(dataset_writer->WriteRecordBatch(MakeBatch(4), ""));
+  ASSERT_FINISHES_OK(dataset_writer->WriteRecordBatch(MakeBatch(4), ""));
+  ASSERT_FINISHES_OK(dataset_writer->Finish());
+  AssertCreatedData({{"testdir/chunk-0.arrow", 0, 46, 3}});
+}
+
+TEST_F(DatasetWriterTestFixture, MaxRowGroup) {
+  write_options_.max_rows_per_group = 10;
+  EXPECT_OK_AND_ASSIGN(auto dataset_writer, DatasetWriter::Make(write_options_));
+  // Test hitting the limit exactly and inexactly
+  ASSERT_FINISHES_OK(dataset_writer->WriteRecordBatch(MakeBatch(10), ""));
+  ASSERT_FINISHES_OK(dataset_writer->WriteRecordBatch(MakeBatch(15), ""));
+  ASSERT_FINISHES_OK(dataset_writer->WriteRecordBatch(MakeBatch(15), ""));
+  ASSERT_FINISHES_OK(dataset_writer->WriteRecordBatch(MakeBatch(20), ""));
+  ASSERT_FINISHES_OK(dataset_writer->Finish());
+  AssertCreatedData({{"testdir/chunk-0.arrow", 0, 60, 7}});
+}
+
+TEST_F(DatasetWriterTestFixture, MinAndMaxRowGroup) {
+  write_options_.max_rows_per_group = 10;
+  write_options_.min_rows_per_group = 10;
+  EXPECT_OK_AND_ASSIGN(auto dataset_writer, DatasetWriter::Make(write_options_));
+  // Test hitting the limit exactly and inexactly
+  ASSERT_FINISHES_OK(dataset_writer->WriteRecordBatch(MakeBatch(10), ""));
+  ASSERT_FINISHES_OK(dataset_writer->WriteRecordBatch(MakeBatch(15), ""));
+  ASSERT_FINISHES_OK(dataset_writer->WriteRecordBatch(MakeBatch(15), ""));
+  ASSERT_FINISHES_OK(dataset_writer->WriteRecordBatch(MakeBatch(20), ""));
+  ASSERT_FINISHES_OK(dataset_writer->Finish());
+  AssertCreatedData({{"testdir/chunk-0.arrow", 0, 60, 6}});
+}
+
+TEST_F(DatasetWriterTestFixture, MinRowGroupBackpressure) {
+  // This tests the case where we end up queuing too much data because we're waiting for
+  // enough data to form a min row group and we fill up the dataset writer (it should
+  // auto-evict)
+  write_options_.min_rows_per_group = 10;
+  EXPECT_OK_AND_ASSIGN(auto dataset_writer, DatasetWriter::Make(write_options_, 100));
+  std::vector<ExpectedFile> expected_files;
+  for (int i = 0; i < 12; i++) {
+    expected_files.push_back({"testdir/" + std::to_string(i) + "/chunk-0.arrow",
+                              static_cast<uint64_t>(i * 9), 9, 1});
+    ASSERT_FINISHES_OK(dataset_writer->WriteRecordBatch(MakeBatch(9), std::to_string(i)));
+  }
+  ASSERT_FINISHES_OK(dataset_writer->Finish());
+  AssertCreatedData(expected_files);
 }
 
 TEST_F(DatasetWriterTestFixture, ConcurrentWritesSameFile) {
@@ -226,7 +305,7 @@ TEST_F(DatasetWriterTestFixture, ConcurrentWritesSameFile) {
   ASSERT_OK(gated_fs->WaitForOpenOutputStream(1));
   ASSERT_OK(gated_fs->UnlockOpenOutputStream(1));
   ASSERT_FINISHES_OK(dataset_writer->Finish());
-  AssertCreatedData({{"testdir/chunk-0.arrow", 0, 100}});
+  AssertCreatedData({{"testdir/chunk-0.arrow", 0, 100, 10}});
 }
 
 TEST_F(DatasetWriterTestFixture, ConcurrentWritesDifferentFiles) {
