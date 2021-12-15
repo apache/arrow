@@ -373,8 +373,10 @@ to check if code is in line with PEP 8 style guide.
    INFO:archery:Running Python linter (flake8)
    /Users/alenkafrim/repos/arrow/python/pyarrow/tests/test_compute.py:2288:80: E501 line too long (88 > 79 characters)
 
-We get a warning that one line is too long. Lets
-make the necessary corrections and run it again.
+With the ``--fix`` command Archery will attempt to fix style issues,
+but some issues like line length can't be fixed automatically.
+We should make the necessary corrections ourselves and run
+Archery again.
 
 .. code:: console
 
