@@ -29,7 +29,7 @@ For a faster installation, we recommend that you instead use one of the methods 
 
 ### Method 1a - Binary R package containing libarrow binary via RSPM/conda
 
-```{r, echo=FALSE, out.width="30%"}
+```{r, echo=FALSE, out.width="30%", fig.alt = "Graphic showing R and C++ logo inside the package icon"}
 knitr::include_graphics("./r_binary_libarrow_binary.png")
 ```
 
@@ -54,7 +54,7 @@ conda install -c conda-forge --strict-channel-priority r-arrow
 
 ### Method 1b - R source package with libarrow binary
 
-```{r, echo=FALSE, out.width="50%"}
+```{r, echo=FALSE, out.width="50%", fig.alt = "Graphic showing R logo in folder icon, then a plus sign, then C++ logo inside the package icon"}
 knitr::include_graphics("./r_source_libarrow_binary.png")
 ```
 
@@ -102,7 +102,7 @@ The prebuilt libarrow binaries come with S3 support enabled, so you will need to
 
 ## Method 2 - Installing an R source package and building libarrow from source
 
-```{r, echo=FALSE, out.width="50%"}
+```{r, echo=FALSE, out.width="50%", fig.alt = "Graphic showing R inside a folder icon, then a plus sign, then C++ logo inside a folder icon"}
 knitr::include_graphics("./r_source_libarrow_source.png")
 ```
 
