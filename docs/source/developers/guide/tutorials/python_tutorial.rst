@@ -115,16 +115,14 @@ Lets also add some comments to start a conversation.
 
    Adding a comment to the JIRA ticket we created.
 
-We have successfully created a new JIRA issue with index ARROW-14977.
+We have successfully created a new JIRA issue with index
+`ARROW-14977 <https://issues.apache.org/jira/browse/ARROW-14977>`_.
 
 .. figure:: python_tutorial_jira_issue.jpeg
    :scale: 50 %
    :alt: JIRA page of the issue just created.
 
    Our JIRA issue. Yay!
-
-To see the issue in JIRA follow
-`this link <https://issues.apache.org/jira/browse/ARROW-14977>`_.
 
 .. seealso::
 
