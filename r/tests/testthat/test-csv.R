@@ -503,3 +503,19 @@ test_that("read_csv_arrow() deals with BOMs (byte-order-marks) correctly", {
     tibble(a = 1, b = 2)
   )
 })
+
+test_that("write_csv_arrow can write from FileSystemDataset objects", {
+
+  skip_if_not_available("dataset")
+  data_dir <- make_temp_dir()
+  write_dataset(tbl_no_dates, data_dir, partitioning = "lgl")
+  data_in <- open_dataset(data_dir)
+
+  csv_file <- tempfile()
+  tbl_out <- write_csv_arrow(data_in, csv_file)
+
+
+  expect_true(file.exists(csv_file))
+  expect_identical(tbl_out, tbl_no_dates)
+
+})
