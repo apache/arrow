@@ -51,10 +51,6 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-      - name: Fetch Submodules and Tags
-        run: ci/scripts/util_checkout.sh
-      - name: Free Up Disk Space
-        run: ci/scripts/util_cleanup.sh
       - name: Setup Python
         uses: actions/setup-python@v1
         with:
@@ -85,9 +81,6 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-      - name: Fetch Submodules and Tags
-        shell: bash
-        run: ci/scripts/util_checkout.sh
       - name: Install NodeJS
         uses: actions/setup-node@v1
         with:
@@ -111,7 +104,7 @@ jobs:
       - name: Checkout Arrow
         uses: actions/checkout@v1
         with:
-          submodules: true
+          fetch-depth: 0
       - name: Install NodeJS
         uses: actions/setup-node@v1
         with:

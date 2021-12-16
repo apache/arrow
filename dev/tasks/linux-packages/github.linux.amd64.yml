@@ -31,9 +31,6 @@ jobs:
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.0'
-      - name: Free Up Disk Space
-        shell: bash
-        run: arrow/ci/scripts/util_cleanup.sh
       - name: Cache ccache
         uses: actions/cache@v2
         with:
