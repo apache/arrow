@@ -337,20 +337,36 @@ altogether if they do not match the filter:
 Partitioning performance considerations
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Partitioning datasets can improve performance when reading datasets, but have several 
-potential costs when reading and writing:
+Partitioning datasets has two aspects that affect performance: it increases the number of
+files and it creates a directory structure around the files. Both of these have benefits
+as well as costs. Depending on the configuration and the size of your dataset, the costs 
+can outweight the benefits. 
 
-#. Can significantly increase the number of files to write. The number of partitions is a
-   floor for the number of files in a dataset. If you partition a dataset by date with a 
-   year of data, you will have at least 365 files. If you further partition by another
-   dimension with 1,000 unique values, you will have 365,000 files. This can make it slower
-   to write and increase the size of the overall dataset because each file has some fixed
-   overhead. For example, each file in parquet dataset contains the schema.
-#. Multiple partitioning columns can produce deeply nested folder structures which are slow
-   to navigate because they require many recusive "list directory" calls to discover files.
-   These operations may be particularly expensive if you are using an object store 
-   filesystem such as S3. One workaround is to combine multiple columns into one for
-   partitioning. For example, instead of a schema like /year/month/day/ use /YYYY-MM-DD/.
+Because partitions split up the dataset into multiple files, partitioned datasets can be 
+read and written with parallelism. However, each additional file adds a little overhead in 
+processing for filesystem interaction. It also increases the overall dataset size since 
+each file has some shared metadata. For example, each parquet file contains the schema and
+group-level statistics. The number of partitions is a floor for the number of files. If 
+you partition a dataset by date with a year of data, you will have at least 365 files. If 
+you further partition by another dimension with 1,000 unique values, you will have up to 
+365,000 files. This fine of partitioning often leads to small files that mostly consist of
+metadata.
+
+Partitioned datasets create nested folder structures, and those allow us to prune which 
+files are loaded in a scan. However, this adds overhead to discovering files in the dataset,
+as we'll need to recursively "list directory" to find the data files. These operations may 
+be particularly expensive if you are using an object store filesystem such as S3. Too fine
+partitions can cause problems here: Partitioning a dataset by date for a years worth
+of data will require 365 list calls to find all the files; adding another column with 
+cardinality 1,000 will make that 365,365 calls.
+
+The most optimal partitioning layout will depend on your data, access patterns, and which
+systems will be reading the data. Most systems, including Arrow, should work across a 
+range of file sizes and partitioning layouts, but there are extremes you should avoid. To 
+avoid pathological behavior, keep to these guidelines:
+
+ * Avoid files smaller than 20MB and larger than 2GB
+ * Avoid partitioning layouts with more than 10,000 distinct partitions.
  
 
 Different partitioning schemes
