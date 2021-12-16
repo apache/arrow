@@ -55,7 +55,7 @@ message CommandGetSqlInfo {
    * Initially, Flight SQL will support the following information types:
    * - Server Information - Range [0-500)
    * - Syntax Information - Range [500-1000)
-   * Range [0-10,000) is reserved for defaults (see SqlInfo enum for default options). 
+   * Range [0-10,000) is reserved for defaults (see SqlInfo enum for default options).
    * Custom options should start at 10,000.
    *
    * If omitted, then all metadata will be retrieved.
@@ -80,7 +80,7 @@ enum SqlInfo {
   // Retrieves a UTF-8 string with the Arrow format version of the Flight SQL Server.
   FLIGHT_SQL_SERVER_ARROW_VERSION = 2;
 
-  /* 
+  /*
    * Retrieves a boolean value indicating whether the Flight SQL Server is read only.
    *
    * Returns:
@@ -868,6 +868,45 @@ enum SqlSupportsConvert {
 }
 
 /*
+ * Represents a request to retrieve information about data type supported ona Flight SQL enabled backend.
+ * Used in the command member of FlightDescriptor for the following RPC calls:
+ *  - GetSchema: return the schema of the query.
+ *  - GetFlightInfo: execute the catalog metadata request.
+ *
+ * The returned schema will be:
+ * <
+ *   type_name: utf8 not null,
+ *   data_type: int not null,
+ *   column_size: int,
+ *   literal_prefix: utf8,
+ *   literal_suffix: utf8,
+ *   create_params: utf8
+ *   nullable: int not null,
+ *   case_sensitive: bool null,
+ *   searchable: int not null,
+ *   unsigned_attribute: bool,
+ *   fixed_prec_scale: bool null,
+ *   auto_increment: bool,
+ *   local_type_name: utf8,
+ *   minimum_scale: int,
+ *   maximum_scale: int,
+ *   sql_data_type: int not null,
+ *   sql_datetime_sub: int,
+ *   num_prec_radix: int,
+ *   interval_precision. int
+ * >
+ * The returned data should be ordered by data_type and then by type_name.
+ */
+message CommandGetTypeInfo {
+  option (experimental) = true;
+
+  /*
+   * Specifies the data type to search for the info.
+   */
+  optional int32 data_type = 1;
+}
+
+/*
  * Represents a request to retrieve the list of catalogs on a Flight SQL enabled backend.
  * The definition of a catalog depends on vendor/implementation. It is usually the database itself
  * Used in the command member of FlightDescriptor for the following RPC calls:
@@ -1235,11 +1274,11 @@ message ActionCreatePreparedStatementResult {
   // Opaque handle for the prepared statement on the server.
   bytes prepared_statement_handle = 1;
 
-  // If a result set generating query was provided, dataset_schema contains the 
+  // If a result set generating query was provided, dataset_schema contains the
   // schema of the dataset as described in Schema.fbs::Schema, it is serialized as an IPC message.
   bytes dataset_schema = 2;
 
-  // If the query provided contained parameters, parameter_schema contains the 
+  // If the query provided contained parameters, parameter_schema contains the
   // schema of the expected parameters as described in Schema.fbs::Schema, it is serialized as an IPC message.
   bytes parameter_schema = 3;
 }

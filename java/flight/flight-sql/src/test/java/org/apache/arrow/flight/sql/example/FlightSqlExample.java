@@ -30,6 +30,7 @@ import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetCrossReferenc
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetDbSchemas;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetExportedKeys;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetImportedKeys;
+import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetTypeInfo;
 import static org.apache.arrow.flight.sql.impl.FlightSql.DoPutUpdateResult;
 import static org.apache.arrow.flight.sql.impl.FlightSql.TicketStatementQuery;
 import static org.apache.arrow.util.Preconditions.checkState;
@@ -75,6 +76,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 import org.apache.arrow.adapter.jdbc.ArrowVectorIterator;
@@ -323,6 +325,14 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
         (theData, fieldVector) -> fieldVector.setSafe(index, theData));
   }
 
+  private static void saveToVector(final Byte data, final BitVector vector, final int index) {
+    vectorConsumer(
+        data,
+        vector,
+        fieldVector -> fieldVector.setNull(index),
+        (theData, fieldVector) -> fieldVector.setSafe(index, theData));
+  }
+
   private static void saveToVector(final String data, final VarCharVector vector, final int index) {
     preconditionCheckSaveToVector(vector, index);
     vectorConsumer(data, vector, fieldVector -> fieldVector.setNull(index),
@@ -375,29 +385,43 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   private static <T extends FieldVector> int saveToVectors(final Map<T, String> vectorToColumnName,
                                                            final ResultSet data, boolean emptyToNull)
       throws SQLException {
+    Predicate<ResultSet> alwaysTrue = (resultSet) -> true;
+    return saveToVectors(vectorToColumnName, data, emptyToNull, alwaysTrue);
+  }
+
+  private static <T extends FieldVector> int saveToVectors(final Map<T, String> vectorToColumnName,
+                                                           final ResultSet data, boolean emptyToNull,
+                                                           Predicate<ResultSet> resultSetPredicate)
+      throws SQLException {
     Objects.requireNonNull(vectorToColumnName, "vectorToColumnName cannot be null.");
     Objects.requireNonNull(data, "data cannot be null.");
     final Set<Entry<T, String>> entrySet = vectorToColumnName.entrySet();
     int rows = 0;
-    for (; data.next(); rows++) {
+
+    while (data.next()) {
+      if (!resultSetPredicate.test(data)) {
+        continue;
+      }
       for (final Entry<T, String> vectorToColumn : entrySet) {
         final T vector = vectorToColumn.getKey();
         final String columnName = vectorToColumn.getValue();
         if (vector instanceof VarCharVector) {
           String thisData = data.getString(columnName);
           saveToVector(emptyToNull ? emptyToNull(thisData) : thisData, (VarCharVector) vector, rows);
-          continue;
         } else if (vector instanceof IntVector) {
           final int intValue = data.getInt(columnName);
           saveToVector(data.wasNull() ? null : intValue, (IntVector) vector, rows);
-          continue;
         } else if (vector instanceof UInt1Vector) {
           final byte byteValue = data.getByte(columnName);
           saveToVector(data.wasNull() ? null : byteValue, (UInt1Vector) vector, rows);
-          continue;
+        } else if (vector instanceof BitVector) {
+          final byte byteValue = data.getByte(columnName);
+          saveToVector(data.wasNull() ? null : byteValue, (BitVector) vector, rows);
+        } else {
+          throw CallStatus.INVALID_ARGUMENT.withDescription("Provided vector not supported").toRuntimeException();
         }
-        throw CallStatus.INVALID_ARGUMENT.withDescription("Provided vector not supported").toRuntimeException();
       }
+      rows ++;
     }
     for (final Entry<T, String> vectorToColumn : entrySet) {
       vectorToColumn.getKey().setValueCount(rows);
@@ -431,6 +455,77 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     final int rows = dataVector.getValueCount();
     dataVector.setValueCount(rows);
     return new VectorSchemaRoot(singletonList(dataVector));
+  }
+
+  private static VectorSchemaRoot getTypeInfoRoot(CommandGetTypeInfo request, ResultSet typeInfo,
+                                                  final BufferAllocator allocator)
+      throws SQLException {
+    Objects.requireNonNull(allocator, "BufferAllocator cannot be null.");
+
+    VarCharVector typeNameVector = new VarCharVector("type_name", allocator);
+    IntVector dataTypeVector = new IntVector("data_type", allocator);
+    IntVector columnSizeVector = new IntVector("column_size", allocator);
+    VarCharVector literalPrefixVector = new VarCharVector("literal_prefix", allocator);
+    VarCharVector literalSuffixVector = new VarCharVector("literal_suffix", allocator);
+    VarCharVector createParamsVector = new VarCharVector("create_params", allocator);
+    IntVector nullableVector = new IntVector("nullable", allocator);
+    BitVector caseSensitiveVector = new BitVector("case_sensitive", allocator);
+    IntVector searchableVector = new IntVector("searchable", allocator);
+    BitVector unsignedAttributeVector = new BitVector("unsigned_attribute", allocator);
+    BitVector fixedPrecScaleVector = new BitVector("fixed_prec_scale", allocator);
+    BitVector autoIncrementVector = new BitVector("auto_increment", allocator);
+    VarCharVector localTypeNameVector = new VarCharVector("local_type_name", allocator);
+    IntVector minimumScaleVector = new IntVector("minimum_scale", allocator);
+    IntVector maximumScaleVector = new IntVector("maximum_scale", allocator);
+    IntVector sqlDataTypeVector = new IntVector("sql_data_type", allocator);
+    IntVector sqlDatetimeSubVector = new IntVector("sql_datetime_sub", allocator);
+    IntVector numPrecRadixVector = new IntVector("num_prec_radix", allocator);
+
+    List<FieldVector> vectors =
+        ImmutableList.of(typeNameVector, dataTypeVector, columnSizeVector, literalPrefixVector, literalSuffixVector,
+            createParamsVector, nullableVector, caseSensitiveVector, searchableVector, unsignedAttributeVector,
+            fixedPrecScaleVector, autoIncrementVector, localTypeNameVector, minimumScaleVector, maximumScaleVector,
+            sqlDataTypeVector, sqlDatetimeSubVector, numPrecRadixVector);
+
+    Map<FieldVector, String> mapper = new HashMap<>();
+    mapper.put(typeNameVector, "TYPE_NAME");
+    mapper.put(dataTypeVector, "DATA_TYPE");
+    mapper.put(columnSizeVector, "PRECISION");
+    mapper.put(literalPrefixVector, "LITERAL_PREFIX");
+    mapper.put(literalSuffixVector, "LITERAL_SUFFIX");
+    mapper.put(createParamsVector, "CREATE_PARAMS");
+    mapper.put(nullableVector, "NULLABLE");
+    mapper.put(caseSensitiveVector, "CASE_SENSITIVE");
+    mapper.put(searchableVector, "SEARCHABLE");
+    mapper.put(unsignedAttributeVector, "UNSIGNED_ATTRIBUTE");
+    mapper.put(fixedPrecScaleVector, "FIXED_PREC_SCALE");
+    mapper.put(autoIncrementVector, "AUTO_INCREMENT");
+    mapper.put(localTypeNameVector, "LOCAL_TYPE_NAME");
+    mapper.put(minimumScaleVector, "MINIMUM_SCALE");
+    mapper.put(maximumScaleVector, "MAXIMUM_SCALE");
+    mapper.put(sqlDataTypeVector, "SQL_DATA_TYPE");
+    mapper.put(sqlDatetimeSubVector, "SQL_DATETIME_SUB");
+    mapper.put(numPrecRadixVector, "NUM_PREC_RADIX");
+
+    Predicate<ResultSet> predicate;
+    if (request.hasDataType()) {
+      predicate = (resultSet) -> {
+        try {
+          return resultSet.getInt("DATA_TYPE") == request.getDataType();
+        } catch (SQLException e) {
+          throw new RuntimeException(e);
+        }
+      };
+    } else {
+      predicate = (resultSet -> true);
+    }
+
+    saveToVectors(mapper, typeInfo, true, predicate);
+    final int rows =
+        vectors.stream().map(FieldVector::getValueCount).findAny().orElseThrow(IllegalStateException::new);
+    vectors.forEach(vector -> vector.setValueCount(rows));
+
+    return new VectorSchemaRoot(vectors);
   }
 
   private static VectorSchemaRoot getTablesRoot(final DatabaseMetaData databaseMetaData,
@@ -1300,6 +1395,28 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   public void getStreamSqlInfo(final CommandGetSqlInfo command, final CallContext context,
                                final ServerStreamListener listener) {
     this.sqlInfoBuilder.send(command.getInfoList(), listener);
+  }
+
+  @Override
+  public FlightInfo getFlightInfoTypeInfo(CommandGetTypeInfo request, CallContext context,
+                                          FlightDescriptor descriptor) {
+    return getFlightInfoForSchema(request, descriptor, Schemas.GET_TYPE_INFO_SCHEMA);
+  }
+
+  @Override
+  public void getStreamTypeInfo(CommandGetTypeInfo request, CallContext context,
+                                ServerStreamListener listener) {
+    try (final Connection connection = dataSource.getConnection();
+         final ResultSet typeInfo = connection.getMetaData().getTypeInfo();
+         final VectorSchemaRoot vectorSchemaRoot = getTypeInfoRoot(request, typeInfo, rootAllocator)) {
+      listener.start(vectorSchemaRoot);
+      listener.putNext();
+    } catch (SQLException e) {
+      LOGGER.error(format("Failed to getStreamCatalogs: <%s>.", e.getMessage()), e);
+      listener.error(e);
+    } finally {
+      listener.completed();
+    }
   }
 
   @Override
