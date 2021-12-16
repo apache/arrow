@@ -3677,10 +3677,10 @@ def test_write_dataset_max_rows_per_file(tempdir):
 
 def test_write_dataset_min_rows_per_group(tempdir):
     directory = tempdir / 'ds'
-    min_rows_per_group = 10
+    min_rows_per_group = 20
     max_rows_per_group = 20
     num_of_columns = 2
-    num_of_records = 35
+    num_of_records = 50
 
     record_batch = _generate_data_and_columns(num_of_columns,
                                               num_of_records)
@@ -3699,15 +3699,12 @@ def test_write_dataset_min_rows_per_group(tempdir):
         dataset = ds.dataset(f_path, format="parquet")
         table = dataset.to_table()
         batches = table.to_batches()
-        # fragments = list(dataset.get_fragments())
-
         for batch in batches:
             batched_data.append(batch.num_rows)
 
-    print(min_rows_per_group, batched_data, max_rows_per_group)
-    assert batched_data[0] > min_rows_per_group and \
+    assert batched_data[0] >= min_rows_per_group and \
         batched_data[0] <= max_rows_per_group
-    assert batched_data[1] > min_rows_per_group and \
+    assert batched_data[1] >= min_rows_per_group and \
         batched_data[1] <= max_rows_per_group
 
 
