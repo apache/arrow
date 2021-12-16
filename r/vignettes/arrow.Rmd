@@ -175,10 +175,10 @@ to Arrow list type (which is a "list of" some type).
 | fixed_size_binary | arrow_fixed_size_binary ^3^  |
 | date32            | Date                         |
 | date64            | POSIXct                      |
-| time32            | hms::difftime                |
-| time64            | hms::difftime                |
+| time32            | hms::hms                     |
+| time64            | hms::hms                     |
 | timestamp         | POSIXct                      |
-| duration          | -^2^                         |
+| duration          | difftime                     |
 | decimal           | double                       |
 | dictionary        | factor^4^                    |
 | list              | arrow_list ^5^               |
