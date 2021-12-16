@@ -20,6 +20,8 @@
 # This script is Github Actions-specific to free up disk space,
 # to avoid disk full errors on some builds
 
+exit 0
+
 if [ $RUNNER_OS = "Linux" ]; then
     df -h
 
