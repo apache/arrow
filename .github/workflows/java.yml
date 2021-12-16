@@ -65,9 +65,6 @@ jobs:
         with:
           fetch-depth: 0
           submodules: recursive
-      - name: Free Up Disk Space
-        shell: bash
-        run: ci/scripts/util_cleanup.sh
       - name: Cache Docker Volumes
         uses: actions/cache@v2
         with:

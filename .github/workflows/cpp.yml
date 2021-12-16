@@ -52,7 +52,7 @@ jobs:
   docker:
     name: ${{ matrix.title }}
     runs-on: ubuntu-latest
-    # if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 60
     strategy:
       fail-fast: false
@@ -71,8 +71,6 @@ jobs:
         with:
           fetch-depth: 0
           submodules: recursive
-      - name: Free Up Disk Space
-        run: ci/scripts/util_cleanup.sh
       - name: Cache Docker Volumes
         uses: actions/cache@v2
         with:
@@ -307,8 +305,7 @@ jobs:
           update: true
       - name: Setup MSYS2
         shell: msys2 {0}
-        run: |
-          ci/scripts/msys2_setup.sh cpp
+        run: ci/scripts/msys2_setup.sh cpp
       - name: Cache ccache
         uses: actions/cache@v2
         with:

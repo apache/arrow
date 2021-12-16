@@ -68,8 +68,6 @@ jobs:
         with:
           repository: apache/arrow-rs
           path: rust
-      - name: Free Up Disk Space
-        run: ci/scripts/util_cleanup.sh
       - name: Cache Docker Volumes
         uses: actions/cache@v2
         with:
