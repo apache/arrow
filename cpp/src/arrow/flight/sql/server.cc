@@ -154,6 +154,17 @@ arrow::Result<StatementQuery> ParseCommandStatementQuery(
   return result;
 }
 
+arrow::Result<GetTypeInfo> ParseCommandGetTypeInfo(const google::protobuf::Any& any) {
+  pb::sql::CommandGetTypeInfo command;
+  if (!any.UnpackTo(&command)) {
+    return Status::Invalid("Unable to unpack CommandGetTypeInfo.");
+  }
+
+  GetTypeInfo result;
+  result.data_type = PROPERTY_TO_OPTIONAL(command, data_type);
+  return result;
+}
+
 arrow::Result<GetTables> ParseCommandGetTables(const google::protobuf::Any& any) {
   pb::sql::CommandGetTables command;
   if (!any.UnpackTo(&command)) {
@@ -288,6 +299,12 @@ Status FlightSqlServerBase::GetFlightInfo(const ServerCallContext& context,
   } else if (any.Is<pb::sql::CommandGetTableTypes>()) {
     ARROW_ASSIGN_OR_RAISE(*info, GetFlightInfoTableTypes(context, request));
     return Status::OK();
+  } else if (any.Is<pb::sql::CommandGetTypeInfo>()) {
+    ARROW_ASSIGN_OR_RAISE(GetTypeInfo internal_command,
+                          ParseCommandGetTypeInfo(any));
+    ARROW_ASSIGN_OR_RAISE(*info, GetFlightInfoTypeInfo(context,
+                                                       internal_command, request))
+    return Status::OK();
   } else if (any.Is<pb::sql::CommandGetSqlInfo>()) {
     ARROW_ASSIGN_OR_RAISE(GetSqlInfo internal_command,
                           ParseCommandGetSqlInfo(any, sql_info_id_to_result_));
@@ -354,6 +371,10 @@ Status FlightSqlServerBase::DoGet(const ServerCallContext& context, const Ticket
     return Status::OK();
   } else if (any.Is<pb::sql::CommandGetTableTypes>()) {
     ARROW_ASSIGN_OR_RAISE(*stream, DoGetTableTypes(context));
+    return Status::OK();
+  } else if (any.Is<pb::sql::CommandGetTypeInfo>()) {
+    ARROW_ASSIGN_OR_RAISE(GetTypeInfo command, ParseCommandGetTypeInfo(any));
+    ARROW_ASSIGN_OR_RAISE(*stream, DoGetTypeInfo(context, command))
     return Status::OK();
   } else if (any.Is<pb::sql::CommandGetSqlInfo>()) {
     ARROW_ASSIGN_OR_RAISE(GetSqlInfo internal_command,
@@ -536,6 +557,19 @@ arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlServerBase::GetFlightInfoSql
                                                       descriptor, endpoints, -1, -1))
 
   return std::unique_ptr<FlightInfo>(new FlightInfo(result));
+}
+
+arrow::Result<std::unique_ptr<FlightInfo>>
+FlightSqlServerBase::GetFlightInfoTypeInfo(const ServerCallContext &context,
+                                           const GetTypeInfo &command,
+                                           const FlightDescriptor &descriptor) {
+  return Status::NotImplemented("GetFlightInfoTypeInfo not implemented");
+}
+
+arrow::Result<std::unique_ptr<FlightDataStream>>
+FlightSqlServerBase::DoGetTypeInfo(const ServerCallContext &context,
+                                   const GetTypeInfo &command) {
+  return Status::NotImplemented("DoGetTypeInfo not implemented");
 }
 
 void FlightSqlServerBase::RegisterSqlInfo(int32_t id, const SqlInfoResult& result) {
@@ -757,6 +791,29 @@ std::shared_ptr<Schema> SqlSchema::GetSqlInfoSchema() {
                               false)});
 }
 
+std::shared_ptr<Schema> SqlSchema::GetTypeInfoSchema() {
+  return arrow::schema({
+                         field("type_name", utf8(), false),
+                         field("data_type", int64(), false),
+                         field("column_size", int64()),
+                         field("literal_prefix", utf8()),
+                         field("literal_sufFix", utf8()),
+                         field("create_params", utf8()),
+                         field("nullable", int64(), false),
+                         field("case_sensitive", boolean(), false),
+                         field("searchable", int64(), false),
+                         field("unsigned_attribute", int64()),
+                         field("fixed_prec_scale", boolean(), false),
+                         field("auto_increment", boolean()),
+                         field("local_type_name", utf8()),
+                         field("minimum_scale", int64()),
+                         field("maximum_scale", int64()),
+                         field("sql_data_type", int64(), false),
+                         field("sql_datetime_sub", int64()),
+                         field("num_prec_radix", int64()),
+                         field("interval_precision", int64()),
+                       });
+}
 }  // namespace sql
 }  // namespace flight
 }  // namespace arrow
