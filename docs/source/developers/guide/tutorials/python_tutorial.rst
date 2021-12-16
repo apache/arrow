@@ -102,7 +102,12 @@ and click on the **Create** button.
 
    Creating a JIRA issue, adding a description.
 
-We will also add some comments to start a conversation.
+We should make sure to assign ourselves to the issue to let others
+know we are working on it. If that option is not working, we would
+need to ask for a project maintainer’s help on the
+:ref:`mailing_list`.
+
+Lets also add some comments to start a conversation.
 
 .. figure:: python_tutorial_jira_comment.jpeg
    :scale: 50 %
