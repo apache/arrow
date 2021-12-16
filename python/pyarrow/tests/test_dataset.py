@@ -3625,14 +3625,14 @@ def _generate_random_int_array(size=4, min=1, max=10):
     return np.random.randint(min, max, size)
 
 
-def _generate_data_and_columns(num_of_columns, records_per_row,
+def _generate_data_and_columns(num_of_columns, num_of_records,
                                unique_records=None):
     data = []
     column_names = []
     if unique_records is None:
-        unique_records = records_per_row
+        unique_records = num_of_records
     for i in range(num_of_columns):
-        data.append(_generate_random_int_array(size=records_per_row,
+        data.append(_generate_random_int_array(size=num_of_records,
                                                min=1,
                                                max=unique_records))
         column_names.append("c" + str(i))
@@ -3655,10 +3655,10 @@ def test_write_dataset_max_rows_per_file(tempdir):
     max_rows_per_file = 10
     max_rows_per_group = 10
     num_of_columns = 2
-    records_per_row = 35
+    num_of_records = 35
 
     data, column_names = _generate_data_and_columns(num_of_columns,
-                                                    records_per_row)
+                                                    num_of_records)
 
     record_batch = pa.record_batch(data=data, names=column_names)
 
@@ -3696,11 +3696,11 @@ def test_write_dataset_min_rows_per_group(tempdir):
     min_rows_per_group = 10
     max_rows_per_group = 20
     num_of_columns = 2
-    records_per_row = 49
+    num_of_records = 49
     unique_records = 5
 
     data, column_names = _generate_data_and_columns(num_of_columns,
-                                                    records_per_row,
+                                                    num_of_records,
                                                     unique_records)
 
     record_batch = pa.record_batch(data=data, names=column_names)
@@ -3733,11 +3733,11 @@ def test_write_dataset_max_rows_per_group(tempdir):
     directory = tempdir / 'ds'
     max_rows_per_group = 18
     num_of_columns = 2
-    records_per_row = 30
+    num_of_records = 30
     unique_records = 5
 
     data, column_names = _generate_data_and_columns(num_of_columns,
-                                                    records_per_row,
+                                                    num_of_records,
                                                     unique_records)
 
     record_batch = pa.record_batch(data=data, names=column_names)
