@@ -766,9 +766,15 @@ if(ARROW_S3)
 endif()
 
 if(ARROW_WITH_OPENTELEMETRY)
-  list(APPEND ARROW_LINK_LIBS opentelemetry-cpp::trace
+  list(APPEND
+       ARROW_LINK_LIBS
+       opentelemetry-cpp::trace
+       opentelemetry-cpp::ostream_span_exporter
        opentelemetry-cpp::otlp_http_exporter)
-  list(APPEND ARROW_STATIC_LINK_LIBS opentelemetry-cpp::trace
+  list(APPEND
+       ARROW_STATIC_LINK_LIBS
+       opentelemetry-cpp::trace
+       opentelemetry-cpp::ostream_span_exporter
        opentelemetry-cpp::otlp_http_exporter)
 endif()
 
