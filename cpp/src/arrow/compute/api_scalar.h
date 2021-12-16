@@ -421,7 +421,15 @@ struct ARROW_EXPORT Utf8NormalizeOptions : public FunctionOptions {
   Form form;
 };
 
-class ARROW_EXPORT RandomOptions : public FunctionOptions {
+class ARROW_EXPORT NullaryOptions : public FunctionOptions {
+ public:
+  explicit NullaryOptions(int64_t length);
+
+  /// The length of the array returned by the nullary function. Negative is invalid.
+  int64_t length;
+};
+
+class ARROW_EXPORT RandomOptions : public NullaryOptions {
  public:
   enum Initializer { SystemRandom, Seed };
 
@@ -438,8 +446,8 @@ class ARROW_EXPORT RandomOptions : public FunctionOptions {
   constexpr static char const kTypeName[] = "RandomOptions";
   static RandomOptions Defaults() { return RandomOptions(); }
 
+  /// The type of initialization for random number generation - system or provided seed.
   Initializer initializer;
-  int64_t length;  // negative means invalid
   /// The seed value used to initialize the random number generation.
   int64_t seed;
 };

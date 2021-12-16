@@ -541,6 +541,10 @@ Result<Datum> ExecuteScalarExpression(const Expression& expr, const ExecBatch& i
   auto kernel = call->kernel;
   auto descrs = GetDescriptors(arguments);
   auto options = call->options.get();
+  if (arguments.size() == 0 && dynamic_cast<NullaryOptions*>(options)) {
+    auto nullary_options = static_cast<NullaryOptions*>(options);
+    nullary_options->length = input.length;
+  }
   RETURN_NOT_OK(executor->Init(&kernel_context, {kernel, descrs, options}));
 
   compute::detail::DatumAccumulator listener;

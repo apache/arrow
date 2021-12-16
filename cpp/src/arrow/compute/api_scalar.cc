@@ -469,11 +469,11 @@ WeekOptions::WeekOptions(bool week_starts_monday, bool count_from_zero,
       first_week_is_fully_in_year(first_week_is_fully_in_year) {}
 constexpr char WeekOptions::kTypeName[];
 
+NullaryOptions::NullaryOptions(int64_t length)
+    : FunctionOptions(internal::kRandomOptionsType), length(length) {}
+
 RandomOptions::RandomOptions(Initializer initializer, int64_t length, int64_t seed)
-    : FunctionOptions(internal::kRandomOptionsType),
-      initializer(initializer),
-      length(length),
-      seed(seed) {}
+    : NullaryOptions(length), initializer(initializer), seed(seed) {}
 RandomOptions::RandomOptions() : RandomOptions(SystemRandom, -1, 0) {}
 constexpr char RandomOptions::kTypeName[];
 
