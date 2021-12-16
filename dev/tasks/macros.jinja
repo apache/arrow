@@ -29,7 +29,7 @@ on:
   - name: Checkout Arrow
     uses: actions/checkout@v2
     with:
-      repository: {{ arrow.remote }}
+      repository: {{ arrow.github_repo }}
       ref: {{ arrow.head }}
       path: arrow
       submodules: recursive
