@@ -3649,21 +3649,16 @@ def test_write_dataset_max_rows_per_file(tempdir):
     num_of_records = 35
 
     record_batch = _generate_data_and_columns(num_of_columns,
-                                                    num_of_records)
+                                              num_of_records)
 
-    sub_directory = directory / 'onewrite'
-
-    ds.write_dataset(record_batch, sub_directory, format="parquet",
+    ds.write_dataset(record_batch, directory, format="parquet",
                      max_rows_per_file=max_rows_per_file,
                      max_rows_per_group=max_rows_per_group)
 
-    files_in_dir = os.listdir(sub_directory)
+    files_in_dir = os.listdir(directory)
 
     # number of partitions with max_rows and the partition with the remainder
     expected_partitions = num_of_records // max_rows_per_file + 1
-    expected_row_combination = [max_rows_per_file
-                                for i in range(expected_partitions - 1)] \
-        + [num_of_records - ((expected_partitions - 1) * max_rows_per_file)]
 
     # test whether the expected amount of files are written
     assert len(files_in_dir) == expected_partitions
@@ -3671,13 +3666,13 @@ def test_write_dataset_max_rows_per_file(tempdir):
     # compute the number of rows per each file written
     result_row_combination = []
     for _, f_file in enumerate(files_in_dir):
-        f_path = sub_directory / str(f_file)
+        f_path = directory / str(f_file)
         dataset = ds.dataset(f_path, format="parquet")
         result_row_combination.append(dataset.to_table().shape[0])
 
     # test whether the generated files have the expected number of rows
-    assert len(expected_row_combination) == len(result_row_combination)
-    assert sum(expected_row_combination) == sum(result_row_combination)
+    assert expected_partitions == len(result_row_combination)
+    assert num_of_records == sum(result_row_combination)
 
 
 def test_write_dataset_min_rows_per_group(tempdir):
@@ -3685,11 +3680,10 @@ def test_write_dataset_min_rows_per_group(tempdir):
     min_rows_per_group = 10
     max_rows_per_group = 20
     num_of_columns = 2
-    num_of_records = 49
+    num_of_records = 35
 
     record_batch = _generate_data_and_columns(num_of_columns,
-                                                    num_of_records)
-
+                                              num_of_records)
 
     data_source = directory / "min_rows_group"
 
@@ -3705,14 +3699,16 @@ def test_write_dataset_min_rows_per_group(tempdir):
         dataset = ds.dataset(f_path, format="parquet")
         table = dataset.to_table()
         batches = table.to_batches()
+        # fragments = list(dataset.get_fragments())
+
         for batch in batches:
             batched_data.append(batch.num_rows)
 
+    print(min_rows_per_group, batched_data, max_rows_per_group)
     assert batched_data[0] > min_rows_per_group and \
         batched_data[0] <= max_rows_per_group
     assert batched_data[1] > min_rows_per_group and \
         batched_data[1] <= max_rows_per_group
-    assert batched_data[2] <= max_rows_per_group
 
 
 def test_write_dataset_max_rows_per_group(tempdir):
@@ -3722,7 +3718,7 @@ def test_write_dataset_max_rows_per_group(tempdir):
     num_of_records = 30
 
     record_batch = _generate_data_and_columns(num_of_columns,
-                                                    num_of_records)
+                                              num_of_records)
 
     data_source = directory / "max_rows_group"
 
