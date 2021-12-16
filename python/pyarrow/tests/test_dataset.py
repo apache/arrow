@@ -3750,7 +3750,7 @@ def test_write_dataset_max_rows_per_group(tempdir):
 
     files_in_dir = os.listdir(data_source)
     batched_data = []
-    for _, f_file in enumerate(files_in_dir):
+    for f_file in files_in_dir:
         f_path = data_source / str(f_file)
         dataset = ds.dataset(f_path, format="parquet")
         table = dataset.to_table()
@@ -3792,8 +3792,11 @@ def test_write_dataset_max_open_files(tempdir):
                      partitioning=partitioning, format=file_format)
 
     # CASE 1: when max_open_files=default & max_open_files >= num_of_partitions
-    #         the number of unique rows must be equal to
-    #         the number of files generated
+    #         In case of a writing to disk via partitioning based on a
+    #         particular column (considering row labels in that column),
+    #         the number of unique rows must be equal
+    #         to the number of files generated
+
     num_of_files_generated, number_of_unique_rows \
         = _get_compare_pair(data_source_1, record_batch_1, file_format,
                             partition_column_id)
