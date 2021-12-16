@@ -202,8 +202,27 @@ TEST(TestIsMonotonicKernel, VectorFunction) {
   Check(ArrayFromJSON(float64(), "[4, 3, 2, 1]"), false, false, true, true);
 
   // Temporal
-  Check(ArrayFromJSON(date32(), "[1, 2, 3, 4, 4]"), true, false, false, false);
-  Check(ArrayFromJSON(date64(), "[0, 0, 3, 4, 4]"), true, false, false, false);
+  Check(ArrayFromJSON(time32(TimeUnit::SECOND), "[1, 2, 3, 4, 5]"), true, true, false,
+        false);
+  Check(ArrayFromJSON(time64(TimeUnit::NANO), "[5, 4, 4, 2, 1]"), false, false, true,
+        false);
+  Check(ArrayFromJSON(timestamp(TimeUnit::SECOND),
+                      R"(["1970-01-01","2000-02-29","1900-02-28"])"),
+        false, false, false, false);
+  Check(ArrayFromJSON(timestamp(TimeUnit::MILLI, "UTC"),
+                      R"(["1970-01-01","1971-01-01","1972-01-01"])"),
+        true, true, false, false);
+  Check(ArrayFromJSON(date32(), "[1, 2, 3, 4, null, 5]"), true, true, false, false);
+  Check(ArrayFromJSON(date64(), "[1, 2, 3, 4, null, 5]"), false, false, false, false,
+        max);
+  Check(ArrayFromJSON(month_interval(), "[1, 2, 3, 4, null, 5]"), true, true, false,
+        false);
+  Check(ArrayFromJSON(month_interval(), "[1, 2, 3, 4, null]"), true, true, false, false,
+        max);
+  Check(ArrayFromJSON(duration(TimeUnit::SECOND), "[1, 2, 3, 4, 5]"), true, true, false,
+        false);
+  Check(ArrayFromJSON(duration(TimeUnit::NANO), "[5, 4, 4, 2, 1]"), false, false, true,
+        false);
 }
 
 }  // namespace compute

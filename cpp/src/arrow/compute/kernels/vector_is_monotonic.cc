@@ -269,8 +269,8 @@ Status AddIsMonotonicKernel(VectorFunction* func) {
   VectorKernel is_monotonic_base;
   is_monotonic_base.init = IsMonotonicState::Init;
   is_monotonic_base.can_execute_chunkwise = false;
-  is_monotonic_base.signature = KernelSignature::Make(
-      {InputType::Array(TypeTraits<Type>::type_singleton())}, output_type);
+  is_monotonic_base.signature =
+      KernelSignature::Make({InputType::Array(Type::type_id)}, output_type);
   is_monotonic_base.exec = IsMonotonic<Type>;
   return func->AddKernel(is_monotonic_base);
 }
@@ -297,14 +297,16 @@ void RegisterVectorIsMonotonic(FunctionRegistry* registry) {
   DCHECK_OK(AddIsMonotonicKernel<FloatType>(func.get()));
   DCHECK_OK(AddIsMonotonicKernel<DoubleType>(func.get()));
 
-  // Temportal types
-  // DCHECK_OK(AddIsMonotonicKernel<Time32Type>(func.get()));
-  // DCHECK_OK(AddIsMonotonicKernel<Time64Type>(func.get()));
+  // Temporal types
+  DCHECK_OK(AddIsMonotonicKernel<Time32Type>(func.get()));
+  DCHECK_OK(AddIsMonotonicKernel<Time64Type>(func.get()));
+  DCHECK_OK(AddIsMonotonicKernel<TimestampType>(func.get()));
   DCHECK_OK(AddIsMonotonicKernel<Date32Type>(func.get()));
   DCHECK_OK(AddIsMonotonicKernel<Date64Type>(func.get()));
   // DCHECK_OK(AddIsMonotonicKernel<DayTimeIntervalType>(func.get()));
   // DCHECK_OK(AddIsMonotonicKernel<MonthDayNanoIntervalType>(func.get()));
   DCHECK_OK(AddIsMonotonicKernel<MonthIntervalType>(func.get()));
+  DCHECK_OK(AddIsMonotonicKernel<DurationType>(func.get()));
 
   // Decimal types
   // DCHECK_OK(AddIsMonotonicKernel<Decimal128Type>(func.get()));
