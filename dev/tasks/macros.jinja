@@ -27,12 +27,12 @@ on:
 
 {%- macro github_checkout_arrow() -%}
   - name: Checkout Arrow
-    run: |
-      git clone --no-checkout {{ arrow.remote }} arrow
-      git -C arrow config core.symlinks true
-      git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
-      git -C arrow checkout FETCH_HEAD
-      git -C arrow submodule update --init --recursive
+    uses: actions/checkout@v2
+    with:
+      repository: {{ arrow.remote }}
+      ref: {{ arrow.head }}
+      path: arrow
+      submodules: recursive
 {% endmacro %}
 
 {%- macro github_login_dockerhub() -%}
