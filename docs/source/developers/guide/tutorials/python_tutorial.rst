@@ -38,14 +38,14 @@ correcting a bug or adding a binding.
 
 This tutorial is different from the :ref:`step_by_step` as we
 will be working on a specific case. This tutorial is not meant
-as a step by step guide.
+as a step-by-step guide.
 
 **Lets start!**
 
 Set up
 ------
 
-Lets setup the Arrow repository. We presume here that Git is
+Let's setup the Arrow repository. We presume here that Git is
 already installed. Otherwise please see the :ref:`set-up` section.
 
 Once the `Apache Arrow repository <https://github.com/apache/arrow>`_
@@ -167,7 +167,7 @@ From the search we can see that the function is tested in the
 function is defined in the ``compute.py`` file.
 
 After examining the ``compute.py`` file we can see that together
-with ``_compute.py`` the functions from C++ get wrapped into Python.
+with ``_compute.pyx`` the functions from C++ get wrapped into Python.
 We will define the new feature at the end of the ``compute.py`` file. 
 
 Lets run some code in the Python console from ``arrow/python``
@@ -182,7 +182,7 @@ directory in order to learn more about ``pc.min_max``.
    [Clang 13.0.0 (clang-1300.0.29.3)] on darwin
    Type "help", "copyright", "credits" or "license" for more information.
    
-We have entered into Python console from the shell and we can
+We have entered into the Python console from the shell and we can
 do some research:
 
 .. code-block:: python
@@ -260,7 +260,7 @@ Python console and try creating one ourselves.
 .. note::
 
    In cases where we don't yet have good documentation, unit tests
-   can be a good place to look for code examples
+   can be a good place to look for code examples.
 
 With the new gained knowledge about ``StructScalar`` and additional
 options for the ``pc.min_max`` function we can finish the work.
