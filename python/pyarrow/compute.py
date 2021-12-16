@@ -87,11 +87,16 @@ def _get_arg_names(func):
     return func._doc.arg_names
 
 
-def _decorate_compute_function(wrapper, exposed_name, func, option_class):
+def _decorate_compute_function(wrapper, exposed_name, func, options_class):
     # Decorate the given compute function wrapper with useful metadata
     # and documentation.
-    wrapper.__arrow_compute_function__ = dict(name=func.name,
-                                              arity=func.arity)
+    cpp_doc = func._doc
+
+    wrapper.__arrow_compute_function__ = dict(
+        name=func.name,
+        arity=func.arity,
+        options_class=cpp_doc.options_class,
+        options_required=cpp_doc.options_required)
     wrapper.__name__ = exposed_name
     wrapper.__qualname__ = exposed_name
 
@@ -135,18 +140,18 @@ def _decorate_compute_function(wrapper, exposed_name, func, option_class):
                 Argument to compute function
             """.format(arg_name, arg_type))
 
-    if option_class is not None:
-        options_sig = inspect.signature(option_class)
+    if options_class is not None:
+        options_sig = inspect.signature(options_class)
         for p in options_sig.parameters.values():
             doc_pieces.append("""\
             {0} : optional
                 Parameter for {1} constructor. Either `options`
                 or `{0}` can be passed, but not both at the same time.
-            """.format(p.name, option_class.__name__))
+            """.format(p.name, options_class.__name__))
         doc_pieces.append("""\
             options : pyarrow.compute.{0}, optional
                 Parameters altering compute function semantics.
-            """.format(option_class.__name__))
+            """.format(options_class.__name__))
 
     doc_pieces.append("""\
         memory_pool : pyarrow.MemoryPool, optional
@@ -173,29 +178,29 @@ def _get_options_class(func):
         return None
 
 
-def _handle_options(name, option_class, options, args, kwargs):
+def _handle_options(name, options_class, options, args, kwargs):
     if args or kwargs:
-        if options is None:
-            return option_class(*args, **kwargs)
-        raise TypeError(
-            "Function {!r} called with both an 'options' argument "
-            "and additional arguments"
-            .format(name))
+        if options is not None:
+            raise TypeError(
+                "Function {!r} called with both an 'options' argument "
+                "and additional arguments"
+                .format(name))
+        return options_class(*args, **kwargs)
 
     if options is not None:
         if isinstance(options, dict):
-            return option_class(**options)
-        elif isinstance(options, option_class):
+            return options_class(**options)
+        elif isinstance(options, options_class):
             return options
         raise TypeError(
             "Function {!r} expected a {} parameter, got {}"
-            .format(name, option_class, type(options)))
+            .format(name, options_class, type(options)))
 
-    return options
+    return None
 
 
-def _make_generic_wrapper(func_name, func, option_class, arity):
-    if option_class is None:
+def _make_generic_wrapper(func_name, func, options_class, arity):
+    if options_class is None:
         def wrapper(*args, memory_pool=None):
             if arity is not Ellipsis and len(args) != arity:
                 raise TypeError(
@@ -215,21 +220,21 @@ def _make_generic_wrapper(func_name, func, option_class, arity):
                 args = args[:arity]
             else:
                 option_args = ()
-            options = _handle_options(func_name, option_class, options,
+            options = _handle_options(func_name, options_class, options,
                                       option_args, kwargs)
             return func.call(args, options, memory_pool)
     return wrapper
 
 
-def _make_signature(arg_names, var_arg_names, option_class):
+def _make_signature(arg_names, var_arg_names, options_class):
     from inspect import Parameter
     params = []
     for name in arg_names:
         params.append(Parameter(name, Parameter.POSITIONAL_ONLY))
     for name in var_arg_names:
         params.append(Parameter(name, Parameter.VAR_POSITIONAL))
-    if option_class is not None:
-        options_sig = inspect.signature(option_class)
+    if options_class is not None:
+        options_sig = inspect.signature(options_class)
         for p in options_sig.parameters.values():
             assert p.kind in (Parameter.POSITIONAL_OR_KEYWORD,
                               Parameter.KEYWORD_ONLY)
@@ -245,7 +250,7 @@ def _make_signature(arg_names, var_arg_names, option_class):
 
 
 def _wrap_function(name, func):
-    option_class = _get_options_class(func)
+    options_class = _get_options_class(func)
     arg_names = _get_arg_names(func)
     has_vararg = arg_names and arg_names[-1].startswith('*')
     if has_vararg:
@@ -253,10 +258,11 @@ def _wrap_function(name, func):
     else:
         var_arg_names = []
 
-    wrapper = _make_generic_wrapper(name, func, option_class, arity=func.arity)
+    wrapper = _make_generic_wrapper(
+        name, func, options_class, arity=func.arity)
     wrapper.__signature__ = _make_signature(arg_names, var_arg_names,
-                                            option_class)
-    return _decorate_compute_function(wrapper, name, func, option_class)
+                                            options_class)
+    return _decorate_compute_function(wrapper, name, func, options_class)
 
 
 def _make_global_functions():

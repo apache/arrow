@@ -372,7 +372,7 @@ struct ModeExecutor {
     }
     const ModeOptions& options = ModeState::Get(ctx);
     if (options.n <= 0) {
-      return Status::Invalid("ModeOption::n must be strictly positive");
+      return Status::Invalid("ModeOptions::n must be strictly positive");
     }
 
     if (batch[0].is_scalar()) {

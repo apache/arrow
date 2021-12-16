@@ -1780,6 +1780,7 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         c_string description
         vector[c_string] arg_names
         c_string options_class
+        c_bool options_required
 
     cdef cppclass CFunctionOptionsType" arrow::compute::FunctionOptionsType":
         const char* type_name() const

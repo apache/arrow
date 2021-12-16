@@ -85,7 +85,12 @@ def test_exported_functions():
     functions = exported_functions
     assert len(functions) >= 10
     for func in functions:
-        arity = func.__arrow_compute_function__['arity']
+        desc = func.__arrow_compute_function__
+        if desc['options_required']:
+            # Skip this function as it will fail with a different error
+            # message if we don't pass an options instance.
+            continue
+        arity = desc['arity']
         if arity is Ellipsis:
             args = [object()] * 3
         else:
@@ -1947,6 +1952,11 @@ def test_partition_nth():
     # Positional pivot argument
     assert pc.partition_nth_indices(data, pivot) == indices
 
+    with pytest.raises(
+            ValueError,
+            match="'partition_nth_indices' cannot be called without options"):
+        pc.partition_nth_indices(data)
+
 
 def test_partition_nth_null_placement():
     data = list(range(10)) + [None] * 10
@@ -2029,9 +2039,14 @@ def test_select_k_table():
         validate_select_k(
             result, table, sort_keys=[("a", "ascending"), ("b", "ascending")])
 
+    with pytest.raises(
+            ValueError,
+            match="'select_k_unstable' cannot be called without options"):
+        pc.select_k_unstable(table)
+
     with pytest.raises(ValueError,
                        match="select_k_unstable requires a nonnegative `k`"):
-        pc.select_k_unstable(table)
+        pc.select_k_unstable(table, k=-1, sort_keys=[("a", "ascending")])
 
     with pytest.raises(ValueError,
                        match="select_k_unstable requires a "
