@@ -31,25 +31,13 @@ Additional information and resources
 On this page we will list resources interesting for a contributor
 that is not yet acquainted with different parts of Apache Arrow.
 
+.. Annotation Glossary
+.. -------------------
+.. ARROW-15130
+
 Additional information
 ----------------------
 
-- `CMake <https://cmake.org/documentation/>`_
-- `Gandiva <https://arrow.apache.org/blog/2018/12/05/gandiva-donation/>`_
-- SIMD
-
-  - `Columnar is Fast section of Apache Arrow Overview <https://arrow.apache.org/overview/>`_
-  - `SIMD on Wikipedia <https://en.wikipedia.org/wiki/SIMD>`_
-
-- Memory management
-
-  - `C++ <https://arrow.apache.org/docs/cpp/memory.html>`_
-  - `Python <https://arrow.apache.org/docs/python/memory.html>`_
-  - `jemalloc <https://arrow.apache.org/blog/2018/07/20/jemalloc/>`_,
-    `mimalloc <https://github.com/microsoft/mimalloc#readme>`_
-  - `Plasma <https://arrow.apache.org/blog/2017/08/08/plasma-in-memory-object-store/>`_
-
-- `Snappy <https://github.com/google/snappy#introduction>`_
 - GitHub Actions
 
   - `Apache Arrow Actions on GitHub <https://github.com/apache/arrow/actions>`_
@@ -59,8 +47,6 @@ Additional information
 
   - `R package <https://ursalabs.org/arrow-r-nightly/articles/install.html#install-the-nightly-build>`_
 
-- `Archery <https://arrow.apache.org/docs/developers/archery.html>`_
-- `Docker <https://arrow.apache.org/docs/developers/docker.html>`_
 - `Apache Arrow releases <https://arrow.apache.org/release/>`_
 
 Other resources
@@ -72,5 +58,8 @@ Other resources
 - `Craft Minimal Bug Reports by Matthew Rocklin <https://matthewrocklin.com/blog/work/2018/02/28/minimal-bug-reports>`_
 .. - Blog post walking through writing an R binding (not yet written)
 
-.. Recommended books for learning languages
-.. ----------------------------------------
+Recommended books for learning languages
+----------------------------------------
+
+- Slatkin, Brett, *Effective Python: 90 Specific Ways to Write Better Python*, Addison-Wesley Professional, 2019
+- Stroustrup, Bjarne, *A Tour of C++ (Second edition)*, Addison-Wesley, 2018
