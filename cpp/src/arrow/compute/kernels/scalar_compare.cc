@@ -72,7 +72,7 @@ struct GreaterEqual {
   }
 };
 
-struct Between {
+struct BetweenLessEqualLessEqual {
   template <typename T, typename Arg0, typename Arg1, typename Arg2>
   static constexpr T Call(KernelContext*, const Arg0& middle, const Arg1& left,
                           const Arg2& right, Status*) {
@@ -80,6 +80,39 @@ struct Between {
                       std::is_same<Arg1, Arg2>::value,
                   "");
     return (left <= middle) && (middle <= right);
+  }
+};
+
+struct BetweenLessThanLessEqual {
+  template <typename T, typename Arg0, typename Arg1, typename Arg2>
+  static constexpr T Call(KernelContext*, const Arg0& middle, const Arg1& left,
+                          const Arg2& right, Status*) {
+    static_assert(std::is_same<T, bool>::value && std::is_same<Arg0, Arg1>::value &&
+                      std::is_same<Arg1, Arg2>::value,
+                  "");
+    return (left < middle) && (middle <= right);
+  }
+};
+
+struct BetweenLessEqualLessThan {
+  template <typename T, typename Arg0, typename Arg1, typename Arg2>
+  static constexpr T Call(KernelContext*, const Arg0& middle, const Arg1& left,
+                          const Arg2& right, Status*) {
+    static_assert(std::is_same<T, bool>::value && std::is_same<Arg0, Arg1>::value &&
+                      std::is_same<Arg1, Arg2>::value,
+                  "");
+    return (left <= middle) && (middle < right);
+  }
+};
+
+struct BetweenLessThanLessThan {
+  template <typename T, typename Arg0, typename Arg1, typename Arg2>
+  static constexpr T Call(KernelContext*, const Arg0& middle, const Arg1& left,
+                          const Arg2& right, Status*) {
+    static_assert(std::is_same<T, bool>::value && std::is_same<Arg0, Arg1>::value &&
+                      std::is_same<Arg1, Arg2>::value,
+                  "");
+    return (left < middle) && (middle < right);
   }
 };
 
@@ -765,6 +798,26 @@ void AddGenericBetween(const std::shared_ptr<DataType>& ty, ScalarFunction* func
                             ScalarTernaryEqualTypes<BooleanType, InType, Op>::Exec));
 }
 
+template <typename OutType, typename ArgType, typename Op>
+struct BetweenTimestamps : public ScalarTernaryEqualTypes<OutType, ArgType, Op> {
+  using Base = ScalarTernaryEqualTypes<OutType, ArgType, Op>;
+
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    const auto& var = checked_cast<const TimestampType&>(*batch[0].type());
+    const auto& lhs = checked_cast<const TimestampType&>(*batch[1].type());
+    const auto& rhs = checked_cast<const TimestampType&>(*batch[2].type());
+    if ((var.timezone().empty() != lhs.timezone().empty()) ||
+        (var.timezone().empty() != rhs.timezone().empty()) ||
+        (lhs.timezone().empty() != rhs.timezone().empty())) {
+      return Status::Invalid(
+          "Cannot use timestamps with timezone and timestamps without timezones, got: ",
+          var.timezone().empty(), " ", lhs.timezone().empty(), " and ",
+          rhs.timezone().empty());
+    }
+    return Base::Exec(ctx, batch, out);
+  }
+};
+
 template <typename Op>
 std::shared_ptr<ScalarFunction> MakeBetweenFunction(std::string name,
                                                     const FunctionDoc* doc) {
@@ -779,6 +832,13 @@ std::shared_ptr<ScalarFunction> MakeBetweenFunction(std::string name,
 
   AddGenericBetween<FloatType, Op>(float32(), func.get());
   AddGenericBetween<DoubleType, Op>(float64(), func.get());
+
+  // Add timestamp kernels
+  for (auto unit : TimeUnit::values()) {
+    InputType in_type(match::TimestampTypeUnit(unit));
+    DCHECK_OK(func->AddKernel({in_type, in_type, in_type}, boolean(),
+                              BetweenTimestamps<BooleanType, TimestampType, Op>::Exec));
+  }
 
   // Duration
   for (auto unit : TimeUnit::values()) {
@@ -810,6 +870,18 @@ std::shared_ptr<ScalarFunction> MakeBetweenFunction(std::string name,
     DCHECK_OK(func->AddKernel(
         {InputType::Array(ty), InputType::Array(ty), InputType::Array(ty)}, boolean(),
         std::move(exec)));
+  }
+
+  for (const auto id : {Type::DECIMAL128, Type::DECIMAL256}) {
+    auto exec = GenerateDecimal<ScalarTernaryEqualTypes, BooleanType, Op>(id);
+    DCHECK_OK(func->AddKernel({InputType(id), InputType(id), InputType(id)}, boolean(),
+                              std::move(exec)));
+  }
+
+  {
+    auto exec = ScalarTernaryEqualTypes<BooleanType, FixedSizeBinaryType, Op>::Exec;
+    auto ty = InputType(Type::FIXED_SIZE_BINARY);
+    DCHECK_OK(func->AddKernel({ty, ty, ty}, boolean(), std::move(exec)));
   }
 
   return func;
@@ -855,9 +927,25 @@ const FunctionDoc max_element_wise_doc{
     {"*args"},
     "ElementWiseAggregateOptions"};
 
-const FunctionDoc between_doc{"Check if values are in a range x <= y <= z",
-                              ("A null on either side emits a null comparison result."),
-                              {"x", "y", "z"}};
+const FunctionDoc between_less_equal_less_equal_doc{
+    "Check if values are in a range x <= y <= z",
+    ("A null on either side emits a null comparison result."),
+    {"x", "y", "z"}};
+
+const FunctionDoc between_less_than_less_equal_doc{
+    "Check if values are in a range x < y <= z",
+    ("A null on either side emits a null comparison result."),
+    {"x", "y", "z"}};
+
+const FunctionDoc between_less_equal_less_than_doc{
+    "Check if values are in a range x <= y < z",
+    ("A null on either side emits a null comparison result."),
+    {"x", "y", "z"}};
+
+const FunctionDoc between_less_than_less_than_doc{
+    "Check if values are in a range x < y < z",
+    ("A null on either side emits a null comparison result."),
+    {"x", "y", "z"}};
 
 }  // namespace
 
@@ -890,8 +978,21 @@ void RegisterScalarComparison(FunctionRegistry* registry) {
 }
 
 void RegisterScalarBetween(FunctionRegistry* registry) {
-  auto between = MakeBetweenFunction<Between>("between", &between_doc);
-  DCHECK_OK(registry->AddFunction(std::move(between)));
+  auto between_less_than_less_than = MakeBetweenFunction<BetweenLessThanLessThan>(
+      "between_less_than_less_than", &between_less_than_less_than_doc);
+  DCHECK_OK(registry->AddFunction(std::move(between_less_than_less_than)));
+
+  auto between_less_than_less_equal = MakeBetweenFunction<BetweenLessThanLessEqual>(
+      "between_less_than_less_equal", &between_less_than_less_equal_doc);
+  DCHECK_OK(registry->AddFunction(std::move(between_less_than_less_equal)));
+
+  auto between_less_equal_less_than = MakeBetweenFunction<BetweenLessEqualLessThan>(
+      "between_less_equal_less_than", &between_less_equal_less_than_doc);
+  DCHECK_OK(registry->AddFunction(std::move(between_less_equal_less_than)));
+
+  auto between_less_equal_less_equal = MakeBetweenFunction<BetweenLessEqualLessEqual>(
+      "between_less_equal_less_equal", &between_less_equal_less_equal_doc);
+  DCHECK_OK(registry->AddFunction(std::move(between_less_equal_less_equal)));
 }
 
 }  // namespace internal

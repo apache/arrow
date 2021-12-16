@@ -1017,9 +1017,9 @@ using ScalarBinaryNotNullStatefulEqualTypes =
 //
 // struct Op {
 //   template <typename OutValue, typename Arg0Value, typename Arg1Value,
-//             typename Arg2Value> 
+//             typename Arg2Value>
 //   static OutValue Call(KernelContext* ctx, Arg0Value arg0, Arg1Value arg1,
-//                        Arg2Value arg2, Status *st) 
+//                        Arg2Value arg2, Status *st)
 //   {
 //     // implementation
 //     // NOTE: "status" should only be populated with errors,
