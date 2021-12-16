@@ -3639,18 +3639,13 @@ def _generate_data_and_columns(num_of_columns, records_per_row,
     return data, column_names
 
 
-def _get_num_of_files_generated(base_directory):
-    file_dirs = os.listdir(base_directory)
-    number_of_files = 0
-    for _, file_dir in enumerate(file_dirs):
-        sub_dir_path = base_directory / file_dir
-        number_of_files += len(os.listdir(sub_dir_path))
-    return number_of_files
+def _get_num_of_files_generated(base_directory, file_format):
+    return len(list(pathlib.Path(base_directory).glob(f'**/*.{file_format}')))
 
 
-def _get_compare_pair(data_source, record_batch):
+def _get_compare_pair(data_source, record_batch, file_format):
     num_of_files_generated = _get_num_of_files_generated(
-        base_directory=data_source)
+        base_directory=data_source, file_format=file_format)
     number_of_unique_rows = len(pa.compute.unique(record_batch[0]))
     return num_of_files_generated, number_of_unique_rows
 
@@ -3767,9 +3762,8 @@ def test_write_dataset_max_rows_per_group(tempdir):
 
 
 def test_write_dataset_max_open_files(tempdir):
-    # TODO: INCOMPLETE TEST CASE WIP
     directory = tempdir / 'ds'
-    print("Directory : ", directory)
+    file_format = "parquet"
 
     record_batch_1 = pa.record_batch(data=[[1, 2, 3, 4, 0],
                                      ['a', 'b', 'c', 'd', 'e']],
@@ -3793,13 +3787,13 @@ def test_write_dataset_max_open_files(tempdir):
     data_source_1 = directory / "default"
 
     ds.write_dataset(data=table, base_dir=data_source_1,
-                     partitioning=partitioning, format="parquet")
+                     partitioning=partitioning, format=file_format)
 
     # CASE 1: when max_open_files=default & max_open_files >= num_of_partitions
     #         the number of unique rows must be equal to
     #         the number of files generated
     num_of_files_generated, number_of_unique_rows \
-        = _get_compare_pair(data_source_1, record_batch_1)
+        = _get_compare_pair(data_source_1, record_batch_1, file_format)
     assert num_of_files_generated == number_of_unique_rows
 
     # CASE 2: when max_open_files > 0 & max_open_files < num_of_partitions
@@ -3811,11 +3805,11 @@ def test_write_dataset_max_open_files(tempdir):
     max_open_files = 3
 
     ds.write_dataset(data=table, base_dir=data_source_2,
-                     partitioning=partitioning, format="parquet",
+                     partitioning=partitioning, format=file_format,
                      max_open_files=max_open_files)
 
     num_of_files_generated, number_of_unique_rows \
-        = _get_compare_pair(data_source_2, record_batch_1)
+        = _get_compare_pair(data_source_2, record_batch_1, file_format)
     assert num_of_files_generated > number_of_unique_rows
 
 
