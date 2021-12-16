@@ -457,6 +457,65 @@ GArrowTime64DataType *garrow_time64_data_type_new      (GArrowTimeUnit unit,
                                                         GError **error);
 
 
+#define GARROW_TYPE_INTERVAL_DATA_TYPE (garrow_interval_data_type_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowIntervalDataType,
+                         garrow_interval_data_type,
+                         GARROW,
+                         INTERVAL_DATA_TYPE,
+                         GArrowTimeDataType)
+struct _GArrowIntervalDataTypeClass
+{
+  GArrowTimeDataTypeClass parent_class;
+};
+
+GArrowIntervalType garrow_interval_data_type_get_interval_type(GArrowIntervalDataType *type);
+
+
+#define GARROW_TYPE_INTERVAL_MONTHS_DATA_TYPE (garrow_interval_months_data_type_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowIntervalMonthsDataType,
+                         garrow_interval_months_data_type,
+                         GARROW,
+                         INTERVAL_MONTHS_DATA_TYPE,
+                         GArrowIntervalDataType)
+struct _GArrowIntervalMonthsDataTypeClass
+{
+  GArrowIntervalDataTypeClass parent_class;
+};
+
+GArrowIntervalMonthsDataType *
+garrow_interval_months_data_type_new      (void);
+
+
+#define GARROW_TYPE_INTERVAL_DAY_TIME_DATA_TYPE (garrow_interval_day_time_data_type_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowIntervalDayTimeDataType,
+                         garrow_interval_day_time_data_type,
+                         GARROW,
+                         INTERVAL_DAY_TIME_DATA_TYPE,
+                         GArrowIntervalDataType)
+struct _GArrowIntervalDayTimeDataTypeClass
+{
+  GArrowIntervalDataTypeClass parent_class;
+};
+
+GArrowIntervalDayTimeDataType *
+garrow_interval_day_time_data_type_new      (void);
+
+
+#define GARROW_TYPE_INTERVAL_MONTH_DAY_NANO_DATA_TYPE (garrow_interval_month_day_nano_data_type_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowIntervalMonthDayNanoDataType,
+                         garrow_interval_month_day_nano_data_type,
+                         GARROW,
+                         INTERVAL_MONTH_DAY_NANO_DATA_TYPE,
+                         GArrowIntervalDataType)
+struct _GArrowIntervalMonthDayNanoDataTypeClass
+{
+  GArrowIntervalDataTypeClass parent_class;
+};
+
+GArrowIntervalMonthDayNanoDataType *
+garrow_interval_month_day_nano_data_type_new      (void);
+
+
 #define GARROW_TYPE_DECIMAL_DATA_TYPE (garrow_decimal_data_type_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowDecimalDataType,
                          garrow_decimal_data_type,

@@ -82,6 +82,8 @@ garrow_type_from_raw(arrow::Type::type type)
     return GARROW_TYPE_INTERVAL_MONTHS;
   case arrow::Type::type::INTERVAL_DAY_TIME:
     return GARROW_TYPE_INTERVAL_DAY_TIME;
+  case arrow::Type::type::INTERVAL_MONTH_DAY_NANO:
+    return GARROW_TYPE_INTERVAL_MONTH_DAY_NANO;
   case arrow::Type::type::DECIMAL128:
     return GARROW_TYPE_DECIMAL128;
   case arrow::Type::type::DECIMAL256:
@@ -138,5 +140,19 @@ garrow_time_unit_to_raw(GArrowTimeUnit unit)
     return arrow::TimeUnit::type::NANO;
   default:
     return arrow::TimeUnit::type::SECOND;
+  }
+}
+
+GArrowIntervalType
+garrow_interval_type_from_raw(arrow::IntervalType::type type){
+  switch (type) {
+  case arrow::IntervalType::type::MONTHS:
+    return GARROW_INTERVAL_TYPE_MONTHS;
+  case arrow::IntervalType::type::DAY_TIME:
+    return GARROW_INTERVAL_TYPE_DAY_TIME;
+  case arrow::IntervalType::type::MONTH_DAY_NANO:
+    return GARROW_INTERVAL_TYPE_MONTH_DAY_NANO;
+  default:
+    return GARROW_INTERVAL_TYPE_MONTHS;
   }
 }
