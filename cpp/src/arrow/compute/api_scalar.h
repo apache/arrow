@@ -370,6 +370,19 @@ struct ARROW_EXPORT CompareOptions {
   enum CompareOperator op;
 };
 
+enum BetweenOperator : int8_t {
+  BETWEEN_LESS_EQUAL_LESS_EQUAL,
+  BETWEEN_LESS_EQUAL_LESS_THAN,
+  BETWEEN_LESS_THAN_LESS_EQUAL,
+  BETWEEN_LESS_THAN_LESS_THAN,
+};
+
+struct ARROW_EXPORT BetweenOptions {
+  explicit BetweenOptions(BetweenOperator op) : op(op) {}
+  BetweenOptions() : BetweenOptions(BetweenOperator::BETWEEN_LESS_EQUAL_LESS_EQUAL) {}
+  enum BetweenOperator op;
+};
+
 class ARROW_EXPORT MakeStructOptions : public FunctionOptions {
  public:
   MakeStructOptions(std::vector<std::string> n, std::vector<bool> r,

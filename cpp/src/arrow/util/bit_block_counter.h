@@ -963,20 +963,17 @@ static void VisitThreeBitBlocksVoid(
   }
   // Two bitmaps are present
   if (left_bitmap_buf == NULLPTR) {
-    return VisitTwoBitBlocksVoid(mid_bitmap_buf, mid_offset, right_bitmap_buf,
-		                 right_offset, length,
-                                 std::forward<VisitNull>(visit_not_null), 
-				 std::forward<VisitNull>(visit_null));
+    return VisitTwoBitBlocksVoid(
+        mid_bitmap_buf, mid_offset, right_bitmap_buf, right_offset, length,
+        std::forward<VisitNull>(visit_not_null), std::forward<VisitNull>(visit_null));
   } else if (mid_bitmap_buf == NULLPTR) {
-    return VisitTwoBitBlocksVoid(left_bitmap_buf, left_offset, right_bitmap_buf,
-		                 right_offset, length,
-                                 std::forward<VisitNull>(visit_not_null), 
-				 std::forward<VisitNull>(visit_null));
+    return VisitTwoBitBlocksVoid(
+        left_bitmap_buf, left_offset, right_bitmap_buf, right_offset, length,
+        std::forward<VisitNull>(visit_not_null), std::forward<VisitNull>(visit_null));
   } else if (right_bitmap_buf == NULLPTR) {
-    return VisitTwoBitBlocksVoid(left_bitmap_buf, left_offset, mid_bitmap_buf,
-		                 mid_offset, length,
-                                 std::forward<VisitNull>(visit_not_null), 
-				 std::forward<VisitNull>(visit_null));
+    return VisitTwoBitBlocksVoid(left_bitmap_buf, left_offset, mid_bitmap_buf, mid_offset,
+                                 length, std::forward<VisitNull>(visit_not_null),
+                                 std::forward<VisitNull>(visit_null));
   }
   // All three bitmaps are present
   const uint8_t* left_bitmap = left_bitmap_buf->data();
