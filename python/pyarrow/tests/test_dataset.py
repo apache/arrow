@@ -3643,10 +3643,10 @@ def _get_num_of_files_generated(base_directory, file_format):
     return len(list(pathlib.Path(base_directory).glob(f'**/*.{file_format}')))
 
 
-def _get_compare_pair(data_source, record_batch, file_format):
+def _get_compare_pair(data_source, record_batch, file_format, col_id):
     num_of_files_generated = _get_num_of_files_generated(
         base_directory=data_source, file_format=file_format)
-    number_of_unique_rows = len(pa.compute.unique(record_batch[0]))
+    number_of_unique_rows = len(pa.compute.unique(record_batch[col_id]))
     return num_of_files_generated, number_of_unique_rows
 
 
@@ -3764,25 +3764,27 @@ def test_write_dataset_max_rows_per_group(tempdir):
 def test_write_dataset_max_open_files(tempdir):
     directory = tempdir / 'ds'
     file_format = "parquet"
-
-    record_batch_1 = pa.record_batch(data=[[1, 2, 3, 4, 0],
-                                     ['a', 'b', 'c', 'd', 'e']],
-                                     names=['c1', 'c2'])
-    record_batch_2 = pa.record_batch(data=[[5, 6, 7, 8, 0],
-                                     ['a', 'b', 'c', 'd', 'e']],
-                                     names=['c1', 'c2'])
-    record_batch_3 = pa.record_batch(data=[[9, 10, 11, 12, 0],
-                                     ['a', 'b', 'c', 'd', 'e']],
-                                     names=['c1', 'c2'])
-    record_batch_4 = pa.record_batch(data=[[13, 14, 15, 16, 0],
-                                     ['a', 'b', 'c', 'd', 'e']],
-                                     names=['c1', 'c2'])
+    partition_column_id = 1
+    column_names = ['c1', 'c2']
+    record_batch_1 = pa.record_batch(data=[[1, 2, 3, 4, 0, 10],
+                                     ['a', 'b', 'c', 'd', 'e', 'a']],
+                                     names=column_names)
+    record_batch_2 = pa.record_batch(data=[[5, 6, 7, 8, 0, 1],
+                                     ['a', 'b', 'c', 'd', 'e', 'c']],
+                                     names=column_names)
+    record_batch_3 = pa.record_batch(data=[[9, 10, 11, 12, 0, 1],
+                                     ['a', 'b', 'c', 'd', 'e', 'd']],
+                                     names=column_names)
+    record_batch_4 = pa.record_batch(data=[[13, 14, 15, 16, 0, 1],
+                                     ['a', 'b', 'c', 'd', 'e', 'b']],
+                                     names=column_names)
 
     table = pa.Table.from_batches([record_batch_1, record_batch_2,
                                    record_batch_3, record_batch_4])
 
     partitioning = ds.partitioning(
-        pa.schema([("c2", pa.string())]), flavor="hive")
+        pa.schema([(column_names[partition_column_id], pa.string())]),
+        flavor="hive")
 
     data_source_1 = directory / "default"
 
@@ -3793,7 +3795,8 @@ def test_write_dataset_max_open_files(tempdir):
     #         the number of unique rows must be equal to
     #         the number of files generated
     num_of_files_generated, number_of_unique_rows \
-        = _get_compare_pair(data_source_1, record_batch_1, file_format)
+        = _get_compare_pair(data_source_1, record_batch_1, file_format,
+                            partition_column_id)
     assert num_of_files_generated == number_of_unique_rows
 
     # CASE 2: when max_open_files > 0 & max_open_files < num_of_partitions
@@ -3809,7 +3812,8 @@ def test_write_dataset_max_open_files(tempdir):
                      max_open_files=max_open_files)
 
     num_of_files_generated, number_of_unique_rows \
-        = _get_compare_pair(data_source_2, record_batch_1, file_format)
+        = _get_compare_pair(data_source_2, record_batch_1, file_format,
+                            partition_column_id)
     assert num_of_files_generated > number_of_unique_rows
 
 
