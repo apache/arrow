@@ -133,16 +133,8 @@ TEST(Datum, ToString) {
   Datum v1(arr);
   Datum v2(std::make_shared<Int8Scalar>(1));
 
-  std::vector<Datum> vec1 = {v1};
-  Datum v3(vec1);
-
-  std::vector<Datum> vec2 = {v1, v2};
-  Datum v4(vec2);
-
   ASSERT_EQ("Array", v1.ToString());
   ASSERT_EQ("Scalar", v2.ToString());
-  ASSERT_EQ("Collection(Array)", v3.ToString());
-  ASSERT_EQ("Collection(Array, Scalar)", v4.ToString());
 }
 
 TEST(Datum, TotalBufferSize) {

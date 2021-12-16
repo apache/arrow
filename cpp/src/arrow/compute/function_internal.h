@@ -156,13 +156,9 @@ static inline std::string GenericToString(const Datum& value) {
       ss << value.type()->ToString() << ':' << value.make_array()->ToString();
       return ss.str();
     }
-    case Datum::CHUNKED_ARRAY:
-    case Datum::RECORD_BATCH:
-    case Datum::TABLE:
-    case Datum::COLLECTION:
+    default:
       return value.ToString();
   }
-  return value.ToString();
 }
 
 template <typename T>
