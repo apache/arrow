@@ -22,6 +22,7 @@
 #include <cstdint>
 #include <memory>
 #include <sstream>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -697,7 +698,23 @@ class ScalarExecutor : public KernelExecutorImpl<ScalarKernel> {
       }
     }
 
+    std::unordered_set<const uint8_t*> pre_buffers;
+    for (auto dat : batch.values) {
+      dat.AddBuffersToSet(&pre_buffers);
+    }
+    out.AddBuffersToSet(&pre_buffers);
+
     RETURN_NOT_OK(kernel_->exec(kernel_ctx_, batch, &out));
+
+    bool insertion_occured = false;
+    for (auto dat : batch.values) {
+      insertion_occured |= dat.AddBuffersToSet(&pre_buffers);
+    }
+    insertion_occured |= out.AddBuffersToSet(&pre_buffers);
+    if (insertion_occured) {
+      printf("error! Additional buffers were made\n");
+    }
+
     if (preallocate_contiguous_) {
       // Some kernels may like to simply nullify the validity bitmap when
       // they know the output will have 0 nulls.  However, this is not compatible
