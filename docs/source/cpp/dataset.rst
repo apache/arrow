@@ -340,7 +340,7 @@ Partitioning performance considerations
 Partitioning datasets has two aspects that affect performance: it increases the number of
 files and it creates a directory structure around the files. Both of these have benefits
 as well as costs. Depending on the configuration and the size of your dataset, the costs 
-can outweight the benefits. 
+can outweigh the benefits. 
 
 Because partitions split up the dataset into multiple files, partitioned datasets can be 
 read and written with parallelism. However, each additional file adds a little overhead in 
@@ -367,6 +367,11 @@ avoid pathological behavior, keep to these guidelines:
 
  * Avoid files smaller than 20MB and larger than 2GB
  * Avoid partitioning layouts with more than 10,000 distinct partitions.
+
+For file formats that have a notion of groups within a file, such as Parquet, similar
+guidelines apply. Row groups can provide parallelism when reading and allow data skipping
+based on statistics, but very small groups can cause metadata to be a significant portion
+of file size. Arrow's file writer provide sensible defaults for group sizing in most cases.
  
 
 Different partitioning schemes
