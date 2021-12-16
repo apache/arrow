@@ -363,7 +363,7 @@ cardinality 1,000 will make that 365,365 calls.
 The most optimal partitioning layout will depend on your data, access patterns, and which
 systems will be reading the data. Most systems, including Arrow, should work across a 
 range of file sizes and partitioning layouts, but there are extremes you should avoid. To 
-avoid pathological behavior, keep to these guidelines:
+avoid worst case behavior, keep to these guidelines:
 
  * Avoid files smaller than 20MB and larger than 2GB
  * Avoid partitioning layouts with more than 10,000 distinct partitions.
@@ -371,7 +371,7 @@ avoid pathological behavior, keep to these guidelines:
 For file formats that have a notion of groups within a file, such as Parquet, similar
 guidelines apply. Row groups can provide parallelism when reading and allow data skipping
 based on statistics, but very small groups can cause metadata to be a significant portion
-of file size. Arrow's file writer provide sensible defaults for group sizing in most cases.
+of file size. Arrow's file writer provides sensible defaults for group sizing in most cases.
  
 
 Different partitioning schemes
