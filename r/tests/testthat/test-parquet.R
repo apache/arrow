@@ -253,8 +253,8 @@ test_that("Error messages are shown when the compression algorithm snappy is not
   msg <- paste0(
     "NotImplemented: Support for codec 'snappy' not built\nIn order to read this file, ",
     "you will need to reinstall arrow with additional features enabled.\nSet one of these ",
-    "environment variables before installing:\n\n * LIBARROW_MINIMAL=false (for all optional ",
-    "features, including 'snappy')\n * ARROW_WITH_SNAPPY=ON (for just 'snappy')\n\n",
+    "environment variables before installing:\n\n * Sys.setenv(LIBARROW_MINIMAL = \"false\") (for all optional ",
+    "features, including 'snappy')\n * Sys.setenv(ARROW_WITH_SNAPPY = \"ON\") (for just 'snappy')\n\n",
     "See https://arrow.apache.org/docs/r/articles/install.html for details"
   )
 
