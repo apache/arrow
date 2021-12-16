@@ -80,6 +80,7 @@ from textwrap import dedent
 import warnings
 
 import pyarrow as pa
+from pyarrow import _compute_docstrings
 
 
 def _get_arg_names(func):
@@ -96,6 +97,7 @@ def _decorate_compute_function(wrapper, exposed_name, func, option_class):
 
     doc_pieces = []
 
+    # 1. One-line summary
     cpp_doc = func._doc
     summary = cpp_doc.summary
     if not summary:
@@ -111,9 +113,13 @@ def _decorate_compute_function(wrapper, exposed_name, func, option_class):
 
         """.format(summary))
 
+    # 2. Multi-line description
     if description:
         doc_pieces.append("{}\n\n".format(description))
 
+    doc_addition = _compute_docstrings.function_doc_additions.get(func.name)
+
+    # 3. Parameter description
     doc_pieces.append("""\
         Parameters
         ----------
@@ -129,15 +135,7 @@ def _decorate_compute_function(wrapper, exposed_name, func, option_class):
                 Argument to compute function
             """.format(arg_name, arg_type))
 
-    doc_pieces.append("""\
-        memory_pool : pyarrow.MemoryPool, optional
-            If not passed, will allocate memory from the default memory pool.
-        """)
     if option_class is not None:
-        doc_pieces.append("""\
-            options : pyarrow.compute.{0}, optional
-                Parameters altering compute function semantics.
-            """.format(option_class.__name__))
         options_sig = inspect.signature(option_class)
         for p in options_sig.parameters.values():
             doc_pieces.append("""\
@@ -145,6 +143,19 @@ def _decorate_compute_function(wrapper, exposed_name, func, option_class):
                 Parameter for {1} constructor. Either `options`
                 or `{0}` can be passed, but not both at the same time.
             """.format(p.name, option_class.__name__))
+        doc_pieces.append("""\
+            options : pyarrow.compute.{0}, optional
+                Parameters altering compute function semantics.
+            """.format(option_class.__name__))
+
+    doc_pieces.append("""\
+        memory_pool : pyarrow.MemoryPool, optional
+            If not passed, will allocate memory from the default memory pool.
+        """)
+
+    # 4. Custom addition (e.g. examples)
+    if doc_addition is not None:
+        doc_pieces.append("\n{}\n".format(doc_addition.strip("\n")))
 
     wrapper.__doc__ = "".join(dedent(s) for s in doc_pieces)
     return wrapper
@@ -162,13 +173,13 @@ def _get_options_class(func):
         return None
 
 
-def _handle_options(name, option_class, options, kwargs):
-    if kwargs:
+def _handle_options(name, option_class, options, args, kwargs):
+    if args or kwargs:
         if options is None:
-            return option_class(**kwargs)
+            return option_class(*args, **kwargs)
         raise TypeError(
             "Function {!r} called with both an 'options' argument "
-            "and additional named arguments"
+            "and additional arguments"
             .format(name))
 
     if options is not None:
@@ -194,13 +205,18 @@ def _make_generic_wrapper(func_name, func, option_class, arity):
             return func.call(args, None, memory_pool)
     else:
         def wrapper(*args, memory_pool=None, options=None, **kwargs):
-            if arity is not Ellipsis and len(args) != arity:
-                raise TypeError(
-                    f"{func_name} takes {arity} positional argument(s), "
-                    f"but {len(args)} were given"
-                )
+            if arity is not Ellipsis:
+                if len(args) < arity:
+                    raise TypeError(
+                        f"{func_name} takes {arity} positional argument(s), "
+                        f"but {len(args)} were given"
+                    )
+                option_args = args[arity:]
+                args = args[:arity]
+            else:
+                option_args = ()
             options = _handle_options(func_name, option_class, options,
-                                      kwargs)
+                                      option_args, kwargs)
             return func.call(args, options, memory_pool)
     return wrapper
 
@@ -212,16 +228,19 @@ def _make_signature(arg_names, var_arg_names, option_class):
         params.append(Parameter(name, Parameter.POSITIONAL_ONLY))
     for name in var_arg_names:
         params.append(Parameter(name, Parameter.VAR_POSITIONAL))
-    params.append(Parameter("memory_pool", Parameter.KEYWORD_ONLY,
-                            default=None))
     if option_class is not None:
-        params.append(Parameter("options", Parameter.KEYWORD_ONLY,
-                                default=None))
         options_sig = inspect.signature(option_class)
         for p in options_sig.parameters.values():
-            # XXX for now, our generic wrappers don't allow positional
-            # option arguments
-            params.append(p.replace(kind=Parameter.KEYWORD_ONLY))
+            assert p.kind in (Parameter.POSITIONAL_OR_KEYWORD,
+                              Parameter.KEYWORD_ONLY)
+            if var_arg_names:
+                # Cannot have a positional argument after a *args
+                p = p.replace(kind=Parameter.KEYWORD_ONLY)
+            params.append(p)
+        params.append(Parameter("options", Parameter.KEYWORD_ONLY,
+                                default=None))
+    params.append(Parameter("memory_pool", Parameter.KEYWORD_ONLY,
+                            default=None))
     return inspect.Signature(params)
 
 
@@ -324,243 +343,6 @@ def cast(arr, target_type, safe=True):
     else:
         options = CastOptions.unsafe(target_type)
     return call_function("cast", [arr], options)
-
-
-def count_substring(array, pattern, *, ignore_case=False):
-    """
-    Count the occurrences of substring *pattern* in each value of a
-    string array.
-
-    Parameters
-    ----------
-    array : pyarrow.Array or pyarrow.ChunkedArray
-    pattern : str
-        pattern to search for exact matches
-    ignore_case : bool, default False
-        Ignore case while searching.
-
-    Returns
-    -------
-    result : pyarrow.Array or pyarrow.ChunkedArray
-    """
-    return call_function("count_substring", [array],
-                         MatchSubstringOptions(pattern,
-                                               ignore_case=ignore_case))
-
-
-def count_substring_regex(array, pattern, *, ignore_case=False):
-    """
-    Count the non-overlapping matches of regex *pattern* in each value
-    of a string array.
-
-    Parameters
-    ----------
-    array : pyarrow.Array or pyarrow.ChunkedArray
-    pattern : str
-        pattern to search for exact matches
-    ignore_case : bool, default False
-        Ignore case while searching.
-
-    Returns
-    -------
-    result : pyarrow.Array or pyarrow.ChunkedArray
-    """
-    return call_function("count_substring_regex", [array],
-                         MatchSubstringOptions(pattern,
-                                               ignore_case=ignore_case))
-
-
-def find_substring(array, pattern, *, ignore_case=False):
-    """
-    Find the index of the first occurrence of substring *pattern* in each
-    value of a string array.
-
-    Parameters
-    ----------
-    array : pyarrow.Array or pyarrow.ChunkedArray
-    pattern : str
-        pattern to search for exact matches
-    ignore_case : bool, default False
-        Ignore case while searching.
-
-    Returns
-    -------
-    result : pyarrow.Array or pyarrow.ChunkedArray
-    """
-    return call_function("find_substring", [array],
-                         MatchSubstringOptions(pattern,
-                                               ignore_case=ignore_case))
-
-
-def find_substring_regex(array, pattern, *, ignore_case=False):
-    """
-    Find the index of the first match of regex *pattern* in each
-    value of a string array.
-
-    Parameters
-    ----------
-    array : pyarrow.Array or pyarrow.ChunkedArray
-    pattern : str
-        regex pattern to search for
-    ignore_case : bool, default False
-        Ignore case while searching.
-
-    Returns
-    -------
-    result : pyarrow.Array or pyarrow.ChunkedArray
-    """
-    return call_function("find_substring_regex", [array],
-                         MatchSubstringOptions(pattern,
-                                               ignore_case=ignore_case))
-
-
-def match_like(array, pattern, *, ignore_case=False):
-    """
-    Test if the SQL-style LIKE pattern *pattern* matches a value of a
-    string array.
-
-    Parameters
-    ----------
-    array : pyarrow.Array or pyarrow.ChunkedArray
-    pattern : str
-        SQL-style LIKE pattern. '%' will match any number of
-        characters, '_' will match exactly one character, and all
-        other characters match themselves. To match a literal percent
-        sign or underscore, precede the character with a backslash.
-    ignore_case : bool, default False
-        Ignore case while searching.
-
-    Returns
-    -------
-    result : pyarrow.Array or pyarrow.ChunkedArray
-
-    """
-    return call_function("match_like", [array],
-                         MatchSubstringOptions(pattern,
-                                               ignore_case=ignore_case))
-
-
-def match_substring(array, pattern, *, ignore_case=False):
-    """
-    Test if substring *pattern* is contained within a value of a string array.
-
-    Parameters
-    ----------
-    array : pyarrow.Array or pyarrow.ChunkedArray
-    pattern : str
-        pattern to search for exact matches
-    ignore_case : bool, default False
-        Ignore case while searching.
-
-    Returns
-    -------
-    result : pyarrow.Array or pyarrow.ChunkedArray
-    """
-    return call_function("match_substring", [array],
-                         MatchSubstringOptions(pattern,
-                                               ignore_case=ignore_case))
-
-
-def match_substring_regex(array, pattern, *, ignore_case=False):
-    """
-    Test if regex *pattern* matches at any position a value of a string array.
-
-    Parameters
-    ----------
-    array : pyarrow.Array or pyarrow.ChunkedArray
-    pattern : str
-        regex pattern to search
-    ignore_case : bool, default False
-        Ignore case while searching.
-
-    Returns
-    -------
-    result : pyarrow.Array or pyarrow.ChunkedArray
-    """
-    return call_function("match_substring_regex", [array],
-                         MatchSubstringOptions(pattern,
-                                               ignore_case=ignore_case))
-
-
-def mode(array, n=1, *, skip_nulls=True, min_count=0):
-    """
-    Return top-n most common values and number of times they occur in a passed
-    numerical (chunked) array, in descending order of occurrence. If there are
-    multiple values with same count, the smaller one is returned first.
-
-    Parameters
-    ----------
-    array : pyarrow.Array or pyarrow.ChunkedArray
-    n : int, default 1
-        Specify the top-n values.
-    skip_nulls : bool, default True
-        If True, ignore nulls in the input. Else return an empty array
-        if any input is null.
-    min_count : int, default 0
-        If there are fewer than this many values in the input, return
-        an empty array.
-
-    Returns
-    -------
-    An array of <input type "Mode", int64_t "Count"> structs
-
-    Examples
-    --------
-    >>> import pyarrow as pa
-    >>> import pyarrow.compute as pc
-    >>> arr = pa.array([1, 1, 2, 2, 3, 2, 2, 2])
-    >>> modes = pc.mode(arr, 2)
-    >>> modes[0]
-    <pyarrow.StructScalar: {'mode': 2, 'count': 5}>
-    >>> modes[1]
-    <pyarrow.StructScalar: {'mode': 1, 'count': 2}>
-    """
-    options = ModeOptions(n, skip_nulls=skip_nulls, min_count=min_count)
-    return call_function("mode", [array], options)
-
-
-def filter(data, mask, null_selection_behavior='drop'):
-    """
-    Select values (or records) from array- or table-like data given boolean
-    filter, where true values are selected.
-
-    Parameters
-    ----------
-    data : Array, ChunkedArray, RecordBatch, or Table
-    mask : Array, ChunkedArray
-        Must be of boolean type
-    null_selection_behavior : str, default 'drop'
-        Configure the behavior on encountering a null slot in the mask.
-        Allowed values are 'drop' and 'emit_null'.
-
-        - 'drop': nulls will be treated as equivalent to False.
-        - 'emit_null': nulls will result in a null in the output.
-
-    Returns
-    -------
-    result : depends on inputs
-
-    Examples
-    --------
-    >>> import pyarrow as pa
-    >>> arr = pa.array(["a", "b", "c", None, "e"])
-    >>> mask = pa.array([True, False, None, False, True])
-    >>> arr.filter(mask)
-    <pyarrow.lib.StringArray object at 0x7fa826df9200>
-    [
-      "a",
-      "e"
-    ]
-    >>> arr.filter(mask, null_selection_behavior='emit_null')
-    <pyarrow.lib.StringArray object at 0x7fa826df9200>
-    [
-      "a",
-      null,
-      "e"
-    ]
-    """
-    options = FilterOptions(null_selection_behavior)
-    return call_function('filter', [data, mask], options)
 
 
 def index(data, value, start=None, end=None, *, memory_pool=None):
