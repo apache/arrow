@@ -955,17 +955,36 @@ TEST(TestGdvFnStubs, TestTranslate) {
   int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
   int32_t out_len = 0;
 
-  std::string in = "ABABABA";
-  std::string from = "B";
-  std::string to = "C";
-
-  int32_t in_len = static_cast<int32_t>(in.length());
-  int32_t from_len = static_cast<int32_t>(from.length());
-  int32_t to_len = static_cast<int32_t>(to.length());
-
   std::string expected = "ACACACA";
-  const char* result = translate_utf8_utf8_utf8(ctx_ptr, in.c_str(), in_len, from.c_str(),
-                                                from_len, to.c_str(), to_len, &out_len);
+  const char* result =
+      translate_utf8_utf8_utf8(ctx_ptr, "ABABABA", 7, "B", 1, "C", 1, &out_len);
+  EXPECT_EQ(expected, std::string(result, out_len));
+
+  expected = "acde";
+  result = translate_utf8_utf8_utf8(ctx_ptr, "a b c d e", 9, " b", 2, "", 0, &out_len);
+  EXPECT_EQ(expected, std::string(result, out_len));
+
+  expected = "h3110, h0w ar3 y0u/";
+  result = translate_utf8_utf8_utf8(ctx_ptr, "hello, how are you?", 19, "elo?", 4, "310/",
+                                    4, &out_len);
+  EXPECT_EQ(expected, std::string(result, out_len));
+
+  expected = "1b9ef";
+  result = translate_utf8_utf8_utf8(ctx_ptr, "abcdef", 6, "adc", 3, "19", 2, &out_len);
+  EXPECT_EQ(expected, std::string(result, out_len));
+
+  expected = "abcd";
+  result = translate_utf8_utf8_utf8(ctx_ptr, "a b c d", 7, " ", 1, "", 0, &out_len);
+  EXPECT_EQ(expected, std::string(result, out_len));
+
+  expected = "1b9c9e1f";
+  result =
+      translate_utf8_utf8_utf8(ctx_ptr, "abdcdeaf", 8, "adad", 4, "192", 3, &out_len);
+  EXPECT_EQ(expected, std::string(result, out_len));
+
+  expected = "012345678";
+  result = translate_utf8_utf8_utf8(ctx_ptr, "123456789", 9, "987654321", 9, "0123456789",
+                                    10, &out_len);
   EXPECT_EQ(expected, std::string(result, out_len));
 }
 
