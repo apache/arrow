@@ -3633,18 +3633,12 @@ def _generate_data_and_columns(num_of_columns, num_of_records):
                                                min=1,
                                                max=num_of_records))
         column_names.append("c" + str(i))
-    return data, column_names
+    record_batch = pa.record_batch(data=data, names=column_names)
+    return record_batch
 
 
 def _get_num_of_files_generated(base_directory, file_format):
     return len(list(pathlib.Path(base_directory).glob(f'**/*.{file_format}')))
-
-
-def _get_compare_pair(data_source, record_batch, file_format, col_id):
-    num_of_files_generated = _get_num_of_files_generated(
-        base_directory=data_source, file_format=file_format)
-    number_of_unique_rows = len(pa.compute.unique(record_batch[col_id]))
-    return num_of_files_generated, number_of_unique_rows
 
 
 def test_write_dataset_max_rows_per_file(tempdir):
@@ -3654,10 +3648,8 @@ def test_write_dataset_max_rows_per_file(tempdir):
     num_of_columns = 2
     num_of_records = 35
 
-    data, column_names = _generate_data_and_columns(num_of_columns,
+    record_batch = _generate_data_and_columns(num_of_columns,
                                                     num_of_records)
-
-    record_batch = pa.record_batch(data=data, names=column_names)
 
     sub_directory = directory / 'onewrite'
 
@@ -3668,10 +3660,10 @@ def test_write_dataset_max_rows_per_file(tempdir):
     files_in_dir = os.listdir(sub_directory)
 
     # number of partitions with max_rows and the partition with the remainder
-    expected_partitions = len(data[0]) // max_rows_per_file + 1
+    expected_partitions = num_of_records // max_rows_per_file + 1
     expected_row_combination = [max_rows_per_file
                                 for i in range(expected_partitions - 1)] \
-        + [len(data[0]) - ((expected_partitions - 1) * max_rows_per_file)]
+        + [num_of_records - ((expected_partitions - 1) * max_rows_per_file)]
 
     # test whether the expected amount of files are written
     assert len(files_in_dir) == expected_partitions
@@ -3695,10 +3687,9 @@ def test_write_dataset_min_rows_per_group(tempdir):
     num_of_columns = 2
     num_of_records = 49
 
-    data, column_names = _generate_data_and_columns(num_of_columns,
+    record_batch = _generate_data_and_columns(num_of_columns,
                                                     num_of_records)
 
-    record_batch = pa.record_batch(data=data, names=column_names)
 
     data_source = directory / "min_rows_group"
 
@@ -3730,10 +3721,8 @@ def test_write_dataset_max_rows_per_group(tempdir):
     num_of_columns = 2
     num_of_records = 30
 
-    data, column_names = _generate_data_and_columns(num_of_columns,
+    record_batch = _generate_data_and_columns(num_of_columns,
                                                     num_of_records)
-
-    record_batch = pa.record_batch(data=data, names=column_names)
 
     data_source = directory / "max_rows_group"
 
@@ -3783,6 +3772,15 @@ def test_write_dataset_max_open_files(tempdir):
 
     ds.write_dataset(data=table, base_dir=data_source_1,
                      partitioning=partitioning, format=file_format)
+
+    # Here we consider the number of unique partitions created when partition
+    # column contains duplicate records.
+    #   Returns: (number_of_files_generated, number_of_unique_rows)
+    def _get_compare_pair(data_source, record_batch, file_format, col_id):
+        num_of_files_generated = _get_num_of_files_generated(
+            base_directory=data_source, file_format=file_format)
+        number_of_unique_rows = len(pa.compute.unique(record_batch[col_id]))
+        return num_of_files_generated, number_of_unique_rows
 
     # CASE 1: when max_open_files=default & max_open_files >= num_of_partitions
     #         In case of a writing to disk via partitioning based on a
