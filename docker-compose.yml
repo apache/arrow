@@ -142,8 +142,7 @@ x-hierarchy:
   - ubuntu-r-sanitizer
   - ubuntu-r-valgrind
   - ubuntu-verify-rc-source
-  - r-fedora-clang-devel-san:
-    - fedora-r-clang-sanitizer
+  - fedora-r-clang-sanitizer
   - r
   - r-revdepcheck
   # helper services
@@ -1239,7 +1238,7 @@ services:
       cache_from:
         - ${REPO}:r-rhub-fedora-clang-devel-latest
       args:
-        base: ${REPO}:r-fedora-clang-devel-san
+        base: rhub/fedora-clang-devel-san
         r_dev: ${ARROW_R_DEV}
         devtoolset_version: ${DEVTOOLSET_VERSION}
         r_bin: RDsan
@@ -1257,14 +1256,6 @@ services:
     command: >
       /bin/bash -c "
         /arrow/ci/scripts/r_sanitize.sh /arrow"
-
-  r-fedora-clang-devel-san:
-    image: ${REPO}:r-fedora-clang-devel-san
-    build:
-      context: .
-      dockerfile: ci/docker/r-fedora-clang-devel-san.dockerfile
-      cache_from:
-        - ${REPO}:r-fedora-clang-devel-san
 
   ubuntu-r-valgrind:
     # Only 18.04 and amd64 supported
