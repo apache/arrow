@@ -801,14 +801,21 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
     max_partitions : int, default 1024
         Maximum number of partitions any batch may be written into.
     max_open_files : int, default 1024
-        Maximum number of number of files can be opened
+        If greater than 0 then this will limit the maximum number of
+        files that can be left open. If an attempt is made to open
+        too many files then the least recently used file will be closed.
+        If this setting is set too low you may end up fragmenting your
+        data into many small files.
     max_rows_per_file : int, default 0
-        Maximum number of rows per file
+        Maximum number of rows per file. If greater than 0 then this will
+        limit how many rows are placed in any single file. Otherwise there
+        will be no limit and one file will be created in each output
+        directory unless files need to be closed to respect max_open_files
     min_rows_per_group : int, default 0
         Minimum number of rows per group. When the value is greater than 0,
         the dataset writer will batch incoming data and only write the row
         groups to the disk when sufficient rows have accumulated.
-    max_rows_per_group : int, default 1 << 20
+    max_rows_per_group : int, default 1024 * 1024
         Maximum number of rows per group. If the value is greater than 0,
         then the dataset writer may split up large incoming batches into
         multiple row groups.  If this value is set, then min_rows_per_group
