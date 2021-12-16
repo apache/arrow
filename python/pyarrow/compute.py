@@ -80,6 +80,7 @@ from textwrap import dedent
 import warnings
 
 import pyarrow as pa
+from pyarrow import _compute_docstrings
 
 
 def _get_arg_names(func):
@@ -96,6 +97,7 @@ def _decorate_compute_function(wrapper, exposed_name, func, option_class):
 
     doc_pieces = []
 
+    # 1. One-line summary
     cpp_doc = func._doc
     summary = cpp_doc.summary
     if not summary:
@@ -111,9 +113,13 @@ def _decorate_compute_function(wrapper, exposed_name, func, option_class):
 
         """.format(summary))
 
+    # 2. Multi-line description
     if description:
         doc_pieces.append("{}\n\n".format(description))
 
+    doc_addition = _compute_docstrings.function_doc_additions.get(func.name)
+
+    # 3. Parameter description
     doc_pieces.append("""\
         Parameters
         ----------
@@ -146,6 +152,10 @@ def _decorate_compute_function(wrapper, exposed_name, func, option_class):
         memory_pool : pyarrow.MemoryPool, optional
             If not passed, will allocate memory from the default memory pool.
         """)
+
+    # 4. Custom addition (e.g. examples)
+    if doc_addition is not None:
+        doc_pieces.append("\n{}\n".format(doc_addition.strip("\n")))
 
     wrapper.__doc__ = "".join(dedent(s) for s in doc_pieces)
     return wrapper
