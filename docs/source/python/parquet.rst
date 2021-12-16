@@ -709,7 +709,9 @@ Encryption configuration
 encryption properties) includes the following options:
 
 * ``footer_key``, ID of the master key for footer encryption/signing.
-* ``column_keys``, list of columns to encrypt, with master key IDs.
+* ``column_keys``, which columns to encrypt with which key. Dictionary with
+  master key IDs as the keys, and column name lists as the values,
+  e.g. ``{key1: [col1, col2], key2: [col3]}`` .
 * ``encryption_algorithm``, the Parquet encryption algorithm.
   Can be ``AES_GCM_V1`` (default), or ``AES_GCM_CTR_V1``.
 * ``plaintext_footer``, whether to write the file footer in plain text (otherwise it is encrypted).
@@ -718,7 +720,7 @@ encryption properties) includes the following options:
   with master keys. If set to ``false``, single wrapping is used - where DEKs are
   encrypted directly with master keys.
 * ``cache_lifetime``, lifetime of cached entities (key encryption keys,
-  local wrapping keys, KMS client objects). Type - ``datetime.timedelta``
+  local wrapping keys, KMS client objects). Type - ``datetime.timedelta``.
 * ``internal_key_material``, whether to store key material inside Parquet file footers;
   this mode doesn’t produce additional files. If set to ``false``, key material is
   stored in separate files in the same folder, which enables key rotation for
@@ -753,5 +755,5 @@ Decryption configuration
 decryption properties) is optional and it includes the following options:
 
 * ``cache_lifetime``, lifetime of cached entities (key encryption keys, local
-  wrapping keys, KMS client objects).
+  wrapping keys, KMS client objects). Type - ``datetime.timedelta``.
 

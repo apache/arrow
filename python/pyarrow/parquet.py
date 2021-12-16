@@ -605,7 +605,7 @@ use_compliant_nested_type : bool, default False
                 <element-repetition> <element-type> item;
             }
         }
-encryption_properties: FileEncryptionProperties, default None
+encryption_properties : FileEncryptionProperties, default None
     File encryption properties for Parquet Modular Encryption.
     If None, no encryption will be done.
     The encryption properties can be created using:
@@ -1945,7 +1945,7 @@ coerce_int96_timestamp_unit : str, default None.
     resolution (e.g. 'ms'). Setting to None is equivalent to 'ns'
     and therefore INT96 timestamps will be inferred as timestamps
     in nanoseconds.
-decryption_properties: FileDecryptionProperties or None
+decryption_properties : FileDecryptionProperties or None
     File-level decryption properties.
     The decryption properties can be created using
     ``CryptoFactory.file_decryption_properties()``.
