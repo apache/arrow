@@ -335,7 +335,7 @@ class ARROW_EXPORT MapBuilder : public ArrayBuilder {
     return std::make_shared<MapType>(
         field(entries_name_,
               struct_({field(key_name_, key_builder_->type(), false),
-                       field(item_name_, item_builder_->type())}),
+                       field(item_name_, item_builder_->type(), item_nullable_)}),
               false),
         keys_sorted_);
   }
@@ -349,6 +349,7 @@ class ARROW_EXPORT MapBuilder : public ArrayBuilder {
 
  protected:
   bool keys_sorted_ = false;
+  bool item_nullable_ = false;
   std::string entries_name_;
   std::string key_name_;
   std::string item_name_;
