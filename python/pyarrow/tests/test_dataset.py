@@ -3684,7 +3684,8 @@ def test_write_dataset_min_rows_per_group(tempdir):
     record_sizes = [5, 5, 5, 5, 5, 4, 4, 4, 4, 4]
 
     record_batches = [_generate_data_and_columns(num_of_columns,
-                                                 num_of_records) for num_of_records in record_sizes]
+                                                 num_of_records)
+                      for num_of_records in record_sizes]
 
     data_source = directory / "min_rows_group"
 
@@ -3767,8 +3768,8 @@ def test_write_dataset_max_open_files(tempdir):
     ds.write_dataset(data=table, base_dir=data_source_1,
                      partitioning=partitioning, format=file_format)
 
-    # Here we consider the number of unique partitions created when partition
-    # column contains duplicate records.
+    # Here we consider the number of unique partitions created when
+    # partitioning column contains duplicate records.
     #   Returns: (number_of_files_generated, number_of_partitions)
     def _get_compare_pair(data_source, record_batch, file_format, col_id):
         num_of_files_generated = _get_num_of_files_generated(
@@ -3788,11 +3789,11 @@ def test_write_dataset_max_open_files(tempdir):
     assert num_of_files_generated == number_of_partitions
 
     # CASE 2: when max_open_files > 0 & max_open_files < num_of_partitions
-    #         the number of unique partitions must be equal to
-    #         the number of files generated
+    #         the number of files generated must be greater than the number of
+    #         partitions
 
     data_source_2 = directory / "max_1"
-
+    print(data_source_2)
     max_open_files = 3
 
     ds.write_dataset(data=table, base_dir=data_source_2,
