@@ -517,19 +517,14 @@ Result<std::shared_ptr<DataType>> MergeTypes(std::shared_ptr<DataType> promoted_
 
   // TODO
   // Date32 -> Date64
+  // Time32 -> Time64 (and units)
   // Timestamp units
-  // Time32 -> Time64
-  // Decimal128 -> Decimal256
-  // Integer -> Decimal
-  // Decimal -> Float
   // Duration units
-  // List(A) -> List(B)
+  // List(A) -> List(B) (incl. fixed)
   // List -> LargeList
-  // Unions?
   // Dictionary: indices, values
   // Struct: reconcile order, fields, types
   // Map
-  // Fixed size list
 
   return promoted ? promoted_type : nullptr;
 }
