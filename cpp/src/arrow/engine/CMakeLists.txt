@@ -29,6 +29,7 @@ set(ARROW_ENGINE_SRCS
     substrait/expression_internal.cc
     substrait/extension_types.cc
     substrait/serde.cc
+    substrait/plan_internal.cc
     substrait/type_internal.cc)
 
 set(SUBSTRAIT_DIR "${CMAKE_CURRENT_BINARY_DIR}/substrait")
@@ -83,7 +84,7 @@ find_package(Git)
 add_custom_target(substrait_gen_verify
                   COMMENT "Verifying that generated substrait accessors are consistent with \
                            ARROW_SUBSTRAIT_REPO_AND_TAG='${ARROW_SUBSTRAIT_REPO_AND_TAG}'"
-                  COMMAND ${GIT_EXECUTABLE} diff --quiet ${SUBSTRAIT_GEN_DIR}
+                  COMMAND ${GIT_EXECUTABLE} diff --exit-code ${SUBSTRAIT_GEN_DIR}
                   DEPENDS substrait_gen)
 
 add_arrow_lib(arrow_engine

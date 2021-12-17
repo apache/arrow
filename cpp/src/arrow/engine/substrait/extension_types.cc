@@ -209,7 +209,7 @@ struct ExtensionSet::Impl {
 };
 
 ExtensionSet::ExtensionSet(ExtensionIdRegistry* registry)
-    : registry_(registry), impl_(new Impl()) {}
+    : registry_(registry), impl_(new Impl(), [](Impl* impl) { delete impl; }) {}
 
 Result<ExtensionSet> ExtensionSet::Make(std::vector<std::string> uris,
                                         std::vector<Id> type_ids,
@@ -247,8 +247,6 @@ Result<ExtensionSet> ExtensionSet::Make(std::vector<std::string> uris,
 
   return std::move(set);
 }
-
-ExtensionSet::~ExtensionSet() = default;
 
 uint32_t ExtensionSet::EncodeType(Id id, const std::shared_ptr<DataType>& type,
                                   bool is_variation) {

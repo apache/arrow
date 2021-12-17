@@ -398,19 +398,6 @@ Result<std::unique_ptr<st::Type>> ToProto(const DataType& type, bool nullable,
   return std::move(out);
 }
 
-namespace {
-void ToProtoGetDepthFirstNames(const FieldVector& fields,
-                               google::protobuf::RepeatedPtrField<std::string>* names) {
-  for (const auto& field : fields) {
-    *names->Add() = field->name();
-
-    if (field->type()->id() == Type::STRUCT) {
-      ToProtoGetDepthFirstNames(field->type()->fields(), names);
-    }
-  }
-}
-}  // namespace
-
 Result<std::shared_ptr<Schema>> FromProto(const st::NamedStruct& named_struct) {
   if (!named_struct.has_struct_()) {
     return Status::Invalid("While converting ", named_struct.DebugString(),
@@ -441,6 +428,19 @@ Result<std::shared_ptr<Schema>> FromProto(const st::NamedStruct& named_struct) {
 
   return schema(std::move(fields));
 }
+
+namespace {
+void ToProtoGetDepthFirstNames(const FieldVector& fields,
+                               google::protobuf::RepeatedPtrField<std::string>* names) {
+  for (const auto& field : fields) {
+    *names->Add() = field->name();
+
+    if (field->type()->id() == Type::STRUCT) {
+      ToProtoGetDepthFirstNames(field->type()->fields(), names);
+    }
+  }
+}
+}  // namespace
 
 Result<std::unique_ptr<st::NamedStruct>> ToProto(const Schema& schema) {
   if (schema.metadata()) {

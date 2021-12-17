@@ -36,9 +36,6 @@ namespace engine {
 //
 // Note that these are not automatically registered with arrow::RegisterExtensionType(),
 // which means among other things that serialization of these types to IPC would fail.
-//
-// FIXME we'll also need arrow::ExtensionTypes to wrap substrait::ExtensionTypeVariations
-// and substrait::ExtensionTypes.
 
 /// fixed_size_binary(16) for storing Universally Unique IDentifiers
 ARROW_ENGINE_EXPORT
@@ -80,17 +77,9 @@ bool UnwrapIntervalYear(const DataType&);
 ARROW_ENGINE_EXPORT
 bool UnwrapIntervalDay(const DataType&);
 
-// We need to be able to append to ExtensionSets as we serialize-
-//   we first serialize Plan.relations, then finalize by hydrating
-//   Plan.extensions etc with the accumulated variations etc
-//
-// We need to be able to draw from ExtensionSets as we deserialize-
-//   type variation references in protobuf are just ints and we need to
-//   be able to look them up and efficiently hydrate with the corresponding
-//   DataType.
-
 /// A mapping from arrow types and functions to the (uri, name) which identifies
-/// the corresponding substrait extension.
+/// the corresponding substrait extension. Substrait types and variations must be
+/// registered with their corresponding arrow::DataType before they can be used!
 class ARROW_ENGINE_EXPORT ExtensionIdRegistry {
  public:
   struct Id {
@@ -134,8 +123,6 @@ class ARROW_ENGINE_EXPORT ExtensionSet {
       std::vector<bool> type_is_variation,
       ExtensionIdRegistry* = default_extension_id_registry());
 
-  ~ExtensionSet();
-
   // index in these vectors == value of _anchor/_reference fields
   /// FIXME this assumes that _anchor/_references won't be huge, which is not guaranteed.
   /// Could it be?
@@ -154,8 +141,6 @@ class ARROW_ENGINE_EXPORT ExtensionSet {
   /// If no type is found, an error will be raised.
   Result<uint32_t> EncodeType(const DataType& type);
 
-  // FIXME need type_internal.h::{AddExtensionSetToPlan, GetExtensionSetFromPlan} or so
-
  private:
   ExtensionIdRegistry* registry_;
   DataTypeVector types_;
@@ -165,7 +150,7 @@ class ARROW_ENGINE_EXPORT ExtensionSet {
 
   // pimpl pattern to hide lookup details
   struct Impl;
-  std::unique_ptr<Impl> impl_;
+  std::unique_ptr<Impl, void (*)(Impl*)> impl_;
 };
 
 }  // namespace engine
