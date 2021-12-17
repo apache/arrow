@@ -178,27 +178,26 @@ test_that("Can read json file with nested columns (ARROW-5503)", {
   tf <- tempfile()
   on.exit(unlink(tf))
   writeLines('
-    { "arr": [1.0, 2.0, 3.0], "nuf": {}, "tags": { "x": "a", "y": "b"}}
-    { "arr": [2.0], "nuf": null, "tags": {"a": "x", "y": "b"} }
-    { "arr": [], "nuf": { "ps": 78.0, "hello": "hi" }, "tags": {} }
-    { "arr": null, "nuf": { "ps": 90.0, "hello": "bonjour" }, "tags": {} }
-    { "arr": [5.0], "nuf": { "hello": "ciao" }, "tags": {} }
-    { "arr": [5.0, 6.0], "nuf": { "ps": 19 }, "tags": {} }
+    { "arr": [1.0, 2.0, 3.0], "nuf": {} }
+    { "arr": [2.0], "nuf": null }
+    { "arr": [], "nuf": { "ps": 78.0, "hello": "hi" } }
+    { "arr": null, "nuf": { "ps": 90.0, "hello": "bonjour" } }
+    { "arr": [5.0], "nuf": { "hello": "ciao" } }
+    { "arr": [5.0, 6.0], "nuf": { "ps": 19 } }
   ', tf)
 
-  tab1 <- read_json_arrow(tf, as_data_frame = FALSE, schema = schema(tags = map_of(utf8(), utf8())))
-  tab2 <- read_json_arrow(mmap_open(tf), as_data_frame = FALSE, schema = schema(tags = map_of(utf8(), utf8())))
-  tab3 <- read_json_arrow(ReadableFile$create(tf), as_data_frame = FALSE, schema = schema(tags = map_of(utf8(), utf8())))
+  tab1 <- read_json_arrow(tf, as_data_frame = FALSE)
+  tab2 <- read_json_arrow(mmap_open(tf), as_data_frame = FALSE)
+  tab3 <- read_json_arrow(ReadableFile$create(tf), as_data_frame = FALSE)
 
   expect_equal(tab1, tab2)
   expect_equal(tab1, tab3)
-  browser()
+
   expect_equal(
     tab1$schema,
     schema(
       arr = list_of(float64()),
-      nuf = struct(ps = float64(), hello = utf8()),
-      tags = map_of(utf8(), utf8()),
+      nuf = struct(ps = float64(), hello = utf8())
     )
   )
 

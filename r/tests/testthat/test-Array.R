@@ -572,13 +572,13 @@ test_that("Array$create() handles vector -> list arrays (ARROW-7662)", {
   expect_error(Array$create(list(df)))
 })
 
-test_that("Array$create() handles list of named vectors -> map arrays", {
-  # Should be able to create an empty map with a type hint.
-  expect_r6_class(Array$create(list(), map_of(string(), boolean())), "MapArray")
+# TODO: (wjones127)
+# test_that("Array$create() handles list of named vectors -> map arrays", {
+#   # Should be able to create an empty map with a type hint.
+#   expect_r6_class(Array$create(list(), map_of(string(), boolean())), "MapArray")
 
-  # TODO (wjones127)
-  # expect_array_roundtrip(list(c(x = 1L, y = 2L), c(x = 3L, z = 4L)), map_of(string(), int32()))
-})
+#   expect_array_roundtrip(list(c(x = 1L, y = 2L), c(x = 3L, z = 4L)), map_of(string(), int32()))
+# })
 
 test_that("Array$create() handles vector -> large list arrays", {
   # Should be able to create an empty list with a type hint.
