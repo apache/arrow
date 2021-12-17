@@ -310,6 +310,26 @@ class ARROW_EXPORT Field : public detail::Fingerprintable {
     /// nullable).
     bool promote_nullability = true;
 
+    /// Allow an integer, float, or decimal of a given bit width to be
+    /// promoted to an equivalent type of a greater bit width.
+    bool promote_numeric_width = true;
+
+    /// Allow an integer of a given bit width to be promoted to a
+    /// float of an equal or greater bit width.
+    bool promote_integer_float = true;
+
+    /// Allow an unsigned integer of a given bit width to be promoted
+    /// to a signed integer of the same bit width.
+    bool promote_integer_sign = true;
+
+    /// Allow a type to be promoted to the Large variant.
+    bool promote_large = true;
+
+    /// Allow strings to be promoted to binary types.
+    bool promote_binary = true;
+
+    // TODO: how do we want to handle decimal?
+
     static MergeOptions Defaults() { return MergeOptions(); }
   };
 

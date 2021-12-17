@@ -58,6 +58,9 @@ struct InspectOptions {
   /// `kInspectAllFragments`. A value of `0` disables inspection of fragments
   /// altogether so only the partitioning schema will be inspected.
   int fragments = 1;
+
+  /// Control how to unify types.
+  Field::MergeOptions field_merge_options = Field::MergeOptions::Defaults();
 };
 
 struct FinishOptions {

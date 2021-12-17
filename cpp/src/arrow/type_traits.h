@@ -944,6 +944,28 @@ static inline bool is_large_binary_like(Type::type type_id) {
   return false;
 }
 
+static inline bool is_binary(Type::type type_id) {
+  switch (type_id) {
+    case Type::BINARY:
+    case Type::LARGE_BINARY:
+      return true;
+    default:
+      break;
+  }
+  return false;
+}
+
+static inline bool is_string(Type::type type_id) {
+  switch (type_id) {
+    case Type::STRING:
+    case Type::LARGE_STRING:
+      return true;
+    default:
+      break;
+  }
+  return false;
+}
+
 static inline bool is_dictionary(Type::type type_id) {
   return type_id == Type::DICTIONARY;
 }

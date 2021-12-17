@@ -978,6 +978,44 @@ class TestUnifySchemas : public TestSchema {
           << lhs_field->ToString() << " vs " << rhs_field->ToString();
     }
   }
+
+  void CheckUnify(const std::shared_ptr<Field>& field1,
+                  const std::shared_ptr<Field>& field2,
+                  const std::shared_ptr<Field>& expected) {
+    ARROW_SCOPED_TRACE("field2: ", field2->ToString());
+    ARROW_SCOPED_TRACE("field1: ", field1->ToString());
+    ASSERT_OK_AND_ASSIGN(auto merged1, field1->MergeWith(field2));
+    ASSERT_OK_AND_ASSIGN(auto merged2, field2->MergeWith(field1));
+    AssertFieldEqual(merged1, expected);
+    AssertFieldEqual(merged2, expected);
+  }
+
+  void CheckUnify(const std::shared_ptr<DataType>& left,
+                  const std::shared_ptr<DataType>& right,
+                  const std::shared_ptr<DataType>& expected) {
+    auto field1 = field("a", left);
+    auto field2 = field("a", right);
+    CheckUnify(field1, field2, field("a", expected));
+
+    field1 = field("a", left, /*nullable=*/false);
+    field2 = field("a", right, /*nullable=*/false);
+    CheckUnify(field1, field2, field("a", expected, /*nullable=*/false));
+
+    field1 = field("a", left);
+    field2 = field("a", right, /*nullable=*/false);
+    CheckUnify(field1, field2, field("a", expected, /*nullable=*/true));
+
+    field1 = field("a", left, /*nullable=*/false);
+    field2 = field("a", right);
+    CheckUnify(field1, field2, field("a", expected, /*nullable=*/true));
+  }
+
+  void CheckUnify(const std::shared_ptr<DataType>& from,
+                  const std::vector<std::shared_ptr<DataType>>& to) {
+    for (const auto& ty : to) {
+      CheckUnify(from, ty, ty);
+    }
+  }
 };
 
 TEST_F(TestUnifySchemas, EmptyInput) { ASSERT_RAISES(Invalid, UnifySchemas({})); }
@@ -1069,9 +1107,34 @@ TEST_F(TestUnifySchemas, MoreSchemas) {
                         utf8_field->WithNullable(true)}));
 }
 
+TEST_F(TestUnifySchemas, Numerics) {
+  CheckUnify(uint8(), {int8(), uint16(), int16(), uint32(), int32(), uint64(), int64(),
+                       float32(), float64()});
+  CheckUnify(int8(), {int16(), int32(), int64(), float32(), float64()});
+  CheckUnify(uint16(),
+             {int16(), uint32(), int32(), uint64(), int64(), float32(), float64()});
+  CheckUnify(int16(), {int32(), int64(), float32(), float64()});
+  CheckUnify(uint32(), {int32(), uint64(), int64(), float32(), float64()});
+  CheckUnify(int32(), {int64(), float32(), float64()});
+  CheckUnify(uint64(), {int64(), float64()});
+  CheckUnify(int64(), {float64()});
+  CheckUnify(float16(), {float32(), float64()});
+  CheckUnify(float32(), {float64()});
+
+  // CheckUnifyFails(int8(), {uint8(), uint16(), uint32(), uint64()});
+  // uint32 and int32/int64; uint64 and int64
+}
+
+TEST_F(TestUnifySchemas, Binary) {
+  CheckUnify(utf8(), {large_utf8(), binary(), large_binary()});
+  CheckUnify(binary(), {large_binary()});
+  CheckUnify(fixed_size_binary(2), {binary(), large_binary()});
+  CheckUnify(fixed_size_binary(2), fixed_size_binary(4), binary());
+}
+
 TEST_F(TestUnifySchemas, IncompatibleTypes) {
   auto int32_field = field("f", int32());
-  auto uint8_field = field("f", uint8(), false);
+  auto uint8_field = field("f", utf8(), false);
 
   auto schema1 = schema({int32_field});
   auto schema2 = schema({uint8_field});

@@ -43,7 +43,7 @@ Result<std::shared_ptr<Schema>> DatasetFactory::Inspect(InspectOptions options) 
     return arrow::schema({});
   }
 
-  return UnifySchemas(schemas);
+  return UnifySchemas(schemas, options.field_merge_options);
 }
 
 Result<std::shared_ptr<Dataset>> DatasetFactory::Finish() {

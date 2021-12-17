@@ -47,6 +47,8 @@
 
 namespace arrow {
 
+using internal::checked_cast;
+
 constexpr Type::type NullType::type_id;
 constexpr Type::type ListType::type_id;
 constexpr Type::type LargeListType::type_id;
@@ -216,27 +218,6 @@ std::shared_ptr<DataType> GetPhysicalType(const std::shared_ptr<DataType>& real_
   return std::move(visitor.result);
 }
 
-namespace {
-
-using internal::checked_cast;
-
-// Merges `existing` and `other` if one of them is of NullType, otherwise
-// returns nullptr.
-//   - if `other` if of NullType or is nullable, the unified field will be nullable.
-//   - if `existing` is of NullType but other is not, the unified field will
-//     have `other`'s type and will be nullable
-std::shared_ptr<Field> MaybePromoteNullTypes(const Field& existing, const Field& other) {
-  if (existing.type()->id() != Type::NA && other.type()->id() != Type::NA) {
-    return nullptr;
-  }
-  if (existing.type()->id() == Type::NA) {
-    return other.WithNullable(true)->WithMetadata(existing.metadata());
-  }
-  // `other` must be null.
-  return existing.WithNullable(true);
-}
-}  // namespace
-
 Field::~Field() {}
 
 bool Field::HasMetadata() const {
@@ -275,6 +256,176 @@ std::shared_ptr<Field> Field::WithNullable(const bool nullable) const {
   return std::make_shared<Field>(name_, type_, nullable, metadata_);
 }
 
+namespace {
+// Utilities for Field::MergeWith
+
+std::shared_ptr<DataType> MakeSigned(const DataType& type) {
+  switch (type.id()) {
+    case Type::INT8:
+    case Type::UINT8:
+      return int8();
+    case Type::INT16:
+    case Type::UINT16:
+      return int16();
+    case Type::INT32:
+    case Type::UINT32:
+      return int32();
+    case Type::INT64:
+    case Type::UINT64:
+      return int64();
+    default:
+      DCHECK(false) << "unreachable";
+  }
+  return std::shared_ptr<DataType>(nullptr);
+}
+std::shared_ptr<DataType> MakeBinary(const DataType& type) {
+  switch (type.id()) {
+    case Type::BINARY:
+    case Type::STRING:
+      return binary();
+    case Type::LARGE_BINARY:
+    case Type::LARGE_STRING:
+      return large_binary();
+    default:
+      DCHECK(false) << "unreachable";
+  }
+  return std::shared_ptr<DataType>(nullptr);
+}
+
+std::shared_ptr<DataType> MergeTypes(std::shared_ptr<DataType> promoted_type,
+                                     std::shared_ptr<DataType> other_type,
+                                     const Field::MergeOptions& options) {
+  bool promoted = false;
+  if (options.promote_nullability) {
+    if (promoted_type->id() == Type::NA) {
+      return other_type;
+    } else if (other_type->id() == Type::NA) {
+      return promoted_type;
+    }
+  } else if (promoted_type->id() == Type::NA || other_type->id() == Type::NA) {
+    return nullptr;
+  }
+
+  if (options.promote_integer_sign) {
+    if (is_unsigned_integer(promoted_type->id()) && is_signed_integer(other_type->id())) {
+      promoted = bit_width(other_type->id()) >= bit_width(promoted_type->id());
+      promoted_type = MakeSigned(*promoted_type);
+    } else if (is_signed_integer(promoted_type->id()) &&
+               is_unsigned_integer(other_type->id())) {
+      promoted = bit_width(promoted_type->id()) >= bit_width(other_type->id());
+      other_type = MakeSigned(*other_type);
+    }
+  }
+
+  if (options.promote_integer_float &&
+      ((is_floating(promoted_type->id()) && is_integer(other_type->id())) ||
+       (is_integer(promoted_type->id()) && is_floating(other_type->id())))) {
+    const int max_width =
+        std::max<int>(bit_width(promoted_type->id()), bit_width(other_type->id()));
+    if (max_width >= 64) {
+      promoted_type = float64();
+    } else if (max_width >= 32) {
+      promoted_type = float32();
+    } else {
+      promoted_type = float16();
+    }
+    promoted = true;
+  }
+
+  if (options.promote_numeric_width) {
+    const int max_width =
+        std::max<int>(bit_width(promoted_type->id()), bit_width(other_type->id()));
+    if (is_floating(promoted_type->id()) && is_floating(other_type->id())) {
+      if (max_width >= 64) {
+        promoted_type = float64();
+      } else if (max_width >= 32) {
+        promoted_type = float32();
+      } else {
+        promoted_type = float16();
+      }
+      promoted = true;
+    } else if (is_signed_integer(promoted_type->id()) &&
+               is_signed_integer(other_type->id())) {
+      if (max_width >= 64) {
+        promoted_type = int64();
+      } else if (max_width >= 32) {
+        promoted_type = int32();
+      } else if (max_width >= 16) {
+        promoted_type = int16();
+      } else {
+        promoted_type = int8();
+      }
+      promoted = true;
+    } else if (is_unsigned_integer(promoted_type->id()) &&
+               is_unsigned_integer(other_type->id())) {
+      if (max_width >= 64) {
+        promoted_type = uint64();
+      } else if (max_width >= 32) {
+        promoted_type = uint32();
+      } else if (max_width >= 16) {
+        promoted_type = uint16();
+      } else {
+        promoted_type = uint8();
+      }
+      promoted = true;
+    }
+  }
+
+  if (options.promote_binary) {
+    if (promoted_type->id() == Type::FIXED_SIZE_BINARY) {
+      promoted_type = binary();
+      promoted = other_type->id() == Type::BINARY;
+    }
+    if (other_type->id() == Type::FIXED_SIZE_BINARY) {
+      other_type = binary();
+      promoted = promoted_type->id() == Type::BINARY;
+    }
+
+    if (is_string(promoted_type->id()) && is_binary(other_type->id())) {
+      promoted_type = MakeBinary(*promoted_type);
+      promoted =
+          offset_bit_width(promoted_type->id()) == offset_bit_width(other_type->id());
+    } else if (is_binary(promoted_type->id()) && is_string(other_type->id())) {
+      other_type = MakeBinary(*other_type);
+      promoted =
+          offset_bit_width(promoted_type->id()) == offset_bit_width(other_type->id());
+    }
+  }
+
+  if (options.promote_large) {
+    if ((promoted_type->id() == Type::STRING && other_type->id() == Type::LARGE_STRING) ||
+        (promoted_type->id() == Type::LARGE_STRING && other_type->id() == Type::STRING)) {
+      promoted_type = large_utf8();
+      promoted = true;
+    } else if ((promoted_type->id() == Type::BINARY &&
+                other_type->id() == Type::LARGE_BINARY) ||
+               (promoted_type->id() == Type::LARGE_BINARY &&
+                other_type->id() == Type::BINARY)) {
+      promoted_type = large_binary();
+      promoted = true;
+    }
+  }
+
+  // TODO
+  // Date32 -> Date64
+  // Timestamp units
+  // Time32 -> Time64
+  // Decimal128 -> Decimal256
+  // Integer -> Decimal
+  // Decimal -> Float
+  // List(A) -> List(B)
+  // List -> LargeList
+  // Unions?
+  // Dictionary: indices, values
+  // Struct: reconcile order, fields, types
+  // Map
+  // Fixed size list
+  // Duration units
+
+  return promoted ? promoted_type : nullptr;
+}
+}  // namespace
+
 Result<std::shared_ptr<Field>> Field::MergeWith(const Field& other,
                                                 MergeOptions options) const {
   if (name() != other.name()) {
@@ -286,14 +437,20 @@ Result<std::shared_ptr<Field>> Field::MergeWith(const Field& other,
     return Copy();
   }
 
-  if (options.promote_nullability) {
-    if (type()->Equals(other.type())) {
-      return Copy()->WithNullable(nullable() || other.nullable());
+  auto promoted_type = MergeTypes(type_, other.type(), options);
+  if (promoted_type) {
+    bool nullable = nullable_;
+    if (options.promote_nullability) {
+      nullable = nullable || other.nullable() || type_->id() == Type::NA ||
+                 other.type()->id() == Type::NA;
+    } else if (nullable_ != other.nullable()) {
+      return Status::Invalid("Unable to merge: Field ", name(),
+                             " has incompatible nullability: ", nullable_, " vs ",
+                             other.nullable());
     }
-    std::shared_ptr<Field> promoted = MaybePromoteNullTypes(*this, other);
-    if (promoted) return promoted;
-  }
 
+    return std::make_shared<Field>(name_, promoted_type, nullable, metadata_);
+  }
   return Status::Invalid("Unable to merge: Field ", name(),
                          " has incompatible types: ", type()->ToString(), " vs ",
                          other.type()->ToString());
@@ -1668,7 +1825,8 @@ class SchemaBuilder::Impl {
     if (policy_ == CONFLICT_REPLACE) {
       fields_[i] = field;
     } else if (policy_ == CONFLICT_MERGE) {
-      ARROW_ASSIGN_OR_RAISE(fields_[i], fields_[i]->MergeWith(field));
+      ARROW_ASSIGN_OR_RAISE(fields_[i],
+                            fields_[i]->MergeWith(field, field_merge_options_));
     }
 
     return Status::OK();
