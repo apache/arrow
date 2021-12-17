@@ -13,64 +13,153 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System.Diagnostics;
 using Apache.Arrow.Types;
 
 namespace Apache.Arrow
 {
-    static class ArrayDataTypeComparer
+    public class ArrayTypeComparer :
+        IArrowTypeVisitor<TimestampType>,
+        IArrowTypeVisitor<Date32Type>,
+        IArrowTypeVisitor<Date64Type>,
+        IArrowTypeVisitor<Time32Type>,
+        IArrowTypeVisitor<Time64Type>,
+        IArrowTypeVisitor<FixedSizeBinaryType>,
+        IArrowTypeVisitor<ListType>,
+        IArrowTypeVisitor<StructType>
     {
-        internal static bool Compare(IArrowType expectedType, IArrowType actualType)
+        private readonly IArrowType _expectedType;
+        private bool _dataTypeMismatch;
+
+        public ArrayTypeComparer(IArrowType expectedType)
         {
-            if (expectedType.TypeId != actualType.TypeId)
+            _expectedType = expectedType;
+            _dataTypeMismatch = false;
+        }
+
+        public bool IsDataTypeMismatch() => _dataTypeMismatch;
+
+        public void Visit(TimestampType actualType)
+        {
+            var expectedType = (TimestampType)_expectedType;
+
+            if (expectedType.Timezone != actualType.Timezone || expectedType.Unit != actualType.Unit)
             {
-                return false;
+                _dataTypeMismatch = true;
             }
+        }
 
-            if (actualType.TypeId == ArrowTypeId.FixedSizedBinary)
+        public void Visit(Date32Type actualType)
+        {
+            var expectedType = (Date32Type)_expectedType;
+
+            if (expectedType.Unit != actualType.Unit)
             {
-                var expectedFixedSizeBinaryType = (FixedSizeBinaryType)expectedType;
-                var actualFixedSizeBinaryType = (FixedSizeBinaryType)actualType;
+                _dataTypeMismatch = true;
+            }
+        }
 
-                if (expectedFixedSizeBinaryType.ByteWidth != actualFixedSizeBinaryType.ByteWidth)
-                {
-                    return false;
-                }
+        public void Visit(Date64Type actualType)
+        {
+            var expectedType = (Date64Type)_expectedType;
 
+            if (expectedType.Unit != actualType.Unit)
+            {
+                _dataTypeMismatch = true;
+            }
+        }
+
+        public void Visit(Time32Type actualType)
+        {
+            var expectedType = (Time32Type)_expectedType;
+
+            if (expectedType.Unit != actualType.Unit)
+            {
+                _dataTypeMismatch = true;
+            }
+        }
+
+        public void Visit(Time64Type actualType)
+        {
+            var expectedType = (Time64Type)_expectedType;
+
+            if (expectedType.Unit != actualType.Unit)
+            {
+                _dataTypeMismatch = true;
+            }
+        }
+
+        public void Visit(FixedSizeBinaryType actualType)
+        {
+            var expectedType = (FixedSizeBinaryType)_expectedType;
+
+            if (expectedType.ByteWidth != actualType.ByteWidth)
+            {
+                _dataTypeMismatch = true;
+            }
+        }
+
+        public void Visit(ListType actualType)
+        {
+            var expectedType = (ListType)_expectedType;
+
+            if (!CompareNested(expectedType, actualType))
+            {
+                _dataTypeMismatch = true;
+            }
+        }
+
+        public void Visit(StructType actualType)
+        {
+            var expectedType = (StructType)_expectedType;
+
+            if (!CompareNested(expectedType, actualType))
+            {
+                _dataTypeMismatch = true;
+            }
+        }
+
+        public static bool Compare(Field expected, Field actual)
+        {
+            if (ReferenceEquals(expected, actual))
+            {
                 return true;
             }
 
-            if (actualType.TypeId == ArrowTypeId.List)
-            {
-                var expectedListType = (ListType)expectedType;
-                var actualListType = (ListType)actualType;
+            Assert.Equal(expected.Name, actual.Name);
+            Assert.Equal(expected.IsNullable, actual.IsNullable);
 
-                CompareNested(expectedListType, actualListType);
+            Assert.Equal(expected.HasMetadata, actual.HasMetadata);
+            if (expected.HasMetadata)
+            {
+                Assert.Equal(expected.Metadata.Keys.Count(), actual.Metadata.Keys.Count());
+                Assert.True(expected.Metadata.Keys.All(k => actual.Metadata.ContainsKey(k) && expected.Metadata[k] == actual.Metadata[k]));
+                Assert.True(actual.Metadata.Keys.All(k => expected.Metadata.ContainsKey(k) && actual.Metadata[k] == expected.Metadata[k]));
             }
 
-            if (actualType.TypeId == ArrowTypeId.Struct)
-            {
-                var expectedStructType = (StructType)expectedType;
-                var actualStructType = (StructType)actualType;
-
-                CompareNested(expectedStructType, actualStructType);
-            }
-
-            return true;
+            actual.DataType.Accept(new ArrayTypeComparer(expected.DataType));
         }
 
         private static bool CompareNested(NestedType expectedType, NestedType actualType)
         {
-            if (expectedType.Fields.Count != actualType.Fields.Count)
-            {
-                return false;
-            }
-
             for (int i = 0; i < expectedType.Fields.Count; i++)
             {
-                Compare(expectedType.Fields[i].DataType, actualType.Fields[i].DataType);
+                var arrayTypeVistor = new ArrayTypeComparer(expectedType.Fields[i].DataType);
+
+                actualType.Fields[i].DataType.Accept(arrayTypeVistor);
+
+                if (arrayTypeVistor.IsDataTypeMismatch())
+                {
+                    return false;
+                }
             }
 
-            return true;
+            return true;   
+        }
+
+        public void Visit(IArrowType actualType)
+        {
+            //Debug.Assert.IsAssignableFrom(actualType.GetType(), _expectedType);
         }
     }
 }
