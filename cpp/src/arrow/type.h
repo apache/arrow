@@ -310,7 +310,9 @@ class ARROW_EXPORT Field : public detail::Fingerprintable {
     /// nullable).
     bool promote_nullability = true;
 
-    /// Allow a decimal to be unified with another decimal of the same width.
+    /// Allow a decimal to be unified with another decimal of the same
+    /// width, adjusting scale and precision as appropriate. May fail
+    /// if the adjustment is not possible.
     bool promote_decimal = false;
 
     /// Allow a decimal to be promoted to a float. The float type will
@@ -330,15 +332,6 @@ class ARROW_EXPORT Field : public detail::Fingerprintable {
     /// May fail if the decimal has insufficient precision to
     /// accomodate the integer. (See increase_decimal_precision.)
     bool promote_integer_decimal = false;
-
-    /// When promoting another type to a decimal, increase precision
-    /// (and possibly fail) to hold all possible values of the other type.
-    ///
-    /// For example: unifying int64 and decimal256(76, 70) will fail
-    /// if this is true, since we need at least 19 digits to the left
-    /// of the decimal point, but we are already at max precision. If
-    /// this is false, the unified type will be decimal256(76, 70).
-    bool increase_decimal_precision = false;
 
     /// Allow an integer, float, or decimal of a given bit width to be
     /// promoted to an equivalent type of a greater bit width.

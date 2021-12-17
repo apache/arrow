@@ -263,7 +263,6 @@ Field::MergeOptions Field::MergeOptions::Permissive() {
   options.promote_integer_float = true;
   options.promote_integer_decimal = true;
   options.promote_decimal_float = true;
-  options.increase_decimal_precision = true;
   options.promote_date = true;
   options.promote_time = true;
   options.promote_duration = true;
@@ -284,8 +283,6 @@ std::string Field::MergeOptions::ToString() const {
   ss << ", promote_integer_float=" << (promote_integer_float ? "true" : "false");
   ss << ", promote_integer_decimal=" << (promote_integer_decimal ? "true" : "false");
   ss << ", promote_decimal_float=" << (promote_decimal_float ? "true" : "false");
-  ss << ", increase_decimal_precision="
-     << (increase_decimal_precision ? "true" : "false");
   ss << ", promote_date=" << (promote_date ? "true" : "false");
   ss << ", promote_time=" << (promote_time ? "true" : "false");
   ss << ", promote_duration=" << (promote_duration ? "true" : "false");
@@ -363,7 +360,54 @@ std::shared_ptr<DataType> MergeTypes(std::shared_ptr<DataType> promoted_type,
     auto indices = MergeTypes(left.index_type(), right.index_type(), index_options);
     auto values = MergeTypes(left.value_type(), right.value_type(), options);
     auto ordered = left.ordered() && right.ordered();
+    // TODO: make this return Result so we can report a more detailed error
     return (indices && values) ? dictionary(indices, values, ordered) : nullptr;
+  }
+
+  if (options.promote_decimal_float) {
+    if (is_decimal(promoted_type->id()) && is_floating(other_type->id())) {
+      promoted_type = other_type;
+      promoted = true;
+    } else if (is_floating(promoted_type->id()) && is_decimal(other_type->id())) {
+      other_type = promoted_type;
+      promoted = true;
+    }
+  }
+
+  if (options.promote_integer_decimal) {
+    if (is_integer(promoted_type->id()) && is_decimal(other_type->id())) {
+      promoted_type.swap(other_type);
+    }
+
+    if (is_decimal(promoted_type->id()) && is_integer(other_type->id())) {
+      int32_t precision = 0;
+      if (!MaxDecimalDigitsForInteger(other_type->id()).Value(&precision).ok()) {
+        return nullptr;
+      }
+      // TODO: return result and use DecimalType::Make
+      other_type = promoted_type->id() == Type::DECIMAL128 ? decimal128(precision, 0)
+                                                           : decimal256(precision, 0);
+      promoted = true;
+    }
+  }
+
+  if (options.promote_decimal && is_decimal(promoted_type->id()) &&
+      is_decimal(other_type->id())) {
+    const auto& left = checked_cast<const DecimalType&>(*promoted_type);
+    const auto& right = checked_cast<const DecimalType&>(*other_type);
+    if (!options.promote_numeric_width && left.bit_width() != right.bit_width())
+      return nullptr;
+    const int32_t max_scale = std::max<int32_t>(left.scale(), right.scale());
+    const int32_t common_precision =
+        std::max<int32_t>(left.precision() + max_scale - left.scale(),
+                          right.precision() + max_scale - right.scale());
+    // TODO: return result and use DecimalType::Make
+    if (left.id() == Type::DECIMAL256 || right.id() == Type::DECIMAL256 ||
+        (options.promote_numeric_width &&
+         common_precision > BasicDecimal128::kMaxPrecision)) {
+      return decimal256(common_precision, max_scale);
+    }
+    return decimal128(common_precision, max_scale);
   }
 
   if (options.promote_integer_sign) {

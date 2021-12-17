@@ -1196,13 +1196,6 @@ TEST_F(TestUnifySchemas, Numeric) {
 TEST_F(TestUnifySchemas, Decimal) {
   auto options = Field::MergeOptions::Defaults();
 
-  options.promote_decimal = true;
-  CheckUnify(decimal128(3, 2), decimal128(5, 2), decimal128(5, 2), options);
-  CheckUnify(decimal128(3, 2), decimal128(5, 3), decimal128(5, 3), options);
-  CheckUnify(decimal128(3, 2), decimal128(5, 1), decimal128(6, 2), options);
-  CheckUnify(decimal128(3, 2), decimal128(5, -2), decimal128(9, 2), options);
-  CheckUnify(decimal128(3, -2), decimal128(5, -2), decimal128(5, -2), options);
-
   options.promote_decimal_float = true;
   CheckUnify(decimal128(3, 2), {float32(), float64()}, options);
   CheckUnify(decimal256(3, 2), {float32(), float64()}, options);
@@ -1211,7 +1204,13 @@ TEST_F(TestUnifySchemas, Decimal) {
   CheckUnify(int32(), decimal128(3, 2), decimal128(3, 2), options);
   CheckUnify(int32(), decimal128(3, -2), decimal128(3, -2), options);
 
-  options.increase_decimal_precision = true;
+  options.promote_decimal = true;
+  CheckUnify(decimal128(3, 2), decimal128(5, 2), decimal128(5, 2), options);
+  CheckUnify(decimal128(3, 2), decimal128(5, 3), decimal128(5, 3), options);
+  CheckUnify(decimal128(3, 2), decimal128(5, 1), decimal128(6, 2), options);
+  CheckUnify(decimal128(3, 2), decimal128(5, -2), decimal128(9, 2), options);
+  CheckUnify(decimal128(3, -2), decimal128(5, -2), decimal128(5, -2), options);
+
   // int32() is essentially decimal128(10, 0)
   CheckUnify(int32(), decimal128(3, 2), decimal128(12, 2), options);
   CheckUnify(int32(), decimal128(3, -2), decimal128(10, 0), options);
