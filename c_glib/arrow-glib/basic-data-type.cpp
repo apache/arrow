@@ -1312,9 +1312,9 @@ garrow_interval_data_type_class_init(GArrowIntervalDataTypeClass *klass)
 
 /**
  * garrow_interval_data_type_get_interval_type:
- * @type: #GArrowIntervalDataType.
+ * @type: The #GArrowIntervalDataType.
  *
- * Returns: GArrowIntervalType
+ * Returns: The interval type of the given @type.
  *
  * Since: 7.0.0
  */
