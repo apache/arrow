@@ -335,23 +335,19 @@ public class TestFileSystemDataset extends TestNativeDataset {
     try (VectorSchemaRoot vsr = VectorSchemaRoot.create(schema, rootAllocator())) {
       VectorLoader loader = new VectorLoader(vsr);
       for (ArrowRecordBatch batch : actual) {
-        try {
-          loader.load(batch);
-          int batchRowCount = vsr.getRowCount();
-          for (int i = 0; i < batchRowCount; i++) {
-            List<Object> row = new ArrayList<>();
-            for (int j = 0; j < fieldCount; j++) {
-              Object object = vsr.getVector(j).getObject(i);
-              if (Primitives.isWrapperType(object.getClass())) {
-                row.add(object);
-              } else {
-                row.add(object.toString());
-              }
+        loader.load(batch);
+        int batchRowCount = vsr.getRowCount();
+        for (int i = 0; i < batchRowCount; i++) {
+          List<Object> row = new ArrayList<>();
+          for (int j = 0; j < fieldCount; j++) {
+            Object object = vsr.getVector(j).getObject(i);
+            if (Primitives.isWrapperType(object.getClass())) {
+              row.add(object);
+            } else {
+              row.add(object.toString());
             }
-            actualSet.add(row);
           }
-        } finally {
-          batch.close();
+          actualSet.add(row);
         }
       }
     }
