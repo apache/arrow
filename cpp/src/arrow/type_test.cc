@@ -992,6 +992,16 @@ class TestUnifySchemas : public TestSchema {
     AssertFieldEqual(merged2, expected);
   }
 
+  void CheckUnifyFails(
+      const std::shared_ptr<Field>& field1, const std::shared_ptr<Field>& field2,
+      const Field::MergeOptions& options = Field::MergeOptions::Defaults()) {
+    ARROW_SCOPED_TRACE("options: ", options);
+    ARROW_SCOPED_TRACE("field2: ", field2->ToString());
+    ARROW_SCOPED_TRACE("field1: ", field1->ToString());
+    ASSERT_RAISES(Invalid, field1->MergeWith(field2, options));
+    ASSERT_RAISES(Invalid, field2->MergeWith(field1, options));
+  }
+
   void CheckUnify(const std::shared_ptr<DataType>& left,
                   const std::shared_ptr<DataType>& right,
                   const std::shared_ptr<DataType>& expected,
@@ -1013,11 +1023,37 @@ class TestUnifySchemas : public TestSchema {
     CheckUnify(field1, field2, field("a", expected, /*nullable=*/true), options);
   }
 
+  void CheckUnifyFails(
+      const std::shared_ptr<DataType>& left, const std::shared_ptr<DataType>& right,
+      const Field::MergeOptions& options = Field::MergeOptions::Defaults()) {
+    auto field1 = field("a", left);
+    auto field2 = field("a", right);
+    CheckUnifyFails(field1, field2, options);
+  }
+
   void CheckUnify(const std::shared_ptr<DataType>& from,
                   const std::vector<std::shared_ptr<DataType>>& to,
                   const Field::MergeOptions& options = Field::MergeOptions::Defaults()) {
     for (const auto& ty : to) {
       CheckUnify(from, ty, ty, options);
+    }
+  }
+
+  void CheckUnifyFails(
+      const std::shared_ptr<DataType>& from,
+      const std::vector<std::shared_ptr<DataType>>& to,
+      const Field::MergeOptions& options = Field::MergeOptions::Defaults()) {
+    for (const auto& ty : to) {
+      CheckUnifyFails(from, ty, options);
+    }
+  }
+
+  void CheckUnifyFails(
+      const std::vector<std::shared_ptr<DataType>>& from,
+      const std::vector<std::shared_ptr<DataType>>& to,
+      const Field::MergeOptions& options = Field::MergeOptions::Defaults()) {
+    for (const auto& ty : from) {
+      CheckUnifyFails(ty, to, options);
     }
   }
 };
@@ -1111,38 +1147,65 @@ TEST_F(TestUnifySchemas, MoreSchemas) {
                         utf8_field->WithNullable(true)}));
 }
 
-TEST_F(TestUnifySchemas, Numerics) {
+TEST_F(TestUnifySchemas, Numeric) {
+  auto options = Field::MergeOptions::Defaults();
+  options.promote_numeric_width = true;
+  options.promote_integer_float = true;
+  options.promote_integer_sign = true;
   CheckUnify(uint8(),
              {int8(), uint16(), int16(), uint32(), int32(), uint64(), int64(), float32(),
               float64()},
-             Field::MergeOptions::Permissive());
-  CheckUnify(int8(), {int16(), int32(), int64(), float32(), float64()},
-             Field::MergeOptions::Permissive());
+             options);
+  CheckUnify(int8(), {int16(), int32(), int64(), float32(), float64()}, options);
   CheckUnify(uint16(),
              {int16(), uint32(), int32(), uint64(), int64(), float32(), float64()},
-             Field::MergeOptions::Permissive());
-  CheckUnify(int16(), {int32(), int64(), float32(), float64()},
-             Field::MergeOptions::Permissive());
-  CheckUnify(uint32(), {int32(), uint64(), int64(), float32(), float64()},
-             Field::MergeOptions::Permissive());
-  CheckUnify(int32(), {int64(), float32(), float64()}, Field::MergeOptions::Permissive());
-  CheckUnify(uint64(), {int64(), float64()}, Field::MergeOptions::Permissive());
-  CheckUnify(int64(), {float64()}, Field::MergeOptions::Permissive());
-  CheckUnify(float16(), {float32(), float64()}, Field::MergeOptions::Permissive());
-  CheckUnify(float32(), {float64()}, Field::MergeOptions::Permissive());
+             options);
+  CheckUnify(int16(), {int32(), int64(), float32(), float64()}, options);
+  CheckUnify(uint32(), {int32(), uint64(), int64(), float32(), float64()}, options);
+  CheckUnify(int32(), {int64(), float32(), float64()}, options);
+  CheckUnify(uint64(), {int64(), float64()}, options);
+  CheckUnify(int64(), {float64()}, options);
+  CheckUnify(float16(), {float32(), float64()}, options);
+  CheckUnify(float32(), {float64()}, options);
+  CheckUnify(uint64(), float32(), float64(), options);
+  CheckUnify(int64(), float32(), float64(), options);
 
-  // CheckUnifyFails(int8(), {uint8(), uint16(), uint32(), uint64()});
-  // uint32 and int32/int64; uint64 and int64
+  options.promote_integer_sign = false;
+  CheckUnify(uint8(), {uint16(), uint32(), uint64(), float32(), float64()}, options);
+  CheckUnifyFails(uint8(), {int8(), int16(), int32(), int64()}, options);
+  CheckUnify(uint16(), {uint32(), uint64(), float32(), float64()}, options);
+  CheckUnifyFails(uint16(), {int16(), int32(), int64()}, options);
+  CheckUnify(uint32(), {uint64(), float32(), float64()}, options);
+  CheckUnifyFails(uint32(), {int32(), int64()}, options);
+  CheckUnify(uint64(), {float64()}, options);
+  CheckUnifyFails(uint64(), {int64()}, options);
+
+  options.promote_integer_sign = true;
+  options.promote_integer_float = false;
+  CheckUnifyFails(IntTypes(), FloatingPointTypes(), options);
+
+  options.promote_integer_float = true;
+  options.promote_numeric_width = false;
+  CheckUnifyFails(int8(), {int16(), int32(), int64()}, options);
+  CheckUnifyFails(int16(), {int32(), int64()}, options);
+  CheckUnifyFails(int32(), {int64()}, options);
 }
 
 TEST_F(TestUnifySchemas, Binary) {
-  CheckUnify(utf8(), {large_utf8(), binary(), large_binary()},
-             Field::MergeOptions::Permissive());
-  CheckUnify(binary(), {large_binary()}, Field::MergeOptions::Permissive());
-  CheckUnify(fixed_size_binary(2), {binary(), large_binary()},
-             Field::MergeOptions::Permissive());
-  CheckUnify(fixed_size_binary(2), fixed_size_binary(4), binary(),
-             Field::MergeOptions::Permissive());
+  auto options = Field::MergeOptions::Defaults();
+  options.promote_large = true;
+  options.promote_binary = true;
+  CheckUnify(utf8(), {large_utf8(), binary(), large_binary()}, options);
+  CheckUnify(binary(), {large_binary()}, options);
+  CheckUnify(fixed_size_binary(2), {binary(), large_binary()}, options);
+  CheckUnify(fixed_size_binary(2), fixed_size_binary(4), binary(), options);
+
+  options.promote_large = false;
+  CheckUnifyFails({utf8(), binary()}, {large_utf8(), large_binary()});
+  CheckUnifyFails(fixed_size_binary(2), BaseBinaryTypes());
+
+  options.promote_binary = false;
+  CheckUnifyFails(utf8(), {binary(), large_binary(), fixed_size_binary(2)});
 }
 
 TEST_F(TestUnifySchemas, IncompatibleTypes) {

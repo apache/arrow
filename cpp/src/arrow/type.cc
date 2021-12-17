@@ -413,7 +413,7 @@ std::shared_ptr<DataType> MergeTypes(std::shared_ptr<DataType> promoted_type,
     }
   }
 
-  if (options.promote_binary) {
+  if (options.promote_large) {
     if (promoted_type->id() == Type::FIXED_SIZE_BINARY) {
       promoted_type = binary();
       promoted = other_type->id() == Type::BINARY;
@@ -422,7 +422,9 @@ std::shared_ptr<DataType> MergeTypes(std::shared_ptr<DataType> promoted_type,
       other_type = binary();
       promoted = promoted_type->id() == Type::BINARY;
     }
+  }
 
+  if (options.promote_binary) {
     if (is_string(promoted_type->id()) && is_binary(other_type->id())) {
       promoted_type = MakeBinary(*promoted_type);
       promoted =

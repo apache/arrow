@@ -310,23 +310,23 @@ class ARROW_EXPORT Field : public detail::Fingerprintable {
     /// nullable).
     bool promote_nullability = true;
 
-    /// Allow an integer, float, or decimal of a given bit width to be
-    /// promoted to an equivalent type of a greater bit width.
-    bool promote_numeric_width = false;
+    /// Allow a decimal to be promoted to a float. The float type will
+    /// not itself be promoted (e.g. Decimal128 + Float32 = Float32).
+    bool promote_decimal_float = false;
 
     /// Allow an integer of a given bit width to be promoted to a
     /// float of an equal or greater bit width.
     bool promote_integer_float = false;
+
+    /// Allow an unsigned integer of a given bit width to be promoted
+    /// to a signed integer of the same bit width.
+    bool promote_integer_sign = false;
 
     /// Allow an integer to be promoted to a decimal.
     ///
     /// May fail if the decimal has insufficient precision to
     /// accomodate the integer. (See increase_decimal_precision.)
     bool promote_integer_decimal = false;
-
-    /// Allow a decimal to be promoted to a float. The float type will
-    /// not itself be promoted (e.g. Decimal128 + Float32 = Float32).
-    bool promote_decimal_float = false;
 
     /// When promoting another type to a decimal, increase precision
     /// (and possibly fail) to hold all possible values of the other type.
@@ -336,6 +336,10 @@ class ARROW_EXPORT Field : public detail::Fingerprintable {
     /// of the decimal point but we are already at max precision. If
     /// this is false, the unified type will be decimal128(38, 30).
     bool increase_decimal_precision = false;
+
+    /// Allow an integer, float, or decimal of a given bit width to be
+    /// promoted to an equivalent type of a greater bit width.
+    bool promote_numeric_width = false;
 
     /// Promote Date32 to Date64.
     bool promote_date = false;
@@ -355,10 +359,6 @@ class ARROW_EXPORT Field : public detail::Fingerprintable {
     /// Promote dictionary index types to a common type, and unify the
     /// value types.
     bool promote_dictionary = false;
-
-    /// Allow an unsigned integer of a given bit width to be promoted
-    /// to a signed integer of the same bit width.
-    bool promote_integer_sign = false;
 
     // TODO: does this include fixed size list?
     // TODO: does this include fixed size binary?
