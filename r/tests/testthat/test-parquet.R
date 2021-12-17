@@ -251,10 +251,12 @@ test_that("ParquetFileReader $ReadRowGroup(s) methods", {
 
 test_that("Error messages are shown when the compression algorithm snappy is not found", {
   msg <- paste0(
-    "NotImplemented: Support for codec 'snappy' not built\nIn order to read this file, ",
+    ".*",
     "you will need to reinstall arrow with additional features enabled.\nSet one of these ",
-    "environment variables before installing:\n\n * Sys.setenv(LIBARROW_MINIMAL = \"false\") (for all optional ",
-    "features, including 'snappy')\n * Sys.setenv(ARROW_WITH_SNAPPY = \"ON\") (for just 'snappy')\n\n",
+    "environment variables before installing:",
+    "\n\n \\* Sys\\.setenv\\(LIBARROW_MINIMAL = \"false\"\\) ",
+    "\\(for all optional features, including 'snappy'\\)",
+    "\n \\* Sys\\.setenv\\(ARROW_WITH_SNAPPY = \"ON\"\\) \\(for just 'snappy')\n\n",
     "See https://arrow.apache.org/docs/r/articles/install.html for details"
   )
 
@@ -262,7 +264,7 @@ test_that("Error messages are shown when the compression algorithm snappy is not
     d <- read_parquet(pq_file)
     expect_s3_class(d, "data.frame")
   } else {
-    expect_error(read_parquet(pq_file), msg, fixed = TRUE)
+    expect_error(read_parquet(pq_file), msg)
   }
 })
 
