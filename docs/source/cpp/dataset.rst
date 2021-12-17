@@ -368,6 +368,44 @@ when constructing a directory partitioning:
 Directory partitioning also supports providing a full schema rather than inferring
 types from file paths.
 
+Partitioning performance considerations
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Partitioning datasets has two aspects that affect performance: it increases the number of
+files and it creates a directory structure around the files. Both of these have benefits
+as well as costs. Depending on the configuration and the size of your dataset, the costs 
+can outweigh the benefits. 
+
+Because partitions split up the dataset into multiple files, partitioned datasets can be 
+read and written with parallelism. However, each additional file adds a little overhead in 
+processing for filesystem interaction. It also increases the overall dataset size since 
+each file has some shared metadata. For example, each parquet file contains the schema and
+group-level statistics. The number of partitions is a floor for the number of files. If 
+you partition a dataset by date with a year of data, you will have at least 365 files. If 
+you further partition by another dimension with 1,000 unique values, you will have up to 
+365,000 files. This fine of partitioning often leads to small files that mostly consist of
+metadata.
+
+Partitioned datasets create nested folder structures, and those allow us to prune which 
+files are loaded in a scan. However, this adds overhead to discovering files in the dataset,
+as we'll need to recursively "list directory" to find the data files. Too fine
+partitions can cause problems here: Partitioning a dataset by date for a years worth
+of data will require 365 list calls to find all the files; adding another column with 
+cardinality 1,000 will make that 365,365 calls.
+
+The most optimal partitioning layout will depend on your data, access patterns, and which
+systems will be reading the data. Most systems, including Arrow, should work across a 
+range of file sizes and partitioning layouts, but there are extremes you should avoid. These
+guidelines can help avoid some known worst cases:
+
+* Avoid files smaller than 20MB and larger than 2GB.
+* Avoid partitioning layouts with more than 10,000 distinct partitions.
+
+For file formats that have a notion of groups within a file, such as Parquet, similar
+guidelines apply. Row groups can provide parallelism when reading and allow data skipping
+based on statistics, but very small groups can cause metadata to be a significant portion
+of file size. Arrow's file writer provides sensible defaults for group sizing in most cases.
+
 Reading from other data sources
 -------------------------------
 
