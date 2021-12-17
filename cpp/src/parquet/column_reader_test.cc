@@ -324,6 +324,74 @@ TEST_F(TestPrimitiveReader, TestInt32FlatRequiredSkip) {
   reader_.reset();
 }
 
+// Page claims to have two values but only 1 is present.
+TEST_F(TestPrimitiveReader, TestReadValuesMissing) {
+  max_def_level_ = 1;
+  max_rep_level_ = 0;
+  constexpr int batch_size = 1;
+  std::vector<bool> values(1, false);
+  std::vector<int16_t> input_def_levels(1, 1);
+  NodePtr type = schema::Boolean("a", Repetition::OPTIONAL);
+  const ColumnDescriptor descr(type, max_def_level_, max_rep_level_);
+
+  // The data page falls back to plain encoding
+  std::shared_ptr<ResizableBuffer> dummy = AllocateBuffer();
+  std::shared_ptr<DataPageV1> data_page = MakeDataPage<BooleanType>(
+      &descr, values, /*num_values=*/2, Encoding::PLAIN, /*indices=*/{},
+      /*indices_size=*/0, /*def_levels=*/input_def_levels, max_def_level_,
+      /*rep_levels=*/{},
+      /*max_rep_level=*/0);
+  pages_.push_back(data_page);
+  InitReader(&descr);
+  auto reader = static_cast<BoolReader*>(reader_.get());
+  ASSERT_TRUE(reader->HasNext());
+  std::vector<int16_t> def_levels(batch_size, 0);
+  std::vector<int16_t> rep_levels(batch_size, 0);
+  bool values_out[batch_size];
+  int64_t values_read;
+  EXPECT_EQ(1, reader->ReadBatch(batch_size, def_levels.data(), rep_levels.data(),
+                                 values_out, &values_read));
+  ASSERT_THROW(reader->ReadBatch(batch_size, def_levels.data(), rep_levels.data(),
+                                 values_out, &values_read),
+               ParquetException);
+}
+
+// Page claims to have two values but only 1 is present.
+TEST_F(TestPrimitiveReader, TestReadValuesMissingWithDictionary) {
+  constexpr int batch_size = 1;
+  max_def_level_ = 1;
+  max_rep_level_ = 0;
+  NodePtr type = schema::Int32("a", Repetition::OPTIONAL);
+  const ColumnDescriptor descr(type, max_def_level_, max_rep_level_);
+  std::shared_ptr<ResizableBuffer> dummy = AllocateBuffer();
+
+  std::shared_ptr<DictionaryPage> dict_page =
+      std::make_shared<DictionaryPage>(dummy, 0, Encoding::PLAIN);
+  std::vector<int16_t> input_def_levels(1, 0);
+  std::shared_ptr<DataPageV1> data_page = MakeDataPage<Int32Type>(
+      &descr, {}, /*num_values=*/2, Encoding::RLE_DICTIONARY, /*indices=*/{},
+      /*indices_size=*/0, /*def_levels=*/input_def_levels, max_def_level_,
+      /*rep_levels=*/{},
+      /*max_rep_level=*/0);
+  pages_.push_back(dict_page);
+  pages_.push_back(data_page);
+  InitReader(&descr);
+  auto reader = static_cast<ByteArrayReader*>(reader_.get());
+  const ByteArray* dict = nullptr;
+  int32_t dict_len = 0;
+  int64_t indices_read = 0;
+  int32_t indices[batch_size];
+  int16_t def_levels_out[batch_size];
+  ASSERT_TRUE(reader->HasNext());
+  EXPECT_EQ(1, reader->ReadBatchWithDictionary(batch_size, def_levels_out,
+                                               /*rep_levels=*/nullptr, indices,
+                                               &indices_read, &dict, &dict_len));
+  ASSERT_THROW(reader->ReadBatchWithDictionary(batch_size, def_levels_out,
+                                               /*rep_levels=*/nullptr, indices,
+                                               &indices_read, &dict, &dict_len),
+               ParquetException);
+}
+
 TEST_F(TestPrimitiveReader, TestDictionaryEncodedPages) {
   max_def_level_ = 0;
   max_rep_level_ = 0;
