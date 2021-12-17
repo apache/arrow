@@ -618,7 +618,7 @@ const char* translate_utf8_utf8_utf8(int64_t context, const char* in, int32_t in
                                      int32_t to_len, int32_t* out_len) {
   if (in_len <= 0) {
     *out_len = 0;
-    return nullptr;
+    return "";
   }
 
   if (from_len <= 0) {
@@ -632,7 +632,7 @@ const char* translate_utf8_utf8_utf8(int64_t context, const char* in, int32_t in
   if (result == nullptr) {
     gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
     *out_len = 0;
-    return nullptr;
+    return "";
   }
   int result_len = 0;
 
@@ -660,7 +660,6 @@ const char* translate_utf8_utf8_utf8(int64_t context, const char* in, int32_t in
         result[result_len] = subs_list[in[in_for]];
         result_len++;
       }
-      continue;
     } else {
       for (int from_for = 0; from_for <= from_len; from_for++) {
         if (from_for == from_len) {
