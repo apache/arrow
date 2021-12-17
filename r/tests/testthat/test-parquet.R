@@ -181,6 +181,21 @@ test_that("Lists are preserved when writing/reading from Parquet", {
   expect_equal(df, df_read, ignore_attr = TRUE)
 })
 
+test_that("Maps are preserved when writing/reading from Parquet", {
+  string_bool <- Array$create(list(list(c('a', 'b'), c(TRUE, FALSE))), map_of(utf8(), boolean()))
+  int_struct <- Array$create(list(list(c(2, 4), list(list(x = 1, y = 'a'), list(x = 2, y = 'b')))),
+                             map_of(int64(), struct(x = int64(), y = utf8())))
+
+  df <- tibble::tibble(string_bool = string_bool, int_struct = int_struct)
+
+  pq_tmp_file <- tempfile()
+  on.exit(unlink(pq_tmp_file))
+
+  write_parquet(df, pq_tmp_file)
+  df_read <- read_parquet(pq_tmp_file)
+  expect_equal(df, df_read, ignore_attr = TRUE)
+})
+
 test_that("write_parquet() to stream", {
   df <- tibble::tibble(x = 1:5)
   tf <- tempfile()
@@ -352,3 +367,13 @@ test_that("deprecated int96 timestamp unit can be specified when reading Parquet
   expect_identical(result$some_datetime$type$unit(), TimeUnit$MILLI)
   expect_true(result$some_datetime == table$some_datetime)
 })
+
+# Wait on ARROW-13735 for this
+# test_that("Can read parquet with nested lists and maps", {
+#   parquet_test_data <- test_path("../../../cpp/submodules/parquet-testing/data")
+#   skip_if_not(dir.exists(parquet_test_data), "Parquet test data missing")
+
+#   # pq <- read_parquet(paste0(parquet_test_data, '/nested_lists.snappy.parquet'))
+#   browser()
+#   pq <- read_parquet(paste0(parquet_test_data, '/nested_maps.snappy.parquet'))
+# })
