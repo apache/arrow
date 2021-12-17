@@ -7,42 +7,18 @@ library(arrow, warn.conflicts = FALSE)
 library(dplyr, warn.conflicts = FALSE)
 ```
 
-
 When writing bindings between C++ compute functions and R functions, the aim is 
 to expose the C++ functionality via existing R functions. The syntax and 
 functionality should match that of the existing R functions 
 (though with some exceptions) so that users are able to use existing tidyverse 
-or base R syntax, or call existing S3 methods on objects, whilst taking 
-advantage of the speed and functionality of the underlying arrow package.
-
-# Implementing bindings for S3 generics
-
-If a function is an S3 generic method, you may be able to define a version of it for 
-Arrow objects.  There are two base classes which have been defined in the
-R package so that S3 methods don't have to be defined repeatedly for objects with
-similar behaviour:
-
-* ArrowTabular - for RecordBatch and Table objects
-* ArrowDatum - for Scalar, Array, and ChunkedArray objects
-
-What this means is that any function defined for the base class will work with 
-the child class.  For example, the function `dim()` may be defined as:
-
-```{r, eval = FALSE}
-dim.ArrowTabular <- function(x) c(x$num_rows, x$num_columns)
-```
-
-This implements `dim()` for both RecordBatch and Table objects.
-
-```{r}
-arrow_table(x = c(1, 2, 3), y = c(4, 5, 6)) %>%
-  dim()
-```
+or base R syntax, whilst taking advantage of the speed and functionality of the 
+underlying arrow package.
 
 # Implementing bindings to work within dplyr pipelines
 
-One of main ways in which users interact with arrow is via dplyr syntax called 
-on Arrow objects.  For example, when a user calls `dplyr::mutate()` on an Arrow Tabular, 
+One of main ways in which users interact with arrow is via 
+[dplyr](https://dplyr.tidyverse.org/) syntax called on Arrow objects.  For 
+example, when a user calls `dplyr::mutate()` on an Arrow Tabular, 
 Dataset, or arrow data query object, the Arrow implementation of `mutate()` is 
 used and under the hood, translates the dplyr code into Arrow C++ code.
 
@@ -143,12 +119,20 @@ So let's get started.
 
 ### Step 1 - add unit tests
 
+We recommend a test-driven-development approach - write failing tests first, 
+then check that they fail, and then write the code needed to make them pass.  
+Thinking up-front about the behavior which needs testing can make it easier to 
+reason about the code which needs writing later.
+
 Look up the R function that you want to bind the compute kernel to, and write a 
 set of unit tests that use a dplyr pipeline and `compare_dplyr_binding()` (and 
 perhaps even `compare_dplyr_error()` if necessary.  These functions compare the 
-output of the original function with the dplyr bindings and make sure they match.
+output of the original function with the dplyr bindings and make sure they match.  
+We recommend looking at the documentation next to the source code for these 
+functions to get a better understanding of how they work.
 
-Make sure you're testing all parameters of the R function.
+You should make sure you're testing all parameters of the R function in your 
+tests.
 
 Below is a possible example test for `startsWith()`.
 
@@ -193,7 +177,11 @@ give it a default value of `false` but if it's been set, use the set value
 instead.  As the `pattern` argument maps directly to `prefix` in `startsWith()`
 we can pass it straight through.
 
-### Step 3 - see if direct mapping is appropriate
+### Step 3 - Map the R function to the C++ kernel
+
+The next task is writing the code which binds the R function to the C++ kernel.
+
+#### Step 3a - see if direct mapping is appropriate
 Compare the C++ function and R function.  If they are simple functions with no 
 options, it might be possible to directly map between the C++ and R in 
 `unary_function_map`, in the case of compute functions that operate on single 
@@ -202,7 +190,7 @@ of data.
 
 As `startsWith()` requires options, direct mapping is not appropriate.
 
-### Step 4 - If direct mapping not possible, try a modified implementation
+#### Step 3b - If direct mapping not possible, try a modified implementation
 If the function cannot be mapped directly, some extra work may be needed to 
 ensure that calling the arrow version of the function results in the same result
 as calling the R version of the function.  In this case, the function will need 
@@ -231,7 +219,7 @@ call_function(
 )
 ```
 
-### Step 5 - Run your tests.
+### Step 4 - Run your tests.
 
 If they pass, you're done! Submit a PR.  If you've modified the C++ code in the 
 R package (for example, when hooking up a binding to its options class), you 
