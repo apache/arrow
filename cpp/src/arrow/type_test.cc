@@ -1171,13 +1171,15 @@ TEST_F(TestUnifySchemas, Numeric) {
   CheckUnify(int64(), float32(), float64(), options);
 
   options.promote_integer_sign = false;
-  CheckUnify(uint8(), {uint16(), uint32(), uint64(), float32(), float64()}, options);
+  CheckUnify(uint8(), {uint16(), uint32(), uint64()}, options);
+  CheckUnify(int8(), {int16(), int32(), int64()}, options);
   CheckUnifyFails(uint8(), {int8(), int16(), int32(), int64()}, options);
-  CheckUnify(uint16(), {uint32(), uint64(), float32(), float64()}, options);
+  CheckUnify(uint16(), {uint32(), uint64()}, options);
+  CheckUnify(int16(), {int32(), int64()}, options);
   CheckUnifyFails(uint16(), {int16(), int32(), int64()}, options);
-  CheckUnify(uint32(), {uint64(), float32(), float64()}, options);
+  CheckUnify(uint32(), {uint64()}, options);
+  CheckUnify(int32(), {int64()}, options);
   CheckUnifyFails(uint32(), {int32(), int64()}, options);
-  CheckUnify(uint64(), {float64()}, options);
   CheckUnifyFails(uint64(), {int64()}, options);
 
   options.promote_integer_sign = true;
@@ -1189,6 +1191,127 @@ TEST_F(TestUnifySchemas, Numeric) {
   CheckUnifyFails(int8(), {int16(), int32(), int64()}, options);
   CheckUnifyFails(int16(), {int32(), int64()}, options);
   CheckUnifyFails(int32(), {int64()}, options);
+}
+
+TEST_F(TestUnifySchemas, Decimal) {
+  auto options = Field::MergeOptions::Defaults();
+
+  options.promote_decimal = true;
+  CheckUnify(decimal128(3, 2), decimal128(5, 2), decimal128(5, 2), options);
+  CheckUnify(decimal128(3, 2), decimal128(5, 3), decimal128(5, 3), options);
+  CheckUnify(decimal128(3, 2), decimal128(5, 1), decimal128(6, 2), options);
+  CheckUnify(decimal128(3, 2), decimal128(5, -2), decimal128(9, 2), options);
+  CheckUnify(decimal128(3, -2), decimal128(5, -2), decimal128(5, -2), options);
+
+  options.promote_decimal_float = true;
+  CheckUnify(decimal128(3, 2), {float32(), float64()}, options);
+  CheckUnify(decimal256(3, 2), {float32(), float64()}, options);
+
+  options.promote_integer_decimal = true;
+  CheckUnify(int32(), decimal128(3, 2), decimal128(3, 2), options);
+  CheckUnify(int32(), decimal128(3, -2), decimal128(3, -2), options);
+
+  options.increase_decimal_precision = true;
+  // int32() is essentially decimal128(10, 0)
+  CheckUnify(int32(), decimal128(3, 2), decimal128(12, 2), options);
+  CheckUnify(int32(), decimal128(3, -2), decimal128(10, 0), options);
+
+  options.promote_numeric_width = true;
+  CheckUnify(decimal128(3, 2), decimal256(5, 2), decimal256(5, 2), options);
+  CheckUnify(int32(), decimal128(38, 37), decimal256(47, 37), options);
+}
+
+TEST_F(TestUnifySchemas, Temporal) {
+  auto options = Field::MergeOptions::Defaults();
+
+  options.promote_date = true;
+  CheckUnify(date32(), {date64()}, options);
+
+  options.promote_time = true;
+  CheckUnify(time32(TimeUnit::SECOND),
+             {time32(TimeUnit::MILLI), time64(TimeUnit::MICRO), time64(TimeUnit::NANO)},
+             options);
+  CheckUnify(time32(TimeUnit::MILLI), {time64(TimeUnit::MICRO), time64(TimeUnit::NANO)},
+             options);
+  CheckUnify(time64(TimeUnit::MICRO), {time64(TimeUnit::NANO)}, options);
+
+  options.promote_duration = true;
+  CheckUnify(
+      duration(TimeUnit::SECOND),
+      {duration(TimeUnit::MILLI), duration(TimeUnit::MICRO), duration(TimeUnit::NANO)},
+      options);
+  CheckUnify(duration(TimeUnit::MILLI),
+             {duration(TimeUnit::MICRO), duration(TimeUnit::NANO)}, options);
+  CheckUnify(duration(TimeUnit::MICRO), {duration(TimeUnit::NANO)}, options);
+
+  options.promote_timestamp = true;
+  CheckUnify(
+      timestamp(TimeUnit::SECOND),
+      {timestamp(TimeUnit::MILLI), timestamp(TimeUnit::MICRO), timestamp(TimeUnit::NANO)},
+      options);
+  CheckUnify(timestamp(TimeUnit::MILLI),
+             {timestamp(TimeUnit::MICRO), timestamp(TimeUnit::NANO)}, options);
+  CheckUnify(timestamp(TimeUnit::MICRO), {timestamp(TimeUnit::NANO)}, options);
+
+  CheckUnifyFails(timestamp(TimeUnit::SECOND), timestamp(TimeUnit::SECOND, "UTC"),
+                  options);
+}
+
+TEST_F(TestUnifySchemas, List) {
+  auto options = Field::MergeOptions::Defaults();
+  options.promote_numeric_width = true;
+
+  options.promote_large = true;
+  CheckUnify(list(int8()), {large_list(int8())}, options);
+  CheckUnify(fixed_size_list(int8(), 2), {list(int8()), large_list(int8())}, options);
+
+  options.promote_nested = true;
+  CheckUnify(list(int8()), {list(int16()), list(int32()), list(int64())}, options);
+  CheckUnify(fixed_size_list(int8(), 2), {list(int16()), list(int32()), list(int64())},
+             options);
+}
+
+TEST_F(TestUnifySchemas, Map) {
+  auto options = Field::MergeOptions::Defaults();
+  options.promote_nested = true;
+  options.promote_numeric_width = true;
+
+  CheckUnify(map(int8(), int32()),
+             {map(int8(), int64()), map(int16(), int32()), map(int64(), int64())},
+             options);
+}
+
+TEST_F(TestUnifySchemas, Struct) {
+  auto options = Field::MergeOptions::Defaults();
+  options.promote_nested = true;
+  options.promote_numeric_width = true;
+  options.promote_binary = true;
+
+  CheckUnify(struct_({}), struct_({field("a", int8())}), struct_({field("a", int8())}),
+             options);
+
+  CheckUnify(struct_({field("b", utf8())}), struct_({field("a", int8())}),
+             struct_({field("b", utf8()), field("a", int8())}), options);
+
+  CheckUnify(struct_({field("b", utf8())}), struct_({field("b", binary())}),
+             struct_({field("b", binary())}), options);
+
+  CheckUnify(struct_({field("a", int8()), field("b", utf8())}),
+             struct_({field("b", utf8()), field("a", int8())}),
+             struct_({field("a", int8()), field("b", utf8())}), options);
+}
+
+TEST_F(TestUnifySchemas, Dictionary) {
+  auto options = Field::MergeOptions::Defaults();
+  options.promote_dictionary = true;
+  options.promote_large = true;
+
+  CheckUnify(dictionary(int8(), utf8()),
+             {
+                 dictionary(int64(), utf8()),
+                 dictionary(int8(), large_utf8()),
+             },
+             options);
 }
 
 TEST_F(TestUnifySchemas, Binary) {

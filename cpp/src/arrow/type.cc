@@ -266,8 +266,8 @@ Field::MergeOptions Field::MergeOptions::Permissive() {
   options.increase_decimal_precision = true;
   options.promote_date = true;
   options.promote_time = true;
-  options.promote_duration_units = true;
-  options.promote_timestamp_units = true;
+  options.promote_duration = true;
+  options.promote_timestamp = true;
   options.promote_nested = true;
   options.promote_dictionary = true;
   options.promote_integer_sign = true;
@@ -288,8 +288,8 @@ std::string Field::MergeOptions::ToString() const {
      << (increase_decimal_precision ? "true" : "false");
   ss << ", promote_date=" << (promote_date ? "true" : "false");
   ss << ", promote_time=" << (promote_time ? "true" : "false");
-  ss << ", promote_duration_units=" << (promote_duration_units ? "true" : "false");
-  ss << ", promote_timestamp_units=" << (promote_timestamp_units ? "true" : "false");
+  ss << ", promote_duration=" << (promote_duration ? "true" : "false");
+  ss << ", promote_timestamp=" << (promote_timestamp ? "true" : "false");
   ss << ", promote_nested=" << (promote_nested ? "true" : "false");
   ss << ", promote_dictionary=" << (promote_dictionary ? "true" : "false");
   ss << ", promote_integer_sign=" << (promote_integer_sign ? "true" : "false");

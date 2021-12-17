@@ -310,6 +310,9 @@ class ARROW_EXPORT Field : public detail::Fingerprintable {
     /// nullable).
     bool promote_nullability = true;
 
+    /// Allow a decimal to be unified with another decimal of the same width.
+    bool promote_decimal = false;
+
     /// Allow a decimal to be promoted to a float. The float type will
     /// not itself be promoted (e.g. Decimal128 + Float32 = Float32).
     bool promote_decimal_float = false;
@@ -332,9 +335,9 @@ class ARROW_EXPORT Field : public detail::Fingerprintable {
     /// (and possibly fail) to hold all possible values of the other type.
     ///
     /// For example: unifying int64 and decimal256(76, 70) will fail
-    /// if this is true since we need at least 19 digits to the left
-    /// of the decimal point but we are already at max precision. If
-    /// this is false, the unified type will be decimal128(38, 30).
+    /// if this is true, since we need at least 19 digits to the left
+    /// of the decimal point, but we are already at max precision. If
+    /// this is false, the unified type will be decimal256(76, 70).
     bool increase_decimal_precision = false;
 
     /// Allow an integer, float, or decimal of a given bit width to be
@@ -344,14 +347,14 @@ class ARROW_EXPORT Field : public detail::Fingerprintable {
     /// Promote Date32 to Date64.
     bool promote_date = false;
 
-    /// Promote Time32 to Time64.
+    /// Promote Time32 to Time64, or Time32(SECOND) to Time32(MILLI), etc.
     bool promote_time = false;
 
     /// Promote second to millisecond, etc.
-    bool promote_duration_units = false;
+    bool promote_duration = false;
 
     /// Promote second to millisecond, etc.
-    bool promote_timestamp_units = false;
+    bool promote_timestamp = false;
 
     /// Recursively merge nested types.
     bool promote_nested = false;
@@ -360,8 +363,6 @@ class ARROW_EXPORT Field : public detail::Fingerprintable {
     /// value types.
     bool promote_dictionary = false;
 
-    // TODO: does this include fixed size list?
-    // TODO: does this include fixed size binary?
     /// Allow a type to be promoted to the Large variant.
     bool promote_large = false;
 
