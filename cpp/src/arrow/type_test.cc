@@ -1215,9 +1215,14 @@ TEST_F(TestUnifySchemas, Decimal) {
   CheckUnify(int32(), decimal128(3, 2), decimal128(12, 2), options);
   CheckUnify(int32(), decimal128(3, -2), decimal128(10, 0), options);
 
+  CheckUnifyFails(decimal256(1, 0), decimal128(1, 0), options);
+  CheckUnifyFails(int64(), decimal128(38, 37), options);
+
   options.promote_numeric_width = true;
   CheckUnify(decimal128(3, 2), decimal256(5, 2), decimal256(5, 2), options);
   CheckUnify(int32(), decimal128(38, 37), decimal256(47, 37), options);
+
+  CheckUnifyFails(int64(), decimal256(76, 75), options);
 }
 
 TEST_F(TestUnifySchemas, Temporal) {

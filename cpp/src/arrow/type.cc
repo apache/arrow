@@ -331,9 +331,9 @@ std::shared_ptr<DataType> MakeBinary(const DataType& type) {
   }
   return std::shared_ptr<DataType>(nullptr);
 }
-std::shared_ptr<DataType> MergeTypes(std::shared_ptr<DataType> promoted_type,
-                                     std::shared_ptr<DataType> other_type,
-                                     const Field::MergeOptions& options) {
+Result<std::shared_ptr<DataType>> MergeTypes(std::shared_ptr<DataType> promoted_type,
+                                             std::shared_ptr<DataType> other_type,
+                                             const Field::MergeOptions& options) {
   if (promoted_type->Equals(*other_type)) return promoted_type;
 
   bool promoted = false;
@@ -344,7 +344,7 @@ std::shared_ptr<DataType> MergeTypes(std::shared_ptr<DataType> promoted_type,
       return promoted_type;
     }
   } else if (promoted_type->id() == Type::NA || other_type->id() == Type::NA) {
-    return nullptr;
+    return Status::Invalid("Cannot merge type with null unless promote_nullability=true");
   }
 
   if (options.promote_dictionary && is_dictionary(promoted_type->id()) &&
@@ -357,11 +357,17 @@ std::shared_ptr<DataType> MergeTypes(std::shared_ptr<DataType> promoted_type,
     Field::MergeOptions index_options = options;
     index_options.promote_integer_sign = true;
     index_options.promote_numeric_width = true;
-    auto indices = MergeTypes(left.index_type(), right.index_type(), index_options);
-    auto values = MergeTypes(left.value_type(), right.value_type(), options);
+    ARROW_ASSIGN_OR_RAISE(
+        auto indices, MergeTypes(left.index_type(), right.index_type(), index_options));
+    ARROW_ASSIGN_OR_RAISE(auto values,
+                          MergeTypes(left.value_type(), right.value_type(), options));
     auto ordered = left.ordered() && right.ordered();
-    // TODO: make this return Result so we can report a more detailed error
-    return (indices && values) ? dictionary(indices, values, ordered) : nullptr;
+    if (indices && values) {
+      return dictionary(indices, values, ordered);
+    }
+    return Status::Invalid(
+        "Cannot merge ordered and unordered dictionary unless "
+        "promote_dictionary_ordered=true");
   }
 
   if (options.promote_decimal_float) {
@@ -380,13 +386,10 @@ std::shared_ptr<DataType> MergeTypes(std::shared_ptr<DataType> promoted_type,
     }
 
     if (is_decimal(promoted_type->id()) && is_integer(other_type->id())) {
-      int32_t precision = 0;
-      if (!MaxDecimalDigitsForInteger(other_type->id()).Value(&precision).ok()) {
-        return nullptr;
-      }
-      // TODO: return result and use DecimalType::Make
-      other_type = promoted_type->id() == Type::DECIMAL128 ? decimal128(precision, 0)
-                                                           : decimal256(precision, 0);
+      ARROW_ASSIGN_OR_RAISE(const int32_t precision,
+                            MaxDecimalDigitsForInteger(other_type->id()));
+      ARROW_ASSIGN_OR_RAISE(other_type,
+                            DecimalType::Make(promoted_type->id(), precision, 0));
       promoted = true;
     }
   }
@@ -405,9 +408,9 @@ std::shared_ptr<DataType> MergeTypes(std::shared_ptr<DataType> promoted_type,
     if (left.id() == Type::DECIMAL256 || right.id() == Type::DECIMAL256 ||
         (options.promote_numeric_width &&
          common_precision > BasicDecimal128::kMaxPrecision)) {
-      return decimal256(common_precision, max_scale);
+      return DecimalType::Make(Type::DECIMAL256, common_precision, max_scale);
     }
-    return decimal128(common_precision, max_scale);
+    return DecimalType::Make(Type::DECIMAL128, common_precision, max_scale);
   }
 
   if (options.promote_integer_sign) {
@@ -543,7 +546,14 @@ Result<std::shared_ptr<Field>> Field::MergeWith(const Field& other,
     return Copy();
   }
 
-  auto promoted_type = MergeTypes(type_, other.type(), options);
+  auto maybe_promoted_type = MergeTypes(type_, other.type(), options);
+  if (!maybe_promoted_type.ok()) {
+    return maybe_promoted_type.status().WithMessage(
+        "Unable to merge: Field ", name(),
+        " has incompatible types: ", type()->ToString(), " vs ", other.type()->ToString(),
+        ": ", maybe_promoted_type.status().message());
+  }
+  auto promoted_type = move(maybe_promoted_type).MoveValueUnsafe();
   if (promoted_type) {
     bool nullable = nullable_;
     if (options.promote_nullability) {
