@@ -981,39 +981,43 @@ class TestUnifySchemas : public TestSchema {
 
   void CheckUnify(const std::shared_ptr<Field>& field1,
                   const std::shared_ptr<Field>& field2,
-                  const std::shared_ptr<Field>& expected) {
+                  const std::shared_ptr<Field>& expected,
+                  const Field::MergeOptions& options = Field::MergeOptions::Defaults()) {
+    ARROW_SCOPED_TRACE("options: ", options);
     ARROW_SCOPED_TRACE("field2: ", field2->ToString());
     ARROW_SCOPED_TRACE("field1: ", field1->ToString());
-    ASSERT_OK_AND_ASSIGN(auto merged1, field1->MergeWith(field2));
-    ASSERT_OK_AND_ASSIGN(auto merged2, field2->MergeWith(field1));
+    ASSERT_OK_AND_ASSIGN(auto merged1, field1->MergeWith(field2, options));
+    ASSERT_OK_AND_ASSIGN(auto merged2, field2->MergeWith(field1, options));
     AssertFieldEqual(merged1, expected);
     AssertFieldEqual(merged2, expected);
   }
 
   void CheckUnify(const std::shared_ptr<DataType>& left,
                   const std::shared_ptr<DataType>& right,
-                  const std::shared_ptr<DataType>& expected) {
+                  const std::shared_ptr<DataType>& expected,
+                  const Field::MergeOptions& options = Field::MergeOptions::Defaults()) {
     auto field1 = field("a", left);
     auto field2 = field("a", right);
-    CheckUnify(field1, field2, field("a", expected));
+    CheckUnify(field1, field2, field("a", expected), options);
 
     field1 = field("a", left, /*nullable=*/false);
     field2 = field("a", right, /*nullable=*/false);
-    CheckUnify(field1, field2, field("a", expected, /*nullable=*/false));
+    CheckUnify(field1, field2, field("a", expected, /*nullable=*/false), options);
 
     field1 = field("a", left);
     field2 = field("a", right, /*nullable=*/false);
-    CheckUnify(field1, field2, field("a", expected, /*nullable=*/true));
+    CheckUnify(field1, field2, field("a", expected, /*nullable=*/true), options);
 
     field1 = field("a", left, /*nullable=*/false);
     field2 = field("a", right);
-    CheckUnify(field1, field2, field("a", expected, /*nullable=*/true));
+    CheckUnify(field1, field2, field("a", expected, /*nullable=*/true), options);
   }
 
   void CheckUnify(const std::shared_ptr<DataType>& from,
-                  const std::vector<std::shared_ptr<DataType>>& to) {
+                  const std::vector<std::shared_ptr<DataType>>& to,
+                  const Field::MergeOptions& options = Field::MergeOptions::Defaults()) {
     for (const auto& ty : to) {
-      CheckUnify(from, ty, ty);
+      CheckUnify(from, ty, ty, options);
     }
   }
 };
@@ -1108,33 +1112,42 @@ TEST_F(TestUnifySchemas, MoreSchemas) {
 }
 
 TEST_F(TestUnifySchemas, Numerics) {
-  CheckUnify(uint8(), {int8(), uint16(), int16(), uint32(), int32(), uint64(), int64(),
-                       float32(), float64()});
-  CheckUnify(int8(), {int16(), int32(), int64(), float32(), float64()});
+  CheckUnify(uint8(),
+             {int8(), uint16(), int16(), uint32(), int32(), uint64(), int64(), float32(),
+              float64()},
+             Field::MergeOptions::Permissive());
+  CheckUnify(int8(), {int16(), int32(), int64(), float32(), float64()},
+             Field::MergeOptions::Permissive());
   CheckUnify(uint16(),
-             {int16(), uint32(), int32(), uint64(), int64(), float32(), float64()});
-  CheckUnify(int16(), {int32(), int64(), float32(), float64()});
-  CheckUnify(uint32(), {int32(), uint64(), int64(), float32(), float64()});
-  CheckUnify(int32(), {int64(), float32(), float64()});
-  CheckUnify(uint64(), {int64(), float64()});
-  CheckUnify(int64(), {float64()});
-  CheckUnify(float16(), {float32(), float64()});
-  CheckUnify(float32(), {float64()});
+             {int16(), uint32(), int32(), uint64(), int64(), float32(), float64()},
+             Field::MergeOptions::Permissive());
+  CheckUnify(int16(), {int32(), int64(), float32(), float64()},
+             Field::MergeOptions::Permissive());
+  CheckUnify(uint32(), {int32(), uint64(), int64(), float32(), float64()},
+             Field::MergeOptions::Permissive());
+  CheckUnify(int32(), {int64(), float32(), float64()}, Field::MergeOptions::Permissive());
+  CheckUnify(uint64(), {int64(), float64()}, Field::MergeOptions::Permissive());
+  CheckUnify(int64(), {float64()}, Field::MergeOptions::Permissive());
+  CheckUnify(float16(), {float32(), float64()}, Field::MergeOptions::Permissive());
+  CheckUnify(float32(), {float64()}, Field::MergeOptions::Permissive());
 
   // CheckUnifyFails(int8(), {uint8(), uint16(), uint32(), uint64()});
   // uint32 and int32/int64; uint64 and int64
 }
 
 TEST_F(TestUnifySchemas, Binary) {
-  CheckUnify(utf8(), {large_utf8(), binary(), large_binary()});
-  CheckUnify(binary(), {large_binary()});
-  CheckUnify(fixed_size_binary(2), {binary(), large_binary()});
-  CheckUnify(fixed_size_binary(2), fixed_size_binary(4), binary());
+  CheckUnify(utf8(), {large_utf8(), binary(), large_binary()},
+             Field::MergeOptions::Permissive());
+  CheckUnify(binary(), {large_binary()}, Field::MergeOptions::Permissive());
+  CheckUnify(fixed_size_binary(2), {binary(), large_binary()},
+             Field::MergeOptions::Permissive());
+  CheckUnify(fixed_size_binary(2), fixed_size_binary(4), binary(),
+             Field::MergeOptions::Permissive());
 }
 
 TEST_F(TestUnifySchemas, IncompatibleTypes) {
   auto int32_field = field("f", int32());
-  auto uint8_field = field("f", utf8(), false);
+  auto uint8_field = field("f", uint8(), false);
 
   auto schema1 = schema({int32_field});
   auto schema2 = schema({uint8_field});

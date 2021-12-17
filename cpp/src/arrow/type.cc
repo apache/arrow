@@ -256,6 +256,49 @@ std::shared_ptr<Field> Field::WithNullable(const bool nullable) const {
   return std::make_shared<Field>(name_, type_, nullable, metadata_);
 }
 
+Field::MergeOptions Field::MergeOptions::Permissive() {
+  MergeOptions options = Defaults();
+  options.promote_nullability = true;
+  options.promote_numeric_width = true;
+  options.promote_integer_float = true;
+  options.promote_integer_decimal = true;
+  options.promote_decimal_float = true;
+  options.increase_decimal_precision = true;
+  options.promote_date = true;
+  options.promote_time = true;
+  options.promote_duration_units = true;
+  options.promote_timestamp_units = true;
+  options.promote_nested = true;
+  options.promote_dictionary = true;
+  options.promote_integer_sign = true;
+  options.promote_large = true;
+  options.promote_binary = true;
+  return options;
+}
+
+std::string Field::MergeOptions::ToString() const {
+  std::stringstream ss;
+  ss << "MergeOptions{";
+  ss << "promote_nullability=" << (promote_nullability ? "true" : "false");
+  ss << ", promote_numeric_width=" << (promote_numeric_width ? "true" : "false");
+  ss << ", promote_integer_float=" << (promote_integer_float ? "true" : "false");
+  ss << ", promote_integer_decimal=" << (promote_integer_decimal ? "true" : "false");
+  ss << ", promote_decimal_float=" << (promote_decimal_float ? "true" : "false");
+  ss << ", increase_decimal_precision="
+     << (increase_decimal_precision ? "true" : "false");
+  ss << ", promote_date=" << (promote_date ? "true" : "false");
+  ss << ", promote_time=" << (promote_time ? "true" : "false");
+  ss << ", promote_duration_units=" << (promote_duration_units ? "true" : "false");
+  ss << ", promote_timestamp_units=" << (promote_timestamp_units ? "true" : "false");
+  ss << ", promote_nested=" << (promote_nested ? "true" : "false");
+  ss << ", promote_dictionary=" << (promote_dictionary ? "true" : "false");
+  ss << ", promote_integer_sign=" << (promote_integer_sign ? "true" : "false");
+  ss << ", promote_large=" << (promote_large ? "true" : "false");
+  ss << ", promote_binary=" << (promote_binary ? "true" : "false");
+  ss << '}';
+  return ss.str();
+}
+
 namespace {
 // Utilities for Field::MergeWith
 
@@ -291,7 +334,6 @@ std::shared_ptr<DataType> MakeBinary(const DataType& type) {
   }
   return std::shared_ptr<DataType>(nullptr);
 }
-
 std::shared_ptr<DataType> MergeTypes(std::shared_ptr<DataType> promoted_type,
                                      std::shared_ptr<DataType> other_type,
                                      const Field::MergeOptions& options) {
@@ -413,6 +455,7 @@ std::shared_ptr<DataType> MergeTypes(std::shared_ptr<DataType> promoted_type,
   // Decimal128 -> Decimal256
   // Integer -> Decimal
   // Decimal -> Float
+  // Duration units
   // List(A) -> List(B)
   // List -> LargeList
   // Unions?
@@ -420,7 +463,6 @@ std::shared_ptr<DataType> MergeTypes(std::shared_ptr<DataType> promoted_type,
   // Struct: reconcile order, fields, types
   // Map
   // Fixed size list
-  // Duration units
 
   return promoted ? promoted_type : nullptr;
 }

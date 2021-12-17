@@ -303,7 +303,7 @@ class ARROW_EXPORT Field : public detail::Fingerprintable {
   /// \brief Options that control the behavior of `MergeWith`.
   /// Options are to be added to allow type conversions, including integer
   /// widening, promotion from integer to float, or conversion to or from boolean.
-  struct MergeOptions {
+  struct MergeOptions : public util::ToStringOstreamable<MergeOptions> {
     /// If true, a Field of NullType can be unified with a Field of another type.
     /// The unified field will be of the other type and become nullable.
     /// Nullability will be promoted to the looser option (nullable if one is not
@@ -312,25 +312,65 @@ class ARROW_EXPORT Field : public detail::Fingerprintable {
 
     /// Allow an integer, float, or decimal of a given bit width to be
     /// promoted to an equivalent type of a greater bit width.
-    bool promote_numeric_width = true;
+    bool promote_numeric_width = false;
 
     /// Allow an integer of a given bit width to be promoted to a
     /// float of an equal or greater bit width.
-    bool promote_integer_float = true;
+    bool promote_integer_float = false;
+
+    /// Allow an integer to be promoted to a decimal.
+    ///
+    /// May fail if the decimal has insufficient precision to
+    /// accomodate the integer. (See increase_decimal_precision.)
+    bool promote_integer_decimal = false;
+
+    /// Allow a decimal to be promoted to a float. The float type will
+    /// not itself be promoted (e.g. Decimal128 + Float32 = Float32).
+    bool promote_decimal_float = false;
+
+    /// When promoting another type to a decimal, increase precision
+    /// (and possibly fail) to hold all possible values of the other type.
+    ///
+    /// For example: unifying int64 and decimal256(76, 70) will fail
+    /// if this is true since we need at least 19 digits to the left
+    /// of the decimal point but we are already at max precision. If
+    /// this is false, the unified type will be decimal128(38, 30).
+    bool increase_decimal_precision = false;
+
+    /// Promote Date32 to Date64.
+    bool promote_date = false;
+
+    /// Promote Time32 to Time64.
+    bool promote_time = false;
+
+    /// Promote second to millisecond, etc.
+    bool promote_duration_units = false;
+
+    /// Promote second to millisecond, etc.
+    bool promote_timestamp_units = false;
+
+    /// Recursively merge nested types.
+    bool promote_nested = false;
+
+    /// Promote dictionary index types to a common type, and unify the
+    /// value types.
+    bool promote_dictionary = false;
 
     /// Allow an unsigned integer of a given bit width to be promoted
     /// to a signed integer of the same bit width.
-    bool promote_integer_sign = true;
+    bool promote_integer_sign = false;
 
+    // TODO: does this include fixed size list?
+    // TODO: does this include fixed size binary?
     /// Allow a type to be promoted to the Large variant.
-    bool promote_large = true;
+    bool promote_large = false;
 
     /// Allow strings to be promoted to binary types.
-    bool promote_binary = true;
-
-    // TODO: how do we want to handle decimal?
+    bool promote_binary = false;
 
     static MergeOptions Defaults() { return MergeOptions(); }
+    static MergeOptions Permissive();
+    std::string ToString() const;
   };
 
   /// \brief Merge the current field with a field of the same name.
