@@ -626,10 +626,19 @@ const char* translate_utf8_utf8_utf8(int64_t context, const char* in, int32_t in
     return in;
   }
 
-  // Creating a Map to mark substitutions to make
-  std::map<char, char> subs_list;
   // This variable is for receive the substitutions
-  std::string translated(in, in_len);
+  char* result = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, in_len));
+
+  if (result == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return nullptr;
+  }
+  int result_len = 0;
+
+  // Creating a Map to mark substitutions to make
+  std::unordered_map<char, char> subs_list;
+
   // This variable is for controlling the position in entry TO, for never repeat the
   // changes
   int start_compare;
@@ -646,10 +655,21 @@ const char* translate_utf8_utf8_utf8(int64_t context, const char* in, int32_t in
 
   for (int in_for = 0; in_for < in_len; in_for++) {
     if (subs_list.find(in[in_for]) != subs_list.end()) {
-      // if this character exist in map list, don't need treatment
+      if (subs_list[in[in_for]] != empty) {
+        // If exist in map, only add the correspondent value in result
+        result[result_len] = subs_list[in[in_for]];
+        result_len++;
+      }
       continue;
     } else {
-      for (int from_for = 0; from_for < from_len; from_for++) {
+      for (int from_for = 0; from_for <= from_len; from_for++) {
+        if (from_for == from_len) {
+          // If it's not in the FROM list, just add it to the map and the result.
+          subs_list.insert(std::pair<char, char>(in[in_for], in[in_for]));
+          result[result_len] = in[in_for];
+          result_len++;
+          break;
+        }
         if (in[in_for] != from[from_for]) {
           // If this character does not exist in FROM list, don't need treatment
           continue;
@@ -657,40 +677,22 @@ const char* translate_utf8_utf8_utf8(int64_t context, const char* in, int32_t in
           // If exist but the start_compare is out of range, add to map as empty, to
           // deletion later
           subs_list.insert(std::pair<char, char>(in[in_for], empty));
+          break;
         } else {
           // If exist and the start_compare is in range, add to map with the corresponding
           // TO in position start_compare
           subs_list.insert(std::pair<char, char>(in[in_for], to[start_compare]));
+          result[result_len] = subs_list[in[in_for]];
+          result_len++;
           start_compare++;
           break;  // for ignore duplicates entries in FROM, ex: ("adad")
         }
       }
     }
   }
-  // creating the iterator for apply changes using map
-  std::map<char, char>::iterator it = subs_list.begin();
-  while (it != subs_list.end()) {
-    if (it->second == empty) {
-      translated.erase(std::remove(translated.begin(), translated.end(), it->first),
-                       translated.end());
-    } else {
-      replace(translated.begin(), translated.end(), it->first, it->second);
-    }
-    it++;
-  }
 
-  // Trying allocating memory to make return
-  char* result =
-      reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, translated.length()));
-  if (result == nullptr) {
-    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
-    *out_len = 0;
-    return nullptr;
-  }
-
-  strcpy(result, translated.c_str());
-  *out_len = translated.length();
-  return &result[0];
+  *out_len = result_len;
+  return result;
 }
 }
 

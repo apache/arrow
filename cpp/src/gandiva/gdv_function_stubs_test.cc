@@ -986,6 +986,11 @@ TEST(TestGdvFnStubs, TestTranslate) {
   result = translate_utf8_utf8_utf8(ctx_ptr, "123456789", 9, "987654321", 9, "0123456789",
                                     10, &out_len);
   EXPECT_EQ(expected, std::string(result, out_len));
+
+  expected = "012345678";
+  result = translate_utf8_utf8_utf8(ctx_ptr, "987654321", 9, "123456789", 9, "0123456789",
+                                    10, &out_len);
+  EXPECT_EQ(expected, std::string(result, out_len));
 }
 
 }  // namespace gandiva
