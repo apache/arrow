@@ -337,6 +337,8 @@ std::shared_ptr<DataType> MakeBinary(const DataType& type) {
 std::shared_ptr<DataType> MergeTypes(std::shared_ptr<DataType> promoted_type,
                                      std::shared_ptr<DataType> other_type,
                                      const Field::MergeOptions& options) {
+  if (promoted_type->Equals(*other_type)) return promoted_type;
+
   bool promoted = false;
   if (options.promote_nullability) {
     if (promoted_type->id() == Type::NA) {
@@ -346,6 +348,22 @@ std::shared_ptr<DataType> MergeTypes(std::shared_ptr<DataType> promoted_type,
     }
   } else if (promoted_type->id() == Type::NA || other_type->id() == Type::NA) {
     return nullptr;
+  }
+
+  if (options.promote_dictionary && is_dictionary(promoted_type->id()) &&
+      is_dictionary(other_type->id())) {
+    const auto& left = checked_cast<const DictionaryType&>(*promoted_type);
+    const auto& right = checked_cast<const DictionaryType&>(*other_type);
+    if (!options.promote_dictionary_ordered && left.ordered() != right.ordered()) {
+      return nullptr;
+    }
+    Field::MergeOptions index_options = options;
+    index_options.promote_integer_sign = true;
+    index_options.promote_numeric_width = true;
+    auto indices = MergeTypes(left.index_type(), right.index_type(), index_options);
+    auto values = MergeTypes(left.value_type(), right.value_type(), options);
+    auto ordered = left.ordered() && right.ordered();
+    return (indices && values) ? dictionary(indices, values, ordered) : nullptr;
   }
 
   if (options.promote_integer_sign) {

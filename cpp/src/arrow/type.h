@@ -363,6 +363,11 @@ class ARROW_EXPORT Field : public detail::Fingerprintable {
     /// value types.
     bool promote_dictionary = false;
 
+    /// Allow merging ordered and non-ordered dictionaries, else
+    /// error. The result will be ordered if and only if both inputs
+    /// are ordered.
+    bool promote_dictionary_ordered = false;
+
     /// Allow a type to be promoted to the Large variant.
     bool promote_large = false;
 

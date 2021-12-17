@@ -1269,6 +1269,8 @@ TEST_F(TestUnifySchemas, List) {
   CheckUnify(list(int8()), {list(int16()), list(int32()), list(int64())}, options);
   CheckUnify(fixed_size_list(int8(), 2), {list(int16()), list(int32()), list(int64())},
              options);
+
+  // TODO: test nonstandard field names
 }
 
 TEST_F(TestUnifySchemas, Map) {
@@ -1312,6 +1314,18 @@ TEST_F(TestUnifySchemas, Dictionary) {
                  dictionary(int8(), large_utf8()),
              },
              options);
+  CheckUnify(dictionary(int8(), utf8(), /*ordered=*/true),
+             {
+                 dictionary(int64(), utf8(), /*ordered=*/true),
+                 dictionary(int8(), large_utf8(), /*ordered=*/true),
+             },
+             options);
+  CheckUnifyFails(dictionary(int8(), utf8()),
+                  dictionary(int8(), utf8(), /*ordered=*/true), options);
+
+  options.promote_dictionary_ordered = true;
+  CheckUnify(dictionary(int8(), utf8()), dictionary(int8(), utf8(), /*ordered=*/true),
+             dictionary(int8(), utf8(), /*ordered=*/false), options);
 }
 
 TEST_F(TestUnifySchemas, Binary) {
