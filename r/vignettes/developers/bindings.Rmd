@@ -40,10 +40,11 @@ arrow_table(starwars) %>%
   collect()
 ```
 
-This is possible as a **binding** has been created between the stringr function
-`str_detect()` and the Arrow C++ function `match_substring_regex`.  You can see 
-this for yourself by inspecting the arrow data query object without retrieving the 
-results via `collect()`.
+This is possible as a **binding** has been created between the call to the 
+stringr function `str_detect()` and the Arrow C++ code, here as a direct mapping
+to `match_substring_regex`.  You can see this for yourself by inspecting the 
+arrow data query object without retrieving the results via `collect()`.
+
 
 ```{r}
 arrow_table(starwars) %>%
