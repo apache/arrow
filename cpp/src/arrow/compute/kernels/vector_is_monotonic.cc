@@ -175,7 +175,7 @@ Status IsMonotonic(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   const std::shared_ptr<ArrayData>& array_data = input.array();
   ArrayType array(array_data);
 
-  // Return early if there are NaNs, zero elements or one element in the array.
+  // Return early if there are zero elements or one element in the array.
   // And return early if there are only nulls.
   if (array.length() <= 1 || array.null_count() == array.length()) {
     if (std::any_of(array.begin(), array.end(), isnan<DataType>)) {
@@ -220,15 +220,11 @@ Status IsMonotonic(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
         ++b;
         continue;
       }
-    } else {
-      // Based on the function options set null values to min/max.
-      current = current.value_or(null_value);
-      next = next.value_or(null_value);
     }
 
-    IsMonotonicCheck<DataType>(current.value(), next.value(), &increasing,
-                               &strictly_increasing, &decreasing, &strictly_decreasing,
-                               options);
+    IsMonotonicCheck<DataType>(current.value_or(null_value), next.value_or(null_value),
+                               &increasing, &strictly_increasing, &decreasing,
+                               &strictly_decreasing, options);
 
     // Early exit if all failed:
     if (!increasing && !strictly_increasing && !decreasing && !strictly_decreasing) {
