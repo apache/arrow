@@ -31,7 +31,9 @@ namespace internal {
 namespace {
 
 // Generates a random floating point number in range [0, 1).
-double generate_uniform(random::pcg64& rng) {
+double generate_uniform(random::pcg64_fast& rng) {
+  // This equation is copied from numpy. It calculates `rng() / 2^64` and
+  // the return value is strictly less than 1.
   return (rng() >> 11) * (1.0 / 9007199254740992.0);
 }
 
@@ -39,7 +41,7 @@ using RandomState = OptionsWrapper<RandomOptions>;
 
 Status ExecRandom(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   static thread_local std::random_device rd;
-  static thread_local random::pcg64 gen;
+  static thread_local random::pcg64_fast gen;
   const RandomOptions& options = RandomState::Get(ctx);
   DoubleBuilder builder(ctx->memory_pool());
   if (options.length < 0) {
@@ -61,9 +63,11 @@ Status ExecRandom(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
 }
 
 const FunctionDoc random_doc{
-    "Generates a number between 0 and 1",
-    "Generates an uniformly-distributed double-precision number between 0 and 1.",
-    {}};
+    "Generates a number in range [0, 1)",
+    ("Generated values are uniformly-distributed, double-precision in range [0, 1).\n"
+     "Length of generated data, algorithm and seed can be changed via RandomOptions."),
+    {},
+    "RandomOptions"};
 
 }  // namespace
 

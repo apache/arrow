@@ -1489,6 +1489,20 @@ An error is returned if the timestamps already have the timezone metadata set.
   allows choosing the behaviour when a timestamp is ambiguous or nonexistent
   in the given timezone (because of DST shifts).
 
+Random number generation
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+This function generates an array of uniformly-distributed double-precision numbers
+in range [0, 1). The options provide the length of the output and the algorithm for
+generating the random numbers, using either a seed or a system-provided, platform-specific
+random generator.
+
++--------------------+------------+---------------+-------------------------+
+| Function name      | Arity      | Output type   | Options class           |
++====================+============+===============+=========================+
+| random             | Nullary    | Double        | :struct:`RandomOptions` |
++--------------------+------------+---------------+-------------------------+
+
 Array-wise ("vector") functions
 -------------------------------
 
@@ -1659,17 +1673,3 @@ replaced, based on the remaining inputs.
   results in a corresponding null in the output.
 
   Also see: :ref:`if_else <cpp-compute-scalar-selections>`.
-
-Random number generation
-~~~~~~~~~~~~~~~~~~~~~~~~
-
-This function generates an array of uniformly-distributed double-precision numbers
-between 0 and 1. The options provide the length of the output and the algorithm for
-generating the random numbers, using either a seed or a system-provided, platform-specific
-random generator.
-
-+--------------------+------------+---------------+-------------------------+
-| Function name      | Arity      | Output type   | Options class           |
-+====================+============+===============+=========================+
-| random             | Nullary    | Double        | :struct:`RandomOptions` |
-+--------------------+------------+---------------+-------------------------+
