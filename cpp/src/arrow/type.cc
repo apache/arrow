@@ -331,6 +331,16 @@ std::shared_ptr<DataType> MakeBinary(const DataType& type) {
   }
   return std::shared_ptr<DataType>(nullptr);
 }
+TimeUnit::type CommonTimeUnit(TimeUnit::type left, TimeUnit::type right) {
+  if (left == TimeUnit::NANO || right == TimeUnit::NANO) {
+    return TimeUnit::NANO;
+  } else if (left == TimeUnit::MICRO || right == TimeUnit::MICRO) {
+    return TimeUnit::MICRO;
+  } else if (left == TimeUnit::MILLI || right == TimeUnit::MILLI) {
+    return TimeUnit::MILLI;
+  }
+  return TimeUnit::SECOND;
+}
 Result<std::shared_ptr<DataType>> MergeTypes(std::shared_ptr<DataType> promoted_type,
                                              std::shared_ptr<DataType> other_type,
                                              const Field::MergeOptions& options) {
@@ -370,6 +380,50 @@ Result<std::shared_ptr<DataType>> MergeTypes(std::shared_ptr<DataType> promoted_
         "promote_dictionary_ordered=true");
   }
 
+  if (options.promote_date) {
+    if (promoted_type->id() == Type::DATE32 && other_type->id() == Type::DATE64) {
+      return date64();
+    }
+    if (promoted_type->id() == Type::DATE64 && other_type->id() == Type::DATE32) {
+      return date64();
+    }
+  }
+
+  if (options.promote_duration) {
+    if (promoted_type->id() == Type::DURATION && other_type->id() == Type::DURATION) {
+      const auto& left = checked_cast<const DurationType&>(*promoted_type);
+      const auto& right = checked_cast<const DurationType&>(*other_type);
+      return duration(CommonTimeUnit(left.unit(), right.unit()));
+    }
+  }
+
+  if (options.promote_time) {
+    if (is_time(promoted_type->id()) && is_time(other_type->id())) {
+      const auto& left = checked_cast<const TimeType&>(*promoted_type);
+      const auto& right = checked_cast<const TimeType&>(*other_type);
+      const auto unit = CommonTimeUnit(left.unit(), right.unit());
+      if (unit == TimeUnit::MICRO || unit == TimeUnit::NANO) {
+        return time64(unit);
+      }
+      return time32(unit);
+    }
+  }
+
+  if (options.promote_timestamp) {
+    if (promoted_type->id() == Type::TIMESTAMP && other_type->id() == Type::TIMESTAMP) {
+      const auto& left = checked_cast<const TimestampType&>(*promoted_type);
+      const auto& right = checked_cast<const TimestampType&>(*other_type);
+      if (left.timezone().empty() ^ right.timezone().empty()) {
+        return Status::Invalid(
+            "Cannot merge timestamp with timezone and timestamp without timezone");
+      }
+      if (left.timezone() != right.timezone()) {
+        return Status::Invalid("Cannot merge timestamps with differing timezones");
+      }
+      return timestamp(CommonTimeUnit(left.unit(), right.unit()), left.timezone());
+    }
+  }
+
   if (options.promote_decimal_float) {
     if (is_decimal(promoted_type->id()) && is_floating(other_type->id())) {
       promoted_type = other_type;
@@ -404,7 +458,6 @@ Result<std::shared_ptr<DataType>> MergeTypes(std::shared_ptr<DataType> promoted_
     const int32_t common_precision =
         std::max<int32_t>(left.precision() + max_scale - left.scale(),
                           right.precision() + max_scale - right.scale());
-    // TODO: return result and use DecimalType::Make
     if (left.id() == Type::DECIMAL256 || right.id() == Type::DECIMAL256 ||
         (options.promote_numeric_width &&
          common_precision > BasicDecimal128::kMaxPrecision)) {
@@ -516,13 +569,8 @@ Result<std::shared_ptr<DataType>> MergeTypes(std::shared_ptr<DataType> promoted_
   }
 
   // TODO
-  // Date32 -> Date64
-  // Time32 -> Time64 (and units)
-  // Timestamp units
-  // Duration units
   // List(A) -> List(B) (incl. fixed)
   // List -> LargeList
-  // Dictionary: indices, values
   // Struct: reconcile order, fields, types
   // Map
 

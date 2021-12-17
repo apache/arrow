@@ -879,6 +879,17 @@ static inline bool is_decimal(Type::type type_id) {
   return false;
 }
 
+static inline bool is_time(Type::type type_id) {
+  switch (type_id) {
+    case Type::TIME32:
+    case Type::TIME64:
+      return true;
+    default:
+      break;
+  }
+  return false;
+}
+
 static inline bool is_primitive(Type::type type_id) {
   switch (type_id) {
     case Type::BOOL:

@@ -1259,6 +1259,8 @@ TEST_F(TestUnifySchemas, Temporal) {
 
   CheckUnifyFails(timestamp(TimeUnit::SECOND), timestamp(TimeUnit::SECOND, "UTC"),
                   options);
+  CheckUnifyFails(timestamp(TimeUnit::SECOND, "America/New_York"),
+                  timestamp(TimeUnit::SECOND, "UTC"), options);
 }
 
 TEST_F(TestUnifySchemas, List) {
