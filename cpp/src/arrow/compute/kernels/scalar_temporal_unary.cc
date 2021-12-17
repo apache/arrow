@@ -72,6 +72,12 @@ const std::shared_ptr<DataType>& IsoCalendarType() {
   return type;
 }
 
+const std::shared_ptr<DataType>& DateStructType() {
+  static auto type = struct_({field("year", int64()), field("month", int64()), field("day", int64())});
+
+  return type;
+}
+
 Status ValidateDayOfWeekOptions(const DayOfWeekOptions& options) {
   if (options.week_start < 1 || 7 < options.week_start) {
     return Status::Invalid(
@@ -183,6 +189,98 @@ struct Day {
   }
 
   Localizer localizer_;
+};
+
+// ----------------------------------------------------------------------
+// Extract year/month/day from temporal types
+
+template <typename Duration, typename InType, typename BuilderType>
+struct DateStructVisitValueFunction {
+  static Result<std::function<Status(typename InType::c_type arg)>> Get(
+      const std::vector<BuilderType*>& field_builders, const ArrayData&,
+      StructBuilder* struct_builder) {
+    return [=](typename InType::c_type arg) {
+      const auto ymd = year_month_day(floor<days>(NonZonedLocalizer{}.template ConvertTimePoint<Duration>(arg)));;
+      field_builders[0]->UnsafeAppend(static_cast<const int32_t>(ymd.year()));
+      field_builders[1]->UnsafeAppend(static_cast<const uint32_t>(ymd.month()));
+      field_builders[2]->UnsafeAppend(static_cast<const uint32_t>(ymd.day()));
+      return struct_builder->Append();
+    };
+  };
+};  
+
+template <typename Duration, typename BuilderType>
+struct DateStructVisitValueFunction<Duration, TimestampType, BuilderType> {
+  static Result<std::function<Status(typename TimestampType::c_type arg)>> Get(
+      const std::vector<BuilderType*>& field_builders, const ArrayData& in,
+      StructBuilder* struct_builder) {
+    const auto& timezone = GetInputTimezone(in);
+    if (timezone.empty()) {
+      return [=](TimestampType::c_type arg) {
+        const auto ymd = year_month_day(floor<days>(NonZonedLocalizer{}.template ConvertTimePoint<Duration>(arg)));;
+        field_builders[0]->UnsafeAppend(static_cast<const int32_t>(ymd.year()));
+        field_builders[1]->UnsafeAppend(static_cast<const uint32_t>(ymd.month()));
+        field_builders[2]->UnsafeAppend(static_cast<const uint32_t>(ymd.day()));
+        return struct_builder->Append();
+      };
+    }
+    ARROW_ASSIGN_OR_RAISE(auto tz, LocateZone(timezone));
+    return [=](TimestampType::c_type arg) {
+        const auto ymd = year_month_day(floor<days>(ZonedLocalizer{tz}.template ConvertTimePoint<Duration>(arg)));      
+        field_builders[0]->UnsafeAppend(static_cast<const int32_t>(ymd.year()));
+        field_builders[1]->UnsafeAppend(static_cast<const uint32_t>(ymd.month()));
+        field_builders[2]->UnsafeAppend(static_cast<const uint32_t>(ymd.day()));
+      return struct_builder->Append();
+    };
+  }
+};
+
+template <typename Duration, typename InType>
+struct DateStruct {
+  static Status Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
+    if (in.is_valid) {
+      const auto& in_val = internal::UnboxScalar<const InType>::Unbox(in);
+      const auto t = floor<days>(NonZonedLocalizer{}.template ConvertTimePoint<Duration>(in_val));
+      const auto ymd = year_month_day(t);
+      
+      ScalarVector values = {std::make_shared<Int64Scalar>(static_cast<const int32_t>(ymd.year())),
+	std::make_shared<Int64Scalar>(static_cast<const uint32_t>(ymd.month())),
+	std::make_shared<Int64Scalar>(static_cast<const uint32_t>(ymd.day()))};
+      *checked_cast<StructScalar*>(out) =
+          StructScalar(std::move(values), DateStructType());
+    } else {
+      out->is_valid = false;
+    }
+    return Status::OK();
+  }
+
+  static Status Call(KernelContext* ctx, const ArrayData& in, ArrayData* out) {
+    using BuilderType = typename TypeTraits<Int64Type>::BuilderType;
+
+    std::unique_ptr<ArrayBuilder> array_builder;
+    RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), DateStructType(), &array_builder));
+    StructBuilder* struct_builder = checked_cast<StructBuilder*>(array_builder.get());
+    RETURN_NOT_OK(struct_builder->Reserve(in.length));
+
+    std::vector<BuilderType*> field_builders;
+    field_builders.reserve(3);
+    for (int i = 0; i < 3; i++) {
+      field_builders.push_back(
+          checked_cast<BuilderType*>(struct_builder->field_builder(i)));
+      RETURN_NOT_OK(field_builders[i]->Reserve(1));
+    }
+    auto visit_null = [&]() { return struct_builder->AppendNull(); };
+    std::function<Status(typename InType::c_type arg)> visit_value;
+    ARROW_ASSIGN_OR_RAISE(
+        visit_value, (DateStructVisitValueFunction<Duration, InType, BuilderType>::Get(
+                         field_builders, in, struct_builder)));
+    RETURN_NOT_OK(
+        VisitArrayDataInline<typename InType::PhysicalType>(in, visit_value, visit_null));
+    std::shared_ptr<Array> out_array;
+    RETURN_NOT_OK(struct_builder->Finish(&out_array));
+    *out = *std::move(out_array->data());
+    return Status::OK();
+  }
 };
 
 // ----------------------------------------------------------------------
@@ -833,6 +931,13 @@ const FunctionDoc day_doc{
      "cannot be found in the timezone database."),
     {"values"}};
 
+const FunctionDoc date_struct_doc{
+  "Extract year/month/day",
+  ("Null values emit null.\n"
+   "An error is returned in the values have a defined timezone but it\n"
+   "cannot be found in the timezone database."),
+  {"values"}};
+
 const FunctionDoc day_of_week_doc{
     "Extract day of the week number",
     ("By default, the week starts on Monday represented by 0 and ends on Sunday\n"
@@ -1011,6 +1116,11 @@ void RegisterScalarTemporalUnary(FunctionRegistry* registry) {
                            Int64Type>::Make<WithDates, WithTimestamps>("day", int64(),
                                                                        &day_doc);
   DCHECK_OK(registry->AddFunction(std::move(day)));
+
+  auto date_struct =
+    SimpleUnaryTemporalFactory<DateStruct>::Make<WithDates, WithTimestamps>(
+	"date_struct", DateStructType(), &date_struct_doc);
+  DCHECK_OK(registry->AddFunction(std::move(date_struct)));
 
   static const auto default_day_of_week_options = DayOfWeekOptions::Defaults();
   auto day_of_week =

@@ -518,8 +518,8 @@ TEST_F(ScalarTemporalTest, TestZoned1) {
       "2008, 2008, 2011, null]";
   auto month = "[12, 2, 12, 5, 12, 12, 12, 12, 12, 1, 1, 12, 12, 12, 12, 12, null]";
   auto day = "[31, 29, 31, 17, 31, 30, 29, 30, 31, 2, 3, 31, 31, 27, 28, 31, null]";
-  auto iso_calendar =
-      ArrayFromJSON(iso_calendar_type,
+  auto date_struct =
+      ArrayFromJSON(date_struct_type,
                     R"([{"year": 1969, "month": 12, "day": 31},
                         {"year": 2000, "month": 2, "day": 29},
                         {"year": 1898, "month": 12, "day": 31},
