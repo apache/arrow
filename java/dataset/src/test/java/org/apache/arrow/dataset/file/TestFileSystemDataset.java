@@ -368,24 +368,20 @@ public class TestFileSystemDataset extends TestNativeDataset {
     try (VectorSchemaRoot vsr = VectorSchemaRoot.create(schema, rootAllocator())) {
       VectorLoader loader = new VectorLoader(vsr);
       for (ArrowRecordBatch batch : actual) {
-        try {
-          assertEquals(fieldCount, batch.getNodes().size());
-          loader.load(batch);
-          int batchRowCount = vsr.getRowCount();
-          for (int i = 0; i < fieldCount; i++) {
-            FieldVector vector = vsr.getVector(i);
-            for (int j = 0; j < batchRowCount; j++) {
-              Object object = vector.getObject(j);
-              Object expectedObject = expectedRemovable.get(j).get(i);
-              assertEquals(Objects.toString(expectedObject),
-                  Objects.toString(object));
-            }
+        assertEquals(fieldCount, batch.getNodes().size());
+        loader.load(batch);
+        int batchRowCount = vsr.getRowCount();
+        for (int i = 0; i < fieldCount; i++) {
+          FieldVector vector = vsr.getVector(i);
+          for (int j = 0; j < batchRowCount; j++) {
+            Object object = vector.getObject(j);
+            Object expectedObject = expectedRemovable.get(j).get(i);
+            assertEquals(Objects.toString(expectedObject),
+                Objects.toString(object));
           }
-          for (int i = 0; i < batchRowCount; i++) {
-            expectedRemovable.poll();
-          }
-        } finally {
-          batch.close();
+        }
+        for (int i = 0; i < batchRowCount; i++) {
+          expectedRemovable.poll();
         }
       }
       assertTrue(expectedRemovable.isEmpty());
