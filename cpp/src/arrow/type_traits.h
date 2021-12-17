@@ -977,6 +977,17 @@ static inline bool is_string(Type::type type_id) {
   return false;
 }
 
+static inline bool is_var_size_list(Type::type type_id) {
+  switch (type_id) {
+    case Type::LIST:
+    case Type::LARGE_LIST:
+      return true;
+    default:
+      break;
+  }
+  return false;
+}
+
 static inline bool is_dictionary(Type::type type_id) {
   return type_id == Type::DICTIONARY;
 }

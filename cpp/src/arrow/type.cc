@@ -357,6 +357,7 @@ Result<std::shared_ptr<DataType>> MergeTypes(std::shared_ptr<DataType> promoted_
     return Status::Invalid("Cannot merge type with null unless promote_nullability=true");
   }
 
+  // TODO: split these out
   if (options.promote_dictionary && is_dictionary(promoted_type->id()) &&
       is_dictionary(other_type->id())) {
     const auto& left = checked_cast<const DictionaryType&>(*promoted_type);
@@ -532,13 +533,27 @@ Result<std::shared_ptr<DataType>> MergeTypes(std::shared_ptr<DataType> promoted_
   }
 
   if (options.promote_large) {
-    if (promoted_type->id() == Type::FIXED_SIZE_BINARY) {
+    if (promoted_type->id() == Type::FIXED_SIZE_BINARY &&
+        is_base_binary_like(other_type->id())) {
       promoted_type = binary();
       promoted = other_type->id() == Type::BINARY;
     }
-    if (other_type->id() == Type::FIXED_SIZE_BINARY) {
+    if (other_type->id() == Type::FIXED_SIZE_BINARY &&
+        is_base_binary_like(promoted_type->id())) {
       other_type = binary();
       promoted = promoted_type->id() == Type::BINARY;
+    }
+
+    if (promoted_type->id() == Type::FIXED_SIZE_LIST &&
+        is_var_size_list(other_type->id())) {
+      promoted_type =
+          list(checked_cast<const BaseListType&>(*promoted_type).value_field());
+      promoted = other_type->Equals(*promoted_type);
+    }
+    if (other_type->id() == Type::FIXED_SIZE_LIST &&
+        is_var_size_list(promoted_type->id())) {
+      other_type = list(checked_cast<const BaseListType&>(*other_type).value_field());
+      promoted = other_type->Equals(*promoted_type);
     }
   }
 
@@ -557,20 +572,50 @@ Result<std::shared_ptr<DataType>> MergeTypes(std::shared_ptr<DataType> promoted_
   if (options.promote_large) {
     if ((promoted_type->id() == Type::STRING && other_type->id() == Type::LARGE_STRING) ||
         (promoted_type->id() == Type::LARGE_STRING && other_type->id() == Type::STRING)) {
-      promoted_type = large_utf8();
-      promoted = true;
+      return large_utf8();
     } else if ((promoted_type->id() == Type::BINARY &&
                 other_type->id() == Type::LARGE_BINARY) ||
                (promoted_type->id() == Type::LARGE_BINARY &&
                 other_type->id() == Type::BINARY)) {
-      promoted_type = large_binary();
+      return large_binary();
+    }
+    if ((promoted_type->id() == Type::LIST && other_type->id() == Type::LARGE_LIST) ||
+        (promoted_type->id() == Type::LARGE_LIST && other_type->id() == Type::LIST)) {
+      promoted_type =
+          large_list(checked_cast<const BaseListType&>(*promoted_type).value_field());
       promoted = true;
     }
   }
 
+  if (options.promote_nested) {
+    if ((promoted_type->id() == Type::LIST && other_type->id() == Type::LIST) ||
+        (promoted_type->id() == Type::LARGE_LIST &&
+         other_type->id() == Type::LARGE_LIST) ||
+        (promoted_type->id() == Type::FIXED_SIZE_LIST &&
+         other_type->id() == Type::FIXED_SIZE_LIST)) {
+      const auto& left = checked_cast<const BaseListType&>(*promoted_type);
+      const auto& right = checked_cast<const BaseListType&>(*other_type);
+      ARROW_ASSIGN_OR_RAISE(auto value_type,
+                            MergeTypes(left.value_type(), right.value_type(), options));
+      if (!value_type) return nullptr;
+      auto field = left.value_field()->WithType(std::move(value_type));
+      if (promoted_type->id() == Type::LIST) {
+        return list(std::move(field));
+      } else if (promoted_type->id() == Type::LARGE_LIST) {
+        return large_list(std::move(field));
+      }
+      const auto left_size =
+          checked_cast<const FixedSizeListType&>(*promoted_type).list_size();
+      const auto right_size =
+          checked_cast<const FixedSizeListType&>(*other_type).list_size();
+      if (left_size == right_size) {
+        return fixed_size_list(std::move(field), left_size);
+      }
+      return Status::Invalid("Cannot merge fixed_size_list of different sizes");
+    }
+  }
+
   // TODO
-  // List(A) -> List(B) (incl. fixed)
-  // List -> LargeList
   // Struct: reconcile order, fields, types
   // Map
 

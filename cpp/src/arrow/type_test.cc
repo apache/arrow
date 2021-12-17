@@ -1266,6 +1266,9 @@ TEST_F(TestUnifySchemas, Temporal) {
 TEST_F(TestUnifySchemas, List) {
   auto options = Field::MergeOptions::Defaults();
   options.promote_numeric_width = true;
+  CheckUnifyFails(fixed_size_list(int8(), 2),
+                  {fixed_size_list(int8(), 3), list(int8()), large_list(int8())},
+                  options);
 
   options.promote_large = true;
   CheckUnify(list(int8()), {large_list(int8())}, options);
@@ -1273,7 +1276,8 @@ TEST_F(TestUnifySchemas, List) {
 
   options.promote_nested = true;
   CheckUnify(list(int8()), {list(int16()), list(int32()), list(int64())}, options);
-  CheckUnify(fixed_size_list(int8(), 2), {list(int16()), list(int32()), list(int64())},
+  CheckUnify(fixed_size_list(int8(), 2),
+             {fixed_size_list(int16(), 2), list(int16()), list(int32()), list(int64())},
              options);
 
   // TODO: test nonstandard field names
@@ -1340,7 +1344,8 @@ TEST_F(TestUnifySchemas, Binary) {
   options.promote_binary = true;
   CheckUnify(utf8(), {large_utf8(), binary(), large_binary()}, options);
   CheckUnify(binary(), {large_binary()}, options);
-  CheckUnify(fixed_size_binary(2), {binary(), large_binary()}, options);
+  CheckUnify(fixed_size_binary(2), {fixed_size_binary(2), binary(), large_binary()},
+             options);
   CheckUnify(fixed_size_binary(2), fixed_size_binary(4), binary(), options);
 
   options.promote_large = false;
