@@ -57,7 +57,7 @@ correct components are described below.
 
 The diagram below shows how the R package finds a libarrow installation on Windows.
 
-```{r, echo=FALSE, out.width="70%", fig.alt = "Flowchart of libarrow installation on Windows systems - find full description on page"}
+```{r, echo=FALSE, out.width="70%", fig.alt = "Flowchart of libarrow installation on Windows systems - find full descriptions in sections 'Checking for existing libarrow installations' and 'Downloading libarrow' below"}
 knitr::include_graphics("./install_diagram_windows.png")
 ```
 
@@ -73,7 +73,7 @@ If no existing libarrow installations can be found, the script proceeds to try t
 
 The diagram below shows how the R package finds a libarrow installation on non-Windows systems.
 
-```{r, echo=FALSE, out.width="70%", fig.alt = "Flowchart of libarrow installation on non-Windows systems - find full description on page"}
+```{r, echo=FALSE, out.width="70%", fig.alt = "Flowchart of libarrow installation on non-Windows systems - find full description in sections 'Using pkg-config', 'Prebuilt binaries' and 'Building from source' below"}
 knitr::include_graphics("./install_nix.png")
 ```
 
