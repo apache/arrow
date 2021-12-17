@@ -1360,19 +1360,21 @@ For timestamps inputs with non-empty timezone, localized timestamp components wi
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
 | Function name      | Arity      | Input types       | Output type   | Options class              | Notes |
 +====================+============+===================+===============+============================+=======+
+| date_struct        | Unary      | Temporal          | Struct        |                            | \(1)  |
++--------------------+------------+-------------------+---------------+----------------------------+-------+
 | day                | Unary      | Temporal          | Int64         |                            |       |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
-| day_of_week        | Unary      | Temporal          | Int64         | :struct:`DayOfWeekOptions` | \(1)  |
+| day_of_week        | Unary      | Temporal          | Int64         | :struct:`DayOfWeekOptions` | \(2)  |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
 | day_of_year        | Unary      | Temporal          | Int64         |                            |       |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
 | hour               | Unary      | Timestamp, Time   | Int64         |                            |       |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
-| iso_week           | Unary      | Temporal          | Int64         |                            | \(2)  |
+| iso_week           | Unary      | Temporal          | Int64         |                            | \(3)  |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
-| iso_year           | Unary      | Temporal          | Int64         |                            | \(2)  |
+| iso_year           | Unary      | Temporal          | Int64         |                            | \(3)  |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
-| iso_calendar       | Unary      | Temporal          | Struct        |                            | \(3)  |
+| iso_calendar       | Unary      | Temporal          | Struct        |                            | \(4)  |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
 | microsecond        | Unary      | Timestamp, Time   | Int64         |                            |       |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
@@ -1390,29 +1392,31 @@ For timestamps inputs with non-empty timezone, localized timestamp components wi
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
 | subsecond          | Unary      | Timestamp, Time   | Double        |                            |       |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
-| us_week            | Unary      | Temporal          | Int64         |                            | \(4)  |
+| us_week            | Unary      | Temporal          | Int64         |                            | \(5)  |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
-| week               | Unary      | Timestamp         | Int64         | :struct:`WeekOptions`      | \(5)  |
+| week               | Unary      | Timestamp         | Int64         | :struct:`WeekOptions`      | \(6)  |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
 | year               | Unary      | Temporal          | Int64         |                            |       |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
 
-* \(1) Outputs the number of the day of the week. By default week begins on Monday
+* \(1) Output is a ``{"year": output type, "month": output type, "day": output type}`` Struct.
+
+* \(2) Outputs the number of the day of the week. By default week begins on Monday
   represented by 0 and ends on Sunday represented by 6. Day numbering can start with 0 or 1 based on
   :member:`DayOfWeekOptions::count_from_zero` parameter. :member:`DayOfWeekOptions::week_start` can be
   used to set the starting day of the week using ISO convention (Monday=1, Sunday=7).
   :member:`DayOfWeekOptions::week_start` parameter is not affected by :member:`DayOfWeekOptions::count_from_zero`.
 
-* \(2) First ISO week has the majority (4 or more) of it's days in January. ISO year
+* \(3) First ISO week has the majority (4 or more) of it's days in January. ISO year
   starts with the first ISO week. ISO week starts on Monday.
   See `ISO 8601 week date definition`_ for more details.
 
-* \(3) Output is a ``{"iso_year": output type, "iso_week": output type, "iso_day_of_week":  output type}`` Struct.
+* \(4) Output is a ``{"iso_year": output type, "iso_week": output type, "iso_day_of_week":  output type}`` Struct.
 
-* \(4) First US week has the majority (4 or more) of its days in January. US year
+* \(5) First US week has the majority (4 or more) of its days in January. US year
   starts with the first US week. US week starts on Sunday.
 
-* \(5) Returns week number allowing for setting several parameters.
+* \(6) Returns week number allowing for setting several parameters.
   If :member:`WeekOptions::week_starts_monday` is true, the week starts with Monday, else Sunday if false.
   If :member:`WeekOptions::count_from_zero` is true, dates from the current year that fall into the last ISO week
   of the previous year are numbered as week 0, else week 52 or 53 if false.
