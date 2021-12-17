@@ -66,7 +66,6 @@ test_that("to_duckdb", {
 })
 
 test_that("to_duckdb then to_arrow", {
-  skip("Flaky, unskip when ARROW-14745 is merged")
   ds <- InMemoryDataset$create(example_data)
 
   ds_rt <- ds %>%
@@ -134,11 +133,13 @@ test_that("to_arrow roundtrip, with dataset", {
       to_arrow() %>%
       filter(int > 5 & part > 1) %>%
       collect() %>%
+      arrange(part, int) %>%
       as.data.frame(),
     ds %>%
       select(-fct) %>%
       filter(int > 5 & part > 1) %>%
-      collect()
+      collect() %>%
+      arrange(part, int)
   )
 })
 
