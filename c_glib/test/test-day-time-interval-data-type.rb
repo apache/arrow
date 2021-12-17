@@ -15,24 +15,24 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class TestIntervalDayTimeDataType < Test::Unit::TestCase
+class TestDayTimeIntervalDataType < Test::Unit::TestCase
+  def setup
+    @data_type = Arrow::DayTimeIntervalDataType.new
+  end
+
   def test_type
-    data_type = Arrow::IntervalDayTimeDataType.new
-    assert_equal(Arrow::Type::INTERVAL_DAY_TIME, data_type.id)
+    assert_equal(Arrow::Type::DAY_TIME_INTERVAL, @data_type.id)
   end
 
   def test_interval_type
-    data_type = Arrow::IntervalDayTimeDataType.new
-    assert_equal(Arrow::IntervalType::DAY_TIME, data_type.interval_type)
+    assert_equal(Arrow::IntervalType::DAY_TIME, @data_type.interval_type)
   end
 
   def test_name
-    data_type = Arrow::IntervalDayTimeDataType.new
-    assert_equal("day_time_interval", data_type.name)
+    assert_equal("day_time_interval", @data_type.name)
   end
 
   def test_to_s
-    data_type = Arrow::IntervalDayTimeDataType.new
-    assert_equal("day_time_interval", data_type.to_s)
+    assert_equal("day_time_interval", @data_type.to_s)
   end
 end

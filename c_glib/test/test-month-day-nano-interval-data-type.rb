@@ -15,24 +15,24 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class TestIntervalMonthsDataType < Test::Unit::TestCase
+class TestMonthDayNanoIntervalDataType < Test::Unit::TestCase
+  def setup
+    @data_type = Arrow::MonthDayNanoIntervalDataType.new
+  end
+
   def test_type
-    data_type = Arrow::IntervalMonthsDataType.new
-    assert_equal(Arrow::Type::INTERVAL_MONTHS, data_type.id)
+    assert_equal(Arrow::Type::MONTH_DAY_NANO_INTERVAL, @data_type.id)
   end
 
   def test_interval_type
-    data_type = Arrow::IntervalMonthsDataType.new
-    assert_equal(Arrow::IntervalType::MONTHS, data_type.interval_type)
+    assert_equal(Arrow::IntervalType::MONTH_DAY_NANO, @data_type.interval_type)
   end
 
   def test_name
-    data_type = Arrow::IntervalMonthsDataType.new
-    assert_equal("month_interval", data_type.name)
+    assert_equal("month_day_nano_interval", @data_type.name)
   end
 
   def test_to_s
-    data_type = Arrow::IntervalMonthsDataType.new
-    assert_equal("month_interval", data_type.to_s)
+    assert_equal("month_day_nano_interval", @data_type.to_s)
   end
 end
