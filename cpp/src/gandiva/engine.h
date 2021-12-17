@@ -25,10 +25,10 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "gandiva/configuration.h"
+#include "gandiva/gandiva_object_cache.h"
 #include "gandiva/llvm_includes.h"
 #include "gandiva/llvm_types.h"
 #include "gandiva/visibility.h"
-#include "gandiva_object_cache.h"
 
 namespace gandiva {
 
