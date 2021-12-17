@@ -153,7 +153,7 @@ Make sure you're testing all parameters of the R function.
 Below is a possible example test for `startsWith()`.
 
 ```{r, eval = FALSE}
-test_that("startsWith", {
+test_that("startsWith behaves identically in dplyr and Arrow", {
   df <- tibble(x = c("Foo", "bar", "baz", "qux"))
  
   compare_dplyr_binding(
