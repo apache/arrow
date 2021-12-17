@@ -576,10 +576,10 @@ test_that("Array$create() handles vector -> list arrays (ARROW-7662)", {
 test_that("Array$create() handles list of named vectors -> map arrays", {
   # Should be able to create an empty map with a type hint.
   expect_r6_class(Array$create(list(), map_of(string(), boolean())), "MapArray")
-  browser()
-  expect_r6_class(Array$create(list(list(key=c('a', 'b'), value=c(1, 2))), map_of(string(), int32())), "MapArray")
-
-  # expect_array_roundtrip(list(c(x = 1L, y = 2L), c(x = 3L, z = 4L)), map_of(string(), int32()))
+  expect_r6_class(Array$create(
+    list(data.frame(key=c('a', 'b'), value=c(1, 2)), data.frame(key=c('a', 'c'), value=c(4, 7))), 
+    map_of(string(), int32())), "MapArray"
+  )
 })
 
 test_that("Array$create() handles vector -> large list arrays", {

@@ -353,7 +353,10 @@ is.Array <- function(x, type = NULL) { # nolint
   is_it
 }
 
-
+#' @rdname array
+#' @usage NULL
+#' @format NULL
+#' @export
 MapArray <- R6Class("MapArray",
   inherit = ListArray,
   public = list(
