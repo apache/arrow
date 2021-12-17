@@ -175,7 +175,7 @@ volumes:
     name: python-wheel-windows-clcache
   ubuntu-ccache:
     name: ${ARCH}-ubuntu-${UBUNTU}-ccache
- 
+
 services:
 
   ################################# C++ #######################################
@@ -1225,6 +1225,7 @@ services:
         r_prune_deps: ${R_PRUNE_DEPS}
     environment:
       <<: *ccache
+      ARROW_SOURCE_HOME: "/arrow"
     volumes: *ubuntu-volumes
     command: >
       /bin/bash -c "
@@ -1278,6 +1279,7 @@ services:
       # AVX512 not supported by Valgrind (similar to ARROW-9851) some runners support AVX512 and some do not
       # so some build might pass without this setting, but we want to ensure that we stay to AVX2 regardless of runner.
       EXTRA_CMAKE_FLAGS: "-DARROW_RUNTIME_SIMD_LEVEL=AVX2"
+      ARROW_SOURCE_HOME: "/arrow"
     volumes: *ubuntu-volumes
     command: >
       /bin/bash -c "
