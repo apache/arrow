@@ -50,6 +50,19 @@ Status LLVMGenerator::Make(std::shared_ptr<Configuration> config,
   return Status::OK();
 }
 
+std::shared_ptr<Cache<ExpressionCacheKey, std::shared_ptr<llvm::MemoryBuffer>>>
+LLVMGenerator::GetCache() {
+  static std::shared_ptr<Cache<ExpressionCacheKey, std::shared_ptr<llvm::MemoryBuffer>>>
+      shared_cache = std::make_shared<
+          Cache<ExpressionCacheKey, std::shared_ptr<llvm::MemoryBuffer>>>();
+
+  return shared_cache;
+}
+
+void LLVMGenerator::SetLLVMObjectCache(GandivaObjectCache& object_cache) {
+  engine_->SetLLVMObjectCache(object_cache);
+}
+
 Status LLVMGenerator::Add(const ExpressionPtr expr, const FieldDescriptorPtr output) {
   int idx = static_cast<int>(compiled_exprs_.size());
   // decompose the expression to separate out value and validities.

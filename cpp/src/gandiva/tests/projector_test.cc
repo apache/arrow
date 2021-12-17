@@ -70,14 +70,15 @@ TEST_F(TestProjector, TestProjectCache) {
   std::shared_ptr<Projector> projector;
   auto status = Projector::Make(schema, {sum_expr, sub_expr}, configuration, &projector);
   ASSERT_OK(status);
+  EXPECT_FALSE(projector->GetBuiltFromCache());
 
   // everything is same, should return the same projector.
   auto schema_same = arrow::schema({field0, field1});
   std::shared_ptr<Projector> cached_projector;
   status = Projector::Make(schema_same, {sum_expr, sub_expr}, configuration,
                            &cached_projector);
-
   ASSERT_OK(status);
+  EXPECT_TRUE(cached_projector->GetBuiltFromCache());
 
   // schema is different should return a new projector.
   auto field2 = field("f2", int32());
@@ -86,16 +87,19 @@ TEST_F(TestProjector, TestProjectCache) {
   status = Projector::Make(different_schema, {sum_expr, sub_expr}, configuration,
                            &should_be_new_projector);
   ASSERT_OK(status);
+  EXPECT_FALSE(should_be_new_projector->GetBuiltFromCache());
 
   // expression list is different should return a new projector.
   std::shared_ptr<Projector> should_be_new_projector1;
   status = Projector::Make(schema, {sum_expr}, configuration, &should_be_new_projector1);
   ASSERT_OK(status);
+  EXPECT_FALSE(should_be_new_projector1->GetBuiltFromCache());
 
   // another instance of the same configuration, should return the same projector.
   status = Projector::Make(schema, {sum_expr, sub_expr}, TestConfiguration(),
                            &cached_projector);
   ASSERT_OK(status);
+  EXPECT_TRUE(cached_projector->GetBuiltFromCache());
 }
 
 TEST_F(TestProjector, TestProjectCacheFieldNames) {

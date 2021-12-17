@@ -28,6 +28,7 @@
 #include "gandiva/llvm_includes.h"
 #include "gandiva/llvm_types.h"
 #include "gandiva/visibility.h"
+#include "gandiva_object_cache.h"
 
 namespace gandiva {
 
@@ -55,6 +56,11 @@ class GANDIVA_EXPORT Engine {
 
   /// Optimise and compile the module.
   Status FinalizeModule();
+
+  /// Set LLVM ObjectCache.
+  void SetLLVMObjectCache(GandivaObjectCache& object_cache) {
+    execution_engine_->setObjectCache(&object_cache);
+  }
 
   /// Get the compiled function corresponding to the irfunction.
   void* CompiledFunction(llvm::Function* irFunction);
