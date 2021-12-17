@@ -3680,34 +3680,33 @@ def test_write_dataset_min_rows_per_group(tempdir):
     min_rows_per_group = 6
     max_rows_per_group = 8
     num_of_columns = 2
-    num_of_records = 25
 
-    record_batch = _generate_data_and_columns(num_of_columns,
-                                              num_of_records)
+    record_sizes = [5, 5, 5, 5, 5, 4, 4, 4, 4, 4]
+
+    record_batches = [_generate_data_and_columns(num_of_columns,
+                                                 num_of_records) for num_of_records in record_sizes]
 
     data_source = directory / "min_rows_group"
-    print(data_source)
-    ds.write_dataset(data=[record_batch, record_batch], base_dir=data_source,
+
+    ds.write_dataset(data=record_batches, base_dir=data_source,
                      min_rows_per_group=min_rows_per_group,
                      max_rows_per_group=max_rows_per_group,
                      format="parquet")
 
     files_in_dir = os.listdir(data_source)
-    batched_data = []
     for _, f_file in enumerate(files_in_dir):
         f_path = data_source / str(f_file)
         dataset = ds.dataset(f_path, format="parquet")
         table = dataset.to_table()
         batches = table.to_batches()
-        for batch in batches:
-            batched_data.append(batch.num_rows)
-            
-        print(batched_data)
 
-    # assert batched_data[0] >= min_rows_per_group and \
-    #     batched_data[0] <= max_rows_per_group
-    # assert batched_data[1] >= min_rows_per_group and \
-    #     batched_data[1] <= max_rows_per_group
+        for id, batch in enumerate(batches):
+            rows_per_batch = batch.num_rows
+            if id < len(batches) - 1:
+                assert rows_per_batch >= min_rows_per_group and \
+                    rows_per_batch <= max_rows_per_group
+            else:
+                assert rows_per_batch <= max_rows_per_group
 
 
 def test_write_dataset_max_rows_per_group(tempdir):
