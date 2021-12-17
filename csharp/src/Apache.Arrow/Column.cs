@@ -60,23 +60,22 @@ namespace Apache.Arrow
 
         private bool ValidateArrayDataTypes()
         {
-            var arrayTypeVistor = new ArrayTypeComparer(Field.DataType);
+            var dataTypeVistor = new ArrayTypeComparer(Field.DataType);
 
             for (int i = 0; i < Data.ArrayCount; i++)
             {
-                if (arrayTypeVistor.IsDataTypeMismatch())
+                if (Data.Array(i).Data.DataType.TypeId != Field.DataType.TypeId)
                 {
                     return false;
                 }
 
-                Data.Array(i).Data.DataType.Accept(arrayTypeVistor);
-            }
+                Data.Array(i).Data.DataType.Accept(dataTypeVistor);
 
-            if (arrayTypeVistor.IsDataTypeMismatch())
-            {
-                return false;
+                if (!dataTypeVistor.DataTypeMatch)
+                {
+                    return false;
+                }
             }
-
             return true;
         }
     }

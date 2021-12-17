@@ -29,23 +29,23 @@ namespace Apache.Arrow
         IArrowTypeVisitor<StructType>
     {
         private readonly IArrowType _expectedType;
-        private bool _dataTypeMismatch;
+        private bool _dataTypeMatch;
 
         public ArrayTypeComparer(IArrowType expectedType)
         {
             _expectedType = expectedType;
-            _dataTypeMismatch = false;
+            _dataTypeMatch = false;
         }
 
-        public bool IsDataTypeMismatch() => _dataTypeMismatch;
+        public bool DataTypeMatch => _dataTypeMatch;
 
         public void Visit(TimestampType actualType)
         {
             var expectedType = (TimestampType)_expectedType;
 
-            if (expectedType.Timezone != actualType.Timezone || expectedType.Unit != actualType.Unit)
+            if (expectedType.Timezone == actualType.Timezone && expectedType.Unit == actualType.Unit)
             {
-                _dataTypeMismatch = true;
+                _dataTypeMatch = true;
             }
         }
 
@@ -53,9 +53,9 @@ namespace Apache.Arrow
         {
             var expectedType = (Date32Type)_expectedType;
 
-            if (expectedType.Unit != actualType.Unit)
+            if (expectedType.Unit == actualType.Unit)
             {
-                _dataTypeMismatch = true;
+                _dataTypeMatch = true;
             }
         }
 
@@ -63,9 +63,9 @@ namespace Apache.Arrow
         {
             var expectedType = (Date64Type)_expectedType;
 
-            if (expectedType.Unit != actualType.Unit)
+            if (expectedType.Unit == actualType.Unit)
             {
-                _dataTypeMismatch = true;
+                _dataTypeMatch = true;
             }
         }
 
@@ -73,9 +73,9 @@ namespace Apache.Arrow
         {
             var expectedType = (Time32Type)_expectedType;
 
-            if (expectedType.Unit != actualType.Unit)
+            if (expectedType.Unit == actualType.Unit)
             {
-                _dataTypeMismatch = true;
+                _dataTypeMatch = true;
             }
         }
 
@@ -83,9 +83,9 @@ namespace Apache.Arrow
         {
             var expectedType = (Time64Type)_expectedType;
 
-            if (expectedType.Unit != actualType.Unit)
+            if (expectedType.Unit == actualType.Unit)
             {
-                _dataTypeMismatch = true;
+                _dataTypeMatch = true;
             }
         }
 
@@ -93,9 +93,9 @@ namespace Apache.Arrow
         {
             var expectedType = (FixedSizeBinaryType)_expectedType;
 
-            if (expectedType.ByteWidth != actualType.ByteWidth)
+            if (expectedType.ByteWidth == actualType.ByteWidth)
             {
-                _dataTypeMismatch = true;
+                _dataTypeMatch = true;
             }
         }
 
@@ -103,9 +103,9 @@ namespace Apache.Arrow
         {
             var expectedType = (ListType)_expectedType;
 
-            if (!CompareNested(expectedType, actualType))
+            if (CompareNested(expectedType, actualType))
             {
-                _dataTypeMismatch = true;
+                _dataTypeMatch = true;
             }
         }
 
@@ -113,9 +113,9 @@ namespace Apache.Arrow
         {
             var expectedType = (StructType)_expectedType;
 
-            if (!CompareNested(expectedType, actualType))
+            if (CompareNested(expectedType, actualType))
             {
-                _dataTypeMismatch = true;
+                _dataTypeMatch = true;
             }
         }
 
@@ -126,32 +126,28 @@ namespace Apache.Arrow
                 return true;
             }
 
-            Assert.Equal(expected.Name, actual.Name);
-            Assert.Equal(expected.IsNullable, actual.IsNullable);
-
-            Assert.Equal(expected.HasMetadata, actual.HasMetadata);
-            if (expected.HasMetadata)
+            if (expected.DataType.TypeId != actual.DataType.TypeId)
             {
-                Assert.Equal(expected.Metadata.Keys.Count(), actual.Metadata.Keys.Count());
-                Assert.True(expected.Metadata.Keys.All(k => actual.Metadata.ContainsKey(k) && expected.Metadata[k] == actual.Metadata[k]));
-                Assert.True(actual.Metadata.Keys.All(k => expected.Metadata.ContainsKey(k) && actual.Metadata[k] == expected.Metadata[k]));
+                return false;
             }
 
-            actual.DataType.Accept(new ArrayTypeComparer(expected.DataType));
+            var dataTypeVistor = new ArrayTypeComparer(expected.DataType);
+
+            actual.DataType.Accept(dataTypeVistor);
+
+            if (!dataTypeVistor.DataTypeMatch)
+            {
+                return false;
+            }
+
+            return true;
         }
 
         private static bool CompareNested(NestedType expectedType, NestedType actualType)
         {
             for (int i = 0; i < expectedType.Fields.Count; i++)
             {
-                var arrayTypeVistor = new ArrayTypeComparer(expectedType.Fields[i].DataType);
-
-                actualType.Fields[i].DataType.Accept(arrayTypeVistor);
-
-                if (arrayTypeVistor.IsDataTypeMismatch())
-                {
-                    return false;
-                }
+                return Compare(expectedType.Fields[i], actualType.Fields[i]);
             }
 
             return true;   
@@ -159,7 +155,7 @@ namespace Apache.Arrow
 
         public void Visit(IArrowType actualType)
         {
-            //Debug.Assert.IsAssignableFrom(actualType.GetType(), _expectedType);
+            _dataTypeMatch = true;
         }
     }
 }
