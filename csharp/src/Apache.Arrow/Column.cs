@@ -60,7 +60,7 @@ namespace Apache.Arrow
 
         private bool ValidateArrayDataTypes()
         {
-            var dataTypeVistor = new ArrayTypeComparer(Field.DataType);
+            var dataTypeVistor = new ArrayDataTypeComparer(Field.DataType);
 
             for (int i = 0; i < Data.ArrayCount; i++)
             {

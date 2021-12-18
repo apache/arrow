@@ -13,12 +13,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using System.Diagnostics;
 using Apache.Arrow.Types;
 
 namespace Apache.Arrow
 {
-    public class ArrayTypeComparer :
+    public class ArrayDataTypeComparer :
         IArrowTypeVisitor<TimestampType>,
         IArrowTypeVisitor<Date32Type>,
         IArrowTypeVisitor<Date64Type>,
@@ -31,7 +30,7 @@ namespace Apache.Arrow
         private readonly IArrowType _expectedType;
         private bool _dataTypeMatch;
 
-        public ArrayTypeComparer(IArrowType expectedType)
+        public ArrayDataTypeComparer(IArrowType expectedType)
         {
             _expectedType = expectedType;
             _dataTypeMatch = false;
@@ -119,35 +118,23 @@ namespace Apache.Arrow
             }
         }
 
-        public static bool Compare(Field expected, Field actual)
-        {
-            if (ReferenceEquals(expected, actual))
-            {
-                return true;
-            }
-
-            if (expected.DataType.TypeId != actual.DataType.TypeId)
-            {
-                return false;
-            }
-
-            var dataTypeVistor = new ArrayTypeComparer(expected.DataType);
-
-            actual.DataType.Accept(dataTypeVistor);
-
-            if (!dataTypeVistor.DataTypeMatch)
-            {
-                return false;
-            }
-
-            return true;
-        }
-
         private static bool CompareNested(NestedType expectedType, NestedType actualType)
         {
             for (int i = 0; i < expectedType.Fields.Count; i++)
             {
-                return Compare(expectedType.Fields[i], actualType.Fields[i]);
+                if (expectedType.TypeId != actualType.TypeId)
+                {
+                    return false;
+                }
+
+                var dataTypeVistor = new ArrayDataTypeComparer(expectedType);
+
+                actualType.Accept(dataTypeVistor);
+
+                if (!dataTypeVistor.DataTypeMatch)
+                {
+                    return false;
+                }
             }
 
             return true;   
@@ -155,7 +142,10 @@ namespace Apache.Arrow
 
         public void Visit(IArrowType actualType)
         {
-            _dataTypeMatch = true;
+            if (_expectedType.TypeId == actualType.TypeId)
+            {
+                _dataTypeMatch = true;
+            }
         }
     }
 }
