@@ -60,7 +60,6 @@ namespace Apache.Arrow
 
         private bool ValidateArrayDataTypes()
         {
-            var dataTypeVistor = new ArrayDataTypeComparer(Field.DataType);
 
             for (int i = 0; i < Data.ArrayCount; i++)
             {
@@ -69,6 +68,7 @@ namespace Apache.Arrow
                     return false;
                 }
 
+                var dataTypeVistor = new ArrayDataTypeComparer(Field.DataType);
                 Data.Array(i).Data.DataType.Accept(dataTypeVistor);
 
                 if (!dataTypeVistor.DataTypeMatch)

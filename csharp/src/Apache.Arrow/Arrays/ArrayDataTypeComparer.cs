@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System;
 using Apache.Arrow.Types;
 
 namespace Apache.Arrow
@@ -122,14 +123,14 @@ namespace Apache.Arrow
         {
             for (int i = 0; i < expectedType.Fields.Count; i++)
             {
-                if (expectedType.TypeId != actualType.TypeId)
+                if (expectedType.Fields[i].DataType.TypeId != actualType.Fields[i].DataType.TypeId)
                 {
                     return false;
                 }
 
-                var dataTypeVistor = new ArrayDataTypeComparer(expectedType);
+                var dataTypeVistor = new ArrayDataTypeComparer(expectedType.Fields[i].DataType);
 
-                actualType.Accept(dataTypeVistor);
+                actualType.Fields[i].DataType.Accept(dataTypeVistor);
 
                 if (!dataTypeVistor.DataTypeMatch)
                 {
