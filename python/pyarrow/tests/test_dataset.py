@@ -3673,6 +3673,8 @@ def test_write_dataset_max_rows_per_file(tempdir):
     # test whether the generated files have the expected number of rows
     assert expected_partitions == len(result_row_combination)
     assert num_of_records == sum(result_row_combination)
+    assert all(file_rowcount <= max_rows_per_file
+               for file_rowcount in result_row_combination)
 
 
 def test_write_dataset_min_rows_per_group(tempdir):
@@ -3793,7 +3795,7 @@ def test_write_dataset_max_open_files(tempdir):
     #         partitions
 
     data_source_2 = directory / "max_1"
-    print(data_source_2)
+
     max_open_files = 3
 
     ds.write_dataset(data=table, base_dir=data_source_2,
