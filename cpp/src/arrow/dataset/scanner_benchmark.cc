@@ -119,8 +119,6 @@ void MinimalEndToEndScan(size_t num_batches, size_t batch_size, bool async_mode)
       std::make_shared<InMemoryDataset>(GetSchema(), batches);
 
   auto options = std::make_shared<ScanOptions>();
-  // sync scanning is not supported by ScanNode
-  options->use_async = true;
   // specify the filter
   compute::Expression b_is_true = field_ref("b");
   options->filter = b_is_true;

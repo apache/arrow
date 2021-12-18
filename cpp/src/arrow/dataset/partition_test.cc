@@ -28,7 +28,6 @@
 
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/api_vector.h"
-#include "arrow/dataset/scanner_internal.h"
 #include "arrow/dataset/test_util.h"
 #include "arrow/filesystem/path_util.h"
 #include "arrow/status.h"

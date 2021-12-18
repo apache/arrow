@@ -446,10 +446,6 @@ cdef class Dataset(_Weakrefable):
         use_threads : bool, default True
             If enabled, then maximum parallelism will be used determined by
             the number of available CPU cores.
-        use_async : bool, default False
-            If enabled, an async scanner will be used that should offer
-            better performance with high-latency/highly-parallel filesystems
-            (e.g. S3)
 
         memory_pool : MemoryPool, default None
             For memory allocations, if required. If not specified, uses the
@@ -2162,8 +2158,7 @@ _DEFAULT_BATCH_SIZE = 2**20
 cdef void _populate_builder(const shared_ptr[CScannerBuilder]& ptr,
                             object columns=None, Expression filter=None,
                             int batch_size=_DEFAULT_BATCH_SIZE,
-                            bint use_threads=True, bint use_async=False,
-                            MemoryPool memory_pool=None,
+                            bint use_threads=True, MemoryPool memory_pool=None,
                             FragmentScanOptions fragment_scan_options=None)\
         except *:
     cdef:
@@ -2198,7 +2193,6 @@ cdef void _populate_builder(const shared_ptr[CScannerBuilder]& ptr,
 
     check_status(builder.BatchSize(batch_size))
     check_status(builder.UseThreads(use_threads))
-    check_status(builder.UseAsync(use_async))
     if memory_pool:
         check_status(builder.Pool(maybe_unbox_memory_pool(memory_pool)))
     if fragment_scan_options:
@@ -2239,10 +2233,6 @@ cdef class Scanner(_Weakrefable):
     use_threads : bool, default True
         If enabled, then maximum parallelism will be used determined by
         the number of available CPU cores.
-    use_async : bool, default False
-        If enabled, an async scanner will be used that should offer
-        better performance with high-latency/highly-parallel filesystems
-        (e.g. S3)
     memory_pool : MemoryPool, default None
         For memory allocations, if required. If not specified, uses the
         default pool.
@@ -2270,8 +2260,7 @@ cdef class Scanner(_Weakrefable):
 
     @staticmethod
     def from_dataset(Dataset dataset not None,
-                     bint use_threads=True, bint use_async=False,
-                     MemoryPool memory_pool=None,
+                     bint use_threads=True, MemoryPool memory_pool=None,
                      object columns=None, Expression filter=None,
                      int batch_size=_DEFAULT_BATCH_SIZE,
                      FragmentScanOptions fragment_scan_options=None):
@@ -2292,10 +2281,6 @@ cdef class Scanner(_Weakrefable):
         use_threads : bool, default True
             If enabled, then maximum parallelism will be used determined by
             the number of available CPU cores.
-        use_async : bool, default False
-            If enabled, an async scanner will be used that should offer
-            better performance with high-latency/highly-parallel filesystems
-            (e.g. S3)
         memory_pool : MemoryPool, default None
             For memory allocations, if required. If not specified, uses the
             default pool.
@@ -2310,7 +2295,7 @@ cdef class Scanner(_Weakrefable):
         builder = make_shared[CScannerBuilder](dataset.unwrap(), options)
         _populate_builder(builder, columns=columns, filter=filter,
                           batch_size=batch_size, use_threads=use_threads,
-                          use_async=use_async, memory_pool=memory_pool,
+                          memory_pool=memory_pool,
                           fragment_scan_options=fragment_scan_options)
 
         scanner = GetResultValue(builder.get().Finish())
@@ -2318,8 +2303,7 @@ cdef class Scanner(_Weakrefable):
 
     @staticmethod
     def from_fragment(Fragment fragment not None, Schema schema=None,
-                      bint use_threads=True, bint use_async=False,
-                      MemoryPool memory_pool=None,
+                      bint use_threads=True, MemoryPool memory_pool=None,
                       object columns=None, Expression filter=None,
                       int batch_size=_DEFAULT_BATCH_SIZE,
                       FragmentScanOptions fragment_scan_options=None):
@@ -2342,10 +2326,6 @@ cdef class Scanner(_Weakrefable):
         use_threads : bool, default True
             If enabled, then maximum parallelism will be used determined by
             the number of available CPU cores.
-        use_async : bool, default False
-            If enabled, an async scanner will be used that should offer
-            better performance with high-latency/highly-parallel filesystems
-            (e.g. S3)
         memory_pool : MemoryPool, default None
             For memory allocations, if required. If not specified, uses the
             default pool.
@@ -2363,7 +2343,7 @@ cdef class Scanner(_Weakrefable):
                                                fragment.unwrap(), options)
         _populate_builder(builder, columns=columns, filter=filter,
                           batch_size=batch_size, use_threads=use_threads,
-                          use_async=use_async, memory_pool=memory_pool,
+                          memory_pool=memory_pool,
                           fragment_scan_options=fragment_scan_options)
 
         scanner = GetResultValue(builder.get().Finish())
@@ -2371,7 +2351,6 @@ cdef class Scanner(_Weakrefable):
 
     @staticmethod
     def from_batches(source, Schema schema=None, bint use_threads=True,
-                     bint use_async=False,
                      MemoryPool memory_pool=None, object columns=None,
                      Expression filter=None,
                      int batch_size=_DEFAULT_BATCH_SIZE,
@@ -2399,10 +2378,6 @@ cdef class Scanner(_Weakrefable):
         use_threads : bool, default True
             If enabled, then maximum parallelism will be used determined by
             the number of available CPU cores.
-        use_async : bool, default False
-            If enabled, an async scanner will be used that should offer
-            better performance with high-latency/highly-parallel filesystems
-            (e.g. S3)
         memory_pool : MemoryPool, default None
             For memory allocations, if required. If not specified, uses the
             default pool.
@@ -2431,7 +2406,7 @@ cdef class Scanner(_Weakrefable):
         builder = CScannerBuilder.FromRecordBatchReader(reader.reader)
         _populate_builder(builder, columns=columns, filter=filter,
                           batch_size=batch_size, use_threads=use_threads,
-                          use_async=use_async, memory_pool=memory_pool,
+                          memory_pool=memory_pool,
                           fragment_scan_options=fragment_scan_options)
         scanner = GetResultValue(builder.get().Finish())
         return Scanner.wrap(scanner)

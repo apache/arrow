@@ -33,8 +33,6 @@
 #' * `filter`: A `Expression` to filter the scanned rows by, or `TRUE` (default)
 #'    to keep all rows.
 #' * `use_threads`: logical: should scanning use multithreading? Default `TRUE`
-#' * `use_async`: logical: should the async scanner (performs better on
-#'    high-latency/highly parallel filesystems like S3) be used? Default `TRUE`
 #' * `...`: Additional arguments, currently ignored
 #' @section Methods:
 #' `ScannerBuilder` has the following methods:
@@ -45,7 +43,6 @@
 #' - `$UseThreads(threads)`: logical: should the scan use multithreading?
 #' The method's default input is `TRUE`, but you must call the method to enable
 #' multithreading because the scanner default is `FALSE`.
-#' - `$UseAsync(use_async)`: logical: should the async scanner be used?
 #' - `$BatchSize(batch_size)`: integer: Maximum row count of scanned record
 #' batches, default is 32K. If scanned record batches are overflowing memory
 #' then this method can be called to reduce their size.
@@ -73,7 +70,6 @@ Scanner$create <- function(dataset,
                            projection = NULL,
                            filter = TRUE,
                            use_threads = option_use_threads(),
-                           use_async = getOption("arrow.use_async", TRUE),
                            batch_size = NULL,
                            fragment_scan_options = NULL,
                            ...) {
@@ -107,7 +103,6 @@ Scanner$create <- function(dataset,
       proj,
       dataset$filtered_rows,
       use_threads,
-      use_async,
       batch_size,
       fragment_scan_options,
       ...
@@ -117,9 +112,6 @@ Scanner$create <- function(dataset,
   scanner_builder <- ScannerBuilder$create(dataset)
   if (use_threads) {
     scanner_builder$UseThreads()
-  }
-  if (use_async) {
-    scanner_builder$UseAsync()
   }
   if (!is.null(projection)) {
     scanner_builder$Project(projection)
@@ -158,13 +150,6 @@ tail.Scanner <- function(x, n = 6L, ...) {
   }
   Table$create(!!!rev(result))
 }
-
-ScanTask <- R6Class("ScanTask",
-  inherit = ArrowObject,
-  public = list(
-    Execute = function() dataset___ScanTask__get_batches(self)
-  )
-)
 
 #' Apply a function to a stream of RecordBatches
 #'
@@ -244,10 +229,6 @@ ScannerBuilder <- R6Class("ScannerBuilder",
     },
     UseThreads = function(threads = option_use_threads()) {
       dataset___ScannerBuilder__UseThreads(self, threads)
-      self
-    },
-    UseAsync = function(use_async = TRUE) {
-      dataset___ScannerBuilder__UseAsync(self, use_async)
       self
     },
     BatchSize = function(batch_size) {

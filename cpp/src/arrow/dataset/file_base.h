@@ -147,15 +147,10 @@ class ARROW_DS_EXPORT FileFormat : public std::enable_shared_from_this<FileForma
   /// \brief Return the schema of the file if possible.
   virtual Result<std::shared_ptr<Schema>> Inspect(const FileSource& source) const = 0;
 
-  /// \brief Open a FileFragment for scanning.
-  /// May populate lazy properties of the FileFragment.
-  virtual Result<ScanTaskIterator> ScanFile(
+  virtual Result<RecordBatchGenerator> ScanBatchesAsync(
       const std::shared_ptr<ScanOptions>& options,
       const std::shared_ptr<FileFragment>& file) const = 0;
 
-  virtual Result<RecordBatchGenerator> ScanBatchesAsync(
-      const std::shared_ptr<ScanOptions>& options,
-      const std::shared_ptr<FileFragment>& file) const;
   virtual Future<util::optional<int64_t>> CountRows(
       const std::shared_ptr<FileFragment>& file, compute::Expression predicate,
       const std::shared_ptr<ScanOptions>& options);
@@ -186,7 +181,6 @@ class ARROW_DS_EXPORT FileFormat : public std::enable_shared_from_this<FileForma
 /// \brief A Fragment that is stored in a file with a known format
 class ARROW_DS_EXPORT FileFragment : public Fragment {
  public:
-  Result<ScanTaskIterator> Scan(std::shared_ptr<ScanOptions> options) override;
   Result<RecordBatchGenerator> ScanBatchesAsync(
       const std::shared_ptr<ScanOptions>& options) override;
   Future<util::optional<int64_t>> CountRows(

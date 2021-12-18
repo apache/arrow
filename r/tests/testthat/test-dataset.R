@@ -601,7 +601,7 @@ test_that("Scanner$ScanBatches", {
   table <- Table$create(!!!batches)
   expect_equal(as.data.frame(table), rbind(df1, df2))
 
-  batches <- ds$NewScan()$UseAsync(TRUE)$Finish()$ScanBatches()
+  batches <- ds$NewScan()$Finish()$ScanBatches()
   table <- Table$create(!!!batches)
   expect_equal(as.data.frame(table), rbind(df1, df2))
 })

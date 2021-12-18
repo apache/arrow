@@ -25,7 +25,6 @@
 #include "arrow/dataset/discovery.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/partition.h"
-#include "arrow/dataset/scanner_internal.h"
 #include "arrow/dataset/test_util.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/reader.h"
@@ -127,7 +126,6 @@ TEST_F(TestIpcFileSystemDataset, WriteExceedsMaxPartitions) {
   write_options_.max_partitions = 2;
 
   auto scanner_builder = ScannerBuilder(dataset_, scan_options_);
-  ASSERT_OK(scanner_builder.UseAsync(true));
   EXPECT_OK_AND_ASSIGN(auto scanner, scanner_builder.Finish());
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("This exceeds the maximum"),
                                   FileSystemDataset::Write(write_options_, scanner));
@@ -160,10 +158,8 @@ TEST_P(TestIpcFileFormatScan, FragmentScanOptions) {
   fragment_scan_options->options = std::make_shared<ipc::IpcReadOptions>();
   fragment_scan_options->options->max_recursion_depth = 0;
   opts_->fragment_scan_options = fragment_scan_options;
-  ASSERT_OK_AND_ASSIGN(auto scan_tasks, fragment->Scan(opts_));
-  ASSERT_OK_AND_ASSIGN(auto scan_task, scan_tasks.Next());
-  ASSERT_OK_AND_ASSIGN(auto batches, scan_task->Execute());
-  ASSERT_RAISES(Invalid, batches.Next());
+  ASSERT_OK_AND_ASSIGN(auto batch_gen, fragment->ScanBatchesAsync(opts_));
+  ASSERT_FINISHES_AND_RAISES(Invalid, CollectAsyncGenerator(batch_gen));
 }
 INSTANTIATE_TEST_SUITE_P(TestScan, TestIpcFileFormatScan,
                          ::testing::ValuesIn(TestFormatParams::Values()),

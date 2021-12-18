@@ -866,7 +866,7 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
         schema = schema or data.schema
         data = InMemoryDataset(data, schema=schema)
     elif isinstance(data, pa.ipc.RecordBatchReader) or _is_iterable(data):
-        data = Scanner.from_batches(data, schema=schema, use_async=True)
+        data = Scanner.from_batches(data, schema=schema)
         schema = None
     elif not isinstance(data, (Dataset, Scanner)):
         raise ValueError(
@@ -920,7 +920,7 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
     filesystem, base_dir = _resolve_filesystem_and_path(base_dir, filesystem)
 
     if isinstance(data, Dataset):
-        scanner = data.scanner(use_threads=use_threads, use_async=True)
+        scanner = data.scanner(use_threads=use_threads)
     else:
         # scanner was passed directly by the user, in which case a schema
         # cannot be passed

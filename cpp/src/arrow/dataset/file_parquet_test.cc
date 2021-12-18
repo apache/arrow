@@ -21,8 +21,8 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/compute/api_scalar.h"
 #include "arrow/dataset/dataset_internal.h"
-#include "arrow/dataset/scanner_internal.h"
 #include "arrow/dataset/test_util.h"
 #include "arrow/io/memory.h"
 #include "arrow/io/util_internal.h"
@@ -121,15 +121,9 @@ class ParquetFormatHelper {
 
 class TestParquetFileFormat : public FileFormatFixtureMixin<ParquetFormatHelper> {
  public:
-  RecordBatchIterator Batches(ScanTaskIterator scan_task_it) {
-    return MakeFlattenIterator(MakeMaybeMapIterator(
-        [](std::shared_ptr<ScanTask> scan_task) { return scan_task->Execute(); },
-        std::move(scan_task_it)));
-  }
-
   RecordBatchIterator Batches(Fragment* fragment) {
-    EXPECT_OK_AND_ASSIGN(auto scan_task_it, fragment->Scan(opts_));
-    return Batches(std::move(scan_task_it));
+    EXPECT_OK_AND_ASSIGN(auto batch_gen, fragment->ScanBatchesAsync(opts_));
+    return MakeGeneratorIterator(batch_gen);
   }
 
   std::shared_ptr<RecordBatch> SingleBatch(Fragment* fragment) {
@@ -298,7 +292,6 @@ TEST_F(TestParquetFileFormat, MultithreadedScan) {
   FragmentDataset dataset(ArithmeticDatasetFixture::schema(), {fragment});
   ScannerBuilder builder({&dataset, [](...) {}});
 
-  ASSERT_OK(builder.UseAsync(true));
   ASSERT_OK(builder.UseThreads(true));
   ASSERT_OK(builder.Project({call("add", {field_ref("i64"), literal(3)})}, {""}));
   ASSERT_OK_AND_ASSIGN(auto scanner, builder.Finish());
@@ -417,7 +410,6 @@ TEST_P(TestParquetFileFormatScan, ScanRecordBatchReaderPreBuffer) {
   auto fragment_scan_options = std::make_shared<ParquetFragmentScanOptions>();
   fragment_scan_options->arrow_reader_properties->set_pre_buffer(true);
   opts_->fragment_scan_options = fragment_scan_options;
-  ASSERT_OK_AND_ASSIGN(auto scan_task_it, fragment->Scan(opts_));
 
   int64_t row_count = 0;
   for (auto maybe_batch : PhysicalBatches(fragment)) {
@@ -581,10 +573,14 @@ TEST_P(TestParquetFileFormatScan, ExplicitRowGroupSelection) {
   SetFilter(greater(field_ref("i64"), literal(3)));
   CountRowsAndBatchesInScan(row_groups_fragment({2, 3, 4, 5}), 4 + 5 + 6, 3);
 
+  ASSERT_OK_AND_ASSIGN(auto batch_gen,
+                       row_groups_fragment({kNumRowGroups + 1})->ScanBatchesAsync(opts_));
+  Status scan_status = CollectAsyncGenerator(batch_gen).status();
+
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       IndexError,
       testing::HasSubstr("only has " + std::to_string(kNumRowGroups) + " row groups"),
-      row_groups_fragment({kNumRowGroups + 1})->Scan(opts_));
+      scan_status);
 }
 
 TEST_P(TestParquetFileFormatScan, PredicatePushdownRowGroupFragmentsUsingStringColumn) {

@@ -23,17 +23,18 @@
 #include <unordered_map>
 #include <vector>
 
+#include "arrow/compute/api_scalar.h"
 #include "arrow/compute/exec/forest_internal.h"
 #include "arrow/compute/exec/subtree_internal.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/dataset_writer.h"
 #include "arrow/dataset/scanner.h"
-#include "arrow/dataset/scanner_internal.h"
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/filesystem/path_util.h"
 #include "arrow/io/compressed.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/compression.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/macros.h"
@@ -45,6 +46,7 @@
 
 namespace arrow {
 
+using internal::checked_cast;
 using internal::checked_pointer_cast;
 
 namespace dataset {
@@ -111,64 +113,8 @@ Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(
                        std::move(partition_expression), std::move(physical_schema)));
 }
 
-// The following implementation of ScanBatchesAsync is both ugly and terribly inefficient.
-// Each of the formats should provide their own efficient implementation.  However, this
-// is a reasonable starting point or implementation for a dummy/mock format.
-Result<RecordBatchGenerator> FileFormat::ScanBatchesAsync(
-    const std::shared_ptr<ScanOptions>& scan_options,
-    const std::shared_ptr<FileFragment>& file) const {
-  ARROW_ASSIGN_OR_RAISE(auto scan_task_it, ScanFile(scan_options, file));
-  struct State {
-    State(std::shared_ptr<ScanOptions> scan_options, ScanTaskIterator scan_task_it)
-        : scan_options(std::move(scan_options)),
-          scan_task_it(std::move(scan_task_it)),
-          current_rb_it(),
-          finished(false) {}
-
-    std::shared_ptr<ScanOptions> scan_options;
-    ScanTaskIterator scan_task_it;
-    RecordBatchIterator current_rb_it;
-    bool finished;
-  };
-  struct Generator {
-    Future<std::shared_ptr<RecordBatch>> operator()() {
-      while (!state->finished) {
-        if (!state->current_rb_it) {
-          RETURN_NOT_OK(PumpScanTask());
-          if (state->finished) {
-            return AsyncGeneratorEnd<std::shared_ptr<RecordBatch>>();
-          }
-        }
-        ARROW_ASSIGN_OR_RAISE(auto next_batch, state->current_rb_it.Next());
-        if (IsIterationEnd(next_batch)) {
-          state->current_rb_it = RecordBatchIterator();
-        } else {
-          return Future<std::shared_ptr<RecordBatch>>::MakeFinished(next_batch);
-        }
-      }
-      return AsyncGeneratorEnd<std::shared_ptr<RecordBatch>>();
-    }
-    Status PumpScanTask() {
-      ARROW_ASSIGN_OR_RAISE(auto next_task, state->scan_task_it.Next());
-      if (IsIterationEnd(next_task)) {
-        state->finished = true;
-      } else {
-        ARROW_ASSIGN_OR_RAISE(state->current_rb_it, next_task->Execute());
-      }
-      return Status::OK();
-    }
-    std::shared_ptr<State> state;
-  };
-  return Generator{std::make_shared<State>(scan_options, std::move(scan_task_it))};
-}
-
 Result<std::shared_ptr<Schema>> FileFragment::ReadPhysicalSchemaImpl() {
   return format_->Inspect(source_);
-}
-
-Result<ScanTaskIterator> FileFragment::Scan(std::shared_ptr<ScanOptions> options) {
-  auto self = std::dynamic_pointer_cast<FileFragment>(shared_from_this());
-  return format_->ScanFile(options, self);
 }
 
 Result<RecordBatchGenerator> FileFragment::ScanBatchesAsync(
@@ -391,13 +337,6 @@ class DatasetWritingSinkNodeConsumer : public compute::SinkNodeConsumer {
 
 Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_options,
                                 std::shared_ptr<Scanner> scanner) {
-  if (!scanner->options()->use_async) {
-    return Status::Invalid(
-        "A dataset write operation was invoked on a scanner that was configured for "
-        "synchronous scanning.  Dataset writing requires a scanner configured for "
-        "asynchronous scanning.  Please recreate the scanner with the use_async or "
-        "UseAsync option set to true");
-  }
   const io::IOContext& io_context = scanner->options()->io_context;
   std::shared_ptr<compute::ExecContext> exec_context =
       std::make_shared<compute::ExecContext>(io_context.pool(),
