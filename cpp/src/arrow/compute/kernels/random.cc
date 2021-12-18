@@ -40,8 +40,7 @@ double generate_uniform(random::pcg64_fast& rng) {
 using RandomState = OptionsWrapper<RandomOptions>;
 
 Status ExecRandom(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  static thread_local std::random_device rd;
-  static thread_local random::pcg64_fast gen;
+  random::pcg64_fast gen;
   const RandomOptions& options = RandomState::Get(ctx);
   DoubleBuilder builder(ctx->memory_pool());
   if (options.length < 0) {
@@ -51,6 +50,7 @@ Status ExecRandom(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   if (options.initializer == RandomOptions::Seed) {
     gen.seed(options.seed);
   } else {
+    std::random_device rd;
     gen.seed(rd());
   }
   for (int i = 0; i < options.length; ++i) {
