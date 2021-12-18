@@ -1934,7 +1934,7 @@ def test_round_temporal(unit):
     for tz in timezones:
         ts = pd.Series((
             # pd.Timestamp("1910-01-03T02:10:10.12345671", tz=tz, unit="ns"),
-            # pd.Timestamp("1950-07-18T12:41:12.12345678", tz=tz, unit="ns"),
+            pd.Timestamp("1950-07-18T12:41:12.12345678", tz=tz, unit="ns"),
             pd.Timestamp("2019-11-30T02:11:21.12345672", tz=tz, unit="ns")
         ))
         ta = pa.array(ts)

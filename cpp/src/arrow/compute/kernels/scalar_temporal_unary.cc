@@ -44,8 +44,10 @@ using arrow_vendored::date::hh_mm_ss;
 using arrow_vendored::date::local_days;
 using arrow_vendored::date::local_time;
 using arrow_vendored::date::locate_zone;
+using arrow_vendored::date::Monday;
 using arrow_vendored::date::months;
 using arrow_vendored::date::round;
+using arrow_vendored::date::Sunday;
 using arrow_vendored::date::sys_days;
 using arrow_vendored::date::sys_time;
 using arrow_vendored::date::trunc;
@@ -62,8 +64,6 @@ using arrow_vendored::date::literals::mon;
 using arrow_vendored::date::literals::sun;
 using arrow_vendored::date::literals::thu;
 using arrow_vendored::date::literals::wed;
-using arrow_vendored::date::Monday;
-using arrow_vendored::date::Sunday;
 using internal::applicator::SimpleUnary;
 using std::chrono::duration_cast;
 using std::chrono::hours;
@@ -500,9 +500,8 @@ Duration FloorMultiple(const int64_t arg, const int multiple) {
   if (multiple == 1) {
     return duration_cast<Duration>(floored);
   } else {
-    auto t = duration_cast<Duration>(Unit{floored / Unit{multiple}} * multiple);
     return arg > 0
-               ? t
+               ? duration_cast<Duration>(Unit{floored / Unit{multiple}} * multiple)
                : duration_cast<Duration>(
                      Unit{(floored - Unit{multiple - 1}) / Unit{multiple}} * multiple);
   }
@@ -526,11 +525,19 @@ Duration RoundMultiple(const int64_t arg, const int multiple) {
   }
 }
 
-int32_t GetTotalMonths(year_month_day ymd, int multiple) {
-  int32_t total_months = (static_cast<int32_t>(ymd.year()) * 12 +
-                          static_cast<int32_t>(static_cast<uint32_t>(ymd.month()))) /
-                         multiple * multiple;
-  return total_months;
+template <typename Duration, typename Localizer>
+year_month_day GetRoundedYmd(int64_t arg, int multiple, Localizer localizer_) {
+  auto t = localizer_.template ConvertTimePoint<Duration>(arg);
+  year_month_day ymd{floor<days>(t)};
+
+  int32_t total_months =
+      static_cast<int32_t>(ymd.year()) * 12 + static_cast<uint32_t>(ymd.month()) - 1;
+  if (multiple != 1) {
+    total_months = total_months / multiple * multiple;
+  }
+  arrow_vendored::date::month m{static_cast<uint32_t>(total_months % 12 + 1)};
+  arrow_vendored::date::year y{static_cast<int32_t>(total_months / 12)};
+  return year_month_day(y / m / 1);
 }
 
 template <typename Duration, typename Localizer>
@@ -564,54 +571,54 @@ struct CeilTemporal {
         t = CeilMultiple<Duration, days>(arg, options.multiple);
         break;
       case compute::CalendarUnit::WEEK: {
-        auto sd =
-            sys_days{floor<days>(CeilMultiple<Duration, weeks>(arg, options.multiple))};
+        auto t0 = localizer_.template ConvertTimePoint<Duration>(arg);
+        auto d = floor<days>(arrow_vendored::date::weeks{
+            t0.time_since_epoch() / arrow_vendored::date::weeks{options.multiple} *
+            options.multiple});
+        auto d2 = localizer_.ConvertDays(sys_days{d});
         if (options.week_starts_monday) {
-          sd -= Sunday - weekday{sd};
+          d2 += Monday - weekday{d2};
         } else {
-          sd -= Monday - weekday{sd};
+          d2 += Sunday - weekday{d2};
         }
-        t = duration_cast<Duration>(sd.time_since_epoch());
+        if (d2 < t0) {
+          d2 += days{7};
+        }
+        t = d2.time_since_epoch();
         break;
       }
       case compute::CalendarUnit::MONTH: {
-        auto ymd = year_month_day{
-            floor<days>(localizer_.template ConvertTimePoint<Duration>(arg))};
-        int32_t total_months = GetTotalMonths(ymd, options.multiple) + 1;
-        auto month =
-            arrow_vendored::date::month{static_cast<uint32_t>(total_months % 12)};
-        t = sys_days{arrow_vendored::date::year{total_months / 12} / month / 1}
-                .time_since_epoch();
+        year_month_day ymd =
+            GetRoundedYmd<Duration, Localizer>(arg, options.multiple, localizer_);
+        ymd += arrow_vendored::date::months{1};
+        t = localizer_.ConvertDays(ymd.year() / ymd.month() / 1).time_since_epoch();
         break;
       }
       case compute::CalendarUnit::SEASON: {
-        auto ymd = year_month_day{
-            floor<days>(localizer_.template ConvertTimePoint<Duration>(arg))};
-        int32_t total_months = GetTotalMonths(ymd, options.multiple * 3);
-        auto month = arrow_vendored::date::month{
-            season_lookup_table[static_cast<uint32_t>(total_months % 12)]};
-        t = sys_days{arrow_vendored::date::year{total_months / 12} / month / 1}
-                .time_since_epoch();
+        year_month_day ymd =
+            GetRoundedYmd<Duration, Localizer>(arg, options.multiple, localizer_);
+        uint32_t m = static_cast<uint32_t>(ymd.month());
+        auto y = ymd.year();
+        if (m == 12) {
+          y = arrow_vendored::date::year{static_cast<int32_t>(y) + 1};
+        }
+        auto mth = arrow_vendored::date::month{season_lookup_table[m - 1]};
+        t = localizer_.ConvertDays(y / mth / 1).time_since_epoch();
         break;
       }
       case compute::CalendarUnit::YEAR: {
-        auto ymd = year_month_day{
-            floor<days>(localizer_.template ConvertTimePoint<Duration>(arg))};
-        auto year = ymd.year();
-        if (options.multiple != 1) {
-          year = arrow_vendored::date::year{static_cast<const int32_t>(year) /
-                                            options.multiple * options.multiple};
-        }
-        year = year + years{options.multiple};
-        t = sys_days{year / jan / 1}.time_since_epoch();
+        year_month_day ymd(
+            floor<days>(localizer_.template ConvertTimePoint<Duration>(arg)));
+        int32_t year =
+            (static_cast<int32_t>(ymd.year()) / options.multiple + 1) * options.multiple;
+        t = localizer_.ConvertDays(arrow_vendored::date::year{year} / jan / 1)
+                .time_since_epoch();
         break;
       }
     }
     return static_cast<T>(t.count());
   }
 
-  //  std::array<uint32_t, 12> season_lookup_table{{12, 12, 3, 3, 3, 6, 6, 6, 9, 9, 9,
-  //  12}};
   std::array<uint32_t, 12> season_lookup_table{{3, 3, 6, 6, 6, 9, 9, 9, 12, 12, 12, 3}};
   Localizer localizer_;
   RoundTemporalOptions options;
@@ -648,45 +655,46 @@ struct FloorTemporal {
         t = FloorMultiple<Duration, days>(arg, options.multiple);
         break;
       case compute::CalendarUnit::WEEK: {
-        auto sd =
-            sys_days{floor<days>(FloorMultiple<Duration, weeks>(arg, options.multiple))};
+        auto t0 = localizer_.template ConvertTimePoint<Duration>(arg);
+        auto d = floor<days>(arrow_vendored::date::weeks{
+            t0.time_since_epoch() / arrow_vendored::date::weeks{options.multiple} *
+            options.multiple});
+        auto d2 = localizer_.ConvertDays(sys_days{d});
         if (options.week_starts_monday) {
-          sd -= Sunday - weekday{sd};
+          d2 += Monday - weekday{d2};
         } else {
-          sd -= Monday - weekday{sd};
+          d2 += Sunday - weekday{d2};
         }
-        t = duration_cast<Duration>(sd.time_since_epoch());
+        if (d2 > t0) {
+          d2 -= days{7};
+        }
+        t = d2.time_since_epoch();
         break;
       }
       case compute::CalendarUnit::MONTH: {
-        auto ymd = year_month_day{
-            floor<days>(localizer_.template ConvertTimePoint<Duration>(arg))};
-        int32_t total_months = GetTotalMonths(ymd, options.multiple);
-        auto month =
-            arrow_vendored::date::month{static_cast<uint32_t>(total_months % 12)};
-        t = sys_days{arrow_vendored::date::year{total_months / 12} / month / 1}
-                .time_since_epoch();
+        year_month_day ymd =
+            GetRoundedYmd<Duration, Localizer>(arg, options.multiple, localizer_);
+        t = localizer_.ConvertDays(ymd.year() / ymd.month() / 1).time_since_epoch();
         break;
       }
       case compute::CalendarUnit::SEASON: {
-        auto ymd = year_month_day{
-            floor<days>(localizer_.template ConvertTimePoint<Duration>(arg))};
-        int32_t total_months = GetTotalMonths(ymd, options.multiple * 3);
-        auto month = arrow_vendored::date::month{
-            season_lookup_table[static_cast<uint32_t>(total_months % 12)]};
-        t = sys_days{arrow_vendored::date::year{total_months / 12} / month / 1}
-                .time_since_epoch();
+        year_month_day ymd =
+            GetRoundedYmd<Duration, Localizer>(arg, options.multiple, localizer_);
+        uint32_t m = static_cast<uint32_t>(ymd.month());
+        auto y = ymd.year();
+        if (m < 3) {
+          y = arrow_vendored::date::year{static_cast<int32_t>(y) - 1};
+        }
+        auto mth = arrow_vendored::date::month{season_lookup_table[m - 1]};
+        t = localizer_.ConvertDays(y / mth / 1).time_since_epoch();
         break;
       }
       case compute::CalendarUnit::YEAR: {
-        auto ymd = year_month_day{
-            floor<days>(localizer_.template ConvertTimePoint<Duration>(arg))};
-        auto year = ymd.year();
-        if (options.multiple != 1) {
-          year = arrow_vendored::date::year{static_cast<const int32_t>(year) /
-                                            options.multiple * options.multiple};
-        }
-        t = sys_days{year / jan / 1}.time_since_epoch();
+        year_month_day ymd(
+            floor<days>(localizer_.template ConvertTimePoint<Duration>(arg)));
+        arrow_vendored::date::year year{
+            (static_cast<int32_t>(ymd.year()) / options.multiple) * options.multiple};
+        t = localizer_.ConvertDays(year / jan / 1).time_since_epoch();
         break;
       }
     }
@@ -729,62 +737,66 @@ struct RoundTemporal {
         t = RoundMultiple<Duration, days>(arg, options.multiple);
         break;
       case compute::CalendarUnit::WEEK: {
-        auto sd =
-            sys_days{floor<days>(RoundMultiple<Duration, weeks>(arg, options.multiple))};
+        auto t0 = localizer_.template ConvertTimePoint<Duration>(arg);
+        auto d = floor<days>(arrow_vendored::date::weeks{
+            t0.time_since_epoch() / arrow_vendored::date::weeks{options.multiple} *
+            options.multiple});
+        auto d2 = localizer_.ConvertDays(sys_days{d});
         if (options.week_starts_monday) {
-          sd -= Sunday - weekday{sd};
+          d2 += Monday - weekday{d2};
         } else {
-          sd -= Monday - weekday{sd};
+          d2 += Sunday - weekday{d2};
         }
-        t = duration_cast<Duration>(sd.time_since_epoch());
+        if (d2 > t0) {
+          d2 -= days{7};
+        }
+        t = (t0 <= d2 + days{7} / 2) ? d2.time_since_epoch()
+                                     : d2.time_since_epoch() + days{7};
         break;
       }
       case compute::CalendarUnit::MONTH: {
-        auto ymd = year_month_day{
-            floor<days>(localizer_.template ConvertTimePoint<Duration>(arg))};
-        int32_t total_months = GetTotalMonths(ymd, options.multiple);
+        auto t0 = localizer_.template ConvertTimePoint<Duration>(arg);
+        year_month_day ymd =
+            GetRoundedYmd<Duration, Localizer>(arg, options.multiple, localizer_);
 
-        auto month_1 =
-            arrow_vendored::date::month{static_cast<uint32_t>((total_months) % 12)};
-        auto month_2 =
-            arrow_vendored::date::month{static_cast<uint32_t>((total_months + 1) % 12)};
-        auto year_1 = arrow_vendored::date::year{total_months / 12};
-        auto year_2 = arrow_vendored::date::year{(total_months + 1) / 12};
-        auto f = sys_days{year_1 / month_1 / 1};
-        auto c = sys_days{year_2 / month_2 / 1};
+        auto f = localizer_.ConvertDays(ymd.year() / ymd.month() / 1);
+        ymd += arrow_vendored::date::months{1};
+        auto c = localizer_.ConvertDays(ymd.year() / ymd.month() / 1);
 
-        if (sys_days{ymd} - f > c - sys_days{ymd}) {
-          t = c.time_since_epoch();
-        } else {
-          t = f.time_since_epoch();
-        }
+        t = (t0 - f > c - t0) ? c.time_since_epoch() : f.time_since_epoch();
         break;
       }
       case compute::CalendarUnit::SEASON: {
-        auto ymd = year_month_day{
-            floor<days>(localizer_.template ConvertTimePoint<Duration>(arg))};
-        int32_t total_months = GetTotalMonths(ymd, options.multiple);
-        auto month = arrow_vendored::date::month{
-            season_lookup_table[static_cast<uint32_t>(total_months % 12)]};
-        t = sys_days{ymd.year() / month / 1}.time_since_epoch();
+        auto t0 = localizer_.template ConvertTimePoint<Duration>(arg);
+        year_month_day ymd =
+            GetRoundedYmd<Duration, Localizer>(arg, options.multiple * 3, localizer_);
+        uint32_t floor_month = season_lookup_table[static_cast<uint32_t>(ymd.month())];
+
+        auto floor_year = static_cast<int32_t>(ymd.year());
+        auto ceil_month = floor_month + 3;
+        auto ceil_year = floor_year;
+        if (floor_month == 12) {
+          floor_year -= 1;
+          ceil_month = 3;
+        }
+        auto f = localizer_.ConvertDays(arrow_vendored::date::year{floor_year} /
+                                        arrow_vendored::date::month{floor_month} / 1);
+        auto c = localizer_.ConvertDays(arrow_vendored::date::year{ceil_year} /
+                                        arrow_vendored::date::month{ceil_month} / 1);
+
+        t = (t0 - f > c - t0) ? c.time_since_epoch() : f.time_since_epoch();
         break;
       }
       case compute::CalendarUnit::YEAR: {
-        auto ymd = year_month_day{
-            floor<days>(localizer_.template ConvertTimePoint<Duration>(arg))};
-        auto year = ymd.year();
-        if (options.multiple != 1) {
-          year = arrow_vendored::date::year{static_cast<const int32_t>(year) /
-                                            options.multiple * options.multiple};
-        }
-        auto f = sys_days{year / jan / 1};
-        auto c = sys_days{(year + years{options.multiple}) / jan / 1};
+        auto t0 = localizer_.template ConvertTimePoint<Duration>(arg);
+        year_month_day ymd(floor<days>(t0));
+        arrow_vendored::date::year year{
+            (static_cast<int32_t>(ymd.year()) / options.multiple) * options.multiple};
+        auto f = localizer_.ConvertDays(year / jan / 1);
+        auto c = localizer_.ConvertDays(
+            (year + arrow_vendored::date::years{options.multiple}) / jan / 1);
 
-        if (sys_days{ymd} - f > c - sys_days{ymd}) {
-          t = c.time_since_epoch();
-        } else {
-          t = f.time_since_epoch();
-        }
+        t = (t0 - f > c - t0) ? c.time_since_epoch() : f.time_since_epoch();
         break;
       }
     }
