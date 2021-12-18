@@ -68,10 +68,11 @@ namespace Apache.Arrow
                     return false;
                 }
 
-                var dataTypeVistor = new ArrayDataTypeComparer(Field.DataType);
-                Data.Array(i).Data.DataType.Accept(dataTypeVistor);
+                var dataTypeComparer = new ArrayDataTypeComparer(Field.DataType);
 
-                if (!dataTypeVistor.DataTypeMatch)
+                Data.Array(i).Data.DataType.Accept(dataTypeComparer);
+
+                if (!dataTypeComparer.DataTypeMatch)
                 {
                     return false;
                 }

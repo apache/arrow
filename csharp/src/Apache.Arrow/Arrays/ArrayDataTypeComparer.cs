@@ -121,6 +121,11 @@ namespace Apache.Arrow
 
         private static bool CompareNested(NestedType expectedType, NestedType actualType)
         {
+            if (expectedType.Fields.Count != actualType.Fields.Count)
+            {
+                return false;
+            }
+
             for (int i = 0; i < expectedType.Fields.Count; i++)
             {
                 if (expectedType.Fields[i].DataType.TypeId != actualType.Fields[i].DataType.TypeId)
@@ -128,11 +133,9 @@ namespace Apache.Arrow
                     return false;
                 }
 
-                var dataTypeVistor = new ArrayDataTypeComparer(expectedType.Fields[i].DataType);
+                var dataTypeMatch = FieldComparer.Compare(expectedType.Fields[i], actualType.Fields[i]);
 
-                actualType.Fields[i].DataType.Accept(dataTypeVistor);
-
-                if (!dataTypeVistor.DataTypeMatch)
+                if (!dataTypeMatch)
                 {
                     return false;
                 }
