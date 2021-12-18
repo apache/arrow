@@ -71,7 +71,7 @@ const FunctionDoc random_doc{
 
 }  // namespace
 
-void RegisterRandom(FunctionRegistry* registry) {
+void RegisterNullaryRandom(FunctionRegistry* registry) {
   static auto random_options = RandomOptions::Defaults();
 
   auto random_func = std::make_shared<ScalarFunction>("random", Arity::Nullary(),

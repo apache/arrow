@@ -60,7 +60,7 @@ void RegisterScalarAggregateVariance(FunctionRegistry* registry);
 void RegisterAggregateOptions(FunctionRegistry* registry);
 
 // Uniform random generator
-void RegisterRandom(FunctionRegistry* registry);
+void RegisterNullaryRandom(FunctionRegistry* registry);
 
 }  // namespace internal
 }  // namespace compute
