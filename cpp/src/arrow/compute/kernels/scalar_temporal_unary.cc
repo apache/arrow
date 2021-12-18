@@ -192,7 +192,7 @@ struct Day {
 };
 
 // ----------------------------------------------------------------------
-// Extract year/month/day from temporal types
+// Extract (year, month, day) struct from temporal types
 
 template <typename Duration, typename InType, typename BuilderType>
 struct DateStructVisitValueFunction {
@@ -932,7 +932,7 @@ const FunctionDoc day_doc{
     {"values"}};
 
 const FunctionDoc date_struct_doc{
-  "Extract year/month/day",
+  "Extract (year, month, day) struct",
   ("Null values emit null.\n"
    "An error is returned in the values have a defined timezone but it\n"
    "cannot be found in the timezone database."),
