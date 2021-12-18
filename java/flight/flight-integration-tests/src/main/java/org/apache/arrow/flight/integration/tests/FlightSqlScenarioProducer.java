@@ -54,6 +54,10 @@ public class FlightSqlScenarioProducer implements FlightSqlProducer {
     this.allocator = allocator;
   }
 
+  /**
+   * Schema to be returned for mocking the statement/prepared statement results.
+   * Must be the same across all languages.
+   */
   static Schema getQuerySchema() {
     return new Schema(
         singletonList(
@@ -119,13 +123,13 @@ public class FlightSqlScenarioProducer implements FlightSqlProducer {
   @Override
   public void getStreamStatement(FlightSql.TicketStatementQuery ticket, CallContext context,
                                  ServerStreamListener listener) {
-    serveJsonToStreamListener(listener, getQuerySchema());
+    putEmptyBatchToStreamListener(listener, getQuerySchema());
   }
 
   @Override
   public void getStreamPreparedStatement(FlightSql.CommandPreparedStatementQuery command,
                                          CallContext context, ServerStreamListener listener) {
-    serveJsonToStreamListener(listener, getQuerySchema());
+    putEmptyBatchToStreamListener(listener, getQuerySchema());
   }
 
   private Runnable acceptPutReturnConstant(StreamListener<PutResult> ackStream, int value) {
@@ -164,10 +168,12 @@ public class FlightSqlScenarioProducer implements FlightSqlProducer {
   public Runnable acceptPutPreparedStatementQuery(FlightSql.CommandPreparedStatementQuery command,
                                                   CallContext context, FlightStream flightStream,
                                                   StreamListener<PutResult> ackStream) {
-    IntegrationAssertions.assertEquals(command.getPreparedStatementHandle(),
+    IntegrationAssertions.assertEquals(command.getPreparedStatementHandle().toStringUtf8(),
         "SELECT PREPARED STATEMENT HANDLE");
 
-    return null;
+    IntegrationAssertions.assertEquals(getQuerySchema(), flightStream.getSchema());
+
+    return ackStream::onCompleted;
   }
 
   @Override
@@ -185,7 +191,7 @@ public class FlightSqlScenarioProducer implements FlightSqlProducer {
   @Override
   public void getStreamSqlInfo(FlightSql.CommandGetSqlInfo command, CallContext context,
                                ServerStreamListener listener) {
-    serveJsonToStreamListener(listener, Schemas.GET_SQL_INFO_SCHEMA);
+    putEmptyBatchToStreamListener(listener, Schemas.GET_SQL_INFO_SCHEMA);
   }
 
   @Override
@@ -194,7 +200,7 @@ public class FlightSqlScenarioProducer implements FlightSqlProducer {
     return getFlightInfoForSchema(request, descriptor, Schemas.GET_CATALOGS_SCHEMA);
   }
 
-  private void serveJsonToStreamListener(ServerStreamListener stream, Schema schema) {
+  private void putEmptyBatchToStreamListener(ServerStreamListener stream, Schema schema) {
     try (VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)) {
       stream.start(root);
       stream.putNext();
@@ -204,7 +210,7 @@ public class FlightSqlScenarioProducer implements FlightSqlProducer {
 
   @Override
   public void getStreamCatalogs(CallContext context, ServerStreamListener listener) {
-    serveJsonToStreamListener(listener, Schemas.GET_CATALOGS_SCHEMA);
+    putEmptyBatchToStreamListener(listener, Schemas.GET_CATALOGS_SCHEMA);
   }
 
   @Override
@@ -220,7 +226,7 @@ public class FlightSqlScenarioProducer implements FlightSqlProducer {
   @Override
   public void getStreamSchemas(FlightSql.CommandGetDbSchemas command, CallContext context,
                                ServerStreamListener listener) {
-    serveJsonToStreamListener(listener, Schemas.GET_SCHEMAS_SCHEMA);
+    putEmptyBatchToStreamListener(listener, Schemas.GET_SCHEMAS_SCHEMA);
   }
 
   @Override
@@ -240,7 +246,7 @@ public class FlightSqlScenarioProducer implements FlightSqlProducer {
   @Override
   public void getStreamTables(FlightSql.CommandGetTables command, CallContext context,
                               ServerStreamListener listener) {
-    serveJsonToStreamListener(listener, Schemas.GET_TABLES_SCHEMA);
+    putEmptyBatchToStreamListener(listener, Schemas.GET_TABLES_SCHEMA);
   }
 
   @Override
@@ -251,7 +257,7 @@ public class FlightSqlScenarioProducer implements FlightSqlProducer {
 
   @Override
   public void getStreamTableTypes(CallContext context, ServerStreamListener listener) {
-    serveJsonToStreamListener(listener, Schemas.GET_TABLE_TYPES_SCHEMA);
+    putEmptyBatchToStreamListener(listener, Schemas.GET_TABLE_TYPES_SCHEMA);
   }
 
   @Override
@@ -267,7 +273,7 @@ public class FlightSqlScenarioProducer implements FlightSqlProducer {
   @Override
   public void getStreamPrimaryKeys(FlightSql.CommandGetPrimaryKeys command, CallContext context,
                                    ServerStreamListener listener) {
-    serveJsonToStreamListener(listener, Schemas.GET_PRIMARY_KEYS_SCHEMA);
+    putEmptyBatchToStreamListener(listener, Schemas.GET_PRIMARY_KEYS_SCHEMA);
   }
 
   @Override
@@ -306,19 +312,19 @@ public class FlightSqlScenarioProducer implements FlightSqlProducer {
   @Override
   public void getStreamExportedKeys(FlightSql.CommandGetExportedKeys command, CallContext context,
                                     ServerStreamListener listener) {
-    serveJsonToStreamListener(listener, Schemas.GET_EXPORTED_KEYS_SCHEMA);
+    putEmptyBatchToStreamListener(listener, Schemas.GET_EXPORTED_KEYS_SCHEMA);
   }
 
   @Override
   public void getStreamImportedKeys(FlightSql.CommandGetImportedKeys command, CallContext context,
                                     ServerStreamListener listener) {
-    serveJsonToStreamListener(listener, Schemas.GET_IMPORTED_KEYS_SCHEMA);
+    putEmptyBatchToStreamListener(listener, Schemas.GET_IMPORTED_KEYS_SCHEMA);
   }
 
   @Override
   public void getStreamCrossReference(FlightSql.CommandGetCrossReference command,
                                       CallContext context, ServerStreamListener listener) {
-    serveJsonToStreamListener(listener, Schemas.GET_CROSS_REFERENCE_SCHEMA);
+    putEmptyBatchToStreamListener(listener, Schemas.GET_CROSS_REFERENCE_SCHEMA);
   }
 
   @Override

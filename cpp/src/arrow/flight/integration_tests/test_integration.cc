@@ -262,6 +262,8 @@ class MiddlewareScenario : public Scenario {
   std::shared_ptr<TestClientMiddlewareFactory> client_middleware_;
 };
 
+/// \brief Schema to be returned for mocking the statement/prepared statement results.
+/// Must be the same across all languages.
 std::shared_ptr<Schema> GetQuerySchema() {
   return arrow::schema({arrow::field("id", int64())});
 }
@@ -492,7 +494,13 @@ class FlightSqlScenarioServer : public sql::FlightSqlServerBase {
                                      const sql::PreparedStatementQuery& command,
                                      FlightMessageReader* reader,
                                      FlightMetadataWriter* writer) override {
-    return Status::NotImplemented("Not implemented");
+    ARROW_RETURN_NOT_OK(AssertEq<std::string>("SELECT PREPARED STATEMENT HANDLE",
+                                              command.prepared_statement_handle));
+
+    ARROW_ASSIGN_OR_RAISE(auto actual_schema, reader->GetSchema());
+    ARROW_RETURN_NOT_OK(AssertEq<Schema>(*GetQuerySchema(), *actual_schema));
+
+    return Status::OK();
   }
 
   arrow::Result<int64_t> DoPutPreparedStatementUpdate(
@@ -515,9 +523,9 @@ class FlightSqlScenarioServer : public sql::FlightSqlServerBase {
   }
 
   arrow::Result<std::unique_ptr<FlightDataStream>> DoGetForTestCase(
-      std::shared_ptr<Schema> schema) {
-    ARROW_ASSIGN_OR_RAISE(auto reader2, RecordBatchReader::Make({}, schema));
-    return std::unique_ptr<FlightDataStream>(new RecordBatchStream(reader2));
+      const std::shared_ptr<Schema>& schema) {
+    ARROW_ASSIGN_OR_RAISE(auto reader, RecordBatchReader::Make({}, schema));
+    return std::unique_ptr<FlightDataStream>(new RecordBatchStream(reader));
   }
 };
 
@@ -630,8 +638,13 @@ class FlightSqlScenario : public Scenario {
 
     ARROW_ASSIGN_OR_RAISE(auto select_prepared_statement,
                           sql_client->Prepare(options, "SELECT PREPARED STATEMENT"));
+
+    auto parameters = RecordBatch::Make(GetQuerySchema(), 1, {ArrayFromJSON(int64(), "[1]")});
+    ARROW_RETURN_NOT_OK(select_prepared_statement->SetParameters(parameters));
+
     ARROW_RETURN_NOT_OK(
             Validate(GetQuerySchema(), select_prepared_statement->Execute(), sql_client));
+    ARROW_RETURN_NOT_OK(select_prepared_statement->Close());
 
     ARROW_ASSIGN_OR_RAISE(auto update_prepared_statement,
                           sql_client->Prepare(options, "UPDATE PREPARED STATEMENT"));
@@ -641,6 +654,7 @@ class FlightSqlScenario : public Scenario {
       return Status::Invalid("Expected 'UPDATE STATEMENT' return 20000, got ",
                              update_prepared_statement_result);
     }
+    ARROW_RETURN_NOT_OK(update_prepared_statement->Close());
 
     return Status::OK();
   }

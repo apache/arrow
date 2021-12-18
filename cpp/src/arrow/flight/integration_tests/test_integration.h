@@ -17,6 +17,8 @@
 
 // Integration test scenarios for Arrow Flight.
 
+#pragma once
+
 #include "arrow/flight/visibility.h"
 
 #include <memory>

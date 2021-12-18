@@ -32,6 +32,7 @@ import org.apache.arrow.flight.sql.FlightSqlProducer;
 import org.apache.arrow.flight.sql.impl.FlightSql;
 import org.apache.arrow.flight.sql.util.TableRef;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.types.pojo.Schema;
 
 /**
@@ -60,7 +61,7 @@ public class FlightSqlScenario implements Scenario {
 
     validateStatementExecution(sqlClient);
 
-    validatePreparedStatementExecution(sqlClient);
+    validatePreparedStatementExecution(sqlClient, allocator);
   }
 
   private void validateMetadataRetrieval(FlightSqlClient sqlClient) throws Exception {
@@ -100,13 +101,20 @@ public class FlightSqlScenario implements Scenario {
     validate(FlightSqlScenarioProducer.getQuerySchema(),
         sqlClient.execute("SELECT STATEMENT", options), sqlClient);
 
-    IntegrationAssertions.assertEquals(sqlClient.executeUpdate("UPDATE STATEMENT", options), 10000L);
+    IntegrationAssertions.assertEquals(sqlClient.executeUpdate("UPDATE STATEMENT", options),
+        10000L);
   }
 
-  private void validatePreparedStatementExecution(FlightSqlClient sqlClient) throws Exception {
+  private void validatePreparedStatementExecution(FlightSqlClient sqlClient,
+                                                  BufferAllocator allocator) throws Exception {
     final CallOption[] options = new CallOption[0];
     try (FlightSqlClient.PreparedStatement preparedStatement = sqlClient.prepare(
-        "SELECT PREPARED STATEMENT")) {
+        "SELECT PREPARED STATEMENT");
+         VectorSchemaRoot parameters = VectorSchemaRoot.create(
+             FlightSqlScenarioProducer.getQuerySchema(), allocator)) {
+      parameters.setRowCount(1);
+      preparedStatement.setParameters(parameters);
+
       validate(FlightSqlScenarioProducer.getQuerySchema(), preparedStatement.execute(options),
           sqlClient);
     }
