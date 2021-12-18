@@ -135,7 +135,7 @@ struct ARROW_DS_EXPORT ScanOptions {
   std::vector<std::string> MaterializedFields() const;
 };
 
-struct ProjectionDescr {
+struct ARROW_DS_EXPORT ProjectionDescr {
   compute::Expression expression;
   std::shared_ptr<Schema> schema;
 };
@@ -143,20 +143,21 @@ struct ProjectionDescr {
 /// \brief Create a ProjectionDescr by binding an expression to the dataset schema
 ///
 /// expression must return a struct
-Result<ProjectionDescr> MakeProjectionFromStructExpression(
+ARROW_DS_EXPORT Result<ProjectionDescr> MakeProjectionFromStructExpression(
     const compute::Expression& expression, const Schema& dataset_schema);
 
 /// \brief Create a ProjectionDescr from expressions/names for each field
-Result<ProjectionDescr> MakeProjectionFromFieldExpressions(
+ARROW_DS_EXPORT Result<ProjectionDescr> MakeProjectionFromFieldExpressions(
     const std::vector<compute::Expression>& exprs, std::vector<std::string> names,
     const Schema& dataset_schema);
 
 /// \brief Create a default projection referencing fields in the dataset schema
-Result<ProjectionDescr> MakeProjectionFromNames(std::vector<std::string> names,
-                                                const Schema& dataset_schema);
+ARROW_DS_EXPORT Result<ProjectionDescr> MakeProjectionFromNames(
+    std::vector<std::string> names, const Schema& dataset_schema);
 
 /// \brief Make a projection that projects every field in the dataset schema
-Result<ProjectionDescr> MakeDefaultProjection(const Schema& dataset_schema);
+ARROW_DS_EXPORT Result<ProjectionDescr> MakeDefaultProjection(
+    const Schema& dataset_schema);
 
 /// \brief Utility method to set the projection expression and schema
 void SetProjection(ScanOptions* options, ProjectionDescr projection);
