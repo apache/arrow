@@ -18,7 +18,7 @@ using Apache.Arrow.Types;
 
 namespace Apache.Arrow
 {
-    public class ArrayDataTypeComparer :
+    internal sealed class ArrayDataTypeComparer :
         IArrowTypeVisitor<TimestampType>,
         IArrowTypeVisitor<Date32Type>,
         IArrowTypeVisitor<Date64Type>,
@@ -34,14 +34,15 @@ namespace Apache.Arrow
         public ArrayDataTypeComparer(IArrowType expectedType)
         {
             _expectedType = expectedType;
-            _dataTypeMatch = false;
         }
 
         public bool DataTypeMatch => _dataTypeMatch;
 
         public void Visit(TimestampType actualType)
         {
-            var expectedType = (TimestampType)_expectedType;
+            var expectedType = _expectedType as TimestampType;
+
+            if (expectedType == null) return;
 
             if (expectedType.Timezone == actualType.Timezone && expectedType.Unit == actualType.Unit)
             {
@@ -51,7 +52,9 @@ namespace Apache.Arrow
 
         public void Visit(Date32Type actualType)
         {
-            var expectedType = (Date32Type)_expectedType;
+            var expectedType = _expectedType as Date32Type;
+
+            if (expectedType == null) return;
 
             if (expectedType.Unit == actualType.Unit)
             {
@@ -61,7 +64,9 @@ namespace Apache.Arrow
 
         public void Visit(Date64Type actualType)
         {
-            var expectedType = (Date64Type)_expectedType;
+            var expectedType = _expectedType as Date64Type;
+
+            if (expectedType == null) return;
 
             if (expectedType.Unit == actualType.Unit)
             {
@@ -71,7 +76,9 @@ namespace Apache.Arrow
 
         public void Visit(Time32Type actualType)
         {
-            var expectedType = (Time32Type)_expectedType;
+            var expectedType = _expectedType as Time32Type;
+
+            if (expectedType == null) return;
 
             if (expectedType.Unit == actualType.Unit)
             {
@@ -81,7 +88,9 @@ namespace Apache.Arrow
 
         public void Visit(Time64Type actualType)
         {
-            var expectedType = (Time64Type)_expectedType;
+            var expectedType = _expectedType as Time64Type;
+
+            if (expectedType == null) return;
 
             if (expectedType.Unit == actualType.Unit)
             {
@@ -91,7 +100,9 @@ namespace Apache.Arrow
 
         public void Visit(FixedSizeBinaryType actualType)
         {
-            var expectedType = (FixedSizeBinaryType)_expectedType;
+            var expectedType = _expectedType as FixedSizeBinaryType;
+
+            if (expectedType == null) return;
 
             if (expectedType.ByteWidth == actualType.ByteWidth)
             {
@@ -101,7 +112,9 @@ namespace Apache.Arrow
 
         public void Visit(ListType actualType)
         {
-            var expectedType = (ListType)_expectedType;
+            var expectedType = _expectedType as ListType;
+
+            if (expectedType == null) return;
 
             if (CompareNested(expectedType, actualType))
             {
@@ -111,7 +124,9 @@ namespace Apache.Arrow
 
         public void Visit(StructType actualType)
         {
-            var expectedType = (StructType)_expectedType;
+            var expectedType = _expectedType as StructType;
+
+            if (expectedType == null) return;
 
             if (CompareNested(expectedType, actualType))
             {

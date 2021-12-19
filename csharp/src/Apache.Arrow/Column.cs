@@ -60,7 +60,6 @@ namespace Apache.Arrow
 
         private bool ValidateArrayDataTypes()
         {
-
             for (int i = 0; i < Data.ArrayCount; i++)
             {
                 if (Data.Array(i).Data.DataType.TypeId != Field.DataType.TypeId)

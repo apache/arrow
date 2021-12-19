@@ -17,7 +17,7 @@ using System.Linq;
 
 namespace Apache.Arrow
 {
-    public static class FieldComparer
+    internal static class FieldComparer
     {
         public static bool Compare(Field expected, Field actual)
         {
