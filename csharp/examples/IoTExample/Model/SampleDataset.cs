@@ -176,7 +176,6 @@ namespace IoTExample
 
         public async Task<bool> PersistData()
         {
-            string time = DateTime.Now.ToString("yyyyMMdd_HHmmss");
             Stopwatch stopwatch = new Stopwatch();
             stopwatch.Start();
 
