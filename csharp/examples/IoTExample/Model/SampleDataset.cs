@@ -174,7 +174,7 @@ namespace IoTExample
             }
         }
 
-        public async Task<bool> PersistData()
+        public async Task PersistData()
         {
             Stopwatch stopwatch = new Stopwatch();
             stopwatch.Start();
