@@ -116,7 +116,6 @@ namespace IoTExample
 
                 if (success)
                 {
-                    //Console.WriteLine($"Enqueue Task 0");
                     _size++;
                 }
                 else
