@@ -137,7 +137,6 @@ namespace IoTExample
                 }
                 else
                 {
-                    //Console.WriteLine($"Dequeue Task 1");
                     if (item != null && item.subjectId != null)
                     {
                         _colSubjectId.Add((int)item.subjectId);
