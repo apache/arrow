@@ -17,10 +17,10 @@ The sample dataset includes activity data from 1000 participants from an activit
 Each participant performed each of the 18 activities for a total amount of one billion accelerometer data events
 reported from smartphone and smartwatch.
 
-Timestamp is the time at which the sensor reported the reading.
-X_Axis is the g-force acceleration along the x-axis.
-Y_Axis is the g-force acceleration along the y-axis.
-Z_Axis is the g-force acceleration along the z-axis.
+* Timestamp is the time at which the sensor reported the reading.
+* X_Axis is the g-force acceleration along the x-axis.
+* Y_Axis is the g-force acceleration along the y-axis.
+* Z_Axis is the g-force acceleration along the z-axis.
 
 ## Persist data in Arrow format
 
