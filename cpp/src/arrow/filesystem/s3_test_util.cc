@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <algorithm>  // Missing include in boost/process
 #include <sstream>
 
 // This boost/asio/io_context.hpp include is needless for no MinGW
@@ -137,7 +138,6 @@ Status MinioTestServer::Stop() {
 }
 
 struct MinioTestEnvironment::Impl {
-  std::shared_ptr<::arrow::internal::ThreadPool> launch_pool_;
   std::function<Future<std::shared_ptr<MinioTestServer>>()> server_generator_;
 
   Result<std::shared_ptr<MinioTestServer>> LaunchOneServer() {
@@ -147,26 +147,23 @@ struct MinioTestEnvironment::Impl {
   }
 };
 
-// Number of Minio processes to launch in advance
-static constexpr int kMinioLaunchAhead = 15;
-
 MinioTestEnvironment::MinioTestEnvironment() : impl_(new Impl) {}
 
 MinioTestEnvironment::~MinioTestEnvironment() = default;
 
 void MinioTestEnvironment::SetUp() {
-  ASSERT_OK_AND_ASSIGN(impl_->launch_pool_,
-                       ::arrow::internal::ThreadPool::Make(kMinioLaunchAhead));
+  auto pool = internal::GetCpuThreadPool();
+
   auto launch_one_server = []() -> Result<std::shared_ptr<MinioTestServer>> {
     auto server = std::make_shared<MinioTestServer>();
     RETURN_NOT_OK(server->Start());
     return server;
   };
-  impl_->server_generator_ = [&]() {
-    return DeferNotOk(impl_->launch_pool_->Submit(launch_one_server));
+  impl_->server_generator_ = [pool, launch_one_server]() {
+    return DeferNotOk(pool->Submit(launch_one_server));
   };
   impl_->server_generator_ =
-      MakeReadaheadGenerator(std::move(impl_->server_generator_), kMinioLaunchAhead);
+      MakeReadaheadGenerator(std::move(impl_->server_generator_), pool->GetCapacity());
 }
 
 Result<std::shared_ptr<MinioTestServer>> MinioTestEnvironment::GetOneServer() {

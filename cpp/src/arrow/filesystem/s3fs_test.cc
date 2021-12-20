@@ -81,7 +81,7 @@ using ::arrow::fs::internal::ToAwsString;
 
 // Use "short" retry parameters to make tests faster
 static constexpr int32_t kRetryInterval = 50;      /* milliseconds */
-static constexpr int32_t kMaxRetryDuration = 2000; /* milliseconds */
+static constexpr int32_t kMaxRetryDuration = 6000; /* milliseconds */
 
 ::testing::Environment* s3_env = ::testing::AddGlobalTestEnvironment(new S3Environment);
 
@@ -95,7 +95,7 @@ MinioTestEnvironment* GetMinioEnv() {
 class ShortRetryStrategy : public S3RetryStrategy {
  public:
   bool ShouldRetry(const AWSErrorDetail& error, int64_t attempted_retries) override {
-    if (error.message.find("file exists") != error.message.npos) {
+    if (error.message.find(kFileExistsMessage) != error.message.npos) {
       // Minio returns "file exists" errors (when calling mkdir) as internal errors,
       // which would trigger spurious retries.
       return false;
@@ -107,6 +107,12 @@ class ShortRetryStrategy : public S3RetryStrategy {
                                         int64_t attempted_retries) override {
     return kRetryInterval;
   }
+
+#ifdef _WIN32
+  static constexpr const char* kFileExistsMessage = "file already exists";
+#else
+  static constexpr const char* kFileExistsMessage = "file exists";
+#endif
 };
 
 // NOTE: Connecting in Python:
