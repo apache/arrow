@@ -48,7 +48,7 @@ arrow data query object without retrieving the results via `collect()`.
 
 ```{r}
 arrow_table(starwars) %>%
-  filter(str_detect(name, "Darth")) 
+  filter(str_detect(name, "Darth"))
 ```
 
 In the following sections, we'll walk through how to create a binding between an 
