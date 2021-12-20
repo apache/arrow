@@ -152,7 +152,7 @@ MinioTestEnvironment::MinioTestEnvironment() : impl_(new Impl) {}
 MinioTestEnvironment::~MinioTestEnvironment() = default;
 
 void MinioTestEnvironment::SetUp() {
-  auto pool = internal::GetCpuThreadPool();
+  auto pool = ::arrow::internal::GetCpuThreadPool();
 
   auto launch_one_server = []() -> Result<std::shared_ptr<MinioTestServer>> {
     auto server = std::make_shared<MinioTestServer>();
