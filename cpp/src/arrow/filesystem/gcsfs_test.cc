@@ -650,9 +650,12 @@ TEST_F(GcsIntegrationTest, DeleteDirContentsSuccess) {
   arrow::fs::AssertFileInfo(fs.get(), PreexistingBucketPath(), FileType::Directory);
   arrow::fs::AssertFileInfo(fs.get(), PreexistingObjectPath(), FileType::File);
   for (auto const& info : hierarchy.contents) {
-    if (!fs::internal::IsAncestorOf(hierarchy.base_dir, info.path())) continue;
-    if (info.path() == hierarchy.base_dir) continue;
-    arrow::fs::AssertFileInfo(fs.get(), info.path(), FileType::NotFound);
+    auto expected_type = FileType::NotFound;
+    if (info.path() == hierarchy.base_dir ||
+        !fs::internal::IsAncestorOf(hierarchy.base_dir, info.path())) {
+      expected_type = info.type();
+    }
+    arrow::fs::AssertFileInfo(fs.get(), info.path(), expected_type);
   }
 }
 
