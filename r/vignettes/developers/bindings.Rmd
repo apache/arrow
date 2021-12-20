@@ -219,8 +219,10 @@ call_function(
 )
 ```
 
-### Step 4 - Run your tests.
+### Step 4 - Run (and potentially add to) your tests.
 
-If they pass, you're done! Submit a PR.  If you've modified the C++ code in the 
+In the process of implementing the function, you may end up implementing more 
+tests.  This is fine - add them to the ones you wrote originally, and run them 
+all.  If they pass, you're done! Submit a PR.  If you've modified the C++ code in the 
 R package (for example, when hooking up a binding to its options class), you 
 should make sure to run `arrow/r/lint.sh` to lint the code.
