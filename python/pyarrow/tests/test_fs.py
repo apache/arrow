@@ -1631,6 +1631,18 @@ def test_s3_real_aws_region_selection():
 
 
 @pytest.mark.s3
+def test_resolve_s3_region():
+    from pyarrow.fs import resolve_s3_region
+    assert resolve_s3_region('ursa-labs-taxi-data') == 'us-east-2'
+    assert resolve_s3_region('mf-nwp-models') == 'eu-west-1'
+
+    with pytest.raises(ValueError, match="Not a valid bucket name"):
+        resolve_s3_region('foo/bar')
+    with pytest.raises(ValueError, match="Not a valid bucket name"):
+        resolve_s3_region('s3:bucket')
+
+
+@pytest.mark.s3
 def test_copy_files(s3_connection, s3fs, tempdir):
     fs = s3fs["fs"]
     pathfn = s3fs["pathfn"]

@@ -359,7 +359,7 @@ Result<S3Options> S3Options::FromUri(const Uri& uri, std::string* out_path) {
 
   if (!region_set && !bucket.empty() && options.endpoint_override.empty()) {
     // XXX Should we use a dedicated resolver with the given credentials?
-    ARROW_ASSIGN_OR_RAISE(options.region, ResolveBucketRegion(bucket));
+    ARROW_ASSIGN_OR_RAISE(options.region, ResolveS3BucketRegion(bucket));
   }
 
   return options;
@@ -2474,7 +2474,12 @@ Result<std::shared_ptr<io::OutputStream>> S3FileSystem::OpenAppendStream(
 // Top-level utility functions
 //
 
-Result<std::string> ResolveBucketRegion(const std::string& bucket) {
+Result<std::string> ResolveS3BucketRegion(const std::string& bucket) {
+  if (bucket.empty() || bucket.find_first_of(kSep) != bucket.npos ||
+      internal::IsLikelyUri(bucket)) {
+    return Status::Invalid("Not a valid bucket name: '", bucket, "'");
+  }
+
   ARROW_ASSIGN_OR_RAISE(auto resolver, RegionResolver::DefaultInstance());
   return resolver->ResolveRegion(bucket);
 }

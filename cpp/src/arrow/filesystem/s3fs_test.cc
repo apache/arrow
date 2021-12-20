@@ -303,26 +303,33 @@ TEST_F(S3OptionsTest, FromAssumeRole) {
 class S3RegionResolutionTest : public AwsTestMixin {};
 
 TEST_F(S3RegionResolutionTest, PublicBucket) {
-  ASSERT_OK_AND_EQ("us-east-2", ResolveBucketRegion("ursa-labs-taxi-data"));
+  ASSERT_OK_AND_EQ("us-east-2", ResolveS3BucketRegion("ursa-labs-taxi-data"));
 
   // Taken from a registry of open S3-hosted datasets
   // at https://github.com/awslabs/open-data-registry
-  ASSERT_OK_AND_EQ("eu-west-2", ResolveBucketRegion("aws-earth-mo-atmospheric-ukv-prd"));
+  ASSERT_OK_AND_EQ("eu-west-2",
+                   ResolveS3BucketRegion("aws-earth-mo-atmospheric-ukv-prd"));
   // Same again, cached
-  ASSERT_OK_AND_EQ("eu-west-2", ResolveBucketRegion("aws-earth-mo-atmospheric-ukv-prd"));
+  ASSERT_OK_AND_EQ("eu-west-2",
+                   ResolveS3BucketRegion("aws-earth-mo-atmospheric-ukv-prd"));
 }
 
 TEST_F(S3RegionResolutionTest, RestrictedBucket) {
-  ASSERT_OK_AND_EQ("us-west-2", ResolveBucketRegion("ursa-labs-r-test"));
+  ASSERT_OK_AND_EQ("us-west-2", ResolveS3BucketRegion("ursa-labs-r-test"));
   // Same again, cached
-  ASSERT_OK_AND_EQ("us-west-2", ResolveBucketRegion("ursa-labs-r-test"));
+  ASSERT_OK_AND_EQ("us-west-2", ResolveS3BucketRegion("ursa-labs-r-test"));
 }
 
 TEST_F(S3RegionResolutionTest, NonExistentBucket) {
-  auto maybe_region = ResolveBucketRegion("ursa-labs-non-existent-bucket");
+  auto maybe_region = ResolveS3BucketRegion("ursa-labs-non-existent-bucket");
   ASSERT_RAISES(IOError, maybe_region);
   ASSERT_THAT(maybe_region.status().message(),
               ::testing::HasSubstr("Bucket 'ursa-labs-non-existent-bucket' not found"));
+}
+
+TEST_F(S3RegionResolutionTest, InvalidBucketName) {
+  ASSERT_RAISES(Invalid, ResolveS3BucketRegion("s3:bucket"));
+  ASSERT_RAISES(Invalid, ResolveS3BucketRegion("foo/bar"));
 }
 
 ////////////////////////////////////////////////////////////////////////////
