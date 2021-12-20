@@ -784,6 +784,10 @@ Decimal128Type__initialize <- function(precision, scale) {
   .Call(`_arrow_Decimal128Type__initialize`, precision, scale)
 }
 
+Decimal256Type__initialize <- function(precision, scale) {
+  .Call(`_arrow_Decimal256Type__initialize`, precision, scale)
+}
+
 FixedSizeBinary__initialize <- function(byte_width) {
   .Call(`_arrow_FixedSizeBinary__initialize`, byte_width)
 }

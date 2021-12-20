@@ -801,6 +801,24 @@ test_that("Array$create() should have helpful error", {
   expect_error(Array$create(list()), "Requires at least one element to infer")
   expect_error(Array$create(list(lgl, lgl, int)), "Expecting a logical vector")
   expect_error(Array$create(list(char, num, char)), "Expecting a character vector")
+
+  # hint at casting if direct fails and casting looks like it might work
+  expect_error(
+    Array$create(as.double(1:10), type = decimal(4, 2)),
+    "You might want to try casting manually"
+  )
+
+  expect_error(
+    Array$create(1:10, type = decimal(12, 2)),
+    "You might want to try casting manually"
+  )
+
+  a <- expect_error(Array$create("one", int32()))
+  b <- expect_error(vec_to_Array("one", int32()))
+  # the captured conditions (errors) are not identical, but their messages should be
+  expect_s3_class(a, "rlang_error")
+  expect_s3_class(b, "simpleError")
+  expect_equal(a$message, b$message)
 })
 
 test_that("Array$View() (ARROW-6542)", {

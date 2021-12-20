@@ -3078,6 +3078,22 @@ extern "C" SEXP _arrow_Decimal128Type__initialize(SEXP precision_sexp, SEXP scal
 
 // datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::DataType> Decimal256Type__initialize(int32_t precision, int32_t scale);
+extern "C" SEXP _arrow_Decimal256Type__initialize(SEXP precision_sexp, SEXP scale_sexp){
+BEGIN_CPP11
+	arrow::r::Input<int32_t>::type precision(precision_sexp);
+	arrow::r::Input<int32_t>::type scale(scale_sexp);
+	return cpp11::as_sexp(Decimal256Type__initialize(precision, scale));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_Decimal256Type__initialize(SEXP precision_sexp, SEXP scale_sexp){
+	Rf_error("Cannot call Decimal256Type__initialize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// datatype.cpp
+#if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> FixedSizeBinary__initialize(R_xlen_t byte_width);
 extern "C" SEXP _arrow_FixedSizeBinary__initialize(SEXP byte_width_sexp){
 BEGIN_CPP11
@@ -7457,6 +7473,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_Date64__initialize", (DL_FUNC) &_arrow_Date64__initialize, 0}, 
 		{ "_arrow_Null__initialize", (DL_FUNC) &_arrow_Null__initialize, 0}, 
 		{ "_arrow_Decimal128Type__initialize", (DL_FUNC) &_arrow_Decimal128Type__initialize, 2}, 
+		{ "_arrow_Decimal256Type__initialize", (DL_FUNC) &_arrow_Decimal256Type__initialize, 2}, 
 		{ "_arrow_FixedSizeBinary__initialize", (DL_FUNC) &_arrow_FixedSizeBinary__initialize, 1}, 
 		{ "_arrow_Timestamp__initialize", (DL_FUNC) &_arrow_Timestamp__initialize, 2}, 
 		{ "_arrow_Time32__initialize", (DL_FUNC) &_arrow_Time32__initialize, 1}, 

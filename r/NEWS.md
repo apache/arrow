@@ -19,11 +19,12 @@
 
 # arrow 6.0.1.9000
 
+* Added `decimal256()`. Updated `decimal()`, which now calls `decimal256()` or `decimal128()` based on the value of the `precision` argument.
 * updated `write_csv_arrow()` to follow the signature of `readr::write_csv()`. The following arguments are supported:
   * `file` identical to `sink`
   * `col_names` identical to `include_header`
   * other arguments are currently unsupported, but the function errors with a meaningful message.
-* Added `decimal128()` (identical to `decimal()`) as the name is more explicit and updated docs to encourage its use. 
+* Added `decimal128()` (~~identical to `decimal()`~~) as the name is more explicit and updated docs to encourage its use. 
 * Source builds now by default use `pkg-config` to search for system dependencies (such as `libz`) and link to them 
 if present. To retain the previous behaviour of downloading and building all dependencies, set `ARROW_DEPENDENCY_SOURCE=BUNDLED`. 
 
