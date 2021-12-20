@@ -404,7 +404,7 @@ struct S3Path {
   static Result<S3Path> FromString(const std::string& s) {
     if (internal::IsLikelyUri(s)) {
       return Status::Invalid(
-          "Expected a S3 object path of the form 'bucket/key...', got a URI: '", s, "'");
+          "Expected an S3 object path of the form 'bucket/key...', got a URI: '", s, "'");
     }
     const auto src = internal::RemoveTrailingSlash(s);
     auto first_sep = src.find_first_of(kSep);
