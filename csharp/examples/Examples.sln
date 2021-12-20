@@ -7,7 +7,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FluentBuilderExample", "Flu
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Apache.Arrow", "..\src\Apache.Arrow\Apache.Arrow.csproj", "{1FE1DE95-FF6E-4895-82E7-909713C53524}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "IoTExample", "IoTExample\IoTExample.csproj", "{2774E100-D7A4-4D0A-AD85-9876A100F341}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "IoTPipelineExample", "IoTExample\IoTPipelineExample.csproj", "{2774E100-D7A4-4D0A-AD85-9876A100F341}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

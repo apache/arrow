@@ -17,7 +17,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace IoTExample
+namespace IoTPipelineExample
 {
     public class SensorData
     {

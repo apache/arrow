@@ -14,56 +14,61 @@
 // limitations under the License.
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 using Apache.Arrow.Ipc;
 
-namespace IoTExample
+namespace IoTPipelineExample
 {
     class Program
     {
-        public static int concurrencyLevel = 1;
-        public static int totalInputs = 10_000_000;
+        public static int concurrencyLevel = 2;
+        public static int totalSensorData = 10_000_000;
         public static int queueCapacity = 1_000_000;
 
         public static async Task Main(string[] args)
         {
-            SampleDataset sd = new SampleDataset(totalInputs, queueCapacity);
+            SampleDataPipeline sdp = new SampleDataPipeline(totalSensorData, queueCapacity);
+            List<Task> taskList = new List<Task>();
 
-            Console.WriteLine("Receiving IoT data...");
-            Task t1 = Task.Run(() => sd.Produce());
+            Console.WriteLine("Producing IoT sensor data concurrently...");
+            for (int i = 0; i < concurrencyLevel; i++)
+            {
+                Task t = Task.Run(() => sdp.WriteToChannel());
+                taskList.Add(t);
+            }
 
-            Console.WriteLine("Transforming data...");
-            Task t2 = Task.Run(() => sd.Consume());
+            Console.WriteLine("Consuming IoT sensor data concurrently...");
+            for (int i = 0; i < concurrencyLevel; i++)
+            {
+                Task t = Task.Run(() => sdp.ReadFromChannel());
+                taskList.Add(t);
+            }
 
-            // Wait for all tasks to complete
-            Task.WaitAll(t1, t2);
+            Console.WriteLine("Waiting for all tasks to complete...");
+            Task.WaitAll(taskList.ToArray());
 
-            var success = await sd.PersistData();
+            Console.WriteLine("Persisting data to disk...");
+            string path = "iotbigdata.arrow";
+            await sdp.PersistData(path);
 
-            if (!success)
-                return;
-
-            Console.WriteLine("Reading arrow files...");
-            var stream = File.OpenRead(@"c:\temp\data\iotbigdata.arrow");
+            Console.WriteLine("Loading arrow data file into memory...");
+            var stream = File.OpenRead(path);
             var reader = new ArrowFileReader(stream);
-            int totalSubject = 0;
             var count = await reader.RecordBatchCountAsync();
 
+            Console.WriteLine("Reading data from arrow record batches...");
             for (int i = 0; i < count; i++)
             {
                 var recordBatch = await reader.ReadRecordBatchAsync(i);
 
                 for (int j = 0; j < recordBatch.ColumnCount; j++)
                 {
-                    Console.WriteLine($"Record count in recordBatch {i} column {j} is: " + recordBatch.Column(j).Data.Length);
-                    Console.WriteLine($"Null count in recordBatch {i} column {j} is: " + recordBatch.Column(j).Data.NullCount);
+                    Console.WriteLine($"Total records in record batch {i} column {j} is: " + recordBatch.Column(j).Data.Length);
+                    Console.WriteLine($"Null data count in record batch {i} column {j} is: " + recordBatch.Column(j).Data.NullCount);
                 }
-
-                totalSubject += recordBatch.Column("SubjectId").Length;
             }
-
-            Console.WriteLine(totalSubject);
         }
 
     }
