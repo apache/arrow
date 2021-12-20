@@ -346,9 +346,10 @@ Result<std::shared_ptr<DataType>> MergeTypes(std::shared_ptr<DataType> promoted_
                                              std::shared_ptr<DataType> other_type,
                                              const Field::MergeOptions& options);
 
+// Merge two dictionary types, or else give an error.
 Result<std::shared_ptr<DataType>> MergeDictionaryTypes(
-    std::shared_ptr<DataType> promoted_type, std::shared_ptr<DataType> other_type,
-    const Field::MergeOptions& options) {
+    const std::shared_ptr<DataType>& promoted_type,
+    const std::shared_ptr<DataType>& other_type, const Field::MergeOptions& options) {
   const auto& left = checked_cast<const DictionaryType&>(*promoted_type);
   const auto& right = checked_cast<const DictionaryType&>(*other_type);
   if (!options.promote_dictionary_ordered && left.ordered() != right.ordered()) {
@@ -371,27 +372,11 @@ Result<std::shared_ptr<DataType>> MergeDictionaryTypes(
   }
   return Status::Invalid("Could not merge value types");
 }
-Result<std::shared_ptr<DataType>> MergeTypes(std::shared_ptr<DataType> promoted_type,
-                                             std::shared_ptr<DataType> other_type,
-                                             const Field::MergeOptions& options) {
-  if (promoted_type->Equals(*other_type)) return promoted_type;
 
-  bool promoted = false;
-  if (options.promote_nullability) {
-    if (promoted_type->id() == Type::NA) {
-      return other_type;
-    } else if (other_type->id() == Type::NA) {
-      return promoted_type;
-    }
-  } else if (promoted_type->id() == Type::NA || other_type->id() == Type::NA) {
-    return Status::Invalid("Cannot merge type with null unless promote_nullability=true");
-  }
-
-  if (options.promote_dictionary && is_dictionary(promoted_type->id()) &&
-      is_dictionary(other_type->id())) {
-    return MergeDictionaryTypes(promoted_type, other_type, options);
-  }
-
+// Merge temporal types based on options. Returns nullptr for non-temporal types.
+Result<std::shared_ptr<DataType>> MaybeMergeTemporalTypes(
+    const std::shared_ptr<DataType>& promoted_type,
+    const std::shared_ptr<DataType>& other_type, const Field::MergeOptions& options) {
   if (options.promote_date) {
     if (promoted_type->id() == Type::DATE32 && other_type->id() == Type::DATE64) {
       return date64();
@@ -432,6 +417,14 @@ Result<std::shared_ptr<DataType>> MergeTypes(std::shared_ptr<DataType> promoted_
     return timestamp(CommonTimeUnit(left.unit(), right.unit()), left.timezone());
   }
 
+  return nullptr;
+}
+
+// Merge numeric types based on options. Returns nullptr for non-temporal types.
+Result<std::shared_ptr<DataType>> MaybeMergeNumericTypes(
+    std::shared_ptr<DataType> promoted_type, std::shared_ptr<DataType> other_type,
+    const Field::MergeOptions& options) {
+  bool promoted = false;
   if (options.promote_decimal_float) {
     if (is_decimal(promoted_type->id()) && is_floating(other_type->id())) {
       promoted_type = other_type;
@@ -507,39 +500,65 @@ Result<std::shared_ptr<DataType>> MergeTypes(std::shared_ptr<DataType> promoted_
         std::max<int>(bit_width(promoted_type->id()), bit_width(other_type->id()));
     if (is_floating(promoted_type->id()) && is_floating(other_type->id())) {
       if (max_width >= 64) {
-        promoted_type = float64();
+        return float64();
       } else if (max_width >= 32) {
-        promoted_type = float32();
-      } else {
-        promoted_type = float16();
+        return float32();
       }
-      promoted = true;
+      return float16();
     } else if (is_signed_integer(promoted_type->id()) &&
                is_signed_integer(other_type->id())) {
       if (max_width >= 64) {
-        promoted_type = int64();
+        return int64();
       } else if (max_width >= 32) {
-        promoted_type = int32();
+        return int32();
       } else if (max_width >= 16) {
-        promoted_type = int16();
-      } else {
-        promoted_type = int8();
+        return int16();
       }
-      promoted = true;
+      return int8();
     } else if (is_unsigned_integer(promoted_type->id()) &&
                is_unsigned_integer(other_type->id())) {
       if (max_width >= 64) {
-        promoted_type = uint64();
+        return uint64();
       } else if (max_width >= 32) {
-        promoted_type = uint32();
+        return uint32();
       } else if (max_width >= 16) {
-        promoted_type = uint16();
-      } else {
-        promoted_type = uint8();
+        return uint16();
       }
-      promoted = true;
+      return uint8();
     }
   }
+
+  return promoted ? promoted_type : nullptr;
+}
+
+Result<std::shared_ptr<DataType>> MergeTypes(std::shared_ptr<DataType> promoted_type,
+                                             std::shared_ptr<DataType> other_type,
+                                             const Field::MergeOptions& options) {
+  if (promoted_type->Equals(*other_type)) return promoted_type;
+
+  bool promoted = false;
+  if (options.promote_nullability) {
+    if (promoted_type->id() == Type::NA) {
+      return other_type;
+    } else if (other_type->id() == Type::NA) {
+      return promoted_type;
+    }
+  } else if (promoted_type->id() == Type::NA || other_type->id() == Type::NA) {
+    return Status::Invalid("Cannot merge type with null unless promote_nullability=true");
+  }
+
+  if (options.promote_dictionary && is_dictionary(promoted_type->id()) &&
+      is_dictionary(other_type->id())) {
+    return MergeDictionaryTypes(promoted_type, other_type, options);
+  }
+
+  ARROW_ASSIGN_OR_RAISE(auto maybe_promoted,
+                        MaybeMergeTemporalTypes(promoted_type, other_type, options));
+  if (maybe_promoted) return maybe_promoted;
+
+  ARROW_ASSIGN_OR_RAISE(maybe_promoted,
+                        MaybeMergeNumericTypes(promoted_type, other_type, options));
+  if (maybe_promoted) return maybe_promoted;
 
   if (options.promote_large) {
     if (promoted_type->id() == Type::FIXED_SIZE_BINARY &&
@@ -645,7 +664,6 @@ Result<std::shared_ptr<DataType>> MergeTypes(std::shared_ptr<DataType> promoted_
 
   // TODO
   // Struct: reconcile order, fields, types
-  // Map
 
   return promoted ? promoted_type : nullptr;
 }
