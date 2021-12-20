@@ -40,6 +40,7 @@ import java.util.stream.IntStream;
 
 import org.apache.arrow.flight.sql.FlightSqlClient;
 import org.apache.arrow.flight.sql.FlightSqlClient.PreparedStatement;
+import org.apache.arrow.flight.sql.FlightSqlColumnMetadata;
 import org.apache.arrow.flight.sql.FlightSqlProducer;
 import org.apache.arrow.flight.sql.example.FlightSqlExample;
 import org.apache.arrow.flight.sql.impl.FlightSql;
@@ -247,19 +248,75 @@ public class TestFlightSql {
               "FOREIGNTABLE",
               "TABLE",
               new Schema(asList(
-                  new Field("ID", new FieldType(false, MinorType.INT.getType(), null), null),
-                  Field.nullable("FOREIGNNAME", MinorType.VARCHAR.getType()),
-                  Field.nullable("VALUE", MinorType.INT.getType()))).toJson()),
+                  new Field("ID", new FieldType(false, MinorType.INT.getType(), null,
+                      new FlightSqlColumnMetadata.Builder()
+                          .catalogName("")
+                          .schemaName("APP")
+                          .tableName("FOREIGNTABLE")
+                          .precision(10)
+                          .scale(0)
+                          .isAutoIncrement(true)
+                          .build().getMetadataMap()), null),
+                  new Field("FOREIGNNAME", new FieldType(true, MinorType.VARCHAR.getType(), null,
+                      new FlightSqlColumnMetadata.Builder()
+                          .catalogName("")
+                          .schemaName("APP")
+                          .tableName("FOREIGNTABLE")
+                          .precision(100)
+                          .scale(0)
+                          .isAutoIncrement(false)
+                          .build().getMetadataMap()), null),
+                  new Field("VALUE", new FieldType(true, MinorType.INT.getType(), null,
+                      new FlightSqlColumnMetadata.Builder()
+                          .catalogName("")
+                          .schemaName("APP")
+                          .tableName("FOREIGNTABLE")
+                          .precision(10)
+                          .scale(0)
+                          .isAutoIncrement(false)
+                          .build().getMetadataMap()), null))).toJson()),
           asList(
               null /* TODO No catalog yet */,
               "APP",
               "INTTABLE",
               "TABLE",
               new Schema(asList(
-                  new Field("ID", new FieldType(false, MinorType.INT.getType(), null), null),
-                  Field.nullable("KEYNAME", MinorType.VARCHAR.getType()),
-                  Field.nullable("VALUE", MinorType.INT.getType()),
-                  Field.nullable("FOREIGNID", MinorType.INT.getType()))).toJson()));
+                  new Field("ID", new FieldType(false, MinorType.INT.getType(), null,
+                      new FlightSqlColumnMetadata.Builder()
+                          .catalogName("")
+                          .schemaName("APP")
+                          .tableName("INTTABLE")
+                          .precision(10)
+                          .scale(0)
+                          .isAutoIncrement(true)
+                          .build().getMetadataMap()), null),
+                  new Field("KEYNAME", new FieldType(true, MinorType.VARCHAR.getType(), null,
+                      new FlightSqlColumnMetadata.Builder()
+                          .catalogName("")
+                          .schemaName("APP")
+                          .tableName("INTTABLE")
+                          .precision(100)
+                          .scale(0)
+                          .isAutoIncrement(false)
+                          .build().getMetadataMap()), null),
+                  new Field("VALUE", new FieldType(true, MinorType.INT.getType(), null,
+                      new FlightSqlColumnMetadata.Builder()
+                          .catalogName("")
+                          .schemaName("APP")
+                          .tableName("INTTABLE")
+                          .precision(10)
+                          .scale(0)
+                          .isAutoIncrement(false)
+                          .build().getMetadataMap()), null),
+                  new Field("FOREIGNID", new FieldType(true, MinorType.INT.getType(), null,
+                      new FlightSqlColumnMetadata.Builder()
+                          .catalogName("")
+                          .schemaName("APP")
+                          .tableName("INTTABLE")
+                          .precision(10)
+                          .scale(0)
+                          .isAutoIncrement(false)
+                          .build().getMetadataMap()), null))).toJson()));
       collector.checkThat(results, is(expectedResults));
     }
   }
