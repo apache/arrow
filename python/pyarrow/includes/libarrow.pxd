@@ -387,11 +387,15 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         int scale()
 
     cdef cppclass CField" arrow::Field":
-        cppclass CMergeOptions "arrow::Field::MergeOptions":
+        cppclass CMergeOptions "MergeOptions":
+            CMergeOptions()
             c_bool promote_nullability
 
             @staticmethod
             CMergeOptions Defaults()
+
+            @staticmethod
+            CMergeOptions Permissive()
 
         const c_string& name()
         shared_ptr[CDataType] type()
@@ -483,7 +487,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CSchema] RemoveMetadata()
 
     CResult[shared_ptr[CSchema]] UnifySchemas(
-        const vector[shared_ptr[CSchema]]& schemas)
+        const vector[shared_ptr[CSchema]]& schemas,
+        CField.CMergeOptions field_merge_options)
 
     cdef cppclass PrettyPrintOptions:
         PrettyPrintOptions()

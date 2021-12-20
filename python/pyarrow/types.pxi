@@ -1118,6 +1118,33 @@ cdef KeyValueMetadata ensure_metadata(object meta, c_bool allow_none=False):
         return KeyValueMetadata(meta)
 
 
+cdef class FieldMergeOptions(_Weakrefable):
+    """
+    Options controlling how to merge the types of two fields.
+
+    By default, types must match exactly, except the null type can be
+    merged with any other type.
+
+    """
+
+    cdef:
+        CField.CMergeOptions c_options
+
+    __slots__ = ()
+
+    def __init__(self, *):
+        self.c_options = CField.CMergeOptions.Defaults()
+
+    @staticmethod
+    def permissive():
+        """
+        Allow merging generally compatible types (e.g. float64 and int64).
+        """
+        cdef FieldMergeOptions options = FieldMergeOptions()
+        options.c_options = CField.CMergeOptions.Permissive()
+        return options
+
+
 cdef class Field(_Weakrefable):
     """
     A named field, with a data type, nullability, and optional metadata.
@@ -1783,13 +1810,13 @@ cdef class Schema(_Weakrefable):
         return self.__str__()
 
 
-def unify_schemas(schemas):
+def unify_schemas(schemas, *, options=None):
     """
     Unify schemas by merging fields by name.
 
     The resulting schema will contain the union of fields from all schemas.
     Fields with the same name will be merged. Note that two fields with
-    different types will fail merging.
+    different types will fail merging by default.
 
     - The unified field will inherit the metadata from the schema where
         that field is first defined.
@@ -1804,6 +1831,9 @@ def unify_schemas(schemas):
     schemas : list of Schema
         Schemas to merge into a single one.
 
+    options : FieldMergeOptions, optional
+        Options for merging duplicate fields.
+
     Returns
     -------
     Schema
@@ -1816,10 +1846,16 @@ def unify_schemas(schemas):
     """
     cdef:
         Schema schema
+        CField.CMergeOptions c_options
         vector[shared_ptr[CSchema]] c_schemas
     for schema in schemas:
         c_schemas.push_back(pyarrow_unwrap_schema(schema))
-    return pyarrow_wrap_schema(GetResultValue(UnifySchemas(c_schemas)))
+    if options:
+        c_options = (<FieldMergeOptions> options).c_options
+    else:
+        c_options = CField.CMergeOptions.Defaults()
+    return pyarrow_wrap_schema(
+        GetResultValue(UnifySchemas(c_schemas, c_options)))
 
 
 cdef dict _type_cache = {}

@@ -718,6 +718,10 @@ def test_schema_merge():
     result = pa.unify_schemas((a, b, c))
     assert result.equals(expected)
 
+    result = pa.unify_schemas(
+        [b, d], options=pa.FieldMergeOptions.permissive())
+    assert result.equals(d)
+
 
 def test_undecodable_metadata():
     # ARROW-10214: undecodable metadata shouldn't fail repr()
