@@ -341,6 +341,36 @@ TimeUnit::type CommonTimeUnit(TimeUnit::type left, TimeUnit::type right) {
   }
   return TimeUnit::SECOND;
 }
+
+Result<std::shared_ptr<DataType>> MergeTypes(std::shared_ptr<DataType> promoted_type,
+                                             std::shared_ptr<DataType> other_type,
+                                             const Field::MergeOptions& options);
+
+Result<std::shared_ptr<DataType>> MergeDictionaryTypes(
+    std::shared_ptr<DataType> promoted_type, std::shared_ptr<DataType> other_type,
+    const Field::MergeOptions& options) {
+  const auto& left = checked_cast<const DictionaryType&>(*promoted_type);
+  const auto& right = checked_cast<const DictionaryType&>(*other_type);
+  if (!options.promote_dictionary_ordered && left.ordered() != right.ordered()) {
+    return Status::Invalid(
+        "Cannot merge ordered and unordered dictionary unless "
+        "promote_dictionary_ordered=true");
+  }
+  Field::MergeOptions index_options = options;
+  index_options.promote_integer_sign = true;
+  index_options.promote_numeric_width = true;
+  ARROW_ASSIGN_OR_RAISE(auto indices,
+                        MergeTypes(left.index_type(), right.index_type(), index_options));
+  ARROW_ASSIGN_OR_RAISE(auto values,
+                        MergeTypes(left.value_type(), right.value_type(), options));
+  auto ordered = left.ordered() && right.ordered();
+  if (indices && values) {
+    return dictionary(indices, values, ordered);
+  } else if (values) {
+    return Status::Invalid("Could not merge index types");
+  }
+  return Status::Invalid("Could not merge value types");
+}
 Result<std::shared_ptr<DataType>> MergeTypes(std::shared_ptr<DataType> promoted_type,
                                              std::shared_ptr<DataType> other_type,
                                              const Field::MergeOptions& options) {
@@ -357,28 +387,9 @@ Result<std::shared_ptr<DataType>> MergeTypes(std::shared_ptr<DataType> promoted_
     return Status::Invalid("Cannot merge type with null unless promote_nullability=true");
   }
 
-  // TODO: split these out
   if (options.promote_dictionary && is_dictionary(promoted_type->id()) &&
       is_dictionary(other_type->id())) {
-    const auto& left = checked_cast<const DictionaryType&>(*promoted_type);
-    const auto& right = checked_cast<const DictionaryType&>(*other_type);
-    if (!options.promote_dictionary_ordered && left.ordered() != right.ordered()) {
-      return nullptr;
-    }
-    Field::MergeOptions index_options = options;
-    index_options.promote_integer_sign = true;
-    index_options.promote_numeric_width = true;
-    ARROW_ASSIGN_OR_RAISE(
-        auto indices, MergeTypes(left.index_type(), right.index_type(), index_options));
-    ARROW_ASSIGN_OR_RAISE(auto values,
-                          MergeTypes(left.value_type(), right.value_type(), options));
-    auto ordered = left.ordered() && right.ordered();
-    if (indices && values) {
-      return dictionary(indices, values, ordered);
-    }
-    return Status::Invalid(
-        "Cannot merge ordered and unordered dictionary unless "
-        "promote_dictionary_ordered=true");
+    return MergeDictionaryTypes(promoted_type, other_type, options);
   }
 
   if (options.promote_date) {
@@ -390,39 +401,35 @@ Result<std::shared_ptr<DataType>> MergeTypes(std::shared_ptr<DataType> promoted_
     }
   }
 
-  if (options.promote_duration) {
-    if (promoted_type->id() == Type::DURATION && other_type->id() == Type::DURATION) {
-      const auto& left = checked_cast<const DurationType&>(*promoted_type);
-      const auto& right = checked_cast<const DurationType&>(*other_type);
-      return duration(CommonTimeUnit(left.unit(), right.unit()));
-    }
+  if (options.promote_duration && promoted_type->id() == Type::DURATION &&
+      other_type->id() == Type::DURATION) {
+    const auto& left = checked_cast<const DurationType&>(*promoted_type);
+    const auto& right = checked_cast<const DurationType&>(*other_type);
+    return duration(CommonTimeUnit(left.unit(), right.unit()));
   }
 
-  if (options.promote_time) {
-    if (is_time(promoted_type->id()) && is_time(other_type->id())) {
-      const auto& left = checked_cast<const TimeType&>(*promoted_type);
-      const auto& right = checked_cast<const TimeType&>(*other_type);
-      const auto unit = CommonTimeUnit(left.unit(), right.unit());
-      if (unit == TimeUnit::MICRO || unit == TimeUnit::NANO) {
-        return time64(unit);
-      }
-      return time32(unit);
+  if (options.promote_time && is_time(promoted_type->id()) && is_time(other_type->id())) {
+    const auto& left = checked_cast<const TimeType&>(*promoted_type);
+    const auto& right = checked_cast<const TimeType&>(*other_type);
+    const auto unit = CommonTimeUnit(left.unit(), right.unit());
+    if (unit == TimeUnit::MICRO || unit == TimeUnit::NANO) {
+      return time64(unit);
     }
+    return time32(unit);
   }
 
-  if (options.promote_timestamp) {
-    if (promoted_type->id() == Type::TIMESTAMP && other_type->id() == Type::TIMESTAMP) {
-      const auto& left = checked_cast<const TimestampType&>(*promoted_type);
-      const auto& right = checked_cast<const TimestampType&>(*other_type);
-      if (left.timezone().empty() ^ right.timezone().empty()) {
-        return Status::Invalid(
-            "Cannot merge timestamp with timezone and timestamp without timezone");
-      }
-      if (left.timezone() != right.timezone()) {
-        return Status::Invalid("Cannot merge timestamps with differing timezones");
-      }
-      return timestamp(CommonTimeUnit(left.unit(), right.unit()), left.timezone());
+  if (options.promote_timestamp && promoted_type->id() == Type::TIMESTAMP &&
+      other_type->id() == Type::TIMESTAMP) {
+    const auto& left = checked_cast<const TimestampType&>(*promoted_type);
+    const auto& right = checked_cast<const TimestampType&>(*other_type);
+    if (left.timezone().empty() ^ right.timezone().empty()) {
+      return Status::Invalid(
+          "Cannot merge timestamp with timezone and timestamp without timezone");
     }
+    if (left.timezone() != right.timezone()) {
+      return Status::Invalid("Cannot merge timestamps with differing timezones");
+    }
+    return timestamp(CommonTimeUnit(left.unit(), right.unit()), left.timezone());
   }
 
   if (options.promote_decimal_float) {
@@ -453,8 +460,10 @@ Result<std::shared_ptr<DataType>> MergeTypes(std::shared_ptr<DataType> promoted_
       is_decimal(other_type->id())) {
     const auto& left = checked_cast<const DecimalType&>(*promoted_type);
     const auto& right = checked_cast<const DecimalType&>(*other_type);
-    if (!options.promote_numeric_width && left.bit_width() != right.bit_width())
-      return nullptr;
+    if (!options.promote_numeric_width && left.bit_width() != right.bit_width()) {
+      return Status::Invalid(
+          "Cannot promote decimal128 to decimal256 without promote_numeric_width=true");
+    }
     const int32_t max_scale = std::max<int32_t>(left.scale(), right.scale());
     const int32_t common_precision =
         std::max<int32_t>(left.precision() + max_scale - left.scale(),
