@@ -659,11 +659,21 @@ Result<std::shared_ptr<DataType>> MergeTypes(std::shared_ptr<DataType> promoted_
               *right.item_field()->WithName(left.item_field()->name()), options));
       return map(std::move(key_field), std::move(item_field),
                  /*keys_sorted=*/left.keys_sorted() && right.keys_sorted());
+    } else if (promoted_type->id() == Type::STRUCT && other_type->id() == Type::STRUCT) {
+      SchemaBuilder builder(SchemaBuilder::CONFLICT_APPEND, options);
+      // Add the LHS fields. Duplicates will be preserved.
+      RETURN_NOT_OK(builder.AddFields(promoted_type->fields()));
+
+      // Add the RHS fields. Duplicates will be merged, unless the field was
+      // already a duplicate, in which case we error (since we don't know which
+      // field to merge with).
+      builder.SetPolicy(SchemaBuilder::CONFLICT_MERGE);
+      RETURN_NOT_OK(builder.AddFields(other_type->fields()));
+
+      ARROW_ASSIGN_OR_RAISE(auto schema, builder.Finish());
+      return struct_(schema->fields());
     }
   }
-
-  // TODO
-  // Struct: reconcile order, fields, types
 
   return promoted ? promoted_type : nullptr;
 }

@@ -1029,6 +1029,30 @@ class TestUnifySchemas : public TestSchema {
     CheckUnify(field1, field2, field("a", expected, /*nullable=*/true), options);
   }
 
+  void CheckUnifyAsymmetric(
+      const std::shared_ptr<DataType>& left, const std::shared_ptr<DataType>& right,
+      const std::shared_ptr<DataType>& expected,
+      const Field::MergeOptions& options = Field::MergeOptions::Defaults()) {
+    auto field1 = field("a", left);
+    auto field2 = field("a", right);
+    CheckUnifyAsymmetric(field1, field2, field("a", expected), options);
+
+    field1 = field("a", left, /*nullable=*/false);
+    field2 = field("a", right, /*nullable=*/false);
+    CheckUnifyAsymmetric(field1, field2, field("a", expected, /*nullable=*/false),
+                         options);
+
+    field1 = field("a", left);
+    field2 = field("a", right, /*nullable=*/false);
+    CheckUnifyAsymmetric(field1, field2, field("a", expected, /*nullable=*/true),
+                         options);
+
+    field1 = field("a", left, /*nullable=*/false);
+    field2 = field("a", right);
+    CheckUnifyAsymmetric(field1, field2, field("a", expected, /*nullable=*/true),
+                         options);
+  }
+
   void CheckUnifyFails(
       const std::shared_ptr<DataType>& left, const std::shared_ptr<DataType>& right,
       const Field::MergeOptions& options = Field::MergeOptions::Defaults()) {
@@ -1304,13 +1328,11 @@ TEST_F(TestUnifySchemas, List) {
              {fixed_size_list(int16(), 2), list(int16()), list(int32()), list(int64())},
              options);
 
-  auto field1 = field("a", list(field("foo", int8(), /*nullable=*/false)));
-  CheckUnifyAsymmetric(field1, field("a", list(int8())),
-                       field("a", list(field("foo", int8(), /*nullable=*/true))),
+  auto ty = list(field("foo", int8(), /*nullable=*/false));
+  CheckUnifyAsymmetric(ty, list(int8()), list(field("foo", int8(), /*nullable=*/true)),
                        options);
-  CheckUnifyAsymmetric(
-      field1, field("a", list(field("bar", int16(), /*nullable=*/false))),
-      field("a", list(field("foo", int16(), /*nullable=*/false))), options);
+  CheckUnifyAsymmetric(ty, list(field("bar", int16(), /*nullable=*/false)),
+                       list(field("foo", int16(), /*nullable=*/false)), options);
 }
 
 TEST_F(TestUnifySchemas, Map) {
@@ -1347,15 +1369,23 @@ TEST_F(TestUnifySchemas, Struct) {
   CheckUnify(struct_({}), struct_({field("a", int8())}), struct_({field("a", int8())}),
              options);
 
-  CheckUnify(struct_({field("b", utf8())}), struct_({field("a", int8())}),
-             struct_({field("b", utf8()), field("a", int8())}), options);
+  CheckUnifyAsymmetric(struct_({field("b", utf8())}), struct_({field("a", int8())}),
+                       struct_({field("b", utf8()), field("a", int8())}), options);
+  CheckUnifyAsymmetric(struct_({field("a", int8())}), struct_({field("b", utf8())}),
+                       struct_({field("a", int8()), field("b", utf8())}), options);
 
   CheckUnify(struct_({field("b", utf8())}), struct_({field("b", binary())}),
              struct_({field("b", binary())}), options);
 
-  CheckUnify(struct_({field("a", int8()), field("b", utf8())}),
-             struct_({field("b", utf8()), field("a", int8())}),
-             struct_({field("a", int8()), field("b", utf8())}), options);
+  CheckUnifyAsymmetric(
+      struct_({field("a", int8()), field("b", utf8()), field("a", int64())}),
+      struct_({field("b", binary())}),
+      struct_({field("a", int8()), field("b", binary()), field("a", int64())}), options);
+
+  ASSERT_RAISES(
+      Invalid,
+      field("foo", struct_({field("a", int8()), field("b", utf8()), field("a", int64())}))
+          ->MergeWith(field("foo", struct_({field("a", int64())})), options));
 }
 
 TEST_F(TestUnifySchemas, Dictionary) {
