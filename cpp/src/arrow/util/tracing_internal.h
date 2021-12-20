@@ -123,14 +123,15 @@ AsyncGenerator<T> TieSpanToAsyncGenerator(
     opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> span) {
   return [=]() mutable -> Future<T> {
     auto scope = GetTracer()->WithActiveSpan(span);
-    auto fut = wrapped();
-    fut.AddCallback([span](const Result<T>& result) {
-      if (!result.ok() || IsIterationEnd(*result)) {
-        MarkSpan(result.status(), span.get());
-        span->End();
-      }
-    });
-    return fut;
+    return wrapped().Then(
+        [span](const T& result) -> Result<T> {
+          span->SetStatus(opentelemetry::trace::StatusCode::kOk);
+          return result;
+        },
+        [span](const Status& status) -> Result<T> {
+          MarkSpan(status, span.get());
+          return status;
+        });
   };
 }
 
