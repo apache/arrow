@@ -392,6 +392,7 @@ test_that("decimal type and validation", {
   expect_error(decimal(4, "two"), "`scale` must be an integer")
   expect_error(decimal(NA, 2), "`precision` must be an integer")
   expect_error(decimal(4, NA), "`scale` must be an integer")
+  # TODO remove precision range tests below once functionality is tested in C++ (ARROW-15162)
   expect_error(decimal(0, 2), "Invalid: Decimal precision out of range [1, 38]: 0", fixed = TRUE)
   expect_error(decimal(100, 2), "Invalid: Decimal precision out of range [1, 76]: 100", fixed = TRUE)
 
@@ -407,6 +408,7 @@ test_that("decimal type and validation", {
   expect_error(decimal128(4, NA), "`scale` must be an integer")
   expect_error(decimal128(3:4, NA), "`precision` must have size 1. not size 2")
   expect_error(decimal128(4, 2:3), "`scale` must have size 1. not size 2")
+  # TODO remove precision range tests below once functionality is tested in C++ (ARROW-15162)
   expect_error(decimal128(0, 2), "Invalid: Decimal precision out of range [1, 38]: 0", fixed = TRUE)
   expect_error(decimal128(100, 2), "Invalid: Decimal precision out of range [1, 38]: 100", fixed = TRUE)
 
@@ -419,6 +421,7 @@ test_that("decimal type and validation", {
   expect_error(decimal256(4, NA), "`scale` must be an integer")
   expect_error(decimal256(3:4, NA), "`precision` must have size 1. not size 2")
   expect_error(decimal256(4, 2:3), "`scale` must have size 1. not size 2")
+  # TODO remove precision range tests below once functionality is tested in C++ (ARROW-15162)
   expect_error(decimal256(0, 2), "Invalid: Decimal precision out of range [1, 76]: 0", fixed = TRUE)
   expect_error(decimal256(100, 2), "Invalid: Decimal precision out of range [1, 76]: 100", fixed = TRUE)
 })
