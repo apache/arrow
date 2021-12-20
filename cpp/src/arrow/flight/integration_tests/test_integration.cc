@@ -276,9 +276,9 @@ arrow::Status AssertEq(const T& expected, const T& actual) {
   return Status::OK();
 }
 
-/// \brief The server used for testing Flight SQL, this implements a static Flight SQL server which only asserts
-/// that commands called during integration tests are being parsed correctly and returns the expected schemas to be
-/// validated on client.
+/// \brief The server used for testing Flight SQL, this implements a static Flight SQL
+/// server which only asserts that commands called during integration tests are being
+/// parsed correctly and returns the expected schemas to be validated on client.
 class FlightSqlScenarioServer : public sql::FlightSqlServerBase {
  public:
   arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoStatement(
@@ -622,7 +622,7 @@ class FlightSqlScenario : public Scenario {
     FlightCallOptions options;
 
     ARROW_RETURN_NOT_OK(Validate(
-            GetQuerySchema(), sql_client->Execute(options, "SELECT STATEMENT"), sql_client));
+        GetQuerySchema(), sql_client->Execute(options, "SELECT STATEMENT"), sql_client));
     ARROW_ASSIGN_OR_RAISE(auto update_statement_result,
                           sql_client->ExecuteUpdate(options, "UPDATE STATEMENT"));
     if (update_statement_result != 10000L) {
@@ -639,11 +639,12 @@ class FlightSqlScenario : public Scenario {
     ARROW_ASSIGN_OR_RAISE(auto select_prepared_statement,
                           sql_client->Prepare(options, "SELECT PREPARED STATEMENT"));
 
-    auto parameters = RecordBatch::Make(GetQuerySchema(), 1, {ArrayFromJSON(int64(), "[1]")});
+    auto parameters =
+        RecordBatch::Make(GetQuerySchema(), 1, {ArrayFromJSON(int64(), "[1]")});
     ARROW_RETURN_NOT_OK(select_prepared_statement->SetParameters(parameters));
 
     ARROW_RETURN_NOT_OK(
-            Validate(GetQuerySchema(), select_prepared_statement->Execute(), sql_client));
+        Validate(GetQuerySchema(), select_prepared_statement->Execute(), sql_client));
     ARROW_RETURN_NOT_OK(select_prepared_statement->Close());
 
     ARROW_ASSIGN_OR_RAISE(auto update_prepared_statement,
