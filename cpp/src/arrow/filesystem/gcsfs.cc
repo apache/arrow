@@ -96,28 +96,32 @@ class GcsInputStream : public arrow::io::InputStream {
   // @name FileInterface
   Status Close() override {
     stream_.Close();
+    closed_ = true;
     return Status::OK();
   }
 
   Result<int64_t> Tell() const override {
-    if (!stream_) {
-      return Status::IOError("invalid stream");
-    }
+    if (closed()) return Status::Invalid("Cannot use Tell() on a closed stream");
     return stream_.tellg() + offset_;
   }
 
-  bool closed() const override { return !stream_.IsOpen(); }
+  // A gcs::ObjectReadStream can be "born closed".  For small objects the stream returns
+  // `IsOpen() == false` as soon as it is created, but the application can still read from
+  // it.
+  bool closed() const override { return closed_ && !stream_.IsOpen(); }
   //@}
 
   //@{
   // @name Readable
   Result<int64_t> Read(int64_t nbytes, void* out) override {
+    if (closed()) return Status::Invalid("Cannot read from a closed stream");
     stream_.read(static_cast<char*>(out), nbytes);
     ARROW_GCS_RETURN_NOT_OK(stream_.status());
     return stream_.gcount();
   }
 
   Result<std::shared_ptr<Buffer>> Read(int64_t nbytes) override {
+    if (closed()) return Status::Invalid("Cannot read from a closed stream");
     ARROW_ASSIGN_OR_RAISE(auto buffer, arrow::AllocateResizableBuffer(nbytes));
     stream_.read(reinterpret_cast<char*>(buffer->mutable_data()), nbytes);
     ARROW_GCS_RETURN_NOT_OK(stream_.status());
@@ -142,6 +146,7 @@ class GcsInputStream : public arrow::io::InputStream {
   gcs::Generation generation_;
   std::int64_t offset_;
   gcs::Client client_;
+  bool closed_ = false;
 };
 
 class GcsOutputStream : public arrow::io::OutputStream {
@@ -151,19 +156,28 @@ class GcsOutputStream : public arrow::io::OutputStream {
 
   Status Close() override {
     stream_.Close();
+    closed_ = true;
     return internal::ToArrowStatus(stream_.last_status());
   }
 
   Result<int64_t> Tell() const override {
-    if (!stream_) {
-      return Status::IOError("invalid stream");
-    }
+    if (closed()) return Status::Invalid("Cannot use Tell() on a closed stream");
     return tell_;
   }
 
-  bool closed() const override { return !stream_.IsOpen(); }
+  // gcs::ObjectWriteStream can be "closed" without an explicit Close() call. At this time
+  // this class does not use any of the mechanisms [*] that trigger such behavior.
+  // Nevertheless, we defensively prepare for them by checking either condition.
+  //
+  // [*]: These mechanisms include:
+  // - resumable uploads that are "resumed" after the upload completed are born
+  //   "closed",
+  // - uploads that prescribe their total size using the `x-upload-content-length` header
+  //   are completed and "closed" as soon as the upload reaches that size.
+  bool closed() const override { return closed_ || !stream_.IsOpen(); }
 
   Status Write(const void* data, int64_t nbytes) override {
+    if (closed()) return Status::Invalid("Cannot write to a closed stream");
     if (stream_.write(reinterpret_cast<const char*>(data), nbytes)) {
       tell_ += nbytes;
       return Status::OK();
@@ -172,6 +186,7 @@ class GcsOutputStream : public arrow::io::OutputStream {
   }
 
   Status Flush() override {
+    if (closed()) return Status::Invalid("Cannot flush a closed stream");
     stream_.flush();
     return Status::OK();
   }
@@ -179,6 +194,7 @@ class GcsOutputStream : public arrow::io::OutputStream {
  private:
   gcs::ObjectWriteStream stream_;
   int64_t tell_ = 0;
+  bool closed_ = false;
 };
 
 using InputStreamFactory = std::function<Result<std::shared_ptr<io::InputStream>>(
@@ -225,6 +241,7 @@ class GcsRandomAccessFile : public arrow::io::RandomAccessFile {
   // @name RandomAccessFile
   Result<int64_t> GetSize() override { return metadata_.size(); }
   Result<int64_t> ReadAt(int64_t position, int64_t nbytes, void* out) override {
+    if (closed()) return Status::Invalid("Cannot read from closed file");
     std::shared_ptr<io::InputStream> stream;
     ARROW_ASSIGN_OR_RAISE(stream, factory_(metadata_.bucket(), metadata_.name(),
                                            gcs::Generation(metadata_.generation()),
@@ -232,6 +249,7 @@ class GcsRandomAccessFile : public arrow::io::RandomAccessFile {
     return stream->Read(nbytes, out);
   }
   Result<std::shared_ptr<Buffer>> ReadAt(int64_t position, int64_t nbytes) override {
+    if (closed()) return Status::Invalid("Cannot read from closed file");
     std::shared_ptr<io::InputStream> stream;
     ARROW_ASSIGN_OR_RAISE(stream, factory_(metadata_.bucket(), metadata_.name(),
                                            gcs::Generation(metadata_.generation()),
@@ -242,6 +260,7 @@ class GcsRandomAccessFile : public arrow::io::RandomAccessFile {
 
   // from Seekable
   Status Seek(int64_t position) override {
+    if (closed()) return Status::Invalid("Cannot seek in a closed file");
     ARROW_ASSIGN_OR_RAISE(stream_, factory_(metadata_.bucket(), metadata_.name(),
                                             gcs::Generation(metadata_.generation()),
                                             gcs::ReadFromOffset(position)));

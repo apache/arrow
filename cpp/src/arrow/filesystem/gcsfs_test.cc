@@ -721,7 +721,7 @@ TEST_F(GcsIntegrationTest, CopyFileNotFound) {
   ASSERT_RAISES(IOError, fs->CopyFile(NotFoundObjectPath(), destination_path));
 }
 
-TEST_F(GcsIntegrationTest, ReadObjectString) {
+TEST_F(GcsIntegrationTest, OpenInputStreamString) {
   auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
 
   std::shared_ptr<io::InputStream> stream;
@@ -734,7 +734,7 @@ TEST_F(GcsIntegrationTest, ReadObjectString) {
   EXPECT_EQ(std::string(buffer.data(), size), kLoremIpsum);
 }
 
-TEST_F(GcsIntegrationTest, ReadObjectStringBuffers) {
+TEST_F(GcsIntegrationTest, OpenInputStreamStringBuffers) {
   auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
 
   std::shared_ptr<io::InputStream> stream;
@@ -750,7 +750,7 @@ TEST_F(GcsIntegrationTest, ReadObjectStringBuffers) {
   EXPECT_EQ(contents, kLoremIpsum);
 }
 
-TEST_F(GcsIntegrationTest, ReadObjectInfo) {
+TEST_F(GcsIntegrationTest, OpenInputStreamInfo) {
   auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
 
   arrow::fs::FileInfo info;
@@ -766,13 +766,27 @@ TEST_F(GcsIntegrationTest, ReadObjectInfo) {
   EXPECT_EQ(std::string(buffer.data(), size), kLoremIpsum);
 }
 
-TEST_F(GcsIntegrationTest, ReadObjectNotFound) {
+TEST_F(GcsIntegrationTest, OpenInputStreamEmpty) {
+  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+
+  const auto object_path =
+      internal::ConcatAbstractPath(PreexistingBucketName(), "empty-object.txt");
+  CreateFile(fs.get(), object_path, std::string());
+
+  ASSERT_OK_AND_ASSIGN(auto stream, fs->OpenInputStream(object_path));
+  std::array<char, 1024> buffer{};
+  std::int64_t size;
+  ASSERT_OK_AND_ASSIGN(size, stream->Read(buffer.size(), buffer.data()));
+  EXPECT_EQ(size, 0);
+}
+
+TEST_F(GcsIntegrationTest, OpenInputStreamNotFound) {
   auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
 
   ASSERT_RAISES(IOError, fs->OpenInputStream(NotFoundObjectPath()));
 }
 
-TEST_F(GcsIntegrationTest, ReadObjectInfoInvalid) {
+TEST_F(GcsIntegrationTest, OpenInputStreamInfoInvalid) {
   auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
 
   arrow::fs::FileInfo info;
@@ -783,10 +797,10 @@ TEST_F(GcsIntegrationTest, ReadObjectInfoInvalid) {
   ASSERT_RAISES(IOError, fs->OpenInputStream(info));
 }
 
-TEST_F(GcsIntegrationTest, ReadObjectReadMetadata) {
+TEST_F(GcsIntegrationTest, OpenInputStreamReadMetadata) {
   auto client = GcsClient();
   const auto custom_time = std::chrono::system_clock::now() + std::chrono::hours(1);
-  const std::string object_name = "ReadObjectMetadataTest/simple.txt";
+  const std::string object_name = "OpenInputStreamMetadataTest/simple.txt";
   const gcs::ObjectMetadata expected =
       client
           .InsertObject(PreexistingBucketName(), object_name,
@@ -845,7 +859,18 @@ TEST_F(GcsIntegrationTest, ReadObjectReadMetadata) {
   ASSERT_FALSE(actual->Contains("kmsKeyName"));
 }
 
-TEST_F(GcsIntegrationTest, WriteObjectSmall) {
+TEST_F(GcsIntegrationTest, OpenInputStreamClosed) {
+  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+
+  ASSERT_OK_AND_ASSIGN(auto stream, fs->OpenInputStream(PreexistingObjectPath()));
+  ASSERT_OK(stream->Close());
+  std::array<char, 16> buffer{};
+  ASSERT_RAISES(Invalid, stream->Read(buffer.size(), buffer.data()));
+  ASSERT_RAISES(Invalid, stream->Read(buffer.size()));
+  ASSERT_RAISES(Invalid, stream->Tell());
+}
+
+TEST_F(GcsIntegrationTest, OpenOutputStreamSmall) {
   auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
 
   const auto path = PreexistingBucketPath() + "test-write-object";
@@ -866,7 +891,7 @@ TEST_F(GcsIntegrationTest, WriteObjectSmall) {
   EXPECT_EQ(std::string(inbuf.data(), size), expected);
 }
 
-TEST_F(GcsIntegrationTest, WriteObjectLarge) {
+TEST_F(GcsIntegrationTest, OpenOutputStreamLarge) {
   auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
 
   const auto path = PreexistingBucketPath() + "test-write-object";
@@ -900,6 +925,19 @@ TEST_F(GcsIntegrationTest, WriteObjectLarge) {
   } while (buffer->size() != 0);
 
   EXPECT_EQ(contents, buffers[0] + buffers[1] + buffers[2]);
+}
+
+TEST_F(GcsIntegrationTest, OpenOutputStreamClosed) {
+  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+
+  const auto path = internal::ConcatAbstractPath(PreexistingBucketName(),
+                                                 "open-output-stream-closed.txt");
+  std::shared_ptr<io::OutputStream> output;
+  ASSERT_OK_AND_ASSIGN(output, fs->OpenOutputStream(path, {}));
+  ASSERT_OK(output->Close());
+  ASSERT_RAISES(Invalid, output->Write(kLoremIpsum, std::strlen(kLoremIpsum)));
+  ASSERT_RAISES(Invalid, output->Flush());
+  ASSERT_RAISES(Invalid, output->Tell());
 }
 
 TEST_F(GcsIntegrationTest, OpenInputFileMixedReadVsReadAt) {
@@ -1019,6 +1057,20 @@ TEST_F(GcsIntegrationTest, OpenInputFileInfoInvalid) {
 
   ASSERT_OK_AND_ASSIGN(info, fs->GetFileInfo(NotFoundObjectPath()));
   ASSERT_RAISES(IOError, fs->OpenInputFile(info));
+}
+
+TEST_F(GcsIntegrationTest, OpenInputFileClosed) {
+  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+
+  ASSERT_OK_AND_ASSIGN(auto stream, fs->OpenInputFile(PreexistingObjectPath()));
+  ASSERT_OK(stream->Close());
+  std::array<char, 16> buffer{};
+  ASSERT_RAISES(Invalid, stream->Tell());
+  ASSERT_RAISES(Invalid, stream->Read(buffer.size(), buffer.data()));
+  ASSERT_RAISES(Invalid, stream->Read(buffer.size()));
+  ASSERT_RAISES(Invalid, stream->ReadAt(1, buffer.size(), buffer.data()));
+  ASSERT_RAISES(Invalid, stream->ReadAt(1, 1));
+  ASSERT_RAISES(Invalid, stream->Seek(2));
 }
 
 }  // namespace
