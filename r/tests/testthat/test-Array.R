@@ -818,7 +818,7 @@ test_that("Array$create() should have helpful error", {
   # the captured conditions (errors) are not identical, but their messages should be
   expect_s3_class(a, "rlang_error")
   expect_s3_class(b, "simpleError")
-  expect_equal(a$message, b$message)
+  expect_equal(a$message, b$message, ignore_attr = TRUE)
 })
 
 test_that("Array$View() (ARROW-6542)", {
