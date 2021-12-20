@@ -1024,7 +1024,7 @@ Result<Datum> Month(const Datum& values, ExecContext* ctx = NULLPTR);
 ARROW_EXPORT
 Result<Datum> Day(const Datum& values, ExecContext* ctx = NULLPTR);
 
-/// \brief DateStruct returns a struct containing the Year, Month and Day value for
+/// \brief YearMonthDay returns a struct containing the Year, Month and Day value for
 /// each element of `values`.
 ///
 /// \param[in] values input to extract (year, month, day) struct from
@@ -1034,7 +1034,7 @@ Result<Datum> Day(const Datum& values, ExecContext* ctx = NULLPTR);
 /// \since 7.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
-Result<Datum> DateStruct(const Datum& values, ExecContext* ctx = NULLPTR);
+Result<Datum> YearMonthDay(const Datum& values, ExecContext* ctx = NULLPTR);
 
 /// \brief DayOfWeek returns number of the day of the week value for each element of
 /// `values`.
