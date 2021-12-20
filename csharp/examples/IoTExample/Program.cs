@@ -40,7 +40,7 @@ namespace IoTPipelineExample
             }
 
             Console.WriteLine("Consuming IoT sensor data concurrently...");
-            for (int i = 0; i < concurrencyLevel; i++)
+            for (int i = 0; i < 1; i++)
             {
                 Task t = Task.Run(() => sdp.ReadFromChannel());
                 taskList.Add(t);
@@ -50,11 +50,11 @@ namespace IoTPipelineExample
             Task.WaitAll(taskList.ToArray());
 
             Console.WriteLine("Persisting data to disk...");
-            string path = "iotbigdata.arrow";
-            await sdp.PersistData(path);
+            string writePath = "iotbigdata.arrow";
+            var readPath = await sdp.PersistData(writePath);
 
             Console.WriteLine("Loading arrow data file into memory...");
-            var stream = File.OpenRead(path);
+            var stream = File.OpenRead(readPath);
             var reader = new ArrowFileReader(stream);
             var count = await reader.RecordBatchCountAsync();
 
