@@ -572,14 +572,19 @@ test_that("Array$create() handles vector -> list arrays (ARROW-7662)", {
   expect_error(Array$create(list(df)))
 })
 
-# TODO: (wjones127)
-test_that("Array$create() handles list of named vectors -> map arrays", {
+test_that("Array$create() handles list of dataframes -> map arrays", {
   # Should be able to create an empty map with a type hint.
   expect_r6_class(Array$create(list(), map_of(string(), boolean())), "MapArray")
-  expect_r6_class(Array$create(
+
+  # MapType is alias for List<Struct<keys, values>>
+  arr <- Array$create(
     list(data.frame(key=c('a', 'b'), value=c(1, 2)), data.frame(key=c('a', 'c'), value=c(4, 7))), 
-    map_of(string(), int32())), "MapArray"
+    map_of(string(), int32())
   )
+  expect_r6_class(arr, "MapArray")
+  browser()
+  expect_equal(arr$keys()$type, list_of(string()))
+  expect_equal(arr$items()$type, list_of(boolean())) # WHAT?!?!?!?!
 })
 
 test_that("Array$create() handles vector -> large list arrays", {
