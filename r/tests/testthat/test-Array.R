@@ -801,20 +801,13 @@ test_that("Array$create() should have helpful error", {
     Array$create(as.double(1:10), type = decimal(4, 2)),
     "You might want to try casting manually"
   )
-  # until ARROW-15159 is solved casting from integer to decimal requires a
-  # precision of at least 12
-  # precision < 12 => the attempt to cast errors and the original error message
-  # is shown
-  expect_error(
-    Array$create(1:10, type = decimal(11, 2)),
-    "NotImplemented: Extend"
-  )
-  # precision >= 12 => the attempt succeeds and the error message now includes
-  # a hint to cast manually
+
   expect_error(
     Array$create(1:10, type = decimal(12, 2)),
     "You might want to try casting manually"
   )
+
+
 })
 
 test_that("Array$View() (ARROW-6542)", {
