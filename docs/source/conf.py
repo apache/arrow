@@ -61,18 +61,18 @@ warnings.filterwarnings("ignore", category=FutureWarning, message=".*pyarrow.*")
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
+    'breathe',
+    'IPython.sphinxext.ipython_console_highlighting',
+    'IPython.sphinxext.ipython_directive',
+    'numpydoc',
+    'sphinx_tabs.tabs',
     'sphinx.ext.autodoc',
     'sphinx.ext.autosummary',
     'sphinx.ext.doctest',
     'sphinx.ext.ifconfig',
+    'sphinx.ext.intersphinx'
     'sphinx.ext.mathjax',
     'sphinx.ext.viewcode',
-    'numpydoc',
-    'IPython.sphinxext.ipython_directive',
-    'IPython.sphinxext.ipython_console_highlighting',
-    'breathe',
-    'sphinx_tabs.tabs',
-    'sphinx.ext.intersphinx'
 ]
 
 # Show members for classes in .. autosummary
