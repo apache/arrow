@@ -59,7 +59,8 @@ struct InspectOptions {
   /// altogether so only the partitioning schema will be inspected.
   int fragments = 1;
 
-  /// Control how to unify types.
+  /// Control how to unify types. By default, types are merged strictly (the
+  /// type must match exactly, except nulls can be merged with other types).
   Field::MergeOptions field_merge_options = Field::MergeOptions::Defaults();
 };
 

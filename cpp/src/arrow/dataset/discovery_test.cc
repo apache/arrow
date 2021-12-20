@@ -120,6 +120,12 @@ TEST_F(MockDatasetFactoryTest, UnifySchemas) {
   ASSERT_RAISES(Invalid, factory_->Inspect());
   // Return the individual schema for closer inspection should not fail.
   AssertInspectSchemas({schema({i32, f64}), schema({f64, i32_fake})});
+
+  MakeFactory({schema({field("num", int32())}), schema({field("num", float64())})});
+  ASSERT_RAISES(Invalid, factory_->Inspect());
+  InspectOptions permissive_options;
+  permissive_options.field_merge_options = Field::MergeOptions::Permissive();
+  AssertInspect(schema({field("num", float64())}), permissive_options);
 }
 
 class FileSystemDatasetFactoryTest : public DatasetFactoryTest {
@@ -473,6 +479,12 @@ TEST(UnionDatasetFactoryTest, ConflictingSchemas) {
   auto i32_schema = schema({i32});
   ASSERT_OK_AND_ASSIGN(auto dataset, factory->Finish(i32_schema));
   EXPECT_EQ(*dataset->schema(), *i32_schema);
+
+  // The user decided to allow merging the types.
+  FinishOptions options;
+  options.inspect_options.field_merge_options = Field::MergeOptions::Permissive();
+  ASSERT_OK_AND_ASSIGN(dataset, factory->Finish(options));
+  EXPECT_EQ(*dataset->schema(), *schema({f64, i32}));
 }
 
 }  // namespace dataset
