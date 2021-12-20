@@ -503,6 +503,14 @@ std::shared_ptr<DataType> map(std::shared_ptr<DataType> key_type,
                               std::shared_ptr<Field> item_field,
                               bool keys_sorted = false);
 
+/// \brief Create a MapType instance from its key field and value field.
+///
+/// The field override is provided to communicate nullability of the value.
+ARROW_EXPORT
+std::shared_ptr<DataType> map(std::shared_ptr<Field> key_field,
+                              std::shared_ptr<Field> item_field,
+                              bool keys_sorted = false);
+
 /// \brief Create a FixedSizeListType instance from its child Field type
 ARROW_EXPORT
 std::shared_ptr<DataType> fixed_size_list(const std::shared_ptr<Field>& value_type,

@@ -432,21 +432,6 @@ Result<std::shared_ptr<DataType>> MergeTypes(std::shared_ptr<DataType> promoted_
     return timestamp(CommonTimeUnit(left.unit(), right.unit()), left.timezone());
   }
 
-  if (options.promote_nested && promoted_type->id() == Type::MAP &&
-      other_type->id() == Type::MAP) {
-    const auto& left = checked_cast<const MapType&>(*promoted_type);
-    const auto& right = checked_cast<const MapType&>(*other_type);
-    ARROW_ASSIGN_OR_RAISE(const auto key_type,
-                          MergeTypes(left.key_type(), right.key_type(), options));
-    ARROW_ASSIGN_OR_RAISE(const auto item_type,
-                          MergeTypes(left.item_type(), right.item_type(), options));
-    // TODO: need to actually merge the field nullability (here and dictionary etc)
-    // TODO: tests
-    return std::make_shared<MapType>(
-        left.key_field()->WithType(key_type), left.item_field()->WithType(item_type),
-        /*keys_sorted=*/left.keys_sorted() && right.keys_sorted());
-  }
-
   if (options.promote_decimal_float) {
     if (is_decimal(promoted_type->id()) && is_floating(other_type->id())) {
       promoted_type = other_type;
@@ -623,23 +608,38 @@ Result<std::shared_ptr<DataType>> MergeTypes(std::shared_ptr<DataType> promoted_
          other_type->id() == Type::FIXED_SIZE_LIST)) {
       const auto& left = checked_cast<const BaseListType&>(*promoted_type);
       const auto& right = checked_cast<const BaseListType&>(*other_type);
-      ARROW_ASSIGN_OR_RAISE(auto value_type,
-                            MergeTypes(left.value_type(), right.value_type(), options));
-      if (!value_type) return nullptr;
-      auto field = left.value_field()->WithType(std::move(value_type));
+      ARROW_ASSIGN_OR_RAISE(
+          auto value_field,
+          left.value_field()->MergeWith(
+              *right.value_field()->WithName(left.value_field()->name()), options));
       if (promoted_type->id() == Type::LIST) {
-        return list(std::move(field));
+        return list(std::move(value_field));
       } else if (promoted_type->id() == Type::LARGE_LIST) {
-        return large_list(std::move(field));
+        return large_list(std::move(value_field));
       }
       const auto left_size =
           checked_cast<const FixedSizeListType&>(*promoted_type).list_size();
       const auto right_size =
           checked_cast<const FixedSizeListType&>(*other_type).list_size();
       if (left_size == right_size) {
-        return fixed_size_list(std::move(field), left_size);
+        return fixed_size_list(std::move(value_field), left_size);
       }
       return Status::Invalid("Cannot merge fixed_size_list of different sizes");
+    } else if (promoted_type->id() == Type::MAP && other_type->id() == Type::MAP) {
+      const auto& left = checked_cast<const MapType&>(*promoted_type);
+      const auto& right = checked_cast<const MapType&>(*other_type);
+      // While we try to preserve nonstandard field names here, note that
+      // MapType comparisons ignore field name. See ARROW-7173, ARROW-14999.
+      ARROW_ASSIGN_OR_RAISE(
+          auto key_field,
+          left.key_field()->MergeWith(
+              *right.key_field()->WithName(left.key_field()->name()), options));
+      ARROW_ASSIGN_OR_RAISE(
+          auto item_field,
+          left.item_field()->MergeWith(
+              *right.item_field()->WithName(left.item_field()->name()), options));
+      return map(std::move(key_field), std::move(item_field),
+                 /*keys_sorted=*/left.keys_sorted() && right.keys_sorted());
     }
   }
 
@@ -2625,6 +2625,12 @@ std::shared_ptr<DataType> map(std::shared_ptr<DataType> key_type,
 std::shared_ptr<DataType> map(std::shared_ptr<DataType> key_type,
                               std::shared_ptr<Field> item_field, bool keys_sorted) {
   return std::make_shared<MapType>(std::move(key_type), std::move(item_field),
+                                   keys_sorted);
+}
+
+std::shared_ptr<DataType> map(std::shared_ptr<Field> key_field,
+                              std::shared_ptr<Field> item_field, bool keys_sorted) {
+  return std::make_shared<MapType>(std::move(key_field), std::move(item_field),
                                    keys_sorted);
 }
 
