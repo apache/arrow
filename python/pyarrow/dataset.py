@@ -754,7 +754,9 @@ def _ensure_write_partitioning(part, schema, flavor):
 def write_dataset(data, base_dir, basename_template=None, format=None,
                   partitioning=None, partitioning_flavor=None, schema=None,
                   filesystem=None, file_options=None, use_threads=True,
-                  max_partitions=None, file_visitor=None,
+                  max_partitions=None, max_open_files=None,
+                  max_rows_per_file=None, min_rows_per_group=None,
+                  max_rows_per_group=None, file_visitor=None,
                   existing_data_behavior='error'):
     """
     Write a dataset to a given format and partitioning.
@@ -798,6 +800,27 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
         used determined by the number of available CPU cores.
     max_partitions : int, default 1024
         Maximum number of partitions any batch may be written into.
+    max_open_files : int, default 1024
+        If greater than 0 then this will limit the maximum number of
+        files that can be left open. If an attempt is made to open
+        too many files then the least recently used file will be closed.
+        If this setting is set too low you may end up fragmenting your
+        data into many small files.
+    max_rows_per_file : int, default 0
+        Maximum number of rows per file. If greater than 0 then this will
+        limit how many rows are placed in any single file. Otherwise there
+        will be no limit and one file will be created in each output
+        directory unless files need to be closed to respect max_open_files
+    min_rows_per_group : int, default 0
+        Minimum number of rows per group. When the value is greater than 0,
+        the dataset writer will batch incoming data and only write the row
+        groups to the disk when sufficient rows have accumulated.
+    max_rows_per_group : int, default 1024 * 1024
+        Maximum number of rows per group. If the value is greater than 0,
+        then the dataset writer may split up large incoming batches into
+        multiple row groups.  If this value is set, then min_rows_per_group
+        should also be set. Otherwise it could end up with very small row
+        groups.
     file_visitor : Function
         If set, this function will be called with a WrittenFile instance
         for each file created during the call.  This object will have both
@@ -871,6 +894,18 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
     if max_partitions is None:
         max_partitions = 1024
 
+    if max_open_files is None:
+        max_open_files = 1024
+
+    if max_rows_per_file is None:
+        max_rows_per_file = 0
+
+    if max_rows_per_group is None:
+        max_rows_per_group = 1 << 20
+
+    if min_rows_per_group is None:
+        min_rows_per_group = 0
+
     # at this point data is a Scanner or a Dataset, anything else
     # was converted to one of those two. So we can grab the schema
     # to build the partitioning object from Dataset.
@@ -895,5 +930,7 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
 
     _filesystemdataset_write(
         scanner, base_dir, basename_template, filesystem, partitioning,
-        file_options, max_partitions, file_visitor, existing_data_behavior
+        file_options, max_partitions, file_visitor, existing_data_behavior,
+        max_open_files, max_rows_per_file,
+        min_rows_per_group, max_rows_per_group
     )
