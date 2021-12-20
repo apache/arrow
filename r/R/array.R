@@ -192,7 +192,10 @@ Array$create <- function(x, type = NULL) {
     return(vec_to_Array(x, type))
   }
 
-  # a type is given, this needs more care
+  # when a type is given, try to create a vector of the desired type. If that
+  # fails, attempt to cast and if casting is successful, suggest to the user
+  # to try casting manually. If the casting fails, return the original error
+  # message.
   tryCatch(
     vec_to_Array(x, type),
     error = function(cnd) {
