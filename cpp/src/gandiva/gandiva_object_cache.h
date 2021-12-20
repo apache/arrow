@@ -29,8 +29,6 @@
 #include <llvm/ExecutionEngine/ObjectCache.h>
 #include <llvm/Support/MemoryBuffer.h>
 
-#include <chrono>
-
 #include "gandiva/cache.h"
 #include "gandiva/expression_cache_key.h"
 
