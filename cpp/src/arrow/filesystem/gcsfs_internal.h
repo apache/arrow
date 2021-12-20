@@ -49,7 +49,7 @@ Result<google::cloud::storage::WithObjectMetadata> ToObjectMetadata(
 Result<std::shared_ptr<const KeyValueMetadata>> FromObjectMetadata(
     google::cloud::storage::ObjectMetadata const& m);
 
-std::size_t Depth(arrow::util::string_view path);
+std::int64_t Depth(arrow::util::string_view path);
 
 }  // namespace internal
 }  // namespace fs

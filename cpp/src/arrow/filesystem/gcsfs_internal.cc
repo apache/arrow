@@ -259,7 +259,7 @@ Result<std::shared_ptr<const KeyValueMetadata>> FromObjectMetadata(
   return result;
 }
 
-std::size_t Depth(arrow::util::string_view path) {
+std::int64_t Depth(arrow::util::string_view path) {
   return std::count(path.begin(), path.end(), fs::internal::kSep);
 }
 
