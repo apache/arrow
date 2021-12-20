@@ -206,7 +206,7 @@ test_that("ChunkedArray supports empty arrays (ARROW-13761)", {
     int8(), int16(), int32(), int64(), uint8(), uint16(), uint32(),
     uint64(), float32(), float64(), timestamp("ns"), binary(),
     large_binary(), fixed_size_binary(32), date32(), date64(),
-    decimal128(4, 2), #decimal256(4, 2), # not yet supported - see below
+    decimal128(4, 2), #decimal256(4, 2), # un-comment once ARROW-15166 is solved
     dictionary(), struct(x = int32())
   )
 
@@ -231,8 +231,9 @@ test_that("ChunkedArray supports empty arrays (ARROW-13761)", {
   }
 
   skip("array_filter has no kernel matching input types `(array[decimal256(4, 2)], array[bool])`")
-  # once the above Jira is addressed decimal256() can be moved together with the
-  # other types. this chunk can be deleted once decimal256() is added to types
+  # TODO once ARROW-15166 is addressed decimal256() can be moved together with
+  # the other types (separated to be able to skip). this whole chunk can be
+  # deleted
   type <- decimal256(4, 2)
   empty_filter <- ChunkedArray$create(type = bool())
   one_empty_chunk <- ChunkedArray$create(type = type)
