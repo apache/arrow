@@ -29,6 +29,7 @@ import org.apache.arrow.vector.types.pojo.ArrowType.List;
 import org.apache.arrow.vector.types.pojo.ArrowType.Struct;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.CallBack;
+import org.apache.arrow.vector.util.ValueVectorUtility;
 
 /**
  * Base class for composite vectors.
@@ -46,6 +47,14 @@ public abstract class AbstractContainerVector implements ValueVector, DensityAwa
     this.name = name;
     this.allocator = allocator;
     this.callBack = callBack;
+  }
+
+  /**
+   * Representation of vector suitable for debugging.
+   */
+  @Override
+  public String toString() {
+    return ValueVectorUtility.getToString(this, 0, getValueCount());
   }
 
   @Override
