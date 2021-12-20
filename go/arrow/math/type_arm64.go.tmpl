@@ -18,26 +18,12 @@
 
 package math
 
-import (
-	"github.com/apache/arrow/go/v7/arrow/internal/cpu"
-)
-
-func init() {
-	if cpu.ARM64.HasASIMD {
-		initNEON()
-    } else {
-	    initGo()
-	}
+{{with .In}}
+func init{{.Name}}NEON() {
+	{{.Name}}.sum = sum_{{.Type}}_neon
 }
 
-func initNEON() {
-	initFloat64NEON()
-	initInt64NEON()
-	initUint64NEON()
+func init{{.Name}}Go() {
+	{{.Name}}.sum = sum_{{.Type}}_go
 }
-
-func initGo() {
-	initFloat64Go()
-	initInt64Go()
-	initUint64Go()
-}
+{{end}}
