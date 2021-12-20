@@ -1,6 +1,4 @@
----
-title: "Writing Bindings"
----
+# Writing Bindings
 
 ```{r, include=FALSE}
 library(arrow, warn.conflicts = FALSE)
@@ -13,8 +11,6 @@ functionality should match that of the existing R functions
 (though there are some exceptions) so that users are able to use existing tidyverse 
 or base R syntax, whilst taking advantage of the speed and functionality of the 
 underlying arrow package.
-
-# Implementing bindings to work within dplyr pipelines
 
 One of main ways in which users interact with arrow is via 
 [dplyr](https://dplyr.tidyverse.org/) syntax called on Arrow objects.  For 
@@ -54,7 +50,7 @@ arrow_table(starwars) %>%
 In the following sections, we'll walk through how to create a binding between an 
 R function and an Arrow C++ function.
 
-## Walkthrough
+# Walkthrough
 
 Imagine you are writing the bindings for the C++ function 
 [`starts_with()`](https://arrow.apache.org/docs/cpp/compute.html#containment-tests) 
@@ -62,7 +58,7 @@ and want to bind it to the (base) R function `startsWith()`.
 
 First, take a look at the docs for both of those functions.
 
-### Examining the R function
+## Examining the R function
 
 Here are the docs for R's `startsWith()` (also available at https://stat.ethz.ch/R-manual/R-devel/library/base/html/startsWith.html)
 
@@ -73,13 +69,13 @@ knitr::include_graphics("./startswithdocs.png")
 It takes 2 parameters; `x` - the input, and `prefix` - the characters to check 
 if `x` starts with.
 
-### Examining the C++ function
+## Examining the C++ function
 
 Now, go to 
 [the compute function documentation](https://arrow.apache.org/docs/cpp/compute.html#containment-tests)
 and look for the Arrow C++ library's `starts_with()` function:
 
-```{r, echo=FALSE, out.width="50%"}
+```{r, echo=FALSE, out.width="100%"}
 knitr::include_graphics("./starts_with_docs.png")
 ```
 
@@ -90,7 +86,7 @@ value is boolean, both of which match up to R's `startsWith()`.
 There is an options class associated with `starts_with()` - called [`MatchSubstringOptions`](https://arrow.apache.org/docs/cpp/api/compute.html#_CPPv4N5arrow7compute21MatchSubstringOptionsE)
 - so let's take a look at that.
 
-```{r, echo=FALSE, out.width="50%"}
+```{r, echo=FALSE, out.width="100%"}
 knitr::include_graphics("./matchsubstringoptions.png")
 ```
 
@@ -98,7 +94,7 @@ Options classes allow the user to control the behaviour of the function.  In
 this case, there are two possible options which can be supplied - `pattern` and 
 `ignore_case`, which are described in the docs shown above.
 
-### Comparing the R and C++ functions
+## Comparing the R and C++ functions
 
 What conclusions can be drawn from what you've seen so far?
 
@@ -118,10 +114,10 @@ options are for specifying how exactly the function works.
 
 So let's get started.
 
-### Step 1 - add unit tests
+## Step 1 - add unit tests
 
 We recommend a test-driven-development approach - write failing tests first, 
-then check that they fail, and then write the code needed to make them pass.  
+then check that they fail, and then write the code needed to make them pass.
 Thinking up-front about the behavior which needs testing can make it easier to 
 reason about the code which needs writing later.
 
@@ -150,7 +146,7 @@ test_that("startsWith behaves identically in dplyr and Arrow", {
 })
 ```
 
-### Step 2 - hook up the compute function with options class if necessary
+## Step 2 - Hook up the compute function with options class if necessary
 
 If the C++ compute function can have options specified, make sure that the 
 function is linked with its options class in `make_compute_options()` in the 
@@ -177,11 +173,11 @@ give it a default value of `false` but if it's been set, use the set value
 instead.  As the `pattern` argument maps directly to `prefix` in `startsWith()`
 we can pass it straight through.
 
-### Step 3 - Map the R function to the C++ kernel
+## Step 3 - Map the R function to the C++ kernel
 
 The next task is writing the code which binds the R function to the C++ kernel.
 
-#### Step 3a - see if direct mapping is appropriate
+### Step 3a - See if direct mapping is appropriate
 Compare the C++ function and R function.  If they are simple functions with no 
 options, it might be possible to directly map between the C++ and R in 
 `unary_function_map`, in the case of compute functions that operate on single 
@@ -190,7 +186,7 @@ of data.
 
 As `startsWith()` requires options, direct mapping is not appropriate.
 
-#### Step 3b - If direct mapping not possible, try a modified implementation
+### Step 3b - If direct mapping not possible, try a modified implementation
 If the function cannot be mapped directly, some extra work may be needed to 
 ensure that calling the arrow version of the function results in the same result
 as calling the R version of the function.  In this case, the function will need 
@@ -219,7 +215,7 @@ call_function(
 )
 ```
 
-### Step 4 - Run (and potentially add to) your tests.
+## Step 4 - Run (and potentially add to) your tests.
 
 In the process of implementing the function, you may end up implementing more 
 tests.  This is fine - add them to the ones you wrote originally, and run them 
