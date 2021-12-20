@@ -308,4 +308,16 @@ bool Array__Same(const std::shared_ptr<arrow::Array>& x,
 int64_t Array__ReferencedBufferSize(const std::shared_ptr<arrow::Array>& x) {
   return ValueOrStop(arrow::util::ReferencedBufferSize(*x));
 }
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Array> MapArray__keys_nested(
+    const std::shared_ptr<arrow::MapArray>& array) {
+  return ValueOrStop(arrow::ListArray::FromArrays(*(array->offsets()), *(array->keys())));
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Array> MapArray__items_nested(
+    const std::shared_ptr<arrow::MapArray>& array) {
+  return ValueOrStop(arrow::ListArray::FromArrays(*(array->offsets()), *(array->items())));
+}
 #endif

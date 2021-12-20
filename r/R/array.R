@@ -361,6 +361,8 @@ MapArray <- R6Class("MapArray",
   inherit = ListArray,
   public = list(
     keys = function() MapArray__keys(self),
-    items = function() MapArray__items(self)
+    items = function() MapArray__items(self),
+    keys_nested = function() MapArray__keys_nested(self),
+    items_nested = function() MapArray__items_nested(self)
   )
 )

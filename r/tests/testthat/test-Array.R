@@ -582,9 +582,11 @@ test_that("Array$create() handles list of dataframes -> map arrays", {
     map_of(string(), int32())
   )
   expect_r6_class(arr, "MapArray")
-  browser()
-  expect_equal(arr$keys()$type, list_of(string()))
-  expect_equal(arr$items()$type, list_of(boolean())) # WHAT?!?!?!?!
+  expect_equal(arr$keys()$type, string())
+  expect_equal(arr$items()$type, int32())
+
+  expect_equal(arr$keys_nested()$type, list_of(string()))
+  expect_equal(arr$items_nested()$type, list_of(int32()))
 })
 
 test_that("Array$create() handles vector -> large list arrays", {

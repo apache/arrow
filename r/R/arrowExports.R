@@ -160,6 +160,14 @@ Array__ReferencedBufferSize <- function(x) {
   .Call(`_arrow_Array__ReferencedBufferSize`, x)
 }
 
+MapArray__keys_nested <- function(array) {
+  .Call(`_arrow_MapArray__keys_nested`, array)
+}
+
+MapArray__items_nested <- function(array) {
+  .Call(`_arrow_MapArray__items_nested`, array)
+}
+
 Array__as_vector <- function(array) {
   .Call(`_arrow_Array__as_vector`, array)
 }

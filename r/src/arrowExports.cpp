@@ -628,6 +628,36 @@ extern "C" SEXP _arrow_Array__ReferencedBufferSize(SEXP x_sexp){
 }
 #endif
 
+// array.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Array> MapArray__keys_nested(const std::shared_ptr<arrow::MapArray>& array);
+extern "C" SEXP _arrow_MapArray__keys_nested(SEXP array_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::MapArray>&>::type array(array_sexp);
+	return cpp11::as_sexp(MapArray__keys_nested(array));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_MapArray__keys_nested(SEXP array_sexp){
+	Rf_error("Cannot call MapArray__keys_nested(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// array.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Array> MapArray__items_nested(const std::shared_ptr<arrow::MapArray>& array);
+extern "C" SEXP _arrow_MapArray__items_nested(SEXP array_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::MapArray>&>::type array(array_sexp);
+	return cpp11::as_sexp(MapArray__items_nested(array));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_MapArray__items_nested(SEXP array_sexp){
+	Rf_error("Cannot call MapArray__items_nested(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
 // array_to_vector.cpp
 #if defined(ARROW_R_WITH_ARROW)
 SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array);
@@ -7591,6 +7621,8 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_MapArray__items", (DL_FUNC) &_arrow_MapArray__items, 1}, 
 		{ "_arrow_Array__Same", (DL_FUNC) &_arrow_Array__Same, 2}, 
 		{ "_arrow_Array__ReferencedBufferSize", (DL_FUNC) &_arrow_Array__ReferencedBufferSize, 1}, 
+		{ "_arrow_MapArray__keys_nested", (DL_FUNC) &_arrow_MapArray__keys_nested, 1}, 
+		{ "_arrow_MapArray__items_nested", (DL_FUNC) &_arrow_MapArray__items_nested, 1}, 
 		{ "_arrow_Array__as_vector", (DL_FUNC) &_arrow_Array__as_vector, 1}, 
 		{ "_arrow_ChunkedArray__as_vector", (DL_FUNC) &_arrow_ChunkedArray__as_vector, 2}, 
 		{ "_arrow_RecordBatch__to_dataframe", (DL_FUNC) &_arrow_RecordBatch__to_dataframe, 2}, 
