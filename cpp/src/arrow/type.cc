@@ -432,6 +432,21 @@ Result<std::shared_ptr<DataType>> MergeTypes(std::shared_ptr<DataType> promoted_
     return timestamp(CommonTimeUnit(left.unit(), right.unit()), left.timezone());
   }
 
+  if (options.promote_nested && promoted_type->id() == Type::MAP &&
+      other_type->id() == Type::MAP) {
+    const auto& left = checked_cast<const MapType&>(*promoted_type);
+    const auto& right = checked_cast<const MapType&>(*other_type);
+    ARROW_ASSIGN_OR_RAISE(const auto key_type,
+                          MergeTypes(left.key_type(), right.key_type(), options));
+    ARROW_ASSIGN_OR_RAISE(const auto item_type,
+                          MergeTypes(left.item_type(), right.item_type(), options));
+    // TODO: need to actually merge the field nullability (here and dictionary etc)
+    // TODO: tests
+    return std::make_shared<MapType>(
+        left.key_field()->WithType(key_type), left.item_field()->WithType(item_type),
+        /*keys_sorted=*/left.keys_sorted() && right.keys_sorted());
+  }
+
   if (options.promote_decimal_float) {
     if (is_decimal(promoted_type->id()) && is_floating(other_type->id())) {
       promoted_type = other_type;
