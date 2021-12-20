@@ -105,6 +105,9 @@ class GcsInputStream : public arrow::io::InputStream {
     return stream_.tellg() + offset_;
   }
 
+  // A gcs::ObjectReadStream can be "born closed".  For small objects the stream returns
+  // `IsOpen() == false` as soon as it is created, but the application can still read from
+  // it.
   bool closed() const override { return closed_ && !stream_.IsOpen(); }
   //@}
 
@@ -162,7 +165,16 @@ class GcsOutputStream : public arrow::io::OutputStream {
     return tell_;
   }
 
-  bool closed() const override { return closed_ && !stream_.IsOpen(); }
+  // gcs::ObjectWriteStream can be "closed" without an explicit Close() call. At this time
+  // this class does not use any of the mechanisms [*] that trigger such behavior.
+  // Nevertheless, we defensively prepare for them by checking either condition.
+  //
+  // [*]: These mechanisms include:
+  // - resumable uploads that are "resumed" after the upload completed are born
+  //   "closed",
+  // - uploads that prescribe their total size using the `x-upload-content-length` header
+  //   are completed and "closed" as soon as the upload reaches that size.
+  bool closed() const override { return closed_ || !stream_.IsOpen(); }
 
   Status Write(const void* data, int64_t nbytes) override {
     if (closed()) return Status::Invalid("Cannot write to a closed stream");
