@@ -41,15 +41,15 @@ namespace arrow {
 namespace flight {
 namespace sql {
 
-const char* ColumnMetadata::CATALOG_NAME = "CATALOG_NAME";
-const char* ColumnMetadata::SCHEMA_NAME = "SCHEMA_NAME";
-const char* ColumnMetadata::TABLE_NAME = "TABLE_NAME";
-const char* ColumnMetadata::PRECISION = "PRECISION";
-const char* ColumnMetadata::SCALE = "SCALE";
-const char* ColumnMetadata::IS_AUTO_INCREMENT = "IS_AUTO_INCREMENT";
-const char* ColumnMetadata::IS_CASE_SENSITIVE = "IS_CASE_SENSITIVE";
-const char* ColumnMetadata::IS_READ_ONLY = "IS_READ_ONLY";
-const char* ColumnMetadata::IS_SEARCHABLE = "IS_SEARCHABLE";
+const char* ColumnMetadata::CATALOG_NAME = "ARROW:FLIGHT:SQL:CATALOG_NAME";
+const char* ColumnMetadata::SCHEMA_NAME = "ARROW:FLIGHT:SQL:SCHEMA_NAME";
+const char* ColumnMetadata::TABLE_NAME = "ARROW:FLIGHT:SQL:TABLE_NAME";
+const char* ColumnMetadata::PRECISION = "ARROW:FLIGHT:SQL:PRECISION";
+const char* ColumnMetadata::SCALE = "ARROW:FLIGHT:SQL:SCALE";
+const char* ColumnMetadata::IS_AUTO_INCREMENT = "ARROW:FLIGHT:SQL:IS_AUTO_INCREMENT";
+const char* ColumnMetadata::IS_CASE_SENSITIVE = "ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE";
+const char* ColumnMetadata::IS_READ_ONLY = "ARROW:FLIGHT:SQL:IS_READ_ONLY";
+const char* ColumnMetadata::IS_SEARCHABLE = "ARROW:FLIGHT:SQL:IS_SEARCHABLE";
 
 ColumnMetadata::ColumnMetadata(std::shared_ptr<arrow::KeyValueMetadata> metadata_map) :
   metadata_map_(std::move(metadata_map)) {
