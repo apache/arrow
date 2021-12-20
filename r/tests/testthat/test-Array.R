@@ -807,7 +807,12 @@ test_that("Array$create() should have helpful error", {
     "You might want to try casting manually"
   )
 
-
+  a <- expect_error(Array$create("one", int32()))
+  b <- expect_error(vec_to_Array("one", int32()))
+  # the captured conditions (errors) are not identical, but their messages should be
+  expect_s3_class(a, "rlang_error")
+  expect_s3_class(b, "simpleError")
+  expect_identical(a$message, b$message)
 })
 
 test_that("Array$View() (ARROW-6542)", {
