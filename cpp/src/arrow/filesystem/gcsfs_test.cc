@@ -199,16 +199,26 @@ class GcsIntegrationTest : public ::testing::Test {
 
   Result<Hierarchy> CreateHierarchy(std::shared_ptr<arrow::fs::FileSystem> fs) {
     const char* const kTestFolders[] = {
-        "a/", "a/0/", "a/0/0/", "a/1/", "a/2/",
+        "b/",
+        "b/0/",
+        "b/0/0/",
+        "b/1/",
+        "b/2/",
+        // Create some additional folders that should not appear in any listing of b/
+        "aa/",
+        "ba/",
+        "c/",
     };
-    constexpr auto kFilesPerFolder = 4;
-    auto result = Hierarchy{PreexistingBucketPath() + "a/", {}};
+    constexpr auto kFilesPerFolder = 2;
+    auto base_dir = internal::ConcatAbstractPath(PreexistingBucketPath(), "b/");
+    auto result = Hierarchy{base_dir, {}};
     for (auto const* f : kTestFolders) {
-      const auto folder = PreexistingBucketPath() + f;
+      const auto folder = internal::ConcatAbstractPath(PreexistingBucketPath(), f);
       RETURN_NOT_OK(fs->CreateDir(folder, true));
       result.contents.push_back(arrow::fs::Dir(folder));
       for (int i = 0; i != kFilesPerFolder; ++i) {
-        const auto filename = folder + "test-file-" + std::to_string(i);
+        const auto filename =
+            internal::ConcatAbstractPath(folder, "test-file-" + std::to_string(i));
         CreateFile(fs.get(), filename, filename);
         result.contents.push_back(arrow::fs::File(filename));
       }
@@ -483,14 +493,19 @@ TEST_F(GcsIntegrationTest, GetFileInfoSelectorRecursive) {
   auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
   ASSERT_OK_AND_ASSIGN(auto hierarchy, CreateHierarchy(fs));
   std::vector<arrow::fs::FileInfo> expected;
-  std::copy_if(
-      hierarchy.contents.begin(), hierarchy.contents.end(), std::back_inserter(expected),
-      [&](const arrow::fs::FileInfo& info) { return hierarchy.base_dir != info.path(); });
+  std::copy_if(hierarchy.contents.begin(), hierarchy.contents.end(),
+               std::back_inserter(expected), [&](const arrow::fs::FileInfo& info) {
+                 if (!fs::internal::IsAncestorOf(hierarchy.base_dir, info.path())) {
+                   return false;
+                 }
+                 return hierarchy.base_dir != info.path();
+               });
 
   auto selector = FileSelector();
   selector.base_dir = hierarchy.base_dir;
   selector.allow_not_found = false;
   selector.recursive = true;
+  selector.max_recursion = 16;
   ASSERT_OK_AND_ASSIGN(auto results, fs->GetFileInfo(selector));
   EXPECT_THAT(results, UnorderedElementsAreArray(expected.begin(), expected.end()));
 }
@@ -513,6 +528,34 @@ TEST_F(GcsIntegrationTest, GetFileInfoSelectorNonRecursive) {
   selector.recursive = false;
   ASSERT_OK_AND_ASSIGN(auto results, fs->GetFileInfo(selector));
   EXPECT_THAT(results, UnorderedElementsAreArray(expected.begin(), expected.end()));
+}
+
+TEST_F(GcsIntegrationTest, GetFileInfoSelectorLimitedRecursion) {
+  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+  ASSERT_OK_AND_ASSIGN(auto hierarchy, CreateHierarchy(fs));
+
+  for (const auto max_recursion : {0, 1, 2, 3}) {
+    SCOPED_TRACE("Testing with max_recursion=" + std::to_string(max_recursion));
+    const auto max_depth =
+        internal::Depth(internal::EnsureTrailingSlash(hierarchy.base_dir)) +
+        max_recursion;
+    std::vector<arrow::fs::FileInfo> expected;
+    std::copy_if(hierarchy.contents.begin(), hierarchy.contents.end(),
+                 std::back_inserter(expected), [&](const arrow::fs::FileInfo& info) {
+                   if (info.path() == hierarchy.base_dir) return false;
+                   if (!fs::internal::IsAncestorOf(hierarchy.base_dir, info.path())) {
+                     return false;
+                   }
+                   return internal::Depth(info.path()) <= max_depth;
+                 });
+    auto selector = FileSelector();
+    selector.base_dir = hierarchy.base_dir;
+    selector.allow_not_found = true;
+    selector.recursive = true;
+    selector.max_recursion = max_recursion;
+    ASSERT_OK_AND_ASSIGN(auto results, fs->GetFileInfo(selector));
+    EXPECT_THAT(results, UnorderedElementsAreArray(expected.begin(), expected.end()));
+  }
 }
 
 TEST_F(GcsIntegrationTest, GetFileInfoSelectorNotFoundTrue) {
@@ -591,7 +634,10 @@ TEST_F(GcsIntegrationTest, DeleteDirSuccess) {
   arrow::fs::AssertFileInfo(fs.get(), PreexistingBucketPath(), FileType::Directory);
   arrow::fs::AssertFileInfo(fs.get(), PreexistingObjectPath(), FileType::File);
   for (auto const& info : hierarchy.contents) {
-    arrow::fs::AssertFileInfo(fs.get(), info.path(), FileType::NotFound);
+    const auto expected_type = fs::internal::IsAncestorOf(hierarchy.base_dir, info.path())
+                                   ? FileType::NotFound
+                                   : info.type();
+    arrow::fs::AssertFileInfo(fs.get(), info.path(), expected_type);
   }
 }
 
@@ -604,8 +650,12 @@ TEST_F(GcsIntegrationTest, DeleteDirContentsSuccess) {
   arrow::fs::AssertFileInfo(fs.get(), PreexistingBucketPath(), FileType::Directory);
   arrow::fs::AssertFileInfo(fs.get(), PreexistingObjectPath(), FileType::File);
   for (auto const& info : hierarchy.contents) {
-    if (info.path() == hierarchy.base_dir) continue;
-    arrow::fs::AssertFileInfo(fs.get(), info.path(), FileType::NotFound);
+    auto expected_type = FileType::NotFound;
+    if (info.path() == hierarchy.base_dir ||
+        !fs::internal::IsAncestorOf(hierarchy.base_dir, info.path())) {
+      expected_type = info.type();
+    }
+    arrow::fs::AssertFileInfo(fs.get(), info.path(), expected_type);
   }
 }
 

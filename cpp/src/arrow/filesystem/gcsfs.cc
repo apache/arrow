@@ -298,7 +298,9 @@ class GcsFileSystem::Impl {
 
   Result<FileInfoVector> GetFileInfo(const FileSelector& select) {
     ARROW_ASSIGN_OR_RAISE(auto p, GcsPath::FromString(select.base_dir));
-    auto prefix = p.object.empty() ? gcs::Prefix() : gcs::Prefix(p.object);
+    const auto canonical = internal::EnsureTrailingSlash(p.object);
+    const auto max_depth = internal::Depth(canonical) + select.max_recursion;
+    auto prefix = p.object.empty() ? gcs::Prefix() : gcs::Prefix(canonical);
     auto delimiter = select.recursive ? gcs::Delimiter() : gcs::Delimiter("/");
     bool found_directory = false;
     FileInfoVector result;
@@ -311,8 +313,9 @@ class GcsFileSystem::Impl {
         return internal::ToArrowStatus(o.status());
       }
       found_directory = true;
-      // Skip the directory itself from the results
-      if (o->name() == p.object) {
+      // Skip the directory itself from the results, and any result that is "too deep"
+      // into the recursion.
+      if (o->name() == p.object || internal::Depth(o->name()) > max_depth) {
         continue;
       }
       auto path = internal::ConcatAbstractPath(o->bucket(), o->name());
