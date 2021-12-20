@@ -21,6 +21,8 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <sqlite3.h>
+
 #include <condition_variable>
 #include <thread>
 
@@ -32,6 +34,7 @@
 #include "arrow/flight/types.h"
 #include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/flight/sql/column_metadata.h"
 
 using ::testing::_;
 using ::testing::Ref;
@@ -360,14 +363,25 @@ TEST_F(TestFlightSqlServer, TestCommandGetTablesWithIncludedSchemas) {
   std::shared_ptr<Table> table;
   ASSERT_OK(stream->ReadAll(&table));
 
+  const char* db_table_name = "intTable";
+
   const auto catalog_name = ArrayFromJSON(utf8(), R"([null])");
   const auto schema_name = ArrayFromJSON(utf8(), R"([null])");
   const auto table_name = ArrayFromJSON(utf8(), R"(["intTable"])");
   const auto table_type = ArrayFromJSON(utf8(), R"(["table"])");
 
   const std::shared_ptr<Schema> schema_table = arrow::schema(
-      {arrow::field("id", int64(), true), arrow::field("keyName", utf8(), true),
-       arrow::field("value", int64(), true), arrow::field("foreignId", int64(), true)});
+  {arrow::field("id", int64(), true,
+   example::GetColumnMetadata(SQLITE_INTEGER, db_table_name).GetMetadataMap()),
+   arrow::field("keyName", utf8(), true,
+                example::GetColumnMetadata(
+                  SQLITE_TEXT, db_table_name).GetMetadataMap()),
+   arrow::field("value", int64(), true,
+                example::GetColumnMetadata(
+                  SQLITE_INTEGER, db_table_name).GetMetadataMap()),
+   arrow::field("foreignId", int64(), true,
+                example::GetColumnMetadata(
+                  SQLITE_INTEGER, db_table_name).GetMetadataMap())});
 
   ASSERT_OK_AND_ASSIGN(auto schema_buffer, ipc::SerializeSchema(*schema_table));
 
@@ -404,7 +418,8 @@ TEST_F(TestFlightSqlServer, TestCommandGetDbSchemas) {
                        sql_client->GetDbSchemas(options, catalog, schema_filter_pattern));
 
   ASSERT_OK_AND_ASSIGN(auto stream,
-                       sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
+                       sql_client->
+                       DoGet({}, flight_info->endpoints()[0].ticket));
 
   std::shared_ptr<Table> table;
   ASSERT_OK(stream->ReadAll(&table));
@@ -464,9 +479,22 @@ TEST_F(TestFlightSqlServer, TestCommandPreparedStatementQuery) {
   std::shared_ptr<Table> table;
   ASSERT_OK(stream->ReadAll(&table));
 
+  const char * db_table_name = "intTable";
+
   const std::shared_ptr<Schema>& expected_schema =
-      arrow::schema({arrow::field("id", int64()), arrow::field("keyName", utf8()),
-                     arrow::field("value", int64()), arrow::field("foreignId", int64())});
+      arrow::schema({
+        arrow::field("id", int64(),
+                     example::GetColumnMetadata(
+                       SQLITE_INTEGER, db_table_name).GetMetadataMap()),
+        arrow::field("keyName", utf8(),
+                     example::GetColumnMetadata(
+                       SQLITE_TEXT, db_table_name).GetMetadataMap()),
+        arrow::field("value", int64(),
+                     example::GetColumnMetadata(
+                       SQLITE_INTEGER, db_table_name).GetMetadataMap()),
+        arrow::field("foreignId", int64(),
+                     example::GetColumnMetadata(
+                       SQLITE_INTEGER, db_table_name).GetMetadataMap())});
 
   const auto id_array = ArrayFromJSON(int64(), R"([1, 2, 3, 4])");
   const auto keyname_array =
