@@ -736,7 +736,9 @@ if(ARROW_FLIGHT_SQL)
   add_subdirectory(flight/sql)
 endif()
 
-if(ARROW_FLIGHT AND ARROW_FLIGHT_SQL AND ARROW_BUILD_INTEGRATION)
+if(ARROW_FLIGHT
+   AND ARROW_FLIGHT_SQL
+   AND ARROW_BUILD_INTEGRATION)
   add_subdirectory(flight/integration_tests)
 endif()
 

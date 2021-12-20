@@ -758,7 +758,7 @@ TEST_F(TestFlightSqlServer, TestCommandGetSqlInfoNoInfo) {
   ASSERT_OK_AND_ASSIGN(auto flight_info, sql_client->GetSqlInfo(call_options, {999999}));
 
   EXPECT_RAISES_WITH_MESSAGE_THAT(
-      KeyError, ::testing::HasSubstr("No information for SQL info number 999999."),
+      KeyError, ::testing::HasSubstr("No information for SQL info number 999999"),
       sql_client->DoGet(call_options, flight_info->endpoints()[0].ticket));
 }
 
