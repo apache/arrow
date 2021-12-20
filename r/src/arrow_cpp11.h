@@ -57,12 +57,44 @@ namespace r {
 template <typename T>
 struct Pointer {
   Pointer() : ptr_(new T()) {}
-  explicit Pointer(SEXP x)
-      : ptr_(reinterpret_cast<T*>(static_cast<uintptr_t>(REAL(x)[0]))) {}
+  explicit Pointer(SEXP x) {
+    if (TYPEOF(x) == EXTPTRSXP) {
+      ptr_ = (T*)R_ExternalPtrAddr(x);
+    } else if (TYPEOF(x) == STRSXP && Rf_length(x) == 1) {
+      // User passed a character representation of the pointer address
+      SEXP char0 = STRING_ELT(x, 0);
+      if (char0 == NA_STRING) {
+        cpp11::stop("Can't convert NA_character_ to pointer");
+      }
 
-  inline operator SEXP() const {
-    return Rf_ScalarReal(static_cast<double>(reinterpret_cast<uintptr_t>(ptr_)));
+      const char* input_chars = CHAR(char0);
+      char* endptr;
+      uint64_t ptr_value = strtoull(input_chars, &endptr, 0);
+      if (endptr != (input_chars + strlen(input_chars))) {
+        cpp11::stop("Can't parse '%s' as a 64-bit integer address", input_chars);
+      }
+
+      ptr_ = reinterpret_cast<T*>(static_cast<uintptr_t>(ptr_value));
+    } else if (Rf_inherits(x, "integer64") && Rf_length(x) == 1) {
+      // User passed an integer64(1) of the pointer address
+      // an integer64 is a REALSXP under the hood, with the bytes
+      // of each double reinterpreted as an int64.
+      uint64_t ptr_value;
+      memcpy(&ptr_value, REAL(x), sizeof(uint64_t));
+      ptr_ = reinterpret_cast<T*>(static_cast<uintptr_t>(ptr_value));
+    } else if (TYPEOF(x) == RAWSXP && Rf_length(x) == sizeof(T*)) {
+      // User passed a raw(<pointer size>) with the literal bytes of the
+      // pointer.
+      memcpy(&ptr_, RAW(x), sizeof(T*));
+    } else if (TYPEOF(x) == REALSXP && Rf_length(x) == 1) {
+      // User passed a double(1) of the static-casted pointer address.
+      ptr_ = reinterpret_cast<T*>(static_cast<uintptr_t>(REAL(x)[0]));
+    } else {
+      cpp11::stop("Can't convert input object to pointer");
+    }
   }
+
+  inline operator SEXP() const { return R_MakeExternalPtr(ptr_, R_NilValue, R_NilValue); }
 
   inline operator T*() const { return ptr_; }
 

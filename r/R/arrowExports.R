@@ -184,6 +184,94 @@ ArrayData__buffers <- function(x) {
   .Call(`_arrow_ArrayData__buffers`, x)
 }
 
+external_pointer_addr_double <- function(external_pointer) {
+  .Call(`_arrow_external_pointer_addr_double`, external_pointer)
+}
+
+external_pointer_addr_character <- function(external_pointer) {
+  .Call(`_arrow_external_pointer_addr_character`, external_pointer)
+}
+
+external_pointer_addr_integer64 <- function(external_pointer) {
+  .Call(`_arrow_external_pointer_addr_integer64`, external_pointer)
+}
+
+external_pointer_addr_raw <- function(external_pointer) {
+  .Call(`_arrow_external_pointer_addr_raw`, external_pointer)
+}
+
+allocate_arrow_schema <- function() {
+  .Call(`_arrow_allocate_arrow_schema`)
+}
+
+delete_arrow_schema <- function(ptr) {
+  invisible(.Call(`_arrow_delete_arrow_schema`, ptr))
+}
+
+allocate_arrow_array <- function() {
+  .Call(`_arrow_allocate_arrow_array`)
+}
+
+delete_arrow_array <- function(ptr) {
+  invisible(.Call(`_arrow_delete_arrow_array`, ptr))
+}
+
+allocate_arrow_array_stream <- function() {
+  .Call(`_arrow_allocate_arrow_array_stream`)
+}
+
+delete_arrow_array_stream <- function(ptr) {
+  invisible(.Call(`_arrow_delete_arrow_array_stream`, ptr))
+}
+
+ImportArray <- function(array, schema) {
+  .Call(`_arrow_ImportArray`, array, schema)
+}
+
+ImportRecordBatch <- function(array, schema) {
+  .Call(`_arrow_ImportRecordBatch`, array, schema)
+}
+
+ImportSchema <- function(schema) {
+  .Call(`_arrow_ImportSchema`, schema)
+}
+
+ImportField <- function(field) {
+  .Call(`_arrow_ImportField`, field)
+}
+
+ImportType <- function(type) {
+  .Call(`_arrow_ImportType`, type)
+}
+
+ImportRecordBatchReader <- function(stream) {
+  .Call(`_arrow_ImportRecordBatchReader`, stream)
+}
+
+ExportType <- function(type, ptr) {
+  invisible(.Call(`_arrow_ExportType`, type, ptr))
+}
+
+ExportField <- function(field, ptr) {
+  invisible(.Call(`_arrow_ExportField`, field, ptr))
+}
+
+ExportSchema <- function(schema, ptr) {
+  invisible(.Call(`_arrow_ExportSchema`, schema, ptr))
+}
+
+ExportArray <- function(array, array_ptr, schema_ptr) {
+  invisible(.Call(`_arrow_ExportArray`, array, array_ptr, schema_ptr))
+}
+
+ExportRecordBatch <- function(batch, array_ptr, schema_ptr) {
+  invisible(.Call(`_arrow_ExportRecordBatch`, batch, array_ptr, schema_ptr))
+}
+
+ExportRecordBatchReader <- function(reader, stream_ptr) {
+  invisible(.Call(`_arrow_ExportRecordBatchReader`, reader, stream_ptr))
+}
+
 Buffer__is_mutable <- function(buffer) {
   .Call(`_arrow_Buffer__is_mutable`, buffer)
 }
@@ -1370,78 +1458,6 @@ parquet___arrow___WriteTable <- function(table, sink, properties, arrow_properti
 
 parquet___arrow___FileReader__GetSchema <- function(reader) {
   .Call(`_arrow_parquet___arrow___FileReader__GetSchema`, reader)
-}
-
-allocate_arrow_schema <- function() {
-  .Call(`_arrow_allocate_arrow_schema`)
-}
-
-delete_arrow_schema <- function(ptr) {
-  invisible(.Call(`_arrow_delete_arrow_schema`, ptr))
-}
-
-allocate_arrow_array <- function() {
-  .Call(`_arrow_allocate_arrow_array`)
-}
-
-delete_arrow_array <- function(ptr) {
-  invisible(.Call(`_arrow_delete_arrow_array`, ptr))
-}
-
-allocate_arrow_array_stream <- function() {
-  .Call(`_arrow_allocate_arrow_array_stream`)
-}
-
-delete_arrow_array_stream <- function(ptr) {
-  invisible(.Call(`_arrow_delete_arrow_array_stream`, ptr))
-}
-
-ImportArray <- function(array, schema) {
-  .Call(`_arrow_ImportArray`, array, schema)
-}
-
-ImportRecordBatch <- function(array, schema) {
-  .Call(`_arrow_ImportRecordBatch`, array, schema)
-}
-
-ImportSchema <- function(schema) {
-  .Call(`_arrow_ImportSchema`, schema)
-}
-
-ImportField <- function(field) {
-  .Call(`_arrow_ImportField`, field)
-}
-
-ImportType <- function(type) {
-  .Call(`_arrow_ImportType`, type)
-}
-
-ImportRecordBatchReader <- function(stream) {
-  .Call(`_arrow_ImportRecordBatchReader`, stream)
-}
-
-ExportType <- function(type, ptr) {
-  invisible(.Call(`_arrow_ExportType`, type, ptr))
-}
-
-ExportField <- function(field, ptr) {
-  invisible(.Call(`_arrow_ExportField`, field, ptr))
-}
-
-ExportSchema <- function(schema, ptr) {
-  invisible(.Call(`_arrow_ExportSchema`, schema, ptr))
-}
-
-ExportArray <- function(array, array_ptr, schema_ptr) {
-  invisible(.Call(`_arrow_ExportArray`, array, array_ptr, schema_ptr))
-}
-
-ExportRecordBatch <- function(batch, array_ptr, schema_ptr) {
-  invisible(.Call(`_arrow_ExportRecordBatch`, batch, array_ptr, schema_ptr))
-}
-
-ExportRecordBatchReader <- function(reader, stream_ptr) {
-  invisible(.Call(`_arrow_ExportRecordBatchReader`, reader, stream_ptr))
 }
 
 Table__from_dots <- function(lst, schema_sxp, use_threads) {
