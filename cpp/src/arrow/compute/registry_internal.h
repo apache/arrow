@@ -31,6 +31,7 @@ void RegisterScalarCast(FunctionRegistry* registry);
 void RegisterScalarComparison(FunctionRegistry* registry);
 void RegisterScalarIfElse(FunctionRegistry* registry);
 void RegisterScalarNested(FunctionRegistry* registry);
+void RegisterScalarRandom(FunctionRegistry* registry);  // Nullary
 void RegisterScalarSetLookup(FunctionRegistry* registry);
 void RegisterScalarStringAscii(FunctionRegistry* registry);
 void RegisterScalarTemporalBinary(FunctionRegistry* registry);
@@ -58,9 +59,6 @@ void RegisterScalarAggregateTDigest(FunctionRegistry* registry);
 void RegisterScalarAggregateVariance(FunctionRegistry* registry);
 
 void RegisterAggregateOptions(FunctionRegistry* registry);
-
-// Uniform random generator
-void RegisterNullaryRandom(FunctionRegistry* registry);
 
 }  // namespace internal
 }  // namespace compute

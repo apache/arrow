@@ -28,12 +28,15 @@
 namespace arrow {
 namespace compute {
 namespace internal {
+
 namespace {
 
 // Generates a random floating point number in range [0, 1).
 double generate_uniform(random::pcg64_fast& rng) {
   // This equation is copied from numpy. It calculates `rng() / 2^64` and
   // the return value is strictly less than 1.
+  static_assert(random::pcg64_fast::min() == 0ULL, "");
+  static_assert(random::pcg64_fast::max() == ~0ULL, "");
   return (rng() >> 11) * (1.0 / 9007199254740992.0);
 }
 
@@ -78,7 +81,7 @@ const FunctionDoc random_doc{
 
 }  // namespace
 
-void RegisterNullaryRandom(FunctionRegistry* registry) {
+void RegisterScalarRandom(FunctionRegistry* registry) {
   static auto random_options = RandomOptions::Defaults();
 
   auto random_func = std::make_shared<ScalarFunction>("random", Arity::Nullary(),

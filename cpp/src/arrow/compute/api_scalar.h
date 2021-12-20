@@ -420,35 +420,28 @@ struct ARROW_EXPORT Utf8NormalizeOptions : public FunctionOptions {
   Form form;
 };
 
-class ARROW_EXPORT NullaryOptions : public FunctionOptions {
- public:
-  explicit NullaryOptions(int64_t length);
-
-  /// The length of the array returned by the nullary function. Negative is invalid.
-  int64_t length;
-};
-
-class ARROW_EXPORT RandomOptions : public NullaryOptions {
+class ARROW_EXPORT RandomOptions : public FunctionOptions {
  public:
   enum Initializer { SystemRandom, Seed };
 
   static RandomOptions FromSystemRandom(int64_t length) {
-    return RandomOptions{SystemRandom, length, 0};
+    return RandomOptions{length, SystemRandom, 0};
   }
-  static RandomOptions FromSeed(int64_t length, int64_t seed) {
-    return RandomOptions{Seed, length, seed};
+  static RandomOptions FromSeed(int64_t length, uint32_t seed) {
+    return RandomOptions{length, Seed, seed};
   }
 
-  RandomOptions(Initializer initializer, int64_t length, int64_t seed);
-  // Default constructor creates an invalid options struct, but is required for Python
+  RandomOptions(int64_t length, Initializer initializer, uint32_t seed);
   RandomOptions();
   constexpr static char const kTypeName[] = "RandomOptions";
   static RandomOptions Defaults() { return RandomOptions(); }
 
+  /// The length of the array returned. Negative is invalid.
+  int64_t length;
   /// The type of initialization for random number generation - system or provided seed.
   Initializer initializer;
   /// The seed value used to initialize the random number generation.
-  int64_t seed;
+  uint32_t seed;
 };
 
 /// @}

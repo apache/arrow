@@ -17,37 +17,39 @@
 
 #include <gtest/gtest.h>
 
-#include <cstdlib>
-
 #include "arrow/compute/api.h"
+#include "arrow/compute/kernels/test_util.h"
 #include "arrow/testing/gtest_util.h"
-#include "arrow/util/checked_cast.h"
 
 namespace arrow {
 namespace compute {
+
 namespace {
 
 void TestRandomWithOptions(const RandomOptions& random_options) {
-  using arrow::internal::checked_cast;
-  double sum = 0;
-  double square_sum = 0;
   ASSERT_OK_AND_ASSIGN(Datum result, CallFunction("random", {}, &random_options));
-  auto result_array = result.make_array();
+  const auto result_array = result.make_array();
+  ValidateOutput(*result_array);
   ASSERT_EQ(result_array->length(), random_options.length);
-  for (int i = 0; i < random_options.length; ++i) {
-    ASSERT_OK_AND_ASSIGN(auto result_scalar, result_array->GetScalar(i));
-    const auto& double_scalar = checked_cast<const DoubleScalar&>(*result_scalar);
-    ASSERT_GE(double_scalar.value, 0);
-    ASSERT_LT(double_scalar.value, 1);
-    sum += double_scalar.value;
-    square_sum += double_scalar.value * double_scalar.value;
-  }
+  ASSERT_EQ(result_array->null_count(), 0);
+  AssertTypeEqual(result_array->type(), float64());
 
-  // verify E(X), E(X^2) is near theory
-  const double E_X = 0.5;
-  const double E_X2 = 1.0 / 12 + E_X * E_X;
-  ASSERT_NEAR(sum / random_options.length, E_X, std::abs(E_X) * 0.02);
-  ASSERT_NEAR(square_sum / random_options.length, E_X2, E_X2 * 0.02);
+  if (random_options.length > 0) {
+    // verify E(X), E(X^2) is near theory
+    double sum = 0, square_sum = 0;
+    const double* values = result_array->data()->GetValues<double>(1);
+    for (int64_t i = 0; i < random_options.length; ++i) {
+      const double value = values[i];
+      ASSERT_GE(value, 0);
+      ASSERT_LT(value, 1);
+      sum += value;
+      square_sum += value * value;
+    }
+    const double E_X = 0.5;
+    const double E_X2 = 1.0 / 12 + E_X * E_X;
+    ASSERT_NEAR(sum / random_options.length, E_X, E_X * 0.02);
+    ASSERT_NEAR(square_sum / random_options.length, E_X2, E_X2 * 0.02);
+  }
 }
 
 }  // namespace
@@ -70,6 +72,14 @@ TEST(TestRandom, SeedIsDeterministic) {
   ASSERT_OK_AND_ASSIGN(Datum first_call, CallFunction("random", {}, &random_options));
   ASSERT_OK_AND_ASSIGN(Datum second_call, CallFunction("random", {}, &random_options));
   AssertDatumsEqual(first_call, second_call);
+}
+
+TEST(TestRandom, Length) {
+  auto random_options = RandomOptions::FromSystemRandom(/*length=*/0);
+  TestRandomWithOptions(random_options);
+
+  random_options = RandomOptions::FromSystemRandom(/*length=*/-1);
+  ASSERT_RAISES(Invalid, CallFunction("random", {}, &random_options));
 }
 
 }  // namespace compute
