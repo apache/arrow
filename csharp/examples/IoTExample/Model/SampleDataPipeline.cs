@@ -44,7 +44,7 @@ namespace IoTPipelineExample
         private readonly ConcurrentBag<double> _colZAxis;
 
         private readonly int _threshold = 1_000_00;
-        private readonly ConcurrentBag<RecordBatch> _recordBatches;
+        private readonly List<RecordBatch> _recordBatches;
         private readonly MemoryAllocator _memoryAllocator;
 
         public Dictionary<string, string> activityLabel = new Dictionary<string, string>()
@@ -84,7 +84,7 @@ namespace IoTPipelineExample
             _colYAxis = new ConcurrentBag<double>();
             _colZAxis = new ConcurrentBag<double>();
 
-            _recordBatches = new ConcurrentBag<RecordBatch>();
+            _recordBatches = new List<RecordBatch>();
             _memoryAllocator = new NativeMemoryAllocator(alignment: 64);
         }
 
@@ -163,7 +163,7 @@ namespace IoTPipelineExample
             }
         }
 
-        public async Task PersistData(string path)
+        public async Task<string> PersistData(string path)
         {
             await _reader.Completion;
 
@@ -185,9 +185,7 @@ namespace IoTPipelineExample
             Stopwatch stopwatch = new Stopwatch();
             stopwatch.Start();
 
-            _recordBatches.TryPeek(out RecordBatch recordBatch1);
-            Schema schema = recordBatch1.Schema;
-
+            Schema schema = _recordBatches[0].Schema;
             // Write record batches to an arrow file
             using (var stream = File.OpenWrite(path))
             using (var writer = new ArrowFileWriter(stream, schema))
@@ -209,6 +207,8 @@ namespace IoTPipelineExample
             stopwatch.Stop();
             TimeSpan ts = stopwatch.Elapsed;
             Console.WriteLine($"Checkpointing is done, time used is: {ts.Minutes} min {ts.Seconds} sec");
+
+            return path;
         }
     }
 
