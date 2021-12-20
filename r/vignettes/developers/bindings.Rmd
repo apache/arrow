@@ -10,7 +10,7 @@ library(dplyr, warn.conflicts = FALSE)
 When writing bindings between C++ compute functions and R functions, the aim is 
 to expose the C++ functionality via existing R functions. The syntax and 
 functionality should match that of the existing R functions 
-(though with some exceptions) so that users are able to use existing tidyverse 
+(though there are some exceptions) so that users are able to use existing tidyverse 
 or base R syntax, whilst taking advantage of the speed and functionality of the 
 underlying arrow package.
 
