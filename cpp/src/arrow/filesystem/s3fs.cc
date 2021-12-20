@@ -402,6 +402,10 @@ struct S3Path {
   std::vector<std::string> key_parts;
 
   static Result<S3Path> FromString(const std::string& s) {
+    if (internal::IsLikelyUri(s)) {
+      return Status::Invalid(
+          "Expected an S3 object path of the form 'bucket/key...', got a URI: '", s, "'");
+    }
     const auto src = internal::RemoveTrailingSlash(s);
     auto first_sep = src.find_first_of(kSep);
     if (first_sep == 0) {
@@ -415,14 +419,14 @@ struct S3Path {
     path.bucket = std::string(src.substr(0, first_sep));
     path.key = std::string(src.substr(first_sep + 1));
     path.key_parts = internal::SplitAbstractPath(path.key);
-    RETURN_NOT_OK(Validate(&path));
+    RETURN_NOT_OK(Validate(path));
     return path;
   }
 
-  static Status Validate(const S3Path* path) {
-    auto result = internal::ValidateAbstractPathParts(path->key_parts);
+  static Status Validate(const S3Path& path) {
+    auto result = internal::ValidateAbstractPathParts(path.key_parts);
     if (!result.ok()) {
-      return Status::Invalid(result.message(), " in path ", path->full_path);
+      return Status::Invalid(result.message(), " in path ", path.full_path);
     } else {
       return result;
     }

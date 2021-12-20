@@ -245,6 +245,17 @@ Result<std::shared_ptr<io::OutputStream>> FileSystem::OpenAppendStream(
 //////////////////////////////////////////////////////////////////////////
 // SubTreeFileSystem implementation
 
+namespace {
+
+Status ValidateSubPath(util::string_view s) {
+  if (internal::IsLikelyUri(s)) {
+    return Status::Invalid("Expected a filesystem path, got a URI: '", s, "'");
+  }
+  return Status::OK();
+}
+
+}  // namespace
+
 SubTreeFileSystem::SubTreeFileSystem(const std::string& base_path,
                                      std::shared_ptr<FileSystem> base_fs)
     : FileSystem(base_fs->io_context()),
@@ -270,7 +281,8 @@ bool SubTreeFileSystem::Equals(const FileSystem& other) const {
   return base_path_ == subfs.base_path_ && base_fs_->Equals(subfs.base_fs_);
 }
 
-std::string SubTreeFileSystem::PrependBase(const std::string& s) const {
+Result<std::string> SubTreeFileSystem::PrependBase(const std::string& s) const {
+  RETURN_NOT_OK(ValidateSubPath(s));
   if (s.empty()) {
     return base_path_;
   } else {
@@ -278,12 +290,12 @@ std::string SubTreeFileSystem::PrependBase(const std::string& s) const {
   }
 }
 
-Status SubTreeFileSystem::PrependBaseNonEmpty(std::string* s) const {
-  if (s->empty()) {
+Result<std::string> SubTreeFileSystem::PrependBaseNonEmpty(const std::string& s) const {
+  RETURN_NOT_OK(ValidateSubPath(s));
+  if (s.empty()) {
     return Status::IOError("Empty path");
   } else {
-    *s = ConcatAbstractPath(base_path_, *s);
-    return Status::OK();
+    return ConcatAbstractPath(base_path_, s);
   }
 }
 
@@ -305,19 +317,21 @@ Status SubTreeFileSystem::FixInfo(FileInfo* info) const {
 }
 
 Result<std::string> SubTreeFileSystem::NormalizePath(std::string path) {
-  ARROW_ASSIGN_OR_RAISE(auto normalized, base_fs_->NormalizePath(PrependBase(path)));
+  ARROW_ASSIGN_OR_RAISE(auto real_path, PrependBase(path));
+  ARROW_ASSIGN_OR_RAISE(auto normalized, base_fs_->NormalizePath(real_path));
   return StripBase(std::move(normalized));
 }
 
 Result<FileInfo> SubTreeFileSystem::GetFileInfo(const std::string& path) {
-  ARROW_ASSIGN_OR_RAISE(FileInfo info, base_fs_->GetFileInfo(PrependBase(path)));
+  ARROW_ASSIGN_OR_RAISE(auto real_path, PrependBase(path));
+  ARROW_ASSIGN_OR_RAISE(FileInfo info, base_fs_->GetFileInfo(real_path));
   RETURN_NOT_OK(FixInfo(&info));
   return info;
 }
 
 Result<std::vector<FileInfo>> SubTreeFileSystem::GetFileInfo(const FileSelector& select) {
   auto selector = select;
-  selector.base_dir = PrependBase(selector.base_dir);
+  ARROW_ASSIGN_OR_RAISE(selector.base_dir, PrependBase(selector.base_dir));
   ARROW_ASSIGN_OR_RAISE(auto infos, base_fs_->GetFileInfo(selector));
   for (auto& info : infos) {
     RETURN_NOT_OK(FixInfo(&info));
@@ -327,7 +341,11 @@ Result<std::vector<FileInfo>> SubTreeFileSystem::GetFileInfo(const FileSelector&
 
 FileInfoGenerator SubTreeFileSystem::GetFileInfoGenerator(const FileSelector& select) {
   auto selector = select;
-  selector.base_dir = PrependBase(selector.base_dir);
+  auto maybe_base_dir = PrependBase(selector.base_dir);
+  if (!maybe_base_dir.ok()) {
+    return MakeFailingGenerator<std::vector<FileInfo>>(maybe_base_dir.status());
+  }
+  selector.base_dir = *std::move(maybe_base_dir);
   auto gen = base_fs_->GetFileInfoGenerator(selector);
 
   auto self = checked_pointer_cast<SubTreeFileSystem>(shared_from_this());
@@ -343,23 +361,21 @@ FileInfoGenerator SubTreeFileSystem::GetFileInfoGenerator(const FileSelector& se
 }
 
 Status SubTreeFileSystem::CreateDir(const std::string& path, bool recursive) {
-  auto s = path;
-  RETURN_NOT_OK(PrependBaseNonEmpty(&s));
-  return base_fs_->CreateDir(s, recursive);
+  ARROW_ASSIGN_OR_RAISE(auto real_path, PrependBaseNonEmpty(path));
+  return base_fs_->CreateDir(real_path, recursive);
 }
 
 Status SubTreeFileSystem::DeleteDir(const std::string& path) {
-  auto s = path;
-  RETURN_NOT_OK(PrependBaseNonEmpty(&s));
-  return base_fs_->DeleteDir(s);
+  ARROW_ASSIGN_OR_RAISE(auto real_path, PrependBaseNonEmpty(path));
+  return base_fs_->DeleteDir(real_path);
 }
 
 Status SubTreeFileSystem::DeleteDirContents(const std::string& path) {
   if (internal::IsEmptyPath(path)) {
     return internal::InvalidDeleteDirContents(path);
   }
-  auto s = PrependBase(path);
-  return base_fs_->DeleteDirContents(s);
+  ARROW_ASSIGN_OR_RAISE(auto real_path, PrependBase(path));
+  return base_fs_->DeleteDirContents(real_path);
 }
 
 Status SubTreeFileSystem::DeleteRootDirContents() {
@@ -371,103 +387,88 @@ Status SubTreeFileSystem::DeleteRootDirContents() {
 }
 
 Status SubTreeFileSystem::DeleteFile(const std::string& path) {
-  auto s = path;
-  RETURN_NOT_OK(PrependBaseNonEmpty(&s));
-  return base_fs_->DeleteFile(s);
+  ARROW_ASSIGN_OR_RAISE(auto real_path, PrependBaseNonEmpty(path));
+  return base_fs_->DeleteFile(real_path);
 }
 
 Status SubTreeFileSystem::Move(const std::string& src, const std::string& dest) {
-  auto s = src;
-  auto d = dest;
-  RETURN_NOT_OK(PrependBaseNonEmpty(&s));
-  RETURN_NOT_OK(PrependBaseNonEmpty(&d));
-  return base_fs_->Move(s, d);
+  ARROW_ASSIGN_OR_RAISE(auto real_src, PrependBaseNonEmpty(src));
+  ARROW_ASSIGN_OR_RAISE(auto real_dest, PrependBaseNonEmpty(dest));
+  return base_fs_->Move(real_src, real_dest);
 }
 
 Status SubTreeFileSystem::CopyFile(const std::string& src, const std::string& dest) {
-  auto s = src;
-  auto d = dest;
-  RETURN_NOT_OK(PrependBaseNonEmpty(&s));
-  RETURN_NOT_OK(PrependBaseNonEmpty(&d));
-  return base_fs_->CopyFile(s, d);
+  ARROW_ASSIGN_OR_RAISE(auto real_src, PrependBaseNonEmpty(src));
+  ARROW_ASSIGN_OR_RAISE(auto real_dest, PrependBaseNonEmpty(dest));
+  return base_fs_->CopyFile(real_src, real_dest);
 }
 
 Result<std::shared_ptr<io::InputStream>> SubTreeFileSystem::OpenInputStream(
     const std::string& path) {
-  auto s = path;
-  RETURN_NOT_OK(PrependBaseNonEmpty(&s));
-  return base_fs_->OpenInputStream(s);
+  ARROW_ASSIGN_OR_RAISE(auto real_path, PrependBaseNonEmpty(path));
+  return base_fs_->OpenInputStream(real_path);
 }
 
 Result<std::shared_ptr<io::InputStream>> SubTreeFileSystem::OpenInputStream(
     const FileInfo& info) {
-  auto s = info.path();
-  RETURN_NOT_OK(PrependBaseNonEmpty(&s));
+  ARROW_ASSIGN_OR_RAISE(auto real_path, PrependBaseNonEmpty(info.path()));
   FileInfo new_info(info);
-  new_info.set_path(std::move(s));
+  new_info.set_path(std::move(real_path));
   return base_fs_->OpenInputStream(new_info);
 }
 
 Future<std::shared_ptr<io::InputStream>> SubTreeFileSystem::OpenInputStreamAsync(
     const std::string& path) {
-  auto s = path;
-  RETURN_NOT_OK(PrependBaseNonEmpty(&s));
-  return base_fs_->OpenInputStreamAsync(s);
+  ARROW_ASSIGN_OR_RAISE(auto real_path, PrependBaseNonEmpty(path));
+  return base_fs_->OpenInputStreamAsync(real_path);
 }
 
 Future<std::shared_ptr<io::InputStream>> SubTreeFileSystem::OpenInputStreamAsync(
     const FileInfo& info) {
-  auto s = info.path();
-  RETURN_NOT_OK(PrependBaseNonEmpty(&s));
+  ARROW_ASSIGN_OR_RAISE(auto real_path, PrependBaseNonEmpty(info.path()));
   FileInfo new_info(info);
-  new_info.set_path(std::move(s));
+  new_info.set_path(std::move(real_path));
   return base_fs_->OpenInputStreamAsync(new_info);
 }
 
 Result<std::shared_ptr<io::RandomAccessFile>> SubTreeFileSystem::OpenInputFile(
     const std::string& path) {
-  auto s = path;
-  RETURN_NOT_OK(PrependBaseNonEmpty(&s));
-  return base_fs_->OpenInputFile(s);
+  ARROW_ASSIGN_OR_RAISE(auto real_path, PrependBaseNonEmpty(path));
+  return base_fs_->OpenInputFile(real_path);
 }
 
 Result<std::shared_ptr<io::RandomAccessFile>> SubTreeFileSystem::OpenInputFile(
     const FileInfo& info) {
-  auto s = info.path();
-  RETURN_NOT_OK(PrependBaseNonEmpty(&s));
+  ARROW_ASSIGN_OR_RAISE(auto real_path, PrependBaseNonEmpty(info.path()));
   FileInfo new_info(info);
-  new_info.set_path(std::move(s));
+  new_info.set_path(std::move(real_path));
   return base_fs_->OpenInputFile(new_info);
 }
 
 Future<std::shared_ptr<io::RandomAccessFile>> SubTreeFileSystem::OpenInputFileAsync(
     const std::string& path) {
-  auto s = path;
-  RETURN_NOT_OK(PrependBaseNonEmpty(&s));
-  return base_fs_->OpenInputFileAsync(s);
+  ARROW_ASSIGN_OR_RAISE(auto real_path, PrependBaseNonEmpty(path));
+  return base_fs_->OpenInputFileAsync(real_path);
 }
 
 Future<std::shared_ptr<io::RandomAccessFile>> SubTreeFileSystem::OpenInputFileAsync(
     const FileInfo& info) {
-  auto s = info.path();
-  RETURN_NOT_OK(PrependBaseNonEmpty(&s));
+  ARROW_ASSIGN_OR_RAISE(auto real_path, PrependBaseNonEmpty(info.path()));
   FileInfo new_info(info);
-  new_info.set_path(std::move(s));
+  new_info.set_path(std::move(real_path));
   return base_fs_->OpenInputFileAsync(new_info);
 }
 
 Result<std::shared_ptr<io::OutputStream>> SubTreeFileSystem::OpenOutputStream(
     const std::string& path, const std::shared_ptr<const KeyValueMetadata>& metadata) {
-  auto s = path;
-  RETURN_NOT_OK(PrependBaseNonEmpty(&s));
-  return base_fs_->OpenOutputStream(s, metadata);
+  ARROW_ASSIGN_OR_RAISE(auto real_path, PrependBaseNonEmpty(path));
+  return base_fs_->OpenOutputStream(real_path, metadata);
 }
 
 Result<std::shared_ptr<io::OutputStream>> SubTreeFileSystem::OpenAppendStream(
     const std::string& path, const std::shared_ptr<const KeyValueMetadata>& metadata) {
-  auto s = path;
-  RETURN_NOT_OK(PrependBaseNonEmpty(&s));
-  return base_fs_->OpenAppendStream(s, metadata);
+  ARROW_ASSIGN_OR_RAISE(auto real_path, PrependBaseNonEmpty(path));
+  return base_fs_->OpenAppendStream(real_path, metadata);
 }
 
 //////////////////////////////////////////////////////////////////////////

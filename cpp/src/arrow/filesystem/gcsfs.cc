@@ -57,6 +57,10 @@ struct GcsPath {
   std::string object;
 
   static Result<GcsPath> FromString(const std::string& s) {
+    if (internal::IsLikelyUri(s)) {
+      return Status::Invalid(
+          "Expected a GCS object path of the form 'bucket/key...', got a URI: '", s, "'");
+    }
     auto const first_sep = s.find_first_of(internal::kSep);
     if (first_sep == 0) {
       return Status::Invalid("Path cannot start with a separator ('", s, "')");

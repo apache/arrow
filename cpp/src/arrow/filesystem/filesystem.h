@@ -384,8 +384,8 @@ class ARROW_EXPORT SubTreeFileSystem : public FileSystem {
   const std::string base_path_;
   std::shared_ptr<FileSystem> base_fs_;
 
-  std::string PrependBase(const std::string& s) const;
-  Status PrependBaseNonEmpty(std::string* s) const;
+  Result<std::string> PrependBase(const std::string& s) const;
+  Result<std::string> PrependBaseNonEmpty(const std::string& s) const;
   Result<std::string> StripBase(const std::string& s) const;
   Status FixInfo(FileInfo* info) const;
 

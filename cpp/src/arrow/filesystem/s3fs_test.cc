@@ -448,6 +448,9 @@ class TestS3FS : public S3TestMixin {
     // Nonexistent
     ASSERT_RAISES(IOError, fs_->OpenOutputStream("nonexistent-bucket/somefile"));
 
+    // URI
+    ASSERT_RAISES(Invalid, fs_->OpenOutputStream("s3:bucket/newfile1"));
+
     // Create new empty file
     ASSERT_OK_AND_ASSIGN(stream, fs_->OpenOutputStream("bucket/newfile1"));
     ASSERT_OK(stream->Close());
@@ -541,6 +544,11 @@ TEST_F(TestS3FS, GetFileInfoBucket) {
   AssertFileInfo(fs_.get(), "bucket/", FileType::Directory);
   AssertFileInfo(fs_.get(), "empty-bucket/", FileType::Directory);
   AssertFileInfo(fs_.get(), "nonexistent-bucket/", FileType::NotFound);
+
+  // URIs
+  ASSERT_RAISES(Invalid, fs_->GetFileInfo("s3:bucket"));
+  ASSERT_RAISES(Invalid, fs_->GetFileInfo("s3:empty-bucket"));
+  ASSERT_RAISES(Invalid, fs_->GetFileInfo("s3:nonexistent-bucket"));
 }
 
 TEST_F(TestS3FS, GetFileInfoObject) {
@@ -568,6 +576,11 @@ TEST_F(TestS3FS, GetFileInfoObject) {
   AssertFileInfo(fs_.get(), "bucket/somefile/", FileType::File, 9);
   AssertFileInfo(fs_.get(), "bucket/emptyd/", FileType::NotFound);
   AssertFileInfo(fs_.get(), "non-existent-bucket/somed/", FileType::NotFound);
+
+  // URIs
+  ASSERT_RAISES(Invalid, fs_->GetFileInfo("s3:bucket/emptydir"));
+  ASSERT_RAISES(Invalid, fs_->GetFileInfo("s3:bucket/otherdir"));
+  ASSERT_RAISES(Invalid, fs_->GetFileInfo("s3:bucket/somefile"));
 }
 
 TEST_F(TestS3FS, GetFileInfoSelector) {
@@ -634,6 +647,12 @@ TEST_F(TestS3FS, GetFileInfoSelector) {
   ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
   SortInfos(&infos);
   ASSERT_EQ(infos.size(), 4);
+
+  // URIs
+  select.base_dir = "s3:bucket";
+  ASSERT_RAISES(Invalid, fs_->GetFileInfo(select));
+  select.base_dir = "s3:bucket/somedir";
+  ASSERT_RAISES(Invalid, fs_->GetFileInfo(select));
 }
 
 TEST_F(TestS3FS, GetFileInfoSelectorRecursive) {
@@ -747,6 +766,9 @@ TEST_F(TestS3FS, CreateDir) {
 
   // Existing "file", should fail
   ASSERT_RAISES(IOError, fs_->CreateDir("bucket/somefile"));
+
+  // URI
+  ASSERT_RAISES(Invalid, fs_->CreateDir("s3:bucket/newdir2"));
 }
 
 TEST_F(TestS3FS, DeleteFile) {
@@ -764,6 +786,9 @@ TEST_F(TestS3FS, DeleteFile) {
   // "Directory"
   ASSERT_RAISES(IOError, fs_->DeleteFile("bucket/somedir"));
   AssertFileInfo(fs_.get(), "bucket/somedir", FileType::Directory);
+
+  // URI
+  ASSERT_RAISES(Invalid, fs_->DeleteFile("s3:bucket/somefile"));
 }
 
 TEST_F(TestS3FS, DeleteDir) {
@@ -800,6 +825,9 @@ TEST_F(TestS3FS, DeleteDir) {
   // Bucket
   ASSERT_OK(fs_->DeleteDir("bucket"));
   AssertFileInfo(fs_.get(), "bucket", FileType::NotFound);
+
+  // URI
+  ASSERT_RAISES(Invalid, fs_->DeleteDir("s3:empty-bucket"));
 }
 
 TEST_F(TestS3FS, CopyFile) {
@@ -856,6 +884,9 @@ TEST_F(TestS3FS, OpenInputStream) {
   ASSERT_RAISES(IOError, fs_->OpenInputStream("nonexistent-bucket/somefile"));
   ASSERT_RAISES(IOError, fs_->OpenInputStream("bucket/zzzt"));
 
+  // URI
+  ASSERT_RAISES(Invalid, fs_->OpenInputStream("s3:bucket/somefile"));
+
   // "Files"
   ASSERT_OK_AND_ASSIGN(stream, fs_->OpenInputStream("bucket/somefile"));
   ASSERT_OK_AND_ASSIGN(buf, stream->Read(2));
@@ -910,6 +941,9 @@ TEST_F(TestS3FS, OpenInputFile) {
   // Nonexistent
   ASSERT_RAISES(IOError, fs_->OpenInputFile("nonexistent-bucket/somefile"));
   ASSERT_RAISES(IOError, fs_->OpenInputFile("bucket/zzzt"));
+
+  // URI
+  ASSERT_RAISES(Invalid, fs_->OpenInputStream("s3:bucket/somefile"));
 
   // "Files"
   ASSERT_OK_AND_ASSIGN(file, fs_->OpenInputFile("bucket/somefile"));
