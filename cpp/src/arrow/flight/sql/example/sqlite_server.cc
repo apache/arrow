@@ -215,6 +215,27 @@ std::shared_ptr<DataType> GetArrowType(const char* sqlite_type) {
   }
 }
 
+int32_t GetSqlTypeFromTypeName(const char* sqlite_type) {
+  if (sqlite_type == NULLPTR) {
+    // SQLite may not know the column type yet.
+    return SQLITE_NULL;
+  }
+
+  if (boost::iequals(sqlite_type, "int") || boost::iequals(sqlite_type, "integer")) {
+    return SQLITE_INTEGER;
+  } else if (boost::iequals(sqlite_type, "REAL")) {
+    return SQLITE_FLOAT;
+  } else if (boost::iequals(sqlite_type, "BLOB")) {
+    return SQLITE_BLOB;
+  } else if (boost::iequals(sqlite_type, "TEXT") ||
+             boost::istarts_with(sqlite_type, "char") ||
+             boost::istarts_with(sqlite_type, "varchar")) {
+    return SQLITE_TEXT;
+  } else {
+    return SQLITE_NULL;
+  }
+}
+
 class SQLiteFlightSqlServer::Impl {
   sqlite3* db_;
   std::map<std::string, std::shared_ptr<SqliteStatement>> prepared_statements_;
