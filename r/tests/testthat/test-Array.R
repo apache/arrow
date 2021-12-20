@@ -795,6 +795,26 @@ test_that("Array$create() should have helpful error", {
   expect_error(Array$create(list()), "Requires at least one element to infer")
   expect_error(Array$create(list(lgl, lgl, int)), "Expecting a logical vector")
   expect_error(Array$create(list(char, num, char)), "Expecting a character vector")
+
+  # hint at casting if direct fails and casting looks like it might work
+  expect_error(
+    Array$create(as.double(1:10), type = decimal(4, 2)),
+    "You might want to try casting manually"
+  )
+  # until ARROW-15159 is solved casting from integer to decimal requires a
+  # precision of at least 12
+  # precision < 12 => the attempt to cast errors and the original error message
+  # is shown
+  expect_error(
+    Array$create(1:10, type = decimal(11, 2)),
+    "NotImplemented: Extend"
+  )
+  # precision >= 12 => the attempt succeeds and the error message now includes
+  # a hint to cast manually
+  expect_error(
+    Array$create(1:10, type = decimal(12, 2)),
+    "You might want to try casting manually"
+  )
 })
 
 test_that("Array$View() (ARROW-6542)", {
