@@ -25,13 +25,14 @@ on:
       - "*-github-*"
 {% endmacro %}
 
-{%- macro github_checkout_arrow() -%}
+{%- macro github_checkout_arrow(fetch_depth=1) -%}
   - name: Checkout Arrow
     uses: actions/checkout@v2
     with:
+      fetch-depth: {{ fetch_depth }}
+      path: arrow
       repository: {{ arrow.github_repo }}
       ref: {{ arrow.head }}
-      path: arrow
       submodules: recursive
 {% endmacro %}
 
