@@ -206,10 +206,7 @@ struct NonZeroVisitor {
   }
 
    template <typename Type> 
-   enable_if_t<has_c_type<Type>::value && 
-              !std::is_same<Type, MonthDayNanoIntervalType>::value &&
-              !std::is_same<Type, DayTimeIntervalType>::value, 
-              Status>
+   enable_if_t<is_primitive_ctype<Type>::value, Status>
    Visit(const Type&) {
      using T = typename GetViewType<Type>::T;
      uint32_t index = 0;
@@ -248,7 +245,7 @@ std::shared_ptr<ScalarFunction> MakeNonZeroFunction(std::string name,
                                                     const FunctionDoc* doc) {
   auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), doc);
       
-  for (const auto& ty : IntTypes()) {
+  for (const auto& ty : NumericTypes()) {
     ScalarKernel kernel;
     kernel.exec = NonZeroExec;
     kernel.null_handling = NullHandling::OUTPUT_NOT_NULL;
@@ -256,6 +253,13 @@ std::shared_ptr<ScalarFunction> MakeNonZeroFunction(std::string name,
     kernel.signature = KernelSignature::Make({InputType(ty->id())}, uint64());
     DCHECK_OK(func->AddKernel(kernel));
   }
+
+  ScalarKernel boolkernel;
+  boolkernel.exec = NonZeroExec;
+  boolkernel.null_handling = NullHandling::OUTPUT_NOT_NULL;
+  boolkernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
+  boolkernel.signature = KernelSignature::Make({boolean()}, uint64());
+  DCHECK_OK(func->AddKernel(boolkernel));
 
   return func;
 }

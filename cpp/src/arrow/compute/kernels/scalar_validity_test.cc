@@ -241,8 +241,19 @@ TYPED_TEST(TestFloatingPointValidityKernels, IsInf) { this->TestIsInf(); }
 TYPED_TEST(TestFloatingPointValidityKernels, IsNan) { this->TestIsNan(); }
 
 TEST(TestValidityKernels, NonZero) {
-  ASSERT_OK_AND_ASSIGN(auto actual, CallFunction("nonzero", {ArrayFromJSON(uint32(), "[null, 50, 0, 10]")}));
-  std::shared_ptr<Array> result = actual.make_array();
+  Datum actual;
+  std::shared_ptr<Array> result;
+
+  ASSERT_OK_AND_ASSIGN(actual, CallFunction("nonzero", {ArrayFromJSON(uint32(), "[null, 50, 0, 10]")}));
+  result = actual.make_array();
+  AssertArraysEqual(*result, *ArrayFromJSON(uint64(), "[1, 3]"));
+
+  ASSERT_OK_AND_ASSIGN(actual, CallFunction("nonzero", {ArrayFromJSON(boolean(), "[null, true, false, true]")}));
+  result = actual.make_array();
+  AssertArraysEqual(*result, *ArrayFromJSON(uint64(), "[1, 3]"));
+
+  ASSERT_OK_AND_ASSIGN(actual, CallFunction("nonzero", {ArrayFromJSON(float64(), "[null, 1.3, 0.0, 5.0]")}));
+  result = actual.make_array();
   AssertArraysEqual(*result, *ArrayFromJSON(uint64(), "[1, 3]"));
 }
 
