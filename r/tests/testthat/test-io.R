@@ -27,13 +27,6 @@ test_that("reencoding input stream works", {
   fs <- LocalFileSystem$create()
 
   stream <- fs$OpenInputStream(temp_windows1252)
-  expect_identical(
-    as.raw(stream$Read(length(bytes_windows1252))),
-    bytes_windows1252
-  )
-  stream$close()
-
-  stream <- fs$OpenInputStream(temp_windows1252)
   stream_utf8 <- MakeRencodeInputStream(stream, "windows-1252")
   expect_identical(as.raw(stream_utf8$Read(100)), bytes_utf8)
   stream$close()
