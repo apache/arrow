@@ -33,6 +33,7 @@ namespace csv {
 using PyInvalidRowCallback = std::function<::arrow::csv::InvalidRowResult(
     PyObject*, const ::arrow::csv::InvalidRow&)>;
 
+ARROW_PYTHON_EXPORT
 ::arrow::csv::InvalidRowHandler MakeInvalidRowHandler(PyInvalidRowCallback,
                                                       PyObject* handler);
 
