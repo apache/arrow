@@ -34,3 +34,40 @@ test_that("reencoding input stream works", {
 
   unlink(temp_windows1252)
 })
+
+test_that("reencoding input stream works when buffer needs reallocating", {
+  string <- paste0(strrep("\U0001f4a9", 100))
+  bytes_utf8 <- charToRaw(string)
+
+  temp_utf8 <- tempfile()
+  con <- file(temp_utf8, open = "wb")
+  writeBin(temp_utf8, con)
+  close(con)
+
+  fs <- LocalFileSystem$create()
+
+  stream <- fs$OpenInputStream(temp_utf8)
+  stream_utf8 <- MakeRencodeInputStream(stream, "UTF-8")
+
+  # this call results in a return code of -1
+  as.raw(stream_utf8$Read(5 * 15))
+
+  stream$close()
+  stream_utf8$close()
+
+
+  stream <- fs$OpenInputStream(temp_utf8)
+  stream_utf8 <- MakeRencodeInputStream(stream, "UTF-8")
+
+  for (i in seq_len(14)) as.raw(stream_utf8$Read(5))
+  # this call leaves pending characters
+  as.raw(stream_utf8$Read(5))
+
+  # and this call fails with not implemented
+  as.raw(stream_utf8$Read(5))
+
+  stream$close()
+  stream_utf8$close()
+
+  unlink(temp_utf8)
+})
