@@ -612,6 +612,21 @@ int32_t gdv_fn_cast_intervalyear_utf8_int32(int64_t context_ptr, int64_t holder_
   return (*holder)(context, data, data_len, in1_validity, out_valid);
 }
 
+GDV_FORCE_INLINE
+gdv_int32 utf8_char_length(char c) {
+  if ((signed char)c >= 0) {  // 1-byte char (0x00 ~ 0x7F)
+    return 1;
+  } else if ((c & 0xE0) == 0xC0) {  // 2-byte char
+    return 2;
+  } else if ((c & 0xF0) == 0xE0) {  // 3-byte char
+    return 3;
+  } else if ((c & 0xF8) == 0xF0) {  // 4-byte char
+    return 4;
+  }
+  // invalid char
+  return 0;
+}
+
 GANDIVA_EXPORT
 const char* translate_utf8_utf8_utf8(int64_t context, const char* in, int32_t in_len,
                                      const char* from, int32_t from_len, const char* to,
@@ -626,65 +641,199 @@ const char* translate_utf8_utf8_utf8(int64_t context, const char* in, int32_t in
     return in;
   }
 
-  // This variable is for receive the substitutions
-  char* result = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, in_len));
+  // This variable is to control if there are multi-byte utf8 entries
+  bool has_multi_byte = false;
 
-  if (result == nullptr) {
-    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
-    *out_len = 0;
-    return "";
-  }
-  int result_len = 0;
+  // This variable is to store the final result
+  char* result;
+  int result_len;
 
-  // Creating a Map to mark substitutions to make
-  std::unordered_map<char, char> subs_list;
-
-  // This variable is for controlling the position in entry TO, for never repeat the
-  // changes
-  int start_compare;
-
-  if (to_len > 0) {
-    start_compare = 0;
-  } else {
-    start_compare = -1;
+  // Searching multi-bytes in In
+  for (int i = 0; i < in_len; i++) {
+    unsigned char char_single_byte = in[i];
+    if (char_single_byte > 127) {
+      // found a multi-byte utf-8 char
+      has_multi_byte = true;
+      break;
+    }
   }
 
-  // If the position in TO is out of range, this variable will be associated to map list,
-  // to mark deletion positions
-  const char empty = '\0';
+  // Searching multi-bytes in From
+  for (int i = 0; i < from_len; i++) {
+    unsigned char char_single_byte = from[i];
+    if (char_single_byte > 127) {
+      // found a multi-byte utf-8 char
+      has_multi_byte = true;
+      break;
+    }
+  }
 
-  for (int in_for = 0; in_for < in_len; in_for++) {
-    if (subs_list.find(in[in_for]) != subs_list.end()) {
-      if (subs_list[in[in_for]] != empty) {
-        // If exist in map, only add the correspondent value in result
-        result[result_len] = subs_list[in[in_for]];
-        result_len++;
-      }
+  // Searching multi-bytes in To
+  for (int i = 0; i < to_len; i++) {
+    unsigned char char_single_byte = to[i];
+    if (char_single_byte > 127) {
+      // found a multi-byte utf-8 char
+      has_multi_byte = true;
+      break;
+    }
+  }
+
+  // If there are no multibytes in the input, work only with char
+  if (!has_multi_byte) {
+    // This variable is for receive the substitutions
+    result = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, in_len));
+
+    if (result == nullptr) {
+      gdv_fn_context_set_error_msg(context,
+                                   "Could not allocate memory for output string");
+      *out_len = 0;
+      return "";
+    }
+    result_len = 0;
+
+    // Creating a Map to mark substitutions to make
+    std::unordered_map<char, char> subs_list;
+
+    // This variable is for controlling the position in entry TO, for never repeat the
+    // changes
+    int start_compare;
+
+    if (to_len > 0) {
+      start_compare = 0;
     } else {
-      for (int from_for = 0; from_for <= from_len; from_for++) {
-        if (from_for == from_len) {
-          // If it's not in the FROM list, just add it to the map and the result.
-          subs_list.insert(std::pair<char, char>(in[in_for], in[in_for]));
-          result[result_len] = in[in_for];
-          result_len++;
-          break;
-        }
-        if (in[in_for] != from[from_for]) {
-          // If this character does not exist in FROM list, don't need treatment
-          continue;
-        } else if (start_compare == -1 || start_compare == to_len) {
-          // If exist but the start_compare is out of range, add to map as empty, to
-          // deletion later
-          subs_list.insert(std::pair<char, char>(in[in_for], empty));
-          break;
-        } else {
-          // If exist and the start_compare is in range, add to map with the corresponding
-          // TO in position start_compare
-          subs_list.insert(std::pair<char, char>(in[in_for], to[start_compare]));
+      start_compare = -1;
+    }
+
+    // If the position in TO is out of range, this variable will be associated to map
+    // list, to mark deletion positions
+    const char empty = '\0';
+
+    for (int in_for = 0; in_for < in_len; in_for++) {
+      if (subs_list.find(in[in_for]) != subs_list.end()) {
+        if (subs_list[in[in_for]] != empty) {
+          // If exist in map, only add the correspondent value in result
           result[result_len] = subs_list[in[in_for]];
           result_len++;
-          start_compare++;
-          break;  // for ignore duplicates entries in FROM, ex: ("adad")
+        }
+      } else {
+        for (int from_for = 0; from_for <= from_len; from_for++) {
+          if (from_for == from_len) {
+            // If it's not in the FROM list, just add it to the map and the result.
+            subs_list.insert(std::pair<char, char>(in[in_for], in[in_for]));
+            result[result_len] = in[in_for];
+            result_len++;
+            break;
+          }
+          if (in[in_for] != from[from_for]) {
+            // If this character does not exist in FROM list, don't need treatment
+            continue;
+          } else if (start_compare == -1 || start_compare == to_len) {
+            // If exist but the start_compare is out of range, add to map as empty, to
+            // deletion later
+            subs_list.insert(std::pair<char, char>(in[in_for], empty));
+            break;
+          } else {
+            // If exist and the start_compare is in range, add to map with the
+            // corresponding TO in position start_compare
+            subs_list.insert(std::pair<char, char>(in[in_for], to[start_compare]));
+            result[result_len] = subs_list[in[in_for]];
+            result_len++;
+            start_compare++;
+            break;  // for ignore duplicates entries in FROM, ex: ("adad")
+          }
+        }
+      }
+    }
+  }
+
+  // If there are no multibytes in the input, work with std::strings
+  else {
+    // This variable is for receive the substitutions, malloc is in_len * 4 to receive
+    // possible inputs with 4 bytes
+    result = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, in_len * 4));
+
+    if (result == nullptr) {
+      gdv_fn_context_set_error_msg(context,
+                                   "Could not allocate memory for output string");
+      *out_len = 0;
+      return "";
+    }
+    result_len = 0;
+
+    // This map is std::string to store multi-bytes entries
+    std::unordered_map<std::string, std::string> subs_list;
+
+    // This variable is for controlling the position in entry TO, for never repeat the
+    // changes
+    int start_compare;
+
+    if (to_len > 0) {
+      start_compare = 0;
+    } else {
+      start_compare = -1;
+    }
+
+    // If the position in TO is out of range, this variable will be associated to map
+    // list, to mark deletion positions
+    const std::string empty = "";
+
+    // This variables is to control len of multi-bytes entries
+    int len_char_in = 0;
+    int len_char_from = 0;
+    int len_char_to = 0;
+
+    for (int in_for = 0; in_for < in_len; in_for += len_char_in) {
+      // Updating len to char in this position
+      len_char_in = utf8_char_length(in[in_for]);
+      // Making copy to std::string with length for this char position
+      std::string insert_copy_key(in + in_for, len_char_in);
+      if (subs_list.find(insert_copy_key) != subs_list.end()) {
+        if (subs_list[insert_copy_key] != empty) {
+          // If exist in map, only add the correspondent value in result
+          memcpy(result + result_len, subs_list[insert_copy_key].c_str(),
+                 subs_list[insert_copy_key].length());
+          result_len += subs_list[insert_copy_key].length();
+        }
+      } else {
+        for (int from_for = 0; from_for <= from_len; from_for += len_char_from) {
+          // Updating len to char in this position
+          len_char_from = utf8_char_length(from[from_for]);
+          // Making copy to std::string with length for this char position
+          std::string copy_from_compare(from + from_for, len_char_from);
+          if (from_for == from_len) {
+            // If it's not in the FROM list, just add it to the map and the result.
+            std::string insert_copy_value(in + in_for, len_char_in);
+            // Insert in map to next loops
+            subs_list.insert(
+                std::pair<std::string, std::string>(insert_copy_key, insert_copy_value));
+            memcpy(result + result_len, subs_list[insert_copy_key].c_str(),
+                   subs_list[insert_copy_key].length());
+            result_len += subs_list[insert_copy_key].length();
+            break;
+          }
+
+          if (insert_copy_key != copy_from_compare) {
+            // If this character does not exist in FROM list, don't need treatment
+            continue;
+          } else if (start_compare == -1 || start_compare >= to_len) {
+            // If exist but the start_compare is out of range, add to map as empty, to
+            // deletion later
+            subs_list.insert(std::pair<std::string, std::string>(insert_copy_key, empty));
+            break;
+          } else {
+            // If exist and the start_compare is in range, add to map with the
+            // corresponding TO in position start_compare
+            len_char_to = utf8_char_length(to[start_compare]);
+            std::string insert_copy_value(to + start_compare, len_char_to);
+            // Insert in map to next loops
+            subs_list.insert(
+                std::pair<std::string, std::string>(insert_copy_key, insert_copy_value));
+            memcpy(result + result_len, subs_list[insert_copy_key].c_str(),
+                   subs_list[insert_copy_key].length());
+            result_len += subs_list[insert_copy_key].length();
+            start_compare += len_char_to;
+            break;  // for ignore duplicates entries in FROM, ex: ("adad")
+          }
         }
       }
     }

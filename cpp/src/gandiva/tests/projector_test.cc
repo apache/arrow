@@ -2879,15 +2879,21 @@ TEST_F(TestProjector, TestTranslate) {
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Create a row-batch with some sample data
-  int num_records = 4;
-  auto array0 = MakeArrowArrayUtf8({"a b c d", "abcde", "My Name Is JHONNY", "\n\n/n/n"},
-                                   {true, true, true, true});
-  auto array1 =
-      MakeArrowArrayUtf8({" ", "bd", "JHONNY", "/\n"}, {true, true, true, true});
-  auto array2 = MakeArrowArrayUtf8({"", "xb", "XXXXX", "a~"}, {true, true, true, true});
+  int num_records = 7;
+  auto array0 = MakeArrowArrayUtf8({"a b c d", "abcde", "My Name Is JHONNY", "\n\n/n/n",
+                                    "x大路学路x", "学大路学路大", "abcd"},
+                                   {true, true, true, true, true, true, true});
+
+  auto array1 = MakeArrowArrayUtf8({" ", "bd", "JHONNY", "/\n", "x", "学大", "abc"},
+                                   {true, true, true, true, true, true, true});
+
+  auto array2 = MakeArrowArrayUtf8({"", "xb", "XXXXX", "a~", "b", "12", "学大路"},
+                                   {true, true, true, true, true, true, true});
+
   // expected output
-  auto exp_translate = MakeArrowArrayUtf8(
-      {"abcd", "axcbe", "My Xame Is XXXXXX", "aa~n~n"}, {true, true, true, true});
+  auto exp_translate = MakeArrowArrayUtf8({"abcd", "axcbe", "My Xame Is XXXXXX", "aa~n~n",
+                                           "b大路学路b", "12路1路2", "学大路d"},
+                                          {true, true, true, true, true, true, true});
 
   // prepare input record batch
   auto in_batch =
