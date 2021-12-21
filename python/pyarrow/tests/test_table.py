@@ -1473,6 +1473,127 @@ def test_table_from_pydict_schema(data, klass):
     assert table.column_names == ['strs']
 
 
+@pytest.mark.parametrize(
+    ('cls'),
+    [
+        (pa.Table),
+        (pa.RecordBatch)
+    ]
+)
+def test_table_from_pylist(cls):
+    table = cls.from_pylist([])
+    assert table.num_columns == 0
+    assert table.num_rows == 0
+    assert table.schema == pa.schema([])
+    assert table.to_pylist() == []
+
+    schema = pa.schema([('strs', pa.utf8()), ('floats', pa.float64())])
+
+    # With lists as values
+    data = [{'strs': ['', 'foo', 'bar']}, {'floats': [4.5, 5, None]}]
+    table = cls.from_pylist(data)
+    assert table.num_columns == 2
+    assert table.num_rows == 3
+    assert table.schema == schema
+    assert table.to_pylist() == data
+
+    # With metadata and inferred schema
+    metadata = {b'foo': b'bar'}
+    schema = schema.with_metadata(metadata)
+    table = cls.from_pylist(data, metadata=metadata)
+    assert table.schema == schema
+    assert table.schema.metadata == metadata
+    assert table.to_pylist() == data
+
+    # With explicit schema
+    table = cls.from_pylist(data, schema=schema)
+    assert table.schema == schema
+    assert table.schema.metadata == metadata
+    assert table.to_pylist() == data
+
+    # Cannot pass both schema and metadata
+    with pytest.raises(ValueError):
+        cls.from_pylist(data, schema=schema, metadata=metadata)
+
+    # Non-convertible values given schema
+    with pytest.raises(TypeError):
+        cls.from_pylist([{'c0': [0, 1, 2]}],
+                        schema=pa.schema([("c0", pa.string())]))
+
+    # Missing schema fields from the passed mapping
+    with pytest.raises(KeyError, match="doesn\'t contain.* c, d"):
+        cls.from_pylist(
+            [{'a': [1, 2, 3]}, {'b': [3, 4, 5]}],
+            schema=pa.schema([
+                ('a', pa.int64()),
+                ('c', pa.int32()),
+                ('d', pa.int16())
+            ])
+        )
+
+    # Passed wrong schema type
+    with pytest.raises(TypeError):
+        cls.from_pylist([{'a': [1, 2, 3]}], schema={})
+
+
+@pytest.mark.parametrize('data, klass', [
+    ((['', 'foo', 'bar'], [4.5, 5, None]), pa.array),
+    (([[''], ['foo', 'bar']], [[4.5], [5., None]]), pa.chunked_array),
+])
+def test_table_from_pylist_arrow_arrays(data, klass):
+    data = [{'strs': klass(data[0])}, {'floats': klass(data[1])}]
+    schema = pa.schema([('strs', pa.utf8()), ('floats', pa.float64())])
+
+    # With arrays as values
+    table = pa.Table.from_pylist(data)
+    assert table.num_columns == 2
+    assert table.num_rows == 3
+    assert table.schema == schema
+
+    # With explicit (matching) schema
+    table = pa.Table.from_pylist(data, schema=schema)
+    assert table.num_columns == 2
+    assert table.num_rows == 3
+    assert table.schema == schema
+
+    # with different but compatible schema
+    schema = pa.schema([('strs', pa.utf8()), ('floats', pa.float32())])
+    table = pa.Table.from_pylist(data, schema=schema)
+    assert pa.types.is_float32(table.column('floats').type)
+    assert table.num_columns == 2
+    assert table.num_rows == 3
+    assert table.schema == schema
+
+    # with different and incompatible schema
+    schema = pa.schema([('strs', pa.utf8()), ('floats', pa.timestamp('s'))])
+    with pytest.raises((NotImplementedError, TypeError)):
+        pa.Table.from_pylist(data, schema=schema)
+
+
+@pytest.mark.parametrize('data, klass', [
+    ((['', 'foo', 'bar'], [4.5, 5, None]), list),
+    ((['', 'foo', 'bar'], [4.5, 5, None]), pa.array),
+    (([[''], ['foo', 'bar']], [[4.5], [5., None]]), pa.chunked_array),
+])
+def test_table_from_pylist_schema(data, klass):
+    # passed schema is source of truth for the columns
+
+    data = [{'strs': klass(data[0])}, {'floats': klass(data[1])}]
+
+    # schema has columns not present in data -> error
+    schema = pa.schema([('strs', pa.utf8()), ('floats', pa.float64()),
+                        ('ints', pa.int64())])
+    with pytest.raises(KeyError, match='ints'):
+        pa.Table.from_pylist(data, schema=schema)
+
+    # data has columns not present in schema -> ignored
+    schema = pa.schema([('strs', pa.utf8())])
+    table = pa.Table.from_pylist(data, schema=schema)
+    assert table.num_columns == 1
+    assert table.schema == schema
+    assert table.column_names == ['strs']
+
+
 @pytest.mark.pandas
 def test_table_from_pandas_schema():
     # passed schema is source of truth for the columns

@@ -678,6 +678,30 @@ cdef class RecordBatch(_PandasConvertible):
                             schema=schema,
                             metadata=metadata)
 
+    @staticmethod
+    def from_pylist(mapping, schema=None, metadata=None):
+        """
+        Construct a RecordBatch from Arrow arrays or columns.
+
+        Parameters
+        ----------
+        mapping : list of dicts or Mappings
+            A mapping of strings to Arrays or Python lists.
+        schema : Schema, default None
+            If not passed, will be inferred from the Mapping values.
+        metadata : dict or Mapping, default None
+            Optional metadata for the schema (if inferred).
+
+        Returns
+        -------
+        RecordBatch
+        """
+
+        return _from_pylist(cls=RecordBatch,
+                            mapping=mapping,
+                            schema=schema,
+                            metadata=metadata)
+
     def __reduce__(self):
         return _reconstruct_record_batch, (self.columns, self.schema)
 
@@ -1015,6 +1039,21 @@ cdef class RecordBatch(_PandasConvertible):
             column = self[i].to_pylist()
             entries.append((name, column))
         return ordered_dict(entries)
+
+    def to_pylist(self):
+        """
+        Convert the RecordBatch to a list of dictionaries.
+
+        Returns
+        -------
+        list
+        """
+        entries = []
+        for i in range(self.batch.num_columns()):
+            name = bytes(self.batch.column_name(i)).decode('utf8')
+            column = self[i].to_pylist()
+            entries.append({name: column})
+        return entries
 
     def _to_pandas(self, options, **kwargs):
         return Table.from_batches([self])._to_pandas(options, **kwargs)
@@ -1733,6 +1772,30 @@ cdef class Table(_PandasConvertible):
                             metadata=metadata)
 
     @staticmethod
+    def from_pylist(mapping, schema=None, metadata=None):
+        """
+        Construct a Table from Arrow arrays or columns.
+
+        Parameters
+        ----------
+        mapping : list of dicts or Mappings
+            A mapping of strings to Arrays or Python lists.
+        schema : Schema, default None
+            If not passed, will be inferred from the Mapping values.
+        metadata : dict or Mapping, default None
+            Optional metadata for the schema (if inferred).
+
+        Returns
+        -------
+        Table
+        """
+
+        return _from_pylist(cls=Table,
+                            mapping=mapping,
+                            schema=schema,
+                            metadata=metadata)
+
+    @staticmethod
     def from_batches(batches, Schema schema=None):
         """
         Construct a Table from a sequence or iterator of Arrow RecordBatches.
@@ -1843,6 +1906,26 @@ cdef class Table(_PandasConvertible):
             entries.append((self.field(i).name, column.to_pylist()))
 
         return ordered_dict(entries)
+
+    def to_pylist(self):
+        """
+        Convert the Table to a list of dictionaries.
+
+        Returns
+        -------
+        list
+        """
+        cdef:
+            size_t i
+            size_t num_columns = self.table.num_columns()
+            list entries = []
+            ChunkedArray column
+
+        for i in range(num_columns):
+            column = self.column(i)
+            entries.append({self.field(i).name: column.to_pylist()})
+
+        return entries
 
     @property
     def schema(self):
@@ -2435,6 +2518,52 @@ def _from_pydict(cls, mapping, schema, metadata):
                         "following field(s) of the schema: {}".
                         format(', '.join(missing))
                     )
+            arrays.append(asarray(v, type=field.type))
+        # Will raise if metadata is not None
+        return cls.from_arrays(arrays, schema=schema, metadata=metadata)
+    else:
+        raise TypeError('Schema must be an instance of pyarrow.Schema')
+
+
+def _from_pylist(cls, mapping, schema, metadata):
+    """
+    Construct a Table/RecordBatch from Arrow arrays or columns.
+
+    Parameters
+    ----------
+    cls : Class Table/RecordBatch
+    mapping : list of dicts or Mappings
+        A mapping of strings to Arrays or Python lists.
+    schema : Schema, default None
+        If not passed, will be inferred from the Mapping values.
+    metadata : dict or Mapping, default None
+        Optional metadata for the schema (if inferred).
+
+    Returns
+    -------
+    Table/RecordBatch
+    """
+
+    arrays = []
+    if schema is None:
+        names = []
+        for item in mapping:
+            name = list(item.keys())[0]
+            names.append(name)
+            arrays.append(asarray(item[name]))
+        return cls.from_arrays(arrays, names, metadata=metadata)
+    elif isinstance(schema, Schema):
+        for field in schema:
+            value = [v.get(field.name) for v in mapping]
+            v = next((i for i in value if i is not None), None)
+            if v is None:
+                present = [list(v.keys())[0] for v in mapping]
+                missing = [n for n in schema.names if n not in present]
+                raise KeyError(
+                    "The passed mapping doesn't contain the "
+                    "following field(s) of the schema: {}".
+                    format(', '.join(missing))
+                )
             arrays.append(asarray(v, type=field.type))
         # Will raise if metadata is not None
         return cls.from_arrays(arrays, schema=schema, metadata=metadata)
