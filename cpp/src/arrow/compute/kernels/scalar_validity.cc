@@ -16,6 +16,9 @@
 // under the License.
 
 #include <cmath>
+#include <cstdint>
+#include <type_traits>
+#include <memory>
 
 #include "arrow/array/builder_primitive.h"
 
@@ -192,14 +195,14 @@ Status ConstBoolExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
 }
 
 struct NonZeroVisitor {
-   UInt32Builder *builder;
+   UInt64Builder *builder;
    const ArrayData& array;
 
-   NonZeroVisitor(UInt32Builder *builder, const ArrayData& array)
+   NonZeroVisitor(UInt64Builder *builder, const ArrayData& array)
    : builder(builder), array(array) {}
 
   Status Visit(const DataType& type) {
-    return Status::TypeError("Unsupported type for nonzero: ", type.ToString());
+    return Status::NotImplemented(type.ToString());
   }
 
    template <typename Type> 
@@ -215,7 +218,6 @@ struct NonZeroVisitor {
         this->array,
         [&](T v) {
           if(v != 0) {
-            RETURN_NOT_OK(this->builder->Reserve(1));
             this->builder->UnsafeAppend(index);
           }
           ++index;
@@ -230,8 +232,9 @@ struct NonZeroVisitor {
 
 Status NonZeroExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   std::shared_ptr<ArrayData> array = batch[0].array();
-  UInt32Builder builder;
+  UInt64Builder builder;
 
+  RETURN_NOT_OK(builder.Reserve(array->length));
   NonZeroVisitor visitor(&builder, *array.get());
   RETURN_NOT_OK(VisitTypeInline(*(array->type), &visitor));
 
@@ -250,7 +253,7 @@ std::shared_ptr<ScalarFunction> MakeNonZeroFunction(std::string name,
     kernel.exec = NonZeroExec;
     kernel.null_handling = NullHandling::OUTPUT_NOT_NULL;
     kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
-    kernel.signature = KernelSignature::Make({InputType(ty->id())}, uint32());
+    kernel.signature = KernelSignature::Make({InputType(ty->id())}, uint64());
     DCHECK_OK(func->AddKernel(kernel));
   }
 

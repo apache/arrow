@@ -242,7 +242,8 @@ TYPED_TEST(TestFloatingPointValidityKernels, IsNan) { this->TestIsNan(); }
 
 TEST(TestValidityKernels, NonZero) {
   ASSERT_OK_AND_ASSIGN(auto actual, CallFunction("nonzero", {ArrayFromJSON(uint32(), "[null, 50, 0, 10]")}));
-  AssertArraysEqual(*actual.make_array(), *ArrayFromJSON(uint32(), "[1, 3]"));
+  std::shared_ptr<Array> result = actual.make_array();
+  AssertArraysEqual(*result, *ArrayFromJSON(uint64(), "[1, 3]"));
 }
 
 }  // namespace compute
