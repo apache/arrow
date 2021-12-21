@@ -391,6 +391,18 @@ test_that("map type works as expected", {
   expect_false(x$keys_sorted)
 })
 
+test_that("map type validates arguments", {
+  expect_error(map_of(field("key", int32(), nullable=TRUE), utf8()),
+               "cannot be nullable")
+  
+  # field construction
+  ty <- map_of(field("the_keys", int32(), nullable=FALSE), field("my_values", utf8(), nullable=FALSE))
+  expect_equal(ty$key_field$name, "the_keys")
+  expect_equal(ty$item_field$name, "my_values")
+  expect_equal(ty$key_field$nullable, FALSE)
+  expect_equal(ty$item_field$nullable, FALSE)
+})
+
 test_that("struct type works as expected", {
   x <- struct(x = int32(), y = boolean())
   expect_equal(x$id, Type$STRUCT)

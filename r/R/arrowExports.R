@@ -168,6 +168,10 @@ MapArray__items_nested <- function(array) {
   .Call(`_arrow_MapArray__items_nested`, array)
 }
 
+Array__Same <- function(x, y) {
+  .Call(`_arrow_Array__Same`, x, y)
+}
+
 Array__as_vector <- function(array) {
   .Call(`_arrow_Array__as_vector`, array)
 }

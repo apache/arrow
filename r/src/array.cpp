@@ -320,4 +320,10 @@ std::shared_ptr<arrow::Array> MapArray__items_nested(
     const std::shared_ptr<arrow::MapArray>& array) {
   return ValueOrStop(arrow::ListArray::FromArrays(*(array->offsets()), *(array->items())));
 }
+
+// [[arrow::export]]
+bool Array__Same(const std::shared_ptr<arrow::Array>& x,
+                 const std::shared_ptr<arrow::Array>& y) {
+  return x.get() == y.get();
+}
 #endif
