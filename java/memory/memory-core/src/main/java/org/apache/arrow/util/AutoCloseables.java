@@ -21,8 +21,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 /**
  * Utilities for AutoCloseable classes.
@@ -113,9 +114,23 @@ public final class AutoCloseables {
    */
   @SafeVarargs
   public static void close(Iterable<? extends AutoCloseable>...closeables) throws Exception {
-    close(Arrays.asList(closeables).stream()
-        .flatMap((Iterable<? extends AutoCloseable> t) -> Collections2.toList(t).stream())
-        .collect(Collectors.toList()));
+    close(flatten(closeables));
+  }
+
+  @SafeVarargs
+  private static Iterable<AutoCloseable> flatten(Iterable<? extends AutoCloseable>... closeables) {
+    return new Iterable<AutoCloseable>() {
+      // Cast from Iterable<? extends AutoCloseable> to Iterable<AutoCloseable> is safe in this context
+      // since there's no modification of the original collection
+      @SuppressWarnings("unchecked")
+      @Override
+      public Iterator<AutoCloseable> iterator() {
+        return Arrays.stream(closeables)
+            .flatMap((Iterable<? extends AutoCloseable> i)
+                -> StreamSupport.stream(((Iterable<AutoCloseable>) i).spliterator(), /*parallel=*/false))
+            .iterator();
+      }
+    };
   }
 
   /**

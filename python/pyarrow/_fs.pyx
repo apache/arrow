@@ -30,7 +30,6 @@ from datetime import datetime, timezone
 import os
 import pathlib
 import sys
-import warnings
 
 
 cdef _init_ca_paths():
@@ -597,15 +596,15 @@ cdef class FileSystem(_Weakrefable):
 
         Parameters
         ----------
-        source: str
+        source : str
             The source to open for reading.
-        compression: str optional, default 'detect'
+        compression : str optional, default 'detect'
             The compression algorithm to use for on-the-fly decompression.
             If "detect" and source is a file path, then compression will be
             chosen based on the file extension.
             If None, no compression will be applied. Otherwise, a well-known
             algorithm name must be supplied (e.g. "gzip").
-        buffer_size: int optional, default None
+        buffer_size : int optional, default None
             If None or 0, no buffering will happen. Otherwise the size of the
             temporary read buffer.
 
@@ -639,16 +638,16 @@ cdef class FileSystem(_Weakrefable):
         ----------
         path : str
             The source to open for writing.
-        compression: str optional, default 'detect'
+        compression : str optional, default 'detect'
             The compression algorithm to use for on-the-fly compression.
             If "detect" and source is a file path, then compression will be
             chosen based on the file extension.
             If None, no compression will be applied. Otherwise, a well-known
             algorithm name must be supplied (e.g. "gzip").
-        buffer_size: int optional, default None
+        buffer_size : int optional, default None
             If None or 0, no buffering will happen. Otherwise the size of the
             temporary write buffer.
-        metadata: dict optional, default None
+        metadata : dict optional, default None
             If not None, a mapping of string keys to string values.
             Some filesystems support storing metadata along the file
             (such as "Content-Type").
@@ -681,28 +680,31 @@ cdef class FileSystem(_Weakrefable):
     def open_append_stream(self, path, compression='detect',
                            buffer_size=None, metadata=None):
         """
-        DEPRECATED: Open an output stream for appending.
+        Open an output stream for appending.
 
         If the target doesn't exist, a new empty file is created.
 
-        .. deprecated:: 6.0
-            Several filesystems don't support this functionality
-            and it will be later removed.
+        .. note::
+            Some filesystem implementations do not support efficient
+            appending to an existing file, in which case this method will
+            raise NotImplementedError.
+            Consider writing to multiple files (using e.g. the dataset layer)
+            instead.
 
         Parameters
         ----------
         path : str
             The source to open for writing.
-        compression: str optional, default 'detect'
+        compression : str optional, default 'detect'
             The compression algorithm to use for on-the-fly compression.
             If "detect" and source is a file path, then compression will be
             chosen based on the file extension.
             If None, no compression will be applied. Otherwise, a well-known
             algorithm name must be supplied (e.g. "gzip").
-        buffer_size: int optional, default None
+        buffer_size : int optional, default None
             If None or 0, no buffering will happen. Otherwise the size of the
             temporary write buffer.
-        metadata: dict optional, default None
+        metadata : dict optional, default None
             If not None, a mapping of string keys to string values.
             Some filesystems support storing metadata along the file
             (such as "Content-Type").
@@ -717,11 +719,6 @@ cdef class FileSystem(_Weakrefable):
             NativeFile stream = NativeFile()
             shared_ptr[COutputStream] out_handle
             shared_ptr[const CKeyValueMetadata] c_metadata
-
-        warnings.warn(
-            "`open_append_stream` is deprecated as of 6.0.0; several "
-            "filesystems don't support it and it will be later removed",
-            FutureWarning)
 
         if metadata is not None:
             c_metadata = pyarrow_unwrap_metadata(KeyValueMetadata(metadata))
@@ -768,7 +765,7 @@ cdef class LocalFileSystem(FileSystem):
 
     Parameters
     ----------
-    use_mmap: bool, default False
+    use_mmap : bool, default False
         Whether open_input_stream and open_input_file should return
         a mmap'ed file or a regular file.
     """
@@ -813,9 +810,9 @@ cdef class SubTreeFileSystem(FileSystem):
 
     Parameters
     ----------
-    base_path: str
+    base_path : str
         The root of the subtree.
-    base_fs: FileSystem
+    base_fs : FileSystem
         FileSystem object the operations delegated to.
     """
 
@@ -832,6 +829,10 @@ cdef class SubTreeFileSystem(FileSystem):
     cdef init(self, const shared_ptr[CFileSystem]& wrapped):
         FileSystem.init(self, wrapped)
         self.subtreefs = <CSubTreeFileSystem*> wrapped.get()
+
+    def __repr__(self):
+        return ("SubTreeFileSystem(base_path={}, base_fs={}"
+                .format(self.base_path, self.base_fs))
 
     def __reduce__(self):
         return SubTreeFileSystem, (
@@ -939,30 +940,51 @@ class FileSystemHandler(ABC):
     def get_file_info(self, paths):
         """
         Implement PyFileSystem.get_file_info(paths).
+
+        Parameters
+        ----------
+        paths : paths for which we want to retrieve the info.
         """
 
     @abstractmethod
     def get_file_info_selector(self, selector):
         """
         Implement PyFileSystem.get_file_info(selector).
+
+        Parameters
+        ----------
+        selector : selector for which we want to retrieve the info.
         """
 
     @abstractmethod
     def create_dir(self, path, recursive):
         """
         Implement PyFileSystem.create_dir(...).
+
+        Parameters
+        ----------
+        path : path of the directory.
+        recursive : if the parent directories should be created too.
         """
 
     @abstractmethod
     def delete_dir(self, path):
         """
         Implement PyFileSystem.delete_dir(...).
+
+        Parameters
+        ----------
+        path : path of the directory.
         """
 
     @abstractmethod
     def delete_dir_contents(self, path):
         """
         Implement PyFileSystem.delete_dir_contents(...).
+
+        Parameters
+        ----------
+        path : path of the directory.
         """
 
     @abstractmethod
@@ -975,52 +997,92 @@ class FileSystemHandler(ABC):
     def delete_file(self, path):
         """
         Implement PyFileSystem.delete_file(...).
+
+        Parameters
+        ----------
+        path : path of the file.
         """
 
     @abstractmethod
     def move(self, src, dest):
         """
         Implement PyFileSystem.move(...).
+
+        Parameters
+        ----------
+        src : path of what should be moved.
+        dest : path of where it should be moved to.
         """
 
     @abstractmethod
     def copy_file(self, src, dest):
         """
         Implement PyFileSystem.copy_file(...).
+
+        Parameters
+        ----------
+        src : path of what should be copied.
+        dest : path of where it should be copied to.
         """
 
     @abstractmethod
     def open_input_stream(self, path):
         """
         Implement PyFileSystem.open_input_stream(...).
+
+        Parameters
+        ----------
+        path : path of what should be opened.
         """
 
     @abstractmethod
     def open_input_file(self, path):
         """
         Implement PyFileSystem.open_input_file(...).
+
+        Parameters
+        ----------
+        path : path of what should be opened.
         """
 
     @abstractmethod
     def open_output_stream(self, path, metadata):
         """
         Implement PyFileSystem.open_output_stream(...).
+
+        Parameters
+        ----------
+        path : path of what should be opened.
+        metadata :  mapping of string keys to string values.
+            Some filesystems support storing metadata along the file
+            (such as "Content-Type").
         """
 
     @abstractmethod
     def open_append_stream(self, path, metadata):
         """
         Implement PyFileSystem.open_append_stream(...).
+
+        Parameters
+        ----------
+        path : path of what should be opened.
+        metadata :  mapping of string keys to string values.
+            Some filesystems support storing metadata along the file
+            (such as "Content-Type").
         """
 
     @abstractmethod
     def normalize_path(self, path):
         """
         Implement PyFileSystem.normalize_path(...).
+
+        Parameters
+        ----------
+        path : path of what should be normalized.
         """
 
-
 # Callback definitions for CPyFileSystemVtable
+
 
 cdef void _cb_get_type_name(handler, c_string* out) except *:
     out[0] = tobytes("py::" + handler.get_type_name())

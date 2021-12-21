@@ -19,6 +19,8 @@
 
 #include <atomic>
 #include <cstdint>
+#include <thread>
+#include <unordered_map>
 #include <vector>
 
 #include "arrow/buffer.h"
@@ -29,7 +31,9 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/cpu_info.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/mutex.h"
 #include "arrow/util/optional.h"
+#include "arrow/util/thread_pool.h"
 
 #if defined(__clang__) || defined(__GNUC__)
 #define BYTESWAP(x) __builtin_bswap64(x)
@@ -85,24 +89,35 @@ class TempVectorStack {
     // using SIMD when number of vector elements is not divisible
     // by the number of SIMD lanes.
     //
-    return ::arrow::BitUtil::RoundUp(num_bytes, sizeof(int64_t)) + padding;
+    return ::arrow::bit_util::RoundUp(num_bytes, sizeof(int64_t)) + kPadding;
   }
   void alloc(uint32_t num_bytes, uint8_t** data, int* id) {
     int64_t old_top = top_;
-    top_ += PaddedAllocationSize(num_bytes);
+    top_ += PaddedAllocationSize(num_bytes) + 2 * sizeof(uint64_t);
     // Stack overflow check
     ARROW_DCHECK(top_ <= buffer_size_);
-    *data = buffer_->mutable_data() + old_top;
+    *data = buffer_->mutable_data() + old_top + sizeof(uint64_t);
+    // We set 8 bytes before the beginning of the allocated range and
+    // 8 bytes after the end to check for stack overflow (which would
+    // result in those known bytes being corrupted).
+    reinterpret_cast<uint64_t*>(buffer_->mutable_data() + old_top)[0] = kGuard1;
+    reinterpret_cast<uint64_t*>(buffer_->mutable_data() + top_)[-1] = kGuard2;
     *id = num_vectors_++;
   }
   void release(int id, uint32_t num_bytes) {
     ARROW_DCHECK(num_vectors_ == id + 1);
-    int64_t size = PaddedAllocationSize(num_bytes);
+    int64_t size = PaddedAllocationSize(num_bytes) + 2 * sizeof(uint64_t);
+    ARROW_DCHECK(reinterpret_cast<const uint64_t*>(buffer_->mutable_data() + top_)[-1] ==
+                 kGuard2);
     ARROW_DCHECK(top_ >= size);
     top_ -= size;
+    ARROW_DCHECK(reinterpret_cast<const uint64_t*>(buffer_->mutable_data() + top_)[0] ==
+                 kGuard1);
     --num_vectors_;
   }
-  static constexpr int64_t padding = 64;
+  static constexpr uint64_t kGuard1 = 0x3141592653589793ULL;
+  static constexpr uint64_t kGuard2 = 0x0577215664901532ULL;
+  static constexpr int64_t kPadding = 64;
   int num_vectors_;
   int64_t top_;
   std::unique_ptr<Buffer> buffer_;
@@ -129,7 +144,7 @@ class TempVectorHolder {
   uint32_t num_elements_;
 };
 
-class BitUtil {
+class bit_util {
  public:
   static void bits_to_indexes(int bit_to_search, int64_t hardware_flags,
                               const int num_bits, const uint8_t* bits, int* num_indexes,
@@ -231,6 +246,9 @@ class AtomicCounter {
   // return true if the counter has not already been completed
   bool Cancel() { return DoneOnce(); }
 
+  // return true if the counter has finished or been cancelled
+  bool Completed() { return complete_.load(); }
+
  private:
   // ensure there is only one true return from Increment(), SetTotal(), or Cancel()
   bool DoneOnce() {
@@ -240,6 +258,19 @@ class AtomicCounter {
 
   std::atomic<int> count_{0}, total_{-1};
   std::atomic<bool> complete_{false};
+};
+
+class ThreadIndexer {
+ public:
+  size_t operator()();
+
+  static size_t Capacity();
+
+ private:
+  static size_t Check(size_t thread_index);
+
+  util::Mutex mutex_;
+  std::unordered_map<std::thread::id, size_t> id_to_index_;
 };
 
 }  // namespace compute

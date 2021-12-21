@@ -107,6 +107,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         _Type_TIME32" arrow::Type::TIME32"
         _Type_TIME64" arrow::Type::TIME64"
         _Type_DURATION" arrow::Type::DURATION"
+        _Type_INTERVAL_MONTH_DAY_NANO" arrow::Type::INTERVAL_MONTH_DAY_NANO"
 
         _Type_BINARY" arrow::Type::BINARY"
         _Type_STRING" arrow::Type::STRING"
@@ -557,6 +558,10 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CDurationArray" arrow::DurationArray"(CArray):
         int64_t Value(int i)
 
+    cdef cppclass CMonthDayNanoIntervalArray \
+            "arrow::MonthDayNanoIntervalArray"(CArray):
+        pass
+
     cdef cppclass CHalfFloatArray" arrow::HalfFloatArray"(CArray):
         uint16_t Value(int i)
 
@@ -999,6 +1004,10 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CDurationScalar" arrow::DurationScalar"(CScalar):
         int64_t value
 
+    cdef cppclass CMonthDayNanoIntervalScalar \
+            "arrow::MonthDayNanoIntervalScalar"(CScalar):
+        pass
+
     cdef cppclass CBaseBinaryScalar" arrow::BaseBinaryScalar"(CScalar):
         shared_ptr[CBuffer] value
 
@@ -1434,6 +1443,7 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         int max_recursion_depth
         CMemoryPool* memory_pool
         shared_ptr[unordered_set[int]] included_fields
+        c_bool use_threads
 
         @staticmethod
         CIpcReadOptions Defaults()
@@ -1770,6 +1780,7 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         c_string description
         vector[c_string] arg_names
         c_string options_class
+        c_bool options_required
 
     cdef cppclass CFunctionOptionsType" arrow::compute::FunctionOptionsType":
         const char* type_name() const
@@ -1998,8 +2009,8 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     cdef cppclass CDayOfWeekOptions \
             "arrow::compute::DayOfWeekOptions"(CFunctionOptions):
-        CDayOfWeekOptions(c_bool one_based_numbering, uint32_t week_start)
-        c_bool one_based_numbering
+        CDayOfWeekOptions(c_bool count_from_zero, uint32_t week_start)
+        c_bool count_from_zero
         uint32_t week_start
 
     cdef enum CAssumeTimezoneAmbiguous \
@@ -2028,6 +2039,14 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         c_string timezone
         CAssumeTimezoneAmbiguous ambiguous
         CAssumeTimezoneNonexistent nonexistent
+
+    cdef cppclass CWeekOptions \
+            "arrow::compute::WeekOptions"(CFunctionOptions):
+        CWeekOptions(c_bool week_starts_monday, c_bool count_from_zero,
+                     c_bool first_week_is_fully_in_year)
+        c_bool week_starts_monday
+        c_bool count_from_zero
+        c_bool first_week_is_fully_in_year
 
     cdef cppclass CNullOptions \
             "arrow::compute::NullOptions"(CFunctionOptions):
@@ -2078,6 +2097,11 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         vector[c_string] field_names
         vector[c_bool] field_nullability
         vector[shared_ptr[const CKeyValueMetadata]] field_metadata
+
+    cdef cppclass CStructFieldOptions \
+            "arrow::compute::StructFieldOptions"(CFunctionOptions):
+        CStructFieldOptions(vector[int] indices)
+        vector[int] indices
 
     ctypedef enum CSortOrder" arrow::compute::SortOrder":
         CSortOrder_Ascending \
@@ -2148,6 +2172,18 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         c_bool skip_nulls
         uint32_t min_count
 
+    cdef enum CUtf8NormalizeForm \
+            "arrow::compute::Utf8NormalizeOptions::Form":
+        CUtf8NormalizeForm_NFC "arrow::compute::Utf8NormalizeOptions::NFC"
+        CUtf8NormalizeForm_NFKC "arrow::compute::Utf8NormalizeOptions::NFKC"
+        CUtf8NormalizeForm_NFD "arrow::compute::Utf8NormalizeOptions::NFD"
+        CUtf8NormalizeForm_NFKD "arrow::compute::Utf8NormalizeOptions::NFKD"
+
+    cdef cppclass CUtf8NormalizeOptions \
+            "arrow::compute::Utf8NormalizeOptions"(CFunctionOptions):
+        CUtf8NormalizeOptions(CUtf8NormalizeForm form)
+        CUtf8NormalizeForm form
+
     cdef enum DatumType" arrow::Datum::type":
         DatumType_NONE" arrow::Datum::NONE"
         DatumType_SCALAR" arrow::Datum::SCALAR"
@@ -2200,10 +2236,29 @@ cdef extern from * namespace "arrow::compute":
             const CBuffer& buffer)
 
 
+cdef extern from "arrow/compute/api_aggregate.h" namespace \
+        "arrow::compute::internal" nogil:
+    cdef cppclass CAggregate "arrow::compute::internal::Aggregate":
+        c_string function
+        const CFunctionOptions* options
+
+    CResult[CDatum] GroupBy(const vector[CDatum]& arguments,
+                            const vector[CDatum]& keys,
+                            const vector[CAggregate]& aggregates)
+
+
 cdef extern from "arrow/python/api.h" namespace "arrow::py":
     # Requires GIL
     CResult[shared_ptr[CDataType]] InferArrowType(
         object obj, object mask, c_bool pandas_null_sentinels)
+
+
+cdef extern from "arrow/python/api.h" namespace "arrow::py::internal":
+    object NewMonthDayNanoTupleType()
+    CResult[PyObject*] MonthDayNanoIntervalArrayToPyList(
+        const CMonthDayNanoIntervalArray& array)
+    CResult[PyObject*] MonthDayNanoIntervalScalarToPyObject(
+        const CMonthDayNanoIntervalScalar& scalar)
 
 
 cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:

@@ -65,7 +65,7 @@ Type <- enum("Type::type",
   TIME64 = 20L,
   INTERVAL_MONTHS = 21L,
   INTERVAL_DAY_TIME = 22L,
-  DECIMAL = 23L,
+  DECIMAL128 = 23L,
   DECIMAL256 = 24L,
   LIST = 25L,
   STRUCT = 26L,
@@ -162,4 +162,17 @@ RoundMode <- enum("RoundMode",
   HALF_TOWARDS_INFINITY = 7L,
   HALF_TO_EVEN = 8L,
   HALF_TO_ODD = 9L
+)
+
+#' @export
+#' @rdname enums
+JoinType <- enum("JoinType",
+  LEFT_SEMI = 0L,
+  RIGHT_SEMI = 1L,
+  LEFT_ANTI = 2L,
+  RIGHT_ANTI = 3L,
+  INNER = 4L,
+  LEFT_OUTER = 5L,
+  RIGHT_OUTER = 6L,
+  FULL_OUTER = 7L
 )

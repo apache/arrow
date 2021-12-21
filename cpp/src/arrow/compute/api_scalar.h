@@ -23,13 +23,12 @@
 #include <string>
 #include <utility>
 
-#include "arrow/compute/exec.h"  // IWYU pragma: keep
 #include "arrow/compute/function.h"
+#include "arrow/compute/type_fwd.h"
 #include "arrow/datum.h"
 #include "arrow/result.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
-#include "arrow/vendored/datetime.h"
 
 namespace arrow {
 namespace compute {
@@ -62,15 +61,16 @@ enum class RoundMode : int8_t {
   UP,
   /// Get the integral part without fractional digits (aka "trunc")
   TOWARDS_ZERO,
-  /// Round negative values with DOWN rule and positive values with UP rule
+  /// Round negative values with DOWN rule
+  /// and positive values with UP rule (aka "away from zero")
   TOWARDS_INFINITY,
-  /// Round ties with DOWN rule
+  /// Round ties with DOWN rule (also called "round half towards negative infinity")
   HALF_DOWN,
-  /// Round ties with UP rule
+  /// Round ties with UP rule (also called "round half towards positive infinity")
   HALF_UP,
-  /// Round ties with TOWARDS_ZERO rule
+  /// Round ties with TOWARDS_ZERO rule (also called "round half away from infinity")
   HALF_TOWARDS_ZERO,
-  /// Round ties with TOWARDS_INFINITY rule
+  /// Round ties with TOWARDS_INFINITY rule (also called "round half away from zero")
   HALF_TOWARDS_INFINITY,
   /// Round ties to nearest even integer
   HALF_TO_EVEN,
@@ -94,10 +94,17 @@ class ARROW_EXPORT RoundToMultipleOptions : public FunctionOptions {
  public:
   explicit RoundToMultipleOptions(double multiple = 1.0,
                                   RoundMode round_mode = RoundMode::HALF_TO_EVEN);
+  explicit RoundToMultipleOptions(std::shared_ptr<Scalar> multiple,
+                                  RoundMode round_mode = RoundMode::HALF_TO_EVEN);
   constexpr static char const kTypeName[] = "RoundToMultipleOptions";
   static RoundToMultipleOptions Defaults() { return RoundToMultipleOptions(); }
-  /// Rounding scale (multiple to round to)
-  double multiple;
+  /// Rounding scale (multiple to round to).
+  ///
+  /// Should be a scalar of a type compatible with the argument to be rounded.
+  /// For example, rounding a decimal value means a decimal multiple is
+  /// required. Rounding a floating point or integer value means a floating
+  /// point scalar is required.
+  std::shared_ptr<Scalar> multiple;
   /// Rounding and tie-breaking mode
   RoundMode round_mode;
 };
@@ -217,6 +224,18 @@ class ARROW_EXPORT SetLookupOptions : public FunctionOptions {
   bool skip_nulls;
 };
 
+/// Options for struct_field function
+class ARROW_EXPORT StructFieldOptions : public FunctionOptions {
+ public:
+  explicit StructFieldOptions(std::vector<int> indices);
+  StructFieldOptions();
+  constexpr static char const kTypeName[] = "StructFieldOptions";
+
+  /// The child indices to extract. For instance, to get the 2nd child
+  /// of the 1st child of a struct or union, this would be {0, 1}.
+  std::vector<int> indices;
+};
+
 class ARROW_EXPORT StrptimeOptions : public FunctionOptions {
  public:
   explicit StrptimeOptions(std::string format, TimeUnit::type unit);
@@ -317,13 +336,14 @@ class ARROW_EXPORT MakeStructOptions : public FunctionOptions {
 
 struct ARROW_EXPORT DayOfWeekOptions : public FunctionOptions {
  public:
-  explicit DayOfWeekOptions(bool one_based_numbering = false, uint32_t week_start = 1);
+  explicit DayOfWeekOptions(bool count_from_zero = true, uint32_t week_start = 1);
   constexpr static char const kTypeName[] = "DayOfWeekOptions";
   static DayOfWeekOptions Defaults() { return DayOfWeekOptions(); }
 
-  /// Number days from 1 if true and from 0 if false
-  bool one_based_numbering;
-  /// What day does the week start with (Monday=1, Sunday=7)
+  /// Number days from 0 if true and from 1 if false
+  bool count_from_zero;
+  /// What day does the week start with (Monday=1, Sunday=7).
+  /// The numbering is unaffected by the count_from_zero parameter.
   uint32_t week_start;
 };
 
@@ -359,6 +379,45 @@ struct ARROW_EXPORT AssumeTimezoneOptions : public FunctionOptions {
   Ambiguous ambiguous;
   /// How to interpret non-existent local times (due to DST shifts)
   Nonexistent nonexistent;
+};
+
+struct ARROW_EXPORT WeekOptions : public FunctionOptions {
+ public:
+  explicit WeekOptions(bool week_starts_monday = true, bool count_from_zero = false,
+                       bool first_week_is_fully_in_year = false);
+  constexpr static char const kTypeName[] = "WeekOptions";
+  static WeekOptions Defaults() { return WeekOptions{}; }
+  static WeekOptions ISODefaults() {
+    return WeekOptions{/*week_starts_monday*/ true,
+                       /*count_from_zero=*/false,
+                       /*first_week_is_fully_in_year=*/false};
+  }
+  static WeekOptions USDefaults() {
+    return WeekOptions{/*week_starts_monday*/ false,
+                       /*count_from_zero=*/false,
+                       /*first_week_is_fully_in_year=*/false};
+  }
+
+  /// What day does the week start with (Monday=true, Sunday=false)
+  bool week_starts_monday;
+  /// Dates from current year that fall into last ISO week of the previous year return
+  /// 0 if true and 52 or 53 if false.
+  bool count_from_zero;
+  /// Must the first week be fully in January (true), or is a week that begins on
+  /// December 29, 30, or 31 considered to be the first week of the new year (false)?
+  bool first_week_is_fully_in_year;
+};
+
+struct ARROW_EXPORT Utf8NormalizeOptions : public FunctionOptions {
+ public:
+  enum Form { NFC, NFKC, NFD, NFKD };
+
+  explicit Utf8NormalizeOptions(Form form = NFC);
+  static Utf8NormalizeOptions Defaults() { return Utf8NormalizeOptions(); }
+  constexpr static char const kTypeName[] = "Utf8NormalizeOptions";
+
+  /// The Unicode normalization form to apply
+  Form form;
 };
 
 /// @}
@@ -842,7 +901,7 @@ Result<Datum> IsIn(const Datum& values, const Datum& value_set,
 /// will be output.
 ///
 /// For example given values = [99, 42, 3, null] and
-/// value_set = [3, 3, 99], the output will be = [1, null, 0, null]
+/// value_set = [3, 3, 99], the output will be = [2, null, 0, null]
 ///
 /// Behaviour of nulls is governed by SetLookupOptions::skip_nulls.
 ///
@@ -1008,7 +1067,8 @@ Result<Datum> ISOYear(const Datum& values, ExecContext* ctx = NULLPTR);
 
 /// \brief ISOWeek returns ISO week of year number for each element of `values`.
 /// First ISO week has the majority (4 or more) of its days in January.
-/// Week of the year starts with 1 and can run up to 53.
+/// ISO week starts on Monday. Year can have 52 or 53 weeks.
+/// Week numbering can start with 1.
 ///
 /// \param[in] values input to extract ISO week of year from
 /// \param[in] ctx the function execution context, optional
@@ -1017,6 +1077,34 @@ Result<Datum> ISOYear(const Datum& values, ExecContext* ctx = NULLPTR);
 /// \since 5.0.0
 /// \note API not yet finalized
 ARROW_EXPORT Result<Datum> ISOWeek(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief USWeek returns US week of year number for each element of `values`.
+/// First US week has the majority (4 or more) of its days in January.
+/// US week starts on Sunday. Year can have 52 or 53 weeks.
+/// Week numbering starts with 1.
+///
+/// \param[in] values input to extract US week of year from
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 6.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> USWeek(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief Week returns week of year number for each element of `values`.
+/// First ISO week has the majority (4 or more) of its days in January.
+/// Year can have 52 or 53 weeks. Week numbering can start with 0 or 1
+/// depending on DayOfWeekOptions.count_from_zero.
+///
+/// \param[in] values input to extract week of year from
+/// \param[in] options for setting numbering start
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 6.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> Week(const Datum& values, WeekOptions options = WeekOptions(),
+                                ExecContext* ctx = NULLPTR);
 
 /// \brief ISOCalendar returns a (ISO year, ISO week, ISO day of week) struct for
 /// each element of `values`.

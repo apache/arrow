@@ -294,7 +294,15 @@ TEST(TestTime, TimeStampAdd) {
       StringToTimestamp("2000-05-01 10:21:04"));
 
   EXPECT_EQ(
+      timestampaddSecond_timestamp_int32(StringToTimestamp("2000-05-01 10:20:34"), 30),
+      StringToTimestamp("2000-05-01 10:21:04"));
+
+  EXPECT_EQ(
       timestampaddMinute_int64_timestamp(-30, StringToTimestamp("2000-05-01 10:20:34")),
+      StringToTimestamp("2000-05-01 09:50:34"));
+
+  EXPECT_EQ(
+      timestampaddMinute_timestamp_int64(StringToTimestamp("2000-05-01 10:20:34"), -30),
       StringToTimestamp("2000-05-01 09:50:34"));
 
   EXPECT_EQ(
@@ -302,15 +310,44 @@ TEST(TestTime, TimeStampAdd) {
       StringToTimestamp("2000-05-02 06:20:34"));
 
   EXPECT_EQ(
+      timestampaddHour_timestamp_int32(StringToTimestamp("2000-05-01 10:20:34"), 20),
+      StringToTimestamp("2000-05-02 06:20:34"));
+
+  EXPECT_EQ(
       timestampaddDay_int64_timestamp(-35, StringToTimestamp("2000-05-01 10:20:34")),
+      StringToTimestamp("2000-03-27 10:20:34"));
+
+  EXPECT_EQ(
+      timestampaddDay_timestamp_int64(StringToTimestamp("2000-05-01 10:20:34"), -35),
       StringToTimestamp("2000-03-27 10:20:34"));
 
   EXPECT_EQ(timestampaddWeek_int32_timestamp(4, StringToTimestamp("2000-05-01 10:20:34")),
             StringToTimestamp("2000-05-29 10:20:34"));
 
+  EXPECT_EQ(timestampaddWeek_timestamp_int32(StringToTimestamp("2000-05-01 10:20:34"), 4),
+            StringToTimestamp("2000-05-29 10:20:34"));
+
+  EXPECT_EQ(timestampaddWeek_timestamp_int32(StringToTimestamp("2000-05-01 10:20:34"), 4),
+            StringToTimestamp("2000-05-29 10:20:34"));
+
   EXPECT_EQ(
       timestampaddMonth_int64_timestamp(10, StringToTimestamp("2000-05-01 10:20:34")),
       StringToTimestamp("2001-03-01 10:20:34"));
+
+  EXPECT_EQ(
+      timestampaddMonth_int64_timestamp(1, StringToTimestamp("2000-01-31 10:20:34")),
+      StringToTimestamp("2000-2-29 10:20:34"));
+  EXPECT_EQ(
+      timestampaddMonth_int64_timestamp(13, StringToTimestamp("2001-01-31 10:20:34")),
+      StringToTimestamp("2002-02-28 10:20:34"));
+
+  EXPECT_EQ(
+      timestampaddMonth_int64_timestamp(11, StringToTimestamp("2000-05-31 10:20:34")),
+      StringToTimestamp("2001-04-30 10:20:34"));
+
+  EXPECT_EQ(
+      timestampaddMonth_timestamp_int64(StringToTimestamp("2000-05-31 10:20:34"), 11),
+      StringToTimestamp("2001-04-30 10:20:34"));
 
   EXPECT_EQ(
       timestampaddQuarter_int32_timestamp(-2, StringToTimestamp("2000-05-01 10:20:34")),
@@ -672,6 +709,11 @@ TEST(TestTime, TestExtractWeek) {
     gdv_int64 exp = atol(data.at(i + 1).c_str());
     EXPECT_EQ(extractWeek_timestamp(ts), exp);
   }
+}
+
+TEST(TestTime, TestIsNullInterval) {
+  EXPECT_EQ(isnull_day_time_interval(150, true), false);
+  EXPECT_EQ(isnull_day_time_interval(150, false), true);
 }
 
 TEST(TestTime, TestMonthsBetween) {

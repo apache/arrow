@@ -20,9 +20,9 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/array"
-	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/v7/arrow"
+	"github.com/apache/arrow/go/v7/arrow/array"
+	"github.com/apache/arrow/go/v7/arrow/memory"
 )
 
 func TestStructArray(t *testing.T) {
@@ -270,10 +270,7 @@ func TestStructArrayStringer(t *testing.T) {
 	defer sb.Release()
 
 	f1b := sb.FieldBuilder(0).(*array.Float64Builder)
-	defer f1b.Release()
-
 	f2b := sb.FieldBuilder(1).(*array.Int32Builder)
-	defer f2b.Release()
 
 	if got, want := sb.NumField(), 2; got != want {
 		t.Fatalf("got=%d, want=%d", got, want)

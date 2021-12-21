@@ -16,14 +16,8 @@ namespace arrow {
 namespace computeir {
 namespace flatbuf {
 
-struct Remap;
-struct RemapBuilder;
-
-struct PassThrough;
-struct PassThroughBuilder;
-
-struct RelBase;
-struct RelBaseBuilder;
+struct RelId;
+struct RelIdBuilder;
 
 struct Filter;
 struct FilterBuilder;
@@ -55,60 +49,11 @@ struct LiteralColumnBuilder;
 struct LiteralRelation;
 struct LiteralRelationBuilder;
 
-struct Table;
-struct TableBuilder;
+struct Source;
+struct SourceBuilder;
 
 struct Relation;
 struct RelationBuilder;
-
-/// A union for the different colum remapping variants
-enum class Emit : uint8_t {
-  NONE = 0,
-  Remap = 1,
-  PassThrough = 2,
-  MIN = NONE,
-  MAX = PassThrough
-};
-
-inline const Emit (&EnumValuesEmit())[3] {
-  static const Emit values[] = {
-    Emit::NONE,
-    Emit::Remap,
-    Emit::PassThrough
-  };
-  return values;
-}
-
-inline const char * const *EnumNamesEmit() {
-  static const char * const names[4] = {
-    "NONE",
-    "Remap",
-    "PassThrough",
-    nullptr
-  };
-  return names;
-}
-
-inline const char *EnumNameEmit(Emit e) {
-  if (flatbuffers::IsOutRange(e, Emit::NONE, Emit::PassThrough)) return "";
-  const size_t index = static_cast<size_t>(e);
-  return EnumNamesEmit()[index];
-}
-
-template<typename T> struct EmitTraits {
-  static const Emit enum_value = Emit::NONE;
-};
-
-template<> struct EmitTraits<org::apache::arrow::computeir::flatbuf::Remap> {
-  static const Emit enum_value = Emit::Remap;
-};
-
-template<> struct EmitTraits<org::apache::arrow::computeir::flatbuf::PassThrough> {
-  static const Emit enum_value = Emit::PassThrough;
-};
-
-bool VerifyEmit(flatbuffers::Verifier &verifier, const void *obj, Emit type);
-bool VerifyEmitVector(flatbuffers::Verifier &verifier, const flatbuffers::Vector<flatbuffers::Offset<void>> *values, const flatbuffers::Vector<uint8_t> *types);
 
 enum class JoinKind : uint8_t {
   Anti = 0,
@@ -193,50 +138,53 @@ inline const char *EnumNameSetOpKind(SetOpKind e) {
 enum class RelationImpl : uint8_t {
   NONE = 0,
   Aggregate = 1,
-  SetOperation = 2,
-  Filter = 3,
+  Filter = 2,
+  Join = 3,
   Limit = 4,
   LiteralRelation = 5,
   OrderBy = 6,
   Project = 7,
-  Table = 8,
+  SetOperation = 8,
+  Source = 9,
   MIN = NONE,
-  MAX = Table
+  MAX = Source
 };
 
-inline const RelationImpl (&EnumValuesRelationImpl())[9] {
+inline const RelationImpl (&EnumValuesRelationImpl())[10] {
   static const RelationImpl values[] = {
     RelationImpl::NONE,
     RelationImpl::Aggregate,
-    RelationImpl::SetOperation,
     RelationImpl::Filter,
+    RelationImpl::Join,
     RelationImpl::Limit,
     RelationImpl::LiteralRelation,
     RelationImpl::OrderBy,
     RelationImpl::Project,
-    RelationImpl::Table
+    RelationImpl::SetOperation,
+    RelationImpl::Source
   };
   return values;
 }
 
 inline const char * const *EnumNamesRelationImpl() {
-  static const char * const names[10] = {
+  static const char * const names[11] = {
     "NONE",
     "Aggregate",
-    "SetOperation",
     "Filter",
+    "Join",
     "Limit",
     "LiteralRelation",
     "OrderBy",
     "Project",
-    "Table",
+    "SetOperation",
+    "Source",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameRelationImpl(RelationImpl e) {
-  if (flatbuffers::IsOutRange(e, RelationImpl::NONE, RelationImpl::Table)) return "";
+  if (flatbuffers::IsOutRange(e, RelationImpl::NONE, RelationImpl::Source)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesRelationImpl()[index];
 }
@@ -249,12 +197,12 @@ template<> struct RelationImplTraits<org::apache::arrow::computeir::flatbuf::Agg
   static const RelationImpl enum_value = RelationImpl::Aggregate;
 };
 
-template<> struct RelationImplTraits<org::apache::arrow::computeir::flatbuf::SetOperation> {
-  static const RelationImpl enum_value = RelationImpl::SetOperation;
-};
-
 template<> struct RelationImplTraits<org::apache::arrow::computeir::flatbuf::Filter> {
   static const RelationImpl enum_value = RelationImpl::Filter;
+};
+
+template<> struct RelationImplTraits<org::apache::arrow::computeir::flatbuf::Join> {
+  static const RelationImpl enum_value = RelationImpl::Join;
 };
 
 template<> struct RelationImplTraits<org::apache::arrow::computeir::flatbuf::Limit> {
@@ -273,172 +221,59 @@ template<> struct RelationImplTraits<org::apache::arrow::computeir::flatbuf::Pro
   static const RelationImpl enum_value = RelationImpl::Project;
 };
 
-template<> struct RelationImplTraits<org::apache::arrow::computeir::flatbuf::Table> {
-  static const RelationImpl enum_value = RelationImpl::Table;
+template<> struct RelationImplTraits<org::apache::arrow::computeir::flatbuf::SetOperation> {
+  static const RelationImpl enum_value = RelationImpl::SetOperation;
+};
+
+template<> struct RelationImplTraits<org::apache::arrow::computeir::flatbuf::Source> {
+  static const RelationImpl enum_value = RelationImpl::Source;
 };
 
 bool VerifyRelationImpl(flatbuffers::Verifier &verifier, const void *obj, RelationImpl type);
 bool VerifyRelationImplVector(flatbuffers::Verifier &verifier, const flatbuffers::Vector<flatbuffers::Offset<void>> *values, const flatbuffers::Vector<uint8_t> *types);
 
-/// A data type indicating that a different mapping of columns
-/// should occur in the output.
+/// An identifier for relations in a query.
 ///
-/// For example:
-///
-/// Given a query `SELECT b, a FROM t` where `t` has columns a, b, c
-/// the mapping value for the projection would equal [1, 0].
-struct Remap FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef RemapBuilder Builder;
+/// A table is used here to allow plan implementations optionality.
+struct RelId FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef RelIdBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_MAPPING = 4
+    VT_ID = 4
   };
-  const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::FieldIndex>> *mapping() const {
-    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::FieldIndex>> *>(VT_MAPPING);
+  uint64_t id() const {
+    return GetField<uint64_t>(VT_ID, 0);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyOffsetRequired(verifier, VT_MAPPING) &&
-           verifier.VerifyVector(mapping()) &&
-           verifier.VerifyVectorOfTables(mapping()) &&
+           VerifyField<uint64_t>(verifier, VT_ID) &&
            verifier.EndTable();
   }
 };
 
-struct RemapBuilder {
-  typedef Remap Table;
+struct RelIdBuilder {
+  typedef RelId Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_mapping(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::FieldIndex>>> mapping) {
-    fbb_.AddOffset(Remap::VT_MAPPING, mapping);
+  void add_id(uint64_t id) {
+    fbb_.AddElement<uint64_t>(RelId::VT_ID, id, 0);
   }
-  explicit RemapBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+  explicit RelIdBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  RemapBuilder &operator=(const RemapBuilder &);
-  flatbuffers::Offset<Remap> Finish() {
+  RelIdBuilder &operator=(const RelIdBuilder &);
+  flatbuffers::Offset<RelId> Finish() {
     const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<Remap>(end);
-    fbb_.Required(o, Remap::VT_MAPPING);
+    auto o = flatbuffers::Offset<RelId>(end);
     return o;
   }
 };
 
-inline flatbuffers::Offset<Remap> CreateRemap(
+inline flatbuffers::Offset<RelId> CreateRelId(
     flatbuffers::FlatBufferBuilder &_fbb,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::FieldIndex>>> mapping = 0) {
-  RemapBuilder builder_(_fbb);
-  builder_.add_mapping(mapping);
-  return builder_.Finish();
-}
-
-inline flatbuffers::Offset<Remap> CreateRemapDirect(
-    flatbuffers::FlatBufferBuilder &_fbb,
-    const std::vector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::FieldIndex>> *mapping = nullptr) {
-  auto mapping__ = mapping ? _fbb.CreateVector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::FieldIndex>>(*mapping) : 0;
-  return org::apache::arrow::computeir::flatbuf::CreateRemap(
-      _fbb,
-      mapping__);
-}
-
-struct PassThrough FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef PassThroughBuilder Builder;
-  bool Verify(flatbuffers::Verifier &verifier) const {
-    return VerifyTableStart(verifier) &&
-           verifier.EndTable();
-  }
-};
-
-struct PassThroughBuilder {
-  typedef PassThrough Table;
-  flatbuffers::FlatBufferBuilder &fbb_;
-  flatbuffers::uoffset_t start_;
-  explicit PassThroughBuilder(flatbuffers::FlatBufferBuilder &_fbb)
-        : fbb_(_fbb) {
-    start_ = fbb_.StartTable();
-  }
-  PassThroughBuilder &operator=(const PassThroughBuilder &);
-  flatbuffers::Offset<PassThrough> Finish() {
-    const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<PassThrough>(end);
-    return o;
-  }
-};
-
-inline flatbuffers::Offset<PassThrough> CreatePassThrough(
-    flatbuffers::FlatBufferBuilder &_fbb) {
-  PassThroughBuilder builder_(_fbb);
-  return builder_.Finish();
-}
-
-/// Fields common to every relational operator
-struct RelBase FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef RelBaseBuilder Builder;
-  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_OUTPUT_MAPPING_TYPE = 4,
-    VT_OUTPUT_MAPPING = 6
-  };
-  org::apache::arrow::computeir::flatbuf::Emit output_mapping_type() const {
-    return static_cast<org::apache::arrow::computeir::flatbuf::Emit>(GetField<uint8_t>(VT_OUTPUT_MAPPING_TYPE, 0));
-  }
-  /// Output remapping of ordinal columns for a given operation
-  const void *output_mapping() const {
-    return GetPointer<const void *>(VT_OUTPUT_MAPPING);
-  }
-  template<typename T> const T *output_mapping_as() const;
-  const org::apache::arrow::computeir::flatbuf::Remap *output_mapping_as_Remap() const {
-    return output_mapping_type() == org::apache::arrow::computeir::flatbuf::Emit::Remap ? static_cast<const org::apache::arrow::computeir::flatbuf::Remap *>(output_mapping()) : nullptr;
-  }
-  const org::apache::arrow::computeir::flatbuf::PassThrough *output_mapping_as_PassThrough() const {
-    return output_mapping_type() == org::apache::arrow::computeir::flatbuf::Emit::PassThrough ? static_cast<const org::apache::arrow::computeir::flatbuf::PassThrough *>(output_mapping()) : nullptr;
-  }
-  bool Verify(flatbuffers::Verifier &verifier) const {
-    return VerifyTableStart(verifier) &&
-           VerifyField<uint8_t>(verifier, VT_OUTPUT_MAPPING_TYPE) &&
-           VerifyOffsetRequired(verifier, VT_OUTPUT_MAPPING) &&
-           VerifyEmit(verifier, output_mapping(), output_mapping_type()) &&
-           verifier.EndTable();
-  }
-};
-
-template<> inline const org::apache::arrow::computeir::flatbuf::Remap *RelBase::output_mapping_as<org::apache::arrow::computeir::flatbuf::Remap>() const {
-  return output_mapping_as_Remap();
-}
-
-template<> inline const org::apache::arrow::computeir::flatbuf::PassThrough *RelBase::output_mapping_as<org::apache::arrow::computeir::flatbuf::PassThrough>() const {
-  return output_mapping_as_PassThrough();
-}
-
-struct RelBaseBuilder {
-  typedef RelBase Table;
-  flatbuffers::FlatBufferBuilder &fbb_;
-  flatbuffers::uoffset_t start_;
-  void add_output_mapping_type(org::apache::arrow::computeir::flatbuf::Emit output_mapping_type) {
-    fbb_.AddElement<uint8_t>(RelBase::VT_OUTPUT_MAPPING_TYPE, static_cast<uint8_t>(output_mapping_type), 0);
-  }
-  void add_output_mapping(flatbuffers::Offset<void> output_mapping) {
-    fbb_.AddOffset(RelBase::VT_OUTPUT_MAPPING, output_mapping);
-  }
-  explicit RelBaseBuilder(flatbuffers::FlatBufferBuilder &_fbb)
-        : fbb_(_fbb) {
-    start_ = fbb_.StartTable();
-  }
-  RelBaseBuilder &operator=(const RelBaseBuilder &);
-  flatbuffers::Offset<RelBase> Finish() {
-    const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<RelBase>(end);
-    fbb_.Required(o, RelBase::VT_OUTPUT_MAPPING);
-    return o;
-  }
-};
-
-inline flatbuffers::Offset<RelBase> CreateRelBase(
-    flatbuffers::FlatBufferBuilder &_fbb,
-    org::apache::arrow::computeir::flatbuf::Emit output_mapping_type = org::apache::arrow::computeir::flatbuf::Emit::NONE,
-    flatbuffers::Offset<void> output_mapping = 0) {
-  RelBaseBuilder builder_(_fbb);
-  builder_.add_output_mapping(output_mapping);
-  builder_.add_output_mapping_type(output_mapping_type);
+    uint64_t id = 0) {
+  RelIdBuilder builder_(_fbb);
+  builder_.add_id(id);
   return builder_.Finish();
 }
 
@@ -446,13 +281,14 @@ inline flatbuffers::Offset<RelBase> CreateRelBase(
 struct Filter FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef FilterBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_BASE = 4,
+    VT_ID = 4,
     VT_REL = 6,
     VT_PREDICATE = 8
   };
-  /// Common options
-  const org::apache::arrow::computeir::flatbuf::RelBase *base() const {
-    return GetPointer<const org::apache::arrow::computeir::flatbuf::RelBase *>(VT_BASE);
+  /// An identifiier for the relation. The identifier should be unique over the
+  /// entire plan. Optional.
+  const org::apache::arrow::computeir::flatbuf::RelId *id() const {
+    return GetPointer<const org::apache::arrow::computeir::flatbuf::RelId *>(VT_ID);
   }
   /// Child relation
   const org::apache::arrow::computeir::flatbuf::Relation *rel() const {
@@ -466,8 +302,8 @@ struct Filter FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyOffsetRequired(verifier, VT_BASE) &&
-           verifier.VerifyTable(base()) &&
+           VerifyOffset(verifier, VT_ID) &&
+           verifier.VerifyTable(id()) &&
            VerifyOffsetRequired(verifier, VT_REL) &&
            verifier.VerifyTable(rel()) &&
            VerifyOffsetRequired(verifier, VT_PREDICATE) &&
@@ -480,8 +316,8 @@ struct FilterBuilder {
   typedef Filter Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_base(flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::RelBase> base) {
-    fbb_.AddOffset(Filter::VT_BASE, base);
+  void add_id(flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::RelId> id) {
+    fbb_.AddOffset(Filter::VT_ID, id);
   }
   void add_rel(flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Relation> rel) {
     fbb_.AddOffset(Filter::VT_REL, rel);
@@ -497,7 +333,6 @@ struct FilterBuilder {
   flatbuffers::Offset<Filter> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<Filter>(end);
-    fbb_.Required(o, Filter::VT_BASE);
     fbb_.Required(o, Filter::VT_REL);
     fbb_.Required(o, Filter::VT_PREDICATE);
     return o;
@@ -506,13 +341,13 @@ struct FilterBuilder {
 
 inline flatbuffers::Offset<Filter> CreateFilter(
     flatbuffers::FlatBufferBuilder &_fbb,
-    flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::RelBase> base = 0,
+    flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::RelId> id = 0,
     flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Relation> rel = 0,
     flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Expression> predicate = 0) {
   FilterBuilder builder_(_fbb);
   builder_.add_predicate(predicate);
   builder_.add_rel(rel);
-  builder_.add_base(base);
+  builder_.add_id(id);
   return builder_.Finish();
 }
 
@@ -520,13 +355,14 @@ inline flatbuffers::Offset<Filter> CreateFilter(
 struct Project FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef ProjectBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_BASE = 4,
+    VT_ID = 4,
     VT_REL = 6,
     VT_EXPRESSIONS = 8
   };
-  /// Common options
-  const org::apache::arrow::computeir::flatbuf::RelBase *base() const {
-    return GetPointer<const org::apache::arrow::computeir::flatbuf::RelBase *>(VT_BASE);
+  /// An identifiier for the relation. The identifier should be unique over the
+  /// entire plan. Optional.
+  const org::apache::arrow::computeir::flatbuf::RelId *id() const {
+    return GetPointer<const org::apache::arrow::computeir::flatbuf::RelId *>(VT_ID);
   }
   /// Child relation
   const org::apache::arrow::computeir::flatbuf::Relation *rel() const {
@@ -539,8 +375,8 @@ struct Project FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyOffsetRequired(verifier, VT_BASE) &&
-           verifier.VerifyTable(base()) &&
+           VerifyOffset(verifier, VT_ID) &&
+           verifier.VerifyTable(id()) &&
            VerifyOffsetRequired(verifier, VT_REL) &&
            verifier.VerifyTable(rel()) &&
            VerifyOffsetRequired(verifier, VT_EXPRESSIONS) &&
@@ -554,8 +390,8 @@ struct ProjectBuilder {
   typedef Project Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_base(flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::RelBase> base) {
-    fbb_.AddOffset(Project::VT_BASE, base);
+  void add_id(flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::RelId> id) {
+    fbb_.AddOffset(Project::VT_ID, id);
   }
   void add_rel(flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Relation> rel) {
     fbb_.AddOffset(Project::VT_REL, rel);
@@ -571,7 +407,6 @@ struct ProjectBuilder {
   flatbuffers::Offset<Project> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<Project>(end);
-    fbb_.Required(o, Project::VT_BASE);
     fbb_.Required(o, Project::VT_REL);
     fbb_.Required(o, Project::VT_EXPRESSIONS);
     return o;
@@ -580,25 +415,25 @@ struct ProjectBuilder {
 
 inline flatbuffers::Offset<Project> CreateProject(
     flatbuffers::FlatBufferBuilder &_fbb,
-    flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::RelBase> base = 0,
+    flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::RelId> id = 0,
     flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Relation> rel = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Expression>>> expressions = 0) {
   ProjectBuilder builder_(_fbb);
   builder_.add_expressions(expressions);
   builder_.add_rel(rel);
-  builder_.add_base(base);
+  builder_.add_id(id);
   return builder_.Finish();
 }
 
 inline flatbuffers::Offset<Project> CreateProjectDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
-    flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::RelBase> base = 0,
+    flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::RelId> id = 0,
     flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Relation> rel = 0,
     const std::vector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Expression>> *expressions = nullptr) {
   auto expressions__ = expressions ? _fbb.CreateVector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Expression>>(*expressions) : 0;
   return org::apache::arrow::computeir::flatbuf::CreateProject(
       _fbb,
-      base,
+      id,
       rel,
       expressions__);
 }
@@ -663,14 +498,15 @@ inline flatbuffers::Offset<Grouping> CreateGroupingDirect(
 struct Aggregate FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef AggregateBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_BASE = 4,
+    VT_ID = 4,
     VT_REL = 6,
     VT_MEASURES = 8,
     VT_GROUPINGS = 10
   };
-  /// Common options
-  const org::apache::arrow::computeir::flatbuf::RelBase *base() const {
-    return GetPointer<const org::apache::arrow::computeir::flatbuf::RelBase *>(VT_BASE);
+  /// An identifiier for the relation. The identifier should be unique over the
+  /// entire plan. Optional.
+  const org::apache::arrow::computeir::flatbuf::RelId *id() const {
+    return GetPointer<const org::apache::arrow::computeir::flatbuf::RelId *>(VT_ID);
   }
   /// Child relation
   const org::apache::arrow::computeir::flatbuf::Relation *rel() const {
@@ -700,8 +536,8 @@ struct Aggregate FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyOffsetRequired(verifier, VT_BASE) &&
-           verifier.VerifyTable(base()) &&
+           VerifyOffset(verifier, VT_ID) &&
+           verifier.VerifyTable(id()) &&
            VerifyOffsetRequired(verifier, VT_REL) &&
            verifier.VerifyTable(rel()) &&
            VerifyOffsetRequired(verifier, VT_MEASURES) &&
@@ -718,8 +554,8 @@ struct AggregateBuilder {
   typedef Aggregate Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_base(flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::RelBase> base) {
-    fbb_.AddOffset(Aggregate::VT_BASE, base);
+  void add_id(flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::RelId> id) {
+    fbb_.AddOffset(Aggregate::VT_ID, id);
   }
   void add_rel(flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Relation> rel) {
     fbb_.AddOffset(Aggregate::VT_REL, rel);
@@ -738,7 +574,6 @@ struct AggregateBuilder {
   flatbuffers::Offset<Aggregate> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<Aggregate>(end);
-    fbb_.Required(o, Aggregate::VT_BASE);
     fbb_.Required(o, Aggregate::VT_REL);
     fbb_.Required(o, Aggregate::VT_MEASURES);
     fbb_.Required(o, Aggregate::VT_GROUPINGS);
@@ -748,7 +583,7 @@ struct AggregateBuilder {
 
 inline flatbuffers::Offset<Aggregate> CreateAggregate(
     flatbuffers::FlatBufferBuilder &_fbb,
-    flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::RelBase> base = 0,
+    flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::RelId> id = 0,
     flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Relation> rel = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Expression>>> measures = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Grouping>>> groupings = 0) {
@@ -756,13 +591,13 @@ inline flatbuffers::Offset<Aggregate> CreateAggregate(
   builder_.add_groupings(groupings);
   builder_.add_measures(measures);
   builder_.add_rel(rel);
-  builder_.add_base(base);
+  builder_.add_id(id);
   return builder_.Finish();
 }
 
 inline flatbuffers::Offset<Aggregate> CreateAggregateDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
-    flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::RelBase> base = 0,
+    flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::RelId> id = 0,
     flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Relation> rel = 0,
     const std::vector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Expression>> *measures = nullptr,
     const std::vector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Grouping>> *groupings = nullptr) {
@@ -770,7 +605,7 @@ inline flatbuffers::Offset<Aggregate> CreateAggregateDirect(
   auto groupings__ = groupings ? _fbb.CreateVector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Grouping>>(*groupings) : 0;
   return org::apache::arrow::computeir::flatbuf::CreateAggregate(
       _fbb,
-      base,
+      id,
       rel,
       measures__,
       groupings__);
@@ -780,15 +615,16 @@ inline flatbuffers::Offset<Aggregate> CreateAggregateDirect(
 struct Join FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef JoinBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_BASE = 4,
+    VT_ID = 4,
     VT_LEFT = 6,
     VT_RIGHT = 8,
     VT_ON_EXPRESSION = 10,
     VT_JOIN_KIND = 12
   };
-  /// Common options
-  const org::apache::arrow::computeir::flatbuf::RelBase *base() const {
-    return GetPointer<const org::apache::arrow::computeir::flatbuf::RelBase *>(VT_BASE);
+  /// An identifiier for the relation. The identifier should be unique over the
+  /// entire plan. Optional.
+  const org::apache::arrow::computeir::flatbuf::RelId *id() const {
+    return GetPointer<const org::apache::arrow::computeir::flatbuf::RelId *>(VT_ID);
   }
   /// Left relation
   const org::apache::arrow::computeir::flatbuf::Relation *left() const {
@@ -810,8 +646,8 @@ struct Join FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyOffsetRequired(verifier, VT_BASE) &&
-           verifier.VerifyTable(base()) &&
+           VerifyOffset(verifier, VT_ID) &&
+           verifier.VerifyTable(id()) &&
            VerifyOffsetRequired(verifier, VT_LEFT) &&
            verifier.VerifyTable(left()) &&
            VerifyOffsetRequired(verifier, VT_RIGHT) &&
@@ -827,8 +663,8 @@ struct JoinBuilder {
   typedef Join Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_base(flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::RelBase> base) {
-    fbb_.AddOffset(Join::VT_BASE, base);
+  void add_id(flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::RelId> id) {
+    fbb_.AddOffset(Join::VT_ID, id);
   }
   void add_left(flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Relation> left) {
     fbb_.AddOffset(Join::VT_LEFT, left);
@@ -850,7 +686,6 @@ struct JoinBuilder {
   flatbuffers::Offset<Join> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<Join>(end);
-    fbb_.Required(o, Join::VT_BASE);
     fbb_.Required(o, Join::VT_LEFT);
     fbb_.Required(o, Join::VT_RIGHT);
     fbb_.Required(o, Join::VT_ON_EXPRESSION);
@@ -860,7 +695,7 @@ struct JoinBuilder {
 
 inline flatbuffers::Offset<Join> CreateJoin(
     flatbuffers::FlatBufferBuilder &_fbb,
-    flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::RelBase> base = 0,
+    flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::RelId> id = 0,
     flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Relation> left = 0,
     flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Relation> right = 0,
     flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Expression> on_expression = 0,
@@ -869,7 +704,7 @@ inline flatbuffers::Offset<Join> CreateJoin(
   builder_.add_on_expression(on_expression);
   builder_.add_right(right);
   builder_.add_left(left);
-  builder_.add_base(base);
+  builder_.add_id(id);
   builder_.add_join_kind(join_kind);
   return builder_.Finish();
 }
@@ -878,13 +713,14 @@ inline flatbuffers::Offset<Join> CreateJoin(
 struct OrderBy FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef OrderByBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_BASE = 4,
+    VT_ID = 4,
     VT_REL = 6,
     VT_KEYS = 8
   };
-  /// Common options
-  const org::apache::arrow::computeir::flatbuf::RelBase *base() const {
-    return GetPointer<const org::apache::arrow::computeir::flatbuf::RelBase *>(VT_BASE);
+  /// An identifiier for the relation. The identifier should be unique over the
+  /// entire plan. Optional.
+  const org::apache::arrow::computeir::flatbuf::RelId *id() const {
+    return GetPointer<const org::apache::arrow::computeir::flatbuf::RelId *>(VT_ID);
   }
   /// Child relation
   const org::apache::arrow::computeir::flatbuf::Relation *rel() const {
@@ -897,8 +733,8 @@ struct OrderBy FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyOffsetRequired(verifier, VT_BASE) &&
-           verifier.VerifyTable(base()) &&
+           VerifyOffset(verifier, VT_ID) &&
+           verifier.VerifyTable(id()) &&
            VerifyOffsetRequired(verifier, VT_REL) &&
            verifier.VerifyTable(rel()) &&
            VerifyOffsetRequired(verifier, VT_KEYS) &&
@@ -912,8 +748,8 @@ struct OrderByBuilder {
   typedef OrderBy Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_base(flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::RelBase> base) {
-    fbb_.AddOffset(OrderBy::VT_BASE, base);
+  void add_id(flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::RelId> id) {
+    fbb_.AddOffset(OrderBy::VT_ID, id);
   }
   void add_rel(flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Relation> rel) {
     fbb_.AddOffset(OrderBy::VT_REL, rel);
@@ -929,7 +765,6 @@ struct OrderByBuilder {
   flatbuffers::Offset<OrderBy> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<OrderBy>(end);
-    fbb_.Required(o, OrderBy::VT_BASE);
     fbb_.Required(o, OrderBy::VT_REL);
     fbb_.Required(o, OrderBy::VT_KEYS);
     return o;
@@ -938,25 +773,25 @@ struct OrderByBuilder {
 
 inline flatbuffers::Offset<OrderBy> CreateOrderBy(
     flatbuffers::FlatBufferBuilder &_fbb,
-    flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::RelBase> base = 0,
+    flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::RelId> id = 0,
     flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Relation> rel = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::SortKey>>> keys = 0) {
   OrderByBuilder builder_(_fbb);
   builder_.add_keys(keys);
   builder_.add_rel(rel);
-  builder_.add_base(base);
+  builder_.add_id(id);
   return builder_.Finish();
 }
 
 inline flatbuffers::Offset<OrderBy> CreateOrderByDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
-    flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::RelBase> base = 0,
+    flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::RelId> id = 0,
     flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Relation> rel = 0,
     const std::vector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::SortKey>> *keys = nullptr) {
   auto keys__ = keys ? _fbb.CreateVector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::SortKey>>(*keys) : 0;
   return org::apache::arrow::computeir::flatbuf::CreateOrderBy(
       _fbb,
-      base,
+      id,
       rel,
       keys__);
 }
@@ -965,14 +800,15 @@ inline flatbuffers::Offset<OrderBy> CreateOrderByDirect(
 struct Limit FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef LimitBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_BASE = 4,
+    VT_ID = 4,
     VT_REL = 6,
     VT_OFFSET = 8,
     VT_COUNT = 10
   };
-  /// Common options
-  const org::apache::arrow::computeir::flatbuf::RelBase *base() const {
-    return GetPointer<const org::apache::arrow::computeir::flatbuf::RelBase *>(VT_BASE);
+  /// An identifiier for the relation. The identifier should be unique over the
+  /// entire plan. Optional.
+  const org::apache::arrow::computeir::flatbuf::RelId *id() const {
+    return GetPointer<const org::apache::arrow::computeir::flatbuf::RelId *>(VT_ID);
   }
   /// Child relation
   const org::apache::arrow::computeir::flatbuf::Relation *rel() const {
@@ -988,8 +824,8 @@ struct Limit FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyOffsetRequired(verifier, VT_BASE) &&
-           verifier.VerifyTable(base()) &&
+           VerifyOffset(verifier, VT_ID) &&
+           verifier.VerifyTable(id()) &&
            VerifyOffsetRequired(verifier, VT_REL) &&
            verifier.VerifyTable(rel()) &&
            VerifyField<uint32_t>(verifier, VT_OFFSET) &&
@@ -1002,8 +838,8 @@ struct LimitBuilder {
   typedef Limit Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_base(flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::RelBase> base) {
-    fbb_.AddOffset(Limit::VT_BASE, base);
+  void add_id(flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::RelId> id) {
+    fbb_.AddOffset(Limit::VT_ID, id);
   }
   void add_rel(flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Relation> rel) {
     fbb_.AddOffset(Limit::VT_REL, rel);
@@ -1022,7 +858,6 @@ struct LimitBuilder {
   flatbuffers::Offset<Limit> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<Limit>(end);
-    fbb_.Required(o, Limit::VT_BASE);
     fbb_.Required(o, Limit::VT_REL);
     return o;
   }
@@ -1030,7 +865,7 @@ struct LimitBuilder {
 
 inline flatbuffers::Offset<Limit> CreateLimit(
     flatbuffers::FlatBufferBuilder &_fbb,
-    flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::RelBase> base = 0,
+    flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::RelId> id = 0,
     flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Relation> rel = 0,
     uint32_t offset = 0,
     uint32_t count = 0) {
@@ -1038,7 +873,7 @@ inline flatbuffers::Offset<Limit> CreateLimit(
   builder_.add_count(count);
   builder_.add_offset(offset);
   builder_.add_rel(rel);
-  builder_.add_base(base);
+  builder_.add_id(id);
   return builder_.Finish();
 }
 
@@ -1046,13 +881,14 @@ inline flatbuffers::Offset<Limit> CreateLimit(
 struct SetOperation FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef SetOperationBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_BASE = 4,
+    VT_ID = 4,
     VT_RELS = 6,
     VT_SET_OP = 8
   };
-  /// Common options
-  const org::apache::arrow::computeir::flatbuf::RelBase *base() const {
-    return GetPointer<const org::apache::arrow::computeir::flatbuf::RelBase *>(VT_BASE);
+  /// An identifiier for the relation. The identifier should be unique over the
+  /// entire plan. Optional.
+  const org::apache::arrow::computeir::flatbuf::RelId *id() const {
+    return GetPointer<const org::apache::arrow::computeir::flatbuf::RelId *>(VT_ID);
   }
   /// Child relations
   const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Relation>> *rels() const {
@@ -1064,8 +900,8 @@ struct SetOperation FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyOffsetRequired(verifier, VT_BASE) &&
-           verifier.VerifyTable(base()) &&
+           VerifyOffset(verifier, VT_ID) &&
+           verifier.VerifyTable(id()) &&
            VerifyOffsetRequired(verifier, VT_RELS) &&
            verifier.VerifyVector(rels()) &&
            verifier.VerifyVectorOfTables(rels()) &&
@@ -1078,8 +914,8 @@ struct SetOperationBuilder {
   typedef SetOperation Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_base(flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::RelBase> base) {
-    fbb_.AddOffset(SetOperation::VT_BASE, base);
+  void add_id(flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::RelId> id) {
+    fbb_.AddOffset(SetOperation::VT_ID, id);
   }
   void add_rels(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Relation>>> rels) {
     fbb_.AddOffset(SetOperation::VT_RELS, rels);
@@ -1095,7 +931,6 @@ struct SetOperationBuilder {
   flatbuffers::Offset<SetOperation> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<SetOperation>(end);
-    fbb_.Required(o, SetOperation::VT_BASE);
     fbb_.Required(o, SetOperation::VT_RELS);
     return o;
   }
@@ -1103,25 +938,25 @@ struct SetOperationBuilder {
 
 inline flatbuffers::Offset<SetOperation> CreateSetOperation(
     flatbuffers::FlatBufferBuilder &_fbb,
-    flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::RelBase> base = 0,
+    flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::RelId> id = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Relation>>> rels = 0,
     org::apache::arrow::computeir::flatbuf::SetOpKind set_op = org::apache::arrow::computeir::flatbuf::SetOpKind::Union) {
   SetOperationBuilder builder_(_fbb);
   builder_.add_rels(rels);
-  builder_.add_base(base);
+  builder_.add_id(id);
   builder_.add_set_op(set_op);
   return builder_.Finish();
 }
 
 inline flatbuffers::Offset<SetOperation> CreateSetOperationDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
-    flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::RelBase> base = 0,
+    flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::RelId> id = 0,
     const std::vector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Relation>> *rels = nullptr,
     org::apache::arrow::computeir::flatbuf::SetOpKind set_op = org::apache::arrow::computeir::flatbuf::SetOpKind::Union) {
   auto rels__ = rels ? _fbb.CreateVector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Relation>>(*rels) : 0;
   return org::apache::arrow::computeir::flatbuf::CreateSetOperation(
       _fbb,
-      base,
+      id,
       rels__,
       set_op);
 }
@@ -1186,12 +1021,13 @@ inline flatbuffers::Offset<LiteralColumn> CreateLiteralColumnDirect(
 struct LiteralRelation FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef LiteralRelationBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_BASE = 4,
+    VT_ID = 4,
     VT_COLUMNS = 6
   };
-  /// Common options
-  const org::apache::arrow::computeir::flatbuf::RelBase *base() const {
-    return GetPointer<const org::apache::arrow::computeir::flatbuf::RelBase *>(VT_BASE);
+  /// An identifiier for the relation. The identifier should be unique over the
+  /// entire plan. Optional.
+  const org::apache::arrow::computeir::flatbuf::RelId *id() const {
+    return GetPointer<const org::apache::arrow::computeir::flatbuf::RelId *>(VT_ID);
   }
   /// The columns of this literal relation.
   const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::LiteralColumn>> *columns() const {
@@ -1199,8 +1035,8 @@ struct LiteralRelation FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyOffsetRequired(verifier, VT_BASE) &&
-           verifier.VerifyTable(base()) &&
+           VerifyOffset(verifier, VT_ID) &&
+           verifier.VerifyTable(id()) &&
            VerifyOffsetRequired(verifier, VT_COLUMNS) &&
            verifier.VerifyVector(columns()) &&
            verifier.VerifyVectorOfTables(columns()) &&
@@ -1212,8 +1048,8 @@ struct LiteralRelationBuilder {
   typedef LiteralRelation Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_base(flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::RelBase> base) {
-    fbb_.AddOffset(LiteralRelation::VT_BASE, base);
+  void add_id(flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::RelId> id) {
+    fbb_.AddOffset(LiteralRelation::VT_ID, id);
   }
   void add_columns(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::LiteralColumn>>> columns) {
     fbb_.AddOffset(LiteralRelation::VT_COLUMNS, columns);
@@ -1226,7 +1062,6 @@ struct LiteralRelationBuilder {
   flatbuffers::Offset<LiteralRelation> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<LiteralRelation>(end);
-    fbb_.Required(o, LiteralRelation::VT_BASE);
     fbb_.Required(o, LiteralRelation::VT_COLUMNS);
     return o;
   }
@@ -1234,105 +1069,148 @@ struct LiteralRelationBuilder {
 
 inline flatbuffers::Offset<LiteralRelation> CreateLiteralRelation(
     flatbuffers::FlatBufferBuilder &_fbb,
-    flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::RelBase> base = 0,
+    flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::RelId> id = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::LiteralColumn>>> columns = 0) {
   LiteralRelationBuilder builder_(_fbb);
   builder_.add_columns(columns);
-  builder_.add_base(base);
+  builder_.add_id(id);
   return builder_.Finish();
 }
 
 inline flatbuffers::Offset<LiteralRelation> CreateLiteralRelationDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
-    flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::RelBase> base = 0,
+    flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::RelId> id = 0,
     const std::vector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::LiteralColumn>> *columns = nullptr) {
   auto columns__ = columns ? _fbb.CreateVector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::LiteralColumn>>(*columns) : 0;
   return org::apache::arrow::computeir::flatbuf::CreateLiteralRelation(
       _fbb,
-      base,
+      id,
       columns__);
 }
 
-/// A table read
-struct Table FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef TableBuilder Builder;
+/// An external source of tabular data
+struct Source FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef SourceBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_BASE = 4,
+    VT_ID = 4,
     VT_NAME = 6,
-    VT_SCHEMA = 8
+    VT_FILTER = 8,
+    VT_SCHEMA = 10,
+    VT_PROJECTION = 12
   };
-  const org::apache::arrow::computeir::flatbuf::RelBase *base() const {
-    return GetPointer<const org::apache::arrow::computeir::flatbuf::RelBase *>(VT_BASE);
+  /// An identifiier for the relation. The identifier should be unique over the
+  /// entire plan. Optional.
+  const org::apache::arrow::computeir::flatbuf::RelId *id() const {
+    return GetPointer<const org::apache::arrow::computeir::flatbuf::RelId *>(VT_ID);
   }
   const flatbuffers::String *name() const {
     return GetPointer<const flatbuffers::String *>(VT_NAME);
   }
+  /// An optional expression used to filter out rows directly from the source.
+  ///
+  /// Useful for consumers that implement predicate pushdown.
+  ///
+  /// A missing filter value indicates no filter, i.e., all rows are
+  /// returned from the source.
+  const org::apache::arrow::computeir::flatbuf::Expression *filter() const {
+    return GetPointer<const org::apache::arrow::computeir::flatbuf::Expression *>(VT_FILTER);
+  }
+  /// Schemas are explicitly optional
   const org::apache::arrow::flatbuf::Schema *schema() const {
     return GetPointer<const org::apache::arrow::flatbuf::Schema *>(VT_SCHEMA);
   }
+  /// An optional list of field indices indicating which columns should be read
+  /// from the source. Columns excluded from this listing will instead be replaced
+  /// with all-null placeholders to guarantee that the schema of the source is
+  /// unaffected by this projection.
+  ///
+  /// A missing value indicates all columns should be read.
+  ///
+  /// The behavior of an empty list is undefined.
+  const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::FieldIndex>> *projection() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::FieldIndex>> *>(VT_PROJECTION);
+  }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyOffsetRequired(verifier, VT_BASE) &&
-           verifier.VerifyTable(base()) &&
+           VerifyOffset(verifier, VT_ID) &&
+           verifier.VerifyTable(id()) &&
            VerifyOffsetRequired(verifier, VT_NAME) &&
            verifier.VerifyString(name()) &&
-           VerifyOffsetRequired(verifier, VT_SCHEMA) &&
+           VerifyOffset(verifier, VT_FILTER) &&
+           verifier.VerifyTable(filter()) &&
+           VerifyOffset(verifier, VT_SCHEMA) &&
            verifier.VerifyTable(schema()) &&
+           VerifyOffset(verifier, VT_PROJECTION) &&
+           verifier.VerifyVector(projection()) &&
+           verifier.VerifyVectorOfTables(projection()) &&
            verifier.EndTable();
   }
 };
 
-struct TableBuilder {
-  typedef Table Table;
+struct SourceBuilder {
+  typedef Source Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_base(flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::RelBase> base) {
-    fbb_.AddOffset(Table::VT_BASE, base);
+  void add_id(flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::RelId> id) {
+    fbb_.AddOffset(Source::VT_ID, id);
   }
   void add_name(flatbuffers::Offset<flatbuffers::String> name) {
-    fbb_.AddOffset(Table::VT_NAME, name);
+    fbb_.AddOffset(Source::VT_NAME, name);
+  }
+  void add_filter(flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Expression> filter) {
+    fbb_.AddOffset(Source::VT_FILTER, filter);
   }
   void add_schema(flatbuffers::Offset<org::apache::arrow::flatbuf::Schema> schema) {
-    fbb_.AddOffset(Table::VT_SCHEMA, schema);
+    fbb_.AddOffset(Source::VT_SCHEMA, schema);
   }
-  explicit TableBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+  void add_projection(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::FieldIndex>>> projection) {
+    fbb_.AddOffset(Source::VT_PROJECTION, projection);
+  }
+  explicit SourceBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  TableBuilder &operator=(const TableBuilder &);
-  flatbuffers::Offset<Table> Finish() {
+  SourceBuilder &operator=(const SourceBuilder &);
+  flatbuffers::Offset<Source> Finish() {
     const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<Table>(end);
-    fbb_.Required(o, Table::VT_BASE);
-    fbb_.Required(o, Table::VT_NAME);
-    fbb_.Required(o, Table::VT_SCHEMA);
+    auto o = flatbuffers::Offset<Source>(end);
+    fbb_.Required(o, Source::VT_NAME);
     return o;
   }
 };
 
-inline flatbuffers::Offset<Table> CreateTable(
+inline flatbuffers::Offset<Source> CreateSource(
     flatbuffers::FlatBufferBuilder &_fbb,
-    flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::RelBase> base = 0,
+    flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::RelId> id = 0,
     flatbuffers::Offset<flatbuffers::String> name = 0,
-    flatbuffers::Offset<org::apache::arrow::flatbuf::Schema> schema = 0) {
-  TableBuilder builder_(_fbb);
+    flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Expression> filter = 0,
+    flatbuffers::Offset<org::apache::arrow::flatbuf::Schema> schema = 0,
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::FieldIndex>>> projection = 0) {
+  SourceBuilder builder_(_fbb);
+  builder_.add_projection(projection);
   builder_.add_schema(schema);
+  builder_.add_filter(filter);
   builder_.add_name(name);
-  builder_.add_base(base);
+  builder_.add_id(id);
   return builder_.Finish();
 }
 
-inline flatbuffers::Offset<Table> CreateTableDirect(
+inline flatbuffers::Offset<Source> CreateSourceDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
-    flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::RelBase> base = 0,
+    flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::RelId> id = 0,
     const char *name = nullptr,
-    flatbuffers::Offset<org::apache::arrow::flatbuf::Schema> schema = 0) {
+    flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::Expression> filter = 0,
+    flatbuffers::Offset<org::apache::arrow::flatbuf::Schema> schema = 0,
+    const std::vector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::FieldIndex>> *projection = nullptr) {
   auto name__ = name ? _fbb.CreateString(name) : 0;
-  return org::apache::arrow::computeir::flatbuf::CreateTable(
+  auto projection__ = projection ? _fbb.CreateVector<flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::FieldIndex>>(*projection) : 0;
+  return org::apache::arrow::computeir::flatbuf::CreateSource(
       _fbb,
-      base,
+      id,
       name__,
-      schema);
+      filter,
+      schema,
+      projection__);
 }
 
 /// A table holding an instance of the possible relation types.
@@ -1352,11 +1230,11 @@ struct Relation FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const org::apache::arrow::computeir::flatbuf::Aggregate *impl_as_Aggregate() const {
     return impl_type() == org::apache::arrow::computeir::flatbuf::RelationImpl::Aggregate ? static_cast<const org::apache::arrow::computeir::flatbuf::Aggregate *>(impl()) : nullptr;
   }
-  const org::apache::arrow::computeir::flatbuf::SetOperation *impl_as_SetOperation() const {
-    return impl_type() == org::apache::arrow::computeir::flatbuf::RelationImpl::SetOperation ? static_cast<const org::apache::arrow::computeir::flatbuf::SetOperation *>(impl()) : nullptr;
-  }
   const org::apache::arrow::computeir::flatbuf::Filter *impl_as_Filter() const {
     return impl_type() == org::apache::arrow::computeir::flatbuf::RelationImpl::Filter ? static_cast<const org::apache::arrow::computeir::flatbuf::Filter *>(impl()) : nullptr;
+  }
+  const org::apache::arrow::computeir::flatbuf::Join *impl_as_Join() const {
+    return impl_type() == org::apache::arrow::computeir::flatbuf::RelationImpl::Join ? static_cast<const org::apache::arrow::computeir::flatbuf::Join *>(impl()) : nullptr;
   }
   const org::apache::arrow::computeir::flatbuf::Limit *impl_as_Limit() const {
     return impl_type() == org::apache::arrow::computeir::flatbuf::RelationImpl::Limit ? static_cast<const org::apache::arrow::computeir::flatbuf::Limit *>(impl()) : nullptr;
@@ -1370,8 +1248,11 @@ struct Relation FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const org::apache::arrow::computeir::flatbuf::Project *impl_as_Project() const {
     return impl_type() == org::apache::arrow::computeir::flatbuf::RelationImpl::Project ? static_cast<const org::apache::arrow::computeir::flatbuf::Project *>(impl()) : nullptr;
   }
-  const org::apache::arrow::computeir::flatbuf::Table *impl_as_Table() const {
-    return impl_type() == org::apache::arrow::computeir::flatbuf::RelationImpl::Table ? static_cast<const org::apache::arrow::computeir::flatbuf::Table *>(impl()) : nullptr;
+  const org::apache::arrow::computeir::flatbuf::SetOperation *impl_as_SetOperation() const {
+    return impl_type() == org::apache::arrow::computeir::flatbuf::RelationImpl::SetOperation ? static_cast<const org::apache::arrow::computeir::flatbuf::SetOperation *>(impl()) : nullptr;
+  }
+  const org::apache::arrow::computeir::flatbuf::Source *impl_as_Source() const {
+    return impl_type() == org::apache::arrow::computeir::flatbuf::RelationImpl::Source ? static_cast<const org::apache::arrow::computeir::flatbuf::Source *>(impl()) : nullptr;
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -1386,12 +1267,12 @@ template<> inline const org::apache::arrow::computeir::flatbuf::Aggregate *Relat
   return impl_as_Aggregate();
 }
 
-template<> inline const org::apache::arrow::computeir::flatbuf::SetOperation *Relation::impl_as<org::apache::arrow::computeir::flatbuf::SetOperation>() const {
-  return impl_as_SetOperation();
-}
-
 template<> inline const org::apache::arrow::computeir::flatbuf::Filter *Relation::impl_as<org::apache::arrow::computeir::flatbuf::Filter>() const {
   return impl_as_Filter();
+}
+
+template<> inline const org::apache::arrow::computeir::flatbuf::Join *Relation::impl_as<org::apache::arrow::computeir::flatbuf::Join>() const {
+  return impl_as_Join();
 }
 
 template<> inline const org::apache::arrow::computeir::flatbuf::Limit *Relation::impl_as<org::apache::arrow::computeir::flatbuf::Limit>() const {
@@ -1410,8 +1291,12 @@ template<> inline const org::apache::arrow::computeir::flatbuf::Project *Relatio
   return impl_as_Project();
 }
 
-template<> inline const org::apache::arrow::computeir::flatbuf::Table *Relation::impl_as<org::apache::arrow::computeir::flatbuf::Table>() const {
-  return impl_as_Table();
+template<> inline const org::apache::arrow::computeir::flatbuf::SetOperation *Relation::impl_as<org::apache::arrow::computeir::flatbuf::SetOperation>() const {
+  return impl_as_SetOperation();
+}
+
+template<> inline const org::apache::arrow::computeir::flatbuf::Source *Relation::impl_as<org::apache::arrow::computeir::flatbuf::Source>() const {
+  return impl_as_Source();
 }
 
 struct RelationBuilder {
@@ -1447,35 +1332,6 @@ inline flatbuffers::Offset<Relation> CreateRelation(
   return builder_.Finish();
 }
 
-inline bool VerifyEmit(flatbuffers::Verifier &verifier, const void *obj, Emit type) {
-  switch (type) {
-    case Emit::NONE: {
-      return true;
-    }
-    case Emit::Remap: {
-      auto ptr = reinterpret_cast<const org::apache::arrow::computeir::flatbuf::Remap *>(obj);
-      return verifier.VerifyTable(ptr);
-    }
-    case Emit::PassThrough: {
-      auto ptr = reinterpret_cast<const org::apache::arrow::computeir::flatbuf::PassThrough *>(obj);
-      return verifier.VerifyTable(ptr);
-    }
-    default: return true;
-  }
-}
-
-inline bool VerifyEmitVector(flatbuffers::Verifier &verifier, const flatbuffers::Vector<flatbuffers::Offset<void>> *values, const flatbuffers::Vector<uint8_t> *types) {
-  if (!values || !types) return !values && !types;
-  if (values->size() != types->size()) return false;
-  for (flatbuffers::uoffset_t i = 0; i < values->size(); ++i) {
-    if (!VerifyEmit(
-        verifier,  values->Get(i), types->GetEnum<Emit>(i))) {
-      return false;
-    }
-  }
-  return true;
-}
-
 inline bool VerifyRelationImpl(flatbuffers::Verifier &verifier, const void *obj, RelationImpl type) {
   switch (type) {
     case RelationImpl::NONE: {
@@ -1485,12 +1341,12 @@ inline bool VerifyRelationImpl(flatbuffers::Verifier &verifier, const void *obj,
       auto ptr = reinterpret_cast<const org::apache::arrow::computeir::flatbuf::Aggregate *>(obj);
       return verifier.VerifyTable(ptr);
     }
-    case RelationImpl::SetOperation: {
-      auto ptr = reinterpret_cast<const org::apache::arrow::computeir::flatbuf::SetOperation *>(obj);
-      return verifier.VerifyTable(ptr);
-    }
     case RelationImpl::Filter: {
       auto ptr = reinterpret_cast<const org::apache::arrow::computeir::flatbuf::Filter *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case RelationImpl::Join: {
+      auto ptr = reinterpret_cast<const org::apache::arrow::computeir::flatbuf::Join *>(obj);
       return verifier.VerifyTable(ptr);
     }
     case RelationImpl::Limit: {
@@ -1509,8 +1365,12 @@ inline bool VerifyRelationImpl(flatbuffers::Verifier &verifier, const void *obj,
       auto ptr = reinterpret_cast<const org::apache::arrow::computeir::flatbuf::Project *>(obj);
       return verifier.VerifyTable(ptr);
     }
-    case RelationImpl::Table: {
-      auto ptr = reinterpret_cast<const org::apache::arrow::computeir::flatbuf::Table *>(obj);
+    case RelationImpl::SetOperation: {
+      auto ptr = reinterpret_cast<const org::apache::arrow::computeir::flatbuf::SetOperation *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case RelationImpl::Source: {
+      auto ptr = reinterpret_cast<const org::apache::arrow::computeir::flatbuf::Source *>(obj);
       return verifier.VerifyTable(ptr);
     }
     default: return true;

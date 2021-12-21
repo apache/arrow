@@ -47,16 +47,17 @@ struct IsValidOperator {
       // and set the offset to the remaining bit offset.
       out->offset = arr.offset % 8;
       out->buffers[1] =
-          arr.offset == 0 ? arr.buffers[0]
-                          : SliceBuffer(arr.buffers[0], arr.offset / 8,
-                                        BitUtil::BytesForBits(out->length + out->offset));
+          arr.offset == 0
+              ? arr.buffers[0]
+              : SliceBuffer(arr.buffers[0], arr.offset / 8,
+                            bit_util::BytesForBits(out->length + out->offset));
       return Status::OK();
     }
 
     // Input has no nulls => output is entirely true.
     ARROW_ASSIGN_OR_RAISE(out->buffers[1],
                           ctx->AllocateBitmap(out->length + out->offset));
-    BitUtil::SetBitsTo(out->buffers[1]->mutable_data(), out->offset, out->length, true);
+    bit_util::SetBitsTo(out->buffers[1]->mutable_data(), out->offset, out->length, true);
     return Status::OK();
   }
 };
@@ -110,7 +111,7 @@ struct IsNullOperator {
     const T* data = arr.GetValues<T>(1);
     for (int64_t i = 0; i < arr.length; ++i) {
       if (std::isnan(data[i])) {
-        BitUtil::SetBit(out_bitmap, i + out_offset);
+        bit_util::SetBit(out_bitmap, i + out_offset);
       }
     }
   }
@@ -125,7 +126,7 @@ struct IsNullOperator {
                    out->offset);
     } else {
       // Input has no nulls => output is entirely false.
-      BitUtil::SetBitsTo(out_bitmap, out->offset, out->length, false);
+      bit_util::SetBitsTo(out_bitmap, out->offset, out->length, false);
     }
 
     if (is_floating(arr.type->id()) && options.nan_is_null) {
@@ -176,12 +177,33 @@ void AddFloatValidityKernel(const std::shared_ptr<DataType>& ty, ScalarFunction*
                             applicator::ScalarUnary<BooleanType, InType, Op>::Exec));
 }
 
+template <bool kConstant>
+Status ConstBoolExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  if (batch.values[0].is_scalar()) {
+    checked_cast<BooleanScalar*>(out->scalar().get())->value = kConstant;
+    return Status::OK();
+  }
+  ArrayData* array = out->mutable_array();
+  bit_util::SetBitsTo(array->buffers[1]->mutable_data(), array->offset, array->length,
+                      kConstant);
+  return Status::OK();
+}
+
 std::shared_ptr<ScalarFunction> MakeIsFiniteFunction(std::string name,
                                                      const FunctionDoc* doc) {
   auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), doc);
 
   AddFloatValidityKernel<FloatType, IsFiniteOperator>(float32(), func.get());
   AddFloatValidityKernel<DoubleType, IsFiniteOperator>(float64(), func.get());
+
+  for (const auto& ty : IntTypes()) {
+    DCHECK_OK(func->AddKernel({InputType(ty->id())}, boolean(), ConstBoolExec<true>));
+  }
+  DCHECK_OK(func->AddKernel({InputType(Type::NA)}, boolean(), ConstBoolExec<true>));
+  DCHECK_OK(
+      func->AddKernel({InputType(Type::DECIMAL128)}, boolean(), ConstBoolExec<true>));
+  DCHECK_OK(
+      func->AddKernel({InputType(Type::DECIMAL256)}, boolean(), ConstBoolExec<true>));
 
   return func;
 }
@@ -193,6 +215,15 @@ std::shared_ptr<ScalarFunction> MakeIsInfFunction(std::string name,
   AddFloatValidityKernel<FloatType, IsInfOperator>(float32(), func.get());
   AddFloatValidityKernel<DoubleType, IsInfOperator>(float64(), func.get());
 
+  for (const auto& ty : IntTypes()) {
+    DCHECK_OK(func->AddKernel({InputType(ty->id())}, boolean(), ConstBoolExec<false>));
+  }
+  DCHECK_OK(func->AddKernel({InputType(Type::NA)}, boolean(), ConstBoolExec<false>));
+  DCHECK_OK(
+      func->AddKernel({InputType(Type::DECIMAL128)}, boolean(), ConstBoolExec<false>));
+  DCHECK_OK(
+      func->AddKernel({InputType(Type::DECIMAL256)}, boolean(), ConstBoolExec<false>));
+
   return func;
 }
 
@@ -202,6 +233,15 @@ std::shared_ptr<ScalarFunction> MakeIsNanFunction(std::string name,
 
   AddFloatValidityKernel<FloatType, IsNanOperator>(float32(), func.get());
   AddFloatValidityKernel<DoubleType, IsNanOperator>(float64(), func.get());
+
+  for (const auto& ty : IntTypes()) {
+    DCHECK_OK(func->AddKernel({InputType(ty->id())}, boolean(), ConstBoolExec<false>));
+  }
+  DCHECK_OK(func->AddKernel({InputType(Type::NA)}, boolean(), ConstBoolExec<false>));
+  DCHECK_OK(
+      func->AddKernel({InputType(Type::DECIMAL128)}, boolean(), ConstBoolExec<false>));
+  DCHECK_OK(
+      func->AddKernel({InputType(Type::DECIMAL256)}, boolean(), ConstBoolExec<false>));
 
   return func;
 }
@@ -232,8 +272,8 @@ Status IsNullExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     } else {
       // Data is preallocated
       ArrayData* out_arr = out->mutable_array();
-      BitUtil::SetBitsTo(out_arr->buffers[1]->mutable_data(), out_arr->offset,
-                         out_arr->length, true);
+      bit_util::SetBitsTo(out_arr->buffers[1]->mutable_data(), out_arr->offset,
+                          out_arr->length, true);
     }
     return Status::OK();
   } else {
@@ -243,11 +283,13 @@ Status IsNullExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
 
 const FunctionDoc is_valid_doc(
     "Return true if non-null",
-    ("For each input value, emit true iff the value is valid (non-null)."), {"values"});
+    ("For each input value, emit true iff the value is valid (i.e. non-null)."),
+    {"values"});
 
 const FunctionDoc is_finite_doc(
     "Return true if value is finite",
-    ("For each input value, emit true iff the value is finite (not NaN, inf, or -inf)."),
+    ("For each input value, emit true iff the value is finite\n"
+     "(i.e. neither NaN, inf, nor -inf)."),
     {"values"});
 
 const FunctionDoc is_inf_doc(

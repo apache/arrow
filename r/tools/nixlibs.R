@@ -47,7 +47,10 @@ quietly <- !env_is("ARROW_R_DEV", "true")
 
 # Default is build from source, not download a binary
 build_ok <- !env_is("LIBARROW_BUILD", "false")
-binary_ok <- env_is("LIBARROW_BINARY", "true")
+# For LIBARROW_BINARY we support "true" or the name of the OS to use to
+# locate the appropriate binary (e.g., 'ubuntu-18.04'). When NOT_CRAN=true, and
+# LIBARROW_BINARY is unset, configure script sets LIBARROW_BINARY=true.
+binary_ok <- !env_is("LIBARROW_BINARY", "false") || env_is("LIBARROW_BINARY", "")
 
 # Check if we're doing an offline build.
 # (Note that cmake will still be downloaded if necessary
@@ -77,7 +80,7 @@ download_binary <- function(os = identify_os()) {
         cat("**** If installation fails, retry after installing those system requirements\n")
       }
     } else {
-      cat(sprintf("*** No C++ binaries found for %s\n", os))
+      cat(sprintf("*** No libarrow binary found for version %s on %s\n", VERSION, os))
       libfile <- NULL
     }
   } else {
@@ -131,9 +134,13 @@ distro <- function() {
   }
 
   out$id <- tolower(out$id)
-  if (grepl("bullseye", out$codename)) {
-    # debian unstable doesn't include a number but we can map from pretty name
-    out$short_version <- "11"
+  # debian unstable & testing lsb_release `version` don't include numbers but we can map from pretty name
+  if (is.null(out$version) || out$version %in% c("testing", "unstable")) {
+    if (grepl("bullseye", out$codename)) {
+      out$short_version <- "11"
+    } else if (grepl("bookworm", out$codename)) {
+      out$short_version <- "12"
+    }
   } else if (out$id == "ubuntu") {
     # Keep major.minor version
     out$short_version <- sub('^"?([0-9]+\\.[0-9]+).*"?.*$', "\\1", out$version)
@@ -201,7 +208,11 @@ system_release <- function() {
   }
 }
 
-read_system_release <- function() utils::head(readLines("/etc/system-release"), 1)
+read_system_release <- function() {
+  if (file.exists("/etc/system-release")) {
+    readLines("/etc/system-release")[1]
+  }
+}
 
 #### end distro ####
 
@@ -363,11 +374,18 @@ ensure_cmake <- function() {
   if (is.null(cmake)) {
     # If not found, download it
     cat("**** cmake\n")
-    CMAKE_VERSION <- Sys.getenv("CMAKE_VERSION", "3.19.2")
+    CMAKE_VERSION <- Sys.getenv("CMAKE_VERSION", "3.21.4")
     if (tolower(Sys.info()[["sysname"]]) %in% "darwin") {
       postfix <- "-macos-universal.tar.gz"
+    } else if (tolower(Sys.info()[["machine"]]) == "arm64") {
+      postfix <- "-linux-aarch64.tar.gz"
+    } else if (tolower(Sys.info()[["machine"]]) == "x86_64") {
+      postfix <- "-linux-x86_64.tar.gz"
     } else {
-      postfix <- "-Linux-x86_64.tar.gz"
+      stop(paste0(
+         "*** cmake was not found locally.\n",
+         "    Please make sure cmake >= 3.10 is installed and available on your PATH.\n"
+      ))
     }
     cmake_binary_url <- paste0(
       "https://github.com/Kitware/CMake/releases/download/v", CMAKE_VERSION,
@@ -582,12 +600,17 @@ if (!file.exists(paste0(dst_dir, "/include/arrow/api.h"))) {
     # (2) Find source and build it
     src_dir <- find_local_source()
     if (!is.null(src_dir)) {
-      cat("*** Building C++ libraries\n")
+      cat(paste0(
+      "*** Building libarrow from source\n",
+      "    For a faster, more complete installation, set the environment variable NOT_CRAN=true before installing\n",
+      "    See install vignette for details:\n",
+      "    https://cran.r-project.org/web/packages/arrow/vignettes/install.html\n"
+      ))
       build_libarrow(src_dir, dst_dir)
     } else {
-      cat("*** Proceeding without C++ dependencies\n")
+      cat("*** Proceeding without libarrow\n")
     }
   } else {
-    cat("*** Proceeding without C++ dependencies\n")
+    cat("*** Proceeding without libarrow\n")
   }
 }

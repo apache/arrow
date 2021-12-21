@@ -163,6 +163,12 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
     representation). Timezone-naive data will be implicitly interpreted as
     UTC.
 
+    Pandas's DateOffsets and dateutil.relativedelta.relativedelta are by
+    default converted as MonthDayNanoIntervalArray. relativedelta leapdays
+    are ignored as are all absolute fields on both objects. datetime.timedelta
+    can also be converted to MonthDayNanoIntervalArray but this requires
+    passing MonthDayNanoIntervalType explicitly.
+
     Converting to dictionary array will promote to a wider integer type for
     indices if the number of distinct values cannot be represented, even if
     the index type was explicitly set. This means that if there are more than
@@ -223,8 +229,11 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
         return _handle_arrow_array_protocol(obj, type, mask, size)
     elif _is_array_like(obj):
         if mask is not None:
-            # out argument unused
-            mask = get_values(mask, &is_pandas_object)
+            if _is_array_like(mask):
+                mask = get_values(mask, &is_pandas_object)
+            else:
+                raise TypeError("Mask must be a numpy array "
+                                "when converting numpy arrays")
 
         values = get_values(obj, &is_pandas_object)
         if is_pandas_object and from_pandas is None:
@@ -388,7 +397,7 @@ def repeat(value, size, MemoryPool memory_pool=None):
 
     Parameters
     ----------
-    value: Scalar-like object
+    value : Scalar-like object
         Either a pyarrow.Scalar or any python object coercible to a Scalar.
     size : int
         Number of times to repeat the scalar in the output Array.
@@ -878,7 +887,7 @@ cdef class Array(_PandasConvertible):
 
         Parameters
         ----------
-        sequence : ndarray, pandas.Series, array-like
+        obj : ndarray, pandas.Series, array-like
         mask : array (boolean), optional
             Indicate which values are null (True) or not null (False).
         type : pyarrow.DataType
@@ -996,15 +1005,39 @@ cdef class Array(_PandasConvertible):
         type_format = object.__repr__(self)
         return '{0}\n{1}'.format(type_format, str(self))
 
-    def to_string(self, int indent=0, int window=10):
+    def to_string(self, *, int indent=2, int top_level_indent=0, int window=10,
+                  c_bool skip_new_lines=False):
+        """
+        Render a "pretty-printed" string representation of the Array.
+
+        Parameters
+        ----------
+        indent : int, default 2
+            How much to indent the internal items in the string to 
+            the right, by default ``2``.
+        top_level_indent : int, default 0
+            How much to indent right the entire content of the array,
+            by default ``0``. 
+        window : int
+            How many items to preview at the begin and end
+            of the array when the arrays is bigger than the window.
+            The other elements will be ellipsed.
+        skip_new_lines : bool
+            If the array should be rendered as a single line of text
+            or if each element should be on its own line.
+        """
         cdef:
             c_string result
+            PrettyPrintOptions options
 
         with nogil:
+            options = PrettyPrintOptions(top_level_indent, window)
+            options.skip_new_lines = skip_new_lines
+            options.indent_size = indent
             check_status(
                 PrettyPrint(
                     deref(self.ap),
-                    PrettyPrintOptions(indent, window),
+                    options,
                     &result
                 )
             )
@@ -1508,6 +1541,32 @@ cdef class DurationArray(NumericArray):
     Concrete class for Arrow arrays of duration data type.
     """
 
+
+cdef class MonthDayNanoIntervalArray(Array):
+    """
+    Concrete class for Arrow arrays of interval[MonthDayNano] type.
+    """
+
+    def to_pylist(self):
+        """
+        Convert to a list of native Python objects.
+
+        pyarrow.MonthDayNano is used as the native representation.
+
+        Returns
+        -------
+        lst : list
+        """
+        cdef:
+            CResult[PyObject*] maybe_py_list
+            PyObject* py_list
+            CMonthDayNanoIntervalArray* array
+        array = <CMonthDayNanoIntervalArray*>self.sp_array.get()
+        maybe_py_list = MonthDayNanoIntervalArrayToPyList(deref(array))
+        py_list = GetResultValue(maybe_py_list)
+        return PyObject_to_object(py_list)
+
+
 cdef class HalfFloatArray(FloatingPointArray):
     """
     Concrete class for Arrow arrays of float16 data type.
@@ -1618,6 +1677,7 @@ cdef class ListArray(BaseListArray):
         ----------
         offsets : Array (int32 type)
         values : Array (any type)
+        pool : MemoryPool
 
         Returns
         -------
@@ -1699,6 +1759,7 @@ cdef class LargeListArray(BaseListArray):
         ----------
         offsets : Array (int64 type)
         values : Array (any type)
+        pool : MemoryPool
 
         Returns
         -------
@@ -1748,6 +1809,7 @@ cdef class MapArray(Array):
         offsets : array-like or sequence (int32 type)
         keys : array-like or sequence (any type)
         items : array-like or sequence (any type)
+        pool : MemoryPool
 
         Returns
         -------
@@ -2322,9 +2384,9 @@ cdef class ExtensionArray(Array):
 
         Parameters
         ----------
-        typ: DataType
+        typ : DataType
             The extension type for the result array.
-        storage: Array
+        storage : Array
             The underlying storage for the result array.
 
         Returns
@@ -2386,6 +2448,7 @@ cdef dict _array_classes = {
     _Type_TIME32: Time32Array,
     _Type_TIME64: Time64Array,
     _Type_DURATION: DurationArray,
+    _Type_INTERVAL_MONTH_DAY_NANO: MonthDayNanoIntervalArray,
     _Type_HALF_FLOAT: HalfFloatArray,
     _Type_FLOAT: FloatArray,
     _Type_DOUBLE: DoubleArray,

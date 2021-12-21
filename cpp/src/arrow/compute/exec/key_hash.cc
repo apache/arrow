@@ -125,9 +125,18 @@ void Hashing::helper_stripes(int64_t hardware_flags, uint32_t num_keys,
   }
 }
 
+// Process tail data in a length of 8 bytes (uint64_t)
+// The caller needs to ensure that the `keys` is not less than 8 bytes (uint64_t)
 inline uint32_t Hashing::helper_tail(uint32_t offset, uint64_t mask, const uint8_t* keys,
                                      uint32_t acc) {
-  uint64_t v = util::SafeLoadAs<const uint64_t>(keys + offset);
+  return helper_tail(offset, mask, keys, acc, sizeof(uint64_t));
+}
+
+// Process tail data with a specific `keys_length`
+inline uint32_t Hashing::helper_tail(uint32_t offset, uint64_t mask, const uint8_t* keys,
+                                     uint32_t acc, uint32_t key_length) {
+  uint64_t v = 0;
+  std::memcpy(&v, keys + offset, key_length);
   v &= mask;
   uint32_t x1 = static_cast<uint32_t>(v);
   uint32_t x2 = static_cast<uint32_t>(v >> 32);
@@ -232,7 +241,7 @@ void Hashing::hash_varlen(int64_t hardware_flags, uint32_t num_rows,
     } else if (key_length > 0) {
       uint32_t acc_combined = combine_accumulators(acc1, acc2, acc3, acc4);
       hashes[i] = helper_tail(offset, masks[key_length_remaining], concatenated_keys,
-                              acc_combined);
+                              acc_combined, key_length_remaining);
     } else {
       hashes[i] = combine_accumulators(acc1, acc2, acc3, acc4);
     }
@@ -280,9 +289,9 @@ void Hashing::HashMultiColumn(const std::vector<KeyEncoder::KeyColumnArray>& col
     if (cols[icol].metadata().is_fixed_length) {
       uint32_t col_width = cols[icol].metadata().fixed_length;
       if (col_width == 0) {
-        util::BitUtil::bits_to_bytes(ctx->hardware_flags, num_rows, cols[icol].data(1),
-                                     byte_temp_buf.mutable_data(),
-                                     cols[icol].bit_offset(1));
+        util::bit_util::bits_to_bytes(ctx->hardware_flags, num_rows, cols[icol].data(1),
+                                      byte_temp_buf.mutable_data(),
+                                      cols[icol].bit_offset(1));
       }
       Hashing::hash_fixed(
           ctx->hardware_flags, num_rows, col_width == 0 ? 1 : col_width,
@@ -299,9 +308,9 @@ void Hashing::HashMultiColumn(const std::vector<KeyEncoder::KeyColumnArray>& col
     if (cols[icol].data(0)) {
       uint32_t* dst_hash = is_first ? out_hash : hash_temp_buf.mutable_data();
       int num_nulls;
-      util::BitUtil::bits_to_indexes(0, ctx->hardware_flags, num_rows, cols[icol].data(0),
-                                     &num_nulls, hash_null_index_buf.mutable_data(),
-                                     cols[icol].bit_offset(0));
+      util::bit_util::bits_to_indexes(
+          0, ctx->hardware_flags, num_rows, cols[icol].data(0), &num_nulls,
+          hash_null_index_buf.mutable_data(), cols[icol].bit_offset(0));
       for (int i = 0; i < num_nulls; ++i) {
         uint16_t row_id = hash_null_index_buf.mutable_data()[i];
         dst_hash[row_id] = 0;

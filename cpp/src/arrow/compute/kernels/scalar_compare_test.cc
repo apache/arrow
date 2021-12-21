@@ -29,6 +29,7 @@
 #include "arrow/compute/kernels/test_util.h"
 #include "arrow/testing/gtest_common.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/matchers.h"
 #include "arrow/testing/random.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
@@ -453,6 +454,54 @@ TEST(TestCompareTimestamps, Basics) {
   CheckArrayCase(seconds_utc, CompareOperator::EQUAL, "[false, false, true]");
 }
 
+TEST(TestCompareTimestamps, DifferentParameters) {
+  const std::vector<std::pair<std::string, std::string>> cases = {
+      {"equal", "[0, 0, 1]"},   {"not_equal", "[1, 1, 0]"},
+      {"less", "[1, 0, 0]"},    {"less_equal", "[1, 0, 1]"},
+      {"greater", "[0, 1, 0]"}, {"greater_equal", "[0, 1, 1]"},
+  };
+  const std::string lhs_json = R"(["1970-01-01","2000-02-29","1900-02-28"])";
+  const std::string rhs_json = R"(["1970-01-02","2000-02-01","1900-02-28"])";
+
+  for (const auto& op : cases) {
+    const auto& function = op.first;
+    const auto& expected = op.second;
+
+    SCOPED_TRACE(function);
+    {
+      // Different units should be fine
+      auto lhs = ArrayFromJSON(timestamp(TimeUnit::SECOND), lhs_json);
+      auto rhs = ArrayFromJSON(timestamp(TimeUnit::MILLI), rhs_json);
+      CheckScalarBinary(function, lhs, rhs, ArrayFromJSON(boolean(), expected));
+    }
+    {
+      // So are different time zones
+      auto lhs = ArrayFromJSON(timestamp(TimeUnit::SECOND, "America/New_York"), lhs_json);
+      auto rhs = ArrayFromJSON(timestamp(TimeUnit::SECOND, "America/Phoenix"), rhs_json);
+      CheckScalarBinary(function, lhs, rhs, ArrayFromJSON(boolean(), expected));
+    }
+    {
+      // But comparing naive to zoned is not OK
+      auto lhs = ArrayFromJSON(timestamp(TimeUnit::SECOND), lhs_json);
+      auto rhs = ArrayFromJSON(timestamp(TimeUnit::SECOND, "America/Phoenix"), rhs_json);
+      EXPECT_RAISES_WITH_MESSAGE_THAT(
+          Invalid,
+          ::testing::HasSubstr(
+              "Cannot compare timestamp with timezone to timestamp without timezone"),
+          CallFunction(function, {lhs, rhs}));
+    }
+    {
+      auto lhs = ArrayFromJSON(timestamp(TimeUnit::SECOND, "America/New_York"), lhs_json);
+      auto rhs = ArrayFromJSON(timestamp(TimeUnit::SECOND), rhs_json);
+      EXPECT_RAISES_WITH_MESSAGE_THAT(
+          Invalid,
+          ::testing::HasSubstr(
+              "Cannot compare timestamp with timezone to timestamp without timezone"),
+          CallFunction(function, {lhs, rhs}));
+    }
+  }
+}
+
 template <typename ArrowType>
 class TestCompareDecimal : public ::testing::Test {};
 TYPED_TEST_SUITE(TestCompareDecimal, DecimalArrowTypes);
@@ -461,12 +510,9 @@ TYPED_TEST(TestCompareDecimal, ArrayScalar) {
   auto ty = std::make_shared<TypeParam>(3, 2);
 
   std::vector<std::pair<std::string, std::string>> cases = {
-      std::make_pair("equal", "[1, 0, 0, null]"),
-      std::make_pair("not_equal", "[0, 1, 1, null]"),
-      std::make_pair("less", "[0, 0, 1, null]"),
-      std::make_pair("less_equal", "[1, 0, 1, null]"),
-      std::make_pair("greater", "[0, 1, 0, null]"),
-      std::make_pair("greater_equal", "[1, 1, 0, null]"),
+      {"equal", "[1, 0, 0, null]"},   {"not_equal", "[0, 1, 1, null]"},
+      {"less", "[0, 0, 1, null]"},    {"less_equal", "[1, 0, 1, null]"},
+      {"greater", "[0, 1, 0, null]"}, {"greater_equal", "[1, 1, 0, null]"},
   };
 
   auto lhs = ArrayFromJSON(ty, R"(["1.23", "2.34", "-1.23", null])");
@@ -491,12 +537,9 @@ TYPED_TEST(TestCompareDecimal, ScalarArray) {
   auto ty = std::make_shared<TypeParam>(3, 2);
 
   std::vector<std::pair<std::string, std::string>> cases = {
-      std::make_pair("equal", "[1, 0, 0, null]"),
-      std::make_pair("not_equal", "[0, 1, 1, null]"),
-      std::make_pair("less", "[0, 1, 0, null]"),
-      std::make_pair("less_equal", "[1, 1, 0, null]"),
-      std::make_pair("greater", "[0, 0, 1, null]"),
-      std::make_pair("greater_equal", "[1, 0, 1, null]"),
+      {"equal", "[1, 0, 0, null]"},   {"not_equal", "[0, 1, 1, null]"},
+      {"less", "[0, 1, 0, null]"},    {"less_equal", "[1, 1, 0, null]"},
+      {"greater", "[0, 0, 1, null]"}, {"greater_equal", "[1, 0, 1, null]"},
   };
 
   auto lhs = ScalarFromJSON(ty, R"("1.23")");
@@ -521,12 +564,12 @@ TYPED_TEST(TestCompareDecimal, ArrayArray) {
   auto ty = std::make_shared<TypeParam>(3, 2);
 
   std::vector<std::pair<std::string, std::string>> cases = {
-      std::make_pair("equal", "[1, 0, 0, 1, 0, 0, null, null]"),
-      std::make_pair("not_equal", "[0, 1, 1, 0, 1, 1, null, null]"),
-      std::make_pair("less", "[0, 1, 0, 0, 1, 0, null, null]"),
-      std::make_pair("less_equal", "[1, 1, 0, 1, 1, 0, null, null]"),
-      std::make_pair("greater", "[0, 0, 1, 0, 0, 1, null, null]"),
-      std::make_pair("greater_equal", "[1, 0, 1, 1, 0, 1, null, null]"),
+      {"equal", "[1, 0, 0, 1, 0, 0, null, null]"},
+      {"not_equal", "[0, 1, 1, 0, 1, 1, null, null]"},
+      {"less", "[0, 1, 0, 0, 1, 0, null, null]"},
+      {"less_equal", "[1, 1, 0, 1, 1, 0, null, null]"},
+      {"greater", "[0, 0, 1, 0, 0, 1, null, null]"},
+      {"greater_equal", "[1, 0, 1, 1, 0, 1, null, null]"},
   };
 
   auto lhs = ArrayFromJSON(
@@ -553,6 +596,306 @@ TYPED_TEST(TestCompareDecimal, ArrayArray) {
     CheckScalarBinary(function, lhs_float, rhs, ArrayFromJSON(boolean(), expected));
     CheckScalarBinary(function, lhs, rhs_float, ArrayFromJSON(boolean(), expected));
     CheckScalarBinary(function, lhs_intlike, rhs_int, ArrayFromJSON(boolean(), expected));
+  }
+}
+
+TYPED_TEST(TestCompareDecimal, DifferentParameters) {
+  auto ty1 = std::make_shared<TypeParam>(3, 2);
+  auto ty2 = std::make_shared<TypeParam>(4, 3);
+
+  std::vector<std::pair<std::string, std::string>> cases = {
+      {"equal", "[1, 0, 0, 1, 0, 0]"},   {"not_equal", "[0, 1, 1, 0, 1, 1]"},
+      {"less", "[0, 1, 0, 0, 1, 0]"},    {"less_equal", "[1, 1, 0, 1, 1, 0]"},
+      {"greater", "[0, 0, 1, 0, 0, 1]"}, {"greater_equal", "[1, 0, 1, 1, 0, 1]"},
+  };
+
+  auto lhs = ArrayFromJSON(ty1, R"(["1.23", "1.23", "2.34", "-1.23", "-1.23", "1.23"])");
+  auto rhs =
+      ArrayFromJSON(ty2, R"(["1.230", "2.340", "1.230", "-1.230", "1.230", "-1.230"])");
+  for (const auto& op : cases) {
+    const auto& function = op.first;
+    const auto& expected = op.second;
+
+    SCOPED_TRACE(function);
+    CheckScalarBinary(function, lhs, rhs, ArrayFromJSON(boolean(), expected));
+  }
+}
+
+// Helper to organize tests for fixed size binary comparisons
+struct CompareCase {
+  std::shared_ptr<DataType> lhs_type;
+  std::shared_ptr<DataType> rhs_type;
+  std::string lhs;
+  std::string rhs;
+  // An index into cases[...].second
+  int result_index;
+};
+
+TEST(TestCompareFixedSizeBinary, ArrayScalar) {
+  auto ty1 = fixed_size_binary(3);
+  auto ty2 = fixed_size_binary(1);
+
+  std::vector<std::pair<std::string, std::vector<std::string>>> cases = {
+      std::make_pair("equal",
+                     std::vector<std::string>{
+                         "[0, 1, 0, null]",
+                         "[0, 0, 0, null]",
+                         "[0, 0, 0, null]",
+                     }),
+      std::make_pair("not_equal",
+                     std::vector<std::string>{
+                         "[1, 0, 1, null]",
+                         "[1, 1, 1, null]",
+                         "[1, 1, 1, null]",
+                     }),
+      std::make_pair("less",
+                     std::vector<std::string>{
+                         "[1, 0, 0, null]",
+                         "[1, 1, 1, null]",
+                         "[1, 0, 0, null]",
+                     }),
+      std::make_pair("less_equal",
+                     std::vector<std::string>{
+                         "[1, 1, 0, null]",
+                         "[1, 1, 1, null]",
+                         "[1, 0, 0, null]",
+                     }),
+      std::make_pair("greater",
+                     std::vector<std::string>{
+                         "[0, 0, 1, null]",
+                         "[0, 0, 0, null]",
+                         "[0, 1, 1, null]",
+                     }),
+      std::make_pair("greater_equal",
+                     std::vector<std::string>{
+                         "[0, 1, 1, null]",
+                         "[0, 0, 0, null]",
+                         "[0, 1, 1, null]",
+                     }),
+  };
+
+  const std::string lhs1 = R"(["aba", "abc", "abd", null])";
+  const std::string rhs1 = R"("abc")";
+  const std::string lhs2 = R"(["a", "b", "c", null])";
+  const std::string rhs2 = R"("b")";
+
+  std::vector<CompareCase> types = {
+      {ty1, ty1, lhs1, rhs1, 0},
+      {ty2, ty2, lhs2, rhs2, 0},
+      {ty1, ty2, lhs1, rhs2, 1},
+      {ty2, ty1, lhs2, rhs1, 2},
+      {ty1, binary(), lhs1, rhs1, 0},
+      {binary(), ty1, lhs1, rhs1, 0},
+      {ty1, large_binary(), lhs1, rhs1, 0},
+      {large_binary(), ty1, lhs1, rhs1, 0},
+      {ty1, utf8(), lhs1, rhs1, 0},
+      {utf8(), ty1, lhs1, rhs1, 0},
+      {ty1, large_utf8(), lhs1, rhs1, 0},
+      {large_utf8(), ty1, lhs1, rhs1, 0},
+  };
+
+  for (const auto& op : cases) {
+    const auto& function = op.first;
+
+    SCOPED_TRACE(function);
+    for (const auto& test_case : types) {
+      const auto& lhs_type = test_case.lhs_type;
+      const auto& rhs_type = test_case.rhs_type;
+      auto lhs = ArrayFromJSON(lhs_type, test_case.lhs);
+      auto rhs = ScalarFromJSON(rhs_type, test_case.rhs);
+      auto expected = ArrayFromJSON(boolean(), op.second[test_case.result_index]);
+
+      CheckScalarBinary(function, ArrayFromJSON(lhs_type, R"([null])"),
+                        ScalarFromJSON(rhs_type, "null"),
+                        ArrayFromJSON(boolean(), "[null]"));
+      CheckScalarBinary(function, lhs, rhs, expected);
+    }
+  }
+}
+
+TEST(TestCompareFixedSizeBinary, ScalarArray) {
+  auto ty1 = fixed_size_binary(3);
+  auto ty2 = fixed_size_binary(1);
+
+  std::vector<std::pair<std::string, std::vector<std::string>>> cases = {
+      std::make_pair("equal",
+                     std::vector<std::string>{
+                         "[0, 1, 0, null]",
+                         "[0, 0, 0, null]",
+                         "[0, 0, 0, null]",
+                     }),
+      std::make_pair("not_equal",
+                     std::vector<std::string>{
+                         "[1, 0, 1, null]",
+                         "[1, 1, 1, null]",
+                         "[1, 1, 1, null]",
+                     }),
+      std::make_pair("less",
+                     std::vector<std::string>{
+                         "[0, 0, 1, null]",
+                         "[0, 1, 1, null]",
+                         "[0, 0, 0, null]",
+                     }),
+      std::make_pair("less_equal",
+                     std::vector<std::string>{
+                         "[0, 1, 1, null]",
+                         "[0, 1, 1, null]",
+                         "[0, 0, 0, null]",
+                     }),
+      std::make_pair("greater",
+                     std::vector<std::string>{
+                         "[1, 0, 0, null]",
+                         "[1, 0, 0, null]",
+                         "[1, 1, 1, null]",
+                     }),
+      std::make_pair("greater_equal",
+                     std::vector<std::string>{
+                         "[1, 1, 0, null]",
+                         "[1, 0, 0, null]",
+                         "[1, 1, 1, null]",
+                     }),
+  };
+
+  const std::string lhs1 = R"("abc")";
+  const std::string rhs1 = R"(["aba", "abc", "abd", null])";
+  const std::string lhs2 = R"("b")";
+  const std::string rhs2 = R"(["a", "b", "c", null])";
+
+  std::vector<CompareCase> types = {
+      {ty1, ty1, lhs1, rhs1, 0},
+      {ty2, ty2, lhs2, rhs2, 0},
+      {ty1, ty2, lhs1, rhs2, 1},
+      {ty2, ty1, lhs2, rhs1, 2},
+      {ty1, binary(), lhs1, rhs1, 0},
+      {binary(), ty1, lhs1, rhs1, 0},
+      {ty1, large_binary(), lhs1, rhs1, 0},
+      {large_binary(), ty1, lhs1, rhs1, 0},
+      {ty1, utf8(), lhs1, rhs1, 0},
+      {utf8(), ty1, lhs1, rhs1, 0},
+      {ty1, large_utf8(), lhs1, rhs1, 0},
+      {large_utf8(), ty1, lhs1, rhs1, 0},
+  };
+
+  for (const auto& op : cases) {
+    const auto& function = op.first;
+
+    SCOPED_TRACE(function);
+    for (const auto& test_case : types) {
+      const auto& lhs_type = test_case.lhs_type;
+      const auto& rhs_type = test_case.rhs_type;
+      auto lhs = ScalarFromJSON(lhs_type, test_case.lhs);
+      auto rhs = ArrayFromJSON(rhs_type, test_case.rhs);
+      auto expected = ArrayFromJSON(boolean(), op.second[test_case.result_index]);
+
+      CheckScalarBinary(function, ScalarFromJSON(rhs_type, "null"),
+                        ArrayFromJSON(lhs_type, R"([null])"),
+                        ArrayFromJSON(boolean(), "[null]"));
+      CheckScalarBinary(function, lhs, rhs, expected);
+    }
+  }
+}
+
+TEST(TestCompareFixedSizeBinary, ArrayArray) {
+  auto ty1 = fixed_size_binary(3);
+  auto ty2 = fixed_size_binary(1);
+
+  std::vector<std::pair<std::string, std::vector<std::string>>> cases = {
+      std::make_pair("equal",
+                     std::vector<std::string>{
+                         "[1, 0, 0, null, null]",
+                         "[1, 0, 0, null, null]",
+                         "[1, 0, 0, null, null]",
+                         "[1, 0, 0, null, null]",
+                         "[0, 0, 0, null, null]",
+                         "[0, 0, 0, null, null]",
+                     }),
+      std::make_pair("not_equal",
+                     std::vector<std::string>{
+                         "[0, 1, 1, null, null]",
+                         "[0, 1, 1, null, null]",
+                         "[0, 1, 1, null, null]",
+                         "[0, 1, 1, null, null]",
+                         "[1, 1, 1, null, null]",
+                         "[1, 1, 1, null, null]",
+                     }),
+      std::make_pair("less",
+                     std::vector<std::string>{
+                         "[0, 1, 0, null, null]",
+                         "[0, 0, 1, null, null]",
+                         "[0, 1, 0, null, null]",
+                         "[0, 0, 1, null, null]",
+                         "[0, 1, 1, null, null]",
+                         "[1, 1, 0, null, null]",
+                     }),
+      std::make_pair("less_equal",
+                     std::vector<std::string>{
+                         "[1, 1, 0, null, null]",
+                         "[1, 0, 1, null, null]",
+                         "[1, 1, 0, null, null]",
+                         "[1, 0, 1, null, null]",
+                         "[0, 1, 1, null, null]",
+                         "[1, 1, 0, null, null]",
+                     }),
+      std::make_pair("greater",
+                     std::vector<std::string>{
+                         "[0, 0, 1, null, null]",
+                         "[0, 1, 0, null, null]",
+                         "[0, 0, 1, null, null]",
+                         "[0, 1, 0, null, null]",
+                         "[1, 0, 0, null, null]",
+                         "[0, 0, 1, null, null]",
+                     }),
+      std::make_pair("greater_equal",
+                     std::vector<std::string>{
+                         "[1, 0, 1, null, null]",
+                         "[1, 1, 0, null, null]",
+                         "[1, 0, 1, null, null]",
+                         "[1, 1, 0, null, null]",
+                         "[1, 0, 0, null, null]",
+                         "[0, 0, 1, null, null]",
+                     }),
+  };
+
+  const std::string lhs1 = R"(["abc", "abc", "abd", null, "abc"])";
+  const std::string rhs1 = R"(["abc", "abd", "abc", "abc", null])";
+  const std::string lhs2 = R"(["a", "a", "d", null, "a"])";
+  const std::string rhs2 = R"(["a", "d", "c", "a", null])";
+
+  std::vector<CompareCase> types = {
+      {ty1, ty1, lhs1, rhs1, 0},
+      {ty1, ty1, rhs1, lhs1, 1},
+      {ty2, ty2, lhs2, rhs2, 2},
+      {ty2, ty2, rhs2, lhs2, 3},
+      {ty1, ty2, lhs1, rhs2, 4},
+      {ty2, ty1, lhs2, rhs1, 5},
+      {ty1, binary(), lhs1, rhs1, 0},
+      {binary(), ty1, lhs1, rhs1, 0},
+      {ty1, large_binary(), lhs1, rhs1, 0},
+      {large_binary(), ty1, lhs1, rhs1, 0},
+      {ty1, utf8(), lhs1, rhs1, 0},
+      {utf8(), ty1, lhs1, rhs1, 0},
+      {ty1, large_utf8(), lhs1, rhs1, 0},
+      {large_utf8(), ty1, lhs1, rhs1, 0},
+  };
+
+  for (const auto& op : cases) {
+    const auto& function = op.first;
+
+    SCOPED_TRACE(function);
+    for (const auto& test_case : types) {
+      const auto& lhs_type = test_case.lhs_type;
+      const auto& rhs_type = test_case.rhs_type;
+      auto lhs = ArrayFromJSON(lhs_type, test_case.lhs);
+      auto rhs = ArrayFromJSON(rhs_type, test_case.rhs);
+      auto expected = ArrayFromJSON(boolean(), op.second[test_case.result_index]);
+
+      CheckScalarBinary(function, ArrayFromJSON(lhs_type, R"([])"),
+                        ArrayFromJSON(rhs_type, R"([])"), ArrayFromJSON(boolean(), "[]"));
+      CheckScalarBinary(function, ArrayFromJSON(lhs_type, R"([null])"),
+                        ArrayFromJSON(rhs_type, R"([null])"),
+                        ArrayFromJSON(boolean(), "[null]"));
+      CheckScalarBinary(function, lhs, rhs, expected);
+    }
   }
 }
 
@@ -593,6 +936,11 @@ TEST(TestCompareKernel, DispatchBest) {
 
     CheckDispatchBest(name, {utf8(), binary()}, {binary(), binary()});
     CheckDispatchBest(name, {large_utf8(), binary()}, {large_binary(), large_binary()});
+    CheckDispatchBest(name, {large_utf8(), fixed_size_binary(2)},
+                      {large_binary(), large_binary()});
+    CheckDispatchBest(name, {binary(), fixed_size_binary(2)}, {binary(), binary()});
+    CheckDispatchBest(name, {fixed_size_binary(4), fixed_size_binary(2)},
+                      {fixed_size_binary(4), fixed_size_binary(2)});
 
     CheckDispatchBest(name, {decimal128(3, 2), decimal128(6, 3)},
                       {decimal128(4, 3), decimal128(6, 3)});
@@ -601,9 +949,9 @@ TEST(TestCompareKernel, DispatchBest) {
     CheckDispatchBest(name, {decimal128(3, 2), float64()}, {float64(), float64()});
     CheckDispatchBest(name, {float64(), decimal128(3, 2)}, {float64(), float64()});
     CheckDispatchBest(name, {decimal128(3, 2), int64()},
-                      {decimal128(3, 2), decimal128(3, 2)});
+                      {decimal128(3, 2), decimal128(21, 2)});
     CheckDispatchBest(name, {int64(), decimal128(3, 2)},
-                      {decimal128(3, 2), decimal128(3, 2)});
+                      {decimal128(21, 2), decimal128(3, 2)});
   }
 }
 
@@ -778,8 +1126,6 @@ class TestVarArgsCompare : public TestBase {
   using VarArgsFunction = std::function<Result<Datum>(
       const std::vector<Datum>&, ElementWiseAggregateOptions, ExecContext*)>;
 
-  void SetUp() override { equal_options_ = equal_options_.nans_equal(true); }
-
   Datum scalar(const std::string& value) {
     return ScalarFromJSON(type_singleton(), value);
   }
@@ -804,15 +1150,47 @@ class TestVarArgsCompare : public TestBase {
     AssertDatumsApproxEqual(expected, actual, /*verbose=*/true, equal_options_);
   }
 
-  EqualOptions equal_options_ = EqualOptions::Defaults();
+  void SetSignedZerosEqual(bool v) {
+    equal_options_ = equal_options_.signed_zeros_equal(v);
+  }
+
   ElementWiseAggregateOptions element_wise_aggregate_options_;
+  EqualOptions equal_options_ = EqualOptions::Defaults().nans_equal(true);
 };
 
 template <typename T>
 class TestVarArgsCompareNumeric : public TestVarArgsCompare<T> {};
 
 template <typename T>
+class TestVarArgsCompareDecimal : public TestVarArgsCompare<T> {
+ protected:
+  Datum scalar(const std::string& value, int32_t precision = 38, int32_t scale = 2) {
+    return ScalarFromJSON(std::make_shared<T>(/*precision=*/precision, /*scale=*/scale),
+                          value);
+  }
+
+  Datum array(const std::string& value) {
+    return ArrayFromJSON(std::make_shared<T>(/*precision=*/38, /*scale=*/2), value);
+  }
+};
+
+template <typename T>
 class TestVarArgsCompareFloating : public TestVarArgsCompare<T> {};
+
+template <typename T>
+class TestVarArgsCompareBinary : public TestVarArgsCompare<T> {};
+
+template <typename T>
+class TestVarArgsCompareFixedSizeBinary : public TestVarArgsCompare<T> {
+ protected:
+  Datum scalar(const std::string& value, int32_t byte_width = 3) {
+    return ScalarFromJSON(fixed_size_binary(byte_width), value);
+  }
+
+  Datum array(const std::string& value) {
+    return ArrayFromJSON(fixed_size_binary(3), value);
+  }
+};
 
 template <typename T>
 class TestVarArgsCompareParametricTemporal : public TestVarArgsCompare<T> {
@@ -837,10 +1215,14 @@ using NumericBasedTypes =
     ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type, Int8Type, Int16Type,
                      Int32Type, Int64Type, FloatType, DoubleType, Date32Type, Date64Type>;
 using ParametricTemporalTypes = ::testing::Types<TimestampType, Time32Type, Time64Type>;
+using FixedSizeBinaryTypes = ::testing::Types<FixedSizeBinaryType>;
 
 TYPED_TEST_SUITE(TestVarArgsCompareNumeric, NumericBasedTypes);
+TYPED_TEST_SUITE(TestVarArgsCompareDecimal, DecimalArrowTypes);
 TYPED_TEST_SUITE(TestVarArgsCompareFloating, RealArrowTypes);
 TYPED_TEST_SUITE(TestVarArgsCompareParametricTemporal, ParametricTemporalTypes);
+TYPED_TEST_SUITE(TestVarArgsCompareBinary, BaseBinaryArrowTypes);
+TYPED_TEST_SUITE(TestVarArgsCompareFixedSizeBinary, FixedSizeBinaryTypes);
 
 TYPED_TEST(TestVarArgsCompareNumeric, MinElementWise) {
   this->AssertNullScalar(MinElementWise, {});
@@ -912,6 +1294,66 @@ TYPED_TEST(TestVarArgsCompareNumeric, MinElementWise) {
                {this->scalar("null"), this->array("[1, 1, 1, 1]")});
 }
 
+TYPED_TEST(TestVarArgsCompareDecimal, MinElementWise) {
+  this->Assert(MinElementWise, this->scalar(R"("2.14")"),
+               {this->scalar(R"("3.14")"), this->scalar(R"("2.14")")});
+
+  this->Assert(MinElementWise, this->scalar(R"("2.14")"),
+               {this->scalar("null"), this->scalar(R"("2.14")")});
+  this->Assert(MinElementWise, this->scalar(R"("3.14")"),
+               {this->scalar(R"("3.14")"), this->scalar("null")});
+  this->Assert(MinElementWise, this->scalar("null"),
+               {this->scalar("null"), this->scalar("null")});
+
+  this->Assert(MinElementWise, this->array(R"(["1.00", "2.00", "2.00", "2.00"])"),
+               {this->array(R"(["1.00", "12.01", "3.00", "4.00"])"),
+                this->array(R"(["2.00", "2.00", "2.00", "2.00"])")});
+  this->Assert(MinElementWise, this->array(R"(["1.00", "12.01", "2.00", "2.00"])"),
+               {this->array(R"(["1.00", "12.01", "3.00", "4.00"])"),
+                this->array(R"(["2.00", null, "2.00", "2.00"])")});
+  this->Assert(MinElementWise, this->array(R"(["1.00", "2.00", "2.00", "2.00"])"),
+               {this->array(R"(["1.00", null, "3.00", "4.00"])"),
+                this->array(R"(["2.00", "2.00", "2.00", "2.00"])")});
+  this->Assert(MinElementWise, this->array(R"([null, null, null, null])"),
+               {this->array(R"([null, null, null, null])"),
+                this->array(R"([null, null, null, null])")});
+
+  this->Assert(
+      MinElementWise, this->array(R"(["1.00", "2.00", "2.00", "2.00"])"),
+      {this->array(R"(["1.00", null, "3.00", "4.00"])"), this->scalar(R"("2.00")")});
+  this->Assert(MinElementWise, this->array(R"([null, "2.00", "3.00", "4.00"])"),
+               {this->array(R"([null, "2.00", "3.00", "4.00"])"), this->scalar("null")});
+
+  // Test null handling
+  this->element_wise_aggregate_options_.skip_nulls = false;
+
+  this->Assert(MinElementWise, this->scalar("null"),
+               {this->scalar("null"), this->scalar(R"("2.14")")});
+  this->Assert(MinElementWise, this->scalar("null"),
+               {this->scalar(R"("3.14")"), this->scalar("null")});
+
+  this->Assert(MinElementWise, this->array(R"(["1.00", null, "2.00", "2.00"])"),
+               {this->array(R"(["1.00", "12.01", "3.00", "4.00"])"),
+                this->array(R"(["2.00", null, "2.00", "2.00"])")});
+  this->Assert(MinElementWise, this->array(R"(["1.00", null, "2.00", "2.00"])"),
+               {this->array(R"(["1.00", null, "3.00", "4.00"])"),
+                this->array(R"(["2.00", "2.00", "2.00", "2.00"])")});
+
+  this->Assert(
+      MinElementWise, this->array(R"(["1.00", null, "2.00", "2.00"])"),
+      {this->array(R"(["1.00", null, "3.00", "4.00"])"), this->scalar(R"("2.00")")});
+  this->Assert(
+      MinElementWise, this->array(R"([null, null, null, null])"),
+      {this->array(R"(["1.00", "2.00", "3.00", "4.00"])"), this->scalar("null")});
+
+  // Test error handling
+  auto result =
+      MinElementWise({this->scalar(R"("3.1415")", /*precision=*/38, /*scale=*/4),
+                      this->scalar(R"("2.14")", /*precision=*/38, /*scale=*/2)},
+                     this->element_wise_aggregate_options_, nullptr);
+  ASSERT_TRUE(result.status().IsNotImplemented());
+}
+
 TYPED_TEST(TestVarArgsCompareFloating, MinElementWise) {
   auto Check = [this](const std::string& expected,
                       const std::vector<std::string>& inputs) {
@@ -927,8 +1369,14 @@ TYPED_TEST(TestVarArgsCompareFloating, MinElementWise) {
     }
     this->Assert(MinElementWise, this->array("[" + expected + "]"), args);
   };
-  Check("-0.0", {"0.0", "-0.0"});
-  Check("-0.0", {"1.0", "-0.0", "0.0"});
+  Check("0.0", {"0.0", "0.0"});
+  Check("-0.0", {"-0.0", "-0.0"});
+  // XXX implementation detail: as signed zeros are equal, we're allowed
+  // to return either value if both are present.
+  this->SetSignedZerosEqual(true);
+  Check("0.0", {"-0.0", "0.0"});
+  Check("0.0", {"0.0", "-0.0"});
+  Check("0.0", {"1.0", "-0.0", "0.0"});
   Check("-1.0", {"-1.0", "-0.0"});
   Check("0", {"0", "NaN"});
   Check("0", {"NaN", "0"});
@@ -960,6 +1408,131 @@ TYPED_TEST(TestVarArgsCompareParametricTemporal, MinElementWise) {
 
   this->Assert(MinElementWise, this->array("[1, 2, 3, 2]"),
                {this->array("[1, null, 3, 4]"), this->array("[2, 2, null, 2]")});
+}
+
+TYPED_TEST(TestVarArgsCompareBinary, MinElementWise) {
+  this->AssertNullScalar(MinElementWise, {});
+  this->AssertNullScalar(MinElementWise, {this->scalar("null"), this->scalar("null")});
+
+  this->Assert(MinElementWise, this->scalar(R"("")"),
+               {this->scalar(R"("")"), this->scalar(R"("")")});
+  this->Assert(MinElementWise, this->scalar(R"("")"),
+               {this->scalar(R"("")"), this->scalar("null")});
+  this->Assert(MinElementWise, this->scalar(R"("")"),
+               {this->scalar(R"("a")"), this->scalar(R"("")")});
+  this->Assert(MinElementWise, this->scalar(R"("")"),
+               {this->scalar(R"("")"), this->scalar(R"("a")")});
+  this->Assert(MinElementWise, (this->array("[]")), {this->array("[]")});
+
+  this->Assert(MinElementWise, this->scalar(R"("ab")"), {this->scalar(R"("ab")")});
+  this->Assert(
+      MinElementWise, this->scalar(R"("aaa")"),
+      {this->scalar(R"("bb")"), this->scalar(R"("aaa")"), this->scalar(R"("c")")});
+  this->Assert(MinElementWise, this->scalar(R"("aaa")"),
+               {this->scalar(R"("bb")"), this->scalar(R"("aaa")"), this->scalar(R"("c")"),
+                this->scalar("null")});
+  this->Assert(MinElementWise, this->scalar(R"("aa")"),
+               {this->scalar("null"), this->scalar("null"), this->scalar(R"("aa")"),
+                this->scalar("null")});
+
+  this->Assert(MinElementWise, this->array(R"(["aaa", "b", "cc", null])"),
+               {this->array(R"(["aaa", "b", "cc", null])")});
+  this->Assert(MinElementWise, this->array(R"(["aaa", "bb", "bb", "bb"])"),
+               {this->array(R"(["aaa", "bb", "cc", "dddd"])"), this->scalar(R"("bb")")});
+  this->Assert(MinElementWise, this->array(R"(["aaa", "bb", "bb", "bb"])"),
+               {this->array(R"(["aaa", null, "cc", "dddd"])"), this->scalar(R"("bb")")});
+  this->Assert(MinElementWise, this->array(R"(["aaa", "bb", "bb", "bb"])"),
+               {this->array(R"(["aaa", null, "cc", "dddd"])"), this->scalar(R"("bb")"),
+                this->scalar(R"("dddd")")});
+  this->Assert(MinElementWise, this->array(R"(["aaa", "bb", "bb", "bb"])"),
+               {this->array(R"(["aaa", null, "cc", "dddd"])"), this->scalar("null"),
+                this->scalar(R"("bb")")});
+
+  this->Assert(MinElementWise, this->array(R"(["foo", "a", "bb", "bb"])"),
+               {this->array(R"([null, "a", "bb", "cccc"])"),
+                this->array(R"(["gg", null, "h", "iii"])"),
+                this->array(R"(["foo", "bar", null, "bb"])")});
+
+  // Test null handling
+  this->element_wise_aggregate_options_.skip_nulls = false;
+  this->Assert(MinElementWise, this->scalar("null"),
+               {this->scalar(R"("bb")"), this->scalar(R"("aaa")"), this->scalar(R"("c")"),
+                this->scalar("null")});
+  this->Assert(MinElementWise, this->scalar("null"),
+               {this->scalar("null"), this->scalar("null"), this->scalar(R"("aa")"),
+                this->scalar("null")});
+
+  this->Assert(MinElementWise, this->array(R"(["aaa", null, "bb", "bb"])"),
+               {this->array(R"(["aaa", null, "cc", "dddd"])"), this->scalar(R"("bb")")});
+  this->Assert(MinElementWise, this->array(R"(["aaa", null, "bb", "bb"])"),
+               {this->array(R"(["aaa", null, "cc", "dddd"])"), this->scalar(R"("bb")"),
+                this->scalar(R"("dddd")")});
+  this->Assert(MinElementWise, this->array(R"([null, null, null, null])"),
+               {this->array(R"(["aaa", null, "cc", "dddd"])"), this->scalar("null"),
+                this->scalar(R"("bb")")});
+
+  this->Assert(MinElementWise, this->array(R"([null, null, null, "bb"])"),
+               {this->array(R"([null, "a", "bb", "cccc"])"),
+                this->array(R"(["gg", null, "h", "iii"])"),
+                this->array(R"(["foo", "bar", null, "bb"])")});
+}
+
+TYPED_TEST(TestVarArgsCompareFixedSizeBinary, MinElementWise) {
+  this->AssertNullScalar(MinElementWise, {});
+  this->AssertNullScalar(MinElementWise, {this->scalar("null"), this->scalar("null")});
+
+  this->Assert(MinElementWise, this->scalar(R"("aaa")"), {this->scalar(R"("aaa")")});
+  this->Assert(
+      MinElementWise, this->scalar(R"("aaa")"),
+      {this->scalar(R"("ccc")"), this->scalar(R"("aaa")"), this->scalar(R"("bbb")")});
+  this->Assert(MinElementWise, this->scalar(R"("aaa")"),
+               {this->scalar(R"("ccc")"), this->scalar(R"("aaa")"),
+                this->scalar(R"("bbb")"), this->scalar("null")});
+  this->Assert(MinElementWise, (this->array("[]")), {this->array("[]")});
+
+  this->Assert(MinElementWise, this->array(R"(["abc", "abc", "abc", "abc", "abc"])"),
+               {this->array(R"(["abc", "abc", "abd", null, "abc"])"),
+                this->array(R"(["abc", "abd", "abc", "abc", null])")});
+  this->Assert(
+      MinElementWise, this->scalar(R"("abc")"),
+      {this->scalar(R"("abe")"), this->scalar(R"("abc")"), this->scalar(R"("abd")")});
+
+  this->Assert(
+      MinElementWise, this->array(R"(["abc", "abc", "abc", "abc", "abc"])"),
+      {this->array(R"(["abc", "abc", "abd", null, "abc"])"), this->scalar(R"("abc")")});
+  this->Assert(
+      MinElementWise, this->array(R"(["abc", "abc", "abc", "abc", "abc"])"),
+      {this->array(R"(["abc", null, "abd", null, "abc"])"), this->scalar(R"("abc")")});
+  this->Assert(MinElementWise, this->array(R"(["abc", "abc", "abc", "abc", "abc"])"),
+               {this->array(R"(["abc", null, "abd", null, "abc"])"),
+                this->scalar(R"("abc")"), this->scalar(R"("abd")")});
+  this->Assert(MinElementWise, this->array(R"(["abc", "abc", "abc", "abc", "abc"])"),
+               {this->array(R"(["abc", null, "abd", null, "abc"])"), this->scalar("null"),
+                this->scalar(R"("abc")")});
+
+  this->Assert(MinElementWise, this->scalar(R"("")", /*byte_width=*/0),
+               {this->scalar(R"("")", /*byte_width=*/0)});
+  this->Assert(MinElementWise, this->scalar("null", /*byte_width=*/0),
+               {this->scalar("null", /*byte_width=*/0)});
+  this->Assert(
+      MinElementWise, this->scalar(R"("")", /*byte_width=*/0),
+      {this->scalar("null", /*byte_width=*/0), this->scalar(R"("")", /*byte_width=*/0)});
+
+  // Test null handling
+  this->element_wise_aggregate_options_.skip_nulls = false;
+  this->Assert(MinElementWise, this->array(R"(["abc", "abc", "abc", null, null])"),
+               {this->array(R"(["abc", "abc", "abd", null, "abc"])"),
+                this->array(R"(["abc", "abd", "abc", "abc", null])")});
+
+  this->Assert(
+      MinElementWise, this->scalar("null", /*byte_width=*/0),
+      {this->scalar("null", /*byte_width=*/0), this->scalar(R"("")", /*byte_width=*/0)});
+
+  // Test error handling
+  auto result = MinElementWise({this->scalar(R"("abc")", /*byte_width=*/3),
+                                this->scalar(R"("abcd")", /*byte_width=*/4)},
+                               this->element_wise_aggregate_options_, nullptr);
+  ASSERT_TRUE(result.status().IsNotImplemented());
 }
 
 TYPED_TEST(TestVarArgsCompareNumeric, MaxElementWise) {
@@ -1032,6 +1605,66 @@ TYPED_TEST(TestVarArgsCompareNumeric, MaxElementWise) {
                {this->scalar("null"), this->array("[1, 1, 1, 1]")});
 }
 
+TYPED_TEST(TestVarArgsCompareDecimal, MaxElementWise) {
+  this->Assert(MaxElementWise, this->scalar(R"("3.14")"),
+               {this->scalar(R"("3.14")"), this->scalar(R"("2.14")")});
+
+  this->Assert(MaxElementWise, this->scalar(R"("2.14")"),
+               {this->scalar("null"), this->scalar(R"("2.14")")});
+  this->Assert(MaxElementWise, this->scalar(R"("3.14")"),
+               {this->scalar(R"("3.14")"), this->scalar("null")});
+  this->Assert(MaxElementWise, this->scalar("null"),
+               {this->scalar("null"), this->scalar("null")});
+
+  this->Assert(MaxElementWise, this->array(R"(["2.00", "12.01", "3.00", "4.00"])"),
+               {this->array(R"(["1.00", "12.01", "3.00", "4.00"])"),
+                this->array(R"(["2.00", "2.00", "2.00", "2.00"])")});
+  this->Assert(MaxElementWise, this->array(R"(["2.00", "12.01", "3.00", "4.00"])"),
+               {this->array(R"(["1.00", "12.01", "3.00", "4.00"])"),
+                this->array(R"(["2.00", null, "2.00", "2.00"])")});
+  this->Assert(MaxElementWise, this->array(R"(["2.00", "2.00", "3.00", "4.00"])"),
+               {this->array(R"(["1.00", null, "3.00", "4.00"])"),
+                this->array(R"(["2.00", "2.00", "2.00", "2.00"])")});
+  this->Assert(MaxElementWise, this->array(R"([null, null, null, null])"),
+               {this->array(R"([null, null, null, null])"),
+                this->array(R"([null, null, null, null])")});
+
+  this->Assert(
+      MaxElementWise, this->array(R"(["2.00", "2.00", "3.00", "4.00"])"),
+      {this->array(R"(["1.00", null, "3.00", "4.00"])"), this->scalar(R"("2.00")")});
+  this->Assert(MaxElementWise, this->array(R"([null, "2.00", "3.00", "4.00"])"),
+               {this->array(R"([null, "2.00", "3.00", "4.00"])"), this->scalar("null")});
+
+  // Test null handling
+  this->element_wise_aggregate_options_.skip_nulls = false;
+
+  this->Assert(MaxElementWise, this->scalar("null"),
+               {this->scalar("null"), this->scalar(R"("2.14")")});
+  this->Assert(MaxElementWise, this->scalar("null"),
+               {this->scalar(R"("3.14")"), this->scalar("null")});
+
+  this->Assert(MaxElementWise, this->array(R"(["2.00", null, "3.00", "4.00"])"),
+               {this->array(R"(["1.00", "12.01", "3.00", "4.00"])"),
+                this->array(R"(["2.00", null, "2.00", "2.00"])")});
+  this->Assert(MaxElementWise, this->array(R"(["2.00", null, "3.00", "4.00"])"),
+               {this->array(R"(["1.00", null, "3.00", "4.00"])"),
+                this->array(R"(["2.00", "2.00", "2.00", "2.00"])")});
+
+  this->Assert(
+      MaxElementWise, this->array(R"(["2.00", null, "3.00", "4.00"])"),
+      {this->array(R"(["1.00", null, "3.00", "4.00"])"), this->scalar(R"("2.00")")});
+  this->Assert(
+      MaxElementWise, this->array(R"([null, null, null, null])"),
+      {this->array(R"(["1.00", "2.00", "3.00", "4.00"])"), this->scalar("null")});
+
+  // Test error handling
+  auto result =
+      MaxElementWise({this->scalar(R"("3.1415")", /*precision=*/38, /*scale=*/4),
+                      this->scalar(R"("2.14")", /*precision=*/38, /*scale=*/2)},
+                     this->element_wise_aggregate_options_, nullptr);
+  ASSERT_TRUE(result.status().IsNotImplemented());
+}
+
 TYPED_TEST(TestVarArgsCompareFloating, MaxElementWise) {
   auto Check = [this](const std::string& expected,
                       const std::vector<std::string>& inputs) {
@@ -1047,9 +1680,15 @@ TYPED_TEST(TestVarArgsCompareFloating, MaxElementWise) {
     }
     this->Assert(MaxElementWise, this->array("[" + expected + "]"), args);
   };
+  Check("0.0", {"0.0", "0.0"});
+  Check("-0.0", {"-0.0", "-0.0"});
+  // XXX implementation detail: as signed zeros are equal, we're allowed
+  // to return either value if both are present.
+  this->SetSignedZerosEqual(true);
+  Check("0.0", {"-0.0", "0.0"});
   Check("0.0", {"0.0", "-0.0"});
-  Check("1.0", {"1.0", "-0.0", "0.0"});
-  Check("-0.0", {"-1.0", "-0.0"});
+  Check("0.0", {"-1.0", "-0.0", "0.0"});
+  Check("1.0", {"1.0", "-0.0"});
   Check("0", {"0", "NaN"});
   Check("0", {"NaN", "0"});
   Check("Inf", {"Inf", "NaN"});
@@ -1082,35 +1721,147 @@ TYPED_TEST(TestVarArgsCompareParametricTemporal, MaxElementWise) {
                {this->array("[1, null, 3, 4]"), this->array("[2, 2, null, 2]")});
 }
 
-TEST(TestMaxElementWiseMinElementWise, CommonTimestamp) {
-  {
-    auto t1 = std::make_shared<TimestampType>(TimeUnit::SECOND);
-    auto t2 = std::make_shared<TimestampType>(TimeUnit::MILLI);
-    auto expected = MakeScalar(t2, 1000).ValueOrDie();
-    ASSERT_OK_AND_ASSIGN(auto actual,
-                         MinElementWise({Datum(MakeScalar(t1, 1).ValueOrDie()),
-                                         Datum(MakeScalar(t2, 12000).ValueOrDie())}));
-    AssertScalarsEqual(*expected, *actual.scalar(), /*verbose=*/true);
-  }
-  {
-    auto t1 = std::make_shared<Date32Type>();
-    auto t2 = std::make_shared<TimestampType>(TimeUnit::SECOND);
-    auto expected = MakeScalar(t2, 86401).ValueOrDie();
-    ASSERT_OK_AND_ASSIGN(auto actual,
-                         MaxElementWise({Datum(MakeScalar(t1, 1).ValueOrDie()),
-                                         Datum(MakeScalar(t2, 86401).ValueOrDie())}));
-    AssertScalarsEqual(*expected, *actual.scalar(), /*verbose=*/true);
-  }
-  {
-    auto t1 = std::make_shared<Date32Type>();
-    auto t2 = std::make_shared<Date64Type>();
-    auto t3 = std::make_shared<TimestampType>(TimeUnit::SECOND);
-    auto expected = MakeScalar(t3, 86400).ValueOrDie();
-    ASSERT_OK_AND_ASSIGN(
-        auto actual, MinElementWise({Datum(MakeScalar(t1, 1).ValueOrDie()),
-                                     Datum(MakeScalar(t2, 2 * 86400000).ValueOrDie())}));
-    AssertScalarsEqual(*expected, *actual.scalar(), /*verbose=*/true);
-  }
+TYPED_TEST(TestVarArgsCompareBinary, MaxElementWise) {
+  this->AssertNullScalar(MaxElementWise, {});
+  this->AssertNullScalar(MaxElementWise, {this->scalar("null"), this->scalar("null")});
+
+  this->Assert(MaxElementWise, this->scalar(R"("")"),
+               {this->scalar(R"("")"), this->scalar(R"("")")});
+  this->Assert(MaxElementWise, this->scalar(R"("")"),
+               {this->scalar(R"("")"), this->scalar("null")});
+  this->Assert(MaxElementWise, this->scalar(R"("a")"),
+               {this->scalar(R"("a")"), this->scalar(R"("")")});
+  this->Assert(MaxElementWise, this->scalar(R"("a")"),
+               {this->scalar(R"("")"), this->scalar(R"("a")")});
+  this->Assert(MaxElementWise, (this->array("[]")), {this->array("[]")});
+
+  this->Assert(MaxElementWise, this->scalar(R"("ab")"), {this->scalar(R"("ab")")});
+  this->Assert(
+      MaxElementWise, this->scalar(R"("c")"),
+      {this->scalar(R"("bb")"), this->scalar(R"("aaa")"), this->scalar(R"("c")")});
+  this->Assert(MaxElementWise, this->scalar(R"("c")"),
+               {this->scalar(R"("bb")"), this->scalar(R"("aaa")"), this->scalar(R"("c")"),
+                this->scalar("null")});
+  this->Assert(MaxElementWise, this->scalar(R"("aa")"),
+               {this->scalar("null"), this->scalar("null"), this->scalar(R"("aa")"),
+                this->scalar("null")});
+
+  this->Assert(MaxElementWise, this->array(R"(["aaa", "b", "cc", null])"),
+               {this->array(R"(["aaa", "b", "cc", null])")});
+  this->Assert(MaxElementWise, this->array(R"(["bb", "bb", "cc", "dddd"])"),
+               {this->array(R"(["aaa", "bb", "cc", "dddd"])"), this->scalar(R"("bb")")});
+  this->Assert(MaxElementWise, this->array(R"(["bb", "bb", "cc", "dddd"])"),
+               {this->array(R"(["aaa", null, "cc", "dddd"])"), this->scalar(R"("bb")")});
+  this->Assert(MaxElementWise, this->array(R"(["dddd", "dddd", "dddd", "dddd"])"),
+               {this->array(R"(["aaa", null, "cc", "dddd"])"), this->scalar(R"("bb")"),
+                this->scalar(R"("dddd")")});
+  this->Assert(MaxElementWise, this->array(R"(["bb", "bb", "cc", "dddd"])"),
+               {this->array(R"(["aaa", null, "cc", "dddd"])"), this->scalar("null"),
+                this->scalar(R"("bb")")});
+
+  this->Assert(MaxElementWise, this->array(R"(["gg", "bar", "h", "iii"])"),
+               {this->array(R"([null, "a", "bb", "cccc"])"),
+                this->array(R"(["gg", null, "h", "iii"])"),
+                this->array(R"(["foo", "bar", null, "bb"])")});
+
+  // Test null handling
+  this->element_wise_aggregate_options_.skip_nulls = false;
+  this->Assert(MaxElementWise, this->scalar("null"),
+               {this->scalar(R"("bb")"), this->scalar(R"("aaa")"), this->scalar(R"("c")"),
+                this->scalar("null")});
+  this->Assert(MaxElementWise, this->scalar("null"),
+               {this->scalar("null"), this->scalar("null"), this->scalar(R"("aa")"),
+                this->scalar("null")});
+
+  this->Assert(MaxElementWise, this->array(R"(["bb", null, "cc", "dddd"])"),
+               {this->array(R"(["aaa", null, "cc", "dddd"])"), this->scalar(R"("bb")")});
+  this->Assert(MaxElementWise, this->array(R"(["dddd", null, "dddd", "dddd"])"),
+               {this->array(R"(["aaa", null, "cc", "dddd"])"), this->scalar(R"("bb")"),
+                this->scalar(R"("dddd")")});
+  this->Assert(MaxElementWise, this->array(R"([null, null, null, null])"),
+               {this->array(R"(["aaa", null, "cc", "dddd"])"), this->scalar("null"),
+                this->scalar(R"("bb")")});
+
+  this->Assert(MaxElementWise, this->array(R"([null, null, null, "iii"])"),
+               {this->array(R"([null, "a", "bb", "cccc"])"),
+                this->array(R"(["gg", null, "h", "iii"])"),
+                this->array(R"(["foo", "bar", null, "bb"])")});
+}
+
+TYPED_TEST(TestVarArgsCompareFixedSizeBinary, MaxElementWise) {
+  this->AssertNullScalar(MaxElementWise, {});
+  this->AssertNullScalar(MaxElementWise, {this->scalar("null"), this->scalar("null")});
+
+  this->Assert(MaxElementWise, this->scalar(R"("aaa")"), {this->scalar(R"("aaa")")});
+  this->Assert(
+      MaxElementWise, this->scalar(R"("ccc")"),
+      {this->scalar(R"("ccc")"), this->scalar(R"("aaa")"), this->scalar(R"("bbb")")});
+  this->Assert(MaxElementWise, this->scalar(R"("ccc")"),
+               {this->scalar(R"("ccc")"), this->scalar(R"("aaa")"),
+                this->scalar(R"("bbb")"), this->scalar("null")});
+  this->Assert(MaxElementWise, (this->array("[]")), {this->array("[]")});
+
+  this->Assert(MaxElementWise, this->array(R"(["abc", "abd", "abd", "abc", "abc"])"),
+               {this->array(R"(["abc", "abc", "abd", null, "abc"])"),
+                this->array(R"(["abc", "abd", "abc", "abc", null])")});
+  this->Assert(
+      MaxElementWise, this->scalar(R"("abe")"),
+      {this->scalar(R"("abe")"), this->scalar(R"("abc")"), this->scalar(R"("abd")")});
+
+  this->Assert(
+      MaxElementWise, this->array(R"(["abc", "abc", "abd", "abc", "abc"])"),
+      {this->array(R"(["abc", "abc", "abd", null, "abc"])"), this->scalar(R"("abc")")});
+  this->Assert(
+      MaxElementWise, this->array(R"(["abc", "abc", "abd", "abc", "abc"])"),
+      {this->array(R"(["abc", null, "abd", null, "abc"])"), this->scalar(R"("abc")")});
+  this->Assert(MaxElementWise, this->array(R"(["abd", "abd", "abd", "abd", "abd"])"),
+               {this->array(R"(["abc", null, "abd", null, "abc"])"),
+                this->scalar(R"("abc")"), this->scalar(R"("abd")")});
+  this->Assert(MaxElementWise, this->array(R"(["abc", "abc", "abd", "abc", "abc"])"),
+               {this->array(R"(["abc", null, "abd", null, "abc"])"), this->scalar("null"),
+                this->scalar(R"("abc")")});
+
+  this->Assert(MaxElementWise, this->scalar(R"("")", /*byte_width=*/0),
+               {this->scalar(R"("")", /*byte_width=*/0)});
+  this->Assert(MaxElementWise, this->scalar("null", /*byte_width=*/0),
+               {this->scalar("null", /*byte_width=*/0)});
+  this->Assert(
+      MaxElementWise, this->scalar(R"("")", /*byte_width=*/0),
+      {this->scalar("null", /*byte_width=*/0), this->scalar(R"("")", /*byte_width=*/0)});
+
+  // Test null handling
+  this->element_wise_aggregate_options_.skip_nulls = false;
+  this->Assert(MaxElementWise, this->array(R"(["abc", "abd", "abd", null, null])"),
+               {this->array(R"(["abc", "abc", "abd", null, "abc"])"),
+                this->array(R"(["abc", "abd", "abc", "abc", null])")});
+
+  this->Assert(
+      MaxElementWise, this->scalar("null", /*byte_width=*/0),
+      {this->scalar("null", /*byte_width=*/0), this->scalar(R"("")", /*byte_width=*/0)});
+
+  // Test error handling
+  auto result = MaxElementWise({this->scalar(R"("abc")", /*byte_width=*/3),
+                                this->scalar(R"("abcd")", /*byte_width=*/4)},
+                               this->element_wise_aggregate_options_, nullptr);
+  ASSERT_TRUE(result.status().IsNotImplemented());
+}
+
+TEST(TestMaxElementWiseMinElementWise, CommonTemporal) {
+  EXPECT_THAT(MinElementWise({
+                  ScalarFromJSON(timestamp(TimeUnit::SECOND), "1"),
+                  ScalarFromJSON(timestamp(TimeUnit::MILLI), "12000"),
+              }),
+              ResultWith(ScalarFromJSON(timestamp(TimeUnit::MILLI), "1000")));
+  EXPECT_THAT(MaxElementWise({
+                  ScalarFromJSON(date32(), "1"),
+                  ScalarFromJSON(timestamp(TimeUnit::SECOND), "86401"),
+              }),
+              ResultWith(ScalarFromJSON(timestamp(TimeUnit::SECOND), "86401")));
+  EXPECT_THAT(MinElementWise({
+                  ScalarFromJSON(date32(), "1"),
+                  ScalarFromJSON(date64(), "172800000"),
+              }),
+              ResultWith(ScalarFromJSON(date64(), "86400000")));
 }
 
 }  // namespace compute

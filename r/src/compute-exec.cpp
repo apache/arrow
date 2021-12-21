@@ -26,6 +26,7 @@
 #include <arrow/table.h>
 #include <arrow/util/async_generator.h>
 #include <arrow/util/future.h>
+#include <arrow/util/optional.h>
 #include <arrow/util/thread_pool.h>
 
 #include <iostream>
@@ -57,18 +58,31 @@ std::shared_ptr<compute::ExecNode> MakeExecNodeOrStop(
 // [[arrow::export]]
 std::shared_ptr<arrow::RecordBatchReader> ExecPlan_run(
     const std::shared_ptr<compute::ExecPlan>& plan,
-    const std::shared_ptr<compute::ExecNode>& final_node, cpp11::list sort_options) {
+    const std::shared_ptr<compute::ExecNode>& final_node, cpp11::list sort_options,
+    int64_t head = -1) {
   // For now, don't require R to construct SinkNodes.
   // Instead, just pass the node we should collect as an argument.
   arrow::AsyncGenerator<arrow::util::optional<compute::ExecBatch>> sink_gen;
 
   // Sorting uses a different sink node; there is no general sort yet
   if (sort_options.size() > 0) {
-    MakeExecNodeOrStop("order_by_sink", plan.get(), {final_node.get()},
-                       compute::OrderBySinkNodeOptions{
-                           *std::dynamic_pointer_cast<compute::SortOptions>(
-                               make_compute_options("sort_indices", sort_options)),
-                           &sink_gen});
+    if (head >= 0) {
+      // Use the SelectK node to take only what we need
+      MakeExecNodeOrStop(
+          "select_k_sink", plan.get(), {final_node.get()},
+          compute::SelectKSinkNodeOptions{
+              arrow::compute::SelectKOptions(
+                  head, std::dynamic_pointer_cast<compute::SortOptions>(
+                            make_compute_options("sort_indices", sort_options))
+                            ->sort_keys),
+              &sink_gen});
+    } else {
+      MakeExecNodeOrStop("order_by_sink", plan.get(), {final_node.get()},
+                         compute::OrderBySinkNodeOptions{
+                             *std::dynamic_pointer_cast<compute::SortOptions>(
+                                 make_compute_options("sort_indices", sort_options)),
+                             &sink_gen});
+    }
   } else {
     MakeExecNodeOrStop("sink", plan.get(), {final_node.get()},
                        compute::SinkNodeOptions{&sink_gen});
@@ -94,9 +108,21 @@ std::shared_ptr<arrow::RecordBatchReader> ExecPlan_run(
       [stop_producing, plan, sink_gen] { return sink_gen(); }, gc_memory_pool());
 }
 
+// [[arrow::export]]
+void ExecPlan_StopProducing(const std::shared_ptr<compute::ExecPlan>& plan) {
+  plan->StopProducing();
+}
+
 #if defined(ARROW_R_WITH_DATASET)
 
+#include <arrow/dataset/plan.h>
 #include <arrow/dataset/scanner.h>
+
+// [[dataset::export]]
+std::shared_ptr<arrow::Schema> ExecNode_output_schema(
+    const std::shared_ptr<compute::ExecNode>& node) {
+  return node->output_schema();
+}
 
 // [[dataset::export]]
 std::shared_ptr<compute::ExecNode> ExecNode_Scan(
@@ -134,7 +160,7 @@ std::shared_ptr<compute::ExecNode> ExecNode_Scan(
 
 #endif
 
-// [[arrow::export]]
+// [[dataset::export]]
 std::shared_ptr<compute::ExecNode> ExecNode_Filter(
     const std::shared_ptr<compute::ExecNode>& input,
     const std::shared_ptr<compute::Expression>& filter) {
@@ -142,7 +168,7 @@ std::shared_ptr<compute::ExecNode> ExecNode_Filter(
                             compute::FilterNodeOptions{*filter});
 }
 
-// [[arrow::export]]
+// [[dataset::export]]
 std::shared_ptr<compute::ExecNode> ExecNode_Project(
     const std::shared_ptr<compute::ExecNode>& input,
     const std::vector<std::shared_ptr<compute::Expression>>& exprs,
@@ -157,7 +183,7 @@ std::shared_ptr<compute::ExecNode> ExecNode_Project(
       compute::ProjectNodeOptions{std::move(expressions), std::move(names)});
 }
 
-// [[arrow::export]]
+// [[dataset::export]]
 std::shared_ptr<compute::ExecNode> ExecNode_Aggregate(
     const std::shared_ptr<compute::ExecNode>& input, cpp11::list options,
     std::vector<std::string> target_names, std::vector<std::string> out_field_names,
@@ -185,6 +211,71 @@ std::shared_ptr<compute::ExecNode> ExecNode_Aggregate(
       "aggregate", input->plan(), {input.get()},
       compute::AggregateNodeOptions{std::move(aggregates), std::move(targets),
                                     std::move(out_field_names), std::move(keys)});
+}
+
+// [[dataset::export]]
+std::shared_ptr<compute::ExecNode> ExecNode_Join(
+    const std::shared_ptr<compute::ExecNode>& input, int type,
+    const std::shared_ptr<compute::ExecNode>& right_data,
+    std::vector<std::string> left_keys, std::vector<std::string> right_keys,
+    std::vector<std::string> left_output, std::vector<std::string> right_output) {
+  std::vector<arrow::FieldRef> left_refs, right_refs, left_out_refs, right_out_refs;
+  for (auto&& name : left_keys) {
+    left_refs.emplace_back(std::move(name));
+  }
+  for (auto&& name : right_keys) {
+    right_refs.emplace_back(std::move(name));
+  }
+  for (auto&& name : left_output) {
+    left_out_refs.emplace_back(std::move(name));
+  }
+  if (type != 0 && type != 2) {
+    // Don't include out_refs in semi/anti join
+    for (auto&& name : right_output) {
+      right_out_refs.emplace_back(std::move(name));
+    }
+  }
+
+  // TODO: we should be able to use this enum directly
+  compute::JoinType join_type;
+  if (type == 0) {
+    join_type = compute::JoinType::LEFT_SEMI;
+  } else if (type == 1) {
+    // Not readily called from R bc dplyr::semi_join is LEFT_SEMI
+    join_type = compute::JoinType::RIGHT_SEMI;
+  } else if (type == 2) {
+    join_type = compute::JoinType::LEFT_ANTI;
+  } else if (type == 3) {
+    // Not readily called from R bc dplyr::semi_join is LEFT_SEMI
+    join_type = compute::JoinType::RIGHT_ANTI;
+  } else if (type == 4) {
+    join_type = compute::JoinType::INNER;
+  } else if (type == 5) {
+    join_type = compute::JoinType::LEFT_OUTER;
+  } else if (type == 6) {
+    join_type = compute::JoinType::RIGHT_OUTER;
+  } else if (type == 7) {
+    join_type = compute::JoinType::FULL_OUTER;
+  } else {
+    cpp11::stop("todo");
+  }
+
+  return MakeExecNodeOrStop(
+      "hashjoin", input->plan(), {input.get(), right_data.get()},
+      compute::HashJoinNodeOptions{join_type, std::move(left_refs), std::move(right_refs),
+                                   std::move(left_out_refs), std::move(right_out_refs)});
+}
+
+// [[arrow::export]]
+std::shared_ptr<compute::ExecNode> ExecNode_ReadFromRecordBatchReader(
+    const std::shared_ptr<compute::ExecPlan>& plan,
+    const std::shared_ptr<arrow::RecordBatchReader>& reader) {
+  arrow::compute::SourceNodeOptions options{
+      /*output_schema=*/reader->schema(),
+      /*generator=*/ValueOrStop(
+          compute::MakeReaderGenerator(reader, arrow::internal::GetCpuThreadPool()))};
+
+  return MakeExecNodeOrStop("source", plan.get(), {}, options);
 }
 
 #endif

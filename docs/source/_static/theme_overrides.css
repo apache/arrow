@@ -64,6 +64,20 @@ add ":class: table-striped" */
   background-color: rgba(0, 0, 0, 0.05);
 }
 
+/* Iprove the vertical spacing in the C++ API docs
+(ideally this should be upstreamed to the pydata-sphinx-theme */
+
+dl.cpp dd p {
+  margin-bottom:.4rem;
+}
+ 
+dl.cpp.enumerator {
+  margin-bottom: 0.2rem;
+}
+
+p.breathe-sectiondef-title {
+  margin-top: 1rem;
+}
 
 /* Limit the max height of the sidebar navigation section. Because in our
 custimized template, there is more content above the navigation, i.e.
@@ -79,6 +93,24 @@ Details: min(15vh, 110px) for the logo size, 8rem for search box etc*/
   }
 }
 
+/* Styling to get the version dropdown and search box side-by-side on wide screens */
+
+#version-search-wrapper {
+  width: inherit;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: left;
+  align-items: center;
+}
+
+#version-button {
+  padding-left: 0.5rem;
+  padding-right: 1rem;
+}
+
+#search-box {
+  flex: 1 0 12em;
+}
 
 /* Fix table text wrapping in RTD theme,
  * see https://rackerlabs.github.io/docs-rackspace/tools/rtd-tables.html

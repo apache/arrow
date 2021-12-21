@@ -84,6 +84,11 @@ void PrintError(const std::string& context_msg, const Result<T>& result) {
   PrintError(context_msg, result.status());
 }
 
+void CheckDirectory(FileSystem* fs, const std::string& path) {
+  ASSERT_OK_AND_ASSIGN(auto info, fs->GetFileInfo(path));
+  AssertFileInfo(info, path, FileType::Directory);
+}
+
 void ClearBucket(int argc, char** argv) {
   auto fs = MakeFileSystem();
 
@@ -113,19 +118,22 @@ void TestBucket(int argc, char** argv) {
   ASSERT_RAISES_PRINT("CreateDir in nonexistent parent", IOError,
                       fs->CreateDir("Dir2/Subdir", /*recursive=*/false));
   ASSERT_OK(fs->CreateDir("Dir2/Subdir", /*recursive=*/true));
+  ASSERT_OK(fs->CreateDir("Nested/1/2/3/4", /*recursive=*/true));
   CreateFile(fs.get(), "File1", "first data");
   CreateFile(fs.get(), "Dir1/File2", "second data");
   CreateFile(fs.get(), "Dir2/Subdir/File3", "third data");
+  CreateFile(fs.get(), "Nested/1/2/3/4/File4", "fourth data");
 
   // GetFileInfo(Selector)
   select.base_dir = "";
   ASSERT_OK_AND_ASSIGN(infos, fs->GetFileInfo(select));
-  ASSERT_EQ(infos.size(), 4);
+  ASSERT_EQ(infos.size(), 5);
   SortInfos(&infos);
   AssertFileInfo(infos[0], "Dir1", FileType::Directory);
   AssertFileInfo(infos[1], "Dir2", FileType::Directory);
   AssertFileInfo(infos[2], "EmptyDir", FileType::Directory);
   AssertFileInfo(infos[3], "File1", FileType::File, 10);
+  AssertFileInfo(infos[4], "Nested", FileType::Directory);
 
   select.base_dir = "zzzz";
   ASSERT_RAISES_PRINT("GetFileInfo(Selector) with nonexisting base_dir", IOError,
@@ -149,6 +157,16 @@ void TestBucket(int argc, char** argv) {
   SortInfos(&infos);
   AssertFileInfo(infos[0], "Dir2/Subdir", FileType::Directory);
   AssertFileInfo(infos[1], "Dir2/Subdir/File3", FileType::File, 10);
+
+  // GetFileInfo(single entry)
+  CheckDirectory(fs.get(), "EmptyDir");
+  CheckDirectory(fs.get(), "Dir1");
+  CheckDirectory(fs.get(), "Nested");
+  CheckDirectory(fs.get(), "Nested/1");
+  CheckDirectory(fs.get(), "Nested/1/2");
+  CheckDirectory(fs.get(), "Nested/1/2/3");
+  CheckDirectory(fs.get(), "Nested/1/2/3/4");
+  AssertFileInfo(fs.get(), "Nest", FileType::NotFound);
 
   // Read a file
   ASSERT_RAISES_PRINT("OpenInputStream with nonexistent file", IOError,

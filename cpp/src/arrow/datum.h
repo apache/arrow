@@ -103,7 +103,7 @@ ValueDescr::Shape GetBroadcastShape(const std::vector<ValueDescr>& args);
 /// \class Datum
 /// \brief Variant type for various Arrow C++ data structures
 struct ARROW_EXPORT Datum {
-  enum Kind { NONE, SCALAR, ARRAY, CHUNKED_ARRAY, RECORD_BATCH, TABLE, COLLECTION };
+  enum Kind { NONE, SCALAR, ARRAY, CHUNKED_ARRAY, RECORD_BATCH, TABLE };
 
   struct Empty {};
 
@@ -113,7 +113,7 @@ struct ARROW_EXPORT Datum {
 
   util::Variant<Empty, std::shared_ptr<Scalar>, std::shared_ptr<ArrayData>,
                 std::shared_ptr<ChunkedArray>, std::shared_ptr<RecordBatch>,
-                std::shared_ptr<Table>, std::vector<Datum>>
+                std::shared_ptr<Table>>
       value;
 
   /// \brief Empty datum, to be populated elsewhere
@@ -138,7 +138,6 @@ struct ARROW_EXPORT Datum {
   Datum(std::shared_ptr<ChunkedArray> value);  // NOLINT implicit conversion
   Datum(std::shared_ptr<RecordBatch> value);   // NOLINT implicit conversion
   Datum(std::shared_ptr<Table> value);         // NOLINT implicit conversion
-  Datum(std::vector<Datum> value);             // NOLINT implicit conversion
 
   // Explicit constructors from const-refs. Can be expensive, prefer the
   // shared_ptr constructors
@@ -146,10 +145,13 @@ struct ARROW_EXPORT Datum {
   explicit Datum(const RecordBatch& value);
   explicit Datum(const Table& value);
 
-  // Cast from subtypes of Array to Datum
-  template <typename T, typename = enable_if_t<std::is_base_of<Array, T>::value>>
+  // Cast from subtypes of Array or Scalar to Datum
+  template <typename T, bool IsArray = std::is_base_of<Array, T>::value,
+            bool IsScalar = std::is_base_of<Scalar, T>::value,
+            typename = enable_if_t<IsArray || IsScalar>>
   Datum(const std::shared_ptr<T>& value)  // NOLINT implicit conversion
-      : Datum(std::shared_ptr<Array>(value)) {}
+      : Datum(std::shared_ptr<typename std::conditional<IsArray, Array, Scalar>::type>(
+            value)) {}
 
   // Convenience constructors
   explicit Datum(bool value);
@@ -180,8 +182,6 @@ struct ARROW_EXPORT Datum {
         return Datum::RECORD_BATCH;
       case 5:
         return Datum::TABLE;
-      case 6:
-        return Datum::COLLECTION;
       default:
         return Datum::NONE;
     }
@@ -190,6 +190,11 @@ struct ARROW_EXPORT Datum {
   const std::shared_ptr<ArrayData>& array() const {
     return util::get<std::shared_ptr<ArrayData>>(this->value);
   }
+
+  /// \brief The sum of bytes in each buffer referenced by the datum
+  /// Note: Scalars report a size of 0
+  /// \see arrow::util::TotalBufferSize for caveats
+  int64_t TotalBufferSize() const;
 
   ArrayData* mutable_array() const { return this->array().get(); }
 
@@ -205,10 +210,6 @@ struct ARROW_EXPORT Datum {
 
   const std::shared_ptr<Table>& table() const {
     return util::get<std::shared_ptr<Table>>(this->value);
-  }
-
-  const std::vector<Datum>& collection() const {
-    return util::get<std::vector<Datum>>(this->value);
   }
 
   const std::shared_ptr<Scalar>& scalar() const {
@@ -235,8 +236,6 @@ struct ARROW_EXPORT Datum {
 
   /// \brief True if Datum contains a scalar or array-like data
   bool is_value() const { return this->is_arraylike() || this->is_scalar(); }
-
-  bool is_collection() const { return this->kind() == Datum::COLLECTION; }
 
   int64_t null_count() const;
 

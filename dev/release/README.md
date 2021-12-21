@@ -22,3 +22,5 @@
 To learn more, see the project wiki:
 
 https://cwiki.apache.org/confluence/display/ARROW/Release+Management+Guide
+
+and [VERIFY.md](VERIFY.md)

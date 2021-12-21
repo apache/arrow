@@ -194,7 +194,8 @@ cdef class HashAggregateKernel(Kernel):
 
 FunctionDoc = namedtuple(
     "FunctionDoc",
-    ("summary", "description", "arg_names", "options_class"))
+    ("summary", "description", "arg_names", "options_class",
+     "options_required"))
 
 
 cdef class Function(_Weakrefable):
@@ -297,7 +298,8 @@ cdef class Function(_Weakrefable):
         return FunctionDoc(frombytes(c_doc.summary),
                            frombytes(c_doc.description),
                            [frombytes(s) for s in c_doc.arg_names],
-                           frombytes(c_doc.options_class))
+                           frombytes(c_doc.options_class),
+                           c_doc.options_required)
 
     @property
     def num_kernels(self):
@@ -463,6 +465,11 @@ cdef class FunctionRegistry(_Weakrefable):
     def get_function(self, name):
         """
         Look up a function by name in the registry.
+
+        Parameters
+        ----------
+        name : str
+            The name of the function to lookup
         """
         cdef:
             c_string c_name = tobytes(name)
@@ -485,6 +492,11 @@ def get_function(name):
 
     The function is looked up in the global registry
     (as returned by `function_registry()`).
+
+    Parameters
+    ----------
+    name : str
+        The name of the function to lookup
     """
     return _global_func_registry.get_function(name)
 
@@ -502,6 +514,17 @@ def call_function(name, args, options=None, memory_pool=None):
 
     The function is looked up in the global registry
     (as returned by `function_registry()`).
+
+    Parameters
+    ----------
+    name : str
+        The name of the function to call.
+    args : list
+        The arguments to the function.
+    options : optional
+        options provided to the function.
+    memory_pool : MemoryPool, optional
+        memory pool to use for allocations during function execution.
     """
     func = _global_func_registry.get_function(name)
     return func.call(args, options=options, memory_pool=memory_pool)
@@ -524,6 +547,14 @@ cdef class FunctionOptions(_Weakrefable):
 
     @staticmethod
     def deserialize(buf):
+        """
+        Deserialize options for a function.
+
+        Parameters
+        ----------
+        buf : Buffer
+            The buffer containing the data to deserialize.
+        """
         cdef:
             shared_ptr[CBuffer] c_buf = pyarrow_unwrap_buffer(buf)
             CResult[unique_ptr[CFunctionOptions]] maybe_options = \
@@ -670,6 +701,14 @@ class CastOptions(_CastOptions):
 
     @staticmethod
     def safe(target_type=None):
+        """"
+        Create a CastOptions for a safe cast.
+
+        Parameters
+        ----------
+        target_type : optional
+            Target cast type for the safe cast.
+        """
         self = CastOptions()
         self._set_safe()
         self._set_type(target_type)
@@ -677,6 +716,14 @@ class CastOptions(_CastOptions):
 
     @staticmethod
     def unsafe(target_type=None):
+        """"
+        Create a CastOptions for an unsafe cast.
+
+        Parameters
+        ----------
+        target_type : optional
+            Target cast type for the unsafe cast.
+        """
         self = CastOptions()
         self._set_unsafe()
         self._set_type(target_type)
@@ -913,13 +960,23 @@ cdef class _MakeStructOptions(FunctionOptions):
 
 
 class MakeStructOptions(_MakeStructOptions):
-    def __init__(self, field_names, *, field_nullability=None,
+    def __init__(self, field_names=(), *, field_nullability=None,
                  field_metadata=None):
         if field_nullability is None:
             field_nullability = [True] * len(field_names)
         if field_metadata is None:
             field_metadata = [None] * len(field_names)
         self._set_options(field_names, field_nullability, field_metadata)
+
+
+cdef class _StructFieldOptions(FunctionOptions):
+    def _set_options(self, indices):
+        self.wrapped.reset(new CStructFieldOptions(indices))
+
+
+class StructFieldOptions(_StructFieldOptions):
+    def __init__(self, indices):
+        self._set_options(indices)
 
 
 cdef class _ScalarAggregateOptions(FunctionOptions):
@@ -1038,15 +1095,31 @@ class StrftimeOptions(_StrftimeOptions):
 
 
 cdef class _DayOfWeekOptions(FunctionOptions):
-    def _set_options(self, one_based_numbering, week_start):
+    def _set_options(self, count_from_zero, week_start):
         self.wrapped.reset(
-            new CDayOfWeekOptions(one_based_numbering, week_start)
+            new CDayOfWeekOptions(count_from_zero, week_start)
         )
 
 
 class DayOfWeekOptions(_DayOfWeekOptions):
-    def __init__(self, *, one_based_numbering=False, week_start=1):
-        self._set_options(one_based_numbering, week_start)
+    def __init__(self, *, count_from_zero=True, week_start=1):
+        self._set_options(count_from_zero, week_start)
+
+
+cdef class _WeekOptions(FunctionOptions):
+    def _set_options(self, week_starts_monday, count_from_zero,
+                     first_week_is_fully_in_year):
+        self.wrapped.reset(
+            new CWeekOptions(week_starts_monday, count_from_zero,
+                             first_week_is_fully_in_year)
+        )
+
+
+class WeekOptions(_WeekOptions):
+    def __init__(self, *, week_starts_monday=True, count_from_zero=False,
+                 first_week_is_fully_in_year=False):
+        self._set_options(week_starts_monday,
+                          count_from_zero, first_week_is_fully_in_year)
 
 
 cdef class _AssumeTimezoneOptions(FunctionOptions):
@@ -1172,7 +1245,7 @@ cdef class _SortOptions(FunctionOptions):
 
 
 class SortOptions(_SortOptions):
-    def __init__(self, sort_keys, *, null_placement="at_end"):
+    def __init__(self, sort_keys=(), *, null_placement="at_end"):
         self._set_options(sort_keys, null_placement)
 
 
@@ -1233,3 +1306,53 @@ class TDigestOptions(_TDigestOptions):
         if not isinstance(q, (list, tuple, np.ndarray)):
             q = [q]
         self._set_options(q, delta, buffer_size, skip_nulls, min_count)
+
+
+cdef class _Utf8NormalizeOptions(FunctionOptions):
+    _form_map = {
+        "NFC": CUtf8NormalizeForm_NFC,
+        "NFKC": CUtf8NormalizeForm_NFKC,
+        "NFD": CUtf8NormalizeForm_NFD,
+        "NFKD": CUtf8NormalizeForm_NFKD,
+    }
+
+    def _set_options(self, form):
+        try:
+            self.wrapped.reset(
+                new CUtf8NormalizeOptions(self._form_map[form])
+            )
+        except KeyError:
+            _raise_invalid_function_option(form,
+                                           "Unicode normalization form")
+
+
+class Utf8NormalizeOptions(_Utf8NormalizeOptions):
+    def __init__(self, form):
+        self._set_options(form)
+
+
+def _group_by(args, keys, aggregations):
+    cdef:
+        vector[CDatum] c_args
+        vector[CDatum] c_keys
+        vector[CAggregate] c_aggregations
+        CDatum result
+        CAggregate c_aggr
+
+    _pack_compute_args(args, &c_args)
+    _pack_compute_args(keys, &c_keys)
+
+    for aggr_func_name, aggr_opts in aggregations:
+        c_aggr.function = tobytes(aggr_func_name)
+        if aggr_opts is not None:
+            c_aggr.options = (<FunctionOptions?>aggr_opts).get_options()
+        else:
+            c_aggr.options = NULL
+        c_aggregations.push_back(c_aggr)
+
+    with nogil:
+        result = GetResultValue(
+            GroupBy(c_args, c_keys, c_aggregations)
+        )
+
+    return wrap_datum(result)

@@ -54,4 +54,9 @@ static inline bool is_decimal_128(DataTypePtr type) {
     return false;
   }
 }
+
+static inline bool IsArrowStringLiteral(arrow::Type::type type) {
+  return type == arrow::Type::STRING || type == arrow::Type::BINARY;
+}
+
 }  // namespace gandiva

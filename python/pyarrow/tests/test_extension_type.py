@@ -76,6 +76,19 @@ class MyListType(pa.PyExtensionType):
         return MyListType, (self.storage_type,)
 
 
+class AnnotatedType(pa.PyExtensionType):
+    """
+    Generic extension type that can store any storage type.
+    """
+
+    def __init__(self, storage_type, annotation):
+        self.annotation = annotation
+        super().__init__(storage_type)
+
+    def __reduce__(self):
+        return AnnotatedType, (self.storage_type, self.annotation)
+
+
 def ipc_write_batch(batch):
     stream = pa.BufferOutputStream()
     writer = pa.RecordBatchStreamWriter(stream, batch.schema)
@@ -381,6 +394,14 @@ def test_casting_to_extension_type_raises():
     arr = pa.array([1, 2, 3, 4], pa.int64())
     with pytest.raises(pa.ArrowNotImplementedError):
         arr.cast(IntegerType())
+
+
+def test_null_storage_type():
+    ext_type = AnnotatedType(pa.null(), {"key": "value"})
+    storage = pa.array([None] * 10, pa.null())
+    arr = pa.ExtensionArray.from_storage(ext_type, storage)
+    assert arr.null_count == 10
+    arr.validate(full=True)
 
 
 def example_batch():
@@ -762,3 +783,18 @@ def test_to_numpy():
     for result in [np.asarray(charr), charr.to_numpy()]:
         assert result.dtype == np.int64
         np.testing.assert_array_equal(result, np.array([], dtype='int64'))
+
+
+def test_empty_take():
+    # https://issues.apache.org/jira/browse/ARROW-13474
+    ext_type = IntegerType()
+    storage = pa.array([], type=pa.int64())
+    empty_arr = pa.ExtensionArray.from_storage(ext_type, storage)
+
+    result = empty_arr.filter(pa.array([], pa.bool_()))
+    assert len(result) == 0
+    assert result.equals(empty_arr)
+
+    result = empty_arr.take(pa.array([], pa.int32()))
+    assert len(result) == 0
+    assert result.equals(empty_arr)

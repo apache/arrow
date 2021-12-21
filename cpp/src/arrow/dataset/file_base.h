@@ -364,6 +364,35 @@ struct ARROW_DS_EXPORT FileSystemDatasetWriteOptions {
   /// {i} will be replaced by an auto incremented integer.
   std::string basename_template;
 
+  /// If greater than 0 then this will limit the maximum number of files that can be left
+  /// open. If an attempt is made to open too many files then the least recently used file
+  /// will be closed.  If this setting is set too low you may end up fragmenting your data
+  /// into many small files.
+  ///
+  /// The default is 900 which also allows some # of files to be open by the scanner
+  /// before hitting the default Linux limit of 1024
+  uint32_t max_open_files = 900;
+
+  /// If greater than 0 then this will limit how many rows are placed in any single file.
+  /// Otherwise there will be no limit and one file will be created in each output
+  /// directory unless files need to be closed to respect max_open_files
+  uint64_t max_rows_per_file = 0;
+
+  /// If greater than 0 then this will cause the dataset writer to batch incoming data
+  /// and only write the row groups to the disk when sufficient rows have accumulated.
+  /// The final row group size may be less than this value and other options such as
+  /// `max_open_files` or `max_rows_per_file` lead to smaller row group sizes.
+  uint64_t min_rows_per_group = 0;
+
+  /// If greater than 0 then the dataset writer may split up large incoming batches into
+  /// multiple row groups.  If this value is set then min_rows_per_group should also be
+  /// set or else you may end up with very small row groups (e.g. if the incoming row
+  /// group size is just barely larger than this value).
+  uint64_t max_rows_per_group = 1 << 20;
+
+  /// Controls what happens if an output directory already exists.
+  ExistingDataBehavior existing_data_behavior = ExistingDataBehavior::kError;
+
   /// Callback to be invoked against all FileWriters before
   /// they are finalized with FileWriter::Finish().
   std::function<Status(FileWriter*)> writer_pre_finish = [](FileWriter*) {
@@ -381,7 +410,27 @@ struct ARROW_DS_EXPORT FileSystemDatasetWriteOptions {
   }
 };
 
+/// \brief Wraps FileSystemDatasetWriteOptions for consumption as compute::ExecNodeOptions
+class ARROW_DS_EXPORT WriteNodeOptions : public compute::ExecNodeOptions {
+ public:
+  explicit WriteNodeOptions(
+      FileSystemDatasetWriteOptions options, std::shared_ptr<Schema> schema,
+      std::shared_ptr<util::AsyncToggle> backpressure_toggle = NULLPTR)
+      : write_options(std::move(options)),
+        schema(std::move(schema)),
+        backpressure_toggle(std::move(backpressure_toggle)) {}
+
+  FileSystemDatasetWriteOptions write_options;
+  std::shared_ptr<Schema> schema;
+  std::shared_ptr<util::AsyncToggle> backpressure_toggle;
+};
+
 /// @}
+
+namespace internal {
+ARROW_DS_EXPORT void InitializeDatasetWriter(
+    arrow::compute::ExecFactoryRegistry* registry);
+}
 
 }  // namespace dataset
 }  // namespace arrow

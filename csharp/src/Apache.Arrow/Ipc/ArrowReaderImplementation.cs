@@ -22,6 +22,7 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Apache.Arrow.Types;
+using Apache.Arrow.Memory;
 
 namespace Apache.Arrow.Ipc
 {
@@ -32,6 +33,15 @@ namespace Apache.Arrow.Ipc
 
         private protected DictionaryMemo _dictionaryMemo;
         private protected DictionaryMemo DictionaryMemo => _dictionaryMemo ??= new DictionaryMemo();
+        private protected readonly MemoryAllocator _allocator;
+
+        private protected ArrowReaderImplementation() : this(null)
+        { }
+
+        private protected ArrowReaderImplementation(MemoryAllocator allocator)
+        {
+            _allocator = allocator ?? MemoryAllocator.Default.Value;
+        }
 
         public void Dispose()
         {
@@ -144,7 +154,7 @@ namespace Apache.Arrow.Ipc
 
             if (dictionaryBatch.IsDelta)
             {
-                throw new NotImplementedException("Dictionary delta is not supported yet");
+                DictionaryMemo.AddDeltaDictionary(id, arrays[0], _allocator);
             }
             else
             {

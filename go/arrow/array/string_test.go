@@ -17,11 +17,13 @@
 package array_test
 
 import (
+	"bytes"
+	"reflect"
 	"testing"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/array"
-	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/v7/arrow"
+	"github.com/apache/arrow/go/v7/arrow/array"
+	"github.com/apache/arrow/go/v7/arrow/memory"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -32,7 +34,7 @@ func TestStringArray(t *testing.T) {
 	var (
 		want    = []string{"hello", "世界", "", "bye"}
 		valids  = []bool{true, true, false, true}
-		offsets = []int{0, 5, 11, 11, 14}
+		offsets = []int32{0, 5, 11, 11, 14}
 	)
 
 	sb := array.NewStringBuilder(mem)
@@ -81,12 +83,16 @@ func TestStringArray(t *testing.T) {
 			}
 		}
 
-		if got, want := arr.ValueOffset(i), offsets[i]; got != want {
+		if got, want := arr.ValueOffset(i), int(offsets[i]); got != want {
 			t.Fatalf("arr-offset-beg[%d]: got=%d, want=%d", i, got, want)
 		}
-		if got, want := arr.ValueOffset(i+1), offsets[i+1]; got != want {
+		if got, want := arr.ValueOffset(i+1), int(offsets[i+1]); got != want {
 			t.Fatalf("arr-offset-end[%d]: got=%d, want=%d", i+1, got, want)
 		}
+	}
+
+	if !reflect.DeepEqual(offsets, arr.ValueOffsets()) {
+		t.Fatalf("ValueOffsets got=%v, want=%v", arr.ValueOffsets(), offsets)
 	}
 
 	sub := array.MakeFromData(arr.Data())
@@ -103,6 +109,11 @@ func TestStringArray(t *testing.T) {
 	if got, want := arr.String(), `["hello" "世界" (null) "bye"]`; got != want {
 		t.Fatalf("got=%q, want=%q", got, want)
 	}
+
+	if !bytes.Equal([]byte(`hello世界bye`), arr.ValueBytes()) {
+		t.Fatalf("got=%q, want=%q", string(arr.ValueBytes()), `hello世界bye`)
+	}
+
 	slice := array.NewSliceData(arr.Data(), 2, 4)
 	defer slice.Release()
 
@@ -116,6 +127,20 @@ func TestStringArray(t *testing.T) {
 
 	if got, want := v.String(), `[(null) "bye"]`; got != want {
 		t.Fatalf("got=%q, want=%q", got, want)
+	}
+
+	if !bytes.Equal(v.ValueBytes(), []byte("bye")) {
+		t.Fatalf("got=%q, want=%q", string(v.ValueBytes()), "bye")
+	}
+
+	for i := 0; i < v.Len(); i++ {
+		if got, want := v.ValueOffset(0), int(offsets[i+slice.Offset()]); got != want {
+			t.Fatalf("val-offset-with-offset[%d]: got=%q, want=%q", i, got, want)
+		}
+	}
+
+	if !reflect.DeepEqual(offsets[2:5], v.ValueOffsets()) {
+		t.Fatalf("ValueOffsets got=%v, want=%v", v.ValueOffsets(), offsets[2:5])
 	}
 }
 

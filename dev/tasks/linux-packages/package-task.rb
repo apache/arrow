@@ -100,14 +100,18 @@ class PackageTask
     unless File.exist?(absolute_output_path)
       mkdir_p(File.dirname(absolute_output_path))
       rake_output_message "Downloading... #{url}"
-      URI(url).open do |downloaded_file|
+      open_url(url) do |downloaded_file|
         File.open(absolute_output_path, "wb") do |output_file|
-          output_file.print(downloaded_file.read)
+          IO.copy_stream(downloaded_file, output_file)
         end
       end
     end
 
     absolute_output_path
+  end
+
+  def open_url(url, &block)
+    URI(url).open(&block)
   end
 
   def substitute_content(content)
@@ -262,12 +266,16 @@ class PackageTask
       # "debian-buster-arm64",
       "debian-bullseye",
       # "debian-bullseye-arm64",
+      "debian-bookworm",
+      # "debian-bookworm-arm64",
       "ubuntu-bionic",
       # "ubuntu-bionic-arm64",
       "ubuntu-focal",
       # "ubuntu-focal-arm64",
       "ubuntu-hirsute",
       # "ubuntu-hirsute-arm64",
+      "ubuntu-impish",
+      # "ubuntu-impish-arm64",
     ]
   end
 
@@ -402,12 +410,12 @@ VERSION=#{@deb_upstream_version}
     # Disable aarch64 targets by default for now
     # because they require some setups on host.
     [
+      "almalinux-8",
+      # "almalinux-8-arch64",
       "amazon-linux-2",
       # "amazon-linux-2-arch64",
       "centos-7",
       # "centos-7-aarch64",
-      "centos-8",
-      # "centos-8-aarch64",
     ]
   end
 

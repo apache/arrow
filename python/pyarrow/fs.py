@@ -165,7 +165,7 @@ def _resolve_filesystem_and_path(
     filesystem = LocalFileSystem()
     try:
         file_info = filesystem.get_file_info(path)
-    except OSError:
+    except ValueError:  # ValueError means path is likely an URI
         file_info = None
         exists_locally = False
     else:
@@ -256,6 +256,12 @@ class FSSpecHandler(FileSystemHandler):
 
     https://filesystem-spec.readthedocs.io/en/latest/index.html
 
+    Parameters
+    ----------
+    fs : The FSSpec-compliant filesystem instance.
+
+    Examples
+    --------
     >>> PyFileSystem(FSSpecHandler(fsspec_fs))
     """
 

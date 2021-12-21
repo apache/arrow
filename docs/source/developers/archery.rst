@@ -26,20 +26,25 @@ utility called Archery.
 Installation
 ------------
 
-Archery requires Python 3.6 or later. It is recommended to install archery in
+Archery requires Python 3.6 or later. It is recommended to install Archery in
 *editable* mode with the ``-e`` flag to automatically update the installation
-when pulling the Arrow repository.
+when pulling the Arrow repository. After cloning the Arrow repository, from
+the top level directory install Archery by using the command
 
-.. code:: bash
+.. code:: console
 
-   pip install -e dev/archery
+   $ pip install -e "dev/archery[all]"
+
+Many operations in Archery make use of `Docker <https://docs.docker.com/>`_
+and `docker-compose <https://docs.docker.com/compose/>`_, which you may
+also want to install.
 
 Usage
 -----
 
 You can inspect Archery usage by passing the ``--help`` flag:
 
-.. code:: bash
+.. code:: console
 
    $ archery --help
    Usage: archery [OPTIONS] COMMAND [ARGS]...
@@ -69,7 +74,7 @@ You can inspect Archery usage by passing the ``--help`` flag:
 Archery exposes independent subcommands, each of which provides dedicated
 help output, for example:
 
-.. code:: bash
+.. code:: console
 
    $ archery docker --help
    Usage: archery docker [OPTIONS] COMMAND [ARGS]...
@@ -84,3 +89,6 @@ help output, for example:
      images  List the available docker-compose images.
      push    Push the generated docker-compose image.
      run     Execute docker-compose builds.
+
+A more detailed introduction to using Docker with
+Archery is available at :doc:`docker`.

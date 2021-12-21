@@ -51,7 +51,7 @@ export PARQUET_TEST_DATA=${source_dir}/submodules/parquet-testing/data
 
 if [ "${INSTALL_PYARROW}" == "ON" ]; then
   # Install the built wheels
-  pip install ${source_dir}/python/repaired_wheels/*.whl
+  pip install --force-reinstall ${source_dir}/python/repaired_wheels/*.whl
 fi
 
 if [ "${CHECK_IMPORTS}" == "ON" ]; then
@@ -80,5 +80,5 @@ if [ "${CHECK_UNITTESTS}" == "ON" ]; then
   pip install -U -r ${source_dir}/python/requirements-wheel-test.txt
   # Execute unittest, test dependencies must be installed
   python -c 'import pyarrow; pyarrow.create_library_symlinks()'
-  pytest -r s --pyargs pyarrow
+  python -m pytest -r s --pyargs pyarrow
 fi

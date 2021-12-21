@@ -168,6 +168,17 @@ class TestConvertMetadata:
         df.columns.names = ['a']
         _check_pandas_roundtrip(df, preserve_index=True)
 
+    def test_column_index_names_with_tz(self):
+        # ARROW-13756
+        # Bug if index is timezone aware DataTimeIndex
+
+        df = pd.DataFrame(
+            np.random.randn(5, 3),
+            columns=pd.date_range(
+                "2021-01-01", "2021-01-3", freq="D", tz="CET")
+        )
+        _check_pandas_roundtrip(df, preserve_index=True)
+
     def test_range_index_shortcut(self):
         # ARROW-1639
         index_name = 'foo'
@@ -1109,39 +1120,30 @@ class TestConvertDateTimeLikeTypes:
 
     @pytest.mark.parametrize('mask', [
         None,
-        np.array([True, False, False]),
+        np.array([True, False, False, True, False, False]),
     ])
     def test_pandas_datetime_to_date64(self, mask):
         s = pd.to_datetime([
             '2018-05-10T00:00:00',
             '2018-05-11T00:00:00',
             '2018-05-12T00:00:00',
+            '2018-05-10T10:24:01',
+            '2018-05-11T10:24:01',
+            '2018-05-12T10:24:01',
         ])
         arr = pa.Array.from_pandas(s, type=pa.date64(), mask=mask)
 
         data = np.array([
             date(2018, 5, 10),
             date(2018, 5, 11),
-            date(2018, 5, 12)
+            date(2018, 5, 12),
+            date(2018, 5, 10),
+            date(2018, 5, 11),
+            date(2018, 5, 12),
         ])
         expected = pa.array(data, mask=mask, type=pa.date64())
 
         assert arr.equals(expected)
-
-    @pytest.mark.parametrize('mask', [
-        None,
-        np.array([True, False, False])
-    ])
-    def test_pandas_datetime_to_date64_failures(self, mask):
-        s = pd.to_datetime([
-            '2018-05-10T10:24:01',
-            '2018-05-11T10:24:01',
-            '2018-05-12T10:24:01',
-        ])
-
-        expected_msg = 'Timestamp value had non-zero intraday milliseconds'
-        with pytest.raises(pa.ArrowInvalid, match=expected_msg):
-            pa.Array.from_pandas(s, type=pa.date64(), mask=mask)
 
     def test_array_types_date_as_object(self):
         data = [date(2000, 1, 1),
@@ -1503,6 +1505,18 @@ class TestConvertDateTimeLikeTypes:
             df,
             expected_schema=schema,
         )
+
+    def test_month_day_nano_interval(self):
+        from pandas.tseries.offsets import DateOffset
+        df = pd.DataFrame({
+            'date_offset': [None,
+                            DateOffset(days=3600, months=3600, microseconds=3,
+                                       nanoseconds=600)]
+        })
+        schema = pa.schema([('date_offset', pa.month_day_nano_interval())])
+        _check_pandas_roundtrip(
+            df,
+            expected_schema=schema)
 
 
 # ----------------------------------------------------------------------
@@ -4326,8 +4340,8 @@ def make_df_with_timestamps():
     # Not part of what we're testing, just ensuring that the inputs are what we
     # expect.
     assert (df.dateTimeMs.dtype, df.dateTimeNs.dtype) == (
-        # O == object, <M8[ns] == timestamp64[ns]
-        np.dtype("O"), np.dtype("<M8[ns]")
+        # O == object, M8[ns] == timestamp64[ns]
+        np.dtype("O"), np.dtype("M8[ns]")
     )
     return df
 

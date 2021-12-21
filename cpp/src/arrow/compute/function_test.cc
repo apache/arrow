@@ -104,6 +104,7 @@ TEST(FunctionOptions, Equality) {
   options.emplace_back(
       new MakeStructOptions({"col1"}, {false}, {key_value_metadata({{"key", "val"}})}));
   options.emplace_back(new DayOfWeekOptions(false, 1));
+  options.emplace_back(new WeekOptions(true, false, false));
   options.emplace_back(new CastOptions(CastOptions::Safe(boolean())));
   options.emplace_back(new CastOptions(CastOptions::Unsafe(int64())));
   options.emplace_back(new FilterOptions());
@@ -124,6 +125,8 @@ TEST(FunctionOptions, Equality) {
   options.emplace_back(new PartitionNthOptions(/*pivot=*/42));
   options.emplace_back(new SelectKOptions(0, {}));
   options.emplace_back(new SelectKOptions(5, {{SortKey("key", SortOrder::Ascending)}}));
+  options.emplace_back(new Utf8NormalizeOptions());
+  options.emplace_back(new Utf8NormalizeOptions(Utf8NormalizeOptions::NFD));
 
   for (size_t i = 0; i < options.size(); i++) {
     const size_t prev_i = i == 0 ? options.size() - 1 : i - 1;

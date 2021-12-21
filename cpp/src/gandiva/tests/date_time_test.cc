@@ -18,6 +18,7 @@
 #include <gtest/gtest.h>
 #include <math.h>
 #include <time.h>
+
 #include "arrow/memory_pool.h"
 #include "gandiva/precompiled/time_constants.h"
 #include "gandiva/projector.h"
@@ -358,6 +359,9 @@ TEST_F(TestProjector, TestTimestampDiff) {
   auto diff_days_expr =
       TreeExprBuilder::MakeExpression("timestampdiffDay", {f0, f1}, diff_seconds);
 
+  auto diff_days_expr_with_datediff_fn =
+      TreeExprBuilder::MakeExpression("datediff", {f0, f1}, diff_seconds);
+
   auto diff_weeks_expr =
       TreeExprBuilder::MakeExpression("timestampdiffWeek", {f0, f1}, diff_seconds);
 
@@ -371,8 +375,15 @@ TEST_F(TestProjector, TestTimestampDiff) {
       TreeExprBuilder::MakeExpression("timestampdiffYear", {f0, f1}, diff_seconds);
 
   std::shared_ptr<Projector> projector;
-  auto exprs = {diff_secs_expr,  diff_mins_expr,   diff_hours_expr,    diff_days_expr,
-                diff_weeks_expr, diff_months_expr, diff_quarters_expr, diff_years_expr};
+  auto exprs = {diff_secs_expr,
+                diff_mins_expr,
+                diff_hours_expr,
+                diff_days_expr,
+                diff_days_expr_with_datediff_fn,
+                diff_weeks_expr,
+                diff_months_expr,
+                diff_quarters_expr,
+                diff_years_expr};
   auto status = Projector::Make(schema, exprs, TestConfiguration(), &projector);
   ASSERT_TRUE(status.ok());
 
@@ -407,6 +418,7 @@ TEST_F(TestProjector, TestTimestampDiff) {
   exp_output.push_back(MakeArrowArrayInt32({816601, -816601, 0, -23 * 60}, validity));
   exp_output.push_back(MakeArrowArrayInt32({13610, -13610, 0, -23}, validity));
   exp_output.push_back(MakeArrowArrayInt32({567, -567, 0, 0}, validity));
+  exp_output.push_back(MakeArrowArrayInt32({567, -567, 0, 0}, validity));
   exp_output.push_back(MakeArrowArrayInt32({81, -81, 0, 0}, validity));
   exp_output.push_back(MakeArrowArrayInt32({18, -18, 0, 0}, validity));
   exp_output.push_back(MakeArrowArrayInt32({6, -6, 0, 0}, validity));
@@ -440,7 +452,7 @@ TEST_F(TestProjector, TestTimestampDiffMonth) {
   std::shared_ptr<Projector> projector;
   auto status =
       Projector::Make(schema, {diff_months_expr}, TestConfiguration(), &projector);
-  std::cout << status.message();
+
   ASSERT_TRUE(status.ok());
 
   time_t epoch = Epoch();
@@ -498,7 +510,7 @@ TEST_F(TestProjector, TestMonthsBetween) {
   std::shared_ptr<Projector> projector;
   auto status =
       Projector::Make(schema, {months_between_expr}, TestConfiguration(), &projector);
-  std::cout << status.message();
+
   ASSERT_TRUE(status.ok());
 
   time_t epoch = Epoch();
@@ -548,7 +560,7 @@ TEST_F(TestProjector, TestLastDay) {
 
   std::shared_ptr<Projector> projector;
   auto status = Projector::Make(schema, {last_day_expr}, TestConfiguration(), &projector);
-  std::cout << status.message();
+
   ASSERT_TRUE(status.ok());
 
   time_t epoch = Epoch();

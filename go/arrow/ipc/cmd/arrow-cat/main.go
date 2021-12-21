@@ -52,7 +52,7 @@
 //  record 2...
 //    col[0] "bools": [true (null) (null) false true]
 //  [...]
-package main // import "github.com/apache/arrow/go/arrow/ipc/cmd/arrow-cat"
+package main
 
 import (
 	"bytes"
@@ -62,8 +62,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/apache/arrow/go/arrow/ipc"
-	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/v7/arrow/ipc"
+	"github.com/apache/arrow/go/v7/arrow/memory"
 	"golang.org/x/xerrors"
 )
 
@@ -162,7 +162,6 @@ func processFile(w io.Writer, fname string) error {
 		for i, col := range rec.Columns() {
 			fmt.Fprintf(w, "  col[%d] %q: %v\n", i, rec.ColumnName(i), col)
 		}
-		rec.Release()
 	}
 
 	return nil

@@ -272,6 +272,8 @@ TYPED_TEST(TestLocalFS, NormalizePath) {
 #ifdef _WIN32
   ASSERT_OK_AND_EQ("AB/CD", this->local_fs_->NormalizePath("AB\\CD"));
   ASSERT_OK_AND_EQ("/AB/CD", this->local_fs_->NormalizePath("\\AB\\CD"));
+  ASSERT_OK_AND_EQ("c:DE/fgh", this->local_fs_->NormalizePath("c:DE\\fgh"));
+  ASSERT_OK_AND_EQ("c:/DE/fgh", this->local_fs_->NormalizePath("c:\\DE\\fgh"));
   ASSERT_OK_AND_EQ("C:DE/fgh", this->local_fs_->NormalizePath("C:DE\\fgh"));
   ASSERT_OK_AND_EQ("C:/DE/fgh", this->local_fs_->NormalizePath("C:\\DE\\fgh"));
   ASSERT_OK_AND_EQ("//some/share/AB",
@@ -279,6 +281,10 @@ TYPED_TEST(TestLocalFS, NormalizePath) {
 #else
   ASSERT_OK_AND_EQ("AB\\CD", this->local_fs_->NormalizePath("AB\\CD"));
 #endif
+
+  // URIs
+  ASSERT_RAISES(Invalid, this->local_fs_->NormalizePath("file:AB/CD"));
+  ASSERT_RAISES(Invalid, this->local_fs_->NormalizePath("http:AB/CD"));
 }
 
 TYPED_TEST(TestLocalFS, NormalizePathThroughSubtreeFS) {
@@ -287,6 +293,10 @@ TYPED_TEST(TestLocalFS, NormalizePathThroughSubtreeFS) {
 #else
   ASSERT_OK_AND_EQ("AB\\CD", this->fs_->NormalizePath("AB\\CD"));
 #endif
+
+  // URIs
+  ASSERT_RAISES(Invalid, this->fs_->NormalizePath("file:AB/CD"));
+  ASSERT_RAISES(Invalid, this->fs_->NormalizePath("http:AB/CD"));
 }
 
 TYPED_TEST(TestLocalFS, FileSystemFromUriFile) {

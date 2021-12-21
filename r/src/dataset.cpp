@@ -335,6 +335,10 @@ dataset___ParquetFragmentScanOptions__Make(bool use_buffered_stream, int64_t buf
   }
   options->reader_properties->set_buffer_size(buffer_size);
   options->arrow_reader_properties->set_pre_buffer(pre_buffer);
+  if (pre_buffer) {
+    options->arrow_reader_properties->set_cache_options(
+        arrow::io::CacheOptions::LazyDefaults());
+  }
   return options;
 }
 
@@ -452,6 +456,12 @@ std::shared_ptr<ds::Scanner> dataset___ScannerBuilder__Finish(
 }
 
 // [[dataset::export]]
+std::shared_ptr<ds::ScannerBuilder> dataset___ScannerBuilder__FromRecordBatchReader(
+    const std::shared_ptr<arrow::RecordBatchReader>& reader) {
+  return (ds::ScannerBuilder::FromRecordBatchReader(reader));
+}
+
+// [[dataset::export]]
 std::shared_ptr<arrow::Table> dataset___Scanner__ToTable(
     const std::shared_ptr<ds::Scanner>& scanner) {
   return ValueOrStop(scanner->ToTable());
@@ -506,13 +516,16 @@ void dataset___Dataset__Write(
     const std::shared_ptr<ds::FileWriteOptions>& file_write_options,
     const std::shared_ptr<fs::FileSystem>& filesystem, std::string base_dir,
     const std::shared_ptr<ds::Partitioning>& partitioning, std::string basename_template,
-    const std::shared_ptr<ds::Scanner>& scanner) {
+    const std::shared_ptr<ds::Scanner>& scanner,
+    arrow::dataset::ExistingDataBehavior existing_data_behavior, int max_partitions) {
   ds::FileSystemDatasetWriteOptions opts;
   opts.file_write_options = file_write_options;
+  opts.existing_data_behavior = existing_data_behavior;
   opts.filesystem = filesystem;
   opts.base_dir = base_dir;
   opts.partitioning = partitioning;
   opts.basename_template = basename_template;
+  opts.max_partitions = max_partitions;
   StopIfNotOk(ds::FileSystemDataset::Write(opts, scanner));
 }
 

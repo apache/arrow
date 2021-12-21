@@ -27,6 +27,7 @@
 #include "arrow/compute/type_fwd.h"
 #include "arrow/datum.h"
 #include "arrow/type_fwd.h"
+#include "arrow/util/small_vector.h"
 #include "arrow/util/variant.h"
 
 namespace arrow {
@@ -112,7 +113,7 @@ class ARROW_EXPORT Expression {
 
     // post-bind properties
     ValueDescr descr;
-    int index;
+    internal::SmallVector<int, 2> indices;
   };
   const Parameter* parameter() const;
 

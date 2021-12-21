@@ -44,6 +44,11 @@ conda config --append disallowed_packages pypy3
 conda info -a
 
 @rem
+@rem Install mamba to the base environment
+@rem
+conda install -q -y -c conda-forge mamba
+
+@rem
 @rem Create conda environment for Build and Toolchain jobs
 @rem
 @rem Avoid Boost 1.70 because of https://github.com/boostorg/process/issues/85
@@ -60,7 +65,7 @@ if "%JOB%" == "Toolchain" (
 )
 if "%JOB%" NEQ "Build_Debug" (
   @rem Arrow conda environment is only required for the Build and Toolchain jobs
-  conda create -n arrow -q -y -c conda-forge ^
+  mamba create -n arrow -q -y -c conda-forge ^
     --file=ci\conda_env_python.txt ^
     %CONDA_PACKAGES%  ^
     "cmake=3.17" ^
@@ -74,7 +79,7 @@ if "%JOB%" NEQ "Build_Debug" (
   @rem On Windows, GTest is always bundled from source instead of using
   @rem conda binaries, avoid any interference between the two versions.
   if "%JOB%" == "Toolchain" (
-    conda uninstall -n arrow -q -y -c conda-forge gtest
+    mamba uninstall -n arrow -q -y -c conda-forge gtest
   )
 )
 
@@ -83,12 +88,11 @@ if "%JOB%" NEQ "Build_Debug" (
 @rem
 if "%GENERATOR%"=="Ninja" set need_vcvarsall=1
 if defined need_vcvarsall (
-    @rem Select desired compiler version
-    if "%APPVEYOR_BUILD_WORKER_IMAGE%" == "Visual Studio 2017" (
-        call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build\vcvarsall.bat" amd64
-    ) else (
-        call "C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" amd64
+    if "%APPVEYOR_BUILD_WORKER_IMAGE%" NEQ "Visual Studio 2017" (
+        @rem ARROW-14070 Visual Studio 2015 no longer supported
+        exit /B
     )
+    call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build\vcvarsall.bat" amd64
 )
 
 @rem

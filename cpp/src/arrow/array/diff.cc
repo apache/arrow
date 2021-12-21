@@ -290,7 +290,7 @@ class QuadraticSpaceMyersDiff {
 
     for (int64_t i = edit_count_; i > 0; --i) {
       bool insert = insert_[index];
-      BitUtil::SetBitTo(insert_buf->mutable_data(), i, insert);
+      bit_util::SetBitTo(insert_buf->mutable_data(), i, insert);
 
       auto insertions_minus_deletions =
           (endpoint.base - base_begin_) - (endpoint.target - target_begin_);
@@ -308,7 +308,7 @@ class QuadraticSpaceMyersDiff {
 
       endpoint = previous;
     }
-    BitUtil::SetBitTo(insert_buf->mutable_data(), 0, false);
+    bit_util::SetBitTo(insert_buf->mutable_data(), 0, false);
     run_length[0] = endpoint.base - base_begin_;
 
     return StructArray::Make(
@@ -464,7 +464,7 @@ class MakeFormatterImpl {
     impl_ = [](const Array& array, int64_t index, std::ostream* os) {
       auto month_day_nanos =
           checked_cast<const MonthDayNanoIntervalArray&>(array).Value(index);
-      *os << month_day_nanos.months << "m" << month_day_nanos.days << "d"
+      *os << month_day_nanos.months << "M" << month_day_nanos.days << "d"
           << month_day_nanos.nanoseconds << "ns";
     };
     return Status::OK();

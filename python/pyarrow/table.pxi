@@ -63,18 +63,35 @@ cdef class ChunkedArray(_PandasConvertible):
         type_format = object.__repr__(self)
         return '{0}\n{1}'.format(type_format, str(self))
 
-    def to_string(self, int indent=0, int window=10):
+    def to_string(self, *, int indent=0, int window=10,
+                  c_bool skip_new_lines=False):
         """
         Render a "pretty-printed" string representation of the ChunkedArray
+
+        Parameters
+        ----------
+        indent : int
+            How much to indent right the content of the array,
+            by default ``0``.
+        window : int
+            How many items to preview at the begin and end
+            of the array when the arrays is bigger than the window.
+            The other elements will be ellipsed.
+        skip_new_lines : bool
+            If the array should be rendered as a single line of text
+            or if each element should be on its own line.
         """
         cdef:
             c_string result
+            PrettyPrintOptions options
 
         with nogil:
+            options = PrettyPrintOptions(indent, window)
+            options.skip_new_lines = skip_new_lines
             check_status(
                 PrettyPrint(
                     deref(self.chunked_array),
-                    PrettyPrintOptions(indent, window),
+                    options,
                     &result
                 )
             )
@@ -555,8 +572,12 @@ cdef _schema_from_arrays(arrays, names, metadata, shared_ptr[CSchema]* schema):
         c_meta = KeyValueMetadata(metadata).unwrap()
 
     if K == 0:
-        schema.reset(new CSchema(c_fields, c_meta))
-        return arrays
+        if names is None or len(names) == 0:
+            schema.reset(new CSchema(c_fields, c_meta))
+            return arrays
+        else:
+            raise ValueError('Length of names ({}) does not match '
+                             'length of arrays ({})'.format(len(names), K))
 
     c_fields.resize(K)
 
@@ -1006,8 +1027,8 @@ cdef class RecordBatch(_PandasConvertible):
 
         Parameters
         ----------
-        df: pandas.DataFrame
-        schema: pyarrow.Schema, optional
+        df : pandas.DataFrame
+        schema : pyarrow.Schema, optional
             The expected schema of the RecordBatch. This can be used to
             indicate the type of columns if we cannot infer it automatically.
             If passed, the output will have exactly this schema. Columns
@@ -1043,7 +1064,7 @@ cdef class RecordBatch(_PandasConvertible):
 
         Parameters
         ----------
-        arrays: list of pyarrow.Array
+        arrays : list of pyarrow.Array
             One for each field in RecordBatch
         names : list of str, optional
             Names for the batch fields. If not passed, schema must be passed
@@ -1226,14 +1247,16 @@ cdef class Table(_PandasConvertible):
         raise TypeError("Do not call Table's constructor directly, use one of "
                         "the `Table.from_*` functions instead.")
 
-    def to_string(self, show_metadata=False):
+    def to_string(self, *, show_metadata=False, preview_cols=0):
         """
         Return human-readable string representation of Table.
 
         Parameters
         ----------
-        show_metadata : bool, default True
+        show_metadata : bool, default False
             Display Field-level and Schema-level KeyValueMetadata.
+        preview_cols : int, default 0
+            Display values of the columns for the first N columns.
 
         Returns
         -------
@@ -1244,13 +1267,24 @@ cdef class Table(_PandasConvertible):
             show_field_metadata=show_metadata,
             show_schema_metadata=show_metadata
         )
-        return 'pyarrow.{}\n{}'.format(type(self).__name__, schema_as_string)
+        title = 'pyarrow.{}\n{}'.format(type(self).__name__, schema_as_string)
+        pieces = [title]
+        if preview_cols:
+            pieces.append('----')
+            for i in range(min(self.num_columns, preview_cols)):
+                pieces.append('{}: {}'.format(
+                    self.field(i).name,
+                    self.column(i).to_string(indent=0, skip_new_lines=True)
+                ))
+            if preview_cols < self.num_columns:
+                pieces.append('...')
+        return '\n'.join(pieces)
 
     def __repr__(self):
         if self.table == NULL:
             raise ValueError("Table's internal pointer is NULL, do not use "
                              "any methods or attributes on this object")
-        return self.to_string()
+        return self.to_string(preview_cols=10)
 
     cdef void init(self, const shared_ptr[CTable]& table):
         self.sp_table = table
@@ -2158,6 +2192,53 @@ cdef class Table(_PandasConvertible):
 
         return table
 
+    def group_by(self, keys):
+        """Declare a grouping over the columns of the table.
+
+        Resulting grouping can then be used to perform aggregations
+        with a subsequent ``aggregate()`` method.
+
+        Parameters
+        ----------
+        keys : str or list[str]
+            Name of the columns that should be used as the grouping key.
+
+        Returns
+        -------
+        TableGroupBy
+
+        See Also
+        --------
+        TableGroupBy.aggregate
+        """
+        return TableGroupBy(self, keys)
+
+    def sort_by(self, sorting):
+        """
+        Sort the table by one or multiple columns.
+
+        Parameters
+        ----------
+        sorting : str or list[tuple(name, order)]
+            Name of the column to use to sort (ascending), or
+            a list of multiple sorting conditions where
+            each entry is a tuple with column name
+            and sorting order ("ascending" or "descending")
+
+        Returns
+        -------
+        Table
+            A new table sorted according to the sort keys.
+        """
+        if isinstance(sorting, str):
+            sorting = [(sorting, "ascending")]
+
+        indices = _pc().sort_indices(
+            self,
+            sort_keys=sorting
+        )
+        return self.take(indices)
+
 
 def _reconstruct_table(arrays, schema):
     """
@@ -2283,7 +2364,7 @@ def concat_tables(tables, c_bool promote=False, MemoryPool memory_pool=None):
     ----------
     tables : iterable of pyarrow.Table objects
         Pyarrow tables to concatenate into a single Table.
-    promote: bool, default False
+    promote : bool, default False
         If True, concatenate tables with null-filling and null type promotion.
     memory_pool : MemoryPool, default None
         For memory allocations, if required, otherwise use default pool.
@@ -2353,3 +2434,81 @@ def _from_pydict(cls, mapping, schema, metadata):
         return cls.from_arrays(arrays, schema=schema, metadata=metadata)
     else:
         raise TypeError('Schema must be an instance of pyarrow.Schema')
+
+
+class TableGroupBy:
+    """
+    A grouping of columns in a table on which to perform aggregations.
+
+    Parameters
+    ----------
+    table : pyarrow.Table
+        Input table to execute the aggregation on.
+    keys : str or list[str]
+        Name of the grouped columns.
+    """
+
+    def __init__(self, table, keys):
+        if isinstance(keys, str):
+            keys = [keys]
+
+        self._table = table
+        self.keys = keys
+
+    def aggregate(self, aggregations):
+        """
+        Perform an aggregation over the grouped columns of the table.
+
+        Parameters
+        ----------
+        aggregations : list[tuple(str, str)] or \
+list[tuple(str, str, FunctionOptions)]
+            List of tuples made of aggregation column names followed
+            by function names and optionally aggregation function options.
+
+        Returns
+        -------
+        Table
+            Results of the aggregation functions.
+
+        Example
+        -------
+        >>> t = pa.table([
+        ...       pa.array(["a", "a", "b", "b", "c"]),
+        ...       pa.array([1, 2, 3, 4, 5]),
+        ... ], names=["keys", "values"])
+        >>> t.group_by("keys").aggregate([("values", "sum")])
+        pyarrow.Table
+        values_sum: int64
+        keys: string
+        ----
+        values_sum: [[3,7,5]]
+        keys: [["a","b","c"]]
+        """
+        columns = [a[0] for a in aggregations]
+        aggrfuncs = [
+            (a[1], a[2]) if len(a) > 2 else (a[1], None)
+            for a in aggregations
+        ]
+
+        group_by_aggrs = []
+        for aggr in aggrfuncs:
+            if not aggr[0].startswith("hash_"):
+                aggr = ("hash_" + aggr[0], aggr[1])
+            group_by_aggrs.append(aggr)
+
+        # Build unique names for aggregation result columns
+        # so that it's obvious what they refer to.
+        column_names = [
+            aggr_name.replace("hash", col_name)
+            for col_name, (aggr_name, _) in zip(columns, group_by_aggrs)
+        ] + self.keys
+
+        result = _pc()._group_by(
+            [self._table[c] for c in columns],
+            [self._table[k] for k in self.keys],
+            group_by_aggrs
+        )
+
+        t = Table.from_batches([RecordBatch.from_struct_array(result)])
+        return t.rename_columns(column_names)

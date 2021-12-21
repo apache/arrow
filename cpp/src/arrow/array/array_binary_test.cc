@@ -106,6 +106,18 @@ class TestStringArray : public ::testing::Test {
     AssertZeroPadded(*strings_);
   }
 
+  void TestArrayIndexOperator() {
+    const auto& arr = *strings_;
+    for (int64_t i = 0; i < arr.length(); ++i) {
+      if (valid_bytes_[i]) {
+        ASSERT_TRUE(arr[i].has_value());
+        ASSERT_EQ(expected_[i], arr[i].value());
+      } else {
+        ASSERT_FALSE(arr[i].has_value());
+      }
+    }
+  }
+
   void TestArrayCtors() {
     // ARROW-8863: ArrayData::null_count set to 0 when no validity bitmap
     // provided
@@ -324,9 +336,11 @@ class TestStringArray : public ::testing::Test {
   std::shared_ptr<ArrayType> strings_;
 };
 
-TYPED_TEST_SUITE(TestStringArray, BinaryArrowTypes);
+TYPED_TEST_SUITE(TestStringArray, BaseBinaryArrowTypes);
 
 TYPED_TEST(TestStringArray, TestArrayBasics) { this->TestArrayBasics(); }
+
+TYPED_TEST(TestStringArray, TestArrayIndexOperator) { this->TestArrayIndexOperator(); }
 
 TYPED_TEST(TestStringArray, TestArrayCtors) { this->TestArrayCtors(); }
 
@@ -595,7 +609,7 @@ class TestStringBuilder : public TestBuilder {
     int reps = 15;
     int64_t length = 0;
     int64_t capacity = 1000;
-    int64_t expected_capacity = BitUtil::RoundUpToMultipleOf64(capacity);
+    int64_t expected_capacity = bit_util::RoundUpToMultipleOf64(capacity);
 
     ASSERT_OK(builder_->ReserveData(capacity));
 
@@ -613,7 +627,7 @@ class TestStringBuilder : public TestBuilder {
     }
 
     int extra_capacity = 500;
-    expected_capacity = BitUtil::RoundUpToMultipleOf64(length + extra_capacity);
+    expected_capacity = bit_util::RoundUpToMultipleOf64(length + extra_capacity);
 
     ASSERT_OK(builder_->ReserveData(extra_capacity));
 
@@ -661,7 +675,7 @@ class TestStringBuilder : public TestBuilder {
   std::shared_ptr<ArrayType> result_;
 };
 
-TYPED_TEST_SUITE(TestStringBuilder, BinaryArrowTypes);
+TYPED_TEST_SUITE(TestStringBuilder, BaseBinaryArrowTypes);
 
 TYPED_TEST(TestStringBuilder, TestScalarAppend) { this->TestScalarAppend(); }
 
@@ -863,7 +877,7 @@ struct BinaryAppender {
 };
 
 template <typename T>
-class TestBinaryDataVisitor : public ::testing::Test {
+class TestBaseBinaryDataVisitor : public ::testing::Test {
  public:
   using TypeClass = T;
 
@@ -891,10 +905,10 @@ class TestBinaryDataVisitor : public ::testing::Test {
   std::shared_ptr<DataType> type_;
 };
 
-TYPED_TEST_SUITE(TestBinaryDataVisitor, BinaryArrowTypes);
+TYPED_TEST_SUITE(TestBaseBinaryDataVisitor, BaseBinaryArrowTypes);
 
-TYPED_TEST(TestBinaryDataVisitor, Basics) { this->TestBasics(); }
+TYPED_TEST(TestBaseBinaryDataVisitor, Basics) { this->TestBasics(); }
 
-TYPED_TEST(TestBinaryDataVisitor, Sliced) { this->TestSliced(); }
+TYPED_TEST(TestBaseBinaryDataVisitor, Sliced) { this->TestSliced(); }
 
 }  // namespace arrow

@@ -395,7 +395,7 @@ def _datetime_from_int(int64_t value, TimeUnit unit, tzinfo=None):
     dt = datetime.datetime(1970, 1, 1) + delta
     # adjust timezone if set to the datatype
     if tzinfo is not None:
-        dt = tzinfo.fromutc(dt)
+        dt = dt.replace(tzinfo=datetime.timezone.utc).astimezone(tzinfo)
 
     return dt
 
@@ -512,6 +512,31 @@ cdef class DurationScalar(Scalar):
                     "access the .value attribute.".format(sp.value)
                 )
             return datetime.timedelta(microseconds=sp.value // 1000)
+
+
+cdef class MonthDayNanoIntervalScalar(Scalar):
+    """
+    Concrete class for month, day, nanosecond interval scalars.
+    """
+
+    @property
+    def value(self):
+        """
+        Same as self.as_py()
+        """
+        return self.as_py()
+
+    def as_py(self):
+        """
+        Return this value as a pyarrow.MonthDayNano.
+        """
+        cdef:
+            PyObject* val
+            CMonthDayNanoIntervalScalar* scalar
+        scalar = <CMonthDayNanoIntervalScalar*>self.wrapped.get()
+        val = GetResultValue(MonthDayNanoIntervalScalarToPyObject(
+            deref(scalar)))
+        return PyObject_to_object(val)
 
 
 cdef class BinaryScalar(Scalar):
@@ -873,9 +898,9 @@ cdef class ExtensionScalar(Scalar):
 
         Parameters
         ----------
-        typ: DataType
+        typ : DataType
             The extension type for the result scalar.
-        value: object
+        value : object
             The storage value for the result scalar.
 
         Returns
@@ -940,6 +965,7 @@ cdef dict _scalar_classes = {
     _Type_DICTIONARY: DictionaryScalar,
     _Type_SPARSE_UNION: UnionScalar,
     _Type_DENSE_UNION: UnionScalar,
+    _Type_INTERVAL_MONTH_DAY_NANO: MonthDayNanoIntervalScalar,
     _Type_EXTENSION: ExtensionScalar,
 }
 

@@ -449,7 +449,7 @@ def test_filters_inclusive_set(tempdir, use_legacy_dataset):
     dataset = pq.ParquetDataset(
         base_path, filesystem=fs,
         filters=[('integer', 'in', [1]), ('string', 'in', ('a', 'b')),
-                 ('boolean', 'not in', {False})],
+                 ('boolean', 'not in', {'False'})],
         use_legacy_dataset=use_legacy_dataset
     )
     table = dataset.read()
@@ -505,11 +505,19 @@ def test_filters_invalid_pred_op(tempdir, use_legacy_dataset):
                                     use_legacy_dataset=use_legacy_dataset)
         assert dataset.read().num_rows == 0
 
-    with pytest.raises(ValueError):
-        pq.ParquetDataset(base_path,
-                          filesystem=fs,
-                          filters=[('integers', '!=', {3})],
-                          use_legacy_dataset=use_legacy_dataset)
+    if use_legacy_dataset:
+        with pytest.raises(ValueError):
+            pq.ParquetDataset(base_path,
+                              filesystem=fs,
+                              filters=[('integers', '!=', {3})],
+                              use_legacy_dataset=use_legacy_dataset)
+    else:
+        dataset = pq.ParquetDataset(base_path,
+                                    filesystem=fs,
+                                    filters=[('integers', '!=', {3})],
+                                    use_legacy_dataset=use_legacy_dataset)
+        with pytest.raises(NotImplementedError):
+            assert dataset.read().num_rows == 0
 
 
 @pytest.mark.pandas

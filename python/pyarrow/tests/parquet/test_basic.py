@@ -379,13 +379,23 @@ def test_compression_level(use_legacy_dataset):
                      compression_level={'a': 2, 'b': 3},
                      use_legacy_dataset=use_legacy_dataset)
 
+    # Check if both LZ4 compressors are working
+    # (level < 3 -> fast, level >= 3 -> HC)
+    _check_roundtrip(table, expected=table, compression="lz4",
+                     compression_level=1,
+                     use_legacy_dataset=use_legacy_dataset)
+
+    _check_roundtrip(table, expected=table, compression="lz4",
+                     compression_level=9,
+                     use_legacy_dataset=use_legacy_dataset)
+
     # Check that specifying a compression level for a codec which does allow
     # specifying one, results into an error.
-    # Uncompressed, snappy, lz4 and lzo do not support specifying a compression
+    # Uncompressed, snappy and lzo do not support specifying a compression
     # level.
     # GZIP (zlib) allows for specifying a compression level but as of up
     # to version 1.2.11 the valid range is [-1, 9].
-    invalid_combinations = [("snappy", 4), ("lz4", 5), ("gzip", -1337),
+    invalid_combinations = [("snappy", 4), ("gzip", -1337),
                             ("None", 444), ("lzo", 14)]
     buf = io.BytesIO()
     for (codec, level) in invalid_combinations:
@@ -628,4 +638,24 @@ def test_reads_over_batch(tempdir):
     path = tempdir / 'arrow-11607.parquet'
     pq.write_table(table, path)
     table2 = pq.read_table(path)
+    assert table == table2
+
+
+@pytest.mark.dataset
+def test_permutation_of_column_order(tempdir):
+    # ARROW-2366
+    case = tempdir / "dataset_column_order_permutation"
+    case.mkdir(exist_ok=True)
+
+    data1 = pa.table([[1, 2, 3], [.1, .2, .3]], names=['a', 'b'])
+    pq.write_table(data1, case / "data1.parquet")
+
+    data2 = pa.table([[.4, .5, .6], [4, 5, 6]], names=['b', 'a'])
+    pq.write_table(data2, case / "data2.parquet")
+
+    table = pq.read_table(str(case))
+    table2 = pa.table([[1, 2, 3, 4, 5, 6],
+                      [0.1, 0.2, 0.3, 0.4, 0.5, 0.6]],
+                      names=['a', 'b'])
+
     assert table == table2

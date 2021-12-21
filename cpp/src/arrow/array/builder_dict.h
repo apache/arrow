@@ -158,6 +158,19 @@ class DictionaryBuilderBase : public ArrayBuilder {
         indices_builder_(pool),
         value_type_(value_type) {}
 
+  template <typename T1 = T>
+  explicit DictionaryBuilderBase(
+      const std::shared_ptr<DataType>& index_type,
+      enable_if_t<!is_fixed_size_binary_type<T1>::value, const std::shared_ptr<DataType>&>
+          value_type,
+      MemoryPool* pool = default_memory_pool())
+      : ArrayBuilder(pool),
+        memo_table_(new internal::DictionaryMemoTable(pool, value_type)),
+        delta_offset_(0),
+        byte_width_(-1),
+        indices_builder_(index_type, pool),
+        value_type_(value_type) {}
+
   template <typename B = BuilderType, typename T1 = T>
   DictionaryBuilderBase(uint8_t start_int_size,
                         enable_if_t<std::is_base_of<AdaptiveIntBuilderBase, B>::value &&
@@ -181,6 +194,18 @@ class DictionaryBuilderBase : public ArrayBuilder {
         delta_offset_(0),
         byte_width_(static_cast<const T1&>(*value_type).byte_width()),
         indices_builder_(pool),
+        value_type_(value_type) {}
+
+  template <typename T1 = T>
+  explicit DictionaryBuilderBase(
+      const std::shared_ptr<DataType>& index_type,
+      enable_if_fixed_size_binary<T1, const std::shared_ptr<DataType>&> value_type,
+      MemoryPool* pool = default_memory_pool())
+      : ArrayBuilder(pool),
+        memo_table_(new internal::DictionaryMemoTable(pool, value_type)),
+        delta_offset_(0),
+        byte_width_(static_cast<const T1&>(*value_type).byte_width()),
+        indices_builder_(index_type, pool),
         value_type_(value_type) {}
 
   template <typename T1 = T>
@@ -538,6 +563,11 @@ class DictionaryBuilderBase<BuilderType, NullType> : public ArrayBuilder {
   explicit DictionaryBuilderBase(const std::shared_ptr<DataType>& value_type,
                                  MemoryPool* pool = default_memory_pool())
       : ArrayBuilder(pool), indices_builder_(pool) {}
+
+  explicit DictionaryBuilderBase(const std::shared_ptr<DataType>& index_type,
+                                 const std::shared_ptr<DataType>& value_type,
+                                 MemoryPool* pool = default_memory_pool())
+      : ArrayBuilder(pool), indices_builder_(index_type, pool) {}
 
   template <typename B = BuilderType>
   explicit DictionaryBuilderBase(

@@ -34,13 +34,25 @@ template <typename ArrowType>
 struct TDigestImpl : public ScalarAggregator {
   using ThisType = TDigestImpl<ArrowType>;
   using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
-  using CType = typename ArrowType::c_type;
+  using CType = typename TypeTraits<ArrowType>::CType;
 
-  explicit TDigestImpl(const TDigestOptions& options)
+  TDigestImpl(const TDigestOptions& options, const DataType& in_type)
       : options{options},
         tdigest{options.delta, options.buffer_size},
         count{0},
-        all_valid{true} {}
+        decimal_scale{0},
+        all_valid{true} {
+    if (is_decimal_type<ArrowType>::value) {
+      decimal_scale = checked_cast<const DecimalType&>(in_type).scale();
+    }
+  }
+
+  template <typename T>
+  double ToDouble(T value) const {
+    return static_cast<double>(value);
+  }
+  double ToDouble(const Decimal128& value) const { return value.ToDouble(decimal_scale); }
+  double ToDouble(const Decimal256& value) const { return value.ToDouble(decimal_scale); }
 
   Status Consume(KernelContext*, const ExecBatch& batch) override {
     if (!this->all_valid) return Status::OK();
@@ -57,7 +69,7 @@ struct TDigestImpl : public ScalarAggregator {
         VisitSetBitRunsVoid(data.buffers[0], data.offset, data.length,
                             [&](int64_t pos, int64_t len) {
                               for (int64_t i = 0; i < len; ++i) {
-                                this->tdigest.NanAdd(values[pos + i]);
+                                this->tdigest.NanAdd(ToDouble(values[pos + i]));
                               }
                             });
       }
@@ -66,7 +78,7 @@ struct TDigestImpl : public ScalarAggregator {
       if (batch[0].scalar()->is_valid) {
         this->count += 1;
         for (int64_t i = 0; i < batch.length; i++) {
-          this->tdigest.NanAdd(value);
+          this->tdigest.NanAdd(ToDouble(value));
         }
       }
     }
@@ -110,6 +122,7 @@ struct TDigestImpl : public ScalarAggregator {
   const TDigestOptions options;
   TDigest tdigest;
   int64_t count;
+  int32_t decimal_scale;
   bool all_valid;
 };
 
@@ -132,8 +145,14 @@ struct TDigestInitState {
   }
 
   template <typename Type>
-  enable_if_t<is_number_type<Type>::value, Status> Visit(const Type&) {
-    state.reset(new TDigestImpl<Type>(options));
+  enable_if_number<Type, Status> Visit(const Type&) {
+    state.reset(new TDigestImpl<Type>(options, in_type));
+    return Status::OK();
+  }
+
+  template <typename Type>
+  enable_if_decimal<Type, Status> Visit(const Type&) {
+    state.reset(new TDigestImpl<Type>(options, in_type));
     return Status::OK();
   }
 
@@ -154,7 +173,7 @@ void AddTDigestKernels(KernelInit init,
                        const std::vector<std::shared_ptr<DataType>>& types,
                        ScalarAggregateFunction* func) {
   for (const auto& ty : types) {
-    auto sig = KernelSignature::Make({InputType(ty)}, float64());
+    auto sig = KernelSignature::Make({InputType(ty->id())}, float64());
     AddAggKernel(std::move(sig), init, func);
   }
 }
@@ -179,6 +198,7 @@ std::shared_ptr<ScalarAggregateFunction> AddTDigestAggKernels() {
   auto func = std::make_shared<ScalarAggregateFunction>(
       "tdigest", Arity::Unary(), &tdigest_doc, &default_tdigest_options);
   AddTDigestKernels(TDigestInit, NumericTypes(), func.get());
+  AddTDigestKernels(TDigestInit, {decimal128(1, 1), decimal256(1, 1)}, func.get());
   return func;
 }
 

@@ -15,6 +15,8 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
+.. highlight:: console
+
 ======================
 Development Guidelines
 ======================
@@ -97,16 +99,19 @@ following checks:
   compiler warnings with ``-DBUILD_WARNING_LEVEL=CHECKIN``. Note that
   there are classes of warnings (such as ``-Wdocumentation``, see more
   on this below) that are not caught by ``gcc``.
-* Passes various C++ (and others) style checks, checked with the ``lint``
-  subcommand to :ref:`Archery <archery>`.
 * CMake files pass style checks, can be fixed by running
   ``archery lint --cmake-format --fix``. This requires Python
   3 and `cmake_format <https://github.com/cheshirekow/cmake_format>`_ (note:
   this currently does not work on Windows)
+* Passes various C++ (and others) style checks, checked with the ``lint``
+  subcommand to :ref:`Archery <archery>`. This can also be fixed locally
+  by running ``archery lint --cpplint --fix``.
 
-In order to account for variations in the behavior of ``clang-format`` between
-major versions of LLVM, we pin the version of ``clang-format`` used (current
-LLVM 8).
+In order to account for variations in the behavior of ``clang-format``
+between major versions of LLVM, we pin the version of ``clang-format``
+used. You can confirm the current pinned version by finding
+the ``CLANG_TOOLS`` variable value in `.env
+<https://github.com/apache/arrow/blob/master/.env>`_.
 
 Depending on how you installed clang-format, the build system may not be able
 to find it. You can provide an explicit path to your LLVM installation (or the
@@ -117,9 +122,9 @@ invoking CMake.
 To make linting more reproducible for everyone, we provide a ``docker-compose``
 target that is executable from the root of the repository:
 
-.. code-block:: shell
+.. code-block::
 
-   docker-compose run ubuntu-lint
+   $ docker-compose run ubuntu-lint
 
 Cleaning includes with include-what-you-use (IWYU)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -24,43 +24,98 @@ if [ "$ARROW_R_DEV" == "TRUE" ]; then
   "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" data-raw/codegen.R
 fi
 
-VERSION=$(grep ^Version DESCRIPTION | sed s/Version:\ //)
-# Try to find/download a C++ Arrow binary,
-# including possibly a local .zip file if RWINLIB_LOCAL is set
-"${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" "tools/winlibs.R" $VERSION $RWINLIB_LOCAL
-# If binary not found, script exits nonzero
-if [ $? -ne 0 ]; then
-  echo "Arrow C++ library was not found"
-fi
-
-# Set the right flags to point to and enable arrow/parquet
-if [ -d "windows/arrow-$VERSION" ]; then
-  RWINLIB="../windows/arrow-$VERSION"
-else
-  # It's possible that the version of the libarrow binary is not identical to the
-  # R version, e.g. if the R build is a patch release, so find what the dir is
-  # actually called. If there is more than one version present, use the one
-  # with the highest version:
-  RWINLIB="../windows/$(ls windows/ | grep ^arrow- | tail -n 1)"
-fi
 OPENSSL_LIBS="-lcrypto -lcrypt32"
 MIMALLOC_LIBS="-lbcrypt -lpsapi"
 AWS_LIBS="-laws-cpp-sdk-config -laws-cpp-sdk-transfer -laws-cpp-sdk-identity-management -laws-cpp-sdk-cognito-identity -laws-cpp-sdk-sts -laws-cpp-sdk-s3 -laws-cpp-sdk-core -laws-c-event-stream -laws-checksums -laws-c-common -lUserenv -lversion -lws2_32 -lBcrypt -lWininet -lwinhttp"
 
-# NOTE: If you make changes to the libraries below, you should also change
-# ci/scripts/r_windows_build.sh and ci/scripts/PKGBUILD
-PKG_CFLAGS="-I${RWINLIB}/include -DARROW_STATIC -DPARQUET_STATIC -DARROW_DS_STATIC -DARROW_R_WITH_ARROW -DARROW_R_WITH_PARQUET -DARROW_R_WITH_DATASET -DARROW_R_WITH_JSON"
-PKG_LIBS="-L${RWINLIB}/lib"'$(subst gcc,,$(COMPILED_BY))$(R_ARCH) '"-L${RWINLIB}/lib"'$(R_ARCH)$(CRT) '"-lparquet -larrow_dataset -larrow -larrow_bundled_dependencies -lutf8proc -lthrift -lsnappy -lz -lzstd -llz4 -lole32 ${MIMALLOC_LIBS} ${OPENSSL_LIBS}"
+function configure_release() {
+  VERSION=$(grep ^Version DESCRIPTION | sed s/Version:\ //)
+  # Try to find/download a C++ Arrow binary,
+  # including possibly a local .zip file if RWINLIB_LOCAL is set
+  "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" "tools/winlibs.R" $VERSION $RWINLIB_LOCAL
+  # If binary not found, script exits nonzero
+  if [ $? -ne 0 ]; then
+    echo "Arrow C++ library was not found"
+  fi
 
-# S3 and re2 support only for Rtools40 (i.e. R >= 4.0)
-"${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" -e 'R.version$major >= 4' | grep TRUE >/dev/null 2>&1
-if [ $? -eq 0 ]; then
-  PKG_CFLAGS="${PKG_CFLAGS} -DARROW_R_WITH_S3"
-  PKG_LIBS="${PKG_LIBS} -lre2 ${AWS_LIBS}"
+  # Set the right flags to point to and enable arrow/parquet
+  if [ -d "windows/arrow-$VERSION" ]; then
+    RWINLIB="../windows/arrow-$VERSION"
+  else
+    # It's possible that the version of the libarrow binary is not identical to the
+    # R version, e.g. if the R build is a patch release, so find what the dir is
+    # actually called. If there is more than one version present, use the one
+    # with the highest version:
+    RWINLIB="../windows/$(ls windows/ | grep ^arrow- | tail -n 1)"
+  fi
+
+  # NOTE: If you make changes to the libraries below, you should also change
+  # ci/scripts/r_windows_build.sh and ci/scripts/PKGBUILD
+  PKG_CFLAGS="-I${RWINLIB}/include -DARROW_STATIC -DPARQUET_STATIC -DARROW_DS_STATIC -DARROW_R_WITH_ARROW -DARROW_R_WITH_PARQUET -DARROW_R_WITH_DATASET -DARROW_R_WITH_JSON"
+  PKG_LIBS="-L${RWINLIB}/lib"'$(subst gcc,,$(COMPILED_BY))$(R_ARCH) '"-L${RWINLIB}/lib"'$(R_ARCH)$(CRT) '"-lparquet -larrow_dataset -larrow -larrow_bundled_dependencies -lutf8proc -lthrift -lsnappy -lz -lzstd -llz4 -lole32 ${MIMALLOC_LIBS} ${OPENSSL_LIBS}"
+
+  # S3 and re2 support only for Rtools40 (i.e. R >= 4.0)
+  "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" -e 'R.version$major >= 4' | grep TRUE >/dev/null 2>&1
+  if [ $? -eq 0 ]; then
+    PKG_CFLAGS="${PKG_CFLAGS} -DARROW_R_WITH_S3"
+    PKG_LIBS="${PKG_LIBS} -lre2 ${AWS_LIBS}"
+  else
+    # It seems that order matters
+    PKG_LIBS="${PKG_LIBS} -lws2_32"
+  fi
+}
+
+# Returns 1 if CMAKE options is set "ON", otherwise 0
+function cmake_option() {
+  ARROW_OPTS_CMAKE="$ARROW_HOME/lib/cmake/arrow/ArrowOptions.cmake"
+  grep -cm1 "set($1 \"ON\")" $ARROW_OPTS_CMAKE 
+}
+
+function configure_dev() {
+  echo "*** Using locally built Arrow at $ARROW_HOME"
+  RWINLIB=$(cygpath $ARROW_HOME)
+
+  PKG_CFLAGS="-I${RWINLIB}/include -DARROW_R_WITH_ARROW"
+  PKG_LIBS=" -L${RWINLIB}/lib -L$MSYSTEM_PREFIX/lib -larrow -larrow_bundled_dependencies -lz -lole32 ${MIMALLOC_LIBS} ${OPENSSL_LIBS}"
+  # These are already in arrow_bundled_dependencies:
+  # -lutf8proc -lthrift -lsnappy -lzstd -llz4
+
+  if [ $(cmake_option ARROW_PARQUET) -eq 1 ]; then 
+    PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_PARQUET"
+    PKG_LIBS="-lparquet $PKG_LIBS"
+    # NOTE: parquet is assumed to have the same -L flag as arrow
+    # so there is no need to add its location to PKG_DIRS
+  fi
+
+  if [ $(cmake_option ARROW_DATASET) -eq 1 ]; then
+    PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_DATASET"
+    PKG_LIBS="-larrow_dataset $PKG_LIBS"
+    # NOTE: arrow-dataset is assumed to have the same -L flag as arrow
+    # so there is no need to add its location to PKG_DIRS
+  fi
+
+  if [ $(cmake_option ARROW_S3) -eq 1 ]; then
+    PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_S3"
+    if [ "$BUNDLED_LIBS" != "" ]; then
+      # We're depending on openssl/curl from the system, so they're not in the bundled deps
+      BUNDLED_LIBS="$BUNDLED_LIBS -lssl -lcrypto -lcurl"
+    fi
+  fi
+
+  if [ $(cmake_option ARROW_JSON) -eq 1 ]; then
+    PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_JSON"
+  fi
+}
+
+
+if [ ! -z ${ARROW_HOME} ]; then
+  # Build Arrow based on local build of libarrow.
+  configure_dev
 else
-  # It seems that order matters
-  PKG_LIBS="${PKG_LIBS} -lws2_32"
+  # Build Arrow based on precompiled zip of static libraries.
+  configure_release
 fi
+
 
 # Set any user-defined CXXFLAGS
 if [ "$ARROW_R_CXXFLAGS" ]; then

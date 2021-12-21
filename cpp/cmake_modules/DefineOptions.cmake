@@ -112,11 +112,13 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   define_option_string(ARROW_SIMD_LEVEL
                        "Compile-time SIMD optimization level"
-                       "SSE4_2" # default to SSE4.2
+                       "DEFAULT" # default to SSE4_2 on x86, NEON on Arm, NONE otherwise
                        "NONE"
                        "SSE4_2"
                        "AVX2"
-                       "AVX512")
+                       "AVX512"
+                       "NEON"
+                       "DEFAULT")
 
   define_option_string(ARROW_RUNTIME_SIMD_LEVEL
                        "Max runtime SIMD optimization level"
@@ -217,12 +219,18 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   define_option(ARROW_DATASET "Build the Arrow Dataset Modules" OFF)
 
+  define_option(ARROW_ENGINE "Build the Arrow Execution Engine" OFF)
+
   define_option(ARROW_FILESYSTEM "Build the Arrow Filesystem Layer" OFF)
 
   define_option(ARROW_FLIGHT
                 "Build the Arrow Flight RPC System (requires GRPC, Protocol Buffers)" OFF)
 
   define_option(ARROW_GANDIVA "Build the Gandiva libraries" OFF)
+
+  define_option(ARROW_GCS
+                "Build Arrow with GCS support (requires the GCloud SDK for C++)" OFF)
+  mark_as_advanced(ARROW_GCS) # TODO(ARROW-1231) - remove once completed
 
   define_option(ARROW_HDFS "Build the Arrow HDFS bridge" OFF)
 
@@ -259,6 +267,8 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   define_option(ARROW_PYTHON "Build the Arrow CPython extensions" OFF)
 
   define_option(ARROW_S3 "Build Arrow with S3 support (requires the AWS SDK for C++)" OFF)
+
+  define_option(ARROW_SKYHOOK "Build the Skyhook libraries" OFF)
 
   define_option(ARROW_TENSORFLOW "Build Arrow with TensorFlow support enabled" OFF)
 
@@ -362,6 +372,9 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
                 OFF)
 
   define_option(ARROW_WITH_BACKTRACE "Build with backtrace support" ON)
+
+  define_option(ARROW_WITH_OPENTELEMETRY
+                "Build libraries with OpenTelemetry support for distributed tracing" OFF)
 
   define_option(ARROW_WITH_BROTLI "Build with Brotli compression" OFF)
   define_option(ARROW_WITH_BZ2 "Build with BZ2 compression" OFF)

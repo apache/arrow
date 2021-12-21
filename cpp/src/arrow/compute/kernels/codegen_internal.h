@@ -189,6 +189,38 @@ struct GetOutputType<Decimal256Type> {
 };
 
 // ----------------------------------------------------------------------
+// enable_if helpers for C types
+
+template <typename T>
+using is_unsigned_integer_value =
+    std::integral_constant<bool,
+                           std::is_integral<T>::value && std::is_unsigned<T>::value>;
+
+template <typename T>
+using is_signed_integer_value =
+    std::integral_constant<bool, std::is_integral<T>::value && std::is_signed<T>::value>;
+
+template <typename T, typename R = T>
+using enable_if_signed_integer_value = enable_if_t<is_signed_integer_value<T>::value, R>;
+
+template <typename T, typename R = T>
+using enable_if_unsigned_integer_value =
+    enable_if_t<is_unsigned_integer_value<T>::value, R>;
+
+template <typename T, typename R = T>
+using enable_if_integer_value =
+    enable_if_t<is_signed_integer_value<T>::value || is_unsigned_integer_value<T>::value,
+                R>;
+
+template <typename T, typename R = T>
+using enable_if_floating_value = enable_if_t<std::is_floating_point<T>::value, R>;
+
+template <typename T, typename R = T>
+using enable_if_decimal_value =
+    enable_if_t<std::is_same<Decimal128, T>::value || std::is_same<Decimal256, T>::value,
+                R>;
+
+// ----------------------------------------------------------------------
 // Iteration / value access utilities
 
 template <typename T, typename R = void>
@@ -247,6 +279,26 @@ struct ArrayIterator<Type, enable_if_base_binary<Type>> {
   }
 };
 
+template <>
+struct ArrayIterator<FixedSizeBinaryType> {
+  const ArrayData& arr;
+  const char* data;
+  const int32_t width;
+  int64_t position;
+
+  explicit ArrayIterator(const ArrayData& arr)
+      : arr(arr),
+        data(reinterpret_cast<const char*>(arr.buffers[1]->data())),
+        width(checked_cast<const FixedSizeBinaryType&>(*arr.type).byte_width()),
+        position(arr.offset) {}
+
+  util::string_view operator()() {
+    auto result = util::string_view(data + position * width, width);
+    position++;
+    return result;
+  }
+};
+
 // Iterator over various output array types, taking a GetOutputType<Type>
 
 template <typename Type, typename Enable = void>
@@ -279,8 +331,10 @@ template <typename Type>
 struct UnboxScalar<Type, enable_if_has_c_type<Type>> {
   using T = typename Type::c_type;
   static T Unbox(const Scalar& val) {
-    return *reinterpret_cast<const T*>(
-        checked_cast<const ::arrow::internal::PrimitiveScalarBase&>(val).data());
+    util::string_view view =
+        checked_cast<const ::arrow::internal::PrimitiveScalarBase&>(val).view();
+    DCHECK_EQ(view.size(), sizeof(T));
+    return *reinterpret_cast<const T*>(view.data());
   }
 };
 
@@ -294,14 +348,14 @@ struct UnboxScalar<Type, enable_if_has_string_view<Type>> {
 
 template <>
 struct UnboxScalar<Decimal128Type> {
-  static Decimal128 Unbox(const Scalar& val) {
+  static const Decimal128& Unbox(const Scalar& val) {
     return checked_cast<const Decimal128Scalar&>(val).value;
   }
 };
 
 template <>
 struct UnboxScalar<Decimal256Type> {
-  static Decimal256 Unbox(const Scalar& val) {
+  static const Decimal256& Unbox(const Scalar& val) {
     return checked_cast<const Decimal256Scalar&>(val).value;
   }
 };
@@ -395,6 +449,7 @@ static void VisitTwoArrayValuesInline(const ArrayData& arr0, const ArrayData& ar
 // Reusable type resolvers
 
 Result<ValueDescr> FirstType(KernelContext*, const std::vector<ValueDescr>& descrs);
+Result<ValueDescr> LastType(KernelContext*, const std::vector<ValueDescr>& descrs);
 Result<ValueDescr> ListValuesType(KernelContext*, const std::vector<ValueDescr>& args);
 
 // ----------------------------------------------------------------------
@@ -923,6 +978,10 @@ using ScalarBinaryEqualTypes = ScalarBinary<OutType, ArgType, ArgType, Op>;
 template <typename OutType, typename ArgType, typename Op>
 using ScalarBinaryNotNullEqualTypes = ScalarBinaryNotNull<OutType, ArgType, ArgType, Op>;
 
+template <typename OutType, typename ArgType, typename Op>
+using ScalarBinaryNotNullStatefulEqualTypes =
+    ScalarBinaryNotNullStateful<OutType, ArgType, ArgType, Op>;
+
 }  // namespace applicator
 
 // ----------------------------------------------------------------------
@@ -1110,6 +1169,20 @@ ArrayKernelExec GeneratePhysicalNumeric(detail::GetTypeId get_id) {
   }
 }
 
+// Generate a kernel given a templated functor for decimal types
+template <template <typename... Args> class Generator, typename... Args>
+ArrayKernelExec GenerateDecimalToDecimal(detail::GetTypeId get_id) {
+  switch (get_id.id) {
+    case Type::DECIMAL128:
+      return Generator<Decimal128Type, Args...>::Exec;
+    case Type::DECIMAL256:
+      return Generator<Decimal256Type, Args...>::Exec;
+    default:
+      DCHECK(false);
+      return ExecFail;
+  }
+}
+
 // Generate a kernel given a templated functor for integer types
 //
 // See "Numeric" above for description of the generator functor
@@ -1166,13 +1239,15 @@ ArrayKernelExec GenerateTypeAgnosticPrimitive(detail::GetTypeId get_id) {
     case Type::DURATION:
     case Type::INTERVAL_DAY_TIME:
       return Generator<UInt64Type, Args...>::Exec;
+    case Type::INTERVAL_MONTH_DAY_NANO:
+      return Generator<MonthDayNanoIntervalType, Args...>::Exec;
     default:
       DCHECK(false);
       return ExecFail;
   }
 }
 
-// similar to GenerateTypeAgnosticPrimitive, but for variable types
+// similar to GenerateTypeAgnosticPrimitive, but for base variable binary types
 template <template <typename...> class Generator, typename... Args>
 ArrayKernelExec GenerateTypeAgnosticVarBinaryBase(detail::GetTypeId get_id) {
   switch (get_id.id) {
@@ -1188,10 +1263,28 @@ ArrayKernelExec GenerateTypeAgnosticVarBinaryBase(detail::GetTypeId get_id) {
   }
 }
 
+// Generate a kernel given a templated functor for binary and string types
+template <template <typename...> class Generator, typename... Args>
+ArrayKernelExec GenerateVarBinaryToVarBinary(detail::GetTypeId get_id) {
+  switch (get_id.id) {
+    case Type::BINARY:
+      return Generator<BinaryType, Args...>::Exec;
+    case Type::STRING:
+      return Generator<StringType, Args...>::Exec;
+    case Type::LARGE_BINARY:
+      return Generator<LargeBinaryType, Args...>::Exec;
+    case Type::LARGE_STRING:
+      return Generator<LargeStringType, Args...>::Exec;
+    default:
+      DCHECK(false);
+      return ExecFail;
+  }
+}
+
 // Generate a kernel given a templated functor for base binary types. Generates
-// a single kernel for binary/string and large binary / large string. If your
-// kernel implementation needs access to the specific type at compile time,
-// please use BaseBinarySpecific.
+// a single kernel for binary/string and large binary/large string. If your kernel
+// implementation needs access to the specific type at compile time, please use
+// BaseBinarySpecific.
 //
 // See "Numeric" above for description of the generator functor
 template <template <typename...> class Generator, typename Type0, typename... Args>
@@ -1274,10 +1367,19 @@ ARROW_EXPORT
 void EnsureDictionaryDecoded(std::vector<ValueDescr>* descrs);
 
 ARROW_EXPORT
+void EnsureDictionaryDecoded(ValueDescr* begin, size_t count);
+
+ARROW_EXPORT
 void ReplaceNullWithOtherType(std::vector<ValueDescr>* descrs);
 
 ARROW_EXPORT
+void ReplaceNullWithOtherType(ValueDescr* begin, size_t count);
+
+ARROW_EXPORT
 void ReplaceTypes(const std::shared_ptr<DataType>&, std::vector<ValueDescr>* descrs);
+
+ARROW_EXPORT
+void ReplaceTypes(const std::shared_ptr<DataType>&, ValueDescr* descrs, size_t count);
 
 ARROW_EXPORT
 std::shared_ptr<DataType> CommonNumeric(const std::vector<ValueDescr>& descrs);
@@ -1286,10 +1388,10 @@ ARROW_EXPORT
 std::shared_ptr<DataType> CommonNumeric(const ValueDescr* begin, size_t count);
 
 ARROW_EXPORT
-std::shared_ptr<DataType> CommonTimestamp(const std::vector<ValueDescr>& descrs);
+std::shared_ptr<DataType> CommonTemporal(const ValueDescr* begin, size_t count);
 
 ARROW_EXPORT
-std::shared_ptr<DataType> CommonBinary(const std::vector<ValueDescr>& descrs);
+std::shared_ptr<DataType> CommonBinary(const ValueDescr* begin, size_t count);
 
 /// How to promote decimal precision/scale in CastBinaryDecimalArgs.
 enum class DecimalPromotion : uint8_t {
@@ -1298,8 +1400,16 @@ enum class DecimalPromotion : uint8_t {
   kDivide,
 };
 
+/// Given two arguments, at least one of which is decimal, promote all
+/// to not necessarily identical types, but types which are compatible
+/// for the given operator (add/multiply/divide).
 ARROW_EXPORT
 Status CastBinaryDecimalArgs(DecimalPromotion promotion, std::vector<ValueDescr>* descrs);
+
+/// Given one or more arguments, at least one of which is decimal,
+/// promote all to an identical type.
+ARROW_EXPORT
+Status CastDecimalArgs(ValueDescr* begin, size_t count);
 
 ARROW_EXPORT
 bool HasDecimal(const std::vector<ValueDescr>& descrs);

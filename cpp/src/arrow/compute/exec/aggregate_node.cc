@@ -60,34 +60,6 @@ Result<FieldVector> ResolveKernels(
 
 namespace {
 
-class ThreadIndexer {
- public:
-  size_t operator()() {
-    auto id = std::this_thread::get_id();
-
-    std::unique_lock<std::mutex> lock(mutex_);
-    const auto& id_index = *id_to_index_.emplace(id, id_to_index_.size()).first;
-
-    return Check(id_index.second);
-  }
-
-  static size_t Capacity() {
-    static size_t max_size = arrow::internal::ThreadPool::DefaultCapacity();
-    return max_size;
-  }
-
- private:
-  size_t Check(size_t thread_index) {
-    DCHECK_LT(thread_index, Capacity()) << "thread index " << thread_index
-                                        << " is out of range [0, " << Capacity() << ")";
-
-    return thread_index;
-  }
-
-  std::mutex mutex_;
-  std::unordered_map<std::thread::id, size_t> id_to_index_;
-};
-
 void AggregatesToString(
     std::stringstream* ss, const Schema& input_schema,
     const std::vector<internal::Aggregate>& aggs,
@@ -400,7 +372,7 @@ class GroupByNode : public ExecNode {
     for (size_t i = 0; i < key_field_ids_.size(); ++i) {
       keys[i] = batch.values[key_field_ids_[i]];
     }
-    ARROW_ASSIGN_OR_RAISE(ExecBatch key_batch, ExecBatch::Make(keys));
+    ExecBatch key_batch(std::move(keys), batch.length);
 
     // Create a batch with group ids
     ARROW_ASSIGN_OR_RAISE(Datum id_batch, state->grouper->Consume(key_batch));
@@ -449,6 +421,8 @@ class GroupByNode : public ExecNode {
 
   Result<ExecBatch> Finalize() {
     ThreadLocalState* state = &local_states_[0];
+    // If we never got any batches, then state won't have been initialized
+    RETURN_NOT_OK(InitLocalStateIfNeeded(state));
 
     ExecBatch out_data{{}, state->grouper->num_groups()};
     out_data.values.resize(agg_kernels_.size() + key_field_ids_.size());
@@ -467,7 +441,7 @@ class GroupByNode : public ExecNode {
     state->grouper.reset();
 
     if (output_counter_.SetTotal(
-            static_cast<int>(BitUtil::CeilDiv(out_data.length, output_batch_size())))) {
+            static_cast<int>(bit_util::CeilDiv(out_data.length, output_batch_size())))) {
       // this will be hit if out_data.length == 0
       finished_.MarkFinished();
     }
@@ -553,9 +527,8 @@ class GroupByNode : public ExecNode {
   void StopProducing(ExecNode* output) override {
     DCHECK_EQ(output, outputs_[0]);
 
-    if (input_counter_.Cancel()) {
-      finished_.MarkFinished();
-    } else if (output_counter_.Cancel()) {
+    ARROW_UNUSED(input_counter_.Cancel());
+    if (output_counter_.Cancel()) {
       finished_.MarkFinished();
     }
     inputs_[0]->StopProducing(this);

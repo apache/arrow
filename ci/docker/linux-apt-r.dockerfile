@@ -17,10 +17,12 @@
 
 ARG base
 FROM ${base}
-ARG arch
 
 ARG tz="UTC"
 ENV TZ=${tz}
+
+ARG r_prune_deps=FALSE
+ENV R_PRUNE_DEPS=${r_prune_deps}
 
 # Build R
 # [1] https://www.digitalocean.com/community/tutorials/how-to-install-r-on-ubuntu-18-04
@@ -31,9 +33,8 @@ RUN apt-get update -y && \
         dirmngr \
         apt-transport-https \
         software-properties-common && \
-    apt-key adv \
-        --keyserver keyserver.ubuntu.com \
-        --recv-keys E298A3A825C0D65DFD57CBB651716619E084DAB9 && \
+    wget -qO- https://cloud.r-project.org/bin/linux/ubuntu/marutter_pubkey.asc | \
+        tee -a /etc/apt/trusted.gpg.d/cran_ubuntu_key.asc && \
     # NOTE: R 3.5 and 3.6 are available in the repos with -cran35 suffix
     # for trusty, xenial, bionic, and eoan (as of May 2020)
     # -cran40 has 4.0 versions for bionic and focal
@@ -79,19 +80,21 @@ RUN if [ "${gcc_version}" != "" ]; then \
 COPY ci/etc/rprofile /arrow/ci/etc/
 RUN cat /arrow/ci/etc/rprofile >> $(R RHOME)/etc/Rprofile.site
 # Also ensure parallel compilation of C/C++ code
-RUN echo "MAKEFLAGS=-j$(R -s -e 'cat(parallel::detectCores())')" >> $(R RHOME)/etc/Makeconf
+RUN echo "MAKEFLAGS=-j$(R -s -e 'cat(parallel::detectCores())')" >> $(R RHOME)/etc/Renviron.site
+
+# Set up Python 3 and its dependencies
+RUN ln -s /usr/bin/python3 /usr/local/bin/python && \
+    ln -s /usr/bin/pip3 /usr/local/bin/pip
 
 COPY ci/scripts/r_deps.sh /arrow/ci/scripts/
 COPY r/DESCRIPTION /arrow/r/
 RUN /arrow/ci/scripts/r_deps.sh /arrow
 
-COPY ci/scripts/install_minio.sh \
-     /arrow/ci/scripts/
-RUN /arrow/ci/scripts/install_minio.sh ${arch} linux latest /usr/local
+COPY ci/scripts/install_minio.sh /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_minio.sh latest /usr/local
 
-# Set up Python 3 and its dependencies
-RUN ln -s /usr/bin/python3 /usr/local/bin/python && \
-    ln -s /usr/bin/pip3 /usr/local/bin/pip
+COPY ci/scripts/install_gcs_testbench.sh /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_gcs_testbench.sh default
 
 COPY python/requirements-build.txt /arrow/python/
 RUN pip install -r arrow/python/requirements-build.txt
