@@ -104,8 +104,10 @@ namespace IoTPipelineExample
             DateTime now = DateTime.Now;
             long unixTime = ((DateTimeOffset)now).ToUnixTimeSeconds();
 
+            var cts = new CancellationTokenSource();
+
             Console.WriteLine($"Write to channel task {taskNumber} started!");
-            while (_size <= _inputs)
+            while (await _writer.WaitToWriteAsync(cts.Token).ConfigureAwait(false))
             {
                 string randomKey = keyList[rand.Next(count)];
                 string label = activityLabel[randomKey];
@@ -127,6 +129,9 @@ namespace IoTPipelineExample
                 });
 
                 Interlocked.Increment(ref _size);
+
+                if (_size > _inputs)
+                    cts.Cancel();
             }
             _writer.TryComplete();
             Console.WriteLine($"Write to channel task {taskNumber} finished!");
@@ -178,10 +183,13 @@ namespace IoTPipelineExample
             Console.WriteLine($"Read from channel task {taskNumber} finished!");
         }
 
-        public async Task<bool> PersistData()
+        public async Task<string> PersistData()
         {
-            Console.WriteLine("Persisting data to disk...");
             int partitionNumber = 0;
+            string currentPath = Directory.GetCurrentDirectory();
+            string arrowDataPath = Path.Combine(currentPath, "arrow");
+            if (!Directory.Exists(arrowDataPath))
+                Directory.CreateDirectory(arrowDataPath);
 
             foreach (var colSubjectIdArray in _colSubjectIdArrays)
             {
@@ -196,7 +204,7 @@ namespace IoTPipelineExample
                     //.Append("ZAxis", false, col => col.Double(array => array.AppendRange(_colZAxis)))
                     .Build();
 
-                using (var stream = File.OpenWrite(@"c:\temp\data\iotbigdata_" + partitionNumber + ".arrow"))
+                using (var stream = File.OpenWrite(arrowDataPath + @"\iotbigdata_" + partitionNumber + ".arrow"))
                 using (var writer = new ArrowFileWriter(stream, recordBatch.Schema))
                 {
                     await writer.WriteRecordBatchAsync(recordBatch);
@@ -206,7 +214,7 @@ namespace IoTPipelineExample
                 partitionNumber++;
             }
 
-            return true;
+            return arrowDataPath;
         }
     }
 
