@@ -77,7 +77,6 @@ TEST_F(TestProjector, TestProjectCache) {
   std::shared_ptr<Projector> cached_projector;
   status = Projector::Make(schema_same, {sum_expr, sub_expr}, configuration,
                            &cached_projector);
-
   ASSERT_OK(status);
   EXPECT_TRUE(cached_projector->GetBuiltFromCache());
 
