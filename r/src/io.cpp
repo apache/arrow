@@ -209,6 +209,8 @@ struct ReencodeUTF8TransformFunctionWrapper {
   ReencodeUTF8TransformFunctionWrapper(std::string from)
     : from_(from), iconv_("UTF-8", from), n_pending_(0) {}
 
+  // This may get copied and we need a freshly created RIconvWrapper
+  // for each copy.
   ReencodeUTF8TransformFunctionWrapper(const ReencodeUTF8TransformFunctionWrapper& ref)
     : ReencodeUTF8TransformFunctionWrapper(ref.from_) {}
 
@@ -230,9 +232,13 @@ struct ReencodeUTF8TransformFunctionWrapper {
     // UTF-8 has a maximum of 4 bytes per character, so it's OK if we have a few bytes
     // left after processing all of src. If we have more than this, it means the
     // output buffer wasn't big enough.
-    int64_t i = 0;
     while (in_bytes_left >= 4) {
-      dest->Reserve(std::max<int64_t>(src->size(), dest->size() * 2));
+      int64_t new_size = std::max<int64_t>(src->size(), dest->size() * 2);
+      auto reserve_result = dest->Reserve(new_size);
+      if (!reserve_result.ok()) {
+        cpp11::stop("Failed to allocate buffer of size %ld", new_size);
+      }
+
       out_buf = (char*) dest->data() + out_bytes_used;
       out_bytes_left = dest->size() - out_bytes_used;
       size_t result = iconv_.iconv(&in_buf, &in_bytes_left, &out_buf, &out_bytes_left);
@@ -241,13 +247,9 @@ struct ReencodeUTF8TransformFunctionWrapper {
       }
 
       int64_t chars_read_in = src->size() - in_bytes_left;
-      int64_t chars_read_out = (char*) dest->data() + out_bytes_used - out_buf;
+      int64_t chars_read_out = out_buf - ((char*) dest->data()) + out_bytes_used;
       out_bytes_used += chars_read_out;
       in_buf += chars_read_in;
-
-      if (i > 5) {
-        break;
-      }
     }
 
     // Keep the leftover characters until the next call to the function
@@ -256,7 +258,12 @@ struct ReencodeUTF8TransformFunctionWrapper {
       memcpy(pending_, in_buf, in_bytes_left);
     }
 
-    dest->Resize(out_bytes_used);
+    // Shrink the output buffer to only the size used
+    auto resize_result = dest->Resize(out_bytes_used);
+    if (!resize_result.ok()) {
+      cpp11::stop("Failed to resize iconv result buffer");
+    }
+
     return std::move(dest);
   }
 

@@ -16,17 +16,11 @@
 # under the License.
 
 test_that("reencoding input stream works", {
-  string <- "province_name\nQuébec"
+  string <- "province_name\nQu\u00e9bec"
   bytes_utf8 <- iconv(string, to = "UTF-8", toRaw = TRUE)[[1]]
   bytes_windows1252 <- iconv(string, to = "windows-1252", toRaw = TRUE)[[1]]
 
-  temp_utf8 <- tempfile()
   temp_windows1252 <- tempfile()
-
-  con <- file(temp_utf8, open = "wb")
-  writeBin(bytes_utf8, con)
-  close(con)
-
   con <- file(temp_windows1252, open = "wb")
   writeBin(bytes_windows1252, con)
   close(con)
@@ -46,18 +40,5 @@ test_that("reencoding input stream works", {
   stream$close()
   stream_utf8$close()
 
-  stream <- fs$OpenInputStream(temp_utf8)
-  expect_identical(
-    as.raw(stream$Read(length(bytes_utf8))),
-    bytes_utf8
-  )
-  stream$close()
-
-  stream <- fs$OpenInputStream(temp_utf8)
-  stream_utf8 <- MakeRencodeInputStream(stream, "windows-1252")
-  as.raw(stream_utf8$Read(100))
-  stream$close()
-
-  unlink(temp_utf8)
   unlink(temp_windows1252)
 })
