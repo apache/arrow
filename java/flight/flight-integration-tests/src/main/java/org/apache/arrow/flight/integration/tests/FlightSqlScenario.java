@@ -42,6 +42,9 @@ import org.apache.arrow.vector.types.pojo.Schema;
  */
 public class FlightSqlScenario implements Scenario {
 
+  public static final long UPDATE_STATEMENT_EXPECTED_ROWS = 10000L;
+  public static final long UPDATE_PREPARED_STATEMENT_EXPECTED_ROWS = 20000L;
+
   @Override
   public FlightProducer producer(BufferAllocator allocator, Location location) throws Exception {
     return new FlightSqlScenarioProducer(allocator);
@@ -102,7 +105,7 @@ public class FlightSqlScenario implements Scenario {
         sqlClient.execute("SELECT STATEMENT", options), sqlClient);
 
     IntegrationAssertions.assertEquals(sqlClient.executeUpdate("UPDATE STATEMENT", options),
-        10000L);
+        UPDATE_STATEMENT_EXPECTED_ROWS);
   }
 
   private void validatePreparedStatementExecution(FlightSqlClient sqlClient,
@@ -121,7 +124,8 @@ public class FlightSqlScenario implements Scenario {
 
     try (FlightSqlClient.PreparedStatement preparedStatement = sqlClient.prepare(
         "UPDATE PREPARED STATEMENT")) {
-      IntegrationAssertions.assertEquals(preparedStatement.executeUpdate(options), 20000L);
+      IntegrationAssertions.assertEquals(preparedStatement.executeUpdate(options),
+          UPDATE_PREPARED_STATEMENT_EXPECTED_ROWS);
     }
   }
 

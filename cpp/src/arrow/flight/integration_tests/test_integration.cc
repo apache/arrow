@@ -268,6 +268,9 @@ std::shared_ptr<Schema> GetQuerySchema() {
   return arrow::schema({arrow::field("id", int64())});
 }
 
+constexpr int64_t kUpdateStatementExpectedRows = 10000L;
+constexpr int64_t kUpdatePreparedStatementExpectedRows = 20000L;
+
 template <typename T>
 arrow::Status AssertEq(const T& expected, const T& actual) {
   if (expected != actual) {
@@ -468,7 +471,7 @@ class FlightSqlScenarioServer : public sql::FlightSqlServerBase {
       const ServerCallContext& context, const sql::StatementUpdate& command) override {
     ARROW_RETURN_NOT_OK(AssertEq<std::string>("UPDATE STATEMENT", command.query));
 
-    return 10000;
+    return kUpdateStatementExpectedRows;
   }
 
   arrow::Result<sql::ActionCreatePreparedStatementResult> CreatePreparedStatement(
@@ -509,7 +512,7 @@ class FlightSqlScenarioServer : public sql::FlightSqlServerBase {
     ARROW_RETURN_NOT_OK(AssertEq<std::string>("UPDATE PREPARED STATEMENT HANDLE",
                                               command.prepared_statement_handle));
 
-    return 20000;
+    return kUpdatePreparedStatementExpectedRows;
   }
 
  private:
@@ -625,8 +628,9 @@ class FlightSqlScenario : public Scenario {
         GetQuerySchema(), sql_client->Execute(options, "SELECT STATEMENT"), sql_client));
     ARROW_ASSIGN_OR_RAISE(auto update_statement_result,
                           sql_client->ExecuteUpdate(options, "UPDATE STATEMENT"));
-    if (update_statement_result != 10000L) {
-      return Status::Invalid("Expected 'UPDATE STATEMENT' return 10000, got ",
+    if (update_statement_result != kUpdateStatementExpectedRows) {
+      return Status::Invalid("Expected 'UPDATE STATEMENT' return ",
+                             kUpdateStatementExpectedRows, ", got ",
                              update_statement_result);
     }
 
@@ -651,8 +655,9 @@ class FlightSqlScenario : public Scenario {
                           sql_client->Prepare(options, "UPDATE PREPARED STATEMENT"));
     ARROW_ASSIGN_OR_RAISE(auto update_prepared_statement_result,
                           update_prepared_statement->ExecuteUpdate());
-    if (update_prepared_statement_result != 20000L) {
-      return Status::Invalid("Expected 'UPDATE STATEMENT' return 20000, got ",
+    if (update_prepared_statement_result != kUpdatePreparedStatementExpectedRows) {
+      return Status::Invalid("Expected 'UPDATE STATEMENT' return ",
+                             kUpdatePreparedStatementExpectedRows, ", got ",
                              update_prepared_statement_result);
     }
     ARROW_RETURN_NOT_OK(update_prepared_statement->Close());

@@ -132,7 +132,7 @@ public class FlightSqlScenarioProducer implements FlightSqlProducer {
     putEmptyBatchToStreamListener(listener, getQuerySchema());
   }
 
-  private Runnable acceptPutReturnConstant(StreamListener<PutResult> ackStream, int value) {
+  private Runnable acceptPutReturnConstant(StreamListener<PutResult> ackStream, long value) {
     return () -> {
       final FlightSql.DoPutUpdateResult build =
           FlightSql.DoPutUpdateResult.newBuilder().setRecordCount(value).build();
@@ -151,7 +151,7 @@ public class FlightSqlScenarioProducer implements FlightSqlProducer {
                                      StreamListener<PutResult> ackStream) {
     IntegrationAssertions.assertEquals(command.getQuery(), "UPDATE STATEMENT");
 
-    return acceptPutReturnConstant(ackStream, 10000);
+    return acceptPutReturnConstant(ackStream, FlightSqlScenario.UPDATE_STATEMENT_EXPECTED_ROWS);
   }
 
   @Override
@@ -161,7 +161,7 @@ public class FlightSqlScenarioProducer implements FlightSqlProducer {
     IntegrationAssertions.assertEquals(command.getPreparedStatementHandle().toStringUtf8(),
         "UPDATE PREPARED STATEMENT HANDLE");
 
-    return acceptPutReturnConstant(ackStream, 20000);
+    return acceptPutReturnConstant(ackStream, FlightSqlScenario.UPDATE_PREPARED_STATEMENT_EXPECTED_ROWS);
   }
 
   @Override
