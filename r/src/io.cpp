@@ -18,8 +18,10 @@
 #include "./arrow_types.h"
 
 #if defined(ARROW_R_WITH_ARROW)
+#include <arrow/io/transform.h>
 #include <arrow/io/file.h>
 #include <arrow/io/memory.h>
+#include <R_ext/Riconv.h>
 
 // ------ arrow::io::Readable
 
@@ -176,6 +178,95 @@ int64_t io___BufferOutputStream__Tell(
 void io___BufferOutputStream__Write(
     const std::shared_ptr<arrow::io::BufferOutputStream>& stream, cpp11::raws bytes) {
   StopIfNotOk(stream->Write(RAW(bytes), bytes.size()));
+}
+
+// TransformInputStream::TransformFunc wrapper
+
+class RIconvWrapper {
+public:
+  RIconvWrapper(const char* to, const char* from)
+    : handle_(Riconv_open(to, from)) {
+      if (handle_ == ((void*) -1)) {
+        cpp11::stop("Can't convert encoding from '%s' to '%s'", from, to);
+      }
+    }
+
+  size_t iconv(const char **inbuf, size_t *inbytesleft, char **outbuf, size_t *outbytesleft) {
+    return Riconv(handle_, inbuf, inbytesleft, outbuf, outbytesleft);
+  }
+
+  ~RIconvWrapper() {
+    if (handle_ != nullptr) {
+      Riconv_close(handle_);
+    }
+  }
+
+protected:
+  void* handle_;
+};
+
+struct RencodeUTF8TransformFunctionWrapper {
+  RencodeUTF8TransformFunctionWrapper(const char* from)
+    : iconv_("UTF-8", from), n_pending_(0) {}
+
+  arrow::Result<std::shared_ptr<arrow::Buffer>> operator()(const std::shared_ptr<arrow::Buffer>& src) {
+    ARROW_ASSIGN_OR_RAISE(auto dest, arrow::AllocateResizableBuffer(32));
+    const char* in_buf = (const char*) src->data();
+    size_t in_bytes_left = src->size();
+    size_t out_bytes_left = dest->size();
+    char* out_buf = (char*) dest->data();
+    size_t out_bytes_used = 0;
+
+    // There may be a few leftover characters from the last call to iconv. Process these first
+    // using the internal buffer as the source. This may also result in a partial character
+    // leftover but will always get us into the src buffer.
+    if (n_pending_ > 0) {
+      cpp11::stop("not implemented");
+    }
+
+    // UTF-8 has a maximum of 4 bytes per character, so it's OK if we have a few bytes
+    // left after processing all of src. If we have more than this, it means the
+    // output buffer wasn't big enough.
+    int64_t i = 0;
+    while (in_bytes_left >= 4) {
+      dest->Reserve(std::max<int64_t>(src->size(), dest->size() * 2));
+      out_buf = (char*) dest->data() + out_bytes_used;
+      out_bytes_left = dest->size() - out_bytes_used;
+      size_t result = iconv_.iconv(&in_buf, &in_bytes_left, &out_buf, &out_bytes_left);
+      if (result == ((size_t) -1)) {
+        return arrow::Status::IOError("Riconv() failed with code -1");
+      }
+
+      int64_t chars_read_in = src->size() - in_bytes_left;
+      int64_t chars_read_out = (char*) dest->data() + out_bytes_used - out_buf;
+      out_bytes_used += chars_read_out;
+      in_buf += chars_read_in;
+
+      if (i > 5) {
+        break;
+      }
+    }
+
+    // Keep the leftover characters until the next call to the function
+    n_pending_ = in_bytes_left;
+    if (in_bytes_left > 0) {
+      memcpy(pending_, in_buf, in_bytes_left);
+    }
+
+    dest->Resize(out_bytes_used);
+    return std::move(dest);
+  }
+
+protected:
+  RIconvWrapper iconv_;
+  char pending_[8];
+  size_t n_pending_;
+};
+
+// [[arrow::export]]
+std::shared_ptr<arrow::io::InputStream> MakeRencodeInputStream(const std::shared_ptr<arrow::io::InputStream>& wrapped, std::string from) {
+  arrow::io::TransformInputStream::TransformFunc transform(RencodeUTF8TransformFunctionWrapper{from.c_str()});
+  return std::make_shared<arrow::io::TransformInputStream>(std::move(wrapped), std::move(transform));
 }
 
 #endif
