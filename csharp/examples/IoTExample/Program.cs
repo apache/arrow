@@ -23,8 +23,8 @@ namespace IoTPipelineExample
 {
     class Program
     {
-        public static int concurrencyLevel = 4;
-        public static int totalSensorData = 1_000_000;
+        public static int concurrencyLevel = 8;
+        public static int totalSensorData = 100_000_000;
         public static int queueCapacity = 1_000_000;
 
         public static async Task Main(string[] args)
@@ -65,7 +65,7 @@ namespace IoTPipelineExample
 
         static async Task ReadArrowFile(string fileEntry)
         {
-            Console.WriteLine($"Reading data from arrow record batch {fileEntry}...");
+            Console.WriteLine($"Reading data from arrow file {Path.GetFileName(fileEntry)}...");
 
             using (var stream = File.OpenRead(fileEntry))
             using (var reader = new ArrowFileReader(stream))

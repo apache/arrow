@@ -16,7 +16,6 @@
 using System;
 using System.IO;
 using System.Threading.Tasks;
-using System.Diagnostics;
 using System.Collections.Generic;
 using Apache.Arrow;
 using Apache.Arrow.Ipc;
@@ -38,15 +37,11 @@ namespace IoTPipelineExample
         ChannelReader<SensorData> _reader;
 
         private readonly List<ConcurrentBag<int>> _colSubjectIdArrays;
-        private readonly ConcurrentBag<string> _colActivityLabel;
-        private readonly ConcurrentBag<long> _colTimestamp;
-        private readonly ConcurrentBag<double> _colXAxis;
-        private readonly ConcurrentBag<double> _colYAxis;
-        private readonly ConcurrentBag<double> _colZAxis;
-
-        private readonly int[][] _partitionBoundary;
-
-        private readonly int _threshold = 100_000;
+        private readonly List<ConcurrentBag<string>> _colActivityLabelArrays;
+        private readonly List<ConcurrentBag<long>> _colTimestampArrays;
+        private readonly List<ConcurrentBag<double>> _colXAxisArrays;
+        private readonly List<ConcurrentBag<double>> _colYAxisArrays;
+        private readonly List<ConcurrentBag<double>> _colZAxisArrays;
 
         public Dictionary<string, string> activityLabel = new Dictionary<string, string>()
             {
@@ -73,7 +68,6 @@ namespace IoTPipelineExample
         public SampleDataPipeline(int concurrencyLevel, int totalSensorData, int queueCapacity)
         {
             _partitions = concurrencyLevel;
-            _partitionBoundary = new int[_partitions][];
             _inputs = totalSensorData;
             _capacity = queueCapacity;
             _channel = Channel.CreateBounded<SensorData>(_capacity);
@@ -81,19 +75,21 @@ namespace IoTPipelineExample
             _reader = _channel.Reader;
 
             _colSubjectIdArrays = new List<ConcurrentBag<int>>();
+            _colActivityLabelArrays = new List<ConcurrentBag<string>>();
+            _colTimestampArrays = new List<ConcurrentBag<long>>();
+            _colXAxisArrays = new List<ConcurrentBag<double>>();
+            _colYAxisArrays = new List<ConcurrentBag<double>>();
+            _colZAxisArrays = new List<ConcurrentBag<double>>();
+
             for (int i = 0; i < _partitions; i++)
             {
                 _colSubjectIdArrays.Add(new ConcurrentBag<int>());
+                _colActivityLabelArrays.Add(new ConcurrentBag<string>());
+                _colTimestampArrays.Add(new ConcurrentBag<long>());
+                _colXAxisArrays.Add(new ConcurrentBag<double>());
+                _colYAxisArrays.Add(new ConcurrentBag<double>());
+                _colZAxisArrays.Add(new ConcurrentBag<double>());
             }
-
-            _colActivityLabel = new ConcurrentBag<string>();
-            _colTimestamp = new ConcurrentBag<long>();
-            _colXAxis = new ConcurrentBag<double>();
-            _colYAxis = new ConcurrentBag<double>();
-            _colZAxis = new ConcurrentBag<double>();
-
-            //_recordBatches = new List<RecordBatch>();
-            //_memoryAllocator = new NativeMemoryAllocator(alignment: 64);
         }
 
         public async Task WriteToChannel(int taskNumber)
@@ -104,10 +100,8 @@ namespace IoTPipelineExample
             DateTime now = DateTime.Now;
             long unixTime = ((DateTimeOffset)now).ToUnixTimeSeconds();
 
-            var cts = new CancellationTokenSource();
-
             Console.WriteLine($"Write to channel task {taskNumber} started!");
-            while (await _writer.WaitToWriteAsync(cts.Token).ConfigureAwait(false))
+            while (await _writer.WaitToWriteAsync())
             {
                 string randomKey = keyList[rand.Next(count)];
                 string label = activityLabel[randomKey];
@@ -118,7 +112,7 @@ namespace IoTPipelineExample
                     label = null;
                 }
 
-                await _writer.WriteAsync(new SensorData
+                var item = new SensorData
                 {
                     subjectId = rand.Next(1000, 2001),
                     activityLabel = label,
@@ -126,14 +120,19 @@ namespace IoTPipelineExample
                     x_Axis = rand.NextDouble(),
                     y_Axis = rand.NextDouble(),
                     z_Axis = rand.NextDouble(),
-                });
+                };
 
-                Interlocked.Increment(ref _size);
+                if (_writer.TryWrite(item))
+                {
+                    Interlocked.Increment(ref _size);
 
-                if (_size > _inputs)
-                    cts.Cancel();
+                    if (_size >= _inputs)
+                    {
+                        _writer.TryComplete();
+                    }
+                }
             }
-            _writer.TryComplete();
+
             Console.WriteLine($"Write to channel task {taskNumber} finished!");
         }
 
@@ -147,37 +146,14 @@ namespace IoTPipelineExample
                     if (item != null && item.subjectId != null)
                     {
                         var hashKey = item.subjectId % _partitions;
-                        //_partitionBoundary[(int)hashKey][0] = Math.Min()
 
                         _colSubjectIdArrays[(int)hashKey].Add((int)item.subjectId);
-                        //_colActivityLabel.Add(item.activityLabel);
-                        //_colTimestamp.Add((long)item.timestamp);
-                        //_colXAxis.Add((double)item.x_Axis);
-                        //_colYAxis.Add((double)item.y_Axis);
-                        //_colZAxis.Add((double)item.z_Axis);
+                        _colActivityLabelArrays[(int)hashKey].Add(item.activityLabel);
+                        _colTimestampArrays[(int)hashKey].Add((long)item.timestamp);
+                        _colXAxisArrays[(int)hashKey].Add((double)item.x_Axis);
+                        _colYAxisArrays[(int)hashKey].Add((double)item.y_Axis);
+                        _colZAxisArrays[(int)hashKey].Add((double)item.z_Axis);
                     }
-
-                    //if (_colSubjectId.Count == _threshold)
-                    //{
-                    //    var recordBatch = new RecordBatch.Builder(_memoryAllocator)
-                    //        .Append("SubjectId", false, col => col.Int32(array => array.AppendRange(_colSubjectId)))
-                    //        .Append("ActivityLabel", false, col => col.String(array => array.AppendRange(_colActivityLabel)))
-                    //        .Append("Timestamp", false, col => col.Int64(array => array.AppendRange(_colTimestamp)))
-                    //        .Append("XAxis", false, col => col.Double(array => array.AppendRange(_colXAxis)))
-                    //        .Append("YAxis", false, col => col.Double(array => array.AppendRange(_colYAxis)))
-                    //        .Append("ZAxis", false, col => col.Double(array => array.AppendRange(_colZAxis)))
-                    //        .Build();
-
-                    //    //_recordBatches.Add(recordBatch);
-                    //    PersistData(recordBatch);
-
-                    //    _colSubjectId.Clear();
-                    //    _colActivityLabel.Clear();
-                    //    _colTimestamp.Clear();
-                    //    _colXAxis.Clear();
-                    //    _colYAxis.Clear();
-                    //    _colZAxis.Clear();
-                    //}
                 }
             }
             Console.WriteLine($"Read from channel task {taskNumber} finished!");
@@ -191,17 +167,17 @@ namespace IoTPipelineExample
             if (!Directory.Exists(arrowDataPath))
                 Directory.CreateDirectory(arrowDataPath);
 
-            foreach (var colSubjectIdArray in _colSubjectIdArrays)
+            for (int i = 0; i < _colSubjectIdArrays.Count; i++)
             {
                 var memoryAllocator = new NativeMemoryAllocator(alignment: 64);
 
                 var recordBatch = new RecordBatch.Builder(memoryAllocator)
-                    .Append("SubjectId", false, col => col.Int32(array => array.AppendRange(colSubjectIdArray)))
-                    //.Append("ActivityLabel", false, col => col.String(array => array.AppendRange(_colActivityLabel)))
-                    //.Append("Timestamp", false, col => col.Int64(array => array.AppendRange(_colTimestamp)))
-                    //.Append("XAxis", false, col => col.Double(array => array.AppendRange(_colXAxis)))
-                    //.Append("YAxis", false, col => col.Double(array => array.AppendRange(_colYAxis)))
-                    //.Append("ZAxis", false, col => col.Double(array => array.AppendRange(_colZAxis)))
+                    .Append("SubjectId", false, col => col.Int32(array => array.AppendRange(_colSubjectIdArrays[i])))
+                    .Append("ActivityLabel", false, col => col.String(array => array.AppendRange(_colActivityLabelArrays[i])))
+                    .Append("Timestamp", false, col => col.Int64(array => array.AppendRange(_colTimestampArrays[i])))
+                    .Append("XAxis", false, col => col.Double(array => array.AppendRange(_colXAxisArrays[i])))
+                    .Append("YAxis", false, col => col.Double(array => array.AppendRange(_colYAxisArrays[i])))
+                    .Append("ZAxis", false, col => col.Double(array => array.AppendRange(_colZAxisArrays[i])))
                     .Build();
 
                 using (var stream = File.OpenWrite(arrowDataPath + @"\iotbigdata_" + partitionNumber + ".arrow"))
