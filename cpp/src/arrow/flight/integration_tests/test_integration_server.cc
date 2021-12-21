@@ -34,10 +34,10 @@
 #include "arrow/testing/json_integration.h"
 #include "arrow/util/logging.h"
 
+#include "arrow/flight/integration_tests/test_integration.h"
 #include "arrow/flight/internal.h"
 #include "arrow/flight/server.h"
 #include "arrow/flight/server_auth.h"
-#include "arrow/flight/test_integration.h"
 #include "arrow/flight/test_util.h"
 
 DEFINE_int32(port, 31337, "Server port to listen on");
@@ -45,6 +45,7 @@ DEFINE_string(scenario, "", "Integration test senario to run");
 
 namespace arrow {
 namespace flight {
+namespace integration_tests {
 
 struct IntegrationDataset {
   std::shared_ptr<Schema> schema;
@@ -175,6 +176,7 @@ class IntegrationTestScenario : public Scenario {
   }
 };
 
+}  // namespace integration_tests
 }  // namespace flight
 }  // namespace arrow
 
@@ -184,12 +186,14 @@ int main(int argc, char** argv) {
   gflags::SetUsageMessage("Integration testing server for Flight.");
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
-  std::shared_ptr<arrow::flight::Scenario> scenario;
+  std::shared_ptr<arrow::flight::integration_tests::Scenario> scenario;
 
   if (!FLAGS_scenario.empty()) {
-    ARROW_CHECK_OK(arrow::flight::GetScenario(FLAGS_scenario, &scenario));
+    ARROW_CHECK_OK(
+        arrow::flight::integration_tests::GetScenario(FLAGS_scenario, &scenario));
   } else {
-    scenario = std::make_shared<arrow::flight::IntegrationTestScenario>();
+    scenario =
+        std::make_shared<arrow::flight::integration_tests::IntegrationTestScenario>();
   }
   arrow::flight::Location location;
   ARROW_CHECK_OK(arrow::flight::Location::ForGrpcTcp("0.0.0.0", FLAGS_port, &location));

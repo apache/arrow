@@ -17,6 +17,8 @@
 
 // Integration test scenarios for Arrow Flight.
 
+#pragma once
+
 #include "arrow/flight/visibility.h"
 
 #include <memory>
@@ -28,16 +30,20 @@
 
 namespace arrow {
 namespace flight {
+namespace integration_tests {
 
 /// \brief An integration test for Arrow Flight.
 class ARROW_FLIGHT_EXPORT Scenario {
  public:
   virtual ~Scenario() = default;
+
   /// \brief Set up the server.
   virtual Status MakeServer(std::unique_ptr<FlightServerBase>* server,
                             FlightServerOptions* options) = 0;
+
   /// \brief Set up the client.
   virtual Status MakeClient(FlightClientOptions* options) = 0;
+
   /// \brief Run the scenario as the client.
   virtual Status RunClient(std::unique_ptr<FlightClient> client) = 0;
 };
@@ -45,5 +51,6 @@ class ARROW_FLIGHT_EXPORT Scenario {
 /// \brief Get the implementation of an integration test scenario by name.
 Status GetScenario(const std::string& scenario_name, std::shared_ptr<Scenario>* out);
 
+}  // namespace integration_tests
 }  // namespace flight
 }  // namespace arrow

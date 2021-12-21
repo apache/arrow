@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.flight.example.integration;
+package org.apache.arrow.flight.integration.tests;
 
 import java.util.Objects;
 
@@ -60,6 +60,15 @@ final class IntegrationAssertions {
   static void assertFalse(String message, boolean value) {
     if (value) {
       throw new AssertionError("Expected false: " + message);
+    }
+  }
+
+  /**
+   * Assert that the value is true, using the given message as an error otherwise.
+   */
+  static void assertTrue(String message, boolean value) {
+    if (!value) {
+      throw new AssertionError("Expected true: " + message);
     }
   }
 

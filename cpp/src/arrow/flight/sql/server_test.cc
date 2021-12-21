@@ -609,7 +609,7 @@ TEST_F(TestFlightSqlServer, TestCommandGetPrimaryKeys) {
   const auto key_name = ArrayFromJSON(utf8(), R"([null])");
   const auto table_name = ArrayFromJSON(utf8(), R"(["intTable"])");
   const auto column_name = ArrayFromJSON(utf8(), R"(["id"])");
-  const auto key_sequence = ArrayFromJSON(int64(), R"([1])");
+  const auto key_sequence = ArrayFromJSON(int32(), R"([1])");
 
   const std::shared_ptr<Table>& expected_table = Table::Make(
       SqlSchema::GetPrimaryKeysSchema(),
@@ -758,7 +758,7 @@ TEST_F(TestFlightSqlServer, TestCommandGetSqlInfoNoInfo) {
   ASSERT_OK_AND_ASSIGN(auto flight_info, sql_client->GetSqlInfo(call_options, {999999}));
 
   EXPECT_RAISES_WITH_MESSAGE_THAT(
-      KeyError, ::testing::HasSubstr("No information for SQL info number 999999."),
+      KeyError, ::testing::HasSubstr("No information for SQL info number 999999"),
       sql_client->DoGet(call_options, flight_info->endpoints()[0].ticket));
 }
 

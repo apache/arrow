@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.flight.example.integration;
+package org.apache.arrow.flight.integration.tests;
 
 import java.util.Map;
 import java.util.TreeMap;
@@ -41,6 +41,7 @@ final class Scenarios {
     scenarios = new TreeMap<>();
     scenarios.put("auth:basic_proto", AuthBasicProtoScenario::new);
     scenarios.put("middleware", MiddlewareScenario::new);
+    scenarios.put("flight_sql", FlightSqlScenario::new);
   }
 
   private static Scenarios getInstance() {

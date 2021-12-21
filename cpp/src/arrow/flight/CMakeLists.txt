@@ -202,7 +202,6 @@ if(ARROW_TESTING)
                 OUTPUTS
                 ARROW_FLIGHT_TESTING_LIBRARIES
                 SOURCES
-                test_integration.cc
                 test_util.cc
                 DEPENDENCIES
                 GTest::gtest
@@ -244,21 +243,6 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   endif()
 
   add_dependencies(arrow_flight flight-test-server)
-endif()
-
-if(ARROW_BUILD_INTEGRATION)
-  add_executable(flight-test-integration-server test_integration_server.cc)
-  target_link_libraries(flight-test-integration-server ${ARROW_FLIGHT_TEST_LINK_LIBS}
-                        ${GFLAGS_LIBRARIES} GTest::gtest)
-
-  add_executable(flight-test-integration-client test_integration_client.cc)
-  target_link_libraries(flight-test-integration-client ${ARROW_FLIGHT_TEST_LINK_LIBS}
-                        ${GFLAGS_LIBRARIES} GTest::gtest)
-
-  add_dependencies(arrow_flight flight-test-integration-client
-                   flight-test-integration-server)
-  add_dependencies(arrow-integration flight-test-integration-client
-                   flight-test-integration-server)
 endif()
 
 if(ARROW_BUILD_BENCHMARKS)

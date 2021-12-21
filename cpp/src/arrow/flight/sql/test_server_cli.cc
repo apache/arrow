@@ -17,14 +17,13 @@
 
 #include <gflags/gflags.h>
 
+#include <csignal>
 #include <iostream>
 #include <memory>
 #include <string>
 
 #include "arrow/flight/server.h"
 #include "arrow/flight/sql/example/sqlite_server.h"
-#include "arrow/flight/test_integration.h"
-#include "arrow/flight/test_util.h"
 #include "arrow/io/test_common.h"
 #include "arrow/testing/json_integration.h"
 #include "arrow/util/logging.h"
