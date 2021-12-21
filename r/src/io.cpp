@@ -184,10 +184,10 @@ void io___BufferOutputStream__Write(
 
 class RIconvWrapper {
 public:
-  RIconvWrapper(const char* to, const char* from)
-    : handle_(Riconv_open(to, from)) {
+  RIconvWrapper(std::string to, std::string from)
+    : handle_(Riconv_open(to.c_str(), from.c_str())) {
       if (handle_ == ((void*) -1)) {
-        cpp11::stop("Can't convert encoding from '%s' to '%s'", from, to);
+        cpp11::stop("Can't convert encoding from '%s' to '%s'", from.c_str(), to.c_str());
       }
     }
 
@@ -196,7 +196,7 @@ public:
   }
 
   ~RIconvWrapper() {
-    if (handle_ != nullptr) {
+    if (handle_ != ((void*) -1)) {
       Riconv_close(handle_);
     }
   }
@@ -205,9 +205,12 @@ protected:
   void* handle_;
 };
 
-struct RencodeUTF8TransformFunctionWrapper {
-  RencodeUTF8TransformFunctionWrapper(const char* from)
-    : iconv_("UTF-8", from), n_pending_(0) {}
+struct ReencodeUTF8TransformFunctionWrapper {
+  ReencodeUTF8TransformFunctionWrapper(std::string from)
+    : from_(from), iconv_("UTF-8", from), n_pending_(0) {}
+
+  ReencodeUTF8TransformFunctionWrapper(const ReencodeUTF8TransformFunctionWrapper& ref)
+    : ReencodeUTF8TransformFunctionWrapper(ref.from_) {}
 
   arrow::Result<std::shared_ptr<arrow::Buffer>> operator()(const std::shared_ptr<arrow::Buffer>& src) {
     ARROW_ASSIGN_OR_RAISE(auto dest, arrow::AllocateResizableBuffer(32));
@@ -258,6 +261,7 @@ struct RencodeUTF8TransformFunctionWrapper {
   }
 
 protected:
+  std::string from_;
   RIconvWrapper iconv_;
   char pending_[8];
   size_t n_pending_;
@@ -265,7 +269,7 @@ protected:
 
 // [[arrow::export]]
 std::shared_ptr<arrow::io::InputStream> MakeRencodeInputStream(const std::shared_ptr<arrow::io::InputStream>& wrapped, std::string from) {
-  arrow::io::TransformInputStream::TransformFunc transform(RencodeUTF8TransformFunctionWrapper{from.c_str()});
+  arrow::io::TransformInputStream::TransformFunc transform(ReencodeUTF8TransformFunctionWrapper{from});
   return std::make_shared<arrow::io::TransformInputStream>(std::move(wrapped), std::move(transform));
 }
 
