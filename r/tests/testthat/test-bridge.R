@@ -25,16 +25,6 @@ test_that("Pointer wrapper accepts external pointers", {
   delete_arrow_schema(ptr)
 })
 
-test_that("Pointer wrapper accepts double-casted pointers", {
-  ptr <- allocate_arrow_schema()
-  exportable <- int32()
-  exportable$export_to_c(external_pointer_addr_double(ptr))
-
-  # make sure exportable is released and deleted
-  expect_equal(DataType$import_from_c(external_pointer_addr_double(ptr)), int32())
-  delete_arrow_schema(ptr)
-})
-
 test_that("Pointer wrapper accepts integer64-casted pointers", {
   ptr <- allocate_arrow_schema()
   exportable <- int32()
