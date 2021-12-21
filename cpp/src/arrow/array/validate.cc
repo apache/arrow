@@ -222,9 +222,9 @@ struct ValidateArrayImpl {
     // if unit is ns => data must be within [0, 8.64e13)
     RETURN_NOT_OK(ValidateFixedWidthBuffers());
 
-    using c_type = typename Time32Type::c_type;
+    using c_type = typename Time64Type::c_type;
     if (full_validation) {
-      c_type fullDay_us = 1000000 * 60 * 60 * 24;
+      c_type fullDay_us = 1000000ll * 60 * 60 * 24;
       c_type fullDay_ns = fullDay_us * 1000;
       return VisitArrayDataInline<Time64Type>(
           data,
