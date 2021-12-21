@@ -34,13 +34,12 @@ namespace Apache.Arrow
 
             if (expected.HasMetadata)
             {
-                if (expected.Metadata.Keys.Count() != actual.Metadata.Keys.Count())
+                if (expected.Metadata.Count != actual.Metadata.Count)
                 {
                     return false;
                 }
 
-                if (!expected.Metadata.Keys.All(k => actual.Metadata.ContainsKey(k) && expected.Metadata[k] == actual.Metadata[k]) ||
-                    !actual.Metadata.Keys.All(k => expected.Metadata.ContainsKey(k) && actual.Metadata[k] == expected.Metadata[k]))
+                if (!expected.Metadata.Keys.All(k => actual.Metadata.ContainsKey(k) && expected.Metadata[k] == actual.Metadata[k]))
                 {
                     return false;
                 }
