@@ -17,8 +17,8 @@
 
 #include <cmath>
 #include <cstdint>
-#include <type_traits>
 #include <memory>
+#include <type_traits>
 
 #include "arrow/array/builder_primitive.h"
 
@@ -195,26 +195,23 @@ Status ConstBoolExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
 }
 
 struct NonZeroVisitor {
-   UInt64Builder *builder;
-   const ArrayData& array;
+  UInt64Builder* builder;
+  const ArrayData& array;
 
-   NonZeroVisitor(UInt64Builder *builder, const ArrayData& array)
-   : builder(builder), array(array) {}
+  NonZeroVisitor(UInt64Builder* builder, const ArrayData& array)
+      : builder(builder), array(array) {}
 
-  Status Visit(const DataType& type) {
-    return Status::NotImplemented(type.ToString());
-  }
+  Status Visit(const DataType& type) { return Status::NotImplemented(type.ToString()); }
 
-   template <typename Type> 
-   enable_if_t<is_primitive_ctype<Type>::value, Status>
-   Visit(const Type&) {
-     using T = typename GetViewType<Type>::T;
-     uint32_t index = 0;
+  template <typename Type>
+  enable_if_t<is_primitive_ctype<Type>::value, Status> Visit(const Type&) {
+    using T = typename GetViewType<Type>::T;
+    uint32_t index = 0;
 
-     return VisitArrayDataInline<Type>(
+    return VisitArrayDataInline<Type>(
         this->array,
         [&](T v) {
-          if(v) {
+          if (v) {
             this->builder->UnsafeAppend(index);
           }
           ++index;
@@ -224,7 +221,7 @@ struct NonZeroVisitor {
           ++index;
           return Status::OK();
         });
-   }
+  }
 };
 
 Status IndicesNonZeroExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
@@ -244,7 +241,7 @@ Status IndicesNonZeroExec(KernelContext* ctx, const ExecBatch& batch, Datum* out
 std::shared_ptr<ScalarFunction> MakeIndicesNonZeroFunction(std::string name,
                                                            const FunctionDoc* doc) {
   auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), doc);
-      
+
   for (const auto& ty : NumericTypes()) {
     ScalarKernel kernel;
     kernel.exec = IndicesNonZeroExec;
@@ -382,9 +379,10 @@ const FunctionDoc is_nan_doc("Return true if NaN",
                              ("For each input value, emit true iff the value is NaN."),
                              {"values"});
 
-const FunctionDoc indices_nonzero_doc{"Compare to zero or false",
-                                      ("Return the indices of the array containing non false or zero values."),
-                                      {"values"}};
+const FunctionDoc indices_nonzero_doc{
+    "Compare to zero or false",
+    ("Return the indices of the array containing non false or zero values."),
+    {"values"}};
 
 }  // namespace
 
@@ -401,7 +399,8 @@ void RegisterScalarValidity(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(MakeIsInfFunction("is_inf", &is_inf_doc)));
   DCHECK_OK(registry->AddFunction(MakeIsNanFunction("is_nan", &is_nan_doc)));
 
-  DCHECK_OK(registry->AddFunction(MakeIndicesNonZeroFunction("indices_nonzero", &indices_nonzero_doc)));
+  DCHECK_OK(registry->AddFunction(
+      MakeIndicesNonZeroFunction("indices_nonzero", &indices_nonzero_doc)));
 }
 
 }  // namespace internal
