@@ -19,7 +19,6 @@
 #include <mutex>
 #include <random>
 
-#include "arrow/builder.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/compute/kernels/common.h"
@@ -46,23 +45,27 @@ Status ExecRandom(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
 
   random::pcg64_fast gen;
   const RandomOptions& options = RandomState::Get(ctx);
-  DoubleBuilder builder(ctx->memory_pool());
   if (options.length < 0) {
     return Status::Invalid("Negative number of elements");
   }
-  RETURN_NOT_OK(builder.Reserve(options.length));
+
+  auto out_data = ArrayData::Make(float64(), options.length, 0);
+  out_data->buffers.resize(2, nullptr);
+
+  ARROW_ASSIGN_OR_RAISE(out_data->buffers[1],
+                        ctx->Allocate(options.length * sizeof(double)));
+  double* out_buffer = out_data->template GetMutableValues<double>(1);
+
   if (options.initializer == RandomOptions::Seed) {
     gen.seed(options.seed);
   } else {
     std::lock_guard<std::mutex> seed_gen_lock(seed_gen_mutex);
     gen.seed(seed_gen());
   }
-  for (int i = 0; i < options.length; ++i) {
-    builder.UnsafeAppend(generate_uniform(gen));
+  for (int64_t i = 0; i < options.length; ++i) {
+    out_buffer[i] = generate_uniform(gen);
   }
-  std::shared_ptr<Array> double_array;
-  RETURN_NOT_OK(builder.Finish(&double_array));
-  *out = *double_array->data();
+  *out = std::move(out_data);
   return Status::OK();
 }
 
