@@ -214,7 +214,7 @@ struct NonZeroVisitor {
      return VisitArrayDataInline<Type>(
         this->array,
         [&](T v) {
-          if(v != 0) {
+          if(v) {
             this->builder->UnsafeAppend(index);
           }
           ++index;
