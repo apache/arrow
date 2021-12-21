@@ -193,10 +193,17 @@ map_batches <- function(X, FUN, ..., .data.frame = TRUE) {
   # X$temp_columns, and X$group_by_vars
   # if X is arrow_dplyr_query, if some other arg (.dplyr?) == TRUE
   batch <- reader$read_next_batch()
-  res <- list()
+  res <- vector("list", 1024)
+  i <- 0L
   while (!is.null(batch)) {
-    res <- append(res, list(FUN(batch, ...)))
+    i <- i + 1L
+    res[[i]] <- FUN(batch, ...)
     batch <- reader$read_next_batch()
+  }
+
+  # Trim list back
+  if (i < length(res)) {
+    res <- res[seq_len(i)]
   }
 
   if (.data.frame & inherits(res[[1]], "arrow_dplyr_query")) {
