@@ -30,22 +30,23 @@ namespace IoTPipelineExample
     public class SampleDataPipeline
     {
         private int _size;
+        private int _partitions;
         private readonly int _inputs;
         private readonly int _capacity;
         private readonly Channel<SensorData> _channel;
         ChannelWriter<SensorData> _writer;
         ChannelReader<SensorData> _reader;
 
-        private readonly ConcurrentBag<int> _colSubjectId;
+        private readonly List<ConcurrentBag<int>> _colSubjectIdArrays;
         private readonly ConcurrentBag<string> _colActivityLabel;
         private readonly ConcurrentBag<long> _colTimestamp;
         private readonly ConcurrentBag<double> _colXAxis;
         private readonly ConcurrentBag<double> _colYAxis;
         private readonly ConcurrentBag<double> _colZAxis;
 
-        private readonly int _threshold = 1_000_00;
-        private readonly List<RecordBatch> _recordBatches;
-        private readonly MemoryAllocator _memoryAllocator;
+        private readonly int[][] _partitionBoundary;
+
+        private readonly int _threshold = 100_000;
 
         public Dictionary<string, string> activityLabel = new Dictionary<string, string>()
             {
@@ -69,26 +70,33 @@ namespace IoTPipelineExample
                 {"folding", "S"},
             };
 
-        public SampleDataPipeline(int totalSensorData, int queueCapacity)
+        public SampleDataPipeline(int concurrencyLevel, int totalSensorData, int queueCapacity)
         {
+            _partitions = concurrencyLevel;
+            _partitionBoundary = new int[_partitions][];
             _inputs = totalSensorData;
             _capacity = queueCapacity;
             _channel = Channel.CreateBounded<SensorData>(_capacity);
             _writer = _channel.Writer;
             _reader = _channel.Reader;
 
-            _colSubjectId = new ConcurrentBag<int>();
+            _colSubjectIdArrays = new List<ConcurrentBag<int>>();
+            for (int i = 0; i < _partitions; i++)
+            {
+                _colSubjectIdArrays.Add(new ConcurrentBag<int>());
+            }
+
             _colActivityLabel = new ConcurrentBag<string>();
             _colTimestamp = new ConcurrentBag<long>();
             _colXAxis = new ConcurrentBag<double>();
             _colYAxis = new ConcurrentBag<double>();
             _colZAxis = new ConcurrentBag<double>();
 
-            _recordBatches = new List<RecordBatch>();
-            _memoryAllocator = new NativeMemoryAllocator(alignment: 64);
+            //_recordBatches = new List<RecordBatch>();
+            //_memoryAllocator = new NativeMemoryAllocator(alignment: 64);
         }
 
-        public async Task WriteToChannel()
+        public async Task WriteToChannel(int taskNumber)
         {
             Random rand = new Random();
             List<string> keyList = new List<string>(activityLabel.Keys);
@@ -96,6 +104,7 @@ namespace IoTPipelineExample
             DateTime now = DateTime.Now;
             long unixTime = ((DateTimeOffset)now).ToUnixTimeSeconds();
 
+            Console.WriteLine($"Write to channel task {taskNumber} started!");
             while (_size <= _inputs)
             {
                 string randomKey = keyList[rand.Next(count)];
@@ -120,95 +129,84 @@ namespace IoTPipelineExample
                 Interlocked.Increment(ref _size);
             }
             _writer.TryComplete();
+            Console.WriteLine($"Write to channel task {taskNumber} finished!");
         }
 
-        public async Task ReadFromChannel()
+        public async Task ReadFromChannel(int taskNumber)
         {
+            Console.WriteLine($"Read from channel task {taskNumber} started!");
             while (await _reader.WaitToReadAsync())
             {
                 while (_reader.TryRead(out SensorData item))
                 {
                     if (item != null && item.subjectId != null)
                     {
-                        _colSubjectId.Add((int)item.subjectId);
-                        _colActivityLabel.Add(item.activityLabel);
-                        _colTimestamp.Add((long)item.timestamp);
-                        _colXAxis.Add((double)item.x_Axis);
-                        _colYAxis.Add((double)item.y_Axis);
-                        _colZAxis.Add((double)item.z_Axis);
+                        var hashKey = item.subjectId % _partitions;
+                        //_partitionBoundary[(int)hashKey][0] = Math.Min()
+
+                        _colSubjectIdArrays[(int)hashKey].Add((int)item.subjectId);
+                        //_colActivityLabel.Add(item.activityLabel);
+                        //_colTimestamp.Add((long)item.timestamp);
+                        //_colXAxis.Add((double)item.x_Axis);
+                        //_colYAxis.Add((double)item.y_Axis);
+                        //_colZAxis.Add((double)item.z_Axis);
                     }
 
-                    if (_colSubjectId.Count == _threshold)
-                    {
-                        // Build a record batch using the Fluent API
-                        var recordBatch = new RecordBatch.Builder(_memoryAllocator)
-                            .Append("SubjectId", false, col => col.Int32(array => array.AppendRange(_colSubjectId)))
-                            .Append("ActivityLabel", false, col => col.String(array => array.AppendRange(_colActivityLabel)))
-                            .Append("Timestamp", false, col => col.Int64(array => array.AppendRange(_colTimestamp)))
-                            .Append("XAxis", false, col => col.Double(array => array.AppendRange(_colXAxis)))
-                            .Append("YAxis", false, col => col.Double(array => array.AppendRange(_colYAxis)))
-                            .Append("ZAxis", false, col => col.Double(array => array.AppendRange(_colZAxis)))
-                            .Build();
+                    //if (_colSubjectId.Count == _threshold)
+                    //{
+                    //    var recordBatch = new RecordBatch.Builder(_memoryAllocator)
+                    //        .Append("SubjectId", false, col => col.Int32(array => array.AppendRange(_colSubjectId)))
+                    //        .Append("ActivityLabel", false, col => col.String(array => array.AppendRange(_colActivityLabel)))
+                    //        .Append("Timestamp", false, col => col.Int64(array => array.AppendRange(_colTimestamp)))
+                    //        .Append("XAxis", false, col => col.Double(array => array.AppendRange(_colXAxis)))
+                    //        .Append("YAxis", false, col => col.Double(array => array.AppendRange(_colYAxis)))
+                    //        .Append("ZAxis", false, col => col.Double(array => array.AppendRange(_colZAxis)))
+                    //        .Build();
 
-                        _recordBatches.Add(recordBatch);
+                    //    //_recordBatches.Add(recordBatch);
+                    //    PersistData(recordBatch);
 
-                        _colSubjectId.Clear();
-                        _colActivityLabel.Clear();
-                        _colTimestamp.Clear();
-                        _colXAxis.Clear();
-                        _colYAxis.Clear();
-                        _colZAxis.Clear();
-                    }
+                    //    _colSubjectId.Clear();
+                    //    _colActivityLabel.Clear();
+                    //    _colTimestamp.Clear();
+                    //    _colXAxis.Clear();
+                    //    _colYAxis.Clear();
+                    //    _colZAxis.Clear();
+                    //}
                 }
             }
+            Console.WriteLine($"Read from channel task {taskNumber} finished!");
         }
 
-        public async Task<string> PersistData(string path)
+        public async Task<bool> PersistData()
         {
-            await _reader.Completion;
+            Console.WriteLine("Persisting data to disk...");
+            int partitionNumber = 0;
 
-            if (_colSubjectId.Count > 0)
+            foreach (var colSubjectIdArray in _colSubjectIdArrays)
             {
-                // Build a final record batch using the Fluent API
-                var recordBatch = new RecordBatch.Builder(_memoryAllocator)
-                    .Append("SubjectId", false, col => col.Int32(array => array.AppendRange(_colSubjectId)))
-                    .Append("ActivityLabel", false, col => col.String(array => array.AppendRange(_colActivityLabel)))
-                    .Append("Timestamp", false, col => col.Int64(array => array.AppendRange(_colTimestamp)))
-                    .Append("XAxis", false, col => col.Double(array => array.AppendRange(_colXAxis)))
-                    .Append("YAxis", false, col => col.Double(array => array.AppendRange(_colYAxis)))
-                    .Append("ZAxis", false, col => col.Double(array => array.AppendRange(_colZAxis)))
+                var memoryAllocator = new NativeMemoryAllocator(alignment: 64);
+
+                var recordBatch = new RecordBatch.Builder(memoryAllocator)
+                    .Append("SubjectId", false, col => col.Int32(array => array.AppendRange(colSubjectIdArray)))
+                    //.Append("ActivityLabel", false, col => col.String(array => array.AppendRange(_colActivityLabel)))
+                    //.Append("Timestamp", false, col => col.Int64(array => array.AppendRange(_colTimestamp)))
+                    //.Append("XAxis", false, col => col.Double(array => array.AppendRange(_colXAxis)))
+                    //.Append("YAxis", false, col => col.Double(array => array.AppendRange(_colYAxis)))
+                    //.Append("ZAxis", false, col => col.Double(array => array.AppendRange(_colZAxis)))
                     .Build();
 
-                _recordBatches.Add(recordBatch);
-            }
-
-            Stopwatch stopwatch = new Stopwatch();
-            stopwatch.Start();
-
-            Schema schema = _recordBatches[0].Schema;
-            // Write record batches to an arrow file
-            using (var stream = File.OpenWrite(path))
-            using (var writer = new ArrowFileWriter(stream, schema))
-            {
-                foreach (RecordBatch recordBatch in _recordBatches)
+                using (var stream = File.OpenWrite(@"c:\temp\data\iotbigdata_" + partitionNumber + ".arrow"))
+                using (var writer = new ArrowFileWriter(stream, recordBatch.Schema))
                 {
-                    try
-                    {
-                        await writer.WriteRecordBatchAsync(recordBatch);
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine(ex.ToString());
-                    }
+                    await writer.WriteRecordBatchAsync(recordBatch);
+                    await writer.WriteEndAsync();
                 }
-                await writer.WriteEndAsync();
+
+                partitionNumber++;
             }
 
-            stopwatch.Stop();
-            TimeSpan ts = stopwatch.Elapsed;
-            Console.WriteLine($"Checkpointing is done, time used is: {ts.Minutes} min {ts.Seconds} sec");
-
-            return path;
+            return true;
         }
     }
 

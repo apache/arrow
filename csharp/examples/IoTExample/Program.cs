@@ -16,6 +16,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 using Apache.Arrow.Ipc;
 
@@ -23,54 +24,77 @@ namespace IoTPipelineExample
 {
     class Program
     {
-        public static int concurrencyLevel = 2;
-        public static int totalSensorData = 10_000_000;
+        public static int concurrencyLevel = 8;
+        public static int totalSensorData = 1_000_000;
         public static int queueCapacity = 1_000_000;
 
         public static async Task Main(string[] args)
         {
-            SampleDataPipeline sdp = new SampleDataPipeline(totalSensorData, queueCapacity);
-            List<Task> taskList = new List<Task>();
+            //SampleDataPipeline sdp = new SampleDataPipeline(concurrencyLevel, totalSensorData, queueCapacity);
+            //List<Task> tasks = new List<Task>();
 
-            Console.WriteLine("Producing IoT sensor data concurrently...");
-            for (int i = 0; i < concurrencyLevel; i++)
-            {
-                Task t = Task.Run(() => sdp.WriteToChannel());
-                taskList.Add(t);
-            }
+            //Console.WriteLine("Producing IoT sensor data concurrently...");
+            //for (int i = 0; i < concurrencyLevel; i++)
+            //{
+            //    int j = i;
+            //    Task t = Task.Run(() => sdp.WriteToChannel(j));
+            //    tasks.Add(t);
+            //}
 
-            Console.WriteLine("Consuming IoT sensor data concurrently...");
-            for (int i = 0; i < 1; i++)
-            {
-                Task t = Task.Run(() => sdp.ReadFromChannel());
-                taskList.Add(t);
-            }
+            //Console.WriteLine("Consuming IoT sensor data concurrently...");
+            //for (int i = 0; i < concurrencyLevel; i++)
+            //{
+            //    int j = i;
+            //    Task t = Task.Run(() => sdp.ReadFromChannel(j));
+            //    tasks.Add(t);
+            //}
 
-            Console.WriteLine("Waiting for all tasks to complete...");
-            Task.WaitAll(taskList.ToArray());
+            //Console.WriteLine("Waiting for all tasks to complete...");
+            //Task.WaitAll(tasks.ToArray());
 
-            Console.WriteLine("Persisting data to disk...");
-            string writePath = "iotbigdata.arrow";
-            var readPath = await sdp.PersistData(writePath);
+            //var success = await sdp.PersistData();
+
+            ////string filePath = "iotbigdata.arrow";
+            //if (!success)
+            //    return;
 
             Console.WriteLine("Loading arrow data file into memory...");
-            var stream = File.OpenRead(readPath);
-            var reader = new ArrowFileReader(stream);
-            var count = await reader.RecordBatchCountAsync();
+            string[] fileEntries = Directory.GetFiles(@"c:\temp\data");
 
-            Console.WriteLine("Reading data from arrow record batches...");
-            for (int i = 0; i < count; i++)
+            foreach (string fileName in fileEntries)
             {
-                var recordBatch = await reader.ReadRecordBatchAsync(i);
-
-                for (int j = 0; j < recordBatch.ColumnCount; j++)
-                {
-                    Console.WriteLine($"Total records in record batch {i} column {j} is: " + recordBatch.Column(j).Data.Length);
-                    Console.WriteLine($"Null data count in record batch {i} column {j} is: " + recordBatch.Column(j).Data.NullCount);
-                }
+                ProcessFile(fileName);
             }
         }
 
+        static void ProcessFile(string fileName)
+        {
+            //var stream = File.OpenRead(fileName);
+            //var stream = File.OpenRead(@"c:\temp\data\iotbigdata_2.arrow");
+            //var count =
+
+            //try { await reader.RecordBatchCountAsync(); }
+            //catch(Exception ex) { Console.WriteLine(ex.ToString()); }
+                
+
+            Console.WriteLine($"Reading data from arrow record batch {fileName}...");
+            using (var stream = File.OpenRead(fileName))
+            using (var reader = new ArrowFileReader(stream))
+            {
+                for (int i = 0; i < 1; i++)
+                {
+                    //var recordBatch = await reader.ReadRecordBatchAsync(i);
+                    var recordBatch = reader.ReadNextRecordBatch();
+
+                    for (int j = 0; j < recordBatch.ColumnCount; j++)
+                    {
+                        Console.WriteLine($"Total records in record batch {i} column {j} is: " + recordBatch.Column(j).Data.Length);
+                        Console.WriteLine($"Null data count in record batch {i} column {j} is: " + recordBatch.Column(j).Data.NullCount);
+                    }
+                }
+            }
+                
+        }
     }
 
 }
