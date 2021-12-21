@@ -17,7 +17,6 @@
 
 test_that("reencoding input stream works", {
   string <- "province_name\nQu\u00e9bec"
-  bytes_utf8 <- iconv(string, to = "UTF-8", toRaw = TRUE)[[1]]
   bytes_windows1252 <- iconv(string, to = "windows-1252", toRaw = TRUE)[[1]]
 
   temp_windows1252 <- tempfile()
