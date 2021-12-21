@@ -23,9 +23,8 @@
 #include "arrow/flight/test_util.h"
 #include "arrow/flight/types.h"
 #include "arrow/ipc/dictionary.h"
+#include "arrow/testing/gtest_util.h"
 
-#include <arrow/testing/gtest_util.h>
-#include <arrow/testing/json_integration.h>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -544,18 +543,18 @@ class FlightSqlScenario : public Scenario {
 
   Status MakeClient(FlightClientOptions* options) override { return Status::OK(); }
 
-  Status Validate(std::shared_ptr<Schema> expectedSchema,
-                  arrow::Result<std::unique_ptr<FlightInfo>> flightInfo,
+  Status Validate(std::shared_ptr<Schema> expected_schema,
+                  arrow::Result<std::unique_ptr<FlightInfo>> flight_info_result,
                   sql::FlightSqlClient* sql_client) {
     FlightCallOptions call_options;
 
-    ARROW_ASSIGN_OR_RAISE(auto flight_info, flightInfo);
+    ARROW_ASSIGN_OR_RAISE(auto flight_info, flight_info_result);
     ARROW_ASSIGN_OR_RAISE(
         auto reader, sql_client->DoGet(call_options, flight_info->endpoints()[0].ticket));
 
     ARROW_ASSIGN_OR_RAISE(auto actual_schema, reader->GetSchema());
 
-    AssertSchemaEqual(expectedSchema, actual_schema);
+    AssertSchemaEqual(expected_schema, actual_schema);
 
     return Status::OK();
   }
