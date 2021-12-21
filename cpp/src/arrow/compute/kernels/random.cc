@@ -16,6 +16,7 @@
 // under the License.
 
 #include <memory>
+#include <mutex>
 #include <random>
 
 #include "arrow/builder.h"
@@ -40,6 +41,9 @@ double generate_uniform(random::pcg64_fast& rng) {
 using RandomState = OptionsWrapper<RandomOptions>;
 
 Status ExecRandom(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static random::pcg64_fast seed_gen((std::random_device{})());
+  static std::mutex seed_gen_mutex;
+
   random::pcg64_fast gen;
   const RandomOptions& options = RandomState::Get(ctx);
   DoubleBuilder builder(ctx->memory_pool());
@@ -50,8 +54,8 @@ Status ExecRandom(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   if (options.initializer == RandomOptions::Seed) {
     gen.seed(options.seed);
   } else {
-    std::random_device rd;
-    gen.seed(rd());
+    std::lock_guard<std::mutex> seed_gen_lock(seed_gen_mutex);
+    gen.seed(seed_gen());
   }
   for (int i = 0; i < options.length; ++i) {
     builder.UnsafeAppend(generate_uniform(gen));
