@@ -579,7 +579,7 @@ test_that("Array$create() handles list of dataframes -> map arrays", {
   # MapType is alias for List<Struct<keys, values>>
   arr <- Array$create(
     list(data.frame(key = c("a", "b"), value = c(1, 2)),
-         data.frame(key = c("a", "c"), value = c(4, 7))), 
+         data.frame(key = c("a", "c"), value = c(4, 7))),
     map_of(string(), int32())
   )
   expect_r6_class(arr, "MapArray")

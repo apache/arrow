@@ -182,17 +182,20 @@ test_that("Lists are preserved when writing/reading from Parquet", {
 })
 
 test_that("Maps are preserved when writing/reading from Parquet", {
-  string_bool <- Array$create(list(list(c('a', 'b'), c(TRUE, FALSE))), map_of(utf8(), boolean()))
-  int_struct <- Array$create(list(list(c(2, 4), list(list(x = 1, y = 'a'), list(x = 2, y = 'b')))),
-                             map_of(int64(), struct(x = int64(), y = utf8())))
+  string_bool <- Array$create(list(data.frame(key = c("a", "b"), value = c(TRUE, FALSE))),
+                              map_of(utf8(), boolean()))
+  int_struct <- Array$create(
+    list(tibble::tibble(key = c(2, 4), value = data.frame(x = c(1, 2), y = c("a", "b")))),
+    map_of(int64(), struct(x = int64(), y = utf8()))
+  )
 
-  df <- tibble::tibble(string_bool = string_bool, int_struct = int_struct)
+  df <- arrow_table(string_bool = string_bool, int_struct = int_struct)
 
   pq_tmp_file <- tempfile()
   on.exit(unlink(pq_tmp_file))
 
   write_parquet(df, pq_tmp_file)
-  df_read <- read_parquet(pq_tmp_file)
+  df_read <- read_parquet(pq_tmp_file, as_data_frame = FALSE)
   expect_equal(df, df_read, ignore_attr = TRUE)
 })
 
