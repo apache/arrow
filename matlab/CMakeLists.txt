@@ -359,17 +359,6 @@ target_compile_definitions(arrow_matlab PRIVATE ARROW_MATLAB_EXPORTING)
 set(mexfcn_sources mex/mexfcn.cc)
 list(TRANSFORM mexfcn_sources PREPEND ${CPP_SOURCE_DIR}/arrow/matlab/)
 
-# Store the CMake Configuration Type for multi-configuration generators so
-# that we can reference it later to automatically add the correct build
-# folder to the MATLAB Search Path
-get_property(is_multi_config GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
-if(is_multi_config)
-  add_custom_command(TARGET arrow_matlab
-                     POST_BUILD
-                     COMMAND "${CMAKE_COMMAND}" -E echo $<CONFIG> >
-                             ${CMAKE_BINARY_DIR}/is_multi_config.txt)
-endif()
-
 # Build mexfcn MEX binary
 matlab_add_mex(R2018a
                NAME mexfcn
