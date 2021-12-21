@@ -15,16 +15,24 @@
 # specific language governing permissions and limitations
 # under the License.
 
-diff --git a/snappy.cc b/snappy.cc
-index 79dc0e8..2b5e662 100644
---- a/snappy.cc
-+++ b/snappy.cc
-@@ -348,7 +348,7 @@ static inline bool Copy64BytesWithPatternExtension(char* dst, size_t offset) {
-   if (SNAPPY_PREDICT_TRUE(offset < 16)) {
-     if (SNAPPY_PREDICT_FALSE(offset == 0)) return false;
-     // Extend the pattern to the first 16 bytes.
--    for (int i = 0; i < 16; i++) dst[i] = dst[i - offset];
-+    for (int i = 0; i < 16; i++) dst[i] = (dst - offset)[i];
-     // Find a multiple of pattern >= 16.
-     static std::array<uint8_t, 16> pattern_sizes = []() {
-       std::array<uint8_t, 16> res;
+class TestDayTimeIntervalDataType < Test::Unit::TestCase
+  def setup
+    @data_type = Arrow::DayTimeIntervalDataType.new
+  end
+
+  def test_type
+    assert_equal(Arrow::Type::DAY_TIME_INTERVAL, @data_type.id)
+  end
+
+  def test_interval_type
+    assert_equal(Arrow::IntervalType::DAY_TIME, @data_type.interval_type)
+  end
+
+  def test_name
+    assert_equal("day_time_interval", @data_type.name)
+  end
+
+  def test_to_s
+    assert_equal("day_time_interval", @data_type.to_s)
+  end
+end

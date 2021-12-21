@@ -1,5 +1,3 @@
-#!/usr/bin/env bash
-#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,38 +15,24 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# This script is Github Actions-specific to free up disk space,
-# to avoid disk full errors on some builds
+class TestMonthIntervalDataType < Test::Unit::TestCase
+  def setup
+    @data_type = Arrow::MonthIntervalDataType.new
+  end
 
-if [ $RUNNER_OS = "Linux" ]; then
-    df -h
+  def test_type
+    assert_equal(Arrow::Type::MONTH_INTERVAL, @data_type.id)
+  end
 
-    # remove swap
-    sudo swapoff -a
-    sudo rm -f /swapfile
+  def test_interval_type
+    assert_equal(Arrow::IntervalType::MONTH, @data_type.interval_type)
+  end
 
-    # clean apt cache
-    sudo apt clean
+  def test_name
+    assert_equal("month_interval", @data_type.name)
+  end
 
-    # remove haskell, consumes 8.6 GB
-    sudo rm -rf /opt/ghc
-
-    # 1 GB
-    sudo rm -rf /home/linuxbrew/.linuxbrew
-
-    # 1+ GB
-    sudo rm -rf /opt/hostedtoolcache/CodeQL
-
-    # 1+ GB
-    sudo rm -rf /usr/share/swift
-
-    # 12 GB, but takes a lot of time to delete
-    #sudo rm -rf /usr/local/lib/android
-
-    # remove cached docker images, around 13 GB
-    docker rmi $(docker image ls -aq)
-
-    # NOTE: /usr/share/dotnet is 25 GB
-fi
-
-df -h
+  def test_to_s
+    assert_equal("month_interval", @data_type.to_s)
+  end
+end

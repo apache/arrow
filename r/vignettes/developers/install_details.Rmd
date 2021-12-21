@@ -57,15 +57,23 @@ correct components are described below.
 
 The diagram below shows how the R package finds a libarrow installation on Windows.
 
-```{r, echo=FALSE, out.width="70%"}
+```{r, echo=FALSE, out.width="70%", fig.alt = "Flowchart of libarrow installation on Windows systems - find full descriptions in sections 'Checking for existing libarrow installations' and 'Downloading libarrow' below"}
 knitr::include_graphics("./install_diagram_windows.png")
 ```
 
-### Linux
+#### Checking for existing libarrow installations
+
+When you install the arrow R package on Windows, if the `ARROW_HOME` environment variable has not been set, the install script looks for an existing libarrow installation.  If this cannot be find, it then checks whether the `R_WINLIB_LOCAL` environment variable has been set to point to a local installation.
+
+#### Downloading libarrow
+
+If no existing libarrow installations can be found, the script proceeds to try to download the required version of libarrow, first from the nightly builds repository and then from Rwinlib.  The script first tries to find a version of libarrow which is matches the most components according to semantic versioning, and in the case of a failure becomes less specific (i.e. if there are no binaries found for version 0.14.1.1, then try to find one for 0.14.1).
+
+### Non-Windows
 
 The diagram below shows how the R package finds a libarrow installation on non-Windows systems.
 
-```{r, echo=FALSE, out.width="70%"}
+```{r, echo=FALSE, out.width="70%", fig.alt = "Flowchart of libarrow installation on non-Windows systems - find full description in sections 'Using pkg-config', 'Prebuilt binaries' and 'Building from source' below"}
 knitr::include_graphics("./install_nix.png")
 ```
 
@@ -73,7 +81,7 @@ More information about these steps can be found below.
 
 #### Using pkg-config
 
-When you install the arrow R package on Linux, if no environment variables 
+When you install the arrow R package on non-Windows systems, if no environment variables 
 relating to the location of an existing libarrow installation have already by 
 set, the installation code will attempt to find libarrow on
 your system using the `pkg-config` command.

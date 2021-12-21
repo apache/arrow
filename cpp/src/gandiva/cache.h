@@ -18,16 +18,15 @@
 #pragma once
 
 #include <cstdlib>
-#include <memory>
 #include <mutex>
 
-#include "gandiva/greedy_dual_size_cache.h"
+#include "gandiva/lru_cache.h"
 #include "gandiva/visibility.h"
 
 namespace gandiva {
 
 GANDIVA_EXPORT
-size_t GetCapacity();
+int GetCapacity();
 
 GANDIVA_EXPORT
 void LogCacheSize(size_t capacity);
@@ -39,22 +38,22 @@ class Cache {
 
   Cache() : Cache(GetCapacity()) {}
 
-  ValueType GetObjectCode(KeyType& cache_key) {
-    arrow::util::optional<ValueCacheObject<ValueType>> result;
+  ValueType GetObjectCode(KeyType cache_key) {
+    arrow::util::optional<ValueType> result;
     mtx_.lock();
     result = cache_.get(cache_key);
     mtx_.unlock();
-    return result != arrow::util::nullopt ? (*result).module : nullptr;
+    return result != arrow::util::nullopt ? *result : nullptr;
   }
 
-  void PutObjectCode(KeyType& cache_key, ValueCacheObject<ValueType>& object_code) {
+  void PutObjectCode(KeyType cache_key, ValueType module) {
     mtx_.lock();
-    cache_.insert(cache_key, object_code);
+    cache_.insert(cache_key, module);
     mtx_.unlock();
   }
 
  private:
-  GreedyDualSizeCache<KeyType, ValueType> cache_;
+  LruCache<KeyType, ValueType> cache_;
   std::mutex mtx_;
 };
 }  // namespace gandiva

@@ -2267,7 +2267,7 @@ TYPED_TEST(TestNumericIndexKernel, Basics) {
   this->AssertIndexIs(chunked_input4, value, 5);
 
   EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, ::testing::HasSubstr("Must provide IndexOptions"),
+      Invalid, ::testing::HasSubstr("Function 'index' cannot be called without options"),
       CallFunction("index", {ArrayFromJSON(this->type_singleton(), "[0]")}));
 }
 TYPED_TEST(TestNumericIndexKernel, Random) {

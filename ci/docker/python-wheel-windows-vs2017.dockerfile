@@ -86,7 +86,7 @@ RUN wmic product where "name like 'python%%'" call uninstall /nointeractive && \
     rm -rf Python*
 
 # Define the full version number otherwise choco falls back to patch number 0 (3.7 => 3.7.0)
-ARG python=3.6
+ARG python=3.8
 RUN (if "%python%"=="3.6" setx PYTHON_VERSION 3.6.8) & \
     (if "%python%"=="3.7" setx PYTHON_VERSION 3.7.4) & \
     (if "%python%"=="3.8" setx PYTHON_VERSION 3.8.6) & \

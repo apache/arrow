@@ -50,7 +50,7 @@ test_that("if_else and ifelse", {
         y = if_else(int > 5, 1, FALSE)
       ) %>%
       collect(),
-    "NotImplemented: Function if_else has no kernel matching input types"
+    "NotImplemented: Function 'if_else' has no kernel matching input types"
   )
 
   compare_dplyr_binding(

@@ -1324,7 +1324,7 @@ const FunctionDoc select_k_unstable_doc(
      "Null values are considered greater than any other value and are\n"
      "therefore ordered at the end. For floating-point types, NaNs are considered\n"
      "greater than any other non-null value, but smaller than null values."),
-    {"input"}, "SelectKOptions");
+    {"input"}, "SelectKOptions", /*options_required=*/true);
 
 Result<std::shared_ptr<ArrayData>> MakeMutableUInt64Array(
     std::shared_ptr<DataType> out_type, int64_t length, MemoryPool* memory_pool) {

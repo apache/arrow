@@ -199,6 +199,12 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      kResultNullIfNull, "castVARCHAR_decimal128_int64",
                      NativeFunction::kNeedsContext),
 
+      NativeFunction("crc32", {}, DataTypeVector{utf8()}, int64(), kResultNullIfNull,
+                     "gdv_fn_crc_32_utf8", NativeFunction::kNeedsContext),
+
+      NativeFunction("crc32", {}, DataTypeVector{binary()}, int64(), kResultNullIfNull,
+                     "gdv_fn_crc_32_binary", NativeFunction::kNeedsContext),
+
       NativeFunction("like", {}, DataTypeVector{utf8(), utf8()}, boolean(),
                      kResultNullIfNull, "gdv_fn_like_utf8_utf8",
                      NativeFunction::kNeedsFunctionHolder),

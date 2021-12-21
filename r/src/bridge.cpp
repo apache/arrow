@@ -22,6 +22,38 @@
 #include <arrow/c/bridge.h>
 
 // [[arrow::export]]
+double external_pointer_addr_double(SEXP external_pointer) {
+  // potentially lossy conversion to double needed for the current
+  // implementation of import/export to Python
+  return reinterpret_cast<uintptr_t>(R_ExternalPtrAddr(external_pointer));
+}
+
+// [[arrow::export]]
+std::string external_pointer_addr_character(SEXP external_pointer) {
+  void* ptr_void = R_ExternalPtrAddr(external_pointer);
+  uint64_t ptr_int64 = reinterpret_cast<uintptr_t>(ptr_void);
+  return std::to_string(ptr_int64);
+}
+
+// [[arrow::export]]
+cpp11::doubles external_pointer_addr_integer64(SEXP external_pointer) {
+  cpp11::writable::doubles out(1);
+  void* ptr_void = R_ExternalPtrAddr(external_pointer);
+  uint64_t ptr_int64 = reinterpret_cast<uintptr_t>(ptr_void);
+  memcpy(REAL(out), &ptr_int64, sizeof(uint64_t));
+  out.attr("class") = "integer64";
+  return out;
+}
+
+// [[arrow::export]]
+cpp11::raws external_pointer_addr_raw(SEXP external_pointer) {
+  cpp11::writable::raws out(sizeof(void*));
+  void* ptr_value = R_ExternalPtrAddr(external_pointer);
+  memcpy(RAW(out), &ptr_value, sizeof(void*));
+  return out;
+}
+
+// [[arrow::export]]
 arrow::r::Pointer<struct ArrowSchema> allocate_arrow_schema() { return {}; }
 
 // [[arrow::export]]

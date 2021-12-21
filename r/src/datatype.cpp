@@ -84,6 +84,8 @@ const char* r6_class_name<arrow::DataType>::get(
 
     case Type::DECIMAL128:
       return "Decimal128Type";
+    case Type::DECIMAL256:
+      return "Decimal256Type";
 
     case Type::LIST:
       return "ListType";
@@ -180,6 +182,13 @@ std::shared_ptr<arrow::DataType> Decimal128Type__initialize(int32_t precision,
                                                             int32_t scale) {
   // Use the builder that validates inputs
   return ValueOrStop(arrow::Decimal128Type::Make(precision, scale));
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::DataType> Decimal256Type__initialize(int32_t precision,
+                                                            int32_t scale) {
+  // Use the builder that validates inputs
+  return ValueOrStop(arrow::Decimal256Type::Make(precision, scale));
 }
 
 // [[arrow::export]]
@@ -317,7 +326,8 @@ arrow::TimeUnit::type TimeType__unit(const std::shared_ptr<arrow::TimeType>& typ
 }
 
 // [[arrow::export]]
-arrow::TimeUnit::type DurationType__unit(const std::shared_ptr<arrow::TimeType>& type) {
+arrow::TimeUnit::type DurationType__unit(
+    const std::shared_ptr<arrow::DurationType>& type) {
   return type->unit();
 }
 

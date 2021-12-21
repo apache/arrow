@@ -22,7 +22,7 @@ Tutorials
 *********
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    python_tutorial
    r_tutorial

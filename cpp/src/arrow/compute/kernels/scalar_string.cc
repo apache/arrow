@@ -1491,7 +1491,7 @@ const FunctionDoc match_substring_doc(
      "Null inputs emit null.\n"
      "The pattern must be given in MatchSubstringOptions.\n"
      "If ignore_case is set, only simple case folding is performed."),
-    {"strings"}, "MatchSubstringOptions");
+    {"strings"}, "MatchSubstringOptions", /*options_required=*/true);
 
 const FunctionDoc starts_with_doc(
     "Check if strings start with a literal pattern",
@@ -1500,7 +1500,7 @@ const FunctionDoc starts_with_doc(
      "If ignore_case is set, only simple case folding is performed.\n"
      "\n"
      "Null inputs emit null."),
-    {"strings"}, "MatchSubstringOptions");
+    {"strings"}, "MatchSubstringOptions", /*options_required=*/true);
 
 const FunctionDoc ends_with_doc(
     "Check if strings end with a literal pattern",
@@ -1509,7 +1509,7 @@ const FunctionDoc ends_with_doc(
      "If ignore_case is set, only simple case folding is performed.\n"
      "\n"
      "Null inputs emit null."),
-    {"strings"}, "MatchSubstringOptions");
+    {"strings"}, "MatchSubstringOptions", /*options_required=*/true);
 
 #ifdef ARROW_WITH_RE2
 const FunctionDoc match_substring_regex_doc(
@@ -1519,7 +1519,7 @@ const FunctionDoc match_substring_regex_doc(
      "If ignore_case is set, only simple case folding is performed.\n"
      "\n"
      "Null inputs emit null."),
-    {"strings"}, "MatchSubstringOptions");
+    {"strings"}, "MatchSubstringOptions", /*options_required=*/true);
 
 // SQL LIKE match
 
@@ -1630,7 +1630,7 @@ const FunctionDoc match_like_doc(
      "match exactly one character, and any other character matches itself.\n"
      "To match a literal '%', '_', or '\\', precede the character with a backslash.\n"
      "Null inputs emit null.  The pattern must be given in MatchSubstringOptions."),
-    {"strings"}, "MatchSubstringOptions");
+    {"strings"}, "MatchSubstringOptions", /*options_required=*/true);
 
 #endif
 
@@ -1755,7 +1755,7 @@ const FunctionDoc find_substring_doc(
     ("For each string in `strings`, emit the index in bytes of the first occurrence\n"
      "of the given literal pattern, or -1 if not found.\n"
      "Null inputs emit null. The pattern must be given in MatchSubstringOptions."),
-    {"strings"}, "MatchSubstringOptions");
+    {"strings"}, "MatchSubstringOptions", /*options_required=*/true);
 
 #ifdef ARROW_WITH_RE2
 template <typename InputType>
@@ -1774,7 +1774,7 @@ const FunctionDoc find_substring_regex_doc(
     ("For each string in `strings`, emit the index in bytes of the first occurrence\n"
      "of the given literal pattern, or -1 if not found.\n"
      "Null inputs emit null. The pattern must be given in MatchSubstringOptions."),
-    {"strings"}, "MatchSubstringOptions");
+    {"strings"}, "MatchSubstringOptions", /*options_required=*/true);
 #endif
 
 void AddFindSubstring(FunctionRegistry* registry) {
@@ -1914,7 +1914,7 @@ const FunctionDoc count_substring_doc(
     ("For each string in `strings`, emit the number of occurrences of the given\n"
      "literal pattern.\n"
      "Null inputs emit null. The pattern must be given in MatchSubstringOptions."),
-    {"strings"}, "MatchSubstringOptions");
+    {"strings"}, "MatchSubstringOptions", /*options_required=*/true);
 
 #ifdef ARROW_WITH_RE2
 const FunctionDoc count_substring_regex_doc(
@@ -1922,7 +1922,7 @@ const FunctionDoc count_substring_regex_doc(
     ("For each string in `strings`, emit the number of occurrences of the given\n"
      "regular expression pattern.\n"
      "Null inputs emit null. The pattern must be given in MatchSubstringOptions."),
-    {"strings"}, "MatchSubstringOptions");
+    {"strings"}, "MatchSubstringOptions", /*options_required=*/true);
 #endif
 
 void AddCountSubstring(FunctionRegistry* registry) {
@@ -2146,7 +2146,7 @@ const FunctionDoc utf8_slice_codeunits_doc(
      "If `step` is negative, the string will be advanced in reversed order.\n"
      "An error is raised if `step` is zero.\n"
      "Null inputs emit null."),
-    {"strings"}, "SliceOptions");
+    {"strings"}, "SliceOptions", /*options_required=*/true);
 
 void AddSlice(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>("utf8_slice_codeunits", Arity::Unary(),
@@ -2644,7 +2644,7 @@ const FunctionDoc split_pattern_doc(
      "\n"
      "The maximum number of splits and direction of splitting\n"
      "(forward, reverse) can optionally be defined in SplitPatternOptions."),
-    {"strings"}, "SplitPatternOptions");
+    {"strings"}, "SplitPatternOptions", /*options_required=*/true);
 
 const FunctionDoc ascii_split_whitespace_doc(
     "Split string according to any ASCII whitespace",
@@ -2860,7 +2860,7 @@ const FunctionDoc split_pattern_regex_doc(
      "\n"
      "The maximum number of splits and direction of splitting\n"
      "(forward, reverse) can optionally be defined in SplitPatternOptions."),
-    {"strings"}, "SplitPatternOptions");
+    {"strings"}, "SplitPatternOptions", /*options_required=*/true);
 
 void AddSplitRegex(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>("split_pattern_regex", Arity::Unary(),
@@ -3236,7 +3236,7 @@ const FunctionDoc replace_substring_doc(
      "If `max_replacements` is given and not equal to -1, it limits the\n"
      "maximum amount replacements per input, counted from the left.\n"
      "Null values emit null."),
-    {"strings"}, "ReplaceSubstringOptions");
+    {"strings"}, "ReplaceSubstringOptions", /*options_required=*/true);
 
 #ifdef ARROW_WITH_RE2
 template <typename Type>
@@ -3249,7 +3249,7 @@ const FunctionDoc replace_substring_regex_doc(
      "If `max_replacements` is given and not equal to -1, it limits the\n"
      "maximum amount replacements per input, counted from the left.\n"
      "Null values emit null."),
-    {"strings"}, "ReplaceSubstringOptions");
+    {"strings"}, "ReplaceSubstringOptions", /*options_required=*/true);
 #endif
 
 // ----------------------------------------------------------------------
@@ -3400,7 +3400,7 @@ const FunctionDoc binary_replace_slice_doc(
      "and `stop` indices with the given `replacement`. `start` is inclusive\n"
      "and `stop` is exclusive, and both are measured in bytes.\n"
      "Null values emit null."),
-    {"strings"}, "ReplaceSliceOptions");
+    {"strings"}, "ReplaceSliceOptions", /*options_required=*/true);
 
 const FunctionDoc utf8_replace_slice_doc(
     "Replace a slice of a string",
@@ -3408,7 +3408,7 @@ const FunctionDoc utf8_replace_slice_doc(
      "and `stop` indices with the given `replacement`. `start` is inclusive\n"
      "and `stop` is exclusive, and both are measured in UTF8 characters.\n"
      "Null values emit null."),
-    {"strings"}, "ReplaceSliceOptions");
+    {"strings"}, "ReplaceSliceOptions", /*options_required=*/true);
 
 void AddReplaceSlice(FunctionRegistry* registry) {
   {
@@ -3607,7 +3607,7 @@ const FunctionDoc extract_regex_doc(
      "regular expression fails matching, a null output value is emitted.\n"
      "\n"
      "Regular expression matching is done using the Google RE2 library."),
-    {"strings"}, "ExtractRegexOptions");
+    {"strings"}, "ExtractRegexOptions", /*options_required=*/true);
 
 void AddExtractRegex(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>("extract_regex", Arity::Unary(),
@@ -4012,37 +4012,37 @@ const FunctionDoc utf8_center_doc(
     "Center strings by padding with a given character",
     ("For each string in `strings`, emit a centered string by padding both sides \n"
      "with the given UTF8 codeunit.\nNull values emit null."),
-    {"strings"}, "PadOptions");
+    {"strings"}, "PadOptions", /*options_required=*/true);
 
 const FunctionDoc utf8_lpad_doc(
     "Right-align strings by padding with a given character",
     ("For each string in `strings`, emit a right-aligned string by prepending \n"
      "the given UTF8 codeunit.\nNull values emit null."),
-    {"strings"}, "PadOptions");
+    {"strings"}, "PadOptions", /*options_required=*/true);
 
 const FunctionDoc utf8_rpad_doc(
     "Left-align strings by padding with a given character",
     ("For each string in `strings`, emit a left-aligned string by appending \n"
      "the given UTF8 codeunit.\nNull values emit null."),
-    {"strings"}, "PadOptions");
+    {"strings"}, "PadOptions", /*options_required=*/true);
 
 const FunctionDoc ascii_center_doc(
     utf8_center_doc.summary,
     ("For each string in `strings`, emit a centered string by padding both sides \n"
      "with the given ASCII character.\nNull values emit null."),
-    {"strings"}, "PadOptions");
+    {"strings"}, "PadOptions", /*options_required=*/true);
 
 const FunctionDoc ascii_lpad_doc(
     utf8_lpad_doc.summary,
     ("For each string in `strings`, emit a right-aligned string by prepending \n"
      "the given ASCII character.\nNull values emit null."),
-    {"strings"}, "PadOptions");
+    {"strings"}, "PadOptions", /*options_required=*/true);
 
 const FunctionDoc ascii_rpad_doc(
     utf8_rpad_doc.summary,
     ("For each string in `strings`, emit a left-aligned string by appending \n"
      "the given ASCII character.\nNull values emit null."),
-    {"strings"}, "PadOptions");
+    {"strings"}, "PadOptions", /*options_required=*/true);
 
 const FunctionDoc utf8_trim_whitespace_doc(
     "Trim leading and trailing whitespace characters",
@@ -4091,42 +4091,42 @@ const FunctionDoc utf8_trim_doc(
     ("For each string in `strings`, remove any leading or trailing characters\n"
      "from the `characters` option (as given in TrimOptions).\n"
      "Null values emit null."),
-    {"strings"}, "TrimOptions");
+    {"strings"}, "TrimOptions", /*options_required=*/true);
 
 const FunctionDoc utf8_ltrim_doc(
     "Trim leading characters",
     ("For each string in `strings`, remove any leading characters\n"
      "from the `characters` option (as given in TrimOptions).\n"
      "Null values emit null."),
-    {"strings"}, "TrimOptions");
+    {"strings"}, "TrimOptions", /*options_required=*/true);
 
 const FunctionDoc utf8_rtrim_doc(
     "Trim trailing characters",
     ("For each string in `strings`, remove any trailing characters\n"
      "from the `characters` option (as given in TrimOptions).\n"
      "Null values emit null."),
-    {"strings"}, "TrimOptions");
+    {"strings"}, "TrimOptions", /*options_required=*/true);
 
 const FunctionDoc ascii_trim_doc(
     utf8_trim_doc.summary,
     utf8_trim_doc.description +
         ("\nBoth the `strings` and the `characters` are interpreted as\n"
          "ASCII; to trim non-ASCII characters, use `utf8_trim`."),
-    {"strings"}, "TrimOptions");
+    {"strings"}, "TrimOptions", /*options_required=*/true);
 
 const FunctionDoc ascii_ltrim_doc(
     utf8_ltrim_doc.summary,
     utf8_ltrim_doc.description +
         ("\nBoth the `strings` and the `characters` are interpreted as\n"
          "ASCII; to trim non-ASCII characters, use `utf8_ltrim`."),
-    {"strings"}, "TrimOptions");
+    {"strings"}, "TrimOptions", /*options_required=*/true);
 
 const FunctionDoc ascii_rtrim_doc(
     utf8_rtrim_doc.summary,
     utf8_rtrim_doc.description +
         ("\nBoth the `strings` and the `characters` are interpreted as\n"
          "ASCII; to trim non-ASCII characters, use `utf8_rtrim`."),
-    {"strings"}, "TrimOptions");
+    {"strings"}, "TrimOptions", /*options_required=*/true);
 
 const FunctionDoc strptime_doc(
     "Parse timestamps",
@@ -4134,7 +4134,7 @@ const FunctionDoc strptime_doc(
      "The timestamp unit and the expected string pattern must be given\n"
      "in StrptimeOptions.  Null inputs emit null.  If a non-null string\n"
      "fails parsing, an error is returned."),
-    {"strings"}, "StrptimeOptions");
+    {"strings"}, "StrptimeOptions", /*options_required=*/true);
 
 const FunctionDoc binary_length_doc(
     "Compute string lengths",
@@ -5129,7 +5129,7 @@ const FunctionDoc utf8_normalize_doc(
     ("For each string in `strings`, return the normal form.\n\n"
      "The normalization form must be given in the options.\n"
      "Null inputs emit null."),
-    {"strings"}, "Utf8NormalizeOptions");
+    {"strings"}, "Utf8NormalizeOptions", /*options_required=*/true);
 
 #endif  // ARROW_WITH_UTF8PROC
 

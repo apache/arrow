@@ -174,6 +174,13 @@ arrow_with_json <- function() {
   })
 }
 
+# True when the OS is linux + and the R version is development
+# helpful for skipping on Valgrind, and the sanitizer checks (clang + gcc) on cran
+on_linux_dev <- function() {
+  identical(tolower(Sys.info()[["sysname"]]), "linux") &&
+    grepl("devel", R.version.string)
+}
+
 option_use_threads <- function() {
   !is_false(getOption("arrow.use_threads"))
 }

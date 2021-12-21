@@ -57,6 +57,10 @@ struct GcsPath {
   std::string object;
 
   static Result<GcsPath> FromString(const std::string& s) {
+    if (internal::IsLikelyUri(s)) {
+      return Status::Invalid(
+          "Expected a GCS object path of the form 'bucket/key...', got a URI: '", s, "'");
+    }
     auto const first_sep = s.find_first_of(internal::kSep);
     if (first_sep == 0) {
       return Status::Invalid("Path cannot start with a separator ('", s, "')");
@@ -96,28 +100,32 @@ class GcsInputStream : public arrow::io::InputStream {
   // @name FileInterface
   Status Close() override {
     stream_.Close();
+    closed_ = true;
     return Status::OK();
   }
 
   Result<int64_t> Tell() const override {
-    if (!stream_) {
-      return Status::IOError("invalid stream");
-    }
+    if (closed()) return Status::Invalid("Cannot use Tell() on a closed stream");
     return stream_.tellg() + offset_;
   }
 
-  bool closed() const override { return !stream_.IsOpen(); }
+  // A gcs::ObjectReadStream can be "born closed".  For small objects the stream returns
+  // `IsOpen() == false` as soon as it is created, but the application can still read from
+  // it.
+  bool closed() const override { return closed_ && !stream_.IsOpen(); }
   //@}
 
   //@{
   // @name Readable
   Result<int64_t> Read(int64_t nbytes, void* out) override {
+    if (closed()) return Status::Invalid("Cannot read from a closed stream");
     stream_.read(static_cast<char*>(out), nbytes);
     ARROW_GCS_RETURN_NOT_OK(stream_.status());
     return stream_.gcount();
   }
 
   Result<std::shared_ptr<Buffer>> Read(int64_t nbytes) override {
+    if (closed()) return Status::Invalid("Cannot read from a closed stream");
     ARROW_ASSIGN_OR_RAISE(auto buffer, arrow::AllocateResizableBuffer(nbytes));
     stream_.read(reinterpret_cast<char*>(buffer->mutable_data()), nbytes);
     ARROW_GCS_RETURN_NOT_OK(stream_.status());
@@ -142,6 +150,7 @@ class GcsInputStream : public arrow::io::InputStream {
   gcs::Generation generation_;
   std::int64_t offset_;
   gcs::Client client_;
+  bool closed_ = false;
 };
 
 class GcsOutputStream : public arrow::io::OutputStream {
@@ -151,19 +160,28 @@ class GcsOutputStream : public arrow::io::OutputStream {
 
   Status Close() override {
     stream_.Close();
+    closed_ = true;
     return internal::ToArrowStatus(stream_.last_status());
   }
 
   Result<int64_t> Tell() const override {
-    if (!stream_) {
-      return Status::IOError("invalid stream");
-    }
+    if (closed()) return Status::Invalid("Cannot use Tell() on a closed stream");
     return tell_;
   }
 
-  bool closed() const override { return !stream_.IsOpen(); }
+  // gcs::ObjectWriteStream can be "closed" without an explicit Close() call. At this time
+  // this class does not use any of the mechanisms [*] that trigger such behavior.
+  // Nevertheless, we defensively prepare for them by checking either condition.
+  //
+  // [*]: These mechanisms include:
+  // - resumable uploads that are "resumed" after the upload completed are born
+  //   "closed",
+  // - uploads that prescribe their total size using the `x-upload-content-length` header
+  //   are completed and "closed" as soon as the upload reaches that size.
+  bool closed() const override { return closed_ || !stream_.IsOpen(); }
 
   Status Write(const void* data, int64_t nbytes) override {
+    if (closed()) return Status::Invalid("Cannot write to a closed stream");
     if (stream_.write(reinterpret_cast<const char*>(data), nbytes)) {
       tell_ += nbytes;
       return Status::OK();
@@ -172,6 +190,7 @@ class GcsOutputStream : public arrow::io::OutputStream {
   }
 
   Status Flush() override {
+    if (closed()) return Status::Invalid("Cannot flush a closed stream");
     stream_.flush();
     return Status::OK();
   }
@@ -179,6 +198,7 @@ class GcsOutputStream : public arrow::io::OutputStream {
  private:
   gcs::ObjectWriteStream stream_;
   int64_t tell_ = 0;
+  bool closed_ = false;
 };
 
 using InputStreamFactory = std::function<Result<std::shared_ptr<io::InputStream>>(
@@ -225,6 +245,7 @@ class GcsRandomAccessFile : public arrow::io::RandomAccessFile {
   // @name RandomAccessFile
   Result<int64_t> GetSize() override { return metadata_.size(); }
   Result<int64_t> ReadAt(int64_t position, int64_t nbytes, void* out) override {
+    if (closed()) return Status::Invalid("Cannot read from closed file");
     std::shared_ptr<io::InputStream> stream;
     ARROW_ASSIGN_OR_RAISE(stream, factory_(metadata_.bucket(), metadata_.name(),
                                            gcs::Generation(metadata_.generation()),
@@ -232,6 +253,7 @@ class GcsRandomAccessFile : public arrow::io::RandomAccessFile {
     return stream->Read(nbytes, out);
   }
   Result<std::shared_ptr<Buffer>> ReadAt(int64_t position, int64_t nbytes) override {
+    if (closed()) return Status::Invalid("Cannot read from closed file");
     std::shared_ptr<io::InputStream> stream;
     ARROW_ASSIGN_OR_RAISE(stream, factory_(metadata_.bucket(), metadata_.name(),
                                            gcs::Generation(metadata_.generation()),
@@ -242,6 +264,7 @@ class GcsRandomAccessFile : public arrow::io::RandomAccessFile {
 
   // from Seekable
   Status Seek(int64_t position) override {
+    if (closed()) return Status::Invalid("Cannot seek in a closed file");
     ARROW_ASSIGN_OR_RAISE(stream_, factory_(metadata_.bucket(), metadata_.name(),
                                             gcs::Generation(metadata_.generation()),
                                             gcs::ReadFromOffset(position)));
@@ -287,17 +310,20 @@ class GcsFileSystem::Impl {
   Result<FileInfo> GetFileInfo(const GcsPath& path) {
     if (path.object.empty()) {
       auto meta = client_.GetBucketMetadata(path.bucket);
-      return GetFileInfoImpl(path, std::move(meta).status(), FileType::Directory);
+      return GetFileInfoDirectory(path, std::move(meta).status());
     }
     auto meta = client_.GetObjectMetadata(path.bucket, path.object);
-    return GetFileInfoImpl(
-        path, std::move(meta).status(),
-        path.object.back() == '/' ? FileType::Directory : FileType::File);
+    if (path.object.back() == '/') {
+      return GetFileInfoDirectory(path, std::move(meta).status());
+    }
+    return GetFileInfoFile(path, meta);
   }
 
   Result<FileInfoVector> GetFileInfo(const FileSelector& select) {
     ARROW_ASSIGN_OR_RAISE(auto p, GcsPath::FromString(select.base_dir));
-    auto prefix = p.object.empty() ? gcs::Prefix() : gcs::Prefix(p.object);
+    const auto canonical = internal::EnsureTrailingSlash(p.object);
+    const auto max_depth = internal::Depth(canonical) + select.max_recursion;
+    auto prefix = p.object.empty() ? gcs::Prefix() : gcs::Prefix(canonical);
     auto delimiter = select.recursive ? gcs::Delimiter() : gcs::Delimiter("/");
     bool found_directory = false;
     FileInfoVector result;
@@ -310,8 +336,9 @@ class GcsFileSystem::Impl {
         return internal::ToArrowStatus(o.status());
       }
       found_directory = true;
-      // Skip the directory itself from the results
-      if (o->name() == p.object) {
+      // Skip the directory itself from the results, and any result that is "too deep"
+      // into the recursion.
+      if (o->name() == p.object || internal::Depth(o->name()) > max_depth) {
         continue;
       }
       auto path = internal::ConcatAbstractPath(o->bucket(), o->name());
@@ -320,13 +347,7 @@ class GcsFileSystem::Impl {
             FileInfo(internal::EnsureTrailingSlash(path), FileType::Directory));
         continue;
       }
-      auto info = FileInfo(path, FileType::File);
-      info.set_size(static_cast<int64_t>(o->size()));
-      // An object has multiple "time" attributes, including the time when its data was
-      // created, and the time when its metadata was last updated. We use the object
-      // creation time because the data for an object cannot be changed once created.
-      info.set_mtime(o->time_created());
-      result.push_back(std::move(info));
+      result.push_back(ToFileInfo(path, *o));
     }
     if (!found_directory && !select.allow_not_found) {
       return Status::IOError("No such file or directory '", select.base_dir, "'");
@@ -484,20 +505,40 @@ class GcsFileSystem::Impl {
   }
 
  private:
-  static Result<FileInfo> GetFileInfoImpl(const GcsPath& path,
-                                          const google::cloud::Status& status,
-                                          FileType type) {
-    const auto& canonical = type == FileType::Directory
-                                ? internal::EnsureTrailingSlash(path.full_path)
-                                : path.full_path;
-    if (status.ok()) {
-      return FileInfo(canonical, type);
-    }
+  static Result<FileInfo> GetFileInfoDirectory(const GcsPath& path,
+                                               const google::cloud::Status& status) {
     using ::google::cloud::StatusCode;
+    auto canonical = internal::EnsureTrailingSlash(path.full_path);
+    if (status.ok()) {
+      return FileInfo(canonical, FileType::Directory);
+    }
     if (status.code() == StatusCode::kNotFound) {
       return FileInfo(canonical, FileType::NotFound);
     }
     return internal::ToArrowStatus(status);
+  }
+
+  static Result<FileInfo> GetFileInfoFile(
+      const GcsPath& path, const google::cloud::StatusOr<gcs::ObjectMetadata>& meta) {
+    if (meta.ok()) {
+      return ToFileInfo(path.full_path, *meta);
+    }
+    using ::google::cloud::StatusCode;
+    if (meta.status().code() == StatusCode::kNotFound) {
+      return FileInfo(path.full_path, FileType::NotFound);
+    }
+    return internal::ToArrowStatus(meta.status());
+  }
+
+  static FileInfo ToFileInfo(const std::string& full_path,
+                             const gcs::ObjectMetadata& meta) {
+    auto info = FileInfo(full_path, FileType::File);
+    info.set_size(static_cast<int64_t>(meta.size()));
+    // An object has multiple "time" attributes, including the time when its data was
+    // created, and the time when its metadata was last updated. We use the object
+    // creation time because the data for an object cannot be changed once created.
+    info.set_mtime(meta.time_created());
+    return info;
   }
 
   GcsOptions options_;

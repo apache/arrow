@@ -317,7 +317,11 @@ class DatasetWriterDirectoryQueue : public util::AsyncDestroyable {
     auto file_queue = util::MakeSharedAsync<DatasetWriterFileQueue>(
         file_writer_fut, write_options_, writer_state_);
     RETURN_NOT_OK(task_group_.AddTask(file_queue->on_closed().Then(
-        [this] { writer_state_->open_files_throttle.Release(1); })));
+        [this] { writer_state_->open_files_throttle.Release(1); },
+        [this](const Status& err) {
+          writer_state_->open_files_throttle.Release(1);
+          return err;
+        })));
     return file_queue;
   }
 

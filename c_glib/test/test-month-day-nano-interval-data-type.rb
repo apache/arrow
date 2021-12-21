@@ -1,5 +1,3 @@
-#!/usr/bin/env bash
-#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,14 +15,24 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# this script is github actions specific to check out the submodules and tags
+class TestMonthDayNanoIntervalDataType < Test::Unit::TestCase
+  def setup
+    @data_type = Arrow::MonthDayNanoIntervalDataType.new
+  end
 
-set -ex
+  def test_type
+    assert_equal(Arrow::Type::MONTH_DAY_NANO_INTERVAL, @data_type.id)
+  end
 
-# TODO(kszucs): remove it once the "submodules: recursive" feature is released
-auth_header="$(git config --local --get http.https://github.com/.extraheader)"
-git submodule sync --recursive
-git -c "http.extraheader=$auth_header" -c protocol.version=2 submodule update --init --force --recursive --depth=1
+  def test_interval_type
+    assert_equal(Arrow::IntervalType::MONTH_DAY_NANO, @data_type.interval_type)
+  end
 
-# fetch all the tags
-git fetch --depth=1 origin +refs/tags/*:refs/tags/*
+  def test_name
+    assert_equal("month_day_nano_interval", @data_type.name)
+  end
+
+  def test_to_s
+    assert_equal("month_day_nano_interval", @data_type.to_s)
+  end
+end

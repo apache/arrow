@@ -58,10 +58,6 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-      - name: Fetch Submodules and Tags
-        run: ci/scripts/util_checkout.sh
-      - name: Free Up Disk Space
-        run: ci/scripts/util_cleanup.sh
       - name: Setup Python
         uses: actions/setup-python@v1
         with:
@@ -91,10 +87,6 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-      - name: Fetch Submodules and Tags
-        run: ci/scripts/util_checkout.sh
-      - name: Free Up Disk Space
-        run: ci/scripts/util_cleanup.sh
       - name: Setup Python
         uses: actions/setup-python@v1
         with:
@@ -125,10 +117,6 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-      - name: Fetch Submodules and Tags
-        run: ci/scripts/util_checkout.sh
-      - name: Free Up Disk Space
-        run: ci/scripts/util_cleanup.sh
       - name: Setup Python
         uses: actions/setup-python@v1
         with:
@@ -160,9 +148,6 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-      - name: Fetch Submodules and Tags
-        shell: bash
-        run: ci/scripts/util_checkout.sh
       - name: Build
         shell: bash
         run: ci/scripts/go_build.sh .
@@ -188,9 +173,6 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-      - name: Fetch Submodules and Tags
-        shell: bash
-        run: ci/scripts/util_checkout.sh
       - name: Build
         shell: bash
         run: ci/scripts/go_build.sh .
@@ -218,9 +200,6 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-      - name: Fetch Submodules and Tags
-        shell: bash
-        run: ci/scripts/util_checkout.sh
       - name: Brew Install Arrow
         shell: bash
         run: brew install apache-arrow
@@ -257,9 +236,6 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-      - name: Fetch Submodules and Tags
-        shell: bash
-        run: ci/scripts/util_checkout.sh
       - uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW${{ matrix.mingw-n-bits }}
@@ -273,7 +249,7 @@ jobs:
         run: |
           echo "CGO_CPPFLAGS=-I$(cygpath --windows ${MINGW_PREFIX}/include)" >> $GITHUB_ENV
           echo "CGO_LDFLAGS=-g -O2 -L$(cygpath --windows ${MINGW_PREFIX}/lib) -L$(cygpath --windows ${MINGW_PREFIX}/bin)" >> $GITHUB_ENV
-          echo "GOROOT=$(cygpath --windows ${MINGW_PREFIX}/lib/go)" >> $GITHUB_ENV          
+          echo "GOROOT=$(cygpath --windows ${MINGW_PREFIX}/lib/go)" >> $GITHUB_ENV
           echo "GOPATH=$(cygpath --windows ${HOME}/gopath)" >> $GITHUB_ENV
           mkdir -p $(cygpath --windows ${HOME}/gopath)
           echo "MINGW_PREFIX=$(cygpath --windows ${MINGW_PREFIX})" >> $GITHUB_ENV

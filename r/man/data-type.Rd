@@ -30,8 +30,9 @@
 \alias{duration}
 \alias{null}
 \alias{timestamp}
-\alias{decimal128}
 \alias{decimal}
+\alias{decimal128}
+\alias{decimal256}
 \alias{struct}
 \alias{list_of}
 \alias{large_list_of}
@@ -95,9 +96,11 @@ null()
 
 timestamp(unit = c("s", "ms", "us", "ns"), timezone = "")
 
+decimal(precision, scale)
+
 decimal128(precision, scale)
 
-decimal(precision, scale)
+decimal256(precision, scale)
 
 struct(...)
 
@@ -116,12 +119,14 @@ take any of those four values.}
 
 \item{timezone}{For \code{timestamp()}, an optional time zone string.}
 
-\item{precision}{For \code{decimal()}, \code{decimal128()} the number of significant
-digits the arrow \code{decimal} type can represent. The maximum precision for
-\code{decimal()} and \code{decimal128()} is 38 significant digits.}
+\item{precision}{For \code{decimal()}, \code{decimal128()}, and \code{decimal256()} the
+number of significant digits the arrow \code{decimal} type can represent. The
+maximum precision for \code{decimal128()} is 38 significant digits, while for
+\code{decimal256()} it is 76 digits. \code{decimal()} will use it to choose which
+type of decimal to return.}
 
-\item{scale}{For \code{decimal()} and \code{decimal128()}, the number of digits after
-the decimal point. It can be negative.}
+\item{scale}{For \code{decimal()}, \code{decimal128()}, and \code{decimal256()} the number
+of digits after the decimal point. It can be negative.}
 
 \item{...}{For \code{struct()}, a named list of types to define the struct columns}
 
@@ -159,7 +164,7 @@ are translated to R objects, \code{uint32} and \code{uint64} are converted to \c
 types, this conversion can be disabled (so that \code{int64} always yields a
 \code{bit64::integer64} object) by setting \code{options(arrow.int64_downcast = FALSE)}.
 
-\code{decimal128()} creates a \code{decimal128} type. Arrow decimals are fixed-point
+\code{decimal128()} creates a \code{Decimal128Type}. Arrow decimals are fixed-point
 decimal numbers encoded as a scalar integer. The \code{precision} is the number of
 significant digits that the decimal type can represent; the \code{scale} is the
 number of digits after the decimal point. For example, the number 1234.567
@@ -175,9 +180,16 @@ The \code{scale} can be thought of as an argument that controls rounding. When
 negative, \code{scale} causes the number to be expressed using scientific notation
 and power of 10.
 
-\code{decimal()} is identical to \code{decimal128()}, defined for backward compatibility.
-Use \code{decimal128()} as the name  is more informative and \code{decimal()} might be
-deprecated in the future.
+\code{decimal256()} creates a \code{Decimal256Type}, which allows for higher maximum
+precision. For most use cases, the maximum precision offered by \code{Decimal128Type}
+is sufficient, and it will result in a more compact and more efficient encoding.
+
+#' \code{decimal()} creates either a \code{Decimal128Type} or a \code{Decimal256Type}
+depending on the value for \code{precision}. If \code{precision} is greater than 38 a
+\code{Decimal256Type} is returned, otherwise a \code{Decimal128Type}.
+
+Use \code{decimal128()} or \code{decimal256()} as the names are more informative than
+\code{decimal()}.
 }
 \examples{
 \dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
