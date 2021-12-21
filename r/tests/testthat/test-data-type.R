@@ -385,18 +385,21 @@ test_that("map type works as expected", {
   )
   expect_equal(x$key_type, int32())
   expect_equal(x$item_type, string())
-  # TODO: (ARROW-15102): Enable constructing StructTypes with non-nullable fields, so 
+  # TODO: (ARROW-15102): Enable constructing StructTypes with non-nullable fields, so
   # we can make this comparison:
   # expect_equal(x$value_type, struct(key = x$key_field, value = x$item_field))
   expect_false(x$keys_sorted)
 })
 
 test_that("map type validates arguments", {
-  expect_error(map_of(field("key", int32(), nullable=TRUE), utf8()),
+  expect_error(map_of(field("key", int32(), nullable = TRUE), utf8()),
                "cannot be nullable")
-  
+  expect_error(map_of(1L, utf8()), "must be a DataType or Field")
+  expect_error(map_of(int32(), 1L), "must be a DataType or Field")
+
   # field construction
-  ty <- map_of(field("the_keys", int32(), nullable=FALSE), field("my_values", utf8(), nullable=FALSE))
+  ty <- map_of(field("the_keys", int32(), nullable = FALSE),
+               field("my_values", utf8(), nullable = FALSE))
   expect_equal(ty$key_field$name, "the_keys")
   expect_equal(ty$item_field$name, "my_values")
   expect_equal(ty$key_field$nullable, FALSE)

@@ -93,7 +93,7 @@ const char* r6_class_name<arrow::DataType>::get(
       return "LargeListType";
     case Type::FIXED_SIZE_LIST:
       return "FixedSizeListType";
-    
+
     case Type::MAP:
       return "MapType";
 
@@ -510,8 +510,7 @@ std::shared_ptr<arrow::DataType> MapType__item_type(
 }
 
 // [[arrow::export]]
-bool MapType__keys_sorted(
-    const std::shared_ptr<arrow::MapType>& type) {
+bool MapType__keys_sorted(const std::shared_ptr<arrow::MapType>& type) {
   return type->keys_sorted();
 }
 
