@@ -671,6 +671,18 @@ cdef class RecordBatch(_PandasConvertible):
         Returns
         -------
         RecordBatch
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> pydict = {'int': [1, 2], 'str': ['a', 'b']}
+        >>> pa.Table.from_pydict(pydict)
+        pyarrow.Table
+        int: int64
+        str: string
+        ----
+        int: [[1,2]]
+        str: [["a","b"]]
         """
 
         return _from_pydict(cls=RecordBatch,
@@ -695,6 +707,18 @@ cdef class RecordBatch(_PandasConvertible):
         Returns
         -------
         RecordBatch
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> pylist = [{'int': [1, 2]}, {'str': ['a', 'b']}]
+        >>> pa.Table.from_pylist(pylist)
+        pyarrow.Table
+        int: int64
+        str: string
+        ----
+        int: [[1,2]]
+        str: [["a","b"]]
         """
 
         return _from_pylist(cls=RecordBatch,
@@ -1894,6 +1918,16 @@ cdef class Table(_PandasConvertible):
         Returns
         -------
         dict
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> table = pa.table([
+        ...     pa.array([1, 2]),
+        ...     pa.array(["a", "b"])
+        ... ], names=["int", "str"])
+        >>> table.to_pydict()
+        {'int': [1, 2], 'str': ['a', 'b']}
         """
         cdef:
             size_t i
@@ -1914,6 +1948,16 @@ cdef class Table(_PandasConvertible):
         Returns
         -------
         list
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> table = pa.table([
+        ...     pa.array([1, 2]),
+        ...     pa.array(["a", "b"])
+        ... ], names=["int", "str"])
+        >>> table.to_pylist()
+        [{'int': [1, 2]}, {'str': ['a', 'b']}]
         """
         cdef:
             size_t i
