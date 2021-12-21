@@ -227,7 +227,7 @@ struct NonZeroVisitor {
    }
 };
 
-Status NonZeroExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+Status IndicesNonZeroExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   std::shared_ptr<ArrayData> array = batch[0].array();
   UInt64Builder builder;
 
@@ -241,13 +241,13 @@ Status NonZeroExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   return Status::OK();
 }
 
-std::shared_ptr<ScalarFunction> MakeNonZeroFunction(std::string name,
-                                                    const FunctionDoc* doc) {
+std::shared_ptr<ScalarFunction> MakeIndicesNonZeroFunction(std::string name,
+                                                           const FunctionDoc* doc) {
   auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), doc);
       
   for (const auto& ty : NumericTypes()) {
     ScalarKernel kernel;
-    kernel.exec = NonZeroExec;
+    kernel.exec = IndicesNonZeroExec;
     kernel.null_handling = NullHandling::OUTPUT_NOT_NULL;
     kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
     kernel.signature = KernelSignature::Make({InputType(ty->id())}, uint64());
@@ -255,7 +255,7 @@ std::shared_ptr<ScalarFunction> MakeNonZeroFunction(std::string name,
   }
 
   ScalarKernel boolkernel;
-  boolkernel.exec = NonZeroExec;
+  boolkernel.exec = IndicesNonZeroExec;
   boolkernel.null_handling = NullHandling::OUTPUT_NOT_NULL;
   boolkernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
   boolkernel.signature = KernelSignature::Make({boolean()}, uint64());
@@ -382,9 +382,9 @@ const FunctionDoc is_nan_doc("Return true if NaN",
                              ("For each input value, emit true iff the value is NaN."),
                              {"values"});
 
-const FunctionDoc nonzero_doc{"Compare to zero or false",
-                                ("TBD?"),
-                                {"values"}};
+const FunctionDoc indices_nonzero_doc{"Compare to zero or false",
+                                      ("Return the indices of the array containing non false or zero values."),
+                                      {"values"}};
 
 }  // namespace
 
@@ -401,7 +401,7 @@ void RegisterScalarValidity(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(MakeIsInfFunction("is_inf", &is_inf_doc)));
   DCHECK_OK(registry->AddFunction(MakeIsNanFunction("is_nan", &is_nan_doc)));
 
-  DCHECK_OK(registry->AddFunction(MakeNonZeroFunction("nonzero", &nonzero_doc)));
+  DCHECK_OK(registry->AddFunction(MakeIndicesNonZeroFunction("indices_nonzero", &indices_nonzero_doc)));
 }
 
 }  // namespace internal
