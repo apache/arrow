@@ -803,40 +803,19 @@ cdef CCalendarUnit unwrap_round_unit(unit) except *:
 
 
 cdef class _RoundTemporalOptions(FunctionOptions):
-    _ambiguous_map = {
-        "raise": CRoundTemporalAmbiguous_AMBIGUOUS_RAISE,
-        "earliest": CRoundTemporalAmbiguous_AMBIGUOUS_EARLIEST,
-        "latest": CRoundTemporalAmbiguous_AMBIGUOUS_LATEST,
-    }
-    _nonexistent_map = {
-        "raise": CRoundTemporalNonexistent_NONEXISTENT_RAISE,
-        "earliest": CRoundTemporalNonexistent_NONEXISTENT_EARLIEST,
-        "latest": CRoundTemporalNonexistent_NONEXISTENT_LATEST,
-    }
 
     def _set_options(
-        self, multiple, unit, week_starts_monday, change_on_boundary,
-            ambiguous, nonexistent):
-        if ambiguous not in self._ambiguous_map:
-            _raise_invalid_function_option(ambiguous,
-                                           "'ambiguous' timestamp handling")
-        if nonexistent not in self._nonexistent_map:
-            _raise_invalid_function_option(nonexistent,
-                                           "'nonexistent' timestamp handling")
+        self, multiple, unit, origin):
         self.wrapped.reset(
             new CRoundTemporalOptions(
-                multiple, unwrap_round_unit(unit), week_starts_monday,
-                change_on_boundary, self._ambiguous_map[ambiguous],
-                self._nonexistent_map[nonexistent])
+                multiple, unwrap_round_unit(unit), origin)
         )
 
 
 class RoundTemporalOptions(_RoundTemporalOptions):
     def __init__(
-        self, multiple=1, unit="second", *, week_starts_monday=True,
-            change_on_boundary=False, ambiguous="raise", nonexistent="raise"):
-        self._set_options(multiple, unit, week_starts_monday,
-                          change_on_boundary, ambiguous, nonexistent)
+        self, multiple=1, unit="second", *, origin=0):
+        self._set_options(multiple, unit, origin)
 
 
 cdef class _RoundToMultipleOptions(FunctionOptions):

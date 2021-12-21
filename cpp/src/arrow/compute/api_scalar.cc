@@ -176,45 +176,6 @@ struct EnumTraits<compute::RoundMode>
 };
 
 template <>
-struct EnumTraits<compute::RoundTemporalOptions::Nonexistent>
-    : BasicEnumTraits<compute::RoundTemporalOptions::Nonexistent,
-                      compute::RoundTemporalOptions::Nonexistent::NONEXISTENT_RAISE,
-                      compute::RoundTemporalOptions::Nonexistent::NONEXISTENT_EARLIEST,
-                      compute::RoundTemporalOptions::Nonexistent::NONEXISTENT_LATEST> {
-  static std::string name() { return "RoundTemporalOptions::Nonexistent"; }
-  static std::string value_name(compute::RoundTemporalOptions::Nonexistent value) {
-    switch (value) {
-      case compute::RoundTemporalOptions::Nonexistent::NONEXISTENT_RAISE:
-        return "NONEXISTENT_RAISE";
-      case compute::RoundTemporalOptions::Nonexistent::NONEXISTENT_EARLIEST:
-        return "NONEXISTENT_EARLIEST";
-      case compute::RoundTemporalOptions::Nonexistent::NONEXISTENT_LATEST:
-        return "NONEXISTENT_LATEST";
-    }
-    return "<INVALID>";
-  }
-};
-template <>
-struct EnumTraits<compute::RoundTemporalOptions::Ambiguous>
-    : BasicEnumTraits<compute::RoundTemporalOptions::Ambiguous,
-                      compute::RoundTemporalOptions::Ambiguous::AMBIGUOUS_RAISE,
-                      compute::RoundTemporalOptions::Ambiguous::AMBIGUOUS_EARLIEST,
-                      compute::RoundTemporalOptions::Ambiguous::AMBIGUOUS_LATEST> {
-  static std::string name() { return "AssumeTimezoneOptions::Ambiguous"; }
-  static std::string value_name(compute::RoundTemporalOptions::Ambiguous value) {
-    switch (value) {
-      case compute::RoundTemporalOptions::Ambiguous::AMBIGUOUS_RAISE:
-        return "AMBIGUOUS_RAISE";
-      case compute::RoundTemporalOptions::Ambiguous::AMBIGUOUS_EARLIEST:
-        return "AMBIGUOUS_EARLIEST";
-      case compute::RoundTemporalOptions::Ambiguous::AMBIGUOUS_LATEST:
-        return "AMBIGUOUS_LATEST";
-    }
-    return "<INVALID>";
-  }
-};
-
-template <>
 struct EnumTraits<compute::CalendarUnit>
     : BasicEnumTraits<compute::CalendarUnit, compute::CalendarUnit::NANOSECOND,
                       compute::CalendarUnit::MICROSECOND,
@@ -348,10 +309,7 @@ static auto kRoundOptionsType = GetFunctionOptionsType<RoundOptions>(
 static auto kRoundTemporalOptionsType = GetFunctionOptionsType<RoundTemporalOptions>(
     DataMember("multiple", &RoundTemporalOptions::multiple),
     DataMember("unit", &RoundTemporalOptions::unit),
-    DataMember("week_starts_monday", &RoundTemporalOptions::week_starts_monday),
-    DataMember("change_on_boundary", &RoundTemporalOptions::change_on_boundary),
-    DataMember("ambiguous", &RoundTemporalOptions::ambiguous),
-    DataMember("nonexistent", &RoundTemporalOptions::nonexistent));
+    DataMember("origin", &RoundTemporalOptions::origin));
 static auto kRoundToMultipleOptionsType = GetFunctionOptionsType<RoundToMultipleOptions>(
     DataMember("multiple", &RoundToMultipleOptions::multiple),
     DataMember("round_mode", &RoundToMultipleOptions::round_mode));
@@ -498,17 +456,11 @@ RoundOptions::RoundOptions(int64_t ndigits, RoundMode round_mode)
 }
 constexpr char RoundOptions::kTypeName[];
 
-RoundTemporalOptions::RoundTemporalOptions(int multiple, CalendarUnit unit,
-                                           bool week_starts_monday,
-                                           bool change_on_boundary, Ambiguous ambiguous,
-                                           Nonexistent nonexistent)
+RoundTemporalOptions::RoundTemporalOptions(int multiple, CalendarUnit unit, int origin)
     : FunctionOptions(internal::kRoundTemporalOptionsType),
       multiple(std::move(multiple)),
       unit(unit),
-      week_starts_monday(week_starts_monday),
-      change_on_boundary(change_on_boundary),
-      ambiguous(ambiguous),
-      nonexistent(nonexistent) {}
+      origin(std::move(origin)) {}
 constexpr char RoundTemporalOptions::kTypeName[];
 
 RoundToMultipleOptions::RoundToMultipleOptions(double multiple, RoundMode round_mode)

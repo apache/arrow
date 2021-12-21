@@ -106,14 +106,9 @@ enum class CalendarUnit : int8_t {
 
 class ARROW_EXPORT RoundTemporalOptions : public FunctionOptions {
  public:
-  enum Ambiguous { AMBIGUOUS_RAISE, AMBIGUOUS_EARLIEST, AMBIGUOUS_LATEST };
-  enum Nonexistent { NONEXISTENT_RAISE, NONEXISTENT_EARLIEST, NONEXISTENT_LATEST };
 
   explicit RoundTemporalOptions(int multiple = 1, CalendarUnit unit = CalendarUnit::DAY,
-                                bool week_starts_monday = true,
-                                bool change_on_boundary = false,
-                                Ambiguous ambiguous = AMBIGUOUS_RAISE,
-                                Nonexistent nonexistent = NONEXISTENT_RAISE);
+                                int origin = 0);
   constexpr static char const kTypeName[] = "RoundTemporalOptions";
   static RoundTemporalOptions Defaults() { return RoundTemporalOptions(); }
 
@@ -121,15 +116,8 @@ class ARROW_EXPORT RoundTemporalOptions : public FunctionOptions {
   int multiple;
   /// The unit used for rounding of time
   CalendarUnit unit;
-  /// What day does the week start with (Monday=true, Sunday=false)
-  bool week_starts_monday;
-  /// If true timestamps on the boundary are rounded up to the next boundary.
-  /// If false nothing on the boundary is rounded up at all.
-  bool change_on_boundary;
-  /// How to interpret ambiguous local times (due to DST shifts)
-  Ambiguous ambiguous;
-  /// How to interpret non-existent local times (due to DST shifts)
-  Nonexistent nonexistent;
+  /// Origin time of rounding
+  int origin;
 };
 
 class ARROW_EXPORT RoundToMultipleOptions : public FunctionOptions {

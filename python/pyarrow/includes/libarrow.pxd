@@ -1923,36 +1923,13 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CCalendarUnit_YEAR \
             "arrow::compute::CalendarUnit::YEAR"
 
-    cdef enum CRoundTemporalAmbiguous \
-            "arrow::compute::RoundTemporalOptions::Ambiguous":
-        CRoundTemporalAmbiguous_AMBIGUOUS_RAISE \
-            "arrow::compute::RoundTemporalOptions::AMBIGUOUS_RAISE"
-        CRoundTemporalAmbiguous_AMBIGUOUS_EARLIEST \
-            "arrow::compute::RoundTemporalOptions::AMBIGUOUS_EARLIEST"
-        CRoundTemporalAmbiguous_AMBIGUOUS_LATEST \
-            "arrow::compute::RoundTemporalOptions::AMBIGUOUS_LATEST"
-
-    cdef enum CRoundTemporalNonexistent \
-            "arrow::compute::RoundTemporalOptions::Nonexistent":
-        CRoundTemporalNonexistent_NONEXISTENT_RAISE \
-            "arrow::compute::RoundTemporalOptions::NONEXISTENT_RAISE"
-        CRoundTemporalNonexistent_NONEXISTENT_EARLIEST \
-            "arrow::compute::RoundTemporalOptions::NONEXISTENT_EARLIEST"
-        CRoundTemporalNonexistent_NONEXISTENT_LATEST \
-            "arrow::compute::RoundTemporalOptions::NONEXISTENT_LATEST"
-
     cdef cppclass CRoundTemporalOptions \
             "arrow::compute::RoundTemporalOptions"(CFunctionOptions):
         CRoundTemporalOptions(
-            int multiple, CCalendarUnit unit, c_bool week_starts_monday,
-            c_bool change_on_boundary, CRoundTemporalAmbiguous ambiguous,
-            CRoundTemporalNonexistent nonexistent)
+            int multiple, CCalendarUnit unit, int origin)
         int multiple
         CCalendarUnit unit
-        c_bool week_starts_monday
-        c_bool change_on_boundary
-        CRoundTemporalAmbiguous ambiguous
-        CRoundTemporalNonexistent nonexistent
+        int origin
 
     cdef cppclass CRoundToMultipleOptions \
             "arrow::compute::RoundToMultipleOptions"(CFunctionOptions):

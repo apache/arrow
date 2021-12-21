@@ -1941,11 +1941,7 @@ def test_round_temporal(unit):
 
         for value in values:
             frequency = str(value) + unit_shorthand[unit]
-            options = pc.RoundTemporalOptions(value, unit,
-                                              week_starts_monday=True,
-                                              change_on_boundary=False,
-                                              ambiguous="raise",
-                                              nonexistent="raise")
+            options = pc.RoundTemporalOptions(value, unit, origin=0)
 
             result = pc.ceil_temporal(ta, options=options)
             expected = pa.array(ts.dt.ceil(frequency))
