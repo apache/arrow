@@ -67,6 +67,11 @@ def resolve_s3_region(bucket):
     -------
     region : str
         A S3 region name
+
+    Examples
+    --------
+    >>> resolve_s3_region('ursa-labs-taxi-data')
+    'us-east-2'
     """
     cdef:
         c_string c_bucket
