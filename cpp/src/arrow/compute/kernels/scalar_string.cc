@@ -623,7 +623,6 @@ struct StringBinaryTransformBase {
 ///   * `input_string_ncodeunits` - length of input sequence in codeunits
 ///   * `value2` - second argument to the string transform
 ///   * `output` - output sequence (binary or string)
-///   * `st` - Status code, only set if transform needs to signal an error
 ///
 /// and returns the number of codeunits of the `output` sequence or a negative
 /// value if an invalid input sequence is detected.
