@@ -95,6 +95,12 @@ cdef void* _as_c_pointer(v, allow_null=False) except *:
     cdef void* c_ptr
     if isinstance(v, int):
         c_ptr = <void*> <uintptr_t > v
+    elif isinstance(v, float):
+        warnings.warn(
+            "Passing a pointer value as a float is unsafe and only "
+            "supported for compatibility with older versions of the R "
+            "Arrow library", UserWarning, stacklevel=2)
+        c_ptr = <void*> <uintptr_t > v
     elif PyCapsule_CheckExact(v):
         c_ptr = PyCapsule_GetPointer(v, NULL)
     else:
