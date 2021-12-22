@@ -46,6 +46,21 @@ if [ "${ARROW_USE_TSAN}" == "ON" ] && [ ! -x "${ASAN_SYMBOLIZER_PATH}" ]; then
     exit 1
 fi
 
+case "$(uname)" in
+  Linux)
+    n_jobs=$(nproc)
+    ;;
+  Darwin)
+    n_jobs=$(sysctl -n hw.ncpu)
+    ;;
+  MINGW*)
+    n_jobs=${NUMBER_OF_PROCESSORS:-1}
+    ;;
+  *)
+    n_jobs=${NPROC:-1}
+    ;;
+esac
+
 mkdir -p ${build_dir}
 pushd ${build_dir}
 
@@ -146,7 +161,7 @@ cmake \
 if [ ! -z "${CPP_MAKE_PARALLELISM}" ]; then
   time cmake --build . --target install -- -j${CPP_MAKE_PARALLELISM}
 else
-  time cmake --build . --target install --parallel
+  time cmake --build . --target install -- -j$[${n_jobs} + 1]
 fi
 
 popd
