@@ -28,7 +28,7 @@ test_that("reencoding input stream works for windows-1252", {
   fs <- LocalFileSystem$create()
 
   stream <- fs$OpenInputStream(temp_windows1252)
-  stream_utf8 <- MakeRencodeInputStream(stream, "windows-1252")
+  stream_utf8 <- MakeReencodeInputStream(stream, "windows-1252")
   expect_identical(as.raw(stream_utf8$Read(100)), bytes_utf8)
   stream$close()
   stream_utf8$close()
@@ -48,8 +48,8 @@ test_that("reencoding input stream works for UTF-16", {
 
   fs <- LocalFileSystem$create()
 
-  stream <- fs$OpenInputStream(temp_utf8)
-  stream_utf8 <- MakeRencodeInputStream(stream, "UTF-8")
+  stream <- fs$OpenInputStream(temp_utf16)
+  stream_utf8 <- MakeReencodeInputStream(stream, "UTF-16LE")
 
   expect_identical(
     as.raw(stream_utf8$Read(length(bytes_utf8))),
@@ -73,7 +73,7 @@ test_that("reencoding input stream works with pending characters", {
   fs <- LocalFileSystem$create()
 
   stream <- fs$OpenInputStream(temp_utf8)
-  stream_utf8 <- MakeRencodeInputStream(stream, "UTF-8")
+  stream_utf8 <- MakeReencodeInputStream(stream, "UTF-8")
 
   # these calls all leave some pending characters
   expect_identical(as.raw(stream_utf8$Read(4)), bytes_utf8[1:4])

@@ -1256,8 +1256,8 @@ io___BufferOutputStream__Write <- function(stream, bytes) {
   invisible(.Call(`_arrow_io___BufferOutputStream__Write`, stream, bytes))
 }
 
-MakeRencodeInputStream <- function(wrapped, from) {
-  .Call(`_arrow_MakeRencodeInputStream`, wrapped, from)
+MakeReencodeInputStream <- function(wrapped, from) {
+  .Call(`_arrow_MakeReencodeInputStream`, wrapped, from)
 }
 
 json___ReadOptions__initialize <- function(use_threads, block_size) {

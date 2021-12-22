@@ -214,7 +214,6 @@ struct ReencodeUTF8TransformFunctionWrapper {
     : ReencodeUTF8TransformFunctionWrapper(ref.from_) {}
 
   arrow::Result<std::shared_ptr<arrow::Buffer>> operator()(const std::shared_ptr<arrow::Buffer>& src) {
-    Rprintf("Call to transform function with buffer of size %d\n", src->size());
     ARROW_ASSIGN_OR_RAISE(auto dest, arrow::AllocateResizableBuffer(32));
 
     size_t out_bytes_left = dest->size();
@@ -229,10 +228,8 @@ struct ReencodeUTF8TransformFunctionWrapper {
     // using the internal buffer as the source. This may also result in a partial character
     // left over but will always get us into the src buffer.
     if (n_pending_ > 0) {
-      Rprintf("Processing %d leftover characters\n", n_pending_);
       // fill the pending_ buffer with characters and call iconv() once
       n_src_bytes_in_pending = std::min<int64_t>(sizeof(pending_) - n_pending_, src->size());
-      Rprintf("Copying %d bytes to pending_\n", n_src_bytes_in_pending);
       memcpy(pending_ + n_pending_, src->data(), n_src_bytes_in_pending);
       in_buf = pending_;
       in_bytes_left = n_pending_ + n_src_bytes_in_pending;
@@ -245,16 +242,6 @@ struct ReencodeUTF8TransformFunctionWrapper {
       int64_t chars_read_in = n_pending_ + n_src_bytes_in_pending - in_bytes_left;
       in_buf = (const char*) src->data() + chars_read_in - n_pending_;
       in_bytes_left = src->size() + n_pending_ - chars_read_in;
-
-      Rprintf("...Read %d bytes from pending buffer into %d bytes in output buffer\n", chars_read_in, chars_read_out);
-
-      Rprintf(
-        "...src + %d, in_bytes_left = %d, dest + %d, out_bytes_left = %d\n",
-        in_buf - ((const char*) src->data()),
-        in_bytes_left,
-        out_buf - ((char*) dest->data()),
-        out_bytes_left
-      );
     } else {
       in_buf = (const char*) src->data();
       in_bytes_left = src->size();
@@ -267,25 +254,17 @@ struct ReencodeUTF8TransformFunctionWrapper {
       int64_t new_size = std::max<int64_t>(src->size(), dest->size() * 2);
       auto reserve_result = dest->Resize(new_size);
       if (!reserve_result.ok()) {
-        cpp11::stop("Failed to allocate buffer of size %ld", new_size);
+        return reserve_result;
       }
 
       out_buf = (char*) dest->data() + out_bytes_used;
       out_bytes_left = dest->size() - out_bytes_used;
-      Rprintf(
-        "iconv(src + %d, in_bytes_left = %d, dest + %d, out_bytes_left = %d)\n",
-        in_buf - ((const char*) src->data()),
-        in_bytes_left,
-        out_buf - ((char*) dest->data()),
-        out_bytes_left
-      );
 
       const char* in_buf_before = in_buf;
       char* out_buf_before = out_buf;
       iconv_.iconv(&in_buf, &in_bytes_left, &out_buf, &out_bytes_left);
       int64_t bytes_read_out = out_buf - out_buf_before;
       int64_t bytes_read_in = in_buf - in_buf_before;
-      Rprintf("Read %d bytes in input to %d bytes in output\n", bytes_read_in, bytes_read_out);
 
       if (bytes_read_out <= 0 || bytes_read_in <= 0) {
         // This should not happen, but if it does, we want to abort to make sure
@@ -296,25 +275,16 @@ struct ReencodeUTF8TransformFunctionWrapper {
       out_bytes_used += bytes_read_out;
     }
 
-    Rprintf(
-      "___src + %d, in_bytes_left = %d, dest + %d, out_bytes_left = %d\n",
-      in_buf - ((const char*) src->data()),
-      in_bytes_left,
-      out_buf - ((char*) dest->data()),
-      out_bytes_left
-    );
-
     // Keep the leftover characters until the next call to the function
     n_pending_ = in_bytes_left;
     if (in_bytes_left > 0) {
-      Rprintf("Copying %d extra characters\n", n_pending_);
       memcpy(pending_, in_buf, in_bytes_left);
     }
 
     // Shrink the output buffer to only the size used
     auto resize_result = dest->Resize(out_bytes_used);
     if (!resize_result.ok()) {
-      cpp11::stop("Failed to resize iconv result buffer");
+      return resize_result;
     }
 
     return std::move(dest);
@@ -328,7 +298,7 @@ protected:
 };
 
 // [[arrow::export]]
-std::shared_ptr<arrow::io::InputStream> MakeRencodeInputStream(const std::shared_ptr<arrow::io::InputStream>& wrapped, std::string from) {
+std::shared_ptr<arrow::io::InputStream> MakeReencodeInputStream(const std::shared_ptr<arrow::io::InputStream>& wrapped, std::string from) {
   arrow::io::TransformInputStream::TransformFunc transform(ReencodeUTF8TransformFunctionWrapper{from});
   return std::make_shared<arrow::io::TransformInputStream>(std::move(wrapped), std::move(transform));
 }
