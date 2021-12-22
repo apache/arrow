@@ -1249,18 +1249,6 @@ class IntWriter : public TypedPandasWriter<NPY_TYPE> {
 
 
 template <int NPY_TYPE>
-class ComplexWriter : public TypedPandasWriter<NPY_TYPE> {
- public:
-  using ArrowType = typename npy_traits<NPY_TYPE>::TypeClass;
-  using TypedPandasWriter<NPY_TYPE>::TypedPandasWriter;
-  using T = typename ArrowType::c_type;
-
-  bool CanZeroCopy(const ChunkedArray& data) const override {
-    return IsNonNullContiguous(data) && data.type()->id() == ArrowType::type_id;
-  }
-};
-
-template <int NPY_TYPE>
 class FloatWriter : public TypedPandasWriter<NPY_TYPE> {
  public:
   using ArrowType = typename npy_traits<NPY_TYPE>::TypeClass;
@@ -1336,6 +1324,82 @@ class FloatWriter : public TypedPandasWriter<NPY_TYPE> {
   }
 };
 
+
+template <int NPY_TYPE>
+class ComplexWriter : public TypedPandasWriter<NPY_TYPE> {
+ public:
+  using ArrowType = typename npy_traits<NPY_TYPE>::TypeClass;
+  using TypedPandasWriter<NPY_TYPE>::TypedPandasWriter;
+  using T = typename ArrowType::c_type;
+
+  bool CanZeroCopy(const ChunkedArray& data) const override {
+    return data.type()->id() == ArrowType::type_id && IsNonNullContiguous(data);
+  }
+
+  Status CopyInto(std::shared_ptr<ChunkedArray> data, int64_t rel_placement) override {
+    Type::type in_type = data->type()->id();
+    auto out_values = this->GetBlockColumnStart(rel_placement);
+
+#define INTEGER_CASE(IN_TYPE)                                             \
+  ConvertIntegerWithNulls<IN_TYPE, T>(this->options_, *data, out_values); \
+  break;
+
+    switch (in_type) {
+      case Type::UINT8:
+        INTEGER_CASE(uint8_t);
+      case Type::INT8:
+        INTEGER_CASE(int8_t);
+      case Type::UINT16:
+        INTEGER_CASE(uint16_t);
+      case Type::INT16:
+        INTEGER_CASE(int16_t);
+      case Type::UINT32:
+        INTEGER_CASE(uint32_t);
+      case Type::INT32:
+        INTEGER_CASE(int32_t);
+      case Type::UINT64:
+        INTEGER_CASE(uint64_t);
+      case Type::INT64:
+        INTEGER_CASE(int64_t);
+      case Type::HALF_FLOAT:
+        ConvertNumericNullableCast(*data, npy_traits<NPY_TYPE>::na_sentinel, out_values);
+      case Type::FLOAT:
+        ConvertNumericNullableCast(*data, npy_traits<NPY_TYPE>::na_sentinel, out_values);
+        break;
+      case Type::DOUBLE:
+        ConvertNumericNullableCast(*data, npy_traits<NPY_TYPE>::na_sentinel, out_values);
+        break;
+      case Type::EXTENSION:
+        {
+          auto ext_type = std::static_pointer_cast<const ExtensionType>(data->type());
+
+          if(ext_type == nullptr) {
+            return Status::TypeError(
+              "Unable to cast ", data->type()->ToString(), "to ExtensionType");
+          }
+
+          if(ext_type->extension_name() == "arrow.complex64") {
+            ConvertNumericNullableComplex(*data, out_values);
+          } else if (ext_type->extension_name() == "arrow.complex128") {
+            ConvertNumericNullableComplex(*data, out_values);
+          } else {
+            return Status::NotImplemented("Cannot write Arrow data of type ",
+                                          data->type()->ToString(),
+                                          " to a Pandas complex number block");
+          }
+        }
+        break;
+      default:
+        return Status::NotImplemented("Cannot write Arrow data of type ",
+                                      data->type()->ToString(),
+                                      " to a Pandas complex number block");
+    }
+#undef INTEGER_CASE
+
+    return Status::OK();
+  }
+};
+
 using UInt8Writer = IntWriter<NPY_UINT8>;
 using Int8Writer = IntWriter<NPY_INT8>;
 using UInt16Writer = IntWriter<NPY_UINT16>;
@@ -1347,8 +1411,8 @@ using Int64Writer = IntWriter<NPY_INT64>;
 using Float16Writer = FloatWriter<NPY_FLOAT16>;
 using Float32Writer = FloatWriter<NPY_FLOAT32>;
 using Float64Writer = FloatWriter<NPY_FLOAT64>;
-using Complex64Writer = FloatWriter<NPY_COMPLEX64>;
-using Complex128Writer = FloatWriter<NPY_COMPLEX128>;
+using Complex64Writer = ComplexWriter<NPY_COMPLEX64>;
+using Complex128Writer = ComplexWriter<NPY_COMPLEX128>;
 
 class BoolWriter : public TypedPandasWriter<NPY_BOOL> {
  public:
