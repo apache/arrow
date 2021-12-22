@@ -7,7 +7,7 @@
 register_binding(fun_name, fun, registry = binding_registry())
 }
 \arguments{
-\item{fun_name}{A function name in the form \code{"function"} or
+\item{fun_name}{A string containing a function name in the form \code{"function"} or
 \code{"package::function"}. The package name is currently not used but
 may be used in the future to allow these types of function calls.}
 
@@ -15,7 +15,7 @@ may be used in the future to allow these types of function calls.}
 This function must accept \code{Expression} objects as arguments and return
 \code{Expression} objects instead of regular R objects.}
 
-\item{registry}{An \code{environment()} in which the functions should be
+\item{registry}{An environment in which the functions should be
 assigned.}
 
 \item{agg_fun}{An aggregate function or \code{NULL} to un-register a previous
