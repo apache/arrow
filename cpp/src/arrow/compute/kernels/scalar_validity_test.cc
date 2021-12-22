@@ -261,6 +261,11 @@ TEST(TestValidityKernels, NonZero) {
                                     {ArrayFromJSON(float64(), "[null, 1.3, 0.0, 5.0]")}));
   result = actual.make_array();
   AssertArraysEqual(*result, *ArrayFromJSON(uint64(), "[1, 3]"));
+
+  ASSERT_OK_AND_ASSIGN(actual,
+                       CallFunction("indices_nonzero", {ArrayFromJSON(float64(), "[]")}));
+  result = actual.make_array();
+  AssertArraysEqual(*result, *ArrayFromJSON(uint64(), "[]"));
 }
 
 }  // namespace compute

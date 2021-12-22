@@ -238,12 +238,12 @@ Status IndicesNonZeroExec(KernelContext* ctx, const ExecBatch& batch, Datum* out
   return Status::OK();
 }
 
-std::shared_ptr<ScalarFunction> MakeIndicesNonZeroFunction(std::string name,
+std::shared_ptr<VectorFunction> MakeIndicesNonZeroFunction(std::string name,
                                                            const FunctionDoc* doc) {
-  auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), doc);
+  auto func = std::make_shared<VectorFunction>(name, Arity::Unary(), doc);
 
   for (const auto& ty : NumericTypes()) {
-    ScalarKernel kernel;
+    VectorKernel kernel;
     kernel.exec = IndicesNonZeroExec;
     kernel.null_handling = NullHandling::OUTPUT_NOT_NULL;
     kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
@@ -251,7 +251,7 @@ std::shared_ptr<ScalarFunction> MakeIndicesNonZeroFunction(std::string name,
     DCHECK_OK(func->AddKernel(kernel));
   }
 
-  ScalarKernel boolkernel;
+  VectorKernel boolkernel;
   boolkernel.exec = IndicesNonZeroExec;
   boolkernel.null_handling = NullHandling::OUTPUT_NOT_NULL;
   boolkernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
@@ -380,8 +380,9 @@ const FunctionDoc is_nan_doc("Return true if NaN",
                              {"values"});
 
 const FunctionDoc indices_nonzero_doc{
-    "Compare to zero or false",
-    ("Return the indices of the array containing non false or zero values."),
+    "Return indices of the array containing non zero or false values",
+    ("For each input value, check if it's zero, false or null. Emit the index\n"
+     "of the value in the array if it's none of the those."),
     {"values"}};
 
 }  // namespace
