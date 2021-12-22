@@ -208,19 +208,18 @@ struct NonZeroVisitor {
     using T = typename GetViewType<Type>::T;
     uint32_t index = 0;
 
-    return VisitArrayDataInline<Type>(
+    VisitArrayDataInline<Type>(
         this->array,
         [&](T v) {
           if (v) {
             this->builder->UnsafeAppend(index);
           }
           ++index;
-          return Status::OK();
         },
         [&]() {
           ++index;
-          return Status::OK();
         });
+    return Status::OK();
   }
 };
 
