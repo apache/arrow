@@ -40,11 +40,9 @@ namespace Apache.Arrow
 
         public void Visit(TimestampType actualType)
         {
-            var expectedType = _expectedType as TimestampType;
-
-            if (expectedType == null) return;
-
-            if (expectedType.Timezone == actualType.Timezone && expectedType.Unit == actualType.Unit)
+            if (_expectedType is TimestampType expectedType
+                && expectedType.Timezone == actualType.Timezone
+                && expectedType.Unit == actualType.Unit)
             {
                 _dataTypeMatch = true;
             }
