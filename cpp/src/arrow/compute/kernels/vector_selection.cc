@@ -18,6 +18,9 @@
 #include <algorithm>
 #include <cstring>
 #include <limits>
+#include <cstdint>
+#include <memory>
+#include <type_traits>
 
 #include "arrow/array/array_binary.h"
 #include "arrow/array/array_dict.h"

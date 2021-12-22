@@ -16,11 +16,6 @@
 // under the License.
 
 #include <cmath>
-#include <cstdint>
-#include <memory>
-#include <type_traits>
-
-#include "arrow/array/builder_primitive.h"
 
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernels/common.h"
