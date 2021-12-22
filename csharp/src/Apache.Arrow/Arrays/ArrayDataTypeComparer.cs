@@ -50,11 +50,8 @@ namespace Apache.Arrow
 
         public void Visit(Date32Type actualType)
         {
-            var expectedType = _expectedType as Date32Type;
-
-            if (expectedType == null) return;
-
-            if (expectedType.Unit == actualType.Unit)
+            if (_expectedType is Date32Type expectedType
+                && expectedType.Unit == actualType.Unit)
             {
                 _dataTypeMatch = true;
             }
@@ -62,11 +59,8 @@ namespace Apache.Arrow
 
         public void Visit(Date64Type actualType)
         {
-            var expectedType = _expectedType as Date64Type;
-
-            if (expectedType == null) return;
-
-            if (expectedType.Unit == actualType.Unit)
+            if (_expectedType is Date64Type expectedType
+                && expectedType.Unit == actualType.Unit)
             {
                 _dataTypeMatch = true;
             }
@@ -74,11 +68,8 @@ namespace Apache.Arrow
 
         public void Visit(Time32Type actualType)
         {
-            var expectedType = _expectedType as Time32Type;
-
-            if (expectedType == null) return;
-
-            if (expectedType.Unit == actualType.Unit)
+            if (_expectedType is Time32Type expectedType
+                && expectedType.Unit == actualType.Unit)
             {
                 _dataTypeMatch = true;
             }
@@ -86,11 +77,8 @@ namespace Apache.Arrow
 
         public void Visit(Time64Type actualType)
         {
-            var expectedType = _expectedType as Time64Type;
-
-            if (expectedType == null) return;
-
-            if (expectedType.Unit == actualType.Unit)
+            if (_expectedType is Time64Type expectedType
+                && expectedType.Unit == actualType.Unit)
             {
                 _dataTypeMatch = true;
             }
@@ -98,11 +86,8 @@ namespace Apache.Arrow
 
         public void Visit(FixedSizeBinaryType actualType)
         {
-            var expectedType = _expectedType as FixedSizeBinaryType;
-
-            if (expectedType == null) return;
-
-            if (expectedType.ByteWidth == actualType.ByteWidth)
+            if (_expectedType is FixedSizeBinaryType expectedType
+                && expectedType.ByteWidth == actualType.ByteWidth)
             {
                 _dataTypeMatch = true;
             }
@@ -110,11 +95,8 @@ namespace Apache.Arrow
 
         public void Visit(ListType actualType)
         {
-            var expectedType = _expectedType as ListType;
-
-            if (expectedType == null) return;
-
-            if (CompareNested(expectedType, actualType))
+            if (_expectedType is ListType expectedType
+                && CompareNested(expectedType, actualType))
             {
                 _dataTypeMatch = true;
             }
@@ -122,11 +104,8 @@ namespace Apache.Arrow
 
         public void Visit(StructType actualType)
         {
-            var expectedType = _expectedType as StructType;
-
-            if (expectedType == null) return;
-
-            if (CompareNested(expectedType, actualType))
+            if (_expectedType is StructType expectedType
+                && CompareNested(expectedType, actualType))
             {
                 _dataTypeMatch = true;
             }
