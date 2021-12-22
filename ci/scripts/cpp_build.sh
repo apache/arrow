@@ -160,8 +160,10 @@ cmake \
 
 if [ ! -z "${CPP_MAKE_PARALLELISM}" ]; then
   time cmake --build . --target install -- -j${CPP_MAKE_PARALLELISM}
-else
+elif [ "${CMAKE_GENERATOR}" == "Unix Makefiles" ]; then
   time cmake --build . --target install -- -j$[${n_jobs} + 1]
+else
+  time cmake --build . --target install
 fi
 
 popd
