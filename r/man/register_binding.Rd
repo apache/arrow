@@ -4,7 +4,7 @@
 \alias{register_binding}
 \title{Register compute bindings}
 \usage{
-register_binding(fun_name, fun, registry = binding_registry())
+register_binding(fun_name, fun, registry = nse_funcs)
 }
 \arguments{
 \item{fun_name}{A string containing a function name in the form \code{"function"} or

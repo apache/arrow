@@ -37,8 +37,3 @@ test_that("register_binding_agg() works", {
   expect_null(register_binding_agg("some_fun", fun1, fake_registry))
   expect_identical(fake_registry$some_fun, fun1)
 })
-
-test_that("binding_registry() works", {
-  expect_identical(binding_registry(), nse_funcs)
-  expect_identical(binding_registry_agg(), agg_funcs)
-})

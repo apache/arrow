@@ -57,7 +57,7 @@ NULL
 #'   registered function existed.
 #' @keywords internal
 #'
-register_binding <- function(fun_name, fun, registry = binding_registry()) {
+register_binding <- function(fun_name, fun, registry = nse_funcs) {
   name <- gsub("^.*?::", "", fun_name)
   namespace <- gsub("::.*$", "", fun_name)
 
@@ -72,16 +72,8 @@ register_binding <- function(fun_name, fun, registry = binding_registry()) {
   invisible(previous_fun)
 }
 
-register_binding_agg <- function(fun_name, agg_fun, registry = binding_registry_agg()) {
+register_binding_agg <- function(fun_name, agg_fun, registry = agg_funcs) {
   register_binding(fun_name, agg_fun, registry = registry)
-}
-
-binding_registry <- function() {
-  nse_funcs
-}
-
-binding_registry_agg <- function() {
-  agg_funcs
 }
 
 # Supports functions and tests that call previously-defined bindings
