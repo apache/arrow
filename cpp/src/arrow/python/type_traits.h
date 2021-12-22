@@ -378,9 +378,9 @@ static inline int NumPyTypeSize(int npy_type) {
     case NPY_FLOAT64:
       return 8;
     case NPY_COMPLEX64:
-      return 16;
+      return 8;
     case NPY_COMPLEX128:
-      return 32;
+      return 16;
     case NPY_DATETIME:
       return 8;
     case NPY_OBJECT:
