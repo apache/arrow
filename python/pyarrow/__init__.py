@@ -251,6 +251,7 @@ _serialization_deprecatd = {
     "SerializedPyObject": _SerializedPyObject,
 }
 
+
 def __getattr__(name):
     if name in _deprecated:
         obj, new_name = _deprecated[name]

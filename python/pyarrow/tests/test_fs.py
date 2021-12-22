@@ -31,7 +31,6 @@ import weakref
 import pyarrow as pa
 from pyarrow.tests.test_io import assert_file_not_found
 from pyarrow.tests.util import _filesystem_uri, ProxyHandler
-from pyarrow.vendored.version import Version
 
 from pyarrow.fs import (FileType, FileInfo, FileSelector, FileSystem,
                         LocalFileSystem, SubTreeFileSystem, _MockFileSystem,
