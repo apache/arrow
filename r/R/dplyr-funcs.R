@@ -38,7 +38,7 @@ NULL
 #' and don't need or don't want to the automatic conversion of R objects
 #' to [Scalar].
 #'
-#' @param fun_name A function name in the form `"function"` or
+#' @param fun_name A string containing a function name in the form `"function"` or
 #'   `"package::function"`. The package name is currently not used but
 #'   may be used in the future to allow these types of function calls.
 #' @param fun A function or `NULL` to un-register a previous function.
