@@ -99,7 +99,9 @@ COPY python/requirements-wheel-build.txt arrow/python/
 RUN pip install -r arrow/python/requirements-wheel-build.txt
 
 ENV CLCACHE_DIR="C:\clcache"
-RUN if "%python%" NEQ "3.10" pip install clcache
+ENV CLCACHE_COMPRESS=1
+ENV CLCACHE_COMPRESSLEVEL=6
+RUN pip install git+https://github.com/Nuitka/clcache.git
 
 # For debugging purposes
 # RUN wget --no-check-certificate https://github.com/lucasg/Dependencies/releases/download/v1.10/Dependencies_x64_Release.zip
