@@ -157,11 +157,46 @@ struct ExecPlanImpl : public ExecPlan {
     return std::move(Impl{nodes_}.sorted);
   }
 
+  std::pair<NodeVector, std::vector<int>> OrderedNodes() const {
+    struct Impl {
+      const std::vector<std::unique_ptr<ExecNode>>& nodes;
+      std::unordered_set<ExecNode*> visited;
+      NodeVector sorted;
+      std::vector<int> indents;
+
+      explicit Impl(const std::vector<std::unique_ptr<ExecNode>>& nodes) : nodes(nodes) {
+        visited.reserve(nodes.size());
+
+        for (int i = nodes.size() - 1; i >= 0; --i) {
+          if (visited.count(nodes[i].get()) != 0) return;
+          Visit(nodes[i].get());
+        }
+
+        DCHECK_EQ(visited.size(), nodes.size());
+      }
+
+      void Visit(ExecNode* node, int indent = 0) {
+        for (auto input : node->inputs()) {
+          Visit(input, indent + 1);
+        }
+
+        indents.push_back(indent);
+        sorted.push_back(node);
+        visited.insert(node);
+      }
+    };
+
+    auto result = Impl{nodes_};
+    return std::make_pair(result.sorted, result.indents);
+  }
+
   std::string ToString() const {
     std::stringstream ss;
     ss << "ExecPlan with " << nodes_.size() << " nodes:" << std::endl;
-    for (const auto& node : TopoSort()) {
-      ss << node->ToString() << std::endl;
+    auto sorted = OrderedNodes();
+    for (int i = sorted.first.size() - 1; i >= 0; --i) {
+      for (int j = 0; j < sorted.second[i]; ++j) ss << "  ";
+      ss << sorted.first[i]->ToString() << std::endl;
     }
     return ss.str();
   }
