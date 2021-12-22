@@ -77,12 +77,6 @@ nse_funcs$coalesce <- function(...) {
       arg <- Expression$scalar(arg)
     }
 
-    # coalesce doesn't yet support factors/dictionaries
-    # TODO: remove this after ARROW-14167 is merged
-    if (nse_funcs$is.factor(arg)) {
-      warning("Dictionaries (in R: factors) are currently converted to strings (characters) in coalesce", call. = FALSE)
-    }
-
     if (last_arg && arg$type_id() %in% TYPES_WITH_NAN) {
       # store the NA_real_ in the same type as arg to avoid avoid casting
       # smaller float types to larger float types
@@ -207,7 +201,7 @@ nse_funcs$is.numeric <- function(x) {
   is.numeric(x) || (inherits(x, "Expression") && x$type_id() %in% Type[c(
     "UINT8", "INT8", "UINT16", "INT16", "UINT32", "INT32",
     "UINT64", "INT64", "HALF_FLOAT", "FLOAT", "DOUBLE",
-    "DECIMAL", "DECIMAL256"
+    "DECIMAL128", "DECIMAL256"
   )])
 }
 nse_funcs$is.double <- function(x) {
@@ -255,9 +249,59 @@ nse_funcs$is_logical <- function(x, n = NULL) {
   assert_that(is.null(n))
   nse_funcs$is.logical(x)
 }
-nse_funcs$is_timestamp <- function(x, n = NULL) {
-  assert_that(is.null(n))
-  inherits(x, "POSIXt") || (inherits(x, "Expression") && x$type_id() %in% Type[c("TIMESTAMP")])
+
+# Create a data frame/tibble/struct column
+nse_funcs$tibble <- function(..., .rows = NULL, .name_repair = NULL) {
+  if (!is.null(.rows)) arrow_not_supported(".rows")
+  if (!is.null(.name_repair)) arrow_not_supported(".name_repair")
+
+  # use dots_list() because this is what tibble() uses to allow the
+  # useful shorthand of tibble(col1, col2) -> tibble(col1 = col1, col2 = col2)
+  # we have a stronger enforcement of unique names for arguments because
+  # it is difficult to replicate the .name_repair semantics and expanding of
+  # unnamed data frame arguments in the same way that the tibble() constructor
+  # does.
+  args <- rlang::dots_list(..., .named = TRUE, .homonyms = "error")
+
+  build_expr(
+    "make_struct",
+    args = unname(args),
+    options = list(field_names = names(args))
+  )
+}
+
+nse_funcs$data.frame <- function(..., row.names = NULL,
+                                 check.rows = NULL, check.names = TRUE, fix.empty.names = TRUE,
+                                 stringsAsFactors = FALSE) {
+  # we need a specific value of stringsAsFactors because the default was
+  # TRUE in R <= 3.6
+  if (!identical(stringsAsFactors, FALSE)) {
+    arrow_not_supported("stringsAsFactors = TRUE")
+  }
+
+  # ignore row.names and check.rows with a warning
+  if (!is.null(row.names)) arrow_not_supported("row.names")
+  if (!is.null(check.rows)) arrow_not_supported("check.rows")
+
+  args <- rlang::dots_list(..., .named = fix.empty.names)
+  if (is.null(names(args))) {
+    names(args) <- rep("", length(args))
+  }
+
+  if (identical(check.names, TRUE)) {
+    if (identical(fix.empty.names, TRUE)) {
+      names(args) <- make.names(names(args), unique = TRUE)
+    } else {
+      name_emtpy <- names(args) == ""
+      names(args)[!name_emtpy] <- make.names(names(args)[!name_emtpy], unique = TRUE)
+    }
+  }
+
+  build_expr(
+    "make_struct",
+    args = unname(args),
+    options = list(field_names = names(args))
+  )
 }
 
 # String functions
@@ -345,7 +389,7 @@ arrow_string_join_function <- function(null_handling, null_replacement = NULL) {
 # Arrow locale will be supported with ARROW-14126
 stop_if_locale_provided <- function(locale) {
   if (!identical(locale, "en")) {
-    stop("Providing a value for 'locale' other than the default ('en') is not supported by Arrow. ",
+    stop("Providing a value for 'locale' other than the default ('en') is not supported in Arrow. ",
       "To change locale, use 'Sys.setlocale()'",
       call. = FALSE
     )
@@ -749,6 +793,19 @@ contains_regex <- function(string) {
   grepl("[.\\|()[{^$*+?]", string)
 }
 
+nse_funcs$trunc <- function(x, ...) {
+  # accepts and ignores ... for consistency with base::trunc()
+  build_expr("trunc", x)
+}
+
+nse_funcs$round <- function(x, digits = 0) {
+  build_expr(
+    "round",
+    x,
+    options = list(ndigits = digits, round_mode = RoundMode$HALF_TO_EVEN)
+  )
+}
+
 nse_funcs$strptime <- function(x, format = "%Y-%m-%d %H:%M:%S", tz = NULL, unit = "ms") {
   # Arrow uses unit for time parsing, strptime() does not.
   # Arrow has no default option for strptime (format, unit),
@@ -775,7 +832,7 @@ nse_funcs$strftime <- function(x, format = "", tz = "", usetz = FALSE) {
   }
   # Arrow's strftime prints in timezone of the timestamp. To match R's strftime behavior we first
   # cast the timestamp to desired timezone. This is a metadata only change.
-  if (nse_funcs$is_timestamp(x)) {
+  if (nse_funcs$is.POSIXct(x)) {
     ts <- Expression$create("cast", x, options = list(to_type = timestamp(x$type()$unit(), tz)))
   } else {
     ts <- x
@@ -818,19 +875,6 @@ nse_funcs$second <- function(x) {
   Expression$create("add", Expression$create("second", x), Expression$create("subsecond", x))
 }
 
-nse_funcs$trunc <- function(x, ...) {
-  # accepts and ignores ... for consistency with base::trunc()
-  build_expr("trunc", x)
-}
-
-nse_funcs$round <- function(x, digits = 0) {
-  build_expr(
-    "round",
-    x,
-    options = list(ndigits = digits, round_mode = RoundMode$HALF_TO_EVEN)
-  )
-}
-
 nse_funcs$wday <- function(x,
                            label = FALSE,
                            abbr = TRUE,
@@ -846,6 +890,34 @@ nse_funcs$wday <- function(x,
   }
 
   Expression$create("day_of_week", x, options = list(count_from_zero = FALSE, week_start = week_start))
+}
+
+nse_funcs$month <- function(x, label = FALSE, abbr = TRUE, locale = Sys.getlocale("LC_TIME")) {
+  if (label) {
+    if (abbr) {
+      format <- "%b"
+    } else {
+      format <- "%B"
+    }
+    return(Expression$create("strftime", x, options = list(format = format, locale = locale)))
+  }
+
+  Expression$create("month", x)
+}
+
+nse_funcs$is.Date <- function(x) {
+  inherits(x, "Date") ||
+    (inherits(x, "Expression") && x$type_id() %in% Type[c("DATE32", "DATE64")])
+}
+
+nse_funcs$is.instant <- nse_funcs$is.timepoint <- function(x) {
+  inherits(x, c("POSIXt", "POSIXct", "POSIXlt", "Date")) ||
+    (inherits(x, "Expression") && x$type_id() %in% Type[c("TIMESTAMP", "DATE32", "DATE64")])
+}
+
+nse_funcs$is.POSIXct <- function(x) {
+  inherits(x, "POSIXct") ||
+    (inherits(x, "Expression") && x$type_id() %in% Type[c("TIMESTAMP")])
 }
 
 nse_funcs$log <- nse_funcs$logb <- function(x, base = exp(1)) {
@@ -888,17 +960,6 @@ nse_funcs$if_else <- function(condition, true, false, missing = NULL) {
       missing,
       nse_funcs$if_else(condition, true, false)
     ))
-  }
-
-  # if_else doesn't yet support factors/dictionaries
-  # TODO: remove this after ARROW-13358 is merged
-  warn_types <- nse_funcs$is.factor(true) | nse_funcs$is.factor(false)
-  if (warn_types) {
-    warning(
-      "Dictionaries (in R: factors) are currently converted to strings (characters) ",
-      "in if_else and ifelse",
-      call. = FALSE
-    )
   }
 
   build_expr("if_else", condition, true, false)

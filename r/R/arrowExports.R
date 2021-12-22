@@ -4,10 +4,6 @@ test_SET_STRING_ELT <- function(s) {
   invisible(.Call(`_arrow_test_SET_STRING_ELT`, s))
 }
 
-test_same_Array <- function(x, y) {
-  .Call(`_arrow_test_same_Array`, x, y)
-}
-
 is_arrow_altrep <- function(x) {
   .Call(`_arrow_is_arrow_altrep`, x)
 }
@@ -148,6 +144,10 @@ LargeListArray__raw_value_offsets <- function(array) {
   .Call(`_arrow_LargeListArray__raw_value_offsets`, array)
 }
 
+Array__Same <- function(x, y) {
+  .Call(`_arrow_Array__Same`, x, y)
+}
+
 Array__as_vector <- function(array) {
   .Call(`_arrow_Array__as_vector`, array)
 }
@@ -182,6 +182,94 @@ ArrayData__get_offset <- function(x) {
 
 ArrayData__buffers <- function(x) {
   .Call(`_arrow_ArrayData__buffers`, x)
+}
+
+external_pointer_addr_double <- function(external_pointer) {
+  .Call(`_arrow_external_pointer_addr_double`, external_pointer)
+}
+
+external_pointer_addr_character <- function(external_pointer) {
+  .Call(`_arrow_external_pointer_addr_character`, external_pointer)
+}
+
+external_pointer_addr_integer64 <- function(external_pointer) {
+  .Call(`_arrow_external_pointer_addr_integer64`, external_pointer)
+}
+
+external_pointer_addr_raw <- function(external_pointer) {
+  .Call(`_arrow_external_pointer_addr_raw`, external_pointer)
+}
+
+allocate_arrow_schema <- function() {
+  .Call(`_arrow_allocate_arrow_schema`)
+}
+
+delete_arrow_schema <- function(ptr) {
+  invisible(.Call(`_arrow_delete_arrow_schema`, ptr))
+}
+
+allocate_arrow_array <- function() {
+  .Call(`_arrow_allocate_arrow_array`)
+}
+
+delete_arrow_array <- function(ptr) {
+  invisible(.Call(`_arrow_delete_arrow_array`, ptr))
+}
+
+allocate_arrow_array_stream <- function() {
+  .Call(`_arrow_allocate_arrow_array_stream`)
+}
+
+delete_arrow_array_stream <- function(ptr) {
+  invisible(.Call(`_arrow_delete_arrow_array_stream`, ptr))
+}
+
+ImportArray <- function(array, schema) {
+  .Call(`_arrow_ImportArray`, array, schema)
+}
+
+ImportRecordBatch <- function(array, schema) {
+  .Call(`_arrow_ImportRecordBatch`, array, schema)
+}
+
+ImportSchema <- function(schema) {
+  .Call(`_arrow_ImportSchema`, schema)
+}
+
+ImportField <- function(field) {
+  .Call(`_arrow_ImportField`, field)
+}
+
+ImportType <- function(type) {
+  .Call(`_arrow_ImportType`, type)
+}
+
+ImportRecordBatchReader <- function(stream) {
+  .Call(`_arrow_ImportRecordBatchReader`, stream)
+}
+
+ExportType <- function(type, ptr) {
+  invisible(.Call(`_arrow_ExportType`, type, ptr))
+}
+
+ExportField <- function(field, ptr) {
+  invisible(.Call(`_arrow_ExportField`, field, ptr))
+}
+
+ExportSchema <- function(schema, ptr) {
+  invisible(.Call(`_arrow_ExportSchema`, schema, ptr))
+}
+
+ExportArray <- function(array, array_ptr, schema_ptr) {
+  invisible(.Call(`_arrow_ExportArray`, array, array_ptr, schema_ptr))
+}
+
+ExportRecordBatch <- function(batch, array_ptr, schema_ptr) {
+  invisible(.Call(`_arrow_ExportRecordBatch`, batch, array_ptr, schema_ptr))
+}
+
+ExportRecordBatchReader <- function(reader, stream_ptr) {
+  invisible(.Call(`_arrow_ExportRecordBatchReader`, reader, stream_ptr))
 }
 
 Buffer__is_mutable <- function(buffer) {
@@ -604,8 +692,8 @@ dataset___ScanTask__get_batches <- function(scan_task) {
   .Call(`_arrow_dataset___ScanTask__get_batches`, scan_task)
 }
 
-dataset___Dataset__Write <- function(file_write_options, filesystem, base_dir, partitioning, basename_template, scanner, existing_data_behavior) {
-  invisible(.Call(`_arrow_dataset___Dataset__Write`, file_write_options, filesystem, base_dir, partitioning, basename_template, scanner, existing_data_behavior))
+dataset___Dataset__Write <- function(file_write_options, filesystem, base_dir, partitioning, basename_template, scanner, existing_data_behavior, max_partitions) {
+  invisible(.Call(`_arrow_dataset___Dataset__Write`, file_write_options, filesystem, base_dir, partitioning, basename_template, scanner, existing_data_behavior, max_partitions))
 }
 
 dataset___Scanner__TakeRows <- function(scanner, indices) {
@@ -696,6 +784,10 @@ Decimal128Type__initialize <- function(precision, scale) {
   .Call(`_arrow_Decimal128Type__initialize`, precision, scale)
 }
 
+Decimal256Type__initialize <- function(precision, scale) {
+  .Call(`_arrow_Decimal256Type__initialize`, precision, scale)
+}
+
 FixedSizeBinary__initialize <- function(byte_width) {
   .Call(`_arrow_FixedSizeBinary__initialize`, byte_width)
 }
@@ -710,6 +802,10 @@ Time32__initialize <- function(unit) {
 
 Time64__initialize <- function(unit) {
   .Call(`_arrow_Time64__initialize`, unit)
+}
+
+Duration__initialize <- function(unit) {
+  .Call(`_arrow_Duration__initialize`, unit)
 }
 
 list__ <- function(x) {
@@ -766,6 +862,10 @@ DateType__unit <- function(type) {
 
 TimeType__unit <- function(type) {
   .Call(`_arrow_TimeType__unit`, type)
+}
+
+DurationType__unit <- function(type) {
+  .Call(`_arrow_DurationType__unit`, type)
 }
 
 DecimalType__precision <- function(type) {
@@ -1060,8 +1160,8 @@ fs___CopyFiles <- function(source_fs, source_sel, destination_fs, destination_ba
   invisible(.Call(`_arrow_fs___CopyFiles`, source_fs, source_sel, destination_fs, destination_base_dir, chunk_size, use_threads))
 }
 
-fs___S3FileSystem__create <- function(anonymous, access_key, secret_key, session_token, role_arn, session_name, external_id, load_frequency, region, endpoint_override, scheme, background_writes) {
-  .Call(`_arrow_fs___S3FileSystem__create`, anonymous, access_key, secret_key, session_token, role_arn, session_name, external_id, load_frequency, region, endpoint_override, scheme, background_writes)
+fs___S3FileSystem__create <- function(anonymous, access_key, secret_key, session_token, role_arn, session_name, external_id, load_frequency, region, endpoint_override, scheme, proxy_options, background_writes) {
+  .Call(`_arrow_fs___S3FileSystem__create`, anonymous, access_key, secret_key, session_token, role_arn, session_name, external_id, load_frequency, region, endpoint_override, scheme, proxy_options, background_writes)
 }
 
 fs___S3FileSystem__region <- function(fs) {
@@ -1364,84 +1464,12 @@ parquet___arrow___FileReader__GetSchema <- function(reader) {
   .Call(`_arrow_parquet___arrow___FileReader__GetSchema`, reader)
 }
 
-allocate_arrow_schema <- function() {
-  .Call(`_arrow_allocate_arrow_schema`)
-}
-
-delete_arrow_schema <- function(ptr) {
-  invisible(.Call(`_arrow_delete_arrow_schema`, ptr))
-}
-
-allocate_arrow_array <- function() {
-  .Call(`_arrow_allocate_arrow_array`)
-}
-
-delete_arrow_array <- function(ptr) {
-  invisible(.Call(`_arrow_delete_arrow_array`, ptr))
-}
-
-allocate_arrow_array_stream <- function() {
-  .Call(`_arrow_allocate_arrow_array_stream`)
-}
-
-delete_arrow_array_stream <- function(ptr) {
-  invisible(.Call(`_arrow_delete_arrow_array_stream`, ptr))
-}
-
-ImportArray <- function(array, schema) {
-  .Call(`_arrow_ImportArray`, array, schema)
-}
-
-ImportRecordBatch <- function(array, schema) {
-  .Call(`_arrow_ImportRecordBatch`, array, schema)
-}
-
-ImportSchema <- function(schema) {
-  .Call(`_arrow_ImportSchema`, schema)
-}
-
-ImportField <- function(field) {
-  .Call(`_arrow_ImportField`, field)
-}
-
-ImportType <- function(type) {
-  .Call(`_arrow_ImportType`, type)
-}
-
-ImportRecordBatchReader <- function(stream) {
-  .Call(`_arrow_ImportRecordBatchReader`, stream)
-}
-
-ExportType <- function(type, ptr) {
-  invisible(.Call(`_arrow_ExportType`, type, ptr))
-}
-
-ExportField <- function(field, ptr) {
-  invisible(.Call(`_arrow_ExportField`, field, ptr))
-}
-
-ExportSchema <- function(schema, ptr) {
-  invisible(.Call(`_arrow_ExportSchema`, schema, ptr))
-}
-
-ExportArray <- function(array, array_ptr, schema_ptr) {
-  invisible(.Call(`_arrow_ExportArray`, array, array_ptr, schema_ptr))
-}
-
-ExportRecordBatch <- function(batch, array_ptr, schema_ptr) {
-  invisible(.Call(`_arrow_ExportRecordBatch`, batch, array_ptr, schema_ptr))
-}
-
-ExportRecordBatchReader <- function(reader, stream_ptr) {
-  invisible(.Call(`_arrow_ExportRecordBatchReader`, reader, stream_ptr))
-}
-
 Table__from_dots <- function(lst, schema_sxp, use_threads) {
   .Call(`_arrow_Table__from_dots`, lst, schema_sxp, use_threads)
 }
 
-vec_to_arrow <- function(x, s_type) {
-  .Call(`_arrow_vec_to_arrow`, x, s_type)
+vec_to_Array <- function(x, s_type) {
+  .Call(`_arrow_vec_to_Array`, x, s_type)
 }
 
 DictionaryArray__FromArrays <- function(type, indices, dict) {
@@ -1799,3 +1827,4 @@ SetIOThreadPoolCapacity <- function(threads) {
 Array__infer_type <- function(x) {
   .Call(`_arrow_Array__infer_type`, x)
 }
+

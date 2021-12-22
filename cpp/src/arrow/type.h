@@ -170,6 +170,9 @@ class ARROW_EXPORT DataType : public detail::Fingerprintable {
   /// \brief Return the type category
   Type::type id() const { return id_; }
 
+  /// \brief Return the type category of the storage type
+  virtual Type::type storage_id() const { return id_; }
+
  protected:
   // Dummy version that returns a null string (indicating not implemented).
   // Subclasses should override for fast equality checks.
@@ -187,6 +190,13 @@ class ARROW_EXPORT DataType : public detail::Fingerprintable {
 
 ARROW_EXPORT
 std::ostream& operator<<(std::ostream& os, const DataType& type);
+
+inline bool operator==(const DataType& lhs, const DataType& rhs) {
+  return lhs.Equals(rhs);
+}
+inline bool operator!=(const DataType& lhs, const DataType& rhs) {
+  return !lhs.Equals(rhs);
+}
 
 /// \brief Return the compatible physical data type
 ///
@@ -927,7 +937,9 @@ class ARROW_EXPORT MapType : public ListType {
 class ARROW_EXPORT FixedSizeListType : public BaseListType {
  public:
   static constexpr Type::type type_id = Type::FIXED_SIZE_LIST;
-  using offset_type = int32_t;
+  // While the individual item size is 32-bit, the overall data size
+  // (item size * list length) may not fit in a 32-bit int.
+  using offset_type = int64_t;
 
   static constexpr const char* type_name() { return "fixed_size_list"; }
 
@@ -986,6 +998,15 @@ class ARROW_EXPORT StructType : public NestedType {
 
   /// \brief Return the indices of all fields having this name in sorted order
   std::vector<int> GetAllFieldIndices(const std::string& name) const;
+
+  /// \brief Create a new StructType with field added at given index
+  Result<std::shared_ptr<StructType>> AddField(int i,
+                                               const std::shared_ptr<Field>& field) const;
+  /// \brief Create a new StructType by removing the field at given index
+  Result<std::shared_ptr<StructType>> RemoveField(int i) const;
+  /// \brief Create a new StructType by changing the field at given index
+  Result<std::shared_ptr<StructType>> SetField(int i,
+                                               const std::shared_ptr<Field>& field) const;
 
  private:
   std::string ComputeFingerprint() const override;
@@ -1619,9 +1640,11 @@ class ARROW_EXPORT FieldRef {
   /// the resulting name. Therefore if a name must contain the characters '.', '\', or '['
   /// those must be escaped with a preceding '\'.
   static Result<FieldRef> FromDotPath(const std::string& dot_path);
+  std::string ToDotPath() const;
 
   bool Equals(const FieldRef& other) const { return impl_ == other.impl_; }
   bool operator==(const FieldRef& other) const { return Equals(other); }
+  bool operator!=(const FieldRef& other) const { return !(*this == other); }
 
   std::string ToString() const;
 
@@ -2026,6 +2049,8 @@ const std::vector<std::shared_ptr<DataType>>& NumericTypes();
 // Binary and string-like types (except fixed-size binary)
 ARROW_EXPORT
 const std::vector<std::shared_ptr<DataType>>& BaseBinaryTypes();
+ARROW_EXPORT
+const std::vector<std::shared_ptr<DataType>>& BinaryTypes();
 ARROW_EXPORT
 const std::vector<std::shared_ptr<DataType>>& StringTypes();
 // Temporal types including time and timestamps for each unit

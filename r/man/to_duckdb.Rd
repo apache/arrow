@@ -8,7 +8,7 @@ to_duckdb(
   .data,
   con = arrow_duck_connection(),
   table_name = unique_arrow_tablename(),
-  auto_disconnect = FALSE
+  auto_disconnect = TRUE
 )
 }
 \arguments{

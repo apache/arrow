@@ -175,20 +175,14 @@ GArrowFieldExpression *
 garrow_field_expression_new(const gchar *reference,
                             GError **error)
 {
-  if (reference && reference[0] == '.') {
-    auto arrow_reference_result = arrow::FieldRef::FromDotPath(reference);
-    if (!garrow::check(error,
-                       arrow_reference_result,
-                       "[field-expression][new]")) {
-      return NULL;
-    }
-    auto arrow_expression = arrow::compute::field_ref(*arrow_reference_result);
-    return GARROW_FIELD_EXPRESSION(garrow_expression_new_raw(arrow_expression));
-  } else {
-    arrow::FieldRef arrow_reference(reference);
-    auto arrow_expression = arrow::compute::field_ref(arrow_reference);
-    return GARROW_FIELD_EXPRESSION(garrow_expression_new_raw(arrow_expression));
+  auto arrow_reference_result = garrow_field_reference_resolve_raw(reference);
+  if (!garrow::check(error,
+                     arrow_reference_result,
+                     "[field-expression][new]")) {
+    return NULL;
   }
+  auto arrow_expression = arrow::compute::field_ref(*arrow_reference_result);
+  return GARROW_FIELD_EXPRESSION(garrow_expression_new_raw(arrow_expression));
 }
 
 

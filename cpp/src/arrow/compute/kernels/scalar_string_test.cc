@@ -17,6 +17,8 @@
 
 #include <memory>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -26,8 +28,11 @@
 #endif
 
 #include "arrow/compute/api_scalar.h"
+#include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/kernels/test_util.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/type.h"
+#include "arrow/util/value_parsing.h"
 
 namespace arrow {
 namespace compute {
@@ -62,14 +67,6 @@ class BaseTestStringKernels : public ::testing::Test {
                   const std::shared_ptr<Array>& expected,
                   const FunctionOptions* options = nullptr) {
     CheckScalar(func_name, {Datum(input)}, Datum(expected), options);
-  }
-
-  void CheckBinaryScalar(std::string func_name, std::string json_left_input,
-                         std::string json_right_scalar, std::shared_ptr<DataType> out_ty,
-                         std::string json_expected,
-                         const FunctionOptions* options = nullptr) {
-    CheckScalarBinaryScalar(func_name, type(), json_left_input, json_right_scalar, out_ty,
-                            json_expected, options);
   }
 
   void CheckVarArgsScalar(std::string func_name, std::string json_input,
@@ -394,6 +391,15 @@ TYPED_TEST(TestBinaryKernels, NonUtf8WithNullRegex) {
   }
 }
 #endif
+
+TYPED_TEST(TestBinaryKernels, BinaryReverse) {
+  this->CheckUnary(
+      "binary_reverse",
+      this->template MakeArray<std::string>(
+          {{"abc123", 6}, {"\x00\x00\x42\xfe\xff", 5}, {"\xf0", 1}, {"", 0}}),
+      this->template MakeArray<std::string>(
+          {{"321cba", 6}, {"\xff\xfe\x42\x00\x00", 5}, {"\xf0", 1}, {"", 0}}));
+}
 
 TYPED_TEST(TestBaseBinaryKernels, BinaryReplaceSlice) {
   ReplaceSliceOptions options{0, 1, "XX"};
@@ -933,6 +939,81 @@ TYPED_TEST(TestStringKernels, Utf8Reverse) {
   ASSERT_TRUE(res->array()->buffers[1]->Equals(*malformed_input->data()->buffers[1]));
 }
 
+#ifdef ARROW_WITH_UTF8PROC
+
+TYPED_TEST(TestStringKernels, Utf8Normalize) {
+  Utf8NormalizeOptions nfc_options{Utf8NormalizeOptions::NFC};
+  Utf8NormalizeOptions nfkc_options{Utf8NormalizeOptions::NFKC};
+  Utf8NormalizeOptions nfd_options{Utf8NormalizeOptions::NFD};
+  Utf8NormalizeOptions nfkd_options{Utf8NormalizeOptions::NFKD};
+
+  std::vector<Utf8NormalizeOptions> all_options{nfc_options, nfkc_options, nfd_options,
+                                                nfkd_options};
+  std::vector<Utf8NormalizeOptions> compose_options{nfc_options, nfkc_options};
+  std::vector<Utf8NormalizeOptions> decompose_options{nfd_options, nfkd_options};
+  std::vector<Utf8NormalizeOptions> canonical_options{nfc_options, nfd_options};
+  std::vector<Utf8NormalizeOptions> compatibility_options{nfkc_options, nfkd_options};
+
+  for (const auto& options : all_options) {
+    this->CheckUnary("utf8_normalize", "[]", this->type(), "[]", &options);
+    const char* json_data = R"([null, "", "abc"])";
+    this->CheckUnary("utf8_normalize", json_data, this->type(), json_data, &options);
+  }
+
+  // decomposed: U+0061(LATIN SMALL LETTER A) + U+0301(COMBINING ACUTE ACCENT)
+  // composed: U+00E1(LATIN SMALL LETTER A WITH ACUTE)
+  const char* json_composed = "[\"foo\", \"á\"]";
+  const char* json_decomposed = "[\"foo\", \"a\xcc\x81\"]";
+  for (const auto& options : compose_options) {
+    this->CheckUnary("utf8_normalize", json_decomposed, this->type(), json_composed,
+                     &options);
+    this->CheckUnary("utf8_normalize", json_composed, this->type(), json_composed,
+                     &options);
+  }
+  for (const auto& options : decompose_options) {
+    this->CheckUnary("utf8_normalize", json_composed, this->type(), json_decomposed,
+                     &options);
+    this->CheckUnary("utf8_normalize", json_decomposed, this->type(), json_decomposed,
+                     &options);
+  }
+
+  // canonical: U+00B2(Superscript Two)
+  // compatibility: "2"
+  const char* json_canonical = "[\"01\xc2\xb2!\"]";
+  const char* json_compatibility = "[\"012!\"]";
+  for (const auto& options : canonical_options) {
+    this->CheckUnary("utf8_normalize", json_canonical, this->type(), json_canonical,
+                     &options);
+    this->CheckUnary("utf8_normalize", json_compatibility, this->type(),
+                     json_compatibility, &options);
+  }
+  for (const auto& options : compatibility_options) {
+    this->CheckUnary("utf8_normalize", json_canonical, this->type(), json_compatibility,
+                     &options);
+    this->CheckUnary("utf8_normalize", json_compatibility, this->type(),
+                     json_compatibility, &options);
+  }
+
+  // canonical: U+FDFA(Arabic Ligature Sallallahou Alayhe Wasallam)
+  // compatibility: <18 codepoints>
+  json_canonical = "[\"\xef\xb7\xba\"]";
+  json_compatibility = "[\"صلى الله عليه وسلم\"]";
+  for (const auto& options : canonical_options) {
+    this->CheckUnary("utf8_normalize", json_canonical, this->type(), json_canonical,
+                     &options);
+    this->CheckUnary("utf8_normalize", json_compatibility, this->type(),
+                     json_compatibility, &options);
+  }
+  for (const auto& options : compatibility_options) {
+    this->CheckUnary("utf8_normalize", json_canonical, this->type(), json_compatibility,
+                     &options);
+    this->CheckUnary("utf8_normalize", json_compatibility, this->type(),
+                     json_compatibility, &options);
+  }
+}
+
+#endif
+
 TEST(TestStringKernels, LARGE_MEMORY_TEST(Utf8Upper32bitGrowth)) {
   // 0x7fff * 0xffff is the max a 32 bit string array can hold
   // since the utf8_upper kernel can grow it by 3/2, the max we should accept is is
@@ -1039,6 +1120,73 @@ TYPED_TEST(TestStringKernels, Utf8Title) {
       R"([null, "", "b", "aAaz;ZæÆ&", "ɑɽⱤoW", "ıI", "ⱥ.ⱥ.ⱥ..Ⱥ", "hEllO, WoRld!", "foo   baR;héHé0zOP", "!%$^.,;"])",
       this->type(),
       R"([null, "", "B", "Aaaz;Zææ&", "Ɑɽɽow", "Ii", "Ⱥ.Ⱥ.Ⱥ..Ⱥ", "Hello, World!", "Foo   Bar;Héhé0Zop", "!%$^.,;"])");
+}
+
+TYPED_TEST(TestStringKernels, BinaryRepeatWithScalarRepeat) {
+  auto values = ArrayFromJSON(this->type(),
+                              R"(["aAazZæÆ&", null, "", "b", "ɑɽⱤoW", "ıI",
+                                  "ⱥⱥⱥȺ", "hEllO, WoRld!", "$. A3", "!ɑⱤⱤow"])");
+  std::vector<std::pair<int, std::string>> nrepeats_and_expected{{
+      {0, R"(["", null, "", "", "", "", "", "", "", ""])"},
+      {1, R"(["aAazZæÆ&", null, "", "b", "ɑɽⱤoW", "ıI", "ⱥⱥⱥȺ", "hEllO, WoRld!",
+              "$. A3", "!ɑⱤⱤow"])"},
+      {4, R"(["aAazZæÆ&aAazZæÆ&aAazZæÆ&aAazZæÆ&", null, "", "bbbb",
+              "ɑɽⱤoWɑɽⱤoWɑɽⱤoWɑɽⱤoW", "ıIıIıIıI", "ⱥⱥⱥȺⱥⱥⱥȺⱥⱥⱥȺⱥⱥⱥȺ",
+              "hEllO, WoRld!hEllO, WoRld!hEllO, WoRld!hEllO, WoRld!",
+              "$. A3$. A3$. A3$. A3", "!ɑⱤⱤow!ɑⱤⱤow!ɑⱤⱤow!ɑⱤⱤow"])"},
+  }};
+
+  for (const auto& pair : nrepeats_and_expected) {
+    auto num_repeat = pair.first;
+    auto expected = pair.second;
+    for (const auto& ty : IntTypes()) {
+      this->CheckVarArgs("binary_repeat",
+                         {values, Datum(*arrow::MakeScalar(ty, num_repeat))},
+                         this->type(), expected);
+    }
+  }
+
+  // Negative repeat count
+  for (auto num_repeat_ : {-1, -2, -5}) {
+    auto num_repeat = *arrow::MakeScalar(int64(), num_repeat_);
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr("Repeat count must be a non-negative integer"),
+        CallFunction("binary_repeat", {values, num_repeat}));
+  }
+
+  // Floating-point repeat count
+  for (auto num_repeat_ : {0.0, 1.2, -1.3}) {
+    auto num_repeat = *arrow::MakeScalar(float64(), num_repeat_);
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        NotImplemented, ::testing::HasSubstr("has no kernel matching input types"),
+        CallFunction("binary_repeat", {values, num_repeat}));
+  }
+}
+
+TYPED_TEST(TestStringKernels, BinaryRepeatWithArrayRepeat) {
+  auto values = ArrayFromJSON(this->type(),
+                              R"([null, "aAazZæÆ&", "", "b", "ɑɽⱤoW", "ıI",
+                                  "ⱥⱥⱥȺ", "hEllO, WoRld!", "$. A3", "!ɑⱤⱤow"])");
+  for (const auto& ty : IntTypes()) {
+    auto num_repeats = ArrayFromJSON(ty, R"([100, 1, 2, 5, 2, 0, 1, 3, null, 3])");
+    std::string expected =
+        R"([null, "aAazZæÆ&", "", "bbbbb", "ɑɽⱤoWɑɽⱤoW", "", "ⱥⱥⱥȺ",
+            "hEllO, WoRld!hEllO, WoRld!hEllO, WoRld!", null,
+            "!ɑⱤⱤow!ɑⱤⱤow!ɑⱤⱤow"])";
+    this->CheckVarArgs("binary_repeat", {values, num_repeats}, this->type(), expected);
+  }
+
+  // Negative repeat count
+  auto num_repeats = ArrayFromJSON(int64(), R"([100, -1, 2, -5, 2, -1, 3, -2, 3, -100])");
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("Repeat count must be a non-negative integer"),
+      CallFunction("binary_repeat", {values, num_repeats}));
+
+  // Floating-point repeat count
+  num_repeats = ArrayFromJSON(float64(), R"([0.0, 1.2, -1.3])");
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      NotImplemented, ::testing::HasSubstr("has no kernel matching input types"),
+      CallFunction("binary_repeat", {values, num_repeats}));
 }
 
 TYPED_TEST(TestStringKernels, IsAlphaNumericUnicode) {
@@ -1475,6 +1623,7 @@ TYPED_TEST(TestStringKernels, SplitWhitespaceAsciiReverse) {
                    &options_max);
 }
 
+#ifdef ARROW_WITH_UTF8PROC
 TYPED_TEST(TestStringKernels, SplitWhitespaceUTF8) {
   SplitOptions options;
   SplitOptions options_max{1};
@@ -1499,6 +1648,7 @@ TYPED_TEST(TestStringKernels, SplitWhitespaceUTF8Reverse) {
                    "[[\"foo\", \"bar\"], [\"foo\xe2\x80\x88  bar\", \"ba\"]]",
                    &options_max);
 }
+#endif
 
 #ifdef ARROW_WITH_RE2
 TYPED_TEST(TestBaseBinaryKernels, SplitRegex) {
@@ -1694,6 +1844,24 @@ TYPED_TEST(TestStringKernels, Strptime) {
   std::string output1 = R"(["2020-05-01", null, "1900-12-11"])";
   StrptimeOptions options("%m/%d/%Y", TimeUnit::MICRO);
   this->CheckUnary("strptime", input1, timestamp(TimeUnit::MICRO), output1, &options);
+
+  input1 = R"(["5/1/2020 %z", null, "12/11/1900 %z"])";
+  options.format = "%m/%d/%Y %%z";
+  this->CheckUnary("strptime", input1, timestamp(TimeUnit::MICRO), output1, &options);
+}
+
+TYPED_TEST(TestStringKernels, StrptimeZoneOffset) {
+  if (!arrow::internal::kStrptimeSupportsZone) {
+    GTEST_SKIP() << "strptime does not support %z on this platform";
+  }
+  // N.B. BSD strptime only supports (+/-)HHMM and not the wider range
+  // of values GNU strptime supports.
+  std::string input1 = R"(["5/1/2020 +0100", null, "12/11/1900 -0130"])";
+  std::string output1 =
+      R"(["2020-04-30T23:00:00.000000", null, "1900-12-11T01:30:00.000000"])";
+  StrptimeOptions options("%m/%d/%Y %z", TimeUnit::MICRO);
+  this->CheckUnary("strptime", input1, timestamp(TimeUnit::MICRO, "UTC"), output1,
+                   &options);
 }
 
 TYPED_TEST(TestStringKernels, StrptimeDoesNotProvideDefaultOptions) {
@@ -1856,7 +2024,8 @@ TYPED_TEST(TestStringKernels, SliceCodeunitsBasic) {
   auto input = ArrayFromJSON(this->type(), R"(["𝑓öõḍš"])");
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid,
-      testing::HasSubstr("Attempted to initialize KernelState from null FunctionOptions"),
+      testing::HasSubstr(
+          "Function 'utf8_slice_codeunits' cannot be called without options"),
       CallFunction("utf8_slice_codeunits", {input}));
 
   SliceOptions options_invalid{2, 4, 0};

@@ -115,10 +115,10 @@ Result<std::shared_ptr<ArrayData>> BooleanKeyEncoder::Decode(uint8_t** encoded_b
   ARROW_ASSIGN_OR_RAISE(auto key_buf, AllocateBitmap(length, pool));
 
   uint8_t* raw_output = key_buf->mutable_data();
-  memset(raw_output, 0, BitUtil::BytesForBits(length));
+  memset(raw_output, 0, bit_util::BytesForBits(length));
   for (int32_t i = 0; i < length; ++i) {
     auto& encoded_ptr = encoded_bytes[i];
-    BitUtil::SetBitTo(raw_output, i, encoded_ptr[0] != 0);
+    bit_util::SetBitTo(raw_output, i, encoded_ptr[0] != 0);
     encoded_ptr += 1;
   }
 
@@ -238,7 +238,9 @@ Result<std::shared_ptr<ArrayData>> DictionaryKeyEncoder::Decode(uint8_t** encode
   if (dictionary_) {
     data->dictionary = dictionary_->data();
   } else {
-    ARROW_ASSIGN_OR_RAISE(auto dict, MakeArrayOfNull(type_, 0));
+    ARROW_DCHECK(type_->id() == Type::DICTIONARY);
+    const auto& dict_type = checked_cast<const DictionaryType&>(*type_);
+    ARROW_ASSIGN_OR_RAISE(auto dict, MakeArrayOfNull(dict_type.value_type(), 0));
     data->dictionary = dict->data();
   }
 

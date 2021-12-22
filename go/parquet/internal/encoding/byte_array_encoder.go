@@ -20,9 +20,9 @@ import (
 	"encoding/binary"
 	"unsafe"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/parquet"
-	"github.com/apache/arrow/go/parquet/internal/utils"
+	"github.com/apache/arrow/go/v7/arrow"
+	"github.com/apache/arrow/go/v7/parquet"
+	"github.com/apache/arrow/go/v7/parquet/internal/utils"
 )
 
 // PlainByteArrayEncoder encodes byte arrays according to the spec for Plain encoding

@@ -17,16 +17,17 @@
 
 ARG repo
 ARG arch=amd64
-ARG python=3.6
+ARG python=3.8
 FROM ${repo}:${arch}-conda-python-${python}
 
 # install kartothek dependencies from conda-forge
-RUN conda install -c conda-forge -q \
+RUN mamba install -c conda-forge -q \
         attrs \
         click \
         cloudpickle \
         dask \
         decorator \
+        deprecation \
         freezegun \
         msgpack-python \
         prompt-toolkit \
@@ -39,7 +40,7 @@ RUN conda install -c conda-forge -q \
         toolz \
         urlquote \
         zstandard && \
-    conda clean --all
+    mamba clean --all
 
 ARG kartothek=latest
 COPY ci/scripts/install_kartothek.sh /arrow/ci/scripts/

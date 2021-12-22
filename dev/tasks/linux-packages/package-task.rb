@@ -416,8 +416,6 @@ VERSION=#{@deb_upstream_version}
       # "amazon-linux-2-arch64",
       "centos-7",
       # "centos-7-aarch64",
-      "centos-8",
-      # "centos-8-aarch64",
     ]
   end
 

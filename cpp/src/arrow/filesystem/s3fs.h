@@ -139,6 +139,8 @@ struct ARROW_EXPORT S3Options {
   /// delay between retries.
   std::shared_ptr<S3RetryStrategy> retry_strategy;
 
+  S3Options();
+
   /// Configure with the default AWS credentials provider chain.
   void ConfigureDefaultCredentials();
 

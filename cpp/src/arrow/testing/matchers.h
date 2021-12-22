@@ -19,6 +19,7 @@
 
 #include <gmock/gmock-matchers.h>
 
+#include "arrow/datum.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/testing/future_util.h"
@@ -192,12 +193,10 @@ class OkMatcher {
       bool MatchAndExplain(const Res& maybe_value,
                            testing::MatchResultListener* listener) const override {
         const Status& status = internal::GenericToStatus(maybe_value);
-        testing::StringMatchResultListener value_listener;
 
         const bool match = status.ok();
         *listener << "whose value " << testing::PrintToString(status.ToString())
                   << (match ? " matches" : " doesn't match");
-        testing::internal::PrintIfNotEmpty(value_listener.str(), listener->stream());
         return match;
       }
     };
@@ -232,6 +231,63 @@ inline ErrorMatcher Raises(StatusCode code) { return ErrorMatcher(code, util::nu
 template <typename MessageMatcher>
 ErrorMatcher Raises(StatusCode code, const MessageMatcher& message_matcher) {
   return ErrorMatcher(code, testing::MatcherCast<std::string>(message_matcher));
+}
+
+class DataEqMatcher {
+ public:
+  explicit DataEqMatcher(Datum expected) : expected_(std::move(expected)) {}
+
+  template <typename Data>
+  operator testing::Matcher<Data>() const {  // NOLINT runtime/explicit
+    struct Impl : testing::MatcherInterface<const Data&> {
+      explicit Impl(Datum expected) : expected_(std::move(expected)) {}
+
+      void DescribeTo(::std::ostream* os) const override {
+        *os << "has data ";
+        PrintTo(expected_, os);
+      }
+
+      void DescribeNegationTo(::std::ostream* os) const override {
+        *os << "doesn't have data ";
+        PrintTo(expected_, os);
+      }
+
+      bool MatchAndExplain(const Data& data,
+                           testing::MatchResultListener* listener) const override {
+        Datum boxed(data);
+
+        if (boxed.kind() != expected_.kind()) {
+          *listener << "whose Datum::kind " << boxed.ToString() << " doesn't match "
+                    << expected_.ToString();
+          return false;
+        }
+
+        if (*boxed.type() != *expected_.type()) {
+          *listener << "whose DataType " << boxed.type()->ToString() << " doesn't match "
+                    << expected_.type()->ToString();
+          return false;
+        }
+
+        const bool match = boxed == expected_;
+        *listener << "whose value ";
+        PrintTo(boxed, listener->stream());
+        *listener << (match ? " matches" : " doesn't match");
+        return match;
+      }
+
+      Datum expected_;
+    };
+
+    return testing::Matcher<Data>(new Impl(expected_));
+  }
+
+ private:
+  Datum expected_;
+};
+
+template <typename Data>
+DataEqMatcher DataEq(Data&& dat) {
+  return DataEqMatcher(Datum(std::forward<Data>(dat)));
 }
 
 }  // namespace arrow

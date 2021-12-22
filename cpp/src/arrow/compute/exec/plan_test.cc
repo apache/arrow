@@ -301,12 +301,11 @@ TEST(ExecPlan, ToString) {
                     {"sink", SinkNodeOptions{&sink_gen}},
                 })
                 .AddToPlan(plan.get()));
-  EXPECT_EQ(plan->sources()[0]->ToString(), R"(SourceNode{"source", outputs=["sink"]})");
-  EXPECT_EQ(plan->sinks()[0]->ToString(),
-            R"(SinkNode{"sink", inputs=[collected: "source"]})");
+  EXPECT_EQ(plan->sources()[0]->ToString(), R"(:SourceNode{outputs=[:SinkNode]})");
+  EXPECT_EQ(plan->sinks()[0]->ToString(), R"(:SinkNode{inputs=[collected=:SourceNode]})");
   EXPECT_EQ(plan->ToString(), R"(ExecPlan with 2 nodes:
-SourceNode{"source", outputs=["sink"]}
-SinkNode{"sink", inputs=[collected: "source"]}
+:SourceNode{outputs=[:SinkNode]}
+:SinkNode{inputs=[collected=:SourceNode]}
 )");
 
   ASSERT_OK_AND_ASSIGN(plan, ExecPlan::Make());
@@ -316,7 +315,8 @@ SinkNode{"sink", inputs=[collected: "source"]}
           {
               {"source",
                SourceNodeOptions{basic_data.schema,
-                                 basic_data.gen(/*parallel=*/false, /*slow=*/false)}},
+                                 basic_data.gen(/*parallel=*/false, /*slow=*/false)},
+               "custom_source_label"},
               {"filter", FilterNodeOptions{greater_equal(field_ref("i32"), literal(0))}},
               {"project", ProjectNodeOptions{{
                               field_ref("bool"),
@@ -333,22 +333,24 @@ SinkNode{"sink", inputs=[collected: "source"]}
               {"order_by_sink",
                OrderBySinkNodeOptions{
                    SortOptions({SortKey{"sum(multiply(i32, 2))", SortOrder::Ascending}}),
-                   &sink_gen}},
+                   &sink_gen},
+               "custom_sink_label"},
           })
           .AddToPlan(plan.get()));
   EXPECT_EQ(plan->ToString(), R"a(ExecPlan with 6 nodes:
-SourceNode{"source", outputs=["filter"]}
-FilterNode{"filter", inputs=[target: "source"], outputs=["project"], filter=(i32 >= 0)}
-ProjectNode{"project", inputs=[target: "filter"], outputs=["aggregate"], projection=[bool, multiply(i32, 2)]}
-GroupByNode{"aggregate", inputs=[groupby: "project"], outputs=["filter"], keys=["bool"], aggregates=[
+custom_source_label:SourceNode{outputs=[:FilterNode]}
+:FilterNode{inputs=[target=custom_source_label:SourceNode], outputs=[:ProjectNode], filter=(i32 >= 0)}
+:ProjectNode{inputs=[target=:FilterNode], outputs=[:GroupByNode], projection=[bool, multiply(i32, 2)]}
+:GroupByNode{inputs=[groupby=:ProjectNode], outputs=[:FilterNode], keys=["bool"], aggregates=[
 	hash_sum(multiply(i32, 2)),
 	hash_count(multiply(i32, 2), {mode=NON_NULL}),
 ]}
-FilterNode{"filter", inputs=[target: "aggregate"], outputs=["order_by_sink"], filter=(sum(multiply(i32, 2)) > 10)}
-OrderBySinkNode{"order_by_sink", inputs=[collected: "filter"], by={sort_keys=[sum(multiply(i32, 2)) ASC], null_placement=AtEnd}}
+:FilterNode{inputs=[target=:GroupByNode], outputs=[custom_sink_label:OrderBySinkNode], filter=(sum(multiply(i32, 2)) > 10)}
+custom_sink_label:OrderBySinkNode{inputs=[collected=:FilterNode], by={sort_keys=[FieldRef.Name(sum(multiply(i32, 2))) ASC], null_placement=AtEnd}}
 )a");
 
   ASSERT_OK_AND_ASSIGN(plan, ExecPlan::Make());
+
   Declaration union_node{"union", ExecNodeOptions{}};
   Declaration lhs{"source",
                   SourceNodeOptions{basic_data.schema,
@@ -372,13 +374,13 @@ OrderBySinkNode{"order_by_sink", inputs=[collected: "filter"], by={sort_keys=[su
           })
           .AddToPlan(plan.get()));
   EXPECT_EQ(plan->ToString(), R"a(ExecPlan with 5 nodes:
-SourceNode{"lhs", outputs=["union"]}
-SourceNode{"rhs", outputs=["union"]}
-UnionNode{"union", inputs=[input_0_label: "lhs", input_1_label: "rhs"], outputs=["aggregate"]}
-ScalarAggregateNode{"aggregate", inputs=[target: "union"], outputs=["sink"], aggregates=[
+lhs:SourceNode{outputs=[:UnionNode]}
+rhs:SourceNode{outputs=[:UnionNode]}
+:UnionNode{inputs=[input_0_label=lhs:SourceNode, input_1_label=rhs:SourceNode], outputs=[:ScalarAggregateNode]}
+:ScalarAggregateNode{inputs=[target=:UnionNode], outputs=[:SinkNode], aggregates=[
 	count(i32, {mode=NON_NULL}),
 ]}
-SinkNode{"sink", inputs=[collected: "aggregate"]}
+:SinkNode{inputs=[collected=:ScalarAggregateNode]}
 )a");
 }
 
@@ -546,7 +548,7 @@ TEST(ExecPlanExecution, StressSourceSink) {
     for (bool parallel : {false, true}) {
       SCOPED_TRACE(parallel ? "parallel" : "single threaded");
 
-      int num_batches = slow && !parallel ? 30 : 300;
+      int num_batches = (slow && !parallel) ? 30 : 300;
 
       ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
       AsyncGenerator<util::optional<ExecBatch>> sink_gen;
@@ -576,7 +578,7 @@ TEST(ExecPlanExecution, StressSourceOrderBy) {
     for (bool parallel : {false, true}) {
       SCOPED_TRACE(parallel ? "parallel" : "single threaded");
 
-      int num_batches = slow && !parallel ? 30 : 300;
+      int num_batches = (slow && !parallel) ? 30 : 300;
 
       ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
       AsyncGenerator<util::optional<ExecBatch>> sink_gen;
@@ -605,6 +607,42 @@ TEST(ExecPlanExecution, StressSourceOrderBy) {
   }
 }
 
+TEST(ExecPlanExecution, StressSourceGroupedSumStop) {
+  auto input_schema = schema({field("a", int32()), field("b", boolean())});
+  for (bool slow : {false, true}) {
+    SCOPED_TRACE(slow ? "slowed" : "unslowed");
+
+    for (bool parallel : {false, true}) {
+      SCOPED_TRACE(parallel ? "parallel" : "single threaded");
+
+      int num_batches = (slow && !parallel) ? 30 : 300;
+
+      ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+      AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+
+      auto random_data = MakeRandomBatches(input_schema, num_batches);
+
+      SortOptions options({SortKey("a", SortOrder::Ascending)});
+      ASSERT_OK(Declaration::Sequence(
+                    {
+                        {"source", SourceNodeOptions{random_data.schema,
+                                                     random_data.gen(parallel, slow)}},
+                        {"aggregate",
+                         AggregateNodeOptions{/*aggregates=*/{{"hash_sum", nullptr}},
+                                              /*targets=*/{"a"}, /*names=*/{"sum(a)"},
+                                              /*keys=*/{"b"}}},
+                        {"sink", SinkNodeOptions{&sink_gen}},
+                    })
+                    .AddToPlan(plan.get()));
+
+      ASSERT_OK(plan->Validate());
+      ASSERT_OK(plan->StartProducing());
+      plan->StopProducing();
+      ASSERT_FINISHES_OK(plan->finished());
+    }
+  }
+}
+
 TEST(ExecPlanExecution, StressSourceSinkStopped) {
   for (bool slow : {false, true}) {
     SCOPED_TRACE(slow ? "slowed" : "unslowed");
@@ -612,7 +650,7 @@ TEST(ExecPlanExecution, StressSourceSinkStopped) {
     for (bool parallel : {false, true}) {
       SCOPED_TRACE(parallel ? "parallel" : "single threaded");
 
-      int num_batches = slow && !parallel ? 30 : 300;
+      int num_batches = (slow && !parallel) ? 30 : 300;
 
       ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
       AsyncGenerator<util::optional<ExecBatch>> sink_gen;
@@ -1005,6 +1043,40 @@ TEST(ExecPlanExecution, ScalarSourceScalarAggSink) {
       }))));
 }
 
+TEST(ExecPlanExecution, ScalarSourceGroupedSum) {
+  // ARROW-14630: ensure grouped aggregation with a scalar key/array input doesn't error
+  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+
+  BatchesWithSchema scalar_data;
+  scalar_data.batches = {
+      ExecBatchFromJSON({int32(), ValueDescr::Scalar(boolean())},
+                        "[[5, false], [6, false], [7, false]]"),
+      ExecBatchFromJSON({int32(), ValueDescr::Scalar(boolean())},
+                        "[[1, true], [2, true], [3, true]]"),
+  };
+  scalar_data.schema = schema({field("a", int32()), field("b", boolean())});
+
+  SortOptions options({SortKey("b", SortOrder::Descending)});
+  ASSERT_OK(Declaration::Sequence(
+                {
+                    {"source", SourceNodeOptions{scalar_data.schema,
+                                                 scalar_data.gen(/*parallel=*/false,
+                                                                 /*slow=*/false)}},
+                    {"aggregate",
+                     AggregateNodeOptions{/*aggregates=*/{{"hash_sum", nullptr}},
+                                          /*targets=*/{"a"}, /*names=*/{"hash_sum(a)"},
+                                          /*keys=*/{"b"}}},
+                    {"order_by_sink", OrderBySinkNodeOptions{options, &sink_gen}},
+                })
+                .AddToPlan(plan.get()));
+
+  ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
+              Finishes(ResultWith(UnorderedElementsAreArray({
+                  ExecBatchFromJSON({int64(), boolean()}, R"([[6, true], [18, false]])"),
+              }))));
+}
+
 TEST(ExecPlanExecution, SelfInnerHashJoinSink) {
   for (bool parallel : {false, true}) {
     SCOPED_TRACE(parallel ? "parallel/merged" : "serial");
@@ -1040,7 +1112,7 @@ TEST(ExecPlanExecution, SelfInnerHashJoinSink) {
 
     HashJoinNodeOptions join_opts{JoinType::INNER,
                                   /*left_keys=*/{"str"},
-                                  /*right_keys=*/{"str"}, "l_", "r_"};
+                                  /*right_keys=*/{"str"}, literal(true), "l_", "r_"};
 
     ASSERT_OK_AND_ASSIGN(
         auto hashjoin,
@@ -1097,7 +1169,7 @@ TEST(ExecPlanExecution, SelfOuterHashJoinSink) {
 
     HashJoinNodeOptions join_opts{JoinType::FULL_OUTER,
                                   /*left_keys=*/{"str"},
-                                  /*right_keys=*/{"str"}, "l_", "r_"};
+                                  /*right_keys=*/{"str"}, literal(true), "l_", "r_"};
 
     ASSERT_OK_AND_ASSIGN(
         auto hashjoin,

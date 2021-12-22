@@ -39,7 +39,6 @@ env:
   VCPKG_FEATURE_FLAGS: "-manifests"
   VCPKG_OVERLAY_TRIPLETS: {{ "${{ github.workspace }}/arrow/ci/vcpkg" }}
   VCPKG_ROOT: {{ "${{ github.workspace }}/vcpkg" }}
-  VCPKG_VERSION: "{{ vcpkg_version }}"
 
 jobs:
   build:
@@ -56,15 +55,21 @@ jobs:
         shell: bash
         run: echo "/opt/homebrew/opt/bison/bin" >> $GITHUB_PATH
 
+      - name: Retrieve VCPKG version from arrow/.env
+        shell: bash
+        run: |
+          vcpkg_version=$(cat "arrow/.env" | grep "VCPKG" | cut -d "=" -f2 | tr -d '"')
+          echo "VCPKG_VERSION=$vcpkg_version" >> $GITHUB_ENV
+
       - name: Install Vcpkg
         shell: bash
         env:
           MACOSX_DEPLOYMENT_TARGET: "11.0"
-        run: arch -arm64 arrow/ci/scripts/install_vcpkg.sh $VCPKG_VERSION $VCPKG_ROOT
+        run: arch -arm64 arrow/ci/scripts/install_vcpkg.sh $VCPKG_ROOT $VCPKG_VERSION
 
       - name: Install OpenSSL
         shell: bash
-        run: arch -arm64 $VCPKG_ROOT/vcpkg install openssl
+        run: arch -arm64 $VCPKG_ROOT/vcpkg install openssl:arm64-osx-static-release
 
       {% if arch == "universal2" %}
       # OpenSSL doesn't provide an universal2 configuration yet, so vcpkg is
@@ -75,12 +80,13 @@ jobs:
       - name: Create universal binaries for OpenSSL
         shell: bash
         run: |
-          for arch in arm64 x64; do
-            VCPKG_DEFAULT_TRIPLET=${arch}-osx-static-release arch -arm64 $VCPKG_ROOT/vcpkg install openssl
+          mkdir -p $VCPKG_ROOT/installed/universal2-osx-static-release/lib
+          for arch in arm64 amd64; do
+            arch -arm64 $VCPKG_ROOT/vcpkg install openssl:${arch}-osx-static-release
           done
           for lib in libcrypto libssl; do
             lipo -create $VCPKG_ROOT/installed/arm64-osx-static-release/lib/${lib}.a \
-                         $VCPKG_ROOT/installed/x64-osx-static-release/lib/${lib}.a \
+                         $VCPKG_ROOT/installed/amd64-osx-static-release/lib/${lib}.a \
                  -output $VCPKG_ROOT/installed/universal2-osx-static-release/lib/${lib}.a
           done
       {% endif %}
@@ -97,6 +103,7 @@ jobs:
             flatbuffers \
             gflags \
             glog \
+            google-cloud-cpp[core,storage] \
             lz4 \
             orc \
             protobuf \

@@ -27,11 +27,10 @@ env:
   PYARROW_VERSION: "{{ arrow.no_rc_version }}"
   PYTHON_VERSION: "{{ python_version }}"
   PYTHON: "/Library/Frameworks/Python.framework/Versions/{{ python_version }}/bin/python{{ python_version }}"
-  VCPKG_DEFAULT_TRIPLET: x64-osx-static-release
+  VCPKG_DEFAULT_TRIPLET: amd64-osx-static-release
   VCPKG_FEATURE_FLAGS: "-manifests"
   VCPKG_OVERLAY_TRIPLETS: {{ "${{ github.workspace }}/arrow/ci/vcpkg" }}
   VCPKG_ROOT: {{ "${{ github.workspace }}/vcpkg" }}
-  VCPKG_VERSION: "{{ vcpkg_version }}"
 
 jobs:
   build:
@@ -41,20 +40,33 @@ jobs:
       {{ macros.github_checkout_arrow()|indent }}
 
       - name: Install System Dependencies
-        run: brew install bash bison coreutils ninja cmake
+        run: brew install bash bison coreutils ninja
+
+      - name: Install Specific CMake version
+        uses: lukka/get-cmake@v3.21.2
+
+      - name: Retrieve VCPKG version from arrow/.env
+        shell: bash
+        run: |
+          vcpkg_version=$(cat "arrow/.env" | grep "VCPKG" | cut -d "=" -f2 | tr -d '"')
+          echo "VCPKG_VERSION=$vcpkg_version" >> $GITHUB_ENV
 
       - uses: actions/cache@v2
         id: vcpkg-cache
         with:
           path: vcpkg
-          key: vcpkg-{{ macos_deployment_target }}-{{ vcpkg_version }}-{{ "${{ hashFiles('arrow/ci/vcpkg/*.patch', 'arrow/ci/vcpkg/*osx*.cmake') }}" }}
+          key: vcpkg-{{ macos_deployment_target }}-{{ "${{ env.VCPKG_VERSION }}" }}-{{ "${{ hashFiles('arrow/ci/vcpkg/*.patch', 'arrow/ci/vcpkg/*osx*.cmake') }}" }}
 
       - name: Install Vcpkg
         if: steps.vcpkg-cache.outputs.cache-hit != 'true'
         shell: bash
         env:
           MACOSX_DEPLOYMENT_TARGET: "10.15"
-        run: arrow/ci/scripts/install_vcpkg.sh $VCPKG_VERSION $VCPKG_ROOT
+        run: arrow/ci/scripts/install_vcpkg.sh $VCPKG_ROOT $VCPKG_VERSION
+
+      # workaround for https://github.com/apache/arrow/pull/11569#issuecomment-979592053
+      - name: Install OpenSSL
+        run: $VCPKG_ROOT/vcpkg install openssl
 
       - name: Install Packages
         run: |
@@ -68,6 +80,7 @@ jobs:
             flatbuffers \
             gflags \
             glog \
+            google-cloud-cpp[core,storage] \
             grpc \
             lz4 \
             openssl \

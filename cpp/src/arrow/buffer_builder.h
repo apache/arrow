@@ -333,7 +333,7 @@ class TypedBufferBuilder<bool> {
   }
 
   void UnsafeAppend(bool value) {
-    BitUtil::SetBitTo(mutable_data(), bit_length_, value);
+    bit_util::SetBitTo(mutable_data(), bit_length_, value);
     if (!value) {
       ++false_count_;
     }
@@ -361,7 +361,7 @@ class TypedBufferBuilder<bool> {
   }
 
   void UnsafeAppend(const int64_t num_copies, bool value) {
-    BitUtil::SetBitsTo(mutable_data(), bit_length_, num_copies, value);
+    bit_util::SetBitsTo(mutable_data(), bit_length_, num_copies, value);
     false_count_ += num_copies * !value;
     bit_length_ += num_copies;
   }
@@ -386,7 +386,7 @@ class TypedBufferBuilder<bool> {
   Status Resize(const int64_t new_capacity, bool shrink_to_fit = true) {
     const int64_t old_byte_capacity = bytes_builder_.capacity();
     ARROW_RETURN_NOT_OK(
-        bytes_builder_.Resize(BitUtil::BytesForBits(new_capacity), shrink_to_fit));
+        bytes_builder_.Resize(bit_util::BytesForBits(new_capacity), shrink_to_fit));
     // Resize() may have chosen a larger capacity (e.g. for padding),
     // so ask it again before calling memset().
     const int64_t new_byte_capacity = bytes_builder_.capacity();
@@ -414,7 +414,7 @@ class TypedBufferBuilder<bool> {
 
   Status Finish(std::shared_ptr<Buffer>* out, bool shrink_to_fit = true) {
     // set bytes_builder_.size_ == byte size of data
-    bytes_builder_.UnsafeAdvance(BitUtil::BytesForBits(bit_length_) -
+    bytes_builder_.UnsafeAdvance(bit_util::BytesForBits(bit_length_) -
                                  bytes_builder_.length());
     bit_length_ = false_count_ = 0;
     return bytes_builder_.Finish(out, shrink_to_fit);
@@ -433,7 +433,7 @@ class TypedBufferBuilder<bool> {
   /// only for memory allocation).
   Result<std::shared_ptr<Buffer>> FinishWithLength(int64_t final_length,
                                                    bool shrink_to_fit = true) {
-    const auto final_byte_length = BitUtil::BytesForBits(final_length);
+    const auto final_byte_length = bit_util::BytesForBits(final_length);
     bytes_builder_.UnsafeAdvance(final_byte_length - bytes_builder_.length());
     bit_length_ = false_count_ = 0;
     return bytes_builder_.FinishWithLength(final_byte_length, shrink_to_fit);

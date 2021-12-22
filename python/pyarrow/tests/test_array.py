@@ -108,6 +108,22 @@ def test_long_array_format():
     assert result == expected
 
 
+def test_indented_string_format():
+    arr = pa.array(['', None, 'foo'])
+    result = arr.to_string(indent=1)
+    expected = '[\n "",\n null,\n "foo"\n]'
+
+    assert result == expected
+
+
+def test_top_level_indented_string_format():
+    arr = pa.array(['', None, 'foo'])
+    result = arr.to_string(top_level_indent=1)
+    expected = ' [\n   "",\n   null,\n   "foo"\n ]'
+
+    assert result == expected
+
+
 def test_binary_format():
     arr = pa.array([b'\x00', b'', None, b'\x01foo', b'\x80\xff'])
     result = arr.to_string()
@@ -2899,6 +2915,14 @@ def test_array_supported_masks():
     with pytest.raises(TypeError):
         arr = pa.array(np.array([4, None, 4, 3.]),
                        mask=pa.array([True, False, True, False]))
+
+
+@pytest.mark.pandas
+def test_array_supported_pandas_masks():
+    import pandas
+    arr = pa.array(pandas.Series([0, 1], name="a", dtype="int64"),
+                   mask=pandas.Series([True, False], dtype='bool'))
+    assert arr.to_pylist() == [None, 1]
 
 
 def test_binary_array_masked():

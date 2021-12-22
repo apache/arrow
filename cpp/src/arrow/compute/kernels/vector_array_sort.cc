@@ -125,7 +125,7 @@ inline void VisitRawValuesInline(const BooleanArray& values,
     const uint8_t* data = values.data()->GetValues<uint8_t>(1, 0);
     VisitBitBlocksVoid(
         values.null_bitmap(), values.offset(), values.length(),
-        [&](int64_t i) { visitor_not_null(BitUtil::GetBit(data, values.offset() + i)); },
+        [&](int64_t i) { visitor_not_null(bit_util::GetBit(data, values.offset() + i)); },
         [&]() { visitor_null(); });
   } else {
     // Can avoid GetBit() overhead in the no-nulls case
@@ -497,7 +497,10 @@ void AddArraySortingKernels(VectorKernel base, VectorFunction* func) {
   DCHECK_OK(func->AddKernel(base));
 }
 
-const auto kDefaultArraySortOptions = ArraySortOptions::Defaults();
+const ArraySortOptions* GetDefaultArraySortOptions() {
+  static const auto kDefaultArraySortOptions = ArraySortOptions::Defaults();
+  return &kDefaultArraySortOptions;
+}
 
 const FunctionDoc array_sort_indices_doc(
     "Return the indices that would sort an array",
@@ -526,7 +529,7 @@ const FunctionDoc partition_nth_indices_doc(
      "\n"
      "The pivot index `N` must be given in PartitionNthOptions.\n"
      "The handling of nulls and NaNs can also be changed in PartitionNthOptions."),
-    {"array"}, "PartitionNthOptions");
+    {"array"}, "PartitionNthOptions", /*options_required=*/true);
 
 }  // namespace
 
@@ -543,7 +546,7 @@ void RegisterVectorArraySort(FunctionRegistry* registry) {
 
   auto array_sort_indices = std::make_shared<VectorFunction>(
       "array_sort_indices", Arity::Unary(), &array_sort_indices_doc,
-      &kDefaultArraySortOptions);
+      GetDefaultArraySortOptions());
   base.init = ArraySortIndicesState::Init;
   AddArraySortingKernels<ArraySortIndices>(base, array_sort_indices.get());
   DCHECK_OK(registry->AddFunction(std::move(array_sort_indices)));

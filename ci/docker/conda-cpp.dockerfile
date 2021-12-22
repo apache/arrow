@@ -19,17 +19,23 @@ ARG repo
 ARG arch
 FROM ${repo}:${arch}-conda
 
+COPY ci/scripts/install_minio.sh /arrow/ci/scripts
+RUN /arrow/ci/scripts/install_minio.sh latest /opt/conda
+
+COPY ci/scripts/install_gcs_testbench.sh /arrow/ci/scripts
+RUN /arrow/ci/scripts/install_gcs_testbench.sh default
+
 # install the required conda packages into the test environment
 COPY ci/conda_env_cpp.txt \
      ci/conda_env_gandiva.txt \
      /arrow/ci/
-RUN conda install \
+RUN mamba install \
         --file arrow/ci/conda_env_cpp.txt \
         --file arrow/ci/conda_env_gandiva.txt \
         compilers \
         doxygen \
         valgrind && \
-    conda clean --all
+    mamba clean --all
 
 ENV ARROW_BUILD_TESTS=ON \
     ARROW_DATASET=ON \
@@ -48,6 +54,7 @@ ENV ARROW_BUILD_TESTS=ON \
     ARROW_WITH_SNAPPY=ON \
     ARROW_WITH_ZLIB=ON \
     ARROW_WITH_ZSTD=ON \
+    GTest_SOURCE=BUNDLED \
     PARQUET_BUILD_EXAMPLES=ON \
     PARQUET_BUILD_EXECUTABLES=ON \
     PARQUET_HOME=$CONDA_PREFIX

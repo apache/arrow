@@ -199,6 +199,7 @@ class build_ext(_build_ext):
         '_flight',
         '_dataset',
         '_dataset_orc',
+        '_dataset_parquet',
         '_feather',
         '_parquet',
         '_orc',
@@ -429,6 +430,10 @@ class build_ext(_build_ext):
                 self.with_orc and self.with_dataset
         ):
             return True
+        if name == '_dataset_parquet' and not (
+                self.with_parquet and self.with_dataset
+        ):
+            return True
         if name == '_cuda' and not self.with_cuda:
             return True
         if name == 'gandiva' and not self.with_gandiva:
@@ -623,6 +628,7 @@ setup(
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
+        'Programming Language :: Python :: 3.10',
     ],
     license='Apache License, Version 2.0',
     maintainer='Apache Arrow Developers',

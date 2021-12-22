@@ -15,13 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/chunked_array.h"
+
+#include <gtest/gtest.h>
+
 #include <cstdint>
 #include <memory>
 #include <vector>
 
-#include <gtest/gtest.h>
-
-#include "arrow/chunked_array.h"
 #include "arrow/scalar.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_common.h"
@@ -66,6 +67,14 @@ TEST_F(TestChunkedArray, Make) {
 
   ASSERT_RAISES(Invalid, ChunkedArray::Make({chunk0, chunk1}));
   ASSERT_RAISES(Invalid, ChunkedArray::Make({chunk0}, int16()));
+}
+
+TEST_F(TestChunkedArray, MakeEmpty) {
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<ChunkedArray> empty,
+                       ChunkedArray::MakeEmpty(int64()));
+  AssertTypeEqual(*int64(), *empty->type());
+  ASSERT_OK(empty->ValidateFull());
+  ASSERT_EQ(empty->length(), 0);
 }
 
 TEST_F(TestChunkedArray, BasicEquals) {

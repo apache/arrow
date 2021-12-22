@@ -24,6 +24,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "arrow/compute/exec/hash_join_dict.h"
 #include "arrow/compute/exec/task_util.h"
 #include "arrow/compute/kernels/row_encoder.h"
 
@@ -79,7 +80,8 @@ class HashJoinBasicImpl : public HashJoinImpl {
 
   Status Init(ExecContext* ctx, JoinType join_type, bool use_sync_execution,
               size_t num_threads, HashJoinSchema* schema_mgr,
-              std::vector<JoinKeyCmp> key_cmp, OutputBatchCallback output_batch_callback,
+              std::vector<JoinKeyCmp> key_cmp, Expression filter,
+              OutputBatchCallback output_batch_callback,
               FinishedCallback finished_callback,
               TaskScheduler::ScheduleImpl schedule_task_callback) override {
     num_threads = std::max(num_threads, static_cast<size_t>(1));
@@ -89,6 +91,7 @@ class HashJoinBasicImpl : public HashJoinImpl {
     num_threads_ = num_threads;
     schema_mgr_ = schema_mgr;
     key_cmp_ = std::move(key_cmp);
+    filter_ = std::move(filter);
     output_batch_callback_ = std::move(output_batch_callback);
     finished_callback_ = std::move(finished_callback);
     local_states_.resize(num_threads);
@@ -96,6 +99,7 @@ class HashJoinBasicImpl : public HashJoinImpl {
       local_states_[i].is_initialized = false;
       local_states_[i].is_has_match_initialized = false;
     }
+    dict_probe_.Init(num_threads);
 
     has_hash_table_ = false;
     num_batches_produced_.store(0);
@@ -144,12 +148,13 @@ class HashJoinBasicImpl : public HashJoinImpl {
       if (has_payload) {
         InitEncoder(0, HashJoinProjection::PAYLOAD, &local_state.exec_batch_payloads);
       }
+
       local_state.is_initialized = true;
     }
   }
 
   Status EncodeBatch(int side, HashJoinProjection projection_handle, RowEncoder* encoder,
-                     const ExecBatch& batch) {
+                     const ExecBatch& batch, ExecBatch* opt_projected_batch = nullptr) {
     ExecBatch projected({}, batch.length);
     int num_cols = schema_mgr_->proj_maps[side].num_cols(projection_handle);
     projected.values.resize(num_cols);
@@ -158,6 +163,10 @@ class HashJoinBasicImpl : public HashJoinImpl {
         schema_mgr_->proj_maps[side].map(projection_handle, HashJoinProjection::INPUT);
     for (int icol = 0; icol < num_cols; ++icol) {
       projected.values[icol] = batch.values[to_input.get(icol)];
+    }
+
+    if (opt_projected_batch) {
+      *opt_projected_batch = projected;
     }
 
     return encoder->EncodeAndAppend(projected);
@@ -170,6 +179,8 @@ class HashJoinBasicImpl : public HashJoinImpl {
                          std::vector<int32_t>* output_no_match,
                          std::vector<int32_t>* output_match_left,
                          std::vector<int32_t>* output_match_right) {
+    InitHasMatchIfNeeded(local_state);
+
     ARROW_DCHECK(has_hash_table_);
 
     InitHasMatchIfNeeded(local_state);
@@ -180,8 +191,8 @@ class HashJoinBasicImpl : public HashJoinImpl {
       bool no_match = hash_table_empty_;
       for (int icol = 0; icol < num_cols; ++icol) {
         bool is_null = non_null_bit_vectors[icol] &&
-                       !BitUtil::GetBit(non_null_bit_vectors[icol],
-                                        non_null_bit_vector_offsets[icol] + irow);
+                       !bit_util::GetBit(non_null_bit_vectors[icol],
+                                         non_null_bit_vector_offsets[icol] + irow);
         if (key_cmp_[icol] == JoinKeyCmp::EQ && is_null) {
           no_match = true;
           break;
@@ -198,8 +209,6 @@ class HashJoinBasicImpl : public HashJoinImpl {
       for (auto it = range.first; it != range.second; ++it) {
         output_match_left->push_back(irow);
         output_match_right->push_back(it->second);
-        // Mark row in hash table as having a match
-        BitUtil::SetBit(local_state->has_match.data(), it->second);
         has_match = true;
       }
       if (!has_match) {
@@ -218,10 +227,7 @@ class HashJoinBasicImpl : public HashJoinImpl {
         schema_mgr_->proj_maps[0].num_cols(HashJoinProjection::OUTPUT);
     int num_out_cols_right =
         schema_mgr_->proj_maps[1].num_cols(HashJoinProjection::OUTPUT);
-    ARROW_DCHECK((opt_left_payload == nullptr) ==
-                 (schema_mgr_->proj_maps[0].num_cols(HashJoinProjection::PAYLOAD) == 0));
-    ARROW_DCHECK((opt_right_payload == nullptr) ==
-                 (schema_mgr_->proj_maps[1].num_cols(HashJoinProjection::PAYLOAD) == 0));
+
     result.values.resize(num_out_cols_left + num_out_cols_right);
     auto from_key = schema_mgr_->proj_maps[0].map(HashJoinProjection::OUTPUT,
                                                   HashJoinProjection::KEY);
@@ -273,6 +279,126 @@ class HashJoinBasicImpl : public HashJoinImpl {
     num_batches_produced_++;
   }
 
+  Status ProbeBatch_ResidualFilter(ThreadLocalState& local_state,
+                                   std::vector<int32_t>& match,
+                                   std::vector<int32_t>& no_match,
+                                   std::vector<int32_t>& match_left,
+                                   std::vector<int32_t>& match_right) {
+    if (filter_ == literal(true)) {
+      return Status::OK();
+    }
+    ARROW_DCHECK_EQ(match_left.size(), match_right.size());
+
+    ExecBatch concatenated({}, match_left.size());
+
+    ARROW_ASSIGN_OR_RAISE(ExecBatch left_key, local_state.exec_batch_keys.Decode(
+                                                  match_left.size(), match_left.data()));
+    ARROW_ASSIGN_OR_RAISE(
+        ExecBatch right_key,
+        hash_table_keys_.Decode(match_right.size(), match_right.data()));
+
+    ExecBatch left_payload;
+    if (!schema_mgr_->LeftPayloadIsEmpty()) {
+      ARROW_ASSIGN_OR_RAISE(left_payload, local_state.exec_batch_payloads.Decode(
+                                              match_left.size(), match_left.data()));
+    }
+
+    ExecBatch right_payload;
+    if (!schema_mgr_->RightPayloadIsEmpty()) {
+      ARROW_ASSIGN_OR_RAISE(right_payload, hash_table_payloads_.Decode(
+                                               match_right.size(), match_right.data()));
+    }
+
+    auto AppendFields = [&concatenated](const SchemaProjectionMap& to_key,
+                                        const SchemaProjectionMap& to_pay,
+                                        const ExecBatch& key, const ExecBatch& payload) {
+      ARROW_DCHECK(to_key.num_cols == to_pay.num_cols);
+      for (int i = 0; i < to_key.num_cols; i++) {
+        if (to_key.get(i) != SchemaProjectionMap::kMissingField) {
+          int key_idx = to_key.get(i);
+          concatenated.values.push_back(key.values[key_idx]);
+        } else if (to_pay.get(i) != SchemaProjectionMap::kMissingField) {
+          int pay_idx = to_pay.get(i);
+          concatenated.values.push_back(payload.values[pay_idx]);
+        }
+      }
+    };
+
+    SchemaProjectionMap left_to_key = schema_mgr_->proj_maps[0].map(
+        HashJoinProjection::FILTER, HashJoinProjection::KEY);
+    SchemaProjectionMap left_to_pay = schema_mgr_->proj_maps[0].map(
+        HashJoinProjection::FILTER, HashJoinProjection::PAYLOAD);
+    SchemaProjectionMap right_to_key = schema_mgr_->proj_maps[1].map(
+        HashJoinProjection::FILTER, HashJoinProjection::KEY);
+    SchemaProjectionMap right_to_pay = schema_mgr_->proj_maps[1].map(
+        HashJoinProjection::FILTER, HashJoinProjection::PAYLOAD);
+
+    AppendFields(left_to_key, left_to_pay, left_key, left_payload);
+    AppendFields(right_to_key, right_to_pay, right_key, right_payload);
+
+    ARROW_ASSIGN_OR_RAISE(Datum mask,
+                          ExecuteScalarExpression(filter_, concatenated, ctx_));
+
+    size_t num_probed_rows = match.size() + no_match.size();
+    if (mask.is_scalar()) {
+      const auto& mask_scalar = mask.scalar_as<BooleanScalar>();
+      if (mask_scalar.is_valid && mask_scalar.value) {
+        // All rows passed, nothing left to do
+        return Status::OK();
+      } else {
+        // Nothing passed, no_match becomes everything
+        no_match.resize(num_probed_rows);
+        std::iota(no_match.begin(), no_match.end(), 0);
+        match_left.clear();
+        match_right.clear();
+        match.clear();
+        return Status::OK();
+      }
+    }
+    ARROW_DCHECK_EQ(mask.array()->offset, 0);
+    ARROW_DCHECK_EQ(mask.array()->length, static_cast<int64_t>(match_left.size()));
+    const uint8_t* validity =
+        mask.array()->buffers[0] ? mask.array()->buffers[0]->data() : nullptr;
+    const uint8_t* comparisons = mask.array()->buffers[1]->data();
+    size_t num_rows = match_left.size();
+
+    match.clear();
+    no_match.clear();
+
+    int32_t match_idx = 0;  // current size of new match_left
+    int32_t irow = 0;       // index into match_left
+    for (int32_t curr_left = 0; static_cast<size_t>(curr_left) < num_probed_rows;
+         curr_left++) {
+      int32_t advance_to = static_cast<size_t>(irow) < num_rows
+                               ? match_left[irow]
+                               : static_cast<int32_t>(num_probed_rows);
+      while (curr_left < advance_to) {
+        no_match.push_back(curr_left++);
+      }
+      bool passed = false;
+      for (; static_cast<size_t>(irow) < num_rows && match_left[irow] == curr_left;
+           irow++) {
+        bool is_valid = !validity || bit_util::GetBit(validity, irow);
+        bool is_cmp_true = bit_util::GetBit(comparisons, irow);
+        // We treat a null comparison result as false, like in SQL
+        if (is_valid && is_cmp_true) {
+          match_left[match_idx] = match_left[irow];
+          match_right[match_idx] = match_right[irow];
+          match_idx++;
+          passed = true;
+        }
+      }
+      if (passed) {
+        match.push_back(curr_left);
+      } else if (static_cast<size_t>(curr_left) < num_probed_rows) {
+        no_match.push_back(curr_left);
+      }
+    }
+    match_left.resize(match_idx);
+    match_right.resize(match_idx);
+    return Status::OK();
+  }
+
   Status ProbeBatch_OutputOne(size_t thread_index, int64_t batch_size_next,
                               const int32_t* opt_left_ids, const int32_t* opt_right_ids) {
     if (batch_size_next == 0 || (!opt_left_ids && !opt_right_ids)) {
@@ -311,6 +437,8 @@ class HashJoinBasicImpl : public HashJoinImpl {
       ARROW_DCHECK(opt_right_ids);
       ARROW_ASSIGN_OR_RAISE(right_key,
                             hash_table_keys_.Decode(batch_size_next, opt_right_ids));
+      // Post process build side keys that use dictionary
+      RETURN_NOT_OK(dict_build_.PostDecode(schema_mgr_->proj_maps[1], &right_key, ctx_));
     }
     if (has_right_payload) {
       ARROW_ASSIGN_OR_RAISE(right_payload,
@@ -368,13 +496,48 @@ class HashJoinBasicImpl : public HashJoinImpl {
     return Status::OK();
   }
 
+  void NullInfoFromBatch(const ExecBatch& batch,
+                         std::vector<const uint8_t*>* nn_bit_vectors,
+                         std::vector<int64_t>* nn_offsets,
+                         std::vector<uint8_t>* nn_bit_vector_all_nulls) {
+    int num_cols = static_cast<int>(batch.values.size());
+    nn_bit_vectors->resize(num_cols);
+    nn_offsets->resize(num_cols);
+    nn_bit_vector_all_nulls->clear();
+    for (int64_t i = 0; i < num_cols; ++i) {
+      const uint8_t* nn = nullptr;
+      int64_t offset = 0;
+      if (batch[i].is_array()) {
+        if (batch[i].array()->buffers[0] != NULLPTR) {
+          nn = batch[i].array()->buffers[0]->data();
+          offset = batch[i].array()->offset;
+        }
+      } else {
+        ARROW_DCHECK(batch[i].is_scalar());
+        if (!batch[i].scalar_as<arrow::internal::PrimitiveScalarBase>().is_valid) {
+          if (nn_bit_vector_all_nulls->empty()) {
+            nn_bit_vector_all_nulls->resize(bit_util::BytesForBits(batch.length));
+            memset(nn_bit_vector_all_nulls->data(), 0,
+                   bit_util::BytesForBits(batch.length));
+          }
+          nn = nn_bit_vector_all_nulls->data();
+        }
+      }
+      (*nn_bit_vectors)[i] = nn;
+      (*nn_offsets)[i] = offset;
+    }
+  }
+
   Status ProbeBatch(size_t thread_index, const ExecBatch& batch) {
     ThreadLocalState& local_state = local_states_[thread_index];
     InitLocalStateIfNeeded(thread_index);
 
     local_state.exec_batch_keys.Clear();
-    RETURN_NOT_OK(
-        EncodeBatch(0, HashJoinProjection::KEY, &local_state.exec_batch_keys, batch));
+
+    ExecBatch batch_key_for_lookups;
+
+    RETURN_NOT_OK(EncodeBatch(0, HashJoinProjection::KEY, &local_state.exec_batch_keys,
+                              batch, &batch_key_for_lookups));
     bool has_left_payload =
         (schema_mgr_->proj_maps[0].num_cols(HashJoinProjection::PAYLOAD) > 0);
     if (has_left_payload) {
@@ -388,29 +551,36 @@ class HashJoinBasicImpl : public HashJoinImpl {
     local_state.match_left.clear();
     local_state.match_right.clear();
 
-    std::vector<const uint8_t*> non_null_bit_vectors;
-    std::vector<int64_t> non_null_bit_vector_offsets;
-    int num_key_cols = schema_mgr_->proj_maps[0].num_cols(HashJoinProjection::KEY);
-    non_null_bit_vectors.resize(num_key_cols);
-    non_null_bit_vector_offsets.resize(num_key_cols);
-    auto from_batch =
-        schema_mgr_->proj_maps[0].map(HashJoinProjection::KEY, HashJoinProjection::INPUT);
-    for (int i = 0; i < num_key_cols; ++i) {
-      int input_col_id = from_batch.get(i);
-      const uint8_t* non_nulls = nullptr;
-      int64_t offset = 0;
-      if (batch[input_col_id].array()->buffers[0] != NULLPTR) {
-        non_nulls = batch[input_col_id].array()->buffers[0]->data();
-        offset = batch[input_col_id].array()->offset;
-      }
-      non_null_bit_vectors[i] = non_nulls;
-      non_null_bit_vector_offsets[i] = offset;
+    bool use_key_batch_for_dicts = dict_probe_.BatchRemapNeeded(
+        thread_index, schema_mgr_->proj_maps[0], schema_mgr_->proj_maps[1], ctx_);
+    RowEncoder* row_encoder_for_lookups = &local_state.exec_batch_keys;
+    if (use_key_batch_for_dicts) {
+      RETURN_NOT_OK(dict_probe_.EncodeBatch(
+          thread_index, schema_mgr_->proj_maps[0], schema_mgr_->proj_maps[1], dict_build_,
+          batch, &row_encoder_for_lookups, &batch_key_for_lookups, ctx_));
     }
 
-    ProbeBatch_Lookup(&local_state, local_state.exec_batch_keys, non_null_bit_vectors,
+    // Collect information about all nulls in key columns.
+    //
+    std::vector<const uint8_t*> non_null_bit_vectors;
+    std::vector<int64_t> non_null_bit_vector_offsets;
+    std::vector<uint8_t> all_nulls;
+    NullInfoFromBatch(batch_key_for_lookups, &non_null_bit_vectors,
+                      &non_null_bit_vector_offsets, &all_nulls);
+
+    ProbeBatch_Lookup(&local_state, *row_encoder_for_lookups, non_null_bit_vectors,
                       non_null_bit_vector_offsets, &local_state.match,
                       &local_state.no_match, &local_state.match_left,
                       &local_state.match_right);
+
+    RETURN_NOT_OK(ProbeBatch_ResidualFilter(local_state, local_state.match,
+                                            local_state.no_match, local_state.match_left,
+                                            local_state.match_right));
+
+    for (auto i : local_state.match_right) {
+      // Mark row in hash table as having a match
+      bit_util::SetBit(local_state.has_match.data(), i);
+    }
 
     RETURN_NOT_OK(ProbeBatch_OutputAll(thread_index, local_state.exec_batch_keys,
                                        local_state.exec_batch_payloads, local_state.match,
@@ -427,7 +597,7 @@ class HashJoinBasicImpl : public HashJoinImpl {
     if (batches.empty()) {
       hash_table_empty_ = true;
     } else {
-      InitEncoder(1, HashJoinProjection::KEY, &hash_table_keys_);
+      dict_build_.InitEncoder(schema_mgr_->proj_maps[1], &hash_table_keys_, ctx_);
       bool has_payload =
           (schema_mgr_->proj_maps[1].num_cols(HashJoinProjection::PAYLOAD) > 0);
       if (has_payload) {
@@ -441,11 +611,14 @@ class HashJoinBasicImpl : public HashJoinImpl {
         const ExecBatch& batch = batches[ibatch];
         if (batch.length == 0) {
           continue;
-        } else {
+        } else if (hash_table_empty_) {
           hash_table_empty_ = false;
+
+          RETURN_NOT_OK(dict_build_.Init(schema_mgr_->proj_maps[1], &batch, ctx_));
         }
         int32_t num_rows_before = hash_table_keys_.num_rows();
-        RETURN_NOT_OK(EncodeBatch(1, HashJoinProjection::KEY, &hash_table_keys_, batch));
+        RETURN_NOT_OK(dict_build_.EncodeBatch(thread_index, schema_mgr_->proj_maps[1],
+                                              batch, &hash_table_keys_, ctx_));
         if (has_payload) {
           RETURN_NOT_OK(
               EncodeBatch(1, HashJoinProjection::PAYLOAD, &hash_table_payloads_, batch));
@@ -456,6 +629,11 @@ class HashJoinBasicImpl : public HashJoinImpl {
         }
       }
     }
+
+    if (hash_table_empty_) {
+      RETURN_NOT_OK(dict_build_.Init(schema_mgr_->proj_maps[1], nullptr, ctx_));
+    }
+
     return Status::OK();
   }
 
@@ -545,7 +723,7 @@ class HashJoinBasicImpl : public HashJoinImpl {
         join_type_ != JoinType::RIGHT_OUTER && join_type_ != JoinType::FULL_OUTER) {
       return 0;
     }
-    return BitUtil::CeilDiv(hash_table_keys_.num_rows(), hash_table_scan_unit_);
+    return bit_util::CeilDiv(hash_table_keys_.num_rows(), hash_table_scan_unit_);
   }
 
   Status ScanHashTable_exec_task(size_t thread_index, int64_t task_id) {
@@ -569,7 +747,7 @@ class HashJoinBasicImpl : public HashJoinImpl {
 
     bool match_search_value = (join_type_ == JoinType::RIGHT_SEMI);
     for (int32_t row_id = start_row_id; row_id < end_row_id; ++row_id) {
-      if (BitUtil::GetBit(has_match_.data(), row_id) == match_search_value) {
+      if (bit_util::GetBit(has_match_.data(), row_id) == match_search_value) {
         id_right.push_back(row_id);
       }
     }
@@ -643,8 +821,8 @@ class HashJoinBasicImpl : public HashJoinImpl {
     }
     if (!hash_table_empty_) {
       int32_t num_rows = hash_table_keys_.num_rows();
-      local_state->has_match.resize(BitUtil::BytesForBits(num_rows));
-      memset(local_state->has_match.data(), 0, BitUtil::BytesForBits(num_rows));
+      local_state->has_match.resize(bit_util::BytesForBits(num_rows));
+      memset(local_state->has_match.data(), 0, bit_util::BytesForBits(num_rows));
     }
     local_state->is_has_match_initialized = true;
   }
@@ -655,8 +833,8 @@ class HashJoinBasicImpl : public HashJoinImpl {
     }
 
     int32_t num_rows = hash_table_keys_.num_rows();
-    has_match_.resize(BitUtil::BytesForBits(num_rows));
-    memset(has_match_.data(), 0, BitUtil::BytesForBits(num_rows));
+    has_match_.resize(bit_util::BytesForBits(num_rows));
+    memset(has_match_.data(), 0, bit_util::BytesForBits(num_rows));
 
     for (size_t tid = 0; tid < local_states_.size(); ++tid) {
       if (!local_states_[tid].is_initialized) {
@@ -680,6 +858,7 @@ class HashJoinBasicImpl : public HashJoinImpl {
   size_t num_threads_;
   HashJoinSchema* schema_mgr_;
   std::vector<JoinKeyCmp> key_cmp_;
+  Expression filter_;
   std::unique_ptr<TaskScheduler> scheduler_;
   int task_group_build_;
   int task_group_queued_;
@@ -712,6 +891,11 @@ class HashJoinBasicImpl : public HashJoinImpl {
   std::unordered_multimap<std::string, int32_t> hash_table_;
   std::vector<uint8_t> has_match_;
   bool hash_table_empty_;
+
+  // Dictionary handling
+  //
+  HashJoinDictBuildMulti dict_build_;
+  HashJoinDictProbeMulti dict_probe_;
 
   std::vector<ExecBatch> left_batches_;
   bool has_hash_table_;

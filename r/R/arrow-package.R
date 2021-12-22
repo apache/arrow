@@ -23,6 +23,7 @@
 #' @importFrom rlang eval_tidy new_data_mask syms env new_environment env_bind set_names exec
 #' @importFrom rlang is_bare_character quo_get_expr quo_get_env quo_set_expr .data seq2 is_interactive
 #' @importFrom rlang expr caller_env is_character quo_name is_quosure enexpr enexprs as_quosure
+#' @importFrom rlang is_list
 #' @importFrom tidyselect vars_pull vars_rename vars_select eval_select
 #' @useDynLib arrow, .registration = TRUE
 #' @keywords internal
@@ -171,6 +172,13 @@ arrow_with_json <- function() {
   tryCatch(.Call(`_json_available`), error = function(e) {
     return(FALSE)
   })
+}
+
+# True when the OS is linux + and the R version is development
+# helpful for skipping on Valgrind, and the sanitizer checks (clang + gcc) on cran
+on_linux_dev <- function() {
+  identical(tolower(Sys.info()[["sysname"]]), "linux") &&
+    grepl("devel", R.version.string)
 }
 
 option_use_threads <- function() {

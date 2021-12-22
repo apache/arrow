@@ -98,8 +98,8 @@ enum class NullPlacement {
 /// \brief One sort key for PartitionNthIndices (TODO) and SortIndices
 class ARROW_EXPORT SortKey : public util::EqualityComparable<SortKey> {
  public:
-  explicit SortKey(std::string name, SortOrder order = SortOrder::Ascending)
-      : name(std::move(name)), order(order) {}
+  explicit SortKey(FieldRef target, SortOrder order = SortOrder::Ascending)
+      : target(std::move(target)), order(order) {}
 
   using util::EqualityComparable<SortKey>::Equals;
   using util::EqualityComparable<SortKey>::operator==;
@@ -107,8 +107,8 @@ class ARROW_EXPORT SortKey : public util::EqualityComparable<SortKey> {
   bool Equals(const SortKey& other) const;
   std::string ToString() const;
 
-  /// The name of the sort column.
-  std::string name;
+  /// A FieldRef targetting the sort column.
+  FieldRef target;
   /// How to order by this sort key.
   SortOrder order;
 };

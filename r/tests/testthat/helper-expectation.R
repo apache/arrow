@@ -98,8 +98,7 @@ compare_dplyr_binding <- function(expr,
 
   if (isTRUE(warning)) {
     # Special-case the simple warning:
-    # TODO: ARROW-13362 pick one of in or by and use it everywhere
-    warning <- "not supported (in|by) Arrow; pulling data into R"
+    warning <- "not supported in Arrow; pulling data into R"
   }
 
   skip_msg <- NULL
@@ -157,6 +156,10 @@ compare_dplyr_error <- function(expr,
     rlang::eval_tidy(expr, rlang::new_data_mask(rlang::env(.input = tbl))),
     error = function(e) {
       msg <- conditionMessage(e)
+
+      if (grepl("Problem while computing", msg[1])) {
+        msg <- conditionMessage(e$parent)
+      }
 
       # The error here is of the form:
       #

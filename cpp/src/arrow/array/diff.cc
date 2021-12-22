@@ -290,7 +290,7 @@ class QuadraticSpaceMyersDiff {
 
     for (int64_t i = edit_count_; i > 0; --i) {
       bool insert = insert_[index];
-      BitUtil::SetBitTo(insert_buf->mutable_data(), i, insert);
+      bit_util::SetBitTo(insert_buf->mutable_data(), i, insert);
 
       auto insertions_minus_deletions =
           (endpoint.base - base_begin_) - (endpoint.target - target_begin_);
@@ -308,7 +308,7 @@ class QuadraticSpaceMyersDiff {
 
       endpoint = previous;
     }
-    BitUtil::SetBitTo(insert_buf->mutable_data(), 0, false);
+    bit_util::SetBitTo(insert_buf->mutable_data(), 0, false);
     run_length[0] = endpoint.base - base_begin_;
 
     return StructArray::Make(

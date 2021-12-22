@@ -15,7 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <cmath>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -28,17 +30,64 @@ namespace arrow {
 namespace internal {
 
 template <typename T>
-void AssertConversion(const T& type, const std::string& s, typename T::c_type expected) {
+void AssertValueEquals(T a, T b) {
+  ASSERT_EQ(a, b);
+}
+
+template <>
+void AssertValueEquals<float>(float a, float b) {
+  ASSERT_EQ(a, b);
+  ASSERT_EQ(std::signbit(a), std::signbit(b));
+}
+
+template <>
+void AssertValueEquals<double>(double a, double b) {
+  ASSERT_EQ(a, b);
+  ASSERT_EQ(std::signbit(a), std::signbit(b));
+}
+
+template <typename T>
+void AssertConversion(StringConverter<T>* converter, const T& type, const std::string& s,
+                      typename T::c_type expected) {
+  ARROW_SCOPED_TRACE("When converting: '", s, "', expecting: ", expected);
   typename T::c_type out{};
-  ASSERT_TRUE(ParseValue(type, s.data(), s.length(), &out))
-      << "Conversion failed for '" << s << "' (expected to return " << expected << ")";
-  ASSERT_EQ(out, expected) << "Conversion failed for '" << s << "'";
+  ASSERT_TRUE(converter->Convert(type, s.data(), s.length(), &out));
+  AssertValueEquals(out, expected);
+}
+
+template <typename T>
+void AssertConversion(StringConverter<T>* converter, const std::string& s,
+                      typename T::c_type expected) {
+  auto type = checked_pointer_cast<T>(TypeTraits<T>::type_singleton());
+  AssertConversion(converter, *type, s, expected);
+}
+
+template <typename T>
+void AssertConversion(const T& type, const std::string& s, typename T::c_type expected) {
+  ARROW_SCOPED_TRACE("When converting: '", s, "', expecting: ", expected);
+  typename T::c_type out{};
+  ASSERT_TRUE(ParseValue(type, s.data(), s.length(), &out));
+  AssertValueEquals(out, expected);
 }
 
 template <typename T>
 void AssertConversion(const std::string& s, typename T::c_type expected) {
   auto type = checked_pointer_cast<T>(TypeTraits<T>::type_singleton());
   AssertConversion(*type, s, expected);
+}
+
+template <typename T>
+void AssertConversionFails(StringConverter<T>* converter, const T& type,
+                           const std::string& s) {
+  typename T::c_type out{};
+  ASSERT_FALSE(converter->Convert(type, s.data(), s.length(), &out))
+      << "Conversion should have failed for '" << s << "' (returned " << out << ")";
+}
+
+template <typename T>
+void AssertConversionFails(StringConverter<T>* converter, const std::string& s) {
+  auto type = checked_pointer_cast<T>(TypeTraits<T>::type_singleton());
+  AssertConversionFails(converter, *type, s);
 }
 
 template <typename T>
@@ -68,23 +117,33 @@ TEST(StringConversion, ToBoolean) {
 TEST(StringConversion, ToFloat) {
   AssertConversion<FloatType>("1.5", 1.5f);
   AssertConversion<FloatType>("0", 0.0f);
-  // XXX ASSERT_EQ doesn't distinguish signed zeros
   AssertConversion<FloatType>("-0.0", -0.0f);
   AssertConversion<FloatType>("-1e20", -1e20f);
 
   AssertConversionFails<FloatType>("");
   AssertConversionFails<FloatType>("e");
+  AssertConversionFails<FloatType>("1,5");
+
+  StringConverter<FloatType> converter(/*decimal_point=*/',');
+  AssertConversion(&converter, "1,5", 1.5f);
+  AssertConversion(&converter, "0", 0.0f);
+  AssertConversionFails(&converter, "1.5");
 }
 
 TEST(StringConversion, ToDouble) {
   AssertConversion<DoubleType>("1.5", 1.5);
   AssertConversion<DoubleType>("0", 0);
-  // XXX ASSERT_EQ doesn't distinguish signed zeros
   AssertConversion<DoubleType>("-0.0", -0.0);
   AssertConversion<DoubleType>("-1e100", -1e100);
 
   AssertConversionFails<DoubleType>("");
   AssertConversionFails<DoubleType>("e");
+  AssertConversionFails<DoubleType>("1,5");
+
+  StringConverter<DoubleType> converter(/*decimal_point=*/',');
+  AssertConversion(&converter, "1,5", 1.5);
+  AssertConversion(&converter, "0", 0.0);
+  AssertConversionFails(&converter, "1.5");
 }
 
 #if !defined(_WIN32) || defined(NDEBUG)
@@ -94,13 +153,25 @@ TEST(StringConversion, ToFloatLocale) {
   LocaleGuard locale_guard("fr_FR.UTF-8");
 
   AssertConversion<FloatType>("1.5", 1.5f);
+  AssertConversionFails<FloatType>("1,5");
+
+  StringConverter<FloatType> converter(/*decimal_point=*/'#');
+  AssertConversion(&converter, "1#5", 1.5f);
+  AssertConversionFails(&converter, "1.5");
+  AssertConversionFails(&converter, "1,5");
 }
 
 TEST(StringConversion, ToDoubleLocale) {
   // French locale uses the comma as decimal point
   LocaleGuard locale_guard("fr_FR.UTF-8");
 
-  AssertConversion<DoubleType>("1.5", 1.5f);
+  AssertConversion<DoubleType>("1.5", 1.5);
+  AssertConversionFails<DoubleType>("1,5");
+
+  StringConverter<DoubleType> converter(/*decimal_point=*/'#');
+  AssertConversion(&converter, "1#5", 1.5);
+  AssertConversionFails(&converter, "1.5");
+  AssertConversionFails(&converter, "1,5");
 }
 
 #endif  // _WIN32
@@ -503,6 +574,15 @@ TEST(StringConversion, ToTimestampDateTime_ISO8601) {
 
     AssertConversion(type, "1970-01-01 00:00:00", 0);
     AssertConversion(type, "2018-11-13 17", 1542128400);
+    AssertConversion(type, "2018-11-13 17+00", 1542128400);
+    AssertConversion(type, "2018-11-13 17+0000", 1542128400);
+    AssertConversion(type, "2018-11-13 17+00:00", 1542128400);
+    AssertConversion(type, "2018-11-13 17+01", 1542124800);
+    AssertConversion(type, "2018-11-13 17+0117", 1542123780);
+    AssertConversion(type, "2018-11-13 17+01:17", 1542123780);
+    AssertConversion(type, "2018-11-13 17-01", 1542132000);
+    AssertConversion(type, "2018-11-13 17-0117", 1542133020);
+    AssertConversion(type, "2018-11-13 17-01:17", 1542133020);
     AssertConversion(type, "2018-11-13T17", 1542128400);
     AssertConversion(type, "2018-11-13 17Z", 1542128400);
     AssertConversion(type, "2018-11-13T17Z", 1542128400);
@@ -510,10 +590,28 @@ TEST(StringConversion, ToTimestampDateTime_ISO8601) {
     AssertConversion(type, "2018-11-13T17:11", 1542129060);
     AssertConversion(type, "2018-11-13 17:11Z", 1542129060);
     AssertConversion(type, "2018-11-13T17:11Z", 1542129060);
+    AssertConversion(type, "2018-11-13 17:11+00", 1542129060);
+    AssertConversion(type, "2018-11-13 17:11+0000", 1542129060);
+    AssertConversion(type, "2018-11-13 17:11+00:00", 1542129060);
+    AssertConversion(type, "2018-11-13 17:11+01", 1542125460);
+    AssertConversion(type, "2018-11-13 17:11+0117", 1542124440);
+    AssertConversion(type, "2018-11-13 17:11+01:17", 1542124440);
+    AssertConversion(type, "2018-11-13 17:11-01", 1542132660);
+    AssertConversion(type, "2018-11-13 17:11-0117", 1542133680);
+    AssertConversion(type, "2018-11-13 17:11-01:17", 1542133680);
     AssertConversion(type, "2018-11-13 17:11:10", 1542129070);
     AssertConversion(type, "2018-11-13T17:11:10", 1542129070);
     AssertConversion(type, "2018-11-13 17:11:10Z", 1542129070);
     AssertConversion(type, "2018-11-13T17:11:10Z", 1542129070);
+    AssertConversion(type, "2018-11-13T17:11:10+00", 1542129070);
+    AssertConversion(type, "2018-11-13T17:11:10+0000", 1542129070);
+    AssertConversion(type, "2018-11-13T17:11:10+00:00", 1542129070);
+    AssertConversion(type, "2018-11-13T17:11:10+01", 1542125470);
+    AssertConversion(type, "2018-11-13T17:11:10+0117", 1542124450);
+    AssertConversion(type, "2018-11-13T17:11:10+01:17", 1542124450);
+    AssertConversion(type, "2018-11-13T17:11:10-01", 1542132670);
+    AssertConversion(type, "2018-11-13T17:11:10-0117", 1542133690);
+    AssertConversion(type, "2018-11-13T17:11:10-01:17", 1542133690);
     AssertConversion(type, "1900-02-28 12:34:56", -2203932304LL);
 
     // No subseconds allowed
@@ -530,6 +628,22 @@ TEST(StringConversion, ToTimestampDateTime_ISO8601) {
     AssertConversionFails(type, "1970-01-01 00:00:60");
     AssertConversionFails(type, "1970-01-01 00:00,00");
     AssertConversionFails(type, "1970-01-01 00,00:00");
+    // Invalid zone offsets
+    AssertConversionFails(type, "1970-01-01 00:00+0");
+    AssertConversionFails(type, "1970-01-01 00:00+000");
+    AssertConversionFails(type, "1970-01-01 00:00+00000");
+    AssertConversionFails(type, "1970-01-01 00:00+2400");
+    AssertConversionFails(type, "1970-01-01 00:00+0060");
+    AssertConversionFails(type, "1970-01-01 00-0");
+    AssertConversionFails(type, "1970-01-01 00-000");
+    AssertConversionFails(type, "1970-01-01 00+00000");
+    AssertConversionFails(type, "1970-01-01 00+2400");
+    AssertConversionFails(type, "1970-01-01 00+0060");
+    AssertConversionFails(type, "1970-01-01 00:00:00+0");
+    AssertConversionFails(type, "1970-01-01 00:00:00-000");
+    AssertConversionFails(type, "1970-01-01 00:00:00-00000");
+    AssertConversionFails(type, "1970-01-01 00:00:00+2400");
+    AssertConversionFails(type, "1970-01-01 00:00:00+00:99");
   }
   {
     TimestampType type{TimeUnit::MILLI};
@@ -543,6 +657,13 @@ TEST(StringConversion, ToTimestampDateTime_ISO8601) {
     AssertConversion(type, "1900-02-28 12:34:56.1", -2203932304000LL + 100LL);
     AssertConversion(type, "1900-02-28 12:34:56.12", -2203932304000LL + 120LL);
     AssertConversion(type, "1900-02-28 12:34:56.123", -2203932304000LL + 123LL);
+
+    AssertConversion(type, "2018-11-13 17:11:10.123+01", 1542129070123LL - 3600000LL);
+    AssertConversion(type, "2018-11-13 17:11:10.123+0117", 1542129070123LL - 4620000LL);
+    AssertConversion(type, "2018-11-13 17:11:10.123+01:17", 1542129070123LL - 4620000LL);
+    AssertConversion(type, "2018-11-13 17:11:10.123-01", 1542129070123LL + 3600000LL);
+    AssertConversion(type, "2018-11-13 17:11:10.123-0117", 1542129070123LL + 4620000LL);
+    AssertConversion(type, "2018-11-13 17:11:10.123-01:17", 1542129070123LL + 4620000LL);
 
     // Invalid subseconds
     AssertConversionFails(type, "1900-02-28 12:34:56.1234");
@@ -568,6 +689,19 @@ TEST(StringConversion, ToTimestampDateTime_ISO8601) {
     AssertConversion(type, "1900-02-28 12:34:56.1234", -2203932304000000LL + 123400LL);
     AssertConversion(type, "1900-02-28 12:34:56.12345", -2203932304000000LL + 123450LL);
     AssertConversion(type, "1900-02-28 12:34:56.123456", -2203932304000000LL + 123456LL);
+
+    AssertConversion(type, "1900-02-28 12:34:56.123456+01",
+                     -2203932304000000LL + 123456LL - 3600000000LL);
+    AssertConversion(type, "1900-02-28 12:34:56.123456+0117",
+                     -2203932304000000LL + 123456LL - 4620000000LL);
+    AssertConversion(type, "1900-02-28 12:34:56.123456+01:17",
+                     -2203932304000000LL + 123456LL - 4620000000LL);
+    AssertConversion(type, "1900-02-28 12:34:56.123456-01",
+                     -2203932304000000LL + 123456LL + 3600000000LL);
+    AssertConversion(type, "1900-02-28 12:34:56.123456-0117",
+                     -2203932304000000LL + 123456LL + 4620000000LL);
+    AssertConversion(type, "1900-02-28 12:34:56.123456-01:17",
+                     -2203932304000000LL + 123456LL + 4620000000LL);
 
     // Invalid subseconds
     AssertConversionFails(type, "1900-02-28 12:34:56.1234567");
@@ -602,7 +736,21 @@ TEST(StringConversion, ToTimestampDateTime_ISO8601) {
     AssertConversion(type, "1900-02-28 12:34:56.123456789",
                      -2203932304000000000LL + 123456789LL);
 
+    AssertConversion(type, "1900-02-28 12:34:56.123456789+01",
+                     -2203932304000000000LL + 123456789LL - 3600000000000LL);
+    AssertConversion(type, "1900-02-28 12:34:56.123456789+0117",
+                     -2203932304000000000LL + 123456789LL - 4620000000000LL);
+    AssertConversion(type, "1900-02-28 12:34:56.123456789+01:17",
+                     -2203932304000000000LL + 123456789LL - 4620000000000LL);
+    AssertConversion(type, "1900-02-28 12:34:56.123456789-01",
+                     -2203932304000000000LL + 123456789LL + 3600000000000LL);
+    AssertConversion(type, "1900-02-28 12:34:56.123456789-0117",
+                     -2203932304000000000LL + 123456789LL + 4620000000000LL);
+    AssertConversion(type, "1900-02-28 12:34:56.123456789-01:17",
+                     -2203932304000000000LL + 123456789LL + 4620000000000LL);
+
     // Invalid subseconds
+    AssertConversionFails(type, "1900-02-28 12:34:56.1234567890");
   }
 }
 
@@ -618,10 +766,7 @@ TEST(TimestampParser, StrptimeParser) {
   std::vector<Case> cases = {{"5/31/2000 12:34:56", "2000-05-31 12:34:56"},
                              {"5/31/2000 00:00:00", "2000-05-31 00:00:00"}};
 
-  std::vector<TimeUnit::type> units = {TimeUnit::SECOND, TimeUnit::MILLI, TimeUnit::MICRO,
-                                       TimeUnit::NANO};
-
-  for (auto unit : units) {
+  for (auto unit : TimeUnit::values()) {
     for (const auto& case_ : cases) {
       int64_t converted, expected;
       ASSERT_TRUE((*parser)(case_.value.c_str(), case_.value.size(), unit, &converted));
@@ -636,6 +781,34 @@ TEST(TimestampParser, StrptimeParser) {
   for (auto& value : unparseables) {
     int64_t dummy;
     ASSERT_FALSE((*parser)(value.c_str(), value.size(), TimeUnit::SECOND, &dummy));
+  }
+}
+
+TEST(TimestampParser, StrptimeZoneOffset) {
+  if (!kStrptimeSupportsZone) {
+    GTEST_SKIP() << "strptime does not support %z on this platform";
+  }
+  std::string format = "%Y-%d-%m %H:%M:%S%z";
+  auto parser = TimestampParser::MakeStrptime(format);
+
+  // N.B. GNU %z supports ISO8601 format while BSD %z supports only
+  // +HHMM or -HHMM and POSIX doesn't appear to define %z at all
+  for (auto unit : TimeUnit::values()) {
+    for (const std::string value :
+         {"2018-01-01 00:00:00+0000", "2018-01-01 00:00:00+0100",
+          "2018-01-01 00:00:00+0130", "2018-01-01 00:00:00-0117"}) {
+      SCOPED_TRACE(value);
+      int64_t converted = 0;
+      int64_t expected = 0;
+      ASSERT_TRUE((*parser)(value.c_str(), value.size(), unit, &converted));
+      ASSERT_TRUE(ParseTimestampISO8601(value.c_str(), value.size(), unit, &expected));
+      ASSERT_EQ(expected, converted);
+    }
+    for (const std::string value : {"2018-01-01 00:00:00", "2018-01-01 00:00:00EST"}) {
+      SCOPED_TRACE(value);
+      int64_t converted = 0;
+      ASSERT_FALSE((*parser)(value.c_str(), value.size(), unit, &converted));
+    }
   }
 }
 

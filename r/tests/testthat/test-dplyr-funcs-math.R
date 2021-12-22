@@ -178,14 +178,14 @@ test_that("log functions", {
   # test log(, base = (length != 1))
   expect_error(
     nse_funcs$log(10, base = 5:6),
-    "base must be a column or a length-1 numeric; other values not supported by Arrow",
+    "base must be a column or a length-1 numeric; other values not supported in Arrow",
     fixed = TRUE
   )
 
   # test log(x = (length != 1))
   expect_error(
     nse_funcs$log(10:11),
-    "x must be a column or a length-1 numeric; other values not supported by Arrow",
+    "x must be a column or a length-1 numeric; other values not supported in Arrow",
     fixed = TRUE
   )
 
@@ -302,6 +302,30 @@ test_that("arith functions ", {
         division = x / 2,
         power = x^3,
         modulo = x %% 3
+      ) %>%
+      collect(),
+    df
+  )
+})
+
+test_that("floor division maintains type consistency with R",  {
+  df <- tibble(
+    integers = c(1:4, NA_integer_),
+    doubles = c(as.numeric(1:4), NA_real_)
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      transmute(
+        int_div_dbl = integers %/% 2,
+        int_div_int = integers %/% 2L,
+        int_div_zero_int = integers %/% 0L,
+        int_div_zero_dbl = integers %/% 0,
+
+        dbl_div_dbl = doubles %/% 2,
+        dbl_div_int = doubles %/% 2L,
+        dbl_div_zero_int = doubles %/% 0L,
+        dbl_div_zero_dbl = doubles %/% 0
       ) %>%
       collect(),
     df

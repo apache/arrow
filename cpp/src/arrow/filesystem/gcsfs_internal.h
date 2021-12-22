@@ -18,6 +18,9 @@
 #pragma once
 
 #include <google/cloud/status.h>
+#include <google/cloud/storage/object_metadata.h>
+#include <google/cloud/storage/well_known_headers.h>
+#include <google/cloud/storage/well_known_parameters.h>
 
 #include <memory>
 #include <string>
@@ -30,6 +33,23 @@ namespace fs {
 namespace internal {
 
 Status ToArrowStatus(const google::cloud::Status& s);
+
+Result<google::cloud::storage::EncryptionKey> ToEncryptionKey(
+    const std::shared_ptr<const KeyValueMetadata>& metadata);
+
+Result<google::cloud::storage::PredefinedAcl> ToPredefinedAcl(
+    const std::shared_ptr<const KeyValueMetadata>& metadata);
+
+Result<google::cloud::storage::KmsKeyName> ToKmsKeyName(
+    const std::shared_ptr<const KeyValueMetadata>& metadata);
+
+Result<google::cloud::storage::WithObjectMetadata> ToObjectMetadata(
+    const std::shared_ptr<const KeyValueMetadata>& metadata);
+
+Result<std::shared_ptr<const KeyValueMetadata>> FromObjectMetadata(
+    google::cloud::storage::ObjectMetadata const& m);
+
+std::int64_t Depth(arrow::util::string_view path);
 
 }  // namespace internal
 }  // namespace fs

@@ -80,5 +80,5 @@ if [ "${CHECK_UNITTESTS}" == "ON" ]; then
   pip install -U -r ${source_dir}/python/requirements-wheel-test.txt
   # Execute unittest, test dependencies must be installed
   python -c 'import pyarrow; pyarrow.create_library_symlinks()'
-  pytest -r s --pyargs pyarrow
+  python -m pytest -r s --pyargs pyarrow
 fi

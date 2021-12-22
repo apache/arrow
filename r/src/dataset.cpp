@@ -517,7 +517,7 @@ void dataset___Dataset__Write(
     const std::shared_ptr<fs::FileSystem>& filesystem, std::string base_dir,
     const std::shared_ptr<ds::Partitioning>& partitioning, std::string basename_template,
     const std::shared_ptr<ds::Scanner>& scanner,
-    arrow::dataset::ExistingDataBehavior existing_data_behavior) {
+    arrow::dataset::ExistingDataBehavior existing_data_behavior, int max_partitions) {
   ds::FileSystemDatasetWriteOptions opts;
   opts.file_write_options = file_write_options;
   opts.existing_data_behavior = existing_data_behavior;
@@ -525,6 +525,7 @@ void dataset___Dataset__Write(
   opts.base_dir = base_dir;
   opts.partitioning = partitioning;
   opts.basename_template = basename_template;
+  opts.max_partitions = max_partitions;
   StopIfNotOk(ds::FileSystemDataset::Write(opts, scanner));
 }
 

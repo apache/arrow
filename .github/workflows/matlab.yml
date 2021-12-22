@@ -45,8 +45,6 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-      - name: Fetch Submodules and Tags
-        run: ci/scripts/util_checkout.sh
       - name: Install ninja-build
         run: sudo apt-get install ninja-build
       - name: Install MATLAB
