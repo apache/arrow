@@ -21,8 +21,8 @@ import operator
 import sys
 from setuptools import setup, find_packages
 
-if sys.version_info < (3, 6):
-    sys.exit('Python < 3.6 is not supported')
+if sys.version_info < (3, 7):
+    sys.exit('Python < 3.7 is not supported')
 
 # For pathlib.Path compatibility
 jinja_req = 'jinja2>=2.11'
@@ -50,6 +50,7 @@ setup(
     maintainer_email='dev@arrow.apache.org',
     packages=find_packages(),
     include_package_data=True,
+    python_requires='>=3.7',
     install_requires=['click>=7'],
     tests_require=['pytest', 'responses'],
     extras_require=extras,

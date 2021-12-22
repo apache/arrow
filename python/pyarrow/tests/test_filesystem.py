@@ -31,10 +31,7 @@ def test_filesystem_deprecated():
         filesystem.LocalFileSystem.get_instance()
 
 
-@pytest.mark.skipif(sys.version_info < (3, 7),
-                    reason="getattr needs Python 3.7")
 def test_filesystem_deprecated_toplevel():
-
     with pytest.warns(FutureWarning):
         pa.localfs
 

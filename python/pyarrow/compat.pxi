@@ -31,12 +31,8 @@ def encode_file_path(path):
     return encoded_path
 
 
-if sys.version_info >= (3, 7):
-    # Starting with Python 3.7, dicts are guaranteed to be insertion-ordered.
-    ordered_dict = dict
-else:
-    import collections
-    ordered_dict = collections.OrderedDict
+# Starting with Python 3.7, dicts are guaranteed to be insertion-ordered.
+ordered_dict = dict
 
 
 try:
