@@ -723,6 +723,21 @@ extern "C" SEXP _arrow_ArrayData__buffers(SEXP x_sexp){
 
 // bridge.cpp
 #if defined(ARROW_R_WITH_ARROW)
+double external_pointer_addr_double(SEXP external_pointer);
+extern "C" SEXP _arrow_external_pointer_addr_double(SEXP external_pointer_sexp){
+BEGIN_CPP11
+	arrow::r::Input<SEXP>::type external_pointer(external_pointer_sexp);
+	return cpp11::as_sexp(external_pointer_addr_double(external_pointer));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_external_pointer_addr_double(SEXP external_pointer_sexp){
+	Rf_error("Cannot call external_pointer_addr_double(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// bridge.cpp
+#if defined(ARROW_R_WITH_ARROW)
 std::string external_pointer_addr_character(SEXP external_pointer);
 extern "C" SEXP _arrow_external_pointer_addr_character(SEXP external_pointer_sexp){
 BEGIN_CPP11
@@ -7308,6 +7323,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ArrayData__get_null_count", (DL_FUNC) &_arrow_ArrayData__get_null_count, 1}, 
 		{ "_arrow_ArrayData__get_offset", (DL_FUNC) &_arrow_ArrayData__get_offset, 1}, 
 		{ "_arrow_ArrayData__buffers", (DL_FUNC) &_arrow_ArrayData__buffers, 1}, 
+		{ "_arrow_external_pointer_addr_double", (DL_FUNC) &_arrow_external_pointer_addr_double, 1}, 
 		{ "_arrow_external_pointer_addr_character", (DL_FUNC) &_arrow_external_pointer_addr_character, 1}, 
 		{ "_arrow_external_pointer_addr_integer64", (DL_FUNC) &_arrow_external_pointer_addr_integer64, 1}, 
 		{ "_arrow_external_pointer_addr_raw", (DL_FUNC) &_arrow_external_pointer_addr_raw, 1}, 

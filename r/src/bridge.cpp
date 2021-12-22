@@ -22,6 +22,13 @@
 #include <arrow/c/bridge.h>
 
 // [[arrow::export]]
+double external_pointer_addr_double(SEXP external_pointer) {
+  // potentially lossy conversion to double needed for the current
+  // implementation of import/export to Python
+  return reinterpret_cast<uintptr_t>(R_ExternalPtrAddr(external_pointer));
+}
+
+// [[arrow::export]]
 std::string external_pointer_addr_character(SEXP external_pointer) {
   void* ptr_void = R_ExternalPtrAddr(external_pointer);
   uint64_t ptr_int64 = reinterpret_cast<uintptr_t>(ptr_void);
