@@ -182,7 +182,7 @@ struct EnumTraits<compute::CalendarUnit>
                       compute::CalendarUnit::MILLISECOND, compute::CalendarUnit::SECOND,
                       compute::CalendarUnit::MINUTE, compute::CalendarUnit::HOUR,
                       compute::CalendarUnit::DAY, compute::CalendarUnit::WEEK,
-                      compute::CalendarUnit::MONTH, compute::CalendarUnit::SEASON,
+                      compute::CalendarUnit::MONTH, compute::CalendarUnit::QUARTER,
                       compute::CalendarUnit::YEAR> {
   static std::string name() { return "compute::CalendarUnit"; }
   static std::string value_name(compute::CalendarUnit value) {
@@ -205,8 +205,8 @@ struct EnumTraits<compute::CalendarUnit>
         return "WEEK";
       case compute::CalendarUnit::MONTH:
         return "MONTH";
-      case compute::CalendarUnit::SEASON:
-        return "SEASON";
+      case compute::CalendarUnit::QUARTER:
+        return "QUARTER";
       case compute::CalendarUnit::YEAR:
         return "YEAR";
     }
@@ -456,7 +456,8 @@ RoundOptions::RoundOptions(int64_t ndigits, RoundMode round_mode)
 }
 constexpr char RoundOptions::kTypeName[];
 
-RoundTemporalOptions::RoundTemporalOptions(int multiple, CalendarUnit unit, int origin)
+RoundTemporalOptions::RoundTemporalOptions(int multiple, CalendarUnit unit,
+                                           int64_t origin)
     : FunctionOptions(internal::kRoundTemporalOptionsType),
       multiple(std::move(multiple)),
       unit(unit),

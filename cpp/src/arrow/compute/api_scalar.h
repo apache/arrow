@@ -100,15 +100,14 @@ enum class CalendarUnit : int8_t {
   DAY,
   WEEK,
   MONTH,
-  SEASON,
+  QUARTER,
   YEAR
 };
 
 class ARROW_EXPORT RoundTemporalOptions : public FunctionOptions {
  public:
-
   explicit RoundTemporalOptions(int multiple = 1, CalendarUnit unit = CalendarUnit::DAY,
-                                int origin = 0);
+                                int64_t origin = 0);
   constexpr static char const kTypeName[] = "RoundTemporalOptions";
   static RoundTemporalOptions Defaults() { return RoundTemporalOptions(); }
 
@@ -117,7 +116,7 @@ class ARROW_EXPORT RoundTemporalOptions : public FunctionOptions {
   /// The unit used for rounding of time
   CalendarUnit unit;
   /// Origin time of rounding
-  int origin;
+  int64_t origin;
 };
 
 class ARROW_EXPORT RoundToMultipleOptions : public FunctionOptions {

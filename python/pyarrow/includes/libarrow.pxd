@@ -1912,14 +1912,8 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
             "arrow::compute::CalendarUnit::WEEK"
         CCalendarUnit_MONTH \
             "arrow::compute::CalendarUnit::MONTH"
-        CCalendarUnit_BIMONTH \
-            "arrow::compute::CalendarUnit::BIMONTH"
         CCalendarUnit_QUARTER \
             "arrow::compute::CalendarUnit::QUARTER"
-        CCalendarUnit_SEASON \
-            "arrow::compute::CalendarUnit::SEASON"
-        CCalendarUnit_HALFYEAR \
-            "arrow::compute::CalendarUnit::HALFYEAR"
         CCalendarUnit_YEAR \
             "arrow::compute::CalendarUnit::YEAR"
 

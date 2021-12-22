@@ -795,8 +795,8 @@ cdef CCalendarUnit unwrap_round_unit(unit) except *:
         return CCalendarUnit_WEEK
     elif unit == "month":
         return CCalendarUnit_MONTH
-    elif unit == "season":
-        return CCalendarUnit_SEASON
+    elif unit == "quarter":
+        return CCalendarUnit_QUARTER
     elif unit == "year":
         return CCalendarUnit_YEAR
     _raise_invalid_function_option(unit, "Calendar unit")
@@ -805,7 +805,7 @@ cdef CCalendarUnit unwrap_round_unit(unit) except *:
 cdef class _RoundTemporalOptions(FunctionOptions):
 
     def _set_options(
-        self, multiple, unit, origin):
+            self, multiple, unit, origin):
         self.wrapped.reset(
             new CRoundTemporalOptions(
                 multiple, unwrap_round_unit(unit), origin)
@@ -814,7 +814,7 @@ cdef class _RoundTemporalOptions(FunctionOptions):
 
 class RoundTemporalOptions(_RoundTemporalOptions):
     def __init__(
-        self, multiple=1, unit="second", *, origin=0):
+            self, multiple=1, unit="second", *, origin=0):
         self._set_options(multiple, unit, origin)
 
 
@@ -827,7 +827,7 @@ cdef class _RoundToMultipleOptions(FunctionOptions):
 
 
 class RoundToMultipleOptions(_RoundToMultipleOptions):
-    def __init__(self, multiple=1, round_mode="half_to_even"):
+    def __init__(self, multiple=1.0, round_mode="half_to_even"):
         self._set_options(multiple, round_mode)
 
 

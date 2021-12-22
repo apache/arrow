@@ -151,9 +151,7 @@ def test_option_class_equality():
         pc.ReplaceSliceOptions(0, 1, "a"),
         pc.ReplaceSubstringOptions("a", "b"),
         pc.RoundOptions(2, "towards_infinity"),
-        pc.RoundTemporalOptions(1, "second", week_starts_monday=True,
-                                change_on_boundary=False,
-                                ambiguous="raise", nonexistent="raise"),
+        pc.RoundTemporalOptions(1, "second", origin=0),
         pc.RoundToMultipleOptions(100, "towards_infinity"),
         pc.ScalarAggregateOptions(),
         pc.SelectKOptions(0, sort_keys=[("b", "ascending")]),
@@ -1922,6 +1920,7 @@ unit_shorthand = {
 }
 
 
+@pytest.mark.pandas
 @pytest.mark.parametrize('unit', units)
 def test_round_temporal(unit):
     # timezones = ["UTC", "US/Central", "Asia/Kolkata",
