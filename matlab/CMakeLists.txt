@@ -263,32 +263,6 @@ if(MATLAB_BUILD_TESTS)
     endif()
   endif()
 
-  # On Windows: copy the gtest and gtest_main runtime DLLs into the directory where the
-  # MATLAB C++ tests reside, since Windows require runtime DLLs that are depended on by
-  # executables to be in the same directory (or on the %PATH%).
-  if(WIN32)
-    set(MATLAB_TESTS_DIR "${MATLAB_BUILD_OUTPUT_DIR}")
-
-    get_property(GTEST_SHARED_LIB
-                 TARGET GTest::gtest
-                 PROPERTY IMPORTED_LOCATION)
-
-    get_property(GTEST_MAIN_SHARED_LIB
-                 TARGET GTest::gtest_main
-                 PROPERTY IMPORTED_LOCATION)
-
-    add_custom_target(copy_gtest_to_tests_dir ALL
-                      COMMAND ${CMAKE_COMMAND} -E make_directory ${MATLAB_TESTS_DIR}
-                      COMMAND ${CMAKE_COMMAND} -E copy_if_different ${GTEST_SHARED_LIB}
-                              ${MATLAB_TESTS_DIR}
-                      COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                              ${GTEST_MAIN_SHARED_LIB} ${MATLAB_TESTS_DIR}
-                      COMMENT "Start copying gtest dlls from ${GTEST_SHARED_LIB} to ${MATLAB_TESTS_DIR} and ${GTEST_MAIN_SHARED_LIB} to ${MATLAB_TESTS_DIR}"
-    )
-    add_dependencies(copy_gtest_to_tests_dir GTest::gtest)
-    add_dependencies(copy_gtest_to_tests_dir GTest::gtest_main)
-  endif()
-
 else()
   find_package(Arrow)
   if(NOT Arrow_FOUND)
@@ -397,15 +371,35 @@ if(MATLAB_BUILD_TESTS)
   add_test(PlaceholderTestTarget placeholder_test)
   add_test(CheckNumArgsTestTarget mex_util_test)
 
-  # For Windows: add the directory of libmx.dll and libmex.dll to the %PATH% for
-  # running CheckNumArgsTestTarget
+  # For Windows:
+  # Add the directory of gtest.dll and gtest_main.dll to the %PATH% for running
+  # all tests.
+  # Add the directory of libmx.dll and libmex.dll to the %PATH% for running
+  # CheckNumArgsTestTarget.
   # Note: When appending to the path using set_test_properties' ENVIRONNENT property,
   #       make sure that we escape ';' to avoid cmake from interpreting the input as
   #       a list of strings.
   if(WIN32)
+    get_property(GTEST_SHARED_LIB
+                 TARGET GTest::gtest
+                 PROPERTY IMPORTED_LOCATION)
+    get_filename_component(GTEST_SHARED_LIB_DIR ${GTEST_SHARED_LIB} DIRECTORY)
+
+    get_property(GTEST_MAIN_SHARED_LIB
+                 TARGET GTest::gtest_main
+                 PROPERTY IMPORTED_LOCATION)
+    get_filename_component(GTEST_MAIN_SHARED_LIB_DIR ${GTEST_MAIN_SHARED_LIB} DIRECTORY)
+
+    set_tests_properties(PlaceholderTestTarget
+                         PROPERTIES ENVIRONMENT
+                                    "PATH=${GTEST_SHARED_LIB_DIR}\;${GTEST_MAIN_SHARED_LIB_DIR}\;$ENV{PATH}"
+    )
+
     set(MATLAB_DLL_DEPENDENCIES_DIR "${Matlab_ROOT_DIR}/bin/win64")
+
     set_tests_properties(CheckNumArgsTestTarget
                          PROPERTIES ENVIRONMENT
-                                    "PATH=${MATLAB_DLL_DEPENDENCIES_DIR}\;$ENV{PATH}")
+                                    "PATH=${MATLAB_DLL_DEPENDENCIES_DIR}\;${GTEST_SHARED_LIB_DIR}\;${GTEST_MAIN_SHARED_LIB_DIR}\;$ENV{PATH}"
+    )
   endif()
 endif()
