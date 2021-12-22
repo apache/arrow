@@ -42,8 +42,14 @@ double generate_uniform(random::pcg64_fast* rng) {
 
 using RandomState = OptionsWrapper<RandomOptions>;
 
+random::pcg64_fast MakeSeedGenerator() {
+  arrow_vendored::pcg_extras::seed_seq_from<std::random_device> seed_source;
+  random::pcg64_fast seed_gen(seed_source);
+  return seed_gen;
+}
+
 Status ExecRandom(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  static random::pcg64_fast seed_gen((std::random_device{})());
+  static random::pcg64_fast seed_gen = MakeSeedGenerator();
   static std::mutex seed_gen_mutex;
 
   random::pcg64_fast gen;
