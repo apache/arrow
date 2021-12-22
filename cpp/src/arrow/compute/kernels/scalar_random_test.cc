@@ -21,6 +21,8 @@
 #include "arrow/compute/kernels/test_util.h"
 #include "arrow/testing/gtest_util.h"
 
+#include <future>
+
 namespace arrow {
 namespace compute {
 
@@ -72,6 +74,36 @@ TEST(TestRandom, SeedIsDeterministic) {
   ASSERT_OK_AND_ASSIGN(Datum first_call, CallFunction("random", {}, &random_options));
   ASSERT_OK_AND_ASSIGN(Datum second_call, CallFunction("random", {}, &random_options));
   AssertDatumsEqual(first_call, second_call);
+}
+
+TEST(TestRandom, SystemRandomDifferentResultsSingleThreaded) {
+  const int kCount = 100;
+  auto random_options = RandomOptions::FromSystemRandom(/*length=*/kCount);
+  ASSERT_OK_AND_ASSIGN(Datum first_datum, CallFunction("random", {}, &random_options));
+  ASSERT_OK_AND_ASSIGN(Datum second_datum, CallFunction("random", {}, &random_options));
+  ASSERT_FALSE(first_datum.Equals(second_datum));
+}
+
+TEST(TestRandom, SystemRandomDifferentResultsMultiThreaded) {
+  const int kCount = 100000;
+  const int kThreadCount = 8;
+  auto random_options = RandomOptions::FromSystemRandom(/*length=*/kCount);
+  std::vector<std::future<Datum>> futures;
+  for (int i = 0; i < kThreadCount; ++i) {
+    futures.push_back(std::async(std::launch::async, [&random_options] {
+      auto maybe_result = CallFunction("random", {}, &random_options);
+      return maybe_result.ValueOrDie();
+    }));
+  }
+  std::vector<Datum> call_results;
+  for (int i = 0; i < kThreadCount; ++i) {
+    call_results.push_back(futures[i].get());
+  }
+  for (int i = 0; i < kThreadCount - 1; ++i) {
+    for (int j = i + 1; j < kThreadCount; ++j) {
+      ASSERT_FALSE(call_results[i].Equals(call_results[j]));
+    }
+  }
 }
 
 TEST(TestRandom, Length) {

@@ -427,11 +427,11 @@ class ARROW_EXPORT RandomOptions : public FunctionOptions {
   static RandomOptions FromSystemRandom(int64_t length) {
     return RandomOptions{length, SystemRandom, 0};
   }
-  static RandomOptions FromSeed(int64_t length, uint32_t seed) {
+  static RandomOptions FromSeed(int64_t length, uint64_t seed) {
     return RandomOptions{length, Seed, seed};
   }
 
-  RandomOptions(int64_t length, Initializer initializer, uint32_t seed);
+  RandomOptions(int64_t length, Initializer initializer, uint64_t seed);
   RandomOptions();
   constexpr static char const kTypeName[] = "RandomOptions";
   static RandomOptions Defaults() { return RandomOptions(); }
@@ -441,7 +441,7 @@ class ARROW_EXPORT RandomOptions : public FunctionOptions {
   /// The type of initialization for random number generation - system or provided seed.
   Initializer initializer;
   /// The seed value used to initialize the random number generation.
-  uint32_t seed;
+  uint64_t seed;
 };
 
 /// @}
