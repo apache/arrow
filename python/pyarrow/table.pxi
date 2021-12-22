@@ -1066,11 +1066,11 @@ cdef class RecordBatch(_PandasConvertible):
         -------
         list
         """
-        entries = []
-        for i in range(self.batch.num_columns()):
-            name = bytes(self.batch.column_name(i)).decode('utf8')
-            column = self[i].to_pylist()
-            entries.append({name: column})
+        if self.schema.names:
+            entries = [{column: self[column].to_pylist()}
+                       for column in self.schema.names]
+        else:
+            entries = []
         return entries
 
     def _to_pandas(self, options, **kwargs):
@@ -1977,16 +1977,11 @@ cdef class Table(_PandasConvertible):
         >>> table.to_pylist()
         [{'int': [1, 2]}, {'str': ['a', 'b']}]
         """
-        cdef:
-            size_t i
-            size_t num_columns = self.table.num_columns()
-            list entries = []
-            ChunkedArray column
-
-        for i in range(num_columns):
-            column = self.column(i)
-            entries.append({self.field(i).name: column.to_pylist()})
-
+        if self.schema.names:
+            entries = [{column: self[column].to_pylist()}
+                       for column in self.schema.names]
+        else:
+            entries = []
         return entries
 
     @property
