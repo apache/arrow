@@ -2492,7 +2492,7 @@ void RegisterVectorSelection(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::make_shared<DropNullMetaFunction>()));
 
   DCHECK_OK(registry->AddFunction(
-    MakeIndicesNonZeroFunction("indices_nonzero", &indices_nonzero_doc)));
+      MakeIndicesNonZeroFunction("indices_nonzero", &indices_nonzero_doc)));
 }
 
 }  // namespace internal

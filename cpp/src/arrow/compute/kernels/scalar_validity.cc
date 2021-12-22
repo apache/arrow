@@ -312,7 +312,6 @@ const FunctionDoc is_nan_doc("Return true if NaN",
                              ("For each input value, emit true iff the value is NaN."),
                              {"values"});
 
-
 }  // namespace
 
 void RegisterScalarValidity(FunctionRegistry* registry) {
