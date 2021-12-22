@@ -744,10 +744,7 @@ const char* translate_utf8_utf8_utf8(int64_t context, const char* in, int32_t in
         }
       }
     }
-  }
-
-  // If there are no multibytes in the input, work with std::strings
-  else {
+  } else {  // If there are no multibytes in the input, work with std::strings
     // This variable is for receive the substitutions, malloc is in_len * 4 to receive
     // possible inputs with 4 bytes
     result = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, in_len * 4));
