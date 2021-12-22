@@ -146,7 +146,7 @@ cmake \
 if [ ! -z "${CPP_MAKE_PARALLELISM}" ]; then
   time cmake --build . --target install -- -j${CPP_MAKE_PARALLELISM}
 else
-  time cmake --build . --target install
+  time cmake --build . --target install --parallel
 fi
 
 popd
