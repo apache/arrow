@@ -144,8 +144,7 @@ class ScalarTemporalTest : public ::testing::Test {
   std::string month = "[1, 2, 1, 5, 1, 12, 12, 12, 1, 1, 1, 1, 12, 12, 12, 1, null]";
   std::string day = "[1, 29, 1, 18, 1, 31, 30, 31, 1, 3, 4, 1, 31, 28, 29, 1, null]";
   std::shared_ptr<arrow::DataType> year_month_day_type =
-      struct_({field("year", int64()), field("month", int64()),
-               field("day", int64())});
+      struct_({field("year", int64()), field("month", int64()), field("day", int64())});
   std::shared_ptr<arrow::Array> year_month_day =
       ArrayFromJSON(year_month_day_type,
                     R"([{"year": 1970, "month": 1, "day": 1},
@@ -439,7 +438,8 @@ TEST_F(ScalarTemporalTest, TestTemporalComponentExtractionWithDifferentUnits) {
     CheckScalarUnary("year", unit, times_seconds_precision, int64(), year);
     CheckScalarUnary("month", unit, times_seconds_precision, int64(), month);
     CheckScalarUnary("day", unit, times_seconds_precision, int64(), day);
-    CheckScalarUnary("year_month_day", ArrayFromJSON(unit, times_seconds_precision), year_month_day);
+    CheckScalarUnary("year_month_day", ArrayFromJSON(unit, times_seconds_precision),
+                     year_month_day);
     CheckScalarUnary("day_of_week", unit, times_seconds_precision, int64(), day_of_week);
     CheckScalarUnary("day_of_year", unit, times_seconds_precision, int64(), day_of_year);
     CheckScalarUnary("iso_year", unit, times_seconds_precision, int64(), iso_year);
@@ -465,9 +465,8 @@ TEST_F(ScalarTemporalTest, TestOutsideNanosecondRange) {
   auto year = "[1677, 2262]";
   auto month = "[9, 4]";
   auto day = "[20, 13]";
-  auto year_month_day =
-      ArrayFromJSON(year_month_day_type,
-                    R"([{"year": 1677, "month": 9, "day": 20},
+  auto year_month_day = ArrayFromJSON(year_month_day_type,
+                                      R"([{"year": 1677, "month": 9, "day": 20},
                           {"year": 2262, "month": 4, "day": 13}])");
   auto day_of_week = "[0, 6]";
   auto day_of_year = "[263, 103]";
@@ -518,9 +517,8 @@ TEST_F(ScalarTemporalTest, TestZoned1) {
       "2008, 2008, 2011, null]";
   auto month = "[12, 2, 12, 5, 12, 12, 12, 12, 12, 1, 1, 12, 12, 12, 12, 12, null]";
   auto day = "[31, 29, 31, 17, 31, 30, 29, 30, 31, 2, 3, 31, 31, 27, 28, 31, null]";
-  auto year_month_day =
-      ArrayFromJSON(year_month_day_type,
-                    R"([{"year": 1969, "month": 12, "day": 31},
+  auto year_month_day = ArrayFromJSON(year_month_day_type,
+                                      R"([{"year": 1969, "month": 12, "day": 31},
                         {"year": 2000, "month": 2, "day": 29},
                         {"year": 1898, "month": 12, "day": 31},
                         {"year": 2033, "month": 5, "day": 17},

@@ -73,7 +73,8 @@ const std::shared_ptr<DataType>& IsoCalendarType() {
 }
 
 const std::shared_ptr<DataType>& YearMonthDayType() {
-  static auto type = struct_({field("year", int64()), field("month", int64()), field("day", int64())});
+  static auto type =
+      struct_({field("year", int64()), field("month", int64()), field("day", int64())});
 
   return type;
 }
@@ -200,13 +201,14 @@ struct YearMonthDayVisitValueFunction {
       const std::vector<BuilderType*>& field_builders, const ArrayData&,
       StructBuilder* struct_builder) {
     return [=](typename InType::c_type arg) {
-      const auto ymd = year_month_day(floor<days>(NonZonedLocalizer{}.template ConvertTimePoint<Duration>(arg)));;
+      const auto ymd = year_month_day(
+          floor<days>(NonZonedLocalizer{}.template ConvertTimePoint<Duration>(arg)));
       field_builders[0]->UnsafeAppend(static_cast<const int32_t>(ymd.year()));
       field_builders[1]->UnsafeAppend(static_cast<const uint32_t>(ymd.month()));
       field_builders[2]->UnsafeAppend(static_cast<const uint32_t>(ymd.day()));
       return struct_builder->Append();
     };
-  };
+  }
 };
 
 template <typename Duration, typename BuilderType>
@@ -217,7 +219,8 @@ struct YearMonthDayVisitValueFunction<Duration, TimestampType, BuilderType> {
     const auto& timezone = GetInputTimezone(in);
     if (timezone.empty()) {
       return [=](TimestampType::c_type arg) {
-        const auto ymd = year_month_day(floor<days>(NonZonedLocalizer{}.template ConvertTimePoint<Duration>(arg)));;
+        const auto ymd = year_month_day(
+            floor<days>(NonZonedLocalizer{}.template ConvertTimePoint<Duration>(arg)));
         field_builders[0]->UnsafeAppend(static_cast<const int32_t>(ymd.year()));
         field_builders[1]->UnsafeAppend(static_cast<const uint32_t>(ymd.month()));
         field_builders[2]->UnsafeAppend(static_cast<const uint32_t>(ymd.day()));
@@ -226,26 +229,29 @@ struct YearMonthDayVisitValueFunction<Duration, TimestampType, BuilderType> {
     }
     ARROW_ASSIGN_OR_RAISE(auto tz, LocateZone(timezone));
     return [=](TimestampType::c_type arg) {
-        const auto ymd = year_month_day(floor<days>(ZonedLocalizer{tz}.template ConvertTimePoint<Duration>(arg)));
-        field_builders[0]->UnsafeAppend(static_cast<const int32_t>(ymd.year()));
-        field_builders[1]->UnsafeAppend(static_cast<const uint32_t>(ymd.month()));
-        field_builders[2]->UnsafeAppend(static_cast<const uint32_t>(ymd.day()));
+      const auto ymd = year_month_day(
+          floor<days>(ZonedLocalizer{tz}.template ConvertTimePoint<Duration>(arg)));
+      field_builders[0]->UnsafeAppend(static_cast<const int32_t>(ymd.year()));
+      field_builders[1]->UnsafeAppend(static_cast<const uint32_t>(ymd.month()));
+      field_builders[2]->UnsafeAppend(static_cast<const uint32_t>(ymd.day()));
       return struct_builder->Append();
     };
   }
 };
 
-template <typename Duration, typename InType>
+template <typename Duration, typename Localizer>
 struct YearMonthDay {
   static Status Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
     if (in.is_valid) {
       const auto& in_val = internal::UnboxScalar<const InType>::Unbox(in);
-      const auto t = floor<days>(NonZonedLocalizer{}.template ConvertTimePoint<Duration>(in_val));
+      const auto t =
+          floor<days>(NonZonedLocalizer{}.template ConvertTimePoint<Duration>(in_val));
       const auto ymd = year_month_day(t);
 
-      ScalarVector values = {std::make_shared<Int64Scalar>(static_cast<const int32_t>(ymd.year())),
-	std::make_shared<Int64Scalar>(static_cast<const uint32_t>(ymd.month())),
-	std::make_shared<Int64Scalar>(static_cast<const uint32_t>(ymd.day()))};
+      ScalarVector values = {
+          std::make_shared<Int64Scalar>(static_cast<const int32_t>(ymd.year())),
+          std::make_shared<Int64Scalar>(static_cast<const uint32_t>(ymd.month())),
+          std::make_shared<Int64Scalar>(static_cast<const uint32_t>(ymd.day()))};
       *checked_cast<StructScalar*>(out) =
           StructScalar(std::move(values), YearMonthDayType());
     } else {
@@ -932,11 +938,11 @@ const FunctionDoc day_doc{
     {"values"}};
 
 const FunctionDoc year_month_day_doc{
-  "Extract (year, month, day) struct",
-  ("Null values emit null.\n"
-   "An error is returned in the values have a defined timezone but it\n"
-   "cannot be found in the timezone database."),
-  {"values"}};
+    "Extract (year, month, day) struct",
+    ("Null values emit null.\n"
+     "An error is returned in the values have a defined timezone but it\n"
+     "cannot be found in the timezone database."),
+    {"values"}};
 
 const FunctionDoc day_of_week_doc{
     "Extract day of the week number",
@@ -1118,8 +1124,8 @@ void RegisterScalarTemporalUnary(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(day)));
 
   auto year_month_day =
-    SimpleUnaryTemporalFactory<YearMonthDay>::Make<WithDates, WithTimestamps>(
-	"year_month_day", YearMonthDayType(), &year_month_day_doc);
+      SimpleUnaryTemporalFactory<YearMonthDay>::Make<WithDates, WithTimestamps>(
+          "year_month_day", YearMonthDayType(), &year_month_day_doc);
   DCHECK_OK(registry->AddFunction(std::move(year_month_day)));
 
   static const auto default_day_of_week_options = DayOfWeekOptions::Defaults();
