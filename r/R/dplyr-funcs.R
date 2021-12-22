@@ -50,7 +50,7 @@ NULL
 #'   - `fun`: string function name
 #'   - `data`: `Expression` (these are all currently a single field)
 #'   - `options`: list of function options, as passed to call_function
-#' @param registry An `environment()` in which the functions should be
+#' @param registry An environment in which the functions should be
 #'   assigned.
 #'
 #' @return The previously registered binding or `NULL` if no previously
