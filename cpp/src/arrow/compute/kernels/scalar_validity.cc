@@ -216,9 +216,7 @@ struct NonZeroVisitor {
           }
           ++index;
         },
-        [&]() {
-          ++index;
-        });
+        [&]() { ++index; });
     return Status::OK();
   }
 };
