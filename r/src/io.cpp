@@ -209,52 +209,102 @@ struct ReencodeUTF8TransformFunctionWrapper {
   ReencodeUTF8TransformFunctionWrapper(std::string from)
     : from_(from), iconv_("UTF-8", from), n_pending_(0) {}
 
-  // This may get copied and we need a freshly created RIconvWrapper
-  // for each copy.
+  // This may get copied and we need a fresh RIconvWrapper for each copy.
   ReencodeUTF8TransformFunctionWrapper(const ReencodeUTF8TransformFunctionWrapper& ref)
     : ReencodeUTF8TransformFunctionWrapper(ref.from_) {}
 
   arrow::Result<std::shared_ptr<arrow::Buffer>> operator()(const std::shared_ptr<arrow::Buffer>& src) {
+    Rprintf("Call to transform function with buffer of size %d\n", src->size());
     ARROW_ASSIGN_OR_RAISE(auto dest, arrow::AllocateResizableBuffer(32));
-    const char* in_buf = (const char*) src->data();
-    size_t in_bytes_left = src->size();
+
     size_t out_bytes_left = dest->size();
     char* out_buf = (char*) dest->data();
     size_t out_bytes_used = 0;
 
-    // There may be a few leftover characters from the last call to iconv. Process these first
+    size_t in_bytes_left;
+    const char* in_buf;
+
+    // There may be a few leftover bytes from the last call to iconv. Process these first
     // using the internal buffer as the source. This may also result in a partial character
-    // leftover but will always get us into the src buffer.
+    // left over but will always get us into the src buffer.
     if (n_pending_ > 0) {
-      cpp11::stop("not implemented");
+      Rprintf("Processing %d leftover characters\n", n_pending_);
+      // fill the pending_ buffer with characters and call iconv() once
+      int64_t n_src_bytes_in_pending = std::min<int64_t>(sizeof(pending_) - n_pending_, src->size());
+      Rprintf("Copying %d bytes to pending_\n", n_src_bytes_in_pending);
+      memcpy(pending_ + n_pending_, src->data(), n_src_bytes_in_pending);
+      in_buf = pending_;
+      in_bytes_left = n_pending_ + n_src_bytes_in_pending;
+
+      iconv_.iconv(&in_buf, &in_bytes_left, &out_buf, &out_bytes_left);
+
+      int64_t chars_read_out = out_buf - ((char*) dest->data());
+      out_bytes_used += chars_read_out;
+
+      int64_t chars_read_in = n_pending_ + n_src_bytes_in_pending - in_bytes_left;
+      in_buf = (const char*) src->data() + chars_read_in - n_pending_;
+      in_bytes_left = src->size() + n_pending_ - chars_read_in;
+
+      Rprintf("...Read %d bytes from pending buffer into %d bytes in output buffer\n", chars_read_in, chars_read_out);
+
+      Rprintf(
+        "...src + %d, in_bytes_left = %d, dest + %d, out_bytes_left = %d\n",
+        in_buf - ((const char*) src->data()),
+        in_bytes_left,
+        out_buf - ((char*) dest->data()),
+        out_bytes_left
+      );
+    } else {
+      in_buf = (const char*) src->data();
+      in_bytes_left = src->size();
     }
+
+
 
     // UTF-8 has a maximum of 4 bytes per character, so it's OK if we have a few bytes
     // left after processing all of src. If we have more than this, it means the
     // output buffer wasn't big enough.
     while (in_bytes_left >= 4) {
       int64_t new_size = std::max<int64_t>(src->size(), dest->size() * 2);
-      auto reserve_result = dest->Reserve(new_size);
+      auto reserve_result = dest->Resize(new_size);
       if (!reserve_result.ok()) {
         cpp11::stop("Failed to allocate buffer of size %ld", new_size);
       }
 
       out_buf = (char*) dest->data() + out_bytes_used;
       out_bytes_left = dest->size() - out_bytes_used;
-      size_t result = iconv_.iconv(&in_buf, &in_bytes_left, &out_buf, &out_bytes_left);
-      if (result == ((size_t) -1)) {
-        return arrow::Status::IOError("Riconv() failed with code -1");
+      Rprintf(
+        "iconv(src + %d, in_bytes_left = %d, dest + %d, out_bytes_left = %d)\n",
+        in_buf - ((const char*) src->data()),
+        in_bytes_left,
+        out_buf - ((char*) dest->data()),
+        out_bytes_left
+      );
+
+      iconv_.iconv(&in_buf, &in_bytes_left, &out_buf, &out_bytes_left);
+
+      int64_t chars_read_out = out_buf - ((char*) dest->data()) + out_bytes_used;
+      if (chars_read_out <= 0) {
+        // This should not happen, but if it does, we want to abort to make sure
+        // the loop doesn't continue forever.
+        return arrow::Status::IOError("Call to iconv() appended zero output bytes");
       }
 
-      int64_t chars_read_in = src->size() - in_bytes_left;
-      int64_t chars_read_out = out_buf - ((char*) dest->data()) + out_bytes_used;
       out_bytes_used += chars_read_out;
-      in_buf += chars_read_in;
     }
+
+    Rprintf(
+      "___src + %d, in_bytes_left = %d, dest + %d, out_bytes_left = %d\n",
+      in_buf - ((const char*) src->data()),
+      in_bytes_left,
+      out_buf - ((char*) dest->data()),
+      out_bytes_left
+    );
 
     // Keep the leftover characters until the next call to the function
     n_pending_ = in_bytes_left;
     if (in_bytes_left > 0) {
+      Rprintf("Copying %d extra characters\n", n_pending_);
       memcpy(pending_, in_buf, in_bytes_left);
     }
 

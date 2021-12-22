@@ -18,6 +18,7 @@
 test_that("reencoding input stream works", {
   string <- "province_name\nQu\u00e9bec"
   bytes_windows1252 <- iconv(string, to = "windows-1252", toRaw = TRUE)[[1]]
+  bytes_utf8 <- iconv(string, to = "UTF-8", toRaw = TRUE)[[1]]
 
   temp_windows1252 <- tempfile()
   con <- file(temp_windows1252, open = "wb")
@@ -36,12 +37,18 @@ test_that("reencoding input stream works", {
 })
 
 test_that("reencoding input stream works when buffer needs reallocating", {
-  string <- paste0(strrep("\U0001f4a9", 100))
-  bytes_utf8 <- charToRaw(string)
+  string <- paste0(strrep("a\u00e9\U0001f4a9", 30))
+  bytes_utf16 <- iconv(string, to = "UTF-16LE", toRaw = TRUE)[[1]]
+  bytes_utf8 <- iconv(string, to = "UTF-8", toRaw = TRUE)[[1]]
 
   temp_utf8 <- tempfile()
   con <- file(temp_utf8, open = "wb")
-  writeBin(temp_utf8, con)
+  writeBin(bytes_utf8, con)
+  close(con)
+
+  temp_utf16 <- tempfile()
+  con <- file(temp_utf16, open = "wb")
+  writeBin(bytes_utf16, con)
   close(con)
 
   fs <- LocalFileSystem$create()
@@ -49,8 +56,16 @@ test_that("reencoding input stream works when buffer needs reallocating", {
   stream <- fs$OpenInputStream(temp_utf8)
   stream_utf8 <- MakeRencodeInputStream(stream, "UTF-8")
 
-  # this call results in a return code of -1
-  as.raw(stream_utf8$Read(5 * 15))
+  # these calls all leave some pending characters
+  expect_identical(as.raw(stream_utf8$Read(4)), bytes_utf8[1:4])
+  expect_identical(as.raw(stream_utf8$Read(5)), bytes_utf8[5:9])
+  expect_identical(as.raw(stream_utf8$Read(6)), bytes_utf8[10:15])
+  expect_identical(as.raw(stream_utf8$Read(7)), bytes_utf8[16:22])
+
+  # finish the stream
+  expect_identical(
+    as.raw(stream_utf8$Read(length(bytes_utf8))),
+    bytes_utf8[23:length(bytes_utf8)])
 
   stream$close()
   stream_utf8$close()
