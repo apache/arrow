@@ -310,7 +310,7 @@ buffer. When this is true, the content of the corresponding memory space
 is undefined.
 
 Offsets must be monotonic, that is `offsets[j+1] >= offsets[j]` for
-`0 <= j < length`, even for null vaues. This property ensures the
+`0 <= j < length`, even for null slots. This property ensures the
 **location** for all values is valid and well defined.
 
 Generally the first slot in the offsets array is 0, and the last slot
