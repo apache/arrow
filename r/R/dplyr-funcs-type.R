@@ -16,13 +16,13 @@
 # under the License.
 
 # Split up into several register functions by category to satisfy the linter
-register_type_bindings <- function() {
-  register_type_cast_bindings()
-  register_type_inspect_bindings()
-  register_type_elementwise_bindings()
+register_bindings_type <- function() {
+  register_bindings_type_cast()
+  register_bindings_type_inspect()
+  register_bindings_type_elementwise()
 }
 
-register_type_cast_bindings <- function() {
+register_bindings_type_cast <- function() {
 
   register_binding("cast", function(x, target_type, safe = TRUE, ...) {
     opts <- cast_options(safe, ...)
@@ -157,7 +157,7 @@ register_type_cast_bindings <- function() {
   })
 }
 
-register_type_inspect_bindings <- function() {
+register_bindings_type_inspect <- function() {
   # is.* type functions
   register_binding("is.character", function(x) {
     is.character(x) || (inherits(x, "Expression") &&
@@ -217,7 +217,7 @@ register_type_inspect_bindings <- function() {
   })
 }
 
-register_type_elementwise_bindings <- function() {
+register_bindings_type_elementwise <- function() {
 
   register_binding("is.na", function(x) {
     build_expr("is_null", x, options = list(nan_is_null = TRUE))

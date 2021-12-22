@@ -126,13 +126,13 @@ stop_if_locale_provided <- function(locale) {
 
 
 # Split up into several register functions by category to satisfy the linter
-register_string_bindings <- function() {
-  register_string_join_bindings()
-  register_string_regex_bindings()
-  register_string_other_bindings()
+register_bindings_string <- function() {
+  register_bindings_string_join()
+  register_bindings_string_regex()
+  register_bindings_string_other()
 }
 
-register_string_join_bindings <- function() {
+register_bindings_string_join <- function() {
 
   arrow_string_join_function <- function(null_handling, null_replacement = NULL) {
     # the `binary_join_element_wise` Arrow C++ compute kernel takes the separator
@@ -190,7 +190,7 @@ register_string_join_bindings <- function() {
   })
 }
 
-register_string_regex_bindings <- function() {
+register_bindings_string_regex <- function() {
 
   register_binding("grepl", function(pattern, x, ignore.case = FALSE, fixed = FALSE) {
     arrow_fun <- ifelse(fixed, "match_substring", "match_substring_regex")
@@ -364,7 +364,7 @@ register_string_regex_bindings <- function() {
   })
 }
 
-register_string_other_bindings <- function() {
+register_bindings_string_other <- function() {
 
   register_binding("nchar", function(x, type = "chars", allowNA = FALSE, keepNA = NA) {
     if (allowNA) {

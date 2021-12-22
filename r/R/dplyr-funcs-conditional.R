@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-register_conditional_bindings <- function() {
+register_bindings_conditional <- function() {
 
   register_binding("coalesce", function(...) {
     args <- list2(...)

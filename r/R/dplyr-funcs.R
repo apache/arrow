@@ -102,13 +102,13 @@ create_binding_cache <- function() {
   }
 
   # Register bindings into nse_funcs and agg_funcs
-  register_array_function_map_bindings()
-  register_aggregate_bindings()
-  register_conditional_bindings()
-  register_datetime_bindings()
-  register_math_bindings()
-  register_string_bindings()
-  register_type_bindings()
+  register_bindings_array_function_map()
+  register_bindings_aggregate()
+  register_bindings_conditional()
+  register_bindings_datetime()
+  register_bindings_math()
+  register_bindings_string()
+  register_bindings_type()
 
   # We only create the cache for nse_funcs and not agg_funcs
   .cache$functions <- c(as.list(nse_funcs), arrow_funcs)

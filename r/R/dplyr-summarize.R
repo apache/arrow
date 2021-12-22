@@ -55,7 +55,7 @@ agg_fun_output_type <- function(fun, input_type, hash) {
   }
 }
 
-register_aggregate_bindings <- function() {
+register_bindings_aggregate <- function() {
 
   register_binding_agg("sum", function(..., na.rm = FALSE) {
     list(

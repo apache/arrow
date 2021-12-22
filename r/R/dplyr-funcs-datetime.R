@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-register_datetime_bindings <- function() {
+register_bindings_datetime <- function() {
 
   register_binding("strptime", function(x, format = "%Y-%m-%d %H:%M:%S", tz = NULL,
                                             unit = "ms") {
