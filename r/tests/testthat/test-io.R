@@ -65,7 +65,8 @@ test_that("reencoding input stream works when buffer needs reallocating", {
   # finish the stream
   expect_identical(
     as.raw(stream_utf8$Read(length(bytes_utf8))),
-    bytes_utf8[23:length(bytes_utf8)])
+    bytes_utf8[23:length(bytes_utf8)]
+  )
 
   stream$close()
   stream_utf8$close()

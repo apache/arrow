@@ -223,6 +223,7 @@ struct ReencodeUTF8TransformFunctionWrapper {
 
     size_t in_bytes_left;
     const char* in_buf;
+    int64_t n_src_bytes_in_pending = 0;
 
     // There may be a few leftover bytes from the last call to iconv. Process these first
     // using the internal buffer as the source. This may also result in a partial character
@@ -230,7 +231,7 @@ struct ReencodeUTF8TransformFunctionWrapper {
     if (n_pending_ > 0) {
       Rprintf("Processing %d leftover characters\n", n_pending_);
       // fill the pending_ buffer with characters and call iconv() once
-      int64_t n_src_bytes_in_pending = std::min<int64_t>(sizeof(pending_) - n_pending_, src->size());
+      n_src_bytes_in_pending = std::min<int64_t>(sizeof(pending_) - n_pending_, src->size());
       Rprintf("Copying %d bytes to pending_\n", n_src_bytes_in_pending);
       memcpy(pending_ + n_pending_, src->data(), n_src_bytes_in_pending);
       in_buf = pending_;
@@ -259,8 +260,6 @@ struct ReencodeUTF8TransformFunctionWrapper {
       in_bytes_left = src->size();
     }
 
-
-
     // UTF-8 has a maximum of 4 bytes per character, so it's OK if we have a few bytes
     // left after processing all of src. If we have more than this, it means the
     // output buffer wasn't big enough.
@@ -281,16 +280,20 @@ struct ReencodeUTF8TransformFunctionWrapper {
         out_bytes_left
       );
 
+      const char* in_buf_before = in_buf;
+      char* out_buf_before = out_buf;
       iconv_.iconv(&in_buf, &in_bytes_left, &out_buf, &out_bytes_left);
+      int64_t bytes_read_out = out_buf - out_buf_before;
+      int64_t bytes_read_in = in_buf - in_buf_before;
+      Rprintf("Read %d bytes in input to %d bytes in output\n", bytes_read_in, bytes_read_out);
 
-      int64_t chars_read_out = out_buf - ((char*) dest->data()) + out_bytes_used;
-      if (chars_read_out <= 0) {
+      if (bytes_read_out <= 0 || bytes_read_in <= 0) {
         // This should not happen, but if it does, we want to abort to make sure
         // the loop doesn't continue forever.
-        return arrow::Status::IOError("Call to iconv() appended zero output bytes");
+        return arrow::Status::IOError("Call to iconv() read or appended zero output bytes");
       }
 
-      out_bytes_used += chars_read_out;
+      out_bytes_used += bytes_read_out;
     }
 
     Rprintf(
