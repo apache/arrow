@@ -543,6 +543,7 @@ public class FlightSqlClient implements AutoCloseable {
 
         listener.putNext();
         listener.completed();
+        listener.getResult();
       }
 
       return client.getInfo(descriptor, options);
