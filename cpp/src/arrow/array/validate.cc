@@ -171,11 +171,11 @@ struct ValidateArrayImpl {
 
     using c_type = typename Date64Type::c_type;
     if (full_validation) {
-      constexpr c_type full_day = 1000 * 60 * 60 * 24;
+      constexpr c_type kFullDay = 1000 * 60 * 60 * 24;
       return VisitArrayDataInline<Date64Type>(
           data,
           [&](c_type date) {
-            if (date % full_day != 0) {
+            if (date % kFullDay != 0) {
               return Status::Invalid(type, date,
                                      "ms does not represent a whole number of days");
             }
@@ -191,20 +191,20 @@ struct ValidateArrayImpl {
 
     using c_type = typename Time32Type::c_type;
     if (full_validation) {
-      constexpr c_type full_day_s = 60 * 60 * 24;
-      constexpr c_type full_day_ms = full_day_s * 1000;
+      constexpr c_type kFullDay_s = 60 * 60 * 24;
+      constexpr c_type kFullDay_ms = kFullDay_s * 1000;
       return VisitArrayDataInline<Time32Type>(
           data,
           [&](c_type time) {
-            if (type.unit() == TimeUnit::SECOND && (time < 0 || time >= full_day_s)) {
+            if (type.unit() == TimeUnit::SECOND && (time < 0 || time >= kFullDay_s)) {
               return Status::Invalid(type, " ", time,
                                      "s does not fit within the acceptable range of ",
-                                     "[0, ", full_day_s, ") s");
+                                     "[0, ", kFullDay_s, ") s");
             }
-            if (type.unit() == TimeUnit::MILLI && (time < 0 || time >= full_day_ms)) {
+            if (type.unit() == TimeUnit::MILLI && (time < 0 || time >= kFullDay_ms)) {
               return Status::Invalid(type, " ", time,
                                      "ms does not fit within the acceptable range of ",
-                                     "[0, ", full_day_ms, ") ms");
+                                     "[0, ", kFullDay_ms, ") ms");
             }
             return Status::OK();
           },
@@ -218,20 +218,20 @@ struct ValidateArrayImpl {
 
     using c_type = typename Time64Type::c_type;
     if (full_validation) {
-      constexpr c_type full_day_us = 1000000LL * 60 * 60 * 24;
-      constexpr c_type full_day_ns = full_day_us * 1000;
+      constexpr c_type kFullDay_us = 1000000LL * 60 * 60 * 24;
+      constexpr c_type kFullDay_ns = kFullDay_us * 1000;
       return VisitArrayDataInline<Time64Type>(
           data,
           [&](c_type time) {
-            if (type.unit() == TimeUnit::MICRO && (time < 0 || time >= full_day_us)) {
+            if (type.unit() == TimeUnit::MICRO && (time < 0 || time >= kFullDay_us)) {
               return Status::Invalid(type, " ", time,
                                      "us does not fit within the acceptable range of ",
-                                     "[0, ", full_day_us, ") us");
+                                     "[0, ", kFullDay_us, ") us");
             }
-            if (type.unit() == TimeUnit::NANO && (time < 0 || time >= full_day_ns)) {
+            if (type.unit() == TimeUnit::NANO && (time < 0 || time >= kFullDay_ns)) {
               return Status::Invalid(type, " ", time,
                                      "ns does not fit within the acceptable range of ",
-                                     "[0, ", full_day_ns, ") ns");
+                                     "[0, ", kFullDay_ns, ") ns");
             }
             return Status::OK();
           },
