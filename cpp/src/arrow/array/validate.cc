@@ -191,20 +191,20 @@ struct ValidateArrayImpl {
 
     using c_type = typename Time32Type::c_type;
     if (full_validation) {
-      constexpr c_type kFullDay_s = 60 * 60 * 24;
-      constexpr c_type kFullDay_ms = kFullDay_s * 1000;
+      constexpr c_type kFullDaySeconds = 60 * 60 * 24;
+      constexpr c_type kFullDayMillis = kFullDaySeconds * 1000;
       return VisitArrayDataInline<Time32Type>(
           data,
           [&](c_type time) {
-            if (type.unit() == TimeUnit::SECOND && (time < 0 || time >= kFullDay_s)) {
+            if (type.unit() == TimeUnit::SECOND && (time < 0 || time >= kFullDaySeconds)) {
               return Status::Invalid(type, " ", time,
                                      "s does not fit within the acceptable range of ",
-                                     "[0, ", kFullDay_s, ") s");
+                                     "[0, ", kFullDaySeconds, ") s");
             }
-            if (type.unit() == TimeUnit::MILLI && (time < 0 || time >= kFullDay_ms)) {
+            if (type.unit() == TimeUnit::MILLI && (time < 0 || time >= kFullDayMillis)) {
               return Status::Invalid(type, " ", time,
                                      "ms does not fit within the acceptable range of ",
-                                     "[0, ", kFullDay_ms, ") ms");
+                                     "[0, ", kFullDayMillis, ") ms");
             }
             return Status::OK();
           },
@@ -218,20 +218,20 @@ struct ValidateArrayImpl {
 
     using c_type = typename Time64Type::c_type;
     if (full_validation) {
-      constexpr c_type kFullDay_us = 1000000LL * 60 * 60 * 24;
-      constexpr c_type kFullDay_ns = kFullDay_us * 1000;
+      constexpr c_type kFullDayMicro = 1000000LL * 60 * 60 * 24;
+      constexpr c_type kFullDayNano = kFullDayMicro * 1000;
       return VisitArrayDataInline<Time64Type>(
           data,
           [&](c_type time) {
-            if (type.unit() == TimeUnit::MICRO && (time < 0 || time >= kFullDay_us)) {
+            if (type.unit() == TimeUnit::MICRO && (time < 0 || time >= kFullDayMicro)) {
               return Status::Invalid(type, " ", time,
                                      "us does not fit within the acceptable range of ",
-                                     "[0, ", kFullDay_us, ") us");
+                                     "[0, ", kFullDayMicro, ") us");
             }
-            if (type.unit() == TimeUnit::NANO && (time < 0 || time >= kFullDay_ns)) {
+            if (type.unit() == TimeUnit::NANO && (time < 0 || time >= kFullDayNano)) {
               return Status::Invalid(type, " ", time,
                                      "ns does not fit within the acceptable range of ",
-                                     "[0, ", kFullDay_ns, ") ns");
+                                     "[0, ", kFullDayNano, ") ns");
             }
             return Status::OK();
           },
