@@ -2355,6 +2355,76 @@ const FunctionDoc array_take_doc(
      "given by `indices`.  Nulls in `indices` emit null in the output."),
     {"array", "indices"}, "TakeOptions");
 
+const FunctionDoc indices_nonzero_doc(
+    "Return indices of the array containing non zero or false values",
+    ("For each input value, check if it's zero, false or null. Emit the index\n"
+     "of the value in the array if it's none of the those."),
+    {"values"});
+
+struct NonZeroVisitor {
+  UInt64Builder* builder;
+  const ArrayData& array;
+
+  NonZeroVisitor(UInt64Builder* builder, const ArrayData& array)
+      : builder(builder), array(array) {}
+
+  Status Visit(const DataType& type) { return Status::NotImplemented(type.ToString()); }
+
+  template <typename Type>
+  enable_if_t<is_primitive_ctype<Type>::value, Status> Visit(const Type&) {
+    using T = typename GetViewType<Type>::T;
+    uint32_t index = 0;
+
+    VisitArrayDataInline<Type>(
+        this->array,
+        [&](T v) {
+          if (v) {
+            this->builder->UnsafeAppend(index);
+          }
+          ++index;
+        },
+        [&]() { ++index; });
+    return Status::OK();
+  }
+};
+
+Status IndicesNonZeroExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  std::shared_ptr<ArrayData> array = batch[0].array();
+  UInt64Builder builder;
+
+  RETURN_NOT_OK(builder.Reserve(array->length));
+  NonZeroVisitor visitor(&builder, *array.get());
+  RETURN_NOT_OK(VisitTypeInline(*(array->type), &visitor));
+
+  std::shared_ptr<ArrayData> out_data;
+  RETURN_NOT_OK(builder.FinishInternal(&out_data));
+  out->value = std::move(out_data);
+  return Status::OK();
+}
+
+std::shared_ptr<VectorFunction> MakeIndicesNonZeroFunction(std::string name,
+                                                           const FunctionDoc* doc) {
+  auto func = std::make_shared<VectorFunction>(name, Arity::Unary(), doc);
+
+  for (const auto& ty : NumericTypes()) {
+    VectorKernel kernel;
+    kernel.exec = IndicesNonZeroExec;
+    kernel.null_handling = NullHandling::OUTPUT_NOT_NULL;
+    kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
+    kernel.signature = KernelSignature::Make({InputType(ty->id())}, uint64());
+    DCHECK_OK(func->AddKernel(kernel));
+  }
+
+  VectorKernel boolkernel;
+  boolkernel.exec = IndicesNonZeroExec;
+  boolkernel.null_handling = NullHandling::OUTPUT_NOT_NULL;
+  boolkernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
+  boolkernel.signature = KernelSignature::Make({boolean()}, uint64());
+  DCHECK_OK(func->AddKernel(boolkernel));
+
+  return func;
+}
+
 }  // namespace
 
 void RegisterVectorSelection(FunctionRegistry* registry) {
@@ -2420,6 +2490,9 @@ void RegisterVectorSelection(FunctionRegistry* registry) {
 
   // DropNull kernel
   DCHECK_OK(registry->AddFunction(std::make_shared<DropNullMetaFunction>()));
+
+  DCHECK_OK(registry->AddFunction(
+    MakeIndicesNonZeroFunction("indices_nonzero", &indices_nonzero_doc)));
 }
 
 }  // namespace internal
