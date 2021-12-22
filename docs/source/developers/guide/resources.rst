@@ -63,3 +63,5 @@ Recommended books for learning languages
 
 - Slatkin, Brett, *Effective Python: 90 Specific Ways to Write Better Python*, Addison-Wesley Professional, 2019
 - Stroustrup, Bjarne, *A Tour of C++ (Second edition)*, Addison-Wesley, 2018
+- Wickham, Hadley, `R Packages: Organize, Test, Document, and Share Your Code <https://r-pkgs.org/>`_
+- Wickham, Hadley, `Advanced R <https://adv-r.hadley.nz/>`_
