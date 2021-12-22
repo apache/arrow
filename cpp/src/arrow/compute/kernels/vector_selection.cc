@@ -16,9 +16,9 @@
 // under the License.
 
 #include <algorithm>
+#include <cstdint>
 #include <cstring>
 #include <limits>
-#include <cstdint>
 #include <memory>
 #include <type_traits>
 
