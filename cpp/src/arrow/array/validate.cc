@@ -167,17 +167,17 @@ struct ValidateArrayImpl {
   }
 
   Status Visit(const Date64Type& type) {
-    // check that data is divisible by 8.64e7 (= 1000ms * 60s * 60mins * 24hrs)
     RETURN_NOT_OK(ValidateFixedWidthBuffers());
-    
+
     using c_type = typename Date64Type::c_type;
     if (full_validation) {
-      c_type fullDay = 1000 * 60 * 60 * 24;
+      constexpr c_type full_day = 1000 * 60 * 60 * 24;
       return VisitArrayDataInline<Date64Type>(
           data,
           [&](c_type date) {
-            if(date % fullDay != 0) {
-              return Status::Invalid(type, date, "ms does not represent a whole number of days");
+            if (date % full_day != 0) {
+              return Status::Invalid(type, date,
+                                     "ms does not represent a whole number of days");
             }
             return Status::OK();
           },
@@ -187,27 +187,24 @@ struct ValidateArrayImpl {
   }
 
   Status Visit(const Time32Type& type) {
-    // check unit
-    // if unit is s => data must be within [0, 8.64e4)
-    // if unit is ms => data must be within [0, 8.64e7)
     RETURN_NOT_OK(ValidateFixedWidthBuffers());
-    
+
     using c_type = typename Time32Type::c_type;
     if (full_validation) {
-      c_type fullDay_s = 60 * 60 * 24;
-      c_type fullDay_ms = fullDay_s * 1000;
+      constexpr c_type full_day_s = 60 * 60 * 24;
+      constexpr c_type full_day_ms = full_day_s * 1000;
       return VisitArrayDataInline<Time32Type>(
           data,
           [&](c_type time) {
-            if(type.unit() == TimeUnit::SECOND && (time < 0 || time >= fullDay_s)) {
+            if (type.unit() == TimeUnit::SECOND && (time < 0 || time >= full_day_s)) {
               return Status::Invalid(type, " ", time,
-                                     "s does not fit within the acceptable range of [0, ",
-                                     fullDay_s, ") s");
+                                     "s does not fit within the acceptable range of ",
+                                     "[0, ", full_day_s, ") s");
             }
-            if(type.unit() == TimeUnit::MILLI && (time < 0 || time >= fullDay_ms)) {
+            if (type.unit() == TimeUnit::MILLI && (time < 0 || time >= full_day_ms)) {
               return Status::Invalid(type, " ", time,
-                                     "ms does not fit within the acceptable range of [0, ",
-                                     fullDay_ms, ") ms");
+                                     "ms does not fit within the acceptable range of ",
+                                     "[0, ", full_day_ms, ") ms");
             }
             return Status::OK();
           },
@@ -217,27 +214,24 @@ struct ValidateArrayImpl {
   }
 
   Status Visit(const Time64Type& type) {
-    // check unit
-    // if unit is us => data must be within [0, 8.64e10)
-    // if unit is ns => data must be within [0, 8.64e13)
     RETURN_NOT_OK(ValidateFixedWidthBuffers());
 
     using c_type = typename Time64Type::c_type;
     if (full_validation) {
-      c_type fullDay_us = 1000000ll * 60 * 60 * 24;
-      c_type fullDay_ns = fullDay_us * 1000;
+      constexpr c_type full_day_us = 1000000LL * 60 * 60 * 24;
+      constexpr c_type full_day_ns = full_day_us * 1000;
       return VisitArrayDataInline<Time64Type>(
           data,
           [&](c_type time) {
-            if(type.unit() == TimeUnit::MICRO && (time < 0 || time >= fullDay_us)) {
+            if (type.unit() == TimeUnit::MICRO && (time < 0 || time >= full_day_us)) {
               return Status::Invalid(type, " ", time,
-                                     "us does not fit within the acceptable range of [0, ",
-                                     fullDay_us, ") us");
+                                     "us does not fit within the acceptable range of ",
+                                     "[0, ", full_day_us, ") us");
             }
-            if(type.unit() == TimeUnit::NANO && (time < 0 || time >= fullDay_ns)) {
+            if (type.unit() == TimeUnit::NANO && (time < 0 || time >= full_day_ns)) {
               return Status::Invalid(type, " ", time,
-                                     "ns does not fit within the acceptable range of [0, ",
-                                     fullDay_ns, ") ns");
+                                     "ns does not fit within the acceptable range of ",
+                                     "[0, ", full_day_ns, ") ns");
             }
             return Status::OK();
           },
