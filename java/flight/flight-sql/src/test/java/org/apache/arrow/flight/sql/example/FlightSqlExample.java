@@ -1270,7 +1270,10 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
         }
 
       } catch (SQLException e) {
-        ackStream.onError(e);
+        ackStream.onError(CallStatus.INTERNAL
+            .withDescription("Failed to bind parameters: " + e.getMessage())
+            .withCause(e)
+            .toRuntimeException());
         return;
       }
       ackStream.onCompleted();
