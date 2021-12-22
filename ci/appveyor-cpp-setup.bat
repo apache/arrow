@@ -98,7 +98,8 @@ if defined need_vcvarsall (
 @rem
 @rem Use clcache for faster builds
 @rem
-pip install -q clcache-alt || exit /B
+
+pip install -q git+https://github.com/Nuitka/clcache.git || exit /B
 @rem Limit cache size to 500 MB
 clcache -M 500000000
 clcache -c
