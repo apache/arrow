@@ -1103,6 +1103,8 @@ Containment tests
 +-----------------------+-------+-----------------------------------+----------------+---------------------------------+-------+
 | starts_with           | Unary | Binary- or String-like            | Boolean        | :struct:`MatchSubstringOptions` | \(2)  |
 +-----------------------+-------+-----------------------------------+----------------+---------------------------------+-------+
+| indices_nonzero       | Unary | Boolean, Null, Numeric            | Int64          |                                 |       |
++-----------------------+-------+-----------------------------------+----------------+---------------------------------+-------+
 
 * \(1) Output is the number of occurrences of
   :member:`MatchSubstringOptions::pattern` in the corresponding input
