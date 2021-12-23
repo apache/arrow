@@ -222,7 +222,7 @@ void TestMain(int argc, char** argv) {
   ASSERT_OK(InitializeS3(options));
 
   if (FLAGS_region.empty()) {
-    ASSERT_OK_AND_ASSIGN(FLAGS_region, ResolveBucketRegion(FLAGS_bucket));
+    ASSERT_OK_AND_ASSIGN(FLAGS_region, ResolveS3BucketRegion(FLAGS_bucket));
   }
 
   if (FLAGS_clear) {
