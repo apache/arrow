@@ -777,7 +777,8 @@ gdv_time32 castTIME_utf8(int64_t context, const char* input, int32_t length) {
   using std::chrono::minutes;
   using std::chrono::seconds;
 
-  int32_t time_fields[4] = {0, 0, 0, 0};
+  const int32_t kDisplacementHours = 4;
+  int32_t time_fields[kDisplacementHours] = {0, 0, 0, 0};
   int32_t sub_seconds_len = 0;
   int32_t time_field_idx = TimeFields::kHours, index = 0, value = 0;
   while (time_field_idx < TimeFields::kDisplacementHours && index < length) {
