@@ -31,6 +31,7 @@
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/plan.h"
 #include "arrow/dataset/scanner.h"
+#include "arrow/dataset/dataset_writer.h"
 
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
@@ -47,6 +48,8 @@
 #include "arrow/util/range.h"
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/vector.h"
+
+#include "gmock/gmock-matchers.h"
 
 //#include <arrow/testing/future_util.h>
 //#include <arrow/testing/gtest_util.h>
@@ -226,6 +229,9 @@ arrow::Status exec_plan_end_to_end_sample() {
                             cp::MakeExecNode("sink",
                             plan.get(), {project},
                             cp::SinkNodeOptions{&sink_gen}));
+
+    ABORT_ON_FAILURE(sink->Validate());
+
     // // translate sink_gen (async) to sink_reader (sync)
     std::shared_ptr<arrow::RecordBatchReader> sink_reader =
         cp::MakeGeneratorReader(arrow::schema({arrow::field("a * 2", arrow::int32())}),
@@ -562,6 +568,7 @@ arrow::Status scan_filter_sink_example() {
       cp::ExecNode * sink,
       cp::MakeExecNode("sink", plan.get(), {filter}, cp::SinkNodeOptions{&sink_gen}));
 
+  ABORT_ON_FAILURE(sink->Validate());
   // // translate sink_gen (async) to sink_reader (sync)
   std::shared_ptr<arrow::RecordBatchReader> sink_reader = cp::MakeGeneratorReader(
       dataset->schema(), std::move(sink_gen), exec_context.memory_pool());
@@ -621,6 +628,8 @@ arrow::Status scan_project_sink_example() {
     ARROW_ASSIGN_OR_RAISE(cp::ExecNode * sink,
                           cp::MakeExecNode("sink", plan.get(), {project},
                                            cp::SinkNodeOptions{&sink_gen}));
+
+    ABORT_ON_FAILURE(sink->Validate());
 
     // // translate sink_gen (async) to sink_reader (sync)
     std::shared_ptr<arrow::RecordBatchReader> sink_reader = cp::MakeGeneratorReader(
@@ -761,6 +770,8 @@ arrow::Status source_consuming_sink_node_example() {
     ARROW_ASSIGN_OR_RAISE(consuming_sink, MakeExecNode("consuming_sink", plan.get(),
     {source}, cp::ConsumingSinkNodeOptions(consumer)));
 
+    ABORT_ON_FAILURE(consuming_sink->Validate());
+
     ABORT_ON_FAILURE(plan->Validate());
     PRINT_LINE("Exec Plan created: " << plan->ToString());
     // plan start producing
@@ -768,14 +779,12 @@ arrow::Status source_consuming_sink_node_example() {
     // Source should finish fairly quickly
     ABORT_ON_FAILURE(source->finished().status());
     PRINT_LINE("Source Finished!");
-
-    plan->StopProducing();
-    PRINT_LINE("Plan Finished!");
     // Mark consumption complete, plan should finish
     arrow::Status finish_status;
+    //finish.Wait();
     finish.MarkFinished(finish_status);
-    ABORT_ON_FAILURE(finish_status);
     ABORT_ON_FAILURE(plan->finished().status());
+    ABORT_ON_FAILURE(finish_status);
 
     return arrow::Status::OK();
 }
@@ -935,6 +944,8 @@ arrow::Status source_kselect_example() {
             plan.get(), {source},
                 cp::SelectKSinkNodeOptions{options, &sink_gen}));
 
+    k_sink_node->finished().Wait();
+
     std::shared_ptr<arrow::RecordBatchReader> sink_reader = cp::MakeGeneratorReader(
         arrow::schema({arrow::field("i32", arrow::int32()),
                        arrow::field("str", arrow::utf8())}),
@@ -962,130 +973,77 @@ arrow::Status source_kselect_example() {
     return arrow::Status::OK();
 }
 
-// arrow::Status scan_filter_write_example()
-// {
-//     cp::ExecContext exec_context(arrow::default_memory_pool(),
-//                                  ::arrow::internal::GetCpuThreadPool());
+arrow::Status scan_filter_write_example() {
+    cp::ExecContext exec_context(arrow::default_memory_pool(),
+                                 ::arrow::internal::GetCpuThreadPool());
 
-//     PRINT_LINE("Execution context created.");
+    // ensure arrow::dataset node factories are in the registry
+    arrow::dataset::internal::Initialize();
 
-//     // ensure arrow::dataset node factories are in the registry
-//     arrow::dataset::internal::Initialize();
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
+     cp::ExecPlan::Make(&exec_context));
 
-//     PRINT_LINE("Intialized Scanner");
+    std::shared_ptr<arrow::dataset::Dataset> dataset = CreateDataset();
 
-//     // A ScanNode is constructed from an ExecPlan (into which it is inserted),
-//     // a Dataset (whose batches will be scanned), and ScanOptions (to specify a filter
-//     for
-//     // predicate pushdown, a projection to skip materialization of unnecessary columns,
-//     ...) ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
-//     cp::ExecPlan::Make(&exec_context)); std::string msg; msg.append("Exec Plan Created
-//     : "); msg.append(plan->ToString()); PRINT_LINE(msg);
+    auto options = std::make_shared<arrow::dataset::ScanOptions>();
+    // sync scanning is not supported by ScanNode
+    options->use_async = true;
+    // specify the filter
+    //cp::Expression b_is_true = cp::field_ref("b");
+    //options->filter = b_is_true;
+    // empty projection
+    options->projection = Materialize({});
 
-//     auto table = CreateSimpleTable();
+    cp::ExecNode *scan;
 
-//     PRINT_LINE("Table created")
+    auto scan_node_options = arrow::dataset::ScanNodeOptions{dataset, options};
 
-//     std::shared_ptr<arrow::dataset::Dataset> dataset; // =
-//     std::make_shared<arrow::dataset::InMemoryDataset>(table); auto dataset_schema =
-//     arrow::schema({arrow::field("a", arrow::int32()), arrow::field("b",
-//     arrow::boolean())}); dataset = std::make_shared<arrow::dataset::InMemoryDataset>(
-//         GetTableFromJSON(dataset_schema,
-//                              {
-//                                  R"([{"a": 1,    "b": null},
-//                             {"a": 2,    "b": true}])",
-//                                  R"([{"a": null, "b": true},
-//                             {"a": 3,    "b": false}])",
-//                                  R"([{"a": null, "b": true},
-//                             {"a": 4,    "b": false}])",
-//                                  R"([{"a": 5,    "b": null},
-//                             {"a": 6,    "b": false},
-//                             {"a": 7,    "b": false},
-//                             {"a": 8,    "b": true}])",
-//                              }));
+    ARROW_ASSIGN_OR_RAISE(scan, cp::MakeExecNode("scan", plan.get(), {},
+    scan_node_options));
 
-//     std::cout << "Dataset created :: " << dataset->schema()->field_names().at(0) <<
-//     std::endl;
+    arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
 
-//     auto options = std::make_shared<arrow::dataset::ScanOptions>();
-//     // sync scanning is not supported by ScanNode
-//     options->use_async = true;
-//     // specify the filter
-//     //cp::Expression b_is_true = cp::field_ref("b");
-//     //options->filter = b_is_true;
-//     // empty projection
-//     options->projection = Materialize({});
+    std::string root_path = "";
+    std::string uri = "file:///Users/vibhatha/sandbox/test";
+    std::shared_ptr<arrow::fs::FileSystem> filesystem =
+    arrow::fs::FileSystemFromUri(uri, &root_path).ValueOrDie();
 
-//     // construct the scan node
-//     PRINT_LINE("Initialized Scanning Options");
+    auto base_path = root_path + "/parquet_dataset";
+    ABORT_ON_FAILURE(filesystem->CreateDir(base_path));
 
-//     cp::ExecNode *scan;
+    // The partition schema determines which fields are part of the partitioning.
+    auto partition_schema = arrow::schema({arrow::field("a", arrow::int32())});
+    // We'll use Hive-style partitioning,
+    // which creates directories with "key=value" pairs.
 
-//     auto scan_node_options = arrow::dataset::ScanNodeOptions{dataset, options};
-//     PRINT_LINE("Scan node options created");
+    auto partitioning =
+    std::make_shared<arrow::dataset::HivePartitioning>(partition_schema);
+    // We'll write Parquet files.
+    auto format = std::make_shared<arrow::dataset::ParquetFileFormat>();
 
-//     ARROW_ASSIGN_OR_RAISE(scan, cp::MakeExecNode("scan", plan.get(), {},
-//     scan_node_options));
+    arrow::dataset::FileSystemDatasetWriteOptions write_options;
+    write_options.file_write_options = format->DefaultWriteOptions();
+    write_options.filesystem = filesystem;
+    write_options.base_dir = base_path;
+    write_options.partitioning = partitioning;
+    write_options.basename_template = "part{i}.parquet";
 
-//     //pipe the scan node into a filter node
-//     // cp::ExecNode *filter;
-//     // ARROW_ASSIGN_OR_RAISE(filter, cp::MakeExecNode("filter", plan.get(), {scan},
-//     // cp::FilterNodeOptions{b_is_true})); PRINT_LINE("Filter node options created");
-//     // // finally, pipe the project node into a sink node
-//     arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
+    arrow::dataset::WriteNodeOptions write_node_options {write_options,
+    dataset->schema()};
 
-//     std::string root_path = "";
-//     std::string uri = "file:///Users/vibhatha/sandbox/test";
-//     std::shared_ptr<arrow::fs::FileSystem> filesystem =
-//     arrow::fs::FileSystemFromUri(uri, &root_path).ValueOrDie();
+    PRINT_LINE("Write Options created");
 
-//     auto base_path = root_path + "/parquet_dataset";
-//     filesystem->CreateDir(base_path);
+    ARROW_ASSIGN_OR_RAISE(cp::ExecNode *wr, cp::MakeExecNode("write", plan.get(),
+    {scan}, write_node_options));
 
-//     // The partition schema determines which fields are part of the partitioning.
-//     auto partition_schema = arrow::schema({arrow::field("b", arrow::boolean())});
-//     // We'll use Hive-style partitioning, which creates directories with "key=value"
-//     pairs.
-
-//     auto partitioning =
-//     std::make_shared<arrow::dataset::HivePartitioning>(partition_schema);
-//     // We'll write Parquet files.
-//     auto format = std::make_shared<arrow::dataset::ParquetFileFormat>();
-
-//     arrow::dataset::FileSystemDatasetWriteOptions write_options;
-//     //write_options.file_write_options = format->DefaultWriteOptions();
-//     //write_options.filesystem = filesystem;
-//     write_options.base_dir = base_path;
-//     //write_options.partitioning = partitioning;
-//     write_options.basename_template = "part{i}.parquet";
-
-//     PRINT_LINE("Write Options created");
-
-//     ARROW_ASSIGN_OR_RAISE(cp::ExecNode * write,
-//                           cp::MakeExecNode("write", plan.get(), {scan},
-//                                            arrow::dataset::WriteNodeOptions(write_options,
-//                                            arrow::schema({
-//                                                arrow::field("a", arrow::int32()),
-//                                                arrow::field("b", arrow::boolean())
-//                                            }))));
-
-//     PRINT_LINE("Write Node Created");
-//     // // // translate sink_gen (async) to sink_reader (sync)
-//     // std::shared_ptr<arrow::RecordBatchReader> sink_reader = cp::MakeGeneratorReader(
-//     //     table->schema(), std::move(sink_gen), exec_context.memory_pool());
-
-//     // // start the ExecPlan
-//     ABORT_ON_FAILURE(plan->StartProducing());
-//     PRINT_LINE("Started Producing.");
-
-//     // // collect sink_reader into a Table
-//     // std::shared_ptr<arrow::Table> response_table;
-//     // ARROW_ASSIGN_OR_RAISE(response_table,
-//     arrow::Table::FromRecordBatchReader(sink_reader.get()));
-
-//     // std::cout << "Results : " << response_table->ToString() << std::endl;
-//     return arrow::Status::OK();
-// }
+    ABORT_ON_FAILURE(wr->Validate());
+    ABORT_ON_FAILURE(plan->Validate());
+    PRINT_LINE("Execution Plan Created : " << plan->ToString());
+    // // // start the ExecPlan
+    ABORT_ON_FAILURE(plan->StartProducing());
+    PRINT_LINE("Started Producing.");
+    return arrow::Status::OK();
+}
 
 // arrow::Status catalog_source_sink_example()
 // {
@@ -1161,10 +1119,9 @@ int main(int argc, char** argv) {
   PRINT_BLOCK("Source HashJoin Example");
   CHECK_AND_CONTINUE(source_hash_join_sink_example());
   PRINT_BLOCK("Source KSelect Example");
-  CHECK_AND_CONTINUE(source_kselect_example());
+  CHECK_AND_RETURN(source_kselect_example());
   // PRINT_BLOCK("Scan Filter Write Example");
   // CHECK_AND_RETURN(scan_filter_write_example());
   // PRINT_LINE("Catalog Source Sink Example");
   // CHECK_AND_RETURN(catalog_source_sink_example());
-  return EXIT_SUCCESS;
 }
