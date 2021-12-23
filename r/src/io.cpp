@@ -298,7 +298,8 @@ protected:
 };
 
 // [[arrow::export]]
-std::shared_ptr<arrow::io::InputStream> MakeReencodeInputStream(const std::shared_ptr<arrow::io::InputStream>& wrapped, std::string from) {
+std::shared_ptr<arrow::io::InputStream> MakeReencodeInputStream(
+    const std::shared_ptr<arrow::io::InputStream>& wrapped, std::string from) {
   arrow::io::TransformInputStream::TransformFunc transform(ReencodeUTF8TransformFunctionWrapper{from});
   return std::make_shared<arrow::io::TransformInputStream>(std::move(wrapped), std::move(transform));
 }
