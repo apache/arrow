@@ -288,6 +288,8 @@ TEST(Grouper, SupportedKeys) {
   ASSERT_OK(internal::Grouper::Make(
       {day_time_interval(), month_interval(), month_day_nano_interval()}));
 
+  ASSERT_OK(internal::Grouper::Make({null()}));
+
   ASSERT_RAISES(NotImplemented, internal::Grouper::Make({struct_({field("", int64())})}));
 
   ASSERT_RAISES(NotImplemented, internal::Grouper::Make({struct_({})}));
@@ -611,6 +613,11 @@ TEST(Grouper, RandomStringInt64DoubleInt32Keys) {
         *random::GenerateBatch(g.key_schema_->fields(), 1 << 12, 0xDEADBEEF)};
     g.ConsumeAndValidate(key_batch);
   }
+}
+
+TEST(Grouper, NullKeys) {
+  TestGrouper g({null()});
+  g.ExpectConsume("[[null], [null]]", "[0, 0]");
 }
 
 TEST(Grouper, MakeGroupings) {

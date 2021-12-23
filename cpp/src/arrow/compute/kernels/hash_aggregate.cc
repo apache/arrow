@@ -102,6 +102,11 @@ struct GrouperImpl : Grouper {
         continue;
       }
 
+      if (key->id() == Type::NA) {
+        impl->encoders_[i] = ::arrow::internal::make_unique<NullKeyEncoder>();
+        continue;
+      }
+
       return Status::NotImplemented("Keys of type ", *key);
     }
 
@@ -197,7 +202,7 @@ struct GrouperFastImpl : Grouper {
 #if ARROW_LITTLE_ENDIAN
     for (size_t i = 0; i < keys.size(); ++i) {
       const auto& key = keys[i].type;
-      if (is_large_binary_like(key->id())) {
+      if (is_large_binary_like(key->id()) || key->id() == Type::NA) {
         return false;
       }
     }
