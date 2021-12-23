@@ -107,11 +107,11 @@ static void BetweenArrayArrayArray(benchmark::State& state) {
 }
 
 static void BetweenArrayArrayArrayInt64(benchmark::State& state) {
-  BetweenArrayArrayArray<BETWEEN_LESS_EQUAL_LESS_EQUAL, Int64Type>(state);
+  BetweenArrayArrayArray<LESS_EQUAL_LESS_EQUAL, Int64Type>(state);
 }
 
 static void BetweenScalarArrayScalarInt64(benchmark::State& state) {
-  BetweenScalarArrayScalar<BETWEEN_LESS_EQUAL_LESS_EQUAL, Int64Type>(state);
+  BetweenScalarArrayScalar<LESS_EQUAL_LESS_EQUAL, Int64Type>(state);
 }
 
 BENCHMARK(BetweenArrayArrayArrayInt64)->Apply(RegressionSetArgs);
