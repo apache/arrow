@@ -31,16 +31,16 @@ const { targetAndModuleCombinations, npmPkgName } = require('./util');
 
 const jestArgv = [`--reporters=jest-silent-reporter`];
 const testFiles = [
-    // `test/unit/`,
-    `test/unit/bit-tests.ts`,
-    `test/unit/int-tests.ts`,
-    `test/unit/math-tests.ts`,
-    `test/unit/table-tests.ts`,
-    `test/unit/generated-data-tests.ts`,
-    `test/unit/builders/`,
-    `test/unit/recordbatch/`,
-    `test/unit/table/`,
-    `test/unit/ipc/`,
+    `test/unit/`,
+    // `test/unit/bit-tests.ts`,
+    // `test/unit/int-tests.ts`,
+    // `test/unit/math-tests.ts`,
+    // `test/unit/table-tests.ts`,
+    // `test/unit/generated-data-tests.ts`,
+    // `test/unit/builders/`,
+    // `test/unit/recordbatch/`,
+    // `test/unit/table/`,
+    // `test/unit/ipc/`,
 ];
 
 if (argv.verbose) {
