@@ -167,9 +167,9 @@ struct ExecPlanImpl : public ExecPlan {
       explicit Impl(const std::vector<std::unique_ptr<ExecNode>>& nodes) : nodes(nodes) {
         visited.reserve(nodes.size());
 
-        for (size_t i = nodes.size() - 1; i >= 0; --i) {
-          if (visited.count(nodes[i].get()) != 0) return;
-          Visit(nodes[i].get());
+        for (auto it = nodes.rbegin(); it != nodes.rend(); ++it) {
+          if (visited.count(it->get()) != 0) return;
+          Visit(it->get());
         }
 
         DCHECK_EQ(visited.size(), nodes.size());
@@ -194,9 +194,10 @@ struct ExecPlanImpl : public ExecPlan {
     std::stringstream ss;
     ss << "ExecPlan with " << nodes_.size() << " nodes:" << std::endl;
     auto sorted = OrderedNodes();
-    for (size_t i = sorted.first.size() - 1; i >= 0; --i) {
-      for (int j = 0; j < sorted.second[i]; ++j) ss << "  ";
-      ss << sorted.first[i]->ToString() << std::endl;
+    int plan_size = sorted.first.size();
+    for (int i = 0; i < plan_size; ++i) {
+      for (int j = 0; j < sorted.second[plan_size - i]; ++j) ss << "  ";
+      ss << sorted.first[plan_size - i]->ToString() << std::endl;
     }
     return ss.str();
   }
