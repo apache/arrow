@@ -344,6 +344,7 @@ Containment Tests
    match_substring
    match_substring_regex
    starts_with
+   indices_nonzero
 
 Categorizations
 ---------------
