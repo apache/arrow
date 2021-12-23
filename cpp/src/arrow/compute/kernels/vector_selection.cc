@@ -2359,7 +2359,7 @@ const FunctionDoc array_take_doc(
     {"array", "indices"}, "TakeOptions");
 
 const FunctionDoc indices_nonzero_doc(
-    "Return indices of the array containing non zero or false values",
+    "Return the indices of the values in the array that are non-zero",
     ("For each input value, check if it's zero, false or null. Emit the index\n"
      "of the value in the array if it's none of the those."),
     {"values"});
