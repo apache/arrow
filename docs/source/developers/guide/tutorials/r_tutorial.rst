@@ -38,12 +38,5 @@ This tutorial will show how to do a binding of a C++ function
 `starts_with() <https://arrow.apache.org/docs/cpp/compute.html#containment-tests>`_
 to the (base) R function ``startsWith()``.
 
-To view the tutorial follow
-`this link <https://arrow.apache.org/docs/r/articles/developers/bindings.html#walkthrough>`_
-or run the following command in the R console:
-
-.. code-block:: R
-
-   vignette("bindings", package = "arrow")
-
-You will find the tutorial under the **Walkthrough** section.
+To view the tutorial follow the
+`Walkthrough section of the Writing Bindings article <https://arrow.apache.org/docs/r/articles/developers/bindings.html#walkthrough>`_.
