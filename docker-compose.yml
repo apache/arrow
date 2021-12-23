@@ -268,6 +268,7 @@ services:
       ARROW_CXXFLAGS: "-Og"  # Shrink test runtime by enabling minimal optimizations
       ARROW_ENABLE_TIMING_TESTS:  # inherit
       ARROW_FLIGHT: "OFF"
+      ARROW_FLIGHT_SQL: "OFF"
       ARROW_GANDIVA: "OFF"
       ARROW_JEMALLOC: "OFF"
       ARROW_RUNTIME_SIMD_LEVEL: "AVX2"  # AVX512 not supported by Valgrind (ARROW-9851)
@@ -1021,6 +1022,7 @@ services:
     environment:
       <<: *ccache
       ARROW_FLIGHT: "OFF"
+      ARROW_FLIGHT_SQL: "OFF"
       ARROW_GANDIVA: "OFF"
     volumes: *conda-volumes
     command:
@@ -1610,6 +1612,7 @@ services:
     environment:
       <<: *ccache
       ARROW_FLIGHT: "OFF"
+      ARROW_FLIGHT_SQL: "OFF"
       ARROW_GANDIVA: "OFF"
       ARROW_PLASMA: "OFF"
       ARROW_HIVESERVER2: "ON"

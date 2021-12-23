@@ -44,6 +44,7 @@
     "rapidjson",
     "re2",
     "snappy",
+    "sqlite3",
     "thrift",
     "utf8proc",
     "zlib",

@@ -382,6 +382,11 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
             description="Ensure headers are propagated via middleware.",
             skip={"Rust"}   # TODO(ARROW-10961): tonic upgrade needed
         ),
+        Scenario(
+            "flight_sql",
+            description="Ensure Flight SQL protocol is working as expected.",
+            skip={"Rust", "Go"}
+        ),
     ]
 
     runner = IntegrationRunner(json_files, flight_scenarios, testers, **kwargs)
