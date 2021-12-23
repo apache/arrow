@@ -1428,7 +1428,7 @@ TEST_F(ScalarTemporalTest, TestCeilTemporal) {
           "2012-02-01", null])";
   const char* ceil_1_quarters =
       R"(["1970-04-01", "2000-04-01", "1899-04-01", "2033-07-01", "2020-04-01",
-          "2020-01-01", "2020-01-01", "2010-04-01", "2010-01-01", "2010-04-01",
+          "2020-01-01", "2020-01-01", "2010-01-01", "2010-04-01", "2010-04-01",
           "2010-04-01", "2006-04-01", "2006-01-01", "2009-01-01", "2009-01-01",
           "2012-04-01", null])";
   const char* ceil_1_years =
@@ -1495,15 +1495,15 @@ TEST_F(ScalarTemporalTest, TestCeilTemporal) {
           "2010-04-01", "2006-03-23", "2006-03-23", "2009-02-05", "2009-02-05",
           "2012-04-05", null])";  // TODO: verify
   const char* ceil_15_months =
-      R"(["1971-04-01", "2001-04-01", "1900-04-01", "2034-04-01", "2021-04-01",
-            "2021-04-01", "2020-04-01", "2011-04-01", "2011-04-01", "2011-04-01",
-            "2011-04-01", "2007-04-01", "2007-04-01", "2009-04-01", "2009-04-01",
-            "2013-04-01", null])";  // TODO: verify
+      R"(["1971-04-01", "2001-04-01", "1900-01-01", "2033-10-01", "2021-04-01",
+          "2020-01-01", "2020-01-01", "2010-01-01", "2011-04-01", "2011-04-01",
+          "2011-04-01", "2006-04-01", "2006-04-01", "2010-01-01", "2010-01-01",
+          "2012-07-01", null])";
   const char* ceil_15_quarters =
-      R"(["1973-10-01", "2003-10-01", "1902-10-01", "2036-10-01", "2023-10-01",
-          "2023-10-01", "2022-10-01", "2013-10-01", "2013-10-01", "2013-10-01",
-          "2013-10-01", "2009-10-01", "2009-10-01", "2011-10-01", "2011-10-01",
-          "2015-10-01", null])";  // TODO: verify
+      R"(["1973-10-01", "2003-10-01", "1902-07-01", "2033-10-01", "2022-07-01",
+          "2022-07-01", "2022-07-01", "2011-04-01", "2011-04-01", "2011-04-01",
+          "2011-04-01", "2007-07-01", "2007-07-01", "2011-04-01", "2011-04-01",
+          "2015-01-01", null])";
   const char* ceil_15_years =
       R"(["1980-01-01", "2010-01-01", "1905-01-01", "2040-01-01", "2025-01-01",
           "2025-01-01", "2025-01-01", "2010-01-01", "2025-01-01", "2025-01-01",
@@ -1536,13 +1536,12 @@ TEST_F(ScalarTemporalTest, TestCeilTemporal) {
     auto unit = timestamp(TimeUnit::NANO, timezone);
     CheckScalarUnary(op, unit, times, unit, ceil_1_weeks, &round_to_1_weeks);
     CheckScalarUnary(op, unit, times, unit, ceil_1_months, &round_to_1_months);
-    //    CheckScalarUnary(op, unit, times, unit, ceil_1_quarters, &round_to_1_quarters);
+    CheckScalarUnary(op, unit, times, unit, ceil_1_quarters, &round_to_1_quarters);
     CheckScalarUnary(op, unit, times, unit, ceil_1_years, &round_to_1_years);
 
     CheckScalarUnary(op, unit, times, unit, ceil_15_weeks, &round_to_15_weeks);
-    //    CheckScalarUnary(op, unit, times, unit, ceil_15_months, &round_to_15_months);
-    //    CheckScalarUnary(op, unit, times, unit, ceil_15_quarters,
-    //    &round_to_15_quarters);
+    CheckScalarUnary(op, unit, times, unit, ceil_15_months, &round_to_15_months);
+    CheckScalarUnary(op, unit, times, unit, ceil_15_quarters, &round_to_15_quarters);
     CheckScalarUnary(op, unit, times, unit, ceil_15_years, &round_to_15_years);
   }
 }
@@ -1682,15 +1681,15 @@ TEST_F(ScalarTemporalTest, TestFloorTemporal) {
           "2009-12-17", "2005-12-08", "2005-12-08", "2008-10-23", "2008-10-23",
           "2011-12-22", null])";  // TODO: verify
   const char* floor_15_months =
-      R"(["1970-01-01", "2000-01-01", "1898-09-01", "2032-07-01", "2020-01-01",
+      R"(["1970-01-01", "2000-01-01", "1898-10-01", "2032-07-01", "2020-01-01",
           "2018-10-01", "2018-10-01", "2008-10-01", "2010-01-01", "2010-01-01",
           "2010-01-01", "2005-01-01", "2005-01-01", "2008-10-01", "2008-10-01",
-          "2011-04-01", null])";  // TODO: verify
+          "2011-04-01", null])";
   const char* floor_15_quarters =
-      R"(["1970-01-01", "2000-01-01", "1899-01-01", "2033-01-01", "2020-01-01",
-          "2020-01-01", "2019-01-01", "2010-01-01", "2010-01-01", "2010-01-01",
-          "2010-01-01", "2006-01-01", "2006-01-01", "2008-01-01", "2008-01-01",
-          "2012-01-01", null])";  // TODO - verify
+      R"(["1970-01-01", "2000-01-01", "1898-10-01", "2030-01-01", "2018-10-01",
+          "2018-10-01", "2018-10-01", "2007-07-01", "2007-07-01", "2007-07-01",
+          "2007-07-01", "2003-10-01", "2003-10-01", "2007-07-01", "2007-07-01",
+          "2011-04-01", null])";
   const char* floor_15_years =
       R"(["1965-01-01", "1995-01-01", "1890-01-01", "2025-01-01", "2010-01-01",
           "2010-01-01", "2010-01-01", "1995-01-01", "2010-01-01", "2010-01-01",
@@ -1726,13 +1725,12 @@ TEST_F(ScalarTemporalTest, TestFloorTemporal) {
     auto unit = timestamp(TimeUnit::NANO, timezone);
     CheckScalarUnary(op, unit, times, unit, floor_1_weeks, &round_to_1_weeks);
     CheckScalarUnary(op, unit, times, unit, floor_1_months, &round_to_1_months);
-    //    CheckScalarUnary(op, unit, times, unit, floor_1_quarters, &round_to_1_quarters);
+    CheckScalarUnary(op, unit, times, unit, floor_1_quarters, &round_to_1_quarters);
     CheckScalarUnary(op, unit, times, unit, floor_1_years, &round_to_1_years);
 
     CheckScalarUnary(op, unit, times, unit, floor_15_weeks, &round_to_15_weeks);
-    //    CheckScalarUnary(op, unit, times, unit, floor_15_months, &round_to_15_months);
-    //    CheckScalarUnary(op, unit, times, unit, floor_15_quarters,
-    //    &round_to_15_quarters);
+    CheckScalarUnary(op, unit, times, unit, floor_15_months, &round_to_15_months);
+    CheckScalarUnary(op, unit, times, unit, floor_15_quarters, &round_to_15_quarters);
     CheckScalarUnary(op, unit, times, unit, floor_15_years, &round_to_15_years);
   }
 }
@@ -1872,15 +1870,15 @@ TEST_F(ScalarTemporalTest, TestRoundTemporal) {
           "2009-12-17", "2005-12-08", "2005-12-08", "2009-02-05", "2009-02-05",
           "2011-12-22", null])";  // TODO: verify
   const char* round_15_months =
-      R"(["1970-01-01", "2000-01-01", "1899-04-01", "2033-10-01", "2020-01-01",
+      R"(["1970-01-01", "2000-01-01", "1898-10-01", "2033-10-01", "2020-01-01",
           "2020-01-01", "2020-01-01", "2010-01-01", "2010-01-01", "2010-01-01",
           "2010-01-01", "2006-04-01", "2006-04-01", "2008-10-01", "2008-10-01",
           "2012-07-01", null])";
   const char* round_15_quarters =
-      R"(["1970-01-01", "2000-01-01", "1899-01-01", "2033-01-01", "2020-01-01",
-          "2020-01-01", "2019-01-01", "2010-01-01", "2010-01-01", "2010-01-01",
-          "2010-01-01", "2006-01-01", "2006-01-01", "2008-01-01", "2008-01-01",
-          "2012-01-01", null])";
+      R"(["1970-01-01", "2000-01-01", "1898-10-01", "2033-10-01", "2018-10-01",
+          "2018-10-01", "2018-10-01", "2011-04-01", "2011-04-01", "2011-04-01",
+          "2011-04-01", "2007-07-01", "2007-07-01", "2007-07-01", "2007-07-01",
+          "2011-04-01", null])";
   const char* round_15_years =
       R"(["1965-01-01", "1995-01-01", "1905-01-01", "2040-01-01", "2025-01-01",
           "2025-01-01", "2025-01-01", "2010-01-01", "2010-01-01", "2010-01-01",
@@ -1914,16 +1912,14 @@ TEST_F(ScalarTemporalTest, TestRoundTemporal) {
   std::vector<std::string> timezones = {"UTC"};
   for (auto timezone : timezones) {
     auto unit = timestamp(TimeUnit::NANO, timezone);
-
     CheckScalarUnary(op, unit, times, unit, round_1_weeks, &round_to_1_weeks);
-    //    CheckScalarUnary(op, unit, times, unit, round_1_months, &round_to_1_months);
-    //    CheckScalarUnary(op, unit, times, unit, round_1_quarters, &round_to_1_quarters);
+    CheckScalarUnary(op, unit, times, unit, round_1_months, &round_to_1_months);
+    CheckScalarUnary(op, unit, times, unit, round_1_quarters, &round_to_1_quarters);
     CheckScalarUnary(op, unit, times, unit, round_1_years, &round_to_1_years);
 
     CheckScalarUnary(op, unit, times, unit, round_15_weeks, &round_to_15_weeks);
-    //    CheckScalarUnary(op, unit, times, unit, round_15_months, &round_to_15_months);
-    //    CheckScalarUnary(op, unit, times, unit, round_15_quarters,
-    //    &round_to_15_quarters);
+    CheckScalarUnary(op, unit, times, unit, round_15_months, &round_to_15_months);
+    CheckScalarUnary(op, unit, times, unit, round_15_quarters, &round_to_15_quarters);
     CheckScalarUnary(op, unit, times, unit, round_15_years, &round_to_15_years);
   }
 }

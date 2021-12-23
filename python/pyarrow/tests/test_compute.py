@@ -1920,7 +1920,10 @@ unit_shorthand = {
 }
 
 
+# TODO: We should test on windows once ARROW-13168 is resolved.
 @pytest.mark.pandas
+@pytest.mark.skipif(sys.platform == 'win32',
+                    reason="Timezone database is not available on Windows yet")
 @pytest.mark.parametrize('unit', units)
 def test_round_temporal(unit):
     # timezones = ["UTC", "US/Central", "Asia/Kolkata",
