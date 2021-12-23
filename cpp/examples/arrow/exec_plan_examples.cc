@@ -121,167 +121,136 @@ std::shared_ptr<arrow::Table> GetTableFromJSON(
 }
 
 std::shared_ptr<arrow::Table> CreateTable() {
-  auto schema =
-      arrow::schema({arrow::field("a", arrow::int64()), arrow::field("b", arrow::int64()),
-                     arrow::field("c", arrow::int64())});
-  std::shared_ptr<arrow::Array> array_a;
-  std::shared_ptr<arrow::Array> array_b;
-  std::shared_ptr<arrow::Array> array_c;
-  arrow::NumericBuilder<arrow::Int64Type> builder;
-  ABORT_ON_FAILURE(builder.AppendValues({0, 1, 2, 3, 4, 5, 6, 7, 8, 9}));
-  ABORT_ON_FAILURE(builder.Finish(&array_a));
-  builder.Reset();
-  ABORT_ON_FAILURE(builder.AppendValues({9, 8, 7, 6, 5, 4, 3, 2, 1, 0}));
-  ABORT_ON_FAILURE(builder.Finish(&array_b));
-  builder.Reset();
-  ABORT_ON_FAILURE(builder.AppendValues({1, 2, 1, 2, 1, 2, 1, 2, 1, 2}));
-  ABORT_ON_FAILURE(builder.Finish(&array_c));
-  return arrow::Table::Make(schema, {array_a, array_b, array_c});
+    auto schema =
+        arrow::schema({arrow::field("a", arrow::int64()),
+        arrow::field("b", arrow::int64()),
+        arrow::field("c", arrow::int64())});
+    std::shared_ptr<arrow::Array> array_a;
+    std::shared_ptr<arrow::Array> array_b;
+    std::shared_ptr<arrow::Array> array_c;
+    arrow::NumericBuilder<arrow::Int64Type> builder;
+    ABORT_ON_FAILURE(builder.AppendValues({0, 1, 2, 3, 4, 5, 6, 7, 8, 9}));
+    ABORT_ON_FAILURE(builder.Finish(&array_a));
+    builder.Reset();
+    ABORT_ON_FAILURE(builder.AppendValues({9, 8, 7, 6, 5, 4, 3, 2, 1, 0}));
+    ABORT_ON_FAILURE(builder.Finish(&array_b));
+    builder.Reset();
+    ABORT_ON_FAILURE(builder.AppendValues({1, 2, 1, 2, 1, 2, 1, 2, 1, 2}));
+    ABORT_ON_FAILURE(builder.Finish(&array_c));
+    return arrow::Table::Make(schema, {array_a, array_b, array_c});
 }
 
 std::shared_ptr<arrow::dataset::Dataset> CreateDataset() {
-  return std::make_shared<arrow::dataset::InMemoryDataset>(
-      GetTableFromJSON(arrow::schema({arrow::field("a", arrow::int32()),
-                                      arrow::field("b", arrow::boolean())}),
-                       {
-                           R"([{"a": 1,    "b": null},
-                            {"a": 2,    "b": true}])",
-                           R"([{"a": null, "b": true},
-                            {"a": 3,    "b": false}])",
-                           R"([{"a": null, "b": true},
-                            {"a": 4,    "b": false}])",
-                           R"([{"a": 5,    "b": null},
-                            {"a": 6,    "b": false},
-                            {"a": 7,    "b": false},
-                            {"a": 8,    "b": true}])",
-                       }));
+    return std::make_shared<arrow::dataset::InMemoryDataset>(
+        GetTableFromJSON(arrow::schema({arrow::field("a", arrow::int32()),
+                                        arrow::field("b", arrow::boolean())}),
+                        {
+                            R"([{"a": 1,    "b": null},
+                                {"a": 2,    "b": true}])",
+                            R"([{"a": null, "b": true},
+                                {"a": 3,    "b": false}])",
+                            R"([{"a": null, "b": true},
+                                {"a": 4,    "b": false}])",
+                            R"([{"a": 5,    "b": null},
+                                {"a": 6,    "b": false},
+                                {"a": 7,    "b": false},
+                                {"a": 8,    "b": true}])",
+                        }));
 }
 
 std::shared_ptr<arrow::Table> CreateSimpleTable() {
-  auto schema = arrow::schema(
-      {arrow::field("a", arrow::int32()), arrow::field("b", arrow::boolean())});
-  std::shared_ptr<arrow::Array> array_a;
-  std::shared_ptr<arrow::Array> array_b;
-  arrow::NumericBuilder<arrow::Int32Type> builder;
-  arrow::BooleanBuilder b_builder;
-  ABORT_ON_FAILURE(builder.AppendValues({1, 2, 3, 4, 5, 6, 7}));
-  ABORT_ON_FAILURE(builder.Finish(&array_a));
-  builder.Reset();
+    auto schema = arrow::schema(
+        {arrow::field("a", arrow::int32()), arrow::field("b", arrow::boolean())});
+    std::shared_ptr<arrow::Array> array_a;
+    std::shared_ptr<arrow::Array> array_b;
+    arrow::NumericBuilder<arrow::Int32Type> builder;
+    arrow::BooleanBuilder b_builder;
+    ABORT_ON_FAILURE(builder.AppendValues({1, 2, 3, 4, 5, 6, 7}));
+    ABORT_ON_FAILURE(builder.Finish(&array_a));
+    builder.Reset();
 
-  std::vector<bool> bool_vec{false, true, false, true, false, true, false};
-  ABORT_ON_FAILURE(b_builder.AppendValues(bool_vec));
-  ABORT_ON_FAILURE(builder.Finish(&array_b));
-  builder.Reset();
-  return arrow::Table::Make(schema, {array_a, array_b});
+    std::vector<bool> bool_vec{false, true, false, true, false, true, false};
+    ABORT_ON_FAILURE(b_builder.AppendValues(bool_vec));
+    ABORT_ON_FAILURE(builder.Finish(&array_b));
+    builder.Reset();
+    return arrow::Table::Make(schema, {array_a, array_b});
 }
 
 arrow::Status exec_plan_end_to_end_sample() {
-  std::cout << "Initializing" << std::endl;
-  cp::ExecContext exec_context(arrow::default_memory_pool(),
-                               ::arrow::internal::GetCpuThreadPool());
+    cp::ExecContext exec_context(arrow::default_memory_pool(),
+                                ::arrow::internal::GetCpuThreadPool());
 
-  std::cout << "Registry creating" << std::endl;
+    // ensure arrow::dataset node factories are in the registry
+    arrow::dataset::internal::Initialize();
 
-  // ensure arrow::dataset node factories are in the registry
-  arrow::dataset::internal::Initialize();
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
+                            cp::ExecPlan::Make(&exec_context));
 
-  std::cout << "Intialized Scanner" << std::endl;
+    std::shared_ptr<arrow::dataset::Dataset> dataset = CreateDataset();
 
-  // A ScanNode is constructed from an ExecPlan (into which it is inserted),
-  // a Dataset (whose batches will be scanned), and ScanOptions (to specify a filter for
-  // predicate pushdown, a projection to skip materialization of unnecessary columns, ...)
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
-                        cp::ExecPlan::Make(&exec_context));
-  std::cout << "Exec Plan created: " << plan->ToString() << std::endl;
+    auto options = std::make_shared<arrow::dataset::ScanOptions>();
+    // sync scanning is not supported by ScanNode
+    options->use_async = true;
+    // specify the filter
+    cp::Expression b_is_true = cp::field_ref("b");
+    options->filter = b_is_true;
+    // for now, specify the projection as the full project expression (eventually this can
+    // just be a list of materialized field names)
 
-  auto table = CreateSimpleTable();
+    cp::Expression a_times_2 = cp::call("multiply", {cp::field_ref("a"), cp::literal(2)});
+    options->projection =
+        cp::call("make_struct", {a_times_2}, cp::MakeStructOptions{{"a * 2"}});
 
-  std::cout << "Table created" << std::endl;
+    // // construct the scan node
+    cp::ExecNode* scan;
 
-  std::shared_ptr<arrow::dataset::Dataset>
-      dataset;  // = std::make_shared<arrow::dataset::InMemoryDataset>(table);
+    auto scan_node_options = arrow::dataset::ScanNodeOptions{dataset, options};
 
-  dataset = std::make_shared<arrow::dataset::InMemoryDataset>(
-      GetTableFromJSON(arrow::schema({arrow::field("a", arrow::int32()),
-                                      arrow::field("b", arrow::boolean())}),
-                       {
-                           R"([{"a": 1,    "b": null},
-                            {"a": 2,    "b": true}])",
-                           R"([{"a": null, "b": true},
-                            {"a": 3,    "b": false}])",
-                           R"([{"a": null, "b": true},
-                            {"a": 4,    "b": false}])",
-                           R"([{"a": 5,    "b": null},
-                            {"a": 6,    "b": false},
-                            {"a": 7,    "b": false},
-                            {"a": 8,    "b": true}])",
-                       }));
+    ARROW_ASSIGN_OR_RAISE(scan,
+                            cp::MakeExecNode("scan", plan.get(), {}, scan_node_options));
 
-  std::cout << "Dataset created :: " << dataset->schema()->field_names().at(0)
-            << std::endl;
+    // pipe the scan node into a filter node
+    cp::ExecNode* filter;
+    ARROW_ASSIGN_OR_RAISE(filter, cp::MakeExecNode("filter", plan.get(), {scan},
+                                                    cp::FilterNodeOptions{b_is_true}));
 
-  auto options = std::make_shared<arrow::dataset::ScanOptions>();
-  // sync scanning is not supported by ScanNode
-  options->use_async = true;
-  // specify the filter
-  cp::Expression b_is_true = cp::field_ref("b");
-  options->filter = b_is_true;
-  // for now, specify the projection as the full project expression (eventually this can
-  // just be a list of materialized field names)
+    cp::ExecNode* project;
 
-  cp::Expression a_times_2 = cp::call("multiply", {cp::field_ref("a"), cp::literal(2)});
-  options->projection =
-      cp::call("make_struct", {a_times_2}, cp::MakeStructOptions{{"a * 2"}});
+    ARROW_ASSIGN_OR_RAISE(project,
+                            cp::MakeExecNode("augmented_project", plan.get(), {filter},
+                                            cp::ProjectNodeOptions{{a_times_2}}));
 
-  // construct the scan node
+    // // finally, pipe the project node into a sink node
+    arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
+    ARROW_ASSIGN_OR_RAISE(cp::ExecNode * sink,
+                            cp::MakeExecNode("sink",
+                            plan.get(), {project},
+                            cp::SinkNodeOptions{&sink_gen}));
+    // // translate sink_gen (async) to sink_reader (sync)
+    std::shared_ptr<arrow::RecordBatchReader> sink_reader =
+        cp::MakeGeneratorReader(arrow::schema({arrow::field("a * 2", arrow::int32())}),
+                                std::move(sink_gen), exec_context.memory_pool());
 
-  std::cout << "Initialized Scanning Options" << std::endl;
+    // // validate the plan
+    ABORT_ON_FAILURE(plan->Validate());
+    PRINT_LINE("Exec Plan created: " << plan->ToString());
+    // // start the ExecPlan
+    ABORT_ON_FAILURE(plan->StartProducing());
 
-  cp::ExecNode* scan;
+    // // collect sink_reader into a Table
+    std::shared_ptr<arrow::Table> response_table;
+    ARROW_ASSIGN_OR_RAISE(response_table,
+                            arrow::Table::FromRecordBatchReader(sink_reader.get()));
 
-  auto scan_node_options = arrow::dataset::ScanNodeOptions{dataset, options};
-  std::cout << "Scan node options created" << std::endl;
+    std::cout << "Results : " << response_table->ToString() << std::endl;
 
-  ARROW_ASSIGN_OR_RAISE(scan,
-                        cp::MakeExecNode("scan", plan.get(), {}, scan_node_options));
+    // // stop producing
+    plan->StopProducing();
 
-  // pipe the scan node into a filter node
-  cp::ExecNode* filter;
-  ARROW_ASSIGN_OR_RAISE(filter, cp::MakeExecNode("filter", plan.get(), {scan},
-                                                 cp::FilterNodeOptions{b_is_true}));
+    // // plan mark finished
+    plan->finished().Wait();
 
-  // // pipe the filter node into a project node
-  // // NB: we're using the project node factory which preserves fragment/batch index
-  // // tagging, so we *can* reorder later if we choose. The tags will not appear in
-  // // our output.
-
-  cp::ExecNode* project;
-
-  ARROW_ASSIGN_OR_RAISE(project,
-                        cp::MakeExecNode("augmented_project", plan.get(), {filter},
-                                         cp::ProjectNodeOptions{{a_times_2}}));
-
-  // // finally, pipe the project node into a sink node
-  arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
-  ARROW_ASSIGN_OR_RAISE(cp::ExecNode * sink,
-                        cp::MakeExecNode("ordered_sink", plan.get(), {project},
-                                         cp::SinkNodeOptions{&sink_gen}));
-
-  // // translate sink_gen (async) to sink_reader (sync)
-  std::shared_ptr<arrow::RecordBatchReader> sink_reader =
-      cp::MakeGeneratorReader(arrow::schema({arrow::field("a * 2", arrow::int32())}),
-                              std::move(sink_gen), exec_context.memory_pool());
-
-  // // start the ExecPlan
-  ABORT_ON_FAILURE(plan->StartProducing());
-
-  // // collect sink_reader into a Table
-  std::shared_ptr<arrow::Table> response_table;
-  ARROW_ASSIGN_OR_RAISE(response_table,
-                        arrow::Table::FromRecordBatchReader(sink_reader.get()));
-
-  std::cout << "Results : " << response_table->ToString() << std::endl;
-  return arrow::Status::OK();
+    return arrow::Status::OK();
 }
 
 cp::Expression Materialize(std::vector<std::string> names,
@@ -301,59 +270,62 @@ cp::Expression Materialize(std::vector<std::string> names,
 }
 
 arrow::Status scan_sink_node_example() {
-  cp::ExecContext exec_context(arrow::default_memory_pool(),
-                               ::arrow::internal::GetCpuThreadPool());
+    cp::ExecContext exec_context(arrow::default_memory_pool(),
+                                ::arrow::internal::GetCpuThreadPool());
 
-  // ensure arrow::dataset node factories are in the registry
-  arrow::dataset::internal::Initialize();
+    // ensure arrow::dataset node factories are in the registry
+    arrow::dataset::internal::Initialize();
 
+    // Execution plan created
+    ARROW_ASSIGN_OR_RAISE(
+        std::shared_ptr<cp::ExecPlan> plan, cp::ExecPlan::Make(&exec_context));
 
-  // Execution plan created
-  ARROW_ASSIGN_OR_RAISE(
-      std::shared_ptr<cp::ExecPlan> plan, cp::ExecPlan::Make(&exec_context));
+    std::shared_ptr<arrow::dataset::Dataset> dataset = CreateDataset();
 
-  std::shared_ptr<arrow::dataset::Dataset> dataset = CreateDataset();
+    auto options = std::make_shared<arrow::dataset::ScanOptions>();
+    // sync scanning is not supported by ScanNode
+    options->use_async = true;
+    options->projection = Materialize({});  // create empty projection
 
-  auto options = std::make_shared<arrow::dataset::ScanOptions>();
-  // sync scanning is not supported by ScanNode
-  options->use_async = true;
-  options->projection = Materialize({});  // create empty projection
+    // construct the scan node
+    cp::ExecNode* scan;
+    auto scan_node_options = arrow::dataset::ScanNodeOptions{dataset, options};
 
-  // construct the scan node
-  cp::ExecNode* scan;
-  auto scan_node_options = arrow::dataset::ScanNodeOptions{dataset, options};
+    ARROW_ASSIGN_OR_RAISE(scan,
+                            cp::MakeExecNode("scan", plan.get(), {}, scan_node_options));
 
-  ARROW_ASSIGN_OR_RAISE(scan,
-                        cp::MakeExecNode("scan", plan.get(), {}, scan_node_options));
+    arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
 
-  arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
+    cp::ExecNode* sink;
 
-  cp::ExecNode* sink;
+    ARROW_ASSIGN_OR_RAISE(
+        sink, cp::MakeExecNode("sink", plan.get(), {scan},
+        cp::SinkNodeOptions{&sink_gen}));
 
-  ARROW_ASSIGN_OR_RAISE(
-      sink, cp::MakeExecNode("sink", plan.get(), {scan}, cp::SinkNodeOptions{&sink_gen}));
+    // // translate sink_gen (async) to sink_reader (sync)
+    std::shared_ptr<arrow::RecordBatchReader> sink_reader = cp::MakeGeneratorReader(
+        dataset->schema(), std::move(sink_gen), exec_context.memory_pool());
 
-  // // translate sink_gen (async) to sink_reader (sync)
-  std::shared_ptr<arrow::RecordBatchReader> sink_reader = cp::MakeGeneratorReader(
-      dataset->schema(), std::move(sink_gen), exec_context.memory_pool());
+    // validate the ExecPlan
+    ABORT_ON_FAILURE(plan->Validate());
+    PRINT_LINE("ExecPlan created : " << plan->ToString());
+    // // start the ExecPlan
+    ABORT_ON_FAILURE(plan->StartProducing());
 
-  // validate the ExecPlan
-ABORT_ON_FAILURE(plan->Validate());
+    // // collect sink_reader into a Table
+    std::shared_ptr<arrow::Table> response_table;
 
-  // // start the ExecPlan
-  ABORT_ON_FAILURE(plan->StartProducing());
+    ARROW_ASSIGN_OR_RAISE(response_table,
+                            arrow::Table::FromRecordBatchReader(sink_reader.get()));
 
-  // // collect sink_reader into a Table
-  std::shared_ptr<arrow::Table> response_table;
+    PRINT_LINE("Results : " << response_table->ToString());
 
-  ARROW_ASSIGN_OR_RAISE(response_table,
-                        arrow::Table::FromRecordBatchReader(sink_reader.get()));
+    // // stop producing
+    plan->StopProducing();
+    // // plan mark finished
+    plan->finished().Wait();
 
-  std::cout << "Results : " << response_table->ToString() << std::endl;
-
-  plan->StopProducing();
-
-  return arrow::Status::OK();
+    return arrow::Status::OK();
 }
 
 cp::ExecBatch GetExecBatchFromJSON(const std::vector<arrow::ValueDescr>& descrs,
@@ -481,28 +453,16 @@ arrow::internal::ThreadPool* GetIOThreadPool() {
 }
 
 arrow::Status source_sink_example() {
-  std::cout << "Initializing" << std::endl;
   cp::ExecContext exec_context(arrow::default_memory_pool(),
                                ::arrow::internal::GetCpuThreadPool());
-
-  std::cout << "Registry creating" << std::endl;
 
   // ensure arrow::dataset node factories are in the registry
   arrow::dataset::internal::Initialize();
 
-  std::cout << "Intialized Scanner" << std::endl;
-
-  // A ScanNode is constructed from an ExecPlan (into which it is inserted),
-  // a Dataset (whose batches will be scanned), and ScanOptions (to specify a filter for
-  // predicate pushdown, a projection to skip materialization of unnecessary columns, ...)
-  std::shared_ptr<cp::ExecPlan> plan = cp::ExecPlan::Make(&exec_context).ValueOrDie();
-  std::cout << "Exec Plan created: " << plan->ToString() << std::endl;
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
+  cp::ExecPlan::Make(&exec_context));
 
   auto basic_data = MakeBasicBatches();
-
-  PRINT_LINE("data created");
-
-  PRINT_LINE("source node options created");
 
   arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
 
@@ -512,20 +472,18 @@ arrow::Status source_sink_example() {
   ARROW_ASSIGN_OR_RAISE(cp::ExecNode * source,
                         cp::MakeExecNode("source", plan.get(), {}, source_node_options));
 
-  PRINT_LINE("source node created");
-
-  // arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
-
   cp::ExecNode* sink;
 
   ARROW_ASSIGN_OR_RAISE(sink, cp::MakeExecNode("sink", plan.get(), {source},
                                                cp::SinkNodeOptions{&sink_gen}));
 
-  PRINT_LINE("sink node created");
   // // // translate sink_gen (async) to sink_reader (sync)
   std::shared_ptr<arrow::RecordBatchReader> sink_reader = cp::MakeGeneratorReader(
       basic_data.schema, std::move(sink_gen), exec_context.memory_pool());
 
+  // // validate the ExecPlan
+  ABORT_ON_FAILURE(plan->Validate());
+  PRINT_LINE("Exec Plan Created: " << plan->ToString());
   // // // start the ExecPlan
   ABORT_ON_FAILURE(plan->StartProducing());
 
@@ -535,7 +493,12 @@ arrow::Status source_sink_example() {
   ARROW_ASSIGN_OR_RAISE(response_table,
                         arrow::Table::FromRecordBatchReader(sink_reader.get()));
 
-  std::cout << "Results : " << response_table->ToString() << std::endl;
+  PRINT_LINE("Results : " << response_table->ToString());
+
+  // // plan stop producing
+  plan->StopProducing();
+  // // plan mark finished
+  plan->finished().Wait();
 
   return arrow::Status::OK();
 }
@@ -544,27 +507,13 @@ arrow::Status scan_filter_sink_example() {
   cp::ExecContext exec_context(arrow::default_memory_pool(),
                                ::arrow::internal::GetCpuThreadPool());
 
-  PRINT_LINE("Execution context created.");
-
   // ensure arrow::dataset node factories are in the registry
   arrow::dataset::internal::Initialize();
 
-  PRINT_LINE("Intialized Scanner");
-
-  // A ScanNode is constructed from an ExecPlan (into which it is inserted),
-  // a Dataset (whose batches will be scanned), and ScanOptions (to specify a filter for
-  // predicate pushdown, a projection to skip materialization of unnecessary columns, ...)
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
                         cp::ExecPlan::Make(&exec_context));
-  std::string msg;
-  msg.append("Exec Plan Created : ");
-  msg.append(plan->ToString());
-  PRINT_LINE(msg);
 
   std::shared_ptr<arrow::dataset::Dataset> dataset = CreateDataset();
-
-  std::cout << "Dataset created :: " << dataset->schema()->field_names().at(0)
-            << std::endl;
 
   auto options = std::make_shared<arrow::dataset::ScanOptions>();
   // sync scanning is not supported by ScanNode
@@ -601,6 +550,9 @@ arrow::Status scan_filter_sink_example() {
   std::shared_ptr<arrow::RecordBatchReader> sink_reader = cp::MakeGeneratorReader(
       dataset->schema(), std::move(sink_gen), exec_context.memory_pool());
 
+  // // validate the ExecPlan
+  ABORT_ON_FAILURE(plan->Validate());
+  PRINT_LINE("Exec Plan created " << plan->ToString());
   // // start the ExecPlan
   ABORT_ON_FAILURE(plan->StartProducing());
 
@@ -609,102 +561,78 @@ arrow::Status scan_filter_sink_example() {
   ARROW_ASSIGN_OR_RAISE(response_table,
                         arrow::Table::FromRecordBatchReader(sink_reader.get()));
 
-  std::cout << "Results : " << response_table->ToString() << std::endl;
+  PRINT_LINE("Results : " << response_table->ToString());
+  // // plan stop producing
+  plan->StopProducing();
+  // /// plan marked finished
+  plan->finished().Wait();
+
   return arrow::Status::OK();
 }
 
-// arrow::Status scan_project_sink_example()
-// {
-//     cp::ExecContext exec_context(arrow::default_memory_pool(),
-//                                  ::arrow::internal::GetCpuThreadPool());
+arrow::Status scan_project_sink_example() {
+    cp::ExecContext exec_context(arrow::default_memory_pool(),
+                                 ::arrow::internal::GetCpuThreadPool());
 
-//     PRINT_LINE("Execution context created.");
+    // ensure arrow::dataset node factories are in the registry
+    arrow::dataset::internal::Initialize();
 
-//     // ensure arrow::dataset node factories are in the registry
-//     arrow::dataset::internal::Initialize();
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
+    cp::ExecPlan::Make(&exec_context));
 
-//     PRINT_LINE("Intialized Scanner");
+    std::shared_ptr<arrow::dataset::Dataset> dataset = CreateDataset();
 
-//     // A ScanNode is constructed from an ExecPlan (into which it is inserted),
-//     // a Dataset (whose batches will be scanned), and ScanOptions (to specify a filter
-//     for
-//     // predicate pushdown, a projection to skip materialization of unnecessary columns,
-//     ...) ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
-//     cp::ExecPlan::Make(&exec_context)); std::string msg; msg.append("Exec Plan Created
-//     : "); msg.append(plan->ToString()); PRINT_LINE(msg);
+    auto options = std::make_shared<arrow::dataset::ScanOptions>();
+    // sync scanning is not supported by ScanNode
+    options->use_async = true;
+    // projection
+    cp::Expression a_times_2 = cp::call("multiply", {cp::field_ref("a"),
+    cp::literal(2)}); options->projection =
+        cp::call("make_struct", {a_times_2}, cp::MakeStructOptions{{"a * 2"}});
 
-//     auto table = CreateSimpleTable();
+    cp::ExecNode *scan;
 
-//     PRINT_LINE("Table created")
+    auto scan_node_options = arrow::dataset::ScanNodeOptions{dataset, options};
 
-//     std::shared_ptr<arrow::dataset::Dataset> dataset; // =
-//     std::make_shared<arrow::dataset::InMemoryDataset>(table);
+    ARROW_ASSIGN_OR_RAISE(scan, cp::MakeExecNode("scan", plan.get(), {},
+    scan_node_options));
 
-//     dataset = std::make_shared<arrow::dataset::InMemoryDataset>(
-//         GetTableFromJSON(arrow::schema({arrow::field("a", arrow::int32()),
-//         arrow::field("b", arrow::boolean())}),
-//                              {
-//                                  R"([{"a": 1,    "b": null},
-//                             {"a": 2,    "b": true}])",
-//                                  R"([{"a": null, "b": true},
-//                             {"a": 3,    "b": false}])",
-//                                  R"([{"a": null, "b": true},
-//                             {"a": 4,    "b": false}])",
-//                                  R"([{"a": 5,    "b": null},
-//                             {"a": 6,    "b": false},
-//                             {"a": 7,    "b": false},
-//                             {"a": 8,    "b": true}])",
-//                              }));
+    cp::ExecNode *project;
+    ARROW_ASSIGN_OR_RAISE(project, cp::MakeExecNode("project", plan.get(), {scan},
+                                                    cp::ProjectNodeOptions{{a_times_2}}));
 
-//     std::cout << "Dataset created :: " << dataset->schema()->field_names().at(0) <<
-//     std::endl;
+    arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
+    ARROW_ASSIGN_OR_RAISE(cp::ExecNode * sink,
+                          cp::MakeExecNode("sink", plan.get(), {project},
+                                           cp::SinkNodeOptions{&sink_gen}));
 
-//     auto options = std::make_shared<arrow::dataset::ScanOptions>();
-//     // sync scanning is not supported by ScanNode
-//     options->use_async = true;
-//     // projection
-//     cp::Expression a_times_2 = cp::call("multiply", {cp::field_ref("a"),
-//     cp::literal(2)}); options->projection =
-//         cp::call("make_struct", {a_times_2}, cp::MakeStructOptions{{"a * 2"}});
+    // // translate sink_gen (async) to sink_reader (sync)
+    std::shared_ptr<arrow::RecordBatchReader> sink_reader = cp::MakeGeneratorReader(
+        arrow::schema({arrow::field("a * 2", arrow::int32())}),
+        std::move(sink_gen), exec_context.memory_pool());
 
-//     // construct the scan node
-//     PRINT_LINE("Initialized Scanning Options");
+    // // validate the ExecPlan
+    ABORT_ON_FAILURE(plan->Validate());
 
-//     cp::ExecNode *scan;
+    PRINT_LINE("Exec Plan Created : " << plan->ToString());
 
-//     auto scan_node_options = arrow::dataset::ScanNodeOptions{dataset, options};
-//     PRINT_LINE("Scan node options created");
+    // // start the ExecPlan
+    ABORT_ON_FAILURE(plan->StartProducing());
 
-//     ARROW_ASSIGN_OR_RAISE(scan, cp::MakeExecNode("scan", plan.get(), {},
-//     scan_node_options));
+    // // collect sink_reader into a Table
+    std::shared_ptr<arrow::Table> response_table;
+    ARROW_ASSIGN_OR_RAISE(response_table,
+    arrow::Table::FromRecordBatchReader(sink_reader.get()));
 
-//     //pipe the scan node into a filter node
-//     cp::ExecNode *project;
-//     ARROW_ASSIGN_OR_RAISE(project, cp::MakeExecNode("project", plan.get(), {scan},
-//                                                     cp::ProjectNodeOptions{{a_times_2}}));
+    PRINT_LINE("Results : " << response_table->ToString());
 
-//     // // finally, pipe the project node into a sink node
-//     arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
-//     ARROW_ASSIGN_OR_RAISE(cp::ExecNode * sink,
-//                           cp::MakeExecNode("sink", plan.get(), {project},
-//                                            cp::SinkNodeOptions{&sink_gen}));
+    // // plan stop producing
+    plan->StopProducing();
+    // // plan marked finished
+    plan->finished().Wait();
 
-//     // // translate sink_gen (async) to sink_reader (sync)
-//     std::shared_ptr<arrow::RecordBatchReader> sink_reader = cp::MakeGeneratorReader(
-//         arrow::schema({arrow::field("a * 2", arrow::int32())}),
-//         std::move(sink_gen), exec_context.memory_pool());
-
-//     // // start the ExecPlan
-//     ABORT_ON_FAILURE(plan->StartProducing());
-
-//     // // collect sink_reader into a Table
-//     std::shared_ptr<arrow::Table> response_table;
-//     ARROW_ASSIGN_OR_RAISE(response_table,
-//     arrow::Table::FromRecordBatchReader(sink_reader.get()));
-
-//     std::cout << "Results : " << response_table->ToString() << std::endl;
-//     return arrow::Status::OK();
-// }
+    return arrow::Status::OK();
+}
 
 // arrow::Status source_aggregate_sink_example()
 // {
@@ -1260,8 +1188,8 @@ int main(int argc, char** argv) {
   CHECK_AND_CONTINUE(source_sink_example());
   PRINT_BLOCK("Scan Filter Sink Example");
   CHECK_AND_CONTINUE(scan_filter_sink_example());
-  // PRINT_BLOCK("Scan Project Sink Example");
-  // CHECK_AND_CONTINUE(scan_project_sink_example());
+  PRINT_BLOCK("Scan Project Sink Example");
+  CHECK_AND_CONTINUE(scan_project_sink_example());
   // PRINT_BLOCK("Source Aggregate Sink Example");
   // CHECK_AND_CONTINUE(source_aggregate_sink_example());
   // PRINT_BLOCK("Source Consuming-Sink Example");
