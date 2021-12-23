@@ -49,11 +49,6 @@
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/vector.h"
 
-#include "gmock/gmock-matchers.h"
-
-//#include <arrow/testing/future_util.h>
-//#include <arrow/testing/gtest_util.h>
-
 // Demonstrate various operators in Arrow Streaming Execution Engine
 
 #define ABORT_ON_FAILURE(expr)                     \
