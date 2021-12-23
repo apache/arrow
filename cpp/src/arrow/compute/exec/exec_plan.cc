@@ -194,10 +194,9 @@ struct ExecPlanImpl : public ExecPlan {
     std::stringstream ss;
     ss << "ExecPlan with " << nodes_.size() << " nodes:" << std::endl;
     auto sorted = OrderedNodes();
-    int plan_size = sorted.first.size();
-    for (int i = 0; i < plan_size; ++i) {
-      for (int j = 0; j < sorted.second[plan_size - i]; ++j) ss << "  ";
-      ss << sorted.first[plan_size - i]->ToString() << std::endl;
+    for (size_t i = sorted.first.size(); i > 0; --i) {
+      for (int j = 0; j < sorted.second[i - 1]; ++j) ss << "  ";
+      ss << sorted.first[i - 1]->ToString() << std::endl;
     }
     return ss.str();
   }
