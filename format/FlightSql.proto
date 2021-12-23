@@ -875,25 +875,49 @@ enum SqlSupportsConvert {
  *
  * The returned schema will be:
  * <
- *   type_name: utf8 not null,
- *   data_type: int not null,
- *   column_size: int,
- *   literal_prefix: utf8,
- *   literal_suffix: utf8,
- *   create_params: utf8
- *   nullable: int not null,
- *   case_sensitive: bool null,
- *   searchable: int not null,
- *   unsigned_attribute: bool,
- *   fixed_prec_scale: bool null,
- *   auto_increment: bool,
- *   local_type_name: utf8,
- *   minimum_scale: int,
- *   maximum_scale: int,
- *   sql_data_type: int not null,
- *   sql_datetime_sub: int,
- *   num_prec_radix: int,
- *   interval_precision. int
+ *   type_name: utf8 not null (The name of the data type, for example: VARCHAR, INTEGER, etc),
+ *   data_type: int not null (The SQL data type),
+ *   column_size: int (The maximum column size that the server supports for this data type.
+ *                     For numeric data, this is the maximum precision.
+ *                     For string data, this is the length in characters.
+ *                     For datetime data types, this is the length in characters of the string representation.
+ *                     NULL is returned for data types where column size is not applicable.),
+ *   literal_prefix: utf8 (Character or characters used to prefix a literal, NULL is returned for
+ *                         data types where a literal prefix is not applicable.),
+ *   literal_suffix: utf8 (Character or characters used to terminate a literal,
+ *                         NULL is returned for data types where a literal suffix is not applicable.),
+ *   create_params: utf8 (A list of keywords, separated by commas, corresponding
+ *                        to each parameter that the application may specify in parentheses
+ *                        when using the name that is returned in the TYPE_NAME field.
+ *                        NULL is returned if there are no parameters for the data type definition.),
+ *   nullable: int not null (Shows if the data type accepts a NULL value),
+ *   case_sensitive: bool not null (Shows if a character data type is case-sensitive in collations and comparisons),
+ *   searchable: int not null (Shows how the data type is used in a WHERE clause),
+ *   unsigned_attribute: bool (Shows if the data type is unsigned. NULL is returned if the attribute is
+ *                             not applicable to the data type or the data type is not numeric.),
+ *   fixed_prec_scale: bool not null (Shows if the data type has predefined fixed precision and scale.),
+ *   auto_increment: bool (Shows if the data type is auto incremental. NULL is returned if the attribute
+ *                         is not applicable to the data type or the data type is not numeric.),
+ *   local_type_name: utf8 (Localized version of the data source-dependent name of the data type. NULL
+ *                          is returned if a localized name is not supported by the data source),
+ *   minimum_scale: int (The minimum scale of the data type on the data source.
+ *                       If a data type has a fixed scale, the MINIMUM_SCALE and MAXIMUM_SCALE
+ *                       columns both contain this value. NULL is returned if scale is not applicable.),
+ *   maximum_scale: int (The maximum scale of the data type on the data source.
+ *                       NULL is returned if scale is not applicable.),
+ *   sql_data_type: int not null (The value of the SQL data type as it appears in the
+ *                                SQL_DESC_TYPE field of the descriptor. This column is
+ *                                the same as the DATA_TYPE column, except for interval and
+ *                                datetime data types.),
+ *   sql_datetime_sub: int (When the value of SQL_DATA_TYPE is SQL_DATETIME or SQL_INTERVAL,
+ *                          this column contains the datetime/interval subcode. For data types
+ *                          other than datetime and interval, this field is NULL.),
+ *   num_prec_radix: int (If the data type is an approximate numeric type, this column contains
+ *                        the value 2 to indicate that COLUMN_SIZE specifies a number of bits. For
+ *                        exact numeric types, this column contains the value 10 to indicate that
+ *                        COLUMN_SIZE specifies a number of decimal digits. Otherwise, this column is NULL.),
+ *   interval_precision: int (If the data type is an interval data type, then this column contains the value
+ *                            of the interval leading precision. Otherwise, this column is NULL)
  * >
  * The returned data should be ordered by data_type and then by type_name.
  */
