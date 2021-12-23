@@ -153,9 +153,4 @@ C++ we must create the binding manually to use it in that implementation.
       existing R functions.
 
       To read the full content on the topic of R bindings read through the
-      `Writing Bindings article <https://arrow.apache.org/docs/r/articles/developers/bindings.html>`_
-      or run the following command in the R console to view the vignette:
-
-      .. code-block:: R
-
-         vignette("bindings", package = "arrow")
+      `Writing Bindings article <https://arrow.apache.org/docs/r/articles/developers/bindings.html>`_.
