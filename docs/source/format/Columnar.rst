@@ -309,7 +309,7 @@ That is, a null value may occupy a **non-empty** memory space in the data
 buffer. When this is true, the content of the corresponding memory space
 is undefined.
 
-Offsets must be monotonic, that is `offsets[j+1] >= offsets[j]` for
+Offsets must be monotonically increasing, that is `offsets[j+1] >= offsets[j]` for
 `0 <= j < length`, even for null slots. This property ensures the
 **location** for all values is valid and well defined.
 
