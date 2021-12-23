@@ -93,8 +93,8 @@ SqliteStatementBatchReader::SqliteStatementBatchReader(
       rc_(SQLITE_OK),
       already_executed_(false) {}
 
-Result<std::shared_ptr<SqliteStatementBatchReader>> SqliteStatementBatchReader::Create(
-    const std::shared_ptr<SqliteStatement>& statement_) {
+arrow::Result<std::shared_ptr<SqliteStatementBatchReader>>
+SqliteStatementBatchReader::Create(const std::shared_ptr<SqliteStatement>& statement_) {
   ARROW_RETURN_NOT_OK(statement_->Step());
 
   ARROW_ASSIGN_OR_RAISE(auto schema, statement_->GetSchema());
