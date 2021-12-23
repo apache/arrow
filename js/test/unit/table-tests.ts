@@ -329,12 +329,6 @@ describe(`Table`, () => {
                 const values = datum.values();
                 expect(table.numRows).toEqual(values.length);
             });
-            // test(`getColumnIndex`, () => {
-            //     const table = datum.table();
-            //     expect(table.getChildIndex('i32')).toEqual(I32);
-            //     expect(table.getChildIndex('f32')).toEqual(F32);
-            //     expect(table.getChildIndex('dictionary')).toEqual(DICT);
-            // });
 
             const table = datum.table();
             const values = datum.values();
