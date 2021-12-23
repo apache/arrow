@@ -1103,8 +1103,6 @@ Containment tests
 +-----------------------+-------+-----------------------------------+----------------+---------------------------------+-------+
 | starts_with           | Unary | Binary- or String-like            | Boolean        | :struct:`MatchSubstringOptions` | \(2)  |
 +-----------------------+-------+-----------------------------------+----------------+---------------------------------+-------+
-| indices_nonzero       | Unary | Boolean, Null, Numeric            | UInt64         |                                 |       |
-+-----------------------+-------+-----------------------------------+----------------+---------------------------------+-------+
 
 * \(1) Output is the number of occurrences of
   :member:`MatchSubstringOptions::pattern` in the corresponding input
@@ -1565,6 +1563,17 @@ These functions select and return a subset of their input.
 
 * \(4) For each element *i* in input 2 (the indices), the *i*'th element
   in input 1 (the values) is appended to the output.
+
+Containment tests
+~~~~~~~~~~~~~~~~~
+
+This functions return the indices at which elements match a predicate
+
++-----------------------+-------+-----------------------------------+----------------+---------------------------------+-------+
+| Function name         | Arity | Input types                       | Output type    | Options class                   | Notes |
++=======================+=======+===================================+================+=================================+=======+
+| indices_nonzero       | Unary | Boolean, Null, Numeric            | UInt64         |                                 |       |
++-----------------------+-------+-----------------------------------+----------------+---------------------------------+-------+
 
 Sorts and partitions
 ~~~~~~~~~~~~~~~~~~~~
