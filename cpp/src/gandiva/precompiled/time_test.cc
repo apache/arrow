@@ -149,6 +149,10 @@ TEST(TestTime, TestCastTimeUtf8) {
             castTIME_utf8(context_ptr, "9:45:30", 7) + 100);
 
   // error cases
+  EXPECT_EQ(castTIME_utf8(context_ptr, "24H00H00", 8), 0);
+  EXPECT_EQ(context.get_error(), "Invalid character in time 24H00H00");
+  context.Reset();
+
   EXPECT_EQ(castTIME_utf8(context_ptr, "24:00:00", 8), 0);
   EXPECT_EQ(context.get_error(), "Not a valid time value 24:00:00");
   context.Reset();

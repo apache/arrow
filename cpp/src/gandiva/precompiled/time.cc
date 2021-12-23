@@ -781,6 +781,8 @@ gdv_time32 castTIME_utf8(int64_t context, const char* input, int32_t length) {
   int32_t time_fields[kDisplacementHours] = {0, 0, 0, 0};
   int32_t sub_seconds_len = 0;
   int32_t time_field_idx = TimeFields::kHours, index = 0, value = 0;
+
+  bool has_invalid_digit = false;
   while (time_field_idx < TimeFields::kDisplacementHours && index < length) {
     if (isdigit(input[index])) {
       value = (value * 10) + (input[index] - '0');
@@ -798,11 +800,18 @@ gdv_time32 castTIME_utf8(int64_t context, const char* input, int32_t length) {
           time_field_idx++;
           break;
         default:
+          has_invalid_digit = true;
           break;
       }
     }
 
     index++;
+  }
+
+  if (has_invalid_digit) {
+    const char* msg = "Invalid character in time ";
+    set_error_for_date(length, input, msg, context);
+    return 0;
   }
 
   // Check if the hours and minutes were defined and store the last value
@@ -824,7 +833,7 @@ gdv_time32 castTIME_utf8(int64_t context, const char* input, int32_t length) {
     }
   }
 
-  int32_t input_hours = time_fields[0];
+  int32_t input_hours = time_fields[TimeFields::kHours - TimeFields::kHours];
   int32_t input_minutes = time_fields[TimeFields::kMinutes - TimeFields::kHours];
   int32_t input_seconds = time_fields[TimeFields::kSeconds - TimeFields::kHours];
   int32_t input_subseconds = time_fields[TimeFields::kSubSeconds - TimeFields::kHours];
