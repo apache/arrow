@@ -221,4 +221,40 @@ const char* ExtractHolder::operator()(ExecutionContext* ctx, const char* user_in
   memcpy(result_buffer, out_str.data(), *out_length);
   return result_buffer;
 }
+
+Status ReplaceHolder::Make(const FunctionNode& node,
+                           std::shared_ptr<ReplaceHolder>* holder) {
+  ARROW_RETURN_IF(node.children().size() != 3,
+                  Status::Invalid("'replace' function requires three parameters"));
+
+  auto literal = dynamic_cast<LiteralNode*>(node.children().at(1).get());
+  ARROW_RETURN_IF(
+      literal == nullptr,
+      Status::Invalid("'replace' function requires a literal as the second parameter"));
+
+  auto literal_type = literal->return_type()->id();
+  ARROW_RETURN_IF(
+      !IsArrowStringLiteral(literal_type),
+      Status::Invalid(
+          "'replace' function requires a string literal as the second parameter"));
+
+  return Make(arrow::util::get<std::string>(literal->holder()), holder);
+}
+
+Status ReplaceHolder::Make(const std::string& sql_pattern,
+                           std::shared_ptr<ReplaceHolder>* holder) {
+  auto lholder = std::shared_ptr<ReplaceHolder>(new ReplaceHolder(sql_pattern));
+  ARROW_RETURN_IF(!lholder->regex_.ok(),
+                  Status::Invalid("Building RE2 pattern '", sql_pattern, "' failed"));
+
+  *holder = lholder;
+  return Status::OK();
+}
+
+void ReplaceHolder::return_error(ExecutionContext* context, std::string& data,
+                                 std::string& replace_string) {
+  std::string err_msg = "Error replacing '" + replace_string + "' on the given string '" +
+                        data + "' for the given pattern: " + pattern_;
+  context->set_error_msg(err_msg.c_str());
+}
 }  // namespace gandiva

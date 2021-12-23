@@ -92,4 +92,67 @@ class GANDIVA_EXPORT ExtractHolder : public FunctionHolder {
   int32_t num_groups_pattern_;  // number of groups that user defined inside the regex
 };
 
+/// Function Holder for 'replace'
+class GANDIVA_EXPORT ReplaceHolder : public FunctionHolder {
+ public:
+  ~ReplaceHolder() override = default;
+
+  static Status Make(const FunctionNode& node, std::shared_ptr<ReplaceHolder>* holder);
+
+  static Status Make(const std::string& sql_pattern,
+                     std::shared_ptr<ReplaceHolder>* holder);
+
+  /// Return a new string with the pattern that matched the regex replaced for
+  /// the replace_input parameter.
+  const char* operator()(ExecutionContext* ctx, const char* user_input,
+                         int32_t user_input_len, const char* replace_input,
+                         int32_t replace_input_len, int32_t* out_length) {
+    std::string user_input_as_str(user_input, user_input_len);
+    std::string replace_input_as_str(replace_input, replace_input_len);
+
+    int32_t total_replaces =
+        RE2::GlobalReplace(&user_input_as_str, regex_, replace_input_as_str);
+
+    if (total_replaces < 0) {
+      return_error(ctx, user_input_as_str, replace_input_as_str);
+      *out_length = 0;
+      return "";
+    }
+
+    if (total_replaces == 0) {
+      *out_length = user_input_len;
+      return user_input;
+    }
+
+    *out_length = static_cast<int32_t>(user_input_as_str.size());
+
+    // This condition treats the case where the whole string is replaced by an empty
+    // string
+    if (*out_length == 0) {
+      return "";
+    }
+
+    char* result_buffer = reinterpret_cast<char*>(ctx->arena()->Allocate(*out_length));
+
+    if (result_buffer == NULLPTR) {
+      ctx->set_error_msg("Could not allocate memory for result");
+      *out_length = 0;
+      return "";
+    }
+
+    memcpy(result_buffer, user_input_as_str.data(), *out_length);
+
+    return result_buffer;
+  }
+
+ private:
+  explicit ReplaceHolder(const std::string& pattern)
+      : pattern_(pattern), regex_(pattern) {}
+
+  void return_error(ExecutionContext* context, std::string& data,
+                    std::string& replace_string);
+
+  std::string pattern_;  // posix pattern string, to help debugging
+  RE2 regex_;            // compiled regex for the pattern
+};
 }  // namespace gandiva
