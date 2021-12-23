@@ -934,7 +934,7 @@ def _reconstruct_index(table, index_descriptors, all_columns):
                                                     descr['stop'],
                                                     step=descr['step'],
                                                     name=index_name)
-            if len(index_level) != len(table):
+            if len(index_level) != len(table) and len(table)!=0:
                 # Possibly the result of munged metadata
                 continue
         else:
