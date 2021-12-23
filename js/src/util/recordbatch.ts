@@ -17,17 +17,17 @@
 
 import { Vector } from '../vector';
 import { Data, makeData } from '../data';
-import { DataType, Struct } from '../type';
+import { Struct, TypeMap } from '../type';
 import { Schema, Field } from '../schema';
 import { RecordBatch } from '../recordbatch';
 
 /** @ignore */
-export function distributeVectorsIntoRecordBatches<T extends { [key: string]: DataType } = any>(schema: Schema<T>, vecs: Vector<T[keyof T]>[]): [Schema<T>, RecordBatch<T>[]] {
+export function distributeVectorsIntoRecordBatches<T extends TypeMap = any>(schema: Schema<T>, vecs: Vector<T[keyof T]>[]): [Schema<T>, RecordBatch<T>[]] {
     return uniformlyDistributeChunksAcrossRecordBatches<T>(schema, vecs.map((v) => v.data.concat()));
 }
 
 /** @ignore */
-function uniformlyDistributeChunksAcrossRecordBatches<T extends { [key: string]: DataType } = any>(schema: Schema<T>, cols: Data<T[keyof T]>[][]): [Schema<T>, RecordBatch<T>[]] {
+function uniformlyDistributeChunksAcrossRecordBatches<T extends TypeMap = any>(schema: Schema<T>, cols: Data<T[keyof T]>[][]): [Schema<T>, RecordBatch<T>[]] {
 
     const fields = [...schema.fields];
     const batches = [] as Data<Struct<T>>[];
@@ -65,7 +65,7 @@ function uniformlyDistributeChunksAcrossRecordBatches<T extends { [key: string]:
 }
 
 /** @ignore */
-function distributeChildren<T extends { [key: string]: DataType } = any>(
+function distributeChildren<T extends TypeMap = any>(
     fields: Field<T[keyof T]>[],
     batchLength: number,
     children: Data<T[keyof T]>[],

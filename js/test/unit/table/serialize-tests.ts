@@ -18,7 +18,7 @@
 import '../../jest-extensions';
 import * as generate from '../../generate-test-data';
 import {
-    Table, Schema, Field, DataType, Dictionary, Int32, Float32, Utf8, Null,
+    Table, Schema, Field, DataType, TypeMap, Dictionary, Int32, Float32, Utf8, Null,
     makeVector,
     RecordBatchStreamReader, RecordBatchStreamWriter
 } from 'apache-arrow';
@@ -34,7 +34,7 @@ const nullSchema = new Schema([new Field('null', new Null())]);
 
 schema1.metadata.set('foo', 'bar');
 
-function createTable<T extends { [key: string]: DataType } = any>(schema: Schema<T>, chunkLengths: number[]) {
+function createTable<T extends TypeMap = any>(schema: Schema<T>, chunkLengths: number[]) {
     return generate.table(chunkLengths, schema).table;
 }
 
@@ -84,7 +84,7 @@ describe('Table#serialize()', () => {
     for (let i = -1; ++i < 3;) {
         chunkLengths[i * 2] = (Math.random() * 100) | 0;
         chunkLengths[i * 2 + 1] = 0;
-        const table = <T extends { [key: string]: DataType } = any>(schema: Schema<T>) => createTable(schema, chunkLengths);
+        const table = <T extends TypeMap = any>(schema: Schema<T>) => createTable(schema, chunkLengths);
         test(`Table#select round-trips through serialization`, () => {
             const source = table(schema1).select(['a', 'c']);
             expect(source.numCols).toBe(2);

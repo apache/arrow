@@ -15,13 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { DataType } from '../../type';
+import { TypeMap } from '../../type';
 import { RecordBatch } from '../../recordbatch';
 import { AsyncByteStream } from '../../io/stream';
 import { RecordBatchWriter } from '../../ipc/writer';
 
 /** @ignore */
-export function recordBatchWriterThroughDOMStream<T extends { [key: string]: DataType } = any>(
+export function recordBatchWriterThroughDOMStream<T extends TypeMap = any>(
     this: typeof RecordBatchWriter,
     writableStrategy?: QueuingStrategy<RecordBatch<T>> & { autoDestroy: boolean },
     readableStrategy?: { highWaterMark?: number; size?: any }

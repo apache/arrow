@@ -36,7 +36,7 @@ RecordBatchStreamWriter['throughDOM'] = recordBatchWriterThroughDOMStream;
 export {
     DateUnit, IntervalUnit, MessageHeader, MetadataVersion, Precision, TimeUnit, Type, UnionMode, BufferType,
     Data, makeData,
-    DataType,
+    DataType, TypeMap,
     Null,
     Bool,
     Int, Int8, Int16, Int32, Int64, Uint8, Uint16, Uint32, Uint64,

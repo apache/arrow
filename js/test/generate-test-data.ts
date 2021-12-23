@@ -18,7 +18,7 @@
 import randomatic from 'randomatic';
 
 import {
-    makeData, Vector, Visitor, DataType,
+    makeData, Vector, Visitor, DataType, TypeMap,
     Table, Schema, Field, RecordBatch,
     Null,
     Bool,
@@ -224,7 +224,7 @@ export const timeMicrosecond = (length = 100, nullCount = length * 0.2 | 0) => v
 export const timeNanosecond = (length = 100, nullCount = length * 0.2 | 0) => vectorGenerator.visit(new TimeNanosecond(), length, nullCount);
 export const decimal = (length = 100, nullCount = length * 0.2 | 0, scale = 2, precision = 9, bitWidth = 128) => vectorGenerator.visit(new Decimal(scale, precision, bitWidth), length, nullCount);
 export const list = (length = 100, nullCount = length * 0.2 | 0, child = defaultListChild) => vectorGenerator.visit(new List(child), length, nullCount);
-export const struct = <T extends { [key: string]: DataType } = any>(length = 100, nullCount = length * 0.2 | 0, children: Field<T[keyof T]>[] = <any>defaultStructChildren()) => vectorGenerator.visit(new Struct<T>(children), length, nullCount);
+export const struct = <T extends TypeMap = any>(length = 100, nullCount = length * 0.2 | 0, children: Field<T[keyof T]>[] = <any>defaultStructChildren()) => vectorGenerator.visit(new Struct<T>(children), length, nullCount);
 export const denseUnion = (length = 100, nullCount = length * 0.2 | 0, children: Field[] = defaultUnionChildren()) => vectorGenerator.visit(new DenseUnion(children.map((f) => f.typeId), children), length, nullCount);
 export const sparseUnion = (length = 100, nullCount = length * 0.2 | 0, children: Field[] = defaultUnionChildren()) => vectorGenerator.visit(new SparseUnion(children.map((f) => f.typeId), children), length, nullCount);
 export const dictionary = <T extends DataType = Utf8, TKey extends TKeys = Int32>(length = 100, nullCount = length * 0.2 | 0, dict: T = <any>new Utf8(), keys: TKey = <any>new Int32()) => vectorGenerator.visit(new Dictionary(dict, keys), length, nullCount);

@@ -39,7 +39,7 @@ export type IntBitWidth = 8 | 16 | 32 | 64;
 /** @ignore */
 export type IsSigned = { 'true': true; 'false': false };
 
-export interface DataType<TType extends Type = Type, TChildren extends { [key: string]: DataType } = any> {
+export interface DataType<TType extends Type = Type, TChildren extends TypeMap = any> {
     readonly TType: TType;
     readonly TArray: any;
     readonly TValue: any;
@@ -52,7 +52,7 @@ export interface DataType<TType extends Type = Type, TChildren extends { [key: s
  * An abstract base class for classes that encapsulate metadata about each of
  * the logical types that Arrow can represent.
  */
-export abstract class DataType<TType extends Type = Type, TChildren extends { [key: string]: DataType } = any> {
+export abstract class DataType<TType extends Type = Type, TChildren extends TypeMap = any> {
 
     declare public [Symbol.toStringTag]: string;
 
@@ -93,9 +93,7 @@ export interface Null extends DataType<Type.Null> { TArray: void; TValue: null }
 export class Null extends DataType<Type.Null> {
     public toString() { return `Null`; }
     public get typeId() { return Type.Null as Type.Null; }
-    protected static [Symbol.toStringTag] = ((proto: Null) => {
-        return proto[Symbol.toStringTag] = 'Null';
-    })(Null.prototype);
+    protected static [Symbol.toStringTag] = ((proto: Null) => proto[Symbol.toStringTag] = 'Null')(Null.prototype);
 }
 
 /** @ignore */
@@ -464,14 +462,14 @@ export class List<T extends DataType = any> extends DataType<Type.List, { [0]: T
 }
 
 /** @ignore */
-export interface Struct<T extends { [key: string]: DataType } = any> extends DataType<Type.Struct, T> {
+export interface Struct<T extends TypeMap = any> extends DataType<Type.Struct, T> {
     TArray: Array<StructRowProxy<T>>;
     TValue: StructRowProxy<T>;
     dataTypes: T;
 }
 
 /** @ignore */
-export class Struct<T extends { [key: string]: DataType } = any> extends DataType<Type.Struct, T> {
+export class Struct<T extends TypeMap = any> extends DataType<Type.Struct, T> {
     public declare _row: StructRow<T>;
     public declare readonly children: Field<T[keyof T]>[];
     constructor(children: Field<T[keyof T]>[]) {
@@ -503,9 +501,7 @@ class Union_<T extends Unions = Unions> extends DataType<T> {
         this.mode = mode;
         this.children = children;
         this.typeIds = typeIds = Int32Array.from(typeIds);
-        this.typeIdToChildIndex = typeIds.reduce((typeIdToChildIndex, typeId, idx) => {
-            return (typeIdToChildIndex[typeId] = idx) && typeIdToChildIndex || typeIdToChildIndex;
-        }, Object.create(null) as { [key: number]: number });
+        this.typeIdToChildIndex = typeIds.reduce((typeIdToChildIndex, typeId, idx) => (typeIdToChildIndex[typeId] = idx) && typeIdToChildIndex || typeIdToChildIndex, Object.create(null) as { [key: number]: number });
     }
     public get typeId() { return Type.Union as T; }
     public toString() {
@@ -671,3 +667,5 @@ export function strideForType(type: DataType) {
         default: return 1;
     }
 }
+
+export type TypeMap = Record<string | number | symbol, DataType>;

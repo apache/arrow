@@ -30,7 +30,7 @@ export {
 
 export { Data, makeData } from './data';
 export {
-    DataType,
+    DataType, TypeMap,
     Null,
     Bool,
     Int, Int8, Int16, Int32, Int64, Uint8, Uint16, Uint32, Uint64,
@@ -48,7 +48,7 @@ export {
     Dictionary,
     Interval, IntervalDayTime, IntervalYearMonth,
     FixedSizeList,
-    Map_,
+    Map_
 } from './type';
 
 export { Table } from './table';

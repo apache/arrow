@@ -17,10 +17,10 @@
 
 import { Field } from '../schema';
 import { Builder } from '../builder';
-import { DataType, Struct } from '../type';
+import { Struct, TypeMap } from '../type';
 
 /** @ignore */
-export class StructBuilder<T extends { [key: string]: DataType } = any, TNull = any> extends Builder<Struct<T>, TNull> {
+export class StructBuilder<T extends TypeMap = any, TNull = any> extends Builder<Struct<T>, TNull> {
     public setValue(index: number, value: Struct<T>['TValue']) {
         const children = this.children;
         switch (Array.isArray(value) || value.constructor) {

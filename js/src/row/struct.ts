@@ -18,17 +18,17 @@
 import { Data } from '../data';
 import { Field } from '../schema';
 import { Vector } from '../vector';
-import { DataType, Struct } from '../type';
+import { Struct, TypeMap } from '../type';
 import { valueToString } from '../util/pretty';
 
 /** @ignore */ const kParent = Symbol.for('parent');
 /** @ignore */ const kRowIndex = Symbol.for('rowIndex');
 
-export type StructRowProxy<T extends { [key: string]: DataType } = any> = StructRow<T> & {
+export type StructRowProxy<T extends TypeMap = any> = StructRow<T> & {
     [P in keyof T]: T[P]['TValue'];
 };
 
-export class StructRow<T extends { [key: string]: DataType } = any> {
+export class StructRow<T extends TypeMap = any> {
 
     declare private [kRowIndex]: number;
     declare private [kParent]: Vector<Struct<T>>;
@@ -66,7 +66,7 @@ export class StructRow<T extends { [key: string]: DataType } = any> {
     }
 }
 
-class StructRowIterator<T extends { [key: string]: DataType } = any>
+class StructRowIterator<T extends TypeMap = any>
     implements IterableIterator<[
         keyof T, { [P in keyof T]: T[P]['TValue'] | null }[keyof T]
     ]> {
@@ -109,7 +109,7 @@ Object.defineProperties(StructRow.prototype, {
     [kRowIndex]: { writable: true, enumerable: false, configurable: false, value: -1 },
 });
 
-class StructRowProxyHandler<T extends { [key: string]: DataType } = any> implements ProxyHandler<StructRow<T>> {
+class StructRowProxyHandler<T extends TypeMap = any> implements ProxyHandler<StructRow<T>> {
     isExtensible() { return false; }
     deleteProperty() { return false; }
     preventExtensions() { return true; }

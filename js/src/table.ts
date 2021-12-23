@@ -19,7 +19,7 @@ import { Data, makeData } from './data';
 import { Type } from './enum';
 import { Vector } from './vector';
 import { Field, Schema } from './schema';
-import { DataType, Null, Struct } from './type';
+import { DataType, Null, Struct, TypeMap } from './type';
 import { compareSchemas } from './visitor/typecomparator';
 import { distributeVectorsIntoRecordBatches } from './util/recordbatch';
 
@@ -48,7 +48,7 @@ import { BigIntArray, TypedArray } from './interfaces';
 import { RecordBatch, _InternalEmptyPlaceholderRecordBatch } from './recordbatch';
 
 /** @ignore */
-export interface Table<T extends { [key: string]: DataType } = any> {
+export interface Table<T extends TypeMap = any> {
     ///
     // Virtual properties for the TypeScript compiler.
     // These do not exist at runtime.
@@ -63,7 +63,7 @@ export interface Table<T extends { [key: string]: DataType } = any> {
     [Symbol.isConcatSpreadable]: true;
 }
 
-export class Table<T extends { [key: string]: DataType } = any> {
+export class Table<T extends TypeMap = any> {
 
     constructor();
     constructor(batches: Iterable<RecordBatch<T>>);
@@ -339,7 +339,7 @@ export class Table<T extends { [key: string]: DataType } = any> {
         return new Table<{ [key: string]: K }>(schema, data);
     }
 
-    public assign<R extends { [key: string]: DataType } = any>(other: Table<R>) {
+    public assign<R extends TypeMap = any>(other: Table<R>) {
 
         const fields = this.schema.fields;
         const [indices, oldToNew] = other.schema.fields.reduce((memo, f2, newIdx) => {

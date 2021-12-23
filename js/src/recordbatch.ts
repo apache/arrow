@@ -19,7 +19,7 @@ import { Data, makeData } from './data';
 import { Table } from './table';
 import { Vector } from './vector';
 import { Schema, Field } from './schema';
-import { DataType, Struct, Null } from './type';
+import { DataType, Struct, Null, TypeMap } from './type';
 import { NumericIndexingProxyHandlerMixin } from './util/proxy';
 
 import { instance as getVisitor } from './visitor/get';
@@ -30,7 +30,7 @@ import { instance as iteratorVisitor } from './visitor/iterator';
 import { instance as byteLengthVisitor } from './visitor/bytelength';
 
 /** @ignore */
-export interface RecordBatch<T extends { [key: string]: DataType } = any> {
+export interface RecordBatch<T extends TypeMap = any> {
     ///
     // Virtual properties for the TypeScript compiler.
     // These do not exist at runtime.
@@ -46,7 +46,7 @@ export interface RecordBatch<T extends { [key: string]: DataType } = any> {
 }
 
 /** @ignore */
-export class RecordBatch<T extends { [key: string]: DataType } = any> {
+export class RecordBatch<T extends TypeMap = any> {
 
     constructor(columns: { [P in keyof T]: Data<T[P]> });
     constructor(schema: Schema<T>, data?: Data<Struct<T>>);
@@ -306,7 +306,7 @@ export class RecordBatch<T extends { [key: string]: DataType } = any> {
 
 
 /** @ignore */
-function ensureSameLengthData<T extends { [key: string]: DataType } = any>(
+function ensureSameLengthData<T extends TypeMap = any>(
     schema: Schema<T>,
     chunks: Data<T[keyof T]>[],
     maxLength = chunks.reduce((max, col) => Math.max(max, col.length), 0)
@@ -365,7 +365,7 @@ function collectDictionaries(fields: Field[], children: Data[], dictionaries = n
  * @private
  */
 /* eslint-disable @typescript-eslint/naming-convention */
-export class _InternalEmptyPlaceholderRecordBatch<T extends { [key: string]: DataType } = any> extends RecordBatch<T> {
+export class _InternalEmptyPlaceholderRecordBatch<T extends TypeMap = any> extends RecordBatch<T> {
     constructor(schema: Schema<T>) {
         const children = schema.fields.map((f) => makeData({ type: f.type }));
         const data = makeData({ type: new Struct<T>(schema.fields), nullCount: 0, children });

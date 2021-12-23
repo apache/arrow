@@ -15,9 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { DataType } from './type';
+import { DataType, TypeMap } from './type';
 
-export class Schema<T extends { [key: string]: DataType } = any> {
+export class Schema<T extends TypeMap = any> {
 
     public readonly fields: Field<T[keyof T]>[];
     public readonly metadata: Map<string, string>;
@@ -65,9 +65,9 @@ export class Schema<T extends { [key: string]: DataType } = any> {
         return new Schema<K>(fields, this.metadata);
     }
 
-    public assign<R extends { [key: string]: DataType } = any>(schema: Schema<R>): Schema<T & R>;
-    public assign<R extends { [key: string]: DataType } = any>(...fields: (Field<R[keyof R]> | Field<R[keyof R]>[])[]): Schema<T & R>;
-    public assign<R extends { [key: string]: DataType } = any>(...args: (Schema<R> | Field<R[keyof R]> | Field<R[keyof R]>[])[]) {
+    public assign<R extends TypeMap = any>(schema: Schema<R>): Schema<T & R>;
+    public assign<R extends TypeMap = any>(...fields: (Field<R[keyof R]> | Field<R[keyof R]>[])[]): Schema<T & R>;
+    public assign<R extends TypeMap = any>(...args: (Schema<R> | Field<R[keyof R]> | Field<R[keyof R]>[])[]) {
 
         const other = (args[0] instanceof Schema
             ? args[0] as Schema<R>

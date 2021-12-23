@@ -15,13 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { DataType } from '../../type';
+import { TypeMap } from '../../type';
 import { RecordBatch } from '../../recordbatch';
 import { AsyncByteQueue } from '../../io/stream';
 import { RecordBatchReader } from '../../ipc/reader';
 
 /** @ignore */
-export function recordBatchReaderThroughDOMStream<T extends { [key: string]: DataType } = any>(writableStrategy?: ByteLengthQueuingStrategy, readableStrategy?: { autoDestroy: boolean }) {
+export function recordBatchReaderThroughDOMStream<T extends TypeMap = any>(writableStrategy?: ByteLengthQueuingStrategy, readableStrategy?: { autoDestroy: boolean }) {
 
     const queue = new AsyncByteQueue();
     let reader: RecordBatchReader<T> | null = null;
