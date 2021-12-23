@@ -95,6 +95,9 @@ set(SRC_FILES
     random_generator_holder.cc
     ${GANDIVA_PRECOMPILED_CC_PATH})
 
+# fix possible UnsatisfiedLinkError after jars are generated and used in JNI
+set_source_files_properties(gandiva_object_cache.cc PROPERTIES COMPILE_FLAGS -fno-rtti)
+
 set(GANDIVA_SHARED_PRIVATE_LINK_LIBS arrow_shared LLVM::LLVM_INTERFACE
                                      ${GANDIVA_OPENSSL_LIBS})
 
