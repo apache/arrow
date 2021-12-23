@@ -255,19 +255,35 @@ arrow::Status exec_plan_end_to_end_sample() {
 
 cp::Expression Materialize(std::vector<std::string> names,
                            bool include_aug_fields = false) {
-  if (include_aug_fields) {
-    for (auto aug_name : {"__fragment_index", "__batch_index", "__last_in_fragment"}) {
-      names.emplace_back(aug_name);
+    if (include_aug_fields) {
+        for (auto aug_name : {"__fragment_index",
+            "__batch_index", "__last_in_fragment"}) {
+        names.emplace_back(aug_name);
+        }
     }
-  }
 
-  std::vector<cp::Expression> exprs;
-  for (const auto& name : names) {
-    exprs.push_back(cp::field_ref(name));
-  }
+    std::vector<cp::Expression> exprs;
+    for (const auto& name : names) {
+        exprs.push_back(cp::field_ref(name));
+    }
 
-  return cp::project(exprs, names);
+    return cp::project(exprs, names);
 }
+
+arrow::Status consume(std::shared_ptr<arrow::Schema> schema,
+    std::function<arrow::Future<arrow::util::optional<cp::ExecBatch>>()>* sink_gen) {
+    auto iterator = MakeGeneratorIterator(*sink_gen);
+    while (true) {
+        ARROW_ASSIGN_OR_RAISE(auto exec_batch, iterator.Next());
+        if (!exec_batch.has_value()) {
+            break;
+        }
+        ARROW_ASSIGN_OR_RAISE(auto record_batch, exec_batch->ToRecordBatch(schema));
+        std::cout << record_batch->ToString() << '\n';
+    }
+    return arrow::Status::OK();
+}
+
 
 arrow::Status scan_sink_node_example() {
     cp::ExecContext exec_context(arrow::default_memory_pool(),
@@ -634,371 +650,317 @@ arrow::Status scan_project_sink_example() {
     return arrow::Status::OK();
 }
 
-// arrow::Status source_aggregate_sink_example()
-// {
+arrow::Status source_aggregate_sink_example() {
+    cp::ExecContext exec_context(arrow::default_memory_pool(),
+                                 ::arrow::internal::GetCpuThreadPool());
 
-//     std::cout << "Initializing" << std::endl;
-//     cp::ExecContext exec_context(arrow::default_memory_pool(),
-//                                  ::arrow::internal::GetCpuThreadPool());
+    // ensure arrow::dataset node factories are in the registry
+    arrow::dataset::internal::Initialize();
 
-//     std::cout << "Registry creating" << std::endl;
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
+     cp::ExecPlan::Make(&exec_context));
 
-//     // ensure arrow::dataset node factories are in the registry
-//     arrow::dataset::internal::Initialize();
+    auto basic_data = MakeBasicBatches();
 
-//     std::cout << "Intialized Scanner" << std::endl;
+    arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
 
-//     // A ScanNode is constructed from an ExecPlan (into which it is inserted),
-//     // a Dataset (whose batches will be scanned), and ScanOptions (to specify a filter
-//     for
-//     // predicate pushdown, a projection to skip materialization of unnecessary columns,
-//     ...) std::shared_ptr<cp::ExecPlan> plan =
-//     cp::ExecPlan::Make(&exec_context).ValueOrDie(); std::cout << "Exec Plan created: "
-//     << plan->ToString() << std::endl;
+    auto source_node_options = cp::SourceNodeOptions{
+        basic_data.schema, basic_data.gen(true)};
 
-//     auto basic_data = MakeBasicBatches();
+    ARROW_ASSIGN_OR_RAISE(cp::ExecNode * source, cp::MakeExecNode("source",
+                                                                  plan.get(), {},
+                                                                  source_node_options));
 
-//     PRINT_LINE("data created");
+    cp::CountOptions options(cp::CountOptions::ONLY_VALID);
+    auto aggregate_options = cp::AggregateNodeOptions{
+        /*aggregates=*/{{"hash_count", &options}},
+        /*targets=*/{"a"},
+        /*names=*/{"count(a)"},
+        /*keys=*/{"b"}};
+    ARROW_ASSIGN_OR_RAISE(cp::ExecNode * aggregate,
+                          cp::MakeExecNode("aggregate", plan.get(), {source},
+                          aggregate_options));
+
+    cp::ExecNode *sink;
+
+    ARROW_ASSIGN_OR_RAISE(sink, cp::MakeExecNode("sink", plan.get(), {aggregate},
+                                                 cp::SinkNodeOptions{&sink_gen}));
+
+    // // // translate sink_gen (async) to sink_reader (sync)
+    std::shared_ptr<arrow::RecordBatchReader> sink_reader = cp::MakeGeneratorReader(
+        arrow::schema({
+            arrow::field("count(a)", arrow::int32()),
+            arrow::field("b", arrow::boolean()),
+        }),
+        std::move(sink_gen),
+        exec_context.memory_pool());
 
-//     PRINT_LINE("source node options created");
+    // // validate the ExecPlan
+    ABORT_ON_FAILURE(plan->Validate());
+    PRINT_LINE("ExecPlan created : " << plan->ToString());
+    // // // start the ExecPlan
+    ABORT_ON_FAILURE(plan->StartProducing());
 
-//     arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
+    // // collect sink_reader into a Table
+    std::shared_ptr<arrow::Table> response_table;
 
-//     auto source_node_options = cp::SourceNodeOptions{
-//         basic_data.schema, basic_data.gen(true, true)};
+    ARROW_ASSIGN_OR_RAISE(response_table,
+    arrow::Table::FromRecordBatchReader(sink_reader.get()));
 
-//     ARROW_ASSIGN_OR_RAISE(cp::ExecNode * source, cp::MakeExecNode("source",
-//                                                                   plan.get(), {},
-//                                                                   source_node_options));
+    PRINT_LINE("Results : " << response_table->ToString());
 
-//     PRINT_LINE("source node created");
-//     cp::CountOptions options(cp::CountOptions::ONLY_VALID);
-//     auto aggregate_options = cp::AggregateNodeOptions{
-//         /*aggregates=*/{{"hash_count", &options}},
-//         /*targets=*/{"a"},
-//         /*names=*/{"count(a)"},
-//         /*keys=*/{"b"}};
-//     ARROW_ASSIGN_OR_RAISE(cp::ExecNode * aggregate,
-//                           cp::MakeExecNode("aggregate", plan.get(), {source},
-//                           aggregate_options));
+    //plan stop producing
+    plan->StopProducing();
+    // plan mark finished
+    plan->finished().Wait();
 
-//     PRINT_LINE("aggregation node created");
+    return arrow::Status::OK();
+}
 
-//     cp::ExecNode *sink;
+arrow::Status source_consuming_sink_node_example() {
+    cp::ExecContext exec_context(arrow::default_memory_pool(),
+                                 ::arrow::internal::GetCpuThreadPool());
 
-//     ARROW_ASSIGN_OR_RAISE(sink, cp::MakeExecNode("sink", plan.get(), {aggregate},
-//                                                  cp::SinkNodeOptions{&sink_gen}));
+    // ensure arrow::dataset node factories are in the registry
+    arrow::dataset::internal::Initialize();
 
-//     PRINT_LINE("sink node created");
-//     // // // translate sink_gen (async) to sink_reader (sync)
-//     std::shared_ptr<arrow::RecordBatchReader> sink_reader = cp::MakeGeneratorReader(
-//         arrow::schema({
-//             //arrow::field("a", arrow::int32()),
-//             arrow::field("count(a)", arrow::int32()),
-//             arrow::field("b", arrow::boolean()),
-//         }),
-//         std::move(sink_gen),
-//         exec_context.memory_pool());
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
+     cp::ExecPlan::Make(&exec_context));
 
-//     // // // start the ExecPlan
-//     ABORT_ON_FAILURE(plan->StartProducing());
+    auto basic_data = MakeBasicBatches();
 
-//     // // collect sink_reader into a Table
-//     std::shared_ptr<arrow::Table> response_table;
+    auto source_node_options = cp::SourceNodeOptions{
+        basic_data.schema, basic_data.gen(true)};
 
-//     ARROW_ASSIGN_OR_RAISE(response_table,
-//     arrow::Table::FromRecordBatchReader(sink_reader.get()));
+    ARROW_ASSIGN_OR_RAISE(cp::ExecNode * source, cp::MakeExecNode("source",
+                                                                  plan.get(), {},
+                                                                  source_node_options));
 
-//     std::cout << "Results : " << response_table->ToString() << std::endl;
+    std::atomic<uint32_t> batches_seen{0};
+    arrow::Future<> finish = arrow::Future<>::Make();
+    struct CustomSinkNodeConsumer : public cp::SinkNodeConsumer {
+        CustomSinkNodeConsumer(std::atomic<uint32_t> *batches_seen, arrow::Future<>
+        finish)
+            : batches_seen(batches_seen), finish(std::move(finish)) {}
 
-//     return arrow::Status::OK();
-// }
+        arrow::Status Consume(cp::ExecBatch batch) override {
+            (*batches_seen)++;
+            return arrow::Status::OK();
+        }
 
-// arrow::Status source_consuming_sink_node_example()
-// {
+        arrow::Future<> Finish() override { return finish; }
 
-//     std::cout << "Initializing" << std::endl;
-//     cp::ExecContext exec_context(arrow::default_memory_pool(),
-//                                  ::arrow::internal::GetCpuThreadPool());
-
-//     std::cout << "Registry creating" << std::endl;
-
-//     // ensure arrow::dataset node factories are in the registry
-//     arrow::dataset::internal::Initialize();
-
-//     std::cout << "Intialized Scanner" << std::endl;
-
-//     // A ScanNode is constructed from an ExecPlan (into which it is inserted),
-//     // a Dataset (whose batches will be scanned), and ScanOptions (to specify a filter
-//     for
-//     // predicate pushdown, a projection to skip materialization of unnecessary columns,
-//     ...) std::shared_ptr<cp::ExecPlan> plan =
-//     cp::ExecPlan::Make(&exec_context).ValueOrDie(); std::cout << "Exec Plan created: "
-//     << plan->ToString() << std::endl;
-
-//     auto basic_data = MakeBasicBatches();
-
-//     PRINT_LINE("data created");
-
-//     PRINT_LINE("source node options created");
-
-//     arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
-
-//     auto source_node_options = cp::SourceNodeOptions{
-//         basic_data.schema, basic_data.gen(true, true)};
-
-//     ARROW_ASSIGN_OR_RAISE(cp::ExecNode * source, cp::MakeExecNode("source",
-//                                                                   plan.get(), {},
-//                                                                   source_node_options));
-
-//     PRINT_LINE("source node created");
-
-//     std::atomic<uint32_t> batches_seen{0};
-//     arrow::Future<> finish = arrow::Future<>::Make();
-//     struct CustomSinkNodeConsumer : public cp::SinkNodeConsumer
-//     {
-//         CustomSinkNodeConsumer(std::atomic<uint32_t> *batches_seen, arrow::Future<>
-//         finish)
-//             : batches_seen(batches_seen), finish(std::move(finish)) {}
-
-//         arrow::Status Consume(cp::ExecBatch batch) override
-//         {
-//             (*batches_seen)++;
-//             return arrow::Status::OK();
-//         }
-
-//         arrow::Future<> Finish() override { return finish; }
-
-//         std::atomic<uint32_t> *batches_seen;
-//         arrow::Future<> finish;
-//     };
-//     std::shared_ptr<CustomSinkNodeConsumer> consumer =
-//         std::make_shared<CustomSinkNodeConsumer>(&batches_seen, finish);
-
-//     cp::ExecNode *consuming_sink;
-
-//     ARROW_ASSIGN_OR_RAISE(consuming_sink, MakeExecNode("consuming_sink", plan.get(),
-//     {source},
-//                                                        cp::ConsumingSinkNodeOptions(consumer)));
-
-//     PRINT_LINE("Consuming Sink Node created");
-
-//     ABORT_ON_FAILURE(plan->StartProducing());
-//     PRINT_LINE("Started Producing");
-//     // Source should finish fairly quickly
-//     ABORT_ON_FAILURE(source->finished().status());
-//     PRINT_LINE("Source Finished!");
-
-//     plan->finished();
-
-//     plan->StopProducing();
-//     PRINT_LINE("Plan Finished!");
-//     // Mark consumption complete, plan should finish
-//     arrow::Status finish_status;
-//     finish.MarkFinished(finish_status);
-//     PRINT_LINE("Marked Finish");
-//     ABORT_ON_FAILURE(finish_status);
-//     ABORT_ON_FAILURE(plan->finished().status());
-
-//     return arrow::Status::OK();
-// }
-
-// arrow::Status source_order_by_sink_example()
-// {
-
-//     std::cout << "Initializing" << std::endl;
-//     cp::ExecContext exec_context(arrow::default_memory_pool(),
-//                                  ::arrow::internal::GetCpuThreadPool());
-
-//     std::cout << "Registry creating" << std::endl;
-
-//     // ensure arrow::dataset node factories are in the registry
-//     arrow::dataset::internal::Initialize();
-
-//     std::cout << "Intialized Scanner" << std::endl;
-
-//     // A ScanNode is constructed from an ExecPlan (into which it is inserted),
-//     // a Dataset (whose batches will be scanned), and ScanOptions (to specify a filter
-//     for
-//     // predicate pushdown, a projection to skip materialization of unnecessary columns,
-//     ...) std::shared_ptr<cp::ExecPlan> plan =
-//     cp::ExecPlan::Make(&exec_context).ValueOrDie(); std::cout << "Exec Plan created: "
-//     << plan->ToString() << std::endl;
-
-//     auto basic_data = MakeSortTestBasicBatches();
-
-//     PRINT_LINE("data created");
-
-//     PRINT_LINE("source node options created");
-
-//     arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
-
-//     auto source_node_options = cp::SourceNodeOptions{
-//         basic_data.schema, basic_data.gen(true, true)};
-
-//     ARROW_ASSIGN_OR_RAISE(cp::ExecNode * source, cp::MakeExecNode("source",
-//                                                                   plan.get(), {},
-//                                                                   source_node_options));
-
-//     PRINT_LINE("source node created");
-
-//     // arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
-
-//     cp::ExecNode *sink;
-
-//     ARROW_ASSIGN_OR_RAISE(sink, cp::MakeExecNode("order_by_sink", plan.get(), {source},
-//                                                  cp::OrderBySinkNodeOptions{
-//                                                      cp::SortOptions{
-//                                                          {cp::SortKey{"a",
-//                                                                       cp::SortOrder::Descending}}},
-//                                                      &sink_gen}));
-
-//     PRINT_LINE("sink node created");
-//     // // // translate sink_gen (async) to sink_reader (sync)
-//     std::shared_ptr<arrow::RecordBatchReader> sink_reader = cp::MakeGeneratorReader(
-//         basic_data.schema,
-//         std::move(sink_gen),
-//         exec_context.memory_pool());
-
-//     // // // start the ExecPlan
-//     ABORT_ON_FAILURE(plan->StartProducing());
-
-//     // // collect sink_reader into a Table
-//     std::shared_ptr<arrow::Table> response_table;
-
-//     ARROW_ASSIGN_OR_RAISE(response_table,
-//     arrow::Table::FromRecordBatchReader(sink_reader.get()));
-
-//     std::cout << "Results : " << response_table->ToString() << std::endl;
-
-//     return arrow::Status::OK();
-// }
-
-// arrow::Status source_hash_join_sink_example()
-// {
-//     auto input = MakeGroupableBatches();
-
-//     cp::ExecContext exec_context(arrow::default_memory_pool(),
-//                                  ::arrow::internal::GetCpuThreadPool());
-
-//     std::shared_ptr<cp::ExecPlan> plan =
-//     cp::ExecPlan::Make(&exec_context).ValueOrDie();
-//     arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
-
-//     cp::ExecNode *left_source;
-//     cp::ExecNode *right_source;
-//     for (auto source : {&left_source, &right_source})
-//     {
-//         ARROW_ASSIGN_OR_RAISE(
-//             *source, MakeExecNode("source", plan.get(), {},
-//                                   cp::SourceNodeOptions{input.schema,
-//                                                         input.gen(/*parallel=*/true,
-//                                                         /*slow=*/false)}));
-//     }
-//     PRINT_LINE("left and right source nodes created");
-//     // TODO: decide whether to keep the filters or remove
-
-//     // ARROW_ASSIGN_OR_RAISE(
-//     //     auto left_filter,
-//     //     cp::MakeExecNode("filter", plan.get(), {left_source},
-//     //                      cp::FilterNodeOptions{
-//     //                          cp::greater_equal(
-//     //                              cp::field_ref("i32"),
-//     //                              cp::literal(-1))}));
-//     // ARROW_ASSIGN_OR_RAISE(
-//     //     auto right_filter,
-//     //     cp::MakeExecNode("filter", plan.get(), {right_source},
-//     //                      cp::FilterNodeOptions{
-//     //                          cp::less_equal(
-//     //                              cp::field_ref("i32"),
-//     //                              cp::literal(2))}));
-//     // PRINT_LINE("left and right filter nodes created");
-//     // left side: [3,  "alfa"], [3,  "alfa"], [12, "alfa"], [3,  "beta"], [7,  "beta"],
-//     // [-1, "gama"], [5,  "gama"]
-//     // right side: [-2, "alfa"], [-8, "alfa"], [-1, "gama"]
-
-//     cp::HashJoinNodeOptions join_opts{cp::JoinType::INNER,
-//                                       /*left_keys=*/{"str"},
-//                                       /*right_keys=*/{"str"}, cp::literal(true), "l_",
-//                                       "r_"};
-
-//     ARROW_ASSIGN_OR_RAISE(
-//         auto hashjoin,
-//         cp::MakeExecNode("hashjoin", plan.get(), {left_source, right_source},
-//         join_opts));
-
-//     PRINT_LINE("Hash Join Node created");
-
-//     ARROW_ASSIGN_OR_RAISE(std::ignore, cp::MakeExecNode("sink", plan.get(), {hashjoin},
-//                                                         cp::SinkNodeOptions{&sink_gen}));
-//     PRINT_LINE("Sink Node Created");
-//     // expected columns i32, str
-
-//     std::shared_ptr<arrow::RecordBatchReader> sink_reader = cp::MakeGeneratorReader(
-//         arrow::schema({arrow::field("i32", arrow::int32()),
-//                        arrow::field("str", arrow::utf8()),
-//                        arrow::field("l_str", arrow::utf8()),
-//                        arrow::field("r_str", arrow::utf8())}),
-//         std::move(sink_gen),
-//         exec_context.memory_pool());
-
-//     // // // start the ExecPlan
-//     ABORT_ON_FAILURE(plan->StartProducing());
-
-//     // // collect sink_reader into a Table
-//     std::shared_ptr<arrow::Table> response_table;
-
-//     ARROW_ASSIGN_OR_RAISE(response_table,
-//     arrow::Table::FromRecordBatchReader(sink_reader.get()));
-
-//     std::cout << "Results : " << response_table->ToString() << std::endl;
-//     return arrow::Status::OK();
-// }
-
-// arrow::Status source_kselect_example()
-// {
-
-//     auto input = MakeGroupableBatches();
-
-//     cp::ExecContext exec_context(arrow::default_memory_pool(),
-//                                  ::arrow::internal::GetCpuThreadPool());
-
-//     std::shared_ptr<cp::ExecPlan> plan =
-//     cp::ExecPlan::Make(&exec_context).ValueOrDie();
-//     arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
-
-//     ARROW_ASSIGN_OR_RAISE(
-//         cp::ExecNode * source, cp::MakeExecNode("source", plan.get(), {},
-//                                                 cp::SourceNodeOptions{input.schema,
-//                                                                       input.gen(/*parallel=*/true,
-//                                                                                 /*slow=*/false)}));
-
-//     cp::SelectKOptions options = cp::SelectKOptions::TopKDefault(/*k=*/2, {"i32"});
-
-//     ARROW_ASSIGN_OR_RAISE(
-//         cp::ExecNode * k_sink_node, cp::MakeExecNode("select_k_sink",
-//                                                      plan.get(), {source},
-//                                                      cp::SelectKSinkNodeOptions{options,
-//                                                      &sink_gen}));
-
-//     std::shared_ptr<arrow::RecordBatchReader> sink_reader = cp::MakeGeneratorReader(
-//         arrow::schema({arrow::field("i32", arrow::int32()),
-//                        arrow::field("str", arrow::utf8())}),
-//         std::move(sink_gen),
-//         exec_context.memory_pool());
-
-//     // // // start the ExecPlan
-//     ABORT_ON_FAILURE(plan->StartProducing());
-
-//     // // collect sink_reader into a Table
-//     std::shared_ptr<arrow::Table> response_table;
-
-//     ARROW_ASSIGN_OR_RAISE(response_table,
-//     arrow::Table::FromRecordBatchReader(sink_reader.get()));
-
-//     std::cout << "Results : " << response_table->ToString() << std::endl;
-//     return arrow::Status::OK();
-// }
+        std::atomic<uint32_t> *batches_seen;
+        arrow::Future<> finish;
+    };
+    std::shared_ptr<CustomSinkNodeConsumer> consumer =
+        std::make_shared<CustomSinkNodeConsumer>(&batches_seen, finish);
+
+    cp::ExecNode *consuming_sink;
+
+    ARROW_ASSIGN_OR_RAISE(consuming_sink, MakeExecNode("consuming_sink", plan.get(),
+    {source}, cp::ConsumingSinkNodeOptions(consumer)));
+
+    ABORT_ON_FAILURE(plan->Validate());
+    PRINT_LINE("Exec Plan created: " << plan->ToString());
+    // plan start producing
+    ABORT_ON_FAILURE(plan->StartProducing());
+    // Source should finish fairly quickly
+    ABORT_ON_FAILURE(source->finished().status());
+    PRINT_LINE("Source Finished!");
+
+    plan->StopProducing();
+    PRINT_LINE("Plan Finished!");
+    // Mark consumption complete, plan should finish
+    arrow::Status finish_status;
+    finish.MarkFinished(finish_status);
+    ABORT_ON_FAILURE(finish_status);
+    ABORT_ON_FAILURE(plan->finished().status());
+
+    return arrow::Status::OK();
+}
+
+arrow::Status source_order_by_sink_example() {
+    cp::ExecContext exec_context(arrow::default_memory_pool(),
+     ::arrow::internal::GetCpuThreadPool());
+
+    // ensure arrow::dataset node factories are in the registry
+    arrow::dataset::internal::Initialize();
+
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
+     cp::ExecPlan::Make(&exec_context));
+
+    auto basic_data = MakeSortTestBasicBatches();
+
+    arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
+
+    auto source_node_options = cp::SourceNodeOptions{
+        basic_data.schema, basic_data.gen(true)};
+    ARROW_ASSIGN_OR_RAISE(cp::ExecNode * source,
+    cp::MakeExecNode("source", plan.get(), {}, source_node_options));
+
+    cp::ExecNode *sink;
+
+    ARROW_ASSIGN_OR_RAISE(sink,
+    cp::MakeExecNode("order_by_sink", plan.get(),
+    {source}, cp::OrderBySinkNodeOptions{
+        cp::SortOptions{{cp::SortKey{"a",
+        cp::SortOrder::Descending}}}, &sink_gen}));
+
+    // // // translate sink_gen (async) to sink_reader (sync)
+    std::shared_ptr<arrow::RecordBatchReader> sink_reader = cp::MakeGeneratorReader(
+        basic_data.schema,
+        std::move(sink_gen),
+        exec_context.memory_pool());
+
+    // // // start the ExecPlan
+    ABORT_ON_FAILURE(plan->StartProducing());
+
+    // // collect sink_reader into a Table
+    std::shared_ptr<arrow::Table> response_table;
+
+    ARROW_ASSIGN_OR_RAISE(response_table,
+    arrow::Table::FromRecordBatchReader(sink_reader.get()));
+
+    std::cout << "Results : " << response_table->ToString() << std::endl;
+
+    return arrow::Status::OK();
+}
+
+arrow::Status source_hash_join_sink_example() {
+    auto input = MakeGroupableBatches();
+
+    cp::ExecContext exec_context(arrow::default_memory_pool(),
+                                 ::arrow::internal::GetCpuThreadPool());
+
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
+     cp::ExecPlan::Make(&exec_context));
+
+    arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
+
+    cp::ExecNode *left_source;
+    cp::ExecNode *right_source;
+    for (auto source : {&left_source, &right_source}) {
+        ARROW_ASSIGN_OR_RAISE(
+            *source,
+            MakeExecNode("source", plan.get(), {},
+                                  cp::SourceNodeOptions{
+                                      input.schema,
+                                      input.gen(/*parallel=*/true)}));
+    }
+    // TODO: decide whether to keep the filters or remove
+
+    // ARROW_ASSIGN_OR_RAISE(
+    //     auto left_filter,
+    //     cp::MakeExecNode("filter", plan.get(), {left_source},
+    //                      cp::FilterNodeOptions{
+    //                          cp::greater_equal(
+    //                              cp::field_ref("i32"),
+    //                              cp::literal(-1))}));
+    // ARROW_ASSIGN_OR_RAISE(
+    //     auto right_filter,
+    //     cp::MakeExecNode("filter", plan.get(), {right_source},
+    //                      cp::FilterNodeOptions{
+    //                          cp::less_equal(
+    //                              cp::field_ref("i32"),
+    //                              cp::literal(2))}));
+    // PRINT_LINE("left and right filter nodes created");
+
+    cp::HashJoinNodeOptions join_opts{cp::JoinType::INNER,
+                                      /*left_keys=*/{"str"},
+                                      /*right_keys=*/{"str"}, cp::literal(true), "l_",
+                                      "r_"};
+
+    ARROW_ASSIGN_OR_RAISE(
+        auto hashjoin,
+        cp::MakeExecNode("hashjoin", plan.get(), {left_source, right_source},
+        join_opts));
+
+    ARROW_ASSIGN_OR_RAISE(std::ignore, cp::MakeExecNode("sink", plan.get(), {hashjoin},
+                                                        cp::SinkNodeOptions{&sink_gen}));
+    // expected columns i32, str, l_str, r_str
+
+    std::shared_ptr<arrow::RecordBatchReader> sink_reader = cp::MakeGeneratorReader(
+        arrow::schema({arrow::field("i32", arrow::int32()),
+                       arrow::field("str", arrow::utf8()),
+                       arrow::field("l_str", arrow::utf8()),
+                       arrow::field("r_str", arrow::utf8())}),
+        std::move(sink_gen),
+        exec_context.memory_pool());
+
+    // // // validate the ExecPlan
+    ABORT_ON_FAILURE(plan->Validate());
+    // // // start the ExecPlan
+    ABORT_ON_FAILURE(plan->StartProducing());
+
+    // // collect sink_reader into a Table
+    std::shared_ptr<arrow::Table> response_table;
+
+    ARROW_ASSIGN_OR_RAISE(response_table,
+    arrow::Table::FromRecordBatchReader(sink_reader.get()));
+
+    PRINT_LINE("Results : " << response_table->ToString());
+
+    // // plan stop producing
+    plan->StopProducing();
+    // // plan mark finished
+    plan->finished().Wait();
+
+    return arrow::Status::OK();
+}
+
+arrow::Status source_kselect_example() {
+    auto input = MakeGroupableBatches();
+
+    cp::ExecContext exec_context(arrow::default_memory_pool(),
+                                 ::arrow::internal::GetCpuThreadPool());
+
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
+     cp::ExecPlan::Make(&exec_context));
+    arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
+
+    ARROW_ASSIGN_OR_RAISE(
+        cp::ExecNode * source,
+        cp::MakeExecNode("source",
+            plan.get(), {},
+                cp::SourceNodeOptions{
+                    input.schema,
+                    input.gen(/*parallel=*/true)}));
+
+    cp::SelectKOptions options = cp::SelectKOptions::TopKDefault(/*k=*/2, {"i32"});
+
+    ARROW_ASSIGN_OR_RAISE(
+        cp::ExecNode * k_sink_node,
+        cp::MakeExecNode("select_k_sink",
+            plan.get(), {source},
+                cp::SelectKSinkNodeOptions{options, &sink_gen}));
+
+    std::shared_ptr<arrow::RecordBatchReader> sink_reader = cp::MakeGeneratorReader(
+        arrow::schema({arrow::field("i32", arrow::int32()),
+                       arrow::field("str", arrow::utf8())}),
+        std::move(sink_gen),
+        exec_context.memory_pool());
+
+    // // // validate the ExecPlan
+    ABORT_ON_FAILURE(plan->Validate());
+    // // // start the ExecPlan
+    ABORT_ON_FAILURE(plan->StartProducing());
+
+    // // collect sink_reader into a Table
+    std::shared_ptr<arrow::Table> response_table;
+
+    ARROW_ASSIGN_OR_RAISE(response_table,
+    arrow::Table::FromRecordBatchReader(sink_reader.get()));
+
+    PRINT_LINE("Results : " << response_table->ToString());
+
+    // // plan stop proudcing
+    plan->StopProducing();
+    // // plan mark finished
+    plan->finished().Wait();
+
+    return arrow::Status::OK();
+}
 
 // arrow::Status scan_filter_write_example()
 // {
@@ -1190,16 +1152,16 @@ int main(int argc, char** argv) {
   CHECK_AND_CONTINUE(scan_filter_sink_example());
   PRINT_BLOCK("Scan Project Sink Example");
   CHECK_AND_CONTINUE(scan_project_sink_example());
-  // PRINT_BLOCK("Source Aggregate Sink Example");
-  // CHECK_AND_CONTINUE(source_aggregate_sink_example());
-  // PRINT_BLOCK("Source Consuming-Sink Example");
-  // //CHECK_AND_CONTINUE(source_consuming_sink_node_example());
-  // PRINT_BLOCK("Source Ordered-By-Sink Example");
-  // CHECK_AND_CONTINUE(source_order_by_sink_example());
-  // PRINT_BLOCK("Source HashJoin Example");
-  // CHECK_AND_CONTINUE(source_hash_join_sink_example());
-  // PRINT_BLOCK("Source KSelect Example");
-  // CHECK_AND_CONTINUE(source_kselect_example());
+  PRINT_BLOCK("Source Aggregate Sink Example");
+  CHECK_AND_CONTINUE(source_aggregate_sink_example());
+  PRINT_BLOCK("Source Consuming-Sink Example");
+  CHECK_AND_CONTINUE(source_consuming_sink_node_example());
+  PRINT_BLOCK("Source Ordered-By-Sink Example");
+  CHECK_AND_CONTINUE(source_order_by_sink_example());
+  PRINT_BLOCK("Source HashJoin Example");
+  CHECK_AND_CONTINUE(source_hash_join_sink_example());
+  PRINT_BLOCK("Source KSelect Example");
+  CHECK_AND_CONTINUE(source_kselect_example());
   // PRINT_BLOCK("Scan Filter Write Example");
   // CHECK_AND_RETURN(scan_filter_write_example());
   // PRINT_LINE("Catalog Source Sink Example");
