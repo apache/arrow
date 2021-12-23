@@ -2244,175 +2244,32 @@ static void ValidateBetween(BetweenOptions options, const char* val_str,
   ValidateBetween<ArrowType>(options, val, lhs, rhs, expected);
 }
 
-template <typename T>
-static inline bool SlowBetween(BetweenOperator op, const T& val, const T& lhs,
-                               const T& rhs) {
-  switch (op) {
-    case BETWEEN_LESS_EQUAL_LESS_EQUAL:
-      return ((lhs <= val) && (val <= rhs));
-    case BETWEEN_LESS_EQUAL_LESS_THAN:
-      return ((lhs <= val) && (val < rhs));
-    case BETWEEN_LESS_THAN_LESS_EQUAL:
-      return ((lhs < val) && (val <= rhs));
-    case BETWEEN_LESS_THAN_LESS_THAN:
-      return ((lhs < val) && (val < rhs));
-    default:
-      return false;
-  }
-}
-
-template <typename ArrayType>
-std::vector<bool> NullBitmapFromThreeArrays(const ArrayType& val, const ArrayType& lhs,
-                                            const ArrayType& rhs) {
-  auto value_lambda = [&val](int64_t i) {
-    return val.null_count() == 0 ? true : val.IsValid(i);
-  };
-
-  auto left_lambda = [&lhs](int64_t i) {
-    return lhs.null_count() == 0 ? true : lhs.IsValid(i);
-  };
-
-  auto right_lambda = [&rhs](int64_t i) {
-    return rhs.null_count() == 0 ? true : rhs.IsValid(i);
-  };
-
-  const int64_t length = lhs.length();
-  std::vector<bool> null_bitmap(length);
-
-  for (int64_t i = 0; i < length; i++) {
-    null_bitmap[i] = value_lambda(i) && left_lambda(i) && right_lambda(i);
-  }
-
-  return null_bitmap;
-}
-
-template <typename ArrowType>
-Datum SimpleArrayScalarScalarBetween(BetweenOptions options, const Datum& val,
-                                     const Datum& lhs, const Datum& rhs) {
-  using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
-  using ScalarType = typename TypeTraits<ArrowType>::ScalarType;
-
-  auto val_array = std::static_pointer_cast<ArrayType>((val).make_array());
-  auto lhs_value = std::static_pointer_cast<ScalarType>((lhs).scalar())->value;
-  auto rhs_value = std::static_pointer_cast<ScalarType>((rhs).scalar())->value;
-
-  std::vector<bool> bitmap(val_array->length());
-  for (int64_t i = 0; i < val_array->length(); i++) {
-    bitmap[i] = SlowBetween(options.op, val_array->Value(i), lhs_value, rhs_value);
-  }
-
-  std::shared_ptr<Array> result;
-  if (val_array->null_count() == 0) {
-    ArrayFromVector<BooleanType>(bitmap, &result);
-  } else {
-    std::vector<bool> null_bitmap(val_array->length());
-    auto reader = BitmapReader(val_array->null_bitmap_data(), val_array->offset(),
-                               val_array->length());
-    for (int64_t i = 0; i < val_array->length(); i++, reader.Next()) {
-      null_bitmap[i] = reader.IsSet();
-    }
-    ArrayFromVector<BooleanType>(null_bitmap, bitmap, &result);
-  }
-
-  return Datum(result);
-}
-
-template <>
-Datum SimpleArrayScalarScalarBetween<StringType>(BetweenOptions options, const Datum& val,
-                                                 const Datum& lhs, const Datum& rhs) {
-  auto val_array = std::static_pointer_cast<StringArray>((val).make_array());
-  auto lhs_value =
-      util::string_view(*std::static_pointer_cast<StringScalar>((lhs).scalar())->value);
-  auto rhs_value =
-      util::string_view(*std::static_pointer_cast<StringScalar>((rhs).scalar())->value);
-  std::vector<bool> bitmap(val_array->length());
-
-  for (int64_t i = 0; i < val_array->length(); i++) {
-    bitmap[i] = SlowBetween(options.op, val_array->GetView(i), lhs_value, rhs_value);
-  }
-
-  std::shared_ptr<Array> result;
-
-  if (val_array->null_count() == 0) {
-    ArrayFromVector<BooleanType>(bitmap, &result);
-  } else {
-    std::vector<bool> null_bitmap(val_array->length());
-    auto reader = BitmapReader(val_array->null_bitmap_data(), val_array->offset(),
-                               val_array->length());
-    for (int64_t i = 0; i < val_array->length(); i++, reader.Next()) {
-      null_bitmap[i] = reader.IsSet();
-    }
-    ArrayFromVector<BooleanType>(null_bitmap, bitmap, &result);
-  }
-
-  return Datum(result);
-}
-
-template <typename ArrowType>
-Datum SimpleArrayArrayArrayBetween(BetweenOptions options, const Datum& val,
-                                   const Datum& lhs, const Datum& rhs) {
-  using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
-
-  auto val_array = std::static_pointer_cast<ArrayType>(val.make_array());
-  auto lhs_array = std::static_pointer_cast<ArrayType>(lhs.make_array());
-  auto rhs_array = std::static_pointer_cast<ArrayType>(rhs.make_array());
-  const int64_t length = val_array->length();
-
-  std::vector<bool> bitmap(length);
-  for (int64_t i = 0; i < length; i++) {
-    bitmap[i] = SlowBetween(options.op, val_array->Value(i), lhs_array->Value(i),
-                            rhs_array->Value(i));
-  }
-
-  std::shared_ptr<Array> result;
-
-  if (val_array->null_count() == 0 && lhs_array->null_count() == 0 &&
-      rhs_array->null_count() == 0) {
-    ArrayFromVector<BooleanType>(bitmap, &result);
-  } else {
-    std::vector<bool> null_bitmap =
-        NullBitmapFromThreeArrays(*val_array, *lhs_array, *rhs_array);
-    ArrayFromVector<BooleanType>(null_bitmap, bitmap, &result);
-  }
-
-  return Datum(result);
-}
-
-template <>
-Datum SimpleArrayArrayArrayBetween<StringType>(BetweenOptions options, const Datum& val,
-                                               const Datum& lhs, const Datum& rhs) {
-  auto val_array = std::static_pointer_cast<StringArray>(val.make_array());
-  auto lhs_array = std::static_pointer_cast<StringArray>(lhs.make_array());
-  auto rhs_array = std::static_pointer_cast<StringArray>(rhs.make_array());
-  const int64_t length = lhs_array->length();
-
-  std::vector<bool> bitmap(length);
-  for (int64_t i = 0; i < length; i++) {
-    bitmap[i] = SlowBetween(options.op, val_array->GetView(i), lhs_array->GetView(i),
-                            rhs_array->GetView(i));
-  }
-
-  std::shared_ptr<Array> result;
-
-  if (val_array->null_count() == 0 && lhs_array->null_count() == 0 &&
-      rhs_array->null_count() == 0) {
-    ArrayFromVector<BooleanType>(bitmap, &result);
-  } else {
-    std::vector<bool> null_bitmap =
-        NullBitmapFromThreeArrays(*val_array, *lhs_array, *rhs_array);
-    ArrayFromVector<BooleanType>(null_bitmap, bitmap, &result);
-  }
-
-  return Datum(result);
-}
-
 template <typename ArrowType>
 void ValidateBetween(BetweenOptions options, const Datum& val, const Datum& lhs,
                      const Datum& rhs) {
-  bool has_scalar = lhs.is_scalar() || rhs.is_scalar();
-  Datum expected = has_scalar
-                       ? SimpleArrayScalarScalarBetween<ArrowType>(options, val, lhs, rhs)
-                       : SimpleArrayArrayArrayBetween<ArrowType>(options, val, lhs, rhs);
+  CompareOperator lhs_val;
+  CompareOperator val_rhs;
+  BetweenOperator op = options.op;
+
+  if (op == LESS_LESS) {
+    lhs_val = LESS;
+    val_rhs = LESS;
+  } else if (op == LESS_EQUAL_LESS) {
+    lhs_val = LESS_EQUAL;
+    val_rhs = LESS;
+  } else if (op == LESS_LESS_EQUAL) {
+    lhs_val = LESS;
+    val_rhs = LESS_EQUAL;
+  } else {
+    lhs_val = LESS_EQUAL;
+    val_rhs = LESS_EQUAL;
+  }
+
+  ASSERT_OK_AND_ASSIGN(Datum resultl,
+                       CallFunction(CompareOperatorToFunctionName(lhs_val), {lhs, val}));
+  ASSERT_OK_AND_ASSIGN(Datum resultr,
+                       CallFunction(CompareOperatorToFunctionName(val_rhs), {val, rhs}));
+  ASSERT_OK_AND_ASSIGN(Datum expected, CallFunction("and", {resultl, resultr}));
 
   ValidateBetween<ArrowType>(options, val, lhs, rhs, expected);
 }
@@ -2428,7 +2285,7 @@ TYPED_TEST(TestNumericBetweenKernel, SimpleBetweenArrayScalarScalar) {
   Datum zero(std::make_shared<ScalarType>(CType(0)));
   Datum four(std::make_shared<ScalarType>(CType(4)));
   Datum null(std::make_shared<ScalarType>());
-  BetweenOptions blele(BetweenOperator::BETWEEN_LESS_EQUAL_LESS_EQUAL);
+  BetweenOptions blele(BetweenOperator::LESS_EQUAL_LESS_EQUAL);
   ValidateBetween<TypeParam>(blele, "[]", zero, four, "[]");
   ValidateBetween<TypeParam>(blele, "[null]", zero, four, "[null]");
   ValidateBetween<TypeParam>(blele, "[0,0,1,1,2,2]", zero, four, "[1,1,1,1,1,1]");
@@ -2442,7 +2299,7 @@ TYPED_TEST(TestNumericBetweenKernel, SimpleBetweenArrayScalarScalar) {
 }
 
 TYPED_TEST(TestNumericBetweenKernel, SimpleBetweenArrayArrayArray) {
-  BetweenOptions blele(BetweenOperator::BETWEEN_LESS_EQUAL_LESS_EQUAL);
+  BetweenOptions blele(BetweenOperator::LESS_EQUAL_LESS_EQUAL);
   ValidateBetween<TypeParam>(
       blele, "[]", ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"),
       ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"), "[]");
@@ -2455,9 +2312,9 @@ TYPED_TEST(TestNumericBetweenKernel, SimpleBetweenArrayArrayArray) {
       ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[10,10,2,5,5]"),
       "[true,true,true,false,false]");
   ValidateBetween<TypeParam>(
-      blele, "[1,1,2,2,2,2]",
+      blele, "[0,1,2,2,2,2]",
       ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,0,1,null,3,3]"),
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[10,10,2,2,5,5]"),
+      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,10,2,2,5,5]"),
       "[true,true,true,null,false,false]");
 }
 
@@ -2467,10 +2324,10 @@ struct BetweenRandomNumeric {
     using ScalarType = typename TypeTraits<Type>::ScalarType;
     using CType = typename TypeTraits<Type>::CType;
     auto rand = random::RandomArrayGenerator(0x5416447);
-    const int64_t length = 1000;
+    const int64_t length = 20;
     for (auto null_probability : {0.0, 0.01, 0.1, 0.25, 0.5, 1.0}) {
-      for (auto op : {BETWEEN_LESS_EQUAL_LESS_EQUAL, BETWEEN_LESS_EQUAL_LESS_THAN,
-                      BETWEEN_LESS_THAN_LESS_EQUAL, BETWEEN_LESS_THAN_LESS_THAN}) {
+      for (auto op :
+           {LESS_EQUAL_LESS_EQUAL, LESS_EQUAL_LESS, LESS_LESS_EQUAL, LESS_LESS}) {
         auto data1 =
             rand.Numeric<typename Type::PhysicalType>(length, 0, 100, null_probability);
         auto data2 =
@@ -2485,7 +2342,6 @@ struct BetweenRandomNumeric {
         auto fifty = Datum(std::make_shared<ScalarType>(CType(50), type));
         auto ten = Datum(std::make_shared<ScalarType>(CType(10), type));
         auto options = BetweenOptions(op);
-
         ValidateBetween<Type>(options, array1, ten, fifty);
         ValidateBetween<Type>(options, array2, fifty, ten);
         ValidateBetween<Type>(options, array1, array2, array3);
@@ -2502,7 +2358,7 @@ TEST(TestSimpleBetweenKernel, SimpleStringTest) {
   using ScalarType = typename TypeTraits<StringType>::ScalarType;
   auto l = Datum(std::make_shared<ScalarType>("abc"));
   auto r = Datum(std::make_shared<ScalarType>("zzz"));
-  BetweenOptions blele(BetweenOperator::BETWEEN_LESS_EQUAL_LESS_EQUAL);
+  BetweenOptions blele(BetweenOperator::LESS_EQUAL_LESS_EQUAL);
   ValidateBetween<StringType>(blele, "[]", l, r, "[]");
   ValidateBetween<StringType>(blele, "[null]", l, r, "[null]");
   ValidateBetween<StringType>(blele, R"(["aaa", "aaaa", "ccc", "z"])", l, r,
@@ -2518,7 +2374,7 @@ TEST(TestSimpleBetweenKernel, SimpleStringTest) {
 }
 
 TEST(TestSimpleBetweenKernel, StringArrayArrayArrayTest) {
-  BetweenOptions blele(BetweenOperator::BETWEEN_LESS_EQUAL_LESS_EQUAL);
+  BetweenOptions blele(BetweenOperator::LESS_EQUAL_LESS_EQUAL);
   ValidateBetween<StringType>(
       blele, R"(["david","hello","world"])",
       ArrayFromJSON(TypeTraits<StringType>::type_singleton(), R"(["adam","hi","whirl"])"),

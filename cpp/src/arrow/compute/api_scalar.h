@@ -371,15 +371,15 @@ struct ARROW_EXPORT CompareOptions {
 };
 
 enum BetweenOperator : int8_t {
-  BETWEEN_LESS_EQUAL_LESS_EQUAL,
-  BETWEEN_LESS_EQUAL_LESS_THAN,
-  BETWEEN_LESS_THAN_LESS_EQUAL,
-  BETWEEN_LESS_THAN_LESS_THAN,
+  LESS_EQUAL_LESS_EQUAL,
+  LESS_EQUAL_LESS,
+  LESS_LESS_EQUAL,
+  LESS_LESS,
 };
 
 struct ARROW_EXPORT BetweenOptions {
   explicit BetweenOptions(BetweenOperator op) : op(op) {}
-  BetweenOptions() : BetweenOptions(BetweenOperator::BETWEEN_LESS_EQUAL_LESS_EQUAL) {}
+  BetweenOptions() : BetweenOptions(BetweenOperator::LESS_EQUAL_LESS_EQUAL) {}
   enum BetweenOperator op;
 };
 
