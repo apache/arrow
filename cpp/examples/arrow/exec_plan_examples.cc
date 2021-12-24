@@ -1036,7 +1036,7 @@ arrow::Status scan_filter_write_example() {
     PRINT_LINE("Execution Plan Created : " << plan->ToString());
     // // // start the ExecPlan
     ABORT_ON_FAILURE(plan->StartProducing());
-    PRINT_LINE("Started Producing.");
+    plan->finished().Wait();
     return arrow::Status::OK();
 }
 
@@ -1114,9 +1114,9 @@ int main(int argc, char** argv) {
   PRINT_BLOCK("Source HashJoin Example");
   CHECK_AND_CONTINUE(source_hash_join_sink_example());
   PRINT_BLOCK("Source KSelect Example");
-  CHECK_AND_RETURN(source_kselect_example());
-  // PRINT_BLOCK("Scan Filter Write Example");
-  // CHECK_AND_RETURN(scan_filter_write_example());
+  CHECK_AND_CONTINUE(source_kselect_example());
+  PRINT_BLOCK("Scan Filter Write Example");
+  CHECK_AND_RETURN(scan_filter_write_example());
   // PRINT_LINE("Catalog Source Sink Example");
   // CHECK_AND_RETURN(catalog_source_sink_example());
 }
