@@ -86,7 +86,7 @@ class OrcScanTask : public ScanTask {
         }
 
         std::shared_ptr<RecordBatchReader> recordBatchReader;
-        reader->NextStripeReader(scan_options.batch_size, included_fields, &recordBatchReader);
+        reader->NextBatchReader(scan_options.batch_size, included_fields, &recordBatchReader);
 
         return RecordBatchIterator(
             Impl{std::move(recordBatchReader)});

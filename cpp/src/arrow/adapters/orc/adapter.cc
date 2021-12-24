@@ -439,27 +439,18 @@ class ORCFileReader::Impl {
     return Status::OK();
   }
 
-  Status NextStripeReader(int64_t batch_size, const std::vector<std::string>& include_names,
+  Status NextBatchReader(int64_t batch_size, const std::vector<std::string>& include_names,
                           std::shared_ptr<RecordBatchReader>* out) {
-    if (current_row_ >= NumberOfRows()) {
-      out->reset();
-      return Status::OK();
-    }
-
     liborc::RowReaderOptions opts;
     if (!include_names.empty()) {
       RETURN_NOT_OK(SelectNames(&opts, include_names));
     }
-    StripeInformation stripe_info({0, 0, 0, 0});
-    RETURN_NOT_OK(SelectStripeWithRowNumber(&opts, current_row_, &stripe_info));
     std::shared_ptr<Schema> schema;
     RETURN_NOT_OK(ReadSchema(opts, &schema));
     std::unique_ptr<liborc::RowReader> row_reader;
 
     ORC_BEGIN_CATCH_NOT_OK
     row_reader = reader_->createRowReader(opts);
-    row_reader->seekToRow(current_row_);
-    current_row_ = stripe_info.first_row_of_stripe + stripe_info.num_rows;
     ORC_END_CATCH_NOT_OK
 
     *out = std::shared_ptr<RecordBatchReader>(
@@ -610,10 +601,10 @@ Status ORCFileReader::NextStripeReader(int64_t batch_size,
   return impl_->NextStripeReader(batch_size, include_indices, out);
 }
 
-Status ORCFileReader::NextStripeReader(int64_t batch_size,
+Status ORCFileReader::NextBatchReader(int64_t batch_size,
                                        const std::vector<std::string>& include_names,
                                        std::shared_ptr<RecordBatchReader>* out) {
-  return impl_->NextStripeReader(batch_size, include_names, out);
+  return impl_->NextBatchReader(batch_size, include_names, out);
 }
 
 Result<std::shared_ptr<RecordBatchReader>> ORCFileReader::NextStripeReader(
