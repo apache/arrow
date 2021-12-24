@@ -152,7 +152,7 @@ struct GrouperImpl : Grouper {
       if (it_success.second) {
         // new key; update offsets and key_bytes
         ++num_groups_;
-        if (key_bytes_.size() != 0) {
+        if (key_length != 0) {
           // Skip if there are no keys
           auto next_key_offset = static_cast<int32_t>(key_bytes_.size());
           key_bytes_.resize(next_key_offset + key_length);
