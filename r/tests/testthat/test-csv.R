@@ -315,6 +315,23 @@ test_that("CSV reader works on files with non-UTF-8 encoding", {
   )
 
   table <- reader$Read()
+
+  # check that the CSV reader didn't create a binary column because of
+  # invalid bytes
+  expect_true(table$col1$type == string())
+
+  # check that the bytes are correct
+  expect_identical(
+    lapply(as.vector(table$col1$cast(binary())), as.raw),
+    rep(
+      list(as.raw(0x61), as.raw(c(0xc3, 0xa9)), as.raw(c(0xf0, 0x9f, 0x92, 0xa9))),
+      10
+    )
+  )
+
+  # There is an issue with the marked strings on some R builds for Windows
+  # that prevent this test from passing.
+  skip_on_os("windows")
   strings2 <- as.vector(table$col1)
   expect_identical(strings2, rep(strings, 10))
 })
