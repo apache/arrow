@@ -1004,6 +1004,7 @@ arrow::Status scan_filter_write_example() {
     arrow::fs::FileSystemFromUri(uri, &root_path).ValueOrDie();
 
     auto base_path = root_path + "/parquet_dataset";
+    ABORT_ON_FAILURE(filesystem->DeleteDir(base_path));
     ABORT_ON_FAILURE(filesystem->CreateDir(base_path));
 
     // The partition schema determines which fields are part of the partitioning.
@@ -1040,59 +1041,62 @@ arrow::Status scan_filter_write_example() {
     return arrow::Status::OK();
 }
 
-// arrow::Status catalog_source_sink_example()
-// {
+arrow::Status source_union_sink_example() {
+    auto basic_data = MakeBasicBatches();
 
-//     auto input = MakeGroupableBatches();
+    cp::ExecContext exec_context(arrow::default_memory_pool(),
+                                 ::arrow::internal::GetCpuThreadPool());
 
-//     cp::ExecContext exec_context(arrow::default_memory_pool(),
-//                                  ::arrow::internal::GetCpuThreadPool());
+    std::shared_ptr<cp::ExecPlan> plan =
+    cp::ExecPlan::Make(&exec_context).ValueOrDie();
+    arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
 
-//     std::shared_ptr<cp::ExecPlan> plan =
-//     cp::ExecPlan::Make(&exec_context).ValueOrDie();
-//     arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
+    cp::Declaration union_node{"union", cp::ExecNodeOptions{}};
+    cp::Declaration lhs{"source",
+                  cp::SourceNodeOptions{basic_data.schema,
+                                    basic_data.gen(/*parallel=*/false)}};
+    lhs.label = "lhs";
+    cp::Declaration rhs{"source",
+                    cp::SourceNodeOptions{basic_data.schema,
+                                      basic_data.gen(/*parallel=*/false)}};
+    rhs.label = "rhs";
+    union_node.inputs.emplace_back(lhs);
+    union_node.inputs.emplace_back(rhs);
 
-//     ARROW_ASSIGN_OR_RAISE(
-//         cp::ExecNode * source, cp::MakeExecNode("source", plan.get(), {},
-//                                                 cp::SourceNodeOptions{input.schema,
-//                                                                       input.gen(/*parallel=*/true,
-//                                                                                 /*slow=*/false)}));
+    cp::CountOptions options(cp::CountOptions::ONLY_VALID);
+    ARROW_ASSIGN_OR_RAISE(auto declr,
+    cp::Declaration::Sequence(
+            {
+                union_node,
+                {"aggregate", cp::AggregateNodeOptions{
+                  /*aggregates=*/{{"count", &options}},
+                  /*targets=*/{"a"},
+                  /*names=*/{"count(a)"},
+                  /*keys=*/{}}},
+                {"sink", cp::SinkNodeOptions{&sink_gen}},
+            })
+            .AddToPlan(plan.get()));
 
-//     ARROW_ASSIGN_OR_RAISE(
-//         cp::ExecNode *catelog_source,
-//         cp::MakeExecNode(
-//             "catalog_source",
-//             plan.get(),
-//             {source},
-//             cp::CatalogSourceNodeOptions{
-//                 "catalog_source_test",
-//                 input.schema
-//             }
-//         )
-//     );
+    ABORT_ON_FAILURE(declr->Validate());
 
-//     ARROW_ASSIGN_OR_RAISE(
-//         cp::ExecNode * k_sink_node, cp::MakeExecNode("sink",
-//                                                      plan.get(), {catelog_source},
-//                                                      cp::SinkNodeOptions{&sink_gen}));
+    ABORT_ON_FAILURE(plan->Validate());
+    std::shared_ptr<arrow::RecordBatchReader> sink_reader = cp::MakeGeneratorReader(
+        arrow::schema({arrow::field("count(a)", arrow::int32())}),
+        std::move(sink_gen),
+        exec_context.memory_pool());
 
-//     std::shared_ptr<arrow::RecordBatchReader> sink_reader = cp::MakeGeneratorReader(
-//         input.schema,
-//         std::move(sink_gen),
-//         exec_context.memory_pool());
+    // // // start the ExecPlan
+    ABORT_ON_FAILURE(plan->StartProducing());
 
-//     // // // start the ExecPlan
-//     ABORT_ON_FAILURE(plan->StartProducing());
+    // // collect sink_reader into a Table
+    std::shared_ptr<arrow::Table> response_table;
 
-//     // // collect sink_reader into a Table
-//     std::shared_ptr<arrow::Table> response_table;
+    ARROW_ASSIGN_OR_RAISE(response_table,
+    arrow::Table::FromRecordBatchReader(sink_reader.get()));
 
-//     ARROW_ASSIGN_OR_RAISE(response_table,
-//     arrow::Table::FromRecordBatchReader(sink_reader.get()));
-
-//     std::cout << "Results : " << response_table->ToString() << std::endl;
-//     return arrow::Status::OK();
-// }
+    std::cout << "Results : " << response_table->ToString() << std::endl;
+    return arrow::Status::OK();
+}
 
 int main(int argc, char** argv) {
   PRINT_BLOCK("Scan Sink Example");
@@ -1116,7 +1120,7 @@ int main(int argc, char** argv) {
   PRINT_BLOCK("Source KSelect Example");
   CHECK_AND_CONTINUE(source_kselect_example());
   PRINT_BLOCK("Scan Filter Write Example");
-  CHECK_AND_RETURN(scan_filter_write_example());
-  // PRINT_LINE("Catalog Source Sink Example");
-  // CHECK_AND_RETURN(catalog_source_sink_example());
+  CHECK_AND_CONTINUE(scan_filter_write_example());
+  PRINT_LINE("Catalog Source Sink Example");
+  CHECK_AND_RETURN(source_union_sink_example());
 }
