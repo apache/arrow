@@ -43,7 +43,7 @@ const exists = async (p) => {
 
     if (!argv.mode) { return print_usage(); }
 
-    let mode = argv.mode.toUpperCase();
+    const mode = argv.mode.toUpperCase();
     let jsonPaths = [...(argv.json || [])];
     let arrowPaths = [...(argv.arrow || [])];
 
@@ -205,7 +205,7 @@ function compareVectors(actual, expected) {
         throw new Error(`${actual == null ? `actual` : `expected`} is null, was expecting ${actual ?? expected} to be that also`);
     }
 
-    let props = ['type', 'length', 'nullCount'];
+    const props = ['type', 'length', 'nullCount'];
 
     (() => {
         for (let i = -1, n = props.length; ++i < n;) {
@@ -218,7 +218,7 @@ function compareVectors(actual, expected) {
 
     (() => {
         for (let i = -1, n = actual.length; ++i < n;) {
-            let x1 = actual.get(i), x2 = expected.get(i);
+            const x1 = actual.get(i), x2 = expected.get(i);
             if (!createElementComparator(x2)(x1)) {
                 throw new Error(`${i}: ${x1} !== ${x2}`);
             }
