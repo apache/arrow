@@ -173,7 +173,6 @@ function* combinations(_targets, _modules) {
 const publicModulePaths = (dir) => [
     `${dir}/${mainExport}.dom.js`,
     `${dir}/util/int.js`,
-    `${dir}/compute/predicate.js`,
 ];
 
 const esmRequire = require(`esm`)(module, {

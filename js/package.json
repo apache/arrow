@@ -75,7 +75,7 @@
     "eslint-plugin-jest": "25.3.0",
     "esm": "https://github.com/jsg2021/esm/releases/download/v3.x.x-pr883/esm-3.x.x-pr883.tgz",
     "glob": "7.2.0",
-    "google-closure-compiler": "20211201.0.0",
+    "google-closure-compiler": "20210601.0.0",
     "gulp": "4.0.2",
     "gulp-json-transform": "0.4.7",
     "gulp-rename": "2.0.0",
@@ -96,6 +96,8 @@
     "typedoc": "0.22.10",
     "typescript": "4.5.4",
     "web-streams-polyfill": "3.2.0",
+    "webpack": "5.65.0",
+    "webpack-cli": "4.9.1",
     "xml2js": "0.4.23"
   },
   "engines": {
