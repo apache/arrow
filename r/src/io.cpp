@@ -207,7 +207,7 @@ class RIconvWrapper {
 };
 
 struct ReencodeUTF8TransformFunctionWrapper {
-  ReencodeUTF8TransformFunctionWrapper(std::string from)
+  explicit ReencodeUTF8TransformFunctionWrapper(std::string from)
       : from_(from), iconv_("UTF-8", from), n_pending_(0) {}
 
   // This may get copied and we need a fresh RIconvWrapper for each copy.
