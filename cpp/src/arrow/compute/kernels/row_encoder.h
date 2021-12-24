@@ -247,7 +247,7 @@ struct NullKeyEncoder : KeyEncoder {
 
   Result<std::shared_ptr<ArrayData>> Decode(uint8_t** encoded_bytes, int32_t length,
                                             MemoryPool* pool) override {
-    return ArrayData::Make(null(), length, {nullptr}, length);
+    return ArrayData::Make(null(), length, {NULLPTR}, length);
   }
 };
 
