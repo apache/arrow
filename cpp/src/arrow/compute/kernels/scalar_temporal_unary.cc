@@ -233,11 +233,10 @@ struct YearMonthDayVisitValueFunction {
       const std::vector<BuilderType*>& field_builders, const ArrayData&,
       StructBuilder* struct_builder) {
     return [=](typename InType::c_type arg) {
-      const auto ymd = year_month_day(
-          floor<days>(NonZonedLocalizer{}.template ConvertTimePoint<Duration>(arg)));
-      field_builders[0]->UnsafeAppend(static_cast<const int32_t>(ymd.year()));
-      field_builders[1]->UnsafeAppend(static_cast<const uint32_t>(ymd.month()));
-      field_builders[2]->UnsafeAppend(static_cast<const uint32_t>(ymd.day()));
+      const auto ymd = GetYearMonthDay<Duration>(arg, NonZonedLocalizer{});
+      field_builders[0]->UnsafeAppend(static_cast<const int32_t>(ymd[0]));
+      field_builders[1]->UnsafeAppend(static_cast<const uint32_t>(ymd[1]));
+      field_builders[2]->UnsafeAppend(static_cast<const uint32_t>(ymd[2]));
       return struct_builder->Append();
     };
   }
@@ -251,21 +250,19 @@ struct YearMonthDayVisitValueFunction<Duration, TimestampType, BuilderType> {
     const auto& timezone = GetInputTimezone(in);
     if (timezone.empty()) {
       return [=](TimestampType::c_type arg) {
-        const auto ymd = year_month_day(
-            floor<days>(NonZonedLocalizer{}.template ConvertTimePoint<Duration>(arg)));
-        field_builders[0]->UnsafeAppend(static_cast<const int32_t>(ymd.year()));
-        field_builders[1]->UnsafeAppend(static_cast<const uint32_t>(ymd.month()));
-        field_builders[2]->UnsafeAppend(static_cast<const uint32_t>(ymd.day()));
+	const auto ymd = GetYearMonthDay<Duration>(arg, NonZonedLocalizer{});
+        field_builders[0]->UnsafeAppend(static_cast<const int32_t>(ymd[0]));
+        field_builders[1]->UnsafeAppend(static_cast<const uint32_t>(ymd[1]));
+        field_builders[2]->UnsafeAppend(static_cast<const uint32_t>(ymd[2]));
         return struct_builder->Append();
       };
     }
     ARROW_ASSIGN_OR_RAISE(auto tz, LocateZone(timezone));
     return [=](TimestampType::c_type arg) {
-      const auto ymd = year_month_day(
-          floor<days>(ZonedLocalizer{tz}.template ConvertTimePoint<Duration>(arg)));
-      field_builders[0]->UnsafeAppend(static_cast<const int32_t>(ymd.year()));
-      field_builders[1]->UnsafeAppend(static_cast<const uint32_t>(ymd.month()));
-      field_builders[2]->UnsafeAppend(static_cast<const uint32_t>(ymd.day()));
+      const auto ymd = GetYearMonthDay<Duration>(arg, ZonedLocalizer{tz});
+      field_builders[0]->UnsafeAppend(static_cast<const int32_t>(ymd[0]));
+      field_builders[1]->UnsafeAppend(static_cast<const uint32_t>(ymd[1]));
+      field_builders[2]->UnsafeAppend(static_cast<const uint32_t>(ymd[2]));
       return struct_builder->Append();
     };
   }
