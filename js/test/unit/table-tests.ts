@@ -97,7 +97,7 @@ function compareBatchAndTable(source: Table, offset: number, batch: RecordBatch,
 
 describe(`Table`, () => {
     test(`can create an empty table`, () => {
-        expect(new Table().numRows).toEqual(0);
+        expect(new Table().numRows).toBe(0);
     });
 
     describe(`constructor`, () => {
@@ -107,7 +107,7 @@ describe(`Table`, () => {
             const table = new Table({ i32, f32 });
             i32 = table.getChild('i32')!;
             f32 = table.getChild('f32')!;
-            expect(table.numRows).toEqual(0);
+            expect(table.numRows).toBe(0);
             expect(i32).toHaveLength(0);
             expect(f32).toHaveLength(0);
             expect(i32.toArray()).toBeInstanceOf(Int32Array);
@@ -255,7 +255,7 @@ describe(`Table`, () => {
             const i32 = table.getChild('i32s')!;
             const f32 = table.getChild('f32s')!;
 
-            expect(table.numRows).toEqual(10);
+            expect(table.numRows).toBe(10);
             expect(i32).toHaveLength(10);
             expect(f32).toHaveLength(10);
             expect(i32.toArray()).toBeInstanceOf(Int32Array);

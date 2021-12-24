@@ -1761,8 +1761,8 @@ export class Timestamp {
      * @param flatbuffers.Encoding= optionalEncoding
      * @returns string|Uint8Array|null
      */
-    timezone(): string | null
-    timezone(optionalEncoding: flatbuffers.Encoding): string | Uint8Array | null
+    timezone(): string | null;
+    timezone(optionalEncoding: flatbuffers.Encoding): string | Uint8Array | null;
     timezone(optionalEncoding?: any): string | Uint8Array | null {
         const offset = this.bb!.__offset(this.bb_pos, 6);
         return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
@@ -2002,8 +2002,8 @@ export class KeyValue {
      * @param flatbuffers.Encoding= optionalEncoding
      * @returns string|Uint8Array|null
      */
-    key(): string | null
-    key(optionalEncoding: flatbuffers.Encoding): string | Uint8Array | null
+    key(): string | null;
+    key(optionalEncoding: flatbuffers.Encoding): string | Uint8Array | null;
     key(optionalEncoding?: any): string | Uint8Array | null {
         const offset = this.bb!.__offset(this.bb_pos, 4);
         return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
@@ -2013,8 +2013,8 @@ export class KeyValue {
      * @param flatbuffers.Encoding= optionalEncoding
      * @returns string|Uint8Array|null
      */
-    value(): string | null
-    value(optionalEncoding: flatbuffers.Encoding): string | Uint8Array | null
+    value(): string | null;
+    value(optionalEncoding: flatbuffers.Encoding): string | Uint8Array | null;
     value(optionalEncoding?: any): string | Uint8Array | null {
         const offset = this.bb!.__offset(this.bb_pos, 6);
         return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
@@ -2248,8 +2248,8 @@ export class Field {
      * @param flatbuffers.Encoding= optionalEncoding
      * @returns string|Uint8Array|null
      */
-    name(): string | null
-    name(optionalEncoding: flatbuffers.Encoding): string | Uint8Array | null
+    name(): string | null;
+    name(optionalEncoding: flatbuffers.Encoding): string | Uint8Array | null;
     name(optionalEncoding?: any): string | Uint8Array | null {
         const offset = this.bb!.__offset(this.bb_pos, 4);
         return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;

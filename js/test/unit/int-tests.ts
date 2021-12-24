@@ -21,8 +21,8 @@ const { Int64, Uint64, Int128 } = Arrow.util;
 describe(`Uint64`, () => {
     test(`gets expected high/low bytes`, () => {
         let i = new Uint64(new Uint32Array([5, 0]));
-        expect(i.high()).toEqual(0);
-        expect(i.low()).toEqual(5);
+        expect(i.high()).toBe(0);
+        expect(i.low()).toBe(5);
     });
     test(`adds 32-bit numbers`, () => {
         let a = new Uint64(new Uint32Array([5, 0]));
@@ -77,8 +77,8 @@ describe(`Uint64`, () => {
 describe(`Int64`, () => {
     test(`gets expected high/low bytes`, () => {
         let i = new Int64(new Uint32Array([5, 0]));
-        expect(i.high()).toEqual(0);
-        expect(i.low()).toEqual(5);
+        expect(i.high()).toBe(0);
+        expect(i.low()).toBe(5);
     });
     test(`adds 32-bit numbers`, () => {
         let a = new Int64(new Uint32Array([5, 0]));
@@ -168,10 +168,10 @@ describe(`Int64`, () => {
 describe(`Int128`, () => {
     test(`gets expected bytes`, () => {
         let i = new Int128(new Uint32Array([4, 3, 2, 1]));
-        expect(i.high().high()).toEqual(1);
-        expect(i.high().low() ).toEqual(2);
-        expect(i.low().high() ).toEqual(3);
-        expect(i.low().low()  ).toEqual(4);
+        expect(i.high().high()).toBe(1);
+        expect(i.high().low() ).toBe(2);
+        expect(i.low().high() ).toBe(3);
+        expect(i.low().low()  ).toBe(4);
     });
     test(`adds 32-bit numbers`, () => {
         let a = new Int128(new Uint32Array([5, 0, 0, 0]));

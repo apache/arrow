@@ -58,7 +58,7 @@ describe('Table#serialize()', () => {
         expect(source.numCols).toBe(0);
         const result = deepCopy(source);
         expect(result).toEqualTable(source);
-        expect(result.schema.metadata.get('foo')).toEqual('bar');
+        expect(result.schema.metadata.get('foo')).toBe('bar');
     });
 
     test(`Schema metadata round-trips through serialization`, () => {
@@ -67,7 +67,7 @@ describe('Table#serialize()', () => {
         expect(source.numCols).toBe(3);
         const result = deepCopy(source);
         expect(result).toEqualTable(source);
-        expect(result.schema.metadata.get('foo')).toEqual('bar');
+        expect(result.schema.metadata.get('foo')).toBe('bar');
     });
 
     test(`Table#assign an empty Table to a Table with a zero-length Null column round-trips through serialization`, () => {
@@ -102,7 +102,7 @@ describe('Table#serialize()', () => {
             expect(source.numCols).toBe(6);
             const result = deepCopy(source);
             expect(result).toEqualTable(source);
-            expect(result.schema.metadata.get('foo')).toEqual('bar');
+            expect(result.schema.metadata.get('foo')).toBe('bar');
         });
         test(`Table#assign with an empty table round-trips through serialization`, () => {
             const table1 = table(schema1);
@@ -111,7 +111,7 @@ describe('Table#serialize()', () => {
             expect(source.numRows).toBe(table1.numRows);
             const result = deepCopy(source);
             expect(result).toEqualTable(source);
-            expect(result.schema.metadata.get('foo')).toEqual('bar');
+            expect(result.schema.metadata.get('foo')).toBe('bar');
         });
         test(`Table#assign with a zero-length Null column round-trips through serialization`, () => {
             const table1 = new Table(nullSchema);
@@ -121,7 +121,7 @@ describe('Table#serialize()', () => {
             expect(source.numCols).toBe(4);
             const result = deepCopy(source);
             expect(result).toEqualTable(source);
-            expect(result.schema.metadata.get('foo')).toEqual('bar');
+            expect(result.schema.metadata.get('foo')).toBe('bar');
         });
         test(`Table#assign with different lengths and number of chunks round-trips through serialization`, () => {
             const table1 = table(schema1);
@@ -131,7 +131,7 @@ describe('Table#serialize()', () => {
             expect(source.numRows).toBe(Math.max(table1.numRows, table2.numRows));
             const result = deepCopy(source);
             expect(result).toEqualTable(source);
-            expect(result.schema.metadata.get('foo')).toEqual('bar');
+            expect(result.schema.metadata.get('foo')).toBe('bar');
         });
         test(`Table#select with Table#assign the result of Table#selectAt round-trips through serialization`, () => {
             const table1 = table(schema1);
@@ -140,7 +140,7 @@ describe('Table#serialize()', () => {
             expect(source.numCols).toBe(3);
             const result = deepCopy(source);
             expect(result).toEqualTable(source);
-            expect(result.schema.metadata.get('foo')).toEqual('bar');
+            expect(result.schema.metadata.get('foo')).toBe('bar');
         });
         test(`Table#slice round-trips through serialization`, () => {
             const table1 = table(schema1);
@@ -151,7 +151,7 @@ describe('Table#serialize()', () => {
             expect(source.numRows).toBe(end - begin);
             const result = deepCopy(source);
             expect(result).toEqualTable(source);
-            expect(result.schema.metadata.get('foo')).toEqual('bar');
+            expect(result.schema.metadata.get('foo')).toBe('bar');
         });
         test(`Table#concat of two slices round-trips through serialization`, () => {
             const table1 = table(schema1);
@@ -167,7 +167,7 @@ describe('Table#serialize()', () => {
             [slice1, slice2, source].forEach((x) => expect(x.numCols).toBe(3));
             const result = deepCopy(source);
             expect(result).toEqualTable(source);
-            expect(result.schema.metadata.get('foo')).toEqual('bar');
+            expect(result.schema.metadata.get('foo')).toBe('bar');
         });
     }
 });
