@@ -152,10 +152,13 @@ struct GrouperImpl : Grouper {
       if (it_success.second) {
         // new key; update offsets and key_bytes
         ++num_groups_;
-        auto next_key_offset = static_cast<int32_t>(key_bytes_.size());
-        key_bytes_.resize(next_key_offset + key_length);
-        offsets_.push_back(next_key_offset + key_length);
-        memcpy(key_bytes_.data() + next_key_offset, key.c_str(), key_length);
+        if (key_bytes_.size() != 0) {
+          // Skip if there are no keys
+          auto next_key_offset = static_cast<int32_t>(key_bytes_.size());
+          key_bytes_.resize(next_key_offset + key_length);
+          offsets_.push_back(next_key_offset + key_length);
+          memcpy(key_bytes_.data() + next_key_offset, key.c_str(), key_length);
+        }
       }
 
       group_ids_batch.UnsafeAppend(group_id);
