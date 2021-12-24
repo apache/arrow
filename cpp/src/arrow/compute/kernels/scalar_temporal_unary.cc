@@ -250,7 +250,7 @@ struct YearMonthDayVisitValueFunction<Duration, TimestampType, BuilderType> {
     const auto& timezone = GetInputTimezone(in);
     if (timezone.empty()) {
       return [=](TimestampType::c_type arg) {
-	const auto ymd = GetYearMonthDay<Duration>(arg, NonZonedLocalizer{});
+        const auto ymd = GetYearMonthDay<Duration>(arg, NonZonedLocalizer{});
         field_builders[0]->UnsafeAppend(static_cast<const int32_t>(ymd[0]));
         field_builders[1]->UnsafeAppend(static_cast<const uint32_t>(ymd[1]));
         field_builders[2]->UnsafeAppend(static_cast<const uint32_t>(ymd[2]));
