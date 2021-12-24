@@ -1,7 +1,11 @@
 const { resolve } = require('path');
+const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin;
 
-module.exports = {
-    mode: 'production',
+module.exports = env => ({
+    mode: 'development',
+    optimization: {
+        usedExports: true,
+    },
     entry: {
         table: resolve(__dirname, './table.js'),
         makeTable: resolve(__dirname, './makeTable.js'),
@@ -12,9 +16,10 @@ module.exports = {
         filename: '[name]-bundle.js'
     },
     module: {
+
         rules: [
             {
-                test: /\.m?js$/,
+                test: /\.mjs$/,
                 resolve: {
                     fullySpecified: false,
                 },
@@ -25,5 +30,6 @@ module.exports = {
         alias: {
             'apache-arrow': resolve(__dirname, '../../../targets/apache-arrow/'),
         }
-    }
-};
+    },
+    plugins: env.analyze ? [new BundleAnalyzerPlugin()] : []
+});
