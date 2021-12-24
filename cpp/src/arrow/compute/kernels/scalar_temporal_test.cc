@@ -1510,40 +1510,36 @@ TEST_F(ScalarTemporalTest, TestCeilTemporal) {
           "2025-01-01", "2010-01-01", "2010-01-01", "2010-01-01", "2010-01-01",
           "2025-01-01", null])";
 
-  for (auto timezone : timezones) {
-    auto unit = timestamp(TimeUnit::NANO, timezone);
-    CheckScalarUnary(op, unit, times, unit, ceil_1_nanosecond, &round_to_1_nanoseconds);
-    CheckScalarUnary(op, unit, times, unit, ceil_1_microsecond, &round_to_1_microseconds);
-    CheckScalarUnary(op, unit, times, unit, ceil_1_millisecond, &round_to_1_milliseconds);
-    CheckScalarUnary(op, unit, times, unit, ceil_1_second, &round_to_1_seconds);
-    CheckScalarUnary(op, unit, times, unit, ceil_1_minute, &round_to_1_minutes);
-    CheckScalarUnary(op, unit, times, unit, ceil_1_hour, &round_to_1_hours);
-    CheckScalarUnary(op, unit, times, unit, ceil_1_day, &round_to_1_days);
+  auto unit = timestamp(TimeUnit::NANO, "UTC");
+  CheckScalarUnary(op, unit, times, unit, ceil_1_nanosecond, &round_to_1_nanoseconds);
+  CheckScalarUnary(op, unit, times, unit, ceil_1_microsecond, &round_to_1_microseconds);
+  CheckScalarUnary(op, unit, times, unit, ceil_1_millisecond, &round_to_1_milliseconds);
+  CheckScalarUnary(op, unit, times, unit, ceil_1_second, &round_to_1_seconds);
+  CheckScalarUnary(op, unit, times, unit, ceil_1_minute, &round_to_1_minutes);
+  CheckScalarUnary(op, unit, times, unit, ceil_1_hour, &round_to_1_hours);
+  CheckScalarUnary(op, unit, times, unit, ceil_1_day, &round_to_1_days);
+  CheckScalarUnary(op, unit, times, unit, ceil_1_weeks, &round_to_1_weeks);
+  CheckScalarUnary(op, unit, times, unit, ceil_1_months, &round_to_1_months);
+  CheckScalarUnary(op, unit, times, unit, ceil_1_quarters, &round_to_1_quarters);
+  CheckScalarUnary(op, unit, times, unit, ceil_1_years, &round_to_1_years);
 
-    CheckScalarUnary(op, unit, times, unit, ceil_15_nanosecond, &round_to_15_nanoseconds);
-    CheckScalarUnary(op, unit, times, unit, ceil_15_microsecond,
-                     &round_to_15_microseconds);
-    CheckScalarUnary(op, unit, times, unit, ceil_15_millisecond,
-                     &round_to_15_milliseconds);
-    CheckScalarUnary(op, unit, times, unit, ceil_15_second, &round_to_15_seconds);
-    CheckScalarUnary(op, unit, times, unit, ceil_15_minute, &round_to_15_minutes);
-    CheckScalarUnary(op, unit, times, unit, ceil_15_hour, &round_to_15_hours);
-    CheckScalarUnary(op, unit, times, unit, ceil_15_day, &round_to_15_days);
-  }
+  CheckScalarUnary(op, unit, times, unit, ceil_15_nanosecond, &round_to_15_nanoseconds);
+  CheckScalarUnary(op, unit, times, unit, ceil_15_microsecond, &round_to_15_microseconds);
+  CheckScalarUnary(op, unit, times, unit, ceil_15_millisecond, &round_to_15_milliseconds);
+  CheckScalarUnary(op, unit, times, unit, ceil_15_second, &round_to_15_seconds);
+  CheckScalarUnary(op, unit, times, unit, ceil_15_minute, &round_to_15_minutes);
+  CheckScalarUnary(op, unit, times, unit, ceil_15_hour, &round_to_15_hours);
+  CheckScalarUnary(op, unit, times, unit, ceil_15_day, &round_to_15_days);
+  CheckScalarUnary(op, unit, times, unit, ceil_15_weeks, &round_to_15_weeks);
+  CheckScalarUnary(op, unit, times, unit, ceil_15_months, &round_to_15_months);
+  CheckScalarUnary(op, unit, times, unit, ceil_15_quarters, &round_to_15_quarters);
+  CheckScalarUnary(op, unit, times, unit, ceil_15_years, &round_to_15_years);
 
-  std::vector<std::string> timezones = {"UTC"};
-  for (auto timezone : timezones) {
-    auto unit = timestamp(TimeUnit::NANO, timezone);
-    CheckScalarUnary(op, unit, times, unit, ceil_1_weeks, &round_to_1_weeks);
-    CheckScalarUnary(op, unit, times, unit, ceil_1_months, &round_to_1_months);
-    CheckScalarUnary(op, unit, times, unit, ceil_1_quarters, &round_to_1_quarters);
-    CheckScalarUnary(op, unit, times, unit, ceil_1_years, &round_to_1_years);
-
-    CheckScalarUnary(op, unit, times, unit, ceil_15_weeks, &round_to_15_weeks);
-    CheckScalarUnary(op, unit, times, unit, ceil_15_months, &round_to_15_months);
-    CheckScalarUnary(op, unit, times, unit, ceil_15_quarters, &round_to_15_quarters);
-    CheckScalarUnary(op, unit, times, unit, ceil_15_years, &round_to_15_years);
-  }
+  RoundTemporalOptions round_to_2_hours = RoundTemporalOptions(2, CalendarUnit::HOUR);
+  const char* times_a = R"(["2021-12-23 12:17", null])";
+  const char* times_b = R"(["2021-12-23 13:00", null])";
+  auto unit_brussels = timestamp(TimeUnit::NANO, "Europe/Brussels");
+  CheckScalarUnary(op, unit_brussels, times_a, unit_brussels, times_b, &round_to_2_hours);
 }
 
 TEST_F(ScalarTemporalTest, TestFloorTemporal) {
@@ -1696,43 +1692,38 @@ TEST_F(ScalarTemporalTest, TestFloorTemporal) {
           "2010-01-01", "1995-01-01", "1995-01-01", "1995-01-01", "1995-01-01",
           "2010-01-01", null])";
 
-  for (auto timezone : timezones) {
-    auto unit = timestamp(TimeUnit::NANO, timezone);
-    CheckScalarUnary(op, unit, times, unit, floor_1_nanosecond, &round_to_1_nanoseconds);
-    CheckScalarUnary(op, unit, times, unit, floor_1_microsecond,
-                     &round_to_1_microseconds);
-    CheckScalarUnary(op, unit, times, unit, floor_1_millisecond,
-                     &round_to_1_milliseconds);
-    CheckScalarUnary(op, unit, times, unit, floor_1_second, &round_to_1_seconds);
-    CheckScalarUnary(op, unit, times, unit, floor_1_minute, &round_to_1_minutes);
-    CheckScalarUnary(op, unit, times, unit, floor_1_hour, &round_to_1_hours);
-    CheckScalarUnary(op, unit, times, unit, floor_1_day, &round_to_1_days);
+  auto unit = timestamp(TimeUnit::NANO, "UTC");
+  CheckScalarUnary(op, unit, times, unit, floor_1_nanosecond, &round_to_1_nanoseconds);
+  CheckScalarUnary(op, unit, times, unit, floor_1_microsecond, &round_to_1_microseconds);
+  CheckScalarUnary(op, unit, times, unit, floor_1_millisecond, &round_to_1_milliseconds);
+  CheckScalarUnary(op, unit, times, unit, floor_1_second, &round_to_1_seconds);
+  CheckScalarUnary(op, unit, times, unit, floor_1_minute, &round_to_1_minutes);
+  CheckScalarUnary(op, unit, times, unit, floor_1_hour, &round_to_1_hours);
+  CheckScalarUnary(op, unit, times, unit, floor_1_day, &round_to_1_days);
+  CheckScalarUnary(op, unit, times, unit, floor_1_weeks, &round_to_1_weeks);
+  CheckScalarUnary(op, unit, times, unit, floor_1_months, &round_to_1_months);
+  CheckScalarUnary(op, unit, times, unit, floor_1_quarters, &round_to_1_quarters);
+  CheckScalarUnary(op, unit, times, unit, floor_1_years, &round_to_1_years);
 
-    CheckScalarUnary(op, unit, times, unit, floor_15_nanosecond,
-                     &round_to_15_nanoseconds);
-    CheckScalarUnary(op, unit, times, unit, floor_15_microsecond,
-                     &round_to_15_microseconds);
-    CheckScalarUnary(op, unit, times, unit, floor_15_millisecond,
-                     &round_to_15_milliseconds);
-    CheckScalarUnary(op, unit, times, unit, floor_15_second, &round_to_15_seconds);
-    CheckScalarUnary(op, unit, times, unit, floor_15_minute, &round_to_15_minutes);
-    CheckScalarUnary(op, unit, times, unit, floor_15_hour, &round_to_15_hours);
-    CheckScalarUnary(op, unit, times, unit, floor_15_day, &round_to_15_days);
-  }
+  CheckScalarUnary(op, unit, times, unit, floor_15_nanosecond, &round_to_15_nanoseconds);
+  CheckScalarUnary(op, unit, times, unit, floor_15_microsecond,
+                   &round_to_15_microseconds);
+  CheckScalarUnary(op, unit, times, unit, floor_15_millisecond,
+                   &round_to_15_milliseconds);
+  CheckScalarUnary(op, unit, times, unit, floor_15_second, &round_to_15_seconds);
+  CheckScalarUnary(op, unit, times, unit, floor_15_minute, &round_to_15_minutes);
+  CheckScalarUnary(op, unit, times, unit, floor_15_hour, &round_to_15_hours);
+  CheckScalarUnary(op, unit, times, unit, floor_15_day, &round_to_15_days);
+  CheckScalarUnary(op, unit, times, unit, floor_15_weeks, &round_to_15_weeks);
+  CheckScalarUnary(op, unit, times, unit, floor_15_months, &round_to_15_months);
+  CheckScalarUnary(op, unit, times, unit, floor_15_quarters, &round_to_15_quarters);
+  CheckScalarUnary(op, unit, times, unit, floor_15_years, &round_to_15_years);
 
-  std::vector<std::string> timezones = {"UTC"};
-  for (auto timezone : timezones) {
-    auto unit = timestamp(TimeUnit::NANO, timezone);
-    CheckScalarUnary(op, unit, times, unit, floor_1_weeks, &round_to_1_weeks);
-    CheckScalarUnary(op, unit, times, unit, floor_1_months, &round_to_1_months);
-    CheckScalarUnary(op, unit, times, unit, floor_1_quarters, &round_to_1_quarters);
-    CheckScalarUnary(op, unit, times, unit, floor_1_years, &round_to_1_years);
-
-    CheckScalarUnary(op, unit, times, unit, floor_15_weeks, &round_to_15_weeks);
-    CheckScalarUnary(op, unit, times, unit, floor_15_months, &round_to_15_months);
-    CheckScalarUnary(op, unit, times, unit, floor_15_quarters, &round_to_15_quarters);
-    CheckScalarUnary(op, unit, times, unit, floor_15_years, &round_to_15_years);
-  }
+  RoundTemporalOptions round_to_2_hours = RoundTemporalOptions(2, CalendarUnit::HOUR);
+  const char* times_a = R"(["2021-12-23 12:17", null])";
+  const char* times_b = R"(["2021-12-23 13:00", null])";
+  auto unit_brussels = timestamp(TimeUnit::NANO, "Europe/Brussels");
+  CheckScalarUnary(op, unit_brussels, times_a, unit_brussels, times_b, &round_to_2_hours);
 }
 
 TEST_F(ScalarTemporalTest, TestRoundTemporal) {
@@ -1885,43 +1876,38 @@ TEST_F(ScalarTemporalTest, TestRoundTemporal) {
           "2010-01-01", "2010-01-01", "2010-01-01", "2010-01-01", "2010-01-01",
           "2010-01-01", null])";
 
-  for (auto timezone : timezones) {
-    auto unit = timestamp(TimeUnit::NANO, timezone);
-    CheckScalarUnary(op, unit, times, unit, round_1_nanoseconds, &round_to_1_nanoseconds);
-    CheckScalarUnary(op, unit, times, unit, round_1_microseconds,
-                     &round_to_1_microseconds);
-    CheckScalarUnary(op, unit, times, unit, round_1_milliseconds,
-                     &round_to_1_milliseconds);
-    CheckScalarUnary(op, unit, times, unit, round_1_seconds, &round_to_1_seconds);
-    CheckScalarUnary(op, unit, times, unit, round_1_minutes, &round_to_1_minutes);
-    CheckScalarUnary(op, unit, times, unit, round_1_hours, &round_to_1_hours);
-    CheckScalarUnary(op, unit, times, unit, round_1_days, &round_to_1_days);
+  auto unit = timestamp(TimeUnit::NANO, "UTC");
+  CheckScalarUnary(op, unit, times, unit, round_1_nanoseconds, &round_to_1_nanoseconds);
+  CheckScalarUnary(op, unit, times, unit, round_1_microseconds, &round_to_1_microseconds);
+  CheckScalarUnary(op, unit, times, unit, round_1_milliseconds, &round_to_1_milliseconds);
+  CheckScalarUnary(op, unit, times, unit, round_1_seconds, &round_to_1_seconds);
+  CheckScalarUnary(op, unit, times, unit, round_1_minutes, &round_to_1_minutes);
+  CheckScalarUnary(op, unit, times, unit, round_1_hours, &round_to_1_hours);
+  CheckScalarUnary(op, unit, times, unit, round_1_days, &round_to_1_days);
+  CheckScalarUnary(op, unit, times, unit, round_1_weeks, &round_to_1_weeks);
+  CheckScalarUnary(op, unit, times, unit, round_1_months, &round_to_1_months);
+  CheckScalarUnary(op, unit, times, unit, round_1_quarters, &round_to_1_quarters);
+  CheckScalarUnary(op, unit, times, unit, round_1_years, &round_to_1_years);
 
-    CheckScalarUnary(op, unit, times, unit, round_15_nanoseconds,
-                     &round_to_15_nanoseconds);
-    CheckScalarUnary(op, unit, times, unit, round_15_microseconds,
-                     &round_to_15_microseconds);
-    CheckScalarUnary(op, unit, times, unit, round_15_milliseconds,
-                     &round_to_15_milliseconds);
-    CheckScalarUnary(op, unit, times, unit, round_15_seconds, &round_to_15_seconds);
-    CheckScalarUnary(op, unit, times, unit, round_15_minutes, &round_to_15_minutes);
-    CheckScalarUnary(op, unit, times, unit, round_15_hours, &round_to_15_hours);
-    CheckScalarUnary(op, unit, times, unit, round_15_days, &round_to_15_days);
-  }
+  CheckScalarUnary(op, unit, times, unit, round_15_nanoseconds, &round_to_15_nanoseconds);
+  CheckScalarUnary(op, unit, times, unit, round_15_microseconds,
+                   &round_to_15_microseconds);
+  CheckScalarUnary(op, unit, times, unit, round_15_milliseconds,
+                   &round_to_15_milliseconds);
+  CheckScalarUnary(op, unit, times, unit, round_15_seconds, &round_to_15_seconds);
+  CheckScalarUnary(op, unit, times, unit, round_15_minutes, &round_to_15_minutes);
+  CheckScalarUnary(op, unit, times, unit, round_15_hours, &round_to_15_hours);
+  CheckScalarUnary(op, unit, times, unit, round_15_days, &round_to_15_days);
+  CheckScalarUnary(op, unit, times, unit, round_15_weeks, &round_to_15_weeks);
+  CheckScalarUnary(op, unit, times, unit, round_15_months, &round_to_15_months);
+  CheckScalarUnary(op, unit, times, unit, round_15_quarters, &round_to_15_quarters);
+  CheckScalarUnary(op, unit, times, unit, round_15_years, &round_to_15_years);
 
-  std::vector<std::string> timezones = {"UTC"};
-  for (auto timezone : timezones) {
-    auto unit = timestamp(TimeUnit::NANO, timezone);
-    CheckScalarUnary(op, unit, times, unit, round_1_weeks, &round_to_1_weeks);
-    CheckScalarUnary(op, unit, times, unit, round_1_months, &round_to_1_months);
-    CheckScalarUnary(op, unit, times, unit, round_1_quarters, &round_to_1_quarters);
-    CheckScalarUnary(op, unit, times, unit, round_1_years, &round_to_1_years);
-
-    CheckScalarUnary(op, unit, times, unit, round_15_weeks, &round_to_15_weeks);
-    CheckScalarUnary(op, unit, times, unit, round_15_months, &round_to_15_months);
-    CheckScalarUnary(op, unit, times, unit, round_15_quarters, &round_to_15_quarters);
-    CheckScalarUnary(op, unit, times, unit, round_15_years, &round_to_15_years);
-  }
+  RoundTemporalOptions round_to_2_hours = RoundTemporalOptions(2, CalendarUnit::HOUR);
+  const char* times_a = R"(["2021-12-23 12:17", null])";
+  const char* times_b = R"(["2021-12-23 13:00", null])";
+  auto unit_brussels = timestamp(TimeUnit::NANO, "Europe/Brussels");
+  CheckScalarUnary(op, unit_brussels, times_a, unit_brussels, times_b, &round_to_2_hours);
 }
 
 #endif  // !_WIN32

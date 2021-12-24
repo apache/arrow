@@ -38,6 +38,7 @@ using arrow_vendored::date::sys_time;
 using arrow_vendored::date::time_zone;
 using arrow_vendored::date::year_month_day;
 using arrow_vendored::date::zoned_time;
+using std::chrono::duration_cast;
 
 inline int64_t GetQuarter(const year_month_day& ymd) {
   return static_cast<int64_t>((static_cast<uint32_t>(ymd.month()) - 1) / 3);
@@ -100,6 +101,58 @@ struct NonZonedLocalizer {
   }
 
   sys_days ConvertDays(sys_days d) const { return d; }
+
+  template <typename Duration, typename Unit>
+  sys_time<Duration> CeilTimePoint(int64_t arg, int64_t origin, int64_t multiple) const {
+    sys_time<Duration> o = sys_time<Duration>(Duration{origin});
+    sys_time<Duration> t = sys_time<Duration>(Duration{arg});
+    Unit d = floor<Unit>(t - o);
+
+    sys_time<Duration> result;
+    if (multiple == 1) {
+      result = o + duration_cast<Duration>(d);
+    } else {
+      auto m = (d.count() >= 0) ? d / Unit{multiple} * multiple
+                                : (d - Unit{multiple - 1}) / Unit{multiple} * multiple;
+      result = o + duration_cast<Duration>(Unit{m});
+    }
+    return (result.time_since_epoch() >= Duration{arg})
+               ? result
+               : result + duration_cast<Duration>(Unit{multiple});
+  }
+
+  template <typename Duration, typename Unit>
+  sys_time<Duration> FloorTimePoint(int64_t arg, int64_t origin, int64_t multiple) const {
+    sys_time<Duration> o = sys_time<Duration>(Duration{origin});
+    sys_time<Duration> t = sys_time<Duration>(Duration{arg});
+    Unit d = floor<Unit>(t - o);
+
+    if (multiple == 1) {
+      return o + duration_cast<Duration>(d);
+    } else {
+      auto m = (d.count() >= 0) ? d / Unit{multiple} * multiple
+                                : (d - Unit{multiple - 1}) / Unit{multiple} * multiple;
+      return o + duration_cast<Duration>(Unit{m});
+    }
+  }
+
+  template <typename Duration, typename Unit>
+  sys_time<Duration> RoundTimePoint(int64_t arg, int64_t origin, int64_t multiple) const {
+    sys_time<Duration> o = sys_time<Duration>(Duration{origin});
+    sys_time<Duration> t = sys_time<Duration>(Duration{arg});
+    Unit d = floor<Unit>(t - o);
+    Duration unit = duration_cast<Duration>(Unit{multiple});
+
+    sys_time<Duration> result;
+    if (multiple == 1) {
+      result = o + duration_cast<Duration>(d);
+    } else {
+      auto m = (d.count() >= 0) ? d / unit * multiple
+                                : (d - Unit{multiple - 1}) / unit * multiple;
+      result = o + duration_cast<Duration>(Unit{m});
+    }
+    return Duration{arg} <= result.time_since_epoch() + unit / 2 ? result : result + unit;
+  }
 };
 
 struct ZonedLocalizer {
@@ -114,6 +167,60 @@ struct ZonedLocalizer {
   }
 
   local_days ConvertDays(sys_days d) const { return local_days(year_month_day(d)); }
+
+  template <typename Duration, typename Unit>
+  local_time<Duration> CeilTimePoint(int64_t arg, int64_t origin,
+                                     int64_t multiple) const {
+    local_time<Duration> o = tz->to_local(sys_time<Duration>(Duration{origin}));
+    local_time<Duration> zt = tz->to_local(sys_time<Duration>(Duration{arg}));
+    Unit d = floor<Unit>(zt - o);
+    Duration unit = duration_cast<Duration>(Unit{multiple});
+
+    local_time<Duration> result;
+    if (multiple == 1) {
+      result = o + duration_cast<Duration>(d);
+    } else {
+      auto m = (d.count() >= 0) ? d / unit * multiple
+                                : (d - Unit{multiple - 1}) / unit * multiple;
+      result = o + duration_cast<Duration>(Unit{m});
+    }
+    return (result.time_since_epoch() >= Duration{arg}) ? result : result + unit;
+  }
+
+  template <typename Duration, typename Unit>
+  local_time<Duration> FloorTimePoint(int64_t t, int64_t origin, int64_t multiple) const {
+    local_time<Duration> o = tz->to_local(sys_time<Duration>(Duration{origin}));
+    local_time<Duration> zt = tz->to_local(sys_time<Duration>(Duration{t}));
+    Unit d = floor<Unit>(zt - o);
+    Duration unit = duration_cast<Duration>(Unit{multiple});
+
+    if (multiple == 1) {
+      return o + duration_cast<Duration>(d);
+    } else {
+      auto m = (d.count() >= 0) ? d / unit * multiple
+                                : (d - Unit{multiple - 1}) / unit * multiple;
+      return o + duration_cast<Duration>(Unit{m});
+    }
+  }
+
+  template <typename Duration, typename Unit>
+  local_time<Duration> RoundTimePoint(int64_t arg, int64_t origin,
+                                      int64_t multiple) const {
+    local_time<Duration> o = tz->to_local(sys_time<Duration>(Duration{origin}));
+    local_time<Duration> zt = tz->to_local(sys_time<Duration>(Duration{arg}));
+    Unit d = floor<Unit>(zt - o);
+    Duration unit = duration_cast<Duration>(Unit{multiple});
+
+    local_time<Duration> result;
+    if (multiple == 1) {
+      result = o + duration_cast<Duration>(d);
+    } else {
+      auto m = (d.count() >= 0) ? d / unit * multiple
+                                : (d - Unit{multiple - 1}) / unit * multiple;
+      result = o + duration_cast<Duration>(Unit{m});
+    }
+    return Duration{arg} <= result.time_since_epoch() + unit / 2 ? result : result + unit;
+  }
 };
 
 template <typename Duration>

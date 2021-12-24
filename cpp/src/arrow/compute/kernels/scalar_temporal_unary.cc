@@ -477,70 +477,31 @@ struct Nanosecond {
 // ----------------------------------------------------------------------
 // Round temporal values to given frequency
 
-template <typename Duration, typename Unit>
-Duration CeilMultiple(const int64_t arg, const int multiple, const int64_t origin) {
-  // TODO: origin
-  auto ceiled = ceil<Unit>(Duration{arg});
-  if (multiple == 1) {
-    return duration_cast<Duration>(ceiled);
-  } else {
-    auto t = duration_cast<Duration>(Unit{ceiled / Unit{multiple}} * multiple);
-    return t >= Duration{arg} ? t : t + duration_cast<Duration>(Unit{multiple});
-  }
-}
-
-template <typename Duration, typename Unit>
-Duration FloorMultiple(const int64_t arg, const int multiple, const int64_t origin) {
-  // TODO: origin
-  auto floored = floor<Unit>(Duration{arg});
-  if (multiple == 1) {
-    return duration_cast<Duration>(floored);
-  } else {
-    return arg > 0
-               ? duration_cast<Duration>(Unit{floored / Unit{multiple}} * multiple)
-               : duration_cast<Duration>(
-                     Unit{(floored - Unit{multiple - 1}) / Unit{multiple}} * multiple);
-  }
-}
-
-template <typename Duration, typename Unit>
-Duration RoundMultiple(const int64_t arg, const int multiple, const int64_t origin) {
-  // TODO: origin
-  if (multiple == 1) {
-    auto rounded = round<Unit>(Duration{arg});
-    return duration_cast<Duration>(rounded);
-  } else {
-    auto unit = duration_cast<Duration>(Unit{multiple});
-    Duration floored;
-    if (arg >= 0) {
-      floored = duration_cast<Duration>(Unit{Duration{arg} / Unit{multiple}} * multiple);
-    } else {
-      floored = duration_cast<Duration>(
-          Unit{(Duration{arg} - unit + Duration{1}) / Unit{multiple}} * multiple);
-    }
-    return Duration{arg} <= floored + unit / 2 ? floored : floored + unit;
-  }
-}
-
 template <typename Duration, typename Localizer>
 year_month_day GetFlooredYmd(int64_t arg, int multiple, const int64_t origin,
                              Localizer localizer_) {
-  // TODO: origin
-  //  year_month_day ymd{
-  //      floor<days>(localizer_.template ConvertTimePoint<Duration>(arg - origin))};
   year_month_day ymd{floor<days>(localizer_.template ConvertTimePoint<Duration>(arg))};
 
   if (multiple == 1) {
     return year_month_day(ymd.year() / ymd.month() / 1);
   } else {
-    int32_t total_months = (static_cast<int32_t>(ymd.year()) - 1970) * 12 +
-                           static_cast<int32_t>(static_cast<uint32_t>(ymd.month())) - 1;
+    year_month_day ymd_origin{
+        floor<days>(localizer_.template ConvertTimePoint<Duration>(origin))};
+
+    int32_t total_months_origin =
+        static_cast<int32_t>(ymd_origin.year()) * 12 +
+        static_cast<int32_t>(static_cast<uint32_t>(ymd_origin.month())) - 1;
+    int32_t total_months = static_cast<int32_t>(ymd.year()) * 12 +
+                           static_cast<int32_t>(static_cast<uint32_t>(ymd.month())) - 1 -
+                           total_months_origin;
+
     if (total_months >= 0) {
       total_months = total_months / multiple * multiple;
     } else {
       total_months = (total_months - multiple + 1) / multiple * multiple;
     }
-    return year_month_day(year{1970} / jan / 1) + months{total_months};
+    return year_month_day(ymd_origin.year() / ymd_origin.month() / 1) +
+           months{total_months};
   }
 }
 
@@ -554,35 +515,52 @@ struct CeilTemporal {
     Duration t;
     switch (options.unit) {
       case compute::CalendarUnit::NANOSECOND:
-        t = CeilMultiple<Duration, std::chrono::nanoseconds>(arg, options.multiple,
-                                                             options.origin);
+        t = localizer_
+                .template CeilTimePoint<Duration, std::chrono::nanoseconds>(
+                    arg, options.origin, options.multiple)
+                .time_since_epoch();
         break;
       case compute::CalendarUnit::MICROSECOND:
-        t = CeilMultiple<Duration, std::chrono::microseconds>(arg, options.multiple,
-                                                              options.origin);
+        t = localizer_
+                .template CeilTimePoint<Duration, std::chrono::microseconds>(
+                    arg, options.origin, options.multiple)
+                .time_since_epoch();
         break;
       case compute::CalendarUnit::MILLISECOND:
-        t = CeilMultiple<Duration, std::chrono::milliseconds>(arg, options.multiple,
-                                                              options.origin);
+        t = localizer_
+                .template CeilTimePoint<Duration, std::chrono::milliseconds>(
+                    arg, options.origin, options.multiple)
+                .time_since_epoch();
         break;
       case compute::CalendarUnit::SECOND:
-        t = CeilMultiple<Duration, std::chrono::seconds>(arg, options.multiple,
-                                                         options.origin);
+        t = localizer_
+                .template CeilTimePoint<Duration, std::chrono::seconds>(
+                    arg, options.origin, options.multiple)
+                .time_since_epoch();
         break;
       case compute::CalendarUnit::MINUTE:
-        t = CeilMultiple<Duration, std::chrono::minutes>(arg, options.multiple,
-                                                         options.origin);
+        t = localizer_
+                .template CeilTimePoint<Duration, std::chrono::minutes>(
+                    arg, options.origin, options.multiple)
+                .time_since_epoch();
         break;
       case compute::CalendarUnit::HOUR:
-        t = CeilMultiple<Duration, std::chrono::hours>(arg, options.multiple,
-                                                       options.origin);
+        t = localizer_
+                .template CeilTimePoint<Duration, std::chrono::hours>(arg, options.origin,
+                                                                      options.multiple)
+                .time_since_epoch();
         break;
       case compute::CalendarUnit::DAY:
-        t = CeilMultiple<Duration, days>(arg, options.multiple, options.origin);
+        t = localizer_
+                .template CeilTimePoint<Duration, days>(arg, options.origin,
+                                                        options.multiple)
+                .time_since_epoch();
         break;
       case compute::CalendarUnit::WEEK:
-        t = CeilMultiple<Duration, arrow_vendored::date::weeks>(arg, options.multiple,
-                                                                options.origin);
+        t = localizer_
+                .template CeilTimePoint<Duration, weeks>(arg, options.origin,
+                                                         options.multiple)
+                .time_since_epoch();
         break;
       case compute::CalendarUnit::MONTH: {
         year_month_day ymd = GetFlooredYmd<Duration, Localizer>(
@@ -626,35 +604,52 @@ struct FloorTemporal {
     Duration t;
     switch (options.unit) {
       case compute::CalendarUnit::NANOSECOND:
-        t = FloorMultiple<Duration, std::chrono::nanoseconds>(arg, options.multiple,
-                                                              options.origin);
+        t = localizer_
+                .template FloorTimePoint<Duration, std::chrono::nanoseconds>(
+                    arg, options.origin, options.multiple)
+                .time_since_epoch();
         break;
       case compute::CalendarUnit::MICROSECOND:
-        t = FloorMultiple<Duration, std::chrono::microseconds>(arg, options.multiple,
-                                                               options.origin);
+        t = localizer_
+                .template FloorTimePoint<Duration, std::chrono::microseconds>(
+                    arg, options.origin, options.multiple)
+                .time_since_epoch();
         break;
       case compute::CalendarUnit::MILLISECOND:
-        t = FloorMultiple<Duration, std::chrono::milliseconds>(arg, options.multiple,
-                                                               options.origin);
+        t = localizer_
+                .template FloorTimePoint<Duration, std::chrono::milliseconds>(
+                    arg, options.origin, options.multiple)
+                .time_since_epoch();
         break;
       case compute::CalendarUnit::SECOND:
-        t = FloorMultiple<Duration, std::chrono::seconds>(arg, options.multiple,
-                                                          options.origin);
+        t = localizer_
+                .template FloorTimePoint<Duration, std::chrono::seconds>(
+                    arg, options.origin, options.multiple)
+                .time_since_epoch();
         break;
       case compute::CalendarUnit::MINUTE:
-        t = FloorMultiple<Duration, std::chrono::minutes>(arg, options.multiple,
-                                                          options.origin);
+        t = localizer_
+                .template FloorTimePoint<Duration, std::chrono::minutes>(
+                    arg, options.origin, options.multiple)
+                .time_since_epoch();
         break;
       case compute::CalendarUnit::HOUR:
-        t = FloorMultiple<Duration, std::chrono::hours>(arg, options.multiple,
-                                                        options.origin);
+        t = localizer_
+                .template FloorTimePoint<Duration, std::chrono::hours>(
+                    arg, options.origin, options.multiple)
+                .time_since_epoch();
         break;
       case compute::CalendarUnit::DAY:
-        t = FloorMultiple<Duration, days>(arg, options.multiple, options.origin);
+        t = localizer_
+                .template FloorTimePoint<Duration, days>(arg, options.origin,
+                                                         options.multiple)
+                .time_since_epoch();
         break;
       case compute::CalendarUnit::WEEK:
-        t = FloorMultiple<Duration, arrow_vendored::date::weeks>(arg, options.multiple,
-                                                                 options.origin);
+        t = localizer_
+                .template FloorTimePoint<Duration, weeks>(arg, options.origin,
+                                                          options.multiple)
+                .time_since_epoch();
         break;
       case compute::CalendarUnit::MONTH: {
         year_month_day ymd = GetFlooredYmd<Duration, Localizer>(
@@ -695,36 +690,53 @@ struct RoundTemporal {
     Duration t;
     switch (options.unit) {
       case compute::CalendarUnit::NANOSECOND:
-        t = RoundMultiple<Duration, std::chrono::nanoseconds>(arg, options.multiple,
-                                                              options.origin);
+        t = localizer_
+                .template RoundTimePoint<Duration, std::chrono::nanoseconds>(
+                    arg, options.origin, options.multiple)
+                .time_since_epoch();
         break;
       case compute::CalendarUnit::MICROSECOND:
-        t = RoundMultiple<Duration, std::chrono::microseconds>(arg, options.multiple,
-                                                               options.origin);
+        t = localizer_
+                .template RoundTimePoint<Duration, std::chrono::microseconds>(
+                    arg, options.origin, options.multiple)
+                .time_since_epoch();
         break;
       case compute::CalendarUnit::MILLISECOND:
-        t = RoundMultiple<Duration, std::chrono::milliseconds>(arg, options.multiple,
-                                                               options.origin);
+        t = localizer_
+                .template RoundTimePoint<Duration, std::chrono::milliseconds>(
+                    arg, options.origin, options.multiple)
+                .time_since_epoch();
         break;
       case compute::CalendarUnit::SECOND:
-        t = RoundMultiple<Duration, std::chrono::seconds>(arg, options.multiple,
-                                                          options.origin);
+        t = localizer_
+                .template RoundTimePoint<Duration, std::chrono::seconds>(
+                    arg, options.origin, options.multiple)
+                .time_since_epoch();
         break;
       case compute::CalendarUnit::MINUTE:
-        t = RoundMultiple<Duration, std::chrono::minutes>(arg, options.multiple,
-                                                          options.origin);
+        t = localizer_
+                .template RoundTimePoint<Duration, std::chrono::minutes>(
+                    arg, options.origin, options.multiple)
+                .time_since_epoch();
         break;
       case compute::CalendarUnit::HOUR:
-        t = RoundMultiple<Duration, std::chrono::hours>(arg, options.multiple,
-                                                        options.origin);
+        t = localizer_
+                .template RoundTimePoint<Duration, std::chrono::hours>(
+                    arg, options.origin, options.multiple)
+                .time_since_epoch();
         break;
       case compute::CalendarUnit::DAY:
-        t = RoundMultiple<Duration, days>(arg, options.multiple, options.origin);
+        t = localizer_
+                .template RoundTimePoint<Duration, days>(arg, options.origin,
+                                                         options.multiple)
+                .time_since_epoch();
         break;
-      case compute::CalendarUnit::WEEK: {
-        t = RoundMultiple<Duration, weeks>(arg, options.multiple, options.origin);
+      case compute::CalendarUnit::WEEK:
+        t = localizer_
+                .template RoundTimePoint<Duration, weeks>(arg, options.origin,
+                                                          options.multiple)
+                .time_since_epoch();
         break;
-      }
       case compute::CalendarUnit::MONTH: {
         auto t0 = localizer_.template ConvertTimePoint<Duration>(arg);
         year_month_day ymd = GetFlooredYmd<Duration, Localizer>(
