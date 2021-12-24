@@ -197,14 +197,12 @@ struct Day {
 
 template <typename Duration, typename Localizer>
 std::array<int64_t, 3> GetYearMonthDay(int64_t arg, Localizer&& localizer) {
-  const auto t =
-    floor<days>(localizer.template ConvertTimePoint<Duration>(arg));
+  const auto t = floor<days>(localizer.template ConvertTimePoint<Duration>(arg));
   const auto ymd = year_month_day(t);
-  
+
   return {static_cast<int64_t>(static_cast<const int32_t>(ymd.year())),
-    static_cast<int64_t>(static_cast<const uint32_t>(ymd.month())),
-    static_cast<int64_t>(static_cast<const uint32_t>(ymd.day()))
-  };
+          static_cast<int64_t>(static_cast<const uint32_t>(ymd.month())),
+          static_cast<int64_t>(static_cast<const uint32_t>(ymd.day()))};
 }
 
 template <typename Duration, typename InType>
@@ -227,7 +225,7 @@ struct YearMonthDayWrapper<Duration, TimestampType> {
       return GetYearMonthDay<Duration>(in_val, ZonedLocalizer{tz});
     }
   }
-};  
+};
 
 template <typename Duration, typename InType, typename BuilderType>
 struct YearMonthDayVisitValueFunction {
@@ -281,7 +279,7 @@ struct YearMonthDay {
                             (YearMonthDayWrapper<Duration, InType>::Get(in)));
       ScalarVector values = {std::make_shared<Int64Scalar>(year_month_day[0]),
                              std::make_shared<Int64Scalar>(year_month_day[1]),
-                             std::make_shared<Int64Scalar>(year_month_day[2])};      
+                             std::make_shared<Int64Scalar>(year_month_day[2])};
       *checked_cast<StructScalar*>(out) =
           StructScalar(std::move(values), YearMonthDayType());
     } else {
@@ -1154,7 +1152,7 @@ void RegisterScalarTemporalUnary(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(day)));
 
   auto year_month_day =
-    SimpleUnaryTemporalFactory<YearMonthDay>::Make<WithDates, WithTimestamps>(
+      SimpleUnaryTemporalFactory<YearMonthDay>::Make<WithDates, WithTimestamps>(
           "year_month_day", YearMonthDayType(), &year_month_day_doc);
   DCHECK_OK(registry->AddFunction(std::move(year_month_day)));
 

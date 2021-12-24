@@ -590,10 +590,9 @@ TEST_F(ScalarTemporalTest, TestZoned2) {
   for (auto u : TimeUnit::values()) {
     auto unit = timestamp(u, "Australia/Broken_Hill");
     auto month = "[1, 3, 1, 5, 1, 12, 12, 12, 1, 1, 1, 1, 12, 12, 12, 1, null]";
-    auto day = "[1, 1, 1, 18, 1, 31, 30, 31, 1, 3, 4, 1, 31, 28, 29, 1, null]"; 
-    auto year_month_day =
-      ArrayFromJSON(year_month_day_type,
-                      R"([{"year": 1970, "month": 1, "day": 1},
+    auto day = "[1, 1, 1, 18, 1, 31, 30, 31, 1, 3, 4, 1, 31, 28, 29, 1, null]";
+    auto year_month_day = ArrayFromJSON(year_month_day_type,
+                                        R"([{"year": 1970, "month": 1, "day": 1},
                           {"year": 2000, "month": 3, "day": 1},
                           {"year": 1899, "month": 1, "day": 1},
                           {"year": 2033, "month": 5, "day": 18},
