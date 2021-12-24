@@ -590,7 +590,25 @@ TEST_F(ScalarTemporalTest, TestZoned2) {
   for (auto u : TimeUnit::values()) {
     auto unit = timestamp(u, "Australia/Broken_Hill");
     auto month = "[1, 3, 1, 5, 1, 12, 12, 12, 1, 1, 1, 1, 12, 12, 12, 1, null]";
-    auto day = "[1, 1, 1, 18, 1, 31, 30, 31, 1, 3, 4, 1, 31, 28, 29, 1, null]";
+    auto day = "[1, 1, 1, 18, 1, 31, 30, 31, 1, 3, 4, 1, 31, 28, 29, 1, null]"; 
+    auto year_month_day =
+      ArrayFromJSON(year_month_day_type,
+                      R"([{"year": 1970, "month": 1, "day": 1},
+                          {"year": 2000, "month": 3, "day": 1},
+                          {"year": 1899, "month": 1, "day": 1},
+                          {"year": 2033, "month": 5, "day": 18},
+                          {"year": 2020, "month": 1, "day": 1},
+                          {"year": 2019, "month": 12, "day": 31},
+                          {"year": 2019, "month": 12, "day": 30},
+                          {"year": 2009, "month": 12, "day": 31},
+                          {"year": 2010, "month": 1, "day": 1},
+                          {"year": 2010, "month": 1, "day": 3},
+                          {"year": 2010, "month": 1, "day": 4},
+                          {"year": 2006, "month": 1, "day": 1},
+                          {"year": 2005, "month": 12, "day": 31},
+                          {"year": 2008, "month": 12, "day": 28},
+                          {"year": 2008, "month": 12, "day": 29},
+                          {"year": 2012, "month": 1, "day": 1}, null])");
     auto day_of_week = "[3, 2, 6, 2, 2, 1, 0, 3, 4, 6, 0, 6, 5, 6, 0, 6, null]";
     auto day_of_year =
         "[1, 61, 1, 138, 1, 365, 364, 365, 1, 3, 4, 1, 365, 363, 364, 1, null]";
