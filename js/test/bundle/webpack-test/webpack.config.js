@@ -16,19 +16,19 @@ module.exports = env => ({
         filename: '[name]-bundle.js'
     },
     module: {
-
         rules: [
             {
-                test: /\.mjs$/,
                 resolve: {
                     fullySpecified: false,
-                },
-            },
-        ],
+                }
+            }
+        ]
     },
     resolve: {
+        // TODO: this should not be needed but without it Webpack uses the cjs files
+        extensions: ['.mjs'],
         alias: {
-            'apache-arrow': resolve(__dirname, '../../../targets/apache-arrow/'),
+            'apache-arrow': resolve(__dirname, '../../../targets/apache-arrow/')
         }
     },
     plugins: env.analyze ? [new BundleAnalyzerPlugin()] : []
