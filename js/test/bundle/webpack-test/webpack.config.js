@@ -4,7 +4,7 @@ const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPl
 module.exports = env => ({
     mode: 'development',
     optimization: {
-        usedExports: true,
+        usedExports: true
     },
     entry: {
         table: resolve(__dirname, './table.js'),
