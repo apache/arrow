@@ -40,6 +40,13 @@ TEST(TestPublicAPI, DoesNotIncludeZlib) {
 #endif
 }
 
+TEST(TestPublicAPI, DoesNotIncludeWindows) {
+#if defined(SendMessage) || defined(GetObject) || defined(ERROR_INVALID_HANDLE) || \
+    defined(FILE_SHARE_READ) || defined(WAIT_TIMEOUT)
+  FAIL() << "Windows.h should not be transitively included";
+#endif
+}
+
 PARQUET_NORETURN void ThrowsParquetException() {
   throw parquet::ParquetException("This function throws");
 }

@@ -53,55 +53,36 @@ namespace {
 // N.B. take care not to conflict with type_traits.h as that can cause surprises in a
 // unity build
 
-template <typename T>
-using is_unsigned_integer = std::integral_constant<bool, std::is_integral<T>::value &&
-                                                             std::is_unsigned<T>::value>;
-
-template <typename T>
-using is_signed_integer =
-    std::integral_constant<bool, std::is_integral<T>::value && std::is_signed<T>::value>;
-
-template <typename T, typename R = T>
-using enable_if_signed_c_integer = enable_if_t<is_signed_integer<T>::value, R>;
-
-template <typename T, typename R = T>
-using enable_if_unsigned_c_integer = enable_if_t<is_unsigned_integer<T>::value, R>;
-
-template <typename T, typename R = T>
-using enable_if_c_integer =
-    enable_if_t<is_signed_integer<T>::value || is_unsigned_integer<T>::value, R>;
-
-template <typename T, typename R = T>
-using enable_if_floating_point = enable_if_t<std::is_floating_point<T>::value, R>;
-
-template <typename T, typename R = T>
-using enable_if_decimal_value =
-    enable_if_t<std::is_same<Decimal128, T>::value || std::is_same<Decimal256, T>::value,
-                R>;
-
 struct AbsoluteValue {
   template <typename T, typename Arg>
-  static constexpr enable_if_floating_point<Arg, T> Call(KernelContext*, Arg arg,
+  static constexpr enable_if_floating_value<Arg, T> Call(KernelContext*, Arg arg,
                                                          Status*) {
     return std::fabs(arg);
   }
 
   template <typename T, typename Arg>
-  static constexpr enable_if_unsigned_c_integer<Arg, T> Call(KernelContext*, Arg arg,
-                                                             Status*) {
+  static constexpr enable_if_unsigned_integer_value<Arg, T> Call(KernelContext*, Arg arg,
+                                                                 Status*) {
     return arg;
   }
 
   template <typename T, typename Arg>
-  static constexpr enable_if_signed_c_integer<Arg, T> Call(KernelContext*, Arg arg,
-                                                           Status* st) {
+  static constexpr enable_if_signed_integer_value<Arg, T> Call(KernelContext*, Arg arg,
+                                                               Status* st) {
     return (arg < 0) ? arrow::internal::SafeSignedNegate(arg) : arg;
+  }
+
+  template <typename T, typename Arg>
+  static constexpr enable_if_decimal_value<Arg, T> Call(KernelContext*, Arg arg,
+                                                        Status*) {
+    return arg.Abs();
   }
 };
 
 struct AbsoluteValueChecked {
   template <typename T, typename Arg>
-  static enable_if_signed_c_integer<Arg, T> Call(KernelContext*, Arg arg, Status* st) {
+  static enable_if_signed_integer_value<Arg, T> Call(KernelContext*, Arg arg,
+                                                     Status* st) {
     static_assert(std::is_same<T, Arg>::value, "");
     if (arg == std::numeric_limits<Arg>::min()) {
       *st = Status::Invalid("overflow");
@@ -111,36 +92,42 @@ struct AbsoluteValueChecked {
   }
 
   template <typename T, typename Arg>
-  static enable_if_unsigned_c_integer<Arg, T> Call(KernelContext* ctx, Arg arg,
-                                                   Status* st) {
+  static enable_if_unsigned_integer_value<Arg, T> Call(KernelContext* ctx, Arg arg,
+                                                       Status* st) {
     static_assert(std::is_same<T, Arg>::value, "");
     return arg;
   }
 
   template <typename T, typename Arg>
-  static constexpr enable_if_floating_point<Arg, T> Call(KernelContext*, Arg arg,
+  static constexpr enable_if_floating_value<Arg, T> Call(KernelContext*, Arg arg,
                                                          Status* st) {
     static_assert(std::is_same<T, Arg>::value, "");
     return std::fabs(arg);
+  }
+
+  template <typename T, typename Arg>
+  static constexpr enable_if_decimal_value<Arg, T> Call(KernelContext*, Arg arg,
+                                                        Status*) {
+    return arg.Abs();
   }
 };
 
 struct Add {
   template <typename T, typename Arg0, typename Arg1>
-  static constexpr enable_if_floating_point<T> Call(KernelContext*, Arg0 left, Arg1 right,
+  static constexpr enable_if_floating_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
                                                     Status*) {
     return left + right;
   }
 
   template <typename T, typename Arg0, typename Arg1>
-  static constexpr enable_if_unsigned_c_integer<T> Call(KernelContext*, Arg0 left,
-                                                        Arg1 right, Status*) {
+  static constexpr enable_if_unsigned_integer_value<T> Call(KernelContext*, Arg0 left,
+                                                            Arg1 right, Status*) {
     return left + right;
   }
 
   template <typename T, typename Arg0, typename Arg1>
-  static constexpr enable_if_signed_c_integer<T> Call(KernelContext*, Arg0 left,
-                                                      Arg1 right, Status*) {
+  static constexpr enable_if_signed_integer_value<T> Call(KernelContext*, Arg0 left,
+                                                          Arg1 right, Status*) {
     return arrow::internal::SafeSignedAdd(left, right);
   }
 
@@ -152,7 +139,8 @@ struct Add {
 
 struct AddChecked {
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_c_integer<T> Call(KernelContext*, Arg0 left, Arg1 right, Status* st) {
+  static enable_if_integer_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
+                                         Status* st) {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
     T result = 0;
     if (ARROW_PREDICT_FALSE(AddWithOverflow(left, right, &result))) {
@@ -162,7 +150,7 @@ struct AddChecked {
   }
 
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_floating_point<T> Call(KernelContext*, Arg0 left, Arg1 right,
+  static enable_if_floating_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
                                           Status*) {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
     return left + right;
@@ -176,22 +164,22 @@ struct AddChecked {
 
 struct Subtract {
   template <typename T, typename Arg0, typename Arg1>
-  static constexpr enable_if_floating_point<T> Call(KernelContext*, Arg0 left, Arg1 right,
+  static constexpr enable_if_floating_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
                                                     Status*) {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
     return left - right;
   }
 
   template <typename T, typename Arg0, typename Arg1>
-  static constexpr enable_if_unsigned_c_integer<T> Call(KernelContext*, Arg0 left,
-                                                        Arg1 right, Status*) {
+  static constexpr enable_if_unsigned_integer_value<T> Call(KernelContext*, Arg0 left,
+                                                            Arg1 right, Status*) {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
     return left - right;
   }
 
   template <typename T, typename Arg0, typename Arg1>
-  static constexpr enable_if_signed_c_integer<T> Call(KernelContext*, Arg0 left,
-                                                      Arg1 right, Status*) {
+  static constexpr enable_if_signed_integer_value<T> Call(KernelContext*, Arg0 left,
+                                                          Arg1 right, Status*) {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
     return arrow::internal::SafeSignedSubtract(left, right);
   }
@@ -204,7 +192,8 @@ struct Subtract {
 
 struct SubtractChecked {
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_c_integer<T> Call(KernelContext*, Arg0 left, Arg1 right, Status* st) {
+  static enable_if_integer_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
+                                         Status* st) {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
     T result = 0;
     if (ARROW_PREDICT_FALSE(SubtractWithOverflow(left, right, &result))) {
@@ -214,7 +203,7 @@ struct SubtractChecked {
   }
 
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_floating_point<T> Call(KernelContext*, Arg0 left, Arg1 right,
+  static enable_if_floating_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
                                           Status*) {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
     return left - right;
@@ -237,21 +226,21 @@ struct Multiply {
   static_assert(std::is_same<decltype(uint64_t() * uint64_t()), uint64_t>::value, "");
 
   template <typename T, typename Arg0, typename Arg1>
-  static constexpr enable_if_floating_point<T> Call(KernelContext*, T left, T right,
+  static constexpr enable_if_floating_value<T> Call(KernelContext*, T left, T right,
                                                     Status*) {
     return left * right;
   }
 
   template <typename T, typename Arg0, typename Arg1>
   static constexpr enable_if_t<
-      is_unsigned_integer<T>::value && !std::is_same<T, uint16_t>::value, T>
+      is_unsigned_integer_value<T>::value && !std::is_same<T, uint16_t>::value, T>
   Call(KernelContext*, T left, T right, Status*) {
     return left * right;
   }
 
   template <typename T, typename Arg0, typename Arg1>
   static constexpr enable_if_t<
-      is_signed_integer<T>::value && !std::is_same<T, int16_t>::value, T>
+      is_signed_integer_value<T>::value && !std::is_same<T, int16_t>::value, T>
   Call(KernelContext*, T left, T right, Status*) {
     return to_unsigned(left) * to_unsigned(right);
   }
@@ -279,7 +268,8 @@ struct Multiply {
 
 struct MultiplyChecked {
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_c_integer<T> Call(KernelContext*, Arg0 left, Arg1 right, Status* st) {
+  static enable_if_integer_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
+                                         Status* st) {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
     T result = 0;
     if (ARROW_PREDICT_FALSE(MultiplyWithOverflow(left, right, &result))) {
@@ -289,7 +279,7 @@ struct MultiplyChecked {
   }
 
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_floating_point<T> Call(KernelContext*, Arg0 left, Arg1 right,
+  static enable_if_floating_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
                                           Status*) {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
     return left * right;
@@ -303,13 +293,14 @@ struct MultiplyChecked {
 
 struct Divide {
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_floating_point<T> Call(KernelContext*, Arg0 left, Arg1 right,
+  static enable_if_floating_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
                                           Status*) {
     return left / right;
   }
 
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_c_integer<T> Call(KernelContext*, Arg0 left, Arg1 right, Status* st) {
+  static enable_if_integer_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
+                                         Status* st) {
     T result;
     if (ARROW_PREDICT_FALSE(DivideWithOverflow(left, right, &result))) {
       if (right == 0) {
@@ -335,7 +326,8 @@ struct Divide {
 
 struct DivideChecked {
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_c_integer<T> Call(KernelContext*, Arg0 left, Arg1 right, Status* st) {
+  static enable_if_integer_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
+                                         Status* st) {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
     T result;
     if (ARROW_PREDICT_FALSE(DivideWithOverflow(left, right, &result))) {
@@ -349,7 +341,7 @@ struct DivideChecked {
   }
 
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_floating_point<T> Call(KernelContext*, Arg0 left, Arg1 right,
+  static enable_if_floating_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
                                           Status* st) {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
     if (ARROW_PREDICT_FALSE(right == 0)) {
@@ -368,25 +360,33 @@ struct DivideChecked {
 
 struct Negate {
   template <typename T, typename Arg>
-  static constexpr enable_if_floating_point<T> Call(KernelContext*, Arg arg, Status*) {
+  static constexpr enable_if_floating_value<T> Call(KernelContext*, Arg arg, Status*) {
     return -arg;
   }
 
   template <typename T, typename Arg>
-  static constexpr enable_if_unsigned_c_integer<T> Call(KernelContext*, Arg arg,
-                                                        Status*) {
+  static constexpr enable_if_unsigned_integer_value<T> Call(KernelContext*, Arg arg,
+                                                            Status*) {
     return ~arg + 1;
   }
 
   template <typename T, typename Arg>
-  static constexpr enable_if_signed_c_integer<T> Call(KernelContext*, Arg arg, Status*) {
+  static constexpr enable_if_signed_integer_value<T> Call(KernelContext*, Arg arg,
+                                                          Status*) {
     return arrow::internal::SafeSignedNegate(arg);
+  }
+
+  template <typename T, typename Arg>
+  static constexpr enable_if_decimal_value<Arg, T> Call(KernelContext*, Arg arg,
+                                                        Status*) {
+    return arg.Negate();
   }
 };
 
 struct NegateChecked {
   template <typename T, typename Arg>
-  static enable_if_signed_c_integer<Arg, T> Call(KernelContext*, Arg arg, Status* st) {
+  static enable_if_signed_integer_value<Arg, T> Call(KernelContext*, Arg arg,
+                                                     Status* st) {
     static_assert(std::is_same<T, Arg>::value, "");
     T result = 0;
     if (ARROW_PREDICT_FALSE(NegateWithOverflow(arg, &result))) {
@@ -396,8 +396,8 @@ struct NegateChecked {
   }
 
   template <typename T, typename Arg>
-  static enable_if_unsigned_c_integer<Arg, T> Call(KernelContext* ctx, Arg arg,
-                                                   Status* st) {
+  static enable_if_unsigned_integer_value<Arg, T> Call(KernelContext* ctx, Arg arg,
+                                                       Status* st) {
     static_assert(std::is_same<T, Arg>::value, "");
     DCHECK(false) << "This is included only for the purposes of instantiability from the "
                      "arithmetic kernel generator";
@@ -405,10 +405,16 @@ struct NegateChecked {
   }
 
   template <typename T, typename Arg>
-  static constexpr enable_if_floating_point<Arg, T> Call(KernelContext*, Arg arg,
+  static constexpr enable_if_floating_value<Arg, T> Call(KernelContext*, Arg arg,
                                                          Status* st) {
     static_assert(std::is_same<T, Arg>::value, "");
     return -arg;
+  }
+
+  template <typename T, typename Arg>
+  static constexpr enable_if_decimal_value<Arg, T> Call(KernelContext*, Arg arg,
+                                                        Status*) {
+    return arg.Negate();
   }
 };
 
@@ -426,7 +432,7 @@ struct Power {
   }
 
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_c_integer<T> Call(KernelContext*, T base, T exp, Status* st) {
+  static enable_if_integer_value<T> Call(KernelContext*, T base, T exp, Status* st) {
     if (exp < 0) {
       *st = Status::Invalid("integers to negative integer powers are not allowed");
       return 0;
@@ -435,14 +441,15 @@ struct Power {
   }
 
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_floating_point<T> Call(KernelContext*, T base, T exp, Status*) {
+  static enable_if_floating_value<T> Call(KernelContext*, T base, T exp, Status*) {
     return std::pow(base, exp);
   }
 };
 
 struct PowerChecked {
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_c_integer<T> Call(KernelContext*, Arg0 base, Arg1 exp, Status* st) {
+  static enable_if_integer_value<T> Call(KernelContext*, Arg0 base, Arg1 exp,
+                                         Status* st) {
     if (exp < 0) {
       *st = Status::Invalid("integers to negative integer powers are not allowed");
       return 0;
@@ -452,7 +459,7 @@ struct PowerChecked {
     // left to right O(logn) power with overflow checks
     bool overflow = false;
     uint64_t bitmask =
-        1ULL << (63 - BitUtil::CountLeadingZeros(static_cast<uint64_t>(exp)));
+        1ULL << (63 - bit_util::CountLeadingZeros(static_cast<uint64_t>(exp)));
     T pow = 1;
     while (bitmask) {
       overflow |= MultiplyWithOverflow(pow, pow, &pow);
@@ -468,7 +475,7 @@ struct PowerChecked {
   }
 
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_floating_point<T> Call(KernelContext*, Arg0 base, Arg1 exp, Status*) {
+  static enable_if_floating_value<T> Call(KernelContext*, Arg0 base, Arg1 exp, Status*) {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
     return std::pow(base, exp);
   }
@@ -476,21 +483,27 @@ struct PowerChecked {
 
 struct Sign {
   template <typename T, typename Arg>
-  static constexpr enable_if_floating_point<Arg, T> Call(KernelContext*, Arg arg,
+  static constexpr enable_if_floating_value<Arg, T> Call(KernelContext*, Arg arg,
                                                          Status*) {
     return std::isnan(arg) ? arg : ((arg == 0) ? 0 : (std::signbit(arg) ? -1 : 1));
   }
 
   template <typename T, typename Arg>
-  static constexpr enable_if_unsigned_c_integer<Arg, T> Call(KernelContext*, Arg arg,
-                                                             Status*) {
+  static constexpr enable_if_unsigned_integer_value<Arg, T> Call(KernelContext*, Arg arg,
+                                                                 Status*) {
     return (arg > 0) ? 1 : 0;
   }
 
   template <typename T, typename Arg>
-  static constexpr enable_if_signed_c_integer<Arg, T> Call(KernelContext*, Arg arg,
-                                                           Status*) {
+  static constexpr enable_if_signed_integer_value<Arg, T> Call(KernelContext*, Arg arg,
+                                                               Status*) {
     return (arg > 0) ? 1 : ((arg == 0) ? 0 : -1);
+  }
+
+  template <typename T, typename Arg>
+  static constexpr enable_if_decimal_value<Arg, T> Call(KernelContext*, Arg arg,
+                                                        Status*) {
+    return (arg == 0) ? 0 : arg.Sign();
   }
 };
 
@@ -539,8 +552,8 @@ struct ShiftLeft {
 // See SEI CERT C Coding Standard rule INT34-C
 struct ShiftLeftChecked {
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_unsigned_c_integer<T> Call(KernelContext*, Arg0 lhs, Arg1 rhs,
-                                              Status* st) {
+  static enable_if_unsigned_integer_value<T> Call(KernelContext*, Arg0 lhs, Arg1 rhs,
+                                                  Status* st) {
     static_assert(std::is_same<T, Arg0>::value, "");
     if (ARROW_PREDICT_FALSE(rhs < 0 || rhs >= std::numeric_limits<Arg0>::digits)) {
       *st = Status::Invalid("shift amount must be >= 0 and less than precision of type");
@@ -550,8 +563,8 @@ struct ShiftLeftChecked {
   }
 
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_signed_c_integer<T> Call(KernelContext*, Arg0 lhs, Arg1 rhs,
-                                            Status* st) {
+  static enable_if_signed_integer_value<T> Call(KernelContext*, Arg0 lhs, Arg1 rhs,
+                                                Status* st) {
     using Unsigned = typename std::make_unsigned<Arg0>::type;
     static_assert(std::is_same<T, Arg0>::value, "");
     if (ARROW_PREDICT_FALSE(rhs < 0 || rhs >= std::numeric_limits<Arg0>::digits)) {
@@ -596,7 +609,7 @@ struct ShiftRightChecked {
 
 struct Sin {
   template <typename T, typename Arg0>
-  static enable_if_floating_point<Arg0, T> Call(KernelContext*, Arg0 val, Status*) {
+  static enable_if_floating_value<Arg0, T> Call(KernelContext*, Arg0 val, Status*) {
     static_assert(std::is_same<T, Arg0>::value, "");
     return std::sin(val);
   }
@@ -604,7 +617,7 @@ struct Sin {
 
 struct SinChecked {
   template <typename T, typename Arg0>
-  static enable_if_floating_point<Arg0, T> Call(KernelContext*, Arg0 val, Status* st) {
+  static enable_if_floating_value<Arg0, T> Call(KernelContext*, Arg0 val, Status* st) {
     static_assert(std::is_same<T, Arg0>::value, "");
     if (ARROW_PREDICT_FALSE(std::isinf(val))) {
       *st = Status::Invalid("domain error");
@@ -616,7 +629,7 @@ struct SinChecked {
 
 struct Cos {
   template <typename T, typename Arg0>
-  static enable_if_floating_point<Arg0, T> Call(KernelContext*, Arg0 val, Status*) {
+  static enable_if_floating_value<Arg0, T> Call(KernelContext*, Arg0 val, Status*) {
     static_assert(std::is_same<T, Arg0>::value, "");
     return std::cos(val);
   }
@@ -624,7 +637,7 @@ struct Cos {
 
 struct CosChecked {
   template <typename T, typename Arg0>
-  static enable_if_floating_point<Arg0, T> Call(KernelContext*, Arg0 val, Status* st) {
+  static enable_if_floating_value<Arg0, T> Call(KernelContext*, Arg0 val, Status* st) {
     static_assert(std::is_same<T, Arg0>::value, "");
     if (ARROW_PREDICT_FALSE(std::isinf(val))) {
       *st = Status::Invalid("domain error");
@@ -636,7 +649,7 @@ struct CosChecked {
 
 struct Tan {
   template <typename T, typename Arg0>
-  static enable_if_floating_point<Arg0, T> Call(KernelContext*, Arg0 val, Status*) {
+  static enable_if_floating_value<Arg0, T> Call(KernelContext*, Arg0 val, Status*) {
     static_assert(std::is_same<T, Arg0>::value, "");
     return std::tan(val);
   }
@@ -644,7 +657,7 @@ struct Tan {
 
 struct TanChecked {
   template <typename T, typename Arg0>
-  static enable_if_floating_point<Arg0, T> Call(KernelContext*, Arg0 val, Status* st) {
+  static enable_if_floating_value<Arg0, T> Call(KernelContext*, Arg0 val, Status* st) {
     static_assert(std::is_same<T, Arg0>::value, "");
     if (ARROW_PREDICT_FALSE(std::isinf(val))) {
       *st = Status::Invalid("domain error");
@@ -657,7 +670,7 @@ struct TanChecked {
 
 struct Asin {
   template <typename T, typename Arg0>
-  static enable_if_floating_point<Arg0, T> Call(KernelContext*, Arg0 val, Status*) {
+  static enable_if_floating_value<Arg0, T> Call(KernelContext*, Arg0 val, Status*) {
     static_assert(std::is_same<T, Arg0>::value, "");
     if (ARROW_PREDICT_FALSE(val < -1.0 || val > 1.0)) {
       return std::numeric_limits<T>::quiet_NaN();
@@ -668,7 +681,7 @@ struct Asin {
 
 struct AsinChecked {
   template <typename T, typename Arg0>
-  static enable_if_floating_point<Arg0, T> Call(KernelContext*, Arg0 val, Status* st) {
+  static enable_if_floating_value<Arg0, T> Call(KernelContext*, Arg0 val, Status* st) {
     static_assert(std::is_same<T, Arg0>::value, "");
     if (ARROW_PREDICT_FALSE(val < -1.0 || val > 1.0)) {
       *st = Status::Invalid("domain error");
@@ -680,7 +693,7 @@ struct AsinChecked {
 
 struct Acos {
   template <typename T, typename Arg0>
-  static enable_if_floating_point<Arg0, T> Call(KernelContext*, Arg0 val, Status*) {
+  static enable_if_floating_value<Arg0, T> Call(KernelContext*, Arg0 val, Status*) {
     static_assert(std::is_same<T, Arg0>::value, "");
     if (ARROW_PREDICT_FALSE((val < -1.0 || val > 1.0))) {
       return std::numeric_limits<T>::quiet_NaN();
@@ -691,7 +704,7 @@ struct Acos {
 
 struct AcosChecked {
   template <typename T, typename Arg0>
-  static enable_if_floating_point<Arg0, T> Call(KernelContext*, Arg0 val, Status* st) {
+  static enable_if_floating_value<Arg0, T> Call(KernelContext*, Arg0 val, Status* st) {
     static_assert(std::is_same<T, Arg0>::value, "");
     if (ARROW_PREDICT_FALSE((val < -1.0 || val > 1.0))) {
       *st = Status::Invalid("domain error");
@@ -703,7 +716,7 @@ struct AcosChecked {
 
 struct Atan {
   template <typename T, typename Arg0>
-  static enable_if_floating_point<Arg0, T> Call(KernelContext*, Arg0 val, Status*) {
+  static enable_if_floating_value<Arg0, T> Call(KernelContext*, Arg0 val, Status*) {
     static_assert(std::is_same<T, Arg0>::value, "");
     return std::atan(val);
   }
@@ -711,7 +724,7 @@ struct Atan {
 
 struct Atan2 {
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_floating_point<Arg0, T> Call(KernelContext*, Arg0 y, Arg1 x, Status*) {
+  static enable_if_floating_value<Arg0, T> Call(KernelContext*, Arg0 y, Arg1 x, Status*) {
     static_assert(std::is_same<T, Arg0>::value, "");
     static_assert(std::is_same<Arg0, Arg1>::value, "");
     return std::atan2(y, x);
@@ -720,7 +733,7 @@ struct Atan2 {
 
 struct LogNatural {
   template <typename T, typename Arg>
-  static enable_if_floating_point<Arg, T> Call(KernelContext*, Arg arg, Status*) {
+  static enable_if_floating_value<Arg, T> Call(KernelContext*, Arg arg, Status*) {
     static_assert(std::is_same<T, Arg>::value, "");
     if (arg == 0.0) {
       return -std::numeric_limits<T>::infinity();
@@ -733,7 +746,7 @@ struct LogNatural {
 
 struct LogNaturalChecked {
   template <typename T, typename Arg>
-  static enable_if_floating_point<Arg, T> Call(KernelContext*, Arg arg, Status* st) {
+  static enable_if_floating_value<Arg, T> Call(KernelContext*, Arg arg, Status* st) {
     static_assert(std::is_same<T, Arg>::value, "");
     if (arg == 0.0) {
       *st = Status::Invalid("logarithm of zero");
@@ -748,7 +761,7 @@ struct LogNaturalChecked {
 
 struct Log10 {
   template <typename T, typename Arg>
-  static enable_if_floating_point<Arg, T> Call(KernelContext*, Arg arg, Status*) {
+  static enable_if_floating_value<Arg, T> Call(KernelContext*, Arg arg, Status*) {
     static_assert(std::is_same<T, Arg>::value, "");
     if (arg == 0.0) {
       return -std::numeric_limits<T>::infinity();
@@ -761,7 +774,7 @@ struct Log10 {
 
 struct Log10Checked {
   template <typename T, typename Arg>
-  static enable_if_floating_point<Arg, T> Call(KernelContext*, Arg arg, Status* st) {
+  static enable_if_floating_value<Arg, T> Call(KernelContext*, Arg arg, Status* st) {
     static_assert(std::is_same<T, Arg>::value, "");
     if (arg == 0) {
       *st = Status::Invalid("logarithm of zero");
@@ -776,7 +789,7 @@ struct Log10Checked {
 
 struct Log2 {
   template <typename T, typename Arg>
-  static enable_if_floating_point<Arg, T> Call(KernelContext*, Arg arg, Status*) {
+  static enable_if_floating_value<Arg, T> Call(KernelContext*, Arg arg, Status*) {
     static_assert(std::is_same<T, Arg>::value, "");
     if (arg == 0.0) {
       return -std::numeric_limits<T>::infinity();
@@ -789,7 +802,7 @@ struct Log2 {
 
 struct Log2Checked {
   template <typename T, typename Arg>
-  static enable_if_floating_point<Arg, T> Call(KernelContext*, Arg arg, Status* st) {
+  static enable_if_floating_value<Arg, T> Call(KernelContext*, Arg arg, Status* st) {
     static_assert(std::is_same<T, Arg>::value, "");
     if (arg == 0.0) {
       *st = Status::Invalid("logarithm of zero");
@@ -804,7 +817,7 @@ struct Log2Checked {
 
 struct Log1p {
   template <typename T, typename Arg>
-  static enable_if_floating_point<Arg, T> Call(KernelContext*, Arg arg, Status*) {
+  static enable_if_floating_value<Arg, T> Call(KernelContext*, Arg arg, Status*) {
     static_assert(std::is_same<T, Arg>::value, "");
     if (arg == -1) {
       return -std::numeric_limits<T>::infinity();
@@ -817,7 +830,7 @@ struct Log1p {
 
 struct Log1pChecked {
   template <typename T, typename Arg>
-  static enable_if_floating_point<Arg, T> Call(KernelContext*, Arg arg, Status* st) {
+  static enable_if_floating_value<Arg, T> Call(KernelContext*, Arg arg, Status* st) {
     static_assert(std::is_same<T, Arg>::value, "");
     if (arg == -1) {
       *st = Status::Invalid("logarithm of zero");
@@ -832,7 +845,7 @@ struct Log1pChecked {
 
 struct Logb {
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_floating_point<T> Call(KernelContext*, Arg0 x, Arg1 base, Status*) {
+  static enable_if_floating_value<T> Call(KernelContext*, Arg0 x, Arg1 base, Status*) {
     static_assert(std::is_same<T, Arg0>::value, "");
     static_assert(std::is_same<Arg0, Arg1>::value, "");
     if (x == 0.0) {
@@ -850,7 +863,7 @@ struct Logb {
 
 struct LogbChecked {
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_floating_point<T> Call(KernelContext*, Arg0 x, Arg1 base, Status* st) {
+  static enable_if_floating_value<T> Call(KernelContext*, Arg0 x, Arg1 base, Status* st) {
     static_assert(std::is_same<T, Arg0>::value, "");
     static_assert(std::is_same<Arg0, Arg1>::value, "");
     if (x == 0.0 || base == 0.0) {
@@ -867,7 +880,7 @@ struct LogbChecked {
 struct RoundUtil {
   // Calculate powers of ten with arbitrary integer exponent
   template <typename T = double>
-  static enable_if_floating_point<T> Pow10(int64_t power) {
+  static enable_if_floating_value<T> Pow10(int64_t power) {
     static constexpr T lut[] = {1e0F, 1e1F, 1e2F,  1e3F,  1e4F,  1e5F,  1e6F,  1e7F,
                                 1e8F, 1e9F, 1e10F, 1e11F, 1e12F, 1e13F, 1e14F, 1e15F};
     int64_t lut_size = (sizeof(lut) / sizeof(*lut));
@@ -887,7 +900,7 @@ struct RoundImpl;
 template <typename Type>
 struct RoundImpl<Type, RoundMode::DOWN> {
   template <typename T = Type>
-  static constexpr enable_if_floating_point<T> Round(const T val) {
+  static constexpr enable_if_floating_value<T> Round(const T val) {
     return std::floor(val);
   }
 
@@ -904,7 +917,7 @@ struct RoundImpl<Type, RoundMode::DOWN> {
 template <typename Type>
 struct RoundImpl<Type, RoundMode::UP> {
   template <typename T = Type>
-  static constexpr enable_if_floating_point<T> Round(const T val) {
+  static constexpr enable_if_floating_value<T> Round(const T val) {
     return std::ceil(val);
   }
 
@@ -921,7 +934,7 @@ struct RoundImpl<Type, RoundMode::UP> {
 template <typename Type>
 struct RoundImpl<Type, RoundMode::TOWARDS_ZERO> {
   template <typename T = Type>
-  static constexpr enable_if_floating_point<T> Round(const T val) {
+  static constexpr enable_if_floating_value<T> Round(const T val) {
     return std::trunc(val);
   }
 
@@ -935,7 +948,7 @@ struct RoundImpl<Type, RoundMode::TOWARDS_ZERO> {
 template <typename Type>
 struct RoundImpl<Type, RoundMode::TOWARDS_INFINITY> {
   template <typename T = Type>
-  static constexpr enable_if_floating_point<T> Round(const T val) {
+  static constexpr enable_if_floating_value<T> Round(const T val) {
     return std::signbit(val) ? std::floor(val) : std::ceil(val);
   }
 
@@ -958,7 +971,7 @@ struct RoundImpl<Type, RoundMode::TOWARDS_INFINITY> {
 template <typename Type>
 struct RoundImpl<Type, RoundMode::HALF_DOWN> {
   template <typename T = Type>
-  static constexpr enable_if_floating_point<T> Round(const T val) {
+  static constexpr enable_if_floating_value<T> Round(const T val) {
     return RoundImpl<T, RoundMode::DOWN>::Round(val);
   }
 
@@ -972,7 +985,7 @@ struct RoundImpl<Type, RoundMode::HALF_DOWN> {
 template <typename Type>
 struct RoundImpl<Type, RoundMode::HALF_UP> {
   template <typename T = Type>
-  static constexpr enable_if_floating_point<T> Round(const T val) {
+  static constexpr enable_if_floating_value<T> Round(const T val) {
     return RoundImpl<T, RoundMode::UP>::Round(val);
   }
 
@@ -986,7 +999,7 @@ struct RoundImpl<Type, RoundMode::HALF_UP> {
 template <typename Type>
 struct RoundImpl<Type, RoundMode::HALF_TOWARDS_ZERO> {
   template <typename T = Type>
-  static constexpr enable_if_floating_point<T> Round(const T val) {
+  static constexpr enable_if_floating_value<T> Round(const T val) {
     return RoundImpl<T, RoundMode::TOWARDS_ZERO>::Round(val);
   }
 
@@ -1000,7 +1013,7 @@ struct RoundImpl<Type, RoundMode::HALF_TOWARDS_ZERO> {
 template <typename Type>
 struct RoundImpl<Type, RoundMode::HALF_TOWARDS_INFINITY> {
   template <typename T = Type>
-  static constexpr enable_if_floating_point<T> Round(const T val) {
+  static constexpr enable_if_floating_value<T> Round(const T val) {
     return RoundImpl<T, RoundMode::TOWARDS_INFINITY>::Round(val);
   }
 
@@ -1014,7 +1027,7 @@ struct RoundImpl<Type, RoundMode::HALF_TOWARDS_INFINITY> {
 template <typename Type>
 struct RoundImpl<Type, RoundMode::HALF_TO_EVEN> {
   template <typename T = Type>
-  static constexpr enable_if_floating_point<T> Round(const T val) {
+  static constexpr enable_if_floating_value<T> Round(const T val) {
     return std::round(val * T(0.5)) * 2;
   }
 
@@ -1032,7 +1045,7 @@ struct RoundImpl<Type, RoundMode::HALF_TO_EVEN> {
 template <typename Type>
 struct RoundImpl<Type, RoundMode::HALF_TO_ODD> {
   template <typename T = Type>
-  static constexpr enable_if_floating_point<T> Round(const T val) {
+  static constexpr enable_if_floating_value<T> Round(const T val) {
     return std::floor(val * T(0.5)) + std::ceil(val * T(0.5));
   }
 
@@ -1048,7 +1061,7 @@ struct RoundImpl<Type, RoundMode::HALF_TO_ODD> {
 };
 
 // Specializations of kernel state for round kernels
-template <typename>
+template <typename OptionsType>
 struct RoundOptionsWrapper;
 
 template <>
@@ -1079,10 +1092,19 @@ template <>
 struct RoundOptionsWrapper<RoundToMultipleOptions>
     : public OptionsWrapper<RoundToMultipleOptions> {
   using OptionsType = RoundToMultipleOptions;
+  using State = RoundOptionsWrapper<OptionsType>;
+  using OptionsWrapper::OptionsWrapper;
 
   static Result<std::unique_ptr<KernelState>> Init(KernelContext* ctx,
                                                    const KernelInitArgs& args) {
-    ARROW_ASSIGN_OR_RAISE(auto state, OptionsWrapper<OptionsType>::Init(ctx, args));
+    std::unique_ptr<State> state;
+    if (auto options = static_cast<const OptionsType*>(args.options)) {
+      state = ::arrow::internal::make_unique<State>(*options);
+    } else {
+      return Status::Invalid(
+          "Attempted to initialize KernelState from null FunctionOptions");
+    }
+
     auto options = Get(*state);
     const auto& type = *args.inputs[0].type;
     if (!options.multiple || !options.multiple->is_valid) {
@@ -1149,7 +1171,7 @@ struct Round {
       : pow10(static_cast<CType>(state.pow10)), ndigits(state.options.ndigits) {}
 
   template <typename T = ArrowType, typename CType = typename TypeTraits<T>::CType>
-  enable_if_floating_point<CType> Call(KernelContext* ctx, CType arg, Status* st) const {
+  enable_if_floating_value<CType> Call(KernelContext* ctx, CType arg, Status* st) const {
     // Do not process Inf or NaN because they will trigger the overflow error at end of
     // function.
     if (!std::isfinite(arg)) {
@@ -1285,7 +1307,7 @@ struct RoundToMultiple {
   }
 
   template <typename T = ArrowType, typename CType = typename TypeTraits<T>::CType>
-  enable_if_floating_point<CType> Call(KernelContext* ctx, CType arg, Status* st) const {
+  enable_if_floating_value<CType> Call(KernelContext* ctx, CType arg, Status* st) const {
     // Do not process Inf or NaN because they will trigger the overflow error at end of
     // function.
     if (!std::isfinite(arg)) {
@@ -1425,7 +1447,7 @@ struct RoundToMultiple<ArrowType, kRoundMode, enable_if_decimal<ArrowType>> {
 
 struct Floor {
   template <typename T, typename Arg>
-  static constexpr enable_if_floating_point<Arg, T> Call(KernelContext*, Arg arg,
+  static constexpr enable_if_floating_value<Arg, T> Call(KernelContext*, Arg arg,
                                                          Status*) {
     static_assert(std::is_same<T, Arg>::value, "");
     return RoundImpl<T, RoundMode::DOWN>::Round(arg);
@@ -1434,7 +1456,7 @@ struct Floor {
 
 struct Ceil {
   template <typename T, typename Arg>
-  static constexpr enable_if_floating_point<Arg, T> Call(KernelContext*, Arg arg,
+  static constexpr enable_if_floating_value<Arg, T> Call(KernelContext*, Arg arg,
                                                          Status*) {
     static_assert(std::is_same<T, Arg>::value, "");
     return RoundImpl<T, RoundMode::UP>::Round(arg);
@@ -1443,7 +1465,7 @@ struct Ceil {
 
 struct Trunc {
   template <typename T, typename Arg>
-  static constexpr enable_if_floating_point<Arg, T> Call(KernelContext*, Arg arg,
+  static constexpr enable_if_floating_value<Arg, T> Call(KernelContext*, Arg arg,
                                                          Status*) {
     static_assert(std::is_same<T, Arg>::value, "");
     return RoundImpl<T, RoundMode::TOWARDS_ZERO>::Round(arg);
@@ -1591,8 +1613,18 @@ Result<ValueDescr> ResolveDecimalDivisionOutput(KernelContext*,
 }
 
 template <typename Op>
-void AddDecimalBinaryKernels(const std::string& name,
-                             std::shared_ptr<ScalarFunction>* func) {
+void AddDecimalUnaryKernels(ScalarFunction* func) {
+  OutputType out_type(FirstType);
+  auto in_type128 = InputType(Type::DECIMAL128);
+  auto in_type256 = InputType(Type::DECIMAL256);
+  auto exec128 = ScalarUnaryNotNull<Decimal128Type, Decimal128Type, Op>::Exec;
+  auto exec256 = ScalarUnaryNotNull<Decimal256Type, Decimal256Type, Op>::Exec;
+  DCHECK_OK(func->AddKernel({in_type128}, out_type, exec128));
+  DCHECK_OK(func->AddKernel({in_type256}, out_type, exec256));
+}
+
+template <typename Op>
+void AddDecimalBinaryKernels(const std::string& name, ScalarFunction* func) {
   OutputType out_type(null());
   const std::string op = name.substr(0, name.find("_"));
   if (op == "add" || op == "subtract") {
@@ -1609,8 +1641,8 @@ void AddDecimalBinaryKernels(const std::string& name,
   auto in_type256 = InputType(Type::DECIMAL256);
   auto exec128 = ScalarBinaryNotNullEqualTypes<Decimal128Type, Decimal128Type, Op>::Exec;
   auto exec256 = ScalarBinaryNotNullEqualTypes<Decimal256Type, Decimal256Type, Op>::Exec;
-  DCHECK_OK((*func)->AddKernel({in_type128, in_type128}, out_type, exec128));
-  DCHECK_OK((*func)->AddKernel({in_type256, in_type256}, out_type, exec256));
+  DCHECK_OK(func->AddKernel({in_type128, in_type128}, out_type, exec128));
+  DCHECK_OK(func->AddKernel({in_type256, in_type256}, out_type, exec256));
 }
 
 // Generate a kernel given an arithmetic functor
@@ -1691,6 +1723,36 @@ struct ArithmeticFunction : ScalarFunction {
   }
 };
 
+/// An ArithmeticFunction that promotes only decimal arguments to double.
+struct ArithmeticDecimalToFloatingPointFunction : public ArithmeticFunction {
+  using ArithmeticFunction::ArithmeticFunction;
+
+  Result<const Kernel*> DispatchBest(std::vector<ValueDescr>* values) const override {
+    RETURN_NOT_OK(CheckArity(*values));
+
+    using arrow::compute::detail::DispatchExactImpl;
+    if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
+
+    EnsureDictionaryDecoded(values);
+
+    if (values->size() == 2) {
+      ReplaceNullWithOtherType(values);
+    }
+
+    for (auto& descr : *values) {
+      if (is_decimal(descr.type->id())) {
+        descr.type = float64();
+      }
+    }
+    if (auto type = CommonNumeric(*values)) {
+      ReplaceTypes(type, values);
+    }
+
+    if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
+    return arrow::compute::detail::NoMatchingKernel(this, *values);
+  }
+};
+
 /// An ArithmeticFunction that promotes only integer arguments to double.
 struct ArithmeticIntegerToFloatingPointFunction : public ArithmeticFunction {
   using ArithmeticFunction::ArithmeticFunction;
@@ -1722,13 +1784,12 @@ struct ArithmeticIntegerToFloatingPointFunction : public ArithmeticFunction {
   }
 };
 
-/// An ArithmeticFunction that promotes integer arguments to double.
+/// An ArithmeticFunction that promotes integer and decimal arguments to double.
 struct ArithmeticFloatingPointFunction : public ArithmeticFunction {
   using ArithmeticFunction::ArithmeticFunction;
 
   Result<const Kernel*> DispatchBest(std::vector<ValueDescr>* values) const override {
     RETURN_NOT_OK(CheckArity(*values));
-    RETURN_NOT_OK(CheckDecimals(values));
 
     using arrow::compute::detail::DispatchExactImpl;
     if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
@@ -1740,7 +1801,7 @@ struct ArithmeticFloatingPointFunction : public ArithmeticFunction {
     }
 
     for (auto& descr : *values) {
-      if (is_integer(descr.type->id())) {
+      if (is_integer(descr.type->id()) || is_decimal(descr.type->id())) {
         descr.type = float64();
       }
     }
@@ -1763,10 +1824,10 @@ void AddNullExec(ScalarFunction* func) {
   DCHECK_OK(func->AddKernel(std::move(input_types), OutputType(null()), NullToNullExec));
 }
 
-template <typename Op>
+template <typename Op, typename FunctionImpl = ArithmeticFunction>
 std::shared_ptr<ScalarFunction> MakeArithmeticFunction(std::string name,
                                                        const FunctionDoc* doc) {
-  auto func = std::make_shared<ArithmeticFunction>(name, Arity::Binary(), doc);
+  auto func = std::make_shared<FunctionImpl>(name, Arity::Binary(), doc);
   for (const auto& ty : NumericTypes()) {
     auto exec = ArithmeticExecFromOp<ScalarBinaryEqualTypes, Op>(ty);
     DCHECK_OK(func->AddKernel({ty, ty}, ty, exec));
@@ -1777,10 +1838,10 @@ std::shared_ptr<ScalarFunction> MakeArithmeticFunction(std::string name,
 
 // Like MakeArithmeticFunction, but for arithmetic ops that need to run
 // only on non-null output.
-template <typename Op>
+template <typename Op, typename FunctionImpl = ArithmeticFunction>
 std::shared_ptr<ScalarFunction> MakeArithmeticFunctionNotNull(std::string name,
                                                               const FunctionDoc* doc) {
-  auto func = std::make_shared<ArithmeticFunction>(name, Arity::Binary(), doc);
+  auto func = std::make_shared<FunctionImpl>(name, Arity::Binary(), doc);
   for (const auto& ty : NumericTypes()) {
     auto exec = ArithmeticExecFromOp<ScalarBinaryNotNullEqualTypes, Op>(ty);
     DCHECK_OK(func->AddKernel({ty, ty}, ty, exec));
@@ -1812,6 +1873,12 @@ std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunctionWithFixedIntOutType(
     auto out_ty = arrow::is_floating(ty->id()) ? ty : int_out_ty;
     auto exec = GenerateArithmeticWithFixedIntOutType<ScalarUnary, IntOutType, Op>(ty);
     DCHECK_OK(func->AddKernel({ty}, out_ty, exec));
+  }
+  {
+    auto exec = ScalarUnary<Int64Type, Decimal128Type, Op>::Exec;
+    DCHECK_OK(func->AddKernel({InputType(Type::DECIMAL128)}, int64(), exec));
+    exec = ScalarUnary<Int64Type, Decimal256Type, Op>::Exec;
+    DCHECK_OK(func->AddKernel({InputType(Type::DECIMAL256)}, int64(), exec));
   }
   AddNullExec(func.get());
   return func;
@@ -2130,178 +2197,165 @@ const FunctionDoc bit_wise_xor_doc{
 
 const FunctionDoc shift_left_doc{
     "Left shift `x` by `y`",
-    ("This function will return `x` if `y` (the amount to shift by) is: "
-     "(1) negative or (2) greater than or equal to the precision of `x`.\n"
-     "The shift operates as if on the two's complement representation of the number. "
-     "In other words, this is equivalent to multiplying `x` by 2 to the power `y`, "
+    ("The shift operates as if on the two's complement representation of the number.\n"
+     "In other words, this is equivalent to multiplying `x` by 2 to the power `y`,\n"
      "even if overflow occurs.\n"
-     "Use function \"shift_left_checked\" if you want an invalid shift amount to "
-     "return an error."),
+     "`x` is returned if `y` (the amount to shift by) is (1) negative or\n"
+     "(2) greater than or equal to the precision of `x`.\n"
+     "Use function \"shift_left_checked\" if you want an invalid shift amount\n"
+     "to return an error."),
     {"x", "y"}};
 
 const FunctionDoc shift_left_checked_doc{
-    "Left shift `x` by `y` with invalid shift check",
-    ("This function will raise an error if `y` (the amount to shift by) is: "
-     "(1) negative or (2) greater than or equal to the precision of `x`. "
-     "The shift operates as if on the two's complement representation of the number. "
-     "In other words, this is equivalent to multiplying `x` by 2 to the power `y`, "
+    "Left shift `x` by `y`",
+    ("The shift operates as if on the two's complement representation of the number.\n"
+     "In other words, this is equivalent to multiplying `x` by 2 to the power `y`,\n"
      "even if overflow occurs.\n"
+     "An error is raised if `y` (the amount to shift by) is (1) negative or\n"
+     "(2) greater than or equal to the precision of `x`.\n"
      "See \"shift_left\" for a variant that doesn't fail for an invalid shift amount."),
     {"x", "y"}};
 
 const FunctionDoc shift_right_doc{
     "Right shift `x` by `y`",
-    ("Perform a logical shift for unsigned `x` and an arithmetic shift for signed `x`.\n"
-     "This function will return `x` if `y` (the amount to shift by) is: "
-     "(1) negative or (2) greater than or equal to the precision of `x`.\n"
-     "Use function \"shift_right_checked\" if you want an invalid shift amount to return "
-     "an error."),
+    ("This is equivalent to dividing `x` by 2 to the power `y`.\n"
+     "`x` is returned if `y` (the amount to shift by) is: (1) negative or\n"
+     "(2) greater than or equal to the precision of `x`.\n"
+     "Use function \"shift_right_checked\" if you want an invalid shift amount\n"
+     "to return an error."),
     {"x", "y"}};
 
 const FunctionDoc shift_right_checked_doc{
-    "Right shift `x` by `y` with invalid shift check",
-    ("Perform a logical shift for unsigned `x` and an arithmetic shift for signed `x`.\n"
-     "This function will raise an error if `y` (the amount to shift by) is: "
-     "(1) negative or (2) greater than or equal to the precision of `x`.\n"
+    "Right shift `x` by `y`",
+    ("This is equivalent to dividing `x` by 2 to the power `y`.\n"
+     "An error is raised if `y` (the amount to shift by) is (1) negative or\n"
+     "(2) greater than or equal to the precision of `x`.\n"
      "See \"shift_right\" for a variant that doesn't fail for an invalid shift amount"),
     {"x", "y"}};
 
-const FunctionDoc sin_doc{"Compute the sine of the elements argument-wise",
-                          ("Integer arguments return double values. "
-                           "This function returns NaN on values outside its domain. "
-                           "To raise an error instead, see \"sin_checked\"."),
+const FunctionDoc sin_doc{"Compute the sine",
+                          ("NaN is returned for invalid input values;\n"
+                           "to raise an error instead, see \"sin_checked\"."),
                           {"x"}};
 
-const FunctionDoc sin_checked_doc{
-    "Compute the sine of the elements argument-wise",
-    ("Integer arguments return double values. "
-     "This function raises an error on values outside its domain. "
-     "To return NaN instead, see \"sin\"."),
-    {"x"}};
+const FunctionDoc sin_checked_doc{"Compute the sine",
+                                  ("Invalid input values raise an error;\n"
+                                   "to return NaN instead, see \"sin\"."),
+                                  {"x"}};
 
-const FunctionDoc cos_doc{"Compute the cosine of the elements argument-wise",
-                          ("Integer arguments return double values. "
-                           "This function returns NaN on values outside its domain. "
-                           "To raise an error instead, see \"cos_checked\"."),
+const FunctionDoc cos_doc{"Compute the cosine",
+                          ("NaN is returned for invalid input values;\n"
+                           "to raise an error instead, see \"cos_checked\"."),
                           {"x"}};
 
-const FunctionDoc cos_checked_doc{
-    "Compute the cosine of the elements argument-wise",
-    ("Integer arguments return double values. "
-     "This function raises an error on values outside its domain. "
-     "To return NaN instead, see \"cos\"."),
-    {"x"}};
+const FunctionDoc cos_checked_doc{"Compute the cosine",
+                                  ("Infinite values raise an error;\n"
+                                   "to return NaN instead, see \"cos\"."),
+                                  {"x"}};
 
-const FunctionDoc tan_doc{"Compute the tangent of the elements argument-wise",
-                          ("Integer arguments return double values. "
-                           "This function returns NaN on values outside its domain. "
-                           "To raise an error instead, see \"tan_checked\"."),
+const FunctionDoc tan_doc{"Compute the tangent",
+                          ("NaN is returned for invalid input values;\n"
+                           "to raise an error instead, see \"tan_checked\"."),
                           {"x"}};
 
-const FunctionDoc tan_checked_doc{
-    "Compute the tangent of the elements argument-wise",
-    ("Integer arguments return double values. "
-     "This function raises an error on values outside its domain. "
-     "To return NaN instead, see \"tan\"."),
-    {"x"}};
+const FunctionDoc tan_checked_doc{"Compute the tangent",
+                                  ("Infinite values raise an error;\n"
+                                   "to return NaN instead, see \"tan\"."),
+                                  {"x"}};
 
-const FunctionDoc asin_doc{"Compute the inverse sine of the elements argument-wise",
-                           ("Integer arguments return double values. "
-                            "This function returns NaN on values outside its domain. "
-                            "To raise an error instead, see \"asin_checked\"."),
+const FunctionDoc asin_doc{"Compute the inverse sine",
+                           ("NaN is returned for invalid input values;\n"
+                            "to raise an error instead, see \"asin_checked\"."),
                            {"x"}};
 
-const FunctionDoc asin_checked_doc{
-    "Compute the inverse sine of the elements argument-wise",
-    ("Integer arguments return double values. "
-     "This function raises an error on values outside its domain. "
-     "To return NaN instead, see \"asin\"."),
-    {"x"}};
+const FunctionDoc asin_checked_doc{"Compute the inverse sine",
+                                   ("Invalid input values raise an error;\n"
+                                    "to return NaN instead, see \"asin\"."),
+                                   {"x"}};
 
-const FunctionDoc acos_doc{"Compute the inverse cosine of the elements argument-wise",
-                           ("Integer arguments return double values. "
-                            "This function returns NaN on values outside its domain. "
-                            "To raise an error instead, see \"acos_checked\"."),
+const FunctionDoc acos_doc{"Compute the inverse cosine",
+                           ("NaN is returned for invalid input values;\n"
+                            "to raise an error instead, see \"acos_checked\"."),
                            {"x"}};
 
-const FunctionDoc acos_checked_doc{
-    "Compute the inverse cosine of the elements argument-wise",
-    ("Integer arguments return double values. "
-     "This function raises an error on values outside its domain. "
-     "To return NaN instead, see \"acos\"."),
-    {"x"}};
+const FunctionDoc acos_checked_doc{"Compute the inverse cosine",
+                                   ("Invalid input values raise an error;\n"
+                                    "to return NaN instead, see \"acos\"."),
+                                   {"x"}};
 
-const FunctionDoc atan_doc{"Compute the principal value of the inverse tangent",
-                           "Integer arguments return double values.",
+const FunctionDoc atan_doc{"Compute the inverse tangent of x",
+                           ("The return value is in the range [-pi/2, pi/2];\n"
+                            "for a full return range [-pi, pi], see \"atan2\"."),
                            {"x"}};
 
-const FunctionDoc atan2_doc{
-    "Compute the inverse tangent using argument signs to determine the quadrant",
-    "Integer arguments return double values.",
-    {"y", "x"}};
+const FunctionDoc atan2_doc{"Compute the inverse tangent of y/x",
+                            ("The return value is in the range [-pi, pi]."),
+                            {"y", "x"}};
 
 const FunctionDoc ln_doc{
-    "Compute natural log of arguments element-wise",
+    "Compute natural logarithm",
     ("Non-positive values return -inf or NaN. Null values return null.\n"
      "Use function \"ln_checked\" if you want non-positive values to raise an error."),
     {"x"}};
 
 const FunctionDoc ln_checked_doc{
-    "Compute natural log of arguments element-wise",
-    ("Non-positive values return -inf or NaN. Null values return null.\n"
+    "Compute natural logarithm",
+    ("Non-positive values raise an error. Null values return null.\n"
      "Use function \"ln\" if you want non-positive values to return "
      "-inf or NaN."),
     {"x"}};
 
 const FunctionDoc log10_doc{
-    "Compute log base 10 of arguments element-wise",
+    "Compute base 10 logarithm",
     ("Non-positive values return -inf or NaN. Null values return null.\n"
-     "Use function \"log10_checked\" if you want non-positive values to raise an error."),
+     "Use function \"log10_checked\" if you want non-positive values\n"
+     "to raise an error."),
     {"x"}};
 
 const FunctionDoc log10_checked_doc{
-    "Compute log base 10 of arguments element-wise",
-    ("Non-positive values return -inf or NaN. Null values return null.\n"
-     "Use function \"log10\" if you want non-positive values to return "
-     "-inf or NaN."),
+    "Compute base 10 logarithm",
+    ("Non-positive values raise an error. Null values return null.\n"
+     "Use function \"log10\" if you want non-positive values\n"
+     "to return -inf or NaN."),
     {"x"}};
 
 const FunctionDoc log2_doc{
-    "Compute log base 2 of arguments element-wise",
+    "Compute base 2 logarithm",
     ("Non-positive values return -inf or NaN. Null values return null.\n"
-     "Use function \"log2_checked\" if you want non-positive values to raise an error."),
+     "Use function \"log2_checked\" if you want non-positive values\n"
+     "to raise an error."),
     {"x"}};
 
 const FunctionDoc log2_checked_doc{
-    "Compute log base 2 of arguments element-wise",
-    ("Non-positive values return -inf or NaN. Null values return null.\n"
-     "Use function \"log2\" if you want non-positive values to return "
-     "-inf or NaN."),
+    "Compute base 2 logarithm",
+    ("Non-positive values raise an error. Null values return null.\n"
+     "Use function \"log2\" if you want non-positive values\n"
+     "to return -inf or NaN."),
     {"x"}};
 
 const FunctionDoc log1p_doc{
-    "Compute natural log of (1+x) element-wise",
+    "Compute natural log of (1+x)",
     ("Values <= -1 return -inf or NaN. Null values return null.\n"
-     "This function may be more precise than log(1 + x) for x close to zero."
-     "Use function \"log1p_checked\" if you want non-positive values to raise an error."),
+     "This function may be more precise than log(1 + x) for x close to zero.\n"
+     "Use function \"log1p_checked\" if you want invalid values to raise an error."),
     {"x"}};
 
 const FunctionDoc log1p_checked_doc{
-    "Compute natural log of (1+x) element-wise",
+    "Compute natural log of (1+x)",
     ("Values <= -1 return -inf or NaN. Null values return null.\n"
-     "This function may be more precise than log(1 + x) for x close to zero."
-     "Use function \"log1p\" if you want non-positive values to return "
+     "This function may be more precise than log(1 + x) for x close to zero.\n"
+     "Use function \"log1p\" if you want invalid values to return "
      "-inf or NaN."),
     {"x"}};
 
 const FunctionDoc logb_doc{
-    "Compute log of x to base b of arguments element-wise",
+    "Compute base `b` logarithm",
     ("Values <= 0 return -inf or NaN. Null values return null.\n"
      "Use function \"logb_checked\" if you want non-positive values to raise an error."),
     {"x", "b"}};
 
 const FunctionDoc logb_checked_doc{
-    "Compute log of x to base b of arguments element-wise",
+    "Compute base `b` logarithm",
     ("Values <= 0 return -inf or NaN. Null values return null.\n"
      "Use function \"logb\" if you want non-positive values to return "
      "-inf or NaN."),
@@ -2309,35 +2363,32 @@ const FunctionDoc logb_checked_doc{
 
 const FunctionDoc floor_doc{
     "Round down to the nearest integer",
-    ("Calculate the nearest integer less than or equal in magnitude to the "
-     "argument element-wise"),
+    ("Compute the largest integer value not greater in magnitude than `x`."),
     {"x"}};
 
 const FunctionDoc ceil_doc{
     "Round up to the nearest integer",
-    ("Calculate the nearest integer greater than or equal in magnitude to the "
-     "argument element-wise"),
+    ("Compute the smallest integer value not less in magnitude than `x`."),
     {"x"}};
 
 const FunctionDoc trunc_doc{
-    "Get the integral part without fractional digits",
-    ("Calculate the nearest integer not greater in magnitude than to the "
-     "argument element-wise."),
+    "Compute the integral part",
+    ("Compute the nearest integer not greater in magnitude than `x`."),
     {"x"}};
 
 const FunctionDoc round_doc{
     "Round to a given precision",
     ("Options are used to control the number of digits and rounding mode.\n"
-     "Default behavior is to round to the nearest integer and use half-to-even "
-     "rule to break ties."),
+     "Default behavior is to round to the nearest integer and\n"
+     "use half-to-even rule to break ties."),
     {"x"},
     "RoundOptions"};
 
 const FunctionDoc round_to_multiple_doc{
     "Round to a given multiple",
     ("Options are used to control the rounding multiple and rounding mode.\n"
-     "Default behavior is to round to the nearest integer and use half-to-even "
-     "rule to break ties."),
+     "Default behavior is to round to the nearest integer and\n"
+     "use half-to-even rule to break ties."),
     {"x"},
     "RoundToMultipleOptions"};
 }  // namespace
@@ -2346,27 +2397,29 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   // ----------------------------------------------------------------------
   auto absolute_value =
       MakeUnaryArithmeticFunction<AbsoluteValue>("abs", &absolute_value_doc);
+  AddDecimalUnaryKernels<AbsoluteValue>(absolute_value.get());
   DCHECK_OK(registry->AddFunction(std::move(absolute_value)));
 
   // ----------------------------------------------------------------------
   auto absolute_value_checked = MakeUnaryArithmeticFunctionNotNull<AbsoluteValueChecked>(
       "abs_checked", &absolute_value_checked_doc);
+  AddDecimalUnaryKernels<AbsoluteValueChecked>(absolute_value_checked.get());
   DCHECK_OK(registry->AddFunction(std::move(absolute_value_checked)));
 
   // ----------------------------------------------------------------------
   auto add = MakeArithmeticFunction<Add>("add", &add_doc);
-  AddDecimalBinaryKernels<Add>("add", &add);
+  AddDecimalBinaryKernels<Add>("add", add.get());
   DCHECK_OK(registry->AddFunction(std::move(add)));
 
   // ----------------------------------------------------------------------
   auto add_checked =
       MakeArithmeticFunctionNotNull<AddChecked>("add_checked", &add_checked_doc);
-  AddDecimalBinaryKernels<AddChecked>("add_checked", &add_checked);
+  AddDecimalBinaryKernels<AddChecked>("add_checked", add_checked.get());
   DCHECK_OK(registry->AddFunction(std::move(add_checked)));
 
   // ----------------------------------------------------------------------
   auto subtract = MakeArithmeticFunction<Subtract>("subtract", &sub_doc);
-  AddDecimalBinaryKernels<Subtract>("subtract", &subtract);
+  AddDecimalBinaryKernels<Subtract>("subtract", subtract.get());
 
   // Add subtract(timestamp, timestamp) -> duration
   for (auto unit : TimeUnit::values()) {
@@ -2380,47 +2433,52 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   // ----------------------------------------------------------------------
   auto subtract_checked = MakeArithmeticFunctionNotNull<SubtractChecked>(
       "subtract_checked", &sub_checked_doc);
-  AddDecimalBinaryKernels<SubtractChecked>("subtract_checked", &subtract_checked);
+  AddDecimalBinaryKernels<SubtractChecked>("subtract_checked", subtract_checked.get());
   DCHECK_OK(registry->AddFunction(std::move(subtract_checked)));
 
   // ----------------------------------------------------------------------
   auto multiply = MakeArithmeticFunction<Multiply>("multiply", &mul_doc);
-  AddDecimalBinaryKernels<Multiply>("multiply", &multiply);
+  AddDecimalBinaryKernels<Multiply>("multiply", multiply.get());
   DCHECK_OK(registry->AddFunction(std::move(multiply)));
 
   // ----------------------------------------------------------------------
   auto multiply_checked = MakeArithmeticFunctionNotNull<MultiplyChecked>(
       "multiply_checked", &mul_checked_doc);
-  AddDecimalBinaryKernels<MultiplyChecked>("multiply_checked", &multiply_checked);
+  AddDecimalBinaryKernels<MultiplyChecked>("multiply_checked", multiply_checked.get());
   DCHECK_OK(registry->AddFunction(std::move(multiply_checked)));
 
   // ----------------------------------------------------------------------
   auto divide = MakeArithmeticFunctionNotNull<Divide>("divide", &div_doc);
-  AddDecimalBinaryKernels<Divide>("divide", &divide);
+  AddDecimalBinaryKernels<Divide>("divide", divide.get());
   DCHECK_OK(registry->AddFunction(std::move(divide)));
 
   // ----------------------------------------------------------------------
   auto divide_checked =
       MakeArithmeticFunctionNotNull<DivideChecked>("divide_checked", &div_checked_doc);
-  AddDecimalBinaryKernels<DivideChecked>("divide_checked", &divide_checked);
+  AddDecimalBinaryKernels<DivideChecked>("divide_checked", divide_checked.get());
   DCHECK_OK(registry->AddFunction(std::move(divide_checked)));
 
   // ----------------------------------------------------------------------
   auto negate = MakeUnaryArithmeticFunction<Negate>("negate", &negate_doc);
+  AddDecimalUnaryKernels<Negate>(negate.get());
   DCHECK_OK(registry->AddFunction(std::move(negate)));
 
   // ----------------------------------------------------------------------
   auto negate_checked = MakeUnarySignedArithmeticFunctionNotNull<NegateChecked>(
       "negate_checked", &negate_checked_doc);
+  AddDecimalUnaryKernels<NegateChecked>(negate_checked.get());
   DCHECK_OK(registry->AddFunction(std::move(negate_checked)));
 
   // ----------------------------------------------------------------------
-  auto power = MakeArithmeticFunction<Power>("power", &pow_doc);
+  auto power = MakeArithmeticFunction<Power, ArithmeticDecimalToFloatingPointFunction>(
+      "power", &pow_doc);
   DCHECK_OK(registry->AddFunction(std::move(power)));
 
   // ----------------------------------------------------------------------
   auto power_checked =
-      MakeArithmeticFunctionNotNull<PowerChecked>("power_checked", &pow_checked_doc);
+      MakeArithmeticFunctionNotNull<PowerChecked,
+                                    ArithmeticDecimalToFloatingPointFunction>(
+          "power_checked", &pow_checked_doc);
   DCHECK_OK(registry->AddFunction(std::move(power_checked)));
 
   // ----------------------------------------------------------------------

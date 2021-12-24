@@ -21,6 +21,7 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_run_reader.h"
+#include "arrow/util/int128_internal.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
@@ -111,6 +112,26 @@ void AddAggKernel(std::shared_ptr<KernelSignature> sig, KernelInit init,
                   ScalarAggregateFinalize finalize, ScalarAggregateFunction* func,
                   SimdLevel::type simd_level = SimdLevel::NONE);
 
+using arrow::internal::VisitSetBitRunsVoid;
+
+template <typename T, typename Enable = void>
+struct GetSumType;
+
+template <typename T>
+struct GetSumType<T, enable_if_floating_point<T>> {
+  using SumType = double;
+};
+
+template <typename T>
+struct GetSumType<T, enable_if_integer<T>> {
+  using SumType = arrow::internal::int128_t;
+};
+
+template <typename T>
+struct GetSumType<T, enable_if_decimal<T>> {
+  using SumType = typename TypeTraits<T>::CType;
+};
+
 // SumArray must be parameterized with the SIMD level since it's called both from
 // translation units with and without vectorization. Normally it gets inlined but
 // if not, without the parameter, we'll have multiple definitions of the same
@@ -132,7 +153,7 @@ enable_if_t<std::is_floating_point<SumType>::value, SumType> SumArray(
   // number of inputs to accumulate before merging with another block
   constexpr int kBlockSize = 16;  // same as numpy
   // levels (tree depth) = ceil(log2(len)) + 1, a bit larger than necessary
-  const int levels = BitUtil::Log2(static_cast<uint64_t>(data_size)) + 1;
+  const int levels = bit_util::Log2(static_cast<uint64_t>(data_size)) + 1;
   // temporary summation per level
   std::vector<SumType> sum(levels);
   // whether two summations are ready and should be reduced to upper level

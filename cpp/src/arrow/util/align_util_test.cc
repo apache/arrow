@@ -60,7 +60,7 @@ void CheckBitmapWordAlign(const uint8_t* data, int64_t bit_offset, int64_t lengt
 }
 
 TEST(BitmapWordAlign, AlignedDataStart) {
-  alignas(8) char buf[136];
+  alignas(8) char buf[136] = {0};
 
   // A 8-byte aligned pointer
   const uint8_t* P = reinterpret_cast<const uint8_t*>(buf);
@@ -104,7 +104,7 @@ TEST(BitmapWordAlign, AlignedDataStart) {
 }
 
 TEST(BitmapWordAlign, UnalignedDataStart) {
-  alignas(8) char buf[136];
+  alignas(8) char buf[136] = {0};
 
   const uint8_t* P = reinterpret_cast<const uint8_t*>(buf) + 1;
   const uint8_t* A = P + 7;

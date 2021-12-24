@@ -88,8 +88,8 @@ test_that("explicit type conversions with cast()", {
 
 test_that("explicit type conversions with as.*()", {
   library(bit64)
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       transmute(
         int2chr = as.character(int),
         int2dbl = as.double(int),
@@ -103,8 +103,8 @@ test_that("explicit type conversions with as.*()", {
       collect(),
     tbl
   )
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       transmute(
         chr2chr = as.character(chr),
         chr2dbl = as.double(chr),
@@ -114,8 +114,8 @@ test_that("explicit type conversions with as.*()", {
       collect(),
     tibble(chr = c("1", "2", "3"))
   )
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       transmute(
         chr2i64 = as.integer64(chr),
         dbl2i64 = as.integer64(dbl),
@@ -124,8 +124,8 @@ test_that("explicit type conversions with as.*()", {
       collect(),
     tibble(chr = "10000000000", dbl = 10000000000, i64 = as.integer64(1e10))
   )
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       transmute(
         chr2lgl = as.logical(chr),
         dbl2lgl = as.logical(dbl),
@@ -138,8 +138,8 @@ test_that("explicit type conversions with as.*()", {
       int = c(1L, 0L, -99L, 0L)
     )
   )
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       transmute(
         dbl2chr = as.character(dbl),
         dbl2dbl = as.double(dbl),
@@ -170,8 +170,8 @@ test_that("is.finite(), is.infinite(), is.nan()", {
     -4.94065645841246544e-324, 1.79769313486231570e+308, 0,
     NA_real_, NaN, Inf, -Inf
   ))
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       transmute(
         is_fin = is.finite(x),
         is_inf = is.infinite(x)
@@ -180,8 +180,8 @@ test_that("is.finite(), is.infinite(), is.nan()", {
     df
   )
   # is.nan() evaluates to FALSE on NA_real_ (ARROW-12850)
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       transmute(
         is_nan = is.nan(x)
       ) %>%
@@ -192,8 +192,8 @@ test_that("is.finite(), is.infinite(), is.nan()", {
 
 test_that("is.na() evaluates to TRUE on NaN (ARROW-12055)", {
   df <- tibble(x = c(1.1, 2.2, NA_real_, 4.4, NaN, 6.6, 7.7))
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       transmute(
         is_na = is.na(x)
       ) %>%
@@ -208,33 +208,51 @@ test_that("type checks with is() giving Arrow types", {
     Table$create(
       i32 = Array$create(1, int32()),
       dec = Array$create(pi)$cast(decimal(3, 2)),
+      dec128 = Array$create(pi)$cast(decimal128(3, 2)),
+      dec256 = Array$create(pi)$cast(decimal256(3, 2)),
       f64 = Array$create(1.1, float64()),
       str = Array$create("a", arrow::string())
     ) %>% transmute(
       i32_is_i32 = is(i32, int32()),
       i32_is_dec = is(i32, decimal(3, 2)),
+      i32_is_dec128 = is(i32, decimal128(3, 2)),
+      i32_is_dec256 = is(i32, decimal256(3, 2)),
       i32_is_i64 = is(i32, float64()),
       i32_is_str = is(i32, arrow::string()),
       dec_is_i32 = is(dec, int32()),
       dec_is_dec = is(dec, decimal(3, 2)),
+      dec_is_dec128 = is(dec, decimal128(3, 2)),
+      dec_is_dec256 = is(dec, decimal256(3, 2)),
       dec_is_i64 = is(dec, float64()),
       dec_is_str = is(dec, arrow::string()),
+      dec128_is_i32 = is(dec128, int32()),
+      dec128_is_dec128 = is(dec128, decimal128(3, 2)),
+      dec128_is_dec256 = is(dec128, decimal256(3, 2)),
+      dec128_is_i64 = is(dec128, float64()),
+      dec128_is_str = is(dec128, arrow::string()),
+      dec256_is_i32 = is(dec128, int32()),
+      dec256_is_dec128 = is(dec128, decimal128(3, 2)),
+      dec256_is_dec256 = is(dec128, decimal256(3, 2)),
+      dec256_is_i64 = is(dec128, float64()),
+      dec256_is_str = is(dec128, arrow::string()),
       f64_is_i32 = is(f64, int32()),
       f64_is_dec = is(f64, decimal(3, 2)),
+      f64_is_dec128 = is(f64, decimal128(3, 2)),
+      f64_is_dec256 = is(f64, decimal256(3, 2)),
       f64_is_i64 = is(f64, float64()),
       f64_is_str = is(f64, arrow::string()),
       str_is_i32 = is(str, int32()),
-      str_is_dec = is(str, decimal(3, 2)),
+      str_is_dec128 = is(str, decimal128(3, 2)),
+      str_is_dec256 = is(str, decimal256(3, 2)),
       str_is_i64 = is(str, float64()),
       str_is_str = is(str, arrow::string())
     ) %>%
       collect() %>%
       t() %>%
       as.vector(),
-    c(
-      TRUE, FALSE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, FALSE, TRUE,
-      FALSE, FALSE, FALSE, FALSE, TRUE
-    )
+    c(TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE, TRUE, FALSE, FALSE,
+      FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE,
+      FALSE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE)
   )
   # with class2=string
   expect_equal(
@@ -306,8 +324,8 @@ test_that("type checks with is() giving Arrow types", {
 
 test_that("type checks with is() giving R types", {
   library(bit64)
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       transmute(
         chr_is_chr = is(chr, "character"),
         chr_is_fct = is(chr, "factor"),
@@ -348,8 +366,8 @@ test_that("type checks with is() giving R types", {
       collect(),
     tbl
   )
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       transmute(
         i64_is_chr = is(i64, "character"),
         i64_is_fct = is(i64, "factor"),
@@ -378,8 +396,8 @@ test_that("type checks with is() giving R types", {
 
 test_that("type checks with is.*()", {
   library(bit64)
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       transmute(
         chr_is_chr = is.character(chr),
         chr_is_dbl = is.double(chr),
@@ -425,8 +443,8 @@ test_that("type checks with is.*()", {
       collect(),
     tbl
   )
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       transmute(
         i64_is_chr = is.character(i64),
         # TODO: investigate why this is not matching when testthat runs it
@@ -457,8 +475,8 @@ test_that("type checks with is.*()", {
 
 test_that("type checks with is_*()", {
   library(rlang, warn.conflicts = FALSE)
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       transmute(
         chr_is_chr = is_character(chr),
         chr_is_dbl = is_double(chr),
@@ -487,8 +505,8 @@ test_that("type checks with is_*()", {
 })
 
 test_that("type checks on expressions", {
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       transmute(
         a = is.character(as.character(int)),
         b = is.integer(as.character(int)),
@@ -503,8 +521,8 @@ test_that("type checks on expressions", {
   # the code in the expectation below depends on RE2
   skip_if_not_available("re2")
 
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       transmute(
         a = is.logical(grepl("[def]", chr))
       ) %>%
@@ -514,8 +532,8 @@ test_that("type checks on expressions", {
 })
 
 test_that("type checks on R scalar literals", {
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       transmute(
         chr_is_chr = is.character("foo"),
         int_is_chr = is.character(42L),
@@ -543,16 +561,16 @@ test_that("as.factor()/dictionary_encode()", {
   df1 <- tibble(x = c("C", "D", "B", NA, "D", "B", "S", "A", "B", "Z", "B"))
   df2 <- tibble(x = c(5, 5, 5, NA, 2, 3, 6, 8))
 
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       transmute(x = as.factor(x)) %>%
       collect(),
     df1
   )
 
   expect_warning(
-    expect_dplyr_equal(
-      input %>%
+    compare_dplyr_binding(
+      .input %>%
         transmute(x = as.factor(x)) %>%
         collect(),
       df2
@@ -593,8 +611,8 @@ test_that("bad explicit type conversions with as.*()", {
 
   # Arrow returns lowercase "true", "false" (instead of "TRUE", "FALSE" like R)
   expect_error(
-    expect_dplyr_equal(
-      input %>%
+    compare_dplyr_binding(
+      .input %>%
         transmute(lgl2chr = as.character(lgl)) %>%
         collect(),
       tibble(lgl = c(TRUE, FALSE, NA))
@@ -605,8 +623,8 @@ test_that("bad explicit type conversions with as.*()", {
   # a warning like R does)
   expect_error(
     expect_warning(
-      expect_dplyr_equal(
-        input %>%
+      compare_dplyr_binding(
+        .input %>%
           transmute(chr2num = as.numeric(chr)) %>%
           collect(),
         tibble(chr = c("l.O", "S.S", ""))
@@ -617,11 +635,136 @@ test_that("bad explicit type conversions with as.*()", {
   # Arrow fails to parse these strings as Booleans (instead of returning NAs
   # like R does)
   expect_error(
-    expect_dplyr_equal(
-      input %>%
+    compare_dplyr_binding(
+      .input %>%
         transmute(chr2lgl = as.logical(chr)) %>%
         collect(),
       tibble(chr = c("TRU", "FAX", ""))
     )
+  )
+})
+
+test_that("structs/nested data frames/tibbles can be created", {
+  df <- tibble(regular_col1 = 1L, regular_col2 = "a")
+
+  compare_dplyr_binding(
+    .input %>%
+      transmute(
+        df_col = tibble(
+          regular_col1 = regular_col1,
+          regular_col2 = regular_col2
+        )
+      ) %>%
+      collect(),
+    df
+  )
+
+  # check auto column naming
+  compare_dplyr_binding(
+    .input %>%
+      transmute(
+        df_col = tibble(regular_col1, regular_col2)
+      ) %>%
+      collect(),
+    df
+  )
+
+  # ...and that other arguments are not supported
+  expect_warning(
+    record_batch(char_col = "a") %>%
+      mutate(df_col = tibble(char_col, .rows = 1L)),
+    ".rows not supported in Arrow"
+  )
+
+  expect_warning(
+    record_batch(char_col = "a") %>%
+      mutate(df_col = tibble(char_col, .name_repair = "universal")),
+    ".name_repair not supported in Arrow"
+  )
+
+  # check that data.frame is mapped too
+  # stringsAsFactors default is TRUE in R 3.6, which is still tested on CI
+  compare_dplyr_binding(
+    .input %>%
+      transmute(
+        df_col = data.frame(regular_col1, regular_col2, stringsAsFactors = FALSE)
+      ) %>%
+      collect() %>%
+      mutate(df_col = as.data.frame(df_col)),
+    df
+  )
+
+  # check with fix.empty.names = FALSE
+  compare_dplyr_binding(
+    .input %>%
+      transmute(
+        df_col = data.frame(regular_col1, fix.empty.names = FALSE)
+      ) %>%
+      collect() %>%
+      mutate(df_col = as.data.frame(df_col)),
+    df
+  )
+
+  # check with check.names = TRUE and FALSE
+  compare_dplyr_binding(
+    .input %>%
+      transmute(
+        df_col = data.frame(regular_col1, regular_col1, check.names = TRUE)
+      ) %>%
+      collect() %>%
+      mutate(df_col = as.data.frame(df_col)),
+    df
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      transmute(
+        df_col = data.frame(regular_col1, regular_col1, check.names = FALSE)
+      ) %>%
+      collect() %>%
+      mutate(df_col = as.data.frame(df_col)),
+    df
+  )
+
+  # ...and that other arguments are not supported
+  expect_warning(
+    record_batch(char_col = "a") %>%
+      mutate(df_col = data.frame(char_col, stringsAsFactors = TRUE)),
+    "stringsAsFactors = TRUE not supported in Arrow"
+  )
+
+  expect_warning(
+    record_batch(char_col = "a") %>%
+      mutate(df_col = data.frame(char_col, row.names = 1L)),
+    "row.names not supported in Arrow"
+  )
+
+  expect_warning(
+    record_batch(char_col = "a") %>%
+      mutate(df_col = data.frame(char_col, check.rows = TRUE)),
+    "check.rows not supported in Arrow"
+  )
+})
+
+test_that("nested structs can be created from scalars and existing data frames", {
+  compare_dplyr_binding(
+    .input %>%
+      transmute(
+        df_col = tibble(b = 3)
+      ) %>%
+      collect(),
+    tibble(a = 1:2)
+  )
+
+  # technically this is handled by Scalar$create() since there is no
+  # call to data.frame or tibble() within a dplyr verb
+  existing_data_frame <- tibble(b = 3)
+  compare_dplyr_binding(
+    .input %>%
+      transmute(
+        df_col = existing_data_frame
+      ) %>%
+      collect(),
+    tibble(a = 1:2)
   )
 })

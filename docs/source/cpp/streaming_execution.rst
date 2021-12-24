@@ -39,8 +39,7 @@ and more efficient resource usage, Arrow also provides a streaming query
 engine with which computations can be formulated and executed.
 
 .. image:: simple_graph.svg
-
-   An example graph of a streaming execution workflow.
+   :alt: An example graph of a streaming execution workflow.
 
 :class:`ExecNode` is provided to reify the graph of operations in a query.
 Batches of data (:struct:`ExecBatch`) flow along edges of the graph from
@@ -51,12 +50,12 @@ as they are pushed to it along an edge of the graph by upstream nodes
 (its inputs), and pushes batches along an edge of the graph to downstream
 nodes (its outputs) as they are finalized.
 
-..seealso::
+.. seealso::
 
-  `SHAIKHHA, A., DASHTI, M., & KOCH, C.
-  (2018). Push versus pull-based loop fusion in query engines.
-  Journal of Functional Programming, 28.
-  <https://doi.org/10.1017/s0956796818000102>`_
+   `SHAIKHHA, A., DASHTI, M., & KOCH, C.
+   (2018). Push versus pull-based loop fusion in query engines.
+   Journal of Functional Programming, 28.
+   <https://doi.org/10.1017/s0956796818000102>`_
 
 Overview
 --------
@@ -177,8 +176,8 @@ their completion::
     Future<> complete = plan->finished();
 
 
-Constructing ``ExecPlan``s
---------------------------
+Constructing ``ExecPlan`` objects
+---------------------------------
 
 .. warning::
 
@@ -193,8 +192,8 @@ provides a number of benefits:
 - This enforces consistent construction.
 - It decouples implementations from consumers of the interface
   (for example: we have two classes for scalar and grouped aggregate,
-   we can choose which to construct within the single factory by
-   checking whether grouping keys are provided)
+  we can choose which to construct within the single factory by
+  checking whether grouping keys are provided)
 - This expedites integration with out-of-library extensions. For example
   "scan" nodes are implemented in the separate ``libarrow_dataset.so`` library.
 - Since the class is not referencable outside the translation unit in which it

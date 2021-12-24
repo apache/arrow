@@ -36,6 +36,7 @@ extras = {
                  'setuptools_scm'],
     'crossbow-upload': ['github3.py', jinja_req, 'ruamel.yaml',
                         'setuptools_scm'],
+    'numpydoc': ['numpydoc==1.1.0']
 }
 extras['bot'] = extras['crossbow'] + ['pygithub', 'jira']
 extras['all'] = list(set(functools.reduce(operator.add, extras.values())))

@@ -89,17 +89,30 @@ class ARROW_EXPORT ChunkedArray {
   static Result<std::shared_ptr<ChunkedArray>> Make(
       ArrayVector chunks, std::shared_ptr<DataType> type = NULLPTR);
 
+  /// \brief Create an empty ChunkedArray of a given type
+  ///
+  /// The output ChunkedArray will have one chunk with an empty
+  /// array of the given type.
+  ///
+  /// \param[in] type the data type of the empty ChunkedArray
+  /// \param[in] pool the memory pool to allocate memory from
+  /// \return the resulting ChunkedArray
+  static Result<std::shared_ptr<ChunkedArray>> MakeEmpty(
+      std::shared_ptr<DataType> type, MemoryPool* pool = default_memory_pool());
+
   /// \return the total length of the chunked array; computed on construction
   int64_t length() const { return length_; }
 
   /// \return the total number of nulls among all chunks
   int64_t null_count() const { return null_count_; }
 
+  /// \return the total number of chunks in the chunked array
   int num_chunks() const { return static_cast<int>(chunks_.size()); }
 
   /// \return chunk a particular chunk from the chunked array
   std::shared_ptr<Array> chunk(int i) const { return chunks_[i]; }
 
+  /// \return an ArrayVector of chunks
   const ArrayVector& chunks() const { return chunks_; }
 
   /// \brief Construct a zero-copy slice of the chunked array with the
@@ -128,6 +141,7 @@ class ARROW_EXPORT ChunkedArray {
   /// there are zero chunks
   Result<std::shared_ptr<ChunkedArray>> View(const std::shared_ptr<DataType>& type) const;
 
+  /// \brief Return the type of the chunked array
   const std::shared_ptr<DataType>& type() const { return type_; }
 
   /// \brief Return a Scalar containing the value of this array at index

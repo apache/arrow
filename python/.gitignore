@@ -17,6 +17,7 @@ Testing/
 *.cpp
 pyarrow/*_api.h
 pyarrow/_generated_version.py
+cython_debug
 
 # Bundled headers
 pyarrow/include

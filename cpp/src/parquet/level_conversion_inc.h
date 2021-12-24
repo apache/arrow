@@ -309,12 +309,12 @@ int64_t DefLevelsBatchToBitmap(const int16_t* def_levels, const int64_t batch_si
     auto present_bitmap = static_cast<extract_bitmap_t>(internal::GreaterThanBitmap(
         def_levels, batch_size, level_info.repeated_ancestor_def_level - 1));
     auto selected_bits = ExtractBits(defined_bitmap, present_bitmap);
-    int64_t selected_count = ::arrow::BitUtil::PopCount(present_bitmap);
+    int64_t selected_count = ::arrow::bit_util::PopCount(present_bitmap);
     if (ARROW_PREDICT_FALSE(selected_count > upper_bound_remaining)) {
       throw ParquetException("Values read exceeded upper bound");
     }
     writer->AppendWord(selected_bits, selected_count);
-    return ::arrow::BitUtil::PopCount(selected_bits);
+    return ::arrow::bit_util::PopCount(selected_bits);
   } else {
     if (ARROW_PREDICT_FALSE(batch_size > upper_bound_remaining)) {
       std::stringstream ss;
@@ -323,7 +323,7 @@ int64_t DefLevelsBatchToBitmap(const int16_t* def_levels, const int64_t batch_si
     }
 
     writer->AppendWord(defined_bitmap, batch_size);
-    return ::arrow::BitUtil::PopCount(defined_bitmap);
+    return ::arrow::bit_util::PopCount(defined_bitmap);
   }
 }
 

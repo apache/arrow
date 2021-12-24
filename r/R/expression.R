@@ -67,7 +67,6 @@
   "epiweek" = "us_week",
   "isoyear" = "iso_year",
   "minute" = "minute",
-  "month" = "month",
   "quarter" = "quarter",
   # second is defined in dplyr-functions.R
   # wday is defined in dplyr-functions.R
@@ -100,7 +99,9 @@
   # use `%/%` above.
   "%%" = "divide_checked",
   "^" = "power_checked",
-  "%in%" = "is_in_meta_binary"
+  "%in%" = "is_in_meta_binary",
+  "strrep" = "binary_repeat",
+  "str_dup" = "binary_repeat"
 )
 
 .array_function_map <- c(.unary_function_map, .binary_function_map)
@@ -215,7 +216,23 @@ build_expr <- function(FUN,
     } else if (FUN == "%/%") {
       # In R, integer division works like floor(float division)
       out <- build_expr("/", args = args)
-      return(out$cast(int32(), allow_float_truncate = TRUE))
+
+      # integer output only for all integer input
+      int_type_ids <- Type[toupper(INTEGER_TYPES)]
+      numerator_is_int <- args[[1]]$type_id() %in% int_type_ids
+      denominator_is_int <- args[[2]]$type_id() %in% int_type_ids
+
+      if (numerator_is_int && denominator_is_int) {
+        out_float <- build_expr(
+          "if_else",
+          build_expr("equal", args[[2]], 0L),
+          Scalar$create(NA_integer_),
+          build_expr("floor", out)
+        )
+        return(out_float$cast(args[[1]]$type()))
+      } else {
+        return(build_expr("floor", out))
+      }
     } else if (FUN == "%%") {
       return(args[[1]] - args[[2]] * (args[[1]] %/% args[[2]]))
     }

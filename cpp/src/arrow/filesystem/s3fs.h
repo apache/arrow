@@ -139,6 +139,8 @@ struct ARROW_EXPORT S3Options {
   /// delay between retries.
   std::shared_ptr<S3RetryStrategy> retry_strategy;
 
+  S3Options();
+
   /// Configure with the default AWS credentials provider chain.
   void ConfigureDefaultCredentials();
 
@@ -309,7 +311,7 @@ ARROW_EXPORT
 Status FinalizeS3();
 
 ARROW_EXPORT
-Result<std::string> ResolveBucketRegion(const std::string& bucket);
+Result<std::string> ResolveS3BucketRegion(const std::string& bucket);
 
 }  // namespace fs
 }  // namespace arrow

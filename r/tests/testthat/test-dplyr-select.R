@@ -23,16 +23,16 @@ library(stringr)
 tbl <- example_data
 
 test_that("Empty select returns no columns", {
-  expect_dplyr_equal(
-    input %>% select() %>% collect(),
+  compare_dplyr_binding(
+    .input %>% select() %>% collect(),
     tbl,
     skip_table = "Table with 0 cols doesn't know how many rows it should have"
   )
 })
 test_that("Empty select still includes the group_by columns", {
   expect_message(
-    expect_dplyr_equal(
-      input %>% group_by(chr) %>% select() %>% collect(),
+    compare_dplyr_binding(
+      .input %>% group_by(chr) %>% select() %>% collect(),
       tbl
     ),
     "Adding missing grouping variables"
@@ -40,20 +40,20 @@ test_that("Empty select still includes the group_by columns", {
 })
 
 test_that("select/rename", {
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       select(string = chr, int) %>%
       collect(),
     tbl
   )
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       rename(string = chr) %>%
       collect(),
     tbl
   )
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       rename(strng = chr) %>%
       rename(other = strng) %>%
       collect(),
@@ -66,8 +66,8 @@ test_that("select/rename with selection helpers", {
   # TODO: add some passing tests here
 
   expect_error(
-    expect_dplyr_equal(
-      input %>%
+    compare_dplyr_binding(
+      .input %>%
         select(where(is.numeric)) %>%
         collect(),
       tbl
@@ -77,15 +77,15 @@ test_that("select/rename with selection helpers", {
 })
 
 test_that("filtering with rename", {
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       filter(chr == "b") %>%
       select(string = chr, int) %>%
       collect(),
     tbl
   )
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       select(string = chr, int) %>%
       filter(string == "b") %>%
       collect(),
@@ -95,49 +95,49 @@ test_that("filtering with rename", {
 
 test_that("relocate", {
   df <- tibble(a = 1, b = 1, c = 1, d = "a", e = "a", f = "a")
-  expect_dplyr_equal(
-    input %>% relocate(f) %>% collect(),
+  compare_dplyr_binding(
+    .input %>% relocate(f) %>% collect(),
     df,
   )
-  expect_dplyr_equal(
-    input %>% relocate(a, .after = c) %>% collect(),
+  compare_dplyr_binding(
+    .input %>% relocate(a, .after = c) %>% collect(),
     df,
   )
-  expect_dplyr_equal(
-    input %>% relocate(f, .before = b) %>% collect(),
+  compare_dplyr_binding(
+    .input %>% relocate(f, .before = b) %>% collect(),
     df,
   )
-  expect_dplyr_equal(
-    input %>% relocate(a, .after = last_col()) %>% collect(),
+  compare_dplyr_binding(
+    .input %>% relocate(a, .after = last_col()) %>% collect(),
     df,
   )
-  expect_dplyr_equal(
-    input %>% relocate(ff = f) %>% collect(),
+  compare_dplyr_binding(
+    .input %>% relocate(ff = f) %>% collect(),
     df,
   )
 })
 
 test_that("relocate with selection helpers", {
   df <- tibble(a = 1, b = 1, c = 1, d = "a", e = "a", f = "a")
-  expect_dplyr_equal(
-    input %>% relocate(any_of(c("a", "e", "i", "o", "u"))) %>% collect(),
+  compare_dplyr_binding(
+    .input %>% relocate(any_of(c("a", "e", "i", "o", "u"))) %>% collect(),
     df
   )
-  expect_dplyr_equal(
-    input %>% relocate(where(is.character)) %>% collect(),
+  compare_dplyr_binding(
+    .input %>% relocate(where(is.character)) %>% collect(),
     df
   )
-  expect_dplyr_equal(
-    input %>% relocate(a, b, c, .after = where(is.character)) %>% collect(),
+  compare_dplyr_binding(
+    .input %>% relocate(a, b, c, .after = where(is.character)) %>% collect(),
     df
   )
-  expect_dplyr_equal(
-    input %>% relocate(d, e, f, .before = where(is.numeric)) %>% collect(),
+  compare_dplyr_binding(
+    .input %>% relocate(d, e, f, .before = where(is.numeric)) %>% collect(),
     df
   )
   # works after other dplyr verbs
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       mutate(c = as.character(c)) %>%
       relocate(d, e, f, .after = where(is.numeric)) %>%
       collect(),

@@ -83,6 +83,7 @@ if __name__ == "__main__":
                         help="compile_commands.json to pass clang-tidy")
     parser.add_argument("--source_dir",
                         required=True,
+                        action="append",
                         help="Root directory of the source code")
     parser.add_argument("--fix", default=False,
                         action="store_true",
@@ -100,8 +101,9 @@ if __name__ == "__main__":
             exclude_globs.append(line.strip())
 
     linted_filenames = []
-    for path in lintutils.get_sources(arguments.source_dir, exclude_globs):
-        linted_filenames.append(path)
+    for source_dir in arguments.source_dir:
+        for path in lintutils.get_sources(source_dir, exclude_globs):
+            linted_filenames.append(path)
 
     if not arguments.quiet:
         msg = 'Tidying {}' if arguments.fix else 'Checking {}'

@@ -72,19 +72,6 @@ void AssertNullToNull(const std::string& func_name) {
   }
 }
 
-// Construct an array of decimals, where negative scale is allowed.
-//
-// Works around DecimalXXX::FromString intentionally not inferring
-// negative scales.
-std::shared_ptr<Array> DecimalArrayFromJSON(const std::shared_ptr<DataType>& type,
-                                            const std::string& json) {
-  const auto& ty = checked_cast<const DecimalType&>(*type);
-  if (ty.scale() >= 0) return ArrayFromJSON(type, json);
-  auto p = ty.precision() - ty.scale();
-  auto adjusted_ty = ty.id() == Type::DECIMAL128 ? decimal128(p, 0) : decimal256(p, 0);
-  return Cast(ArrayFromJSON(adjusted_ty, json), type).ValueOrDie().make_array();
-}
-
 template <typename T, typename OptionsType>
 class TestBaseUnaryArithmetic : public TestBase {
  protected:
@@ -197,7 +184,7 @@ class TestBaseUnaryArithmetic : public TestBase {
   }
 
   OptionsType options_ = OptionsType();
-  EqualOptions equal_options_ = EqualOptions::Defaults();
+  EqualOptions equal_options_ = EqualOptions::Defaults().signed_zeros_equal(false);
 };
 
 // Subclasses of TestBaseUnaryArithmetic for different FunctionOptions.
@@ -289,12 +276,11 @@ class TestArithmeticDecimal : public ::testing::Test {
     }
     ASSERT_OK_AND_ASSIGN(auto expected, CallFunction(func, floating_args));
     ASSERT_OK_AND_ASSIGN(auto actual, CallFunction(func, args));
-    auto equal_options = EqualOptions::Defaults().nans_equal(true);
-    AssertDatumsApproxEqual(actual, expected, /*verbose=*/true, equal_options);
+    AssertDatumsApproxEqual(actual, expected, /*verbose=*/true);
   }
 
   void CheckRaises(const std::string& func, const DatumVector& args,
-                   const std::string& substr, FunctionOptions* options = nullptr) {
+                   const std::string& substr, const FunctionOptions* options = nullptr) {
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr(substr),
                                     CallFunction(func, args, options));
   }
@@ -446,8 +432,12 @@ class TestBinaryArithmetic : public TestBase {
     this->equal_options_ = equal_options_.nans_equal(value);
   }
 
+  void SetSignedZerosEqual(bool value = true) {
+    this->equal_options_ = equal_options_.signed_zeros_equal(value);
+  }
+
   ArithmeticOptions options_ = ArithmeticOptions();
-  EqualOptions equal_options_ = EqualOptions::Defaults();
+  EqualOptions equal_options_ = EqualOptions::Defaults().signed_zeros_equal(false);
 };
 
 template <typename... Elements>
@@ -1082,14 +1072,24 @@ TYPED_TEST(TestBinaryArithmeticFloating, Mul) {
   this->AssertBinop(Multiply, "[null, 1.5, 0.5]", "[2.0, -3, null]",
                     "[null, -4.5, null]");
 
+  // Negative zeros
+  this->AssertBinop(Multiply, "[0.0, 1.0, -1.0, -0.0]", "[1.0, -0.0, 0.0, -1.0]",
+                    "[0.0, -0.0, -0.0, 0.0]");
+  this->AssertBinop(Multiply, "[0.0, 1.0, -1.0, null]", "[null, -0.0, 0.0, -1.0]",
+                    "[null, -0.0, -0.0, null]");
+
   // Scalar on the left
-  this->AssertBinop(Multiply, -1.5f, "[0.0, 2.0]", "[0.0, -3.0]");
+  this->AssertBinop(Multiply, -1.5f, "[0.0, 2.0]", "[-0.0, -3.0]");
   this->AssertBinop(Multiply, -1.5f, "[null, 2.0]", "[null, -3.0]");
+  this->AssertBinop(Multiply, -0.0f, "[3.0, -2.0]", "[-0.0, 0.0]");
+  this->AssertBinop(Multiply, -0.0f, "[null, 2.0]", "[null, -0.0]");
   this->AssertBinop(Multiply, this->MakeNullScalar(), "[0.0, 2.0]", "[null, null]");
   this->AssertBinop(Multiply, this->MakeNullScalar(), "[null, 2.0]", "[null, null]");
   // Scalar on the right
-  this->AssertBinop(Multiply, "[0.0, 2.0]", -1.5f, "[0.0, -3.0]");
+  this->AssertBinop(Multiply, "[0.0, 2.0]", -1.5f, "[-0.0, -3.0]");
   this->AssertBinop(Multiply, "[null, 2.0]", -1.5f, "[null, -3.0]");
+  this->AssertBinop(Multiply, "[3.0, -2.0]", -0.0f, "[-0.0, 0.0]");
+  this->AssertBinop(Multiply, "[null, 2.0]", -0.0f, "[null, -0.0]");
   this->AssertBinop(Multiply, "[0.0, 2.0]", this->MakeNullScalar(), "[null, null]");
   this->AssertBinop(Multiply, "[null, 2.0]", this->MakeNullScalar(), "[null, null]");
 }
@@ -1356,10 +1356,9 @@ TYPED_TEST(TestUnaryArithmeticFloating, Negate) {
     this->AssertUnaryOp(Negate, this->MakeNullScalar(), this->MakeNullScalar());
     this->AssertUnaryOp(Negate, "[1.3, null, -10.80]", "[-1.3, null, 10.80]");
     // Arrays with zeros
-    this->AssertUnaryOp(Negate, "[0.0, 0.0, -0.0]", "[0.0, -0.0, 0.0]");
+    this->AssertUnaryOp(Negate, "[0.0, 0.0, -0.0]", "[-0.0, -0.0, 0.0]");
     this->AssertUnaryOp(Negate, 0.0F, -0.0F);
     this->AssertUnaryOp(Negate, -0.0F, 0.0F);
-    this->AssertUnaryOp(Negate, 0.0F, 0.0F);
     // Ordinary arrays (positive inputs)
     this->AssertUnaryOp(Negate, "[1.3, 10.80, 12748.001]", "[-1.3, -10.80, -12748.001]");
     this->AssertUnaryOp(Negate, 1.3F, -1.3F);
@@ -1486,6 +1485,93 @@ TYPED_TEST(TestUnaryArithmeticFloating, AbsoluteValue) {
 }
 
 class TestUnaryArithmeticDecimal : public TestArithmeticDecimal {};
+
+TEST_F(TestUnaryArithmeticDecimal, AbsoluteValue) {
+  auto max128 = Decimal128::GetMaxValue(38);
+  auto max256 = Decimal256::GetMaxValue(76);
+  for (const auto& func : {"abs", "abs_checked"}) {
+    for (const auto& ty : PositiveScaleTypes()) {
+      CheckScalar(func, {ArrayFromJSON(ty, R"([])")}, ArrayFromJSON(ty, R"([])"));
+      CheckScalar(func, {ArrayFromJSON(ty, R"(["1.00", "-42.15", null])")},
+                  ArrayFromJSON(ty, R"(["1.00", "42.15", null])"));
+    }
+    CheckScalar(
+        func,
+        ScalarVector{std::make_shared<Decimal128Scalar>(-max128, decimal128(38, 0))},
+        std::make_shared<Decimal128Scalar>(max128, decimal128(38, 0)));
+    CheckScalar(
+        func,
+        ScalarVector{std::make_shared<Decimal256Scalar>(-max256, decimal256(76, 0))},
+        std::make_shared<Decimal256Scalar>(max256, decimal256(76, 0)));
+    for (const auto& ty : NegativeScaleTypes()) {
+      CheckScalar(func, {ArrayFromJSON(ty, R"([])")}, ArrayFromJSON(ty, R"([])"));
+      CheckScalar(func, {DecimalArrayFromJSON(ty, R"(["12E2", "-42E2", null])")},
+                  DecimalArrayFromJSON(ty, R"(["12E2", "42E2", null])"));
+    }
+  }
+}
+
+TEST_F(TestUnaryArithmeticDecimal, Log) {
+  std::vector<std::string> unchecked = {"ln", "log2", "log10", "log1p"};
+  std::vector<std::string> checked = {"ln_checked", "log2_checked", "log10_checked",
+                                      "log1p_checked"};
+  std::vector<std::string> all = unchecked;
+  all.insert(all.end(), checked.begin(), checked.end());
+
+  for (const auto& func : all) {
+    for (const auto& ty : PositiveScaleTypes()) {
+      CheckDecimalToFloat(func, {ArrayFromJSON(ty, R"([])")});
+      CheckDecimalToFloat(func, {ArrayFromJSON(ty, R"(["0.01", "1.00", "4.42", null])")});
+    }
+    for (const auto& ty : NegativeScaleTypes()) {
+      CheckDecimalToFloat(func, {ArrayFromJSON(ty, R"([])")});
+      CheckDecimalToFloat(func, {DecimalArrayFromJSON(ty, R"(["12E2", "42E2", null])")});
+    }
+  }
+
+  for (const auto& func : unchecked) {
+    for (const auto& ty : PositiveScaleTypes()) {
+      CheckDecimalToFloat(func, {ArrayFromJSON(ty, R"(["-2.00"])")});
+    }
+  }
+  for (const auto& func : checked) {
+    for (const auto& ty : PositiveScaleTypes()) {
+      CheckRaises(func, {DecimalArrayFromJSON(ty, R"(["-2.00"])")},
+                  "logarithm of negative number");
+    }
+  }
+}
+
+TEST_F(TestUnaryArithmeticDecimal, Negate) {
+  auto max128 = Decimal128::GetMaxValue(38);
+  auto max256 = Decimal256::GetMaxValue(76);
+  for (const auto& func : {"negate", "negate_checked"}) {
+    for (const auto& ty : PositiveScaleTypes()) {
+      CheckScalar(func, {ArrayFromJSON(ty, R"([])")}, ArrayFromJSON(ty, R"([])"));
+      CheckScalar(func, {ArrayFromJSON(ty, R"(["0.00", "1.00", "-42.15", null])")},
+                  ArrayFromJSON(ty, R"(["0.00", "-1.00", "42.15", null])"));
+    }
+    CheckScalar(
+        func,
+        ScalarVector{std::make_shared<Decimal128Scalar>(-max128, decimal128(38, 0))},
+        std::make_shared<Decimal128Scalar>(max128, decimal128(38, 0)));
+    CheckScalar(
+        func, ScalarVector{std::make_shared<Decimal128Scalar>(max128, decimal128(38, 0))},
+        std::make_shared<Decimal128Scalar>(-max128, decimal128(38, 0)));
+    CheckScalar(
+        func,
+        ScalarVector{std::make_shared<Decimal256Scalar>(-max256, decimal256(76, 0))},
+        std::make_shared<Decimal256Scalar>(max256, decimal256(76, 0)));
+    CheckScalar(
+        func, ScalarVector{std::make_shared<Decimal256Scalar>(max256, decimal256(76, 0))},
+        std::make_shared<Decimal256Scalar>(-max256, decimal256(76, 0)));
+    for (const auto& ty : NegativeScaleTypes()) {
+      CheckScalar(func, {ArrayFromJSON(ty, R"([])")}, ArrayFromJSON(ty, R"([])"));
+      CheckScalar(func, {DecimalArrayFromJSON(ty, R"(["0", "12E2", "-42E2", null])")},
+                  DecimalArrayFromJSON(ty, R"(["0", "-12E2", "42E2", null])"));
+    }
+  }
+}
 
 // Check two modes exhaustively, give all modes a simple test
 TEST_F(TestUnaryArithmeticDecimal, Round) {
@@ -1973,6 +2059,116 @@ TEST_F(TestUnaryArithmeticDecimal, RoundToMultipleHalfToOdd) {
   }
 }
 
+TEST_F(TestUnaryArithmeticDecimal, Sign) {
+  auto max128 = Decimal128::GetMaxValue(38);
+  auto max256 = Decimal256::GetMaxValue(76);
+  const auto func = "sign";
+  for (const auto& ty : PositiveScaleTypes()) {
+    CheckScalar(func, {ArrayFromJSON(ty, R"([])")}, ArrayFromJSON(int64(), "[]"));
+    CheckScalar(func, {ArrayFromJSON(ty, R"(["1.00", "0.00", "-42.15", null])")},
+                ArrayFromJSON(int64(), "[1, 0, -1, null]"));
+  }
+  CheckScalar(func, {std::make_shared<Decimal128Scalar>(max128, decimal128(38, 0))},
+              ScalarFromJSON(int64(), "1"));
+  CheckScalar(func, {std::make_shared<Decimal128Scalar>(-max128, decimal128(38, 0))},
+              ScalarFromJSON(int64(), "-1"));
+  CheckScalar(func, {std::make_shared<Decimal256Scalar>(max256, decimal256(76, 0))},
+              ScalarFromJSON(int64(), "1"));
+  CheckScalar(func, {std::make_shared<Decimal256Scalar>(-max256, decimal256(76, 0))},
+              ScalarFromJSON(int64(), "-1"));
+  for (const auto& ty : NegativeScaleTypes()) {
+    CheckScalar(func, {ArrayFromJSON(ty, R"([])")}, ArrayFromJSON(int64(), "[]"));
+    CheckScalar(func, {DecimalArrayFromJSON(ty, R"(["12E2", "0", "-42E2", null])")},
+                ArrayFromJSON(int64(), "[1, 0, -1, null]"));
+  }
+}
+
+TEST_F(TestUnaryArithmeticDecimal, TrigAcos) {
+  for (const auto& func : {"acos", "acos_checked"}) {
+    for (const auto& ty : PositiveScaleTypes()) {
+      CheckDecimalToFloat(func, {ArrayFromJSON(ty, R"([])")});
+      CheckDecimalToFloat(func,
+                          {ArrayFromJSON(ty, R"(["0.00", "-1.00", "1.00", null])")});
+    }
+  }
+  for (const auto& ty : NegativeScaleTypes()) {
+    CheckDecimalToFloat("acos", {DecimalArrayFromJSON(ty, R"(["12E2", "-42E2", null])")});
+    CheckRaises("acos_checked", {DecimalArrayFromJSON(ty, R"(["12E2", "-42E2", null])")},
+                "domain error");
+  }
+}
+
+TEST_F(TestUnaryArithmeticDecimal, TrigAsin) {
+  for (const auto& func : {"asin", "asin_checked"}) {
+    for (const auto& ty : PositiveScaleTypes()) {
+      CheckDecimalToFloat(func, {ArrayFromJSON(ty, R"([])")});
+      CheckDecimalToFloat(func,
+                          {ArrayFromJSON(ty, R"(["0.00", "-1.00", "1.00", null])")});
+    }
+  }
+  for (const auto& ty : NegativeScaleTypes()) {
+    CheckDecimalToFloat("asin", {DecimalArrayFromJSON(ty, R"(["12E2", "-42E2", null])")});
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr("domain error"),
+        CallFunction("asin_checked",
+                     {DecimalArrayFromJSON(ty, R"(["12E2", "-42E2", null])")}));
+  }
+}
+
+TEST_F(TestUnaryArithmeticDecimal, TrigAtan) {
+  const auto func = "atan";
+  for (const auto& ty : PositiveScaleTypes()) {
+    CheckDecimalToFloat(func, {ArrayFromJSON(ty, R"([])")});
+    CheckDecimalToFloat(func, {ArrayFromJSON(ty, R"(["0.00", "-1.00", "1.00", null])")});
+  }
+  for (const auto& ty : NegativeScaleTypes()) {
+    CheckDecimalToFloat(func, {ArrayFromJSON(ty, R"([])")});
+    CheckDecimalToFloat(func, {DecimalArrayFromJSON(ty, R"(["12E2", "-42E2", null])")});
+  }
+}
+
+TEST_F(TestUnaryArithmeticDecimal, TrigCos) {
+  for (const auto& func : {"cos", "cos_checked"}) {
+    for (const auto& ty : PositiveScaleTypes()) {
+      CheckDecimalToFloat(func, {ArrayFromJSON(ty, R"([])")});
+      CheckDecimalToFloat(func,
+                          {ArrayFromJSON(ty, R"(["0.00", "-1.00", "1.00", null])")});
+    }
+    for (const auto& ty : NegativeScaleTypes()) {
+      CheckDecimalToFloat(func, {ArrayFromJSON(ty, R"([])")});
+      CheckDecimalToFloat(func, {DecimalArrayFromJSON(ty, R"(["12E2", "-42E2", null])")});
+    }
+  }
+}
+
+TEST_F(TestUnaryArithmeticDecimal, TrigSin) {
+  for (const auto& func : {"sin", "sin_checked"}) {
+    for (const auto& ty : PositiveScaleTypes()) {
+      CheckDecimalToFloat(func, {ArrayFromJSON(ty, R"([])")});
+      CheckDecimalToFloat(func,
+                          {ArrayFromJSON(ty, R"(["0.00", "-1.00", "1.00", null])")});
+    }
+    for (const auto& ty : NegativeScaleTypes()) {
+      CheckDecimalToFloat(func, {ArrayFromJSON(ty, R"([])")});
+      CheckDecimalToFloat(func, {DecimalArrayFromJSON(ty, R"(["12E2", "-42E2", null])")});
+    }
+  }
+}
+
+TEST_F(TestUnaryArithmeticDecimal, TrigTan) {
+  for (const auto& func : {"tan", "tan_checked"}) {
+    for (const auto& ty : PositiveScaleTypes()) {
+      CheckDecimalToFloat(func, {ArrayFromJSON(ty, R"([])")});
+      CheckDecimalToFloat(func,
+                          {ArrayFromJSON(ty, R"(["0.00", "-1.00", "1.00", null])")});
+    }
+    for (const auto& ty : NegativeScaleTypes()) {
+      CheckDecimalToFloat(func, {ArrayFromJSON(ty, R"([])")});
+      CheckDecimalToFloat(func, {DecimalArrayFromJSON(ty, R"(["12E2", "-42E2", null])")});
+    }
+  }
+}
+
 TYPED_TEST_SUITE(TestUnaryRoundIntegral, IntegralTypes);
 TYPED_TEST_SUITE(TestUnaryRoundSigned, SignedIntegerTypes);
 TYPED_TEST_SUITE(TestUnaryRoundUnsigned, UnsignedIntegerTypes);
@@ -2002,8 +2198,8 @@ TYPED_TEST(TestUnaryRoundSigned, Round) {
 
   // Test different round N-digits for nearest rounding mode
   std::vector<std::pair<int64_t, std::string>> ndigits_and_expected{{
-      {-2, "[0, 0, -0, -100, 100]"},
-      {-1, "[0, 0, -10, -50, 120]"},
+      {-2, "[0.0, 0.0, -0.0, -100, 100]"},
+      {-1, "[0.0, 0.0, -10, -50, 120]"},
       {0, values},
       {1, values},
       {2, values},
@@ -2068,8 +2264,8 @@ TYPED_TEST(TestUnaryRoundFloating, Round) {
   // Test different round N-digits for nearest rounding mode
   values = "[320, 3.5, 3.075, 4.5, -3.212, -35.1234, -3.045]";
   std::vector<std::pair<int64_t, std::string>> ndigits_and_expected{{
-      {-2, "[300, 0, 0, 0, -0, -0, -0]"},
-      {-1, "[320, 0, 0, 0, -0, -40, -0]"},
+      {-2, "[300, 0.0, 0.0, 0.0, -0.0, -0.0, -0.0]"},
+      {-1, "[320, 0.0, 0.0, 0.0, -0.0, -40, -0.0]"},
       {0, "[320, 4, 3, 5, -3, -35, -3]"},
       {1, "[320, 3.5, 3.1, 4.5, -3.2, -35.1, -3]"},
       {2, "[320, 3.5, 3.08, 4.5, -3.21, -35.12, -3.05]"},
@@ -2097,11 +2293,11 @@ TYPED_TEST(TestUnaryRoundToMultipleSigned, RoundToMultiple) {
 
   // Test different round multiples for nearest rounding mode
   std::vector<std::pair<double, std::string>> multiple_and_expected{{
-      {2, "[0, 2, -14, -50, 116]"},
-      {0.05, "[0, 1, -13, -50, 115]"},
+      {2, "[0.0, 2, -14, -50, 116]"},
+      {0.05, "[0.0, 1, -13, -50, 115]"},
       {0.1, values},
-      {10, "[0, 0, -10, -50, 120]"},
-      {100, "[0, 0, -0, -100, 100]"},
+      {10, "[0.0, 0.0, -10, -50, 120]"},
+      {100, "[0.0, 0.0, -0.0, -100, 100]"},
   }};
   this->SetRoundMode(RoundMode::HALF_TOWARDS_INFINITY);
   for (const auto& pair : multiple_and_expected) {
@@ -2166,8 +2362,8 @@ TYPED_TEST(TestUnaryRoundToMultipleFloating, RoundToMultiple) {
       {2, "[320, 4, 4, 4, -4, -36, -4]"},
       {0.05, "[320, 3.5, 3.1, 4.5, -3.2, -35.1, -3.05]"},
       {0.1, "[320, 3.5, 3.1, 4.5, -3.2, -35.1, -3]"},
-      {10, "[320, 0, 0, 0, -0, -40, -0]"},
-      {100, "[300, 0, 0, 0, -0, -0, -0]"},
+      {10, "[320, 0.0, 0.0, 0.0, -0.0, -40, -0.0]"},
+      {100, "[300, 0.0, 0.0, 0.0, -0.0, -0.0, -0.0]"},
   }};
   this->SetRoundMode(RoundMode::HALF_TOWARDS_INFINITY);
   for (const auto& pair : multiple_and_expected) {
@@ -2179,7 +2375,9 @@ TYPED_TEST(TestUnaryRoundToMultipleFloating, RoundToMultiple) {
   this->AssertUnaryOpRaises(RoundToMultiple, values, "multiple must be positive");
 }
 
-TEST(TestBinaryDecimalArithmetic, DispatchBest) {
+class TestBinaryArithmeticDecimal : public TestArithmeticDecimal {};
+
+TEST_F(TestBinaryArithmeticDecimal, DispatchBest) {
   // decimal, floating point
   for (std::string name : {"add", "subtract", "multiply", "divide"}) {
     for (std::string suffix : {"", "_checked"}) {
@@ -2269,10 +2467,18 @@ TEST(TestBinaryDecimalArithmetic, DispatchBest) {
                         {decimal128(5, 4), decimal128(2, 0)});
     }
   }
+  for (std::string name : {"atan2", "logb", "logb_checked", "power", "power_checked"}) {
+    CheckDispatchBest(name, {decimal128(2, 1), decimal128(2, 1)}, {float64(), float64()});
+    CheckDispatchBest(name, {decimal256(2, 1), decimal256(2, 1)}, {float64(), float64()});
+    CheckDispatchBest(name, {decimal128(2, 1), int64()}, {float64(), float64()});
+    CheckDispatchBest(name, {int32(), decimal128(2, 1)}, {float64(), float64()});
+    CheckDispatchBest(name, {decimal128(2, 1), float64()}, {float64(), float64()});
+    CheckDispatchBest(name, {float32(), decimal128(2, 1)}, {float64(), float64()});
+  }
 }
 
 // reference result from bc (precsion=100, scale=40)
-TEST(TestBinaryArithmeticDecimal, AddSubtract) {
+TEST_F(TestBinaryArithmeticDecimal, AddSubtract) {
   // array array, decimal128
   {
     auto left = ArrayFromJSON(decimal128(30, 3),
@@ -2386,7 +2592,14 @@ TEST(TestBinaryArithmeticDecimal, AddSubtract) {
     CheckScalarBinary("add", right, left, added);
   }
 
-  // TODO: decimal integer
+  // decimal integer
+  {
+    auto left = ScalarFromJSON(decimal128(3, 0), R"("666")");
+    auto right = ScalarFromJSON(int64(), "888");
+    CheckScalarBinary("add", left, right, ScalarFromJSON(decimal128(20, 0), R"("1554")"));
+    CheckScalarBinary("subtract", left, right,
+                      ScalarFromJSON(decimal128(20, 0), R"("-222")"));
+  }
 
   // failed case: result maybe overflow
   {
@@ -2404,7 +2617,7 @@ TEST(TestBinaryArithmeticDecimal, AddSubtract) {
   }
 }
 
-TEST(TestBinaryArithmeticDecimal, Multiply) {
+TEST_F(TestBinaryArithmeticDecimal, Multiply) {
   // array array, decimal128
   {
     auto left = ArrayFromJSON(decimal128(20, 10),
@@ -2428,7 +2641,7 @@ TEST(TestBinaryArithmeticDecimal, Multiply) {
     CheckScalarBinary("multiply", left, right, expected);
   }
 
-  // array array, decimal26
+  // array array, decimal256
   {
     auto left = ArrayFromJSON(decimal256(30, 3),
                               R"([
@@ -2484,7 +2697,13 @@ TEST(TestBinaryArithmeticDecimal, Multiply) {
     CheckScalarBinary("multiply", right, left, expected);
   }
 
-  // TODO: decimal integer
+  // decimal integer
+  {
+    auto left = ScalarFromJSON(decimal128(3, 0), R"("666")");
+    auto right = ScalarFromJSON(int64(), "888");
+    auto expected = ScalarFromJSON(decimal128(23, 0), R"("591408")");
+    CheckScalarBinary("multiply", left, right, expected);
+  }
 
   // failed case: result maybe overflow
   {
@@ -2494,7 +2713,7 @@ TEST(TestBinaryArithmeticDecimal, Multiply) {
   }
 }
 
-TEST(TestBinaryArithmeticDecimal, Divide) {
+TEST_F(TestBinaryArithmeticDecimal, Divide) {
   // array array, decimal128
   {
     auto left = ArrayFromJSON(decimal128(13, 3), R"(["1234567890.123", "0.001"])");
@@ -2555,7 +2774,16 @@ TEST(TestBinaryArithmeticDecimal, Divide) {
     CheckScalarBinary("divide", right, left, right_div_left);
   }
 
-  // TODO: decimal integer
+  // decimal integer
+  {
+    auto left = ScalarFromJSON(decimal128(3, 0), R"("100")");
+    auto right = ScalarFromJSON(int64(), "50");
+    auto left_div_right =
+        ScalarFromJSON(decimal128(23, 20), R"("2.00000000000000000000")");
+    auto right_div_left = ScalarFromJSON(decimal128(23, 4), R"("0.5000")");
+    CheckScalarBinary("divide", left, right, left_div_right);
+    CheckScalarBinary("divide", right, left, right_div_left);
+  }
 
   // failed case: result maybe overflow
   {
@@ -2569,6 +2797,96 @@ TEST(TestBinaryArithmeticDecimal, Divide) {
     auto left = ScalarFromJSON(decimal256(1, 0), R"("1")");
     auto right = ScalarFromJSON(decimal256(1, 0), R"("0")");
     ASSERT_RAISES(Invalid, CallFunction("divide", {left, right}));
+  }
+}
+
+TEST_F(TestBinaryArithmeticDecimal, Atan2) {
+  // Decimal arguments promoted to double, sanity check here
+  const auto func = "atan2";
+  for (const auto& ty : PositiveScaleTypes()) {
+    CheckDecimalToFloat(func, {ArrayFromJSON(ty, R"([])"), ArrayFromJSON(ty, R"([])")});
+    CheckDecimalToFloat(
+        func, {ArrayFromJSON(ty, R"(["1.00", "10.00", "1.00", "2.00", null])"),
+               ArrayFromJSON(ty, R"(["10.00", "10.00", "2.00", "2.00", null])")});
+    CheckDecimalToFloat(
+        func,
+        {ArrayFromJSON(ty, R"(["1.00", "10.00", "1.00", "2.00", null])"),
+         ArrayFromJSON(decimal128(4, 2), R"(["10.00", "10.00", "2.00", "2.00", null])")});
+    CheckDecimalToFloat(func,
+                        {ArrayFromJSON(ty, R"(["1.00", "10.00", "1.00", "2.00", null])"),
+                         ScalarFromJSON(int64(), "10")});
+    CheckDecimalToFloat(func,
+                        {ArrayFromJSON(ty, R"(["1.00", "10.00", "1.00", "2.00", null])"),
+                         ScalarFromJSON(float64(), "10")});
+    CheckDecimalToFloat(func, {ArrayFromJSON(float64(), "[1, 10, 1, 2, null]"),
+                               ScalarFromJSON(ty, R"("10.00")")});
+    CheckDecimalToFloat(func, {ArrayFromJSON(int64(), "[1, 10, 1, 2, null]"),
+                               ScalarFromJSON(ty, R"("10.00")")});
+  }
+  for (const auto& ty : NegativeScaleTypes()) {
+    CheckDecimalToFloat(func, {ArrayFromJSON(ty, R"([])"), ArrayFromJSON(ty, R"([])")});
+    CheckDecimalToFloat(func, {DecimalArrayFromJSON(ty, R"(["12E2", "42E2", null])"),
+                               DecimalArrayFromJSON(ty, R"(["12E2", "42E2", null])")});
+    CheckDecimalToFloat(
+        func, {DecimalArrayFromJSON(ty, R"(["12E2", "42E2", null])"),
+               DecimalArrayFromJSON(decimal128(2, -2), R"(["12E2", "42E2", null])")});
+    CheckDecimalToFloat(func, {DecimalArrayFromJSON(ty, R"(["12E2", "42E2", null])"),
+                               ScalarFromJSON(int64(), "10")});
+  }
+}
+
+TEST_F(TestBinaryArithmeticDecimal, Logb) {
+  // Decimal arguments promoted to double, sanity check here
+  for (const auto& func : {"logb", "logb_checked"}) {
+    for (const auto& ty : PositiveScaleTypes()) {
+      CheckDecimalToFloat(func, {ArrayFromJSON(ty, R"([])"), ArrayFromJSON(ty, R"([])")});
+      CheckDecimalToFloat(
+          func, {ArrayFromJSON(ty, R"(["1.00", "10.00", "1.00", "2.00", null])"),
+                 ArrayFromJSON(ty, R"(["10.00", "10.00", "2.00", "2.00", null])")});
+      CheckDecimalToFloat(
+          func, {ArrayFromJSON(ty, R"(["1.00", "10.00", "1.00", "2.00", null])"),
+                 ArrayFromJSON(decimal128(4, 2),
+                               R"(["10.00", "10.00", "2.00", "2.00", null])")});
+      CheckDecimalToFloat(
+          func, {ArrayFromJSON(ty, R"(["1.00", "10.00", "1.00", "2.00", null])"),
+                 ScalarFromJSON(int64(), "10")});
+      CheckDecimalToFloat(
+          func, {ArrayFromJSON(ty, R"(["1.00", "10.00", "1.00", "2.00", null])"),
+                 ScalarFromJSON(float64(), "10")});
+      CheckDecimalToFloat(func, {ArrayFromJSON(float64(), "[1, 10, 1, 2, null]"),
+                                 ScalarFromJSON(ty, R"("10.00")")});
+      CheckDecimalToFloat(func, {ArrayFromJSON(int64(), "[1, 10, 1, 2, null]"),
+                                 ScalarFromJSON(ty, R"("10.00")")});
+    }
+    for (const auto& ty : NegativeScaleTypes()) {
+      CheckDecimalToFloat(func, {ArrayFromJSON(ty, R"([])"), ArrayFromJSON(ty, R"([])")});
+      CheckDecimalToFloat(func, {DecimalArrayFromJSON(ty, R"(["12E2", "42E2", null])"),
+                                 DecimalArrayFromJSON(ty, R"(["12E2", "42E2", null])")});
+      CheckDecimalToFloat(
+          func, {DecimalArrayFromJSON(ty, R"(["12E2", "42E2", null])"),
+                 DecimalArrayFromJSON(decimal128(2, -2), R"(["12E2", "42E2", null])")});
+      CheckDecimalToFloat(func, {DecimalArrayFromJSON(ty, R"(["12E2", "42E2", null])"),
+                                 ScalarFromJSON(int64(), "10")});
+    }
+  }
+}
+
+TEST_F(TestBinaryArithmeticDecimal, Power) {
+  // Decimal arguments promoted to double, sanity check here
+  for (const auto& func : {"logb", "logb_checked"}) {
+    for (const auto& ty : PositiveScaleTypes()) {
+      CheckDecimalToFloat(func, {ArrayFromJSON(ty, R"([])"), ArrayFromJSON(ty, R"([])")});
+      CheckDecimalToFloat(func, {ArrayFromJSON(ty, R"(["1.00", "2.00", null])"),
+                                 ArrayFromJSON(ty, R"(["1.23", null, "3.45"])")});
+      CheckDecimalToFloat(func, {ArrayFromJSON(ty, R"(["1.00", "2.00", null])"),
+                                 ArrayFromJSON(float64(), R"([1.23, null, 3.45])")});
+      CheckDecimalToFloat(func, {ArrayFromJSON(float64(), R"([1.00, 2.00, null])"),
+                                 ArrayFromJSON(ty, R"(["1.23", null, "3.45"])")});
+      CheckDecimalToFloat(func, {ArrayFromJSON(ty, R"(["1.00", "2.00", null])"),
+                                 ArrayFromJSON(int64(), R"([1, null, 3])")});
+      CheckDecimalToFloat(func, {ArrayFromJSON(int64(), R"([1, 2, null])"),
+                                 ArrayFromJSON(ty, R"(["1.23", null, "3.45"])")});
+    }
   }
 }
 
@@ -2906,6 +3224,8 @@ TYPED_TEST(TestBinaryArithmeticFloating, Log) {
   this->AssertBinop(Logb, "[1.0, 2.0, null]", "[2.0, 2.0, null]", "[0.0, 1.0, null]");
   this->AssertBinop(Logb, "[10.0, 100.0, 1000.0, null]", this->MakeScalar(10),
                     "[1.0, 2.0, 3.0, null]");
+  this->AssertBinop(Logb, "[1, 2, 4, 8]", this->MakeScalar(0.25),
+                    "[-0.0, -0.5, -1.0, -1.5]");
   this->SetOverflowCheck(false);
   this->AssertBinop(Logb, "[-Inf, -1, 0, Inf]", this->MakeScalar(10),
                     "[NaN, NaN, -Inf, Inf]");
@@ -2918,6 +3238,7 @@ TYPED_TEST(TestBinaryArithmeticFloating, Log) {
                     "[NaN, NaN, NaN, Inf]");
   this->SetOverflowCheck(true);
   this->AssertBinopRaises(Logb, "[0]", "[2]", "logarithm of zero");
+  this->AssertBinopRaises(Logb, "[2]", "[0]", "logarithm of zero");
   this->AssertBinopRaises(Logb, "[-1]", "[2]", "logarithm of negative number");
   this->AssertBinopRaises(Logb, "[-Inf]", "[2]", "logarithm of negative number");
 }
@@ -2934,8 +3255,9 @@ TYPED_TEST(TestBinaryArithmeticSigned, Log) {
                     ArrayFromJSON(float64(), "[NaN, NaN]"));
   this->AssertBinop(Logb, "[-1, 0, null]", this->MakeScalar(-1),
                     ArrayFromJSON(float64(), "[NaN, NaN, null]"));
+  // 10**x is negative for x smaller than 1, and tends towards zero when x -> 0
   this->AssertBinop(Logb, "[10, 100]", this->MakeScalar(0),
-                    ArrayFromJSON(float64(), "[0, 0]"));
+                    ArrayFromJSON(float64(), "[-0.0, -0.0]"));
   this->SetOverflowCheck(true);
   this->AssertBinopRaises(Logb, "[0]", "[10]", "logarithm of zero");
   this->AssertBinopRaises(Logb, "[-1]", "[10]", "logarithm of negative number");
@@ -3063,7 +3385,8 @@ TYPED_TEST(TestUnaryArithmeticFloating, Floor) {
   this->AssertUnaryOp(floor, "[]", "[]");
   this->AssertUnaryOp(floor, "[null]", "[null]");
   this->AssertUnaryOp(floor, "[1.3, null, -10.80]", "[1, null, -11]");
-  this->AssertUnaryOp(floor, "[0.0, -0.0]", "[0, 0]");
+  // XXX Python uses math.floor(-0.0) == 0.0, but std::floor() keeps the sign
+  this->AssertUnaryOp(floor, "[0.0, -0.0]", "[0.0, -0.0]");
   this->AssertUnaryOp(floor, "[1.3, 10.80, 12748.001]", "[1, 10, 12748]");
   this->AssertUnaryOp(floor, "[-1.3, -10.80, -12748.001]", "[-2, -11, -12749]");
   this->AssertUnaryOp(floor, "[Inf, -Inf]", "[Inf, -Inf]");
@@ -3112,7 +3435,8 @@ TYPED_TEST(TestUnaryArithmeticFloating, Ceil) {
   this->AssertUnaryOp(ceil, "[]", "[]");
   this->AssertUnaryOp(ceil, "[null]", "[null]");
   this->AssertUnaryOp(ceil, "[1.3, null, -10.80]", "[2, null, -10]");
-  this->AssertUnaryOp(ceil, "[0.0, -0.0]", "[0, 0]");
+  // XXX same comment as Floor above
+  this->AssertUnaryOp(ceil, "[0.0, -0.0]", "[0.0, -0.0]");
   this->AssertUnaryOp(ceil, "[1.3, 10.80, 12748.001]", "[2, 11, 12749]");
   this->AssertUnaryOp(ceil, "[-1.3, -10.80, -12748.001]", "[-1, -10, -12748]");
   this->AssertUnaryOp(ceil, "[Inf, -Inf]", "[Inf, -Inf]");
@@ -3162,7 +3486,8 @@ TYPED_TEST(TestUnaryArithmeticFloating, Trunc) {
   this->AssertUnaryOp(trunc, "[]", "[]");
   this->AssertUnaryOp(trunc, "[null]", "[null]");
   this->AssertUnaryOp(trunc, "[1.3, null, -10.80]", "[1, null, -10]");
-  this->AssertUnaryOp(trunc, "[0.0, -0.0]", "[0, 0]");
+  // XXX same comment as Floor above
+  this->AssertUnaryOp(trunc, "[0.0, -0.0]", "[0.0, -0.0]");
   this->AssertUnaryOp(trunc, "[1.3, 10.80, 12748.001]", "[1, 10, 12748]");
   this->AssertUnaryOp(trunc, "[-1.3, -10.80, -12748.001]", "[-1, -10, -12748]");
   this->AssertUnaryOp(trunc, "[Inf, -Inf]", "[Inf, -Inf]");

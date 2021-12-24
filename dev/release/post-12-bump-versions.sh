@@ -27,14 +27,24 @@ if [ "$#" -ne 2 ]; then
 fi
 
 : ${BUMP_DEFAULT:=1}
+: ${BUMP_UPDATE_LOCAL_MASTER:=${BUMP_DEFAULT}}
 : ${BUMP_VERSION_POST_TAG:=${BUMP_DEFAULT}}
 : ${BUMP_DEB_PACKAGE_NAMES:=${BUMP_DEFAULT}}
+: ${BUMP_PUSH:=${BUMP_DEFAULT}}
+: ${BUMP_TAG:=${BUMP_DEFAULT}}
 
 . $SOURCE_DIR/utils-prepare.sh
 
 version=$1
 next_version=$2
 next_version_snapshot="${next_version}-SNAPSHOT"
+
+if [ ${BUMP_UPDATE_LOCAL_MASTER} -gt 0 ]; then
+  echo "Updating local master"
+  git fetch --all --prune --tags --force -j$(nproc)
+  git checkout master
+  git rebase apache/master
+fi
 
 if [ ${BUMP_VERSION_POST_TAG} -gt 0 ]; then
   echo "Updating versions for ${next_version_snapshot}"
@@ -76,4 +86,19 @@ if [ ${BUMP_DEB_PACKAGE_NAMES} -gt 0 ]; then
     git commit -m "[Release] Update .deb package names for $next_version"
     cd -
   fi
+fi
+
+if [ ${BUMP_PUSH} -gt 0 ]; then
+  echo "Pushing changes to the master in apache/arrow"
+  git push apache master
+fi
+
+if [ ${BUMP_TAG} -gt 0 ]; then
+  version_tag=apache-arrow-${version}
+  dev_tag=apache-arrow-${next_version}.dev
+  echo "Tagging ${version_tag} and ${dev_tag}"
+  git tag ${version_tag} release-${version}
+  git push apache ${version_tag}
+  git tag ${dev_tag} master
+  git push apache ${dev_tag}
 fi

@@ -560,6 +560,12 @@ use_byte_stream_split : bool or list, default False
     enabled, then dictionary is preferred.
     The byte_stream_split encoding is valid only for floating-point data types
     and should be combined with a compression codec.
+column_encoding : string or dict, default None
+    Specify the encoding scheme on a per column basis.
+    Currently supported values: {'PLAIN', 'BYTE_STREAM_SPLIT'}.
+    Certain encodings are only compatible with certain data types.
+    Please refer to the encodings section of `Reading and writing Parquet
+    files <https://arrow.apache.org/docs/cpp/parquet.html#encodings>`_.
 data_page_version : {"1.0", "2.0"}, default "1.0"
     The serialized Parquet data page format version to write, defaults to
     1.0. This does not impact the file schema logical types and Arrow to
@@ -618,6 +624,7 @@ writer_engine_version : unused
                  use_deprecated_int96_timestamps=None,
                  compression_level=None,
                  use_byte_stream_split=False,
+                 column_encoding=None,
                  writer_engine_version=None,
                  data_page_version='1.0',
                  use_compliant_nested_type=False,
@@ -669,6 +676,7 @@ writer_engine_version : unused
             use_deprecated_int96_timestamps=use_deprecated_int96_timestamps,
             compression_level=compression_level,
             use_byte_stream_split=use_byte_stream_split,
+            column_encoding=column_encoding,
             writer_engine_version=engine_version,
             data_page_version=data_page_version,
             use_compliant_nested_type=use_compliant_nested_type,
@@ -687,7 +695,52 @@ writer_engine_version : unused
         # return false since we want to propagate exceptions
         return False
 
+    def write(self, table_or_batch, row_group_size=None):
+        """
+        Write RecordBatch or Table to the Parquet file.
+
+        Parameters
+        ----------
+        table_or_batch : {RecordBatch, Table}
+        row_group_size : int, default None
+            Maximum size of each written row group. If None, the
+            row group size will be the minimum of the input
+            table or batch length and 64 * 1024 * 1024.
+        """
+        if isinstance(table_or_batch, pa.RecordBatch):
+            self.write_batch(table_or_batch, row_group_size)
+        elif isinstance(table_or_batch, pa.Table):
+            self.write_table(table_or_batch, row_group_size)
+        else:
+            raise TypeError(type(table_or_batch))
+
+    def write_batch(self, batch, row_group_size=None):
+        """
+        Write RecordBatch to the Parquet file.
+
+        Parameters
+        ----------
+        batch : RecordBatch
+        row_group_size : int, default None
+            Maximum size of each written row group. If None, the
+            row group size will be the minimum of the RecordBatch
+            size and 64 * 1024 * 1024.
+        """
+        table = pa.Table.from_batches([batch], batch.schema)
+        self.write_table(table, row_group_size)
+
     def write_table(self, table, row_group_size=None):
+        """
+        Write Table to the Parquet file.
+
+        Parameters
+        ----------
+        table : Table
+        row_group_size : int, default None
+            Maximum size of each written row group. If None, the
+            row group size will be the minimum of the Table size
+            and 64 * 1024 * 1024.
+        """
         if self.schema_changed:
             table = _sanitize_table(table, self.schema, self.flavor)
         assert self.is_open
@@ -1835,7 +1888,9 @@ source : str, pyarrow.NativeFile, or file-like object
 columns : list
     If not None, only these columns will be read from the file. A column
     name may be a prefix of a nested field, e.g. 'a' will select 'a.b',
-    'a.c', and 'a.d.e'.
+    'a.c', and 'a.d.e'. If empty, no columns will be read. Note
+    that the table will still have the correct num_rows set despite having
+    no columns.
 use_threads : bool, default True
     Perform multi-threaded column reads.
 metadata : FileMetaData
@@ -2006,6 +2061,7 @@ def write_table(table, where, row_group_size=None, version='1.0',
                 filesystem=None,
                 compression_level=None,
                 use_byte_stream_split=False,
+                column_encoding=None,
                 data_page_version='1.0',
                 use_compliant_nested_type=False,
                 **kwargs):
@@ -2026,6 +2082,7 @@ def write_table(table, where, row_group_size=None, version='1.0',
                 use_deprecated_int96_timestamps=use_int96,
                 compression_level=compression_level,
                 use_byte_stream_split=use_byte_stream_split,
+                column_encoding=column_encoding,
                 data_page_version=data_page_version,
                 use_compliant_nested_type=use_compliant_nested_type,
                 **kwargs) as writer:
@@ -2047,7 +2104,9 @@ Parameters
 table : pyarrow.Table
 where : string or pyarrow.NativeFile
 row_group_size : int
-    The number of rows per rowgroup
+    Maximum size of each written row group. If None, the
+    row group size will be the minimum of the Table size
+    and 64 * 1024 * 1024.
 {}
 **kwargs : optional
     Additional options for ParquetWriter

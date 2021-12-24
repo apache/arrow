@@ -30,6 +30,8 @@
 #include "arrow/io/interfaces.h"
 #include "arrow/ipc/metadata_internal.h"
 #include "arrow/ipc/options.h"
+#include "arrow/ipc/reader.h"
+#include "arrow/ipc/reader_internal.h"
 #include "arrow/ipc/util.h"
 #include "arrow/status.h"
 #include "arrow/util/endian.h"
@@ -279,8 +281,39 @@ std::string FormatMessageType(MessageType type) {
   return "unknown";
 }
 
+Status ReadFieldsSubset(int64_t offset, int32_t metadata_length,
+                        io::RandomAccessFile* file,
+                        const FieldsLoaderFunction& fields_loader,
+                        const std::shared_ptr<Buffer>& metadata, int64_t required_size,
+                        std::shared_ptr<Buffer>& body) {
+  const flatbuf::Message* message = nullptr;
+  uint8_t continuation_metadata_size = sizeof(int32_t) + sizeof(int32_t);
+  // skip 8 bytes (32-bit continuation indicator + 32-bit little-endian length prefix)
+  RETURN_NOT_OK(internal::VerifyMessage(metadata->data() + continuation_metadata_size,
+                                        metadata->size() - continuation_metadata_size,
+                                        &message));
+  auto batch = message->header_as_RecordBatch();
+  if (batch == nullptr) {
+    return Status::IOError(
+        "Header-type of flatbuffer-encoded Message is not RecordBatch.");
+  }
+  internal::IoRecordedRandomAccessFile io_recorded_random_access_file(required_size);
+  RETURN_NOT_OK(fields_loader(batch, &io_recorded_random_access_file));
+  auto const& read_ranges = io_recorded_random_access_file.GetReadRanges();
+  for (auto const& range : read_ranges) {
+    auto read_result = file->ReadAt(offset + metadata_length + range.offset, range.length,
+                                    body->mutable_data() + range.offset);
+    if (!read_result.ok()) {
+      return Status::IOError("Failed to read message body, error ",
+                             read_result.status().ToString());
+    }
+  }
+  return Status::OK();
+}
+
 Result<std::unique_ptr<Message>> ReadMessage(int64_t offset, int32_t metadata_length,
-                                             io::RandomAccessFile* file) {
+                                             io::RandomAccessFile* file,
+                                             const FieldsLoaderFunction& fields_loader) {
   std::unique_ptr<Message> result;
   auto listener = std::make_shared<AssignMessageDecoderListener>(&result);
   MessageDecoder decoder(listener);
@@ -308,8 +341,16 @@ Result<std::unique_ptr<Message>> ReadMessage(int64_t offset, int32_t metadata_le
                              " invalid. File offset: ", offset,
                              ", metadata length: ", metadata_length);
     case MessageDecoder::State::BODY: {
-      ARROW_ASSIGN_OR_RAISE(auto body, file->ReadAt(offset + metadata_length,
-                                                    decoder.next_required_size()));
+      std::shared_ptr<Buffer> body;
+      if (fields_loader) {
+        ARROW_ASSIGN_OR_RAISE(
+            body, AllocateBuffer(decoder.next_required_size(), default_memory_pool()));
+        RETURN_NOT_OK(ReadFieldsSubset(offset, metadata_length, file, fields_loader,
+                                       metadata, decoder.next_required_size(), body));
+      } else {
+        ARROW_ASSIGN_OR_RAISE(
+            body, file->ReadAt(offset + metadata_length, decoder.next_required_size()));
+      }
       if (body->size() < decoder.next_required_size()) {
         return Status::IOError("Expected to be able to read ",
                                decoder.next_required_size(),
@@ -491,7 +532,7 @@ Status WriteMessage(const Buffer& message, const IpcWriteOptions& options,
 
   // Write the flatbuffer size prefix including padding in little endian
   int32_t padded_flatbuffer_size =
-      BitUtil::ToLittleEndian(padded_message_length - prefix_size);
+      bit_util::ToLittleEndian(padded_message_length - prefix_size);
   RETURN_NOT_OK(file->Write(&padded_flatbuffer_size, sizeof(int32_t)));
 
   // Write the flatbuffer
@@ -643,18 +684,18 @@ class MessageDecoder::MessageDecoderImpl {
   }
 
   Status ConsumeInitialData(const uint8_t* data, int64_t size) {
-    return ConsumeInitial(BitUtil::FromLittleEndian(util::SafeLoadAs<int32_t>(data)));
+    return ConsumeInitial(bit_util::FromLittleEndian(util::SafeLoadAs<int32_t>(data)));
   }
 
   Status ConsumeInitialBuffer(const std::shared_ptr<Buffer>& buffer) {
     ARROW_ASSIGN_OR_RAISE(auto continuation, ConsumeDataBufferInt32(buffer));
-    return ConsumeInitial(BitUtil::FromLittleEndian(continuation));
+    return ConsumeInitial(bit_util::FromLittleEndian(continuation));
   }
 
   Status ConsumeInitialChunks() {
     int32_t continuation = 0;
     RETURN_NOT_OK(ConsumeDataChunks(sizeof(int32_t), &continuation));
-    return ConsumeInitial(BitUtil::FromLittleEndian(continuation));
+    return ConsumeInitial(bit_util::FromLittleEndian(continuation));
   }
 
   Status ConsumeInitial(int32_t continuation) {
@@ -683,18 +724,18 @@ class MessageDecoder::MessageDecoderImpl {
 
   Status ConsumeMetadataLengthData(const uint8_t* data, int64_t size) {
     return ConsumeMetadataLength(
-        BitUtil::FromLittleEndian(util::SafeLoadAs<int32_t>(data)));
+        bit_util::FromLittleEndian(util::SafeLoadAs<int32_t>(data)));
   }
 
   Status ConsumeMetadataLengthBuffer(const std::shared_ptr<Buffer>& buffer) {
     ARROW_ASSIGN_OR_RAISE(auto metadata_length, ConsumeDataBufferInt32(buffer));
-    return ConsumeMetadataLength(BitUtil::FromLittleEndian(metadata_length));
+    return ConsumeMetadataLength(bit_util::FromLittleEndian(metadata_length));
   }
 
   Status ConsumeMetadataLengthChunks() {
     int32_t metadata_length = 0;
     RETURN_NOT_OK(ConsumeDataChunks(sizeof(int32_t), &metadata_length));
-    return ConsumeMetadataLength(BitUtil::FromLittleEndian(metadata_length));
+    return ConsumeMetadataLength(bit_util::FromLittleEndian(metadata_length));
   }
 
   Status ConsumeMetadataLength(int32_t metadata_length) {

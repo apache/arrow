@@ -35,6 +35,7 @@
 #include "arrow/ipc/message.h"
 #include "arrow/ipc/metadata_internal.h"
 #include "arrow/ipc/reader.h"
+#include "arrow/ipc/reader_internal.h"
 #include "arrow/ipc/test_common.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/record_batch.h"
@@ -56,12 +57,14 @@
 namespace arrow {
 
 using internal::checked_cast;
+using internal::checked_pointer_cast;
 using internal::GetByteWidth;
 using internal::TemporaryDir;
 
 namespace ipc {
 
 using internal::FieldPosition;
+using internal::IoRecordedRandomAccessFile;
 
 namespace test {
 
@@ -130,14 +133,14 @@ TEST_P(TestMessage, SerializeTo) {
     int64_t output_length = 0;
     ASSERT_OK_AND_ASSIGN(auto stream, io::BufferOutputStream::Create(1 << 10));
     ASSERT_OK(message->SerializeTo(stream.get(), options_, &output_length));
-    ASSERT_EQ(BitUtil::RoundUp(metadata->size() + prefix_size, alignment) + body_length,
+    ASSERT_EQ(bit_util::RoundUp(metadata->size() + prefix_size, alignment) + body_length,
               output_length);
     ASSERT_OK_AND_EQ(output_length, stream->Tell());
     ASSERT_OK_AND_ASSIGN(auto buffer, stream->Finish());
     // chech whether length is written in little endian
     auto buffer_ptr = buffer.get()->data();
     ASSERT_EQ(output_length - body_length - prefix_size,
-              BitUtil::FromLittleEndian(*(uint32_t*)(buffer_ptr + 4)));
+              bit_util::FromLittleEndian(*(uint32_t*)(buffer_ptr + 4)));
   };
 
   CheckWithAlignment(8);
@@ -466,7 +469,7 @@ class IpcTestFixture : public io::MemoryMapFixture, public ExtensionTypesMixin {
     std::vector<std::shared_ptr<Field>> fields = {f0};
     auto schema = std::make_shared<Schema>(fields);
 
-    auto batch = RecordBatch::Make(schema, 0, {array});
+    auto batch = RecordBatch::Make(schema, array->length(), {array});
     CheckRoundtrip(*batch, options, IpcReadOptions::Defaults(), buffer_size);
   }
 
@@ -483,15 +486,15 @@ TEST(MetadataVersion, ForwardsCompatCheck) {
 
 class TestWriteRecordBatch : public ::testing::Test, public IpcTestFixture {
  public:
-  void SetUp() { IpcTestFixture::SetUp(); }
-  void TearDown() { IpcTestFixture::TearDown(); }
+  void SetUp() override { IpcTestFixture::SetUp(); }
+  void TearDown() override { IpcTestFixture::TearDown(); }
 };
 
 class TestIpcRoundTrip : public ::testing::TestWithParam<MakeRecordBatch*>,
                          public IpcTestFixture {
  public:
-  void SetUp() { IpcTestFixture::SetUp(); }
-  void TearDown() { IpcTestFixture::TearDown(); }
+  void SetUp() override { IpcTestFixture::SetUp(); }
+  void TearDown() override { IpcTestFixture::TearDown(); }
 
   void TestMetadataVersion(MetadataVersion expected_version) {
     std::shared_ptr<RecordBatch> batch;
@@ -602,6 +605,81 @@ TEST_P(TestIpcRoundTrip, ZeroLengthArrays) {
 
   CheckRoundtrip(bin_array);
   CheckRoundtrip(bin_array2);
+}
+
+TEST_F(TestIpcRoundTrip, SparseUnionOfStructsWithReusedBuffers) {
+  auto storage_type = struct_({
+      field("i", int32()),
+      field("f", float32()),
+      field("s", utf8()),
+  });
+  auto storage = checked_pointer_cast<StructArray>(ArrayFromJSON(storage_type,
+                                                                 R"([
+    {"i": 0, "f": 0.0, "s": "a"},
+    {"i": 1, "f": 0.5, "s": "b"},
+    {"i": 2, "f": 1.5, "s": "c"},
+    {"i": 3, "f": 3.0, "s": "d"}
+  ])"));
+
+  ASSERT_OK_AND_ASSIGN(
+      auto m01, StructArray::Make({storage->field(0), storage->field(1)},
+                                  {storage_type->field(0), storage_type->field(1)}));
+
+  ASSERT_OK_AND_ASSIGN(
+      auto m12, StructArray::Make({storage->field(1), storage->field(2)},
+                                  {storage_type->field(1), storage_type->field(2)}));
+
+  ASSERT_OK_AND_ASSIGN(
+      auto m20, StructArray::Make({storage->field(2), storage->field(0)},
+                                  {storage_type->field(2), storage_type->field(0)}));
+
+  auto ids = ArrayFromJSON(int8(), "[1, 12, 20, 1]");
+
+  ASSERT_OK_AND_ASSIGN(
+      auto sparse,
+      SparseUnionArray::Make(*ids, {m01, m12, m20}, {"m01", "m12", "m20"}, {01, 12, 20}));
+
+  auto expected = ArrayFromJSON(sparse_union(
+                                    {
+                                        field("m01", m01->type()),
+                                        field("m12", m12->type()),
+                                        field("m20", m20->type()),
+                                    },
+                                    {01, 12, 20}),
+                                R"([
+    [1,  {"i": 0,   "f": 0.0}],
+    [12, {"f": 0.5, "s": "b"}],
+    [20, {"s": "c", "i": 2  }],
+    [1,  {"i": 3,   "f": 3.0}]
+  ])");
+
+  AssertArraysEqual(*expected, *sparse, /*verbose=*/true);
+
+  DictionaryMemo ignored;
+  ASSERT_OK_AND_ASSIGN(
+      auto roundtripped_batch,
+      DoStandardRoundTrip(*RecordBatch::Make(schema({field("", sparse->type())}),
+                                             sparse->length(), {sparse}),
+                          IpcWriteOptions::Defaults(), &ignored));
+
+  auto roundtripped =
+      checked_pointer_cast<SparseUnionArray>(roundtripped_batch->column(0));
+  AssertArraysEqual(*expected, *roundtripped, /*verbose=*/true);
+
+  auto roundtripped_m01 = checked_pointer_cast<StructArray>(roundtripped->field(0));
+  auto roundtripped_m12 = checked_pointer_cast<StructArray>(roundtripped->field(1));
+  auto roundtripped_m20 = checked_pointer_cast<StructArray>(roundtripped->field(2));
+
+  // The IPC writer does not take advantage of reusable buffers
+
+  ASSERT_NE(roundtripped_m01->field(0)->data()->buffers,
+            roundtripped_m20->field(1)->data()->buffers);
+
+  ASSERT_NE(roundtripped_m01->field(1)->data()->buffers,
+            roundtripped_m12->field(0)->data()->buffers);
+
+  ASSERT_NE(roundtripped_m12->field(1)->data()->buffers,
+            roundtripped_m20->field(0)->data()->buffers);
 }
 
 TEST_F(TestWriteRecordBatch, WriteWithCompression) {
@@ -1649,6 +1727,61 @@ TEST(TestIpcFileFormat, FooterMetaData) {
   ASSERT_TRUE(out_metadata->Equals(*metadata));
 }
 
+TEST_F(TestWriteRecordBatch, RawAndSerializedSizes) {
+  // ARROW-8823: Recording total raw and serialized record batch sizes in WriteStats
+  FileWriterHelper helper;
+  IpcWriteOptions options_uncompressed = IpcWriteOptions::Defaults();
+
+  std::vector<std::shared_ptr<RecordBatch>> batches(3);
+  // empty record batch
+  ASSERT_OK(MakeIntBatchSized(0, &batches[0]));
+  // record batch with int values
+  ASSERT_OK(MakeIntBatchSized(2000, &batches[1], 100));
+
+  // record batch with DictionaryArray
+  random::RandomArrayGenerator rg(/*seed=*/0);
+  int64_t length = 500;
+  int dict_size = 50;
+  std::shared_ptr<Array> dict =
+      rg.String(dict_size, /*min_length=*/5, /*max_length=*/5, /*null_probability=*/0);
+  std::shared_ptr<Array> indices =
+      rg.Int32(length, /*min=*/0, /*max=*/dict_size - 1, /*null_probability=*/0.1);
+  auto dict_type = dictionary(int32(), utf8());
+  auto dict_field = field("f1", dict_type);
+  ASSERT_OK_AND_ASSIGN(auto dict_array,
+                       DictionaryArray::FromArrays(dict_type, indices, dict));
+
+  auto schema = ::arrow::schema({field("f0", utf8()), dict_field});
+  batches[2] =
+      RecordBatch::Make(schema, length, {rg.String(500, 0, 10, 0.1), dict_array});
+
+  for (size_t i = 0; i < batches.size(); ++i) {
+    // without compression
+    ASSERT_OK(helper.Init(batches[i]->schema(), options_uncompressed));
+    ASSERT_OK(helper.WriteBatch(batches[i]));
+    ASSERT_OK(helper.Finish());
+    // padding can make serialized data slightly larger than the raw data size
+    // when no compression is used
+    ASSERT_LE(helper.writer_->stats().total_raw_body_size,
+              helper.writer_->stats().total_serialized_body_size);
+
+    if (!util::Codec::IsAvailable(Compression::LZ4_FRAME)) {
+      continue;
+    }
+
+    IpcWriteOptions options_compressed = IpcWriteOptions::Defaults();
+    ASSERT_OK_AND_ASSIGN(options_compressed.codec,
+                         util::Codec::Create(Compression::LZ4_FRAME));
+
+    // with compression
+    ASSERT_OK(helper.Init(batches[i]->schema(), options_compressed));
+    ASSERT_OK(helper.WriteBatch(batches[i]));
+    ASSERT_OK(helper.Finish());
+    ASSERT_GE(helper.writer_->stats().total_raw_body_size,
+              helper.writer_->stats().total_serialized_body_size);
+  }
+}
+
 // This test uses uninitialized memory
 
 #if !(defined(ARROW_VALGRIND) || defined(ADDRESS_SANITIZER))
@@ -1705,6 +1838,54 @@ TEST_F(TestStreamFormat, ReadFieldSubset) { TestReadSubsetOfFields(); }
 TEST_F(TestFileFormat, ReadFieldSubset) { TestReadSubsetOfFields(); }
 
 TEST_F(TestFileFormatGenerator, ReadFieldSubset) { TestReadSubsetOfFields(); }
+
+class TrackedRandomAccessFile : public io::RandomAccessFile {
+ public:
+  explicit TrackedRandomAccessFile(io::RandomAccessFile* delegate)
+      : delegate_(delegate) {}
+
+  Status Close() override { return delegate_->Close(); }
+  bool closed() const override { return delegate_->closed(); }
+  Result<int64_t> Tell() const override { return delegate_->Tell(); }
+  Status Seek(int64_t position) override { return delegate_->Seek(position); }
+  Result<int64_t> Read(int64_t nbytes, void* out) override {
+    ARROW_ASSIGN_OR_RAISE(auto position, delegate_->Tell());
+    SaveReadRange(position, nbytes);
+    return delegate_->Read(nbytes, out);
+  }
+  Result<std::shared_ptr<Buffer>> Read(int64_t nbytes) override {
+    ARROW_ASSIGN_OR_RAISE(auto position, delegate_->Tell());
+    SaveReadRange(position, nbytes);
+    return delegate_->Read(nbytes);
+  }
+  bool supports_zero_copy() const override { return delegate_->supports_zero_copy(); }
+  Result<int64_t> GetSize() override { return delegate_->GetSize(); }
+  Result<int64_t> ReadAt(int64_t position, int64_t nbytes, void* out) override {
+    SaveReadRange(position, nbytes);
+    return delegate_->ReadAt(position, nbytes, out);
+  }
+  Result<std::shared_ptr<Buffer>> ReadAt(int64_t position, int64_t nbytes) override {
+    SaveReadRange(position, nbytes);
+    return delegate_->ReadAt(position, nbytes);
+  }
+  Future<std::shared_ptr<Buffer>> ReadAsync(const io::IOContext& io_context,
+                                            int64_t position, int64_t nbytes) override {
+    SaveReadRange(position, nbytes);
+    return delegate_->ReadAsync(io_context, position, nbytes);
+  }
+
+  int64_t num_reads() const { return read_ranges_.size(); }
+
+  const std::vector<io::ReadRange>& get_read_ranges() const { return read_ranges_; }
+
+ private:
+  io::RandomAccessFile* delegate_;
+  std::vector<io::ReadRange> read_ranges_;
+
+  void SaveReadRange(int64_t offset, int64_t length) {
+    read_ranges_.emplace_back(io::ReadRange{offset, length});
+  }
+};
 
 TEST(TestRecordBatchStreamReader, EmptyStreamWithDictionaries) {
   // ARROW-6006
@@ -2408,6 +2589,185 @@ TEST(DictionaryMemo, AddDictionaryType) {
   AssertMemoDictionaryType(memo, 42, utf8());
   AssertMemoDictionaryType(memo, 43, large_binary());
   AssertMemoDictionaryType(memo, 44, utf8());
+}
+
+TEST(IoRecordedRandomAccessFile, IoRecording) {
+  IoRecordedRandomAccessFile file(42);
+  ASSERT_TRUE(file.GetReadRanges().empty());
+
+  ASSERT_OK(file.ReadAt(1, 2));
+  ASSERT_EQ(file.GetReadRanges().size(), 1);
+  ASSERT_EQ(file.GetReadRanges()[0], (io::ReadRange{1, 2}));
+
+  ASSERT_OK(file.ReadAt(5, 3));
+  ASSERT_EQ(file.GetReadRanges().size(), 2);
+  ASSERT_EQ(file.GetReadRanges()[1], (io::ReadRange{5, 3}));
+
+  // continuous IOs will be merged
+  ASSERT_OK(file.ReadAt(5 + 3, 6));
+  ASSERT_EQ(file.GetReadRanges().size(), 2);
+  ASSERT_EQ(file.GetReadRanges()[1], (io::ReadRange{5, 3 + 6}));
+
+  // this should not happen but reading out of bounds will do no harm
+  ASSERT_OK(file.ReadAt(43, 1));
+}
+
+TEST(IoRecordedRandomAccessFile, IoRecordingWithOutput) {
+  std::shared_ptr<Buffer> out;
+  IoRecordedRandomAccessFile file(42);
+  ASSERT_TRUE(file.GetReadRanges().empty());
+  ASSERT_EQ(file.ReadAt(1, 2, &out), 2L);
+  ASSERT_EQ(file.GetReadRanges().size(), 1);
+  ASSERT_EQ(file.GetReadRanges()[0], (io::ReadRange{1, 2}));
+
+  ASSERT_EQ(file.ReadAt(5, 1, &out), 1);
+  ASSERT_EQ(file.GetReadRanges().size(), 2);
+  ASSERT_EQ(file.GetReadRanges()[1], (io::ReadRange{5, 1}));
+
+  // continuous IOs will be merged
+  ASSERT_EQ(file.ReadAt(5 + 1, 6, &out), 6);
+  ASSERT_EQ(file.GetReadRanges().size(), 2);
+  ASSERT_EQ(file.GetReadRanges()[1], (io::ReadRange{5, 1 + 6}));
+}
+
+TEST(IoRecordedRandomAccessFile, ReadWithCurrentPosition) {
+  IoRecordedRandomAccessFile file(42);
+  ASSERT_TRUE(file.GetReadRanges().empty());
+
+  ASSERT_OK(file.Read(10));
+  ASSERT_EQ(file.GetReadRanges().size(), 1);
+  ASSERT_EQ(file.GetReadRanges()[0], (io::ReadRange{0, 10}));
+
+  // the previous read should advance the position
+  ASSERT_OK(file.Read(10));
+  ASSERT_EQ(file.GetReadRanges().size(), 1);
+  // the two reads are merged into single continuous IO
+  ASSERT_EQ(file.GetReadRanges()[0], (io::ReadRange{0, 20}));
+}
+
+Status MakeBooleanInt32Int64Batch(const int length, std::shared_ptr<RecordBatch>* out) {
+  // Make the schema
+  auto f0 = field("f0", boolean());
+  auto f1 = field("f1", int32());
+  auto f2 = field("f2", int64());
+  auto schema = ::arrow::schema({f0, f1, f2});
+
+  std::shared_ptr<Array> a0, a1, a2;
+  RETURN_NOT_OK(MakeRandomBooleanArray(length, false, &a0));
+  RETURN_NOT_OK(MakeRandomInt32Array(length, false, arrow::default_memory_pool(), &a1));
+  RETURN_NOT_OK(MakeRandomInt64Array(length, false, arrow::default_memory_pool(), &a2));
+  *out = RecordBatch::Make(schema, length, {a0, a1, a2});
+  return Status::OK();
+}
+
+void GetReadRecordBatchReadRanges(
+    uint32_t num_rows, const std::vector<int>& included_fields,
+    const std::vector<int64_t>& expected_body_read_lengths) {
+  std::shared_ptr<RecordBatch> batch;
+  // [bool, int32, int64] batch
+  ASSERT_OK(MakeBooleanInt32Int64Batch(num_rows, &batch));
+
+  ASSERT_OK_AND_ASSIGN(auto sink, io::BufferOutputStream::Create(0));
+  ASSERT_OK_AND_ASSIGN(auto writer, MakeFileWriter(sink.get(), batch->schema()));
+  ASSERT_OK(writer->WriteRecordBatch(*batch));
+  ASSERT_OK(writer->Close());
+  ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+
+  io::BufferReader buffer_reader(buffer);
+  TrackedRandomAccessFile tracked(&buffer_reader);
+
+  auto read_options = IpcReadOptions::Defaults();
+  // if empty, return all fields
+  read_options.included_fields = included_fields;
+  ASSERT_OK_AND_ASSIGN(auto reader, RecordBatchFileReader::Open(&tracked, read_options));
+  ASSERT_OK_AND_ASSIGN(auto out_batch, reader->ReadRecordBatch(0));
+
+  ASSERT_EQ(out_batch->num_rows(), num_rows);
+  ASSERT_EQ(out_batch->num_columns(),
+            included_fields.empty() ? 3 : included_fields.size());
+
+  auto read_ranges = tracked.get_read_ranges();
+
+  // there are 3 read IOs before reading body:
+  // 1) read magic and footer length IO
+  // 2) read footer IO
+  // 3) read record batch metadata IO
+  ASSERT_EQ(read_ranges.size(), 3 + expected_body_read_lengths.size());
+  const int32_t magic_size = static_cast<int>(strlen(ipc::internal::kArrowMagicBytes));
+  // read magic and footer length IO
+  auto file_end_size = magic_size + sizeof(int32_t);
+  auto footer_length_offset = buffer->size() - file_end_size;
+  auto footer_length = bit_util::FromLittleEndian(
+      util::SafeLoadAs<int32_t>(buffer->data() + footer_length_offset));
+  ASSERT_EQ(read_ranges[0].length, file_end_size);
+  // read footer IO
+  ASSERT_EQ(read_ranges[1].length, footer_length);
+  // read record batch metadata.  The exact size is tricky to determine but it doesn't
+  // matter for this test and it should be smaller than the footer.
+  ASSERT_LT(read_ranges[2].length, footer_length);
+  for (uint32_t i = 0; i < expected_body_read_lengths.size(); i++) {
+    ASSERT_EQ(read_ranges[3 + i].length, expected_body_read_lengths[i]);
+  }
+}
+
+void GetReadRecordBatchReadRanges(
+    const std::vector<int>& included_fields,
+    const std::vector<int64_t>& expected_body_read_lengths) {
+  return GetReadRecordBatchReadRanges(5, included_fields, expected_body_read_lengths);
+}
+
+TEST(TestRecordBatchFileReaderIo, LoadAllFieldsShouldReadTheEntireBody) {
+  // read the entire record batch body in single read
+  // the batch has 5 * bool + 5 * int32 + 5 * int64
+  // ==>
+  // + 5 bool:  5 bits      (aligned to  8 bytes)
+  // + 5 int32: 5 * 4 bytes (aligned to 24 bytes)
+  // + 5 int64: 5 * 8 bytes (aligned to 40 bytes)
+  GetReadRecordBatchReadRanges({}, {8 + 24 + 40});
+}
+
+TEST(TestRecordBatchFileReaderIo, ReadSingleFieldAtTheStart) {
+  // read only the bool field
+  // + 5 bool:  5 bits (1 byte)
+  GetReadRecordBatchReadRanges({0}, {1});
+}
+
+TEST(TestRecordBatchFileReaderIo, ReadSingleFieldInTheMiddle) {
+  // read only the int32 field
+  // + 5 int32: 5 * 4 bytes
+  GetReadRecordBatchReadRanges({1}, {20});
+}
+
+TEST(TestRecordBatchFileReaderIo, ReadSingleFieldInTheEnd) {
+  // read only the int64 field
+  // + 5 int64: 5 * 8 bytes
+  GetReadRecordBatchReadRanges({2}, {40});
+}
+
+TEST(TestRecordBatchFileReaderIo, SkipTheFieldInTheMiddle) {
+  // read the bool field and the int64 field
+  // two IOs for body are expected, first for reading bool and the second for reading
+  // int64
+  // + 5 bool:  5 bits (1 byte)
+  // + 5 int64: 5 * 8 bytes
+  GetReadRecordBatchReadRanges({0, 2}, {1, 40});
+}
+
+TEST(TestRecordBatchFileReaderIo, ReadTwoContinousFields) {
+  // read the int32 field and the int64 field
+  // + 5 int32: 5 * 4 bytes
+  // + 5 int64: 5 * 8 bytes
+  GetReadRecordBatchReadRanges({1, 2}, {20, 40});
+}
+
+TEST(TestRecordBatchFileReaderIo, ReadTwoContinousFieldsWithIoMerged) {
+  // change the array length to 64 so that bool field and int32 are continuous without
+  // padding
+  // read the bool field and the int32 field since the bool field's aligned offset
+  // is continuous with next field (int32 field), two IOs are merged into one
+  // + 64 bool: 64 bits (8 bytes)
+  // + 64 int32: 64 * 4 bytes (256 bytes)
+  GetReadRecordBatchReadRanges(64, {0, 1}, {8 + 64 * 4});
 }
 
 }  // namespace test

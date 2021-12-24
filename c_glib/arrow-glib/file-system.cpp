@@ -51,6 +51,8 @@ G_BEGIN_DECLS
  *
  * #GArrowHDFSFileSystem is a class for HDFS-backed file system.
  *
+ * #GArrowS3GlobalOptions is a class for options to initialize S3 APIs.
+ *
  * #GArrowS3FileSystem is a class for S3-backed file system.
  */
 
@@ -72,10 +74,10 @@ enum {
 
 G_DEFINE_TYPE_WITH_PRIVATE(GArrowFileInfo, garrow_file_info, G_TYPE_OBJECT)
 
-#define GARROW_FILE_INFO_GET_PRIVATE(obj)       \
+#define GARROW_FILE_INFO_GET_PRIVATE(object)    \
   static_cast<GArrowFileInfoPrivate *>(         \
-     garrow_file_info_get_instance_private(     \
-       GARROW_FILE_INFO(obj)))
+    garrow_file_info_get_instance_private(      \
+      GARROW_FILE_INFO(object)))
 
 static void
 garrow_file_info_finalize(GObject *object)
@@ -1364,6 +1366,218 @@ garrow_hdfs_file_system_class_init(GArrowHDFSFileSystemClass *klass)
 }
 
 
+#ifndef ARROW_S3
+namespace arrow {
+  namespace fs {
+    enum class S3LogLevel : int8_t { Off, Fatal, Error, Warn, Info, Debug, Trace };
+
+    struct ARROW_EXPORT S3GlobalOptions {
+      S3LogLevel log_level;
+    };
+  }
+}
+#endif
+
+typedef struct GArrowS3GlobalOptionsPrivate_ {
+  arrow::fs::S3GlobalOptions options;
+} GArrowS3GlobalOptionsPrivate;
+
+enum {
+  PROP_S3_GLOBAL_OPTIONS_LOG_LEVEL = 1,
+};
+
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowS3GlobalOptions,
+                           garrow_s3_global_options,
+                           G_TYPE_OBJECT)
+
+#define GARROW_S3_GLOBAL_OPTIONS_GET_PRIVATE(object)    \
+  static_cast<GArrowS3GlobalOptionsPrivate *>(          \
+    garrow_s3_global_options_get_instance_private(      \
+      GARROW_S3_GLOBAL_OPTIONS(object)))
+
+static void
+garrow_s3_global_options_finalize(GObject *object)
+{
+  auto priv = GARROW_S3_GLOBAL_OPTIONS_GET_PRIVATE(object);
+  priv->options.~S3GlobalOptions();
+  G_OBJECT_CLASS(garrow_s3_global_options_parent_class)->finalize(object);
+}
+
+static void
+garrow_s3_global_options_set_property(GObject *object,
+                                      guint prop_id,
+                                      const GValue *value,
+                                      GParamSpec *pspec)
+{
+#ifdef ARROW_S3
+  auto arrow_options =
+    garrow_s3_global_options_get_raw(GARROW_S3_GLOBAL_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_S3_GLOBAL_OPTIONS_LOG_LEVEL:
+    arrow_options->log_level =
+      static_cast<arrow::fs::S3LogLevel>(g_value_get_enum(value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+#else
+  G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+#endif
+}
+
+static void
+garrow_s3_global_options_get_property(GObject *object,
+                                      guint prop_id,
+                                      GValue *value,
+                                      GParamSpec *pspec)
+{
+#ifdef ARROW_S3
+  auto arrow_options =
+    garrow_s3_global_options_get_raw(GARROW_S3_GLOBAL_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_S3_GLOBAL_OPTIONS_LOG_LEVEL:
+    g_value_set_enum(value,
+                     static_cast<GArrowS3LogLevel>(arrow_options->log_level));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+#else
+  G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+#endif
+}
+
+static void
+garrow_s3_global_options_init(GArrowS3GlobalOptions *object)
+{
+  auto priv = GARROW_S3_GLOBAL_OPTIONS_GET_PRIVATE(object);
+  new(&priv->options) arrow::fs::S3GlobalOptions;
+}
+
+static void
+garrow_s3_global_options_class_init(GArrowS3GlobalOptionsClass *klass)
+{
+  GParamSpec *spec;
+
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->finalize     = garrow_s3_global_options_finalize;
+  gobject_class->set_property = garrow_s3_global_options_set_property;
+  gobject_class->get_property = garrow_s3_global_options_get_property;
+
+  /**
+   * GArrowS3GlobalOptions:log-level:
+   *
+   * The log level of S3 APIs.
+   *
+   * Since: 7.0.0
+   */
+  spec = g_param_spec_enum("log-level",
+                           "Log level",
+                           "The log level of S3 APIs",
+                           GARROW_TYPE_S3_LOG_LEVEL,
+                           GARROW_S3_LOG_LEVEL_FATAL,
+                           static_cast<GParamFlags>(G_PARAM_READWRITE |
+                                                    G_PARAM_CONSTRUCT));
+  g_object_class_install_property(gobject_class,
+                                  PROP_S3_GLOBAL_OPTIONS_LOG_LEVEL,
+                                  spec);
+}
+
+/**
+ * garrow_s3_global_options_new:
+ *
+ * Returns: A newly created #GArrowS3GlobalOptions.
+ *
+ * Since: 7.0.0
+ */
+GArrowS3GlobalOptions *
+garrow_s3_global_options_new(void)
+{
+  return GARROW_S3_GLOBAL_OPTIONS(
+    g_object_new(GARROW_TYPE_S3_GLOBAL_OPTIONS, NULL));
+}
+
+
+/**
+ * garrow_s3_is_enabled:
+ *
+ * Returns: %TRUE if Apache Arrow C++ is built with S3 support, %FALSE
+ *   otherwise.
+ *
+ * Since: 7.0.0
+ */
+gboolean
+garrow_s3_is_enabled(void)
+{
+#ifdef ARROW_S3
+  return TRUE;
+#else
+  return FALSE;
+#endif
+}
+
+/**
+ * garrow_s3_initialize:
+ * @options: (nullable): Options to initialize the S3 APIs.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Normally, you don't need to call this function because the S3 APIs
+ * are initialized with the default options automatically. If you want
+ * to call this function, you must call this function before you use
+ * any #GArrowS3FileSystem related APIs.
+ *
+ * Returns: %TRUE on success, %FALSE on error.
+ *
+ * Since: 7.0.0
+ */
+gboolean
+garrow_s3_initialize(GArrowS3GlobalOptions *options,
+                     GError **error)
+{
+#ifdef ARROW_S3
+  auto arrow_options = garrow_s3_global_options_get_raw(options);
+  return garrow::check(error,
+                       arrow::fs::InitializeS3(*arrow_options),
+                       "[s3][initialize]");
+#else
+  return garrow::check(error,
+                       arrow::Status::NotImplemented(
+                         "Apache Arrow C++ isn't built with S3 support"),
+                       "[s3][initialize]");
+#endif
+}
+
+/**
+ * garrow_s3_finalize:
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Finalize the S3 APIs.
+ *
+ * Returns: %TRUE on success, %FALSE on error.
+ *
+ * Since: 7.0.0
+ */
+gboolean
+garrow_s3_finalize(GError **error)
+{
+#ifdef ARROW_S3
+  return garrow::check(error,
+                       arrow::fs::FinalizeS3(),
+                       "[s3][finalize]");
+#else
+  return garrow::check(error,
+                       arrow::Status::NotImplemented(
+                         "Apache Arrow C++ isn't built with S3 support"),
+                       "[s3][initialize]");
+#endif
+}
+
+
 G_DEFINE_TYPE(GArrowS3FileSystem,
               garrow_s3_file_system,
               GARROW_TYPE_FILE_SYSTEM)
@@ -1448,3 +1662,12 @@ garrow_slow_file_system_new_raw(
                  "base-file-system", base_file_system,
                  NULL));
 }
+
+#ifdef ARROW_S3
+arrow::fs::S3GlobalOptions *
+garrow_s3_global_options_get_raw(GArrowS3GlobalOptions *options)
+{
+  auto priv = GARROW_S3_GLOBAL_OPTIONS_GET_PRIVATE(options);
+  return &(priv->options);
+}
+#endif

@@ -45,14 +45,14 @@ test_that("summarize() doesn't evaluate eagerly", {
 })
 
 test_that("Can aggregate in Arrow", {
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       summarize(total = sum(int, na.rm = TRUE)) %>%
       collect(),
     tbl
   )
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       summarize(total = sum(int)) %>%
       collect(),
     tbl
@@ -60,24 +60,24 @@ test_that("Can aggregate in Arrow", {
 })
 
 test_that("Group by sum on dataset", {
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       group_by(some_grouping) %>%
       summarize(total = sum(int, na.rm = TRUE)) %>%
       collect(),
     tbl
   )
 
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       group_by(some_grouping) %>%
       summarize(total = sum(int * 4, na.rm = TRUE)) %>%
       collect(),
     tbl
   )
 
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       group_by(some_grouping) %>%
       summarize(total = sum(int)) %>%
       collect(),
@@ -86,16 +86,16 @@ test_that("Group by sum on dataset", {
 })
 
 test_that("Group by mean on dataset", {
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       group_by(some_grouping) %>%
       summarize(mean = mean(int, na.rm = TRUE)) %>%
       collect(),
     tbl
   )
 
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       group_by(some_grouping) %>%
       summarize(mean = mean(int, na.rm = FALSE)) %>%
       collect(),
@@ -104,16 +104,16 @@ test_that("Group by mean on dataset", {
 })
 
 test_that("Group by sd on dataset", {
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       group_by(some_grouping) %>%
       summarize(sd = sd(int, na.rm = TRUE)) %>%
       collect(),
     tbl
   )
 
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       group_by(some_grouping) %>%
       summarize(sd = sd(int, na.rm = FALSE)) %>%
       collect(),
@@ -122,16 +122,16 @@ test_that("Group by sd on dataset", {
 })
 
 test_that("Group by var on dataset", {
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       group_by(some_grouping) %>%
       summarize(var = var(int, na.rm = TRUE)) %>%
       collect(),
     tbl
   )
 
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       group_by(some_grouping) %>%
       summarize(var = var(int, na.rm = FALSE)) %>%
       collect(),
@@ -140,15 +140,15 @@ test_that("Group by var on dataset", {
 })
 
 test_that("n()", {
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       summarize(counts = n()) %>%
       collect(),
     tbl
   )
 
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       group_by(some_grouping) %>%
       summarize(counts = n()) %>%
       arrange(some_grouping) %>%
@@ -158,53 +158,53 @@ test_that("n()", {
 })
 
 test_that("Group by any/all", {
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       group_by(some_grouping) %>%
       summarize(any(lgl, na.rm = TRUE)) %>%
       collect(),
     tbl
   )
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       group_by(some_grouping) %>%
       summarize(all(lgl, na.rm = TRUE)) %>%
       collect(),
     tbl
   )
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       group_by(some_grouping) %>%
       summarize(any(lgl, na.rm = FALSE)) %>%
       collect(),
     tbl
   )
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       group_by(some_grouping) %>%
       summarize(all(lgl, na.rm = FALSE)) %>%
       collect(),
     tbl
   )
 
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       mutate(has_words = nchar(verses) < 0) %>%
       group_by(some_grouping) %>%
       summarize(any(has_words, na.rm = TRUE)) %>%
       collect(),
     tbl
   )
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       mutate(has_words = nchar(verses) < 0) %>%
       group_by(some_grouping) %>%
       summarize(all(has_words, na.rm = TRUE)) %>%
       collect(),
     tbl
   )
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       group_by(some_grouping) %>%
       summarize(has_words = all(nchar(verses) < 0, na.rm = TRUE)) %>%
       collect(),
@@ -214,43 +214,43 @@ test_that("Group by any/all", {
 
 test_that("n_distinct() on dataset", {
   # With groupby
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       group_by(some_grouping) %>%
       summarize(distinct = n_distinct(lgl, na.rm = FALSE)) %>%
       collect(),
     tbl
   )
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       group_by(some_grouping) %>%
       summarize(distinct = n_distinct(lgl, na.rm = TRUE)) %>%
       collect(),
     tbl
   )
   # Without groupby
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       summarize(distinct = n_distinct(lgl, na.rm = FALSE)) %>%
       collect(),
     tbl
   )
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       summarize(distinct = n_distinct(lgl, na.rm = TRUE)) %>%
       collect(),
     tbl
   )
 
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       summarize(distinct = n_distinct(int, lgl)) %>%
       collect(),
     tbl,
     warning = "Multiple arguments"
   )
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       group_by(some_grouping) %>%
       summarize(distinct = n_distinct(int, lgl)) %>%
       collect(),
@@ -260,15 +260,15 @@ test_that("n_distinct() on dataset", {
 })
 
 test_that("Functions that take ... but we only accept a single arg", {
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       summarize(distinct = n_distinct()) %>%
       collect(),
     tbl,
     warning = "0 arguments"
   )
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       summarize(distinct = n_distinct(int, lgl)) %>%
       collect(),
     tbl,
@@ -301,8 +301,8 @@ test_that("median()", {
   local_edition(2)
 
   # with groups
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       group_by(some_grouping) %>%
       summarize(
         med_dbl = median(dbl),
@@ -318,8 +318,8 @@ test_that("median()", {
     warning = "median\\(\\) currently returns an approximate median in Arrow"
   )
   # without groups, with na.rm = TRUE
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       summarize(
         med_dbl_narmt = median(dbl, na.rm = TRUE),
         med_int_narmt = as.double(median(int, TRUE))
@@ -329,8 +329,8 @@ test_that("median()", {
     warning = "median\\(\\) currently returns an approximate median in Arrow"
   )
   # without groups, with na.rm = FALSE (the default)
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       summarize(
         med_dbl = median(dbl),
         med_int = as.double(median(int)),
@@ -354,8 +354,8 @@ test_that("quantile()", {
   # controls whether the result has a names attribute. It defaults to
   # names = TRUE. With Arrow, it is not possible to give the result a names
   # attribute, so the quantile() binding in Arrow does not accept a `names`
-  # argument. Differences in this names attribute cause expect_dplyr_equal() to
-  # report that the objects are not equal, so we do not use expect_dplyr_equal()
+  # argument. Differences in this names attribute cause compare_dplyr_binding() to
+  # report that the objects are not equal, so we do not use compare_dplyr_binding()
   # in the tests below.
 
   # The tests below all use probs = 0.5 because other values cause differences
@@ -437,22 +437,22 @@ test_that("quantile()", {
   expect_warning(
     Table$create(tbl) %>%
       summarize(q = quantile(dbl, probs = c(0.2, 0.8), na.rm = TRUE)),
-    "quantile() with length(probs) != 1 not supported by Arrow",
+    "quantile() with length(probs) != 1 not supported in Arrow",
     fixed = TRUE
   )
 })
 
 test_that("summarize() with min() and max()", {
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       select(int, chr) %>%
       filter(int > 5) %>% # this filters out the NAs in `int`
       summarize(min_int = min(int), max_int = max(int)) %>%
       collect(),
     tbl,
   )
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       select(int, chr) %>%
       filter(int > 5) %>% # this filters out the NAs in `int`
       summarize(
@@ -462,15 +462,15 @@ test_that("summarize() with min() and max()", {
       collect(),
     tbl,
   )
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       select(int, chr) %>%
       summarize(min_int = min(int), max_int = max(int)) %>%
       collect(),
     tbl,
   )
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       select(int) %>%
       summarize(
         min_int = min(int, na.rm = TRUE),
@@ -479,8 +479,8 @@ test_that("summarize() with min() and max()", {
       collect(),
     tbl,
   )
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       select(dbl, int) %>%
       summarize(
         min_int = -min(log(ceiling(dbl)), na.rm = TRUE),
@@ -491,26 +491,26 @@ test_that("summarize() with min() and max()", {
   )
 
   # multiple dots arguments to min(), max() not supported
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       summarize(min_mult = min(dbl, int)) %>%
       collect(),
     tbl,
-    warning = "Multiple arguments to min\\(\\) not supported by Arrow"
+    warning = "Multiple arguments to min\\(\\) not supported in Arrow"
   )
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       select(int, dbl, dbl2) %>%
       summarize(max_mult = max(int, dbl, dbl2)) %>%
       collect(),
     tbl,
-    warning = "Multiple arguments to max\\(\\) not supported by Arrow"
+    warning = "Multiple arguments to max\\(\\) not supported in Arrow"
   )
 
   # min(logical) or max(logical) yields integer in R
   # min(Boolean) or max(Boolean) yields Boolean in Arrow
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       select(lgl) %>%
       summarize(
         max_lgl = as.logical(max(lgl, na.rm = TRUE)),
@@ -522,8 +522,8 @@ test_that("summarize() with min() and max()", {
 })
 
 test_that("min() and max() on character strings", {
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       summarize(
         min_chr = min(chr, na.rm = TRUE),
         max_chr = max(chr, na.rm = TRUE)
@@ -532,8 +532,8 @@ test_that("min() and max() on character strings", {
     tbl,
   )
   skip("Strings not supported by hash_min_max (ARROW-13988)")
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       group_by(fct) %>%
       summarize(
         min_chr = min(chr, na.rm = TRUE),
@@ -548,8 +548,8 @@ test_that("summarise() with !!sym()", {
   test_chr_col <- "int"
   test_dbl_col <- "dbl"
   test_lgl_col <- "lgl"
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       group_by(false) %>%
       summarise(
         sum = sum(!!sym(test_dbl_col)),
@@ -568,24 +568,24 @@ test_that("summarise() with !!sym()", {
 })
 
 test_that("Filter and aggregate", {
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       filter(some_grouping == 2) %>%
       summarize(total = sum(int, na.rm = TRUE)) %>%
       collect(),
     tbl
   )
 
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       filter(int > 5) %>%
       summarize(total = sum(int, na.rm = TRUE)) %>%
       collect(),
     tbl
   )
 
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       filter(some_grouping == 2) %>%
       group_by(some_grouping) %>%
       summarize(total = sum(int, na.rm = TRUE)) %>%
@@ -593,8 +593,8 @@ test_that("Filter and aggregate", {
     tbl
   )
 
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       filter(int > 5) %>%
       group_by(some_grouping) %>%
       summarize(total = sum(int, na.rm = TRUE)) %>%
@@ -604,16 +604,16 @@ test_that("Filter and aggregate", {
 })
 
 test_that("Group by edge cases", {
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       group_by(some_grouping * 2) %>%
       summarize(total = sum(int, na.rm = TRUE)) %>%
       collect(),
     tbl
   )
 
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       group_by(alt = some_grouping * 2) %>%
       summarize(total = sum(int, na.rm = TRUE)) %>%
       collect(),
@@ -629,8 +629,8 @@ test_that("Do things after summarize", {
     pull() %>%
     tail(1)
 
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       group_by(some_grouping) %>%
       filter(int > 5) %>%
       summarize(total = sum(int, na.rm = TRUE)) %>%
@@ -640,8 +640,8 @@ test_that("Do things after summarize", {
     tbl
   )
 
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       filter(dbl > 2) %>%
       select(chr, int, lgl) %>%
       mutate(twice = int * 2L) %>%
@@ -658,8 +658,8 @@ test_that("Do things after summarize", {
 
 test_that("Expressions on aggregations", {
   # This is what it effectively is
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       group_by(some_grouping) %>%
       summarize(
         any = any(lgl),
@@ -672,8 +672,8 @@ test_that("Expressions on aggregations", {
     tbl
   )
   # More concisely:
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       group_by(some_grouping) %>%
       summarize(any(lgl) & !all(lgl)) %>%
       collect(),
@@ -681,8 +681,8 @@ test_that("Expressions on aggregations", {
   )
 
   # Save one of the aggregates first
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       group_by(some_grouping) %>%
       summarize(
         any_lgl = any(lgl),
@@ -693,8 +693,8 @@ test_that("Expressions on aggregations", {
   )
 
   # Make sure order of columns in result is correct
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       group_by(some_grouping) %>%
       summarize(
         any_lgl = any(lgl),
@@ -705,22 +705,36 @@ test_that("Expressions on aggregations", {
     tbl
   )
 
-  # Aggregate on an aggregate (trivial but dplyr allows)
-  skip("Aggregate on an aggregate not supported")
-  expect_dplyr_equal(
-    input %>%
-      group_by(some_grouping) %>%
-      summarize(
-        any_lgl = any(any(lgl))
-      ) %>%
-      collect(),
-    tbl
+  # Aggregates on aggregates are not supported
+  expect_warning(
+    record_batch(tbl) %>% summarise(any(any(lgl))),
+    paste(
+      "Aggregate within aggregate expression",
+      "any\\(any\\(lgl\\)\\) not supported in Arrow"
+    )
+  )
+
+  # Check aggregates on aggeregates with more complex calls
+  expect_warning(
+    record_batch(tbl) %>% summarise(any(any(!lgl))),
+    paste(
+      "Aggregate within aggregate expression",
+      "any\\(any\\(!lgl\\)\\) not supported in Arrow"
+    )
+
+  )
+  expect_warning(
+    record_batch(tbl) %>% summarise(!any(any(lgl))),
+    paste(
+      "Aggregate within aggregate expression",
+      "any\\(any\\(lgl\\)\\) not supported in Arrow"
+    )
   )
 })
 
 test_that("Summarize with 0 arguments", {
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       group_by(some_grouping) %>%
       summarize() %>%
       collect(),
@@ -730,92 +744,121 @@ test_that("Summarize with 0 arguments", {
 
 test_that("Not (yet) supported: implicit join", {
   withr::local_options(list(arrow.debug = TRUE))
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       group_by(some_grouping) %>%
       summarize(
         sum((dbl - mean(dbl))^2)
       ) %>%
       collect(),
     tbl,
-    warning = "Expression sum\\(\\(dbl - mean\\(dbl\\)\\)\\^2\\) not supported in Arrow; pulling data into R"
+    warning = paste(
+      "Aggregate within aggregate expression sum\\(\\(dbl - mean\\(dbl\\)\\)\\^2\\)",
+      "not supported in Arrow; pulling data into R"
+    )
   )
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       group_by(some_grouping) %>%
       summarize(
         sum(dbl - mean(dbl))
       ) %>%
       collect(),
     tbl,
-    warning = "Expression sum\\(dbl - mean\\(dbl\\)\\) not supported in Arrow; pulling data into R"
+    warning = paste(
+      "Aggregate within aggregate expression sum\\(dbl - mean\\(dbl\\)\\)",
+      "not supported in Arrow; pulling data into R"
+    )
   )
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       group_by(some_grouping) %>%
       summarize(
         sqrt(sum((dbl - mean(dbl))^2) / (n() - 1L))
       ) %>%
       collect(),
     tbl,
-    warning = "Expression sum\\(\\(dbl - mean\\(dbl\\)\\)\\^2\\) not supported in Arrow; pulling data into R"
+    warning = paste(
+      "Aggregate within aggregate expression sum\\(\\(dbl - mean\\(dbl\\)\\)\\^2\\)",
+      "not supported in Arrow; pulling data into R"
+    )
   )
 
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       group_by(some_grouping) %>%
       summarize(
         dbl - mean(dbl)
       ) %>%
       collect(),
     tbl,
-    warning = "Expression dbl - mean\\(dbl\\) not supported in Arrow; pulling data into R"
+    warning = paste(
+      "Expression dbl - mean\\(dbl\\) is not an aggregate expression",
+      "or is not supported in Arrow; pulling data into R"
+    )
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      group_by(some_grouping) %>%
+      summarize(
+        dbl
+      ) %>%
+      collect(),
+    tbl,
+    warning = paste(
+      "Expression dbl is not an aggregate expression",
+      "or is not supported in Arrow; pulling data into R"
+    )
   )
 
   # This one could possibly be supported--in mutate()
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       group_by(some_grouping) %>%
       summarize(
         dbl - int
       ) %>%
       collect(),
     tbl,
-    warning = "Expression dbl - int not supported in Arrow; pulling data into R"
+    warning = paste(
+      "Expression dbl - int is not an aggregate expression",
+      "or is not supported in Arrow; pulling data into R"
+    )
   )
 })
 
 test_that(".groups argument", {
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       group_by(some_grouping, int < 6) %>%
       summarize(count = n()) %>%
       collect(),
     tbl
   )
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       group_by(some_grouping, int < 6) %>%
       summarize(count = n(), .groups = "drop_last") %>%
       collect(),
     tbl
   )
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       group_by(some_grouping, int < 6) %>%
       summarize(count = n(), .groups = "keep") %>%
       collect(),
     tbl
   )
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       group_by(some_grouping, int < 6) %>%
       summarize(count = n(), .groups = "drop") %>%
       collect(),
     tbl
   )
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       group_by(some_grouping, int < 6) %>%
       summarize(count = n(), .groups = "rowwise") %>%
       collect(),
@@ -844,8 +887,8 @@ test_that("summarize() handles group_by .drop", {
     x = 1:10,
     y = factor(rep(c("a", "c"), each = 5), levels = c("a", "b", "c"))
   )
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       group_by(y) %>%
       count() %>%
       collect() %>%
@@ -853,8 +896,8 @@ test_that("summarize() handles group_by .drop", {
     tbl
   )
   # Not supported: check message
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       group_by(y, .drop = FALSE) %>%
       count() %>%
       collect() %>%
@@ -867,8 +910,8 @@ test_that("summarize() handles group_by .drop", {
   )
 
   # But this is ok because there is no factor group
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       group_by(y, .drop = FALSE) %>%
       count() %>%
       collect() %>%
@@ -877,5 +920,66 @@ test_that("summarize() handles group_by .drop", {
       x = 1:10,
       y = rep(c("a", "c"), each = 5)
     )
+  )
+})
+
+test_that("summarise() passes through type information for temporary columns", {
+  # applies to ifelse and case_when(), in which argument types are checked
+  # within a translated function (previously this failed because the appropriate
+  # schema was not available for n() > 1, mean(y), and mean(z))
+  compare_dplyr_binding(
+    .input %>%
+      group_by(x) %>%
+      summarise(r = if_else(n() > 1, mean(y), mean(z))) %>%
+      collect(),
+    tibble(
+      x = c(0, 1, 1),
+      y = c(2, 3, 5),
+      z = c(8, 13, 21)
+    )
+  )
+})
+
+test_that("summarise() can handle scalars and literal values", {
+  some_scalar_value <- 2L
+
+  compare_dplyr_binding(
+    .input %>% summarise(y = 1L) %>% collect(),
+    tbl
+  )
+
+  compare_dplyr_binding(
+    .input %>% summarise(y = some_scalar_value) %>% collect(),
+    tbl
+  )
+
+  compare_dplyr_binding(
+    .input %>% summarise(y = !! some_scalar_value) %>% collect(),
+    tbl
+  )
+
+  expect_identical(
+    record_batch(tbl) %>% summarise(y = 1L) %>% collect(),
+    tibble(y = 1L)
+  )
+
+  expect_identical(
+    record_batch(tbl) %>% summarise(y = Expression$scalar(1L)) %>% collect(),
+    tibble(y = 1L)
+  )
+
+  expect_identical(
+    record_batch(tbl) %>% summarise(y = Scalar$create(1L)) %>% collect(),
+    tibble(y = 1L)
+  )
+
+  expect_identical(
+    record_batch(tbl) %>% summarise(y = some_scalar_value) %>% collect(),
+    tibble(y = 2L)
+  )
+
+  expect_identical(
+    record_batch(tbl) %>% summarise(y = !! some_scalar_value) %>% collect(),
+    tibble(y = 2L)
   )
 })

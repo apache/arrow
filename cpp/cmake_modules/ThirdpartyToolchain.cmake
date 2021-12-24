@@ -63,6 +63,7 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     GTest
     LLVM
     Lz4
+    opentelemetry-cpp
     ORC
     re2
     Protobuf
@@ -160,6 +161,8 @@ macro(build_dependency DEPENDENCY_NAME)
     build_gtest()
   elseif("${DEPENDENCY_NAME}" STREQUAL "Lz4")
     build_lz4()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "opentelemetry-cpp")
+    build_opentelemetry()
   elseif("${DEPENDENCY_NAME}" STREQUAL "ORC")
     build_orc()
   elseif("${DEPENDENCY_NAME}" STREQUAL "Protobuf")
@@ -269,6 +272,10 @@ if(PARQUET_REQUIRE_ENCRYPTION)
   set(ARROW_JSON ON)
 endif()
 
+if(ARROW_WITH_OPENTELEMETRY)
+  set(ARROW_WITH_PROTOBUF ON)
+endif()
+
 if(ARROW_THRIFT)
   set(ARROW_WITH_ZLIB ON)
 endif()
@@ -286,7 +293,9 @@ endif()
 
 if(ARROW_FLIGHT)
   set(ARROW_WITH_GRPC ON)
-  # gRPC requires zlib
+endif()
+
+if(ARROW_WITH_GRPC)
   set(ARROW_WITH_ZLIB ON)
 endif()
 
@@ -541,8 +550,27 @@ if(DEFINED ENV{ARROW_ORC_URL})
   set(ORC_SOURCE_URL "$ENV{ARROW_ORC_URL}")
 else()
   set_urls(ORC_SOURCE_URL
+           "https://archive.apache.org/dist/orc/orc-${ARROW_ORC_BUILD_VERSION}/orc-${ARROW_ORC_BUILD_VERSION}.tar.gz"
            "https://github.com/apache/orc/archive/rel/release-${ARROW_ORC_BUILD_VERSION}.tar.gz"
-           "https://github.com/ursa-labs/thirdparty/releases/download/latest/orc-${ARROW_ORC_BUILD_VERSION}.tar.gz"
+  )
+endif()
+
+if(DEFINED ENV{ARROW_OPENTELEMETRY_URL})
+  set(OPENTELEMETRY_SOURCE_URL "$ENV{ARROW_OPENTELEMETRY_URL}")
+else()
+  # TODO: add mirror
+  set_urls(OPENTELEMETRY_SOURCE_URL
+           "https://github.com/open-telemetry/opentelemetry-cpp/archive/refs/tags/${ARROW_OPENTELEMETRY_BUILD_VERSION}.tar.gz"
+  )
+endif()
+
+if(DEFINED ENV{ARROW_OPENTELEMETRY_PROTO_URL})
+  set(OPENTELEMETRY_PROTO_SOURCE_URL "$ENV{ARROW_OPENTELEMETRY_PROTO_URL}")
+else()
+  # TODO: add mirror
+  # N.B. upstream pins to particular commits, not tags
+  set_urls(OPENTELEMETRY_PROTO_SOURCE_URL
+           "https://github.com/open-telemetry/opentelemetry-proto/archive/${ARROW_OPENTELEMETRY_PROTO_BUILD_VERSION}.tar.gz"
   )
 endif()
 
@@ -579,10 +607,20 @@ endif()
 if(DEFINED ENV{ARROW_SNAPPY_URL})
   set(SNAPPY_SOURCE_URL "$ENV{ARROW_SNAPPY_URL}")
 else()
-  set_urls(SNAPPY_SOURCE_URL
-           "https://github.com/google/snappy/archive/${ARROW_SNAPPY_BUILD_VERSION}.tar.gz"
-           "https://github.com/ursa-labs/thirdparty/releases/download/latest/snappy-${ARROW_SNAPPY_BUILD_VERSION}.tar.gz"
-  )
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS
+                                              "4.9")
+    # There is a bug in GCC < 4.9 with Snappy 1.1.9, so revert to 1.1.8 "SNAPPY_OLD" for those (ARROW-14661)
+    set_urls(SNAPPY_SOURCE_URL
+             "https://github.com/google/snappy/archive/${ARROW_SNAPPY_OLD_BUILD_VERSION}.tar.gz"
+             "https://github.com/ursa-labs/thirdparty/releases/download/latest/snappy-${ARROW_SNAPPY_OLD_BUILD_VERSION}.tar.gz"
+    )
+    set(ARROW_SNAPPY_BUILD_SHA256_CHECKSUM ${ARROW_SNAPPY_OLD_BUILD_SHA256_CHECKSUM})
+  else()
+    set_urls(SNAPPY_SOURCE_URL
+             "https://github.com/google/snappy/archive/${ARROW_SNAPPY_BUILD_VERSION}.tar.gz"
+             "https://github.com/ursa-labs/thirdparty/releases/download/latest/snappy-${ARROW_SNAPPY_BUILD_VERSION}.tar.gz"
+    )
+  endif()
 endif()
 
 if(DEFINED ENV{ARROW_THRIFT_URL})
@@ -904,7 +942,13 @@ if(ARROW_USE_UBSAN)
   set(ARROW_USE_NATIVE_INT128 FALSE)
 else()
   include(CheckCXXSymbolExists)
-  check_cxx_symbol_exists("__SIZEOF_INT128__" "" ARROW_USE_NATIVE_INT128)
+  check_cxx_symbol_exists("_M_ARM64" "" WIN32_ARM64_TARGET)
+  if(WIN32_ARM64_TARGET AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    # NOTE: For clang/win-arm64, native int128_t produce linker errors
+    set(ARROW_USE_NATIVE_INT128 FALSE)
+  else()
+    check_cxx_symbol_exists("__SIZEOF_INT128__" "" ARROW_USE_NATIVE_INT128)
+  endif()
 endif()
 
 # - Gandiva has a compile-time (header-only) dependency on Boost, not runtime.
@@ -954,6 +998,23 @@ if(ARROW_BOOST_REQUIRED)
 endif()
 
 # ----------------------------------------------------------------------
+# cURL
+
+macro(find_curl)
+  if(NOT TARGET CURL::libcurl)
+    find_package(CURL REQUIRED)
+    if(NOT TARGET CURL::libcurl)
+      # For CMake 3.11 or older
+      add_library(CURL::libcurl UNKNOWN IMPORTED)
+      set_target_properties(CURL::libcurl
+                            PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
+                                       "${CURL_INCLUDE_DIRS}" IMPORTED_LOCATION
+                                                              "${CURL_LIBRARIES}")
+    endif()
+  endif()
+endmacro()
+
+# ----------------------------------------------------------------------
 # Snappy
 
 macro(build_snappy)
@@ -965,7 +1026,10 @@ macro(build_snappy)
   )
 
   set(SNAPPY_CMAKE_ARGS
-      ${EP_COMMON_CMAKE_ARGS} -DCMAKE_INSTALL_LIBDIR=lib -DSNAPPY_BUILD_TESTS=OFF
+      ${EP_COMMON_CMAKE_ARGS}
+      -DCMAKE_INSTALL_LIBDIR=lib
+      -DSNAPPY_BUILD_TESTS=OFF
+      -DSNAPPY_BUILD_BENCHMARKS=OFF
       "-DCMAKE_INSTALL_PREFIX=${SNAPPY_PREFIX}")
 
   externalproject_add(snappy_ep
@@ -1464,6 +1528,7 @@ macro(build_protobuf)
 
   add_dependencies(toolchain protobuf_ep)
   add_dependencies(arrow::protobuf::libprotobuf protobuf_ep)
+  add_dependencies(arrow::protobuf::protoc protobuf_ep)
 
   list(APPEND ARROW_BUNDLED_STATIC_LIBS arrow::protobuf::libprotobuf)
 endmacro()
@@ -1911,8 +1976,7 @@ macro(build_benchmark)
 endmacro()
 
 if(ARROW_BUILD_BENCHMARKS)
-  # ArgsProduct() is available since 1.5.2
-  set(BENCHMARK_REQUIRED_VERSION 1.5.2)
+  set(BENCHMARK_REQUIRED_VERSION 1.6.0)
   resolve_dependency(benchmark
                      REQUIRED_VERSION
                      ${BENCHMARK_REQUIRED_VERSION}
@@ -2419,6 +2483,7 @@ macro(build_absl_once)
   if(NOT TARGET absl_ep)
     message(STATUS "Building Abseil-cpp from source")
     set(ABSL_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/absl_ep-install")
+    set(ABSL_INCLUDE_DIR "${ABSL_PREFIX}/include")
     set(ABSL_CMAKE_ARGS
         "${EP_COMMON_CMAKE_ARGS}" -DABSL_RUN_TESTS=OFF -DCMAKE_INSTALL_LIBDIR=lib
         "-DCMAKE_INSTALL_PREFIX=${ABSL_PREFIX}")
@@ -2573,13 +2638,13 @@ macro(build_absl_once)
       set_target_properties(absl::${_ABSL_LIB}
                             PROPERTIES IMPORTED_LOCATION ${_ABSL_STATIC_LIBRARY}
                                        INTERFACE_INCLUDE_DIRECTORIES
-                                       "${ABSL_PREFIX}/include")
+                                       "${ABSL_INCLUDE_DIR}")
       list(APPEND ABSL_BUILD_BYPRODUCTS ${_ABSL_STATIC_LIBRARY})
     endforeach()
     foreach(_ABSL_LIB ${_ABSL_INTERFACE_LIBS})
       add_library(absl::${_ABSL_LIB} INTERFACE IMPORTED)
       set_target_properties(absl::${_ABSL_LIB} PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                                                          "${ABSL_PREFIX}/include")
+                                                          "${ABSL_INCLUDE_DIR}")
     endforeach()
 
     # Extracted the dependency information using the Abseil pkg-config files:
@@ -3261,6 +3326,9 @@ macro(build_absl_once)
                         CMAKE_ARGS ${ABSL_CMAKE_ARGS}
                         BUILD_BYPRODUCTS ${ABSL_BUILD_BYPRODUCTS})
 
+    # Work around https://gitlab.kitware.com/cmake/cmake/issues/15052
+    file(MAKE_DIRECTORY ${ABSL_INCLUDE_DIR})
+
   endif()
 endmacro()
 
@@ -3295,6 +3363,9 @@ macro(build_grpc)
   )
   set(GRPC_STATIC_LIBRARY_ADDRESS_SORTING
       "${GRPC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}address_sorting${CMAKE_STATIC_LIBRARY_SUFFIX}"
+  )
+  set(GRPC_STATIC_LIBRARY_GRPCPP_REFLECTION
+      "${GRPC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}grpc++_reflection${CMAKE_STATIC_LIBRARY_SUFFIX}"
   )
   set(GRPC_STATIC_LIBRARY_UPB
       "${GRPC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}upb${CMAKE_STATIC_LIBRARY_SUFFIX}"
@@ -3390,6 +3461,7 @@ macro(build_grpc)
                                        ${GRPC_STATIC_LIBRARY_GRPC}
                                        ${GRPC_STATIC_LIBRARY_GRPCPP}
                                        ${GRPC_STATIC_LIBRARY_ADDRESS_SORTING}
+                                       ${GRPC_STATIC_LIBRARY_GRPCPP_REFLECTION}
                                        ${GRPC_STATIC_LIBRARY_UPB}
                                        ${GRPC_CPP_PLUGIN}
                       CMAKE_ARGS ${GRPC_CMAKE_ARGS} ${EP_LOG_OPTIONS}
@@ -3421,6 +3493,12 @@ macro(build_grpc)
   set_target_properties(gRPC::address_sorting
                         PROPERTIES IMPORTED_LOCATION
                                    "${GRPC_STATIC_LIBRARY_ADDRESS_SORTING}"
+                                   INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}")
+
+  add_library(gRPC::grpc++_reflection STATIC IMPORTED)
+  set_target_properties(gRPC::grpc++_reflection
+                        PROPERTIES IMPORTED_LOCATION
+                                   "${GRPC_STATIC_LIBRARY_GRPCPP_REFLECTION}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}")
 
   add_library(gRPC::grpc STATIC IMPORTED)
@@ -3502,6 +3580,8 @@ if(ARROW_WITH_GRPC)
 
   if(GRPC_VENDORED)
     set(GRPCPP_PP_INCLUDE TRUE)
+    # Examples need to link to static Arrow if we're using static gRPC
+    set(ARROW_GRPC_USE_SHARED OFF)
   else()
     # grpc++ headers may reside in ${GRPC_INCLUDE_DIR}/grpc++ or ${GRPC_INCLUDE_DIR}/grpcpp
     # depending on the gRPC version.
@@ -3523,6 +3603,7 @@ macro(build_crc32c_once)
     message(STATUS "Building crc32c from source")
     # Build crc32c
     set(CRC32C_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/crc32c_ep-install")
+    set(CRC32C_INCLUDE_DIR "${CRC32C_PREFIX}/include")
     set(CRC32C_CMAKE_ARGS
         ${EP_COMMON_CMAKE_ARGS}
         -DCMAKE_INSTALL_LIBDIR=lib
@@ -3545,11 +3626,13 @@ macro(build_crc32c_once)
                         URL_HASH "SHA256=${ARROW_CRC32C_BUILD_SHA256_CHECKSUM}"
                         CMAKE_ARGS ${CRC32C_CMAKE_ARGS}
                         BUILD_BYPRODUCTS ${CRC32C_BUILD_BYPRODUCTS})
+    # Work around https://gitlab.kitware.com/cmake/cmake/issues/15052
+    file(MAKE_DIRECTORY "${CRC32C_INCLUDE_DIR}")
     add_library(Crc32c::crc32c STATIC IMPORTED)
     set_target_properties(Crc32c::crc32c
                           PROPERTIES IMPORTED_LOCATION ${_CRC32C_STATIC_LIBRARY}
                                      INTERFACE_INCLUDE_DIRECTORIES
-                                     "${CRC32C_INCLUDE}/include")
+                                     "${CRC32C_INCLUDE_DIR}")
     add_dependencies(Crc32c::crc32c crc32c_ep)
   endif()
 endmacro()
@@ -3559,9 +3642,13 @@ macro(build_nlohmann_json_once)
     message(STATUS "Building nlohmann-json from source")
     # "Build" nlohmann-json
     set(NLOHMANN_JSON_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/nlohmann_json_ep-install")
+    set(NLOHMANN_JSON_INCLUDE_DIR "${NLOHMANN_JSON_PREFIX}/include")
     set(NLOHMANN_JSON_CMAKE_ARGS
-        ${EP_COMMON_CMAKE_ARGS} -DCMAKE_CXX_STANDARD=11
-        "-DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>" -DBUILD_TESTING=OFF)
+        ${EP_COMMON_CMAKE_ARGS}
+        -DCMAKE_CXX_STANDARD=11
+        "-DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>"
+        -DBUILD_TESTING=OFF
+        -DJSON_BuildTests=OFF)
 
     set(NLOHMANN_JSON_BUILD_BYPRODUCTS ${NLOHMANN_JSON_PREFIX}/include/nlohmann/json.hpp)
 
@@ -3572,10 +3659,14 @@ macro(build_nlohmann_json_once)
                         URL_HASH "SHA256=${ARROW_NLOHMANN_JSON_BUILD_SHA256_CHECKSUM}"
                         CMAKE_ARGS ${NLOHMANN_JSON_CMAKE_ARGS}
                         BUILD_BYPRODUCTS ${NLOHMANN_JSON_BUILD_BYPRODUCTS})
+
+    # Work around https://gitlab.kitware.com/cmake/cmake/issues/15052
+    file(MAKE_DIRECTORY ${NLOHMANN_JSON_INCLUDE_DIR})
+
     add_library(nlohmann_json::nlohmann_json INTERFACE IMPORTED)
     set_target_properties(nlohmann_json::nlohmann_json
                           PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                                     "${NLOHMANN_JSON_PREFIX}/include")
+                                     "${NLOHMANN_JSON_INCLUDE_DIR}")
     add_dependencies(nlohmann_json::nlohmann_json nlohmann_json_ep)
   endif()
 endmacro()
@@ -3591,7 +3682,8 @@ macro(build_google_cloud_cpp_storage)
 
   # Curl is required on all platforms, but building it internally might also trip over S3's copy.
   # For now, force its inclusion from the underlying system or fail.
-  find_package(CURL 7.47.0 REQUIRED)
+  find_curl()
+  find_package(OpenSSL ${ARROW_OPENSSL_REQUIRED_VERSION} REQUIRED)
 
   # Build google-cloud-cpp, with only storage_client
 
@@ -3627,19 +3719,6 @@ macro(build_google_cloud_cpp_storage)
   add_dependencies(google_cloud_cpp_dependencies absl_ep)
   add_dependencies(google_cloud_cpp_dependencies crc32c_ep)
   add_dependencies(google_cloud_cpp_dependencies nlohmann_json_ep)
-  # Typically the steps to build the AWKSSDK provide `CURL::libcurl`, but if that is
-  # disabled we need to provide our own.
-  if(NOT TARGET CURL::libcurl)
-    find_package(CURL REQUIRED)
-    if(NOT TARGET CURL::libcurl)
-      # For CMake 3.11 or older
-      add_library(CURL::libcurl UNKNOWN IMPORTED)
-      set_target_properties(CURL::libcurl
-                            PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                                       "${CURL_INCLUDE_DIRS}" IMPORTED_LOCATION
-                                                              "${CURL_LIBRARIES}")
-    endif()
-  endif()
 
   set(GOOGLE_CLOUD_CPP_STATIC_LIBRARY_STORAGE
       "${GOOGLE_CLOUD_CPP_INSTALL_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}google_cloud_cpp_storage${CMAKE_STATIC_LIBRARY_SUFFIX}"
@@ -3659,6 +3738,10 @@ macro(build_google_cloud_cpp_storage)
                       BUILD_BYPRODUCTS ${GOOGLE_CLOUD_CPP_STATIC_LIBRARY_STORAGE}
                                        ${GOOGLE_CLOUD_CPP_STATIC_LIBRARY_COMMON}
                       DEPENDS google_cloud_cpp_dependencies)
+
+  # Work around https://gitlab.kitware.com/cmake/cmake/issues/15052
+  file(MAKE_DIRECTORY ${GOOGLE_CLOUD_CPP_INCLUDE_DIR})
+
   add_dependencies(toolchain google_cloud_cpp_ep)
 
   add_library(google-cloud-cpp::common STATIC IMPORTED)
@@ -3817,6 +3900,222 @@ if(ARROW_ORC)
 endif()
 
 # ----------------------------------------------------------------------
+# OpenTelemetry C++
+
+macro(build_opentelemetry)
+  message("Building OpenTelemetry from source")
+
+  build_nlohmann_json_once()
+  find_curl()
+
+  set(OPENTELEMETRY_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/opentelemetry_ep-install")
+  set(OPENTELEMETRY_INCLUDE_DIR "${OPENTELEMETRY_PREFIX}/include")
+  set(OPENTELEMETRY_STATIC_LIB
+      "${OPENTELEMETRY_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}opentelemetry${CMAKE_STATIC_LIBRARY_SUFFIX}"
+  )
+  set(_OPENTELEMETRY_APIS api ext sdk)
+  set(_OPENTELEMETRY_LIBS
+      common
+      http_client_curl
+      ostream_span_exporter
+      otlp_http_client
+      otlp_http_exporter
+      otlp_recordable
+      proto
+      resources
+      trace
+      version)
+  set(OPENTELEMETRY_BUILD_BYPRODUCTS)
+  set(OPENTELEMETRY_LIBRARIES)
+
+  foreach(_OPENTELEMETRY_LIB ${_OPENTELEMETRY_APIS})
+    add_library(opentelemetry-cpp::${_OPENTELEMETRY_LIB} INTERFACE IMPORTED)
+    set_target_properties(opentelemetry-cpp::${_OPENTELEMETRY_LIB}
+                          PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
+                                     "${OPENTELEMETRY_INCLUDE_DIR}")
+  endforeach()
+  foreach(_OPENTELEMETRY_LIB ${_OPENTELEMETRY_LIBS})
+    # N.B. OTel targets and libraries don't follow any consistent naming scheme
+    if(_OPENTELEMETRY_LIB STREQUAL "http_client_curl")
+      set(_OPENTELEMETRY_STATIC_LIBRARY
+          "${OPENTELEMETRY_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}${_OPENTELEMETRY_LIB}${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      )
+    elseif(_OPENTELEMETRY_LIB STREQUAL "ostream_span_exporter")
+      set(_OPENTELEMETRY_STATIC_LIBRARY
+          "${OPENTELEMETRY_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}opentelemetry_exporter_ostream_span${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      )
+    elseif(_OPENTELEMETRY_LIB STREQUAL "otlp_http_client")
+      set(_OPENTELEMETRY_STATIC_LIBRARY
+          "${OPENTELEMETRY_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}opentelemetry_exporter_otlp_http_client${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      )
+    elseif(_OPENTELEMETRY_LIB STREQUAL "otlp_http_exporter")
+      set(_OPENTELEMETRY_STATIC_LIBRARY
+          "${OPENTELEMETRY_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}opentelemetry_exporter_otlp_http${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      )
+    else()
+      set(_OPENTELEMETRY_STATIC_LIBRARY
+          "${OPENTELEMETRY_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}opentelemetry_${_OPENTELEMETRY_LIB}${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      )
+    endif()
+    add_library(opentelemetry-cpp::${_OPENTELEMETRY_LIB} STATIC IMPORTED)
+    set_target_properties(opentelemetry-cpp::${_OPENTELEMETRY_LIB}
+                          PROPERTIES IMPORTED_LOCATION ${_OPENTELEMETRY_STATIC_LIBRARY})
+    list(APPEND OPENTELEMETRY_BUILD_BYPRODUCTS ${_OPENTELEMETRY_STATIC_LIBRARY})
+    list(APPEND OPENTELEMETRY_LIBRARIES opentelemetry-cpp::${_OPENTELEMETRY_LIB})
+  endforeach()
+
+  set(OPENTELEMETRY_CMAKE_ARGS
+      ${EP_COMMON_TOOLCHAIN}
+      "-DCMAKE_INSTALL_PREFIX=${OPENTELEMETRY_PREFIX}"
+      "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}"
+      -DCMAKE_INSTALL_LIBDIR=lib
+      "-DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS}"
+      -DBUILD_TESTING=OFF
+      -DWITH_EXAMPLES=OFF)
+
+  set(OPENTELEMETRY_PREFIX_PATH_LIST)
+  # Don't specify the DEPENDS unless we actually have dependencies, else
+  # Ninja/other build systems may consider this target to always be dirty
+  set(_OPENTELEMETRY_DEPENDENCIES)
+  add_custom_target(opentelemetry_dependencies)
+
+  set(_OPENTELEMETRY_DEPENDENCIES "opentelemetry_dependencies")
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS ${OPENTELEMETRY_LIBRARIES})
+  list(APPEND OPENTELEMETRY_PREFIX_PATH_LIST ${NLOHMANN_JSON_PREFIX})
+
+  get_target_property(OPENTELEMETRY_PROTOBUF_INCLUDE_DIR ${ARROW_PROTOBUF_LIBPROTOBUF}
+                      INTERFACE_INCLUDE_DIRECTORIES)
+  get_target_property(OPENTELEMETRY_PROTOBUF_LIBRARY ${ARROW_PROTOBUF_LIBPROTOBUF}
+                      IMPORTED_LOCATION)
+  get_target_property(OPENTELEMETRY_PROTOC_EXECUTABLE ${ARROW_PROTOBUF_PROTOC}
+                      IMPORTED_LOCATION)
+  list(APPEND
+       OPENTELEMETRY_CMAKE_ARGS
+       -DWITH_OTLP=ON
+       -DWITH_OTLP_HTTP=ON
+       -DWITH_OTLP_GRPC=OFF
+       "-DProtobuf_INCLUDE_DIR=${OPENTELEMETRY_PROTOBUF_INCLUDE_DIR}"
+       "-DProtobuf_LIBRARY=${OPENTELEMETRY_PROTOBUF_INCLUDE_DIR}"
+       "-DProtobuf_PROTOC_EXECUTABLE=${OPENTELEMETRY_PROTOC_EXECUTABLE}")
+
+  # OpenTelemetry with OTLP enabled requires Protobuf definitions from a
+  # submodule. This submodule path is hardcoded into their CMake definitions,
+  # and submodules are not included in their releases. Add a custom build step
+  # to download and extract the Protobufs.
+
+  # Adding such a step is rather complicated, so instead: create a separate
+  # ExternalProject that just fetches the Protobufs, then add a custom step
+  # to the main build to copy the Protobufs.
+  externalproject_add(opentelemetry_proto_ep
+                      ${EP_LOG_OPTIONS}
+                      URL_HASH "SHA256=${ARROW_OPENTELEMETRY_PROTO_BUILD_SHA256_CHECKSUM}"
+                      URL ${OPENTELEMETRY_PROTO_SOURCE_URL}
+                      BUILD_COMMAND ""
+                      CONFIGURE_COMMAND ""
+                      INSTALL_COMMAND ""
+                      EXCLUDE_FROM_ALL OFF)
+
+  add_dependencies(opentelemetry_dependencies nlohmann_json_ep opentelemetry_proto_ep
+                   ${ARROW_PROTOBUF_LIBPROTOBUF})
+
+  set(OPENTELEMETRY_PREFIX_PATH_LIST_SEP_CHAR "|")
+  # JOIN is CMake >=3.12 only
+  string(REPLACE ";" "${OPENTELEMETRY_PREFIX_PATH_LIST_SEP_CHAR}"
+                 OPENTELEMETRY_PREFIX_PATH "${OPENTELEMETRY_PREFIX_PATH_LIST}")
+  list(APPEND OPENTELEMETRY_CMAKE_ARGS "-DCMAKE_PREFIX_PATH=${OPENTELEMETRY_PREFIX_PATH}")
+
+  if(CMAKE_SYSTEM_PROCESSOR STREQUAL "s390x")
+    # OpenTelemetry tries to determine the processor arch for vcpkg, which fails
+    # on s390x, even though it doesn't use vcpkg there. Tell it ARCH manually
+    externalproject_add(opentelemetry_ep
+                        ${EP_LOG_OPTIONS}
+                        URL_HASH "SHA256=${ARROW_OPENTELEMETRY_BUILD_SHA256_CHECKSUM}"
+                        LIST_SEPARATOR ${OPENTELEMETRY_PREFIX_PATH_LIST_SEP_CHAR}
+                        CONFIGURE_COMMAND ${CMAKE_COMMAND} -E env ARCH=s390x
+                                          ${CMAKE_COMMAND} -G ${CMAKE_GENERATOR}
+                                          "<SOURCE_DIR><SOURCE_SUBDIR>"
+                                          ${OPENTELEMETRY_CMAKE_ARGS}
+                        BUILD_COMMAND ${CMAKE_COMMAND} --build "<BINARY_DIR>" --target all
+                        INSTALL_COMMAND ${CMAKE_COMMAND} --build "<BINARY_DIR>" --target
+                                        install
+                        URL ${OPENTELEMETRY_SOURCE_URL}
+                        BUILD_BYPRODUCTS ${OPENTELEMETRY_BUILD_BYPRODUCTS}
+                        EXCLUDE_FROM_ALL NOT
+                        ${ARROW_WITH_OPENTELEMETRY}
+                        DEPENDS ${_OPENTELEMETRY_DEPENDENCIES})
+  else()
+    externalproject_add(opentelemetry_ep
+                        ${EP_LOG_OPTIONS}
+                        URL_HASH "SHA256=${ARROW_OPENTELEMETRY_BUILD_SHA256_CHECKSUM}"
+                        LIST_SEPARATOR ${OPENTELEMETRY_PREFIX_PATH_LIST_SEP_CHAR}
+                        CMAKE_ARGS ${OPENTELEMETRY_CMAKE_ARGS}
+                        URL ${OPENTELEMETRY_SOURCE_URL}
+                        BUILD_BYPRODUCTS ${OPENTELEMETRY_BUILD_BYPRODUCTS}
+                        EXCLUDE_FROM_ALL NOT
+                        ${ARROW_WITH_OPENTELEMETRY}
+                        DEPENDS ${_OPENTELEMETRY_DEPENDENCIES})
+  endif()
+
+  externalproject_add_step(opentelemetry_ep download_proto
+                           COMMAND ${CMAKE_COMMAND} -E copy_directory
+                                   $<TARGET_PROPERTY:opentelemetry_proto_ep,_EP_SOURCE_DIR>/opentelemetry
+                                   $<TARGET_PROPERTY:opentelemetry_ep,_EP_SOURCE_DIR>/third_party/opentelemetry-proto/opentelemetry
+                           DEPENDEES download
+                           DEPENDERS configure)
+
+  add_dependencies(toolchain opentelemetry_ep)
+  add_dependencies(toolchain-tests opentelemetry_ep)
+
+  set(OPENTELEMETRY_VENDORED 1)
+
+  set_target_properties(opentelemetry-cpp::common
+                        PROPERTIES INTERFACE_LINK_LIBRARIES
+                                   "opentelemetry-cpp::api;opentelemetry-cpp::sdk;Threads::Threads"
+  )
+  set_target_properties(opentelemetry-cpp::resources
+                        PROPERTIES INTERFACE_LINK_LIBRARIES "opentelemetry-cpp::common")
+  set_target_properties(opentelemetry-cpp::trace
+                        PROPERTIES INTERFACE_LINK_LIBRARIES
+                                   "opentelemetry-cpp::common;opentelemetry-cpp::resources"
+  )
+  set_target_properties(opentelemetry-cpp::http_client_curl
+                        PROPERTIES INTERFACE_LINK_LIBRARIES
+                                   "opentelemetry-cpp::ext;CURL::libcurl")
+  set_target_properties(opentelemetry-cpp::proto
+                        PROPERTIES INTERFACE_LINK_LIBRARIES
+                                   "${ARROW_PROTOBUF_LIBPROTOBUF}")
+  set_target_properties(opentelemetry-cpp::otlp_recordable
+                        PROPERTIES INTERFACE_LINK_LIBRARIES
+                                   "opentelemetry-cpp::trace;opentelemetry-cpp::resources;opentelemetry-cpp::proto"
+  )
+  set_target_properties(opentelemetry-cpp::otlp_http_client
+                        PROPERTIES INTERFACE_LINK_LIBRARIES
+                                   "opentelemetry-cpp::sdk;opentelemetry-cpp::proto;opentelemetry-cpp::http_client_curl;nlohmann_json::nlohmann_json"
+  )
+  set_target_properties(opentelemetry-cpp::otlp_http_exporter
+                        PROPERTIES INTERFACE_LINK_LIBRARIES
+                                   "opentelemetry-cpp::otlp_recordable;opentelemetry-cpp::otlp_http_client"
+  )
+
+  foreach(_OPENTELEMETRY_LIB ${_OPENTELEMETRY_LIBS})
+    add_dependencies(opentelemetry-cpp::${_OPENTELEMETRY_LIB} opentelemetry_ep)
+  endforeach()
+
+  # Work around https://gitlab.kitware.com/cmake/cmake/issues/15052
+  file(MAKE_DIRECTORY ${OPENTELEMETRY_INCLUDE_DIR})
+
+endmacro()
+
+if(ARROW_WITH_OPENTELEMETRY)
+  set(opentelemetry-cpp_SOURCE "AUTO")
+  resolve_dependency(opentelemetry-cpp)
+  get_target_property(OPENTELEMETRY_INCLUDE_DIR opentelemetry-cpp::api
+                      INTERFACE_INCLUDE_DIRECTORIES)
+  include_directories(SYSTEM ${OPENTELEMETRY_INCLUDE_DIR})
+  message(STATUS "Found OpenTelemetry headers: ${OPENTELEMETRY_INCLUDE_DIR}")
+endif()
+
+# ----------------------------------------------------------------------
 # AWS SDK for C++
 
 macro(build_awssdk)
@@ -3920,11 +4219,19 @@ macro(build_awssdk)
                       DEPENDS aws_checksums_ep)
   add_dependencies(AWS::aws-c-event-stream aws_c_event_stream_ep)
 
+  set(AWSSDK_PATCH_COMMAND)
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER
+                                              "10")
+    # Workaround for https://github.com/aws/aws-sdk-cpp/issues/1750
+    set(AWSSDK_PATCH_COMMAND "sed" "-i.bak" "-e" "s/\"-Werror\"//g"
+                             "<SOURCE_DIR>/cmake/compiler_settings.cmake")
+  endif()
   externalproject_add(awssdk_ep
                       ${EP_LOG_OPTIONS}
                       URL ${AWSSDK_SOURCE_URL}
                       URL_HASH "SHA256=${ARROW_AWSSDK_BUILD_SHA256_CHECKSUM}"
                       CMAKE_ARGS ${AWSSDK_CMAKE_ARGS}
+                      PATCH_COMMAND ${AWSSDK_PATCH_COMMAND}
                       BUILD_BYPRODUCTS ${AWS_CPP_SDK_COGNITO_IDENTITY_STATIC_LIBRARY}
                                        ${AWS_CPP_SDK_CORE_STATIC_LIBRARY}
                                        ${AWS_CPP_SDK_IDENTITY_MANAGEMENT_STATIC_LIBRARY}
@@ -3943,15 +4250,7 @@ macro(build_awssdk)
   set(AWSSDK_LINK_LIBRARIES ${AWSSDK_LIBRARIES})
   if(UNIX)
     # on Linux and macOS curl seems to be required
-    find_package(CURL REQUIRED)
-    if(NOT TARGET CURL::libcurl)
-      # For CMake 3.11 or older
-      add_library(CURL::libcurl UNKNOWN IMPORTED)
-      set_target_properties(CURL::libcurl
-                            PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                                       "${CURL_INCLUDE_DIRS}" IMPORTED_LOCATION
-                                                              "${CURL_LIBRARIES}")
-    endif()
+    find_curl()
     set_property(TARGET aws-cpp-sdk-core
                  APPEND
                  PROPERTY INTERFACE_LINK_LIBRARIES CURL::libcurl)

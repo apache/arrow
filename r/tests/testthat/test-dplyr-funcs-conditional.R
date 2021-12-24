@@ -26,8 +26,8 @@ tbl$verses <- verses[[1]]
 tbl$another_chr <- tail(letters, 10)
 
 test_that("if_else and ifelse", {
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       mutate(
         y = if_else(int > 5, 1, 0)
       ) %>%
@@ -35,8 +35,8 @@ test_that("if_else and ifelse", {
     tbl
   )
 
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       mutate(
         y = if_else(int > 5, int, 0L)
       ) %>%
@@ -50,11 +50,11 @@ test_that("if_else and ifelse", {
         y = if_else(int > 5, 1, FALSE)
       ) %>%
       collect(),
-    "NotImplemented: Function if_else has no kernel matching input types"
+    "NotImplemented: Function 'if_else' has no kernel matching input types"
   )
 
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       mutate(
         y = if_else(int > 5, 1, NA_real_)
       ) %>%
@@ -62,8 +62,8 @@ test_that("if_else and ifelse", {
     tbl
   )
 
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       mutate(
         y = ifelse(int > 5, 1, 0)
       ) %>%
@@ -71,8 +71,8 @@ test_that("if_else and ifelse", {
     tbl
   )
 
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       mutate(
         y = if_else(dbl > 5, TRUE, FALSE)
       ) %>%
@@ -80,8 +80,8 @@ test_that("if_else and ifelse", {
     tbl
   )
 
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       mutate(
         y = if_else(chr %in% letters[1:3], 1L, 3L)
       ) %>%
@@ -89,8 +89,8 @@ test_that("if_else and ifelse", {
     tbl
   )
 
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       mutate(
         y = if_else(int > 5, "one", "zero")
       ) %>%
@@ -98,8 +98,8 @@ test_that("if_else and ifelse", {
     tbl
   )
 
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       mutate(
         y = if_else(int > 5, chr, another_chr)
       ) %>%
@@ -107,8 +107,8 @@ test_that("if_else and ifelse", {
     tbl
   )
 
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       mutate(
         y = if_else(int > 5, "true", chr, missing = "MISSING")
       ) %>%
@@ -116,23 +116,25 @@ test_that("if_else and ifelse", {
     tbl
   )
 
-  # TODO: remove the mutate + warning after ARROW-13358 is merged and Arrow
-  # supports factors in if(_)else
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       mutate(
         y = if_else(int > 5, fct, factor("a"))
       ) %>%
       collect() %>%
-      # This is a no-op on the Arrow side, but necessary to make the results equal
-      mutate(y = as.character(y)),
-    tbl,
-    warning = "Dictionaries .* are currently converted to strings .* in if_else and ifelse"
+      # Arrow if_else() kernel does not preserve unused factor levels,
+      # so reset the levels of all the factor columns to make the test pass
+      # (ARROW-14649)
+      transmute(across(
+        where(is.factor),
+        ~ factor(.x, levels = c("a", "b", "c", "d", "g", "h", "i", "j"))
+      )),
+    tbl
   )
 
   # detecting NA and NaN works just fine
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       mutate(
         y = if_else(is.na(dbl), chr, "false", missing = "MISSING")
       ) %>%
@@ -142,8 +144,8 @@ test_that("if_else and ifelse", {
 
   # However, currently comparisons with NaNs return false and not NaNs or NAs
   skip("ARROW-13364")
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       mutate(
         y = if_else(dbl > 5, chr, another_chr, missing = "MISSING")
       ) %>%
@@ -152,8 +154,8 @@ test_that("if_else and ifelse", {
   )
 
   skip("TODO: could? should? we support the autocasting in ifelse")
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       mutate(y = ifelse(int > 5, 1, FALSE)) %>%
       collect(),
     tbl
@@ -161,26 +163,26 @@ test_that("if_else and ifelse", {
 })
 
 test_that("case_when()", {
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       transmute(cw = case_when(lgl ~ dbl, !false ~ dbl + dbl2)) %>%
       collect(),
     tbl
   )
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       mutate(cw = case_when(int > 5 ~ 1, TRUE ~ 0)) %>%
       collect(),
     tbl
   )
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       transmute(cw = case_when(chr %in% letters[1:3] ~ 1L) + 41L) %>%
       collect(),
     tbl
   )
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       filter(case_when(
         dbl + int - 1.1 == dbl2 ~ TRUE,
         NA ~ NA,
@@ -256,21 +258,21 @@ test_that("case_when()", {
     )
   )
 
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       transmute(cw = case_when(lgl ~ "abc")) %>%
       collect(),
     tbl
   )
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       transmute(cw = case_when(lgl ~ verses, !false ~ paste(chr, chr))) %>%
       collect(),
     tbl
   )
 
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       mutate(
         cw = case_when(!(!(!(lgl))) ~ factor(chr), TRUE ~ fct)
       ) %>%
@@ -288,8 +290,8 @@ test_that("coalesce()", {
     y = c(NA_character_, "b", "c"),
     z = c("a", "b", "c")
   )
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       mutate(
         cw = coalesce(w),
         cz = coalesce(z),
@@ -301,6 +303,26 @@ test_that("coalesce()", {
     df
   )
 
+  # factor
+  df_fct <- df %>%
+    transmute(across(everything(), ~ factor(.x, levels = c("a", "b", "c"))))
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        cw = coalesce(w),
+        cz = coalesce(z),
+        cwx = coalesce(w, x),
+        cwxy = coalesce(w, x, y),
+        cwxyz = coalesce(w, x, y, z)
+      ) %>%
+      collect() %>%
+      # Arrow coalesce() kernel does not preserve unused factor levels,
+      # so reset the levels of all the factor columns to make the test pass
+      # (ARROW-14649)
+      transmute(across(where(is.factor), ~ factor(.x, levels = c("a", "b", "c")))),
+    df_fct
+  )
+
   # integer
   df <- tibble(
     w = c(NA_integer_, NA_integer_, NA_integer_),
@@ -308,8 +330,8 @@ test_that("coalesce()", {
     y = c(NA_integer_, 2L, 3L),
     z = 1:3
   )
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       mutate(
         cw = coalesce(w),
         cz = coalesce(z),
@@ -328,8 +350,8 @@ test_that("coalesce()", {
     y = c(NA_real_, 2.2, 3.3),
     z = c(1.1, 2.2, 3.3)
   )
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       mutate(
         cw = coalesce(w),
         cz = coalesce(z),
@@ -369,8 +391,8 @@ test_that("coalesce()", {
     float32()
   )
   # with R literal values
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       mutate(
         c1 = coalesce(4.4),
         c2 = coalesce(NA_real_),
@@ -381,23 +403,6 @@ test_that("coalesce()", {
       ) %>%
       collect(),
     df
-  )
-
-  # factors
-  # TODO: remove the mutate + warning after ARROW-14167 is merged and Arrow
-  # supports factors in coalesce
-  df <- tibble(
-    x = factor("a", levels = c("a", "z")),
-    y = factor("b", levels = c("a", "b", "c"))
-  )
-  expect_dplyr_equal(
-    input %>%
-      mutate(c = coalesce(x, y)) %>%
-      collect() %>%
-      # This is a no-op on the Arrow side, but necessary to make the results equal
-      mutate(c = as.character(c)),
-    df,
-    warning = "Dictionaries .* are currently converted to strings .* in coalesce"
   )
 
   # no arguments

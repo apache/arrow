@@ -153,15 +153,13 @@ else
       fi
 
       if [ "${ARROW_DEPENDENCY_SOURCE}" = "" ]; then
-        # TODO: BUNDLED is still default for now, but we plan to change it to AUTO
-        ARROW_DEPENDENCY_SOURCE=BUNDLED; export ARROW_DEPENDENCY_SOURCE
+        ARROW_DEPENDENCY_SOURCE=AUTO; export ARROW_DEPENDENCY_SOURCE
       fi
       if [ "${ARROW_DEPENDENCY_SOURCE}" = "AUTO" ]; then
         pkg-config --version >/dev/null 2>&1
         if [ $? -ne 0 ]; then
           export ARROW_DEPENDENCY_SOURCE=BUNDLED
-          echo "**** Warning: ARROW_DEPENDENCY_SOURCE set to 'AUTO' but pkg-config not installed"
-          echo "**** ARROW_DEPENDENCY_SOURCE has been set to 'BUNDLED'"
+          echo "**** pkg-config not installed, setting ARROW_DEPENDENCY_SOURCE=BUNDLED"
         fi
       fi
 
@@ -204,6 +202,7 @@ fi
 # See: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=81358 for similar example
 if grep raspbian /etc/os-release >/dev/null 2>&1; then
   PKG_CFLAGS="$PKG_CFLAGS -DARROW_CXXFLAGS=-latomic"
+  PKG_LIBS="-latomic $PKG_LIBS"
 fi
 
 # If libarrow uses the old GLIBCXX ABI, so we have to use it too

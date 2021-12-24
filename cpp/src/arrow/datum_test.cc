@@ -133,16 +133,24 @@ TEST(Datum, ToString) {
   Datum v1(arr);
   Datum v2(std::make_shared<Int8Scalar>(1));
 
-  std::vector<Datum> vec1 = {v1};
-  Datum v3(vec1);
-
-  std::vector<Datum> vec2 = {v1, v2};
-  Datum v4(vec2);
-
   ASSERT_EQ("Array", v1.ToString());
   ASSERT_EQ("Scalar", v2.ToString());
-  ASSERT_EQ("Collection(Array)", v3.ToString());
-  ASSERT_EQ("Collection(Array, Scalar)", v4.ToString());
+}
+
+TEST(Datum, TotalBufferSize) {
+  auto arr = ArrayFromJSON(int8(), "[1, 2, 3, 4]");
+  Datum arr_datum(arr);
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<ChunkedArray> chunked_arr,
+                       ChunkedArray::Make({arr}));
+  Datum chunked_datum(chunked_arr);
+  std::shared_ptr<Schema> schm = schema({field("a", int8())});
+  Datum rb_datum(RecordBatch::Make(schm, 4, {arr}));
+  Datum tab_datum(Table::Make(std::move(schm), {std::move(arr)}, 4));
+
+  ASSERT_EQ(4, arr_datum.TotalBufferSize());
+  ASSERT_EQ(4, chunked_datum.TotalBufferSize());
+  ASSERT_EQ(4, rb_datum.TotalBufferSize());
+  ASSERT_EQ(4, tab_datum.TotalBufferSize());
 }
 
 TEST(ValueDescr, Basics) {

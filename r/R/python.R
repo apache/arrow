@@ -53,7 +53,6 @@ py_to_r.pyarrow.lib.RecordBatch <- function(x, ...) {
   })
 
   x$`_export_to_c`(array_ptr, schema_ptr)
-
   RecordBatch$import_from_c(array_ptr, schema_ptr)
 }
 
@@ -182,7 +181,9 @@ r_to_py.RecordBatchReader <- function(x, convert = FALSE) {
   pa <- reticulate::import("pyarrow", convert = FALSE)
   x$export_to_c(stream_ptr)
   # TODO: handle subclasses of RecordBatchReader?
-  out <- pa$lib$RecordBatchReader$`_import_from_c`(stream_ptr)
+  out <- pa$lib$RecordBatchReader$`_import_from_c`(
+    stream_ptr
+  )
   # But set the convert attribute on the return object to the requested value
   assign("convert", convert, out)
   out

@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.junit.Test;
 
 import io.netty.util.internal.PlatformDependent;
@@ -218,6 +219,61 @@ public class TestBitVectorHelper {
 
         // the remaining bits in the second set is spread in two bytes
         concatAndVerify(buf1, 31, buf2, 55, buf1);
+      }
+    }
+  }
+
+  @Test
+  public void testLoadValidityBuffer() {
+    try (RootAllocator allocator = new RootAllocator(1024)) {
+      // if the input validity buffer is all null, we should allocate new memory
+      ArrowFieldNode fieldNode = new ArrowFieldNode(1024, 1024);
+      try (ArrowBuf buf = BitVectorHelper.loadValidityBuffer(fieldNode, null, allocator)) {
+        assertEquals(128, allocator.getAllocatedMemory());
+        for (int i = 0; i < 128; i++) {
+          assertEquals(0, buf.getByte(i));
+        }
+      }
+
+      // should also allocate memory if input validity buffer is all not-null
+      fieldNode = new ArrowFieldNode(1024, 0);
+      try (ArrowBuf buf = BitVectorHelper.loadValidityBuffer(fieldNode, null, allocator)) {
+        assertEquals(128, allocator.getAllocatedMemory());
+        for (int i = 0; i < 128; i++) {
+          assertEquals((byte) 0xff, buf.getByte(i));
+        }
+      }
+
+      // should not allocate memory if input validity buffer is not null, even if all values are
+      // null
+      fieldNode = new ArrowFieldNode(1024, 1024);
+      try (ArrowBuf src = allocator.buffer(128);
+           ArrowBuf dst = BitVectorHelper.loadValidityBuffer(fieldNode, src, allocator)) {
+        assertEquals(128, allocator.getAllocatedMemory());
+      }
+
+      // ... similarly if all values are not null
+      fieldNode = new ArrowFieldNode(1024, 0);
+      try (ArrowBuf src = allocator.buffer(128);
+           ArrowBuf dst = BitVectorHelper.loadValidityBuffer(fieldNode, src, allocator)) {
+        assertEquals(128, allocator.getAllocatedMemory());
+      }
+
+      // mixed case, input should match output
+      int numNulls = 100;
+      fieldNode = new ArrowFieldNode(1024, numNulls);
+      try (ArrowBuf src = allocator.buffer(128)) {
+        src.setZero(0, src.capacity());
+        for (int i = 0; i < numNulls; i++) {
+          BitVectorHelper.setBit(src, i);
+        }
+        try (ArrowBuf dst = BitVectorHelper.loadValidityBuffer(fieldNode, src, allocator)) {
+          assertEquals(src.memoryAddress(), dst.memoryAddress());
+          assertEquals(128, allocator.getAllocatedMemory());
+          for (int i = 0; i < 1024; i++) {
+            assertEquals(BitVectorHelper.get(src, i), BitVectorHelper.get(dst, i));
+          }
+        }
       }
     }
   }

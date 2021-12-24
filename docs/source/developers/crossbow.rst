@@ -15,6 +15,8 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
+.. highlight:: console
+
 Packaging and Testing with Crossbow
 ===================================
 
@@ -130,13 +132,13 @@ to step 3:
 
 8. Install the archery toolset containing crossbow itself:
 
-   .. code:: bash
+   .. code::
 
-      pip install -e "arrow/dev/archery[crossbow]"
+      $ pip install -e "arrow/dev/archery[crossbow]"
 
 9. Try running it:
 
-   .. code:: bash
+   .. code::
 
       $ archery crossbow --help
 
@@ -149,7 +151,7 @@ The script does the following:
    snippet will build kszucs’s fork instead of the upstream apache/arrow
    repository.
 
-   .. code:: bash
+   .. code::
 
       $ git clone https://github.com/kszucs/arrow
       $ git clone https://github.com/kszucs/crossbow
@@ -162,10 +164,10 @@ The script does the following:
    generates the version number based on `setuptools_scm`_. So to build
    a particular branch check out before running the script:
 
-   .. code:: bash
+   .. code::
 
-      git checkout ARROW-<ticket number>
-      archery crossbow submit --dry-run conda-linux conda-osx
+      $ git checkout ARROW-<ticket number>
+      $ archery crossbow submit --dry-run conda-linux conda-osx
 
    Note that the arrow branch must be pushed beforehand, because the
    script will clone the selected branch.
@@ -187,16 +189,16 @@ Query the build status
 Build id (which has a corresponding branch in the queue repository) is returned
 by the ``submit`` command.
 
-.. code:: bash
+.. code::
 
-   archery crossbow status <build id / branch name>
+   $ archery crossbow status <build id / branch name>
 
 Download the build artifacts
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. code:: bash
+.. code::
 
-   archery crossbow artifacts <build id / branch name>
+   $ archery crossbow artifacts <build id / branch name>
 
 Examples
 ~~~~~~~~
@@ -206,7 +208,7 @@ to select which tasks to build.
 
 Run multiple builds:
 
-.. code:: bash
+.. code::
 
    $ archery crossbow submit debian-stretch conda-linux-gcc-py37-r40
    Repository: https://github.com/kszucs/arrow@tasks
@@ -218,19 +220,19 @@ Run multiple builds:
 
 Just render without applying or committing the changes:
 
-.. code:: bash
+.. code::
 
    $ archery crossbow submit --dry-run task_name
 
 Run only ``conda`` package builds and a Linux one:
 
-.. code:: bash
+.. code::
 
    $ archery crossbow submit --group conda centos-7
 
 Run ``wheel`` builds:
 
-.. code:: bash
+.. code::
 
    $ archery crossbow submit --group wheel
 
@@ -240,7 +242,7 @@ and cpp-python for running docker based tests.
 ``archery crossbow submit`` supports multiple options and arguments, for more
 see its help page:
 
-.. code:: bash
+.. code::
 
   $ archery crossbow submit --help
 

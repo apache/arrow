@@ -19,8 +19,13 @@
 
 set -ex
 
-source_dir=${1}/python
-build_dir=${2}/python
+arrow_dir=${1}
+build_dir=${2}
+
+source_dir=${arrow_dir}/python
+python_build_dir=${build_dir}/python
+
+: ${BUILD_DOCS_PYTHON:=OFF}
 
 if [ ! -z "${CONDA_PREFIX}" ]; then
   echo -e "===\n=== Conda environment for build\n==="
@@ -43,12 +48,17 @@ export LD_LIBRARY_PATH=${ARROW_HOME}/lib:${LD_LIBRARY_PATH}
 
 pushd ${source_dir}
 
-relative_build_dir=$(realpath --relative-to=. $build_dir)
+relative_build_dir=$(realpath --relative-to=. $python_build_dir)
 
 # not nice, but prevents mutating the mounted the source directory for docker
 ${PYTHON:-python} \
-  setup.py build --build-base $build_dir \
+  setup.py build --build-base $python_build_dir \
            install --single-version-externally-managed \
                    --record $relative_build_dir/record.txt
 
 popd
+
+if [ "${BUILD_DOCS_PYTHON}" == "ON" ]; then
+  ncpus=$(python -c "import os; print(os.cpu_count())")
+  sphinx-build -b html -j ${ncpus} ${arrow_dir}/docs/source ${build_dir}/docs
+fi

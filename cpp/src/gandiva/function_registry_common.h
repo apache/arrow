@@ -154,6 +154,16 @@ typedef std::unordered_map<const FunctionSignature*, const NativeFunction*, KeyH
                  DataTypeVector{TYPE(), TYPE()}, boolean(), kResultNullNever, \
                  ARROW_STRINGIFY(NAME##_##TYPE##_##TYPE))
 
+// Binary functions that :
+// - NULL handling is of type NULL_NEVER
+//
+// The pre-compiled fn name includes the base name & input type names,
+// eg. nvl_int32_int32
+#define BINARY_SAFE_NULL_NEVER(NAME, ALIASES, TYPE)                        \
+  NativeFunction(#NAME, std::vector<std::string> ALIASES,                  \
+                 DataTypeVector{TYPE(), TYPE()}, TYPE(), kResultNullNever, \
+                 ARROW_STRINGIFY(NAME##_##TYPE##_##TYPE))
+
 // Extract functions (used with data/time types) that :
 // - NULL handling is of type NULL_IF_NULL
 //
@@ -227,6 +237,16 @@ typedef std::unordered_map<const FunctionSignature*, const NativeFunction*, KeyH
 #define HASH_SHA256_NULL_NEVER(NAME, ALIASES, TYPE)                                   \
   NativeFunction(#NAME, {"sha256"}, DataTypeVector{TYPE()}, utf8(), kResultNullNever, \
                  ARROW_STRINGIFY(gdv_fn_sha256_##TYPE),                               \
+                 NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors)
+
+// HashMD5 functions that :
+// - NULL handling is of type NULL_NEVER
+// - can return errors
+//
+// The function name includes the base name & input type name. gdv_fn_md5_float64
+#define HASH_MD5_NULL_NEVER(NAME, ALIASES, TYPE)                                   \
+  NativeFunction(#NAME, {"md5"}, DataTypeVector{TYPE()}, utf8(), kResultNullNever, \
+                 ARROW_STRINGIFY(gdv_fn_md5_##TYPE),                               \
                  NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors)
 
 // Iterate the inner macro over all numeric types

@@ -20,6 +20,7 @@ import gzip
 import os
 import pathlib
 import pickle
+import re
 import subprocess
 import sys
 import time
@@ -287,6 +288,22 @@ def _wait_for_minio_startup(mcdir, address, access_key, secret_key):
     raise Exception("mc command could not connect to local minio")
 
 
+def _ensure_minio_component_version(component, minimum_year):
+    full_args = [component, '--version']
+    proc = subprocess.Popen(full_args, stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE, encoding='utf-8')
+    if proc.wait(10) != 0:
+        return False
+    stdout = proc.stdout.read()
+    pattern = component + r' version RELEASE\.(\d+)-.*'
+    version_match = re.search(pattern, stdout)
+    if version_match:
+        version_year = version_match.group(1)
+        return int(version_year) >= minimum_year
+    else:
+        return False
+
+
 def _configure_limited_user(tmpdir, address, access_key, secret_key):
     """
     Attempts to use the mc command to configure the minio server
@@ -298,6 +315,12 @@ def _configure_limited_user(tmpdir, address, access_key, secret_key):
     (e.g. see ARROW-13685)
     """
     try:
+        if not _ensure_minio_component_version('mc', 2021):
+            # mc version is too old for the capabilities we need
+            return False
+        if not _ensure_minio_component_version('minio', 2021):
+            # minio version is too old for the capabilities we need
+            return False
         mcdir = os.path.join(tmpdir, 'mc')
         os.mkdir(mcdir)
         policy_path = os.path.join(tmpdir, 'limited-buckets-policy.json')
@@ -587,10 +610,14 @@ def test_subtree_filesystem():
     subfs = SubTreeFileSystem('/base', localfs)
     assert subfs.base_path == '/base/'
     assert subfs.base_fs == localfs
+    assert repr(subfs).startswith('SubTreeFileSystem(base_path=/base/, '
+                                  'base_fs=<pyarrow._fs.LocalFileSystem')
 
     subfs = SubTreeFileSystem('/another/base/', LocalFileSystem())
     assert subfs.base_path == '/another/base/'
     assert subfs.base_fs == localfs
+    assert repr(subfs).startswith('SubTreeFileSystem(base_path=/another/base/,'
+                                  ' base_fs=<pyarrow._fs.LocalFileSystem')
 
 
 def test_filesystem_pickling(fs):
@@ -984,7 +1011,6 @@ def test_open_output_stream(fs, pathfn, compression, buffer_size,
         ('gzip', 256, gzip.compress, gzip.decompress),
     ]
 )
-@pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_open_append_stream(fs, pathfn, compression, buffer_size, compressor,
                             decompressor, allow_append_to_file):
     p = pathfn('open-append-stream')
@@ -1552,7 +1578,6 @@ def test_py_open_output_stream():
         f.write(b"data")
 
 
-@pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_py_open_append_stream():
     fs = PyFileSystem(DummyHandler())
 
@@ -1603,6 +1628,18 @@ def test_s3_real_aws_region_selection():
     fs, path = FileSystem.from_uri(
         's3://x-arrow-non-existent-bucket?region=us-east-3')
     assert fs.region == 'us-east-3'
+
+
+@pytest.mark.s3
+def test_resolve_s3_region():
+    from pyarrow.fs import resolve_s3_region
+    assert resolve_s3_region('ursa-labs-taxi-data') == 'us-east-2'
+    assert resolve_s3_region('mf-nwp-models') == 'eu-west-1'
+
+    with pytest.raises(ValueError, match="Not a valid bucket name"):
+        resolve_s3_region('foo/bar')
+    with pytest.raises(ValueError, match="Not a valid bucket name"):
+        resolve_s3_region('s3:bucket')
 
 
 @pytest.mark.s3

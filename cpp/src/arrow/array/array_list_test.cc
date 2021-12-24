@@ -25,6 +25,8 @@
 
 #include "arrow/array.h"
 #include "arrow/array/builder_nested.h"
+#include "arrow/array/util.h"
+#include "arrow/array/validate.h"
 #include "arrow/buffer.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_common.h"
@@ -243,7 +245,7 @@ class TestListArray : public TestBuilder {
     AssertArraysEqual(expected3, *list3);
 
     // Check that the last offset bit is zero
-    ASSERT_FALSE(BitUtil::GetBit(list3->null_bitmap()->data(), length + 1));
+    ASSERT_FALSE(bit_util::GetBit(list3->null_bitmap()->data(), length + 1));
 
     ArrayType expected4(list_type, length, offsets2->data()->buffers[1], values,
                         offsets4->data()->buffers[0], 1);
@@ -423,9 +425,9 @@ class TestListArray : public TestBuilder {
     ASSERT_EQ(2, array_data->buffers.size());
     auto null_bitmap_buffer = array_data->buffers[0];
     ASSERT_NE(nullptr, null_bitmap_buffer);
-    BitUtil::ClearBit(null_bitmap_buffer->mutable_data(), 1);
-    BitUtil::ClearBit(null_bitmap_buffer->mutable_data(), 3);
-    BitUtil::ClearBit(null_bitmap_buffer->mutable_data(), 4);
+    bit_util::ClearBit(null_bitmap_buffer->mutable_data(), 1);
+    bit_util::ClearBit(null_bitmap_buffer->mutable_data(), 3);
+    bit_util::ClearBit(null_bitmap_buffer->mutable_data(), 4);
     array_data->null_count += 3;
     auto list_array = std::dynamic_pointer_cast<ArrayType>(MakeArray(array_data));
     ASSERT_OK(list_array->ValidateFull());
@@ -621,6 +623,7 @@ TEST_F(TestMapArray, Equality) {
     }
     ASSERT_OK(ib.AppendValues(equal_values.data(), equal_values.size()));
     ASSERT_OK(builder_->Finish(out));
+    ASSERT_OK((*out)->ValidateFull());
   }
 
   // now an unequal one
@@ -630,6 +633,7 @@ TEST_F(TestMapArray, Equality) {
   }
   ASSERT_OK(ib.AppendValues(unequal_values.data(), unequal_values.size()));
   ASSERT_OK(builder_->Finish(&unequal_array));
+  ASSERT_OK(unequal_array->ValidateFull());
 
   // Test array equality
   EXPECT_TRUE(array->Equals(array));
@@ -713,6 +717,57 @@ TEST_F(TestMapArray, BuildingStringToInt) {
   ASSERT_ARRAYS_EQUAL(*actual, expected);
 }
 
+TEST_F(TestMapArray, ValidateErrorNullStruct) {
+  ASSERT_OK_AND_ASSIGN(
+      auto values,
+      MakeArrayOfNull(struct_({field("key", utf8()), field("value", int32())}), 1));
+
+  Int32Builder offset_builder;
+  ASSERT_OK(offset_builder.AppendNull());
+  ASSERT_OK(offset_builder.Append(0));
+  ASSERT_OK_AND_ASSIGN(auto offsets, offset_builder.Finish());
+
+  ASSERT_OK_AND_ASSIGN(auto lists, ListArray::FromArrays(*offsets, *values));
+  ASSERT_OK(lists->ValidateFull());
+  ASSERT_EQ(lists->length(), 1);
+  ASSERT_EQ(lists->null_count(), 1);
+
+  // Make a Map ArrayData from the list array
+  // Note we can't construct a MapArray as that would crash with an assertion.
+  auto map_data = lists->data()->Copy();
+  map_data->type = map(utf8(), int32());
+  ASSERT_RAISES(Invalid, internal::ValidateArray(*map_data));
+}
+
+TEST_F(TestMapArray, ValidateErrorNullKey) {
+  StringBuilder key_builder;
+  ASSERT_OK(key_builder.AppendNull());
+  ASSERT_OK_AND_ASSIGN(auto keys, key_builder.Finish());
+
+  Int32Builder item_builder;
+  ASSERT_OK(item_builder.Append(42));
+  ASSERT_OK_AND_ASSIGN(auto items, item_builder.Finish());
+
+  ASSERT_OK_AND_ASSIGN(
+      auto values,
+      StructArray::Make({keys, items}, std::vector<std::string>{"key", "value"}));
+
+  Int32Builder offset_builder;
+  ASSERT_OK(offset_builder.Append(0));
+  ASSERT_OK(offset_builder.Append(1));
+  ASSERT_OK_AND_ASSIGN(auto offsets, offset_builder.Finish());
+
+  // The list array contains: [[null, 42]]
+  ASSERT_OK_AND_ASSIGN(auto lists, ListArray::FromArrays(*offsets, *values));
+  ASSERT_OK(lists->ValidateFull());
+
+  // Make a Map ArrayData from the list array
+  // Note we can't construct a MapArray as that would crash with an assertion.
+  auto map_data = lists->data()->Copy();
+  map_data->type = map(keys->type(), items->type());
+  ASSERT_RAISES(Invalid, internal::ValidateArray(*map_data));
+}
+
 TEST_F(TestMapArray, FromArrays) {
   std::shared_ptr<Array> offsets1, offsets2, offsets3, offsets4, keys, items;
 
@@ -756,7 +811,7 @@ TEST_F(TestMapArray, FromArrays) {
   AssertArraysEqual(expected3, *map3);
 
   // Check that the last offset bit is zero
-  ASSERT_FALSE(BitUtil::GetBit(map3->null_bitmap()->data(), length + 1));
+  ASSERT_FALSE(bit_util::GetBit(map3->null_bitmap()->data(), length + 1));
 
   MapArray expected4(map_type, length, offsets2->data()->buffers[1], keys, items,
                      offsets4->data()->buffers[0], 1);

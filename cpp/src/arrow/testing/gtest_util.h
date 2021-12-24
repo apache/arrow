@@ -175,8 +175,10 @@ using TemporalArrowTypes =
 
 using DecimalArrowTypes = ::testing::Types<Decimal128Type, Decimal256Type>;
 
-using BinaryArrowTypes =
+using BaseBinaryArrowTypes =
     ::testing::Types<BinaryType, LargeBinaryType, StringType, LargeStringType>;
+
+using BinaryArrowTypes = ::testing::Types<BinaryType, LargeBinaryType>;
 
 using StringArrowTypes = ::testing::Types<StringType, LargeStringType>;
 
@@ -198,21 +200,25 @@ std::vector<Type::type> AllTypeIds();
 #define ASSERT_BATCHES_APPROX_EQUAL(lhs, rhs) AssertBatchesApproxEqual((lhs), (rhs))
 #define ASSERT_TABLES_EQUAL(lhs, rhs) AssertTablesEqual((lhs), (rhs))
 
+// Default EqualOptions for testing
+static inline EqualOptions TestingEqualOptions() {
+  return EqualOptions{}.nans_equal(true).signed_zeros_equal(false);
+}
+
 // If verbose is true, then the arrays will be pretty printed
-ARROW_TESTING_EXPORT void AssertArraysEqual(const Array& expected, const Array& actual,
-                                            bool verbose = false,
-                                            const EqualOptions& options = {});
-ARROW_TESTING_EXPORT void AssertArraysApproxEqual(const Array& expected,
-                                                  const Array& actual,
-                                                  bool verbose = false,
-                                                  const EqualOptions& options = {});
+ARROW_TESTING_EXPORT void AssertArraysEqual(
+    const Array& expected, const Array& actual, bool verbose = false,
+    const EqualOptions& options = TestingEqualOptions());
+ARROW_TESTING_EXPORT void AssertArraysApproxEqual(
+    const Array& expected, const Array& actual, bool verbose = false,
+    const EqualOptions& options = TestingEqualOptions());
 // Returns true when values are both null
 ARROW_TESTING_EXPORT void AssertScalarsEqual(
     const Scalar& expected, const Scalar& actual, bool verbose = false,
-    const EqualOptions& options = EqualOptions::Defaults());
+    const EqualOptions& options = TestingEqualOptions());
 ARROW_TESTING_EXPORT void AssertScalarsApproxEqual(
     const Scalar& expected, const Scalar& actual, bool verbose = false,
-    const EqualOptions& options = EqualOptions::Defaults());
+    const EqualOptions& options = TestingEqualOptions());
 ARROW_TESTING_EXPORT void AssertBatchesEqual(const RecordBatch& expected,
                                              const RecordBatch& actual,
                                              bool check_metadata = false);
@@ -227,7 +233,7 @@ ARROW_TESTING_EXPORT void AssertChunkedEquivalent(const ChunkedArray& expected,
                                                   const ChunkedArray& actual);
 ARROW_TESTING_EXPORT void AssertChunkedApproxEquivalent(
     const ChunkedArray& expected, const ChunkedArray& actual,
-    const EqualOptions& equal_options = EqualOptions::Defaults());
+    const EqualOptions& options = TestingEqualOptions());
 ARROW_TESTING_EXPORT void AssertBufferEqual(const Buffer& buffer,
                                             const std::vector<uint8_t>& expected);
 ARROW_TESTING_EXPORT void AssertBufferEqual(const Buffer& buffer,
@@ -277,7 +283,7 @@ ARROW_TESTING_EXPORT void AssertDatumsEqual(const Datum& expected, const Datum& 
                                             bool verbose = false);
 ARROW_TESTING_EXPORT void AssertDatumsApproxEqual(
     const Datum& expected, const Datum& actual, bool verbose = false,
-    const EqualOptions& options = EqualOptions::Defaults());
+    const EqualOptions& options = TestingEqualOptions());
 
 template <typename C_TYPE>
 void AssertNumericDataEqual(const C_TYPE* raw_data,
@@ -462,7 +468,7 @@ static inline Status GetBitmapFromVector(const std::vector<T>& is_valid,
   uint8_t* bitmap = buffer->mutable_data();
   for (size_t i = 0; i < static_cast<size_t>(length); ++i) {
     if (is_valid[i]) {
-      BitUtil::SetBit(bitmap, i);
+      bit_util::SetBit(bitmap, i);
     }
   }
 

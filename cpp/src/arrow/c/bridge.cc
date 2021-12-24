@@ -1455,7 +1455,7 @@ struct ArrayImporter {
     RETURN_NOT_OK(CheckNumBuffers(2));
     RETURN_NOT_OK(AllocateArrayData());
     RETURN_NOT_OK(ImportNullBitmap());
-    if (BitUtil::IsMultipleOf8(type.bit_width())) {
+    if (bit_util::IsMultipleOf8(type.bit_width())) {
       RETURN_NOT_OK(ImportFixedSizeBuffer(1, type.bit_width() / 8));
     } else {
       DCHECK_EQ(type.bit_width(), 1);
@@ -1538,7 +1538,7 @@ struct ArrayImporter {
 
   Status ImportBitsBuffer(int32_t buffer_id) {
     // Compute visible size of buffer
-    int64_t buffer_size = BitUtil::BytesForBits(c_struct_->length + c_struct_->offset);
+    int64_t buffer_size = bit_util::BytesForBits(c_struct_->length + c_struct_->offset);
     return ImportBuffer(buffer_id, buffer_size);
   }
 

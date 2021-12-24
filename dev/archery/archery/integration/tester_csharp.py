@@ -48,7 +48,7 @@ class CSharpTester(Tester):
 
         run_cmd(cmd)
 
-    def validate(self, json_path, arrow_path):
+    def validate(self, json_path, arrow_path, quirks=None):
         return self._run(json_path, arrow_path, 'validate')
 
     def json_to_file(self, json_path, arrow_path):

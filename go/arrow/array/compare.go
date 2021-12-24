@@ -19,8 +19,8 @@ package array
 import (
 	"math"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/float16"
+	"github.com/apache/arrow/go/v7/arrow"
+	"github.com/apache/arrow/go/v7/arrow/float16"
 	"golang.org/x/xerrors"
 )
 
@@ -59,6 +59,136 @@ func RecordApproxEqual(left, right Record, opts ...EqualOption) bool {
 		lc := left.Column(i)
 		rc := right.Column(i)
 		if !arrayApproxEqual(lc, rc, opt) {
+			return false
+		}
+	}
+	return true
+}
+
+// helper function to evaluate a function on two chunked object having possibly different
+// chunk layouts. the function passed in will be called for each corresponding slice of the
+// two chunked arrays and if the function returns false it will end the loop early.
+func chunkedBinaryApply(left, right *Chunked, fn func(left Interface, lbeg, lend int64, right Interface, rbeg, rend int64) bool) {
+	var (
+		pos               int64
+		length            int64 = int64(left.length)
+		leftIdx, rightIdx int
+		leftPos, rightPos int64
+	)
+
+	for pos < length {
+		var cleft, cright Interface
+		for {
+			cleft, cright = left.Chunk(leftIdx), right.Chunk(rightIdx)
+			if leftPos == int64(cleft.Len()) {
+				leftPos = 0
+				leftIdx++
+				continue
+			}
+			if rightPos == int64(cright.Len()) {
+				rightPos = 0
+				rightIdx++
+				continue
+			}
+			break
+		}
+
+		sz := int64(min(cleft.Len()-int(leftPos), cright.Len()-int(rightPos)))
+		pos += sz
+		if !fn(cleft, leftPos, leftPos+sz, cright, rightPos, rightPos+sz) {
+			return
+		}
+
+		leftPos += sz
+		rightPos += sz
+	}
+}
+
+// ChunkedEqual reports whether two chunked arrays are equal regardless of their chunkings
+func ChunkedEqual(left, right *Chunked) bool {
+	switch {
+	case left == right:
+		return true
+	case left.length != right.length:
+		return false
+	case left.nulls != right.nulls:
+		return false
+	case !arrow.TypeEqual(left.dtype, right.dtype):
+		return false
+	}
+
+	var isequal bool
+	chunkedBinaryApply(left, right, func(left Interface, lbeg, lend int64, right Interface, rbeg, rend int64) bool {
+		isequal = ArraySliceEqual(left, lbeg, lend, right, rbeg, rend)
+		return isequal
+	})
+
+	return isequal
+}
+
+// ChunkedApproxEqual reports whether two chunked arrays are approximately equal regardless of their chunkings
+// for non-floating point arrays, this is equivalent to ChunkedEqual
+func ChunkedApproxEqual(left, right *Chunked, opts ...EqualOption) bool {
+	switch {
+	case left == right:
+		return true
+	case left.length != right.length:
+		return false
+	case left.nulls != right.nulls:
+		return false
+	case !arrow.TypeEqual(left.dtype, right.dtype):
+		return false
+	}
+
+	var isequal bool
+	chunkedBinaryApply(left, right, func(left Interface, lbeg, lend int64, right Interface, rbeg, rend int64) bool {
+		isequal = ArraySliceApproxEqual(left, lbeg, lend, right, rbeg, rend, opts...)
+		return isequal
+	})
+
+	return isequal
+}
+
+// TableEqual returns if the two tables have the same data in the same schema
+func TableEqual(left, right Table) bool {
+	switch {
+	case left.NumCols() != right.NumCols():
+		return false
+	case left.NumRows() != right.NumRows():
+		return false
+	}
+
+	for i := 0; int64(i) < left.NumCols(); i++ {
+		lc := left.Column(i)
+		rc := right.Column(i)
+		if !lc.field.Equal(rc.field) {
+			return false
+		}
+
+		if !ChunkedEqual(lc.data, rc.data) {
+			return false
+		}
+	}
+	return true
+}
+
+// TableEqual returns if the two tables have the approximately equal data in the same schema
+func TableApproxEqual(left, right Table, opts ...EqualOption) bool {
+	switch {
+	case left.NumCols() != right.NumCols():
+		return false
+	case left.NumRows() != right.NumRows():
+		return false
+	}
+
+	for i := 0; int64(i) < left.NumCols(); i++ {
+		lc := left.Column(i)
+		rc := right.Column(i)
+		if !lc.field.Equal(rc.field) {
+			return false
+		}
+
+		if !ChunkedApproxEqual(lc.data, rc.data, opts...) {
 			return false
 		}
 	}
@@ -186,6 +316,16 @@ func ArraySliceEqual(left Interface, lbeg, lend int64, right Interface, rbeg, re
 	defer r.Release()
 
 	return ArrayEqual(l, r)
+}
+
+// ArraySliceApproxEqual reports whether slices left[lbeg:lend] and right[rbeg:rend] are approximately equal.
+func ArraySliceApproxEqual(left Interface, lbeg, lend int64, right Interface, rbeg, rend int64, opts ...EqualOption) bool {
+	l := NewSlice(left, lbeg, lend)
+	defer l.Release()
+	r := NewSlice(right, rbeg, rend)
+	defer r.Release()
+
+	return ArrayApproxEqual(l, r, opts...)
 }
 
 const defaultAbsoluteTolerance = 1e-5

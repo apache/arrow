@@ -17,6 +17,7 @@
 
 #include "arrow/util/uri.h"
 
+#include <algorithm>
 #include <cstring>
 #include <sstream>
 #include <vector>
@@ -91,6 +92,21 @@ std::string UriEncodeHost(const std::string& host) {
   } else {
     return host;
   }
+}
+
+bool IsValidUriScheme(const arrow::util::string_view s) {
+  auto is_alpha = [](char c) { return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'); };
+  auto is_scheme_char = [&](char c) {
+    return is_alpha(c) || (c >= '0' && c <= '9') || c == '+' || c == '-' || c == '.';
+  };
+
+  if (s.empty()) {
+    return false;
+  }
+  if (!is_alpha(s[0])) {
+    return false;
+  }
+  return std::all_of(s.begin() + 1, s.end(), is_scheme_char);
 }
 
 struct Uri::Impl {

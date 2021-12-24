@@ -259,7 +259,7 @@ Result<std::unique_ptr<KernelState>> SumInit(KernelContext* ctx,
 
 Result<std::unique_ptr<KernelState>> MeanInit(KernelContext* ctx,
                                               const KernelInitArgs& args) {
-  SumLikeInit<MeanImplDefault> visitor(
+  MeanKernelInit<MeanImplDefault> visitor(
       ctx, args.inputs[0].type,
       static_cast<const ScalarAggregateOptions&>(*args.options));
   return visitor.Create();
@@ -422,9 +422,8 @@ void AddMinOrMaxAggKernel(ScalarAggregateFunction* func,
   auto init = [min_max_func](
                   KernelContext* ctx,
                   const KernelInitArgs& args) -> Result<std::unique_ptr<KernelState>> {
-    std::vector<ValueDescr> inputs = args.inputs;
-    ARROW_ASSIGN_OR_RAISE(auto kernel, min_max_func->DispatchBest(&inputs));
-    KernelInitArgs new_args{kernel, inputs, args.options};
+    ARROW_ASSIGN_OR_RAISE(auto kernel, min_max_func->DispatchExact(args.inputs));
+    KernelInitArgs new_args{kernel, args.inputs, args.options};
     return kernel->init(ctx, new_args);
   };
 
@@ -654,6 +653,20 @@ struct IndexImpl : public ScalarAggregator {
   int64_t index = -1;
 };
 
+template <>
+struct IndexImpl<NullType> : public ScalarAggregator {
+  explicit IndexImpl(IndexOptions, KernelState*) {}
+
+  Status Consume(KernelContext*, const ExecBatch&) override { return Status::OK(); }
+
+  Status MergeFrom(KernelContext*, KernelState&&) override { return Status::OK(); }
+
+  Status Finalize(KernelContext*, Datum* out) override {
+    out->value = std::make_shared<Int64Scalar>(-1);
+    return Status::OK();
+  }
+};
+
 struct IndexInit {
   std::unique_ptr<KernelState> state;
   KernelContext* ctx;
@@ -665,6 +678,11 @@ struct IndexInit {
 
   Status Visit(const DataType& type) {
     return Status::NotImplemented("Index kernel not implemented for ", type.ToString());
+  }
+
+  Status Visit(const NullType&) {
+    state.reset(new IndexImpl<NullType>(options, ctx->state()));
+    return Status::OK();
   }
 
   Status Visit(const BooleanType&) {
@@ -680,6 +698,17 @@ struct IndexInit {
 
   template <typename Type>
   enable_if_base_binary<Type, Status> Visit(const Type&) {
+    state.reset(new IndexImpl<Type>(options, ctx->state()));
+    return Status::OK();
+  }
+
+  Status Visit(const FixedSizeBinaryType&) {
+    state.reset(new IndexImpl<FixedSizeBinaryType>(options, ctx->state()));
+    return Status::OK();
+  }
+
+  template <typename Type>
+  enable_if_decimal<Type, Status> Visit(const Type&) {
     state.reset(new IndexImpl<Type>(options, ctx->state()));
     return Status::OK();
   }
@@ -712,8 +741,14 @@ struct IndexInit {
     if (!args.options) {
       return Status::Invalid("Must provide IndexOptions for index kernel");
     }
-    IndexInit visitor(ctx, static_cast<const IndexOptions&>(*args.options),
-                      *args.inputs[0].type);
+    const auto& options = static_cast<const IndexOptions&>(*args.options);
+    if (!options.value) {
+      return Status::Invalid("Must provide IndexOptions.value for index kernel");
+    } else if (!options.value->type->Equals(*args.inputs[0].type)) {
+      return Status::TypeError("Expected IndexOptions.value to be of type ",
+                               *args.inputs[0].type, ", but got ", *options.value->type);
+    }
+    IndexInit visitor(ctx, options, *args.inputs[0].type);
     return visitor.Create();
   }
 };
@@ -839,29 +874,28 @@ const FunctionDoc min_or_max_doc{
     {"array"},
     "ScalarAggregateOptions"};
 
-const FunctionDoc any_doc{"Test whether any element in a boolean array evaluates to true",
-                          ("Null values are ignored by default.\n"
-                           "If null values are taken into account by setting "
-                           "ScalarAggregateOptions parameter skip_nulls = false then "
-                           "Kleene logic is used.\n"
-                           "See KleeneOr for more details on Kleene logic."),
-                          {"array"},
-                          "ScalarAggregateOptions"};
+const FunctionDoc any_doc{
+    "Test whether any element in a boolean array evaluates to true",
+    ("Null values are ignored by default.\n"
+     "If the `skip_nulls` option is set to false, then Kleene logic is used.\n"
+     "See \"kleene_or\" for more details on Kleene logic."),
+    {"array"},
+    "ScalarAggregateOptions"};
 
-const FunctionDoc all_doc{"Test whether all elements in a boolean array evaluate to true",
-                          ("Null values are ignored by default.\n"
-                           "If null values are taken into account by setting "
-                           "ScalarAggregateOptions parameter skip_nulls = false then "
-                           "Kleene logic is used.\n"
-                           "See KleeneAnd for more details on Kleene logic."),
-                          {"array"},
-                          "ScalarAggregateOptions"};
+const FunctionDoc all_doc{
+    "Test whether all elements in a boolean array evaluate to true",
+    ("Null values are ignored by default.\n"
+     "If the `skip_nulls` option is set to false, then Kleene logic is used.\n"
+     "See \"kleene_and\" for more details on Kleene logic."),
+    {"array"},
+    "ScalarAggregateOptions"};
 
 const FunctionDoc index_doc{"Find the index of the first occurrence of a given value",
-                            ("The result is always computed as an int64_t, regardless\n"
-                             "of the offset type of the input array."),
+                            ("-1 is returned if the value is not found in the array.\n"
+                             "The search value is specified in IndexOptions."),
                             {"array"},
-                            "IndexOptions"};
+                            "IndexOptions",
+                            /*options_required=*/true};
 
 }  // namespace
 
@@ -896,6 +930,7 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   AddArrayScalarAggKernels(SumInit, SignedIntTypes(), int64(), func.get());
   AddArrayScalarAggKernels(SumInit, UnsignedIntTypes(), uint64(), func.get());
   AddArrayScalarAggKernels(SumInit, FloatingPointTypes(), float64(), func.get());
+  AddArrayScalarAggKernels(SumInit, {null()}, int64(), func.get());
   // Add the SIMD variants for sum
 #if defined(ARROW_HAVE_RUNTIME_AVX2) || defined(ARROW_HAVE_RUNTIME_AVX512)
   auto cpu_info = arrow::internal::CpuInfo::GetInstance();
@@ -922,6 +957,7 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   AddAggKernel(
       KernelSignature::Make({InputType(Type::DECIMAL256)}, OutputType(ScalarFirstType)),
       MeanInit, func.get(), SimdLevel::NONE);
+  AddArrayScalarAggKernels(MeanInit, {null()}, float64(), func.get());
   // Add the SIMD variants for mean
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
   if (cpu_info->IsSupported(arrow::internal::CpuInfo::AVX2)) {
@@ -1003,6 +1039,9 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   AddBasicAggKernels(IndexInit::Init, BaseBinaryTypes(), int64(), func.get());
   AddBasicAggKernels(IndexInit::Init, PrimitiveTypes(), int64(), func.get());
   AddBasicAggKernels(IndexInit::Init, TemporalTypes(), int64(), func.get());
+  AddBasicAggKernels(IndexInit::Init,
+                     {fixed_size_binary(1), decimal128(1, 0), decimal256(1, 0), null()},
+                     int64(), func.get());
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 

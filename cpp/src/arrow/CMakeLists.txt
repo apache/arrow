@@ -199,6 +199,7 @@ set(ARROW_SRCS
     util/bitmap_builders.cc
     util/bitmap_ops.cc
     util/bpacking.cc
+    util/byte_size.cc
     util/cancel.cc
     util/compression.cc
     util/counting_semaphore.cc
@@ -284,6 +285,10 @@ endif()
 if(ARROW_WITH_LZ4)
   add_definitions(-DARROW_WITH_LZ4)
   list(APPEND ARROW_SRCS util/compression_lz4.cc)
+endif()
+
+if(ARROW_WITH_OPENTELEMETRY)
+  list(APPEND ARROW_SRCS util/tracing_internal.cc)
 endif()
 
 if(ARROW_WITH_SNAPPY)
@@ -376,10 +381,21 @@ if(ARROW_COMPUTE)
        compute/exec/exec_plan.cc
        compute/exec/expression.cc
        compute/exec/filter_node.cc
-       compute/exec/project_node.cc
-       compute/exec/source_node.cc
-       compute/exec/sink_node.cc
+       compute/exec/hash_join.cc
+       compute/exec/hash_join_dict.cc
+       compute/exec/hash_join_node.cc
+       compute/exec/ir_consumer.cc
+       compute/exec/key_compare.cc
+       compute/exec/key_encode.cc
+       compute/exec/key_hash.cc
+       compute/exec/key_map.cc
        compute/exec/order_by_impl.cc
+       compute/exec/project_node.cc
+       compute/exec/sink_node.cc
+       compute/exec/source_node.cc
+       compute/exec/task_util.cc
+       compute/exec/union_node.cc
+       compute/exec/util.cc
        compute/function.cc
        compute/function_internal.cc
        compute/kernel.cc
@@ -391,6 +407,7 @@ if(ARROW_COMPUTE)
        compute/kernels/aggregate_var_std.cc
        compute/kernels/codegen_internal.cc
        compute/kernels/hash_aggregate.cc
+       compute/kernels/row_encoder.cc
        compute/kernels/scalar_arithmetic.cc
        compute/kernels/scalar_boolean.cc
        compute/kernels/scalar_cast_boolean.cc
@@ -401,38 +418,28 @@ if(ARROW_COMPUTE)
        compute/kernels/scalar_cast_string.cc
        compute/kernels/scalar_cast_temporal.cc
        compute/kernels/scalar_compare.cc
+       compute/kernels/scalar_if_else.cc
        compute/kernels/scalar_nested.cc
        compute/kernels/scalar_set_lookup.cc
        compute/kernels/scalar_string.cc
        compute/kernels/scalar_temporal_binary.cc
        compute/kernels/scalar_temporal_unary.cc
        compute/kernels/scalar_validity.cc
-       compute/kernels/scalar_if_else.cc
        compute/kernels/util_internal.cc
        compute/kernels/vector_array_sort.cc
        compute/kernels/vector_hash.cc
        compute/kernels/vector_nested.cc
        compute/kernels/vector_replace.cc
        compute/kernels/vector_selection.cc
-       compute/kernels/vector_sort.cc
-       compute/kernels/row_encoder.cc
-       compute/exec/union_node.cc
-       compute/exec/key_hash.cc
-       compute/exec/key_map.cc
-       compute/exec/key_compare.cc
-       compute/exec/key_encode.cc
-       compute/exec/util.cc
-       compute/exec/hash_join.cc
-       compute/exec/hash_join_node.cc
-       compute/exec/task_util.cc)
+       compute/kernels/vector_sort.cc)
 
   append_avx2_src(compute/kernels/aggregate_basic_avx2.cc)
   append_avx512_src(compute/kernels/aggregate_basic_avx512.cc)
 
-  append_avx2_src(compute/exec/key_hash_avx2.cc)
-  append_avx2_src(compute/exec/key_map_avx2.cc)
   append_avx2_src(compute/exec/key_compare_avx2.cc)
   append_avx2_src(compute/exec/key_encode_avx2.cc)
+  append_avx2_src(compute/exec/key_hash_avx2.cc)
+  append_avx2_src(compute/exec/key_map_avx2.cc)
   append_avx2_src(compute/exec/util_avx2.cc)
 
   list(APPEND ARROW_TESTING_SRCS compute/exec/test_util.cc)
@@ -723,6 +730,16 @@ endif()
 
 if(ARROW_FLIGHT)
   add_subdirectory(flight)
+endif()
+
+if(ARROW_FLIGHT_SQL)
+  add_subdirectory(flight/sql)
+endif()
+
+if(ARROW_FLIGHT
+   AND ARROW_FLIGHT_SQL
+   AND ARROW_BUILD_INTEGRATION)
+  add_subdirectory(flight/integration_tests)
 endif()
 
 if(ARROW_HIVESERVER2)

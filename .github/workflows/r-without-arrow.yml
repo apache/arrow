@@ -28,7 +28,7 @@ on:
       - "r/src/**"
 
 concurrency:
-  group: ${{ github.repository }}-${{ github.ref }}-${{ github.workflow }}
+  group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
   cancel-in-progress: true
 
 env:
@@ -53,10 +53,6 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-      - name: Fetch Submodules and Tags
-        run: ci/scripts/util_checkout.sh
-      - name: Free Up Disk Space
-        run: ci/scripts/util_cleanup.sh
       - name: Cache Docker Volumes
         uses: actions/cache@v2
         with:

@@ -1321,8 +1321,17 @@ class BaseCSVTableRead(BaseTestCSV):
         raise_signal = util.get_raise_signal()
 
         # Make the interruptible workload large enough to not finish
-        # before the interrupt comes, even in release mode on fast machines
-        large_csv = b"a,b,c\n" + b"1,2,3\n" * 200_000_000
+        # before the interrupt comes, even in release mode on fast machines.
+        last_duration = 0.0
+        workload_size = 100_000
+
+        while last_duration < 1.0:
+            print("workload size:", workload_size)
+            large_csv = b"a,b,c\n" + b"1,2,3\n" * workload_size
+            t1 = time.time()
+            self.read_bytes(large_csv)
+            last_duration = time.time() - t1
+            workload_size = workload_size * 3
 
         def signal_from_thread():
             time.sleep(0.2)
@@ -1340,8 +1349,9 @@ class BaseCSVTableRead(BaseTestCSV):
         except KeyboardInterrupt:
             # In case KeyboardInterrupt didn't interrupt `self.read_bytes`
             # above, at least prevent it from stopping the test suite
-            self.fail("KeyboardInterrupt didn't interrupt CSV reading")
+            pytest.fail("KeyboardInterrupt didn't interrupt CSV reading")
         dt = time.time() - t1
+        # Interruption should have arrived timely
         assert dt <= 1.0
         e = exc_info.value.__context__
         assert isinstance(e, pa.ArrowCancelled)

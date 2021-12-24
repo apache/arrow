@@ -113,8 +113,9 @@ read_compressed_error <- function(e) {
       msg,
       "\nIn order to read this file, you will need to reinstall arrow with additional features enabled.",
       "\nSet one of these environment variables before installing:",
-      sprintf("\n\n * LIBARROW_MINIMAL=false (for all optional features, including '%s')", compression),
-      sprintf("\n * ARROW_WITH_%s=ON (for just '%s')", toupper(compression), compression),
+      "\n\n * Sys.setenv(LIBARROW_MINIMAL = \"false\") ",
+      sprintf("(for all optional features, including '%s')", compression),
+      sprintf("\n * Sys.setenv(ARROW_WITH_%s = \"ON\") (for just '%s')", toupper(compression), compression),
       "\n\nSee https://arrow.apache.org/docs/r/articles/install.html for details"
     )
   }
@@ -192,4 +193,19 @@ repeat_value_as_array <- function(object, n) {
     return(Scalar$create(object$chunks[[1]])$as_array(n))
   }
   return(Scalar$create(object)$as_array(n))
+}
+
+handle_csv_read_error <- function(e, schema) {
+  msg <- conditionMessage(e)
+
+  if (grepl("conversion error", msg) && inherits(schema, "Schema")) {
+    abort(c(
+      msg,
+      i = paste("If you have supplied a schema and your data contains a header",
+                "row, you should supply the argument `skip = 1` to prevent the",
+                "header being read in as data.")
+    ))
+  }
+
+  abort(e)
 }

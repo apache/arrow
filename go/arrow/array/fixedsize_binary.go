@@ -21,7 +21,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/apache/arrow/go/arrow"
+	"github.com/apache/arrow/go/v7/arrow"
+	"github.com/goccy/go-json"
 )
 
 // A type which represents an immutable sequence of fixed-length binary strings.
@@ -76,6 +77,26 @@ func (a *FixedSizeBinary) setData(data *Data) {
 		a.valueBytes = vals.Bytes()
 	}
 
+}
+
+func (a *FixedSizeBinary) getOneForMarshal(i int) interface{} {
+	if a.IsNull(i) {
+		return nil
+	}
+
+	return a.Value(i)
+}
+
+func (a *FixedSizeBinary) MarshalJSON() ([]byte, error) {
+	vals := make([]interface{}, a.Len())
+	for i := 0; i < a.Len(); i++ {
+		if a.IsValid(i) {
+			vals[i] = a.Value(i)
+		} else {
+			vals[i] = nil
+		}
+	}
+	return json.Marshal(vals)
 }
 
 func arrayEqualFixedSizeBinary(left, right *FixedSizeBinary) bool {

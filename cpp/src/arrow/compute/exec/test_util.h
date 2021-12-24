@@ -50,8 +50,6 @@ struct BatchesWithSchema {
   std::shared_ptr<Schema> schema;
 
   AsyncGenerator<util::optional<ExecBatch>> gen(bool parallel, bool slow) const {
-    DCHECK_GT(batches.size(), 0);
-
     auto opt_batches = ::arrow::internal::MapVector(
         [](ExecBatch batch) { return util::make_optional(std::move(batch)); }, batches);
 
@@ -104,6 +102,12 @@ ARROW_TESTING_EXPORT
 void AssertExecBatchesEqual(const std::shared_ptr<Schema>& schema,
                             const std::vector<ExecBatch>& exp,
                             const std::vector<ExecBatch>& act);
+
+ARROW_TESTING_EXPORT
+bool operator==(const Declaration&, const Declaration&);
+
+ARROW_TESTING_EXPORT
+void PrintTo(const Declaration& decl, std::ostream* os);
 
 }  // namespace compute
 }  // namespace arrow

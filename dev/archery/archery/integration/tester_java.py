@@ -49,11 +49,12 @@ class JavaTester(Tester):
     ARROW_FLIGHT_JAR = os.environ.get(
         'ARROW_FLIGHT_JAVA_INTEGRATION_JAR',
         os.path.join(ARROW_ROOT_DEFAULT,
-                     'java/flight/flight-core/target/flight-core-{}-'
-                     'jar-with-dependencies.jar'.format(_arrow_version)))
-    ARROW_FLIGHT_SERVER = ('org.apache.arrow.flight.example.integration.'
+                     'java/flight/flight-integration-tests/target/'
+                     'flight-integration-tests-{}-jar-with-dependencies.jar'
+                     .format(_arrow_version)))
+    ARROW_FLIGHT_SERVER = ('org.apache.arrow.flight.integration.tests.'
                            'IntegrationTestServer')
-    ARROW_FLIGHT_CLIENT = ('org.apache.arrow.flight.example.integration.'
+    ARROW_FLIGHT_CLIENT = ('org.apache.arrow.flight.integration.tests.'
                            'IntegrationTestClient')
 
     name = 'Java'
@@ -75,7 +76,7 @@ class JavaTester(Tester):
 
         run_cmd(cmd)
 
-    def validate(self, json_path, arrow_path):
+    def validate(self, json_path, arrow_path, quirks=None):
         return self._run(arrow_path, json_path, 'VALIDATE')
 
     def json_to_file(self, json_path, arrow_path):
