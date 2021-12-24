@@ -18,10 +18,10 @@
 #include "./arrow_types.h"
 
 #if defined(ARROW_R_WITH_ARROW)
-#include <arrow/io/transform.h>
+#include <R_ext/Riconv.h>
 #include <arrow/io/file.h>
 #include <arrow/io/memory.h>
-#include <R_ext/Riconv.h>
+#include <arrow/io/transform.h>
 
 // ------ arrow::io::Readable
 
@@ -183,41 +183,43 @@ void io___BufferOutputStream__Write(
 // TransformInputStream::TransformFunc wrapper
 
 class RIconvWrapper {
-public:
+ public:
   RIconvWrapper(std::string to, std::string from)
-    : handle_(Riconv_open(to.c_str(), from.c_str())) {
-      if (handle_ == ((void*) -1)) {
-        cpp11::stop("Can't convert encoding from '%s' to '%s'", from.c_str(), to.c_str());
-      }
+      : handle_(Riconv_open(to.c_str(), from.c_str())) {
+    if (handle_ == ((void*)-1)) {
+      cpp11::stop("Can't convert encoding from '%s' to '%s'", from.c_str(), to.c_str());
     }
+  }
 
-  size_t iconv(const char **inbuf, size_t *inbytesleft, char **outbuf, size_t *outbytesleft) {
+  size_t iconv(const char** inbuf, size_t* inbytesleft, char** outbuf,
+               size_t* outbytesleft) {
     return Riconv(handle_, inbuf, inbytesleft, outbuf, outbytesleft);
   }
 
   ~RIconvWrapper() {
-    if (handle_ != ((void*) -1)) {
+    if (handle_ != ((void*)-1)) {
       Riconv_close(handle_);
     }
   }
 
-protected:
+ protected:
   void* handle_;
 };
 
 struct ReencodeUTF8TransformFunctionWrapper {
   ReencodeUTF8TransformFunctionWrapper(std::string from)
-    : from_(from), iconv_("UTF-8", from), n_pending_(0) {}
+      : from_(from), iconv_("UTF-8", from), n_pending_(0) {}
 
   // This may get copied and we need a fresh RIconvWrapper for each copy.
   ReencodeUTF8TransformFunctionWrapper(const ReencodeUTF8TransformFunctionWrapper& ref)
-    : ReencodeUTF8TransformFunctionWrapper(ref.from_) {}
+      : ReencodeUTF8TransformFunctionWrapper(ref.from_) {}
 
-  arrow::Result<std::shared_ptr<arrow::Buffer>> operator()(const std::shared_ptr<arrow::Buffer>& src) {
+  arrow::Result<std::shared_ptr<arrow::Buffer>> operator()(
+      const std::shared_ptr<arrow::Buffer>& src) {
     ARROW_ASSIGN_OR_RAISE(auto dest, arrow::AllocateResizableBuffer(32));
 
     size_t out_bytes_left = dest->size();
-    char* out_buf = (char*) dest->data();
+    char* out_buf = (char*)dest->data();
     size_t out_bytes_used = 0;
 
     size_t in_bytes_left;
@@ -225,25 +227,26 @@ struct ReencodeUTF8TransformFunctionWrapper {
     int64_t n_src_bytes_in_pending = 0;
 
     // There may be a few leftover bytes from the last call to iconv. Process these first
-    // using the internal buffer as the source. This may also result in a partial character
-    // left over but will always get us into the src buffer.
+    // using the internal buffer as the source. This may also result in a partial
+    // character left over but will always get us into the src buffer.
     if (n_pending_ > 0) {
       // fill the pending_ buffer with characters and call iconv() once
-      n_src_bytes_in_pending = std::min<int64_t>(sizeof(pending_) - n_pending_, src->size());
+      n_src_bytes_in_pending =
+          std::min<int64_t>(sizeof(pending_) - n_pending_, src->size());
       memcpy(pending_ + n_pending_, src->data(), n_src_bytes_in_pending);
       in_buf = pending_;
       in_bytes_left = n_pending_ + n_src_bytes_in_pending;
 
       iconv_.iconv(&in_buf, &in_bytes_left, &out_buf, &out_bytes_left);
 
-      int64_t chars_read_out = out_buf - ((char*) dest->data());
+      int64_t chars_read_out = out_buf - ((char*)dest->data());
       out_bytes_used += chars_read_out;
 
       int64_t chars_read_in = n_pending_ + n_src_bytes_in_pending - in_bytes_left;
-      in_buf = (const char*) src->data() + chars_read_in - n_pending_;
+      in_buf = (const char*)src->data() + chars_read_in - n_pending_;
       in_bytes_left = src->size() + n_pending_ - chars_read_in;
     } else {
-      in_buf = (const char*) src->data();
+      in_buf = (const char*)src->data();
       in_bytes_left = src->size();
     }
 
@@ -257,7 +260,7 @@ struct ReencodeUTF8TransformFunctionWrapper {
         return reserve_result;
       }
 
-      out_buf = (char*) dest->data() + out_bytes_used;
+      out_buf = (char*)dest->data() + out_bytes_used;
       out_bytes_left = dest->size() - out_bytes_used;
 
       const char* in_buf_before = in_buf;
@@ -269,7 +272,8 @@ struct ReencodeUTF8TransformFunctionWrapper {
       if (bytes_read_out <= 0 || bytes_read_in <= 0) {
         // This should not happen, but if it does, we want to abort to make sure
         // the loop doesn't continue forever.
-        return arrow::Status::IOError("Call to iconv() read or appended zero output bytes");
+        return arrow::Status::IOError(
+            "Call to iconv() read or appended zero output bytes");
       }
 
       out_bytes_used += bytes_read_out;
@@ -290,7 +294,7 @@ struct ReencodeUTF8TransformFunctionWrapper {
     return std::move(dest);
   }
 
-protected:
+ protected:
   std::string from_;
   RIconvWrapper iconv_;
   char pending_[8];
@@ -300,8 +304,10 @@ protected:
 // [[arrow::export]]
 std::shared_ptr<arrow::io::InputStream> MakeReencodeInputStream(
     const std::shared_ptr<arrow::io::InputStream>& wrapped, std::string from) {
-  arrow::io::TransformInputStream::TransformFunc transform(ReencodeUTF8TransformFunctionWrapper{from});
-  return std::make_shared<arrow::io::TransformInputStream>(std::move(wrapped), std::move(transform));
+  arrow::io::TransformInputStream::TransformFunc transform(
+      ReencodeUTF8TransformFunctionWrapper{from});
+  return std::make_shared<arrow::io::TransformInputStream>(std::move(wrapped),
+                                                           std::move(transform));
 }
 
 #endif
