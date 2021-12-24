@@ -168,7 +168,7 @@ struct ExecPlanImpl : public ExecPlan {
         visited.reserve(nodes.size());
 
         for (auto it = nodes.rbegin(); it != nodes.rend(); ++it) {
-          if (visited.count(it->get()) != 0) return;
+          if (visited.count(it->get()) != 0) continue;
           Visit(it->get());
         }
 
@@ -180,9 +180,9 @@ struct ExecPlanImpl : public ExecPlan {
           Visit(input, indent + 1);
         }
 
+        visited.insert(node);
         indents.push_back(indent);
         sorted.push_back(node);
-        visited.insert(node);
       }
     };
 
@@ -294,32 +294,9 @@ std::string ExecNode::ToString() const {
   PrintLabelAndKind(this);
   ss << "{";
 
-  if (!inputs_.empty()) {
-    ss << "inputs=[";
-    for (size_t i = 0; i < inputs_.size(); i++) {
-      if (i > 0) ss << ", ";
-      ss << input_labels_[i] << "=";
-      PrintLabelAndKind(inputs_[i]);
-    }
-    ss << ']';
-  }
-
-  if (!outputs_.empty()) {
-    if (!inputs_.empty()) {
-      ss << ", ";
-    }
-
-    ss << "outputs=[";
-    for (size_t i = 0; i < outputs_.size(); i++) {
-      if (i > 0) ss << ", ";
-      PrintLabelAndKind(outputs_[i]);
-    }
-    ss << ']';
-  }
-
   const std::string extra = ToStringExtra();
   if (!extra.empty()) {
-    ss << ", " << extra;
+    ss << extra;
   }
 
   ss << '}';
