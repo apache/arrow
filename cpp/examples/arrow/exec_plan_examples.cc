@@ -18,25 +18,25 @@
 #include <memory>
 #include <utility>
 
-#include "arrow/compute/api.h"
-#include "arrow/compute/api_scalar.h"
-#include "arrow/compute/api_vector.h"
-#include "arrow/compute/cast.h"
-#include "arrow/compute/exec/exec_plan.h"
-#include "arrow/compute/exec/ir_consumer.h"
-#include "arrow/compute/exec/test_util.h"
+#include <arrow/compute/api.h>
+#include <arrow/compute/api_scalar.h>
+#include <arrow/compute/api_vector.h>
+#include <arrow/compute/cast.h>
+#include <arrow/compute/exec/exec_plan.h>
+#include <arrow/compute/exec/ir_consumer.h>
+#include <arrow/compute/exec/test_util.h>
 
 #include <arrow/dataset/dataset.h>
 #include <arrow/dataset/file_parquet.h>
-#include "arrow/dataset/file_base.h"
-#include "arrow/dataset/plan.h"
-#include "arrow/dataset/scanner.h"
-#include "arrow/dataset/dataset_writer.h"
+#include <arrow/dataset/file_base.h>
+#include <arrow/dataset/plan.h>
+#include <arrow/dataset/scanner.h>
+#include <arrow/dataset/dataset_writer.h>
 
-#include "arrow/io/interfaces.h"
-#include "arrow/io/memory.h"
-#include "arrow/io/slow.h"
-#include "arrow/io/transform.h"
+#include <arrow/io/interfaces.h>
+#include <arrow/io/memory.h>
+#include <arrow/io/slow.h>
+#include <arrow/io/transform.h>
 
 #include <arrow/result.h>
 #include <arrow/status.h>
@@ -45,9 +45,9 @@
 #include <arrow/ipc/api.h>
 
 #include <arrow/util/future.h>
-#include "arrow/util/range.h"
-#include "arrow/util/thread_pool.h"
-#include "arrow/util/vector.h"
+#include <arrow/util/range.h>
+#include <arrow/util/thread_pool.h>
+#include <arrow/util/vector.h>
 
 // Demonstrate various operators in Arrow Streaming Execution Engine
 
