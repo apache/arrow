@@ -17,6 +17,7 @@
     "clean:testdata": "gulp clean:testdata",
     "create:testdata": "gulp create:testdata",
     "test:coverage": "gulp test -t src --coverage",
+    "test:bundle": "webpack --config test/bundle/webpack-test/webpack.config.js",
     "doc": "del-cli ./doc && typedoc --options typedoc.js",
     "lint": "eslint src test --fix",
     "lint:ci": "eslint src test",

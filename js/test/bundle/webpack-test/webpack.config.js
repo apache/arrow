@@ -1,10 +1,11 @@
 const { resolve } = require('path');
 
 module.exports = {
-    mode: 'development',
+    mode: 'production',
     entry: {
         table: resolve(__dirname, './table.js'),
-        makeTable: resolve(__dirname, './makeTable.js')
+        makeTable: resolve(__dirname, './makeTable.js'),
+        vector: resolve(__dirname, './makeTable.js')
     },
     output: {
         path: resolve(__dirname, '.'),
