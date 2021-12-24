@@ -26,6 +26,8 @@
 #include <arrow/compute/exec/ir_consumer.h>
 #include <arrow/compute/exec/test_util.h>
 
+#include <arrow/csv/api.h>
+
 #include <arrow/dataset/dataset.h>
 #include <arrow/dataset/file_parquet.h>
 #include <arrow/dataset/file_base.h>
@@ -37,6 +39,7 @@
 #include <arrow/io/memory.h>
 #include <arrow/io/slow.h>
 #include <arrow/io/transform.h>
+#include <arrow/io/stdio.h>
 
 #include <arrow/result.h>
 #include <arrow/status.h>
@@ -80,11 +83,11 @@
     }                                              \
   } while (0);
 
-#define SEP_STR "******"
+constexpr char kSep[] = "******";
 
 #define PRINT_BLOCK(msg)                                                     \
   std::cout << "" << std::endl;                                              \
-  std::cout << "\t" << SEP_STR << " " << msg << " " << SEP_STR << std::endl; \
+  std::cout << "\t" << kSep << " " << msg << " " << kSep << std::endl; \
   std::cout << "" << std::endl;
 
 #define PRINT_LINE(msg) std::cout << msg << std::endl;
@@ -93,9 +96,8 @@ namespace cp = ::arrow::compute;
 
 std::shared_ptr<arrow::Array> GetArrayFromJSON(
     const std::shared_ptr<arrow::DataType>& type, arrow::util::string_view json) {
-  std::shared_ptr<arrow::Array> out;
-
-  ABORT_ON_FAILURE(arrow::ipc::internal::json::ArrayFromJSON(type, json, &out));
+    std::shared_ptr<arrow::Array> out;
+    ABORT_ON_FAILURE(arrow::ipc::internal::json::ArrayFromJSON(type, json, &out));
   return out;
 }
 
@@ -138,40 +140,58 @@ std::shared_ptr<arrow::Table> CreateTable() {
     return arrow::Table::Make(schema, {array_a, array_b, array_c});
 }
 
-std::shared_ptr<arrow::dataset::Dataset> CreateDataset() {
-    return std::make_shared<arrow::dataset::InMemoryDataset>(
-        GetTableFromJSON(arrow::schema({arrow::field("a", arrow::int32()),
-                                        arrow::field("b", arrow::boolean())}),
-                        {
-                            R"([{"a": 1,    "b": null},
-                                {"a": 2,    "b": true}])",
-                            R"([{"a": null, "b": true},
-                                {"a": 3,    "b": false}])",
-                            R"([{"a": null, "b": true},
-                                {"a": 4,    "b": false}])",
-                            R"([{"a": 5,    "b": null},
-                                {"a": 6,    "b": false},
-                                {"a": 7,    "b": false},
-                                {"a": 8,    "b": true}])",
-                        }));
+std::string GetDataAsCsvString() {
+    std::string data_str = "";
+
+    data_str.append("a,b\n");
+    data_str.append("1,null\n");
+    data_str.append("2,true\n");
+    data_str.append("null,true\n");
+    data_str.append("3,false\n");
+    data_str.append("null,true\n");
+    data_str.append("4,false\n");
+    data_str.append("5,null\n");
+    data_str.append("6,false\n");
+    data_str.append("7,false\n");
+    data_str.append("8,true\n");
+
+    return data_str;
 }
 
-std::shared_ptr<arrow::Table> CreateSimpleTable() {
-    auto schema = arrow::schema(
-        {arrow::field("a", arrow::int32()), arrow::field("b", arrow::boolean())});
-    std::shared_ptr<arrow::Array> array_a;
-    std::shared_ptr<arrow::Array> array_b;
-    arrow::NumericBuilder<arrow::Int32Type> builder;
-    arrow::BooleanBuilder b_builder;
-    ABORT_ON_FAILURE(builder.AppendValues({1, 2, 3, 4, 5, 6, 7}));
-    ABORT_ON_FAILURE(builder.Finish(&array_a));
-    builder.Reset();
+arrow::Status CreateDataSetFromCSVData(
+    std::shared_ptr<arrow::dataset::InMemoryDataset> &dataset) {
+    arrow::io::IOContext io_context = arrow::io::default_io_context();
+    std::shared_ptr<arrow::io::InputStream> input;
+    std::string csv_data = GetDataAsCsvString();
+    arrow::util::string_view sv = csv_data;
+    input = std::make_shared<arrow::io::BufferReader>(sv);
 
-    std::vector<bool> bool_vec{false, true, false, true, false, true, false};
-    ABORT_ON_FAILURE(b_builder.AppendValues(bool_vec));
-    ABORT_ON_FAILURE(builder.Finish(&array_b));
-    builder.Reset();
-    return arrow::Table::Make(schema, {array_a, array_b});
+    auto read_options = arrow::csv::ReadOptions::Defaults();
+    auto parse_options = arrow::csv::ParseOptions::Defaults();
+    auto convert_options = arrow::csv::ConvertOptions::Defaults();
+
+    // Instantiate TableReader from input stream and options
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::csv::TableReader> table_reader,
+      arrow::csv::TableReader::Make(io_context,
+                                    input,
+                                    read_options,
+                                    parse_options,
+                                    convert_options));
+
+    std::shared_ptr<arrow::csv::TableReader> reader = table_reader;
+
+    // Read table from CSV file
+    ARROW_ASSIGN_OR_RAISE(auto maybe_table,
+      reader->Read());
+    auto ds = std::make_shared<arrow::dataset::InMemoryDataset>(maybe_table);
+    dataset = std::move(ds);
+    return arrow::Status::OK();
+}
+
+std::shared_ptr<arrow::dataset::Dataset> CreateDataset() {
+    std::shared_ptr<arrow::dataset::InMemoryDataset> im_dataset;
+    ABORT_ON_FAILURE(CreateDataSetFromCSVData(im_dataset));
+    return im_dataset;
 }
 
 arrow::Status exec_plan_end_to_end_sample() {
