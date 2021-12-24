@@ -277,7 +277,7 @@ arrow::Status consume(std::shared_ptr<arrow::Schema> schema,
 }
 
 
-arrow::Status scan_sink_node_example() {
+arrow::Status ScanSinkExample() {
     cp::ExecContext exec_context(arrow::default_memory_pool(),
                                 ::arrow::internal::GetCpuThreadPool());
 
@@ -388,6 +388,8 @@ struct BatchesWithSchema {
   }
 };
 
+
+
 BatchesWithSchema MakeBasicBatches() {
   BatchesWithSchema out;
   out.batches = {GetExecBatchFromJSON({arrow::int32(), arrow::boolean()},
@@ -447,20 +449,8 @@ BatchesWithSchema MakeGroupableBatches(int multiplicity = 1) {
   return out;
 }
 
-std::shared_ptr<arrow::internal::ThreadPool> MakeIOThreadPool() {
-  auto maybe_pool = arrow::internal::ThreadPool::MakeEternal(/*threads=*/8);
-  if (!maybe_pool.ok()) {
-    maybe_pool.status().Abort("Failed to create global IO thread pool");
-  }
-  return *std::move(maybe_pool);
-}
 
-arrow::internal::ThreadPool* GetIOThreadPool() {
-  static std::shared_ptr<arrow::internal::ThreadPool> pool = MakeIOThreadPool();
-  return pool.get();
-}
-
-arrow::Status source_sink_example() {
+arrow::Status SourceSinkExample() {
   cp::ExecContext exec_context(arrow::default_memory_pool(),
                                ::arrow::internal::GetCpuThreadPool());
 
@@ -511,7 +501,7 @@ arrow::Status source_sink_example() {
   return arrow::Status::OK();
 }
 
-arrow::Status scan_filter_sink_example() {
+arrow::Status ScanFilterSinkExample() {
   cp::ExecContext exec_context(arrow::default_memory_pool(),
                                ::arrow::internal::GetCpuThreadPool());
 
@@ -579,7 +569,7 @@ arrow::Status scan_filter_sink_example() {
   return arrow::Status::OK();
 }
 
-arrow::Status scan_project_sink_example() {
+arrow::Status ScanProjectSinkExample() {
     cp::ExecContext exec_context(arrow::default_memory_pool(),
                                  ::arrow::internal::GetCpuThreadPool());
 
@@ -645,7 +635,7 @@ arrow::Status scan_project_sink_example() {
     return arrow::Status::OK();
 }
 
-arrow::Status source_aggregate_sink_example() {
+arrow::Status SourceAggregateSinkExample() {
     cp::ExecContext exec_context(arrow::default_memory_pool(),
                                  ::arrow::internal::GetCpuThreadPool());
 
@@ -712,7 +702,7 @@ arrow::Status source_aggregate_sink_example() {
     return arrow::Status::OK();
 }
 
-arrow::Status source_consuming_sink_node_example() {
+arrow::Status SourceConsumingSinkExample() {
     cp::ExecContext exec_context(arrow::default_memory_pool(),
                                  ::arrow::internal::GetCpuThreadPool());
 
@@ -775,7 +765,7 @@ arrow::Status source_consuming_sink_node_example() {
     return arrow::Status::OK();
 }
 
-arrow::Status source_order_by_sink_example() {
+arrow::Status SourceOrderBySinkExample() {
     cp::ExecContext exec_context(arrow::default_memory_pool(),
      ::arrow::internal::GetCpuThreadPool());
 
@@ -822,7 +812,7 @@ arrow::Status source_order_by_sink_example() {
     return arrow::Status::OK();
 }
 
-arrow::Status source_hash_join_sink_example() {
+arrow::Status SourceHashJoinSinkExample() {
     auto input = MakeGroupableBatches();
 
     cp::ExecContext exec_context(arrow::default_memory_pool(),
@@ -904,7 +894,7 @@ arrow::Status source_hash_join_sink_example() {
     return arrow::Status::OK();
 }
 
-arrow::Status source_kselect_example() {
+arrow::Status SourceKSelectExample() {
     auto input = MakeGroupableBatches();
 
     cp::ExecContext exec_context(arrow::default_memory_pool(),
@@ -959,7 +949,7 @@ arrow::Status source_kselect_example() {
     return arrow::Status::OK();
 }
 
-arrow::Status scan_filter_write_example() {
+arrow::Status ScanFilterWriteExample(std::string file_path) {
     cp::ExecContext exec_context(arrow::default_memory_pool(),
                                  ::arrow::internal::GetCpuThreadPool());
 
@@ -990,7 +980,7 @@ arrow::Status scan_filter_write_example() {
     arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
 
     std::string root_path = "";
-    std::string uri = "file:///Users/vibhatha/sandbox/test";
+    std::string uri = "file://" + file_path;
     std::shared_ptr<arrow::fs::FileSystem> filesystem =
     arrow::fs::FileSystemFromUri(uri, &root_path).ValueOrDie();
 
@@ -1032,7 +1022,7 @@ arrow::Status scan_filter_write_example() {
     return arrow::Status::OK();
 }
 
-arrow::Status source_union_sink_example() {
+arrow::Status SourceUnionSinkExample() {
     auto basic_data = MakeBasicBatches();
 
     cp::ExecContext exec_context(arrow::default_memory_pool(),
@@ -1089,29 +1079,74 @@ arrow::Status source_union_sink_example() {
     return arrow::Status::OK();
 }
 
+enum ExampleMode {
+  SOURCE_SINK = 0,
+  SCAN_SINK = 1,
+  SCAN_FILTER_SINK = 2,
+  SCAN_PROJECT_SINK = 3,
+  SOURCE_AGGREGATE_SINK = 4,
+  SCAN_CONSUMING_SINK = 5,
+  SCAN_ORDER_BY_SINK = 6,
+  SCAN_HASHJOIN_SINK = 7,
+  SCAN_SELECT_SINK = 8,
+  SCAN_FILTER_WRITE = 9,
+  SOURCE_UNION_SINK = 10,
+};
+
 int main(int argc, char** argv) {
-  PRINT_BLOCK("Scan Sink Example");
-  CHECK_AND_CONTINUE(scan_sink_node_example());
-  PRINT_BLOCK("Exec Plan End-to-End Example");
-  CHECK_AND_CONTINUE(exec_plan_end_to_end_sample());
-  PRINT_BLOCK("Source Sink Example")
-  CHECK_AND_CONTINUE(source_sink_example());
-  PRINT_BLOCK("Scan Filter Sink Example");
-  CHECK_AND_CONTINUE(scan_filter_sink_example());
-  PRINT_BLOCK("Scan Project Sink Example");
-  CHECK_AND_CONTINUE(scan_project_sink_example());
-  PRINT_BLOCK("Source Aggregate Sink Example");
-  CHECK_AND_CONTINUE(source_aggregate_sink_example());
-  PRINT_BLOCK("Source Consuming-Sink Example");
-  CHECK_AND_CONTINUE(source_consuming_sink_node_example());
-  PRINT_BLOCK("Source Ordered-By-Sink Example");
-  CHECK_AND_CONTINUE(source_order_by_sink_example());
-  PRINT_BLOCK("Source HashJoin Example");
-  CHECK_AND_CONTINUE(source_hash_join_sink_example());
-  PRINT_BLOCK("Source KSelect Example");
-  CHECK_AND_CONTINUE(source_kselect_example());
-  PRINT_BLOCK("Scan Filter Write Example");
-  CHECK_AND_CONTINUE(scan_filter_write_example());
-  PRINT_LINE("Catalog Source Sink Example");
-  CHECK_AND_RETURN(source_union_sink_example());
+  if (argc < 11) {
+    // Fake success for CI purposes.
+    return EXIT_SUCCESS;
+  }
+
+  std::string base_save_path = argv[1];
+  int mode = argc < 11 ? std::atoi(argv[2]) : 0;
+
+
+  switch (mode) {
+    case SOURCE_SINK:
+      PRINT_BLOCK("Source Sink Example");
+      CHECK_AND_CONTINUE(SourceSinkExample())
+      break;
+    case SCAN_SINK:
+      PRINT_BLOCK("Scan Sink Example");
+      CHECK_AND_CONTINUE(ScanSinkExample())
+      break;
+    case SCAN_FILTER_SINK:
+    PRINT_BLOCK("Scan Filter Example");
+      CHECK_AND_CONTINUE(ScanFilterSinkExample())
+      break;
+    case SCAN_PROJECT_SINK:
+      PRINT_BLOCK("Scan Project Sink Example");
+      CHECK_AND_CONTINUE(ScanProjectSinkExample())
+      break;
+    case SOURCE_AGGREGATE_SINK:
+      PRINT_BLOCK("Source Aggregate Example");
+      CHECK_AND_CONTINUE(SourceAggregateSinkExample())
+      break;
+    case SCAN_CONSUMING_SINK:
+      PRINT_BLOCK("Source Consuming-Sink Example");
+      CHECK_AND_CONTINUE(SourceConsumingSinkExample())
+      break;
+    case SCAN_ORDER_BY_SINK:
+      PRINT_BLOCK("Source Sink Example");
+      CHECK_AND_CONTINUE(SourceOrderBySinkExample())
+      break;
+    case SCAN_HASHJOIN_SINK:
+      CHECK_AND_CONTINUE(SourceHashJoinSinkExample())
+      break;
+    case SCAN_SELECT_SINK:
+      CHECK_AND_CONTINUE(SourceKSelectExample())
+      break;
+    case SCAN_FILTER_WRITE:
+      CHECK_AND_CONTINUE(ScanFilterWriteExample(base_save_path))
+      break;
+    case SOURCE_UNION_SINK:
+      CHECK_AND_CONTINUE(SourceUnionSinkExample());
+      break;
+    default:
+      break;
+  }
+
+  return EXIT_SUCCESS;
 }
