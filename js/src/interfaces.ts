@@ -143,6 +143,22 @@ export type TypedArrayDataType<T extends TypedArray | BigIntArray> =
     never;
 
 /** @ignore */
+export type JavaScriptArrayDataType<T extends readonly unknown[]> =
+    T extends readonly (null | undefined)[] ? type.Null :
+    T extends readonly (null | undefined | boolean)[] ? type.Bool :
+    T extends readonly (null | undefined | string)[] ? type.Utf8 :
+    T extends readonly (null | undefined | Date)[] ? type.Date_ :
+    T extends readonly (null | undefined | bigint)[] ? type.Int64 :
+    T extends readonly (null | undefined | number)[] ? type.Float64 :
+    never;
+
+/** @ignore */
+export type ArrayDataType<T> =
+    T extends TypedArray | BigIntArray ? TypedArrayDataType<T> :
+    T extends readonly unknown[] ? JavaScriptArrayDataType<T> :
+    never;
+
+/** @ignore */
 export type TypeToDataType<T extends Type> = {
     [key: number               ]: type.DataType             ;
     [Type.Null                 ]: type.Null                 ;

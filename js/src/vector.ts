@@ -20,7 +20,7 @@ import { clampRange } from './util/vector';
 import { DataType, strideForType } from './type';
 import { Data, makeData, DataProps } from './data';
 import { Builder } from './builder';
-import { BigIntArray, TypedArray, TypedArrayDataType } from './interfaces';
+import { ArrayDataType, BigIntArray, JavaScriptArrayDataType, TypedArray, TypedArrayDataType } from './interfaces';
 
 import {
     ChunkedIterator,
@@ -86,37 +86,37 @@ export class Vector<T extends DataType = any> {
     declare protected _byteLength: number;
 
     /**
-     * @summary Get and set elements by index.
+     * Get and set elements by index.
      */
     [index: number]: T['TValue'] | null;
 
     /**
-     * @summary The {@link DataType `DataType`} of this Vector.
+     * The {@link DataType `DataType`} of this Vector.
      */
     public declare readonly type: T;
 
     /**
-     * @summary The primitive {@link Data `Data`} instances for this Vector's elements.
+     * The primitive {@link Data `Data`} instances for this Vector's elements.
      */
     public declare readonly data: ReadonlyArray<Data<T>>;
 
     /**
-     * @summary The number of elements in this Vector.
+     * The number of elements in this Vector.
      */
     public declare readonly length: number;
 
     /**
-     * @summary The number of primitive values per Vector element.
+     * The number of primitive values per Vector element.
      */
     public declare readonly stride: number;
 
     /**
-     * @summary The number of child Vectors if this Vector is a nested dtype.
+     * The number of child Vectors if this Vector is a nested dtype.
      */
     public declare readonly numChildren: number;
 
     /**
-     * @summary The aggregate size (in bytes) of this Vector's buffers and/or child Vectors.
+     * The aggregate size (in bytes) of this Vector's buffers and/or child Vectors.
      */
     public get byteLength() {
         if (this._byteLength === -1) {
@@ -126,7 +126,7 @@ export class Vector<T extends DataType = any> {
     }
 
     /**
-     * @summary The number of null elements in this Vector.
+     * The number of null elements in this Vector.
      */
     public get nullCount() {
         if (this._nullCount === -1) {
@@ -136,39 +136,39 @@ export class Vector<T extends DataType = any> {
     }
 
     /**
-     * @summary The Array or TypedAray constructor used for the JS representation
+     * The Array or TypedAray constructor used for the JS representation
      *  of the element's values in {@link Vector.prototype.toArray `toArray()`}.
      */
     public get ArrayType(): T['ArrayType'] { return this.type.ArrayType; }
 
     /**
-     * @summary The name that should be printed when the Vector is logged in a message.
+     * The name that should be printed when the Vector is logged in a message.
      */
     public get [Symbol.toStringTag]() {
         return `${this.VectorName}<${this.type[Symbol.toStringTag]}>`;
     }
 
     /**
-     * @summary The name of this Vector.
+     * The name of this Vector.
      */
     public get VectorName() { return `${Type[this.type.typeId]}Vector`; }
 
     /**
-     * @summary Check whether an element is null.
+     * Check whether an element is null.
      * @param index The index at which to read the validity bitmap.
      */
     // @ts-ignore
     public isValid(index: number): boolean { return false; }
 
     /**
-     * @summary Get an element value by position.
+     * Get an element value by position.
      * @param index The index of the element to read.
      */
     // @ts-ignore
     public get(index: number): T['TValue'] | null { return null; }
 
     /**
-     * @summary Set an element value by position.
+     * Set an element value by position.
      * @param index The index of the element to write.
      * @param value The value to set.
      */
@@ -176,7 +176,7 @@ export class Vector<T extends DataType = any> {
     public set(index: number, value: T['TValue'] | null): void { return; }
 
     /**
-     * @summary Retrieve the index of the first occurrence of a value in an Vector.
+     * Retrieve the index of the first occurrence of a value in an Vector.
      * @param element The value to locate in the Vector.
      * @param offset The index at which to begin the search. If offset is omitted, the search starts at index 0.
      */
@@ -184,21 +184,21 @@ export class Vector<T extends DataType = any> {
     public indexOf(element: T['TValue'], offset?: number): number { return -1; }
 
     /**
-     * @summary Get the size in bytes of an element by index.
+     * Get the size in bytes of an element by index.
      * @param index The index at which to get the byteLength.
      */
     // @ts-ignore
     public getByteLength(index: number): number { return 0; }
 
     /**
-     * @summary Iterator for the Vector's elements.
+     * Iterator for the Vector's elements.
      */
     public [Symbol.iterator](): IterableIterator<T['TValue'] | null> {
         return new ChunkedIterator(this.data);
     }
 
     /**
-     * @summary Combines two or more Vectors of the same type.
+     * Combines two or more Vectors of the same type.
      * @param others Additional Vectors to add to the end of this Vector.
      */
     public concat(...others: Vector<T>[]): Vector<T> {
@@ -219,7 +219,7 @@ export class Vector<T extends DataType = any> {
     public toJSON() { return [...this]; }
 
     /**
-     * @summary Return a JavaScript Array or TypedArray of the Vector's elements.
+     * Return a JavaScript Array or TypedArray of the Vector's elements.
      *
      * @note If this Vector contains a single Data chunk and the Vector's type is a
      *  primitive numeric type corresponding to one of the JavaScript TypedArrays, this
@@ -249,7 +249,7 @@ export class Vector<T extends DataType = any> {
     }
 
     /**
-     * @summary Returns a child Vector by name, or null if this Vector has no child with the given name.
+     * Returns a child Vector by name, or null if this Vector has no child with the given name.
      * @param name The name of the child to retrieve.
      */
     public getChild<R extends keyof T['TChildren']>(name: R) {
@@ -257,7 +257,7 @@ export class Vector<T extends DataType = any> {
     }
 
     /**
-     * @summary Returns a child Vector by index, or null if this Vector has no child at the supplied index.
+     * Returns a child Vector by index, or null if this Vector has no child at the supplied index.
      * @param index The index of the child to retrieve.
      */
     public getChildAt<R extends DataType = any>(index: number): Vector<R> | null {
@@ -304,7 +304,16 @@ export class Vector<T extends DataType = any> {
 
 import * as dtypes from './type';
 
+/**
+ * Creates a Vector with no data copies.
+ *
+ * @example
+ * ```ts
+ * const vector = makeVector(new Int32Array([1, 2, 3]));
+ * ```
+ */
 export function makeVector<T extends TypedArray | BigIntArray>(data: T | readonly T[]): Vector<TypedArrayDataType<T>>;
+export function makeVector<T extends DataView>(data: T | readonly T[]): Vector<dtypes.Int8>;
 export function makeVector<T extends DataType>(data: Data<T> | readonly Data<T>[]): Vector<T>;
 export function makeVector<T extends DataType>(data: Vector<T> | readonly Vector<T>[]): Vector<T>;
 export function makeVector<T extends DataType>(data: DataProps<T> | readonly DataProps<T>[]): Vector<T>;
@@ -388,18 +397,38 @@ function inferType(value: readonly unknown[]): DataType {
     throw new TypeError('Unable to infer Series type from input values, explicit type declaration expected');
 }
 
-
+/**
+ * Creates a Vector from a JavaScript array. Use {@link makeVector} if you only want to create a vector from a typed array.
+ *
+ * @example
+ * ```ts
+ * const vf64 = vectorFromArray([1, 2, 3]);
+ * const vi8 = vectorFromArray([1, 2, 3], new Int8);
+ * const vs = vectorFromArray(['foo', 'bar']);
+ * ```
+ */
 export function vectorFromArray(values: readonly (null | undefined)[], type?: dtypes.Null): Vector<dtypes.Null>;
 export function vectorFromArray(values: readonly (null | undefined | boolean)[], type?: dtypes.Bool): Vector<dtypes.Bool>;
 export function vectorFromArray(values: readonly (null | undefined | string)[], type?: dtypes.Utf8): Vector<dtypes.Utf8>;
 export function vectorFromArray<T extends dtypes.Date_>(values: readonly (null | undefined | Date)[], type?: T): Vector<T>;
 export function vectorFromArray<T extends dtypes.Int>(values: readonly (null | undefined | number)[], type: T): Vector<T>;
-export function vectorFromArray<T extends dtypes.Int64 | dtypes.Uint64 = dtypes.Int64>(values: readonly (null | undefined | bigint)[], type: T): Vector<T>;
+export function vectorFromArray<T extends dtypes.Int64 | dtypes.Uint64 = dtypes.Int64>(values: readonly (null | undefined | bigint)[], type?: T): Vector<T>;
 export function vectorFromArray<T extends dtypes.Float = dtypes.Float64>(values: readonly (null | undefined | number)[], type?: T): Vector<T>;
+export function vectorFromArray<T extends readonly unknown[]>(values: T): Vector<JavaScriptArrayDataType<T>>;
+/** Creates a Vector from a typed array via {@link makeVector}. */
+export function vectorFromArray<T extends TypedArray | BigIntArray>(data: T): Vector<TypedArrayDataType<T>>;
 
-export function vectorFromArray(values: readonly unknown[], type?: DataType) {
-    const options = { type: type ?? inferType(values) };
-    const chunks = [...Builder.throughIterable(options)(values)];
+export function vectorFromArray<T extends DataType>(data: Data<T>): Vector<T>;
+export function vectorFromArray<T extends DataType>(data: Vector<T>): Vector<T>;
+export function vectorFromArray<T extends DataType>(data: DataProps<T>): Vector<T>;
+export function vectorFromArray<T extends TypedArray | BigIntArray | readonly unknown[]>(data: T): Vector<ArrayDataType<T>>;
+
+export function vectorFromArray(init: any, type?: DataType) {
+    if (init instanceof Data || init instanceof Vector || init.type instanceof DataType || ArrayBuffer.isView(init)) {
+        return makeVector(init as any);
+    }
+    const options = { type: type ?? inferType(init) };
+    const chunks = [...Builder.throughIterable(options)(init)];
     return chunks.length === 1 ? chunks[0] : chunks.reduce((a, b) => a.concat(b));
 }
 

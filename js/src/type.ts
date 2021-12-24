@@ -668,4 +668,5 @@ export function strideForType(type: DataType) {
     }
 }
 
+/** @ignore */
 export type TypeMap = Record<string | number | symbol, DataType>;

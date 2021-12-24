@@ -95,7 +95,7 @@ export class RecordBatch<T extends TypeMap = any> {
     protected _dictionaries?: Map<number, Vector>;
 
     /**
-     * @summary Get and set elements by index.
+     * Get and set elements by index.
      */
     [index: number]: Struct<T>['TValue'] | null;
 
@@ -107,24 +107,24 @@ export class RecordBatch<T extends TypeMap = any> {
     }
 
     /**
-     * @summary The number of columns in this RecordBatch.
+     * The number of columns in this RecordBatch.
      */
     public get numCols() { return this.schema.fields.length; }
 
     /**
-     * @summary The number of rows in this RecordBatch.
+     * The number of rows in this RecordBatch.
      */
     public get numRows() { return this.data.length; }
 
     /**
-     * @summary The number of null rows in this RecordBatch.
+     * The number of null rows in this RecordBatch.
      */
     public get nullCount() {
         return this.data.nullCount;
     }
 
     /**
-     * @summary Check whether an element is null.
+     * Check whether an element is null.
      * @param index The index at which to read the validity bitmap.
      */
     public isValid(index: number) {
@@ -132,7 +132,7 @@ export class RecordBatch<T extends TypeMap = any> {
     }
 
     /**
-     * @summary Get a row by position.
+     * Get a row by position.
      * @param index The index of the element to read.
      */
     public get(index: number) {
@@ -140,7 +140,7 @@ export class RecordBatch<T extends TypeMap = any> {
     }
 
     /**
-     * @summary Set a row by position.
+     * Set a row by position.
      * @param index The index of the element to write.
      * @param value The value to set.
      */
@@ -149,7 +149,7 @@ export class RecordBatch<T extends TypeMap = any> {
     }
 
     /**
-     * @summary Retrieve the index of the first occurrence of a row in an RecordBatch.
+     * Retrieve the index of the first occurrence of a row in an RecordBatch.
      * @param element The row to locate in the RecordBatch.
      * @param offset The index at which to begin the search. If offset is omitted, the search starts at index 0.
      */
@@ -158,7 +158,7 @@ export class RecordBatch<T extends TypeMap = any> {
     }
 
     /**
-     * @summary Get the size (in bytes) of a row by index.
+     * Get the size (in bytes) of a row by index.
      * @param index The row index for which to compute the byteLength.
      */
     public getByteLength(index: number): number {
@@ -166,14 +166,14 @@ export class RecordBatch<T extends TypeMap = any> {
     }
 
     /**
-     * @summary Iterator for rows in this RecordBatch.
+     * Iterator for rows in this RecordBatch.
      */
     public [Symbol.iterator]() {
         return iteratorVisitor.visit(this.data);
     }
 
     /**
-     * @summary Return a JavaScript Array of the RecordBatch rows.
+     * Return a JavaScript Array of the RecordBatch rows.
      * @returns An Array of RecordBatch rows.
      */
     public toArray() {
@@ -181,7 +181,7 @@ export class RecordBatch<T extends TypeMap = any> {
     }
 
     /**
-     * @summary Combines two or more RecordBatch of the same schema.
+     * Combines two or more RecordBatch of the same schema.
      * @param others Additional RecordBatch to add to the end of this RecordBatch.
      */
     public concat(...others: RecordBatch<T>[]) {
@@ -199,7 +199,7 @@ export class RecordBatch<T extends TypeMap = any> {
     }
 
     /**
-     * @summary Returns a child Vector by name, or null if this Vector has no child with the given name.
+     * Returns a child Vector by name, or null if this Vector has no child with the given name.
      * @param name The name of the child to retrieve.
      */
     public getChild<P extends keyof T>(name: P) {
@@ -207,7 +207,7 @@ export class RecordBatch<T extends TypeMap = any> {
     }
 
     /**
-     * @summary Returns a child Vector by index, or null if this Vector has no child at the supplied index.
+     * Returns a child Vector by index, or null if this Vector has no child at the supplied index.
      * @param index The index of the child to retrieve.
      */
     public getChildAt<R extends DataType = any>(index: number): Vector<R> | null {
@@ -218,7 +218,7 @@ export class RecordBatch<T extends TypeMap = any> {
     }
 
     /**
-     * @summary Sets a child Vector by name.
+     * Sets a child Vector by name.
      * @param name The name of the child to overwrite.
      * @returns A new RecordBatch with the new child for the specified name.
      */
@@ -227,7 +227,7 @@ export class RecordBatch<T extends TypeMap = any> {
     }
 
     /**
-     * @summary Sets a child Vector by index.
+     * Sets a child Vector by index.
      * @param index The index of the child to overwrite.
      * @returns A new RecordBatch with the new child at the specified index.
      */
@@ -251,7 +251,7 @@ export class RecordBatch<T extends TypeMap = any> {
     }
 
     /**
-     * @summary Construct a new RecordBatch containing only specified columns.
+     * Construct a new RecordBatch containing only specified columns.
      *
      * @param columnNames Names of columns to keep.
      * @returns A new RecordBatch of columns matching the specified names.
@@ -270,7 +270,7 @@ export class RecordBatch<T extends TypeMap = any> {
     }
 
     /**
-     * @summary Construct a new RecordBatch containing only columns at the specified indices.
+     * Construct a new RecordBatch containing only columns at the specified indices.
      *
      * @param columnIndices Indices of columns to keep.
      * @returns A new RecordBatch of columns matching at the specified indices.

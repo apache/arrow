@@ -17,7 +17,7 @@
 
 import { Data, makeData } from './data';
 import { Type } from './enum';
-import { Vector } from './vector';
+import { makeVector, Vector, vectorFromArray } from './vector';
 import { Field, Schema } from './schema';
 import { DataType, Null, Struct, TypeMap } from './type';
 import { compareSchemas } from './visitor/typecomparator';
@@ -44,7 +44,7 @@ import { instance as byteLengthVisitor } from './visitor/bytelength';
 
 import { DataProps } from './data';
 import { clampRange } from './util/vector';
-import { BigIntArray, TypedArray } from './interfaces';
+import { ArrayDataType, BigIntArray, TypedArray, TypedArrayDataType } from './interfaces';
 import { RecordBatch, _InternalEmptyPlaceholderRecordBatch } from './recordbatch';
 
 /** @ignore */
@@ -144,36 +144,36 @@ export class Table<T extends TypeMap = any> {
     declare protected _nullCount: number;
 
     /**
-     * @summary Get and set elements by index.
+     * Get and set elements by index.
      */
     [index: number]: Struct<T>['TValue'] | null;
 
     declare public readonly schema: Schema<T>;
 
     /**
-     * @summary The contiguous {@link RecordBatch `RecordBatch`} chunks of the Table rows.
+     * The contiguous {@link RecordBatch `RecordBatch`} chunks of the Table rows.
      */
     declare public readonly batches: RecordBatch<T>[];
 
     /**
-     * @summary The contiguous {@link RecordBatch `RecordBatch`} chunks of the Table rows.
+     * The contiguous {@link RecordBatch `RecordBatch`} chunks of the Table rows.
      */
     public get data() { return this.batches.map(({ data }) => data); }
 
     /**
-     * @summary The number of columns in this Table.
+     * The number of columns in this Table.
      */
     public get numCols() { return this.schema.fields.length; }
 
     /**
-     * @summary The number of rows in this Table.
+     * The number of rows in this Table.
      */
     public get numRows() {
         return this.data.reduce((numRows, data) => numRows + data.length, 0);
     }
 
     /**
-     * @summary The number of null rows in this Table.
+     * The number of null rows in this Table.
      */
     public get nullCount() {
         if (this._nullCount === -1) {
@@ -183,21 +183,24 @@ export class Table<T extends TypeMap = any> {
     }
 
     /**
-     * @summary Check whether an element is null.
+     * Check whether an element is null.
+     *
      * @param index The index at which to read the validity bitmap.
      */
     // @ts-ignore
     public isValid(index: number): boolean { return false; }
 
     /**
-     * @summary Get an element value by position.
+     * Get an element value by position.
+     *
      * @param index The index of the element to read.
      */
     // @ts-ignore
     public get(index: number): Struct<T>['TValue'] | null { return null; }
 
     /**
-     * @summary Set an element value by position.
+     * Set an element value by position.
+     *
      * @param index The index of the element to write.
      * @param value The value to set.
      */
@@ -205,7 +208,8 @@ export class Table<T extends TypeMap = any> {
     public set(index: number, value: Struct<T>['TValue'] | null): void { return; }
 
     /**
-     * @summary Retrieve the index of the first occurrence of a value in an Vector.
+     * Retrieve the index of the first occurrence of a value in an Vector.
+     *
      * @param element The value to locate in the Vector.
      * @param offset The index at which to begin the search. If offset is omitted, the search starts at index 0.
      */
@@ -213,21 +217,22 @@ export class Table<T extends TypeMap = any> {
     public indexOf(element: Struct<T>['TValue'], offset?: number): number { return -1; }
 
     /**
-     * @summary Get the size in bytes of an element by index.
+     * Get the size in bytes of an element by index.
      * @param index The index at which to get the byteLength.
      */
     // @ts-ignore
     public getByteLength(index: number): number { return 0; }
 
     /**
-     * @summary Iterator for rows in this Table.
+     * Iterator for rows in this Table.
      */
     public [Symbol.iterator]() {
         return new ChunkedIterator(this.data);
     }
 
     /**
-     * @summary Return a JavaScript Array of the Table rows.
+     * Return a JavaScript Array of the Table rows.
+     *
      * @returns An Array of Table rows.
      */
     public toArray() {
@@ -238,7 +243,8 @@ export class Table<T extends TypeMap = any> {
     }
 
     /**
-     * @summary Combines two or more Tables of the same schema.
+     * Combines two or more Tables of the same schema.
+     *
      * @param others Additional Tables to add to the end of this Tables.
      */
     public concat(...others: Table<T>[]) {
@@ -249,6 +255,7 @@ export class Table<T extends TypeMap = any> {
 
     /**
      * Return a zero-copy sub-section of this Table.
+     *
      * @param start The beginning of the specified portion of the Table.
      * @param end The end of the specified portion of the Table. This is exclusive of the element at the index 'end'.
      */
@@ -260,7 +267,8 @@ export class Table<T extends TypeMap = any> {
     }
 
     /**
-     * @summary Returns a child Vector by name, or null if this Vector has no child with the given name.
+     * Returns a child Vector by name, or null if this Vector has no child with the given name.
+     *
      * @param name The name of the child to retrieve.
      */
     public getChild<P extends keyof T>(name: P) {
@@ -268,7 +276,8 @@ export class Table<T extends TypeMap = any> {
     }
 
     /**
-     * @summary Returns a child Vector by index, or null if this Vector has no child at the supplied index.
+     * Returns a child Vector by index, or null if this Vector has no child at the supplied index.
+     *
      * @param index The index of the child to retrieve.
      */
     public getChildAt<R extends T[keyof T] = any>(index: number): Vector<R> | null {
@@ -285,7 +294,8 @@ export class Table<T extends TypeMap = any> {
     }
 
     /**
-     * @summary Sets a child Vector by name.
+     * Sets a child Vector by name.
+     *
      * @param name The name of the child to overwrite.
      * @returns A new Table with the supplied child for the specified name.
      */
@@ -294,7 +304,8 @@ export class Table<T extends TypeMap = any> {
     }
 
     /**
-     * @summary Sets a child Vector by index.
+     * Sets a child Vector by index.
+     *
      * @param index The index of the child to overwrite.
      * @returns A new Table with the supplied child at the specified index.
      */
@@ -317,7 +328,7 @@ export class Table<T extends TypeMap = any> {
     }
 
     /**
-     * @summary Construct a new Table containing only specified columns.
+     * Construct a new Table containing only specified columns.
      *
      * @param columnNames Names of columns to keep.
      * @returns A new Table of columns matching the specified names.
@@ -328,7 +339,7 @@ export class Table<T extends TypeMap = any> {
     }
 
     /**
-     * @summary Construct a new Table containing only columns at the specified indices.
+     * Construct a new Table containing only columns at the specified indices.
      *
      * @param columnIndices Indices of columns to keep.
      * @returns A new Table of columns at the specified indices.
@@ -384,4 +395,54 @@ export class Table<T extends TypeMap = any> {
         // )));
         return 'Table';
     })(Table.prototype);
+}
+
+
+type VectorsMap<T extends TypeMap> = { [P in keyof T]: Vector<T[P]> };
+
+/**
+ * Creates a new Table from an object of typed arrays arrays.
+ *
+*  @example
+ * ```ts
+ * const table = makeTable({
+ *   a: new Int8Array([1, 2, 3]),
+ * })
+ * ```
+ *
+ * @param input Input an object of typed arrays.
+ * @returns A new Table.
+ */
+export function makeTable<I extends Record<string | number | symbol, TypedArray>>(input: I): Table<{ [P in keyof I]: TypedArrayDataType<I[P]> }> {
+    type T = { [P in keyof I]: TypedArrayDataType<I[P]> };
+    const vecs = {} as VectorsMap<T>;
+    const inputs = Object.entries(input) as [keyof I, I[keyof I]][];
+    for (const [key, col] of inputs) {
+        vecs[key] = makeVector(col);
+    }
+    return new Table<T>(vecs);
+}
+
+/**
+ * Creates a new Table from an object of typed arrays or JavaScript arrays.
+ *
+ *  @example
+ * ```ts
+ * const table = tableFrom({
+ *   a: [1, 2, 3],
+ *   b: new Int8Array([1, 2, 3]),
+ * })
+ * ```
+ *
+ * @param Input an object of typed arrays or JavaScript arrays.
+ * @returns A new Table.
+ */
+export function tableFrom<I extends Record<string | number | symbol, TypedArray | BigIntArray | readonly unknown[]>>(input: I): Table<{ [P in keyof I]: ArrayDataType<I[P]> }> {
+    type T = { [P in keyof I]: ArrayDataType<I[P]> };
+    const vecs = {} as VectorsMap<T>;
+    const inputs = Object.entries(input) as [keyof I, I[keyof I]][];
+    for (const [key, col] of inputs) {
+        vecs[key] = vectorFromArray(col);
+    }
+    return new Table<T>(vecs);
 }

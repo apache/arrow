@@ -175,7 +175,7 @@ describe(`IntVector`, () => {
         testIntVector(Int64, bigIntValuesArray(BigInt64Array));
         describe(`vectorFromArray accepts regular Arrays to construct Vector<Int64>`, () => {
             const values = bigIntValuesArray(BigInt64Array);
-            const vector = vectorFromArray(values, new Int64);
+            const vector = vectorFromArray(values);
             testAndValidateVector(vector, bigIntValuesTyped(BigInt64Array), values);
             test(`return type is correct`, () => checkDtype(Int64, vector));
         });

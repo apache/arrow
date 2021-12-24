@@ -51,7 +51,7 @@ export {
     Map_
 } from './type';
 
-export { Table } from './table';
+export { Table, makeTable, tableFrom } from './table';
 export { Vector, makeVector, vectorFromArray } from './vector';
 export { Visitor } from './visitor';
 export { Schema, Field } from './schema';

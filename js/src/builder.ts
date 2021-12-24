@@ -84,6 +84,7 @@ export interface IterableBuilderOptions<T extends DataType = any, TNull = any> e
  * because this is when it flushes the values that have been enqueued in its internal
  * dictionary's `Builder`, and creates the `dictionaryVector` for the `Dictionary` `DataType`.
  *
+ * @example
  * ```ts
  * import { Builder, Utf8 } from 'apache-arrow';
  *

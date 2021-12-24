@@ -43,7 +43,7 @@ export class Schema<T extends TypeMap = any> {
     }
 
     /**
-     * @summary Construct a new Schema containing only specified fields.
+     * Construct a new Schema containing only specified fields.
      *
      * @param fieldNames Names of fields to keep.
      * @returns A new Schema of fields matching the specified names.
@@ -55,7 +55,7 @@ export class Schema<T extends TypeMap = any> {
     }
 
     /**
-     * @summary Construct a new Schema containing only fields at the specified indices.
+     * Construct a new Schema containing only fields at the specified indices.
      *
      * @param fieldIndices Indices of fields to keep.
      * @returns A new Schema of fields at the specified indices.
