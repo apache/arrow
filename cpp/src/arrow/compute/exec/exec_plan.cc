@@ -161,6 +161,7 @@ struct ExecPlanImpl : public ExecPlan {
     struct Impl {
       const std::vector<std::unique_ptr<ExecNode>>& nodes;
       std::unordered_set<ExecNode*> visited;
+      std::unordered_set<ExecNode*> marked;
       NodeVector sorted;
       std::vector<int> indents;
 
@@ -176,13 +177,16 @@ struct ExecPlanImpl : public ExecPlan {
       }
 
       void Visit(ExecNode* node, int indent = 0) {
+        marked.insert(node);
         for (auto input : node->inputs()) {
+          if (marked.count(input) != 0) continue;
           Visit(input, indent + 1);
         }
+        marked.erase(node);
 
-        visited.insert(node);
         indents.push_back(indent);
         sorted.push_back(node);
+        visited.insert(node);
       }
     };
 
