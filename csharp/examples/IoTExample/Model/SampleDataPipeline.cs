@@ -23,6 +23,7 @@ using Apache.Arrow.Memory;
 using System.Threading.Channels;
 using System.Threading;
 using System.Collections.Concurrent;
+using Apache.Arrow.Types;
 
 namespace IoTPipelineExample
 {
@@ -190,8 +191,99 @@ namespace IoTPipelineExample
                 partitionNumber++;
             }
 
+            Schema.Builder builder = new Schema.Builder();
+
+            builder.Field(new Field("SubjectId", Int32Type.Default, nullable: false));
+            builder.Field(new Field("ActivityLabel", StringType.Default, nullable: false));
+            builder.Field(new Field("Timestamp", Int64Type.Default, nullable: false));
+            builder.Field(new Field("XAxis", DoubleType.Default, nullable: false));
+
+            Schema schema = builder.Build();
+
+            IEnumerable<IArrowArray> arrays = CreateArrays(schema, length);
+
+            return new RecordBatch(schema, arrays, length);
+
+
             return arrowDataPath;
         }
-    }
 
+        public static IEnumerable<IArrowArray> CreateArrays(Schema schema, int length)
+        {
+            int fieldCount = schema.Fields.Count;
+            List<IArrowArray> arrays = new List<IArrowArray>(fieldCount);
+            for (int i = 0; i < fieldCount; i++)
+            {
+                Field field = schema.GetFieldByIndex(i);
+                arrays.Add(CreateArray(field, length));
+            }
+            return arrays;
+        }
+
+        private static IArrowArray CreateArray(Field field, int length)
+        {
+            var creator = new ArrayCreator(length);
+
+            field.DataType.Accept(creator);
+
+            return creator.Array;
+        }
+
+        private class ArrayCreator :
+            IArrowTypeVisitor<Int32Type>,
+            IArrowTypeVisitor<Int64Type>,
+            IArrowTypeVisitor<DoubleType>,
+            IArrowTypeVisitor<StringType>
+        {
+            private int Length { get; }
+            public IArrowArray Array { get; private set; }
+
+            public ArrayCreator(int length)
+            {
+                Length = length;
+            }
+
+            public void Visit(Int32Type type) => GenerateArray(new Int32Array.Builder(), x => x);
+            public void Visit(Int64Type type) => GenerateArray(new Int64Array.Builder(), x => x);
+            public void Visit(DoubleType type) => GenerateArray(new DoubleArray.Builder(), x => ((double)x / Length));
+            public void Visit(StringType type)
+            {
+                var str = "hello";
+                var builder = new StringArray.Builder();
+
+                for (var i = 0; i < Length; i++)
+                {
+                    builder.Append(str);
+                }
+
+                Array = builder.Build();
+            }
+            private void GenerateArray<T, TArray, TArrayBuilder>(IArrowArrayBuilder<T, TArray, TArrayBuilder> builder, Func<int, T> generator)
+                where TArrayBuilder : IArrowArrayBuilder<T, TArray, TArrayBuilder>
+                where TArray : IArrowArray
+                where T : struct
+            {
+                for (var i = 0; i < Length; i++)
+                {
+                    if (i == Length - 2)
+                    {
+                        builder.AppendNull();
+                    }
+                    else
+                    {
+                        var value = generator(i);
+                        builder.Append(value);
+                    }
+                }
+
+                Array = builder.Build(default);
+            }
+
+            public void Visit(IArrowType type)
+            {
+                throw new NotImplementedException();
+            }
+        }
+
+    }
 }
