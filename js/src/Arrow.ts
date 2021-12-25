@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-export { MessageHeader } from './fb/Message.js';
+export { MessageHeader } from './fb/message-header.js';
 
 export {
     Type,

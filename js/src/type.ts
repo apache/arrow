@@ -21,10 +21,8 @@ import { Field } from './schema.js';
 import { Vector } from './vector.js';
 import { MapRow } from './row/map.js';
 import { StructRow, StructRowProxy } from './row/struct.js';
-import { flatbuffers } from 'flatbuffers';
+import { Long } from 'flatbuffers';
 import { TypedArrayConstructor } from './interfaces.js';
-
-import Long = flatbuffers.Long;
 
 import {
     Type,

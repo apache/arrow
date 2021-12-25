@@ -17,7 +17,7 @@
 
 module.exports = {
     rules: {
-        "@typescript-eslint/no-require-imports": "off",
-        "@typescript-eslint/no-inferrable-types": "off"
+        "@typescript-eslint/type-annotation-spacing" : "off",
+        "@typescript-eslint/semi": "off",
     },
 };

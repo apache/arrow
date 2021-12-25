@@ -17,12 +17,10 @@
 
 /* eslint-disable @typescript-eslint/naming-convention */
 
-import {
-    Block as _Block,
-    Footer as _Footer
-} from '../../fb/File.js';
+import { Block as _Block } from '../../fb/block.js';
+import { Footer as _Footer } from '../../fb/footer.js';
 
-import { flatbuffers } from 'flatbuffers';
+import * as flatbuffers from 'flatbuffers';
 
 import Long = flatbuffers.Long;
 import Builder = flatbuffers.Builder;

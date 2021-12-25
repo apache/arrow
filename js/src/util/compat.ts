@@ -180,7 +180,7 @@ export const isReadableNodeStream = (x: any): x is NodeJS.ReadableStream => {
 };
 
 /** @ignore */
-export const isFlatbuffersByteBuffer = (x: any): x is import('flatbuffers').flatbuffers.ByteBuffer => {
+export const isFlatbuffersByteBuffer = (x: any): x is import('flatbuffers').ByteBuffer => {
     return isObject(x) &&
         isFunction(x['clear']) &&
         isFunction(x['bytes']) &&

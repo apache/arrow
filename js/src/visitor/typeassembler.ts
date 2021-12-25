@@ -15,33 +15,31 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { flatbuffers } from 'flatbuffers';
+import * as flatbuffers from 'flatbuffers';
 import Long = flatbuffers.Long;
 import Builder = flatbuffers.Builder;
 
 import * as type from '../type.js';
 import { Visitor } from '../visitor.js';
 
-import {
-    Null,
-    Int,
-    FloatingPoint,
-    Binary,
-    Bool,
-    Utf8,
-    Decimal,
-    Date,
-    Time,
-    Timestamp,
-    Interval,
-    List,
-    Struct_ as Struct,
-    Union,
-    DictionaryEncoding,
-    FixedSizeBinary,
-    FixedSizeList,
-    Map as Map_,
-} from '../fb/Schema.js';
+import { Null } from '../fb/null.js';
+import { Int } from '../fb/int.js';
+import { FloatingPoint } from '../fb/floating-point.js';
+import { Binary } from '../fb/binary.js';
+import { Bool } from '../fb/bool.js';
+import { Utf8 } from '../fb/utf8.js';
+import { Decimal } from '../fb/decimal.js';
+import { Date } from '../fb/date.js';
+import { Time } from '../fb/time.js';
+import { Timestamp } from '../fb/timestamp.js';
+import { Interval } from '../fb/interval.js';
+import { List } from '../fb/list.js';
+import { Struct_ as Struct } from '../fb/struct_.js';
+import { Union } from '../fb/union.js';
+import { DictionaryEncoding } from '../fb/dictionary-encoding.js';
+import { FixedSizeBinary } from '../fb/fixed-size-binary.js';
+import { FixedSizeList } from '../fb/fixed-size-list.js';
+import { Map as Map_ } from '../fb/map.js';
 
 /** @ignore */
 export interface TypeAssembler extends Visitor {

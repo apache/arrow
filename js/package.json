@@ -51,11 +51,10 @@
     "jest.config.js"
   ],
   "dependencies": {
-    "@types/flatbuffers": "^1.10.0",
     "@types/node": "^17.0.4",
     "command-line-args": "5.2.0",
     "command-line-usage": "6.1.1",
-    "flatbuffers": "1.12.0",
+    "flatbuffers": "2.0.4",
     "json-bignum": "^0.0.3",
     "pad-left": "^2.1.0",
     "tslib": "^2.3.1"

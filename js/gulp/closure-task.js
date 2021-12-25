@@ -71,7 +71,7 @@ const closureTask = ((cache) => memoizeTask(cache, async function closure(target
             gulp.src([
                 /* external libs first */
                 `node_modules/flatbuffers/package.json`,
-                `node_modules/flatbuffers/js/flatbuffers.mjs`,
+                `node_modules/flatbuffers/**/*.js`,
                 `${src}/**/*.js` /* <-- then source globs */
             ], { base: `./` }),
             sourcemaps.init(),

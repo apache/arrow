@@ -47,7 +47,6 @@ module.exports = {
   testMatch: null,
   moduleNameMapper: {
     "^apache-arrow$": "<rootDir>/src/Arrow.node",
-    "^apache-arrow(.*)": "<rootDir>/src$1",
-    flatbuffers: "flatbuffers/js/flatbuffers.mjs",
+    "^apache-arrow(.*)": "<rootDir>/src$1"
   },
 };

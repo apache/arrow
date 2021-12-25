@@ -17,7 +17,7 @@
 
 import * as type from '../type.js';
 import { Visitor } from '../visitor.js';
-import { Type as ArrowType } from '../fb/Schema.js';
+import { Type as ArrowType } from '../fb/type.js';
 import { Precision, DateUnit, TimeUnit, IntervalUnit, UnionMode } from '../enum.js';
 
 /** @ignore */

@@ -17,35 +17,30 @@
 
 /* eslint-disable brace-style */
 
-import { flatbuffers } from 'flatbuffers';
+import * as flatbuffers from 'flatbuffers';
 
-import {
-    Type,
-    Int as _Int,
-    Field as _Field,
-    Schema as _Schema,
-    Buffer as _Buffer,
-    KeyValue as _KeyValue,
-    Endianness as _Endianness,
-    DictionaryEncoding as _DictionaryEncoding,
-    FloatingPoint as _FloatingPoint,
-    Decimal as _Decimal,
-    Date as _Date,
-    Time as _Time,
-    Timestamp as _Timestamp,
-    Interval as _Interval,
-    Union as _Union,
-    FixedSizeBinary as _FixedSizeBinary,
-    FixedSizeList as _FixedSizeList,
-    Map as _Map,
-} from '../../fb/Schema.js';
-
-import {
-    Message as _Message,
-    FieldNode as _FieldNode,
-    RecordBatch as _RecordBatch,
-    DictionaryBatch as _DictionaryBatch,
-} from '../../fb/Message.js';
+import { Schema as _Schema } from '../../fb/schema.js';
+import { Int as _Int } from '../../fb/int.js';
+import { RecordBatch as _RecordBatch } from '../../fb/record-batch.js';
+import { DictionaryBatch as _DictionaryBatch } from '../../fb/dictionary-batch.js';
+import { Buffer as _Buffer } from '../../fb/buffer.js';
+import { Field as _Field } from '../../fb/field.js';
+import { FieldNode as _FieldNode } from '../../fb/field-node.js';
+import { DictionaryEncoding as _DictionaryEncoding } from '../../fb/dictionary-encoding.js';
+import { Type } from '../../fb/type.js';
+import { KeyValue as _KeyValue } from '../../fb/key-value.js';
+import { Endianness as _Endianness } from '../../fb/endianness.js';
+import { FloatingPoint as _FloatingPoint } from '../../fb/floating-point.js';
+import { Decimal as _Decimal } from '../../fb/decimal.js';
+import { Date as _Date } from '../../fb/date.js';
+import { Time as _Time } from '../../fb/time.js';
+import { Timestamp as _Timestamp } from '../../fb/timestamp.js';
+import { Interval as _Interval } from '../../fb/interval.js';
+import { Union as _Union } from '../../fb/union.js';
+import { FixedSizeBinary as _FixedSizeBinary } from '../../fb/fixed-size-binary.js';
+import { FixedSizeList as _FixedSizeList } from '../../fb/fixed-size-list.js';
+import { Map as _Map } from '../../fb/map.js';
+import { Message as _Message } from '../../fb/message.js';
 
 import { Schema, Field } from '../../schema.js';
 import { toUint8Array } from '../../util/buffer.js';

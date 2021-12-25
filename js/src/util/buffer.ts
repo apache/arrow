@@ -18,8 +18,7 @@
 import { encodeUtf8 } from '../util/utf8.js';
 import { TypedArray, TypedArrayConstructor, BigIntArrayConstructor } from '../interfaces.js';
 import { isPromise, isIterable, isAsyncIterable, isIteratorResult, isFlatbuffersByteBuffer, BigInt64Array, BigUint64Array } from './compat.js';
-
-type ByteBuffer = import('flatbuffers').flatbuffers.ByteBuffer;
+import { ByteBuffer } from 'flatbuffers';
 
 /** @ignore */
 const SharedArrayBuf = (typeof SharedArrayBuffer !== 'undefined' ? SharedArrayBuffer : ArrayBuffer);

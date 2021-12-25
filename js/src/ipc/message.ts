@@ -16,8 +16,7 @@
 // under the License.
 
 import { MessageHeader } from '../enum.js';
-import { flatbuffers } from 'flatbuffers';
-import ByteBuffer = flatbuffers.ByteBuffer;
+import { ByteBuffer } from 'flatbuffers';
 import { Message } from './metadata/message.js';
 import { isFileHandle } from '../util/compat.js';
 import { AsyncRandomAccessFile } from '../io/file.js';
