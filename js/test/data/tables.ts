@@ -20,8 +20,8 @@ import * as generate from '../generate-test-data';
 import { Schema, Field, Dictionary } from '../Arrow';
 
 const listVectorGeneratorNames = ['list', 'fixedSizeList'];
-const nestedVectorGeneratorNames = [ 'struct', 'denseUnion', 'sparseUnion', 'map' ];
-const dictionaryKeyGeneratorNames = ['int8' ,'int16' ,'int32' ,'uint8' ,'uint16' ,'uint32'];
+const nestedVectorGeneratorNames = ['struct', 'denseUnion', 'sparseUnion', 'map'];
+const dictionaryKeyGeneratorNames = ['int8', 'int16', 'int32', 'uint8', 'uint16', 'uint32'];
 const valueVectorGeneratorNames = [
     'null_', 'bool', 'int8', 'int16', 'int32', 'int64', 'uint8', 'uint16', 'uint32', 'uint64',
     'float16', 'float32', 'float64', 'utf8', 'binary', 'fixedSizeBinary', 'dateDay', 'dateMillisecond',
@@ -41,9 +41,9 @@ export function* generateRandomTables(batchLengths = [1000, 2000, 3000], minCols
         numCols = Math.max(Math.min(
             Math.random() * maxCols | 0, allNames.length), minCols);
 
-        let names = allNames.slice(0, numCols);
-        let types = names.map((fn) => vecs[fn](0).vector.type);
-        let schema = new Schema(names.map((name, i) => new Field(name, types[i])));
+        const names = allNames.slice(0, numCols);
+        const types = names.map((fn) => vecs[fn](0).vector.type);
+        const schema = new Schema(names.map((name, i) => new Field(name, types[i])));
 
         yield generate.table(batchLengths, schema).table;
 

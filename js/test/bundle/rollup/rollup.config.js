@@ -13,7 +13,7 @@ const plugins = [
     bundleSize()
 ]
 
-export default ['table', 'makeTable', 'vector'].map(name => ({
+export default ['table', 'makeTable', 'vector', 'deserialize'].map(name => ({
     input: resolve(__dirname, `../${name}.js`),
     output: {
         file: resolve(__dirname, `./${name}-bundle.js`),
