@@ -21,7 +21,6 @@ type SetString<T> = (inst: T, key: string, val: any) => any;
 type SetNumber<T> = (inst: T, key: number, val: any) => any;
 
 /** @ignore */
-// eslint-disable-next-line @typescript-eslint/ban-types
 export class IndexingProxyHandlerMixin<T extends object = any> implements ProxyHandler<T> {
     constructor(
         protected getNumberProp: GetNumber<T>,
@@ -53,7 +52,6 @@ export class IndexingProxyHandlerMixin<T extends object = any> implements ProxyH
 }
 
 /** @ignore */
-// eslint-disable-next-line @typescript-eslint/ban-types
 export class NumericIndexingProxyHandlerMixin<T extends object = any> implements ProxyHandler<T> {
     constructor(protected getNumberProp: GetNumber<T>, protected setNumberProp: SetNumber<T>) { }
     get(target: any, key: any, instance: any) {

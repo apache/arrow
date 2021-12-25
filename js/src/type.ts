@@ -15,8 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-/* eslint-disable @typescript-eslint/naming-convention */
-
 import { Field } from './schema.js';
 import { Vector } from './vector.js';
 import { MapRow } from './row/map.js';

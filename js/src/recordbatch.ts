@@ -364,7 +364,6 @@ function collectDictionaries(fields: Field[], children: Data[], dictionaries = n
  * @ignore
  * @private
  */
-/* eslint-disable @typescript-eslint/naming-convention */
 export class _InternalEmptyPlaceholderRecordBatch<T extends TypeMap = any> extends RecordBatch<T> {
     constructor(schema: Schema<T>) {
         const children = schema.fields.map((f) => makeData({ type: f.type }));
