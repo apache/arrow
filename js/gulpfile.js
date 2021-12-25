@@ -27,6 +27,7 @@ const cleanTask = require('./gulp/clean-task');
 const compileTask = require('./gulp/compile-task');
 const packageTask = require('./gulp/package-task');
 const { testTask, createTestData, cleanTestData } = require('./gulp/test-task');
+const bundleTask = require('./gulp/bundle-task');
 const {
     taskName, combinations,
     targetDir, knownTargets,
@@ -37,7 +38,7 @@ const {
 for (const [target, format] of combinations([`all`], [`all`])) {
     const task = taskName(target, format);
     gulp.task(`clean:${task}`, cleanTask(target, format));
-    gulp.task(`test:${task}`,  testTask(target, format));
+    gulp.task(`test:${task}`, testTask(target, format));
     gulp.task(`compile:${task}`, compileTask(target, format));
     gulp.task(`package:${task}`, packageTask(target, format));
     gulp.task(`build:${task}`, gulp.series(
@@ -85,7 +86,12 @@ gulp.task(`clean`, gulp.parallel(getTasks(`clean`)));
 gulp.task(`build`, gulpConcurrent(getTasks(`build`)));
 gulp.task(`compile`, gulpConcurrent(getTasks(`compile`)));
 gulp.task(`package`, gulpConcurrent(getTasks(`package`)));
-gulp.task(`default`,  gulp.series(`clean`, `build`, `test`));
+gulp.task(`default`, gulp.series(`clean`, `build`, `test`));
+
+gulp.task(`bundle:webpack`, bundleTask(`webpack`));
+gulp.task(`bundle:webpack:analyze`, bundleTask(`webpack`, `--env=analyze`));
+gulp.task(`bundle:rollup`, bundleTask(`rollup`));
+gulp.task(`bundle`, gulp.series(`bundle:webpack`, `bundle:rollup`));
 
 function gulpConcurrent(tasks, numCPUs = Math.max(1, require('os').cpus().length * 0.5) | 0) {
     return () => ObservableFrom(tasks.map((task) => gulp.series(task)))

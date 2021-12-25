@@ -142,7 +142,7 @@ async function createTestData() {
     const errors = [];
     const names = await glob(path.join(jsonFilesDir, '*.json'));
 
-    for (let jsonPath of names) {
+    for (const jsonPath of names) {
         const name = path.parse(path.basename(jsonPath)).name;
         const arrowCppFilePath = path.join(cppFilesDir, 'file', `${name}.arrow`);
         const arrowJavaFilePath = path.join(javaFilesDir, 'file', `${name}.arrow`);

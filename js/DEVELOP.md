@@ -82,7 +82,7 @@ You can change the target you want to test by changing the imports in `perf/inde
 
 # Testing Webpack Bundling
 
-To bundle with webpack, run `yarn test:bundle`. Run `yarn test:bundle --env=analyze` to open [Webpack Bundle Analyzer](https://github.com/webpack-contrib/webpack-bundle-analyzer).
+To bundle with webpack, run `yarn test:bundle` or `yarn gulp bundle`. Run `yarn gulp bundle:webpack:analyze` to open [Webpack Bundle Analyzer](https://github.com/webpack-contrib/webpack-bundle-analyzer).
 
 # Updating the Arrow format flatbuffers generated code
 

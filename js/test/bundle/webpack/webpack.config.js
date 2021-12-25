@@ -7,9 +7,9 @@ module.exports = env => ({
         usedExports: true
     },
     entry: {
-        table: resolve(__dirname, './table.js'),
-        makeTable: resolve(__dirname, './makeTable.js'),
-        vector: resolve(__dirname, './makeTable.js')
+        table: resolve(__dirname, '../table.js'),
+        makeTable: resolve(__dirname, '../makeTable.js'),
+        vector: resolve(__dirname, '../makeTable.js')
     },
     output: {
         path: resolve(__dirname, '.'),
