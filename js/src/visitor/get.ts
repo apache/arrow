@@ -15,16 +15,16 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Data } from '../data';
-import { BN } from '../util/bn';
-import { Vector } from '../vector';
-import { Visitor } from '../visitor';
-import { MapRow } from '../row/map';
-import { StructRow } from '../row/struct';
-import { decodeUtf8 } from '../util/utf8';
-import { TypeToDataType } from '../interfaces';
-import { uint16ToFloat64 } from '../util/math';
-import { Type, UnionMode, Precision, DateUnit, TimeUnit, IntervalUnit } from '../enum';
+import { Data } from '../data.js';
+import { BN } from '../util/bn.js';
+import { Vector } from '../vector.js';
+import { Visitor } from '../visitor.js';
+import { MapRow } from '../row/map.js';
+import { StructRow } from '../row/struct.js';
+import { decodeUtf8 } from '../util/utf8.js';
+import { TypeToDataType } from '../interfaces.js';
+import { uint16ToFloat64 } from '../util/math.js';
+import { Type, UnionMode, Precision, DateUnit, TimeUnit, IntervalUnit } from '../enum.js';
 import {
     DataType, Dictionary,
     Bool, Null, Utf8, Binary, Decimal, FixedSizeBinary, List, FixedSizeList, Map_, Struct,
@@ -35,7 +35,7 @@ import {
     Time, TimeSecond, TimeMillisecond, TimeMicrosecond, TimeNanosecond,
     Timestamp, TimestampSecond, TimestampMillisecond, TimestampMicrosecond, TimestampNanosecond,
     Union, DenseUnion, SparseUnion,
-} from '../type';
+} from '../type.js';
 
 /** @ignore */
 export interface GetVisitor extends Visitor {

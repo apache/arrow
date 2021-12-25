@@ -15,16 +15,16 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { memcpy } from '../util/buffer';
+import { memcpy } from '../util/buffer.js';
 import {
     TypedArray, TypedArrayConstructor,
     BigIntArray, BigIntArrayConstructor
-} from '../interfaces';
+} from '../interfaces.js';
 
 /** @ignore */ type DataValue<T> = T extends TypedArray ? number : T extends BigIntArray ? WideValue<T> : T;
 /** @ignore */ type WideValue<T extends BigIntArray> = T extends BigIntArray ? bigint | Int32Array | Uint32Array : never;
 /** @ignore */ type ArrayCtor<T extends TypedArray | BigIntArray> =
-    T extends TypedArray  ? TypedArrayConstructor<T>  :
+    T extends TypedArray ? TypedArrayConstructor<T> :
     T extends BigIntArray ? BigIntArrayConstructor<T> :
     any;
 
@@ -91,7 +91,7 @@ export class BufferBuilder<T extends TypedArray | BigIntArray = any, TValue = Da
         return this;
     }
     protected _resize(newLength: number) {
-        return this.buffer = <T> memcpy(new this.ArrayType(newLength), this.buffer);
+        return this.buffer = <T>memcpy(new this.ArrayType(newLength), this.buffer);
     }
 }
 
@@ -121,7 +121,7 @@ export class BitmapBufferBuilder extends DataBufferBuilder<Uint8Array> {
         const byte = idx >> 3, bit = idx % 8, cur = buffer[byte] >> bit & 1;
         // If `val` is truthy and the current bit is 0, flip it to 1 and increment `numValid`.
         // If `val` is falsey and the current bit is 1, flip it to 0 and decrement `numValid`.
-        val ? cur === 0 && ((buffer[byte] |=  (1 << bit)), ++this.numValid)
+        val ? cur === 0 && ((buffer[byte] |= (1 << bit)), ++this.numValid)
             : cur === 1 && ((buffer[byte] &= ~(1 << bit)), --this.numValid);
         return this;
     }

@@ -21,9 +21,9 @@ import {
     ArrayBufferViewInput,
     toUint8ArrayIterator,
     toUint8ArrayAsyncIterator
-} from '../util/buffer';
+} from '../util/buffer.js';
 
-import { ReadableDOMStreamOptions } from './interfaces';
+import { ReadableDOMStreamOptions } from './interfaces.js';
 
 type Uint8ArrayGenerator = Generator<Uint8Array, null, { cmd: 'peek' | 'read'; size: number }>;
 type AsyncUint8ArrayGenerator = AsyncGenerator<Uint8Array, null, { cmd: 'peek' | 'read'; size: number }>;

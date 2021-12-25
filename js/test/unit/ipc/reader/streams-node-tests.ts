@@ -17,7 +17,7 @@
 
 import {
     generateRandomTables
-} from '../../../data/tables';
+} from '../../../data/tables.js';
 
 import {
     Table,
@@ -25,8 +25,8 @@ import {
     RecordBatchStreamWriter
 } from 'apache-arrow';
 
-import { ArrowIOTestHelper } from '../helpers';
-import { validateRecordBatchAsyncIterator } from '../validate';
+import { ArrowIOTestHelper } from '../helpers.js';
+import { validateRecordBatchAsyncIterator } from '../validate.js';
 
 (() => {
 

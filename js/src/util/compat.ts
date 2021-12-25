@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { ReadableInterop, ArrowJSONLike } from '../io/interfaces';
+import { ReadableInterop, ArrowJSONLike } from '../io/interfaces.js';
 
 /** @ignore */
 type FSReadStream = import('fs').ReadStream;
@@ -46,7 +46,7 @@ const [BigIntCtor, BigIntAvailable] = (() => {
     function BigIntUnavailable() { throw BigIntUnavailableError(); }
     BigIntUnavailable.asIntN = () => { throw BigIntUnavailableError(); };
     BigIntUnavailable.asUintN = () => { throw BigIntUnavailableError(); };
-    return typeof BigInt !== 'undefined' ? [BigInt, true] : [<any> BigIntUnavailable, false];
+    return typeof BigInt !== 'undefined' ? [BigInt, true] : [<any>BigIntUnavailable, false];
 })() as [BigIntConstructor, boolean];
 
 /** @ignore */
@@ -58,7 +58,7 @@ const [BigInt64ArrayCtor, BigInt64ArrayAvailable] = (() => {
         static from() { throw BigInt64ArrayUnavailableError(); }
         constructor() { throw BigInt64ArrayUnavailableError(); }
     }
-    return typeof BigInt64Array !== 'undefined' ? [BigInt64Array, true] : [<any> BigInt64ArrayUnavailable, false];
+    return typeof BigInt64Array !== 'undefined' ? [BigInt64Array, true] : [<any>BigInt64ArrayUnavailable, false];
 })() as [BigInt64ArrayConstructor, boolean];
 
 /** @ignore */
@@ -70,7 +70,7 @@ const [BigUint64ArrayCtor, BigUint64ArrayAvailable] = (() => {
         static from() { throw BigUint64ArrayUnavailableError(); }
         constructor() { throw BigUint64ArrayUnavailableError(); }
     }
-    return typeof BigUint64Array !== 'undefined' ? [BigUint64Array, true] : [<any> BigUint64ArrayUnavailable, false];
+    return typeof BigUint64Array !== 'undefined' ? [BigUint64Array, true] : [<any>BigUint64ArrayUnavailable, false];
 })() as [BigUint64ArrayConstructor, boolean];
 
 export { BigIntCtor as BigInt, BigIntAvailable };
@@ -105,7 +105,7 @@ export const isAsyncIterable = <T = any>(x: any): x is AsyncIterable<T> => {
 };
 
 /** @ignore */
-export const isArrowJSON = (x: any): x is ArrowJSONLike  => {
+export const isArrowJSON = (x: any): x is ArrowJSONLike => {
     return isObject(x) && isObject(x['schema']);
 };
 
@@ -135,7 +135,7 @@ export const isFileHandle = (x: any): x is FileHandle => {
 
 /** @ignore */
 export const isFSReadStream = (x: any): x is FSReadStream => {
-    return isReadableNodeStream(x) && isNumber((<any> x)['bytesRead']);
+    return isReadableNodeStream(x) && isNumber((<any>x)['bytesRead']);
 };
 
 /** @ignore */
@@ -182,11 +182,11 @@ export const isReadableNodeStream = (x: any): x is NodeJS.ReadableStream => {
 /** @ignore */
 export const isFlatbuffersByteBuffer = (x: any): x is import('flatbuffers').flatbuffers.ByteBuffer => {
     return isObject(x) &&
-           isFunction(x['clear']) &&
-           isFunction(x['bytes']) &&
-           isFunction(x['position']) &&
-           isFunction(x['setPosition']) &&
-           isFunction(x['capacity']) &&
-           isFunction(x['getBufferIdentifier']) &&
-           isFunction(x['createLong']);
+        isFunction(x['clear']) &&
+        isFunction(x['bytes']) &&
+        isFunction(x['position']) &&
+        isFunction(x['setPosition']) &&
+        isFunction(x['capacity']) &&
+        isFunction(x['getBufferIdentifier']) &&
+        isFunction(x['createLong']);
 };

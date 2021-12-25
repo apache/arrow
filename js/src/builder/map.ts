@@ -15,9 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Field } from '../schema';
-import { DataType, Map_, Struct } from '../type';
-import { Builder, VariableWidthBuilder } from '../builder';
+import { Field } from '../schema.js';
+import { DataType, Map_, Struct } from '../type.js';
+import { Builder, VariableWidthBuilder } from '../builder.js';
 
 /** @ignore */ type MapValue<K extends DataType = any, V extends DataType = any> = Map_<K, V>['TValue'];
 /** @ignore */ type MapValues<K extends DataType = any, V extends DataType = any> = Map<number, MapValue<K, V> | undefined>;

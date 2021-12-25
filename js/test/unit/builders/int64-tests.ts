@@ -22,7 +22,7 @@ import {
     validateVector,
     encodeAll, encodeEach, encodeEachDOM, encodeEachNode,
     int64sNoNulls, int64sWithNulls, int64sWithMaxInts,
-} from './utils';
+} from './utils.js';
 
 const testDOMStreams = process.env.TEST_DOM_STREAMS === 'true';
 const testNodeStreams = process.env.TEST_NODE_STREAMS === 'true';

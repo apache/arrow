@@ -15,10 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Vector } from '../vector';
-import { MapRow } from '../row/map';
-import { StructRow } from '../row/struct';
-import { compareArrayLike } from '../util/buffer';
+import { Vector } from '../vector.js';
+import { MapRow } from '../row/map.js';
+import { StructRow } from '../row/struct.js';
+import { compareArrayLike } from '../util/buffer.js';
 
 /** @ignore */
 type RangeLike = { length: number; stride?: number };

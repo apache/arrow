@@ -15,10 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Field } from '../schema';
-import { DataType, List } from '../type';
-import { OffsetsBufferBuilder } from './buffer';
-import { Builder, BuilderOptions, VariableWidthBuilder } from '../builder';
+import { Field } from '../schema.js';
+import { DataType, List } from '../type.js';
+import { OffsetsBufferBuilder } from './buffer.js';
+import { Builder, BuilderOptions, VariableWidthBuilder } from '../builder.js';
 
 /** @ignore */
 export class ListBuilder<T extends DataType = any, TNull = any> extends VariableWidthBuilder<List<T>, TNull> {

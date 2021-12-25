@@ -15,10 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { TypeMap } from '../../type';
+import { TypeMap } from '../../type.js';
 import { Duplex, DuplexOptions } from 'stream';
-import { AsyncByteStream } from '../../io/stream';
-import { RecordBatchWriter } from '../../ipc/writer';
+import { AsyncByteStream } from '../../io/stream.js';
+import { RecordBatchWriter } from '../../ipc/writer.js';
 
 /** @ignore */
 export function recordBatchWriterThroughNodeStream<T extends TypeMap = any>(this: typeof RecordBatchWriter, options?: DuplexOptions & { autoDestroy: boolean }) {

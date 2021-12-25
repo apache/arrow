@@ -15,9 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { encodeUtf8 } from '../util/utf8';
-import { TypedArray, TypedArrayConstructor, BigIntArrayConstructor } from '../interfaces';
-import { isPromise, isIterable, isAsyncIterable, isIteratorResult, isFlatbuffersByteBuffer, BigInt64Array, BigUint64Array } from './compat';
+import { encodeUtf8 } from '../util/utf8.js';
+import { TypedArray, TypedArrayConstructor, BigIntArrayConstructor } from '../interfaces.js';
+import { isPromise, isIterable, isAsyncIterable, isIteratorResult, isFlatbuffersByteBuffer, BigInt64Array, BigUint64Array } from './compat.js';
 
 type ByteBuffer = import('flatbuffers').flatbuffers.ByteBuffer;
 
@@ -84,9 +84,9 @@ export function joinUint8Arrays(chunks: Uint8Array[], size?: number | null): [Ui
 }
 
 /** @ignore */
-export type ArrayBufferViewInput = ArrayBufferView | ArrayBufferLike | ArrayBufferView | Iterable<number> | ArrayLike<number> | ByteBuffer | string | null | undefined  |
-                    IteratorResult<ArrayBufferView | ArrayBufferLike | ArrayBufferView | Iterable<number> | ArrayLike<number> | ByteBuffer | string | null | undefined> |
-   ReadableStreamDefaultReadResult<ArrayBufferView | ArrayBufferLike | ArrayBufferView | Iterable<number> | ArrayLike<number> | ByteBuffer | string | null | undefined> ;
+export type ArrayBufferViewInput = ArrayBufferView | ArrayBufferLike | ArrayBufferView | Iterable<number> | ArrayLike<number> | ByteBuffer | string | null | undefined |
+    IteratorResult<ArrayBufferView | ArrayBufferLike | ArrayBufferView | Iterable<number> | ArrayLike<number> | ByteBuffer | string | null | undefined> |
+    ReadableStreamDefaultReadResult<ArrayBufferView | ArrayBufferLike | ArrayBufferView | Iterable<number> | ArrayLike<number> | ByteBuffer | string | null | undefined>;
 
 /** @ignore */
 export function toArrayBufferView<
@@ -135,14 +135,14 @@ export function* toArrayBufferViewIterator<T extends TypedArray>(ArrayCtor: Type
 
     const wrap = function*<T>(x: T) { yield x; };
     const buffers: Iterable<ArrayBufferViewInput> =
-                   (typeof source === 'string') ? wrap(source)
-                 : (ArrayBuffer.isView(source)) ? wrap(source)
-              : (source instanceof ArrayBuffer) ? wrap(source)
-           : (source instanceof SharedArrayBuf) ? wrap(source)
-    : !isIterable<ArrayBufferViewInput>(source) ? wrap(source) : source;
+        (typeof source === 'string') ? wrap(source)
+            : (ArrayBuffer.isView(source)) ? wrap(source)
+                : (source instanceof ArrayBuffer) ? wrap(source)
+                    : (source instanceof SharedArrayBuf) ? wrap(source)
+                        : !isIterable<ArrayBufferViewInput>(source) ? wrap(source) : source;
 
     yield* pump((function* (it: Iterator<ArrayBufferViewInput, any, number | undefined>): Generator<T, void, number | undefined> {
-        let r: IteratorResult<any> = <any> null;
+        let r: IteratorResult<any> = <any>null;
         do {
             r = it.next(yield toArrayBufferView(ArrayCtor, r));
         } while (!r.done);
@@ -173,8 +173,8 @@ export async function* toArrayBufferViewAsyncIterator<T extends TypedArray>(Arra
 
     const wrap = async function*<T>(x: T) { yield await x; };
     const emit = async function* <T extends Iterable<any>>(source: T) {
-        yield* pump((function*(it: Iterator<any>) {
-            let r: IteratorResult<any> = <any> null;
+        yield* pump((function* (it: Iterator<any>) {
+            let r: IteratorResult<any> = <any>null;
             do {
                 r = it.next(yield r?.value);
             } while (!r.done);
@@ -182,16 +182,16 @@ export async function* toArrayBufferViewAsyncIterator<T extends TypedArray>(Arra
     };
 
     const buffers: AsyncIterable<ArrayBufferViewInput> =
-                        (typeof source === 'string') ? wrap(source) // if string, wrap in an AsyncIterableIterator
-                      : (ArrayBuffer.isView(source)) ? wrap(source) // if TypedArray, wrap in an AsyncIterableIterator
-                   : (source instanceof ArrayBuffer) ? wrap(source) // if ArrayBuffer, wrap in an AsyncIterableIterator
-                : (source instanceof SharedArrayBuf) ? wrap(source) // if SharedArrayBuffer, wrap in an AsyncIterableIterator
-          : isIterable<ArrayBufferViewInput>(source) ? emit(source) // If Iterable, wrap in an AsyncIterableIterator and compose the `next` values
-    : !isAsyncIterable<ArrayBufferViewInput>(source) ? wrap(source) // If not an AsyncIterable, treat as a sentinel and wrap in an AsyncIterableIterator
-                                                     : source; // otherwise if AsyncIterable, use it
+        (typeof source === 'string') ? wrap(source) // if string, wrap in an AsyncIterableIterator
+            : (ArrayBuffer.isView(source)) ? wrap(source) // if TypedArray, wrap in an AsyncIterableIterator
+                : (source instanceof ArrayBuffer) ? wrap(source) // if ArrayBuffer, wrap in an AsyncIterableIterator
+                    : (source instanceof SharedArrayBuf) ? wrap(source) // if SharedArrayBuffer, wrap in an AsyncIterableIterator
+                        : isIterable<ArrayBufferViewInput>(source) ? emit(source) // If Iterable, wrap in an AsyncIterableIterator and compose the `next` values
+                            : !isAsyncIterable<ArrayBufferViewInput>(source) ? wrap(source) // If not an AsyncIterable, treat as a sentinel and wrap in an AsyncIterableIterator
+                                : source; // otherwise if AsyncIterable, use it
 
     yield* pump((async function* (it: AsyncIterator<ArrayBufferViewInput, any, number | undefined>): AsyncGenerator<T, void, number | undefined> {
-        let r: IteratorResult<any> = <any> null;
+        let r: IteratorResult<any> = <any>null;
         do {
             r = await it.next(yield toArrayBufferView(ArrayCtor, r));
         } while (!r.done);

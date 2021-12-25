@@ -15,25 +15,25 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Data } from '../data';
-import { Table } from '../table';
-import { MAGIC } from './message';
-import { Vector } from '../vector';
-import { DataType, TypeMap } from '../type';
-import { Schema, Field } from '../schema';
-import { Message } from './metadata/message';
-import * as metadata from './metadata/message';
-import { FileBlock, Footer } from './metadata/file';
-import { MessageHeader, MetadataVersion } from '../enum';
-import { compareSchemas } from '../visitor/typecomparator';
-import { WritableSink, AsyncByteQueue } from '../io/stream';
-import { VectorAssembler } from '../visitor/vectorassembler';
-import { JSONTypeAssembler } from '../visitor/jsontypeassembler';
-import { JSONVectorAssembler } from '../visitor/jsonvectorassembler';
-import { ArrayBufferViewInput, toUint8Array } from '../util/buffer';
-import { RecordBatch, _InternalEmptyPlaceholderRecordBatch } from '../recordbatch';
-import { Writable, ReadableInterop, ReadableDOMStreamOptions } from '../io/interfaces';
-import { isPromise, isAsyncIterable, isWritableDOMStream, isWritableNodeStream, isIterable, isObject } from '../util/compat';
+import { Data } from '../data.js';
+import { Table } from '../table.js';
+import { MAGIC } from './message.js';
+import { Vector } from '../vector.js';
+import { DataType, TypeMap } from '../type.js';
+import { Schema, Field } from '../schema.js';
+import { Message } from './metadata/message.js';
+import * as metadata from './metadata/message.js';
+import { FileBlock, Footer } from './metadata/file.js';
+import { MessageHeader, MetadataVersion } from '../enum.js';
+import { compareSchemas } from '../visitor/typecomparator.js';
+import { WritableSink, AsyncByteQueue } from '../io/stream.js';
+import { VectorAssembler } from '../visitor/vectorassembler.js';
+import { JSONTypeAssembler } from '../visitor/jsontypeassembler.js';
+import { JSONVectorAssembler } from '../visitor/jsonvectorassembler.js';
+import { ArrayBufferViewInput, toUint8Array } from '../util/buffer.js';
+import { RecordBatch, _InternalEmptyPlaceholderRecordBatch } from '../recordbatch.js';
+import { Writable, ReadableInterop, ReadableDOMStreamOptions } from '../io/interfaces.js';
+import { isPromise, isAsyncIterable, isWritableDOMStream, isWritableNodeStream, isIterable, isObject } from '../util/compat.js';
 
 export interface RecordBatchStreamWriterOptions {
     /**

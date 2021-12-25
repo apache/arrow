@@ -15,9 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Field } from '../schema';
-import { Builder } from '../builder';
-import { Struct, TypeMap } from '../type';
+import { Field } from '../schema.js';
+import { Builder } from '../builder.js';
+import { Struct, TypeMap } from '../type.js';
 
 /** @ignore */
 export class StructBuilder<T extends TypeMap = any, TNull = any> extends Builder<Struct<T>, TNull> {

@@ -19,8 +19,8 @@ import { flatbuffers } from 'flatbuffers';
 import Long = flatbuffers.Long;
 import Builder = flatbuffers.Builder;
 
-import * as type from '../type';
-import { Visitor } from '../visitor';
+import * as type from '../type.js';
+import { Visitor } from '../visitor.js';
 
 import {
     Null,
@@ -41,7 +41,7 @@ import {
     FixedSizeBinary,
     FixedSizeList,
     Map as Map_,
-} from '../fb/Schema';
+} from '../fb/Schema.js';
 
 /** @ignore */
 export interface TypeAssembler extends Visitor {

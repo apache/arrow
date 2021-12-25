@@ -15,10 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Field } from '../schema';
-import { DataBufferBuilder } from './buffer';
-import { Builder, BuilderOptions } from '../builder';
-import { Union, SparseUnion, DenseUnion } from '../type';
+import { Field } from '../schema.js';
+import { DataBufferBuilder } from './buffer.js';
+import { Builder, BuilderOptions } from '../builder.js';
+import { Union, SparseUnion, DenseUnion } from '../type.js';
 
 export interface UnionBuilderOptions<T extends Union = any, TNull = any> extends BuilderOptions<T, TNull> {
     valueToChildTypeId?: (builder: UnionBuilder<T, TNull>, value: any, offset: number) => number;

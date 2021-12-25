@@ -15,10 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Data } from '../data';
-import { Vector } from '../vector';
-import { DataType, Struct } from '../type';
-import { valueToString } from '../util/pretty';
+import { Data } from '../data.js';
+import { Vector } from '../vector.js';
+import { DataType, Struct } from '../type.js';
+import { valueToString } from '../util/pretty.js';
 
 /** @ignore */ export const kKeys = Symbol.for('keys');
 /** @ignore */ export const kVals = Symbol.for('vals');
@@ -33,7 +33,7 @@ export class MapRow<K extends DataType = any, V extends DataType = any> {
         this[kKeys] = new Vector([slice.children[0] as Data<K>]);
         this[kVals] = new Vector([slice.children[1] as Data<V>]);
         return new Proxy(this, new MapRowProxyHandler<K, V>());
-   }
+    }
     [Symbol.iterator]() {
         return new MapRowIterator(this[kKeys], this[kVals]);
     }
@@ -49,11 +49,10 @@ export class MapRow<K extends DataType = any, V extends DataType = any> {
         return json;
     }
     public [Symbol.for('nodejs.util.inspect.custom')]() {
-        return `{${
-            [...this].map(([key, val]) =>
-                `${valueToString(key)}: ${valueToString(val)}`
-            ).join(', ')
-        }}`;
+        return `{${[...this].map(([key, val]) =>
+            `${valueToString(key)}: ${valueToString(val)}`
+        ).join(', ')
+            }}`;
     }
 }
 

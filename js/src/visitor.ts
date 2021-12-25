@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Type, Precision, DateUnit, TimeUnit, IntervalUnit, UnionMode } from './enum';
-import { DataType, Float, Int, Date_, Interval, Time, Timestamp, Union, } from './type';
+import { Type, Precision, DateUnit, TimeUnit, IntervalUnit, UnionMode } from './enum.js';
+import { DataType, Float, Int, Date_, Interval, Time, Timestamp, Union, } from './type.js';
 
 export abstract class Visitor {
     public visitMany(nodes: any[], ...args: any[][]) {

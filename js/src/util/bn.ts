@@ -15,10 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { ArrayBufferViewInput, toArrayBufferView } from './buffer';
-import { TypedArray, TypedArrayConstructor } from '../interfaces';
-import { BigIntArray, BigIntArrayConstructor } from '../interfaces';
-import { BigIntAvailable, BigInt64Array, BigUint64Array } from './compat';
+import { ArrayBufferViewInput, toArrayBufferView } from './buffer.js';
+import { TypedArray, TypedArrayConstructor } from '../interfaces.js';
+import { BigIntArray, BigIntArrayConstructor } from '../interfaces.js';
+import { BigIntAvailable, BigInt64Array, BigUint64Array } from './compat.js';
 
 /** @ignore */
 export const isArrowBigNumSymbol = Symbol.for('isArrowBigNum');

@@ -15,9 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Data } from '../data';
-import { DataType } from '../type';
-import { instance as iteratorVisitor } from '../visitor/iterator';
+import { Data } from '../data.js';
+import { DataType } from '../type.js';
+import { instance as iteratorVisitor } from '../visitor/iterator.js';
 
 /** @ignore */
 export class ChunkedIterator<T extends DataType> implements IterableIterator<T['TValue'] | null> {

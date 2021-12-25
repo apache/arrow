@@ -15,10 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Vector } from './vector';
-import { BufferType, Type } from './enum';
-import { DataType, strideForType } from './type';
-import { popcnt_bit_range, truncateBitmap } from './util/bit';
+import { Vector } from './vector.js';
+import { BufferType, Type } from './enum.js';
+import { DataType, strideForType } from './type.js';
+import { popcnt_bit_range, truncateBitmap } from './util/bit.js';
 
 // When slicing, we do not know the null count of the sliced range without
 // doing some computation. To avoid doing this eagerly, we set the null count
@@ -211,10 +211,10 @@ import {
     Time,
     Timestamp,
     Union, DenseUnion, SparseUnion,
-} from './type';
+} from './type.js';
 
-import { Visitor } from './visitor';
-import { toArrayBufferView, toInt32Array, toUint8Array } from './util/buffer';
+import { Visitor } from './visitor.js';
+import { toArrayBufferView, toInt32Array, toUint8Array } from './util/buffer.js';
 
 class MakeDataVisitor extends Visitor {
     visit<T extends DataType>(props: any): Data<T> {

@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { DataType, TypeMap } from './type';
+import { DataType, TypeMap } from './type.js';
 
 export class Schema<T extends TypeMap = any> {
 

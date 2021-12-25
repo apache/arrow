@@ -15,11 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Utf8 } from '../type';
-import { encodeUtf8 } from '../util/utf8';
-import { BinaryBuilder } from './binary';
-import { BufferBuilder } from './buffer';
-import { VariableWidthBuilder, BuilderOptions } from '../builder';
+import { Utf8 } from '../type.js';
+import { encodeUtf8 } from '../util/utf8.js';
+import { BinaryBuilder } from './binary.js';
+import { BufferBuilder } from './buffer.js';
+import { VariableWidthBuilder, BuilderOptions } from '../builder.js';
 
 /** @ignore */
 export class Utf8Builder<TNull = any> extends VariableWidthBuilder<Utf8, TNull> {

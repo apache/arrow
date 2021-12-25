@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-export { MessageHeader } from './fb/Message';
+export { MessageHeader } from './fb/Message.js';
 
 export {
     Type,
@@ -26,9 +26,9 @@ export {
     UnionMode,
     IntervalUnit,
     MetadataVersion,
-} from './enum';
+} from './enum.js';
 
-export { Data, makeData } from './data';
+export { Data, makeData } from './data.js';
 export {
     DataType, TypeMap,
     Null,
@@ -49,15 +49,15 @@ export {
     Interval, IntervalDayTime, IntervalYearMonth,
     FixedSizeList,
     Map_
-} from './type';
+} from './type.js';
 
-export { Table, makeTable, tableFrom } from './table';
-export { Vector, makeVector, vectorFromArray } from './vector';
-export { Visitor } from './visitor';
-export { Schema, Field } from './schema';
+export { Table, makeTable, tableFrom } from './table.js';
+export { Vector, makeVector, vectorFromArray } from './vector.js';
+export { Visitor } from './visitor.js';
+export { Schema, Field } from './schema.js';
 
-export { MapRow } from './row/map';
-export { StructRow } from './row/struct';
+export { MapRow } from './row/map.js';
+export { StructRow } from './row/struct.js';
 
 export {
     Builder,
@@ -79,23 +79,23 @@ export {
     TimeBuilder, TimeSecondBuilder, TimeMillisecondBuilder, TimeMicrosecondBuilder, TimeNanosecondBuilder,
     UnionBuilder, DenseUnionBuilder, SparseUnionBuilder,
     Utf8Builder,
-} from './builder/index';
+} from './builder/index.js';
 
-export { ByteStream, AsyncByteStream, AsyncByteQueue, ReadableSource, WritableSink } from './io/stream';
-export { RecordBatchReader, RecordBatchFileReader, RecordBatchStreamReader, AsyncRecordBatchFileReader, AsyncRecordBatchStreamReader } from './ipc/reader';
-export { RecordBatchWriter, RecordBatchFileWriter, RecordBatchStreamWriter, RecordBatchJSONWriter } from './ipc/writer';
-export { MessageReader, AsyncMessageReader, JSONMessageReader } from './ipc/message';
-export { Message } from './ipc/metadata/message';
-export { RecordBatch } from './recordbatch';
-export { ArrowJSONLike, FileHandle, Readable, Writable, ReadableWritable, ReadableDOMStreamOptions } from './io/interfaces';
+export { ByteStream, AsyncByteStream, AsyncByteQueue, ReadableSource, WritableSink } from './io/stream.js';
+export { RecordBatchReader, RecordBatchFileReader, RecordBatchStreamReader, AsyncRecordBatchFileReader, AsyncRecordBatchStreamReader } from './ipc/reader.js';
+export { RecordBatchWriter, RecordBatchFileWriter, RecordBatchStreamWriter, RecordBatchJSONWriter } from './ipc/writer.js';
+export { MessageReader, AsyncMessageReader, JSONMessageReader } from './ipc/message.js';
+export { Message } from './ipc/metadata/message.js';
+export { RecordBatch } from './recordbatch.js';
+export { ArrowJSONLike, FileHandle, Readable, Writable, ReadableWritable, ReadableDOMStreamOptions } from './io/interfaces.js';
 
-import * as util_bn_ from './util/bn';
-import * as util_int_ from './util/int';
-import * as util_bit_ from './util/bit';
-import * as util_math_ from './util/math';
-import * as util_buffer_ from './util/buffer';
-import * as util_vector_ from './util/vector';
-import { compareSchemas, compareFields, compareTypes } from './visitor/typecomparator';
+import * as util_bn_ from './util/bn.js';
+import * as util_int_ from './util/int.js';
+import * as util_bit_ from './util/bit.js';
+import * as util_math_ from './util/math.js';
+import * as util_buffer_ from './util/buffer.js';
+import * as util_vector_ from './util/vector.js';
+import { compareSchemas, compareFields, compareTypes } from './visitor/typecomparator.js';
 
 /** @ignore */
 export const util = {

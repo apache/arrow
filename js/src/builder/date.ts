@@ -15,9 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { FixedWidthBuilder } from '../builder';
-import { Date_, DateDay, DateMillisecond } from '../type';
-import { setDate, setDateDay, setDateMillisecond } from '../visitor/set';
+import { FixedWidthBuilder } from '../builder.js';
+import { Date_, DateDay, DateMillisecond } from '../type.js';
+import { setDate, setDateDay, setDateMillisecond } from '../visitor/set.js';
 
 /** @ignore */
 export class DateBuilder<T extends Date_ = Date_, TNull = any> extends FixedWidthBuilder<T, TNull> { }

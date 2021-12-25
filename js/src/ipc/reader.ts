@@ -15,37 +15,37 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { makeData } from '../data';
-import { Vector } from '../vector';
-import { DataType, Struct, TypeMap } from '../type';
-import { MessageHeader } from '../enum';
-import { Footer } from './metadata/file';
-import { Schema, Field } from '../schema';
-import streamAdapters from '../io/adapters';
-import { Message } from './metadata/message';
-import * as metadata from './metadata/message';
-import { ArrayBufferViewInput } from '../util/buffer';
-import { ByteStream, AsyncByteStream } from '../io/stream';
-import { RandomAccessFile, AsyncRandomAccessFile } from '../io/file';
-import { VectorLoader, JSONVectorLoader } from '../visitor/vectorloader';
-import { RecordBatch, _InternalEmptyPlaceholderRecordBatch } from '../recordbatch';
+import { makeData } from '../data.js';
+import { Vector } from '../vector.js';
+import { DataType, Struct, TypeMap } from '../type.js';
+import { MessageHeader } from '../enum.js';
+import { Footer } from './metadata/file.js';
+import { Schema, Field } from '../schema.js';
+import streamAdapters from '../io/adapters.js';
+import { Message } from './metadata/message.js';
+import * as metadata from './metadata/message.js';
+import { ArrayBufferViewInput } from '../util/buffer.js';
+import { ByteStream, AsyncByteStream } from '../io/stream.js';
+import { RandomAccessFile, AsyncRandomAccessFile } from '../io/file.js';
+import { VectorLoader, JSONVectorLoader } from '../visitor/vectorloader.js';
+import { RecordBatch, _InternalEmptyPlaceholderRecordBatch } from '../recordbatch.js';
 import {
     FileHandle,
     ArrowJSONLike,
     ITERATOR_DONE,
     ReadableInterop,
-} from '../io/interfaces';
+} from '../io/interfaces.js';
 import {
     MessageReader, AsyncMessageReader, JSONMessageReader,
     checkForMagicArrowString, magicLength, magicAndPadding, magicX2AndPadding
-} from './message';
+} from './message.js';
 import {
     isPromise,
     isIterable, isAsyncIterable,
     isIteratorResult, isArrowJSON,
     isFileHandle, isFetchResponse,
     isReadableDOMStream, isReadableNodeStream
-} from '../util/compat';
+} from '../util/compat.js';
 
 /** @ignore */ export type FromArg0 = ArrowJSONLike;
 /** @ignore */ export type FromArg1 = PromiseLike<ArrowJSONLike>;

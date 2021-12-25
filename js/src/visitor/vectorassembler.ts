@@ -15,20 +15,20 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Data } from '../data';
-import { Vector } from '../vector';
-import { Visitor } from '../visitor';
-import { Type, UnionMode } from '../enum';
-import { RecordBatch } from '../recordbatch';
-import { TypeToDataType } from '../interfaces';
-import { rebaseValueOffsets } from '../util/buffer';
-import { packBools, truncateBitmap } from '../util/bit';
-import { BufferRegion, FieldNode } from '../ipc/metadata/message';
+import { Data } from '../data.js';
+import { Vector } from '../vector.js';
+import { Visitor } from '../visitor.js';
+import { Type, UnionMode } from '../enum.js';
+import { RecordBatch } from '../recordbatch.js';
+import { TypeToDataType } from '../interfaces.js';
+import { rebaseValueOffsets } from '../util/buffer.js';
+import { packBools, truncateBitmap } from '../util/bit.js';
+import { BufferRegion, FieldNode } from '../ipc/metadata/message.js';
 import {
     DataType, Dictionary,
     Float, Int, Date_, Interval, Time, Timestamp, Union,
     Bool, Null, Utf8, Binary, Decimal, FixedSizeBinary, List, FixedSizeList, Map_, Struct,
-} from '../type';
+} from '../type.js';
 
 /** @ignore */
 export interface VectorAssembler extends Visitor {
@@ -37,22 +37,22 @@ export interface VectorAssembler extends Visitor {
     getVisitFn<T extends Type>(node: T): (data: Data<TypeToDataType<T>>) => this;
     getVisitFn<T extends DataType>(node: Vector<T> | Data<T> | T): (data: Data<T>) => this;
 
-    visitBool                 <T extends Bool>            (data: Data<T>): this;
-    visitInt                  <T extends Int>             (data: Data<T>): this;
-    visitFloat                <T extends Float>           (data: Data<T>): this;
-    visitUtf8                 <T extends Utf8>            (data: Data<T>): this;
-    visitBinary               <T extends Binary>          (data: Data<T>): this;
-    visitFixedSizeBinary      <T extends FixedSizeBinary> (data: Data<T>): this;
-    visitDate                 <T extends Date_>           (data: Data<T>): this;
-    visitTimestamp            <T extends Timestamp>       (data: Data<T>): this;
-    visitTime                 <T extends Time>            (data: Data<T>): this;
-    visitDecimal              <T extends Decimal>         (data: Data<T>): this;
-    visitList                 <T extends List>            (data: Data<T>): this;
-    visitStruct               <T extends Struct>          (data: Data<T>): this;
-    visitUnion                <T extends Union>           (data: Data<T>): this;
-    visitInterval             <T extends Interval>        (data: Data<T>): this;
-    visitFixedSizeList        <T extends FixedSizeList>   (data: Data<T>): this;
-    visitMap                  <T extends Map_>            (data: Data<T>): this;
+    visitBool<T extends Bool>(data: Data<T>): this;
+    visitInt<T extends Int>(data: Data<T>): this;
+    visitFloat<T extends Float>(data: Data<T>): this;
+    visitUtf8<T extends Utf8>(data: Data<T>): this;
+    visitBinary<T extends Binary>(data: Data<T>): this;
+    visitFixedSizeBinary<T extends FixedSizeBinary>(data: Data<T>): this;
+    visitDate<T extends Date_>(data: Data<T>): this;
+    visitTimestamp<T extends Timestamp>(data: Data<T>): this;
+    visitTime<T extends Time>(data: Data<T>): this;
+    visitDecimal<T extends Decimal>(data: Data<T>): this;
+    visitList<T extends List>(data: Data<T>): this;
+    visitStruct<T extends Struct>(data: Data<T>): this;
+    visitUnion<T extends Union>(data: Data<T>): this;
+    visitInterval<T extends Interval>(data: Data<T>): this;
+    visitFixedSizeList<T extends FixedSizeList>(data: Data<T>): this;
+    visitMap<T extends Map_>(data: Data<T>): this;
 }
 
 /** @ignore */
@@ -62,7 +62,7 @@ export class VectorAssembler extends Visitor {
     public static assemble<T extends Vector | RecordBatch>(...args: (T | T[])[]) {
         const unwrap = (nodes: (T | T[])[]): Data[] =>
             nodes.flatMap((node: T | T[]) => Array.isArray(node) ? unwrap(node) :
-                (node instanceof RecordBatch) ? node.data.children : node.data) ;
+                (node instanceof RecordBatch) ? node.data.children : node.data);
         const assembler = new VectorAssembler();
         assembler.visitMany(unwrap(args));
         return assembler;
@@ -223,19 +223,19 @@ function assembleNestedVector<T extends Struct | Union>(this: VectorAssembler, d
     return this.visitMany(data.type.children.map((_, i) => data.children[i]).filter(Boolean))[0];
 }
 
-VectorAssembler.prototype.visitBool            =     assembleBoolVector;
-VectorAssembler.prototype.visitInt             =     assembleFlatVector;
-VectorAssembler.prototype.visitFloat           =     assembleFlatVector;
-VectorAssembler.prototype.visitUtf8            = assembleFlatListVector;
-VectorAssembler.prototype.visitBinary          = assembleFlatListVector;
-VectorAssembler.prototype.visitFixedSizeBinary =     assembleFlatVector;
-VectorAssembler.prototype.visitDate            =     assembleFlatVector;
-VectorAssembler.prototype.visitTimestamp       =     assembleFlatVector;
-VectorAssembler.prototype.visitTime            =     assembleFlatVector;
-VectorAssembler.prototype.visitDecimal         =     assembleFlatVector;
-VectorAssembler.prototype.visitList            =     assembleListVector;
-VectorAssembler.prototype.visitStruct          =   assembleNestedVector;
-VectorAssembler.prototype.visitUnion           =          assembleUnion;
-VectorAssembler.prototype.visitInterval        =     assembleFlatVector;
-VectorAssembler.prototype.visitFixedSizeList   =     assembleListVector;
-VectorAssembler.prototype.visitMap             =     assembleListVector;
+VectorAssembler.prototype.visitBool = assembleBoolVector;
+VectorAssembler.prototype.visitInt = assembleFlatVector;
+VectorAssembler.prototype.visitFloat = assembleFlatVector;
+VectorAssembler.prototype.visitUtf8 = assembleFlatListVector;
+VectorAssembler.prototype.visitBinary = assembleFlatListVector;
+VectorAssembler.prototype.visitFixedSizeBinary = assembleFlatVector;
+VectorAssembler.prototype.visitDate = assembleFlatVector;
+VectorAssembler.prototype.visitTimestamp = assembleFlatVector;
+VectorAssembler.prototype.visitTime = assembleFlatVector;
+VectorAssembler.prototype.visitDecimal = assembleFlatVector;
+VectorAssembler.prototype.visitList = assembleListVector;
+VectorAssembler.prototype.visitStruct = assembleNestedVector;
+VectorAssembler.prototype.visitUnion = assembleUnion;
+VectorAssembler.prototype.visitInterval = assembleFlatVector;
+VectorAssembler.prototype.visitFixedSizeList = assembleListVector;
+VectorAssembler.prototype.visitMap = assembleListVector;

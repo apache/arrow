@@ -15,9 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { toUint8Array } from '../../util/buffer';
-import { ReadableDOMStreamOptions } from '../../io/interfaces';
-import { isIterable, isAsyncIterable } from '../../util/compat';
+import { toUint8Array } from '../../util/buffer.js';
+import { ReadableDOMStreamOptions } from '../../io/interfaces.js';
+import { isIterable, isAsyncIterable } from '../../util/compat.js';
 
 /** @ignore */
 type SourceIterator<T> = Generator<T, void, number | null>;
@@ -53,7 +53,7 @@ function iterableAsReadableDOMStream<T>(source: Iterable<T>, options?: ReadableD
         while (!(r = it.next(bm ? size : null)).done) {
             if (ArrayBuffer.isView(r.value) && (buf = toUint8Array(r.value))) {
                 size != null && bm && (size = size - buf.byteLength + 1);
-                r.value = <any> buf;
+                r.value = <any>buf;
             }
             controller.enqueue(r.value);
             if (size != null && --size <= 0) { return; }
@@ -83,7 +83,7 @@ function asyncIterableAsReadableDOMStream<T>(source: AsyncIterable<T>, options?:
         while (!(r = await it.next(bm ? size : null)).done) {
             if (ArrayBuffer.isView(r.value) && (buf = toUint8Array(r.value))) {
                 size != null && bm && (size = size - buf.byteLength + 1);
-                r.value = <any> buf;
+                r.value = <any>buf;
             }
             controller.enqueue(r.value);
             if (size != null && --size <= 0) { return; }

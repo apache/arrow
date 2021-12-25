@@ -15,9 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Field } from '../schema';
-import { Builder } from '../builder';
-import { DataType, FixedSizeList } from '../type';
+import { Field } from '../schema.js';
+import { Builder } from '../builder.js';
+import { DataType, FixedSizeList } from '../type.js';
 
 /** @ignore */
 export class FixedSizeListBuilder<T extends DataType = any, TNull = any> extends Builder<FixedSizeList<T>, TNull> {

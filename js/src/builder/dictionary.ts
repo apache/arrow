@@ -15,10 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Vector } from '../vector';
-import { IntBuilder } from './int';
-import { Dictionary, DataType } from '../type';
-import { Builder, BuilderOptions } from '../builder';
+import { Vector } from '../vector.js';
+import { IntBuilder } from './int.js';
+import { Dictionary, DataType } from '../type.js';
+import { Builder, BuilderOptions } from '../builder.js';
 
 type DictionaryHashFunction = (x: any) => string | number;
 
@@ -37,7 +37,7 @@ export class DictionaryBuilder<T extends Dictionary, TNull = any> extends Builde
 
     constructor({ 'type': type, 'nullValues': nulls, 'dictionaryHashFunction': hashFn }: DictionaryBuilderOptions<T, TNull>) {
         super({ type: new Dictionary(type.dictionary, type.indices, type.id, type.isOrdered) as T });
-        this._nulls = <any> null;
+        this._nulls = <any>null;
         this._dictionaryOffset = 0;
         this._keysToIndices = Object.create(null);
         this.indices = Builder.new({ 'type': this.type.indices, 'nullValues': nulls }) as IntBuilder<T['indices']>;

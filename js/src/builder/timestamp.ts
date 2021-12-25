@@ -15,9 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { FixedWidthBuilder } from '../builder';
-import { Timestamp, TimestampSecond, TimestampMillisecond, TimestampMicrosecond, TimestampNanosecond } from '../type';
-import { setTimestamp, setTimestampSecond, setTimestampMillisecond, setTimestampMicrosecond, setTimestampNanosecond } from '../visitor/set';
+import { FixedWidthBuilder } from '../builder.js';
+import { Timestamp, TimestampSecond, TimestampMillisecond, TimestampMicrosecond, TimestampNanosecond } from '../type.js';
+import { setTimestamp, setTimestampSecond, setTimestampMillisecond, setTimestampMicrosecond, setTimestampNanosecond } from '../visitor/set.js';
 
 /** @ignore */
 export class TimestampBuilder<T extends Timestamp = Timestamp, TNull = any> extends FixedWidthBuilder<T, TNull> { }

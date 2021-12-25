@@ -15,20 +15,20 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { BN } from '../util/bn';
-import { Data } from '../data';
-import { Field } from '../schema';
-import { Vector } from '../vector';
-import { Visitor } from '../visitor';
-import { BufferType } from '../enum';
-import { RecordBatch } from '../recordbatch';
-import { UnionMode, DateUnit, TimeUnit } from '../enum';
-import { BitIterator, getBit, getBool } from '../util/bit';
+import { BN } from '../util/bn.js';
+import { Data } from '../data.js';
+import { Field } from '../schema.js';
+import { Vector } from '../vector.js';
+import { Visitor } from '../visitor.js';
+import { BufferType } from '../enum.js';
+import { RecordBatch } from '../recordbatch.js';
+import { UnionMode, DateUnit, TimeUnit } from '../enum.js';
+import { BitIterator, getBit, getBool } from '../util/bit.js';
 import {
     DataType,
     Float, Int, Date_, Interval, Time, Timestamp, Union,
     Bool, Null, Utf8, Binary, Decimal, FixedSizeBinary, List, FixedSizeList, Map_, Struct, IntArray,
-} from '../type';
+} from '../type.js';
 
 /** @ignore */
 export interface JSONVectorAssembler extends Visitor {

@@ -15,9 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { float64ToUint16 } from '../util/math';
-import { FixedWidthBuilder } from '../builder';
-import { Float, Float16, Float32, Float64 } from '../type';
+import { float64ToUint16 } from '../util/math.js';
+import { FixedWidthBuilder } from '../builder.js';
+import { Float, Float16, Float32, Float64 } from '../type.js';
 
 /** @ignore */
 export class FloatBuilder<T extends Float = Float, TNull = any> extends FixedWidthBuilder<T, TNull> {

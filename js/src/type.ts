@@ -17,12 +17,12 @@
 
 /* eslint-disable @typescript-eslint/naming-convention */
 
-import { Field } from './schema';
-import { Vector } from './vector';
-import { MapRow } from './row/map';
-import { StructRow, StructRowProxy } from './row/struct';
+import { Field } from './schema.js';
+import { Vector } from './vector.js';
+import { MapRow } from './row/map.js';
+import { StructRow, StructRowProxy } from './row/struct.js';
 import { flatbuffers } from 'flatbuffers';
-import { TypedArrayConstructor } from './interfaces';
+import { TypedArrayConstructor } from './interfaces.js';
 
 import Long = flatbuffers.Long;
 
@@ -30,7 +30,7 @@ import {
     Type,
     Precision, UnionMode,
     DateUnit, TimeUnit, IntervalUnit
-} from './enum';
+} from './enum.js';
 
 /** @ignore */
 export type TimeBitWidth = 32 | 64;

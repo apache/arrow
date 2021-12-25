@@ -15,19 +15,19 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Data, makeData } from './data';
-import { Table } from './table';
-import { Vector } from './vector';
-import { Schema, Field } from './schema';
-import { DataType, Struct, Null, TypeMap } from './type';
-import { NumericIndexingProxyHandlerMixin } from './util/proxy';
+import { Data, makeData } from './data.js';
+import { Table } from './table.js';
+import { Vector } from './vector.js';
+import { Schema, Field } from './schema.js';
+import { DataType, Struct, Null, TypeMap } from './type.js';
+import { NumericIndexingProxyHandlerMixin } from './util/proxy.js';
 
-import { instance as getVisitor } from './visitor/get';
-import { instance as setVisitor } from './visitor/set';
-import { instance as indexOfVisitor } from './visitor/indexof';
-import { instance as toArrayVisitor } from './visitor/toarray';
-import { instance as iteratorVisitor } from './visitor/iterator';
-import { instance as byteLengthVisitor } from './visitor/bytelength';
+import { instance as getVisitor } from './visitor/get.js';
+import { instance as setVisitor } from './visitor/set.js';
+import { instance as indexOfVisitor } from './visitor/indexof.js';
+import { instance as toArrayVisitor } from './visitor/toarray.js';
+import { instance as iteratorVisitor } from './visitor/iterator.js';
+import { instance as byteLengthVisitor } from './visitor/bytelength.js';
 
 /** @ignore */
 export interface RecordBatch<T extends TypeMap = any> {

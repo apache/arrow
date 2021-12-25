@@ -15,9 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { DataType } from '../../type';
-import { Vector } from '../../vector';
-import { Builder, BuilderOptions } from '../../builder/index';
+import { DataType } from '../../type.js';
+import { Vector } from '../../vector.js';
+import { Builder, BuilderOptions } from '../../builder/index.js';
 
 /** @ignore */
 export interface BuilderTransformOptions<T extends DataType = any, TNull = any> extends BuilderOptions<T, TNull> {

@@ -15,10 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { TypeMap } from '../../type';
-import { RecordBatch } from '../../recordbatch';
-import { AsyncByteQueue } from '../../io/stream';
-import { RecordBatchReader } from '../../ipc/reader';
+import { TypeMap } from '../../type.js';
+import { RecordBatch } from '../../recordbatch.js';
+import { AsyncByteQueue } from '../../io/stream.js';
+import { RecordBatchReader } from '../../ipc/reader.js';
 
 /** @ignore */
 export function recordBatchReaderThroughDOMStream<T extends TypeMap = any>(writableStrategy?: ByteLengthQueuingStrategy, readableStrategy?: { autoDestroy: boolean }) {

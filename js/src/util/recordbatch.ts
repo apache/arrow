@@ -15,11 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Vector } from '../vector';
-import { Data, makeData } from '../data';
-import { Struct, TypeMap } from '../type';
-import { Schema, Field } from '../schema';
-import { RecordBatch } from '../recordbatch';
+import { Vector } from '../vector.js';
+import { Data, makeData } from '../data.js';
+import { Struct, TypeMap } from '../type.js';
+import { Schema, Field } from '../schema.js';
+import { RecordBatch } from '../recordbatch.js';
 
 /** @ignore */
 export function distributeVectorsIntoRecordBatches<T extends TypeMap = any>(schema: Schema<T>, vecs: Vector<T[keyof T]>[]): [Schema<T>, RecordBatch<T>[]] {

@@ -15,13 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Data, makeData } from './data';
-import { Type } from './enum';
-import { makeVector, Vector, vectorFromArray } from './vector';
-import { Field, Schema } from './schema';
-import { DataType, Null, Struct, TypeMap } from './type';
-import { compareSchemas } from './visitor/typecomparator';
-import { distributeVectorsIntoRecordBatches } from './util/recordbatch';
+import { Data, makeData } from './data.js';
+import { Type } from './enum.js';
+import { makeVector, Vector, vectorFromArray } from './vector.js';
+import { Field, Schema } from './schema.js';
+import { DataType, Null, Struct, TypeMap } from './type.js';
+import { compareSchemas } from './visitor/typecomparator.js';
+import { distributeVectorsIntoRecordBatches } from './util/recordbatch.js';
 
 import {
     ChunkedIterator,
@@ -32,20 +32,20 @@ import {
     wrapChunkedCall2,
     wrapChunkedIndexOf,
     sliceChunks,
-} from './util/chunk';
+} from './util/chunk.js';
 
-import { NumericIndexingProxyHandlerMixin } from './util/proxy';
+import { NumericIndexingProxyHandlerMixin } from './util/proxy.js';
 
-import { instance as getVisitor } from './visitor/get';
-import { instance as setVisitor } from './visitor/set';
-import { instance as indexOfVisitor } from './visitor/indexof';
-import { instance as toArrayVisitor } from './visitor/toarray';
-import { instance as byteLengthVisitor } from './visitor/bytelength';
+import { instance as getVisitor } from './visitor/get.js';
+import { instance as setVisitor } from './visitor/set.js';
+import { instance as indexOfVisitor } from './visitor/indexof.js';
+import { instance as toArrayVisitor } from './visitor/toarray.js';
+import { instance as byteLengthVisitor } from './visitor/bytelength.js';
 
-import { DataProps } from './data';
-import { clampRange } from './util/vector';
-import { ArrayDataType, BigIntArray, TypedArray, TypedArrayDataType } from './interfaces';
-import { RecordBatch, _InternalEmptyPlaceholderRecordBatch } from './recordbatch';
+import { DataProps } from './data.js';
+import { clampRange } from './util/vector.js';
+import { ArrayDataType, BigIntArray, TypedArray, TypedArrayDataType } from './interfaces.js';
+import { RecordBatch, _InternalEmptyPlaceholderRecordBatch } from './recordbatch.js';
 
 /** @ignore */
 export interface Table<T extends TypeMap = any> {

@@ -24,7 +24,7 @@ import {
     RecordBatchStreamReader,
     RecordBatchStreamWriter,
 } from 'apache-arrow';
-import { arange } from './utils';
+import { arange } from './utils.js';
 
 const deepCopy = (t: Table) => deserialize(serialize(t));
 const serialize = (t: Table) => RecordBatchStreamWriter.writeAll(t).toUint8Array(true);

@@ -15,9 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { FixedWidthBuilder } from '../builder';
-import { Interval, IntervalDayTime, IntervalYearMonth } from '../type';
-import { setIntervalValue, setIntervalDayTime, setIntervalYearMonth } from '../visitor/set';
+import { FixedWidthBuilder } from '../builder.js';
+import { Interval, IntervalDayTime, IntervalYearMonth } from '../type.js';
+import { setIntervalValue, setIntervalDayTime, setIntervalYearMonth } from '../visitor/set.js';
 
 /** @ignore */
 export class IntervalBuilder<T extends Interval = Interval, TNull = any> extends FixedWidthBuilder<T, TNull> { }

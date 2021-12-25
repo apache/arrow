@@ -20,8 +20,8 @@ import 'web-streams-polyfill';
 import '../../jest-extensions';
 import { from, fromDOMStream, toArray } from 'ix/asynciterable';
 import { fromNodeStream } from 'ix/asynciterable/fromnodestream';
-import { validateVector } from './utils';
-import * as generate from '../../generate-test-data';
+import { validateVector } from './utils.js';
+import * as generate from '../../generate-test-data.js';
 import { Type, DataType, util, Builder } from 'apache-arrow';
 
 const testDOMStreams = process.env.TEST_DOM_STREAMS === 'true';

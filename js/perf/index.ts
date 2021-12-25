@@ -16,14 +16,14 @@
 // under the License.
 
 // Alternatively, use bundles for performance tests
-// import * as Arrow from '../targets/es5/umd';
-// import * as Arrow from '../targets/es5/cjs';
-// import * as Arrow from '../targets/es2015/umd';
-// import * as Arrow from '../targets/es2015/cjs';
+// import * as Arrow from '../targets/es5/umd.js';
+// import * as Arrow from '../targets/es5/cjs.js';
+// import * as Arrow from '../targets/es2015/umd.js';
+// import * as Arrow from '../targets/es2015/cjs.js';
 
-import * as Arrow from '../src/Arrow';
+import * as Arrow from '../src/Arrow.js';
 
-import config, { arrays, typedArrays } from './config';
+import config, { arrays, typedArrays } from './config.js';
 import b from 'benny';
 import { CaseResult, Summary } from 'benny/lib/internal/common-types';
 import kleur from 'kleur';

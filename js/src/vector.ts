@@ -15,12 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Type } from './enum';
-import { clampRange } from './util/vector';
-import { DataType, strideForType } from './type';
-import { Data, makeData, DataProps } from './data';
-import { Builder } from './builder';
-import { ArrayDataType, BigIntArray, JavaScriptArrayDataType, TypedArray, TypedArrayDataType } from './interfaces';
+import { Type } from './enum.js';
+import { clampRange } from './util/vector.js';
+import { DataType, strideForType } from './type.js';
+import { Data, makeData, DataProps } from './data.js';
+import { Builder } from './builder.js';
+import { ArrayDataType, BigIntArray, JavaScriptArrayDataType, TypedArray, TypedArrayDataType } from './interfaces.js';
 
 import {
     ChunkedIterator,
@@ -31,15 +31,15 @@ import {
     wrapChunkedCall1,
     wrapChunkedCall2,
     wrapChunkedIndexOf,
-} from './util/chunk';
+} from './util/chunk.js';
 
-import { NumericIndexingProxyHandlerMixin } from './util/proxy';
+import { NumericIndexingProxyHandlerMixin } from './util/proxy.js';
 
-import { instance as getVisitor } from './visitor/get';
-import { instance as setVisitor } from './visitor/set';
-import { instance as indexOfVisitor } from './visitor/indexof';
-import { instance as toArrayVisitor } from './visitor/toarray';
-import { instance as byteLengthVisitor } from './visitor/bytelength';
+import { instance as getVisitor } from './visitor/get.js';
+import { instance as setVisitor } from './visitor/set.js';
+import { instance as indexOfVisitor } from './visitor/indexof.js';
+import { instance as toArrayVisitor } from './visitor/toarray.js';
+import { instance as byteLengthVisitor } from './visitor/bytelength.js';
 
 export interface Vector<T extends DataType = any> {
     ///
@@ -302,7 +302,7 @@ export class Vector<T extends DataType = any> {
     })(Vector.prototype);
 }
 
-import * as dtypes from './type';
+import * as dtypes from './type.js';
 
 /**
  * Creates a Vector with no data copies.

@@ -15,10 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Data } from '../data';
-import { Vector } from '../vector';
-import { Visitor } from '../visitor';
-import { Schema, Field } from '../schema';
+import { Data } from '../data.js';
+import { Vector } from '../vector.js';
+import { Visitor } from '../visitor.js';
+import { Schema, Field } from '../schema.js';
 import {
     DataType, TypeMap, Dictionary,
     Bool, Null, Utf8, Binary, Decimal, FixedSizeBinary, List, FixedSizeList, Map_, Struct,
@@ -29,7 +29,7 @@ import {
     Time, TimeSecond, TimeMillisecond, TimeMicrosecond, TimeNanosecond,
     Timestamp, TimestampSecond, TimestampMillisecond, TimestampMicrosecond, TimestampNanosecond,
     Union, DenseUnion, SparseUnion,
-} from '../type';
+} from '../type.js';
 
 /** @ignore */
 export interface TypeComparator extends Visitor {

@@ -15,14 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Data } from '../data';
-import { Field } from '../schema';
-import { Vector } from '../vector';
-import { Visitor } from '../visitor';
-import { encodeUtf8 } from '../util/utf8';
-import { TypeToDataType } from '../interfaces';
-import { float64ToUint16 } from '../util/math';
-import { Type, UnionMode, Precision, DateUnit, TimeUnit, IntervalUnit } from '../enum';
+import { Data } from '../data.js';
+import { Field } from '../schema.js';
+import { Vector } from '../vector.js';
+import { Visitor } from '../visitor.js';
+import { encodeUtf8 } from '../util/utf8.js';
+import { TypeToDataType } from '../interfaces.js';
+import { float64ToUint16 } from '../util/math.js';
+import { Type, UnionMode, Precision, DateUnit, TimeUnit, IntervalUnit } from '../enum.js';
 import {
     DataType, Dictionary,
     Bool, Null, Utf8, Binary, Decimal, FixedSizeBinary, List, FixedSizeList, Map_, Struct,
@@ -33,7 +33,7 @@ import {
     Time, TimeSecond, TimeMillisecond, TimeMicrosecond, TimeNanosecond,
     Timestamp, TimestampSecond, TimestampMillisecond, TimestampMicrosecond, TimestampNanosecond,
     Union, DenseUnion, SparseUnion,
-} from '../type';
+} from '../type.js';
 
 /** @ignore */
 export interface SetVisitor extends Visitor {

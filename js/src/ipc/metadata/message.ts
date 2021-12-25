@@ -38,21 +38,21 @@ import {
     FixedSizeBinary as _FixedSizeBinary,
     FixedSizeList as _FixedSizeList,
     Map as _Map,
-} from '../../fb/Schema';
+} from '../../fb/Schema.js';
 
 import {
     Message as _Message,
     FieldNode as _FieldNode,
     RecordBatch as _RecordBatch,
     DictionaryBatch as _DictionaryBatch,
-} from '../../fb/Message';
+} from '../../fb/Message.js';
 
-import { Schema, Field } from '../../schema';
-import { toUint8Array } from '../../util/buffer';
-import { ArrayBufferViewInput } from '../../util/buffer';
-import { MessageHeader, MetadataVersion } from '../../enum';
-import { instance as typeAssembler } from '../../visitor/typeassembler';
-import { fieldFromJSON, schemaFromJSON, recordBatchFromJSON, dictionaryBatchFromJSON } from './json';
+import { Schema, Field } from '../../schema.js';
+import { toUint8Array } from '../../util/buffer.js';
+import { ArrayBufferViewInput } from '../../util/buffer.js';
+import { MessageHeader, MetadataVersion } from '../../enum.js';
+import { instance as typeAssembler } from '../../visitor/typeassembler.js';
+import { fieldFromJSON, schemaFromJSON, recordBatchFromJSON, dictionaryBatchFromJSON } from './json.js';
 
 import Long = flatbuffers.Long;
 import Builder = flatbuffers.Builder;
@@ -63,7 +63,7 @@ import {
     Utf8, Binary, Decimal, FixedSizeBinary,
     List, FixedSizeList, Map_, Struct, Union,
     Bool, Null, Int, Float, Date_, Time, Interval, Timestamp, IntBitWidth, Int32, TKeys,
-} from '../../type';
+} from '../../type.js';
 
 /**
  * @ignore

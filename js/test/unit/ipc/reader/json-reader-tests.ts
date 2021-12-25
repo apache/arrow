@@ -18,11 +18,11 @@
 import {
     generateRandomTables,
     // generateDictionaryTables
-} from '../../../data/tables';
+} from '../../../data/tables.js';
 
-import { ArrowIOTestHelper } from '../helpers';
+import { ArrowIOTestHelper } from '../helpers.js';
 import { RecordBatchReader } from 'apache-arrow';
-import { validateRecordBatchReader } from '../validate';
+import { validateRecordBatchReader } from '../validate.js';
 
 for (const table of generateRandomTables([10, 20, 30])) {
 

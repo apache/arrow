@@ -15,11 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Data } from '../data';
-import { Field } from '../schema';
-import { Vector } from '../vector';
-import { Struct, TypeMap } from '../type';
-import { valueToString } from '../util/pretty';
+import { Data } from '../data.js';
+import { Field } from '../schema.js';
+import { Vector } from '../vector.js';
+import { Struct, TypeMap } from '../type.js';
+import { valueToString } from '../util/pretty.js';
 
 /** @ignore */ const kParent = Symbol.for('parent');
 /** @ignore */ const kRowIndex = Symbol.for('rowIndex');

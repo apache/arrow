@@ -18,14 +18,14 @@
 import {
     generateRandomTables,
     // generateDictionaryTables
-} from '../../../data/tables';
-import { ArrowIOTestHelper } from '../helpers';
+} from '../../../data/tables.js';
+import { ArrowIOTestHelper } from '../helpers.js';
 import { toArray } from 'ix/asynciterable/toarray';
 
 import {
     validateRecordBatchReader,
     validateAsyncRecordBatchReader
-} from '../validate';
+} from '../validate.js';
 
 import {
     RecordBatchReader,

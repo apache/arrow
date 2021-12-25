@@ -17,5 +17,6 @@
     "editor.defaultFormatter": "vscode.typescript-language-features"
   },
   "jest.jestCommandLine": "node --experimental-vm-modules node_modules/jest/bin/jest.js --config jest.config.js",
-  "jest.autoRun": "off"
+  "jest.autoRun": "off",
+  "typescript.preferences.importModuleSpecifierEnding": "js"
 }

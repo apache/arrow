@@ -17,51 +17,51 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Data, makeData } from '../data';
-import { Visitor } from '../visitor';
-import { Schema, Field } from '../schema';
-import { TypeToDataType } from '../interfaces';
-import { Type, TimeUnit, UnionMode } from '../enum';
+import { Data, makeData } from '../data.js';
+import { Visitor } from '../visitor.js';
+import { Schema, Field } from '../schema.js';
+import { TypeToDataType } from '../interfaces.js';
+import { Type, TimeUnit, UnionMode } from '../enum.js';
 import {
     DataType, Dictionary,
     Float, Int, Date_, Interval, Time, Timestamp,
     Bool, Null, Utf8, Binary, Decimal, FixedSizeBinary,
     List, FixedSizeList, Map_, Struct, Union, DenseUnion, SparseUnion,
-} from '../type';
+} from '../type.js';
 
 /** @ignore */ const sum = (x: number, y: number) => x + y;
 
 /** @ignore */
 export interface GetByteLengthVisitor extends Visitor {
-    visit<T extends DataType>     (node: Data<T>, index: number): number;
-    visitMany<T extends DataType> (nodes: Data<T>[], index: number[]): number[];
+    visit<T extends DataType>(node: Data<T>, index: number): number;
+    visitMany<T extends DataType>(nodes: Data<T>[], index: number[]): number[];
     getVisitFn<T extends DataType>(node: Data<T> | T): (data: Data<T>, index: number) => number;
-    getVisitFn<T extends Type>    (node: T): (data: Data<TypeToDataType<T>>, index: number) => number;
-    visitBinary        <T extends Binary>        (data: Data<T>, index: number): number;
-    visitUtf8          <T extends Utf8>          (data: Data<T>, index: number): number;
-    visitList          <T extends List>          (data: Data<T>, index: number): number;
-    visitDenseUnion    <T extends DenseUnion>    (data: Data<T>, index: number): number;
-    visitSparseUnion   <T extends SparseUnion>   (data: Data<T>, index: number): number;
-    visitFixedSizeList <T extends FixedSizeList> (data: Data<T>, index: number): number;
+    getVisitFn<T extends Type>(node: T): (data: Data<TypeToDataType<T>>, index: number) => number;
+    visitBinary<T extends Binary>(data: Data<T>, index: number): number;
+    visitUtf8<T extends Utf8>(data: Data<T>, index: number): number;
+    visitList<T extends List>(data: Data<T>, index: number): number;
+    visitDenseUnion<T extends DenseUnion>(data: Data<T>, index: number): number;
+    visitSparseUnion<T extends SparseUnion>(data: Data<T>, index: number): number;
+    visitFixedSizeList<T extends FixedSizeList>(data: Data<T>, index: number): number;
 }
 
 /** @ignore */
 export class GetByteLengthVisitor extends Visitor {
-    public visitNull            (____: Data<Null>            , _: number) { return 0; }
-    public visitInt             (data: Data<Int>             , _: number) { return data.type.bitWidth / 8; }
-    public visitFloat           (data: Data<Float>           , _: number) { return data.type.ArrayType.BYTES_PER_ELEMENT; }
-    public visitBool            (____: Data<Bool>            , _: number) { return 1 / 8; }
-    public visitDecimal         (____: Data<Decimal>         , _: number) { return 16; }
-    public visitDate            (data: Data<Date_>           , _: number) { return (data.type.unit + 1) * 4; }
-    public visitTime            (data: Data<Time>            , _: number) { return data.type.bitWidth / 8; }
-    public visitTimestamp       (data: Data<Timestamp>       , _: number) { return data.type.unit === TimeUnit.SECOND ? 4 : 8; }
-    public visitInterval        (data: Data<Interval>        , _: number) { return (data.type.unit + 1) * 4; }
-    public visitStruct          (data: Data<Struct>          , _: number) { return this.visitMany(data.children, data.children.map(() => _)).reduce(sum, 0); }
-    public visitFixedSizeBinary (data: Data<FixedSizeBinary> , _: number) { return data.type.byteWidth; }
-    public visitMap             (data: Data<Map_>            , _: number) { return this.visitMany(data.children, data.children.map(() => _)).reduce(sum, 0); }
-    public visitDictionary      (data: Data<Dictionary>      , _: number) { return (data.type.indices.bitWidth / 8) + (data.dictionary?.getByteLength(data.values[_]) || 0); }
-    public visitSchema          (schema: Schema) { return this.visitFields(schema.fields).reduce(sum, 0); }
-    public visitFields          (fields: Field[]) { return (fields || []).map((field) => this.visit(makeData({ type: field.type }), 0)); }
+    public visitNull(____: Data<Null>, _: number) { return 0; }
+    public visitInt(data: Data<Int>, _: number) { return data.type.bitWidth / 8; }
+    public visitFloat(data: Data<Float>, _: number) { return data.type.ArrayType.BYTES_PER_ELEMENT; }
+    public visitBool(____: Data<Bool>, _: number) { return 1 / 8; }
+    public visitDecimal(____: Data<Decimal>, _: number) { return 16; }
+    public visitDate(data: Data<Date_>, _: number) { return (data.type.unit + 1) * 4; }
+    public visitTime(data: Data<Time>, _: number) { return data.type.bitWidth / 8; }
+    public visitTimestamp(data: Data<Timestamp>, _: number) { return data.type.unit === TimeUnit.SECOND ? 4 : 8; }
+    public visitInterval(data: Data<Interval>, _: number) { return (data.type.unit + 1) * 4; }
+    public visitStruct(data: Data<Struct>, _: number) { return this.visitMany(data.children, data.children.map(() => _)).reduce(sum, 0); }
+    public visitFixedSizeBinary(data: Data<FixedSizeBinary>, _: number) { return data.type.byteWidth; }
+    public visitMap(data: Data<Map_>, _: number) { return this.visitMany(data.children, data.children.map(() => _)).reduce(sum, 0); }
+    public visitDictionary(data: Data<Dictionary>, _: number) { return (data.type.indices.bitWidth / 8) + (data.dictionary?.getByteLength(data.values[_]) || 0); }
+    public visitSchema(schema: Schema) { return this.visitFields(schema.fields).reduce(sum, 0); }
+    public visitFields(fields: Field[]) { return (fields || []).map((field) => this.visit(makeData({ type: field.type }), 0)); }
 }
 
 /** @ignore */

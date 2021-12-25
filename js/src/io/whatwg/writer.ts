@@ -15,10 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { TypeMap } from '../../type';
-import { RecordBatch } from '../../recordbatch';
-import { AsyncByteStream } from '../../io/stream';
-import { RecordBatchWriter } from '../../ipc/writer';
+import { TypeMap } from '../../type.js';
+import { RecordBatch } from '../../recordbatch.js';
+import { AsyncByteStream } from '../../io/stream.js';
+import { RecordBatchWriter } from '../../ipc/writer.js';
 
 /** @ignore */
 export function recordBatchWriterThroughDOMStream<T extends TypeMap = any>(

@@ -26,8 +26,6 @@ module.exports = env => ({
         ]
     },
     resolve: {
-        // TODO: this should not be needed but without it Webpack uses the cjs files
-        extensions: ['.mjs'],
         alias: {
             'apache-arrow': resolve(__dirname, '../../../targets/apache-arrow/')
         }

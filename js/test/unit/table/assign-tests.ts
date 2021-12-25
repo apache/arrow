@@ -19,8 +19,8 @@
 
 import '../../jest-extensions';
 import { zip } from 'ix/iterable';
-import * as generate from '../../generate-test-data';
-import { validateTable } from '../generated-data-validators';
+import * as generate from '../../generate-test-data.js';
+import { validateTable } from '../generated-data-validators.js';
 import {
     Schema, Field, DataType, Int32, Float32, Utf8
 } from 'apache-arrow';

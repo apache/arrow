@@ -15,14 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import streamAdapters from './io/adapters';
-import { Builder } from './builder/index';
-import { RecordBatchReader, RecordBatchFileReader, RecordBatchStreamReader, } from './ipc/reader';
-import { RecordBatchWriter, RecordBatchFileWriter, RecordBatchStreamWriter, } from './ipc/writer';
-import { toDOMStream } from './io/whatwg/iterable';
-import { builderThroughDOMStream } from './io/whatwg/builder';
-import { recordBatchReaderThroughDOMStream } from './io/whatwg/reader';
-import { recordBatchWriterThroughDOMStream } from './io/whatwg/writer';
+import streamAdapters from './io/adapters.js';
+import { Builder } from './builder/index.js';
+import { RecordBatchReader, RecordBatchFileReader, RecordBatchStreamReader, } from './ipc/reader.js';
+import { RecordBatchWriter, RecordBatchFileWriter, RecordBatchStreamWriter, } from './ipc/writer.js';
+import { toDOMStream } from './io/whatwg/iterable.js';
+import { builderThroughDOMStream } from './io/whatwg/builder.js';
+import { recordBatchReaderThroughDOMStream } from './io/whatwg/reader.js';
+import { recordBatchWriterThroughDOMStream } from './io/whatwg/writer.js';
 
 streamAdapters.toDOMStream = toDOMStream;
 Builder['throughDOM'] = builderThroughDOMStream;
@@ -86,4 +86,4 @@ export {
     TimeBuilder, TimeSecondBuilder, TimeMillisecondBuilder, TimeMicrosecondBuilder, TimeNanosecondBuilder,
     UnionBuilder, DenseUnionBuilder, SparseUnionBuilder,
     Utf8Builder,
-} from './Arrow';
+} from './Arrow.js';

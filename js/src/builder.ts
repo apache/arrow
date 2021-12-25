@@ -15,18 +15,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Vector } from './vector';
-import { Data, makeData } from './data';
-import { MapRow, kKeys } from './row/map';
-import { createIsValidFunction } from './builder/valid';
-import { BuilderType as B } from './interfaces';
-import { BufferBuilder, BitmapBufferBuilder, DataBufferBuilder, OffsetsBufferBuilder } from './builder/buffer';
+import { Vector } from './vector.js';
+import { Data, makeData } from './data.js';
+import { MapRow, kKeys } from './row/map.js';
+import { createIsValidFunction } from './builder/valid.js';
+import { BuilderType as B } from './interfaces.js';
+import { BufferBuilder, BitmapBufferBuilder, DataBufferBuilder, OffsetsBufferBuilder } from './builder/buffer.js';
 import {
     DataType, strideForType,
     Float, Int, Decimal, FixedSizeBinary,
     Date_, Time, Timestamp, Interval,
     Utf8, Binary, List, Map_
-} from './type';
+} from './type.js';
 
 /**
  * A set of options required to create a `Builder` instance for a given `DataType`.

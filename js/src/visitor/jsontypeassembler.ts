@@ -15,10 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import * as type from '../type';
-import { Visitor } from '../visitor';
-import { Type as ArrowType } from '../fb/Schema';
-import { Precision, DateUnit, TimeUnit, IntervalUnit, UnionMode } from '../enum';
+import * as type from '../type.js';
+import { Visitor } from '../visitor.js';
+import { Type as ArrowType } from '../fb/Schema.js';
+import { Precision, DateUnit, TimeUnit, IntervalUnit, UnionMode } from '../enum.js';
 
 /** @ignore */
 export interface JSONTypeAssembler extends Visitor {

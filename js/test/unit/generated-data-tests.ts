@@ -16,10 +16,10 @@
 // under the License.
 
 import '../jest-extensions';
-import * as generate from '../generate-test-data';
-import { validateTable } from './generated-data-validators';
-import { validateVector } from './generated-data-validators';
-import { validateRecordBatch } from './generated-data-validators';
+import * as generate from '../generate-test-data.js';
+import { validateTable } from './generated-data-validators.js';
+import { validateVector } from './generated-data-validators.js';
+import { validateRecordBatch } from './generated-data-validators.js';
 
 describe('Generated Test Data', () => {
     describe('Table', () => { validateTable(generate.table([100, 150, 75])); });

@@ -15,9 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { FileHandle } from './interfaces';
-import { ByteStream, AsyncByteStream } from './stream';
-import { ArrayBufferViewInput, toUint8Array } from '../util/buffer';
+import { FileHandle } from './interfaces.js';
+import { ByteStream, AsyncByteStream } from './stream.js';
+import { ArrayBufferViewInput, toUint8Array } from '../util/buffer.js';
 
 /** @ignore */
 export class RandomAccessFile extends ByteStream {

@@ -15,10 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Binary } from '../type';
-import { toUint8Array } from '../util/buffer';
-import { BufferBuilder } from './buffer';
-import { VariableWidthBuilder, BuilderOptions } from '../builder';
+import { Binary } from '../type.js';
+import { toUint8Array } from '../util/buffer.js';
+import { BufferBuilder } from './buffer.js';
+import { VariableWidthBuilder, BuilderOptions } from '../builder.js';
 
 /** @ignore */
 export class BinaryBuilder<TNull = any> extends VariableWidthBuilder<Binary, TNull> {

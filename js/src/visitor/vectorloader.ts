@@ -15,18 +15,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Data, makeData } from '../data';
-import * as type from '../type';
-import { Field } from '../schema';
-import { Vector } from '../vector';
-import { DataType } from '../type';
-import { Visitor } from '../visitor';
-import { packBools } from '../util/bit';
-import { encodeUtf8 } from '../util/utf8';
-import { Int64, Int128 } from '../util/int';
-import { UnionMode, DateUnit } from '../enum';
-import { toArrayBufferView } from '../util/buffer';
-import { BufferRegion, FieldNode } from '../ipc/metadata/message';
+import { Data, makeData } from '../data.js';
+import * as type from '../type.js';
+import { Field } from '../schema.js';
+import { Vector } from '../vector.js';
+import { DataType } from '../type.js';
+import { Visitor } from '../visitor.js';
+import { packBools } from '../util/bit.js';
+import { encodeUtf8 } from '../util/utf8.js';
+import { Int64, Int128 } from '../util/int.js';
+import { UnionMode, DateUnit } from '../enum.js';
+import { toArrayBufferView } from '../util/buffer.js';
+import { BufferRegion, FieldNode } from '../ipc/metadata/message.js';
 
 /** @ignore */
 export interface VectorLoader extends Visitor {

@@ -20,7 +20,7 @@
 import {
     Block as _Block,
     Footer as _Footer
-} from '../../fb/File';
+} from '../../fb/File.js';
 
 import { flatbuffers } from 'flatbuffers';
 
@@ -28,10 +28,10 @@ import Long = flatbuffers.Long;
 import Builder = flatbuffers.Builder;
 import ByteBuffer = flatbuffers.ByteBuffer;
 
-import { Schema } from '../../schema';
-import { MetadataVersion } from '../../enum';
-import { toUint8Array } from '../../util/buffer';
-import { ArrayBufferViewInput } from '../../util/buffer';
+import { Schema } from '../../schema.js';
+import { MetadataVersion } from '../../enum.js';
+import { toUint8Array } from '../../util/buffer.js';
+import { ArrayBufferViewInput } from '../../util/buffer.js';
 
 /** @ignore */
 class Footer_ {

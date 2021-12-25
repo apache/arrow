@@ -114,6 +114,8 @@ To bundle with webpack, run `yarn test:bundle` or `yarn gulp bundle`. Run `yarn 
     sed -i '+s+_generated\";+\";+ig' *_generated.ts
     # Fix all the `flatbuffers` imports
     sed -i '+s+./flatbuffers+flatbuffers+ig' *_generated.ts
+    # Add .js to imports
+    sed -i 's/\/Schema/\/Schema.js/g' *_generated.ts
     # Fix the Union createTypeIdsVector typings
     sed -i -r '+s+static createTypeIdsVector\(builder: flatbuffers.Builder, data: number\[\] \| Uint8Array+static createTypeIdsVector\(builder: flatbuffers.Builder, data: number\[\] \| Int32Array+ig' Schema_generated.ts
     # Remove "_generated" suffix from TS files

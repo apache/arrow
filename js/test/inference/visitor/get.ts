@@ -18,7 +18,7 @@
 import {
     Data, Vector,
     Bool, List, Dictionary
-} from '../../Arrow';
+} from '../../Arrow.js';
 
 import { instance as getVisitor } from 'apache-arrow/visitor/get';
 

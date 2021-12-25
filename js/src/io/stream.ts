@@ -15,16 +15,16 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import streamAdapters from './adapters';
-import { decodeUtf8 } from '../util/utf8';
-import { ITERATOR_DONE, Readable, Writable, AsyncQueue } from './interfaces';
-import { toUint8Array, joinUint8Arrays, ArrayBufferViewInput } from '../util/buffer';
+import streamAdapters from './adapters.js';
+import { decodeUtf8 } from '../util/utf8.js';
+import { ITERATOR_DONE, Readable, Writable, AsyncQueue } from './interfaces.js';
+import { toUint8Array, joinUint8Arrays, ArrayBufferViewInput } from '../util/buffer.js';
 
 import {
     isPromise, isFetchResponse,
     isIterable, isAsyncIterable,
     isReadableDOMStream, isReadableNodeStream
-} from '../util/compat';
+} from '../util/compat.js';
 
 /** @ignore */
 export type WritableSink<T> = Writable<T> | WritableStream<T> | NodeJS.WritableStream | null;

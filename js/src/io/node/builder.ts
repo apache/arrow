@@ -16,8 +16,8 @@
 // under the License.
 
 import { Duplex } from 'stream';
-import { DataType } from '../../type';
-import { Builder, BuilderOptions } from '../../builder/index';
+import { DataType } from '../../type.js';
+import { Builder, BuilderOptions } from '../../builder/index.js';
 
 /** @ignore */
 export interface BuilderDuplexOptions<T extends DataType = any, TNull = any> extends BuilderOptions<T, TNull> {

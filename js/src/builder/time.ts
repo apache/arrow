@@ -15,9 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { FixedWidthBuilder } from '../builder';
-import { Time, TimeSecond, TimeMillisecond, TimeMicrosecond, TimeNanosecond } from '../type';
-import { setTime, setTimeSecond, setTimeMillisecond, setTimeMicrosecond, setTimeNanosecond } from '../visitor/set';
+import { FixedWidthBuilder } from '../builder.js';
+import { Time, TimeSecond, TimeMillisecond, TimeMicrosecond, TimeNanosecond } from '../type.js';
+import { setTime, setTimeSecond, setTimeMillisecond, setTimeMicrosecond, setTimeNanosecond } from '../visitor/set.js';
 
 /** @ignore */
 export class TimeBuilder<T extends Time = Time, TNull = any> extends FixedWidthBuilder<T, TNull> { }

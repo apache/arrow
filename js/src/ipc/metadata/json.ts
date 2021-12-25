@@ -17,16 +17,16 @@
 
 /* eslint-disable brace-style */
 
-import { Schema, Field } from '../../schema';
+import { Schema, Field } from '../../schema.js';
 import {
     DataType, Dictionary, TimeBitWidth,
     Utf8, Binary, Decimal, FixedSizeBinary,
     List, FixedSizeList, Map_, Struct, Union,
     Bool, Null, Int, Float, Date_, Time, Interval, Timestamp, IntBitWidth, Int32, TKeys,
-} from '../../type';
+} from '../../type.js';
 
-import { DictionaryBatch, RecordBatch, FieldNode, BufferRegion } from './message';
-import { TimeUnit, Precision, IntervalUnit, UnionMode, DateUnit } from '../../enum';
+import { DictionaryBatch, RecordBatch, FieldNode, BufferRegion } from './message.js';
+import { TimeUnit, Precision, IntervalUnit, UnionMode, DateUnit } from '../../enum.js';
 
 /** @ignore */
 export function schemaFromJSON(_schema: any, dictionaries: Map<number, DataType> = new Map()) {
