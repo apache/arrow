@@ -15,9 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { vecs } from '../generate-test-data.js';
-import * as generate from '../generate-test-data.js';
-import { Schema, Field, Dictionary } from '../Arrow.js';
+import { vecs } from '../generate-test-data';
+import * as generate from '../generate-test-data';
+import { Schema, Field, Dictionary } from '../Arrow';
 
 const listVectorGeneratorNames = ['list', 'fixedSizeList'];
 const nestedVectorGeneratorNames = ['struct', 'denseUnion', 'sparseUnion', 'map'];

@@ -35,7 +35,7 @@ import {
     float16sNoNulls, float16sWithNulls, float16sWithNaNs,
     float32sNoNulls, float32sWithNulls, float64sWithNaNs,
     float64sNoNulls, float64sWithNulls, float32sWithNaNs,
-} from './utils.js';
+} from './utils';
 
 const testDOMStreams = process.env.TEST_DOM_STREAMS === 'true';
 const testNodeStreams = process.env.TEST_NODE_STREAMS === 'true';

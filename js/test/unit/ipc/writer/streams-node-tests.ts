@@ -18,7 +18,7 @@
 import {
     generateRandomTables,
     // generateDictionaryTables
-} from '../../../data/tables.js';
+} from '../../../data/tables';
 
 import { from, as } from 'ix/asynciterable';
 import { tap, flatMap } from 'ix/asynciterable/operators';
@@ -36,13 +36,13 @@ import {
 import {
     ArrowIOTestHelper,
     concatBuffersAsync
-} from '../helpers.js';
+} from '../helpers';
 
 import {
     validateRecordBatchReader,
     validateAsyncRecordBatchReader,
     validateRecordBatchAsyncIterator
-} from '../validate.js';
+} from '../validate';
 
 (() => {
 

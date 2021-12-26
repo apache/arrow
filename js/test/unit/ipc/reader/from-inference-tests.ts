@@ -18,9 +18,9 @@
 import {
     generateRandomTables,
     // generateDictionaryTables
-} from '../../../data/tables.js';
+} from '../../../data/tables';
 
-import { ArrowIOTestHelper } from '../helpers.js';
+import { ArrowIOTestHelper } from '../helpers';
 import {
     RecordBatchReader,
     RecordBatchFileReader,

@@ -20,7 +20,7 @@ import {
     GeneratedTable,
     GeneratedRecordBatch,
     GeneratedVector
-} from '../generate-test-data.js';
+} from '../generate-test-data';
 
 import { RecordBatch, Schema, Vector, util } from 'apache-arrow';
 

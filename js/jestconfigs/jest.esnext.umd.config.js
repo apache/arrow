@@ -27,6 +27,6 @@ module.exports = {
     },
   },
   moduleNameMapper: {
-    "^apache-arrow(.*)": "<rootDir>/targets/esnext/umd/Arrow.js",
+    "^apache-arrow": "<rootDir>/targets/esnext/umd/Arrow.js",
   },
 };

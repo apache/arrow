@@ -31,7 +31,7 @@ module.exports = {
   moduleFileExtensions: ["mjs", "js", "ts"],
   coverageReporters: ["lcov", "json"],
   coveragePathIgnorePatterns: [
-    "fb\\/(File|Message|Schema|Tensor)\\.(js|ts)$",
+    "fb\\/.*\\.(js|ts)$",
     "test\\/.*\\.(ts|js)$",
     "/node_modules/",
   ],
@@ -47,6 +47,7 @@ module.exports = {
   testMatch: null,
   moduleNameMapper: {
     "^apache-arrow$": "<rootDir>/src/Arrow.node",
-    "^apache-arrow(.*)": "<rootDir>/src$1"
+    "^apache-arrow(.*)": "<rootDir>/src$1",
+    "^(\\.{1,2}/.*)\\.js$": "$1",
   },
 };

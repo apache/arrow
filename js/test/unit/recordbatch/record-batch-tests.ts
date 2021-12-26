@@ -17,7 +17,7 @@
 
 import '../../jest-extensions';
 import { RecordBatch, makeVector } from 'apache-arrow';
-import { arange } from '../utils.js';
+import { arange } from '../utils';
 
 function numsRecordBatch(i32Len: number, f32Len: number) {
     return new RecordBatch({

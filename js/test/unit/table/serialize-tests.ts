@@ -16,7 +16,7 @@
 // under the License.
 
 import '../../jest-extensions';
-import * as generate from '../../generate-test-data.js';
+import * as generate from '../../generate-test-data';
 import {
     Table, Schema, Field, DataType, TypeMap, Dictionary, Int32, Float32, Utf8, Null,
     makeVector,

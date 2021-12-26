@@ -18,10 +18,10 @@
 import {
     generateRandomTables,
     generateDictionaryTables
-} from '../../../data/tables.js';
+} from '../../../data/tables';
 
-import * as generate from '../../../generate-test-data.js';
-import { validateRecordBatchIterator } from '../validate.js';
+import * as generate from '../../../generate-test-data';
+import { validateRecordBatchIterator } from '../validate';
 import { RecordBatchStreamWriterOptions } from 'apache-arrow/ipc/writer';
 import { Dictionary, Uint32, Int32 } from 'apache-arrow';
 import { Table, Schema, Field, Vector, Builder, RecordBatch, RecordBatchReader, RecordBatchStreamWriter } from 'apache-arrow';

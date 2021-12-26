@@ -18,9 +18,9 @@
 import {
     generateRandomTables,
     generateDictionaryTables
-} from '../../../data/tables.js';
+} from '../../../data/tables';
 
-import { validateRecordBatchIterator } from '../validate.js';
+import { validateRecordBatchIterator } from '../validate';
 import { Table, RecordBatchReader, RecordBatchFileWriter } from 'apache-arrow';
 
 describe('RecordBatchFileWriter', () => {

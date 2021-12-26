@@ -26,6 +26,8 @@ module.exports = {
     },
   },
   moduleNameMapper: {
-    "^apache-arrow(.*)": "<rootDir>/targets/ts$1"
+    "^apache-arrow$": "<rootDir>/targets/ts/Arrow.node",
+    "^apache-arrow(.*)": "<rootDir>/targets/ts$1",
+    "^(\\.{1,2}/.*)\\.js$": "$1",
   },
 };

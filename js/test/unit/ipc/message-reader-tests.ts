@@ -19,9 +19,9 @@
 import {
     generateRandomTables,
     // generateDictionaryTables
-} from '../../data/tables.js';
+} from '../../data/tables';
 
-import { ArrowIOTestHelper } from './helpers.js';
+import { ArrowIOTestHelper } from './helpers';
 import { MessageReader, AsyncMessageReader } from 'apache-arrow';
 
 for (const table of generateRandomTables([10, 20, 30])) {
