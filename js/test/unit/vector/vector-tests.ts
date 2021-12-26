@@ -120,13 +120,13 @@ function basicVectorTests(vector: Vector, values: any[], extras: any[]) {
     test(`iterates expected values`, () => {
         expect.hasAssertions();
         let i = -1;
-        for (let v of vector) {
+        for (const v of vector) {
             expect(++i).toBeLessThan(n);
             expect(v).toEqual(values[i]);
         }
     });
     test(`indexOf returns expected values`, () => {
-        let testValues = values.concat(extras);
+        const testValues = values.concat(extras);
 
         for (const value of testValues) {
             const actual = vector.indexOf(value);

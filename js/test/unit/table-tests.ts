@@ -249,8 +249,8 @@ describe(`Table`, () => {
         });
 
         test(`creates a new Table from Typed Arrays`, () => {
-            let i32s = Int32Array.from({ length: 10 }, (_, i) => i);
-            let f32s = Float32Array.from({ length: 10 }, (_, i) => i);
+            const i32s = Int32Array.from({ length: 10 }, (_, i) => i);
+            const f32s = Float32Array.from({ length: 10 }, (_, i) => i);
             const table = new Table({ i32s, f32s });
             const i32 = table.getChild('i32s')!;
             const f32 = table.getChild('f32s')!;
@@ -287,7 +287,7 @@ describe(`Table`, () => {
         compareBatchAndTable(table, m, batch2, deepCopy(new Table([batch2])));
     });
 
-    for (let datum of test_data) {
+    for (const datum of test_data) {
         describe(datum.name, () => {
             test(`has the correct length`, () => {
                 const table = datum.table();
@@ -310,7 +310,7 @@ describe(`Table`, () => {
                 let i = 0;
                 const table = datum.table();
                 const values = datum.values();
-                for (let row of table) {
+                for (const row of table) {
                     const expected = values[i++];
                     expect(row).not.toBeNull();
                     expect(row!.f32).toEqual(expected[F32]);
@@ -334,14 +334,14 @@ describe(`Table`, () => {
             const values = datum.values();
 
             test(`table.select() basic tests`, () => {
-                let selected = table.select(['f32', 'dictionary']);
+                const selected = table.select(['f32', 'dictionary']);
                 expect(selected.schema.fields).toHaveLength(2);
                 expect(selected.schema.fields[0]).toEqual(table.schema.fields[0]);
                 expect(selected.schema.fields[1]).toEqual(table.schema.fields[2]);
 
                 expect(selected.numRows).toEqual(values.length);
                 let idx = 0, expected_row;
-                for (let row of selected) {
+                for (const row of selected) {
                     expected_row = values[idx++];
                     if (!row) {
                         expect(row).toEqual(expected_row);

@@ -32,13 +32,13 @@ describe(`BoolVector`, () => {
     });
     test(`iterates expected values`, () => {
         let i = -1;
-        for (let v of vector) {
+        for (const v of vector) {
             expect(++i).toBeLessThan(n);
             expect(v).toEqual(values[i]);
         }
     });
     test(`indexOf returns expected values`, () => {
-        for (let test_value of [true, false]) {
+        for (const test_value of [true, false]) {
             const expected = values.indexOf(test_value);
             expect(vector.indexOf(test_value)).toEqual(expected);
         }
