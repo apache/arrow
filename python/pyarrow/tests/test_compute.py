@@ -1900,62 +1900,69 @@ def test_assume_timezone():
     result.equals(pa.array(expected))
 
 
-units = (
-    "nanosecond",
-    "microsecond",
-    "millisecond",
-    "second",
-    "minute",
-    "hour",
-    "day",
-)
-unit_shorthand = {
-    "nanosecond": "ns",
-    "microsecond": "us",
-    "millisecond": "L",
-    "second": "s",
-    "minute": "min",
-    "hour": "H",
-    "day": "D"
-}
+def _check_temporal_rounding(ts, values, unit):
+    unit_shorthand = {
+        "nanosecond": "ns",
+        "microsecond": "us",
+        "millisecond": "L",
+        "second": "s",
+        "minute": "min",
+        "hour": "H",
+        "day": "D"
+    }
+    ta = pa.array(ts)
+
+    for value in values:
+        frequency = str(value) + unit_shorthand[unit]
+        options = pc.RoundTemporalOptions(value, unit, origin=0)
+
+        result = pc.ceil_temporal(ta, options=options)
+        expected = pa.array(ts.dt.ceil(frequency))
+        assert result.equals(expected)
+
+        result = pc.floor_temporal(ta, options=options)
+        expected = pa.array(ts.dt.floor(frequency))
+        assert result.equals(expected)
+
+        result = pc.round_temporal(ta, options=options)
+        expected = pa.array(ts.dt.round(frequency))
+        assert result.equals(expected)
 
 
 # TODO: We should test on windows once ARROW-13168 is resolved.
-@pytest.mark.pandas
 @pytest.mark.skipif(sys.platform == 'win32',
                     reason="Timezone database is not available on Windows yet")
-@pytest.mark.parametrize('unit', units)
+@pytest.mark.parametrize('unit', ("nanosecond", "microsecond", "millisecond",
+                                  "second", "minute", "hour", "day"))
+@pytest.mark.pandas
 def test_round_temporal(unit):
-    # timezones = ["UTC", "US/Central", "Asia/Kolkata",
-    #              "Etc/GMT-4", "Etc/GMT+4", "Australia/Broken_Hill"]
-    # timezones = ["UTC", "Etc/GMT+4"]
-    timezones = ["UTC"]
+    from pyarrow.vendored.version import Version
+
+    if Version(pd.__version__) < Version('1.0.0') and unit == "nanosecond":
+        pytest.skip('Pandas < 1.0 rounds nanoseconds differently.')
 
     values = (1, 2, 3, 4, 5, 6, 7, 10, 15, 24, 60, 250, 500, 750)
+    ts = pd.Series((
+        pd.Timestamp("1910-01-03T02:10:10.123456716", unit="ns"),
+        pd.Timestamp("1950-07-18T12:41:12.12345678", unit="ns"),
+        pd.Timestamp("2019-11-30T02:11:21.12345672", unit="ns"),
+        pd.Timestamp("2021-12-23T12:17:51.12345678", unit="ns")
+    ))
+    _check_temporal_rounding(ts, values, unit)
 
-    for tz in timezones:
-        ts = pd.Series((
-            # pd.Timestamp("1910-01-03T02:10:10.12345671", tz=tz, unit="ns"),
-            pd.Timestamp("1950-07-18T12:41:12.12345678", tz=tz, unit="ns"),
-            pd.Timestamp("2019-11-30T02:11:21.12345672", tz=tz, unit="ns")
-        ))
-        ta = pa.array(ts)
+    timezones = ["Asia/Kolkata", "America/New_York", "Etc/GMT-4", "Etc/GMT+4",
+                 "Europe/Brussels", "Pacific/Marquesas", "US/Central", "UTC"]
+    if unit == "day":
+        values = (1, 2, 3, 4, 5, 6, 7, 10, 15, 24)
+    ts = pd.Series((
+        # pd.Timestamp("1910-01-03T02:10:10.123456716", unit="ns"),
+        # pd.Timestamp("1950-07-18T12:41:12.12345678", unit="ns"),
+        pd.Timestamp("2019-11-30T02:11:21.12345672", unit="ns"),
+        pd.Timestamp("2021-12-23T12:17:51.12345678", unit="ns")
+    )).dt.tz_localize("UTC")
 
-        for value in values:
-            frequency = str(value) + unit_shorthand[unit]
-            options = pc.RoundTemporalOptions(value, unit, origin=0)
-
-            result = pc.ceil_temporal(ta, options=options)
-            expected = pa.array(ts.dt.ceil(frequency))
-            assert result.equals(expected)
-
-            result = pc.floor_temporal(ta, options=options)
-            expected = pa.array(ts.dt.floor(frequency))
-            assert result.equals(expected)
-
-            result = pc.round_temporal(ta, options=options)
-            expected = pa.array(ts.dt.round(frequency))
-            assert result.equals(expected)
+    for timezone in timezones:
+        _check_temporal_rounding(ts.dt.tz_convert(timezone), values, unit)
 
 
 def test_count():

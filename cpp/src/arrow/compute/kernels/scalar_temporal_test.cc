@@ -37,10 +37,6 @@ namespace compute {
 
 class ScalarTemporalTest : public ::testing::Test {
  public:
-  std::vector<std::string> timezones = {
-      "UTC",        "Australia/Broken_Hill", "Pacific/Marquesas",
-      "US/Central", "Asia/Kolkata",          "Etc/GMT-4",
-      "Etc/GMT+4"};
   const char* date32s =
       R"([0, 11016, -25932, 23148, 18262, 18261, 18260, 14609, 14610, 14612,
           14613, 13149, 13148, 14241, 14242, 15340, null])";
@@ -1534,12 +1530,6 @@ TEST_F(ScalarTemporalTest, TestCeilTemporal) {
   CheckScalarUnary(op, unit, times, unit, ceil_15_months, &round_to_15_months);
   CheckScalarUnary(op, unit, times, unit, ceil_15_quarters, &round_to_15_quarters);
   CheckScalarUnary(op, unit, times, unit, ceil_15_years, &round_to_15_years);
-
-  RoundTemporalOptions round_to_2_hours = RoundTemporalOptions(2, CalendarUnit::HOUR);
-  const char* times_a = R"(["2021-12-23 12:17", null])";
-  const char* times_b = R"(["2021-12-23 13:00", null])";
-  auto unit_brussels = timestamp(TimeUnit::NANO, "Europe/Brussels");
-  CheckScalarUnary(op, unit_brussels, times_a, unit_brussels, times_b, &round_to_2_hours);
 }
 
 TEST_F(ScalarTemporalTest, TestFloorTemporal) {
@@ -1718,12 +1708,6 @@ TEST_F(ScalarTemporalTest, TestFloorTemporal) {
   CheckScalarUnary(op, unit, times, unit, floor_15_months, &round_to_15_months);
   CheckScalarUnary(op, unit, times, unit, floor_15_quarters, &round_to_15_quarters);
   CheckScalarUnary(op, unit, times, unit, floor_15_years, &round_to_15_years);
-
-  RoundTemporalOptions round_to_2_hours = RoundTemporalOptions(2, CalendarUnit::HOUR);
-  const char* times_a = R"(["2021-12-23 12:17", null])";
-  const char* times_b = R"(["2021-12-23 13:00", null])";
-  auto unit_brussels = timestamp(TimeUnit::NANO, "Europe/Brussels");
-  CheckScalarUnary(op, unit_brussels, times_a, unit_brussels, times_b, &round_to_2_hours);
 }
 
 TEST_F(ScalarTemporalTest, TestRoundTemporal) {
@@ -1902,14 +1886,49 @@ TEST_F(ScalarTemporalTest, TestRoundTemporal) {
   CheckScalarUnary(op, unit, times, unit, round_15_months, &round_to_15_months);
   CheckScalarUnary(op, unit, times, unit, round_15_quarters, &round_to_15_quarters);
   CheckScalarUnary(op, unit, times, unit, round_15_years, &round_to_15_years);
-
-  RoundTemporalOptions round_to_2_hours = RoundTemporalOptions(2, CalendarUnit::HOUR);
-  const char* times_a = R"(["2021-12-23 12:17", null])";
-  const char* times_b = R"(["2021-12-23 13:00", null])";
-  auto unit_brussels = timestamp(TimeUnit::NANO, "Europe/Brussels");
-  CheckScalarUnary(op, unit_brussels, times_a, unit_brussels, times_b, &round_to_2_hours);
 }
 
+TEST_F(ScalarTemporalTest, TestCeilFloorRoundTemporalBrussels) {
+  RoundTemporalOptions round_to_1_hours = RoundTemporalOptions(1, CalendarUnit::HOUR);
+  RoundTemporalOptions round_to_3_hours = RoundTemporalOptions(3, CalendarUnit::HOUR);
+  auto unit = timestamp(TimeUnit::NANO, "Europe/Brussels");
+
+  const char* times = R"(["1970-01-01 12:17", null])";
+  const char* ceil_1_hours = R"(["1970-01-01 13:00", null])";
+  const char* ceil_3_hours = R"(["1970-01-01 14:00", null])";
+  const char* floor_1_hours = R"(["1970-01-01 12:00", null])";
+  const char* floor_3_hours = R"(["1970-01-01 11:00", null])";
+  const char* round_1_hours = R"(["1970-01-01 12:00", null])";
+  const char* round_3_hours = R"(["1970-01-01 11:00", null])";
+
+  CheckScalarUnary("ceil_temporal", unit, times, unit, ceil_1_hours, &round_to_1_hours);
+  CheckScalarUnary("ceil_temporal", unit, times, unit, ceil_3_hours, &round_to_3_hours);
+  CheckScalarUnary("floor_temporal", unit, times, unit, floor_1_hours, &round_to_1_hours);
+  CheckScalarUnary("floor_temporal", unit, times, unit, floor_3_hours, &round_to_3_hours);
+  CheckScalarUnary("round_temporal", unit, times, unit, round_1_hours, &round_to_1_hours);
+  CheckScalarUnary("round_temporal", unit, times, unit, round_3_hours, &round_to_3_hours);
+}
+
+TEST_F(ScalarTemporalTest, TestCeilFloorRoundTemporalKolkata) {
+  RoundTemporalOptions round_to_1_hours = RoundTemporalOptions(1, CalendarUnit::HOUR);
+  RoundTemporalOptions round_to_3_hours = RoundTemporalOptions(3, CalendarUnit::HOUR);
+  auto unit = timestamp(TimeUnit::NANO, "Asia/Kolkata");
+
+  const char* times = R"(["1970-01-01 12:17", null])";
+  const char* ceil_1_hours = R"(["1970-01-01 12:30", null])";
+  const char* ceil_3_hours = R"(["1970-01-01 12:30", null])";
+  const char* floor_1_hours = R"(["1970-01-01 11:30", null])";
+  const char* floor_3_hours = R"(["1970-01-01 09:30", null])";
+  const char* round_1_hours = R"(["1970-01-01 12:30", null])";
+  const char* round_3_hours = R"(["1970-01-01 12:30", null])";
+
+  CheckScalarUnary("ceil_temporal", unit, times, unit, ceil_1_hours, &round_to_1_hours);
+  CheckScalarUnary("ceil_temporal", unit, times, unit, ceil_3_hours, &round_to_3_hours);
+  CheckScalarUnary("floor_temporal", unit, times, unit, floor_1_hours, &round_to_1_hours);
+  CheckScalarUnary("floor_temporal", unit, times, unit, floor_3_hours, &round_to_3_hours);
+  CheckScalarUnary("round_temporal", unit, times, unit, round_1_hours, &round_to_1_hours);
+  CheckScalarUnary("round_temporal", unit, times, unit, round_3_hours, &round_to_3_hours);
+}
 #endif  // !_WIN32
 
 }  // namespace compute
