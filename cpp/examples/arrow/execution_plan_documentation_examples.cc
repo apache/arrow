@@ -449,6 +449,14 @@ BatchesWithSchema MakeGroupableBatches(int multiplicity = 1) {
   return out;
 }
 
+// std::shared_ptr<arrow::dataset::InMemoryDataset> GetBatchDataset() {
+  
+//   std::shared_ptr<arrow::dataset::Dataset> dataset = NULLPTR;
+  
+
+//   return dataset;
+// }
+
 
 arrow::Status SourceSinkExample() {
   cp::ExecContext exec_context(arrow::default_memory_pool(),
@@ -517,8 +525,9 @@ arrow::Status ScanFilterSinkExample() {
   // sync scanning is not supported by ScanNode
   options->use_async = true;
   // specify the filter
-  cp::Expression b_is_true = cp::field_ref("b");
-  options->filter = b_is_true;
+  cp::Expression filter_opt = cp::greater(cp::field_ref("a"), cp::literal(3));
+  
+  options->filter = filter_opt;
   // empty projection
   options->projection = Materialize({});
 
@@ -536,7 +545,7 @@ arrow::Status ScanFilterSinkExample() {
   // pipe the scan node into a filter node
   cp::ExecNode* filter;
   ARROW_ASSIGN_OR_RAISE(filter, cp::MakeExecNode("filter", plan.get(), {scan},
-                                                 cp::FilterNodeOptions{b_is_true}));
+                                                 cp::FilterNodeOptions{filter_opt}));
 
   // // finally, pipe the project node into a sink node
   arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
@@ -586,7 +595,8 @@ arrow::Status ScanProjectSinkExample() {
     options->use_async = true;
     // projection
     cp::Expression a_times_2 = cp::call("multiply", {cp::field_ref("a"),
-    cp::literal(2)}); options->projection =
+    cp::literal(2)}); 
+    options->projection =
         cp::call("make_struct", {a_times_2}, cp::MakeStructOptions{{"a * 2"}});
 
     cp::ExecNode *scan;
@@ -655,7 +665,6 @@ arrow::Status SourceAggregateSinkExample() {
     ARROW_ASSIGN_OR_RAISE(cp::ExecNode * source, cp::MakeExecNode("source",
                                                                   plan.get(), {},
                                                                   source_node_options));
-
     cp::CountOptions options(cp::CountOptions::ONLY_VALID);
     auto aggregate_options = cp::AggregateNodeOptions{
         /*aggregates=*/{{"hash_count", &options}},
@@ -1094,14 +1103,13 @@ enum ExampleMode {
 };
 
 int main(int argc, char** argv) {
-  if (argc < 11) {
+  if (argc < 2) {
     // Fake success for CI purposes.
     return EXIT_SUCCESS;
   }
 
-  std::string base_save_path = argv[1];
-  int mode = argc < 11 ? std::atoi(argv[2]) : 0;
-
+  int mode = std::atoi(argv[1]);
+  std::string base_save_path = argv[2];
 
   switch (mode) {
     case SOURCE_SINK:
@@ -1113,7 +1121,7 @@ int main(int argc, char** argv) {
       CHECK_AND_CONTINUE(ScanSinkExample())
       break;
     case SCAN_FILTER_SINK:
-    PRINT_BLOCK("Scan Filter Example");
+      PRINT_BLOCK("Scan Filter Example");
       CHECK_AND_CONTINUE(ScanFilterSinkExample())
       break;
     case SCAN_PROJECT_SINK:
