@@ -2902,6 +2902,133 @@ garrow_variance_options_new(void)
 }
 
 
+enum {
+  PROP_ROUND_OPTIONS_N_DIGITS = 1,
+  PROP_ROUND_OPTIONS_MODE,
+};
+
+G_DEFINE_TYPE(GArrowRoundOptions,
+              garrow_round_options,
+              GARROW_TYPE_FUNCTION_OPTIONS)
+
+#define GARROW_ROUND_OPTIONS_GET_PRIVATE(object)  \
+  static_cast<GArrowRoundOptionsPrivate *>(       \
+    garrow_round_options_get_instance_private(    \
+      GARROW_ROUND_OPTIONS(object)))
+
+static void
+garrow_round_options_set_property(GObject *object,
+                                  guint prop_id,
+                                  const GValue *value,
+                                  GParamSpec *pspec)
+{
+  auto options = garrow_round_options_get_raw(GARROW_ROUND_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_ROUND_OPTIONS_N_DIGITS:
+    options->ndigits = g_value_get_int64(value);
+    break;
+  case PROP_ROUND_OPTIONS_MODE:
+    options->round_mode =
+      static_cast<arrow::compute::RoundMode>(g_value_get_enum(value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_round_options_get_property(GObject *object,
+                                  guint prop_id,
+                                  GValue *value,
+                                  GParamSpec *pspec)
+{
+  auto options = garrow_round_options_get_raw(GARROW_ROUND_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_ROUND_OPTIONS_N_DIGITS:
+    g_value_set_int64(value, options->ndigits);
+    break;
+  case PROP_ROUND_OPTIONS_MODE:
+    g_value_set_enum(value, static_cast<GArrowRoundMode>(options->round_mode));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_round_options_init(GArrowRoundOptions *object)
+{
+  auto priv = GARROW_FUNCTION_OPTIONS_GET_PRIVATE(object);
+  priv->options = static_cast<arrow::compute::FunctionOptions *>(
+    new arrow::compute::RoundOptions());
+}
+
+static void
+garrow_round_options_class_init(GArrowRoundOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->set_property = garrow_round_options_set_property;
+  gobject_class->get_property = garrow_round_options_get_property;
+
+
+  arrow::compute::RoundOptions options;
+
+  GParamSpec *spec;
+  /**
+   * GArrowRoundOptions:n-digits:
+   *
+   * The rounding precision (number of digits to round to).
+   *
+   * Since: 7.0.0
+   */
+  spec = g_param_spec_int64("n-digits",
+                            "Number of digits to round to",
+                            "The round precision",
+                            G_MININT64,
+                            G_MAXINT64,
+                            options.ndigits,
+                            static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_ROUND_OPTIONS_N_DIGITS,
+                                  spec);
+
+  /**
+   * GArrowRoundOptions:mode:
+   *
+   * The rounding and tie-breaking mode.
+   *
+   * Since: 7.0.0
+   */
+  spec = g_param_spec_enum("mode",
+                           "Mode",
+                           "The rounding and tie-breaking mode",
+                           GARROW_TYPE_ROUND_MODE,
+                           static_cast<GArrowRoundMode>(options.round_mode),
+                           static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_ROUND_OPTIONS_MODE,
+                                  spec);
+}
+
+/**
+ * garrow_round_options_new:
+ *
+ * Returns: A newly created #GArrowRoundOptions.
+ *
+ * Since: 7.0.0
+ */
+GArrowRoundOptions *
+garrow_round_options_new(void)
+{
+  return GARROW_ROUND_OPTIONS(g_object_new(GARROW_TYPE_ROUND_OPTIONS, NULL));
+}
+
+
 /**
  * garrow_array_cast:
  * @array: A #GArrowArray.
@@ -4294,5 +4421,13 @@ arrow::compute::VarianceOptions *
 garrow_variance_options_get_raw(GArrowVarianceOptions *options)
 {
   return static_cast<arrow::compute::VarianceOptions *>(
+    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+}
+
+
+arrow::compute::RoundOptions *
+garrow_round_options_get_raw(GArrowRoundOptions *options)
+{
+  return static_cast<arrow::compute::RoundOptions *>(
     garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
 }
