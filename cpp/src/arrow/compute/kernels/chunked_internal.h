@@ -48,6 +48,21 @@ struct ResolvedChunk {
   LogicalValueType Value() const { return V::LogicalValue(array->GetView(index)); }
 };
 
+// ResolvedChunk specialization for StructArray
+template<>
+struct ResolvedChunk<StructArray> {
+  // The target struct in chunked array.
+  const StructArray* array;
+  // The field index in the target struct.
+  const int64_t index;
+
+  ResolvedChunk(const StructArray* array, int64_t index) : array(array), index(index) {}
+
+  bool IsNull() const { return array->IsNull(index); }
+
+  auto Value() const ->decltype((*array->GetScalar(0))) { return *(array->GetScalar(index)); }
+};
+
 // ResolvedChunk specialization for untyped arrays when all is needed is null lookup
 template <>
 struct ResolvedChunk<Array> {

@@ -748,19 +748,19 @@ def test_struct_array_sort():
         {"a": 5, "b": "foo"},
     ]
 
-    sorted_arr = arr.sort("ascending", fieldname="b")
+    sorted_arr = arr.sort("descending")
     assert sorted_arr.to_pylist() == [
-        {"a": 7, "b": "bar"},
-        {"a": 7, "b": "car"},
-        {"a": 5, "b": "foo"},
         {"a": 35, "b": "foobar"},
+        {"a": 7, "b": "car"},
+        {"a": 7, "b": "bar"},
+        {"a": 5, "b": "foo"},
     ]
 
-    sorted_arr = arr.sort("ascending", fieldname="a")
+    sorted_arr = arr.sort("ascending")
     assert sorted_arr.to_pylist() == [
         {"a": 5, "b": "foo"},
-        {"a": 7, "b": "car"},
         {"a": 7, "b": "bar"},
+        {"a": 7, "b": "car"},
         {"a": 35, "b": "foobar"},
     ]
 
@@ -781,8 +781,8 @@ def test_struct_chunked_array_sort():
     sorted_arr = chunked_arr.sort("descending")
     assert sorted_arr.to_pylist() == [
         {"a": 35, "b": "foobar"},
-        {"a": 7, "b": "car"},
         {"a": 7, "b": "bar"},
+        {"a": 7, "b": "car"},
         {"a": 5, "b": "foo"},
     ]
 

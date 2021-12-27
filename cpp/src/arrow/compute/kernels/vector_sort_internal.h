@@ -563,7 +563,7 @@ class NestedValuesComparator {
         int n_chunks = chunked_array.num_chunks();
         for(int i = 0; i < n_chunks; i++) {
           auto chunk = chunked_array.chunk(i);
-          if(leftidx < chunk->length()) {
+          if(leftidx < static_cast<uint64_t>(chunk->length())) {
             const FieldArrayType& values = checked_cast<const FieldArrayType&>(*chunk);
             l_value = GetView::LogicalValue(values.GetView(leftidx));
             break;
@@ -573,7 +573,7 @@ class NestedValuesComparator {
 
         for(int i = 0; i < n_chunks; i++) {
           auto chunk = chunked_array.chunk(i);
-          if(rightidx < chunk->length()) {
+          if(rightidx < static_cast<uint64_t>(chunk->length())) {
             const FieldArrayType& values = checked_cast<const FieldArrayType&>(*chunk);
             r_value = GetView::LogicalValue(values.GetView(rightidx));
             break;
