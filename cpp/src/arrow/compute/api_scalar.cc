@@ -99,6 +99,30 @@ struct EnumTraits<compute::CompareOperator>
     return "<INVALID>";
   }
 };
+
+template <>
+struct EnumTraits<compute::BetweenOperator>
+    : BasicEnumTraits<compute::BetweenOperator,
+                      compute::BetweenOperator::LESS_EQUAL_LESS_EQUAL,
+                      compute::BetweenOperator::LESS_EQUAL_LESS,
+                      compute::BetweenOperator::LESS_LESS_EQUAL,
+                      compute::BetweenOperator::LESS_LESS> {
+  static std::string name() { return "compute::BetweenOperator"; }
+  static std::string value_name(compute::BetweenOperator value) {
+    switch (value) {
+      case compute::BetweenOperator::LESS_EQUAL_LESS_EQUAL:
+        return "LESS_EQUAL_LESS_EQUAL";
+      case compute::BetweenOperator::LESS_EQUAL_LESS:
+        return "LESS_EQUAL_LESS";
+      case compute::BetweenOperator::LESS_LESS_EQUAL:
+        return "LESS_LESS_EQUAL";
+      case compute::BetweenOperator::LESS_LESS:
+        return "LESS_LESS";
+    }
+    return "<INVALID>";
+  }
+};
+
 template <>
 struct EnumTraits<compute::AssumeTimezoneOptions::Ambiguous>
     : BasicEnumTraits<compute::AssumeTimezoneOptions::Ambiguous,
@@ -761,7 +785,25 @@ Result<Datum> Compare(const Datum& left, const Datum& right, CompareOptions opti
   return CallFunction(func_name, {left, right}, nullptr, ctx);
 }
 
-SCALAR_EAGER_TERNARY(Between, "between")
+Result<Datum> Between(const Datum& val, const Datum& left, const Datum& right,
+                      BetweenOptions options, ExecContext* ctx) {
+  std::string func_name;
+  switch (options.op) {
+    case BetweenOperator::LESS_EQUAL_LESS_EQUAL:
+      func_name = "between_less_equal_less_equal";
+      break;
+    case BetweenOperator::LESS_EQUAL_LESS:
+      func_name = "between_less_equal_less";
+      break;
+    case BetweenOperator::LESS_LESS_EQUAL:
+      func_name = "between_less_less_equal";
+      break;
+    case BetweenOperator::LESS_LESS:
+      func_name = "between_less_less";
+      break;
+  }
+  return CallFunction(func_name, {val, left, right}, nullptr, ctx);
+}
 
 // ----------------------------------------------------------------------
 // Validity functions
