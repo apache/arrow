@@ -60,8 +60,7 @@ ChunkedArray::ChunkedArray(ArrayVector chunks, std::shared_ptr<DataType> type)
   length_ = 0;
   null_count_ = 0;
 
-  ARROW_CHECK_NE(type_, nullptr)
-      << "cannot construct ChunkedArray with omitted type";
+  ARROW_CHECK_NE(type_, nullptr) << "cannot construct ChunkedArray with omitted type";
   for (const std::shared_ptr<Array>& chunk : chunks_) {
     length_ += chunk->length();
     null_count_ += chunk->null_count();
