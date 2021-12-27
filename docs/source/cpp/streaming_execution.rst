@@ -180,10 +180,10 @@ Constructing ``ExecNode`` using Options
 
 Using the execution plan we can construct varioud execution queries. 
 To construct such queries, we have provided a set of containers or 
-referred as `ExecutionNode` s. These nodes provide the ability to 
+referred as :class:`ExecNode` s. These nodes provide the ability to 
 construct operations like filtering, projection, join, etc. 
 
-This is the list of `ExecutionNode` s exposed;
+This is the list of :class:`ExecutionNode` s exposed;
 
 1. :class:`SourceNode`
 2. :class:`FilterNode`
@@ -204,11 +204,11 @@ in designing a streaming execution plan.
 ``SourceNode``
 --------------
 
-:class:`SourceNode` can be considered as an entry point to create a streaming execution plan. 
+:struct:`arrow::compute::SourceNode` can be considered as an entry point to create a streaming execution plan. 
 A source node can be constructed as follows.
 
-`arrow::compute::SoureNodeOptions` are used to create the :class:`SourceNode`. 
-The `arrow::Schema` of the data passing through and a function to generate data 
+:class:`arrow::compute::SoureNodeOptions` are used to create the :struct:`arrow::compute::SourceNode`. 
+The :class:`Schema` of the data passing through and a function to generate data 
 `std::function<arrow::Future<arrow::util::optional<arrow::compute::ExecBatch>>()>` 
 are required to create this option::
 
@@ -230,9 +230,9 @@ are required to create this option::
 --------------
 
 :class:`FilterNode`, as the name suggests, provide a container to define a data filtering criteria. 
-Filter can be written using `arrow::compute::Expression`. For instance if the row values
+Filter can be written using :class:`arrow::compute::Expression`. For instance if the row values
 of a particular column needs to be filtered by a boundary value, ex: all values of column b
-greater than 3, can be written as follows::
+greater than 3, can be written using :class:`arrow::compute::FilterNodeOptions` as follows::
 
     // a > 3
     arrow::compute::Expression filter_opt = arrow::compute::greater(
@@ -257,8 +257,8 @@ Using this option, the filter node can be constructed as follows::
 :class:`ProjectNode` executes expressions on input batches and produces new batches. 
 Each expression will be evaluated against each batch which is pushed to this 
 node to produce a corresponding output column. This is exposed via 
-`arrow::compute::ProjectNodeOptions` component which requires, 
-a `arrow::compute::Expression`, names of the project columns (names are not provided, 
+:class:`arrow::compute::ProjectNodeOptions` component which requires, 
+a :class:`arrow::compute::Expression`, names of the project columns (names are not provided, 
 the string representations of exprs will be used) and a boolean flag to determine 
 synchronous/asynchronous nature (by default asynchronous option is set to `true`). 
 
@@ -285,7 +285,7 @@ Creating a project node::
 -----------------------
 
 :class:`ScalarAggregateNode` is an :class:`ExecNode` which provides various 
-aggregation options. The `arrow::compute::AggregateNodeOptions` provides the 
+aggregation options. The :class:`arrow::compute::AggregateNodeOptions` provides the 
 container to define the aggregation criterion. These options can be 
 selected from `arrow::compute` options. 
 
@@ -301,7 +301,8 @@ Example::
 
 2. `CountOptions`
    
-`CountOptions` aggregation option provides three sub-options to determine the counting approach. 
+:class:`arrow::compute::CountOptions` aggregation option provides three sub-options to 
+determine the counting approach. 
 
 a. `ONLY_VALID` : Count only non-null values
 b. `ONLY_NULL` : Count both non-null and null values
@@ -313,9 +314,11 @@ Example::
 
 3. `ModeOptions`
 
-`ModeOptions` aggregation option computes mode for a distribution,
+:class:`arrow::compute::ModeOptions` aggregation option computes mode for a distribution,
 by returns top-n common values and counts. 
-By default, returns the most common value and count.
+By default, returns the most common value and count
+
+Example::
 
     // n: top value `n` values
     // skip_nulls: if true (the default), null values are ignored. 
@@ -325,9 +328,10 @@ By default, returns the most common value and count.
 
 4. `VarianceOptions`
 
-This option controls the Delta Degrees of Freedom (ddof) of Variance and Stddev kernel.
-The divisor used in calculations is N - ddof, where N is the number of elements.
-By default, ddof is zero, and population variance or stddev is returned.
+:class:`arrow::compute::VarianceOptions` option controls the Delta Degrees of Freedom 
+(ddof) of Variance and Stddev kernel. The divisor used in calculations is N - ddof, 
+where N is the number of elements. By default, ddof is zero, and population variance 
+or stddev is returned.
 
 Example::
 
@@ -341,10 +345,10 @@ Example::
 
 5. `QuantileOptions`
 
-This option controls the Quantile kernel behavior. By default, returns the median value.
-There is an interpolation method to use when quantile lies between two data points.
-The provided options for interpolation are; `LINEAE`, `LOWER`, 'HIGHER', `NEAREST` 
-and `MIDPOINT`.
+:class:`arrow::compute::QuantileOptions` This option controls the Quantile kernel behavior. 
+By default, returns the median value. There is an interpolation method to use when quantile 
+lies between two data points. The provided options for interpolation are; `LINEAE`, `LOWER`, `HIGHER`,
+`NEAREST` and `MIDPOINT`.
 
 Example::
 
@@ -362,7 +366,7 @@ Example::
 
 6. `TDigestOptions`
 
-This option controls TDigest approximate quantile kernel behavior.
+`arrow::compute::TDigestOptions` option controls TDigest approximate quantile kernel behavior.
 By default, returns the median value.
 
 Example::
@@ -381,8 +385,8 @@ Example::
 
 7. IndexOptions
 
-This option controls Index kernel behavior. This is used to find the
-index of a particular scalar value. 
+:class:`arrow::compute::IndexOptions` This option controls Index kernel behavior. 
+This is used to find the index of a particular scalar value. 
 
 Example::
 
@@ -407,15 +411,15 @@ Scan-Node
 ---------
 
 There is no class or struct defined as ScanNode in the source. 
-But `arrow::compute::ScanNodeOptions` container includes the options
+But :class:`arrow::compute::ScanNodeOptions` container includes the options
 passed to `MakeScanNode` internal function which creates an :class:`ExecNode`
 performing the defined task. This component includes a few options,
-defined in the `ScanNodeOptions` and this requires, 
+defined in the :class:`arrow::compute::ScanNodeOptions` and this requires, 
 `std::shared_ptr<arrow::dataset::Dataset>`, 
 `std::shared_ptr<arrow::compute::ScanOptions>`, 
 `std::shared_ptr<arrow::util::AsyncToggle>`. 
 
-The `arrow::compute::ScanOptions` includes the scaning options::
+The :class:`arrow::compute::ScanOptions` includes the scaning options::
 
     arrow::compute::Expression Materialize(std::vector<std::string> names,
                               bool include_aug_fields = false) {
@@ -455,8 +459,8 @@ The `arrow::compute::ScanOptions` includes the scaning options::
 ------------
 
 :class:`SinkNode` can be considered as the output or final node of an streaming 
-execution definition. `SinkNodeOptions` interface is used to pass the required options. 
-Requires 
+execution definition. :class:`arrow::compute::SinkNodeOptions` interface is used to pass 
+the required options. Requires 
 `std::function<arrow::Future<arrow::util::optional<arrow::compute::ExecBatch>>()>* generator`
 and `arrow::util::BackpressureOptions backpressure`. 
 
@@ -494,10 +498,10 @@ The output can be obtained as a table::
 ``ConsumingSinkNode``
 ---------------------
 
-:class:`ConsumingSinkNode` is a sink node that owns consuming the data and 
+:class:`arrow::compute::ConsumingSinkNode` is a sink node that owns consuming the data and 
 will not finish until the consumption is finished.  Use SinkNode if you are
 transferring the ownership of the data to another system.  
-Use :class:`ConsumingSinkNode` if the data is being consumed within the exec 
+Use :class:`arrow::compute::ConsumingSinkNode` if the data is being consumed within the exec 
 plan (i.e. the exec plan should not complete until the consumption has completed).
 
 Example::
@@ -539,8 +543,9 @@ Example::
 
 This is an extension to the :class:`SinkNode` definition and provides the ability
 to guarantee the ordering of the stream by providing the,
-`arrow::compute::OrderBySinkNodeOptions`. Here the `SortOptions` are provided
-to define which columns are used for sorting and under which criterion.
+:class:`arrow::compute::OrderBySinkNodeOptions`. 
+Here the :class:`arrow::compute::SortOptions` are provided to define which columns 
+are used for sorting and under which criterion.
 
 Example::
 
@@ -563,7 +568,7 @@ SelectK-Node
 ------------
 
 There is no Select-K-SinkNode available as an entity within the source, but the behavior 
-is defined with the options `arrow::compute::SelectKOptions` which is a defined by 
+is defined with the options :class:`arrow::compute::SelectKOptions` which is a defined by 
 using :struct:`OrderBySinkNode` definition. This option returns a sink node that receives 
 inputs and then compute top_k/bottom_k.
 
@@ -582,9 +587,9 @@ Scan-Node
 ---------
 
 There is no definition Scan-Node in the source, but the behavior of is defined using 
-`arrow::dataset::ScanNodeOptions`. This option contains a set of definitions. 
+:class:`arrow::dataset::ScanNodeOptions`. This option contains a set of definitions. 
 
-Option definitions for `ScanNodeOptions`:: 
+Option definitions for :class:`arrow::dataset::ScanNodeOptions`:: 
 
 
     /// A row filter (which will be pushed down to partitioning/reading if supported).
@@ -659,6 +664,114 @@ Creating a Scan `ExecNode`::
                               scan_node_options));
 
 
+Write-Node
+----------
+
+The option to write a result to a file format is provided by this execution node type. 
+A definition doesn't exist as an :class:`ExecNode`, but the write options are provided
+via the :class:`arrow::dataset::WriteNodeOptions` and defined using 
+:class::`arrow::dataset::FileSystemDatasetWriteOptions`, `std::shared_ptr<arrow::Schema>`,
+and `std::shared_ptr<arrow::util::AsyncToggle> backpressure_toggle`. Here the 
+:class::`arrow::dataset::FileSystemDatasetWriteOptions` contains the meta-data required 
+to write the data. 
+
+Creating `WriteNodeOptions`::
+
+    std::string root_path = "";
+    std::string uri = "file://" + '/path/to/file';
+    std::shared_ptr<arrow::fs::FileSystem> filesystem =
+    arrow::fs::FileSystemFromUri(uri, &root_path).ValueOrDie();
+
+    auto base_path = root_path + "/parquet_dataset";
+    ABORT_ON_FAILURE(filesystem->DeleteDir(base_path));
+    ABORT_ON_FAILURE(filesystem->CreateDir(base_path));
+
+    // The partition schema determines which fields are part of the partitioning.
+    auto partition_schema = arrow::schema({arrow::field("a", arrow::int32())});
+    // We'll use Hive-style partitioning,
+    // which creates directories with "key=value" pairs.
+
+    auto partitioning =
+    std::make_shared<arrow::dataset::HivePartitioning>(partition_schema);
+    // We'll write Parquet files.
+    auto format = std::make_shared<arrow::dataset::ParquetFileFormat>();
+
+    arrow::dataset::FileSystemDatasetWriteOptions write_options;
+    write_options.file_write_options = format->DefaultWriteOptions();
+    write_options.filesystem = filesystem;
+    write_options.base_dir = base_path;
+    write_options.partitioning = partitioning;
+    write_options.basename_template = "part{i}.parquet";
+
+    arrow::dataset::WriteNodeOptions write_node_options {write_options,
+    dataset->schema()};
+
+Creating a `write` `ExecNode`::
+
+    ARROW_ASSIGN_OR_RAISE(cp::ExecNode *wr, cp::MakeExecNode("write", plan.get(),
+        {scan}, write_node_options));
+
+    ABORT_ON_FAILURE(wr->Validate());
+    ABORT_ON_FAILURE(plan->Validate());
+    // // // start the ExecPlan
+    ABORT_ON_FAILURE(plan->StartProducing());
+    plan->finished().Wait(); // make sure to add this method 
+
+``UnionNode``
+-------------
+
+:class:`UnionNode` is the :class:`ExecNode` interface to perform a union 
+operation on two datasets. The union operation can be executed
+on multiple data sources(:class:`ExecNodes`).
+
+The following example demonstrates how this can be achieved using 
+two data sources. Following a union operations the output is obtained using 
+a aggregation operation. 
+
+Example::
+
+    arrow::compute::Declaration union_node{"union", arrow::compute::ExecNodeOptions{}};
+    arrow::compute::Declaration lhs{"source",
+                  arrow::compute::SourceNodeOptions{/*schema of data*/l_schema,
+                                    /*generator*/l_gen()}};
+    lhs.label = "lhs";
+    arrow::compute::Declaration rhs{"source",
+                    arrow::compute::SourceNodeOptions{/*schema of data*/r_schema,
+                                    /*generator*/r_gen()}};
+    rhs.label = "rhs";
+    union_node.inputs.emplace_back(lhs);
+    union_node.inputs.emplace_back(rhs);
+
+    arrow::compute::CountOptions options(arrow::compute::CountOptions::ONLY_VALID);
+    ARROW_ASSIGN_OR_RAISE(auto declr,
+    arrow::compute::Declaration::Sequence(
+            {
+                union_node,
+                {"aggregate", arrow::compute::AggregateNodeOptions{
+                  /*aggregates=*/{{"count", &options}},
+                  /*targets=*/{"a"},
+                  /*names=*/{"count(a)"},
+                  /*keys=*/{}}},
+                {"sink", arrow::compute::SinkNodeOptions{&sink_gen}},
+            })
+            .AddToPlan(plan.get()));
+
+Example List
+============
+
+There a set of examples can be found in ``examples/arrow/execution_plan_documentation_examples.cc``
+
+1. Source-Sink
+2. Scan-Sink
+3. Scan-Filter-Sink
+4. Scan-Project-Sink
+5. Source-Aggregate-Sink
+6. Scan-ConsumingSinkNode
+7. Scan-OrderBySinkNode
+8. Scan-HashJoinNode
+9. Scan-SelectSinkNode
+10. Scan-Filter-WriteNode
+11. Scan-Union-Sink
 
 
 Constructing ``ExecPlan`` objects
