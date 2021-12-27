@@ -36,6 +36,7 @@ namespace internal {
 
 using applicator::ScalarBinary;
 using applicator::ScalarBinaryEqualTypes;
+using applicator::ScalarTernary;
 using applicator::ScalarTernaryEqualTypes;
 
 namespace {
@@ -822,6 +823,10 @@ template <typename Op>
 std::shared_ptr<ScalarFunction> MakeBetweenFunction(std::string name,
                                                     const FunctionDoc* doc) {
   auto func = std::make_shared<CompareFunction>(name, Arity::Ternary(), doc);
+
+  DCHECK_OK(func->AddKernel(
+      {boolean(), boolean(), boolean()}, boolean(),
+      ScalarTernary<BooleanType, BooleanType, BooleanType, BooleanType, Op>::Exec));
 
   for (const std::shared_ptr<DataType>& ty : IntTypes()) {
     AddIntegerBetween<Op>(ty, func.get());
