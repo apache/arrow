@@ -5,15 +5,24 @@ using Grpc.Core;
 
 namespace FlightAspServerExample.Services
 {
+    public class FlightData
+    {
+        public FlightData()
+        {
+            flights = new Dictionary<FlightTicket, FlightInfo> { };
+            tables = new Dictionary<FlightTicket, List<RecordBatch>> { };
+        }
+        public IDictionary<FlightTicket, FlightInfo> flights;
+        public IDictionary<FlightTicket, List<RecordBatch>> tables;
+    }
+
     public class InMemoryFlightServer : FlightServer
     {
-        private IDictionary<FlightTicket, FlightInfo> _flights;
-        private IDictionary<FlightTicket, List<RecordBatch>> _tables;
+        private FlightData _flightData;
 
-        public InMemoryFlightServer()
+        public InMemoryFlightServer(FlightData flightData)
         {
-            _flights = new Dictionary<FlightTicket, FlightInfo> { };
-            _tables = new Dictionary<FlightTicket, List<RecordBatch>> { };
+            _flightData = flightData;
         }
 
         public override async Task DoPut(
@@ -22,6 +31,7 @@ namespace FlightAspServerExample.Services
             ServerCallContext context
         )
         {
+            // TODO: Handle cancellation
             var newTable = new List<RecordBatch> { };
             Int64 numRows = 0;
 
@@ -36,14 +46,14 @@ namespace FlightAspServerExample.Services
             var ticket = DescriptorAsTicket(descriptor);
             var schema = await requestStream.Schema;
 
-            _flights.Add(ticket, new FlightInfo(
+            _flightData.flights.Add(ticket, new FlightInfo(
                 schema,
                 descriptor,
                 new List<FlightEndpoint> { GetEndpoint(ticket, context.Host) },
                 numRows,
                 -1 // Unknown
             ));
-            _tables.Add(ticket, newTable);
+            _flightData.tables.Add(ticket, newTable);
 
             await responseStream.WriteAsync(new FlightPutResult("Table saved."));
         }
@@ -54,11 +64,11 @@ namespace FlightAspServerExample.Services
             ServerCallContext context
         )
         {
-            if (!_tables.ContainsKey(ticket))
+            if (!_flightData.tables.ContainsKey(ticket))
             {
                 throw new RpcException(new Status(StatusCode.NotFound, "Flight not found."));
             }
-            var table = _tables[ticket];
+            var table = _flightData.tables[ticket];
 
             foreach (var batch in table) {
                 await responseStream.WriteAsync(batch);
@@ -71,7 +81,7 @@ namespace FlightAspServerExample.Services
             ServerCallContext context
         )
         {
-            foreach (var flight in _flights.Values)
+            foreach (var flight in _flightData.flights.Values)
             {
                 await responseStream.WriteAsync(flight);
             }
@@ -80,9 +90,9 @@ namespace FlightAspServerExample.Services
         public override async Task<FlightInfo> GetFlightInfo(FlightDescriptor request, ServerCallContext context)
         {
             var key = DescriptorAsTicket(request);
-            if (_flights.ContainsKey(key))
+            if (_flightData.flights.ContainsKey(key))
             {
-                return _flights[key];
+                return _flightData.flights[key];
             }
             else
             {
@@ -106,8 +116,8 @@ namespace FlightAspServerExample.Services
         {
             if (request.Type == "clear")
             {
-                _flights.Clear();
-                _tables.Clear();
+                _flightData.flights.Clear();
+                _flightData.tables.Clear();
             }
             else
             {

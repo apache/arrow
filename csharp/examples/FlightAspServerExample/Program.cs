@@ -15,6 +15,10 @@ if (builder.Environment.IsDevelopment())
     });
 }
 
+// There may be multiple instances of InMemoryFlightServer, so we need a singleton instance
+// of the data store.
+builder.Services.AddSingleton<FlightData>();
+
 // Add services to the container.
 var grpcBuilder = builder.Services.AddGrpc();
 grpcBuilder.AddFlightServer<InMemoryFlightServer>();
@@ -22,6 +26,7 @@ grpcBuilder.AddFlightServer<InMemoryFlightServer>();
 var app = builder.Build();
 // Configure the HTTP request pipeline.
 app.MapGrpcService<GreeterService>();
+app.MapFlightEndpoint();
 app.MapGet("/", () => "Communication with gRPC endpoints must be made through a gRPC client. To learn how to create a client, visit: https://go.microsoft.com/fwlink/?linkid=2086909");
 
 app.Run();

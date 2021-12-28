@@ -31,13 +31,18 @@ namespace FlightClientExample
             string host = args.Length > 0 ? args[0] : "localhost";
             string port = args.Length > 1 ? args[1] : "433";
 
+            CancellationTokenSource source = new CancellationTokenSource();
+            CancellationToken token = source.Token;
+
             // Create client
-            var channel = GrpcChannel.ForAddress($"http://${host}:${port}");
+            var address = $"http://{host}:{port}";
+            Console.WriteLine($"Connecting to: {address}");
+            var channel = GrpcChannel.ForAddress(address);
             var client = new FlightClient(channel);
 
             // Upload data
             var recordBatches = new RecordBatch[] {
-                CreateTestBatch(0, 20), CreateTestBatch(50, 90)
+                CreateTestBatch(0, 2000), CreateTestBatch(50, 9000)
             };
             
             var descriptor = FlightDescriptor.CreateCommandDescriptor("test");
@@ -45,8 +50,12 @@ namespace FlightClientExample
             foreach (var batch in recordBatches) {
                 await batchStreamingCall.RequestStream.WriteAsync(batch);
             }
-            // We need this?
-            batchStreamingCall.Dispose();
+            // Signal we are done sending record batches
+            await batchStreamingCall.RequestStream.CompleteAsync();
+            // Retrieve final response
+            await batchStreamingCall.ResponseStream.MoveNext(token);
+            Console.WriteLine(batchStreamingCall.ResponseStream.Current.ApplicationMetadata.ToStringUtf8());
+            
 
             Console.WriteLine($"Wrote {recordBatches.Length} batches to server.");
 
@@ -61,7 +70,7 @@ namespace FlightClientExample
 
             Console.WriteLine($"Available flights:");
             var flights_call = client.ListFlights();
-            CancellationToken token; // Why is token required??
+
             while (await flights_call.ResponseStream.MoveNext(token))
             {   
                 Console.WriteLine("Flight: " + flights_call.ResponseStream.Current.ToString());
@@ -79,15 +88,16 @@ namespace FlightClientExample
                 Console.WriteLine($"Read batch from flight server: \n {batch}")  ;
             }
             
+            // TODO: Show error handling
         }
 
-        public static RecordBatch CreateTestBatch(Int32 start, Int32 end)
+        public static RecordBatch CreateTestBatch(Int32 start, Int32 length)
         {
             return new RecordBatch.Builder()
-                .Append("Column A", false, col => col.Int32(array => array.AppendRange(Enumerable.Range(0, 10))))
-                .Append("Column B", false, col => col.Float(array => array.AppendRange(Enumerable.Range(0, 10).Select(x => Convert.ToSingle(x * 2)))))
-                .Append("Column C", false, col => col.String(array => array.AppendRange(Enumerable.Range(0, 10).Select(x => $"Item {x+1}"))))
-                .Append("Column D", false, col => col.Boolean(array => array.AppendRange(Enumerable.Range(0, 10).Select(x => x % 2 == 0))))
+                .Append("Column A", false, col => col.Int32(array => array.AppendRange(Enumerable.Range(start, start + length))))
+                .Append("Column B", false, col => col.Float(array => array.AppendRange(Enumerable.Range(start, start + length).Select(x => Convert.ToSingle(x * 2)))))
+                .Append("Column C", false, col => col.String(array => array.AppendRange(Enumerable.Range(start, start + length).Select(x => $"Item {x+1}"))))
+                .Append("Column D", false, col => col.Boolean(array => array.AppendRange(Enumerable.Range(start, start + length).Select(x => x % 2 == 0))))
                 .Build();
         }
     }
