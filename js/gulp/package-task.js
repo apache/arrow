@@ -61,12 +61,19 @@ const createMainPackageJson = (target, format) => (orig) => ({
         [`./${mainExport}.node.mjs`]: `./${mainExport}.dom.mjs`
     },
     exports: {
-        node: {
-            import: `./${mainExport}.node.mjs`,
-            require: `./${mainExport}.node.js`,
+        "umd": `${mainExport}.es2015.min.js`,
+        ".": {
+            node: {
+                import: `./${mainExport}.node.mjs`,
+                require: `./${mainExport}.node.js`,
+            },
+            import: `./${mainExport}.dom.mjs`,
+            require: `./${mainExport}.dom.js`,
         },
-        import: `./${mainExport}.dom.mjs`,
-        require: `./${mainExport}.dom.js`,
+        "./*": {
+            import: `./*.mjs`,
+            require: `./*.js`
+        }
     },
     types: `${mainExport}.node.d.ts`,
     unpkg: `${mainExport}.es2015.min.js`,
