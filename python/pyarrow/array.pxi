@@ -992,17 +992,6 @@ cdef class Array(_PandasConvertible):
         """
         return self.get_refererenced_buffer_size()
 
-    def get_total_size_by_buffer(self):
-        """
-        Total size of the buffer calculated by the sum of all buffers 
-        in the array
-        """
-        size = 0
-        for buf in self.buffers():
-            if buf is not None:
-                size += buf.size
-        return size
-
     def get_refererenced_buffer_size(self):
         """
         Returns the sum of bytes from all buffer ranges referenced
