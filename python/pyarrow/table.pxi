@@ -146,10 +146,6 @@ cdef class ChunkedArray(_PandasConvertible):
         """
         Total number of bytes consumed by the elements of the chunked array.
         """
-        # size = 0
-        # for chunk in self.iterchunks():
-        #     size += chunk.nbytes
-        # return size
         return self.get_referenced_buffer_size()
 
     def get_referenced_buffer_size(self):
