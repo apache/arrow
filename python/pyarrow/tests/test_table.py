@@ -48,8 +48,11 @@ def test_chunked_array_basics():
     assert all(isinstance(c, pa.lib.Int64Array) for c in data.chunks)
     assert all(isinstance(c, pa.lib.Int64Array) for c in data.iterchunks())
     assert len(data.chunks) == 3
-    assert data.nbytes == sum(c.nbytes for c in data.iterchunks())
-    assert sys.getsizeof(data) >= object.__sizeof__(data) + data.nbytes
+    assert data.get_total_buffer_size() == sum(c.get_total_buffer_size()
+                                               for c in data.iterchunks())
+    assert sys.getsizeof(data) >= object.__sizeof__(
+        data) + data.get_total_buffer_size()
+    assert data.nbytes == 3 * 3 * 8  # 3 items per 3 lists with int64 size(8)
     data.validate()
 
     wr = weakref.ref(data)

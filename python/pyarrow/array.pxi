@@ -990,9 +990,9 @@ cdef class Array(_PandasConvertible):
         """
         Total number of bytes consumed by the elements of the array.
         """
-        return self.get_refererenced_buffer_size()
+        return self.get_referenced_buffer_size()
 
-    def get_refererenced_buffer_size(self):
+    def get_referenced_buffer_size(self):
         """
         Returns the sum of bytes from all buffer ranges referenced
 
@@ -1012,7 +1012,7 @@ cdef class Array(_PandasConvertible):
 
         shd_ptr_c_array = pyarrow_unwrap_array(self)
         c_array = shd_ptr_c_array.get()
-        c_res_buffer = ReferencedBufferSize(c_array[0])
+        c_res_buffer = ReferencedBufferSize(deref(c_array))
         size = GetResultValue(c_res_buffer)
         return size
 
