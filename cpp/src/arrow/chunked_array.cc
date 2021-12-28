@@ -49,6 +49,11 @@ ChunkedArray::ChunkedArray(ArrayVector chunks) : chunks_(std::move(chunks)) {
   ARROW_CHECK_GT(chunks_.size(), 0)
       << "cannot construct ChunkedArray from empty vector and omitted type";
   type_ = chunks_[0]->type();
+  for (const auto& chunk : chunks_) {
+    ARROW_CHECK(chunk->type()->Equals(*type_))
+        << Status::Invalid("Array chunks must all be same type") << type_->ToString();
+  }
+
   for (const std::shared_ptr<Array>& chunk : chunks_) {
     length_ += chunk->length();
     null_count_ += chunk->null_count();
@@ -65,6 +70,11 @@ ChunkedArray::ChunkedArray(ArrayVector chunks, std::shared_ptr<DataType> type)
         << "cannot construct ChunkedArray from empty vector and omitted type";
     type_ = chunks_[0]->type();
   }
+  for (const auto& chunk : chunks_) {
+    ARROW_CHECK(chunk->type()->Equals(*type_))
+        << Status::Invalid("Array chunks must all be same type");
+  }
+
   for (const std::shared_ptr<Array>& chunk : chunks_) {
     length_ += chunk->length();
     null_count_ += chunk->null_count();
@@ -81,8 +91,8 @@ Result<std::shared_ptr<ChunkedArray>> ChunkedArray::Make(ArrayVector chunks,
     }
     type = chunks[0]->type();
   }
-  for (size_t i = 0; i < chunks.size(); ++i) {
-    if (!chunks[i]->type()->Equals(*type)) {
+  for (const auto& chunk : chunks) {
+    if (!chunk->type()->Equals(*type)) {
       return Status::Invalid("Array chunks must all be same type");
     }
   }
