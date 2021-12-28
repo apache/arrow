@@ -77,7 +77,7 @@ BENCHMARK(GreaterArrayScalarInt64)->Apply(RegressionSetArgs);
 BENCHMARK(GreaterArrayArrayString)->Apply(RegressionSetArgs);
 BENCHMARK(GreaterArrayScalarString)->Apply(RegressionSetArgs);
 
-template <BetweenOperator op, typename Type>
+template <typename Type>
 static void BetweenScalarArrayScalar(benchmark::State& state) {
   RegressionArgs args(state, /*size_is_bytes=*/false);
   auto ty = TypeTraits<Type>::type_singleton();
@@ -86,13 +86,13 @@ static void BetweenScalarArrayScalar(benchmark::State& state) {
   auto scalar_left = *rand.ArrayOf(ty, 1, 0)->GetScalar(0);
   auto scalar_right = *rand.ArrayOf(ty, 1, 0)->GetScalar(0);
   for (auto _ : state) {
-    ABORT_NOT_OK(CallFunction(BetweenOperatorToFunctionName(op),
-                              {array, scalar_left, scalar_right})
-                     .status());
+    ABORT_NOT_OK(
+        CallFunction("between_less_equal_less_equal", {array, scalar_left, scalar_right})
+            .status());
   }
 }
 
-template <BetweenOperator op, typename Type>
+template <typename Type>
 static void BetweenArrayArrayArray(benchmark::State& state) {
   RegressionArgs args(state, /*size_is_bytes=*/false);
   auto ty = TypeTraits<Type>::type_singleton();
@@ -101,17 +101,16 @@ static void BetweenArrayArrayArray(benchmark::State& state) {
   auto mid = rand.ArrayOf(ty, args.size, args.null_proportion);
   auto rhs = rand.ArrayOf(ty, args.size, args.null_proportion);
   for (auto _ : state) {
-    ABORT_NOT_OK(
-        CallFunction(BetweenOperatorToFunctionName(op), {mid, lhs, rhs}).status());
+    ABORT_NOT_OK(CallFunction("between_less_equal_less_equal", {mid, lhs, rhs}).status());
   }
 }
 
 static void BetweenArrayArrayArrayInt64(benchmark::State& state) {
-  BetweenArrayArrayArray<LESS_EQUAL_LESS_EQUAL, Int64Type>(state);
+  BetweenArrayArrayArray<Int64Type>(state);
 }
 
 static void BetweenScalarArrayScalarInt64(benchmark::State& state) {
-  BetweenScalarArrayScalar<LESS_EQUAL_LESS_EQUAL, Int64Type>(state);
+  BetweenScalarArrayScalar<Int64Type>(state);
 }
 
 BENCHMARK(BetweenArrayArrayArrayInt64)->Apply(RegressionSetArgs);

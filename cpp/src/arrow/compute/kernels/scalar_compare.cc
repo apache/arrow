@@ -932,14 +932,13 @@ const FunctionDoc max_element_wise_doc{
     {"*args"},
     "ElementWiseAggregateOptions"};
 
-const FunctionDoc between_doc{
-    "Check if values are in a range, val betwen a and b",
-    ("A null on either side emits a null comparison result.\n"
-     "options are used to specify if the endpoints are\n"
-     "included, possible values are LESS_LESS (a<val<b),\n"
-     "LESS_EQUAL_LESS (a<=val<b), LESS_LESS_EQUAL (a<val<=b),\n"
-     "and LESS_EQUAL_LESS_EQUAL (a<=val<=b)\n"),
-    {"val", "a", "b"}};
+const FunctionDoc between_doc{"Check if values are in a range, val betwen a and b",
+                              ("A null on either side emits a null comparison result.\n"
+                               "options are used to specify if the endpoints are\n"
+                               "included, possible values are LESS_LESS (a<val<b),\n"
+                               "LESS_EQUAL_LESS (a<=val<b), LESS_LESS_EQUAL (a<val<=b),\n"
+                               "and LESS_EQUAL_LESS_EQUAL (a<=val<=b)\n"),
+                              {"val", "a", "b"}};
 
 const FunctionDoc between_less_equal_less_equal_doc{
     "Check if values are in a range x <= y <= z",
@@ -992,9 +991,8 @@ void RegisterScalarComparison(FunctionRegistry* registry) {
 }
 
 void RegisterScalarBetween(FunctionRegistry* registry) {
-
-  auto between_less_less = MakeBetweenFunction<BetweenLessLess>(
-      "between_less_less", &between_less_less_doc);
+  auto between_less_less =
+      MakeBetweenFunction<BetweenLessLess>("between_less_less", &between_less_less_doc);
   DCHECK_OK(registry->AddFunction(std::move(between_less_less)));
 
   auto between_less_less_equal = MakeBetweenFunction<BetweenLessLessEqual>(
