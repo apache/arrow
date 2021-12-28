@@ -52,7 +52,7 @@ ChunkedArray::ChunkedArray(ArrayVector chunks, std::shared_ptr<DataType> type)
         << "cannot construct ChunkedArray from empty vector and omitted type";
     type_ = chunks_[0]->type();
   }
-  for (const std::shared_ptr<Array>& chunk : chunks_) {
+  for (const auto& chunk : chunks_) {
     length_ += chunk->length();
     null_count_ += chunk->null_count();
   }
