@@ -78,7 +78,7 @@ class ARROW_EXPORT ChunkedArray {
   ///
   /// The vector elements must have the same data type.
   /// If the data type is passed explicitly, the vector may be empty.
-  /// If the data type is ommitted, the vector must be non-empty.
+  /// If the data type is omitted, the vector must be non-empty.
   ChunkedArray(ArrayVector chunks, std::shared_ptr<DataType> type = nullptr);
 
   // \brief Constructor with basic input validation.
