@@ -293,6 +293,15 @@ def test_input_type_conversion():
                     "foo").to_pylist() == [True, False, None]
 
 
+def test_input_array_conversion():
+    class convertible:
+        def __arrow_array__(self, type=None):
+            return pa.array(range(5), type)
+
+    assert pc.sum(np.arange(5)).as_py() == 10
+    assert pc.sum(convertible()).as_py() == 10
+
+
 @pytest.mark.parametrize('arrow_type', numerical_arrow_types)
 def test_sum_array(arrow_type):
     arr = pa.array([1, 2, 3, 4], type=arrow_type)

@@ -416,7 +416,8 @@ cdef class MetaFunction(Function):
 
 cdef _pack_compute_args(object values, vector[CDatum]* out):
     for val in values:
-        if isinstance(val, (list, np.ndarray)):
+        if isinstance(val, (list, np.ndarray)) or \
+                hasattr(val, '__arrow_array__'):
             val = lib.asarray(val)
 
         if isinstance(val, Array):
