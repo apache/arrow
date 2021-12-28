@@ -84,7 +84,7 @@ struct BetweenLessEqualLessEqual {
   }
 };
 
-struct BetweenLessThanLessEqual {
+struct BetweenLessLessEqual {
   template <typename T, typename Arg0, typename Arg1, typename Arg2>
   static constexpr T Call(KernelContext*, const Arg0& middle, const Arg1& left,
                           const Arg2& right, Status*) {
@@ -95,7 +95,7 @@ struct BetweenLessThanLessEqual {
   }
 };
 
-struct BetweenLessEqualLessThan {
+struct BetweenLessEqualLess {
   template <typename T, typename Arg0, typename Arg1, typename Arg2>
   static constexpr T Call(KernelContext*, const Arg0& middle, const Arg1& left,
                           const Arg2& right, Status*) {
@@ -106,7 +106,7 @@ struct BetweenLessEqualLessThan {
   }
 };
 
-struct BetweenLessThanLessThan {
+struct BetweenLessLess {
   template <typename T, typename Arg0, typename Arg1, typename Arg2>
   static constexpr T Call(KernelContext*, const Arg0& middle, const Arg1& left,
                           const Arg2& right, Status*) {
@@ -932,22 +932,31 @@ const FunctionDoc max_element_wise_doc{
     {"*args"},
     "ElementWiseAggregateOptions"};
 
+const FunctionDoc between_doc{
+    "Check if values are in a range, val betwen a and b",
+    ("A null on either side emits a null comparison result.\n"
+     "options are used to specify if the endpoints are\n"
+     "included, possible values are LESS_LESS (a<val<b),\n"
+     "LESS_EQUAL_LESS (a<=val<b), LESS_LESS_EQUAL (a<val<=b),\n"
+     "and LESS_EQUAL_LESS_EQUAL (a<=val<=b)\n"),
+    {"val", "a", "b"}};
+
 const FunctionDoc between_less_equal_less_equal_doc{
     "Check if values are in a range x <= y <= z",
     ("A null on either side emits a null comparison result."),
     {"x", "y", "z"}};
 
-const FunctionDoc between_less_than_less_equal_doc{
+const FunctionDoc between_less_less_equal_doc{
     "Check if values are in a range x < y <= z",
     ("A null on either side emits a null comparison result."),
     {"x", "y", "z"}};
 
-const FunctionDoc between_less_equal_less_than_doc{
+const FunctionDoc between_less_equal_less_doc{
     "Check if values are in a range x <= y < z",
     ("A null on either side emits a null comparison result."),
     {"x", "y", "z"}};
 
-const FunctionDoc between_less_than_less_than_doc{
+const FunctionDoc between_less_less_doc{
     "Check if values are in a range x < y < z",
     ("A null on either side emits a null comparison result."),
     {"x", "y", "z"}};
@@ -983,17 +992,18 @@ void RegisterScalarComparison(FunctionRegistry* registry) {
 }
 
 void RegisterScalarBetween(FunctionRegistry* registry) {
-  auto between_less_than_less_than = MakeBetweenFunction<BetweenLessThanLessThan>(
-      "between_less_than_less_than", &between_less_than_less_than_doc);
-  DCHECK_OK(registry->AddFunction(std::move(between_less_than_less_than)));
 
-  auto between_less_than_less_equal = MakeBetweenFunction<BetweenLessThanLessEqual>(
-      "between_less_than_less_equal", &between_less_than_less_equal_doc);
-  DCHECK_OK(registry->AddFunction(std::move(between_less_than_less_equal)));
+  auto between_less_less = MakeBetweenFunction<BetweenLessLess>(
+      "between_less_less", &between_less_less_doc);
+  DCHECK_OK(registry->AddFunction(std::move(between_less_less)));
 
-  auto between_less_equal_less_than = MakeBetweenFunction<BetweenLessEqualLessThan>(
-      "between_less_equal_less_than", &between_less_equal_less_than_doc);
-  DCHECK_OK(registry->AddFunction(std::move(between_less_equal_less_than)));
+  auto between_less_less_equal = MakeBetweenFunction<BetweenLessLessEqual>(
+      "between_less_less_equal", &between_less_less_equal_doc);
+  DCHECK_OK(registry->AddFunction(std::move(between_less_less_equal)));
+
+  auto between_less_equal_less = MakeBetweenFunction<BetweenLessEqualLess>(
+      "between_less_equal_less", &between_less_equal_less_doc);
+  DCHECK_OK(registry->AddFunction(std::move(between_less_equal_less)));
 
   auto between_less_equal_less_equal = MakeBetweenFunction<BetweenLessEqualLessEqual>(
       "between_less_equal_less_equal", &between_less_equal_less_equal_doc);

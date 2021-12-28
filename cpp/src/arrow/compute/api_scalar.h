@@ -342,17 +342,19 @@ struct ARROW_EXPORT CompareOptions {
   enum CompareOperator op;
 };
 
-enum BetweenOperator : int8_t {
+enum class BetweenMode : int8_t {
   LESS_EQUAL_LESS_EQUAL,
   LESS_EQUAL_LESS,
   LESS_LESS_EQUAL,
   LESS_LESS,
 };
 
-struct ARROW_EXPORT BetweenOptions {
-  explicit BetweenOptions(BetweenOperator op) : op(op) {}
-  BetweenOptions() : BetweenOptions(BetweenOperator::LESS_EQUAL_LESS_EQUAL) {}
-  enum BetweenOperator op;
+class ARROW_EXPORT BetweenOptions : public FunctionOptions {
+  public:
+    explicit BetweenOptions(BetweenMode between_mode = BetweenMode::LESS_EQUAL_LESS_EQUAL);
+    constexpr static char const kTypeName[] = "BetweenOptions";
+    static BetweenOptions Defaults() { return BetweenOptions(); }
+    BetweenMode between_mode;
 };
 
 class ARROW_EXPORT MakeStructOptions : public FunctionOptions {
@@ -1377,7 +1379,8 @@ ARROW_EXPORT Result<Datum> AssumeTimezone(const Datum& values,
 /// \note API not yet finalized
 ARROW_EXPORT
 Result<Datum> Between(const Datum& values, const Datum& left, const Datum& right,
-                      BetweenOptions options, ExecContext* ctx = NULLPTR);
+                      BetweenOptions options = BetweenOptions(),
+                      ExecContext* ctx = NULLPTR);
 
 }  // namespace compute
 }  // namespace arrow
