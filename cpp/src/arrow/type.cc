@@ -259,19 +259,21 @@ std::shared_ptr<Field> Field::WithNullable(const bool nullable) const {
 Field::MergeOptions Field::MergeOptions::Permissive() {
   MergeOptions options = Defaults();
   options.promote_nullability = true;
-  options.promote_numeric_width = true;
-  options.promote_integer_float = true;
-  options.promote_integer_decimal = true;
+  options.promote_decimal = true;
   options.promote_decimal_float = true;
-  options.promote_date = true;
-  options.promote_time = true;
-  options.promote_duration = true;
-  options.promote_timestamp = true;
-  options.promote_nested = true;
-  options.promote_dictionary = true;
+  options.promote_integer_decimal = true;
+  options.promote_integer_float = true;
   options.promote_integer_sign = true;
-  options.promote_large = true;
+  options.promote_numeric_width = true;
   options.promote_binary = true;
+  options.promote_date = true;
+  options.promote_duration = true;
+  options.promote_time = true;
+  options.promote_timestamp = true;
+  options.promote_dictionary = true;
+  options.promote_dictionary_ordered = false;
+  options.promote_large = true;
+  options.promote_nested = true;
   return options;
 }
 

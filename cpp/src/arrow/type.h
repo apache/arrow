@@ -319,38 +319,39 @@ class ARROW_EXPORT Field : public detail::Fingerprintable {
     /// not itself be promoted (e.g. Decimal128 + Float32 = Float32).
     bool promote_decimal_float = false;
 
-    /// Allow an integer of a given bit width to be promoted to a
-    /// float of an equal or greater bit width.
-    bool promote_integer_float = false;
-
-    /// Allow an unsigned integer of a given bit width to be promoted
-    /// to a signed integer of the same bit width.
-    bool promote_integer_sign = false;
-
     /// Allow an integer to be promoted to a decimal.
     ///
     /// May fail if the decimal has insufficient precision to
     /// accomodate the integer. (See increase_decimal_precision.)
     bool promote_integer_decimal = false;
 
+    /// Allow an integer of a given bit width to be promoted to a
+    /// float; the result will be a float of an equal or greater bit
+    /// width to both of the inputs.
+    bool promote_integer_float = false;
+
+    /// Allow an unsigned integer of a given bit width to be promoted
+    /// to a signed integer of the equal or greater bit width.
+    bool promote_integer_sign = false;
+
     /// Allow an integer, float, or decimal of a given bit width to be
     /// promoted to an equivalent type of a greater bit width.
     bool promote_numeric_width = false;
 
+    /// Allow strings to be promoted to binary types.
+    bool promote_binary = false;
+
     /// Promote Date32 to Date64.
     bool promote_date = false;
+
+    /// Promote second to millisecond, etc.
+    bool promote_duration = false;
 
     /// Promote Time32 to Time64, or Time32(SECOND) to Time32(MILLI), etc.
     bool promote_time = false;
 
     /// Promote second to millisecond, etc.
-    bool promote_duration = false;
-
-    /// Promote second to millisecond, etc.
     bool promote_timestamp = false;
-
-    /// Recursively merge nested types.
-    bool promote_nested = false;
 
     /// Promote dictionary index types to a common type, and unify the
     /// value types.
@@ -364,11 +365,15 @@ class ARROW_EXPORT Field : public detail::Fingerprintable {
     /// Allow a type to be promoted to the Large variant.
     bool promote_large = false;
 
-    /// Allow strings to be promoted to binary types.
-    bool promote_binary = false;
+    /// Recursively merge nested types.
+    bool promote_nested = false;
 
+    /// Get default options. Only NullType will be merged with other types.
     static MergeOptions Defaults() { return MergeOptions(); }
+    /// Get permissive options. All options are enabled, except
+    /// promote_dictionary_ordered.
     static MergeOptions Permissive();
+    /// Get a human-readable representation of the options.
     std::string ToString() const;
   };
 
