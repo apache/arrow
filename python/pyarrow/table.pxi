@@ -150,9 +150,9 @@ cdef class ChunkedArray(_PandasConvertible):
         # for chunk in self.iterchunks():
         #     size += chunk.nbytes
         # return size
-        return self.get_refererenced_buffer_size()
+        return self.get_referenced_buffer_size()
 
-    def get_refererenced_buffer_size(self):
+    def get_referenced_buffer_size(self):
         """
         Returns the sum of bytes from all buffer ranges referenced
 
@@ -969,10 +969,52 @@ cdef class RecordBatch(_PandasConvertible):
         """
         Total number of bytes consumed by the elements of the record batch.
         """
-        size = 0
-        for i in range(self.num_columns):
-            size += self.column(i).nbytes
+        return self.get_referenced_buffer_size()
+
+    def get_referenced_buffer_size(self):
+        """
+        Returns the sum of bytes from all buffer ranges referenced
+
+        Unlike TotalBufferSize this method will account for array
+        offsets.
+
+        If buffers are shared between arrays then the shared
+        portion will only be counted multiple times.
+
+        Dictionary arrays will always be counted in their entirety
+        even if the array only references a portion of the dictionary.
+        """
+        cdef:
+            shared_ptr[CRecordBatch] shd_ptr_c_rb
+            CRecordBatch *c_rb
+            CResult[int64_t] c_res_buffer
+
+        shd_ptr_c_rb = pyarrow_unwrap_batch(self)
+        c_rb = shd_ptr_c_rb.get()
+        c_res_buffer = ReferencedBufferSize(deref(c_rb))
+        size = GetResultValue(c_res_buffer)
         return size
+
+    def get_total_buffer_size(self):
+        """
+        The sum of bytes in each buffer referenced by the array
+
+        An array may only reference a portion of a buffer.
+        This method will overestimate in this case and return the
+        byte size of the entire buffer.
+
+        If a buffer is referenced multiple times then it will
+        only be counted once.
+        """
+        cdef:
+            shared_ptr[CRecordBatch] shd_ptr_c_rb
+            CRecordBatch *c_rb
+            int64_t total_buffer_size
+
+        shd_ptr_c_rb = pyarrow_unwrap_batch(self)
+        c_rb = shd_ptr_c_rb.get()
+        total_buffer_size = TotalBufferSize(deref(c_rb))
+        return total_buffer_size
 
     def __sizeof__(self):
         return super(RecordBatch, self).__sizeof__() + self.nbytes

@@ -460,8 +460,10 @@ def test_recordbatch_basics():
     assert batch.num_rows == 5
     assert batch.num_columns == len(data)
     # (only the second array has a null bitmap)
-    assert batch.nbytes == (5 * 2) + (5 * 4 + 1)
-    assert sys.getsizeof(batch) >= object.__sizeof__(batch) + batch.nbytes
+    assert batch.get_total_buffer_size() == (5 * 2) + (5 * 4 + 1)
+    batch.nbytes == (5 * 2) + (5 * 4 + 1)
+    assert sys.getsizeof(batch) >= object.__sizeof__(
+        batch) + batch.get_total_buffer_size()
     pydict = batch.to_pydict()
     assert pydict == OrderedDict([
         ('c0', [0, 1, 2, 3, 4]),
