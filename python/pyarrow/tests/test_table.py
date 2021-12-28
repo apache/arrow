@@ -822,8 +822,10 @@ def test_table_basics():
     assert table.num_rows == 5
     assert table.num_columns == 2
     assert table.shape == (5, 2)
+    assert table.get_total_buffer_size() == 2 * (5 * 8)
     assert table.nbytes == 2 * (5 * 8)
-    assert sys.getsizeof(table) >= object.__sizeof__(table) + table.nbytes
+    assert sys.getsizeof(table) >= object.__sizeof__(
+        table) + table.get_total_buffer_size()
     pydict = table.to_pydict()
     assert pydict == OrderedDict([
         ('a', [0, 1, 2, 3, 4]),

@@ -2228,10 +2228,52 @@ cdef class Table(_PandasConvertible):
         -------
         int
         """
-        size = 0
-        for column in self.itercolumns():
-            size += column.nbytes
+        return self.get_referenced_buffer_size()
+
+    def get_referenced_buffer_size(self):
+        """
+        Returns the sum of bytes from all buffer ranges referenced
+
+        Unlike TotalBufferSize this method will account for array
+        offsets.
+
+        If buffers are shared between arrays then the shared
+        portion will only be counted multiple times.
+
+        Dictionary arrays will always be counted in their entirety
+        even if the array only references a portion of the dictionary.
+        """
+        cdef:
+            shared_ptr[CTable] shd_ptr_table
+            CTable *c_table
+            CResult[int64_t] c_res_buffer
+
+        shd_ptr_table = pyarrow_unwrap_table(self)
+        c_table = shd_ptr_table.get()
+        c_res_buffer = ReferencedBufferSize(deref(c_table))
+        size = GetResultValue(c_res_buffer)
         return size
+
+    def get_total_buffer_size(self):
+        """
+        The sum of bytes in each buffer referenced by the array
+
+        An array may only reference a portion of a buffer.
+        This method will overestimate in this case and return the
+        byte size of the entire buffer.
+
+        If a buffer is referenced multiple times then it will
+        only be counted once.
+        """
+        cdef:
+            shared_ptr[CTable] shd_ptr_table
+            CTable *c_table
+            int64_t total_buffer_size
+
+        shd_ptr_table = pyarrow_unwrap_table(self)
+        c_table = shd_ptr_table.get()
+        total_buffer_size = TotalBufferSize(deref(c_table))
+        return total_buffer_size
 
     def __sizeof__(self):
         return super(Table, self).__sizeof__() + self.nbytes
