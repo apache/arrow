@@ -2279,7 +2279,7 @@ TEST(TestStringBetweenKernel, RandomBetweenArrayScalarScalar) {
         const int64_t length = static_cast<int64_t>(1ULL << i);
         auto array = Datum(rand.String(length, 0, 16, null_probability));
         auto fupi = Datum(std::make_shared<ScalarType>("fupi"));
-	auto zito = Datum(std::make_shared<ScalarType>("zito"));
+        auto zito = Datum(std::make_shared<ScalarType>("zito"));
         auto options = BetweenOptions(between_mode);
         ValidateBetween<StringType>(options, array, fupi, zito);
       }
@@ -2296,7 +2296,7 @@ TEST(TestStringBetweenKernel, RandomBetweenArrayArrayArray) {
             BetweenMode::LESS_LESS_EQUAL, BetweenMode::LESS_LESS}) {
         auto length = static_cast<int64_t>(1ULL << i);
         auto val = Datum(rand.String(length << i, 0, 16, null_probability));
-	auto lhs = Datum(rand.String(length << i, 0, 16, null_probability));
+        auto lhs = Datum(rand.String(length << i, 0, 16, null_probability));
         auto rhs = Datum(rand.String(length << i, 0, 16, null_probability));
         auto options = BetweenOptions(between_mode);
         ValidateBetween<StringType>(options, val, lhs, rhs);
@@ -2348,7 +2348,7 @@ TEST(TestStringBetweenKernel, SimpleStringTest) {
                                             R"([true, null, null, true])"));
 }
 
-TEST_F(TestStringBetweenKernel, StringArrayArrayArrayTest) {
+TEST(TestStringBetweenKernel, StringArrayArrayArrayTest) {
   BetweenOptions blele(BetweenMode::LESS_EQUAL_LESS_EQUAL);
   ValidateBetween<StringType>(
       blele,

@@ -102,8 +102,7 @@ struct EnumTraits<compute::CompareOperator>
 
 template <>
 struct EnumTraits<compute::BetweenMode>
-    : BasicEnumTraits<compute::BetweenMode,
-                      compute::BetweenMode::LESS_EQUAL_LESS_EQUAL,
+    : BasicEnumTraits<compute::BetweenMode, compute::BetweenMode::LESS_EQUAL_LESS_EQUAL,
                       compute::BetweenMode::LESS_EQUAL_LESS,
                       compute::BetweenMode::LESS_LESS_EQUAL,
                       compute::BetweenMode::LESS_LESS> {
@@ -415,8 +414,7 @@ AssumeTimezoneOptions::AssumeTimezoneOptions() : AssumeTimezoneOptions("UTC") {}
 constexpr char AssumeTimezoneOptions::kTypeName[];
 
 BetweenOptions::BetweenOptions(BetweenMode between_mode)
-    : FunctionOptions(internal::kBetweenOptionsType),
-      between_mode(between_mode) {}
+    : FunctionOptions(internal::kBetweenOptionsType), between_mode(between_mode) {}
 constexpr char BetweenOptions::kTypeName[];
 
 DayOfWeekOptions::DayOfWeekOptions(bool count_from_zero, uint32_t week_start)

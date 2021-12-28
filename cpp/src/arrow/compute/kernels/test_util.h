@@ -153,7 +153,7 @@ void TestRandomPrimitiveCTypes() {
   DoTestFunctor<Time64Type>::Test(time64(TimeUnit::MICRO));
   DoTestFunctor<TimestampType>::Test(timestamp(TimeUnit::SECOND));
   DoTestFunctor<TimestampType>::Test(timestamp(TimeUnit::MICRO));
-  DoTestFunctor<DurationType>::Test(duration(TimeUnit::MILLI)); 
+  DoTestFunctor<DurationType>::Test(duration(TimeUnit::MILLI));
 }
 
 // Check that DispatchBest on a given function yields the same Kernel as

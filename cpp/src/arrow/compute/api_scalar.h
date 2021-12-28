@@ -378,11 +378,11 @@ enum class BetweenMode : int8_t {
 };
 
 class ARROW_EXPORT BetweenOptions : public FunctionOptions {
-  public:
-    explicit BetweenOptions(BetweenMode between_mode = BetweenMode::LESS_EQUAL_LESS_EQUAL);
-    constexpr static char const kTypeName[] = "BetweenOptions";
-    static BetweenOptions Defaults() { return BetweenOptions(); }
-    BetweenMode between_mode;
+ public:
+  explicit BetweenOptions(BetweenMode between_mode = BetweenMode::LESS_EQUAL_LESS_EQUAL);
+  constexpr static char const kTypeName[] = "BetweenOptions";
+  static BetweenOptions Defaults() { return BetweenOptions(); }
+  BetweenMode between_mode;
 };
 
 class ARROW_EXPORT MakeStructOptions : public FunctionOptions {
