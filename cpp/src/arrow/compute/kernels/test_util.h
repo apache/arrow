@@ -69,16 +69,6 @@ inline std::string CompareOperatorToFunctionName(CompareOperator op) {
   return function_names[op];
 }
 
-inline std::string BetweenOperatorToFunctionName(BetweenOperator op) {
-  static std::string function_names[] = {
-      "between_less_equal_less_equal",
-      "between_less_equal_less_than",
-      "between_less_than_less_equal",
-      "between_less_than_less_than",
-  };
-  return function_names[op];
-}
-
 // Construct an array of decimals, where negative scale is allowed.
 //
 // Works around DecimalXXX::FromString intentionally not inferring
@@ -163,7 +153,7 @@ void TestRandomPrimitiveCTypes() {
   DoTestFunctor<Time64Type>::Test(time64(TimeUnit::MICRO));
   DoTestFunctor<TimestampType>::Test(timestamp(TimeUnit::SECOND));
   DoTestFunctor<TimestampType>::Test(timestamp(TimeUnit::MICRO));
-  DoTestFunctor<DurationType>::Test(duration(TimeUnit::MILLI));
+  DoTestFunctor<DurationType>::Test(duration(TimeUnit::MILLI)); 
 }
 
 // Check that DispatchBest on a given function yields the same Kernel as

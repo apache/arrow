@@ -101,22 +101,22 @@ struct EnumTraits<compute::CompareOperator>
 };
 
 template <>
-struct EnumTraits<compute::BetweenOperator>
-    : BasicEnumTraits<compute::BetweenOperator,
-                      compute::BetweenOperator::LESS_EQUAL_LESS_EQUAL,
-                      compute::BetweenOperator::LESS_EQUAL_LESS,
-                      compute::BetweenOperator::LESS_LESS_EQUAL,
-                      compute::BetweenOperator::LESS_LESS> {
-  static std::string name() { return "compute::BetweenOperator"; }
-  static std::string value_name(compute::BetweenOperator value) {
+struct EnumTraits<compute::BetweenMode>
+    : BasicEnumTraits<compute::BetweenMode,
+                      compute::BetweenMode::LESS_EQUAL_LESS_EQUAL,
+                      compute::BetweenMode::LESS_EQUAL_LESS,
+                      compute::BetweenMode::LESS_LESS_EQUAL,
+                      compute::BetweenMode::LESS_LESS> {
+  static std::string name() { return "compute::BetweenMode"; }
+  static std::string value_name(compute::BetweenMode value) {
     switch (value) {
-      case compute::BetweenOperator::LESS_EQUAL_LESS_EQUAL:
+      case compute::BetweenMode::LESS_EQUAL_LESS_EQUAL:
         return "LESS_EQUAL_LESS_EQUAL";
-      case compute::BetweenOperator::LESS_EQUAL_LESS:
+      case compute::BetweenMode::LESS_EQUAL_LESS:
         return "LESS_EQUAL_LESS";
-      case compute::BetweenOperator::LESS_LESS_EQUAL:
+      case compute::BetweenMode::LESS_LESS_EQUAL:
         return "LESS_LESS_EQUAL";
-      case compute::BetweenOperator::LESS_LESS:
+      case compute::BetweenMode::LESS_LESS:
         return "LESS_LESS";
     }
     return "<INVALID>";
@@ -316,6 +316,8 @@ static auto kAssumeTimezoneOptionsType = GetFunctionOptionsType<AssumeTimezoneOp
     DataMember("timezone", &AssumeTimezoneOptions::timezone),
     DataMember("ambiguous", &AssumeTimezoneOptions::ambiguous),
     DataMember("nonexistent", &AssumeTimezoneOptions::nonexistent));
+static auto kBetweenOptionsType = GetFunctionOptionsType<BetweenOptions>(
+    DataMember("between_mode", &BetweenOptions::between_mode));
 static auto kDayOfWeekOptionsType = GetFunctionOptionsType<DayOfWeekOptions>(
     DataMember("count_from_zero", &DayOfWeekOptions::count_from_zero),
     DataMember("week_start", &DayOfWeekOptions::week_start));
@@ -411,6 +413,11 @@ AssumeTimezoneOptions::AssumeTimezoneOptions(std::string timezone, Ambiguous amb
       nonexistent(nonexistent) {}
 AssumeTimezoneOptions::AssumeTimezoneOptions() : AssumeTimezoneOptions("UTC") {}
 constexpr char AssumeTimezoneOptions::kTypeName[];
+
+BetweenOptions::BetweenOptions(BetweenMode between_mode)
+    : FunctionOptions(internal::kBetweenOptionsType),
+      between_mode(between_mode) {}
+constexpr char BetweenOptions::kTypeName[];
 
 DayOfWeekOptions::DayOfWeekOptions(bool count_from_zero, uint32_t week_start)
     : FunctionOptions(internal::kDayOfWeekOptionsType),
@@ -617,6 +624,7 @@ namespace internal {
 void RegisterScalarOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kArithmeticOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kAssumeTimezoneOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kBetweenOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kDayOfWeekOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kElementWiseAggregateOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kExtractRegexOptionsType));
@@ -788,21 +796,21 @@ Result<Datum> Compare(const Datum& left, const Datum& right, CompareOptions opti
 Result<Datum> Between(const Datum& val, const Datum& left, const Datum& right,
                       BetweenOptions options, ExecContext* ctx) {
   std::string func_name;
-  switch (options.op) {
-    case BetweenOperator::LESS_EQUAL_LESS_EQUAL:
+  switch (options.between_mode) {
+    case BetweenMode::LESS_EQUAL_LESS_EQUAL:
       func_name = "between_less_equal_less_equal";
       break;
-    case BetweenOperator::LESS_EQUAL_LESS:
+    case BetweenMode::LESS_EQUAL_LESS:
       func_name = "between_less_equal_less";
       break;
-    case BetweenOperator::LESS_LESS_EQUAL:
+    case BetweenMode::LESS_LESS_EQUAL:
       func_name = "between_less_less_equal";
       break;
-    case BetweenOperator::LESS_LESS:
+    case BetweenMode::LESS_LESS:
       func_name = "between_less_less";
       break;
   }
-  return CallFunction(func_name, {val, left, right}, nullptr, ctx);
+  return CallFunction(func_name, {val, left, right}, ctx);
 }
 
 // ----------------------------------------------------------------------
