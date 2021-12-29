@@ -48,10 +48,9 @@ namespace Apache.Arrow.Flight.Server
             throw new NotImplementedException();
         }
 
-        public virtual async Task<Schema> GetSchema(FlightDescriptor request, ServerCallContext context)
+        public virtual Task<Schema> GetSchema(FlightDescriptor request, ServerCallContext context)
         {
-            var info = await GetFlightInfo(request, context);
-            return info.Schema;
+            throw new NotImplementedException();
         }
 
         public virtual Task<FlightInfo> GetFlightInfo(FlightDescriptor request, ServerCallContext context)

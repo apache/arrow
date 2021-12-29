@@ -42,9 +42,6 @@ namespace Apache.Arrow.Flight.Client
             base.Dispose(disposing);
         }
 
-        /// <summary>
-        /// Inform server that no more record batches will be sent.
-        /// </summary>
         public async Task CompleteAsync()
         {
             if (_completed)
