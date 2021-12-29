@@ -23,22 +23,6 @@
 #include <utility>
 #include <vector>
 
-// This boost/asio/io_context.hpp include is needless for no MinGW
-// build.
-//
-// This is for including boost/asio/detail/socket_types.hpp before any
-// "#include <windows.h>". boost/asio/detail/socket_types.hpp doesn't
-// work if windows.h is already included. boost/process.h ->
-// boost/process/args.hpp -> boost/process/detail/basic_cmd.hpp
-// includes windows.h. boost/process/args.hpp is included before
-// boost/process/async.h that includes
-// boost/asio/detail/socket_types.hpp implicitly is included.
-#include <boost/asio/io_context.hpp>
-// We need BOOST_USE_WINDOWS_H definition with MinGW when we use
-// boost/process.hpp. See ARROW_BOOST_PROCESS_COMPILE_DEFINITIONS in
-// cpp/cmake_modules/BuildUtils.cmake for details.
-#include <boost/process.hpp>
-
 #include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
@@ -95,7 +79,41 @@ using ::arrow::fs::internal::ErrorToStatus;
 using ::arrow::fs::internal::OutcomeToStatus;
 using ::arrow::fs::internal::ToAwsString;
 
-namespace bp = boost::process;
+// Use "short" retry parameters to make tests faster
+static constexpr int32_t kRetryInterval = 50;      /* milliseconds */
+static constexpr int32_t kMaxRetryDuration = 6000; /* milliseconds */
+
+::testing::Environment* s3_env = ::testing::AddGlobalTestEnvironment(new S3Environment);
+
+::testing::Environment* minio_env =
+    ::testing::AddGlobalTestEnvironment(new MinioTestEnvironment);
+
+MinioTestEnvironment* GetMinioEnv() {
+  return ::arrow::internal::checked_cast<MinioTestEnvironment*>(minio_env);
+}
+
+class ShortRetryStrategy : public S3RetryStrategy {
+ public:
+  bool ShouldRetry(const AWSErrorDetail& error, int64_t attempted_retries) override {
+    if (error.message.find(kFileExistsMessage) != error.message.npos) {
+      // Minio returns "file exists" errors (when calling mkdir) as internal errors,
+      // which would trigger spurious retries.
+      return false;
+    }
+    return error.should_retry && (attempted_retries * kRetryInterval < kMaxRetryDuration);
+  }
+
+  int64_t CalculateDelayBeforeNextRetry(const AWSErrorDetail& error,
+                                        int64_t attempted_retries) override {
+    return kRetryInterval;
+  }
+
+#ifdef _WIN32
+  static constexpr const char* kFileExistsMessage = "file already exists";
+#else
+  static constexpr const char* kFileExistsMessage = "file exists";
+#endif
+};
 
 // NOTE: Connecting in Python:
 // >>> fs = s3fs.S3FileSystem(key='minio', secret='miniopass',
@@ -157,13 +175,14 @@ class S3TestMixin : public AwsTestMixin {
   void SetUp() override {
     AwsTestMixin::SetUp();
 
-    ASSERT_OK(minio_.Start());
+    ASSERT_OK_AND_ASSIGN(minio_, GetMinioEnv()->GetOneServer());
 
     client_config_.reset(new Aws::Client::ClientConfiguration());
-    client_config_->endpointOverride = ToAwsString(minio_.connect_string());
+    client_config_->endpointOverride = ToAwsString(minio_->connect_string());
     client_config_->scheme = Aws::Http::Scheme::HTTP;
-    client_config_->retryStrategy = std::make_shared<ConnectRetryStrategy>();
-    credentials_ = {ToAwsString(minio_.access_key()), ToAwsString(minio_.secret_key())};
+    client_config_->retryStrategy =
+        std::make_shared<ConnectRetryStrategy>(kRetryInterval, kMaxRetryDuration);
+    credentials_ = {ToAwsString(minio_->access_key()), ToAwsString(minio_->secret_key())};
     bool use_virtual_addressing = false;
     client_.reset(
         new Aws::S3::S3Client(credentials_, *client_config_,
@@ -171,14 +190,10 @@ class S3TestMixin : public AwsTestMixin {
                               use_virtual_addressing));
   }
 
-  void TearDown() override {
-    ASSERT_OK(minio_.Stop());
-
-    AwsTestMixin::TearDown();
-  }
+  void TearDown() override { AwsTestMixin::TearDown(); }
 
  protected:
-  MinioTestServer minio_;
+  std::shared_ptr<MinioTestServer> minio_;
   std::unique_ptr<Aws::Client::ClientConfiguration> client_config_;
   Aws::Auth::AWSCredentials credentials_;
   std::unique_ptr<Aws::S3::S3Client> client_;
@@ -416,9 +431,12 @@ class TestS3FS : public S3TestMixin {
   }
 
   void MakeFileSystem() {
-    options_.ConfigureAccessKey(minio_.access_key(), minio_.secret_key());
+    options_.ConfigureAccessKey(minio_->access_key(), minio_->secret_key());
     options_.scheme = "http";
-    options_.endpoint_override = minio_.connect_string();
+    options_.endpoint_override = minio_->connect_string();
+    if (!options_.retry_strategy) {
+      options_.retry_strategy = std::make_shared<ShortRetryStrategy>();
+    }
     ASSERT_OK_AND_ASSIGN(fs_, S3FileSystem::Make(options_));
   }
 
@@ -1045,9 +1063,9 @@ TEST_F(TestS3FS, OpenOutputStreamMetadata) {
 
 TEST_F(TestS3FS, FileSystemFromUri) {
   std::stringstream ss;
-  ss << "s3://" << minio_.access_key() << ":" << minio_.secret_key()
+  ss << "s3://" << minio_->access_key() << ":" << minio_->secret_key()
      << "@bucket/somedir/subdir/subfile"
-     << "?scheme=http&endpoint_override=" << UriEscape(minio_.connect_string());
+     << "?scheme=http&endpoint_override=" << UriEscape(minio_->connect_string());
 
   std::string path;
   ASSERT_OK_AND_ASSIGN(auto fs, FileSystemFromUri(ss.str(), &path));
@@ -1117,9 +1135,10 @@ class TestS3FSGeneric : public S3TestMixin, public GenericFileSystemTest {
       ASSERT_OK(OutcomeToStatus(client_->CreateBucket(req)));
     }
 
-    options_.ConfigureAccessKey(minio_.access_key(), minio_.secret_key());
+    options_.ConfigureAccessKey(minio_->access_key(), minio_->secret_key());
     options_.scheme = "http";
-    options_.endpoint_override = minio_.connect_string();
+    options_.endpoint_override = minio_->connect_string();
+    options_.retry_strategy = std::make_shared<ShortRetryStrategy>();
     ASSERT_OK_AND_ASSIGN(s3fs_, S3FileSystem::Make(options_));
     fs_ = std::make_shared<SubTreeFileSystem>("s3fs-test-bucket", s3fs_);
   }

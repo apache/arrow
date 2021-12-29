@@ -195,8 +195,11 @@ class MinioFixture : public benchmark::Fixture {
 /// (GBenchmark doesn't run GTest environments.)
 class S3BenchmarkEnvironment {
  public:
-  S3BenchmarkEnvironment() { s3_env->SetUp(); }
-  ~S3BenchmarkEnvironment() { s3_env->TearDown(); }
+  S3BenchmarkEnvironment() { s3_env_.SetUp(); }
+  ~S3BenchmarkEnvironment() { s3_env_.TearDown(); }
+
+ private:
+  S3Environment s3_env_;
 };
 
 S3BenchmarkEnvironment env{};
