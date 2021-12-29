@@ -24,12 +24,12 @@ namespace IoTPipelineExample
     class Program
     {
         public static int concurrencyLevel = 8;
-        public static int totalSensorData = 100_000_000;
+        public static int totalInputs = 1_000_000;
         public static int queueCapacity = 1_000_000;
 
         public static async Task Main(string[] args)
         {
-            SampleDataPipeline sdp = new SampleDataPipeline(concurrencyLevel, totalSensorData, queueCapacity);
+            SampleDataPipeline sdp = new SampleDataPipeline(totalInputs, queueCapacity);
             List<Task> tasks = new List<Task>();
 
             Console.WriteLine("Producing IoT sensor data concurrently...");
@@ -40,13 +40,8 @@ namespace IoTPipelineExample
                 tasks.Add(t);
             }
 
-            Console.WriteLine("Consuming IoT sensor data concurrently...");
-            for (int i = 0; i < concurrencyLevel; i++)
-            {
-                int j = i;
-                Task t = Task.Run(() => sdp.ReadFromChannel(j));
-                tasks.Add(t);
-            }
+            Console.WriteLine("Consuming IoT sensor data...");
+            tasks.Add(Task.Run(() => sdp.ReadFromChannel()));
 
             Console.WriteLine("Waiting for all tasks to complete...");
             Task.WaitAll(tasks.ToArray());
