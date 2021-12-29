@@ -116,10 +116,7 @@ class InvalidRowHandler:
 
     def __call__(self, row):
         self.rows.append(row)
-        if isinstance(self.result, Exception):
-            raise self.result
-        else:
-            return self.result
+        return self.result
 
     def __eq__(self, other):
         return (isinstance(other, InvalidRowHandler) and

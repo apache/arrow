@@ -47,8 +47,27 @@ cdef unsigned char _single_char(s) except 0:
     return <unsigned char> val
 
 
-InvalidRow = namedtuple(
-    "InvalidRow", ("expected_columns", "actual_columns", "number", "text"))
+_InvalidRow = namedtuple(
+    "_InvalidRow", ("expected_columns", "actual_columns", "number", "text"),
+    module=__name__)
+
+
+class InvalidRow(_InvalidRow):
+    """
+    Description of an invalid row in a CSV file.
+
+    Attributes
+    ----------
+    expected_columns : int
+        The expected number of columns in the row.
+    actual_columns : int
+        The actual number of columns in the row.
+    number : int or None
+        The physical row number if known, otherwise None.
+    text : str
+        The contents of the row.
+    """
+    __slots__ = ()
 
 
 cdef CInvalidRowResult _handle_invalid_row(
