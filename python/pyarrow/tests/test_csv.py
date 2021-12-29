@@ -41,7 +41,7 @@ import numpy as np
 import pyarrow as pa
 from pyarrow.csv import (
     open_csv, read_csv, ReadOptions, ParseOptions, ConvertOptions, ISO8601,
-    write_csv, WriteOptions, CSVWriter)
+    write_csv, WriteOptions, CSVWriter, InvalidRow)
 from pyarrow.tests import util
 
 
@@ -109,6 +109,24 @@ def check_options_class_pickling(cls, **attr_values):
         assert getattr(new_opts, name) == value
 
 
+class InvalidRowHandler:
+    def __init__(self, result):
+        self.result = result
+        self.rows = []
+
+    def __call__(self, row):
+        self.rows.append(row)
+        return self.result
+
+    def __eq__(self, other):
+        return (isinstance(other, InvalidRowHandler) and
+                other.result == self.result)
+
+    def __ne__(self, other):
+        return (not isinstance(other, InvalidRowHandler) or
+                other.result != self.result)
+
+
 def test_read_options():
     cls = ReadOptions
     opts = cls()
@@ -165,20 +183,23 @@ def test_read_options():
 
 def test_parse_options():
     cls = ParseOptions
+    skip_handler = InvalidRowHandler('skip')
 
     check_options_class(cls, delimiter=[',', 'x'],
                         escape_char=[False, 'y'],
                         quote_char=['"', 'z', False],
                         double_quote=[True, False],
                         newlines_in_values=[False, True],
-                        ignore_empty_lines=[True, False])
+                        ignore_empty_lines=[True, False],
+                        invalid_row_handler=[None, skip_handler])
 
     check_options_class_pickling(cls, delimiter='x',
                                  escape_char='y',
                                  quote_char=False,
                                  double_quote=False,
                                  newlines_in_values=True,
-                                 ignore_empty_lines=False)
+                                 ignore_empty_lines=False,
+                                 invalid_row_handler=skip_handler)
 
     cls().validate()
     opts = cls()
@@ -598,6 +619,39 @@ class BaseTestCSV(abc.ABC):
             self.read_bytes(csv_bad_type,
                             read_options=read_options,
                             convert_options=convert_options)
+
+    def test_invalid_row_handler(self):
+        rows = b"a,b\nc\nd,e\nf,g,h\ni,j\n"
+        parse_opts = ParseOptions()
+        with pytest.raises(
+                ValueError,
+                match="Expected 2 columns, got 1: c"):
+            self.read_bytes(rows, parse_options=parse_opts)
+
+        # Skip requested
+        parse_opts.invalid_row_handler = InvalidRowHandler('skip')
+        table = self.read_bytes(rows, parse_options=parse_opts)
+        assert table.to_pydict() == {
+            'a': ["d", "i"],
+            'b': ["e", "j"],
+        }
+
+        def row_num(x):
+            return None if self.use_threads else x
+        expected_rows = [
+            InvalidRow(2, 1, row_num(2), "c"),
+            InvalidRow(2, 3, row_num(4), "f,g,h"),
+        ]
+        assert parse_opts.invalid_row_handler.rows == expected_rows
+
+        # Error requested
+        parse_opts.invalid_row_handler = InvalidRowHandler('error')
+        with pytest.raises(
+                ValueError,
+                match="Expected 2 columns, got 1: c"):
+            self.read_bytes(rows, parse_options=parse_opts)
+        expected_rows = [InvalidRow(2, 1, row_num(2), "c")]
+        assert parse_opts.invalid_row_handler.rows == expected_rows
 
 
 class BaseCSVTableRead(BaseTestCSV):

@@ -1599,6 +1599,31 @@ cdef extern from "arrow/util/value_parsing.h" namespace "arrow" nogil:
 
 cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
 
+    cdef cppclass CCSVInvalidRow" arrow::csv::InvalidRow":
+        int32_t expected_columns
+        int32_t actual_columns
+        int64_t number
+        c_string text
+
+    ctypedef enum CInvalidRowResult" arrow::csv::InvalidRowResult":
+        CInvalidRowResult_Error" arrow::csv::InvalidRowResult::Error"
+        CInvalidRowResult_Skip" arrow::csv::InvalidRowResult::Skip"
+
+    ctypedef CInvalidRowResult CInvalidRowHandler(const CCSVInvalidRow&)
+
+
+ctypedef CInvalidRowResult PyInvalidRowCallback(object,
+                                                const CCSVInvalidRow&)
+
+
+cdef extern from "arrow/python/csv.h" namespace "arrow::py::csv":
+
+    function[CInvalidRowHandler] MakeInvalidRowHandler(
+        function[PyInvalidRowCallback], object handler)
+
+
+cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
+
     cdef cppclass CCSVParseOptions" arrow::csv::ParseOptions":
         unsigned char delimiter
         c_bool quoting
@@ -1608,6 +1633,7 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
         unsigned char escape_char
         c_bool newlines_in_values
         c_bool ignore_empty_lines
+        function[CInvalidRowHandler] invalid_row_handler
 
         CCSVParseOptions()
         CCSVParseOptions(CCSVParseOptions&&)
