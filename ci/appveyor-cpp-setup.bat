@@ -46,7 +46,10 @@ conda info -a
 @rem
 @rem Install mamba to the base environment
 @rem
-conda install -q -y -c conda-forge mamba
+conda install -q -y -c conda-forge mamba || exit /B
+
+@rem Update for newer CA certificates
+mamba update -q -y --all || exit /B
 
 @rem
 @rem Create conda environment for Build and Toolchain jobs
@@ -79,7 +82,7 @@ if "%JOB%" NEQ "Build_Debug" (
   @rem On Windows, GTest is always bundled from source instead of using
   @rem conda binaries, avoid any interference between the two versions.
   if "%JOB%" == "Toolchain" (
-    mamba uninstall -n arrow -q -y -c conda-forge gtest
+    mamba uninstall -n arrow -q -y -c conda-forge gtest || exit /B
   )
 )
 
