@@ -212,7 +212,8 @@ TEST_F(TestChunkedArray, Validate) {
 
   // Invalid if different chunk types
   arrays_one_.push_back(gen.String(50, 0, 10, 0.1));
-  ASSERT_RAISES(Invalid, ChunkedArray::Make(arrays_one_));
+  Construct();
+  ASSERT_RAISES(Invalid, one_->ValidateFull());
 }
 
 TEST_F(TestChunkedArray, PrintDiff) {
