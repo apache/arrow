@@ -31,7 +31,6 @@ import weakref
 import pyarrow as pa
 from pyarrow.tests.test_io import assert_file_not_found
 from pyarrow.tests.util import _filesystem_uri, ProxyHandler
-from pyarrow.vendored.version import Version
 
 from pyarrow.fs import (FileType, FileInfo, FileSelector, FileSystem,
                         LocalFileSystem, SubTreeFileSystem, _MockFileSystem,
@@ -409,10 +408,6 @@ def py_fsspec_memoryfs(request, tempdir):
 @pytest.fixture
 def py_fsspec_s3fs(request, s3_server):
     s3fs = pytest.importorskip("s3fs")
-    if (sys.version_info < (3, 7) and
-            Version(s3fs.__version__) >= Version("0.5")):
-        pytest.skip("s3fs>=0.5 version is async and requires Python >= 3.7")
-
     host, port, access_key, secret_key = s3_server['connection']
     bucket = 'pyarrow-filesystem/'
 

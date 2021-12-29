@@ -618,7 +618,7 @@ services:
     #   docker-compose run --rm conda-python
     # Parameters:
     #   ARCH: amd64, arm32v7
-    #   PYTHON: 3.6, 3.7, 3.8, 3.9
+    #   PYTHON: 3.7, 3.8, 3.9, 3.10
     image: ${REPO}:${ARCH}-conda-python-${PYTHON}
     build:
       context: .
@@ -860,14 +860,14 @@ services:
   python-wheel-windows-vs2017:
     # The windows images must be built locally and pushed to a remote registry:
     # export REPO=ghcr.io/ursacomputing/arrow
-    # PYTHON=3.6 archery docker build --no-pull --using-docker-cli python-wheel-windows-vs2017
     # PYTHON=3.7 archery docker build --no-pull --using-docker-cli python-wheel-windows-vs2017
     # PYTHON=3.8 archery docker build --no-pull --using-docker-cli python-wheel-windows-vs2017
     # PYTHON=3.9 archery docker build --no-pull --using-docker-cli python-wheel-windows-vs2017
-    # PYTHON=3.6 archery docker push python-wheel-windows-vs2017
+    # PYTHON=3.10 archery docker build --no-pull --using-docker-cli python-wheel-windows-vs2017
     # PYTHON=3.7 archery docker push python-wheel-windows-vs2017
     # PYTHON=3.8 archery docker push python-wheel-windows-vs2017
     # PYTHON=3.9 archery docker push python-wheel-windows-vs2017
+    # PYTHON=3.10 archery docker push python-wheel-windows-vs2017
     image: ${REPO}:python-${PYTHON}-wheel-windows-vs2017-vcpkg-${VCPKG}
     build:
       args:
