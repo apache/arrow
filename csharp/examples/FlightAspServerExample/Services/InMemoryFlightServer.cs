@@ -49,7 +49,7 @@ namespace FlightAspServerExample.Services
             _flightData.flights.Add(ticket, new FlightInfo(
                 schema,
                 descriptor,
-                new List<FlightEndpoint> { GetEndpoint(ticket, context.Host) },
+                new List<FlightEndpoint> { GetEndpoint(ticket, $"http://{context.Host}") },
                 numRows,
                 -1 // Unknown
             ));

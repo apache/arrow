@@ -21,6 +21,9 @@ using Apache.Arrow;
 using System.Linq;
 using System;
 using System.Threading;
+using System.Threading.Tasks;
+using System.Runtime.CompilerServices;
+using System.Collections.Generic;
 
 namespace FlightClientExample
 {
@@ -35,17 +38,21 @@ namespace FlightClientExample
             CancellationToken token = source.Token;
 
             // Create client
+            // (In production systems, you should use https not http)
             var address = $"http://{host}:{port}";
             Console.WriteLine($"Connecting to: {address}");
             var channel = GrpcChannel.ForAddress(address);
             var client = new FlightClient(channel);
 
-            // Upload data
             var recordBatches = new RecordBatch[] {
                 CreateTestBatch(0, 2000), CreateTestBatch(50, 9000)
             };
-            
+
+            // Particular flights are identified by a descriptor. This might be a name,
+            // a SQL query, or a path. Here, just using the name "test".
             var descriptor = FlightDescriptor.CreateCommandDescriptor("test");
+
+            // Upload data with StartPut
             var batchStreamingCall = client.StartPut(descriptor);
             foreach (var batch in recordBatches) {
                 await batchStreamingCall.RequestStream.WriteAsync(batch);
@@ -55,17 +62,13 @@ namespace FlightClientExample
             // Retrieve final response
             await batchStreamingCall.ResponseStream.MoveNext(token);
             Console.WriteLine(batchStreamingCall.ResponseStream.Current.ApplicationMetadata.ToStringUtf8());
-            
-
             Console.WriteLine($"Wrote {recordBatches.Length} batches to server.");
 
             // Request information:
-            var schema_call = client.GetSchema(descriptor);
-            var schema = await schema_call.ResponseAsync;
+            var schema = await client.GetSchema(descriptor).ResponseAsync;
             Console.WriteLine($"Schema saved as: \n {schema.ToString()}");
 
-            var infoCall = client.GetInfo(descriptor);
-            var info = await infoCall.ResponseAsync;
+            var info = await client.GetInfo(descriptor).ResponseAsync;
             Console.WriteLine($"Info provided: \n {info.ToString()}");
 
             Console.WriteLine($"Available flights:");
@@ -73,22 +76,49 @@ namespace FlightClientExample
 
             while (await flights_call.ResponseStream.MoveNext(token))
             {   
-                Console.WriteLine("Flight: " + flights_call.ResponseStream.Current.ToString());
+                Console.WriteLine("  " + flights_call.ResponseStream.Current.ToString());
             }
 
             // Download data
-            var ticket = info.Endpoints.First().Ticket;
-            // Are we requesting from the correct server? we may need to create a client
-            // for that endpoint...
-            var stream = client.GetStream(ticket);
-            
-            while (await stream.ResponseStream.MoveNext(token))
-            { 
-                RecordBatch batch = stream.ResponseStream.Current;
+            await foreach (var batch in StreamRecordBatches(info, token))
+            {
                 Console.WriteLine($"Read batch from flight server: \n {batch}")  ;
             }
-            
-            // TODO: Show error handling
+
+            // See available comands on this server
+            var action_stream = client.ListActions();
+            Console.WriteLine("Actions:");
+            while (await action_stream.ResponseStream.MoveNext(token))
+            {
+                var action = action_stream.ResponseStream.Current;
+                Console.WriteLine($"  {action.Type}: {action.Description}");
+            }
+
+            // Send clear command to drop all data from the server.
+            var clear_result = client.DoAction(new FlightAction("clear"));
+            await clear_result.ResponseStream.MoveNext(token);
+        }
+
+        public static async IAsyncEnumerable<RecordBatch> StreamRecordBatches(
+            FlightInfo info, 
+            [EnumeratorCancellation] CancellationToken token
+        )
+        {
+            // There might be multiple endpoints hosting part of the data. In simple services,
+            // the only endpoint might be the same server we initially queried.
+            foreach (var endpoint in info.Endpoints)
+            {
+                // We may have multiple locations to choose from. Here we choose the first.
+                var download_channel = GrpcChannel.ForAddress(endpoint.Locations.First().Uri);
+                var download_client = new FlightClient(download_channel);
+
+                var stream = download_client.GetStream(endpoint.Ticket);
+
+                while (await stream.ResponseStream.MoveNext(token))
+                { 
+                    yield return stream.ResponseStream.Current;
+                }
+            }
         }
 
         public static RecordBatch CreateTestBatch(Int32 start, Int32 length)
