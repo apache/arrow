@@ -1,6 +1,6 @@
 # Example Flight Client
 
-This client can connect to a server, and will:
+This client can connect [the Flight Server example](../FlightAspServerExample/readme.md) and will:
 
  1. Upload a test Arrow table
  2. Query metadata about available flights and the uploaded Arrow table

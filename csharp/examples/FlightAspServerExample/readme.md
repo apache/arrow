@@ -13,14 +13,11 @@ dotnet new grpc
 Then, implement a concrete subclass of [`FlightServer`](../../src/Apache.Arrow.Flight/Server/FlightServer.cs). 
 See [./Services/InMemoryFlightServer.cs](./Services/InMemoryFlightServer.cs).
 
-Finally, add the Flight server to the gRPC services and map the endpoints with the
-extension methods:
+Finally, in [./Program.cs](./Program.cs) add the Flight server to the gRPC services and 
+map the endpoints with the extension methods:
 
 ```csharp
 grpcBuilder.AddFlightServer<InMemoryFlightServer>();
 ...
 app.MapFlightEndpoint();
 ```
-
-See [./Program.cs](./Program.cs)
-
