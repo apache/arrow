@@ -31,13 +31,11 @@ namespace FlightAspServerExample.Services
             ServerCallContext context
         )
         {
-            // TODO: Handle cancellation
             var newTable = new List<RecordBatch> { };
             Int64 numRows = 0;
 
-            await foreach (var batch in requestStream.ReadAllAsync())
+            await foreach (var batch in requestStream.ReadAllAsync(context.CancellationToken))
             {
-                // TODO: Do we need to handle errors here?
                 newTable.Add(batch);
                 numRows += batch.Length;
             }
