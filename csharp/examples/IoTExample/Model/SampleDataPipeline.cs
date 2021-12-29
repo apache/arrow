@@ -37,6 +37,13 @@ namespace IoTPipelineExample
         ChannelWriter<SensorData> _writer;
         ChannelReader<SensorData> _reader;
 
+        private readonly Int32Array.Builder _colSubjectIdBuilder;
+        private readonly StringArray.Builder _colActivityLabelBuilder;
+        private readonly TimestampArray.Builder _colTimestampBuilder;
+        private readonly DoubleArray.Builder _colXAxisBuilder;
+        private readonly DoubleArray.Builder _colYAxisBuilder;
+        private readonly DoubleArray.Builder _colZAxisBuilder;
+
         private readonly List<ConcurrentBag<int>> _colSubjectIdArrays;
         private readonly List<ConcurrentBag<string>> _colActivityLabelArrays;
         private readonly List<ConcurrentBag<long>> _colTimestampArrays;
@@ -75,6 +82,13 @@ namespace IoTPipelineExample
             _writer = _channel.Writer;
             _reader = _channel.Reader;
 
+            _colSubjectIdBuilder = new Int32Array.Builder();
+            _colActivityLabelBuilder = new StringArray.Builder();
+            _colTimestampBuilder = new TimestampArray.Builder();
+            _colXAxisBuilder = new DoubleArray.Builder();
+            _colYAxisBuilder = new DoubleArray.Builder();
+            _colZAxisBuilder = new DoubleArray.Builder();
+
             _colSubjectIdArrays = new List<ConcurrentBag<int>>();
             _colActivityLabelArrays = new List<ConcurrentBag<string>>();
             _colTimestampArrays = new List<ConcurrentBag<long>>();
@@ -100,6 +114,7 @@ namespace IoTPipelineExample
             int count = keyList.Count;
             DateTime now = DateTime.Now;
             long unixTime = ((DateTimeOffset)now).ToUnixTimeSeconds();
+            var basis = DateTimeOffset.UtcNow.AddMilliseconds(-Length);
 
             Console.WriteLine($"Write to channel task {taskNumber} started!");
             while (await _writer.WaitToWriteAsync())
@@ -118,6 +133,7 @@ namespace IoTPipelineExample
                     subjectId = rand.Next(1000, 2001),
                     activityLabel = label,
                     timestamp = unixTime++,
+                    basis.AddMilliseconds(i)
                     x_Axis = rand.NextDouble(),
                     y_Axis = rand.NextDouble(),
                     z_Axis = rand.NextDouble(),
@@ -139,6 +155,7 @@ namespace IoTPipelineExample
 
         public async Task ReadFromChannel(int taskNumber)
         {
+
             Console.WriteLine($"Read from channel task {taskNumber} started!");
             while (await _reader.WaitToReadAsync())
             {
@@ -148,12 +165,19 @@ namespace IoTPipelineExample
                     {
                         var hashKey = item.subjectId % _partitions;
 
-                        _colSubjectIdArrays[(int)hashKey].Add((int)item.subjectId);
-                        _colActivityLabelArrays[(int)hashKey].Add(item.activityLabel);
-                        _colTimestampArrays[(int)hashKey].Add((long)item.timestamp);
-                        _colXAxisArrays[(int)hashKey].Add((double)item.x_Axis);
-                        _colYAxisArrays[(int)hashKey].Add((double)item.y_Axis);
-                        _colZAxisArrays[(int)hashKey].Add((double)item.z_Axis);
+                        _colSubjectIdBuilder.Append((int)item.subjectId);
+                        _colActivityLabelBuilder.Append(item.activityLabel);
+                        _colTimestampBuilder.Append((DateTimeOffset)item.timestamp);
+                        _colXAxisBuilder.Append((double)item.x_Axis);
+                        _colXAxisBuilder.Append((double)item.y_Axis);
+                        _colXAxisBuilder.Append((double)item.z_Axis);
+
+                        //_colSubjectIdArrays[(int)hashKey].Add((int)item.subjectId);
+                        //_colActivityLabelArrays[(int)hashKey].Add(item.activityLabel);
+                        //_colTimestampArrays[(int)hashKey].Add((long)item.timestamp);
+                        //_colXAxisArrays[(int)hashKey].Add((double)item.x_Axis);
+                        //_colYAxisArrays[(int)hashKey].Add((double)item.y_Axis);
+                        //_colZAxisArrays[(int)hashKey].Add((double)item.z_Axis);
                     }
                 }
             }
@@ -173,8 +197,8 @@ namespace IoTPipelineExample
                 var memoryAllocator = new NativeMemoryAllocator(alignment: 64);
 
                 var recordBatch = new RecordBatch.Builder(memoryAllocator)
-                    .Append("SubjectId", false, col => col.Int32(array => array.AppendRange(_colSubjectIdArrays[i])))
-                    .Append("ActivityLabel", false, col => col.String(array => array.AppendRange(_colActivityLabelArrays[i])))
+                    .Append("SubjectId", false, col => col.Int32(_colSubjectIdBuilder.Build())
+                    .Append("ActivityLabel", false, col => col.String(_colSubjectIdBuilder.Build())
                     .Append("Timestamp", false, col => col.Int64(array => array.AppendRange(_colTimestampArrays[i])))
                     .Append("XAxis", false, col => col.Double(array => array.AppendRange(_colXAxisArrays[i])))
                     .Append("YAxis", false, col => col.Double(array => array.AppendRange(_colYAxisArrays[i])))
@@ -200,24 +224,19 @@ namespace IoTPipelineExample
 
             Schema schema = builder.Build();
 
-            IEnumerable<IArrowArray> arrays = CreateArrays(schema, length);
+            List<IArrowArray> arrays = new List<IArrowArray>(5);
+            for (int i = 0; i < 5; i++)
+            {
+                Field field = schema.GetFieldByIndex(i);
 
+                var array = _colSubjectIdBuilder.Build();
+
+                arrays.Add(array);
+            }
             return new RecordBatch(schema, arrays, length);
 
 
             return arrowDataPath;
-        }
-
-        public static IEnumerable<IArrowArray> CreateArrays(Schema schema, int length)
-        {
-            int fieldCount = schema.Fields.Count;
-            List<IArrowArray> arrays = new List<IArrowArray>(fieldCount);
-            for (int i = 0; i < fieldCount; i++)
-            {
-                Field field = schema.GetFieldByIndex(i);
-                arrays.Add(CreateArray(field, length));
-            }
-            return arrays;
         }
 
         private static IArrowArray CreateArray(Field field, int length)
