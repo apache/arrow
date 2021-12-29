@@ -158,13 +158,8 @@ cmake \
   ${CMAKE_ARGS} \
   ${source_dir}
 
-if [ ! -z "${CPP_MAKE_PARALLELISM}" ]; then
-  time cmake --build . --target install -- -j${CPP_MAKE_PARALLELISM}
-elif [ "${CMAKE_GENERATOR}" == "Unix Makefiles" ]; then
-  time cmake --build . --target install -- -j$[${n_jobs} + 1]
-else
-  time cmake --build . --target install
-fi
+export CMAKE_BUILD_PARALLEL_LEVEL=${CMAKE_BUILD_PARALLEL_LEVEL:-$[${n_jobs} + 1]}
+time cmake --build . --target install
 
 popd
 
