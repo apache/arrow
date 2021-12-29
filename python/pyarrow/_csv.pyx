@@ -56,7 +56,7 @@ class InvalidRow(_InvalidRow):
     """
     Description of an invalid row in a CSV file.
 
-    Attributes
+    Parameters
     ----------
     expected_columns : int
         The expected number of columns in the row.
