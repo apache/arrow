@@ -196,14 +196,21 @@ TEST_F(TestChunkedArray, Validate) {
   ASSERT_OK(no_chunks->ValidateFull());
 
   random::RandomArrayGenerator gen(0);
-  arrays_one_.push_back(gen.Int32(50, 0, 100, 0.1));
-  Construct();
-  ASSERT_OK(one_->ValidateFull());
+
+  // Valid if non-empty and ommitted type
+  ArrayVector arrays = {gen.Int64(50, 0, 100, 0.1), gen.Int64(50, 0, 100, 0.1)};
+  auto chunks_with_no_type = std::make_shared<ChunkedArray>(arrays, nullptr);
+  ASSERT_OK(chunks_with_no_type->ValidateFull());
 
   arrays_one_.push_back(gen.Int32(50, 0, 100, 0.1));
   Construct();
   ASSERT_OK(one_->ValidateFull());
 
+  arrays_one_.push_back(gen.Int32(50, 0, 100, 0.1));
+  Construct();
+  ASSERT_OK(one_->ValidateFull());
+
+  // Invalid if different chunk types
   arrays_one_.push_back(gen.String(50, 0, 10, 0.1));
   Construct();
   ASSERT_RAISES(Invalid, one_->ValidateFull());
