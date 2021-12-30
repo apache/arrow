@@ -108,3 +108,7 @@ garrow_set_lookup_options_get_raw(GArrowSetLookupOptions *options);
 
 arrow::compute::VarianceOptions *
 garrow_variance_options_get_raw(GArrowVarianceOptions *options);
+
+
+arrow::compute::RoundOptions *
+garrow_round_options_get_raw(GArrowRoundOptions *options);
