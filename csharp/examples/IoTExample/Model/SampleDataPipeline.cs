@@ -41,6 +41,13 @@ namespace IoTPipelineExample
         private readonly DoubleArray.Builder _colYAxisBuilder;
         private readonly DoubleArray.Builder _colZAxisBuilder;
 
+        private readonly Dictionary<int, Int32Array.Builder> _colSubjectIdBuilderDict;
+        private readonly Dictionary<int, StringArray.Builder> _colActivityLabelBuilderDict;
+        private readonly Dictionary<int, TimestampArray.Builder> _colTimestampBuilderDict;
+        private readonly Dictionary<int, DoubleArray.Builder> _colXAxisBuilderDict;
+        private readonly Dictionary<int, DoubleArray.Builder> _colYAxisBuilderDict;
+        private readonly Dictionary<int, DoubleArray.Builder> _colZAxisBuilderDict;
+
         public Dictionary<string, string> activityLabel = new Dictionary<string, string>()
             {
                 {"walking", "A"},
@@ -77,6 +84,13 @@ namespace IoTPipelineExample
             _colXAxisBuilder = new DoubleArray.Builder();
             _colYAxisBuilder = new DoubleArray.Builder();
             _colZAxisBuilder = new DoubleArray.Builder();
+
+            _colSubjectIdBuilderDict = new Dictionary<int, Int32Array.Builder>();
+            _colActivityLabelBuilderDict = new Dictionary<int, StringArray.Builder>();
+            _colTimestampBuilderDict = new Dictionary<int, TimestampArray.Builder>();
+            _colXAxisBuilderDict = new Dictionary<int, DoubleArray.Builder>();
+            _colYAxisBuilderDict = new Dictionary<int, DoubleArray.Builder>();
+            _colZAxisBuilderDict = new Dictionary<int, DoubleArray.Builder>();
         }
 
         public async Task WriteToChannel(int taskNumber)
@@ -102,7 +116,7 @@ namespace IoTPipelineExample
 
                 var item = new SensorData
                 {
-                    subjectId = rand.Next(1000, 2001),
+                    subjectId = rand.Next(1_000, 10_000),
                     activityLabel = label,
                     timestamp = basis.AddMilliseconds(1),
                     x_Axis = rand.NextDouble(),
@@ -132,14 +146,25 @@ namespace IoTPipelineExample
             {
                 while (_reader.TryRead(out SensorData item))
                 {
-                    if (item != null && item.subjectId != null)
+                    int builderId = (int)item.subjectId;
+
+                    if (item != null)
                     {
-                        _colSubjectIdBuilder.Append((int)item.subjectId);
-                        _colActivityLabelBuilder.Append(item.activityLabel);
-                        _colTimestampBuilder.Append((DateTimeOffset)item.timestamp);
-                        _colXAxisBuilder.Append((double)item.x_Axis);
-                        _colYAxisBuilder.Append((double)item.y_Axis);
-                        _colZAxisBuilder.Append((double)item.z_Axis);
+                        if (!_colSubjectIdBuilderDict.ContainsKey(builderId))
+                        {
+                            _colSubjectIdBuilderDict.Add(builderId, new Int32Array.Builder());
+                            _colActivityLabelBuilderDict.Add(builderId, new StringArray.Builder());
+                            _colTimestampBuilderDict.Add(builderId, new TimestampArray.Builder());
+                            _colXAxisBuilderDict.Add(builderId, new DoubleArray.Builder());
+                            _colYAxisBuilderDict.Add(builderId, new DoubleArray.Builder());
+                            _colZAxisBuilderDict.Add(builderId, new DoubleArray.Builder());
+                        }
+                        _colSubjectIdBuilderDict[builderId].Append((int)item.subjectId);
+                        _colActivityLabelBuilderDict[builderId].Append(item.activityLabel);
+                        _colTimestampBuilderDict[builderId].Append((DateTimeOffset)item.timestamp);
+                        _colXAxisBuilderDict[builderId].Append((double)item.x_Axis);
+                        _colYAxisBuilderDict[builderId].Append((double)item.y_Axis);
+                        _colZAxisBuilderDict[builderId].Append((double)item.z_Axis);
                     }
                 }
             }
@@ -154,21 +179,28 @@ namespace IoTPipelineExample
             if (!Directory.Exists(arrowDataPath))
                 Directory.CreateDirectory(arrowDataPath);
 
-            var memoryAllocator = new NativeMemoryAllocator(alignment: 64);
-
-            var recordBatch = new RecordBatch.Builder(memoryAllocator)
-                .Append("SubjectId", false, _colSubjectIdBuilder.Build())
-                .Append("ActivityLabel", false, _colActivityLabelBuilder.Build())
-                .Append("Timestamp", false, _colTimestampBuilder.Build())
-                .Append("XAxis", false, _colXAxisBuilder.Build())
-                .Append("YAxis", false, _colYAxisBuilder.Build())
-                .Append("ZAxis", false, _colZAxisBuilder.Build())
-                .Build();
-
             using (var stream = File.OpenWrite(arrowDataPath + @"\iotbigdata_" + partitionNumber + ".arrow"))
             using (var writer = new ArrowFileWriter(stream, recordBatch.Schema))
             {
-                await writer.WriteRecordBatchAsync(recordBatch);
+                var memoryAllocator = new NativeMemoryAllocator(alignment: 64);
+
+                foreach (var keyValuePair in _colSubjectIdBuilderDict)
+                {
+                    var builderId = keyValuePair.Key;
+                    var subjectIdBuilder = keyValuePair.Value;
+
+                    var recordBatch = new RecordBatch.Builder(memoryAllocator)
+                    .Append("SubjectId", false, subjectIdBuilder.Build())
+                    .Append("ActivityLabel", false, _colActivityLabelBuilderDict[builderId].Build())
+                    .Append("Timestamp", false, _colTimestampBuilderDict[builderId].Build())
+                    .Append("XAxis", false, _colXAxisBuilderDict[builderId].Build())
+                    .Append("YAxis", false, _colYAxisBuilderDict[builderId].Build())
+                    .Append("ZAxis", false, _colZAxisBuilderDict[builderId].Build())
+                    .Build();
+
+                    await writer.WriteRecordBatchAsync(recordBatch);
+
+                }
                 await writer.WriteEndAsync();
             }
 
