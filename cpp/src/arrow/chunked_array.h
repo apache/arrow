@@ -177,6 +177,7 @@ class ARROW_EXPORT ChunkedArray {
 
  protected:
   ArrayVector chunks_;
+  std::vector<int64_t> inds_;
   int64_t length_;
   int64_t null_count_;
   std::shared_ptr<DataType> type_;
