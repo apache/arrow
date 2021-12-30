@@ -16,7 +16,6 @@
 # under the License.
 
 register_bindings_math <- function() {
-
   log_binding <- function(x, base = exp(1)) {
     # like other binary functions, either `x` or `base` can be Expression or double(1)
     if (is.numeric(x) && length(x) == 1) {
