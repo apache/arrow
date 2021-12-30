@@ -20,10 +20,12 @@
 #include "arrow/compute/api.h"
 #include "arrow/compute/kernels/test_util.h"
 #include "arrow/testing/gtest_util.h"
-
-#include <future>
+#include "arrow/util/thread_pool.h"
 
 namespace arrow {
+
+using internal::ThreadPool;
+
 namespace compute {
 
 namespace {
@@ -85,19 +87,22 @@ TEST(TestRandom, SystemRandomDifferentResultsSingleThreaded) {
 }
 
 TEST(TestRandom, SystemRandomDifferentResultsMultiThreaded) {
-  const int kCount = 100000;
+  const int kCount = 100;
   const int kThreadCount = 8;
+  const int kCallCount = 200;
+
+  ASSERT_OK_AND_ASSIGN(auto pool, ThreadPool::Make(kThreadCount));
+
   auto random_options = RandomOptions::FromSystemRandom(/*length=*/kCount);
-  std::vector<std::future<Datum>> futures;
-  for (int i = 0; i < kThreadCount; ++i) {
-    futures.push_back(std::async(std::launch::async, [&random_options] {
-      auto maybe_result = CallFunction("random", {}, &random_options);
-      return maybe_result.ValueOrDie();
-    }));
+  std::vector<Future<Datum>> futures;
+
+  for (int i = 0; i < kCallCount; ++i) {
+    futures.push_back(DeferNotOk(
+        pool->Submit([&]() { return CallFunction("random", {}, &random_options); })));
   }
-  std::vector<Datum> call_results;
-  for (int i = 0; i < kThreadCount; ++i) {
-    call_results.push_back(futures[i].get());
+  std::vector<Datum> call_results(kCallCount);
+  for (int i = 0; i < kCallCount; ++i) {
+    ASSERT_OK_AND_ASSIGN(call_results[i], futures[i].result());
   }
   for (int i = 0; i < kThreadCount - 1; ++i) {
     for (int j = i + 1; j < kThreadCount; ++j) {
