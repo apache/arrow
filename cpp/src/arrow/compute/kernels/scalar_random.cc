@@ -31,28 +31,36 @@ namespace internal {
 
 namespace {
 
+// We use the PCG64 single-stream ("oneseq") generator because:
+// - we don't need multiple streams
+// - we want deterministic output for a given seed (ruling out the unique-stream
+//   PCG generators)
+// - the PCG64 no-stream ("fast") generator produces identical outputs for seeds
+//   which differ only by their 2 low bits (for example, 0, 1, 2, 3 all produce
+//   the same output).
+
 // Generates a random floating point number in range [0, 1).
-double generate_uniform(random::pcg64_fast* rng) {
+double generate_uniform(random::pcg64_oneseq* rng) {
   // This equation is copied from numpy. It calculates `rng() / 2^64` and
   // the return value is strictly less than 1.
-  static_assert(random::pcg64_fast::min() == 0ULL, "");
-  static_assert(random::pcg64_fast::max() == ~0ULL, "");
+  static_assert(random::pcg64_oneseq::min() == 0ULL, "");
+  static_assert(random::pcg64_oneseq::max() == ~0ULL, "");
   return ((*rng)() >> 11) * (1.0 / 9007199254740992.0);
 }
 
 using RandomState = OptionsWrapper<RandomOptions>;
 
-random::pcg64_fast MakeSeedGenerator() {
+random::pcg64_oneseq MakeSeedGenerator() {
   arrow_vendored::pcg_extras::seed_seq_from<std::random_device> seed_source;
-  random::pcg64_fast seed_gen(seed_source);
+  random::pcg64_oneseq seed_gen(seed_source);
   return seed_gen;
 }
 
 Status ExecRandom(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  static random::pcg64_fast seed_gen = MakeSeedGenerator();
+  static random::pcg64_oneseq seed_gen = MakeSeedGenerator();
   static std::mutex seed_gen_mutex;
 
-  random::pcg64_fast gen;
+  random::pcg64_oneseq gen;
   const RandomOptions& options = RandomState::Get(ctx);
   if (options.length < 0) {
     return Status::Invalid("Negative number of elements");

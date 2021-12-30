@@ -2210,6 +2210,22 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CUtf8NormalizeOptions(CUtf8NormalizeForm form)
         CUtf8NormalizeForm form
 
+    cdef cppclass CSetLookupOptions \
+            "arrow::compute::SetLookupOptions"(CFunctionOptions):
+        CSetLookupOptions(CDatum value_set, c_bool skip_nulls)
+        CDatum value_set
+        c_bool skip_nulls
+
+    cdef cppclass CRandomOptions \
+            "arrow::compute::RandomOptions"(CFunctionOptions):
+        CRandomOptions(CRandomOptions)
+
+        @staticmethod
+        CRandomOptions FromSystemRandom(int64_t length)
+
+        @staticmethod
+        CRandomOptions FromSeed(int64_t length, uint64_t seed)
+
     cdef enum DatumType" arrow::Datum::type":
         DatumType_NONE" arrow::Datum::NONE"
         DatumType_SCALAR" arrow::Datum::SCALAR"
@@ -2235,12 +2251,6 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         const shared_ptr[CRecordBatch]& record_batch() const
         const shared_ptr[CTable]& table() const
         const shared_ptr[CScalar]& scalar() const
-
-    cdef cppclass CSetLookupOptions \
-            "arrow::compute::SetLookupOptions"(CFunctionOptions):
-        CSetLookupOptions(CDatum value_set, c_bool skip_nulls)
-        CDatum value_set
-        c_bool skip_nulls
 
 
 cdef extern from * namespace "arrow::compute":

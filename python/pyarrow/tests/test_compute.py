@@ -18,6 +18,7 @@
 from datetime import datetime
 from functools import lru_cache, partial
 import inspect
+import os
 import pickle
 import pytest
 import random
@@ -146,6 +147,7 @@ def test_option_class_equality():
         pc.PadOptions(5),
         pc.PartitionNthOptions(1, null_placement="at_start"),
         pc.QuantileOptions(),
+        pc.RandomOptions(10),
         pc.ReplaceSliceOptions(0, 1, "a"),
         pc.ReplaceSubstringOptions("a", "b"),
         pc.RoundOptions(2, "towards_infinity"),
@@ -174,6 +176,7 @@ def test_option_class_equality():
         options.append(pc.AssumeTimezoneOptions("Europe/Ljubljana"))
 
     classes = {type(option) for option in options}
+
     for cls in exported_option_classes:
         # Timezone database is not available on Windows yet
         if cls not in classes and sys.platform != 'win32' and \
@@ -182,6 +185,7 @@ def test_option_class_equality():
                 options.append(cls())
             except TypeError:
                 pytest.fail(f"Options class is not tested: {cls}")
+
     for option in options:
         assert option == option
         assert repr(option).startswith(option.__class__.__name__)
@@ -2370,3 +2374,30 @@ def test_utf8_normalize():
             ValueError,
             match='"NFZ" is not a valid Unicode normalization form'):
         pc.utf8_normalize(arr, form="NFZ")
+
+
+def test_random():
+    # (note negative integer initializers are accepted)
+    for initializer in ['system', 42, -42, b"abcdef"]:
+        assert pc.random(0, initializer=initializer) == \
+            pa.array([], type=pa.float64())
+
+    # System random initialization => outputs all distinct
+    arrays = [tuple(pc.random(100).to_pylist()) for i in range(10)]
+    assert len(set(arrays)) == len(arrays)
+
+    arrays = [tuple(pc.random(100, initializer=i % 7).to_pylist())
+              for i in range(0, 100)]
+    assert len(set(arrays)) == 7
+
+    # Arbitrary hashable objects can be given as initializer
+    initializers = [object(), (4, 5, 6), "foo"]
+    initializers.extend(os.urandom(10) for i in range(10))
+    arrays = [tuple(pc.random(100, initializer=i).to_pylist())
+              for i in initializers]
+    assert len(set(arrays)) == len(arrays)
+
+    with pytest.raises(TypeError,
+                       match=r"initializer should be 'system', an integer, "
+                             r"or a hashable object; got \[\]"):
+        pc.random(100, initializer=[])
