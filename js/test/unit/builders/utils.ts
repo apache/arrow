@@ -17,16 +17,14 @@
 
 import 'web-streams-polyfill';
 
-import '../../jest-extensions';
-
-import 'ix/Ix.node';
-
 import { from, fromDOMStream, toArray } from 'ix/asynciterable';
 import { fromNodeStream } from 'ix/asynciterable/fromnodestream';
-import { util } from 'apache-arrow';
-import { Builder } from 'apache-arrow';
-import { DataType, Vector } from 'apache-arrow';
+import 'ix/Ix.node';
 import randstr from 'randomatic';
+
+import '../../jest-extensions.js';
+
+import { Builder, DataType, util, Vector } from 'apache-arrow';
 
 const rand = Math.random.bind(Math);
 const randnulls = <T, TNull = null>(values: T[], n: TNull = <any>null) => values.map((x) => Math.random() > 0.25 ? x : n) as (T | TNull)[];

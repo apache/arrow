@@ -17,10 +17,17 @@
 
 /* eslint-disable jest/no-standalone-expect */
 
-import { makeData } from 'apache-arrow/data';
-import { Field } from 'apache-arrow/schema';
-import { Vector } from 'apache-arrow/vector';
-import { Bool, Int8, Utf8, List, Dictionary, Struct } from 'apache-arrow/type';
+import {
+    Bool,
+    Dictionary,
+    Field,
+    Int8,
+    List,
+    makeData,
+    Struct,
+    Utf8,
+    Vector
+} from 'apache-arrow';
 
 const boolType = new Bool();
 const boolVector = new Vector(makeData({ type: boolType, length: 10, nullCount: 0, data: new Uint8Array(2) }));

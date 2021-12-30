@@ -15,9 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Field } from 'apache-arrow';
-import { Visitor } from 'apache-arrow';
 import {
+    Field, Visitor,
     DataType, Dictionary,
     Bool, Null, Utf8, Binary, Decimal, FixedSizeBinary, List, FixedSizeList, Map_, Struct,
     Float, Float16, Float32, Float64,

@@ -17,12 +17,13 @@
 
 import 'web-streams-polyfill';
 
-import { Vector, DataType, Uint64 } from 'apache-arrow';
 import {
     validateVector,
     encodeAll, encodeEach, encodeEachDOM, encodeEachNode,
     uint64sNoNulls, uint64sWithNulls, uint64sWithMaxInts,
-} from './utils';
+} from './utils.js';
+
+import { Vector, DataType, Uint64 } from 'apache-arrow';
 
 const testDOMStreams = process.env.TEST_DOM_STREAMS === 'true';
 const testNodeStreams = process.env.TEST_NODE_STREAMS === 'true';

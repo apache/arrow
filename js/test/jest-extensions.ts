@@ -110,16 +110,16 @@ function toEqualVector<
         };
     }
 
-    let getFailures = new Array<string>();
-    let propsFailures = new Array<string>();
-    let iteratorFailures = new Array<string>();
-    let allFailures = [
+    const getFailures = new Array<string>();
+    const propsFailures = new Array<string>();
+    const iteratorFailures = new Array<string>();
+    const allFailures = [
         { title: 'get', failures: getFailures },
         { title: 'props', failures: propsFailures },
         { title: 'iterator', failures: iteratorFailures }
     ];
 
-    let props: (string & keyof Vector)[] = ['type', 'length', 'nullCount'];
+    const props: (string & keyof Vector)[] = ['type', 'length', 'nullCount'];
 
     (() => {
         for (let i = -1, n = props.length; ++i < n;) {
@@ -132,7 +132,7 @@ function toEqualVector<
 
     (() => {
         for (let i = -1, n = v1.length; ++i < n;) {
-            let x1 = v1.get(i), x2 = v2.get(i);
+            const x1 = v1.get(i), x2 = v2.get(i);
             if (!util.createElementComparator(x2)(x1)) {
                 getFailures.push(`${i}: ${format(this, x1, x2, ' !== ')}`);
             }

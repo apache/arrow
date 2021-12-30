@@ -15,19 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import {
-    generateRandomTables,
-    // generateDictionaryTables
-} from '../../../data/tables';
+import { generateRandomTables } from '../../../data/tables.js';
+import { ArrowIOTestHelper, readableDOMStreamToAsyncIterator } from '../helpers.js';
+import { validateRecordBatchAsyncIterator } from '../validate.js';
 
 import {
-    Table,
     RecordBatchReader,
-    RecordBatchStreamWriter
+    RecordBatchStreamWriter,
+    Table
 } from 'apache-arrow';
-
-import { validateRecordBatchAsyncIterator } from '../validate';
-import { ArrowIOTestHelper, readableDOMStreamToAsyncIterator } from '../helpers';
 
 (() => {
 

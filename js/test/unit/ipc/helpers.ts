@@ -15,20 +15,20 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import '../../jest-extensions';
+import * as fs from 'fs';
+import { fs as memfs } from 'memfs';
+import randomatic from 'randomatic';
+import { PassThrough, Readable } from 'stream';
+
+import '../../jest-extensions.js';
 
 import {
-    Table,
-    RecordBatchWriter,
     RecordBatchFileWriter,
     RecordBatchJSONWriter,
     RecordBatchStreamWriter,
+    RecordBatchWriter,
+    Table
 } from 'apache-arrow';
-
-import * as fs from 'fs';
-import { fs as memfs } from 'memfs';
-import { Readable, PassThrough } from 'stream';
-import randomatic from 'randomatic';
 
 export abstract class ArrowIOTestHelper {
 

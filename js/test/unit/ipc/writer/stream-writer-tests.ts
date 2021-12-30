@@ -16,15 +16,25 @@
 // under the License.
 
 import {
-    generateRandomTables,
-    generateDictionaryTables
-} from '../../../data/tables';
+    generateDictionaryTables,
+    generateRandomTables
+} from '../../../data/tables.js';
+import * as generate from '../../../generate-test-data.js';
+import { validateRecordBatchIterator } from '../validate.js';
 
-import * as generate from '../../../generate-test-data';
-import { validateRecordBatchIterator } from '../validate';
-import { RecordBatchStreamWriterOptions } from 'apache-arrow/ipc/writer';
-import { Dictionary, Uint32, Int32 } from 'apache-arrow';
-import { Table, Schema, Field, Vector, Builder, RecordBatch, RecordBatchReader, RecordBatchStreamWriter } from 'apache-arrow';
+import type { RecordBatchStreamWriterOptions } from 'apache-arrow/ipc/writer';
+import { Builder,
+    Dictionary,
+    Field,
+    Int32,
+    RecordBatch,
+    RecordBatchReader,
+    RecordBatchStreamWriter,
+    Schema,
+    Table,
+    Uint32,
+    Vector
+} from 'apache-arrow';
 
 describe('RecordBatchStreamWriter', () => {
 

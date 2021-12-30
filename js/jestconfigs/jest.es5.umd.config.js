@@ -28,5 +28,6 @@ module.exports = {
   },
   moduleNameMapper: {
     "^apache-arrow": "<rootDir>/targets/es5/umd/Arrow.js",
+    "^(\\.{1,2}/.*)\\.js$": "$1",
   },
 };

@@ -631,7 +631,7 @@ function isValid(bitmap: Uint8Array, i: number) {
 function iterateBitmap(length: number, bitmap: Uint8Array, fn: (index: number, valid: boolean) => any) {
     let byteIndex = 0, valueIndex = 0;
     for (let bit = 0; length > 0; bit = 0) {
-        let byte = bitmap[byteIndex++];
+        const byte = bitmap[byteIndex++];
         do {
             fn(valueIndex++, (byte & 1 << bit) !== 0);
         } while (--length > 0 && ++bit < 8);

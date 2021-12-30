@@ -28,5 +28,6 @@ module.exports = {
   },
   moduleNameMapper: {
     "^apache-arrow(.*)": "<rootDir>/targets/es2015/cjs$1",
+    "^(\\.{1,2}/.*)\\.js$": "$1",
   },
 };

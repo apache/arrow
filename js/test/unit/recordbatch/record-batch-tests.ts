@@ -15,9 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import '../../jest-extensions';
+import '../../jest-extensions.js';
+import { arange } from '../utils.js';
+
 import { RecordBatch, makeVector } from 'apache-arrow';
-import { arange } from '../utils';
 
 function numsRecordBatch(i32Len: number, f32Len: number) {
     return new RecordBatch({

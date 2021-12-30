@@ -15,12 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import '../jest-extensions';
+import '../jest-extensions.js';
 import {
     GeneratedTable,
     GeneratedRecordBatch,
     GeneratedVector
-} from '../generate-test-data';
+} from '../generate-test-data.js';
 
 import { RecordBatch, Schema, Vector, util } from 'apache-arrow';
 

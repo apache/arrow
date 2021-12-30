@@ -15,7 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import '../jest-extensions';
+import '../jest-extensions.js';
+
+import { arange } from './utils.js';
+
 import {
     makeData, makeVector,
     Schema, Field, Table, RecordBatch,
@@ -24,7 +27,6 @@ import {
     RecordBatchStreamReader,
     RecordBatchStreamWriter,
 } from 'apache-arrow';
-import { arange } from './utils';
 
 const deepCopy = (t: Table) => deserialize(serialize(t));
 const serialize = (t: Table) => RecordBatchStreamWriter.writeAll(t).toUint8Array(true);

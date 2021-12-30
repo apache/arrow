@@ -15,34 +15,28 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import {
-    generateRandomTables,
-    // generateDictionaryTables
-} from '../../../data/tables';
-
-import { from, as } from 'ix/asynciterable';
-import { tap, flatMap } from 'ix/asynciterable/operators';
+import { as, from } from 'ix/asynciterable';
+import { flatMap, tap } from 'ix/asynciterable/operators';
 import 'ix/Ix.node';
 
-import {
-    Table,
-    RecordBatchReader,
-    RecordBatchWriter,
-    RecordBatchFileWriter,
-    RecordBatchJSONWriter,
-    RecordBatchStreamWriter,
-} from 'apache-arrow';
-
+import { generateRandomTables } from '../../../data/tables.js';
 import {
     ArrowIOTestHelper,
     concatBuffersAsync
-} from '../helpers';
+} from '../helpers.js';
+import {
+    validateAsyncRecordBatchReader,
+    validateRecordBatchAsyncIterator, validateRecordBatchReader
+} from '../validate.js';
 
 import {
-    validateRecordBatchReader,
-    validateAsyncRecordBatchReader,
-    validateRecordBatchAsyncIterator
-} from '../validate';
+    RecordBatchFileWriter,
+    RecordBatchJSONWriter,
+    RecordBatchReader,
+    RecordBatchStreamWriter,
+    RecordBatchWriter,
+    Table
+} from 'apache-arrow';
 
 (() => {
 

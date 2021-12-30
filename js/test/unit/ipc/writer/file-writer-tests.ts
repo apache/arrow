@@ -16,12 +16,11 @@
 // under the License.
 
 import {
-    generateRandomTables,
-    generateDictionaryTables
-} from '../../../data/tables';
+    generateDictionaryTables, generateRandomTables
+} from '../../../data/tables.js';
+import { validateRecordBatchIterator } from '../validate.js';
 
-import { validateRecordBatchIterator } from '../validate';
-import { Table, RecordBatchReader, RecordBatchFileWriter } from 'apache-arrow';
+import { RecordBatchFileWriter, RecordBatchReader, Table } from 'apache-arrow';
 
 describe('RecordBatchFileWriter', () => {
     for (const table of generateRandomTables([10, 20, 30])) {

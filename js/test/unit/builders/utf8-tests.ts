@@ -17,8 +17,7 @@
 
 import 'web-streams-polyfill';
 
-import { validateVector } from './utils';
-import { Vector, Utf8 } from 'apache-arrow';
+import { validateVector } from './utils.js';
 import {
     encodeAll,
     encodeEach,
@@ -28,7 +27,9 @@ import {
     stringsWithNAs,
     stringsWithNulls,
     stringsWithEmpties
-} from './utils';
+} from './utils.js';
+
+import { Vector, Utf8 } from 'apache-arrow';
 
 const testDOMStreams = process.env.TEST_DOM_STREAMS === 'true';
 const testNodeStreams = process.env.TEST_NODE_STREAMS === 'true';
