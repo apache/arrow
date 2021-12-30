@@ -725,9 +725,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CResult[vector[shared_ptr[CArray]]] Flatten(CMemoryPool* pool)
 
     cdef cppclass CChunkedArray" arrow::ChunkedArray":
-        CChunkedArray(const vector[shared_ptr[CArray]]& arrays)
         CChunkedArray(const vector[shared_ptr[CArray]]& arrays,
-                      const shared_ptr[CDataType]& type)
+                      const shared_ptr[CDataType]& type=nullptr)
         int64_t length()
         int64_t null_count()
         int num_chunks()
