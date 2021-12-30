@@ -1017,6 +1017,22 @@ cdef class RecordBatch(_PandasConvertible):
         """
         return _pc().drop_null(self)
 
+    def sort(self, sort_key, order="ascending"):
+        """
+        Sort the RecordBatch
+
+        Parameters
+        ----------
+        order : "ascending" or "descending"
+            The order of the sorting.
+
+        Returns
+        -------
+        result : RecordBatch
+        """
+        indices = _pc().sort_indices(self, sort_keys=[(sort_key, order)])
+        return self.take(indices)
+
     def to_pydict(self):
         """
         Convert the RecordBatch to a dict or OrderedDict.

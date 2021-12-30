@@ -58,9 +58,14 @@ struct ResolvedChunk<StructArray> {
 
   ResolvedChunk(const StructArray* array, int64_t index) : array(array), index(index) {}
 
-  bool IsNull() const { return array->IsNull(index); }
+  bool IsNull() const { return array->field(0)->IsNull(index); }
 
-  auto Value() const ->decltype((*array->GetScalar(0))) { return *(array->GetScalar(index)); }
+  int64_t Value() const {
+    auto t = array->field(0)->type();
+    auto arr = std::static_pointer_cast<arrow::Int64Array>(array->field(0));
+
+    return arr->Value(index); 
+  }
 };
 
 // ResolvedChunk specialization for untyped arrays when all is needed is null lookup

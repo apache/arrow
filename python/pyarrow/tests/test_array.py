@@ -767,13 +767,13 @@ def test_struct_array_sort():
 
 def test_struct_chunked_array_sort():
     arr1 = pa.StructArray.from_arrays([
-        pa.array([5, 7], type=pa.int64()),
-        pa.array(["foo", "car"])
+        pa.array([5, 7, 8], type=pa.int64()),
+        pa.array(["foo", "car", "far"])
     ], names=["a", "b"])
 
     arr2 = pa.StructArray.from_arrays([
-        pa.array([7, 35], type=pa.int64()),
-        pa.array(["bar", "foobar"])
+        pa.array([7, 35, 9], type=pa.int64()),
+        pa.array(["bar", "foobar", "tar"])
     ], names=["a", "b"])
 
     chunked_arr = pa.chunked_array([arr1, arr2])
@@ -781,18 +781,39 @@ def test_struct_chunked_array_sort():
     sorted_arr = chunked_arr.sort("descending")
     assert sorted_arr.to_pylist() == [
         {"a": 35, "b": "foobar"},
-        {"a": 7, "b": "bar"},
+        {"a": 9, "b": "tar"},
+        {"a": 8, "b": "far"},
         {"a": 7, "b": "car"},
+        {"a": 7, "b": "bar"},
         {"a": 5, "b": "foo"},
     ]
 
     sorted_arr = chunked_arr.sort("ascending")
     assert sorted_arr.to_pylist() == [
         {"a": 5, "b": "foo"},
-        {"a": 7, "b": "bar"},
         {"a": 7, "b": "car"},
+        {"a": 7, "b": "bar"},
+        {"a": 8, "b": "far"},
+        {"a": 9, "b": "tar"},
         {"a": 35, "b": "foobar"},
     ]
+
+
+def test_struct_record_batch_sort():
+    rb = pa.RecordBatch.from_arrays([
+        pa.array([5, 7, 7, 35], type=pa.int64()),
+        pa.array(["foo", "car", "bar", "foobar"])
+    ], names=["a", "b"])
+
+    sorted_rb = rb.sort("a", "descending")
+    sorted_rb_dict = sorted_rb.to_pydict()
+    assert sorted_rb_dict["a"] == [35, 7, 7, 5]
+    assert sorted_rb_dict["b"] == ["foobar", "car", "bar", "foo"]
+
+    sorted_rb = rb.sort("a", "ascending")
+    sorted_rb_dict = sorted_rb.to_pydict()
+    assert sorted_rb_dict["a"] == [5, 7, 7, 35]
+    assert sorted_rb_dict["b"] == ["foo", "car", "bar", "foobar"]
 
 
 def test_dictionary_from_numpy():
