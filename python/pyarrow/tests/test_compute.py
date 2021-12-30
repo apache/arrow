@@ -91,6 +91,8 @@ def test_exported_functions():
             # message if we don't pass an options instance.
             continue
         arity = desc['arity']
+        if arity == 0:
+            continue
         if arity is Ellipsis:
             args = [object()] * 3
         else:
@@ -274,8 +276,6 @@ def test_function_attributes():
         kernels = func.kernels
         assert func.num_kernels == len(kernels)
         assert all(isinstance(ker, pc.Kernel) for ker in kernels)
-        if func.arity is not Ellipsis:
-            assert func.arity >= 1
         repr(func)
         for ker in kernels:
             repr(ker)

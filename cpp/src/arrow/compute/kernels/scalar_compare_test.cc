@@ -1211,18 +1211,19 @@ class TestVarArgsCompareParametricTemporal : public TestVarArgsCompare<T> {
   Datum array(const std::string& value) { return ArrayFromJSON(type_singleton(), value); }
 };
 
-using NumericBasedTypes =
+using CompareNumericBasedTypes =
     ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type, Int8Type, Int16Type,
                      Int32Type, Int64Type, FloatType, DoubleType, Date32Type, Date64Type>;
-using ParametricTemporalTypes = ::testing::Types<TimestampType, Time32Type, Time64Type>;
-using FixedSizeBinaryTypes = ::testing::Types<FixedSizeBinaryType>;
+using CompareParametricTemporalTypes =
+    ::testing::Types<TimestampType, Time32Type, Time64Type>;
+using CompareFixedSizeBinaryTypes = ::testing::Types<FixedSizeBinaryType>;
 
-TYPED_TEST_SUITE(TestVarArgsCompareNumeric, NumericBasedTypes);
+TYPED_TEST_SUITE(TestVarArgsCompareNumeric, CompareNumericBasedTypes);
 TYPED_TEST_SUITE(TestVarArgsCompareDecimal, DecimalArrowTypes);
 TYPED_TEST_SUITE(TestVarArgsCompareFloating, RealArrowTypes);
-TYPED_TEST_SUITE(TestVarArgsCompareParametricTemporal, ParametricTemporalTypes);
+TYPED_TEST_SUITE(TestVarArgsCompareParametricTemporal, CompareParametricTemporalTypes);
 TYPED_TEST_SUITE(TestVarArgsCompareBinary, BaseBinaryArrowTypes);
-TYPED_TEST_SUITE(TestVarArgsCompareFixedSizeBinary, FixedSizeBinaryTypes);
+TYPED_TEST_SUITE(TestVarArgsCompareFixedSizeBinary, CompareFixedSizeBinaryTypes);
 
 TYPED_TEST(TestVarArgsCompareNumeric, MinElementWise) {
   this->AssertNullScalar(MinElementWise, {});

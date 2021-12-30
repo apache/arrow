@@ -61,12 +61,12 @@ class TestIfElseKernel : public ::testing::Test {};
 template <typename Type>
 class TestIfElsePrimitive : public ::testing::Test {};
 
-using NumericBasedTypes =
+using IfElseNumericBasedTypes =
     ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type, Int8Type, Int16Type,
                      Int32Type, Int64Type, FloatType, DoubleType, Date32Type, Date64Type,
                      Time32Type, Time64Type, TimestampType, MonthIntervalType>;
 
-TYPED_TEST_SUITE(TestIfElsePrimitive, NumericBasedTypes);
+TYPED_TEST_SUITE(TestIfElsePrimitive, IfElseNumericBasedTypes);
 
 TYPED_TEST(TestIfElsePrimitive, IfElseFixedSizeRand) {
   using ArrayType = typename TypeTraits<TypeParam>::ArrayType;
@@ -960,7 +960,7 @@ TYPED_TEST(TestIfElseDict, DifferentDictionaries) {
 template <typename Type>
 class TestCaseWhenNumeric : public ::testing::Test {};
 
-TYPED_TEST_SUITE(TestCaseWhenNumeric, NumericBasedTypes);
+TYPED_TEST_SUITE(TestCaseWhenNumeric, IfElseNumericBasedTypes);
 
 Datum MakeStruct(const std::vector<Datum>& conds) {
   EXPECT_OK_AND_ASSIGN(auto result, CallFunction("make_struct", conds));
@@ -2176,7 +2176,7 @@ class TestCoalesceBinary : public ::testing::Test {};
 template <typename Type>
 class TestCoalesceList : public ::testing::Test {};
 
-TYPED_TEST_SUITE(TestCoalesceNumeric, NumericBasedTypes);
+TYPED_TEST_SUITE(TestCoalesceNumeric, IfElseNumericBasedTypes);
 TYPED_TEST_SUITE(TestCoalesceBinary, BaseBinaryArrowTypes);
 TYPED_TEST_SUITE(TestCoalesceList, ListArrowTypes);
 
@@ -2929,7 +2929,7 @@ class TestChooseNumeric : public ::testing::Test {};
 template <typename Type>
 class TestChooseBinary : public ::testing::Test {};
 
-TYPED_TEST_SUITE(TestChooseNumeric, NumericBasedTypes);
+TYPED_TEST_SUITE(TestChooseNumeric, IfElseNumericBasedTypes);
 TYPED_TEST_SUITE(TestChooseBinary, BaseBinaryArrowTypes);
 
 TYPED_TEST(TestChooseNumeric, FixedSize) {
