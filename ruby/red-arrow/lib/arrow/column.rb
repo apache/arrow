@@ -62,6 +62,7 @@ module Arrow
     end
     alias_method :size, :n_rows
     alias_method :length, :n_rows
+    alias_method :count, :n_rows
 
     def n_nulls
       @data.n_nulls
@@ -71,6 +72,36 @@ module Arrow
       other.is_a?(self.class) and
         @field == other.field and
         @data == other.data
+    end
+
+    def sum
+      compute_scalar("sum")
+    end
+
+    def min
+      compute_scalar("min")
+    end
+
+    def max
+      compute_scalar("max")
+    end
+
+    def uniq
+      compute_array("unique")
+    end
+
+    private
+
+    def compute_scalar(function)
+      compute(function).value
+    end
+
+    def compute_array(function)
+      compute(function).values
+    end
+
+    def compute(function)
+      Function.find(function).execute([data]).value
     end
   end
 end
