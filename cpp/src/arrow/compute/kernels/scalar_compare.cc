@@ -73,7 +73,7 @@ struct GreaterEqual {
   }
 };
 
-struct BetweenLessEqualLessEqual {
+struct BetweenInclusiveBoth {
   template <typename T, typename Arg0, typename Arg1, typename Arg2>
   static constexpr T Call(KernelContext*, const Arg0& middle, const Arg1& left,
                           const Arg2& right, Status*) {
@@ -84,7 +84,7 @@ struct BetweenLessEqualLessEqual {
   }
 };
 
-struct BetweenLessLessEqual {
+struct BetweenInclusiveRight {
   template <typename T, typename Arg0, typename Arg1, typename Arg2>
   static constexpr T Call(KernelContext*, const Arg0& middle, const Arg1& left,
                           const Arg2& right, Status*) {
@@ -95,7 +95,7 @@ struct BetweenLessLessEqual {
   }
 };
 
-struct BetweenLessEqualLess {
+struct BetweenInclusiveLeft {
   template <typename T, typename Arg0, typename Arg1, typename Arg2>
   static constexpr T Call(KernelContext*, const Arg0& middle, const Arg1& left,
                           const Arg2& right, Status*) {
@@ -106,7 +106,7 @@ struct BetweenLessEqualLess {
   }
 };
 
-struct BetweenLessLess {
+struct BetweenInclusiveNeither {
   template <typename T, typename Arg0, typename Arg1, typename Arg2>
   static constexpr T Call(KernelContext*, const Arg0& middle, const Arg1& left,
                           const Arg2& right, Status*) {
@@ -811,9 +811,7 @@ struct BetweenTimestamps : public ScalarTernaryEqualTypes<OutType, ArgType, Op> 
         (var.timezone().empty() != rhs.timezone().empty()) ||
         (lhs.timezone().empty() != rhs.timezone().empty())) {
       return Status::Invalid(
-          "Cannot use timestamps with timezone and timestamps without timezones, got: ",
-          var.timezone().empty(), " ", lhs.timezone().empty(), " and ",
-          rhs.timezone().empty());
+          "Cannot compare timestamps with and without timezones.");
     }
     return Base::Exec(ctx, batch, out);
   }
@@ -935,27 +933,27 @@ const FunctionDoc max_element_wise_doc{
 const FunctionDoc between_doc{"Check if values are in a range, val betwen a and b",
                               ("A null on either side emits a null comparison result.\n"
                                "options are used to specify if the endpoints are\n"
-                               "included, possible values are LESS_LESS (a<val<b),\n"
-                               "LESS_EQUAL_LESS (a<=val<b), LESS_LESS_EQUAL (a<val<=b),\n"
-                               "and LESS_EQUAL_LESS_EQUAL (a<=val<=b)\n"),
+                               "inclusive, possible values are NEITHER (a<val<b),\n"
+                               "LEFT (a<=val<b), RIGHT (a<val<=b), and the default\n"
+                               "if not specified BOTH (a<=val<=b)\n"),
                               {"val", "a", "b"}};
 
-const FunctionDoc between_less_equal_less_equal_doc{
+const FunctionDoc between_inclusive_both_doc{
     "Check if values are in a range x <= y <= z",
     ("A null on either side emits a null comparison result."),
     {"x", "y", "z"}};
 
-const FunctionDoc between_less_less_equal_doc{
+const FunctionDoc between_inclusive_right_doc{
     "Check if values are in a range x < y <= z",
     ("A null on either side emits a null comparison result."),
     {"x", "y", "z"}};
 
-const FunctionDoc between_less_equal_less_doc{
+const FunctionDoc between_inclusive_left_doc{
     "Check if values are in a range x <= y < z",
     ("A null on either side emits a null comparison result."),
     {"x", "y", "z"}};
 
-const FunctionDoc between_less_less_doc{
+const FunctionDoc between_inclusive_neither_doc{
     "Check if values are in a range x < y < z",
     ("A null on either side emits a null comparison result."),
     {"x", "y", "z"}};
@@ -991,21 +989,21 @@ void RegisterScalarComparison(FunctionRegistry* registry) {
 }
 
 void RegisterScalarBetween(FunctionRegistry* registry) {
-  auto between_less_less =
-      MakeBetweenFunction<BetweenLessLess>("between_less_less", &between_less_less_doc);
-  DCHECK_OK(registry->AddFunction(std::move(between_less_less)));
+  auto between_inclusive_neither =
+      MakeBetweenFunction<BetweenInclusiveNeither>("between_inclusive_neither", &between_inclusive_neither_doc);
+  DCHECK_OK(registry->AddFunction(std::move(between_inclusive_neither)));
 
-  auto between_less_less_equal = MakeBetweenFunction<BetweenLessLessEqual>(
-      "between_less_less_equal", &between_less_less_equal_doc);
-  DCHECK_OK(registry->AddFunction(std::move(between_less_less_equal)));
+  auto between_inclusive_right = MakeBetweenFunction<BetweenInclusiveRight>(
+      "between_inclusive_right", &between_inclusive_right_doc);
+  DCHECK_OK(registry->AddFunction(std::move(between_inclusive_right)));
 
-  auto between_less_equal_less = MakeBetweenFunction<BetweenLessEqualLess>(
-      "between_less_equal_less", &between_less_equal_less_doc);
-  DCHECK_OK(registry->AddFunction(std::move(between_less_equal_less)));
+  auto between_inclusive_left = MakeBetweenFunction<BetweenInclusiveLeft>(
+      "between_inclusive_left", &between_inclusive_left_doc);
+  DCHECK_OK(registry->AddFunction(std::move(between_inclusive_left)));
 
-  auto between_less_equal_less_equal = MakeBetweenFunction<BetweenLessEqualLessEqual>(
-      "between_less_equal_less_equal", &between_less_equal_less_equal_doc);
-  DCHECK_OK(registry->AddFunction(std::move(between_less_equal_less_equal)));
+  auto between_inclusive_both = MakeBetweenFunction<BetweenInclusiveBoth>(
+      "between_inclusive_both", &between_inclusive_both_doc);
+  DCHECK_OK(registry->AddFunction(std::move(between_inclusive_both)));
 }
 
 }  // namespace internal
