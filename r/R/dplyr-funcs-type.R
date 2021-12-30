@@ -22,7 +22,6 @@ register_bindings_type <- function() {
   register_bindings_type_elementwise()
 }
 
-register_bindings_type_cast <- function() {
 
   register_binding("cast", function(x, target_type, safe = TRUE, ...) {
     opts <- cast_options(safe, ...)
