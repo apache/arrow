@@ -23,10 +23,14 @@ import {
     Float, Float16, Float32, Float64,
     Int, Int8, Int16, Int32, Int64, Uint8, Uint16, Uint32, Uint64, DataType
 } from 'apache-arrow';
+import type {
+    TypedArray,
+    TypedArrayConstructor,
+    BigIntArray,
+    BigIntArrayConstructor
+} from 'apache-arrow/interfaces';
 
 const { joinUint8Arrays, float64ToUint16, uint16ToFloat64 } = util;
-import type { TypedArray, TypedArrayConstructor } from 'apache-arrow/interfaces';
-import type { BigIntArray, BigIntArrayConstructor } from 'apache-arrow/interfaces';
 
 const uint16ToFloat64Array = (b: ArrayBuffer) => new Float64Array([...new Uint16Array(b)].map(uint16ToFloat64));
 const randomBytes = (n: number) => new Uint16Array([
