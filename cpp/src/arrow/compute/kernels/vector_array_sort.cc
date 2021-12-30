@@ -195,7 +195,7 @@ class StructArrayCompareSorter {
     bool asc_order = options.order == SortOrder::Ascending;
     std::stable_sort(
           p.non_nulls_begin, p.non_nulls_end,
-          [&offset, &array, &values, asc_order, this](uint64_t left, uint64_t right) {
+          [&offset, &values, asc_order, this](uint64_t left, uint64_t right) {
             // is better to do values.fields.size() or values.schema().num_fields() ?
             for(ArrayVector::size_type fieldidx = 0; fieldidx < values.fields().size(); ++fieldidx) {
               int result = nested_value_comparator_->Compare(values, fieldidx, offset, asc_order ? left : right, asc_order ? right : left);

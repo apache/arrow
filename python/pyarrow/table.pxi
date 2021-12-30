@@ -1017,20 +1017,27 @@ cdef class RecordBatch(_PandasConvertible):
         """
         return _pc().drop_null(self)
 
-    def sort(self, sort_key, order="ascending"):
+    def sort_by(self, sorting):
         """
-        Sort the RecordBatch
+        Sort the RecordBatch by one or multiple columns.
 
         Parameters
         ----------
-        order : "ascending" or "descending"
-            The order of the sorting.
+        sorting : str or list[tuple(name, order)]
+            Name of the column to use to sort (ascending), or
+            a list of multiple sorting conditions where
+            each entry is a tuple with column name
+            and sorting order ("ascending" or "descending")
 
         Returns
         -------
-        result : RecordBatch
+        RecordBatch
+            A new record batch sorted according to the sort keys.
         """
-        indices = _pc().sort_indices(self, sort_keys=[(sort_key, order)])
+        if isinstance(sorting, str):
+            sorting = [(sorting, "ascending")]
+
+        indices = _pc().sort_indices(self, sort_keys=sorting)
         return self.take(indices)
 
     def to_pydict(self):

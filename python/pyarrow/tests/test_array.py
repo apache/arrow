@@ -799,21 +799,38 @@ def test_struct_chunked_array_sort():
     ]
 
 
-def test_struct_record_batch_sort():
+def test_record_batch_sort():
     rb = pa.RecordBatch.from_arrays([
         pa.array([5, 7, 7, 35], type=pa.int64()),
         pa.array(["foo", "car", "bar", "foobar"])
     ], names=["a", "b"])
 
-    sorted_rb = rb.sort("a", "descending")
+    sorted_rb = rb.sort_by([("a", "descending")])
     sorted_rb_dict = sorted_rb.to_pydict()
     assert sorted_rb_dict["a"] == [35, 7, 7, 5]
     assert sorted_rb_dict["b"] == ["foobar", "car", "bar", "foo"]
 
-    sorted_rb = rb.sort("a", "ascending")
+    sorted_rb = rb.sort_by([("a", "ascending")])
     sorted_rb_dict = sorted_rb.to_pydict()
     assert sorted_rb_dict["a"] == [5, 7, 7, 35]
     assert sorted_rb_dict["b"] == ["foo", "car", "bar", "foobar"]
+
+
+def test_table_sort():
+    tab = pa.Table.from_arrays([
+        pa.array([5, 7, 7, 35], type=pa.int64()),
+        pa.array(["foo", "car", "bar", "foobar"])
+    ], names=["a", "b"])
+
+    sorted_tab = tab.sort_by([("a", "descending")])
+    sorted_tab_dict = sorted_tab.to_pydict()
+    assert sorted_tab_dict["a"] == [35, 7, 7, 5]
+    assert sorted_tab_dict["b"] == ["foobar", "car", "bar", "foo"]
+
+    sorted_tab = tab.sort_by([("a", "ascending")])
+    sorted_tab_dict = sorted_tab.to_pydict()
+    assert sorted_tab_dict["a"] == [5, 7, 7, 35]
+    assert sorted_tab_dict["b"] == ["foo", "car", "bar", "foobar"]
 
 
 def test_dictionary_from_numpy():

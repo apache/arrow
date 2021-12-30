@@ -558,7 +558,8 @@ class NestedValuesComparator {
 
       virtual int Compare(ChunkedArray const &chunked_array, uint64_t offset, 
                           uint64_t leftidx, uint64_t rightidx) {
-        decltype(GetView::LogicalValue(checked_cast<const FieldArrayType&>(chunked_array.chunk(0)).GetView(0))) l_value, r_value;
+        using Val = decltype(GetView::LogicalValue(checked_cast<const FieldArrayType&>(chunked_array.chunk(0)).GetView(0)));
+        Val l_value = 0, r_value = 0;
 
         int n_chunks = chunked_array.num_chunks();
         for(int i = 0; i < n_chunks; i++) {
