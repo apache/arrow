@@ -22,6 +22,7 @@ using Apache.Arrow.Ipc;
 using Apache.Arrow.Memory;
 using System.Threading.Channels;
 using System.Threading;
+using Apache.Arrow.Types;
 
 namespace IoTPipelineExample
 {
@@ -33,13 +34,6 @@ namespace IoTPipelineExample
         private readonly Channel<SensorData> _channel;
         ChannelWriter<SensorData> _writer;
         ChannelReader<SensorData> _reader;
-
-        private readonly Int32Array.Builder _colSubjectIdBuilder;
-        private readonly StringArray.Builder _colActivityLabelBuilder;
-        private readonly TimestampArray.Builder _colTimestampBuilder;
-        private readonly DoubleArray.Builder _colXAxisBuilder;
-        private readonly DoubleArray.Builder _colYAxisBuilder;
-        private readonly DoubleArray.Builder _colZAxisBuilder;
 
         private readonly Dictionary<int, Int32Array.Builder> _colSubjectIdBuilderDict;
         private readonly Dictionary<int, StringArray.Builder> _colActivityLabelBuilderDict;
@@ -78,13 +72,6 @@ namespace IoTPipelineExample
             _writer = _channel.Writer;
             _reader = _channel.Reader;
 
-            _colSubjectIdBuilder = new Int32Array.Builder();
-            _colActivityLabelBuilder = new StringArray.Builder();
-            _colTimestampBuilder = new TimestampArray.Builder();
-            _colXAxisBuilder = new DoubleArray.Builder();
-            _colYAxisBuilder = new DoubleArray.Builder();
-            _colZAxisBuilder = new DoubleArray.Builder();
-
             _colSubjectIdBuilderDict = new Dictionary<int, Int32Array.Builder>();
             _colActivityLabelBuilderDict = new Dictionary<int, StringArray.Builder>();
             _colTimestampBuilderDict = new Dictionary<int, TimestampArray.Builder>();
@@ -98,8 +85,6 @@ namespace IoTPipelineExample
             Random rand = new Random();
             List<string> keyList = new List<string>(activityLabel.Keys);
             int count = keyList.Count;
-            DateTime now = DateTime.Now;
-            long unixTime = ((DateTimeOffset)now).ToUnixTimeSeconds();
             var basis = DateTimeOffset.UtcNow;
 
             Console.WriteLine($"Write to channel task {taskNumber} started!");
@@ -116,6 +101,7 @@ namespace IoTPipelineExample
 
                 var item = new SensorData
                 {
+                    // approximately 9_000 unique subjects/sensors
                     subjectId = rand.Next(1_000, 10_000),
                     activityLabel = label,
                     timestamp = basis.AddMilliseconds(1),
@@ -173,24 +159,33 @@ namespace IoTPipelineExample
 
         public async Task<string> PersistData()
         {
-            int partitionNumber = 0;
             string currentPath = Directory.GetCurrentDirectory();
             string arrowDataPath = Path.Combine(currentPath, "arrow");
             if (!Directory.Exists(arrowDataPath))
                 Directory.CreateDirectory(arrowDataPath);
 
-            using (var stream = File.OpenWrite(arrowDataPath + @"\iotbigdata_" + partitionNumber + ".arrow"))
-            using (var writer = new ArrowFileWriter(stream, recordBatch.Schema))
+            Schema.Builder schemaBuilder = new Schema.Builder();
+
+            schemaBuilder.Field(new Field("SubjectId", Int32Type.Default, nullable: false));
+            schemaBuilder.Field(new Field("ActivityLabel", StringType.Default, nullable: false));
+            schemaBuilder.Field(new Field("Timestamp", Int64Type.Default, nullable: false));
+            schemaBuilder.Field(new Field("XAxis", DoubleType.Default, nullable: false));
+            schemaBuilder.Field(new Field("YAxis", DoubleType.Default, nullable: false));
+            schemaBuilder.Field(new Field("ZAxis", DoubleType.Default, nullable: false));
+
+            Schema schema = schemaBuilder.Build();
+
+            using (var stream = File.OpenWrite(arrowDataPath + @"\iotbigdata.arrow"))
+            using (var writer = new ArrowFileWriter(stream, schema))
             {
                 var memoryAllocator = new NativeMemoryAllocator(alignment: 64);
 
-                foreach (var keyValuePair in _colSubjectIdBuilderDict)
+                foreach (var key in _colSubjectIdBuilderDict.Keys)
                 {
-                    var builderId = keyValuePair.Key;
-                    var subjectIdBuilder = keyValuePair.Value;
+                    var builderId = key;
 
                     var recordBatch = new RecordBatch.Builder(memoryAllocator)
-                    .Append("SubjectId", false, subjectIdBuilder.Build())
+                    .Append("SubjectId", false, _colSubjectIdBuilderDict[builderId].Build())
                     .Append("ActivityLabel", false, _colActivityLabelBuilderDict[builderId].Build())
                     .Append("Timestamp", false, _colTimestampBuilderDict[builderId].Build())
                     .Append("XAxis", false, _colXAxisBuilderDict[builderId].Build())
@@ -199,7 +194,6 @@ namespace IoTPipelineExample
                     .Build();
 
                     await writer.WriteRecordBatchAsync(recordBatch);
-
                 }
                 await writer.WriteEndAsync();
             }
