@@ -2132,15 +2132,15 @@ void ValidateBetween(BetweenOptions options, const Datum& val, const Datum& lhs,
                      const Datum& rhs) {
   CompareOperator lhs_val;
   CompareOperator val_rhs;
-  BetweenMode mode = options.between_mode;
+  BetweenOptions::Inclusiveness inclusiveness = options.inclusiveness;
 
-  if (mode == BetweenMode::LESS_LESS) {
+  if (inclusiveness == BetweenOptions::Inclusiveness::NEITHER) {
     lhs_val = LESS;
     val_rhs = LESS;
-  } else if (mode == BetweenMode::LESS_EQUAL_LESS) {
+  } else if (inclusiveness == BetweenOptions::Inclusiveness::LEFT) {
     lhs_val = LESS_EQUAL;
     val_rhs = LESS;
-  } else if (mode == BetweenMode::LESS_LESS_EQUAL) {
+  } else if (inclusiveness == BetweenOptions::Inclusiveness::RIGHT) {
     lhs_val = LESS;
     val_rhs = LESS_EQUAL;
   } else {
@@ -2168,7 +2168,7 @@ TYPED_TEST(TestNumericBetweenKernel, SimpleBetweenArrayScalarScalar) {
   Datum zero(std::make_shared<ScalarType>(CType(0)));
   Datum four(std::make_shared<ScalarType>(CType(4)));
   Datum null(std::make_shared<ScalarType>());
-  BetweenOptions blele(BetweenMode::LESS_EQUAL_LESS_EQUAL);
+  BetweenOptions blele(BetweenOptions::Inclusiveness::BOTH);
   ValidateBetween<TypeParam>(
       blele, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"), zero, four,
       ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[]"));
@@ -2203,7 +2203,7 @@ TYPED_TEST(TestNumericBetweenKernel, SimpleBetweenArrayScalarScalar) {
 }
 
 TYPED_TEST(TestNumericBetweenKernel, SimpleBetweenArrayArrayArray) {
-  BetweenOptions blele(BetweenMode::LESS_EQUAL_LESS_EQUAL);
+  BetweenOptions blele(BetweenOptions::Inclusiveness::BOTH);
   ValidateBetween<TypeParam>(
       blele, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"),
       ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"),
@@ -2236,9 +2236,9 @@ struct BetweenRandomNumeric {
     auto rand = random::RandomArrayGenerator(0x5416447);
     const int64_t length = 1000;
     for (auto null_probability : {0.0, 0.01, 0.1, 0.25, 0.5, 1.0}) {
-      for (auto between_mode :
-           {BetweenMode::LESS_EQUAL_LESS_EQUAL, BetweenMode::LESS_EQUAL_LESS,
-            BetweenMode::LESS_LESS_EQUAL, BetweenMode::LESS_LESS}) {
+      for (auto inclusiveness :
+           {BetweenOptions::Inclusiveness::BOTH, BetweenOptions::Inclusiveness::LEFT,
+	   BetweenOptions::Inclusiveness::RIGHT, BetweenOptions::Inclusiveness::NEITHER}) {
         auto data1 =
             rand.Numeric<typename Type::PhysicalType>(length, 0, 100, null_probability);
         auto data2 =
@@ -2252,7 +2252,7 @@ struct BetweenRandomNumeric {
         auto array3 = Datum(*data3->View(type));
         auto fifty = Datum(std::make_shared<ScalarType>(CType(50), type));
         auto ten = Datum(std::make_shared<ScalarType>(CType(10), type));
-        auto options = BetweenOptions(between_mode);
+        auto options = BetweenOptions(inclusiveness);
         ValidateBetween<Type>(options, array1, ten, fifty);
         ValidateBetween<Type>(options, array2, fifty, ten);
         ValidateBetween<Type>(options, array1, array2, array3);
@@ -2273,14 +2273,14 @@ TEST(TestStringBetweenKernel, RandomBetweenArrayScalarScalar) {
   auto rand = random::RandomArrayGenerator(0x5416447);
   for (size_t i = 3; i < 10; i++) {
     for (auto null_probability : {0.0, 0.01, 0.1, 0.25, 0.5, 1.0}) {
-      for (auto between_mode :
-           {BetweenMode::LESS_EQUAL_LESS_EQUAL, BetweenMode::LESS_EQUAL_LESS,
-            BetweenMode::LESS_LESS_EQUAL, BetweenMode::LESS_LESS}) {
+      for (auto inclusiveness :
+           {BetweenOptions::Inclusiveness::BOTH, BetweenOptions::Inclusiveness::LEFT,
+	    BetweenOptions::Inclusiveness::RIGHT, BetweenOptions::Inclusiveness::NEITHER}) {
         const int64_t length = static_cast<int64_t>(1ULL << i);
         auto array = Datum(rand.String(length, 0, 16, null_probability));
         auto fupi = Datum(std::make_shared<ScalarType>("fupi"));
         auto zito = Datum(std::make_shared<ScalarType>("zito"));
-        auto options = BetweenOptions(between_mode);
+        auto options = BetweenOptions(inclusiveness);
         ValidateBetween<StringType>(options, array, fupi, zito);
       }
     }
@@ -2291,14 +2291,14 @@ TEST(TestStringBetweenKernel, RandomBetweenArrayArrayArray) {
   auto rand = random::RandomArrayGenerator(0x5416447);
   for (size_t i = 3; i < 5; i++) {
     for (auto null_probability : {0.0, 0.01, 0.1, 0.25, 0.5, 1.0}) {
-      for (auto between_mode :
-           {BetweenMode::LESS_EQUAL_LESS_EQUAL, BetweenMode::LESS_EQUAL_LESS,
-            BetweenMode::LESS_LESS_EQUAL, BetweenMode::LESS_LESS}) {
+      for (auto inclusiveness :
+           {BetweenOptions::Inclusiveness::BOTH, BetweenOptions::Inclusiveness::LEFT,
+	   BetweenOptions::Inclusiveness::RIGHT, BetweenOptions::Inclusiveness::NEITHER}) {
         auto length = static_cast<int64_t>(1ULL << i);
         auto val = Datum(rand.String(length << i, 0, 16, null_probability));
         auto lhs = Datum(rand.String(length << i, 0, 16, null_probability));
         auto rhs = Datum(rand.String(length << i, 0, 16, null_probability));
-        auto options = BetweenOptions(between_mode);
+        auto options = BetweenOptions(inclusiveness);
         ValidateBetween<StringType>(options, val, lhs, rhs);
       }
     }
@@ -2309,7 +2309,7 @@ TEST(TestStringBetweenKernel, SimpleStringTest) {
   using ScalarType = typename TypeTraits<StringType>::ScalarType;
   auto l = Datum(std::make_shared<ScalarType>("abc"));
   auto r = Datum(std::make_shared<ScalarType>("zzz"));
-  BetweenOptions blele(BetweenMode::LESS_EQUAL_LESS_EQUAL);
+  BetweenOptions blele(BetweenOptions::Inclusiveness::BOTH);
   ValidateBetween<StringType>(
       blele, ArrayFromJSON(TypeTraits<StringType>::type_singleton(), "[]"), l, r,
       ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[]"));
@@ -2349,7 +2349,7 @@ TEST(TestStringBetweenKernel, SimpleStringTest) {
 }
 
 TEST(TestStringBetweenKernel, StringArrayArrayArrayTest) {
-  BetweenOptions blele(BetweenMode::LESS_EQUAL_LESS_EQUAL);
+  BetweenOptions blele(BetweenOptions::Inclusiveness::BOTH);
   ValidateBetween<StringType>(
       blele,
       ArrayFromJSON(TypeTraits<StringType>::type_singleton(),

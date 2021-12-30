@@ -370,19 +370,16 @@ struct ARROW_EXPORT CompareOptions {
   enum CompareOperator op;
 };
 
-enum class BetweenMode : int8_t {
-  LESS_EQUAL_LESS_EQUAL,
-  LESS_EQUAL_LESS,
-  LESS_LESS_EQUAL,
-  LESS_LESS,
-};
-
 class ARROW_EXPORT BetweenOptions : public FunctionOptions {
  public:
-  explicit BetweenOptions(BetweenMode between_mode = BetweenMode::LESS_EQUAL_LESS_EQUAL);
-  constexpr static char const kTypeName[] = "BetweenOptions";
+  enum Inclusiveness { BOTH, LEFT, RIGHT, NEITHER };
+
+  explicit BetweenOptions(Inclusiveness inclusiveness = BOTH);
   static BetweenOptions Defaults() { return BetweenOptions(); }
-  BetweenMode between_mode;
+  constexpr static char const kTypeName[] = "BetweenOptions";
+
+  /// Inclusiveness option to apply
+  Inclusiveness inclusiveness;
 };
 
 class ARROW_EXPORT MakeStructOptions : public FunctionOptions {
@@ -1650,12 +1647,14 @@ ARROW_EXPORT Result<Datum> MapLookup(const Datum& map, MapLookupOptions options,
                                      ExecContext* ctx = NULLPTR);
 
 /// \brief Between compares each element in `values`
-/// with `left` as a lower bound and 'right' as an upperbound
+/// with `left` as a lower bound and 'right' as an upper bound
 ///
 /// \param[in] values input to compare between left and right
 /// \param[in] left used as the lower bound for comparison
 /// \param[in] right used as the upper bound for comparison
-//  \param[in] options between options, optional
+/// \param[in] options for bounds, default is inclusive of both, other
+///  endpoints, other choices are left (exclude left endpoint), right
+///  (exclude right endpoint) and both (exclude both endpoints), optional
 /// \param[in] ctx the function execution context, optional
 ///
 /// \return the resulting datum
@@ -1665,7 +1664,7 @@ ARROW_EXPORT Result<Datum> MapLookup(const Datum& map, MapLookupOptions options,
 /// \note API not yet finalized
 ARROW_EXPORT
 Result<Datum> Between(const Datum& values, const Datum& left, const Datum& right,
-                      BetweenOptions options = BetweenOptions(),
+                      BetweenOptions options = BetweenOptions::Defaults(),
                       ExecContext* ctx = NULLPTR);
 
 }  // namespace compute

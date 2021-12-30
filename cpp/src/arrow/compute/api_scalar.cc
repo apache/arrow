@@ -101,22 +101,23 @@ struct EnumTraits<compute::CompareOperator>
 };
 
 template <>
-struct EnumTraits<compute::BetweenMode>
-    : BasicEnumTraits<compute::BetweenMode, compute::BetweenMode::LESS_EQUAL_LESS_EQUAL,
-                      compute::BetweenMode::LESS_EQUAL_LESS,
-                      compute::BetweenMode::LESS_LESS_EQUAL,
-                      compute::BetweenMode::LESS_LESS> {
-  static std::string name() { return "compute::BetweenMode"; }
-  static std::string value_name(compute::BetweenMode value) {
+struct EnumTraits<compute::BetweenOptions::Inclusiveness>
+    : BasicEnumTraits<compute::BetweenOptions::Inclusiveness,
+                      compute::BetweenOptions::Inclusiveness::BOTH,
+                      compute::BetweenOptions::Inclusiveness::LEFT,
+                      compute::BetweenOptions::Inclusiveness::RIGHT,
+                      compute::BetweenOptions::Inclusiveness::NEITHER> {
+  static std::string name() { return "BetweenOptions::Inclusiveness"; }
+  static std::string value_name(compute::BetweenOptions::Inclusiveness value) {
     switch (value) {
-      case compute::BetweenMode::LESS_EQUAL_LESS_EQUAL:
-        return "LESS_EQUAL_LESS_EQUAL";
-      case compute::BetweenMode::LESS_EQUAL_LESS:
-        return "LESS_EQUAL_LESS";
-      case compute::BetweenMode::LESS_LESS_EQUAL:
-        return "LESS_LESS_EQUAL";
-      case compute::BetweenMode::LESS_LESS:
-        return "LESS_LESS";
+      case compute::BetweenOptions::Inclusiveness::BOTH:
+        return "BOTH";
+      case compute::BetweenOptions::Inclusiveness::LEFT:
+        return "LEFT";
+      case compute::BetweenOptions::Inclusiveness::RIGHT:
+        return "RIGHT";
+      case compute::BetweenOptions::Inclusiveness::NEITHER:
+        return "NEITHER";
     }
     return "<INVALID>";
   }
@@ -316,7 +317,7 @@ static auto kAssumeTimezoneOptionsType = GetFunctionOptionsType<AssumeTimezoneOp
     DataMember("ambiguous", &AssumeTimezoneOptions::ambiguous),
     DataMember("nonexistent", &AssumeTimezoneOptions::nonexistent));
 static auto kBetweenOptionsType = GetFunctionOptionsType<BetweenOptions>(
-    DataMember("between_mode", &BetweenOptions::between_mode));
+    DataMember("inclusiveness", &BetweenOptions::inclusiveness));
 static auto kDayOfWeekOptionsType = GetFunctionOptionsType<DayOfWeekOptions>(
     DataMember("count_from_zero", &DayOfWeekOptions::count_from_zero),
     DataMember("week_start", &DayOfWeekOptions::week_start));
@@ -413,8 +414,8 @@ AssumeTimezoneOptions::AssumeTimezoneOptions(std::string timezone, Ambiguous amb
 AssumeTimezoneOptions::AssumeTimezoneOptions() : AssumeTimezoneOptions("UTC") {}
 constexpr char AssumeTimezoneOptions::kTypeName[];
 
-BetweenOptions::BetweenOptions(BetweenMode between_mode)
-    : FunctionOptions(internal::kBetweenOptionsType), between_mode(between_mode) {}
+BetweenOptions::BetweenOptions(Inclusiveness inclusiveness)
+    : FunctionOptions(internal::kBetweenOptionsType), inclusiveness(inclusiveness) {}
 constexpr char BetweenOptions::kTypeName[];
 
 DayOfWeekOptions::DayOfWeekOptions(bool count_from_zero, uint32_t week_start)
@@ -661,12 +662,6 @@ void RegisterScalarOptions(FunctionRegistry* registry) {
     return CallFunction(REGISTRY_NAME, {left, right}, ctx);                     \
   }
 
-#define SCALAR_EAGER_TERNARY(NAME, REGISTRY_NAME)                               \
-  Result<Datum> NAME(const Datum& value, const Datum& left, const Datum& right, \
-                     ExecContext* ctx) {                                        \
-    return CallFunction(REGISTRY_NAME, {value, left, right}, ctx);              \
-  }
-
 // ----------------------------------------------------------------------
 // Arithmetic
 
@@ -794,18 +789,18 @@ Result<Datum> Compare(const Datum& left, const Datum& right, CompareOptions opti
 Result<Datum> Between(const Datum& val, const Datum& left, const Datum& right,
                       BetweenOptions options, ExecContext* ctx) {
   std::string func_name;
-  switch (options.between_mode) {
-    case BetweenMode::LESS_EQUAL_LESS_EQUAL:
-      func_name = "between_less_equal_less_equal";
+  switch (options.inclusiveness) {
+   case BetweenOptions::Inclusiveness::BOTH:
+      func_name = "between_inclusive_both";
       break;
-    case BetweenMode::LESS_EQUAL_LESS:
-      func_name = "between_less_equal_less";
+   case BetweenOptions::Inclusiveness::LEFT:
+      func_name = "between_inclusive_left";
       break;
-    case BetweenMode::LESS_LESS_EQUAL:
-      func_name = "between_less_less_equal";
+   case BetweenOptions::Inclusiveness::RIGHT:
+      func_name = "between_inclusive_right";
       break;
-    case BetweenMode::LESS_LESS:
-      func_name = "between_less_less";
+   case BetweenOptions::Inclusiveness::NEITHER:
+      func_name = "between_inclusive_neither";
       break;
   }
   return CallFunction(func_name, {val, left, right}, ctx);
