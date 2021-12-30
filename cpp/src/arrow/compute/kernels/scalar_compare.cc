@@ -763,8 +763,7 @@ struct BetweenTimestamps : public ScalarTernaryEqualTypes<OutType, ArgType, Op> 
     if ((var.timezone().empty() != lhs.timezone().empty()) ||
         (var.timezone().empty() != rhs.timezone().empty()) ||
         (lhs.timezone().empty() != rhs.timezone().empty())) {
-      return Status::Invalid(
-          "Cannot compare timestamps with and without timezones.");
+      return Status::Invalid("Cannot compare timestamps with and without timezones.");
     }
     return Base::Exec(ctx, batch, out);
   }
@@ -843,6 +842,53 @@ std::shared_ptr<ScalarFunction> MakeBetweenFunction(std::string name,
   return func;
 }
 
+const BetweenOptions* GetDefaultBetweenOptions() {
+  static const auto kBetweenOptions = BetweenOptions::Defaults();
+  return &kBetweenOptions;
+}
+
+const FunctionDoc between_doc{"Check if values are in a range, val betwen a and b",
+                              ("A null on either side emits a null comparison result.\n"
+                               "options are used to specify if the endpoints are\n"
+                               "inclusive, possible values are NEITHER (a<val<b),\n"
+                               "LEFT (a<=val<b), RIGHT (a<val<=b), and the default\n"
+                               "if not specified BOTH (a<=val<=b)"),
+                              {"val", "a", "b"}};
+
+class BetweenMetaFunction : public MetaFunction {
+ public:
+  BetweenMetaFunction()
+      : MetaFunction("between", Arity::Ternary(), &between_doc,
+                     GetDefaultBetweenOptions()) {}
+
+  Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
+                            const FunctionOptions* options,
+                            ExecContext* ctx) const override {
+    const BetweenOptions& between_options = static_cast<const BetweenOptions&>(*options);
+    Datum result;
+    switch (between_options.inclusiveness) {
+      case BetweenOptions::Inclusiveness::BOTH: {
+        ARROW_ASSIGN_OR_RAISE(result, CallFunction("between_inclusive_both", args, ctx));
+        break;
+      }
+      case BetweenOptions::Inclusiveness::LEFT: {
+        ARROW_ASSIGN_OR_RAISE(result, CallFunction("between_inclusive_left", args, ctx));
+        break;
+      }
+      case BetweenOptions::Inclusiveness::RIGHT: {
+        ARROW_ASSIGN_OR_RAISE(result, CallFunction("between_inclusive_right", args, ctx));
+        break;
+      }
+      case BetweenOptions::Inclusiveness::NEITHER: {
+        ARROW_ASSIGN_OR_RAISE(result,
+                              CallFunction("between_inclusive_neither", args, ctx));
+        break;
+      }
+    }
+    return result;
+  }
+};
+
 const FunctionDoc equal_doc{"Compare values for equality (x == y)",
                             ("A null on either side emits a null comparison result."),
                             {"x", "y"}};
@@ -882,14 +928,6 @@ const FunctionDoc max_element_wise_doc{
      "NaN is preferred over null, but not over any valid value."),
     {"*args"},
     "ElementWiseAggregateOptions"};
-
-const FunctionDoc between_doc{"Check if values are in a range, val betwen a and b",
-                              ("A null on either side emits a null comparison result.\n"
-                               "options are used to specify if the endpoints are\n"
-                               "inclusive, possible values are NEITHER (a<val<b),\n"
-                               "LEFT (a<=val<b), RIGHT (a<val<=b), and the default\n"
-                               "if not specified BOTH (a<=val<=b)\n"),
-                              {"val", "a", "b"}};
 
 const FunctionDoc between_inclusive_both_doc{
     "Check if values are in a range x <= y <= z",
@@ -942,8 +980,10 @@ void RegisterScalarComparison(FunctionRegistry* registry) {
 }
 
 void RegisterScalarBetween(FunctionRegistry* registry) {
-  auto between_inclusive_neither =
-      MakeBetweenFunction<BetweenInclusiveNeither>("between_inclusive_neither", &between_inclusive_neither_doc);
+  DCHECK_OK(registry->AddFunction(std::make_shared<BetweenMetaFunction>()));
+
+  auto between_inclusive_neither = MakeBetweenFunction<BetweenInclusiveNeither>(
+      "between_inclusive_neither", &between_inclusive_neither_doc);
   DCHECK_OK(registry->AddFunction(std::move(between_inclusive_neither)));
 
   auto between_inclusive_right = MakeBetweenFunction<BetweenInclusiveRight>(

@@ -788,22 +788,7 @@ Result<Datum> Compare(const Datum& left, const Datum& right, CompareOptions opti
 
 Result<Datum> Between(const Datum& val, const Datum& left, const Datum& right,
                       BetweenOptions options, ExecContext* ctx) {
-  std::string func_name;
-  switch (options.inclusiveness) {
-   case BetweenOptions::Inclusiveness::BOTH:
-      func_name = "between_inclusive_both";
-      break;
-   case BetweenOptions::Inclusiveness::LEFT:
-      func_name = "between_inclusive_left";
-      break;
-   case BetweenOptions::Inclusiveness::RIGHT:
-      func_name = "between_inclusive_right";
-      break;
-   case BetweenOptions::Inclusiveness::NEITHER:
-      func_name = "between_inclusive_neither";
-      break;
-  }
-  return CallFunction(func_name, {val, left, right}, ctx);
+  return CallFunction("between", {val, left, right}, &options, ctx);
 }
 
 // ----------------------------------------------------------------------

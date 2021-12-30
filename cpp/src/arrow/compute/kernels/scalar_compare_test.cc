@@ -2238,7 +2238,8 @@ struct BetweenRandomNumeric {
     for (auto null_probability : {0.0, 0.01, 0.1, 0.25, 0.5, 1.0}) {
       for (auto inclusiveness :
            {BetweenOptions::Inclusiveness::BOTH, BetweenOptions::Inclusiveness::LEFT,
-	   BetweenOptions::Inclusiveness::RIGHT, BetweenOptions::Inclusiveness::NEITHER}) {
+            BetweenOptions::Inclusiveness::RIGHT,
+            BetweenOptions::Inclusiveness::NEITHER}) {
         auto data1 =
             rand.Numeric<typename Type::PhysicalType>(length, 0, 100, null_probability);
         auto data2 =
@@ -2275,7 +2276,8 @@ TEST(TestStringBetweenKernel, RandomBetweenArrayScalarScalar) {
     for (auto null_probability : {0.0, 0.01, 0.1, 0.25, 0.5, 1.0}) {
       for (auto inclusiveness :
            {BetweenOptions::Inclusiveness::BOTH, BetweenOptions::Inclusiveness::LEFT,
-	    BetweenOptions::Inclusiveness::RIGHT, BetweenOptions::Inclusiveness::NEITHER}) {
+            BetweenOptions::Inclusiveness::RIGHT,
+            BetweenOptions::Inclusiveness::NEITHER}) {
         const int64_t length = static_cast<int64_t>(1ULL << i);
         auto array = Datum(rand.String(length, 0, 16, null_probability));
         auto fupi = Datum(std::make_shared<ScalarType>("fupi"));
@@ -2293,7 +2295,8 @@ TEST(TestStringBetweenKernel, RandomBetweenArrayArrayArray) {
     for (auto null_probability : {0.0, 0.01, 0.1, 0.25, 0.5, 1.0}) {
       for (auto inclusiveness :
            {BetweenOptions::Inclusiveness::BOTH, BetweenOptions::Inclusiveness::LEFT,
-	   BetweenOptions::Inclusiveness::RIGHT, BetweenOptions::Inclusiveness::NEITHER}) {
+            BetweenOptions::Inclusiveness::RIGHT,
+            BetweenOptions::Inclusiveness::NEITHER}) {
         auto length = static_cast<int64_t>(1ULL << i);
         auto val = Datum(rand.String(length << i, 0, 16, null_probability));
         auto lhs = Datum(rand.String(length << i, 0, 16, null_probability));
