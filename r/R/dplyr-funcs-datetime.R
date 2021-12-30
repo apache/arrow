@@ -16,7 +16,6 @@
 # under the License.
 
 register_bindings_datetime <- function() {
-
   register_binding("strptime", function(x, format = "%Y-%m-%d %H:%M:%S", tz = NULL,
                                             unit = "ms") {
     # Arrow uses unit for time parsing, strptime() does not.
