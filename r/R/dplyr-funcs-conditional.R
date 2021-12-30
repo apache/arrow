@@ -16,7 +16,6 @@
 # under the License.
 
 register_bindings_conditional <- function() {
-
   register_binding("coalesce", function(...) {
     args <- list2(...)
     if (length(args) < 1) {
