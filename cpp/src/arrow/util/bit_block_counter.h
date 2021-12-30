@@ -34,15 +34,12 @@ namespace arrow {
 namespace internal {
 namespace detail {
 
-inline uint64_t LoadWord(const uint8_t* bytes) {
+constexpr uint64_t LoadWord(const uint8_t* bytes) {
   return bit_util::ToLittleEndian(util::SafeLoadAs<uint64_t>(bytes));
 }
 
-inline uint64_t ShiftWord(uint64_t current, uint64_t next, int64_t shift) {
-  if (shift == 0) {
-    return current;
-  }
-  return (current >> shift) | (next << (64 - shift));
+constexpr uint64_t ShiftWord(uint64_t current, uint64_t next, int64_t shift) {
+  return (shift == 0) ? current : (current >> shift) | (next << (64 - shift));
 }
 
 // These templates are here to help with unit tests
@@ -57,24 +54,32 @@ constexpr bool BitNot(bool x) {
   return !x;
 }
 
-template <typename T>
 struct BitBlockAnd {
-  static constexpr T Call(T left, T right) { return left & right; }
+  template <typename T>
+  static constexpr T Call(T left, T right) {
+    return left & right;
+  }
 };
 
-template <typename T>
 struct BitBlockAndNot {
-  static constexpr T Call(T left, T right) { return left & BitNot(right); }
+  template <typename T>
+  static constexpr T Call(T left, T right) {
+    return left & BitNot(right);
+  }
 };
 
-template <typename T>
 struct BitBlockOr {
-  static constexpr T Call(T left, T right) { return left | right; }
+  template <typename T>
+  static constexpr T Call(T left, T right) {
+    return left | right;
+  }
 };
 
-template <typename T>
 struct BitBlockOrNot {
-  static constexpr T Call(T left, T right) { return left | BitNot(right); }
+  template <typename T>
+  static constexpr T Call(T left, T right) {
+    return left | BitNot(right);
+  }
 };
 
 }  // namespace detail
@@ -276,7 +281,7 @@ class ARROW_EXPORT BinaryBitBlockCounter {
   BitBlockCount NextOrNotWord() { return NextWord<detail::BitBlockOrNot>(); }
 
  private:
-  template <template <typename T> class Op>
+  template <class Op>
   BitBlockCount NextWord() {
     using detail::LoadWord;
     using detail::ShiftWord;
@@ -295,8 +300,8 @@ class ARROW_EXPORT BinaryBitBlockCounter {
           static_cast<int16_t>(std::min(bits_remaining_, kWordBits));
       int16_t popcount = 0;
       for (int64_t i = 0; i < run_length; ++i) {
-        if (Op<bool>::Call(bit_util::GetBit(left_bitmap_, left_offset_ + i),
-                           bit_util::GetBit(right_bitmap_, right_offset_ + i))) {
+        if (Op::Call(bit_util::GetBit(left_bitmap_, left_offset_ + i),
+                     bit_util::GetBit(right_bitmap_, right_offset_ + i))) {
           ++popcount;
         }
       }
@@ -310,14 +315,14 @@ class ARROW_EXPORT BinaryBitBlockCounter {
 
     int64_t popcount = 0;
     if (left_offset_ == 0 && right_offset_ == 0) {
-      popcount = bit_util::PopCount(
-          Op<uint64_t>::Call(LoadWord(left_bitmap_), LoadWord(right_bitmap_)));
+      popcount =
+          bit_util::PopCount(Op::Call(LoadWord(left_bitmap_), LoadWord(right_bitmap_)));
     } else {
       auto left_word =
           ShiftWord(LoadWord(left_bitmap_), LoadWord(left_bitmap_ + 8), left_offset_);
       auto right_word =
           ShiftWord(LoadWord(right_bitmap_), LoadWord(right_bitmap_ + 8), right_offset_);
-      popcount = bit_util::PopCount(Op<uint64_t>::Call(left_word, right_word));
+      popcount = bit_util::PopCount(Op::Call(left_word, right_word));
     }
     left_bitmap_ += kWordBits / 8;
     right_bitmap_ += kWordBits / 8;

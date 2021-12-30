@@ -206,7 +206,7 @@ TEST_F(TestBitBlockCounter, FourWordsRandomData) {
   }
 }
 
-template <template <typename T> class Op, typename NextWordFunc>
+template <class Op, typename NextWordFunc>
 void CheckBinaryBitBlockOp(NextWordFunc&& get_next_word) {
   const int64_t nbytes = 1024;
   auto left = *AllocateBuffer(nbytes);
@@ -224,8 +224,8 @@ void CheckBinaryBitBlockOp(NextWordFunc&& get_next_word) {
       int expected_popcount = 0;
       for (int j = 0; j < block.length; ++j) {
         expected_popcount += static_cast<int>(
-            Op<bool>::Call(bit_util::GetBit(left->data(), position + left_offset + j),
-                           bit_util::GetBit(right->data(), position + right_offset + j)));
+            Op::Call(bit_util::GetBit(left->data(), position + left_offset + j),
+                     bit_util::GetBit(right->data(), position + right_offset + j)));
       }
       ASSERT_EQ(block.popcount, expected_popcount);
       position += block.length;
