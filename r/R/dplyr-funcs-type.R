@@ -217,7 +217,6 @@ register_bindings_type_inspect <- function() {
 }
 
 register_bindings_type_elementwise <- function() {
-
   register_binding("is.na", function(x) {
     build_expr("is_null", x, options = list(nan_is_null = TRUE))
   })
