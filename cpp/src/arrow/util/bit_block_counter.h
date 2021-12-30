@@ -34,12 +34,15 @@ namespace arrow {
 namespace internal {
 namespace detail {
 
-constexpr uint64_t LoadWord(const uint8_t* bytes) {
+inline uint64_t LoadWord(const uint8_t* bytes) {
   return bit_util::ToLittleEndian(util::SafeLoadAs<uint64_t>(bytes));
 }
 
-constexpr uint64_t ShiftWord(uint64_t current, uint64_t next, int64_t shift) {
-  return (shift == 0) ? current : (current >> shift) | (next << (64 - shift));
+inline uint64_t ShiftWord(uint64_t current, uint64_t next, int64_t shift) {
+  if (shift == 0) {
+    return current;
+  }
+  return (current >> shift) | (next << (64 - shift));
 }
 
 // These templates are here to help with unit tests
