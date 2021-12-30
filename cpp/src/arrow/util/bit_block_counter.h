@@ -48,33 +48,33 @@ inline uint64_t ShiftWord(uint64_t current, uint64_t next, int64_t shift) {
 // These templates are here to help with unit tests
 
 template <typename T>
-inline T BitNot(T x) {
+constexpr T BitNot(T x) {
   return ~x;
 }
 
 template <>
-inline bool BitNot(bool x) {
+constexpr bool BitNot(bool x) {
   return !x;
 }
 
 template <typename T>
 struct BitBlockAnd {
-  static T Call(T left, T right) { return left & right; }
+  static constexpr T Call(T left, T right) { return left & right; }
 };
 
 template <typename T>
 struct BitBlockAndNot {
-  static T Call(T left, T right) { return left & BitNot(right); }
+  static constexpr T Call(T left, T right) { return left & BitNot(right); }
 };
 
 template <typename T>
 struct BitBlockOr {
-  static T Call(T left, T right) { return left | right; }
+  static constexpr T Call(T left, T right) { return left | right; }
 };
 
 template <typename T>
 struct BitBlockOrNot {
-  static T Call(T left, T right) { return left | BitNot(right); }
+  static constexpr T Call(T left, T right) { return left | BitNot(right); }
 };
 
 }  // namespace detail
