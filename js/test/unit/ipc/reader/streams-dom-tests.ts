@@ -26,8 +26,7 @@ import {
 } from 'apache-arrow';
 
 (() => {
-
-    if (process.env.TEST_DOM_STREAMS !== 'true') {
+if (process.env.TEST_DOM_STREAMS !== 'true') {
         return test('not testing DOM streams because process.env.TEST_DOM_STREAMS !== "true"', () => { });
     }
 

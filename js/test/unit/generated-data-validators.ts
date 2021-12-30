@@ -118,7 +118,7 @@ function vectorTests(values: any[], vector: Vector<any>, keys?: number[]) {
     if (keys && keys.length > 0) {
         test(`dictionary indices should match`, () => {
             expect.hasAssertions();
-            let indices = new Vector(vector.data.map((data) => data.clone(vector.type.indices)));
+            const indices = new Vector(vector.data.map((data) => data.clone(vector.type.indices)));
             let i = -1, n = indices.length;
             try {
                 while (++i < n) {

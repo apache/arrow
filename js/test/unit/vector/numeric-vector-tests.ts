@@ -336,7 +336,7 @@ function iterates_expected_values<T extends Int | Float>(vector: Vector<T>, type
         expect.hasAssertions();
         let i = -1, n = vector.length;
         try {
-            for (let v of vector) {
+            for (const v of vector) {
                 expect(++i).toBeLessThan(n);
                 expect(v).toEqual(values[i]);
             }

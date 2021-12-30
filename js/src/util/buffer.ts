@@ -66,7 +66,7 @@ export function joinUint8Arrays(chunks: Uint8Array[], size?: number | null): [Ui
     let source: Uint8Array, sliced: Uint8Array, buffer: Uint8Array | void;
     let offset = 0, index = -1;
     const length = Math.min(size || Infinity, byteLength);
-    for (let n = result.length; ++index < n;) {
+    for (const n = result.length; ++index < n;) {
         source = result[index];
         sliced = source.subarray(0, Math.min(source.length, length - offset));
         if (length <= (offset + sliced.length)) {
