@@ -54,16 +54,14 @@ function toEqualTable(this: jest.MatcherUtils, actual: Table, expected: Table) {
     try { expect(actual.numRows).toEqual(expected.numRows); } catch (e) { failures.push(`${e}`); }
     try { expect(actual.numCols).toEqual(expected.numCols); } catch (e) { failures.push(`${e}`); }
     try { expect(actual.schema.metadata).toEqual(expected.schema.metadata); } catch (e) { failures.push(`${e}`); }
-    (() => {
-        for (let i = -1, n = actual.numCols; ++i < n;) {
-            const v1 = actual.getChildAt(i);
-            const v2 = expected.getChildAt(i);
-            const name = actual.schema.fields[i].name;
-            try {
-                expect([v1, `actual`, name]).toEqualVector([v2, `expected`, name]);
-            } catch (e) { failures.push(`${e}`); }
-        }
-    })();
+    for (let i = -1, n = actual.numCols; ++i < n;) {
+        const v1 = actual.getChildAt(i);
+        const v2 = expected.getChildAt(i);
+        const name = actual.schema.fields[i].name;
+        try {
+            expect([v1, `actual`, name]).toEqualVector([v2, `expected`, name]);
+        } catch (e) { failures.push(`${e}`); }
+    }
     return {
         pass: failures.length === 0,
         message: () => failures.join('\n'),
@@ -74,16 +72,14 @@ function toEqualRecordBatch(this: jest.MatcherUtils, actual: RecordBatch, expect
     const failures = [] as string[];
     try { expect(actual.numRows).toEqual(expected.numRows); } catch (e) { failures.push(`${e}`); }
     try { expect(actual.numCols).toEqual(expected.numCols); } catch (e) { failures.push(`${e}`); }
-    (() => {
-        for (let i = -1, n = actual.numCols; ++i < n;) {
-            const v1 = actual.getChildAt(i);
-            const v2 = expected.getChildAt(i);
-            const name = actual.schema.fields[i].name;
-            try {
-                expect([v1, `actual`, name]).toEqualVector([v2, `expected`, name]);
-            } catch (e) { failures.push(`${e}`); }
-        }
-    })();
+    for (let i = -1, n = actual.numCols; ++i < n;) {
+        const v1 = actual.getChildAt(i);
+        const v2 = expected.getChildAt(i);
+        const name = actual.schema.fields[i].name;
+        try {
+            expect([v1, `actual`, name]).toEqualVector([v2, `expected`, name]);
+        } catch (e) { failures.push(`${e}`); }
+    }
     return {
         pass: failures.length === 0,
         message: () => failures.join('\n'),
@@ -121,25 +117,19 @@ function toEqualVector<
 
     const props: (string & keyof Vector)[] = ['type', 'length', 'nullCount'];
 
-    (() => {
         for (let i = -1, n = props.length; ++i < n;) {
             const prop = props[i];
             if (`${v1[prop]}` !== `${v2[prop]}`) {
                 propsFailures.push(`${prop}: ${format(this, v1[prop], v2[prop], ' !== ')}`);
             }
         }
-    })();
-
-    (() => {
         for (let i = -1, n = v1.length; ++i < n;) {
             const x1 = v1.get(i), x2 = v2.get(i);
             if (!util.createElementComparator(x2)(x1)) {
                 getFailures.push(`${i}: ${format(this, x1, x2, ' !== ')}`);
             }
         }
-    })();
 
-    (() => {
         let i = -1;
         for (let [x1, x2] of zip(v1, v2)) {
             ++i;
@@ -147,7 +137,6 @@ function toEqualVector<
                 iteratorFailures.push(`${i}: ${format(this, x1, x2, ' !== ')}`);
             }
         }
-    })();
 
     return {
         pass: allFailures.every(({ failures }) => failures.length === 0),

@@ -38,14 +38,12 @@ import { Builder,
 
 describe('RecordBatchStreamWriter', () => {
 
-    (() => {
-        const type = generate.sparseUnion(0, 0).vector.type;
-        const schema = new Schema([new Field('dictSparseUnion', type)]);
-        const table = generate.table([10, 20, 30], schema).table;
-        const testName = `[${table.schema.fields.join(', ')}]`;
-        testStreamWriter(table, testName, { writeLegacyIpcFormat: true });
-        testStreamWriter(table, testName, { writeLegacyIpcFormat: false });
-    })();
+    const type = generate.sparseUnion(0, 0).vector.type;
+    const schema = new Schema([new Field('dictSparseUnion', type)]);
+    const table = generate.table([10, 20, 30], schema).table;
+    const testName = `[${table.schema.fields.join(', ')}]`;
+    testStreamWriter(table, testName, { writeLegacyIpcFormat: true });
+    testStreamWriter(table, testName, { writeLegacyIpcFormat: false });
 
     for (const table of generateRandomTables([10, 20, 30])) {
         const testName = `[${table.schema.fields.join(', ')}]`;
