@@ -554,7 +554,7 @@ class RecordBatchFileReaderImpl<T extends TypeMap = any> extends RecordBatchStre
     public readRecordBatch(index: number) {
         if (this.closed) { return null; }
         if (!this._footer) { this.open(); }
-        const block = this._footer && this._footer.getRecordBatch(index);
+        const block = this._footer?.getRecordBatch(index);
         if (block && this._handle.seek(block.offset)) {
             const message = this._reader.readMessage(MessageHeader.RecordBatch);
             if (message?.isRecordBatch()) {
@@ -567,7 +567,7 @@ class RecordBatchFileReaderImpl<T extends TypeMap = any> extends RecordBatchStre
         return null;
     }
     protected _readDictionaryBatch(index: number) {
-        const block = this._footer && this._footer.getDictionaryBatch(index);
+        const block = this._footer?.getDictionaryBatch(index);
         if (block && this._handle.seek(block.offset)) {
             const message = this._reader.readMessage(MessageHeader.DictionaryBatch);
             if (message?.isDictionaryBatch()) {
@@ -588,7 +588,7 @@ class RecordBatchFileReaderImpl<T extends TypeMap = any> extends RecordBatchStre
     protected _readNextMessageAndValidate<T extends MessageHeader>(type?: T | null): Message<T> | null {
         if (!this._footer) { this.open(); }
         if (this._footer && this._recordBatchIndex < this.numRecordBatches) {
-            const block = this._footer && this._footer.getRecordBatch(this._recordBatchIndex);
+            const block = this._footer?.getRecordBatch(this._recordBatchIndex);
             if (block && this._handle.seek(block.offset)) {
                 return this._reader.readMessage(type);
             }
@@ -628,7 +628,7 @@ class AsyncRecordBatchFileReaderImpl<T extends TypeMap = any> extends AsyncRecor
     public async readRecordBatch(index: number) {
         if (this.closed) { return null; }
         if (!this._footer) { await this.open(); }
-        const block = this._footer && this._footer.getRecordBatch(index);
+        const block = this._footer?.getRecordBatch(index);
         if (block && (await this._handle.seek(block.offset))) {
             const message = await this._reader.readMessage(MessageHeader.RecordBatch);
             if (message?.isRecordBatch()) {
@@ -641,7 +641,7 @@ class AsyncRecordBatchFileReaderImpl<T extends TypeMap = any> extends AsyncRecor
         return null;
     }
     protected async _readDictionaryBatch(index: number) {
-        const block = this._footer && this._footer.getDictionaryBatch(index);
+        const block = this._footer?.getDictionaryBatch(index);
         if (block && (await this._handle.seek(block.offset))) {
             const message = await this._reader.readMessage(MessageHeader.DictionaryBatch);
             if (message?.isDictionaryBatch()) {
