@@ -101,22 +101,22 @@ struct EnumTraits<compute::CompareOperator>
 };
 
 template <>
-struct EnumTraits<compute::BetweenOptions::Inclusiveness>
-    : BasicEnumTraits<compute::BetweenOptions::Inclusiveness,
-                      compute::BetweenOptions::Inclusiveness::BOTH,
-                      compute::BetweenOptions::Inclusiveness::LEFT,
-                      compute::BetweenOptions::Inclusiveness::RIGHT,
-                      compute::BetweenOptions::Inclusiveness::NEITHER> {
-  static std::string name() { return "BetweenOptions::Inclusiveness"; }
-  static std::string value_name(compute::BetweenOptions::Inclusiveness value) {
+struct EnumTraits<compute::BetweenOptions::Inclusive>
+    : BasicEnumTraits<compute::BetweenOptions::Inclusive,
+                      compute::BetweenOptions::Inclusive::BOTH,
+                      compute::BetweenOptions::Inclusive::LEFT,
+                      compute::BetweenOptions::Inclusive::RIGHT,
+                      compute::BetweenOptions::Inclusive::NEITHER> {
+  static std::string name() { return "BetweenOptions::Inclusive"; }
+  static std::string value_name(compute::BetweenOptions::Inclusive value) {
     switch (value) {
-      case compute::BetweenOptions::Inclusiveness::BOTH:
+      case compute::BetweenOptions::Inclusive::BOTH:
         return "BOTH";
-      case compute::BetweenOptions::Inclusiveness::LEFT:
+      case compute::BetweenOptions::Inclusive::LEFT:
         return "LEFT";
-      case compute::BetweenOptions::Inclusiveness::RIGHT:
+      case compute::BetweenOptions::Inclusive::RIGHT:
         return "RIGHT";
-      case compute::BetweenOptions::Inclusiveness::NEITHER:
+      case compute::BetweenOptions::Inclusive::NEITHER:
         return "NEITHER";
     }
     return "<INVALID>";
@@ -317,7 +317,7 @@ static auto kAssumeTimezoneOptionsType = GetFunctionOptionsType<AssumeTimezoneOp
     DataMember("ambiguous", &AssumeTimezoneOptions::ambiguous),
     DataMember("nonexistent", &AssumeTimezoneOptions::nonexistent));
 static auto kBetweenOptionsType = GetFunctionOptionsType<BetweenOptions>(
-    DataMember("inclusiveness", &BetweenOptions::inclusiveness));
+    DataMember("inclusive", &BetweenOptions::inclusive));
 static auto kDayOfWeekOptionsType = GetFunctionOptionsType<DayOfWeekOptions>(
     DataMember("count_from_zero", &DayOfWeekOptions::count_from_zero),
     DataMember("week_start", &DayOfWeekOptions::week_start));
@@ -414,8 +414,8 @@ AssumeTimezoneOptions::AssumeTimezoneOptions(std::string timezone, Ambiguous amb
 AssumeTimezoneOptions::AssumeTimezoneOptions() : AssumeTimezoneOptions("UTC") {}
 constexpr char AssumeTimezoneOptions::kTypeName[];
 
-BetweenOptions::BetweenOptions(Inclusiveness inclusiveness)
-    : FunctionOptions(internal::kBetweenOptionsType), inclusiveness(inclusiveness) {}
+BetweenOptions::BetweenOptions(Inclusive inclusive)
+    : FunctionOptions(internal::kBetweenOptionsType), inclusive(inclusive) {}
 constexpr char BetweenOptions::kTypeName[];
 
 DayOfWeekOptions::DayOfWeekOptions(bool count_from_zero, uint32_t week_start)

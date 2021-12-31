@@ -372,14 +372,14 @@ struct ARROW_EXPORT CompareOptions {
 
 class ARROW_EXPORT BetweenOptions : public FunctionOptions {
  public:
-  enum Inclusiveness { BOTH, LEFT, RIGHT, NEITHER };
+  enum Inclusive { BOTH, LEFT, RIGHT, NEITHER };
 
-  explicit BetweenOptions(Inclusiveness inclusiveness = BOTH);
+  explicit BetweenOptions(Inclusive inclusive = BOTH);
   static BetweenOptions Defaults() { return BetweenOptions(); }
   constexpr static char const kTypeName[] = "BetweenOptions";
 
-  /// Inclusiveness option to apply
-  Inclusiveness inclusiveness;
+  /// Inclusive option to apply
+  Inclusive inclusive;
 };
 
 class ARROW_EXPORT MakeStructOptions : public FunctionOptions {
