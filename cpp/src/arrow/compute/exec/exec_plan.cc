@@ -157,6 +157,18 @@ struct ExecPlanImpl : public ExecPlan {
     return std::move(Impl{nodes_}.sorted);
   }
 
+  // This function returns a node vector and a vector of integers with the
+  // number of spaces to add as an indentation. The main difference between
+  // this function and the TopoSort function is that here we visit the nodes
+  // in reverse order and we can have repeated nodes if necessary.
+  // For example, in the following plan:
+  // s1 --> s3 -\
+  //   \         \
+  //    \         -> s5 --> s6
+  //     \       /
+  // s2 --> s4 -/
+  // Toposort node vector: s1 s2 s3 s4 s5 s6
+  // OrderedNodes node vector: s6 s5 s3 s1 s4 s2 s1
   std::pair<NodeVector, std::vector<int>> OrderedNodes() const {
     struct Impl {
       const std::vector<std::unique_ptr<ExecNode>>& nodes;
