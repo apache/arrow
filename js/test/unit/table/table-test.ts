@@ -15,18 +15,26 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Float32, Float64, Int8, makeTable, tableFrom, Utf8 } from 'apache-arrow';
+import { Int32, Float32, Float64, Int8, makeTable, tableFrom, Utf8 } from 'apache-arrow';
 
 describe('makeTable()', () => {
-    test(`creates table from typed arrays`, () => {
-        const table = makeTable({
-            a: new Float32Array([1, 2]),
-            b: new Int8Array([1, 2]),
-        });
+    test(`creates a new Table from Typed Arrays`, () => {
+        const i32s = Int32Array.from({ length: 10 }, (_, i) => i);
+        const f32s = Float32Array.from({ length: 10 }, (_, i) => i);
+        const table = makeTable({ i32s, f32s });
+        const i32 = table.getChild('i32s')!;
+        const f32 = table.getChild('f32s')!;
+        expect(table.getChild('foo' as any)).toBeNull();
 
-        expect(table.getChild('a')!.type).toBeInstanceOf(Float32);
-        expect(table.getChild('b')!.type).toBeInstanceOf(Int8);
-        expect(table.getChild('c' as any)).toBeNull();
+        expect(table.numRows).toBe(10);
+        expect(i32.type).toBeInstanceOf(Int32);
+        expect(f32.type).toBeInstanceOf(Float32);
+        expect(i32).toHaveLength(10);
+        expect(f32).toHaveLength(10);
+        expect(i32.toArray()).toBeInstanceOf(Int32Array);
+        expect(f32.toArray()).toBeInstanceOf(Float32Array);
+        expect(i32.toArray()).toEqual(i32s);
+        expect(f32.toArray()).toEqual(f32s);
     });
 });
 

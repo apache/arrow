@@ -64,7 +64,10 @@ export class Vector<T extends DataType = any> {
     constructor(...args: Vector<T>[]);
     constructor(...args: (readonly (Data<T> | Vector<T>)[])[]);
     constructor(...args: any[]) {
-        const data = args.flat(1).flatMap(unwrapInputs);
+        const data = args.flat(1).flatMap(
+            /** Specialized version of {@link unwrapInputs} so we don't need makeVector and prevent treeshaking. */
+            arg => arg instanceof Data ? arg : arg.data
+        );
         if (data.some((x) => !(x instanceof Data))) {
             throw new TypeError('Vector constructor expects an Array of Data instances.');
         }
