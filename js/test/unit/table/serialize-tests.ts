@@ -21,12 +21,10 @@ import * as generate from '../../generate-test-data.js';
 import {
     Table, Schema, Field, DataType, TypeMap, Dictionary, Int32, Float32, Utf8, Null,
     makeVector,
-    RecordBatchStreamReader, RecordBatchStreamWriter
+    serialize, deserialize
 } from 'apache-arrow';
 
 const deepCopy = (t: Table) => deserialize(serialize(t));
-const serialize = (t: Table) => RecordBatchStreamWriter.writeAll(t).toUint8Array(true);
-const deserialize = (b: Uint8Array) => new Table([...RecordBatchStreamReader.from(b)]);
 
 const toSchema = (...xs: [string, DataType][]) => new Schema(xs.map((x) => new Field(...x)));
 const schema1 = toSchema(['a', new Int32()], ['b', new Float32()], ['c', new Dictionary(new Utf8(), new Int32())]);

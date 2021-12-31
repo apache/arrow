@@ -24,13 +24,10 @@ import {
     Schema, Field, Table, RecordBatch,
     Vector, Builder,
     Float32, Int32, Dictionary, Utf8, Int8,
-    RecordBatchStreamReader,
-    RecordBatchStreamWriter,
+    serialize, deserialize
 } from 'apache-arrow';
 
 const deepCopy = (t: Table) => deserialize(serialize(t));
-const serialize = (t: Table) => RecordBatchStreamWriter.writeAll(t).toUint8Array(true);
-const deserialize = (b: Uint8Array) => new Table([...RecordBatchStreamReader.from(b)]);
 
 const F32 = 0, I32 = 1, DICT = 2;
 

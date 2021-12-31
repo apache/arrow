@@ -62,6 +62,7 @@ export {
     ByteStream, AsyncByteStream, AsyncByteQueue, ReadableSource, WritableSink,
     RecordBatchReader, RecordBatchFileReader, RecordBatchStreamReader, AsyncRecordBatchFileReader, AsyncRecordBatchStreamReader,
     RecordBatchWriter, RecordBatchFileWriter, RecordBatchStreamWriter, RecordBatchJSONWriter,
+    deserialize, serialize,
     MessageReader, AsyncMessageReader, JSONMessageReader,
     Message,
     RecordBatch,

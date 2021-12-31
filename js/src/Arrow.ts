@@ -84,6 +84,7 @@ export {
 export { ByteStream, AsyncByteStream, AsyncByteQueue, ReadableSource, WritableSink } from './io/stream.js';
 export { RecordBatchReader, RecordBatchFileReader, RecordBatchStreamReader, AsyncRecordBatchFileReader, AsyncRecordBatchStreamReader } from './ipc/reader.js';
 export { RecordBatchWriter, RecordBatchFileWriter, RecordBatchStreamWriter, RecordBatchJSONWriter } from './ipc/writer.js';
+export { serialize, deserialize } from './ipc/serialization.js';
 export { MessageReader, AsyncMessageReader, JSONMessageReader } from './ipc/message.js';
 export { Message } from './ipc/metadata/message.js';
 export { RecordBatch } from './recordbatch.js';
