@@ -78,8 +78,9 @@ describe(`FloatVector`, () => {
             const u16s = valuesTyped(Uint16Array).map((x) => float64ToUint16(uint16ToFloat64(x)));
             const f16s = valuesArray(Uint16Array).map(uint16ToFloat64);
             const vector = vectorFromArray(f16s, new Float16);
-            test(`return type is correct`, () => checkDtype(Float16, vector));
             testAndValidateVector(vector, u16s, f16s);
+            test(`return type is correct`, () => checkDtype(Float16, vector));
+            test(`has correct byteLength`, () => { expect(vector.byteLength).toBe(vector.length * 2); });
         });
     });
     describe(`Vector<Float32>`, () => {
@@ -89,15 +90,17 @@ describe(`FloatVector`, () => {
             const vector = vectorFromArray(values, new Float32);
             testAndValidateVector(vector, valuesTyped(Float32Array), values);
             test(`return type is correct`, () => checkDtype(Float32, vector));
+            test(`has correct byteLength`, () => { expect(vector.byteLength).toBe(vector.length * 4); });
         });
     });
     describe(`Vector<Float64>`, () => {
         testFloatVector(Float64);
-        describe(`vectorFromArray accepts regular Arrays to construct Vector<Float164>`, () => {
+        describe(`vectorFromArray accepts regular Arrays to construct Vector<Float64>`, () => {
             const values = valuesArray(Float64Array);
             const vector = vectorFromArray(values);
             testAndValidateVector(vector, valuesTyped(Float64Array), values);
             test(`return type is correct`, () => checkDtype(Float64, vector));
+            test(`has correct byteLength`, () => { expect(vector.byteLength).toBe(vector.length * 8); });
         });
     });
 });
@@ -153,6 +156,7 @@ describe(`IntVector`, () => {
             const vector = vectorFromArray(values, new Int8);
             testAndValidateVector(vector, valuesTyped(Int8Array), values);
             test(`return type is correct`, () => checkDtype(Int8, vector));
+            test(`has correct byteLength`, () => { expect(vector.byteLength).toBe(vector.length); });
         });
     });
     describe(`Vector<Int16>`, () => {
@@ -162,6 +166,7 @@ describe(`IntVector`, () => {
             const vector = vectorFromArray(values, new Int16);
             testAndValidateVector(vector, valuesTyped(Int16Array), values);
             test(`return type is correct`, () => checkDtype(Int16, vector));
+            test(`has correct byteLength`, () => { expect(vector.byteLength).toBe(vector.length * 2); });
         });
     });
     describe(`Vector<Int32>`, () => {
@@ -171,6 +176,7 @@ describe(`IntVector`, () => {
             const vector = vectorFromArray(values, new Int32);
             testAndValidateVector(vector, valuesTyped(Int32Array), values);
             test(`return type is correct`, () => checkDtype(Int32, vector));
+            test(`has correct byteLength`, () => { expect(vector.byteLength).toBe(vector.length * 4); });
         });
     });
     describe(`Vector<Int64>`, () => {
@@ -181,6 +187,7 @@ describe(`IntVector`, () => {
             const vector = vectorFromArray(values);
             testAndValidateVector(vector, bigIntValuesTyped(BigInt64Array), values);
             test(`return type is correct`, () => checkDtype(Int64, vector));
+            test(`has correct byteLength`, () => { expect(vector.byteLength).toBe(vector.length * 8); });
         });
     });
     describe(`Vector<Uint8>`, () => {
@@ -190,6 +197,7 @@ describe(`IntVector`, () => {
             const vector = vectorFromArray(values, new Uint8);
             testAndValidateVector(vector, valuesTyped(Uint8Array), values);
             test(`return type is correct`, () => checkDtype(Uint8, vector));
+            test(`has correct byteLength`, () => { expect(vector.byteLength).toBe(vector.length); });
         });
     });
     describe(`Vector<Uint16>`, () => {
@@ -199,6 +207,7 @@ describe(`IntVector`, () => {
             const vector = vectorFromArray(values, new Uint16);
             testAndValidateVector(vector, valuesTyped(Uint16Array), values);
             test(`return type is correct`, () => checkDtype(Uint16, vector));
+            test(`has correct byteLength`, () => { expect(vector.byteLength).toBe(vector.length * 2); });
         });
     });
     describe(`Vector<Uint32>`, () => {
@@ -208,6 +217,7 @@ describe(`IntVector`, () => {
             const vector = vectorFromArray(values, new Uint32);
             testAndValidateVector(vector, valuesTyped(Uint32Array), values);
             test(`return type is correct`, () => checkDtype(Uint32, vector));
+            test(`has correct byteLength`, () => { expect(vector.byteLength).toBe(vector.length * 4); });
         });
     });
     describe(`Vector<Uint64>`, () => {
@@ -218,6 +228,7 @@ describe(`IntVector`, () => {
             const vector = vectorFromArray(values, new Uint64);
             testAndValidateVector(vector, bigIntValuesTyped(BigUint64Array), values);
             test(`return type is correct`, () => checkDtype(Uint64, vector));
+            test(`has correct byteLength`, () => { expect(vector.byteLength).toBe(vector.length * 8); });
         });
     });
 });
