@@ -105,16 +105,16 @@ static void BetweenArrayArrayArray(benchmark::State& state) {
   }
 }
 
-static void BetweenArrayArrayArrayInt64(benchmark::State& state) {
-  BetweenArrayArrayArray<Int64Type>(state);
-}
+// static void BetweenArrayArrayArrayInt64(benchmark::State& state) {
+//   BetweenArrayArrayArray<Int64Type>(state);
+// }
+//
+// static void BetweenScalarArrayScalarInt64(benchmark::State& state) {
+//   BetweenScalarArrayScalar<Int64Type>(state);
+// }
 
-static void BetweenScalarArrayScalarInt64(benchmark::State& state) {
-  BetweenScalarArrayScalar<Int64Type>(state);
-}
-
-BENCHMARK(BetweenArrayArrayArrayInt64)->Apply(RegressionSetArgs);
-BENCHMARK(BetweenScalarArrayScalarInt64)->Apply(RegressionSetArgs);
+// BENCHMARK(BetweenArrayArrayArrayInt64)->Apply(RegressionSetArgs);
+// BENCHMARK(BetweenScalarArrayScalarInt64)->Apply(RegressionSetArgs);
 
 }  // namespace compute
 }  // namespace arrow

@@ -73,47 +73,51 @@ struct GreaterEqual {
   }
 };
 
-struct BetweenInclusiveBoth {
-  template <typename T, typename Arg0, typename Arg1, typename Arg2>
-  static constexpr T Call(KernelContext*, const Arg0& middle, const Arg1& left,
-                          const Arg2& right, Status*) {
-    static_assert(std::is_same<T, bool>::value && std::is_same<Arg0, Arg1>::value &&
-                      std::is_same<Arg1, Arg2>::value,
-                  "");
+template <BetweenOptions::Inclusive>
+struct BetweenImpl;
+
+template <>
+struct BetweenImpl<BetweenOptions::BOTH> {
+  template <typename Arg0, typename Arg1, typename Arg2>
+  static constexpr bool Between(const Arg0& middle, const Arg1& left, const Arg2& right) {
+    static_assert(std::is_same<Arg0, Arg1>::value && std::is_same<Arg1, Arg2>::value, "");
     return (left <= middle) && (middle <= right);
   }
 };
 
-struct BetweenInclusiveRight {
-  template <typename T, typename Arg0, typename Arg1, typename Arg2>
-  static constexpr T Call(KernelContext*, const Arg0& middle, const Arg1& left,
-                          const Arg2& right, Status*) {
-    static_assert(std::is_same<T, bool>::value && std::is_same<Arg0, Arg1>::value &&
-                      std::is_same<Arg1, Arg2>::value,
-                  "");
+template <>
+struct BetweenImpl<BetweenOptions::RIGHT> {
+  template <typename Arg0, typename Arg1, typename Arg2>
+  static constexpr bool Between(const Arg0& middle, const Arg1& left, const Arg2& right) {
+    static_assert(std::is_same<Arg0, Arg1>::value && std::is_same<Arg1, Arg2>::value, "");
     return (left < middle) && (middle <= right);
   }
 };
 
-struct BetweenInclusiveLeft {
-  template <typename T, typename Arg0, typename Arg1, typename Arg2>
-  static constexpr T Call(KernelContext*, const Arg0& middle, const Arg1& left,
-                          const Arg2& right, Status*) {
-    static_assert(std::is_same<T, bool>::value && std::is_same<Arg0, Arg1>::value &&
-                      std::is_same<Arg1, Arg2>::value,
-                  "");
+template <>
+struct BetweenImpl<BetweenOptions::LEFT> {
+  template <typename Arg0, typename Arg1, typename Arg2>
+  static constexpr bool Between(const Arg0& middle, const Arg1& left, const Arg2& right) {
+    static_assert(std::is_same<Arg0, Arg1>::value && std::is_same<Arg1, Arg2>::value, "");
     return (left <= middle) && (middle < right);
   }
 };
 
-struct BetweenInclusiveNeither {
-  template <typename T, typename Arg0, typename Arg1, typename Arg2>
-  static constexpr T Call(KernelContext*, const Arg0& middle, const Arg1& left,
-                          const Arg2& right, Status*) {
-    static_assert(std::is_same<T, bool>::value && std::is_same<Arg0, Arg1>::value &&
-                      std::is_same<Arg1, Arg2>::value,
-                  "");
+template <>
+struct BetweenImpl<BetweenOptions::NEITHER> {
+  template <typename Arg0, typename Arg1, typename Arg2>
+  static constexpr bool Between(const Arg0& middle, const Arg1& left, const Arg2& right) {
+    static_assert(std::is_same<Arg0, Arg1>::value && std::is_same<Arg1, Arg2>::value, "");
     return (left < middle) && (middle < right);
+  }
+};
+
+template <BetweenOptions::Inclusive Inclusive>
+struct Between {
+  template <typename T, typename Arg0, typename Arg1, typename Arg2>
+  static T Call(KernelContext*, const Arg0& middle, const Arg1& left, const Arg2& right, Status*) {
+    static_assert(std::is_same<T, bool>::value && std::is_same<Arg0, Arg1>::value && std::is_same<Arg1, Arg2>::value, "");
+    return BetweenImpl<Inclusive>::Between(middle, left, right);
   }
 };
 
@@ -787,154 +791,107 @@ std::shared_ptr<ScalarFunction> MakeScalarMinMax(std::string name,
   return func;
 }
 
-template <typename Op>
-void AddIntegerBetween(const std::shared_ptr<DataType>& ty, ScalarFunction* func) {
-  auto exec = GeneratePhysicalInteger<ScalarTernaryEqualTypes, BooleanType, Op>(*ty);
-  DCHECK_OK(func->AddKernel({ty, ty, ty}, boolean(), std::move(exec)));
-}
-
-template <typename InType, typename Op>
-void AddGenericBetween(const std::shared_ptr<DataType>& ty, ScalarFunction* func) {
-  DCHECK_OK(func->AddKernel({ty, ty, ty}, boolean(),
-                            ScalarTernaryEqualTypes<BooleanType, InType, Op>::Exec));
-}
-
-template <typename OutType, typename ArgType, typename Op>
-struct BetweenTimestamps : public ScalarTernaryEqualTypes<OutType, ArgType, Op> {
-  using Base = ScalarTernaryEqualTypes<OutType, ArgType, Op>;
-
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    const auto& var = checked_cast<const TimestampType&>(*batch[0].type());
-    const auto& lhs = checked_cast<const TimestampType&>(*batch[1].type());
-    const auto& rhs = checked_cast<const TimestampType&>(*batch[2].type());
-    if ((var.timezone().empty() != lhs.timezone().empty()) ||
-        (var.timezone().empty() != rhs.timezone().empty()) ||
-        (lhs.timezone().empty() != rhs.timezone().empty())) {
-      return Status::Invalid("Cannot compare timestamps with and without timezones.");
-    }
-    return Base::Exec(ctx, batch, out);
-  }
-};
-
-template <typename Op>
-std::shared_ptr<ScalarFunction> MakeBetweenFunction(std::string name,
-                                                    const FunctionDoc* doc) {
-  auto func = std::make_shared<CompareFunction>(name, Arity::Ternary(), doc);
-
-  DCHECK_OK(func->AddKernel(
-      {boolean(), boolean(), boolean()}, boolean(),
-      ScalarTernary<BooleanType, BooleanType, BooleanType, BooleanType, Op>::Exec));
-
-  for (const std::shared_ptr<DataType>& ty : IntTypes()) {
-    AddIntegerBetween<Op>(ty, func.get());
-  }
-
-  AddIntegerBetween<Op>(date32(), func.get());
-  AddIntegerBetween<Op>(date64(), func.get());
-
-  AddGenericBetween<FloatType, Op>(float32(), func.get());
-  AddGenericBetween<DoubleType, Op>(float64(), func.get());
-
-  // Add timestamp kernels
-  for (auto unit : TimeUnit::values()) {
-    InputType in_type(match::TimestampTypeUnit(unit));
-    DCHECK_OK(func->AddKernel({in_type, in_type, in_type}, boolean(),
-                              BetweenTimestamps<BooleanType, TimestampType, Op>::Exec));
-  }
-
-  // Duration
-  for (auto unit : TimeUnit::values()) {
-    InputType in_type(match::DurationTypeUnit(unit));
-    auto exec =
-        GeneratePhysicalInteger<ScalarTernaryEqualTypes, BooleanType, Op>(int64());
-    DCHECK_OK(func->AddKernel({in_type, in_type, in_type}, boolean(), std::move(exec)));
-  }
-
-  // Time32 and Time64
-  for (auto unit : {TimeUnit::SECOND, TimeUnit::MILLI}) {
-    InputType in_type(match::Time32TypeUnit(unit));
-    auto exec =
-        GeneratePhysicalInteger<ScalarTernaryEqualTypes, BooleanType, Op>(int32());
-    DCHECK_OK(func->AddKernel({in_type, in_type, in_type}, boolean(), std::move(exec)));
-  }
-  for (auto unit : {TimeUnit::MICRO, TimeUnit::NANO}) {
-    InputType in_type(match::Time64TypeUnit(unit));
-    auto exec =
-        GeneratePhysicalInteger<ScalarTernaryEqualTypes, BooleanType, Op>(int64());
-    DCHECK_OK(func->AddKernel({in_type, in_type, in_type}, boolean(), std::move(exec)));
-  }
-
-  for (const std::shared_ptr<DataType>& ty : BaseBinaryTypes()) {
-    auto exec = GenerateVarBinaryBase<ScalarTernaryEqualTypes, BooleanType, Op>(*ty);
-    DCHECK_OK(func->AddKernel(
-        {InputType::Array(ty), InputType::Scalar(ty), InputType::Scalar(ty)}, boolean(),
-        exec));
-    DCHECK_OK(func->AddKernel(
-        {InputType::Array(ty), InputType::Array(ty), InputType::Array(ty)}, boolean(),
-        std::move(exec)));
-  }
-
-  for (const auto id : {Type::DECIMAL128, Type::DECIMAL256}) {
-    auto exec = GenerateDecimal<ScalarTernaryEqualTypes, BooleanType, Op>(id);
-    DCHECK_OK(func->AddKernel({InputType(id), InputType(id), InputType(id)}, boolean(),
-                              std::move(exec)));
-  }
-
-  {
-    auto exec = ScalarTernaryEqualTypes<BooleanType, FixedSizeBinaryType, Op>::Exec;
-    auto ty = InputType(Type::FIXED_SIZE_BINARY);
-    DCHECK_OK(func->AddKernel({ty, ty, ty}, boolean(), std::move(exec)));
-  }
-
-  return func;
-}
-
-const BetweenOptions* GetDefaultBetweenOptions() {
-  static const auto kBetweenOptions = BetweenOptions::Defaults();
-  return &kBetweenOptions;
-}
-
-const FunctionDoc between_doc{"Check if values are in a range, val betwen a and b",
-                              ("A null on either side emits a null comparison result.\n"
-                               "options are used to specify if the endpoints are\n"
-                               "inclusive, possible values are NEITHER (a<val<b),\n"
-                               "LEFT (a<=val<b), RIGHT (a<val<=b), and the default\n"
-                               "if not specified BOTH (a<=val<=b)"),
-                              {"val", "a", "b"}};
-
-class BetweenMetaFunction : public MetaFunction {
- public:
-  BetweenMetaFunction()
-      : MetaFunction("between", Arity::Ternary(), &between_doc,
-                     GetDefaultBetweenOptions()) {}
-
-  Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
-                            const FunctionOptions* options,
-                            ExecContext* ctx) const override {
-    const BetweenOptions& between_options = static_cast<const BetweenOptions&>(*options);
-    Datum result;
-    switch (between_options.inclusiveness) {
-      case BetweenOptions::Inclusiveness::BOTH: {
-        ARROW_ASSIGN_OR_RAISE(result, CallFunction("between_inclusive_both", args, ctx));
-        break;
-      }
-      case BetweenOptions::Inclusiveness::LEFT: {
-        ARROW_ASSIGN_OR_RAISE(result, CallFunction("between_inclusive_left", args, ctx));
-        break;
-      }
-      case BetweenOptions::Inclusiveness::RIGHT: {
-        ARROW_ASSIGN_OR_RAISE(result, CallFunction("between_inclusive_right", args, ctx));
-        break;
-      }
-      case BetweenOptions::Inclusiveness::NEITHER: {
-        ARROW_ASSIGN_OR_RAISE(result,
-                              CallFunction("between_inclusive_neither", args, ctx));
-        break;
-      }
-    }
-    return result;
-  }
-};
+// template <typename Op>
+// void AddIntegerBetween(const std::shared_ptr<DataType>& ty, ScalarFunction* func) {
+//   auto exec = GeneratePhysicalInteger<ScalarTernaryEqualTypes, BooleanType, Op>(*ty);
+//   DCHECK_OK(func->AddKernel({ty, ty, ty}, boolean(), std::move(exec)));
+// }
+//
+// template <typename InType, typename Op>
+// void AddGenericBetween(const std::shared_ptr<DataType>& ty, ScalarFunction* func) {
+//   DCHECK_OK(func->AddKernel({ty, ty, ty}, boolean(),
+//                             ScalarTernaryEqualTypes<BooleanType, InType, Op>::Exec));
+// }
+//
+// template <typename OutType, typename ArgType, typename Op>
+// struct BetweenTimestamps : public ScalarTernaryEqualTypes<OutType, ArgType, Op> {
+//   using Base = ScalarTernaryEqualTypes<OutType, ArgType, Op>;
+//
+//   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+//     const auto& var = checked_cast<const TimestampType&>(*batch[0].type());
+//     const auto& lhs = checked_cast<const TimestampType&>(*batch[1].type());
+//     const auto& rhs = checked_cast<const TimestampType&>(*batch[2].type());
+//     if ((var.timezone().empty() != lhs.timezone().empty()) ||
+//         (var.timezone().empty() != rhs.timezone().empty()) ||
+//         (lhs.timezone().empty() != rhs.timezone().empty())) {
+//       return Status::Invalid("Cannot compare timestamps with and without timezones.");
+//     }
+//     return Base::Exec(ctx, batch, out);
+//   }
+// };
+//
+// template <typename Op>
+// std::shared_ptr<ScalarFunction> MakeBetweenFunction(std::string name,
+//                                                     const FunctionDoc* doc) {
+//   auto func = std::make_shared<CompareFunction>(name, Arity::Ternary(), doc);
+//
+//   DCHECK_OK(func->AddKernel(
+//       {boolean(), boolean(), boolean()}, boolean(),
+//       ScalarTernary<BooleanType, BooleanType, BooleanType, BooleanType, Op>::Exec));
+//
+//   for (const std::shared_ptr<DataType>& ty : IntTypes()) {
+//     AddIntegerBetween<Op>(ty, func.get());
+//   }
+//
+//   AddIntegerBetween<Op>(date32(), func.get());
+//   AddIntegerBetween<Op>(date64(), func.get());
+//
+//   AddGenericBetween<FloatType, Op>(float32(), func.get());
+//   AddGenericBetween<DoubleType, Op>(float64(), func.get());
+//
+//   // Add timestamp kernels
+//   for (auto unit : TimeUnit::values()) {
+//     InputType in_type(match::TimestampTypeUnit(unit));
+//     DCHECK_OK(func->AddKernel({in_type, in_type, in_type}, boolean(),
+//                               BetweenTimestamps<BooleanType, TimestampType, Op>::Exec));
+//   }
+//
+//   // Duration
+//   for (auto unit : TimeUnit::values()) {
+//     InputType in_type(match::DurationTypeUnit(unit));
+//     auto exec =
+//         GeneratePhysicalInteger<ScalarTernaryEqualTypes, BooleanType, Op>(int64());
+//     DCHECK_OK(func->AddKernel({in_type, in_type, in_type}, boolean(), std::move(exec)));
+//   }
+//
+//   // Time32 and Time64
+//   for (auto unit : {TimeUnit::SECOND, TimeUnit::MILLI}) {
+//     InputType in_type(match::Time32TypeUnit(unit));
+//     auto exec =
+//         GeneratePhysicalInteger<ScalarTernaryEqualTypes, BooleanType, Op>(int32());
+//     DCHECK_OK(func->AddKernel({in_type, in_type, in_type}, boolean(), std::move(exec)));
+//   }
+//   for (auto unit : {TimeUnit::MICRO, TimeUnit::NANO}) {
+//     InputType in_type(match::Time64TypeUnit(unit));
+//     auto exec =
+//         GeneratePhysicalInteger<ScalarTernaryEqualTypes, BooleanType, Op>(int64());
+//     DCHECK_OK(func->AddKernel({in_type, in_type, in_type}, boolean(), std::move(exec)));
+//   }
+//
+//   for (const std::shared_ptr<DataType>& ty : BaseBinaryTypes()) {
+//     auto exec = GenerateVarBinaryBase<ScalarTernaryEqualTypes, BooleanType, Op>(*ty);
+//     DCHECK_OK(func->AddKernel(
+//         {InputType::Array(ty), InputType::Scalar(ty), InputType::Scalar(ty)}, boolean(),
+//         exec));
+//     DCHECK_OK(func->AddKernel(
+//         {InputType::Array(ty), InputType::Array(ty), InputType::Array(ty)}, boolean(),
+//         std::move(exec)));
+//   }
+//
+//   for (const auto id : {Type::DECIMAL128, Type::DECIMAL256}) {
+//     auto exec = GenerateDecimal<ScalarTernaryEqualTypes, BooleanType, Op>(id);
+//     DCHECK_OK(func->AddKernel({InputType(id), InputType(id), InputType(id)}, boolean(),
+//                               std::move(exec)));
+//   }
+//
+//   {
+//     auto exec = ScalarTernaryEqualTypes<BooleanType, FixedSizeBinaryType, Op>::Exec;
+//     auto ty = InputType(Type::FIXED_SIZE_BINARY);
+//     DCHECK_OK(func->AddKernel({ty, ty, ty}, boolean(), std::move(exec)));
+//   }
+//
+//   return func;
+// }
 
 const FunctionDoc equal_doc{"Compare values for equality (x == y)",
                             ("A null on either side emits a null comparison result."),
@@ -962,6 +919,15 @@ const FunctionDoc less_equal_doc{
     ("A null on either side emits a null comparison result."),
     {"x", "y"}};
 
+const FunctionDoc between_doc{"Check if values are in the given range, val between a and b",
+                              ("A null on either side emits a null comparison result.\n"
+                               "options are used to specify if the endpoints are\n"
+                               "inclusive, possible values are NEITHER (a < val < b),\n"
+                               "LEFT (a <= val < b), RIGHT (a < val <= b), and \n"
+                               "BOTH (a <= val <= b). Default is BOTH."),
+                              {"val", "a", "b"},
+                              "BetweenOptions"};
+
 const FunctionDoc min_element_wise_doc{
     "Find the element-wise minimum value",
     ("Nulls are ignored (by default) or propagated.\n"
@@ -975,28 +941,50 @@ const FunctionDoc max_element_wise_doc{
      "NaN is preferred over null, but not over any valid value."),
     {"*args"},
     "ElementWiseAggregateOptions"};
-
-const FunctionDoc between_inclusive_both_doc{
-    "Check if values are in a range x <= y <= z",
-    ("A null on either side emits a null comparison result."),
-    {"x", "y", "z"}};
-
-const FunctionDoc between_inclusive_right_doc{
-    "Check if values are in a range x < y <= z",
-    ("A null on either side emits a null comparison result."),
-    {"x", "y", "z"}};
-
-const FunctionDoc between_inclusive_left_doc{
-    "Check if values are in a range x <= y < z",
-    ("A null on either side emits a null comparison result."),
-    {"x", "y", "z"}};
-
-const FunctionDoc between_inclusive_neither_doc{
-    "Check if values are in a range x < y < z",
-    ("A null on either side emits a null comparison result."),
-    {"x", "y", "z"}};
-
 }  // namespace
+
+using BetweenState = OptionsWrapper<BetweenOptions>;
+
+template <typename ArgType, template <BetweenOptions::Inclusive> class Op>
+Status ExecBetween(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  const auto& state = static_cast<const BetweenState&>(*ctx->state());
+  switch (state.options.inclusive) {
+    case BetweenOptions::BOTH:
+      return ScalarTernaryEqualTypes<BooleanType, ArgType, Op<BetweenOptions::BOTH>>::Exec(ctx, batch, out);
+    case BetweenOptions::LEFT:
+      return ScalarTernaryEqualTypes<BooleanType, ArgType, Op<BetweenOptions::LEFT>>::Exec(ctx, batch, out);
+    case BetweenOptions::RIGHT:
+      return ScalarTernaryEqualTypes<BooleanType, ArgType, Op<BetweenOptions::RIGHT>>::Exec(ctx, batch, out);
+    case BetweenOptions::NEITHER:
+      return ScalarTernaryEqualTypes<BooleanType, ArgType, Op<BetweenOptions::NEITHER>>::Exec(ctx, batch, out);
+  }
+  DCHECK(false);
+  return Status::NotImplemented(
+      "Internal implementation error: between inclusive not implemented: ",
+      state.options.ToString());
+}
+
+template <template <BetweenOptions::Inclusive> class Op>
+std::shared_ptr<ScalarFunction> MakeBetweenFunction(std::string name, const FunctionDoc* doc) {
+  static const auto kDefaultOptions = BetweenOptions::Defaults();
+  auto func = std::make_shared<CompareFunction>(name, Arity::Ternary(), doc, &kDefaultOptions);
+  for (const auto& ty : {boolean()}) {
+    auto type_id = ty->id();
+    auto exec = [type_id](KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+      switch (type_id) {
+        case Type::BOOL:
+          return ExecBetween<BooleanType, Op>(ctx, batch, out);
+        default:
+          DCHECK(false);
+          return ExecFail(ctx, batch, out);
+      }
+    };
+    DCHECK_OK(func->AddKernel(
+        {InputType(type_id), InputType(type_id), InputType(type_id)},
+        boolean(), exec, BetweenState::Init));
+  }
+  return func;
+}
 
 void RegisterScalarComparison(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(MakeCompareFunction<Equal>("equal", &equal_doc)));
@@ -1014,6 +1002,9 @@ void RegisterScalarComparison(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(greater)));
   DCHECK_OK(registry->AddFunction(std::move(greater_equal)));
 
+  auto between = MakeBetweenFunction<Between>("between", &between_doc);
+  DCHECK_OK(registry->AddFunction(std::move(between)));
+
   // ----------------------------------------------------------------------
   // Variadic element-wise functions
 
@@ -1024,26 +1015,6 @@ void RegisterScalarComparison(FunctionRegistry* registry) {
   auto max_element_wise =
       MakeScalarMinMax<Maximum>("max_element_wise", &max_element_wise_doc);
   DCHECK_OK(registry->AddFunction(std::move(max_element_wise)));
-}
-
-void RegisterScalarBetween(FunctionRegistry* registry) {
-  DCHECK_OK(registry->AddFunction(std::make_shared<BetweenMetaFunction>()));
-
-  auto between_inclusive_neither = MakeBetweenFunction<BetweenInclusiveNeither>(
-      "between_inclusive_neither", &between_inclusive_neither_doc);
-  DCHECK_OK(registry->AddFunction(std::move(between_inclusive_neither)));
-
-  auto between_inclusive_right = MakeBetweenFunction<BetweenInclusiveRight>(
-      "between_inclusive_right", &between_inclusive_right_doc);
-  DCHECK_OK(registry->AddFunction(std::move(between_inclusive_right)));
-
-  auto between_inclusive_left = MakeBetweenFunction<BetweenInclusiveLeft>(
-      "between_inclusive_left", &between_inclusive_left_doc);
-  DCHECK_OK(registry->AddFunction(std::move(between_inclusive_left)));
-
-  auto between_inclusive_both = MakeBetweenFunction<BetweenInclusiveBoth>(
-      "between_inclusive_both", &between_inclusive_both_doc);
-  DCHECK_OK(registry->AddFunction(std::move(between_inclusive_both)));
 }
 
 }  // namespace internal
