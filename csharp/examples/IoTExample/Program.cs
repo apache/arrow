@@ -14,8 +14,8 @@
 // limitations under the License.
 
 using System;
-using System.Collections.Generic;
 using System.IO;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Apache.Arrow.Ipc;
 
@@ -29,10 +29,10 @@ namespace IoTPipelineExample
 
         public static async Task Main(string[] args)
         {
-            SampleDataPipeline sdp = new SampleDataPipeline(totalInputs, queueCapacity);
+            SensorDataPipeline sdp = new SensorDataPipeline(totalInputs, queueCapacity);
             List<Task> tasks = new List<Task>();
 
-            Console.WriteLine("Producing IoT sensor data concurrently...");
+            Console.WriteLine("Producing IoT sensor data...");
             for (int i = 0; i < concurrencyLevel; i++)
             {
                 int j = i;
@@ -49,7 +49,7 @@ namespace IoTPipelineExample
             Console.WriteLine("Persisting data to disk...");
             var arrowDataPath = await sdp.PersistData();
 
-            Console.WriteLine("Loading arrow data files into memory...");
+            Console.WriteLine("Loading arrow data file into memory...");
             string[] fileEntries = Directory.GetFiles(arrowDataPath);
 
             foreach (string fileEntry in fileEntries)
@@ -75,8 +75,10 @@ namespace IoTPipelineExample
 
                         for (int j = 0; j < recordBatch.ColumnCount; j++)
                         {
-                            Console.WriteLine($"Total records in record batch {i} column {j} is: " + recordBatch.Column(j).Data.Length);
-                            Console.WriteLine($"Null data count in record batch {i} column {j} is: " + recordBatch.Column(j).Data.NullCount);
+                            Console.WriteLine($"RecordBatch {i.ToString().PadLeft(6)} Column {j} Length is: "
+                                + recordBatch.Column(j).Data.Length.ToString().PadLeft(6)
+                                + " NULL Count is: "
+                                + recordBatch.Column(j).Data.NullCount);
                         }
                     }
                 }
