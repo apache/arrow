@@ -96,6 +96,7 @@
     "randomatic": "3.1.1",
     "rollup": "2.62.0",
     "rollup-plugin-bundle-size": "1.0.3",
+    "rollup-plugin-terser": "7.0.2",
     "rxjs": "7.5.1",
     "ts-jest": "27.1.2",
     "ts-node": "10.4.0",

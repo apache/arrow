@@ -16,6 +16,7 @@
 // under the License.
 
 import bundleSize from 'rollup-plugin-bundle-size';
+import { terser } from 'rollup-plugin-terser';
 import nodeResolve from '@rollup/plugin-node-resolve';
 import alias from '@rollup/plugin-alias';
 const { resolve } = require('path');
@@ -30,6 +31,7 @@ const plugins = [
     nodeResolve({
         browser: true,
     }),
+    terser(),
     bundleSize()
 ]
 
