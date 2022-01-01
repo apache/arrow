@@ -35,7 +35,6 @@ const fileNames = readdirSync(resolve(__dirname, `..`))
             treeShaking: true,
             metafile: true,
             outfile: resolve(__dirname, `./${name}-bundle.js`),
-            resolveExtensions: ['.mjs', '.js'],
             plugins: [
                 alias({
                     'apache-arrow': resolve(__dirname, '../../../targets/apache-arrow/Arrow.dom.mjs'),
