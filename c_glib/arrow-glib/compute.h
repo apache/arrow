@@ -91,6 +91,9 @@ struct _GArrowFunctionClass
 GARROW_AVAILABLE_IN_1_0
 GArrowFunction *garrow_function_find(const gchar *name);
 
+GARROW_AVAILABLE_IN_7_0
+GList *garrow_function_all(void);
+
 GARROW_AVAILABLE_IN_1_0
 GArrowDatum *garrow_function_execute(GArrowFunction *function,
                                      GList *args,
@@ -98,9 +101,20 @@ GArrowDatum *garrow_function_execute(GArrowFunction *function,
                                      GArrowExecuteContext *context,
                                      GError **error);
 
+GARROW_AVAILABLE_IN_7_0
+const gchar *
+garrow_function_get_name(GArrowFunction *function);
 GARROW_AVAILABLE_IN_6_0
 GArrowFunctionDoc *
 garrow_function_get_doc(GArrowFunction *function);
+
+GARROW_AVAILABLE_IN_7_0
+gboolean
+garrow_function_equal(GArrowFunction *function,
+                      GArrowFunction *other_function);
+GARROW_AVAILABLE_IN_7_0
+gchar *
+garrow_function_to_string(GArrowFunction *function);
 
 
 #define GARROW_TYPE_EXECUTE_NODE_OPTIONS (garrow_execute_node_options_get_type())

@@ -403,6 +403,7 @@ garrow_function_doc_get_options_class_name(GArrowFunctionDoc *doc)
 
 typedef struct GArrowFunctionPrivate_ {
   std::shared_ptr<arrow::compute::Function> function;
+  gchar *name;
 } GArrowFunctionPrivate;
 
 enum {
@@ -423,6 +424,9 @@ garrow_function_finalize(GObject *object)
 {
   auto priv = GARROW_FUNCTION_GET_PRIVATE(object);
   priv->function.~shared_ptr();
+  if (priv->name) {
+    g_free(priv->name);
+  }
   G_OBJECT_CLASS(garrow_function_parent_class)->finalize(object);
 }
 
@@ -439,6 +443,10 @@ garrow_function_set_property(GObject *object,
     priv->function =
       *static_cast<std::shared_ptr<arrow::compute::Function> *>(
         g_value_get_pointer(value));
+    {
+      const auto &arrow_name = priv->function->name();
+      priv->name = g_strndup(arrow_name.data(), arrow_name.length());
+    }
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -489,6 +497,34 @@ garrow_function_find(const gchar *name)
   }
   auto arrow_function = *arrow_function_result;
   return garrow_function_new_raw(&arrow_function);
+}
+
+/**
+ * garrow_function_all:
+ *
+ * Returns: (element-type GArrowFunction) (transfer full):
+ *   The all available functions.
+ *
+ *   It should be freed with g_list_free_full() and g_object_unref()
+ *   when no longer needed.
+ *
+ * Since: 7.0.0
+ */
+GList *
+garrow_function_all(void)
+{
+  auto arrow_function_registry = arrow::compute::GetFunctionRegistry();
+  GList *functions = NULL;
+  for (const auto &arrow_name : arrow_function_registry->GetFunctionNames()) {
+    auto arrow_function_result = arrow_function_registry->GetFunction(arrow_name);
+    if (!arrow_function_result.ok()) {
+      continue;
+    }
+    auto arrow_function = *arrow_function_result;
+    functions = g_list_prepend(functions,
+                               garrow_function_new_raw(&arrow_function));
+  }
+  return g_list_reverse(functions);
 }
 
 /**
@@ -545,6 +581,21 @@ garrow_function_execute(GArrowFunction *function,
 }
 
 /**
+ * garrow_function_get_name:
+ * @function: A #GArrowFunction.
+ *
+ * Returns: The function name.
+ *
+ * Since: 7.0.0
+ */
+const gchar *
+garrow_function_get_name(GArrowFunction *function)
+{
+  auto priv = GARROW_FUNCTION_GET_PRIVATE(function);
+  return priv->name;
+}
+
+/**
  * garrow_function_get_doc:
  * @function: A #GArrowFunction.
  *
@@ -558,6 +609,62 @@ garrow_function_get_doc(GArrowFunction *function)
   auto arrow_function = garrow_function_get_raw(function);
   const auto &arrow_doc = arrow_function->doc();
   return garrow_function_doc_new_raw(&arrow_doc);
+}
+
+/**
+ * garrow_function_equal:
+ * @function: A #GArrowFunction.
+ * @other_function: A #GArrowFunction to be compared.
+ *
+ * Returns: %TRUE if both of them have the same name, %FALSE
+ *   otherwise.
+ *
+ * Since: 7.0.0
+ */
+gboolean
+garrow_function_equal(GArrowFunction *function,
+                      GArrowFunction *other_function)
+{
+  auto priv = GARROW_FUNCTION_GET_PRIVATE(function);
+  auto other_priv = GARROW_FUNCTION_GET_PRIVATE(other_function);
+  return g_strcmp0(priv->name, other_priv->name) == 0;
+}
+
+/**
+ * garrow_function_to_string:
+ * @function: A #GArrowFunction.
+ *
+ * Returns: The formatted function.
+ *
+ *   It should be freed with g_free() when no longer needed.
+ *
+ * Since: 7.0.0
+ */
+gchar *
+garrow_function_to_string(GArrowFunction *function)
+{
+  auto priv = GARROW_FUNCTION_GET_PRIVATE(function);
+  auto arrow_function = garrow_function_get_raw(function);
+  const auto &arrow_doc = arrow_function->doc();
+  const auto arrow_default_options = arrow_function->default_options();
+  auto string = g_string_new(NULL);
+  g_string_append_printf(string, "%s(", priv->name);
+  int i = 0;
+  for (const auto &arrow_arg_name : arrow_doc.arg_names) {
+    if (i > 0) {
+      g_string_append(string, ", ");
+    }
+    g_string_append(string, arrow_arg_name.c_str());
+    ++i;
+  }
+  if (arrow_default_options) {
+    if (i > 0) {
+      g_string_append(string, ", ");
+    }
+    g_string_append(string, arrow_default_options->ToString().c_str());
+  }
+  g_string_append_printf(string, "): %s", arrow_doc.summary.c_str());
+  return g_string_free(string, FALSE);
 }
 
 
