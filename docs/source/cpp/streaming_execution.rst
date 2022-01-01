@@ -309,9 +309,9 @@ reads and decodes twice.
 Constructing ``ExecNode`` using Options
 =======================================
 
-Using the execution plan we can construct varioud execution queries. 
-To construct such queries, we have provided a set of containers or 
-referred as :class:`ExecNode` s. These nodes provide the ability to 
+Using the execution plan we can construct various queries. 
+To construct such queries, we have provided a set of building blocks
+or referred as :class:`ExecNode` s. These nodes provide the ability to 
 construct operations like filtering, projection, join, etc. 
 
 This is the list of :class:`ExecutionNode` s exposed;

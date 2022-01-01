@@ -445,15 +445,6 @@ BatchesWithSchema MakeGroupableBatches(int multiplicity = 1) {
   return out;
 }
 
-// std::shared_ptr<arrow::dataset::InMemoryDataset> GetBatchDataset() {
-  
-//   std::shared_ptr<arrow::dataset::Dataset> dataset = NULLPTR;
-  
-
-//   return dataset;
-// }
-
-
 arrow::Status SourceSinkExample() {
   cp::ExecContext exec_context(arrow::default_memory_pool(),
                                ::arrow::internal::GetCpuThreadPool());
@@ -522,7 +513,6 @@ arrow::Status ScanFilterSinkExample() {
   options->use_async = true;
   // specify the filter
   cp::Expression filter_opt = cp::greater(cp::field_ref("a"), cp::literal(3));
-  
   options->filter = filter_opt;
   // empty projection
   options->projection = Materialize({});
@@ -591,7 +581,7 @@ arrow::Status ScanProjectSinkExample() {
     options->use_async = true;
     // projection
     cp::Expression a_times_2 = cp::call("multiply", {cp::field_ref("a"),
-    cp::literal(2)}); 
+    cp::literal(2)});
     options->projection =
         cp::call("make_struct", {a_times_2}, cp::MakeStructOptions{{"a * 2"}});
 
