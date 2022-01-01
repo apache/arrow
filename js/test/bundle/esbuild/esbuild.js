@@ -27,23 +27,22 @@ const fileNames = readdirSync(resolve(__dirname, `..`))
     .map(fileName => fileName.replace(/\.js$/, ''));
 
 (async () => {
-    for (const name of fileNames) {
-        const result = await esbuild.build({
-            entryPoints: [resolve(__dirname, `../${name}.js`)],
-            bundle: true,
-            minify: true,
-            treeShaking: true,
-            metafile: true,
-            outfile: resolve(__dirname, `./${name}-bundle.js`),
-            plugins: [
-                alias({
-                    'apache-arrow': resolve(__dirname, '../../../targets/apache-arrow/Arrow.dom.mjs'),
-                }),
-            ],
-        });
+    const result = await esbuild.build({
+        entryPoints: fileNames.map(fileName => resolve(__dirname, `../${fileName}.js`)),
+        bundle: true,
+        minify: true,
+        treeShaking: true,
+        metafile: true,
+        entryNames: '[name]-bundle',
+        outdir: resolve(__dirname, './'),
+        plugins: [
+            alias({
+                'apache-arrow': resolve(__dirname, '../../../targets/apache-arrow/Arrow.dom.mjs'),
+            }),
+        ],
+    });
 
-        const bundle = `test/bundle/esbuild/${name}-bundle.js`;
-        const metadata = result.metafile.outputs[bundle];
-        console.log(`${bundle}: ${Math.floor(metadata.bytes / 1024)} Kb`);
+    for (const [bundle, outputs] of Object.entries(result.metafile.outputs)) {
+        console.log(`${bundle}: ${Math.floor(outputs.bytes / 1024)} Kb`);
     }
 })()
