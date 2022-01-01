@@ -175,6 +175,137 @@ their completion::
     // alive until this future is marked finished.
     Future<> complete = plan->finished();
 
+
+Constructing ``ExecPlan`` objects
+=================================
+
+.. warning::
+
+    The following will be superceded by construction from Compute IR, see ARROW-14074.
+
+None of the concrete implementations of :class:`ExecNode` are exposed
+in headers, so they can't be constructed directly outside the
+translation unit where they are defined. Instead, factories to
+create them are provided in an extensible registry. This structure
+provides a number of benefits:
+
+- This enforces consistent construction.
+- It decouples implementations from consumers of the interface
+  (for example: we have two classes for scalar and grouped aggregate,
+  we can choose which to construct within the single factory by
+  checking whether grouping keys are provided)
+- This expedites integration with out-of-library extensions. For example
+  "scan" nodes are implemented in the separate ``libarrow_dataset.so`` library.
+- Since the class is not referencable outside the translation unit in which it
+  is defined, compilers can optimize more aggressively.
+
+Factories of :class:`ExecNode` can be retrieved by name from the registry.
+The default registry is available through
+:func:`arrow::compute::default_exec_factory_registry()`
+and can be queried for the built-in factories::
+
+    // get the factory for "filter" nodes:
+    ARROW_ASSIGN_OR_RAISE(auto make_filter,
+                          default_exec_factory_registry()->GetFactory("filter"));
+
+    // factories take three arguments:
+    ARROW_ASSIGN_OR_RAISE(ExecNode* filter_node, *make_filter(
+        // the ExecPlan which should own this node
+        plan.get(),
+
+        // nodes which will send batches to this node (inputs)
+        {scan_node},
+
+        // parameters unique to "filter" nodes
+        FilterNodeOptions{filter_expression}));
+
+    // alternative shorthand:
+    ARROW_ASSIGN_OR_RAISE(filter_node, MakeExecNode("filter",
+        plan.get(), {scan_node}, FilterNodeOptions{filter_expression});
+
+Factories can also be added to the default registry as long as they are
+convertible to ``std::function<Result<ExecNode*>(
+ExecPlan*, std::vector<ExecNode*>, const ExecNodeOptions&)>``.
+
+To build an :class:`ExecPlan` representing a simple pipeline which
+reads from a :class:`RecordBatchReader` then filters, projects, and
+writes to disk::
+
+    std::shared_ptr<RecordBatchReader> reader = GetStreamOfBatches();
+    ExecNode* source_node = *MakeExecNode("source", plan.get(), {},
+                                          SourceNodeOptions::FromReader(
+                                              reader,
+                                              GetCpuThreadPool()));
+
+    ExecNode* filter_node = *MakeExecNode("filter", plan.get(), {source_node},
+                                          FilterNodeOptions{
+                                            greater(field_ref("score"), literal(3))
+                                          });
+
+    ExecNode* project_node = *MakeExecNode("project", plan.get(), {filter_node},
+                                           ProjectNodeOptions{
+                                             {add(field_ref("score"), literal(1))},
+                                             {"score + 1"}
+                                           });
+
+    arrow::dataset::internal::Initialize();
+    MakeExecNode("write", plan.get(), {project_node},
+                 WriteNodeOptions{/*base_dir=*/"/dat", /*...*/});
+
+:struct:`Declaration` is a `dplyr <https://dplyr.tidyverse.org>`_-inspired
+helper which further decreases the boilerplate associated with populating
+an :class:`ExecPlan` from C++::
+
+    arrow::dataset::internal::Initialize();
+
+    std::shared_ptr<RecordBatchReader> reader = GetStreamOfBatches();
+    ASSERT_OK(Declaration::Sequence(
+                  {
+                      {"source", SourceNodeOptions::FromReader(
+                           reader,
+                           GetCpuThreadPool())},
+                      {"filter", FilterNodeOptions{
+                           greater(field_ref("score"), literal(3))}},
+                      {"project", ProjectNodeOptions{
+                           {add(field_ref("score"), literal(1))},
+                           {"score + 1"}}},
+                      {"write", WriteNodeOptions{/*base_dir=*/"/dat", /*...*/}},
+                  })
+                  .AddToPlan(plan.get()));
+
+Note that a source node can wrap anything which resembles a stream of batches.
+For example, `PR#11032 <https://github.com/apache/arrow/pull/11032>`_ adds
+support for use of a `DuckDB <https://duckdb.org>`_ query as a source node.
+Similarly, a sink node can wrap anything which absorbs a stream of batches.
+In the example above we're writing completed
+batches to disk. However we can also collect these in memory into a :class:`Table`
+or forward them to a :class:`RecordBatchReader` as an out-of-graph stream.
+This flexibility allows an :class:`ExecPlan` to be used as streaming middleware
+between any endpoints which support Arrow formatted batches.
+
+An :class:`arrow::dataset::Dataset` can also be wrapped as a source node which
+pushes all the dataset's batches into an :class:`ExecPlan`. This factory is added
+to the default registry with the name ``"scan"`` by calling
+``arrow::dataset::internal::Initialize()``::
+
+    arrow::dataset::internal::Initialize();
+
+    std::shared_ptr<Dataset> dataset = GetDataset();
+
+    ASSERT_OK(Declaration::Sequence(
+                  {
+                      {"scan", ScanNodeOptions{dataset,
+                         /* push down predicate, projection, ... */}},
+                      {"filter", FilterNodeOptions{/* ... */}},
+                      // ...
+                  })
+                  .AddToPlan(plan.get()));
+
+Datasets may be scanned multiple times; just make multiple scan
+nodes from that dataset. (Useful for a self-join, for example.)
+Note that producing two scan nodes like this will perform all
+reads and decodes twice.
+
 Constructing ``ExecNode`` using Options
 =======================================
 
@@ -772,134 +903,3 @@ There a set of examples can be found in ``examples/arrow/execution_plan_document
 9. Scan-SelectSinkNode
 10. Scan-Filter-WriteNode
 11. Scan-Union-Sink
-
-
-Constructing ``ExecPlan`` objects
-=================================
-
-.. warning::
-
-    The following will be superceded by construction from Compute IR, see ARROW-14074.
-
-None of the concrete implementations of :class:`ExecNode` are exposed
-in headers, so they can't be constructed directly outside the
-translation unit where they are defined. Instead, factories to
-create them are provided in an extensible registry. This structure
-provides a number of benefits:
-
-- This enforces consistent construction.
-- It decouples implementations from consumers of the interface
-  (for example: we have two classes for scalar and grouped aggregate,
-  we can choose which to construct within the single factory by
-  checking whether grouping keys are provided)
-- This expedites integration with out-of-library extensions. For example
-  "scan" nodes are implemented in the separate ``libarrow_dataset.so`` library.
-- Since the class is not referencable outside the translation unit in which it
-  is defined, compilers can optimize more aggressively.
-
-Factories of :class:`ExecNode` can be retrieved by name from the registry.
-The default registry is available through
-:func:`arrow::compute::default_exec_factory_registry()`
-and can be queried for the built-in factories::
-
-    // get the factory for "filter" nodes:
-    ARROW_ASSIGN_OR_RAISE(auto make_filter,
-                          default_exec_factory_registry()->GetFactory("filter"));
-
-    // factories take three arguments:
-    ARROW_ASSIGN_OR_RAISE(ExecNode* filter_node, *make_filter(
-        // the ExecPlan which should own this node
-        plan.get(),
-
-        // nodes which will send batches to this node (inputs)
-        {scan_node},
-
-        // parameters unique to "filter" nodes
-        FilterNodeOptions{filter_expression}));
-
-    // alternative shorthand:
-    ARROW_ASSIGN_OR_RAISE(filter_node, MakeExecNode("filter",
-        plan.get(), {scan_node}, FilterNodeOptions{filter_expression});
-
-Factories can also be added to the default registry as long as they are
-convertible to ``std::function<Result<ExecNode*>(
-ExecPlan*, std::vector<ExecNode*>, const ExecNodeOptions&)>``.
-
-To build an :class:`ExecPlan` representing a simple pipeline which
-reads from a :class:`RecordBatchReader` then filters, projects, and
-writes to disk::
-
-    std::shared_ptr<RecordBatchReader> reader = GetStreamOfBatches();
-    ExecNode* source_node = *MakeExecNode("source", plan.get(), {},
-                                          SourceNodeOptions::FromReader(
-                                              reader,
-                                              GetCpuThreadPool()));
-
-    ExecNode* filter_node = *MakeExecNode("filter", plan.get(), {source_node},
-                                          FilterNodeOptions{
-                                            greater(field_ref("score"), literal(3))
-                                          });
-
-    ExecNode* project_node = *MakeExecNode("project", plan.get(), {filter_node},
-                                           ProjectNodeOptions{
-                                             {add(field_ref("score"), literal(1))},
-                                             {"score + 1"}
-                                           });
-
-    arrow::dataset::internal::Initialize();
-    MakeExecNode("write", plan.get(), {project_node},
-                 WriteNodeOptions{/*base_dir=*/"/dat", /*...*/});
-
-:struct:`Declaration` is a `dplyr <https://dplyr.tidyverse.org>`_-inspired
-helper which further decreases the boilerplate associated with populating
-an :class:`ExecPlan` from C++::
-
-    arrow::dataset::internal::Initialize();
-
-    std::shared_ptr<RecordBatchReader> reader = GetStreamOfBatches();
-    ASSERT_OK(Declaration::Sequence(
-                  {
-                      {"source", SourceNodeOptions::FromReader(
-                           reader,
-                           GetCpuThreadPool())},
-                      {"filter", FilterNodeOptions{
-                           greater(field_ref("score"), literal(3))}},
-                      {"project", ProjectNodeOptions{
-                           {add(field_ref("score"), literal(1))},
-                           {"score + 1"}}},
-                      {"write", WriteNodeOptions{/*base_dir=*/"/dat", /*...*/}},
-                  })
-                  .AddToPlan(plan.get()));
-
-Note that a source node can wrap anything which resembles a stream of batches.
-For example, `PR#11032 <https://github.com/apache/arrow/pull/11032>`_ adds
-support for use of a `DuckDB <https://duckdb.org>`_ query as a source node.
-Similarly, a sink node can wrap anything which absorbs a stream of batches.
-In the example above we're writing completed
-batches to disk. However we can also collect these in memory into a :class:`Table`
-or forward them to a :class:`RecordBatchReader` as an out-of-graph stream.
-This flexibility allows an :class:`ExecPlan` to be used as streaming middleware
-between any endpoints which support Arrow formatted batches.
-
-An :class:`arrow::dataset::Dataset` can also be wrapped as a source node which
-pushes all the dataset's batches into an :class:`ExecPlan`. This factory is added
-to the default registry with the name ``"scan"`` by calling
-``arrow::dataset::internal::Initialize()``::
-
-    arrow::dataset::internal::Initialize();
-
-    std::shared_ptr<Dataset> dataset = GetDataset();
-
-    ASSERT_OK(Declaration::Sequence(
-                  {
-                      {"scan", ScanNodeOptions{dataset,
-                         /* push down predicate, projection, ... */}},
-                      {"filter", FilterNodeOptions{/* ... */}},
-                      // ...
-                  })
-                  .AddToPlan(plan.get()));
-
-Datasets may be scanned multiple times; just make multiple scan
-nodes from that dataset. (Useful for a self-join, for example.)
-Note that producing two scan nodes like this will perform all
-reads and decodes twice.
