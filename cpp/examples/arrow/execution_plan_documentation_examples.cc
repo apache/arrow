@@ -90,10 +90,6 @@ constexpr char kSep[] = "******";
   std::cout << "\t" << kSep << " " << msg << " " << kSep << std::endl; \
   std::cout << "" << std::endl;
 
-void PrintLine(std::string msg){
-  std::cout << msg << std::endl;
-} 
-
 namespace cp = ::arrow::compute;
 
 std::shared_ptr<arrow::Array> GetArrayFromJSON(
@@ -225,7 +221,7 @@ arrow::Status exec_plan_end_to_end_sample() {
 
     // // validate the plan
     ABORT_ON_FAILURE(plan->Validate());
-    PrintLine("Exec Plan created: " + plan->ToString());
+    std::cout << "Exec Plan created: " << plan->ToString() << std::endl;
     // // start the ExecPlan
     ABORT_ON_FAILURE(plan->StartProducing());
 
@@ -316,7 +312,7 @@ arrow::Status ScanSinkExample() {
 
     // validate the ExecPlan
     ABORT_ON_FAILURE(plan->Validate());
-    PrintLine("ExecPlan created : " + plan->ToString());
+    std::cout << "ExecPlan created : " << plan->ToString() << std::endl;
     // // start the ExecPlan
     ABORT_ON_FAILURE(plan->StartProducing());
 
@@ -326,7 +322,7 @@ arrow::Status ScanSinkExample() {
     ARROW_ASSIGN_OR_RAISE(response_table,
                             arrow::Table::FromRecordBatchReader(sink_reader.get()));
 
-    PrintLine("Results : " + response_table->ToString());
+    std::cout << "Results : " << response_table->ToString() << std::endl;
 
     // // stop producing
     plan->StopProducing();
@@ -489,7 +485,7 @@ arrow::Status SourceSinkExample() {
 
   // // validate the ExecPlan
   ABORT_ON_FAILURE(plan->Validate());
-  PrintLine("Exec Plan Created: " + plan->ToString());
+  std::cout << "Exec Plan Created: " << plan->ToString() << std::endl;
   // // // start the ExecPlan
   ABORT_ON_FAILURE(plan->StartProducing());
 
@@ -499,7 +495,7 @@ arrow::Status SourceSinkExample() {
   ARROW_ASSIGN_OR_RAISE(response_table,
                         arrow::Table::FromRecordBatchReader(sink_reader.get()));
 
-  PrintLine("Results : " + response_table->ToString());
+  std::cout << "Results : " << response_table->ToString() << std::endl;
 
   // // plan stop producing
   plan->StopProducing();
@@ -532,12 +528,12 @@ arrow::Status ScanFilterSinkExample() {
   options->projection = Materialize({});
 
   // construct the scan node
-  PrintLine("Initialized Scanning Options");
+  std::cout << "Initialized Scanning Options" << std::endl;
 
   cp::ExecNode* scan;
 
   auto scan_node_options = arrow::dataset::ScanNodeOptions{dataset, options};
-  PrintLine("Scan node options created");
+  std::cout << "Scan node options created" << std::endl;
 
   ARROW_ASSIGN_OR_RAISE(scan,
                         cp::MakeExecNode("scan", plan.get(), {}, scan_node_options));
@@ -560,7 +556,7 @@ arrow::Status ScanFilterSinkExample() {
 
   // // validate the ExecPlan
   ABORT_ON_FAILURE(plan->Validate());
-  PrintLine("Exec Plan created " + plan->ToString());
+  std::cout << "Exec Plan created " << plan->ToString() << std::endl;
   // // start the ExecPlan
   ABORT_ON_FAILURE(plan->StartProducing());
 
@@ -569,7 +565,7 @@ arrow::Status ScanFilterSinkExample() {
   ARROW_ASSIGN_OR_RAISE(response_table,
                         arrow::Table::FromRecordBatchReader(sink_reader.get()));
 
-  PrintLine("Results : " + response_table->ToString());
+  std::cout << "Results : " << response_table->ToString() << std::endl;
   // // plan stop producing
   plan->StopProducing();
   // /// plan marked finished
@@ -625,7 +621,7 @@ arrow::Status ScanProjectSinkExample() {
     // // validate the ExecPlan
     ABORT_ON_FAILURE(plan->Validate());
 
-    PrintLine("Exec Plan Created : " + plan->ToString());
+    std::cout << "Exec Plan Created : " << plan->ToString() << std::endl;
 
     // // start the ExecPlan
     ABORT_ON_FAILURE(plan->StartProducing());
@@ -635,7 +631,7 @@ arrow::Status ScanProjectSinkExample() {
     ARROW_ASSIGN_OR_RAISE(response_table,
     arrow::Table::FromRecordBatchReader(sink_reader.get()));
 
-    PrintLine("Results : " + response_table->ToString());
+    std::cout << "Results : " << response_table->ToString() << std::endl;
 
     // // plan stop producing
     plan->StopProducing();
@@ -691,7 +687,7 @@ arrow::Status SourceAggregateSinkExample() {
 
     // // validate the ExecPlan
     ABORT_ON_FAILURE(plan->Validate());
-    PrintLine("ExecPlan created : " + plan->ToString());
+    std::cout << "ExecPlan created : " << plan->ToString() << std::endl;
     // // // start the ExecPlan
     ABORT_ON_FAILURE(plan->StartProducing());
 
@@ -701,7 +697,7 @@ arrow::Status SourceAggregateSinkExample() {
     ARROW_ASSIGN_OR_RAISE(response_table,
     arrow::Table::FromRecordBatchReader(sink_reader.get()));
 
-    PrintLine("Results : " + response_table->ToString());
+    std::cout << "Results : " << response_table->ToString() << std::endl;
 
     //plan stop producing
     plan->StopProducing();
@@ -758,12 +754,12 @@ arrow::Status SourceConsumingSinkExample() {
     ABORT_ON_FAILURE(consuming_sink->Validate());
 
     ABORT_ON_FAILURE(plan->Validate());
-    PrintLine("Exec Plan created: " + plan->ToString());
+    std::cout << "Exec Plan created: " << plan->ToString() << std::endl;
     // plan start producing
     ABORT_ON_FAILURE(plan->StartProducing());
     // Source should finish fairly quickly
     ABORT_ON_FAILURE(source->finished().status());
-    PrintLine("Source Finished!");
+    std::cout << "Source Finished!" << std::endl;
     // Mark consumption complete, plan should finish
     arrow::Status finish_status;
     //finish.Wait();
@@ -858,7 +854,7 @@ arrow::Status SourceHashJoinSinkExample() {
     //                          cp::less_equal(
     //                              cp::field_ref("i32"),
     //                              cp::literal(2))}));
-    // PrintLine("left and right filter nodes created");
+    // std::cout << "left and right filter nodes created" << std::endl;
 
     cp::HashJoinNodeOptions join_opts{cp::JoinType::INNER,
                                       /*left_keys=*/{"str"},
@@ -893,7 +889,7 @@ arrow::Status SourceHashJoinSinkExample() {
     ARROW_ASSIGN_OR_RAISE(response_table,
     arrow::Table::FromRecordBatchReader(sink_reader.get()));
 
-    PrintLine("Results : " + response_table->ToString());
+    std::cout << "Results : " << response_table->ToString() << std::endl;
 
     // // plan stop producing
     plan->StopProducing();
@@ -948,7 +944,7 @@ arrow::Status SourceKSelectExample() {
     ARROW_ASSIGN_OR_RAISE(response_table,
     arrow::Table::FromRecordBatchReader(sink_reader.get()));
 
-    PrintLine("Results : " + response_table->ToString());
+    std::cout << "Results : " << response_table->ToString() << std::endl;
 
     // // plan stop proudcing
     plan->StopProducing();
@@ -1017,14 +1013,14 @@ arrow::Status ScanFilterWriteExample(std::string file_path) {
     arrow::dataset::WriteNodeOptions write_node_options {write_options,
     dataset->schema()};
 
-    PrintLine("Write Options created");
+    std::cout << "Write Options created" << std::endl;
 
     ARROW_ASSIGN_OR_RAISE(cp::ExecNode *wr, cp::MakeExecNode("write", plan.get(),
     {scan}, write_node_options));
 
     ABORT_ON_FAILURE(wr->Validate());
     ABORT_ON_FAILURE(plan->Validate());
-    PrintLine("Execution Plan Created : " + plan->ToString());
+    std::cout << "Execution Plan Created : " << plan->ToString() << std::endl;
     // // // start the ExecPlan
     ABORT_ON_FAILURE(plan->StartProducing());
     plan->finished().Wait();
