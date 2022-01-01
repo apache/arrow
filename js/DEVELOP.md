@@ -80,9 +80,11 @@ You can run the benchmarks with `yarn perf`. To print the results to stderr as J
 
 You can change the target you want to test by changing the imports in `perf/index.ts`. Note that you need to compile the bundles with `yarn build` before you can import them.
 
-# Testing Webpack Bundling
+# Testing Bundling
 
-To bundle with webpack, run `yarn test:bundle` or `yarn gulp bundle`. Run `yarn gulp bundle:webpack:analyze` to open [Webpack Bundle Analyzer](https://github.com/webpack-contrib/webpack-bundle-analyzer).
+The bunldes use `apache-arrow` so make sure to build it with `yarn build -t apache-arrow`.To bundle with a variety of bundlers, run `yarn test:bundle` or `yarn gulp bundle`. You can compare file sizes with `ls -lah test/bundle/**/`.
+
+Run `yarn gulp bundle:webpack:analyze` to open [Webpack Bundle Analyzer](https://github.com/webpack-contrib/webpack-bundle-analyzer).
 
 # Updating the Arrow format flatbuffers generated code
 

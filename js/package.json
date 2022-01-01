@@ -51,7 +51,7 @@
     "jest.config.js"
   ],
   "dependencies": {
-    "@types/node": "^17.0.5",
+    "@types/node": "^17.0.6",
     "command-line-args": "5.2.0",
     "command-line-usage": "6.1.1",
     "flatbuffers": "2.0.4",
@@ -61,8 +61,8 @@
   },
   "devDependencies": {
     "@openpgp/web-stream-tools": "0.0.8",
-    "@rollup/plugin-alias": "3.1.8",
-    "@rollup/plugin-node-resolve": "13.1.1",
+    "@rollup/plugin-alias": "3.1.9",
+    "@rollup/plugin-node-resolve": "13.1.2",
     "@types/benchmark": "2.1.1",
     "@types/glob": "7.2.0",
     "@types/jest": "27.4.0",
@@ -75,7 +75,7 @@
     "del-cli": "4.0.1",
     "esbuild": "0.14.10",
     "esbuild-plugin-alias": "0.2.1",
-    "eslint": "8.5.0",
+    "eslint": "8.6.0",
     "eslint-plugin-jest": "25.3.3",
     "esm": "https://github.com/jsg2021/esm/releases/download/v3.x.x-pr883/esm-3.x.x-pr883.tgz",
     "glob": "7.2.0",
