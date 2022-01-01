@@ -88,10 +88,11 @@ gulp.task(`compile`, gulpConcurrent(getTasks(`compile`)));
 gulp.task(`package`, gulpConcurrent(getTasks(`package`)));
 gulp.task(`default`, gulp.series(`clean`, `build`, `test`));
 
+gulp.task(`bundle:esbuild`, bundleTask(`esbuild`));
 gulp.task(`bundle:webpack`, bundleTask(`webpack`));
 gulp.task(`bundle:webpack:analyze`, bundleTask(`webpack`, `--env=analyze`));
 gulp.task(`bundle:rollup`, bundleTask(`rollup`));
-gulp.task(`bundle`, gulp.series(`bundle:webpack`, `bundle:rollup`));
+gulp.task(`bundle`, gulp.series(`bundle:webpack`, `bundle:rollup`, `bundle:esbuild`));
 
 function gulpConcurrent(tasks, numCPUs = Math.max(1, require('os').cpus().length * 0.5) | 0) {
     return () => ObservableFrom(tasks.map((task) => gulp.series(task)))

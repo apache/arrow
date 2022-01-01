@@ -73,6 +73,8 @@
     "benny": "3.7.1",
     "cross-env": "7.0.3",
     "del-cli": "4.0.1",
+    "esbuild": "0.14.10",
+    "esbuild-plugin-alias": "0.2.1",
     "eslint": "8.5.0",
     "eslint-plugin-jest": "25.3.3",
     "esm": "https://github.com/jsg2021/esm/releases/download/v3.x.x-pr883/esm-3.x.x-pr883.tgz",

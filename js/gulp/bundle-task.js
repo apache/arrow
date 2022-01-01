@@ -18,11 +18,19 @@
 const exec = require('child_process').exec;
 
 const bundleTask = (bundler, args = "") => (cb) => {
-    exec(`${bundler} --config test/bundle/${bundler}/${bundler}.config.js ${args}`, (err, stdout, stderr) => {
-        console.log(stdout);
-        console.log(stderr);
-        cb(err);
-    });
+    if (bundler === 'esbuild') {
+        exec(`./test/bundle/esbuild/esbuild.js`, (err, stdout, stderr) => {
+            console.log(stdout);
+            console.log(stderr);
+            cb(err);
+        });
+    } else {
+        exec(`${bundler} --config test/bundle/${bundler}/${bundler}.config.js ${args}`, (err, stdout, stderr) => {
+            console.log(stdout);
+            console.log(stderr);
+            cb(err);
+        });
+    }
 }
 
 module.exports = bundleTask;

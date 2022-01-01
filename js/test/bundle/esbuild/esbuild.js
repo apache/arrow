@@ -1,3 +1,5 @@
+#! /usr/bin/env node
+
 // Licensed to the Apache Software Foundation (ASF) under one
 // or more contributor license agreements.  See the NOTICE file
 // distributed with this work for additional information
@@ -15,36 +17,34 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import bundleSize from 'rollup-plugin-bundle-size';
-import nodeResolve from '@rollup/plugin-node-resolve';
-import alias from '@rollup/plugin-alias';
+const esbuild = require('esbuild');
+const alias = require('esbuild-plugin-alias');
 const { resolve } = require('path');
 const { readdirSync } = require('fs');
-
-const plugins = [
-    alias({
-        entries: {
-            'apache-arrow': resolve(__dirname, '../../../targets/apache-arrow/')
-        }
-    }),
-    nodeResolve({
-        browser: true,
-    }),
-    bundleSize()
-]
 
 const fileNames = readdirSync(resolve(__dirname, `..`))
     .filter(fileName => fileName.endsWith('.js'))
     .map(fileName => fileName.replace(/\.js$/, ''));
 
-export default fileNames.map(name => ({
-    input: resolve(__dirname, `../${name}.js`),
-    output: {
-        file: resolve(__dirname, `./${name}-bundle.js`),
-    },
-    plugins,
-    onwarn: (message) => {
-        if (message.code === 'CIRCULAR_DEPENDENCY') return
-        console.error(message);
+(async () => {
+    for (const name of fileNames) {
+        const result = await esbuild.build({
+            entryPoints: [resolve(__dirname, `../${name}.js`)],
+            bundle: true,
+            minify: true,
+            treeShaking: true,
+            metafile: true,
+            outfile: resolve(__dirname, `./${name}-bundle.js`),
+            resolveExtensions: ['.mjs', '.js'],
+            plugins: [
+                alias({
+                    'apache-arrow': resolve(__dirname, '../../../targets/apache-arrow/Arrow.dom.mjs'),
+                }),
+            ],
+        });
+
+        const bundle = `test/bundle/esbuild/${name}-bundle.js`;
+        const metadata = result.metafile.outputs[bundle];
+        console.log(`${bundle}: ${Math.floor(metadata.bytes / 1024)} Kb`);
     }
-}));
+})()
