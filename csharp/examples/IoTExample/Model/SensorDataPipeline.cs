@@ -102,7 +102,7 @@ namespace IoTPipelineExample
                 var item = new SensorData
                 {
                     // approximately 9_000 unique subjects/sensors
-                    subjectId = rand.Next(1_000, 2_000),
+                    subjectId = rand.Next(1_001, 1_003),
                     activityLabel = label,
                     timestamp = basis.AddMilliseconds(1),
                     x_Axis = rand.NextDouble(),
@@ -132,25 +132,25 @@ namespace IoTPipelineExample
             {
                 while (_reader.TryRead(out SensorData item))
                 {
-                    int builderId = (int)item.subjectId;
+                    int subjectId = (int)item.subjectId;
 
                     if (item != null)
                     {
-                        if (!_colSubjectIdBuilderDict.ContainsKey(builderId))
+                        if (!_colSubjectIdBuilderDict.ContainsKey(subjectId))
                         {
-                            _colSubjectIdBuilderDict.Add(builderId, new Int32Array.Builder());
-                            _colActivityLabelBuilderDict.Add(builderId, new StringArray.Builder());
-                            _colTimestampBuilderDict.Add(builderId, new TimestampArray.Builder());
-                            _colXAxisBuilderDict.Add(builderId, new DoubleArray.Builder());
-                            _colYAxisBuilderDict.Add(builderId, new DoubleArray.Builder());
-                            _colZAxisBuilderDict.Add(builderId, new DoubleArray.Builder());
+                            _colSubjectIdBuilderDict.Add(subjectId, new Int32Array.Builder());
+                            _colActivityLabelBuilderDict.Add(subjectId, new StringArray.Builder());
+                            _colTimestampBuilderDict.Add(subjectId, new TimestampArray.Builder());
+                            _colXAxisBuilderDict.Add(subjectId, new DoubleArray.Builder());
+                            _colYAxisBuilderDict.Add(subjectId, new DoubleArray.Builder());
+                            _colZAxisBuilderDict.Add(subjectId, new DoubleArray.Builder());
                         }
-                        _colSubjectIdBuilderDict[builderId].Append((int)item.subjectId);
-                        _colActivityLabelBuilderDict[builderId].Append(item.activityLabel);
-                        _colTimestampBuilderDict[builderId].Append((DateTimeOffset)item.timestamp);
-                        _colXAxisBuilderDict[builderId].Append((double)item.x_Axis);
-                        _colYAxisBuilderDict[builderId].Append((double)item.y_Axis);
-                        _colZAxisBuilderDict[builderId].Append((double)item.z_Axis);
+                        _colSubjectIdBuilderDict[subjectId].Append((int)item.subjectId);
+                        _colActivityLabelBuilderDict[subjectId].Append(item.activityLabel);
+                        _colTimestampBuilderDict[subjectId].Append((DateTimeOffset)item.timestamp);
+                        _colXAxisBuilderDict[subjectId].Append((double)item.x_Axis);
+                        _colYAxisBuilderDict[subjectId].Append((double)item.y_Axis);
+                        _colZAxisBuilderDict[subjectId].Append((double)item.z_Axis);
                     }
                 }
             }
@@ -159,40 +159,62 @@ namespace IoTPipelineExample
 
         public async Task<string> PersistData()
         {
+            List<RecordBatch> recordBatches = new List<RecordBatch>();
+
             string currentPath = Directory.GetCurrentDirectory();
             string arrowDataPath = Path.Combine(currentPath, "arrow");
             if (!Directory.Exists(arrowDataPath))
                 Directory.CreateDirectory(arrowDataPath);
 
-            Schema.Builder schemaBuilder = new Schema.Builder();
+            var memoryAllocator = new NativeMemoryAllocator(alignment: 64);
 
-            schemaBuilder.Field(new Field("SubjectId", Int32Type.Default, nullable: false));
-            schemaBuilder.Field(new Field("ActivityLabel", StringType.Default, nullable: false));
-            schemaBuilder.Field(new Field("Timestamp", Int64Type.Default, nullable: false));
-            schemaBuilder.Field(new Field("XAxis", DoubleType.Default, nullable: false));
-            schemaBuilder.Field(new Field("YAxis", DoubleType.Default, nullable: false));
-            schemaBuilder.Field(new Field("ZAxis", DoubleType.Default, nullable: false));
-
-            Schema schema = schemaBuilder.Build();
-
-            using (var stream = File.OpenWrite(arrowDataPath + @"\iotbigdata.arrow"))
-            using (var writer = new ArrowFileWriter(stream, schema))
+            foreach (var key in _colSubjectIdBuilderDict.Keys)
             {
-                var memoryAllocator = new NativeMemoryAllocator(alignment: 64);
+                var subjectId = key;
 
-                foreach (var key in _colSubjectIdBuilderDict.Keys)
+                //var recordBatch = new RecordBatch.Builder(memoryAllocator)
+                //.Append("SubjectId", false, _colSubjectIdBuilderDict[subjectId].Build())
+                //.Append("ActivityLabel", false, _colActivityLabelBuilderDict[subjectId].Build())
+                //.Append("Timestamp", false, _colTimestampBuilderDict[subjectId].Build())
+                //.Append("XAxis", false, _colXAxisBuilderDict[subjectId].Build())
+                //.Append("YAxis", false, _colYAxisBuilderDict[subjectId].Build())
+                //.Append("ZAxis", false, _colZAxisBuilderDict[subjectId].Build())
+                //.Build();
+                Schema.Builder schemaBuilder = new Schema.Builder();
+
+                schemaBuilder.Field(new Field("SubjectId", Int32Type.Default, nullable: false));
+                schemaBuilder.Field(new Field("ActivityLabel", StringType.Default, nullable: false));
+                schemaBuilder.Field(new Field("Timestamp", Int64Type.Default, nullable: false));
+                schemaBuilder.Field(new Field("XAxis", DoubleType.Default, nullable: false));
+                schemaBuilder.Field(new Field("YAxis", DoubleType.Default, nullable: false));
+                schemaBuilder.Field(new Field("ZAxis", DoubleType.Default, nullable: false));
+
+                schemaBuilder.Metadata("SubjectId", subjectId.ToString());
+                Schema schema = schemaBuilder.Build();
+
+                int fieldCount = schema.Fields.Count;
+                List<IArrowArray> arrays = new List<IArrowArray>(fieldCount);
+
+                arrays.Add(_colSubjectIdBuilderDict[subjectId].Build());
+                arrays.Add(_colActivityLabelBuilderDict[subjectId].Build());
+                arrays.Add(_colTimestampBuilderDict[subjectId].Build());
+                arrays.Add(_colXAxisBuilderDict[subjectId].Build());
+                arrays.Add(_colYAxisBuilderDict[subjectId].Build());
+                arrays.Add(_colZAxisBuilderDict[subjectId].Build());
+
+                var recordBatch = new RecordBatch(schema, arrays, _colSubjectIdBuilderDict[subjectId].Length);
+
+                recordBatches.Add(recordBatch);
+            }
+
+            //schemaBuilder.Metadata("SubjectId", null);
+            Schema fileSchema = recordBatches[0].Schema;
+
+            using (var stream = File.OpenWrite(arrowDataPath + @"\iotbigdata_" + DateTime.UtcNow.ToString("yyyy-MM-dd--HH-mm-ss") + ".arrow"))
+            using (var writer = new ArrowFileWriter(stream, fileSchema))
+            {
+                foreach (RecordBatch recordBatch in recordBatches)
                 {
-                    var builderId = key;
-
-                    var recordBatch = new RecordBatch.Builder(memoryAllocator)
-                    .Append("SubjectId", false, _colSubjectIdBuilderDict[builderId].Build())
-                    .Append("ActivityLabel", false, _colActivityLabelBuilderDict[builderId].Build())
-                    .Append("Timestamp", false, _colTimestampBuilderDict[builderId].Build())
-                    .Append("XAxis", false, _colXAxisBuilderDict[builderId].Build())
-                    .Append("YAxis", false, _colYAxisBuilderDict[builderId].Build())
-                    .Append("ZAxis", false, _colZAxisBuilderDict[builderId].Build())
-                    .Build();
-
                     await writer.WriteRecordBatchAsync(recordBatch);
                 }
                 await writer.WriteEndAsync();

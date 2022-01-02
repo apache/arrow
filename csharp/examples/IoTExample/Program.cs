@@ -18,19 +18,21 @@ using System.IO;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Apache.Arrow.Ipc;
+using Apache.Arrow;
 
 namespace IoTPipelineExample
 {
     class Program
     {
         public static int concurrencyLevel = 8;
-        public static int totalInputs = 1_000_000;
+        public static int totalInputs = 1_000;
         public static int queueCapacity = 1_000_000;
 
         public static async Task Main(string[] args)
         {
             SensorDataPipeline sdp = new SensorDataPipeline(totalInputs, queueCapacity);
             List<Task> tasks = new List<Task>();
+            List<RecordBatch> recordBatches = new List<RecordBatch>();
 
             Console.WriteLine("Producing IoT sensor data...");
             for (int i = 0; i < concurrencyLevel; i++)
@@ -56,33 +58,48 @@ namespace IoTPipelineExample
             {
                 await ReadArrowFile(fileEntry);
             }
-        }
 
-        static async Task ReadArrowFile(string fileEntry)
-        {
-            Console.WriteLine($"Reading data from arrow file {Path.GetFileName(fileEntry)}...");
+            // The logical table is for duplication removal, late arrival data manipulation and adding feature columns
+            Table table1001 = Table.TableFromRecordBatches(recordBatches[0].Schema, recordBatches);
 
-            using (var stream = File.OpenRead(fileEntry))
-            using (var reader = new ArrowFileReader(stream))
+            async Task ReadArrowFile(string fileEntry)
             {
-                try
+                Console.WriteLine($"Reading data from arrow file {Path.GetFileName(fileEntry)}...");
+
+                using (var stream = File.OpenRead(fileEntry))
+                using (var reader = new ArrowFileReader(stream))
                 {
-                    int count = await reader.RecordBatchCountAsync();
-
-                    for (int i = 0; i < count; i++)
+                    try
                     {
-                        var recordBatch = await reader.ReadRecordBatchAsync(i);
+                        int count = await reader.RecordBatchCountAsync();
 
-                        for (int j = 0; j < recordBatch.ColumnCount; j++)
+                        for (int i = 0; i < count; i++)
                         {
-                            Console.WriteLine($"RecordBatch {i.ToString().PadLeft(6)} Column {j} Length is: "
-                                + recordBatch.Column(j).Data.Length.ToString().PadLeft(6)
-                                + " NULL Count is: "
-                                + recordBatch.Column(j).Data.NullCount);
+                            var recordBatch = await reader.ReadRecordBatchAsync(i);
+
+                            for (int j = 0; j < recordBatch.ColumnCount; j++)
+                            {
+                                Console.WriteLine($"RecordBatch {i.ToString().PadLeft(6)} Column {j} Length is: "
+                                    + recordBatch.Column(j).Data.Length.ToString().PadLeft(6)
+                                    + " NULL Count is: "
+                                    + recordBatch.Column(j).Data.NullCount);
+                            }
+
+                            if (recordBatch.Schema.HasMetadata && recordBatch.Schema.Metadata.TryGetValue("SubjectId", out string subjectId))
+                            {
+                                if (subjectId == "1001")
+                                {
+                                    recordBatches.Add(recordBatch);
+                                    break;
+                                }
+                            }
                         }
                     }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine(ex.Message);
+                    }
                 }
-                catch (Exception ex) { Console.WriteLine(ex.Message); }
             }
         }
     }
