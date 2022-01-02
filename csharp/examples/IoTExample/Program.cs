@@ -56,14 +56,6 @@ namespace IoTPipelineExample
 
             foreach (string fileEntry in fileEntries)
             {
-                await ReadArrowFile(fileEntry);
-            }
-
-            // The logical table is for duplication removal, late arrival data manipulation and adding feature columns
-            Table table1001 = Table.TableFromRecordBatches(recordBatches[0].Schema, recordBatches);
-
-            async Task ReadArrowFile(string fileEntry)
-            {
                 Console.WriteLine($"Reading data from arrow file {Path.GetFileName(fileEntry)}...");
 
                 using (var stream = File.OpenRead(fileEntry))
@@ -100,6 +92,13 @@ namespace IoTPipelineExample
                         Console.WriteLine(ex.Message);
                     }
                 }
+            }
+
+            // The logical table is for duplication removal, late arrival data manipulation and adding feature columns
+            if (recordBatches.Count > 0)
+            {
+                Table table1001 = Table.TableFromRecordBatches(recordBatches[0].Schema, recordBatches);
+                Console.WriteLine($"Total records in table 1001 is: {table1001.RowCount}");
             }
         }
     }
