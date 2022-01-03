@@ -41,6 +41,8 @@
 #include <arrow/io/transform.h>
 #include <arrow/io/stdio.h>
 
+#include "arrow/json/api.h"
+
 #include <arrow/result.h>
 #include <arrow/status.h>
 #include <arrow/table.h>
@@ -123,6 +125,42 @@ null,true
 8,true
 )csv";
     return data_str;
+}
+
+arrow::Result<std::shared_ptr<arrow::Array>> GetInt32ArrayDataSample(
+  const std::vector<int> &int_values) {
+    arrow::Int32Builder int32_builder;
+    ABORT_ON_FAILURE(int32_builder.Reserve(int_values.size()));
+    std::shared_ptr<arrow::Int32Array> int32_array;
+    ABORT_ON_FAILURE(int32_builder.AppendValues(int_values));
+    ABORT_ON_FAILURE(int32_builder.Finish(&int32_array));
+
+    arrow::Result<std::shared_ptr<arrow::Int32Array>> result(std::move(int32_array));
+
+  return result;
+}
+
+arrow::Result<std::shared_ptr<arrow::Array>> GetInt32ArrayDataSample(
+  const std::vector<uint8_t> &bool_values) {
+    arrow::BooleanBuilder boolean_builder;
+    ABORT_ON_FAILURE(boolean_builder.Reserve(bool_values.size()));
+    std::shared_ptr<arrow::BooleanArray> boolean_array;
+    ABORT_ON_FAILURE(boolean_builder.AppendValues(bool_values));
+    ABORT_ON_FAILURE(boolean_builder.Finish(&boolean_array));
+
+    arrow::Result<std::shared_ptr<arrow::BooleanArray>> result(std::move(boolean_array));
+    return result;
+}
+
+arrow::Result<std::shared_ptr<arrow::RecordBatch>> GetSampleRecordBatch(
+  const std::vector<int> &int_values,
+  const std::vector<uint8_t> &bool_values, const arrow::FieldVector &field_vector) {
+      std::shared_ptr<arrow::RecordBatch> record_batch;
+      ARROW_ASSIGN_OR_RAISE(auto int32_array, GetInt32ArrayDataSample(int_values));
+      ARROW_ASSIGN_OR_RAISE(auto bool_array, GetInt32ArrayDataSample(bool_values));
+      ARROW_ASSIGN_OR_RAISE(auto struct_result,
+        arrow::StructArray::Make({int32_array, bool_array}, field_vector));
+      return record_batch->FromStructArray(struct_result);
 }
 
 arrow::Status CreateDataSetFromCSVData(
@@ -355,6 +393,20 @@ cp::ExecBatch GetExecBatchFromJSON(const std::vector<arrow::ValueDescr>& descrs,
   return batch;
 }
 
+cp::ExecBatch GetExecBatchFromVectors(const arrow::FieldVector &field_vector,
+  const std::vector<int> int_values, const std::vector<uint8_t> bool_values) {
+    std::shared_ptr<arrow::RecordBatch> record_batch;
+    cp::ExecBatch batch;
+    if (int_values.size() == bool_values.size()) {
+      auto res_batch = GetSampleRecordBatch(int_values, bool_values, field_vector);
+      cp::ExecBatch batch{*res_batch.ValueOrDie()};
+      return batch;
+    } else {
+      // TODO: handle this in a better way
+      return batch;
+    }
+}
+
 struct BatchesWithSchema {
   std::vector<cp::ExecBatch> batches;
   std::shared_ptr<arrow::Schema> schema;
@@ -388,12 +440,11 @@ struct BatchesWithSchema {
 
 BatchesWithSchema MakeBasicBatches() {
   BatchesWithSchema out;
-  out.batches = {GetExecBatchFromJSON({arrow::int32(), arrow::boolean()},
-                                      "[[null, true], [4, false]]"),
-                 GetExecBatchFromJSON({arrow::int32(), arrow::boolean()},
-                                      "[[5, null], [6, false], [7, false]]")};
-  out.schema = arrow::schema(
-      {arrow::field("a", arrow::int32()), arrow::field("b", arrow::boolean())});
+  auto field_vector = {arrow::field("a", arrow::int32()),
+    arrow::field("b", arrow::boolean())};
+  out.batches = {GetExecBatchFromVectors(field_vector, {0, 4}, {true, false}),
+                  GetExecBatchFromVectors(field_vector, {5, 6, 7}, {true, false, true})};
+  out.schema = arrow::schema(field_vector);
   return out;
 }
 
