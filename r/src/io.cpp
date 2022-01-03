@@ -191,9 +191,22 @@ class RIconvWrapper {
     }
   }
 
-  size_t iconv(const char** inbuf, size_t* inbytesleft, char** outbuf,
-               size_t* outbytesleft) {
-    return Riconv(handle_, inbuf, inbytesleft, outbuf, outbytesleft);
+  size_t iconv(const uint8_t** inbuf, int64_t* inbytesleft, uint8_t** outbuf,
+               int64_t* outbytesleft) {
+    // This iconv signature uses the types that Arrow C++ uses to minimize
+    // deviations from the style guide; however, iconv() uses pointers
+    // to char* and size_t instead of uint8_t and int64_t.
+    size_t inbytesleft_size_t = *inbytesleft;
+    size_t outbytesleft_size_t = *outbytesleft;
+    const char** inbuf_const_char = reinterpret_cast<const char**>(inbuf);
+    char** outbuf_char = reinterpret_cast<char**>(outbuf);
+
+    size_t return_value =
+      Riconv(handle_, inbuf_const_char, &inbytesleft_size_t, outbuf_char, &outbytesleft_size_t);
+
+    *inbytesleft = inbytesleft_size_t;
+    *outbytesleft = outbytesleft_size_t;
+    return return_value;
   }
 
   ~RIconvWrapper() {
@@ -218,12 +231,12 @@ struct ReencodeUTF8TransformFunctionWrapper {
       const std::shared_ptr<arrow::Buffer>& src) {
     ARROW_ASSIGN_OR_RAISE(auto dest, arrow::AllocateResizableBuffer(32));
 
-    size_t out_bytes_left = dest->size();
-    char* out_buf = (char*)dest->data();
-    size_t out_bytes_used = 0;
+    int64_t out_bytes_left = dest->size();
+    uint8_t* out_buf = dest->mutable_data();
+    int64_t out_bytes_used = 0;
 
-    size_t in_bytes_left;
-    const char* in_buf;
+    int64_t in_bytes_left;
+    const uint8_t* in_buf;
     int64_t n_src_bytes_in_pending = 0;
 
     // There may be a few leftover bytes from the last call to iconv. Process these first
@@ -239,20 +252,23 @@ struct ReencodeUTF8TransformFunctionWrapper {
 
       iconv_.iconv(&in_buf, &in_bytes_left, &out_buf, &out_bytes_left);
 
-      int64_t chars_read_out = out_buf - ((char*)dest->data());
+      int64_t chars_read_out = out_buf - dest->data();
       out_bytes_used += chars_read_out;
 
       int64_t chars_read_in = n_pending_ + n_src_bytes_in_pending - in_bytes_left;
-      in_buf = (const char*)src->data() + chars_read_in - n_pending_;
+      in_buf = src->data() + chars_read_in - n_pending_;
       in_bytes_left = src->size() + n_pending_ - chars_read_in;
     } else {
-      in_buf = (const char*)src->data();
+      in_buf = src->data();
       in_bytes_left = src->size();
     }
 
-    // UTF-8 has a maximum of 4 bytes per character, so it's OK if we have a few bytes
-    // left after processing all of src. If we have more than this, it means the
-    // output buffer wasn't big enough.
+    // This loop asumes a maximum of 4 bytes per character in the input
+    // (the maximum for UTF-8, UTF-16, or UTF-32) so it's
+    // OK if we have a few bytes left after processing all of src. If we
+    // have more than this, it means the output buffer wasn't big enough
+    // and the next iteration of the loop will try iconv() again with a
+    // bigger buffer.
     while (in_bytes_left >= 4) {
       int64_t new_size = std::max<int64_t>(src->size(), dest->size() * 2);
       auto reserve_result = dest->Resize(new_size);
@@ -260,11 +276,11 @@ struct ReencodeUTF8TransformFunctionWrapper {
         return reserve_result;
       }
 
-      out_buf = (char*)dest->data() + out_bytes_used;
+      out_buf = dest->mutable_data() + out_bytes_used;
       out_bytes_left = dest->size() - out_bytes_used;
 
-      const char* in_buf_before = in_buf;
-      char* out_buf_before = out_buf;
+      const uint8_t* in_buf_before = in_buf;
+      const uint8_t* out_buf_before = out_buf;
       iconv_.iconv(&in_buf, &in_bytes_left, &out_buf, &out_bytes_left);
       int64_t bytes_read_out = out_buf - out_buf_before;
       int64_t bytes_read_in = in_buf - in_buf_before;
@@ -297,8 +313,8 @@ struct ReencodeUTF8TransformFunctionWrapper {
  protected:
   std::string from_;
   RIconvWrapper iconv_;
-  char pending_[8];
-  size_t n_pending_;
+  uint8_t pending_[8];
+  int64_t n_pending_;
 };
 
 // [[arrow::export]]
