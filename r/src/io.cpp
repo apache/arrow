@@ -222,11 +222,9 @@ class RIconvWrapper {
 
 struct ReencodeUTF8TransformFunctionWrapper {
   explicit ReencodeUTF8TransformFunctionWrapper(std::string from)
-      : from_(from), iconv_("UTF-8", from), n_pending_(0) {}
-
-  // This may get copied and we need a fresh RIconvWrapper for each copy.
-  ReencodeUTF8TransformFunctionWrapper(const ReencodeUTF8TransformFunctionWrapper& ref)
-      : ReencodeUTF8TransformFunctionWrapper(ref.from_) {}
+      : from_(from),
+        iconv_(std::make_shared<RIconvWrapper>("UTF-8", from)),
+        n_pending_(0) {}
 
   arrow::Result<std::shared_ptr<arrow::Buffer>> operator()(
       const std::shared_ptr<arrow::Buffer>& src) {
@@ -252,7 +250,7 @@ struct ReencodeUTF8TransformFunctionWrapper {
       in_buf = pending_;
       in_bytes_left = n_pending_ + n_src_bytes_in_pending;
 
-      iconv_.iconv(&in_buf, &in_bytes_left, &out_buf, &out_bytes_left);
+      iconv_->iconv(&in_buf, &in_bytes_left, &out_buf, &out_bytes_left);
 
       // Rather than check the error return code (which is often returned
       // in the case of a partial character at the end of the pending_
@@ -298,7 +296,7 @@ struct ReencodeUTF8TransformFunctionWrapper {
       // read or written.
       uint8_t* out_buf_before = out_buf;
 
-      iconv_.iconv(&in_buf, &in_bytes_left, &out_buf, &out_bytes_left);
+      iconv_->iconv(&in_buf, &in_bytes_left, &out_buf, &out_bytes_left);
 
       int64_t bytes_read_out = out_buf - out_buf_before;
 
@@ -322,7 +320,7 @@ struct ReencodeUTF8TransformFunctionWrapper {
 
  protected:
   std::string from_;
-  RIconvWrapper iconv_;
+  std::shared_ptr<RIconvWrapper> iconv_;
   uint8_t pending_[8];
   int64_t n_pending_;
 
