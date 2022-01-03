@@ -1917,6 +1917,14 @@ class SelectKUnstableMetaFunction : public MetaFunction {
 
 }  // namespace
 
+Status SortChunkedArray(ExecContext* ctx, uint64_t* indices_begin, uint64_t* indices_end,
+                        const ChunkedArray& values, SortOrder sort_order,
+                        NullPlacement null_placement) {
+  ChunkedArraySorter sorter{ctx,    indices_begin, indices_end,
+                            values, sort_order,    null_placement};
+  return sorter.Sort();
+}
+
 void RegisterVectorSort(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::make_shared<SortIndicesMetaFunction>()));
   DCHECK_OK(registry->AddFunction(std::make_shared<SelectKUnstableMetaFunction>()));

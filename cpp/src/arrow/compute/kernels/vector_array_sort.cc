@@ -438,13 +438,22 @@ struct ArraySortIndices {
 
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     const auto& options = ArraySortIndicesState::Get(ctx);
-    ArrayType arr(batch[0].array());
-    ARROW_ASSIGN_OR_RAISE(auto sorter, GetArraySorter(*GetPhysicalType(arr.type())));
 
     ArrayData* out_arr = out->mutable_array();
+    DCHECK_EQ(out_arr->length, batch.length);
     uint64_t* out_begin = out_arr->GetMutableValues<uint64_t>(1);
-    uint64_t* out_end = out_begin + arr.length();
+    uint64_t* out_end = out_begin + out_arr->length;
     std::iota(out_begin, out_end, 0);
+
+    if (batch[0].kind() == Datum::CHUNKED_ARRAY) {
+      return SortChunkedArray(ctx->exec_context(), out_begin, out_end,
+                              *batch[0].chunked_array(), options.order,
+                              options.null_placement);
+    }
+    DCHECK_EQ(batch[0].kind(), Datum::ARRAY);
+
+    ArrayType arr(batch[0].array());
+    ARROW_ASSIGN_OR_RAISE(auto sorter, GetArraySorter(*GetPhysicalType(arr.type())));
 
     sorter(out_begin, out_end, arr, 0, options);
     return Status::OK();
@@ -543,6 +552,7 @@ void RegisterVectorArraySort(FunctionRegistry* registry) {
   VectorKernel base;
   base.mem_allocation = MemAllocation::PREALLOCATE;
   base.null_handling = NullHandling::OUTPUT_NOT_NULL;
+  base.can_execute_chunkwise = false;
 
   auto array_sort_indices = std::make_shared<VectorFunction>(
       "array_sort_indices", Arity::Unary(), &array_sort_indices_doc,
