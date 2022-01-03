@@ -273,8 +273,8 @@ individual arrays, and no copy is involved:
 Map arrays
 ~~~~~~~~~~
 
-MapArrays can be constructed from lists of lists of tuples (key-item pairs), but only if
-the type is explicitly passed into :py:meth:`array`:
+Map arrays can be constructed from lists of lists of tuples (key-item pairs), but only if
+the type is explicitly passed into :meth:`array`:
 
 .. ipython:: python
 
@@ -283,10 +283,10 @@ the type is explicitly passed into :py:meth:`array`:
    pa.array(data, type=ty)
 
 MapArrays can also be constructed from offset, key, and item arrays. Offsets represent the 
-starting position of each map. Note that the :py:attr:`MapArray.keys` and :py:attr:`MapArray.items`
+starting position of each map. Note that the :attr:`MapArray.keys` and :attr:`MapArray.items`
 properties give the *flattened* keys and items. To keep the keys and items associated to 
-their row, use the :py:meth:`ListArray.from_arrays` constructor with the 
-:py:attr:`MapArray.offsets` property.
+their row, use the :meth:`ListArray.from_arrays` constructor with the 
+:attr:`MapArray.offsets` property.
 
 .. ipython:: python
 
