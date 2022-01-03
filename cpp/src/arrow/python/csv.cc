@@ -37,7 +37,7 @@ InvalidRowHandler MakeInvalidRowHandler(PyInvalidRowCallback cb, PyObject* py_ha
 
   struct Handler {
     PyInvalidRowCallback cb;
-    std::shared_ptr<OwnedRef> handler_ref;
+    std::shared_ptr<OwnedRefNoGIL> handler_ref;
 
     InvalidRowResult operator()(const InvalidRow& invalid_row) {
       InvalidRowResult result;
@@ -54,7 +54,7 @@ InvalidRowHandler MakeInvalidRowHandler(PyInvalidRowCallback cb, PyObject* py_ha
   };
 
   Py_INCREF(py_handler);
-  return Handler{cb, std::make_shared<OwnedRef>(py_handler)};
+  return Handler{cb, std::make_shared<OwnedRefNoGIL>(py_handler)};
 }
 
 }  // namespace csv
