@@ -17,8 +17,19 @@
 
 test_that("reencoding input stream works for windows-1252", {
   string <- "province_name\nQu\u00e9bec"
-  bytes_windows1252 <- iconv(string, to = "windows-1252", toRaw = TRUE)[[1]]
-  bytes_utf8 <- iconv(string, to = "UTF-8", toRaw = TRUE)[[1]]
+  bytes_windows1252 <- iconv(
+    string,
+    from = Encoding(string),
+    to = "windows-1252",
+    toRaw = TRUE
+  )[[1]]
+
+  bytes_utf8 <- iconv(
+    string,
+    from = Encoding(string),
+    to = "UTF-8",
+    toRaw = TRUE
+  )[[1]]
 
   temp_windows1252 <- tempfile()
   con <- file(temp_windows1252, open = "wb")
@@ -38,8 +49,19 @@ test_that("reencoding input stream works for windows-1252", {
 
 test_that("reencoding input stream works for UTF-16", {
   string <- paste0(strrep("a\u00e9\U0001f4a9", 30))
-  bytes_utf16 <- iconv(string, to = "UTF-16LE", toRaw = TRUE)[[1]]
-  bytes_utf8 <- iconv(string, to = "UTF-8", toRaw = TRUE)[[1]]
+  bytes_utf16 <- iconv(
+    string,
+    from = Encoding(string),
+    to = "UTF-16LE",
+    toRaw = TRUE
+  )[[1]]
+
+  bytes_utf8 <- iconv(
+    string,
+    from = Encoding(string),
+    to = "UTF-8",
+    toRaw = TRUE
+  )[[1]]
 
   temp_utf16 <- tempfile()
   con <- file(temp_utf16, open = "wb")
@@ -63,7 +85,12 @@ test_that("reencoding input stream works for UTF-16", {
 
 test_that("reencoding input stream works with pending characters", {
   string <- paste0(strrep("a\u00e9\U0001f4a9", 30))
-  bytes_utf8 <- iconv(string, to = "UTF-8", toRaw = TRUE)[[1]]
+  bytes_utf8 <- iconv(
+    string,
+    from = Encoding(string),
+    to = "UTF-8",
+    toRaw = TRUE
+  )[[1]]
 
   temp_utf8 <- tempfile()
   con <- file(temp_utf8, open = "wb")
