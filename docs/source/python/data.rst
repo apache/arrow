@@ -440,8 +440,8 @@ and ``Field.metadata`` for the field-level.
 
 Note that this metadata is preserved in :ref:`ipc` processes.
 
-To customize the metadata of the existing table you can use
-``replace_schema_metadata``:
+To customize the schema metadata of the existing table you can use
+:meth:`Table.replace_schema_metadata`:
 
 .. ipython:: python
 
@@ -450,7 +450,7 @@ To customize the metadata of the existing table you can use
    table.schema.metadata
 
 To customize the metadata of the field from the table schema you can use
-``with_metadata``:
+:meth:`Field.with_metadata`:
 
 .. ipython:: python
 
@@ -459,9 +459,9 @@ To customize the metadata of the field from the table schema you can use
    field_f1 = field_f1.with_metadata({"f1": "Second dose"})
    field_f1.metadata
 
-Both options create a shallow copy of the data and do not in fact change
+Both options create a shallow copy of the data and do not in fact change the
 Schema which is immutable. To change the metadata in the schema of the table
-we created a new object when calling ``replace_schema_metadata``.
+we created a new object when calling :meth:`Table.replace_schema_metadata`.
 
 To change the metadata of the field in the schema we would need to define
 a new schema and cast it to the data available:
