@@ -803,56 +803,6 @@ std::shared_ptr<ScalarFunction> MakeScalarMinMax(std::string name,
   return func;
 }
 
-const FunctionDoc equal_doc{"Compare values for equality (x == y)",
-                            ("A null on either side emits a null comparison result."),
-                            {"x", "y"}};
-
-const FunctionDoc not_equal_doc{"Compare values for inequality (x != y)",
-                                ("A null on either side emits a null comparison result."),
-                                {"x", "y"}};
-
-const FunctionDoc greater_doc{"Compare values for ordered inequality (x > y)",
-                              ("A null on either side emits a null comparison result."),
-                              {"x", "y"}};
-
-const FunctionDoc greater_equal_doc{
-    "Compare values for ordered inequality (x >= y)",
-    ("A null on either side emits a null comparison result."),
-    {"x", "y"}};
-
-const FunctionDoc less_doc{"Compare values for ordered inequality (x < y)",
-                           ("A null on either side emits a null comparison result."),
-                           {"x", "y"}};
-
-const FunctionDoc less_equal_doc{
-    "Compare values for ordered inequality (x <= y)",
-    ("A null on either side emits a null comparison result."),
-    {"x", "y"}};
-
-const FunctionDoc between_doc{"Check if values are in the given range, val between a and b",
-                              ("A null on either side emits a null comparison result.\n"
-                               "options are used to specify if the endpoints are\n"
-                               "inclusive, possible values are NEITHER (a < val < b),\n"
-                               "LEFT (a <= val < b), RIGHT (a < val <= b), and \n"
-                               "BOTH (a <= val <= b). Default is BOTH."),
-                              {"val", "a", "b"},
-                              "BetweenOptions"};
-
-const FunctionDoc min_element_wise_doc{
-    "Find the element-wise minimum value",
-    ("Nulls are ignored (by default) or propagated.\n"
-     "NaN is preferred over null, but not over any valid value."),
-    {"*args"},
-    "ElementWiseAggregateOptions"};
-
-const FunctionDoc max_element_wise_doc{
-    "Find the element-wise maximum value",
-    ("Nulls are ignored (by default) or propagated.\n"
-     "NaN is preferred over null, but not over any valid value."),
-    {"*args"},
-    "ElementWiseAggregateOptions"};
-}  // namespace
-
 template <template <BetweenOptions::Inclusive> class Op>
 std::shared_ptr<ScalarFunction> MakeBetweenFunction(std::string name, const FunctionDoc* doc) {
   using BetweenState = OptionsWrapper<BetweenOptions>;
@@ -987,6 +937,57 @@ std::shared_ptr<ScalarFunction> MakeBetweenFunction(std::string name, const Func
   }
   return func;
 }
+
+const FunctionDoc equal_doc{"Compare values for equality (x == y)",
+                            ("A null on either side emits a null comparison result."),
+                            {"x", "y"}};
+
+const FunctionDoc not_equal_doc{"Compare values for inequality (x != y)",
+                                ("A null on either side emits a null comparison result."),
+                                {"x", "y"}};
+
+const FunctionDoc greater_doc{"Compare values for ordered inequality (x > y)",
+                              ("A null on either side emits a null comparison result."),
+                              {"x", "y"}};
+
+const FunctionDoc greater_equal_doc{
+    "Compare values for ordered inequality (x >= y)",
+    ("A null on either side emits a null comparison result."),
+    {"x", "y"}};
+
+const FunctionDoc less_doc{"Compare values for ordered inequality (x < y)",
+                           ("A null on either side emits a null comparison result."),
+                           {"x", "y"}};
+
+const FunctionDoc less_equal_doc{
+    "Compare values for ordered inequality (x <= y)",
+    ("A null on either side emits a null comparison result."),
+    {"x", "y"}};
+
+const FunctionDoc between_doc{
+    "Check if values are in the given range, val between a and b",
+    ("A null on either side emits a null comparison result.\n"
+     "options are used to specify if the endpoints are\n"
+     "inclusive, possible values are NEITHER (a < val < b),\n"
+     "LEFT (a <= val < b), RIGHT (a < val <= b), and \n"
+     "BOTH (a <= val <= b). Default is BOTH."),
+    {"val", "a", "b"},
+    "BetweenOptions"};
+
+const FunctionDoc min_element_wise_doc{
+    "Find the element-wise minimum value",
+    ("Nulls are ignored (by default) or propagated.\n"
+     "NaN is preferred over null, but not over any valid value."),
+    {"*args"},
+    "ElementWiseAggregateOptions"};
+
+const FunctionDoc max_element_wise_doc{
+    "Find the element-wise maximum value",
+    ("Nulls are ignored (by default) or propagated.\n"
+     "NaN is preferred over null, but not over any valid value."),
+    {"*args"},
+    "ElementWiseAggregateOptions"};
+}  // namespace
 
 void RegisterScalarComparison(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(MakeCompareFunction<Equal>("equal", &equal_doc)));
