@@ -35,7 +35,8 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/optional.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visit_type_inline.h"
+#include "arrow/visitor.h"
 
 namespace arrow {
 

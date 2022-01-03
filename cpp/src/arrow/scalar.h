@@ -36,6 +36,7 @@
 #include "arrow/util/decimal.h"
 #include "arrow/util/string_view.h"
 #include "arrow/util/visibility.h"
+#include "arrow/visit_type_inline.h"
 
 namespace arrow {
 

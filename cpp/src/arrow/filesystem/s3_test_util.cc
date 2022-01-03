@@ -36,6 +36,7 @@
 
 #include "arrow/filesystem/s3_test_util.h"
 #include "arrow/filesystem/s3fs.h"
+#include "arrow/testing/util.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/future.h"
 #include "arrow/util/io_util.h"

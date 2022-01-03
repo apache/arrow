@@ -28,7 +28,7 @@
 #include "arrow/compute/api.h"
 #include "arrow/compute/kernels/test_util.h"
 #include "arrow/table.h"
-#include "arrow/testing/gtest_common.h"
+#include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
@@ -1432,7 +1432,7 @@ TEST_F(TestTakeKernelWithUnion, TakeUnion) {
     ])");
 }
 
-class TestPermutationsWithTake : public TestBase {
+class TestPermutationsWithTake : public ::testing::Test {
  protected:
   void DoTake(const Int16Array& values, const Int16Array& indices,
               std::shared_ptr<Int16Array>* out) {

@@ -15,11 +15,34 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Often-used headers, for precompiling.
-// If updating this header, please make sure you check compilation speed
-// before checking in.  Adding headers which are not used extremely often
-// may incur a slowdown, since it makes the precompiled header heavier to load.
+// Private header, not to be exported
 
-#include "arrow/pch.h"
-#include "arrow/testing/gtest_util.h"
-#include "arrow/testing/util.h"
+#pragma once
+
+#include <utility>
+
+#include "arrow/scalar.h"
+#include "arrow/status.h"
+#include "arrow/type.h"
+#include "arrow/visitor_generate.h"
+
+namespace arrow {
+
+#define SCALAR_VISIT_INLINE(TYPE_CLASS) \
+  case TYPE_CLASS##Type::type_id:       \
+    return visitor->Visit(internal::checked_cast<const TYPE_CLASS##Scalar&>(scalar));
+
+template <typename VISITOR>
+inline Status VisitScalarInline(const Scalar& scalar, VISITOR* visitor) {
+  switch (scalar.type->id()) {
+    ARROW_GENERATE_FOR_ALL_TYPES(SCALAR_VISIT_INLINE);
+    default:
+      break;
+  }
+  return Status::NotImplemented("Scalar visitor for type not implemented ",
+                                scalar.type->ToString());
+}
+
+#undef SCALAR_VISIT_INLINE
+
+}  // namespace arrow

@@ -16,6 +16,7 @@
 // under the License.
 
 #include <memory>
+#include <numeric>
 #include <sstream>
 #include <utility>
 

@@ -21,6 +21,7 @@
 
 #include "arrow/array/builder_binary.h"
 #include "arrow/memory_pool.h"
+#include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
