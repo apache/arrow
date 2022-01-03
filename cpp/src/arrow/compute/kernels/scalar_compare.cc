@@ -79,7 +79,7 @@ struct BetweenImpl;
 template <>
 struct BetweenImpl<BetweenOptions::BOTH> {
   template <typename Arg0, typename Arg1, typename Arg2>
-  static constexpr bool Between(const Arg0& middle, const Arg1& left, const Arg2& right) {
+  static constexpr bool Call(const Arg0& middle, const Arg1& left, const Arg2& right) {
     static_assert(std::is_same<Arg0, Arg1>::value && std::is_same<Arg1, Arg2>::value, "");
     return (left <= middle) && (middle <= right);
   }
@@ -88,7 +88,7 @@ struct BetweenImpl<BetweenOptions::BOTH> {
 template <>
 struct BetweenImpl<BetweenOptions::RIGHT> {
   template <typename Arg0, typename Arg1, typename Arg2>
-  static constexpr bool Between(const Arg0& middle, const Arg1& left, const Arg2& right) {
+  static constexpr bool Call(const Arg0& middle, const Arg1& left, const Arg2& right) {
     static_assert(std::is_same<Arg0, Arg1>::value && std::is_same<Arg1, Arg2>::value, "");
     return (left < middle) && (middle <= right);
   }
@@ -97,7 +97,7 @@ struct BetweenImpl<BetweenOptions::RIGHT> {
 template <>
 struct BetweenImpl<BetweenOptions::LEFT> {
   template <typename Arg0, typename Arg1, typename Arg2>
-  static constexpr bool Between(const Arg0& middle, const Arg1& left, const Arg2& right) {
+  static constexpr bool Call(const Arg0& middle, const Arg1& left, const Arg2& right) {
     static_assert(std::is_same<Arg0, Arg1>::value && std::is_same<Arg1, Arg2>::value, "");
     return (left <= middle) && (middle < right);
   }
@@ -106,7 +106,7 @@ struct BetweenImpl<BetweenOptions::LEFT> {
 template <>
 struct BetweenImpl<BetweenOptions::NEITHER> {
   template <typename Arg0, typename Arg1, typename Arg2>
-  static constexpr bool Between(const Arg0& middle, const Arg1& left, const Arg2& right) {
+  static constexpr bool Call(const Arg0& middle, const Arg1& left, const Arg2& right) {
     static_assert(std::is_same<Arg0, Arg1>::value && std::is_same<Arg1, Arg2>::value, "");
     return (left < middle) && (middle < right);
   }
@@ -115,9 +115,10 @@ struct BetweenImpl<BetweenOptions::NEITHER> {
 template <BetweenOptions::Inclusive Inclusive>
 struct Between {
   template <typename T, typename Arg0, typename Arg1, typename Arg2>
-  static T Call(KernelContext*, const Arg0& middle, const Arg1& left, const Arg2& right, Status*) {
+  static constexpr T Call(KernelContext*, const Arg0& middle, const Arg1& left,
+                          const Arg2& right, Status*) {
     static_assert(std::is_same<T, bool>::value && std::is_same<Arg0, Arg1>::value && std::is_same<Arg1, Arg2>::value, "");
-    return BetweenImpl<Inclusive>::Between(middle, left, right);
+    return BetweenImpl<Inclusive>::Call(middle, left, right);
   }
 };
 
@@ -209,6 +210,23 @@ struct Maximum {
   }
 };
 
+// Check if timestamp timezones are comparable (either all are empty or none is).
+Status CheckCompareTimestamps(const ExecBatch& batch) {
+  if (batch.num_values() > 0) {
+    const auto& ts0 = checked_cast<const TimestampType&>(*batch[0].type());
+    bool invalid_state = ts0.timezone().empty();
+    for (int i = 1; i < batch.num_values(); ++i) {
+      const auto& ts = checked_cast<const TimestampType&>(*batch[i].type());
+      invalid_state ^= ts.timezone().empty();
+    }
+    if (invalid_state) {
+      return Status::Invalid(
+          "Cannot compare timestamp with timezone to timestamp without timezone");
+    }
+  }
+  return Status::OK();
+}
+
 // Implement Less, LessEqual by flipping arguments to Greater, GreaterEqual
 
 template <typename OutType, typename ArgType, typename Op>
@@ -216,13 +234,7 @@ struct CompareTimestamps : public ScalarBinaryEqualTypes<OutType, ArgType, Op> {
   using Base = ScalarBinaryEqualTypes<OutType, ArgType, Op>;
 
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    const auto& lhs = checked_cast<const TimestampType&>(*batch[0].type());
-    const auto& rhs = checked_cast<const TimestampType&>(*batch[1].type());
-    if (lhs.timezone().empty() ^ rhs.timezone().empty()) {
-      return Status::Invalid(
-          "Cannot compare timestamp with timezone to timestamp without timezone, got: ",
-          lhs, " and ", rhs);
-    }
+    RETURN_NOT_OK(CheckCompareTimestamps(batch));
     return Base::Exec(ctx, batch, out);
   }
 };
@@ -744,7 +756,7 @@ std::shared_ptr<ScalarFunction> MakeScalarMinMax(std::string name,
   auto func = std::make_shared<VarArgsCompareFunction>(
       name, Arity::VarArgs(), doc, &default_element_wise_aggregate_options);
   for (const auto& ty : NumericTypes()) {
-    auto exec = GeneratePhysicalNumeric<ScalarMinMax, Op>(ty);
+    auto exec = GeneratePhysicalNumericToNumeric<ScalarMinMax, Op>(ty);
     ScalarKernel kernel{KernelSignature::Make({ty}, ty, /*is_varargs=*/true), exec,
                         MinMaxState::Init};
     kernel.null_handling = NullHandling::type::COMPUTED_NO_PREALLOCATE;
@@ -752,7 +764,7 @@ std::shared_ptr<ScalarFunction> MakeScalarMinMax(std::string name,
     DCHECK_OK(func->AddKernel(std::move(kernel)));
   }
   for (const auto& ty : TemporalTypes()) {
-    auto exec = GeneratePhysicalNumeric<ScalarMinMax, Op>(ty);
+    auto exec = GeneratePhysicalNumericToNumeric<ScalarMinMax, Op>(ty);
     ScalarKernel kernel{KernelSignature::Make({ty}, ty, /*is_varargs=*/true), exec,
                         MinMaxState::Init};
     kernel.null_handling = NullHandling::type::COMPUTED_NO_PREALLOCATE;
@@ -790,108 +802,6 @@ std::shared_ptr<ScalarFunction> MakeScalarMinMax(std::string name,
   }
   return func;
 }
-
-// template <typename Op>
-// void AddIntegerBetween(const std::shared_ptr<DataType>& ty, ScalarFunction* func) {
-//   auto exec = GeneratePhysicalInteger<ScalarTernaryEqualTypes, BooleanType, Op>(*ty);
-//   DCHECK_OK(func->AddKernel({ty, ty, ty}, boolean(), std::move(exec)));
-// }
-//
-// template <typename InType, typename Op>
-// void AddGenericBetween(const std::shared_ptr<DataType>& ty, ScalarFunction* func) {
-//   DCHECK_OK(func->AddKernel({ty, ty, ty}, boolean(),
-//                             ScalarTernaryEqualTypes<BooleanType, InType, Op>::Exec));
-// }
-//
-// template <typename OutType, typename ArgType, typename Op>
-// struct BetweenTimestamps : public ScalarTernaryEqualTypes<OutType, ArgType, Op> {
-//   using Base = ScalarTernaryEqualTypes<OutType, ArgType, Op>;
-//
-//   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-//     const auto& var = checked_cast<const TimestampType&>(*batch[0].type());
-//     const auto& lhs = checked_cast<const TimestampType&>(*batch[1].type());
-//     const auto& rhs = checked_cast<const TimestampType&>(*batch[2].type());
-//     if ((var.timezone().empty() != lhs.timezone().empty()) ||
-//         (var.timezone().empty() != rhs.timezone().empty()) ||
-//         (lhs.timezone().empty() != rhs.timezone().empty())) {
-//       return Status::Invalid("Cannot compare timestamps with and without timezones.");
-//     }
-//     return Base::Exec(ctx, batch, out);
-//   }
-// };
-//
-// template <typename Op>
-// std::shared_ptr<ScalarFunction> MakeBetweenFunction(std::string name,
-//                                                     const FunctionDoc* doc) {
-//   auto func = std::make_shared<CompareFunction>(name, Arity::Ternary(), doc);
-//
-//   DCHECK_OK(func->AddKernel(
-//       {boolean(), boolean(), boolean()}, boolean(),
-//       ScalarTernary<BooleanType, BooleanType, BooleanType, BooleanType, Op>::Exec));
-//
-//   for (const std::shared_ptr<DataType>& ty : IntTypes()) {
-//     AddIntegerBetween<Op>(ty, func.get());
-//   }
-//
-//   AddIntegerBetween<Op>(date32(), func.get());
-//   AddIntegerBetween<Op>(date64(), func.get());
-//
-//   AddGenericBetween<FloatType, Op>(float32(), func.get());
-//   AddGenericBetween<DoubleType, Op>(float64(), func.get());
-//
-//   // Add timestamp kernels
-//   for (auto unit : TimeUnit::values()) {
-//     InputType in_type(match::TimestampTypeUnit(unit));
-//     DCHECK_OK(func->AddKernel({in_type, in_type, in_type}, boolean(),
-//                               BetweenTimestamps<BooleanType, TimestampType, Op>::Exec));
-//   }
-//
-//   // Duration
-//   for (auto unit : TimeUnit::values()) {
-//     InputType in_type(match::DurationTypeUnit(unit));
-//     auto exec =
-//         GeneratePhysicalInteger<ScalarTernaryEqualTypes, BooleanType, Op>(int64());
-//     DCHECK_OK(func->AddKernel({in_type, in_type, in_type}, boolean(), std::move(exec)));
-//   }
-//
-//   // Time32 and Time64
-//   for (auto unit : {TimeUnit::SECOND, TimeUnit::MILLI}) {
-//     InputType in_type(match::Time32TypeUnit(unit));
-//     auto exec =
-//         GeneratePhysicalInteger<ScalarTernaryEqualTypes, BooleanType, Op>(int32());
-//     DCHECK_OK(func->AddKernel({in_type, in_type, in_type}, boolean(), std::move(exec)));
-//   }
-//   for (auto unit : {TimeUnit::MICRO, TimeUnit::NANO}) {
-//     InputType in_type(match::Time64TypeUnit(unit));
-//     auto exec =
-//         GeneratePhysicalInteger<ScalarTernaryEqualTypes, BooleanType, Op>(int64());
-//     DCHECK_OK(func->AddKernel({in_type, in_type, in_type}, boolean(), std::move(exec)));
-//   }
-//
-//   for (const std::shared_ptr<DataType>& ty : BaseBinaryTypes()) {
-//     auto exec = GenerateVarBinaryBase<ScalarTernaryEqualTypes, BooleanType, Op>(*ty);
-//     DCHECK_OK(func->AddKernel(
-//         {InputType::Array(ty), InputType::Scalar(ty), InputType::Scalar(ty)}, boolean(),
-//         exec));
-//     DCHECK_OK(func->AddKernel(
-//         {InputType::Array(ty), InputType::Array(ty), InputType::Array(ty)}, boolean(),
-//         std::move(exec)));
-//   }
-//
-//   for (const auto id : {Type::DECIMAL128, Type::DECIMAL256}) {
-//     auto exec = GenerateDecimal<ScalarTernaryEqualTypes, BooleanType, Op>(id);
-//     DCHECK_OK(func->AddKernel({InputType(id), InputType(id), InputType(id)}, boolean(),
-//                               std::move(exec)));
-//   }
-//
-//   {
-//     auto exec = ScalarTernaryEqualTypes<BooleanType, FixedSizeBinaryType, Op>::Exec;
-//     auto ty = InputType(Type::FIXED_SIZE_BINARY);
-//     DCHECK_OK(func->AddKernel({ty, ty, ty}, boolean(), std::move(exec)));
-//   }
-//
-//   return func;
-// }
 
 const FunctionDoc equal_doc{"Compare values for equality (x == y)",
                             ("A null on either side emits a null comparison result."),
@@ -946,42 +856,157 @@ const FunctionDoc max_element_wise_doc{
 using BetweenState = OptionsWrapper<BetweenOptions>;
 
 template <typename ArgType, template <BetweenOptions::Inclusive> class Op>
-Status ExecBetween(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+ArrayKernelExec BetweenExec(KernelContext* ctx) {
   const auto& state = static_cast<const BetweenState&>(*ctx->state());
   switch (state.options.inclusive) {
     case BetweenOptions::BOTH:
-      return ScalarTernaryEqualTypes<BooleanType, ArgType, Op<BetweenOptions::BOTH>>::Exec(ctx, batch, out);
+      return ScalarTernaryEqualTypes<BooleanType, ArgType,
+                                     Op<BetweenOptions::BOTH>>::Exec;
     case BetweenOptions::LEFT:
-      return ScalarTernaryEqualTypes<BooleanType, ArgType, Op<BetweenOptions::LEFT>>::Exec(ctx, batch, out);
+      return ScalarTernaryEqualTypes<BooleanType, ArgType,
+                                     Op<BetweenOptions::LEFT>>::Exec;
     case BetweenOptions::RIGHT:
-      return ScalarTernaryEqualTypes<BooleanType, ArgType, Op<BetweenOptions::RIGHT>>::Exec(ctx, batch, out);
+      return ScalarTernaryEqualTypes<BooleanType, ArgType,
+                                     Op<BetweenOptions::RIGHT>>::Exec;
     case BetweenOptions::NEITHER:
-      return ScalarTernaryEqualTypes<BooleanType, ArgType, Op<BetweenOptions::NEITHER>>::Exec(ctx, batch, out);
+      return ScalarTernaryEqualTypes<BooleanType, ArgType,
+                                     Op<BetweenOptions::NEITHER>>::Exec;
+    default:
+      DCHECK(false);
+      return ExecFail;
   }
-  DCHECK(false);
-  return Status::NotImplemented(
-      "Internal implementation error: between inclusive not implemented: ",
-      state.options.ToString());
 }
 
 template <template <BetweenOptions::Inclusive> class Op>
 std::shared_ptr<ScalarFunction> MakeBetweenFunction(std::string name, const FunctionDoc* doc) {
   static const auto kDefaultOptions = BetweenOptions::Defaults();
   auto func = std::make_shared<CompareFunction>(name, Arity::Ternary(), doc, &kDefaultOptions);
-  for (const auto& ty : {boolean()}) {
+
+  // Add kernels for physical numeric types
+  for (const auto& types : {NumericTypes(), TemporalTypes(), DurationTypes()}) {
+    for (const auto& ty : types) {
+      auto type_id = ty->id();
+      auto exec = [&type_id](KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+        // Type-specific validations
+        if (type_id == Type::TIMESTAMP) {
+          RETURN_NOT_OK(CheckCompareTimestamps(batch));
+        }
+
+        // Resolve generator based on options
+        const auto& state = static_cast<const BetweenState&>(*ctx->state());
+        switch (state.options.inclusive) {
+          case BetweenOptions::BOTH:
+            return GeneratePhysicalNumeric<ScalarTernaryEqualTypes, BooleanType,
+                                           Op<BetweenOptions::BOTH>>(type_id)(ctx, batch,
+                                                                              out);
+          case BetweenOptions::LEFT:
+            return GeneratePhysicalNumeric<ScalarTernaryEqualTypes, BooleanType,
+                                           Op<BetweenOptions::LEFT>>(type_id)(ctx, batch,
+                                                                              out);
+          case BetweenOptions::RIGHT:
+            return GeneratePhysicalNumeric<ScalarTernaryEqualTypes, BooleanType,
+                                           Op<BetweenOptions::RIGHT>>(type_id)(ctx, batch,
+                                                                               out);
+          case BetweenOptions::NEITHER:
+            return GeneratePhysicalNumeric<ScalarTernaryEqualTypes, BooleanType,
+                                           Op<BetweenOptions::NEITHER>>(type_id)(
+                ctx, batch, out);
+          default:
+            return Status::NotImplemented("between inclusiveness not implemented: ",
+                                          state.options.ToString());
+        }
+      };
+      DCHECK_OK(func->AddKernel({ty, ty, ty}, boolean(), exec, BetweenState::Init));
+    }
+  }
+
+  // Add kernels for base binary types
+  for (const auto& ty : BaseBinaryTypes()) {
     auto type_id = ty->id();
-    auto exec = [type_id](KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-      switch (type_id) {
-        case Type::BOOL:
-          return ExecBetween<BooleanType, Op>(ctx, batch, out);
+    auto exec = [&type_id](KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+      // Resolve generator based on options
+      const auto& state = static_cast<const BetweenState&>(*ctx->state());
+      switch (state.options.inclusive) {
+        case BetweenOptions::BOTH:
+          return GenerateVarBinaryBase<ScalarTernaryEqualTypes, BooleanType,
+                                       Op<BetweenOptions::BOTH>>(type_id)(ctx, batch,
+                                                                          out);
+        case BetweenOptions::LEFT:
+          return GenerateVarBinaryBase<ScalarTernaryEqualTypes, BooleanType,
+                                       Op<BetweenOptions::LEFT>>(type_id)(ctx, batch,
+                                                                          out);
+        case BetweenOptions::RIGHT:
+          return GenerateVarBinaryBase<ScalarTernaryEqualTypes, BooleanType,
+                                       Op<BetweenOptions::RIGHT>>(type_id)(ctx, batch,
+                                                                           out);
+        case BetweenOptions::NEITHER:
+          return GenerateVarBinaryBase<ScalarTernaryEqualTypes, BooleanType,
+                                       Op<BetweenOptions::NEITHER>>(type_id)(ctx, batch,
+                                                                             out);
         default:
-          DCHECK(false);
-          return ExecFail(ctx, batch, out);
+          return Status::NotImplemented("between inclusiveness not implemented: ",
+                                        state.options.ToString());
       }
     };
-    DCHECK_OK(func->AddKernel(
-        {InputType(type_id), InputType(type_id), InputType(type_id)},
-        boolean(), exec, BetweenState::Init));
+    DCHECK_OK(func->AddKernel({ty, ty, ty}, boolean(), exec, BetweenState::Init));
+  }
+
+  // Add kernels for decimal types
+  for (const auto type_id : {Type::DECIMAL128, Type::DECIMAL256}) {
+    auto exec = [type_id](KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+      // Resolve generator based on options
+      const auto& state = static_cast<const BetweenState&>(*ctx->state());
+      switch (state.options.inclusive) {
+        case BetweenOptions::BOTH:
+          return GenerateDecimal<ScalarTernaryEqualTypes, BooleanType,
+                                 Op<BetweenOptions::BOTH>>(type_id)(ctx, batch, out);
+        case BetweenOptions::LEFT:
+          return GenerateDecimal<ScalarTernaryEqualTypes, BooleanType,
+                                 Op<BetweenOptions::LEFT>>(type_id)(ctx, batch, out);
+        case BetweenOptions::RIGHT:
+          return GenerateDecimal<ScalarTernaryEqualTypes, BooleanType,
+                                 Op<BetweenOptions::RIGHT>>(type_id)(ctx, batch, out);
+        case BetweenOptions::NEITHER:
+          return GenerateDecimal<ScalarTernaryEqualTypes, BooleanType,
+                                 Op<BetweenOptions::NEITHER>>(type_id)(ctx, batch, out);
+        default:
+          return Status::NotImplemented("between inclusiveness not implemented: ",
+                                        state.options.ToString());
+      }
+    };
+    InputType ty(type_id);
+    DCHECK_OK(func->AddKernel({ty, ty, ty}, boolean(), exec, BetweenState::Init));
+  }
+
+  {
+    // Add kernels for fixed size binary
+    auto exec = [](KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+      using ArrowType = FixedSizeBinaryType;
+
+      // Resolve generator based on options
+      const auto& state = static_cast<const BetweenState&>(*ctx->state());
+      switch (state.options.inclusive) {
+        case BetweenOptions::BOTH:
+          return ScalarTernaryEqualTypes<BooleanType, ArrowType,
+                                         Op<BetweenOptions::BOTH>>::Exec(ctx, batch, out);
+        case BetweenOptions::LEFT:
+          return ScalarTernaryEqualTypes<BooleanType, ArrowType,
+                                         Op<BetweenOptions::LEFT>>::Exec(ctx, batch, out);
+        case BetweenOptions::RIGHT:
+          return ScalarTernaryEqualTypes<BooleanType, ArrowType,
+                                         Op<BetweenOptions::RIGHT>>::Exec(ctx, batch,
+                                                                          out);
+        case BetweenOptions::NEITHER:
+          return ScalarTernaryEqualTypes<BooleanType, ArrowType,
+                                         Op<BetweenOptions::NEITHER>>::Exec(ctx, batch,
+                                                                            out);
+        default:
+          return Status::NotImplemented("between inclusiveness not implemented: ",
+                                        state.options.ToString());
+      }
+    };
+    InputType ty(Type::FIXED_SIZE_BINARY);
+    DCHECK_OK(func->AddKernel({ty, ty, ty}, boolean(), exec, BetweenState::Init));
   }
   return func;
 }
