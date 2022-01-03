@@ -431,8 +431,14 @@ around, so if your data is already in table form, then use
 Custom Schema and Field Metadata
 --------------------------------
 
-The metadata used for describing the data in the schema or a field can also
-be added with the use of ``replace_schema_metadata`` or ``with_metadata``.
+Arrow supports both schema-level and field-level custom key-value metadata
+allowing for systems to insert their own application defined metadata to
+customize behavior.
+
+Custom metadata can be accessed at ``Schema.metadata`` for the schema-level
+and ``Field.metadata`` for the field-level.
+
+Note that this metadata is preserved in :ref:`ipc` processes.
 
 To customize the metadata of the existing table you can use
 ``replace_schema_metadata``:
@@ -454,9 +460,11 @@ To customize the metadata of the field from the table schema you can use
    field_f1.metadata
 
 Both options create a shallow copy of the data and do not in fact change
-Schema which is immutable. To change the metadata in the schema of the table we
-created a new object. To change the metadata of the field in the schema
-we would need to define a new schema and cast it to the data available:
+Schema which is immutable. To change the metadata in the schema of the table
+we created a new object when calling ``replace_schema_metadata``.
+
+To change the metadata of the field in the schema we would need to define
+a new schema and cast it to the data available:
 
 .. ipython:: python
 
