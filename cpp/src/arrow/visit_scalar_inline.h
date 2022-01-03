@@ -43,6 +43,6 @@ inline Status VisitScalarInline(const Scalar& scalar, VISITOR* visitor) {
                                 scalar.type->ToString());
 }
 
-#undef TYPE_VISIT_INLINE
+#undef SCALAR_VISIT_INLINE
 
 }  // namespace arrow
