@@ -2132,15 +2132,15 @@ TEST(TestMaxElementWiseMinElementWise, CommonTemporal) {
 //                      const Datum& rhs) {
 //   CompareOperator lhs_val;
 //   CompareOperator val_rhs;
-//   BetweenOptions::Inclusiveness inclusiveness = options.inclusiveness;
+//   BetweenOptions::Inclusive inclusive = options.inclusive;
 //
-//   if (inclusiveness == BetweenOptions::Inclusiveness::NEITHER) {
+//   if (inclusive == BetweenOptions::Inclusive::NEITHER) {
 //     lhs_val = LESS;
 //     val_rhs = LESS;
-//   } else if (inclusiveness == BetweenOptions::Inclusiveness::LEFT) {
+//   } else if (inclusive == BetweenOptions::Inclusive::LEFT) {
 //     lhs_val = LESS_EQUAL;
 //     val_rhs = LESS;
-//   } else if (inclusiveness == BetweenOptions::Inclusiveness::RIGHT) {
+//   } else if (inclusive == BetweenOptions::Inclusive::RIGHT) {
 //     lhs_val = LESS;
 //     val_rhs = LESS_EQUAL;
 //   } else {
@@ -2149,9 +2149,11 @@ TEST(TestMaxElementWiseMinElementWise, CommonTemporal) {
 //   }
 //
 //   ASSERT_OK_AND_ASSIGN(Datum resultl,
-//                        CallFunction(CompareOperatorToFunctionName(lhs_val), {lhs, val}));
+//                        CallFunction(CompareOperatorToFunctionName(lhs_val), {lhs,
+//                        val}));
 //   ASSERT_OK_AND_ASSIGN(Datum resultr,
-//                        CallFunction(CompareOperatorToFunctionName(val_rhs), {val, rhs}));
+//                        CallFunction(CompareOperatorToFunctionName(val_rhs), {val,
+//                        rhs}));
 //   ASSERT_OK_AND_ASSIGN(Datum expected, CallFunction("and", {resultl, resultr}));
 //
 //   ValidateBetween<ArrowType>(options, val, lhs, rhs, expected);
@@ -2168,13 +2170,13 @@ TEST(TestMaxElementWiseMinElementWise, CommonTemporal) {
 //   Datum zero(std::make_shared<ScalarType>(CType(0)));
 //   Datum four(std::make_shared<ScalarType>(CType(4)));
 //   Datum null(std::make_shared<ScalarType>());
-//   BetweenOptions blele(BetweenOptions::Inclusiveness::BOTH);
+//   BetweenOptions blele(BetweenOptions::Inclusive::BOTH);
 //   ValidateBetween<TypeParam>(
 //       blele, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"), zero, four,
 //       ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[]"));
 //   ValidateBetween<TypeParam>(
-//       blele, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null]"), zero, four,
-//       ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[null]"));
+//       blele, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null]"), zero,
+//       four, ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[null]"));
 //   ValidateBetween<TypeParam>(
 //       blele, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,0,1,1,2,2]"),
 //       zero, four,
@@ -2188,8 +2190,9 @@ TEST(TestMaxElementWiseMinElementWise, CommonTemporal) {
 //       zero, four,
 //       ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[0,1,1,1,1,1]"));
 //   ValidateBetween<TypeParam>(
-//       blele, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null,0,1,1]"), zero,
-//       four, ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[null,1,1,1]"));
+//       blele, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null,0,1,1]"),
+//       zero, four, ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(),
+//       "[null,1,1,1]"));
 //   ValidateBetween<TypeParam>(
 //       blele, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[5,4,3,2,1,0]"),
 //       null, four,
@@ -2203,7 +2206,7 @@ TEST(TestMaxElementWiseMinElementWise, CommonTemporal) {
 // }
 //
 // TYPED_TEST(TestNumericBetweenKernel, SimpleBetweenArrayArrayArray) {
-//   BetweenOptions blele(BetweenOptions::Inclusiveness::BOTH);
+//   BetweenOptions blele(BetweenOptions::Inclusive::BOTH);
 //   ValidateBetween<TypeParam>(
 //       blele, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"),
 //       ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"),
@@ -2236,16 +2239,19 @@ TEST(TestMaxElementWiseMinElementWise, CommonTemporal) {
 //     auto rand = random::RandomArrayGenerator(0x5416447);
 //     const int64_t length = 1000;
 //     for (auto null_probability : {0.0, 0.01, 0.1, 0.25, 0.5, 1.0}) {
-//       for (auto inclusiveness :
-//            {BetweenOptions::Inclusiveness::BOTH, BetweenOptions::Inclusiveness::LEFT,
-//             BetweenOptions::Inclusiveness::RIGHT,
-//             BetweenOptions::Inclusiveness::NEITHER}) {
+//       for (auto inclusive :
+//            {BetweenOptions::Inclusive::BOTH, BetweenOptions::Inclusive::LEFT,
+//             BetweenOptions::Inclusive::RIGHT,
+//             BetweenOptions::Inclusive::NEITHER}) {
 //         auto data1 =
-//             rand.Numeric<typename Type::PhysicalType>(length, 0, 100, null_probability);
+//             rand.Numeric<typename Type::PhysicalType>(length, 0, 100,
+//             null_probability);
 //         auto data2 =
-//             rand.Numeric<typename Type::PhysicalType>(length, 0, 100, null_probability);
+//             rand.Numeric<typename Type::PhysicalType>(length, 0, 100,
+//             null_probability);
 //         auto data3 =
-//             rand.Numeric<typename Type::PhysicalType>(length, 0, 100, null_probability);
+//             rand.Numeric<typename Type::PhysicalType>(length, 0, 100,
+//             null_probability);
 //
 //         // Create view of data as the type (e.g. timestamp)
 //         auto array1 = Datum(*data1->View(type));
@@ -2253,7 +2259,7 @@ TEST(TestMaxElementWiseMinElementWise, CommonTemporal) {
 //         auto array3 = Datum(*data3->View(type));
 //         auto fifty = Datum(std::make_shared<ScalarType>(CType(50), type));
 //         auto ten = Datum(std::make_shared<ScalarType>(CType(10), type));
-//         auto options = BetweenOptions(inclusiveness);
+//         auto options = BetweenOptions(inclusive);
 //         ValidateBetween<Type>(options, array1, ten, fifty);
 //         ValidateBetween<Type>(options, array2, fifty, ten);
 //         ValidateBetween<Type>(options, array1, array2, array3);
@@ -2274,15 +2280,15 @@ TEST(TestMaxElementWiseMinElementWise, CommonTemporal) {
 //   auto rand = random::RandomArrayGenerator(0x5416447);
 //   for (size_t i = 3; i < 10; i++) {
 //     for (auto null_probability : {0.0, 0.01, 0.1, 0.25, 0.5, 1.0}) {
-//       for (auto inclusiveness :
-//            {BetweenOptions::Inclusiveness::BOTH, BetweenOptions::Inclusiveness::LEFT,
-//             BetweenOptions::Inclusiveness::RIGHT,
-//             BetweenOptions::Inclusiveness::NEITHER}) {
+//       for (auto inclusive :
+//            {BetweenOptions::Inclusive::BOTH, BetweenOptions::Inclusive::LEFT,
+//             BetweenOptions::Inclusive::RIGHT,
+//             BetweenOptions::Inclusive::NEITHER}) {
 //         const int64_t length = static_cast<int64_t>(1ULL << i);
 //         auto array = Datum(rand.String(length, 0, 16, null_probability));
 //         auto fupi = Datum(std::make_shared<ScalarType>("fupi"));
 //         auto zito = Datum(std::make_shared<ScalarType>("zito"));
-//         auto options = BetweenOptions(inclusiveness);
+//         auto options = BetweenOptions(inclusive);
 //         ValidateBetween<StringType>(options, array, fupi, zito);
 //       }
 //     }
@@ -2293,15 +2299,15 @@ TEST(TestMaxElementWiseMinElementWise, CommonTemporal) {
 //   auto rand = random::RandomArrayGenerator(0x5416447);
 //   for (size_t i = 3; i < 5; i++) {
 //     for (auto null_probability : {0.0, 0.01, 0.1, 0.25, 0.5, 1.0}) {
-//       for (auto inclusiveness :
-//            {BetweenOptions::Inclusiveness::BOTH, BetweenOptions::Inclusiveness::LEFT,
-//             BetweenOptions::Inclusiveness::RIGHT,
-//             BetweenOptions::Inclusiveness::NEITHER}) {
+//       for (auto inclusive :
+//            {BetweenOptions::Inclusive::BOTH, BetweenOptions::Inclusive::LEFT,
+//             BetweenOptions::Inclusive::RIGHT,
+//             BetweenOptions::Inclusive::NEITHER}) {
 //         auto length = static_cast<int64_t>(1ULL << i);
 //         auto val = Datum(rand.String(length << i, 0, 16, null_probability));
 //         auto lhs = Datum(rand.String(length << i, 0, 16, null_probability));
 //         auto rhs = Datum(rand.String(length << i, 0, 16, null_probability));
-//         auto options = BetweenOptions(inclusiveness);
+//         auto options = BetweenOptions(inclusive);
 //         ValidateBetween<StringType>(options, val, lhs, rhs);
 //       }
 //     }
@@ -2312,7 +2318,7 @@ TEST(TestMaxElementWiseMinElementWise, CommonTemporal) {
 //   using ScalarType = typename TypeTraits<StringType>::ScalarType;
 //   auto l = Datum(std::make_shared<ScalarType>("abc"));
 //   auto r = Datum(std::make_shared<ScalarType>("zzz"));
-//   BetweenOptions blele(BetweenOptions::Inclusiveness::BOTH);
+//   BetweenOptions blele(BetweenOptions::Inclusive::BOTH);
 //   ValidateBetween<StringType>(
 //       blele, ArrayFromJSON(TypeTraits<StringType>::type_singleton(), "[]"), l, r,
 //       ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[]"));
@@ -2352,20 +2358,23 @@ TEST(TestMaxElementWiseMinElementWise, CommonTemporal) {
 // }
 //
 // TEST(TestStringBetweenKernel, StringArrayArrayArrayTest) {
-//   BetweenOptions blele(BetweenOptions::Inclusiveness::BOTH);
+//   BetweenOptions blele(BetweenOptions::Inclusive::BOTH);
 //   ValidateBetween<StringType>(
 //       blele,
 //       ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
 //                     R"(["david","hello","world"])"),
-//       ArrayFromJSON(TypeTraits<StringType>::type_singleton(), R"(["adam","hi","whirl"])"),
+//       ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
+//       R"(["adam","hi","whirl"])"),
 //       ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
 //                     R"(["robert","goeiemoreen","whirlwind"])"),
-//       ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[true, false, false]"));
+//       ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[true, false,
+//       false]"));
 //   ValidateBetween<StringType>(
-//       blele, ArrayFromJSON(TypeTraits<StringType>::type_singleton(), R"(["x","a","f"])"),
-//       ArrayFromJSON(TypeTraits<StringType>::type_singleton(), R"(["w","a","e"])"),
-//       ArrayFromJSON(TypeTraits<StringType>::type_singleton(), R"(["z","a","g"])"),
-//       ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[true, true, true]"));
+//       blele, ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
+//       R"(["x","a","f"])"), ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
+//       R"(["w","a","e"])"), ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
+//       R"(["z","a","g"])"), ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(),
+//       "[true, true, true]"));
 //   ValidateBetween<StringType>(
 //       blele,
 //       ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
@@ -2373,14 +2382,16 @@ TEST(TestMaxElementWiseMinElementWise, CommonTemporal) {
 //       ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
 //                     R"(["bit","nibble","ternary"])"),
 //       ArrayFromJSON(TypeTraits<StringType>::type_singleton(), R"(["word","d","xyz"])"),
-//       ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[true, false, false]"));
+//       ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[true, false,
+//       false]"));
 //   ValidateBetween<StringType>(
 //       blele,
 //       ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
 //                     R"(["よしもと","の","ち"])"),
 //       ArrayFromJSON(TypeTraits<StringType>::type_singleton(), R"(["は","へ","あ"])"),
 //       ArrayFromJSON(TypeTraits<StringType>::type_singleton(), R"(["な","を","ち"])"),
-//       ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[false, false, true]"));
+//       ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[false, false,
+//       true]"));
 //   ValidateBetween<StringType>(
 //       blele,
 //       ArrayFromJSON(TypeTraits<StringType>::type_singleton(), R"(["A","ア","王"])"),
@@ -2388,10 +2399,11 @@ TEST(TestMaxElementWiseMinElementWise, CommonTemporal) {
 //       ArrayFromJSON(TypeTraits<StringType>::type_singleton(), R"(["李","田",null])"),
 //       ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[false, true, null]"));
 //   ValidateBetween<StringType>(
-//       blele, ArrayFromJSON(TypeTraits<StringType>::type_singleton(), R"(["Б",null,"Я"])"),
-//       ArrayFromJSON(TypeTraits<StringType>::type_singleton(), R"(["А","Ж","Щ"])"),
-//       ArrayFromJSON(TypeTraits<StringType>::type_singleton(), R"(["Д","Л","Ф"])"),
-//       ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[true, null, false]"));
+//       blele, ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
+//       R"(["Б",null,"Я"])"), ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
+//       R"(["А","Ж","Щ"])"), ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
+//       R"(["Д","Л","Ф"])"), ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(),
+//       "[true, null, false]"));
 // }
 
 }  // namespace compute
