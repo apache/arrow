@@ -22,7 +22,6 @@
 #include <arrow/io/file.h>
 #include <arrow/io/memory.h>
 #include <arrow/io/transform.h>
-#include <sstream>
 
 // ------ arrow::io::Readable
 
@@ -228,7 +227,7 @@ struct ReencodeUTF8TransformFunctionWrapper {
 
   arrow::Result<std::shared_ptr<arrow::Buffer>> operator()(
       const std::shared_ptr<arrow::Buffer>& src) {
-    int64_t initial_size = std::min<int64_t>((src->size() + 8 * 1.2), 32);
+    int64_t initial_size = std::max<int64_t>((src->size() + 8) * 1.2, 32);
     ARROW_ASSIGN_OR_RAISE(auto dest, arrow::AllocateResizableBuffer(initial_size));
 
     int64_t out_bytes_left = dest->size();
@@ -325,10 +324,8 @@ struct ReencodeUTF8TransformFunctionWrapper {
   int64_t n_pending_;
 
   arrow::Status StatusInvalidInput() {
-    std::stringstream stream;
-    stream << "Encountered invalid input bytes ";
-    stream << "(input encoding was '" << from_ << "')";
-    return arrow::Status::IOError(stream.str());
+    return arrow::Status::Invalid("Encountered invalid input bytes ",
+                                  "(input encoding was '", from_, "'");
   }
 };
 
