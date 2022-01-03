@@ -2366,10 +2366,10 @@ const FunctionDoc indices_nonzero_doc(
 
 struct NonZeroVisitor {
   UInt64Builder* builder;
-  const ArrayData& array;
+  const ArrayDataVector& arrays;
 
-  NonZeroVisitor(UInt64Builder* builder, const ArrayData& array)
-      : builder(builder), array(array) {}
+  NonZeroVisitor(UInt64Builder* builder, const ArrayDataVector& arrays)
+      : builder(builder), arrays(arrays) {}
 
   Status Visit(const DataType& type) { return Status::NotImplemented(type.ToString()); }
 
@@ -2378,26 +2378,44 @@ struct NonZeroVisitor {
     using T = typename GetViewType<Type>::T;
     uint32_t index = 0;
 
-    VisitArrayDataInline<Type>(
-        this->array,
-        [&](T v) {
-          if (v) {
-            this->builder->UnsafeAppend(index);
-          }
-          ++index;
-        },
-        [&]() { ++index; });
+    for (ArrayDataVector::const_iterator current_array = arrays.begin();
+         current_array != arrays.end(); ++current_array) {
+      VisitArrayDataInline<Type>(
+          **current_array,
+          [&](T v) {
+            if (v) {
+              this->builder->UnsafeAppend(index);
+            }
+            ++index;
+          },
+          [&]() { ++index; });
+    }
+
     return Status::OK();
   }
 };
 
 Status IndicesNonZeroExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  std::shared_ptr<ArrayData> array = batch[0].array();
   UInt64Builder builder;
+  ArrayDataVector arrays;
+  Datum input = batch[0];
 
-  RETURN_NOT_OK(builder.Reserve(array->length));
-  NonZeroVisitor visitor(&builder, *array.get());
-  RETURN_NOT_OK(VisitTypeInline(*(array->type), &visitor));
+  if (input.kind() == Datum::ARRAY) {
+    std::shared_ptr<ArrayData> array = input.array();
+    RETURN_NOT_OK(builder.Reserve(array->length));
+    arrays.push_back(array);
+  } else if (input.kind() == Datum::CHUNKED_ARRAY) {
+    std::shared_ptr<ChunkedArray> chunkedarr = input.chunked_array();
+    RETURN_NOT_OK(builder.Reserve(chunkedarr->length()));
+    for (int chunkidx = 0; chunkidx < chunkedarr->num_chunks(); ++chunkidx) {
+      arrays.push_back(chunkedarr->chunk(chunkidx)->data());
+    }
+  } else {
+    return Status::NotImplemented(input.ToString());
+  }
+
+  NonZeroVisitor visitor(&builder, arrays);
+  RETURN_NOT_OK(VisitTypeInline(*(arrays[0]->type), &visitor));
 
   std::shared_ptr<ArrayData> out_data;
   RETURN_NOT_OK(builder.FinishInternal(&out_data));
@@ -2414,6 +2432,8 @@ std::shared_ptr<VectorFunction> MakeIndicesNonZeroFunction(std::string name,
     kernel.exec = IndicesNonZeroExec;
     kernel.null_handling = NullHandling::OUTPUT_NOT_NULL;
     kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
+    kernel.output_chunked = false;
+    kernel.can_execute_chunkwise = false;
     kernel.signature = KernelSignature::Make({InputType(ty->id())}, uint64());
     DCHECK_OK(func->AddKernel(kernel));
   }
@@ -2422,6 +2442,8 @@ std::shared_ptr<VectorFunction> MakeIndicesNonZeroFunction(std::string name,
   boolkernel.exec = IndicesNonZeroExec;
   boolkernel.null_handling = NullHandling::OUTPUT_NOT_NULL;
   boolkernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
+  boolkernel.output_chunked = false;
+  boolkernel.can_execute_chunkwise = false;
   boolkernel.signature = KernelSignature::Make({boolean()}, uint64());
   DCHECK_OK(func->AddKernel(boolkernel));
 
