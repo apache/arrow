@@ -1567,7 +1567,7 @@ These functions select and return a subset of their input.
 Containment tests
 ~~~~~~~~~~~~~~~~~
 
-This functions return the indices at which elements match a predicate
+This function returns the indices at which array elements are non-null and non-zero.
 
 +-----------------------+-------+-----------------------------------+----------------+---------------------------------+-------+
 | Function name         | Arity | Input types                       | Output type    | Options class                   | Notes |
