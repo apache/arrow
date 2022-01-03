@@ -805,17 +805,17 @@ cdef CCalendarUnit unwrap_round_unit(unit) except *:
 cdef class _RoundTemporalOptions(FunctionOptions):
 
     def _set_options(
-            self, multiple, unit, origin):
+            self, multiple, unit):
         self.wrapped.reset(
             new CRoundTemporalOptions(
-                multiple, unwrap_round_unit(unit), origin)
+                multiple, unwrap_round_unit(unit))
         )
 
 
 class RoundTemporalOptions(_RoundTemporalOptions):
     def __init__(
-            self, multiple=1, unit="second", *, origin=0):
-        self._set_options(multiple, unit, origin)
+            self, multiple=1, unit="second", *):
+        self._set_options(multiple, unit)
 
 
 cdef class _RoundToMultipleOptions(FunctionOptions):

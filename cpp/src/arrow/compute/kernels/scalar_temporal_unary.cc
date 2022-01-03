@@ -394,7 +394,7 @@ struct Minute {
   template <typename T, typename Arg0>
   T Call(KernelContext*, Arg0 arg, Status*) const {
     const auto t = localizer_.template ConvertTimePoint<Duration>(arg);
-    return static_cast<T>((t - floor<hours>(t)) / std::chrono::minutes(1));
+    return static_cast<T>((t - floor<hours>(t)) / minutes(1));
   }
 
   Localizer localizer_;
@@ -410,7 +410,7 @@ struct Second {
   template <typename T, typename Arg0>
   T Call(KernelContext*, Arg0 arg, Status*) const {
     Duration t = Duration{arg};
-    return static_cast<T>((t - floor<std::chrono::minutes>(t)) / std::chrono::seconds(1));
+    return static_cast<T>((t - floor<minutes>(t)) / std::chrono::seconds(1));
   }
 };
 
@@ -478,19 +478,13 @@ struct Nanosecond {
 // Round temporal values to given frequency
 
 template <typename Duration, typename Localizer>
-year_month_day GetFlooredYmd(int64_t arg, int multiple, const int64_t origin,
-                             Localizer localizer_) {
+year_month_day GetFlooredYmd(int64_t arg, int multiple, Localizer localizer_) {
   year_month_day ymd{floor<days>(localizer_.template ConvertTimePoint<Duration>(arg))};
 
   if (multiple == 1) {
     return year_month_day(ymd.year() / ymd.month() / 1);
   } else {
-    year_month_day ymd_origin{
-        floor<days>(localizer_.template ConvertTimePoint<Duration>(origin))};
-
-    int32_t total_months_origin =
-        static_cast<int32_t>(ymd_origin.year()) * 12 +
-        static_cast<int32_t>(static_cast<uint32_t>(ymd_origin.month())) - 1;
+    int32_t total_months_origin = 1970 * 12;
     int32_t total_months = static_cast<int32_t>(ymd.year()) * 12 +
                            static_cast<int32_t>(static_cast<uint32_t>(ymd.month())) - 1 -
                            total_months_origin;
@@ -500,52 +494,46 @@ year_month_day GetFlooredYmd(int64_t arg, int multiple, const int64_t origin,
     } else {
       total_months = (total_months - multiple + 1) / multiple * multiple;
     }
-    return year_month_day(ymd_origin.year() / ymd_origin.month() / 1) +
-           months{total_months};
+    return year_month_day(year{1970} / jan / 0) + months{total_months};
   }
 }
 
 template <typename Duration, typename Unit, typename Localizer>
-const Duration FloorTimePoint(const int64_t arg, const int64_t origin,
-                              const int64_t multiple, Localizer localizer_, Status* st) {
-  try {
-    const sys_time<Duration> o =
-        localizer_.template ConvertLocalTimePoint<Duration>(origin);
-    const Unit d = floor<Unit>(sys_time<Duration>(Duration{arg}) - o);
+const Duration FloorTimePoint(const int64_t arg, const int64_t multiple,
+                              Localizer localizer_, Status* st) {
+  const auto t = localizer_.template ConvertTimePoint<Duration>(arg);
+  const Unit d = floor<Unit>(t.time_since_epoch());
+
+  if (multiple == 1) {
+    return localizer_.template ConvertLocalToSys<Duration>(duration_cast<Duration>(d),
+                                                           st);
+  } else {
     const Unit unit = Unit{multiple};
-
-    if (multiple == 1) {
-      return (o + duration_cast<Duration>(d)).time_since_epoch();
-    } else {
-      auto m = (d.count() >= 0) ? d / unit * unit : (d - unit + Unit{1}) / unit * unit;
-      return (o + duration_cast<Duration>(m)).time_since_epoch();
-    }
-  } catch (const arrow_vendored::date::nonexistent_local_time& e) {
-    *st = Status::Invalid("Local time does not exist: ", e.what());
-    return Duration{arg};
-  } catch (const arrow_vendored::date::ambiguous_local_time& e) {
-    *st = Status::Invalid("Local time is ambiguous: ", e.what());
-    return Duration{arg};
+    auto m = (d.count() >= 0) ? d / unit * unit : (d - unit + Unit{1}) / unit * unit;
+    return localizer_.template ConvertLocalToSys<Duration>(duration_cast<Duration>(m),
+                                                           st);
   }
 }
 
 template <typename Duration, typename Unit, typename Localizer>
-Duration CeilTimePoint(const int64_t arg, const int64_t origin, const int64_t multiple,
-                       Localizer localizer, Status* st) {
+Duration CeilTimePoint(const int64_t arg, const int64_t multiple, Localizer localizer_,
+                       Status* st) {
   const Duration result =
-      FloorTimePoint<Duration, Unit, Localizer>(arg, origin, multiple, localizer, st);
-  return (result >= Duration{arg}) ? result
-                                   : result + duration_cast<Duration>(Unit{multiple});
+      FloorTimePoint<Duration, Unit, Localizer>(arg, multiple, localizer_, st);
+  const auto c =
+      localizer_.template ConvertTimePoint<Duration>(result.count()).time_since_epoch() +
+      duration_cast<Duration>(Unit{multiple});
+  return localizer_.template ConvertLocalToSys<Duration>(duration_cast<Duration>(c), st);
 }
 
 template <typename Duration, typename Unit, typename Localizer>
-Duration RoundTimePoint(const int64_t arg, const int64_t origin, const int64_t multiple,
-                        Localizer localizer, Status* st) {
-  const Duration result =
-      FloorTimePoint<Duration, Unit, Localizer>(arg, origin, multiple, localizer, st);
-  return Duration{arg} <= result + duration_cast<Duration>(Unit{multiple}) / 2
-             ? result
-             : result + duration_cast<Duration>(Unit{multiple});
+Duration RoundTimePoint(const int64_t arg, const int64_t multiple, Localizer localizer_,
+                        Status* st) {
+  const Duration f =
+      FloorTimePoint<Duration, Unit, Localizer>(arg, multiple, localizer_, st);
+  const Duration c =
+      CeilTimePoint<Duration, Unit, Localizer>(arg, multiple, localizer_, st);
+  return (Duration{arg} - f > c - Duration{arg}) ? c : f;
 }
 
 template <typename Duration, typename Localizer>
@@ -559,46 +547,46 @@ struct CeilTemporal {
     switch (options.unit) {
       case compute::CalendarUnit::NANOSECOND:
         t = CeilTimePoint<Duration, std::chrono::nanoseconds, Localizer>(
-            arg, options.origin, options.multiple, localizer_, st);
+            arg, options.multiple, localizer_, st);
         break;
       case compute::CalendarUnit::MICROSECOND:
         t = CeilTimePoint<Duration, std::chrono::microseconds, Localizer>(
-            arg, options.origin, options.multiple, localizer_, st);
+            arg, options.multiple, localizer_, st);
         break;
       case compute::CalendarUnit::MILLISECOND:
         t = CeilTimePoint<Duration, std::chrono::milliseconds, Localizer>(
-            arg, options.origin, options.multiple, localizer_, st);
+            arg, options.multiple, localizer_, st);
         break;
       case compute::CalendarUnit::SECOND:
         t = CeilTimePoint<Duration, std::chrono::seconds, Localizer>(
-            arg, options.origin, options.multiple, localizer_, st);
+            arg, options.multiple, localizer_, st);
         break;
       case compute::CalendarUnit::MINUTE:
-        t = CeilTimePoint<Duration, std::chrono::minutes, Localizer>(
-            arg, options.origin, options.multiple, localizer_, st);
+        t = CeilTimePoint<Duration, minutes, Localizer>(arg, options.multiple, localizer_,
+                                                        st);
         break;
       case compute::CalendarUnit::HOUR:
-        t = CeilTimePoint<Duration, std::chrono::hours, Localizer>(
-            arg, options.origin, options.multiple, localizer_, st);
+        t = CeilTimePoint<Duration, std::chrono::hours, Localizer>(arg, options.multiple,
+                                                                   localizer_, st);
         break;
       case compute::CalendarUnit::DAY:
-        t = CeilTimePoint<Duration, days, Localizer>(arg, options.origin,
-                                                     options.multiple, localizer_, st);
+        t = CeilTimePoint<Duration, days, Localizer>(arg, options.multiple, localizer_,
+                                                     st);
         break;
       case compute::CalendarUnit::WEEK:
-        t = CeilTimePoint<Duration, weeks, Localizer>(arg, options.origin,
-                                                      options.multiple, localizer_, st);
+        t = CeilTimePoint<Duration, weeks, Localizer>(arg, options.multiple, localizer_,
+                                                      st);
         break;
       case compute::CalendarUnit::MONTH: {
-        year_month_day ymd = GetFlooredYmd<Duration, Localizer>(
-            arg, options.multiple, options.origin, localizer_);
+        year_month_day ymd =
+            GetFlooredYmd<Duration, Localizer>(arg, options.multiple, localizer_);
         ymd += months{options.multiple};
         t = localizer_.ConvertDays(ymd.year() / ymd.month() / 1).time_since_epoch();
         break;
       }
       case compute::CalendarUnit::QUARTER: {
-        year_month_day ymd = GetFlooredYmd<Duration, Localizer>(
-            arg, 3 * options.multiple, options.origin, localizer_);
+        year_month_day ymd =
+            GetFlooredYmd<Duration, Localizer>(arg, 3 * options.multiple, localizer_);
         ymd += months{3 * options.multiple};
         t = localizer_.ConvertDays(ymd.year() / ymd.month() / 1).time_since_epoch();
         break;
@@ -632,45 +620,45 @@ struct FloorTemporal {
     switch (options.unit) {
       case compute::CalendarUnit::NANOSECOND:
         t = FloorTimePoint<Duration, std::chrono::nanoseconds, Localizer>(
-            arg, options.origin, options.multiple, localizer_, st);
+            arg, options.multiple, localizer_, st);
         break;
       case compute::CalendarUnit::MICROSECOND:
         t = FloorTimePoint<Duration, std::chrono::microseconds, Localizer>(
-            arg, options.origin, options.multiple, localizer_, st);
+            arg, options.multiple, localizer_, st);
         break;
       case compute::CalendarUnit::MILLISECOND:
         t = FloorTimePoint<Duration, std::chrono::milliseconds, Localizer>(
-            arg, options.origin, options.multiple, localizer_, st);
+            arg, options.multiple, localizer_, st);
         break;
       case compute::CalendarUnit::SECOND:
         t = FloorTimePoint<Duration, std::chrono::seconds, Localizer>(
-            arg, options.origin, options.multiple, localizer_, st);
+            arg, options.multiple, localizer_, st);
         break;
       case compute::CalendarUnit::MINUTE:
-        t = FloorTimePoint<Duration, std::chrono::minutes, Localizer>(
-            arg, options.origin, options.multiple, localizer_, st);
+        t = FloorTimePoint<Duration, minutes, Localizer>(arg, options.multiple,
+                                                         localizer_, st);
         break;
       case compute::CalendarUnit::HOUR:
-        t = FloorTimePoint<Duration, std::chrono::hours, Localizer>(
-            arg, options.origin, options.multiple, localizer_, st);
+        t = FloorTimePoint<Duration, std::chrono::hours, Localizer>(arg, options.multiple,
+                                                                    localizer_, st);
         break;
       case compute::CalendarUnit::DAY:
-        t = FloorTimePoint<Duration, days, Localizer>(arg, options.origin,
-                                                      options.multiple, localizer_, st);
+        t = FloorTimePoint<Duration, days, Localizer>(arg, options.multiple, localizer_,
+                                                      st);
         break;
       case compute::CalendarUnit::WEEK:
-        t = FloorTimePoint<Duration, weeks, Localizer>(arg, options.origin,
-                                                       options.multiple, localizer_, st);
+        t = FloorTimePoint<Duration, weeks, Localizer>(arg, options.multiple, localizer_,
+                                                       st);
         break;
       case compute::CalendarUnit::MONTH: {
-        year_month_day ymd = GetFlooredYmd<Duration, Localizer>(
-            arg, options.multiple, options.origin, localizer_);
+        year_month_day ymd =
+            GetFlooredYmd<Duration, Localizer>(arg, options.multiple, localizer_);
         t = localizer_.ConvertDays(ymd.year() / ymd.month() / 1).time_since_epoch();
         break;
       }
       case compute::CalendarUnit::QUARTER: {
-        year_month_day ymd = GetFlooredYmd<Duration, Localizer>(
-            arg, 3 * options.multiple, options.origin, localizer_);
+        year_month_day ymd =
+            GetFlooredYmd<Duration, Localizer>(arg, 3 * options.multiple, localizer_);
         t = localizer_.ConvertDays(ymd.year() / ymd.month() / 1).time_since_epoch();
         break;
       }
@@ -702,40 +690,40 @@ struct RoundTemporal {
     switch (options.unit) {
       case compute::CalendarUnit::NANOSECOND:
         t = RoundTimePoint<Duration, std::chrono::nanoseconds, Localizer>(
-            arg, options.origin, options.multiple, localizer_, st);
+            arg, options.multiple, localizer_, st);
         break;
       case compute::CalendarUnit::MICROSECOND:
         t = RoundTimePoint<Duration, std::chrono::microseconds, Localizer>(
-            arg, options.origin, options.multiple, localizer_, st);
+            arg, options.multiple, localizer_, st);
         break;
       case compute::CalendarUnit::MILLISECOND:
         t = RoundTimePoint<Duration, std::chrono::milliseconds, Localizer>(
-            arg, options.origin, options.multiple, localizer_, st);
+            arg, options.multiple, localizer_, st);
         break;
       case compute::CalendarUnit::SECOND:
         t = RoundTimePoint<Duration, std::chrono::seconds, Localizer>(
-            arg, options.origin, options.multiple, localizer_, st);
+            arg, options.multiple, localizer_, st);
         break;
       case compute::CalendarUnit::MINUTE:
-        t = RoundTimePoint<Duration, std::chrono::minutes, Localizer>(
-            arg, options.origin, options.multiple, localizer_, st);
+        t = RoundTimePoint<Duration, minutes, Localizer>(arg, options.multiple,
+                                                         localizer_, st);
         break;
       case compute::CalendarUnit::HOUR:
-        t = RoundTimePoint<Duration, std::chrono::hours, Localizer>(
-            arg, options.origin, options.multiple, localizer_, st);
+        t = RoundTimePoint<Duration, std::chrono::hours, Localizer>(arg, options.multiple,
+                                                                    localizer_, st);
         break;
       case compute::CalendarUnit::DAY:
-        t = RoundTimePoint<Duration, days, Localizer>(arg, options.origin,
-                                                      options.multiple, localizer_, st);
+        t = RoundTimePoint<Duration, days, Localizer>(arg, options.multiple, localizer_,
+                                                      st);
         break;
       case compute::CalendarUnit::WEEK:
-        t = RoundTimePoint<Duration, weeks, Localizer>(arg, options.origin,
-                                                       options.multiple, localizer_, st);
+        t = RoundTimePoint<Duration, weeks, Localizer>(arg, options.multiple, localizer_,
+                                                       st);
         break;
       case compute::CalendarUnit::MONTH: {
         auto t0 = localizer_.template ConvertTimePoint<Duration>(arg);
-        year_month_day ymd = GetFlooredYmd<Duration, Localizer>(
-            arg, options.multiple, options.origin, localizer_);
+        year_month_day ymd =
+            GetFlooredYmd<Duration, Localizer>(arg, options.multiple, localizer_);
 
         auto f = localizer_.ConvertDays(ymd.year() / ymd.month() / 1);
         ymd += months{options.multiple};
@@ -746,8 +734,8 @@ struct RoundTemporal {
       }
       case compute::CalendarUnit::QUARTER: {
         auto t0 = localizer_.template ConvertTimePoint<Duration>(arg);
-        year_month_day ymd = GetFlooredYmd<Duration, Localizer>(
-            arg, 3 * options.multiple, options.origin, localizer_);
+        year_month_day ymd =
+            GetFlooredYmd<Duration, Localizer>(arg, 3 * options.multiple, localizer_);
 
         auto f = localizer_.ConvertDays(ymd.year() / ymd.month() / 1);
         ymd += months{3 * options.multiple};
@@ -1311,7 +1299,8 @@ const FunctionDoc assume_timezone_doc{
      "\"timezone-aware\" timestamps. An error is returned if the timestamps\n"
      "already have a defined timezone."),
     {"timestamps"},
-    "AssumeTimezoneOptions"};
+    "AssumeTimezoneOptions",
+    /*options_required=*/true};
 
 const FunctionDoc floor_temporal_doc{
     "Round temporal values down to nearest multiple of specified time unit",

@@ -308,8 +308,7 @@ static auto kRoundOptionsType = GetFunctionOptionsType<RoundOptions>(
     DataMember("round_mode", &RoundOptions::round_mode));
 static auto kRoundTemporalOptionsType = GetFunctionOptionsType<RoundTemporalOptions>(
     DataMember("multiple", &RoundTemporalOptions::multiple),
-    DataMember("unit", &RoundTemporalOptions::unit),
-    DataMember("origin", &RoundTemporalOptions::origin));
+    DataMember("unit", &RoundTemporalOptions::unit));
 static auto kRoundToMultipleOptionsType = GetFunctionOptionsType<RoundToMultipleOptions>(
     DataMember("multiple", &RoundToMultipleOptions::multiple),
     DataMember("round_mode", &RoundToMultipleOptions::round_mode));
@@ -456,12 +455,10 @@ RoundOptions::RoundOptions(int64_t ndigits, RoundMode round_mode)
 }
 constexpr char RoundOptions::kTypeName[];
 
-RoundTemporalOptions::RoundTemporalOptions(int multiple, CalendarUnit unit,
-                                           int64_t origin)
+RoundTemporalOptions::RoundTemporalOptions(int multiple, CalendarUnit unit)
     : FunctionOptions(internal::kRoundTemporalOptionsType),
       multiple(std::move(multiple)),
-      unit(unit),
-      origin(std::move(origin)) {}
+      unit(unit) {}
 constexpr char RoundTemporalOptions::kTypeName[];
 
 RoundToMultipleOptions::RoundToMultipleOptions(double multiple, RoundMode round_mode)

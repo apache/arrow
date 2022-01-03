@@ -151,7 +151,7 @@ def test_option_class_equality():
         pc.ReplaceSliceOptions(0, 1, "a"),
         pc.ReplaceSubstringOptions("a", "b"),
         pc.RoundOptions(2, "towards_infinity"),
-        pc.RoundTemporalOptions(1, "second", origin=0),
+        pc.RoundTemporalOptions(1, "second"),
         pc.RoundToMultipleOptions(100, "towards_infinity"),
         pc.ScalarAggregateOptions(),
         pc.SelectKOptions(0, sort_keys=[("b", "ascending")]),
@@ -1914,19 +1914,20 @@ def _check_temporal_rounding(ts, values, unit):
 
     for value in values:
         frequency = str(value) + unit_shorthand[unit]
-        options = pc.RoundTemporalOptions(value, unit, origin=0)
+        options = pc.RoundTemporalOptions(value, unit)
 
-        result = pc.ceil_temporal(ta, options=options)
-        expected = pa.array(ts.dt.ceil(frequency))
-        assert result.equals(expected)
+        result = pc.ceil_temporal(ta, options=options).to_pandas()
+        expected = ts.dt.ceil(frequency)
+        if unit != "nanosecond":
+            np.testing.assert_array_equal(result, expected)
 
-        result = pc.floor_temporal(ta, options=options)
-        expected = pa.array(ts.dt.floor(frequency))
-        assert result.equals(expected)
+        result = pc.floor_temporal(ta, options=options).to_pandas()
+        expected = ts.dt.floor(frequency)
+        np.testing.assert_array_equal(result, expected)
 
-        result = pc.round_temporal(ta, options=options)
-        expected = pa.array(ts.dt.round(frequency))
-        assert result.equals(expected)
+        result = pc.round_temporal(ta, options=options).to_pandas()
+        expected = ts.dt.round(frequency)
+        np.testing.assert_array_equal(result, expected)
 
 
 # TODO: We should test on windows once ARROW-13168 is resolved.
@@ -1936,33 +1937,32 @@ def _check_temporal_rounding(ts, values, unit):
                                   "second", "minute", "hour", "day"))
 @pytest.mark.pandas
 def test_round_temporal(unit):
-    from pyarrow.vendored.version import Version
-
-    if Version(pd.__version__) < Version('1.0.0') and unit == "nanosecond":
-        pytest.skip('Pandas < 1.0 rounds nanoseconds differently.')
-
     values = (1, 2, 3, 4, 5, 6, 7, 10, 15, 24, 60, 250, 500, 750)
-    ts = pd.Series((
-        pd.Timestamp("1910-01-03T02:10:10.123456716", unit="ns"),
-        pd.Timestamp("1950-07-18T12:41:12.12345678", unit="ns"),
-        pd.Timestamp("2019-11-30T02:11:21.12345672", unit="ns"),
-        pd.Timestamp("2021-12-23T12:17:51.12345678", unit="ns")
-    ))
+    timestamps = [
+        # "1899-04-18 01:57:09.190202880",
+        # "1899-09-12 07:03:30.080325120",
+        # "1904-06-21 20:55:36.493869056",
+        "1923-07-07 08:52:35.203790336",
+        "1931-03-17 10:45:00.641559040",
+        "1932-06-16 01:16:42.911994368",
+        "1941-05-27 11:46:43.822831872",
+        "1943-12-14 07:32:05.424766464",
+        "1954-04-12 04:31:50.699881472",
+        "1966-02-12 17:41:28.693282560",
+        "1967-02-26 05:56:46.922376960",
+        "1975-11-01 10:55:37.016146432",
+        "1982-01-21 18:43:44.517366784",
+        "1999-12-04 05:55:34.794991104",
+        "2026-10-26 08:39:00.316686848"]
+    ts = pd.Series([pd.Timestamp(x, unit="ns") for x in timestamps])
     _check_temporal_rounding(ts, values, unit)
 
     timezones = ["Asia/Kolkata", "America/New_York", "Etc/GMT-4", "Etc/GMT+4",
                  "Europe/Brussels", "Pacific/Marquesas", "US/Central", "UTC"]
-    if unit == "day":
-        values = (1, 2, 3, 4, 5, 6, 7, 10, 15, 24)
-    ts = pd.Series((
-        # pd.Timestamp("1910-01-03T02:10:10.123456716", unit="ns"),
-        # pd.Timestamp("1950-07-18T12:41:12.12345678", unit="ns"),
-        pd.Timestamp("2019-11-30T02:11:21.12345672", unit="ns"),
-        pd.Timestamp("2021-12-23T12:17:51.12345678", unit="ns")
-    )).dt.tz_localize("UTC")
 
     for timezone in timezones:
-        _check_temporal_rounding(ts.dt.tz_convert(timezone), values, unit)
+        ts_zoned = ts.dt.tz_localize("UTC").dt.tz_convert(timezone)
+        _check_temporal_rounding(ts_zoned, values, unit)
 
 
 def test_count():

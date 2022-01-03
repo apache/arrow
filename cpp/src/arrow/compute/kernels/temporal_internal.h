@@ -101,8 +101,8 @@ struct NonZonedLocalizer {
   }
 
   template <typename Duration>
-  sys_time<Duration> ConvertLocalTimePoint(int64_t t) const {
-    return sys_time<Duration>(Duration{t});
+  Duration ConvertLocalToSys(Duration t, Status* st) const {
+    return t;
   }
 
   sys_days ConvertDays(sys_days d) const { return d; }
@@ -120,8 +120,18 @@ struct ZonedLocalizer {
   }
 
   template <typename Duration>
-  sys_time<Duration> ConvertLocalTimePoint(int64_t t) const {
-    return zoned_time<Duration>{tz, local_time<Duration>(Duration{t})}.get_sys_time();
+  Duration ConvertLocalToSys(Duration t, Status* st) const {
+    try {
+      return zoned_time<Duration>{tz, local_time<Duration>(t)}
+          .get_sys_time()
+          .time_since_epoch();
+    } catch (const arrow_vendored::date::nonexistent_local_time& e) {
+      *st = Status::Invalid("Local time does not exist: ", e.what());
+      return Duration{0};
+    } catch (const arrow_vendored::date::ambiguous_local_time& e) {
+      *st = Status::Invalid("Local time is ambiguous: ", e.what());
+      return Duration{0};
+    }
   }
 
   local_days ConvertDays(sys_days d) const { return local_days(year_month_day(d)); }
