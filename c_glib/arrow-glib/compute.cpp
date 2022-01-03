@@ -3198,7 +3198,7 @@ garrow_round_to_multiple_options_set_property(GObject *object,
           options->multiple = garrow_scalar_get_raw(priv->multiple);
         } else {
           priv->multiple = NULL;
-          options->multiple = std::move(std::make_shared<arrow::NullScalar>());
+          options->multiple = std::make_shared<arrow::NullScalar>();
         }
       }
     }
