@@ -853,32 +853,9 @@ const FunctionDoc max_element_wise_doc{
     "ElementWiseAggregateOptions"};
 }  // namespace
 
-using BetweenState = OptionsWrapper<BetweenOptions>;
-
-template <typename ArgType, template <BetweenOptions::Inclusive> class Op>
-ArrayKernelExec BetweenExec(KernelContext* ctx) {
-  const auto& state = static_cast<const BetweenState&>(*ctx->state());
-  switch (state.options.inclusive) {
-    case BetweenOptions::BOTH:
-      return ScalarTernaryEqualTypes<BooleanType, ArgType,
-                                     Op<BetweenOptions::BOTH>>::Exec;
-    case BetweenOptions::LEFT:
-      return ScalarTernaryEqualTypes<BooleanType, ArgType,
-                                     Op<BetweenOptions::LEFT>>::Exec;
-    case BetweenOptions::RIGHT:
-      return ScalarTernaryEqualTypes<BooleanType, ArgType,
-                                     Op<BetweenOptions::RIGHT>>::Exec;
-    case BetweenOptions::NEITHER:
-      return ScalarTernaryEqualTypes<BooleanType, ArgType,
-                                     Op<BetweenOptions::NEITHER>>::Exec;
-    default:
-      DCHECK(false);
-      return ExecFail;
-  }
-}
-
 template <template <BetweenOptions::Inclusive> class Op>
 std::shared_ptr<ScalarFunction> MakeBetweenFunction(std::string name, const FunctionDoc* doc) {
+  using BetweenState = OptionsWrapper<BetweenOptions>;
   static const auto kDefaultOptions = BetweenOptions::Defaults();
   auto func = std::make_shared<CompareFunction>(name, Arity::Ternary(), doc, &kDefaultOptions);
 
