@@ -254,8 +254,17 @@ struct ReencodeUTF8TransformFunctionWrapper {
 
       iconv_.iconv(&in_buf, &in_bytes_left, &out_buf, &out_bytes_left);
 
-      int64_t chars_read_out = out_buf - dest->data();
-      out_bytes_used += chars_read_out;
+      // Rather than check the error return code (which is often returned
+      // in the case of a partial character at the end of the pending_
+      // buffer), check that we have read enough characters to get into
+      // `src` (after which the loop below will error for invalid characters).
+      int64_t bytes_read_in = in_buf - pending_;
+      if (bytes_read_in < n_pending_) {
+        return StatusInvalidInput();
+      }
+
+      int64_t bytes_read_out = out_buf - dest->data();
+      out_bytes_used += bytes_read_out;
 
       int64_t chars_read_in = n_pending_ + n_src_bytes_in_pending - in_bytes_left;
       in_buf = src->data() + chars_read_in - n_pending_;
@@ -282,9 +291,11 @@ struct ReencodeUTF8TransformFunctionWrapper {
       }
 
       // iconv() can return an error code ((size_t) -1) but it's not
-      // useful as it can occur because of invalid input or because
-      // of a full output buffer. We handle each of these cases separately
-      // based on the number of bytes read or written.
+      // useful as it can occur because of invalid input, because
+      // of a full output buffer, or because there are partial characters
+      // at the end of the input buffer that were not completely decoded.
+      // We handle each of these cases separately based on the number of bytes
+      // read or written.
       uint8_t* out_buf_before = out_buf;
 
       iconv_.iconv(&in_buf, &in_bytes_left, &out_buf, &out_bytes_left);
@@ -292,10 +303,7 @@ struct ReencodeUTF8TransformFunctionWrapper {
       int64_t bytes_read_out = out_buf - out_buf_before;
 
       if (bytes_read_out == 0) {
-        std::stringstream stream;
-        stream << "Encountered invalid input bytes ";
-        stream << " (input encoding was '" << from_ << "')";
-        return arrow::Status::IOError(stream.str());
+        return StatusInvalidInput();
       }
 
       out_bytes_used += bytes_read_out;
@@ -317,6 +325,13 @@ struct ReencodeUTF8TransformFunctionWrapper {
   RIconvWrapper iconv_;
   uint8_t pending_[8];
   int64_t n_pending_;
+
+  arrow::Status StatusInvalidInput() {
+    std::stringstream stream;
+    stream << "Encountered invalid input bytes ";
+    stream << "(input encoding was '" << from_ << "')";
+    return arrow::Status::IOError(stream.str());
+  }
 };
 
 // [[arrow::export]]
