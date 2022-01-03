@@ -15,7 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <numeric>
+
 #include <gtest/gtest.h>
+
 #include "arrow/array.h"
 #include "arrow/array/concatenate.h"
 #include "arrow/compute/api_scalar.h"

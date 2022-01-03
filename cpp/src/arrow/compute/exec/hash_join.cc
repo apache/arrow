@@ -21,6 +21,7 @@
 #include <cstdint>
 #include <memory>
 #include <mutex>
+#include <numeric>
 #include <unordered_map>
 #include <vector>
 

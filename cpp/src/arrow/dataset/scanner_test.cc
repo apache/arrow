@@ -33,6 +33,7 @@
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
 #include "arrow/testing/async_test_util.h"
+#include "arrow/testing/builder.h"
 #include "arrow/testing/future_util.h"
 #include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"

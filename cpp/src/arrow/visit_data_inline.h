@@ -15,17 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Private header, not to be exported
-
 #pragma once
 
-#include <utility>
-
 #include "arrow/array.h"
-#include "arrow/extension_type.h"
-#include "arrow/scalar.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/bit_block_counter.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
@@ -33,103 +28,6 @@
 #include "arrow/util/string_view.h"
 
 namespace arrow {
-
-#define ARROW_GENERATE_FOR_ALL_INTEGER_TYPES(ACTION) \
-  ACTION(Int8);                                      \
-  ACTION(UInt8);                                     \
-  ACTION(Int16);                                     \
-  ACTION(UInt16);                                    \
-  ACTION(Int32);                                     \
-  ACTION(UInt32);                                    \
-  ACTION(Int64);                                     \
-  ACTION(UInt64)
-
-#define ARROW_GENERATE_FOR_ALL_NUMERIC_TYPES(ACTION) \
-  ARROW_GENERATE_FOR_ALL_INTEGER_TYPES(ACTION);      \
-  ACTION(HalfFloat);                                 \
-  ACTION(Float);                                     \
-  ACTION(Double)
-
-#define ARROW_GENERATE_FOR_ALL_TYPES(ACTION)    \
-  ACTION(Null);                                 \
-  ACTION(Boolean);                              \
-  ARROW_GENERATE_FOR_ALL_NUMERIC_TYPES(ACTION); \
-  ACTION(String);                               \
-  ACTION(Binary);                               \
-  ACTION(LargeString);                          \
-  ACTION(LargeBinary);                          \
-  ACTION(FixedSizeBinary);                      \
-  ACTION(Duration);                             \
-  ACTION(Date32);                               \
-  ACTION(Date64);                               \
-  ACTION(Timestamp);                            \
-  ACTION(Time32);                               \
-  ACTION(Time64);                               \
-  ACTION(MonthDayNanoInterval);                 \
-  ACTION(MonthInterval);                        \
-  ACTION(DayTimeInterval);                      \
-  ACTION(Decimal128);                           \
-  ACTION(Decimal256);                           \
-  ACTION(List);                                 \
-  ACTION(LargeList);                            \
-  ACTION(Map);                                  \
-  ACTION(FixedSizeList);                        \
-  ACTION(Struct);                               \
-  ACTION(SparseUnion);                          \
-  ACTION(DenseUnion);                           \
-  ACTION(Dictionary);                           \
-  ACTION(Extension)
-
-#define TYPE_VISIT_INLINE(TYPE_CLASS) \
-  case TYPE_CLASS##Type::type_id:     \
-    return visitor->Visit(internal::checked_cast<const TYPE_CLASS##Type&>(type));
-
-template <typename VISITOR>
-inline Status VisitTypeInline(const DataType& type, VISITOR* visitor) {
-  switch (type.id()) {
-    ARROW_GENERATE_FOR_ALL_TYPES(TYPE_VISIT_INLINE);
-    default:
-      break;
-  }
-  return Status::NotImplemented("Type not implemented");
-}
-
-#undef TYPE_VISIT_INLINE
-
-#define TYPE_ID_VISIT_INLINE(TYPE_CLASS)            \
-  case TYPE_CLASS##Type::type_id: {                 \
-    const TYPE_CLASS##Type* concrete_ptr = nullptr; \
-    return visitor->Visit(concrete_ptr);            \
-  }
-
-// Calls `visitor` with a nullptr of the corresponding concrete type class
-template <typename VISITOR>
-inline Status VisitTypeIdInline(Type::type id, VISITOR* visitor) {
-  switch (id) {
-    ARROW_GENERATE_FOR_ALL_TYPES(TYPE_ID_VISIT_INLINE);
-    default:
-      break;
-  }
-  return Status::NotImplemented("Type not implemented");
-}
-
-#undef TYPE_ID_VISIT_INLINE
-
-#define ARRAY_VISIT_INLINE(TYPE_CLASS)                                                   \
-  case TYPE_CLASS##Type::type_id:                                                        \
-    return visitor->Visit(                                                               \
-        internal::checked_cast<const typename TypeTraits<TYPE_CLASS##Type>::ArrayType&>( \
-            array));
-
-template <typename VISITOR>
-inline Status VisitArrayInline(const Array& array, VISITOR* visitor) {
-  switch (array.type_id()) {
-    ARROW_GENERATE_FOR_ALL_TYPES(ARRAY_VISIT_INLINE);
-    default:
-      break;
-  }
-  return Status::NotImplemented("Type not implemented");
-}
 
 namespace internal {
 
@@ -358,23 +256,6 @@ struct ArrayDataVisitor {
         [visitor]() { return visitor->VisitNull(); });
   }
 };
-
-#define SCALAR_VISIT_INLINE(TYPE_CLASS) \
-  case TYPE_CLASS##Type::type_id:       \
-    return visitor->Visit(internal::checked_cast<const TYPE_CLASS##Scalar&>(scalar));
-
-template <typename VISITOR>
-inline Status VisitScalarInline(const Scalar& scalar, VISITOR* visitor) {
-  switch (scalar.type->id()) {
-    ARROW_GENERATE_FOR_ALL_TYPES(SCALAR_VISIT_INLINE);
-    default:
-      break;
-  }
-  return Status::NotImplemented("Scalar visitor for type not implemented ",
-                                scalar.type->ToString());
-}
-
-#undef TYPE_VISIT_INLINE
 
 // Visit a null bitmap, in order, without overhead.
 //
