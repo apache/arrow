@@ -63,7 +63,7 @@ class Lexer {
     const int64_t n_words = std::min<int64_t>(32, (data_end - data) / kWordSize);
     int64_t n_skips = 0;
     const auto words = reinterpret_cast<const BulkWordType*>(data);
-    for (int64_t i = 0; i < n_words; i += 4) {
+    for (int64_t i = 0; i < n_words - 3; i += 4) {
       const auto a = words[i + 0];
       const auto b = words[i + 1];
       const auto c = words[i + 2];
