@@ -184,28 +184,31 @@ class StructArrayCompareSorter {
     const auto& values = checked_cast<const ArrayType&>(array);
     nested_value_comparator_ = std::make_shared<NestedValuesComparator>();
 
-    if(nested_value_comparator_->Prepare(values) != Status::OK()) {
+    if (nested_value_comparator_->Prepare(values) != Status::OK()) {
       // TODO: Improve error handling
       return NullPartitionResult();
     }
 
     const auto p = PartitionNulls<ArrayType, StablePartitioner>(
         indices_begin, indices_end, values, offset, options.null_placement);
-    
+
     bool asc_order = options.order == SortOrder::Ascending;
-    std::stable_sort(
-          p.non_nulls_begin, p.non_nulls_end,
-          [&offset, &values, asc_order, this](uint64_t left, uint64_t right) {
-            // is better to do values.fields.size() or values.schema().num_fields() ?
-            for(ArrayVector::size_type fieldidx = 0; fieldidx < values.fields().size(); ++fieldidx) {
-              int result = nested_value_comparator_->Compare(values, fieldidx, offset, asc_order ? left : right, asc_order ? right : left);
-              if(result == -1)
-                return true;
-              else if (result == 1)
-                return false;
-            }
-            return false;
-          });
+    std::stable_sort(p.non_nulls_begin, p.non_nulls_end,
+                     [&offset, &values, asc_order, this](uint64_t left, uint64_t right) {
+                       // is better to do values.fields.size() or
+                       // values.schema().num_fields() ?
+                       for (ArrayVector::size_type fieldidx = 0;
+                            fieldidx < values.fields().size(); ++fieldidx) {
+                         int result = nested_value_comparator_->Compare(
+                             values, fieldidx, offset, asc_order ? left : right,
+                             asc_order ? right : left);
+                         if (result == -1)
+                           return true;
+                         else if (result == 1)
+                           return false;
+                       }
+                       return false;
+                     });
     return p;
   }
 

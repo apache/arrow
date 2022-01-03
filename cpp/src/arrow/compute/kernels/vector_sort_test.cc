@@ -30,6 +30,7 @@
 #include "arrow/array/concatenate.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/kernels/test_util.h"
+#include "arrow/compute/kernels/vector_sort_internal.h"
 #include "arrow/result.h"
 #include "arrow/table.h"
 #include "arrow/testing/gtest_common.h"
@@ -38,8 +39,6 @@
 #include "arrow/testing/util.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/logging.h"
-#include "arrow/compute/kernels/vector_sort_internal.h"
-
 
 namespace arrow {
 
@@ -1965,12 +1964,10 @@ TEST_F(TestNestedValuesComparator, Table) {
 }
 
 TEST_F(TestNestedValuesComparator, StructArray) {
-  std::shared_ptr<StructArray> expected = std::dynamic_pointer_cast<StructArray>(
-    ArrayFromJSON(
-      struct_({field("a", int32()), field("b", utf8()), field("c", int32())}),
-      R"([{"a": 4, "b": "bar", "c": 4}, {"a": 3, "b": "foo", "c": 4}])"
-    )
-  );
+  std::shared_ptr<StructArray> expected =
+      std::dynamic_pointer_cast<StructArray>(ArrayFromJSON(
+          struct_({field("a", int32()), field("b", utf8()), field("c", int32())}),
+          R"([{"a": 4, "b": "bar", "c": 4}, {"a": 3, "b": "foo", "c": 4}])"));
 
   auto c = internal::NestedValuesComparator();
   ASSERT_OK(c.Prepare(*expected));

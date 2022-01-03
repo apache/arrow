@@ -49,7 +49,7 @@ struct ResolvedChunk {
 };
 
 // ResolvedChunk specialization for StructArray
-template<>
+template <>
 struct ResolvedChunk<StructArray> {
   // The target struct in chunked array.
   const StructArray* array;
@@ -64,7 +64,7 @@ struct ResolvedChunk<StructArray> {
     auto t = array->field(0)->type();
     auto arr = std::static_pointer_cast<arrow::Int64Array>(array->field(0));
 
-    return arr->Value(index); 
+    return arr->Value(index);
   }
 };
 
