@@ -229,7 +229,8 @@ struct ReencodeUTF8TransformFunctionWrapper {
 
   arrow::Result<std::shared_ptr<arrow::Buffer>> operator()(
       const std::shared_ptr<arrow::Buffer>& src) {
-    ARROW_ASSIGN_OR_RAISE(auto dest, arrow::AllocateResizableBuffer(32));
+    int64_t initial_size = std::min<int64_t>((src->size() + 8 * 1.2), 32);
+    ARROW_ASSIGN_OR_RAISE(auto dest, arrow::AllocateResizableBuffer(initial_size));
 
     int64_t out_bytes_left = dest->size();
     uint8_t* out_buf = dest->mutable_data();
@@ -263,26 +264,29 @@ struct ReencodeUTF8TransformFunctionWrapper {
       in_bytes_left = src->size();
     }
 
-    // This loop asumes a maximum of 4 bytes per character in the input
-    // (the maximum for UTF-8, UTF-16, or UTF-32) so it's
-    // OK if we have a few bytes left after processing all of src. If we
+    // in_bytes_left >= 4 assumes a maximum of 4 bytes per character in the
+    // input (the maximum for UTF-8, UTF-16, and UTF-32). If we
     // have more than this, it means the output buffer wasn't big enough
     // and the next iteration of the loop will try iconv() again with a
-    // bigger buffer.
+    // bigger buffer. When we have less than 4 bytes left, the bytes
+    // will be copied to pending_ and processed in the next call (the
+    // TransformInputStream always finishes with a src that is 0 bytes
+    // for this purpose.)
     while (in_bytes_left >= 4) {
-      int64_t new_size = std::max<int64_t>(src->size(), dest->size() * 2);
-      RETURN_NOT_OK(dest->Resize(new_size));
-
-      out_buf = dest->mutable_data() + out_bytes_used;
-      out_bytes_left = dest->size() - out_bytes_used;
-
-      const uint8_t* in_buf_before = in_buf;
-      uint8_t* out_buf_before = out_buf;
+      // When this is true, we will (almost) always need a new buffer
+      if (out_bytes_left < in_bytes_left) {
+        RETURN_NOT_OK(dest->Resize(dest->size() * 1.2));
+        out_buf = dest->mutable_data() + out_bytes_used;
+        out_bytes_left = dest->size() - out_bytes_used;
+      }
 
       // iconv() can return an error code ((size_t) -1) but it's not
       // useful as it can occur because of invalid input or because
       // of a full output buffer. We handle each of these cases separately
       // based on the number of bytes read or written.
+      const uint8_t* in_buf_before = in_buf;
+      uint8_t* out_buf_before = out_buf;
+
       iconv_.iconv(&in_buf, &in_bytes_left, &out_buf, &out_bytes_left);
 
       int64_t bytes_read_out = out_buf - out_buf_before;
@@ -303,7 +307,7 @@ struct ReencodeUTF8TransformFunctionWrapper {
     }
 
     // Shrink the output buffer to only the size used
-    RETURN_NOT_OK(dest->Resize(out_bytes_used));
+    RETURN_NOT_OK(dest->Resize(out_bytes_used, false));
     return std::move(dest);
   }
 
