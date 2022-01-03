@@ -212,7 +212,7 @@ struct ExecPlanImpl : public ExecPlan {
     auto sorted = OrderedNodes();
     for (size_t i = sorted.first.size(); i > 0; --i) {
       for (int j = 0; j < sorted.second[i - 1]; ++j) ss << "  ";
-      ss << sorted.first[i - 1]->ToString() << std::endl;
+      ss << sorted.first[i - 1]->ToString(sorted.second[i - 1]) << std::endl;
     }
     return ss.str();
   }
@@ -300,7 +300,7 @@ Status ExecNode::Validate() const {
   return Status::OK();
 }
 
-std::string ExecNode::ToString() const {
+std::string ExecNode::ToString(int indent) const {
   std::stringstream ss;
 
   auto PrintLabelAndKind = [&](const ExecNode* node) {
@@ -310,7 +310,7 @@ std::string ExecNode::ToString() const {
   PrintLabelAndKind(this);
   ss << "{";
 
-  const std::string extra = ToStringExtra();
+  const std::string extra = ToStringExtra(indent);
   if (!extra.empty()) {
     ss << extra;
   }
@@ -319,7 +319,7 @@ std::string ExecNode::ToString() const {
   return ss.str();
 }
 
-std::string ExecNode::ToStringExtra() const { return ""; }
+std::string ExecNode::ToStringExtra(int indent = 0) const { return ""; }
 
 bool ExecNode::ErrorIfNotOk(Status status) {
   if (status.ok()) return false;

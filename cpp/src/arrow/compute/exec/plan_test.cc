@@ -341,13 +341,15 @@ TEST(ExecPlan, ToString) {
 custom_sink_label:OrderBySinkNode{by={sort_keys=[FieldRef.Name(sum(multiply(i32, 2))) ASC], null_placement=AtEnd}}
   :FilterNode{filter=(sum(multiply(i32, 2)) > 10)}
     :GroupByNode{keys=["bool"], aggregates=[
-	hash_sum(multiply(i32, 2)),
-	hash_count(multiply(i32, 2), {mode=NON_NULL}),
-]}
+    	hash_sum(multiply(i32, 2)),
+    	hash_count(multiply(i32, 2), {mode=NON_NULL}),
+    ]}
       :ProjectNode{projection=[bool, multiply(i32, 2)]}
         :FilterNode{filter=(i32 >= 0)}
           custom_source_label:SourceNode{}
 )a");
+
+  std::cout << plan->ToString() << '\n';
 
   ASSERT_OK_AND_ASSIGN(plan, ExecPlan::Make());
 
