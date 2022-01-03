@@ -32,7 +32,6 @@
 #include "arrow/testing/random.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/make_unique.h"
-#include "arrow/util/pcg_random.h"
 #include "arrow/util/thread_pool.h"
 
 using testing::UnorderedElementsAreArray;
@@ -243,20 +242,6 @@ TEST_P(HashJoinTest, TestSemiJoins) {
 TEST_P(HashJoinTest, TestSemiJoinsEmpty) {
   RunEmptyTest(std::get<0>(GetParam()), std::get<1>(GetParam()));
 }
-
-class Random64Bit {
- public:
-  explicit Random64Bit(random::SeedType seed) : rng_(seed) {}
-  uint64_t next() { return dist_(rng_); }
-  template <typename T>
-  inline T from_range(const T& min_val, const T& max_val) {
-    return static_cast<T>(min_val + (next() % (max_val - min_val + 1)));
-  }
-
- private:
-  random::pcg32_fast rng_;
-  std::uniform_int_distribution<uint64_t> dist_;
-};
 
 struct RandomDataTypeConstraints {
   int64_t data_type_enabled_mask;
