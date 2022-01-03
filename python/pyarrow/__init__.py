@@ -30,6 +30,7 @@ For more information see the official page at https://arrow.apache.org
 """
 
 import gc as _gc
+import importlib
 import os as _os
 import sys as _sys
 import warnings as _warnings
@@ -88,6 +89,25 @@ def show_versions():
     print("Arrow C++ git revision: {0}".format(cpp_build_info.git_id))
     print("Arrow C++ git description: {0}"
           .format(cpp_build_info.git_description))
+
+    print("\nOptional modules:")
+    
+    modules = ["csv", "cuda", "dataset", "feather", "flight", "fs", "gandiva", "hdfs",
+               "json", "orc", "parquet", "plasma", "s3fs"]
+
+    for module in modules:
+        try:
+            importlib.import_module(f'pyarrow.{module}')
+        except ImportError:
+            print(f"  {module: <10}: -")
+        else:
+            print(f"  {module: <10}: Enabled")
+
+    print("\nCompression Codecs:")
+    codecs = ["brotli", "bz2", "gzip", "lz4_frame", "lz4", "snappy", "zstd"]
+    for codec in codecs:
+        status = "Enabled" if Codec.is_available(codec) else "-"
+        print(f"  {codec: <10}: {status: <8}")
 
 
 from pyarrow.lib import (null, bool_,
