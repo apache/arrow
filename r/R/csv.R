@@ -301,7 +301,7 @@ CsvTableReader$create <- function(file,
                                   ...) {
   assert_is(file, "InputStream")
 
-  if (!identical(read_options$encoding, "UTF-8")) {
+  if (!(tolower(read_options$encoding) %in% c("utf-8", "utf8"))) {
     file <- MakeReencodeInputStream(file, read_options$encoding)
   }
 
