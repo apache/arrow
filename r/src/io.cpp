@@ -202,8 +202,8 @@ class RIconvWrapper {
     const char** inbuf_const_char = reinterpret_cast<const char**>(inbuf);
     char** outbuf_char = reinterpret_cast<char**>(outbuf);
 
-    size_t return_value =
-      Riconv(handle_, inbuf_const_char, &inbytesleft_size_t, outbuf_char, &outbytesleft_size_t);
+    size_t return_value = Riconv(handle_, inbuf_const_char, &inbytesleft_size_t,
+                                 outbuf_char, &outbytesleft_size_t);
 
     *inbytesleft = inbytesleft_size_t;
     *outbytesleft = outbytesleft_size_t;
