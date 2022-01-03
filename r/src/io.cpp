@@ -271,10 +271,7 @@ struct ReencodeUTF8TransformFunctionWrapper {
     // bigger buffer.
     while (in_bytes_left >= 4) {
       int64_t new_size = std::max<int64_t>(src->size(), dest->size() * 2);
-      auto reserve_result = dest->Resize(new_size);
-      if (!reserve_result.ok()) {
-        return reserve_result;
-      }
+      RETURN_NOT_OK(dest->Resize(new_size));
 
       out_buf = dest->mutable_data() + out_bytes_used;
       out_bytes_left = dest->size() - out_bytes_used;
@@ -302,11 +299,7 @@ struct ReencodeUTF8TransformFunctionWrapper {
     }
 
     // Shrink the output buffer to only the size used
-    auto resize_result = dest->Resize(out_bytes_used);
-    if (!resize_result.ok()) {
-      return resize_result;
-    }
-
+    RETURN_NOT_OK(dest->Resize(out_bytes_used));
     return std::move(dest);
   }
 
