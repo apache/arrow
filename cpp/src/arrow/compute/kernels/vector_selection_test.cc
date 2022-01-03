@@ -2391,6 +2391,13 @@ TEST(TestIndicesNonZero, IndicesNonZero) {
                        CallFunction("indices_nonzero", {ArrayFromJSON(float64(), "[]")}));
   result = actual.make_array();
   AssertArraysEqual(*result, *ArrayFromJSON(uint64(), "[]"));
+
+  ChunkedArray chunkedarr({ArrayFromJSON(uint32(), "[1, 0, 3]"),
+                           ArrayFromJSON(uint32(), "[4, 0, 6]")});
+  ASSERT_OK_AND_ASSIGN(actual,
+                       CallFunction("indices_nonzero", {static_cast<Datum>(chunkedarr)}));
+  Datum expected = ChunkedArrayFromJSON(uint64(), {R"([0, 2])", R"([0, 2])"});
+  AssertDatumsEqual(actual, expected);
 }
 
 }  // namespace compute
