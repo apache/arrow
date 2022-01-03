@@ -737,6 +737,7 @@ TEST_F(TestMapArray, BuildingWithFieldNames) {
   ASSERT_OK(actual->ValidateFull());
 
   ASSERT_EQ(actual->type()->ToString(), map_type->ToString());
+  ASSERT_EQ(map_builder.type()->ToString(), map_type->ToString());
 }
 
 TEST_F(TestMapArray, ValidateErrorNullStruct) {
