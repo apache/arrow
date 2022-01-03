@@ -1340,8 +1340,43 @@ ArrayKernelExec GeneratePhysicalInteger(detail::GetTypeId get_id) {
   }
 }
 
-template <template <typename... Args> class Generator, typename... Args>
+template <template <typename... Args> class Generator, typename Type0, typename... Args>
 ArrayKernelExec GeneratePhysicalNumeric(detail::GetTypeId get_id) {
+  switch (get_id.id) {
+    case Type::INT8:
+      return Generator<Type0, Int8Type, Args...>::Exec;
+    case Type::INT16:
+      return Generator<Type0, Int16Type, Args...>::Exec;
+    case Type::INT32:
+    case Type::DATE32:
+    case Type::TIME32:
+      return Generator<Type0, Int32Type, Args...>::Exec;
+    case Type::INT64:
+    case Type::DATE64:
+    case Type::TIMESTAMP:
+    case Type::TIME64:
+    case Type::DURATION:
+      return Generator<Type0, Int64Type, Args...>::Exec;
+    case Type::UINT8:
+      return Generator<Type0, UInt8Type, Args...>::Exec;
+    case Type::UINT16:
+      return Generator<Type0, UInt16Type, Args...>::Exec;
+    case Type::UINT32:
+      return Generator<Type0, UInt32Type, Args...>::Exec;
+    case Type::UINT64:
+      return Generator<Type0, UInt64Type, Args...>::Exec;
+    case Type::FLOAT:
+      return Generator<Type0, FloatType, Args...>::Exec;
+    case Type::DOUBLE:
+      return Generator<Type0, DoubleType, Args...>::Exec;
+    default:
+      DCHECK(false);
+      return ExecFail;
+  }
+}
+
+template <template <typename... Args> class Generator, typename... Args>
+ArrayKernelExec GeneratePhysicalNumericToNumeric(detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::INT8:
       return Generator<Int8Type, Args...>::Exec;
