@@ -2360,6 +2360,7 @@ std::vector<std::shared_ptr<DataType>> g_floating_types;
 std::vector<std::shared_ptr<DataType>> g_numeric_types;
 std::vector<std::shared_ptr<DataType>> g_base_binary_types;
 std::vector<std::shared_ptr<DataType>> g_temporal_types;
+std::vector<std::shared_ptr<DataType>> g_duration_types;
 std::vector<std::shared_ptr<DataType>> g_interval_types;
 std::vector<std::shared_ptr<DataType>> g_primitive_types;
 std::once_flag static_data_initialized;
@@ -2398,6 +2399,12 @@ void InitStaticData() {
                       timestamp(TimeUnit::MILLI),
                       timestamp(TimeUnit::MICRO),
                       timestamp(TimeUnit::NANO)};
+
+  // Duration types
+  g_duration_types = {duration(TimeUnit::SECOND),
+                      duration(TimeUnit::MILLI),
+                      duration(TimeUnit::MICRO),
+                      duration(TimeUnit::NANO)};
 
   // Interval types
   g_interval_types = {day_time_interval(), month_interval(), month_day_nano_interval()};
@@ -2462,6 +2469,11 @@ const std::vector<std::shared_ptr<DataType>>& NumericTypes() {
 const std::vector<std::shared_ptr<DataType>>& TemporalTypes() {
   std::call_once(static_data_initialized, InitStaticData);
   return g_temporal_types;
+}
+
+const std::vector<std::shared_ptr<DataType>>& DurationTypes() {
+  std::call_once(static_data_initialized, InitStaticData);
+  return g_duration_types;
 }
 
 const std::vector<std::shared_ptr<DataType>>& IntervalTypes() {
