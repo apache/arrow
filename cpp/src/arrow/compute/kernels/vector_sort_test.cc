@@ -337,6 +337,33 @@ TYPED_TEST(TestNthToIndicesRandom, RandomValues) {
 }
 
 // ----------------------------------------------------------------------
+// Basic tests for the "array_sort_indices" function
+
+TEST(ArraySortIndicesFunction, Array) {
+  auto arr = ArrayFromJSON(int16(), "[0, 1, null, -3, null, -42, 5]");
+  auto expected = ArrayFromJSON(uint64(), "[5, 3, 0, 1, 6, 2, 4]");
+  ASSERT_OK_AND_ASSIGN(auto actual, CallFunction("array_sort_indices", {arr}));
+  AssertDatumsEqual(expected, actual, /*verbose=*/true);
+
+  ArraySortOptions options{SortOrder::Descending, NullPlacement::AtStart};
+  expected = ArrayFromJSON(uint64(), "[2, 4, 6, 1, 0, 3, 5]");
+  ASSERT_OK_AND_ASSIGN(actual, CallFunction("array_sort_indices", {arr}, &options));
+  AssertDatumsEqual(expected, actual, /*verbose=*/true);
+}
+
+TEST(ArraySortIndicesFunction, ChunkedArray) {
+  auto arr = ChunkedArrayFromJSON(int16(), {"[0, 1]", "[null, -3, null, -42, 5]"});
+  auto expected = ChunkedArrayFromJSON(uint64(), {"[5, 3, 0, 1, 6, 2, 4]"});
+  ASSERT_OK_AND_ASSIGN(auto actual, CallFunction("array_sort_indices", {arr}));
+  AssertDatumsEqual(expected, actual, /*verbose=*/true);
+
+  ArraySortOptions options{SortOrder::Descending, NullPlacement::AtStart};
+  expected = ChunkedArrayFromJSON(uint64(), {"[2, 4, 6, 1, 0, 3, 5]"});
+  ASSERT_OK_AND_ASSIGN(actual, CallFunction("array_sort_indices", {arr}, &options));
+  AssertDatumsEqual(expected, actual, /*verbose=*/true);
+}
+
+// ----------------------------------------------------------------------
 // Tests for SortToIndices
 
 template <typename T>
