@@ -119,3 +119,20 @@ test_that("reencoding input stream works with pending characters", {
 
   unlink(temp_utf8)
 })
+
+test_that("reencoding input stream errors for invalid characters", {
+  bytes_utf8 <- rep(as.raw(0xff), 10)
+
+  temp_utf8 <- tempfile()
+  con <- file(temp_utf8, open = "wb")
+  writeBin(bytes_utf8, con)
+  close(con)
+
+  fs <- LocalFileSystem$create()
+
+  stream <- fs$OpenInputStream(temp_utf8)
+  stream_utf8 <- MakeReencodeInputStream(stream, "UTF-8")
+  expect_error(stream_utf8$Read(100), "Encountered invalid input bytes")
+
+  unlink(temp_utf8)
+})

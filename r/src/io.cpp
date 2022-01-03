@@ -22,6 +22,7 @@
 #include <arrow/io/file.h>
 #include <arrow/io/memory.h>
 #include <arrow/io/transform.h>
+#include <sstream>
 
 // ------ arrow::io::Readable
 
@@ -284,17 +285,17 @@ struct ReencodeUTF8TransformFunctionWrapper {
       // useful as it can occur because of invalid input or because
       // of a full output buffer. We handle each of these cases separately
       // based on the number of bytes read or written.
-      const uint8_t* in_buf_before = in_buf;
       uint8_t* out_buf_before = out_buf;
 
       iconv_.iconv(&in_buf, &in_bytes_left, &out_buf, &out_bytes_left);
 
       int64_t bytes_read_out = out_buf - out_buf_before;
-      int64_t bytes_read_in = in_buf - in_buf_before;
 
-      if (bytes_read_out == 0 || bytes_read_in == 0) {
-        return arrow::Status::IOError(
-            "Call to iconv() read or appended zero output bytes");
+      if (bytes_read_out == 0) {
+        std::stringstream stream;
+        stream << "Encountered invalid input bytes ";
+        stream << " (input encoding was '" << from_ << "')";
+        return arrow::Status::IOError(stream.str());
       }
 
       out_bytes_used += bytes_read_out;
