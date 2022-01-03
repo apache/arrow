@@ -2144,6 +2144,8 @@ const std::vector<std::shared_ptr<DataType>>& StringTypes();
 // Temporal types including time and timestamps for each unit
 ARROW_EXPORT
 const std::vector<std::shared_ptr<DataType>>& TemporalTypes();
+ARROW_EXPORT
+const std::vector<std::shared_ptr<DataType>>& DurationTypes();
 // Interval types
 ARROW_EXPORT
 const std::vector<std::shared_ptr<DataType>>& IntervalTypes();
