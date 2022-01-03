@@ -126,7 +126,7 @@ null,true
 )csv";
     return data_str;
 }
-
+// TODO: Replace the GetArrayDataSample with tempates
 arrow::Result<std::shared_ptr<arrow::Array>> GetInt32ArrayDataSample(
   const std::vector<int> &int_values) {
     arrow::Int32Builder int32_builder;
@@ -140,7 +140,7 @@ arrow::Result<std::shared_ptr<arrow::Array>> GetInt32ArrayDataSample(
   return result;
 }
 
-arrow::Result<std::shared_ptr<arrow::Array>> GetInt32ArrayDataSample(
+arrow::Result<std::shared_ptr<arrow::Array>> GetBoolArrayDataSample(
   const std::vector<uint8_t> &bool_values) {
     arrow::BooleanBuilder boolean_builder;
     ABORT_ON_FAILURE(boolean_builder.Reserve(bool_values.size()));
@@ -152,16 +152,38 @@ arrow::Result<std::shared_ptr<arrow::Array>> GetInt32ArrayDataSample(
     return result;
 }
 
+arrow::Result<std::shared_ptr<arrow::Array>> GetUtf8ArrayDataSample(
+  const std::vector<uint8_t> &bool_values) {
+    arrow::BooleanBuilder boolean_builder;
+    ABORT_ON_FAILURE(boolean_builder.Reserve(bool_values.size()));
+    std::shared_ptr<arrow::BooleanArray> boolean_array;
+    ABORT_ON_FAILURE(boolean_builder.AppendValues(bool_values));
+    ABORT_ON_FAILURE(boolean_builder.Finish(&boolean_array));
+
+    arrow::Result<std::shared_ptr<arrow::BooleanArray>> result(std::move(boolean_array));
+    return result;
+}
+
+
 arrow::Result<std::shared_ptr<arrow::RecordBatch>> GetSampleRecordBatch(
-  const std::vector<int> &int_values,
-  const std::vector<uint8_t> &bool_values, const arrow::FieldVector &field_vector) {
-      std::shared_ptr<arrow::RecordBatch> record_batch;
-      ARROW_ASSIGN_OR_RAISE(auto int32_array, GetInt32ArrayDataSample(int_values));
-      ARROW_ASSIGN_OR_RAISE(auto bool_array, GetInt32ArrayDataSample(bool_values));
-      ARROW_ASSIGN_OR_RAISE(auto struct_result,
-        arrow::StructArray::Make({int32_array, bool_array}, field_vector));
+  const arrow::ArrayVector array_vector,
+const arrow::FieldVector &field_vector) {
+  std::shared_ptr<arrow::RecordBatch> record_batch;
+  ARROW_ASSIGN_OR_RAISE(auto struct_result,
+        arrow::StructArray::Make(array_vector, field_vector));
       return record_batch->FromStructArray(struct_result);
 }
+
+arrow::Result<std::shared_ptr<arrow::RecordBatch>> GetIntSampleRecordBatch(
+  const std::vector<int> &int_values, const arrow::FieldVector &field_vector) {
+      std::shared_ptr<arrow::RecordBatch> record_batch;
+      ARROW_ASSIGN_OR_RAISE(auto int32_array, GetInt32ArrayDataSample(int_values));
+      ARROW_ASSIGN_OR_RAISE(auto struct_result,
+        arrow::StructArray::Make({int32_array}, field_vector));
+      return record_batch->FromStructArray(struct_result);
+}
+
+
 
 arrow::Status CreateDataSetFromCSVData(
     std::shared_ptr<arrow::dataset::InMemoryDataset> &dataset) {
@@ -394,17 +416,11 @@ cp::ExecBatch GetExecBatchFromJSON(const std::vector<arrow::ValueDescr>& descrs,
 }
 
 cp::ExecBatch GetExecBatchFromVectors(const arrow::FieldVector &field_vector,
-  const std::vector<int> int_values, const std::vector<uint8_t> bool_values) {
+  const arrow::ArrayVector &array_vector) {
     std::shared_ptr<arrow::RecordBatch> record_batch;
-    cp::ExecBatch batch;
-    if (int_values.size() == bool_values.size()) {
-      auto res_batch = GetSampleRecordBatch(int_values, bool_values, field_vector);
-      cp::ExecBatch batch{*res_batch.ValueOrDie()};
-      return batch;
-    } else {
-      // TODO: handle this in a better way
-      return batch;
-    }
+    auto res_batch = GetSampleRecordBatch(array_vector, field_vector);
+    cp::ExecBatch batch{*res_batch.ValueOrDie()};
+    return batch;
 }
 
 struct BatchesWithSchema {
@@ -438,30 +454,49 @@ struct BatchesWithSchema {
 
 
 
-BatchesWithSchema MakeBasicBatches() {
+arrow::Result<BatchesWithSchema> MakeBasicBatches() {
   BatchesWithSchema out;
   auto field_vector = {arrow::field("a", arrow::int32()),
     arrow::field("b", arrow::boolean())};
-  out.batches = {GetExecBatchFromVectors(field_vector, {0, 4}, {true, false}),
-                  GetExecBatchFromVectors(field_vector, {5, 6, 7}, {true, false, true})};
+  ARROW_ASSIGN_OR_RAISE(auto b1_int, GetInt32ArrayDataSample({0, 4}));
+  ARROW_ASSIGN_OR_RAISE(auto b2_int, GetInt32ArrayDataSample({5, 6, 7}));
+  ARROW_ASSIGN_OR_RAISE(auto b3_int, GetInt32ArrayDataSample({8, 9, 10}));
+
+  ARROW_ASSIGN_OR_RAISE(auto b1_bool, GetBoolArrayDataSample({false, true}));
+  ARROW_ASSIGN_OR_RAISE(auto b2_bool, GetBoolArrayDataSample({true, false, true}));
+  ARROW_ASSIGN_OR_RAISE(auto b3_bool, GetBoolArrayDataSample({false, true, false}));
+
+  out.batches = {GetExecBatchFromVectors(field_vector, {b1_int, b1_bool}),
+                  GetExecBatchFromVectors(field_vector, {b2_int, b2_bool}),
+                  GetExecBatchFromVectors(field_vector, {b3_int, b3_bool})
+                  };
   out.schema = arrow::schema(field_vector);
-  return out;
+  arrow::Result<BatchesWithSchema> result(std::move(out));
+  return result;
 }
 
-BatchesWithSchema MakeSortTestBasicBatches() {
+arrow::Result<BatchesWithSchema> MakeSortTestBasicBatches() {
   BatchesWithSchema out;
+  auto field = arrow::field("a", arrow::int32());
+  ARROW_ASSIGN_OR_RAISE(auto b1_int, GetInt32ArrayDataSample({1, 3, 0, 2}));
+  ARROW_ASSIGN_OR_RAISE(auto b2_int, GetInt32ArrayDataSample({121, 101, 120, 12}));
+  ARROW_ASSIGN_OR_RAISE(auto b3_int, GetInt32ArrayDataSample({10, 110, 210, 121}));
+  ARROW_ASSIGN_OR_RAISE(auto b4_int, GetInt32ArrayDataSample({51, 101, 2, 34}));
+  ARROW_ASSIGN_OR_RAISE(auto b5_int, GetInt32ArrayDataSample({11, 31, 1, 12}));
+  ARROW_ASSIGN_OR_RAISE(auto b6_int, GetInt32ArrayDataSample({12, 101, 120, 12}));
+  ARROW_ASSIGN_OR_RAISE(auto b7_int, GetInt32ArrayDataSample({0, 110, 210, 11}));
+  ARROW_ASSIGN_OR_RAISE(auto b8_int, GetInt32ArrayDataSample({51, 10, 2, 3}));
+
   out.batches = {
-      GetExecBatchFromJSON(
-          {arrow::int32(), arrow::int32(), arrow::int32(), arrow::int32()},
-          "[[1, 3, 0, 2], [121, 101, 120, 12], [10, 110, 210, 121], [51, 101, 2, 34]]"),
-      GetExecBatchFromJSON(
-          {arrow::int32(), arrow::int32(), arrow::int32(), arrow::int32()},
-          "[[11, 31, 1, 12], [12, 101, 120, 12], [0, 110, 210, 11], [51, 10, 2, 3]]")
+      GetExecBatchFromVectors({field}, {b1_int}),
+      GetExecBatchFromVectors({field}, {b2_int}),
+      GetExecBatchFromVectors({field, field}, {b3_int, b8_int}),
+      GetExecBatchFromVectors({field, field, field, field},
+      {b4_int, b5_int, b6_int, b7_int})
   };
-  out.schema = arrow::schema(
-      {arrow::field("a", arrow::int32()), arrow::field("b", arrow::int32()),
-       arrow::field("c", arrow::int32()), arrow::field("d", arrow::int32())});
-  return out;
+  out.schema = arrow::schema({field});
+  arrow::Result<BatchesWithSchema> result(std::move(out));
+  return result;
 }
 
 BatchesWithSchema MakeGroupableBatches(int multiplicity = 1) {
@@ -506,7 +541,7 @@ arrow::Status SourceSinkExample() {
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
   cp::ExecPlan::Make(&exec_context));
 
-  auto basic_data = MakeBasicBatches();
+  ARROW_ASSIGN_OR_RAISE(auto basic_data, MakeBasicBatches());
 
   arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
 
@@ -692,7 +727,7 @@ arrow::Status SourceAggregateSinkExample() {
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
      cp::ExecPlan::Make(&exec_context));
 
-    auto basic_data = MakeBasicBatches();
+    ARROW_ASSIGN_OR_RAISE(auto basic_data, MakeBasicBatches());
 
     arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
 
@@ -758,7 +793,7 @@ arrow::Status SourceConsumingSinkExample() {
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
      cp::ExecPlan::Make(&exec_context));
 
-    auto basic_data = MakeBasicBatches();
+    ARROW_ASSIGN_OR_RAISE(auto basic_data, MakeBasicBatches());
 
     auto source_node_options = cp::SourceNodeOptions{
         basic_data.schema, basic_data.gen(true)};
@@ -821,7 +856,9 @@ arrow::Status SourceOrderBySinkExample() {
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
      cp::ExecPlan::Make(&exec_context));
 
-    auto basic_data = MakeSortTestBasicBatches();
+    ARROW_ASSIGN_OR_RAISE(auto basic_data, MakeSortTestBasicBatches());
+
+    std::cout << "basic data created" << std::endl;
 
     arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
 
@@ -1069,7 +1106,7 @@ arrow::Status ScanFilterWriteExample(std::string file_path) {
 }
 
 arrow::Status SourceUnionSinkExample() {
-    auto basic_data = MakeBasicBatches();
+    ARROW_ASSIGN_OR_RAISE(auto basic_data, MakeBasicBatches());
 
     cp::ExecContext exec_context(arrow::default_memory_pool(),
                                  ::arrow::internal::GetCpuThreadPool());
@@ -1132,7 +1169,7 @@ enum ExampleMode {
   SCAN_PROJECT_SINK = 3,
   SOURCE_AGGREGATE_SINK = 4,
   SCAN_CONSUMING_SINK = 5,
-  SCAN_ORDER_BY_SINK = 6,
+  SOURCE_ORDER_BY_SINK = 6,
   SCAN_HASHJOIN_SINK = 7,
   SCAN_SELECT_SINK = 8,
   SCAN_FILTER_WRITE = 9,
@@ -1173,8 +1210,8 @@ int main(int argc, char** argv) {
       PRINT_BLOCK("Source Consuming-Sink Example");
       CHECK_AND_CONTINUE(SourceConsumingSinkExample())
       break;
-    case SCAN_ORDER_BY_SINK:
-      PRINT_BLOCK("Source Sink Example");
+    case SOURCE_ORDER_BY_SINK:
+      PRINT_BLOCK("Source OrderBy Sink Example");
       CHECK_AND_CONTINUE(SourceOrderBySinkExample())
       break;
     case SCAN_HASHJOIN_SINK:
