@@ -344,7 +344,6 @@ struct PopulatorFactory {
         // quoted.
       case QuotingStyle::Needed:
       case QuotingStyle::AllValid:
-        new QuotedColumnPopulator(pool, end_chars, escaping, escape_char, null_string);
         populator = new QuotedColumnPopulator(pool, end_chars, escaping, escape_char,
                                               null_string);
         break;
