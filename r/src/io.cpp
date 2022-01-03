@@ -239,11 +239,11 @@ struct ReencodeUTF8TransformFunctionWrapper {
     const uint8_t* in_buf;
     int64_t n_src_bytes_in_pending = 0;
 
-    // There may be a few leftover bytes from the last call to iconv. Process these first
-    // using the internal buffer as the source. This may also result in a partial
-    // character left over but will always get us into the src buffer.
+    // There may be a few left over bytes from the last call to iconv.
+    // Process these first using the internal buffer (with as many bytes
+    // as possible added from src) as the source. This may also result in
+    // a partial character left over but will always get us into the src buffer.
     if (n_pending_ > 0) {
-      // fill the pending_ buffer with characters and call iconv() once
       n_src_bytes_in_pending =
           std::min<int64_t>(sizeof(pending_) - n_pending_, src->size());
       memcpy(pending_ + n_pending_, src->data(), n_src_bytes_in_pending);
@@ -277,14 +277,18 @@ struct ReencodeUTF8TransformFunctionWrapper {
       out_bytes_left = dest->size() - out_bytes_used;
 
       const uint8_t* in_buf_before = in_buf;
-      const uint8_t* out_buf_before = out_buf;
+      uint8_t* out_buf_before = out_buf;
+
+      // iconv() can return an error code ((size_t) -1) but it's not
+      // useful as it can occur because of invalid input or because
+      // of a full output buffer. We handle each of these cases separately
+      // based on the number of bytes read or written.
       iconv_.iconv(&in_buf, &in_bytes_left, &out_buf, &out_bytes_left);
+
       int64_t bytes_read_out = out_buf - out_buf_before;
       int64_t bytes_read_in = in_buf - in_buf_before;
 
-      if (bytes_read_out <= 0 || bytes_read_in <= 0) {
-        // This should not happen, but if it does, we want to abort to make sure
-        // the loop doesn't continue forever.
+      if (bytes_read_out == 0 || bytes_read_in == 0) {
         return arrow::Status::IOError(
             "Call to iconv() read or appended zero output bytes");
       }
