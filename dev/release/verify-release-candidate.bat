@@ -82,6 +82,7 @@ cmake -G "%GENERATOR%" ^
       -DARROW_FLIGHT=ON ^
       -DARROW_MIMALLOC=ON ^
       -DARROW_PARQUET=ON ^
+      -DPARQUET_REQUIRE_ENCRYPTION=ON ^
       -DARROW_PYTHON=ON ^
       -DARROW_WITH_BROTLI=ON ^
       -DARROW_WITH_BZ2=ON ^
@@ -118,6 +119,7 @@ pip install -r requirements-test.txt || exit /B 1
 set PYARROW_CMAKE_GENERATOR=%GENERATOR%
 set PYARROW_WITH_FLIGHT=1
 set PYARROW_WITH_PARQUET=1
+set PYARROW_WITH_PARQUET_ENCRYPTION=1
 set PYARROW_WITH_DATASET=1
 python setup.py build_ext --inplace --bundle-arrow-cpp bdist_wheel || exit /B 1
 pytest pyarrow -v -s --enable-parquet || exit /B 1

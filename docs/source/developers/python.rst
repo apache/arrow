@@ -293,10 +293,11 @@ adding flags with ``ON``:
 * ``ARROW_GANDIVA``: LLVM-based expression compiler
 * ``ARROW_ORC``: Support for Apache ORC file format
 * ``ARROW_PARQUET``: Support for Apache Parquet file format
+* ``PARQUET_REQUIRE_ENCRYPTION``: Support for Parquet Modular Encryption
 * ``ARROW_PLASMA``: Shared memory object store
 
 Anything set to ``ON`` above can also be turned off. Note that some compression
-libraries and ``PARQUET_REQUIRE_ENCRYPTION`` are needed for Parquet support.
+libraries are needed for Parquet support.
 
 To enable C++ debugging information, pass the option ``-DCMAKE_BUILD_TYPE=debug``.
 
@@ -348,6 +349,9 @@ Now, build pyarrow:
 
 If you did build one of the optional components (in C++), you need to set the
 corresponding ``PYARROW_WITH_$COMPONENT`` environment variable to 1.
+
+If you built with ``PARQUET_REQUIRE_ENCRYPTION`` (in C++), you need to set the
+corresponding ``PYARROW_WITH_PARQUET_ENCRYPTION`` environment variable to 1.
 
 If you wish to delete pyarrow build before rebuilding navigate to the ``arrow/python``
 folder and run ``git clean -Xfd .``.
@@ -488,6 +492,7 @@ Now, we can build pyarrow:
 
    pushd arrow\python
    set PYARROW_WITH_PARQUET=1
+   set PYARROW_WITH_PARQUET_ENCRYPTION=1
    python setup.py build_ext --inplace
    popd
 

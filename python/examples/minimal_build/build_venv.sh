@@ -71,6 +71,7 @@ rm -rf build/  # remove any pesky pre-existing build directory
 export PYARROW_BUILD_TYPE=Debug
 export PYARROW_CMAKE_GENERATOR=Ninja
 export PYARROW_WITH_PARQUET=1
+export PYARROW_WITH_PARQUET_ENCRYPTION=1
 
 # You can run either "develop" or "build_ext --inplace". Your pick
 

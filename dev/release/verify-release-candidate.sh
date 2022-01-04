@@ -393,6 +393,7 @@ test_python() {
 
   export PYARROW_WITH_DATASET=1
   export PYARROW_WITH_PARQUET=1
+  export PYARROW_WITH_PARQUET_ENCRYPTION=1
   export PYARROW_WITH_PLASMA=1
   if [ "${ARROW_CUDA}" = "ON" ]; then
     export PYARROW_WITH_CUDA=1

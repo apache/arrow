@@ -38,12 +38,7 @@ from pyarrow._parquet import (ParquetReader, Statistics,  # noqa
                               ColumnChunkMetaData,
                               ParquetSchema, ColumnSchema,
                               FileEncryptionProperties,
-                              FileDecryptionProperties,
-                              CryptoFactory,
-                              EncryptionConfiguration,
-                              DecryptionConfiguration,
-                              KmsConnectionConfig,
-                              KmsClient)
+                              FileDecryptionProperties)
 from pyarrow.fs import (LocalFileSystem, FileSystem,
                         _resolve_filesystem_and_path, _ensure_filesystem)
 from pyarrow import filesystem as legacyfs
