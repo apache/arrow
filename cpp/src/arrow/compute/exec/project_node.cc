@@ -89,8 +89,25 @@ class ProjectNode : public MapNode {
   }
 
   void InputReceived(ExecNode* input, ExecBatch batch) override {
+#ifdef ARROW_WITH_OPENTELEMETRY
+    span->AddEvent("InputReceived", {{"batch.length", batch.length}});
+#endif
     DCHECK_EQ(input, inputs_[0]);
-    auto func = [this](ExecBatch batch) { return DoProject(std::move(batch)); };
+    auto func = [this](ExecBatch batch) {
+#ifdef ARROW_WITH_OPENTELEMETRY
+      auto tracer = arrow::internal::tracing::GetTracer();
+      opentelemetry::trace::StartSpanOptions options;
+      options.parent = span->GetContext();
+      auto span = tracer->StartSpan("ProjectNode::DoProject", options);
+      auto scope = tracer->WithActiveSpan(span);
+#endif
+      auto result = DoProject(std::move(batch));
+#ifdef ARROW_WITH_OPENTELEMETRY
+      arrow::internal::tracing::MarkSpan(result.status(), span.get());
+      span->End();
+#endif
+      return result;
+    };
     this->SubmitTask(std::move(func), std::move(batch));
   }
 

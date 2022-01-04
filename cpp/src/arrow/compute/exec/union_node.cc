@@ -75,6 +75,9 @@ class UnionNode : public ExecNode {
   }
 
   void InputReceived(ExecNode* input, ExecBatch batch) override {
+#ifdef ARROW_WITH_OPENTELEMETRY
+    span->AddEvent("InputReceived", {{"batch.length", batch.length}});
+#endif
     ARROW_DCHECK(std::find(inputs_.begin(), inputs_.end(), input) != inputs_.end());
 
     if (finished_.is_finished()) {
@@ -82,11 +85,17 @@ class UnionNode : public ExecNode {
     }
     outputs_[0]->InputReceived(this, std::move(batch));
     if (batch_count_.Increment()) {
+#ifdef ARROW_WITH_OPENTELEMETRY
+      span->End();
+#endif
       finished_.MarkFinished();
     }
   }
 
   void ErrorReceived(ExecNode* input, Status error) override {
+#ifdef ARROW_WITH_OPENTELEMETRY
+    span->AddEvent("ErrorReceived", {{"error", error.message()}});
+#endif
     DCHECK_EQ(input, inputs_[0]);
     outputs_[0]->ErrorReceived(this, std::move(error));
 
@@ -94,6 +103,10 @@ class UnionNode : public ExecNode {
   }
 
   void InputFinished(ExecNode* input, int total_batches) override {
+#ifdef ARROW_WITH_OPENTELEMETRY
+    span->AddEvent("InputFinished",
+                   {{"input", input_count_.count()}, {"batches.length", total_batches}});
+#endif
     ARROW_DCHECK(std::find(inputs_.begin(), inputs_.end(), input) != inputs_.end());
 
     total_batches_.fetch_add(total_batches);
@@ -101,23 +114,45 @@ class UnionNode : public ExecNode {
     if (input_count_.Increment()) {
       outputs_[0]->InputFinished(this, total_batches_.load());
       if (batch_count_.SetTotal(total_batches_.load())) {
+#ifdef ARROW_WITH_OPENTELEMETRY
+        span->End();
+#endif
         finished_.MarkFinished();
       }
     }
   }
 
   Status StartProducing() override {
+#ifdef ARROW_WITH_OPENTELEMETRY
+    auto tracer = arrow::internal::tracing::GetTracer();
+    span = tracer->StartSpan(kind_name(), {{"node", ToString()}});
+    auto scope = tracer->WithActiveSpan(span);
+#endif
     finished_ = Future<>::Make();
     return Status::OK();
   }
 
-  void PauseProducing(ExecNode* output) override {}
+  void PauseProducing(ExecNode* output) override {
+#ifdef ARROW_WITH_OPENTELEMETRY
+    span->AddEvent("PauseProducing");
+#endif
+  }
 
-  void ResumeProducing(ExecNode* output) override {}
+  void ResumeProducing(ExecNode* output) override {
+#ifdef ARROW_WITH_OPENTELEMETRY
+    span->AddEvent("ResumeProducing");
+#endif
+  }
 
   void StopProducing(ExecNode* output) override {
+#ifdef ARROW_WITH_OPENTELEMETRY
+    span->AddEvent("StopProducing");
+#endif
     DCHECK_EQ(output, outputs_[0]);
     if (batch_count_.Cancel()) {
+#ifdef ARROW_WITH_OPENTELEMETRY
+      span->End();
+#endif
       finished_.MarkFinished();
     }
     for (auto&& input : inputs_) {
@@ -127,6 +162,9 @@ class UnionNode : public ExecNode {
 
   void StopProducing() override {
     if (batch_count_.Cancel()) {
+#ifdef ARROW_WITH_OPENTELEMETRY
+      span->End();
+#endif
       finished_.MarkFinished();
     }
     for (auto&& input : inputs_) {

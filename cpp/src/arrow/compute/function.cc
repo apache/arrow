@@ -215,8 +215,10 @@ Result<Datum> Function::Execute(const std::vector<Datum>& args,
   }
 
 #ifdef ARROW_WITH_OPENTELEMETRY
-  auto span = arrow::internal::tracing::GetTracer()->StartSpan("Function::Execute", {{"function", name()}});
-  auto scope = opentelemetry::trace::Scope(span);
+  auto tracer = arrow::internal::tracing::GetTracer();
+  auto span = tracer->StartSpan("Function::Execute",
+                                {{"function", name()}, {"kind", kind()}, {"options", options->ToString()}});
+  auto scope = tracer->WithActiveSpan(span);
 #endif
 
   // type-check Datum arguments here. Really we'd like to avoid this as much as

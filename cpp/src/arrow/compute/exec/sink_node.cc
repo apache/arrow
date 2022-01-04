@@ -76,6 +76,12 @@ class SinkNode : public ExecNode {
   const char* kind_name() const override { return "SinkNode"; }
 
   Status StartProducing() override {
+#ifdef ARROW_WITH_OPENTELEMETRY
+    auto tracer = arrow::internal::tracing::GetTracer();
+    span = tracer->StartSpan(kind_name(), {{"node", ToString()}});
+    auto scope = tracer->WithActiveSpan(span);
+#endif
+
     finished_ = Future<>::Make();
     return Status::OK();
   }
@@ -89,6 +95,10 @@ class SinkNode : public ExecNode {
   [[noreturn]] void StopProducing(ExecNode* output) override { NoOutputs(); }
 
   void StopProducing() override {
+#ifdef ARROW_WITH_OPENTELEMETRY
+    span->AddEvent("StopProducing");
+#endif
+
     Finish();
     inputs_[0]->StopProducing(this);
   }
@@ -96,6 +106,9 @@ class SinkNode : public ExecNode {
   Future<> finished() override { return finished_; }
 
   void InputReceived(ExecNode* input, ExecBatch batch) override {
+#ifdef ARROW_WITH_OPENTELEMETRY
+    span->AddEvent("InputReceived", {{"batch.length", batch.length}});
+#endif
     DCHECK_EQ(input, inputs_[0]);
 
     bool did_push = producer_.Push(std::move(batch));
@@ -107,6 +120,9 @@ class SinkNode : public ExecNode {
   }
 
   void ErrorReceived(ExecNode* input, Status error) override {
+#ifdef ARROW_WITH_OPENTELEMETRY
+    span->AddEvent("ErrorReceived", {{"error", error.message()}});
+#endif
     DCHECK_EQ(input, inputs_[0]);
 
     producer_.Push(std::move(error));
@@ -118,6 +134,9 @@ class SinkNode : public ExecNode {
   }
 
   void InputFinished(ExecNode* input, int total_batches) override {
+#ifdef ARROW_WITH_OPENTELEMETRY
+    span->AddEvent("InputFinished", {{"batches.length", total_batches}});
+#endif
     if (input_counter_.SetTotal(total_batches)) {
       Finish();
     }
@@ -125,6 +144,9 @@ class SinkNode : public ExecNode {
 
  protected:
   virtual void Finish() {
+#ifdef ARROW_WITH_OPENTELEMETRY
+    span->End();
+#endif
     if (producer_.Close()) {
       finished_.MarkFinished();
     }
@@ -160,6 +182,11 @@ class ConsumingSinkNode : public ExecNode {
   const char* kind_name() const override { return "ConsumingSinkNode"; }
 
   Status StartProducing() override {
+#ifdef ARROW_WITH_OPENTELEMETRY
+    auto tracer = arrow::internal::tracing::GetTracer();
+    span = tracer->StartSpan(kind_name(), {{"node", ToString()}});
+    auto scope = tracer->WithActiveSpan(span);
+#endif
     finished_ = Future<>::Make();
     return Status::OK();
   }
@@ -173,6 +200,9 @@ class ConsumingSinkNode : public ExecNode {
   [[noreturn]] void StopProducing(ExecNode* output) override { NoOutputs(); }
 
   void StopProducing() override {
+#ifdef ARROW_WITH_OPENTELEMETRY
+    span->AddEvent("StopProducing");
+#endif
     Finish(Status::Invalid("ExecPlan was stopped early"));
     inputs_[0]->StopProducing(this);
   }
@@ -180,6 +210,9 @@ class ConsumingSinkNode : public ExecNode {
   Future<> finished() override { return finished_; }
 
   void InputReceived(ExecNode* input, ExecBatch batch) override {
+#ifdef ARROW_WITH_OPENTELEMETRY
+    span->AddEvent("InputReceived", {{"batch.length", batch.length}});
+#endif
     DCHECK_EQ(input, inputs_[0]);
 
     // This can happen if an error was received and the source hasn't yet stopped.  Since
@@ -203,6 +236,9 @@ class ConsumingSinkNode : public ExecNode {
   }
 
   void ErrorReceived(ExecNode* input, Status error) override {
+#ifdef ARROW_WITH_OPENTELEMETRY
+    span->AddEvent("ErrorReceived", {{"error", error.message()}});
+#endif
     DCHECK_EQ(input, inputs_[0]);
 
     if (input_counter_.Cancel()) {
@@ -213,6 +249,9 @@ class ConsumingSinkNode : public ExecNode {
   }
 
   void InputFinished(ExecNode* input, int total_batches) override {
+#ifdef ARROW_WITH_OPENTELEMETRY
+    span->AddEvent("InputFinished", {{"batches.length", total_batches}});
+#endif
     if (input_counter_.SetTotal(total_batches)) {
       Finish(Status::OK());
     }
@@ -223,6 +262,10 @@ class ConsumingSinkNode : public ExecNode {
     consumer_->Finish().AddCallback([this, finish_st](const Status& st) {
       // Prefer the plan error over the consumer error
       Status final_status = finish_st & st;
+#ifdef ARROW_WITH_OPENTELEMETRY
+      arrow::internal::tracing::MarkSpan(final_status, span.get());
+      span->End();
+#endif
       finished_.MarkFinished(std::move(final_status));
     });
   }
@@ -275,6 +318,9 @@ struct OrderBySinkNode final : public SinkNode {
   }
 
   void InputReceived(ExecNode* input, ExecBatch batch) override {
+#ifdef ARROW_WITH_OPENTELEMETRY
+    span->AddEvent("InputReceived", {{"batch.length", batch.length}});
+#endif
     DCHECK_EQ(input, inputs_[0]);
 
     auto maybe_batch = batch.ToRecordBatch(inputs_[0]->output_schema(),

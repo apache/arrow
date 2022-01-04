@@ -106,7 +106,7 @@ class ThreadIdSpanProcessor : public sdktrace::BatchSpanProcessor {
   void OnEnd(std::unique_ptr<sdktrace::Recordable>&& span) noexcept override {
     std::stringstream thread_id;
     thread_id << std::this_thread::get_id();
-    span->SetAttribute("thread_id", thread_id.str());
+    span->SetAttribute("thread.id", thread_id.str());
     sdktrace::BatchSpanProcessor::OnEnd(std::move(span));
   }
 };

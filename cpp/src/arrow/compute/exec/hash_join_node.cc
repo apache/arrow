@@ -486,13 +486,17 @@ class HashJoinNode : public ExecNode {
 
   void InputReceived(ExecNode* input, ExecBatch batch) override {
     ARROW_DCHECK(std::find(inputs_.begin(), inputs_.end(), input) != inputs_.end());
-
     if (complete_.load()) {
       return;
     }
 
     size_t thread_index = thread_indexer_();
     int side = (input == inputs_[0]) ? 0 : 1;
+
+#ifdef ARROW_WITH_OPENTELEMETRY
+    span->AddEvent("InputReceived", {{"batch.length", batch.length}, {"side", side}});
+#endif
+
     {
       Status status = impl_->InputReceived(thread_index, side, std::move(batch));
       if (!status.ok()) {
@@ -512,6 +516,9 @@ class HashJoinNode : public ExecNode {
   }
 
   void ErrorReceived(ExecNode* input, Status error) override {
+#ifdef ARROW_WITH_OPENTELEMETRY
+    span->AddEvent("ErrorReceived", {{"error", error.message()}});
+#endif
     DCHECK_EQ(input, inputs_[0]);
     StopProducing();
     outputs_[0]->ErrorReceived(this, std::move(error));
@@ -522,6 +529,10 @@ class HashJoinNode : public ExecNode {
 
     size_t thread_index = thread_indexer_();
     int side = (input == inputs_[0]) ? 0 : 1;
+
+#ifdef ARROW_WITH_OPENTELEMETRY
+    span->AddEvent("InputFinished", {{"side", side}, {"batches.length", total_batches}});
+#endif
 
     if (batch_count_[side].SetTotal(total_batches)) {
       Status status = impl_->InputFinished(thread_index, side);
@@ -534,6 +545,11 @@ class HashJoinNode : public ExecNode {
   }
 
   Status StartProducing() override {
+#ifdef ARROW_WITH_OPENTELEMETRY
+    auto tracer = arrow::internal::tracing::GetTracer();
+    span = tracer->StartSpan(kind_name(), {{"node", ToString()}});
+    auto scope = tracer->WithActiveSpan(span);
+#endif
     finished_ = Future<>::Make();
 
     bool use_sync_execution = !(plan_->exec_context()->executor());
@@ -550,9 +566,17 @@ class HashJoinNode : public ExecNode {
     return Status::OK();
   }
 
-  void PauseProducing(ExecNode* output) override {}
+  void PauseProducing(ExecNode* output) override {
+#ifdef ARROW_WITH_OPENTELEMETRY
+    span->AddEvent("PauseProducing");
+#endif
+  }
 
-  void ResumeProducing(ExecNode* output) override {}
+  void ResumeProducing(ExecNode* output) override {
+#ifdef ARROW_WITH_OPENTELEMETRY
+    span->AddEvent("ResumeProducing");
+#endif
+  }
 
   void StopProducing(ExecNode* output) override {
     DCHECK_EQ(output, outputs_[0]);
@@ -560,12 +584,20 @@ class HashJoinNode : public ExecNode {
   }
 
   void StopProducing() override {
+#ifdef ARROW_WITH_OPENTELEMETRY
+    span->AddEvent("StopProducing");
+#endif
     bool expected = false;
     if (complete_.compare_exchange_strong(expected, true)) {
       for (auto&& input : inputs_) {
         input->StopProducing(this);
       }
-      impl_->Abort([this]() { finished_.MarkFinished(); });
+      impl_->Abort([this]() {
+#ifdef ARROW_WITH_OPENTELEMETRY
+        span->End();
+#endif
+        finished_.MarkFinished();
+      });
     }
   }
 
@@ -580,6 +612,9 @@ class HashJoinNode : public ExecNode {
     bool expected = false;
     if (complete_.compare_exchange_strong(expected, true)) {
       outputs_[0]->InputFinished(this, static_cast<int>(total_num_batches));
+#ifdef ARROW_WITH_OPENTELEMETRY
+      span->End();
+#endif
       finished_.MarkFinished();
     }
   }
