@@ -76,8 +76,8 @@ SEXP data::classes_arrow_fixed_size_list = precious(cpp11::writable::strings(
     {"arrow_fixed_size_list", "vctrs_list_of", "vctrs_vctr", "list"}));
 
 // TODO: do we even need this?
-SEXP data::classes_arrow_map = precious(
-    cpp11::writable::strings({"arrow_map", "arrow_list", "vctrs_list_of", "vctrs_vctr", "list"}));
+SEXP data::classes_arrow_map = precious(cpp11::writable::strings(
+    {"arrow_map", "arrow_list", "vctrs_list_of", "vctrs_vctr", "list"}));
 
 SEXP data::names_metadata = precious(cpp11::writable::strings({"attributes", "columns"}));
 

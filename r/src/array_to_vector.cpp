@@ -1305,11 +1305,10 @@ std::shared_ptr<Converter> Converter::Make(
           chunked_array,
           checked_cast<const arrow::FixedSizeListType&>(*type).value_type(),
           checked_cast<const arrow::FixedSizeListType&>(*type).list_size());
-    
+
     case Type::MAP:
       return std::make_shared<arrow::r::Converter_List<arrow::MapArray>>(
-        chunked_array,
-        checked_cast<const arrow::MapType&>(*type).value_type());
+          chunked_array, checked_cast<const arrow::MapType&>(*type).value_type());
 
     case Type::NA:
       return std::make_shared<arrow::r::Converter_Null>(chunked_array);

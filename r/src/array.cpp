@@ -318,7 +318,8 @@ std::shared_ptr<arrow::Array> MapArray__keys_nested(
 // [[arrow::export]]
 std::shared_ptr<arrow::Array> MapArray__items_nested(
     const std::shared_ptr<arrow::MapArray>& array) {
-  return ValueOrStop(arrow::ListArray::FromArrays(*(array->offsets()), *(array->items())));
+  return ValueOrStop(
+      arrow::ListArray::FromArrays(*(array->offsets()), *(array->items())));
 }
 
 // [[arrow::export]]
