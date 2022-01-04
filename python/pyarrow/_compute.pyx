@@ -750,20 +750,34 @@ class CastOptions(_CastOptions):
         return self
 
 
+def _skip_nulls_doc():
+    # (note the weird indent because of how the string is inserted
+    #  by callers)
+    return """skip_nulls : bool, default True
+        Whether to skip (ignore) nulls in the input.
+        If False, any null in the input forces the output to null.
+"""
+
+
+def _min_count_doc(*, default):
+    return f"""min_count : int, default {default}
+        Minimum number of non-null values in the input.  If the number
+        of non-null values is below `min_count`, the output is null.
+"""
+
+
 cdef class _ElementWiseAggregateOptions(FunctionOptions):
     def _set_options(self, skip_nulls):
         self.wrapped.reset(new CElementWiseAggregateOptions(skip_nulls))
 
 
 class ElementWiseAggregateOptions(_ElementWiseAggregateOptions):
-    """
+    __doc__ = f"""
     Options for element-wise aggregate functions.
 
     Parameters
     ----------
-    skip_nulls : bool, default True
-        Whether to skip (ignore) nulls in the input.
-        If False, any null in the input forces the output to null.
+    {_skip_nulls_doc()}
     """
 
     def __init__(self, *, skip_nulls=True):
@@ -1053,7 +1067,7 @@ class SliceOptions(_SliceOptions):
     stop : int or None, default None
         If given, index to stop slicing at (exclusive).
         If not given, slicing will stop at the end.
-    slice : int, default 1
+    step : int, default 1
         Slice step.
     """
 
@@ -1241,17 +1255,13 @@ cdef class _ScalarAggregateOptions(FunctionOptions):
 
 
 class ScalarAggregateOptions(_ScalarAggregateOptions):
-    """
+    __doc__ = f"""
     Options for scalar aggregations.
 
     Parameters
     ----------
-    skip_nulls : bool, default True
-        Whether to skip (ignore) nulls in the input.
-        If False, any null in the input forces the output to null.
-    min_count : int, default 1
-        Minimum number of non-null values in the input.  If the number
-        of non-null values is below `min_count`, the output is null.
+    {_skip_nulls_doc()}
+    {_min_count_doc(default=1)}
     """
 
     def __init__(self, *, skip_nulls=True, min_count=1):
@@ -1312,19 +1322,15 @@ cdef class _ModeOptions(FunctionOptions):
 
 
 class ModeOptions(_ModeOptions):
-    """
+    __doc__ = f"""
     Options for the `mode` function.
 
     Parameters
     ----------
     n : int, default 1
         Number of distinct most-common values to return.
-    skip_nulls : bool, default True
-        Whether to skip (ignore) nulls in the input.
-        If False, any null in the input forces the output to null.
-    min_count : int, default 0
-        Minimum number of non-null values in the input.  If the number
-        of non-null values is below `min_count`, the output is null.
+    {_skip_nulls_doc()}
+    {_min_count_doc(default=0)}
     """
 
     def __init__(self, n=1, *, skip_nulls=True, min_count=0):
@@ -1553,13 +1559,15 @@ cdef class _VarianceOptions(FunctionOptions):
 
 
 class VarianceOptions(_VarianceOptions):
-    """
+    __doc__ = f"""
     Options for the `variance` and `stddev` functions.
 
     Parameters
     ----------
     ddof : int, default 0
         Number of degrees of freedom.
+    {_skip_nulls_doc()}
+    {_min_count_doc(default=0)}
     """
 
     def __init__(self, *, ddof=0, skip_nulls=True, min_count=0):
@@ -1762,7 +1770,7 @@ cdef class _QuantileOptions(FunctionOptions):
 
 
 class QuantileOptions(_QuantileOptions):
-    """
+    __doc__ = f"""
     Options for the `quantile` function.
 
     Parameters
@@ -1777,6 +1785,8 @@ class QuantileOptions(_QuantileOptions):
         - "higher": always use the largest of the two data points
         - "nearest": select the data point that is closest to the quantile
         - "midpoint": compute the (unweighted) mean of the two data points
+    {_skip_nulls_doc()}
+    {_min_count_doc(default=0)}
     """
 
     def __init__(self, q=0.5, *, interpolation="linear", skip_nulls=True,
@@ -1796,7 +1806,7 @@ cdef class _TDigestOptions(FunctionOptions):
 
 
 class TDigestOptions(_TDigestOptions):
-    """
+    __doc__ = f"""
     Options for the `tdigest` function.
 
     Parameters
@@ -1807,12 +1817,8 @@ class TDigestOptions(_TDigestOptions):
         Compression parameter for the T-digest algorithm.
     buffer_size : int, default 500
         Buffer size for the T-digest algorithm.
-    skip_nulls : bool, default True
-        Whether to skip (ignore) nulls in the input.
-        If False, any null in the input forces the output to null.
-    min_count : int, default 0
-        Minimum number of non-null values in the input.  If the number
-        of non-null values is below `min_count`, the output is null.
+    {_skip_nulls_doc()}
+    {_min_count_doc(default=0)}
     """
 
     def __init__(self, q=0.5, *, delta=100, buffer_size=500, skip_nulls=True,
