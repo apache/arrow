@@ -1490,7 +1490,9 @@ def test_table_from_pylist(cls):
     schema = pa.schema([('strs', pa.utf8()), ('floats', pa.float64())])
 
     # With lists as values
-    data = [{'strs': '', 'floats': 4.5}, {'strs': 'foo', 'floats': 5}, {'strs': 'bar', 'floats': None}]
+    data = [{'strs': '', 'floats': 4.5},
+            {'strs': 'foo', 'floats': 5},
+            {'strs': 'bar', 'floats': None}]
     table = cls.from_pylist(data)
     assert table.num_columns == 2
     assert table.num_rows == 3
@@ -1526,10 +1528,12 @@ def test_table_from_pylist(cls):
                         ('d', pa.int16())
                         ])
     table = cls.from_pylist(
-            [{'a': 1, 'b': 3}, {'a': 2, 'b': 4}, {'a': 3, 'b': 5}],
-            schema=schema
-        )
-    data = [{'a': 1, 'c': None, 'd': None}, {'a': 2, 'c': None, 'd': None}, {'a': 3, 'c': None, 'd': None}]
+        [{'a': 1, 'b': 3}, {'a': 2, 'b': 4}, {'a': 3, 'b': 5}],
+        schema=schema
+    )
+    data = [{'a': 1, 'c': None, 'd': None},
+            {'a': 2, 'c': None, 'd': None},
+            {'a': 3, 'c': None, 'd': None}]
     assert table.schema == schema
     assert table.to_pylist() == data
 
@@ -1546,7 +1550,9 @@ def test_table_from_pylist(cls):
     ]
 )
 def test_table_to_pylist(cls):
-    data = [{'strs': '', 'floats': 4.5}, {'strs': 'foo', 'floats': 5}, {'strs': 'bar', 'floats': None}]
+    data = [{'strs': '', 'floats': 4.5},
+            {'strs': 'foo', 'floats': 5},
+            {'strs': 'bar', 'floats': None}]
 
     index = {'floats'}
     data_index = [{'floats': 4.5}, {'floats': 5}, {'floats': None}]
@@ -1554,7 +1560,9 @@ def test_table_to_pylist(cls):
     assert table.to_pylist(index=index) == data_index
 
     index = {'floats', 'bools'}
-    data_index= [{'floats': 4.5, 'bools': None}, {'floats': 5, 'bools': None}, {'floats': None, 'bools': None}]
+    data_index = [{'floats': 4.5, 'bools': None},
+                  {'floats': 5, 'bools': None},
+                  {'floats': None, 'bools': None}]
     table = cls.from_pylist(data)
     assert table.to_pylist(index=index) == data_index
 

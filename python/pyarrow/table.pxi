@@ -1082,7 +1082,8 @@ cdef class RecordBatch(_PandasConvertible):
             names = index
         else:
             names = self.schema.names
-        pylist = [{column: pydict[column][row] if column in pydict else None for column in names} for row in range(self.num_rows)]
+        pylist = [{column: pydict[column][row] if column in pydict else None for column in names}
+                  for row in range(self.num_rows)]
         return pylist
 
     def _to_pandas(self, options, **kwargs):
@@ -1999,7 +2000,8 @@ cdef class Table(_PandasConvertible):
             names = index
         else:
             names = self.schema.names
-        pylist = [{column: pydict[column][row] if column in pydict else None for column in names} for row in range(self.num_rows)]
+        pylist = [{column: pydict[column][row] if column in pydict else None for column in names}
+                  for row in range(self.num_rows)]
         return pylist
 
     @property
