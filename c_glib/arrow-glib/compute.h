@@ -558,6 +558,7 @@ typedef enum {
   GARROW_ROUND_HALF_TO_ODD,
 } GArrowRoundMode;
 
+
 #define GARROW_TYPE_ROUND_OPTIONS (garrow_round_options_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowRoundOptions,
                          garrow_round_options,
@@ -572,6 +573,23 @@ struct _GArrowRoundOptionsClass
 GARROW_AVAILABLE_IN_7_0
 GArrowRoundOptions *
 garrow_round_options_new(void);
+
+
+#define GARROW_TYPE_ROUND_TO_MULTIPLE_OPTIONS   \
+  (garrow_round_to_multiple_options_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowRoundToMultipleOptions,
+                         garrow_round_to_multiple_options,
+                         GARROW,
+                         ROUND_TO_MULTIPLE_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowRoundToMultipleOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_7_0
+GArrowRoundToMultipleOptions *
+garrow_round_to_multiple_options_new(void);
 
 
 GArrowArray *garrow_array_cast(GArrowArray *array,
