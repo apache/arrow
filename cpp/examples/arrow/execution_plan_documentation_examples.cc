@@ -121,7 +121,6 @@ arrow::Result<std::shared_ptr<arrow::Array>> GetBinaryArrayDataSample(
   return result;
 }
 
-
 arrow::Result<std::shared_ptr<arrow::RecordBatch>> GetSampleRecordBatch(
   const arrow::ArrayVector array_vector,
 const arrow::FieldVector &field_vector) {
@@ -223,7 +222,7 @@ arrow::Status ScanSinkExample(cp::ExecContext &exec_context) {
     ABORT_ON_FAILURE(plan->Validate());
     std::cout << "ExecPlan created : " << plan->ToString() << std::endl;
     // // start the ExecPlan
-    ABORT_ON_FAILURE(plan->StartProducing());
+    ARROW_RETURN_NOT_OK(plan->StartProducing());
 
     // // collect sink_reader into a Table
     std::shared_ptr<arrow::Table> response_table;
@@ -403,7 +402,7 @@ arrow::Status SourceSinkExample(cp::ExecContext &exec_context) {
   ABORT_ON_FAILURE(plan->Validate());
   std::cout << "Exec Plan Created: " << plan->ToString() << std::endl;
   // // // start the ExecPlan
-  ABORT_ON_FAILURE(plan->StartProducing());
+  ARROW_RETURN_NOT_OK(plan->StartProducing());
 
   // // collect sink_reader into a Table
   std::shared_ptr<arrow::Table> response_table;
@@ -477,7 +476,7 @@ arrow::Status ScanFilterSinkExample(cp::ExecContext &exec_context) {
   ABORT_ON_FAILURE(plan->Validate());
   std::cout << "Exec Plan created " << plan->ToString() << std::endl;
   // // start the ExecPlan
-  ABORT_ON_FAILURE(plan->StartProducing());
+  ARROW_RETURN_NOT_OK(plan->StartProducing());
 
   // // collect sink_reader into a Table
   std::shared_ptr<arrow::Table> response_table;
@@ -547,7 +546,7 @@ arrow::Status ScanProjectSinkExample(cp::ExecContext &exec_context) {
     std::cout << "Exec Plan Created : " << plan->ToString() << std::endl;
 
     // // start the ExecPlan
-    ABORT_ON_FAILURE(plan->StartProducing());
+    ARROW_RETURN_NOT_OK(plan->StartProducing());
 
     // // collect sink_reader into a Table
     std::shared_ptr<arrow::Table> response_table;
@@ -616,7 +615,7 @@ arrow::Status SourceAggregateSinkExample(cp::ExecContext &exec_context) {
     ABORT_ON_FAILURE(plan->Validate());
     std::cout << "ExecPlan created : " << plan->ToString() << std::endl;
     // // // start the ExecPlan
-    ABORT_ON_FAILURE(plan->StartProducing());
+    ARROW_RETURN_NOT_OK(plan->StartProducing());
 
     // // collect sink_reader into a Table
     std::shared_ptr<arrow::Table> response_table;
@@ -685,16 +684,16 @@ arrow::Status SourceConsumingSinkExample(cp::ExecContext &exec_context) {
     ABORT_ON_FAILURE(plan->Validate());
     std::cout << "Exec Plan created: " << plan->ToString() << std::endl;
     // plan start producing
-    ABORT_ON_FAILURE(plan->StartProducing());
+    ARROW_RETURN_NOT_OK(plan->StartProducing());
     // Source should finish fairly quickly
-    ABORT_ON_FAILURE(source->finished().status());
+    ARROW_RETURN_NOT_OK(source->finished().status());
     std::cout << "Source Finished!" << std::endl;
     // Mark consumption complete, plan should finish
     arrow::Status finish_status;
     //finish.Wait();
     finish.MarkFinished(finish_status);
-    ABORT_ON_FAILURE(plan->finished().status());
-    ABORT_ON_FAILURE(finish_status);
+    ARROW_RETURN_NOT_OK(plan->finished().status());
+    ARROW_RETURN_NOT_OK(finish_status);
 
     return arrow::Status::OK();
 }
@@ -739,7 +738,7 @@ arrow::Status SourceOrderBySinkExample(cp::ExecContext &exec_context) {
         exec_context.memory_pool());
 
     // // // start the ExecPlan
-    ABORT_ON_FAILURE(plan->StartProducing());
+    ARROW_RETURN_NOT_OK(plan->StartProducing());
 
     // // collect sink_reader into a Table
     std::shared_ptr<arrow::Table> response_table;
@@ -819,9 +818,9 @@ arrow::Status SourceHashJoinSinkExample(cp::ExecContext &exec_context) {
         exec_context.memory_pool());
 
     // // // validate the ExecPlan
-    ABORT_ON_FAILURE(plan->Validate());
+    ARROW_RETURN_NOT_OK(plan->Validate());
     // // // start the ExecPlan
-    ABORT_ON_FAILURE(plan->StartProducing());
+    ARROW_RETURN_NOT_OK(plan->StartProducing());
 
     // // collect sink_reader into a Table
     std::shared_ptr<arrow::Table> response_table;
@@ -879,9 +878,9 @@ arrow::Status SourceKSelectExample(cp::ExecContext &exec_context) {
         exec_context.memory_pool());
 
     // // // validate the ExecPlan
-    ABORT_ON_FAILURE(plan->Validate());
+    ARROW_RETURN_NOT_OK(plan->Validate());
     // // // start the ExecPlan
-    ABORT_ON_FAILURE(plan->StartProducing());
+    ARROW_RETURN_NOT_OK(plan->StartProducing());
 
     // // collect sink_reader into a Table
     std::shared_ptr<arrow::Table> response_table;
@@ -972,7 +971,7 @@ const std::string &file_path) {
     ABORT_ON_FAILURE(plan->Validate());
     std::cout << "Execution Plan Created : " << plan->ToString() << std::endl;
     // // // start the ExecPlan
-    ABORT_ON_FAILURE(plan->StartProducing());
+    ARROW_RETURN_NOT_OK(plan->StartProducing());
     plan->finished().Wait();
     return arrow::Status::OK();
 }
@@ -1028,7 +1027,7 @@ arrow::Status SourceUnionSinkExample(cp::ExecContext &exec_context) {
         exec_context.memory_pool());
 
     // // // start the ExecPlan
-    ABORT_ON_FAILURE(plan->StartProducing());
+    ARROW_RETURN_NOT_OK(plan->StartProducing());
 
     // // collect sink_reader into a Table
     std::shared_ptr<arrow::Table> response_table;
