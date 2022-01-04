@@ -642,6 +642,8 @@ TEST_F(ScalarTemporalTest, TestZoned2) {
     CheckScalarUnary("year", unit, times_seconds_precision, int64(), year);
     CheckScalarUnary("month", unit, times_seconds_precision, int64(), month);
     CheckScalarUnary("day", unit, times_seconds_precision, int64(), day);
+    CheckScalarUnary("year_month_day", ArrayFromJSON(unit, times_seconds_precision),
+                     year_month_day);
     CheckScalarUnary("day_of_week", unit, times_seconds_precision, int64(), day_of_week);
     CheckScalarUnary("day_of_year", unit, times_seconds_precision, int64(), day_of_year);
     CheckScalarUnary("iso_year", unit, times_seconds_precision, int64(), iso_year);
