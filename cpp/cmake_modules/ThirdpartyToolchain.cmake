@@ -4165,6 +4165,7 @@ macro(build_awssdk)
       aws-cpp-sdk-cognito-identity
       aws-cpp-sdk-s3
       aws-cpp-sdk-core
+      aws-crt-cpp
       aws-c-event-stream
       aws-checksums
       aws-c-common)
