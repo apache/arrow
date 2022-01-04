@@ -391,10 +391,12 @@ are required to create this option::
 ``filter``
 ----------
 
-``filter`` operation as the name suggests, provides an option to define a data filtering criteria. 
-Filter can be written using :class:`arrow::compute::Expression`. For instance if the row values
-of a particular column needs to be filtered by a boundary value, ex: all values of column b
-greater than 3, can be written using :class:`arrow::compute::FilterNodeOptions` as follows::
+``filter`` operation as the name suggests, provides an option to define a data filtering
+criteria. It keeps only rows matching a given expression. 
+Filters can be written using :class:`arrow::compute::Expression`. 
+For example, if we wish to keep rows of column ``b`` greater than 3, 
+then we can use the following expression::, can be written using 
+:class:`arrow::compute::FilterNodeOptions` as follows::
 
   // a > 3
   arrow::compute::Expression filter_opt = arrow::compute::greater(
