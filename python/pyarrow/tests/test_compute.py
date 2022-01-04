@@ -1918,8 +1918,7 @@ def _check_temporal_rounding(ts, values, unit):
 
         result = pc.ceil_temporal(ta, options=options).to_pandas()
         expected = ts.dt.ceil(frequency)
-        if unit != "nanosecond":
-            np.testing.assert_array_equal(result, expected)
+        np.testing.assert_array_equal(result, expected)
 
         result = pc.floor_temporal(ta, options=options).to_pandas()
         expected = ts.dt.floor(frequency)
@@ -1937,11 +1936,14 @@ def _check_temporal_rounding(ts, values, unit):
                                   "second", "minute", "hour", "day"))
 @pytest.mark.pandas
 def test_round_temporal(unit):
+    from pyarrow.vendored.version import Version
+
+    if Version(pd.__version__) < Version('1.0.0') and \
+            unit in ("nanosecond", "microsecond"):
+        pytest.skip('Pandas < 1.0 rounds zoned small units differently.')
+
     values = (1, 2, 3, 4, 5, 6, 7, 10, 15, 24, 60, 250, 500, 750)
     timestamps = [
-        # "1899-04-18 01:57:09.190202880",
-        # "1899-09-12 07:03:30.080325120",
-        # "1904-06-21 20:55:36.493869056",
         "1923-07-07 08:52:35.203790336",
         "1931-03-17 10:45:00.641559040",
         "1932-06-16 01:16:42.911994368",

@@ -502,14 +502,15 @@ template <typename Duration, typename Unit, typename Localizer>
 const Duration FloorTimePoint(const int64_t arg, const int64_t multiple,
                               Localizer localizer_, Status* st) {
   const auto t = localizer_.template ConvertTimePoint<Duration>(arg);
-  const Unit d = floor<Unit>(t.time_since_epoch());
+  const Unit d = floor<Unit>(t).time_since_epoch();
 
   if (multiple == 1) {
     return localizer_.template ConvertLocalToSys<Duration>(duration_cast<Duration>(d),
                                                            st);
   } else {
     const Unit unit = Unit{multiple};
-    auto m = (d.count() >= 0) ? d / unit * unit : (d - unit + Unit{1}) / unit * unit;
+    const Unit m =
+        (d.count() >= 0) ? d / unit * unit : (d - unit + Unit{1}) / unit * unit;
     return localizer_.template ConvertLocalToSys<Duration>(duration_cast<Duration>(m),
                                                            st);
   }
@@ -518,12 +519,17 @@ const Duration FloorTimePoint(const int64_t arg, const int64_t multiple,
 template <typename Duration, typename Unit, typename Localizer>
 Duration CeilTimePoint(const int64_t arg, const int64_t multiple, Localizer localizer_,
                        Status* st) {
-  const Duration result =
+  const Duration f =
       FloorTimePoint<Duration, Unit, Localizer>(arg, multiple, localizer_, st);
-  const auto c =
-      localizer_.template ConvertTimePoint<Duration>(result.count()).time_since_epoch() +
-      duration_cast<Duration>(Unit{multiple});
-  return localizer_.template ConvertLocalToSys<Duration>(duration_cast<Duration>(c), st);
+  const auto cl =
+      localizer_.template ConvertTimePoint<Duration>(f.count()).time_since_epoch();
+  const Duration cs =
+      localizer_.template ConvertLocalToSys<Duration>(duration_cast<Duration>(cl), st);
+  if (cs >= Duration{arg}) {
+    return cs;
+  }
+  return localizer_.template ConvertLocalToSys<Duration>(
+      duration_cast<Duration>(cl + duration_cast<Duration>(Unit{multiple})), st);
 }
 
 template <typename Duration, typename Unit, typename Localizer>
@@ -533,7 +539,7 @@ Duration RoundTimePoint(const int64_t arg, const int64_t multiple, Localizer loc
       FloorTimePoint<Duration, Unit, Localizer>(arg, multiple, localizer_, st);
   const Duration c =
       CeilTimePoint<Duration, Unit, Localizer>(arg, multiple, localizer_, st);
-  return (Duration{arg} - f > c - Duration{arg}) ? c : f;
+  return (Duration{arg} - f >= c - Duration{arg}) ? c : f;
 }
 
 template <typename Duration, typename Localizer>
@@ -729,7 +735,7 @@ struct RoundTemporal {
         ymd += months{options.multiple};
         auto c = localizer_.ConvertDays(ymd.year() / ymd.month() / 1);
 
-        t = (t0 - f > c - t0) ? c.time_since_epoch() : f.time_since_epoch();
+        t = (t0 - f >= c - t0) ? c.time_since_epoch() : f.time_since_epoch();
         break;
       }
       case compute::CalendarUnit::QUARTER: {
@@ -741,7 +747,7 @@ struct RoundTemporal {
         ymd += months{3 * options.multiple};
         auto c = localizer_.ConvertDays(ymd.year() / ymd.month() / 1);
 
-        t = (t0 - f > c - t0) ? c.time_since_epoch() : f.time_since_epoch();
+        t = (t0 - f >= c - t0) ? c.time_since_epoch() : f.time_since_epoch();
         break;
       }
       case compute::CalendarUnit::YEAR: {
@@ -751,7 +757,7 @@ struct RoundTemporal {
         auto f = localizer_.ConvertDays(y / jan / 1);
         auto c = localizer_.ConvertDays((y + years{options.multiple}) / jan / 1);
 
-        t = (t0 - f > c - t0) ? c.time_since_epoch() : f.time_since_epoch();
+        t = (t0 - f >= c - t0) ? c.time_since_epoch() : f.time_since_epoch();
         break;
       }
       default:

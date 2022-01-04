@@ -1507,26 +1507,26 @@ TEST_F(ScalarTemporalTest, TestCeilTemporal) {
           "2025-01-01", null])";
 
   auto unit = timestamp(TimeUnit::NANO, "UTC");
-//  CheckScalarUnary(op, unit, times, unit, ceil_1_nanosecond, &round_to_1_nanoseconds);
-//  CheckScalarUnary(op, unit, times, unit, ceil_1_microsecond, &round_to_1_microseconds);
-//  CheckScalarUnary(op, unit, times, unit, ceil_1_millisecond, &round_to_1_milliseconds);
-//  CheckScalarUnary(op, unit, times, unit, ceil_1_second, &round_to_1_seconds);
-//  CheckScalarUnary(op, unit, times, unit, ceil_1_minute, &round_to_1_minutes);
-//  CheckScalarUnary(op, unit, times, unit, ceil_1_hour, &round_to_1_hours);
-//  CheckScalarUnary(op, unit, times, unit, ceil_1_day, &round_to_1_days);
-//  CheckScalarUnary(op, unit, times, unit, ceil_1_weeks, &round_to_1_weeks);
+  CheckScalarUnary(op, unit, times, unit, ceil_1_nanosecond, &round_to_1_nanoseconds);
+  CheckScalarUnary(op, unit, times, unit, ceil_1_microsecond, &round_to_1_microseconds);
+  CheckScalarUnary(op, unit, times, unit, ceil_1_millisecond, &round_to_1_milliseconds);
+  CheckScalarUnary(op, unit, times, unit, ceil_1_second, &round_to_1_seconds);
+  CheckScalarUnary(op, unit, times, unit, ceil_1_minute, &round_to_1_minutes);
+  CheckScalarUnary(op, unit, times, unit, ceil_1_hour, &round_to_1_hours);
+  CheckScalarUnary(op, unit, times, unit, ceil_1_day, &round_to_1_days);
+  CheckScalarUnary(op, unit, times, unit, ceil_1_weeks, &round_to_1_weeks);
   CheckScalarUnary(op, unit, times, unit, ceil_1_months, &round_to_1_months);
   CheckScalarUnary(op, unit, times, unit, ceil_1_quarters, &round_to_1_quarters);
   CheckScalarUnary(op, unit, times, unit, ceil_1_years, &round_to_1_years);
 
-//  CheckScalarUnary(op, unit, times, unit, ceil_15_nanosecond, &round_to_15_nanoseconds);
-//  CheckScalarUnary(op, unit, times, unit, ceil_15_microsecond, &round_to_15_microseconds);
-//  CheckScalarUnary(op, unit, times, unit, ceil_15_millisecond, &round_to_15_milliseconds);
-//  CheckScalarUnary(op, unit, times, unit, ceil_15_second, &round_to_15_seconds);
-//  CheckScalarUnary(op, unit, times, unit, ceil_15_minute, &round_to_15_minutes);
-//  CheckScalarUnary(op, unit, times, unit, ceil_15_hour, &round_to_15_hours);
-//  CheckScalarUnary(op, unit, times, unit, ceil_15_day, &round_to_15_days);
-//  CheckScalarUnary(op, unit, times, unit, ceil_15_weeks, &round_to_15_weeks);
+  CheckScalarUnary(op, unit, times, unit, ceil_15_nanosecond, &round_to_15_nanoseconds);
+  CheckScalarUnary(op, unit, times, unit, ceil_15_microsecond, &round_to_15_microseconds);
+  CheckScalarUnary(op, unit, times, unit, ceil_15_millisecond, &round_to_15_milliseconds);
+  CheckScalarUnary(op, unit, times, unit, ceil_15_second, &round_to_15_seconds);
+  CheckScalarUnary(op, unit, times, unit, ceil_15_minute, &round_to_15_minutes);
+  CheckScalarUnary(op, unit, times, unit, ceil_15_hour, &round_to_15_hours);
+  CheckScalarUnary(op, unit, times, unit, ceil_15_day, &round_to_15_days);
+  CheckScalarUnary(op, unit, times, unit, ceil_15_weeks, &round_to_15_weeks);
   CheckScalarUnary(op, unit, times, unit, ceil_15_months, &round_to_15_months);
   CheckScalarUnary(op, unit, times, unit, ceil_15_quarters, &round_to_15_quarters);
   CheckScalarUnary(op, unit, times, unit, ceil_15_years, &round_to_15_years);
@@ -1910,17 +1910,34 @@ TEST_F(ScalarTemporalTest, TestCeilFloorRoundTemporalBrussels) {
 }
 
 TEST_F(ScalarTemporalTest, TestCeilFloorRoundTemporalKolkata) {
+  // Kolkata timezone was defined as UTC+5:21:10 from 1871 to 1906 when it changed to
+  // IST (UTC+05:30) without DST. This test is to check rounding is done in historical
+  // local time.
   RoundTemporalOptions round_to_1_hours = RoundTemporalOptions(1, CalendarUnit::HOUR);
   RoundTemporalOptions round_to_2_hours = RoundTemporalOptions(2, CalendarUnit::HOUR);
   auto unit = timestamp(TimeUnit::NANO, "Asia/Kolkata");
 
-  const char* times = R"(["2021-12-23 12:17", null])";
-  const char* ceil_1_hours = R"(["2021-12-23 12:30", null])";
-  const char* ceil_2_hours = R"(["2021-12-23 12:30", null])";
-  const char* floor_1_hours = R"(["2021-12-23 11:30", null])";
-  const char* floor_2_hours = R"(["2021-12-23 10:30", null])";
-  const char* round_1_hours = R"(["2021-12-23 12:30", null])";
-  const char* round_2_hours = R"(["2021-12-23 12:30", null])";
+  const char* times =
+      R"(["2021-12-23 12:17", "1899-04-18 01:57:09.190202880",
+          "1899-09-12 07:03:30.080325120", "1904-06-21 20:55:36.493869056", null])";
+  const char* ceil_1_hours =
+      R"(["2021-12-23 12:30", "1899-04-18 02:38:50", "1899-09-12 07:38:50",
+          "1904-06-21 21:38:50", null])";
+  const char* ceil_2_hours =
+      R"(["2021-12-23 12:30", "1899-04-18 02:38:50", "1899-09-12 08:38:50",
+          "1904-06-21 22:38:50", null])";
+  const char* floor_1_hours =
+      R"(["2021-12-23 11:30", "1899-04-18 01:38:50", "1899-09-12 06:38:50",
+          "1904-06-21 20:38:50", null])";
+  const char* floor_2_hours =
+      R"(["2021-12-23 10:30", "1899-04-18 00:38:50", "1899-09-12 06:38:50",
+          "1904-06-21 20:38:50", null])";
+  const char* round_1_hours =
+      R"(["2021-12-23 12:30", "1899-04-18 01:38:50", "1899-09-12 06:38:50",
+          "1904-06-21 20:38:50", null])";
+  const char* round_2_hours =
+      R"(["2021-12-23 12:30", "1899-04-18 02:38:50", "1899-09-12 06:38:50",
+          "1904-06-21 20:38:50", null])";
 
   CheckScalarUnary("ceil_temporal", unit, times, unit, ceil_1_hours, &round_to_1_hours);
   CheckScalarUnary("ceil_temporal", unit, times, unit, ceil_2_hours, &round_to_2_hours);
