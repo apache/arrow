@@ -201,11 +201,6 @@ func (b *FixedSizeListBuilder) AppendValues(valid []bool) {
 	b.builder.unsafeAppendBoolsToBitmap(valid, len(valid))
 }
 
-func (b *FixedSizeListBuilder) unsafeAppend(v bool) {
-	bitutil.SetBit(b.nullBitmap.Bytes(), b.length)
-	b.length++
-}
-
 func (b *FixedSizeListBuilder) unsafeAppendBoolToBitmap(isValid bool) {
 	if isValid {
 		bitutil.SetBit(b.nullBitmap.Bytes(), b.length)

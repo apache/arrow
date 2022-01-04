@@ -65,8 +65,6 @@ func (k copyKind) check(t *testing.T, f *os.File, mem memory.Allocator, schema *
 }
 
 func TestCopy(t *testing.T) {
-	type kind int
-
 	tempDir, err := ioutil.TempDir("", "go-arrow-copy-")
 	if err != nil {
 		t.Fatal(err)
