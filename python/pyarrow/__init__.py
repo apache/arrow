@@ -92,22 +92,38 @@ def show_versions():
 
     print("\nOptional modules:")
     
-    modules = ["csv", "cuda", "dataset", "feather", "flight", "fs", "gandiva", "hdfs",
-               "json", "orc", "parquet", "plasma", "s3fs"]
+    modules = ["csv", "cuda", "dataset", "feather", "flight", "fs", "gandiva", "json",
+               "orc", "parquet", "plasma"]
 
     for module in modules:
         try:
             importlib.import_module(f'pyarrow.{module}')
         except ImportError:
-            print(f"  {module: <10}: -")
+            print(f"  {module: <18}: -")
         else:
-            print(f"  {module: <10}: Enabled")
+            print(f"  {module: <18}: Enabled")
+
+    print("\nFilesystems:")
+    filesystems = ["HadoopFileSystem", "S3FileSystem", "GcsFileSystem"]
+    try:
+        import pyarrow.fs
+    except ImportError:
+        for filesystem in filesystems:
+            print(f"  {filesystem: <18}: -")
+    else:
+        for filesystem in filesystems:
+            try:
+                getattr(pyarrow.fs, filesystem)
+                status = 'Enabled'
+            except (ImportError, AttributeError):
+                status = '-'
+            print(f"  {filesystem: <18}: {status: <8}")
 
     print("\nCompression Codecs:")
     codecs = ["brotli", "bz2", "gzip", "lz4_frame", "lz4", "snappy", "zstd"]
     for codec in codecs:
         status = "Enabled" if Codec.is_available(codec) else "-"
-        print(f"  {codec: <10}: {status: <8}")
+        print(f"  {codec: <18}: {status: <8}")
 
 
 from pyarrow.lib import (null, bool_,
