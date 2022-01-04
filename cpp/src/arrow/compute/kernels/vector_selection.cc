@@ -2378,7 +2378,7 @@ struct NonZeroVisitor {
     using T = typename GetViewType<Type>::T;
     uint64_t index = 0;
 
-    for (const auto &current_array : arrays) {
+    for (const auto& current_array : arrays) {
       VisitArrayDataInline<Type>(
           *current_array,
           [&](T v) {
