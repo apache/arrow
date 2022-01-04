@@ -2376,12 +2376,11 @@ struct NonZeroVisitor {
   template <typename Type>
   enable_if_t<is_primitive_ctype<Type>::value, Status> Visit(const Type&) {
     using T = typename GetViewType<Type>::T;
-    uint32_t index = 0;
+    uint64_t index = 0;
 
-    for (ArrayDataVector::const_iterator current_array = arrays.begin();
-         current_array != arrays.end(); ++current_array) {
+    for (const auto &current_array : arrays) {
       VisitArrayDataInline<Type>(
-          **current_array,
+          *current_array,
           [&](T v) {
             if (v) {
               this->builder->UnsafeAppend(index);
@@ -2403,12 +2402,12 @@ Status IndicesNonZeroExec(KernelContext* ctx, const ExecBatch& batch, Datum* out
   if (input.kind() == Datum::ARRAY) {
     std::shared_ptr<ArrayData> array = input.array();
     RETURN_NOT_OK(builder.Reserve(array->length));
-    arrays.push_back(array);
+    arrays.push_back(std::move(array));
   } else if (input.kind() == Datum::CHUNKED_ARRAY) {
     std::shared_ptr<ChunkedArray> chunkedarr = input.chunked_array();
     RETURN_NOT_OK(builder.Reserve(chunkedarr->length()));
     for (int chunkidx = 0; chunkidx < chunkedarr->num_chunks(); ++chunkidx) {
-      arrays.push_back(chunkedarr->chunk(chunkidx)->data());
+      arrays.push_back(std::move(chunkedarr->chunk(chunkidx)->data()));
     }
   } else {
     return Status::NotImplemented(input.ToString());
