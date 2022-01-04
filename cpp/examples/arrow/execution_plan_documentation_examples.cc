@@ -131,8 +131,7 @@ const arrow::FieldVector &field_vector) {
       return record_batch->FromStructArray(struct_result);
 }
 
-arrow::Status CreateDataSetFromCSVData(
-    std::shared_ptr<arrow::dataset::InMemoryDataset> &dataset) {
+arrow::Result<std::shared_ptr<arrow::dataset::Dataset>> CreateDataSetFromCSVData() {
     arrow::io::IOContext io_context = arrow::io::default_io_context();
     std::shared_ptr<arrow::io::InputStream> input;
     std::string csv_data = GetDataAsCsvString();
@@ -157,14 +156,8 @@ arrow::Status CreateDataSetFromCSVData(
     ARROW_ASSIGN_OR_RAISE(auto maybe_table,
       reader->Read());
     auto ds = std::make_shared<arrow::dataset::InMemoryDataset>(maybe_table);
-    dataset = std::move(ds);
-    return arrow::Status::OK();
-}
-
-std::shared_ptr<arrow::dataset::Dataset> CreateDataset() {
-    std::shared_ptr<arrow::dataset::InMemoryDataset> im_dataset;
-    ABORT_ON_FAILURE(CreateDataSetFromCSVData(im_dataset));
-    return im_dataset;
+    arrow::Result<std::shared_ptr<arrow::dataset::InMemoryDataset>> result(std::move(ds));
+    return result;
 }
 
 cp::Expression Materialize(std::vector<std::string> names,
@@ -184,18 +177,13 @@ cp::Expression Materialize(std::vector<std::string> names,
     return cp::project(exprs, names);
 }
 
-arrow::Status ScanSinkExample() {
-    cp::ExecContext exec_context(arrow::default_memory_pool(),
-                                ::arrow::internal::GetCpuThreadPool());
-
-    // ensure arrow::dataset node factories are in the registry
-    arrow::dataset::internal::Initialize();
-
+arrow::Status ScanSinkExample(cp::ExecContext &exec_context) {
     // Execution plan created
     ARROW_ASSIGN_OR_RAISE(
         std::shared_ptr<cp::ExecPlan> plan, cp::ExecPlan::Make(&exec_context));
 
-    std::shared_ptr<arrow::dataset::Dataset> dataset = CreateDataset();
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::dataset::Dataset> dataset,
+    CreateDataSetFromCSVData());
 
     auto options = std::make_shared<arrow::dataset::ScanOptions>();
     // sync scanning is not supported by ScanNode
@@ -243,12 +231,15 @@ arrow::Status ScanSinkExample() {
     return arrow::Status::OK();
 }
 
-cp::ExecBatch GetExecBatchFromVectors(const arrow::FieldVector &field_vector,
+arrow::Result<cp::ExecBatch> GetExecBatchFromVectors(
+  const arrow::FieldVector &field_vector,
   const arrow::ArrayVector &array_vector) {
     std::shared_ptr<arrow::RecordBatch> record_batch;
-    auto res_batch = GetSampleRecordBatch(array_vector, field_vector);
-    cp::ExecBatch batch{*res_batch.ValueOrDie()};
-    return batch;
+    ARROW_ASSIGN_OR_RAISE(auto res_batch, GetSampleRecordBatch(
+      array_vector, field_vector));
+    cp::ExecBatch batch{*res_batch};
+    arrow::Result<cp::ExecBatch> result(batch);
+    return result;
 }
 
 struct BatchesWithSchema {
@@ -284,10 +275,14 @@ arrow::Result<BatchesWithSchema> MakeBasicBatches() {
   ARROW_ASSIGN_OR_RAISE(auto b3_bool,
   GetArrayDataSample<arrow::BooleanType>({false, true, false}));
 
-  out.batches = {GetExecBatchFromVectors(field_vector, {b1_int, b1_bool}),
-                  GetExecBatchFromVectors(field_vector, {b2_int, b2_bool}),
-                  GetExecBatchFromVectors(field_vector, {b3_int, b3_bool})
-                  };
+  ARROW_ASSIGN_OR_RAISE(auto b1, GetExecBatchFromVectors(field_vector,
+  {b1_int, b1_bool}));
+  ARROW_ASSIGN_OR_RAISE(auto b2, GetExecBatchFromVectors(field_vector,
+  {b2_int, b2_bool}));
+  ARROW_ASSIGN_OR_RAISE(auto b3, GetExecBatchFromVectors(field_vector,
+  {b3_int, b3_bool}));
+
+  out.batches = {b1, b2, b3};
   out.schema = arrow::schema(field_vector);
   arrow::Result<BatchesWithSchema> result(std::move(out));
   return result;
@@ -313,13 +308,14 @@ arrow::Result<BatchesWithSchema> MakeSortTestBasicBatches() {
   ARROW_ASSIGN_OR_RAISE(auto b8_int,
   GetArrayDataSample<arrow::Int32Type>({51, 10, 2, 3}));
 
-  out.batches = {
-      GetExecBatchFromVectors({field}, {b1_int}),
-      GetExecBatchFromVectors({field}, {b2_int}),
-      GetExecBatchFromVectors({field, field}, {b3_int, b8_int}),
-      GetExecBatchFromVectors({field, field, field, field},
-      {b4_int, b5_int, b6_int, b7_int})
-  };
+  ARROW_ASSIGN_OR_RAISE(auto b1, GetExecBatchFromVectors({field}, {b1_int}));
+  ARROW_ASSIGN_OR_RAISE(auto b2, GetExecBatchFromVectors({field}, {b2_int}));
+  ARROW_ASSIGN_OR_RAISE(auto b3, GetExecBatchFromVectors({field, field},
+  {b3_int, b8_int}));
+  ARROW_ASSIGN_OR_RAISE(auto b4, GetExecBatchFromVectors(
+    {field, field, field, field},
+      {b4_int, b5_int, b6_int, b7_int}));
+  out.batches = {b1, b2, b3, b4};
   out.schema = arrow::schema({field});
   arrow::Result<BatchesWithSchema> result(std::move(out));
   return result;
@@ -340,12 +336,13 @@ arrow::Result<BatchesWithSchema> MakeGroupableBatches(int multiplicity = 1) {
   GetBinaryArrayDataSample<arrow::StringType>({"alpha", "gamma", "alpha"}));
   ARROW_ASSIGN_OR_RAISE(auto b3_str,
   GetBinaryArrayDataSample<arrow::StringType>({"gamma", "beta", "alpha"}));
-
-  out.batches = {
-    GetExecBatchFromVectors(fields, {b1_int, b1_str}),
-    GetExecBatchFromVectors(fields, {b2_int, b2_str}),
-    GetExecBatchFromVectors(fields, {b3_int, b3_str}),
-  };
+  ARROW_ASSIGN_OR_RAISE(auto b1,
+  GetExecBatchFromVectors(fields, {b1_int, b1_str}));
+  ARROW_ASSIGN_OR_RAISE(auto b2,
+  GetExecBatchFromVectors(fields, {b2_int, b2_str}));
+  ARROW_ASSIGN_OR_RAISE(auto b3,
+  GetExecBatchFromVectors(fields, {b3_int, b3_str}));
+  out.batches = {b1, b2, b3};
 
   size_t batch_count = out.batches.size();
   for (int repeat = 1; repeat < multiplicity; ++repeat) {
@@ -355,17 +352,11 @@ arrow::Result<BatchesWithSchema> MakeGroupableBatches(int multiplicity = 1) {
   }
 
   out.schema = arrow::schema(fields);
-
-  return out;
+  arrow::Result<BatchesWithSchema> result(out);
+  return result;
 }
 
-arrow::Status SourceSinkExample() {
-  cp::ExecContext exec_context(arrow::default_memory_pool(),
-                               ::arrow::internal::GetCpuThreadPool());
-
-  // ensure arrow::dataset node factories are in the registry
-  arrow::dataset::internal::Initialize();
-
+arrow::Status SourceSinkExample(cp::ExecContext &exec_context) {
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
   cp::ExecPlan::Make(&exec_context));
 
@@ -410,17 +401,12 @@ arrow::Status SourceSinkExample() {
   return arrow::Status::OK();
 }
 
-arrow::Status ScanFilterSinkExample() {
-  cp::ExecContext exec_context(arrow::default_memory_pool(),
-                               ::arrow::internal::GetCpuThreadPool());
-
-  // ensure arrow::dataset node factories are in the registry
-  arrow::dataset::internal::Initialize();
-
+arrow::Status ScanFilterSinkExample(cp::ExecContext &exec_context) {
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
                         cp::ExecPlan::Make(&exec_context));
 
-  std::shared_ptr<arrow::dataset::Dataset> dataset = CreateDataset();
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::dataset::Dataset> dataset,
+  CreateDataSetFromCSVData());
 
   auto options = std::make_shared<arrow::dataset::ScanOptions>();
   // sync scanning is not supported by ScanNode
@@ -478,17 +464,12 @@ arrow::Status ScanFilterSinkExample() {
   return arrow::Status::OK();
 }
 
-arrow::Status ScanProjectSinkExample() {
-    cp::ExecContext exec_context(arrow::default_memory_pool(),
-                                 ::arrow::internal::GetCpuThreadPool());
-
-    // ensure arrow::dataset node factories are in the registry
-    arrow::dataset::internal::Initialize();
-
+arrow::Status ScanProjectSinkExample(cp::ExecContext &exec_context) {
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
     cp::ExecPlan::Make(&exec_context));
 
-    std::shared_ptr<arrow::dataset::Dataset> dataset = CreateDataset();
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::dataset::Dataset> dataset,
+    CreateDataSetFromCSVData());
 
     auto options = std::make_shared<arrow::dataset::ScanOptions>();
     // sync scanning is not supported by ScanNode
@@ -545,13 +526,7 @@ arrow::Status ScanProjectSinkExample() {
     return arrow::Status::OK();
 }
 
-arrow::Status SourceAggregateSinkExample() {
-    cp::ExecContext exec_context(arrow::default_memory_pool(),
-                                 ::arrow::internal::GetCpuThreadPool());
-
-    // ensure arrow::dataset node factories are in the registry
-    arrow::dataset::internal::Initialize();
-
+arrow::Status SourceAggregateSinkExample(cp::ExecContext &exec_context) {
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
      cp::ExecPlan::Make(&exec_context));
 
@@ -611,13 +586,7 @@ arrow::Status SourceAggregateSinkExample() {
     return arrow::Status::OK();
 }
 
-arrow::Status SourceConsumingSinkExample() {
-    cp::ExecContext exec_context(arrow::default_memory_pool(),
-                                 ::arrow::internal::GetCpuThreadPool());
-
-    // ensure arrow::dataset node factories are in the registry
-    arrow::dataset::internal::Initialize();
-
+arrow::Status SourceConsumingSinkExample(cp::ExecContext &exec_context) {
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
      cp::ExecPlan::Make(&exec_context));
 
@@ -674,13 +643,7 @@ arrow::Status SourceConsumingSinkExample() {
     return arrow::Status::OK();
 }
 
-arrow::Status SourceOrderBySinkExample() {
-    cp::ExecContext exec_context(arrow::default_memory_pool(),
-     ::arrow::internal::GetCpuThreadPool());
-
-    // ensure arrow::dataset node factories are in the registry
-    arrow::dataset::internal::Initialize();
-
+arrow::Status SourceOrderBySinkExample(cp::ExecContext &exec_context) {
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
      cp::ExecPlan::Make(&exec_context));
 
@@ -723,12 +686,8 @@ arrow::Status SourceOrderBySinkExample() {
     return arrow::Status::OK();
 }
 
-arrow::Status SourceHashJoinSinkExample() {
+arrow::Status SourceHashJoinSinkExample(cp::ExecContext &exec_context) {
     ARROW_ASSIGN_OR_RAISE(auto input, MakeGroupableBatches());
-
-    cp::ExecContext exec_context(arrow::default_memory_pool(),
-                                 ::arrow::internal::GetCpuThreadPool());
-
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
      cp::ExecPlan::Make(&exec_context));
 
@@ -805,12 +764,8 @@ arrow::Status SourceHashJoinSinkExample() {
     return arrow::Status::OK();
 }
 
-arrow::Status SourceKSelectExample() {
+arrow::Status SourceKSelectExample(cp::ExecContext &exec_context) {
     ARROW_ASSIGN_OR_RAISE(auto input, MakeGroupableBatches());
-
-    cp::ExecContext exec_context(arrow::default_memory_pool(),
-                                 ::arrow::internal::GetCpuThreadPool());
-
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
      cp::ExecPlan::Make(&exec_context));
     arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
@@ -860,17 +815,13 @@ arrow::Status SourceKSelectExample() {
     return arrow::Status::OK();
 }
 
-arrow::Status ScanFilterWriteExample(std::string file_path) {
-    cp::ExecContext exec_context(arrow::default_memory_pool(),
-                                 ::arrow::internal::GetCpuThreadPool());
-
-    // ensure arrow::dataset node factories are in the registry
-    arrow::dataset::internal::Initialize();
-
+arrow::Status ScanFilterWriteExample(cp::ExecContext &exec_context,
+const std::string &file_path) {
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
      cp::ExecPlan::Make(&exec_context));
 
-    std::shared_ptr<arrow::dataset::Dataset> dataset = CreateDataset();
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::dataset::Dataset> dataset,
+    CreateDataSetFromCSVData());
 
     auto options = std::make_shared<arrow::dataset::ScanOptions>();
     // sync scanning is not supported by ScanNode
@@ -933,11 +884,8 @@ arrow::Status ScanFilterWriteExample(std::string file_path) {
     return arrow::Status::OK();
 }
 
-arrow::Status SourceUnionSinkExample() {
+arrow::Status SourceUnionSinkExample(cp::ExecContext &exec_context) {
     ARROW_ASSIGN_OR_RAISE(auto basic_data, MakeBasicBatches());
-
-    cp::ExecContext exec_context(arrow::default_memory_pool(),
-                                 ::arrow::internal::GetCpuThreadPool());
 
     std::shared_ptr<cp::ExecPlan> plan =
     cp::ExecPlan::Make(&exec_context).ValueOrDie();
@@ -1013,46 +961,51 @@ int main(int argc, char** argv) {
   int mode = std::atoi(argv[1]);
   std::string base_save_path = argv[2];
   arrow::Status status;
+  // ensure arrow::dataset node factories are in the registry
+  arrow::dataset::internal::Initialize();
+  // execution context
+  cp::ExecContext exec_context(arrow::default_memory_pool(),
+                               ::arrow::internal::GetCpuThreadPool());
   switch (mode) {
     case SOURCE_SINK:
       PRINT_BLOCK("Source Sink Example");
-      status = SourceSinkExample();
+      status = SourceSinkExample(exec_context);
       break;
     case SCAN_SINK:
       PRINT_BLOCK("Scan Sink Example");
-      status = ScanSinkExample();
+      status = ScanSinkExample(exec_context);
       break;
     case SCAN_FILTER_SINK:
       PRINT_BLOCK("Scan Filter Example");
-      status = ScanFilterSinkExample();
+      status = ScanFilterSinkExample(exec_context);
       break;
     case SCAN_PROJECT_SINK:
       PRINT_BLOCK("Scan Project Sink Example");
-      status = ScanProjectSinkExample();
+      status = ScanProjectSinkExample(exec_context);
       break;
     case SOURCE_AGGREGATE_SINK:
       PRINT_BLOCK("Source Aggregate Example");
-      status = SourceAggregateSinkExample();
+      status = SourceAggregateSinkExample(exec_context);
       break;
     case SCAN_CONSUMING_SINK:
       PRINT_BLOCK("Source Consuming-Sink Example");
-      status = SourceConsumingSinkExample();
+      status = SourceConsumingSinkExample(exec_context);
       break;
     case SOURCE_ORDER_BY_SINK:
       PRINT_BLOCK("Source OrderBy Sink Example");
-      status = SourceOrderBySinkExample();
+      status = SourceOrderBySinkExample(exec_context);
       break;
     case SCAN_HASHJOIN_SINK:
-      status = SourceHashJoinSinkExample();
+      status = SourceHashJoinSinkExample(exec_context);
       break;
     case SCAN_SELECT_SINK:
-      status = SourceKSelectExample();
+      status = SourceKSelectExample(exec_context);
       break;
     case SCAN_FILTER_WRITE:
-      status = ScanFilterWriteExample(base_save_path);
+      status = ScanFilterWriteExample(exec_context, base_save_path);
       break;
     case SOURCE_UNION_SINK:
-      status = SourceUnionSinkExample();
+      status = SourceUnionSinkExample(exec_context);
       break;
     default:
       break;
