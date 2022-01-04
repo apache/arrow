@@ -690,6 +690,26 @@ cdef class _CastOptions(FunctionOptions):
 
 
 class CastOptions(_CastOptions):
+    """
+    Options for the `cast` function.
+
+    Parameters
+    ----------
+    target_type : DataType, optional
+        The PyArrow type to cast to.
+    allow_int_overflow : bool, optional
+        Whether integer overflow is allowed when casting.
+    allow_time_truncate : bool, optional
+        Whether time precision truncation is allowed when casting.
+    allow_time_overflow : bool, optional
+        Whether date/time range overflow is allowed when casting.
+    allow_decimal_truncate : bool, optional
+        Whether decimal precision truncation is allowed when casting.
+    allow_float_truncate : bool, optional
+        Whether floating-point precision truncation is allowed when casting.
+    allow_invalid_utf8 : bool, optional
+        Whether producing invalid utf8 data is allowed when casting.
+    """
 
     def __init__(self, target_type=None, *, allow_int_overflow=None,
                  allow_time_truncate=None, allow_time_overflow=None,
@@ -736,6 +756,16 @@ cdef class _ElementWiseAggregateOptions(FunctionOptions):
 
 
 class ElementWiseAggregateOptions(_ElementWiseAggregateOptions):
+    """
+    Options for element-wise aggregate functions.
+
+    Parameters
+    ----------
+    skip_nulls : bool, default True
+        Whether to skip (ignore) nulls in the input.
+        If False, any null in the input forces the output to null.
+    """
+
     def __init__(self, *, skip_nulls=True):
         self._set_options(skip_nulls)
 
@@ -772,6 +802,20 @@ cdef class _RoundOptions(FunctionOptions):
 
 
 class RoundOptions(_RoundOptions):
+    """
+    Options for rounding numbers.
+
+    Parameters
+    ----------
+    ndigits : int, default 0
+        Number of fractional digits to round to.
+    round_mode : str, default "half_to_even"
+        Rounding and tie-breaking mode.
+        Accepted values are "down", "up", "towards_zero", "towards_infinity",
+        "half_down", "half_up", "half_towards_zero", "half_towards_infinity",
+        "half_to_even", "half_to_odd".
+    """
+
     def __init__(self, ndigits=0, round_mode="half_to_even"):
         self._set_options(ndigits, round_mode)
 
@@ -827,6 +871,21 @@ cdef class _RoundToMultipleOptions(FunctionOptions):
 
 
 class RoundToMultipleOptions(_RoundToMultipleOptions):
+    """
+    Options for rounding numbers to a multiple.
+
+    Parameters
+    ----------
+    multiple : numeric scalar, default 1.0
+        Multiple to round to. Should be a scalar of a type compatible
+        with the argument to be rounded.
+    round_mode : str, default "half_to_even"
+        Rounding and tie-breaking mode.
+        Accepted values are "down", "up", "towards_zero", "towards_infinity",
+        "half_down", "half_up", "half_towards_zero", "half_towards_infinity",
+        "half_to_even", "half_to_odd".
+    """
+
     def __init__(self, multiple=1.0, round_mode="half_to_even"):
         self._set_options(multiple, round_mode)
 
@@ -849,6 +908,19 @@ cdef class _JoinOptions(FunctionOptions):
 
 
 class JoinOptions(_JoinOptions):
+    """
+    Options for the `binary_join_element_wise` function.
+
+    Parameters
+    ----------
+    null_handling : str, default "emit_null"
+        How to handle null values in the inputs.
+        Accepted values are "emit_null", "skip", "replace".
+    null_replacement : str, default ""
+        Replacement string to emit for null inputs if `null_handling`
+        is "replace".
+    """
+
     def __init__(self, null_handling="emit_null", null_replacement=""):
         self._set_options(null_handling, null_replacement)
 
@@ -861,6 +933,17 @@ cdef class _MatchSubstringOptions(FunctionOptions):
 
 
 class MatchSubstringOptions(_MatchSubstringOptions):
+    """
+    Options for looking for a substring.
+
+    Parameters
+    ----------
+    pattern : str
+        Substring pattern to look for inside input values.
+    ignore_case : bool, default False
+        Whether to perform a case-insensitive match.
+    """
+
     def __init__(self, pattern, *, ignore_case=False):
         self._set_options(pattern, ignore_case)
 
@@ -871,6 +954,17 @@ cdef class _PadOptions(FunctionOptions):
 
 
 class PadOptions(_PadOptions):
+    """
+    Options for padding strings.
+
+    Parameters
+    ----------
+    width : int
+        Desired string length.
+    padding : str, default " "
+        What to pad the string with. Should be one byte or codepoint.
+    """
+
     def __init__(self, width, padding=' '):
         self._set_options(width, padding)
 
@@ -881,20 +975,17 @@ cdef class _TrimOptions(FunctionOptions):
 
 
 class TrimOptions(_TrimOptions):
+    """
+    Options for trimming characters from strings.
+
+    Parameters
+    ----------
+    characters : str
+        Individual characters to be trimmed from the string.
+    """
+
     def __init__(self, characters):
         self._set_options(tobytes(characters))
-
-
-cdef class _ReplaceSliceOptions(FunctionOptions):
-    def _set_options(self, start, stop, replacement):
-        self.wrapped.reset(
-            new CReplaceSliceOptions(start, stop, tobytes(replacement))
-        )
-
-
-class ReplaceSliceOptions(_ReplaceSliceOptions):
-    def __init__(self, start, stop, replacement):
-        self._set_options(start, stop, replacement)
 
 
 cdef class _ReplaceSubstringOptions(FunctionOptions):
@@ -907,7 +998,23 @@ cdef class _ReplaceSubstringOptions(FunctionOptions):
 
 
 class ReplaceSubstringOptions(_ReplaceSubstringOptions):
-    def __init__(self, pattern, replacement, *, max_replacements=-1):
+    """
+    Options for replacing matched substrings.
+
+    Parameters
+    ----------
+    pattern : str
+        Substring pattern to look for inside input values.
+    replacement : str
+        What to replace the pattern with.
+    max_replacements : int or None, default None
+        If given, the maximum number of strings to replace in each
+        input value.
+    """
+
+    def __init__(self, pattern, replacement, *, max_replacements=None):
+        if max_replacements is None:
+            max_replacements = -1
         self._set_options(pattern, replacement, max_replacements)
 
 
@@ -917,6 +1024,15 @@ cdef class _ExtractRegexOptions(FunctionOptions):
 
 
 class ExtractRegexOptions(_ExtractRegexOptions):
+    """
+    Options for the `extract_regex` function.
+
+    Parameters
+    ----------
+    pattern : str
+        Regular expression with named capture fields.
+    """
+
     def __init__(self, pattern):
         self._set_options(pattern)
 
@@ -927,8 +1043,49 @@ cdef class _SliceOptions(FunctionOptions):
 
 
 class SliceOptions(_SliceOptions):
-    def __init__(self, start, stop=sys.maxsize, step=1):
+    """
+    Options for slicing.
+
+    Parameters
+    ----------
+    start : int
+        Index to start slicing at (inclusive).
+    stop : int or None, default None
+        If given, index to stop slicing at (exclusive).
+        If not given, slicing will stop at the end.
+    slice : int, default 1
+        Slice step.
+    """
+
+    def __init__(self, start, stop=None, step=1):
+        if stop is None:
+            stop = sys.maxsize
         self._set_options(start, stop, step)
+
+
+cdef class _ReplaceSliceOptions(FunctionOptions):
+    def _set_options(self, start, stop, replacement):
+        self.wrapped.reset(
+            new CReplaceSliceOptions(start, stop, tobytes(replacement))
+        )
+
+
+class ReplaceSliceOptions(_ReplaceSliceOptions):
+    """
+    Options for replacing slices.
+
+    Parameters
+    ----------
+    start : int
+        Index to start slicing at (inclusive).
+    stop : int
+        Index to stop slicing at (exclusive).
+    replacement : str
+        What to replace the slice with.
+    """
+
+    def __init__(self, start, stop, replacement):
+        self._set_options(start, stop, replacement)
 
 
 cdef class _FilterOptions(FunctionOptions):
@@ -950,6 +1107,16 @@ cdef class _FilterOptions(FunctionOptions):
 
 
 class FilterOptions(_FilterOptions):
+    """
+    Options for selecting with a boolean filter.
+
+    Parameters
+    ----------
+    null_selection_behavior : str, default "drop"
+        How to handle nulls in the input.
+        Accepted values are "drop", "emit_null".
+    """
+
     def __init__(self, null_selection_behavior="drop"):
         self._set_options(null_selection_behavior)
 
@@ -972,6 +1139,18 @@ cdef class _DictionaryEncodeOptions(FunctionOptions):
 
 
 class DictionaryEncodeOptions(_DictionaryEncodeOptions):
+    """
+    Options for dictionary encoding.
+
+    Parameters
+    ----------
+    null_encoding : str, default "mask"
+        How to encode nulls in the input.
+        Accepted values are "mask" (null inputs emit a null in the indices
+        array), "encode" (null inputs emit a non-null index pointing to
+        a null value in the dictionary array).
+    """
+
     def __init__(self, null_encoding="mask"):
         self._set_options(null_encoding)
 
@@ -982,6 +1161,17 @@ cdef class _TakeOptions(FunctionOptions):
 
 
 class TakeOptions(_TakeOptions):
+    """
+    Options for the `take` and `array_take` functions.
+
+    Parameters
+    ----------
+    boundscheck : boolean, default True
+        Whether to check indices are within bounds. If False and an
+        index is out of boundes, behavior is undefined (the process
+        may crash).
+    """
+
     def __init__(self, *, boundscheck=True):
         self._set_options(boundscheck)
 
@@ -1002,6 +1192,20 @@ cdef class _MakeStructOptions(FunctionOptions):
 
 
 class MakeStructOptions(_MakeStructOptions):
+    """
+    Options for the `make_struct` function.
+
+    Parameters
+    ----------
+    field_names : sequence of str
+        Names of the struct fields to create.
+    field_nullability : sequence of bool, optional
+        Nullability information for each struct field.
+        If omitted, all fields are nullable.
+    field_metadata : sequence of KeyValueMetadata, optional
+        Metadata for each struct field.
+    """
+
     def __init__(self, field_names=(), *, field_nullability=None,
                  field_metadata=None):
         if field_nullability is None:
@@ -1017,6 +1221,16 @@ cdef class _StructFieldOptions(FunctionOptions):
 
 
 class StructFieldOptions(_StructFieldOptions):
+    """
+    Options for the `struct_field` function.
+
+    Parameters
+    ----------
+    indices : sequence of int
+        List of indices for chained field lookup, for example `[4, 1]`
+        will look up the second nested field in the fifth outer field.
+    """
+
     def __init__(self, indices):
         self._set_options(indices)
 
@@ -1027,6 +1241,19 @@ cdef class _ScalarAggregateOptions(FunctionOptions):
 
 
 class ScalarAggregateOptions(_ScalarAggregateOptions):
+    """
+    Options for scalar aggregations.
+
+    Parameters
+    ----------
+    skip_nulls : bool, default True
+        Whether to skip (ignore) nulls in the input.
+        If False, any null in the input forces the output to null.
+    min_count : int, default 1
+        Minimum number of non-null values in the input.  If the number
+        of non-null values is below `min_count`, the output is null.
+    """
+
     def __init__(self, *, skip_nulls=True, min_count=1):
         self._set_options(skip_nulls, min_count)
 
@@ -1046,6 +1273,16 @@ cdef class _CountOptions(FunctionOptions):
 
 
 class CountOptions(_CountOptions):
+    """
+    Options for the `count` function.
+
+    Parameters
+    ----------
+    mode : str, default "only_valid"
+        Which values to count in the input.
+        Accepted values are "only_valid", "only_null", "all".
+    """
+
     def __init__(self, mode="only_valid"):
         self._set_options(mode)
 
@@ -1057,7 +1294,7 @@ cdef class _IndexOptions(FunctionOptions):
 
 class IndexOptions(_IndexOptions):
     """
-    Options for the index kernel.
+    Options for the `index` function.
 
     Parameters
     ----------
@@ -1075,6 +1312,21 @@ cdef class _ModeOptions(FunctionOptions):
 
 
 class ModeOptions(_ModeOptions):
+    """
+    Options for the `mode` function.
+
+    Parameters
+    ----------
+    n : int, default 1
+        Number of distinct most-common values to return.
+    skip_nulls : bool, default True
+        Whether to skip (ignore) nulls in the input.
+        If False, any null in the input forces the output to null.
+    min_count : int, default 0
+        Minimum number of non-null values in the input.  If the number
+        of non-null values is below `min_count`, the output is null.
+    """
+
     def __init__(self, n=1, *, skip_nulls=True, min_count=0):
         self._set_options(n, skip_nulls, min_count)
 
@@ -1083,13 +1335,13 @@ cdef class _SetLookupOptions(FunctionOptions):
     def _set_options(self, value_set, c_bool skip_nulls):
         cdef unique_ptr[CDatum] valset
         if isinstance(value_set, Array):
-            valset.reset(new CDatum((<Array> value_set).sp_array))
+            valset.reset(new CDatum((< Array > value_set).sp_array))
         elif isinstance(value_set, ChunkedArray):
             valset.reset(
-                new CDatum((<ChunkedArray> value_set).sp_chunked_array)
+                new CDatum((< ChunkedArray > value_set).sp_chunked_array)
             )
         elif isinstance(value_set, Scalar):
-            valset.reset(new CDatum((<Scalar> value_set).unwrap()))
+            valset.reset(new CDatum((< Scalar > value_set).unwrap()))
         else:
             _raise_invalid_function_option(value_set, "value set",
                                            exception_class=TypeError)
@@ -1098,6 +1350,19 @@ cdef class _SetLookupOptions(FunctionOptions):
 
 
 class SetLookupOptions(_SetLookupOptions):
+    """
+    Options for the `is_in` and `index_in` functions.
+
+    Parameters
+    ----------
+    value_set : Array
+        Set of values to look for in the input.
+    skip_nulls : bool, default False
+        If False, nulls in the input are matched in the value_set just
+        like regular values.
+        If True, nulls in the input always fail matching.
+    """
+
     def __init__(self, value_set, *, skip_nulls=False):
         self._set_options(value_set, skip_nulls)
 
@@ -1120,6 +1385,18 @@ cdef class _StrptimeOptions(FunctionOptions):
 
 
 class StrptimeOptions(_StrptimeOptions):
+    """
+    Options for the `strptime` function.
+
+    Parameters
+    ----------
+    format : str
+        Pattern for parsing input strings as timestamps, such as "%Y/%m/%d".
+    unit : str
+        Timestamp unit of the output.
+        Accepted values are "s", "ms", "us", "ns".
+    """
+
     def __init__(self, format, unit):
         self._set_options(format, unit)
 
@@ -1132,6 +1409,17 @@ cdef class _StrftimeOptions(FunctionOptions):
 
 
 class StrftimeOptions(_StrftimeOptions):
+    """
+    Options for the `strftime` function.
+
+    Parameters
+    ----------
+    format : str, default "%Y-%m-%dT%H:%M:%S"
+        Pattern for formatting input values.
+    locale : str, default "C"
+        Locale to use for locale-specific format specifiers.
+    """
+
     def __init__(self, format="%Y-%m-%dT%H:%M:%S", locale="C"):
         self._set_options(format, locale)
 
@@ -1144,6 +1432,18 @@ cdef class _DayOfWeekOptions(FunctionOptions):
 
 
 class DayOfWeekOptions(_DayOfWeekOptions):
+    """
+    Options for the `day_of_week` function.
+
+    Parameters
+    ----------
+    count_from_zero : bool, default True
+        If True, number days from 0, otherwise from 1.
+    week_start : int, default 1
+        Which day does the week start with (Monday=1, Sunday=7).
+        How this value is numbered is unaffected by `count_from_zero`.
+    """
+
     def __init__(self, *, count_from_zero=True, week_start=1):
         self._set_options(count_from_zero, week_start)
 
@@ -1158,6 +1458,24 @@ cdef class _WeekOptions(FunctionOptions):
 
 
 class WeekOptions(_WeekOptions):
+    """
+    Options for the `week` function.
+
+    Parameters
+    ----------
+    week_starts_monday : bool, default True
+        If True, weeks start on Monday; if False, on Sunday.
+    count_from_zero : bool, default False
+        If True, dates at the start of a year that fall into the last week
+        of the previous year emit 0.
+        If False, they emit 52 or 53 (the week number of the last week
+        of the previous year).
+    first_week_is_fully_in_year : bool, default False
+        If True, week number 0 is fully in January.
+        If False, a week that begins on December 29, 30 or 31 is considered
+        to be week number 0 of the following year.
+    """
+
     def __init__(self, *, week_starts_monday=True, count_from_zero=False,
                  first_week_is_fully_in_year=False):
         self._set_options(week_starts_monday,
@@ -1191,6 +1509,21 @@ cdef class _AssumeTimezoneOptions(FunctionOptions):
 
 
 class AssumeTimezoneOptions(_AssumeTimezoneOptions):
+    """
+    Options for the `assume_timezone` function.
+
+    Parameters
+    ----------
+    timezone : str
+        Timezone to assume for the input.
+    ambiguous : str, default "raise"
+        How to handle timestamps that are ambiguous in the assumed timezone.
+        Accepted values are "raise", "earliest", "latest".
+    nonexistent : str, default "raise"
+        How to handle timestamps that don't exist in the assumed timezone.
+        Accepted values are "raise", "earliest", "latest".
+    """
+
     def __init__(self, timezone, *, ambiguous="raise", nonexistent="raise"):
         self._set_options(timezone, ambiguous, nonexistent)
 
@@ -1201,6 +1534,15 @@ cdef class _NullOptions(FunctionOptions):
 
 
 class NullOptions(_NullOptions):
+    """
+    Options for the `is_null` function.
+
+    Parameters
+    ----------
+    nan_is_null : bool, default False
+        Whether floating-point NaN values are considered null.
+    """
+
     def __init__(self, *, nan_is_null=False):
         self._set_options(nan_is_null)
 
@@ -1211,6 +1553,15 @@ cdef class _VarianceOptions(FunctionOptions):
 
 
 class VarianceOptions(_VarianceOptions):
+    """
+    Options for the `variance` and `stddev` functions.
+
+    Parameters
+    ----------
+    ddof : int, default 0
+        Number of degrees of freedom.
+    """
+
     def __init__(self, *, ddof=0, skip_nulls=True, min_count=0):
         self._set_options(ddof, skip_nulls, min_count)
 
@@ -1221,7 +1572,21 @@ cdef class _SplitOptions(FunctionOptions):
 
 
 class SplitOptions(_SplitOptions):
-    def __init__(self, *, max_splits=-1, reverse=False):
+    """
+    Options for splitting on whitespace.
+
+    Parameters
+    ----------
+    max_splits : int or None, default None
+        Maximum number of splits for each input value (unlimited if None).
+    reverse : bool, default False
+        Whether to start splitting from the end of each input value.
+        This only has an effect if `max_splits` is not None.
+    """
+
+    def __init__(self, *, max_splits=None, reverse=False):
+        if max_splits is None:
+            max_splits = -1
         self._set_options(max_splits, reverse)
 
 
@@ -1233,7 +1598,23 @@ cdef class _SplitPatternOptions(FunctionOptions):
 
 
 class SplitPatternOptions(_SplitPatternOptions):
-    def __init__(self, pattern, *, max_splits=-1, reverse=False):
+    """
+    Options for splitting on a string pattern.
+
+    Parameters
+    ----------
+    pattern : str
+        String pattern to split on.
+    max_splits : int or None, default None
+        Maximum number of splits for each input value (unlimited if None).
+    reverse : bool, default False
+        Whether to start splitting from the end of each input value.
+        This only has an effect if `max_splits` is not None.
+    """
+
+    def __init__(self, pattern, *, max_splits=None, reverse=False):
+        if max_splits is None:
+            max_splits = -1
         self._set_options(pattern, max_splits, reverse)
 
 
@@ -1260,6 +1641,18 @@ cdef class _PartitionNthOptions(FunctionOptions):
 
 
 class PartitionNthOptions(_PartitionNthOptions):
+    """
+    Options for the `partition_nth_indices` function.
+
+    Parameters
+    ----------
+    pivot : int
+        Index into the equivalent sorted array of the pivot element.
+    null_placement : str, default "at_end"
+        Where nulls in the input should be partitioned.
+        Accepted values are "at_start", "at_end".
+    """
+
     def __init__(self, pivot, *, null_placement="at_end"):
         self._set_options(pivot, null_placement)
 
@@ -1271,6 +1664,19 @@ cdef class _ArraySortOptions(FunctionOptions):
 
 
 class ArraySortOptions(_ArraySortOptions):
+    """
+    Options for the `array_sort_indices` function.
+
+    Parameters
+    ----------
+    order : str, default "ascending"
+        Which order to sort values in.
+        Accepted values are "ascending", "descending".
+    null_placement : str, default "at_end"
+        Where nulls in the input should be sorted.
+        Accepted values are "at_start", "at_end".
+    """
+
     def __init__(self, order="ascending", *, null_placement="at_end"):
         self._set_options(order, null_placement)
 
@@ -1287,6 +1693,21 @@ cdef class _SortOptions(FunctionOptions):
 
 
 class SortOptions(_SortOptions):
+    """
+    Options for the `sort_indices` function.
+
+    Parameters
+    ----------
+    sort_keys : sequence of (name, order) tuples
+        Names of field/column keys to sort the input on,
+        along with the order each field/column is sorted in.
+        Accepted values for `order` are "ascending", "descending".
+    null_placement : str, default "at_end"
+        Where nulls in input should be sorted, only applying to
+        columns/fields mentioned in `sort_keys`.
+        Accepted values are "at_start", "at_end".
+    """
+
     def __init__(self, sort_keys=(), *, null_placement="at_end"):
         self._set_options(sort_keys, null_placement)
 
@@ -1302,6 +1723,21 @@ cdef class _SelectKOptions(FunctionOptions):
 
 
 class SelectKOptions(_SelectKOptions):
+    """
+    Options for top/bottom k-selection.
+
+    Parameters
+    ----------
+    k : int
+        Number of leading values to select in sorted order
+        (i.e. the largest values if sort order is "descending",
+         the smallest otherwise).
+    sort_keys : sequence of (name, order) tuples
+        Names of field/column keys to sort the input on,
+        along with the order each field/column is sorted in.
+        Accepted values for `order` are "ascending", "descending".
+    """
+
     def __init__(self, k, sort_keys):
         self._set_options(k, sort_keys)
 
@@ -1326,6 +1762,23 @@ cdef class _QuantileOptions(FunctionOptions):
 
 
 class QuantileOptions(_QuantileOptions):
+    """
+    Options for the `quantile` function.
+
+    Parameters
+    ----------
+    q : double or sequence of double, default 0.5
+        Quantiles to compute. All values must be in [0, 1].
+    interpolation : str, default "linear"
+        How to break ties between competing data points for a given quantile.
+        Accepted values are:
+        - "linear": compute an interpolation
+        - "lower": always use the smallest of the two data points
+        - "higher": always use the largest of the two data points
+        - "nearest": select the data point that is closest to the quantile
+        - "midpoint": compute the (unweighted) mean of the two data points
+    """
+
     def __init__(self, q=0.5, *, interpolation="linear", skip_nulls=True,
                  min_count=0):
         if not isinstance(q, (list, tuple, np.ndarray)):
@@ -1343,6 +1796,25 @@ cdef class _TDigestOptions(FunctionOptions):
 
 
 class TDigestOptions(_TDigestOptions):
+    """
+    Options for the `tdigest` function.
+
+    Parameters
+    ----------
+    q : double or sequence of double, default 0.5
+        Quantiles to approximate. All values must be in [0, 1].
+    delta : int, default 100
+        Compression parameter for the T-digest algorithm.
+    buffer_size : int, default 500
+        Buffer size for the T-digest algorithm.
+    skip_nulls : bool, default True
+        Whether to skip (ignore) nulls in the input.
+        If False, any null in the input forces the output to null.
+    min_count : int, default 0
+        Minimum number of non-null values in the input.  If the number
+        of non-null values is below `min_count`, the output is null.
+    """
+
     def __init__(self, q=0.5, *, delta=100, buffer_size=500, skip_nulls=True,
                  min_count=0):
         if not isinstance(q, (list, tuple, np.ndarray)):
@@ -1369,6 +1841,16 @@ cdef class _Utf8NormalizeOptions(FunctionOptions):
 
 
 class Utf8NormalizeOptions(_Utf8NormalizeOptions):
+    """
+    Options for the `utf8_normalize` function.
+
+    Parameters
+    ----------
+    form : str
+        Unicode normalization form.
+        Accepted values are "NFC", "NFKC", "NFD", NFKD".
+    """
+
     def __init__(self, form):
         self._set_options(form)
 
@@ -1395,6 +1877,21 @@ cdef class _RandomOptions(FunctionOptions):
 
 
 class RandomOptions(_RandomOptions):
+    """
+    Options for random generation.
+
+    Parameters
+    ----------
+    length : int
+        Number of random values to generate.
+    initializer : int or str
+        How to initialize the underlying random generator.
+        If an integer is given, it is used as a seed.
+        If "system" is given, the random generator is initialized with
+        a system-specific source of (hopefully true) randomness.
+        Other values are invalid.
+    """
+
     def __init__(self, length, *, initializer='system'):
         self._set_options(length, initializer)
 
@@ -1413,7 +1910,7 @@ def _group_by(args, keys, aggregations):
     for aggr_func_name, aggr_opts in aggregations:
         c_aggr.function = tobytes(aggr_func_name)
         if aggr_opts is not None:
-            c_aggr.options = (<FunctionOptions?>aggr_opts).get_options()
+            c_aggr.options = (<FunctionOptions?> aggr_opts).get_options()
         else:
             c_aggr.options = NULL
         c_aggregations.push_back(c_aggr)

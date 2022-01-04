@@ -305,7 +305,7 @@ class ARROW_EXPORT TrimOptions : public FunctionOptions {
   TrimOptions();
   constexpr static char const kTypeName[] = "TrimOptions";
 
-  /// The individual characters that can be trimmed from the string.
+  /// The individual characters to be trimmed from the string.
   std::string characters;
 };
 
