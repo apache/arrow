@@ -208,10 +208,8 @@ arrow::Status ScanSinkExample(cp::ExecContext &exec_context) {
 
     arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
 
-    cp::ExecNode* sink;
-
     ARROW_ASSIGN_OR_RAISE(
-        sink, cp::MakeExecNode("sink", plan.get(), {scan},
+        std::ignore, cp::MakeExecNode("sink", plan.get(), {scan},
         cp::SinkNodeOptions{&sink_gen}));
 
     // // translate sink_gen (async) to sink_reader (sync)
@@ -219,7 +217,7 @@ arrow::Status ScanSinkExample(cp::ExecContext &exec_context) {
         dataset->schema(), std::move(sink_gen), exec_context.memory_pool());
 
     // validate the ExecPlan
-    ABORT_ON_FAILURE(plan->Validate());
+    ARROW_RETURN_NOT_OK(plan->Validate());
     std::cout << "ExecPlan created : " << plan->ToString() << std::endl;
     // // start the ExecPlan
     ARROW_RETURN_NOT_OK(plan->StartProducing());
@@ -390,9 +388,7 @@ arrow::Status SourceSinkExample(cp::ExecContext &exec_context) {
   ARROW_ASSIGN_OR_RAISE(cp::ExecNode * source,
                         cp::MakeExecNode("source", plan.get(), {}, source_node_options));
 
-  cp::ExecNode* sink;
-
-  ARROW_ASSIGN_OR_RAISE(sink, cp::MakeExecNode("sink", plan.get(), {source},
+  ARROW_ASSIGN_OR_RAISE(std::ignore, cp::MakeExecNode("sink", plan.get(), {source},
                                                cp::SinkNodeOptions{&sink_gen}));
 
   // // // translate sink_gen (async) to sink_reader (sync)
@@ -467,10 +463,8 @@ arrow::Status ScanFilterSinkExample(cp::ExecContext &exec_context) {
   // // finally, pipe the project node into a sink node
   arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
   ARROW_ASSIGN_OR_RAISE(
-      cp::ExecNode * sink,
+      std::ignore,
       cp::MakeExecNode("sink", plan.get(), {filter}, cp::SinkNodeOptions{&sink_gen}));
-
-  ABORT_ON_FAILURE(sink->Validate());
   // // translate sink_gen (async) to sink_reader (sync)
   std::shared_ptr<arrow::RecordBatchReader> sink_reader = cp::MakeGeneratorReader(
       dataset->schema(), std::move(sink_gen), exec_context.memory_pool());
@@ -534,11 +528,9 @@ arrow::Status ScanProjectSinkExample(cp::ExecContext &exec_context) {
                                                     cp::ProjectNodeOptions{{a_times_2}}));
 
     arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
-    ARROW_ASSIGN_OR_RAISE(cp::ExecNode * sink,
+    ARROW_ASSIGN_OR_RAISE(std::ignore,
                           cp::MakeExecNode("sink", plan.get(), {project},
                                            cp::SinkNodeOptions{&sink_gen}));
-
-    ABORT_ON_FAILURE(sink->Validate());
 
     // // translate sink_gen (async) to sink_reader (sync)
     std::shared_ptr<arrow::RecordBatchReader> sink_reader = cp::MakeGeneratorReader(
@@ -604,9 +596,7 @@ arrow::Status SourceAggregateSinkExample(cp::ExecContext &exec_context) {
                           cp::MakeExecNode("aggregate", plan.get(), {source},
                           aggregate_options));
 
-    cp::ExecNode *sink;
-
-    ARROW_ASSIGN_OR_RAISE(sink, cp::MakeExecNode("sink", plan.get(), {aggregate},
+    ARROW_ASSIGN_OR_RAISE(std::ignore, cp::MakeExecNode("sink", plan.get(), {aggregate},
                                                  cp::SinkNodeOptions{&sink_gen}));
 
     // // // translate sink_gen (async) to sink_reader (sync)

@@ -187,6 +187,8 @@ If you are unsure whether a function supports a concrete input type, we
 recommend you try it out.  Unsupported input types return a ``TypeError``
 :class:`Status`.
 
+.. _aggregation-option-list:
+
 Aggregations
 ------------
 
