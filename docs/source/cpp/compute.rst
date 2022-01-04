@@ -1564,6 +1564,17 @@ These functions select and return a subset of their input.
 * \(4) For each element *i* in input 2 (the indices), the *i*'th element
   in input 1 (the values) is appended to the output.
 
+Containment tests
+~~~~~~~~~~~~~~~~~
+
+This function returns the indices at which array elements are non-null and non-zero.
+
++-----------------------+-------+-----------------------------------+----------------+---------------------------------+-------+
+| Function name         | Arity | Input types                       | Output type    | Options class                   | Notes |
++=======================+=======+===================================+================+=================================+=======+
+| indices_nonzero       | Unary | Boolean, Null, Numeric            | UInt64         |                                 |       |
++-----------------------+-------+-----------------------------------+----------------+---------------------------------+-------+
+
 Sorts and partitions
 ~~~~~~~~~~~~~~~~~~~~
 
