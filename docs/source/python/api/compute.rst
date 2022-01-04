@@ -376,6 +376,9 @@ Conversions
    :toctree: ../generated/
 
    cast
+   ceil_temporal
+   floor_temporal
+   round_temporal
    strftime
    strptime
 
@@ -507,6 +510,7 @@ Compute Options
    ReplaceSliceOptions
    ReplaceSubstringOptions
    RoundOptions
+   RoundTemporalOptions
    RoundToMultipleOptions
    ScalarAggregateOptions
    ScalarAggregateOptions
