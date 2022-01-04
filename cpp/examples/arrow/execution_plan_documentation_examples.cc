@@ -516,8 +516,7 @@ arrow::Status ScanProjectSinkExample(cp::ExecContext &exec_context) {
     // projection
     cp::Expression a_times_2 = cp::call("multiply", {cp::field_ref("a"),
     cp::literal(2)});
-    options->projection =
-        cp::call("make_struct", {a_times_2}, cp::MakeStructOptions{{"a * 2"}});
+    options->projection = Materialize({});
 
     cp::ExecNode *scan;
 
