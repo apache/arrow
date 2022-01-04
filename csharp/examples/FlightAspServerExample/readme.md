@@ -29,6 +29,8 @@ First, create a new gRPC service (Flight is based on gRPC):
 dotnet new grpc
 ```
 
+Delete the example greeter service.
+
 Then, implement a concrete subclass of [`FlightServer`](../../src/Apache.Arrow.Flight/Server/FlightServer.cs). 
 See [./Services/InMemoryFlightServer.cs](./Services/InMemoryFlightServer.cs).
 
