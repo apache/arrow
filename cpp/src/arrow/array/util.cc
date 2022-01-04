@@ -511,9 +511,7 @@ class NullArrayFactory {
   }
 
   Status Visit(const ExtensionType& type) {
-    std::vector<std::shared_ptr<ArrayData>> child_data(type.storage_type()->num_fields());
-    out_ =
-        ArrayData::Make(type.storage_type(), length_, {buffer_}, child_data, length_, 0);
+    out_->child_data.resize(type.storage_type()->num_fields());
     RETURN_NOT_OK(VisitTypeInline(*type.storage_type(), this));
     return Status::OK();
   }
