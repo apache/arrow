@@ -32,6 +32,7 @@ cdef class ConvertOptions(_Weakrefable):
 cdef class ParseOptions(_Weakrefable):
     cdef:
         unique_ptr[CCSVParseOptions] options
+        object _invalid_row_handler
 
     @staticmethod
     cdef ParseOptions wrap(CCSVParseOptions options)

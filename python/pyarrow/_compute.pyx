@@ -1331,6 +1331,32 @@ class Utf8NormalizeOptions(_Utf8NormalizeOptions):
         self._set_options(form)
 
 
+cdef class _RandomOptions(FunctionOptions):
+    def _set_options(self, length, initializer):
+        if initializer == 'system':
+            self.wrapped.reset(new CRandomOptions(
+                CRandomOptions.FromSystemRandom(length)))
+            return
+
+        if not isinstance(initializer, int):
+            try:
+                initializer = hash(initializer)
+            except TypeError:
+                raise TypeError(
+                    f"initializer should be 'system', an integer, "
+                    f"or a hashable object; got {initializer!r}")
+
+        if initializer < 0:
+            initializer += 2**64
+        self.wrapped.reset(new CRandomOptions(
+            CRandomOptions.FromSeed(length, initializer)))
+
+
+class RandomOptions(_RandomOptions):
+    def __init__(self, length, *, initializer='system'):
+        self._set_options(length, initializer)
+
+
 def _group_by(args, keys, aggregations):
     cdef:
         vector[CDatum] c_args

@@ -27,11 +27,6 @@ option('arrow_cpp_build_type',
        value: 'release',
        description: '-DCMAKE_BUILD_TYPE option value for Arrow C++')
 
-option('development_mode',
-       type: 'boolean',
-       value: false,
-       description: 'Build in development mode')
-
 option('gtk_doc',
        type: 'boolean',
        value: false,

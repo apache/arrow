@@ -33,7 +33,6 @@
 #include "arrow/buffer.h"
 #include "arrow/chunked_array.h"
 #include "arrow/status.h"
-#include "arrow/testing/gtest_common.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"

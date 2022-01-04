@@ -27,9 +27,7 @@
 #include <utility>
 #include <vector>
 
-#include "arrow/array/array_base.h"
-#include "arrow/array/array_dict.h"
-#include "arrow/array/array_primitive.h"
+#include "arrow/array.h"
 #include "arrow/array/builder_base.h"
 #include "arrow/array/concatenate.h"
 #include "arrow/buffer.h"
@@ -45,7 +43,7 @@
 #include "arrow/util/decimal.h"
 #include "arrow/util/endian.h"
 #include "arrow/util/logging.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visit_type_inline.h"
 
 namespace arrow {
 

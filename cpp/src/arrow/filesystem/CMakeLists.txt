@@ -33,7 +33,12 @@ if(ARROW_GCS)
 endif()
 
 if(ARROW_S3)
-  add_arrow_test(s3fs_test EXTRA_LABELS filesystem)
+  add_arrow_test(s3fs_test
+                 SOURCES
+                 s3fs_test.cc
+                 s3_test_util.cc
+                 EXTRA_LABELS
+                 filesystem)
   if(TARGET arrow-s3fs-test)
     set(ARROW_S3FS_TEST_COMPILE_DEFINITIONS ${ARROW_BOOST_PROCESS_COMPILE_DEFINITIONS})
     get_target_property(AWS_CPP_SDK_S3_TYPE aws-cpp-sdk-s3 TYPE)
@@ -63,7 +68,12 @@ if(ARROW_S3)
   endif()
 
   if(ARROW_BUILD_BENCHMARKS AND ARROW_PARQUET)
-    add_arrow_benchmark(s3fs_benchmark PREFIX "arrow-filesystem")
+    add_arrow_benchmark(s3fs_benchmark
+                        PREFIX
+                        "arrow-filesystem"
+                        SOURCES
+                        s3fs_benchmark.cc
+                        s3_test_util.cc)
     target_compile_definitions(arrow-filesystem-s3fs-benchmark
                                PRIVATE ${ARROW_BOOST_PROCESS_COMPILE_DEFINITIONS})
     if(ARROW_TEST_LINKAGE STREQUAL "static")

@@ -70,7 +70,8 @@ enum BodyCompressionMethod:byte {
 /// bodies. Intended for use with RecordBatch but could be used for other
 /// message types
 table BodyCompression {
-  /// Compressor library
+  /// Compressor library.
+  /// For LZ4_FRAME, each compressed buffer must consist of a single frame.
   codec: CompressionType = LZ4_FRAME;
 
   /// Indicates the way the record batch body was compressed

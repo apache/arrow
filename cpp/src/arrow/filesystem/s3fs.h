@@ -311,7 +311,7 @@ ARROW_EXPORT
 Status FinalizeS3();
 
 ARROW_EXPORT
-Result<std::string> ResolveBucketRegion(const std::string& bucket);
+Result<std::string> ResolveS3BucketRegion(const std::string& bucket);
 
 }  // namespace fs
 }  // namespace arrow

@@ -84,6 +84,14 @@
   </issueManagement>
 
   <build>
+    <extensions>
+      <!-- provides os.detected.classifier (i.e. linux-x86_64, osx-x86_64) property -->
+      <extension>
+        <groupId>kr.motd.maven</groupId>
+        <artifactId>os-maven-plugin</artifactId>
+        <version>1.5.0.Final</version>
+      </extension>
+    </extensions>
 
     <plugins>
       <plugin>
@@ -565,6 +573,11 @@
         <version>2.8.2</version>
         <scope>provided</scope>
       </dependency>
+      <dependency>
+        <groupId>org.hamcrest</groupId>
+        <artifactId>hamcrest</artifactId>
+        <version>2.2</version>
+      </dependency>
     </dependencies>
   </dependencyManagement>
 
@@ -676,8 +689,7 @@
     <module>tools</module>
     <module>adapter/jdbc</module>
     <module>plasma</module>
-    <module>flight/flight-core</module>
-    <module>flight/flight-grpc</module>
+    <module>flight</module>
     <module>performance</module>
     <module>algorithm</module>
     <module>adapter/avro</module>

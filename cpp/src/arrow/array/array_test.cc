@@ -46,8 +46,8 @@
 #include "arrow/result.h"
 #include "arrow/scalar.h"
 #include "arrow/status.h"
+#include "arrow/testing/builder.h"
 #include "arrow/testing/extension_type.h"
-#include "arrow/testing/gtest_common.h"
 #include "arrow/testing/gtest_compat.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
@@ -60,7 +60,7 @@
 #include "arrow/util/decimal.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/range.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visit_data_inline.h"
 
 // This file is compiled together with array-*-test.cc into a single
 // executable array-test.
@@ -839,6 +839,12 @@ TEST(TestPrimitiveArray, CtorNoValidityBitmap) {
   Int32Array arr(10, data);
   ASSERT_EQ(arr.data()->null_count, 0);
 }
+
+class TestBuilder : public ::testing::Test {
+ protected:
+  MemoryPool* pool_ = default_memory_pool();
+  std::shared_ptr<DataType> type_;
+};
 
 TEST_F(TestBuilder, TestReserve) {
   UInt8Builder builder(pool_);

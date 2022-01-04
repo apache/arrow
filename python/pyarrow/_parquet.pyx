@@ -880,6 +880,25 @@ cdef encoding_name_from_enum(ParquetEncoding encoding_):
     }.get(encoding_, 'UNKNOWN')
 
 
+cdef encoding_enum_from_name(str encoding_name):
+    enc = {
+        'PLAIN': ParquetEncoding_PLAIN,
+        'BIT_PACKED': ParquetEncoding_BIT_PACKED,
+        'RLE': ParquetEncoding_RLE,
+        'BYTE_STREAM_SPLIT': ParquetEncoding_BYTE_STREAM_SPLIT,
+        'DELTA_BINARY_PACKED': ParquetEncoding_DELTA_BINARY_PACKED,
+        'DELTA_BYTE_ARRAY': ParquetEncoding_DELTA_BYTE_ARRAY,
+        'RLE_DICTIONARY': 'dict',
+        'PLAIN_DICTIONARY': 'dict',
+    }.get(encoding_name, None)
+    if enc is None:
+        raise ValueError(f"Unsupported column encoding: {encoding_name!r}")
+    elif enc == 'dict':
+        raise ValueError(f"{encoding_name!r} is already used by default.")
+    else:
+        return enc
+
+
 cdef compression_name_from_enum(ParquetCompression compression_):
     return {
         ParquetCompression_UNCOMPRESSED: 'UNCOMPRESSED',
@@ -1196,6 +1215,7 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
         data_page_size=None,
         compression_level=None,
         use_byte_stream_split=False,
+        column_encoding=None,
         data_page_version=None) except *:
     """General writer properties"""
     cdef:
@@ -1253,6 +1273,9 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
     if isinstance(use_dictionary, bool):
         if use_dictionary:
             props.enable_dictionary()
+            if column_encoding is not None:
+                raise ValueError(
+                    "To use 'column_encoding' set 'use_dictionary' to False")
         else:
             props.disable_dictionary()
     elif use_dictionary is not None:
@@ -1260,6 +1283,10 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
         props.disable_dictionary()
         for column in use_dictionary:
             props.enable_dictionary(tobytes(column))
+            if (column_encoding is not None and
+                    column_encoding.get(column) is not None):
+                raise ValueError(
+                    "To use 'column_encoding' set 'use_dictionary' to False")
 
     # write_statistics
 
@@ -1278,11 +1305,36 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
 
     if isinstance(use_byte_stream_split, bool):
         if use_byte_stream_split:
-            props.encoding(ParquetEncoding_BYTE_STREAM_SPLIT)
+            if column_encoding is not None:
+                raise ValueError(
+                    "'use_byte_stream_split' can not be passed"
+                    "together with 'column_encoding'")
+            else:
+                props.encoding(ParquetEncoding_BYTE_STREAM_SPLIT)
     elif use_byte_stream_split is not None:
         for column in use_byte_stream_split:
-            props.encoding(tobytes(column),
-                           ParquetEncoding_BYTE_STREAM_SPLIT)
+            if column_encoding is None:
+                column_encoding = {column: 'BYTE_STREAM_SPLIT'}
+            elif column_encoding.get(column, None) is None:
+                column_encoding[column] = 'BYTE_STREAM_SPLIT'
+            else:
+                raise ValueError(
+                    "'use_byte_stream_split' can not be passed"
+                    "together with 'column_encoding'")
+
+    # column_encoding
+    # encoding map - encode individual columns
+
+    if column_encoding is not None:
+        if isinstance(column_encoding, dict):
+            for column, _encoding in column_encoding.items():
+                props.encoding(tobytes(column),
+                               encoding_enum_from_name(_encoding))
+        elif isinstance(column_encoding, str):
+            props.encoding(encoding_enum_from_name(column_encoding))
+        else:
+            raise TypeError(
+                "'column_encoding' should be a dictionary or a string")
 
     if data_page_size is not None:
         props.data_pagesize(data_page_size)
@@ -1362,6 +1414,7 @@ cdef class ParquetWriter(_Weakrefable):
         object use_dictionary
         object use_deprecated_int96_timestamps
         object use_byte_stream_split
+        object column_encoding
         object coerce_timestamps
         object allow_truncated_timestamps
         object compression
@@ -1384,6 +1437,7 @@ cdef class ParquetWriter(_Weakrefable):
                   allow_truncated_timestamps=False,
                   compression_level=None,
                   use_byte_stream_split=False,
+                  column_encoding=None,
                   writer_engine_version=None,
                   data_page_version=None,
                   use_compliant_nested_type=False):
@@ -1412,6 +1466,7 @@ cdef class ParquetWriter(_Weakrefable):
             data_page_size=data_page_size,
             compression_level=compression_level,
             use_byte_stream_split=use_byte_stream_split,
+            column_encoding=column_encoding,
             data_page_version=data_page_version
         )
         arrow_properties = _create_arrow_writer_properties(

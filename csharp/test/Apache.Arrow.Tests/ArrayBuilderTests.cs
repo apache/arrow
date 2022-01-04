@@ -101,6 +101,24 @@ namespace Apache.Arrow.Tests
                 new List<string> { "444", null, "555", "666" },
                 ConvertStringArrayToList(list.GetSlicedValues(3) as StringArray));
 
+            Assert.Throws<ArgumentOutOfRangeException>(() => list.GetValueLength(-1));
+            Assert.Throws<ArgumentOutOfRangeException>(() => list.GetValueLength(4));
+
+            listBuilder.Resize(2);
+            var truncatedList = listBuilder.Build();
+
+            Assert.Equal(
+                new List<string> { "22", "33", "444", null, "555", "666" },
+                ConvertStringArrayToList(truncatedList.GetSlicedValues(2) as StringArray));
+
+            Assert.Throws<ArgumentOutOfRangeException>(() => truncatedList.GetSlicedValues(-1));
+            Assert.Throws<ArgumentOutOfRangeException>(() => truncatedList.GetSlicedValues(3));
+
+            listBuilder.Clear();
+            var emptyList = listBuilder.Build();
+
+            Assert.Equal(0, emptyList.Length);
+
             List<string> ConvertStringArrayToList(StringArray array)
             {
                 var length = array.Length;

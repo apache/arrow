@@ -56,7 +56,7 @@
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/ubsan.h"
 #include "arrow/util/vector.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visit_type_inline.h"
 
 #include "generated/File_generated.h"  // IWYU pragma: export
 #include "generated/Message_generated.h"

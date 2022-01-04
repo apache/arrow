@@ -41,6 +41,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
+#include <mutex>
 #include <random>
 #include <sstream>
 #include <string>
@@ -1691,6 +1692,9 @@ int64_t GetRandomSeed() {
   // The process-global seed generator to aims to avoid calling std::random_device
   // unless truly necessary (it can block on some systems, see ARROW-10287).
   static auto seed_gen = GetSeedGenerator();
+  static std::mutex seed_gen_mutex;
+
+  std::lock_guard<std::mutex> lock(seed_gen_mutex);
   return static_cast<int64_t>(seed_gen());
 }
 

@@ -22,10 +22,9 @@
 #include <vector>
 
 #include "arrow/util/logging.h"
+
 #include "gandiva/cache.h"
 #include "gandiva/expr_validator.h"
-#include "gandiva/expression_cache_key.h"
-#include "gandiva/gandiva_object_cache.h"
 #include "gandiva/llvm_generator.h"
 
 namespace gandiva {
@@ -62,6 +61,7 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
   ARROW_RETURN_IF(configuration == nullptr,
                   Status::Invalid("Configuration cannot be null"));
 
+  // see if equivalent projector was already built
   std::shared_ptr<Cache<ExpressionCacheKey, std::shared_ptr<llvm::MemoryBuffer>>> cache =
       LLVMGenerator::GetCache();
 

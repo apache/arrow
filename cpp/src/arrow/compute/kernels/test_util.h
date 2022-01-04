@@ -32,6 +32,7 @@
 #include "arrow/datum.h"
 #include "arrow/memory_pool.h"
 #include "arrow/pretty_print.h"
+#include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"

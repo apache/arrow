@@ -1388,7 +1388,7 @@ For timestamps inputs with non-empty timezone, localized timestamp components wi
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
 | second             | Unary      | Timestamp, Time   | Int64         |                            |       |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
-| subsecond          | Unary      | Timestamp, Time   | Double        |                            |       |
+| subsecond          | Unary      | Timestamp, Time   | Float64       |                            |       |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
 | us_week            | Unary      | Temporal          | Int64         |                            | \(4)  |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
@@ -1488,6 +1488,21 @@ An error is returned if the timestamps already have the timezone metadata set.
 * \(1) In addition to the timezone value, :struct:`AssumeTimezoneOptions`
   allows choosing the behaviour when a timestamp is ambiguous or nonexistent
   in the given timezone (because of DST shifts).
+
+Random number generation
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+This function generates an array of uniformly-distributed double-precision numbers
+in range [0, 1). The options provide the length of the output and the algorithm for
+generating the random numbers, using either a seed or a system-provided, platform-specific
+random generator.
+
++--------------------+------------+---------------+-------------------------+
+| Function name      | Arity      | Output type   | Options class           |
++====================+============+===============+=========================+
+| random             | Nullary    | Float64       | :struct:`RandomOptions` |
++--------------------+------------+---------------+-------------------------+
+
 
 Array-wise ("vector") functions
 -------------------------------
