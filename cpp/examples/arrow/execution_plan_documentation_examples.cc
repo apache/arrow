@@ -235,8 +235,9 @@ arrow::Status ScanSinkExample(cp::ExecContext &exec_context) {
     // // stop producing
     plan->StopProducing();
     // // plan mark finished
-    plan->finished().Wait();
-
+    auto futures =  plan->finished();
+    ARROW_RETURN_NOT_OK(futures.status());
+    futures.Wait();
     return arrow::Status::OK();
 }
 
@@ -415,7 +416,9 @@ arrow::Status SourceSinkExample(cp::ExecContext &exec_context) {
   // // plan stop producing
   plan->StopProducing();
   // // plan mark finished
-  plan->finished().Wait();
+  auto futures =  plan->finished();
+  ARROW_RETURN_NOT_OK(futures.status());
+  futures.Wait();
 
   return arrow::Status::OK();
 }
@@ -487,7 +490,9 @@ arrow::Status ScanFilterSinkExample(cp::ExecContext &exec_context) {
   // // plan stop producing
   plan->StopProducing();
   // /// plan marked finished
-  plan->finished().Wait();
+  auto futures =  plan->finished();
+  ARROW_RETURN_NOT_OK(futures.status());
+  futures.Wait();
 
   return arrow::Status::OK();
 }
@@ -558,7 +563,9 @@ arrow::Status ScanProjectSinkExample(cp::ExecContext &exec_context) {
     // // plan stop producing
     plan->StopProducing();
     // // plan marked finished
-    plan->finished().Wait();
+    auto futures =  plan->finished();
+    ARROW_RETURN_NOT_OK(futures.status());
+    futures.Wait();
 
     return arrow::Status::OK();
 }
@@ -628,7 +635,9 @@ arrow::Status SourceAggregateSinkExample(cp::ExecContext &exec_context) {
     //plan stop producing
     plan->StopProducing();
     // plan mark finished
-    plan->finished().Wait();
+    auto futures =  plan->finished();
+    ARROW_RETURN_NOT_OK(futures.status());
+    futures.Wait();
 
     return arrow::Status::OK();
 }
@@ -833,7 +842,9 @@ arrow::Status SourceHashJoinSinkExample(cp::ExecContext &exec_context) {
     // // plan stop producing
     plan->StopProducing();
     // // plan mark finished
-    plan->finished().Wait();
+    auto futures =  plan->finished();
+    ARROW_RETURN_NOT_OK(futures.status());
+    futures.Wait();
 
     return arrow::Status::OK();
 }
@@ -893,7 +904,9 @@ arrow::Status SourceKSelectExample(cp::ExecContext &exec_context) {
     // // plan stop proudcing
     plan->StopProducing();
     // // plan mark finished
-    plan->finished().Wait();
+    auto futures =  plan->finished();
+    ARROW_RETURN_NOT_OK(futures.status());
+    futures.Wait();
 
     return arrow::Status::OK();
 }
@@ -939,8 +952,9 @@ const std::string &file_path) {
     arrow::fs::FileSystemFromUri(uri, &root_path).ValueOrDie();
 
     auto base_path = root_path + "/parquet_dataset";
-    ABORT_ON_FAILURE(filesystem->DeleteDir(base_path));
-    ABORT_ON_FAILURE(filesystem->CreateDir(base_path));
+    // Uncomment the following line, if run repeatedly
+    //ARROW_RETURN_NOT_OK(filesystem->DeleteDirContents(base_path));
+    ARROW_RETURN_NOT_OK(filesystem->CreateDir(base_path));
 
     // The partition schema determines which fields are part of the partitioning.
     auto partition_schema = arrow::schema({arrow::field("a", arrow::int32())});
@@ -972,7 +986,9 @@ const std::string &file_path) {
     std::cout << "Execution Plan Created : " << plan->ToString() << std::endl;
     // // // start the ExecPlan
     ARROW_RETURN_NOT_OK(plan->StartProducing());
-    plan->finished().Wait();
+    auto futures =  plan->finished();
+    ARROW_RETURN_NOT_OK(futures.status());
+    futures.Wait();
     return arrow::Status::OK();
 }
 
@@ -1036,6 +1052,9 @@ arrow::Status SourceUnionSinkExample(cp::ExecContext &exec_context) {
     arrow::Table::FromRecordBatchReader(sink_reader.get()));
 
     std::cout << "Results : " << response_table->ToString() << std::endl;
+    auto futures =  plan->finished();
+    ARROW_RETURN_NOT_OK(futures.status());
+    futures.Wait();
     return arrow::Status::OK();
 }
 
