@@ -21,7 +21,6 @@ using Apache.Arrow;
 using System.Linq;
 using System;
 using System.Threading;
-using System.Threading.Tasks;
 using System.Runtime.CompilerServices;
 using System.Collections.Generic;
 
@@ -33,9 +32,6 @@ namespace FlightClientExample
         {
             string host = args.Length > 0 ? args[0] : "localhost";
             string port = args.Length > 1 ? args[1] : "433";
-
-            CancellationTokenSource source = new CancellationTokenSource();
-            CancellationToken token = source.Token;
 
             // Create client
             // (In production systems, you should use https not http)
@@ -60,7 +56,7 @@ namespace FlightClientExample
             // Signal we are done sending record batches
             await batchStreamingCall.RequestStream.CompleteAsync();
             // Retrieve final response
-            await batchStreamingCall.ResponseStream.MoveNext(token);
+            await batchStreamingCall.ResponseStream.MoveNext(default);
             Console.WriteLine(batchStreamingCall.ResponseStream.Current.ApplicationMetadata.ToStringUtf8());
             Console.WriteLine($"Wrote {recordBatches.Length} batches to server.");
 
@@ -74,13 +70,13 @@ namespace FlightClientExample
             Console.WriteLine($"Available flights:");
             var flights_call = client.ListFlights();
 
-            while (await flights_call.ResponseStream.MoveNext(token))
+            while (await flights_call.ResponseStream.MoveNext(default))
             {   
                 Console.WriteLine("  " + flights_call.ResponseStream.Current.ToString());
             }
 
             // Download data
-            await foreach (var batch in StreamRecordBatches(info, token))
+            await foreach (var batch in StreamRecordBatches(info, default))
             {
                 Console.WriteLine($"Read batch from flight server: \n {batch}")  ;
             }
@@ -88,7 +84,7 @@ namespace FlightClientExample
             // See available comands on this server
             var action_stream = client.ListActions();
             Console.WriteLine("Actions:");
-            while (await action_stream.ResponseStream.MoveNext(token))
+            while (await action_stream.ResponseStream.MoveNext(default))
             {
                 var action = action_stream.ResponseStream.Current;
                 Console.WriteLine($"  {action.Type}: {action.Description}");
@@ -96,7 +92,7 @@ namespace FlightClientExample
 
             // Send clear command to drop all data from the server.
             var clear_result = client.DoAction(new FlightAction("clear"));
-            await clear_result.ResponseStream.MoveNext(token);
+            await clear_result.ResponseStream.MoveNext(default);
         }
 
         public static async IAsyncEnumerable<RecordBatch> StreamRecordBatches(
