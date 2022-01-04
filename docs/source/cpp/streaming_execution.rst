@@ -410,7 +410,7 @@ Using this option, the filter node can be constructed as follows::
     ARROW_ASSIGN_OR_RAISE(filter, arrow::compute::MakeExecNode("filter", 
                           // plan
                           plan.get(),
-                          // previous input
+                          // previous node
                           {scan}, 
                           //filter node options
                           arrow::compute::FilterNodeOptions{filter_opt}));
@@ -421,10 +421,9 @@ Using this option, the filter node can be constructed as follows::
 ``project`` operation rearranges, deletes, transforms, and creates columns.
 Each output column is computed by evaluating an expression
 against the source record batch. This is exposed via 
-:class:`arrow::compute::ProjectNodeOptions` component which requires, 
-a :class:`arrow::compute::Expression`, names for the output columns (names are not
-provided, the string representations of exprs will be used) and a boolean flag to determine 
-synchronous/asynchronous nature (by default asynchronous option is set to `true`). 
+:class:`arrow::compute::ProjectNodeOptions` class which requires, 
+a :class:`arrow::compute::Expression`, names for the output columns (if names are not
+provided, the string representations of exprs will be used). 
 
 Sample Expression for projection::
 
@@ -435,7 +434,7 @@ Sample Expression for projection::
 
 Creating a project node::
 
-  arrow::compute::ExecNode *project;
+  arrow::compute::ExecNode* project;
       ARROW_ASSIGN_OR_RAISE(project, 
           arrow::compute::MakeExecNode("project", 
           // plan
@@ -600,8 +599,9 @@ Example::
 ``scan``
 ---------
 
-There is no definition Scan-Node in the source, but the behavior of is defined using 
+`scan` is an operation used to load and process data, and the behavior of is defined using 
 :class:`arrow::dataset::ScanNodeOptions`. This option contains a set of definitions. 
+The :ref:`dataset<cpp-dataset-reading>` API also use scanner for processing data.
 
 Option definitions for :class:`arrow::dataset::ScanNodeOptions`:: 
 
