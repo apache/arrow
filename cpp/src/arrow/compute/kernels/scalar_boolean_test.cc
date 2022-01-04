@@ -25,7 +25,6 @@
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernels/test_util.h"
-#include "arrow/testing/gtest_common.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/checked_cast.h"
 

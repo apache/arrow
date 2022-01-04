@@ -238,7 +238,7 @@ if [ $? -eq 0 ]; then
   LIB_DIR=`echo $PKG_DIRS | sed -e 's/^-L//'`
   ARROW_OPTS_CMAKE="$LIB_DIR/cmake/arrow/ArrowOptions.cmake"
   # Check for Parquet
-  grep 'set(ARROW_PARQUET "ON")' $ARROW_OPTS_CMAKE >/dev/null 2>&1
+  grep -i 'set(ARROW_PARQUET "ON")' $ARROW_OPTS_CMAKE >/dev/null 2>&1
   if [ $? -eq 0 ]; then
     PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_PARQUET"
     PKG_LIBS="-lparquet $PKG_LIBS"
@@ -246,7 +246,7 @@ if [ $? -eq 0 ]; then
     # so there is no need to add its location to PKG_DIRS
   fi
   # Check for Arrow Dataset subcomponent
-  grep 'set(ARROW_DATASET "ON")' $ARROW_OPTS_CMAKE >/dev/null 2>&1
+  grep -i 'set(ARROW_DATASET "ON")' $ARROW_OPTS_CMAKE >/dev/null 2>&1
   if [ $? -eq 0 ]; then
     PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_DATASET"
     PKG_LIBS="-larrow_dataset $PKG_LIBS"
@@ -254,7 +254,7 @@ if [ $? -eq 0 ]; then
     # so there is no need to add its location to PKG_DIRS
   fi
   # Check for S3
-  grep 'set(ARROW_S3 "ON")' $ARROW_OPTS_CMAKE >/dev/null 2>&1
+  grep -i 'set(ARROW_S3 "ON")' $ARROW_OPTS_CMAKE >/dev/null 2>&1
   if [ $? -eq 0 ]; then
     PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_S3"
     if [ "$BUNDLED_LIBS" != "" ]; then
@@ -263,7 +263,7 @@ if [ $? -eq 0 ]; then
     fi
   fi
   # Check for JSON
-  grep 'set(ARROW_JSON "ON")' $ARROW_OPTS_CMAKE >/dev/null 2>&1
+  grep -i 'set(ARROW_JSON "ON")' $ARROW_OPTS_CMAKE >/dev/null 2>&1
   if [ $? -eq 0 ]; then
     PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_JSON"
   fi

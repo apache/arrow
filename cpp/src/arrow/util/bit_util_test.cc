@@ -37,7 +37,6 @@
 #include "arrow/buffer_builder.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
-#include "arrow/testing/gtest_common.h"
 #include "arrow/testing/gtest_compat.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
@@ -1336,7 +1335,7 @@ struct BitmapAndNotOp : public BitmapOperation {
   }
 };
 
-class BitmapOp : public TestBase {
+class BitmapOp : public ::testing::Test {
  public:
   void TestAligned(const BitmapOperation& op, const std::vector<int>& left_bits,
                    const std::vector<int>& right_bits,

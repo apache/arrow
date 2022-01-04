@@ -28,7 +28,6 @@
 #include "arrow/compute/kernels/test_util.h"
 #include "arrow/compute/kernels/util_internal.h"
 #include "arrow/table.h"
-#include "arrow/testing/gtest_common.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
@@ -84,7 +83,7 @@ void ValidateSelectK(const Datum& datum, Array& select_k_indices, SortOrder orde
 }
 
 template <typename ArrowType>
-class TestSelectKBase : public TestBase {
+class TestSelectKBase : public ::testing::Test {
   using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
 
  protected:

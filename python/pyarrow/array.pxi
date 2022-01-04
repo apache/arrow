@@ -1308,7 +1308,7 @@ cdef class Array(_PandasConvertible):
         _append_array_buffers(self.sp_array.get().data().get(), res)
         return res
 
-    def _export_to_c(self, uintptr_t out_ptr, uintptr_t out_schema_ptr=0):
+    def _export_to_c(self, out_ptr, out_schema_ptr=0):
         """
         Export to a C ArrowArray struct, given its pointer.
 
@@ -1326,13 +1326,17 @@ cdef class Array(_PandasConvertible):
         array memory will leak.  This is a low-level function intended for
         expert users.
         """
+        cdef:
+            void* c_ptr = _as_c_pointer(out_ptr)
+            void* c_schema_ptr = _as_c_pointer(out_schema_ptr,
+                                               allow_null=True)
         with nogil:
             check_status(ExportArray(deref(self.sp_array),
-                                     <ArrowArray*> out_ptr,
-                                     <ArrowSchema*> out_schema_ptr))
+                                     <ArrowArray*> c_ptr,
+                                     <ArrowSchema*> c_schema_ptr))
 
     @staticmethod
-    def _import_from_c(uintptr_t in_ptr, type):
+    def _import_from_c(in_ptr, type):
         """
         Import Array from a C ArrowArray struct, given its pointer
         and the imported array type.
@@ -1348,18 +1352,20 @@ cdef class Array(_PandasConvertible):
         This is a low-level function intended for expert users.
         """
         cdef:
+            void* c_ptr = _as_c_pointer(in_ptr)
+            void* c_type_ptr
             shared_ptr[CArray] c_array
 
         c_type = pyarrow_unwrap_data_type(type)
         if c_type == nullptr:
             # Not a DataType object, perhaps a raw ArrowSchema pointer
-            type_ptr = <uintptr_t> type
+            c_type_ptr = _as_c_pointer(type)
             with nogil:
-                c_array = GetResultValue(ImportArray(<ArrowArray*> in_ptr,
-                                                     <ArrowSchema*> type_ptr))
+                c_array = GetResultValue(ImportArray(
+                    <ArrowArray*> c_ptr, <ArrowSchema*> c_type_ptr))
         else:
             with nogil:
-                c_array = GetResultValue(ImportArray(<ArrowArray*> in_ptr,
+                c_array = GetResultValue(ImportArray(<ArrowArray*> c_ptr,
                                                      c_type))
         return pyarrow_wrap_array(c_array)
 

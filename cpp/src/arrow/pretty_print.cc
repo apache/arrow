@@ -43,7 +43,7 @@
 #include "arrow/util/string.h"
 #include "arrow/util/string_view.h"
 #include "arrow/vendored/datetime.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visit_array_inline.h"
 
 namespace arrow {
 

@@ -560,6 +560,12 @@ use_byte_stream_split : bool or list, default False
     enabled, then dictionary is preferred.
     The byte_stream_split encoding is valid only for floating-point data types
     and should be combined with a compression codec.
+column_encoding : string or dict, default None
+    Specify the encoding scheme on a per column basis.
+    Currently supported values: {'PLAIN', 'BYTE_STREAM_SPLIT'}.
+    Certain encodings are only compatible with certain data types.
+    Please refer to the encodings section of `Reading and writing Parquet
+    files <https://arrow.apache.org/docs/cpp/parquet.html#encodings>`_.
 data_page_version : {"1.0", "2.0"}, default "1.0"
     The serialized Parquet data page format version to write, defaults to
     1.0. This does not impact the file schema logical types and Arrow to
@@ -618,6 +624,7 @@ writer_engine_version : unused
                  use_deprecated_int96_timestamps=None,
                  compression_level=None,
                  use_byte_stream_split=False,
+                 column_encoding=None,
                  writer_engine_version=None,
                  data_page_version='1.0',
                  use_compliant_nested_type=False,
@@ -669,6 +676,7 @@ writer_engine_version : unused
             use_deprecated_int96_timestamps=use_deprecated_int96_timestamps,
             compression_level=compression_level,
             use_byte_stream_split=use_byte_stream_split,
+            column_encoding=column_encoding,
             writer_engine_version=engine_version,
             data_page_version=data_page_version,
             use_compliant_nested_type=use_compliant_nested_type,
@@ -2053,6 +2061,7 @@ def write_table(table, where, row_group_size=None, version='1.0',
                 filesystem=None,
                 compression_level=None,
                 use_byte_stream_split=False,
+                column_encoding=None,
                 data_page_version='1.0',
                 use_compliant_nested_type=False,
                 **kwargs):
@@ -2073,6 +2082,7 @@ def write_table(table, where, row_group_size=None, version='1.0',
                 use_deprecated_int96_timestamps=use_int96,
                 compression_level=compression_level,
                 use_byte_stream_split=use_byte_stream_split,
+                column_encoding=column_encoding,
                 data_page_version=data_page_version,
                 use_compliant_nested_type=use_compliant_nested_type,
                 **kwargs) as writer:

@@ -27,7 +27,7 @@
 #include "arrow/util/int_util.h"
 #include "arrow/util/optional.h"
 #include "arrow/util/utf8.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visit_data_inline.h"
 
 namespace arrow {
 

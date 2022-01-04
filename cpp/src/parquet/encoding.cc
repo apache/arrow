@@ -44,7 +44,7 @@
 #include "arrow/util/rle_encoding.h"
 #include "arrow/util/string_view.h"
 #include "arrow/util/ubsan.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visit_data_inline.h"
 #include "parquet/exception.h"
 #include "parquet/platform.h"
 #include "parquet/schema.h"

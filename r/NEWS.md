@@ -27,6 +27,7 @@
 * Added `decimal128()` (~~identical to `decimal()`~~) as the name is more explicit and updated docs to encourage its use. 
 * Source builds now by default use `pkg-config` to search for system dependencies (such as `libz`) and link to them 
 if present. To retain the previous behaviour of downloading and building all dependencies, set `ARROW_DEPENDENCY_SOURCE=BUNDLED`. 
+* Opening datasets now use async scanner by default which resolves a deadlock issues related to reading in large multi-CSV datasets
 
 # arrow 6.0.1
 

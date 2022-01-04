@@ -31,7 +31,7 @@
 #include "arrow/array/diff.h"
 #include "arrow/compute/api.h"
 #include "arrow/status.h"
-#include "arrow/testing/gtest_common.h"
+#include "arrow/testing/builder.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
