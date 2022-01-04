@@ -85,20 +85,20 @@ class OrcScanTask : public ScanTask {
           included_fields.push_back(name);
         }
 
-        std::shared_ptr<RecordBatchReader> recordBatchReader;
-        reader->NextBatchReader(scan_options.batch_size, included_fields, &recordBatchReader);
+        std::shared_ptr<RecordBatchReader> record_batch_reader;
+        RETURN_NOT_OK(reader->NextBatchReader(scan_options.batch_size, included_fields, &record_batch_reader));
 
         return RecordBatchIterator(
-            Impl{std::move(recordBatchReader)});
+            Impl{std::move(record_batch_reader)});
       }
 
       Result<std::shared_ptr<RecordBatch>> Next() {
         std::shared_ptr<RecordBatch> batch;
-        RETURN_NOT_OK(recordBatchReader_->ReadNext(&batch));
+        RETURN_NOT_OK(record_batch_reader_->ReadNext(&batch));
         return batch;
       }
 
-      std::shared_ptr<RecordBatchReader> recordBatchReader_;
+      std::shared_ptr<RecordBatchReader> record_batch_reader_;
     };
 
     return Impl::Make(source_, *checked_pointer_cast<FileFragment>(fragment_)->format(),
