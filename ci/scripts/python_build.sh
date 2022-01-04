@@ -63,13 +63,15 @@ export PYARROW_PARALLEL=${n_jobs}
 
 export LD_LIBRARY_PATH=${ARROW_HOME}/lib:${LD_LIBRARY_PATH}
 
-# Build and install from source distribution to avoid leaving build artifacts
-# in the source directory.
-rm -f /tmp/pyarrow*.tar.gz
 pushd ${source_dir}
-${PYTHON:-python} setup.py sdist --dist-dir /tmp
+# - Cannot call setup.py as it may install in the wrong directory
+#   on Debian/Ubuntu (ARROW-15243).
+# - Cannot use build isolation as we want to use specific dependency versions
+#   (e.g. Numpy, Pandas) on some CI jobs.
+${PYTHON:-python} -m pip install --no-deps --no-build-isolation -vv .
+# Remove build artifacts from source directory
+find build/ -user root -delete
 popd
-${PYTHON:-python} -m pip install -vv /tmp/pyarrow*.tar.gz
 
 if [ "${BUILD_DOCS_PYTHON}" == "ON" ]; then
   ncpus=$(python -c "import os; print(os.cpu_count())")
