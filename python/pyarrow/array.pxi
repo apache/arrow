@@ -159,9 +159,10 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
 
     Notes
     -----
-    Localized timestamps will currently be returned as UTC (pandas's native
-    representation). Timezone-naive data will be implicitly interpreted as
-    UTC.
+    Timezone will be preserved in the returned array for timezone aware data,
+    else no timezone data will be returned for naive timestamps.
+    Internally, UTC values are stored for timezone aware data,
+    whereas timezone-naive data is implicitly interpreted as if in UTC.
 
     Pandas's DateOffsets and dateutil.relativedelta.relativedelta are by
     default converted as MonthDayNanoIntervalArray. relativedelta leapdays
@@ -1013,11 +1014,11 @@ cdef class Array(_PandasConvertible):
         Parameters
         ----------
         indent : int, default 2
-            How much to indent the internal items in the string to 
+            How much to indent the internal items in the string to
             the right, by default ``2``.
         top_level_indent : int, default 0
             How much to indent right the entire content of the array,
-            by default ``0``. 
+            by default ``0``.
         window : int
             How many items to preview at the begin and end
             of the array when the arrays is bigger than the window.
