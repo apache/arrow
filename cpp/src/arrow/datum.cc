@@ -20,7 +20,6 @@
 #include <cstddef>
 #include <memory>
 #include <sstream>
-#include <unordered_set>
 #include <vector>
 
 #include "arrow/array/array_base.h"
@@ -131,76 +130,6 @@ int64_t Datum::TotalBufferSize() const {
     default:
       DCHECK(false);
       return 0;
-  }
-}
-namespace util {
-bool AddBuffersToSet(const ArrayData& array_data,
-                     std::unordered_set<const uint8_t*>* seen_buffers) {
-  bool insertion_occured = false;
-  for (const auto& buffer : array_data.buffers) {
-    insertion_occured = (buffer && seen_buffers->insert(buffer->data()).second);
-  }
-  for (const auto& child : array_data.child_data) {
-    insertion_occured |= AddBuffersToSet(*child, seen_buffers);
-  }
-  if (array_data.dictionary) {
-    insertion_occured |= AddBuffersToSet(*array_data.dictionary, seen_buffers);
-  }
-  return insertion_occured;
-}
-
-bool AddBuffersToSet(const Array& array,
-                     std::unordered_set<const uint8_t*>* seen_buffers) {
-  return AddBuffersToSet(*array.data(), seen_buffers);
-}
-
-bool AddBuffersToSet(const ChunkedArray& chunked_array,
-                     std::unordered_set<const uint8_t*>* seen_buffers) {
-  bool insertion_occured = false;
-  for (const auto& chunk : chunked_array.chunks()) {
-    insertion_occured |= AddBuffersToSet(*chunk, seen_buffers);
-  }
-  return insertion_occured;
-}
-
-bool AddBuffersToSet(const RecordBatch& record_batch,
-                     std::unordered_set<const uint8_t*>* seen_buffers) {
-  bool insertion_occured = false;
-  for (const auto& column : record_batch.columns()) {
-    insertion_occured |= AddBuffersToSet(*column, seen_buffers);
-  }
-  return insertion_occured;
-}
-
-bool AddBuffersToSet(const Table& table,
-                     std::unordered_set<const uint8_t*>* seen_buffers) {
-  bool insertion_occured = false;
-  for (const auto& column : table.columns()) {
-    insertion_occured |= AddBuffersToSet(*column, seen_buffers);
-  }
-  return insertion_occured;
-}
-}  // namespace util
-
-bool Datum::AddBuffersToSet(std::unordered_set<const uint8_t*>* seen_buffers) const {
-  switch (this->kind()) {
-    case Datum::ARRAY:
-      return util::AddBuffersToSet(*util::get<std::shared_ptr<ArrayData>>(this->value),
-                                   seen_buffers);
-    case Datum::CHUNKED_ARRAY:
-      return util::AddBuffersToSet(*util::get<std::shared_ptr<ChunkedArray>>(this->value),
-                                   seen_buffers);
-    case Datum::RECORD_BATCH:
-      return util::AddBuffersToSet(*util::get<std::shared_ptr<RecordBatch>>(this->value),
-                                   seen_buffers);
-    case Datum::TABLE:
-      return util::AddBuffersToSet(*util::get<std::shared_ptr<Table>>(this->value),
-                                   seen_buffers);
-    case Datum::SCALAR:
-      return false;
-    default:
-      DCHECK(false);
-      return false;
   }
 }
 

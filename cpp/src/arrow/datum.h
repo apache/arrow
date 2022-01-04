@@ -21,7 +21,6 @@
 #include <memory>
 #include <string>
 #include <type_traits>
-#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -196,8 +195,6 @@ struct ARROW_EXPORT Datum {
   /// Note: Scalars report a size of 0
   /// \see arrow::util::TotalBufferSize for caveats
   int64_t TotalBufferSize() const;
-
-  bool AddBuffersToSet(std::unordered_set<const uint8_t*>* seen_buffers) const;
 
   ArrayData* mutable_array() const { return this->array().get(); }
 
