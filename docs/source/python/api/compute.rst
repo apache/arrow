@@ -402,6 +402,7 @@ Temporal Component Extraction
    us_week
    week
    year
+   year_month_day
 
 Temporal Difference
 -------------------
