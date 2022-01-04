@@ -71,12 +71,14 @@ void parquet___arrow___ArrowReaderProperties__set_read_dictionary(
 
 // [[parquet::export]]
 void parquet___arrow___ArrowReaderProperties__set_coerce_int96_timestamp_unit(
-    const std::shared_ptr<parquet::ArrowReaderProperties>& properties, arrow::TimeUnit::type unit) {
+    const std::shared_ptr<parquet::ArrowReaderProperties>& properties,
+    arrow::TimeUnit::type unit) {
   properties->set_coerce_int96_timestamp_unit(unit);
 }
 
 // [[parquet::export]]
-arrow::TimeUnit::type parquet___arrow___ArrowReaderProperties__get_coerce_int96_timestamp_unit(
+arrow::TimeUnit::type
+parquet___arrow___ArrowReaderProperties__get_coerce_int96_timestamp_unit(
     const std::shared_ptr<parquet::ArrowReaderProperties>& properties) {
   return properties->coerce_int96_timestamp_unit();
 }
