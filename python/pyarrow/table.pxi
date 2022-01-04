@@ -2627,7 +2627,8 @@ def _from_pylist(cls, mapping, schema, metadata):
         if mapping:
             names = list(mapping[0].keys())
         for n in names:
-            arrays.append(asarray([i[n] for i in mapping]))
+            v = [i[n] if n in i else None for i in mapping]
+            arrays.append(asarray(v))
         return cls.from_arrays(arrays, names, metadata=metadata)
     else:
         if isinstance(schema, Schema):
