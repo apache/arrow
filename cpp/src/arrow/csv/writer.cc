@@ -31,6 +31,9 @@
 #include "arrow/visit_type_inline.h"
 
 namespace arrow {
+
+using internal::checked_pointer_cast;
+
 namespace csv {
 // This implementation is intentionally light on configurability to minimize the size of
 // the initial PR. Additional features can be added as there is demand and interest to
@@ -106,7 +109,7 @@ class ColumnPopulator {
     ASSIGN_OR_RAISE(
         std::shared_ptr<Array> casted,
         compute::Cast(data, /*to_type=*/utf8(), compute::CastOptions(), &ctx));
-    casted_array_ = internal::checked_pointer_cast<StringArray>(casted);
+    casted_array_ = checked_pointer_cast<StringArray>(casted);
     return UpdateRowLengths(row_lengths);
   }
 

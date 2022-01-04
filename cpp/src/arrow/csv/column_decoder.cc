@@ -35,12 +35,9 @@
 #include "arrow/type_fwd.h"
 #include "arrow/util/future.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/task_group.h"
 
 namespace arrow {
 namespace csv {
-
-using internal::TaskGroup;
 
 class ConcreteColumnDecoder : public ColumnDecoder {
  public:
@@ -65,7 +62,6 @@ class ConcreteColumnDecoder : public ColumnDecoder {
 
   MemoryPool* pool_;
   int32_t col_index_;
-  internal::Executor* executor_;
 };
 
 //////////////////////////////////////////////////////////////////////////
@@ -214,7 +210,7 @@ Future<std::shared_ptr<Array>> InferringColumnDecoder::Decode(
   }
 
   // Non-first block: wait for inference to finish on first block now,
-  // without blocking a TaskGroup thread.
+  // without blocking a worker thread.
   return first_inference_run_.Then([this, parser] {
     DCHECK(type_frozen_);
     auto maybe_array = converter_->Convert(*parser, col_index_);
