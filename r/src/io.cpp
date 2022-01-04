@@ -271,15 +271,13 @@ struct ReencodeUTF8TransformFunctionWrapper {
       in_bytes_left = src->size();
     }
 
-    // in_bytes_left >= 4 assumes a maximum of 4 bytes per character in the
-    // input (the maximum for UTF-8, UTF-16, and UTF-32). If we
-    // have more than this, it means the output buffer wasn't big enough
-    // and the next iteration of the loop will try iconv() again with a
-    // bigger buffer. When we have less than 4 bytes left, the bytes
-    // will be copied to pending_ and processed in the next call (the
-    // TransformInputStream always finishes with a src that is 0 bytes
-    // for this purpose.)
-    while (in_bytes_left >= 4) {
+    // Try to call iconv() as many times as we need, potentially enlarging
+    // the output buffer as needed. When zero bytes are appended, the loop
+    // with either error (if there are more than 4 bytes left) or copy the
+    // bytes to pending_ and wait for more input. We use 4 bytes because
+    // this is the maximum number of bytes per complete character in UTF-8,
+    // UTF-16, and UTF-32.
+    while (in_bytes_left > 0) {
       // When this is true, we will (almost) always need a new buffer
       if (out_bytes_left < in_bytes_left) {
         RETURN_NOT_OK(dest->Resize(dest->size() * 1.2));
@@ -299,7 +297,14 @@ struct ReencodeUTF8TransformFunctionWrapper {
 
       int64_t bytes_read_out = out_buf - out_buf_before;
 
-      if (bytes_read_out == 0) {
+      // If no bytes were written out, we either have a partial valid
+      // character or invalid input. If there are only a few bytes
+      // left in the buffer it's likely that we have a partial character
+      // that can be handled in the next call when there is more input
+      // (which will error if the input is invalid).
+      if (bytes_read_out == 0 && in_bytes_left <= 4) {
+        break;
+      } else if (bytes_read_out == 0) {
         return StatusInvalidInput();
       }
 
