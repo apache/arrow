@@ -690,12 +690,12 @@ cdef class RecordBatch(_PandasConvertible):
     @staticmethod
     def from_pylist(mapping, schema=None, metadata=None):
         """
-        Construct a RecordBatch from Arrow arrays or columns.
+        Construct a RecordBatch from list of dictionary of rows.
 
         Parameters
         ----------
-        mapping : list of dicts or Mappings
-            A mapping of strings to Arrays or Python lists.
+        mapping : list of dicts of rows
+            A mapping of strings to row values.
         schema : Schema, default None
             If not passed, will be inferred from the Mapping values.
         metadata : dict or Mapping, default None
@@ -708,11 +708,17 @@ cdef class RecordBatch(_PandasConvertible):
         Examples
         --------
         >>> import pyarrow as pa
-        >>> pylist = [{'int': [1, 2]}, {'str': ['a', 'b']}]
+        >>> pylist = [{'int': 1, 'str': 'a'}, {'int': 2, 'str': 'b'}]
         >>> pa.RecordBatch.from_pylist(pylist)
         pyarrow.RecordBatch
         int: int64
         str: string
+        >>> pa.RecordBatch.from_pylist(pylist)[0]
+        <pyarrow.lib.Int64Array object at 0x1256b08e0>
+        [
+          1,
+          2
+        ]
         """
 
         return _from_pylist(cls=RecordBatch,
@@ -1058,20 +1064,26 @@ cdef class RecordBatch(_PandasConvertible):
             entries.append((name, column))
         return ordered_dict(entries)
 
-    def to_pylist(self):
+    def to_pylist(self, index=None):
         """
-        Convert the RecordBatch to a list of dictionaries.
+        Convert the RecordBatch to a list of dictionaries of rows.
+
+        Parameters
+        ----------
+        index: list
+            A list of column names to index.
 
         Returns
         -------
         list
         """
-        if self.schema.names:
-            entries = [{column: self[column].to_pylist()}
-                       for column in self.schema.names]
+        pydict = self.to_pydict()
+        if index:
+            names = index
         else:
-            entries = []
-        return entries
+            names = self.schema.names
+        pylist = [{column: pydict[column][row] if column in pydict else None for column in names} for row in range(self.num_rows)]
+        return pylist
 
     def _to_pandas(self, options, **kwargs):
         return Table.from_batches([self])._to_pandas(options, **kwargs)
@@ -1804,12 +1816,12 @@ cdef class Table(_PandasConvertible):
     @staticmethod
     def from_pylist(mapping, schema=None, metadata=None):
         """
-        Construct a Table from Arrow arrays or columns.
+        Construct a Table from list of dictionary of rows.
 
         Parameters
         ----------
-        mapping : list of dicts or Mappings
-            A mapping of strings to Arrays or Python lists.
+        mapping : list of dicts of rows
+            A mapping of strings to row values.
         schema : Schema, default None
             If not passed, will be inferred from the Mapping values.
         metadata : dict or Mapping, default None
@@ -1822,7 +1834,7 @@ cdef class Table(_PandasConvertible):
         Examples
         --------
         >>> import pyarrow as pa
-        >>> pylist = [{'int': [1, 2]}, {'str': ['a', 'b']}]
+        >>> pylist = [{'int': 1, 'str': 'a'}, {'int': 2, 'str': 'b'}]
         >>> pa.Table.from_pylist(pylist)
         pyarrow.Table
         int: int64
@@ -1959,9 +1971,14 @@ cdef class Table(_PandasConvertible):
 
         return ordered_dict(entries)
 
-    def to_pylist(self):
+    def to_pylist(self, index=None):
         """
-        Convert the Table to a list of dictionaries.
+        Convert the Table to a list of dictionaries of rows.
+
+        Parameters
+        ----------
+        index: list
+            A list of column names to index.
 
         Returns
         -------
@@ -1975,14 +1992,15 @@ cdef class Table(_PandasConvertible):
         ...     pa.array(["a", "b"])
         ... ], names=["int", "str"])
         >>> table.to_pylist()
-        [{'int': [1, 2]}, {'str': ['a', 'b']}]
+        [{'int': 1, 'str': 'a'}, {'int': 2, 'str': 'b'}]
         """
-        if self.schema.names:
-            entries = [{column: self[column].to_pylist()}
-                       for column in self.schema.names]
+        pydict = self.to_pydict()
+        if index:
+            names = index
         else:
-            entries = []
-        return entries
+            names = self.schema.names
+        pylist = [{column: pydict[column][row] if column in pydict else None for column in names} for row in range(self.num_rows)]
+        return pylist
 
     @property
     def schema(self):
@@ -2584,13 +2602,13 @@ def _from_pydict(cls, mapping, schema, metadata):
 
 def _from_pylist(cls, mapping, schema, metadata):
     """
-    Construct a Table/RecordBatch from Arrow arrays or columns.
+    Construct a Table/RecordBatch from list of dictionary of rows.
 
     Parameters
     ----------
     cls : Class Table/RecordBatch
-    mapping : list of dicts or Mappings
-        A mapping of strings to Arrays or Python lists.
+    mapping : list of dicts of rows
+        A mapping of strings to row values.
     schema : Schema, default None
         If not passed, will be inferred from the Mapping values.
     metadata : dict or Mapping, default None
@@ -2604,28 +2622,21 @@ def _from_pylist(cls, mapping, schema, metadata):
     arrays = []
     if schema is None:
         names = []
-        for item in mapping:
-            name = list(item.keys())[0]
-            names.append(name)
-            arrays.append(asarray(item[name]))
+        if mapping:
+            names = list(mapping[0].keys())
+        for n in names:
+            arrays.append(asarray([i[n] for i in mapping]))
         return cls.from_arrays(arrays, names, metadata=metadata)
-    elif isinstance(schema, Schema):
-        for field in schema:
-            value = [v.get(field.name) for v in mapping]
-            v = next((i for i in value if i is not None), None)
-            if v is None:
-                present = [list(v.keys())[0] for v in mapping]
-                missing = [n for n in schema.names if n not in present]
-                raise KeyError(
-                    "The passed mapping doesn't contain the "
-                    "following field(s) of the schema: {}".
-                    format(', '.join(missing))
-                )
-            arrays.append(asarray(v, type=field.type))
-        # Will raise if metadata is not None
-        return cls.from_arrays(arrays, schema=schema, metadata=metadata)
     else:
-        raise TypeError('Schema must be an instance of pyarrow.Schema')
+        if isinstance(schema, Schema):
+            for n in schema.names:
+                v = [i[n] if n in i else None for i in mapping]
+                n_type = schema.types[schema.get_field_index(n)]
+                arrays.append(asarray(v, type=n_type))
+            # Will raise if metadata is not None
+            return cls.from_arrays(arrays, schema=schema, metadata=metadata)
+        else:
+            raise TypeError('Schema must be an instance of pyarrow.Schema')
 
 
 class TableGroupBy:
