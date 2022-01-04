@@ -65,26 +65,6 @@
     }                                              \
   } while (0);
 
-#define CHECK_AND_RETURN(expr)                     \
-  do {                                             \
-    arrow::Status status_ = (expr);                \
-    if (!status_.ok()) {                           \
-      std::cerr << status_.message() << std::endl; \
-      return EXIT_FAILURE;                         \
-    } else {                                       \
-      return EXIT_SUCCESS;                         \
-    }                                              \
-  } while (0);
-
-#define CHECK_AND_CONTINUE(expr)                   \
-  do {                                             \
-    arrow::Status status_ = (expr);                \
-    if (!status_.ok()) {                           \
-      std::cerr << status_.message() << std::endl; \
-      return EXIT_FAILURE;                         \
-    }                                              \
-  } while (0);
-
 constexpr char kSep[] = "******";
 
 #define PRINT_BLOCK(msg)                                                     \
@@ -93,23 +73,6 @@ constexpr char kSep[] = "******";
   std::cout << "" << std::endl;
 
 namespace cp = ::arrow::compute;
-
-std::shared_ptr<arrow::Array> GetArrayFromJSON(
-    const std::shared_ptr<arrow::DataType>& type, arrow::util::string_view json) {
-    std::shared_ptr<arrow::Array> out;
-    ABORT_ON_FAILURE(arrow::ipc::internal::json::ArrayFromJSON(type, json, &out));
-  return out;
-}
-
-std::shared_ptr<arrow::RecordBatch> GetRecordBatchFromJSON(
-    const std::shared_ptr<arrow::Schema>& schema, arrow::util::string_view json) {
-  // Parse as a StructArray
-  auto struct_type = struct_(schema->fields());
-  std::shared_ptr<arrow::Array> struct_array = GetArrayFromJSON(struct_type, json);
-
-  // Convert StructArray to RecordBatch
-  return *arrow::RecordBatch::FromStructArray(struct_array);
-}
 
 std::string GetDataAsCsvString() {
     std::string data_str = R"csv(a,b
@@ -126,42 +89,36 @@ null,true
 )csv";
     return data_str;
 }
-// TODO: Replace the GetArrayDataSample with tempates
-arrow::Result<std::shared_ptr<arrow::Array>> GetInt32ArrayDataSample(
-  const std::vector<int> &int_values) {
-    arrow::Int32Builder int32_builder;
-    ABORT_ON_FAILURE(int32_builder.Reserve(int_values.size()));
-    std::shared_ptr<arrow::Int32Array> int32_array;
-    ABORT_ON_FAILURE(int32_builder.AppendValues(int_values));
-    ABORT_ON_FAILURE(int32_builder.Finish(&int32_array));
 
-    arrow::Result<std::shared_ptr<arrow::Int32Array>> result(std::move(int32_array));
-
+template<typename TYPE,
+	typename = typename std::enable_if<arrow::is_number_type<TYPE>::value |
+  arrow::is_boolean_type<TYPE>::value |
+  arrow::is_temporal_type<TYPE>::value>::type>
+  arrow::Result<std::shared_ptr<arrow::Array>> GetArrayDataSample(
+    const std::vector<typename TYPE::c_type> &values) {
+    using ARROW_ARRAY_TYPE = typename arrow::TypeTraits<TYPE>::ArrayType;
+    using ARROW_BUILDER_TYPE = typename arrow::TypeTraits<TYPE>::BuilderType;
+    ARROW_BUILDER_TYPE builder;
+    ABORT_ON_FAILURE(builder.Reserve(values.size()));
+    std::shared_ptr<ARROW_ARRAY_TYPE> array;
+    ABORT_ON_FAILURE(builder.AppendValues(values));
+    ABORT_ON_FAILURE(builder.Finish(&array));
+    arrow::Result<std::shared_ptr<ARROW_ARRAY_TYPE>> result(std::move(array));
   return result;
-}
+  }
 
-arrow::Result<std::shared_ptr<arrow::Array>> GetBoolArrayDataSample(
-  const std::vector<uint8_t> &bool_values) {
-    arrow::BooleanBuilder boolean_builder;
-    ABORT_ON_FAILURE(boolean_builder.Reserve(bool_values.size()));
-    std::shared_ptr<arrow::BooleanArray> boolean_array;
-    ABORT_ON_FAILURE(boolean_builder.AppendValues(bool_values));
-    ABORT_ON_FAILURE(boolean_builder.Finish(&boolean_array));
-
-    arrow::Result<std::shared_ptr<arrow::BooleanArray>> result(std::move(boolean_array));
-    return result;
-}
-
-arrow::Result<std::shared_ptr<arrow::Array>> GetUtf8ArrayDataSample(
-  const std::vector<uint8_t> &bool_values) {
-    arrow::BooleanBuilder boolean_builder;
-    ABORT_ON_FAILURE(boolean_builder.Reserve(bool_values.size()));
-    std::shared_ptr<arrow::BooleanArray> boolean_array;
-    ABORT_ON_FAILURE(boolean_builder.AppendValues(bool_values));
-    ABORT_ON_FAILURE(boolean_builder.Finish(&boolean_array));
-
-    arrow::Result<std::shared_ptr<arrow::BooleanArray>> result(std::move(boolean_array));
-    return result;
+template<class TYPE>
+arrow::Result<std::shared_ptr<arrow::Array>> GetBinaryArrayDataSample(
+  const std::vector<std::string> &values) {
+  using ARROW_ARRAY_TYPE = typename arrow::TypeTraits<TYPE>::ArrayType;
+  using ARROW_BUILDER_TYPE = typename arrow::TypeTraits<TYPE>::BuilderType;
+  ARROW_BUILDER_TYPE builder;
+    ABORT_ON_FAILURE(builder.Reserve(values.size()));
+    std::shared_ptr<ARROW_ARRAY_TYPE> array;
+    ABORT_ON_FAILURE(builder.AppendValues(values));
+    ABORT_ON_FAILURE(builder.Finish(&array));
+    arrow::Result<std::shared_ptr<ARROW_ARRAY_TYPE>> result(std::move(array));
+  return result;
 }
 
 
@@ -173,17 +130,6 @@ const arrow::FieldVector &field_vector) {
         arrow::StructArray::Make(array_vector, field_vector));
       return record_batch->FromStructArray(struct_result);
 }
-
-arrow::Result<std::shared_ptr<arrow::RecordBatch>> GetIntSampleRecordBatch(
-  const std::vector<int> &int_values, const arrow::FieldVector &field_vector) {
-      std::shared_ptr<arrow::RecordBatch> record_batch;
-      ARROW_ASSIGN_OR_RAISE(auto int32_array, GetInt32ArrayDataSample(int_values));
-      ARROW_ASSIGN_OR_RAISE(auto struct_result,
-        arrow::StructArray::Make({int32_array}, field_vector));
-      return record_batch->FromStructArray(struct_result);
-}
-
-
 
 arrow::Status CreateDataSetFromCSVData(
     std::shared_ptr<arrow::dataset::InMemoryDataset> &dataset) {
@@ -221,86 +167,6 @@ std::shared_ptr<arrow::dataset::Dataset> CreateDataset() {
     return im_dataset;
 }
 
-arrow::Status exec_plan_end_to_end_sample() {
-    cp::ExecContext exec_context(arrow::default_memory_pool(),
-                                ::arrow::internal::GetCpuThreadPool());
-
-    // ensure arrow::dataset node factories are in the registry
-    arrow::dataset::internal::Initialize();
-
-    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
-                            cp::ExecPlan::Make(&exec_context));
-
-    std::shared_ptr<arrow::dataset::Dataset> dataset = CreateDataset();
-
-    auto options = std::make_shared<arrow::dataset::ScanOptions>();
-    // sync scanning is not supported by ScanNode
-    options->use_async = true;
-    // specify the filter
-    cp::Expression b_is_true = cp::field_ref("b");
-    options->filter = b_is_true;
-    // for now, specify the projection as the full project expression (eventually this can
-    // just be a list of materialized field names)
-
-    cp::Expression a_times_2 = cp::call("multiply", {cp::field_ref("a"), cp::literal(2)});
-    options->projection =
-        cp::call("make_struct", {a_times_2}, cp::MakeStructOptions{{"a * 2"}});
-
-    // // construct the scan node
-    cp::ExecNode* scan;
-
-    auto scan_node_options = arrow::dataset::ScanNodeOptions{dataset, options};
-
-    ARROW_ASSIGN_OR_RAISE(scan,
-                            cp::MakeExecNode("scan", plan.get(), {}, scan_node_options));
-
-    // pipe the scan node into a filter node
-    cp::ExecNode* filter;
-    ARROW_ASSIGN_OR_RAISE(filter, cp::MakeExecNode("filter", plan.get(), {scan},
-                                                    cp::FilterNodeOptions{b_is_true}));
-
-    cp::ExecNode* project;
-
-    ARROW_ASSIGN_OR_RAISE(project,
-                            cp::MakeExecNode("augmented_project", plan.get(), {filter},
-                                            cp::ProjectNodeOptions{{a_times_2}}));
-
-    // // finally, pipe the project node into a sink node
-    arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
-    ARROW_ASSIGN_OR_RAISE(cp::ExecNode * sink,
-                            cp::MakeExecNode("sink",
-                            plan.get(), {project},
-                            cp::SinkNodeOptions{&sink_gen}));
-
-    ABORT_ON_FAILURE(sink->Validate());
-
-    // // translate sink_gen (async) to sink_reader (sync)
-    std::shared_ptr<arrow::RecordBatchReader> sink_reader =
-        cp::MakeGeneratorReader(arrow::schema({arrow::field("a * 2", arrow::int32())}),
-                                std::move(sink_gen), exec_context.memory_pool());
-
-    // // validate the plan
-    ABORT_ON_FAILURE(plan->Validate());
-    std::cout << "Exec Plan created: " << plan->ToString() << std::endl;
-    // // start the ExecPlan
-    ABORT_ON_FAILURE(plan->StartProducing());
-
-    // // collect sink_reader into a Table
-    std::shared_ptr<arrow::Table> response_table;
-    ARROW_ASSIGN_OR_RAISE(response_table,
-                            arrow::Table::FromRecordBatchReader(sink_reader.get()));
-
-    std::cout << "Results : " << response_table->ToString() << std::endl;
-
-    // // stop producing
-    plan->StopProducing();
-
-    // // plan mark finished
-    plan->finished().Wait();
-
-    return arrow::Status::OK();
-}
-
 cp::Expression Materialize(std::vector<std::string> names,
                            bool include_aug_fields = false) {
     if (include_aug_fields) {
@@ -317,21 +183,6 @@ cp::Expression Materialize(std::vector<std::string> names,
 
     return cp::project(exprs, names);
 }
-
-arrow::Status consume(std::shared_ptr<arrow::Schema> schema,
-    std::function<arrow::Future<arrow::util::optional<cp::ExecBatch>>()>* sink_gen) {
-    auto iterator = MakeGeneratorIterator(*sink_gen);
-    while (true) {
-        ARROW_ASSIGN_OR_RAISE(auto exec_batch, iterator.Next());
-        if (!exec_batch.has_value()) {
-            break;
-        }
-        ARROW_ASSIGN_OR_RAISE(auto record_batch, exec_batch->ToRecordBatch(schema));
-        std::cout << record_batch->ToString() << '\n';
-    }
-    return arrow::Status::OK();
-}
-
 
 arrow::Status ScanSinkExample() {
     cp::ExecContext exec_context(arrow::default_memory_pool(),
@@ -392,29 +243,6 @@ arrow::Status ScanSinkExample() {
     return arrow::Status::OK();
 }
 
-cp::ExecBatch GetExecBatchFromJSON(const std::vector<arrow::ValueDescr>& descrs,
-                                   arrow::util::string_view json) {
-  auto fields = ::arrow::internal::MapVector(
-      [](const arrow::ValueDescr& descr) { return arrow::field("", descr.type); },
-      descrs);
-
-  cp::ExecBatch batch{*GetRecordBatchFromJSON(arrow::schema(std::move(fields)), json)};
-
-  auto value_it = batch.values.begin();
-  for (const auto& descr : descrs) {
-    if (descr.shape == arrow::ValueDescr::SCALAR) {
-      if (batch.length == 0) {
-        *value_it = arrow::MakeNullScalar(value_it->type());
-      } else {
-        *value_it = value_it->make_array()->GetScalar(0).ValueOrDie();
-      }
-    }
-    ++value_it;
-  }
-
-  return batch;
-}
-
 cp::ExecBatch GetExecBatchFromVectors(const arrow::FieldVector &field_vector,
   const arrow::ArrayVector &array_vector) {
     std::shared_ptr<arrow::RecordBatch> record_batch;
@@ -427,44 +255,34 @@ struct BatchesWithSchema {
   std::vector<cp::ExecBatch> batches;
   std::shared_ptr<arrow::Schema> schema;
 
-  arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> gen(bool parallel) const {
+  arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> gen() const {
     auto opt_batches = ::arrow::internal::MapVector(
         [](cp::ExecBatch batch) { return arrow::util::make_optional(std::move(batch)); },
         batches);
-
     arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> gen;
-
-    if (parallel) {
-      // emulate batches completing initial decode-after-scan on a cpu thread
-      gen = arrow::MakeBackgroundGenerator(
-                arrow::MakeVectorIterator(std::move(opt_batches)),
-                ::arrow::internal::GetCpuThreadPool())
-                .ValueOrDie();
-
-      // ensure that callbacks are not executed immediately on a background thread
-      gen = arrow::MakeTransferredGenerator(std::move(gen),
-                                            ::arrow::internal::GetCpuThreadPool());
-    } else {
-      gen = arrow::MakeVectorGenerator(std::move(opt_batches));
-    }
-
+    gen = arrow::MakeVectorGenerator(std::move(opt_batches));
     return gen;
   }
 };
-
 
 
 arrow::Result<BatchesWithSchema> MakeBasicBatches() {
   BatchesWithSchema out;
   auto field_vector = {arrow::field("a", arrow::int32()),
     arrow::field("b", arrow::boolean())};
-  ARROW_ASSIGN_OR_RAISE(auto b1_int, GetInt32ArrayDataSample({0, 4}));
-  ARROW_ASSIGN_OR_RAISE(auto b2_int, GetInt32ArrayDataSample({5, 6, 7}));
-  ARROW_ASSIGN_OR_RAISE(auto b3_int, GetInt32ArrayDataSample({8, 9, 10}));
+  ARROW_ASSIGN_OR_RAISE(auto b1_int,
+  GetArrayDataSample<arrow::Int32Type>({0, 4}));
+  ARROW_ASSIGN_OR_RAISE(auto b2_int,
+  GetArrayDataSample<arrow::Int32Type>({5, 6, 7}));
+  ARROW_ASSIGN_OR_RAISE(auto b3_int,
+  GetArrayDataSample<arrow::Int32Type>({8, 9, 10}));
 
-  ARROW_ASSIGN_OR_RAISE(auto b1_bool, GetBoolArrayDataSample({false, true}));
-  ARROW_ASSIGN_OR_RAISE(auto b2_bool, GetBoolArrayDataSample({true, false, true}));
-  ARROW_ASSIGN_OR_RAISE(auto b3_bool, GetBoolArrayDataSample({false, true, false}));
+  ARROW_ASSIGN_OR_RAISE(auto b1_bool,
+  GetArrayDataSample<arrow::BooleanType>({false, true}));
+  ARROW_ASSIGN_OR_RAISE(auto b2_bool,
+  GetArrayDataSample<arrow::BooleanType>({true, false, true}));
+  ARROW_ASSIGN_OR_RAISE(auto b3_bool,
+  GetArrayDataSample<arrow::BooleanType>({false, true, false}));
 
   out.batches = {GetExecBatchFromVectors(field_vector, {b1_int, b1_bool}),
                   GetExecBatchFromVectors(field_vector, {b2_int, b2_bool}),
@@ -478,14 +296,22 @@ arrow::Result<BatchesWithSchema> MakeBasicBatches() {
 arrow::Result<BatchesWithSchema> MakeSortTestBasicBatches() {
   BatchesWithSchema out;
   auto field = arrow::field("a", arrow::int32());
-  ARROW_ASSIGN_OR_RAISE(auto b1_int, GetInt32ArrayDataSample({1, 3, 0, 2}));
-  ARROW_ASSIGN_OR_RAISE(auto b2_int, GetInt32ArrayDataSample({121, 101, 120, 12}));
-  ARROW_ASSIGN_OR_RAISE(auto b3_int, GetInt32ArrayDataSample({10, 110, 210, 121}));
-  ARROW_ASSIGN_OR_RAISE(auto b4_int, GetInt32ArrayDataSample({51, 101, 2, 34}));
-  ARROW_ASSIGN_OR_RAISE(auto b5_int, GetInt32ArrayDataSample({11, 31, 1, 12}));
-  ARROW_ASSIGN_OR_RAISE(auto b6_int, GetInt32ArrayDataSample({12, 101, 120, 12}));
-  ARROW_ASSIGN_OR_RAISE(auto b7_int, GetInt32ArrayDataSample({0, 110, 210, 11}));
-  ARROW_ASSIGN_OR_RAISE(auto b8_int, GetInt32ArrayDataSample({51, 10, 2, 3}));
+  ARROW_ASSIGN_OR_RAISE(auto b1_int,
+  GetArrayDataSample<arrow::Int32Type>({1, 3, 0, 2}));
+  ARROW_ASSIGN_OR_RAISE(auto b2_int,
+  GetArrayDataSample<arrow::Int32Type>({121, 101, 120, 12}));
+  ARROW_ASSIGN_OR_RAISE(auto b3_int,
+  GetArrayDataSample<arrow::Int32Type>({10, 110, 210, 121}));
+  ARROW_ASSIGN_OR_RAISE(auto b4_int,
+  GetArrayDataSample<arrow::Int32Type>({51, 101, 2, 34}));
+  ARROW_ASSIGN_OR_RAISE(auto b5_int,
+  GetArrayDataSample<arrow::Int32Type>({11, 31, 1, 12}));
+  ARROW_ASSIGN_OR_RAISE(auto b6_int,
+  GetArrayDataSample<arrow::Int32Type>({12, 101, 120, 12}));
+  ARROW_ASSIGN_OR_RAISE(auto b7_int,
+  GetArrayDataSample<arrow::Int32Type>({0, 110, 210, 11}));
+  ARROW_ASSIGN_OR_RAISE(auto b8_int,
+  GetArrayDataSample<arrow::Int32Type>({51, 10, 2, 3}));
 
   out.batches = {
       GetExecBatchFromVectors({field}, {b1_int}),
@@ -499,24 +325,27 @@ arrow::Result<BatchesWithSchema> MakeSortTestBasicBatches() {
   return result;
 }
 
-BatchesWithSchema MakeGroupableBatches(int multiplicity = 1) {
+arrow::Result<BatchesWithSchema> MakeGroupableBatches(int multiplicity = 1) {
   BatchesWithSchema out;
+  auto fields = {arrow::field("i32", arrow::int32()), arrow::field("str", arrow::utf8())};
+  ARROW_ASSIGN_OR_RAISE(auto b1_int,
+  GetArrayDataSample<arrow::Int32Type>({12, 7, 3}));
+  ARROW_ASSIGN_OR_RAISE(auto b2_int,
+  GetArrayDataSample<arrow::Int32Type>({-2, -1, 3}));
+  ARROW_ASSIGN_OR_RAISE(auto b3_int,
+  GetArrayDataSample<arrow::Int32Type>({5, 3, -8}));
+  ARROW_ASSIGN_OR_RAISE(auto b1_str,
+  GetBinaryArrayDataSample<arrow::StringType>({"alpha", "beta", "alpha"}));
+  ARROW_ASSIGN_OR_RAISE(auto b2_str,
+  GetBinaryArrayDataSample<arrow::StringType>({"alpha", "gamma", "alpha"}));
+  ARROW_ASSIGN_OR_RAISE(auto b3_str,
+  GetBinaryArrayDataSample<arrow::StringType>({"gamma", "beta", "alpha"}));
 
-  out.batches = {GetExecBatchFromJSON({arrow::int32(), arrow::utf8()}, R"([
-                   [12, "alfa"],
-                   [7,  "beta"],
-                   [3,  "alfa"]
-                 ])"),
-                 GetExecBatchFromJSON({arrow::int32(), arrow::utf8()}, R"([
-                   [-2, "alfa"],
-                   [-1, "gama"],
-                   [3,  "alfa"]
-                 ])"),
-                 GetExecBatchFromJSON({arrow::int32(), arrow::utf8()}, R"([
-                   [5,  "gama"],
-                   [3,  "beta"],
-                   [-8, "alfa"]
-                 ])")};
+  out.batches = {
+    GetExecBatchFromVectors(fields, {b1_int, b1_str}),
+    GetExecBatchFromVectors(fields, {b2_int, b2_str}),
+    GetExecBatchFromVectors(fields, {b3_int, b3_str}),
+  };
 
   size_t batch_count = out.batches.size();
   for (int repeat = 1; repeat < multiplicity; ++repeat) {
@@ -525,8 +354,7 @@ BatchesWithSchema MakeGroupableBatches(int multiplicity = 1) {
     }
   }
 
-  out.schema = arrow::schema(
-      {arrow::field("i32", arrow::int32()), arrow::field("str", arrow::utf8())});
+  out.schema = arrow::schema(fields);
 
   return out;
 }
@@ -546,7 +374,7 @@ arrow::Status SourceSinkExample() {
   arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
 
   auto source_node_options =
-      cp::SourceNodeOptions{basic_data.schema, basic_data.gen(false)};
+      cp::SourceNodeOptions{basic_data.schema, basic_data.gen()};
 
   ARROW_ASSIGN_OR_RAISE(cp::ExecNode * source,
                         cp::MakeExecNode("source", plan.get(), {}, source_node_options));
@@ -732,7 +560,7 @@ arrow::Status SourceAggregateSinkExample() {
     arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
 
     auto source_node_options = cp::SourceNodeOptions{
-        basic_data.schema, basic_data.gen(true)};
+        basic_data.schema, basic_data.gen()};
 
     ARROW_ASSIGN_OR_RAISE(cp::ExecNode * source, cp::MakeExecNode("source",
                                                                   plan.get(), {},
@@ -796,7 +624,7 @@ arrow::Status SourceConsumingSinkExample() {
     ARROW_ASSIGN_OR_RAISE(auto basic_data, MakeBasicBatches());
 
     auto source_node_options = cp::SourceNodeOptions{
-        basic_data.schema, basic_data.gen(true)};
+        basic_data.schema, basic_data.gen()};
 
     ARROW_ASSIGN_OR_RAISE(cp::ExecNode * source, cp::MakeExecNode("source",
                                                                   plan.get(), {},
@@ -863,7 +691,7 @@ arrow::Status SourceOrderBySinkExample() {
     arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
 
     auto source_node_options = cp::SourceNodeOptions{
-        basic_data.schema, basic_data.gen(true)};
+        basic_data.schema, basic_data.gen()};
     ARROW_ASSIGN_OR_RAISE(cp::ExecNode * source,
     cp::MakeExecNode("source", plan.get(), {}, source_node_options));
 
@@ -896,7 +724,7 @@ arrow::Status SourceOrderBySinkExample() {
 }
 
 arrow::Status SourceHashJoinSinkExample() {
-    auto input = MakeGroupableBatches();
+    ARROW_ASSIGN_OR_RAISE(auto input, MakeGroupableBatches());
 
     cp::ExecContext exec_context(arrow::default_memory_pool(),
                                  ::arrow::internal::GetCpuThreadPool());
@@ -914,7 +742,7 @@ arrow::Status SourceHashJoinSinkExample() {
             MakeExecNode("source", plan.get(), {},
                                   cp::SourceNodeOptions{
                                       input.schema,
-                                      input.gen(/*parallel=*/true)}));
+                                      input.gen()}));
     }
     // TODO: decide whether to keep the filters or remove
 
@@ -978,7 +806,7 @@ arrow::Status SourceHashJoinSinkExample() {
 }
 
 arrow::Status SourceKSelectExample() {
-    auto input = MakeGroupableBatches();
+    ARROW_ASSIGN_OR_RAISE(auto input, MakeGroupableBatches());
 
     cp::ExecContext exec_context(arrow::default_memory_pool(),
                                  ::arrow::internal::GetCpuThreadPool());
@@ -993,7 +821,7 @@ arrow::Status SourceKSelectExample() {
             plan.get(), {},
                 cp::SourceNodeOptions{
                     input.schema,
-                    input.gen(/*parallel=*/true)}));
+                    input.gen()}));
 
     cp::SelectKOptions options = cp::SelectKOptions::TopKDefault(/*k=*/2, {"i32"});
 
@@ -1118,11 +946,11 @@ arrow::Status SourceUnionSinkExample() {
     cp::Declaration union_node{"union", cp::ExecNodeOptions{}};
     cp::Declaration lhs{"source",
                   cp::SourceNodeOptions{basic_data.schema,
-                                    basic_data.gen(/*parallel=*/false)}};
+                                    basic_data.gen()}};
     lhs.label = "lhs";
     cp::Declaration rhs{"source",
                     cp::SourceNodeOptions{basic_data.schema,
-                                      basic_data.gen(/*parallel=*/false)}};
+                                      basic_data.gen()}};
     rhs.label = "rhs";
     union_node.inputs.emplace_back(lhs);
     union_node.inputs.emplace_back(rhs);
@@ -1184,51 +1012,56 @@ int main(int argc, char** argv) {
 
   int mode = std::atoi(argv[1]);
   std::string base_save_path = argv[2];
-
+  arrow::Status status;
   switch (mode) {
     case SOURCE_SINK:
       PRINT_BLOCK("Source Sink Example");
-      CHECK_AND_CONTINUE(SourceSinkExample())
+      status = SourceSinkExample();
       break;
     case SCAN_SINK:
       PRINT_BLOCK("Scan Sink Example");
-      CHECK_AND_CONTINUE(ScanSinkExample())
+      status = ScanSinkExample();
       break;
     case SCAN_FILTER_SINK:
       PRINT_BLOCK("Scan Filter Example");
-      CHECK_AND_CONTINUE(ScanFilterSinkExample())
+      status = ScanFilterSinkExample();
       break;
     case SCAN_PROJECT_SINK:
       PRINT_BLOCK("Scan Project Sink Example");
-      CHECK_AND_CONTINUE(ScanProjectSinkExample())
+      status = ScanProjectSinkExample();
       break;
     case SOURCE_AGGREGATE_SINK:
       PRINT_BLOCK("Source Aggregate Example");
-      CHECK_AND_CONTINUE(SourceAggregateSinkExample())
+      status = SourceAggregateSinkExample();
       break;
     case SCAN_CONSUMING_SINK:
       PRINT_BLOCK("Source Consuming-Sink Example");
-      CHECK_AND_CONTINUE(SourceConsumingSinkExample())
+      status = SourceConsumingSinkExample();
       break;
     case SOURCE_ORDER_BY_SINK:
       PRINT_BLOCK("Source OrderBy Sink Example");
-      CHECK_AND_CONTINUE(SourceOrderBySinkExample())
+      status = SourceOrderBySinkExample();
       break;
     case SCAN_HASHJOIN_SINK:
-      CHECK_AND_CONTINUE(SourceHashJoinSinkExample())
+      status = SourceHashJoinSinkExample();
       break;
     case SCAN_SELECT_SINK:
-      CHECK_AND_CONTINUE(SourceKSelectExample())
+      status = SourceKSelectExample();
       break;
     case SCAN_FILTER_WRITE:
-      CHECK_AND_CONTINUE(ScanFilterWriteExample(base_save_path))
+      status = ScanFilterWriteExample(base_save_path);
       break;
     case SOURCE_UNION_SINK:
-      CHECK_AND_CONTINUE(SourceUnionSinkExample());
+      status = SourceUnionSinkExample();
       break;
     default:
       break;
   }
 
-  return EXIT_SUCCESS;
+  if (status.ok()) {
+    return EXIT_SUCCESS;
+  } else {
+    std::cout << "Error occurred: " << status.message() << std::endl;
+    return EXIT_FAILURE;
+  }
 }
