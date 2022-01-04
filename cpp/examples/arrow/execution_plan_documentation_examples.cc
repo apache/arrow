@@ -184,7 +184,7 @@ cp::Expression Materialize(std::vector<std::string> names,
  * There are operations that can be applied on the scan (project, filter)
  * and the input data can be processed. THe output is obtained as a table
  * via the sink node. 
- * @param exec_context 
+ * @param exec_context : execution context
  * @return arrow::Status 
  */
 arrow::Status ScanSinkExample(cp::ExecContext &exec_context) {
@@ -373,7 +373,7 @@ arrow::Result<BatchesWithSchema> MakeGroupableBatches(int multiplicity = 1) {
  * in an execution plan. This includes source node receiving data 
  * and the sink node emits the data as an output represented in 
  * a table. 
- * @param exec_context 
+ * @param exec_context : execution context 
  * @return arrow::Status 
  */
 arrow::Status SourceSinkExample(cp::ExecContext &exec_context) {
@@ -427,7 +427,7 @@ arrow::Status SourceSinkExample(cp::ExecContext &exec_context) {
  * This example shows how a filter can be used in an execution plan, 
  * along with the source and sink operations. The output from the 
  * exeuction plan is obtained as a table via the sink node. 
- * @param exec_context 
+ * @param exec_context : execution context 
  * @return arrow::Status 
  */
 arrow::Status ScanFilterSinkExample(cp::ExecContext &exec_context) {
@@ -500,7 +500,7 @@ arrow::Status ScanFilterSinkExample(cp::ExecContext &exec_context) {
  * into the execution plan, how project operation can be applied on the
  * data stream and how the output is obtained as a table via the sink node. 
  * 
- * @param exec_context 
+ * @param exec_context : execution context
  * @return arrow::Status 
  */
 arrow::Status ScanProjectSinkExample(cp::ExecContext &exec_context) {
@@ -572,7 +572,7 @@ arrow::Status ScanProjectSinkExample(cp::ExecContext &exec_context) {
  * execution plan. The source node loads the data and the aggregation 
  * (counting unique types in column 'a') is applied on this data. The 
  * output is obtained from the sink node as a table. 
- * @param exec_context 
+ * @param exec_context : execution context 
  * @return arrow::Status 
  */
 arrow::Status SourceAggregateSinkExample(cp::ExecContext &exec_context) {
@@ -640,7 +640,7 @@ arrow::Status SourceAggregateSinkExample(cp::ExecContext &exec_context) {
  * Source-ConsumingSink 
  * This example shows how the data can be consumed within the execution plan 
  * by using a ConsumingSink node. There is no data output from this execution plan. 
- * @param exec_context 
+ * @param exec_context : execution context 
  * @return arrow::Status 
  */
 arrow::Status SourceConsumingSinkExample(cp::ExecContext &exec_context) {
@@ -707,7 +707,7 @@ arrow::Status SourceConsumingSinkExample(cp::ExecContext &exec_context) {
  * and the data is ordered in the sink node. The order can be 
  * ASCENDING or DESCENDING and it is configurable. The output
  * is obtained as a table from the sink node. 
- * @param exec_context 
+ * @param exec_context : execution context
  * @return arrow::Status 
  */
 arrow::Status SourceOrderBySinkExample(cp::ExecContext &exec_context) {
@@ -759,7 +759,7 @@ arrow::Status SourceOrderBySinkExample(cp::ExecContext &exec_context) {
  * This example shows how source node gets the data and how a self-join
  * is applied on the data. The join options are configurable. The output
  * is obtained as a table via the sink node. 
- * @param exec_context 
+ * @param exec_context : execution context
  * @return arrow::Status 
  */
 arrow::Status SourceHashJoinSinkExample(cp::ExecContext &exec_context) {
@@ -846,7 +846,7 @@ arrow::Status SourceHashJoinSinkExample(cp::ExecContext &exec_context) {
  * This example shows how K number of elements can be selected 
  * either from the top or bottom. The output node is a modified
  * sink node where output can be obtained as a table. 
- * @param exec_context 
+ * @param exec_context : execution context
  * @return arrow::Status 
  */
 arrow::Status SourceKSelectExample(cp::ExecContext &exec_context) {
@@ -905,8 +905,8 @@ arrow::Status SourceKSelectExample(cp::ExecContext &exec_context) {
  * Scan-Filter-Write
  * This example shows how scan node can be used to load the data
  * and after processing how it can be written to disk. 
- * @param exec_context 
- * @param file_path 
+ * @param exec_context : execution context
+ * @param file_path : file saving path
  * @return arrow::Status 
  */
 arrow::Status ScanFilterWriteExample(cp::ExecContext &exec_context,
@@ -984,7 +984,7 @@ const std::string &file_path) {
  * This example shows how a union operation can be applied on two 
  * data sources. The output is obtained as a table via the sink
  * node.
- * @param exec_context 
+ * @param exec_context : execution context
  * @return arrow::Status 
  */
 arrow::Status SourceUnionSinkExample(cp::ExecContext &exec_context) {
