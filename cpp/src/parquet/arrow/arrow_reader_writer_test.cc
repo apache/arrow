@@ -4263,6 +4263,62 @@ TEST_F(TestArrowReadDeltaEncoding, IncrementalDecodeDeltaByteArray) {
   ASSERT_EQ(nullptr, actual_batch);
 }
 
+TEST_F(TestArrowReadDeltaEncoding, RequiredColumn) {
+  std::shared_ptr<::arrow::Table> actual_table, expect_table;
+  ReadTableFromParquetFile("delta_encoding_required_column.parquet", &actual_table);
+
+  auto convert_options = ::arrow::csv::ConvertOptions::Defaults();
+  convert_options.column_types = {{"c_customer_sk", ::arrow::int32()},
+                                  {"c_current_cdemo_sk", ::arrow::int32()},
+                                  {"c_current_hdemo_sk", ::arrow::int32()},
+                                  {"c_current_addr_sk", ::arrow::int32()},
+                                  {"c_first_shipto_date_sk", ::arrow::int32()},
+                                  {"c_first_sales_date_sk", ::arrow::int32()},
+                                  {"c_birth_day", ::arrow::int32()},
+                                  {"c_birth_month", ::arrow::int32()},
+                                  {"c_birth_year", ::arrow::int32()},
+                                  {"c_customer_id", ::arrow::utf8()},
+                                  {"c_salutation", ::arrow::utf8()},
+                                  {"c_first_name", ::arrow::utf8()},
+                                  {"c_last_name", ::arrow::utf8()},
+                                  {"c_preferred_cust_flag", ::arrow::utf8()},
+                                  {"c_birth_country", ::arrow::utf8()},
+                                  {"c_login", ::arrow::utf8()},
+                                  {"c_email_address", ::arrow::utf8()},
+                                  {"c_last_review_date", ::arrow::utf8()}};
+  ReadTableFromCSVFile("delta_encoding_required_column_expect.csv", convert_options,
+                       &expect_table);
+  ::arrow::AssertTablesEqual(*actual_table, *expect_table, false);
+}
+
+TEST_F(TestArrowReadDeltaEncoding, OptionalColumn) {
+  std::shared_ptr<::arrow::Table> actual_table, expect_table;
+  ReadTableFromParquetFile("delta_encoding_optional_column.parquet", &actual_table);
+
+  auto convert_options = ::arrow::csv::ConvertOptions::Defaults();
+  convert_options.column_types = {{"c_customer_sk", ::arrow::int64()},
+                                  {"c_current_cdemo_sk", ::arrow::int64()},
+                                  {"c_current_hdemo_sk", ::arrow::int64()},
+                                  {"c_current_addr_sk", ::arrow::int64()},
+                                  {"c_first_shipto_date_sk", ::arrow::int64()},
+                                  {"c_first_sales_date_sk", ::arrow::int64()},
+                                  {"c_birth_day", ::arrow::int64()},
+                                  {"c_birth_month", ::arrow::int64()},
+                                  {"c_birth_year", ::arrow::int64()},
+                                  {"c_customer_id", ::arrow::utf8()},
+                                  {"c_salutation", ::arrow::utf8()},
+                                  {"c_first_name", ::arrow::utf8()},
+                                  {"c_last_name", ::arrow::utf8()},
+                                  {"c_preferred_cust_flag", ::arrow::utf8()},
+                                  {"c_birth_country", ::arrow::utf8()},
+                                  {"c_login", ::arrow::utf8()},
+                                  {"c_email_address", ::arrow::utf8()},
+                                  {"c_last_review_date", ::arrow::utf8()}};
+  convert_options.strings_can_be_null = true;
+  ReadTableFromCSVFile("delta_encoding_optional_column_expect.csv", convert_options,
+                       &expect_table);
+  ::arrow::AssertTablesEqual(*actual_table, *expect_table, false);
+}
 #else
 TEST(TestArrowReadDeltaEncoding, DeltaBinaryPacked) {
   GTEST_SKIP() << "Test needs CSV reader";
@@ -4273,6 +4329,14 @@ TEST(TestArrowReadDeltaEncoding, DeltaByteArray) {
 }
 
 TEST(TestArrowReadDeltaEncoding, IncrementalDecodeDeltaByteArray) {
+  GTEST_SKIP() << "Test needs CSV reader";
+}
+
+TEST(TestArrowReadDeltaEncoding, RequiredColumn) {
+  GTEST_SKIP() << "Test needs CSV reader";
+}
+
+TEST(TestArrowReadDeltaEncoding, OptionalColumn) {
   GTEST_SKIP() << "Test needs CSV reader";
 }
 
