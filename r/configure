@@ -222,11 +222,6 @@ if [ $? -eq 0 ]; then
   # now let's set the other two variables
   CXX11FLAGS=`"${R_HOME}"/bin/R CMD config CXX11FLAGS`
   CXX11STD=`"${R_HOME}"/bin/R CMD config CXX11STD`
-else
-  # For compatibility with R < 3.4, when these were called CXX1X
-  CXXCPP="`${R_HOME}/bin/R CMD config CXX1X` -E"
-  CXX11FLAGS=`"${R_HOME}"/bin/R CMD config CXX1XFLAGS`
-  CXX11STD=`"${R_HOME}"/bin/R CMD config CXX1XSTD`
 fi
 CPPFLAGS=`"${R_HOME}"/bin/R CMD config CPPFLAGS`
 TEST_CMD="${CXXCPP} ${CPPFLAGS} ${PKG_CFLAGS} ${CXX11FLAGS} ${CXX11STD} -xc++ -"
