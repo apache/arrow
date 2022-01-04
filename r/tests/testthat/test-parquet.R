@@ -330,7 +330,7 @@ test_that("deprecated int96 timestamp unit can be specified when reading Parquet
   on.exit(unlink(tf))
 
   table <- Table$create(
-    some_datetime = as.POSIXct("2001-01-01 12:34:56.789", tz = "UTC")
+    some_datetime = as.POSIXct("2001-01-01 12:34:56.789")
   )
 
   write_parquet(
