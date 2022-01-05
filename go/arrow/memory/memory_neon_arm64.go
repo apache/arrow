@@ -14,16 +14,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#undef FULL_NAME
+// +build !noasm
 
-#if  defined(__AVX2__)
-    #define FULL_NAME(x) x##_avx2
-#elif __SSE4_2__ == 1
-    #define FULL_NAME(x) x##_sse4
-#elif __SSE3__ == 1
-    #define FULL_NAME(x) x##_sse3
-#elif defined(__ARM_NEON) || defined(__ARM_NEON__)
-    #define FULL_NAME(x) x##_neon
-#else
-    #define FULL_NAME(x) x##_x86
-#endif
+package memory
+
+import "unsafe"
+
+//go:noescape
+func _memset_neon(buf unsafe.Pointer, len, c uintptr)
+
+func memory_memset_neon(buf []byte, c byte) {
+	if len(buf) == 0 {
+		return
+	}
+	_memset_neon(unsafe.Pointer(&buf[0]), uintptr(len(buf)), uintptr(c))
+}
