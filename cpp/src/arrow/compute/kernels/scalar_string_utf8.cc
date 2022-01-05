@@ -15,21 +15,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/compute/kernels/common.h"
-
-#ifdef ARROW_WITH_UTF8PROC
 #include "arrow/compute/kernels/scalar_string_common.h"
-#endif
 
 namespace arrow {
 namespace compute {
 namespace internal {
 
-#ifdef ARROW_WITH_UTF8PROC
 namespace {
 
 // ----------------------------------------------------------------------
 // String transformation base classes
+
+#ifdef ARROW_WITH_UTF8PROC
 
 template <template <typename> class Transformer>
 void MakeUnaryStringUTF8TransformKernel(std::string name, FunctionRegistry* registry,
@@ -42,10 +39,13 @@ void MakeUnaryStringUTF8TransformKernel(std::string name, FunctionRegistry* regi
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
+#endif  // ARROW_WITH_UTF8PROC
+
 // ----------------------------------------------------------------------
 // Predicates and classification
 
-// TODO
+#ifdef ARROW_WITH_UTF8PROC
+
 // Direct lookup tables for unicode properties
 constexpr uint32_t kMaxCodepointLookup =
     0xffff;  // up to this codepoint is in a lookup table
@@ -325,8 +325,12 @@ void AddPredicates(FunctionRegistry* registry) {
   AddUnaryStringPredicate<IsUpperUnicode>("utf8_is_upper", registry, &utf8_is_upper_doc);
 }
 
+#endif  // ARROW_WITH_UTF8PROC
+
 // ----------------------------------------------------------------------
 // Case conversion
+
+#ifdef ARROW_WITH_UTF8PROC
 
 struct FunctionalCaseMappingTransform : public StringTransformBase {
   Status PreExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) override {
@@ -497,334 +501,12 @@ void AddCaseConversion(FunctionRegistry* registry) {
   MakeUnaryStringBatchKernel<Utf8Title>("utf8_title", registry, &utf8_title_doc);
 }
 
-// ----------------------------------------------------------------------
-// String length
-
-struct Utf8Length {
-  template <typename OutValue, typename Arg0Value = util::string_view>
-  static OutValue Call(KernelContext*, Arg0Value val, Status*) {
-    auto str = reinterpret_cast<const uint8_t*>(val.data());
-    auto strlen = val.size();
-    return static_cast<OutValue>(util::UTF8Length(str, str + strlen));
-  }
-};
-
-const FunctionDoc utf8_length_doc(
-    "Compute UTF8 string lengths",
-    ("For each string in `strings`, emit its length in UTF8 characters.\n"
-     "Null values emit null."),
-    {"strings"});
-
-void AddLength(FunctionRegistry* registry) {
-  auto func =
-      std::make_shared<ScalarFunction>("utf8_length", Arity::Unary(), &utf8_length_doc);
-  {
-    auto exec = applicator::ScalarUnaryNotNull<Int32Type, StringType, Utf8Length>::Exec;
-    DCHECK_OK(func->AddKernel({utf8()}, int32(), std::move(exec)));
-  }
-  {
-    auto exec =
-        applicator::ScalarUnaryNotNull<Int64Type, LargeStringType, Utf8Length>::Exec;
-    DCHECK_OK(func->AddKernel({large_utf8()}, int64(), std::move(exec)));
-  }
-  DCHECK_OK(registry->AddFunction(std::move(func)));
-}
-
-// ----------------------------------------------------------------------
-// String reversal
-
-struct Utf8ReverseTransform : public StringTransformBase {
-  int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
-                    uint8_t* output) {
-    int64_t i = 0;
-    while (i < input_string_ncodeunits) {
-      int64_t char_end = std::min(i + util::ValidUtf8CodepointByteSize(input + i),
-                                  input_string_ncodeunits);
-      std::copy(input + i, input + char_end, output + input_string_ncodeunits - char_end);
-      i = char_end;
-    }
-    return input_string_ncodeunits;
-  }
-};
-
-template <typename Type>
-using Utf8Reverse = StringTransformExec<Type, Utf8ReverseTransform>;
-
-const FunctionDoc utf8_reverse_doc(
-    "Reverse input",
-    ("For each string in `strings`, return a reversed version.\n\n"
-     "This function operates on Unicode codepoints, not grapheme\n"
-     "clusters. Hence, it will not correctly reverse grapheme clusters\n"
-     "composed of multiple codepoints."),
-    {"strings"});
-
-void AddReverse(FunctionRegistry* registry) {
-  MakeUnaryStringBatchKernel<Utf8Reverse>("utf8_reverse", registry, &utf8_reverse_doc);
-}
-
-// ----------------------------------------------------------------------
-// String trimming
-
-struct UTF8TrimState {
-  TrimOptions options_;
-  std::vector<bool> codepoints_;
-  Status status_ = Status::OK();
-
-  explicit UTF8TrimState(KernelContext* ctx, TrimOptions options)
-      : options_(std::move(options)) {
-    if (!ARROW_PREDICT_TRUE(
-            arrow::util::UTF8ForEach(options_.characters, [&](uint32_t c) {
-              codepoints_.resize(
-                  std::max(c + 1, static_cast<uint32_t>(codepoints_.size())));
-              codepoints_.at(c) = true;
-            }))) {
-      status_ = Status::Invalid("Invalid UTF8 sequence in input");
-    }
-  }
-};
-
-template <bool TrimLeft, bool TrimRight>
-struct UTF8TrimTransform : public StringTransformBase {
-  using State = KernelStateFromFunctionOptions<UTF8TrimState, TrimOptions>;
-
-  const UTF8TrimState& state_;
-
-  explicit UTF8TrimTransform(const UTF8TrimState& state) : state_(state) {}
-
-  Status PreExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) override {
-    return state_.status_;
-  }
-
-  int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
-                    uint8_t* output) {
-    const uint8_t* begin = input;
-    const uint8_t* end = input + input_string_ncodeunits;
-    const uint8_t* end_trimmed = end;
-    const uint8_t* begin_trimmed = begin;
-    const auto& codepoints = state_.codepoints_;
-
-    auto predicate = [&](uint32_t c) { return c >= codepoints.size() || !codepoints[c]; };
-    if (TrimLeft && !ARROW_PREDICT_TRUE(
-                        arrow::util::UTF8FindIf(begin, end, predicate, &begin_trimmed))) {
-      return kTransformError;
-    }
-    if (TrimRight && begin_trimmed < end) {
-      if (!ARROW_PREDICT_TRUE(arrow::util::UTF8FindIfReverse(begin_trimmed, end,
-                                                             predicate, &end_trimmed))) {
-        return kTransformError;
-      }
-    }
-    std::copy(begin_trimmed, end_trimmed, output);
-    return end_trimmed - begin_trimmed;
-  }
-};
-
-template <typename Type>
-using UTF8Trim = StringTransformExecWithState<Type, UTF8TrimTransform<true, true>>;
-
-template <typename Type>
-using UTF8LTrim = StringTransformExecWithState<Type, UTF8TrimTransform<true, false>>;
-
-template <typename Type>
-using UTF8RTrim = StringTransformExecWithState<Type, UTF8TrimTransform<false, true>>;
-
-template <bool TrimLeft, bool TrimRight>
-struct UTF8TrimWhitespaceTransform : public StringTransformBase {
-  Status PreExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) override {
-    EnsureUtf8LookupTablesFilled();
-    return Status::OK();
-  }
-
-  int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
-                    uint8_t* output) {
-    const uint8_t* begin = input;
-    const uint8_t* end = input + input_string_ncodeunits;
-    const uint8_t* end_trimmed = end;
-    const uint8_t* begin_trimmed = begin;
-
-    auto predicate = [](uint32_t c) { return !IsSpaceCharacterUnicode(c); };
-    if (TrimLeft && !ARROW_PREDICT_TRUE(
-                        arrow::util::UTF8FindIf(begin, end, predicate, &begin_trimmed))) {
-      return kTransformError;
-    }
-    if (TrimRight && begin_trimmed < end) {
-      if (!ARROW_PREDICT_TRUE(arrow::util::UTF8FindIfReverse(begin_trimmed, end,
-                                                             predicate, &end_trimmed))) {
-        return kTransformError;
-      }
-    }
-    std::copy(begin_trimmed, end_trimmed, output);
-    return end_trimmed - begin_trimmed;
-  }
-};
-
-template <typename Type>
-using UTF8TrimWhitespace =
-    StringTransformExec<Type, UTF8TrimWhitespaceTransform<true, true>>;
-
-template <typename Type>
-using UTF8LTrimWhitespace =
-    StringTransformExec<Type, UTF8TrimWhitespaceTransform<true, false>>;
-
-template <typename Type>
-using UTF8RTrimWhitespace =
-    StringTransformExec<Type, UTF8TrimWhitespaceTransform<false, true>>;
-
-const FunctionDoc utf8_trim_doc(
-    "Trim leading and trailing characters",
-    ("For each string in `strings`, remove any leading or trailing characters\n"
-     "from the `characters` option (as given in TrimOptions).\n"
-     "Null values emit null."),
-    {"strings"}, "TrimOptions", /*options_required=*/true);
-
-const FunctionDoc utf8_ltrim_doc(
-    "Trim leading characters",
-    ("For each string in `strings`, remove any leading characters\n"
-     "from the `characters` option (as given in TrimOptions).\n"
-     "Null values emit null."),
-    {"strings"}, "TrimOptions", /*options_required=*/true);
-
-const FunctionDoc utf8_rtrim_doc(
-    "Trim trailing characters",
-    ("For each string in `strings`, remove any trailing characters\n"
-     "from the `characters` option (as given in TrimOptions).\n"
-     "Null values emit null."),
-    {"strings"}, "TrimOptions", /*options_required=*/true);
-
-const FunctionDoc utf8_trim_whitespace_doc(
-    "Trim leading and trailing whitespace characters",
-    ("For each string in `strings`, emit a string with leading and trailing\n"
-     "whitespace characters removed, where whitespace characters are defined\n"
-     "by the Unicode standard.  Null values emit null."),
-    {"strings"});
-
-const FunctionDoc utf8_ltrim_whitespace_doc(
-    "Trim leading whitespace characters",
-    ("For each string in `strings`, emit a string with leading whitespace\n"
-     "characters removed, where whitespace characters are defined by the Unicode\n"
-     "standard.  Null values emit null."),
-    {"strings"});
-
-const FunctionDoc utf8_rtrim_whitespace_doc(
-    "Trim trailing whitespace characters",
-    ("For each string in `strings`, emit a string with trailing whitespace\n"
-     "characters removed, where whitespace characters are defined by the Unicode\n"
-     "standard.  Null values emit null."),
-    {"strings"});
-
-void AddTrim(FunctionRegistry* registry) {
-  MakeUnaryStringBatchKernelWithState<UTF8Trim>("utf8_trim", registry, &utf8_trim_doc);
-  MakeUnaryStringBatchKernelWithState<UTF8LTrim>("utf8_ltrim", registry, &utf8_ltrim_doc);
-  MakeUnaryStringBatchKernelWithState<UTF8RTrim>("utf8_rtrim", registry, &utf8_rtrim_doc);
-  MakeUnaryStringBatchKernel<UTF8TrimWhitespace>("utf8_trim_whitespace", registry,
-                                                 &utf8_trim_whitespace_doc);
-  MakeUnaryStringBatchKernel<UTF8LTrimWhitespace>("utf8_ltrim_whitespace", registry,
-                                                  &utf8_ltrim_whitespace_doc);
-  MakeUnaryStringBatchKernel<UTF8RTrimWhitespace>("utf8_rtrim_whitespace", registry,
-                                                  &utf8_rtrim_whitespace_doc);
-}
-
-// ----------------------------------------------------------------------
-// String padding
-
-template <bool PadLeft, bool PadRight>
-struct Utf8PadTransform : public StringTransformBase {
-  using State = OptionsWrapper<PadOptions>;
-
-  const PadOptions& options_;
-
-  explicit Utf8PadTransform(const PadOptions& options) : options_(options) {}
-
-  Status PreExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) override {
-    auto str = reinterpret_cast<const uint8_t*>(options_.padding.data());
-    auto strlen = options_.padding.size();
-    if (util::UTF8Length(str, str + strlen) != 1) {
-      return Status::Invalid("Padding must be one codepoint, got '", options_.padding,
-                             "'");
-    }
-    return Status::OK();
-  }
-
-  int64_t MaxCodeunits(int64_t ninputs, int64_t input_ncodeunits) override {
-    // This is likely very overallocated but hard to do better without
-    // actually looking at each string (because of strings that may be
-    // longer than the given width)
-    // One codepoint may be up to 4 bytes
-    return input_ncodeunits + 4 * ninputs * options_.width;
-  }
-
-  int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
-                    uint8_t* output) {
-    const int64_t input_width = util::UTF8Length(input, input + input_string_ncodeunits);
-    if (input_width >= options_.width) {
-      std::copy(input, input + input_string_ncodeunits, output);
-      return input_string_ncodeunits;
-    }
-    const int64_t spaces = options_.width - input_width;
-    int64_t left = 0;
-    int64_t right = 0;
-    if (PadLeft && PadRight) {
-      // If odd number of spaces, put the extra space on the right
-      left = spaces / 2;
-      right = spaces - left;
-    } else if (PadLeft) {
-      left = spaces;
-    } else if (PadRight) {
-      right = spaces;
-    } else {
-      DCHECK(false) << "unreachable";
-      return 0;
-    }
-    uint8_t* start = output;
-    while (left) {
-      output = std::copy(options_.padding.begin(), options_.padding.end(), output);
-      left--;
-    }
-    output = std::copy(input, input + input_string_ncodeunits, output);
-    while (right) {
-      output = std::copy(options_.padding.begin(), options_.padding.end(), output);
-      right--;
-    }
-    return output - start;
-  }
-};
-
-template <typename Type>
-using Utf8LPad = StringTransformExecWithState<Type, Utf8PadTransform<true, false>>;
-
-template <typename Type>
-using Utf8RPad = StringTransformExecWithState<Type, Utf8PadTransform<false, true>>;
-
-template <typename Type>
-using Utf8Center = StringTransformExecWithState<Type, Utf8PadTransform<true, true>>;
-
-const FunctionDoc utf8_center_doc(
-    "Center strings by padding with a given character",
-    ("For each string in `strings`, emit a centered string by padding both sides \n"
-     "with the given UTF8 codeunit.\nNull values emit null."),
-    {"strings"}, "PadOptions", /*options_required=*/true);
-
-const FunctionDoc utf8_lpad_doc(
-    "Right-align strings by padding with a given character",
-    ("For each string in `strings`, emit a right-aligned string by prepending \n"
-     "the given UTF8 codeunit.\nNull values emit null."),
-    {"strings"}, "PadOptions", /*options_required=*/true);
-
-const FunctionDoc utf8_rpad_doc(
-    "Left-align strings by padding with a given character",
-    ("For each string in `strings`, emit a left-aligned string by appending \n"
-     "the given UTF8 codeunit.\nNull values emit null."),
-    {"strings"}, "PadOptions", /*options_required=*/true);
-
-void AddPad(FunctionRegistry* registry) {
-  MakeUnaryStringBatchKernelWithState<Utf8LPad>("utf8_lpad", registry, &utf8_lpad_doc);
-  MakeUnaryStringBatchKernelWithState<Utf8RPad>("utf8_rpad", registry, &utf8_rpad_doc);
-  MakeUnaryStringBatchKernelWithState<Utf8Center>("utf8_center", registry,
-                                                  &utf8_center_doc);
-}
+#endif  // ARROW_WITH_UTF8PROC
 
 // ----------------------------------------------------------------------
 // Code point normalization
+
+#ifdef ARROW_WITH_UTF8PROC
 
 struct Utf8NormalizeBase {
   // Pre-size scratch space
@@ -977,6 +659,344 @@ const FunctionDoc utf8_normalize_doc(
 void AddNormalize(FunctionRegistry* registry) {
   MakeUnaryStringBatchKernelWithState<Utf8NormalizeExec>("utf8_normalize", registry,
                                                          &utf8_normalize_doc);
+}
+
+#endif  // ARROW_WITH_UTF8PROC
+
+// ----------------------------------------------------------------------
+// String length
+
+struct Utf8Length {
+  template <typename OutValue, typename Arg0Value = util::string_view>
+  static OutValue Call(KernelContext*, Arg0Value val, Status*) {
+    auto str = reinterpret_cast<const uint8_t*>(val.data());
+    auto strlen = val.size();
+    return static_cast<OutValue>(util::UTF8Length(str, str + strlen));
+  }
+};
+
+const FunctionDoc utf8_length_doc(
+    "Compute UTF8 string lengths",
+    ("For each string in `strings`, emit its length in UTF8 characters.\n"
+     "Null values emit null."),
+    {"strings"});
+
+void AddLength(FunctionRegistry* registry) {
+  auto func =
+      std::make_shared<ScalarFunction>("utf8_length", Arity::Unary(), &utf8_length_doc);
+  {
+    auto exec = applicator::ScalarUnaryNotNull<Int32Type, StringType, Utf8Length>::Exec;
+    DCHECK_OK(func->AddKernel({utf8()}, int32(), std::move(exec)));
+  }
+  {
+    auto exec =
+        applicator::ScalarUnaryNotNull<Int64Type, LargeStringType, Utf8Length>::Exec;
+    DCHECK_OK(func->AddKernel({large_utf8()}, int64(), std::move(exec)));
+  }
+  DCHECK_OK(registry->AddFunction(std::move(func)));
+}
+
+// ----------------------------------------------------------------------
+// String reversal
+
+struct Utf8ReverseTransform : public StringTransformBase {
+  int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
+                    uint8_t* output) {
+    int64_t i = 0;
+    while (i < input_string_ncodeunits) {
+      int64_t char_end = std::min(i + util::ValidUtf8CodepointByteSize(input + i),
+                                  input_string_ncodeunits);
+      std::copy(input + i, input + char_end, output + input_string_ncodeunits - char_end);
+      i = char_end;
+    }
+    return input_string_ncodeunits;
+  }
+};
+
+template <typename Type>
+using Utf8Reverse = StringTransformExec<Type, Utf8ReverseTransform>;
+
+const FunctionDoc utf8_reverse_doc(
+    "Reverse input",
+    ("For each string in `strings`, return a reversed version.\n\n"
+     "This function operates on Unicode codepoints, not grapheme\n"
+     "clusters. Hence, it will not correctly reverse grapheme clusters\n"
+     "composed of multiple codepoints."),
+    {"strings"});
+
+void AddReverse(FunctionRegistry* registry) {
+  MakeUnaryStringBatchKernel<Utf8Reverse>("utf8_reverse", registry, &utf8_reverse_doc);
+}
+
+// ----------------------------------------------------------------------
+// String trimming
+
+struct UTF8TrimState {
+  TrimOptions options_;
+  std::vector<bool> codepoints_;
+  Status status_ = Status::OK();
+
+  explicit UTF8TrimState(KernelContext* ctx, TrimOptions options)
+      : options_(std::move(options)) {
+    if (!ARROW_PREDICT_TRUE(
+            arrow::util::UTF8ForEach(options_.characters, [&](uint32_t c) {
+              codepoints_.resize(
+                  std::max(c + 1, static_cast<uint32_t>(codepoints_.size())));
+              codepoints_.at(c) = true;
+            }))) {
+      status_ = Status::Invalid("Invalid UTF8 sequence in input");
+    }
+  }
+};
+
+template <bool TrimLeft, bool TrimRight>
+struct UTF8TrimTransform : public StringTransformBase {
+  using State = KernelStateFromFunctionOptions<UTF8TrimState, TrimOptions>;
+
+  const UTF8TrimState& state_;
+
+  explicit UTF8TrimTransform(const UTF8TrimState& state) : state_(state) {}
+
+  Status PreExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) override {
+    return state_.status_;
+  }
+
+  int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
+                    uint8_t* output) {
+    const uint8_t* begin = input;
+    const uint8_t* end = input + input_string_ncodeunits;
+    const uint8_t* end_trimmed = end;
+    const uint8_t* begin_trimmed = begin;
+    const auto& codepoints = state_.codepoints_;
+
+    auto predicate = [&](uint32_t c) { return c >= codepoints.size() || !codepoints[c]; };
+    if (TrimLeft && !ARROW_PREDICT_TRUE(
+                        arrow::util::UTF8FindIf(begin, end, predicate, &begin_trimmed))) {
+      return kTransformError;
+    }
+    if (TrimRight && begin_trimmed < end) {
+      if (!ARROW_PREDICT_TRUE(arrow::util::UTF8FindIfReverse(begin_trimmed, end,
+                                                             predicate, &end_trimmed))) {
+        return kTransformError;
+      }
+    }
+    std::copy(begin_trimmed, end_trimmed, output);
+    return end_trimmed - begin_trimmed;
+  }
+};
+
+template <typename Type>
+using UTF8Trim = StringTransformExecWithState<Type, UTF8TrimTransform<true, true>>;
+
+template <typename Type>
+using UTF8LTrim = StringTransformExecWithState<Type, UTF8TrimTransform<true, false>>;
+
+template <typename Type>
+using UTF8RTrim = StringTransformExecWithState<Type, UTF8TrimTransform<false, true>>;
+
+#ifdef ARROW_WITH_UTF8PROC
+
+template <bool TrimLeft, bool TrimRight>
+struct UTF8TrimWhitespaceTransform : public StringTransformBase {
+  Status PreExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) override {
+    EnsureUtf8LookupTablesFilled();
+    return Status::OK();
+  }
+
+  int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
+                    uint8_t* output) {
+    const uint8_t* begin = input;
+    const uint8_t* end = input + input_string_ncodeunits;
+    const uint8_t* end_trimmed = end;
+    const uint8_t* begin_trimmed = begin;
+
+    auto predicate = [](uint32_t c) { return !IsSpaceCharacterUnicode(c); };
+    if (TrimLeft && !ARROW_PREDICT_TRUE(
+                        arrow::util::UTF8FindIf(begin, end, predicate, &begin_trimmed))) {
+      return kTransformError;
+    }
+    if (TrimRight && begin_trimmed < end) {
+      if (!ARROW_PREDICT_TRUE(arrow::util::UTF8FindIfReverse(begin_trimmed, end,
+                                                             predicate, &end_trimmed))) {
+        return kTransformError;
+      }
+    }
+    std::copy(begin_trimmed, end_trimmed, output);
+    return end_trimmed - begin_trimmed;
+  }
+};
+
+template <typename Type>
+using UTF8TrimWhitespace =
+    StringTransformExec<Type, UTF8TrimWhitespaceTransform<true, true>>;
+
+template <typename Type>
+using UTF8LTrimWhitespace =
+    StringTransformExec<Type, UTF8TrimWhitespaceTransform<true, false>>;
+
+template <typename Type>
+using UTF8RTrimWhitespace =
+    StringTransformExec<Type, UTF8TrimWhitespaceTransform<false, true>>;
+
+#endif
+
+const FunctionDoc utf8_trim_doc(
+    "Trim leading and trailing characters",
+    ("For each string in `strings`, remove any leading or trailing characters\n"
+     "from the `characters` option (as given in TrimOptions).\n"
+     "Null values emit null."),
+    {"strings"}, "TrimOptions", /*options_required=*/true);
+
+const FunctionDoc utf8_ltrim_doc(
+    "Trim leading characters",
+    ("For each string in `strings`, remove any leading characters\n"
+     "from the `characters` option (as given in TrimOptions).\n"
+     "Null values emit null."),
+    {"strings"}, "TrimOptions", /*options_required=*/true);
+
+const FunctionDoc utf8_rtrim_doc(
+    "Trim trailing characters",
+    ("For each string in `strings`, remove any trailing characters\n"
+     "from the `characters` option (as given in TrimOptions).\n"
+     "Null values emit null."),
+    {"strings"}, "TrimOptions", /*options_required=*/true);
+
+#ifdef ARROW_WITH_UTF8PROC
+
+const FunctionDoc utf8_trim_whitespace_doc(
+    "Trim leading and trailing whitespace characters",
+    ("For each string in `strings`, emit a string with leading and trailing\n"
+     "whitespace characters removed, where whitespace characters are defined\n"
+     "by the Unicode standard.  Null values emit null."),
+    {"strings"});
+
+const FunctionDoc utf8_ltrim_whitespace_doc(
+    "Trim leading whitespace characters",
+    ("For each string in `strings`, emit a string with leading whitespace\n"
+     "characters removed, where whitespace characters are defined by the Unicode\n"
+     "standard.  Null values emit null."),
+    {"strings"});
+
+const FunctionDoc utf8_rtrim_whitespace_doc(
+    "Trim trailing whitespace characters",
+    ("For each string in `strings`, emit a string with trailing whitespace\n"
+     "characters removed, where whitespace characters are defined by the Unicode\n"
+     "standard.  Null values emit null."),
+    {"strings"});
+
+#endif  // ARROW_WITH_UTF8PROC
+
+void AddTrim(FunctionRegistry* registry) {
+  MakeUnaryStringBatchKernelWithState<UTF8Trim>("utf8_trim", registry, &utf8_trim_doc);
+  MakeUnaryStringBatchKernelWithState<UTF8LTrim>("utf8_ltrim", registry, &utf8_ltrim_doc);
+  MakeUnaryStringBatchKernelWithState<UTF8RTrim>("utf8_rtrim", registry, &utf8_rtrim_doc);
+#ifdef ARROW_WITH_UTF8PROC
+  MakeUnaryStringBatchKernel<UTF8TrimWhitespace>("utf8_trim_whitespace", registry,
+                                                 &utf8_trim_whitespace_doc);
+  MakeUnaryStringBatchKernel<UTF8LTrimWhitespace>("utf8_ltrim_whitespace", registry,
+                                                  &utf8_ltrim_whitespace_doc);
+  MakeUnaryStringBatchKernel<UTF8RTrimWhitespace>("utf8_rtrim_whitespace", registry,
+                                                  &utf8_rtrim_whitespace_doc);
+#endif  // ARROW_WITH_UTF8PROC
+}
+
+// ----------------------------------------------------------------------
+// String padding
+
+template <bool PadLeft, bool PadRight>
+struct Utf8PadTransform : public StringTransformBase {
+  using State = OptionsWrapper<PadOptions>;
+
+  const PadOptions& options_;
+
+  explicit Utf8PadTransform(const PadOptions& options) : options_(options) {}
+
+  Status PreExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) override {
+    auto str = reinterpret_cast<const uint8_t*>(options_.padding.data());
+    auto strlen = options_.padding.size();
+    if (util::UTF8Length(str, str + strlen) != 1) {
+      return Status::Invalid("Padding must be one codepoint, got '", options_.padding,
+                             "'");
+    }
+    return Status::OK();
+  }
+
+  int64_t MaxCodeunits(int64_t ninputs, int64_t input_ncodeunits) override {
+    // This is likely very overallocated but hard to do better without
+    // actually looking at each string (because of strings that may be
+    // longer than the given width)
+    // One codepoint may be up to 4 bytes
+    return input_ncodeunits + 4 * ninputs * options_.width;
+  }
+
+  int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
+                    uint8_t* output) {
+    const int64_t input_width = util::UTF8Length(input, input + input_string_ncodeunits);
+    if (input_width >= options_.width) {
+      std::copy(input, input + input_string_ncodeunits, output);
+      return input_string_ncodeunits;
+    }
+    const int64_t spaces = options_.width - input_width;
+    int64_t left = 0;
+    int64_t right = 0;
+    if (PadLeft && PadRight) {
+      // If odd number of spaces, put the extra space on the right
+      left = spaces / 2;
+      right = spaces - left;
+    } else if (PadLeft) {
+      left = spaces;
+    } else if (PadRight) {
+      right = spaces;
+    } else {
+      DCHECK(false) << "unreachable";
+      return 0;
+    }
+    uint8_t* start = output;
+    while (left) {
+      output = std::copy(options_.padding.begin(), options_.padding.end(), output);
+      left--;
+    }
+    output = std::copy(input, input + input_string_ncodeunits, output);
+    while (right) {
+      output = std::copy(options_.padding.begin(), options_.padding.end(), output);
+      right--;
+    }
+    return output - start;
+  }
+};
+
+template <typename Type>
+using Utf8LPad = StringTransformExecWithState<Type, Utf8PadTransform<true, false>>;
+
+template <typename Type>
+using Utf8RPad = StringTransformExecWithState<Type, Utf8PadTransform<false, true>>;
+
+template <typename Type>
+using Utf8Center = StringTransformExecWithState<Type, Utf8PadTransform<true, true>>;
+
+const FunctionDoc utf8_center_doc(
+    "Center strings by padding with a given character",
+    ("For each string in `strings`, emit a centered string by padding both sides \n"
+     "with the given UTF8 codeunit.\nNull values emit null."),
+    {"strings"}, "PadOptions", /*options_required=*/true);
+
+const FunctionDoc utf8_lpad_doc(
+    "Right-align strings by padding with a given character",
+    ("For each string in `strings`, emit a right-aligned string by prepending \n"
+     "the given UTF8 codeunit.\nNull values emit null."),
+    {"strings"}, "PadOptions", /*options_required=*/true);
+
+const FunctionDoc utf8_rpad_doc(
+    "Left-align strings by padding with a given character",
+    ("For each string in `strings`, emit a left-aligned string by appending \n"
+     "the given UTF8 codeunit.\nNull values emit null."),
+    {"strings"}, "PadOptions", /*options_required=*/true);
+
+void AddPad(FunctionRegistry* registry) {
+  MakeUnaryStringBatchKernelWithState<Utf8LPad>("utf8_lpad", registry, &utf8_lpad_doc);
+  MakeUnaryStringBatchKernelWithState<Utf8RPad>("utf8_rpad", registry, &utf8_rpad_doc);
+  MakeUnaryStringBatchKernelWithState<Utf8Center>("utf8_center", registry,
+                                                  &utf8_center_doc);
 }
 
 // ----------------------------------------------------------------------
@@ -1261,6 +1281,8 @@ void AddSlice(FunctionRegistry* registry) {
 // ----------------------------------------------------------------------
 // Split by whitespace
 
+#ifdef ARROW_WITH_UTF8PROC
+
 struct SplitWhitespaceUtf8Finder : public SplitFinderBase<SplitOptions> {
   using Options = SplitOptions;
 
@@ -1340,10 +1362,11 @@ void AddSplitWhitespace(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
+#endif  // ARROW_WITH_UTF8PROC
+
 // ----------------------------------------------------------------------
 
 }  // namespace
-#endif  // ARROW_WITH_UTF8PROC
 
 void EnsureUtf8LookupTablesFilled() {
 #ifdef ARROW_WITH_UTF8PROC
@@ -1372,13 +1395,15 @@ void RegisterScalarStringUtf8(FunctionRegistry* registry) {
 #ifdef ARROW_WITH_UTF8PROC
   AddPredicates(registry);
   AddCaseConversion(registry);
+  AddNormalize(registry);
+#endif
   AddLength(registry);
   AddReverse(registry);
   AddTrim(registry);
   AddPad(registry);
-  AddNormalize(registry);
   AddReplaceSlice(registry);
   AddSlice(registry);
+#ifdef ARROW_WITH_UTF8PROC
   AddSplitWhitespace(registry);
 #endif
 }

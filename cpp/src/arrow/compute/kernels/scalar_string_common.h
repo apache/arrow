@@ -46,7 +46,13 @@ namespace arrow {
 namespace compute {
 namespace internal {
 
+// Defined in scalar_string_utf8.cc.
 void EnsureUtf8LookupTablesFilled();
+
+FunctionDoc StringPredicateDoc(std::string summary, std::string description);
+
+FunctionDoc StringClassifyDoc(std::string class_summary, std::string class_desc,
+                              bool non_empty);
 
 namespace {
 
@@ -270,35 +276,6 @@ void AddUnaryStringPredicate(std::string name, FunctionRegistry* registry,
     DCHECK_OK(func->AddKernel({ty}, boolean(), std::move(exec)));
   }
   DCHECK_OK(registry->AddFunction(std::move(func)));
-}
-
-FunctionDoc StringPredicateDoc(std::string summary, std::string description) {
-  return FunctionDoc{std::move(summary), std::move(description), {"strings"}};
-}
-
-FunctionDoc StringClassifyDoc(std::string class_summary, std::string class_desc,
-                              bool non_empty) {
-  std::string summary, description;
-  {
-    std::stringstream ss;
-    ss << "Classify strings as " << class_summary;
-    summary = ss.str();
-  }
-  {
-    std::stringstream ss;
-    if (non_empty) {
-      ss
-          << ("For each string in `strings`, emit true iff the string is non-empty\n"
-              "and consists only of ");
-    } else {
-      ss
-          << ("For each string in `strings`, emit true iff the string consists only\n"
-              "of ");
-    }
-    ss << class_desc << ".  Null strings emit null.";
-    description = ss.str();
-  }
-  return StringPredicateDoc(std::move(summary), std::move(description));
 }
 
 // ----------------------------------------------------------------------
