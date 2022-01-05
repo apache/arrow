@@ -31,6 +31,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "arrow/array.h"
 #include "arrow/compute/exec/expression.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/discovery.h"
@@ -1268,7 +1269,9 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
             compute::SortIndices(batch->GetColumnByName("sales"),
                                  compute::SortOptions({compute::SortKey{"sales"}})));
         ASSERT_OK_AND_ASSIGN(Datum sorted_batch, compute::Take(batch, sort_indices));
-        ASSERT_OK_AND_ASSIGN(actual_struct, sorted_batch.record_batch()->ToStructArray());
+        ASSERT_OK_AND_ASSIGN(auto struct_array,
+                             sorted_batch.record_batch()->ToStructArray());
+        actual_struct = std::dynamic_pointer_cast<Array>(struct_array);
       }
 
       auto expected_struct = ArrayFromJSON(struct_(expected_physical_schema_->fields()),
