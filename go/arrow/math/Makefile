@@ -18,7 +18,6 @@ GO_BUILD=go build
 GO_GEN=go generate
 GO_TEST=go test
 GOPATH=$(realpath ../../../../../..)
-GOARCH=$(shell go env GOARCH)
 
 # this converts rotate instructions from "ro[lr] <reg>" -> "ro[lr] <reg>, 1" for yasm compatibility
 PERL_FIXUP_ROTATE=perl -i -pe 's/(ro[rl]\s+\w{2,3})$$/\1, 1/'
@@ -41,18 +40,9 @@ INTEL_SOURCES := \
 	int64_avx2_amd64.s int64_sse4_amd64.s \
 	uint64_avx2_amd64.s uint64_sse4_amd64.s
 
-ARM_SOURCES := \
-	float64_neon_arm64.s \
-	int64_neon_arm64.s \
-	uint64_neon_arm64.s
-
 .PHONEY: assembly
 
-#ifeq ($(GOARCH), arm64)
-assembly: $(ARM_SOURCES)
-#else
-#assembly: $(INTEL_SOURCES)
-#endif
+assembly: $(INTEL_SOURCES)
 
 generate: ../bin/tmpl
 	../bin/tmpl -i -data=float64.tmpldata type.go.tmpl=float64.go type_amd64.go.tmpl=float64_amd64.go type_arm64.go.tmpl=float64_arm64.go type_s390x.go.tmpl=float64_s390x.go type_noasm.go.tmpl=float64_noasm.go type_test.go.tmpl=float64_test.go
