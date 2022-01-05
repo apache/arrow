@@ -18,6 +18,9 @@
 #include <memory>
 #include <utility>
 
+#include "arrow/array.h"
+#include "arrow/builder.h"
+
 #include <arrow/compute/api.h>
 #include <arrow/compute/api_scalar.h>
 #include <arrow/compute/api_vector.h>
