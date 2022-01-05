@@ -2762,3 +2762,7 @@ cdef extern from "arrow/c/bridge.h" namespace "arrow" nogil:
                                     ArrowArrayStream*)
     CResult[shared_ptr[CRecordBatchReader]] ImportRecordBatchReader(
         ArrowArrayStream*)
+
+
+cdef extern from "arrow/python/gdb.h" namespace "arrow::gdb" nogil:
+    void GdbTestSession "arrow::gdb::TestSession"()
