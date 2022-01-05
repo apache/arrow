@@ -194,6 +194,16 @@ static void BM_HashJoinBasic_KeyTypes(benchmark::State& st,
   HashJoinBasicBenchmarkImpl(st, settings);
 }
 
+static void BM_HashJoinBasic_ProbeParallelism(benchmark::State& st) {
+  BenchmarkSettings settings;
+  settings.num_threads = static_cast<int>(st.range(0));
+  settings.num_build_batches = static_cast<int>(st.range(1));
+  settings.num_probe_batches = settings.num_build_batches * 8;
+
+  HashJoinBasicBenchmarkImpl(st, settings);
+}
+
+#ifdef ARROW_BUILD_DETAILED_BENCHMARKS  // Necessary to suppress warnings
 template <typename... Args>
 static void BM_HashJoinBasic_Selectivity(benchmark::State& st,
                                          std::vector<std::shared_ptr<DataType>> key_types,
@@ -243,15 +253,6 @@ static void BM_HashJoinBasic_PayloadSize(benchmark::State& st) {
   HashJoinBasicBenchmarkImpl(st, settings);
 }
 
-static void BM_HashJoinBasic_ProbeParallelism(benchmark::State& st) {
-  BenchmarkSettings settings;
-  settings.num_threads = static_cast<int>(st.range(0));
-  settings.num_build_batches = static_cast<int>(st.range(1));
-  settings.num_probe_batches = settings.num_build_batches * 8;
-
-  HashJoinBasicBenchmarkImpl(st, settings);
-}
-
 static void BM_HashJoinBasic_BuildParallelism(benchmark::State& st) {
   BenchmarkSettings settings;
   settings.num_threads = static_cast<int>(st.range(0));
@@ -267,10 +268,12 @@ static void BM_HashJoinBasic_NullPercentage(benchmark::State& st) {
 
   HashJoinBasicBenchmarkImpl(st, settings);
 }
+#endif
 
 std::vector<int64_t> hashtable_krows = benchmark::CreateRange(1, 4096, 8);
 
 std::vector<std::string> keytypes_argnames = {"Hashtable krows"};
+#ifdef ARROW_BUILD_DETAILED_BENCHMARKS
 BENCHMARK_CAPTURE(BM_HashJoinBasic_KeyTypes, "{int32}", {int32()})
     ->ArgNames(keytypes_argnames)
     ->ArgsProduct({hashtable_krows});
@@ -392,5 +395,23 @@ BENCHMARK(BM_HashJoinBasic_BuildParallelism)
 BENCHMARK(BM_HashJoinBasic_NullPercentage)
     ->ArgNames({"Null Percentage"})
     ->DenseRange(0, 100, 10);
+#else
+
+BENCHMARK_CAPTURE(BM_HashJoinBasic_KeyTypes, "{int32}", {int32()})
+    ->ArgNames(keytypes_argnames)
+    ->ArgsProduct({hashtable_krows});
+
+BENCHMARK_CAPTURE(BM_HashJoinBasic_KeyTypes, "{utf8}", {utf8()})
+    ->ArgNames(keytypes_argnames)
+    ->RangeMultiplier(4)
+    ->Range(1, 64);
+
+BENCHMARK(BM_HashJoinBasic_ProbeParallelism)
+    ->ArgNames({"Threads", "HashTable krows"})
+    ->ArgsProduct({benchmark::CreateDenseRange(1, 16, 1), hashtable_krows})
+    ->MeasureProcessCPUTime();
+
+#endif  // ARROW_BUILD_DETAILED_BENCHMARKS
+
 }  // namespace compute
 }  // namespace arrow
