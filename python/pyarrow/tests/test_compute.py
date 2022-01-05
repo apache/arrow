@@ -751,6 +751,47 @@ def test_generated_docstrings():
         memory_pool : pyarrow.MemoryPool, optional
             If not passed, will allocate memory from the default memory pool.
         """)
+    # With custom examples
+    assert pc.filter.__doc__ == textwrap.dedent("""\
+        Filter with a boolean selection filter.
+
+        The output is populated with values from the input at positions
+        where the selection filter is non-zero.  Nulls in the selection filter
+        are handled based on FilterOptions.
+
+        Parameters
+        ----------
+        input : Array-like or scalar-like
+            Argument to compute function.
+        selection_filter : Array-like or scalar-like
+            Argument to compute function.
+        null_selection_behavior : str, default "drop"
+            How to handle nulls in the input.
+            Accepted values are "drop", "emit_null".
+        options : pyarrow.compute.FilterOptions, optional
+            Alternative way of passing options.
+        memory_pool : pyarrow.MemoryPool, optional
+            If not passed, will allocate memory from the default memory pool.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> arr = pa.array(["a", "b", "c", None, "e"])
+        >>> mask = pa.array([True, False, None, False, True])
+        >>> arr.filter(mask)
+        <pyarrow.lib.StringArray object at 0x7fa826df9200>
+        [
+          "a",
+          "e"
+        ]
+        >>> arr.filter(mask, null_selection_behavior='emit_null')
+        <pyarrow.lib.StringArray object at 0x7fa826df9200>
+        [
+          "a",
+          null,
+          "e"
+        ]
+        """)
 
 
 def test_generated_signatures():

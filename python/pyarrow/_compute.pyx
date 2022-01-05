@@ -882,6 +882,7 @@ class RoundTemporalOptions(_RoundTemporalOptions):
         "hour", "minute", "second", "millisecond", "microsecond",
         "nanosecond".
     """
+
     def __init__(self, multiple=1, unit="second"):
         self._set_options(multiple, unit)
 
@@ -1749,7 +1750,7 @@ class SelectKOptions(_SelectKOptions):
     k : int
         Number of leading values to select in sorted order
         (i.e. the largest values if sort order is "descending",
-         the smallest otherwise).
+        the smallest otherwise).
     sort_keys : sequence of (name, order) tuples
         Names of field/column keys to sort the input on,
         along with the order each field/column is sorted in.
