@@ -247,3 +247,11 @@ def jemalloc_set_decay_ms(decay_ms):
         that this change will only affect future memory arenas
     """
     check_status(c_jemalloc_set_decay_ms(decay_ms))
+
+
+def supported_memory_backends():
+    """
+    Return a list of available memory pool backends
+    """
+    cdef vector[c_string] backends = c_supported_memory_backends()
+    return [backend.decode() for backend in backends]
