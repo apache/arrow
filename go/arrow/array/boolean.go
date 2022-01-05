@@ -36,7 +36,9 @@ type Boolean struct {
 // The nullBitmap buffer can be nil of there are no null values.
 // If nulls is not known, use UnknownNullCount to calculate the value of NullN at runtime from the nullBitmap buffer.
 func NewBoolean(length int, data *memory.Buffer, nullBitmap *memory.Buffer, nulls int) *Boolean {
-	return NewBooleanData(NewData(arrow.FixedWidthTypes.Boolean, length, []*memory.Buffer{nullBitmap, data}, nil, nulls, 0))
+	arrdata := NewData(arrow.FixedWidthTypes.Boolean, length, []*memory.Buffer{nullBitmap, data}, nil, nulls, 0)
+	defer arrdata.Release()
+	return NewBooleanData(arrdata)
 }
 
 func NewBooleanData(data *Data) *Boolean {

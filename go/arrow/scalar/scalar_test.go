@@ -907,3 +907,74 @@ func TestMakeArrayFromScalar(t *testing.T) {
 		}
 	}
 }
+
+type OptionListTest struct {
+	FieldNames []string          `compute:"field_names"`
+	FieldNulls []bool            `compute:"field_null"`
+	FieldMeta  []*arrow.Metadata `compute:"field_metadata"`
+	Val8       []int8            `compute:"val8"`
+	ValU8      []uint8           `compute:"u8"`
+	Val16      []int16           `compute:"val16"`
+	ValU16     []uint16          `compute:"u16"`
+	Val32      []int32           `compute:"val32"`
+	ValU32     []uint32          `compute:"u32"`
+	Val64      []int64           `compute:"val64"`
+	ValU64     []uint64          `compute:"u64"`
+	ValInt     []int             `compute:"valint"`
+	ValUint    []uint            `compute:"valuint"`
+}
+
+type OptionValTest struct {
+	ToType arrow.DataType `compute:"type"`
+	Allow  bool           `compute:"allow"`
+}
+
+func (OptionValTest) TypeName() string { return "OptionValTest" }
+
+func TestToScalar(t *testing.T) {
+	ot := &OptionValTest{ToType: arrow.BinaryTypes.String, Allow: true}
+	sc, err := scalar.ToScalar(ot, memory.DefaultAllocator)
+	assert.NoError(t, err)
+	assert.Equal(t, `{type:utf8 = null, allow:bool = true, _type_name:binary = OptionValTest}`, sc.String())
+
+	meta := arrow.MetadataFrom(map[string]string{
+		"option":  "val",
+		"captain": "planet",
+		"souper":  "bowl",
+	})
+
+	olt := OptionListTest{
+		FieldNames: []string{"foo", "bar", "baz"},
+		FieldNulls: []bool{true, false},
+		FieldMeta:  []*arrow.Metadata{&meta, nil, &meta},
+		Val8:       []int8{1, 2, 3, 4},
+		ValU8:      []uint8{5, 6},
+		Val16:      []int16{7, 8, 9, 10},
+		ValU16:     []uint16{},
+		Val32:      nil,
+		ValU32:     []uint32{25, 26, 27, 28},
+		Val64:      []int64{-1, -2, -3, -4, -5},
+		ValU64:     []uint64{1, 2, 3},
+		ValInt:     []int{10, 11, 12, 13},
+		ValUint:    []uint{14, 15, 16},
+	}
+	sc, err = scalar.ToScalar(olt, memory.DefaultAllocator)
+	assert.NoError(t, err)
+
+	expected := `{field_names:list<item: utf8, nullable> = ["foo" "bar" "baz"], ` +
+		`field_null:list<item: bool, nullable> = [true false], ` +
+		`field_metadata:list<item: map<binary, binary>, nullable> = ` +
+		`[{["captain" "option" "souper"] ["planet" "val" "bowl"]} {[] []} {["captain" "option" "souper"] ["planet" "val" "bowl"]}], ` +
+		`val8:list<item: int8, nullable> = [1 2 3 4], ` +
+		`u8:list<item: uint8, nullable> = [5 6], ` +
+		`val16:list<item: int16, nullable> = [7 8 9 10], ` +
+		`u16:list<item: uint16, nullable> = [], ` +
+		`val32:list<item: int32, nullable> = [], ` +
+		`u32:list<item: uint32, nullable> = [25 26 27 28], ` +
+		`val64:list<item: int64, nullable> = [-1 -2 -3 -4 -5], ` +
+		`u64:list<item: uint64, nullable> = [1 2 3], ` +
+		`valint:list<item: int64, nullable> = [10 11 12 13], ` +
+		`valuint:list<item: uint64, nullable> = [14 15 16]}`
+
+	assert.Equal(t, expected, sc.String())
+}
