@@ -475,6 +475,8 @@ Structural Transforms
 .. autosummary::
    :toctree: ../generated/
 
+   fill_null_backward
+   fill_null_forward
    list_element
    list_flatten
    list_parent_indices

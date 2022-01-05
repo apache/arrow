@@ -1687,10 +1687,15 @@ replaced, based on the remaining inputs.
 +--------------------------+------------+-----------------------+--------------+--------------+--------------+-------+
 | Function name            | Arity      | Input type 1          | Input type 2 | Input type 3 | Output type  | Notes |
 +==========================+============+=======================+==============+==============+==============+=======+
-| replace_with_mask        | Ternary    | Fixed-width or binary | Boolean      | Input type 1 | Input type 1 | \(1)  |
+| fill_null_backward       | Unary      | Fixed-width or binary | N/A          | N/A          | N/A          | \(1)  |
++--------------------------+------------+-----------------------+--------------+--------------+--------------+-------+
+| fill_null_forward        | Unary      | Fixed-width or binary | N/A          | N/A          | N/A          | \(1)  |
++--------------------------+------------+-----------------------+--------------+--------------+--------------+-------+
+| replace_with_mask        | Ternary    | Fixed-width or binary | Boolean      | Input type 1 | Input type 1 | \(2)  |
 +--------------------------+------------+-----------------------+--------------+--------------+--------------+-------+
 
-* \(1) Each element in input 1 for which the corresponding Boolean in input 2
+* \(1) Valid values are carried forward/backward to fill null values.
+* \(2) Each element in input 1 for which the corresponding Boolean in input 2
   is true is replaced with the next value from input 3. A null in input 2
   results in a corresponding null in the output.
 
