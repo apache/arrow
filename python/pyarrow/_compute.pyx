@@ -834,7 +834,7 @@ class RoundOptions(_RoundOptions):
         self._set_options(ndigits, round_mode)
 
 
-cdef CCalendarUnit unwrap_round_unit(unit) except *:
+cdef CCalendarUnit unwrap_round_temporal_unit(unit) except *:
     if unit == "nanosecond":
         return CCalendarUnit_NANOSECOND
     elif unit == "microsecond":
@@ -861,18 +861,28 @@ cdef CCalendarUnit unwrap_round_unit(unit) except *:
 
 
 cdef class _RoundTemporalOptions(FunctionOptions):
-
-    def _set_options(
-            self, multiple, unit):
+    def _set_options(self, multiple, unit):
         self.wrapped.reset(
             new CRoundTemporalOptions(
-                multiple, unwrap_round_unit(unit))
+                multiple, unwrap_round_temporal_unit(unit))
         )
 
 
 class RoundTemporalOptions(_RoundTemporalOptions):
-    def __init__(
-            self, multiple=1, unit="second", *):
+    """
+    Options for rounding temporal values.
+
+    Parameters
+    ----------
+    multiple : int, default 1
+        Number of units to round to.
+    unit : str, default "second"
+        The unit in which `multiple` is expressed.
+        Accepted values are "year", "quarter", "month", "week", "day",
+        "hour", "minute", "second", "millisecond", "microsecond",
+        "nanosecond".
+    """
+    def __init__(self, multiple=1, unit="second"):
         self._set_options(multiple, unit)
 
 
