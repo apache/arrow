@@ -17,30 +17,8 @@
 
 #pragma once
 
-#include <algorithm>
-#include <cctype>
-#include <iterator>
-#include <string>
-
-#ifdef ARROW_WITH_UTF8PROC
-#include <utf8proc.h>
-#endif
-
-#ifdef ARROW_WITH_RE2
-#include <re2/re2.h>
-#endif
-
-#include "arrow/array/builder_binary.h"
-#include "arrow/array/builder_nested.h"
-#include "arrow/buffer_builder.h"
-#include "arrow/builder.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernels/common.h"
-#include "arrow/util/checked_cast.h"
-#include "arrow/util/string.h"
-#include "arrow/util/utf8.h"
-#include "arrow/util/value_parsing.h"
-#include "arrow/visit_data_inline.h"
 
 namespace arrow {
 namespace compute {

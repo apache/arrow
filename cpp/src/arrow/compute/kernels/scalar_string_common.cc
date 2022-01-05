@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <sstream>
+
 #include "arrow/compute/kernels/scalar_string_common.h"
 
 namespace arrow {

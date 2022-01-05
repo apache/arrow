@@ -15,7 +15,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <algorithm>
+#include <cctype>
+#include <iterator>
+#include <string>
+
+#ifdef ARROW_WITH_RE2
+#include <re2/re2.h>
+#endif
+
+#include "arrow/array/builder_nested.h"
 #include "arrow/compute/kernels/scalar_string_common.h"
+#include "arrow/util/value_parsing.h"
 
 namespace arrow {
 namespace compute {

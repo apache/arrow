@@ -15,7 +15,16 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <algorithm>
+#include <mutex>
+#include <string>
+
+#ifdef ARROW_WITH_UTF8PROC
+#include <utf8proc.h>
+#endif
+
 #include "arrow/compute/kernels/scalar_string_common.h"
+#include "arrow/util/utf8.h"
 
 namespace arrow {
 namespace compute {
