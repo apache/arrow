@@ -347,46 +347,47 @@ This is the list of operations associated with the execution plan;
    * - ``union``
      - N/A
 
+
+.. _stream_execution_source_docs:
+
 ``source``
 ----------
 
 `source` operation can be considered as an entry point to create a streaming execution plan. 
 A source node can be constructed as follows.
-
-:class:`arrow::compute::SourceNodeOptions` are used to create the :struct:`arrow::compute::SourceNode`. 
+:class:`arrow::compute::SourceNodeOptions` are used to create the ``source`` operation. 
 The :class:`Schema` of the data passing through and a function to generate data 
-`std::function<arrow::Future<arrow::util::optional<arrow::compute::ExecBatch>>()>` 
-are required to create this option::
+``arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>>``
+are required to create this option.
 
-  // data generator 
-  struct BatchesWithSchema {
-  std::vector<arrow::compute::ExecBatch> batches;
-  std::shared_ptr<arrow::Schema> schema;
+Struct to hold the data generator definition;
 
-  // this function represents a generator. 
-  arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> gen() const {
-    auto opt_batches = ::arrow::internal::MapVector(
-        [](cp::ExecBatch batch) { return arrow::util::make_optional(std::move(batch)); },
-        batches);
-    arrow::AsyncGenerator<arrow::util::optional<arrow::compute::ExecBatch>> gen;
-    gen = arrow::MakeVectorGenerator(std::move(opt_batches));
-    return gen;
-    }
-  };
+.. literalinclude:: ../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
+  :language: cpp
+  :start-after: (Doc section: BatchesWithSchema Definition)
+  :end-before: (Doc section: BatchesWithSchema Definition)
+  :linenos:
+  :lineno-match:
 
-  // a function which creates data
-  arrow::Result<BatchesWithSchema> MakeBasicBatches() {...};
+Generating Batches for computation;
 
-  //data 
-  auto data = MakeBasicBatches();
-  
-  // source node options
-  auto source_node_options = arrow::compute::SourceNodeOptions{data.schema, data.gen};
-  
-  // create a source node
-  ARROW_ASSIGN_OR_RAISE(arrow::compute::ExecNode * source,
-                          arrow::compute::MakeExecNode("source", plan.get(), {}, 
-                          source_node_options));
+.. literalinclude:: ../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
+  :language: cpp
+  :start-after: (Doc section: MakeBasicBatches Definition)
+  :end-before: (Doc section: MakeBasicBatches Definition)
+  :linenos:
+  :lineno-match:
+
+Example of using ``source`` (usage of sink is explained in detail in :ref:`sink<stream_execution_sink_docs>`);
+
+.. literalinclude:: ../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
+  :language: cpp
+  :start-after: (Doc section: Source Example)
+  :end-before: (Doc section: Source Example)
+  :linenos:
+  :lineno-match:
+
+.. _stream_execution_filter_docs:
 
 ``filter``
 ----------
@@ -414,6 +415,17 @@ Using this option, the filter node can be constructed as follows::
                           {scan}, 
                           //filter node options
                           arrow::compute::FilterNodeOptions{filter_opt}));
+
+Filter Example;
+
+.. literalinclude:: ../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
+  :language: cpp
+  :start-after: (Doc section: Filter Example)
+  :end-before: (Doc section: Filter Example)
+  :linenos:
+  :lineno-match:
+
+.. _stream_execution_project_docs:
 
 ``project``
 -----------
@@ -444,6 +456,17 @@ Creating a project node::
           // project node options 
           arrow::compute::ProjectNodeOptions{{a_times_2}}));
 
+Project Example;
+
+.. literalinclude:: ../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
+  :language: cpp
+  :start-after: (Doc section: Project Example)
+  :end-before: (Doc section: Project Example)
+  :linenos:
+  :lineno-match:
+
+.. _stream_execution_aggregate_docs:
+
 ``aggregate``
 -------------
 
@@ -470,14 +493,27 @@ An example for creating an aggregate node::
                             cp::MakeExecNode("aggregate", plan.get(), {source},
                             aggregate_options));
 
+Aggregate example;
+
+Filter Example;
+
+.. literalinclude:: ../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
+  :language: cpp
+  :start-after: (Doc section: Aggregate Example)
+  :end-before: (Doc section: Aggregate Example)
+  :linenos:
+  :lineno-match:
+
+.. _stream_execution_sink_docs:
+
 ``sink``
 --------
 
 ``sink`` operation can be considered as the option providing output or final node of an streaming 
 execution definition. :class:`arrow::compute::SinkNodeOptions` interface is used to pass 
 the required options. Requires 
-`std::function<arrow::Future<arrow::util::optional<arrow::compute::ExecBatch>>()>* generator`
-and `arrow::util::BackpressureOptions backpressure`. 
+``arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>>* generator``
+and ``arrow::util::BackpressureOptions backpressure``. 
 An execution plan should only have one "terminal" node (one sink node).
 
 Example::
@@ -489,30 +525,19 @@ Example::
   ARROW_ASSIGN_OR_RAISE(sink, arrow::compute::MakeExecNode("sink", plan.get(), {source},
                                                 arrow::compute::SinkNodeOptions{&sink_gen}));
 
+As a part of the Source Example, the Sink operation is also included;
 
-The output can be obtained as a table::
+.. literalinclude:: ../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
+  :language: cpp
+  :start-after: (Doc section: Source Example)
+  :end-before: (Doc section: Source Example)
+  :linenos:
+  :lineno-match:
 
-  // // // translate sink_gen (async) to sink_reader (sync)
-  std::shared_ptr<arrow::RecordBatchReader> sink_reader = cp::MakeGeneratorReader(
-    basic_data.schema, std::move(sink_gen), exec_context.memory_pool());
-
-  // // validate the ExecPlan
-  ABORT_ON_FAILURE(plan->Validate());
-  std::cout << "Exec Plan Created: " << plan->ToString() << std::endl;
-  // // // start the ExecPlan
-  ABORT_ON_FAILURE(plan->StartProducing());
-
-  // // collect sink_reader into a Table
-  std::shared_ptr<arrow::Table> response_table;
-
-  ARROW_ASSIGN_OR_RAISE(response_table,
-                      arrow::Table::FromRecordBatchReader(sink_reader.get()));
-
-  std::cout << "Results : " << response_table->ToString() << std::endl;
-
+.. _stream_execution_consuming_sink_docs:
 
 ``consuming_sink``
----------------------
+------------------
 
 ``consuming_sink`` operator is a sink operation containing consuming operation within the
 execution plan (i.e. the exec plan should not complete until the consumption has completed).
@@ -551,6 +576,17 @@ Example::
       {source}, cp::ConsumingSinkNodeOptions(consumer)));
 
 
+Consuming-Sink Example;
+
+.. literalinclude:: ../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
+  :language: cpp
+  :start-after: (Doc section: ConsumingSink Example)
+  :end-before: (Doc section: ConsumingSink Example)
+  :linenos:
+  :lineno-match:
+
+.. _stream_execution_order_by_sink_docs:
+
 ``order_by_sink``
 -----------------
 
@@ -558,7 +594,7 @@ Example::
 This operation provides the ability to guarantee the ordering of the 
 stream by providing the :class:`arrow::compute::OrderBySinkNodeOptions`. 
 Here the :class:`arrow::compute::SortOptions` are provided to define which columns 
-are used for sorting and under which criterion.
+are used for sorting and whether to sort by ascending or descending values.
 
 Example::
 
@@ -577,6 +613,18 @@ Example::
   }}},&sink_gen}));
 
 
+Order-By-Sink Example:
+
+.. literalinclude:: ../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
+  :language: cpp
+  :start-after: (Doc section: OrderBySink Example)
+  :end-before: (Doc section: OrderBySink Example)
+  :linenos:
+  :lineno-match:
+
+
+.. _stream_execution_select_k_docs:
+
 ``select_k_sink``
 -----------------
 
@@ -585,7 +633,7 @@ Example::
 using :struct:`OrderBySinkNode` definition. This option returns a sink node that receives 
 inputs and then compute top_k/bottom_k.
 
-Example::
+Create SelectK Option::
 
   arrow::compute::SelectKOptions options = arrow::compute::SelectKOptions::TopKDefault(
               /*k=*/2, {"i32"});
@@ -596,72 +644,24 @@ Example::
       plan.get(), {source},
       arrow::compute::SelectKSinkNodeOptions{options, &sink_gen}));
 
+
+SelectK Example;
+
+.. literalinclude:: ../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
+  :language: cpp
+  :start-after: (Doc section: KSelect Example)
+  :end-before: (Doc section: KSelect Example)
+  :linenos:
+  :lineno-match:
+
+.. _stream_execution_scan_docs:
+
 ``scan``
 ---------
 
 `scan` is an operation used to load and process data, and the behavior of is defined using 
 :class:`arrow::dataset::ScanNodeOptions`. This option contains a set of definitions. 
 The :ref:`dataset<cpp-dataset-reading>` API also use scanner for processing data.
-
-Option definitions for :class:`arrow::dataset::ScanNodeOptions`:: 
-
-
-  /// A row filter (which will be pushed down to partitioning/reading if supported).
-  arrow::compute::Expression filter // 
-  /// A projection expression (which can add/remove/rename columns).
-  arrow::compute::Expression projection; // 
-  /// Schema with which batches will be read from fragments. This is also known as the
-  /// "reader schema" it will be used (for example) in constructing CSV file readers to
-  /// identify column types for parsing. Usually only a subset of its fields (see
-  /// MaterializedFields) will be materialized during a scan.
-  std::shared_ptr<arrow::Schema> dataset_schema; 
-  /// Schema of projected record batches. This is independent of dataset_schema as its
-  /// fields are derived from the projection. For example, let
-  ///
-  ///   dataset_schema = {"a": int32, "b": int32, "id": utf8}
-  ///   projection = project({equal(field_ref("a"), field_ref("b"))}, {"a_plus_b"})
-  ///
-  /// (no filter specified). In this case, the projected_schema would be
-  ///
-  ///   {"a_plus_b": int32}
-  std::shared_ptr<arrow::Schema> projected_schema;
-
-  /// Maximum row count for scanned batches.
-  int64_t batch_size // 1024 * 1024;
-
-  /// How many batches to read ahead within a file
-  ///
-  /// Set to 0 to disable batch readahead
-  ///
-  /// Note: May not be supported by all formats
-  /// Note: May not be supported by all scanners
-  /// Note: Will be ignored if use_threads is set to false
-  int32_t batch_readahead // 32;
-
-  /// How many files to read ahead
-  ///
-  /// Set to 0 to disable fragment readahead
-  ///
-  /// Note: May not be enforced by all scanners
-  /// Note: Will be ignored if use_threads is set to false
-  int32_t fragment_readahead // 8;
-  /// If true the scanner will scan in parallel
-  ///
-  /// Note: If true, this will use threads from both the cpu_executor and the
-  /// io_context.executor
-  /// Note: This  must be true in order for any readahead to happen
-  bool use_threads = false;
-
-  /// If true then an asycnhronous implementation of the scanner will be used.
-  /// This implementation is newer and generally performs better.  However, it
-  /// makes extensive use of threading and is still considered experimental
-  bool use_async = false;
-
-  /// Fragment-specific scan options.
-  // Some implemented FragementScanOptions are;
-  // CsvFragmentScanOptions, IpcFragmentScanOptions, ParquetFragmentScanOptions
-  std::shared_ptr<arrow::dataset::FragmentScanOptions> fragment_scan_options;
-
 
 Creating a Scan `ExecNode`::
 
@@ -677,98 +677,61 @@ Creating a Scan `ExecNode`::
                           cp::MakeExecNode("scan", plan.get(), {}, 
                             scan_node_options));
 
+Scan example;
+
+.. literalinclude:: ../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
+  :language: cpp
+  :start-after: (Doc section: Scan Example)
+  :end-before: (Doc section: Scan Example)
+  :linenos:
+  :lineno-match:
+
+.. _stream_execution_write_docs:
 
 ``write``
 ---------
 
-``write`` option enables writing a result to supported file formats (example `parquet`). 
-A definition doesn't exist as an :class:`arrow::compute::ExecNode`, but the write options are provided
-via the :class:`arrow::dataset::WriteNodeOptions` and defined using 
-:class:`arrow::dataset::FileSystemDatasetWriteOptions`, `std::shared_ptr<arrow::Schema>`,
-and `std::shared_ptr<arrow::util::AsyncToggle> backpressure_toggle`. Here the 
+``write`` option enables writing a result to supported file formats (example `parquet`,
+`feather`, `csv`, etc). 
+The write options are provided via the :class:`arrow::dataset::WriteNodeOptions` and 
+defined using :class:`arrow::dataset::FileSystemDatasetWriteOptions`, 
+``std::shared_ptr<arrow::Schema>``, and 
+``std::shared_ptr<arrow::util::AsyncToggle> backpressure_toggle``. Here the 
 :class:`arrow::dataset::FileSystemDatasetWriteOptions` contains the meta-data required 
 to write the data. 
 
-Creating :class:`arrow::dataset::WriteNodeOptions` example::
+Write Example;
 
-  std::string root_path = "";
-  std::string uri = "file://" + '/path/to/file';
-  std::shared_ptr<arrow::fs::FileSystem> filesystem = arrow::fs::FileSystemFromUri(uri, &root_path).ValueOrDie();
+.. literalinclude:: ../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
+  :language: cpp
+  :start-after: (Doc section: Write Example)
+  :end-before: (Doc section: Write Example)
+  :linenos:
+  :lineno-match:
 
-  auto base_path = root_path + "/parquet_dataset";
-  ABORT_ON_FAILURE(filesystem->DeleteDir(base_path));
-  ABORT_ON_FAILURE(filesystem->CreateDir(base_path));
-
-  // The partition schema determines which fields are part of the partitioning.
-  auto partition_schema = arrow::schema({arrow::field("a", arrow::int32())});
-  // We'll use Hive-style partitioning,
-  // which creates directories with "key=value" pairs.
-
-  auto partitioning = std::make_shared<arrow::dataset::HivePartitioning>(partition_schema);
-  // We'll write Parquet files.
-  auto format = std::make_shared<arrow::dataset::ParquetFileFormat>();
-
-  arrow::dataset::FileSystemDatasetWriteOptions write_options;
-  write_options.file_write_options = format->DefaultWriteOptions();
-  write_options.filesystem = filesystem;
-  write_options.base_dir = base_path;
-  write_options.partitioning = partitioning;
-  write_options.basename_template = "part{i}.parquet";
-
-  arrow::dataset::WriteNodeOptions write_node_options {write_options,
-  dataset->schema()};
-
-
-Creating an execution node with ``write`` operation::
-
-  ARROW_ASSIGN_OR_RAISE(cp::ExecNode *wr, cp::MakeExecNode("write", plan.get(),
-      {scan}, write_node_options));
-
-  ABORT_ON_FAILURE(wr->Validate());
-  ABORT_ON_FAILURE(plan->Validate());
-  // // // start the ExecPlan
-  ABORT_ON_FAILURE(plan->StartProducing());
-  plan->finished().Wait(); // make sure to add this method 
-
+.. _stream_execution_union_docs:
 
 ``union``
 -------------
 
-``union`` is operation performs the union 
-of two datasets. The union operation can be executed
-on multiple data sources(:class:`ExecNodes`).
+``union`` is operation performs the union of two datasets. 
+The union operation can be executed on multiple data 
+sources(:class:`ExecNodes`).
 
 The following example demonstrates how this can be achieved using 
 two data sources. Following a union operations the output is obtained using 
 a aggregation operation. 
 
-Example::
+Union Example;
 
-  arrow::compute::Declaration union_node{"union", arrow::compute::ExecNodeOptions{}};
-  arrow::compute::Declaration lhs{"source",
-                arrow::compute::SourceNodeOptions{/*schema of data*/l_schema,
-                                  /*generator*/l_gen()}};
-  lhs.label = "lhs";
-  arrow::compute::Declaration rhs{"source",
-                  arrow::compute::SourceNodeOptions{/*schema of data*/r_schema,
-                                  /*generator*/r_gen()}};
-  rhs.label = "rhs";
-  union_node.inputs.emplace_back(lhs);
-  union_node.inputs.emplace_back(rhs);
+.. literalinclude:: ../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
+  :language: cpp
+  :start-after: (Doc section: Union Example)
+  :end-before: (Doc section: Union Example)
+  :linenos:
+  :lineno-match:
 
-  arrow::compute::CountOptions options(arrow::compute::CountOptions::ONLY_VALID);
-  ARROW_ASSIGN_OR_RAISE(auto declr,
-  arrow::compute::Declaration::Sequence(
-          {
-              union_node,
-              {"aggregate", arrow::compute::AggregateNodeOptions{
-                /*aggregates=*/{{"count", &options}},
-                /*targets=*/{"a"},
-                /*names=*/{"count(a)"},
-                /*keys=*/{}}},
-              {"sink", arrow::compute::SinkNodeOptions{&sink_gen}},
-          })
-          .AddToPlan(plan.get()));
+.. _stream_execution_example_list_docs:
 
 Example List
 ============

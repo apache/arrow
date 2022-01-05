@@ -159,6 +159,7 @@ arrow::Result<std::shared_ptr<arrow::dataset::Dataset>> CreateDataSetFromCSVData
     return result;
 }
 
+// (Doc section: Materialize)
 cp::Expression Materialize(std::vector<std::string> names,
                            bool include_aug_fields = false) {
     if (include_aug_fields) {
@@ -175,16 +176,18 @@ cp::Expression Materialize(std::vector<std::string> names,
 
     return cp::project(exprs, names);
 }
+// (Doc section: Materialize)
 
+// (Doc section: Scan Example)
 /**
- * @brief 
+ * \brief 
  * Scan-Sink 
  * This example shows how scan operation can be applied on a dataset. 
  * There are operations that can be applied on the scan (project, filter)
  * and the input data can be processed. THe output is obtained as a table
  * via the sink node. 
- * @param exec_context : execution context
- * @return arrow::Status 
+ * \param exec_context : execution context
+ * \return arrow::Status 
  */
 arrow::Status ScanSinkExample(cp::ExecContext &exec_context) {
     // Execution plan created
@@ -238,6 +241,7 @@ arrow::Status ScanSinkExample(cp::ExecContext &exec_context) {
     futures.Wait();
     return arrow::Status::OK();
 }
+// (Doc section: Scan Example)
 
 arrow::Result<cp::ExecBatch> GetExecBatchFromVectors(
   const arrow::FieldVector &field_vector,
@@ -250,6 +254,7 @@ arrow::Result<cp::ExecBatch> GetExecBatchFromVectors(
     return result;
 }
 
+// (Doc section: BatchesWithSchema Definition)
 struct BatchesWithSchema {
   std::vector<cp::ExecBatch> batches;
   std::shared_ptr<arrow::Schema> schema;
@@ -263,8 +268,10 @@ struct BatchesWithSchema {
     return gen;
   }
 };
+// (Doc section: BatchesWithSchema Definition)
 
 
+// (Doc section: MakeBasicBatches Definition)
 arrow::Result<BatchesWithSchema> MakeBasicBatches() {
   BatchesWithSchema out;
   auto field_vector = {arrow::field("a", arrow::int32()),
@@ -295,6 +302,7 @@ arrow::Result<BatchesWithSchema> MakeBasicBatches() {
   arrow::Result<BatchesWithSchema> result(std::move(out));
   return result;
 }
+// (Doc section: MakeBasicBatches Definition)
 
 arrow::Result<BatchesWithSchema> MakeSortTestBasicBatches() {
   BatchesWithSchema out;
@@ -364,15 +372,16 @@ arrow::Result<BatchesWithSchema> MakeGroupableBatches(int multiplicity = 1) {
   return result;
 }
 
+// (Doc section: Source Example)
 /**
- * @brief 
+ * \brief 
  * Source-Sink Example
  * This example shows how a source and sink can be used
  * in an execution plan. This includes source node receiving data 
  * and the sink node emits the data as an output represented in 
  * a table. 
- * @param exec_context : execution context 
- * @return arrow::Status 
+ * \param exec_context : execution context 
+ * \return arrow::Status 
  */
 arrow::Status SourceSinkExample(cp::ExecContext &exec_context) {
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
@@ -418,15 +427,17 @@ arrow::Status SourceSinkExample(cp::ExecContext &exec_context) {
 
   return arrow::Status::OK();
 }
+// (Doc section: Source Example)
 
+// (Doc section: Filter Example)
 /**
- * @brief 
+ * \brief 
  * Source-Filter-Sink
  * This example shows how a filter can be used in an execution plan, 
  * along with the source and sink operations. The output from the 
  * exeuction plan is obtained as a table via the sink node. 
- * @param exec_context : execution context 
- * @return arrow::Status 
+ * \param exec_context : execution context 
+ * \return arrow::Status 
  */
 arrow::Status ScanFilterSinkExample(cp::ExecContext &exec_context) {
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
@@ -440,6 +451,7 @@ arrow::Status ScanFilterSinkExample(cp::ExecContext &exec_context) {
   options->use_async = true;
   // specify the filter
   cp::Expression filter_opt = cp::greater(cp::field_ref("a"), cp::literal(3));
+  // set filter for scanner : on-disk / push-down filtering.
   options->filter = filter_opt;
   // empty projection
   options->projection = Materialize({});
@@ -456,6 +468,9 @@ arrow::Status ScanFilterSinkExample(cp::ExecContext &exec_context) {
                         cp::MakeExecNode("scan", plan.get(), {}, scan_node_options));
 
   // pipe the scan node into a filter node
+  // // Need to set the filter in scan node options and filter node options. 
+  // // At scan node it is used for on-disk / push-down filtering.
+  // // At filter node it is used for in-memory filtering.
   cp::ExecNode* filter;
   ARROW_ASSIGN_OR_RAISE(filter, cp::MakeExecNode("filter", plan.get(), {scan},
                                                  cp::FilterNodeOptions{filter_opt}));
@@ -491,15 +506,18 @@ arrow::Status ScanFilterSinkExample(cp::ExecContext &exec_context) {
   return arrow::Status::OK();
 }
 
+// (Doc section: Filter Example)
+
+// (Doc section: Project Example)
 /**
- * @brief 
+ * \brief 
  * Scan-Project-Sink
  * This example shows how Scan operation can be used to load the data 
  * into the execution plan, how project operation can be applied on the
  * data stream and how the output is obtained as a table via the sink node. 
  * 
- * @param exec_context : execution context
- * @return arrow::Status 
+ * \param exec_context : execution context
+ * \return arrow::Status 
  */
 arrow::Status ScanProjectSinkExample(cp::ExecContext &exec_context) {
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
@@ -562,15 +580,19 @@ arrow::Status ScanProjectSinkExample(cp::ExecContext &exec_context) {
     return arrow::Status::OK();
 }
 
+// (Doc section: Project Example)
+
+
+// (Doc section: Aggregate Example)
 /**
- * @brief 
+ * \brief 
  * Source-Aggregation-Sink
  * This example shows how an aggregation operation can be applied on a 
  * execution plan. The source node loads the data and the aggregation 
  * (counting unique types in column 'a') is applied on this data. The 
  * output is obtained from the sink node as a table. 
- * @param exec_context : execution context 
- * @return arrow::Status 
+ * \param exec_context : execution context 
+ * \return arrow::Status 
  */
 arrow::Status SourceAggregateSinkExample(cp::ExecContext &exec_context) {
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
@@ -631,14 +653,16 @@ arrow::Status SourceAggregateSinkExample(cp::ExecContext &exec_context) {
 
     return arrow::Status::OK();
 }
+// (Doc section: Aggregate Example)
 
+// (Doc section: ConsumingSink Example)
 /**
- * @brief 
+ * \brief 
  * Source-ConsumingSink 
  * This example shows how the data can be consumed within the execution plan 
  * by using a ConsumingSink node. There is no data output from this execution plan. 
- * @param exec_context : execution context 
- * @return arrow::Status 
+ * \param exec_context : execution context 
+ * \return arrow::Status 
  */
 arrow::Status SourceConsumingSinkExample(cp::ExecContext &exec_context) {
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
@@ -696,16 +720,19 @@ arrow::Status SourceConsumingSinkExample(cp::ExecContext &exec_context) {
 
     return arrow::Status::OK();
 }
+// (Doc section: ConsumingSink Example)
+
+// (Doc section: OrderBySink Example)
 
 /**
- * @brief 
+ * \brief 
  * Source-OrderBySink
  * In this example, the data enters through the source node
  * and the data is ordered in the sink node. The order can be 
  * ASCENDING or DESCENDING and it is configurable. The output
  * is obtained as a table from the sink node. 
- * @param exec_context : execution context
- * @return arrow::Status 
+ * \param exec_context : execution context
+ * \return arrow::Status 
  */
 arrow::Status SourceOrderBySinkExample(cp::ExecContext &exec_context) {
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
@@ -750,14 +777,18 @@ arrow::Status SourceOrderBySinkExample(cp::ExecContext &exec_context) {
     return arrow::Status::OK();
 }
 
+// (Doc section: OrderBySink Example)
+
+
+// (Doc section: HashJoin Example)
 /**
- * @brief 
+ * \brief 
  * Source-HashJoin-Sink
  * This example shows how source node gets the data and how a self-join
  * is applied on the data. The join options are configurable. The output
  * is obtained as a table via the sink node. 
- * @param exec_context : execution context
- * @return arrow::Status 
+ * \param exec_context : execution context
+ * \return arrow::Status 
  */
 arrow::Status SourceHashJoinSinkExample(cp::ExecContext &exec_context) {
     ARROW_ASSIGN_OR_RAISE(auto input, MakeGroupableBatches());
@@ -839,14 +870,18 @@ arrow::Status SourceHashJoinSinkExample(cp::ExecContext &exec_context) {
     return arrow::Status::OK();
 }
 
+// (Doc section: HashJoin Example)
+
+
+// (Doc section: KSelect Example)
 /**
- * @brief 
+ * \brief 
  * Source-KSelect
  * This example shows how K number of elements can be selected 
  * either from the top or bottom. The output node is a modified
  * sink node where output can be obtained as a table. 
- * @param exec_context : execution context
- * @return arrow::Status 
+ * \param exec_context : execution context
+ * \return arrow::Status 
  */
 arrow::Status SourceKSelectExample(cp::ExecContext &exec_context) {
     ARROW_ASSIGN_OR_RAISE(auto input, MakeGroupableBatches());
@@ -901,14 +936,18 @@ arrow::Status SourceKSelectExample(cp::ExecContext &exec_context) {
     return arrow::Status::OK();
 }
 
+// (Doc section: KSelect Example)
+
+// (Doc section: Write Example)
+
 /**
- * @brief 
+ * \brief 
  * Scan-Filter-Write
  * This example shows how scan node can be used to load the data
  * and after processing how it can be written to disk. 
- * @param exec_context : execution context
- * @param file_path : file saving path
- * @return arrow::Status 
+ * \param exec_context : execution context
+ * \param file_path : file saving path
+ * \return arrow::Status 
  */
 arrow::Status ScanFilterWriteExample(cp::ExecContext &exec_context,
 const std::string &file_path) {
@@ -982,14 +1021,18 @@ const std::string &file_path) {
     return arrow::Status::OK();
 }
 
+// (Doc section: Write Example)
+
+// (Doc section: Union Example)
+
 /**
- * @brief 
+ * \brief 
  * Source-Union-Sink
  * This example shows how a union operation can be applied on two 
  * data sources. The output is obtained as a table via the sink
  * node.
- * @param exec_context : execution context
- * @return arrow::Status 
+ * \param exec_context : execution context
+ * \return arrow::Status 
  */
 arrow::Status SourceUnionSinkExample(cp::ExecContext &exec_context) {
     ARROW_ASSIGN_OR_RAISE(auto basic_data, MakeBasicBatches());
@@ -1047,6 +1090,8 @@ arrow::Status SourceUnionSinkExample(cp::ExecContext &exec_context) {
     futures.Wait();
     return arrow::Status::OK();
 }
+
+// (Doc section: Union Example)
 
 enum ExampleMode {
   SOURCE_SINK = 0,
