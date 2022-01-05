@@ -364,6 +364,7 @@ TEST_F(TestArray, TestMakeArrayOfNull) {
       dense_union(union_fields1, union_type_codes),
       dense_union(union_fields2, union_type_codes),
       smallint(),  // extension type
+      list_extension_type(), // nested extension type
       // clang-format on
   };
 
@@ -371,6 +372,7 @@ TEST_F(TestArray, TestMakeArrayOfNull) {
     for (auto type : types) {
       ARROW_SCOPED_TRACE("type = ", type->ToString());
       ASSERT_OK_AND_ASSIGN(auto array, MakeArrayOfNull(type, length));
+      ASSERT_EQ(array->type(), type);
       ASSERT_OK(array->ValidateFull());
       ASSERT_EQ(array->length(), length);
       if (is_union(type->id())) {
