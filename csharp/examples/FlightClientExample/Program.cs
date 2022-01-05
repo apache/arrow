@@ -15,13 +15,12 @@
 
 using System.Threading.Tasks;
 using Grpc.Net.Client;
+using Grpc.Core;
 using Apache.Arrow.Flight.Client;
 using Apache.Arrow.Flight;
 using Apache.Arrow;
 using System.Linq;
 using System;
-using System.Threading;
-using System.Runtime.CompilerServices;
 using System.Collections.Generic;
 
 namespace FlightClientExample
@@ -31,7 +30,7 @@ namespace FlightClientExample
         public static async Task Main(string[] args)
         {
             string host = args.Length > 0 ? args[0] : "localhost";
-            string port = args.Length > 1 ? args[1] : "433";
+            string port = args.Length > 1 ? args[1] : "5000";
 
             // Create client
             // (In production systems, you should use https not http)
@@ -50,33 +49,34 @@ namespace FlightClientExample
 
             // Upload data with StartPut
             var batchStreamingCall = client.StartPut(descriptor);
-            foreach (var batch in recordBatches) {
+            foreach (var batch in recordBatches)
+            {
                 await batchStreamingCall.RequestStream.WriteAsync(batch);
             }
             // Signal we are done sending record batches
             await batchStreamingCall.RequestStream.CompleteAsync();
             // Retrieve final response
-            await batchStreamingCall.ResponseStream.MoveNext(default);
+            await batchStreamingCall.ResponseStream.MoveNext();
             Console.WriteLine(batchStreamingCall.ResponseStream.Current.ApplicationMetadata.ToStringUtf8());
             Console.WriteLine($"Wrote {recordBatches.Length} batches to server.");
 
             // Request information:
             var schema = await client.GetSchema(descriptor).ResponseAsync;
-            Console.WriteLine($"Schema saved as: \n {schema.ToString()}");
+            Console.WriteLine($"Schema saved as: \n {schema}");
 
             var info = await client.GetInfo(descriptor).ResponseAsync;
-            Console.WriteLine($"Info provided: \n {info.ToString()}");
+            Console.WriteLine($"Info provided: \n {info}");
 
             Console.WriteLine($"Available flights:");
             var flights_call = client.ListFlights();
 
-            while (await flights_call.ResponseStream.MoveNext(default))
+            while (await flights_call.ResponseStream.MoveNext())
             {   
                 Console.WriteLine("  " + flights_call.ResponseStream.Current.ToString());
             }
 
             // Download data
-            await foreach (var batch in StreamRecordBatches(info, default))
+            await foreach (var batch in StreamRecordBatches(info))
             {
                 Console.WriteLine($"Read batch from flight server: \n {batch}")  ;
             }
@@ -84,7 +84,7 @@ namespace FlightClientExample
             // See available comands on this server
             var action_stream = client.ListActions();
             Console.WriteLine("Actions:");
-            while (await action_stream.ResponseStream.MoveNext(default))
+            while (await action_stream.ResponseStream.MoveNext())
             {
                 var action = action_stream.ResponseStream.Current;
                 Console.WriteLine($"  {action.Type}: {action.Description}");
@@ -96,8 +96,7 @@ namespace FlightClientExample
         }
 
         public static async IAsyncEnumerable<RecordBatch> StreamRecordBatches(
-            FlightInfo info, 
-            [EnumeratorCancellation] CancellationToken token
+            FlightInfo info
         )
         {
             // There might be multiple endpoints hosting part of the data. In simple services,
@@ -110,14 +109,14 @@ namespace FlightClientExample
 
                 var stream = download_client.GetStream(endpoint.Ticket);
 
-                while (await stream.ResponseStream.MoveNext(token))
+                while (await stream.ResponseStream.MoveNext())
                 { 
                     yield return stream.ResponseStream.Current;
                 }
             }
         }
 
-        public static RecordBatch CreateTestBatch(Int32 start, Int32 length)
+        public static RecordBatch CreateTestBatch(int start, int length)
         {
             return new RecordBatch.Builder()
                 .Append("Column A", false, col => col.Int32(array => array.AppendRange(Enumerable.Range(start, start + length))))
