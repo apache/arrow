@@ -223,3 +223,9 @@ func ExportArrowRecordBatch(rb array.Record, out *CArrowArray, outSchema *CArrow
 func ExportArrowArray(arr array.Interface, out *CArrowArray, outSchema *CArrowSchema) {
 	exportArray(arr, out, outSchema)
 }
+
+// ReleaseCArrowArray calls ArrowArrayRelease on the passed in cdata array
+func ReleaseCArrowArray(arr *CArrowArray) { releaseArr(arr) }
+
+// ReleaseCArrowSchema calls ArrowSchemaRelease on the passed in cdata schema
+func ReleaseCArrowSchema(schema *CArrowSchema) { releaseSchema(schema) }

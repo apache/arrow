@@ -22,6 +22,7 @@
 #include <string>
 #include <vector>
 
+#include "arrow/array/array_base.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/visibility.h"
 #include "arrow/type_fwd.h"
@@ -151,6 +152,40 @@ class ARROW_TESTING_EXPORT ConstantArrayGenerator {
         return Float32(size, static_cast<float>(value));
       case Type::DOUBLE:
         return Float64(size, static_cast<double>(value));
+      case Type::INTERVAL_DAY_TIME:
+      case Type::DATE32: {
+        EXPECT_OK_AND_ASSIGN(auto viewed,
+                             Int32(size, static_cast<uint32_t>(value))->View(date32()));
+        return viewed;
+      }
+      case Type::INTERVAL_MONTHS: {
+        EXPECT_OK_AND_ASSIGN(auto viewed,
+                             Int32(size, static_cast<uint32_t>(value))
+                                 ->View(std::make_shared<MonthIntervalType>()));
+        return viewed;
+      }
+      case Type::TIME32: {
+        EXPECT_OK_AND_ASSIGN(auto viewed,
+                             Int32(size, static_cast<uint32_t>(value))
+                                 ->View(std::make_shared<Time32Type>(TimeUnit::SECOND)));
+        return viewed;
+      }
+      case Type::TIME64: {
+        EXPECT_OK_AND_ASSIGN(auto viewed, Int64(size, static_cast<uint64_t>(value))
+                                              ->View(std::make_shared<Time64Type>()));
+        return viewed;
+      }
+      case Type::DATE64: {
+        EXPECT_OK_AND_ASSIGN(auto viewed,
+                             Int64(size, static_cast<uint64_t>(value))->View(date64()));
+        return viewed;
+      }
+      case Type::TIMESTAMP: {
+        EXPECT_OK_AND_ASSIGN(
+            auto viewed, Int64(size, static_cast<int64_t>(value))
+                             ->View(std::make_shared<TimestampType>(TimeUnit::SECOND)));
+        return viewed;
+      }
       default:
         return nullptr;
     }

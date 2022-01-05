@@ -28,6 +28,7 @@
 #include <arrow-glib/error.hpp>
 #include <arrow-glib/reader.hpp>
 #include <arrow-glib/record-batch.hpp>
+#include <arrow-glib/scalar.hpp>
 #include <arrow-glib/schema.hpp>
 #include <arrow-glib/table.hpp>
 
@@ -172,6 +173,11 @@ G_BEGIN_DECLS
  *
  * #GArrowVarianceOptions is a class to customize the `stddev` function
  * and `variance` function.
+ *
+ * #GArrowRoundOptions is a class to customize the `round` function.
+ *
+ * #GArrowRoundToMultipleOptions is a class to customize the
+ * `round_to_multiple` function.
  *
  * There are many functions to compute data on an array.
  */
@@ -3136,6 +3142,179 @@ garrow_round_options_new(void)
 }
 
 
+typedef struct GArrowRoundToMultipleOptionsPrivate_ {
+  GArrowScalar *multiple;
+} GArrowRoundToMultipleOptionsPrivate;
+
+enum {
+  PROP_ROUND_TO_MULTIPLE_OPTIONS_MULTIPLE = 1,
+  PROP_ROUND_TO_MULTIPLE_OPTIONS_MODE,
+};
+
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowRoundToMultipleOptions,
+                           garrow_round_to_multiple_options,
+                           GARROW_TYPE_FUNCTION_OPTIONS)
+
+#define GARROW_ROUND_TO_MULTIPLE_OPTIONS_GET_PRIVATE(object)    \
+  static_cast<GArrowRoundToMultipleOptionsPrivate *>(           \
+    garrow_round_to_multiple_options_get_instance_private(      \
+      GARROW_ROUND_TO_MULTIPLE_OPTIONS(object)))
+
+static void
+garrow_round_to_multiple_options_dispose(GObject *object)
+{
+  auto priv = GARROW_ROUND_TO_MULTIPLE_OPTIONS_GET_PRIVATE(object);
+
+  if (priv->multiple) {
+    g_object_unref(priv->multiple);
+    priv->multiple = NULL;
+  }
+
+  G_OBJECT_CLASS(garrow_round_to_multiple_options_parent_class)->dispose(object);
+}
+
+static void
+garrow_round_to_multiple_options_set_property(GObject *object,
+                                              guint prop_id,
+                                              const GValue *value,
+                                              GParamSpec *pspec)
+{
+  auto priv = GARROW_ROUND_TO_MULTIPLE_OPTIONS_GET_PRIVATE(object);
+  auto options =
+    garrow_round_to_multiple_options_get_raw(
+      GARROW_ROUND_TO_MULTIPLE_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_ROUND_TO_MULTIPLE_OPTIONS_MULTIPLE:
+    {
+      auto multiple = g_value_get_object(value);
+      if (priv->multiple != multiple) {
+        if (priv->multiple) {
+          g_object_unref(priv->multiple);
+        }
+        if (multiple) {
+          priv->multiple = GARROW_SCALAR(multiple);
+          g_object_ref(priv->multiple);
+          options->multiple = garrow_scalar_get_raw(priv->multiple);
+        } else {
+          priv->multiple = NULL;
+          options->multiple = std::make_shared<arrow::NullScalar>();
+        }
+      }
+    }
+    break;
+  case PROP_ROUND_TO_MULTIPLE_OPTIONS_MODE:
+    options->round_mode =
+      static_cast<arrow::compute::RoundMode>(g_value_get_enum(value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_round_to_multiple_options_get_property(GObject *object,
+                                              guint prop_id,
+                                              GValue *value,
+                                              GParamSpec *pspec)
+{
+  auto priv = GARROW_ROUND_TO_MULTIPLE_OPTIONS_GET_PRIVATE(object);
+  auto options =
+    garrow_round_to_multiple_options_get_raw(
+      GARROW_ROUND_TO_MULTIPLE_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_ROUND_TO_MULTIPLE_OPTIONS_MULTIPLE:
+    g_value_set_object(value, priv->multiple);
+    break;
+  case PROP_ROUND_TO_MULTIPLE_OPTIONS_MODE:
+    g_value_set_enum(value, static_cast<GArrowRoundMode>(options->round_mode));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_round_to_multiple_options_init(GArrowRoundToMultipleOptions *object)
+{
+  auto function_options_priv = GARROW_FUNCTION_OPTIONS_GET_PRIVATE(object);
+  auto options = new arrow::compute::RoundToMultipleOptions();
+  function_options_priv->options =
+    static_cast<arrow::compute::FunctionOptions *>(options);
+  auto priv = GARROW_ROUND_TO_MULTIPLE_OPTIONS_GET_PRIVATE(object);
+  priv->multiple = garrow_scalar_new_raw(&(options->multiple));
+}
+
+static void
+garrow_round_to_multiple_options_class_init(
+  GArrowRoundToMultipleOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+  gobject_class->dispose = garrow_round_to_multiple_options_dispose;
+  gobject_class->set_property = garrow_round_to_multiple_options_set_property;
+  gobject_class->get_property = garrow_round_to_multiple_options_get_property;
+
+
+  arrow::compute::RoundToMultipleOptions options;
+
+  GParamSpec *spec;
+  /**
+   * GArrowRoundToMultipleOptions:multiple:
+   *
+   * The rounding scale (multiple to round to).
+   *
+   * Should be a scalar of a type compatible with the argument to be rounded.
+   * For example, rounding a decimal value means a decimal multiple is
+   * required. Rounding a floating point or integer value means a floating
+   * point scalar is required.
+   *
+   * Since: 7.0.0
+   */
+  spec = g_param_spec_object("multiple",
+                             "Multiple to round to",
+                             "The round scale",
+                             GARROW_TYPE_SCALAR,
+                             static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_ROUND_TO_MULTIPLE_OPTIONS_MULTIPLE,
+                                  spec);
+
+  /**
+   * GArrowRoundToMultipleOptions:mode:
+   *
+   * The rounding and tie-breaking mode.
+   *
+   * Since: 7.0.0
+   */
+  spec = g_param_spec_enum("mode",
+                           "Mode",
+                           "The rounding and tie-breaking mode",
+                           GARROW_TYPE_ROUND_MODE,
+                           static_cast<GArrowRoundMode>(options.round_mode),
+                           static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_ROUND_TO_MULTIPLE_OPTIONS_MODE,
+                                  spec);
+}
+
+/**
+ * garrow_round_to_multiple_options_new:
+ *
+ * Returns: A newly created #GArrowRoundToMultipleOptions.
+ *
+ * Since: 7.0.0
+ */
+GArrowRoundToMultipleOptions *
+garrow_round_to_multiple_options_new(void)
+{
+  return GARROW_ROUND_TO_MULTIPLE_OPTIONS(
+    g_object_new(GARROW_TYPE_ROUND_TO_MULTIPLE_OPTIONS, NULL));
+}
+
+
 /**
  * garrow_array_cast:
  * @array: A #GArrowArray.
@@ -4536,5 +4715,13 @@ arrow::compute::RoundOptions *
 garrow_round_options_get_raw(GArrowRoundOptions *options)
 {
   return static_cast<arrow::compute::RoundOptions *>(
+    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+}
+
+
+arrow::compute::RoundToMultipleOptions *
+garrow_round_to_multiple_options_get_raw(GArrowRoundToMultipleOptions *options)
+{
+  return static_cast<arrow::compute::RoundToMultipleOptions *>(
     garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
 }

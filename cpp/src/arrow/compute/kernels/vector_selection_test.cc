@@ -2365,5 +2365,39 @@ TEST_F(TestDropNullKernelWithTable, DropNullTableWithSlices) {
   });
 }
 
+TEST(TestIndicesNonZero, IndicesNonZero) {
+  Datum actual;
+  std::shared_ptr<Array> result;
+
+  ASSERT_OK_AND_ASSIGN(
+      actual,
+      CallFunction("indices_nonzero", {ArrayFromJSON(uint32(), "[null, 50, 0, 10]")}));
+  result = actual.make_array();
+  AssertArraysEqual(*result, *ArrayFromJSON(uint64(), "[1, 3]"));
+
+  ASSERT_OK_AND_ASSIGN(
+      actual, CallFunction("indices_nonzero",
+                           {ArrayFromJSON(boolean(), "[null, true, false, true]")}));
+  result = actual.make_array();
+  AssertArraysEqual(*result, *ArrayFromJSON(uint64(), "[1, 3]"));
+
+  ASSERT_OK_AND_ASSIGN(actual,
+                       CallFunction("indices_nonzero",
+                                    {ArrayFromJSON(float64(), "[null, 1.3, 0.0, 5.0]")}));
+  result = actual.make_array();
+  AssertArraysEqual(*result, *ArrayFromJSON(uint64(), "[1, 3]"));
+
+  ASSERT_OK_AND_ASSIGN(actual,
+                       CallFunction("indices_nonzero", {ArrayFromJSON(float64(), "[]")}));
+  result = actual.make_array();
+  AssertArraysEqual(*result, *ArrayFromJSON(uint64(), "[]"));
+
+  ChunkedArray chunkedarr(
+      {ArrayFromJSON(uint32(), "[1, 0, 3]"), ArrayFromJSON(uint32(), "[4, 0, 6]")});
+  ASSERT_OK_AND_ASSIGN(actual,
+                       CallFunction("indices_nonzero", {static_cast<Datum>(chunkedarr)}));
+  AssertArraysEqual(*actual.make_array(), *ArrayFromJSON(uint64(), "[0, 2, 3, 5]"));
+}
+
 }  // namespace compute
 }  // namespace arrow

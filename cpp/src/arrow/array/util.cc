@@ -456,19 +456,19 @@ class NullArrayFactory {
   template <typename T>
   enable_if_var_size_list<T, Status> Visit(const T& type) {
     out_->buffers.resize(2, buffer_);
-    ARROW_ASSIGN_OR_RAISE(out_->child_data[0], CreateChild(0, /*length=*/0));
+    ARROW_ASSIGN_OR_RAISE(out_->child_data[0], CreateChild(type, 0, /*length=*/0));
     return Status::OK();
   }
 
   Status Visit(const FixedSizeListType& type) {
     ARROW_ASSIGN_OR_RAISE(out_->child_data[0],
-                          CreateChild(0, length_ * type.list_size()));
+                          CreateChild(type, 0, length_ * type.list_size()));
     return Status::OK();
   }
 
   Status Visit(const StructType& type) {
     for (int i = 0; i < type_->num_fields(); ++i) {
-      ARROW_ASSIGN_OR_RAISE(out_->child_data[i], CreateChild(i, length_));
+      ARROW_ASSIGN_OR_RAISE(out_->child_data[i], CreateChild(type, i, length_));
     }
     return Status::OK();
   }
@@ -498,7 +498,7 @@ class NullArrayFactory {
       child_length = 1;
     }
     for (int i = 0; i < type_->num_fields(); ++i) {
-      ARROW_ASSIGN_OR_RAISE(out_->child_data[i], CreateChild(i, child_length));
+      ARROW_ASSIGN_OR_RAISE(out_->child_data[i], CreateChild(type, i, child_length));
     }
     return Status::OK();
   }
@@ -511,6 +511,7 @@ class NullArrayFactory {
   }
 
   Status Visit(const ExtensionType& type) {
+    out_->child_data.resize(type.storage_type()->num_fields());
     RETURN_NOT_OK(VisitTypeInline(*type.storage_type(), this));
     return Status::OK();
   }
@@ -519,8 +520,9 @@ class NullArrayFactory {
     return Status::NotImplemented("construction of all-null ", type);
   }
 
-  Result<std::shared_ptr<ArrayData>> CreateChild(int i, int64_t length) {
-    NullArrayFactory child_factory(pool_, type_->field(i)->type(), length);
+  Result<std::shared_ptr<ArrayData>> CreateChild(const DataType& type, int i,
+                                                 int64_t length) {
+    NullArrayFactory child_factory(pool_, type.field(i)->type(), length);
     child_factory.buffer_ = buffer_;
     return child_factory.Create();
   }

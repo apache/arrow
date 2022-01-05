@@ -16,8 +16,11 @@
 // under the License.
 
 #include <algorithm>
+#include <cstdint>
 #include <cstring>
 #include <limits>
+#include <memory>
+#include <type_traits>
 
 #include "arrow/array/array_binary.h"
 #include "arrow/array/array_dict.h"
@@ -2355,6 +2358,97 @@ const FunctionDoc array_take_doc(
      "given by `indices`.  Nulls in `indices` emit null in the output."),
     {"array", "indices"}, "TakeOptions");
 
+const FunctionDoc indices_nonzero_doc(
+    "Return the indices of the values in the array that are non-zero",
+    ("For each input value, check if it's zero, false or null. Emit the index\n"
+     "of the value in the array if it's none of the those."),
+    {"values"});
+
+struct NonZeroVisitor {
+  UInt64Builder* builder;
+  const ArrayDataVector& arrays;
+
+  NonZeroVisitor(UInt64Builder* builder, const ArrayDataVector& arrays)
+      : builder(builder), arrays(arrays) {}
+
+  Status Visit(const DataType& type) { return Status::NotImplemented(type.ToString()); }
+
+  template <typename Type>
+  enable_if_t<is_primitive_ctype<Type>::value, Status> Visit(const Type&) {
+    using T = typename GetViewType<Type>::T;
+    uint64_t index = 0;
+
+    for (const auto& current_array : arrays) {
+      VisitArrayDataInline<Type>(
+          *current_array,
+          [&](T v) {
+            if (v) {
+              this->builder->UnsafeAppend(index);
+            }
+            ++index;
+          },
+          [&]() { ++index; });
+    }
+
+    return Status::OK();
+  }
+};
+
+Status IndicesNonZeroExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  UInt64Builder builder;
+  ArrayDataVector arrays;
+  Datum input = batch[0];
+
+  if (input.kind() == Datum::ARRAY) {
+    std::shared_ptr<ArrayData> array = input.array();
+    RETURN_NOT_OK(builder.Reserve(array->length));
+    arrays.push_back(std::move(array));
+  } else if (input.kind() == Datum::CHUNKED_ARRAY) {
+    std::shared_ptr<ChunkedArray> chunkedarr = input.chunked_array();
+    RETURN_NOT_OK(builder.Reserve(chunkedarr->length()));
+    for (int chunkidx = 0; chunkidx < chunkedarr->num_chunks(); ++chunkidx) {
+      arrays.push_back(std::move(chunkedarr->chunk(chunkidx)->data()));
+    }
+  } else {
+    return Status::NotImplemented(input.ToString());
+  }
+
+  NonZeroVisitor visitor(&builder, arrays);
+  RETURN_NOT_OK(VisitTypeInline(*(arrays[0]->type), &visitor));
+
+  std::shared_ptr<ArrayData> out_data;
+  RETURN_NOT_OK(builder.FinishInternal(&out_data));
+  out->value = std::move(out_data);
+  return Status::OK();
+}
+
+std::shared_ptr<VectorFunction> MakeIndicesNonZeroFunction(std::string name,
+                                                           const FunctionDoc* doc) {
+  auto func = std::make_shared<VectorFunction>(name, Arity::Unary(), doc);
+
+  for (const auto& ty : NumericTypes()) {
+    VectorKernel kernel;
+    kernel.exec = IndicesNonZeroExec;
+    kernel.null_handling = NullHandling::OUTPUT_NOT_NULL;
+    kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
+    kernel.output_chunked = false;
+    kernel.can_execute_chunkwise = false;
+    kernel.signature = KernelSignature::Make({InputType(ty->id())}, uint64());
+    DCHECK_OK(func->AddKernel(kernel));
+  }
+
+  VectorKernel boolkernel;
+  boolkernel.exec = IndicesNonZeroExec;
+  boolkernel.null_handling = NullHandling::OUTPUT_NOT_NULL;
+  boolkernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
+  boolkernel.output_chunked = false;
+  boolkernel.can_execute_chunkwise = false;
+  boolkernel.signature = KernelSignature::Make({boolean()}, uint64());
+  DCHECK_OK(func->AddKernel(boolkernel));
+
+  return func;
+}
+
 }  // namespace
 
 void RegisterVectorSelection(FunctionRegistry* registry) {
@@ -2420,6 +2514,9 @@ void RegisterVectorSelection(FunctionRegistry* registry) {
 
   // DropNull kernel
   DCHECK_OK(registry->AddFunction(std::make_shared<DropNullMetaFunction>()));
+
+  DCHECK_OK(registry->AddFunction(
+      MakeIndicesNonZeroFunction("indices_nonzero", &indices_nonzero_doc)));
 }
 
 }  // namespace internal
