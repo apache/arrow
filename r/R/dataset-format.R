@@ -122,8 +122,20 @@ CsvFileFormat$create <- function(...,
                                  opts = csv_file_format_parse_options(...),
                                  convert_options = csv_file_format_convert_opts(...),
                                  read_options = csv_file_format_read_opts(...)) {
+
+  # If read_options contain no column_names, re-create them with column_names supplemented from schema
+  parameters <- list(...)
+
+  schema_is_set            <- !is.null(schema)
+  column_names_are_not_set <- length(read_options$column_names) == 0
+
+  if (column_names_are_not_set & schema_is_set) {
+    read_options <- csv_file_format_read_opts(...)
+  }
+
   dataset___CsvFileFormat__Make(opts, convert_options, read_options)
 }
+
 
 # Support both readr-style option names and Arrow C++ option names
 csv_file_format_parse_options <- function(...) {
