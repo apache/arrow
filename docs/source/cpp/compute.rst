@@ -1402,6 +1402,8 @@ For timestamps inputs with non-empty timezone, localized timestamp components wi
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
 | year               | Unary      | Temporal          | Int64         |                            |       |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
+| year_month_day     | Unary      | Temporal          | Struct        |                            | \(6)  |
++--------------------+------------+-------------------+---------------+----------------------------+-------+
 
 * \(1) Outputs the number of the day of the week. By default week begins on Monday
   represented by 0 and ends on Sunday represented by 6. Day numbering can start with 0 or 1 based on
@@ -1424,6 +1426,8 @@ For timestamps inputs with non-empty timezone, localized timestamp components wi
   of the previous year are numbered as week 0, else week 52 or 53 if false.
   If :member:`WeekOptions::first_week_is_fully_in_year` is true, the first week (week 1) must fully be in January;
   else if false, a week that begins on December 29, 30, or 31 is considered the first week of the new year.
+
+* \(6) Output is a ``{"year": int64(), "month": int64(), "day": int64()}`` Struct.
 
 .. _ISO 8601 week date definition: https://en.wikipedia.org/wiki/ISO_week_date#First_week
 
