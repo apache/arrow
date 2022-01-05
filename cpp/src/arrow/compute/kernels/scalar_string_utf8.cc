@@ -317,7 +317,7 @@ const auto utf8_is_title_doc = StringPredicateDoc(
      "follows an uncased character, and each lowercase character follows\n"
      "an uppercase character."));
 
-void AddPredicates(FunctionRegistry* registry) {
+void AddUtf8StringPredicates(FunctionRegistry* registry) {
   AddUnaryStringPredicate<IsAlphaNumericUnicode>("utf8_is_alnum", registry,
                                                  &utf8_is_alnum_doc);
   AddUnaryStringPredicate<IsAlphaUnicode>("utf8_is_alpha", registry, &utf8_is_alpha_doc);
@@ -500,7 +500,7 @@ const FunctionDoc utf8_title_doc(
      "remaining characters will be lowercase."),
     {"strings"});
 
-void AddCaseConversion(FunctionRegistry* registry) {
+void AddUtf8StringCaseConversion(FunctionRegistry* registry) {
   MakeUnaryStringUTF8TransformKernel<UTF8Upper>("utf8_upper", registry, &utf8_upper_doc);
   MakeUnaryStringUTF8TransformKernel<UTF8Lower>("utf8_lower", registry, &utf8_lower_doc);
   MakeUnaryStringUTF8TransformKernel<UTF8SwapCase>("utf8_swapcase", registry,
@@ -665,7 +665,7 @@ const FunctionDoc utf8_normalize_doc(
      "Null inputs emit null."),
     {"strings"}, "Utf8NormalizeOptions", /*options_required=*/true);
 
-void AddNormalize(FunctionRegistry* registry) {
+void AddUtf8StringNormalize(FunctionRegistry* registry) {
   MakeUnaryStringBatchKernelWithState<Utf8NormalizeExec>("utf8_normalize", registry,
                                                          &utf8_normalize_doc);
 }
@@ -690,7 +690,7 @@ const FunctionDoc utf8_length_doc(
      "Null values emit null."),
     {"strings"});
 
-void AddLength(FunctionRegistry* registry) {
+void AddUtf8StringLength(FunctionRegistry* registry) {
   auto func =
       std::make_shared<ScalarFunction>("utf8_length", Arity::Unary(), &utf8_length_doc);
   {
@@ -733,7 +733,7 @@ const FunctionDoc utf8_reverse_doc(
      "composed of multiple codepoints."),
     {"strings"});
 
-void AddReverse(FunctionRegistry* registry) {
+void AddUtf8StringReverse(FunctionRegistry* registry) {
   MakeUnaryStringBatchKernel<Utf8Reverse>("utf8_reverse", registry, &utf8_reverse_doc);
 }
 
@@ -895,7 +895,7 @@ const FunctionDoc utf8_rtrim_whitespace_doc(
 
 #endif  // ARROW_WITH_UTF8PROC
 
-void AddTrim(FunctionRegistry* registry) {
+void AddUtf8StringTrim(FunctionRegistry* registry) {
   MakeUnaryStringBatchKernelWithState<UTF8Trim>("utf8_trim", registry, &utf8_trim_doc);
   MakeUnaryStringBatchKernelWithState<UTF8LTrim>("utf8_ltrim", registry, &utf8_ltrim_doc);
   MakeUnaryStringBatchKernelWithState<UTF8RTrim>("utf8_rtrim", registry, &utf8_rtrim_doc);
@@ -1001,7 +1001,7 @@ const FunctionDoc utf8_rpad_doc(
      "the given UTF8 codeunit.\nNull values emit null."),
     {"strings"}, "PadOptions", /*options_required=*/true);
 
-void AddPad(FunctionRegistry* registry) {
+void AddUtf8StringPad(FunctionRegistry* registry) {
   MakeUnaryStringBatchKernelWithState<Utf8LPad>("utf8_lpad", registry, &utf8_lpad_doc);
   MakeUnaryStringBatchKernelWithState<Utf8RPad>("utf8_rpad", registry, &utf8_rpad_doc);
   MakeUnaryStringBatchKernelWithState<Utf8Center>("utf8_center", registry,
@@ -1087,7 +1087,7 @@ const FunctionDoc utf8_replace_slice_doc(
      "Null values emit null."),
     {"strings"}, "ReplaceSliceOptions", /*options_required=*/true);
 
-void AddReplaceSlice(FunctionRegistry* registry) {
+void AddUtf8StringReplaceSlice(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>("utf8_replace_slice", Arity::Unary(),
                                                &utf8_replace_slice_doc);
 
@@ -1276,7 +1276,7 @@ const FunctionDoc utf8_slice_codeunits_doc(
      "Null inputs emit null."),
     {"strings"}, "SliceOptions", /*options_required=*/true);
 
-void AddSlice(FunctionRegistry* registry) {
+void AddUtf8StringSlice(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>("utf8_slice_codeunits", Arity::Unary(),
                                                &utf8_slice_codeunits_doc);
   for (const auto& ty : StringTypes()) {
@@ -1359,7 +1359,7 @@ const FunctionDoc utf8_split_whitespace_doc(
      "(forward, reverse) can optionally be defined in SplitOptions."),
     {"strings"}, "SplitOptions");
 
-void AddSplitWhitespace(FunctionRegistry* registry) {
+void AddUtf8StringSplitWhitespace(FunctionRegistry* registry) {
   static const SplitOptions default_options;
   auto func =
       std::make_shared<ScalarFunction>("utf8_split_whitespace", Arity::Unary(),
@@ -1402,18 +1402,18 @@ void EnsureUtf8LookupTablesFilled() {
 
 void RegisterScalarStringUtf8(FunctionRegistry* registry) {
 #ifdef ARROW_WITH_UTF8PROC
-  AddPredicates(registry);
-  AddCaseConversion(registry);
-  AddNormalize(registry);
+  AddUtf8StringPredicates(registry);
+  AddUtf8StringCaseConversion(registry);
+  AddUtf8StringNormalize(registry);
 #endif
-  AddLength(registry);
-  AddReverse(registry);
-  AddTrim(registry);
-  AddPad(registry);
-  AddReplaceSlice(registry);
-  AddSlice(registry);
+  AddUtf8StringLength(registry);
+  AddUtf8StringReverse(registry);
+  AddUtf8StringTrim(registry);
+  AddUtf8StringPad(registry);
+  AddUtf8StringReplaceSlice(registry);
+  AddUtf8StringSlice(registry);
 #ifdef ARROW_WITH_UTF8PROC
-  AddSplitWhitespace(registry);
+  AddUtf8StringSplitWhitespace(registry);
 #endif
 }
 

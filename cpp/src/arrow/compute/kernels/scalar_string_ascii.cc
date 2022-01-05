@@ -775,7 +775,7 @@ const auto ascii_is_title_doc = StringPredicateDoc(
      "follows an uncased character, and each lowercase character follows\n"
      "an uppercase character."));
 
-void AddPredicates(FunctionRegistry* registry) {
+void AddAsciiStringPredicates(FunctionRegistry* registry) {
   AddUnaryStringPredicate<IsAscii>("string_is_ascii", registry, &string_is_ascii_doc);
 
   AddUnaryStringPredicate<IsAlphaNumericAscii>("ascii_is_alnum", registry,
@@ -925,7 +925,7 @@ const FunctionDoc ascii_title_doc(
      "non-ASCII characters, use \"utf8_title\" instead."),
     {"strings"});
 
-void AddCaseConversion(FunctionRegistry* registry) {
+void AddAsciiStringCaseConversion(FunctionRegistry* registry) {
   // Some kernels are able to reuse the original offsets buffer, so don't
   // preallocate them in the output. Only kernels that invoke
   // "StringDataTransform" support no preallocation.
@@ -969,7 +969,7 @@ const FunctionDoc binary_length_doc(
      "Null values emit null."),
     {"strings"});
 
-void AddLength(FunctionRegistry* registry) {
+void AddAsciiStringLength(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>("binary_length", Arity::Unary(),
                                                &binary_length_doc);
   for (const auto& ty : {binary(), utf8()}) {
@@ -1038,7 +1038,7 @@ const FunctionDoc ascii_reverse_doc(
      "non-ASCII characters, use \"utf8_reverse\" instead."),
     {"strings"});
 
-void AddReverse(FunctionRegistry* registry) {
+void AddAsciiStringReverse(FunctionRegistry* registry) {
   {
     auto func = std::make_shared<ScalarFunction>("binary_reverse", Arity::Unary(),
                                                  &binary_reverse_doc);
@@ -1188,7 +1188,7 @@ const FunctionDoc ascii_rtrim_whitespace_doc(
      "whitespace characters. Null values emit null."),
     {"strings"});
 
-void AddTrim(FunctionRegistry* registry) {
+void AddAsciiStringTrim(FunctionRegistry* registry) {
   MakeUnaryStringBatchKernelWithState<AsciiTrim>("ascii_trim", registry, &ascii_trim_doc);
   MakeUnaryStringBatchKernelWithState<AsciiLTrim>("ascii_ltrim", registry,
                                                   &ascii_ltrim_doc);
@@ -1283,7 +1283,7 @@ const FunctionDoc ascii_center_doc(
      "with the given ASCII character.\nNull values emit null."),
     {"strings"}, "PadOptions", /*options_required=*/true);
 
-void AddPad(FunctionRegistry* registry) {
+void AddAsciiStringPad(FunctionRegistry* registry) {
   MakeUnaryStringBatchKernelWithState<AsciiLPad>("ascii_lpad", registry, &ascii_lpad_doc);
   MakeUnaryStringBatchKernelWithState<AsciiRPad>("ascii_rpad", registry, &ascii_rpad_doc);
   MakeUnaryStringBatchKernelWithState<AsciiCenter>("ascii_center", registry,
@@ -1714,7 +1714,7 @@ const FunctionDoc match_like_doc(
     {"strings"}, "MatchSubstringOptions", /*options_required=*/true);
 #endif
 
-void AddMatchSubstring(FunctionRegistry* registry) {
+void AddAsciiStringMatchSubstring(FunctionRegistry* registry) {
   {
     auto func = std::make_shared<ScalarFunction>("match_substring", Arity::Unary(),
                                                  &match_substring_doc);
@@ -1858,7 +1858,7 @@ const FunctionDoc find_substring_regex_doc(
     {"strings"}, "MatchSubstringOptions", /*options_required=*/true);
 #endif
 
-void AddFindSubstring(FunctionRegistry* registry) {
+void AddAsciiStringFindSubstring(FunctionRegistry* registry) {
   {
     auto func = std::make_shared<ScalarFunction>("find_substring", Arity::Unary(),
                                                  &find_substring_doc);
@@ -2007,7 +2007,7 @@ const FunctionDoc count_substring_regex_doc(
     {"strings"}, "MatchSubstringOptions", /*options_required=*/true);
 #endif
 
-void AddCountSubstring(FunctionRegistry* registry) {
+void AddAsciiStringCountSubstring(FunctionRegistry* registry) {
   {
     auto func = std::make_shared<ScalarFunction>("count_substring", Arity::Unary(),
                                                  &count_substring_doc);
@@ -2248,7 +2248,7 @@ const FunctionDoc replace_substring_regex_doc(
     {"strings"}, "ReplaceSubstringOptions", /*options_required=*/true);
 #endif
 
-void AddReplaceSubstring(FunctionRegistry* registry) {
+void AddAsciiStringReplaceSubstring(FunctionRegistry* registry) {
   {
     auto func = std::make_shared<ScalarFunction>("replace_substring", Arity::Unary(),
                                                  &replace_substring_doc);
@@ -2444,7 +2444,7 @@ const FunctionDoc extract_regex_doc(
      "Regular expression matching is done using the Google RE2 library."),
     {"strings"}, "ExtractRegexOptions", /*options_required=*/true);
 
-void AddExtractRegex(FunctionRegistry* registry) {
+void AddAsciiStringExtractRegex(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>("extract_regex", Arity::Unary(),
                                                &extract_regex_doc);
   OutputType out_ty(ResolveExtractRegexOutput);
@@ -2532,7 +2532,7 @@ const FunctionDoc binary_replace_slice_doc(
      "Null values emit null."),
     {"strings"}, "ReplaceSliceOptions", /*options_required=*/true);
 
-void AddReplaceSlice(FunctionRegistry* registry) {
+void AddAsciiStringReplaceSlice(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>("binary_replace_slice", Arity::Unary(),
                                                &binary_replace_slice_doc);
   for (const auto& ty : BaseBinaryTypes()) {
@@ -2618,7 +2618,7 @@ const FunctionDoc split_pattern_doc(
      "(forward, reverse) can optionally be defined in SplitPatternOptions."),
     {"strings"}, "SplitPatternOptions", /*options_required=*/true);
 
-void AddSplitPattern(FunctionRegistry* registry) {
+void AddAsciiStringSplitPattern(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>("split_pattern", Arity::Unary(),
                                                &split_pattern_doc);
   for (const auto& ty : BaseBinaryTypes()) {
@@ -2685,7 +2685,7 @@ const FunctionDoc ascii_split_whitespace_doc(
      "(forward, reverse) can optionally be defined in SplitOptions."),
     {"strings"}, "SplitOptions");
 
-void AddSplitWhitespace(FunctionRegistry* registry) {
+void AddAsciiStringSplitWhitespace(FunctionRegistry* registry) {
   static const SplitOptions default_options{};
   auto func =
       std::make_shared<ScalarFunction>("ascii_split_whitespace", Arity::Unary(),
@@ -2757,7 +2757,7 @@ const FunctionDoc split_pattern_regex_doc(
      "(forward, reverse) can optionally be defined in SplitPatternOptions."),
     {"strings"}, "SplitPatternOptions", /*options_required=*/true);
 
-void AddSplitRegex(FunctionRegistry* registry) {
+void AddAsciiStringSplitRegex(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>("split_pattern_regex", Arity::Unary(),
                                                &split_pattern_regex_doc);
   for (const auto& ty : BaseBinaryTypes()) {
@@ -2831,7 +2831,7 @@ const FunctionDoc strptime_doc(
      "fails parsing, an error is returned."),
     {"strings"}, "StrptimeOptions", /*options_required=*/true);
 
-void AddStrptime(FunctionRegistry* registry) {
+void AddAsciiStringStrptime(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>("strptime", Arity::Unary(), &strptime_doc);
 
   OutputType out_ty(ResolveStrptimeOutput);
@@ -3335,7 +3335,7 @@ void AddBinaryJoinForListType(ScalarFunction* func) {
   }
 }
 
-void AddJoin(FunctionRegistry* registry) {
+void AddAsciiStringJoin(FunctionRegistry* registry) {
   {
     auto func = std::make_shared<ScalarFunction>("binary_join", Arity::Binary(),
                                                  &binary_join_doc);
@@ -3482,7 +3482,7 @@ const FunctionDoc binary_repeat_doc(
     ("For each binary string in `strings`, return a replicated version."),
     {"strings", "num_repeats"});
 
-void AddRepeat(FunctionRegistry* registry) {
+void AddAsciiStringRepeat(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarCTypeToInt64Function>(
       "binary_repeat", Arity::Binary(), &binary_repeat_doc);
   for (const auto& ty : BaseBinaryTypes()) {
@@ -3498,28 +3498,28 @@ void AddRepeat(FunctionRegistry* registry) {
 }  // namespace
 
 void RegisterScalarStringAscii(FunctionRegistry* registry) {
-  AddPredicates(registry);
-  AddCaseConversion(registry);
-  AddLength(registry);
-  AddReverse(registry);
-  AddTrim(registry);
-  AddPad(registry);
-  AddMatchSubstring(registry);
-  AddFindSubstring(registry);
-  AddCountSubstring(registry);
-  AddReplaceSubstring(registry);
+  AddAsciiStringPredicates(registry);
+  AddAsciiStringCaseConversion(registry);
+  AddAsciiStringLength(registry);
+  AddAsciiStringReverse(registry);
+  AddAsciiStringTrim(registry);
+  AddAsciiStringPad(registry);
+  AddAsciiStringMatchSubstring(registry);
+  AddAsciiStringFindSubstring(registry);
+  AddAsciiStringCountSubstring(registry);
+  AddAsciiStringReplaceSubstring(registry);
 #ifdef ARROW_WITH_RE2
-  AddExtractRegex(registry);
+  AddAsciiStringExtractRegex(registry);
 #endif
-  AddReplaceSlice(registry);
-  AddSplitPattern(registry);
-  AddSplitWhitespace(registry);
+  AddAsciiStringReplaceSlice(registry);
+  AddAsciiStringSplitPattern(registry);
+  AddAsciiStringSplitWhitespace(registry);
 #ifdef ARROW_WITH_RE2
-  AddSplitRegex(registry);
+  AddAsciiStringSplitRegex(registry);
 #endif
-  AddStrptime(registry);
-  AddJoin(registry);
-  AddRepeat(registry);
+  AddAsciiStringStrptime(registry);
+  AddAsciiStringJoin(registry);
+  AddAsciiStringRepeat(registry);
 }
 
 }  // namespace internal
