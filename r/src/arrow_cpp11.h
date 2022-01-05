@@ -192,8 +192,6 @@ struct data {
   static SEXP classes_arrow_large_list;
   static SEXP classes_arrow_fixed_size_list;
 
-  static SEXP classes_arrow_map;
-
   static SEXP classes_factor;
   static SEXP classes_ordered;
 

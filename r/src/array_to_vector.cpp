@@ -1006,7 +1006,7 @@ class Converter_List : public Converter {
     cpp11::writable::list res(n);
 
     if (std::is_same<ListArrayType, MapArray>::value) {
-      res.attr(R_ClassSymbol) = arrow::r::data::classes_arrow_map;
+      res.attr(R_ClassSymbol) = arrow::r::data::classes_arrow_list;
     } else if (std::is_same<ListArrayType, ListArray>::value) {
       res.attr(R_ClassSymbol) = arrow::r::data::classes_arrow_list;
     } else {

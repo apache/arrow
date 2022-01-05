@@ -201,8 +201,8 @@ test_that("Type strings are correctly canonicalized", {
     sub("^([^([<]+).*$", "\\1", fixed_size_list_of(int32(), 42)$ToString())
   )
   expect_equal(
-    canonical_type_str("map"),
-    sub("^([^([<]+).*$", "\\1", map(utf8(), utf8())$ToString())
+    canonical_type_str("map_of"),
+    sub("^([^([<]+).*$", "\\1", map_of(utf8(), utf8())$ToString())
   )
 
   # unsupported data types

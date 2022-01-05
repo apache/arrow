@@ -374,7 +374,6 @@ test_that("map type works as expected", {
   expect_equal(x$ToString(), "map<int32, string>")
   expect_true(x == x)
   expect_false(x == null())
-  browser()
   expect_equal(
     x$key_field,
     field("key", int32(), nullable = FALSE)
